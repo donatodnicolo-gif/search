@@ -37,7 +37,7 @@ export async function Sidebar({
   const brand = await brandCorrente();
   const doveProdotti = filtroProdotti(brand);
 
-  const [nCollezioni, nProdotti, nInSviluppo, daPubblicare, pianiAperti, collezioni] = await Promise.all([
+  const [nCollezioni, nProdotti, nInSviluppo, daPubblicare, collezioni] = await Promise.all([
     prisma.collezione.count(),
     prisma.prodotto.count({ where: doveProdotti }),
     prisma.prodotto.count({
@@ -46,7 +46,6 @@ export async function Sidebar({
     prisma.prodotto.count({
       where: { ...doveProdotti, shopifyStato: { not: "pubblicato" }, fase: { not: "archiviato" } },
     }),
-    prisma.pianoRiordino.count({ where: { stato: "bozza" } }),
     prisma.collezione.findMany({
       orderBy: [{ anno: "desc" }, { creataIl: "desc" }],
       include: { _count: { select: { prodotti: true } } },
@@ -78,7 +77,6 @@ export async function Sidebar({
           {voce("vendite", "/vendite", "vendite", "Andamento & trend")}
           {voce("classifiche", "/classifiche", "classifiche", "Classifiche")}
           {voce("assortimento", "/assortimento", "collezioni", "Categorie & collezioni")}
-          {voce("riordini", "/riordini", "riordini", "Ipotesi di ordinativo", pianiAperti || undefined)}
           {voce("trend-ai", "/trend-ai", "ai", "Lettura AI")}
         </SbSezione>
 
@@ -91,8 +89,15 @@ export async function Sidebar({
           {voce("costi", "/costi", "costi", "Costi & margini")}
         </SbSezione>
 
-        <SbSezione titolo="Vetrina & canale">
+        {/* La vetrina è il visual merchandising e basta. Shopify e i negozi
+            sono configurazione: stanno in Impostazioni. L'ipotesi di
+            ordinativo non è più una voce di menu: si apre da Visual
+            merchandising, dove si decide cosa mettere in scena. */}
+        <SbSezione titolo="Vetrina">
           {voce("visual", "/visual", "visual", "Visual merchandising")}
+        </SbSezione>
+
+        <SbSezione titolo="Impostazioni">
           {voce("shopify", "/shopify", "shopify", "Shopify", daPubblicare || undefined)}
           {voce("impostazioni", "/impostazioni", "impostazioni", "Negozi & permessi")}
         </SbSezione>

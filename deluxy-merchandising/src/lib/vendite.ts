@@ -620,6 +620,9 @@ export type Assortimento = {
   finestra: Finestra;
   categorie: RigaAssortimento[];
   collezioni: RigaAssortimento[];
+  // I «tipi» sono quelli scritti sul negozio (Shopify productType): finché le
+  // categorie interne non sono assegnate, sono l'unica lettura vera.
+  tipi: RigaAssortimento[];
   totale: { pezzi: number; ricavo: number; prodottiVenduti: number };
   senzaCosto: number; // prodotti venduti senza costo di produzione
 };
@@ -657,6 +660,7 @@ export async function analizzaAssortimento(
             id: true,
             nome: true,
             categoria: true,
+            tipoShopify: true,
             costoProduzione: true,
             collezione: { select: { id: true, nome: true } },
           },
@@ -670,7 +674,7 @@ export async function analizzaAssortimento(
         esclusoDaAnalisi: false,
         ...(canale ? { vendite: { some: { canale } } } : {}),
       },
-      select: { id: true, categoria: true, collezioneId: true, collezione: { select: { nome: true } } },
+      select: { id: true, categoria: true, tipoShopify: true, collezioneId: true, collezione: { select: { nome: true } } },
     }),
   ]);
 
@@ -699,6 +703,7 @@ export async function analizzaAssortimento(
 
   const perCategoria = new Map<string, Acc>();
   const perCollezione = new Map<string, Acc>();
+  const perTipo = new Map<string, Acc>();
   const senzaCosto = new Set<string>();
 
   for (const r of righe) {
@@ -710,9 +715,12 @@ export async function analizzaAssortimento(
     const chiaveCol = r.prodotto.collezione?.id ?? "—";
     const nomeCol = r.prodotto.collezione?.nome ?? "Senza collezione";
 
+    const tipo = r.prodotto.tipoShopify?.trim() || "(senza tipo)";
+
     for (const [mappa, chiave, nome] of [
       [perCategoria, chiaveCat, chiaveCat],
       [perCollezione, chiaveCol, nomeCol],
+      [perTipo, tipo, tipo],
     ] as const) {
       const a = mappa.get(chiave) ?? nuovo(chiave, nome);
       if (corrente) {
@@ -743,10 +751,13 @@ export async function analizzaAssortimento(
 
   // Quanti prodotti ha ogni categoria/collezione a catalogo, venduti o no.
   const catalogoCat = new Map<string, number>();
+  const catalogoTipo = new Map<string, number>();
   const catalogoCol = new Map<string, number>();
   const nomiCol = new Map<string, string>();
   for (const p of prodotti) {
     catalogoCat.set(p.categoria, (catalogoCat.get(p.categoria) ?? 0) + 1);
+    const kt = p.tipoShopify?.trim() || "(senza tipo)";
+    catalogoTipo.set(kt, (catalogoTipo.get(kt) ?? 0) + 1);
     const k = p.collezioneId ?? "—";
     catalogoCol.set(k, (catalogoCol.get(k) ?? 0) + 1);
     if (p.collezioneId && p.collezione) nomiCol.set(p.collezioneId, p.collezione.nome);
@@ -785,6 +796,9 @@ export async function analizzaAssortimento(
       .sort((a, b) => b.ricavo - a.ricavo),
     collezioni: [...perCollezione.values()]
       .map((a) => componi(a, catalogoCol.get(a.chiave) ?? 0))
+      .sort((a, b) => b.ricavo - a.ricavo),
+    tipi: [...perTipo.values()]
+      .map((a) => componi(a, catalogoTipo.get(a.chiave) ?? 0))
       .sort((a, b) => b.ricavo - a.ricavo),
     totale: {
       pezzi: [...perCategoria.values()].reduce((s, a) => s + a.pezzi, 0),

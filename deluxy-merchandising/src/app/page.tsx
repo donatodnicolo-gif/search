@@ -3,9 +3,10 @@ import { GraficoAndamento, BarraQuota } from "@/components/Grafico";
 import { Sidebar } from "@/components/Sidebar";
 import { brandCorrente, filtroProdotti } from "@/lib/brand";
 import { prisma } from "@/lib/db";
-import { euro, percentuale } from "@/lib/dominio";
+import { etichettaCategoria, euro, percentuale } from "@/lib/dominio";
 import { calcolaIpotesi, PARAMETRI_DEFAULT } from "@/lib/riordino";
 import {
+  analizzaAssortimento,
   analizzaVendite,
   classifiche,
   coloreDelta,
@@ -13,6 +14,7 @@ import {
   ETICHETTA_FINESTRA,
   FINESTRE,
   panoramicaBrand,
+  type RigaAssortimento,
 } from "@/lib/vendite";
 
 export const dynamic = "force-dynamic";
@@ -32,12 +34,13 @@ export default async function CruscottoPage({
     : 90;
   const brand = await brandCorrente();
 
-  const [analisi, cls, ipotesi, catalogo, panoramica] = await Promise.all([
+  const [analisi, cls, ipotesi, catalogo, panoramica, assortimento] = await Promise.all([
     analizzaVendite(giorni, { canale: brand }),
     classifiche({ giorni, canale: brand, limite: 5 }),
     calcolaIpotesi({ ...PARAMETRI_DEFAULT, canale: brand }),
     prisma.prodotto.count({ where: { ...filtroProdotti(brand), fase: { not: "archiviato" } } }),
     brand ? null : panoramicaBrand(giorni),
+    analizzaAssortimento(giorni, brand),
   ]);
 
   return (
@@ -157,6 +160,27 @@ export default async function CruscottoPage({
           </>
         )}
 
+        {/* Le categorie che pesano di più. Finché quelle interne non sono
+            assegnate, accanto si mostrano i tipi scritti sul negozio: sono
+            l'unica lettura vera che abbiamo oggi, e dirlo è meglio che
+            mostrare un blocco solo chiamato «Da classificare». */}
+        <div className="due-colonne" style={{ marginTop: 18 }}>
+          <BloccoCategorie
+            titolo="Top categorie"
+            righe={assortimento.categorie.filter((c) => c.ricavo > 0).slice(0, 6)}
+            etichetta={(c) => etichettaCategoria(c.chiave)}
+            vuoto="Nessuna vendita nel periodo."
+            link="/assortimento"
+          />
+          <BloccoCategorie
+            titolo="Top tipi dal negozio"
+            righe={assortimento.tipi.filter((c) => c.ricavo > 0 && c.chiave !== "(senza tipo)").slice(0, 6)}
+            etichetta={(c) => c.nome}
+            vuoto="Nessun tipo letto da Shopify: lancia l'import delle collezioni."
+            link="/anagrafica"
+          />
+        </div>
+
         <div className="due-colonne" style={{ marginTop: 18 }}>
           <div className="scheda">
             <div className="scheda-titolo">Primi 5 per valore</div>
@@ -218,6 +242,57 @@ export default async function CruscottoPage({
           </div>
         </div>
       </main>
+    </div>
+  );
+}
+
+// Un blocco «top»: le voci che pesano di più, con quota e variazione. Stessa
+// forma per le categorie nostre e per i tipi del negozio, così si confrontano
+// a colpo d'occhio.
+function BloccoCategorie({
+  titolo,
+  righe,
+  etichetta,
+  vuoto,
+  link,
+}: {
+  titolo: string;
+  righe: RigaAssortimento[];
+  etichetta: (r: RigaAssortimento) => string;
+  vuoto: string;
+  link: string;
+}) {
+  return (
+    <div className="scheda">
+      <div className="scheda-titolo">{titolo}</div>
+      {righe.length === 0 ? (
+        <div className="vuoto-mini">{vuoto}</div>
+      ) : (
+        <table>
+          <tbody>
+            {righe.map((r) => (
+              <tr key={r.chiave}>
+                <td>
+                  <span className="cella-nome">{etichetta(r)}</span>
+                  <div className="cella-sub">
+                    {r.pezzi} pz · {r.prodottiVenduti} prodotti
+                  </div>
+                </td>
+                <td className="num">{euro(r.ricavo)}</td>
+                <td className="num" style={{ color: coloreDelta(r.delta) }}>
+                  {delta(r.delta)}
+                </td>
+                <td style={{ width: 110 }}>
+                  <BarraQuota quota={r.quota} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      <p className="page-sub" style={{ marginTop: 12 }}>
+        <Link href={link}>Apri il dettaglio →</Link>
+      </p>
     </div>
   );
 }

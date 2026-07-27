@@ -14,10 +14,13 @@ const TIPI: [string, string][] = [
 ];
 
 export default async function VisualPage() {
-  const vetrine = await prisma.vetrina.findMany({
-    orderBy: { creataIl: "desc" },
-    include: { _count: { select: { prodotti: true } } },
-  });
+  const [vetrine, pianiBozza] = await Promise.all([
+    prisma.vetrina.findMany({
+      orderBy: { creataIl: "desc" },
+      include: { _count: { select: { prodotti: true } } },
+    }),
+    prisma.pianoRiordino.count({ where: { stato: "bozza" } }),
+  ]);
 
   return (
     <div className="layout">
@@ -28,6 +31,12 @@ export default async function VisualPage() {
             <h1 className="page-title">Visual merchandising</h1>
             <p className="page-sub">Gli allestimenti: vetrine, lookbook e capsule in cui il prodotto viene messo in scena, in un ordine curato.</p>
           </div>
+          {/* L'ipotesi di ordinativo non ha più una voce di menu propria: si
+              apre da qui, perché mettere un prodotto in vetrina e assicurarsi
+              di averlo sono la stessa decisione a due minuti di distanza. */}
+          <Link className="btn btn-secondario" href="/riordini">
+            Ipotesi di ordinativo{pianiBozza > 0 ? ` · ${pianiBozza} in bozza` : ""}
+          </Link>
         </div>
 
         <div className="due-colonne">
