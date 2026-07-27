@@ -30,6 +30,7 @@ Il menù è raggruppato per mestiere: **Panoramica** (cruscotto) · **Vendite**
 | Modulo | Cosa fa | Rotta |
 | --- | --- | --- |
 | **Cruscotto** | La prima schermata: come sta andando l'ambito scelto. In globale i brand affiancati (ricavo, variazione, quota, primo prodotto) invece di un totale che non è di nessuno; dentro un brand, quel mondo. | `/` |
+| **Anagrafica completa** | Tutti i prodotti con tutto quello che l'app ne sa: codice, SKU, tipo dal negozio, categoria, prezzo, costo, collezioni Shopify e venduto. Filtro «cosa manca» ed export CSV per compilare i buchi in foglio di calcolo. | `/anagrafica` |
 | **Collezioni Shopify** | Le collezioni **vere** dei negozi, importate con un bottone e abbinate ai prodotti per SKU. Restano separate da quelle di maison: una è la vetrina del sito, l'altra una scelta creativa. Ogni scheda dice quanti prodotti contiene su Shopify e quanti ne riconosce l'app, e come ha venduto. | `/collezioni`, `/collezioni/shopify/[id]` |
 | **Collezioni & stagioni** | Il prodotto organizzato per stagione (SS26, HOLIDAY26…), con stato in sviluppo → in vendita → archiviata, tema, data di lancio, margine target. | `/collezioni`, `/collezioni/[id]` |
 | **Prodotti** | Catalogo completo con filtri (collezione, categoria, fase) e scheda 360° a tab. | `/prodotti`, `/prodotti/[id]` |
