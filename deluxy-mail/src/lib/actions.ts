@@ -2,6 +2,10 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+// `after(fn)` esegue fn DOPO che la risposta è partita, nella stessa
+// invocazione: è il posto giusto per gli allineamenti verso le altre app
+// Deluxy, che non devono far aspettare un clic (vedi `segnaAttivita`).
+import { after } from 'next/server'
 import { randomBytes } from 'node:crypto'
 import nodemailer from 'nodemailer'
 import MailComposer from 'nodemailer/lib/mail-composer'
@@ -1402,18 +1406,22 @@ export async function segnaAttivita(id: string, fatta: boolean) {
     where: { id, utenteId: await uid() },
     data: { fatta, fattaIl: fatta ? new Date() : null },
   })
-  // Il registro condiviso (Deluxy Tasks) va allineato SUBITO: aspettare il giro
-  // del cron vorrebbe dire due elenchi che si contraddicono per cinque minuti.
-  // È best-effort e con attesa cortissima: non fa mai aspettare la spunta.
-  await allineaAttivitaOra(id).catch(() => {})
+  // ⚠️ DOPO la risposta, non prima. Il registro condiviso va allineato subito —
+  // aspettare il cron vorrebbe dire due elenchi che si contraddicono per cinque
+  // minuti — ma quell'allineamento è una chiamata di rete a un'altra app in
+  // Europa più due letture/scritture di stato: `await`ndolo qui, la spunta
+  // restava ferma finché non finiva. `after()` lo fa girare nella stessa
+  // invocazione ma dopo che la risposta è già partita: l'utente non lo aspetta,
+  // e il registro si allinea lo stesso.
+  after(() => allineaAttivitaOra(id).catch(() => {}))
   revalidatePath('/', 'layout')
 }
 
 export async function eliminaAttivita(id: string) {
   await db.attivita.deleteMany({ where: { id, utenteId: await uid() } })
-  // Cancellata qui = archiviata anche nel registro, altrimenti resterebbe
-  // nell'elenco condiviso per sempre.
-  await allineaAttivitaOra(id, true).catch(() => {})
+  // Cancellata qui = archiviata anche nel registro (altrimenti resterebbe
+  // nell'elenco condiviso per sempre), ma sempre dopo la risposta.
+  after(() => allineaAttivitaOra(id, true).catch(() => {}))
   revalidatePath('/attivita')
 }
 
@@ -2751,7 +2759,7 @@ export async function rispondiInvito(
       })
       // Accettare un invito lo mette in agenda: dev'essere subito anche nel
       // calendario condiviso, non al giro dopo.
-      await allineaEventoOra(creato.id).catch(() => {})
+      after(() => allineaEventoOra(creato.id).catch(() => {}))
       notaAgenda = ' Aggiunto al calendario.'
     } else {
       notaAgenda = ' Era già in calendario.'
@@ -2849,7 +2857,7 @@ export async function creaEvento(form: FormData): Promise<{ ok: boolean; messagg
   // appuntamento appena messo dev'esserci anche là. Le RIPETIZIONI oltre la
   // prima le porta il giro del cron: qui si aspetterebbe una chiamata per ogni
   // occorrenza, e per un tasto «Salva» non è accettabile.
-  await allineaEventoOra(creato.id).catch(() => {})
+  after(() => allineaEventoOra(creato.id).catch(() => {}))
 
   revalidatePath('/', 'layout')
   const quante = date.length > 1 ? ` Ripetuto ${date.length} volte (${regola.toLowerCase()}).` : ''
@@ -2936,7 +2944,7 @@ export async function modificaEvento(form: FormData): Promise<{ ok: boolean; mes
 
   if (!tuttaSerie) {
     await db.evento.update({ where: { id: evento.id }, data: { ...testi, inizio, fine } })
-    await allineaEventoOra(evento.id).catch(() => {})
+    after(() => allineaEventoOra(evento.id).catch(() => {}))
     revalidatePath('/', 'layout')
     return { ok: true, messaggio: 'Appuntamento aggiornato.' }
   }
@@ -2977,7 +2985,7 @@ export async function eliminaEvento(id: string, ambito: 'questo' | 'serie' = 'qu
   await db.evento.deleteMany({ where: { id, utenteId } })
   // Cancellato qui = archiviato anche nel calendario condiviso (le serie intere
   // le sistema il giro del cron).
-  await allineaEventoOra(id, true).catch(() => {})
+  after(() => allineaEventoOra(id, true).catch(() => {}))
   revalidatePath('/', 'layout')
 }
 
@@ -3053,7 +3061,7 @@ export async function accettaEventoProposto(
   let notaInvito: string | null = null
   if (invitato) notaInvito = await inviaInvitoEvento(utenteId, creato.id)
 
-  await allineaEventoOra(creato.id).catch(() => {})
+  after(() => allineaEventoOra(creato.id).catch(() => {}))
   revalidatePath('/calendario')
   revalidatePath('/', 'layout')
   return { ok: true, messaggio: `Aggiunto al calendario.${notaInvito ? ` ${notaInvito}` : ''}` }
