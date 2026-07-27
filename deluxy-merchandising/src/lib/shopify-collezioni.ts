@@ -109,6 +109,16 @@ type CollezioneShopifyApi = {
   descriptionHtml: string | null;
   image: { url: string } | null;
   productsCount: { count: number } | null;
+  sortOrder: string | null;
+  templateSuffix: string | null;
+  updatedAt: string | null;
+  seo: { title: string | null; description: string | null } | null;
+  // C'è solo sulle collezioni automatiche: sono le condizioni con cui Shopify
+  // decide da sola chi ci finisce dentro.
+  ruleSet: {
+    appliedDisjunctively: boolean;
+    rules: { column: string; relation: string; condition: string }[];
+  } | null;
 };
 
 /** Tutte le collezioni del negozio, pagina per pagina. */
@@ -123,7 +133,12 @@ async function leggiCollezioni(n: Negozio): Promise<CollezioneShopifyApi[]> {
       `query($cursore: String) {
          collections(first: 100, after: $cursore) {
            pageInfo { hasNextPage endCursor }
-           nodes { id title handle descriptionHtml image { url } productsCount { count } }
+           nodes {
+             id title handle descriptionHtml image { url } productsCount { count }
+             sortOrder templateSuffix updatedAt
+             seo { title description }
+             ruleSet { appliedDisjunctively rules { column relation condition } }
+           }
          }
        }`,
       { cursore }
@@ -208,6 +223,13 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
           descrizione: c.descriptionHtml?.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 800) || null,
           immagine: c.image?.url ?? null,
           prodottiShopify: c.productsCount?.count ?? 0,
+          tipo: c.ruleSet ? 'automatica' : 'manuale',
+          ordinamento: c.sortOrder ?? null,
+          regole: c.ruleSet ? JSON.stringify(c.ruleSet) : null,
+          seoTitolo: c.seo?.title ?? null,
+          seoDescrizione: c.seo?.description ?? null,
+          modelloTema: c.templateSuffix ?? null,
+          aggiornataShopifyIl: c.updatedAt ? new Date(c.updatedAt) : null,
         },
         update: {
           handle: c.handle,
@@ -215,6 +237,13 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
           descrizione: c.descriptionHtml?.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 800) || null,
           immagine: c.image?.url ?? null,
           prodottiShopify: c.productsCount?.count ?? 0,
+          tipo: c.ruleSet ? 'automatica' : 'manuale',
+          ordinamento: c.sortOrder ?? null,
+          regole: c.ruleSet ? JSON.stringify(c.ruleSet) : null,
+          seoTitolo: c.seo?.title ?? null,
+          seoDescrizione: c.seo?.description ?? null,
+          modelloTema: c.templateSuffix ?? null,
+          aggiornataShopifyIl: c.updatedAt ? new Date(c.updatedAt) : null,
         },
       });
       idLocale.set(c.id, riga.id);

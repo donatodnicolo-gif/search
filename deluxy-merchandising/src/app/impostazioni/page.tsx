@@ -6,6 +6,8 @@ import {
   eliminaNegozio,
   salvaChiaveAiAzione,
   salvaNegozioAzione,
+  creaChiaveApiAzione,
+  revocaChiaveApiAzione,
   salvaPromptCategorieAzione,
   verificaNegozioAzione,
 } from "@/lib/azioni-negozi";
@@ -26,13 +28,14 @@ const COLORE_LIVELLO: Record<string, string> = {
 export default async function ImpostazioniPage({
   searchParams,
 }: {
-  searchParams: Promise<{ esito?: string; errore?: string }>;
+  searchParams: Promise<{ esito?: string; errore?: string; messaggio?: string; nuova?: string }>;
 }) {
   const sp = await searchParams;
-  const [negozi, chiaveAi, righePrompt, canali] = await Promise.all([
+  const [negozi, chiaveAi, righePrompt, chiavi, canali] = await Promise.all([
     elencoNegozi(),
     statoSegreto("OPENAI_API_KEY"),
     prisma.promptCategoria.findMany(),
+    prisma.apiKey.findMany({ orderBy: { creataIl: "desc" } }),
     // I nomi che i negozi hanno **nel venduto**: servono a collegare la scheda
     // Shopify alle vendite, che arrivano da Orders con i nomi dei brand.
     prisma.vendita.findMany({ distinct: ["canale"], select: { canale: true }, orderBy: { canale: "asc" } }),
@@ -379,6 +382,69 @@ export default async function ImpostazioniPage({
             </div>
             <div className="azioni-modulo">
               <button className="btn" type="submit">Salva i prompt</button>
+            </div>
+          </form>
+        </div>
+
+        {/* ---------- Chiavi API per le altre app ---------- */}
+        <div className="scheda">
+          <div className="scheda-titolo">Chiavi API — far leggere Merchandising alle altre app</div>
+          <p className="page-sub" style={{ marginBottom: 14 }}>
+            Le altre app Deluxy leggono da qui con una chiave nell&apos;header <code>x-api-key</code>. Oggi è
+            esposto: <code>GET /api/v1/collezioni</code> (con filtri per negozio, posizione, campagne, stato) e{" "}
+            <code>GET /api/v1/collezioni/:id</code> — che accetta anche l&apos;<i>handle</i> di Shopify — con
+            dentro i prodotti e il loro venduto. Di ogni collezione escono sia i campi del negozio (tipo,
+            condizioni, SEO, ordinamento) sia le nostre decisioni: posizioni, flag campagne, stato, note.
+          </p>
+          {sp.nuova && (
+            <div className="nota-info">
+              <span className="nota-icona">✓</span>
+              <span>
+                Chiave creata — <b>copiala adesso</b>, non si rivede più:
+                <br />
+                <code style={{ userSelect: "all" }}>{sp.nuova}</code>
+              </span>
+            </div>
+          )}
+          {chiavi.length > 0 && (
+            <div className="tabella-wrap" style={{ marginBottom: 14 }}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>App</th>
+                    <th>Creata</th>
+                    <th>Ultimo uso</th>
+                    <th />
+                  </tr>
+                </thead>
+                <tbody>
+                  {chiavi.map((k) => (
+                    <tr key={k.id}>
+                      <td className="cella-nome">{k.nome}</td>
+                      <td className="cella-muta">{iso(k.creataIl)}</td>
+                      <td className="cella-muta">{k.ultimoUso ? iso(k.ultimoUso) : "mai usata"}</td>
+                      <td>
+                        <form action={revocaChiaveApiAzione.bind(null, k.id)}>
+                          <button className="btn btn-secondario small" type="submit">
+                            Revoca
+                          </button>
+                        </form>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <form action={creaChiaveApiAzione} className="modulo">
+            <div className="campo-modulo">
+              <label htmlFor="nomeChiave">Nuova chiave per</label>
+              <input id="nomeChiave" name="nomeChiave" placeholder="deluxy-marketing" required />
+            </div>
+            <div className="azioni-modulo">
+              <button className="btn" type="submit">
+                Crea chiave
+              </button>
             </div>
           </form>
         </div>

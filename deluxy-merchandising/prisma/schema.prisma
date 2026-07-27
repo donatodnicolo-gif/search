@@ -299,6 +299,23 @@ model CollezioneShopify {
   // Quanti prodotti dice Shopify che contiene: confrontato con quelli abbinati
   // qui dice quanta parte di quella collezione l'app conosce.
   prodottiShopify Int   @default(0)
+  // — Quello che dice Shopify della collezione (letto, non deciso qui) —
+  tipo            String  @default("manuale") // manuale | automatica (smart collection)
+  ordinamento     String? // sortOrder: BEST_SELLING, MANUAL, PRICE_ASC…
+  regole          String? // le condizioni di una collezione automatica, in chiaro
+  seoTitolo       String?
+  seoDescrizione  String?
+  modelloTema     String? // templateSuffix: quale layout usa il tema
+  aggiornataShopifyIl DateTime?
+  // — Quello che decidiamo qui (Shopify non lo sa) —
+  // Dove si usa questa collezione: vetrina, home, menu, campagne… Più valori,
+  // separati da virgola, dal catalogo in src/lib/collezioni.ts.
+  posizioni       String?
+  // Si può usare nelle campagne pubblicitarie? È una decisione di marketing,
+  // non una proprietà del negozio: sta qui e non su Shopify.
+  inCampagne      Boolean @default(false)
+  stato           String  @default("attiva") // attiva | sospesa
+  note            String?
   aggiornataIl DateTime @updatedAt
   creataIl     DateTime @default(now())
   prodotti     ProdottoInCollezioneShopify[]
@@ -316,6 +333,20 @@ model ProdottoInCollezioneShopify {
 
   @@unique([collezioneId, prodottoId])
   @@index([prodottoId])
+}
+
+// Chiave API con cui le altre app Deluxy leggono da qui.
+//
+// Nel database resta solo lo SHA-256: la chiave si vede una volta sola, quando
+// si crea. Stesso schema di deluxy-orders e deluxy-anagrafiche, così chi
+// integra trova sempre lo stesso meccanismo.
+model ApiKey {
+  id        String    @id @default(cuid())
+  nome      String    @unique // a chi è stata data: "deluxy-marketing"…
+  hash      String    @unique
+  attiva    Boolean   @default(true)
+  ultimoUso DateTime?
+  creataIl  DateTime  @default(now())
 }
 
 // Storico degli import delle collezioni da Shopify.

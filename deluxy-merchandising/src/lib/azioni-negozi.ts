@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { generaChiave, improntaChiave } from "./api-auth";
 import { prisma } from "./db";
 import { salvaNegozio, tokenDi, verificaNegozio } from "./negozi";
 import { eliminaSegreto, salvaSegreto } from "./segreti";
@@ -184,6 +185,32 @@ export async function salvaPromptCategorieAzione(fd: FormData) {
   revalidatePath("/impostazioni");
   revalidatePath("/prodotti/nuovo-shopify");
   redirect("/impostazioni?esito=prompt");
+}
+
+// ---------- Chiavi API per le altre app ----------
+
+/**
+ * Crea una chiave e la mostra **una volta sola** nella querystring del
+ * redirect: nel database resta solo l'impronta, quindi o la si copia adesso o
+ * se ne fa un'altra. È lo stesso patto di deluxy-orders.
+ */
+export async function creaChiaveApiAzione(fd: FormData) {
+  const nome = testo(fd, "nomeChiave");
+  if (!nome) redirect("/impostazioni?errore=" + encodeURIComponent("Serve un nome per la chiave."));
+  const chiave = generaChiave();
+  try {
+    await prisma.apiKey.create({ data: { nome, hash: improntaChiave(chiave) } });
+  } catch {
+    redirect("/impostazioni?errore=" + encodeURIComponent(`Esiste già una chiave chiamata «${nome}».`));
+  }
+  revalidatePath("/impostazioni");
+  redirect(`/impostazioni?esito=chiave-api&nuova=${encodeURIComponent(chiave)}`);
+}
+
+export async function revocaChiaveApiAzione(id: string) {
+  await prisma.apiKey.delete({ where: { id } });
+  revalidatePath("/impostazioni");
+  redirect("/impostazioni?esito=chiave-api-revocata");
 }
 
 export async function eliminaNegozio(id: string) {

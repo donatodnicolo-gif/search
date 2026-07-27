@@ -8,10 +8,19 @@ import { prisma } from "@/lib/db";
 import { elencoNegozi } from "@/lib/negozi";
 import { ultimiImportCollezioni } from "@/lib/shopify-collezioni";
 import {
+  COLORE_STATO_COLLEZIONE_SHOPIFY,
+  ETICHETTA_STATO_COLLEZIONE_SHOPIFY,
+  ETICHETTA_TIPO_COLLEZIONE,
+  nomePosizione,
+  posizioniDa,
+} from "@/lib/collezioni";
+import { FILTRO_BUON_FINE, finestra } from "@/lib/vendite";
+import {
   calcolaMargine,
   COLORE_STATO_COLLEZIONE,
   ETICHETTA_STATO_COLLEZIONE,
   etichettaStagione,
+  euro,
   iso,
   percentuale,
 } from "@/lib/dominio";
@@ -56,11 +65,35 @@ export default async function CollezioniPage({
     prisma.collezioneShopify.findMany({
       where: negoziDellAmbito.length > 0 ? { negozio: { in: negoziDellAmbito } } : {},
       orderBy: [{ negozio: "asc" }, { titolo: "asc" }],
-      include: { _count: { select: { prodotti: true } } },
+      include: { _count: { select: { prodotti: true } }, prodotti: { select: { prodottoId: true } } },
     }),
     ultimiImportCollezioni(),
   ]);
   const negozi = negoziTutti.filter((n) => n.attivo);
+
+  // Il venduto di ogni collezione: una query sola per tutti i prodotti che
+  // compaiono in almeno una collezione, poi si somma in memoria.
+  const f = finestra(90);
+  const idProdotti = [...new Set(collezioniShopify.flatMap((c) => c.prodotti.map((p) => p.prodottoId)))];
+  const venditePerProdotto = idProdotti.length
+    ? await prisma.vendita.groupBy({
+        by: ["prodottoId"],
+        where: { prodottoId: { in: idProdotti }, data: { gte: f.dal, lte: f.al }, ...FILTRO_BUON_FINE },
+        _sum: { quantita: true, ricavo: true },
+      })
+    : [];
+  const vp = new Map(venditePerProdotto.map((v) => [v.prodottoId as string, v]));
+  const conVenduto = collezioniShopify
+    .map((c) => {
+      const ricavo = c.prodotti.reduce((s, x) => s + (vp.get(x.prodottoId)?._sum.ricavo ?? 0), 0);
+      const pezzi = c.prodotti.reduce((s, x) => s + (vp.get(x.prodottoId)?._sum.quantita ?? 0), 0);
+      return { c, ricavo, pezzi };
+    })
+    .sort((a, b) => b.ricavo - a.ricavo);
+  // La quota è sul venduto delle collezioni mostrate. Un prodotto in due
+  // collezioni pesa in entrambe: le collezioni si sovrappongono per natura, e
+  // le percentuali non fanno 100. È così anche su Shopify.
+  const ricavoCollezioni = conVenduto.reduce((s, x) => s + x.ricavo, 0);
 
   // Il margine medio conta solo dove il costo c'è: a costo zero il margine non
   // è 100%, è un costo che nessuno ha inserito.
@@ -115,9 +148,9 @@ export default async function CollezioniPage({
           <div className="nota-info">
             <span className="nota-icona">◆</span>
             <span>
-              Le collezioni sono <b>trasversali ai brand</b>: una stessa collezione può essere venduta su più
-              negozi, quindi qui l&apos;ambito «{brand}» non filtra niente. Il venduto per brand si guarda in{" "}
-              <a href="/vendite">Andamento &amp; trend</a> e in <a href="/classifiche">Classifiche</a>.
+              Ambito <b>{brand}</b>: le collezioni <b>Shopify</b> qui sotto sono solo quelle del suo negozio.
+              Le collezioni <b>della maison</b> restano trasversali — una stessa collezione può vendersi su più
+              negozi — quindi quelle si vedono tutte.
             </span>
           </div>
         )}
@@ -172,31 +205,47 @@ export default async function CollezioniPage({
                   <tr>
                     <th>Collezione</th>
                     <th>Negozio</th>
-                    <th className="num">Prodotti qui</th>
-                    <th className="num">Su Shopify</th>
-                    <th>Copertura</th>
+                    <th>Tipo</th>
+                    <th className="num">Prodotti</th>
+                    <th className="num">Venduto 90gg</th>
+                    <th>% del venduto</th>
+                    <th>Stato e uso</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {collezioniShopify.map((c) => {
-                    const quota = c.prodottiShopify > 0 ? c._count.prodotti / c.prodottiShopify : 0;
-                    return (
-                      <tr key={c.id} className="riga-cliccabile">
-                        <td>
-                          <Link href={`/collezioni/shopify/${c.id}`} className="cella-nome link-riga">
-                            {c.titolo}
-                          </Link>
-                          <div className="cella-sub">/{c.handle}</div>
-                        </td>
-                        <td className="cella-muta">{c.negozio}</td>
-                        <td className="num">{c._count.prodotti}</td>
-                        <td className="num cella-muta">{c.prodottiShopify}</td>
-                        <td style={{ width: 130 }}>
-                          <BarraQuota quota={quota} />
-                        </td>
-                      </tr>
-                    );
-                  })}
+                  {conVenduto.map(({ c, ricavo, pezzi }) => (
+                    <tr key={c.id} className="riga-cliccabile">
+                      <td>
+                        <Link href={`/collezioni/shopify/${c.id}`} className="cella-nome link-riga">
+                          {c.titolo}
+                        </Link>
+                        <div className="cella-sub">/{c.handle}</div>
+                      </td>
+                      <td className="cella-muta">{c.negozio}</td>
+                      <td className="cella-muta">{ETICHETTA_TIPO_COLLEZIONE[c.tipo] ?? c.tipo}</td>
+                      <td className="num">
+                        {c._count.prodotti}
+                        <span className="cella-muta"> / {c.prodottiShopify}</span>
+                      </td>
+                      <td className="num">
+                        {euro(ricavo)}
+                        <div className="cella-sub">{pezzi} pz</div>
+                      </td>
+                      <td style={{ width: 120 }}>
+                        <BarraQuota quota={ricavoCollezioni > 0 ? ricavo / ricavoCollezioni : 0} />
+                      </td>
+                      <td>
+                        <Badge
+                          testo={ETICHETTA_STATO_COLLEZIONE_SHOPIFY[c.stato] ?? c.stato}
+                          colore={COLORE_STATO_COLLEZIONE_SHOPIFY[c.stato] ?? "var(--text-tertiary)"}
+                        />
+                        <div className="cella-sub">
+                          {posizioniDa(c.posizioni).map(nomePosizione).join(" · ") || "nessuna posizione"}
+                          {c.inCampagne ? " · in campagne" : ""}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>

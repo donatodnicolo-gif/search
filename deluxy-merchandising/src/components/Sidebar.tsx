@@ -37,8 +37,9 @@ export async function Sidebar({
   const brand = await brandCorrente();
   const doveProdotti = filtroProdotti(brand);
 
-  const [nCollezioni, nProdotti, nInSviluppo, daPubblicare, collezioni] = await Promise.all([
+  const [nCollezioniMaison, nCollezioniShopify, nProdotti, nInSviluppo, daPubblicare, collezioni] = await Promise.all([
     prisma.collezione.count(),
+    prisma.collezioneShopify.count(),
     prisma.prodotto.count({ where: doveProdotti }),
     prisma.prodotto.count({
       where: { ...doveProdotti, fase: { in: ["concept", "prototipo", "approvato"] } },
@@ -81,7 +82,7 @@ export async function Sidebar({
         </SbSezione>
 
         <SbSezione titolo="Prodotto">
-          {voce("collezioni", "/collezioni", "collezioni", "Collezioni", nCollezioni)}
+          {voce("collezioni", "/collezioni", "collezioni", "Collezioni", nCollezioniMaison + nCollezioniShopify)}
           {voce("prodotti", "/prodotti", "prodotti", "Prodotti", nProdotti)}
           {voce("anagrafica", "/anagrafica", "anagrafica", "Anagrafica completa")}
           {voce("classificazione", "/classificazione", "collezioni", "Categorie, linee, collezioni")}
