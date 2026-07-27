@@ -273,6 +273,7 @@ nell'header, confronta trimmato e risponde **503** se la chiave non è configura
 | --- | --- | --- |
 | GET | `/api/v1/categorie` | le categorie di costo, per Finance (`?regole=1` per le regole) |
 | GET | `/api/v1/maison` | i **budget per maison**, per Marketing (`?anno`, `?livello`, `?maison`) |
+| GET | `/api/v1/team` | **squadre e persone**, per il Hub (`?anno`, `?compensi=1`) |
 
 **`/api/v1/maison` nasce per Marketing**, che deve sapere due cose che vivono solo qui: quanto una
 maison deve vendere in un mese e **quanto può spendere in ADV** in quel mese. Senza, Marketing
@@ -282,6 +283,16 @@ sbagliati.
 Risposta: per ogni maison i dodici mesi con `vendite` per tipologia, `venditeTotali`, `advPercent`,
 `advConsentito` e `advPubblicato`, più i totali. In cima l'elenco delle `tipologie` con il margine,
 perché le chiavi di `vendite` sono i loro slug e senza l'elenco chi consuma dovrebbe indovinarli.
+
+> **: i compensi restano fuori di default.** Il Hub sa chi e una
+> persona, non in che squadra sta ne chi ne risponde: quello nasce dal budget del
+> personale e vive qui. Il **costo azienda** pero esce solo con  —
+> sono stipendi, e un API che li restituisce a chiunque abbia la chiave e un modo
+> silenzioso di farli girare. La **stima del netto in busta non esce mai**: e un
+> calcolo di pianificazione con parametri fiscali di un altro anno, utile dentro
+> Budgets dove la pagina lo spiega, ingannevole fuori dove sembrerebbe un
+> cedolino. Chi non ha squadra esce in : un elenco che perde persone
+> per strada e peggio di uno con una voce «senza team».
 
 > **Lo scenario vale anche per l'ADV.** Con `?livello=SFIDANTE` le vendite salgono del
 > moltiplicatore e **con loro il budget pubblicitario**, perché l'ADV consentito è una percentuale
