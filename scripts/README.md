@@ -48,6 +48,17 @@ cd deluxy-scout && SUPABASE_PAT=<pat> node scripts/mgmt-query.mjs -e "select cou
 - **Serve**: `SUPABASE_PAT` (https://supabase.com/dashboard/account/tokens); opzionale `SUPABASE_REF` (default: project ref di Scout già nel codice)
 - **Nota**: esegue **qualsiasi** SQL, incluse `drop`/`delete` — leggere il file prima di lanciarlo.
 
+### allinea-supabase.mjs — deluxy-scout
+Porta il backend di Scout al passo col codice **in un colpo solo**: applica le migrazioni previste e rideploya le Edge Functions cambiate. Le migrazioni elencate sono idempotenti (nessuna `drop`/`delete`), quindi rilanciarlo non fa danni — anzi la `0046` va rilanciata apposta quando cambiano i canali di contatto.
+
+```bash
+# dalla radice del repo
+cd deluxy-scout && SUPABASE_PAT=<pat> node scripts/allinea-supabase.mjs
+```
+
+- **Serve**: `SUPABASE_PAT` (https://supabase.com/dashboard/account/tokens); opzionale `SUPABASE_REF`
+- **Nota**: la lista di migrazioni e funzioni sta in cima allo script — **aggiungerci le nuove**, altrimenti restano non applicate. È già successo che una schermata risultasse vuota solo perché la Edge Function non era stata rideployata, senza che niente lo dicesse.
+
 ### azzera-target-conteggio.sql / azzera-target.sql — deluxy-scout
 Azzerano la pagina **Target** di Scout cancellando **solo i negozi mai lavorati**: `stato = 'da_visitare'`, non preferiti e senza nessuna visita, trattativa, contatto, chiamata, task o richiesta di pagamento. Clienti, negozi visitati e tutto ciò che ha una trattativa o un contatto restano.
 
