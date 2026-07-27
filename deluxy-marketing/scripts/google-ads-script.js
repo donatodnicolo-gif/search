@@ -20,7 +20,9 @@
  *      "Esegui": quello lancia una volta sola).
  *
  * UNO SCRIPT PER LAVORO, stesso file, cambia solo AZIONE:
- *   AZIONE = "metriche"     → ogni giorno, fascia 23:00-24:00
+ *   AZIONE = "metriche"     → ogni giorno, fascia 23:00-24:00 (manda anche
+ *                              l'anagrafica: le campagne che esistono, comprese
+ *                              quelle ferme che non hanno giorni da mandare)
  *   AZIONE = "approvazioni" → ogni giorno, mattina (alert A4)
  *   AZIONE = "copy"         → ogni settimana (keyword + titoli/descrizioni RSA)
  *   AZIONE = "gruppi"       → ogni settimana (gruppi di annunci con spesa e resa,
@@ -273,6 +275,14 @@ function verificaConfigurazione() {
    ═══════════════════════════════════════════════════════════════════════════ */
 
 function mandaMetriche(conto) {
+  // L'elenco delle campagne prima dei numeri: una campagna ferma non ha giorni
+  // da mandare, ma deve comunque comparire nell'app.
+  try {
+    mandaAnagrafica(conto);
+  } catch (e) {
+    Logger.log("⚠ Anagrafica non riuscita (" + e + "): proseguo con le metriche.");
+  }
+
   var stati = INCLUDI_RIMOSSE ? "'ENABLED', 'PAUSED', 'REMOVED'" : "'ENABLED', 'PAUSED'";
   var campiBase =
     "SELECT campaign.id, campaign.name, campaign.status, " +
@@ -353,6 +363,52 @@ function mandaMetriche(conto) {
     return corpoBase(conto, { righe: lotto });
   });
   RIEPILOGO.push("metriche: " + esito.inviate + "/" + righe.length + " righe inviate" + (esito.nota ? " · " + esito.nota : ""));
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PARTE 1-bis — ANAGRAFICA: LE CAMPAGNE CHE ESISTONO
+   La query delle metriche chiede i giorni, e una campagna in pausa da settimane
+   non ha giorni: per l'app non esisteva proprio. Ma non si può decidere di
+   riattivare una campagna che non si vede. Questa query non nomina le date, e
+   quindi torna TUTTE le campagne dell'account, anche quelle a zero.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+function mandaAnagrafica(conto) {
+  var stati = INCLUDI_RIMOSSE ? "'ENABLED', 'PAUSED', 'REMOVED'" : "'ENABLED', 'PAUSED'";
+  var query =
+    "SELECT campaign.id, campaign.name, campaign.status, " +
+    "campaign.advertising_channel_type, campaign.bidding_strategy_type, " +
+    "campaign_budget.amount_micros " +
+    "FROM campaign WHERE campaign.status IN (" + stati + ")";
+
+  var risultati = AdsApp.search(query);
+  var righe = [];
+  var ferme = 0;
+  while (risultati.hasNext()) {
+    var r = risultati.next();
+    var budget = Number((r.campaignBudget && r.campaignBudget.amountMicros) || 0) / 1000000;
+    if (r.campaign.status === "PAUSED") ferme++;
+    righe.push({
+      idCampagna: String(r.campaign.id),
+      nome: r.campaign.name,
+      stato: statoCampagna(r.campaign.status),
+      budgetGiornaliero: budget > 0 ? arrotonda(budget) : null,
+      strategiaOfferta: r.campaign.biddingStrategyType || null,
+      tipo: r.campaign.advertisingChannelType || null
+    });
+  }
+
+  if (righe.length === 0) {
+    Logger.log("Anagrafica: nessuna campagna su questo account.");
+    return;
+  }
+  Logger.log("Anagrafica: " + righe.length + " campagne sull'account (" + ferme + " in pausa).");
+
+  var esito = inviaABlocchi("/api/v1/ingest/campagne", righe, function (lotto) {
+    return corpoBase(conto, { campagne: lotto });
+  });
+  RIEPILOGO.push("anagrafica: " + esito.inviate + "/" + righe.length + " campagne" + (esito.nota ? " · " + esito.nota : ""));
 }
 
 function statoCampagna(stato) {

@@ -20,6 +20,7 @@ function ambiente(opzioni) {
   const o = Object.assign({ anteprima: false, righeQuery: {}, rispostaApp: null, operazioni: [] }, opzioni);
   const inviati = [];
   const tutte = []; // comprese le chiamate di servizio
+  const anagrafiche = []; // l'elenco delle campagne: parte a ogni giro di metriche
   const log = [];
 
   const sandbox = {
@@ -61,7 +62,13 @@ function ambiente(opzioni) {
         tutte.push(chiamata);
         // Il sondaggio delle richieste "aggiorna adesso" parte a ogni giro:
         // resta in `tutte`, fuori da `inviati` che è il dato delle prove.
-        if (url.indexOf("/api/v1/aggiornamenti") === -1) inviati.push(chiamata);
+        if (url.indexOf("/api/v1/aggiornamenti") !== -1) {
+          // sondaggio delle richieste: resta solo in `tutte`
+        } else if (url.indexOf("/api/v1/ingest/campagne") !== -1) {
+          anagrafiche.push(chiamata);
+        } else {
+          inviati.push(chiamata);
+        }
         const r = o.rispostaApp ? o.rispostaApp(url, corpo, tutte.length) : { codice: 201, testo: "{}" };
         return { getResponseCode: () => r.codice, getContentText: () => r.testo };
       },
@@ -69,7 +76,7 @@ function ambiente(opzioni) {
   };
   vm.createContext(sandbox);
   vm.runInContext(CODICE, sandbox);
-  return { sandbox, inviati, tutte, log };
+  return { sandbox, inviati, tutte, anagrafiche, log };
 }
 
 function selettoreVuoto() {
@@ -84,7 +91,7 @@ function selettoreCon(entita) {
 
 // ───────────────────────── 1. metriche ─────────────────────────
 {
-  const { sandbox, inviati } = ambiente({
+  const { sandbox, inviati, anagrafiche } = ambiente({
     righeQuery: {
       "FROM campaign ": [
         {
@@ -109,7 +116,12 @@ function selettoreCon(entita) {
   sandbox.main();
 
   const corpo = inviati[0].corpo;
-  verifica("metriche: 1 sola chiamata", inviati.length === 1);
+  verifica("metriche: 1 sola chiamata di metriche", inviati.length === 1);
+  verifica("anagrafica: parte insieme alle metriche", anagrafiche.length === 1, anagrafiche.length);
+  verifica("anagrafica: manda TUTTE le campagne, ferme comprese",
+    anagrafiche[0].corpo.campagne.length === 2, anagrafiche[0].corpo.campagne.length);
+  verifica("anagrafica: la ferma porta lo stato e nessuna metrica",
+    anagrafiche[0].corpo.campagne[1].stato === "in_pausa" && anagrafiche[0].corpo.campagne[1].spesa === undefined);
   verifica("metriche: canale/account/brand", corpo.canale === "google_ads" && corpo.account === "248-656-1148" && corpo.brand === "gifts");
   verifica("metriche: spesa da micro a euro", corpo.righe[0].spesa === 12.35, corpo.righe[0].spesa);
   verifica("metriche: budget da micro", corpo.righe[0].budgetGiornaliero === 20);

@@ -209,3 +209,126 @@ export async function deduciTipoConversione(campagneIds: Iterable<string>): Prom
     });
   }
 }
+
+// ---------- Anagrafica delle campagne (senza metriche) ----------
+
+export type RigaAnagrafica = {
+  idCampagna: string;
+  nome: string;
+  stato?: string | null;
+  budgetGiornaliero?: number | null;
+  strategiaOfferta?: string | null;
+  tipo?: string | null;
+};
+
+export type EsitoAnagrafica = {
+  create: number;
+  aggiornate: number;
+  invariate: number;
+  scartate: number;
+};
+
+/**
+ * Registra le campagne che ESISTONO, a prescindere da quanto hanno speso.
+ *
+ * Le metriche arrivano da una query per giorno: una campagna in pausa da
+ * settimane non produce nessuna riga, quindi per l'app non esisteva. Ma non si
+ * può decidere di riattivare una campagna che non si vede — e nemmeno
+ * accorgersi che ne è comparsa una nuova ancora ferma.
+ *
+ * Riconoscimento identico a quello delle metriche (stesso id di piattaforma,
+ * stesso ripiego sul nome): registro e metriche devono finire sulla STESSA
+ * riga, o si creerebbero doppioni della stessa campagna.
+ */
+export async function salvaAnagrafica(
+  righe: RigaAnagrafica[],
+  opzioni: { canale: string; account?: string | null; brand?: string }
+): Promise<EsitoAnagrafica> {
+  const { canale, account } = opzioni;
+  const esito: EsitoAnagrafica = { create: 0, aggiornate: 0, invariate: 0, scartate: 0 };
+
+  // Una lettura sola per tutto il lotto invece di una interrogazione per
+  // campagna: gli account grossi ne hanno centinaia.
+  const esistenti = await prisma.campagna.findMany({ where: { canale } });
+  const perId = new Map(esistenti.filter((c) => c.idEsterno).map((c) => [c.idEsterno!, c]));
+  const perNome = new Map(esistenti.map((c) => [c.nome, c]));
+  const perNomeNormalizzato = new Map(
+    esistenti.filter((c) => !c.idEsterno).map((c) => [normalizza(c.nome), c])
+  );
+
+  for (const r of righe) {
+    if (!r?.idCampagna || !r?.nome) {
+      esito.scartate++;
+      continue;
+    }
+    const idEsterno = String(r.idCampagna);
+    const nome = String(r.nome);
+    const nNorm = normalizza(nome);
+
+    const trovata =
+      perId.get(idEsterno) ??
+      perNome.get(nome) ??
+      (nNorm.length > 3 ? perNomeNormalizzato.get(nNorm) : undefined);
+
+    const dati = {
+      stato: r.stato ?? undefined,
+      budgetGiornaliero: r.budgetGiornaliero ?? undefined,
+      strategiaOfferta: r.strategiaOfferta ? String(r.strategiaOfferta) : undefined,
+      obiettivo: r.tipo ? String(r.tipo) : undefined,
+    };
+
+    if (!trovata) {
+      const creata = await prisma.campagna.create({
+        data: {
+          nome,
+          idEsterno,
+          canale,
+          brand: brandDa(nome, opzioni.brand),
+          stato: r.stato ?? "in_pausa",
+          budgetGiornaliero: r.budgetGiornaliero ?? null,
+          strategiaOfferta: r.strategiaOfferta ? String(r.strategiaOfferta) : null,
+          obiettivo: r.tipo ? String(r.tipo) : null,
+          note: `Registrata dall'anagrafica ${canale}${account ? ` (account ${account})` : ""}: esiste sulla piattaforma, nessuna erogazione nel periodo letto`,
+        },
+      });
+      perId.set(idEsterno, creata);
+      perNome.set(nome, creata);
+      esito.create++;
+      continue;
+    }
+
+    // Si scrive solo se qualcosa è davvero cambiato: un giro di anagrafica che
+    // "aggiorna" trecento campagne identiche riempie lo storico di rumore e
+    // rende invisibile il cambiamento vero.
+    const cambia =
+      (dati.stato != null && dati.stato !== trovata.stato) ||
+      (dati.budgetGiornaliero != null && dati.budgetGiornaliero !== trovata.budgetGiornaliero) ||
+      (dati.strategiaOfferta != null && dati.strategiaOfferta !== trovata.strategiaOfferta) ||
+      (dati.obiettivo != null && dati.obiettivo !== trovata.obiettivo) ||
+      trovata.idEsterno !== idEsterno ||
+      trovata.nome !== nome;
+
+    if (!cambia) {
+      esito.invariate++;
+      continue;
+    }
+
+    await prisma.campagna.update({
+      where: { id: trovata.id },
+      data: {
+        ...(dati.stato != null ? { stato: dati.stato } : {}),
+        ...(dati.budgetGiornaliero != null ? { budgetGiornaliero: dati.budgetGiornaliero } : {}),
+        ...(dati.strategiaOfferta != null ? { strategiaOfferta: dati.strategiaOfferta } : {}),
+        ...(dati.obiettivo != null ? { obiettivo: dati.obiettivo } : {}),
+        ...(trovata.idEsterno !== idEsterno ? { idEsterno } : {}),
+        // Il nome vero della piattaforma vince sul codice di censimento.
+        ...(trovata.nome !== nome
+          ? { nome, note: `${trovata.note ? trovata.note + " · " : ""}Codice 00.4: ${trovata.nome}` }
+          : {}),
+      },
+    });
+    esito.aggiornate++;
+  }
+
+  return esito;
+}
