@@ -8,6 +8,24 @@ const MESI = [
 
 // Il foglio SALES, ma calcolato: vendite del mese, ritmo, dove si finisce se il
 // ritmo resta questo, e se la spesa pubblicitaria sta dentro il budget.
+//
+// Dodici colonne tutte uguali non si leggono: qui sono divise in due blocchi
+// (quello che entra, quello che esce) separati da una linea, con la stessa
+// sequenza ripetuta — ad oggi · al giorno · dove si finisce · obiettivo · quanto
+// ci siamo. Imparata una volta, vale per entrambi i blocchi.
+const BORDO = "2px solid var(--hairline-strong)";
+
+function Barra({ quota, colore }: { quota: number; colore: string }) {
+  // La barra si ferma a 100% ma il numero no: serve a leggere "a che punto
+  // siamo", non a rappresentare lo sforamento.
+  const larghezza = Math.max(2, Math.min(100, quota * 100));
+  return (
+    <div style={{ height: 4, borderRadius: 2, background: "var(--hairline)", marginTop: 5, overflow: "hidden" }}>
+      <div style={{ width: `${larghezza}%`, height: "100%", background: colore, borderRadius: 2 }} />
+    </div>
+  );
+}
+
 export async function AndamentoMese({ anno, mese }: { anno?: number; mese?: number }) {
   const adesso = new Date();
   const a = anno ?? adesso.getFullYear();
@@ -15,14 +33,15 @@ export async function AndamentoMese({ anno, mese }: { anno?: number; mese?: numb
   const q = await andamentoMese(a, m);
 
   const colorePiano = (quota: number | null) =>
-    quota == null ? undefined : quota >= 1 ? "var(--green)" : quota >= 0.85 ? "var(--gold-strong)" : "var(--red)";
+    quota == null ? "var(--text-tertiary)" : quota >= 1 ? "var(--green)" : quota >= 0.85 ? "var(--gold-strong)" : "var(--red)";
   const coloreBudget = (quota: number | null) =>
-    quota == null ? undefined : quota <= 1.05 ? "var(--green)" : quota <= 1.2 ? "var(--orange)" : "var(--red)";
+    quota == null ? "var(--text-tertiary)" : quota <= 1.05 ? "var(--green)" : quota <= 1.2 ? "var(--orange)" : "var(--red)";
 
-  const riga = (r: RigaMese, grassetto = false) => {
+  const riga = (r: RigaMese, totale = false) => {
     const ritmo = letturaRitmo(r);
+    const sfondo = totale ? { background: "var(--surface-2, rgba(0,0,0,.025))", fontWeight: 600 } : undefined;
     return (
-      <tr key={r.brand} style={grassetto ? { fontWeight: 600, background: "rgba(0,0,0,.02)" } : undefined}>
+      <tr key={r.brand} style={sfondo}>
         <td>
           <div className="cella-nome" style={{ display: "flex", alignItems: "center", gap: 7 }}>
             {r.brand !== "totale" && (
@@ -32,37 +51,56 @@ export async function AndamentoMese({ anno, mese }: { anno?: number; mese?: numb
           </div>
           {r.ordini > 0 && <div className="cella-sub">{formattaNumero(r.ordini)} ordini</div>}
         </td>
+
+        {/* ——— quello che entra ——— */}
         <td className="num">{formattaEuro(r.vendite)}</td>
         <td className="num cella-muta">{r.vendtiteAlGiorno != null ? formattaEuro(r.vendtiteAlGiorno) : "—"}</td>
         <td className="num" style={{ fontWeight: 700 }}>
           {r.stimaVendite != null ? formattaEuro(r.stimaVendite) : "—"}
         </td>
         <td className="num cella-muta">{r.pianoVendite != null ? formattaEuro(r.pianoVendite) : "—"}</td>
-        <td className="num" style={{ color: colorePiano(r.quotaPiano), fontWeight: 600 }}>
-          {r.quotaPiano != null ? `${Math.round(r.quotaPiano * 100)}%` : "—"}
+        <td className="num" style={{ minWidth: 74 }}>
+          <span style={{ color: colorePiano(r.quotaPiano), fontWeight: 700 }}>
+            {r.quotaPiano != null ? `${Math.round(r.quotaPiano * 100)}%` : "—"}
+          </span>
+          {r.quotaPiano != null && <Barra quota={r.quotaPiano} colore={colorePiano(r.quotaPiano)} />}
         </td>
-        <td className="num">{formattaEuro(r.spesa)}</td>
+
+        {/* ——— quello che esce ——— */}
+        <td className="num" style={{ borderLeft: BORDO }}>{formattaEuro(r.spesa)}</td>
         <td className="num cella-muta">
           {r.spesaAlGiorno != null ? formattaEuro(r.spesaAlGiorno) : "—"}
           {r.ritmoPrevistoAdv != null && (
-            <div className="cella-sub">su {formattaEuro(r.ritmoPrevistoAdv)} previsti</div>
+            <div className="cella-sub" style={{ color: ritmo?.colore }}>
+              su {formattaEuro(r.ritmoPrevistoAdv)}
+            </div>
           )}
         </td>
         <td className="num" style={{ fontWeight: 700 }}>
           {r.stimaSpesa != null ? formattaEuro(r.stimaSpesa) : "—"}
         </td>
         <td className="num cella-muta">{r.pianoBudgetAdv != null ? formattaEuro(r.pianoBudgetAdv) : "—"}</td>
-        <td className="num" style={{ color: coloreBudget(r.quotaBudget), fontWeight: 600 }}>
-          {r.quotaBudget != null ? `${Math.round(r.quotaBudget * 100)}%` : "—"}
-          {ritmo && <div className="cella-sub" style={{ color: ritmo.colore, whiteSpace: "normal" }}>{ritmo.testo}</div>}
+        <td className="num" style={{ minWidth: 74 }}>
+          <span style={{ color: coloreBudget(r.quotaBudget), fontWeight: 700 }}>
+            {r.quotaBudget != null ? `${Math.round(r.quotaBudget * 100)}%` : "—"}
+          </span>
+          {r.quotaBudget != null && <Barra quota={r.quotaBudget} colore={coloreBudget(r.quotaBudget)} />}
         </td>
-        <td className="num" style={{ fontWeight: 600 }}>
+
+        {/* ——— quanto rende ——— */}
+        <td className="num" style={{ borderLeft: BORDO, fontWeight: 700 }}>
           {r.ros != null ? `${r.ros.toFixed(1)}×` : "—"}
-          {r.rosPiano != null && <div className="cella-sub">piano {r.rosPiano.toFixed(1)}×</div>}
+          {r.rosPiano != null && <div className="cella-sub">obiettivo {r.rosPiano.toFixed(1)}×</div>}
         </td>
       </tr>
     );
   };
+
+  const intestazione = (testo: string, spiega: string, extra?: React.CSSProperties) => (
+    <th className="num" title={spiega} style={extra}>
+      {testo}
+    </th>
+  );
 
   return (
     <section className="scheda">
@@ -84,19 +122,31 @@ export async function AndamentoMese({ anno, mese }: { anno?: number; mese?: numb
         <div style={{ overflowX: "auto" }}>
           <table>
             <thead>
+              {/* Prima riga: i due mondi. Senza questa divisione, "stima fine
+                  mese" appare due volte e sembra un errore. */}
+              <tr>
+                <th />
+                <th colSpan={5} style={{ textAlign: "center", color: "var(--green)", letterSpacing: ".04em" }}>
+                  QUELLO CHE ENTRA — VENDITE
+                </th>
+                <th colSpan={5} style={{ textAlign: "center", color: "var(--orange)", letterSpacing: ".04em", borderLeft: BORDO }}>
+                  QUELLO CHE ESCE — PUBBLICITÀ
+                </th>
+                <th style={{ textAlign: "center", borderLeft: BORDO }}>RESA</th>
+              </tr>
               <tr>
                 <th>Brand</th>
-                <th className="num">Venduto</th>
-                <th className="num">al giorno</th>
-                <th className="num">Stima fine mese</th>
-                <th className="num">Piano</th>
-                <th className="num">% piano</th>
-                <th className="num">Speso ADV</th>
-                <th className="num">al giorno</th>
-                <th className="num">Stima fine mese</th>
-                <th className="num">Budget</th>
-                <th className="num">% budget</th>
-                <th className="num">ROS</th>
+                {intestazione("ad oggi", "Venduto dal primo del mese a ieri, esclusi annullati e rimborsati")}
+                {intestazione("al giorno", "Venduto diviso i giorni conclusi del mese")}
+                {intestazione("fine mese", "Proiezione: la media giornaliera moltiplicata per i giorni del mese")}
+                {intestazione("obiettivo", "Il piano vendite del mese, dal Monitoraggio")}
+                {intestazione("a che punto", "Stima di fine mese rispetto all'obiettivo")}
+                {intestazione("ad oggi", "Speso in pubblicità dal primo del mese a ieri", { borderLeft: BORDO })}
+                {intestazione("al giorno", "Speso diviso i giorni conclusi, con sotto quanto prevedrebbe il budget")}
+                {intestazione("fine mese", "Proiezione della spesa se il ritmo resta questo")}
+                {intestazione("budget", "Il budget pubblicitario del mese, dal Monitoraggio")}
+                {intestazione("a che punto", "Spesa stimata rispetto al budget: sopra il 100% si sfora")}
+                {intestazione("ROS", "Venduto diviso speso. Sotto: quanto lo prevede il piano", { borderLeft: BORDO })}
               </tr>
             </thead>
             <tbody>
@@ -130,11 +180,15 @@ export async function AndamentoMese({ anno, mese }: { anno?: number; mese?: numb
       )}
 
       <p className="cella-sub" style={{ marginTop: 12, whiteSpace: "normal" }}>
+        Le due metà si leggono nello stesso modo: <b>ad oggi</b>, <b>al giorno</b>, dove si finisce a{" "}
+        <b>fine mese</b>, l&apos;<b>obiettivo</b>, e <b>a che punto</b> siamo. A sinistra i soldi che
+        entrano, a destra quelli che escono.
+        <br /><br />
         Le medie si calcolano sui <b>giorni conclusi</b>: oggi è a metà — gli ordini arrivano fino a
-        mezzanotte e la spesa la manda lo script la sera — e includerlo tirerebbe giù il ritmo.
-        La stima di fine mese è una <b>proiezione lineare</b> del ritmo attuale: non sa niente di San
-        Valentino, del Natale o della settimana di Ferragosto, quindi va letta come «se il ritmo
-        resta questo», non come una previsione.
+        mezzanotte e la spesa la manda lo script la sera — e includerlo tirerebbe giù il ritmo. La
+        stima di fine mese è una <b>proiezione lineare</b>: non sa niente di San Valentino, del Natale
+        o della settimana di Ferragosto, quindi va letta come «se il ritmo resta questo», non come una
+        previsione.
       </p>
     </section>
   );

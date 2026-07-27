@@ -223,6 +223,17 @@ cd deluxy-marketing && npm run import:ordini-orders -- --annullati     # include
 - **Serve**: `ORDERS_API_KEY` (chiave di **sola lettura** creata in deluxy-orders con `npm run chiave -- deluxy-marketing`); opzionale `ORDERS_URL` (default `https://deluxy-orders.vercel.app`)
 - **Nota**: idempotente (upsert su negozio + id Shopify, con l'id ridotto al numero nudo per riconoscere anche gli ordini già importati da Shopify). Gli **annullati non arrivano** se non li si chiede: un annullato resta spesso "pagato" e gonfierebbe il fatturato. Netto merce, spedizione e sconto non esistono in Orders: sulle righe già presenti non vengono toccati.
 
+### import-pubblici-da-orders.mjs — deluxy-marketing
+Importa i **pubblici** dal registro centrale Orders: le 39 liste di clienti che Orders ricava dal comportamento d'acquisto (VIP, da riattivare, compra fiori, ha comprato per San Valentino…) diventano pubblici dell'app, pronti da caricare su Meta o Google come Customer Match.
+
+```bash
+cd deluxy-marketing && npm run import:pubblici-orders
+cd deluxy-marketing && npm run import:pubblici-orders -- --minimo 50   # salta le liste piccole
+```
+
+- **Serve**: `ORDERS_API_KEY` (sola lettura), come per gli ordini
+- **Nota**: idempotente. I pubblici nascono **"da creare"**: la lista esiste come segmento di clienti, non ancora come pubblico caricato su una piattaforma. Su un pubblico già presente lo **stato non si tocca** — l'import porta i numeri, non i giudizi. Ogni giro registra anche la misura del giorno, così la dimensione si legge nel tempo.
+
 ### import-ordini-shopify.mjs / carica-ordini-lotto.mjs — deluxy-marketing
 Import degli ordini Shopify nella sezione Ordini: il primo interroga l'Admin API dei negozi configurati, il secondo carica file JSON di ordini già scaricati (anche una cartella intera di pagine).
 

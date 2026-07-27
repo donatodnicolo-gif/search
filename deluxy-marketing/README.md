@@ -87,6 +87,9 @@ Variabili in `.env` (mai committato):
 - `npm run import:ordini-orders` — importa gli ordini di **tutti i brand** dal registro
   centrale Deluxy Orders (serve `ORDERS_API_KEY` di sola lettura). È la strada buona:
   Shopify si interroga una volta sola, da Orders.
+- `npm run import:pubblici-orders` — importa i pubblici (39 liste di clienti) dal
+  registro centrale Orders. Nascono "da creare": esistono come segmento, non ancora
+  come pubblico su Meta o Google.
 - `npm run import:monitoraggio -- "<file.xlsx>"` — importa il Monitoraggio (vendite, budget,
   settimane MKT 2025/2026, copy RSA). Idempotente.
 - `npm run db:seed-adv` — ricarica la conoscenza dei Definitivi (campagne 00.4, landing,

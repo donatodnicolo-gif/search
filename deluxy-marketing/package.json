@@ -21,7 +21,8 @@
     "importa": "node scripts/importa-dati.mjs",
     "configura-db": "node scripts/configura-db-condiviso.mjs",
     "vercel-build": "prisma generate && next build",
-    "import:ordini-orders": "node scripts/import-ordini-da-orders.mjs"
+    "import:ordini-orders": "node scripts/import-ordini-da-orders.mjs",
+    "import:pubblici-orders": "node scripts/import-pubblici-da-orders.mjs"
   },
   "prisma": {
     "seed": "node prisma/seed.mjs"
