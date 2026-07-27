@@ -180,7 +180,7 @@ maison e per mese, IVA inclusa come il budget), catalogo Hub aggiornato (id `bud
 
 **MANCA**:
 - **Anno unico 2026**: nessun selettore d'anno; il pluriennale 2027-30 (già nei file pubblicati) non è caricato.
-- **Proposte budget**: si raccolgono ma non si **approvano/consolidano** nel budget ufficiale.
+- **Proposte budget**: un Responsabile invia i suoi dodici mesi da /proposte/nuova; l admin apre la proposta (/proposte/[id]), vede il totale accanto a **quanto c e oggi a budget** sullo stesso ambito, **approva o respinge** con una nota, e in un **secondo gesto separato** la **consolida** nel budget ufficiale (BudgetEntry per le maison, TargetLinea per le linee). Approvare e consolidare sono distinti di proposito: una proposta si puo approvare e applicare in parte, piu tardi, o mai. Respingere **richiede una motivazione** (chi l ha scritta deve sapere cosa correggere), consolidare **richiede la voce di budget** su cui applicarla (una proposta per maison non dice se e D2C, Eventi o B2B: indovinarlo scriverebbe numeri nel posto sbagliato), e una proposta **globale non si consolida** perche il budget si scrive per maison o per linea. Ogni consolidamento lascia traccia sulla proposta (data e dove).
 - **Premi per singolo responsabile**: oggi è un monte premi totale per livello, non ripartito per persona/team.
 - **Consuntivo**: confronto solo dove la mappatura Finance è impostata. Il D2C reale ora arriva da
   Orders (per maison e per mese), ma i ricavi restano **su due basi diverse** — Finance imponibile,

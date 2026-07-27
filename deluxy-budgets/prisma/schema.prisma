@@ -216,6 +216,15 @@ model PropostaBudget {
   valori     String // JSON: [{month, valore}] × 12
   note       String?
   stato      String   @default("INVIATA") // BOZZA | INVIATA | APPROVATA | RESPINTA
+  // La risposta dell admin: chi manda un budget deve sapere se e stato preso e
+  // perche no, altrimenti la volta dopo non lo manda piu.
+  notaAdmin  String?
+  decisaIl   DateTime?
+  // Traccia della consolidazione: quando una proposta e stata scritta nel
+  // budget ufficiale, e su quale voce. Senza, nessuno sa se quel numero in
+  // /maison viene da una proposta o dal file di partenza.
+  consolidataIl DateTime?
+  consolidataSu String?
   createdAt  DateTime @default(now())
 }
 

@@ -22,6 +22,8 @@ export default async function Proposte() {
     prisma.lineaCommerciale.findMany(),
   ]);
 
+  const inAttesa = proposte.filter((x) => x.stato === "INVIATA").length;
+
   const nomeAmbito = (p: (typeof proposte)[number]) => {
     if (p.ambitoTipo === "GLOBALE") return "Tutta l'azienda";
     if (p.ambitoTipo === "MAISON") return maisons.find((m) => m.slug === p.ambitoSlug)?.nome ?? p.ambitoSlug;
@@ -42,10 +44,13 @@ export default async function Proposte() {
         <div>
           <h1 className="page-title">Proposte budget</h1>
           <p className="page-caption">
-            Ogni utente di livello Responsabile invia la propria proposta di budget {ANNO_CORRENTE}; qui si raccolgono e confrontano.
+            Ogni Responsabile invia qui la propria proposta di budget {ANNO_CORRENTE}. L'admin la apre, risponde e — se la prende — la <strong>consolida nel budget ufficiale</strong>. Finche' non e' consolidata, il budget pubblicato non cambia.
           </p>
         </div>
         <div className="page-actions">
+          {inAttesa > 0 && (
+            <span className="badge blue"><span className="dot" />{inAttesa} da leggere</span>
+          )}
           <Link className="btn primary" href="/proposte/nuova">Nuova proposta</Link>
         </div>
       </div>
@@ -77,7 +82,9 @@ export default async function Proposte() {
               <tbody>
                 {proposte.map((p) => (
                   <tr key={p.id}>
-                    <td style={{ fontWeight: 500 }}>{p.autore}</td>
+                    <td style={{ fontWeight: 500 }}>
+                      <Link href={`/proposte/${p.id}`} style={{ color: "var(--blue)" }}>{p.autore}</Link>
+                    </td>
                     <td className="muted">{p.ruolo}</td>
                     <td>{nomeAmbito(p)}</td>
                     <td className="num" style={{ fontWeight: 600 }}>{eur(totale(p))}</td>
