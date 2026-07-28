@@ -31,6 +31,7 @@ export default async function AnagraficaPage({
     categoria?: string;
     tipo?: string;
     fase?: string;
+    fornitore?: string;
     manca?: string;
     pagina?: string;
   }>;
@@ -48,6 +49,10 @@ export default async function AnagraficaPage({
     ];
   if (sp.categoria) where.categoria = sp.categoria;
   if (sp.tipo) where.tipoShopify = sp.tipo;
+  // Il «Venditore» di Shopify è il fornitore del prodotto: chi lo fa o lo
+  // porta. Sul pannello del negozio sta accanto al Tipo, e qui vale come lui —
+  // è un dato letto, non una nostra classificazione.
+  if (sp.fornitore) where.vendorShopify = sp.fornitore;
   if (sp.fase) where.fase = sp.fase;
   if (sp.manca === "costo") where.costoProduzione = { lte: 0 };
   if (sp.manca === "categoria") where.categoria = "DA_CLASSIFICARE";
@@ -55,10 +60,11 @@ export default async function AnagraficaPage({
   if (sp.manca === "tipo") where.tipoShopify = null;
   if (sp.manca === "esclusi") where.esclusoDaAnalisi = true;
   else if (sp.manca === "linea") where.lineaId = null;
+  else if (sp.manca === "fornitore") where.vendorShopify = null;
 
   const f = finestra(90);
 
-  const [prodotti, totale, tipi, venditePeriodo, categorie, linee, quantiEsclusi] = await Promise.all([
+  const [prodotti, totale, tipi, fornitori, venditePeriodo, categorie, linee, quantiEsclusi] = await Promise.all([
     prisma.prodotto.findMany({
       where,
       orderBy: [{ nome: "asc" }],
@@ -77,6 +83,12 @@ export default async function AnagraficaPage({
       distinct: ["tipoShopify"],
       select: { tipoShopify: true },
       orderBy: { tipoShopify: "asc" },
+    }),
+    prisma.prodotto.findMany({
+      where: { vendorShopify: { not: null } },
+      distinct: ["vendorShopify"],
+      select: { vendorShopify: true },
+      orderBy: { vendorShopify: "asc" },
     }),
     prisma.vendita.groupBy({
       by: ["prodottoId"],
@@ -139,6 +151,14 @@ export default async function AnagraficaPage({
               </option>
             ))}
           </select>
+          <select name="fornitore" defaultValue={sp.fornitore ?? ""} aria-label="Fornitore">
+            <option value="">Tutti i fornitori</option>
+            {fornitori.map((v) => (
+              <option key={v.vendorShopify as string} value={v.vendorShopify as string}>
+                {v.vendorShopify}
+              </option>
+            ))}
+          </select>
           <select name="fase" defaultValue={sp.fase ?? ""} aria-label="Fase">
             <option value="">Tutte le fasi</option>
             {FASI_PLM.map((x) => (
@@ -153,6 +173,7 @@ export default async function AnagraficaPage({
             <option value="categoria">Da classificare</option>
             <option value="tipo">Senza tipo da Shopify</option>
             <option value="linea">Senza linea</option>
+            <option value="fornitore">Senza fornitore</option>
             <option value="collezione">Fuori da ogni collezione Shopify</option>
             <option value="esclusi">Esclusi dalle analisi{quantiEsclusi ? ` (${quantiEsclusi})` : ""}</option>
           </select>
@@ -173,7 +194,8 @@ export default async function AnagraficaPage({
               <thead>
                 <tr>
                   <th>Prodotto</th>
-                  <th>Tipo su Shopify</th>
+                  <th>Fornitore</th>
+                  <th>Categoria dal negozio</th>
                   <th style={{ minWidth: 260 }}>Categoria e linea</th>
                   <th>Varianti e SKU</th>
                   <th className="num">Prezzo</th>
@@ -192,12 +214,18 @@ export default async function AnagraficaPage({
                         <Link href={`/prodotti/${p.id}`} className="cella-nome link-riga">
                           {p.nome}
                         </Link>
-                        <div className="cella-sub">
-                          {p.codice}
-                          {p.vendorShopify ? ` · ${p.vendorShopify}` : ""}
-                        </div>
+                        <div className="cella-sub">{p.codice}</div>
                       </td>
-                      <td className="cella-muta">{p.tipoShopify ?? "—"}</td>
+                      {/* Fornitore = «Venditore» di Shopify, e categoria = «Tipo»:
+                          i due campi che sul negozio stanno nel riquadro
+                          «Organizzazione del prodotto». Sono letti, non decisi qui. */}
+                      <td className="cella-muta">{p.vendorShopify ?? "—"}</td>
+                      <td className="cella-muta">
+                        {p.tipoShopify ?? "—"}
+                        {p.categoriaShopifyNome && p.categoriaShopifyNome !== "Uncategorized" && (
+                          <div className="cella-sub">{p.categoriaShopifyNome}</div>
+                        )}
+                      </td>
                       <td>
                         {/* Si classifica da qui, senza aprire la scheda: con
                             migliaia di prodotti da sistemare, un giro in meno
