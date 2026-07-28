@@ -26,6 +26,98 @@ export function nomeRaggruppamento(chiave: string): string | undefined {
   return RAGGRUPPAMENTI.find((r) => r.chiave === chiave)?.nome;
 }
 
+/** I campi del prodotto che servono per collocarlo in un gruppo. */
+export const CAMPI_PER_GRUPPO = {
+  id: true,
+  vendorShopify: true,
+  tipoShopify: true,
+  categoria: true,
+  lineaId: true,
+  prezzoVendita: true,
+  costoProduzione: true,
+  esclusoDaAnalisi: true,
+} as const;
+
+export type ProdottoDaCollocare = {
+  id: string;
+  vendorShopify: string | null;
+  tipoShopify: string | null;
+  categoria: string;
+  lineaId: string | null;
+  prezzoVendita: number;
+  costoProduzione: number;
+  esclusoDaAnalisi: boolean;
+};
+
+/** I nomi che servono per tradurre chiavi in etichette (categorie, linee, fasce). */
+export async function vocabolario() {
+  const [categorie, linee, fasce] = await Promise.all([elencoCategorie(), elencoLinee(), elencoFasce()]);
+  return {
+    fasce,
+    nomeCategoria: new Map(categorie.map((c) => [c.chiave, c.nome])),
+    nomeLinea: new Map(linee.map((l) => [l.id, l.nome])),
+    ordineFascia: new Map(fasce.map((x, i) => [x.nome, i])),
+  };
+}
+export type Vocabolario = Awaited<ReturnType<typeof vocabolario>>;
+
+export type Voce = {
+  chiave: string;
+  etichetta: string;
+  sotto: string | null;
+  filtro: Record<string, string>;
+  /** Posto naturale della voce: serve alle fasce, che sono una scala. */
+  ordine: number;
+};
+
+/**
+ * Dove va un prodotto secondo una certa lente. Sta in un posto solo perché la
+ * usano sia i raggruppamenti (una lente) sia le griglie (due lenti incrociate):
+ * se le etichette divergessero, la stessa cosa avrebbe due nomi.
+ */
+export function voceDi(p: ProdottoDaCollocare, per: ChiaveRaggruppamento, v: Vocabolario): Voce {
+  const filtro: Record<string, string> = {};
+  let etichetta: string;
+  let sotto: string | null = null;
+  let ordine = 0;
+
+  const vendor = p.vendorShopify;
+  const tipo = p.tipoShopify;
+  if (per === "fornitore" || per === "fornitore-tipo") {
+    etichetta = vendor ?? "— senza fornitore —";
+    if (vendor) filtro.fornitore = vendor;
+    else filtro.manca = "fornitore";
+  } else if (per === "tipo") {
+    etichetta = tipo ?? "— senza categoria dal negozio —";
+    if (tipo) filtro.tipo = tipo;
+    else filtro.manca = "tipo";
+  } else if (per === "categoria") {
+    etichetta = v.nomeCategoria.get(p.categoria) ?? p.categoria;
+    filtro.categoria = p.categoria;
+  } else if (per === "fascia") {
+    // La fascia non è scritta sul prodotto: è quella in cui **cade il suo
+    // prezzo**. Chi non ha prezzo non è «economico», è senza prezzo.
+    const fa = fasciaDi(p.prezzoVendita, v.fasce);
+    etichetta = fa ? fa.nome : SENZA_PREZZO;
+    sotto = fa ? confini(fa) : "prezzo non ancora compilato";
+    ordine = fa ? v.ordineFascia.get(fa.nome) ?? 900 : 999;
+    if (fa) filtro.fascia = fa.id;
+    else filtro.manca = "prezzo";
+  } else {
+    etichetta = p.lineaId ? v.nomeLinea.get(p.lineaId) ?? "Linea sconosciuta" : "— senza linea —";
+    if (p.lineaId) filtro.linea = p.lineaId;
+    else filtro.manca = "linea";
+  }
+
+  if (per === "fornitore-tipo") {
+    sotto = tipo ?? "— senza categoria dal negozio —";
+    if (tipo) filtro.tipo = tipo;
+    else if (!filtro.manca) filtro.manca = "tipo";
+    return { chiave: `${vendor ?? ""}||${tipo ?? ""}`, etichetta, sotto, filtro, ordine };
+  }
+  return { chiave: etichetta, etichetta, sotto, filtro, ordine };
+}
+
 export type Gruppo = {
   chiave: string;
   etichetta: string;
@@ -63,78 +155,21 @@ export async function calcolaGruppi({
   giorni?: number;
 }): Promise<Gruppo[]> {
   const f = finestra(giorni);
-  const [prodotti, vendite, categorie, linee, fasce] = await Promise.all([
-    prisma.prodotto.findMany({
-      where,
-      select: {
-        id: true,
-        vendorShopify: true,
-        tipoShopify: true,
-        categoria: true,
-        lineaId: true,
-        prezzoVendita: true,
-        costoProduzione: true,
-        esclusoDaAnalisi: true,
-      },
-    }),
+  const [prodotti, vendite, voc] = await Promise.all([
+    prisma.prodotto.findMany({ where, select: CAMPI_PER_GRUPPO }),
     prisma.vendita.groupBy({
       by: ["prodottoId"],
       where: { data: { gte: f.dal, lte: f.al }, ...FILTRO_BUON_FINE, ...(brand ? { canale: brand } : {}) },
       _sum: { quantita: true, ricavo: true },
     }),
-    elencoCategorie(),
-    elencoLinee(),
-    elencoFasce(),
+    vocabolario(),
   ]);
-  const ordineFascia = new Map(fasce.map((x, i) => [x.nome, i]));
 
   const venduto = new Map(vendite.map((v) => [v.prodottoId as string, v]));
-  const nomeCategoria = new Map(categorie.map((c) => [c.chiave, c.nome]));
-  const nomeLinea = new Map(linee.map((l) => [l.id, l.nome]));
 
   const mappa = new Map<string, Gruppo>();
   for (const p of prodotti) {
-    let chiave: string;
-    let etichetta: string;
-    let sotto: string | null = null;
-    const filtro: Record<string, string> = {};
-
-    const vendor = p.vendorShopify;
-    const tipo = p.tipoShopify;
-    if (per === "fornitore" || per === "fornitore-tipo") {
-      etichetta = vendor ?? "— senza fornitore —";
-      if (vendor) filtro.fornitore = vendor;
-      else filtro.manca = "fornitore";
-    } else if (per === "tipo") {
-      etichetta = tipo ?? "— senza categoria dal negozio —";
-      if (tipo) filtro.tipo = tipo;
-      else filtro.manca = "tipo";
-    } else if (per === "categoria") {
-      etichetta = nomeCategoria.get(p.categoria) ?? p.categoria;
-      filtro.categoria = p.categoria;
-    } else if (per === "fascia") {
-      // La fascia non è scritta sul prodotto: è quella in cui **cade il suo
-      // prezzo**. Chi non ha prezzo non è «economico», è senza prezzo.
-      const fa = fasciaDi(p.prezzoVendita, fasce);
-      etichetta = fa ? fa.nome : SENZA_PREZZO;
-      sotto = fa ? confini(fa) : "prezzo non ancora compilato";
-      if (fa) filtro.fascia = fa.id;
-      else filtro.manca = "prezzo";
-    } else {
-      etichetta = p.lineaId ? nomeLinea.get(p.lineaId) ?? "Linea sconosciuta" : "— senza linea —";
-      if (p.lineaId) filtro.linea = p.lineaId;
-      else filtro.manca = "linea";
-    }
-
-    if (per === "fornitore-tipo") {
-      sotto = tipo ?? "— senza categoria dal negozio —";
-      if (tipo) filtro.tipo = tipo;
-      else if (!filtro.manca) filtro.manca = "tipo";
-      chiave = `${vendor ?? ""}||${tipo ?? ""}`;
-    } else {
-      chiave = etichetta;
-    }
-
+    const { chiave, etichetta, sotto, filtro } = voceDi(p, per, voc);
     let g = mappa.get(chiave);
     if (!g) {
       g = { chiave, etichetta, sotto, filtro, prodotti: 0, esclusi: 0, senzaCosto: 0, ricavo: 0, quantita: 0 };
@@ -156,7 +191,7 @@ export async function calcolaGruppi({
   // Per le fasce «in ordine» vuol dire dal prezzo più basso al più alto, non in
   // ordine alfabetico: una scala di prezzi messa in ordine di lettere non è una
   // scala. Chi non ha prezzo va in fondo, perché non sta su nessuno scalino.
-  const postoFascia = (g: Gruppo) => ordineFascia.get(g.etichetta) ?? 999;
+  const postoFascia = (g: Gruppo) => voc.ordineFascia.get(g.etichetta) ?? 999;
   gruppi.sort(
     ordina === "nome"
       ? per === "fascia"

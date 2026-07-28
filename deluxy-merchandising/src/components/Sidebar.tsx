@@ -26,6 +26,7 @@ export async function Sidebar({
     | "categorie"
     | "linee"
     | "fasce"
+    | "griglie"
     | "classificazione"
     | "sviluppo"
     | "costi"
@@ -124,6 +125,9 @@ export async function Sidebar({
           {voce("categorie", "/categorie", "collezioni", "Per categoria", tipi.length)}
           {voce("linee", "/linee", "collezioni", "Per linea", nLinee)}
           {voce("fasce", "/fasce", "costi", "Per fascia di prezzo", nFasce)}
+          {/* Le griglie incrociano due di queste lenti: stanno qui sotto perché
+              è lo stesso mestiere, guardato da due parti insieme. */}
+          {voce("griglie", "/griglie", "classifiche", "Griglie")}
           {voce("classificazione", "/classificazione", "collezioni", "Categorie, linee, collezioni")}
           {voce("sviluppo", "/sviluppo", "sviluppo", "Sviluppo", nInSviluppo)}
           {voce("costi", "/costi", "costi", "Costi & margini")}
