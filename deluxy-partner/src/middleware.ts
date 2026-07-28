@@ -48,6 +48,9 @@ export const config = {
     // da sé con la firma HMAC. Dentro il middleware riceverebbe un redirect al
     // login, e Transactions leggerebbe HTML credendo che la notifica sia andata
     // a buon fine.
-    "/((?!login|api/sso|api/fic/callback|api/shopify|api/verifiche|api/fatture|api/proforma|api/tipologie|api/incassi|api/tasks|api/riepilogo-finanziario|api/clienti|api/spese|api/pagamenti/notifica|api/cron|_next/static|_next/image|favicon.ico).*)",
+    // `api/health` è il controllo di salute letto dalla pagina Stato servizi
+    // del Hub, che non ha una sessione di questa app: risponde solo se il
+    // server e il database rispondono, nessun dato contabile.
+    "/((?!login|api/health|api/sso|api/fic/callback|api/shopify|api/verifiche|api/fatture|api/proforma|api/tipologie|api/incassi|api/tasks|api/riepilogo-finanziario|api/clienti|api/spese|api/pagamenti/notifica|api/cron|_next/static|_next/image|favicon.ico).*)",
   ],
 };

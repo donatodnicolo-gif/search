@@ -104,9 +104,52 @@ Dato salvato: `Utente.appAbilitate String[]` (id delle app), vedi
 | [`src/lib/actions.ts`](src/lib/actions.ts) | login, logout, CRUD utenti, cambio password |
 | [`src/lib/session.ts`](src/lib/session.ts) | cookie firmato HMAC (`dh_session`), validato dal middleware |
 | [`src/lib/password.ts`](src/lib/password.ts) | hash `scrypt` (`salt:hash`) |
-| [`src/middleware.ts`](src/middleware.ts) | blocca chi non è loggato; `/utenti` solo admin |
+| [`src/middleware.ts`](src/middleware.ts) | blocca chi non è loggato; `/utenti`, `/chiavi`, `/stato` solo admin |
 | [`src/components/AppIcon.tsx`](src/components/AppIcon.tsx) | glifi SVG delle app |
 | [`src/app/{page,login,utenti,profilo}`](src/app) | home, login, gestione utenti, profilo |
+| [`src/lib/stato-servizi.ts`](src/lib/stato-servizi.ts) | interroga l'health di ogni app del catalogo (server + database) |
+| [`src/app/stato`](src/app/stato) | pagina **Stato servizi** (admin) |
+| [`src/app/api/health`](src/app/api/health) | health-check del Hub stesso |
+
+---
+
+## 5-bis. Stato servizi (28 luglio 2026)
+
+Pagina **`/stato`**, solo admin (link «Stato» nella barra in alto): per ogni app del
+catalogo mostra due semafori — **server su/giù** e **database ok/ko** — con il motivo
+del guasto, il link e la latenza. Si ricontrolla a ogni visita (`force-dynamic`,
+`maxDuration = 60`), tutte le app in parallelo con timeout di 6 secondi ciascuna.
+
+**Come fa il Hub a sapere del database altrui:** non lo sa e non deve saperlo. Ogni app
+espone un health-check e il Hub lo legge. Convenzione (standard Deluxy):
+
+```
+GET /api/health  →  { ok: boolean, app: "<id>", database: boolean }
+```
+
+pubblico, `no-store`, dove `database` è il risultato di un `SELECT 1` vero — non basta
+che il processo sia vivo: senza database l'app non serve a nulla. Chi ha già
+`/api/v1/health` viene letto lì (ripiego automatico); chi non ha nulla risulta
+«database non verificato», non «rotto».
+
+**Tre cose da non rompere:**
+
+1. **`/api/health` deve stare fuori dal middleware dell'app**, altrimenti risponde con
+   la pagina di login e il Hub legge HTML al posto del JSON. È stato il primo intoppo:
+   sei app su nove lo bloccavano. In alcune l'esclusione è nel `matcher`, in altre è un
+   `return` anticipato — dipende da com'è scritto quel middleware.
+2. **`ok: false` non è una risposta da scartare**: è un'app che dice di stare male, ed è
+   esattamente ciò che questa pagina deve mostrare. Si ripiega solo quando manca il
+   campo `ok` (cioè non è un health). Prima non era così e AI Mail, che era guasta,
+   compariva come sana.
+3. **Un database che legge ma non scrive è guasto lo stesso** (`scrivibile: false`):
+   con Supabase capita quando il progetto va in sola lettura e l'app sembra viva mentre
+   non salva più niente. La pagina lo segna rosso.
+
+Stato al 28/07: verdi Hub, Finance, Budgets, Anagrafiche, Marketing, Merchandising,
+Messaggi, Orders, Transactions. **Rossa AI Mail** (database non raggiungibile).
+«Non verificato» per Calendario, Tasks (health senza campo `database`), Consegne,
+Scout, Ricerca fornitori, Maison.
 
 ---
 

@@ -27,6 +27,9 @@ export function Topbar({ sessione }: { sessione: Sessione }) {
             <Link href="/chiavi" className="btn ghost">
               Chiavi
             </Link>
+            <Link href="/stato" className="btn ghost">
+              Stato
+            </Link>
           </>
         )}
         <Link href="/profilo" className="btn ghost">

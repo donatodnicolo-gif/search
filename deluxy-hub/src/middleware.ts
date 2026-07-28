@@ -16,9 +16,12 @@ export async function middleware(req: NextRequest) {
     return risposta;
   }
 
-  // Gestione utenti e chiavi dei progetti: solo per gli amministratori.
+  // Gestione utenti, chiavi dei progetti e stato dei servizi: solo per gli
+  // amministratori.
   const soloAdmin =
-    req.nextUrl.pathname.startsWith("/utenti") || req.nextUrl.pathname.startsWith("/chiavi");
+    req.nextUrl.pathname.startsWith("/utenti") ||
+    req.nextUrl.pathname.startsWith("/chiavi") ||
+    req.nextUrl.pathname.startsWith("/stato");
   if (soloAdmin && sessione.ruolo !== "admin") {
     return NextResponse.redirect(new URL("/", req.url));
   }

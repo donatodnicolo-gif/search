@@ -1,6 +1,13 @@
 # Handoff — Deluxy Transactions
 
-Aggiornato: **26 luglio 2026**
+Aggiornato: **28 luglio 2026**
+
+> ⚠️ **Leggi prima questo.** Il codice su `scout-ui` è **avanti rispetto alla
+> produzione**: i tre commit del cancello sui pagamenti (`bddbe50`, `c1299a7`,
+> `fee50bc`) **non sono mai stati pubblicati**, e la migrazione del database è a
+> metà. In produzione gira ancora la versione del 26/07 senza sblocco: **il file
+> SEPA si scarica senza codice né PIN**. La sequenza per allinearsi è in
+> «Punti aperti» in fondo a questo documento — e l'ordine conta.
 
 ## Dove si lavora
 
@@ -201,6 +208,47 @@ detta a chi le usa.
   altrimenti si può far firmare una cosa e pagarne un'altra.
 - Gli script `scripts/*.mjs` ripetono la cifratura invece di importarla da
   `src/lib/crypto.ts`: se cambia l'algoritmo là, vanno allineati anche loro.
+
+## Punti aperti al 28/07/2026
+
+Nell'ordine in cui vanno chiusi. I primi due sono **bloccanti**: finché non si
+fanno, tutto il resto è codice che non gira.
+
+1. **Migrare il database** — mancano le colonne di Qonto su `Richiesta`
+   (`pagatoCon`, `qontoTransferId`, `qontoStato`, `qontoMovimentoId`). La
+   tabella `SbloccoPagamento` e le colonne del PIN ci sono già.
+   `npx prisma db push --accept-data-loss` (il diff è solo additivo: nessun dato
+   può andare perso, il flag ha un nome peggiore di quello che fa).
+2. **Pubblicare** — `npx vercel deploy --prod --yes`. **Dopo** il punto 1: al
+   contrario, il codice nuovo interroga colonne che non esistono e le pagine
+   delle richieste vanno in errore. Entrambi i comandi vanno lanciati
+   dall'utente: in sessione sono stati bloccati dal classifier.
+3. **SMTP su Vercel** (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`,
+   `SMTP_FROM`). Senza, il codice di sblocco non parte e **non esce un euro**.
+4. **Il pagatore non esiste come operatore**: `pagatoreEmail` vale
+   `nicolo.donato@deluxy.it`, ma l'unico operatore è `deluxy.delivery@gmail.com`
+   (admin, creato il 26/07). O si crea l'operatore con quell'email, o si cambia
+   `pagatoreEmail` in Impostazioni. Finché non si fa, nessuno può pagare.
+5. **PIN del pagatore** da `/pin`, con password e TOTP. Nessun altro lo può
+   mettere al posto suo.
+6. **Chiavi Qonto** da Impostazioni → Collegamento alla banca; poi rendere
+   *fidati* in Qonto i beneficiari; poi accendere l'interruttore. **Il percorso
+   VoP → bonifico non è mai stato eseguito contro l'API vera**: il primo giro va
+   fatto con una cifra piccola verso un beneficiario proprio.
+7. **Link «vai a pagare»**: compilare in Impostazioni l'indirizzo della pagina
+   di caricamento del file SEPA (il portale è già precompilato).
+8. **Chiavi API delle app**: create il 26/07 per `deluxy-partner`,
+   `deluxy-messaging`, `deluxy-acquisti` (valori consegnati su file). Restano da
+   mettere nelle variabili d'ambiente delle rispettive app e, soprattutto, **da
+   usare**: nessuna delle tre chiama ancora queste API. Primo candidato Finance.
+9. **Un secondo pagatore di riserva**: oggi il potere di pagare sta su una sola
+   casella email e un solo PIN. Se si perde l'accesso, l'azienda non paga
+   nessuno. Proposto all'utente, non ancora deciso.
+10. **Password del database**: l'utente dice di averla cambiata, ma il `.env`
+    del 26/07 si connette ancora — probabilmente ha cambiato la password
+    dell'account Supabase, non quella del database. Se la ruota davvero, vanno
+    aggiornate `DATABASE_URL` e `DIRECT_URL` di **dieci app** (stesso progetto
+    `zegbztfxisqeowngvgvh`), in locale e su Vercel.
 
 ## Da fare al prossimo commit che cambia comportamento
 
