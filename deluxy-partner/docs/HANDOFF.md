@@ -219,6 +219,14 @@ Decisione utente: i **pagamenti** (esecuzione/richiesta) si faranno in una **nuo
 
 **Cosa è tracciato**: le mutazioni di valore in `actions.ts` (partner crea/modifica, fatture crea/modifica/elimina/saldata/compensata, vendite crea/modifica/elimina, fee, note e pagamenti del mese), `transazioni-actions` (riconciliazioni), `proforma-actions` (crea + cambio stato), `pagamenti-actions` (predisposto + eseguito), `tasks-actions` (crea + stato), regole degli stati e i salvataggi principali di Impostazioni. Per aggiungerne altre: importare `registra({azione, categoria, entita?, entitaId?, partner?, dettaglio?})` e chiamarla prima del `redirect`. **Non ancora tracciate**: alcune azioni minori (ignora/ripristina transazione, elimina task/pro-forma, Shopify, riconciliazione anagrafiche).
 
+**Errori di Fatture in Cloud leggibili (28/07/2026).** `FicError` non mostra piu il JSON grezzo
+troncato: legge `error.validation_result` — dove sta il motivo vero, mentre `message` e quasi sempre
+«Invalid request.» — e traduce i nomi dei campi in italiano («partita IVA del cliente», «metodo di
+pagamento»). In piu `ficCreaFattura` controlla PRIMA di chiamare che il cliente creato al volo abbia
+partita IVA o codice fiscale **e** codice destinatario o PEC: senza, la fattura ELETTRONICA viene
+rifiutata, e l errore dice quale dato manca e dove aggiungerlo invece di rimbalzare l operatore su un
+messaggio del fornitore.
+
 **Trappola: «metodo di pagamento obbligatorio» (27/07/2026).** Creare una fattura si fermava con
 quell errore. Causa: il payload di `ficCreaFattura` non conteneva `payment_method`. Su una fattura
 **elettronica** non e un dettaglio estetico — e la `ModalitaPagamento` che pretende lo SDI (bonifico =

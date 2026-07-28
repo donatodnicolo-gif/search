@@ -102,9 +102,58 @@ async function ficAccessToken(): Promise<string> {
 }
 
 /** Errore di Fatture in Cloud con lo stato HTTP, per distinguere il 429. */
+// Come si chiamano, in italiano, i campi che Fatture in Cloud rifiuta. Senza
+// questa traduzione l'errore che arriva all'operatore è il JSON grezzo di FIC
+// («data.entity.vat_number: The field is required»), che non dice né cosa
+// manca né dove metterlo — e la fattura resta lì.
+const CAMPI_FIC: Record<string, string> = {
+  "entity.vat_number": "partita IVA del cliente",
+  "entity.tax_code": "codice fiscale del cliente",
+  "entity.name": "ragione sociale del cliente",
+  "entity.ei_code": "codice destinatario (SDI) del cliente",
+  "entity.certified_email": "PEC del cliente",
+  "entity.address_street": "indirizzo del cliente",
+  "entity.address_postal_code": "CAP del cliente",
+  "entity.address_city": "città del cliente",
+  "entity.country": "paese del cliente",
+  payment_method: "metodo di pagamento",
+  "payment_method.id": "metodo di pagamento",
+  payments_list: "scadenza di pagamento",
+  date: "data del documento",
+  items_list: "righe della fattura",
+  type: "tipo di documento",
+  e_invoice: "fattura elettronica",
+};
+
+/** Trasforma la risposta d'errore di FIC in una frase leggibile.
+ *  FIC risponde `{error:{message, validation_result:{campo:[messaggi]}}}`: è lì
+ *  che sta il motivo vero, mentre `message` è quasi sempre «Invalid request.». */
+function leggibile(stato: number, testo: string): string {
+  try {
+    const j = JSON.parse(testo) as {
+      error?: { message?: string; validation_result?: Record<string, string[] | string> };
+    };
+    const vr = j.error?.validation_result;
+    if (vr && typeof vr === "object") {
+      const voci = Object.keys(vr).map((k) => {
+        const pulito = k.replace(/^data\./, "");
+        return CAMPI_FIC[pulito] ?? pulito;
+      });
+      const unici = [...new Set(voci)];
+      if (unici.length > 0) {
+        return `Fatture in Cloud ha rifiutato la fattura. Manca o non è valido: ${unici.join(" · ")}.`;
+      }
+    }
+    if (j.error?.message) return `Fatture in Cloud: ${j.error.message}`;
+  } catch {
+    // non era JSON: si mostra il testo com'è, meglio di niente
+  }
+  return `Fatture in Cloud ha risposto ${stato}: ${testo}`;
+}
+
 export class FicError extends Error {
   constructor(readonly stato: number, readonly percorso: string, readonly dettaglio: string) {
-    super(`Fatture in Cloud ${percorso} → ${stato}: ${dettaglio}`);
+    super(leggibile(stato, dettaglio));
     this.name = "FicError";
   }
   /** true se FIC ha rifiutato per troppe richieste (rate limit). */
@@ -543,6 +592,26 @@ export async function ficCreaFattura(opts: {
     (a, r) => a + (r.quantita ?? 1) * r.prezzoUnitario * (1 + (r.aliquotaIva ?? 22) / 100),
     0
   );
+
+  // DATI FISCALI DEL CLIENTE — si controllano PRIMA di chiamare FIC.
+  // Una fattura elettronica senza partita IVA/codice fiscale, o senza un
+  // recapito per lo SDI, viene rifiutata: intercettarlo qui permette di dire
+  // QUALE dato manca e DOVE aggiungerlo, invece di rimbalzare l'operatore su un
+  // errore del fornitore. Il controllo vale solo per il cliente creato al volo:
+  // se si sceglie un cliente già in rubrica, i suoi dati stanno su FIC.
+  if (opts.entity) {
+    const e = opts.entity as Record<string, unknown>;
+    const mancanti: string[] = [];
+    if (!e.vat_number && !e.tax_code) mancanti.push("partita IVA o codice fiscale");
+    if (!e.ei_code && !e.certified_email) mancanti.push("codice destinatario (SDI) o PEC");
+    if (mancanti.length > 0) {
+      throw new Error(
+        `Non si può emettere la fattura elettronica a «${String(e.name ?? "")}»: manca ${mancanti.join(" e ")}. ` +
+          "Se è un partner Deluxy, completa i dati nel registro Anagrafiche e ricollega la scheda; " +
+          "altrimenti compilali qui in «Cliente nuovo»."
+      );
+    }
+  }
 
   // METODO DI PAGAMENTO — obbligatorio su una fattura elettronica: è la
   // `ModalitaPagamento` che lo SDI pretende (bonifico = MP05). Se chi chiama
