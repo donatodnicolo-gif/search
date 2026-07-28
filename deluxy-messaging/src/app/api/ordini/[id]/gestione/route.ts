@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { gestioneValida } from '@/lib/gestione'
+import { utenteCorrente } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
 
@@ -19,9 +20,19 @@ export async function POST(req: NextRequest, { params }: Params) {
   const esistente = await db.ordine.findUnique({ where: { id } })
   if (!esistente) return NextResponse.json({ errore: 'Ordine non trovato' }, { status: 404 })
 
+  // CHI ha spuntato l ordine. Serve perche «Gestito» toglie l ordine dalla
+  // lista di lavoro: e l unica azione che fa sparire del lavoro, e finora
+  // spariva senza lasciare un nome. Con cinque ordini segnati in un giorno e
+  // nessuno che se lo ricordava, la domanda «chi e stato» non aveva risposta.
+  const utente = await utenteCorrente()
   const ordine = await db.ordine.update({
     where: { id },
-    data: { gestione, gestioneIl: new Date() },
+    data: {
+      gestione,
+      gestioneIl: new Date(),
+      gestioneDaId: utente?.id ?? '',
+      gestioneDaNome: utente?.nome ?? '',
+    },
   })
   return NextResponse.json({ ordine })
 }

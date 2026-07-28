@@ -30,6 +30,10 @@ type OrdineDto = {
   contattoSalvato: boolean
   contattoEsito: string
   gestione: string
+  // Chi ha cambiato lo stato l'ultima volta, e quando. Vuoto sugli ordini
+  // segnati prima di questa modifica: si parte da adesso, non si indovina.
+  gestioneDaNome: string
+  gestioneIl: string | null
   clienteTipo: string
   clienteTipoDa: string
   // Che numero ha questo ordine per quel cliente (1 = il suo primo), contato da
@@ -1067,7 +1071,15 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
                               color: coloreGestione(o.gestione),
                               background: 'var(--fill)',
                             }}
-                            title="Come stiamo lavorando questo ordine"
+                            title={
+                              o.gestioneDaNome
+                                ? `${nomeGestione(o.gestione)} — segnato da ${o.gestioneDaNome}${
+                                    o.gestioneIl
+                                      ? ' il ' + new Date(o.gestioneIl).toLocaleString('it-IT')
+                                      : ''
+                                  }`
+                                : 'Come stiamo lavorando questo ordine'
+                            }
                           >
                             {nomeGestione(o.gestione)}
                           </span>

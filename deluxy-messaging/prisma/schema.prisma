@@ -247,6 +247,15 @@ model Ordine {
   // comunicazione | gestito. Lo scarico da Orders non lo tocca mai.
   gestione       String   @default("da_gestire")
   gestioneIl     DateTime?
+  // CHI ha cambiato lo stato l ultima volta. Il nome e denormalizzato apposta:
+  // la lista lo mostra su ogni riga e un join per ottenere un nome sarebbe
+  // sproporzionato; e se un giorno quell utente viene cancellato, resta scritto
+  // chi aveva spuntato l ordine invece di un id orfano.
+  //
+  // Vuoto sui 950 ordini gia in tabella: parte da ora. Non si indovina a
+  // posteriori - meglio non saperlo che attribuirlo alla persona sbagliata.
+  gestioneDaId   String   @default("")
+  gestioneDaNome String   @default("")
   creatoIl       DateTime @default(now())
 
   @@unique([negozioId, shopifyId]) // dedup per-negozio: il gid è unico solo lì
