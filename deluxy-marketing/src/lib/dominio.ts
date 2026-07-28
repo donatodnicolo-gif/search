@@ -49,6 +49,18 @@ export const ETICHETTA_CANALE: Record<string, string> = {
   altro: "Altro",
 };
 
+export const COLORE_CANALE: Record<string, string> = {
+  google_ads: "#1a73e8",
+  meta_ads: "#0866ff",
+  tiktok: "#111111",
+  email: "var(--text-secondary)",
+  sito: "var(--text-secondary)",
+  seo: "var(--text-secondary)",
+  crm: "var(--text-secondary)",
+  social: "var(--text-secondary)",
+  altro: "var(--text-tertiary)",
+};
+
 export const TIPI_ANALISI = [
   "audit_google",
   "audit_meta",

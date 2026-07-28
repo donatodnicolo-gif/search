@@ -8,6 +8,7 @@ import { mer, numeriBrand, quotaPagato, roasPiattaforma, scostamentoAttribuzione
 import { prisma } from "@/lib/db";
 import {
   BRANDS,
+  COLORE_CANALE,
   COLORE_ALERT,
   COLORE_BRAND,
   COLORE_ESITO,
@@ -49,7 +50,7 @@ export default async function PaginaBrand({
   searchParams,
 }: {
   params: Promise<{ brand: string }>;
-  searchParams: Promise<{ preset?: string; da?: string; a?: string }>;
+  searchParams: Promise<{ preset?: string; da?: string; a?: string; ord?: string; verso?: string }>;
 }) {
   const { brand } = await params;
   if (!(BRANDS as readonly string[]).includes(brand)) notFound();
@@ -111,6 +112,39 @@ export default async function PaginaBrand({
   const scost = scostamentoAttribuzione(ora);
   const ultimoAudit = analisi.find((a) => a.tipo.startsWith("audit_"));
   const traino = campagne.filter((c) => c.classe === "traino");
+
+  // ORDINAMENTO DELLE COLONNE. Il verso si ricorda: ripremere la stessa
+  // colonna rovescia l'ordine, che è quello che uno si aspetta da una tabella.
+  // Il difetto resta la spesa in giù: davanti a una lista di campagne la prima
+  // domanda è dove stanno andando i soldi.
+  const ord = sp.ord ?? "spesa";
+  const verso = sp.verso === "su" ? "su" : "giu";
+  const linkOrd = (colonna: string) => {
+    const q = new URLSearchParams();
+    if (sp.preset) q.set("preset", sp.preset);
+    if (sp.da) q.set("da", sp.da);
+    if (sp.a) q.set("a", sp.a);
+    q.set("ord", colonna);
+    // Stessa colonna → si rovescia; colonna nuova → si parte dal verso utile
+    // (grande-piccolo per i numeri, A-Z per il testo).
+    const numerica = ["spesa", "conv", "roas"].includes(colonna);
+    q.set("verso", ord === colonna ? (verso === "giu" ? "su" : "giu") : numerica ? "giu" : "su");
+    return `/brand/${brand}?${q.toString()}`;
+  };
+  const frecciaOrd = (colonna: string) => (ord === colonna ? (verso === "giu" ? " ↓" : " ↑") : "");
+  const ordinatore = (
+    a: { c: { nome: string; canale: string; stato: string }; spesa: number; ric: number; conv: number },
+    b: typeof a
+  ) => {
+    const segno = verso === "giu" ? -1 : 1;
+    const resa = (x: typeof a) => (x.spesa > 0 ? x.ric / x.spesa : -1);
+    if (ord === "nome") return segno * a.c.nome.localeCompare(b.c.nome, "it");
+    if (ord === "canale") return segno * a.c.canale.localeCompare(b.c.canale, "it");
+    if (ord === "stato") return segno * a.c.stato.localeCompare(b.c.stato, "it");
+    if (ord === "conv") return segno * (a.conv - b.conv);
+    if (ord === "roas") return segno * (resa(a) - resa(b));
+    return segno * (a.spesa - b.spesa);
+  };
 
   const linkPreset = (chiave: string) =>
     `/brand/${brand}${chiave !== "libero" ? `?preset=${chiave}` : ""}`;
@@ -256,11 +290,12 @@ export default async function PaginaBrand({
                   <table>
                     <thead>
                       <tr>
-                        <th>Campagna</th>
-                        <th>Stato</th>
-                        <th className="num">Spesa</th>
-                        <th className="num">Conv.</th>
-                        <th className="num">ROAS</th>
+                        <th><a href={linkOrd("nome")}>Campagna{frecciaOrd("nome")}</a></th>
+                        <th><a href={linkOrd("canale")}>Canale{frecciaOrd("canale")}</a></th>
+                        <th><a href={linkOrd("stato")}>Stato{frecciaOrd("stato")}</a></th>
+                        <th className="num"><a href={linkOrd("spesa")}>Spesa{frecciaOrd("spesa")}</a></th>
+                        <th className="num"><a href={linkOrd("conv")}>Conv.{frecciaOrd("conv")}</a></th>
+                        <th className="num"><a href={linkOrd("roas")}>ROAS{frecciaOrd("roas")}</a></th>
                       </tr>
                     </thead>
                     <tbody>
@@ -271,7 +306,7 @@ export default async function PaginaBrand({
                           ric: c.metriche.reduce((s, m) => s + (m.ricavi ?? 0), 0),
                           conv: c.metriche.reduce((s, m) => s + (m.conversioni ?? 0), 0),
                         }))
-                        .sort((a, b) => b.spesa - a.spesa)
+                        .sort(ordinatore)
                         .map(({ c, spesa, ric, conv }) => {
                           const r = roas(ric, spesa);
                           const lead = c.tipoConversione === "lead";
@@ -279,11 +314,19 @@ export default async function PaginaBrand({
                             <tr key={c.id}>
                               <td style={{ maxWidth: 230 }}>
                                 <a href={`/campagne/${c.id}`} className="cella-nome">{c.nome}</a>
-                                <div className="cella-sub">
-                                  {ETICHETTA_CANALE[c.canale] ?? c.canale}
-                                  {c.classe === "traino" ? " · TRAINO" : ""}
-                                  {lead ? " · LEAD" : ""}
-                                </div>
+                                {(c.classe === "traino" || lead) && (
+                                  <div className="cella-sub">
+                                    {c.classe === "traino" ? "TRAINO" : ""}
+                                    {c.classe === "traino" && lead ? " · " : ""}
+                                    {lead ? "LEAD" : ""}
+                                  </div>
+                                )}
+                              </td>
+                              <td>
+                                <Badge
+                                  testo={ETICHETTA_CANALE[c.canale] ?? c.canale}
+                                  colore={COLORE_CANALE[c.canale] ?? "var(--text-secondary)"}
+                                />
                               </td>
                               <td>
                                 <Badge testo={ETICHETTA_STATO_CAMPAGNA[c.stato] ?? c.stato} colore={COLORE_STATO_CAMPAGNA[c.stato] ?? "var(--text-tertiary)"} />
