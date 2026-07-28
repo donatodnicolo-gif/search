@@ -1223,16 +1223,18 @@ locale, altrimenti nulla si decifra.
 
 ## MANCA
 
-Stato reale delle chiavi al 26/07/2026 (letto dalla tabella `Impostazione`, non a
-memoria). **Configurate e funzionanti**: Anagrafiche, Orders, Google Contacts
-(collegato), OpenAI. **Mancanti**, con la conseguenza concreta:
+Stato reale delle chiavi **al 28/07/2026**, letto dalla tabella `Impostazione` (solo
+pieno/vuoto, mai i valori). **Configurate**: `metaVerifyToken`, `metaAppSecret`,
+`waToken`, `waPhoneNumberId`, `searchApiKey`, `openaiApiKey`, `ordersApiKey`,
+`anagraficheApiKey`, `googleRefreshToken`. **Mancanti**, con la conseguenza concreta:
 
 | Cosa manca | Cosa non funziona finché manca |
 |---|---|
-| Tutto Meta (`metaVerifyToken`, `waToken`, `fbPageToken`, `igToken`) | L'inbox resta vuota: nessun canale WhatsApp/Messenger/Instagram collegato. Il widget dei siti invece funziona già. |
-| `searchApiKey` (`dlxs_…` di search-deluxy) | Il bottone *Fornitore* ripiega sul link non firmato: si apre l'app ma senza accesso automatico. |
+| `fbPageToken` / `igToken`, e **nessuna riga in `/account-meta`** (0 pagine collegate) | Messenger e Instagram non ricevono e non rispondono. L'impianto multi-account c'è: mancano id e token. Con più pagine il token va messo **per pagina** — quello generale non basta. |
+| Il numero WhatsApp collegato è **1**, ma va **ri-verificato lato Meta** | Il numero risultava `DISCONNECTED` con verifica `EXPIRED`: finché non si rifà `Fatti chiamare` → codice → PIN (o si fa da WhatsApp Manager), non arriva né parte niente. |
 | `partnerApiKey` (chiave verifiche di deluxy-partner) | Le richieste di pagamento si salvano qui ma non arrivano a Partner (si rimandano poi con *Invia*). |
-| Password giusta della casella email | SMTP risponde **535 authentication rejected** su tutte e quattro le varianti provate: o la password è sbagliata o l'auth SMTP è disattivata sulla casella. La cifratura è stata verificata a parte ed è corretta — il problema non è nostro. |
+| `emailPassword` | Ora è **vuota** in tabella: la casella non manda finché non si reinserisce (la cifratura è a posto — verificato a parte). |
+| `widgetTitolo` / `widgetMessaggio` | Il widget mostra i valori di riserva («Deluxy», «Ciao! Come possiamo aiutarti?»). Non è un guasto, ma sui siti dei singoli marchi conviene scriverli. |
 
 Da fare, in ordine di utilità:
 
@@ -1247,7 +1249,14 @@ Da fare, in ordine di utilità:
   per smaltirli da soli. Il redirect URI del progetto Google Cloud va messo fra gli "URI
   di reindirizzamento autorizzati" (non fra le origini JavaScript).
 - Media in entrata (oggi mostrati come `[tipo]`) e allegati in uscita.
-- Più operatori / assegnazione delle conversazioni; notifiche push.
+- **Assegnazione** delle conversazioni a una persona e notifiche push: chi ha fatto cosa
+  ora *resta scritto* (ordini e messaggi in uscita), ma nessuno *prende in carico* una
+  conversazione — due operatori possono ancora rispondere allo stesso cliente insieme.
+- **Il widget non sa chi sta scrivendo**: nessun campo nome/email prima del primo
+  messaggio, quindi le conversazioni dei siti non si agganciano né al cliente né
+  all'ordine. È il pezzo che manca perché la scheda cliente le veda.
+- Account `diagnostica@deluxy.local` (operatore, non creato in queste sessioni): da
+  tenere o togliere — sono 3 utenti in tutto.
 - Collegare un ordine alla conversazione WhatsApp dello stesso cliente (oggi sono due
   mondi separati: si contatta dall'ordine, ma la risposta non si aggancia all'ordine).
 
