@@ -7,6 +7,7 @@ import {
   ETICHETTA_CATEGORIA_ORDINE,
   ETICHETTA_LINGUA,
   ETICHETTA_NEGOZIO,
+  kpiStimati,
   kpiVendite,
   LINGUE_CAMPAGNA,
   NEGOZI_ORDINE,
@@ -28,6 +29,10 @@ export async function VenditeCampagna({
 }) {
   const v = await venditeDiCampagna(campagna);
   const kpi = kpiVendite(v.spesa, v.attribuite);
+  // I KPI stimati si appoggiano al contesto quando c'è, altrimenti agli ordini
+  // attribuiti: serve una base per scontrino medio e quota di clienti nuovi.
+  const base = v.contesto ?? (v.attribuite.ordini > 0 ? v.attribuite : null);
+  const stima = kpiStimati(v.spesa, v.conversioniDichiarate, base);
   const be = breakEvenRoas(campagna.brand);
 
   return (
@@ -106,6 +111,72 @@ export async function VenditeCampagna({
         </>
       )}
 
+      {/* ——— 1-bis. I costi STIMATI: ci sono anche senza UTM ——— */}
+      <div style={{ borderTop: "1px solid var(--hairline)", marginTop: 20, paddingTop: 16 }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 10 }}>
+          <Badge testo="Stima" colore="var(--blue)" />
+          <span className="cella-sub" style={{ whiteSpace: "normal" }}>
+            quanto costa, secondo le <b>conversioni dichiarate dalla piattaforma</b> ({formattaNumero(v.conversioniDichiarate)} nel
+            periodo) e lo scontrino medio di questi clienti. Non è una misura: è la stima più
+            ottimistica.
+          </span>
+        </div>
+
+        {v.conversioniDichiarate === 0 ? (
+          <div className="vuoto-mini">
+            La piattaforma non dichiara conversioni nel periodo: senza quelle non c&apos;è nemmeno una
+            stima da fare. Se la campagna sta spendendo ({formattaEuro(v.spesa)}), è il primo problema
+            da guardare.
+          </div>
+        ) : (
+          <>
+            <div className="kpi-riga" style={{ marginBottom: 0 }}>
+              <div className="kpi">
+                <div className="kpi-valore">
+                  {stima.costoConversione != null ? formattaEuro(stima.costoConversione) : "—"}
+                </div>
+                <div className="kpi-etichetta">
+                  Costo per conversione stimato: {formattaEuro(v.spesa)} ÷{" "}
+                  {formattaNumero(v.conversioniDichiarate)} conversioni dichiarate
+                </div>
+              </div>
+              <div className="kpi">
+                <div className="kpi-valore">
+                  {stima.costoCliente != null ? formattaEuro(stima.costoCliente) : "—"}
+                </div>
+                <div className="kpi-etichetta">
+                  {stima.quotaNuovi != null
+                    ? `Costo di acquisizione stimato: il ${Math.round(stima.quotaNuovi * 100)}% di questi clienti è nuovo`
+                    : "Costo di acquisizione stimato: manca la quota di clienti nuovi su cui appoggiarlo"}
+                </div>
+              </div>
+              <div className="kpi">
+                <div
+                  className="kpi-valore"
+                  style={stima.ros != null ? { color: stima.ros >= be ? "var(--green)" : "var(--red)" } : undefined}
+                >
+                  {stima.ros != null ? `${stima.ros.toFixed(2)}×` : "—"}
+                </div>
+                <div className="kpi-etichetta">
+                  {stima.scontrinoMedio != null
+                    ? `ROS stimato di cassa: scontrino medio ${formattaEuro(stima.scontrinoMedio)} × conversioni ÷ spesa. Break-even ${be.toFixed(2)}×`
+                    : "ROS stimato: manca uno scontrino medio su cui appoggiarlo"}
+                </div>
+              </div>
+            </div>
+
+            <p className="cella-sub" style={{ marginTop: 10, whiteSpace: "normal" }}>
+              Le conversioni dichiarate sono <b>più</b> degli ordini veri: Google e Meta contano anche
+              le view-through e finestre lunghe. Quindi questi costi sono il <b>pavimento</b>, non il
+              numero vero — quello vero è più alto. Lo scontrino medio e la quota di clienti nuovi
+              arrivano dal blocco di contesto qui sotto, cioè dai clienti di questo prodotto, non da
+              questa campagna. Quando l&apos;UTM c&apos;è, valgono i numeri misurati qui sopra e questa
+              stima serve solo a vedere di quanto la piattaforma si stia raccontando meglio.
+            </p>
+          </>
+        )}
+      </div>
+
       {/* ——— 2. Contesto dedotto dal nome: NON è attribuzione ——— */}
       <div style={{ borderTop: "1px solid var(--hairline)", marginTop: 20, paddingTop: 16 }}>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 10 }}>
@@ -126,8 +197,29 @@ export async function VenditeCampagna({
           {v.legame.lingua && <> · {ETICHETTA_LINGUA[v.legame.lingua]}</>}
           {v.legame.negozio && <> · {ETICHETTA_NEGOZIO[v.legame.negozio] ?? v.legame.negozio}</>}
           {v.legame.motivo && v.origineLegame !== "manuale" && <> — {v.legame.motivo}</>}.
-          {" "}La lingua non è scritta sull&apos;ordine, quindi <b>non filtra</b> le vendite: si tiene per
-          sapere di che campagna si parla, e sotto si vedono i paesi da cui arrivano gli ordini.
+          {v.filtroClienti ? (
+            <>
+              {" "}La lingua <b>taglia i clienti</b>: qui sotto ci sono solo gli ordini di{" "}
+              <b>{v.filtroClienti}</b> — una campagna che parla a chi non è italiano non ha niente a
+              che vedere col venduto italiano dello stesso prodotto.
+              {v.senzaPaese > 0 && (
+                <>
+                  {" "}
+                  {v.senzaPaese} ordini del prodotto <b>non hanno il paese</b> e restano fuori: non si
+                  possono assegnare né agli italiani né agli stranieri.
+                </>
+              )}
+            </>
+          ) : v.linguaIgnorata ? (
+            <>
+              {" "}<b>La lingua qui non riesce a tagliare</b>: {v.linguaIgnorata}.
+            </>
+          ) : (
+            <>
+              {" "}Senza lingua nel nome non si taglia per clientela: ci sono tutti gli ordini del
+              prodotto, italiani e stranieri insieme.
+            </>
+          )}
         </p>
 
         {v.contesto == null ? (
@@ -161,9 +253,9 @@ export async function VenditeCampagna({
             </select>
           </div>
           <div className="campo-modulo">
-            <label>Lingua</label>
+            <label>Clienti (lingua della campagna)</label>
             <select name="lingua" defaultValue={v.legame.lingua ?? ""}>
-              <option value="">— non indicata —</option>
+              <option value="">— tutti, italiani e stranieri —</option>
               {LINGUE_CAMPAGNA.map((l) => (
                 <option key={l} value={l}>
                   {ETICHETTA_LINGUA[l]}

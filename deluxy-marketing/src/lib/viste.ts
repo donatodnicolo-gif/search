@@ -7,7 +7,7 @@ import { prisma } from "./db";
 // è la vista giusta per guardare le campagne, lo è per chiunque apra la
 // pagina. Chi ne vuole una sua se ne salva un'altra con un nome diverso.
 
-export const PAGINE_VISTA = ["campagne", "termini", "keywords", "brand"] as const;
+export const PAGINE_VISTA = ["campagne", "termini", "keywords", "brand", "trend"] as const;
 export type PaginaVista = (typeof PAGINE_VISTA)[number];
 
 export const ETICHETTA_PAGINA_VISTA: Record<string, string> = {
@@ -15,6 +15,7 @@ export const ETICHETTA_PAGINA_VISTA: Record<string, string> = {
   termini: "Parole cercate",
   keywords: "Keywords",
   brand: "Dashboard per brand",
+  trend: "Trend vendite",
 };
 
 // Parametri che NON fanno parte di una vista: sono messaggi di ritorno da

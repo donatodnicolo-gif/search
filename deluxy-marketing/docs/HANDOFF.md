@@ -48,6 +48,37 @@ lingua, negozio), dedotto e **correggibile a mano dalla scheda**: da lì
 campagna cambia nome. Se il nome non nomina un prodotto (Brand Protection,
 generiche) non si deduce niente.
 
+**La lingua taglia i clienti**, non è un'etichetta: `ita` → paese IT, `eng` →
+paese diverso da IT, `fra` → FR.
+
+> ⚠️ **Il paese sull'ordine è quello di CONSEGNA, non del cliente.** Su
+> deluxy.it e cakedesign.me si consegna in Italia anche quando compra un turista
+> o un'azienda estera: su "[Deluxy] - Fiori Milano ENG" il filtro «diverso da
+> IT» dava **0 ordini su 121**. Quando succede (meno di 3 su almeno 10) il
+> filtro **si spegne da solo** e la pagina spiega perché — uno zero lì si
+> leggerebbe come "questa campagna non vende". Su Flowers/Francia invece
+> funziona: 18 ordini, tutti FR.
+
+**KPI stimati** (`kpiStimati`), perché la maggior parte delle campagne non ha
+nemmeno un ordine con l'UTM che combacia e senza di loro la scheda non direbbe
+niente: costo per conversione, costo di acquisizione e ROS calcolati sulle
+**conversioni dichiarate dalla piattaforma** e sullo scontrino medio del
+contesto. Sono il **pavimento**, non la misura — Google e Meta contano anche
+view-through e finestre lunghe, quindi i costi veri sono più alti. Se manca uno
+dei due pezzi il numero resta vuoto: mezza stima ha lo stesso aspetto di un dato.
+
+**Trend vendite** (`/trend`, `lib/trend-vendite.ts`): il venduto Shopify mese per
+mese e dove sta andando, con proiezione dei prossimi 3/6/12 mesi.
+`mese previsto = stesso mese dell'anno scorso × fattore`, dove il fattore sono i
+mesi chiusi di quest'anno sugli stessi dell'anno prima — la stagione la porta
+l'anno scorso, perché San Valentino e Natale **sono** l'andamento e una retta li
+spianerebbe. Misurato 28/07: **+57%** sul 2025 (516.517 € contro 328.333 € su 6
+mesi chiusi), anno 2026 stimato **1.204.366 €** contro 765.576 €.
+Un mese con meno di 10 ordini l'anno prima non fa da base e resta vuoto; se
+l'anno prima non esiste abbastanza (Cake ha aperto a metà 2025) si ripiega sulla
+media dei mesi recenti **dichiarando che quella previsione non ha la stagione
+dentro**.
+
 **Viste salvate** (`lib/viste.ts`, `components/VisteSalvate.tsx`) su Campagne,
 Parole cercate, Keywords e Dashboard per brand: filtri + ordinamento + periodo
 con un nome, **condivise** (non per utente), una può essere predefinita.
@@ -272,7 +303,7 @@ Dashboard (con le tessere dei brand in cima) · Lettura AI · Analisi periodo ·
 Analisi · Stato account · Azioni · Campagne (+ lancio su Google Ads) ·
 **Gruppi di annunci** · Landing ·
 Pubblici · Copy & annunci · Keywords (+ operazioni keyword) · Meta & test ·
-Ordini · Analisi per offerta · Budget vendite/ADV · MKT vs 2025 · Operazioni ·
+Ordini · Analisi per offerta · **Trend vendite** · Budget vendite/ADV · MKT vs 2025 · Operazioni ·
 Occasioni · Cadenze · Storico errori · Memoria condivisa · Incongruenze ·
 **Dati in arrivo** · Documenti Drive · Storico · Impostazioni · Dashboard per brand.
 

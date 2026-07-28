@@ -7,7 +7,7 @@ export type VoceSidebar =
   | "home" | "analisi" | "audit" | "azioni" | "campagne" | "gruppi" | "landing" | "copy" | "keywords"
   | "meta" | "pubblici" | "ordini" | "offerte" | "drive" | "storico" | "vendite" | "budget" | "mkt" | "impostazioni"
   | "errori" | "memoria" | "incongruenze" | "cadenze" | "occasioni" | "operazioni" | "periodo" | "ricezione" | "ai"
-  | "tracciamento" | "termini";
+  | "tracciamento" | "termini" | "trend";
 
 // Sidebar di navigazione. `attiva` identifica la sezione corrente; `brandAttivo`
 // e `canaleAttivo` evidenziano il filtro con cui si sta guardando la pagina.
@@ -131,6 +131,7 @@ export async function Sidebar({
           {voce("mkt", "/mkt", "metriche", "MKT vs 2025")}
           {voce("ordini", "/ordini", "ordini", "Ordini", nOrdini)}
           {voce("offerte", "/offerte", "vendite", "Analisi per offerta")}
+          {voce("trend", "/trend", "metriche", "Trend vendite")}
         </SbSezione>
 
         <SbSezione titolo="Piano">

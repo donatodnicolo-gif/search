@@ -41,12 +41,34 @@ export const ETICHETTA_CATEGORIA_ORDINE: Record<string, string> = {
   altro: "Altro",
 };
 
+// La lingua della campagna, letta per quello che è davvero: **a chi vende**.
+// "[Deluxy] Roma (Fiori) - English" non è una campagna in inglese, è la
+// campagna che serve i clienti stranieri a Roma — e sull'ordine quella cosa è
+// scritta, nel paese di consegna. Quindi la lingua **filtra** il venduto di
+// contesto, non è solo un'etichetta.
 export const LINGUE_CAMPAGNA = ["ita", "eng", "fra"] as const;
 export const ETICHETTA_LINGUA: Record<string, string> = {
-  ita: "Italiano",
-  eng: "Inglese",
-  fra: "Francese",
+  ita: "Italiano — clienti italiani",
+  eng: "Inglese — clienti stranieri",
+  fra: "Francese — clienti in Francia",
 };
+
+// Come si traduce la lingua in un filtro sul paese dell'ordine.
+// `eng` non è "clienti inglesi": le campagne in inglese servono tutto quello
+// che non è Italia (nei 90 giorni: FR 54, GB 13, US 6, IE, NL, AU, DE, ES, MC,
+// BE, CH…), e restringere a GB butterebbe via l'80% di quel venduto.
+export function filtroPaese(lingua: string | null): { descrizione: string; ammette: (paese: string | null) => boolean } | null {
+  if (lingua === "ita") {
+    return { descrizione: "clienti italiani (paese IT)", ammette: (p) => p === "IT" };
+  }
+  if (lingua === "eng") {
+    return { descrizione: "clienti stranieri (paese diverso da IT)", ammette: (p) => p != null && p !== "IT" };
+  }
+  if (lingua === "fra") {
+    return { descrizione: "clienti in Francia (paese FR)", ammette: (p) => p === "FR" };
+  }
+  return null;
+}
 
 // I negozi come li scrive l'import degli ordini (import-ordini-da-orders.mjs).
 export const NEGOZI_ORDINE = ["deluxygifts", "deluxyflowers", "cakedesignme"] as const;
@@ -256,6 +278,10 @@ export type VenditeCampagna = {
   a: Date;
   giorni: number;
   spesa: number;
+  // Quello che dichiara la piattaforma nello stesso periodo: serve ai KPI
+  // STIMATI, quelli che si possono dare anche quando l'UTM non c'è.
+  conversioniDichiarate: number;
+  ricaviDichiarati: number;
   // Legame 1: gli ordini che portano scritto l'UTM di questa campagna
   attribuite: BloccoVendite;
   // Ordini con un UTM che somiglia al nome ma non combacia (nomi vecchi,
@@ -263,6 +289,12 @@ export type VenditeCampagna = {
   utmSimili: { valore: string; ordini: number }[];
   // Legame 2: il contesto dedotto dal nome. null se il nome non basta.
   contesto: BloccoVendite | null;
+  // Come la lingua ha tagliato i clienti, e quanti ordini sono rimasti fuori
+  // perché non hanno il paese.
+  filtroClienti: string | null;
+  senzaPaese: number;
+  // Perché la lingua non ha potuto tagliare, quando non ha potuto.
+  linguaIgnorata: string | null;
   legame: Legame;
   origineLegame: string;
   // Da quando parte il registro ordini: "cliente nuovo" vuol dire "prima volta
@@ -287,7 +319,7 @@ export async function venditeDiCampagna(
   const [metriche, ordini, primi, primoAssoluto] = await Promise.all([
     prisma.metricaCampagna.findMany({
       where: { campagnaId: campagna.id, data: { gte: da } },
-      select: { spesa: true },
+      select: { spesa: true, conversioni: true, ricavi: true },
     }),
     prisma.ordine.findMany({
       where: {
@@ -320,6 +352,8 @@ export async function venditeDiCampagna(
   ]);
 
   const spesa = metriche.reduce((s, m) => s + (m.spesa ?? 0), 0);
+  const conversioniDichiarate = metriche.reduce((s, m) => s + (m.conversioni ?? 0), 0);
+  const ricaviDichiarati = metriche.reduce((s, m) => s + (m.ricavi ?? 0), 0);
   const primoOrdineDi = new Map<string, number>();
   for (const p of primi) {
     const email = p.email?.trim().toLowerCase();
@@ -357,24 +391,59 @@ export async function venditeDiCampagna(
   }
 
   // ——— Legame 2: contesto dedotto ———
-  const contesto = legame.categoria
-    ? aggrega(
-        ordini.filter((o) => o.righe.some((r) => r.categoria === legame.categoria)),
-        primoOrdineDi
-      )
-    : null;
+  // Il prodotto taglia le righe d'ordine, la lingua taglia i clienti: una
+  // campagna inglese su Roma non ha niente a che vedere col venduto italiano
+  // della stessa città, e sommarli farebbe sembrare enorme il mercato che
+  // quella campagna può davvero prendere.
+  const paese = filtroPaese(legame.lingua);
+  let senzaPaese = 0;
+  let contesto: BloccoVendite | null = null;
+  let filtroClienti: string | null = null;
+  let linguaIgnorata: string | null = null;
+  if (legame.categoria) {
+    const conProdotto = ordini.filter((o) => o.righe.some((r) => r.categoria === legame.categoria));
+    if (paese) {
+      // Un ordine senza paese non si può assegnare né agli italiani né agli
+      // stranieri: resta fuori e si dice quanti sono, invece di infilarlo
+      // nella metà più comoda.
+      senzaPaese = conProdotto.filter((o) => !o.paese?.trim()).length;
+      const filtrati = conProdotto.filter((o) => paese.ammette(o.paese?.trim() || null));
+
+      // ⚠️ Il paese sull'ordine è quello di **consegna**, non del cliente. Su
+      // deluxy.it e cakedesign.me si consegna in Italia anche quando a comprare
+      // è un turista o un'azienda estera: lì una campagna in inglese produce
+      // ordini con paese IT, e filtrare per "diverso da IT" li azzera tutti.
+      // Quando succede, il filtro non sta separando gli stranieri dagli
+      // italiani — sta solo cancellando i dati. Meglio mostrare tutto e dire
+      // perché, che mostrare uno zero che sembra "questa campagna non vende".
+      if (filtrati.length < 3 && conProdotto.length >= 10) {
+        contesto = aggrega(conProdotto, primoOrdineDi);
+        linguaIgnorata = `il paese scritto sull'ordine è quello di CONSEGNA, non del cliente: qui ${filtrati.length} ordini su ${conProdotto.length} risultano ${paese.descrizione}, cioè il filtro non sta separando gli stranieri dagli italiani, li sta cancellando. Succede sui negozi che consegnano in Italia (deluxy.it, cakedesign.me) anche quando a comprare è un turista o un'azienda estera. Sotto ci sono quindi TUTTI i clienti del prodotto`;
+      } else {
+        contesto = aggrega(filtrati, primoOrdineDi);
+        filtroClienti = paese.descrizione;
+      }
+    } else {
+      contesto = aggrega(conProdotto, primoOrdineDi);
+    }
+  }
 
   return {
     da,
     a,
     giorni,
     spesa,
+    conversioniDichiarate,
+    ricaviDichiarati,
     attribuite: aggrega(attribuiti, primoOrdineDi),
     utmSimili: [...simili.entries()]
       .map(([valore, ordini]) => ({ valore, ordini }))
       .sort((x, y) => y.ordini - x.ordini)
       .slice(0, 4),
     contesto,
+    filtroClienti,
+    senzaPaese,
+    linguaIgnorata,
     legame,
     origineLegame: origine,
     primoOrdineRegistrato: primoAssoluto?.data ?? null,
@@ -394,5 +463,52 @@ export function kpiVendite(spesa: number, b: BloccoVendite): KpiVendite {
     ros: spesa > 0 ? b.vendite / spesa : null,
     costoCliente: b.clientiNuovi > 0 ? spesa / b.clientiNuovi : null,
     costoConversione: b.ordini > 0 ? spesa / b.ordini : null,
+  };
+}
+
+// I KPI **stimati**: quelli che si possono dare anche quando l'UTM non c'è.
+//
+// Perché servono. La maggior parte delle campagne non ha un solo ordine con
+// l'UTM che combacia — i nomi cambiano, le campagne si dividono in ENG/ITA, e
+// l'UTM sull'ordine resta quello vecchio. Lasciare la scheda senza nessun costo
+// di acquisizione vuol dire non poter dire niente su quasi tutte le campagne.
+//
+// Da dove nascono, e perché sono stime e non misure:
+//  - le **conversioni** sono quelle dichiarate dalla piattaforma. Google e Meta
+//    contano anche view-through e finestre lunghe: sono più degli ordini veri.
+//    Quindi questi costi sono la stima **ottimistica** — quella vera è più alta;
+//  - lo **scontrino medio** e la **quota di clienti nuovi** arrivano dal
+//    contesto (il venduto del prodotto e dei clienti di questa campagna), non
+//    dalla campagna: sono la miglior cosa che si ha, non la sua misura.
+//
+// Se manca uno dei due pezzi il numero resta `null`: mezza stima è peggio di
+// nessuna stima, perché ha lo stesso aspetto di un dato.
+export type KpiStimati = {
+  costoConversione: number | null;
+  costoCliente: number | null;
+  ros: number | null;
+  quotaNuovi: number | null;
+  scontrinoMedio: number | null;
+};
+
+export function kpiStimati(
+  spesa: number,
+  conversioniDichiarate: number,
+  riferimento: BloccoVendite | null
+): KpiStimati {
+  const clientiNoti = riferimento ? riferimento.clientiNuovi + riferimento.clientiRitorno : 0;
+  const quotaNuovi = clientiNoti > 0 ? riferimento!.clientiNuovi / clientiNoti : null;
+  const scontrinoMedio = riferimento?.scontrinoMedio ?? null;
+  const nuoviStimati = quotaNuovi != null ? conversioniDichiarate * quotaNuovi : null;
+
+  return {
+    costoConversione: spesa > 0 && conversioniDichiarate > 0 ? spesa / conversioniDichiarate : null,
+    costoCliente: spesa > 0 && nuoviStimati != null && nuoviStimati >= 1 ? spesa / nuoviStimati : null,
+    ros:
+      spesa > 0 && scontrinoMedio != null && conversioniDichiarate > 0
+        ? (scontrinoMedio * conversioniDichiarate) / spesa
+        : null,
+    quotaNuovi,
+    scontrinoMedio,
   };
 }

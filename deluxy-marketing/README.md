@@ -228,6 +228,18 @@ Convivono **due legami**, e non vanno confusi:
 | --- | --- | --- |
 | **Attribuzione** | l'ordine porta scritto l'UTM della campagna (`Ordine.utmCampagna`) | legame vero: **solo qui** si calcolano i KPI |
 | **Contesto** | prodotto e lingua **dedotti dal nome** della campagna | dice cosa vendeva il negozio *mentre* la campagna girava — **non** che quelle vendite arrivino da lì. Nessun KPI |
+| **Stima** | conversioni **dichiarate dalla piattaforma** × scontrino medio del contesto | i costi che si possono dare anche senza UTM. Sono il **pavimento**: le piattaforme contano più conversioni degli ordini veri |
+
+La **lingua** del nome non è un'etichetta: dice *a chi* vende la campagna, e taglia
+i clienti del blocco di contesto — `ita` → paese IT, `eng` → paese diverso da IT,
+`fra` → FR.
+
+> ⚠️ **Il paese sull'ordine è quello di CONSEGNA, non del cliente.** Su deluxy.it e
+> cakedesign.me si consegna in Italia anche quando compra un turista o un'azienda
+> estera: lì una campagna in inglese produce ordini con paese IT, e filtrare per
+> «diverso da IT» li azzera tutti. Quando succede (meno di 3 ordini su almeno 10
+> del prodotto) il filtro **si spegne da solo** e la pagina spiega perché: uno zero
+> lì sopra si leggerebbe come «questa campagna non vende».
 
 Gli ordini con un UTM che *somiglia* al nome ma non combacia (nomi vecchi,
 campagne poi divise in ENG/ITA) **non vengono attribuiti**: si contano e si
@@ -242,6 +254,33 @@ Protection, generiche) non si deduce niente.
 > Il ROS di cassa e il ROAS di Google sono due numeri diversi: lì l'incasso è
 > quello che la piattaforma si attribuisce, qui è quello entrato in cassa da
 > ordini con l'UTM. Quando si allontanano molto, il problema è il tracciamento.
+
+## Trend vendite (`/trend`)
+
+Il venduto Shopify mese per mese e **dove sta andando**: grafico con storico
+(oro), mese in corso (grigio, parziale) e proiezioni (blu a righe), più il
+dettaglio dei prossimi mesi uno per uno. Filtri per brand e orizzonte 3/6/12 mesi.
+
+**Non è una retta tirata sugli ultimi mesi.** San Valentino, la Festa della mamma
+e Natale *sono* l'andamento, non rumore attorno a una tendenza: spianarli darebbe
+un dicembre da metà del vero. Quindi la stagione la porta l'anno prima e la
+crescita i mesi già chiusi:
+
+```
+mese previsto = stesso mese dell'anno scorso × fattore
+fattore = mesi CHIUSI di quest'anno ÷ stessi mesi dell'anno scorso
+```
+
+Il mese in corso non entra nel fattore (mezzo mese contro un mese intero direbbe
+che stiamo crollando) ma nel totale d'anno viene contato **intero**.
+
+Due paracadute contro i numeri inventati:
+
+- un mese con **meno di 10 ordini** l'anno prima non fa da base: quel mese resta
+  vuoto e la pagina dice perché;
+- se l'anno prima non esiste abbastanza (Cake ha aperto a metà 2025: 2-7 ordini al
+  mese nel primo semestre) si ripiega sulla **media dei mesi chiusi recenti,
+  tenuta piatta**, dichiarando che quella previsione **non ha la stagione dentro**.
 
 ## Viste salvate
 
