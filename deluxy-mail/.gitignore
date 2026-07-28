@@ -4,6 +4,10 @@ out
 build
 .env
 .env.local
+# Qualunque .env, comunque si chiami: `.env.sposta` (le due stringhe di
+# connessione per il trasloco del database) conteneva password vere e con le
+# sole due righe qui sopra sarebbe finito dritto in un commit.
+.env*
 *.tsbuildinfo
 next-env.d.ts
 .vercel

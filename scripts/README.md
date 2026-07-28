@@ -83,6 +83,30 @@ cd deluxy-mail && node --env-file=.env scripts/migrate-prod.mjs
 - **Serve**: `DATABASE_URL` (dal `.env` dell'app; se assente lo script salta senza errore)
 - **Nota**: è già dentro `npm run build`, di norma **non va lanciato a mano**. È volutamente non bloccante: logga e prosegue anche se il DB non risponde.
 
+### diagnosi-spazio.sql — deluxy-mail
+Perché il database è pieno: peso di ogni tabella (con indici e TOAST a parte), righe morte e ultimo VACUUM, peso reale dei corpi delle mail anno per anno. Da incollare nel **SQL Editor di Supabase**.
+
+- **Serve**: nulla — sono tutte `SELECT`, quindi gira anche a database in **sola lettura** (che è la situazione in cui serve).
+- **Nota**: da guardare **prima** di spostare il database. Su Postgres «disco pieno» spesso non vuol dire «tanti dati»: cancellando righe lo spazio non si libera finché non passa un VACUUM, e per i campi lunghi il gonfiore può essere enorme. Se il problema è quello, spostare tutto sposta anche il gonfiore.
+
+### sposta-database.mjs — deluxy-mail
+Copia l'intero database di AI Mail su un altro Postgres (es. da un progetto Supabase pieno a uno nuovo). Solo copia: **dalla sorgente non cancella niente**.
+
+```bash
+# 1. sulla DESTINAZIONE si creano prima le tabelle
+cd deluxy-mail
+DATABASE_URL="…nuovo…" DIRECT_URL="…nuovo…" npx prisma db push
+
+# 2. prova a vuoto (legge e conta, non scrive)
+node --env-file=.env.sposta scripts/sposta-database.mjs
+
+# 3. copia vera (ripetibile: le righe già copiate si saltano)
+node --env-file=.env.sposta scripts/sposta-database.mjs --scrivi
+```
+
+- **Serve**: `DA_DATABASE_URL` (sorgente) e `A_DATABASE_URL` (destinazione) in un `.env.sposta` locale — **mai committato**.
+- **Nota**: alla fine confronta il numero di righe tabella per tabella e lo stampa: è così che si sa se è andata, senza fidarsi. Lo script **si rifiuta di partire** se nello schema Prisma c'è un modello che non è nel suo elenco di copia (altrimenti una tabella intera resterebbe indietro in silenzio). Il vecchio database **non si spegne** finché il nuovo non ha lavorato qualche giorno.
+
 ### npm — migrazioni per app
 
 | App | Comando |
