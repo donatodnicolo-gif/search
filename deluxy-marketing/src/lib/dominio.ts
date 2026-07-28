@@ -339,6 +339,24 @@ export function formattaPercento(n: number | null | undefined): string {
 }
 
 // Stati di una keyword (colonna `stato` di CopyAnnuncio quando tipo="keyword").
+// ⚠️ Il testo con cui una keyword si MOSTRA non è il testo con cui esiste su
+// Google. L'import dal Monitoraggio ci attacca il tipo di corrispondenza —
+// «flower milan (match esatto)» — e mandare quella stringa allo script vuol
+// dire cercare su Google una keyword che non esiste: l'operazione tornerebbe
+// "bersaglio non trovato" e nessuno capirebbe perché.
+//
+// Si toglie SOLO una parentesi finale che contiene solo parole di
+// corrispondenza: «rose rosse (san valentino)» non è un tipo di corrispondenza
+// e resta intatta.
+const PAROLE_CORRISPONDENZA =
+  /^(match\s+)?(esatto|esatta|exact|broad|generica|generico|ampia|frase|phrase|modificata|modified|bmm)$/i;
+
+export function testoKeywordPulito(testo: string): string {
+  const m = testo.match(/^(.*?)\s*\(([^()]*)\)\s*$/);
+  if (!m) return testo.trim();
+  return PAROLE_CORRISPONDENZA.test(m[2].trim()) ? m[1].trim() : testo.trim();
+}
+
 export const STATI_KEYWORD = ["attiva", "vincente", "da_valutare", "in_pausa", "esclusa"] as const;
 export const ETICHETTA_STATO_KEYWORD: Record<string, string> = {
   attiva: "Attiva",

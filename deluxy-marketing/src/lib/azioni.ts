@@ -15,7 +15,7 @@ import { IMP_TOKEN_TIKTOK } from "@/lib/tiktok";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "./db";
-import { STATI_AZIONE, STATI_AZIONE_APERTI, STATI_CAMPAGNA } from "./dominio";
+import { STATI_AZIONE, STATI_AZIONE_APERTI, STATI_CAMPAGNA, testoKeywordPulito } from "./dominio";
 import { CHIAVE_APIKEY, CHIAVE_CARTELLA, idCartellaDrive, sincronizzaDrive } from "./drive";
 import { registra } from "./registro";
 import { CATEGORIE_ORDINE, LINGUE_CAMPAGNA, NEGOZI_ORDINE } from "./vendite-campagna";
@@ -1052,12 +1052,17 @@ export async function creaOperazione(fd: FormData) {
 }
 
 // ---------- Operazioni keyword (nuova, negativa, pausa, attiva) ----------
+
+// `testoKeywordPulito` sta in dominio.ts, non qui: un file "use server" può
+// esportare SOLO funzioni async, e una funzione di pulizia di stringhe async
+// non ha senso. (Il typecheck non lo vede: lo dice il compilatore di Next.)
 // Stessa coda approvata delle operazioni campagna. Livelli dal doc 11:
 // negativa puntuale = L0 (libera) · aggiunta keyword = L1 · pausa/attiva = L2.
 export async function creaOperazioneKeyword(fd: FormData) {
   const tipo = testo(fd, "tipo");
   const campagnaId = testo(fd, "campagnaId");
-  const kwTesto = testo(fd, "testo");
+  const kwGrezzo = testo(fd, "testo");
+  const kwTesto = kwGrezzo ? testoKeywordPulito(kwGrezzo) : null;
   if (!tipo || !campagnaId || !kwTesto) return;
   const campagna = await prisma.campagna.findUnique({
     where: { id: campagnaId },
@@ -1117,6 +1122,110 @@ export async function creaOperazioneKeyword(fd: FormData) {
     dettaglio: op.motivo,
   });
   redirect("/operazioni");
+}
+
+// ---------- Proposte dell'AI su keyword e parole cercate ----------
+
+// Chiede all'AI cosa farebbe di ogni keyword e di ogni parola cercata della
+// campagna. Non cambia niente: scrive proposte, che poi una persona accetta.
+export async function chiediProposteAi(campagnaId: string) {
+  const campagna = await prisma.campagna.findUnique({
+    where: { id: campagnaId },
+    select: { id: true, nome: true, brand: true },
+  });
+  if (!campagna) return;
+  const { chiediProposte } = await import("./proposte-ai");
+  const esito = await chiediProposte(campagna);
+  await registra({
+    autore: "ai",
+    tipo: "creazione",
+    entita: "campagna",
+    entitaId: campagnaId,
+    titolo: `Proposte AI su "${campagna.nome}"`,
+    dettaglio: esito.ok
+      ? `${esito.proposte} giudicate (${esito.modello}) · ${esito.senzaDati} senza abbastanza numeri`
+      : esito.errore,
+  });
+  revalidatePath(`/campagne/${campagnaId}`);
+  if (!esito.ok) {
+    redirect(`/campagne/${campagnaId}?ai=${encodeURIComponent(esito.errore)}#keywords`);
+  }
+  redirect(
+    `/campagne/${campagnaId}?aiok=${encodeURIComponent(
+      `${esito.proposte} parole giudicate, ${esito.senzaDati} senza abbastanza numeri per dire qualcosa`
+    )}#keywords`
+  );
+}
+
+// Accettare una proposta NON la esegue: mette in coda l'operazione, che resta
+// da approvare come tutte le altre. Le proposte che non corrispondono a
+// un'operazione eseguibile (alza/abbassa: le offerte lo script non le tocca)
+// diventano un'azione del kanban, così non si perdono.
+export async function accettaProposta(propostaId: string) {
+  const p = await prisma.propostaAi.findUnique({
+    where: { id: propostaId },
+    include: { campagna: { select: { id: true, nome: true, brand: true, canale: true, idEsterno: true } } },
+  });
+  if (!p || p.stato !== "proposta") return;
+
+  const tipoOperazione =
+    p.azione === "escludi" ? "negativa" : p.azione === "pausa" ? "pausa_keyword" : p.azione === "aggiungi" ? "nuova_keyword" : null;
+
+  if (tipoOperazione) {
+    // Stessa pulizia dei bottoni a mano: su Google la keyword non si chiama
+    // «flower milan (match esatto)».
+    const pulito = testoKeywordPulito(p.testo);
+    const op = await prisma.operazioneAdv.create({
+      data: {
+        tipo: tipoOperazione,
+        canale: p.campagna.canale,
+        bersaglio: tipoOperazione === "pausa_keyword" ? pulito : p.campagna.nome,
+        idEsterno: p.campagna.idEsterno,
+        parametri: JSON.stringify({ testo: pulito, corrispondenza: "broad" }),
+        motivo: `Proposta dall'AI: ${p.motivo}`,
+        livello: tipoOperazione === "negativa" ? "L0" : tipoOperazione === "nuova_keyword" ? "L1" : "L2",
+        prima: tipoOperazione === "pausa_keyword" ? "attiva" : "assente",
+        campagnaId: p.campagnaId,
+      },
+    });
+    await registra({
+      autore: "utente",
+      tipo: "creazione",
+      entita: "operazione",
+      entitaId: op.id,
+      titolo: `In coda (da approvare): ${tipoOperazione} "${pulito}" su ${p.campagna.nome}`,
+      dettaglio: p.motivo,
+    });
+  } else {
+    await prisma.azione.create({
+      data: {
+        titolo: `${p.azione === "alza" ? "Spingere di più" : p.azione === "abbassa" ? "Ridimensionare" : "Guardare"}: "${p.testo}" su ${p.campagna.nome}`,
+        descrizione: `Proposta dall'AI il ${new Date().toLocaleDateString("it-IT")}: ${p.motivo}\n\nNumeri su cui è stata fatta: ${p.numeri ?? "—"}.\n\nLe offerte non si toccano da script: va fatto in interfaccia Google Ads.`,
+        brand: p.campagna.brand,
+        canale: p.campagna.canale,
+        priorita: "media",
+        owner: "utente",
+        campagnaId: p.campagnaId,
+        eventi: { create: { tipo: "creazione", autore: "ai", testo: "Nata da una proposta dell'AI accettata" } },
+      },
+    });
+  }
+
+  await prisma.propostaAi.update({
+    where: { id: propostaId },
+    data: { stato: "accettata", decisaIl: new Date() },
+  });
+  revalidatePath(`/campagne/${p.campagnaId}`);
+}
+
+export async function scartaProposta(propostaId: string) {
+  const p = await prisma.propostaAi.findUnique({ where: { id: propostaId }, select: { campagnaId: true } });
+  if (!p) return;
+  await prisma.propostaAi.update({
+    where: { id: propostaId },
+    data: { stato: "scartata", decisaIl: new Date() },
+  });
+  revalidatePath(`/campagne/${p.campagnaId}`);
 }
 
 // ---------- Lancio di una campagna nuova su Google Ads ----------

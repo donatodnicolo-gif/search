@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { COLORE_STATO_KEYWORD, ETICHETTA_STATO_KEYWORD, formattaEuro, formattaNumero } from "@/lib/dominio";
 import { breakEvenRoas } from "@/lib/guardrail";
 import { normalizza } from "@/lib/ingest-metriche";
+import { creaOperazioneKeyword } from "@/lib/azioni";
 
 // Le keyword di questa campagna: **quello che abbiamo comprato**.
 //
@@ -23,9 +24,11 @@ const COLONNE = {
   punteggioQualita: { etichetta: "Qualità", verso: "desc" as const },
   stato: { etichetta: "Stato", verso: "asc" as const },
 };
+// La colonna dei bottoni non si ordina: non c'è un ordine dei bottoni.
 type Colonna = keyof typeof COLONNE;
 
 export async function KeywordCampagna({
+  campagnaId,
   nomeCampagna,
   brand,
   base,
@@ -33,6 +36,7 @@ export async function KeywordCampagna({
   ord,
   verso,
 }: {
+  campagnaId: string;
   nomeCampagna: string;
   brand: string;
   base?: string;
@@ -177,6 +181,7 @@ export async function KeywordCampagna({
               {intestazione("resa", true)}
               {intestazione("punteggioQualita", true)}
               {intestazione("stato")}
+              <th>Azioni</th>
             </tr>
           </thead>
           <tbody>
@@ -233,6 +238,45 @@ export async function KeywordCampagna({
                           ? "ferma su Google"
                           : "attiva su Google"
                         : "Google non l'ha ancora detto"}
+                    </div>
+                  </td>
+                  <td>
+                    {/* Due cose diverse, e la differenza conta: la PAUSA ferma
+                        questa keyword, la NEGATIVA chiude la porta a tutte le
+                        ricerche che le somigliano — anche quelle che oggi
+                        arrivano da altre keyword. Passano dalla stessa coda
+                        approvata: lo script le esegue solo dopo l'approvazione.
+                        Il name/value di un submit non arriva nelle server
+                        action: i valori viaggiano in campi nascosti. */}
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <form action={creaOperazioneKeyword}>
+                        <input type="hidden" name="tipo" value="pausa_keyword" />
+                        <input type="hidden" name="campagnaId" value={campagnaId} />
+                        <input type="hidden" name="testo" value={k.testo} />
+                        <input type="hidden" name="gruppo" value={k.gruppo ?? ""} />
+                        <input type="hidden" name="idEsternoKeyword" value={k.idEsterno ?? ""} />
+                        <input type="hidden" name="motivo" value={`Fermata dalla scheda di ${nomeCampagna}`} />
+                        <button
+                          className="btn small btn-secondario"
+                          type="submit"
+                          title="Ferma solo questa keyword. Passa dalla coda approvata."
+                        >
+                          Pausa
+                        </button>
+                      </form>
+                      <form action={creaOperazioneKeyword}>
+                        <input type="hidden" name="tipo" value="negativa" />
+                        <input type="hidden" name="campagnaId" value={campagnaId} />
+                        <input type="hidden" name="testo" value={k.testo} />
+                        <input type="hidden" name="motivo" value={`Esclusa dalla scheda di ${nomeCampagna}`} />
+                        <button
+                          className="btn small"
+                          type="submit"
+                          title="Aggiunge il testo fra le negative della campagna: chiude anche le ricerche simili, comprese quelle che oggi arrivano da altre keyword."
+                        >
+                          Escludi
+                        </button>
+                      </form>
                     </div>
                   </td>
                 </tr>

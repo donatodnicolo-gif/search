@@ -157,6 +157,7 @@ model Campagna {
   modifiche         Modifica[]
   incidenti         Incidente[]
   legameShopify     LegameCampagnaShopify?
+  proposteAi        PropostaAi[]
   creataIl          DateTime          @default(now())
   aggiornataIl      DateTime          @updatedAt
 
@@ -1001,6 +1002,44 @@ model LegameCampagnaShopify {
   aggiornatoIl DateTime @updatedAt
 
   @@index([categoria])
+}
+
+// ============ Proposte dell'AI su keyword e parole cercate ============
+
+// Cosa farebbe l'AI di ogni keyword e di ogni parola cercata, e perché.
+//
+// ⚠️ È una PROPOSTA, non una decisione: resta qui finché una persona non la
+// accetta, e accettarla mette in coda un'operazione da approvare come tutte le
+// altre. L'AI non tocca Google — non lo tocca nemmeno l'app.
+//
+// I numeri su cui la proposta è stata fatta si congelano in `numeri`: una
+// proposta riletta fra un mese deve poter dire su cosa era stata fatta,
+// altrimenti sembra un giudizio sui numeri di oggi.
+model PropostaAi {
+  id         String   @id @default(cuid())
+  // keyword | termine
+  tipo       String
+  campagnaId String
+  campagna   Campagna @relation(fields: [campagnaId], references: [id], onDelete: Cascade)
+  testo      String
+  // ideal | specific — vedi CLASSI_PAROLA in lib/proposte-ai.ts
+  classe     String?
+  // tieni | osserva | alza | abbassa | pausa | escludi | aggiungi
+  azione     String
+  motivo     String
+  // alta | media | bassa: quanta fiducia dichiara l'AI. Con "bassa" la
+  // proposta si mostra ma non si offre il bottone per eseguirla.
+  fiducia    String   @default("media")
+  // I numeri del momento, congelati (JSON breve)
+  numeri     String?
+  // proposta | accettata | scartata
+  stato      String   @default("proposta")
+  creataIl   DateTime @default(now())
+  decisaIl   DateTime?
+
+  @@unique([campagnaId, tipo, testo])
+  @@index([campagnaId, tipo])
+  @@index([classe])
 }
 
 // ============ Viste salvate ============

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { FreschezzaDati } from "@/components/FreschezzaDati";
 import { GuardrailCampagna } from "@/components/GuardrailCampagna";
 import { KeywordCampagna } from "@/components/KeywordCampagna";
+import { ProposteAi } from "@/components/ProposteAi";
 import { Badge } from "@/components/Badge";
 import { GraficoSpesa } from "@/components/GraficoSpesa";
 import { AggiornaAdesso } from "@/components/AggiornaAdesso";
@@ -59,6 +60,9 @@ export default async function SchedaCampagna({
     // nella stessa pagina, se condividessero `ord` si riordinerebbero insieme.
     ordk?: string;
     versok?: string;
+    // Esito del giro di proposte AI, di ritorno dalla server action
+    ai?: string;
+    aiok?: string;
   }>;
 }) {
   const { id } = await params;
@@ -233,6 +237,7 @@ export default async function SchedaCampagna({
             stessa cosa — cosa abbiamo comprato e cosa ci hanno chiesto — e
             separarli vuol dire non vedere mai la distanza fra i due. */}
         <KeywordCampagna
+          campagnaId={campagna.id}
           nomeCampagna={campagna.nome}
           brand={campagna.brand}
           base={`/campagne/${campagna.id}`}
@@ -240,6 +245,16 @@ export default async function SchedaCampagna({
           ord={sp.ordk}
           verso={sp.versok}
         />
+
+        {/* Il parere dell'AI subito dopo le due tabelle: ha appena finito di
+            leggerle chi legge, e la proposta arriva sui numeri che ha in testa. */}
+        {!defunta && (
+          <ProposteAi
+            campagna={{ id: campagna.id, nome: campagna.nome, brand: campagna.brand }}
+            esito={sp.aiok}
+            errore={sp.ai}
+          />
+        )}
 
         <SegmentiCampagna campagnaId={campagna.id} brand={campagna.brand} />
 
