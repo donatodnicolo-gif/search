@@ -21,7 +21,7 @@ import { aggiungiPreferito, rimuoviPreferito, usePreferiti } from '@/lib/preferi
 import { avvisa } from '@/lib/dialoghi';
 import { applicaFiltri, usePlaces } from '@/lib/usePlaces';
 import { AddressSearch } from '@/components/AddressSearch';
-import { Filters, FILTRI_VUOTI, type FiltriMappa } from '@/components/Filters';
+import { Filters, filtriVuoti, type FiltriMappa } from '@/components/Filters';
 import { PriorityBadge } from '@/components/PriorityBadge';
 import { VisitaModal } from '@/components/VisitaModal';
 import { RegistroExpandable } from '@/components/RegistroExpandable';
@@ -63,7 +63,7 @@ export default function MappaWeb() {
   const [scopInfo, setScopInfo] = useState<ScopertaResult | null>(null);
   const [scopErrore, setScopErrore] = useState<string | null>(null);
   const [filtroScoperta, setFiltroScoperta] = useState<FiltroScoperta>('affiliazioni');
-  const [filtri, setFiltri] = useState<FiltriMappa>(FILTRI_VUOTI);
+  const [filtri, setFiltri] = useState<FiltriMappa>(filtriVuoti);
   const [lineaFocus, setLineaFocus] = useState<string | null>(null); // linea da mettere in cima (null = tutte)
   const [visitaPlace, setVisitaPlace] = useState<Place | null>(null);
   const [giroOrdine, setGiroOrdine] = useState<string[]>([]); // id stellati, nell'ordine (riordinabile)
@@ -150,7 +150,7 @@ export default function MappaWeb() {
     setDestinazione({ lat: r.lat, lng: r.lng });
     setIndirizzoScelto({ indirizzo: r.formatted_address, lat: r.lat, lng: r.lng });
     setGiroAttivo(false);
-    setFiltri(FILTRI_VUOTI);
+    setFiltri(filtriVuoti());
     setScoperti([]);
     setScopInfo(null);
     setScopErrore(null);
@@ -189,7 +189,7 @@ export default function MappaWeb() {
     setScopInfo(null);
     setScopErrore(null);
     setGiroAttivo(false);
-    setFiltri(FILTRI_VUOTI);
+    setFiltri(filtriVuoti());
     setLineaFocus(null);
   }
 

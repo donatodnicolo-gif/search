@@ -11,7 +11,7 @@ import { ordinaGiro } from '@/lib/giro';
 import type { GeocodeResult } from '@/lib/geocode';
 import { env } from '@/lib/env';
 import { applicaFiltri, haFiltriAttivi, usePlaces } from '@/lib/usePlaces';
-import { Filters, FILTRI_VUOTI, type FiltriMappa } from '@/components/Filters';
+import { Filters, filtriVuoti, type FiltriMappa } from '@/components/Filters';
 import { AddressSearch } from '@/components/AddressSearch';
 import { PriorityBadge } from '@/components/PriorityBadge';
 import { Loader } from '../_layout';
@@ -19,7 +19,7 @@ import { Loader } from '../_layout';
 export default function Mappa() {
   const router = useRouter();
   const { places, loading, opzioni } = usePlaces();
-  const [filtri, setFiltri] = useState<FiltriMappa>(FILTRI_VUOTI);
+  const [filtri, setFiltri] = useState<FiltriMappa>(filtriVuoti);
   const [pos, setPos] = useState<Coord | null>(null);
   const [giroAttivo, setGiroAttivo] = useState(false);
   const [pannelloAperto, setPannelloAperto] = useState(false);

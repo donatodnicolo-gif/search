@@ -9,7 +9,7 @@ import { avvisa } from '@/lib/dialoghi';
 import { applicaFiltri, usePlaces } from '@/lib/usePlaces';
 import { useAuth } from '@/lib/auth';
 import { isAdmin } from '@/lib/admin';
-import { Filters, FILTRI_VUOTI, type FiltriMappa } from '@/components/Filters';
+import { Filters, filtriVuoti, type FiltriMappa } from '@/components/Filters';
 import { PriorityBadge } from '@/components/PriorityBadge';
 import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 import { coloreLivello, LABEL_LIVELLO, LIVELLI, livelloDi, type Livello } from '@/lib/livelli';
@@ -67,7 +67,7 @@ export default function Lista() {
   // scriverlo qui evita di ripetere `conContatto.has(...)` a ogni chiamata e di
   // dimenticarsi `contattati` in una delle quattro.
   const livelloPlace = (p: Place) => livelloDi(p, conContatto.has(p.id), contattati.has(p.id));
-  const [filtri, setFiltri] = useState<FiltriMappa>(FILTRI_VUOTI);
+  const [filtri, setFiltri] = useState<FiltriMappa>(filtriVuoti);
   const { vista } = useLocalSearchParams<{ vista?: string }>();
   const vistaCorr = (['selezionato', 'lead', 'prospect', 'cliente', 'inattivi'] as Vista[]).includes(vista as Vista)
     ? (vista as Vista)

@@ -101,17 +101,21 @@ export function usePlaces() {
  *  (regola #1): questo va usato solo quando l'utente sceglie esplicitamente un filtro. */
 export function applicaFiltri(places: Place[], f: FiltriMappa): Place[] {
   return places.filter((p) => {
-    if (f.priorita && p.priorita !== f.priorita) return false;
-    if (f.stato && p.stato !== f.stato) return false;
-    if (!passaFiltroCitta(p.zona, f.zona)) return false; // f.zona = bucket città
-    if (f.settore && p.settore !== f.settore) return false;
-    if (f.linea && p.linea_ipotizzata !== f.linea) return false;
-    if (f.account && (p.anagrafiche_account ?? null) !== f.account) return false;
-    if (f.creatore && (p.creato_da_nome ?? null) !== f.creatore) return false;
+    // Ogni filtro è una LISTA: vuota = spento, più valori = OR (vedi
+    // components/Filters.tsx). Un negozio ha una città sola: l'AND fra due
+    // città darebbe sempre zero righe.
+    if (f.priorita.length && !f.priorita.includes(p.priorita)) return false;
+    if (f.stato.length && !f.stato.includes(p.stato)) return false;
+    // f.zona sono bucket città: il confronto passa da passaFiltroCitta.
+    if (f.zona.length && !f.zona.some((z) => passaFiltroCitta(p.zona, z))) return false;
+    if (f.settore.length && !f.settore.includes(p.settore ?? '')) return false;
+    if (f.linea.length && !f.linea.includes(p.linea_ipotizzata ?? '')) return false;
+    if (f.account.length && !f.account.includes(p.anagrafiche_account ?? '')) return false;
+    if (f.creatore.length && !f.creatore.includes(p.creato_da_nome ?? '')) return false;
     return true;
   });
 }
 
 export function haFiltriAttivi(f: FiltriMappa): boolean {
-  return Boolean(f.priorita || f.stato || f.zona || f.settore || f.linea || f.account || f.creatore);
+  return Object.values(f).some((v) => v.length > 0);
 }

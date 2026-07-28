@@ -18,9 +18,12 @@ export default function Clienti() {
   const [clienti, setClienti] = useState<Cliente[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
-  const [zonaFiltro, setZonaFiltro] = useState<string | null>(null);
-  const [lineaFiltro, setLineaFiltro] = useState<string | null>(null);
-  const [accountFiltro, setAccountFiltro] = useState<string | null>(null);
+  // Filtri a **scelta multipla**: un Set vuoto = nessun filtro (si vede tutto).
+  // Con più valori vale l'OR — «Milano O Roma», non «Milano E Roma», che non
+  // avrebbe senso su un campo che ha un valore solo e darebbe sempre zero righe.
+  const [zonaFiltro, setZonaFiltro] = useState<Set<string>>(new Set());
+  const [lineaFiltro, setLineaFiltro] = useState<Set<string>>(new Set());
+  const [accountFiltro, setAccountFiltro] = useState<Set<string>>(new Set());
   // Scrittura di una mail con uno script: si sceglie il testo, poi si conferma.
   const [mailPlace, setMailPlace] = useState<{ id: string; nome: string } | null>(null);
   // Scelta multipla: scrivere lo stesso testo a venti clienti uno per uno è il
@@ -57,22 +60,35 @@ export default function Clienti() {
   const dati = useMemo(() => {
     const q = query.trim().toLowerCase();
     return clienti.filter((c) => {
-      if (!passaFiltroCitta(c.zona, zonaFiltro)) return false;
-      if (lineaFiltro && !c.linee.includes(lineaFiltro)) return false;
-      if (accountFiltro && (c.account ?? '') !== accountFiltro) return false;
+      // Set vuoto = filtro spento. Con più valori basta che ne combaci uno.
+      if (zonaFiltro.size && ![...zonaFiltro].some((z) => passaFiltroCitta(c.zona, z))) return false;
+      if (lineaFiltro.size && !c.linee.some((l) => lineaFiltro.has(l))) return false;
+      if (accountFiltro.size && !accountFiltro.has(c.account ?? '')) return false;
       if (!q) return true;
       return [c.nome, c.indirizzo, c.zona, c.categoria, ...c.linee].filter(Boolean).some((v) => (v as string).toLowerCase().includes(q));
     });
   }, [clienti, query, zonaFiltro, lineaFiltro, accountFiltro]);
 
-  const filtriAttivi = Boolean(query.trim() || zonaFiltro || lineaFiltro || accountFiltro);
-  // Quanti filtri sono applicati (la ricerca resta sempre visibile, non conta).
-  const nFiltri = [zonaFiltro, lineaFiltro, accountFiltro].filter(Boolean).length;
+  const filtriAttivi = Boolean(query.trim() || zonaFiltro.size || lineaFiltro.size || accountFiltro.size);
+  // Quanti VALORI sono selezionati in tutto (non quanti gruppi): con la scelta
+  // multipla «2» sul bottone dei filtri deve voler dire due voci spuntate,
+  // altrimenti non si capisce quanto si è ristretto.
+  const nFiltri = zonaFiltro.size + lineaFiltro.size + accountFiltro.size;
   function azzera() {
     setQuery('');
-    setZonaFiltro(null);
-    setLineaFiltro(null);
-    setAccountFiltro(null);
+    setZonaFiltro(new Set());
+    setLineaFiltro(new Set());
+    setAccountFiltro(new Set());
+  }
+
+  /** Aggiunge o toglie un valore da un filtro. */
+  function commuta(set: (f: (p: Set<string>) => Set<string>) => void, valore: string) {
+    set((prev) => {
+      const n = new Set(prev);
+      if (n.has(valore)) n.delete(valore);
+      else n.add(valore);
+      return n;
+    });
   }
 
   const inScelta = scelti !== null;
@@ -152,21 +168,33 @@ export default function Clienti() {
                 schermata prima del primo cliente. */}
             <PannelloFiltri attivi={nFiltri} onAzzera={azzera}>
               <View style={styles.filtri}>
+                {/* Ogni gruppo è a scelta multipla: si spuntano più voci e
+                    valgono in OR. La voce «Tutte/Tutti» non è un valore fra gli
+                    altri — è il modo di svuotare quel gruppo. */}
                 <Gruppo
                   titolo="Città"
-                  valori={OPZIONI_CITTA as unknown as string[]}
-                  attivo={zonaFiltro ?? 'Tutte'}
-                  onTap={(v) => setZonaFiltro(v === 'Tutte' ? null : (c) => (c === v ? null : v))}
+                  valori={(OPZIONI_CITTA as unknown as string[]).filter((v) => v !== 'Tutte')}
+                  attivi={zonaFiltro}
+                  onTap={(v) => commuta(setZonaFiltro, v)}
+                  onTutti={() => setZonaFiltro(new Set())}
+                  etichettaTutti="Tutte"
                 />
                 {accountPresenti.length ? (
-                  <Gruppo titolo="Account" valori={accountPresenti} attivo={accountFiltro} onTap={(v) => setAccountFiltro((c) => (c === v ? null : v))} />
+                  <Gruppo
+                    titolo="Account"
+                    valori={accountPresenti}
+                    attivi={accountFiltro}
+                    onTap={(v) => commuta(setAccountFiltro, v)}
+                    onTutti={() => setAccountFiltro(new Set())}
+                  />
                 ) : null}
                 {lineePresenti.length ? (
                   <Gruppo
                     titolo="Interessi"
-                    valori={['Tutti', ...lineePresenti]}
-                    attivo={lineaFiltro ?? 'Tutti'}
-                    onTap={(v) => setLineaFiltro(v === 'Tutti' ? null : (c) => (c === v ? null : v))}
+                    valori={lineePresenti}
+                    attivi={lineaFiltro}
+                    onTap={(v) => commuta(setLineaFiltro, v)}
+                    onTutti={() => setLineaFiltro(new Set())}
                   />
                 ) : null}
               </View>
@@ -295,15 +323,50 @@ export default function Clienti() {
   );
 }
 
-function Gruppo({ titolo, valori, attivo, onTap }: { titolo: string; valori: string[]; attivo: string | null; onTap: (v: string) => void }) {
+/**
+ * Un gruppo di filtri a **scelta multipla**: ogni pillola si accende e si
+ * spegne da sé, e quelle accese valgono in OR.
+ *
+ * La prima pillola («Tutte»/«Tutti») azzera il gruppo ed è accesa quando non
+ * c'è nessuna selezione: senza, per tornare a vedere tutto bisognerebbe
+ * ricordarsi quali voci si erano spuntate e rispegnerle una per una.
+ */
+function Gruppo({
+  titolo,
+  valori,
+  attivi,
+  onTap,
+  onTutti,
+  etichettaTutti = 'Tutti',
+}: {
+  titolo: string;
+  valori: string[];
+  attivi: Set<string>;
+  onTap: (v: string) => void;
+  onTutti: () => void;
+  etichettaTutti?: string;
+}) {
   return (
     <View style={styles.gruppo}>
-      <Text style={styles.gruppoTitolo}>{titolo}</Text>
+      <View style={styles.gruppoTesta}>
+        <Text style={styles.gruppoTitolo}>{titolo}</Text>
+        {/* Quanti ne hai spuntati in questo gruppo: con dieci pillole a capo
+            su più righe, il conto a colpo d'occhio serve. */}
+        {attivi.size > 0 ? <Text style={styles.gruppoConto}>{attivi.size}</Text> : null}
+      </View>
       <View style={styles.chips}>
+        <Pressable onPress={onTutti} style={[styles.chip, attivi.size === 0 && styles.chipOn]}>
+          <Text style={[styles.chipTxt, attivi.size === 0 && styles.chipTxtOn]} numberOfLines={1}>
+            {etichettaTutti}
+          </Text>
+        </Pressable>
         {valori.map((v) => {
-          const on = attivo === v;
+          const on = attivi.has(v);
           return (
             <Pressable key={v} onPress={() => onTap(v)} style={[styles.chip, on && styles.chipOn]}>
+              {/* La spunta dice che la pillola è un interruttore e non una
+                  scelta esclusiva: senza, due pillole accese sembrano un bug. */}
+              {on ? <Ionicons name="checkmark" size={13} color={colors.bianco} /> : null}
               <Text style={[styles.chipTxt, on && styles.chipTxtOn]} numberOfLines={1}>{v}</Text>
             </Pressable>
           );
@@ -365,9 +428,23 @@ const styles = StyleSheet.create({
   },
   filtri: { paddingHorizontal: spacing.md, paddingBottom: spacing.sm, gap: spacing.sm },
   gruppo: { marginBottom: 2 },
-  gruppoTitolo: { color: colors.testoSoft, fontSize: 11, fontWeight: '700', marginBottom: 4 },
+  gruppoTesta: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
+  gruppoTitolo: { color: colors.testoSoft, fontSize: 11, fontWeight: '700' },
+  gruppoConto: {
+    color: colors.bianco,
+    backgroundColor: colors.navy,
+    fontSize: 10,
+    fontWeight: '800',
+    minWidth: 16,
+    textAlign: 'center',
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: radius.pill,
+    overflow: 'hidden',
+  },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  chip: { backgroundColor: colors.bianco, borderColor: colors.grigioChiaro, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 6, borderRadius: radius.pill },
+  // flexDirection per far stare la spunta accanto al testo nelle pillole accese.
+  chip: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.bianco, borderColor: colors.grigioChiaro, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 6, borderRadius: radius.pill },
   chipOn: { backgroundColor: colors.navy, borderColor: colors.navy },
   chipTxt: { color: colors.navy, fontSize: 13, fontWeight: '600' },
   chipTxtOn: { color: colors.bianco },

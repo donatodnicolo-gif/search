@@ -1,28 +1,40 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import type { StatoPlace } from '@/types';
 import { colors, labelStato, radius, spacing } from '@/lib/theme';
 import { OPZIONI_CITTA } from '@/lib/citta';
 import { PannelloFiltri } from '@/components/PannelloFiltri';
 
+/**
+ * I filtri sono **liste**: si spuntano più valori per gruppo (richiesta utente
+ * del 28/07/2026 — «di selezionare più interessi, idem per gli altri»).
+ *
+ * Lista vuota = filtro spento. Più valori valgono in **OR**: «Milano o Roma»,
+ * non «Milano e Roma» — un negozio sta in una città sola, e l'AND darebbe
+ * sempre zero righe.
+ */
 export interface FiltriMappa {
-  zona: string | null; // ora è un bucket città: Milano/Roma/Firenze/Altre (null = Tutte)
-  priorita: string | null;
-  settore: string | null;
-  linea: string | null;
-  stato: string | null;
-  account: string | null; // solo admin: venditore che segue (anagrafiche_account)
-  creatore: string | null; // solo admin: chi ha inserito il target (creato_da_nome)
+  zona: string[]; // bucket città: Milano/Roma/Firenze/Altre
+  priorita: string[];
+  settore: string[];
+  linea: string[];
+  stato: string[];
+  account: string[]; // solo admin: venditore che segue (anagrafiche_account)
+  creatore: string[]; // solo admin: chi ha inserito il target (creato_da_nome)
 }
 
-export const FILTRI_VUOTI: FiltriMappa = {
-  zona: null,
-  priorita: null,
-  settore: null,
-  linea: null,
-  stato: null,
-  account: null,
-  creatore: null,
-};
+/**
+ * Filtri azzerati, **nuovi ogni volta**.
+ *
+ * È una funzione e non una costante perché ora i valori sono array: una
+ * costante condivisa fra Mappa, Lista e Affiliazioni verrebbe copiata con
+ * `{...filtriVuoti}`, che copia i *riferimenti* — e un `push` fatto per
+ * distrazione da una schermata comparirebbe in tutte le altre, in modo
+ * silenzioso e impossibile da ricondurre a chi l'ha scritto.
+ */
+export function filtriVuoti(): FiltriMappa {
+  return { zona: [], priorita: [], settore: [], linea: [], stato: [], account: [], creatore: [] };
+}
 
 interface Props {
   filtri: FiltriMappa;
@@ -41,59 +53,90 @@ const labelChipStato = (v: string) => labelStato[v as StatoPlace] ?? v;
 
 /** Barra filtri orizzontale in cima alla mappa/lista. */
 export function Filters({ filtri, opzioni, onChange, admin, citta = true }: Props) {
+  // Aggiunge o toglie un valore dal gruppo: ogni pillola è un interruttore.
   function toggle(key: keyof FiltriMappa, val: string) {
-    onChange({ ...filtri, [key]: filtri[key] === val ? null : val });
+    const attuali = filtri[key];
+    onChange({
+      ...filtri,
+      [key]: attuali.includes(val) ? attuali.filter((v) => v !== val) : [...attuali, val],
+    });
   }
-  // Città: "Tutte" azzera il filtro; gli altri impostano il bucket.
-  function scegliCitta(v: string) {
-    onChange({ ...filtri, zona: v === 'Tutte' ? null : filtri.zona === v ? null : v });
+  // Svuota un gruppo ("Tutti"): senza, per tornare a vedere tutto bisognerebbe
+  // ricordarsi cosa si era spuntato e rispegnerlo una voce per volta.
+  function azzeraGruppo(key: keyof FiltriMappa) {
+    onChange({ ...filtri, [key]: [] });
   }
 
-  // Quanti filtri sono applicati: va sul bottone, così una lista filtrata non
-  // sembra mai vuota "senza motivo" quando il pannello è chiuso.
-  const nAttivi = Object.values(filtri).filter(Boolean).length;
+  // Quanti VALORI sono spuntati in tutto (non quanti gruppi): il numero sul
+  // bottone deve dire quanto si è ristretto, così una lista filtrata non sembra
+  // mai vuota "senza motivo" quando il pannello è chiuso.
+  const nAttivi = Object.values(filtri).reduce((s, v) => s + v.length, 0);
 
   return (
     // Gruppi impilati e chip che vanno a capo: in scorrimento orizzontale, sul
     // telefono, meta' dei filtri (Stato, Citta', Interessi...) restava fuori
     // schermo senza alcun segnale che ci fosse dell'altro. E tutto dietro un
     // bottone, perché aperto occupava più di una schermata prima della lista.
-    <PannelloFiltri attivi={nAttivi} onAzzera={() => onChange({ ...FILTRI_VUOTI })}>
+    <PannelloFiltri attivi={nAttivi} onAzzera={() => onChange(filtriVuoti())}>
     <View style={styles.row}>
       <Gruppo
         titolo="Priorità"
         valori={PRIORITA}
-        attivo={filtri.priorita}
+        attivi={filtri.priorita}
         onTap={(v) => toggle('priorita', v)}
+        onTutti={() => azzeraGruppo('priorita')}
         label={(v) => LABEL_PRIORITA[v] ?? v}
       />
       <Gruppo
         titolo="Stato"
         valori={STATI}
-        attivo={filtri.stato}
+        attivi={filtri.stato}
         onTap={(v) => toggle('stato', v)}
+        onTutti={() => azzeraGruppo('stato')}
         label={labelChipStato}
       />
       {citta ? (
         <Gruppo
           titolo="Città"
-          valori={OPZIONI_CITTA as unknown as string[]}
-          attivo={filtri.zona ?? 'Tutte'}
-          onTap={scegliCitta}
+          // "Tutte" non è un valore fra gli altri: è il modo di svuotare il
+          // gruppo, e la mette il componente.
+          valori={(OPZIONI_CITTA as unknown as string[]).filter((v) => v !== 'Tutte')}
+          attivi={filtri.zona}
+          onTap={(v) => toggle('zona', v)}
+          onTutti={() => azzeraGruppo('zona')}
+          etichettaTutti="Tutte"
         />
       ) : null}
-      <Gruppo titolo="Settore" valori={opzioni.settori} attivo={filtri.settore} onTap={(v) => toggle('settore', v)} />
-      {/* Tipologia di interesse: "Tutti" come prima opzione, uniforme in tutta l'app. */}
+      <Gruppo
+        titolo="Settore"
+        valori={opzioni.settori}
+        attivi={filtri.settore}
+        onTap={(v) => toggle('settore', v)}
+        onTutti={() => azzeraGruppo('settore')}
+      />
       <Gruppo
         titolo="Interessi"
-        valori={['Tutti', ...opzioni.linee]}
-        attivo={filtri.linea ?? 'Tutti'}
-        onTap={(v) => onChange({ ...filtri, linea: v === 'Tutti' ? null : filtri.linea === v ? null : v })}
+        valori={opzioni.linee}
+        attivi={filtri.linea}
+        onTap={(v) => toggle('linea', v)}
+        onTutti={() => azzeraGruppo('linea')}
       />
       {admin ? (
         <>
-          <Gruppo titolo="Account" valori={opzioni.account ?? []} attivo={filtri.account} onTap={(v) => toggle('account', v)} />
-          <Gruppo titolo="Inserito da" valori={opzioni.creatori ?? []} attivo={filtri.creatore} onTap={(v) => toggle('creatore', v)} />
+          <Gruppo
+            titolo="Account"
+            valori={opzioni.account ?? []}
+            attivi={filtri.account}
+            onTap={(v) => toggle('account', v)}
+            onTutti={() => azzeraGruppo('account')}
+          />
+          <Gruppo
+            titolo="Inserito da"
+            valori={opzioni.creatori ?? []}
+            attivi={filtri.creatore}
+            onTap={(v) => toggle('creatore', v)}
+            onTutti={() => azzeraGruppo('creatore')}
+          />
         </>
       ) : null}
     </View>
@@ -101,28 +144,48 @@ export function Filters({ filtri, opzioni, onChange, admin, citta = true }: Prop
   );
 }
 
+/** Un gruppo di pillole a scelta multipla. La prima («Tutti») svuota il gruppo
+ *  ed è accesa quando non c'è nessuna selezione. */
 function Gruppo({
   titolo,
   valori,
-  attivo,
+  attivi,
   onTap,
+  onTutti,
   label,
+  etichettaTutti = 'Tutti',
 }: {
   titolo: string;
   valori: string[];
-  attivo: string | null;
+  attivi: string[];
   onTap: (v: string) => void;
+  onTutti: () => void;
   label?: (v: string) => string;
+  etichettaTutti?: string;
 }) {
   if (valori.length === 0) return null;
+  const nessuno = attivi.length === 0;
   return (
     <View style={styles.gruppo}>
-      <Text style={styles.gruppoTitolo}>{titolo}</Text>
+      <View style={styles.gruppoTesta}>
+        <Text style={styles.gruppoTitolo}>{titolo}</Text>
+        {/* Quanti ne hai spuntati qui: con le pillole che vanno a capo su più
+            righe, il conto a colpo d'occhio serve. */}
+        {attivi.length > 0 ? <Text style={styles.gruppoConto}>{attivi.length}</Text> : null}
+      </View>
       <View style={styles.chips}>
+        <TouchableOpacity onPress={onTutti} style={[styles.chip, nessuno && styles.chipOn]}>
+          <Text style={[styles.chipTxt, nessuno && styles.chipTxtOn]} numberOfLines={1}>
+            {etichettaTutti}
+          </Text>
+        </TouchableOpacity>
         {valori.map((v) => {
-          const on = attivo === v;
+          const on = attivi.includes(v);
           return (
             <TouchableOpacity key={v} onPress={() => onTap(v)} style={[styles.chip, on && styles.chipOn]}>
+              {/* La spunta dice che la pillola è un interruttore e non una
+                  scelta esclusiva: senza, due accese sembrano un difetto. */}
+              {on ? <Ionicons name="checkmark" size={13} color={colors.bianco} /> : null}
               <Text style={[styles.chipTxt, on && styles.chipTxtOn]} numberOfLines={1}>
                 {label ? label(v) : v}
               </Text>
@@ -137,9 +200,26 @@ function Gruppo({
 const styles = StyleSheet.create({
   row: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: spacing.sm },
   gruppo: { marginBottom: 2 },
-  gruppoTitolo: { color: colors.testoSoft, fontSize: 11, fontWeight: '700', marginBottom: 4 },
+  gruppoTesta: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
+  gruppoTitolo: { color: colors.testoSoft, fontSize: 11, fontWeight: '700' },
+  gruppoConto: {
+    color: colors.bianco,
+    backgroundColor: colors.navy,
+    fontSize: 10,
+    fontWeight: '800',
+    minWidth: 16,
+    textAlign: 'center',
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: radius.pill,
+    overflow: 'hidden',
+  },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   chip: {
+    // In riga per far stare la spunta accanto al testo nelle pillole accese.
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     backgroundColor: colors.bianco,
     borderColor: colors.grigioChiaro,
     borderWidth: 1,
