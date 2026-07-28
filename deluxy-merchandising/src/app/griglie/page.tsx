@@ -59,7 +59,8 @@ export default async function GrigliePage({
 
   const cella = (r: string, c: string): Cella | undefined => g.celle.get(`${r}||${c}`);
   const quota = (parte: number, tutto: number) => (tutto > 0 ? (parte / tutto) * 100 : null);
-  const pct = (n: number | null) => (n === null ? "—" : `${n.toFixed(1)}%`);
+  const uno = (n: number) => n.toLocaleString("it-IT", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  const pct = (n: number | null) => (n === null ? "—" : `${uno(n)}%`);
 
   // Il denominatore delle percentuali secondo la base scelta.
   const denominatore = (rk: string, ck: string): Cella =>
@@ -114,10 +115,10 @@ export default async function GrigliePage({
         <div className="cella-sub">
           {c.ricavo > 0 ? euro(c.ricavo) : "—"} · {pct(qVen)}
         </div>
-        {s !== null && Math.abs(s) >= 0.1 && (
+        {s !== null && Math.abs(s) >= 0.05 && (
           <div className="cella-sub" style={{ fontWeight: 600 }}>
-            {s > 0 ? "+" : ""}
-            {s.toFixed(1)} pt
+            {s > 0 ? "+" : "−"}
+            {uno(Math.abs(s))} pt
           </div>
         )}
       </>
@@ -217,7 +218,10 @@ export default async function GrigliePage({
                     </td>
                     {colonneMostrate.map((c) => {
                       const cel = cella(r.chiave, c.chiave);
-                      const s = cel ? scarto(cel, g.totale) : null;
+                      // Il colore segue la **stessa base** delle percentuali
+                      // scritte nella casella: colorare sul totale mentre i
+                      // numeri parlano della riga farebbe litigare i due.
+                      const s = cel ? scarto(cel, denominatore(r.chiave, c.chiave)) : null;
                       return (
                         <td key={c.chiave} className="num" style={{ background: sfondo(s) }}>
                           {cel && (cel.sku > 0 || cel.esclusi > 0) ? (
