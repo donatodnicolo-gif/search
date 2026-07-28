@@ -171,6 +171,28 @@ P&L): le due cifre non coincidono mai, e la differenza è cassa, non errore.
 Se Marketing non risponde o la chiave manca, la riga ADV **ripiega sulla banca e lo dichiara** (fra
 i `mancanti` e nella nota sotto il P&L), invece di restare vuota o di far finta di niente.
 
+### La differenza fra cassa e campagne, e cosa farne
+
+Regola dell'utente (28/07/2026): *tutto ciò che è banca pubblicità e non è pari a quest'anno va in
+competenza nell'anno di transizione*. In `/competenza` c'è il confronto mese per mese (uscito dal
+conto / campagne / differenza) e **un gesto solo** per portare la differenza nell'anno scelto,
+spalmata sulle **controparti vere** di ogni mese in proporzione a quanto ciascuna ha preso — una
+rettifica deve poter nominare da quale addebito viene, altrimenti nel CFO resta un importo senza
+categoria che non entra in nessuna voce di P&L. Premere due volte non raddoppia: quello che è già
+stato spostato si scala dalla differenza.
+
+> **Non è automatico, di proposito.** Al 28/07/2026 la differenza 2026 è 43.259 € e sta su *tutti* i
+> mesi in proporzione quasi costante (la banca è ≈1,7× le campagne da gennaio a giugno). Uno
+> sfasamento di fatturazione si vedrebbe concentrato sul primo mese: una forma così dice piuttosto
+> che a Marketing **mancano account**. La pagina lo scrive prima del bottone, perché spostare 43 k€
+> su un altro esercizio è una scelta contabile, non un calcolo.
+
+**Come la competenza entra nella riga ADV**, che non è più cassa: quello che **entra** si somma alle
+campagne (è spesa di quest'esercizio pagata altrove nel tempo, e nelle campagne dell'anno non
+compare); quello che **esce** non si toglie dalle campagne — lì dentro non c'è mai stato, toglierlo
+sarebbe sottrarre due volte — ma dalla cassa, che è il numero da cui è stato spostato. Con il
+ripiego sulla banca la riga torna a essere cassa e la competenza vale in entrambi i versi.
+
 ## Chiavi (cassaforte del Hub)
 
 Le chiavi (`FINANCE_API_KEY`, `ORDERS_API_KEY`, `OPENAI_API_KEY`, …) non stanno nel `.env` di questa app: si
