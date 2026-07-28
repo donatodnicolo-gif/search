@@ -10,15 +10,60 @@
 
 import { abbinaMaison, fetchRicaviD2C, type RicaviResult } from "./orders";
 
-// Quota del venduto che diventa fatturato Deluxy. **È una stima**, decisa con
-// l'utente il 26/07/2026 in attesa del dato vero: le detrazioni dei partner non
-// sono ancora in nessuna app, quindi finché non arrivano si applica una
-// percentuale unica. Si cambia qui, ed è scritta in chiaro in ogni schermata
-// che la usa — un numero inventato che non si vede è peggio di uno sbagliato.
+// ---- Modello C: sull'ecommerce Deluxy è un intermediario ----
+//
+// Le quattro domande che decidono se sei venditore o intermediario, risposte
+// dall'utente il 28/07/2026: sull'**ecommerce** la vendita al cliente la
+// documenta il **partner** (scontrino), il rischio del reso è scaricato su di
+// lui, e a Deluxy resta una quota — quindi *ricavo = la quota*, e il denaro che
+// gira al partner è una **partita di giro**, non un costo. Su **eventi e B2B** è
+// il contrario: la fattura la emette Deluxy, il fornitore fattura a Deluxy, e
+// quel pagamento è un costo pieno.
+//
+// La quota di Deluxy non si stima più: si **misura**, anno per anno, come
+// `1 − (pagato ai partner ÷ venduto)`. I pagamenti sono quelli delle categorie
+// marcate «quota partner» nel CFO. Il 40% resta solo come ripiego dichiarato,
+// per gli anni in cui la banca non copre abbastanza da poter misurare.
 export const QUOTA_FATTURATO = 40;
 
-export function fatturatoDaVenduto(venduto: number): number {
-  return venduto * (QUOTA_FATTURATO / 100);
+export type Quota = {
+  percentuale: number;
+  misurata: boolean;
+  // Come si è arrivati a quel numero: la pagina lo scrive invece di mostrare
+  // una percentuale senza padre.
+  spiegazione: string;
+};
+
+export const QUOTA_STIMATA: Quota = {
+  percentuale: QUOTA_FATTURATO,
+  misurata: false,
+  spiegazione: `stima del ${QUOTA_FATTURATO}%: non ci sono abbastanza dati di banca per misurare quanto è stato girato ai partner`,
+};
+
+// La quota misurata. `null` se il venduto è zero o se i pagamenti ai partner
+// coprono meno mesi del venduto — misurare mezzo anno di pagamenti contro un
+// anno di vendite darebbe una quota altissima e falsa.
+export function quotaMisurata(
+  venduto: number,
+  pagatoAiPartner: number,
+  mesiVenduto: number,
+  mesiPagamenti: number
+): Quota | null {
+  if (venduto <= 0 || pagatoAiPartner <= 0) return null;
+  if (mesiPagamenti < mesiVenduto) return null;
+  const quota = (1 - pagatoAiPartner / venduto) * 100;
+  // Fuori da questa forchetta non è una quota: è un dato che non torna, e
+  // spacciarlo per misura sarebbe peggio della stima.
+  if (quota <= 0 || quota >= 90) return null;
+  return {
+    percentuale: Math.round(quota * 10) / 10,
+    misurata: true,
+    spiegazione: `misurata sui dati: venduto ${Math.round(venduto).toLocaleString("it-IT")} € meno ${Math.round(pagatoAiPartner).toLocaleString("it-IT")} € girati ai partner`,
+  };
+}
+
+export function fatturatoDaVenduto(venduto: number, quota: Quota = QUOTA_STIMATA): number {
+  return venduto * (quota.percentuale / 100);
 }
 
 export type Venduto = {

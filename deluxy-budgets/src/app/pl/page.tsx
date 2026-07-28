@@ -5,6 +5,7 @@ import {
 } from "@/lib/calc";
 import { eur, MESI, pct } from "@/lib/format";
 import { caricaConsuntivo, type ConsuntivoPeriodo } from "@/lib/consuntivo";
+import { QUOTA_STIMATA } from "@/lib/venduto";
 
 export const dynamic = "force-dynamic";
 
@@ -93,6 +94,8 @@ export default async function ContoEconomico({
           advMarketing: null,
           advCopertura: null,
           advCompetenza: { dentro: 0, fuori: 0 },
+          quota: QUOTA_STIMATA,
+          pagatoAiPartner: 0,
           competenza: null,
           perMese: [],
         };

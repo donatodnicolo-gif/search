@@ -19,7 +19,7 @@ import { costoPersonaleMese, leggiVociFinance, type DatiAnno } from "./calc";
 import { caricaCategorie, categoriaDi, ricostruisci } from "./cfo";
 import { fetchConsuntivo, fetchSpeseBanca } from "./finance";
 import { normalizzaNome } from "./scout";
-import { fatturatoDaVenduto, raggruppa, sommaMesi } from "./venduto";
+import { fatturatoDaVenduto, QUOTA_STIMATA, quotaMisurata, raggruppa, sommaMesi, type Quota } from "./venduto";
 import { fetchRicaviD2C } from "./orders";
 import { fetchSpesaAdv, type CoperturaAdv } from "./marketing";
 import { caricaRettifiche, effettoSu, type EffettoAnno } from "./competenza";
@@ -61,6 +61,10 @@ export type ConsuntivoPeriodo = {
   advCopertura: CoperturaAdv | null;
   // Quanta pubblicità la competenza porta dentro e fuori da questo periodo.
   advCompetenza: { dentro: number; fuori: number };
+  // La quota del venduto che resta a Deluxy: misurata dai pagamenti ai partner
+  // quando i dati bastano, stimata quando no. La pagina dichiara quale.
+  quota: Quota;
+  pagatoAiPartner: number;
   // Le rettifiche di competenza che toccano questo periodo: si dichiarano,
   // perche un totale corretto di nascosto e peggio di uno sbagliato in chiaro.
   competenza: EffettoAnno | null;
@@ -76,6 +80,7 @@ export async function caricaConsuntivo(
     ok: false, mancanti: [], mesi, ricavi: 0, ricaviPerTipologia: {}, vendutoEcommerce: 0,
     cogs: 0, adv: 0, struttura: 0, personale: 0, margineLordo: 0, ebitda: 0, nonCategorizzato: 0,
     advMarketing: null, advCopertura: null, advCompetenza: { dentro: 0, fuori: 0 },
+    quota: QUOTA_STIMATA, pagatoAiPartner: 0,
     competenza: null,
     perMese: [],
   };
@@ -112,12 +117,32 @@ export async function caricaConsuntivo(
   const vend = raggruppa(ordini, dati.maisons);
   const vendutoEcommerce = sommaMesi(vend.mese, mesi);
 
+  // ---- Modello C: la quota di Deluxy sul venduto si MISURA ----
+  // Quanto è stato girato ai partner nei mesi guardati: sono le categorie
+  // marcate «quota partner» nel CFO. Da lì esce la quota che resta a Deluxy,
+  // invece della percentuale decisa a tavolino. Se la banca copre meno mesi del
+  // venduto la misura non si fa: dividere un semestre di pagamenti per un anno
+  // di vendite darebbe una quota altissima e falsa.
+  const ricostruito = spese.ok ? ricostruisci(spese.dati.controparti, categorie) : [];
+  const partnerMese = Array(12).fill(0) as number[];
+  for (const r of ricostruito) {
+    if (!r.categoria?.quotaPartner) continue;
+    for (let i = 0; i < 12; i++) partnerMese[i] += r.perMese[i] ?? 0;
+  }
+  const bancaMese = Array(12).fill(0) as number[];
+  for (const r of ricostruito) for (let i = 0; i < 12; i++) bancaMese[i] += r.perMese[i] ?? 0;
+  const mesiConBanca = mesi.filter((m) => (bancaMese[m - 1] ?? 0) > 0).length;
+  const mesiConVenduto = mesi.filter((m) => (vend.mese[m - 1] ?? 0) > 0).length;
+  const pagatoAiPartner = sommaMesi(partnerMese, mesi);
+  const quota =
+    quotaMisurata(vendutoEcommerce, pagatoAiPartner, mesiConVenduto, mesiConBanca) ?? QUOTA_STIMATA;
+
   const ricaviPerTipologia: Record<string, number> = {};
   for (const t of dati.tipologie) {
     const nomi = t.vociFinance.length ? t.vociFinance : [t.nome];
     let v = 0;
     for (const n of nomi) v += perNome.get(normalizzaNome(n)) ?? 0;
-    if (t.slug === SLUG_D2C && vend.ok) v += fatturatoDaVenduto(vendutoEcommerce);
+    if (t.slug === SLUG_D2C && vend.ok) v += fatturatoDaVenduto(vendutoEcommerce, quota);
     ricaviPerTipologia[t.slug] = v;
   }
   let ricavi = Object.values(ricaviPerTipologia).reduce((s, v) => s + v, 0);
@@ -128,7 +153,7 @@ export async function caricaConsuntivo(
   const advMese = Array(12).fill(0) as number[];
   const strutturaMese = Array(12).fill(0) as number[];
   if (spese.ok) {
-    for (const r of ricostruisci(spese.dati.controparti, categorie)) {
+    for (const r of ricostruito) {
       const tp = r.categoria?.tipoPL;
       if (!tp) { nonCategorizzato += r.uscite; continue; }
       if (tp === "COGS") { cogs += r.uscite; for (let i = 0; i < 12; i++) cogsMese[i] += r.perMese[i] ?? 0; }
@@ -216,7 +241,7 @@ export async function caricaConsuntivo(
           .filter((t) => nomiMappati.has(normalizzaNome(t.tipologia)))
           .reduce((s, t) => s + t.imponibile, 0)
       : 0;
-    const daEcommerce = vend.ok ? fatturatoDaVenduto(vend.mese[m - 1] ?? 0) : 0;
+    const daEcommerce = vend.ok ? fatturatoDaVenduto(vend.mese[m - 1] ?? 0, quota) : 0;
     const ricaviM = daFinance + daEcommerce + (ricaviRettificaMese[m - 1] ?? 0);
     const cogsM = cogsMese[m - 1] ?? 0;
     const advM = advMese[m - 1] ?? 0;
@@ -256,6 +281,8 @@ export async function caricaConsuntivo(
     advMarketing,
     advCopertura,
     advCompetenza: { dentro: advDentro, fuori: advFuori },
+    quota,
+    pagatoAiPartner,
     competenza: eff,
     perMese,
   };

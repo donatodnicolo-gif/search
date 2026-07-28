@@ -5,7 +5,8 @@ import { caricaCategorie, ricostruisci } from "@/lib/cfo";
 import { eur, MESI, pct } from "@/lib/format";
 import { normalizzaNome } from "@/lib/scout";
 import { fetchRicaviD2C } from "@/lib/orders";
-import { fatturatoDaVenduto, QUOTA_FATTURATO, raggruppa, sommaMesi } from "@/lib/venduto";
+import { fatturatoDaVenduto, raggruppa, sommaMesi } from "@/lib/venduto";
+import { misuraQuota } from "@/lib/quota";
 
 export const dynamic = "force-dynamic";
 
@@ -121,11 +122,17 @@ export default async function ConsuntivoPage({
   // esegue l'ordine: sommare il venduto in questo conto economico gonfierebbe i
   // ricavi di più del doppio e produrrebbe un margine che non esiste. Il venduto
   // pieno si guarda nella sezione Venduto; qui si applica la quota che resta a
-  // Deluxy — oggi una **stima**, dichiarata in pagina.
+  // Deluxy, **misurata** sui pagamenti ai partner (o stimata, se i dati non
+  // bastano — e la pagina dice quale dei due).
   const vend = raggruppa(d2c, dati.maisons);
   const vendPrec = raggruppa(d2cPrec, dati.maisons);
-  const d2cMese = vend.mese.map(fatturatoDaVenduto);
-  const d2cPrecMese = vendPrec.mese.map(fatturatoDaVenduto);
+  // Ogni anno con la sua quota: è un rapporto commerciale, non una costante.
+  const [quotaDeluxy, quotaPrec] = await Promise.all([
+    misuraQuota(anno, mesiPeriodo, vend.mese),
+    misuraQuota(annoPrec, mesiRif, vendPrec.mese),
+  ]);
+  const d2cMese = vend.mese.map((v) => fatturatoDaVenduto(v, quotaDeluxy));
+  const d2cPrecMese = vendPrec.mese.map((v) => fatturatoDaVenduto(v, quotaPrec));
   const vendutoPeriodo = sommaMesi(vend.mese, mesiPeriodo);
   const d2cPeriodo = sommaMesi(d2cMese, mesiPeriodo);
   const d2cPrecPeriodo = sommaMesi(d2cPrecMese, mesiRif);
@@ -183,7 +190,7 @@ export default async function ConsuntivoPage({
     // solo la quota che resta a Deluxy dopo i partner.
     if (t.slug === SLUG_D2C && d2c.ok) {
       consuntivo += d2cPeriodo;
-      collegati.push(`${QUOTA_FATTURATO}% del venduto · ${d2c.dati.brand.length} negozi`);
+      collegati.push(`${quotaDeluxy.percentuale}% del venduto · ${d2c.dati.brand.length} negozi`);
     }
     if (t.slug === SLUG_D2C && d2cPrec.ok) precedente += d2cPrecPeriodo;
     return {
@@ -311,7 +318,7 @@ export default async function ConsuntivoPage({
     label: c.slug === SLUG_D2C ? "Ecommerce (D2C)" : c.nome,
     nota:
       c.slug === SLUG_D2C
-        ? `stima ${QUOTA_FATTURATO}% del venduto, al netto dei partner`
+        ? `${quotaDeluxy.percentuale}% del venduto (${quotaDeluxy.misurata ? "misurato" : "stimato"}), al netto dei partner`
         : c.collegati.join(" + ") || "nessuna voce collegata",
     cons: c.consuntivo,
     budget: c.budgetPeriodo,
@@ -366,7 +373,7 @@ export default async function ConsuntivoPage({
     { label: "Ricavi", get: ricaviM },
     // Quanto di quei ricavi è ecommerce, mese per mese: è la riga che dice se
     // l'andamento dei negozi sta reggendo, e da sola nel totale non si vede.
-    ...(d2c.ok ? [{ label: `di cui ecommerce (stima ${QUOTA_FATTURATO}%)`, dettaglio: true, get: (m: number) => d2cMese[m - 1] ?? 0 }] : []),
+    ...(d2c.ok ? [{ label: `di cui ecommerce (${quotaDeluxy.percentuale}%)`, dettaglio: true, get: (m: number) => d2cMese[m - 1] ?? 0 }] : []),
     { label: "Costo per servizi", costo: true, get: (m) => costoM("COGS", m) },
     { label: "Margine lordo", forte: true, get: margineM },
     { label: "ADV", costo: true, get: (m) => costoM("ADV", m) },
@@ -440,7 +447,7 @@ export default async function ConsuntivoPage({
               <div className="kpi-value">{eur(ricaviCons)}</div>
               <div className="kpi-sub">
                 imponibile · {res.dati.totali.fatture} fatture Finance
-                {d2c.ok ? ` + ${eur(d2cPeriodo)} di ecommerce (stima)` : ""}
+                {d2c.ok ? ` + ${eur(d2cPeriodo)} di ecommerce` : ""}
               </div>
               {ricaviPrec !== null && (
                 <div className="kpi-sub">
@@ -596,7 +603,7 @@ export default async function ConsuntivoPage({
           <p className="page-caption" style={{ marginTop: 14 }}>
             Ricavi = imponibile fatturato in Finance mappato alle voci di budget in{" "}
             <Link href="/margini" style={{ color: "var(--blue)" }}>Margini</Link>, <strong>più la quota
-            ecommerce</strong>: {QUOTA_FATTURATO}% del{" "}
+            ecommerce</strong>: {quotaDeluxy.percentuale}% del{" "}
             <Link href="/venduto" style={{ color: "var(--blue)" }}>venduto</Link> sui negozi Shopify, che non passa da
             Finance ed è al netto stimato dei partner. Il <strong>costo del
             personale</strong> viene dall&apos;anagrafica{" "}
@@ -684,7 +691,7 @@ export default async function ConsuntivoPage({
             rifà, la colonna «budget» di quella riga misura un&apos;altra cosa.{" "}
             Budget di confronto = somma dei mesi {etichettaRif}. <strong>Le due fonti dei ricavi hanno basi
             diverse</strong>: il fatturato di Finance è <strong>imponibile</strong>, la quota ecommerce è il{" "}
-            {QUOTA_FATTURATO}% di un venduto <strong>IVA inclusa</strong> (non si scorpora, perché il budget D2C è
+            {quotaDeluxy.percentuale}% di un venduto <strong>IVA inclusa</strong> (non si scorpora, perché il budget D2C è
             scritto sulla stessa base). Uscite di cassa IVA inclusa: consuntivo gestionale.
           </p>
 
@@ -756,18 +763,18 @@ export default async function ConsuntivoPage({
                   <div className="kpi">
                     <div className="kpi-label">Detrazioni dei partner (stima)</div>
                     <div className="kpi-value">− {eur(vendutoPeriodo - d2cPeriodo)}</div>
-                    <div className="kpi-sub">{100 - QUOTA_FATTURATO}% del venduto</div>
+                    <div className="kpi-sub">{100 - quotaDeluxy.percentuale}% del venduto</div>
                   </div>
                   <div className="kpi">
                     <div className="kpi-label">Fatturato Deluxy</div>
                     <div className="kpi-value">{eur(d2cPeriodo)}</div>
                     <div className="kpi-sub">
-                      <strong>{QUOTA_FATTURATO}%</strong> del venduto — è la riga ecommerce del conto economico
+                      <strong>{quotaDeluxy.percentuale}%</strong> del venduto — è la riga ecommerce del conto economico
                     </div>
                   </div>
                 </div>
                 <p className="page-caption" style={{ marginTop: 12, marginBottom: 0 }}>
-                  Il <strong>{QUOTA_FATTURATO}% è una stima</strong>, uguale per tutte le maison e per tutti i mesi:
+                  Il <strong>{quotaDeluxy.percentuale}% è una stima</strong>, uguale per tutte le maison e per tutti i mesi:
                   le detrazioni vere dei partner non sono ancora in nessuna app. Finché non ci sono, la riga ecommerce
                   di questo conto economico è una stima e non un dato — e quando il dato arriverà va sostituita, non
                   affiancata. Il venduto pieno, per maison e per mese, sta in{" "}

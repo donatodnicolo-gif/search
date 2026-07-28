@@ -204,6 +204,17 @@ model CategoriaCosto {
   // non per milleduecento nomi di persona da novanta euro l'uno, dove scrivere
   // una regola a testa non aggiunge verità, solo righe.
   predefinita Boolean   @default(false)
+  // **Modello C** (deciso il 28/07/2026). Su una vendita ecommerce Deluxy fa
+  // l'intermediario: il partner che esegue documenta la vendita al cliente, e
+  // il denaro che gli gira è una **partita di giro**, non un costo — nei ricavi
+  // c'è già solo la quota Deluxy. Sugli eventi e sul B2B è il contrario: la
+  // fattura la emette Deluxy, il fornitore fattura a Deluxy, e quel pagamento è
+  // un costo pieno.
+  // Questa spunta dice «questa categoria è la quota dei partner sulle vendite
+  // ecommerce». Fa due cose: la tiene fuori dai costi, e permette di **misurare**
+  // la quota che resta a Deluxy invece di stimarla — pagato ai partner diviso
+  // venduto, anno per anno.
+  quotaPartner Boolean  @default(false)
   colore String?
   ordine Int           @default(0)
   regole RegolaCosto[]

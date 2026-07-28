@@ -61,6 +61,7 @@ export type Categoria = {
   voceCE: string; // sempre valorizzata: se a DB è null, vale la predefinita
   voceCEImpostata: boolean; // false = dedotta, nessuno l'ha ancora confermata
   predefinita: boolean; // raccoglie quello che nessuna regola prende
+  quotaPartner: boolean; // partita di giro sulle vendite ecommerce (modello C)
   colore: string | null;
   ordine: number;
   regole: { id: string; match: string; esatto: boolean }[];
@@ -78,6 +79,7 @@ export async function caricaCategorie(): Promise<Categoria[]> {
     voceCE: c.voceCE ?? voceCEPredefinita(c.tipoPL),
     voceCEImpostata: Boolean(c.voceCE),
     predefinita: c.predefinita,
+    quotaPartner: c.quotaPartner,
     colore: c.colore,
     ordine: c.ordine,
     regole: c.regole.map((r) => ({ id: r.id, match: r.match, esatto: r.esatto })),

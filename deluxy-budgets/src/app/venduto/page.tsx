@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { caricaAnno } from "@/lib/calc";
 import { eur, MESI, pct } from "@/lib/format";
-import { caricaVenduto, fatturatoDaVenduto, QUOTA_FATTURATO, sommaMesi } from "@/lib/venduto";
+import { caricaVenduto, fatturatoDaVenduto, sommaMesi } from "@/lib/venduto";
+import { misuraQuota } from "@/lib/quota";
 import { PERIODI, quota, risolviPeriodo, variazione } from "@/lib/periodo";
 import { proietta } from "@/lib/previsione";
 
@@ -32,6 +33,9 @@ export default async function VendutoPage({
       : caricaVenduto(p.annoPrec, dati.maisons),
   ]);
 
+  // La quota che resta a Deluxy si misura sui pagamenti ai partner dell'anno
+  // guardato, non si decide a tavolino.
+  const quotaDeluxy = await misuraQuota(p.anno, p.mesiPeriodo, vend?.mese ?? []);
   const totale = vend ? sommaMesi(vend.mese, p.mesiPeriodo) : 0;
   const totalePrec = vendPrec?.ok ? sommaMesi(vendPrec.mese, p.mesiRif) : null;
 
@@ -140,10 +144,10 @@ export default async function VendutoPage({
               )}
             </div>
             <div className="kpi">
-              <div className="kpi-label">Fatturato stimato per Deluxy</div>
-              <div className="kpi-value">{eur(fatturatoDaVenduto(totale))}</div>
+              <div className="kpi-label">Ricavo Deluxy (quota di intermediazione)</div>
+              <div className="kpi-value">{eur(fatturatoDaVenduto(totale, quotaDeluxy))}</div>
               <div className="kpi-sub">
-                stima: <strong>{QUOTA_FATTURATO}%</strong> del venduto, il resto va ai partner
+                <strong>{quotaDeluxy.percentuale}%</strong> del venduto, {quotaDeluxy.misurata ? "misurato" : "stimato"} — il resto è dei partner
               </div>
             </div>
             <div className="kpi">
@@ -210,13 +214,13 @@ export default async function VendutoPage({
                   </tr>
                   <tr>
                     <td className="muted" style={{ whiteSpace: "nowrap", paddingLeft: 26 }}>
-                      di cui fatturato Deluxy (stima {QUOTA_FATTURATO}%)
+                      di cui fatturato Deluxy ({quotaDeluxy.misurata ? "misurata" : "stima"} {quotaDeluxy.percentuale}%)
                     </td>
                     {p.mesiPeriodo.map((m) => (
-                      <td className="num muted" key={m}>{eur(fatturatoDaVenduto(vend.mese[m - 1] ?? 0))}</td>
+                      <td className="num muted" key={m}>{eur(fatturatoDaVenduto(vend.mese[m - 1] ?? 0, quotaDeluxy))}</td>
                     ))}
-                    <td className="num muted">{eur(fatturatoDaVenduto(totale))}</td>
-                    <td className="num muted">{totalePrec === null ? "—" : eur(fatturatoDaVenduto(totalePrec))}</td>
+                    <td className="num muted">{eur(fatturatoDaVenduto(totale, quotaDeluxy))}</td>
+                    <td className="num muted">{totalePrec === null ? "—" : eur(fatturatoDaVenduto(totalePrec, quotaDeluxy))}</td>
                     <td className="num muted">—</td>
                     <td className="num muted">—</td>
                     <td className="num muted">—</td>
@@ -349,13 +353,20 @@ export default async function VendutoPage({
           <div className="card" style={{ marginTop: 14 }}>
             <h3 style={{ margin: "0 0 6px", fontSize: 15 }}>Da venduto a fatturato</h3>
             <p className="page-caption" style={{ margin: 0 }}>
-              Il cliente paga il prezzo pieno, ma una parte va al partner che esegue l&apos;ordine. Finché le
-              detrazioni dei partner non arrivano da un&apos;app — oggi non sono in nessun sistema — si applica una
-              <strong> stima unica del {QUOTA_FATTURATO}%</strong>, uguale per tutte le maison e per tutti i mesi. È un
-              numero deciso a tavolino, non misurato: sta scritto in ogni riga che lo usa e si cambia in un punto solo
-              (<code>QUOTA_FATTURATO</code> in <code>src/lib/venduto.ts</code>). Quando ci saranno le detrazioni vere,
-              questa stima va sostituita, non affiancata.
+              Sull&apos;ecommerce Deluxy fa l&apos;<strong>intermediario</strong>: il cliente paga il prezzo pieno,
+              ma la vendita al consumatore la documenta il partner che esegue l&apos;ordine, e il denaro che gli si
+              gira è una <strong>partita di giro</strong>, non un costo. Il ricavo di Deluxy è la quota che resta —{" "}
+              <strong>{quotaDeluxy.percentuale}%</strong> — e {quotaDeluxy.spiegazione}.
             </p>
+            {!quotaDeluxy.misurata && (
+              <p className="page-caption" style={{ marginBottom: 0 }}>
+                Perché sia misurata servono due cose: le categorie dei partner marcate{" "}
+                <strong>«quota partner»</strong> nel{" "}
+                <Link href="/cfo" style={{ color: "var(--blue)" }}>CFO</Link>, e una banca che copra gli stessi
+                mesi del venduto. Finché ne manca una vale la stima — e questa riga lo dice, invece di far passare
+                un numero deciso a tavolino per una misura.
+              </p>
+            )}
           </div>
         </>
       )}

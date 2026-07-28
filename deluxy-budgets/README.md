@@ -219,6 +219,43 @@ compare); quello che **esce** non si toglie dalle campagne — lì dentro non c'
 sarebbe sottrarre due volte — ma dalla cassa, che è il numero da cui è stato spostato. Con il
 ripiego sulla banca la riga torna a essere cassa e la competenza vale in entrambi i versi.
 
+## Modello C: intermediario sull'ecommerce, venditore sugli eventi
+
+Deciso il 28/07/2026 rispondendo alle quattro domande che distinguono un venditore da un
+intermediario:
+
+| | Ecommerce (D2C) | Eventi / B2B |
+|---|---|---|
+| Chi documenta la vendita | il **partner** (scontrino) | **Deluxy** (fattura) |
+| Chi decide il prezzo | Deluxy (sito) | Deluxy (trattativa) |
+| Rischio reso / errore | scaricato sul fornitore | scaricato sul fornitore |
+| Il fornitore fattura a | — | **Deluxy** |
+| **Ne consegue** | **intermediario**: ricavo = la quota | **venditore**: ricavo = fatturato pieno |
+
+Conseguenze in app, e sono due:
+
+1. **I pagamenti ai partner dell'ecommerce non sono un costo**: sono una partita di giro. Le
+   categorie che li contengono si marcano **«quota partner»** nel CFO, il che le tiene fuori dal
+   conto economico. I fornitori degli **eventi** restano un costo pieno, come devono.
+2. **La quota che resta a Deluxy si misura, non si stima**: `1 − (pagato ai partner ÷ venduto)`,
+   anno per anno, dalle stesse categorie marcate. Motore in `src/lib/quota.ts`.
+
+Sul 2026 la misura dà **39,1%** contro il 40% che era stimato a tavolino: la stima era buona, ma
+adesso è un dato e si aggiorna da sola. Sul **2025 no**, e la pagina lo dice: l'archivio di banca
+parte da luglio mentre il venduto copre tutto l'anno, e dividere mezzo anno di pagamenti per un anno
+di vendite darebbe una quota altissima e falsa — quindi lì resta la stima, dichiarata.
+
+> Il modello regge **solo se lo scontrino del partner c'è davvero**. Se non viene emesso, quella
+> vendita al consumatore non è documentata da nessuno: Deluxy ha incassato 100 e ne dichiara ~39 di
+> provvigione. È la prima cosa da verificare coi partner.
+
+**Perché non il modello A (rivenditore).** Su 100 € incassati da un consumatore, con il partner
+pagato 60 al 10% di IVA: da rivenditore al 22% verseresti 12,58 € di IVA e ti resterebbero 27,42; da
+intermediario ne versi 7,21 e ne restano 32,79. Sono **5,37 € ogni 100, il 16% del margine**, e
+nascono dal rivendere al 22% un prodotto comprato al 10% a chi l'IVA non la recupera. Sugli
+**eventi** il problema non esiste: il cliente è un'azienda e l'IVA se la detrae, quindi lì il
+modello lordo non costa niente.
+
 ## Due lenti sulla stessa categoria: P&L gestionale e bilancio civilistico
 
 Ogni categoria del CFO ha **due** classificazioni, e non sono un doppione:
