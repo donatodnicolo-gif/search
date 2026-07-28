@@ -104,10 +104,15 @@ export type DealStage =
 
 // Le 9 linee di servizio Deluxy. Le ultime 3 sono in standby (attiva_bool=false):
 // mai come ipotesi primaria, solo cross-sell manuale.
+// ⚠️ I nomi sono quelli del **registro Anagrafiche**, che è la fonte di verità
+// del catalogo (verificato il 28/07/2026: «Gifting» su 51 partner, «Eventi &
+// Catering» su 47; «Regali aziendali» non esiste lì). Qui dentro erano rimasti
+// i nomi vecchi, e le due scritture convivevano nelle liste come se fossero
+// due interessi diversi.
 export type LineaNome =
   | 'Consegne'
-  | 'Catering'
-  | 'Regali aziendali'
+  | 'Eventi & Catering'
+  | 'Gifting'
   | 'Affiliazioni'
   | 'Re-seller'
   | 'Food Supplier'
@@ -120,8 +125,8 @@ export const LINEE_STANDBY: LineaNome[] = ['Clientelling', 'Concierge', 'Magazzi
 // Tutte le 9 linee, nell'ordine di presentazione.
 export const LINEE: LineaNome[] = [
   'Consegne',
-  'Catering',
-  'Regali aziendali',
+  'Eventi & Catering',
+  'Gifting',
   'Affiliazioni',
   'Re-seller',
   'Food Supplier',

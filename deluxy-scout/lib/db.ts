@@ -1,7 +1,7 @@
 // Accesso ai dati: un solo posto per le query Supabase usate dalle schermate.
 import { supabase } from '@/lib/supabase';
 import type { AffiliazioneRow, Contact, Deal, EsitoVisita, FonteLead, Lead, Linea, Ordine, Place, Profilo, RichiestaPagamento, StatoAffiliazione, StatoPagamento, StatoPlace, Task, Visit } from '@/types';
-import { LINEE_ATTIVE, statoDaEsito, statoRegistroDaAffiliazione } from '@/types';
+import { LINEE_ATTIVE, canonizzaLinee, statoDaEsito, statoRegistroDaAffiliazione } from '@/types';
 import { env } from '@/lib/env';
 import { syncVisita } from '@/lib/hubspot';
 import { notificaArchiviazioneReferente, sincronizzaNegozioRegistro } from '@/lib/anagrafiche';
@@ -128,6 +128,14 @@ export async function fetchPlaces(): Promise<Place[]> {
       .range(da, da + BLOCCO - 1);
     if (error) throw error;
     const blocco = (data ?? []) as Place[];
+    // Nomi di linea canonici già qui: le liste, i filtri e i tag leggono tutti
+    // da `fetchPlaces`, e senza questo passaggio «Regali aziendali» e
+    // «Gifting» — che sono lo stesso interesse — restavano due voci distinte
+    // in ogni filtro dell'app.
+    for (const p of blocco) {
+      if (p.linea_ipotizzata) p.linea_ipotizzata = canonizzaLinee([p.linea_ipotizzata])[0] ?? p.linea_ipotizzata;
+      if (p.linee_ipotizzate?.length) p.linee_ipotizzate = canonizzaLinee(p.linee_ipotizzate);
+    }
     righe.push(...blocco);
     if (blocco.length < BLOCCO) break;
   }
@@ -255,7 +263,10 @@ export async function sincronizzaPlaceRegistro(placeId: string): Promise<void> {
       .eq('id', placeId)
       .single();
     if (!p) return;
-    const linee = (p.linee_ipotizzate?.length ? p.linee_ipotizzate : p.linea_ipotizzata ? [p.linea_ipotizzata] : []) as string[];
+    // Canonizzate PRIMA di partire: il registro accetta solo le chiavi del suo
+    // catalogo e scarta in silenzio i nomi fuori lista — «Regali aziendali»
+    // sarebbe arrivato e sparito senza che nessuno se ne accorgesse.
+    const linee = canonizzaLinee(p.linee_ipotizzate?.length ? p.linee_ipotizzate : p.linea_ipotizzata ? [p.linea_ipotizzata] : []);
     await sincronizzaNegozioRegistro({
       placeId,
       nome: p.nome,
@@ -398,7 +409,10 @@ export async function fetchClienti(): Promise<Cliente[]> {
     indirizzo: r.indirizzo ?? null,
     zona: r.zona ?? null,
     categoria: r.categoria ?? null,
-    linee: r.linee_ipotizzate?.length ? r.linee_ipotizzate : r.linea_ipotizzata ? [r.linea_ipotizzata] : [],
+    // Nomi canonici del catalogo: nei dati convivono scritture vecchie
+    // («Regali aziendali») e nuove («Gifting») per lo stesso interesse, e nei
+    // filtri comparivano come due voci diverse.
+    linee: canonizzaLinee(r.linee_ipotizzate?.length ? r.linee_ipotizzate : r.linea_ipotizzata ? [r.linea_ipotizzata] : []),
     cliente_scout: r.stato === 'cliente',
     partner_registro: r.anagrafiche_stato === 'attivo',
     account: r.anagrafiche_account ?? null,
@@ -701,7 +715,9 @@ export async function fetchTuttiContatti(): Promise<ContattoConLuogo[]> {
     ...r,
     place_nome: r.places?.nome ?? null,
     place_indirizzo: r.places?.indirizzo ?? null,
-    place_linea: r.places?.linea_ipotizzata ?? null,
+    // Canonizzata: senza, il filtro Interessi della Rubrica mostrava
+    // «Gifting» e «Regali aziendali» come due voci separate.
+    place_linea: canonizzaLinee(r.places?.linea_ipotizzata ? [r.places.linea_ipotizzata] : [])[0] ?? null,
     place_stato: r.places?.stato ?? null,
     place_zona: r.places?.zona ?? null,
     place_in_trattativa: Boolean(r.places?.hubspot_deal_aperta),
