@@ -441,3 +441,66 @@ export async function righeOrdineDaOrders(
     }
   }
 }
+
+/**
+ * Gli ordini di UN cliente, con il destinatario.
+ *
+ * Serve alla scheda cliente e non poteva usare `cercaInArchivio`: quella
+ * normalizza e butta via `spedizione.nome`, che per un'azienda di regali è il
+ * dato che conta di più — chi ordina e chi riceve sono due persone diverse, e
+ * sapere che manda sempre alla stessa è ciò che distingue un cliente da un
+ * conoscente.
+ */
+export type OrdineCliente = {
+  numero: string
+  brand: string
+  data: string
+  totale: number
+  valuta: string
+  dataConsegna: string | null
+  destinatario: string
+  citta: string
+}
+
+export async function ordiniClienteDaOrders(
+  q: string,
+  limit = 100
+): Promise<{ stato: 'ok'; ordini: OrdineCliente[] } | { stato: 'errore'; messaggio: string }> {
+  const c = await configOrders()
+  if (!c) return { stato: 'errore', messaggio: 'app Ordini non configurata' }
+  try {
+    const p = new URLSearchParams({ q, limit: String(limit) })
+    const res = await fetch(`${c.base}/api/v1/ordini?${p}`, {
+      headers: { 'x-api-key': c.chiave },
+      signal: AbortSignal.timeout(15000),
+      cache: 'no-store',
+    })
+    if (!res.ok) return { stato: 'errore', messaggio: `Orders ha risposto ${res.status}` }
+    const corpo = (await res.json().catch(() => ({}))) as {
+      ordini?: {
+        numero?: string
+        brand?: string
+        data?: string
+        totale?: number
+        valuta?: string
+        consegna?: { data?: string | null }
+        spedizione?: { nome?: string | null; citta?: string | null }
+      }[]
+    }
+    return {
+      stato: 'ok',
+      ordini: (corpo.ordini ?? []).map((o) => ({
+        numero: o.numero ?? '',
+        brand: o.brand ?? '',
+        data: o.data ?? '',
+        totale: o.totale ?? 0,
+        valuta: o.valuta ?? 'EUR',
+        dataConsegna: o.consegna?.data ?? null,
+        destinatario: (o.spedizione?.nome ?? '').trim(),
+        citta: (o.spedizione?.citta ?? '').trim(),
+      })),
+    }
+  } catch (e) {
+    return { stato: 'errore', messaggio: (e as Error).message }
+  }
+}

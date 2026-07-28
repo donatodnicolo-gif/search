@@ -3,6 +3,7 @@ import { schedaCliente } from '@/lib/scheda-cliente'
 import { profiloCliente } from '@/lib/cliente-valore'
 import { nomeTipoCliente, coloreTipoCliente } from '@/lib/clienti-tipo'
 import { linguaCliente, nomeLingua } from '@/lib/lingua'
+import { LetturaCliente } from '@/components/LetturaCliente'
 
 export const dynamic = 'force-dynamic'
 
@@ -94,8 +95,54 @@ export default async function PaginaSchedaCliente({
         </div>
       ))}
 
+      <LetturaCliente email={scheda.email} telefono={scheda.telefono} />
+
+      {/* A CHI MANDA e QUANDO ORDINA: le due domande che i dati sapevano già
+          rispondere e che nessuno faceva. In un'azienda di regali chi riceve
+          conta quanto chi paga. */}
+      {scheda.destinatari.length || scheda.ricorrenze.length ? (
+        <div className="card" style={{ marginBottom: 14 }}>
+          <h2 style={{ marginTop: 0, fontSize: 16 }}>Abitudini</h2>
+          {scheda.destinatari.length ? (
+            <p style={{ marginTop: 0 }}>
+              <strong>Manda spesso a:</strong>{' '}
+              {scheda.destinatari
+                .slice(0, 5)
+                .map((d) => `${d.nome}${d.citta ? ` (${d.citta})` : ''} — ${d.volte} volte`)
+                .join(' · ')}
+            </p>
+          ) : null}
+          {scheda.ricorrenze.length ? (
+            <p style={{ marginBottom: 0 }}>
+              <strong>Ordina in:</strong>{' '}
+              {scheda.ricorrenze
+                .map((r) => `${r.mese} (${r.volte} ordini in ${r.anni} anni diversi)`)
+                .join(' · ')}
+            </p>
+          ) : null}
+          <p className="cella-sub" style={{ marginTop: 8, marginBottom: 0 }}>
+            Si mostrano solo i destinatari visti almeno due volte e i mesi che si ripetono in
+            anni diversi: una volta sola non è un&apos;abitudine, è un ordine.
+          </p>
+        </div>
+      ) : null}
+
       <div className="card" style={{ marginBottom: 14 }}>
         <h2 style={{ marginTop: 0, fontSize: 16 }}>Conversazioni</h2>
+        {scheda.ultimoContatto ? (
+          <p className="descrizione" style={{ marginTop: 0 }}>
+            Ultimo messaggio il <strong>{dataBreve(scheda.ultimoContatto.quando)}</strong> su{' '}
+            {scheda.ultimoContatto.canale},{' '}
+            {scheda.ultimoContatto.direzione === 'in' ? (
+              <strong>scritto dal cliente</strong>
+            ) : (
+              'scritto da noi'
+            )}
+            {scheda.ultimoContatto.direzione === 'in'
+              ? ' — se non abbiamo risposto, la palla è nostra.'
+              : '.'}
+          </p>
+        ) : null}
         {scheda.conversazioni.length === 0 ? (
           <p className="descrizione" style={{ marginBottom: 0 }}>
             Nessuna conversazione con questo cliente.
