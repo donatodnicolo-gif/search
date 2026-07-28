@@ -21,6 +21,28 @@ export const maxDuration = 30
 
 const API = 'https://graph.facebook.com/v21.0'
 
+/**
+ * Il codice d'errore di Meta tradotto nel PASSO SUCCESSIVO.
+ *
+ * ⚠️ «(#133006) Phone number re-verification needed» è un messaggio corretto e
+ * inutile: dice cos'è andato storto, non cosa fare. Chi lo legge resta fermo
+ * davanti a un errore rosso con la sensazione che sia rotto qualcosa, mentre
+ * gli mancava un clic sul bottone sopra. Un errore che non indica la mossa
+ * seguente è un vicolo cieco, e questa mappa serve a non lasciarcene nessuno.
+ */
+const SPIEGAZIONI: Record<number, string> = {
+  133006:
+    'La verifica del numero è scaduta: prima di registrarlo va rifatta. Premi «Fatti chiamare» qui sopra — su un fisso l’SMS non arriva — scrivi il codice che ti dettano al telefono, premi «Conferma codice», e solo dopo torna qui col PIN.',
+  133005:
+    'Il PIN non corrisponde a quello già impostato su questo numero. Se non lo ricordi, azzeralo da WhatsApp Manager (Impostazioni del numero → Verifica in due passaggi) e poi riprova.',
+  133008:
+    'Troppi tentativi con PIN sbagliato: Meta ha bloccato il numero per un po’. Aspetta prima di riprovare, e nel frattempo recupera il PIN giusto da WhatsApp Manager.',
+  133009: 'Hai riprovato troppo in fretta: aspetta qualche secondo e ripeti.',
+  133010: 'Il numero non risulta registrato: rifai la verifica col codice e poi registra.',
+  133016:
+    'Il numero è stato eliminato di recente da Meta: va aspettato il tempo previsto prima di poterlo registrare di nuovo.',
+}
+
 export async function POST(req: NextRequest) {
   const { phoneNumberId, pin } = (await req.json().catch(() => ({}))) as {
     phoneNumberId?: string
@@ -54,15 +76,21 @@ export async function POST(req: NextRequest) {
     })
     const corpo = (await res.json().catch(() => ({}))) as {
       success?: boolean
-      error?: { message?: string; error_subcode?: number; error_user_msg?: string }
+      error?: { message?: string; code?: number; error_subcode?: number; error_user_msg?: string }
     }
 
     if (!res.ok) {
-      // L'errore di Meta si riporta com'è: «PIN sbagliato» e «numero già
-      // registrato» si risolvono in modi opposti, e appiattirli in «non
-      // riuscito» rimanda a indovinare.
+      // L'errore di Meta si riporta com'è — «PIN sbagliato» e «numero già
+      // registrato» si risolvono in modi opposti — ma da solo non basta:
+      // «(#133006) Phone number re-verification needed» è corretto e non dice
+      // che cosa fare. Qui il codice diventa il passo successivo.
       const m = corpo.error?.error_user_msg || corpo.error?.message || `errore ${res.status}`
-      return NextResponse.json({ errore: `Meta risponde: ${m}` }, { status: 502 })
+      const codiceErrore = corpo.error?.code
+      const cosaFare = SPIEGAZIONI[codiceErrore ?? 0]
+      return NextResponse.json(
+        { errore: `Meta risponde: ${m}`, cosaFare },
+        { status: 502 }
+      )
     }
 
     return NextResponse.json({

@@ -25,20 +25,29 @@ export function RegistraNumero({
   const [inCorso, setInCorso] = useState(false)
   const [esito, setEsito] = useState('')
   const [errore, setErrore] = useState('')
+  // Il passo successivo suggerito dal server quando Meta rifiuta: un errore
+  // che non dice la mossa seguente lascia fermi davanti a un rosso.
+  const [cosaFare, setCosaFare] = useState('')
 
   async function registra() {
     setInCorso(true)
     setEsito('')
     setErrore('')
+    setCosaFare('')
     try {
       const res = await fetch('/api/whatsapp/registra', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phoneNumberId, pin }),
       })
-      const d = (await res.json().catch(() => ({}))) as { messaggio?: string; errore?: string }
+      const d = (await res.json().catch(() => ({}))) as {
+        messaggio?: string
+        errore?: string
+        cosaFare?: string
+      }
       if (!res.ok) {
         setErrore(d.errore || 'Registrazione non riuscita.')
+        setCosaFare(d.cosaFare ?? '')
         return
       }
       setEsito(d.messaggio || 'Numero registrato.')
@@ -54,6 +63,7 @@ export function RegistraNumero({
     setInCorso(true)
     setEsito('')
     setErrore('')
+    setCosaFare('')
     try {
       const res = await fetch('/api/whatsapp/codice', {
         method: 'POST',
@@ -74,6 +84,7 @@ export function RegistraNumero({
     setInCorso(true)
     setEsito('')
     setErrore('')
+    setCosaFare('')
     try {
       const res = await fetch('/api/whatsapp/codice', {
         method: 'PUT',
@@ -99,8 +110,10 @@ export function RegistraNumero({
           tempo: il CODICE si riceve (SMS o telefonata) e dimostra che il numero
           è tuo; il PIN lo SCEGLI tu ed è la verifica in due passaggi. */}
       <p className="descrizione" style={{ marginBottom: 6 }}>
-        <strong>1. Solo se il numero non è ancora verificato.</strong> Meta manda un codice di 6
-        cifre — su un fisso serve la telefonata, l&apos;SMS non arriva.
+        <strong>1. Verifica il numero.</strong> Serve se non è mai stato verificato{' '}
+        <em>oppure se la verifica è scaduta</em> — succede, e allora la registrazione al passo 2
+        viene rifiutata con «re-verification needed». Meta detta un codice di 6 cifre: su un fisso
+        serve la telefonata, l&apos;SMS non arriva.
       </p>
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 10 }}>
         <button
@@ -167,6 +180,11 @@ export function RegistraNumero({
       </div>
       {esito ? <div className="avviso-ok">{esito}</div> : null}
       {errore ? <div className="avviso-errore">{errore}</div> : null}
+      {cosaFare ? (
+        <p className="descrizione" style={{ marginTop: 6 }}>
+          <strong>Cosa fare:</strong> {cosaFare}
+        </p>
+      ) : null}
     </div>
   )
 }
