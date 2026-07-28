@@ -8,7 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { colors, radius, spacing } from '@/lib/theme';
 import { conferma, avvisa } from '@/lib/dialoghi';
-import { fetchTuttiContatti, registraContattoAvviato, type ContattoConLuogo } from '@/lib/db';
+import { fetchPlace, fetchTuttiContatti, registraContattoAvviato, type ContattoConLuogo } from '@/lib/db';
 import { fetchScript, inviaEmailContatti, type ScriptEmail } from '@/lib/script';
 import { applicaVariabili, htmlDaTesto, sembraHtml, testoSemplice, variabiliManuali, type DatiContatto } from '@/lib/variabili';
 import { RichTextEditor } from '@/components/RichTextEditor';
@@ -54,6 +54,11 @@ export default function InvioScript() {
   const [variabili, setVariabili] = useState<Record<string, string>>({}); // manuali, per-invio (chiave-lower)
   const [fase, setFase] = useState<'scelta' | 'revisione'>('scelta');
   const [inviando, setInviando] = useState(false);
+  // Il nome del negozio da cui si è arrivati, letto dal negozio STESSO e non
+  // dai suoi contatti: quando i contatti sono zero — il caso in cui spiegarlo
+  // serve di più — ricavarlo da loro darebbe null e la schermata non saprebbe
+  // nemmeno di chi sta parlando.
+  const [negozioAtteso, setNegozioAtteso] = useState<string | null>(null);
 
   // Variabili manuali presenti nel testo/oggetto ([data], [evento]…): da compilare.
   const manualiKeys = useMemo(() => variabiliManuali(oggetto, corpo), [oggetto, corpo]);
@@ -79,6 +84,13 @@ export default function InvioScript() {
         // così non si ripescano fra tutti. Restano deselezionabili.
         if (placeIds.size) {
           setSel(new Set(raggiungibili.filter((c) => placeIds.has(c.place_id)).map((c) => c.id)));
+          // Il nome dal negozio stesso: serve anche (soprattutto) quando non ha
+          // nessun contatto. Best-effort — senza, la schermata dice comunque
+          // tutto il resto.
+          const ids = [...placeIds];
+          const luoghi = (await Promise.all(ids.map((id) => fetchPlace(id).catch(() => null)))).filter(Boolean);
+          if (luoghi.length === 1) setNegozioAtteso(luoghi[0]!.nome);
+          else if (luoghi.length > 1) setNegozioAtteso(`${luoghi.length} negozi`);
         }
       } finally {
         setCaricando(false);
@@ -89,10 +101,14 @@ export default function InvioScript() {
   // Il nome del negozio da cui si è arrivati, per dire in testa a CHI si scrive.
   const negozio = useMemo(() => {
     if (!placeIds.size) return null;
+    // Prima il nome letto dal negozio: è l'unico che c'è anche quando i
+    // contatti sono zero. Quello dei contatti resta come ripiego, per non
+    // lasciare la testata senza nome nell'attimo prima che la lettura arrivi.
+    if (negozioAtteso) return negozioAtteso;
     const nomi = [...new Set(contatti.filter((c) => placeIds.has(c.place_id)).map((c) => c.place_nome).filter(Boolean))];
     if (!nomi.length) return null;
     return nomi.length === 1 ? (nomi[0] as string) : `${nomi.length} negozi`;
-  }, [contatti, placeIds]);
+  }, [contatti, placeIds, negozioAtteso]);
 
   // ⚠️ L'elenco NON mostra tutta la rubrica (scelta utente, 28/07/2026).
   // Mostrarla voleva dire mettere davanti centinaia di persone con qualcuna
@@ -365,11 +381,26 @@ export default function InvioScript() {
         keyExtractor={(r) => (r.tipo === 'testata' ? r.chiave : r.c.id)}
         contentContainerStyle={styles.list}
         ListEmptyComponent={
-          <Text style={styles.vuoto}>
-            {negozio
-              ? `${negozio} non ha contatti con un'email in rubrica. Cerca qui sopra per aggiungere qualcun altro, oppure aggiungi la sua email dalla Rubrica.`
-              : 'Cerca un contatto qui sopra per aggiungerlo.'}
-          </Text>
+          // Il caso «questo cliente non ha nessuno a cui scrivere» è il più
+          // spiazzante di tutti: la schermata sembra rotta. Va detto per esteso,
+          // con le due strade possibili, non liquidato con una riga grigia.
+          <View style={styles.nessuno}>
+            <Ionicons name="person-add-outline" size={26} color={colors.testoSoft} />
+            <Text style={styles.nessunoTitolo}>
+              {negozio ? `${negozio} non ha contatti con un’indirizzo email` : 'Nessun destinatario scelto'}
+            </Text>
+            <Text style={styles.nessunoTesto}>
+              {negozio
+                ? 'Una mail si può mandare solo a un indirizzo, e di questo negozio non ne abbiamo nessuno in rubrica. Puoi cercare un altro contatto qui sopra — per esempio la sede o un referente di un negozio dello stesso gruppo — oppure aggiungere l’email dalla scheda del negozio e tornare qui.'
+                : 'Cerca qui sopra chi vuoi raggiungere: compaiono i contatti della rubrica che hanno un’email.'}
+            </Text>
+            {negozio ? (
+              <Pressable style={styles.nessunoBtn} onPress={() => router.push('/(app)/rubrica')}>
+                <Ionicons name="book-outline" size={15} color={colors.testo} />
+                <Text style={styles.nessunoBtnTxt}>Apri la Rubrica</Text>
+              </Pressable>
+            ) : null}
+          </View>
         }
         renderItem={({ item }) => {
           if (item.tipo === 'testata') return <Text style={styles.gruppoLista}>{item.testo}</Text>;
@@ -427,6 +458,30 @@ const styles = StyleSheet.create({
   // I contatti del negozio di partenza hanno il bordo marcato: si distinguono
   // dal resto della rubrica anche scorrendo in fretta.
   rigaSua: { borderColor: colors.ink },
+  // Il caso «nessun contatto»: un blocco che spiega, non una riga grigia.
+  nessuno: {
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: colors.bianco,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.grigioChiaro,
+    padding: spacing.lg,
+    marginTop: spacing.sm,
+  },
+  nessunoTitolo: { color: colors.navy, fontWeight: '800', fontSize: 15, textAlign: 'center' },
+  nessunoTesto: { color: colors.testoSoft, fontSize: 13, lineHeight: 19, textAlign: 'center' },
+  nessunoBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.fill,
+    borderRadius: radius.pill,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    marginTop: 4,
+  },
+  nessunoBtnTxt: { color: colors.testo, fontWeight: '700', fontSize: 13.5 },
   rigaTesta: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
   rigaNome: { color: colors.testo, fontWeight: '700', fontSize: 14, flexShrink: 1 },
   tagDecisore: {
