@@ -52,6 +52,7 @@ type KwAggregata = {
   spesa: number;
   resa: number | null;
   clic: number;
+  impressioni: number;
   conversioni: number;
   qualita: number | null;
   viva: boolean;
@@ -99,6 +100,7 @@ export default async function PaginaKeywords({
       spesa: 0,
       resa: null,
       clic: 0,
+      impressioni: 0,
       conversioni: 0,
       qualita: null,
       viva: false,
@@ -107,6 +109,7 @@ export default async function PaginaKeywords({
     agg.incasso += k.incasso ?? 0;
     agg.spesa += k.spesa ?? 0;
     agg.clic += k.clic ?? 0;
+    agg.impressioni += k.impressioni ?? 0;
     agg.conversioni += k.conversioni ?? 0;
     if (k.punteggioQualita != null) agg.qualita = Math.max(agg.qualita ?? 0, k.punteggioQualita);
     if (k.metricheAl) agg.viva = true;
@@ -323,8 +326,12 @@ export default async function PaginaKeywords({
                       <th style={{ minWidth: 140 }}>Stato</th>
                       <th>Campagne</th>
                       <th className="num"><a href={link({ ordina: "incasso" })}>Incasso {ordina === "incasso" ? "↓" : ""}</a></th>
+                      <th className="num" title="Quante volte è comparso un annuncio per questa keyword">Comparse</th>
                       <th className="num">Clic</th>
+                      <th className="num" title="Clic ÷ comparse">CTR</th>
+                      <th className="num" title="Costo per clic">CPC</th>
                       <th className="num">Conv.</th>
+                      <th className="num" title="Costo per conversione">CPA</th>
                       <th className="num" title="Punteggio di qualità Google (1-10)">QS</th>
                       <th className="num"><a href={link({ ordina: "spesa" })}>Spesa {ordina === "spesa" ? "↓" : ""}</a></th>
                       <th className="num"><a href={link({ ordina: "resa" })}>Resa {ordina === "resa" ? "↓" : ""}</a></th>
@@ -362,8 +369,16 @@ export default async function PaginaKeywords({
                         <td className="num" style={{ color: k.incasso > 0 ? "var(--green)" : "var(--text-tertiary)", fontWeight: k.incasso > 0 ? 600 : 400 }}>
                           {formattaEuro(k.incasso)}
                         </td>
+                        <td className="num cella-muta">{k.impressioni > 0 ? formattaNumero(k.impressioni) : "—"}</td>
                         <td className="num cella-muta">{k.clic > 0 ? formattaNumero(k.clic) : "—"}</td>
+                        <td className="num cella-muta">
+                          {k.impressioni > 0 ? `${((k.clic / k.impressioni) * 100).toFixed(1)}%` : "—"}
+                        </td>
+                        <td className="num cella-muta">{k.clic > 0 ? formattaEuro(k.spesa / k.clic) : "—"}</td>
                         <td className="num cella-muta">{k.conversioni > 0 ? k.conversioni.toFixed(1) : "—"}</td>
+                        <td className="num cella-muta">
+                          {k.conversioni > 0 ? formattaEuro(k.spesa / k.conversioni) : "—"}
+                        </td>
                         <td className="num" style={k.qualita != null && k.qualita < 5 ? { color: "var(--red)", fontWeight: 600 } : undefined}>
                           {k.qualita ?? "—"}
                         </td>

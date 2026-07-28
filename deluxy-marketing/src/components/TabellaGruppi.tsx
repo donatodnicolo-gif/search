@@ -39,7 +39,10 @@ export function TabellaGruppi({
             <th>Stato</th>
             <th className="num">Spesa</th>
             {mostraQuota && <th className="num">Quota</th>}
+            <th className="num" title="Quante volte gli annunci del gruppo sono comparsi">Comparse</th>
             <th className="num">Click</th>
+            <th className="num" title="Click ÷ comparse">CTR</th>
+            <th className="num" title="Costo per click">CPC</th>
             <th className="num">Conv.</th>
             <th className="num">CPA</th>
             <th className="num">Ricavi</th>
@@ -79,7 +82,12 @@ export function TabellaGruppi({
                 {mostraQuota && (
                   <td className="num cella-muta">{quota != null ? `${Math.round(quota * 100)}%` : "—"}</td>
                 )}
+                <td className="num cella-muta">{formattaNumero(g.impression)}</td>
                 <td className="num cella-muta">{formattaNumero(g.click)}</td>
+                <td className="num cella-muta">
+                  {g.impression > 0 ? `${((g.click / g.impression) * 100).toFixed(1)}%` : "—"}
+                </td>
+                <td className="num cella-muta">{g.click > 0 ? formattaEuro(g.spesa / g.click) : "—"}</td>
                 <td className="num cella-muta">{formattaNumero(Math.round(g.conversioni * 10) / 10)}</td>
                 <td className="num cella-muta">{g.cpa != null ? formattaEuro(g.cpa) : "—"}</td>
                 <td className="num">{formattaEuro(g.ricavi)}</td>

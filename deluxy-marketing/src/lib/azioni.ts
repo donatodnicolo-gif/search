@@ -1258,9 +1258,8 @@ export async function creaAzioneDaOpportunita(fd: FormData) {
 // Un termine è quello che la gente ha digitato: non si "modifica", si giudica.
 // "Pertinente" resta una nota nell'app; "escludi" mette in coda una negativa
 // vera sulla campagna — che, come tutto il resto, va approvata a mano.
-export async function giudicaTermine(fd: FormData) {
+export async function giudicaTermine(scelta: string, fd: FormData) {
   const id = testo(fd, "id");
-  const scelta = testo(fd, "scelta");
   if (!id || !scelta) return;
   const termine = await prisma.termineRicerca.findUnique({
     where: { id },
@@ -1270,6 +1269,13 @@ export async function giudicaTermine(fd: FormData) {
 
   if (scelta === "pertinente") {
     await prisma.termineRicerca.update({ where: { id }, data: { stato: "pertinente" } });
+    revalidatePath(`/campagne/${termine.campagna.id}`);
+    return;
+  }
+
+  if (scelta === "escluso") {
+    await prisma.termineRicerca.update({ where: { id }, data: { stato: "escluso" } });
+    revalidatePath("/termini");
     revalidatePath(`/campagne/${termine.campagna.id}`);
     return;
   }
@@ -1291,6 +1297,7 @@ export async function giudicaTermine(fd: FormData) {
     },
   });
   await prisma.termineRicerca.update({ where: { id }, data: { stato: "da_escludere" } });
+  revalidatePath("/termini");
   await registra({
     autore: "utente",
     tipo: "creazione",

@@ -101,15 +101,23 @@ export async function TerminiRicerca({ campagnaId, brand }: { campagnaId: string
                   <td>
                     {t.stato === "nuovo" ? (
                       <div style={{ display: "flex", gap: 6 }}>
-                        <form action={giudicaTermine}>
+                        <form>
                           <input type="hidden" name="id" value={t.id} />
-                          <input type="hidden" name="scelta" value="pertinente" />
-                          <button className="btn small fantasma" type="submit">Va bene</button>
-                        </form>
-                        <form action={giudicaTermine}>
-                          <input type="hidden" name="id" value={t.id} />
-                          <input type="hidden" name="scelta" value="escludi" />
-                          <button className="btn small" type="submit">Escludi</button>
+                          <button
+                            className="btn small fantasma"
+                            type="submit"
+                            formAction={giudicaTermine.bind(null, "pertinente")}
+                          >
+                            Va bene
+                          </button>
+                          <button
+                            className="btn small"
+                            type="submit"
+                            formAction={giudicaTermine.bind(null, "escludi")}
+                            style={{ marginLeft: 6 }}
+                          >
+                            Escludi
+                          </button>
                         </form>
                       </div>
                     ) : (

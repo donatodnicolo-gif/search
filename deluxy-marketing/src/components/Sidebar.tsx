@@ -7,7 +7,7 @@ export type VoceSidebar =
   | "home" | "analisi" | "audit" | "azioni" | "campagne" | "gruppi" | "landing" | "copy" | "keywords"
   | "meta" | "pubblici" | "ordini" | "offerte" | "drive" | "storico" | "vendite" | "budget" | "mkt" | "impostazioni"
   | "errori" | "memoria" | "incongruenze" | "cadenze" | "occasioni" | "operazioni" | "periodo" | "ricezione" | "ai"
-  | "tracciamento";
+  | "tracciamento" | "termini";
 
 // Sidebar di navigazione. `attiva` identifica la sezione corrente; `brandAttivo`
 // e `canaleAttivo` evidenziano il filtro con cui si sta guardando la pagina.
@@ -24,6 +24,7 @@ export async function Sidebar({
     nAnalisi, nAudit, nAzioniAperte, nCampagneVive, nLanding, nTestAperti, nDocumenti,
     aperteBrand, aperteCanale, analisiCanale, auditCanale, campagneCanale, nPubblici, nOrdini, nErroriAperti, nIncongruenzeAperte, nOperazioni,
     nGruppi,
+    nTermini,
   ] = await Promise.all([
     prisma.analisi.count(),
     prisma.analisi.count({
@@ -61,6 +62,9 @@ export async function Sidebar({
     prisma.incongruenza.count({ where: { stato: "aperta" } }),
     prisma.operazioneAdv.count({ where: { stato: { in: ["in_attesa", "approvata"] } } }),
     prisma.gruppo.count(),
+    // Non quante parole ci sono, ma quante stanno bruciando: e il numero che
+    // dice se vale la pena aprire la pagina.
+    prisma.termineRicerca.count({ where: { spesa: { gt: 0 }, conversioni: { equals: 0 } } }),
   ]);
 
   const conta = (
@@ -114,6 +118,7 @@ export async function Sidebar({
           {voceCanale("campagne", "meta_ads", "/campagne?canale=meta_ads", "campagne", "Solo Meta", conta(campagneCanale, "meta_ads"))}
           {voce("gruppi", "/gruppi", "metriche", "Gruppi di annunci", nGruppi)}
           {voce("keywords", "/keywords", "analisi", "Keywords")}
+          {voce("termini", "/termini", "analisi", "Parole cercate", nTermini)}
           {voce("copy", "/copy", "copy", "Copy & annunci")}
           {voce("landing", "/landing", "landing", "Landing page", nLanding)}
           {voce("pubblici", "/pubblici", "pubblici", "Pubblici", nPubblici)}
