@@ -624,6 +624,14 @@ export function DettaglioOrdine({
                 >
                   Paga fornitore
                 </a>
+                {/* La scheda del cliente: conversazioni, storico e reclami in un
+                    posto solo. La chiave e email o telefono, mai il nome. */}
+                <a
+                  className="btn btn-secondario small"
+                  href={`/clienti/scheda?email=${encodeURIComponent(ordine.email)}&telefono=${encodeURIComponent(ordine.telefono)}&paese=${encodeURIComponent(ordine.paese)}`}
+                >
+                  Scheda cliente
+                </a>
                 <a className="btn btn-secondario small" href={`/reclami?ordineId=${ordine.id}&ordine=${encodeURIComponent(ordine.numero)}&cliente=${encodeURIComponent(ordine.clienteNome)}&telefono=${encodeURIComponent(ordine.telefono)}&email=${encodeURIComponent(ordine.email)}&negozio=${encodeURIComponent(ordine.negozioNome)}`}>
                   Apri reclamo
                 </a>
