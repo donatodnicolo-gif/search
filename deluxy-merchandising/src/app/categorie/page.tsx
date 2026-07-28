@@ -86,8 +86,12 @@ export default async function CategoriePage({
           {vista.spiega}
         </p>
         <p className="page-sub" style={{ margin: "0 0 12px" }}>
-          {pieni.length} {pieni.length === 1 ? "voce" : "voci"} · {prodottiTotali} prodotti · venduto 90gg{" "}
-          {euro(ricavoTotale)}
+          {/* Si contano le voci **esistenti**: il gruppo «— senza … —» non è una
+              categoria, è la misura di quanto lavoro manca. Dirlo evita di
+              leggere «0 voci» come «nessun prodotto». */}
+          {pieni.length} {pieni.length === 1 ? "voce esistente" : "voci esistenti"} · {prodottiTotali} prodotti ·
+          venduto 90gg {euro(ricavoTotale)}
+          {pieni.length === 0 && " · nessuna ancora assegnata: stanno tutti nel gruppo qui sotto"}
         </p>
 
         {gruppi.length === 0 ? (
