@@ -144,6 +144,33 @@ Experience €22.500; linee €504.000 / 317 attivazioni.
 Il COGS di partenza (65%) deriva dal margine stimato 2026 dei budget pubblicati (≈35%).
 Il motore di calcolo è `src/lib/calc.ts` (mai valori derivati a DB).
 
+## La spesa pubblicitaria viene da Marketing, non dalla banca
+
+In quest'app «ADV» vuol dire due cose, e vanno tenute separate:
+
+- **a budget** (`/spese`, `/piattaforme`) è quanto **si può** spendere: una percentuale sulle
+  vendite per maison e mese. Nasce qui, ed è anche il numero che esce dall'API `/api/v1/maison`;
+- **a consuntivo** (P&L, Consuntivo, proposta di conto economico) è quanto si è speso **davvero**, e
+  la fonte è **una sola: Deluxy Marketing** (`GET /api/v1/spesa?raggruppa=mese`, client
+  `src/lib/marketing.ts`, chiave `MARKETING_API_KEY`).
+
+Prima quel numero erano le **uscite di banca** categorizzate «Pubblicità» nel CFO. Sono un'altra
+cosa: la banca vede l'addebito il giorno in cui Google o Meta incassano, non sa di quale brand o
+campagna sia, e ci finisce dentro qualunque fornitore qualcuno abbia messo in quella categoria. Le
+uscite di banca restano — come **riscontro di cassa** (`advBanca` nel consuntivo, mostrato sotto il
+P&L): le due cifre non coincidono mai, e la differenza è cassa, non errore.
+
+> **`copertura.completa` prima di `totale`.** È la regola scritta nell'API di Marketing e qui si
+> rispetta: se un account tace, il totale è più basso del vero e mostrarlo come completo direbbe «si
+> è speso meno», che è la conclusione sbagliata. Budgets aggiunge un controllo suo: un account che ha
+> dati solo su **una parte** del periodo non è «silenzioso» per Marketing (qualcosa ha mandato) ma
+> per chi somma dodici mesi è quasi lo stesso, quindi sotto l'80% dei giorni coperti la copertura
+> viene dichiarata **incompleta** lo stesso. Quando lo è, il P&L lo scrive in chiaro sotto la
+> tabella e la proposta di bilancio aggiunge un avviso.
+
+Se Marketing non risponde o la chiave manca, la riga ADV **ripiega sulla banca e lo dichiara** (fra
+i `mancanti` e nella nota sotto il P&L), invece di restare vuota o di far finta di niente.
+
 ## Chiavi (cassaforte del Hub)
 
 Le chiavi (`FINANCE_API_KEY`, `ORDERS_API_KEY`, `OPENAI_API_KEY`, …) non stanno nel `.env` di questa app: si
@@ -186,7 +213,12 @@ maison e per mese, IVA inclusa come il budget), catalogo Hub aggiornato (id `bud
   Orders (per maison e per mese), ma i ricavi restano **su due basi diverse** — Finance imponibile,
   Shopify IVA inclusa: il totale è dichiarato, non omogeneo. I **rimborsi parziali** sono contati
   per intero (l'importo reso non esiste nel registro ordini).
-- **Piattaforme ADV**: split **globale** d'azienda, non per singola maison; nessun raccordo con lo speso reale.
+- **Piattaforme ADV**: split **globale** d'azienda, non per singola maison; il confronto col reale
+  esiste solo nel P&L (totale), non piattaforma per piattaforma.
+- **Storico Meta assente in Marketing**: al 28/07/2026 gli account Meta hanno dati solo dagli ultimi
+  giorni di giugno, quindi l'ADV a consuntivo di gennaio–giugno è di fatto **solo Google** (39.005 €
+  contro 82.264 € usciti dal conto). L'app lo dichiara, ma il buco si chiude in **Marketing**,
+  ricaricando lo storico Meta: non è una cosa che si aggiusta qui.
 - **Costo del lavoro**: tredicesima/quattordicesima e TFR non sono voci distinte; nessun consuntivo del personale.
 - **P&L**: per singola **linea commerciale** non c'è (le linee hanno solo il budget vendite, non un conto economico).
 
@@ -197,14 +229,23 @@ variabili d'ambiente e nella cassaforte del Hub. Ordine di precedenza, e la pagi
 un badge su ogni riga: **ambiente → impostata nell'app → Hub**. L'ambiente vince perché è quello
 che si cambia in emergenza senza entrare nell'app.
 
-Il valore finisce nel database **cifrato** (AES-256-GCM, chiave derivata da `APP_SECRET` con
-scrypt — stessa infrastruttura di `deluxy-merchandising` e `deluxy-messaging`, `src/lib/crypto.ts`)
-e **non torna mai al browser per intero**: in pagina si vede solo `sk-proj-…a1b2`, quanto basta a
-riconoscere quale chiave è impostata.
+Il valore finisce nel database **cifrato** (AES-256-GCM, chiave derivata con scrypt — stessa
+infrastruttura di `deluxy-merchandising` e `deluxy-messaging`, `src/lib/crypto.ts`) e **non torna
+mai al browser per intero**: in pagina si vede solo `sk-proj-…a1b2`, quanto basta a riconoscere
+quale chiave è impostata.
 
-> **Senza `APP_SECRET` il salvataggio è disabilitato**, e la pagina lo dice: una chiave in chiaro su
-> un database condiviso non è una cosa da fare di nascosto. La variabile va aggiunta all'ambiente
-> dell'app (locale e Vercel).
+Il segreto da cui deriva la cifratura si cerca in quest'ordine: **`APP_SECRET` → `HUB_KEYS_TOKEN` →
+`BUDGETS_APP_PASSWORD`**. `APP_SECRET` è quello giusto (dedicato, si ruota senza toccare altro), ma
+pretendere solo quello significava tenere la pagina disabilitata in produzione finché nessuno lo
+aggiungeva su Vercel — cioè una funzione che esiste e non si può usare. Stessa scelta, e stessa
+motivazione, della cassaforte del Hub (`HUB_CHIAVI_SECRET` → `HUB_SESSION_SECRET`).
+
+> **Cambiare il segreto in uso rende illeggibili le chiavi già salvate.** Non si rompe niente — una
+> chiave che non si decifra risulta «non impostata» e si reincolla — ma sparisce. Vale anche
+> aggiungere `APP_SECRET` dove prima si usava il ripiego: la cifratura si sposta su di lei. Per
+> questo la pagina dichiara sempre **quale segreto** sta proteggendo le chiavi. Conseguenza pratica:
+> se locale e produzione hanno segreti diversi non si leggono le chiavi a vicenda — la chiave si
+> incolla **nell'ambiente in cui deve funzionare**.
 
 ## Accesso: password + codice di autenticazione
 

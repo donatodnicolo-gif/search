@@ -92,6 +92,12 @@ export const CHIAVI_NOTE = [
     serve: "Il venduto dei negozi Shopify: senza, la sezione Venduto e la riga ecommerce spariscono.",
   },
   {
+    nome: "MARKETING_API_KEY",
+    label: "Marketing (deluxy-marketing)",
+    serve:
+      "La spesa pubblicitaria VERA, quella addebitata da Google e Meta: è l'unica fonte dell'ADV a consuntivo. Senza, la riga ADV ripiega sulle uscite di banca categorizzate «Pubblicità», che sono un'altra cosa (cassa, non campagne) e lo dichiara.",
+  },
+  {
     // Unica chiave in ENTRATA: le altre servono a questa app per chiamare
     // fuori, questa serve a farsi chiamare. Sta nella stessa pagina perché per
     // chi la imposta è comunque «la chiave da mettere per far funzionare quella

@@ -9,19 +9,43 @@ import crypto from "node:crypto";
 // deluxy-messaging (token Meta): un solo modo di cifrare in tutto l'ecosistema,
 // così non si inventa un meccanismo per app.
 
+// Da quale variabile d'ambiente si deriva la chiave, in ordine.
+//
+// `APP_SECRET` è quella giusta: dedicata, si ruota senza toccare altro. Ma
+// pretendere *solo* quella significa che finché nessuno la aggiunge su Vercel
+// la pagina Chiavi è disabilitata in produzione — cioè la funzione esiste e non
+// si può usare, che è il modo peggiore di avere una funzione. Quindi si ripiega
+// su segreti che in produzione ci sono già, come fa la cassaforte del Hub
+// (`HUB_CHIAVI_SECRET` → `HUB_SESSION_SECRET`) e come fa qui `sessione.ts`.
+//
+// Il prezzo, e va detto invece che scoperto: **cambiare il segreto in uso rende
+// illeggibili le chiavi già salvate**. Non si rompe niente — una chiave che non
+// si decifra viene trattata come «non impostata» e si riscrive — ma sparisce. E
+// se un giorno si aggiunge `APP_SECRET` dove prima si usava il ripiego, il
+// primo posto della lista cambia e vale la stessa cosa: le chiavi vanno
+// reinserite. Per questo la pagina dice sempre quale segreto le sta proteggendo.
+const SEGRETI = ["APP_SECRET", "HUB_KEYS_TOKEN", "BUDGETS_APP_PASSWORD"] as const;
+
+// Il nome della variabile che sta proteggendo le chiavi, o null se non ce n'è
+// nessuna. Serve alla pagina: «cifrate con APP_SECRET» è un'informazione, «sono
+// cifrate» non lo è.
+export function segretoInUso(): string | null {
+  return SEGRETI.find((n) => (process.env[n] || "").trim().length >= 8) ?? null;
+}
+
 function chiaveCifratura(): Buffer {
-  const segreto = process.env.APP_SECRET;
-  if (!segreto) {
+  const nome = segretoInUso();
+  if (!nome) {
     throw new Error(
-      "APP_SECRET mancante: senza non si possono salvare le chiavi API dall'app. Aggiungila alle variabili d'ambiente."
+      "Nessun segreto per cifrare le chiavi: imposta APP_SECRET (almeno 8 caratteri) fra le variabili d'ambiente."
     );
   }
   // scrypt normalizza qualsiasi lunghezza di segreto a 32 byte.
-  return crypto.scryptSync(segreto, "deluxy-budgets", 32);
+  return crypto.scryptSync((process.env[nome] || "").trim(), "deluxy-budgets", 32);
 }
 
 export function cifraturaConfigurata(): boolean {
-  return Boolean(process.env.APP_SECRET);
+  return segretoInUso() !== null;
 }
 
 export function cifra(testo: string): string {

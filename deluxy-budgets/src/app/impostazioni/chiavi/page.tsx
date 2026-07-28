@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { CHIAVI_NOTE, origineChiavi } from "@/lib/chiavi";
-import { cifraturaConfigurata } from "@/lib/crypto";
+import { cifraturaConfigurata, segretoInUso } from "@/lib/crypto";
 import { ChiaviEditor } from "@/components/ChiaviEditor";
 
 export const dynamic = "force-dynamic";
@@ -19,13 +19,13 @@ export default async function ChiaviPage() {
           <h1 className="page-title">Chiavi</h1>
           <p className="page-caption">
             Le chiavi con cui l&apos;app parla con i servizi esterni. Si incollano qui e finiscono nel database{" "}
-            <strong>cifrate</strong> (AES-256-GCM con <code>APP_SECRET</code>): non tornano mai indietro per
-            intero, si vede solo un pezzo per riconoscerle.
+            <strong>cifrate</strong> (AES-256-GCM): non tornano mai indietro per intero, si vede solo un pezzo
+            per riconoscerle.
           </p>
         </div>
       </div>
 
-      <ChiaviEditor righe={righe} cifraturaOk={cifraturaConfigurata()} />
+      <ChiaviEditor righe={righe} cifraturaOk={cifraturaConfigurata()} segreto={segretoInUso()} />
 
       <p className="page-caption" style={{ marginTop: 14 }}>
         Una chiave può arrivare da tre posti e vale <strong>la prima che si trova</strong>: la{" "}

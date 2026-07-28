@@ -88,6 +88,11 @@ export default async function ContoEconomico({
           margineLordo: somma("margineLordo"),
           ebitda: somma("ebitda"),
           nonCategorizzato: 0,
+          // Campi che descrivono le fonti del consuntivo: qui dentro c'è il
+          // budget, che di fonti non ne ha.
+          advFonte: "banca",
+          advBanca: 0,
+          advCopertura: null,
           competenza: null,
           perMese: [],
         };
@@ -247,6 +252,36 @@ export default async function ContoEconomico({
           </table>
         </div>
       </div>
+
+      {cons && (
+        <p className="page-caption" style={{ marginTop: 10 }}>
+          {cons.advFonte === "marketing" ? (
+            <>
+              La riga <strong>ADV</strong> è la spesa delle <strong>campagne</strong>, presa da{" "}
+              <strong>Deluxy Marketing</strong>: è l&apos;unica fonte della pubblicità. Nello stesso periodo dal
+              conto sono usciti <strong>{eur(cons.advBanca)}</strong> categorizzati «Pubblicità» nel CFO: le due
+              cifre non coincidono mai — una è la campagna quando gira, l&apos;altra il giorno in cui Google e
+              Meta hanno incassato — e la differenza è cassa, non errore.
+              {cons.advCopertura && !cons.advCopertura.completa && (
+                <>
+                  {" "}
+                  <strong className="neg">Attenzione:</strong> Marketing dichiara la copertura{" "}
+                  <strong>incompleta</strong> ({cons.advCopertura.avvertenze.join(" ")}) — la spesa vera è più
+                  alta di così, e l&apos;EBITDA più basso.
+                </>
+              )}
+            </>
+          ) : (
+            <>
+              La riga <strong>ADV</strong> qui sopra <strong>non</strong> è la spesa delle campagne: sono le
+              uscite di banca categorizzate «Pubblicità» nel CFO, che spostano la spesa al giorno
+              dell&apos;addebito e non sanno di quale brand siano. La fonte giusta è Deluxy Marketing, che però
+              non risponde: {cons.mancanti.find((m) => m.startsWith("spesa ADV")) ?? "chiave non configurata"}.{" "}
+              <Link href="/impostazioni/chiavi" style={{ color: "var(--blue)" }}>Imposta la chiave Marketing</Link>.
+            </>
+          )}
+        </p>
+      )}
 
       <div className="page-head" style={{ marginTop: 28, marginBottom: 12 }}>
         <h2 className="section-title" style={{ margin: 0 }} id="mensile">Andamento mensile</h2>

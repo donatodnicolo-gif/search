@@ -18,7 +18,15 @@ const ORIGINE: Record<Riga["origine"], { label: string; badge: string }> = {
   assente: { label: "non impostata", badge: "neutral" },
 };
 
-export function ChiaviEditor({ righe, cifraturaOk }: { righe: Riga[]; cifraturaOk: boolean }) {
+export function ChiaviEditor({
+  righe,
+  cifraturaOk,
+  segreto,
+}: {
+  righe: Riga[];
+  cifraturaOk: boolean;
+  segreto: string | null;
+}) {
   const router = useRouter();
   const [valori, setValori] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
@@ -58,13 +66,26 @@ export function ChiaviEditor({ righe, cifraturaOk }: { righe: Riga[]; cifraturaO
 
   return (
     <>
-      {!cifraturaOk && (
+      {!cifraturaOk ? (
         <div className="card" style={{ borderColor: "var(--red)", marginBottom: 14 }}>
-          <strong>APP_SECRET non configurata.</strong> È il segreto con cui si cifrano le chiavi prima di
-          scriverle nel database: senza, salvarle da qui è disabilitato — una chiave in chiaro su un database
-          condiviso non è una cosa da fare di nascosto. Aggiungi <code>APP_SECRET</code> alle variabili
-          d&apos;ambiente dell&apos;app e ricarica.
+          <strong>Nessun segreto per cifrare.</strong> Le chiavi non si scrivono mai in chiaro su un database
+          condiviso: senza un segreto d&apos;ambiente da cui derivare la cifratura, salvarle da qui è
+          disabilitato. Aggiungi <code>APP_SECRET</code> alle variabili d&apos;ambiente dell&apos;app e ricarica.
         </div>
+      ) : (
+        <p className="page-caption" style={{ marginTop: 0, marginBottom: 12 }}>
+          Le chiavi salvate qui sono cifrate con <code>{segreto}</code>.{" "}
+          {segreto !== "APP_SECRET" && (
+            <>
+              È un <strong>ripiego</strong>: <code>APP_SECRET</code> non è impostata su questo ambiente, quindi
+              si usa un segreto che c&apos;è già.{" "}
+            </>
+          )}
+          Se quel segreto cambia, le chiavi già salvate <strong>non si decifrano più</strong>: non si rompe
+          niente, risultano «non impostate» e vanno reincollate. Vale anche il contrario — aggiungere{" "}
+          <code>APP_SECRET</code> dove ora non c&apos;è sposta la cifratura su di lei, e le chiavi di prima
+          vanno riscritte.
+        </p>
       )}
       {errore && <div className="avviso-errore" style={{ marginBottom: 12 }}>{errore}</div>}
       {ok && <div className="card" style={{ marginBottom: 12, borderColor: "var(--green)" }}>{ok}</div>}

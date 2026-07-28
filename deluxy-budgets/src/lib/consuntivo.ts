@@ -11,7 +11,9 @@
 //    dopo i partner (vedi venduto.ts): il venduto pieno non è un ricavo;
 //  - **banca** (via CFO) per i costi, e l'anagrafica **Dipendenti** per il
 //    personale, che è deterministico e non aspetta che i bonifici siano
-//    categorizzati.
+//    categorizzati;
+//  - **Marketing** per la spesa pubblicitaria, che è l'unica fonte dell'ADV:
+//    la banca vede l'addebito, Marketing vede la campagna (vedi marketing.ts).
 
 import { costoPersonaleMese, leggiVociFinance, type DatiAnno } from "./calc";
 import { caricaCategorie, categoriaDi, ricostruisci } from "./cfo";
@@ -19,6 +21,7 @@ import { fetchConsuntivo, fetchSpeseBanca } from "./finance";
 import { normalizzaNome } from "./scout";
 import { fatturatoDaVenduto, raggruppa, sommaMesi } from "./venduto";
 import { fetchRicaviD2C } from "./orders";
+import { fetchSpesaAdv, type CoperturaAdv } from "./marketing";
 import { caricaRettifiche, effettoSu, type EffettoAnno } from "./competenza";
 
 export const SLUG_D2C = "D2C";
@@ -51,6 +54,12 @@ export type ConsuntivoPeriodo = {
   margineLordo: number;
   ebitda: number;
   nonCategorizzato: number;
+  // Da dove arriva la riga ADV, e cosa dice l'altra fonte. Non è un dettaglio
+  // tecnico: «91.000 di pubblicità» vuol dire una cosa se sono campagne e
+  // un'altra se sono bonifici, e chi legge il P&L deve poterlo sapere.
+  advFonte: "marketing" | "banca";
+  advBanca: number; // uscite di banca categorizzate ADV, sempre, come riscontro
+  advCopertura: CoperturaAdv | null; // solo quando la fonte è Marketing
   // Le rettifiche di competenza che toccano questo periodo: si dichiarano,
   // perche un totale corretto di nascosto e peggio di uno sbagliato in chiaro.
   competenza: EffettoAnno | null;
@@ -65,6 +74,7 @@ export async function caricaConsuntivo(
   const vuoto: ConsuntivoPeriodo = {
     ok: false, mancanti: [], mesi, ricavi: 0, ricaviPerTipologia: {}, vendutoEcommerce: 0,
     cogs: 0, adv: 0, struttura: 0, personale: 0, margineLordo: 0, ebitda: 0, nonCategorizzato: 0,
+    advFonte: "banca", advBanca: 0, advCopertura: null,
     competenza: null,
     perMese: [],
   };
@@ -76,13 +86,14 @@ export async function caricaConsuntivo(
   // l'API di Finance dà il periodo, non la ripartizione mensile. I costi no —
   // `/api/spese` restituisce già il `perMese` di ogni controparte — e nemmeno
   // l'ecommerce, che arriva da Orders in dodici caselle.
-  const [fatt, spese, categorie, ordini, fattMese, rettifiche] = await Promise.all([
+  const [fatt, spese, categorie, ordini, fattMese, rettifiche, spesaAdv] = await Promise.all([
     fetchConsuntivo({ anno: dati.year, dal, al, stato: "tutte" }),
     fetchSpeseBanca({ anno: dati.year, dal, al }),
     caricaCategorie(),
     fetchRicaviD2C(dati.year),
     Promise.all(mesi.map((m) => fetchConsuntivo({ anno: dati.year, mese: m, stato: "tutte" }))),
     caricaRettifiche(dati.year),
+    fetchSpesaAdv(dati.year, dal, al),
   ]);
   // L'anno di competenza lo decide questa app: Finance dice quando il denaro si
   // è mosso, le rettifiche dicono a quale esercizio appartiene.
@@ -166,6 +177,34 @@ export async function caricaConsuntivo(
   }
   ricavi = Object.values(ricaviPerTipologia).reduce((s, v) => s + v, 0);
 
+  // ---- L'ADV: Marketing decide, la banca fa da riscontro ----
+  // Fin qui `adv` conteneva le uscite di banca categorizzate «Pubblicità»
+  // (comprese le rettifiche di competenza applicate sopra). Quel numero resta,
+  // ma come **riscontro di cassa**: la riga di conto economico prende la spesa
+  // delle campagne. Le due non torneranno mai identiche — una è competenza
+  // della campagna, l'altra è il giorno in cui la piattaforma ha incassato — e
+  // proprio la differenza è la cosa utile da guardare.
+  const advBanca = adv;
+  let advFonte: "marketing" | "banca" = "banca";
+  let advCopertura: CoperturaAdv | null = null;
+  if (spesaAdv.ok) {
+    advFonte = "marketing";
+    advCopertura = spesaAdv.dati.copertura;
+    adv = sommaMesi(spesaAdv.dati.mese, mesi);
+    for (let i = 0; i < 12; i++) advMese[i] = spesaAdv.dati.mese[i] ?? 0;
+    if (!advCopertura.completa) {
+      // Non si nasconde dietro un totale: se un account tace, l'ADV vero è più
+      // alto e l'EBITDA più basso di quello che si legge qui.
+      mancanti.push(
+        `spesa ADV parziale da Marketing (${advCopertura.avvertenze.join(" ") || "copertura incompleta"})`
+      );
+    }
+  } else {
+    // Ripiego dichiarato, non silenzioso: la banca non sa di quale campagna
+    // sia quel bonifico, e sposta la spesa al mese dell'addebito.
+    mancanti.push(`spesa ADV da Marketing (${spesaAdv.errore}) — in tabella ci sono le uscite di banca`);
+  }
+
   const perMese: ConsuntivoMese[] = mesi.map((m, idx) => {
     const f = fattMese[idx];
     const daFinance = f.ok
@@ -210,6 +249,9 @@ export async function caricaConsuntivo(
     margineLordo,
     ebitda,
     nonCategorizzato,
+    advFonte,
+    advBanca,
+    advCopertura,
     competenza: eff,
     perMese,
   };
