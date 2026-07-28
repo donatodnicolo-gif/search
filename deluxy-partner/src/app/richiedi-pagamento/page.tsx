@@ -4,6 +4,7 @@ import { euro, dataIt } from "@/lib/format";
 import { categorieDaBudgets, TIPI_PL } from "@/lib/categorie-spesa";
 import { transactionsConfigurato, STATI_RICHIESTA } from "@/lib/transactions";
 import { creaRichiestaPagamento } from "@/lib/richieste-actions";
+import { BottoneInvio } from "@/components/BottoneInvio";
 
 export const dynamic = "force-dynamic";
 
@@ -155,9 +156,11 @@ export default async function RichiediPagamentoPage({
             <span className="muted" style={{ marginRight: "auto", fontSize: 12.5, alignSelf: "center" }}>
               Nessun denaro esce da qui: parte solo la richiesta.
             </span>
-            <button className="btn primary small" type="submit" disabled={!attiva}>
-              Richiedi pagamento
-            </button>
+            {attiva ? (
+              <BottoneInvio className="btn primary small" inCorso="Invio la richiesta…">Richiedi pagamento</BottoneInvio>
+            ) : (
+              <button className="btn primary small" type="submit" disabled>Richiedi pagamento</button>
+            )}
           </div>
         </form>
       </div>

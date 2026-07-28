@@ -7,6 +7,7 @@ import { ivato, nomeMese } from "@/lib/calc";
 import { totaliProForma, importoRiga, rifProForma } from "@/lib/proforma";
 import { ficStato, ficClientiCached, ficCreaFattura, ficMetodiPagamento, type RigaFattura } from "@/lib/fic";
 import { matchPartner } from "@/lib/riconciliazione";
+import { BottoneInvio } from "@/components/BottoneInvio";
 import type { Partner } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -258,9 +259,7 @@ export default async function EmettiFatturaPage({
           </div>
 
           <div className="form-footer">
-            <button className="btn primary" type="submit">
-              Emetti su Fatture in Cloud
-            </button>
+            <BottoneInvio inCorso="Sto emettendo su Fatture in Cloud…">Emetti su Fatture in Cloud</BottoneInvio>
           </div>
           <p className="muted" style={{ fontSize: 12.5, marginTop: 10 }}>
             {origine === "proforma"

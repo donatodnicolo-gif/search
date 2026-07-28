@@ -9,6 +9,7 @@ import { ficStato, ficClientiFatturabiliCached, ficEntityUltimaFattura, ficCreaF
 import { RigheProForma } from "@/components/RigheProForma";
 import { TerminiPagamento } from "@/components/TerminiPagamento";
 import { SceltaCliente, type OpzioneCliente } from "@/components/SceltaCliente";
+import { BottoneInvio } from "@/components/BottoneInvio";
 
 export const dynamic = "force-dynamic";
 
@@ -402,7 +403,7 @@ export default async function NuovaFatturaCloud({
             <RigheProForma />
           </div>
           <div className="form-footer">
-            <button type="submit" className="btn primary">Emetti su Fatture in Cloud</button>
+            <BottoneInvio inCorso="Sto emettendo su Fatture in Cloud…">Emetti su Fatture in Cloud</BottoneInvio>
           </div>
         </form>
       )}

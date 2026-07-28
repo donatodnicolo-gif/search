@@ -1,5 +1,6 @@
 import type { Partner } from "@prisma/client";
 import type { Anagrafica } from "@/lib/anagrafiche";
+import { BottoneInvio } from "@/components/BottoneInvio";
 
 // Form anagrafica partner (usato da /partner/nuovo e /partner/[id]/modifica)
 export function PartnerForm({
@@ -236,7 +237,7 @@ export function PartnerForm({
         </div>
       </div>
       <div className="form-footer">
-        <button type="submit" className="btn primary">{submitLabel}</button>
+        <BottoneInvio inCorso="Salvo e aggiorno il registro…">{submitLabel}</BottoneInvio>
       </div>
     </form>
   );

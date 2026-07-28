@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { riepilogoPartner } from "@/lib/queries";
 import { euro } from "@/lib/format";
+import { BottoneInvio } from "@/components/BottoneInvio";
 import { nomeMese } from "@/lib/calc";
 import { ficStato, ficClientiCached, ficCreaFattura, ficMetodiPagamento } from "@/lib/fic";
 import { matchPartner } from "@/lib/riconciliazione";
@@ -176,7 +177,7 @@ export default async function EmettiPage({
           </p>
           <div className="form-footer">
             <Link href={`/partner/${partnerId}`} className="btn secondary">Annulla</Link>
-            <button type="submit" className="btn primary">Crea fattura su Fatture in Cloud</button>
+            <BottoneInvio inCorso="Sto creando la fattura…">Crea fattura su Fatture in Cloud</BottoneInvio>
           </div>
         </form>
       )}

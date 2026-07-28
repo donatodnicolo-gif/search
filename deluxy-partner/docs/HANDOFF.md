@@ -251,6 +251,16 @@ l app diceva «manca codice destinatario» su un cliente che ce l aveva. Se si a
 `FicEntity`, va aggiunto anche in quella copia: il tipo ha tutti i campi opzionali, quindi il
 compilatore non se ne accorge.
 
+**I bottoni lenti si bloccano e lo dicono (28/07/2026).** `BottoneInvio.tsx` (useFormStatus):
+mentre l azione gira il bottone e disabilitato e cambia testo («Sto emettendo su Fatture in Cloud…»).
+Misurato: emettere una fattura ha impiegato **47 secondi** e prima il bottone restava identico —
+chiunque l avrebbe premuto due volte, con DUE fatture e due numeri di protocollo. In uso su:
+emissione fattura (`/registrazioni/fatture/nuova`, `/fic/fattura`, `/fic/emetti`), richiesta di
+pagamento, salvataggio scheda partner.
+⚠️ **Da sistemare**: quei 47 secondi vengono dal recupero clienti FIC a cache fredda (~20 chiamate
+paginate). Il limite di una funzione Vercel e 60 secondi: un timeout a meta creazione e il modo
+peggiore di fallire.
+
 **Una voce sola per chi e riconciliato (28/07/2026).** Nell elenco clienti lo stesso soggetto compariva
 due volte: partner Deluxy con l insegna («GRUÈ») e intestatario FIC con la denominazione legale
 («GRUE' S.R.L.»). Ora, **se la riconciliazione e confermata**, si mostra una riga sola: insegna in
