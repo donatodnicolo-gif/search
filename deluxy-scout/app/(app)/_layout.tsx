@@ -65,6 +65,9 @@ const SEZIONI: { titolo: string; voci: Voce[] }[] = [
     titolo: 'Vendita',
     voci: [
       { name: 'visite', label: 'Potenziali', icon: 'walk-outline' },
+      // I solleciti a scadenza: sta in Vendita perche' e' lavoro di vendita,
+      // non uno strumento di configurazione.
+      { name: 'sequenze', label: 'Sequenze', icon: 'git-branch-outline' },
       { name: 'trattative', label: 'Trattative', icon: 'briefcase-outline' },
       { name: 'ordini', label: 'Ordini', icon: 'receipt-outline' },
       { name: 'pagamenti', label: 'Pagamenti', icon: 'wallet-outline' },

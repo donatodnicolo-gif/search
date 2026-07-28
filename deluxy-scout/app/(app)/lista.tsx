@@ -19,6 +19,7 @@ import { IconaAzione } from '@/components/AzioniRiga';
 import { AzioniContatto } from '@/components/AzioniContatto';
 import { CardElenco } from '@/components/CardElenco';
 import { PianificaVisitaModal } from '@/components/PianificaVisitaModal';
+import { IscriviSequenzaModal } from '@/components/IscriviSequenzaModal';
 import { COLORE_VISITA, LABEL_VISITA, giorniDaOggi, giornoBreve, statoVisita, type StatoVisita } from '@/lib/statoVisita';
 import type { RecapitoPlace } from '@/lib/db';
 
@@ -92,6 +93,8 @@ export default function Lista() {
   const [visitaPlace, setVisitaPlace] = useState<Place | null>(null);
   // «Quando ci vado?»: la data che ci si dà per andare a trovare il negozio.
   const [pianificaPlace, setPianificaPlace] = useState<Place | null>(null);
+  // «Metti in sequenza»: i solleciti a scadenza (lib/sequenze.ts).
+  const [sequenzaPlace, setSequenzaPlace] = useState<Place | null>(null);
 
   async function nascondi(place: Place) {
     try {
@@ -229,6 +232,7 @@ export default function Lista() {
             onVisita={() => setVisitaPlace(item)}
             onPianifica={() => setPianificaPlace(item)}
             onMail={() => setMailPlace(item)}
+            onSequenza={() => setSequenzaPlace(item)}
             onTrattativa={(p) =>
               router.push(`/(app)/trattative?nuovoPer=${p.id}&nuovoNome=${encodeURIComponent(p.nome)}`)
             }
@@ -247,6 +251,9 @@ export default function Lista() {
       </Pressable>
       {mailPlace ? <ScegliScriptModal place={mailPlace} onClose={() => setMailPlace(null)} /> : null}
       <VisitaModal place={visitaPlace} onClose={() => setVisitaPlace(null)} onDone={() => { setVisitaPlace(null); ricarica(); }} />
+      {sequenzaPlace ? (
+        <IscriviSequenzaModal place={sequenzaPlace} onClose={() => setSequenzaPlace(null)} />
+      ) : null}
       <PianificaVisitaModal
         place={pianificaPlace}
         onClose={() => setPianificaPlace(null)}
@@ -294,6 +301,7 @@ function Riga({
   onVisita,
   onPianifica,
   onMail,
+  onSequenza,
   onTrattativa,
 }: {
   place: Place;
@@ -307,6 +315,7 @@ function Riga({
   onVisita: () => void;
   onPianifica: () => void;
   onMail: () => void;
+  onSequenza: () => void;
   onTrattativa: (place: Place) => void;
 }) {
   const quando = giornoBreve(place.visita_pianificata);
@@ -355,6 +364,7 @@ function Riga({
           recapito={recapito}
           onVisita={onVisita}
           onMail={onMail}
+          onSequenza={onSequenza}
           onTrattativa={onTrattativa}
         >
           <IconaAzione

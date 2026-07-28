@@ -20,6 +20,7 @@ export function AzioniContatto({
   onVisita,
   onMail,
   onTrattativa,
+  onSequenza,
   bozza,
   children,
 }: {
@@ -33,6 +34,8 @@ export function AzioniContatto({
    */
   onMail?: (place: Place) => void;
   onTrattativa: (place: Place) => void;
+  /** Se passato, compare «metti in sequenza»: i solleciti a scadenza. */
+  onSequenza?: (place: Place) => void;
   /** true = la visita è già segnata ma non compilata: l'azione è «completa». */
   bozza?: boolean;
   /** Azioni in più della singola schermata (es. «nascondi» nei Selezionati). */
@@ -79,6 +82,14 @@ export function AzioniContatto({
         label="Nuova trattativa"
         onPress={() => onTrattativa(place)}
       />
+      {onSequenza ? (
+        <IconaAzione
+          nome="git-branch-outline"
+          attiva
+          label="Metti in sequenza (solleciti a scadenza)"
+          onPress={() => onSequenza(place)}
+        />
+      ) : null}
       {children}
     </AzioniRiga>
   );

@@ -112,6 +112,31 @@ Due cose che la schermata **dichiara invece di nascondere**:
   parziali e viene detto. Una lista incompleta che sembra completa fa credere
   che il lavoro sia finito.
 
+## Le sequenze (solleciti a scadenza)
+
+Una sequenza è un percorso scritto **una volta sola**: questo testo, poi dopo
+tot giorni quest'altro. Si iscrive un negozio (`Sequenze`, o l'azione 🌿 nelle
+liste) e l'app tiene il conto delle scadenze, invece di affidarlo alla memoria
+di chi vende — che è il motivo per cui il secondo colpo non parte quasi mai.
+
+**Due regole non negoziabili**, entrambe in `lib/sequenze.ts`:
+
+1. **Se il cliente ha risposto, la sequenza si ferma.** Prima di ogni invio si
+   legge la posta ricevuta da quel negozio dopo l'ultimo invio (AI Mail via la
+   Edge Function `mail`). Un sollecito che arriva dopo la risposta non è un
+   sollecito, è una figuraccia — e con le scadenze automatiche succede al primo
+   giorno di distrazione. Quando la posta **non è collegata** la verifica non è
+   possibile, e l'app lo dice invece di far passare il silenzio per «non ha
+   risposto».
+2. **Niente parte da solo.** La coda si calcola, l'invio si conferma. Un
+   automatismo che sbaglia lo fa su tutta la lista prima che qualcuno se ne
+   accorga, e le mail escono dalla casella personale di chi vende.
+
+Altre scelte: un invio fallito **non fa avanzare il passo** (il negozio
+salterebbe un colpo in silenzio); lo stesso negozio non entra due volte nella
+stessa sequenza (sarebbero due solleciti in parallelo allo stesso indirizzo);
+le iscrizioni in ritardo si vedono per prime, evidenziate.
+
 ## La regola d'oro sulle perse
 
 Una trattativa persa non è spazzatura: è **pipeline differita**. Al momento della
