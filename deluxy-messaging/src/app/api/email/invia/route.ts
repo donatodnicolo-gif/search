@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { utenteCorrente } from '@/lib/sessione'
 import { casellaPerId, inviaEmail } from '@/lib/email'
 
 export const dynamic = 'force-dynamic'
@@ -16,7 +17,9 @@ function indirizzoPlausibile(v: string): boolean {
 // thread). Serve al pop-up di posta: `mailto:` apriva il programma di posta del
 // computer — quando c'era — e la mail partiva da lì, fuori da quest'app e senza
 // lasciare traccia. Così invece parte dalla casella aziendale e resta scritta.
+// Chi ha mandato la mail: resta scritto accanto al messaggio.
 export async function POST(req: NextRequest) {
+  const chiScrive = await utenteCorrente()
   const c = (await req.json().catch(() => ({}))) as {
     a?: string
     oggetto?: string
@@ -94,6 +97,8 @@ export async function POST(req: NextRequest) {
       data: {
         conversazioneId: conversazione.id,
         direzione: 'out',
+      utenteId: chiScrive?.id ?? '',
+      utenteNome: chiScrive?.nome ?? '',
         oggetto,
         testo,
         idEsterno: messageId,

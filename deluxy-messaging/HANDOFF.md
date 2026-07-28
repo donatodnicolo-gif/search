@@ -55,6 +55,22 @@ locale, altrimenti nulla si decifra.
 
 ## FATTO
 
+- **CHI HA FATTO COSA: l'operatore resta scritto su ordini e messaggi**
+  (28/07/2026). Con più persone sugli stessi ordini, «chi l'ha preso in mano» e
+  «chi ha risposto al cliente» erano domande senza risposta.
+  - `Ordine.gestioneDaId` + `gestioneDaNome`: chi ha cambiato lo stato di
+    lavorazione (`/api/ordini/[id]/gestione`); in lista si legge nel titolino
+    del badge. Verificato in produzione: ordine **#1738 → `da_gestire`, segnato
+    da Nicolo Daniele Donato**.
+  - `Messaggio.utenteId` + `utenteNome`: chi ha scritto il messaggio in
+    **uscita** — risposte dall'Inbox (`/api/conversazioni/[id]/messaggi`) e mail
+    dal pop-up (`/api/email/invia`). Si vede nella bolla accanto all'ora e nella
+    riga «ultimo messaggio» della scheda cliente.
+  - ⚠️ Il **nome è copiato, non collegato**: se quell'utente viene tolto resta
+    scritto chi aveva risposto al cliente invece di un id orfano. E i campi sono
+    **vuoti sullo storico**: partono da adesso, a posteriori non si indovina —
+    «vuoto» non vuol dire «nessuno», vuol dire «prima di questa data».
+
 - **INBOX MULTI-NUMERO: si sa su quale nostro WhatsApp è arrivato un messaggio**
   (27/07/2026). Preparato per l'arrivo dei numeri veri (l'utente ha connesso il
   WABA «Deluxy Flowers», ID 1473727904063695).

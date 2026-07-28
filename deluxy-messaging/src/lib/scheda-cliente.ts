@@ -70,7 +70,7 @@ export type SchedaCliente = {
    */
   ricorrenze: { mese: string; volte: number; anni: number }[]
   /** L'ultimo scambio: quando, su che canale, e da che parte. */
-  ultimoContatto: { quando: string; canale: string; direzione: string } | null
+  ultimoContatto: { quando: string; canale: string; direzione: string; chi: string } | null
   avvisi: string[]
 }
 
@@ -235,6 +235,7 @@ export async function schedaCliente(k: Chiave): Promise<SchedaCliente | null> {
           quando: ultimo.creatoIl.toISOString(),
           canale: ultimo.conversazione?.canale ?? '',
           direzione: ultimo.direzione,
+          chi: ultimo.utenteNome ?? '',
         }
       : null,
     avvisi,

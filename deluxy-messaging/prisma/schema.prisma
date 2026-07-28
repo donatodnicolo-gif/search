@@ -314,6 +314,14 @@ model Messaggio {
   idEsterno       String   @default("") // id Meta del messaggio: dedup webhook e aggiornamenti di stato
   stato           String   @default("") // inviato | consegnato | letto | errore ("" per i messaggi in arrivo)
   errore          String   @default("") // motivo se stato = errore
+  // CHI ha scritto, solo per i messaggi in USCITA. Il nome è copiato e non
+  // collegato: le bolle della chat lo mostrano una per una, e un join per un
+  // nome sarebbe sproporzionato — inoltre se quell'utente viene tolto resta
+  // scritto chi aveva risposto al cliente invece di un id orfano.
+  // Vuoto sui messaggi in arrivo (li scrive il cliente) e su quelli già in
+  // archivio: parte da adesso, a posteriori non si indovina.
+  utenteId        String   @default("")
+  utenteNome      String   @default("")
   creatoIl        DateTime @default(now())
 
   @@index([conversazioneId, creatoIl])

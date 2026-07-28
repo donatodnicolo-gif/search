@@ -24,6 +24,8 @@ type MessaggioDto = {
   id: string
   direzione: string
   testo: string
+  /** Chi ha scritto, solo in uscita. Vuoto sui messaggi vecchi: parte da ora. */
+  utenteNome?: string
   stato: string
   errore: string
   creatoIl: string
@@ -255,6 +257,9 @@ export function Inbox({ conversazioniIniziali }: { conversazioniIniziali: Conver
                   {m.testo}
                   <span className={`meta${m.stato === 'errore' ? ' errore' : ''}`}>
                     {oraBreve(m.creatoIl)}
+                    {/* Chi ha risposto: quando la conversazione passa di mano è la
+                        prima cosa che si cerca. Vuoto sui messaggi vecchi. */}
+                    {m.direzione === 'out' && m.utenteNome ? ` · ${m.utenteNome}` : ''}
                     {m.direzione === 'out' && m.stato
                       ? ` · ${m.stato === 'errore' ? m.errore || 'errore' : m.stato}`
                       : ''}

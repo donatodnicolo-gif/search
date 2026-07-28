@@ -136,7 +136,7 @@ export default async function PaginaSchedaCliente({
             {scheda.ultimoContatto.direzione === 'in' ? (
               <strong>scritto dal cliente</strong>
             ) : (
-              'scritto da noi'
+              <>scritto da noi{scheda.ultimoContatto.chi ? <> — {scheda.ultimoContatto.chi}</> : null}</>
             )}
             {scheda.ultimoContatto.direzione === 'in'
               ? ' — se non abbiamo risposto, la palla è nostra.'

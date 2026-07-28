@@ -4,6 +4,7 @@ import { leggiImpostazioni } from '@/lib/impostazioni'
 import { inviaPagina, inviaWhatsApp } from '@/lib/meta'
 import { casellaPerId, inviaEmail } from '@/lib/email'
 import { tokenPerNumero } from '@/lib/numeri-whatsapp'
+import { utenteCorrente } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
 
@@ -36,6 +37,9 @@ export async function POST(req: NextRequest, { params }: Params) {
   const pulito = (testo ?? '').trim()
   if (!pulito) return NextResponse.json({ errore: 'Testo vuoto' }, { status: 400 })
 
+  // Chi sta rispondendo: con più operatori, «chi ha scritto al cliente» è la
+  // prima domanda quando la conversazione passa di mano.
+  const chiScrive = await utenteCorrente()
   const config = await leggiImpostazioni(['waToken', 'waPhoneNumberId', 'fbPageToken', 'igToken'])
 
   let esito: { ok: true; idEsterno: string } | { ok: false; errore: string }
@@ -117,6 +121,8 @@ export async function POST(req: NextRequest, { params }: Params) {
     data: {
       conversazioneId: id,
       direzione: 'out',
+      utenteId: chiScrive?.id ?? '',
+      utenteNome: chiScrive?.nome ?? '',
       testo: pulito,
       idEsterno: esito.ok ? esito.idEsterno : '',
       stato: esito.ok ? 'inviato' : 'errore',
