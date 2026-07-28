@@ -68,21 +68,16 @@ export async function candidati(id: string, cerca?: string): Promise<Candidato[]
   const sku = base.varianti.map((v) => v.sku).filter((s): s is string => Boolean(s));
   const chiave = normalizza(base.nome);
 
-  const filtri: Record<string, unknown>[] = [];
-  if (sku.length > 0) filtri.push({ varianti: { some: { sku: { in: sku } } } });
-  if (base.handleShopify) filtri.push({ handleShopify: base.handleShopify });
-  // Il nome non si può confrontare normalizzato dentro il database: si prende un
-  // insieme ragionevole (le prime parole) e si filtra qui.
-  const prime = chiave.split(" ").slice(0, 3).join(" ");
-  if (prime.length >= 4) filtri.push({ nome: { contains: prime, mode: "insensitive" } });
-  if (cerca && cerca.trim().length >= 2) {
-    filtri.push({ nome: { contains: cerca.trim(), mode: "insensitive" } });
-    filtri.push({ codice: { contains: cerca.trim(), mode: "insensitive" } });
-  }
-  if (filtri.length === 0) return [];
+  const prime = chiave.split(" ").slice(0, 2).join(" ");
+  const cercato = normalizza(cerca ?? "");
 
-  const trovati = (await prisma.prodotto.findMany({
-    where: { id: { not: id }, unitoAId: null, OR: filtri },
+  // Il confronto si fa **sul nome ridotto all'osso**, e quello il database non
+  // ce l'ha: «Saint Honorè» e «SAINT-HONORE» sono lo stesso prodotto ma nessun
+  // `contains` li mette insieme. Con qualche migliaio di prodotti conviene
+  // leggerli e confrontarli qui — provato sul database vero: cercare lato SQL
+  // restituiva zero candidati proprio sui doppioni più evidenti.
+  const tutti = (await prisma.prodotto.findMany({
+    where: { id: { not: id }, unitoAId: null },
     select: {
       id: true,
       nome: true,
@@ -93,13 +88,22 @@ export async function candidati(id: string, cerca?: string): Promise<Candidato[]
       handleShopify: true,
       varianti: { select: { sku: true } },
     },
-    take: 60,
   })) as Riga[];
+
+  const trovati = tutti
+    .filter((t) => {
+      if (t.varianti.some((v) => v.sku && sku.includes(v.sku))) return true;
+      if (base.handleShopify && t.handleShopify === base.handleShopify) return true;
+      const k = normalizza(t.nome);
+      if (k === chiave) return true;
+      if (prime.length >= 4 && (k.startsWith(prime) || chiave.startsWith(k.split(" ").slice(0, 2).join(" ")))) return true;
+      if (cercato.length >= 2 && (k.includes(cercato) || normalizza(t.codice).includes(cercato))) return true;
+      return false;
+    })
+    .slice(0, 60);
 
   const vendite = await statistiche(trovati.map((t) => t.id));
   const perProdotto = new Map(vendite.map((v) => [v.prodottoId as string, v._sum]));
-
-  const cercato = cerca?.trim().toLowerCase() ?? "";
   return trovati
     .map((t) => {
       const skuComuni = t.varianti.map((v) => v.sku).filter((s) => s && sku.includes(s));
@@ -110,7 +114,7 @@ export async function candidati(id: string, cerca?: string): Promise<Candidato[]
             ? "stessa pagina su Shopify"
             : normalizza(t.nome) === chiave
               ? "stesso nome"
-              : cercato && (t.nome.toLowerCase().includes(cercato) || t.codice.toLowerCase().includes(cercato))
+              : cercato && (normalizza(t.nome).includes(cercato) || normalizza(t.codice).includes(cercato))
                 ? "trovato con la ricerca"
                 : "nome simile";
       const s = perProdotto.get(t.id);
