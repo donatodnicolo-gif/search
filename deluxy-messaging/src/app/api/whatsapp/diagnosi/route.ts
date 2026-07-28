@@ -43,6 +43,8 @@ export async function GET() {
     'waBusinessAccountId',
     'metaVerifyToken',
     'metaAppSecret',
+    'igToken',
+    'fbPageToken',
   ])
   const esiti: Esito[] = []
 
@@ -222,6 +224,37 @@ export async function GET() {
             wa.callback_url === nostro
               ? 'È il nostro.'
               : `Punta altrove: ${wa.callback_url} — i messaggi vanno lì, non a noi.`,
+        })
+      }
+
+      // ── Instagram e Messenger ──
+      //
+      // Stesso webhook, OGGETTI DIVERSI: `instagram` e `page` si iscrivono a
+      // parte. Averli configurati per WhatsApp non li abilita, e senza
+      // iscrizione non arriva niente esattamente come è successo con WhatsApp —
+      // con la differenza che lì almeno ce ne siamo accorti.
+      for (const [oggetto, nome] of [
+        ['instagram', 'Instagram'],
+        ['page', 'Messenger'],
+      ] as const) {
+        const tokenCanale = oggetto === 'instagram' ? c.igToken?.trim() : c.fbPageToken?.trim()
+        const riga = righe.find((r) => r.object === oggetto)
+        const suoiCampi = (riga?.fields ?? []).map((f) => f.name).filter(Boolean) as string[]
+        esiti.push({
+          passo: `${nome} — token salvato`,
+          ok: Boolean(tokenCanale),
+          dettaglio: tokenCanale
+            ? 'C’è.'
+            : `Manca: senza, i messaggi ${nome} si possono ricevere ma non si può rispondere (Impostazioni → ${nome}).`,
+        })
+        esiti.push({
+          passo: `${nome} — iscrizione al webhook`,
+          ok: suoiCampi.includes('messages'),
+          dettaglio: !riga
+            ? `L’app non è iscritta all’oggetto «${oggetto}»: va aggiunto su Meta → Webhooks, con lo stesso URL, e spuntato il campo messages.`
+            : suoiCampi.includes('messages')
+              ? `Iscritta a: ${suoiCampi.join(', ')}.`
+              : `MANCA «messages» — iscritta solo a: ${suoiCampi.join(', ') || 'niente'}.`,
         })
       }
     }
