@@ -178,6 +178,29 @@ function SegnoBiglietto() {
   )
 }
 
+/**
+ * Consegna con la fascia oraria ma senza il giorno.
+ *
+ * ⚠️ È un PROBLEMA, non un dato mancante qualsiasi: qualcuno aspetta la consegna
+ * fra le 12 e le 16 e noi non sappiamo di che giorno. Spesso è oggi. Il giorno
+ * non si deduce — né dal tag «Oggi» di Shopify né dalla data dell'ordine — e
+ * l'unica cosa onesta è metterlo davanti agli occhi di una persona.
+ */
+function haProblemaConsegna(o: OrdineDto): boolean {
+  return !o.dataConsegna && Boolean(o.fasciaConsegna?.trim())
+}
+
+function BollinoProblema() {
+  return (
+    <span
+      className="badge badge-problema"
+      title="C’è la fascia oraria ma non il giorno: su Shopify manca la data di consegna. Va chiesto al cliente — non si indovina."
+    >
+      PROBLEMA
+    </span>
+  )
+}
+
 /** L'ordine è arrivato mentre eri qui: non deve passare inosservato. */
 function BollinoNuovo() {
   return (
@@ -1026,7 +1049,15 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
                             mandava i badge a capo, 27px per scheda; la data
                             dell'ordine si legge nel dettaglio. */}
                         <div className="riga-bassa" style={{ flexWrap: 'wrap', gap: 6 }}>
-                          {arrivatoAdesso(o.creatoIl, sessioneDa) ? <BollinoNuovo /> : null}
+                          {/* Il PROBLEMA vince sul NUOVO: se la consegna non si
+                              sa quando è, quello viene prima di «è appena
+                              arrivato» — due bollini pieni uno accanto
+                              all'altro si annullerebbero a vicenda. */}
+                          {haProblemaConsegna(o) ? (
+                            <BollinoProblema />
+                          ) : arrivatoAdesso(o.creatoIl, sessioneDa) ? (
+                            <BollinoNuovo />
+                          ) : null}
                           {o.haBiglietto ? <SegnoBiglietto /> : null}
                           <ProfiloCliente numeroOrdine={o.clienteNumeroOrdine} />
                           <TipoCliente tipo={o.clienteTipo} da={o.clienteTipoDa} />
@@ -1228,7 +1259,12 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
                         <SegnoBiglietto />
                       </>
                     ) : null}
-                    {arrivatoAdesso(o.creatoIl, sessioneDa) ? (
+                    {haProblemaConsegna(o) ? (
+                      <>
+                        {' '}
+                        <BollinoProblema />
+                      </>
+                    ) : arrivatoAdesso(o.creatoIl, sessioneDa) ? (
                       <>
                         {' '}
                         <BollinoNuovo />

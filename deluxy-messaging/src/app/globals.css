@@ -1676,3 +1676,19 @@ td .azioni-ordine {
      spazio sopra e sotto da prendere col dito. */
   .come-link { display: inline-block; padding: 6px 0; }
 }
+
+/* «PROBLEMA»: consegna con la fascia oraria ma senza il giorno.
+ *
+ * Rosso pieno, come il NUOVO è oro pieno: sono i due soli bollini pieni della
+ * lista, e non compaiono mai insieme (il problema vince). Il rosso qui non è
+ * decorazione — c'è un cliente che aspetta in una finestra oraria e nessuno sa
+ * di che giorno. */
+.badge-problema {
+  background: var(--red);
+  color: #fff;
+  font-weight: 700;
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  padding: 3px 8px;
+}
+.badge-problema::before { display: none; }

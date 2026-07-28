@@ -25,6 +25,20 @@ async function ordiniPerUrgenza(dove: Prisma.OrdineWhereInput, tetto: number) {
   const calde = limiteCalde()
 
   const fasce: { where: Prisma.OrdineWhereInput; orderBy: Prisma.OrdineOrderByWithRelationInput[] }[] = [
+    // 0. PRIMA DI TUTTO: fascia oraria SENZA giorno. È il caso peggiore.
+    //
+    // ⚠️ Su Shopify l'attributo della data manca mentre la fascia c'è («12-16»):
+    // qualcuno aspetta la consegna in una finestra precisa e noi non sappiamo di
+    // che giorno — spesso è oggi. Finivano nel gruppo «senza data», cioè sotto
+    // agli ordini di fra tre settimane, e passavano inosservati proprio perché
+    // il calendario non sapeva dove metterli.
+    // Il giorno NON si indovina: né dal tag «Oggi» di Shopify né dalla data
+    // dell'ordine. Si porta in cima e lo guarda una persona.
+    // Misurato: 16 ordini su 950.
+    {
+      where: { dataConsegna: null, NOT: { fasciaConsegna: '' } },
+      orderBy: [{ data: 'desc' }],
+    },
     // 1. Oggi, dalla fascia oraria più presto: è la coda di lavoro della giornata.
     {
       where: { dataConsegna: { gte: oggi, lt: domani } },
@@ -37,8 +51,9 @@ async function ordiniPerUrgenza(dove: Prisma.OrdineWhereInput, tetto: number) {
       where: { dataConsegna: { gte: calde, lt: oggi } },
       orderBy: [{ dataConsegna: 'desc' }],
     },
-    // 4. Senza data: non si può dire se urgano, ma non devono sparire.
-    { where: { dataConsegna: null }, orderBy: [{ data: 'desc' }] },
+    // 4. Senza data NÉ fascia: non si può dire se urgano, ma non devono sparire.
+    //    (quelli con la fascia sono già usciti al gruppo 0)
+    { where: { dataConsegna: null, fasciaConsegna: '' }, orderBy: [{ data: 'desc' }] },
     // 5. Scadute da tempo: quasi sempre consegnate e mai spuntate. Per ultime.
     { where: { dataConsegna: { lt: calde } }, orderBy: [{ dataConsegna: 'desc' }] },
   ]
