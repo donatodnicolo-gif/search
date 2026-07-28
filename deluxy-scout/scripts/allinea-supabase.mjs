@@ -93,6 +93,12 @@ for (const f of FUNZIONI) {
         f,
         '--project-ref',
         PROJECT_REF,
+        // Il bundling lo fanno i server di Supabase invece che Docker in
+        // locale. Senza, il CLI cerca Docker, non lo trova e fallisce — ed è
+        // esattamente com'è andata al primo lancio (28/07/2026): le sei
+        // migrazioni passate, le funzioni tutte no, e su questa macchina
+        // Docker non è installato.
+        '--use-api',
         ...(SENZA_JWT.has(f) ? ['--no-verify-jwt'] : []),
       ],
       { cwd: RADICE, stdio: 'pipe', env: { ...process.env, SUPABASE_ACCESS_TOKEN: PAT } },
@@ -100,8 +106,18 @@ for (const f of FUNZIONI) {
     console.log(SENZA_JWT.has(f) ? 'deployata (pubblica)' : 'deployata');
   } catch (e) {
     // stderr del CLI: contiene il motivo vero (Docker mancante, token scaduto…).
-    const dettaglio = (e.stderr?.toString() || e.message || '').trim().split('\n').slice(-3).join(' ');
-    console.log(`FALLITO\n     ${dettaglio}`);
+    const grezzo = (e.stderr?.toString() || e.message || '').trim();
+    const dettaglio = grezzo.split('\n').filter((r) => r.trim()).slice(-3).join(' ');
+    // I due errori che capitano davvero, tradotti: il testo del CLI dice cosa
+    // è successo ma non cosa fare.
+    let consiglio = '';
+    if (/docker/i.test(grezzo)) {
+      consiglio =
+        '\n     → Serve Docker, che qui non c\'è. Questo script usa --use-api apposta per non averne bisogno: se l\'errore resta, aggiorna il CLI (la flag è nelle versioni recenti).';
+    } else if (/unauthorized|invalid.*token|401/i.test(grezzo)) {
+      consiglio = '\n     → Il token non è valido o è scaduto: creane uno nuovo e rilancia.';
+    }
+    console.log(`FALLITO\n     ${dettaglio}${consiglio}`);
     errori++;
   }
 }
