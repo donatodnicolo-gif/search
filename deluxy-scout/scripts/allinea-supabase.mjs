@@ -37,7 +37,7 @@ const MIGRAZIONI = [
 // `ordini` è il proxy verso Deluxy Orders (venduto per provincia): resta inerte
 // finché in cassaforte non c'è `ORDERS_API_KEY`, ma senza deploy non esiste
 // proprio e la vista Province non mostra nessun valore di vendita.
-const FUNZIONI = ['anagrafiche', 'ordini', 'health'];
+const FUNZIONI = ['anagrafiche', 'ordini', 'health', 'finance'];
 // `health` deve rispondere SENZA sessione (il Hub non ne ha una): va deployata
 // con --no-verify-jwt, altrimenti risponde 401 e la pagina «stato dei servizi»
 // vede Scout come irraggiungibile.

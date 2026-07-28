@@ -31,7 +31,7 @@ non è un campo in più da aggiornare a mano.
 | **Lead** | **c'è un contatto** | una persona in rubrica, un messaggio partito (mail/chiamata/visita), oppure è arrivato lui — richiesta dal sito, segnalazione — e lo si dichiara |
 | **Prospect** | **ha mostrato interesse**: ha risposto e la trattativa è aperta | trattativa aperta in Scout o su HubSpot |
 | **Cliente** | la trattativa è andata bene | trattativa vinta → ordine |
-| **Dormiente** | cliente che **ha smesso di fatturare** | oggi: stato `dismesso` nel registro. La regola vera è di FINANCE (`statoAnalisi`) e va collegata |
+| **Dormiente** | cliente che **ha smesso di fatturare** | FINANCE (`statoAnalisi` calcolato sui movimenti, via la Edge Function `finance`); lo stato `dismesso` del registro resta come ripiego |
 | **Perso** | chiuso senza esito o non in target | esito visita, stato registro |
 
 ⚠️ **Scala ridefinita dall'utente il 28/07/2026.** Il confine fra Lead e Prospect

@@ -63,13 +63,13 @@ export default function Lista() {
   const router = useRouter();
   const { session } = useAuth();
   const admin = isAdmin(session?.user?.email);
-  const { places, conContatto, contattati, inTrattativa, conBozza, visitati, recapiti, loading, opzioni, ricarica } =
+  const { places, conContatto, contattati, inTrattativa, nonFatturano, conBozza, visitati, recapiti, loading, opzioni, ricarica } =
     usePlaces();
   // Il livello dipende da tre insiemi caricati una volta sola: scriverlo qui
   // evita di ripeterli a ogni chiamata e di dimenticarne uno in una delle
   // quattro (è già successo con `contattati`).
   const livelloPlace = (p: Place) =>
-    livelloDi(p, conContatto.has(p.id), contattati.has(p.id), inTrattativa.has(p.id));
+    livelloDi(p, conContatto.has(p.id), contattati.has(p.id), inTrattativa.has(p.id), nonFatturano.has(p.id));
   const [filtri, setFiltri] = useState<FiltriMappa>(filtriVuoti);
   const { vista } = useLocalSearchParams<{ vista?: string }>();
   const vistaCorr = (['selezionato', 'lead', 'prospect', 'cliente', 'inattivi'] as Vista[]).includes(vista as Vista)

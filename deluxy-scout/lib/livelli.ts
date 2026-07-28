@@ -77,19 +77,21 @@ export function livelloDi(
   haContatto = false,
   contattato = false,
   inTrattativa = false,
+  nonFattura = false,
 ): Livello {
   // ⚠️ SCALA RIDEFINITA DALL'UTENTE il 28/07/2026. Prima il confine fra Lead e
   // Prospect era «c'è una persona in rubrica»; ora è **la trattativa**. Un
   // nome in rubrica non è un interesse: è solo un recapito.
 
-  // DORMIENTE — cliente che ha smesso di fatturare. Viene prima di tutto:
-  // chi ha comprato e si è fermato non va confuso con chi non ha mai comprato,
-  // ed è la lista più redditizia che ci sia.
-  // ⚠️ La regola vera è di FINANCE (`statoAnalisi = dismesso` in
-  // deluxy-partner, GET /api/clienti/stato). Finché quel dato non arriva fin
-  // qui si usa lo stato del registro, che è il segnale più vicino che abbiamo:
-  // vuol dire «rapporto interrotto», non «non fattura da N mesi».
-  if (p.anagrafiche_stato === 'dismesso') return 'dormiente';
+  // DORMIENTE — cliente che ha smesso di fatturare. Viene prima di tutto: chi
+  // ha comprato e si è fermato non va confuso con chi non ha mai comprato, ed è
+  // la lista più redditizia che ci sia.
+  //
+  // `nonFattura` è il dato vero, da FINANCE (lib/finance.ts → `statoAnalisi`
+  // calcolato sui movimenti). Lo stato del registro resta come ripiego: dice
+  // «rapporto interrotto», che è una cosa diversa da «non fattura da N mesi» ma
+  // è il segnale più vicino quando Finance non è collegato.
+  if (nonFattura || p.anagrafiche_stato === 'dismesso') return 'dormiente';
 
   if (p.stato === 'perso' || p.anagrafiche_stato === 'non_interessato') return 'perso';
 

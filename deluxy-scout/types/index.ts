@@ -203,6 +203,11 @@ export interface Place {
   hubspot_deal_aperta?: boolean; // l'azienda abbinata ha una trattativa aperta
   google_rating?: number | null; // voto Google 0-5 (recensioni)
   google_reviews?: number | null; // numero di recensioni Google
+  // Id del partner nel registro Anagrafiche (migr. 0016). È il ponte con le
+  // altre app: FINANCE dice «non fattura più» per anagraficaId, non per nome —
+  // i nomi si scrivono in dieci modi e sbagliare match qui vorrebbe dire
+  // dichiarare dormiente il cliente sbagliato.
+  anagrafiche_id?: string | null;
   anagrafiche_stato?: string | null; // stato dal registro (attivo=partner, in_trattativa, ...)
   anagrafiche_account?: string | null; // account = venditore che segue il cliente (sync verso Anagrafiche)
   hubspot_sync_at?: string | null;

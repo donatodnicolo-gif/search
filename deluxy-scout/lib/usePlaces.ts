@@ -12,6 +12,7 @@ import {
   fetchRecapitiPlace,
   type RecapitoPlace,
 } from '@/lib/db';
+import { fetchNonFatturano } from '@/lib/finance';
 import { caricaRegole, popolaIpotesiMancanti } from '@/lib/categoryRules';
 import { passaFiltroCitta } from '@/lib/citta';
 import type { FiltriMappa } from '@/components/Filters';
@@ -29,6 +30,8 @@ export function usePlaces() {
   const [visitati, setVisitati] = useState<Set<string>>(new Set());
   // Chi ha una trattativa aperta: e' il confine fra Lead e Prospect.
   const [inTrattativa, setInTrattativa] = useState<Set<string>>(new Set());
+  // Clienti che hanno smesso di fatturare (da FINANCE): sono i DORMIENTI.
+  const [nonFatturano, setNonFatturano] = useState<Set<string>>(new Set());
   // Telefono e mail del negozio, presi dalla rubrica (decisore per primo): le
   // liste ci appendono le azioni di contatto senza rifare la query ognuna.
   const [recapiti, setRecapiti] = useState<Map<string, RecapitoPlace>>(new Map());
@@ -62,6 +65,18 @@ export function usePlaces() {
         setInTrattativa(await fetchPlaceIdInTrattativa());
       } catch {
         setInTrattativa(new Set());
+      }
+      // Chi non fattura più, da FINANCE. Il ponte è `anagrafiche_id`: qui si
+      // traduce negli id dei negozi, così le schermate non devono saperne
+      // niente. Se Finance non è collegato la lista resta vuota — e i dormienti
+      // si riconoscono solo dallo stato del registro, come prima.
+      try {
+        const { ids } = await fetchNonFatturano();
+        const perAnagrafica = new Map<string, string>();
+        for (const p of arricchiti) if (p.anagrafiche_id) perAnagrafica.set(p.anagrafiche_id, p.id);
+        setNonFatturano(new Set([...ids].map((a) => perAnagrafica.get(a)).filter(Boolean) as string[]));
+      } catch {
+        setNonFatturano(new Set());
       }
       // Il semaforo della visita (lib/statoVisita.ts): bozza aperta = giallo,
       // visita registrata = verde. Se una delle due letture non riesce il
@@ -104,7 +119,7 @@ export function usePlaces() {
     };
   }, [places]);
 
-  return { places, conContatto, contattati, inTrattativa, conBozza, visitati, recapiti, loading, errore, ricarica: carica, opzioni };
+  return { places, conContatto, contattati, inTrattativa, nonFatturano, conBozza, visitati, recapiti, loading, errore, ricarica: carica, opzioni };
 }
 
 /** Applica i filtri a una lista di places. La mappa NON filtra via i pin di default
