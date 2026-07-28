@@ -1,5 +1,8 @@
+import { redirect } from "next/navigation";
 import { Badge } from "@/components/Badge";
 import { Sidebar } from "@/components/Sidebar";
+import { VisteSalvate } from "@/components/VisteSalvate";
+import { destinazionePredefinita } from "@/lib/viste";
 import { giudicaTermine } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
 import {
@@ -34,9 +37,11 @@ const STATI: { chiave: string; nome: string; colore: string }[] = [
 export default async function PaginaTermini({
   searchParams,
 }: {
-  searchParams: Promise<{ brand?: string; stato?: string; ordina?: string; cerca?: string; solo?: string }>;
+  searchParams: Promise<{ brand?: string; stato?: string; ordina?: string; cerca?: string; solo?: string; vista?: string }>;
 }) {
   const p = await searchParams;
+  const destinazione = await destinazionePredefinita("termini", "/termini", p);
+  if (destinazione) redirect(destinazione);
   const ordina = p.ordina ?? "spesa";
 
   const dove = {
@@ -126,6 +131,8 @@ export default async function PaginaTermini({
             </div>
           </div>
         </div>
+
+        <VisteSalvate pagina="termini" base="/termini" parametri={p} />
 
         <section className="scheda" style={{ paddingBottom: 14 }}>
           <div className="pill-scelta" style={{ marginBottom: 10 }}>

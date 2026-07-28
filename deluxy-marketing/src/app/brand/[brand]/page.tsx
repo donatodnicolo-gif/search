@@ -1,5 +1,7 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Badge } from "@/components/Badge";
+import { VisteSalvate } from "@/components/VisteSalvate";
+import { destinazionePredefinita } from "@/lib/viste";
 import { FreschezzaDati } from "@/components/FreschezzaDati";
 import { GraficoSpesa } from "@/components/GraficoSpesa";
 import { Scadenza } from "@/components/Scadenza";
@@ -50,11 +52,15 @@ export default async function PaginaBrand({
   searchParams,
 }: {
   params: Promise<{ brand: string }>;
-  searchParams: Promise<{ preset?: string; da?: string; a?: string; ord?: string; verso?: string }>;
+  searchParams: Promise<{ preset?: string; da?: string; a?: string; ord?: string; verso?: string; vista?: string }>;
 }) {
   const { brand } = await params;
   if (!(BRANDS as readonly string[]).includes(brand)) notFound();
   const sp = await searchParams;
+  // Le tre dashboard per brand condividono le viste (i parametri sono gli
+  // stessi: periodo e ordinamento), ma ognuna vive al proprio indirizzo.
+  const destinazione = await destinazionePredefinita("brand", `/brand/${brand}`, sp);
+  if (destinazione) redirect(destinazione);
   const periodo = risolviPeriodo(sp.preset ?? "30g", sp.da, sp.a);
 
   const oggi = new Date();
@@ -167,6 +173,8 @@ export default async function PaginaBrand({
           </div>
           <a className="btn" href={`/analisi/nuova?brand=${brand}`}>Deposita analisi</a>
         </div>
+
+        <VisteSalvate pagina="brand" base={`/brand/${brand}`} parametri={sp} />
 
         {/* Periodo */}
         <section className="scheda" style={{ paddingBottom: 14 }}>

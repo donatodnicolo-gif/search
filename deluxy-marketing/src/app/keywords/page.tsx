@@ -1,6 +1,9 @@
+import { redirect } from "next/navigation";
 import { Icona } from "@/components/Icona";
 import { SelettoreStato } from "@/components/SelettoreStato";
 import { Sidebar } from "@/components/Sidebar";
+import { VisteSalvate } from "@/components/VisteSalvate";
+import { destinazionePredefinita } from "@/lib/viste";
 import { cambiaStatoKeyword, creaOperazioneKeyword } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
 import {
@@ -63,9 +66,11 @@ type KwAggregata = {
 export default async function PaginaKeywords({
   searchParams,
 }: {
-  searchParams: Promise<{ ordina?: string; q?: string; campagna?: string; tema?: string; stato?: string; bloccata?: string }>;
+  searchParams: Promise<{ ordina?: string; q?: string; campagna?: string; tema?: string; stato?: string; bloccata?: string; vista?: string }>;
 }) {
   const p = await searchParams;
+  const destinazione = await destinazionePredefinita("keywords", "/keywords", p);
+  if (destinazione) redirect(destinazione);
   const ordina = Object.keys(ORDINAMENTI).includes(p.ordina ?? "") ? p.ordina! : "incasso";
   const temaAperto = p.tema ?? null;
 
@@ -164,6 +169,8 @@ export default async function PaginaKeywords({
             <span><b>Operazione bloccata dal guardrail:</b> {p.bloccata}</span>
           </div>
         )}
+
+        <VisteSalvate pagina="keywords" base="/keywords" parametri={p} />
 
         {campagneCensite.length > 0 && (
           <section className="scheda">

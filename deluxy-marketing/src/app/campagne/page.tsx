@@ -1,6 +1,9 @@
+import { redirect } from "next/navigation";
 import { Icona } from "@/components/Icona";
 import { Sidebar } from "@/components/Sidebar";
+import { VisteSalvate } from "@/components/VisteSalvate";
 import { prisma } from "@/lib/db";
+import { destinazionePredefinita } from "@/lib/viste";
 import {
   BRANDS,
   COLORE_BRAND,
@@ -24,9 +27,13 @@ const ORDINE_CANALE = ["google_ads", "meta_ads", "tiktok", "email", "sito", "seo
 export default async function PaginaCampagne({
   searchParams,
 }: {
-  searchParams: Promise<{ stato?: string; canale?: string; brand?: string; q?: string }>;
+  searchParams: Promise<{ stato?: string; canale?: string; brand?: string; q?: string; vista?: string }>;
 }) {
-  const { stato, canale, brand, q } = await searchParams;
+  const p = await searchParams;
+  // Pagina aperta nuda e c'è una vista predefinita: si va lì.
+  const dove = await destinazionePredefinita("campagne", "/campagne", p);
+  if (dove) redirect(dove);
+  const { stato, canale, brand, q } = p;
   const giorni30 = new Date(Date.now() - 30 * 86_400_000);
   const campagne = await prisma.campagna.findMany({
     where: {
@@ -62,6 +69,8 @@ export default async function PaginaCampagne({
           <a className="btn btn-secondario" href="/campagne/nuova">Censisci esistente</a>
           <a className="btn" href="/campagne/lancia">Lancia su Google Ads</a>
         </div>
+
+        <VisteSalvate pagina="campagne" base="/campagne" parametri={p} />
 
         <form className="filtri" method="get">
           <input type="search" name="q" placeholder="Cerca una campagna…" defaultValue={q ?? ""} />

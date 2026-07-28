@@ -19,6 +19,7 @@ import { STATI_AZIONE, STATI_AZIONE_APERTI, STATI_CAMPAGNA } from "./dominio";
 import { CHIAVE_APIKEY, CHIAVE_CARTELLA, idCartellaDrive, sincronizzaDrive } from "./drive";
 import { registra } from "./registro";
 import { CATEGORIE_ORDINE, LINGUE_CAMPAGNA, NEGOZI_ORDINE } from "./vendite-campagna";
+import { PAGINE_VISTA } from "./viste";
 
 // Server action della UI. Le stesse operazioni esistono anche via /api/v1
 // (chiave API) per le sessioni Claude: qui c'è la versione per i form.
@@ -197,6 +198,54 @@ export async function aggiungiMetrica(fd: FormData) {
   });
   revalidatePath(`/campagne/${campagnaId}`);
   revalidatePath("/");
+}
+
+// ---------- Viste salvate ----------
+
+// Il nome arriva dal campo di testo, la pagina e i parametri correnti dal
+// `.bind`: il name/value di un bottone submit non arriva mai in una server
+// action, e i parametri della vista non devono dipendere da un input nascosto
+// che qualcuno può dimenticare di aggiornare.
+export async function salvaVista(pagina: string, parametri: string, fd: FormData) {
+  const nome = testo(fd, "nome");
+  if (!pagina || !nome) return;
+  if (!(PAGINE_VISTA as readonly string[]).includes(pagina)) return;
+  // Salvare la pagina nuda vorrebbe dire una vista che non filtra niente:
+  // esiste già, è la pagina.
+  if (!parametri) return;
+  await prisma.vistaSalvata.upsert({
+    where: { pagina_nome: { pagina, nome } },
+    create: { pagina, nome, parametri },
+    update: { parametri },
+  });
+  revalidatePath(`/${pagina}`);
+}
+
+// Una sola predefinita per pagina: si spegne la vecchia e si accende questa.
+// Ripremendola sulla vista già predefinita la si toglie, così si può tornare
+// alla pagina senza filtri all'apertura.
+export async function rendiVistaPredefinita(id: string) {
+  if (!id) return;
+  const vista = await prisma.vistaSalvata.findUnique({ where: { id } });
+  if (!vista) return;
+  if (vista.predefinita) {
+    await prisma.vistaSalvata.update({ where: { id }, data: { predefinita: false } });
+  } else {
+    await prisma.vistaSalvata.updateMany({
+      where: { pagina: vista.pagina, predefinita: true },
+      data: { predefinita: false },
+    });
+    await prisma.vistaSalvata.update({ where: { id }, data: { predefinita: true } });
+  }
+  revalidatePath(`/${vista.pagina}`);
+}
+
+export async function eliminaVista(id: string) {
+  if (!id) return;
+  const vista = await prisma.vistaSalvata.findUnique({ where: { id } });
+  if (!vista) return;
+  await prisma.vistaSalvata.delete({ where: { id } });
+  revalidatePath(`/${vista.pagina}`);
 }
 
 // ---------- Legame campagna ↔ vendite Shopify ----------
