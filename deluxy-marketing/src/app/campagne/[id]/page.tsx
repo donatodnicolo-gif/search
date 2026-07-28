@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { FreschezzaDati } from "@/components/FreschezzaDati";
 import { GuardrailCampagna } from "@/components/GuardrailCampagna";
+import { KeywordCampagna } from "@/components/KeywordCampagna";
 import { Badge } from "@/components/Badge";
 import { GraficoSpesa } from "@/components/GraficoSpesa";
 import { AggiornaAdesso } from "@/components/AggiornaAdesso";
@@ -54,6 +55,10 @@ export default async function SchedaCampagna({
     a?: string;
     ord?: string;
     verso?: string;
+    // L'ordinamento delle keyword ha i suoi parametri: due tabelle ordinabili
+    // nella stessa pagina, se condividessero `ord` si riordinerebbero insieme.
+    ordk?: string;
+    versok?: string;
   }>;
 }) {
   const { id } = await params;
@@ -222,6 +227,18 @@ export default async function SchedaCampagna({
           altriParametri={parametriPeriodo(periodo)}
           ord={sp.ord}
           verso={sp.verso}
+        />
+
+        {/* Le keyword subito dopo le parole cercate: sono i due lati della
+            stessa cosa — cosa abbiamo comprato e cosa ci hanno chiesto — e
+            separarli vuol dire non vedere mai la distanza fra i due. */}
+        <KeywordCampagna
+          nomeCampagna={campagna.nome}
+          brand={campagna.brand}
+          base={`/campagne/${campagna.id}`}
+          altriParametri={parametriPeriodo(periodo)}
+          ord={sp.ordk}
+          verso={sp.versok}
         />
 
         <SegmentiCampagna campagnaId={campagna.id} brand={campagna.brand} />
