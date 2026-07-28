@@ -299,15 +299,26 @@ App mobile React Native (Expo Router, TypeScript) per la prospezione commerciale
   - **Trappola del cap 1000, terza volta**: `fetchPlaceIdConContatto` leggeva `contacts` senza `range()` — oltre le mille righe i negozi in fondo risultavano «senza contatto» e **retrocedevano di livello da soli**. Ora tutte le letture di id passano dall'helper paginato `idPaginati()` in `lib/db.ts`.
   - Verificato: `tsc --noEmit` pulito, bundle Metro senza errori, deploy verificato dallo script. **Non verificato a schermo**: le schermate stanno dietro il login e io non digito password (vedi §3.1).
 
+
+- **🧭 Giornata del 28/07/2026 — il funnel prende forma** (commit da `211336a` a `4460300c`):
+  - **Scala dei livelli RIDEFINITA dall'utente** — la fonte è `lib/livelli.ts`: SELEZIONATO (scelto, mai toccato) → LEAD (**c'è un contatto**: persona in rubrica, messaggio partito, oppure è arrivato lui e lo si dichiara) → PROSPECT (**ha mostrato interesse**: trattativa aperta) → CLIENTE (trattativa vinta) → DORMIENTE (**cliente che ha smesso di fatturare**). ⚠️ Il confine Lead/Prospect era «una persona in rubrica»: ora è **la trattativa**. Un nome in rubrica è un recapito, non un interesse.
+  - **Il dormiente arriva da FINANCE** (`lib/finance.ts` + Edge Function `finance`): `statoAnalisi.calcolato` di deluxy-partner, cioè il dato dai MOVIMENTI e non il codice scritto a mano nella scheda. Il ponte fra le app è `anagrafiche_id`, mai il nome.
+  - **Sezioni nuove**: **Sequenze** (solleciti a scadenza, in Strumenti — si fermano da sé se il cliente risponde, e niente parte senza conferma), **Per interesse** (il funnel per linea di servizio), **Province · Copertura** (tutte e 107 le province: dove siamo, dove vendiamo, dove non c'è nessuno), **Segnalati · Fornitori** (i potenziali che l'app fornitori ha già messo nel registro).
+  - **Filtri a scelta multipla** ovunque (`components/GruppoFiltro.tsx`, estratto da tre copie già divergenti) e **scelta multipla in Clienti** per scrivere a più negozi insieme.
+  - **Indirizzi con ricerca Google** nei form: prima un negozio si poteva creare solo col GPS, stando davanti alla porta.
+  - **«Gifting» unificato**: «Regali aziendali» era lo stesso interesse con due nomi — si filtrava per uno e si perdeva metà dei negozi. Canonizzazione al punto di lettura + migrazione 0049.
+  - **Buco chiuso**: gli elenchi mostravano solo i negozi con `creato_da`/⭐ e buttavano via quelli con una **persona in rubrica**, che comparivano in Rubrica e sparivano dalle liste (`inLavorazione` in `lib/livelli.ts`).
+
+- **📇 Anagrafiche, stessa giornata**: import del tracker Excel **che aggiunge invece di riscrivere** (`--solo-nuovi`, `--prova`) — 33 anagrafiche nuove, da 943 a 976; e nuova sezione **Riconciliazioni dati** (`/riconciliazioni`), dove si decide chi ha ragione fra tracker e registro. Le differenze di solo formato sono scartate in partenza: 26 su 30 erano «MI» contro «MILANO».
+
 ## 3. ⏳ Cosa manca (richiede l'utente / suoi account)
-0. **Migrazioni SQL da applicare** (serve `SUPABASE_PAT`, che l'agente non ha):
-   - `0045_chiavi_app.sql` — tabella delle chiavi API per richiamare le altre app, scrivibile solo agli admin;
-   - `0046_contatti_avviati.sql` — registro degli invii (email/WhatsApp): **senza questa, le mail inviate non contano per il livello Lead** — chiamate e visite sì.
-   ```powershell
-   $env:SUPABASE_PAT = "<PAT Supabase>"
-   node scripts/mgmt-query.mjs supabase/migrations/0045_chiavi_app.sql
-   node scripts/mgmt-query.mjs supabase/migrations/0046_contatti_avviati.sql
-   ```
+
+0. ✅ **Migrazioni 0045–0051 APPLICATE** (28/07/2026, verificate sul database: tabelle `chiavi_app`, `contatti_avviati`, `bozze_visita`, `sequenze`, `sequenza_passi`, colonna `places.visita_pianificata`, valori `selezionato`/`lead` nell'enum). Si applicano con **`APPLICA-MIGRAZIONI.cmd`** (doppio clic, chiede il token) o `node scripts/allinea-supabase.mjs`.
+
+0b. ⏳ **Tre Edge Functions NON deployate**: `ordini`, `health`, `finance` (`anagrafiche` c'è ma va riaggiornata per il filtro `fonte`). Al primo lancio sono fallite tutte perché il CLI Supabase impacchetta con **Docker**, assente su questa macchina: lo script ora passa `--use-api` (bundling sui server Supabase). **Rilanciato dall'utente, il "passo 4" continua a fallire — il testo dell'errore non è ancora stato letto.** Cosa resta spento senza di esse:
+   - `ordini` → la colonna **venduto** in Province · Copertura resta vuota (serve anche `ORDERS_API_KEY` in cassaforte Hub);
+   - `finance` → i **dormienti** vengono dallo stato del registro invece che dal fatturato vero (serve anche `PARTNER_API_KEY`);
+   - `health` → il Hub non vede lo stato del database di Scout (`/api/health` risponde 404 via il rewrite).
 1. **Utente auth per il login** — pronto lo script `scripts/create-user.mjs`: crea/aggiorna l'utente in Supabase Auth via Admin API, con email+password forniti **dall'utente** via env var (l'agente non vede la password); crea l'utente già confermato. Serve la `service_role` key. Comando in §5. In alternativa: Supabase → Authentication → Users → *Add user*.
 2. **Restringere la chiave Google Maps** (sicurezza, da fare) — la chiave Android finisce nell'APK ed è estraibile: la protezione vera è restringerla in Google Cloud Console → Credenziali → *App Android*: nome pacchetto `it.deluxy.scout` + **SHA-1** del keystore (presa da dashboard Expo → Credentials → Android), e restrizione API a *Maps SDK for Android*. Verificare che *Maps SDK for Android* sia abilitata e che il progetto Google Cloud abbia **billing attivo**.
 3. **Test end-to-end HubSpot** — con un utente loggato (punto 1), registrare una visita e verificare company+contatto+deal con le proprietà su HubSpot.
