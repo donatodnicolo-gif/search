@@ -4,6 +4,7 @@ import { Badge } from "@/components/Badge";
 import { BarraMargine } from "@/components/BarraMargine";
 import { prisma } from "@/lib/db";
 import { aggiornaProdotto, aggiungiVariante, cambiaFase, eliminaVariante, segnaShopify } from "@/lib/azioni";
+import { separaAzione } from "@/lib/azioni-riconciliazione";
 import { costruisciPayloadShopify, shopifyConfigurato } from "@/lib/shopify";
 import {
   calcolaMargine,
@@ -37,10 +38,10 @@ export default async function ProdottoPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<{ tab?: string; esito?: string }>;
 }) {
   const { id } = await params;
-  const { tab: tabRaw } = await searchParams;
+  const { tab: tabRaw, esito } = await searchParams;
   const tab = TABS.some(([t]) => t === tabRaw) ? tabRaw! : "panoramica";
 
   const [prodotto, collezioni] = await Promise.all([
@@ -50,6 +51,8 @@ export default async function ProdottoPage({
         collezione: true,
         fornitore: true,
         varianti: { orderBy: { creataIl: "asc" } },
+        unitoA: { select: { id: true, nome: true } },
+        assorbiti: { select: { id: true, nome: true, codice: true, unitoIl: true } },
         tappe: { orderBy: { creataIl: "desc" } },
         vetrine: { include: { vetrina: true }, orderBy: { posizione: "asc" } },
       },
@@ -86,6 +89,59 @@ export default async function ProdottoPage({
               )}
             </div>
           </div>
+        </div>
+
+        {esito && <div className="avviso avviso-ok">{esito}</div>}
+
+        {/* ---------- Riconciliazione ----------
+            Due schede che sono lo stesso prodotto: qui si dice quali, e il
+            venduto smette di contarsi due volte. Sta in alto perché finché due
+            schede sono separate, tutto quello che si legge sotto è diviso a
+            metà. */}
+        <div className="scheda">
+          <div className="scheda-titolo">Riconciliazione</div>
+          {prodotto.unitoA ? (
+            <>
+              <p className="page-sub" style={{ marginTop: 0 }}>
+                Questa scheda è <strong>unita a</strong>{" "}
+                <a href={`/prodotti/${prodotto.unitoA.id}`}>{prodotto.unitoA.nome}</a>
+                {prodotto.unitoIl ? ` dal ${iso(prodotto.unitoIl)}` : ""}: il suo venduto è stato spostato lì e
+                questa resta fuori dalle analisi. Non è stato cancellato niente.
+              </p>
+              <form action={separaAzione.bind(null, prodotto.id)}>
+                <button className="btn btn-secondario" type="submit">
+                  Separa: rimetti qui il suo venduto
+                </button>
+              </form>
+            </>
+          ) : (
+            <>
+              <p className="page-sub" style={{ marginTop: 0 }}>
+                {prodotto.assorbiti.length > 0 ? (
+                  <>
+                    Ha assorbito {prodotto.assorbiti.length}{" "}
+                    {prodotto.assorbiti.length === 1 ? "scheda" : "schede"}:{" "}
+                    {prodotto.assorbiti.map((a, i) => (
+                      <span key={a.id}>
+                        {i > 0 && ", "}
+                        <a href={`/prodotti/${a.id}`}>{a.nome}</a>
+                      </span>
+                    ))}
+                    . Il loro venduto è contato qui.
+                  </>
+                ) : (
+                  <>
+                    Se lo stesso prodotto esiste come più schede — capita coi titoli arrivati dal venduto di
+                    negozi diversi — qui si uniscono, e le classifiche smettono di dividere in due lo stesso
+                    prodotto.
+                  </>
+                )}
+              </p>
+              <a className="btn btn-secondario" href={`/prodotti/${prodotto.id}/riconcilia`}>
+                Cerca schede da unire a questa
+              </a>
+            </>
+          )}
         </div>
 
         <div className="tabs">

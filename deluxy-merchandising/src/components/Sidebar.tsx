@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { brandCorrente, filtroProdotti } from "@/lib/brand";
 import { COLORE_STATO_COLLEZIONE, etichettaStagione } from "@/lib/dominio";
+import { elencoFasce } from "@/lib/fasce";
 import { Icona } from "./Icona";
 import { SbSezione } from "./SbSezione";
 
@@ -23,6 +24,8 @@ export async function Sidebar({
     | "anagrafica"
     | "fornitori"
     | "categorie"
+    | "linee"
+    | "fasce"
     | "classificazione"
     | "sviluppo"
     | "costi"
@@ -48,6 +51,8 @@ export async function Sidebar({
     collezioni,
     fornitori,
     tipi,
+    nLinee,
+    nFasce,
   ] = await Promise.all([
     prisma.collezione.count(),
     prisma.collezioneShopify.count(),
@@ -75,6 +80,10 @@ export async function Sidebar({
       distinct: ["tipoShopify"],
       select: { tipoShopify: true },
     }),
+    prisma.lineaProdotto.count({ where: { attiva: true } }),
+    // elencoFasce() e non un count: alla primissima apertura scrive le fasce di
+    // partenza, così il menu non mostra «0» su un listino che esiste.
+    elencoFasce().then((f) => f.length),
   ]);
 
   const voce = (
@@ -113,6 +122,8 @@ export async function Sidebar({
               (fornitore, letto da Shopify) e da che cosa è (categoria). */}
           {voce("fornitori", "/fornitori", "prodotti", "Per fornitore", fornitori.length)}
           {voce("categorie", "/categorie", "collezioni", "Per categoria", tipi.length)}
+          {voce("linee", "/linee", "collezioni", "Per linea", nLinee)}
+          {voce("fasce", "/fasce", "costi", "Per fascia di prezzo", nFasce)}
           {voce("classificazione", "/classificazione", "collezioni", "Categorie, linee, collezioni")}
           {voce("sviluppo", "/sviluppo", "sviluppo", "Sviluppo", nInSviluppo)}
           {voce("costi", "/costi", "costi", "Costi & margini")}

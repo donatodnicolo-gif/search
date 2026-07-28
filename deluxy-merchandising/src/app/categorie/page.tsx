@@ -23,12 +23,10 @@ const VISTE: { chiave: ChiaveRaggruppamento; nome: string; spiega: string }[] = 
     spiega:
       "La categoria decisa da noi in Categorie, linee, collezioni. È quella che comanda nelle analisi: finché un prodotto è «Da classificare», nelle viste per categoria sta lì.",
   },
-  {
-    chiave: "linea",
-    nome: "Linea",
-    spiega: "Le linee di prodotto decise da noi. Un prodotto può stare senza linea: non è un errore, è un buco da riempire.",
-  },
 ];
+// Le **linee** hanno la loro pagina (/linee) e le **fasce di prezzo** la loro
+// (/fasce): qui restano le due letture della categoria, che sono quelle che
+// vale la pena confrontare fra loro.
 
 export default async function CategoriePage({
   searchParams,

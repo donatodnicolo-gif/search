@@ -20,6 +20,7 @@ import {
   type Gruppo,
 } from "@/lib/gruppi";
 import { TabellaGruppi } from "@/components/TabellaGruppi";
+import { confini, elencoFasce, filtroPrezzo } from "@/lib/fasce";
 import { FILTRO_BUON_FINE, finestra } from "@/lib/vendite";
 
 export const dynamic = "force-dynamic";
@@ -41,6 +42,7 @@ export default async function AnagraficaPage({
     fase?: string;
     fornitore?: string;
     linea?: string;
+    fascia?: string;
     manca?: string;
     raggruppa?: string;
     ordina?: string;
@@ -67,6 +69,12 @@ export default async function AnagraficaPage({
   // è un dato letto, non una nostra classificazione.
   if (sp.fornitore) where.vendorShopify = sp.fornitore;
   if (sp.linea) where.lineaId = sp.linea;
+  // La fascia non è un campo del prodotto: è un intervallo di prezzo. Filtrare
+  // per fascia vuol dire filtrare per prezzo, con l'estremo destro escluso.
+  const fasce = await elencoFasce();
+  const fasciaScelta = sp.fascia ? fasce.find((x) => x.id === sp.fascia) : undefined;
+  if (fasciaScelta) where.prezzoVendita = filtroPrezzo(fasciaScelta);
+  if (sp.manca === "prezzo") where.prezzoVendita = { lte: 0 };
   if (sp.fase) where.fase = sp.fase;
   if (sp.manca === "costo") where.costoProduzione = { lte: 0 };
   if (sp.manca === "categoria") where.categoria = "DA_CLASSIFICARE";
@@ -211,6 +219,14 @@ export default async function AnagraficaPage({
               </option>
             ))}
           </select>
+          <select name="fascia" defaultValue={sp.fascia ?? ""} aria-label="Fascia di prezzo">
+            <option value="">Tutte le fasce di prezzo</option>
+            {fasce.map((x) => (
+              <option key={x.id} value={x.id}>
+                {x.nome} · {confini(x)}
+              </option>
+            ))}
+          </select>
           <select name="fase" defaultValue={sp.fase ?? ""} aria-label="Fase">
             <option value="">Tutte le fasi</option>
             {FASI_PLM.map((x) => (
@@ -234,6 +250,7 @@ export default async function AnagraficaPage({
             <option value="tipo">Senza tipo da Shopify</option>
             <option value="linea">Senza linea</option>
             <option value="fornitore">Senza fornitore</option>
+            <option value="prezzo">Senza prezzo di vendita</option>
             <option value="collezione">Fuori da ogni collezione Shopify</option>
             <option value="esclusi">Esclusi dalle analisi{quantiEsclusi ? ` (${quantiEsclusi})` : ""}</option>
           </select>

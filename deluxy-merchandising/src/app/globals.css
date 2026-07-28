@@ -201,6 +201,14 @@ tr.riga-cliccabile:hover, li.riga-cliccabile:hover { background: var(--fill); cu
   background: rgba(215, 0, 21, 0.07); color: var(--red);
   border-radius: var(--radius-m); font-size: 13.5px;
 }
+/* Gli avvisi in cima a una pagina: stesso corpo, tre toni. Il rosso resta
+   com'era, perché `.avviso-errore` da solo è già usato altrove. */
+.avviso {
+  padding: 10px 14px; margin-bottom: 14px;
+  border-radius: var(--radius-m); font-size: 13.5px;
+}
+.avviso-ok { background: rgba(28, 145, 74, 0.08); color: var(--green); }
+.avviso-attenzione { background: rgba(184, 150, 62, 0.12); color: var(--gold-strong); }
 @media (max-width: 800px) { .modulo { grid-template-columns: 1fr; } }
 
 /* ---------- Scheda ---------- */

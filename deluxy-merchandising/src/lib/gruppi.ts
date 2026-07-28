@@ -1,5 +1,6 @@
 import { elencoCategorie, elencoLinee } from "./classificazione";
 import { prisma } from "./db";
+import { confini, elencoFasce, fasciaDi, SENZA_PREZZO } from "./fasce";
 import { FILTRO_BUON_FINE, finestra } from "./vendite";
 
 // Il catalogo visto **per insieme** invece che prodotto per prodotto: quanto
@@ -15,6 +16,7 @@ export const RAGGRUPPAMENTI = [
   { chiave: "tipo", nome: "Categoria dal negozio" },
   { chiave: "categoria", nome: "Categoria interna" },
   { chiave: "linea", nome: "Linea" },
+  { chiave: "fascia", nome: "Fascia di prezzo" },
   { chiave: "fornitore-tipo", nome: "Fornitore e categoria" },
 ] as const;
 
@@ -61,7 +63,7 @@ export async function calcolaGruppi({
   giorni?: number;
 }): Promise<Gruppo[]> {
   const f = finestra(giorni);
-  const [prodotti, vendite, categorie, linee] = await Promise.all([
+  const [prodotti, vendite, categorie, linee, fasce] = await Promise.all([
     prisma.prodotto.findMany({
       where,
       select: {
@@ -70,6 +72,7 @@ export async function calcolaGruppi({
         tipoShopify: true,
         categoria: true,
         lineaId: true,
+        prezzoVendita: true,
         costoProduzione: true,
         esclusoDaAnalisi: true,
       },
@@ -81,7 +84,9 @@ export async function calcolaGruppi({
     }),
     elencoCategorie(),
     elencoLinee(),
+    elencoFasce(),
   ]);
+  const ordineFascia = new Map(fasce.map((x, i) => [x.nome, i]));
 
   const venduto = new Map(vendite.map((v) => [v.prodottoId as string, v]));
   const nomeCategoria = new Map(categorie.map((c) => [c.chiave, c.nome]));
@@ -107,6 +112,14 @@ export async function calcolaGruppi({
     } else if (per === "categoria") {
       etichetta = nomeCategoria.get(p.categoria) ?? p.categoria;
       filtro.categoria = p.categoria;
+    } else if (per === "fascia") {
+      // La fascia non è scritta sul prodotto: è quella in cui **cade il suo
+      // prezzo**. Chi non ha prezzo non è «economico», è senza prezzo.
+      const fa = fasciaDi(p.prezzoVendita, fasce);
+      etichetta = fa ? fa.nome : SENZA_PREZZO;
+      sotto = fa ? confini(fa) : "prezzo non ancora compilato";
+      if (fa) filtro.fascia = fa.id;
+      else filtro.manca = "prezzo";
     } else {
       etichetta = p.lineaId ? nomeLinea.get(p.lineaId) ?? "Linea sconosciuta" : "— senza linea —";
       if (p.lineaId) filtro.linea = p.lineaId;
@@ -140,9 +153,15 @@ export async function calcolaGruppi({
   }
 
   const gruppi = [...mappa.values()];
+  // Per le fasce «in ordine» vuol dire dal prezzo più basso al più alto, non in
+  // ordine alfabetico: una scala di prezzi messa in ordine di lettere non è una
+  // scala. Chi non ha prezzo va in fondo, perché non sta su nessuno scalino.
+  const postoFascia = (g: Gruppo) => ordineFascia.get(g.etichetta) ?? 999;
   gruppi.sort(
     ordina === "nome"
-      ? (a, b) => `${a.etichetta} ${a.sotto ?? ""}`.localeCompare(`${b.etichetta} ${b.sotto ?? ""}`, "it")
+      ? per === "fascia"
+        ? (a, b) => postoFascia(a) - postoFascia(b)
+        : (a, b) => `${a.etichetta} ${a.sotto ?? ""}`.localeCompare(`${b.etichetta} ${b.sotto ?? ""}`, "it")
       : ordina === "prodotti"
         ? (a, b) => b.prodotti - a.prodotti
         : ordina === "quantita"

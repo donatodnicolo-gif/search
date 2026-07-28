@@ -62,6 +62,16 @@ model Prodotto {
   // ipotesi di ordinativo, dove falserebbero i conti.
   esclusoDaAnalisi Boolean @default(false)
   motivoEsclusione String?
+  // **Riconciliazione**: due schede che sono lo stesso prodotto (lo stesso
+  // bouquet importato da due negozi con titoli diversi). Si sceglie quale
+  // tenere; l'altra resta qui — non si cancella niente — ma punta alla buona con
+  // `unitoAId`, e le sue vendite/varianti/collezioni vengono spostate su quella.
+  // Così le classifiche smettono di contare due volte lo stesso prodotto senza
+  // che nessun dato sparisca.
+  unitoAId     String?
+  unitoA       Prodotto?  @relation("Riconciliazione", fields: [unitoAId], references: [id], onDelete: SetNull)
+  assorbiti    Prodotto[] @relation("Riconciliazione")
+  unitoIl      DateTime?
   // Fase del ciclo di vita (PLM): concept | prototipo | approvato | in_vendita | archiviato
   fase         String   @default("concept")
   descrizione  String?
@@ -110,6 +120,7 @@ model Prodotto {
   @@index([categoria])
   @@index([fase])
   @@index([shopifyStato])
+  @@index([unitoAId])
 }
 
 // Varianti di un prodotto (formato/misura/colore), come una maison declina un capo.
@@ -269,6 +280,29 @@ model CategoriaProdotto {
   @@index([attiva, ordine])
 }
 
+// Le **fasce di prezzo**: gli scalini in cui si legge il catalogo ("fino a
+// 50 €", "100–200 €"). Non si assegnano a mano prodotto per prodotto — la fascia
+// di un prodotto è quella in cui **cade il suo prezzo**, e se il prezzo cambia
+// la fascia lo segue da sola. Qui si decidono solo i confini, che sono la vera
+// scelta commerciale.
+//
+// `da` è compreso, `a` è **escluso**: così un prodotto da 49,90 € non finisce
+// nel buco fra due fasce. `a = null` vuol dire «da qui in su».
+model FasciaPrezzo {
+  id          String   @id @default(cuid())
+  nome        String   @unique
+  da          Float    @default(0)
+  a           Float?
+  descrizione String? // a chi parla questa fascia: guida umana e guida AI
+  colore      String?
+  ordine      Int      @default(0)
+  attiva      Boolean  @default(true)
+  creataIl    DateTime @default(now())
+  aggiornataIl DateTime @updatedAt
+
+  @@index([attiva, ordine])
+}
+
 // Le **linee** di prodotto: la famiglia commerciale trasversale alle stagioni
 // ("Ora Blu", "Gifting", "B2B"). Anche qui la descrizione serve all'AI.
 model LineaProdotto {
@@ -411,6 +445,12 @@ model Vendita {
   prodotto   Prodotto? @relation(fields: [prodottoId], references: [id], onDelete: SetNull)
   varianteId String?
   variante   Variante? @relation(fields: [varianteId], references: [id], onDelete: SetNull)
+  // Da quale scheda veniva questa riga prima di una **riconciliazione**. Serve a
+  // una cosa sola: poter separare due prodotti uniti per sbaglio rimettendo
+  // esattamente le righe che erano state spostate. Senza questo campo l'unione
+  // sarebbe irreversibile, e un'operazione irreversibile su dati veri non si fa
+  // con un bottone.
+  prodottoOriginaleId String?
   titolo     String // titolo della riga così come arriva dal canale
   // Nome della variante scelta dal cliente ("40 rose", "Medium"): è la parola
   // del negozio, l'unica leggibile quando lo SKU è un codice cieco tipo ICQLBN-2.
@@ -432,6 +472,7 @@ model Vendita {
   creataIl   DateTime  @default(now())
 
   @@index([data])
+  @@index([prodottoOriginaleId])
   @@index([prodottoId, data])
   @@index([varianteId, data])
   @@index([origine])

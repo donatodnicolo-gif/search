@@ -15,6 +15,7 @@ export default async function ProdottiPage({
     collezione?: string;
     categoria?: string;
     fase?: string;
+    uniti?: string;
     pagina?: string;
   }>;
 }) {
@@ -27,6 +28,11 @@ export default async function ProdottiPage({
   if (sp.collezione) where.collezioneId = sp.collezione;
   if (sp.categoria) where.categoria = sp.categoria;
   if (sp.fase) where.fase = sp.fase;
+  // Le schede unite ad altre restano in anagrafica, ma qui starebbero come
+  // doppioni: si nascondono di default e **lo si scrive**, con l'interruttore
+  // per rivederle. Nasconderle in silenzio sarebbe farle sparire.
+  const mostraUnite = sp.uniti === "si";
+  if (!mostraUnite) where.unitoAId = null;
 
   // Il catalogo può contenere migliaia di prodotti (l'import dal venduto ne ha
   // creati oltre duemila): senza pagina la tabella pesa megabyte e la pagina
@@ -35,7 +41,7 @@ export default async function ProdottiPage({
   const PER_PAGINA = 100;
   const pagina = Math.max(1, parseInt(sp.pagina ?? "1", 10) || 1);
 
-  const [prodotti, totale, collezioni] = await Promise.all([
+  const [prodotti, totale, collezioni, quanteUnite] = await Promise.all([
     prisma.prodotto.findMany({
       where,
       orderBy: [{ priorita: "desc" }, { creatoIl: "desc" }],
@@ -45,6 +51,7 @@ export default async function ProdottiPage({
     }),
     prisma.prodotto.count({ where }),
     prisma.collezione.findMany({ orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
+    prisma.prodotto.count({ where: { unitoAId: { not: null } } }),
   ]);
 
   const pagine = Math.max(1, Math.ceil(totale / PER_PAGINA));
@@ -70,6 +77,7 @@ export default async function ProdottiPage({
             </p>
           </div>
           <div style={{ display: "flex", gap: 10 }}>
+            <a className="btn btn-secondario" href="/prodotti/riconcilia">Riconcilia doppioni</a>
             <a className="btn btn-secondario" href="/prodotti/nuovo">Nuovo prodotto</a>
             <a className="btn" href="/prodotti/nuovo-shopify">Nuovo su Shopify</a>
           </div>
@@ -101,6 +109,15 @@ export default async function ProdottiPage({
         <p className="page-sub" style={{ margin: "0 0 12px" }}>
           {totale} prodotti
           {pagine > 1 ? ` · pagina ${pagina} di ${pagine}` : ""}
+          {quanteUnite > 0 && (
+            <span>
+              {` · ${quanteUnite} ${quanteUnite === 1 ? "scheda unita" : "schede unite"} ad altre `}
+              {mostraUnite ? "(mostrate) " : "(nascoste) "}
+              <a href={mostraUnite ? "/prodotti" : "/prodotti?uniti=si"}>
+                {mostraUnite ? "nascondile" : "mostrale"}
+              </a>
+            </span>
+          )}
         </p>
         <TabellaProdotti prodotti={prodotti} />
         {pagine > 1 && (
