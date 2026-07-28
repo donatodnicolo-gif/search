@@ -198,6 +198,12 @@ model CategoriaCosto {
   // compenso dell'amministratore pure, mentre B9 è solo lavoro dipendente.
   // `null` = non ancora deciso: vale il valore dedotto da `tipoPL`.
   voceCE String?
+  // La categoria che raccoglie **tutto quello che nessuna regola prende**. Ne
+  // esiste al massimo una. Senza, le uscite senza regola restano «non
+  // categorizzate» e fuori da ogni voce di P&L: va bene per dieci controparti,
+  // non per milleduecento nomi di persona da novanta euro l'uno, dove scrivere
+  // una regola a testa non aggiunge verità, solo righe.
+  predefinita Boolean   @default(false)
   colore String?
   ordine Int           @default(0)
   regole RegolaCosto[]

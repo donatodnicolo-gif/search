@@ -38,9 +38,14 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: "categoria già esistente" }, { status: 409 });
     }
   }
+  // La predefinita è una sola: accendendone una, le altre si spengono.
+  if (typeof body?.predefinita === "boolean") {
+    await prisma.categoriaCosto.updateMany({ where: { NOT: { id: body.id } }, data: { predefinita: false } });
+  }
   await prisma.categoriaCosto.update({
     where: { id: body.id },
     data: {
+      predefinita: typeof body?.predefinita === "boolean" ? body.predefinita : undefined,
       nome,
       tipoPL: TIPI.includes(String(body?.tipoPL)) ? String(body.tipoPL) : undefined,
       voceCE: VOCI.includes(String(body?.voceCE)) ? String(body.voceCE) : undefined,

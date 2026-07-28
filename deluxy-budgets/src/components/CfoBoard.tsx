@@ -11,6 +11,7 @@ type Riga = {
   tipoPL: string | null;
   voceCE: string | null;
   voceCEImpostata: boolean;
+  predefinita: boolean;
   colore: string | null;
   uscite: number;
   movimenti: number;
@@ -182,7 +183,10 @@ export function CfoBoard({
   // P&L in cui confluisce. Senza questa, l'unico modo per spostare una categoria
   // da una voce all'altra era cancellarla e rifarla, perdendo tutte le regole
   // che le erano state insegnate.
-  async function salvaCategoria(id: string, patch: { nome?: string; tipoPL?: string; voceCE?: string }) {
+  async function salvaCategoria(
+    id: string,
+    patch: { nome?: string; tipoPL?: string; voceCE?: string; predefinita?: boolean }
+  ) {
     setBusy(true);
     setErrore(null);
     const res = await fetch("/api/cfo/categorie", {
@@ -493,6 +497,17 @@ export function CfoBoard({
                     {!r.voceCEImpostata && (
                       <div className="muted" style={{ fontSize: 11 }}>dedotta, da confermare</div>
                     )}
+                    {/* La predefinita raccoglie quello che nessuna regola prende.
+                        Una sola: accendendone un'altra questa si spegne. */}
+                    <label style={{ display: "flex", gap: 4, alignItems: "center", fontSize: 11, marginTop: 4 }}>
+                      <input
+                        type="checkbox"
+                        checked={r.predefinita}
+                        disabled={busy}
+                        onChange={(e) => salvaCategoria(r.categoriaId!, { predefinita: e.target.checked })}
+                      />
+                      raccoglie il residuo
+                    </label>
                   </td>
                   <td className="num" style={{ fontWeight: 600 }}>{eur(r.uscite)}</td>
                   <td className="num muted">{pct((r.uscite / (totali.uscite || 1)) * 100, 0)}</td>

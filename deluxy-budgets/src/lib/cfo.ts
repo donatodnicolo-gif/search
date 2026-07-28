@@ -60,6 +60,7 @@ export type Categoria = {
   tipoPL: string;
   voceCE: string; // sempre valorizzata: se a DB è null, vale la predefinita
   voceCEImpostata: boolean; // false = dedotta, nessuno l'ha ancora confermata
+  predefinita: boolean; // raccoglie quello che nessuna regola prende
   colore: string | null;
   ordine: number;
   regole: { id: string; match: string; esatto: boolean }[];
@@ -76,6 +77,7 @@ export async function caricaCategorie(): Promise<Categoria[]> {
     tipoPL: c.tipoPL,
     voceCE: c.voceCE ?? voceCEPredefinita(c.tipoPL),
     voceCEImpostata: Boolean(c.voceCE),
+    predefinita: c.predefinita,
     colore: c.colore,
     ordine: c.ordine,
     regole: c.regole.map((r) => ({ id: r.id, match: r.match, esatto: r.esatto })),
@@ -83,7 +85,10 @@ export async function caricaCategorie(): Promise<Categoria[]> {
 }
 
 // Trova la categoria di una controparte. Vince la regola col match più lungo
-// (più specifico); a parità, l'uguaglianza batte il "contiene".
+// (più specifico); a parità, l'uguaglianza batte il "contiene". Se non matcha
+// niente e c'è una categoria **predefinita**, ci finisce lì: meglio una riga
+// dichiarata che raccoglie il residuo, che milleduecento controparti fuori da
+// ogni voce di conto economico.
 export function categoriaDi(controparte: string, categorie: Categoria[]): Categoria | null {
   const c = controparte.toLowerCase();
   let migliore: { cat: Categoria; peso: number } | null = null;
@@ -97,7 +102,7 @@ export function categoriaDi(controparte: string, categorie: Categoria[]): Catego
       if (!migliore || peso > migliore.peso) migliore = { cat, peso };
     }
   }
-  return migliore?.cat ?? null;
+  return migliore?.cat ?? categorie.find((x) => x.predefinita) ?? null;
 }
 
 export type RigaCategoria = {

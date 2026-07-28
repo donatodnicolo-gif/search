@@ -238,6 +238,13 @@ Servono entrambe perché divergono, e il bilancio 2024 di Deluxy fa vedere quant
 | Costo per servizi | **B7**, non B6 | 278.457 € |
 | — | **B6 merci** (fiori, torte) | 42.299 € |
 
+**Una categoria raccoglie il residuo.** Nel CFO si può spuntare «raccoglie il residuo» su una
+categoria sola: tutto quello che nessuna regola prende finisce lì, invece di restare «non
+categorizzato» e fuori da ogni voce di conto economico. Serve perché la coda è fatta di **1.258
+controparti da ~90 € l'una** (nomi di persona: fioristi e valet pagati per singoli ordini): scrivere
+una regola a testa non aggiunge verità, solo righe. Oggi la raccoglie «Altre uscite (da
+classificare)» — 117.364 € sul 2026 — e la copertura del CFO è al **100%**.
+
 La voce di bilancio si sceglie nel [CFO](https://deluxy-budgets.vercel.app/cfo), colonna «Voce di
 bilancio». Una categoria che nessuno ha ancora deciso mostra **«dedotta, da confermare»** e usa il
 valore ricavato da `tipoPL` (quasi tutto B7): la proposta di conto economico le elenca invece di far
