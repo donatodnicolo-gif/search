@@ -34,7 +34,11 @@ const MIGRAZIONI = [
 // `ordini` è il proxy verso Deluxy Orders (venduto per provincia): resta inerte
 // finché in cassaforte non c'è `ORDERS_API_KEY`, ma senza deploy non esiste
 // proprio e la vista Province non mostra nessun valore di vendita.
-const FUNZIONI = ['anagrafiche', 'ordini'];
+const FUNZIONI = ['anagrafiche', 'ordini', 'health'];
+// `health` deve rispondere SENZA sessione (il Hub non ne ha una): va deployata
+// con --no-verify-jwt, altrimenti risponde 401 e la pagina «stato dei servizi»
+// vede Scout come irraggiungibile.
+const SENZA_JWT = new Set(['health']);
 
 if (!PAT) {
   console.error('\n✗ Manca SUPABASE_PAT.\n');
@@ -78,10 +82,19 @@ for (const f of FUNZIONI) {
   try {
     execFileSync(
       process.platform === 'win32' ? 'npx.cmd' : 'npx',
-      ['-y', 'supabase@latest', 'functions', 'deploy', f, '--project-ref', PROJECT_REF],
+      [
+        '-y',
+        'supabase@latest',
+        'functions',
+        'deploy',
+        f,
+        '--project-ref',
+        PROJECT_REF,
+        ...(SENZA_JWT.has(f) ? ['--no-verify-jwt'] : []),
+      ],
       { cwd: RADICE, stdio: 'pipe', env: { ...process.env, SUPABASE_ACCESS_TOKEN: PAT } },
     );
-    console.log('deployata');
+    console.log(SENZA_JWT.has(f) ? 'deployata (pubblica)' : 'deployata');
   } catch (e) {
     // stderr del CLI: contiene il motivo vero (Docker mancante, token scaduto…).
     const dettaglio = (e.stderr?.toString() || e.message || '').trim().split('\n').slice(-3).join(' ');

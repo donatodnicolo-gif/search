@@ -45,8 +45,25 @@ if [ -d dist-web/assets/node_modules ]; then
   done
 fi
 
-echo "→ vercel.json (rewrite SPA)"
-printf '{\n  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]\n}\n' > dist-web/vercel.json
+echo "→ vercel.json (rewrite SPA + sonda di salute)"
+# ⚠️ L'ORDINE CONTA: Vercel applica il primo rewrite che combacia. La regola
+# della SPA («qualsiasi cosa → index.html») cattura tutto, /api/health compreso,
+# ed è il motivo per cui il Hub leggeva dell'HTML dove si aspettava JSON e
+# concludeva «database non pervenuto». La sonda va PRIMA, come le esclusioni in
+# testa al matcher di un middleware Next.
+#
+# La destinazione è la Edge Function `health` su Supabase: un file statico
+# direbbe solo che il server è su — quello si sapeva già — mentre qui si vuole
+# sapere se il DATABASE risponde.
+SUPA_REF="${SUPABASE_REF:-fdsziebgkljfsugqqbqd}"
+cat > dist-web/vercel.json <<JSON
+{
+  "rewrites": [
+    { "source": "/api/health", "destination": "https://${SUPA_REF}.supabase.co/functions/v1/health" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
+JSON
 
 echo "→ deploy prod (progetto deluxy-scout, pinnato per ID)"
 STAGE="$(mktemp -d)/deluxy-scout"
