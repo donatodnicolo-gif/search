@@ -132,12 +132,18 @@ function selettoreCon(entita) {
 // ───────── 1-ter. l'ordine dei lavori e le richieste interrotte ─────────
 {
   const sorgente = require("fs").readFileSync(__dirname + "/google-ads-script.js", "utf8");
-  const inizio = sorgente.indexOf('AZIONE === "tutto"');
-  const lista = sorgente.slice(inizio, inizio + 200);
+  const inizio = sorgente.indexOf("var LAVORI_LETTURA");
+  const lista = sorgente.slice(inizio, inizio + 160);
   const pos = (n) => lista.indexOf('"' + n + '"');
-  verifica("ordine: esegui è il PRIMO lavoro", pos("esegui") > 0 && pos("esegui") < pos("metriche"));
   verifica("ordine: i gruppi vengono PRIMA del copy", pos("gruppi") > 0 && pos("gruppi") < pos("copy"));
   verifica("ordine: il copy è dopo asset e diagnosi", pos("copy") > pos("asset") && pos("copy") > pos("diagnosi"));
+  verifica("ordine: esegui è il primo del giro completo", sorgente.indexOf('["esegui"].concat(LAVORI_LETTURA)') !== -1);
+  // Il punto della modifica: l'ordine deve esistere in UN posto solo. Due
+  // liste che devono restare uguali prima o poi divergono — è già successo.
+  verifica("ordine: le richieste dall'app usano LA STESSA lista",
+    sorgente.indexOf('r.lavoro === "tutto" ? LAVORI_LETTURA') !== -1);
+  verifica("ordine: non esiste una seconda lista scritta a mano",
+    sorgente.indexOf('"metriche", "approvazioni", "copy"') === -1);
   verifica("richiesta interrotta: resta aperta invece di chiudersi", sorgente.indexOf("if (interrotto)") !== -1);
   verifica("copy: chiede solo le keyword con impressioni", sorgente.indexOf("metrics.impressions > 0") !== -1);
 }

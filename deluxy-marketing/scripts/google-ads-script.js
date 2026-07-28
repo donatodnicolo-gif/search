@@ -117,6 +117,17 @@ var BLOCCO_MINIMO = 25;
 var TENTATIVI = 3;
 var MINUTI_MASSIMI = 25; // Google ferma gli script a 30': ci fermiamo prima, con ordine
 
+// L'ORDINE DEI LAVORI, scritto una volta sola perché vale in due punti: il giro
+// normale (AZIONE = "tutto") e le richieste che arrivano dall'app.
+//
+// Google ferma lo script dopo 30 minuti, e quello che non entra nei 30 minuti
+// semplicemente non succede: l'ordine decide cosa si perde, quindi va deciso
+// apposta invece di lasciarlo al caso.
+//   1. le letture che si guardano ogni giorno: metriche e gruppi di annunci;
+//   2. in fondo il copy, che da solo può prendersi metà del tempo (mille
+//      keyword per account a blocchi di 200) ed è la lettura meno urgente.
+var LAVORI_LETTURA = ["metriche", "gruppi", "approvazioni", "diagnosi", "asset", "copy"];
+
 var ANTEPRIMA = false; // deciso da verificaConfigurazione()
 var INIZIO = new Date().getTime();
 var RIEPILOGO = [];
@@ -146,9 +157,13 @@ function main() {
   // 3. Per ultimo il copy, che da solo può prendersi metà del tempo (mille
   //    keyword per account a blocchi di 200) ed è la lettura meno urgente:
   //    se salta si rimanda al giro dopo senza che nessuno se ne accorga.
-  var lavori = AZIONE === "tutto"
-    ? ["esegui", "metriche", "gruppi", "approvazioni", "diagnosi", "asset", "copy"]
-    : [AZIONE];
+  // "esegui" PER PRIMO: è l'unico lavoro che CAMBIA qualcosa su Google Ads —
+  // applica le modifiche già approvate nell'app. Costa pochi secondi, ma
+  // stando in fondo rischiava di non arrivare mai: si approva la pausa di un
+  // gruppo che brucia, lo script passa 28 minuti a leggere, viene fermato, e
+  // il gruppo resta acceso un altro giorno. I dati non perdono niente ad
+  // aspettare mezzo minuto, una decisione sì.
+  var lavori = AZIONE === "tutto" ? ["esegui"].concat(LAVORI_LETTURA) : [AZIONE];
 
   for (var i = 0; i < lavori.length; i++) {
     var lavoro = lavori[i];
@@ -201,9 +216,9 @@ function serviRichieste(conto) {
       break;
     }
     var r = richieste[i];
-    var lavori = r.lavoro === "tutto"
-      ? ["metriche", "approvazioni", "copy", "gruppi", "asset", "diagnosi"]
-      : [r.lavoro];
+    // Stesso ordine del giro normale: qui arriva il bottone "Rifai tutto"
+    // dell'app, che è proprio il caso in cui i gruppi servono.
+    var lavori = r.lavoro === "tutto" ? LAVORI_LETTURA : [r.lavoro];
     Logger.log("→ eseguo su richiesta: " + r.lavoro + " · ultimi " + r.giorni + " giorni");
 
     var quante = RIEPILOGO.length;
