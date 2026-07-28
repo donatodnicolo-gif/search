@@ -159,13 +159,24 @@ function ModuloNuovo({
 }
 
 export default async function PaginaAccountMeta() {
-  const [pagine, negozi] = await Promise.all([
+  const [pagine, negozi, visti] = await Promise.all([
     pagineCollegate(),
     db.negozioShopify.findMany({ select: { id: true, nome: true }, orderBy: { nome: 'asc' } }),
+    // Gli account da cui sono ARRIVATI messaggi: l'id vero, scritto da Meta.
+    // Serve a non doverlo cercare a mano nel Business Manager — basta mandare
+    // un messaggio di prova alla pagina e l'id compare qui, giusto per
+    // costruzione. Cercarlo a mano è il passaggio dove si sbaglia.
+    db.conversazione.groupBy({
+      by: ['canale', 'numeroId'],
+      where: { canale: { in: ['messenger', 'instagram'] }, NOT: { numeroId: '' } },
+      _count: { _all: true },
+    }),
   ])
 
   const messenger = pagine.filter((p) => p.canale === 'messenger')
   const instagram = pagine.filter((p) => p.canale === 'instagram')
+  const giaCollegati = new Set(pagine.map((p) => `${p.canale}:${p.idPagina}`))
+  const daCollegare = visti.filter((v) => !giaCollegati.has(`${v.canale}:${v.numeroId}`))
 
   return (
     <main>
@@ -187,6 +198,60 @@ export default async function PaginaAccountMeta() {
             Finché non ne colleghi almeno uno si usa il token generale delle Impostazioni, che va
             bene con <strong>un solo</strong> account. Con più pagine serve il token di ciascuna:
             quello di un&apos;altra pagina non fa partire il messaggio dalla pagina giusta.
+          </p>
+        </div>
+      ) : null}
+
+      {/* Gli id che Meta ci ha già mandato: si collegano con un clic, senza
+          andarli a cercare nel Business Manager. */}
+      {daCollegare.length ? (
+        <div className="card" style={{ marginBottom: 14 }}>
+          <h2 style={{ marginTop: 0, fontSize: 16 }}>
+            Account che ci hanno scritto, ma non ancora collegati
+          </h2>
+          <p className="descrizione">
+            Questi id li ha scritti Meta stessa consegnando i messaggi, quindi sono giusti per
+            costruzione. Manda un messaggio di prova alla pagina o al profilo, ricarica, e prendilo
+            da qui invece di cercarlo a mano: è il passaggio dove si sbaglia.
+          </p>
+          {daCollegare.map((v) => (
+            <form
+              action={salvaPaginaAction}
+              key={`${v.canale}:${v.numeroId}`}
+              style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap', marginBottom: 10 }}
+            >
+              <input type="hidden" name="canale" value={v.canale} />
+              <input type="hidden" name="idPagina" value={v.numeroId} />
+              <div>
+                <span className={`badge canale-${v.canale}`}>
+                  {NOME_CANALE[v.canale] ?? v.canale}
+                </span>{' '}
+                <code>{v.numeroId}</code>{' '}
+                <span className="cella-sub">
+                  {v._count._all} conversazion{v._count._all === 1 ? 'e' : 'i'}
+                </span>
+              </div>
+              <label className="campo" style={{ margin: 0 }}>
+                <span>Nome</span>
+                <input name="nome" placeholder="Deluxy Flowers" />
+              </label>
+              <label className="campo" style={{ margin: 0 }}>
+                <span>Marchio</span>
+                <select name="negozioId" defaultValue="">
+                  <option value="">Nessuno</option>
+                  {negozi.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.nome}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button className="bottone secondario mini">Collega</button>
+            </form>
+          ))}
+          <p className="cella-sub" style={{ marginBottom: 0 }}>
+            Il token si aggiunge dopo, nella scheda dell&apos;account: senza, i messaggi si leggono
+            ma non si risponde.
           </p>
         </div>
       ) : null}
