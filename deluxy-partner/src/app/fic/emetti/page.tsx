@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db";
 import { riepilogoPartner } from "@/lib/queries";
 import { euro } from "@/lib/format";
 import { nomeMese } from "@/lib/calc";
-import { ficStato, ficClientiCached, ficCreaFattura } from "@/lib/fic";
+import { ficStato, ficClientiCached, ficCreaFattura, ficMetodiPagamento } from "@/lib/fic";
 import { matchPartner } from "@/lib/riconciliazione";
 import type { Partner } from "@prisma/client";
 
@@ -31,6 +31,7 @@ async function emetti(partnerId: string, anno: number, mese: number, fd: FormDat
       descrizione,
       imponibile,
       visibleSubject: `Commissioni ${nomeMese(mese)} ${anno}`,
+      metodoPagamentoId: Number(fd.get("metodoPagamento")) || undefined,
     });
     numero = res.numero;
   } catch (e) {
@@ -60,6 +61,7 @@ export default async function EmettiPage({
   if (!partner) notFound();
 
   const fic = await ficStato();
+  const metodi = fic.collegato ? await ficMetodiPagamento().catch(() => []) : [];
   const { mesi } = await riepilogoPartner(partnerId, anno);
   const r = mesi[mese - 1].riepilogo;
   const saldo = mesi[mese - 1].saldo;
@@ -156,6 +158,16 @@ export default async function EmettiPage({
             <div>
               <label className="field-label">Totale con IVA 22%</label>
               <input type="text" disabled value={euro(r.commissioni * 1.22)} />
+            </div>
+            <div>
+              {/* Obbligatorio sulla fattura elettronica (ModalitaPagamento SDI).
+                  Preselezionato sul predefinito di Fatture in Cloud. */}
+              <label className="field-label">Metodo di pagamento</label>
+              <select name="metodoPagamento" defaultValue={String(metodi.find((m) => m.predefinito)?.id ?? metodi[0]?.id ?? "")}>
+                {metodi.map((m) => (
+                  <option key={m.id} value={m.id}>{m.nome}{m.predefinito ? " (predefinito)" : ""}</option>
+                ))}
+              </select>
             </div>
           </div>
           <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 14 }}>

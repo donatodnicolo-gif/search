@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db";
 import { euro, dataIt, pctIt } from "@/lib/format";
 import { ivato, nomeMese } from "@/lib/calc";
 import { totaliProForma, importoRiga, rifProForma } from "@/lib/proforma";
-import { ficStato, ficClientiCached, ficCreaFattura, type RigaFattura } from "@/lib/fic";
+import { ficStato, ficClientiCached, ficCreaFattura, ficMetodiPagamento, type RigaFattura } from "@/lib/fic";
 import { matchPartner } from "@/lib/riconciliazione";
 import type { Partner } from "@prisma/client";
 
@@ -57,7 +57,8 @@ async function emetti(origine: string, id: string, fd: FormData) {
 
   let numero: string;
   try {
-    const res = await ficCreaFattura({ clienteId, righe, visibleSubject: oggetto, scadenza });
+    const metodoPagamentoId = Number(fd.get("metodoPagamento")) || undefined;
+    const res = await ficCreaFattura({ clienteId, righe, visibleSubject: oggetto, scadenza, metodoPagamentoId });
     numero = res.numero;
   } catch (e) {
     redirect(`${back}&errore=${encodeURIComponent((e as Error).message)}`);
@@ -145,6 +146,8 @@ export default async function EmettiFatturaPage({
 
   const tot = totaliProForma(righe);
   const clienti = stato.collegato ? await ficClientiCached().catch(() => []) : [];
+  // Metodi di pagamento di FIC: obbligatorio sulla fattura elettronica.
+  const metodi = stato.collegato ? await ficMetodiPagamento().catch(() => []) : [];
   // preseleziona il cliente FIC col nome più simile al partner (match a parole
   // intere in entrambi i versi: "MOSCATI SRL" ↔ "BELLAVIA (MOSCATI SRL)")
   const comePartner = (nome: string) => ({ nome }) as Partner;
@@ -204,6 +207,22 @@ export default async function EmettiFatturaPage({
             <div>
               <label className="field-label">Scadenza pagamento</label>
               <input type="date" name="scadenza" defaultValue={iso(scadenzaDefault)} />
+            </div>
+            <div>
+              {/* Obbligatorio su una fattura ELETTRONICA: e la ModalitaPagamento
+                  che pretende lo SDI (bonifico = MP05). Preselezionato sul
+                  predefinito di Fatture in Cloud; si puo cambiare. */}
+              <label className="field-label">Metodo di pagamento</label>
+              <select name="metodoPagamento" defaultValue={String(metodi.find((m) => m.predefinito)?.id ?? metodi[0]?.id ?? "")}>
+                {metodi.map((m) => (
+                  <option key={m.id} value={m.id}>{m.nome}{m.predefinito ? " (predefinito)" : ""}</option>
+                ))}
+              </select>
+              {metodi.length === 0 && (
+                <span className="muted" style={{ fontSize: 11.5 }}>
+                  Nessun metodo su Fatture in Cloud: creane uno (es. Bonifico) nelle sue impostazioni.
+                </span>
+              )}
             </div>
             <div className="full">
               <label className="field-label">Oggetto visibile in fattura</label>
