@@ -135,6 +135,7 @@ function selettoreCon(entita) {
   const inizio = sorgente.indexOf('AZIONE === "tutto"');
   const lista = sorgente.slice(inizio, inizio + 200);
   const pos = (n) => lista.indexOf('"' + n + '"');
+  verifica("ordine: esegui è il PRIMO lavoro", pos("esegui") > 0 && pos("esegui") < pos("metriche"));
   verifica("ordine: i gruppi vengono PRIMA del copy", pos("gruppi") > 0 && pos("gruppi") < pos("copy"));
   verifica("ordine: il copy è dopo asset e diagnosi", pos("copy") > pos("asset") && pos("copy") > pos("diagnosi"));
   verifica("richiesta interrotta: resta aperta invece di chiudersi", sorgente.indexOf("if (interrotto)") !== -1);

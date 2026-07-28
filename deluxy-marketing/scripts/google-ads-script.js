@@ -130,14 +130,24 @@ function main() {
   // gli Script si avviano solo da dentro Google.
   serviRichieste(conto);
 
-  // L'ORDINE CONTA: Google ferma lo script dopo 30 minuti, e il copy da solo
-  // può prendersene la metà (mille keyword per account, a blocchi di 200).
-  // Prima erano in fondo i gruppi di annunci — cioè la cosa che serve per
-  // capire QUALE pezzo di una campagna sta bruciando — e non arrivavano mai.
-  // Ora si manda prima ciò che si guarda ogni giorno e per ultimo il copy, che
-  // se salta si rimanda al giro dopo senza che nessuno se ne accorga.
+  // L'ORDINE CONTA: Google ferma lo script dopo 30 minuti, e quello che non
+  // entra nei 30 minuti semplicemente non succede. Quindi l'ordine decide cosa
+  // si perde, e va deciso apposta invece di lasciarlo al caso.
+  //
+  // 1. "esegui" PER PRIMO. È l'unico lavoro che CAMBIA qualcosa su Google Ads:
+  //    applica le modifiche che l'utente ha già approvato nell'app. Costa
+  //    pochi secondi (due o tre operazioni per volta), ma stando in fondo
+  //    rischiava di non arrivare mai: si approva la pausa di un gruppo che
+  //    brucia, lo script passa 28 minuti a leggere dati, viene fermato, e il
+  //    gruppo resta acceso un altro giorno. Prima si fa quello che è stato
+  //    deciso, poi si guarda com'è andata: i dati non perdono niente ad
+  //    aspettare mezzo minuto, una decisione sì.
+  // 2. Poi ciò che si guarda ogni giorno: metriche e gruppi di annunci.
+  // 3. Per ultimo il copy, che da solo può prendersi metà del tempo (mille
+  //    keyword per account a blocchi di 200) ed è la lettura meno urgente:
+  //    se salta si rimanda al giro dopo senza che nessuno se ne accorga.
   var lavori = AZIONE === "tutto"
-    ? ["metriche", "gruppi", "approvazioni", "diagnosi", "asset", "copy", "esegui"]
+    ? ["esegui", "metriche", "gruppi", "approvazioni", "diagnosi", "asset", "copy"]
     : [AZIONE];
 
   for (var i = 0; i < lavori.length; i++) {
