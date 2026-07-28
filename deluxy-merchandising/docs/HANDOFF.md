@@ -81,16 +81,32 @@ npm run dev   # http://localhost:3120
 - CLI Vercel autenticata come `donatodnicolo-gif`.
 
 ## MANCA / PROSSIMI PASSI
+
+> Aggiornato **28/07/2026**. In cima i tre che bloccano tutto il resto: finché
+> non ci sono i costi, tutte le pagine che parlano di margine dicono onestamente
+> «non lo sappiamo», e sono tante.
+
+**I tre che sbloccano il resto**
+1. **Costi di produzione: nessun prodotto ne ha uno.** Conseguenze a catena, tutte già visibili: `/costi` non ha niente da confrontare col target; le griglie non possono mostrare marginalità; **ogni prodotto composto** creato in `/multi-prodotto` esce con costo «non lo sappiamo» e margine non calcolabile. Nell'anagrafica c'è già il filtro «senza costo di produzione» e l'export CSV con gli stessi filtri, pensato apposta per compilarli in foglio di calcolo — manca il **reimport del CSV compilato**, che oggi non esiste.
+2. **Classificazione: 2.163 prodotti su 2.171 sono `DA_CLASSIFICARE`** e **nessuna linea è stata creata** (`/linee` dice 0, tutti i prodotti in «senza linea»). Categoria interna e linea sono le due lenti *nostre*: finché sono vuote, `/categorie`, `/linee` e metà delle griglie girano a vuoto. Gli strumenti ci sono tutti (classificazione dalla riga in anagrafica, vocabolario per l'AI in `vocabolarioPerAI()`); manca **l'AI che propone** la categoria leggendo le descrizioni — è il pezzo per cui il vocabolario era stato scritto.
+3. **`OPENAI_API_KEY` non è configurata** (né su Vercel né in `/impostazioni`): la lettura AI del trend e la scrittura delle descrizioni sono verificate **fino alla chiamata** (con chiave finta l'app dice «Chiave OpenAI rifiutata (401)»), mai contro un modello vero. Blocca anche il punto 2.
+
+**Lavori aperti sul catalogo**
+- **1.377 prodotti senza fornitore e 1.382 senza categoria dal negozio**: sono le schede nate dai titoli del venduto che nessun negozio ha riconosciuto (l'abbinamento è per SKU). Da provare: abbinamento per **nome normalizzato**, riusando `normalizza()` di [src/lib/riconciliazione.ts](../src/lib/riconciliazione.ts). Oggi sono il gruppo più grosso di ogni vista.
+- **Riconciliazione mai eseguita su dati veri**: la pagina trova **12 gruppi con lo stesso nome, 26 schede** (Saint Honorè × 3, Dom perignon × 2), ma nessuna unione è stata fatta — di proposito, la prima la fa una persona. Il giro «unisci → separa» non è quindi ancora stato provato end-to-end in produzione.
+- **Nessun prodotto composto esiste ancora**: `/multi-prodotto` è stata provata fino al form di creazione, il `creaCompostoAzione` non è mai stato eseguito su dati veri.
 - **Righe di servizio in classifica**: `_Additional Price` (2.145 pz a 1 €) e `Torta Tisamisu Modena` (75 pz a 1 €) sono supplementi di prezzo dei negozi, non prodotti, e occupano i primi posti per quantità. Si tolgono mettendoli in fase **Archiviato**: gli archiviati non entrano in classifica. Non si filtrano dal nome — sarebbe indovinare.
-- **Costi e categorie dei 2.163 prodotti nuovi**: finché `costoProduzione` resta 0, il margine di `/vendite` e delle ipotesi di ordinativo è 0 (dichiarato, non stimato) e `/costi` non ha nulla da confrontare col target. Stessa cosa per la categoria `DA_CLASSIFICARE` e per le collezioni (nessun prodotto importato è assegnato a una collezione).
+- **Collezioni tecniche in cima alle classifiche**: «Globo basis collection - Do not delete» e «Smart Products Filter Index - Do not delete» sono indici dei temi Shopify, non collezioni commerciali, e occupano i primi posti. Da sospendere come si è fatto con `_Additional Price`.
+
+**Infrastruttura e integrazioni**
 - **Giacenze**: nessuna fonte di magazzino è collegata, tutte le varianti importate hanno giacenza 0. Le ipotesi di ordinativo partono quindi da «scorta ignota» e propongono la copertura piena.
-- **Chiave OpenAI** (`OPENAI_API_KEY`) per la lettura AI del trend: il percorso è verificato fino alla chiamata (con chiave finta l'app mostra "Chiave OpenAI rifiutata (401)"), la risposta del modello non è ancora stata provata con una chiave vera.
 - **Shopify reale**: `src/lib/shopify.ts` costruisce il payload ma non scrive. Da collegare: `SHOPIFY_STORE_DOMAIN` + `SHOPIFY_ADMIN_TOKEN` e la chiamata `productSet`/`productCreate` all'Admin API (con conferma). Esiste un MCP Shopify in sessione utilizzabile per il primo collaudo.
 - **SSO Hub**: non ancora agganciato (come le app senza flag `sso`).
 - **Anagrafiche/Fornitori**: i fornitori sono locali; valutare se collegarli al registro centralizzato.
 - **Immagini**: gli still-life sono via URL; nessun upload asset (placeholder ❀ se assente).
 
 ## NOTE
-- Committato e pushato su `scout-ui` (search.git) il 24/07/2026; vendite/trend/riordini/AI il 26/07/2026.
+- Committato e pushato su `scout-ui` (search.git) il 24/07/2026; vendite/trend/riordini/AI il 26/07/2026; anagrafica, classificazione, collezioni Shopify, fornitori/categorie il 27–28/07/2026; **fasce di prezzo, riconciliazione, griglie e multi prodotto il 28/07/2026** (ultimo commit `181873cc`, tutto in produzione e verificato).
+- **Come si verifica in produzione senza browser** (usato per tutte le pagine di questi giorni): il cookie di sessione è `mrc_session` = `sha256("deluxy-merchandising::" + password)`. Con quello si può fare `fetch` autenticato di qualsiasi pagina da uno script node e leggere l'HTML — più veloce e più affidabile che aprire il browser.
 - Il preview `.claude/launch.json` locale definisce `merchandising` (3120); nel launch.json condiviso della sessione ci sono `merchandising` (3120) e `merchandising-3121`, utile quando un'altra sessione tiene occupata la 3120.
 - **Trappola già pagata**: il calcolo del riordino è per **prodotto**, non per variante. La giacenza sta sulle varianti e si somma, ma il venduto non arriva sempre con la variante riconosciuta: distribuirlo "a occhio" sulle taglie darebbe quantità inventate, cioè ordini sbagliati al fornitore. Stessa logica per le righe vendute non riconosciute: restano senza prodotto invece di essere abbinate per somiglianza.
