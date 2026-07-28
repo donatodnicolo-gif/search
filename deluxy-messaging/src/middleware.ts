@@ -36,8 +36,16 @@ export const config = {
   // chat dei visitatori dei siti, autenticata dal token di sessione del widget),
   // i webhook Meta (autenticati dal verify token e dalla firma X-Hub-Signature),
   // i cron di Vercel (autenticati dal Bearer CRON_SECRET: non hanno un cookie di
-  // sessione, di qui verrebbero rimandati al login) e gli asset.
+  // sessione, di qui verrebbero rimandati al login), il health-check e gli asset.
+  //
+  // ⚠️ `api/health` va escluso o il controllo NON FUNZIONA: il Hub lo chiama da
+  // server, senza cookie di sessione, e il middleware gli risponderebbe con un
+  // redirect al login. La pagina di stato mostrerebbe l'app come irraggiungibile
+  // mentre sta benissimo — un falso allarme peggiore del non controllare, perché
+  // insegna a ignorare i rossi.
+  // Restare pubblico è accettabile perché la risposta non contiene dati: solo
+  // «risponde», «il database scrive», e due conteggi.
   matcher: [
-    '/((?!login|registrati|widget|api/widget|api/webhooks|api/cron|_next/static|_next/image|favicon.ico).*)',
+    '/((?!login|registrati|widget|api/widget|api/webhooks|api/cron|api/health|_next/static|_next/image|favicon.ico).*)',
   ],
 }
