@@ -163,7 +163,7 @@ export default async function MultiProdottoPage({
                       <td />
                       <td />
                       <td className="num">
-                        <strong>{euro(c.costo)}</strong>
+                        <strong>{c.senzaCosto === c.righe.length ? "non lo sappiamo" : euro(c.costo)}</strong>
                         {!c.costoCompleto && (
                           <div className="cella-sub" style={{ color: "var(--orange)" }}>
                             parziale

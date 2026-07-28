@@ -217,7 +217,7 @@ export default async function ProdottoPage({
                         <td />
                         <td />
                         <td className="num">
-                          <strong>{euro(contiComposto.costo)}</strong>
+                          <strong>{contiComposto.senzaCosto === contiComposto.righe.length ? "non lo sappiamo" : euro(contiComposto.costo)}</strong>
                           {!contiComposto.costoCompleto && (
                             <div className="cella-sub" style={{ color: "var(--orange)" }}>
                               parziale
