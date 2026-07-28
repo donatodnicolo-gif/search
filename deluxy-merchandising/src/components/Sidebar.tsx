@@ -21,6 +21,8 @@ export async function Sidebar({
     | "collezioni"
     | "prodotti"
     | "anagrafica"
+    | "fornitori"
+    | "categorie"
     | "classificazione"
     | "sviluppo"
     | "costi"
@@ -37,7 +39,16 @@ export async function Sidebar({
   const brand = await brandCorrente();
   const doveProdotti = filtroProdotti(brand);
 
-  const [nCollezioniMaison, nCollezioniShopify, nProdotti, nInSviluppo, daPubblicare, collezioni] = await Promise.all([
+  const [
+    nCollezioniMaison,
+    nCollezioniShopify,
+    nProdotti,
+    nInSviluppo,
+    daPubblicare,
+    collezioni,
+    fornitori,
+    tipi,
+  ] = await Promise.all([
     prisma.collezione.count(),
     prisma.collezioneShopify.count(),
     prisma.prodotto.count({ where: doveProdotti }),
@@ -50,6 +61,19 @@ export async function Sidebar({
     prisma.collezione.findMany({
       orderBy: [{ anno: "desc" }, { creataIl: "desc" }],
       include: { _count: { select: { prodotti: true } } },
+    }),
+    // Quanti fornitori e quante categorie dal negozio ci sono davvero: il
+    // contatore conta le voci **esistenti**, quindi i prodotti senza fornitore
+    // non diventano un fornitore in più.
+    prisma.prodotto.findMany({
+      where: { ...doveProdotti, vendorShopify: { not: null } },
+      distinct: ["vendorShopify"],
+      select: { vendorShopify: true },
+    }),
+    prisma.prodotto.findMany({
+      where: { ...doveProdotti, tipoShopify: { not: null } },
+      distinct: ["tipoShopify"],
+      select: { tipoShopify: true },
     }),
   ]);
 
@@ -85,6 +109,10 @@ export async function Sidebar({
           {voce("collezioni", "/collezioni", "collezioni", "Collezioni", nCollezioniMaison + nCollezioniShopify)}
           {voce("prodotti", "/prodotti", "prodotti", "Prodotti", nProdotti)}
           {voce("anagrafica", "/anagrafica", "anagrafica", "Anagrafica completa")}
+          {/* Il catalogo visto per insieme, come le collezioni: da chi lo fa
+              (fornitore, letto da Shopify) e da che cosa è (categoria). */}
+          {voce("fornitori", "/fornitori", "prodotti", "Per fornitore", fornitori.length)}
+          {voce("categorie", "/categorie", "collezioni", "Per categoria", tipi.length)}
           {voce("classificazione", "/classificazione", "collezioni", "Categorie, linee, collezioni")}
           {voce("sviluppo", "/sviluppo", "sviluppo", "Sviluppo", nInSviluppo)}
           {voce("costi", "/costi", "costi", "Costi & margini")}

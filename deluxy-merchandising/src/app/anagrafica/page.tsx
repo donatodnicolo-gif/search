@@ -12,36 +12,19 @@ import {
   euro,
   FASI_PLM,
 } from "@/lib/dominio";
+import {
+  calcolaGruppi,
+  nomeRaggruppamento,
+  RAGGRUPPAMENTI,
+  type ChiaveRaggruppamento,
+  type Gruppo,
+} from "@/lib/gruppi";
+import { TabellaGruppi } from "@/components/TabellaGruppi";
 import { FILTRO_BUON_FINE, finestra } from "@/lib/vendite";
 
 export const dynamic = "force-dynamic";
 
 const PER_PAGINA = 100;
-
-// I modi di raggruppare l'anagrafica. Sono quattro campi diversi per natura, e
-// vale la pena tenerli distinti: **fornitore** e **categoria dal negozio** sono
-// letti da Shopify (Venditore e Tipo), **categoria interna** e **linea** le
-// decidiamo noi in /classificazione. L'ultimo incrocia i due che servono
-// insieme: quanto pesa ogni fornitore, e dentro ognuno che cosa ci fa.
-const RAGGRUPPAMENTI = [
-  { chiave: "fornitore", nome: "Fornitore" },
-  { chiave: "tipo", nome: "Categoria dal negozio" },
-  { chiave: "categoria", nome: "Categoria interna" },
-  { chiave: "linea", nome: "Linea" },
-  { chiave: "fornitore-tipo", nome: "Fornitore e categoria" },
-] as const;
-
-type Gruppo = {
-  chiave: string;
-  etichetta: string;
-  sotto: string | null;
-  filtro: Record<string, string>;
-  prodotti: number;
-  esclusi: number;
-  senzaCosto: number;
-  ricavo: number;
-  quantita: number;
-};
 
 // L'anagrafica: la scheda di riga di **ogni** prodotto, con tutto quello che
 // l'app sa — codice, nome, tipo dal negozio, categoria interna, SKU delle
@@ -95,7 +78,7 @@ export default async function AnagraficaPage({
 
   const f = finestra(90);
 
-  const [prodotti, totale, tipi, fornitori, venditePeriodo, categorie, linee, quantiEsclusi, perGruppi] =
+  const [prodotti, totale, tipi, fornitori, venditePeriodo, categorie, linee, quantiEsclusi, gruppi] =
     await Promise.all([
     // Raggruppando non servono le 100 righe di dettaglio: la pagina mostra i
     // gruppi, e il dettaglio si apre entrandoci dentro.
@@ -134,97 +117,14 @@ export default async function AnagraficaPage({
     elencoCategorie(),
     elencoLinee(),
     prisma.prodotto.count({ where: { esclusoDaAnalisi: true } }),
-    // I gruppi si calcolano su **tutti** i prodotti filtrati, non sulla pagina:
-    // un totale di fornitore che cambia sfogliando non sarebbe un totale.
+    // Gli stessi gruppi di /fornitori e /categorie, dalla stessa funzione.
     raggruppa
-      ? prisma.prodotto.findMany({
-          where,
-          select: {
-            id: true,
-            vendorShopify: true,
-            tipoShopify: true,
-            categoria: true,
-            lineaId: true,
-            costoProduzione: true,
-            esclusoDaAnalisi: true,
-          },
-        })
-      : Promise.resolve([]),
+      ? calcolaGruppi({ where, brand, per: raggruppa as ChiaveRaggruppamento, ordina })
+      : Promise.resolve([] as Gruppo[]),
   ]);
 
   const venduto = new Map(venditePeriodo.map((v) => [v.prodottoId as string, v]));
 
-  const nomeCategoria = new Map(categorie.map((c) => [c.chiave, c.nome]));
-  const nomeLinea = new Map(linee.map((l) => [l.id, l.nome]));
-
-  // Costruzione dei gruppi. Il venduto sommato è quello dei prodotti **dentro
-  // le analisi**: i prodotti esclusi restano contati come pezzi d'anagrafica
-  // (colonna «esclusi») ma non gonfiano il fatturato del gruppo, altrimenti qui
-  // si leggerebbero numeri che in classifica non esistono.
-  const gruppi: Gruppo[] = [];
-  if (raggruppa) {
-    const mappa = new Map<string, Gruppo>();
-    for (const p of perGruppi) {
-      let chiave: string;
-      let etichetta: string;
-      let sotto: string | null = null;
-      const filtro: Record<string, string> = {};
-
-      const vendor = p.vendorShopify;
-      const tipo = p.tipoShopify;
-      if (raggruppa === "fornitore" || raggruppa === "fornitore-tipo") {
-        etichetta = vendor ?? "— senza fornitore —";
-        if (vendor) filtro.fornitore = vendor;
-        else filtro.manca = "fornitore";
-      } else if (raggruppa === "tipo") {
-        etichetta = tipo ?? "— senza categoria dal negozio —";
-        if (tipo) filtro.tipo = tipo;
-        else filtro.manca = "tipo";
-      } else if (raggruppa === "categoria") {
-        etichetta = nomeCategoria.get(p.categoria) ?? p.categoria;
-        filtro.categoria = p.categoria;
-      } else {
-        etichetta = p.lineaId ? nomeLinea.get(p.lineaId) ?? "Linea sconosciuta" : "— senza linea —";
-        if (p.lineaId) filtro.linea = p.lineaId;
-        else filtro.manca = "linea";
-      }
-
-      if (raggruppa === "fornitore-tipo") {
-        sotto = tipo ?? "— senza categoria dal negozio —";
-        if (tipo) filtro.tipo = tipo;
-        else if (!filtro.manca) filtro.manca = "tipo";
-        chiave = `${vendor ?? ""}||${tipo ?? ""}`;
-      } else {
-        chiave = etichetta;
-      }
-
-      let g = mappa.get(chiave);
-      if (!g) {
-        g = { chiave, etichetta, sotto, filtro, prodotti: 0, esclusi: 0, senzaCosto: 0, ricavo: 0, quantita: 0 };
-        mappa.set(chiave, g);
-      }
-      g.prodotti += 1;
-      if (p.esclusoDaAnalisi) g.esclusi += 1;
-      else {
-        if (p.costoProduzione <= 0) g.senzaCosto += 1;
-        const v = venduto.get(p.id);
-        if (v) {
-          g.ricavo += v._sum.ricavo ?? 0;
-          g.quantita += v._sum.quantita ?? 0;
-        }
-      }
-    }
-    gruppi.push(...mappa.values());
-    const verso =
-      ordina === "nome"
-        ? (a: Gruppo, b: Gruppo) => `${a.etichetta} ${a.sotto ?? ""}`.localeCompare(`${b.etichetta} ${b.sotto ?? ""}`, "it")
-        : ordina === "prodotti"
-          ? (a: Gruppo, b: Gruppo) => b.prodotti - a.prodotti
-          : ordina === "quantita"
-            ? (a: Gruppo, b: Gruppo) => b.quantita - a.quantita
-            : (a: Gruppo, b: Gruppo) => b.ricavo - a.ricavo;
-    gruppi.sort(verso);
-  }
   const ricavoTotale = gruppi.reduce((s, g) => s + g.ricavo, 0);
   const pagine = Math.max(1, Math.ceil(totale / PER_PAGINA));
   const link = (n: number) => {
@@ -257,7 +157,6 @@ export default async function AnagraficaPage({
     q.set("ordina", chiave);
     return `/anagrafica?${q.toString()}`;
   };
-  const freccia = (chiave: string) => (ordina === chiave ? " ↓" : "");
 
   return (
     <div className="layout">
@@ -359,54 +258,13 @@ export default async function AnagraficaPage({
           gruppi.length === 0 ? (
             <div className="vuoto">Nessun prodotto con questi filtri.</div>
           ) : (
-            <div className="tabella-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>
-                      <a href={linkOrdine("nome")}>
-                        {RAGGRUPPAMENTI.find((r) => r.chiave === raggruppa)?.nome}
-                        {freccia("nome")}
-                      </a>
-                    </th>
-                    <th className="num">
-                      <a href={linkOrdine("prodotti")}>Prodotti{freccia("prodotti")}</a>
-                    </th>
-                    <th className="num">Senza costo</th>
-                    <th className="num">Esclusi</th>
-                    <th className="num">
-                      <a href={linkOrdine("quantita")}>Pezzi 90gg{freccia("quantita")}</a>
-                    </th>
-                    <th className="num">
-                      <a href={linkOrdine("venduto")}>Venduto 90gg{freccia("venduto")}</a>
-                    </th>
-                    <th className="num">Quota</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {gruppi.map((g) => (
-                    <tr key={g.chiave} className="riga-cliccabile">
-                      <td>
-                        <a href={linkGruppo(g)} className="cella-nome link-riga">
-                          {g.etichetta}
-                        </a>
-                        {g.sotto && <div className="cella-sub">{g.sotto}</div>}
-                      </td>
-                      <td className="num">{g.prodotti}</td>
-                      <td className="num" style={{ color: g.senzaCosto > 0 ? "var(--orange)" : undefined }}>
-                        {g.senzaCosto || "—"}
-                      </td>
-                      <td className="num cella-muta">{g.esclusi || "—"}</td>
-                      <td className="num">{g.quantita || "—"}</td>
-                      <td className="num">{g.ricavo > 0 ? euro(g.ricavo) : "—"}</td>
-                      <td className="num cella-muta">
-                        {ricavoTotale > 0 && g.ricavo > 0 ? `${((g.ricavo / ricavoTotale) * 100).toFixed(1)}%` : "—"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <TabellaGruppi
+              gruppi={gruppi}
+              titoloColonna={nomeRaggruppamento(raggruppa) ?? "Gruppo"}
+              ordina={ordina}
+              linkOrdine={linkOrdine}
+              linkGruppo={linkGruppo}
+            />
           )
         ) : prodotti.length === 0 ? (
           <div className="vuoto">Nessun prodotto con questi filtri.</div>
