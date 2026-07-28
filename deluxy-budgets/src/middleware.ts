@@ -27,6 +27,11 @@ export async function middleware(req: NextRequest) {
   // potrebbe entrare da nessuna parte.
   if (pathname === "/login" || pathname === "/api/sso") return NextResponse.next();
 
+  // `/api/health` è il controllo di salute che legge la pagina Stato servizi
+  // del Hub, che qui non ha una sessione. Non dice nulla di riservato: solo se
+  // il server risponde e se il database risponde.
+  if (pathname === "/api/health") return NextResponse.next();
+
   const password = process.env.BUDGETS_APP_PASSWORD;
   const cookie = req.cookies.get(SESSION_COOKIE)?.value;
 
