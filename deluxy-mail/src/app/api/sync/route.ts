@@ -81,20 +81,27 @@ export async function GET(request: Request) {
       messaggio: e instanceof Error ? e.message : 'Errore imprevisto',
     }))
 
-    // ?soloRegistro=1 — solo l'allineamento coi registri, senza leggere la
-    // posta: risponde in pochi secondi e si può lanciare a mano senza rischiare
-    // di finire di nuovo nel muro dei 300 secondi.
-    if (parametri.get('soloRegistro') === '1') {
-      return NextResponse.json({ ok: true, registro, calendario })
-    }
-
-    const esiti = await sincronizzaTutti()
-
     // PULIZIA GRADUALE dell'HTML vecchio: mille mail a giro, così il database
     // resta piccolo per sempre invece di ricrescere fino al prossimo blocco a
     // disco pieno. L'impaginato non si perde: si riprende dal server
-    // all'apertura (lib/htmlServer.ts). Dopo la posta, mai al suo posto.
+    // all'apertura (lib/htmlServer.ts).
+    //
+    // ⚠️ PRIMA della lettura della posta, per la stessa ragione dei registri
+    // qui sopra: la lettura esaurisce da sola i 300 secondi e viene uccisa —
+    // qualunque cosa stia dopo di lei NON GIRA MAI. L'avevo messa dopo
+    // («dopo la posta, mai al suo posto») ed era la terza volta che questa
+    // rotta insegnava la stessa lezione: ciò che deve girare comunque non si
+    // mette dietro ciò che può non finire. Costa pochi secondi.
     const htmlAlleggeriti = await pulisciHtmlVecchio().catch(() => 0)
+    if (htmlAlleggeriti > 0) console.log(`[AI Mail] pulizia HTML: alleggerite ${htmlAlleggeriti} mail vecchie.`)
+
+    // ?soloRegistro=1 — solo registri e pulizia, senza leggere la posta:
+    // risponde in pochi secondi, senza il muro dei 300.
+    if (parametri.get('soloRegistro') === '1') {
+      return NextResponse.json({ ok: true, registro, calendario, htmlAlleggeriti })
+    }
+
+    const esiti = await sincronizzaTutti()
 
     return NextResponse.json({ ok: true, esiti, registro, calendario, htmlAlleggeriti })
   } catch (e) {
