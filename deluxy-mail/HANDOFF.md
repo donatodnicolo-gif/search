@@ -13,7 +13,7 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 
 - **URL produzione:** https://deluxy-mail.vercel.app
 - **Hosting:** Vercel (team `deluxy`, progetto `deluxy-mail`).
-- **DB:** Supabase Postgres (progetto `sxovckndpmdbqfrfkxhl`).
+- **DB:** Supabase Postgres, progetto **`feleldlsreurqpdhstla`** («cs@deluxy.it's», piano Pro, eu-west-1), **schema `mail`** — dal 28/07/2026, migrato con `scripts/sposta-database.mjs` (17.484 messaggi, tutte le 31 tabelle verificate riga per riga). ⚠️ Lo stesso database ospita in `public` la piattaforma consegne: lo schema dedicato è ciò che tiene le due app separate — `?schema=mail` va SEMPRE nelle stringhe di connessione (`DATABASE_URL` col pooler 6543 + `&pgbouncer=true`; `DIRECT_URL` col pooler 5432). Il progetto vecchio `sxovckndpmdbqfrfkxhl` (Free, 500 MB, finito in sola lettura a 1,57 GB) resta intatto come rete di sicurezza: **si spegne solo dopo qualche giorno di esercizio sereno del nuovo**, poi si valuta la disdetta di eventuali abbonamenti doppi.
 - **Porta locale:** 3070.
 
 ### Dove siamo (fine sessione 23 luglio 2026, sera)
