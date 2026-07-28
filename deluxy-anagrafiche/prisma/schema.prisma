@@ -75,6 +75,7 @@ model Partner {
   contatti       Contatto[]
   passaggi       PassaggioStato[]
   riferimenti    RiferimentoEsterno[]
+  riconciliazioni Riconciliazione[]
   // Gruppo aziendale: un'insegna madre (es. BOTTEGA VENETA) con le sue sedi
   // (Milano, Roma). Ogni sede resta un'anagrafica autonoma con i propri
   // referenti, stato e azioni; la madre le raggruppa e basta.
@@ -159,6 +160,48 @@ model Contatto {
 // Riconciliazione con i sistemi esterni: mappa "id di quell'app" -> partner.
 // Generalizza platformId/hubspotId e rende Anagrafiche il risolutore di id
 // per tutto l'ecosistema: GET /api/v1/partners/by-ref/:sistema/:idEsterno.
+// UNA RIGA = UN DISACCORDO su un singolo campo fra il registro e una fonte
+// esterna (oggi il tracker Excel, domani un altro import).
+//
+// Perché esiste. Un import che trova un indirizzo diverso da quello registrato
+// ha tre strade: sovrascrivere, ignorare, o chiedere. Le prime due sono
+// entrambe sbagliate senza sapere quale dato è giusto — e il file non lo sa:
+// «Corso Matteotti 1» e «Via Albricci 9» possono essere un trasloco, un secondo
+// negozio o un errore di battitura, e la differenza la conosce solo chi ci è
+// stato. Finora la scelta veniva fatta in blocco da uno script; qui i
+// disaccordi restano visibili finché una persona non decide, uno per uno.
+//
+// ⚠️ Non registra le differenze di FORMATO. Nel confronto di luglio 2026 su 566
+// anagrafiche, 26 dei 30 «conflitti» erano il registro che scrive la provincia
+// in sigla (MI) contro il file che la scrive per esteso (MILANO), o l'indirizzo
+// con la città in coda. Metterli in coda a una persona avrebbe sepolto i 4 casi
+// veri sotto 26 falsi allarmi, che è il modo migliore per far smettere di
+// guardare la lista.
+model Riconciliazione {
+  id           String   @id @default(cuid())
+  partnerId    String
+  // Quale campo dell'anagrafica: indirizzo | account | provincia | citta | ...
+  campo        String
+  // Cosa dice il registro adesso e cosa dice la fonte esterna.
+  valoreAttuale String?
+  valoreProposto String?
+  // Da dove arriva la proposta: "excel" (il tracker), o l'app che l'ha mandata.
+  fonte        String
+  // aperta = da decidere · accettata = ha vinto la proposta (il campo è stato
+  // scritto) · rifiutata = ha vinto il registro. Le risolte restano, così la
+  // stessa differenza non si ripresenta a ogni import.
+  stato        String   @default("aperta")
+  decisoDa     String?
+  decisoIl     DateTime?
+  creatoIl     DateTime @default(now())
+  partner      Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+
+  // Lo stesso campo dalla stessa fonte non genera due righe: si aggiorna quella
+  // che c'è. Senza, ogni import rilanciato triplicherebbe la coda.
+  @@unique([partnerId, campo, fonte])
+  @@index([stato])
+}
+
 model RiferimentoEsterno {
   id        String   @id @default(cuid())
   partnerId String

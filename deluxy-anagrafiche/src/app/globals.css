@@ -724,3 +724,44 @@ a.dash-riga:hover .dash-etichetta { color: var(--text); }
   color: var(--text-secondary);
   font-size: 14px;
 }
+
+/* ---------- Riconciliazioni dati ----------
+   I disaccordi fra registro e tracker, uno per riga. I due valori stanno
+   affiancati e per esteso: la decisione si prende leggendoli, non ricordandoli.
+   Su schermo stretto vanno uno sotto l'altro invece di stringersi a fisarmonica
+   — un indirizzo tagliato a metà è esattamente ciò che non si può decidere. */
+.tab { display: flex; gap: 4px; margin-bottom: 20px; }
+.tab-voce {
+  padding: 8px 16px; border-radius: var(--radius-pill);
+  font-size: 14px; font-weight: 600; color: var(--text-secondary);
+  text-decoration: none; border: 1px solid var(--hairline); background: var(--surface);
+}
+.tab-voce.attiva { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+.elenco-riconc { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.riconc {
+  background: var(--surface); border: 1px solid var(--hairline);
+  border-radius: var(--radius-l); box-shadow: var(--shadow-card); padding: 16px;
+}
+.riconc-testa { display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+.riconc-nome { font-weight: 700; font-size: 15px; color: var(--text); text-decoration: none; }
+.riconc-nome:hover { text-decoration: underline; }
+.riconc-meta { font-size: 13px; color: var(--text-tertiary); }
+.riconc-campo {
+  margin-left: auto; font-size: 11px; font-weight: 700; letter-spacing: 0.4px;
+  text-transform: uppercase; color: var(--text-secondary);
+  background: var(--fill); padding: 3px 10px; border-radius: var(--radius-pill);
+}
+.riconc-valori { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 720px) { .riconc-valori { grid-template-columns: 1fr; } }
+.riconc-val { background: var(--fill); border-radius: var(--radius-m); padding: 10px 12px; min-width: 0; }
+.riconc-et {
+  display: block; font-size: 11px; font-weight: 700; letter-spacing: 0.3px;
+  text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 4px;
+}
+/* Gli indirizzi del tracker contengono a capo veri: si mostrano come sono. */
+.riconc-testo { display: block; font-size: 14px; color: var(--text); white-space: pre-wrap; word-break: break-word; }
+.riconc-azioni { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+.riconc-esito { font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-right: auto; }
+.riconc-esito.accettata { color: var(--green); }
+.riconc-errore { font-size: 13px; font-weight: 600; color: var(--red, #D70015); }

@@ -30,6 +30,7 @@ export async function Sidebar({
   matchAttivo = false,
   contattiAttiva = false,
   riconciliazioneAttiva = false,
+  riconciliazioniAttive = false,
   identitaAttiva = false,
 }: {
   categoriaAttiva?: string | null;
@@ -43,6 +44,7 @@ export async function Sidebar({
   matchAttivo?: boolean;
   contattiAttiva?: boolean;
   riconciliazioneAttiva?: boolean;
+  riconciliazioniAttive?: boolean;
   identitaAttiva?: boolean;
 }) {
   const [
@@ -75,6 +77,10 @@ export async function Sidebar({
   const daRiconciliare = await prisma.contatto.count({
     where: { archiviato: false, partner: { attivo: true, categoria: "DA CLASSIFICARE" } },
   });
+  // Disaccordi fra registro e tracker Excel ancora da decidere (cosa diversa
+  // dai referenti qui sopra: lì si assegna una persona, qui si sceglie fra due
+  // valori dello stesso campo).
+  const disaccordi = await prisma.riconciliazione.count({ where: { stato: "aperta" } });
   const totale = categorie.reduce((somma, c) => somma + c._count._all, 0);
   const perStato = new Map(statiConteggio.map((s) => [s.stato, s._count._all]));
   const perStatoFinanziario = new Map(statiFinanziariConteggio.map((s) => [s.statoFinanziario, s._count._all]));
@@ -209,8 +215,16 @@ export async function Sidebar({
           </a>
           <a className={`sb-item${riconciliazioneAttiva ? " attiva" : ""}`} href="/riconciliazione">
             <span className="sb-icona"><IconaCategoria categoria="MATCH" /></span>
-            <span className="sb-nome">Riconciliazione</span>
+            <span className="sb-nome">Riconciliazione referenti</span>
             {daRiconciliare > 0 && <span className="sb-count">{daRiconciliare}</span>}
+          </a>
+          {/* Nome esteso in tutte e due le voci: «Riconciliazione» da sola non
+              distingueva l'assegnazione dei referenti dalla scelta fra due
+              valori in disaccordo. */}
+          <a className={`sb-item${riconciliazioniAttive ? " attiva" : ""}`} href="/riconciliazioni">
+            <span className="sb-icona"><IconaCategoria categoria="MATCH" /></span>
+            <span className="sb-nome">Riconciliazioni dati</span>
+            {disaccordi > 0 && <span className="sb-count">{disaccordi}</span>}
           </a>
         </SbSezione>
       </nav>

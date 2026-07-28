@@ -294,14 +294,64 @@ const chiaveDi = (nome, citta) =>
     .map((v) => (v ?? "").toString().toUpperCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^A-Z0-9]/g, ""))
     .join("|");
 
+// Differenza di solo FORMATO, non di sostanza: il registro scrive la provincia
+// in sigla (MI) dove il file la scrive per esteso (MILANO), o tiene l'indirizzo
+// con la città in coda. Mettere queste in coda a una persona seppellirebbe i
+// pochi disaccordi veri sotto decine di falsi allarmi — e una lista di falsi
+// allarmi smette di essere guardata.
+function soloFormato(campo, attuale, proposto) {
+  const a = (attuale ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const p = (proposto ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  if (!a || !p) return true; // manca un lato: non è un disaccordo
+  if (a === p) return true;
+  if (campo === "provincia") return a.length <= 2 && p.startsWith(a); // MI ⊂ MILANO
+  if (campo === "indirizzo") return a.startsWith(p) || p.startsWith(a); // via + città in coda
+  if (campo === "account") return p.includes(a) || a.includes(p); // "GAIA" ⊂ "GAIA, MARTINA"
+  return false;
+}
+
 let daCreare = uniche;
 if (soloNuovi) {
-  const esistenti = await prisma.partner.findMany({ select: { nome: true, citta: true } });
-  const gia = new Set(esistenti.map((p) => chiaveDi(p.nome, p.citta)));
-  daCreare = uniche.filter((a) => !gia.has(chiaveDi(a.nome, a.citta)));
+  const esistenti = await prisma.partner.findMany({
+    select: { id: true, nome: true, citta: true, indirizzo: true, provincia: true, account: true },
+  });
+  const perChiave = new Map(esistenti.map((p) => [chiaveDi(p.nome, p.citta), p]));
+  daCreare = uniche.filter((a) => !perChiave.has(chiaveDi(a.nome, a.citta)));
   console.log(`Registro: ${esistenti.length} anagrafiche già presenti.`);
   console.log(`Da creare: ${daCreare.length} — nessuna cancellazione, nessun record esistente toccato.`);
   for (const a of daCreare) console.log(`  + ${a.nome} — ${a.citta ?? "senza città"} (${a.categoria})`);
+
+  // I DISACCORDI sulle anagrafiche che ci sono già non si risolvono qui: si
+  // registrano e li decide una persona in /riconciliazioni. Uno script non può
+  // sapere se «Corso Matteotti 1» contro «Via Albricci 9» sia un trasloco, un
+  // secondo negozio o un errore di battitura.
+  const CAMPI = ["indirizzo", "provincia", "account"];
+  let conflitti = 0;
+  let ignorati = 0;
+  for (const a of uniche) {
+    const p = perChiave.get(chiaveDi(a.nome, a.citta));
+    if (!p) continue;
+    for (const campo of CAMPI) {
+      const attuale = (p[campo] ?? "").toString().trim() || null;
+      const proposto = (a[campo] ?? "").toString().trim() || null;
+      if (!attuale || !proposto) continue;
+      if (soloFormato(campo, attuale, proposto)) {
+        if (attuale.toUpperCase() !== proposto.toUpperCase()) ignorati++;
+        continue;
+      }
+      conflitti++;
+      if (!provaSola) {
+        // upsert e non create: rilanciare l'import non deve moltiplicare la
+        // coda. Una riga già decisa NON torna aperta — la decisione resta.
+        await prisma.riconciliazione.upsert({
+          where: { partnerId_campo_fonte: { partnerId: p.id, campo, fonte: "excel" } },
+          create: { partnerId: p.id, campo, valoreAttuale: attuale, valoreProposto: proposto, fonte: "excel" },
+          update: { valoreAttuale: attuale, valoreProposto: proposto },
+        });
+      }
+    }
+  }
+  console.log(`Disaccordi da decidere: ${conflitti} (in /riconciliazioni) · differenze di solo formato ignorate: ${ignorati}`);
 } else {
   const esistentiExcel = await prisma.partner.count({ where: { fonte: "excel" } });
   console.log(`⚠️  Sostituisco le ${esistentiExcel} anagrafiche esistenti con fonte "excel"…`);

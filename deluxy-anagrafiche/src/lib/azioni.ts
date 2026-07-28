@@ -524,3 +524,56 @@ export async function impostaArchiviato(partnerId: string, archiviato: boolean) 
   revalidatePath(`/partner/${partnerId}`);
   revalidatePath("/");
 }
+
+// ─── RICONCILIAZIONI ────────────────────────────────────────────────────────
+// Un disaccordo fra il registro e una fonte esterna (il tracker Excel) su un
+// singolo campo. Lo script di import li registra invece di risolverli da sé:
+// «Corso Matteotti 1» contro «Via Albricci 9» può essere un trasloco, un
+// secondo negozio o un errore di battitura, e la differenza la conosce solo
+// chi ci è stato.
+
+const CAMPI_RICONCILIABILI = new Set(["indirizzo", "provincia", "account", "citta", "regione"]);
+
+/**
+ * Accetta la proposta: il valore della fonte esterna **viene scritto**
+ * sull'anagrafica e la riga si chiude.
+ *
+ * La whitelist dei campi non è un vezzo: il nome del campo arriva da una riga
+ * di database, e passarlo a Prisma senza controllarlo vorrebbe dire lasciare
+ * scrivere qualunque colonna a chi riesce a inserire una riconciliazione.
+ */
+export async function accettaRiconciliazione(id: string) {
+  const r = await prisma.riconciliazione.findUniqueOrThrow({ where: { id } });
+  if (!CAMPI_RICONCILIABILI.has(r.campo)) throw new Error(`Campo non riconciliabile: ${r.campo}`);
+  await prisma.partner.update({
+    where: { id: r.partnerId },
+    data: { [r.campo]: r.valoreProposto },
+  });
+  await prisma.riconciliazione.update({
+    where: { id },
+    data: { stato: "accettata", decisoDa: "ui", decisoIl: new Date() },
+  });
+  revalidatePath("/riconciliazioni");
+  revalidatePath(`/partner/${r.partnerId}`);
+}
+
+/** Tiene il valore del registro: non si scrive niente sull'anagrafica, la riga
+ *  si chiude. Resta a storico, così lo stesso disaccordo non si ripresenta a
+ *  ogni import. */
+export async function rifiutaRiconciliazione(id: string) {
+  const r = await prisma.riconciliazione.update({
+    where: { id },
+    data: { stato: "rifiutata", decisoDa: "ui", decisoIl: new Date() },
+  });
+  revalidatePath("/riconciliazioni");
+  revalidatePath(`/partner/${r.partnerId}`);
+}
+
+/** Rimette in discussione una riga già decisa (ci si ripensa). */
+export async function riapriRiconciliazione(id: string) {
+  await prisma.riconciliazione.update({
+    where: { id },
+    data: { stato: "aperta", decisoDa: null, decisoIl: null },
+  });
+  revalidatePath("/riconciliazioni");
+}
