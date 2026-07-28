@@ -98,10 +98,12 @@ Come recuperare spazio: cestino, corpi HTML delle mail vecchie, traduzioni vecch
 ### sposta-database.mjs — deluxy-mail
 Copia l'intero database di AI Mail su un altro Postgres (es. da un progetto Supabase pieno a uno nuovo). Solo copia: **dalla sorgente non cancella niente**.
 
+⚠️ **Se la destinazione ospita già un'altra app, AI Mail va in uno schema SUO** (`?schema=mail` in fondo alla stringa). Non è pignoleria: `prisma db push` fa combaciare il database con lo schema, quindi in un `public` condiviso vedrebbe le tabelle dell'altra applicazione come **da cancellare**. Si ferma da solo, ma basta che qualcuno aggiunga `--accept-data-loss` per cancellare l'app accanto. Con uno schema dedicato, `public` gli è proprio invisibile. Lo script si **rifiuta di partire** se trova tabelle altrui in `public` e nessuno schema dichiarato.
+
 ```bash
 # 1. sulla DESTINAZIONE si creano prima le tabelle
 cd deluxy-mail
-DATABASE_URL="…nuovo…" DIRECT_URL="…nuovo…" npx prisma db push
+DATABASE_URL="…nuovo…?schema=mail" DIRECT_URL="…nuovo…?schema=mail" npx prisma db push
 
 # 2. prova a vuoto (legge e conta, non scrive)
 node --env-file=.env.sposta scripts/sposta-database.mjs

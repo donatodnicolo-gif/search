@@ -133,11 +133,69 @@ async function copiaSezioni(da, a) {
   return { modello: 'sezione', letti: righe.length, scritti: r.count }
 }
 
+/**
+ * Controlli PRIMA di toccare qualsiasi cosa.
+ *
+ * ⚠️ IL PERICOLO VERO NON È LA COPIA, È IL `prisma db push` CHE LA PRECEDE.
+ * `db push` fa combaciare il database con lo schema: se la destinazione ospita
+ * già un'ALTRA applicazione nello stesso schema `public`, Prisma vede 41
+ * tabelle che nel nostro schema non esistono e propone di **cancellarle**. Si
+ * ferma da solo — a meno che qualcuno, stufo dell'errore, non aggiunga
+ * `--accept-data-loss`. A quel punto l'altra applicazione non c'è più.
+ *
+ * La difesa è semplice e definitiva: AI Mail va in uno **schema suo**
+ * (`?schema=mail` nella stringa di connessione). Prisma vede solo quello, e
+ * `public` con l'altra app gli resta invisibile — non può toccarla nemmeno
+ * volendo. È anche come stanno già le otto app sul cluster condiviso Deluxy.
+ */
+async function controlliPreliminari(da, a, urlDestinazione) {
+  const schemaDichiarato = /[?&]schema=([^&]+)/.exec(urlDestinazione)?.[1] ?? null
+
+  const [pesoDa] = await da.$queryRawUnsafe(
+    `SELECT pg_size_pretty(pg_database_size(current_database())) AS d`
+  )
+  const [pesoA] = await a.$queryRawUnsafe(
+    `SELECT pg_size_pretty(pg_database_size(current_database())) AS d`
+  )
+  const [roA] = await a.$queryRawUnsafe(`SELECT current_setting('transaction_read_only') AS ro`)
+  const estranee = await a.$queryRawUnsafe(
+    `SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename`
+  )
+
+  console.log(`\nSorgente:      occupa ${pesoDa.d}`)
+  console.log(`Destinazione:  occupa ${pesoA.d}${roA.ro === 'on' ? '  ⚠️ È IN SOLA LETTURA' : ''}`)
+  console.log(`Schema di destinazione: ${schemaDichiarato ?? 'public (nessuno dichiarato)'}`)
+
+  if (roA.ro === 'on') {
+    throw new Error('La destinazione è in sola lettura: non ci si può copiare niente. Liberare spazio o alzare il piano.')
+  }
+
+  const nostre = new Set(modelliDelloSchema().map((m) => m.charAt(0).toUpperCase() + m.slice(1)))
+  const altrui = estranee.map((t) => t.tablename).filter((t) => !nostre.has(t))
+
+  if (altrui.length > 0 && !schemaDichiarato) {
+    throw new Error(
+      `Nello schema "public" della destinazione ci sono già ${altrui.length} tabelle di un'ALTRA applicazione ` +
+        `(${altrui.slice(0, 6).join(', ')}${altrui.length > 6 ? ', …' : ''}).\n\n` +
+        'Copiarci sopra AI Mail senza separare gli schemi è pericoloso: il `prisma db push` che crea le\n' +
+        "tabelle vedrebbe quelle dell'altra app come «da cancellare».\n\n" +
+        'Rimedio: aggiungi ?schema=mail in fondo a A_DATABASE_URL (e usa lo stesso schema in DIRECT_URL\n' +
+        'e poi su Vercel). Così AI Mail vive in una stanza sua e non può toccare quella accanto.'
+    )
+  }
+  if (altrui.length > 0) {
+    console.log(`Nota: in "public" c'è un'altra applicazione (${altrui.length} tabelle) — resta intoccata, noi stiamo in "${schemaDichiarato}".`)
+  }
+}
+
 async function main() {
   verificaElenco()
 
+  const urlA = url('A_DATABASE_URL')
   const da = new PrismaClient({ datasources: { db: { url: url('DA_DATABASE_URL') } } })
-  const a = new PrismaClient({ datasources: { db: { url: url('A_DATABASE_URL') } } })
+  const a = new PrismaClient({ datasources: { db: { url: urlA } } })
+
+  await controlliPreliminari(da, a, urlA)
 
   if (!SCRIVI) {
     console.log('\n⚠️  PROVA A VUOTO: leggo e conto, non scrivo niente. Aggiungi --scrivi per copiare davvero.\n')
