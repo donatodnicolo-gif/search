@@ -97,6 +97,20 @@ export default function InvioScript() {
     return [...base].sort((a, b) => Number(placeIds.has(b.place_id)) - Number(placeIds.has(a.place_id)));
   }, [contatti, query, placeIds]);
 
+  // Il nome del negozio da cui si è arrivati. Serve a dire in testa alla
+  // schermata a CHI si sta scrivendo: senza, ci si trova davanti l'intera
+  // rubrica con qualche riga spuntata e nessuna spiegazione del perché.
+  const negozio = useMemo(() => {
+    if (!placeIds.size) return null;
+    const nomi = [...new Set(contatti.filter((c) => placeIds.has(c.place_id)).map((c) => c.place_nome).filter(Boolean))];
+    if (!nomi.length) return null;
+    return nomi.length === 1 ? (nomi[0] as string) : `${nomi.length} negozi`;
+  }, [contatti, placeIds]);
+
+  // Quante righe dell'elenco appartengono al negozio di partenza: sopra questa
+  // soglia comincia «il resto della rubrica», e la separazione va mostrata.
+  const suoi = useMemo(() => dati.filter((c) => placeIds.has(c.place_id)).length, [dati, placeIds]);
+
   const selezionati = useMemo(() => contatti.filter((c) => sel.has(c.id)), [contatti, sel]);
 
   function toggle(id: string) {
@@ -193,6 +207,13 @@ export default function InvioScript() {
           keyExtractor={() => 'x'}
           ListHeaderComponent={
             <View style={styles.revisione}>
+              <View style={styles.intro}>
+                <Text style={styles.introPasso}>Passo 2 di 2 · Rivedi e conferma</Text>
+                <Text style={styles.introTesto}>
+                  Controlla oggetto e testo, poi premi «Invia». Da qui parte davvero: dopo non si richiama
+                  indietro.
+                </Text>
+              </View>
               <Text style={styles.sezione}>Destinatari ({selezionati.length})</Text>
               <View style={styles.destChips}>
                 {selezionati.slice(0, 12).map((c) => (
@@ -264,7 +285,19 @@ export default function InvioScript() {
   // ─── Fase 1: scelta destinatari ─────────────────────────────────────────────
   return (
     <View style={styles.container}>
-      <Stack.Screen options={{ title: script.titolo }} />
+      {/* Il titolo diceva solo il nome dello script: chi arrivava qui dopo aver
+          scelto «scrivi a questo cliente» non trovava più traccia del cliente. */}
+      <Stack.Screen options={{ title: negozio ? `Mail a ${negozio}` : script.titolo }} />
+
+      <View style={styles.intro}>
+        <Text style={styles.introPasso}>Passo 1 di 2 · A chi la mandi</Text>
+        <Text style={styles.introTesto}>
+          {negozio
+            ? `Testo scelto: «${script.titolo}». Qui sotto ci sono i contatti di ${negozio}, già spuntati. Puoi toglierne o aggiungerne altri dalla rubrica. Al passo 2 rivedi il testo e confermi — niente parte prima.`
+            : `Testo scelto: «${script.titolo}». Spunta i contatti a cui mandarlo: al passo 2 rivedi il testo e confermi. Niente parte prima.`}
+        </Text>
+      </View>
+
       <View style={styles.head}>
         <TextInput
           style={styles.search}
@@ -285,26 +318,42 @@ export default function InvioScript() {
         keyExtractor={(c) => c.id}
         contentContainerStyle={styles.list}
         ListEmptyComponent={<Text style={styles.vuoto}>Nessun contatto con email. Aggiungi le email in Rubrica.</Text>}
-        renderItem={({ item }) => {
+        renderItem={({ item, index }) => {
           const on = sel.has(item.id);
+          const suo = placeIds.has(item.place_id);
           return (
-            <Pressable style={styles.riga} onPress={() => toggle(item.id)}>
-              <Ionicons name={on ? 'checkbox' : 'square-outline'} size={22} color={on ? colors.ink : colors.grigio} />
-              <View style={{ flex: 1 }}>
-                <Text numberOfLines={3} style={styles.rigaNome}>{item.nome || '(senza nome)'}</Text>
-                <Text style={styles.rigaMeta} numberOfLines={1}>
-                  {[item.place_nome, item.email].filter(Boolean).join(' · ')}
-                </Text>
-              </View>
-            </Pressable>
+            <>
+              {/* Le due intestazioni dicono dove finisce «il cliente da cui sei
+                  partito» e dove comincia il resto della rubrica: senza, la
+                  lista sembrava un unico elenco con delle spunte a caso. */}
+              {negozio && index === 0 && suo ? (
+                <Text style={styles.gruppoLista}>I contatti di {negozio}</Text>
+              ) : null}
+              {negozio && index === suoi && !suo ? (
+                <Text style={styles.gruppoLista}>Altri contatti in rubrica — aggiungili solo se servono</Text>
+              ) : null}
+              <Pressable style={[styles.riga, suo && styles.rigaSua]} onPress={() => toggle(item.id)}>
+                <Ionicons name={on ? 'checkbox' : 'square-outline'} size={22} color={on ? colors.ink : colors.grigio} />
+                <View style={{ flex: 1 }}>
+                  <Text numberOfLines={3} style={styles.rigaNome}>{item.nome || '(senza nome)'}</Text>
+                  <Text style={styles.rigaMeta} numberOfLines={1}>
+                    {[item.place_nome, item.email].filter(Boolean).join(' · ')}
+                  </Text>
+                </View>
+              </Pressable>
+            </>
           );
         }}
       />
 
       <View style={styles.barra}>
-        <Text style={styles.conteggio}>{sel.size} selezionati</Text>
+        <Text style={styles.conteggio}>
+          {sel.size === 0 ? 'Nessun destinatario' : `${sel.size} destinatar${sel.size === 1 ? 'io' : 'i'}`}
+        </Text>
+        {/* «Continua» non diceva verso cosa, e su una schermata che manda email
+            è la differenza fra proseguire e spedire. */}
         <Pressable style={[styles.btnInvia, !sel.size && styles.off]} onPress={() => setFase('revisione')} disabled={!sel.size}>
-          <Text style={styles.btnInviaTxt}>Continua</Text>
+          <Text style={styles.btnInviaTxt}>Rivedi il testo →</Text>
         </Pressable>
       </View>
     </View>
@@ -320,7 +369,16 @@ const styles = StyleSheet.create({
   selTutti: { paddingHorizontal: 6 },
   selTuttiTxt: { color: colors.goldStrong, fontWeight: '700', fontSize: 12.5 },
   list: { padding: spacing.md, paddingBottom: 96, gap: 6 },
+  // Intestazione della schermata: dice a che punto sei e cosa succede dopo.
+  intro: { paddingHorizontal: spacing.md, paddingTop: spacing.md, paddingBottom: spacing.sm, gap: 4 },
+  introPasso: { color: colors.goldStrong, fontSize: 11, fontWeight: '800', letterSpacing: 0.5, textTransform: 'uppercase' },
+  introTesto: { color: colors.testoSoft, fontSize: 13, lineHeight: 18 },
+  // Separatore fra «i contatti del negozio» e il resto della rubrica.
+  gruppoLista: { color: colors.testoSoft, fontSize: 11, fontWeight: '800', letterSpacing: 0.4, textTransform: 'uppercase', marginTop: spacing.sm, marginBottom: 2 },
   riga: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.bianco, borderRadius: radius.md, borderWidth: 1, borderColor: colors.grigioChiaro, paddingVertical: 10, paddingHorizontal: 12 },
+  // I contatti del negozio di partenza hanno il bordo marcato: si distinguono
+  // dal resto della rubrica anche scorrendo in fretta.
+  rigaSua: { borderColor: colors.ink },
   rigaNome: { color: colors.testo, fontWeight: '700', fontSize: 14 },
   rigaMeta: { color: colors.testoSoft, fontSize: 12 },
   barra: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm, padding: spacing.md, borderTopWidth: 1, borderTopColor: colors.grigioChiaro, backgroundColor: colors.bianco },
