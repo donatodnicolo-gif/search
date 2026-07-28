@@ -236,6 +236,22 @@ nessuna delle tre pagine che creano fatture puo dimenticarselo. In `/registrazio
 anche la tendina per sceglierlo. Se su FIC non ci fosse nessun metodo, l errore lo dice e spiega dove
 crearlo. Oggi su FIC ce n e uno solo: BONIFICO.
 
+**Trappola: i campi ricopiati a mano (28/07/2026).** `ficEntityUltimaFattura` ricostruisce il cliente
+dalla sua ultima fattura ricopiando i campi UNO A UNO — e `ei_code` (codice destinatario SDI) e la
+PEC erano stati dimenticati. Risultato: il dato c era in Fatture in Cloud, veniva buttato via qui, e
+l app diceva «manca codice destinatario» su un cliente che ce l aveva. Se si aggiunge un campo a
+`FicEntity`, va aggiunto anche in quella copia: il tipo ha tutti i campi opzionali, quindi il
+compilatore non se ne accorge.
+
+**Scelta del cliente con RICERCA (28/07/2026).** In `/registrazioni/fatture/nuova` la tendina e stata
+sostituita da `SceltaCliente.tsx`: campo di testo + suggerimenti. Le voci sono oltre 140 (partner
+Deluxy + rubrica FIC + intestatari delle fatture passate) e lo stesso soggetto compare due volte con
+nomi diversi — in una tendina si sceglie la voce sbagliata, ed e cosi che e nata la fattura bloccata
+di GRUÈ. La ricerca ignora accenti e punteggiatura («grue» trova «GRUE' S.R.L.») e ogni risultato
+porta scritto **da dove viene** e la P.IVA. Il valore viaggia in un campo nascosto col formato di
+sempre (`partner:` / `id:` / `nome:`): le azioni lato server non cambiano. Campo vuoto = «cliente
+nuovo», come prima.
+
 **Dati fiscali modificabili da Finance (28/07/2026).** Nella scheda partner si modificano **P.IVA,
 codice fiscale, codice SDI, PEC, indirizzo di fatturazione, citta e provincia**: prima erano in sola
 lettura e per correggere un codice SDI bisognava cambiare app. **Non si salvano in locale**: al

@@ -7,6 +7,7 @@ import { datiFiscaliDaFic } from "@/lib/riconciliazione-fic";
 import { ficStato, ficClientiFatturabiliCached, ficEntityUltimaFattura, ficCreaFattura, ficMetodiPagamento, type RigaFattura, type FicEntity } from "@/lib/fic";
 import { RigheProForma } from "@/components/RigheProForma";
 import { TerminiPagamento } from "@/components/TerminiPagamento";
+import { SceltaCliente, type OpzioneCliente } from "@/components/SceltaCliente";
 
 export const dynamic = "force-dynamic";
 
@@ -186,6 +187,18 @@ export default async function NuovaFatturaCloud({
   // elettronica, ed è quello che mancava quando la creazione si fermava con
   // «metodo di pagamento obbligatorio».
   const metodi = stato.collegato ? await ficMetodiPagamento().catch(() => []) : [];
+  // Una lista sola, cercabile. Il gruppo resta scritto su ogni voce: e' quello
+  // che distingue il partner Deluxy dall'intestatario di Fatture in Cloud
+  // quando lo stesso soggetto compare due volte con nomi diversi.
+  const opzioniCliente: OpzioneCliente[] = [
+    ...partners.map((p) => ({ valore: `partner:${p.id}`, etichetta: p.nome, gruppo: "Cliente Deluxy (Finance)" })),
+    ...clienti.map((c) => ({
+      valore: c.valore,
+      etichetta: c.nome,
+      dettaglio: [c.piva ?? undefined, c.inRubrica ? undefined : "da fatture passate"].filter(Boolean).join(" · ") || undefined,
+      gruppo: "Fatture in Cloud",
+    })),
+  ];
   const oggi = new Date().toISOString().slice(0, 10);
 
   return (
@@ -223,27 +236,11 @@ export default async function NuovaFatturaCloud({
           <div className="form-grid">
             <div>
               <label className="field-label">Cliente su Fatture in Cloud</label>
-              <select name="clienteId" defaultValue="">
-                <option value="">Seleziona cliente…</option>
-                {partners.length > 0 && (
-                  <optgroup label="Clienti Deluxy (Finance)">
-                    {partners.map((p) => (
-                      <option key={p.id} value={`partner:${p.id}`}>{p.nome}</option>
-                    ))}
-                  </optgroup>
-                )}
-                <optgroup label="Fatture in Cloud (rubrica + già fatturati)">
-                  {clienti.map((c) => (
-                    <option key={c.valore} value={c.valore}>
-                      {c.nome}{c.piva ? ` — ${c.piva}` : ""}{c.inRubrica ? "" : " (da fatture passate)"}
-                    </option>
-                  ))}
-                </optgroup>
-              </select>
+              <SceltaCliente name="clienteId" opzioni={opzioniCliente} />
               <p className="muted" style={{ fontSize: 12.5, marginTop: 6 }}>
-                Puoi scegliere un <strong>partner Deluxy</strong> (i suoi dati fiscali arrivano dal registro
-                Anagrafiche), un cliente già in <strong>Fatture in Cloud</strong>, oppure — se non è in elenco —
-                compilare «Cliente nuovo» qui sotto.
+                Scrivi le prime lettere: cerca fra i <strong>partner Deluxy</strong> (dati fiscali dal registro
+                Anagrafiche) e i clienti di <strong>Fatture in Cloud</strong>. Sotto ogni risultato c'è scritto da
+                dove viene. Se non lo trovi, lascia vuoto e compila «Cliente nuovo» qui sotto.
               </p>
             </div>
             <div>

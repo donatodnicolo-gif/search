@@ -451,6 +451,11 @@ export async function ficEntityUltimaFattura(nome: string): Promise<FicEntity | 
     for (const d of r.data) {
       const e = d.entity;
       if (e?.name && e.name.trim().toLowerCase().replace(/\s+/g, " ") === cerca) {
+        // I campi si ricopiano UNO A UNO, e per due volte `ei_code` e la PEC
+        // sono stati dimenticati: sono esattamente quelli che la fattura
+        // ELETTRONICA pretende (il codice destinatario è la via allo SDI). Il
+        // dato c'era in Fatture in Cloud e veniva buttato via qui, con l'errore
+        // «manca codice destinatario» su un cliente che ce l'aveva.
         return {
           name: e.name,
           vat_number: e.vat_number ?? null,
@@ -460,6 +465,9 @@ export async function ficEntityUltimaFattura(nome: string): Promise<FicEntity | 
           address_city: e.address_city ?? null,
           address_province: e.address_province ?? null,
           country: e.country ?? null,
+          ei_code: e.ei_code ?? null,
+          certified_email: e.certified_email ?? null,
+          email: e.email ?? null,
         };
       }
     }
