@@ -15,6 +15,11 @@ export async function middleware(req: NextRequest) {
   // dal cookie come il resto della UI.
   if (pathname.startsWith("/api/v1/")) return NextResponse.next();
 
+  // /api/health è il controllo di salute che legge la pagina Stato servizi del
+  // Hub, che non ha una sessione di questa app. Non espone dati: risponde solo
+  // se il server e il database rispondono (due booleani).
+  if (pathname === "/api/health") return NextResponse.next();
+
   const password = process.env.MERCHANDISING_APP_PASSWORD;
   if (!password || pathname === "/login") return NextResponse.next();
 
@@ -25,6 +30,10 @@ export async function middleware(req: NextRequest) {
   return NextResponse.redirect(new URL("/login", req.url));
 }
 
+// I percorsi pubblici sono esclusi **anche dal matcher**, non solo con un
+// return dentro la funzione: così il middleware non gira nemmeno, e non c'è
+// modo che una modifica futura al codice qui sopra rimetta la password davanti
+// al controllo di stato che legge il Hub.
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|login|api/health|api/v1).*)"],
 };
