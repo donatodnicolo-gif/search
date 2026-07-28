@@ -15,7 +15,22 @@ async function conversazioneDaToken(token: string | null) {
 
 // Il widget fa polling qui: torna i messaggi e la configurazione (titolo, benvenuto).
 export async function GET(req: NextRequest) {
-  const conversazione = await conversazioneDaToken(req.nextUrl.searchParams.get('token'))
+  const token = req.nextUrl.searchParams.get('token')
+
+  // Senza token la chat non è ancora cominciata: si risponde con titolo e
+  // saluto, e nient'altro. Serve a mostrare il benvenuto SENZA aprire una
+  // conversazione — prima bastava che il widget si caricasse per far comparire
+  // in Inbox un cliente che non aveva scritto niente.
+  if (!token) {
+    const config = await leggiImpostazioni(['widgetTitolo', 'widgetMessaggio'])
+    return NextResponse.json({
+      titolo: config.widgetTitolo || 'Deluxy',
+      benvenuto: config.widgetMessaggio || 'Ciao! Come possiamo aiutarti?',
+      messaggi: [],
+    })
+  }
+
+  const conversazione = await conversazioneDaToken(token)
   if (!conversazione) return NextResponse.json({ errore: 'Sessione non valida' }, { status: 404 })
 
   const [messaggi, config] = await Promise.all([

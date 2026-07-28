@@ -55,6 +55,36 @@ locale, altrimenti nulla si decifra.
 
 ## FATTO
 
+- **IL WIDGET SI ADATTA AL SITO CHE LO OSPITA** (28/07/2026). Pagina
+  **`/aspetto-widget`** («Widget dei siti»): sei temi, colore del sito,
+  posizione, scritta accanto al bottone, anteprima e codice pronto da copiare.
+  - I temi sono blocchi di variabili `--w-…` su `.widget-app[data-tema=…]` in
+    `globals.css`: chiaro, scuro, deluxy, caldo, minimale, automatico. Il widget
+    **non usa i token dell'app**, altrimenti cambiare tema non cambierebbe
+    niente. Il colore del sito arriva da `data-accento` → `?accento=` e vince
+    sul tema (una variabile sola, `--w-accento`).
+  - ⚠️ **`public/widget.js` ora vive in uno SHADOW DOM.** Gira su siti che non
+    controlliamo: un `button { … !important }` del tema ospite ci riscriveva il
+    bottone. Verificato su una pagina di prova con CSS ostile: il bottone del
+    sito diventa rosso, quadrato e maiuscolo, il nostro resta pillola, accento
+    corretto, font di sistema; l'iframe ignora `border: 8px solid green` e
+    `filter: invert(1)`.
+  - Sul telefono (≤480px) la chat va a schermo intero e la × è **dentro** la
+    chat: il bottone che l'ha aperta ci finisce sotto. `100dvh`, `16px` esatti
+    sul campo (sotto, Safari zooma) e `env(safe-area-inset-bottom)`.
+  - ⚠️ **La conversazione nasce al PRIMO MESSAGGIO, non al caricamento.** Prima
+    bastava che il widget si caricasse: ogni visitatore di passaggio (e ogni
+    anteprima, e ogni prova) lasciava in Inbox una conversazione vuota
+    indistinguibile da un cliente in attesa. `GET /api/widget/messaggi` senza
+    token risponde con titolo e saluto e basta; `POST /api/widget/sessione` lo
+    chiama l'invio. Misurato: aprire la chat → 0 conversazioni, scrivere → 1.
+  - L'anteprima (`/widget?anteprima=1`) è il widget vero con messaggi finti e
+    **non parla col server**: le sei miniature dei temi avrebbero creato sei
+    conversazioni ogni volta che si guarda la pagina.
+  - Corretto un errore vecchio: il messaggio di benvenuto era marcato come
+    scritto dal visitatore (`bolla out`); coi temi, che colorano la sua bolla,
+    il nostro saluto sembrava suo.
+
 - **CHI HA FATTO COSA: l'operatore resta scritto su ordini e messaggi**
   (28/07/2026). Con più persone sugli stessi ordini, «chi l'ha preso in mano» e
   «chi ha risposto al cliente» erano domande senza risposta.

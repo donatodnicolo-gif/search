@@ -57,6 +57,7 @@ export function Sidebar() {
         { href: '/negozi', nome: 'Negozi', icona: iconaNegozi },
         { href: '/numeri-whatsapp', nome: 'Numeri WhatsApp', icona: iconaChat },
         { href: '/account-meta', nome: 'Facebook e Instagram', icona: iconaChat },
+        { href: '/aspetto-widget', nome: 'Widget dei siti', icona: iconaChat },
         { href: '/caselle', nome: 'Caselle', icona: iconaBusta },
         { href: '/impostazioni', nome: 'Impostazioni', icona: iconaImpostazioni },
       ],

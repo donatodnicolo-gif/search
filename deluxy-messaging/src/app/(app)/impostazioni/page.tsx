@@ -438,7 +438,9 @@ export default async function PaginaImpostazioni({
             <h2>Widget del sito</h2>
             <p className="descrizione">
               Incolla questo snippet prima di <code>&lt;/body&gt;</code> nel sito: appare il
-              bottone di chat, e le conversazioni arrivano qui in inbox.
+              bottone di chat, e le conversazioni arrivano qui in inbox. Per scegliere tema,
+              colore e posizione — e vedere come viene prima di pubblicare — c&apos;è{' '}
+              <Link href="/aspetto-widget">Widget dei siti</Link>.
             </p>
             <code className="codice">{snippetWidget}</code>
             <label className="campo">

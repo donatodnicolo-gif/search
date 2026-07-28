@@ -10,40 +10,90 @@ type MessaggioWidget = { id: string; direzione: string; testo: string; creatoIl:
 
 const CHIAVE_TOKEN = 'deluxy_widget_token'
 
+// I temi validi. Uno sconosciuto ricade su «chiaro» invece di lasciare la chat
+// senza colori: il sito ospite scrive quel parametro a mano e un refuso non
+// deve produrre una chat rotta.
+const TEMI = ['chiaro', 'scuro', 'deluxy', 'caldo', 'minimale', 'automatico']
+
+/** Il colore d'accento arriva dal sito ospite: si accetta solo #rrggbb. */
+function accentoValido(v: string): string {
+  return /^#[0-9a-f]{6}$/i.test(v) ? v : ''
+}
+
 export default function PaginaWidget() {
   const [token, setToken] = useState<string | null>(null)
+  const [tema, setTema] = useState('chiaro')
+  const [accento, setAccento] = useState('')
   const [titolo, setTitolo] = useState('Deluxy')
   const [benvenuto, setBenvenuto] = useState('')
   const [messaggi, setMessaggi] = useState<MessaggioWidget[]>([])
   const [bozza, setBozza] = useState('')
   const [pronto, setPronto] = useState(false)
+  const [anteprima, setAnteprima] = useState(false)
   const fondoRef = useRef<HTMLDivElement>(null)
 
-  // Apre (o riapre) la sessione del visitatore.
+  // L'aspetto arriva nell'URL dell'iframe, scritto dallo script sul sito
+  // ospite. Si legge da `window.location` e non con useSearchParams per non
+  // dover avvolgere tutto in un <Suspense>: questa pagina resta statica, e su
+  // un widget che si carica su siti altrui il primo disegno conta.
   useEffect(() => {
+    const p = new URLSearchParams(window.location.search)
+    const t = (p.get('tema') ?? '').toLowerCase()
+    if (TEMI.includes(t)) setTema(t)
+    setAccento(accentoValido(p.get('accento') ?? ''))
+    if (p.get('anteprima')) {
+      // ⚠️ L'ANTEPRIMA NON APRE UNA SESSIONE. Guardare i temi nella pagina
+      // «Aspetto del widget» creava una conversazione vuota in Inbox per ogni
+      // tema guardato: chi sceglie un colore si ritrovava sei clienti finti da
+      // archiviare. Qui si mostrano due battute finte e non si parla col server.
+      setAnteprima(true)
+      setTitolo(p.get('titolo') || 'Deluxy')
+      setPronto(true)
+      setMessaggi([
+        { id: 'a1', direzione: 'out', testo: 'Buongiorno! Come possiamo aiutarla?', creatoIl: '' },
+        { id: 'a2', direzione: 'in', testo: 'Vorrei sapere se consegnate domani a Milano', creatoIl: '' },
+        { id: 'a3', direzione: 'out', testo: 'Certo, entro le 13 per la consegna del pomeriggio.', creatoIl: '' },
+      ])
+    }
+  }, [])
+
+  // Riprende la conversazione di chi aveva già scritto da questo browser.
+  //
+  // ⚠️ QUI NON SI CREA NIENTE. Prima la sessione si apriva al caricamento del
+  // widget: ogni visitatore che passava sul sito — e ogni anteprima, e ogni
+  // prova — lasciava in Inbox una conversazione vuota, indistinguibile da un
+  // cliente che ha scritto e aspetta risposta. La conversazione nasce al primo
+  // messaggio: prima di quello non c'è niente da leggere.
+  useEffect(() => {
+    if (anteprima) return
     let annullato = false
-    async function avvia() {
+    async function riprendi() {
       const salvato = window.localStorage.getItem(CHIAVE_TOKEN)
-      if (salvato) {
-        // se la sessione esiste ancora la riusiamo, altrimenti se ne crea una nuova
-        const res = await fetch(`/api/widget/messaggi?token=${encodeURIComponent(salvato)}`)
+      if (!salvato) {
+        // Nessuno storico: si chiede solo com'è configurato il saluto.
+        const res = await fetch('/api/widget/messaggi')
         if (res.ok && !annullato) {
-          setToken(salvato)
-          return
+          const dati = (await res.json()) as { titolo: string; benvenuto: string }
+          setTitolo(dati.titolo)
+          setBenvenuto(dati.benvenuto)
         }
+        if (!annullato) setPronto(true)
+        return
       }
-      const res = await fetch('/api/widget/sessione', { method: 'POST' })
-      const dati = (await res.json()) as { token: string }
-      if (!annullato) {
-        window.localStorage.setItem(CHIAVE_TOKEN, dati.token)
-        setToken(dati.token)
+      const res = await fetch(`/api/widget/messaggi?token=${encodeURIComponent(salvato)}`)
+      if (annullato) return
+      if (res.ok) setToken(salvato)
+      else {
+        // sessione scaduta o cancellata: si riparte da zero al primo messaggio
+        window.localStorage.removeItem(CHIAVE_TOKEN)
+        setPronto(true)
       }
     }
-    avvia().catch(() => {})
+    riprendi().catch(() => setPronto(true))
     return () => {
       annullato = true
     }
-  }, [])
+  }, [anteprima])
 
   const aggiorna = useCallback(async () => {
     if (!token) return
@@ -77,7 +127,13 @@ export default function PaginaWidget() {
 
   async function invia() {
     const testo = bozza.trim()
-    if (!token || !testo) return
+    // In anteprima si può scrivere — serve a vedere il campo pieno — ma non
+    // parte niente: dall'altra parte non c'è nessuno.
+    if (anteprima) {
+      setBozza('')
+      return
+    }
+    if (!testo) return
     setBozza('')
     // eco locale immediata, poi il polling riallinea
     setMessaggi((prec) => [
@@ -85,10 +141,20 @@ export default function PaginaWidget() {
       { id: `locale-${Date.now()}`, direzione: 'in', testo, creatoIl: new Date().toISOString() },
     ])
     try {
+      // La conversazione nasce adesso, col primo messaggio: è il momento in cui
+      // c'è davvero qualcuno dall'altra parte da far vedere in Inbox.
+      let miaSessione = token
+      if (!miaSessione) {
+        const res = await fetch('/api/widget/sessione', { method: 'POST' })
+        const dati = (await res.json()) as { token: string }
+        miaSessione = dati.token
+        window.localStorage.setItem(CHIAVE_TOKEN, miaSessione)
+        setToken(miaSessione)
+      }
       await fetch('/api/widget/messaggi', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, testo }),
+        body: JSON.stringify({ token: miaSessione, testo }),
       })
     } catch {
       // il polling mostrerà lo stato reale
@@ -96,14 +162,37 @@ export default function PaginaWidget() {
   }
 
   return (
-    <div className="widget-app">
+    <div
+      className="widget-app"
+      data-tema={tema}
+      // L'accento del sito ospite vince sul tema: è una variabile sola, e i
+      // colori derivati (bolla del visitatore, bordo attivo, bottone) la
+      // seguono senza altre eccezioni.
+      style={accento ? ({ '--w-accento': accento } as React.CSSProperties) : undefined}
+    >
       <div className="widget-testata">
-        <div className="titolo">{titolo}</div>
-        <div className="sotto">Di solito rispondiamo in giornata</div>
+        <div>
+          <div className="titolo">{titolo}</div>
+          <div className="sotto">Di solito rispondiamo in giornata</div>
+        </div>
+        {/* Sul telefono la chat copre tutto: il bottone che l'ha aperta è
+            sotto, quindi la chiusura deve stare qui dentro. */}
+        <button
+          className="widget-chiudi"
+          aria-label="Chiudi la chat"
+          onClick={() => window.parent?.postMessage('deluxy-widget:chiudi', '*')}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+            <path d="M6 6l12 12M18 6L6 18" />
+          </svg>
+        </button>
       </div>
 
       <div className="widget-messaggi">
-        {pronto && benvenuto ? <div className="bolla out">{benvenuto}</div> : null}
+        {/* Il saluto lo scriviamo NOI: sta a sinistra come tutte le nostre
+            risposte. Era marcato «out», cioè dalla parte del visitatore: con i
+            temi, che colorano la sua bolla, sembrava scritto da lui. */}
+        {pronto && benvenuto ? <div className="bolla in">{benvenuto}</div> : null}
         {messaggi.map((m) => (
           // Nel widget la prospettiva si ribalta: "in" (il visitatore) sta a destra.
           <div key={m.id} className={`bolla ${m.direzione === 'in' ? 'out' : 'in'}`}>
@@ -122,7 +211,8 @@ export default function PaginaWidget() {
             if (e.key === 'Enter') invia()
           }}
         />
-        <button className="bottone" onClick={invia} disabled={!bozza.trim() || !token}>
+        {/* Basta che ci sia del testo: la sessione, se manca, la apre l'invio. */}
+        <button className="bottone" onClick={invia} disabled={!bozza.trim()}>
           Invia
         </button>
       </div>

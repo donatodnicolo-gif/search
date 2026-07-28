@@ -1232,29 +1232,158 @@ td .azioni-ordine {
   background: var(--fill);
 }
 
-/* ---- Widget (pagina dentro l'iframe) ---- */
+/* ---- Widget (pagina dentro l'iframe) ----
+ *
+ * Il widget vive sui siti degli altri, non qui dentro: Deluxy Flowers, Cake
+ * Design, i siti dei partner. Per questo NON usa i token dell'app ma un suo
+ * gruppetto di variabili `--w-…`, che i temi qui sotto riscrivono per intero.
+ * Un tema = un blocco di variabili; il resto del foglio non cambia mai.
+ *
+ * ⚠️ Il colore d'accento arriva anche dal sito ospite (`data-accento` nello
+ * script, poi `?accento=` nell'URL dell'iframe): serve a farlo sembrare parte
+ * del sito senza inventare un tema nuovo per ogni cliente.
+ */
 
 .widget-app {
+  /* Tema di partenza: chiaro. Gli altri riscrivono solo queste variabili. */
+  --w-sfondo: #f5f5f7;
+  --w-superficie: #ffffff;
+  --w-testo: #1d1d1f;
+  --w-testo-tenue: #6e6e73;
+  --w-bordo: rgba(0, 0, 0, 0.08);
+  --w-bordo-forte: rgba(0, 0, 0, 0.14);
+  --w-accento: #111318;
+  --w-accento-testo: #ffffff;
+  --w-testata-sfondo: #111318;
+  --w-testata-testo: #ffffff;
+  /* La bolla di chi scrive dal sito prende l'accento: è l'unico punto in cui il
+     colore del cliente si vede davvero, e basta per farlo sembrare suo. */
+  --w-mia-sfondo: var(--w-accento);
+  --w-mia-testo: var(--w-accento-testo);
+  --w-loro-sfondo: #ffffff;
+  --w-loro-testo: var(--w-testo);
+  --w-raggio: 18px;
+  --w-raggio-bolla: 18px;
+
   display: flex;
   flex-direction: column;
-  height: 100vh;
-  background: var(--bg);
+  /* 100dvh e non 100vh: su iOS la barra del browser che si ritrae tagliava il
+     campo di scrittura, che è esattamente la parte che serve. */
+  height: 100dvh;
+  background: var(--w-sfondo);
+  color: var(--w-testo);
+  font-family: var(--font-sans);
+}
+
+/* Scuro: per i siti a fondo nero, dove il widget chiaro sembra una toppa. */
+.widget-app[data-tema='scuro'] {
+  --w-sfondo: #16171a;
+  --w-superficie: #1f2126;
+  --w-testo: #f2f2f4;
+  --w-testo-tenue: #a1a1a8;
+  --w-bordo: rgba(255, 255, 255, 0.1);
+  --w-bordo-forte: rgba(255, 255, 255, 0.18);
+  --w-accento: #f2f2f4;
+  --w-accento-testo: #16171a;
+  --w-testata-sfondo: #1f2126;
+  --w-testata-testo: #f2f2f4;
+  --w-loro-sfondo: #1f2126;
+}
+
+/* Deluxy: nero e oro, il tema dei nostri siti. */
+.widget-app[data-tema='deluxy'] {
+  --w-sfondo: #f5f5f7;
+  --w-superficie: #ffffff;
+  --w-accento: #b8963e;
+  --w-accento-testo: #ffffff;
+  --w-testata-sfondo: #111318;
+  --w-testata-testo: #ffffff;
+  --w-loro-sfondo: #ffffff;
+}
+
+/* Caldo: avorio e terracotta, per fiori e pasticceria — dove il grigio
+   tecnologico stona con le fotografie. */
+.widget-app[data-tema='caldo'] {
+  --w-sfondo: #faf6f1;
+  --w-superficie: #ffffff;
+  --w-testo: #2b2018;
+  --w-testo-tenue: #7b6a5c;
+  --w-bordo: rgba(43, 32, 24, 0.1);
+  --w-bordo-forte: rgba(43, 32, 24, 0.18);
+  --w-accento: #9c5b3f;
+  --w-accento-testo: #ffffff;
+  --w-testata-sfondo: #2b2018;
+  --w-testata-testo: #faf6f1;
+  --w-loro-sfondo: #ffffff;
+}
+
+/* Minimale: nessun colore, spigoli morbidi, testata bianca. Il tema che non
+   litiga con nessun sito — quello da usare nel dubbio. */
+.widget-app[data-tema='minimale'] {
+  --w-sfondo: #ffffff;
+  --w-superficie: #ffffff;
+  --w-accento: #1d1d1f;
+  --w-accento-testo: #ffffff;
+  --w-testata-sfondo: #ffffff;
+  --w-testata-testo: #1d1d1f;
+  --w-loro-sfondo: #f2f2f4;
+  --w-raggio: 12px;
+  --w-raggio-bolla: 12px;
+}
+
+/* Automatico: chiaro o scuro come il sito ospite ha impostato il sistema.
+   Le stesse regole del tema scuro, applicate solo quando serve. */
+@media (prefers-color-scheme: dark) {
+  .widget-app[data-tema='automatico'] {
+    --w-sfondo: #16171a;
+    --w-superficie: #1f2126;
+    --w-testo: #f2f2f4;
+    --w-testo-tenue: #a1a1a8;
+    --w-bordo: rgba(255, 255, 255, 0.1);
+    --w-bordo-forte: rgba(255, 255, 255, 0.18);
+    --w-accento: #f2f2f4;
+    --w-accento-testo: #16171a;
+    --w-testata-sfondo: #1f2126;
+    --w-testata-testo: #f2f2f4;
+    --w-loro-sfondo: #1f2126;
+  }
 }
 
 .widget-testata {
-  background: var(--ink);
-  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--w-testata-sfondo);
+  color: var(--w-testata-testo);
   padding: 14px 16px;
+  border-bottom: 1px solid var(--w-bordo);
 }
 
 .widget-testata .titolo {
   font-weight: 600;
   font-size: 15px;
+  letter-spacing: -0.01em;
 }
 
 .widget-testata .sotto {
   font-size: 12px;
   opacity: 0.7;
+}
+
+/* La × serve solo dove il widget occupa tutto lo schermo: sul telefono il
+   bottone flottante che l'ha aperto resta sotto la chat e non si può premere. */
+.widget-chiudi {
+  margin-left: auto;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
 }
 
 .widget-messaggi {
@@ -1266,25 +1395,82 @@ td .azioni-ordine {
   gap: 8px;
 }
 
+/* Le bolle del widget non ereditano quelle dell'app: qui i colori sono del
+   tema, non dei token, altrimenti cambiare tema non cambierebbe niente. */
+.widget-app .bolla {
+  max-width: 82%;
+  border-radius: var(--w-raggio-bolla);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.widget-app .bolla.in {
+  background: var(--w-loro-sfondo);
+  color: var(--w-loro-testo);
+  border: 1px solid var(--w-bordo);
+  border-bottom-left-radius: 6px;
+}
+
+.widget-app .bolla.out {
+  background: var(--w-mia-sfondo);
+  color: var(--w-mia-testo);
+  border-bottom-right-radius: 6px;
+}
+
 .widget-composer {
   display: flex;
   gap: 8px;
   padding: 10px;
-  background: var(--surface);
-  border-top: 1px solid var(--hairline);
+  /* La safe area di iPhone: senza, la barra gestuale copre il campo. */
+  padding-bottom: max(10px, env(safe-area-inset-bottom));
+  background: var(--w-superficie);
+  border-top: 1px solid var(--w-bordo);
 }
 
 .widget-composer input {
   flex: 1;
-  padding: 9px 12px;
-  border: 1px solid var(--hairline-strong);
-  border-radius: var(--radius-pill);
+  min-width: 0;
+  padding: 10px 14px;
+  border: 1px solid var(--w-bordo-forte);
+  border-radius: 980px;
+  background: var(--w-superficie);
+  color: var(--w-testo);
+  /* 16px esatti: sotto, Safari su iPhone zooma la pagina appena si tocca il
+     campo e il widget esce dallo schermo. */
   font: inherit;
+  font-size: 16px;
+}
+
+.widget-composer input::placeholder {
+  color: var(--w-testo-tenue);
 }
 
 .widget-composer input:focus {
   outline: none;
-  border-color: var(--blue);
+  border-color: var(--w-accento);
+}
+
+.widget-app .widget-composer .bottone {
+  background: var(--w-accento);
+  color: var(--w-accento-testo);
+  border: none;
+  border-radius: 980px;
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.widget-app .widget-composer .bottone:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* A schermo intero (telefono): niente angoli tondi da mostrare e serve la ×. */
+@media (max-width: 480px) {
+  .widget-chiudi {
+    display: flex;
+  }
 }
 
 /* ---- Catena degli aggiornamenti (Shopify → Ordini → questa app) ---- */
@@ -1692,3 +1878,87 @@ td .azioni-ordine {
   padding: 3px 8px;
 }
 .badge-problema::before { display: none; }
+
+/* ---- Aspetto del widget (scelta del tema) ----
+ *
+ * Le anteprime sono il widget vero in un iframe, rimpicciolito con `scale`:
+ * ridisegnarlo in miniatura avrebbe voluto dire mantenerlo due volte, e la
+ * miniatura sarebbe rimasta indietro al primo ritocco al CSS del widget. */
+
+.temi-griglia {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.tema-scelta {
+  display: block;
+  text-align: left;
+  padding: 10px;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-m);
+  cursor: pointer;
+  transition: border-color 0.15s var(--ease), box-shadow 0.15s var(--ease);
+}
+
+.tema-scelta:hover {
+  border-color: var(--hairline-strong);
+}
+
+.tema-scelta.scelto {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 1px var(--ink);
+}
+
+.tema-mini {
+  /* Il widget dentro è largo come un telefono: si disegna a grandezza piena e
+     si rimpicciolisce al 55%, così la miniatura è il widget vero e non una sua
+     imitazione. Le misure «gonfie» (182% = 100/0.55) servono a questo, e il
+     margine negativo recupera lo spazio che la scala lascia vuoto sotto. */
+  width: 182%;
+  height: 273px;
+  transform: scale(0.55);
+  transform-origin: top left;
+  margin-bottom: -123px; /* 273 disegnati − 150 visibili */
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-s);
+  pointer-events: none;
+  background: var(--surface);
+}
+
+.tema-nome {
+  margin-top: 8px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.anteprima-cornice {
+  display: flex;
+  justify-content: center;
+  padding: 20px;
+  background: var(--fill);
+  border-radius: var(--radius-m);
+}
+
+.anteprima-widget {
+  width: 380px;
+  max-width: 100%;
+  height: 560px;
+  border: none;
+  border-radius: 20px;
+  box-shadow: var(--shadow-float);
+  background: var(--surface);
+}
+
+.codice-incolla {
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  background: var(--ink);
+  color: #f2f2f4;
+  border-radius: var(--radius-m);
+  font-size: 12.5px;
+  line-height: 1.6;
+  overflow-x: auto;
+  white-space: pre;
+}
