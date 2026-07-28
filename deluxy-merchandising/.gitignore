@@ -30,3 +30,6 @@ npm-debug.log*
 
 .vercel
 .env*
+
+# artefatto di build del typecheck: cambia a ogni "npx tsc", non e uno stato del progetto
+tsconfig.tsbuildinfo
