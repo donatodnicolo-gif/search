@@ -130,8 +130,14 @@ function main() {
   // gli Script si avviano solo da dentro Google.
   serviRichieste(conto);
 
+  // L'ORDINE CONTA: Google ferma lo script dopo 30 minuti, e il copy da solo
+  // può prendersene la metà (mille keyword per account, a blocchi di 200).
+  // Prima erano in fondo i gruppi di annunci — cioè la cosa che serve per
+  // capire QUALE pezzo di una campagna sta bruciando — e non arrivavano mai.
+  // Ora si manda prima ciò che si guarda ogni giorno e per ultimo il copy, che
+  // se salta si rimanda al giro dopo senza che nessuno se ne accorga.
   var lavori = AZIONE === "tutto"
-    ? ["metriche", "approvazioni", "copy", "gruppi", "asset", "diagnosi", "esegui"]
+    ? ["metriche", "gruppi", "approvazioni", "diagnosi", "asset", "copy", "esegui"]
     : [AZIONE];
 
   for (var i = 0; i < lavori.length; i++) {
@@ -213,6 +219,18 @@ function serviRichieste(conto) {
     // L'esito che si riferisce è quello vero: le righe scritte nel riepilogo
     // durante questa richiesta, non una frase di comodo.
     var fatto = RIEPILOGO.slice(quante).join(" · ") || "nessun dato nel periodo";
+
+    // Se il tempo è finito a metà, la richiesta NON è fatta. Segnarla fatta
+    // vorrebbe dire che una richiesta "eseguita" può aver mandato zero gruppi
+    // senza che nessuno se ne accorga, a meno di leggere il testo dell'esito.
+    // Lasciandola aperta, il prossimo giro riprende da dove si era fermato.
+    var interrotto = fatto.indexOf("interrotto per tempo") !== -1;
+    if (interrotto) {
+      Logger.log("Tempo finito a metà richiesta: la lascio APERTA, il prossimo giro la riprende.");
+      RIEPILOGO.push("richiesta " + r.id + ": ripresa al prossimo giro (tempo finito)");
+      continue;
+    }
+
     chiamata("post", "/api/v1/aggiornamenti/" + r.id + "/esito", {
       riuscita: !errore,
       dettaglio: errore ? errore : fatto,
@@ -451,7 +469,12 @@ function leggiKeywords(conto) {
     "metrics.conversions, metrics.conversions_value " +
     "FROM keyword_view " +
     "WHERE segments.date BETWEEN '" + dataIso(-GIORNI_COPY) + "' AND '" + dataIso(0) + "' " +
-    "AND ad_group_criterion.status != 'REMOVED'";
+    "AND ad_group_criterion.status != 'REMOVED' " +
+    // Solo le keyword che nel periodo hanno DAVVERO avuto impressioni. Le altre
+    // sono righe a zero: non dicono niente di più dell'assenza, e mandarle
+    // costava mille righe per account e il tempo che serviva ai gruppi.
+    // Restano visibili in Google Ads, dove è giusto guardarle.
+    "AND metrics.impressions > 0";
 
   var perChiave = {};
   var risultati = AdsApp.search(query);

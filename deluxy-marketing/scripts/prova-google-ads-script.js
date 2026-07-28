@@ -129,6 +129,18 @@ function selettoreCon(entita) {
   verifica("metriche: strategia offerta", corpo.righe[0].strategiaOfferta === "TARGET_ROAS");
 }
 
+// ───────── 1-ter. l'ordine dei lavori e le richieste interrotte ─────────
+{
+  const sorgente = require("fs").readFileSync(__dirname + "/google-ads-script.js", "utf8");
+  const inizio = sorgente.indexOf('AZIONE === "tutto"');
+  const lista = sorgente.slice(inizio, inizio + 200);
+  const pos = (n) => lista.indexOf('"' + n + '"');
+  verifica("ordine: i gruppi vengono PRIMA del copy", pos("gruppi") > 0 && pos("gruppi") < pos("copy"));
+  verifica("ordine: il copy è dopo asset e diagnosi", pos("copy") > pos("asset") && pos("copy") > pos("diagnosi"));
+  verifica("richiesta interrotta: resta aperta invece di chiudersi", sorgente.indexOf("if (interrotto)") !== -1);
+  verifica("copy: chiede solo le keyword con impressioni", sorgente.indexOf("metrics.impressions > 0") !== -1);
+}
+
 // ───────────────────────── 2. keyword accorpate ─────────────────────────
 {
   const kw = (gruppoId, gruppo, criterio, costo, impr, qs, stato) => ({
