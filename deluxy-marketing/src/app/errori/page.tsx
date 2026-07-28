@@ -1,7 +1,7 @@
 import { Sidebar } from "@/components/Sidebar";
 import { chiudiIncidente, creaIncidente } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
-import { formattaData } from "@/lib/dominio";
+import { formattaData, STATI_CAMPAGNA_IGNORATE } from "@/lib/dominio";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +13,7 @@ export default async function PaginaErrori() {
       orderBy: { apertoIl: "desc" },
       include: { campagna: { select: { id: true, nome: true } } },
     }),
-    prisma.campagna.findMany({ orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
+    prisma.campagna.findMany({ where: { stato: { notIn: [...STATI_CAMPAGNA_IGNORATE] } }, orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
   ]);
   const aperti = incidenti.filter((i) => i.stato === "aperto");
 

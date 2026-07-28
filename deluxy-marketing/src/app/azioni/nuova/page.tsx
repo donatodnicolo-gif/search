@@ -8,6 +8,7 @@ import {
   ETICHETTA_CANALE,
   ETICHETTA_PRIORITA,
   PRIORITA,
+  STATI_CAMPAGNA_IGNORATE,
 } from "@/lib/dominio";
 
 export const dynamic = "force-dynamic";
@@ -20,7 +21,7 @@ export default async function NuovaAzione({
   const { analisi: analisiId, campagna: campagnaId, brand } = await searchParams;
   const [analisi, campagne] = await Promise.all([
     analisiId ? prisma.analisi.findUnique({ where: { id: analisiId } }) : null,
-    prisma.campagna.findMany({ orderBy: { creataIl: "desc" }, select: { id: true, nome: true } }),
+    prisma.campagna.findMany({ where: { stato: { notIn: [...STATI_CAMPAGNA_IGNORATE] } }, orderBy: { creataIl: "desc" }, select: { id: true, nome: true } }),
   ]);
 
   return (

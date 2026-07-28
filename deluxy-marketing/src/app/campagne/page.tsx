@@ -13,6 +13,7 @@ import {
   formattaEuro,
   roas,
   STATI_CAMPAGNA,
+  STATI_CAMPAGNA_IGNORATE,
 } from "@/lib/dominio";
 import { categoriaCampagna, iconaCanale, saluteCampagna } from "@/lib/salute";
 import { COLORE_CLASSE, ETICHETTA_CLASSE } from "@/lib/dominio";
@@ -37,7 +38,9 @@ export default async function PaginaCampagne({
   const giorni30 = new Date(Date.now() - 30 * 86_400_000);
   const campagne = await prisma.campagna.findMany({
     where: {
-      ...(stato ? { stato } : {}),
+      // "Defunta" vuol dire non considerarla mai più: sparisce dall'elenco a
+      // meno che non si chieda proprio lei col filtro di stato.
+      ...(stato ? { stato } : { stato: { notIn: [...STATI_CAMPAGNA_IGNORATE] } }),
       ...(canale ? { canale } : {}),
       ...(brand ? { brand } : {}),
       ...(q ? { nome: { contains: q } } : {}),
@@ -87,13 +90,23 @@ export default async function PaginaCampagne({
             <option value="tiktok">TikTok</option>
           </select>
           <select name="stato" defaultValue={stato ?? ""}>
-            <option value="">Tutti gli stati</option>
+            <option value="">Tutti gli stati (tranne le defunte)</option>
             {STATI_CAMPAGNA.map((s) => (
               <option key={s} value={s}>{ETICHETTA_STATO_CAMPAGNA[s]}</option>
             ))}
           </select>
           <button className="btn small" type="submit">Filtra</button>
         </form>
+
+        {stato === "defunta" && (
+          <div className="nota-info">
+            <span className="nota-icona">⌁</span>
+            <span>
+              Stai guardando le campagne <b>defunte</b>: normalmente non compaiono da nessuna parte.
+              La spesa che hanno fatto resta comunque nei totali — quei soldi sono usciti davvero.
+            </span>
+          </div>
+        )}
 
         {campagne.length === 0 ? (
           <div className="vuoto">Nessuna campagna con questi filtri.</div>

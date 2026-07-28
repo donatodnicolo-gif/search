@@ -30,8 +30,10 @@ import {
   formattaEuro,
   formattaNumero,
   roas,
+  SPIEGA_STATO_CAMPAGNA,
   STATI_AZIONE_APERTI,
   STATI_CAMPAGNA,
+  STATI_CAMPAGNA_IGNORATE,
 } from "@/lib/dominio";
 
 export const dynamic = "force-dynamic";
@@ -65,6 +67,9 @@ export default async function SchedaCampagna({
   const conv = campagna.metriche.reduce((s, m) => s + (m.conversioni ?? 0), 0);
   const click = campagna.metriche.reduce((s, m) => s + (m.click ?? 0), 0);
   const r = roas(ricavi, spesa);
+  // Una campagna defunta non si giudica più: niente spesa di oggi, niente
+  // guardrail, niente tasklist. Restano i numeri storici, che sono successi.
+  const defunta = (STATI_CAMPAGNA_IGNORATE as readonly string[]).includes(campagna.stato);
 
   return (
     <div className="layout">
@@ -98,6 +103,9 @@ export default async function SchedaCampagna({
                 </button>
               ))}
             </form>
+            <p className="cella-sub" style={{ marginTop: 8, whiteSpace: "normal", maxWidth: 720 }}>
+              {SPIEGA_STATO_CAMPAGNA[campagna.stato] ?? ""}
+            </p>
           </div>
           <a className="btn" href={`/azioni/nuova?campagna=${campagna.id}&brand=${campagna.brand}`}>Nuova azione sulla campagna</a>
         </div>
@@ -125,13 +133,28 @@ export default async function SchedaCampagna({
           </div>
         </div>
 
-        <FreschezzaDati brand={campagna.brand} canale={campagna.canale} />
+        {defunta && (
+          <div className="nota-info">
+            <span className="nota-icona">⌁</span>
+            <span>
+              Campagna <b>defunta</b>: non compare negli elenchi, nei contatori e negli alert, e qui
+              non si mostrano né la spesa di oggi, né i guardrail, né le prossime azioni. Resta lo
+              storico
+              {spesa > 0 ? `: i ${formattaEuro(spesa)} che ha speso sono usciti davvero e restano nei totali del brand` : ""}.
+              Per rimetterla in giro basta cambiarle stato qui sopra.
+            </span>
+          </div>
+        )}
 
-        <OggiCampagna
-          campagnaId={campagna.id}
-          brand={campagna.brand}
-          budgetGiornaliero={campagna.budgetGiornaliero}
-        />
+        {!defunta && <FreschezzaDati brand={campagna.brand} canale={campagna.canale} />}
+
+        {!defunta && (
+          <OggiCampagna
+            campagnaId={campagna.id}
+            brand={campagna.brand}
+            budgetGiornaliero={campagna.budgetGiornaliero}
+          />
+        )}
 
         {/* ——— Valutazione: prima si capisce, poi si decide, infine si agisce.
             I gruppi stanno qui in cima perché sono il primo taglio che spiega
@@ -169,9 +192,9 @@ export default async function SchedaCampagna({
 
         <EstensioniCampagna campagnaId={campagna.id} nomeCampagna={campagna.nome} />
 
-        <GuardrailCampagna campagnaId={campagna.id} bloccata={bloccata} salvata={salvata} />
+        {!defunta && <GuardrailCampagna campagnaId={campagna.id} bloccata={bloccata} salvata={salvata} />}
 
-        <ProssimeAzioni campagnaId={campagna.id} />
+        {!defunta && <ProssimeAzioni campagnaId={campagna.id} />}
 
         <RecapModifiche campagnaId={campagna.id} />
 

@@ -140,29 +140,59 @@ export const ETICHETTA_OWNER: Record<string, string> = {
   utente: "Utente",
 };
 
+// L'ordine è quello della vita di una campagna: si scrive, si prepara a
+// partire, parte, impara, gira, si ferma, finisce. `defunta` sta in fondo
+// perché è l'uscita.
 export const STATI_CAMPAGNA = [
   "bozza",
+  "in_lancio",
   "in_apprendimento",
   "attiva",
   "in_pausa",
   "conclusa",
+  "defunta",
 ] as const;
 
 export const ETICHETTA_STATO_CAMPAGNA: Record<string, string> = {
   bozza: "Bozza",
+  in_lancio: "In lancio",
   in_apprendimento: "In apprendimento",
   attiva: "Attiva",
   in_pausa: "In pausa",
   conclusa: "Conclusa",
+  defunta: "Defunta",
 };
 
 export const COLORE_STATO_CAMPAGNA: Record<string, string> = {
   bozza: "var(--text-tertiary)",
+  in_lancio: "var(--blue)",
   in_apprendimento: "var(--gold-strong)",
   attiva: "var(--green)",
   in_pausa: "var(--orange)",
   conclusa: "var(--text-secondary)",
+  defunta: "var(--text-tertiary)",
 };
+
+export const SPIEGA_STATO_CAMPAGNA: Record<string, string> = {
+  bozza: "Scritta, non ancora decisa.",
+  in_lancio: "Decisa e pronta: non è ancora partita, ma va fatta partire. È una cosa da fare, non un archivio.",
+  in_apprendimento: "Partita da poco: i numeri non sono ancora leggibili.",
+  attiva: "Sta girando, si giudica sui numeri.",
+  in_pausa: "Ferma, ma può ripartire.",
+  conclusa: "Finita: si guarda solo nello storico.",
+  defunta:
+    "Da non considerare mai più: sparisce dagli elenchi e dai conteggi operativi. La spesa che ha fatto resta nei totali — quei soldi sono usciti davvero.",
+};
+
+// Le campagne che chiedono attenzione oggi: elenchi, contatori, alert.
+// `in_lancio` è qui dentro perché è una cosa da fare; bozza, conclusa e
+// defunta no.
+export const STATI_CAMPAGNA_VIVE = ["in_lancio", "in_apprendimento", "attiva", "in_pausa"] as const;
+
+// Lo stato che vuol dire "non nominarmela più". Sta in una costante sola
+// perché il giorno che se ne aggiunge un altro non si va a caccia di stringhe
+// sparse per venti file.
+export const STATI_CAMPAGNA_IGNORATE = ["defunta"] as const;
 
 export const CATEGORIE_DRIVE = [
   "definitivi",

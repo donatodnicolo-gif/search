@@ -1,19 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { autentica, erroreApi } from "@/lib/api-auth";
 import { prisma } from "@/lib/db";
-import { STATI_CAMPAGNA } from "@/lib/dominio";
+import { STATI_CAMPAGNA, STATI_CAMPAGNA_IGNORATE } from "@/lib/dominio";
 
-// GET /api/v1/campagne?brand=&stato= — elenco campagne con metriche ultimi 30 gg
+// GET /api/v1/campagne?brand=&stato=&defunte=incluse
+// Elenco campagne con metriche degli ultimi 30 giorni.
+// Le campagne **defunte** non escono: "da non considerare mai più" vale anche
+// per le altre app. Si chiedono apposta con `defunte=incluse` o `stato=defunta`.
 export async function GET(req: NextRequest) {
   const cliente = await autentica(req);
   if (cliente instanceof NextResponse) return cliente;
 
   const p = req.nextUrl.searchParams;
   const giorni30 = new Date(Date.now() - 30 * 86_400_000);
+  const conDefunte = p.get("defunte") === "incluse";
   const campagne = await prisma.campagna.findMany({
     where: {
       ...(p.get("brand") ? { brand: p.get("brand")! } : {}),
-      ...(p.get("stato") ? { stato: p.get("stato")! } : {}),
+      ...(p.get("stato")
+        ? { stato: p.get("stato")! }
+        : conDefunte
+          ? {}
+          : { stato: { notIn: [...STATI_CAMPAGNA_IGNORATE] } }),
     },
     orderBy: { creataIl: "desc" },
     include: { metriche: { where: { data: { gte: giorni30 } }, orderBy: { data: "asc" } } },

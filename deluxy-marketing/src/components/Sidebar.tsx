@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { BRANDS, COLORE_BRAND, ETICHETTA_BRAND, STATI_AZIONE_APERTI } from "@/lib/dominio";
+import { BRANDS, COLORE_BRAND, ETICHETTA_BRAND, STATI_AZIONE_APERTI, STATI_CAMPAGNA_VIVE } from "@/lib/dominio";
 import { Icona } from "./Icona";
 import { SbSezione } from "./SbSezione";
 
@@ -31,7 +31,7 @@ export async function Sidebar({
       where: { tipo: { in: ["audit_google", "audit_meta", "revisione_creativi", "revisione_landing"] } },
     }),
     prisma.azione.count({ where: { stato: { in: STATI_AZIONE_APERTI } } }),
-    prisma.campagna.count({ where: { stato: { in: ["attiva", "in_apprendimento", "in_pausa"] } } }),
+    prisma.campagna.count({ where: { stato: { in: [...STATI_CAMPAGNA_VIVE] } } }),
     prisma.landingPage.count(),
     prisma.testMeta.count({ where: { stato: { in: ["idea", "pianificato", "in_corso"] } } }),
     prisma.documentoDrive.count(),
@@ -53,7 +53,7 @@ export async function Sidebar({
     }),
     prisma.campagna.groupBy({
       by: ["canale"],
-      where: { stato: { in: ["attiva", "in_apprendimento", "in_pausa"] } },
+      where: { stato: { in: [...STATI_CAMPAGNA_VIVE] } },
       _count: { _all: true },
     }),
     prisma.pubblico.count(),

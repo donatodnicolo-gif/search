@@ -160,7 +160,25 @@ export async function cambiaStatoCampagna(stato: string, fd: FormData) {
   // Il cambio deciso nell'app va eseguito davvero sulla piattaforma: si mette
   // in coda un'azione owner AI. Basta dire a una sessione Claude "esegui le
   // azioni in coda dell'app marketing" (GET /api/v1/azioni?aperte=1).
-  if (["in_pausa", "attiva", "conclusa"].includes(stato)) {
+  //
+  // `in_lancio` è una cosa da fare *nostra* (preparare e far partire), non un
+  // comando da eseguire sulla piattaforma: l'azione dice quello.
+  // `defunta` non genera niente: è una decisione di archivio, non un cambio
+  // sulla piattaforma. Se la campagna gira ancora, prima la si mette in pausa.
+  if (stato === "in_lancio") {
+    await prisma.azione.create({
+      data: {
+        titolo: `Far partire "${campagna.nome}"`,
+        descrizione: `Segnata "in lancio" nell'app Marketing il ${new Date().toLocaleDateString("it-IT")}: la campagna è decisa ma non è ancora partita. Prima di accenderla, checklist 4.1 dei Definitivi (budget, offerte, copy, landing, tracciamento). Chiudere questa azione quando è davvero attiva su ${campagna.canale === "meta_ads" ? "Meta" : "Google Ads"}.`,
+        brand: campagna.brand,
+        canale: campagna.canale,
+        priorita: "alta",
+        owner: "utente",
+        campagnaId: campagna.id,
+        eventi: { create: { tipo: "creazione", autore: "sistema", testo: "Generata dal passaggio a «in lancio»" } },
+      },
+    });
+  } else if (["in_pausa", "attiva", "conclusa"].includes(stato)) {
     const verbo = stato === "in_pausa" ? "mettere in pausa" : stato === "attiva" ? "riattivare" : "concludere";
     await prisma.azione.create({
       data: {
