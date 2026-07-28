@@ -25,7 +25,42 @@ export type EsitoSvuota = {
   suServer: number
 }
 
+/**
+ * Il database accetta scritture? Su Supabase, a disco pieno, passa in SOLA
+ * LETTURA e ogni INSERT/DELETE fallisce con `25006`.
+ */
+async function databaseScrivibile(): Promise<boolean> {
+  try {
+    const r = await db.$queryRaw<{ ro: string }[]>`SELECT current_setting('transaction_read_only') AS ro`
+    return r[0]?.ro !== 'on'
+  } catch {
+    return true // non si riesce a chiederlo: si prosegue come prima
+  }
+}
+
 export async function svuotaCestinoDi(utenteId: string): Promise<EsitoSvuota> {
+  // ⚠️ SI CONTROLLA PRIMA DI TOCCARE IL SERVER, e non è un dettaglio.
+  //
+  // L'ordine di questa funzione è: leggi l'elenco → cancella dalla CASELLA →
+  // cancella le copie locali. A database in sola lettura i primi due passi
+  // riescono benissimo e il terzo fallisce: risultato, mail cancellate PER
+  // SEMPRE dal server di posta e ancora tutte qui. Il contrario di quello che
+  // si voleva, e irreversibile.
+  //
+  // Il caso non è teorico: è successo che il database andasse in sola lettura
+  // (disco pieno) proprio mentre si stava svuotando il cestino.
+  if (!(await databaseScrivibile())) {
+    return {
+      ok: false,
+      rimossi: 0,
+      suServer: 0,
+      messaggio:
+        'Non svuoto il cestino: il database non accetta scritture (sola lettura — su Supabase succede a disco pieno). ' +
+        'Procedere cancellerebbe le mail dalla casella SENZA riuscire a toglierle da qui: irreversibile e inutile. ' +
+        'Libera spazio e riprova.',
+    }
+  }
+
   const cestinati = await db.messaggio.findMany({
     where: { cestinato: true, utenteId },
     select: { uid: true, messageId: true, direzione: true, accountId: true },
