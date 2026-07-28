@@ -59,6 +59,13 @@ cd deluxy-scout && SUPABASE_PAT=<pat> node scripts/allinea-supabase.mjs
 - **Serve**: `SUPABASE_PAT` (https://supabase.com/dashboard/account/tokens); opzionale `SUPABASE_REF`
 - **Nota**: la lista di migrazioni e funzioni sta in cima allo script — **aggiungerci le nuove**, altrimenti restano non applicate. È già successo che una schermata risultasse vuota solo perché la Edge Function non era stata rideployata, senza che niente lo dicesse.
 
+### APPLICA-MIGRAZIONI.cmd — deluxy-scout
+Lo stesso di `allinea-supabase.mjs`, ma **con un doppio clic**: chiede il token in una finestra, esegue, e resta aperto a mostrare l'esito. Il token non viene salvato da nessuna parte — vive solo in quella finestra.
+
+Esiste perche' il comando da terminale va incollato in due pezzi e in PowerShell, e ogni volta che non viene lanciato restano funzioni **pubblicate ma spente** nell'app (e' successo con cinque funzioni di fila).
+
+- **Serve**: niente da preparare; il token si crea al momento da https://supabase.com/dashboard/account/tokens
+
 ### azzera-target-conteggio.sql / azzera-target.sql — deluxy-scout
 Azzerano la pagina **Target** di Scout cancellando **solo i negozi mai lavorati**: `stato = 'da_visitare'`, non preferiti e senza nessuna visita, trattativa, contatto, chiamata, task o richiesta di pagamento. Clienti, negozi visitati e tutto ciò che ha una trattativa o un contatto restano.
 
