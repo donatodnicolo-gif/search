@@ -11,6 +11,13 @@ export async function middleware(req: NextRequest) {
   // Le API v1 hanno la loro autenticazione a chiave: qui non si tocca nulla.
   if (pathname.startsWith("/api/v1")) return NextResponse.next();
 
+  // Il controllo di stato resta PUBBLICO. Lo legge la pagina /stato del Hub, e
+  // un health-check protetto dalla password non è un health-check: risponderebbe
+  // "vai al login", cioè direbbe che l'app è giù ogni volta che è semplicemente
+  // protetta. Non espone dati: solo se il server risponde e se il database
+  // risponde a lui.
+  if (pathname === "/api/health") return NextResponse.next();
+
   const password = process.env.MARKETING_APP_PASSWORD;
   if (!password || pathname === "/login") return NextResponse.next();
 
