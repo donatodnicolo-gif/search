@@ -20,14 +20,22 @@ export async function GET(req: NextRequest) {
       { codice: { contains: q, mode: "insensitive" } },
       { varianti: { some: { sku: { contains: q, mode: "insensitive" } } } },
     ];
+  // Gli stessi filtri della pagina, uno per uno: se qui ne manca uno il CSV
+  // scarica più righe di quelle che l'utente sta guardando, e sembra che l'app
+  // abbia sbagliato i conti.
   if (sp.get("categoria")) where.categoria = sp.get("categoria");
   if (sp.get("tipo")) where.tipoShopify = sp.get("tipo");
+  if (sp.get("fornitore")) where.vendorShopify = sp.get("fornitore");
+  if (sp.get("linea")) where.lineaId = sp.get("linea");
   if (sp.get("fase")) where.fase = sp.get("fase");
   const manca = sp.get("manca");
   if (manca === "costo") where.costoProduzione = { lte: 0 };
   if (manca === "categoria") where.categoria = "DA_CLASSIFICARE";
   if (manca === "collezione") where.collezioniShopify = { none: {} };
   if (manca === "tipo") where.tipoShopify = null;
+  if (manca === "esclusi") where.esclusoDaAnalisi = true;
+  else if (manca === "linea") where.lineaId = null;
+  else if (manca === "fornitore") where.vendorShopify = null;
 
   const f = finestra(90);
   const [prodotti, vendite] = await Promise.all([
@@ -37,6 +45,7 @@ export async function GET(req: NextRequest) {
       include: {
         varianti: { select: { nome: true, sku: true, giacenza: true } },
         collezione: { select: { nome: true } },
+        linea: { select: { nome: true } },
         collezioniShopify: { include: { collezione: { select: { titolo: true, negozio: true } } } },
       },
     }),
@@ -58,9 +67,10 @@ export async function GET(req: NextRequest) {
     [
       "Codice",
       "Nome",
-      "Tipo su Shopify",
+      "Categoria dal negozio",
       "Categoria Deluxy",
-      "Vendor",
+      "Linea",
+      "Fornitore",
       "Tag",
       "Varianti",
       "SKU",
@@ -83,6 +93,7 @@ export async function GET(req: NextRequest) {
         esc(p.nome),
         esc(p.tipoShopify ?? ""),
         esc(etichettaCategoria(p.categoria)),
+        esc(p.linea?.nome ?? ""),
         esc(p.vendorShopify ?? ""),
         esc(p.tagShopify ?? ""),
         esc(p.varianti.map((x) => x.nome).join(" | ")),
