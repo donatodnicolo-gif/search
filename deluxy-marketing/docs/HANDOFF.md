@@ -297,6 +297,41 @@ lettura in `ORDERS_API_KEY`). Una fonte sola invece di tre token Admin.
   (`/api/v1/ingest`), Meta viene interrogata, ma la logica di riconoscimento
   campagne e aggiornamento per giorno è la stessa.
 
+### Un periodo solo per tutta l'app (28/07/2026)
+
+`lib/periodo-condiviso.ts`. La scelta del periodo si **ricorda** (Impostazioni
+`periodo.preset` / `periodo.da` / `periodo.a`, **condivisa** come le viste
+salvate) e vale su dashboard, analisi periodo, scheda brand, **scheda
+campagna**, lettura AI e dati in arrivo. Prima ogni pagina si teneva il suo:
+si sceglieva "mese scorso" sulla dashboard e la scheda brand tornava a 30
+giorni senza dirlo — due numeri letti a due minuti di distanza sembravano
+confrontabili e non lo erano.
+
+Gli indirizzi restano completi (`?preset=mese-scorso`): un link incollato
+mostra quello che mostrava a chi l'ha copiato. La scheda campagna ha il suo
+selettore, e KPI, gruppi, grafico e metriche seguono il periodo (prima era
+inchiodata agli "ultimi 60 giorni registrati", che non è un periodo).
+
+### Lo stato di un gruppo: il fatto prima del giudizio (28/07/2026)
+
+> ⚠️ Un gruppo **fermo su Google** si leggeva «● Attivo» col pallino verde.
+> Non era un dato sbagliato: `Gruppo.stato` è il **giudizio dell'app** (nasce
+> "attivo" e l'import non lo tocca mai, apposta) e `statoPiattaforma` è **cosa
+> dice Google**. Era la colonna a rispondere alla domanda sbagliata — chi la
+> guarda vuole sapere se *sta girando*. Ora comanda il fatto («In pausa su
+> Google», arancione) e il giudizio scende sotto («nell'app: Attivo»).
+> Un posto solo: `presentazioneStatoGruppo` in `lib/gruppi.ts`. Riguardava 3
+> gruppi su 49.
+
+### Spesa e incasso per canale (scheda brand, 28/07/2026)
+
+`numeriPerCanale` in `lib/brand-dati.ts`: la media di brand nasconde chi tiene
+su la baracca e chi se la mangia (Gifts a giugno — Google 2.184 € a 3,46×,
+Meta 345 € con **zero** incasso dichiarato). L'incasso è quello che il canale
+**si attribuisce**, quindi di parte; le vendite Shopify **non si sanno
+spezzare per canale** (l'UTM c'è su una minoranza di ordini), quindi il MER
+resta un numero di brand e la tabella non finge di poterlo dividere.
+
 ### Sezioni dell'app
 
 Dashboard (con le tessere dei brand in cima) · Lettura AI · Analisi periodo ·
