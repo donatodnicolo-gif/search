@@ -268,28 +268,70 @@ for (const a of anagrafiche) {
   uniche.push(a);
 }
 
-const esistentiExcel = await prisma.partner.count({ where: { fonte: "excel" } });
 console.log(`\nAnagrafiche uniche: ${uniche.length} (${duplicate} duplicati saltati)`);
-console.log(`Sostituisco le ${esistentiExcel} anagrafiche esistenti con fonte "excel"…`);
 
-await prisma.partner.deleteMany({ where: { fonte: "excel" } });
+// --- MODALITÀ ---------------------------------------------------------------
+// Di default l'import SOSTITUISCE tutto ciò che ha fonte "excel": è pensato per
+// il primo caricamento, quando il file È il registro.
+//
+// Con `--solo-nuovi` invece **non cancella niente** e aggiunge soltanto le
+// anagrafiche che non ci sono ancora. È la modalità da usare quando il tracker
+// viene aggiornato e il registro nel frattempo ha continuato a vivere: dei 562
+// record con fonte excel, alcuni sono ormai collegati a Scout e a HubSpot,
+// centinaia hanno referenti aggiunti a mano e decine sono partner ATTIVI.
+// Cancellarli e ricrearli darebbe loro id nuovi, staccando i collegamenti e
+// buttando via tutto ciò che è stato aggiunto dopo l'ultimo import.
+const soloNuovi = process.argv.includes("--solo-nuovi");
+// Solo elenca cosa farebbe, senza scrivere: da usare sempre prima di lanciarlo
+// davvero su un registro pieno.
+const provaSola = process.argv.includes("--prova");
+
+// Confronto per nome+città normalizzati. Non per nome soltanto: nel tracker 59
+// insegne compaiono in più città (Brunello Cucinelli ×5) e sono punti vendita
+// diversi, non duplicati.
+const chiaveDi = (nome, citta) =>
+  [nome, citta]
+    .map((v) => (v ?? "").toString().toUpperCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^A-Z0-9]/g, ""))
+    .join("|");
+
+let daCreare = uniche;
+if (soloNuovi) {
+  const esistenti = await prisma.partner.findMany({ select: { nome: true, citta: true } });
+  const gia = new Set(esistenti.map((p) => chiaveDi(p.nome, p.citta)));
+  daCreare = uniche.filter((a) => !gia.has(chiaveDi(a.nome, a.citta)));
+  console.log(`Registro: ${esistenti.length} anagrafiche già presenti.`);
+  console.log(`Da creare: ${daCreare.length} — nessuna cancellazione, nessun record esistente toccato.`);
+  for (const a of daCreare) console.log(`  + ${a.nome} — ${a.citta ?? "senza città"} (${a.categoria})`);
+} else {
+  const esistentiExcel = await prisma.partner.count({ where: { fonte: "excel" } });
+  console.log(`⚠️  Sostituisco le ${esistentiExcel} anagrafiche esistenti con fonte "excel"…`);
+  if (!provaSola) await prisma.partner.deleteMany({ where: { fonte: "excel" } });
+}
+
+if (provaSola) {
+  console.log(`\n[prova] Non è stato scritto niente. Sarebbero state create ${daCreare.length} anagrafiche.`);
+  await prisma.$disconnect();
+  process.exit(0);
+}
 
 let create = 0;
 let contattiTotali = 0;
-for (const { contatti, ...dati } of uniche) {
+for (const { contatti, ...dati } of daCreare) {
   await prisma.partner.create({
     data: {
       ...dati,
       fonte: "excel",
       // Data convenzionale del lotto storico del tracker (vigilia della nascita
-      // del registro): un re-import non deve far sembrare "di oggi" anagrafiche vecchie.
-      creatoIl: new Date("2026-07-16T10:00:00.000Z"),
+      // del registro): un re-import non deve far sembrare "di oggi" anagrafiche
+      // vecchie. Le aggiunte di `--solo-nuovi` invece sono davvero nuove e
+      // tengono la data di oggi: sapere quando è entrata un'anagrafica serve.
+      ...(soloNuovi ? {} : { creatoIl: new Date("2026-07-16T10:00:00.000Z") }),
       contatti: contatti.length ? { create: contatti } : undefined,
     },
   });
   create++;
   contattiTotali += contatti.length;
-  if (create % 100 === 0) console.log(`  …${create}/${uniche.length}`);
+  if (create % 100 === 0) console.log(`  …${create}/${daCreare.length}`);
 }
 
 console.log(`\nFatto: ${create} anagrafiche importate, ${contattiTotali} contatti estratti.`);
