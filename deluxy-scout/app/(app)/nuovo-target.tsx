@@ -17,6 +17,7 @@ import { caricaRegole, regolaPerCategoria } from '@/lib/categoryRules';
 import { inserisciPlace, registraContattoAvviato, type CanaleContatto } from '@/lib/db';
 import { avvisa } from '@/lib/dialoghi';
 import { posizioneCorrente, type Coord } from '@/lib/location';
+import { AddressSearch } from '@/components/AddressSearch';
 import { BoxIpotesi } from '@/components/BoxIpotesi';
 import { LineaSelector } from '@/components/LineaSelector';
 import { PriorityBadge } from '@/components/PriorityBadge';
@@ -32,6 +33,26 @@ const CANALI: { id: CanaleContatto; label: string; icona: keyof typeof Ionicons.
   { id: 'web', label: 'Dal web', icona: 'globe-outline' },
   { id: 'altro', label: 'Di persona o altro', icona: 'ellipsis-horizontal' },
 ];
+
+/**
+ * La citta' dall'indirizzo formattato di Google — «Via della Spiga, 1, 20121
+ * Milano MI, Italia» → «Milano». Si toglie il CAP e la sigla provincia, che
+ * nella zona non servono; se non si riconosce niente si torna stringa vuota e
+ * il campo resta da riempire a mano, invece di metterci «Italia».
+ */
+function cittaDaIndirizzo(formattato: string): string {
+  const parti = formattato.split(',').map((p) => p.trim()).filter(Boolean);
+  // L'ultima e' il paese: si scarta. La penultima e' di solito «20121 Milano MI».
+  const candidata = parti.length >= 2 ? parti[parti.length - 2] : '';
+  const citta = candidata
+    .replace(/^\d{4,5}\s*/, '') // CAP iniziale
+    .replace(/\s+[A-Z]{2}$/, '') // sigla provincia finale
+    .trim();
+  // Se quello che resta è ancora una via, l'indirizzo non aveva il paese in
+  // fondo (Google ce l'ha sempre, altri no): meglio lasciare vuoto che
+  // scrivere «Corso Venezia 5» nel campo della zona.
+  return /^(via|viale|corso|piazza|largo|vicolo|strada|str\.|p\.zza)\b/i.test(citta) ? '' : citta;
+}
 
 export default function NuovoTarget() {
   const router = useRouter();
@@ -49,6 +70,11 @@ export default function NuovoTarget() {
   const [nome, setNome] = useState('');
   const [indirizzo, setIndirizzo] = useState('');
   const [zona, setZona] = useState('');
+  // Le coordinate scelte da Google. Prima il negozio si poteva creare SOLO
+  // stando fisicamente davanti (serviva il GPS): dalla scrivania il form si
+  // bloccava su «Attendi il check-in GPS», e un negozio visto su internet non
+  // si poteva inserire. Ora l'indirizzo scelto porta con sé la posizione.
+  const [coordScelte, setCoordScelte] = useState<Coord | null>(null);
   const [categoria, setCategoria] = useState<string | null>(null);
   const [lineeOverride, setLineeOverride] = useState<string[] | null>(null);
 
@@ -80,8 +106,15 @@ export default function NuovoTarget() {
       avvisa('Nome mancante', 'Inserisci il nome dell’attività.');
       return;
     }
-    if (!pos) {
-      avvisa('Posizione non disponibile', 'Attendi il check-in GPS o riprova.');
+    // La posizione può arrivare da due strade: l'indirizzo scelto su Google
+    // (si inserisce da scrivania) o il GPS (si è davanti al negozio). Prima
+    // c'era solo la seconda, e senza segnale non si salvava.
+    const posizione = coordScelte ?? pos;
+    if (!posizione) {
+      avvisa(
+        'Manca la posizione',
+        'Cerca l’indirizzo qui sopra e scegli un suggerimento: la posizione arriva da lì. Oppure attendi il segnale GPS se sei davanti al negozio.',
+      );
       return;
     }
     setSalvataggio(true);
@@ -90,8 +123,8 @@ export default function NuovoTarget() {
       const place = await inserisciPlace({
         nome: nome.trim(),
         indirizzo: indirizzo.trim() || null,
-        lat: pos.lat,
-        lng: pos.lng,
+        lat: posizione.lat,
+        lng: posizione.lng,
         categoria: categoria,
         settore: null,
         zona: zona.trim() || null,
@@ -128,16 +161,56 @@ export default function NuovoTarget() {
       <Stack.Screen options={{ title: nasceLead ? 'Nuovo lead' : 'Nuovo target' }} />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          {/* Dice quale posizione verrà salvata. Prima diceva solo se il GPS
+              aveva agganciato, e restava «Acquisizione posizione…» per sempre
+              da scrivania — sembrava un blocco, ed era anche vero. */}
           <Text style={styles.checkin}>
-            <Ionicons name="location-outline" size={14} color={colors.testoSoft} />{' '}
-            {pos ? 'Posizione acquisita' : 'Acquisizione posizione…'}
+            <Ionicons
+              name={coordScelte ? 'location' : 'location-outline'}
+              size={14}
+              color={coordScelte ? colors.successo : colors.testoSoft}
+            />{' '}
+            {coordScelte
+              ? 'Posizione dall’indirizzo scelto'
+              : pos
+                ? 'Posizione dal GPS (sei qui)'
+                : 'Nessuna posizione: cerca l’indirizzo qui sotto'}
           </Text>
 
           <Text style={styles.label}>Nome attività *</Text>
           <TextInput style={styles.input} value={nome} onChangeText={setNome} placeholder="Es. Boutique Aurea" placeholderTextColor={colors.grigio} />
 
           <Text style={styles.label}>Indirizzo</Text>
-          <TextInput style={styles.input} value={indirizzo} onChangeText={setIndirizzo} placeholder="Via, numero, città" placeholderTextColor={colors.grigio} />
+          {/* Ricerca Google, la stessa della Mappa: scegliendo un suggerimento
+              arrivano l'indirizzo per esteso E le coordinate. Senza, il negozio
+              si poteva creare solo stando fisicamente lì col GPS acceso. */}
+          <AddressSearch
+            placeholder="Cerca l’indirizzo del negozio…"
+            onSelect={(r) => {
+              setIndirizzo(r.formatted_address);
+              setCoordScelte({ lat: r.lat, lng: r.lng });
+              // La zona si ricava dall'indirizzo (Milano/Roma/Firenze/Altre) ma
+              // resta modificabile: chi conosce il territorio scrive «Brera»,
+              // che vale più di «Milano».
+              if (!zona.trim()) setZona(cittaDaIndirizzo(r.formatted_address));
+            }}
+            onClear={() => setCoordScelte(null)}
+          />
+          {indirizzo ? (
+            <Text style={styles.sceltoTxt} numberOfLines={2}>
+              <Ionicons name="location" size={12} color={colors.successo} /> {indirizzo}
+              {coordScelte ? ' · posizione trovata' : ''}
+            </Text>
+          ) : null}
+          {/* Resta modificabile a mano: gli indirizzi che Google non conosce
+              esistono, e un form che li rifiuta è un form che non si usa. */}
+          <TextInput
+            style={[styles.input, styles.inputSotto]}
+            value={indirizzo}
+            onChangeText={setIndirizzo}
+            placeholder="…oppure scrivilo a mano"
+            placeholderTextColor={colors.grigio}
+          />
 
           <Text style={styles.label}>Zona</Text>
           <TextInput style={styles.input} value={zona} onChangeText={setZona} placeholder="Es. Quadrilatero, Brera…" placeholderTextColor={colors.grigio} />
@@ -226,6 +299,8 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
   },
   chipCanale: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  inputSotto: { marginTop: 6 },
+  sceltoTxt: { color: colors.testoSoft, fontSize: 12.5, marginTop: 6, lineHeight: 17 },
   chipOn: { backgroundColor: colors.navy, borderColor: colors.navy },
   aiuto: { color: colors.testoSoft, fontSize: 12.5, lineHeight: 18, marginTop: spacing.sm },
   aiutoForte: { fontWeight: '800', color: colors.testo },

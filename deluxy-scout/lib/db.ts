@@ -425,8 +425,12 @@ export async function fetchClienti(): Promise<Cliente[]> {
 /** Aggiorna i campi editabili di un'attività (correzione dati sul campo). */
 export async function aggiornaPlace(
   id: string,
+  // `lat`/`lng` incluse: cambiando indirizzo dalla ricerca Google si sposta
+  // anche il punto sulla mappa. Senza, un negozio corretto nell'indirizzo
+  // restava piantato sulle vecchie coordinate — e sulla mappa è il punto che
+  // conta, non il testo.
   patch: Partial<
-    Pick<Place, 'nome' | 'indirizzo' | 'zona' | 'categoria' | 'settore' | 'priorita' | 'stato' | 'stato_affiliazione' | 'anagrafiche_account' | 'linea_ipotizzata' | 'linee_ipotizzate' | 'aggancio_apertura'>
+    Pick<Place, 'nome' | 'indirizzo' | 'zona' | 'categoria' | 'settore' | 'priorita' | 'stato' | 'stato_affiliazione' | 'anagrafiche_account' | 'linea_ipotizzata' | 'linee_ipotizzate' | 'aggancio_apertura' | 'lat' | 'lng'>
   >,
 ): Promise<void> {
   const { error } = await supabase.from('places').update(patch).eq('id', id);

@@ -9,6 +9,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import type { CategoryRule, Place, Priorita, Profilo, StatoAffiliazione } from '@/types';
 import { STATI_AFFILIAZIONE, affiliazioneDaStatoPlace, canonizzaLinee, statoPlaceDaAffiliazione } from '@/types';
@@ -16,6 +17,7 @@ import { coloreAffiliazione, colors, labelAffiliazione, radius, spacing } from '
 import { aggiornaPlace, fetchPlace, fetchProfiles, nomeDaProfilo, sincronizzaPlaceRegistro } from '@/lib/db';
 import { avvisa } from '@/lib/dialoghi';
 import { caricaRegole } from '@/lib/categoryRules';
+import { AddressSearch } from '@/components/AddressSearch';
 import { LineaSelector } from '@/components/LineaSelector';
 import { PriorityBadge } from '@/components/PriorityBadge';
 import { Loader } from '../../_layout';
@@ -33,6 +35,8 @@ export default function ModificaAttivita() {
 
   const [nome, setNome] = useState('');
   const [indirizzo, setIndirizzo] = useState('');
+  // Coordinate dal nuovo indirizzo scelto: se ci sono, si sposta anche il punto.
+  const [coordScelte, setCoordScelte] = useState<{ lat: number; lng: number } | null>(null);
   const [zona, setZona] = useState('');
   const [categoria, setCategoria] = useState<string | null>(null);
   const [priorita, setPriorita] = useState<Priorita>('P3');
@@ -91,6 +95,9 @@ export default function ModificaAttivita() {
       await aggiornaPlace(place.id, {
         nome: nome.trim(),
         indirizzo: indirizzo.trim() || null,
+        // Solo se un indirizzo nuovo e' stato scelto: senza, si sovrascriverebbero
+        // coordinate buone con quelle vecchie.
+        ...(coordScelte ? { lat: coordScelte.lat, lng: coordScelte.lng } : {}),
         zona: zona.trim() || null,
         categoria,
         priorita,
@@ -124,7 +131,31 @@ export default function ModificaAttivita() {
           <TextInput style={styles.input} value={nome} onChangeText={setNome} placeholderTextColor={colors.grigio} />
 
           <Text style={styles.label}>Indirizzo</Text>
-          <TextInput style={styles.input} value={indirizzo} onChangeText={setIndirizzo} placeholderTextColor={colors.grigio} />
+          {/* Ricerca Google come nel form di inserimento: correggere un
+              indirizzo sbagliato a mano vuol dire riscriverlo tutto, e spesso
+              rifarlo sbagliato. Scegliendo un suggerimento si aggiorna anche la
+              posizione sulla mappa, che a mano non si potrebbe toccare. */}
+          <AddressSearch
+            placeholder="Cerca il nuovo indirizzo…"
+            onSelect={(r) => {
+              setIndirizzo(r.formatted_address);
+              setCoordScelte({ lat: r.lat, lng: r.lng });
+            }}
+            onClear={() => setCoordScelte(null)}
+          />
+          <TextInput
+            style={[styles.input, styles.inputSotto]}
+            value={indirizzo}
+            onChangeText={setIndirizzo}
+            placeholder="…oppure scrivilo a mano"
+            placeholderTextColor={colors.grigio}
+          />
+          {coordScelte ? (
+            <Text style={styles.posNota}>
+              <Ionicons name="location" size={12} color={colors.successo} /> Anche la posizione sulla mappa verrà
+              aggiornata.
+            </Text>
+          ) : null}
 
           <Text style={styles.label}>Zona</Text>
           <TextInput style={styles.input} value={zona} onChangeText={setZona} placeholderTextColor={colors.grigio} />
@@ -203,6 +234,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.testo,
   },
+  inputSotto: { marginTop: 6 },
+  posNota: { color: colors.testoSoft, fontSize: 12.5, marginTop: 6 },
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' },
   chip: {
     backgroundColor: colors.bianco,
