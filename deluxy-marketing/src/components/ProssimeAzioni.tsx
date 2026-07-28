@@ -70,6 +70,10 @@ export async function ProssimeAzioni({ campagnaId }: { campagnaId: string }) {
   const conta = (t: string) => pezzi.find((p) => p.tipo === t)?._count._all ?? 0;
 
   const giud = giudicabilita(campagna.modifiche[0]?.eseguitaIl ?? null);
+  // Il giorno più recente per cui abbiamo numeri: è la data a cui si riferisce
+  // ogni proposta calcolata al volo.
+  const ultimoGiorno = campagna.metriche[0]?.data ?? null;
+
   const voci = opportunitaCampagna({
     campagna: {
       id: campagna.id,
@@ -84,7 +88,7 @@ export async function ProssimeAzioni({ campagnaId }: { campagnaId: string }) {
     metriche: [...campagna.metriche].reverse(),
     gruppi,
     keyword,
-    alert: campagna.alert.map((a) => ({ tipo: a.tipo, livello: a.livello, messaggio: a.messaggio })),
+    alert: campagna.alert.map((a) => ({ tipo: a.tipo, livello: a.livello, messaggio: a.messaggio, creatoIl: a.creatoIl })),
     inBlackoutFino: giud.fino,
     copertura: peso > 0 ? { quota: quota / peso, persaBudget: persaBudget / peso, persaRank: persaRank / peso } : null,
     termini,
@@ -123,6 +127,12 @@ export async function ProssimeAzioni({ campagnaId }: { campagnaId: string }) {
               <span className="storia-testo" style={{ whiteSpace: "normal" }}>
                 <b>{v.titolo}</b>
                 <div className="cella-sub" style={{ whiteSpace: "normal", marginTop: 2 }}>{v.perche}</div>
+                {/* Da dove nasce: una proposta senza provenienza è un'opinione. */}
+                <div className="cella-sub" style={{ marginTop: 4, color: "var(--text-tertiary)" }}>
+                  {v.origine ?? "Regola dell'app sui numeri di questa campagna"}
+                  {v.dal && ` · aperto il ${v.dal.toLocaleDateString("it-IT")}`}
+                  {!v.dal && ultimoGiorno && ` · calcolata adesso sui dati fino al ${ultimoGiorno.toLocaleDateString("it-IT")}`}
+                </div>
                 {v.dove && (
                   <div style={{ marginTop: 4 }}>
                     <a href={v.dove} style={{ fontSize: 13 }}>Vai dove si fa →</a>

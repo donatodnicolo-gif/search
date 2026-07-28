@@ -17,6 +17,11 @@ export type Opportunita = {
   dove?: string;
   // Voce solo informativa: non ha senso trasformarla in azione
   soloNota?: boolean;
+  // DA DOVE NASCE. Una proposta senza provenienza è un'opinione: chi la legge
+  // deve poter risalire al numero e alla regola che l'hanno prodotta.
+  origine?: string;
+  // Da quando è vera, se è una cosa con una data (gli alert ce l'hanno).
+  dal?: Date | null;
 };
 
 export type DatiOpportunita = {
@@ -34,7 +39,7 @@ export type DatiOpportunita = {
   metriche: { data: Date; spesa: number | null; conversioni: number | null; ricavi: number | null }[];
   gruppi: GruppoConNumeri[];
   keyword: { testo: string; spesa: number | null; incasso: number | null }[];
-  alert: { tipo: string; livello: string; messaggio: string }[];
+  alert: { tipo: string; livello: string; messaggio: string; creatoIl?: Date }[];
   inBlackoutFino: Date | null;
   // Quota impressioni media del periodo (0-1), null se Google non la dà
   copertura: { quota: number; persaBudget: number; persaRank: number } | null;
@@ -94,6 +99,8 @@ export function opportunitaCampagna(d: DatiOpportunita): Opportunita[] {
       titolo: `Chiudere l'alert ${a.tipo} su "${d.campagna.nome}"`,
       perche: a.messaggio,
       priorita: a.livello === "rosso" ? "alta" : "media",
+      origine: `Alert ${a.tipo} rilevato dall'app`,
+      dal: a.creatoIl ?? null,
     });
   }
 

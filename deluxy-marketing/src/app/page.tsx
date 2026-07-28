@@ -4,6 +4,7 @@ import { BottoneSync } from "@/components/BottoneSync";
 import { GraficoSpesa } from "@/components/GraficoSpesa";
 import { Scadenza } from "@/components/Scadenza";
 import { SceltaPeriodo } from "@/components/SceltaPeriodo";
+import { UltimaCorsa } from "@/components/UltimaCorsa";
 import { ScelteBrand } from "@/components/ScelteBrand";
 import { Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
@@ -200,6 +201,8 @@ export default async function Dashboard({
         <SceltaPeriodo periodo={periodo} da={p.da} a={p.a} azione="/" />
 
         <ScelteBrand periodo={periodo.corrente} />
+
+        <UltimaCorsa />
 
         <AndamentoMese />
 

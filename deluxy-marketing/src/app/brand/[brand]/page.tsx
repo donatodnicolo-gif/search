@@ -127,7 +127,7 @@ export default async function PaginaBrand({
     q.set("ord", colonna);
     // Stessa colonna → si rovescia; colonna nuova → si parte dal verso utile
     // (grande-piccolo per i numeri, A-Z per il testo).
-    const numerica = ["spesa", "conv", "roas"].includes(colonna);
+    const numerica = ["spesa", "conv", "valore", "roas"].includes(colonna);
     q.set("verso", ord === colonna ? (verso === "giu" ? "su" : "giu") : numerica ? "giu" : "su");
     return `/brand/${brand}?${q.toString()}`;
   };
@@ -142,6 +142,7 @@ export default async function PaginaBrand({
     if (ord === "canale") return segno * a.c.canale.localeCompare(b.c.canale, "it");
     if (ord === "stato") return segno * a.c.stato.localeCompare(b.c.stato, "it");
     if (ord === "conv") return segno * (a.conv - b.conv);
+    if (ord === "valore") return segno * (a.ric - b.ric);
     if (ord === "roas") return segno * (resa(a) - resa(b));
     return segno * (a.spesa - b.spesa);
   };
@@ -295,6 +296,9 @@ export default async function PaginaBrand({
                         <th><a href={linkOrd("stato")}>Stato{frecciaOrd("stato")}</a></th>
                         <th className="num"><a href={linkOrd("spesa")}>Spesa{frecciaOrd("spesa")}</a></th>
                         <th className="num"><a href={linkOrd("conv")}>Conv.{frecciaOrd("conv")}</a></th>
+                        <th className="num" title="Valore delle conversioni dichiarato dalla piattaforma">
+                          <a href={linkOrd("valore")}>Valore{frecciaOrd("valore")}</a>
+                        </th>
                         <th className="num"><a href={linkOrd("roas")}>ROAS{frecciaOrd("roas")}</a></th>
                       </tr>
                     </thead>
@@ -333,6 +337,9 @@ export default async function PaginaBrand({
                               </td>
                               <td className="num">{spesa > 0 ? formattaEuro(spesa) : "—"}</td>
                               <td className="num">{conv > 0 ? Math.round(conv) : "—"}</td>
+                              <td className="num" style={lead ? { color: "var(--text-tertiary)" } : undefined}>
+                                {lead ? "n/d" : ric > 0 ? formattaEuro(ric) : "—"}
+                              </td>
                               <td className="num" style={{ fontWeight: 600, color: lead ? "var(--text-tertiary)" : r != null ? (r >= be ? "var(--green)" : "var(--red)") : undefined }}>
                                 {lead ? "n/d" : r != null ? `${r.toFixed(1)}×` : "—"}
                               </td>
