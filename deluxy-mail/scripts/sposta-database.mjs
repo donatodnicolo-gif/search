@@ -93,25 +93,97 @@ function verificaElenco() {
 const url = (nome) => {
   const v = (process.env[nome] || '').trim()
   if (!v) throw new Error(`Manca ${nome} (mettila in .env.sposta e lancia con --env-file=.env.sposta).`)
+  // ⚠️ Il pooler di Supabase sulla 6543 è pgbouncer in modalità transaction:
+  // le prepared statements di Prisma non sopravvivono fra una transazione e
+  // l'altra e si rompono con «prepared statement "s0" already exists».
+  // `pgbouncer=true` dice a Prisma di non usarle.
+  if (!v.includes('pgbouncer=')) return v + (v.includes('?') ? '&' : '?') + 'pgbouncer=true'
   return v
 }
 
-async function copiaTabella(da, a, modello) {
-  const totale = await da[modello].count()
-  if (totale === 0) return { modello, letti: 0, scritti: 0 }
+// La chiave con cui ordinare i lotti: quasi tutte le tabelle hanno `id`,
+// Impostazione ha `chiave` come chiave primaria.
+const CHIAVE_ORDINE = { impostazione: 'chiave' }
+
+// Lotti più piccoli per le tabelle con righe pesanti: 500 messaggi coi corpi
+// dentro sono decine di MB per chiamata, e il pooler li rifiuta o rallenta.
+const LOTTO_PER_MODELLO = { messaggio: 100 }
+
+// I 30 giorni della finestra "calda" dell'HTML (stessa regola di htmlServer.ts).
+const LIMITE_HTML = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+
+async function copiaTabella(da, a, modello, opzioni = {}) {
+  const { dove = undefined, dopoLettura = null, etichetta = modello } = opzioni
+  const totale = await da[modello].count({ where: dove })
+  if (totale === 0) return { modello: etichetta, letti: 0, scritti: 0 }
+
+  const lotto = LOTTO_PER_MODELLO[modello] ?? LOTTO
+  const ordine = CHIAVE_ORDINE[modello] ?? 'id'
 
   let scritti = 0
   let saltati = 0
-  for (let salta = 0; salta < totale; salta += LOTTO) {
-    const righe = await da[modello].findMany({ skip: salta, take: LOTTO, orderBy: { id: 'asc' } })
+  for (let salta = 0; salta < totale; salta += lotto) {
+    const righe = await da[modello].findMany({
+      where: dove,
+      skip: salta,
+      take: lotto,
+      orderBy: { [ordine]: 'asc' },
+      ...(opzioni.omit ? { omit: opzioni.omit } : {}),
+    })
     if (!SCRIVI) continue
-    const r = await a[modello].createMany({ data: righe, skipDuplicates: true })
+    const dati = dopoLettura ? righe.map(dopoLettura) : righe
+    const r = await a[modello].createMany({ data: dati, skipDuplicates: true })
     scritti += r.count
     saltati += righe.length - r.count
-    process.stdout.write(`\r  ${modello}: ${Math.min(salta + LOTTO, totale)}/${totale}`)
+    process.stdout.write(`\r  ${etichetta}: ${Math.min(salta + lotto, totale)}/${totale}`)
   }
   if (SCRIVI) process.stdout.write('\n')
-  return { modello, letti: totale, scritti, saltati }
+  return { modello: etichetta, letti: totale, scritti, saltati }
+}
+
+/**
+ * ⚠️ I MESSAGGI SI COPIANO IN TRE GRUPPI, e il perché è il 90% del peso del
+ * database: i corpi HTML. Quelli delle mail vecchie NON vanno copiati — sul
+ * database nuovo li toglierebbe comunque la pulizia del cron, e l'app li
+ * riprende dal server all'apertura. Ma non basta non SCRIVERLI: bisogna non
+ * LEGGERLI proprio (`omit` in query), altrimenti la copia scaricherebbe lo
+ * stesso 1,4 GB dalla sorgente — che è già oltre il tetto di egress del piano
+ * Free — per poi buttarlo.
+ *
+ *  1. mail RECENTI (finestra calda): intere, HTML compreso;
+ *  2. mail VECCHIE ancora sul server (uid > 0): senza HTML, mai letto;
+ *  3. mail VECCHIE solo-locali (uid ≤ 0): intere — per loro il database è
+ *     l'unico posto al mondo dove l'impaginato esiste.
+ */
+async function copiaMessaggi(da, a) {
+  const esiti = []
+  esiti.push(
+    await copiaTabella(da, a, 'messaggio', {
+      dove: { data: { gte: LIMITE_HTML } },
+      etichetta: 'messaggio (recenti, con HTML)',
+    })
+  )
+  esiti.push(
+    await copiaTabella(da, a, 'messaggio', {
+      dove: { data: { lt: LIMITE_HTML }, uid: { gt: 0 } },
+      omit: { corpoHtml: true },
+      dopoLettura: (r) => ({ ...r, corpoHtml: null }),
+      etichetta: 'messaggio (vecchi, HTML dal server)',
+    })
+  )
+  esiti.push(
+    await copiaTabella(da, a, 'messaggio', {
+      dove: { data: { lt: LIMITE_HTML }, uid: { lte: 0 } },
+      etichetta: 'messaggio (vecchi solo-locali)',
+    })
+  )
+  // Un solo esito riassuntivo: il confronto finale conta la tabella intera.
+  return {
+    modello: 'messaggio',
+    letti: esiti.reduce((s, e) => s + e.letti, 0),
+    scritti: esiti.reduce((s, e) => s + (e.scritti ?? 0), 0),
+    saltati: esiti.reduce((s, e) => s + (e.saltati ?? 0), 0),
+  }
 }
 
 /**
@@ -204,7 +276,13 @@ async function main() {
   const esiti = []
   for (const modello of ORDINE) {
     try {
-      esiti.push(modello === 'sezione' ? await copiaSezioni(da, a) : await copiaTabella(da, a, modello))
+      esiti.push(
+        modello === 'sezione'
+          ? await copiaSezioni(da, a)
+          : modello === 'messaggio'
+            ? await copiaMessaggi(da, a)
+            : await copiaTabella(da, a, modello)
+      )
     } catch (e) {
       console.error(`\n✗ ${modello}: ${e.message}`)
       esiti.push({ modello, errore: e.message })
