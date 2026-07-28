@@ -212,6 +212,37 @@ compare); quello che **esce** non si toglie dalle campagne — lì dentro non c'
 sarebbe sottrarre due volte — ma dalla cassa, che è il numero da cui è stato spostato. Con il
 ripiego sulla banca la riga torna a essere cassa e la competenza vale in entrambi i versi.
 
+## Due lenti sulla stessa categoria: P&L gestionale e bilancio civilistico
+
+Ogni categoria del CFO ha **due** classificazioni, e non sono un doppione:
+
+- **`tipoPL`** (COGS / ADV / PERSONALE / STRUTTURA / ESCLUSA) risponde a «quanto margine faccio».
+  È quella che alimenta il P&L quotidiano;
+- **`voceCE`** (B6 / B7 / B8 / B9 / B14 / C17 / esclusa) risponde a «cosa scrivo in bilancio».
+
+Servono entrambe perché divergono, e il bilancio 2024 di Deluxy fa vedere quanto:
+
+| Nel P&L dell'app | In bilancio | 2024 |
+|---|---|---|
+| Pubblicità, voce a sé | dentro **B7 servizi** | 82.802 € |
+| Costo del personale | **B9**, ma solo lavoro dipendente | 36.725 € |
+| — | amministratore, co.co.co., occasionali → **B7** | 42.625 € |
+| Struttura, voce unica | divisa fra **B7**, **B8**, **B14** | 5.388 + 29.694 € |
+| Costo per servizi | **B7**, non B6 | 278.457 € |
+| — | **B6 merci** (fiori, torte) | 42.299 € |
+
+La voce di bilancio si sceglie nel [CFO](https://deluxy-budgets.vercel.app/cfo), colonna «Voce di
+bilancio». Una categoria che nessuno ha ancora deciso mostra **«dedotta, da confermare»** e usa il
+valore ricavato da `tipoPL` (quasi tutto B7): la proposta di conto economico le elenca invece di far
+finta che siano state scelte. `GET /api/v1/categorie` espone `voceCE` accanto a `tipoPL`.
+
+**A cosa serve davvero**: la proposta in `/conto-economico` somma le uscite **per voce di bilancio**,
+e accanto a ogni voce mostra quanto valeva nell'ultimo bilancio vero con la variazione %. È così che
+saltano fuori gli errori di classificazione — al 28/07/2026 il B6 proposto per il 2026 è 349.377 €
+contro 42.299 € del 2024, perché dentro «Fornitori fiori e torte» ci sono i pagamenti ai partner, che
+merce non sono; e il B9 è 217.254 € contro 36.725 €, perché l'anagrafica Dipendenti comprende molto
+più del lavoro dipendente.
+
 ## Chiavi (cassaforte del Hub)
 
 Le chiavi (`FINANCE_API_KEY`, `ORDERS_API_KEY`, `OPENAI_API_KEY`, …) non stanno nel `.env` di questa app: si
