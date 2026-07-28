@@ -20,6 +20,38 @@ export const maxDuration = 30
 
 const API = 'https://graph.facebook.com/v21.0'
 
+/**
+ * I codici di Meta tradotti nel passo successivo.
+ *
+ * ⚠️ «Riprova più tardi» è il messaggio più inutile che ci sia: non dice se
+ * aspettare due minuti o due ore, né se il problema si risolve aspettando. Il
+ * CODICE numerico invece distingue i casi, e va mostrato: senza, si continua a
+ * premere lo stesso bottone sperando che cambi qualcosa.
+ */
+const SPIEGAZIONI: Record<number, string> = {
+  133004:
+    'Meta dice che il servizio è momentaneamente non disponibile: qui aspettare serve davvero, riprova fra qualche minuto.',
+  133005:
+    'Sul numero c’è già una verifica in due passaggi attiva: il codice non si può richiedere finché non la sblocchi da WhatsApp Manager (impostazioni del numero → Verifica in due passaggi).',
+  133015:
+    'Il numero è in lavorazione su Meta (registrazione o cancellazione in corso): aspetta che finisca prima di richiedere il codice.',
+  4: 'Troppe richieste in poco tempo: Meta ha messo un limite, riprova fra un’ora.',
+  80007: 'Troppe richieste in poco tempo: Meta ha messo un limite, riprova più tardi.',
+  131000:
+    'Errore generico di Meta. Se si ripete, fai la verifica direttamente da WhatsApp Manager: la sua procedura guidata gestisce meglio i numeri fissi.',
+}
+
+/** L'errore di Meta con il codice in chiaro, più il passo successivo. */
+function errore(stato: number, corpo: { error?: { message?: string; code?: number; error_subcode?: number; error_user_msg?: string } }) {
+  const e = corpo.error
+  const codice = e?.code
+  const pezzi = [
+    codice ? `(#${codice}${e?.error_subcode ? '/' + e.error_subcode : ''})` : '',
+    e?.error_user_msg || e?.message || `errore ${stato}`,
+  ].filter(Boolean)
+  return { errore: `Meta risponde: ${pezzi.join(' ')}`, cosaFare: SPIEGAZIONI[codice ?? 0] }
+}
+
 async function numeroETokens(body: unknown) {
   const { phoneNumberId } = (body ?? {}) as { phoneNumberId?: string }
   const numero = (phoneNumberId ?? '').replace(/\D/g, '')
@@ -48,12 +80,9 @@ export async function POST(req: NextRequest) {
       signal: AbortSignal.timeout(20000),
     })
     const corpo = (await res.json().catch(() => ({}))) as {
-      error?: { message?: string; error_user_msg?: string }
+      error?: { message?: string; code?: number; error_subcode?: number; error_user_msg?: string }
     }
-    if (!res.ok) {
-      const m = corpo.error?.error_user_msg || corpo.error?.message || `errore ${res.status}`
-      return NextResponse.json({ errore: `Meta risponde: ${m}` }, { status: 502 })
-    }
+    if (!res.ok) return NextResponse.json(errore(res.status, corpo), { status: 502 })
     return NextResponse.json({
       ok: true,
       messaggio:
@@ -85,12 +114,9 @@ export async function PUT(req: NextRequest) {
       signal: AbortSignal.timeout(20000),
     })
     const corpo = (await res.json().catch(() => ({}))) as {
-      error?: { message?: string; error_user_msg?: string }
+      error?: { message?: string; code?: number; error_subcode?: number; error_user_msg?: string }
     }
-    if (!res.ok) {
-      const m = corpo.error?.error_user_msg || corpo.error?.message || `errore ${res.status}`
-      return NextResponse.json({ errore: `Meta risponde: ${m}` }, { status: 502 })
-    }
+    if (!res.ok) return NextResponse.json(errore(res.status, corpo), { status: 502 })
     return NextResponse.json({
       ok: true,
       messaggio: 'Numero verificato. Ora registralo scegliendo un PIN di 6 cifre.',

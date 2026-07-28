@@ -70,9 +70,15 @@ export function RegistraNumero({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phoneNumberId, metodo }),
       })
-      const d = (await res.json().catch(() => ({}))) as { messaggio?: string; errore?: string }
-      if (!res.ok) setErrore(d.errore || 'Richiesta non riuscita.')
-      else setEsito(d.messaggio || 'Codice richiesto.')
+      const d = (await res.json().catch(() => ({}))) as {
+        messaggio?: string
+        errore?: string
+        cosaFare?: string
+      }
+      if (!res.ok) {
+        setErrore(d.errore || 'Richiesta non riuscita.')
+        setCosaFare(d.cosaFare ?? '')
+      } else setEsito(d.messaggio || 'Codice richiesto.')
     } catch {
       setErrore('Richiesta non riuscita: problema di rete.')
     } finally {
@@ -91,9 +97,15 @@ export function RegistraNumero({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phoneNumberId, codice }),
       })
-      const d = (await res.json().catch(() => ({}))) as { messaggio?: string; errore?: string }
-      if (!res.ok) setErrore(d.errore || 'Verifica non riuscita.')
-      else {
+      const d = (await res.json().catch(() => ({}))) as {
+        messaggio?: string
+        errore?: string
+        cosaFare?: string
+      }
+      if (!res.ok) {
+        setErrore(d.errore || 'Verifica non riuscita.')
+        setCosaFare(d.cosaFare ?? '')
+      } else {
         setEsito(d.messaggio || 'Numero verificato.')
         setCodice('')
       }
