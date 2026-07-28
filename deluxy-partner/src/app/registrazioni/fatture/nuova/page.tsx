@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { risolviAnagrafica } from "@/lib/anagrafiche";
 import { datiFiscaliDaFic } from "@/lib/riconciliazione-fic";
+import { matchPartner } from "@/lib/riconciliazione";
 import { ficStato, ficClientiFatturabiliCached, ficEntityUltimaFattura, ficCreaFattura, ficMetodiPagamento, type RigaFattura, type FicEntity } from "@/lib/fic";
 import { RigheProForma } from "@/components/RigheProForma";
 import { TerminiPagamento } from "@/components/TerminiPagamento";
@@ -187,17 +188,71 @@ export default async function NuovaFatturaCloud({
   // elettronica, ed è quello che mancava quando la creazione si fermava con
   // «metodo di pagamento obbligatorio».
   const metodi = stato.collegato ? await ficMetodiPagamento().catch(() => []) : [];
-  // Una lista sola, cercabile. Il gruppo resta scritto su ogni voce: e' quello
-  // che distingue il partner Deluxy dall'intestatario di Fatture in Cloud
-  // quando lo stesso soggetto compare due volte con nomi diversi.
+  // UNA VOCE SOLA per chi è già stato riconciliato.
+  //
+  // Lo stesso soggetto compare due volte — il partner Deluxy con l'insegna
+  // («GRUÈ») e l'intestatario di Fatture in Cloud con la denominazione legale
+  // («GRUE' S.R.L.») — e sceglierne una a caso è come è nata la fattura
+  // bloccata. Dove la riconciliazione ha già detto che sono la stessa azienda,
+  // si mostra una riga sola.
+  //
+  // Il criterio è la RICONCILIAZIONE CONFERMATA, non la somiglianza dei nomi:
+  // qui si decide a chi si intesta una fattura, e un accostamento probabile non
+  // è un buon motivo per far sparire una voce dall'elenco.
+  const riconciliati = await prisma.riconciliazioneAnagrafica.findMany({
+    where: { stato: "confermata", NOT: { partnerId: null } },
+    select: { ficNome: true, partnerId: true },
+  });
+  const chiave = (n: string) => n.trim().toLowerCase().replace(/\s+/g, " ");
+  const partnerDiFic = new Map(riconciliati.map((r) => [chiave(r.ficNome), r.partnerId!]));
+
+  // `ficNome` non è sempre il nome del cliente su FIC: quando la
+  // riconciliazione è nata dalla scheda partner ci finisce il nome del PARTNER
+  // (CLIVATI), mentre su Fatture in Cloud quel cliente si chiama «CLIVATI 1969
+  // S.R.L.». Il confronto esatto non basta, e resterebbero due voci per chi è
+  // già riconciliato. Per i soli partner riconciliati si usa allora lo stesso
+  // aggancio per parole intere della riconciliazione — non è una somiglianza a
+  // caso: è ristretta a chi è già stato dichiarato la stessa azienda.
+  const idRiconciliati = new Set(riconciliati.map((r) => r.partnerId!));
+  const partnerRiconciliati = partners.filter((p) => idRiconciliati.has(p.id));
+
+  const ficDelPartner = new Map<string, { nome: string; piva: string | null }>();
+  const ficAssorbiti = new Set<string>();
+  for (const c of clienti) {
+    // `matchPartner` legge solo il nome del partner: il cast evita di caricare
+    // l'intera riga per un confronto di stringhe.
+    const pid =
+      partnerDiFic.get(chiave(c.nome)) ??
+      matchPartner(c.nome, partnerRiconciliati as unknown as Parameters<typeof matchPartner>[1])?.id;
+    if (!pid) continue;
+    ficAssorbiti.add(c.valore);
+    // fra più intestazioni dello stesso partner vince quella con la P.IVA
+    const gia = ficDelPartner.get(pid);
+    if (!gia || (!gia.piva && c.piva)) ficDelPartner.set(pid, { nome: c.nome, piva: c.piva });
+  }
+
   const opzioniCliente: OpzioneCliente[] = [
-    ...partners.map((p) => ({ valore: `partner:${p.id}`, etichetta: p.nome, gruppo: "Cliente Deluxy (Finance)" })),
-    ...clienti.map((c) => ({
-      valore: c.valore,
-      etichetta: c.nome,
-      dettaglio: [c.piva ?? undefined, c.inRubrica ? undefined : "da fatture passate"].filter(Boolean).join(" · ") || undefined,
-      gruppo: "Fatture in Cloud",
-    })),
+    ...partners.map((p) => {
+      // Si tiene il valore del PARTNER: i suoi dati fiscali arrivano dal
+      // registro Anagrafiche, che è aggiornato, mentre l'intestatario FIC è la
+      // fotografia di una fattura vecchia.
+      const fic = ficDelPartner.get(p.id);
+      return {
+        valore: `partner:${p.id}`,
+        etichetta: p.nome,
+        dettaglio: fic ? [fic.nome, fic.piva ?? undefined].filter(Boolean).join(" · ") : undefined,
+        gruppo: fic ? "Cliente Deluxy · già in Fatture in Cloud" : "Cliente Deluxy (Finance)",
+      };
+    }),
+    // dell'elenco FIC restano solo quelli NON riconciliati con un partner
+    ...clienti
+      .filter((c) => !ficAssorbiti.has(c.valore))
+      .map((c) => ({
+        valore: c.valore,
+        etichetta: c.nome,
+        dettaglio: [c.piva ?? undefined, c.inRubrica ? undefined : "da fatture passate"].filter(Boolean).join(" · ") || undefined,
+        gruppo: "Fatture in Cloud",
+      })),
   ];
   const oggi = new Date().toISOString().slice(0, 10);
 

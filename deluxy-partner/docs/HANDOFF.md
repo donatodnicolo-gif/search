@@ -251,6 +251,17 @@ l app diceva «manca codice destinatario» su un cliente che ce l aveva. Se si a
 `FicEntity`, va aggiunto anche in quella copia: il tipo ha tutti i campi opzionali, quindi il
 compilatore non se ne accorge.
 
+**Una voce sola per chi e riconciliato (28/07/2026).** Nell elenco clienti lo stesso soggetto compariva
+due volte: partner Deluxy con l insegna («GRUÈ») e intestatario FIC con la denominazione legale
+(«GRUE' S.R.L.»). Ora, **se la riconciliazione e confermata**, si mostra una riga sola: insegna in
+evidenza, denominazione legale e P.IVA sotto, e il valore inviato e quello del **partner** (i dati
+fiscali arrivano dal registro, aggiornato; l intestatario FIC e la fotografia di una fattura vecchia).
+⚠️ `RiconciliazioneAnagrafica.ficNome` NON e sempre il nome del cliente su FIC: se la riconciliazione
+nasce dalla scheda partner ci finisce il nome del PARTNER (`CLIVATI` mentre su FIC e «CLIVATI 1969
+S.R.L.»). Per questo, oltre al confronto esatto, si usa `matchPartner` **ristretto ai soli partner gia
+riconciliati**: unire per somiglianza chiunque sarebbe pericoloso, unire chi e gia stato dichiarato la
+stessa azienda no.
+
 **Scelta del cliente con RICERCA (28/07/2026).** In `/registrazioni/fatture/nuova` la tendina e stata
 sostituita da `SceltaCliente.tsx`: campo di testo + suggerimenti. Le voci sono oltre 140 (partner
 Deluxy + rubrica FIC + intestatari delle fatture passate) e lo stesso soggetto compare due volte con
