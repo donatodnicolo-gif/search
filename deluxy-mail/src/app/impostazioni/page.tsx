@@ -9,6 +9,7 @@ import { salvaFirmaDati } from '@/lib/actions'
 import { leggiFirmaDati } from '@/lib/firma'
 import { dataLunga } from '@/lib/format'
 import { richiediUtente } from '@/lib/sessione'
+import { StatoDatabase } from '@/components/StatoDatabase'
 
 export const dynamic = 'force-dynamic'
 
@@ -46,6 +47,16 @@ export default async function Impostazioni() {
           <p className="page-caption">Caselle collegate e contesto che l’AI usa per rispondere.</p>
         </div>
       </div>
+
+      {/* Se il database non accetta scritture, l'app sembra soltanto
+          «inchiodata»: questo riquadro è il posto dove si vede il perché, e
+          quale database sta usando (su Vercel il valore non si rilegge). */}
+      {isAdmin && (
+        <>
+          <h2 className="section-title">Stato del database</h2>
+          <StatoDatabase />
+        </>
+      )}
 
       <h2 className="section-title">Caselle collegate</h2>
       <div className="card tight">
