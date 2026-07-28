@@ -89,6 +89,12 @@ Perché il database è pieno: peso di ogni tabella (con indici e TOAST a parte),
 - **Serve**: nulla — sono tutte `SELECT`, quindi gira anche a database in **sola lettura** (che è la situazione in cui serve).
 - **Nota**: da guardare **prima** di spostare il database. Su Postgres «disco pieno» spesso non vuol dire «tanti dati»: cancellando righe lo spazio non si libera finché non passa un VACUUM, e per i campi lunghi il gonfiore può essere enorme. Se il problema è quello, spostare tutto sposta anche il gonfiore.
 
+### libera-spazio.sql — deluxy-mail
+Come recuperare spazio: cestino, corpi HTML delle mail vecchie, traduzioni vecchie, e il `VACUUM` che serve a rendere effettivo il recupero. Da usare nel **SQL Editor di Supabase** dopo `diagnosi-spazio.sql`.
+
+- **Serve**: un database che accetti scritture — la prima query del file lo verifica (a disco pieno Supabase è in sola lettura e ogni DELETE fallisce con `25006`).
+- **Nota**: ogni blocco che cancella ha **sopra la sua SELECT di conteggio** e il comando distruttivo è **commentato**: si guarda il numero, poi si decommenta. Non va mai eseguito tutto insieme. ⚠️ **Su Postgres cancellare NON libera il disco**: il `DELETE` marca le righe come morte, `VACUUM` rende lo spazio riusabile *dentro* la tabella (il database smette di crescere) e solo `VACUUM FULL` restituisce il disco — ma riscrive la tabella, la blocca per tutta la durata e richiede spazio libero pari alla tabella stessa. Quindi l'ordine è: **prima** si aumenta il disco, **poi** si cancella, **poi** si compatta.
+
 ### sposta-database.mjs — deluxy-mail
 Copia l'intero database di AI Mail su un altro Postgres (es. da un progetto Supabase pieno a uno nuovo). Solo copia: **dalla sorgente non cancella niente**.
 
