@@ -1614,6 +1614,18 @@ export async function fetchBozzaVisita(placeId: string): Promise<BozzaVisita | n
   return (data as BozzaVisita) ?? null;
 }
 
+/**
+ * Il registro dei contatti esiste nel database?
+ *
+ * Serve alle schermate che promettono «questo diventerà un Lead»: senza la
+ * migrazione 0046 la promessa non si può mantenere, ed è meglio dirlo prima
+ * che l'utente compili un form intero — non dopo aver salvato.
+ */
+export async function registroContattiDisponibile(): Promise<boolean> {
+  const { error } = await supabase.from('contatti_avviati').select('place_id').limit(1);
+  return !error;
+}
+
 /** I negozi che hanno una bozza aperta: serve alle liste per il giallo. */
 export async function fetchPlaceIdConBozza(): Promise<Set<string>> {
   return idPaginati('bozze_visita');

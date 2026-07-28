@@ -14,7 +14,7 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import type { CategoryRule } from '@/types';
 import { colors, radius, spacing } from '@/lib/theme';
 import { caricaRegole, regolaPerCategoria } from '@/lib/categoryRules';
-import { inserisciPlace, registraContattoAvviato, type CanaleContatto } from '@/lib/db';
+import { inserisciPlace, registraContattoAvviato, registroContattiDisponibile, type CanaleContatto } from '@/lib/db';
 import { avvisa } from '@/lib/dialoghi';
 import { posizioneCorrente, type Coord } from '@/lib/location';
 import { AddressSearch } from '@/components/AddressSearch';
@@ -78,13 +78,19 @@ export default function NuovoTarget() {
   const [categoria, setCategoria] = useState<string | null>(null);
   const [lineeOverride, setLineeOverride] = useState<string[] | null>(null);
 
+  // Il registro dei contatti c'è? Si controlla all'APERTURA, non al
+  // salvataggio: scoprire che il negozio non diventerà un Lead dopo aver
+  // compilato tutto il form è il modo peggiore di dirlo.
+  const [registroOk, setRegistroOk] = useState(true);
+
   useEffect(() => {
     (async () => {
       setRegole(await caricaRegole());
       setLoading(false);
       posizioneCorrente().then(setPos);
+      if (nasceLead) setRegistroOk(await registroContattiDisponibile());
     })();
-  }, []);
+  }, [nasceLead]);
 
   // Categorie uniche disponibili (dal set di regole).
   const categorie = useMemo(
@@ -140,9 +146,17 @@ export default function NuovoTarget() {
         try {
           await registraContattoAvviato({ placeIds: [place.id], canale });
         } catch (e: any) {
+          // L'errore grezzo di PostgREST («Could not find the table … in the
+          // schema cache») dice la verità ma non aiuta: quello che serve sapere
+          // è che manca una migrazione e quale comando la applica.
+          const msg = String(e?.message ?? '');
+          const migrazione = /contatti_avviati|schema cache|does not exist/i.test(msg);
           avvisa(
             'Creato, ma non segnato come contattato',
-            `${nome.trim()} è stato salvato: lo trovi fra i Selezionati, non fra i Lead.\n\n${e?.message ?? 'Registro dei contatti non disponibile.'}`,
+            `${nome.trim()} è stato salvato: lo trovi fra i Selezionati, non fra i Lead.\n\n` +
+              (migrazione
+                ? 'Il registro dei contatti non esiste ancora nel database: manca la migrazione 0046. Si applica lanciando `node scripts/allinea-supabase.mjs` nella cartella deluxy-scout. Fatto quello, basta rifare l’azione di contatto su questo negozio perché diventi un Lead.'
+                : msg || 'Registro dei contatti non disponibile.'),
           );
         }
       }
@@ -260,6 +274,16 @@ export default function NuovoTarget() {
                 Nasce come <Text style={styles.aiutoForte}>Lead</Text>: il contatto è già partito, ma non c’è ancora
                 una persona in rubrica. Aggiungendola dalla sua scheda diventa un Prospect.
               </Text>
+              {/* Detto PRIMA di compilare: il negozio si salva comunque, ma
+                  finirà fra i Selezionati e non fra i Lead. */}
+              {!registroOk ? (
+                <Text style={styles.avvisoBlocco}>
+                  <Ionicons name="warning-outline" size={13} color="#B7791F" /> Il registro dei contatti non esiste
+                  ancora nel database (manca la migrazione 0046): il negozio verrà salvato, ma finirà fra i
+                  Selezionati e non fra i Lead. Si sistema lanciando{' '}
+                  <Text style={styles.mono}>node scripts/allinea-supabase.mjs</Text>.
+                </Text>
+              ) : null}
             </>
           ) : null}
 
@@ -304,6 +328,18 @@ const styles = StyleSheet.create({
   chipOn: { backgroundColor: colors.navy, borderColor: colors.navy },
   aiuto: { color: colors.testoSoft, fontSize: 12.5, lineHeight: 18, marginTop: spacing.sm },
   aiutoForte: { fontWeight: '800', color: colors.testo },
+  avvisoBlocco: {
+    color: '#7A5B12',
+    backgroundColor: '#FFFDF5',
+    borderWidth: 1,
+    borderColor: '#E8D9A8',
+    borderRadius: radius.md,
+    padding: spacing.sm,
+    fontSize: 12.5,
+    lineHeight: 18,
+    marginTop: spacing.sm,
+  },
+  mono: { fontWeight: '800' },
   chipTxt: { color: colors.navy, fontWeight: '600', fontSize: 13 },
   chipTxtOn: { color: colors.bianco },
   prioRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm },
