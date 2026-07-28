@@ -107,6 +107,11 @@ model Prodotto {
   shopifyStato   String  @default("non_pubblicato") // non_pubblicato | bozza | pubblicato
   shopifyId      String? // id prodotto su Shopify una volta pubblicato
   shopifySyncIl  DateTime?
+  // **Prodotto composto**: un prodotto originale fatto di altri prodotti del
+  // catalogo (il cesto, la composizione, il kit). `componenti` sono i pezzi che
+  // lo formano; `usatoIn` dice in quali composti entra questo prodotto.
+  componenti   ComponenteProdotto[] @relation("Composizione")
+  usatoIn      ComponenteProdotto[] @relation("UsatoIn")
   varianti     Variante[]
   tappe        TappaSviluppo[]
   vetrine      VetrinaProdotto[]
@@ -278,6 +283,26 @@ model CategoriaProdotto {
   aggiornataIl DateTime @updatedAt
 
   @@index([attiva, ordine])
+}
+
+// Un pezzo di un **prodotto composto**: quale prodotto ci entra e quanti.
+//
+// Il costo e il prezzo del composto non si scrivono a mano: si leggono dai
+// componenti, uno per uno. Per questo qui c'è solo il legame e la quantità —
+// se il costo di una rosa cambia, cambia da solo il costo di tutti i cesti che
+// la contengono.
+model ComponenteProdotto {
+  id           String   @id @default(cuid())
+  compostoId   String
+  composto     Prodotto @relation("Composizione", fields: [compostoId], references: [id], onDelete: Cascade)
+  componenteId String
+  componente   Prodotto @relation("UsatoIn", fields: [componenteId], references: [id], onDelete: Cascade)
+  quantita     Int      @default(1)
+  note         String?
+  creatoIl     DateTime @default(now())
+
+  @@unique([compostoId, componenteId])
+  @@index([componenteId])
 }
 
 // Le **fasce di prezzo**: gli scalini in cui si legge il catalogo ("fino a

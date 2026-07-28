@@ -5,6 +5,8 @@ import { BarraMargine } from "@/components/BarraMargine";
 import { prisma } from "@/lib/db";
 import { aggiornaProdotto, aggiungiVariante, cambiaFase, eliminaVariante, segnaShopify } from "@/lib/azioni";
 import { separaAzione } from "@/lib/azioni-riconciliazione";
+import { cambiaComponenteAzione } from "@/lib/azioni-composti";
+import { conti, riga } from "@/lib/composti";
 import { costruisciPayloadShopify, shopifyConfigurato } from "@/lib/shopify";
 import {
   calcolaMargine,
@@ -52,6 +54,8 @@ export default async function ProdottoPage({
         fornitore: true,
         varianti: { orderBy: { creataIl: "asc" } },
         unitoA: { select: { id: true, nome: true } },
+        componenti: { orderBy: { creatoIl: "asc" }, include: { componente: true } },
+        usatoIn: { include: { composto: { select: { id: true, nome: true, codice: true } } } },
         assorbiti: { select: { id: true, nome: true, codice: true, unitoIl: true } },
         tappe: { orderBy: { creataIl: "desc" } },
         vetrine: { include: { vetrina: true }, orderBy: { posizione: "asc" } },
@@ -61,6 +65,9 @@ export default async function ProdottoPage({
   ]);
   if (!prodotto) notFound();
 
+  // Per un prodotto composto il costo non è il suo campo, è la somma dei
+  // componenti: si rifà a ogni apertura, così non invecchia mai.
+  const contiComposto = conti(prodotto.componenti.map((x) => riga(x.componente, x.quantita)));
   const m = calcolaMargine(prodotto.costoProduzione, prodotto.prezzoVendita);
   const target = prodotto.collezione?.margineTarget ?? null;
   const salva = aggiornaProdotto.bind(null, id);
@@ -143,6 +150,121 @@ export default async function ProdottoPage({
             </>
           )}
         </div>
+
+        {/* ---------- Composizione ----------
+            Se il prodotto è fatto di altri prodotti, il suo costo è la somma
+            dei loro: si legge qui, e non si riscrive. Se invece è un pezzo di
+            altri composti, si dice dove finisce — serve a sapere chi si tocca
+            cambiandogli il costo. */}
+        {(prodotto.componenti.length > 0 || prodotto.usatoIn.length > 0) && (
+          <div className="scheda">
+            <div className="scheda-titolo">Composizione</div>
+            {prodotto.componenti.length > 0 && (
+              <>
+                <div className="tabella-wrap" style={{ boxShadow: "none", border: "1px solid var(--hairline)" }}>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Componente</th>
+                        <th className="num">Costo unitario</th>
+                        <th className="num">Listino unitario</th>
+                        <th className="num">Quantità</th>
+                        <th className="num">Costo riga</th>
+                        <th />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {contiComposto.righe.map((r) => (
+                        <tr key={r.componente.id}>
+                          <td>
+                            <a href={`/prodotti/${r.componente.id}`} className="cella-nome">
+                              {r.componente.nome}
+                            </a>
+                            <div className="cella-sub">{r.componente.codice}</div>
+                          </td>
+                          <td className="num" style={{ color: r.costoRiga === null ? "var(--orange)" : undefined }}>
+                            {r.componente.costoProduzione > 0 ? euro(r.componente.costoProduzione) : "non lo sappiamo"}
+                          </td>
+                          <td className="num">
+                            {r.componente.prezzoVendita > 0 ? euro(r.componente.prezzoVendita) : "—"}
+                          </td>
+                          <td className="num">
+                            <form action={cambiaComponenteAzione.bind(null, prodotto.id, r.componente.id)}>
+                              <input
+                                name="quantita"
+                                type="number"
+                                min="0"
+                                max="999"
+                                defaultValue={r.quantita}
+                                style={{ width: 70 }}
+                                aria-label={`Quantità di ${r.componente.nome}`}
+                              />
+                              <button className="btn small" type="submit">
+                                Salva
+                              </button>
+                            </form>
+                          </td>
+                          <td className="num">{r.costoRiga === null ? "—" : euro(r.costoRiga)}</td>
+                          <td className="cella-sub">0 = togli</td>
+                        </tr>
+                      ))}
+                      <tr>
+                        <td>
+                          <span className="cella-nome">Totale</span>
+                          <div className="cella-sub">{contiComposto.pezzi} pezzi</div>
+                        </td>
+                        <td />
+                        <td />
+                        <td />
+                        <td className="num">
+                          <strong>{euro(contiComposto.costo)}</strong>
+                          {!contiComposto.costoCompleto && (
+                            <div className="cella-sub" style={{ color: "var(--orange)" }}>
+                              parziale
+                            </div>
+                          )}
+                        </td>
+                        <td />
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <p className="page-sub">
+                  {contiComposto.costoCompleto ? (
+                    <>
+                      Costo dai componenti <strong>{euro(contiComposto.costo)}</strong> · comprando i pezzi
+                      separati si spenderebbero <strong>{euro(contiComposto.sommaListini)}</strong> · prezzo di
+                      questo prodotto {prodotto.prezzoVendita > 0 ? <strong>{euro(prodotto.prezzoVendita)}</strong> : "da decidere"}.
+                    </>
+                  ) : (
+                    <>
+                      {contiComposto.senzaCosto}{" "}
+                      {contiComposto.senzaCosto === 1 ? "componente non ha" : "componenti non hanno"} un costo:
+                      il totale è <strong>parziale</strong> e il margine di questo prodotto non è calcolabile.
+                    </>
+                  )}
+                </p>
+              </>
+            )}
+            {prodotto.usatoIn.length > 0 && (
+              <p className="page-sub" style={{ marginBottom: 0 }}>
+                Questo prodotto è un pezzo di{" "}
+                {prodotto.usatoIn.map((u, i) => (
+                  <span key={u.composto.id}>
+                    {i > 0 && ", "}
+                    <a href={`/prodotti/${u.composto.id}`}>{u.composto.nome}</a> (×{u.quantita})
+                  </span>
+                ))}
+                : cambiandogli il costo cambia anche il loro.
+              </p>
+            )}
+            <div style={{ marginTop: 12 }}>
+              <a className="btn btn-secondario" href="/multi-prodotto">
+                Componi un altro prodotto
+              </a>
+            </div>
+          </div>
+        )}
 
         <div className="tabs">
           {TABS.map(([t, label]) => (

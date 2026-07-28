@@ -27,6 +27,7 @@ export async function Sidebar({
     | "linee"
     | "fasce"
     | "griglie"
+    | "multi-prodotto"
     | "classificazione"
     | "sviluppo"
     | "costi"
@@ -54,6 +55,7 @@ export async function Sidebar({
     tipi,
     nLinee,
     nFasce,
+    nComposti,
   ] = await Promise.all([
     prisma.collezione.count(),
     prisma.collezioneShopify.count(),
@@ -85,6 +87,7 @@ export async function Sidebar({
     // elencoFasce() e non un count: alla primissima apertura scrive le fasce di
     // partenza, così il menu non mostra «0» su un listino che esiste.
     elencoFasce().then((f) => f.length),
+    prisma.prodotto.count({ where: { componenti: { some: {} } } }),
   ]);
 
   const voce = (
@@ -118,6 +121,9 @@ export async function Sidebar({
         <SbSezione titolo="Prodotto">
           {voce("collezioni", "/collezioni", "collezioni", "Collezioni", nCollezioniMaison + nCollezioniShopify)}
           {voce("prodotti", "/prodotti", "prodotti", "Prodotti", nProdotti)}
+          {/* I composti sono prodotti a tutti gli effetti: stanno subito sotto
+              i prodotti, non in una sezione a parte. */}
+          {voce("multi-prodotto", "/multi-prodotto", "prodotti", "Multi prodotto", nComposti || undefined)}
           {voce("anagrafica", "/anagrafica", "anagrafica", "Anagrafica completa")}
           {/* Il catalogo visto per insieme, come le collezioni: da chi lo fa
               (fornitore, letto da Shopify) e da che cosa è (categoria). */}
