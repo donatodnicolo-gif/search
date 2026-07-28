@@ -78,6 +78,8 @@ export function PropostaBilancio({
                   <th style={{ width: 40 }} />
                   <th>Voce</th>
                   <th className="num">Proposta</th>
+                  <th className="num">Ultimo bilancio</th>
+                  <th className="num">Var.</th>
                   <th>Da dove viene</th>
                 </tr>
               </thead>
@@ -100,6 +102,26 @@ export function PropostaBilancio({
                       )}
                     </td>
                     <td className="num" style={{ fontWeight: 600 }}>{eur(p.importo)}</td>
+                    <td className="num muted">
+                      {p.precedente ? (
+                        <>
+                          {eur(p.precedente.importo)}
+                          <div style={{ fontSize: 11 }}>{p.precedente.anno}</div>
+                        </>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                    <td className="num">
+                      {p.precedente && p.precedente.importo !== 0 ? (
+                        <span className={p.importo >= p.precedente.importo ? "pos" : "neg"}>
+                          {p.importo >= p.precedente.importo ? "+" : ""}
+                          {Math.round(((p.importo - p.precedente.importo) / Math.abs(p.precedente.importo)) * 100)}%
+                        </span>
+                      ) : (
+                        <span className="muted">—</span>
+                      )}
+                    </td>
                     <td className="muted" style={{ fontSize: 12.5 }}>{p.fonte}</td>
                   </tr>
                 ))}

@@ -15,6 +15,7 @@
 import { caricaConsuntivo } from "./consuntivo";
 import { type DatiAnno } from "./calc";
 import { fetchConsuntivo } from "./finance";
+import { anniConBilancio, caricaBilancio } from "./bilancio";
 
 export type { Proposta, NonProponibile } from "./proposta-voci";
 import { NON_PROPONIBILI, type Proposta } from "./proposta-voci";
@@ -23,13 +24,24 @@ export { NON_PROPONIBILI };
 export async function proponiDaApp(dati: DatiAnno): Promise<{ proposte: Proposta[]; avvisi: string[] }> {
   const anno = dati.year;
   const mesi = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
-  const [cons, fattTotale] = await Promise.all([
+  const [cons, fattTotale, anniPrec] = await Promise.all([
     caricaConsuntivo(dati, mesi),
     // Il **totale** fatturato, non solo le tipologie mappate a una voce di
     // budget: in bilancio A1 sono tutti i ricavi, anche quelli che in Margini
     // nessuno ha ancora collegato.
     fetchConsuntivo({ anno, dal: 1, al: 12, stato: "tutte" }),
+    anniConBilancio(),
   ]);
+
+  // L'ultimo bilancio **vero** più recente di questo: è il metro di paragone.
+  // Una proposta non si giudica in assoluto — si giudica accanto a quello che
+  // il commercialista ha chiuso l'anno prima.
+  const annoPrec = anniPrec.filter((y) => y < anno).sort((a, b) => b - a)[0] ?? null;
+  const prec = annoPrec ? await caricaBilancio(annoPrec) : [];
+  const daPrec = (codice: string) => {
+    const r = prec.find((x) => x.codice === codice);
+    return r && annoPrec ? { anno: annoPrec, importo: r.importo } : undefined;
+  };
 
   const avvisi: string[] = [];
   const proposte: Proposta[] = [];
@@ -41,7 +53,22 @@ export async function proponiDaApp(dati: DatiAnno): Promise<{ proposte: Proposta
       codice: "A1",
       importo: fatturato + ecommerce,
       fonte: `fatturato Finance ${anno} (imponibile, tutte le tipologie) + quota ecommerce dal registro ordini`,
+      precedente: daPrec("A1"),
     });
+    // Nel bilancio vero i ricavi si dividono in due: A1 sono le prestazioni e
+    // le provvigioni, A5 gli «altri ricavi» — dove sta la voce più grande dopo
+    // le provvigioni, i **servizi di consegna**. L'app non sa fare quella
+    // divisione (Finance passa le tipologie commerciali, non le voci di
+    // bilancio), quindi mette tutto in A1 e lo dichiara: il totale è giusto, la
+    // ripartizione fra A1 e A5 la fa il commercialista.
+    const a5 = daPrec("A5");
+    const a1 = daPrec("A1");
+    if (a5 && a1 && a1.importo + a5.importo > 0) {
+      const quota = Math.round((a5.importo / (a1.importo + a5.importo)) * 100);
+      avvisi.push(
+        `I ricavi sono proposti tutti su A1. Nel bilancio ${a5.anno} il ${quota}% stava invece in A5 «altri ricavi e proventi» (i servizi di consegna): il totale non cambia, la ripartizione sì.`
+      );
+    }
   } else {
     avvisi.push("Finance non ha risposto: i ricavi non si possono proporre.");
   }
@@ -53,6 +80,7 @@ export async function proponiDaApp(dati: DatiAnno): Promise<{ proposte: Proposta
       codice: "B7",
       importo: cons.cogs + cons.adv,
       fonte: "uscite di banca categorizzate «Costo per servizi» e «Marketing e ADV» nel CFO",
+      precedente: daPrec("B7"),
     });
   }
 
@@ -61,7 +89,14 @@ export async function proponiDaApp(dati: DatiAnno): Promise<{ proposte: Proposta
       codice: "B9",
       importo: cons.personale,
       fonte: "costo del personale dall'anagrafica Dipendenti (payroll a budget, non il costo effettivo con TFR e ratei)",
+      precedente: daPrec("B9"),
     });
+    // Nel bilancio vero B9 è **solo** il lavoro dipendente: compensi
+    // dell'amministratore, collaborazioni e lavoro occasionale stanno in B7. Chi
+    // guarda «costo del personale» nell'app vede una cosa diversa da B9.
+    avvisi.push(
+      "B9 accoglie solo il lavoro dipendente: compensi dell'amministratore, co.co.co. e prestazioni occasionali in bilancio stanno in B7 «servizi». Se l'anagrafica Dipendenti li comprende, vanno spostati."
+    );
   }
 
   if (cons.struttura > 0) {
@@ -69,12 +104,32 @@ export async function proponiDaApp(dati: DatiAnno): Promise<{ proposte: Proposta
       codice: "B14",
       importo: cons.struttura,
       fonte: "uscite di banca categorizzate «Struttura» — se il commercialista le divide fra B7, B8 e B14, va corretto a mano",
+      precedente: daPrec("B14"),
+    });
+  }
+
+  // B10 non passa dalla banca e non si può ricavare: si riprende dall'ultimo
+  // bilancio vero. I cespiti cambiano poco da un anno all'altro, quindi come
+  // punto di partenza regge — ma resta una stima, e la riga lo dice.
+  const b10 = daPrec("B10");
+  if (b10 && b10.importo > 0) {
+    proposte.push({
+      codice: "B10",
+      importo: b10.importo,
+      fonte: `ripreso dal bilancio ${b10.anno}: gli ammortamenti non passano dalla banca e nessuna fonte dell'app li conosce. È una STIMA, da confermare col commercialista`,
+      precedente: b10,
     });
   }
 
   if (cons.nonCategorizzato > 0) {
     avvisi.push(
       `In banca ci sono ${Math.round(cons.nonCategorizzato).toLocaleString("it-IT")} € di uscite non ancora categorizzate nel CFO: non entrano in nessuna proposta, quindi i costi qui sotto sono sottostimati di almeno quella cifra.`
+    );
+  }
+
+  if (!annoPrec) {
+    avvisi.push(
+      "Non c'è nessun bilancio di un anno precedente da cui prendere le misure: caricane uno (anche solo le voci principali) e queste proposte avranno un metro di paragone."
     );
   }
 
