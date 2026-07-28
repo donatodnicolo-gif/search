@@ -54,6 +54,9 @@ const SEZIONI: { titolo: string; voci: Voce[] }[] = [
       { name: 'lista-prospect', route: 'lista', params: { vista: 'prospect' }, label: 'Prospect', icon: 'people-outline' },
       { name: 'clienti', label: 'Clienti', icon: 'storefront-outline' },
       { name: 'lista-inattivi', route: 'lista', params: { vista: 'inattivi' }, label: 'Dormienti e persi', icon: 'moon-outline' },
+      // Le stesse persone, tagliate per linea di servizio invece che per
+      // livello: «per il Gifting a che punto siamo?» non aveva un posto.
+      { name: 'interessi', label: 'Per interesse', icon: 'pricetags-outline' },
     ],
   },
   {
@@ -179,7 +182,22 @@ function SezionePreferiti({
 // Contenuto del drawer: brand (logo D) + voci raggruppate per sezione (etichetta
 // MAIUSCOLA, DS) + footer utente (avatar iniziali, nome/ruolo, logout). La voce
 // Team compare solo all'amministratore della rete.
+// Le sezioni che si possono chiudere: quelle lunghe, dove il menu diventa una
+// colonna da scorrere. «Vendere oggi» e «Account» restano sempre aperte —
+// hanno due voci e chiuderle non guadagnerebbe niente.
+const SEZIONI_CHIUDIBILI = new Set(['Canali', 'Contatti', 'Vendita', 'Strumenti', 'Andamento']);
+
 function ContenutoDrawer({ admin, espansa = true, onToggle, ...props }: any) {
+  // Quali sezioni sono chiuse. Parte tutto aperto: chi apre il menu la prima
+  // volta deve vedere cosa c'è, non un elenco di titoli da indovinare.
+  const [sezioniChiuse, setSezioniChiuse] = useState<Set<string>>(new Set());
+  const commutaSezione = (titolo: string) =>
+    setSezioniChiuse((prev) => {
+      const n = new Set(prev);
+      if (n.has(titolo)) n.delete(titolo);
+      else n.add(titolo);
+      return n;
+    });
   const { session, signOut } = useAuth();
   const state = props.state;
   const rottaCorrente = state?.routes?.[state.index];
@@ -223,10 +241,36 @@ function ContenutoDrawer({ admin, espansa = true, onToggle, ...props }: any) {
         {SEZIONI.map((sez) => {
           const voci = sez.voci.filter((v) => !v.soloAdmin || admin);
           if (!voci.length) return null;
+          // A menu ridotto (rail) restano tutte visibili: sono solo icone, non
+          // occupano niente, e nasconderle vorrebbe dire non poterci arrivare.
+          const chiudibile = espansa && SEZIONI_CHIUDIBILI.has(sez.titolo);
+          const chiusa = chiudibile && sezioniChiuse.has(sez.titolo);
           return (
             <View key={sez.titolo} style={styles.sezione}>
-              {espansa ? <Text style={styles.sezioneTitolo}>{sez.titolo}</Text> : <View style={styles.railDivider} />}
-              {voci.map((v) => (
+              {espansa ? (
+                chiudibile ? (
+                  <Pressable
+                    onPress={() => commutaSezione(sez.titolo)}
+                    style={styles.sezioneTesta}
+                    accessibilityLabel={`${chiusa ? 'Apri' : 'Chiudi'} ${sez.titolo}`}
+                  >
+                    <Text style={[styles.sezioneTitolo, styles.sezioneTitoloFlex]}>{sez.titolo}</Text>
+                    {/* Quante voci ci sono dentro, quando è chiusa: senza, una
+                        sezione chiusa sembra vuota. */}
+                    {chiusa ? <Text style={styles.sezioneConto}>{voci.length}</Text> : null}
+                    <Ionicons
+                      name={chiusa ? 'chevron-forward' : 'chevron-down'}
+                      size={14}
+                      color={colors.testoSoft}
+                    />
+                  </Pressable>
+                ) : (
+                  <Text style={styles.sezioneTitolo}>{sez.titolo}</Text>
+                )
+              ) : (
+                <View style={styles.railDivider} />
+              )}
+              {(chiusa ? [] : voci).map((v) => (
                 <View key={v.name}>
                   <VoceMenu voce={v} focused={voceAttiva(v)} espansa={espansa} onPress={() => props.navigation.navigate(v.route ?? v.name, v.params)} />
                   {/* Preferiti: annidati sotto la loro voce (solo a menu espanso). */}
@@ -363,6 +407,17 @@ const styles = StyleSheet.create({
     letterSpacing: 0.7,
     textTransform: 'uppercase',
     paddingHorizontal: spacing.md,
+    marginBottom: 4,
+  },
+  // Testata premibile della sezione richiudibile: il titolo tiene il suo
+  // padding, la freccia sta a destra.
+  sezioneTesta: { flexDirection: 'row', alignItems: 'center', paddingRight: spacing.md },
+  sezioneTitoloFlex: { flex: 1 },
+  sezioneConto: {
+    color: colors.testoSoft,
+    fontSize: 10.5,
+    fontWeight: '700',
+    marginRight: 6,
     marginBottom: 4,
   },
   // Voce: riga icona + testo con spazio corretto. Rail = solo icona centrata.
