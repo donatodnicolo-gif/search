@@ -146,6 +146,8 @@ function selettoreCon(entita) {
     sorgente.indexOf('"metriche", "approvazioni", "copy"') === -1);
   verifica("richiesta interrotta: resta aperta invece di chiudersi", sorgente.indexOf("if (interrotto)") !== -1);
   verifica("copy: chiede solo le keyword con impressioni", sorgente.indexOf("metrics.impressions > 0") !== -1);
+  verifica("parole cercate: partono col giro di tutti i giorni", sorgente.indexOf("mandaTermini(conto);") !== -1 && sorgente.indexOf("Parole cercate non lette") !== -1);
+  verifica("parole cercate: una volta sola per giro", sorgente.indexOf("if (TERMINI_INVIATI) return;") !== -1);
 }
 
 // ───────────────────────── 2. keyword accorpate ─────────────────────────
@@ -409,7 +411,7 @@ function selettoreCon(entita) {
   verifica("diagnosi: dispositivo letto", mob && mob.tipo === "dispositivo" && mob.spesa === 120, mob && mob.spesa);
   verifica("diagnosi: giorno letto", !!s2.find((x) => x.tipo === "giorno" && x.valore === "MONDAY"));
   verifica("diagnosi: rete letta", !!s2.find((x) => x.tipo === "rete" && x.valore === "SEARCH_PARTNERS"));
-  verifica("diagnosi: conta i termini che spendono a vuoto", log.join(String.fromCharCode(10)).indexOf("1 termini hanno speso senza convertire") !== -1);
+  verifica("diagnosi: conta i termini che spendono a vuoto", log.join(String.fromCharCode(10)).indexOf("1 hanno speso senza convertire") !== -1);
 }
 
 // ───────────────────────── 4. asset su più livelli ─────────────────────────

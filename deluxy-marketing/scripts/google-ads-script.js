@@ -129,6 +129,7 @@ var MINUTI_MASSIMI = 25; // Google ferma gli script a 30': ci fermiamo prima, co
 var LAVORI_LETTURA = ["metriche", "gruppi", "approvazioni", "diagnosi", "asset", "copy"];
 
 var ANTEPRIMA = false; // deciso da verificaConfigurazione()
+var TERMINI_INVIATI = false; // le parole cercate si mandano una volta per giro
 var INIZIO = new Date().getTime();
 var RIEPILOGO = [];
 
@@ -324,6 +325,14 @@ function mandaMetriche(conto) {
     mandaAnagrafica(conto);
   } catch (e) {
     Logger.log("⚠ Anagrafica non riuscita (" + e + "): proseguo con le metriche.");
+  }
+
+  // Le parole cercate davvero: una query sola, e dice dove stanno andando i
+  // soldi che nessuna metrica di campagna può mostrare.
+  try {
+    mandaTermini(conto);
+  } catch (e) {
+    Logger.log("⚠ Parole cercate non lette (" + e + "): proseguo con le metriche.");
   }
 
   var stati = INCLUDI_RIMOSSE ? "'ENABLED', 'PAUSED', 'REMOVED'" : "'ENABLED', 'PAUSED'";
@@ -755,13 +764,38 @@ function leggiGruppiAsset(conto) {
 var MAX_TERMINI = 300; // i più costosi: oltre non si guarda mai nessuno
 
 function mandaDiagnosi(conto) {
-  var termini = leggiTerminiRicerca();
+  mandaTermini(conto);
+
   var segmenti = []
     .concat(leggiSegmento("segments.device", "dispositivo"))
     .concat(leggiSegmento("segments.day_of_week", "giorno"))
     .concat(leggiSegmento("segments.ad_network_type", "rete"));
 
-  Logger.log("Termini di ricerca: " + termini.length + " · righe di segmento: " + segmenti.length);
+  Logger.log("Righe di segmento: " + segmenti.length);
+  var e2 = inviaABlocchi("/api/v1/ingest/diagnosi", segmenti, function (lotto) {
+    return corpoBase(conto, { segmenti: lotto });
+  });
+  RIEPILOGO.push("segmenti: " + e2.inviate + " righe inviate");
+}
+
+/**
+ * Le PAROLE CERCATE DAVVERO: quello che le persone hanno digitato, che è una
+ * cosa diversa da quello che abbiamo comprato. È il dato che fa scoprire la
+ * ricerca costosa a cui non avevamo pensato — e le negative da aggiungere.
+ *
+ * Parte insieme alle metriche di tutti i giorni, non solo con "diagnosi": è una
+ * query sola con i 300 termini più costosi, costa pochi secondi, e aspettare il
+ * giro settimanale vuol dire accorgersi di una settimana di spesa a vuoto una
+ * settimana dopo.
+ */
+function mandaTermini(conto) {
+  if (TERMINI_INVIATI) return; // già mandati in questo giro
+  var termini = leggiTerminiRicerca();
+  if (termini.length === 0) {
+    Logger.log("Parole cercate: nessuna nel periodo.");
+    return;
+  }
+
   var senzaConversioni = 0;
   var spesaSprecata = 0;
   for (var i = 0; i < termini.length; i++) {
@@ -770,21 +804,17 @@ function mandaDiagnosi(conto) {
       spesaSprecata += termini[i].spesa;
     }
   }
-  if (termini.length > 0) {
-    Logger.log(
-      "  " + senzaConversioni + " termini hanno speso senza convertire, per " +
-      arrotonda(spesaSprecata) + " € in tutto"
-    );
-    Logger.log("  il più caro: " + JSON.stringify(termini[0]));
-  }
+  Logger.log(
+    "Parole cercate: " + termini.length + " · " + senzaConversioni +
+    " hanno speso senza convertire, per " + arrotonda(spesaSprecata) + " € in tutto"
+  );
+  Logger.log("  la più cara: " + JSON.stringify(termini[0]));
 
-  var e1 = inviaABlocchi("/api/v1/ingest/diagnosi", termini, function (lotto) {
+  var esito = inviaABlocchi("/api/v1/ingest/diagnosi", termini, function (lotto) {
     return corpoBase(conto, { terminiRicerca: lotto });
   });
-  var e2 = inviaABlocchi("/api/v1/ingest/diagnosi", segmenti, function (lotto) {
-    return corpoBase(conto, { segmenti: lotto });
-  });
-  RIEPILOGO.push("diagnosi: " + e1.inviate + " termini e " + e2.inviate + " segmenti inviati");
+  TERMINI_INVIATI = true;
+  RIEPILOGO.push("parole cercate: " + esito.inviate + "/" + termini.length + " inviate");
 }
 
 /**
