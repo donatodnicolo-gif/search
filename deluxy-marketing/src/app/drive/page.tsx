@@ -2,7 +2,7 @@ import { Badge } from "@/components/Badge";
 import { Sidebar } from "@/components/Sidebar";
 import { avviaSyncDrive } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
-import { driveDir } from "@/lib/drive";
+import { driveDir, ultimaSyncDrive } from "@/lib/drive";
 import {
   CATEGORIE_DRIVE,
   COLORE_BRAND,
@@ -12,6 +12,13 @@ import {
 } from "@/lib/dominio";
 
 export const dynamic = "force-dynamic";
+
+const ETICHETTA_STATO_SYNC: Record<string, string> = {
+  in_corso: "in corso (o morta prima di chiudersi)",
+  completata: "completata",
+  interrotta: "interrotta a metà",
+  errore: "finita in errore",
+};
 
 function dimensioneLeggibile(b: number): string {
   if (b < 1024) return `${b} B`;
@@ -38,7 +45,10 @@ export default async function PaginaDrive({
       take: 300,
     }),
     prisma.documentoDrive.count(),
-    prisma.documentoDrive.findFirst({ orderBy: { sincronizzatoIl: "desc" }, select: { sincronizzatoIl: true } }),
+    // L'ultima corsa, non l'ultimo documento toccato: la sync non riscrive più
+    // `sincronizzatoIl` sui file che non sono cambiati (erano ~500 scritture a
+    // vuoto per giro, ed è così che la funzione scadeva).
+    ultimaSyncDrive(),
   ]);
 
   const marcheDrive = ["flowers", "cake", "gifts", "cross", "pubblici", "performance", "altro"];
@@ -52,9 +62,17 @@ export default async function PaginaDrive({
             <h1 className="page-title">Documenti Drive</h1>
             <p className="page-sub">
               Indice in sola lettura della cartella ufficiale “ADV DELUXY SRL” ({totale} documenti
-              indicizzati{ultimaSync ? `, ultima sincronizzazione ${formattaDataOra(ultimaSync.sincronizzatoIl)}` : ""}).
+              indicizzati{ultimaSync ? `, ultima sincronizzazione ${formattaDataOra(ultimaSync.iniziataIl)}` : ""}).
               La fonte di verità resta il Drive: l&apos;app non lo scrive mai.
             </p>
+            {ultimaSync && (
+              <p className="page-sub">
+                Ultima corsa: <b>{ETICHETTA_STATO_SYNC[ultimaSync.stato] ?? ultimaSync.stato}</b> — {ultimaSync.trovati}{" "}
+                documenti visti · {ultimaSync.nuovi} nuovi · {ultimaSync.aggiornati} aggiornati ·{" "}
+                {ultimaSync.rimossi} spariti · {ultimaSync.analisi} analisi importate.
+                {ultimaSync.messaggio && <> {ultimaSync.messaggio}</>}
+              </p>
+            )}
           </div>
           <form action={avviaSyncDrive}>
             <button className="btn" type="submit">Sincronizza ora</button>

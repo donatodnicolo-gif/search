@@ -295,12 +295,18 @@ export async function ripristinaLegameShopify(campagnaId: string) {
 
 export async function avviaSyncDrive() {
   const esito = await sincronizzaDrive();
+  // ⚠️ Questa riga arriva DOPO la sync: se la funzione muore a metà non viene
+  // mai scritta, ed è quello che è successo il 28/07/2026 (179 documenti su
+  // 669 e nessuna traccia). La traccia vera adesso è la riga `SyncDrive`,
+  // aperta prima di cominciare; questa resta perché lo storico si guarda lì.
   await registra({
     autore: "utente",
     tipo: "sync",
     entita: "drive",
     titolo: "Sincronizzazione Drive",
-    dettaglio: esito.errore ?? `trovati ${esito.trovati} · nuovi ${esito.nuovi} · aggiornati ${esito.aggiornati} · rimossi ${esito.rimossi}`,
+    dettaglio:
+      esito.errore ??
+      `trovati ${esito.trovati} · nuovi ${esito.nuovi} · aggiornati ${esito.aggiornati} · rimossi ${esito.rimossi} · analisi importate ${esito.analisi}${esito.interrotta ? " · INTERROTTA, riparte alla prossima" : ""}`,
   });
   revalidatePath("/drive");
   revalidatePath("/analisi");

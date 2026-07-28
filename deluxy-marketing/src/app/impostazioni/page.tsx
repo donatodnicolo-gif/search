@@ -6,7 +6,7 @@ import { FORNITORI, istruzioniOperative, statoAi } from "@/lib/ai";
 import { emailImpersonata, oauthConfigurato, statoScritturaDrive } from "@/lib/drive-scrittura";
 import { ChiaviApi } from "@/components/ChiaviApi";
 import { prisma } from "@/lib/db";
-import { CHIAVE_APIKEY, driveDir, idCartellaDrive } from "@/lib/drive";
+import { CHIAVE_APIKEY, driveDir, idCartellaDrive, ultimaSyncDrive } from "@/lib/drive";
 import {
   BRANDS,
   COLORE_BRAND,
@@ -63,10 +63,9 @@ export default async function PaginaImpostazioni({
     driveDir(),
     prisma.documentoDrive.count(),
     prisma.accountAdv.findMany({ orderBy: [{ piattaforma: "asc" }, { nome: "asc" }] }),
-    prisma.documentoDrive.findFirst({
-      orderBy: { sincronizzatoIl: "desc" },
-      select: { sincronizzatoIl: true },
-    }),
+    // L'ultima corsa di sync, non l'ultimo documento toccato: dalla passata a
+    // scritture in blocco i file invariati non si riscrivono più.
+    ultimaSyncDrive(),
     prisma.impostazione.findUnique({ where: { chiave: CHIAVE_APIKEY } }).catch(() => null),
     statoAi(),
     prisma.apiKey.findMany({ orderBy: [{ attiva: "desc" }, { creataIl: "desc" }] }).catch(() => []),
@@ -482,7 +481,9 @@ export default async function PaginaImpostazioni({
             </b>
             {" · "}
             {documenti} documenti indicizzati
-            {ultimaSync ? ` · ultima sincronizzazione ${formattaDataOra(ultimaSync.sincronizzatoIl)}` : ""}
+            {ultimaSync
+              ? ` · ultima sincronizzazione ${formattaDataOra(ultimaSync.iniziataIl)} (${ultimaSync.stato}, ${ultimaSync.trovati} documenti, ${ultimaSync.analisi} analisi importate)`
+              : ""}
             {" · "}
             <a href="/drive" style={{ color: "var(--blue)" }}>vai ai documenti</a>
           </div>
