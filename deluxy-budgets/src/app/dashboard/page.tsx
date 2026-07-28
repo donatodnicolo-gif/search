@@ -1,12 +1,16 @@
 import Link from "next/link";
 import { ANNO_CORRENTE, caricaAnno, contoEconomico, LIVELLI, totaliMaison } from "@/lib/calc";
 import { eur, pct } from "@/lib/format";
+import { misuraQuota } from "@/lib/quota";
 
 export const dynamic = "force-dynamic";
 
 export default async function Dashboard() {
   const dati = await caricaAnno(ANNO_CORRENTE);
-  const pls = LIVELLI.map((l) => contoEconomico(dati, l.key));
+  // Sul D2C il budget entra a conto economico con la quota che resta a Deluxy
+  // (modello C), la stessa che usa il consuntivo.
+  const q = (await misuraQuota(ANNO_CORRENTE, [1,2,3,4,5,6,7,8,9,10,11,12], [])).percentuale / 100;
+  const pls = LIVELLI.map((l) => contoEconomico(dati, l.key, undefined, q));
 
   const righe: { label: string; get: (pl: (typeof pls)[number]) => string; cls?: (pl: (typeof pls)[number]) => string }[] = [
     { label: "Ricavi", get: (pl) => eur(pl.ricavi) },

@@ -6,6 +6,7 @@ import {
 import { eur, MESI, pct } from "@/lib/format";
 import { caricaConsuntivo, type ConsuntivoPeriodo } from "@/lib/consuntivo";
 import { QUOTA_STIMATA } from "@/lib/venduto";
+import { misuraQuota } from "@/lib/quota";
 
 export const dynamic = "force-dynamic";
 
@@ -55,13 +56,19 @@ export default async function ContoEconomico({
   const cons = mesiChiusi.length > 0 ? await caricaConsuntivo(dati, mesiChiusi) : null;
   const etichettaChiusi = meseChiuso > 0 ? `Gen–${MESI[meseChiuso - 1]}` : "—";
 
+  // Il budget si converte alla stessa base del consuntivo: sul D2C entra la
+  // quota che resta a Deluxy, non il venduto pieno. Senza, «realizzato» e
+  // «scostamento» confrontano una provvigione con un prezzo di vendita.
+  const quotaDeluxy = cons?.quota ?? (await misuraQuota(dati.year, [1,2,3,4,5,6,7,8,9,10,11,12], []));
+  const qD2C = quotaDeluxy.percentuale / 100;
+
   // Il budget **degli stessi mesi**, altrimenti il consuntivo di sei mesi
   // finirebbe accanto a un budget di dodici e sembrerebbe un disastro. Ha la
   // stessa forma del consuntivo, così le due colonne usano lo stesso accessore
   // e non possono descrivere due cose diverse. Si confronta col **pubblicato**
   // (raggiungibile): misurare i fatti contro lo scenario sfidante sarebbe
   // scegliersi l'asticella dopo il salto.
-  const bmRagg = contoEconomicoMensile(dati, "RAGGIUNGIBILE");
+  const bmRagg = contoEconomicoMensile(dati, "RAGGIUNGIBILE", qD2C);
   const somma = (campo: "ricavi" | "cogs" | "margineLordo" | "adv" | "personale" | "costiFissi" | "ebitda") =>
     mesiChiusi.reduce((s, m) => s + bmRagg[m - 1][campo], 0);
   const budgetChiusi: ConsuntivoPeriodo | null =
@@ -100,7 +107,7 @@ export default async function ContoEconomico({
           perMese: [],
         };
 
-  const pls = LIVELLI.map((l) => contoEconomico(dati, l.key));
+  const pls = LIVELLI.map((l) => contoEconomico(dati, l.key, undefined, qD2C));
   const plScelto = pls.find((p) => p.livello === livello)!;
 
   // I ricavi si dettagliano per tipologia di servizio: l'elenco è quello
@@ -114,7 +121,7 @@ export default async function ContoEconomico({
     })),
     ...RIGHE_FISSE,
   ];
-  const mensile = contoEconomicoMensile(dati, livello);
+  const mensile = contoEconomicoMensile(dati, livello, qD2C);
   const mesiInPerdita = mensile.filter((m) => m.ebitda < 0).length;
 
   // Vista «Attuale»: nell'andamento mensile i mesi chiusi mostrano quello che è
@@ -256,6 +263,26 @@ export default async function ContoEconomico({
         </div>
       </div>
 
+      <div className="card" style={{ marginTop: 10, borderColor: "var(--orange)" }}>
+        <strong>Il budget è mezzo convertito, e va finito.</strong> I <strong>ricavi</strong> D2C entrano qui
+        con la quota che resta a Deluxy ({quotaDeluxy.percentuale}%, {quotaDeluxy.misurata ? "misurata" : "stimata"}) —
+        la stessa base del consuntivo, così «scostamento» e «realizzato» confrontano finalmente due cose uguali.
+        Il <strong>costo per servizi a budget</strong> però si calcola ancora dai margini per tipologia scritti
+        quando il ricavo era il venduto pieno: applicare un margine del 35% a un ricavo già netto lascia dentro
+        un costo che non c&apos;è più. Finché quei margini non si rifanno in{" "}
+        <Link href="/margini" style={{ color: "var(--blue)" }}>Margini</Link>, l&apos;EBITDA a budget è più basso
+        del vero e i mesi in perdita sono un artefatto del conto, non un fatto.
+        {cons && (
+          <>
+            {" "}Il metro c&apos;è: sui mesi chiusi il costo per servizi reale è{" "}
+            <strong>{eur(cons.cogs)}</strong> contro <strong>{eur(budgetChiusi?.cogs ?? 0)}</strong> a budget.
+          </>
+        )}
+        <div style={{ marginTop: 6 }} className="muted">
+          Rifarli cambia EBITDA e <strong>premi</strong>: è una decisione, non una correzione.
+        </div>
+      </div>
+
       {cons && (
         <p className="page-caption" style={{ marginTop: 10 }}>
           La riga <strong>ADV</strong> sono le <strong>uscite di banca</strong> categorizzate «Marketing e
@@ -386,7 +413,7 @@ export default async function ContoEconomico({
             </thead>
             <tbody>
               {dati.maisons.map((m) => {
-                const pl = contoEconomico(dati, livello, m.slug);
+                const pl = contoEconomico(dati, livello, m.slug, qD2C);
                 return (
                   <tr key={m.id}>
                     <td>

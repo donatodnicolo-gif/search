@@ -424,9 +424,19 @@ function sommaCosti(dati: DatiAnno, tipo: string, maisonIds?: string[]): number 
     .reduce((s, c) => s + c.valore, 0);
 }
 
+// Slug della tipologia che copre il venduto diretto al consumatore.
+const SLUG_D2C = "D2C";
+
 // P&L dell'anno per un livello di scenario. Vendite e ADV scalano con il
 // moltiplicatore; personale e costi fissi no (sono impegni già presi).
-export function contoEconomico(dati: DatiAnno, livello: Livello, maisonSlug?: string): PL {
+//
+// `quotaD2C` è la quota del venduto che resta a Deluxy (modello C: sull'ecommerce
+// Deluxy è un intermediario, quindi a conto economico entra la provvigione, non
+// il prezzo pieno pagato dal cliente). Il budget continua a scriversi sul
+// **venduto** — è così che si pianifica commercialmente — ma nel conto economico
+// entra alla stessa base del consuntivo, altrimenti «realizzato» e «scostamento»
+// confrontano due cose diverse. 1 = nessuna conversione, per chi non la passa.
+export function contoEconomico(dati: DatiAnno, livello: Livello, maisonSlug?: string, quotaD2C = 1): PL {
   const molt = moltiplicatore(dati, livello);
   const maisons = maisonSlug ? dati.maisons.filter((m) => m.slug === maisonSlug) : dati.maisons;
   const ids = maisons.map((m) => m.id);
@@ -447,10 +457,13 @@ export function contoEconomico(dati: DatiAnno, livello: Livello, maisonSlug?: st
   const ricaviPerServizio: Record<string, number> = {};
   for (const t of tot) {
     for (const [slug, v] of Object.entries(t.perServizio)) {
-      ricaviPerServizio[slug] = (ricaviPerServizio[slug] ?? 0) + v * molt;
+      const conversione = slug === SLUG_D2C ? quotaD2C : 1;
+      ricaviPerServizio[slug] = (ricaviPerServizio[slug] ?? 0) + v * molt * conversione;
     }
   }
-  const ricavi = venditeBase * molt;
+  // Si risomma dalle tipologie invece di usare `venditeBase`: con la quota
+  // applicata al D2C i due numeri non coincidono più.
+  const ricavi = Object.values(ricaviPerServizio).reduce((s, v) => s + v, 0);
   const cogs = Object.entries(ricaviPerServizio).reduce(
     (s, [slug, v]) => s + v * (1 - margineDi(dati, slug) / 100),
     0
@@ -496,7 +509,7 @@ export type PLMese = {
 
 // P&L mese per mese: serve a vedere dove il risultato va sotto zero (i costi
 // fissi e il personale non seguono la stagionalità delle vendite).
-export function contoEconomicoMensile(dati: DatiAnno, livello: Livello): PLMese[] {
+export function contoEconomicoMensile(dati: DatiAnno, livello: Livello, quotaD2C = 1): PLMese[] {
   const molt = moltiplicatore(dati, livello);
   const fissiMese = sommaCosti(dati, "FISSO_MENSILE") + sommaCosti(dati, "FISSO_ANNUO") / 12;
 
@@ -510,7 +523,7 @@ export function contoEconomicoMensile(dati: DatiAnno, livello: Livello): PLMese[
       const x = m.mesi.find((y) => y.month === month);
       if (!x) continue;
       for (const [slug, v] of Object.entries(x.vendite)) {
-        const r = v * molt;
+        const r = v * molt * (slug === SLUG_D2C ? quotaD2C : 1);
         ricavi += r;
         cogs += r * (1 - margineDi(dati, slug) / 100);
       }
