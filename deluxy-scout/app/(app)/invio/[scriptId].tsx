@@ -33,9 +33,16 @@ const datiContatto = (c: ContattoConLuogo): DatiContatto => ({
 
 export default function InvioScript() {
   // `place` c'è quando si arriva dalla scheda di un negozio (Clienti, Prospect,
-  // Potenziali): i suoi contatti partono già selezionati.
-  const { scriptId, place: placeId } = useLocalSearchParams<{ scriptId: string; place?: string }>();
+  // Potenziali): i suoi contatti partono già selezionati. Può contenerne **più
+  // di uno**, separati da virgola, quando si arriva dalla scelta multipla.
+  const { scriptId, place: placeParam } = useLocalSearchParams<{ scriptId: string; place?: string }>();
   const router = useRouter();
+  // useMemo e non una costante: `placeParam` è un valore nuovo a ogni render e
+  // farebbe ripartire in continuazione gli effetti che lo guardano.
+  const placeIds = useMemo(
+    () => new Set((placeParam ?? '').split(',').map((s) => s.trim()).filter(Boolean)),
+    [placeParam],
+  );
 
   const [script, setScript] = useState<ScriptEmail | null>(null);
   const [contatti, setContatti] = useState<ContattoConLuogo[]>([]);
@@ -70,14 +77,14 @@ export default function InvioScript() {
         setContatti(raggiungibili);
         // Arrivo dalla scheda di un negozio: i suoi contatti sono già spuntati,
         // così non si ripescano fra tutti. Restano deselezionabili.
-        if (placeId) {
-          setSel(new Set(raggiungibili.filter((c) => c.place_id === placeId).map((c) => c.id)));
+        if (placeIds.size) {
+          setSel(new Set(raggiungibili.filter((c) => placeIds.has(c.place_id)).map((c) => c.id)));
         }
       } finally {
         setCaricando(false);
       }
     })();
-  }, [scriptId, placeId]);
+  }, [scriptId, placeIds]);
 
   const dati = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -86,9 +93,9 @@ export default function InvioScript() {
       : contatti;
     // Arrivando da un negozio, i suoi contatti vanno in cima: sono già spuntati
     // e in fondo a un elenco alfabetico non si vedrebbero.
-    if (!placeId) return base;
-    return [...base].sort((a, b) => Number(b.place_id === placeId) - Number(a.place_id === placeId));
-  }, [contatti, query, placeId]);
+    if (!placeIds.size) return base;
+    return [...base].sort((a, b) => Number(placeIds.has(b.place_id)) - Number(placeIds.has(a.place_id)));
+  }, [contatti, query, placeIds]);
 
   const selezionati = useMemo(() => contatti.filter((c) => sel.has(c.id)), [contatti, sel]);
 

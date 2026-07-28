@@ -18,6 +18,8 @@ export function CardElenco({
   icona = 'storefront-outline',
   coloreIcona,
   titoloIcona,
+  selezionabile,
+  selezionato,
   nome,
   meta,
   account,
@@ -37,6 +39,13 @@ export function CardElenco({
   coloreIcona?: string;
   /** Cosa vuol dire quel colore, per chi ci passa sopra o usa il lettore. */
   titoloIcona?: string;
+  /**
+   * Modalità scelta multipla: al posto dell'icona compare la casella, e il tap
+   * sulla scheda seleziona invece di aprire il dettaglio. Chi la usa deve
+   * cambiare `onPress` di conseguenza — qui la scheda non decide da sola.
+   */
+  selezionabile?: boolean;
+  selezionato?: boolean;
   /** Nome del negozio/cliente: mai troncato oltre le 3 righe. */
   nome: string;
   /** Riga secondaria (zona · categoria, oppure indirizzo). */
@@ -54,17 +63,34 @@ export function CardElenco({
   onPress?: () => void;
 }) {
   return (
-    <Pressable style={styles.card} onPress={onPress}>
+    <Pressable
+      style={[styles.card, selezionabile && selezionato && styles.cardScelta]}
+      onPress={onPress}
+      accessibilityState={selezionabile ? { selected: Boolean(selezionato) } : undefined}
+    >
       <View style={styles.cardTop}>
-        <View
-          style={[styles.iconaBox, coloreIcona ? { backgroundColor: coloreIcona + '1A', borderColor: coloreIcona + '40' } : null]}
-          accessibilityLabel={titoloIcona}
-          // Sul web il titolo compare come tooltip: il colore da solo non basta
-          // a dire cosa significa (e non tutti lo distinguono).
-          {...(titoloIcona ? { title: titoloIcona } : {})}
-        >
-          <Ionicons name={icona} size={20} color={coloreIcona ?? colors.goldStrong} />
-        </View>
+        {selezionabile ? (
+          // La casella prende il posto dell'icona invece di aggiungersi: su una
+          // riga già piena di badge e bottoni, un elemento in più stringerebbe
+          // il nome — che è la cosa che deve restare leggibile.
+          <View style={[styles.iconaBox, styles.casella, selezionato && styles.casellaOn]}>
+            <Ionicons
+              name={selezionato ? 'checkmark' : 'square-outline'}
+              size={selezionato ? 22 : 20}
+              color={selezionato ? colors.bianco : colors.grigio}
+            />
+          </View>
+        ) : (
+          <View
+            style={[styles.iconaBox, coloreIcona ? { backgroundColor: coloreIcona + '1A', borderColor: coloreIcona + '40' } : null]}
+            accessibilityLabel={titoloIcona}
+            // Sul web il titolo compare come tooltip: il colore da solo non basta
+            // a dire cosa significa (e non tutti lo distinguono).
+            {...(titoloIcona ? { title: titoloIcona } : {})}
+          >
+            <Ionicons name={icona} size={20} color={coloreIcona ?? colors.goldStrong} />
+          </View>
+        )}
         <View style={styles.cardTesto}>
           <Text numberOfLines={3} style={styles.nome}>
             {nome}
@@ -107,6 +133,12 @@ const styles = StyleSheet.create({
     borderColor: colors.grigioChiaro,
     padding: spacing.md,
   },
+  // Scelta multipla: bordo scuro e sfondo appena tinto. Non solo la casella —
+  // scorrendo un elenco lungo si deve capire cos'è dentro senza rileggere ogni
+  // singola riga.
+  cardScelta: { borderColor: colors.ink, backgroundColor: '#F4F6F8' },
+  casella: { backgroundColor: colors.bianco, borderColor: colors.grigioChiaro },
+  casellaOn: { backgroundColor: colors.ink, borderColor: colors.ink },
   cardTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   // minWidth: 0 serve perche' un figlio flex non scenda sotto il suo contenuto
   // e schiacci il nome del negozio.

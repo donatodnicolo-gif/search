@@ -9,21 +9,28 @@ import { colors, radius, spacing } from '@/lib/theme';
 import { fetchScript, LABEL_TIPO, type ScriptEmail } from '@/lib/script';
 import type { Place } from '@/types';
 
+type Destinatario = Pick<Place, 'id' | 'nome'>;
+
 /**
- * Scelta dello script per scrivere a un negozio.
+ * Scelta dello script per scrivere a **uno o più** negozi.
  *
  * Basta `{ id, nome }`: così lo usano sia le liste che hanno un `Place` intero
  * sia i Clienti, che lavorano su una riga più leggera.
  */
 export function ScegliScriptModal({
   place,
+  places,
   onClose,
 }: {
-  place: Pick<Place, 'id' | 'nome'>;
+  /** Un solo negozio (uso storico: l'azione mail su una riga). */
+  place?: Destinatario;
+  /** Più negozi insieme, dalla scelta multipla. */
+  places?: Destinatario[];
   onClose: () => void;
 }) {
   const router = useRouter();
   const [script, setScript] = useState<ScriptEmail[] | null>(null);
+  const scelti: Destinatario[] = places?.length ? places : place ? [place] : [];
 
   useEffect(() => {
     fetchScript()
@@ -33,17 +40,24 @@ export function ScegliScriptModal({
 
   function scegli(s: ScriptEmail) {
     onClose();
-    // Si porta dietro il negozio: nella schermata d'invio i suoi contatti
+    // Si porta dietro i negozi: nella schermata d'invio i loro contatti
     // risultano già selezionati, invece di ripescarli fra tutti.
-    router.push(`/(app)/invio/${s.id}?place=${place.id}`);
+    router.push(`/(app)/invio/${s.id}?place=${scelti.map((p) => p.id).join(',')}`);
   }
+
+  // Con più negozi il titolo dice quanti sono: «Mail a 12 negozi» è
+  // un'informazione che serve prima di premere, non dopo.
+  const titolo =
+    scelti.length === 1 ? `Mail a ${scelti[0].nome}` : `Mail a ${scelti.length} negozi`;
 
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.overlay}>
         <View style={styles.sheet}>
           <View style={styles.head}>
-            <Text style={styles.titolo}>Mail a {place.nome}</Text>
+            <Text style={styles.titolo} numberOfLines={2}>
+              {titolo}
+            </Text>
             <Pressable onPress={onClose} hitSlop={10}>
               <Ionicons name="close" size={24} color={colors.testoSoft} />
             </Pressable>

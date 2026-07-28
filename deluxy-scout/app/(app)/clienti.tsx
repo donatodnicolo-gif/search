@@ -4,7 +4,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { FlatList, Linking, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { colors, radius, spacing, contenutoCentrato } from '@/lib/theme';
+import { colors, radius, shadow, spacing, contenutoCentrato } from '@/lib/theme';
 import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 import { fetchClienti, type Cliente } from '@/lib/db';
 import { OPZIONI_CITTA, passaFiltroCitta } from '@/lib/citta';
@@ -23,6 +23,11 @@ export default function Clienti() {
   const [accountFiltro, setAccountFiltro] = useState<string | null>(null);
   // Scrittura di una mail con uno script: si sceglie il testo, poi si conferma.
   const [mailPlace, setMailPlace] = useState<{ id: string; nome: string } | null>(null);
+  // Scelta multipla: scrivere lo stesso testo a venti clienti uno per uno è il
+  // genere di lavoro che semplicemente non si fa. `null` = modo spento; un Set
+  // (anche vuoto) = si sta scegliendo.
+  const [scelti, setScelti] = useState<Set<string> | null>(null);
+  const [mailMultipla, setMailMultipla] = useState<{ id: string; nome: string }[] | null>(null);
 
   const carica = useCallback(async () => {
     setLoading(true);
@@ -70,20 +75,70 @@ export default function Clienti() {
     setAccountFiltro(null);
   }
 
+  const inScelta = scelti !== null;
+  const nScelti = scelti?.size ?? 0;
+  // Chi è spuntato, nell'ordine in cui appare: serve alla mail e al conteggio.
+  const clientiScelti = useMemo(
+    () => (scelti ? dati.filter((c) => scelti.has(c.id)) : []),
+    [dati, scelti],
+  );
+
+  function spunta(id: string) {
+    setScelti((prev) => {
+      const n = new Set(prev ?? []);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  }
+
+  // «Tutti» sono i clienti FILTRATI, non tutti quelli che esistono: se hai
+  // ristretto a una città e premi tutti, ti aspetti quella città — non 300 mail
+  // a mezza Italia.
+  function tuttiOnessuno() {
+    setScelti((prev) => {
+      const attuali = prev ?? new Set<string>();
+      const tuttiDentro = dati.length > 0 && dati.every((c) => attuali.has(c.id));
+      return tuttiDentro ? new Set() : new Set(dati.map((c) => c.id));
+    });
+  }
+
   return (
     <View style={styles.container}>
       <FlatList
         data={dati}
         keyExtractor={(c) => c.id}
-        contentContainerStyle={[styles.list, contenutoCentrato]}
+        contentContainerStyle={[styles.list, contenutoCentrato, inScelta && styles.listConBarra]}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}
         // Testata dentro lo scorrimento: da fissa occupava mezzo schermo e ai
         // clienti restava una finestrella. Elemento e non funzione, se no la
         // ricerca perde il fuoco a ogni lettera.
         ListHeaderComponent={
           <View style={[styles.head, styles.headerScroll, contenutoCentrato]}>
-            <PageIntro testo="I negozi già acquisiti: clienti Deluxy e partner attivi nel registro. Tocca un cliente per aprirne la scheda." />
-            <Text style={styles.sub}>{clienti.length} clienti{filtriAttivi ? ` · ${dati.length} filtrati` : ''}</Text>
+            <PageIntro
+              testo={
+                inScelta
+                  ? 'Tocca i clienti da includere. «Tutti» prende quelli che vedi adesso, cioè il risultato dei filtri — non l’intero elenco.'
+                  : 'I negozi già acquisiti: clienti Deluxy e partner attivi nel registro. Tocca un cliente per aprirne la scheda.'
+              }
+            />
+            <View style={styles.subRiga}>
+              <Text style={styles.sub}>
+                {clienti.length} clienti{filtriAttivi ? ` · ${dati.length} filtrati` : ''}
+              </Text>
+              {inScelta ? (
+                <Pressable onPress={tuttiOnessuno} style={styles.linkAzione} hitSlop={6}>
+                  <Text style={styles.linkAzioneTxt}>
+                    {dati.length > 0 && dati.every((c) => scelti?.has(c.id)) ? 'Deseleziona tutti' : 'Tutti'}
+                  </Text>
+                </Pressable>
+              ) : (
+                <Pressable onPress={() => setScelti(new Set())} style={styles.linkAzione} hitSlop={6}>
+                  <Ionicons name="checkbox-outline" size={15} color={colors.testo} />
+                  <Text style={styles.linkAzioneTxt}>Scegli più clienti</Text>
+                </Pressable>
+              )}
+            </View>
             <TextInput
               style={styles.search}
               value={query}
@@ -133,11 +188,15 @@ export default function Clienti() {
         renderItem={({ item }) => (
           // Stessa scheda dei Prospect: la forma sta in components/CardElenco.tsx.
           <CardElenco
+            selezionabile={inScelta}
+            selezionato={scelti?.has(item.id)}
             nome={item.nome}
             meta={[item.zona, item.categoria].filter(Boolean).join(' · ') || item.indirizzo || '—'}
             account={item.account ?? null}
             tag={item.linee}
-            onPress={() => router.push(`/(app)/attivita/${item.id}`)}
+            // In modalità scelta il tap spunta invece di aprire: aprire la
+            // scheda a metà selezione la farebbe perdere.
+            onPress={() => (inScelta ? spunta(item.id) : router.push(`/(app)/attivita/${item.id}`))}
             badge={
               <>
                 {item.cliente_scout ? <StatusBadge small label="Cliente" colore={colors.successo} /> : null}
@@ -145,7 +204,11 @@ export default function Clienti() {
               </>
             }
             azioni={
-              /* Azioni rapide: le stesse della scheda, a portata di lista. */
+              /* Azioni rapide: le stesse della scheda, a portata di lista.
+                 Durante la scelta multipla spariscono: un tap su «chiama»
+                 mentre si stanno spuntando venti clienti è solo un modo per
+                 uscire dalla schermata per sbaglio. */
+              inScelta ? null : (
               <AzioniRiga>
                 <IconaAzione
                   nome="call-outline"
@@ -188,12 +251,46 @@ export default function Clienti() {
                   }
                 />
               </AzioniRiga>
+              )
             }
           />
         )}
       />
 
+      {/* Barra della scelta multipla: sta in fondo, sopra la lista, e resta
+          visibile mentre si scorre — il conto di quanti sono spuntati serve
+          proprio mentre si spunta. */}
+      {inScelta ? (
+        <View style={styles.barra}>
+          <Pressable onPress={() => setScelti(null)} style={styles.barraAnnulla} hitSlop={6}>
+            <Text style={styles.barraAnnullaTxt}>Annulla</Text>
+          </Pressable>
+          <Text style={styles.barraConto} numberOfLines={1}>
+            {nScelti === 0 ? 'Nessuno scelto' : `${nScelti} scelt${nScelti === 1 ? 'o' : 'i'}`}
+          </Text>
+          <Pressable
+            style={[styles.barraBtn, !nScelti && styles.barraBtnOff]}
+            disabled={!nScelti}
+            onPress={() => setMailMultipla(clientiScelti.map((c) => ({ id: c.id, nome: c.nome })))}
+          >
+            <Ionicons name="mail-outline" size={16} color={colors.bianco} />
+            <Text style={styles.barraBtnTxt}>Scrivi a {nScelti || ''}</Text>
+          </Pressable>
+        </View>
+      ) : null}
+
       {mailPlace ? <ScegliScriptModal place={mailPlace} onClose={() => setMailPlace(null)} /> : null}
+      {mailMultipla ? (
+        <ScegliScriptModal
+          places={mailMultipla}
+          onClose={() => {
+            setMailMultipla(null);
+            // La scelta si chiude con l'invio: lasciarla aperta farebbe credere,
+            // tornando indietro, che la mail sia ancora da mandare.
+            setScelti(null);
+          }}
+        />
+      ) : null}
     </View>
   );
 }
@@ -219,7 +316,49 @@ function Gruppo({ titolo, valori, attivo, onTap }: { titolo: string; valori: str
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.sfondo },
   head: { backgroundColor: colors.sfondo, borderBottomWidth: 1, borderBottomColor: colors.grigioChiaro, paddingTop: spacing.sm },
-  sub: { color: colors.testoSoft, fontSize: 12, paddingHorizontal: spacing.md, marginBottom: spacing.xs },
+  sub: { color: colors.testoSoft, fontSize: 12, flexShrink: 1 },
+  subRiga: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    marginBottom: spacing.xs,
+  },
+  linkAzione: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  linkAzioneTxt: { color: colors.testo, fontSize: 12.5, fontWeight: '700' },
+  // La barra galleggia sopra la lista: `position: absolute` e non in fondo al
+  // contenitore, se no scorrerebbe via proprio mentre si sceglie.
+  barra: {
+    position: 'absolute',
+    left: spacing.md,
+    right: spacing.md,
+    bottom: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.bianco,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.grigioChiaro,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    ...shadow.float,
+  },
+  barraAnnulla: { paddingHorizontal: 6, paddingVertical: 6 },
+  barraAnnullaTxt: { color: colors.testoSoft, fontWeight: '700', fontSize: 13 },
+  barraConto: { flex: 1, textAlign: 'center', color: colors.testo, fontWeight: '700', fontSize: 13 },
+  barraBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.ink,
+    borderRadius: radius.pill,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  barraBtnOff: { opacity: 0.4 },
+  barraBtnTxt: { color: colors.bianco, fontWeight: '700', fontSize: 13.5 },
   search: {
     backgroundColor: colors.bianco, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.md,
     marginHorizontal: spacing.md, marginBottom: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: 10, fontSize: 15, color: colors.testo,
@@ -233,6 +372,9 @@ const styles = StyleSheet.create({
   chipTxt: { color: colors.navy, fontSize: 13, fontWeight: '600' },
   chipTxtOn: { color: colors.bianco },
   list: { padding: spacing.md, gap: spacing.sm },
+  // Spazio in fondo quando c'è la barra galleggiante: senza, coprirebbe
+  // l'ultimo cliente — che è proprio quello che si sta cercando di spuntare.
+  listConBarra: { paddingBottom: 88 },
   // Annulla il padding del contenitore della lista: i figli della testata hanno
   // gia' i propri margini e la riga dei filtri deve restare da bordo a bordo.
   headerScroll: { marginHorizontal: -spacing.md, marginTop: -spacing.md, marginBottom: spacing.sm },
