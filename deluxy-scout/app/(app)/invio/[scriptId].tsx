@@ -86,20 +86,7 @@ export default function InvioScript() {
     })();
   }, [scriptId, placeIds]);
 
-  const dati = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    const base = q
-      ? contatti.filter((c) => [c.nome, c.place_nome, c.email].filter(Boolean).some((v) => (v as string).toLowerCase().includes(q)))
-      : contatti;
-    // Arrivando da un negozio, i suoi contatti vanno in cima: sono già spuntati
-    // e in fondo a un elenco alfabetico non si vedrebbero.
-    if (!placeIds.size) return base;
-    return [...base].sort((a, b) => Number(placeIds.has(b.place_id)) - Number(placeIds.has(a.place_id)));
-  }, [contatti, query, placeIds]);
-
-  // Il nome del negozio da cui si è arrivati. Serve a dire in testa alla
-  // schermata a CHI si sta scrivendo: senza, ci si trova davanti l'intera
-  // rubrica con qualche riga spuntata e nessuna spiegazione del perché.
+  // Il nome del negozio da cui si è arrivati, per dire in testa a CHI si scrive.
   const negozio = useMemo(() => {
     if (!placeIds.size) return null;
     const nomi = [...new Set(contatti.filter((c) => placeIds.has(c.place_id)).map((c) => c.place_nome).filter(Boolean))];
@@ -107,9 +94,65 @@ export default function InvioScript() {
     return nomi.length === 1 ? (nomi[0] as string) : `${nomi.length} negozi`;
   }, [contatti, placeIds]);
 
-  // Quante righe dell'elenco appartengono al negozio di partenza: sopra questa
-  // soglia comincia «il resto della rubrica», e la separazione va mostrata.
-  const suoi = useMemo(() => dati.filter((c) => placeIds.has(c.place_id)).length, [dati, placeIds]);
+  // ⚠️ L'elenco NON mostra tutta la rubrica (scelta utente, 28/07/2026).
+  // Mostrarla voleva dire mettere davanti centinaia di persone con qualcuna
+  // spuntata: chi voleva scrivere a un cliente si trovava l'archivio
+  // dell'azienda e non capiva cosa stesse guardando. Si vedono solo i contatti
+  // VERI di quel negozio; gli altri si cercano, e compaiono solo mentre cerchi.
+  const MIN_RICERCA = 2;
+  const q = query.trim().toLowerCase();
+  const cercando = q.length >= MIN_RICERCA;
+
+  const suoiContatti = useMemo(
+    () => contatti.filter((c) => placeIds.has(c.place_id)),
+    [contatti, placeIds],
+  );
+
+  // Chi è stato aggiunto a mano resta visibile anche a ricerca svuotata: se
+  // sparisse, spuntarlo non servirebbe a niente.
+  const aggiunti = useMemo(
+    () => contatti.filter((c) => sel.has(c.id) && !placeIds.has(c.place_id)),
+    [contatti, sel, placeIds],
+  );
+
+  const risultati = useMemo(() => {
+    if (!cercando) return [];
+    return contatti
+      .filter((c) => !placeIds.has(c.place_id) && !sel.has(c.id))
+      .filter((c) => [c.nome, c.place_nome, c.email].filter(Boolean).some((v) => (v as string).toLowerCase().includes(q)))
+      .slice(0, 40); // oltre non si legge: si affina la ricerca
+  }, [contatti, q, cercando, placeIds, sel]);
+
+  // Le tre parti in un elenco solo, ognuna con la sua intestazione.
+  type Riga =
+    | { tipo: 'testata'; testo: string; chiave: string }
+    | { tipo: 'contatto'; c: ContattoConLuogo; suo: boolean };
+  const dati = useMemo<Riga[]>(() => {
+    const out: Riga[] = [];
+    if (suoiContatti.length) {
+      out.push({ tipo: 'testata', chiave: 't-suoi', testo: `Contatti di ${negozio ?? 'questo negozio'} (${suoiContatti.length})` });
+      for (const c of suoiContatti) out.push({ tipo: 'contatto', c, suo: true });
+    }
+    if (aggiunti.length) {
+      out.push({ tipo: 'testata', chiave: 't-agg', testo: `Aggiunti da te (${aggiunti.length})` });
+      for (const c of aggiunti) out.push({ tipo: 'contatto', c, suo: false });
+    }
+    if (cercando) {
+      out.push({
+        tipo: 'testata',
+        chiave: 't-cerca',
+        testo: risultati.length ? `Trovati in rubrica (${risultati.length})` : 'Nessun contatto trovato',
+      });
+      for (const c of risultati) out.push({ tipo: 'contatto', c, suo: false });
+    }
+    return out;
+  }, [suoiContatti, aggiunti, risultati, cercando, negozio]);
+
+  // Solo le righe-contatto: servono a «seleziona tutti» e al conteggio.
+  const visibili = useMemo(
+    () => dati.filter((r): r is Extract<Riga, { tipo: 'contatto' }> => r.tipo === 'contatto'),
+    [dati],
+  );
 
   const selezionati = useMemo(() => contatti.filter((c) => sel.has(c.id)), [contatti, sel]);
 
@@ -120,11 +163,13 @@ export default function InvioScript() {
       return n;
     });
   }
+  // Agisce su ciò che si VEDE adesso — contatti del negozio, aggiunti a mano,
+  // risultati di ricerca — mai sull'intera rubrica.
   function tuttiVisibili() {
     setSel((prev) => {
       const n = new Set(prev);
-      const tutti = dati.every((c) => n.has(c.id));
-      dati.forEach((c) => (tutti ? n.delete(c.id) : n.add(c.id)));
+      const tutti = visibili.length > 0 && visibili.every((r) => n.has(r.c.id));
+      visibili.forEach((r) => (tutti ? n.delete(r.c.id) : n.add(r.c.id)));
       return n;
     });
   }
@@ -293,8 +338,8 @@ export default function InvioScript() {
         <Text style={styles.introPasso}>Passo 1 di 2 · A chi la mandi</Text>
         <Text style={styles.introTesto}>
           {negozio
-            ? `Testo scelto: «${script.titolo}». Qui sotto ci sono i contatti di ${negozio}, già spuntati. Puoi toglierne o aggiungerne altri dalla rubrica. Al passo 2 rivedi il testo e confermi — niente parte prima.`
-            : `Testo scelto: «${script.titolo}». Spunta i contatti a cui mandarlo: al passo 2 rivedi il testo e confermi. Niente parte prima.`}
+            ? `Testo scelto: «${script.titolo}». Qui sotto ci sono solo i contatti di ${negozio}, già spuntati — non tutta la rubrica. Per aggiungere qualcun altro, cercalo. Al passo 2 rivedi il testo e confermi: niente parte prima.`
+            : `Testo scelto: «${script.titolo}». Cerca i contatti a cui mandarlo e spuntali. Al passo 2 rivedi il testo e confermi: niente parte prima.`}
         </Text>
       </View>
 
@@ -303,45 +348,48 @@ export default function InvioScript() {
           style={styles.search}
           value={query}
           onChangeText={setQuery}
-          placeholder="Cerca contatto per nome, negozio, email…"
+          placeholder="Aggiungi dalla rubrica: cerca nome, negozio, email…"
           placeholderTextColor={colors.grigio}
           autoCapitalize="none"
           clearButtonMode="while-editing"
         />
         <Pressable style={styles.selTutti} onPress={tuttiVisibili}>
-          <Text style={styles.selTuttiTxt}>{dati.every((c) => sel.has(c.id)) && dati.length ? 'Deseleziona tutti' : 'Seleziona tutti'}</Text>
+          <Text style={styles.selTuttiTxt}>
+            {visibili.length > 0 && visibili.every((r) => sel.has(r.c.id)) ? 'Deseleziona' : 'Seleziona tutti'}
+          </Text>
         </Pressable>
       </View>
 
       <FlatList
         data={dati}
-        keyExtractor={(c) => c.id}
+        keyExtractor={(r) => (r.tipo === 'testata' ? r.chiave : r.c.id)}
         contentContainerStyle={styles.list}
-        ListEmptyComponent={<Text style={styles.vuoto}>Nessun contatto con email. Aggiungi le email in Rubrica.</Text>}
-        renderItem={({ item, index }) => {
-          const on = sel.has(item.id);
-          const suo = placeIds.has(item.place_id);
+        ListEmptyComponent={
+          <Text style={styles.vuoto}>
+            {negozio
+              ? `${negozio} non ha contatti con un'email in rubrica. Cerca qui sopra per aggiungere qualcun altro, oppure aggiungi la sua email dalla Rubrica.`
+              : 'Cerca un contatto qui sopra per aggiungerlo.'}
+          </Text>
+        }
+        renderItem={({ item }) => {
+          if (item.tipo === 'testata') return <Text style={styles.gruppoLista}>{item.testo}</Text>;
+          const c = item.c;
+          const on = sel.has(c.id);
           return (
-            <>
-              {/* Le due intestazioni dicono dove finisce «il cliente da cui sei
-                  partito» e dove comincia il resto della rubrica: senza, la
-                  lista sembrava un unico elenco con delle spunte a caso. */}
-              {negozio && index === 0 && suo ? (
-                <Text style={styles.gruppoLista}>I contatti di {negozio}</Text>
-              ) : null}
-              {negozio && index === suoi && !suo ? (
-                <Text style={styles.gruppoLista}>Altri contatti in rubrica — aggiungili solo se servono</Text>
-              ) : null}
-              <Pressable style={[styles.riga, suo && styles.rigaSua]} onPress={() => toggle(item.id)}>
-                <Ionicons name={on ? 'checkbox' : 'square-outline'} size={22} color={on ? colors.ink : colors.grigio} />
-                <View style={{ flex: 1 }}>
-                  <Text numberOfLines={3} style={styles.rigaNome}>{item.nome || '(senza nome)'}</Text>
-                  <Text style={styles.rigaMeta} numberOfLines={1}>
-                    {[item.place_nome, item.email].filter(Boolean).join(' · ')}
-                  </Text>
+            <Pressable style={[styles.riga, item.suo && styles.rigaSua]} onPress={() => toggle(c.id)}>
+              <Ionicons name={on ? 'checkbox' : 'square-outline'} size={22} color={on ? colors.ink : colors.grigio} />
+              <View style={{ flex: 1 }}>
+                <View style={styles.rigaTesta}>
+                  <Text numberOfLines={3} style={styles.rigaNome}>{c.nome || '(senza nome)'}</Text>
+                  {/* Il decisore è la persona che firma: distinguerlo evita di
+                      mandare la proposta a chi non decide. */}
+                  {c.is_decisore ? <Text style={styles.tagDecisore}>DECISORE</Text> : null}
                 </View>
-              </Pressable>
-            </>
+                <Text style={styles.rigaMeta} numberOfLines={1}>
+                  {[c.ruolo, c.place_nome, c.email].filter(Boolean).join(' · ')}
+                </Text>
+              </View>
+            </Pressable>
           );
         }}
       />
@@ -379,7 +427,19 @@ const styles = StyleSheet.create({
   // I contatti del negozio di partenza hanno il bordo marcato: si distinguono
   // dal resto della rubrica anche scorrendo in fretta.
   rigaSua: { borderColor: colors.ink },
-  rigaNome: { color: colors.testo, fontWeight: '700', fontSize: 14 },
+  rigaTesta: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
+  rigaNome: { color: colors.testo, fontWeight: '700', fontSize: 14, flexShrink: 1 },
+  tagDecisore: {
+    color: colors.bianco,
+    backgroundColor: colors.goldStrong,
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: radius.pill,
+    overflow: 'hidden',
+  },
   rigaMeta: { color: colors.testoSoft, fontSize: 12 },
   barra: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm, padding: spacing.md, borderTopWidth: 1, borderTopColor: colors.grigioChiaro, backgroundColor: colors.bianco },
   conteggio: { color: colors.testoSoft, fontWeight: '700', fontSize: 14 },
