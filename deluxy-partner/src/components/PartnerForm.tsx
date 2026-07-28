@@ -32,6 +32,16 @@ export function PartnerForm({
   const ammEmailReg = fin?.amministrazioneEmail ?? p?.ammEmail ?? "";
   const ammTelefonoReg = fin?.amministrazioneTelefono ?? p?.ammTelefono ?? "";
   const collegato = Boolean(anagrafica);
+  // Dati FISCALI: vivono nel registro, ma si modificano anche da qui — al
+  // salvataggio ci tornano scritti. Prima erano in sola lettura e per
+  // correggere un codice SDI bisognava cambiare app.
+  const pIvaReg = anagrafica?.pIva ?? "";
+  const cfReg = anagrafica?.codiceFiscale ?? "";
+  const sdiReg = fin?.codiceSdi ?? "";
+  const pecReg = fin?.pec ?? "";
+  const indirizzoReg = anagrafica?.indirizzo ?? "";
+  const cittaFattReg = anagrafica?.citta ?? "";
+  const provinciaReg = anagrafica?.provincia ?? "";
   return (
     <form action={action} className="card">
       <div className="form-grid">
@@ -112,6 +122,41 @@ export function PartnerForm({
         <div>
           <label className="field-label">Piano di rientro debito</label>
           <input type="text" name="pdrDebito" defaultValue={p?.pdrDebito ?? ""} />
+        </div>
+        <div className="full">
+          <h2 className="section-title" style={{ fontSize: 15, marginBottom: 2 }}>Dati fiscali e di fatturazione</h2>
+          <p className="muted" style={{ fontSize: 12.5, margin: "0 0 6px" }}>
+            Sono quelli che finiscono sulla fattura elettronica. Si salvano nel registro <strong>Anagrafiche</strong>,
+            che resta la fonte unica: modificandoli qui, li vedranno anche le altre app.
+          </p>
+        </div>
+        <div>
+          <label className="field-label">Partita IVA</label>
+          <input type="text" name="pIva" defaultValue={pIvaReg} placeholder="es. 12514031009" />
+        </div>
+        <div>
+          <label className="field-label">Codice fiscale</label>
+          <input type="text" name="codiceFiscale" defaultValue={cfReg} />
+        </div>
+        <div>
+          <label className="field-label">Codice destinatario (SDI)</label>
+          <input type="text" name="codiceSdi" defaultValue={sdiReg} placeholder="7 caratteri, es. M5UXCR1" maxLength={7} style={{ textTransform: "uppercase" }} />
+        </div>
+        <div>
+          <label className="field-label">PEC</label>
+          <input type="email" name="pec" defaultValue={pecReg} placeholder="alternativa al codice SDI" />
+        </div>
+        <div className="full">
+          <label className="field-label">Indirizzo di fatturazione</label>
+          <input type="text" name="indirizzoFatt" defaultValue={indirizzoReg} placeholder="Via e numero civico, CAP, città" />
+        </div>
+        <div>
+          <label className="field-label">Città (fatturazione)</label>
+          <input type="text" name="cittaFatt" defaultValue={cittaFattReg} />
+        </div>
+        <div>
+          <label className="field-label">Provincia</label>
+          <input type="text" name="provinciaFatt" defaultValue={provinciaReg} placeholder="RM" maxLength={2} style={{ textTransform: "uppercase" }} />
         </div>
         <div>
           <label className="field-label">

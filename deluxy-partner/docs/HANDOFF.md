@@ -236,6 +236,16 @@ nessuna delle tre pagine che creano fatture puo dimenticarselo. In `/registrazio
 anche la tendina per sceglierlo. Se su FIC non ci fosse nessun metodo, l errore lo dice e spiega dove
 crearlo. Oggi su FIC ce n e uno solo: BONIFICO.
 
+**Dati fiscali modificabili da Finance (28/07/2026).** Nella scheda partner si modificano **P.IVA,
+codice fiscale, codice SDI, PEC, indirizzo di fatturazione, citta e provincia**: prima erano in sola
+lettura e per correggere un codice SDI bisognava cambiare app. **Non si salvano in locale**: al
+salvataggio vanno nel registro Anagrafiche via `aggiornaAnagrafica`, che resta la fonte unica — e
+subito dopo si riallinea la copia locale. Se il partner NON e ancora nel registro, il record viene
+creato (`creaAnagrafica`, upsert per nome+citta con `idEsterno` = id partner, quindi non duplica) e
+collegato. ⚠️ **Un campo lasciato vuoto non cancella** il valore nel registro: si inviano solo i campi
+valorizzati, per non azzerare un dato buono se la lettura del registro fallisce. Per svuotare un campo
+si passa dal registro.
+
 **Anagrafiche: il collegamento e la copia locale (28/07/2026).** `confermaRiconciliazione` NON
 scriveva `Partner.anagraficaId`: la scheda ritrovava il record del registro solo perche lo cercava per
 NOME a ogni apertura, e per il resto dell app quel partner restava senza dati fiscali — e la fattura

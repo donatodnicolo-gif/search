@@ -43,10 +43,11 @@ export default async function ModificaPartner({ params }: { params: Promise<{ id
 
       <div className="card" style={{ padding: 14, margin: "16px 0 4px", background: "var(--bg)" }}>
         <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: 0 }}>
-          I campi qui sopra sono la <strong>configurazione finanziaria locale</strong> di questo partner (fee,
-          crediti/debiti, IBAN per i bonifici, contatto per solleciti). I <strong>dati anagrafici e fiscali</strong>{" "}
-          (P.IVA, CF, SDI, PEC, indirizzo…) sono centralizzati nel registro <strong>Anagrafiche</strong> — qui sotto
-          li vedi in sola lettura e si modificano lì, così non vengono duplicati fra le app.
+          I <strong>dati fiscali</strong> (P.IVA, CF, codice SDI, PEC, indirizzo di fatturazione) si modificano
+          da qui, ma <strong>non vengono salvati qui</strong>: al salvataggio finiscono nel registro{" "}
+          <strong>Anagrafiche</strong>, che resta la fonte unica — così li vedono anche le altre app e non esistono
+          due versioni dello stesso dato. Il resto dei campi (fee, crediti/debiti, contatto per i solleciti) è la
+          configurazione finanziaria locale di questo partner. Qui sotto il record del registro com'è adesso.
         </p>
       </div>
       <AnagraficaCard nomePartner={partner.nome} anagraficaId={partner.anagraficaId} />

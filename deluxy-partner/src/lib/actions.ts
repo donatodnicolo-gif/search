@@ -5,7 +5,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "./db";
 import { feeApplicabile, feeDaTariffe } from "./fee";
-import { risolviAnagrafica, contattoAmministrativo, aggiornaAnagrafica, scritturaAnagraficheAttiva, statoAnalisiDaClienteAnno, type CampiAnagrafica } from "./anagrafiche";
+import { risolviAnagrafica, contattoAmministrativo, aggiornaAnagrafica, creaAnagrafica, scritturaAnagraficheAttiva, statoAnalisiDaClienteAnno, type CampiAnagrafica } from "./anagrafiche";
+import { allineaPartnerDaRegistro } from "./allinea-registro";
 import { ivato, nomeMese } from "./calc";
 import { registraPagamento, rimuoviPagamento } from "./pagamenti-rif";
 import { ficAllineaStatoFattura, ficAllineaIncassoParziale } from "./fic";
@@ -93,8 +94,22 @@ export async function updatePartner(id: string, fd: FormData) {
   // centralizzati: se il partner è collegato al registro e la scrittura è
   // attiva, li portiamo in Anagrafiche (fonte di verità). La copia locale resta
   // come cache operativa (solleciti/SEPA), allineata al momento del salvataggio.
+  // Dati FISCALI dal form: non sono colonne del partner (vivono nel registro),
+  // quindi si leggono a parte e si mandano solo la'.
+  const t = (k: string) => String(fd.get(k) ?? "").trim();
+  const fiscali: CampiAnagrafica = {
+    ...(t("pIva") ? { pIva: t("pIva") } : {}),
+    ...(t("codiceFiscale") ? { codiceFiscale: t("codiceFiscale") } : {}),
+    ...(t("codiceSdi") ? { codiceSdi: t("codiceSdi").toUpperCase() } : {}),
+    ...(t("pec") ? { pec: t("pec") } : {}),
+    ...(t("indirizzoFatt") ? { indirizzo: t("indirizzoFatt") } : {}),
+    ...(t("cittaFatt") ? { citta: t("cittaFatt") } : {}),
+    ...(t("provinciaFatt") ? { provincia: t("provinciaFatt").toUpperCase() } : {}),
+  };
+
   if (partner.anagraficaId && scritturaAnagraficheAttiva()) {
     const campi: CampiAnagrafica = {
+      ...fiscali,
       ...(data.iban ? { iban: data.iban } : {}),
       ...(data.email ? { email: data.email } : {}),
       ...(data.telefono ? { telefono: data.telefono } : {}),
@@ -110,6 +125,25 @@ export async function updatePartner(id: string, fd: FormData) {
     if (Object.keys(campi).length > 0) {
       // best-effort: se il registro è irraggiungibile non blocchiamo il salvataggio locale
       await aggiornaAnagrafica(partner.anagraficaId, campi).catch(() => {});
+      // e si riporta subito in locale cio' che serve fuori dalla scheda
+      await allineaPartnerDaRegistro(id).catch(() => null);
+    }
+  } else if (!partner.anagraficaId && Object.keys(fiscali).length > 0 && scritturaAnagraficheAttiva()) {
+    // Partner non ancora nel registro: scrivere i dati fiscali solo in locale
+    // vorrebbe dire crearne una copia che nessun'altra app vedra' mai. Si crea
+    // il record nel registro (upsert per nome+citta, idEsterno = id partner:
+    // non duplica) e lo si collega.
+    const res = await creaAnagrafica({
+      nome: partner.nome,
+      ragioneSociale: partner.ragioneSociale,
+      citta: partner.citta,
+      categoria: partner.categoria,
+      idEsterno: partner.id,
+      campi: fiscali,
+    });
+    if (res.ok) {
+      await prisma.partner.update({ where: { id }, data: { anagraficaId: res.id } });
+      await allineaPartnerDaRegistro(id).catch(() => null);
     }
   }
   await registra({ azione: `Modificato partner ${partner.nome}`, categoria: "partner", entita: "partner", entitaId: id, partner: partner.nome });
