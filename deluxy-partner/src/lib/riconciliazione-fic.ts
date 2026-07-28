@@ -152,3 +152,31 @@ export async function costruisciRiconciliazione(): Promise<Riconciliazione> {
 
   return { conciliati, daCollegare, senzaMatch };
 }
+
+/** I dati fiscali che Fatture in Cloud conosce già per un partner Deluxy.
+ *
+ *  Serve al caso vero: il partner «GRUÈ» in anagrafica non ha né partita IVA né
+ *  codice SDI, ma su Fatture in Cloud ci sono 38 fatture intestate a
+ *  «GRUE' S.R.L.» con tutto. Chiedere all'operatore di ridigitare quei dati —
+ *  o peggio, farlo sbagliare scegliendo la voce sbagliata di un menu dove lo
+ *  stesso cliente compare due volte con due nomi — è lavoro inutile e un modo
+ *  per emettere una fattura a un'anagrafica sbagliata.
+ *
+ *  L'aggancio usa lo stesso confronto per parole intere della riconciliazione,
+ *  quindi «FIORE» non prende «FIORERIA». Se il nome non combacia con nessuno,
+ *  torna null: meglio fermarsi e chiedere che indovinare l'intestatario.
+ */
+export async function datiFiscaliDaFic(partner: Partner): Promise<FicClienteFiscale | null> {
+  let clienti: FicClienteFiscale[];
+  try {
+    clienti = await clientiFicCache();
+  } catch {
+    return null; // FIC irraggiungibile: si prosegue coi soli dati locali
+  }
+  const candidati = clienti.filter((c) => matchPartner(c.nome, [partner])?.id === partner.id);
+  if (candidati.length === 0) return null;
+  // Fra più intestazioni dello stesso cliente vince la più completa: alcune
+  // fatture vecchie hanno solo il nome.
+  const punti = (c: FicClienteFiscale) => Object.values(c).filter(Boolean).length;
+  return candidati.sort((a, b) => punti(b) - punti(a))[0];
+}

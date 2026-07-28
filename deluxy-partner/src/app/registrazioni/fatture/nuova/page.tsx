@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { risolviAnagrafica } from "@/lib/anagrafiche";
+import { datiFiscaliDaFic } from "@/lib/riconciliazione-fic";
 import { ficStato, ficClientiFatturabiliCached, ficEntityUltimaFattura, ficCreaFattura, ficMetodiPagamento, type RigaFattura, type FicEntity } from "@/lib/fic";
 import { RigheProForma } from "@/components/RigheProForma";
 import { TerminiPagamento } from "@/components/TerminiPagamento";
@@ -66,17 +67,23 @@ async function emettiFattura(fd: FormData) {
       const street = raw.split(",")[0]?.trim() || raw;
       const cap = raw.match(/\b\d{5}\b/)?.[0] ?? "";
       const email = a?.email || partner.email || "";
+      // Se il registro Anagrafiche non ha i dati fiscali, si prendono da
+      // Fatture in Cloud: spesso quel cliente e gia stato fatturato la con
+      // partita IVA e codice SDI, e ridigitarli e lavoro inutile (oltre che un
+      // modo per sbagliarli). Vale solo come RIPIEGO: dove il registro sa, il
+      // registro vince, perche e lui la fonte di verita delle anagrafiche.
+      const daFic = a?.pIva || a?.codiceFiscale ? null : await datiFiscaliDaFic(partner);
       entity = {
-        name: a?.ragioneSociale || partner.nome,
-        ...(a?.pIva ? { vat_number: a.pIva } : {}),
-        ...(a?.codiceFiscale ? { tax_code: a.codiceFiscale } : {}),
+        name: a?.ragioneSociale || daFic?.nome || partner.nome,
+        ...(a?.pIva ?? daFic?.piva ? { vat_number: (a?.pIva ?? daFic?.piva)! } : {}),
+        ...(a?.codiceFiscale ?? daFic?.codiceFiscale ? { tax_code: (a?.codiceFiscale ?? daFic?.codiceFiscale)! } : {}),
         ...(street ? { address_street: street } : {}),
         ...(cap ? { address_postal_code: cap } : {}),
         ...(a?.citta ? { address_city: a.citta } : {}),
         ...(a?.provincia ? { address_province: a.provincia } : {}),
         country: "Italia",
-        ...(fin?.codiceSdi ? { ei_code: fin.codiceSdi } : {}),
-        ...(fin?.pec ? { certified_email: fin.pec } : {}),
+        ...(fin?.codiceSdi ?? daFic?.codiceSdi ? { ei_code: (fin?.codiceSdi ?? daFic?.codiceSdi)! } : {}),
+        ...(fin?.pec ?? daFic?.pec ? { certified_email: (fin?.pec ?? daFic?.pec)! } : {}),
         ...(email ? { email } : {}),
       };
     }
