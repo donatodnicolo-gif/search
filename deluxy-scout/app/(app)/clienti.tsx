@@ -9,6 +9,7 @@ import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 import { fetchClienti, type Cliente } from '@/lib/db';
 import { OPZIONI_CITTA, passaFiltroCitta } from '@/lib/citta';
 import { PannelloFiltri } from '@/components/PannelloFiltri';
+import { commutaSet, GruppoFiltro } from '@/components/GruppoFiltro';
 import { AzioniRiga, IconaAzione } from '@/components/AzioniRiga';
 import { CardElenco } from '@/components/CardElenco';
 import { ScegliScriptModal } from '@/components/ScegliScriptModal';
@@ -79,16 +80,6 @@ export default function Clienti() {
     setZonaFiltro(new Set());
     setLineaFiltro(new Set());
     setAccountFiltro(new Set());
-  }
-
-  /** Aggiunge o toglie un valore da un filtro. */
-  function commuta(set: (f: (p: Set<string>) => Set<string>) => void, valore: string) {
-    set((prev) => {
-      const n = new Set(prev);
-      if (n.has(valore)) n.delete(valore);
-      else n.add(valore);
-      return n;
-    });
   }
 
   const inScelta = scelti !== null;
@@ -171,29 +162,29 @@ export default function Clienti() {
                 {/* Ogni gruppo è a scelta multipla: si spuntano più voci e
                     valgono in OR. La voce «Tutte/Tutti» non è un valore fra gli
                     altri — è il modo di svuotare quel gruppo. */}
-                <Gruppo
+                <GruppoFiltro
                   titolo="Città"
                   valori={(OPZIONI_CITTA as unknown as string[]).filter((v) => v !== 'Tutte')}
                   attivi={zonaFiltro}
-                  onTap={(v) => commuta(setZonaFiltro, v)}
+                  onTap={(v) => commutaSet(setZonaFiltro, v)}
                   onTutti={() => setZonaFiltro(new Set())}
                   etichettaTutti="Tutte"
                 />
                 {accountPresenti.length ? (
-                  <Gruppo
+                  <GruppoFiltro
                     titolo="Account"
                     valori={accountPresenti}
                     attivi={accountFiltro}
-                    onTap={(v) => commuta(setAccountFiltro, v)}
+                    onTap={(v) => commutaSet(setAccountFiltro, v)}
                     onTutti={() => setAccountFiltro(new Set())}
                   />
                 ) : null}
                 {lineePresenti.length ? (
-                  <Gruppo
+                  <GruppoFiltro
                     titolo="Interessi"
                     valori={lineePresenti}
                     attivi={lineaFiltro}
-                    onTap={(v) => commuta(setLineaFiltro, v)}
+                    onTap={(v) => commutaSet(setLineaFiltro, v)}
                     onTutti={() => setLineaFiltro(new Set())}
                   />
                 ) : null}
@@ -323,58 +314,6 @@ export default function Clienti() {
   );
 }
 
-/**
- * Un gruppo di filtri a **scelta multipla**: ogni pillola si accende e si
- * spegne da sé, e quelle accese valgono in OR.
- *
- * La prima pillola («Tutte»/«Tutti») azzera il gruppo ed è accesa quando non
- * c'è nessuna selezione: senza, per tornare a vedere tutto bisognerebbe
- * ricordarsi quali voci si erano spuntate e rispegnerle una per una.
- */
-function Gruppo({
-  titolo,
-  valori,
-  attivi,
-  onTap,
-  onTutti,
-  etichettaTutti = 'Tutti',
-}: {
-  titolo: string;
-  valori: string[];
-  attivi: Set<string>;
-  onTap: (v: string) => void;
-  onTutti: () => void;
-  etichettaTutti?: string;
-}) {
-  return (
-    <View style={styles.gruppo}>
-      <View style={styles.gruppoTesta}>
-        <Text style={styles.gruppoTitolo}>{titolo}</Text>
-        {/* Quanti ne hai spuntati in questo gruppo: con dieci pillole a capo
-            su più righe, il conto a colpo d'occhio serve. */}
-        {attivi.size > 0 ? <Text style={styles.gruppoConto}>{attivi.size}</Text> : null}
-      </View>
-      <View style={styles.chips}>
-        <Pressable onPress={onTutti} style={[styles.chip, attivi.size === 0 && styles.chipOn]}>
-          <Text style={[styles.chipTxt, attivi.size === 0 && styles.chipTxtOn]} numberOfLines={1}>
-            {etichettaTutti}
-          </Text>
-        </Pressable>
-        {valori.map((v) => {
-          const on = attivi.has(v);
-          return (
-            <Pressable key={v} onPress={() => onTap(v)} style={[styles.chip, on && styles.chipOn]}>
-              {/* La spunta dice che la pillola è un interruttore e non una
-                  scelta esclusiva: senza, due pillole accese sembrano un bug. */}
-              {on ? <Ionicons name="checkmark" size={13} color={colors.bianco} /> : null}
-              <Text style={[styles.chipTxt, on && styles.chipTxtOn]} numberOfLines={1}>{v}</Text>
-            </Pressable>
-          );
-        })}
-      </View>
-    </View>
-  );
-}
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.sfondo },

@@ -1,9 +1,9 @@
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { StyleSheet, View } from 'react-native';
 import type { StatoPlace } from '@/types';
-import { colors, labelStato, radius, spacing } from '@/lib/theme';
+import { labelStato, spacing } from '@/lib/theme';
 import { OPZIONI_CITTA } from '@/lib/citta';
 import { PannelloFiltri } from '@/components/PannelloFiltri';
+import { GruppoFiltro } from '@/components/GruppoFiltro';
 
 /**
  * I filtri sono **liste**: si spuntano più valori per gruppo (richiesta utente
@@ -79,7 +79,7 @@ export function Filters({ filtri, opzioni, onChange, admin, citta = true }: Prop
     // bottone, perché aperto occupava più di una schermata prima della lista.
     <PannelloFiltri attivi={nAttivi} onAzzera={() => onChange(filtriVuoti())}>
     <View style={styles.row}>
-      <Gruppo
+      <GruppoFiltro
         titolo="Priorità"
         valori={PRIORITA}
         attivi={filtri.priorita}
@@ -87,7 +87,7 @@ export function Filters({ filtri, opzioni, onChange, admin, citta = true }: Prop
         onTutti={() => azzeraGruppo('priorita')}
         label={(v) => LABEL_PRIORITA[v] ?? v}
       />
-      <Gruppo
+      <GruppoFiltro
         titolo="Stato"
         valori={STATI}
         attivi={filtri.stato}
@@ -96,7 +96,7 @@ export function Filters({ filtri, opzioni, onChange, admin, citta = true }: Prop
         label={labelChipStato}
       />
       {citta ? (
-        <Gruppo
+        <GruppoFiltro
           titolo="Città"
           // "Tutte" non è un valore fra gli altri: è il modo di svuotare il
           // gruppo, e la mette il componente.
@@ -107,14 +107,14 @@ export function Filters({ filtri, opzioni, onChange, admin, citta = true }: Prop
           etichettaTutti="Tutte"
         />
       ) : null}
-      <Gruppo
+      <GruppoFiltro
         titolo="Settore"
         valori={opzioni.settori}
         attivi={filtri.settore}
         onTap={(v) => toggle('settore', v)}
         onTutti={() => azzeraGruppo('settore')}
       />
-      <Gruppo
+      <GruppoFiltro
         titolo="Interessi"
         valori={opzioni.linee}
         attivi={filtri.linea}
@@ -123,14 +123,14 @@ export function Filters({ filtri, opzioni, onChange, admin, citta = true }: Prop
       />
       {admin ? (
         <>
-          <Gruppo
+          <GruppoFiltro
             titolo="Account"
             valori={opzioni.account ?? []}
             attivi={filtri.account}
             onTap={(v) => toggle('account', v)}
             onTutti={() => azzeraGruppo('account')}
           />
-          <Gruppo
+          <GruppoFiltro
             titolo="Inserito da"
             valori={opzioni.creatori ?? []}
             attivi={filtri.creatore}
@@ -144,90 +144,6 @@ export function Filters({ filtri, opzioni, onChange, admin, citta = true }: Prop
   );
 }
 
-/** Un gruppo di pillole a scelta multipla. La prima («Tutti») svuota il gruppo
- *  ed è accesa quando non c'è nessuna selezione. */
-function Gruppo({
-  titolo,
-  valori,
-  attivi,
-  onTap,
-  onTutti,
-  label,
-  etichettaTutti = 'Tutti',
-}: {
-  titolo: string;
-  valori: string[];
-  attivi: string[];
-  onTap: (v: string) => void;
-  onTutti: () => void;
-  label?: (v: string) => string;
-  etichettaTutti?: string;
-}) {
-  if (valori.length === 0) return null;
-  const nessuno = attivi.length === 0;
-  return (
-    <View style={styles.gruppo}>
-      <View style={styles.gruppoTesta}>
-        <Text style={styles.gruppoTitolo}>{titolo}</Text>
-        {/* Quanti ne hai spuntati qui: con le pillole che vanno a capo su più
-            righe, il conto a colpo d'occhio serve. */}
-        {attivi.length > 0 ? <Text style={styles.gruppoConto}>{attivi.length}</Text> : null}
-      </View>
-      <View style={styles.chips}>
-        <TouchableOpacity onPress={onTutti} style={[styles.chip, nessuno && styles.chipOn]}>
-          <Text style={[styles.chipTxt, nessuno && styles.chipTxtOn]} numberOfLines={1}>
-            {etichettaTutti}
-          </Text>
-        </TouchableOpacity>
-        {valori.map((v) => {
-          const on = attivi.includes(v);
-          return (
-            <TouchableOpacity key={v} onPress={() => onTap(v)} style={[styles.chip, on && styles.chipOn]}>
-              {/* La spunta dice che la pillola è un interruttore e non una
-                  scelta esclusiva: senza, due accese sembrano un difetto. */}
-              {on ? <Ionicons name="checkmark" size={13} color={colors.bianco} /> : null}
-              <Text style={[styles.chipTxt, on && styles.chipTxtOn]} numberOfLines={1}>
-                {label ? label(v) : v}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   row: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: spacing.sm },
-  gruppo: { marginBottom: 2 },
-  gruppoTesta: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
-  gruppoTitolo: { color: colors.testoSoft, fontSize: 11, fontWeight: '700' },
-  gruppoConto: {
-    color: colors.bianco,
-    backgroundColor: colors.navy,
-    fontSize: 10,
-    fontWeight: '800',
-    minWidth: 16,
-    textAlign: 'center',
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-    borderRadius: radius.pill,
-    overflow: 'hidden',
-  },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  chip: {
-    // In riga per far stare la spunta accanto al testo nelle pillole accese.
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: colors.bianco,
-    borderColor: colors.grigioChiaro,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: radius.pill,
-  },
-  chipOn: { backgroundColor: colors.navy, borderColor: colors.navy },
-  chipTxt: { color: colors.navy, fontSize: 13, fontWeight: '600' },
-  chipTxtOn: { color: colors.bianco },
 });

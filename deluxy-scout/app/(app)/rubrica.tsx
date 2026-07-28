@@ -11,15 +11,17 @@ import { archiviaContatto, fetchTuttiContatti, type ContattoConLuogo } from '@/l
 import { avvisa } from '@/lib/dialoghi';
 import { OPZIONI_CITTA, passaFiltroCitta } from '@/lib/citta';
 import { PannelloFiltri } from '@/components/PannelloFiltri';
+import { commutaSet, GruppoFiltro } from '@/components/GruppoFiltro';
 
 export default function Rubrica() {
   const router = useRouter();
   const [contatti, setContatti] = useState<ContattoConLuogo[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
-  const [statoFiltro, setStatoFiltro] = useState<StatoPlace | null>(null);
-  const [lineaFiltro, setLineaFiltro] = useState<string | null>(null);
-  const [zonaFiltro, setZonaFiltro] = useState<string | null>(null);
+  // Filtri a scelta multipla: Set vuoto = spento, più valori = OR.
+  const [statoFiltro, setStatoFiltro] = useState<Set<string>>(new Set());
+  const [lineaFiltro, setLineaFiltro] = useState<Set<string>>(new Set());
+  const [zonaFiltro, setZonaFiltro] = useState<Set<string>>(new Set());
   const [mostraArchiviati, setMostraArchiviati] = useState(false); // di default gli archiviati sono nascosti
   // Toggle rapidi (multipli, combinabili): utili per preparare una campagna.
   const [toggles, setToggles] = useState<Set<'decisori' | 'email' | 'telefono' | 'registro'>>(new Set());
@@ -31,13 +33,16 @@ export default function Rubrica() {
       n.has(t) ? n.delete(t) : n.add(t);
       return n;
     });
-  const filtriAttivi = Boolean(statoFiltro || lineaFiltro || zonaFiltro || toggles.size || query.trim());
-  // Conteggio per il bottone del pannello (la ricerca resta fuori: è sempre visibile).
-  const nFiltriAttivi = [statoFiltro, lineaFiltro, zonaFiltro].filter(Boolean).length + toggles.size;
+  const filtriAttivi = Boolean(
+    statoFiltro.size || lineaFiltro.size || zonaFiltro.size || toggles.size || query.trim(),
+  );
+  // Conteggio per il bottone del pannello (la ricerca resta fuori: è sempre
+  // visibile). Conta i VALORI spuntati, non i gruppi: dice quanto si è ristretto.
+  const nFiltriAttivi = statoFiltro.size + lineaFiltro.size + zonaFiltro.size + toggles.size;
   function azzeraFiltri() {
-    setStatoFiltro(null);
-    setLineaFiltro(null);
-    setZonaFiltro(null);
+    setStatoFiltro(new Set());
+    setLineaFiltro(new Set());
+    setZonaFiltro(new Set());
     setToggles(new Set());
     setQuery('');
   }
@@ -80,9 +85,10 @@ export default function Rubrica() {
     return contatti.filter((c) => {
       // Gli archiviati sono nascosti finché non si attiva "Archiviati".
       if (mostraArchiviati ? !c.archiviato : c.archiviato) return false;
-      if (statoFiltro && c.place_stato !== statoFiltro) return false;
-      if (lineaFiltro && c.place_linea !== lineaFiltro) return false;
-      if (!passaFiltroCitta(c.place_zona, zonaFiltro)) return false;
+      // Set vuoto = filtro spento. Con più valori basta che ne combaci uno.
+      if (statoFiltro.size && !statoFiltro.has(c.place_stato ?? '')) return false;
+      if (lineaFiltro.size && !lineaFiltro.has(c.place_linea ?? '')) return false;
+      if (zonaFiltro.size && ![...zonaFiltro].some((z) => passaFiltroCitta(c.place_zona, z))) return false;
       if (toggles.has('decisori') && !c.is_decisore) return false;
       if (toggles.has('email') && !emailValida(c.email)) return false;
       if (toggles.has('telefono') && !c.telefono) return false;
@@ -136,29 +142,31 @@ export default function Rubrica() {
               prima del primo contatto. */}
           <PannelloFiltri attivi={nFiltriAttivi} onAzzera={azzeraFiltri}>
             <View style={styles.filtri}>
-              {statiPresenti.length ? (
-                <GruppoFiltro
-                  titolo="Stato"
-                  valori={statiPresenti}
-                  attivo={statoFiltro}
-                  onTap={(v) => setStatoFiltro((cur) => (cur === v ? null : (v as StatoPlace)))}
-                  label={(v) => labelStato[v as StatoPlace]}
-                  colore={(v) => coloreStato[v as StatoPlace]}
-                />
-              ) : null}
-              {lineePresenti.length ? (
-                <GruppoFiltro
-                  titolo="Interessi"
-                  valori={lineePresenti}
-                  attivo={lineaFiltro}
-                  onTap={(v) => setLineaFiltro((cur) => (cur === v ? null : v))}
-                />
-              ) : null}
+              <GruppoFiltro
+                titolo="Stato"
+                valori={statiPresenti}
+                attivi={statoFiltro}
+                onTap={(v) => commutaSet(setStatoFiltro, v)}
+                onTutti={() => setStatoFiltro(new Set())}
+                label={(v) => labelStato[v as StatoPlace]}
+                colore={(v) => coloreStato[v as StatoPlace]}
+              />
+              <GruppoFiltro
+                titolo="Interessi"
+                valori={lineePresenti}
+                attivi={lineaFiltro}
+                onTap={(v) => commutaSet(setLineaFiltro, v)}
+                onTutti={() => setLineaFiltro(new Set())}
+              />
               <GruppoFiltro
                 titolo="Città"
-                valori={OPZIONI_CITTA as unknown as string[]}
-                attivo={zonaFiltro ?? 'Tutte'}
-                onTap={(v) => setZonaFiltro(v === 'Tutte' ? null : (cur) => (cur === v ? null : v))}
+                // "Tutte" la mette il componente: qui è il modo di svuotare,
+                // non un valore della lista.
+                valori={(OPZIONI_CITTA as unknown as string[]).filter((v) => v !== 'Tutte')}
+                attivi={zonaFiltro}
+                onTap={(v) => commutaSet(setZonaFiltro, v)}
+                onTutti={() => setZonaFiltro(new Set())}
+                etichettaTutti="Tutte"
               />
             </View>
 
@@ -219,42 +227,6 @@ export default function Rubrica() {
   );
 }
 
-// Gruppo di chip filtro (uno solo attivo per gruppo; ritap = azzera). I chip
-// stato usano un dot col colore semantico DS.
-function GruppoFiltro({
-  titolo,
-  valori,
-  attivo,
-  onTap,
-  label,
-  colore,
-}: {
-  titolo: string;
-  valori: string[];
-  attivo: string | null;
-  onTap: (v: string) => void;
-  label?: (v: string) => string;
-  colore?: (v: string) => string;
-}) {
-  return (
-    <View style={styles.gruppo}>
-      <Text style={styles.gruppoTitolo}>{titolo}</Text>
-      <View style={styles.chips}>
-        {valori.map((v) => {
-          const on = attivo === v;
-          return (
-            <Pressable key={v} onPress={() => onTap(v)} style={[styles.chip, on && styles.chipOn]}>
-              {colore ? <View style={[styles.chipDot, { backgroundColor: colore(v) }]} /> : null}
-              <Text style={[styles.chipTxt, on && styles.chipTxtOn]} numberOfLines={1}>
-                {label ? label(v) : v}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-    </View>
-  );
-}
 
 // Chip toggle rapido (attivo/spento, combinabile con gli altri).
 function ToggleChip({
