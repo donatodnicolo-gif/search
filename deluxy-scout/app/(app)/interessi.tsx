@@ -21,7 +21,12 @@ import { usePlaces } from '@/lib/usePlaces';
 import { coloreLivello, inLavorazione, LABEL_LIVELLO, livelloDi, type Livello } from '@/lib/livelli';
 import { EmptyState, PageIntro } from '@/components/ui';
 import { CardElenco } from '@/components/CardElenco';
-import { COLORE_VISITA, LABEL_VISITA, statoVisita } from '@/lib/statoVisita';
+import { AzioniContatto } from '@/components/AzioniContatto';
+import { IconaAzione } from '@/components/AzioniRiga';
+import { ScegliScriptModal } from '@/components/ScegliScriptModal';
+import { VisitaModal } from '@/components/VisitaModal';
+import { PianificaVisitaModal } from '@/components/PianificaVisitaModal';
+import { COLORE_VISITA, LABEL_VISITA, giornoBreve, statoVisita } from '@/lib/statoVisita';
 
 // L'ordine del funnel: dove sta il lavoro si legge da sinistra a destra.
 // Dormienti e persi restano fuori: qui si guarda il lavoro in corso, e
@@ -32,7 +37,12 @@ type PerLivello = Record<Colonna, Place[]>;
 
 export default function Interessi() {
   const router = useRouter();
-  const { places, conContatto, contattati, conBozza, visitati, loading, ricarica } = usePlaces();
+  const { places, conContatto, contattati, conBozza, visitati, recapiti, loading, ricarica } = usePlaces();
+  // Le stesse finestre delle altre liste: chi apre un negozio da qui deve
+  // poterci fare le stesse cose, non tornare in un'altra sezione per agire.
+  const [mailPlace, setMailPlace] = useState<Place | null>(null);
+  const [visitaPlace, setVisitaPlace] = useState<Place | null>(null);
+  const [pianificaPlace, setPianificaPlace] = useState<Place | null>(null);
   // Quale interesse è aperto. Uno per volta: aperti tutti, la pagina diventa
   // l'elenco completo dei negozi e non si vede più il quadro d'insieme.
   const [aperto, setAperto] = useState<string | null>(null);
@@ -92,6 +102,9 @@ export default function Interessi() {
   }
 
   return (
+    // Le finestre stanno FUORI dallo scorrimento: dentro, un pop-up si
+    // muoverebbe con la pagina invece di restare al centro dello schermo.
+    <View style={styles.container}>
     <ScrollView
       style={styles.container}
       contentContainerStyle={[styles.list, contenutoCentrato]}
@@ -160,6 +173,7 @@ export default function Interessi() {
                 </Text>
                 {elencoAperto.map((p) => {
                   const visita = statoVisita(p, conBozza.has(p.id), visitati.has(p.id));
+                  const quando = giornoBreve(p.visita_pianificata);
                   return (
                     <CardElenco
                       key={p.id}
@@ -169,6 +183,32 @@ export default function Interessi() {
                       meta={[p.zona, p.categoria].filter(Boolean).join(' · ') || p.indirizzo}
                       account={p.anagrafiche_account ?? null}
                       onPress={() => router.push(`/(app)/attivita/${p.id}`)}
+                      azioni={
+                        // Le stesse azioni delle altre liste
+                        // (components/AzioniContatto.tsx): da qui si vede dove
+                        // sta il lavoro di una linea, e chi lo vede deve poterlo
+                        // fare subito invece di annotarsi il nome e cambiare
+                        // sezione.
+                        <AzioniContatto
+                          place={p}
+                          recapito={recapiti.get(p.id)}
+                          onVisita={() => setVisitaPlace(p)}
+                          onMail={(x) => setMailPlace(x as Place)}
+                          onTrattativa={(x) =>
+                            router.push(
+                              `/(app)/trattative?nuovoPer=${x.id}&nuovoNome=${encodeURIComponent(x.nome)}`,
+                            )
+                          }
+                        >
+                          <IconaAzione
+                            nome="calendar-outline"
+                            attiva
+                            evidenza={Boolean(p.visita_pianificata)}
+                            label={quando ? `Visita prevista ${quando} — cambia` : 'Pianifica la visita'}
+                            onPress={() => setPianificaPlace(p)}
+                          />
+                        </AzioniContatto>
+                      }
                     />
                   );
                 })}
@@ -178,6 +218,27 @@ export default function Interessi() {
         );
       })}
     </ScrollView>
+
+    {mailPlace ? <ScegliScriptModal place={mailPlace} onClose={() => setMailPlace(null)} /> : null}
+    <VisitaModal
+      place={visitaPlace}
+      onClose={() => setVisitaPlace(null)}
+      onDone={() => {
+        setVisitaPlace(null);
+        // Ricarica: registrata la visita il negozio può cambiare colonna, e
+        // vederlo restare dov'era farebbe pensare che non sia stato salvato.
+        ricarica();
+      }}
+    />
+    <PianificaVisitaModal
+      place={pianificaPlace}
+      onClose={() => setPianificaPlace(null)}
+      onDone={() => {
+        setPianificaPlace(null);
+        ricarica();
+      }}
+    />
+    </View>
   );
 }
 
