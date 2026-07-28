@@ -332,6 +332,69 @@ Meta 345 € con **zero** incasso dichiarato). L'incasso è quello che il canale
 spezzare per canale** (l'UTM c'è su una minoranza di ordini), quindi il MER
 resta un numero di brand e la tabella non finge di poterlo dividere.
 
+### Le due tabelle della scheda campagna, e cosa farne (28/07/2026)
+
+**Parole cercate** (`TerminiRicerca`) e **keyword** (`KeywordCampagna`) stanno
+una sopra l'altra apposta: sono cosa ci hanno chiesto e cosa abbiamo comprato,
+e la distanza fra le due è dove si nascondono i soldi. Colonne ordinabili
+(parametri separati: `ord`/`verso` per i termini, `ordk`/`versok` per le
+keyword — se li condividessero si riordinerebbero insieme).
+
+> ⚠️ **Le parole cercate costavano la metà.** Google manda una riga per ogni
+> coppia (parola × keyword): la stessa ricerca intercettata da due keyword
+> arriva **due volte con la spesa spezzata**. L'app tiene una riga per
+> (campagna, testo) e faceva `update` → vinceva l'ultima letta. Ora si somma in
+> **due** punti (script prima di spedire + ingest, che non può fidarsi del
+> mittente) e la riga dice «+N altre keyword, numeri sommati» (`keywordDiverse`).
+> **I numeri già nel database restano sottostimati fino al primo giro con
+> `AZIONE = "diagnosi"`.**
+
+> ⚠️ **Le keyword stanno sotto il nome VECCHIO della campagna.** Quelle
+> importate dal Monitoraggio hanno i nomi della 00.4 (`FIORI MILANO ENG`), la
+> piattaforma usa i suoi (`[Deluxy] - Fiori Milano ENG`): col confronto esatto
+> la tabella mostrava 60 keyword tutte a 0,00 €. Si confronta col nome
+> **normalizzato**. E le righe dal Monitoraggio hanno l'incasso ma **non** il
+> numero di conversioni: «spende a vuoto» vuol dire né conversioni **né**
+> incasso, o una keyword che ha reso 3.817 € finiva fra quelle a vuoto.
+
+### Le proposte dell'AI, e ideali vs specifiche (28/07/2026)
+
+`lib/proposte-ai.ts` + `PropostaAi`. Per ogni keyword e ogni parola cercata
+l'AI dice **cosa farne** (tieni · osserva · alza · abbassa · pausa · escludi ·
+aggiungi) col numero da cui nasce la decisione e la fiducia dichiarata.
+
+- **Propone, non decide**: la proposta resta scritta finché una persona non
+  l'accetta, e accettarla **mette in coda** un'operazione da approvare. La
+  catena app → coda → approvazione → script resta intera. Fiducia `bassa` =
+  mostrata ma non eseguibile.
+- **Niente pareri su dati che non ci sono**: sotto 10 clic *e* 15 € la parola
+  non viene nemmeno mandata all'AI — l'azione è `osserva` e la decide il codice
+  col motivo vero. Misurato: 22 giudicate, 70 lasciate a osservare.
+- I numeri si **congelano** in `numeri`: una proposta riletta fra un mese deve
+  dire su cosa era stata fatta.
+- **`ideal` vs `specific`**: ideale = descrive quello che vendiamo e varrebbe
+  altrove (`flower delivery in milan`); specifica = legata a un caso solo
+  (concorrente, insegna, storpiatura, il nostro marchio). **Nel dubbio
+  specifica**: una ideale sbagliata viene proposta a tutte le altre campagne e
+  propaga l'errore. Da qui il blocco **«Ideali che qui mancano»**, che confronta
+  solo le ideali, sulle *parole* e non sulla stringa, e mostra spesa e resa
+  **dell'altra campagna** (là funziona, non è detto che qui funzioni).
+  Per vederlo pieno serve aver fatto girare l'AI su **almeno due campagne dello
+  stesso brand**.
+
+**Escludere una keyword** dalla scheda: due bottoni, e la differenza conta —
+`pausa_keyword` ferma quella keyword, `negativa` chiude anche le ricerche
+simili, comprese quelle che oggi arrivano da altre keyword. Lo script esegue
+entrambe dopo l'approvazione; le PMax non accettano negative da script.
+
+> ⚠️ **Il testo con cui una keyword si mostra non è quello con cui esiste su
+> Google**: il Monitoraggio ci attacca il tipo di corrispondenza, e in coda
+> finiva `flower milan (match esatto)` — lo script avrebbe cercato una keyword
+> inesistente e sarebbe tornato «bersaglio non trovato». `testoKeywordPulito`
+> (in **dominio.ts**, non in azioni.ts: un file `"use server"` può esportare
+> solo funzioni async, e il typecheck non lo vede) toglie solo una parentesi
+> finale che contiene *solo* parole di corrispondenza.
+
 ### Sezioni dell'app
 
 Dashboard (con le tessere dei brand in cima) · Lettura AI · Analisi periodo ·
