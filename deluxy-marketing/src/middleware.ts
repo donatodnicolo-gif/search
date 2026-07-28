@@ -18,6 +18,12 @@ export async function middleware(req: NextRequest) {
   // risponde a lui.
   if (pathname === "/api/health") return NextResponse.next();
 
+  // Il cron di Vercel non ha cookie: se passasse di qui si prenderebbe un
+  // redirect a /login, e un redirect è un 307 — cioè per Vercel la corsa
+  // sarebbe "riuscita" e i dati non arriverebbero mai, senza che nessuno se ne
+  // accorga. Non è aperto: si autentica da sé col CRON_SECRET.
+  if (pathname.startsWith("/api/cron/")) return NextResponse.next();
+
   const password = process.env.MARKETING_APP_PASSWORD;
   if (!password || pathname === "/login") return NextResponse.next();
 
