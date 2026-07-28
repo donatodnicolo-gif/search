@@ -1631,6 +1631,23 @@ export async function fetchPlaceIdConBozza(): Promise<Set<string>> {
   return idPaginati('bozze_visita');
 }
 
+/**
+ * I negozi con una trattativa **aperta**: è ciò che distingue un Prospect da un
+ * Lead (scala ridefinita dall'utente il 28/07/2026 — prospect = ha mostrato
+ * interesse e la trattativa è partita).
+ *
+ * Aperta = non chiusa: `closedwon` è già un cliente, `closedlost` un perso, e
+ * tenerli qui farebbe risultare «in trattativa» rapporti finiti da mesi.
+ */
+export async function fetchPlaceIdInTrattativa(): Promise<Set<string>> {
+  const { data, error } = await supabase
+    .from('deals')
+    .select('place_id, fase')
+    .not('fase', 'in', '("closedwon","closedlost")');
+  if (error) throw error;
+  return new Set((data ?? []).map((r: any) => r.place_id).filter(Boolean) as string[]);
+}
+
 /** I negozi con almeno una visita registrata: il verde del semaforo. */
 export async function fetchPlaceIdVisitati(): Promise<Set<string>> {
   return idPaginati('visits');

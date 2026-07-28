@@ -7,6 +7,7 @@ import {
   fetchPlaceIdConBozza,
   fetchPlaceIdConContatto,
   fetchPlaceIdContattati,
+  fetchPlaceIdInTrattativa,
   fetchPlaceIdVisitati,
   fetchRecapitiPlace,
   type RecapitoPlace,
@@ -26,6 +27,8 @@ export function usePlaces() {
   // Il semaforo della visita: chi ha un resoconto a metà e chi c'è già stato.
   const [conBozza, setConBozza] = useState<Set<string>>(new Set());
   const [visitati, setVisitati] = useState<Set<string>>(new Set());
+  // Chi ha una trattativa aperta: e' il confine fra Lead e Prospect.
+  const [inTrattativa, setInTrattativa] = useState<Set<string>>(new Set());
   // Telefono e mail del negozio, presi dalla rubrica (decisore per primo): le
   // liste ci appendono le azioni di contatto senza rifare la query ognuna.
   const [recapiti, setRecapiti] = useState<Map<string, RecapitoPlace>>(new Map());
@@ -52,6 +55,13 @@ export function usePlaces() {
         setContattati(await fetchPlaceIdContattati());
       } catch {
         setContattati(new Set());
+      }
+      // Trattative aperte: separano i Prospect (si sono mossi) dai Lead. Se la
+      // lettura fallisce restano tutti Lead — un livello indietro, non sparito.
+      try {
+        setInTrattativa(await fetchPlaceIdInTrattativa());
+      } catch {
+        setInTrattativa(new Set());
       }
       // Il semaforo della visita (lib/statoVisita.ts): bozza aperta = giallo,
       // visita registrata = verde. Se una delle due letture non riesce il
@@ -94,7 +104,7 @@ export function usePlaces() {
     };
   }, [places]);
 
-  return { places, conContatto, contattati, conBozza, visitati, recapiti, loading, errore, ricarica: carica, opzioni };
+  return { places, conContatto, contattati, inTrattativa, conBozza, visitati, recapiti, loading, errore, ricarica: carica, opzioni };
 }
 
 /** Applica i filtri a una lista di places. La mappa NON filtra via i pin di default

@@ -27,16 +27,17 @@ non è un campo in più da aggiornare a mano.
 
 | Livello | Chi è | Come ci si arriva |
 |---|---|---|
-| **Selezionato** | potenzialmente interessante, non gli è ancora stato detto niente | ⭐ dalla Mappa o dalle Affiliazioni, bottone + |
-| **Lead** | c'è un aggancio, ma non ancora una persona con cui parlare | mail partita, chiamata o visita registrata — **oppure** dichiarato a mano quando è arrivato lui (richiesta dal sito, segnalazione, evento) |
-| **Prospect** | c'è una **persona** in rubrica da cui ripartire | contatto salvato in Rubrica, o già noto da HubSpot |
-| **Cliente** | ha chiuso una trattativa | trattativa vinta → ordine |
-| **Dormiente** | ha lavorato con noi, poi si è fermato | stato `dismesso` nel registro Anagrafiche |
+| **Selezionato** | scelto, ma non gli è stato detto ancora niente | ⭐ dalla Mappa o dalle Affiliazioni, bottone + |
+| **Lead** | **c'è un contatto** | una persona in rubrica, un messaggio partito (mail/chiamata/visita), oppure è arrivato lui — richiesta dal sito, segnalazione — e lo si dichiara |
+| **Prospect** | **ha mostrato interesse**: ha risposto e la trattativa è aperta | trattativa aperta in Scout o su HubSpot |
+| **Cliente** | la trattativa è andata bene | trattativa vinta → ordine |
+| **Dormiente** | cliente che **ha smesso di fatturare** | oggi: stato `dismesso` nel registro. La regola vera è di FINANCE (`statoAnalisi`) e va collegata |
 | **Perso** | chiuso senza esito o non in target | esito visita, stato registro |
 
-Il confine fra Lead e Prospect è **una persona con cui parlare**, non l'attività
-svolta: si può aver bussato tre volte e restare un Lead. È la differenza fra
-«abbiamo scritto a quel negozio» e «abbiamo il nome della titolare».
+⚠️ **Scala ridefinita dall'utente il 28/07/2026.** Il confine fra Lead e Prospect
+era «c'è una persona in rubrica»; ora è **la trattativa**. Un nome in rubrica non
+è un interesse: è un recapito. Prospect è il lead che si è mosso — ha risposto e
+c'è qualcosa in gioco.
 
 ⚠️ Fino al 27/07/2026 gli identificatori nel codice erano sfasati rispetto a
 queste etichette (`prospect` si mostrava come "Selezionato"). Ora coincidono, e

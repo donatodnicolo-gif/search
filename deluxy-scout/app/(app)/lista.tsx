@@ -51,10 +51,10 @@ const NOME_VISTA: Record<Vista, string> = {
 
 const TITOLO_VISTA: Record<Vista, string> = {
   selezionato: 'Selezionati — scelti con la ⭐ da Mappa o Affiliazioni: non gli è ancora stato detto niente. L’azione è il primo contatto.',
-  lead: 'Lead — gli abbiamo scritto, telefonato o siamo passati, ma non c’è ancora una persona in rubrica: sono quelli da incalzare.',
-  prospect: 'Prospect — c’è un contatto in rubrica: l’azione è tenere caldo il rapporto (mail con script).',
+  lead: 'Lead — c’è un contatto: una persona in rubrica, un messaggio partito, o è arrivato lui. Non ha ancora mostrato interesse: sono quelli da incalzare.',
+  prospect: 'Prospect — ha risposto e c’è una trattativa aperta: qui si sta giocando qualcosa, e l’azione è portarla a casa.',
   cliente: 'Clienti — hanno chiuso una trattativa.',
-  inattivi: 'Dormienti e persi — rapporti da riattivare o da capire perché non sono partiti.',
+  inattivi: 'Dormienti e persi — clienti che hanno smesso di fatturare (la lista più redditizia da riattivare) e rapporti chiusi senza esito.',
 };
 
 const RANK: Record<string, number> = { P1: 0, P2: 1, P3: 2 };
@@ -63,11 +63,13 @@ export default function Lista() {
   const router = useRouter();
   const { session } = useAuth();
   const admin = isAdmin(session?.user?.email);
-  const { places, conContatto, contattati, conBozza, visitati, recapiti, loading, opzioni, ricarica } = usePlaces();
-  // Il livello di un negozio dipende da due insiemi caricati una volta sola:
-  // scriverlo qui evita di ripetere `conContatto.has(...)` a ogni chiamata e di
-  // dimenticarsi `contattati` in una delle quattro.
-  const livelloPlace = (p: Place) => livelloDi(p, conContatto.has(p.id), contattati.has(p.id));
+  const { places, conContatto, contattati, inTrattativa, conBozza, visitati, recapiti, loading, opzioni, ricarica } =
+    usePlaces();
+  // Il livello dipende da tre insiemi caricati una volta sola: scriverlo qui
+  // evita di ripeterli a ogni chiamata e di dimenticarne uno in una delle
+  // quattro (è già successo con `contattati`).
+  const livelloPlace = (p: Place) =>
+    livelloDi(p, conContatto.has(p.id), contattati.has(p.id), inTrattativa.has(p.id));
   const [filtri, setFiltri] = useState<FiltriMappa>(filtriVuoti);
   const { vista } = useLocalSearchParams<{ vista?: string }>();
   const vistaCorr = (['selezionato', 'lead', 'prospect', 'cliente', 'inattivi'] as Vista[]).includes(vista as Vista)

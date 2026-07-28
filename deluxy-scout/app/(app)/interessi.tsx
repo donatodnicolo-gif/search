@@ -37,7 +37,7 @@ type PerLivello = Record<Colonna, Place[]>;
 
 export default function Interessi() {
   const router = useRouter();
-  const { places, conContatto, contattati, conBozza, visitati, recapiti, loading, ricarica } = usePlaces();
+  const { places, conContatto, contattati, inTrattativa, conBozza, visitati, recapiti, loading, ricarica } = usePlaces();
   // Le stesse finestre delle altre liste: chi apre un negozio da qui deve
   // poterci fare le stesse cose, non tornare in un'altra sezione per agire.
   const [mailPlace, setMailPlace] = useState<Place | null>(null);
@@ -56,7 +56,7 @@ export default function Interessi() {
       // mail già partita. Prima bastava non avere `creato_da` per sparire da
       // qui pur comparendo in Rubrica.
       if (!inLavorazione(p, conContatto.has(p.id), contattati.has(p.id))) continue;
-      const liv = livelloDi(p, conContatto.has(p.id), contattati.has(p.id));
+      const liv = livelloDi(p, conContatto.has(p.id), contattati.has(p.id), inTrattativa.has(p.id));
       if (!COLONNE.includes(liv as Colonna)) continue; // dormienti e persi: non sono lavoro in corso
       // Un negozio senza interesse non sparisce: finisce in «Da assegnare»,
       // che è esattamente il lavoro che qualcuno deve fare.
@@ -81,7 +81,7 @@ export default function Interessi() {
       .sort((a, b) =>
         a.linea === 'Da assegnare' ? 1 : b.linea === 'Da assegnare' ? -1 : b.totale - a.totale,
       );
-  }, [places, conContatto, contattati]);
+  }, [places, conContatto, contattati, inTrattativa]);
 
   const elencoAperto = useMemo(() => {
     if (!aperto || !livelloAperto) return [];

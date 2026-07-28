@@ -1,24 +1,24 @@
-// I livelli commerciali di un negozio (decisione utente 23/07/2026, ampliata il
-// 27/07/2026 con LEAD). Una sola scala, valida in tutta l'app, DERIVATA dai dati
-// che già abbiamo — non un campo in più da tenere aggiornato a mano.
+// I livelli commerciali di un negozio. Una sola scala, valida in tutta l'app,
+// DERIVATA dai dati che già abbiamo — non un campo in più da aggiornare a mano.
+//
+// ⚠️ SCALA RIDEFINITA DALL'UTENTE il 28/07/2026. Il confine fra Lead e Prospect
+// era «c'è una persona in rubrica»; ora è **la trattativa**. Un nome in rubrica
+// non è un interesse: è un recapito. Prospect è chi si è mosso.
 //
 //   SELEZIONATO qualcuno l'ha scelto — ⭐ dalla Mappa o dalle Affiliazioni,
 //               oppure col bottone + — ma non gli è ancora stato detto niente.
-//   LEAD        c'è un aggancio, ma non ancora una persona con cui parlare.
-//               Ci si arriva in due modi, e contano uguale:
-//                 · gli abbiamo scritto, telefonato o siamo andati a trovarlo;
-//                 · **è arrivato lui** — una richiesta dal sito, una
-//                   segnalazione, un nominativo preso a un evento — e allora lo
-//                   si dichiara Lead dalla sua scheda, senza avergli scritto.
-//               ⚠️ Fino al 28/07/2026 valeva solo il primo: la regola guardava
-//               i contatti in USCITA, e chi contattava noi restava un
-//               «selezionato».
-//   PROSPECT    c'è una persona in rubrica (o già nota da HubSpot): da lì si
-//               riparte con nome e cognome.
-//   CLIENTE     ha chiuso una trattativa: ha comprato.
-//   DORMIENTE   ha lavorato con noi ma il rapporto si è fermato (nel registro
-//               Anagrafiche è "dismesso"). Non è un perso: ci conosce già, ed è
-//               la lista più redditizia da riattivare.
+//   LEAD        **c'è un contatto**: una persona in rubrica, oppure gli
+//               abbiamo scritto/telefonato, oppure è arrivato lui (richiesta
+//               dal sito, segnalazione) e lo si è dichiarato tale.
+//   PROSPECT    **ha mostrato interesse**: ha risposto, e c'è una trattativa
+//               aperta. È il lead che si è mosso.
+//   CLIENTE     la trattativa è andata bene: ha comprato.
+//   DORMIENTE   cliente che **ha smesso di fatturare**. Non è un perso: ci
+//               conosce già, ha comprato, ed è la lista più redditizia da
+//               riattivare. La regola vera è di FINANCE (`statoAnalisi =
+//               dismesso`, GET /api/clienti/stato di deluxy-partner): finché
+//               quel dato non arriva qui si usa lo stato del registro, che
+//               significa «rapporto interrotto» e non «non fattura da N mesi».
 //   PERSO       chiuso senza esito, o non target.
 //
 // Sopra ai livelli restano le TRATTATIVE: sono le conversazioni in corso, con
@@ -50,10 +50,10 @@ export const LABEL_LIVELLO: Record<Livello, string> = {
 
 export const AIUTO_LIVELLO: Record<Livello, string> = {
   selezionato: 'Potenzialmente interessante: da contattare.',
-  lead: 'Gli abbiamo scritto, telefonato o siamo passati: aspetta una risposta.',
-  prospect: 'C’è una persona con cui parlare: il rapporto è iniziato.',
+  lead: 'C’è un contatto: una persona, o un messaggio partito. Non ha ancora risposto.',
+  prospect: 'Ha mostrato interesse e la trattativa è aperta: si sta giocando qualcosa.',
   cliente: 'Ha chiuso una trattativa: ha comprato.',
-  dormiente: 'Ha lavorato con noi, poi si è fermato: da riattivare.',
+  dormiente: 'Cliente che ha smesso di fatturare: da riattivare.',
   perso: 'Chiuso senza esito o non in target.',
 };
 
@@ -62,33 +62,51 @@ export const AIUTO_LIVELLO: Record<Livello, string> = {
  *
  * - `haContatto` = esiste almeno una persona in rubrica per quel negozio;
  * - `contattato` = gli è stato avviato un contatto (mail inviata dall'app,
- *   chiamata o visita registrata).
+ *   chiamata o visita registrata);
+ * - `inTrattativa` = ha una trattativa **aperta** (non vinta né persa).
  *
- * Entrambi si calcolano **una volta per tutta la lista** (vedi
- * `fetchPlaceIdConContatto` e `fetchPlaceIdContattati`), non riga per riga.
+ * Si calcolano **una volta per tutta la lista** (`fetchPlaceIdConContatto`,
+ * `fetchPlaceIdContattati`, `fetchPlaceIdInTrattativa`), non riga per riga:
+ * sono migliaia di negozi.
  *
- * ⚠️ Regola cambiata il 26/07/2026 (decisione utente). Prima bastava una
- * visita, una trattativa aperta o uno stato "avviato" nel registro per salire
- * di livello: così i negozi scelti con la ⭐ finivano quasi tutti in Prospect e
- * i Selezionati restavano vuoti. Il confine di Prospect resta uno solo e
- * concreto — **una persona con cui parlare** — ma chi è già stato contattato
- * non si confonde più con chi non è mai stato toccato: quello è un Lead.
+ * L'ordine dei controlli è quello del funnel al contrario — chi è più avanti
+ * vince. Un cliente che ha anche una trattativa aperta resta un cliente.
  */
-export function livelloDi(p: Place, haContatto = false, contattato = false): Livello {
-  // "dismesso" nel registro = rapporto interrotto, non trattativa persa: viene
-  // prima di tutto, perché chi ci ha già lavorato non va confuso con un perso.
+export function livelloDi(
+  p: Place,
+  haContatto = false,
+  contattato = false,
+  inTrattativa = false,
+): Livello {
+  // ⚠️ SCALA RIDEFINITA DALL'UTENTE il 28/07/2026. Prima il confine fra Lead e
+  // Prospect era «c'è una persona in rubrica»; ora è **la trattativa**. Un
+  // nome in rubrica non è un interesse: è solo un recapito.
+
+  // DORMIENTE — cliente che ha smesso di fatturare. Viene prima di tutto:
+  // chi ha comprato e si è fermato non va confuso con chi non ha mai comprato,
+  // ed è la lista più redditizia che ci sia.
+  // ⚠️ La regola vera è di FINANCE (`statoAnalisi = dismesso` in
+  // deluxy-partner, GET /api/clienti/stato). Finché quel dato non arriva fin
+  // qui si usa lo stato del registro, che è il segnale più vicino che abbiamo:
+  // vuol dire «rapporto interrotto», non «non fattura da N mesi».
   if (p.anagrafiche_stato === 'dismesso') return 'dormiente';
-  if (p.stato === 'cliente' || p.anagrafiche_stato === 'attivo') return 'cliente';
+
   if (p.stato === 'perso' || p.anagrafiche_stato === 'non_interessato') return 'perso';
-  // Il contatto può arrivare dalla rubrica Scout o essere già noto da HubSpot.
-  if (haContatto || p.hubspot_ha_contatto) return 'prospect';
-  // Lead DICHIARATO a mano. Viene prima della deduzione perché un lead può
-  // esistere **senza che gli sia stato scritto**: una richiesta arrivata dal
-  // sito, una segnalazione, un nominativo raccolto a un evento. La regola
-  // precedente guardava solo i contatti in USCITA — e chi ci contatta lui
-  // restava un «selezionato», che è il contrario di quello che è.
+
+  // CLIENTE — la trattativa è andata bene.
+  if (p.stato === 'cliente' || p.anagrafiche_stato === 'attivo') return 'cliente';
+
+  // PROSPECT — ha mostrato interesse: ha risposto, e c'è una trattativa
+  // aperta. È il lead che si è mosso, non quello di cui abbiamo l'indirizzo.
+  if (inTrattativa || p.hubspot_deal_aperta || p.stato_affiliazione === 'in_trattativa') return 'prospect';
+  if (p.stato_affiliazione === 'prospect') return 'prospect';
+
+  // LEAD — c'è un contatto. Una persona in rubrica, un contatto avviato da noi,
+  // o il fatto che sia arrivato lui (dichiarato a mano).
+  if (haContatto || p.hubspot_ha_contatto || contattato) return 'lead';
   if (p.stato_affiliazione === 'lead') return 'lead';
-  if (contattato) return 'lead';
+
+  // SELEZIONATO — scelto, e basta.
   return 'selezionato';
 }
 
