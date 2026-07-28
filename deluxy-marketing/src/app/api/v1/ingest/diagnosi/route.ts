@@ -69,33 +69,101 @@ export async function POST(req: NextRequest) {
 
   let nuoviTermini = 0, aggiornatiTermini = 0, nuoviSegmenti = 0, aggiornatiSegmenti = 0, scartate = 0;
 
+  // ⚠️ Google manda una riga per ogni coppia (parola cercata × keyword): la
+  // stessa ricerca intercettata da due keyword arriva DUE VOLTE, con la spesa
+  // spezzata. Qui si tiene una riga per (campagna, testo), quindi si SOMMA
+  // prima di scrivere — altrimenti vince l'ultima letta e la parola risulta
+  // costare la metà. Lo script somma già dalla sua parte, ma l'ingest non può
+  // fidarsi del mittente: una copia vecchia dello script manda ancora spezzato.
+  type Accumulo = {
+    campagnaId: string;
+    testo: string;
+    gruppo: string | null;
+    keyword: string | null;
+    corrispondenza: string | null;
+    keywordDiverse: number | null;
+    spesa: number | null;
+    clic: number | null;
+    impressioni: number | null;
+    conversioni: number | null;
+    ricavi: number | null;
+    dal: Date | null;
+    al: Date | null;
+  };
+  const accumulati = new Map<string, Accumulo & { spesaMax: number; viste: Set<string> }>();
+  const somma = (a: number | null, b: number | null) =>
+    a == null && b == null ? null : (a ?? 0) + (b ?? 0);
+
   for (const t of termini) {
     if (!t?.testo) { scartate++; continue; }
     const campagnaId = await campagnaDi(t);
     if (!campagnaId) { scartate++; continue; }
-    const valori = {
-      gruppo: t.gruppo ? String(t.gruppo) : null,
-      keyword: t.keyword ? String(t.keyword) : null,
-      corrispondenza: t.corrispondenza ? String(t.corrispondenza) : null,
-      spesa: numero(t.spesa),
-      clic: intero(t.clic),
-      impressioni: intero(t.impressioni),
-      conversioni: numero(t.conversioni),
-      ricavi: numero(t.ricavi),
+    const testo = String(t.testo);
+    const chiave = `${campagnaId} ${testo}`;
+    const spesaRiga = numero(t.spesa) ?? 0;
+    const v = accumulati.get(chiave) ?? {
+      campagnaId,
+      testo,
+      gruppo: null,
+      keyword: null,
+      corrispondenza: null,
+      keywordDiverse: null,
+      spesa: null,
+      clic: null,
+      impressioni: null,
+      conversioni: null,
+      ricavi: null,
       dal: data(t.dal),
       al: data(t.al),
+      spesaMax: -1,
+      viste: new Set<string>(),
     };
-    const esistente = await prisma.termineRicerca.findUnique({
-      where: { campagnaId_testo: { campagnaId, testo: String(t.testo) } },
-      select: { id: true },
-    });
-    if (esistente) {
-      await prisma.termineRicerca.update({ where: { id: esistente.id }, data: valori });
+    // Quante keyword hanno intercettato questa ricerca: il mittente può
+    // dichiararlo (script già sommato) oppure lo si conta dalle righe spezzate.
+    if (t.keyword) v.viste.add(String(t.keyword));
+    const dichiarate = intero((t as { keywordDiverse?: unknown }).keywordDiverse);
+    v.keywordDiverse = Math.max(v.keywordDiverse ?? 0, dichiarate ?? 0, v.viste.size) || null;
+    v.spesa = somma(v.spesa, numero(t.spesa));
+    v.clic = somma(v.clic, intero(t.clic));
+    v.impressioni = somma(v.impressioni, intero(t.impressioni));
+    v.conversioni = somma(v.conversioni, numero(t.conversioni));
+    v.ricavi = somma(v.ricavi, numero(t.ricavi));
+    // Keyword e gruppo mostrati: quelli che hanno speso di più su questa
+    // ricerca. Sommarli non vorrebbe dire niente, prenderne uno a caso nemmeno.
+    if (spesaRiga > v.spesaMax) {
+      v.spesaMax = spesaRiga;
+      v.gruppo = t.gruppo ? String(t.gruppo) : v.gruppo;
+      v.keyword = t.keyword ? String(t.keyword) : v.keyword;
+      v.corrispondenza = t.corrispondenza ? String(t.corrispondenza) : v.corrispondenza;
+    }
+    accumulati.set(chiave, v);
+  }
+
+  // Una lettura sola e il confronto in memoria: con due query per termine (e
+  // fino a 300 termini a passata) la funzione scadeva su Vercel.
+  const campagneToccate = [...new Set([...accumulati.values()].map((v) => v.campagnaId))];
+  const esistentiTermini = campagneToccate.length
+    ? await prisma.termineRicerca.findMany({
+        where: { campagnaId: { in: campagneToccate } },
+        select: { id: true, campagnaId: true, testo: true },
+      })
+    : [];
+  const idPerChiave = new Map(esistentiTermini.map((e) => [`${e.campagnaId} ${e.testo}`, e.id]));
+
+  const daCreare: Accumulo[] = [];
+  for (const [chiave, voce] of accumulati) {
+    const { spesaMax: _scarto, viste: _scarto2, ...valori } = voce;
+    const id = idPerChiave.get(chiave);
+    if (id) {
+      await prisma.termineRicerca.update({ where: { id }, data: valori });
       aggiornatiTermini++;
     } else {
-      await prisma.termineRicerca.create({ data: { campagnaId, testo: String(t.testo), ...valori } });
-      nuoviTermini++;
+      daCreare.push(valori);
     }
+  }
+  if (daCreare.length > 0) {
+    await prisma.termineRicerca.createMany({ data: daCreare, skipDuplicates: true });
+    nuoviTermini += daCreare.length;
   }
 
   for (const s of segmenti) {

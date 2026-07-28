@@ -867,9 +867,12 @@ model TermineRicerca {
   campagna       Campagna  @relation(fields: [campagnaId], references: [id], onDelete: Cascade)
   gruppo         String?
   testo          String
-  // La keyword che l'ha intercettato, con la sua corrispondenza
+  // La keyword che l'ha intercettato, con la sua corrispondenza. Se sono state
+  // più d'una, qui c'è quella che ci ha speso di più e `keywordDiverse` dice
+  // quante erano: i numeri della riga sono la SOMMA di tutte.
   keyword        String?
   corrispondenza String?
+  keywordDiverse Int?
   spesa          Float?
   clic           Int?
   impressioni    Int?

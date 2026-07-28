@@ -18,7 +18,7 @@ const COLORE_STATO: Record<string, string> = {
 // quello dei termini più costosi — vedi sotto.
 const COLONNE = {
   testo: { etichetta: "Ha cercato", verso: "asc" as const },
-  keyword: { etichetta: "Presa dalla keyword", verso: "asc" as const },
+  keyword: { etichetta: "Fatta scattare da", verso: "asc" as const },
   spesa: { etichetta: "Spesa", verso: "desc" as const },
   clic: { etichetta: "Clic", verso: "desc" as const },
   conversioni: { etichetta: "Conv.", verso: "desc" as const },
@@ -132,6 +132,16 @@ export async function TerminiRicerca({
         Cosa ha cercato la gente ({termini.length} termini più costosi
         {periodo ? ` · ${periodo}` : ""})
       </div>
+      {/* Domanda arrivata davvero, il 28/07/2026: "ma queste sono le
+          performance delle keyword o delle parole cercate?". Se te lo devi
+          chiedere, la pagina non l'ha detto. */}
+      <p className="cella-sub" style={{ whiteSpace: "normal", marginBottom: 12 }}>
+        I numeri di questa tabella sono della <b>parola cercata</b>, non della keyword: spesa, clic e
+        incasso sono di quello che la gente ha digitato. La colonna «Fatta scattare da» dice solo{" "}
+        <b>quale keyword l&apos;ha intercettata</b> — quella che ci ha speso di più, se sono state più
+        d&apos;una. Le performance delle keyword stanno in{" "}
+        <a href="/keywords" style={{ color: "var(--blue)" }}>Keywords</a>, e sono un altro numero.
+      </p>
 
       {spesaSenzaResa > 0 && (
         <div className="nota-info" style={{ borderColor: "rgba(201,52,0,.35)", background: "rgba(201,52,0,.06)" }}>
@@ -175,7 +185,18 @@ export async function TerminiRicerca({
                   </td>
                   <td className="cella-muta" style={{ maxWidth: 200 }}>
                     {t.keyword ?? "—"}
-                    {t.corrispondenza && <div className="cella-sub">{t.corrispondenza.toLowerCase()}</div>}
+                    <div className="cella-sub">
+                      {t.corrispondenza ? t.corrispondenza.toLowerCase() : ""}
+                      {/* Se la ricerca è stata intercettata da più keyword, i
+                          numeri della riga sono la somma di tutte: dirlo evita
+                          di attribuire quella spesa alla sola keyword scritta. */}
+                      {(t.keywordDiverse ?? 0) > 1 && (
+                        <>
+                          {t.corrispondenza ? " · " : ""}
+                          <b>+{t.keywordDiverse! - 1} altre keyword</b>, numeri sommati
+                        </>
+                      )}
+                    </div>
                   </td>
                   <td className="num">{formattaEuro(spesa)}</td>
                   <td className="num cella-muta">{formattaNumero(t.clic)}</td>

@@ -368,11 +368,11 @@ function selettoreCon(entita) {
 
 // ───────────────────── 3-quater. diagnosi ─────────────────────
 {
-  const termine = (testo, costo, conv) => ({
+  const termine = (testo, costo, conv, kw, gruppo) => ({
     campaign: { id: 7, name: "DC1 Fiori Milano ENG" },
-    adGroup: { name: "Gruppo A" },
+    adGroup: { name: gruppo || "Gruppo A" },
     searchTermView: { searchTerm: testo, status: "NONE" },
-    segments: { keyword: { info: { text: "fiori milano", matchType: "BROAD" } } },
+    segments: { keyword: { info: { text: kw || "fiori milano", matchType: "BROAD" } } },
     metrics: { costMicros: costo * 1000000, impressions: 100, clicks: 9, conversions: conv, conversionsValue: conv * 90 },
   });
   const segmento = (campo, valore, costo) => {
@@ -386,7 +386,15 @@ function selettoreCon(entita) {
   };
   const { sandbox, inviati, log } = ambiente({
     righeQuery: {
-      search_term_view: [termine("fiori finti amazon", 45, 0), termine("consegna fiori milano", 30, 2)],
+      // Le ultime due righe sono la STESSA ricerca intercettata da due keyword
+      // diverse: Google la manda spezzata, e senza somma l'app la registrava a
+      // metà prezzo (vinceva l'ultima letta).
+      search_term_view: [
+        termine("fiori finti amazon", 45, 0),
+        termine("consegna fiori milano", 30, 2),
+        termine("rose rosse milano", 20, 1, "rose milano", "Gruppo Rose"),
+        termine("rose rosse milano", 12, 0, "fiori milano", "Gruppo A"),
+      ],
       "segments.device": [segmento("device", "MOBILE", 120), segmento("device", "DESKTOP", 40)],
       "segments.day_of_week": [segmento("dayOfWeek", "MONDAY", 25)],
       "segments.ad_network_type": [segmento("adNetworkType", "SEARCH_PARTNERS", 12)],
@@ -401,10 +409,18 @@ function selettoreCon(entita) {
   const corpiTermini = inviati.filter((x) => x.corpo.terminiRicerca);
   const corpiSegmenti = inviati.filter((x) => x.corpo.segmenti);
   const t = corpiTermini[0].corpo.terminiRicerca;
-  verifica("diagnosi: termini inviati", t.length === 2, t.length);
-  verifica("diagnosi: testo e keyword che l'ha preso", t[0].testo === "fiori finti amazon" && t[0].keyword === "fiori milano");
-  verifica("diagnosi: corrispondenza della keyword", t[0].corrispondenza === "BROAD");
+  verifica("diagnosi: una riga per parola cercata, non per coppia con la keyword", t.length === 3, t.length);
+  const caro = t.find((x) => x.testo === "fiori finti amazon");
+  verifica("diagnosi: testo e keyword che l'ha preso", !!caro && caro.keyword === "fiori milano");
+  verifica("diagnosi: corrispondenza della keyword", !!caro && caro.corrispondenza === "BROAD");
   verifica("diagnosi: periodo sulla riga", !!t[0].dal && !!t[0].al);
+  // La stessa ricerca da due keyword: 20 + 12 = 32 €, non 12.
+  const rose = t.find((x) => x.testo === "rose rosse milano");
+  verifica("diagnosi: la stessa ricerca da due keyword si somma", !!rose && rose.spesa === 32, rose && rose.spesa);
+  verifica("diagnosi: si sommano anche clic e conversioni", !!rose && rose.clic === 18 && rose.conversioni === 1, rose && rose.clic);
+  verifica("diagnosi: mostra la keyword che ci ha speso di più", !!rose && rose.keyword === "rose milano", rose && rose.keyword);
+  verifica("diagnosi: dice da quante keyword è arrivata", !!rose && rose.keywordDiverse === 2, rose && rose.keywordDiverse);
+  verifica("diagnosi: ordinate per spesa dopo la somma", t[0].testo === "fiori finti amazon", t[0].testo);
   const s2 = corpiSegmenti[0].corpo.segmenti;
   verifica("diagnosi: tre tagli di segmento", s2.length === 4, s2.length);
   const mob = s2.find((x) => x.valore === "MOBILE");

@@ -820,6 +820,16 @@ function mandaTermini(conto) {
 /**
  * Quello che la gente ha digitato per davvero. Si tengono i più costosi: sono
  * quelli su cui una decisione cambia i soldi. Le PMax non espongono i termini.
+ *
+ * ⚠️ I numeri sono della PAROLA CERCATA, non della keyword: la keyword qui è un
+ * segmento della riga, cioè l'etichetta di chi ha fatto scattare quella ricerca.
+ *
+ * ⚠️ E proprio per questo Google manda una riga per ogni coppia (parola ×
+ * keyword): la stessa ricerca intercettata da due keyword arriva due volte, con
+ * la spesa spezzata in due. L'app tiene una riga per (campagna, testo), quindi
+ * senza somma vinceva l'ultima letta e la parola sembrava costare la metà.
+ * È la stessa trappola già pagata sulle keyword (vedi PARTE 2): si somma qui,
+ * prima di spedire, e si dice da quante keyword è arrivata.
  */
 function leggiTerminiRicerca() {
   var dal = dataIso(-GIORNI_COPY);
@@ -835,31 +845,71 @@ function leggiTerminiRicerca() {
     "ORDER BY metrics.cost_micros DESC " +
     "LIMIT " + MAX_TERMINI;
 
-  var righe = [];
+  var per = {};
+  var ordine = [];
   try {
     var risultati = AdsApp.search(query);
     while (risultati.hasNext()) {
       var r = risultati.next();
       var kw = r.segments && r.segments.keyword && r.segments.keyword.info ? r.segments.keyword.info : null;
-      righe.push({
-        idCampagna: String(r.campaign.id),
-        campagna: r.campaign.name,
-        gruppo: r.adGroup ? r.adGroup.name : null,
-        testo: r.searchTermView.searchTerm,
-        keyword: kw ? kw.text : null,
-        corrispondenza: kw ? kw.matchType : null,
-        spesa: arrotonda(Number(r.metrics.costMicros || 0) / 1000000),
-        clic: Number(r.metrics.clicks || 0),
-        impressioni: Number(r.metrics.impressions || 0),
-        conversioni: arrotonda(Number(r.metrics.conversions || 0)),
-        ricavi: arrotonda(Number(r.metrics.conversionsValue || 0)),
-        dal: dal,
-        al: al,
-      });
+      var idCampagna = String(r.campaign.id);
+      var testo = r.searchTermView.searchTerm;
+      var chiave = idCampagna + " " + testo;
+      var spesa = Number(r.metrics.costMicros || 0) / 1000000;
+
+      var v = per[chiave];
+      if (!v) {
+        v = {
+          idCampagna: idCampagna,
+          campagna: r.campaign.name,
+          gruppo: r.adGroup ? r.adGroup.name : null,
+          testo: testo,
+          keyword: null,
+          corrispondenza: null,
+          keywordDiverse: 0,
+          spesa: 0,
+          clic: 0,
+          impressioni: 0,
+          conversioni: 0,
+          ricavi: 0,
+          dal: dal,
+          al: al,
+          _spesaMax: -1,
+        };
+        per[chiave] = v;
+        ordine.push(chiave);
+      }
+      v.spesa += spesa;
+      v.clic += Number(r.metrics.clicks || 0);
+      v.impressioni += Number(r.metrics.impressions || 0);
+      v.conversioni += Number(r.metrics.conversions || 0);
+      v.ricavi += Number(r.metrics.conversionsValue || 0);
+      if (kw && kw.text) v.keywordDiverse++;
+      // La keyword mostrata è quella che ha speso di più su questa ricerca: è
+      // quella su cui ha senso agire se la parola va esclusa o cavalcata.
+      if (kw && spesa > v._spesaMax) {
+        v._spesaMax = spesa;
+        v.keyword = kw.text;
+        v.corrispondenza = kw.matchType;
+        v.gruppo = r.adGroup ? r.adGroup.name : v.gruppo;
+      }
     }
   } catch (e) {
     Logger.log("Termini di ricerca non letti: " + e);
   }
+
+  var righe = [];
+  for (var i = 0; i < ordine.length; i++) {
+    var x = per[ordine[i]];
+    delete x._spesaMax;
+    x.spesa = arrotonda(x.spesa);
+    x.conversioni = arrotonda(x.conversioni);
+    x.ricavi = arrotonda(x.ricavi);
+    righe.push(x);
+  }
+  // Si riordina per spesa: il LIMIT della query lavorava sulle righe spezzate,
+  // dopo la somma l'ordine può cambiare.
+  righe.sort(function (a, b) { return b.spesa - a.spesa; });
   return righe;
 }
 
