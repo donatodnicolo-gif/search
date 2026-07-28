@@ -28,7 +28,7 @@ non è un campo in più da aggiornare a mano.
 | Livello | Chi è | Come ci si arriva |
 |---|---|---|
 | **Selezionato** | potenzialmente interessante, non gli è ancora stato detto niente | ⭐ dalla Mappa o dalle Affiliazioni, bottone + |
-| **Lead** | il contatto è stato **avviato**, ma non sappiamo ancora con chi parlare | mail partita dall'app, chiamata registrata, visita fatta |
+| **Lead** | c'è un aggancio, ma non ancora una persona con cui parlare | mail partita, chiamata o visita registrata — **oppure** dichiarato a mano quando è arrivato lui (richiesta dal sito, segnalazione, evento) |
 | **Prospect** | c'è una **persona** in rubrica da cui ripartire | contatto salvato in Rubrica, o già noto da HubSpot |
 | **Cliente** | ha chiuso una trattativa | trattativa vinta → ordine |
 | **Dormiente** | ha lavorato con noi, poi si è fermato | stato `dismesso` nel registro Anagrafiche |

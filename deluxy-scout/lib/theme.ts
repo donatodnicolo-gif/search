@@ -154,9 +154,11 @@ export const coloreFase: Record<DealStage, string> = {
 };
 
 // Etichette + colore-dot per gli stati affiliazione (quelli del registro
-// Anagrafiche, più `selezionato` che è solo di Scout — vedi types/index.ts).
+// Anagrafiche, più `selezionato` e `lead` che sono solo di Scout — vedi
+// types/index.ts).
 export const labelAffiliazione: Record<StatoAffiliazione, string> = {
   selezionato: 'Selezionato',
+  lead: 'Lead',
   prospect: 'Prospect',
   in_contatto: 'In contatto',
   in_attesa: 'In attesa',
@@ -171,6 +173,7 @@ export const coloreAffiliazione: Record<StatoAffiliazione, string> = {
   // Stesso grigio del badge SELEZIONATO nelle liste (lib/livelli.ts): è lo
   // stesso concetto, deve avere lo stesso colore.
   selezionato: '#8A8A8E',
+  lead: '#5B8DEF',
   prospect: colors.grigio,
   in_contatto: colors.blue,
   in_attesa: colors.attenzione,

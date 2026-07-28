@@ -14,6 +14,7 @@ export type EsitoVisita = 'interessato' | 'da_richiamare' | 'non_target' | 'chiu
 // registro viene tradotto in `prospect` (`statoRegistroDaAffiliazione`).
 export type StatoAffiliazione =
   | 'selezionato'
+  | 'lead'
   | 'prospect'
   | 'in_contatto'
   | 'in_attesa'
@@ -26,6 +27,7 @@ export type StatoAffiliazione =
 // Ordine dello "step" (dal primo contatto alla chiusura) per la UI.
 export const STATI_AFFILIAZIONE: StatoAffiliazione[] = [
   'selezionato',
+  'lead',
   'prospect',
   'in_contatto',
   'in_attesa',
@@ -43,7 +45,12 @@ export const STATI_AFFILIAZIONE: StatoAffiliazione[] = [
  */
 export function statoRegistroDaAffiliazione(s: StatoAffiliazione | null | undefined): string | null {
   if (!s) return null;
-  return s === 'selezionato' ? 'prospect' : s;
+  // `selezionato` e `lead` sono di Scout: il registro non li conosce. Per lui
+  // sono entrambi «prospect» — potenziali su cui non c'è ancora una trattativa.
+  // ⚠️ `lead` NON diventa `in_contatto`: un lead può esistere senza che gli
+  // abbiamo scritto (una richiesta dal sito, una segnalazione), e dire al
+  // registro «in contatto» sarebbe un fatto non avvenuto.
+  return s === 'selezionato' || s === 'lead' ? 'prospect' : s;
 }
 
 // Ponte tra i due modelli di stato: il registro Anagrafiche ha 8 stati
@@ -52,6 +59,7 @@ export function statoRegistroDaAffiliazione(s: StatoAffiliazione | null | undefi
 // pipeline, così percorso/filtri restano coerenti.
 export const statoPlaceDaAffiliazione: Record<StatoAffiliazione, StatoPlace> = {
   selezionato: 'da_visitare',
+  lead: 'da_visitare',
   prospect: 'da_visitare',
   in_contatto: 'visitato',
   in_attesa: 'visitato',

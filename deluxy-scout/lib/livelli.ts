@@ -4,9 +4,15 @@
 //
 //   SELEZIONATO qualcuno l'ha scelto — ⭐ dalla Mappa o dalle Affiliazioni,
 //               oppure col bottone + — ma non gli è ancora stato detto niente.
-//   LEAD        il contatto è stato AVVIATO: gli abbiamo scritto una mail,
-//               l'abbiamo chiamato o siamo andati a trovarlo. Non sappiamo
-//               ancora con chi parlare, ma la porta è stata bussata.
+//   LEAD        c'è un aggancio, ma non ancora una persona con cui parlare.
+//               Ci si arriva in due modi, e contano uguale:
+//                 · gli abbiamo scritto, telefonato o siamo andati a trovarlo;
+//                 · **è arrivato lui** — una richiesta dal sito, una
+//                   segnalazione, un nominativo preso a un evento — e allora lo
+//                   si dichiara Lead dalla sua scheda, senza avergli scritto.
+//               ⚠️ Fino al 28/07/2026 valeva solo il primo: la regola guardava
+//               i contatti in USCITA, e chi contattava noi restava un
+//               «selezionato».
 //   PROSPECT    c'è una persona in rubrica (o già nota da HubSpot): da lì si
 //               riparte con nome e cognome.
 //   CLIENTE     ha chiuso una trattativa: ha comprato.
@@ -76,6 +82,12 @@ export function livelloDi(p: Place, haContatto = false, contattato = false): Liv
   if (p.stato === 'perso' || p.anagrafiche_stato === 'non_interessato') return 'perso';
   // Il contatto può arrivare dalla rubrica Scout o essere già noto da HubSpot.
   if (haContatto || p.hubspot_ha_contatto) return 'prospect';
+  // Lead DICHIARATO a mano. Viene prima della deduzione perché un lead può
+  // esistere **senza che gli sia stato scritto**: una richiesta arrivata dal
+  // sito, una segnalazione, un nominativo raccolto a un evento. La regola
+  // precedente guardava solo i contatti in USCITA — e chi ci contatta lui
+  // restava un «selezionato», che è il contrario di quello che è.
+  if (p.stato_affiliazione === 'lead') return 'lead';
   if (contattato) return 'lead';
   return 'selezionato';
 }
