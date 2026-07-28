@@ -273,7 +273,51 @@ Feedback "in app.deluxy.it ci sono cose che non hai considerato". Confrontata la
 
 ## MANCA / PROSSIMI PASSI
 
-1. **[BLOCCATO — palla all'utente] Connessione al DB di produzione (MySQL, sola lettura)**: servono i 5 valori `MYSQL_*` (o replica) + raggiungibilità/tunnel. Vedi ANALISI-BACKEND-LEGACY. Poi `prisma db pull` per lo schema reale.
+0. **[26/07 — IN CORSO] Partner attivi da Anagrafiche + province/servizi dal legacy.**
+   - **Fatto**: `api/scripts/importa-partner-anagrafiche.mjs` (idempotente, prova a vuoto per
+     default, `--scrivi` per applicare). Legge `GET /api/v1/partners?stato=attivo` e aggancia
+     in cascata **P.IVA → email → insegna normalizzata**. Eseguito sul **db locale** (`dev.db`):
+     **33 partner su 41** (35 righe in tutto con i 2 di seed).
+   - **Fase 2 (la piattaforma diventa padrona dei nuovi partner)**: lo script ha l'opzione
+     **`--collega`**, che rimanda ad Anagrafiche il `platformId` (`sistema: "platform"` +
+     `idEsterno`) di ogni partner agganciato o creato. Senza, i due archivi restano estranei.
+     ⚠️ Richiede la chiave **`deluxy-platform`**, che **non è nella cassaforte del Hub**: lì ci
+     sono solo due chiavi di Scout, con nomi fuorvianti (`ANAGRAFICHE_WRITE_KEY` →
+     utenza `deluxy-scout-referenti`, che **non** scrive partner; `ANAGRAFICHE_PARTNER_KEY` →
+     `deluxy-scout-partner`). Da rinominare, e la chiave della piattaforma va messa lì.
+   - ⚠️ **Trappola pagata**: in Anagrafiche l'email sta quasi sempre sul **referente**
+     (`contatti[].email`), non nel campo `email` dell'anagrafica: solo **4 su 41** ce l'hanno in
+     alto, **29** solo nei contatti, **8** non ce l'hanno affatto. Leggendo solo `email` sembrano
+     tutti privi di email. Lo script ora fa il fallback sul primo referente con email.
+   - Gli **8 senza email** non sono importabili (`Partner.email` è obbligatoria e `@unique`):
+     Amir Roma, CLIVATI, Fioreria Re, La Medina, MARTESANA, Mastrofioraio, OASI DEI FIORI,
+     OFFICINE ORTOPEDICHE. L'email va presa dal legacy o inserita a mano.
+   - ⚠️ Per i 29 arrivati dai contatti, `Partner.email` è l'**email di una persona**, non della
+     sede: da rivedere prima di usarla per inviti/notifiche.
+   - ⚠️ **`attivo` (bool) ≠ `stato="attivo"`**: il primo è il soft delete del registro, il secondo è
+     lo stato commerciale (= è un Partner). Per "i partner attivi" filtrare **`stato`**.
+   - ⚠️ La chiave `deluxy-platform` ha `scrittura=true` ma **`scritturaPartner=false`**: il campo
+     `stato` che `anagrafiche-sync.service.ts` invia viene **scartato** dal registro (finisce in
+     `in_revisione`). Il flag `active` della piattaforma non è mai arrivato ad Anagrafiche.
+     Su 943 anagrafiche **1 sola ha `platformId`** → oggi i due archivi non si agganciano.
+   - **Manca**: province abilitate e tipi di servizio (esistono **solo** nel legacy → passo 1);
+     replica in **produzione**.
+   - ⚠️ **Dove NON è la produzione** (verificato il 26/07, tre vicoli ciechi):
+     1. Il branch **`scout-ui`** ha ancora `provider = "sqlite"` e **non ha** `vercel.json` né
+        `api/src/vercel.ts`: non è la versione pubblicata. La produzione si costruisce da **`main`**
+        (postgresql + vercel.json). L'import dei 33 partner è finito nel `dev.db` di `scout-ui`.
+     2. La piattaforma **non è nel cluster Postgres condiviso** delle altre app: non esistono
+        `Delivery`/`Province`/`ServiceType`/`PartnerProvince`/`PartnerService` in nessuno schema.
+        `public.Partner` (94 righe) è **deluxy-partner/FINANCE** (`FatturaServizio`, `SaldoMensile`,
+        `ProForma`, `TariffaPartner`), non la piattaforma.
+     3. Anche `C:\Users\nicol\app\deluxy-platform-next` gira su **SQLite** (`api/prisma/dev.db`,
+        SQLite 3.46) benché lo schema dica `postgresql`: il client generato era rimasto quello
+        SQLite. **Rigenerato il 26/07** (`npx prisma generate`) → ora è PostgreSQL e rifiuta il
+        `DATABASE_URL` locale, come deve. Per lo sviluppo locale lì serve un URL Postgres.
+   - **Il `DATABASE_URL` di produzione esiste solo su Vercel.** Recuperarlo con `npx vercel link`
+     + `npx vercel env pull api/.env.production` (comandi interattivi: li lancia l'utente).
+
+1. **[BLOCCATO — palla all'utente] Connessione al DB di produzione (MySQL, sola lettura)**: servono i 5 valori `MYSQL_*` (o replica) + raggiungibilità/tunnel. Vedi ANALISI-BACKEND-LEGACY. Poi `prisma db pull` per lo schema reale. *(26/07: `api/.env.legacy` creato dal template ma **non compilato**. Verificato che gli endpoint legacy `/api/provinces`, `/api/service`, `/api/partners` esistono e rispondono **401** → in alternativa al MySQL si può leggere via API con una sessione admin nel pannello Browser.)*
 2. **Allineare l'endpoint WooCommerce** al contratto reale: `POST /api/deliveries/sync/woo-order`, header `x-deluxy-partner-key`, payload+risposta identici (oggi usa `x-api-key` e `/woocommerce/orders`).
 3. ~~**Form di MODIFICA**~~ → **FATTO il 17/07** per tutte le sezioni (vedi FATTO).
 2-bis. ~~Form **Prodotti**: comportamento dei flag dell'app reale~~ → **FATTO il 17/07**: osservato dal vivo su app.deluxy.it (l'utente ha fatto il login; Claude non inserisce credenziali) e replicato. Semantica dei campi ora nel manuale (§3.6).
