@@ -17,6 +17,7 @@ import {
 import {
   COLORE_STATO_GRUPPO,
   ETICHETTA_STATO_GRUPPO,
+  ETICHETTA_STATO_PIATTAFORMA,
   ETICHETTA_TIPO_GRUPPO,
   GIORNI_LETTURA,
   daGiorni,
@@ -93,7 +94,22 @@ export default async function SchedaGruppo({
               <a href={`/campagne/${gruppo.campagnaId}`}>{gruppo.campagna.nome}</a>
               <Badge testo={ETICHETTA_BRAND[gruppo.brand] ?? gruppo.brand} colore={COLORE_BRAND[gruppo.brand] ?? "var(--text-tertiary)"} />
               {gruppo.tipo && <span className="tag-neutro">{ETICHETTA_TIPO_GRUPPO[gruppo.tipo] ?? gruppo.tipo}</span>}
-              {inPausa && <Badge testo="in pausa su Google" colore="var(--orange)" />}
+              {/* Lo stato di Google sta sempre in testa, non solo quando è un
+                  problema: quello è il fatto, il giudizio dell'app è un'altra
+                  cosa e sta nel suo riquadro più sotto. */}
+              <Badge
+                testo={
+                  ETICHETTA_STATO_PIATTAFORMA[gruppo.statoPiattaforma?.toUpperCase() ?? ""] ??
+                  "stato su Google non ancora letto"
+                }
+                colore={
+                  inPausa
+                    ? "var(--orange)"
+                    : gruppo.statoPiattaforma === "ENABLED"
+                      ? "var(--green)"
+                      : "var(--text-tertiary)"
+                }
+              />
             </p>
           </div>
         </div>

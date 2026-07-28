@@ -73,7 +73,12 @@ export function TabellaGruppi({
                   {/* Prima il fatto (gira o non gira su Google), poi il nostro
                       giudizio: vedi presentazioneStatoGruppo. */}
                   <Badge testo={statoGruppo.testo} colore={statoGruppo.colore} />
-                  {statoGruppo.sotto && <div className="cella-sub">{statoGruppo.sotto}</div>}
+                  {/* Lo stato di Google si vede sempre, anche quando gira: se
+                      comparisse solo nei guai, la sua assenza si leggerebbe
+                      come "il dato manca" invece che come "è attivo". */}
+                  <div className="cella-sub" title={statoGruppo.codice ?? "nessuno stato ricevuto dalla piattaforma"}>
+                    {statoGruppo.sotto}
+                  </div>
                 </td>
                 <td className="num">{formattaEuro(g.spesa)}</td>
                 {mostraQuota && (

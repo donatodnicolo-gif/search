@@ -196,22 +196,43 @@ const NON_STA_GIRANDO: Record<string, { testo: string; colore: string }> = {
   DISABLED: { testo: "Disattivato su Google", colore: "var(--text-secondary)" },
 };
 
+// Come si legge in italiano quello che dice Google. Il codice grezzo resta nel
+// suggerimento: quando si confronta la schermata con l'interfaccia di Google
+// serve la parola esatta, non la traduzione.
+export const ETICHETTA_STATO_PIATTAFORMA: Record<string, string> = {
+  ENABLED: "attivo su Google",
+  PAUSED: "in pausa su Google",
+  REMOVED: "rimosso su Google",
+  DISABLED: "disattivato su Google",
+  UNKNOWN: "stato sconosciuto su Google",
+};
+
 export function presentazioneStatoGruppo(
   stato: string,
   statoPiattaforma: string | null
-): { testo: string; colore: string; sotto: string | null } {
-  const fermo = statoPiattaforma ? NON_STA_GIRANDO[statoPiattaforma.toUpperCase()] : undefined;
+): { testo: string; colore: string; sotto: string; codice: string | null } {
+  const codice = statoPiattaforma ? statoPiattaforma.toUpperCase() : null;
+  const dettoDaGoogle = codice
+    ? (ETICHETTA_STATO_PIATTAFORMA[codice] ?? `${codice.toLowerCase()} su Google`)
+    : "Google non ha ancora detto se gira";
+  const fermo = codice ? NON_STA_GIRANDO[codice] : undefined;
+
   if (fermo) {
     return {
       ...fermo,
       // Il giudizio resta visibile: è quello che guida le operazioni in coda, e
       // nasconderlo sposterebbe solo la sorpresa più in là.
       sotto: `nell'app: ${ETICHETTA_STATO_GRUPPO[stato] ?? stato}`,
+      codice,
     };
   }
+  // Anche quando gira, lo stato di Google **si vede sempre**: se la riga sotto
+  // comparisse solo nei guai, la sua assenza si leggerebbe come "il dato non
+  // c'è" invece che come "gira". Meglio dirlo tutte le volte.
   return {
     testo: ETICHETTA_STATO_GRUPPO[stato] ?? stato,
     colore: COLORE_STATO_GRUPPO[stato] ?? "var(--text-tertiary)",
-    sotto: statoPiattaforma ? null : "Google non ha ancora detto se gira",
+    sotto: dettoDaGoogle,
+    codice,
   };
 }
