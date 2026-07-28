@@ -36,8 +36,10 @@ export function AdvCompetenza({
     if (
       !confirm(
         `Portare ${eur(totDifferenza)} di pubblicità in competenza ${annoDest}?\n\n` +
-          `Cambia il conto economico di due anni: ${anno} resta com'è (quella somma nelle campagne non c'era) ` +
-          `e il ${annoDest} si carica di ${eur(totDifferenza)} di pubblicità in più.\n\n` +
+          `Cambia il conto economico di due anni: il ${anno} perde ${eur(totDifferenza)} di pubblicità e ` +
+          `il ${annoDest} se li carica.\n\n` +
+          `Ricorda che «non spiegato» vuol dire «Marketing non lo copre», non «è di un altro anno»: ` +
+          `sui movimenti, la pubblicità non scavalca mai il capodanno.\n\n` +
           `Ogni riga resta cancellabile una per una qui sotto.`
       )
     ) {
@@ -65,7 +67,7 @@ export function AdvCompetenza({
 
   return (
     <>
-      <h2 className="section-title">Pubblicità: quello che ha pagato il conto, e quello che è costato fare campagne</h2>
+      <h2 className="section-title">Pubblicità: quello che ha pagato il conto, e quanto ne spiega Marketing</h2>
 
       {errore && <div className="avviso-errore" style={{ marginBottom: 12 }}>{errore}</div>}
       {esito && <div className="card" style={{ marginBottom: 12, borderColor: "var(--green)" }}>{esito}</div>}
@@ -77,8 +79,8 @@ export function AdvCompetenza({
               <tr>
                 <th>Mese</th>
                 <th className="num">Uscito dal conto</th>
-                <th className="num">Campagne (Marketing)</th>
-                <th className="num">Differenza</th>
+                <th className="num">Campagne collegate (Marketing)</th>
+                <th className="num">Non spiegato</th>
                 <th className="num">Già in competenza altrove</th>
               </tr>
             </thead>
@@ -107,6 +109,15 @@ export function AdvCompetenza({
       </div>
 
       <div className="card" style={{ marginTop: 12 }}>
+        <strong>La fonte della riga ADV è la banca, non Marketing.</strong> Marketing tiene conto solo delle{" "}
+        <strong>campagne collegate</strong>, quindi il suo totale è per costruzione un pezzo del tutto: la
+        colonna «non spiegato» non è un errore della banca, è la parte di pubblicità che gira su account che
+        in Marketing non ci sono. Costruire il conto economico sul pezzo darebbe un EBITDA più bello del vero.
+        Marketing resta il posto in cui quella spesa è divisa per brand e per campagna, e questa tabella
+        misura quanto ne copre.
+      </div>
+
+      <div className="card" style={{ marginTop: 12 }}>
         <strong>La competenza della pubblicità è l&apos;anno della transazione.</strong> Verificato sui
         movimenti, non per principio: Google e Meta addebitano <strong>a soglia</strong> — importi fissi ogni
         due o tre giorni per tutto il mese — quindi il denaro esce entro pochi giorni dalla campagna. Su tutti
@@ -115,11 +126,9 @@ export function AdvCompetenza({
         capodanno. L&apos;unica coda è il residuo sotto soglia addebitato l&apos;1–2 del mese, che riguarda il
         mese prima, non l&apos;anno prima.
         <div style={{ marginTop: 8 }}>
-          Quindi la differenza qui sopra <strong>non si sposta</strong>: non è competenza di un altro
-          esercizio, è spesa di quest&apos;anno che Marketing non vede (account non collegati) più voci che
-          pubblicità non sono e vanno tolte dalla categoria nel{" "}
-          <a href="/cfo" style={{ color: "var(--blue)" }}>CFO</a>. Il bottone resta per i casi veri —
-          una fattura di dicembre pagata a gennaio — e va usato su quelli, non sul totale.
+          Quindi la colonna «non spiegato» <strong>non si sposta</strong> su un altro esercizio: non è
+          competenza, è copertura. Il bottone qui sotto resta per i casi veri — una fattura di dicembre pagata
+          a gennaio — e va usato su quelli, non sul totale.
           {!coperturaCompleta && avvertenze.length > 0 && (
             <>
               {" "}

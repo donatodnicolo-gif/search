@@ -54,12 +54,11 @@ export type ConsuntivoPeriodo = {
   margineLordo: number;
   ebitda: number;
   nonCategorizzato: number;
-  // Da dove arriva la riga ADV, e cosa dice l'altra fonte. Non è un dettaglio
-  // tecnico: «91.000 di pubblicità» vuol dire una cosa se sono campagne e
-  // un'altra se sono bonifici, e chi legge il P&L deve poterlo sapere.
-  advFonte: "marketing" | "banca";
-  advBanca: number; // uscite di banca categorizzate ADV, cassa pura, come riscontro
-  advCopertura: CoperturaAdv | null; // solo quando la fonte è Marketing
+  // La riga `adv` sono le uscite di banca. Qui accanto, quanto è costato fare
+  // le campagne **collegate** a Marketing: serve a misurare la copertura, non a
+  // sostituire il totale. `null` se Marketing non risponde.
+  advMarketing: number | null;
+  advCopertura: CoperturaAdv | null;
   // Quanta pubblicità la competenza porta dentro e fuori da questo periodo.
   advCompetenza: { dentro: number; fuori: number };
   // Le rettifiche di competenza che toccano questo periodo: si dichiarano,
@@ -76,7 +75,7 @@ export async function caricaConsuntivo(
   const vuoto: ConsuntivoPeriodo = {
     ok: false, mancanti: [], mesi, ricavi: 0, ricaviPerTipologia: {}, vendutoEcommerce: 0,
     cogs: 0, adv: 0, struttura: 0, personale: 0, margineLordo: 0, ebitda: 0, nonCategorizzato: 0,
-    advFonte: "banca", advBanca: 0, advCopertura: null, advCompetenza: { dentro: 0, fuori: 0 },
+    advMarketing: null, advCopertura: null, advCompetenza: { dentro: 0, fuori: 0 },
     competenza: null,
     perMese: [],
   };
@@ -153,14 +152,11 @@ export async function caricaConsuntivo(
   // Un'uscita finisce nella stessa voce di P&L in cui la metterebbero le regole
   // del CFO: la competenza sposta *quando* si conta, non *cosa* è.
   const ricaviRettificaMese = Array(12).fill(0) as number[];
-  // L'ADV si tiene da parte, «entrato» e «uscito» separati: da quando la riga
-  // pubblicitaria viene da Marketing, una rettifica non sposta più lo stesso
-  // numero che sta in tabella (vedi più sotto), e sommarla alla cieca
-  // toglierebbe dalle campagne un importo che nelle campagne non c'è mai stato.
+  // L'ADV entra come le altre voci — la riga è cassa, quindi la competenza vale
+  // in entrambi i versi — ma «entrato» e «uscito» si tengono anche separati,
+  // perché la pagina li dichiara accanto al totale.
   let advDentro = 0;
   let advFuori = 0;
-  const advDentroMese = Array(12).fill(0) as number[];
-  const advFuoriMese = Array(12).fill(0) as number[];
   for (const r of eff.righe) {
     const segnoOrigine = r.annoOrigine === dati.year && mesi.includes(r.meseOrigine) ? -1 : 0;
     const segnoDestino = r.annoCompetenza === dati.year && mesi.includes(r.meseCompetenza) ? 1 : 0;
@@ -172,8 +168,9 @@ export async function caricaConsuntivo(
       const tp = categoriaDi(r.voce, categorie)?.tipoPL;
       if (tp === "COGS") applica((m, d) => { cogs += d; cogsMese[m - 1] += d; });
       else if (tp === "ADV") {
-        if (segnoOrigine) { advFuori += r.importo; advFuoriMese[r.meseOrigine - 1] += r.importo; }
-        if (segnoDestino) { advDentro += r.importo; advDentroMese[r.meseCompetenza - 1] += r.importo; }
+        if (segnoOrigine) advFuori += r.importo;
+        if (segnoDestino) advDentro += r.importo;
+        applica((m, d) => { adv += d; advMese[m - 1] += d; });
       }
       else if (tp === "STRUTTURA") applica((m, d) => { struttura += d; strutturaMese[m - 1] += d; });
       // Voce senza categoria: non si sa dove metterla, quindi non si mette da
@@ -190,49 +187,27 @@ export async function caricaConsuntivo(
   }
   ricavi = Object.values(ricaviPerTipologia).reduce((s, v) => s + v, 0);
 
-  // ---- L'ADV: Marketing decide, la banca fa da riscontro ----
-  // Fin qui `adv` conteneva le uscite di banca categorizzate «Pubblicità»
-  // (comprese le rettifiche di competenza applicate sopra). Quel numero resta,
-  // ma come **riscontro di cassa**: la riga di conto economico prende la spesa
-  // delle campagne. Le due non torneranno mai identiche — una è competenza
-  // della campagna, l'altra è il giorno in cui la piattaforma ha incassato — e
-  // proprio la differenza è la cosa utile da guardare.
+  // ---- L'ADV: la banca è la fonte, Marketing è il confronto ----
+  // Per un giorno la riga pubblicitaria è stata la spesa delle campagne da
+  // Marketing. È stato un errore, e la ragione va lasciata scritta: **Marketing
+  // conosce solo le campagne che ha collegate**, quindi il suo totale è per
+  // costruzione un sottoinsieme — misurato sul 2026, poco più della metà di
+  // quello che il conto ha pagato davvero. Un conto economico costruito su un
+  // sottoinsieme mostra un EBITDA più bello del vero, che è il modo peggiore di
+  // sbagliare.
   //
-  // La competenza sull'ADV, da qui in poi, si legge così:
-  //  - quello che **entra** (uscite di altri anni di competenza di questo) si
-  //    somma alla riga: è spesa pubblicitaria di quest'esercizio pagata altrove
-  //    nel tempo, e nelle campagne di quest'anno non compare;
-  //  - quello che **esce** (cassa di quest'anno di competenza di un altro) non
-  //    si toglie dalla riga delle campagne, perché lì dentro non c'è mai stato:
-  //    toglierlo sarebbe sottrarre due volte. Si toglie dalla **cassa**, che è
-  //    il numero da cui è stato spostato.
-  // Quando la fonte è la banca (Marketing non risponde) la riga torna a essere
-  // cassa, e allora la competenza si applica per intero come alle altre voci.
-  // `advBanca` è **cassa pura**, senza competenza: «dal conto sono usciti X» è
-  // vero comunque, e quanto ne è stato spostato si dice a parte.
-  const advBanca = adv;
-  let advFonte: "marketing" | "banca" = "banca";
-  let advCopertura: CoperturaAdv | null = null;
-  if (spesaAdv.ok) {
-    advFonte = "marketing";
-    advCopertura = spesaAdv.dati.copertura;
-    adv = sommaMesi(spesaAdv.dati.mese, mesi) + sommaMesi(advDentroMese, mesi);
-    for (let i = 0; i < 12; i++) advMese[i] = (spesaAdv.dati.mese[i] ?? 0) + advDentroMese[i];
-    if (!advCopertura.completa) {
-      // Non si nasconde dietro un totale: se un account tace, l'ADV vero è più
-      // alto e l'EBITDA più basso di quello che si legge qui.
-      mancanti.push(
-        `spesa ADV parziale da Marketing (${advCopertura.avvertenze.join(" ") || "copertura incompleta"})`
-      );
-    }
-  } else {
-    // Ripiego dichiarato, non silenzioso: la banca non sa di quale campagna
-    // sia quel bonifico, e sposta la spesa al mese dell'addebito. Qui la riga è
-    // cassa, quindi la competenza si applica in entrambi i versi.
-    adv = adv + sommaMesi(advDentroMese, mesi) - sommaMesi(advFuoriMese, mesi);
-    for (let i = 0; i < 12; i++) advMese[i] += advDentroMese[i] - advFuoriMese[i];
-    mancanti.push(`spesa ADV da Marketing (${spesaAdv.errore}) — in tabella ci sono le uscite di banca`);
-  }
+  // Quindi la riga ADV sono le **uscite di banca** categorizzate «Marketing e
+  // ADV», con le rettifiche di competenza applicate come a ogni altra voce
+  // (sopra, nel ciclo). La banca vede tutto quello che è stato pagato, comprese
+  // le piattaforme che nessuno ha collegato.
+  //
+  // Marketing resta accanto, come **confronto**: dice quanto è costato fare le
+  // campagne che conosce, ed è l'unico posto in cui quel numero è diviso per
+  // brand e per campagna. Le due cifre non coincideranno mai — se la banca è
+  // molto più alta, mancano account da collegare; se sono vicine, la copertura
+  // è buona.
+  const advMarketing = spesaAdv.ok ? sommaMesi(spesaAdv.dati.mese, mesi) : null;
+  const advCopertura: CoperturaAdv | null = spesaAdv.ok ? spesaAdv.dati.copertura : null;
 
   const perMese: ConsuntivoMese[] = mesi.map((m, idx) => {
     const f = fattMese[idx];
@@ -278,8 +253,7 @@ export async function caricaConsuntivo(
     margineLordo,
     ebitda,
     nonCategorizzato,
-    advFonte,
-    advBanca,
+    advMarketing,
     advCopertura,
     advCompetenza: { dentro: advDentro, fuori: advFuori },
     competenza: eff,

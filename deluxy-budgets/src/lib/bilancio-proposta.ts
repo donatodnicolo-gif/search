@@ -52,16 +52,8 @@ export async function proponiDaApp(dati: DatiAnno): Promise<{ proposte: Proposta
     proposte.push({
       codice: "B7",
       importo: cons.cogs + cons.adv,
-      fonte:
-        cons.advFonte === "marketing"
-          ? "uscite di banca categorizzate «Costo per servizi» nel CFO + spesa delle campagne da Deluxy Marketing"
-          : "uscite di banca categorizzate «Costo per servizi» e «Pubblicità» nel CFO",
+      fonte: "uscite di banca categorizzate «Costo per servizi» e «Marketing e ADV» nel CFO",
     });
-    if (cons.advFonte === "marketing" && cons.advCopertura && !cons.advCopertura.completa) {
-      avvisi.push(
-        `La spesa pubblicitaria arriva da Marketing, ma Marketing dichiara la copertura incompleta: ${cons.advCopertura.avvertenze.join(" ")} Il B7 proposto è quindi sottostimato.`
-      );
-    }
   }
 
   if (cons.personale > 0) {

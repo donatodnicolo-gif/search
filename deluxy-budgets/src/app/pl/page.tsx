@@ -90,8 +90,7 @@ export default async function ContoEconomico({
           nonCategorizzato: 0,
           // Campi che descrivono le fonti del consuntivo: qui dentro c'è il
           // budget, che di fonti non ne ha.
-          advFonte: "banca",
-          advBanca: 0,
+          advMarketing: null,
           advCopertura: null,
           advCompetenza: { dentro: 0, fuori: 0 },
           competenza: null,
@@ -256,44 +255,31 @@ export default async function ContoEconomico({
 
       {cons && (
         <p className="page-caption" style={{ marginTop: 10 }}>
-          {cons.advFonte === "marketing" ? (
+          La riga <strong>ADV</strong> sono le <strong>uscite di banca</strong> categorizzate «Marketing e
+          ADV» nel <Link href="/cfo" style={{ color: "var(--blue)" }}>CFO</Link>: la banca vede tutto quello
+          che è stato pagato, comprese le piattaforme che nessuno ha collegato.
+          {cons.advMarketing !== null && (
             <>
-              La riga <strong>ADV</strong> è la spesa delle <strong>campagne</strong>, presa da{" "}
-              <strong>Deluxy Marketing</strong>: è l&apos;unica fonte della pubblicità. Nello stesso periodo dal
-              conto sono usciti <strong>{eur(cons.advBanca)}</strong> categorizzati «Pubblicità» nel CFO: le due
-              cifre non coincidono mai — una è la campagna quando gira, l&apos;altra il giorno in cui Google e
-              Meta hanno incassato — e la differenza è cassa, non errore.
-              {cons.advCompetenza.dentro > 0 && (
-                <>
-                  {" "}
-                  Dentro la riga ci sono <strong>{eur(cons.advCompetenza.dentro)}</strong> di pubblicità pagata
-                  in un altro esercizio ma <strong>di competenza</strong> di questo.
-                </>
-              )}
-              {cons.advCompetenza.fuori > 0 && (
-                <>
-                  {" "}
-                  Di quello che è uscito dal conto, <strong>{eur(cons.advCompetenza.fuori)}</strong> sono stati
-                  portati in <Link href="/competenza" style={{ color: "var(--blue)" }}>competenza</Link> di un
-                  altro anno: non erano campagne di questo.
-                </>
-              )}
-              {cons.advCopertura && !cons.advCopertura.completa && (
-                <>
-                  {" "}
-                  <strong className="neg">Attenzione:</strong> Marketing dichiara la copertura{" "}
-                  <strong>incompleta</strong> ({cons.advCopertura.avvertenze.join(" ")}) — la spesa vera è più
-                  alta di così, e l&apos;EBITDA più basso.
-                </>
-              )}
+              {" "}
+              <strong>Deluxy Marketing</strong>, che conosce solo le <strong>campagne collegate</strong>, ne
+              spiega <strong>{eur(cons.advMarketing)}</strong>
+              {cons.adv > 0 && <> ({pct((cons.advMarketing / cons.adv) * 100)})</>}: il resto è pubblicità
+              pagata su account che in Marketing non ci sono. Non è un errore del conto economico — è la
+              misura di quanto ne sappiamo per brand e per campagna.
             </>
-          ) : (
+          )}
+          {cons.advCompetenza.dentro > 0 && (
             <>
-              La riga <strong>ADV</strong> qui sopra <strong>non</strong> è la spesa delle campagne: sono le
-              uscite di banca categorizzate «Pubblicità» nel CFO, che spostano la spesa al giorno
-              dell&apos;addebito e non sanno di quale brand siano. La fonte giusta è Deluxy Marketing, che però
-              non risponde: {cons.mancanti.find((m) => m.startsWith("spesa ADV")) ?? "chiave non configurata"}.{" "}
-              <Link href="/impostazioni/chiavi" style={{ color: "var(--blue)" }}>Imposta la chiave Marketing</Link>.
+              {" "}
+              Dentro la riga ci sono <strong>{eur(cons.advCompetenza.dentro)}</strong> pagati in un altro
+              esercizio ma <strong>di competenza</strong> di questo.
+            </>
+          )}
+          {cons.advCompetenza.fuori > 0 && (
+            <>
+              {" "}
+              E <strong>{eur(cons.advCompetenza.fuori)}</strong> usciti in questo periodo sono stati portati in{" "}
+              <Link href="/competenza" style={{ color: "var(--blue)" }}>competenza</Link> di un altro anno.
             </>
           )}
         </p>

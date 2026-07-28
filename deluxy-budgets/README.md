@@ -144,45 +144,43 @@ Experience €22.500; linee €504.000 / 317 attivazioni.
 Il COGS di partenza (65%) deriva dal margine stimato 2026 dei budget pubblicati (≈35%).
 Il motore di calcolo è `src/lib/calc.ts` (mai valori derivati a DB).
 
-## La spesa pubblicitaria viene da Marketing, non dalla banca
+## La spesa pubblicitaria viene dalla banca; Marketing dice quanta ne conosciamo
 
 In quest'app «ADV» vuol dire due cose, e vanno tenute separate:
 
 - **a budget** (`/spese`, `/piattaforme`) è quanto **si può** spendere: una percentuale sulle
   vendite per maison e mese. Nasce qui, ed è anche il numero che esce dall'API `/api/v1/maison`;
-- **a consuntivo** (P&L, Consuntivo, proposta di conto economico) è quanto si è speso **davvero**, e
-  la fonte è **una sola: Deluxy Marketing** (`GET /api/v1/spesa?raggruppa=mese`, client
-  `src/lib/marketing.ts`, chiave `MARKETING_API_KEY`).
+- **a consuntivo** (P&L, Consuntivo, proposta di conto economico) è quanto si è speso davvero: le
+  **uscite di banca** categorizzate «Marketing e ADV» nel CFO, con le rettifiche di competenza
+  applicate come a ogni altra voce.
 
-Prima quel numero erano le **uscite di banca** categorizzate «Pubblicità» nel CFO. Sono un'altra
-cosa: la banca vede l'addebito il giorno in cui Google o Meta incassano, non sa di quale brand o
-campagna sia, e ci finisce dentro qualunque fornitore qualcuno abbia messo in quella categoria. Le
-uscite di banca restano — come **riscontro di cassa** (`advBanca` nel consuntivo, mostrato sotto il
-P&L): le due cifre non coincidono mai, e la differenza è cassa, non errore.
+> **Per un giorno (28/07/2026) la riga è stata la spesa delle campagne da Deluxy Marketing. Era
+> sbagliato, e la ragione va lasciata scritta**: Marketing conosce solo le **campagne collegate**,
+> quindi il suo totale è per costruzione un sottoinsieme — misurato sul 2026, il 46% di quello che
+> il conto ha pagato. Un conto economico costruito su un sottoinsieme mostra un EBITDA più bello del
+> vero, che è il modo peggiore di sbagliare. La banca invece vede tutto quello che è stato pagato,
+> comprese le piattaforme che nessuno ha collegato.
 
-> **`copertura.completa` prima di `totale`.** È la regola scritta nell'API di Marketing e qui si
-> rispetta: se un account tace, il totale è più basso del vero e mostrarlo come completo direbbe «si
-> è speso meno», che è la conclusione sbagliata. Budgets aggiunge un controllo suo: un account che ha
-> dati solo su **una parte** del periodo non è «silenzioso» per Marketing (qualcosa ha mandato) ma
-> per chi somma dodici mesi è quasi lo stesso, quindi sotto l'80% dei giorni coperti la copertura
-> viene dichiarata **incompleta** lo stesso. Quando lo è, il P&L lo scrive in chiaro sotto la
-> tabella e la proposta di bilancio aggiunge un avviso.
+**Marketing resta accanto, come misura della copertura** (`GET /api/v1/spesa?raggruppa=mese`, client
+`src/lib/marketing.ts`, chiave `MARKETING_API_KEY`): nel consuntivo è `advMarketing`, e il P&L
+scrive «Marketing ne spiega X (Y%)». È anche l'unico posto in cui quella spesa è divisa **per brand
+e per campagna**, cosa che la banca non sa. Se Marketing non risponde, `advMarketing` è `null` e la
+frase sparisce: il conto economico non cambia di una virgola.
 
-Se Marketing non risponde o la chiave manca, la riga ADV **ripiega sulla banca e lo dichiara** (fra
-i `mancanti` e nella nota sotto il P&L), invece di restare vuota o di far finta di niente.
+Il confronto mese per mese sta in `/competenza` (`src/lib/adv-competenza.ts`), con la colonna «non
+spiegato»: se la banca è molto più alta, mancano account da collegare in Marketing.
 
 ### La differenza fra cassa e campagne, e cosa farne
 
-Regola dell'utente (28/07/2026): *tutto ciò che è banca pubblicità e non è pari a quest'anno va in
-competenza nell'anno di transizione*. In `/competenza` c'è il confronto mese per mese (uscito dal
-conto / campagne / differenza) e **un gesto solo** per portare la differenza nell'anno scelto,
-spalmata sulle **controparti vere** di ogni mese in proporzione a quanto ciascuna ha preso — una
-rettifica deve poter nominare da quale addebito viene, altrimenti nel CFO resta un importo senza
-categoria che non entra in nessuna voce di P&L. Premere due volte non raddoppia: quello che è già
-stato spostato si scala dalla differenza.
+In `/competenza` c'è il confronto mese per mese (uscito dal conto / campagne collegate / **non
+spiegato**) e **un gesto solo** per portare un importo in competenza di un altro anno, spalmato
+sulle **controparti vere** di ogni mese in proporzione a quanto ciascuna ha preso — una rettifica
+deve poter nominare da quale addebito viene, altrimenti nel CFO resta un importo senza categoria che
+non entra in nessuna voce di P&L. Premere due volte non raddoppia: quello che è già stato spostato
+si scala dalla differenza.
 
-> **Non è automatico, di proposito** — e verificato sui movimenti il 28/07/2026, la differenza 2026
-> (43.259 €) **non va spostata**. Google e Meta addebitano **a soglia**: importi fissi (500 € Google,
+> **Non è automatico, di proposito** — e verificato sui movimenti il 28/07/2026, la parte «non
+> spiegata» **non va spostata**: è copertura, non competenza. Google e Meta addebitano **a soglia**: importi fissi (500 € Google,
 > 800 € Meta) ogni due o tre giorni per tutto il mese, quindi il denaro esce entro pochi giorni dalla
 > campagna. Su tutti i movimenti pubblicitari noti a Qonto, quelli con *anno di emissione* diverso
 > dall'*anno di regolamento* sono **zero**. L'unica coda è il residuo sotto soglia addebitato l'1–2
@@ -205,8 +203,8 @@ il nome della controparte:
 
 Le regole ora nominano la piattaforma: `google*ads`, `google *ads`, `google ads`, `facebk`,
 `metapay`, `tiktok ads`, `klaviyo`. Uscite di banca ADV 2026: **91.224 → 97.013 €**; 2025:
-43.443 → 42.484 €. Il conto economico non cambia — la riga ADV è Marketing — cambia il riscontro
-di cassa, che prima confrontava le campagne con un insieme sbagliato di addebiti.
+43.443 → 42.484 €. Siccome la riga ADV è la banca, **questa correzione entra dritta nel conto
+economico**: era la categoria a essere sbagliata, non il totale della banca.
 
 **Come la competenza entra nella riga ADV**, che non è più cassa: quello che **entra** si somma alle
 campagne (è spesa di quest'esercizio pagata altrove nel tempo, e nelle campagne dell'anno non
