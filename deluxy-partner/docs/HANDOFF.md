@@ -219,6 +219,15 @@ Decisione utente: i **pagamenti** (esecuzione/richiesta) si faranno in una **nuo
 
 **Cosa è tracciato**: le mutazioni di valore in `actions.ts` (partner crea/modifica, fatture crea/modifica/elimina/saldata/compensata, vendite crea/modifica/elimina, fee, note e pagamenti del mese), `transazioni-actions` (riconciliazioni), `proforma-actions` (crea + cambio stato), `pagamenti-actions` (predisposto + eseguito), `tasks-actions` (crea + stato), regole degli stati e i salvataggi principali di Impostazioni. Per aggiungerne altre: importare `registra({azione, categoria, entita?, entitaId?, partner?, dettaglio?})` e chiamarla prima del `redirect`. **Non ancora tracciate**: alcune azioni minori (ignora/ripristina transazione, elimina task/pro-forma, Shopify, riconciliazione anagrafiche).
 
+**Trappola: «metodo di pagamento obbligatorio» (27/07/2026).** Creare una fattura si fermava con
+quell errore. Causa: il payload di `ficCreaFattura` non conteneva `payment_method`. Su una fattura
+**elettronica** non e un dettaglio estetico — e la `ModalitaPagamento` che pretende lo SDI (bonifico =
+`MP05`). Ora il metodo si manda sempre: se chi chiama non lo indica si usa il **predefinito di Fatture
+in Cloud** letto da `GET /issued_documents/info?type=invoice` (`default_values.payment_method`), cosi
+nessuna delle tre pagine che creano fatture puo dimenticarselo. In `/registrazioni/fatture/nuova` c e
+anche la tendina per sceglierlo. Se su FIC non ci fosse nessun metodo, l errore lo dice e spiega dove
+crearlo. Oggi su FIC ce n e uno solo: BONIFICO.
+
 ## 8. Integrazioni (stato)
 
 - **Qonto** ✅ collegato (org DELUXY S.R.L., 2 conti). API terze parti a chiave (`qonto.*` nel DB). "Sincronizza da Qonto" in `/transazioni` scarica i movimenti completati (dedup per hash). **Sincronizzazione automatica**: cron Vercel `/api/cron/qonto` ogni notte alle 5 (`vercel.json`), protetto da `CRON_SECRET` (senza segreto → 503). Scarica soltanto: **nessuna registrazione automatica**, i match restano da confermare in `/transazioni`; data/ora dell'ultimo scarico in `qonto.ultimaSync`, mostrata in pagina. `src/lib/qonto.ts`, `src/lib/transazioni-actions.ts` (`scaricaMovimentiQonto`).

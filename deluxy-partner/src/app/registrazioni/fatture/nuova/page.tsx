@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { risolviAnagrafica } from "@/lib/anagrafiche";
-import { ficStato, ficClientiFatturabiliCached, ficEntityUltimaFattura, ficCreaFattura, type RigaFattura, type FicEntity } from "@/lib/fic";
+import { ficStato, ficClientiFatturabiliCached, ficEntityUltimaFattura, ficCreaFattura, ficMetodiPagamento, type RigaFattura, type FicEntity } from "@/lib/fic";
 import { RigheProForma } from "@/components/RigheProForma";
 import { TerminiPagamento } from "@/components/TerminiPagamento";
 
@@ -111,7 +111,8 @@ async function emettiFattura(fd: FormData) {
 
   let numero: string;
   try {
-    const res = await ficCreaFattura({ clienteId, entity: entity ?? undefined, righe, visibleSubject: oggetto, data, scadenza });
+    const metodoPagamentoId = Number(fd.get("metodoPagamento")) || undefined;
+    const res = await ficCreaFattura({ clienteId, entity: entity ?? undefined, righe, visibleSubject: oggetto, data, scadenza, metodoPagamentoId });
     numero = res.numero;
   } catch (e) {
     redirect("/registrazioni/fatture/nuova?errore=" + encodeURIComponent((e as Error).message));
@@ -174,6 +175,10 @@ export default async function NuovaFatturaCloud({
   ]);
   const tipDefault = tipologie.find((t) => /altro/i.test(t.nome))?.id ?? tipologie[0]?.id ?? "";
   const clienti = stato.collegato ? await ficClientiFatturabiliCached().catch(() => []) : [];
+  // Metodi di pagamento di Fatture in Cloud: obbligatori su una fattura
+  // elettronica, ed è quello che mancava quando la creazione si fermava con
+  // «metodo di pagamento obbligatorio».
+  const metodi = stato.collegato ? await ficMetodiPagamento().catch(() => []) : [];
   const oggi = new Date().toISOString().slice(0, 10);
 
   return (
@@ -239,6 +244,22 @@ export default async function NuovaFatturaCloud({
               <input type="date" name="data" defaultValue={oggi} />
             </div>
             <TerminiPagamento oggi={oggi} />
+            <div>
+              {/* Obbligatorio su una fattura ELETTRONICA: e la ModalitaPagamento
+                  che pretende lo SDI (bonifico = MP05). Preselezionato sul
+                  predefinito di Fatture in Cloud. */}
+              <label className="field-label">Metodo di pagamento</label>
+              <select name="metodoPagamento" defaultValue={String(metodi.find((m) => m.predefinito)?.id ?? metodi[0]?.id ?? "")}>
+                {metodi.map((m) => (
+                  <option key={m.id} value={m.id}>{m.nome}{m.predefinito ? " (predefinito)" : ""}</option>
+                ))}
+              </select>
+              {metodi.length === 0 && (
+                <span className="muted" style={{ fontSize: 11.5 }}>
+                  Nessun metodo configurato su Fatture in Cloud: creane uno (es. Bonifico) nelle sue impostazioni.
+                </span>
+              )}
+            </div>
 
             <div className="full">
               <details style={{ border: "1px solid var(--hairline)", borderRadius: "var(--radius-m)", padding: "10px 14px", background: "var(--bg)" }}>
