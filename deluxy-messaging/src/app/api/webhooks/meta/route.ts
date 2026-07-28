@@ -113,8 +113,15 @@ type MetaWebhook = {
         statuses?: { id?: string; status?: string; errors?: { message?: string }[] }[]
       }
     }[]
+    // Su Messenger e Instagram `entry.id` è il NOSTRO account (Pagina o profilo
+    // professionale). Serve come ripiego quando `recipient` non c'è.
+    id?: string
     messaging?: {
       sender?: { id?: string }
+      // ⚠️ A QUALE nostro account ha scritto il cliente. Con più pagine e più
+      // profili Instagram è l'unico modo per sapere a quale marchio si sta
+      // rispondendo — e da quale token far uscire la risposta.
+      recipient?: { id?: string }
       message?: { mid?: string; text?: string; is_echo?: boolean; attachments?: { type?: string }[] }
     }[]
   }[]
@@ -128,9 +135,13 @@ async function registraInArrivo(opz: {
   testo: string
   tipo?: string
   idMessaggio: string
-  /** Il nostro numero che ha ricevuto: `phone_number_id` di Meta. */
+  /**
+   * Il NOSTRO capo della conversazione: `phone_number_id` su WhatsApp, id della
+   * Pagina o dell'account Instagram sugli altri canali Meta. Stesso campo
+   * perché fa lo stesso mestiere.
+   */
   numeroId?: string
-  /** Lo stesso numero in forma leggibile, per mostrarlo in inbox. */
+  /** Lo stesso, in forma leggibile, per mostrarlo in inbox (solo WhatsApp). */
   numeroNostro?: string
 }) {
   // Dedup: Meta può consegnare lo stesso evento più volte.
@@ -244,12 +255,18 @@ async function gestisciMessaging(canale: 'messenger' | 'instagram', corpo: MetaW
       const testo =
         msg.text || (msg.attachments?.length ? `[${msg.attachments[0]?.type ?? 'allegato'}]` : '')
       if (!testo) continue
+      // Il NOSTRO account che ha ricevuto: `recipient.id` quando c'è, altrimenti
+      // `entry.id`. Va nello stesso campo del numero WhatsApp perché fa lo
+      // stesso mestiere — tenere separate le conversazioni di marchi diversi e
+      // far uscire la risposta dall'account giusto.
+      const nostroId = ev.recipient?.id || entry.id || ''
       await registraInArrivo({
         canale,
         idEsterno: mittente,
         testo,
         tipo: msg.text ? 'testo' : 'media',
         idMessaggio: msg.mid ?? '',
+        numeroId: nostroId,
       })
     }
   }

@@ -66,6 +66,7 @@ model NegozioShopify {
   istruzioniAI IstruzioneAI[]
   documentiAI  DocumentoAI[]
   numeriWhatsApp NumeroWhatsApp[]
+  pagineMeta     PaginaMeta[]
 }
 
 // Uno "script": una risposta pronta da dare ai clienti. Sono la memoria
@@ -152,6 +153,42 @@ model NumeroWhatsApp {
 
   negozio NegozioShopify? @relation(fields: [negozioId], references: [id], onDelete: SetNull)
 
+  @@index([negozioId])
+}
+
+// Una Pagina Facebook o un account Instagram professionale collegato.
+//
+// Stesso problema dei numeri WhatsApp, altro canale: la holding ha più pagine e
+// più profili Instagram (Deluxy Flowers, Cake Design…). Senza sapere a QUALE
+// account ha scritto il cliente si risponde col tono e la firma di un altro
+// marchio — e, peggio, si risponde dal token di un'altra pagina, quindi il
+// cliente vede arrivare un messaggio da un'azienda a cui non ha scritto.
+model PaginaMeta {
+  id        String @id @default(cuid())
+  canale    String // messenger | instagram
+  // L'ID della Pagina (Messenger) o dell'account Instagram professionale.
+  // È la chiave con cui il webhook riconosce il destinatario: sta in
+  // `entry[].messaging[].recipient.id`, e finisce in Conversazione.numeroId.
+  idPagina  String
+  nome      String @default("") // etichetta leggibile, es. "Deluxy Flowers"
+  // Come lo vede il cliente: @nomeutente per Instagram, nome della pagina per
+  // Facebook. Serve solo a farsi riconoscere in Inbox.
+  riferimento String @default("")
+  // Token di QUESTA pagina. Cifrato, mai in chiaro in tabella.
+  // ⚠️ Qui il ripiego sul token generale è un ripiego vero, non un'equivalenza:
+  // ogni Pagina Facebook ha il SUO Page Access Token, e usare quello di un'altra
+  // pagina non manda il messaggio dalla pagina giusta — o fallisce, o parte dal
+  // marchio sbagliato. Con più pagine, il token per pagina va messo.
+  token     String @default("") @db.Text
+  negozioId String?
+  attivo    Boolean @default(true)
+  creatoIl  DateTime @default(now())
+
+  negozio NegozioShopify? @relation(fields: [negozioId], references: [id], onDelete: SetNull)
+
+  // Lo stesso id non si ripete sullo stesso canale; fra canali diversi sì,
+  // perché una Pagina e un account Instagram vivono in due spazi di id.
+  @@unique([canale, idPagina])
   @@index([negozioId])
 }
 

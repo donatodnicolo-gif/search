@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { headers } from 'next/headers'
 import { leggiImpostazioni } from '@/lib/impostazioni'
 
@@ -135,7 +136,9 @@ export default async function PaginaImpostazioni({
             <h2>Messenger</h2>
             <p className="descrizione">
               Page Access Token della pagina Facebook (permessi pages_messaging), per leggere e
-              rispondere ai messaggi della pagina.
+              rispondere ai messaggi della pagina. Vale per <strong>una sola</strong> pagina: con
+              più marchi, ognuno ha il suo token e si collegano in{' '}
+              <Link href="/account-meta">Facebook e Instagram</Link> — questo resta come ripiego.
             </p>
             <label className="campo">
               <span>
@@ -154,7 +157,9 @@ export default async function PaginaImpostazioni({
             <h2>Instagram</h2>
             <p className="descrizione">
               Token della pagina collegata all&apos;account Instagram professionale (permessi
-              instagram_manage_messages). Può essere lo stesso token di Messenger.
+              instagram_manage_messages). Può essere lo stesso token di Messenger. Con più profili
+              Instagram si collegano in{' '}
+              <Link href="/account-meta">Facebook e Instagram</Link>, uno per marchio.
             </p>
             <label className="campo">
               <span>

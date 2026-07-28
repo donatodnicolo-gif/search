@@ -51,14 +51,23 @@ export async function inviaWhatsApp(
   )
 }
 
-/** Invia un testo su Messenger (PSID) o Instagram (IGSID) col Page Access Token. */
+/**
+ * Invia un testo su Messenger (PSID) o Instagram (IGSID) col Page Access Token.
+ *
+ * `mittenteId` è il NOSTRO account da cui esce il messaggio: la Pagina o il
+ * profilo Instagram. Con più account collegati va passato, perché `/me`
+ * significa «l'account di questo token» e col token generale sarebbe l'account
+ * sbagliato — il cliente riceverebbe una risposta da un marchio a cui non ha
+ * scritto. Con un account solo, `/me` va bene ed è il ripiego.
+ */
 export async function inviaPagina(
   token: string,
   destinatarioId: string,
-  testo: string
+  testo: string,
+  mittenteId = ''
 ): Promise<EsitoInvio> {
   return chiamaGraph(
-    `${GRAPH}/me/messages`,
+    `${GRAPH}/${mittenteId || 'me'}/messages`,
     {
       recipient: { id: destinatarioId },
       messaging_type: 'RESPONSE',

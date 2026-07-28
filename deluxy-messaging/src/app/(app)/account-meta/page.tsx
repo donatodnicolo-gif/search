@@ -1,0 +1,219 @@
+import { db } from '@/lib/db'
+import { pagineCollegate, type PaginaCollegata } from '@/lib/pagine-meta'
+import { salvaPaginaAction, eliminaPaginaAction } from './actions'
+
+export const dynamic = 'force-dynamic'
+
+// Le Pagine Facebook e gli account Instagram collegati, uno per marchio.
+//
+// Prima la configurazione era singola (un Page Access Token e un token
+// Instagram nelle Impostazioni): con due marchi si rispondeva a tutti
+// dall'account impostato, cioè per metà dei clienti dal marchio sbagliato.
+
+const NOME_CANALE: Record<string, string> = {
+  messenger: 'Facebook (Messenger)',
+  instagram: 'Instagram',
+}
+
+function Scheda({
+  p,
+  negozi,
+}: {
+  p: PaginaCollegata
+  negozi: { id: string; nome: string }[]
+}) {
+  return (
+    <div className="card" style={{ marginBottom: 14, opacity: p.attivo ? 1 : 0.6 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+        <h2 style={{ margin: 0, fontSize: 16 }}>{p.nome}</h2>
+        <span className={`badge canale-${p.canale}`}>{NOME_CANALE[p.canale] ?? p.canale}</span>
+        {p.brand ? <span className="badge">{p.brand}</span> : null}
+        {!p.attivo ? <span className="badge rosso">sospeso</span> : null}
+        {!p.tokenProprio ? (
+          <span className="cella-sub">token generale (Impostazioni) — da riempire</span>
+        ) : null}
+      </div>
+
+      <form action={salvaPaginaAction} style={{ marginTop: 12 }}>
+        <input type="hidden" name="id" value={p.id} />
+        <input type="hidden" name="canale" value={p.canale} />
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <label className="campo">
+            <span>Nome (come lo chiami tu)</span>
+            <input name="nome" defaultValue={p.nome} />
+          </label>
+          <label className="campo">
+            <span>{p.canale === 'instagram' ? 'Nome utente (@…)' : 'Nome della pagina'}</span>
+            <input name="riferimento" defaultValue={p.riferimento} />
+          </label>
+          <label className="campo">
+            <span>{p.canale === 'instagram' ? 'ID account Instagram' : 'ID della pagina'}</span>
+            <input name="idPagina" defaultValue={p.idPagina} inputMode="numeric" />
+          </label>
+          <label className="campo">
+            <span>Marchio</span>
+            <select name="negozioId" defaultValue={p.negozioId ?? ''}>
+              <option value="">Nessuno</option>
+              {negozi.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.nome}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="campo" style={{ gridColumn: '1 / -1' }}>
+            <span>Token di questo account</span>
+            <input
+              name="token"
+              type="password"
+              autoComplete="off"
+              placeholder={
+                p.tokenProprio ? 'salvato — incolla per sostituire' : 'vuoto = token generale'
+              }
+            />
+          </label>
+        </div>
+        <button className="bottone">Salva</button>
+      </form>
+
+      <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+        {/* Sospendi/riattiva riusa la stessa action cambiando solo `attivo`. */}
+        <form action={salvaPaginaAction}>
+          <input type="hidden" name="id" value={p.id} />
+          <input type="hidden" name="canale" value={p.canale} />
+          <input type="hidden" name="idPagina" value={p.idPagina} />
+          <input type="hidden" name="nome" value={p.nome} />
+          <input type="hidden" name="riferimento" value={p.riferimento} />
+          <input type="hidden" name="negozioId" value={p.negozioId ?? ''} />
+          <input type="hidden" name="attivo" value={p.attivo ? '0' : '1'} />
+          <button className="bottone secondario mini">{p.attivo ? 'Sospendi' : 'Riattiva'}</button>
+        </form>
+        <form action={eliminaPaginaAction}>
+          <input type="hidden" name="id" value={p.id} />
+          <button className="bottone secondario mini" style={{ color: 'var(--red)' }}>
+            Elimina
+          </button>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+function ModuloNuovo({
+  canale,
+  negozi,
+}: {
+  canale: 'messenger' | 'instagram'
+  negozi: { id: string; nome: string }[]
+}) {
+  const ig = canale === 'instagram'
+  return (
+    <div className="card" style={{ marginBottom: 14 }}>
+      <h2 style={{ marginTop: 0, fontSize: 16 }}>
+        Aggiungi {ig ? 'un account Instagram' : 'una Pagina Facebook'}
+      </h2>
+      <form action={salvaPaginaAction}>
+        <input type="hidden" name="canale" value={canale} />
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <label className="campo">
+            <span>Nome</span>
+            <input name="nome" placeholder="Deluxy Flowers" />
+          </label>
+          <label className="campo">
+            <span>{ig ? 'Nome utente (@…)' : 'Nome della pagina'}</span>
+            <input name="riferimento" placeholder={ig ? '@deluxyflowers' : 'Deluxy Flowers'} />
+          </label>
+          <label className="campo">
+            <span>{ig ? 'ID account Instagram' : 'ID della pagina'}</span>
+            <input
+              name="idPagina"
+              inputMode="numeric"
+              placeholder={ig ? 'Meta → Instagram → account' : 'Pagina → Informazioni → ID'}
+            />
+          </label>
+          <label className="campo">
+            <span>Marchio</span>
+            <select name="negozioId" defaultValue="">
+              <option value="">Nessuno</option>
+              {negozi.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.nome}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="campo" style={{ gridColumn: '1 / -1' }}>
+            <span>Token di questo account</span>
+            <input
+              name="token"
+              type="password"
+              autoComplete="off"
+              placeholder="Page Access Token di QUESTA pagina"
+            />
+          </label>
+        </div>
+        <button className="bottone">Aggiungi</button>
+      </form>
+    </div>
+  )
+}
+
+export default async function PaginaAccountMeta() {
+  const [pagine, negozi] = await Promise.all([
+    pagineCollegate(),
+    db.negozioShopify.findMany({ select: { id: true, nome: true }, orderBy: { nome: 'asc' } }),
+  ])
+
+  const messenger = pagine.filter((p) => p.canale === 'messenger')
+  const instagram = pagine.filter((p) => p.canale === 'instagram')
+
+  return (
+    <main>
+      <div className="page-head">
+        <div>
+          <h1 className="page-title">Facebook e Instagram</h1>
+          <p className="page-sub">
+            Una pagina e un profilo per marchio. Il messaggio che arriva su un account resta su
+            quello: in Inbox si vede a chi ha scritto il cliente, e la risposta esce dallo stesso
+            account — non da un altro marchio del gruppo.
+          </p>
+        </div>
+      </div>
+
+      {pagine.length === 0 ? (
+        <div className="card" style={{ marginBottom: 14 }}>
+          <h2 style={{ marginTop: 0, fontSize: 16 }}>Nessun account collegato</h2>
+          <p className="descrizione" style={{ marginBottom: 0 }}>
+            Finché non ne colleghi almeno uno si usa il token generale delle Impostazioni, che va
+            bene con <strong>un solo</strong> account. Con più pagine serve il token di ciascuna:
+            quello di un&apos;altra pagina non fa partire il messaggio dalla pagina giusta.
+          </p>
+        </div>
+      ) : null}
+
+      {messenger.map((p) => (
+        <Scheda key={p.id} p={p} negozi={negozi} />
+      ))}
+      <ModuloNuovo canale="messenger" negozi={negozi} />
+
+      {instagram.map((p) => (
+        <Scheda key={p.id} p={p} negozi={negozi} />
+      ))}
+      <ModuloNuovo canale="instagram" negozi={negozi} />
+
+      <div className="card">
+        <h2 style={{ marginTop: 0, fontSize: 16 }}>Dove si trovano questi dati</h2>
+        <p className="descrizione" style={{ marginBottom: 0 }}>
+          L&apos;<strong>ID della pagina</strong> sta in Facebook → Pagina → Informazioni;
+          l&apos;<strong>ID dell&apos;account Instagram</strong> in Meta Business Suite →
+          Impostazioni → account Instagram. Il <strong>token</strong> si genera nell&apos;app Meta →
+          Messenger → Impostazioni → Token di accesso, scegliendo quella pagina: ne esce uno per
+          pagina, ed è quello che va incollato qui. Instagram passa dalla pagina Facebook a cui il
+          profilo professionale è collegato. Il webhook è unico per tutti i canali — quello già
+          impostato per WhatsApp vale anche qui, purché nell&apos;app Meta siano spuntati i campi{' '}
+          <code>messages</code> dei prodotti Messenger e Instagram.
+        </p>
+      </div>
+    </main>
+  )
+}

@@ -71,6 +71,32 @@ locale, altrimenti nulla si decifra.
     **vuoti sullo storico**: partono da adesso, a posteriori non si indovina —
     «vuoto» non vuol dire «nessuno», vuol dire «prima di questa data».
 
+- **PIÙ PAGINE FACEBOOK E PIÙ ACCOUNT INSTAGRAM** (28/07/2026). Stesso impianto
+  dei numeri WhatsApp, esteso agli altri due canali Meta.
+  - Tabella `PaginaMeta` (`canale` + `idPagina` unici insieme, `token` cifrato,
+    `negozioId` per il marchio), pagina **`/account-meta`** «Facebook e
+    Instagram» in Configurazione, `src/lib/pagine-meta.ts` per la traduzione.
+  - Il webhook non butta più via il destinatario: legge
+    `entry[].messaging[].recipient.id` (ripiego `entry.id`) e lo scrive nello
+    **stesso campo** `Conversazione.numeroId` usato dal numero WhatsApp — fa lo
+    stesso mestiere, tenere separate le conversazioni di marchi diversi.
+  - Si risponde **dall'account che ha ricevuto**: `tokenPerPagina(canale, id)` e
+    `inviaPagina(..., mittenteId)` che chiama `/{idPagina}/messages` invece di
+    `/me/messages`. ⚠️ Con `/me` il token generale mandava il messaggio dalla
+    pagina di un altro marchio.
+  - ⚠️ **Il ripiego sul token generale qui non è un'equivalenza** (come invece è
+    su WhatsApp, dove un token vale per tutti i numeri dello stesso Business
+    Manager): ogni Pagina ha il SUO Page Access Token. Con più pagine, il token
+    per pagina è obbligatorio, non facoltativo.
+  - Verificato in locale con webhook firmato: lo stesso cliente che scrive a due
+    pagine diverse crea **due conversazioni separate**, ciascuna col suo
+    `nostroAccount` — prima ne faceva una sola con i due discorsi mescolati.
+    Righe di prova cancellate per id.
+  - Da fare quando arrivano gli account veri: incollare l'ID pagina/profilo e il
+    token in `/account-meta` (in Impostazioni `fbPageToken` e `igToken` non sono
+    mai stati riempiti), e spuntare `messages` per Messenger e Instagram
+    nell'app Meta — il webhook è lo stesso già usato da WhatsApp.
+
 - **INBOX MULTI-NUMERO: si sa su quale nostro WhatsApp è arrivato un messaggio**
   (27/07/2026). Preparato per l'arrivo dei numeri veri (l'utente ha connesso il
   WABA «Deluxy Flowers», ID 1473727904063695).

@@ -4,6 +4,7 @@ import { leggiImpostazioni } from '@/lib/impostazioni'
 import { inviaPagina, inviaWhatsApp } from '@/lib/meta'
 import { casellaPerId, inviaEmail } from '@/lib/email'
 import { tokenPerNumero } from '@/lib/numeri-whatsapp'
+import { tokenPerPagina } from '@/lib/pagine-meta'
 import { utenteCorrente } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
@@ -40,7 +41,10 @@ export async function POST(req: NextRequest, { params }: Params) {
   // Chi sta rispondendo: con più operatori, «chi ha scritto al cliente» è la
   // prima domanda quando la conversazione passa di mano.
   const chiScrive = await utenteCorrente()
-  const config = await leggiImpostazioni(['waToken', 'waPhoneNumberId', 'fbPageToken', 'igToken'])
+  // I token non si leggono più qui: li risolvono `tokenPerNumero` e
+  // `tokenPerPagina`, che partono dall'account che ha ricevuto e ripiegano sulle
+  // Impostazioni solo se quello non ne ha uno suo.
+  const config = await leggiImpostazioni(['waPhoneNumberId'])
 
   let esito: { ok: true; idEsterno: string } | { ok: false; errore: string }
   switch (conversazione.canale) {
@@ -74,15 +78,25 @@ export async function POST(req: NextRequest, { params }: Params) {
       break
     }
     case 'messenger':
-      esito = config.fbPageToken
-        ? await inviaPagina(config.fbPageToken, conversazione.idEsterno, pulito)
-        : { ok: false, errore: 'Messenger non configurato: Page Access Token mancante (Impostazioni).' }
+    case 'instagram': {
+      // ⚠️ Stessa regola di WhatsApp: si risponde DALL'ACCOUNT CHE HA RICEVUTO.
+      // La holding ha più Pagine e più profili Instagram; con un token solo, a
+      // chi scrive ai fiori risponderebbe la pasticceria. `numeroId` è l'account
+      // vero, letto dal webhook di Meta; il token generale delle Impostazioni
+      // resta per le conversazioni nate prima che lo registrassimo.
+      const nostroAccount = conversazione.numeroId
+      const tokenDiQuellAccount = await tokenPerPagina(conversazione.canale, nostroAccount)
+      esito = tokenDiQuellAccount
+        ? await inviaPagina(tokenDiQuellAccount, conversazione.idEsterno, pulito, nostroAccount)
+        : {
+            ok: false,
+            errore:
+              conversazione.canale === 'instagram'
+                ? 'Instagram non configurato: nessun token per questo account (pagina Facebook e Instagram).'
+                : 'Messenger non configurato: nessun Page Access Token per questa pagina (pagina Facebook e Instagram).',
+          }
       break
-    case 'instagram':
-      esito = config.igToken
-        ? await inviaPagina(config.igToken, conversazione.idEsterno, pulito)
-        : { ok: false, errore: 'Instagram non configurato: token mancante (Impostazioni).' }
-      break
+    }
     case 'widget':
       // Il widget non ha un invio esterno: il visitatore riceve col suo polling.
       esito = { ok: true, idEsterno: '' }
