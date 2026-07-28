@@ -1,6 +1,6 @@
 # Handoff — Deluxy Marketing
 
-> Stato al **26/07/2026**. Una finestra Claude nuova deve poter riprendere da qui
+> Stato al **28/07/2026**. Una finestra Claude nuova deve poter riprendere da qui
 > senza altro contesto. Leggere prima il [README](../README.md) per cosa fa l'app;
 > questo documento dice **dove siamo** e **cosa manca**.
 
@@ -21,6 +21,53 @@ Riceve già dati veri da Google Ads (Gifts e Flowers) e ha 2.426 ordini Shopify 
   in sviluppo scrive sui dati veri. Non esiste ancora uno schema `marketing_dev`.
 
 ## FATTO
+
+### Il 28/07/2026 (questa sessione)
+
+**Vendite Shopify sulla scheda campagna.** Sotto i gruppi c'è il venduto vero:
+categorie, ordini, clienti nuovi contro di ritorno, scontrino medio, e i KPI
+ROS reale (venduto ÷ spesa), costo di acquisizione (spesa ÷ clienti nuovi),
+costo per conversione (spesa ÷ ordini). `lib/vendite-campagna.ts`.
+
+> ⚠️ **Due legami che non vanno confusi, ed è il motivo per cui quel file
+> esiste.** L'**attribuzione** è una sola: l'ordine porta scritto l'UTM della
+> campagna (`Ordine.utmCampagna`), confrontato coi nomi normalizzati (lo stesso
+> `normalizza()` dell'import) più l'id di piattaforma, che alcune campagne Meta
+> scrivono al posto del nome. **Solo lì** si calcolano i KPI. Il **contesto** è
+> altro: prodotto e lingua *dedotti dal nome* ("[Deluxy] Torte ROMA" → torte,
+> italiano). Dice cosa vendeva il negozio mentre la campagna girava, **non** che
+> quelle vendite arrivino da lì — nessun KPI ci si appoggia ed è scritto in
+> pagina. Gli ordini con UTM che *somiglia* al nome ma non combacia (nomi
+> vecchi, campagne divise in ENG/ITA) **non si attribuiscono**: si contano e si
+> dicono. Misurato su Torte MILANO: ROS di cassa **2,42×** contro il **4,2×**
+> dichiarato da Google.
+
+Il legame di contesto sta in `LegameCampagnaShopify` (campagna → categoria,
+lingua, negozio), dedotto e **correggibile a mano dalla scheda**: da lì
+`origine = manuale` e nessun giro successivo lo sovrascrive, nemmeno se la
+campagna cambia nome. Se il nome non nomina un prodotto (Brand Protection,
+generiche) non si deduce niente.
+
+**Viste salvate** (`lib/viste.ts`, `components/VisteSalvate.tsx`) su Campagne,
+Parole cercate, Keywords e Dashboard per brand: filtri + ordinamento + periodo
+con un nome, **condivise** (non per utente), una può essere predefinita.
+Parametri salvati in forma canonica (chiavi ordinate, vuoti fuori) o "questa
+vista è già attiva" non funzionerebbe mai; fuori i parametri che sono messaggi
+di ritorno (`salvata`, `bloccata`, `aggiornamento`). Via d'uscita:
+`?vista=libera`.
+
+**Sync Drive: arriva in fondo, e importa le analisi.** Vedi la sezione dedicata
+più sotto.
+
+**Due stati campagna nuovi**: `in_lancio` (decisa e pronta, non ancora partita:
+conta nei contatori delle vive e genera un'azione «Far partire» con owner
+*utente*) e `defunta` (da non considerare mai più: fuori da elenchi, contatori,
+`/api/v1/stato`, selettori e `GET /api/v1/campagne` — si chiede apposta con
+`?defunte=incluse`). **La spesa di una defunta resta nei totali**: quei soldi
+sono usciti davvero. Costanti `STATI_CAMPAGNA_VIVE` e `STATI_CAMPAGNA_IGNORATE`
+in `dominio.ts`: le liste di stati non stanno più sparse nel codice.
+
+**Meta si aggiorna da sola, ogni ora** — vedi "Connettori".
 
 ### Dati dentro (verificati sul database di produzione, 26/07/2026)
 
@@ -198,10 +245,23 @@ lettura in `ORDERS_API_KEY`). Una fonte sola invece di tre token Admin.
     `tipo = asset_group_pmax`).
   - Banco di prova con Google Ads finto: `scripts/prova-google-ads-script.js`
     (`node scripts/prova-google-ads-script.js`, 51 controlli).
-- **Meta**: `src/lib/meta.ts` + `POST /api/v1/sync/meta`. Meta non ha gli Scripts:
-  è l'app che chiama la Graph API. Serve `META_ACCESS_TOKEN` (utente di sistema
-  del Business Manager, non scade). Valore e conversioni **solo** da
-  `omni_purchase`. Gli account sono già censiti in Impostazioni.
+- **Meta**: `src/lib/meta.ts`, logica in `src/lib/sync-meta.ts`, due porte:
+  `POST /api/v1/sync/meta` (a mano, chiave di scrittura) e **`GET /api/cron/meta`
+  chiamato dal cron di Vercel al minuto 7 di ogni ora** (`vercel.json`, dal
+  28/07/2026). Meta non ha gli Scripts: è l'app che chiama la Graph API, e
+  finché l'unica porta era la POST i numeri Meta si muovevano solo se qualcuno
+  premeva un bottone — il 28/07 Google era a oggi e Meta fermo a ieri.
+  - Finestra di **7 giorni**, non 1: Meta consolida le conversioni nei giorni
+    dopo, quindi il numero di ieri cambia ancora.
+  - L'endpoint è **chiuso** quando manca `CRON_SECRET` (impostato su Vercel il
+    28/07), invece di essere aperto: un endpoint aperto per sbaglio non si nota
+    finché non è tardi.
+  - Il middleware lascia passare `/api/cron/`: col redirect a `/login` il cron
+    prenderebbe un **307**, che per Vercel è una corsa *riuscita* con zero dati.
+    È la stessa trappola che faceva risultare deluxy-budgets giù nel Hub.
+  - Serve `META_ACCESS_TOKEN` (utente di sistema del Business Manager, non
+    scade). Valore e conversioni **solo** da `omni_purchase`. Gli account sono
+    già censiti in Impostazioni.
 - Il salvataggio è condiviso: `src/lib/ingest-metriche.ts`. Google spinge
   (`/api/v1/ingest`), Meta viene interrogata, ma la logica di riconoscimento
   campagne e aggiornamento per giorno è la stessa.
@@ -251,8 +311,53 @@ le verifiche +24h/+72h. Vale anche per keyword nuove, negative e campagne nuove
   medio per conversione degli **ultimi 90 giorni** (la finestra conta: Torte
   MILANO ha 5,10 € di media storica ma 95 € oggi).
 
+### Sync Drive: ripartibile, e le analisi diventano Analisi (28/07/2026)
+
+Erano due problemi diversi.
+
+**(a) Si fermava a metà.** Il 28/07 aveva toccato 179 documenti su 669 senza
+lasciare niente nel registro. La colpa non era del Drive: era **una query per
+file** — `findUnique` + `update` per ognuno, più una `update` a vuoto sugli
+invariati solo per riscrivere `sincronizzatoIl`, più una `delete` per ogni file
+sparito: ~1.350 andate e ritorno. Ora una lettura sola dell'indice, confronto in
+memoria, `createMany` per i nuovi, `update` solo per quelli davvero cambiati,
+una `deleteMany` per gli spariti. **Sugli invariati non si scrive più niente**:
+la data dell'ultima sync si legge dalla corsa, non dall'ultimo documento.
+
+La corsa si annota in **`SyncDrive` prima di cominciare**: anche una sync morta
+lascia scritto che è morta. Se il tempo sta per finire (`DRIVE_SYNC_BUDGET_MS`,
+45 s) si ferma da sola, segna dove era arrivata e **la prossima riparte da lì**;
+una passata parziale **non cancella** i file mancanti (con un elenco a metà si
+svuoterebbe mezzo indice). Provato davvero abbassando il budget a 4 s.
+
+**(b) Le analisi su Drive non diventavano `Analisi`.** La sync indicizzava solo
+`DocumentoDrive`; le `Analisi` le creava solo `scripts/deposita-analisi.mjs`,
+cioè una sessione a mano. Ora `lib/analisi-drive.ts` crea un'Analisi per ogni
+documento di categoria *analisi*/*audit* non ancora legato (chiave:
+`Analisi.fileDrive = DocumentoDrive.percorso`, che è anche l'idempotenza). Dei
+`.md`/`.txt` legge le prime righe come sintesi; degli `.xlsx` scrive che il
+documento **non è stato letto**, invece di inventare.
+
+> ⚠️ **Restano fuori archivi e documenti marcati `SUPERATO`**: la *categoria*
+> non basta a tenerli fuori — un file in `.../Analisi/Archivio/` viene
+> classificato `analisi`, perché la regola dell'archivio arriva dopo. Alla prima
+> passata erano entrate 33 analisi già superate; il filtro è in
+> `daNonImportare()`, replicato anche in `scripts/sync-drive.mjs`.
+
+Numeri veri del 28/07: corsa completa **594 documenti in 24,7 s** (7 nuovi, 6
+aggiornati, **101 spariti** che l'indice si portava dietro dalle sync morte, 25
+analisi importate); seconda corsa 0 scritture.
+
 ## MANCA
 
+0. **Token Meta non autorizzato sugli account** (28/07/2026, misurato). Il cron
+   funziona — auth, tre account interrogati, esito riportato — ma la Graph API
+   risponde **403 `(#200) Ad account owner has NOT grant ads_management or
+   ads_read permission`** su tutti e tre (Flowers 965988141913909, Cake
+   1040175814157216, Gifts 2802316249885506). Finché non si assegnano gli
+   account all'utente di sistema con `ads_read`, **Meta resta fermo al 27/07**
+   per quanto giri il cron. Gli errori finiscono in `RicezioneDati` e si vedono
+   in **Dati in arrivo**.
 1. **Chiave OpenAI** — la sezione `/ai` è pronta ma dirà che serve
    `OPENAI_API_KEY`: va nella cassaforte del Hub (progetto `deluxy-marketing`,
    più `HUB_KEYS_TOKEN` su Vercel) o come variabile su Vercel.
@@ -301,6 +406,15 @@ le verifiche +24h/+72h. Vale anche per keyword nuove, negative e campagne nuove
   cancellerebbe dati reali. Filtrare solo i record creati dal test.
 - **`esporta-dati.mjs` non va importato** da altri script: eseguirebbe il suo
   codice azzerando il file. L'ordine tabelle sta in `scripts/tabelle.mjs`.
+- **Mai una query per riga** su una funzione che gira su Vercel: è così che la
+  sync del Drive moriva a metà (§ Sync Drive). Una lettura, il diff in memoria,
+  scritture in blocco.
+- **Il `name`/`value` di un bottone submit non arriva nelle server action**: il
+  valore si lega con `.bind(null, valore)` e `formAction` (già così per gli
+  stati campagna, il legame Shopify e le viste salvate).
+- **Un redirect del middleware su un endpoint di servizio è un 307**, e per chi
+  lo chiama (cron Vercel, pagina Stato del Hub) un 307 sembra "andato bene".
+  `/api/health` e `/api/cron/` sono esentati apposta.
 
 ## Come riprendere
 

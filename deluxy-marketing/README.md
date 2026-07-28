@@ -166,6 +166,19 @@ nuovi/modificati nelle 24h, li legge e deposita una sintesi AI come analisi (ori
 `analisi-quotidiana`). Gira quando l'app desktop è aperta; se chiusa, al prossimo avvio.
 In qualsiasi sessione si può comunque dire "sincronizza il drive marketing".
 
+Indipendentemente da quello, **la sync del Drive importa già da sé le analisi**:
+ogni documento di categoria *analisi*/*audit* non ancora legato a un'`Analisi`
+ne crea una (chiave `Analisi.fileDrive` = percorso del documento, che è anche
+l'idempotenza). Dei `.md`/`.txt` legge le prime righe come sintesi; degli
+`.xlsx` scrive che il documento non è stato letto, invece di inventare.
+Restano fuori archivi e documenti marcati `SUPERATO`.
+
+**Meta si aggiorna da sola**: `GET /api/cron/meta` gira col cron di Vercel al
+minuto 7 di ogni ora (`vercel.json`), finestra di 7 giorni indietro perché Meta
+consolida le conversioni nei giorni successivi. Serve `CRON_SECRET` fra le
+variabili d'ambiente: senza, l'endpoint resta **chiuso** (503). Google invece
+non ha bisogno di niente: sono gli Scripts a spingere i dati dentro.
+
 ## API v1 (chiave obbligatoria)
 
 | Metodo | Percorso | Cosa fa |
@@ -175,7 +188,7 @@ In qualsiasi sessione si può comunque dire "sincronizza il drive marketing".
 | GET/POST | `/api/v1/azioni` | Elenco (filtri `aperte=1`, `scadute=1`, `brand`, `stato`) / creazione azione |
 | GET/PATCH | `/api/v1/azioni/:id` | Scheda con storia / aggiornamento (il cambio `stato` finisce nella storia) |
 | POST | `/api/v1/azioni/:id/eventi` | Aggiunge `feedback` o `nota` alla storia |
-| GET/POST | `/api/v1/campagne` | Elenco con metriche 30 gg / registrazione campagna (upsert per `idEsterno`) |
+| GET/POST | `/api/v1/campagne` | Elenco con metriche 30 gg / registrazione campagna (upsert per `idEsterno`). Le **defunte non escono**: `?defunte=incluse` per averle |
 | GET/PATCH | `/api/v1/campagne/:id` | Scheda completa / aggiornamento |
 | POST | `/api/v1/campagne/:id/metriche` | Upsert metriche giornaliere: `{ metriche: [{ data, spesa, click, conversioni, ricavi }] }` |
 
@@ -193,7 +206,50 @@ curl -X POST http://localhost:3130/api/v1/analisi \
 - Tipi analisi: `audit_google` · `audit_meta` · `analisi_performance` · `revisione_creativi` ·
   `revisione_landing` · `report_settimanale` · `analisi_pubblici` · `analisi` · `altro`
 - Stati azione (stessa lingua dei piani su Drive): `todo` · `in_corso` · `fatta` · `superata` · `bloccata`
-- Stati campagna: `bozza` · `in_apprendimento` · `attiva` · `in_pausa` · `conclusa`
+- Stati campagna: `bozza` · `in_lancio` · `in_apprendimento` · `attiva` · `in_pausa` ·
+  `conclusa` · `defunta`
+  - **`in_lancio`** = decisa e pronta, non ancora partita ma da far partire. È una cosa
+    da fare: conta nei contatori delle campagne vive e genera un'azione «Far partire».
+  - **`defunta`** = da non considerare mai più. Sparisce da elenchi, contatori,
+    selettori, `/api/v1/stato` e `GET /api/v1/campagne` (si chiede apposta con
+    `?defunte=incluse`). **La spesa che ha fatto resta nei totali**: quei soldi sono
+    usciti davvero. «Mai più» vale per il lavoro operativo, non per la contabilità.
+
+## Le vendite Shopify accanto alla spesa (scheda campagna)
+
+Sulla scheda di ogni campagna c'è quanto ha venduto il negozio: categorie,
+ordini, clienti nuovi contro di ritorno, scontrino medio, e i KPI **ROS reale**
+(venduto ÷ spesa), **costo di acquisizione** (spesa ÷ clienti nuovi), **costo
+per conversione** (spesa ÷ ordini).
+
+Convivono **due legami**, e non vanno confusi:
+
+| | Da dove | Vale come |
+| --- | --- | --- |
+| **Attribuzione** | l'ordine porta scritto l'UTM della campagna (`Ordine.utmCampagna`) | legame vero: **solo qui** si calcolano i KPI |
+| **Contesto** | prodotto e lingua **dedotti dal nome** della campagna | dice cosa vendeva il negozio *mentre* la campagna girava — **non** che quelle vendite arrivino da lì. Nessun KPI |
+
+Gli ordini con un UTM che *somiglia* al nome ma non combacia (nomi vecchi,
+campagne poi divise in ENG/ITA) **non vengono attribuiti**: si contano e si
+dicono in pagina, perché non si può sapere a quale campagna di oggi appartengano.
+
+Il legame di contesto sta in `LegameCampagnaShopify` (campagna → categoria,
+lingua, negozio): si deduce dal nome e **si corregge a mano dalla scheda**. Da
+quel momento `origine = manuale` e nessun giro successivo lo sovrascrive,
+nemmeno se la campagna cambia nome. Se il nome non nomina un prodotto (Brand
+Protection, generiche) non si deduce niente.
+
+> Il ROS di cassa e il ROAS di Google sono due numeri diversi: lì l'incasso è
+> quello che la piattaforma si attribuisce, qui è quello entrato in cassa da
+> ordini con l'UTM. Quando si allontanano molto, il problema è il tracciamento.
+
+## Viste salvate
+
+Campagne, Parole cercate, Keywords e Dashboard per brand hanno una barra di
+viste salvate: filtri, ordinamento e periodo messi da parte con un nome. Sono
+**condivise**, non per utente. Una per pagina può essere la predefinita
+(stella): aprendo la pagina senza filtri ci si finisce dentro; `?vista=libera`
+è la via d'uscita per vedere la pagina nuda.
 
 ## Struttura
 
