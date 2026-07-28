@@ -236,6 +236,14 @@ nessuna delle tre pagine che creano fatture puo dimenticarselo. In `/registrazio
 anche la tendina per sceglierlo. Se su FIC non ci fosse nessun metodo, l errore lo dice e spiega dove
 crearlo. Oggi su FIC ce n e uno solo: BONIFICO.
 
+**Il metodo di pagamento e DUE campi (28/07/2026).** Su una fattura elettronica FIC vuole sia
+`payment_method.id` (il metodo del documento) sia `ei_data.payment_method`, cioe la **ModalitaPagamento**
+dello SDI (`MP05` = bonifico). Mandando solo il primo si viene rifiutati con
+«ei_data.payment_method». Il codice sta in `payment_methods_list[].ei_payment_method` di
+`/issued_documents/info`: lo leggiamo insieme al metodo e lo inviamo. Se un metodo non ce l ha, ci si
+ferma con un messaggio che dice dove impostarlo — un codice SDI inventato finirebbe dentro una
+fattura fiscale.
+
 **Trappola: i campi ricopiati a mano (28/07/2026).** `ficEntityUltimaFattura` ricostruisce il cliente
 dalla sua ultima fattura ricopiando i campi UNO A UNO — e `ei_code` (codice destinatario SDI) e la
 PEC erano stati dimenticati. Risultato: il dato c era in Fatture in Cloud, veniva buttato via qui, e

@@ -534,7 +534,16 @@ export type FicEntity = {
 // il controllo e l'invio restano su FIC; qui torna solo il numero assegnato.
 // Il cliente si indica con `clienteId` (rubrica) OPPURE `entity` (dati al volo).
 // Accetta una riga singola (descrizione + imponibile) o più righe.
-export type FicMetodoPagamento = { id: number; nome: string; predefinito: boolean };
+// `eiPaymentMethod` è la ModalitaPagamento dello SDI (MP01 contanti, MP05
+// bonifico…). Non è la stessa cosa dell'id del metodo: sulla fattura
+// elettronica Fatture in Cloud vuole ENTRAMBI — `payment_method.id` per il
+// documento e `ei_data.payment_method` per il file che va allo SDI.
+export type FicMetodoPagamento = {
+  id: number;
+  nome: string;
+  predefinito: boolean;
+  eiPaymentMethod: string | null;
+};
 
 /** Metodi di pagamento configurati su Fatture in Cloud, col predefinito.
  *
@@ -548,7 +557,7 @@ export async function ficMetodiPagamento(): Promise<FicMetodoPagamento[]> {
   try {
     const r = await ficFetch<{
       data?: {
-        payment_methods_list?: { id: number; name: string; is_default?: boolean }[];
+        payment_methods_list?: { id: number; name: string; is_default?: boolean; ei_payment_method?: string | null }[];
         default_values?: { payment_method?: { id: number } };
       };
     }>(`/c/${companyId}/issued_documents/info?type=invoice`);
@@ -558,6 +567,7 @@ export async function ficMetodiPagamento(): Promise<FicMetodoPagamento[]> {
       id: m.id,
       nome: m.name,
       predefinito: m.is_default === true || m.id === idDefault,
+      eiPaymentMethod: m.ei_payment_method?.trim() || null,
     }));
   } catch {
     // L'elenco è un aiuto per il form, non un requisito: se la chiamata
@@ -626,15 +636,25 @@ export async function ficCreaFattura(opts: {
   // non lo indica si usa il predefinito di Fatture in Cloud, così nessuna delle
   // pagine che creano fatture può dimenticarselo: prima mancava del tutto e la
   // creazione si fermava con «metodo di pagamento obbligatorio».
-  let metodoId = opts.metodoPagamentoId;
+  const metodi = await ficMetodiPagamento();
+  const metodo = opts.metodoPagamentoId
+    ? metodi.find((m) => m.id === opts.metodoPagamentoId)
+    : metodi.find((m) => m.predefinito) ?? metodi[0];
+  const metodoId = metodo?.id ?? opts.metodoPagamentoId;
   if (!metodoId) {
-    const metodi = await ficMetodiPagamento();
-    metodoId = (metodi.find((m) => m.predefinito) ?? metodi[0])?.id;
-    if (!metodoId) {
-      throw new Error(
-        "Su Fatture in Cloud non c'è nessun metodo di pagamento configurato: creane uno (es. Bonifico) in Impostazioni → Metodi di pagamento, poi riprova."
-      );
-    }
+    throw new Error(
+      "Su Fatture in Cloud non c'è nessun metodo di pagamento configurato: creane uno (es. Bonifico) in Impostazioni → Metodi di pagamento, poi riprova."
+    );
+  }
+  // La ModalitaPagamento per lo SDI (MP05 = bonifico) è un campo A PARTE
+  // rispetto all'id del metodo: senza, FIC rifiuta con «ei_data.payment_method».
+  // Non la si inventa — un codice a caso finirebbe dentro una fattura fiscale —
+  // ma si dice dove impostarla.
+  if (!metodo?.eiPaymentMethod) {
+    throw new Error(
+      `Il metodo di pagamento «${metodo?.nome ?? metodoId}» non ha la modalità di pagamento per lo SDI ` +
+        "(es. MP05 per il bonifico): impostala su Fatture in Cloud, in Impostazioni → Metodi di pagamento, poi riprova."
+    );
   }
 
   const r = await ficFetch<{ data: { id: number; number: number; numeration: string | null; date: string } }>(
@@ -652,6 +672,8 @@ export async function ficCreaFattura(opts: {
           date: dataDoc,
           visible_subject: opts.visibleSubject ?? "",
           payment_method: { id: metodoId },
+          // il file che va allo SDI vuole la ModalitaPagamento, non l'id interno
+          ei_data: { payment_method: metodo.eiPaymentMethod },
           items_list: righe.map((x) => ({
             name: x.descrizione,
             qty: x.quantita ?? 1,
