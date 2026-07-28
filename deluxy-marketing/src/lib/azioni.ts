@@ -18,6 +18,7 @@ import { prisma } from "./db";
 import { STATI_AZIONE, STATI_AZIONE_APERTI, STATI_CAMPAGNA } from "./dominio";
 import { CHIAVE_APIKEY, CHIAVE_CARTELLA, idCartellaDrive, sincronizzaDrive } from "./drive";
 import { registra } from "./registro";
+import { CATEGORIE_ORDINE, LINGUE_CAMPAGNA, NEGOZI_ORDINE } from "./vendite-campagna";
 
 // Server action della UI. Le stesse operazioni esistono anche via /api/v1
 // (chiave API) per le sessioni Claude: qui c'è la versione per i form.
@@ -196,6 +197,49 @@ export async function aggiungiMetrica(fd: FormData) {
   });
   revalidatePath(`/campagne/${campagnaId}`);
   revalidatePath("/");
+}
+
+// ---------- Legame campagna ↔ vendite Shopify ----------
+
+// La correzione a mano del legame di CONTESTO (prodotto, lingua, negozio).
+// Da qui in poi `origine = manuale`: la deduzione dal nome non lo tocca più,
+// nemmeno se la campagna viene rinominata.
+export async function salvaLegameShopify(campagnaId: string, fd: FormData) {
+  if (!campagnaId) return;
+  const scelta = (nome: string, ammessi: readonly string[]) => {
+    const v = testo(fd, nome);
+    return v && ammessi.includes(v) ? v : null;
+  };
+  const dati = {
+    categoria: scelta("categoria", CATEGORIE_ORDINE),
+    lingua: scelta("lingua", LINGUE_CAMPAGNA),
+    negozio: scelta("negozio", NEGOZI_ORDINE),
+    origine: "manuale",
+    motivo: "scelto a mano dalla scheda campagna",
+  };
+  await prisma.legameCampagnaShopify.upsert({
+    where: { campagnaId },
+    create: { campagnaId, ...dati },
+    update: dati,
+  });
+  const campagna = await prisma.campagna.findUnique({ where: { id: campagnaId }, select: { nome: true } });
+  await registra({
+    autore: "utente",
+    tipo: "modifica",
+    entita: "campagna",
+    entitaId: campagnaId,
+    titolo: `Legame vendite corretto a mano: ${campagna?.nome ?? campagnaId}`,
+    dettaglio: `prodotto ${dati.categoria ?? "—"} · lingua ${dati.lingua ?? "—"} · negozio ${dati.negozio ?? "—"}`,
+  });
+  revalidatePath(`/campagne/${campagnaId}`);
+}
+
+// Torna alla deduzione dal nome: cancella la riga, il prossimo caricamento
+// della scheda la ricrea leggendo il nome della campagna.
+export async function ripristinaLegameShopify(campagnaId: string) {
+  if (!campagnaId) return;
+  await prisma.legameCampagnaShopify.deleteMany({ where: { campagnaId } });
+  revalidatePath(`/campagne/${campagnaId}`);
 }
 
 // ---------- Drive ----------

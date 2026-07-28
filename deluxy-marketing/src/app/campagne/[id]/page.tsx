@@ -14,6 +14,7 @@ import { RecapModifiche } from "@/components/RecapModifiche";
 import { Scadenza } from "@/components/Scadenza";
 import { Sidebar } from "@/components/Sidebar";
 import { TabellaGruppi } from "@/components/TabellaGruppi";
+import { VenditeCampagna } from "@/components/VenditeCampagna";
 import { aggiungiMetrica, cambiaStatoCampagna } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
 import { GIORNI_LETTURA, gruppiConNumeri } from "@/lib/gruppi";
@@ -147,6 +148,18 @@ export default async function SchedaCampagna({
             </p>
           )}
         </section>
+
+        {/* Il venduto vero, subito dopo i gruppi: le conversioni che dichiara
+            la piattaforma e gli euro entrati in cassa sono due numeri diversi,
+            e quello che conta è il secondo. */}
+        <VenditeCampagna
+          campagna={{
+            id: campagna.id,
+            nome: campagna.nome,
+            brand: campagna.brand,
+            idEsterno: campagna.idEsterno,
+          }}
+        />
 
         <CoperturaCampagna campagnaId={campagna.id} />
 

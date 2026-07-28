@@ -156,6 +156,7 @@ model Campagna {
   alert             Alert[]
   modifiche         Modifica[]
   incidenti         Incidente[]
+  legameShopify     LegameCampagnaShopify?
   creataIl          DateTime          @default(now())
   aggiornataIl      DateTime          @updatedAt
 
@@ -961,4 +962,90 @@ model VenditaAttesa {
 
   @@unique([anno, mese, brand, canale])
   @@index([anno, mese])
+}
+
+// ============ Legame campagna ↔ vendite Shopify ============
+
+// A quale pezzo del negozio guarda una campagna. Serve a mettere accanto alla
+// spesa il venduto DI CONTESTO — non l'attribuzione.
+//
+// ⚠️ Distinzione che non va persa: l'attribuzione vera è una sola, l'UTM
+// scritto sull'ordine (`Ordine.utmCampagna`). Questa tabella è l'altra cosa:
+// il prodotto e la lingua DEDOTTI DAL NOME della campagna ("[Deluxy] Torte
+// ROMA" → torte, italiano). Dice "mentre questa campagna spendeva, le torte
+// hanno venduto tanto così": è contesto utile, ma NON vuol dire che quelle
+// vendite arrivino da lì. Le pagine che la usano devono scriverlo.
+//
+// `origine = manuale` è la correzione fatta a mano dalla scheda campagna: da
+// quel momento la deduzione non la tocca più.
+model LegameCampagnaShopify {
+  id           String   @id @default(cuid())
+  campagnaId   String   @unique
+  campagna     Campagna @relation(fields: [campagnaId], references: [id], onDelete: Cascade)
+  // categoria di RigaOrdine: fiori | torte | colazioni | dolci | palloncini | vini | altro
+  // null = la campagna non parla di un prodotto solo (brand protection, generiche)
+  categoria    String?
+  // ita | eng | fra | altro — null se il nome non lo dice
+  lingua       String?
+  // negozio di Ordine: deluxygifts | deluxyflowers | cakedesignme
+  negozio      String?
+  // dedotto | manuale — manuale vince e non viene mai sovrascritto
+  origine      String   @default("dedotto")
+  // Perché la deduzione ha scelto così: si mostra in pagina, così si vede
+  // subito quando è stata la parola sbagliata del nome a decidere.
+  motivo       String?
+  creatoIl     DateTime @default(now())
+  aggiornatoIl DateTime @updatedAt
+
+  @@index([categoria])
+}
+
+// ============ Viste salvate ============
+
+// Un modo di guardare una pagina (filtri + ordinamento + periodo) messo da
+// parte con un nome. CONDIVISE: non sono per utente, sono dell'azienda — se
+// una vista è quella giusta per guardare le campagne, lo è per tutti.
+// `parametri` è la query string così com'è ("brand=gifts&ordina=spesa").
+model VistaSalvata {
+  id           String   @id @default(cuid())
+  // campagne | termini | keywords | brand
+  pagina       String
+  nome         String
+  parametri    String
+  // Al massimo una per pagina: aprendo la pagina senza filtri si va lì.
+  predefinita  Boolean  @default(false)
+  creataIl     DateTime @default(now())
+  aggiornataIl DateTime @updatedAt
+
+  @@unique([pagina, nome])
+  @@index([pagina])
+}
+
+// ============ Stato della sincronizzazione Drive ============
+
+// La sync del Drive attraversa centinaia di file: su Vercel una funzione ha
+// pochi secondi e il 28/07/2026 si è fermata a 179 documenti su 669 senza
+// lasciare traccia nel registro. Questa riga è la traccia: si scrive PRIMA di
+// cominciare e si aggiorna alla fine, così una sync morta a metà resta scritta
+// come "interrotta" e la successiva riparte da dove serve.
+model SyncDrive {
+  id           String    @id @default(cuid())
+  // in_corso | completata | interrotta | errore
+  stato        String    @default("in_corso")
+  radice       String
+  // Cartella (percorso relativo) da cui ripartire: null = dall'inizio.
+  ripartiDa    String?
+  trovati      Int       @default(0)
+  nuovi        Int       @default(0)
+  aggiornati   Int       @default(0)
+  rimossi      Int       @default(0)
+  // Analisi importate dai documenti (vedi lib/analisi-drive.ts)
+  analisi      Int       @default(0)
+  // Momento dell'ultima sync ARRIVATA IN FONDO: la successiva può guardare
+  // solo i file modificati dopo, invece di ripassare tutto.
+  completataIl DateTime?
+  messaggio    String?
+  iniziataIl   DateTime  @default(now())
+
+  @@index([iniziataIl])
 }

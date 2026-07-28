@@ -60,7 +60,10 @@ function brandDa(nome: string, brandDichiarato?: string): string {
 // Riconoscimento sfumato dei nomi: la 00.4 censisce con codici ("DC1 Fiori
 // Milano ENG"), la piattaforma usa i nomi veri ("[Deluxy] - Fiori Milano
 // ENG"). Senza questa normalizzazione ogni account creerebbe doppie.
-function normalizza(n: string): string {
+// Esportata perché serve anche al legame con le vendite Shopify: l'UTM scritto
+// sull'ordine è il nome della campagna passato per le mani di Shopify, e va
+// confrontato con lo stesso metro con cui l'import riconosce le campagne.
+export function normalizza(n: string): string {
   return n
     .toLowerCase()
     .replace(/\[[^\]]*\]/g, "")
