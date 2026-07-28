@@ -5,6 +5,8 @@ import { fetchConsuntivo, fetchSpeseBanca } from "@/lib/finance";
 import { caricaRettifiche } from "@/lib/competenza";
 import { eur } from "@/lib/format";
 import { CompetenzaEditor } from "@/components/CompetenzaEditor";
+import { AdvCompetenza } from "@/components/AdvCompetenza";
+import { riconciliaAdv } from "@/lib/adv-competenza";
 
 export const dynamic = "force-dynamic";
 
@@ -17,11 +19,12 @@ export default async function CompetenzaPage({
   const ANNI = [ANNO_CORRENTE - 2, ANNO_CORRENTE - 1, ANNO_CORRENTE];
   const anno = ANNI.includes(Number(sp.anno)) ? Number(sp.anno) : ANNO_CORRENTE;
 
-  const [spese, categorie, rettifiche, dati] = await Promise.all([
+  const [spese, categorie, rettifiche, dati, advRic] = await Promise.all([
     fetchSpeseBanca({ anno, dal: 1, al: 12 }),
     caricaCategorie(),
     caricaRettifiche(anno),
     caricaAnno(anno),
+    riconciliaAdv(anno),
   ]);
 
   // Le voci fra cui scegliere: le controparti di banca (uscite) e le tipologie
@@ -111,6 +114,25 @@ export default async function CompetenzaPage({
         </div>
       )}
 
+      {advRic.ok ? (
+        <AdvCompetenza
+          anno={anno}
+          mesi={advRic.mesi}
+          totBanca={advRic.totBanca}
+          totCampagne={advRic.totCampagne}
+          totDifferenza={advRic.totDifferenza}
+          totGiaSpostato={advRic.totGiaSpostato}
+          coperturaCompleta={advRic.coperturaCompleta}
+          avvertenze={advRic.avvertenze}
+        />
+      ) : (
+        <p className="page-caption">
+          Il confronto fra pubblicità pagata dal conto e spesa delle campagne non è disponibile:{" "}
+          {advRic.errore}.
+        </p>
+      )}
+
+      <h2 className="section-title">Tutte le rettifiche</h2>
       <CompetenzaEditor anno={anno} voci={voci} rettifiche={righe} />
 
       <p className="page-caption" style={{ marginTop: 14 }}>

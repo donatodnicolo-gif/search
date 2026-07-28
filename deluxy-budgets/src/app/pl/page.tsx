@@ -93,6 +93,7 @@ export default async function ContoEconomico({
           advFonte: "banca",
           advBanca: 0,
           advCopertura: null,
+          advCompetenza: { dentro: 0, fuori: 0 },
           competenza: null,
           perMese: [],
         };
@@ -262,6 +263,21 @@ export default async function ContoEconomico({
               conto sono usciti <strong>{eur(cons.advBanca)}</strong> categorizzati «Pubblicità» nel CFO: le due
               cifre non coincidono mai — una è la campagna quando gira, l&apos;altra il giorno in cui Google e
               Meta hanno incassato — e la differenza è cassa, non errore.
+              {cons.advCompetenza.dentro > 0 && (
+                <>
+                  {" "}
+                  Dentro la riga ci sono <strong>{eur(cons.advCompetenza.dentro)}</strong> di pubblicità pagata
+                  in un altro esercizio ma <strong>di competenza</strong> di questo.
+                </>
+              )}
+              {cons.advCompetenza.fuori > 0 && (
+                <>
+                  {" "}
+                  Di quello che è uscito dal conto, <strong>{eur(cons.advCompetenza.fuori)}</strong> sono stati
+                  portati in <Link href="/competenza" style={{ color: "var(--blue)" }}>competenza</Link> di un
+                  altro anno: non erano campagne di questo.
+                </>
+              )}
               {cons.advCopertura && !cons.advCopertura.completa && (
                 <>
                   {" "}
