@@ -241,7 +241,7 @@ cd deluxy-marketing && node scripts/deposita-analisi.mjs '{"titolo":"…","sinte
 - **Serve**: `DATABASE_URL` nel `.env` dell'app
 
 ### sync-drive.mjs — deluxy-marketing
-Indicizza in **sola lettura** la cartella locale Google Drive «ADV DELUXY SRL» (Google Drive per Desktop) nell'app Marketing: brand e categoria dedotti dal percorso, rimozione dall'indice dei file spariti dal Drive.
+Indicizza in **sola lettura** la cartella locale Google Drive «ADV DELUXY SRL» (Google Drive per Desktop) nell'app Marketing: brand e categoria dedotti dal percorso, rimozione dall'indice dei file spariti dal Drive. Dal 28/07/2026 **crea anche le `Analisi`** dai documenti di categoria *analisi*/*audit* non ancora importati (chiave: percorso del file), leggendo le prime righe dei `.md`/`.txt`; archivi e documenti marcati `SUPERATO` restano fuori.
 
 ```bash
 # dalla radice del repo
@@ -249,7 +249,7 @@ cd deluxy-marketing && npm run sync-drive
 ```
 
 - **Serve**: `DATABASE_URL` nel `.env` dell'app; `DRIVE_ADV_DIR` se la cartella non è `G:\Il mio Drive\ADV DELUXY SRL`
-- **Nota**: idempotente; la cartella Drive **non viene mai scritta**. Stessa sync disponibile dal bottone «Sincronizza ora» nella pagina Documenti Drive dell'app.
+- **Nota**: idempotente; la cartella Drive **non viene mai scritta**. Stessa sync disponibile dal bottone «Sincronizza ora» nella pagina Documenti Drive dell'app (che nella versione server è anche **ripartibile**: se il tempo finisce si ferma e la passata dopo riprende da dov'era, senza cancellare l'indice).
 
 ---
 
