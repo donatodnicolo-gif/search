@@ -231,6 +231,26 @@ precise te lo dice, e l'appuntamento lo crei a mano dal Calendario.
 Per capire se una mail porta un invito vero (e perché) si può aprire con `?diagnosi=1`
 in fondo all'indirizzo: mostra tutte le parti di cui è fatta la mail.
 
+## 6b-ter. Dove abita il corpo delle mail (e perché il database resta piccolo)
+
+Il database dell'app è arrivato a 1,5 GB, e il 99% era una cosa sola: i **corpi HTML**
+dei messaggi — pesano 5-10 volte il testo e servono solo a rimostrare la mail impaginata
+quando la apri. Ora funziona così:
+
+- il **testo** resta sempre nel database: è quello su cui lavorano ricerca,
+  conversazioni, riassunti, attività e anteprime — niente di tutto questo cambia;
+- l'**HTML** resta in casa solo per la posta degli **ultimi 30 giorni** (quella che si
+  apre di continuo: aprire resta istantaneo);
+- per le mail più vecchie l'impaginato si **riprende dal server della casella
+  all'apertura** — compare un attimo dopo il testo, come già succede per allegati e
+  traduzioni. Anche rispondendo o inoltrando, la citazione mantiene la formattazione:
+  l'app se la va a prendere da sola;
+- la pulizia del pregresso è **graduale** (mille mail per giro di sincronizzazione):
+  in poche ore il database si sgonfia, e da lì non ricresce più.
+
+L'unico caso in cui l'impaginato non c'è più: una mail **cancellata dal server** della
+casella. Per quella resta il testo — l'HTML non esiste più da nessuna parte.
+
 ## 6c. La conversazione: nome, chiusura, cestinamento
 
 Ogni mail sta in una **conversazione** (la catena di risposte, o mail con lo stesso

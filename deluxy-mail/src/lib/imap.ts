@@ -331,7 +331,7 @@ export async function strutturaMessaggio(
   account: Account,
   uid: number,
   cartella?: string
-): Promise<{ parte: string; tipo: string; nome: string; dimensione: number }[]> {
+): Promise<{ parte: string; tipo: string; nome: string; dimensione: number; charset: string }[]> {
   if (uid <= 0) return []
   const client = connessione(account)
   await client.connect()
@@ -340,7 +340,7 @@ export async function strutturaMessaggio(
     for await (const msg of client.fetch({ uid: String(uid) }, { uid: true, bodyStructure: true }, { uid: true })) {
       const radice = msg.bodyStructure as NodoStruttura | undefined
       if (!radice) continue
-      const foglie: { parte: string; tipo: string; nome: string; dimensione: number }[] = []
+      const foglie: { parte: string; tipo: string; nome: string; dimensione: number; charset: string }[] = []
       const visita = (n: NodoStruttura) => {
         if (n.childNodes?.length) {
           for (const f of n.childNodes) visita(f)
@@ -353,6 +353,10 @@ export async function strutturaMessaggio(
           tipo: (n.type || '').toLowerCase(),
           nome: n.dispositionParameters?.filename || n.parameters?.name || '',
           dimensione: n.size ?? 0,
+          // La codifica del testo: serve a chi scarica una parte testuale per
+          // decodificarla giusta (una mail francese in latin-1 letta come utf-8
+          // riempie il corpo di caratteri rotti).
+          charset: (n.parameters?.charset || '').toLowerCase(),
         })
       }
       visita(radice)

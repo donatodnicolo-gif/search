@@ -6,6 +6,7 @@ import { Composizione } from '@/components/Composizione'
 import { richiediUtente } from '@/lib/sessione'
 import { leggiSenzaTraduzione, lingueLetteDi } from '@/lib/lingue'
 import { elencoContatti } from '@/lib/contatti'
+import { htmlDiMessaggio } from '@/lib/htmlServer'
 
 export const dynamic = 'force-dynamic'
 
@@ -31,6 +32,12 @@ export default async function Scrivi({ params, searchParams }: Props) {
   const bozza = bozzaId
     ? await db.bozza.findFirst({ where: { id: bozzaId, utenteId: u.id, inviata: false } })
     : null
+
+  // La citazione mantiene la formattazione dell'originale: se l'HTML è stato
+  // alleggerito (mail vecchia, vive sul server), si riprende da lì. Solo quando
+  // serve davvero (niente bozza da riprendere) e best-effort: senza, si cita il
+  // testo semplice e la risposta parte comunque.
+  if (!bozza && !messaggio.corpoHtml) messaggio.corpoHtml = await htmlDiMessaggio(messaggio)
 
   const iniziale = bozza
     ? { a: bozza.a, cc: bozza.cc, oggetto: bozza.oggetto, corpo: bozza.corpo }

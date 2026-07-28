@@ -460,6 +460,10 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
           testo={messaggio.corpoTesto}
           tradotto={corpoTradotto}
           lingua={lingua}
+          // HTML non in casa ma mail ancora sul server: l'impaginato si
+          // riprende da lì dopo il render (le mail vecchie vengono alleggerite
+          // per tenere il database piccolo — vedi lib/htmlServer.ts).
+          htmlDalServerDi={!messaggio.corpoHtml && messaggio.uid > 0 ? messaggio.id : undefined}
         />
         {traduciDopo && <TraduzioneAllApertura messaggioId={messaggio.id} />}
         {messaggio.allegati > 0 && (

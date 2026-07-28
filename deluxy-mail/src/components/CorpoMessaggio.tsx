@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { leggiHtmlMessaggio } from '@/lib/actions'
 
 type Props = {
   /** HTML già sanitizzato lato server, o null se la mail è di solo testo. */
@@ -10,6 +11,13 @@ type Props = {
   tradotto?: string | null
   /** Lingua rilevata (per il badge). */
   lingua?: string | null
+  /**
+   * Id del messaggio, passato SOLO quando l'HTML non è nel database ma può
+   * essere sul server (mail vecchia, alleggerita per non far crescere il
+   * database all'infinito): dopo il render lo si va a riprendere, come già
+   * succede per traduzione e allegati. Aprire resta istantaneo.
+   */
+  htmlDalServerDi?: string
 }
 
 /**
@@ -19,15 +27,44 @@ type Props = {
  * - L'originale, se è HTML, si rende dentro un iframe in sandbox SENZA script:
  *   il codice della mail non gira (niente XSS né tracciamento attivo), i link
  *   aprono in scheda nuova, e la pagina ne misura l'altezza per adattarla.
+ * - Se l'HTML non è in casa (mail vecchia alleggerita), si mostra SUBITO il
+ *   testo e intanto si chiede l'impaginato al server: quando arriva, si passa
+ *   da soli alla versione formattata — a meno che l'utente non abbia già
+ *   scelto lui una vista, che allora si rispetta.
  */
-export function CorpoMessaggio({ html, testo, tradotto, lingua }: Props) {
+export function CorpoMessaggio({ html: htmlIniziale, testo, tradotto, lingua, htmlDalServerDi }: Props) {
+  const [html, setHtml] = useState(htmlIniziale)
   // Vista iniziale: la traduzione se c'è, altrimenti l'originale nella forma
   // migliore (HTML se disponibile).
   const [vista, setVista] = useState<'tradotto' | 'html' | 'testo'>(
-    tradotto ? 'tradotto' : html ? 'html' : 'testo'
+    tradotto ? 'tradotto' : htmlIniziale ? 'html' : 'testo'
   )
+  const [recupero, setRecupero] = useState(Boolean(htmlDalServerDi && !htmlIniziale))
+  // True appena l'utente sceglie una vista con le proprie mani: da lì in poi
+  // l'arrivo dell'HTML dal server non gliela cambia più sotto i piedi.
+  const scelto = useRef(false)
   const [altezza, setAltezza] = useState(200)
   const ref = useRef<HTMLIFrameElement>(null)
+
+  useEffect(() => {
+    if (!htmlDalServerDi || htmlIniziale) return
+    let vivo = true
+    leggiHtmlMessaggio(htmlDalServerDi)
+      .then((r) => {
+        if (!vivo) return
+        setRecupero(false)
+        if (!r.html) return // solo testo, o mail non più sul server: va bene così
+        setHtml(r.html)
+        if (!scelto.current) setVista((v) => (v === 'testo' ? 'html' : v))
+      })
+      .catch(() => {
+        if (vivo) setRecupero(false)
+      })
+    return () => {
+      vivo = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [htmlDalServerDi])
 
   const documento = html
     ? `<!doctype html><html><head><meta charset="utf-8"><base target="_blank"><style>
@@ -73,21 +110,31 @@ export function CorpoMessaggio({ html, testo, tradotto, lingua }: Props) {
           <button
             type="button"
             className="azione-riga"
-            onClick={() => setVista((v) => (v === 'tradotto' ? originale : 'tradotto'))}
+            onClick={() => {
+              scelto.current = true
+              setVista((v) => (v === 'tradotto' ? originale : 'tradotto'))
+            }}
           >
             {vista === 'tradotto' ? 'Vedi originale' : 'Vedi traduzione'}
           </button>
         </div>
+      ) : html ? (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+          <button
+            type="button"
+            className="azione-riga"
+            onClick={() => {
+              scelto.current = true
+              setVista((v) => (v === 'html' ? 'testo' : 'html'))
+            }}
+          >
+            {vista === 'html' ? 'Vedi testo semplice' : 'Vedi versione formattata'}
+          </button>
+        </div>
       ) : (
-        html && (
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
-            <button
-              type="button"
-              className="azione-riga"
-              onClick={() => setVista((v) => (v === 'html' ? 'testo' : 'html'))}
-            >
-              {vista === 'html' ? 'Vedi testo semplice' : 'Vedi versione formattata'}
-            </button>
+        recupero && (
+          <div className="muted" style={{ fontSize: 12, textAlign: 'right', marginBottom: 8 }}>
+            Recupero la versione impaginata dal server…
           </div>
         )
       )}

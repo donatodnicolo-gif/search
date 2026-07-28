@@ -17,6 +17,7 @@ import {
 import { CHIAVI, leggiImpostazioni, STILE_DEFAULT } from './impostazioni'
 import { CODICI_PRIORITA } from './format'
 import { raggruppa, chiaveThread, normalizzaOggetto, oggettoSpecifico } from './thread'
+import { htmlCaldo } from './htmlServer'
 import { prefissa, inoltrato } from './rispondi'
 import { elencoContatti, contattiPerAI } from './contatti'
 import { valutaSpam } from './spam'
@@ -1139,7 +1140,11 @@ async function salvaMessaggi(opts: {
             data: msg.data,
             anteprima: msg.anteprima,
             corpoTesto: msg.corpoTesto,
-            corpoHtml: msg.corpoHtml,
+            // L'HTML si tiene in casa solo per la posta RECENTE: per quella
+            // vecchia (lo storico) resta sul server e si riprende all'apertura.
+            // Senza questo, lo scarico dello storico rigonfierebbe il database
+            // che la pulizia ha appena alleggerito (vedi lib/htmlServer.ts).
+            corpoHtml: htmlCaldo(msg.data) ? msg.corpoHtml : null,
             allegati: msg.allegati,
             dimensione: msg.dimensione,
             letto: msg.letto || daRegole.segnaLetta,
@@ -1266,7 +1271,9 @@ async function salvaInviati(utenteId: string, accountId: string, messaggi: Messa
           data: m.data,
           anteprima: m.anteprima,
           corpoTesto: m.corpoTesto,
-          corpoHtml: m.corpoHtml,
+          // Come per la posta in arrivo: l'HTML resta in casa solo se recente.
+          // Questa copia arriva dal server (uid vero), quindi si può riprendere.
+          corpoHtml: htmlCaldo(m.data) ? m.corpoHtml : null,
           allegati: m.allegati,
           dimensione: m.dimensione,
           letto: true,

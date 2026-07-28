@@ -12,6 +12,8 @@ import MailComposer from 'nodemailer/lib/mail-composer'
 import type { Account, Messaggio, Prisma } from '@prisma/client'
 import { alternative } from './condizioni'
 import { svuotaCestinoDi } from './cestino'
+import { htmlDiMessaggio } from './htmlServer'
+import { sanitizzaHtml } from './sanitizzaHtml'
 import { leggiEventoProposto } from './eventoProposto'
 import { leggiSenzaTraduzione, lingueLetteDi } from './lingue'
 import { preparaRisposta, modoValido, type Modo } from './rispondi'
@@ -556,6 +558,23 @@ export async function creaAttivitaConProposta(comando: string): Promise<EsitoNuo
     if (/401|API key/i.test(m)) return { ok: false, messaggio: 'Chiave OpenAI non valida.' }
     return { ok: false, messaggio: m.slice(0, 120) }
   }
+}
+
+/**
+ * L'HTML di una mail che non lo ha più nel database (alleggerito dopo i 30
+ * giorni): si riprende dal server all'apertura, già sanitizzato. La pagina lo
+ * chiede DOPO il render, come la traduzione e gli allegati: aprire resta
+ * istantaneo, l'impaginato arriva un attimo dopo.
+ */
+export async function leggiHtmlMessaggio(messaggioId: string): Promise<{ html: string | null }> {
+  const utenteId = await uid()
+  const m = await db.messaggio.findFirst({
+    where: { id: messaggioId, utenteId },
+    include: { account: true },
+  })
+  if (!m) return { html: null }
+  const html = await htmlDiMessaggio(m)
+  return { html: html ? sanitizzaHtml(html) : null }
 }
 
 export async function rianalizza(id: string): Promise<{ ok: boolean; messaggio: string }> {
@@ -1619,6 +1638,11 @@ export async function preparaComposizione(
     include: { account: true },
   })
   if (!messaggio) return { ok: false, messaggio: 'Messaggio non trovato.' }
+
+  // La citazione mantiene la formattazione dell'originale: se l'HTML è stato
+  // alleggerito (mail vecchia), si riprende dal server. Best-effort: senza,
+  // si cita il testo — la risposta parte comunque.
+  if (!messaggio.corpoHtml) messaggio.corpoHtml = await htmlDiMessaggio(messaggio)
 
   const iniziale = preparaRisposta({
     messaggio,

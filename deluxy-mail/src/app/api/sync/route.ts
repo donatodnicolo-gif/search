@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { scaricaStorico, sincronizzaTutti, type EsitoSync } from '@/lib/sync'
 import { sincronizzaAttivitaConRegistro } from '@/lib/registroTask'
 import { sincronizzaEventiConRegistro } from '@/lib/registroCalendario'
+import { pulisciHtmlVecchio } from '@/lib/htmlServer'
 
 // La sincronizzazione periodica gira da qui: un cron esterno (Vercel Cron,
 // Task Scheduler, cron di sistema) chiama questa rotta ogni pochi minuti.
@@ -89,7 +90,13 @@ export async function GET(request: Request) {
 
     const esiti = await sincronizzaTutti()
 
-    return NextResponse.json({ ok: true, esiti, registro, calendario })
+    // PULIZIA GRADUALE dell'HTML vecchio: mille mail a giro, così il database
+    // resta piccolo per sempre invece di ricrescere fino al prossimo blocco a
+    // disco pieno. L'impaginato non si perde: si riprende dal server
+    // all'apertura (lib/htmlServer.ts). Dopo la posta, mai al suo posto.
+    const htmlAlleggeriti = await pulisciHtmlVecchio().catch(() => 0)
+
+    return NextResponse.json({ ok: true, esiti, registro, calendario, htmlAlleggeriti })
   } catch (e) {
     return NextResponse.json(
       { ok: false, errore: e instanceof Error ? e.message : 'Errore imprevisto' },
