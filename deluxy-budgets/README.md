@@ -190,9 +190,23 @@ stato spostato si scala dalla differenza.
 >
 > **La competenza della pubblicità è quindi l'anno della transazione** (decisione dell'utente,
 > 28/07/2026). Il bottone resta per i casi veri — una fattura di dicembre pagata a gennaio — non per
-> il totale. La differenza è fatta d'altro: account non collegati a Marketing (Meta quasi tutto,
-> più un conto Google), e voci che pubblicità non sono (Google Cloud/Workspace/One, 3.354 € sul
-> 2026, più distributori e supermercati catturati dalle regole `ads` e `meta` del CFO).
+> il totale.
+
+**Le regole della categoria «Marketing e ADV» erano sbagliate in due sensi opposti**, corrette il
+28/07/2026. Erano le parole `google`, `meta`, `facebook`, `tiktok`, `ads`, `klaviyo` cercate dentro
+il nome della controparte:
+
+- prendevano cose che pubblicità non sono — Google Cloud, Workspace, One e Play (3.073 € sul 2026,
+  ora in *Software*), i distributori `ADS … TAMOIL` (benzina, ora in *Struttura*), `PAM META`
+  (supermercato, ora fra i *Fornitori*);
+- e **lasciavano fuori quasi tutta Meta**: gli addebiti si chiamano `FACEBK *…`, che non contiene
+  «facebook». Finivano in ADV solo quelli con `fb.me/ads` nel nome, per via della regola `ads`.
+  Erano **9.248 € del 2026 senza categoria**, cioè fuori da ogni voce di P&L.
+
+Le regole ora nominano la piattaforma: `google*ads`, `google *ads`, `google ads`, `facebk`,
+`metapay`, `tiktok ads`, `klaviyo`. Uscite di banca ADV 2026: **91.224 → 97.013 €**; 2025:
+43.443 → 42.484 €. Il conto economico non cambia — la riga ADV è Marketing — cambia il riscontro
+di cassa, che prima confrontava le campagne con un insieme sbagliato di addebiti.
 
 **Come la competenza entra nella riga ADV**, che non è più cassa: quello che **entra** si somma alle
 campagne (è spesa di quest'esercizio pagata altrove nel tempo, e nelle campagne dell'anno non
