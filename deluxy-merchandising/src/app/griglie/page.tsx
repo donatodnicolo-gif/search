@@ -2,7 +2,7 @@ import { FormFiltri } from "@/components/FormFiltri";
 import { Sidebar } from "@/components/Sidebar";
 import { brandCorrente, filtroProdotti } from "@/lib/brand";
 import { euro } from "@/lib/dominio";
-import { calcolaGriglia, scarto, type Cella } from "@/lib/griglia";
+import { calcolaGriglia, ORDINI_MATRICE, scarto, type Cella } from "@/lib/griglia";
 import { RAGGRUPPAMENTI, type ChiaveRaggruppamento } from "@/lib/gruppi";
 
 export const dynamic = "force-dynamic";
@@ -34,7 +34,14 @@ const MAX_COLONNE = 14;
 export default async function GrigliePage({
   searchParams,
 }: {
-  searchParams: Promise<{ righe?: string; colonne?: string; misura?: string; percentuali?: string }>;
+  searchParams: Promise<{
+    righe?: string;
+    colonne?: string;
+    misura?: string;
+    percentuali?: string;
+    ordineRighe?: string;
+    ordineColonne?: string;
+  }>;
 }) {
   const sp = await searchParams;
   const brand = await brandCorrente();
@@ -49,8 +56,20 @@ export default async function GrigliePage({
   // questo fornitore fra le fasce»), sulla colonna («chi occupa questa fascia»).
   const base = sp.percentuali === "riga" || sp.percentuali === "colonna" ? sp.percentuali : "totale";
 
+  const ordineOk = (v: string | undefined, def: string) =>
+    ORDINI_MATRICE.some((o) => o.chiave === v) ? v! : def;
+  const ordineRighe = ordineOk(sp.ordineRighe, "venduto-desc");
+  const ordineColonne = ordineOk(sp.ordineColonne, "naturale");
+
   const where = { ...filtroProdotti(brand) } as Record<string, unknown>;
-  const g = await calcolaGriglia({ where, brand, righe: perRighe, colonne: perColonne });
+  const g = await calcolaGriglia({
+    where,
+    brand,
+    righe: perRighe,
+    colonne: perColonne,
+    ordineRighe,
+    ordineColonne,
+  });
 
   const righeMostrate = g.righe.slice(0, MAX_RIGHE);
   const colonneMostrate = g.colonne.slice(0, MAX_COLONNE);
@@ -65,6 +84,26 @@ export default async function GrigliePage({
   // Il denominatore delle percentuali secondo la base scelta.
   const denominatore = (rk: string, ck: string): Cella =>
     base === "riga" ? g.perRiga.get(rk) ?? g.totale : base === "colonna" ? g.perColonna.get(ck) ?? g.totale : g.totale;
+
+  // Le intestazioni sono anche scorciatoie: cliccando si ordina quell'asse col
+  // criterio più ovvio per quella colonna, e ricliccando si inverte. I due menu
+  // in alto restano per gli altri criteri.
+  const linkAsse = (asse: "ordineRighe" | "ordineColonne", criterio: string) => {
+    const q = new URLSearchParams();
+    for (const [k, v] of Object.entries(sp)) if (v) q.set(k, v);
+    q.set("righe", perRighe);
+    q.set("colonne", perColonne);
+    const attuale = asse === "ordineRighe" ? ordineRighe : ordineColonne;
+    const [c, verso] = attuale.split("-");
+    q.set(asse, `${criterio}-${c === criterio && verso === "desc" ? "asc" : "desc"}`);
+    return `/griglie?${q.toString()}`;
+  };
+  const segno = (asse: "ordineRighe" | "ordineColonne", criterio: string) => {
+    const attuale = asse === "ordineRighe" ? ordineRighe : ordineColonne;
+    const [c, verso] = attuale.split("-");
+    if (c !== criterio) return "";
+    return verso === "asc" ? " ↑" : " ↓";
+  };
 
   const linkProdotti = (rf: Record<string, string>, cf: Record<string, string>) => {
     const q = new URLSearchParams({ ...rf, ...cf });
@@ -168,6 +207,20 @@ export default async function GrigliePage({
             <option value="riga">% sulla riga</option>
             <option value="colonna">% sulla colonna</option>
           </select>
+          <select name="ordineRighe" defaultValue={ordineRighe} aria-label="Ordine delle righe">
+            {ORDINI_MATRICE.map((o) => (
+              <option key={o.chiave} value={o.chiave}>
+                Righe: {o.nome}
+              </option>
+            ))}
+          </select>
+          <select name="ordineColonne" defaultValue={ordineColonne} aria-label="Ordine delle colonne">
+            {ORDINI_MATRICE.map((o) => (
+              <option key={o.chiave} value={o.chiave}>
+                Colonne: {o.nome}
+              </option>
+            ))}
+          </select>
         </FormFiltri>
 
         {perRighe === perColonne ? (
@@ -179,7 +232,8 @@ export default async function GrigliePage({
 
         <p className="page-sub" style={{ margin: "0 0 12px" }}>
           {g.totale.sku} SKU nelle analisi · {euro(g.totale.ricavo)} venduti a 90 giorni ·{" "}
-          {g.righe.length} righe × {g.colonne.length} colonne
+          {g.righe.length} righe ({ORDINI_MATRICE.find((o) => o.chiave === ordineRighe)?.nome}) × {g.colonne.length}{" "}
+          colonne ({ORDINI_MATRICE.find((o) => o.chiave === ordineColonne)?.nome})
           {righeFuori > 0 || colonneFuori > 0 ? (
             <>
               {" · "}
@@ -188,7 +242,8 @@ export default async function GrigliePage({
                 {righeFuori > 0 && colonneFuori > 0 ? " e " : ""}
                 {colonneFuori > 0 ? `${colonneFuori} colonne` : ""}
               </strong>{" "}
-              (le meno vendute) — i totali qui sopra le contano comunque
+              — quelle in fondo a questo ordinamento; i totali qui sopra le contano comunque, e invertendo
+              l&apos;ordine si vedono le altre
             </>
           ) : null}
         </p>
@@ -197,14 +252,26 @@ export default async function GrigliePage({
           <table className="griglia">
             <thead>
               <tr>
-                <th>{LENTI.find((l) => l.chiave === perRighe)?.nome}</th>
+                <th>
+                  <a href={linkAsse("ordineRighe", "nome")}>
+                    {LENTI.find((l) => l.chiave === perRighe)?.nome}
+                    {segno("ordineRighe", "nome")}
+                  </a>
+                </th>
                 {colonneMostrate.map((c) => (
                   <th key={c.chiave} className="num">
-                    {c.etichetta}
+                    <a href={linkAsse("ordineColonne", "venduto")}>
+                      {c.etichetta}
+                      {segno("ordineColonne", "venduto")}
+                    </a>
                     {c.sotto && <div className="cella-sub">{c.sotto}</div>}
                   </th>
                 ))}
-                <th className="num">Totale riga</th>
+                <th className="num">
+                  <a href={linkAsse("ordineRighe", "venduto")}>
+                    Totale riga{segno("ordineRighe", "venduto")}
+                  </a>
+                </th>
               </tr>
             </thead>
             <tbody>

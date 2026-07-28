@@ -37,6 +37,42 @@ export type Griglia = {
 
 const vuota = (): Cella => ({ sku: 0, esclusi: 0, ricavo: 0, quantita: 0 });
 
+// I modi di mettere in fila righe e colonne. «Naturale» è l'ordine proprio
+// della lente: per le fasce di prezzo è la scala dei prezzi — che messa in
+// ordine alfabetico o di fatturato smette di essere una scala.
+export const ORDINI_MATRICE = [
+  { chiave: "naturale", nome: "ordine naturale" },
+  { chiave: "venduto-desc", nome: "venduto ↓" },
+  { chiave: "venduto-asc", nome: "venduto ↑" },
+  { chiave: "sku-desc", nome: "SKU ↓" },
+  { chiave: "sku-asc", nome: "SKU ↑" },
+  { chiave: "pezzi-desc", nome: "pezzi ↓" },
+  { chiave: "pezzi-asc", nome: "pezzi ↑" },
+  { chiave: "nome-asc", nome: "nome A–Z" },
+  { chiave: "nome-desc", nome: "nome Z–A" },
+] as const;
+
+export function ordinaVoci(voci: Map<string, Voce>, totali: Map<string, Cella>, ordine: string): Voce[] {
+  const lista = [...voci.values()];
+  const [criterio, verso] = ordine.split("-");
+  const giu = verso !== "asc";
+  const val = (v: Voce) => {
+    const c = totali.get(v.chiave);
+    if (criterio === "sku") return c?.sku ?? 0;
+    if (criterio === "pezzi") return c?.quantita ?? 0;
+    return c?.ricavo ?? 0;
+  };
+  if (criterio === "naturale") {
+    // A parità di posto naturale (le lenti che non ne hanno una) si ricade sul
+    // venduto: meglio del disordine con cui i prodotti escono dal database.
+    return lista.sort((a, b) => a.ordine - b.ordine || val(b) - val(a));
+  }
+  if (criterio === "nome") {
+    return lista.sort((a, b) => (giu ? -1 : 1) * a.etichetta.localeCompare(b.etichetta, "it"));
+  }
+  return lista.sort((a, b) => (giu ? val(b) - val(a) : val(a) - val(b)) || a.etichetta.localeCompare(b.etichetta, "it"));
+}
+
 function somma(c: Cella, sku: number, esclusi: number, ricavo: number, quantita: number) {
   c.sku += sku;
   c.esclusi += esclusi;
@@ -57,12 +93,16 @@ export async function calcolaGriglia({
   brand,
   righe,
   colonne,
+  ordineRighe = "venduto-desc",
+  ordineColonne = "naturale",
   giorni = 90,
 }: {
   where: Record<string, unknown>;
   brand: string | null;
   righe: ChiaveRaggruppamento;
   colonne: ChiaveRaggruppamento;
+  ordineRighe?: string;
+  ordineColonne?: string;
   giorni?: number;
 }): Promise<Griglia> {
   const f = finestra(giorni);
@@ -107,19 +147,9 @@ export async function calcolaGriglia({
     somma(totale, sku, esclusi, ricavo, quantita);
   }
 
-  // Righe e colonne in ordine di peso (venduto), tranne le fasce di prezzo che
-  // sono una scala e vanno lette dal basso verso l'alto.
-  const ordina = (voci: Map<string, Voce>, per: ChiaveRaggruppamento, totali: Map<string, Cella>) =>
-    [...voci.values()].sort((a, b) =>
-      per === "fascia"
-        ? a.ordine - b.ordine
-        : (totali.get(b.chiave)?.ricavo ?? 0) - (totali.get(a.chiave)?.ricavo ?? 0) ||
-          (totali.get(b.chiave)?.sku ?? 0) - (totali.get(a.chiave)?.sku ?? 0),
-    );
-
   return {
-    righe: ordina(vociRiga, righe, perRiga),
-    colonne: ordina(vociColonna, colonne, perColonna),
+    righe: ordinaVoci(vociRiga, perRiga, ordineRighe),
+    colonne: ordinaVoci(vociColonna, perColonna, ordineColonne),
     celle,
     perRiga,
     perColonna,
