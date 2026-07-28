@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
 const TIPI = ["COGS", "ADV", "PERSONALE", "STRUTTURA", "ESCLUSA"];
+// La voce del conto economico civilistico: seconda lente sulla stessa
+// categoria, indipendente da `tipoPL` (vedi VOCI_CE in src/lib/cfo.ts).
+const VOCI = ["B6", "B7", "B8", "B9", "B14", "C17", "ESCLUSA"];
 
 export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
@@ -40,6 +43,7 @@ export async function PUT(req: Request) {
     data: {
       nome,
       tipoPL: TIPI.includes(String(body?.tipoPL)) ? String(body.tipoPL) : undefined,
+      voceCE: VOCI.includes(String(body?.voceCE)) ? String(body.voceCE) : undefined,
       colore: typeof body?.colore === "string" ? body.colore : undefined,
     },
   });

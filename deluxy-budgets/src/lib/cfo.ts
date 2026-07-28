@@ -20,10 +20,46 @@ export const TIPI_PL = [
   { key: "ESCLUSA", label: "Esclusa dal P&L", badge: "gold" },
 ] as const;
 
+// ---- La seconda lente: dove va la categoria nel bilancio civilistico ----
+//
+// `tipoPL` risponde a «quanto margine faccio»: raggruppa per natura gestionale
+// (costo per servizi, pubblicità, personale, struttura). Il **bilancio** fa
+// un'altra domanda, e le risposte non coincidono — lo si è visto leggendo il
+// bilancio 2024 di Deluxy:
+//  - la pubblicità (82.802 €) non è una voce a sé: sta dentro B7 «servizi»;
+//  - B9 «personale» è **solo** lavoro dipendente (36.725 €), mentre compenso
+//    dell'amministratore, co.co.co. e prestazioni occasionali — 42.625 €, più
+//    del lavoro dipendente — stanno anche loro in B7;
+//  - «struttura» in bilancio si divide fra B7, B8 e B14.
+// Per questo la voce di bilancio è un campo suo, impostabile per categoria: chi
+// tiene il conto economico non deve rifare a mano la stessa riclassificazione
+// ogni anno.
+export const VOCI_CE = [
+  { key: "B6", label: "B6 · Materie prime e merci", aiuto: "Fiori, torte, prodotti comprati per essere rivenduti." },
+  { key: "B7", label: "B7 · Servizi", aiuto: "Valet, partner che eseguono, pubblicità, consulenze, piattaforme, compensi non dipendenti." },
+  { key: "B8", label: "B8 · Godimento beni di terzi", aiuto: "Affitti, noleggi, leasing, spese condominiali." },
+  { key: "B9", label: "B9 · Personale", aiuto: "Solo lavoro DIPENDENTE: salari, oneri sociali, TFR." },
+  { key: "B14", label: "B14 · Oneri diversi di gestione", aiuto: "Imposte non sul reddito, multe, sopravvenienze passive, arrotondamenti." },
+  { key: "C17", label: "C17 · Oneri finanziari", aiuto: "Interessi passivi, commissioni bancarie, oneri sui finanziamenti." },
+  { key: "ESCLUSA", label: "fuori dal conto economico", aiuto: "Non sono costi: giroconti, IVA, versamenti d'imposta." },
+] as const;
+
+// Se nessuno l'ha ancora scelta, si deduce dal tipo gestionale. È un punto di
+// partenza ragionevole, non la verità: «Fornitori fiori e torte» per esempio
+// nasce su B7 ma in bilancio è **B6** (merce), e va spostata a mano una volta
+// sola. La pagina distingue le voci dedotte da quelle decise.
+export function voceCEPredefinita(tipoPL: string): string {
+  if (tipoPL === "PERSONALE") return "B9";
+  if (tipoPL === "ESCLUSA") return "ESCLUSA";
+  return "B7";
+}
+
 export type Categoria = {
   id: string;
   nome: string;
   tipoPL: string;
+  voceCE: string; // sempre valorizzata: se a DB è null, vale la predefinita
+  voceCEImpostata: boolean; // false = dedotta, nessuno l'ha ancora confermata
   colore: string | null;
   ordine: number;
   regole: { id: string; match: string; esatto: boolean }[];
@@ -38,6 +74,8 @@ export async function caricaCategorie(): Promise<Categoria[]> {
     id: c.id,
     nome: c.nome,
     tipoPL: c.tipoPL,
+    voceCE: c.voceCE ?? voceCEPredefinita(c.tipoPL),
+    voceCEImpostata: Boolean(c.voceCE),
     colore: c.colore,
     ordine: c.ordine,
     regole: c.regole.map((r) => ({ id: r.id, match: r.match, esatto: r.esatto })),

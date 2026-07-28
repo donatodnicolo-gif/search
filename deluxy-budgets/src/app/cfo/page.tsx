@@ -62,6 +62,8 @@ export default async function CfoPage({
             categoriaId: r.categoria?.id ?? null,
             categoriaNome: r.categoria?.nome ?? null,
             tipoPL: r.categoria?.tipoPL ?? null,
+            voceCE: r.categoria?.voceCE ?? null,
+            voceCEImpostata: r.categoria?.voceCEImpostata ?? false,
             colore: r.categoria?.colore ?? null,
             uscite: r.uscite,
             movimenti: r.movimenti,

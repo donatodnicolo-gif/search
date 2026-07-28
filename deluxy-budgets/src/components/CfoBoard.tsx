@@ -2,13 +2,15 @@
 
 import { Fragment, useState } from "react";
 import { useRouter } from "next/navigation";
-import { TIPI_PL } from "@/lib/cfo";
+import { TIPI_PL, VOCI_CE } from "@/lib/cfo";
 import { eur, MESI, pct } from "@/lib/format";
 
 type Riga = {
   categoriaId: string | null;
   categoriaNome: string | null;
   tipoPL: string | null;
+  voceCE: string | null;
+  voceCEImpostata: boolean;
   colore: string | null;
   uscite: number;
   movimenti: number;
@@ -180,7 +182,7 @@ export function CfoBoard({
   // P&L in cui confluisce. Senza questa, l'unico modo per spostare una categoria
   // da una voce all'altra era cancellarla e rifarla, perdendo tutte le regole
   // che le erano state insegnate.
-  async function salvaCategoria(id: string, patch: { nome?: string; tipoPL?: string }) {
+  async function salvaCategoria(id: string, patch: { nome?: string; tipoPL?: string; voceCE?: string }) {
     setBusy(true);
     setErrore(null);
     const res = await fetch("/api/cfo/categorie", {
@@ -430,6 +432,7 @@ export function CfoBoard({
               <tr>
                 <th>Categoria</th>
                 <th>Voce P&amp;L</th>
+                <th>Voce di bilancio</th>
                 <th className="num">Uscite</th>
                 <th className="num">Quota</th>
                 <th className="num">Movimenti</th>
@@ -470,6 +473,27 @@ export function CfoBoard({
                       ))}
                     </select>
                   </td>
+                  <td>
+                    {/* Dove va la stessa categoria nel bilancio civilistico. Non
+                        è un doppione della voce di P&L: in bilancio la
+                        pubblicità sta dentro «servizi» e il compenso
+                        dell'amministratore pure, mentre «personale» è solo
+                        lavoro dipendente. */}
+                    <select
+                      value={r.voceCE ?? "B7"}
+                      disabled={busy}
+                      onChange={(e) => salvaCategoria(r.categoriaId!, { voceCE: e.target.value })}
+                      style={{ padding: "4px 6px", fontSize: 13 }}
+                      title={VOCI_CE.find((v) => v.key === (r.voceCE ?? "B7"))?.aiuto}
+                    >
+                      {VOCI_CE.map((v) => (
+                        <option key={v.key} value={v.key}>{v.label}</option>
+                      ))}
+                    </select>
+                    {!r.voceCEImpostata && (
+                      <div className="muted" style={{ fontSize: 11 }}>dedotta, da confermare</div>
+                    )}
+                  </td>
                   <td className="num" style={{ fontWeight: 600 }}>{eur(r.uscite)}</td>
                   <td className="num muted">{pct((r.uscite / (totali.uscite || 1)) * 100, 0)}</td>
                   <td className="num muted">{r.movimenti}</td>
@@ -490,6 +514,7 @@ export function CfoBoard({
               ))}
               <tr className="tot">
                 <td>Totale categorizzato</td>
+                <td />
                 <td />
                 <td className="num">{eur(categorizzato)}</td>
                 <td className="num">{pct(coperturaPct, 0)}</td>

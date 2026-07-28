@@ -189,6 +189,15 @@ model CategoriaCosto {
   id     String        @id @default(cuid())
   nome   String        @unique
   tipoPL String        @default("STRUTTURA") // COGS | ADV | PERSONALE | STRUTTURA | ESCLUSA
+  // Dove finisce questa categoria nel conto economico **civilistico** (B6, B7,
+  // B8, B9, B14, C17, ESCLUSA). È una seconda lente sulla stessa categoria, non
+  // un rimpiazzo di `tipoPL`: il P&L gestionale continua a leggere quello, il
+  // bilancio legge questo. Servono entrambe perché rispondono a domande diverse
+  // — «quanto margine faccio» e «cosa scrivo nel bilancio» — e nel bilancio 2024
+  // si è visto quanto divergono: la pubblicità sta dentro B7 «servizi», il
+  // compenso dell'amministratore pure, mentre B9 è solo lavoro dipendente.
+  // `null` = non ancora deciso: vale il valore dedotto da `tipoPL`.
+  voceCE String?
   colore String?
   ordine Int           @default(0)
   regole RegolaCosto[]

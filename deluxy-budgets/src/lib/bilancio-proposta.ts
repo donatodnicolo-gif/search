@@ -14,8 +14,9 @@
 
 import { caricaConsuntivo } from "./consuntivo";
 import { type DatiAnno } from "./calc";
-import { fetchConsuntivo } from "./finance";
+import { fetchConsuntivo, fetchSpeseBanca } from "./finance";
 import { anniConBilancio, caricaBilancio } from "./bilancio";
+import { caricaCategorie, ricostruisci } from "./cfo";
 
 export type { Proposta, NonProponibile } from "./proposta-voci";
 import { NON_PROPONIBILI, type Proposta } from "./proposta-voci";
@@ -24,13 +25,15 @@ export { NON_PROPONIBILI };
 export async function proponiDaApp(dati: DatiAnno): Promise<{ proposte: Proposta[]; avvisi: string[] }> {
   const anno = dati.year;
   const mesi = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
-  const [cons, fattTotale, anniPrec] = await Promise.all([
+  const [cons, fattTotale, anniPrec, spese, categorie] = await Promise.all([
     caricaConsuntivo(dati, mesi),
     // Il **totale** fatturato, non solo le tipologie mappate a una voce di
     // budget: in bilancio A1 sono tutti i ricavi, anche quelli che in Margini
     // nessuno ha ancora collegato.
     fetchConsuntivo({ anno, dal: 1, al: 12, stato: "tutte" }),
     anniConBilancio(),
+    fetchSpeseBanca({ anno, dal: 1, al: 12 }),
+    caricaCategorie(),
   ]);
 
   // L'ultimo bilancio **vero** più recente di questo: è il metro di paragone.
@@ -73,15 +76,45 @@ export async function proponiDaApp(dati: DatiAnno): Promise<{ proposte: Proposta
     avvisi.push("Finance non ha risposto: i ricavi non si possono proporre.");
   }
 
-  // B7 «Servizi» raccoglie quello che in banca è costo per servizi e pubblicità:
-  // sono entrambi servizi di terzi nello schema civilistico.
-  if (cons.cogs > 0 || cons.adv > 0) {
+  // ---- I costi arrivano dalla banca, raggruppati per VOCE DI BILANCIO ----
+  // Non più per tipo gestionale: ogni categoria del CFO dice dove va nel
+  // conto economico civilistico (`voceCE`), e qui si somma per quella. È la
+  // differenza fra riclassificare a mano ogni anno e non doverlo più fare.
+  // B9 resta fuori: il costo del personale si prende dall'anagrafica, che è
+  // deterministica e non aspetta che i bonifici siano categorizzati.
+  const perVoce = new Map<string, { importo: number; categorie: string[] }>();
+  if (spese.ok) {
+    for (const r of ricostruisci(spese.dati.controparti, categorie)) {
+      const voce = r.categoria?.voceCE;
+      if (!voce || voce === "ESCLUSA" || voce === "B9" || r.uscite <= 0) continue;
+      const e = perVoce.get(voce) ?? { importo: 0, categorie: [] };
+      e.importo += r.uscite;
+      if (r.categoria) e.categorie.push(r.categoria.nome);
+      perVoce.set(voce, e);
+    }
+  } else {
+    avvisi.push(`Le uscite di banca non sono disponibili (${spese.errore}): i costi non si possono proporre.`);
+  }
+
+  for (const voce of ["B6", "B7", "B8", "B14", "C17"]) {
+    const e = perVoce.get(voce);
+    if (!e || e.importo <= 0) continue;
     proposte.push({
-      codice: "B7",
-      importo: cons.cogs + cons.adv,
-      fonte: "uscite di banca categorizzate «Costo per servizi» e «Marketing e ADV» nel CFO",
-      precedente: daPrec("B7"),
+      codice: voce,
+      importo: e.importo,
+      fonte: `uscite di banca delle categorie ${e.categorie.map((n) => `«${n}»`).join(", ")} — la voce di bilancio si imposta nel CFO, colonna «Voce di bilancio»`,
+      precedente: daPrec(voce),
     });
+  }
+
+  // Le categorie ancora senza una voce di bilancio decisa da una persona: la
+  // predefinita dedotta le mette tutte in B7, che per «Fornitori fiori e torte»
+  // (merce, quindi B6) è sbagliato. Meglio dirlo che lasciarlo scoprire.
+  const daConfermare = categorie.filter((c) => !c.voceCEImpostata);
+  if (daConfermare.length > 0) {
+    avvisi.push(
+      `${daConfermare.length} categorie non hanno ancora una voce di bilancio confermata (${daConfermare.map((c) => c.nome).slice(0, 6).join(", ")}${daConfermare.length > 6 ? "…" : ""}): per ora vale quella dedotta dal tipo di P&L, che mette quasi tutto in B7. Si conferma nel CFO.`
+    );
   }
 
   if (cons.personale > 0) {
@@ -97,15 +130,6 @@ export async function proponiDaApp(dati: DatiAnno): Promise<{ proposte: Proposta
     avvisi.push(
       "B9 accoglie solo il lavoro dipendente: compensi dell'amministratore, co.co.co. e prestazioni occasionali in bilancio stanno in B7 «servizi». Se l'anagrafica Dipendenti li comprende, vanno spostati."
     );
-  }
-
-  if (cons.struttura > 0) {
-    proposte.push({
-      codice: "B14",
-      importo: cons.struttura,
-      fonte: "uscite di banca categorizzate «Struttura» — se il commercialista le divide fra B7, B8 e B14, va corretto a mano",
-      precedente: daPrec("B14"),
-    });
   }
 
   // B10 non passa dalla banca e non si può ricavare: si riprende dall'ultimo

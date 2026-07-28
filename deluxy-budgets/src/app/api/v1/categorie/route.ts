@@ -47,10 +47,17 @@ export async function GET(req: NextRequest) {
     // NON vuol dire «spesa da ignorare»: vuol dire che non è un costo di
     // gestione (banca, tasse) e resta fuori dal margine.
     tipiPL: ["COGS", "ADV", "PERSONALE", "STRUTTURA", "ESCLUSA"],
+    // `voceCE` è la stessa categoria vista dal **bilancio civilistico**. Non
+    // sostituisce `tipoPL`: le due rispondono a domande diverse e divergono
+    // parecchio — in bilancio la pubblicità sta dentro B7 «servizi» e non è una
+    // voce sua, e B9 «personale» è solo lavoro dipendente. `null` = nessuno
+    // l'ha ancora decisa.
+    vociCE: ["B6", "B7", "B8", "B9", "B14", "C17", "ESCLUSA"],
     categorie: categorie.map((c) => ({
       id: c.id,
       nome: c.nome,
       tipoPL: c.tipoPL,
+      voceCE: c.voceCE,
       colore: c.colore,
       ordine: c.ordine,
       ...(conRegole && "regole" in c
