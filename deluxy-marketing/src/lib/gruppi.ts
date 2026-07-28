@@ -172,3 +172,46 @@ export const COLORE_STATO_GRUPPO: Record<string, string> = {
   in_pausa: "var(--text-secondary)",
   escluso: "var(--red)",
 };
+
+// Come si mostra lo stato di un gruppo, in un posto solo.
+//
+// ⚠️ Qui convivono due cose diverse chiamate quasi allo stesso modo, ed è la
+// ragione per cui questa funzione esiste:
+//
+//   - `stato` è il **giudizio dell'app** (attivo | vincente | da_valutare |
+//     in_pausa | escluso). Nasce "attivo" alla creazione e l'import **non lo
+//     tocca mai**, apposta: è la lettura di una persona, e una sincronizzazione
+//     non deve cancellarla.
+//   - `statoPiattaforma` è **cosa dice Google** (ENABLED | PAUSED | REMOVED).
+//     Quello è il fatto: se è PAUSED, il gruppo non sta girando.
+//
+// Fino al 28/07/2026 il pallino verde mostrava il primo e relegava il secondo a
+// una riga grigia sotto: un gruppo fermo su Google si leggeva «● Attivo». Non
+// era un dato sbagliato, era la domanda sbagliata — chi guarda quella colonna
+// vuole sapere se **sta girando**, non che giudizio gli avevamo dato.
+// Ora comanda il fatto, e il giudizio scende sotto.
+const NON_STA_GIRANDO: Record<string, { testo: string; colore: string }> = {
+  PAUSED: { testo: "In pausa su Google", colore: "var(--orange)" },
+  REMOVED: { testo: "Rimosso su Google", colore: "var(--red)" },
+  DISABLED: { testo: "Disattivato su Google", colore: "var(--text-secondary)" },
+};
+
+export function presentazioneStatoGruppo(
+  stato: string,
+  statoPiattaforma: string | null
+): { testo: string; colore: string; sotto: string | null } {
+  const fermo = statoPiattaforma ? NON_STA_GIRANDO[statoPiattaforma.toUpperCase()] : undefined;
+  if (fermo) {
+    return {
+      ...fermo,
+      // Il giudizio resta visibile: è quello che guida le operazioni in coda, e
+      // nasconderlo sposterebbe solo la sorpresa più in là.
+      sotto: `nell'app: ${ETICHETTA_STATO_GRUPPO[stato] ?? stato}`,
+    };
+  }
+  return {
+    testo: ETICHETTA_STATO_GRUPPO[stato] ?? stato,
+    colore: COLORE_STATO_GRUPPO[stato] ?? "var(--text-tertiary)",
+    sotto: statoPiattaforma ? null : "Google non ha ancora detto se gira",
+  };
+}

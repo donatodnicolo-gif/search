@@ -65,6 +65,85 @@ export async function numeriBrand(brand: string, p: Periodo): Promise<NumeriBran
   return n;
 }
 
+// Spesa e incasso **canale per canale** (Google, Meta, TikTok…).
+//
+// Il totale di brand nasconde la domanda vera: la media dice 4×, ma può essere
+// Google a 6× e Meta a 1,5× — o il contrario. Finché si guarda solo il totale
+// si sposta budget alla cieca.
+//
+// ⚠️ Due incassi diversi, tenuti separati apposta:
+//   - `ricaviPiattaforma` è quello che **il canale si attribuisce**. È l'unico
+//     numero che esiste per canale, ed è di parte: ogni piattaforma conta a
+//     modo suo, e la somma dei canali può superare le vendite vere.
+//   - le vendite Shopify **non si sanno spezzare per canale** con questi dati
+//     (l'UTM c'è su una minoranza di ordini). Il MER resta quindi un numero di
+//     brand, e questa tabella non finge di poterlo dividere.
+export type NumeriCanale = {
+  canale: string;
+  spesa: number;
+  ricaviPiattaforma: number;
+  conversioni: number;
+  click: number;
+  impression: number;
+  campagne: number;
+  roas: number | null;
+  cpa: number | null;
+  quotaSpesa: number;
+};
+
+export async function numeriPerCanale(brand: string, p: Periodo): Promise<NumeriCanale[]> {
+  // Una lettura sola e il raggruppamento in memoria: niente giri per riga.
+  const righe = await prisma.metricaCampagna.findMany({
+    where: { data: { gte: p.da, lt: p.a }, campagna: { brand } },
+    select: {
+      spesa: true,
+      ricavi: true,
+      conversioni: true,
+      click: true,
+      impression: true,
+      campagnaId: true,
+      campagna: { select: { canale: true } },
+    },
+  });
+
+  type Accumulo = NumeriCanale & { ids: Set<string> };
+  const per = new Map<string, Accumulo>();
+  for (const r of righe) {
+    const canale = r.campagna.canale;
+    const v: Accumulo = per.get(canale) ?? {
+      canale,
+      spesa: 0,
+      ricaviPiattaforma: 0,
+      conversioni: 0,
+      click: 0,
+      impression: 0,
+      campagne: 0,
+      roas: null,
+      cpa: null,
+      quotaSpesa: 0,
+      ids: new Set<string>(),
+    };
+    v.spesa += r.spesa ?? 0;
+    v.ricaviPiattaforma += r.ricavi ?? 0;
+    v.conversioni += r.conversioni ?? 0;
+    v.click += r.click ?? 0;
+    v.impression += r.impression ?? 0;
+    v.ids.add(r.campagnaId);
+    per.set(canale, v);
+  }
+
+  const totale = [...per.values()].reduce((s, v) => s + v.spesa, 0);
+  return [...per.values()]
+    .map(({ ids, ...v }) => ({
+      ...v,
+      campagne: ids.size,
+      roas: v.spesa > 0 ? v.ricaviPiattaforma / v.spesa : null,
+      cpa: v.conversioni > 0 ? v.spesa / v.conversioni : null,
+      quotaSpesa: totale > 0 ? v.spesa / totale : 0,
+    }))
+    .sort((a, b) => b.spesa - a.spesa);
+}
+
 // MER (Marketing Efficiency Ratio): tutte le vendite dell'insegna diviso
 // tutta la spesa pubblicitaria. Il ROAS di piattaforma guarda solo ciò che
 // la piattaforma si attribuisce; il MER dice se l'azienda sta in piedi.

@@ -1,7 +1,8 @@
 import { Sidebar } from "@/components/Sidebar";
 import { leggiPerformance } from "@/lib/ai-analisi";
 import { BRANDS, ETICHETTA_BRAND, formattaEuro } from "@/lib/dominio";
-import { PRESET_PERIODO, risolviPeriodo } from "@/lib/periodo";
+import { PRESET_PERIODO } from "@/lib/periodo";
+import { periodoApp } from "@/lib/periodo-condiviso";
 
 export const dynamic = "force-dynamic";
 
@@ -32,7 +33,7 @@ export default async function PaginaAI({
 }) {
   const p = await searchParams;
   const brand = p.brand && (BRANDS as readonly string[]).includes(p.brand) ? p.brand : null;
-  const periodo = risolviPeriodo(p.preset ?? "30g", p.da, p.a);
+  const periodo = await periodoApp(p, "30g");
   const chiesta = p.leggi === "1";
 
   const esito = chiesta ? await leggiPerformance(brand, p.preset ?? "30g", p.da, p.a) : null;

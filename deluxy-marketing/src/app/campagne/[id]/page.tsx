@@ -12,7 +12,9 @@ import { TerminiRicerca } from "@/components/TerminiRicerca";
 import { ProssimeAzioni } from "@/components/ProssimeAzioni";
 import { RecapModifiche } from "@/components/RecapModifiche";
 import { Scadenza } from "@/components/Scadenza";
+import { SceltaPeriodo } from "@/components/SceltaPeriodo";
 import { Sidebar } from "@/components/Sidebar";
+import { parametriPeriodo, periodoApp } from "@/lib/periodo-condiviso";
 import { TabellaGruppi } from "@/components/TabellaGruppi";
 import { VenditeCampagna } from "@/components/VenditeCampagna";
 import { aggiungiMetrica, cambiaStatoCampagna } from "@/lib/azioni";
@@ -43,14 +45,33 @@ export default async function SchedaCampagna({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ bloccata?: string; salvata?: string; aggiornamento?: string }>;
+  searchParams: Promise<{
+    bloccata?: string;
+    salvata?: string;
+    aggiornamento?: string;
+    preset?: string;
+    da?: string;
+    a?: string;
+    ord?: string;
+    verso?: string;
+  }>;
 }) {
   const { id } = await params;
-  const { bloccata, salvata, aggiornamento } = await searchParams;
+  const sp = await searchParams;
+  const { bloccata, salvata, aggiornamento } = sp;
+
+  // Il periodo è quello di tutta l'app: se si è scelto "mese scorso" sulla
+  // dashboard, qui dentro si guarda il mese scorso. Sceglierlo qui lo cambia
+  // ovunque — un periodo solo, o due numeri letti a due minuti di distanza
+  // sembrano confrontabili e non lo sono.
+  const periodo = await periodoApp(sp);
   const campagna = await prisma.campagna.findUnique({
     where: { id },
     include: {
-      metriche: { orderBy: { data: "desc" }, take: 60 },
+      metriche: {
+        where: { data: { gte: periodo.corrente.da, lt: periodo.corrente.a } },
+        orderBy: { data: "desc" },
+      },
       azioni: { orderBy: { creataIl: "desc" } },
       landing: true,
     },
@@ -59,7 +80,11 @@ export default async function SchedaCampagna({
 
   // I gruppi della campagna: la media di campagna qui sopra può nascondere un
   // gruppo che rende il doppio e uno che brucia. Vanno guardati separati.
-  const gruppi = await gruppiConNumeri({ campagnaId: campagna.id });
+  const giorniPeriodo = Math.max(
+    1,
+    Math.round((periodo.corrente.a.getTime() - periodo.corrente.da.getTime()) / 86_400_000)
+  );
+  const gruppi = await gruppiConNumeri({ campagnaId: campagna.id, giorni: giorniPeriodo });
 
   const metricheCrono = [...campagna.metriche].reverse();
   const spesa = campagna.metriche.reduce((s, m) => s + (m.spesa ?? 0), 0);
@@ -110,10 +135,14 @@ export default async function SchedaCampagna({
           <a className="btn" href={`/azioni/nuova?campagna=${campagna.id}&brand=${campagna.brand}`}>Nuova azione sulla campagna</a>
         </div>
 
+        <SceltaPeriodo periodo={periodo} da={sp.da} a={sp.a} azione={`/campagne/${campagna.id}`} />
+
         <div className="kpi-riga">
           <div className="kpi">
             <div className="kpi-valore">{spesa > 0 ? formattaEuro(spesa) : "—"}</div>
-            <div className="kpi-etichetta">Spesa (ultimi {campagna.metriche.length} gg registrati)</div>
+            <div className="kpi-etichetta">
+              Spesa · {periodo.corrente.etichetta} ({campagna.metriche.length} giorni con dati)
+            </div>
           </div>
           <div className="kpi">
             <div className="kpi-valore">{ricavi > 0 ? formattaEuro(ricavi) : "—"}</div>
@@ -186,7 +215,14 @@ export default async function SchedaCampagna({
 
         <CoperturaCampagna campagnaId={campagna.id} />
 
-        <TerminiRicerca campagnaId={campagna.id} brand={campagna.brand} />
+        <TerminiRicerca
+          campagnaId={campagna.id}
+          brand={campagna.brand}
+          base={`/campagne/${campagna.id}`}
+          altriParametri={parametriPeriodo(periodo)}
+          ord={sp.ord}
+          verso={sp.verso}
+        />
 
         <SegmentiCampagna campagnaId={campagna.id} brand={campagna.brand} />
 

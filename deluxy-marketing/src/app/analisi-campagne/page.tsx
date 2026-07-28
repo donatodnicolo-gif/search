@@ -3,7 +3,8 @@ import { Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
 import { ETICHETTA_BRAND, ETICHETTA_CANALE, formattaEuro } from "@/lib/dominio";
 import { breakEvenRoas } from "@/lib/guardrail";
-import { PRESET_PERIODO, risolviPeriodo, variazione, type Periodo } from "@/lib/periodo";
+import { PRESET_PERIODO, variazione, type Periodo } from "@/lib/periodo";
+import { periodoApp } from "@/lib/periodo-condiviso";
 
 export const dynamic = "force-dynamic";
 
@@ -119,7 +120,7 @@ export default async function AnalisiCampagne({
   searchParams: Promise<{ preset?: string; da?: string; a?: string; canale?: string; brand?: string }>;
 }) {
   const p = await searchParams;
-  const periodo = risolviPeriodo(p.preset, p.da, p.a);
+  const periodo = await periodoApp(p, "30g");
   const canale = p.canale || undefined;
   const brand = p.brand || undefined;
 

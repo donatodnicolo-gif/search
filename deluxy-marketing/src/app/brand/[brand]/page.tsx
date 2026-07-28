@@ -6,7 +6,7 @@ import { FreschezzaDati } from "@/components/FreschezzaDati";
 import { GraficoSpesa } from "@/components/GraficoSpesa";
 import { Scadenza } from "@/components/Scadenza";
 import { Sidebar } from "@/components/Sidebar";
-import { mer, numeriBrand, quotaPagato, roasPiattaforma, scostamentoAttribuzione } from "@/lib/brand-dati";
+import { mer, numeriBrand, numeriPerCanale, quotaPagato, roasPiattaforma, scostamentoAttribuzione } from "@/lib/brand-dati";
 import { prisma } from "@/lib/db";
 import {
   BRANDS,
@@ -28,7 +28,8 @@ import {
   STATI_AZIONE_APERTI,
 } from "@/lib/dominio";
 import { breakEvenRoas } from "@/lib/guardrail";
-import { PRESET_PERIODO, risolviPeriodo, variazione } from "@/lib/periodo";
+import { PRESET_PERIODO, variazione } from "@/lib/periodo";
+import { periodoApp } from "@/lib/periodo-condiviso";
 
 export const dynamic = "force-dynamic";
 
@@ -61,12 +62,12 @@ export default async function PaginaBrand({
   // stessi: periodo e ordinamento), ma ognuna vive al proprio indirizzo.
   const destinazione = await destinazionePredefinita("brand", `/brand/${brand}`, sp);
   if (destinazione) redirect(destinazione);
-  const periodo = risolviPeriodo(sp.preset ?? "30g", sp.da, sp.a);
+  const periodo = await periodoApp(sp, "30g");
 
   const oggi = new Date();
   oggi.setHours(0, 0, 0, 0);
 
-  const [ora, prima, anno, aperte, scadute, analisi, campagne, metrichePeriodo, alertAperti, pubblici, landing] =
+  const [ora, prima, anno, aperte, scadute, analisi, campagne, metrichePeriodo, alertAperti, pubblici, landing, canali] =
     await Promise.all([
       numeriBrand(brand, periodo.corrente),
       numeriBrand(brand, periodo.precedente),
@@ -95,6 +96,9 @@ export default async function PaginaBrand({
       }),
       prisma.pubblico.count({ where: { brand } }),
       prisma.landingPage.count({ where: { brand } }),
+      // Quanto spende e quanto incassa ogni singolo canale: la media di brand
+      // nasconde il canale che tiene su tutto e quello che se lo mangia.
+      numeriPerCanale(brand, periodo.corrente),
     ]);
 
   // Spesa giorno per giorno nel periodo scelto
@@ -193,6 +197,92 @@ export default async function PaginaBrand({
         </section>
 
         <FreschezzaDati brand={brand} />
+
+        {/* Canale per canale: la media di brand nasconde chi tiene su la
+            baracca e chi se la mangia. */}
+        <section className="scheda">
+          <div className="scheda-titolo">
+            Quanto spende e quanto incassa ogni canale · {periodo.corrente.etichetta}
+          </div>
+          {canali.length === 0 ? (
+            <div className="vuoto-mini">
+              Nessuna metrica di campagna nel periodo: non c&apos;è niente da spezzare per canale.
+            </div>
+          ) : (
+            <>
+              <div style={{ overflowX: "auto" }}>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Canale</th>
+                      <th className="num">Spesa</th>
+                      <th className="num">Quota</th>
+                      <th className="num">Incasso dichiarato</th>
+                      <th className="num">ROAS</th>
+                      <th className="num">Conv.</th>
+                      <th className="num">Costo per conv.</th>
+                      <th className="num">Campagne</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {canali.map((c) => (
+                      <tr key={c.canale}>
+                        <td>
+                          <Badge
+                            testo={ETICHETTA_CANALE[c.canale] ?? c.canale}
+                            colore={COLORE_CANALE[c.canale] ?? "var(--text-secondary)"}
+                          />
+                        </td>
+                        <td className="num">{formattaEuro(c.spesa)}</td>
+                        <td className="num cella-muta">{Math.round(c.quotaSpesa * 100)}%</td>
+                        <td className="num">{formattaEuro(c.ricaviPiattaforma)}</td>
+                        <td
+                          className="num"
+                          style={{
+                            fontWeight: 600,
+                            color:
+                              c.roas == null
+                                ? "var(--text-tertiary)"
+                                : c.roas >= be
+                                  ? "var(--green)"
+                                  : "var(--red)",
+                          }}
+                        >
+                          {c.roas != null ? `${c.roas.toFixed(2)}×` : "—"}
+                        </td>
+                        <td className="num cella-muta">{c.conversioni.toFixed(0)}</td>
+                        <td className="num cella-muta">{c.cpa != null ? formattaEuro(c.cpa) : "—"}</td>
+                        <td className="num cella-muta">{c.campagne}</td>
+                      </tr>
+                    ))}
+                    <tr>
+                      <td className="cella-nome">Totale</td>
+                      <td className="num">{formattaEuro(canali.reduce((s, c) => s + c.spesa, 0))}</td>
+                      <td className="num cella-muta">100%</td>
+                      <td className="num">
+                        {formattaEuro(canali.reduce((s, c) => s + c.ricaviPiattaforma, 0))}
+                      </td>
+                      <td className="num" />
+                      <td className="num cella-muta">
+                        {canali.reduce((s, c) => s + c.conversioni, 0).toFixed(0)}
+                      </td>
+                      <td className="num" />
+                      <td className="num cella-muta">{canali.reduce((s, c) => s + c.campagne, 0)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <p className="cella-sub" style={{ marginTop: 10, whiteSpace: "normal" }}>
+                ⚠️ L&apos;incasso è quello che <b>il canale si attribuisce</b>, ed è di parte: ogni
+                piattaforma conta a modo suo, e la somma dei canali ({formattaEuro(canali.reduce((s, c) => s + c.ricaviPiattaforma, 0))})
+                può superare le vendite Shopify vere del periodo ({formattaEuro(ora.venditeTotali)}).
+                Le vendite Shopify <b>non si sanno spezzare per canale</b> — l&apos;UTM c&apos;è su una
+                minoranza di ordini — quindi il MER resta un numero di brand e questa tabella non
+                finge di poterlo dividere. Il ROAS è colorato sul break-even di {ETICHETTA_BRAND[brand]} ({be.toFixed(2)}×).
+              </p>
+            </>
+          )}
+        </section>
 
         {/* I numeri che contano */}
         <div className="kpi-riga">

@@ -8,7 +8,8 @@ import { UltimaCorsa } from "@/components/UltimaCorsa";
 import { ScelteBrand } from "@/components/ScelteBrand";
 import { Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
-import { risolviPeriodo, variazione } from "@/lib/periodo";
+import { variazione } from "@/lib/periodo";
+import { periodoApp } from "@/lib/periodo-condiviso";
 import {
   COLORE_BRAND,
   COLORE_ESITO,
@@ -62,7 +63,7 @@ export default async function Dashboard({
   // Il mese è il difetto giusto qui: il piano è mensile e la tabella sotto
   // confronta col budget del mese. "Ultimi 30 giorni" a cavallo di due mesi
   // non si confronta con nessun obiettivo.
-  const periodo = risolviPeriodo(p.preset ?? "mese", p.da, p.a);
+  const periodo = await periodoApp(p, "mese");
   const oggi = new Date();
   oggi.setHours(0, 0, 0, 0);
   // I giorni del grafico e delle somme seguono il periodo scelto; le azioni

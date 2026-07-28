@@ -1,10 +1,9 @@
 import { Badge } from "@/components/Badge";
 import { formattaEuro, formattaNumero } from "@/lib/dominio";
 import {
-  COLORE_STATO_GRUPPO,
-  ETICHETTA_STATO_GRUPPO,
   ETICHETTA_TIPO_GRUPPO,
   letturaRoas,
+  presentazioneStatoGruppo,
   quotaSpesa,
   type GruppoConNumeri,
 } from "@/lib/gruppi";
@@ -53,6 +52,7 @@ export function TabellaGruppi({
           {righe.map((g) => {
             const lettura = letturaRoas(g.roas, g.spesa, g.brand);
             const quota = quote?.get(g.id) ?? null;
+            const statoGruppo = presentazioneStatoGruppo(g.stato, g.statoPiattaforma);
             return (
               <tr key={g.id}>
                 <td style={{ maxWidth: 320 }}>
@@ -70,13 +70,10 @@ export function TabellaGruppi({
                   </div>
                 </td>
                 <td>
-                  <Badge
-                    testo={ETICHETTA_STATO_GRUPPO[g.stato] ?? g.stato}
-                    colore={COLORE_STATO_GRUPPO[g.stato] ?? "var(--text-tertiary)"}
-                  />
-                  {g.statoPiattaforma === "PAUSED" && (
-                    <div className="cella-sub">in pausa su Google</div>
-                  )}
+                  {/* Prima il fatto (gira o non gira su Google), poi il nostro
+                      giudizio: vedi presentazioneStatoGruppo. */}
+                  <Badge testo={statoGruppo.testo} colore={statoGruppo.colore} />
+                  {statoGruppo.sotto && <div className="cella-sub">{statoGruppo.sotto}</div>}
                 </td>
                 <td className="num">{formattaEuro(g.spesa)}</td>
                 {mostraQuota && (

@@ -2,7 +2,8 @@ import { AggiornaAdesso } from "@/components/AggiornaAdesso";
 import { Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
 import { ETICHETTA_BRAND, ETICHETTA_CANALE, formattaDataOra } from "@/lib/dominio";
-import { PRESET_PERIODO, risolviPeriodo } from "@/lib/periodo";
+import { PRESET_PERIODO } from "@/lib/periodo";
+import { periodoApp } from "@/lib/periodo-condiviso";
 
 export const dynamic = "force-dynamic";
 
@@ -50,7 +51,7 @@ export default async function Ricezione({
   searchParams: Promise<{ preset?: string; da?: string; a?: string; fonte?: string; account?: string; aggiornamento?: string }>;
 }) {
   const p = await searchParams;
-  const periodo = risolviPeriodo(p.preset ?? "30g", p.da, p.a);
+  const periodo = await periodoApp(p, "30g");
 
   const consegne = await prisma.ricezioneDati.findMany({
     where: {
