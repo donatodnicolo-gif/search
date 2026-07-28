@@ -12,7 +12,7 @@ import { isAdmin } from '@/lib/admin';
 import { Filters, filtriVuoti, type FiltriMappa } from '@/components/Filters';
 import { PriorityBadge } from '@/components/PriorityBadge';
 import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
-import { coloreLivello, LABEL_LIVELLO, LIVELLI, livelloDi, type Livello } from '@/lib/livelli';
+import { coloreLivello, inLavorazione, LABEL_LIVELLO, LIVELLI, livelloDi, type Livello } from '@/lib/livelli';
 import { ScegliScriptModal } from '@/components/ScegliScriptModal';
 import { VisitaModal } from '@/components/VisitaModal';
 import { IconaAzione } from '@/components/AzioniRiga';
@@ -105,15 +105,12 @@ export default function Lista() {
   const dati = useMemo(() => {
     const q = query.trim().toLowerCase();
     const f = applicaFiltri(places, filtri)
-      .filter((p) => !p.nascosto) // i target "non interessanti" non compaiono qui
-      // Target = SOLO i negozi messi in lista da una persona (decisione utente
-      // 23/07/2026). I record senza `creato_da` — scoperta Google e import da
-      // terminale — restano nel database e sulla Mappa, ma qui non entrano:
-      // erano migliaia e rendevano la lista inutilizzabile.
-      // …oppure che ha la ⭐: la stella È la scelta di una persona. I negozi
-      // stellati prima che si registrasse `creato_da` (23/07) restavano fuori
-      // dai Selezionati pur essendo stati scelti: qui rientrano.
-      .filter((p) => Boolean(p.creato_da) || Boolean(p.starred))
+      // Chi si lavora: scelto da una persona (creato_da / ⭐) oppure con un
+      // rapporto già in piedi. La regola sta in `inLavorazione` (lib/livelli.ts)
+      // insieme al motivo per cui è così — e sta lì e non qui perché la usano
+      // anche Per interesse e i conteggi dei chip: tre copie divergenti erano
+      // già bastate a far sparire dei negozi da una vista sola.
+      .filter((p) => inLavorazione(p, conContatto.has(p.id), contattati.has(p.id)))
       .filter((p) => (livelliVista ? livelliVista.includes(livelloPlace(p)) : true))
       .filter((p) => (livello ? livelloPlace(p) === livello : true))
       .filter((p) => {
@@ -138,7 +135,7 @@ export default function Lista() {
     for (const p of places) {
       // Stesso criterio della lista: se cambia solo lì, i numeri sui chip non
       // corrispondono più alle righe che si vedono.
-      if (p.nascosto || (!p.creato_da && !p.starred)) continue;
+      if (!inLavorazione(p, conContatto.has(p.id), contattati.has(p.id))) continue;
       c[livelloPlace(p)] += 1;
     }
     return c;

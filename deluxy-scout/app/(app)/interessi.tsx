@@ -18,7 +18,7 @@ import type { Place } from '@/types';
 import { canonizzaLinee } from '@/types';
 import { colors, radius, spacing, contenutoCentrato } from '@/lib/theme';
 import { usePlaces } from '@/lib/usePlaces';
-import { coloreLivello, LABEL_LIVELLO, livelloDi, type Livello } from '@/lib/livelli';
+import { coloreLivello, inLavorazione, LABEL_LIVELLO, livelloDi, type Livello } from '@/lib/livelli';
 import { EmptyState, PageIntro } from '@/components/ui';
 import { CardElenco } from '@/components/CardElenco';
 import { COLORE_VISITA, LABEL_VISITA, statoVisita } from '@/lib/statoVisita';
@@ -41,9 +41,11 @@ export default function Interessi() {
   const gruppi = useMemo(() => {
     const per = new Map<string, PerLivello>();
     for (const p of places) {
-      if (p.nascosto) continue;
-      // Stesso criterio delle liste: solo i negozi scelti da una persona.
-      if (!p.creato_da && !p.starred) continue;
+      // Stesso criterio delle liste (lib/livelli.ts): scelto da una persona
+      // OPPURE con un rapporto già in piedi — un contatto in rubrica o una
+      // mail già partita. Prima bastava non avere `creato_da` per sparire da
+      // qui pur comparendo in Rubrica.
+      if (!inLavorazione(p, conContatto.has(p.id), contattati.has(p.id))) continue;
       const liv = livelloDi(p, conContatto.has(p.id), contattati.has(p.id));
       if (!COLONNE.includes(liv as Colonna)) continue; // dormienti e persi: non sono lavoro in corso
       // Un negozio senza interesse non sparisce: finisce in «Da assegnare»,
@@ -96,7 +98,7 @@ export default function Interessi() {
       refreshControl={<RefreshControl refreshing={loading} onRefresh={ricarica} />}
     >
       <View style={styles.headerScroll}>
-        <PageIntro testo="Ogni linea di servizio con tutto quello che ci sta dentro: quanti selezionati, lead, prospect e clienti. Tocca un numero per vedere i negozi. Un negozio con due interessi compare sotto entrambi — le colonne non si sommano." />
+        <PageIntro testo="Ogni linea di servizio con quello che ci sta dentro: selezionati, lead, prospect e clienti. Tocca un numero per vedere i negozi. Qui si contano i NEGOZI, mentre in Rubrica si contano le persone — lo stesso negozio con tre referenti lì fa tre righe, qui una. Un negozio con due interessi compare sotto entrambi: le colonne non si sommano." />
       </View>
 
       {!loading && gruppi.length === 0 ? (

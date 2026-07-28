@@ -80,6 +80,29 @@ export function livelloDi(p: Place, haContatto = false, contattato = false): Liv
   return 'selezionato';
 }
 
+/**
+ * Il negozio è **roba nostra**, cioè va mostrato negli elenchi di lavoro?
+ *
+ * Il database contiene anche migliaia di record che nessuno ha mai scelto —
+ * scoperta Google e import da terminale — e mostrarli tutti rendeva le liste
+ * inutilizzabili (decisione utente del 23/07/2026). Il criterio era: lo ha
+ * messo in lista una persona (`creato_da`) o lo ha stellato (`starred`).
+ *
+ * ⚠️ Quel criterio da solo buttava via anche i negozi che hanno **una persona
+ * in rubrica** o a cui è **già stato scritto**: record vecchi, senza
+ * `creato_da` perché importati prima che lo si registrasse, ma con un rapporto
+ * vero alle spalle. Comparivano in Rubrica e sparivano da Selezionati, Lead,
+ * Prospect e Per interesse — con la Rubrica che ne mostrava molti di più senza
+ * che niente spiegasse perché (segnalato dall'utente il 28/07/2026).
+ *
+ * Una relazione vale quanto una scelta: se c'è un contatto o un contatto
+ * avviato, il negozio si lavora.
+ */
+export function inLavorazione(p: Place, haContatto = false, contattato = false): boolean {
+  if (p.nascosto) return false;
+  return Boolean(p.creato_da) || Boolean(p.starred) || haContatto || contattato || Boolean(p.hubspot_ha_contatto);
+}
+
 /** Colore del badge: coerente col resto dell'app (verde chiuso, blu in corso). */
 export function coloreLivello(l: Livello): string {
   switch (l) {
