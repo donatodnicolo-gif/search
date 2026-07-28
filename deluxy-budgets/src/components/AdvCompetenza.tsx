@@ -106,16 +106,28 @@ export function AdvCompetenza({
         </div>
       </div>
 
-      {!coperturaCompleta && (
-        <div className="card" style={{ borderColor: "var(--red)", marginTop: 12 }}>
-          <strong>Prima di spostare, leggi questo.</strong> Marketing dichiara la propria copertura{" "}
-          <strong>incompleta</strong>: {avvertenze.join(" ")} Finché è così, una parte della differenza qui
-          sopra <strong>non è competenza di un altro anno</strong>: è spesa di quest&apos;anno che a Marketing
-          manca. Si vede dalla forma della colonna — uno sfasamento di fatturazione starebbe quasi tutto sul
-          primo mese, una fonte incompleta si spalma su tutti. Spostarla comunque significa caricare
-          sull&apos;anno prima un costo che l&apos;anno prima non ha avuto.
+      <div className="card" style={{ marginTop: 12 }}>
+        <strong>La competenza della pubblicità è l&apos;anno della transazione.</strong> Verificato sui
+        movimenti, non per principio: Google e Meta addebitano <strong>a soglia</strong> — importi fissi ogni
+        due o tre giorni per tutto il mese — quindi il denaro esce entro pochi giorni dalla campagna. Su tutti
+        i movimenti pubblicitari che Qonto conosce, quelli con <em>anno di emissione</em> diverso
+        dall&apos;<em>anno di regolamento</em> sono <strong>zero</strong>: la pubblicità non scavalca mai il
+        capodanno. L&apos;unica coda è il residuo sotto soglia addebitato l&apos;1–2 del mese, che riguarda il
+        mese prima, non l&apos;anno prima.
+        <div style={{ marginTop: 8 }}>
+          Quindi la differenza qui sopra <strong>non si sposta</strong>: non è competenza di un altro
+          esercizio, è spesa di quest&apos;anno che Marketing non vede (account non collegati) più voci che
+          pubblicità non sono e vanno tolte dalla categoria nel{" "}
+          <a href="/cfo" style={{ color: "var(--blue)" }}>CFO</a>. Il bottone resta per i casi veri —
+          una fattura di dicembre pagata a gennaio — e va usato su quelli, non sul totale.
+          {!coperturaCompleta && avvertenze.length > 0 && (
+            <>
+              {" "}
+              Marketing dichiara la copertura incompleta: {avvertenze.join(" ")}
+            </>
+          )}
         </div>
-      )}
+      </div>
 
       <div className="card" style={{ marginTop: 12 }}>
         <div style={{ display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap" }}>

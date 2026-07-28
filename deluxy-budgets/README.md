@@ -181,11 +181,18 @@ rettifica deve poter nominare da quale addebito viene, altrimenti nel CFO resta 
 categoria che non entra in nessuna voce di P&L. Premere due volte non raddoppia: quello che è già
 stato spostato si scala dalla differenza.
 
-> **Non è automatico, di proposito.** Al 28/07/2026 la differenza 2026 è 43.259 € e sta su *tutti* i
-> mesi in proporzione quasi costante (la banca è ≈1,7× le campagne da gennaio a giugno). Uno
-> sfasamento di fatturazione si vedrebbe concentrato sul primo mese: una forma così dice piuttosto
-> che a Marketing **mancano account**. La pagina lo scrive prima del bottone, perché spostare 43 k€
-> su un altro esercizio è una scelta contabile, non un calcolo.
+> **Non è automatico, di proposito** — e verificato sui movimenti il 28/07/2026, la differenza 2026
+> (43.259 €) **non va spostata**. Google e Meta addebitano **a soglia**: importi fissi (500 € Google,
+> 800 € Meta) ogni due o tre giorni per tutto il mese, quindi il denaro esce entro pochi giorni dalla
+> campagna. Su tutti i movimenti pubblicitari noti a Qonto, quelli con *anno di emissione* diverso
+> dall'*anno di regolamento* sono **zero**. L'unica coda è il residuo sotto soglia addebitato l'1–2
+> del mese (7.718 € sul 2026, in 26 addebiti), che riguarda il **mese** prima, non l'anno.
+>
+> **La competenza della pubblicità è quindi l'anno della transazione** (decisione dell'utente,
+> 28/07/2026). Il bottone resta per i casi veri — una fattura di dicembre pagata a gennaio — non per
+> il totale. La differenza è fatta d'altro: account non collegati a Marketing (Meta quasi tutto,
+> più un conto Google), e voci che pubblicità non sono (Google Cloud/Workspace/One, 3.354 € sul
+> 2026, più distributori e supermercati catturati dalle regole `ads` e `meta` del CFO).
 
 **Come la competenza entra nella riga ADV**, che non è più cassa: quello che **entra** si somma alle
 campagne (è spesa di quest'esercizio pagata altrove nel tempo, e nelle campagne dell'anno non
