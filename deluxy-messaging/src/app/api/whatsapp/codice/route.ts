@@ -39,6 +39,13 @@ const SPIEGAZIONI: Record<number, string> = {
   80007: 'Troppe richieste in poco tempo: Meta ha messo un limite, riprova più tardi.',
   131000:
     'Errore generico di Meta. Se si ripete, fai la verifica direttamente da WhatsApp Manager: la sua procedura guidata gestisce meglio i numeri fissi.',
+  // ⚠️ 136024 NON è nella lista ufficiale degli errori della Cloud API
+  // (developers.facebook.com/docs/whatsapp/cloud-api/support/error-codes):
+  // cercato, non documentato. Quindi qui non si spiega cosa significhi — si
+  // dice cosa fare, che è l'unica cosa onesta e l'unica utile. Se un giorno
+  // Meta lo documenta, questa riga si aggiorna.
+  136024:
+    'Meta rifiuta di mandare il codice a questo numero e non spiega perché (codice non documentato). Nell’ordine: 1) controlla che il numero non sia ancora attivo sull’app WhatsApp Business di un telefono — finché è lì non può passare alla Cloud API, va rimosso da quell’app; 2) fai la verifica dalla procedura guidata di WhatsApp Manager invece che da qui, che gestisce meglio i fissi; 3) se persiste, è un caso da assistenza Meta.',
 }
 
 /** L'errore di Meta con il codice in chiaro, più il passo successivo. */
