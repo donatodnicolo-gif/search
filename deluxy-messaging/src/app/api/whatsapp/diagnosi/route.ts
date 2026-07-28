@@ -237,15 +237,26 @@ export async function GET() {
         ['instagram', 'Instagram'],
         ['page', 'Messenger'],
       ] as const) {
-        const tokenCanale = oggetto === 'instagram' ? c.igToken?.trim() : c.fbPageToken?.trim()
+        // Il token può stare in due posti: sul singolo account collegato
+        // (/account-meta, il modo giusto quando i marchi sono più d'uno) o nelle
+        // Impostazioni come ripiego. Guardare solo il secondo diceva «manca» a
+        // chi aveva configurato tutto bene.
+        const canale = oggetto === 'instagram' ? 'instagram' : 'messenger'
+        const conToken = await db.paginaMeta.count({
+          where: { canale, attivo: true, NOT: { token: '' } },
+        })
+        const tokenGenerale = oggetto === 'instagram' ? c.igToken?.trim() : c.fbPageToken?.trim()
+        const tokenCanale = conToken > 0 || Boolean(tokenGenerale)
         const riga = righe.find((r) => r.object === oggetto)
         const suoiCampi = (riga?.fields ?? []).map((f) => f.name).filter(Boolean) as string[]
         esiti.push({
           passo: `${nome} — token salvato`,
-          ok: Boolean(tokenCanale),
-          dettaglio: tokenCanale
-            ? 'C’è.'
-            : `Manca: senza, i messaggi ${nome} si possono ricevere ma non si può rispondere (Impostazioni → ${nome}).`,
+          ok: tokenCanale,
+          dettaglio: conToken
+            ? `${conToken} account con token proprio (Facebook e Instagram).`
+            : tokenGenerale
+              ? 'C’è quello generale delle Impostazioni: basta con UN account solo.'
+              : `Manca: senza, i messaggi ${nome} si possono ricevere ma non si può rispondere (pagina Facebook e Instagram).`,
         })
         esiti.push({
           passo: `${nome} — iscrizione al webhook`,
