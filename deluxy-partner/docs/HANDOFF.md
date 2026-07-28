@@ -236,6 +236,18 @@ nessuna delle tre pagine che creano fatture puo dimenticarselo. In `/registrazio
 anche la tendina per sceglierlo. Se su FIC non ci fosse nessun metodo, l errore lo dice e spiega dove
 crearlo. Oggi su FIC ce n e uno solo: BONIFICO.
 
+**Anagrafiche: il collegamento e la copia locale (28/07/2026).** `confermaRiconciliazione` NON
+scriveva `Partner.anagraficaId`: la scheda ritrovava il record del registro solo perche lo cercava per
+NOME a ogni apertura, e per il resto dell app quel partner restava senza dati fiscali — e la fattura
+elettronica si bloccava. Ora la conferma salva il collegamento e chiama `allineaPartnerDaRegistro`.
+`src/lib/allinea-registro.ts` copia in locale ragione sociale, IBAN, email/telefono e contatto
+amministrativo: **non e una seconda anagrafica**, e la copia di servizio che serve FUORI dalla scheda —
+la ragione sociale e il beneficiario dei bonifici (con il campo vuoto si ripiega sull insegna, e un
+bonifico intestato all insegna la banca lo puo rifiutare) e l email amministrazione e dove vanno i
+solleciti. Un valore vuoto nel registro non cancella mai quello scritto a mano qui. Bottone **«Allinea
+dal registro»** in `/registrazioni/riconciliazione`; gira a gruppi di 5 perche in fila indiana 88
+chiamate non stanno nei 60 secondi di una funzione Vercel.
+
 ## 8. Integrazioni (stato)
 
 - **Qonto** ✅ collegato (org DELUXY S.R.L., 2 conti). API terze parti a chiave (`qonto.*` nel DB). "Sincronizza da Qonto" in `/transazioni` scarica i movimenti completati (dedup per hash). **Sincronizzazione automatica**: cron Vercel `/api/cron/qonto` ogni notte alle 5 (`vercel.json`), protetto da `CRON_SECRET` (senza segreto → 503). Scarica soltanto: **nessuna registrazione automatica**, i match restano da confermare in `/transazioni`; data/ora dell'ultimo scarico in `qonto.ultimaSync`, mostrata in pagina. `src/lib/qonto.ts`, `src/lib/transazioni-actions.ts` (`scaricaMovimentiQonto`).

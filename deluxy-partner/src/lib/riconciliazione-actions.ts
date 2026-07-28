@@ -6,6 +6,8 @@ import { prisma } from "./db";
 import { aggiornaAnagrafica, creaAnagrafica, type CampiAnagrafica } from "./anagrafiche";
 import { campiPropostiPerNome } from "./riconciliazione-fic";
 import { ibanValido } from "./impostazioni";
+import { allineaPartnerDaRegistro } from "./allinea-registro";
+import { registra } from "./registro";
 
 // Conferma la riconciliazione di un cliente FIC e INVIA i campi al registro
 // Anagrafiche (solo se la scrittura è configurata). L'azione parte solo da un
@@ -31,6 +33,19 @@ export async function confermaRiconciliazione(
 
   const res = await aggiornaAnagrafica(anagraficaId, campi);
   const esito = res.ok ? "ok" : res.errore;
+
+  // IL COLLEGAMENTO SUL PARTNER. Mancava: la conferma scriveva solo la propria
+  // tabella, e la scheda ritrovava il record del registro soltanto perché lo
+  // cercava per nome a ogni apertura — finché il nome combaciava. Un partner
+  // «riconciliato» ma non collegato è, per il resto dell'app, un partner senza
+  // dati fiscali: è così che una fattura elettronica si blocca.
+  if (res.ok) {
+    await prisma.partner.update({ where: { id: partnerId }, data: { anagraficaId } });
+    // e si porta in locale ciò che serve FUORI dalla scheda: il beneficiario
+    // dei bonifici e l'email dell'amministrazione per i solleciti.
+    await allineaPartnerDaRegistro(partnerId).catch(() => null);
+    revalidatePath(`/partner/${partnerId}`, "layout");
+  }
 
   await prisma.riconciliazioneAnagrafica.upsert({
     where: { ficNome },
@@ -199,4 +214,25 @@ export async function aggiornaDatiEsterniRiconciliazione() {
   revalidateTag("ric-qonto");
   revalidatePath("/registrazioni/riconciliazione", "layout");
   redirect("/registrazioni/riconciliazione?aggiornato=1");
+}
+
+// Riallinea in locale i dati anagrafici di TUTTI i partner leggendoli dal
+// registro. Da usare dopo una serie di riconciliazioni, o quando ci si accorge
+// che una scheda mostra i dati del registro ma l'app non li vede (perché li
+// legge dalla copia locale, che era rimasta vuota).
+export async function allineaAnagraficheTutti() {
+  const { allineaTuttiDaRegistro } = await import("./allinea-registro");
+  const esiti = await allineaTuttiDaRegistro();
+  const cambiati = esiti.filter((e) => e.campi.length > 0);
+  const scollegati = esiti.filter((e) => !e.collegato);
+  await registra({
+    azione: `Anagrafiche riallineate dal registro: ${cambiati.length} partner aggiornati`,
+    categoria: "anagrafiche",
+    dettaglio: `${esiti.length} controllati · ${scollegati.length} non trovati nel registro`,
+  });
+  revalidatePath("/registrazioni/riconciliazione", "layout");
+  revalidatePath("/partner", "layout");
+  redirect(
+    `/registrazioni/riconciliazione?allineati=${cambiati.length}&controllati=${esiti.length}&mancanti=${scollegati.length}`
+  );
 }

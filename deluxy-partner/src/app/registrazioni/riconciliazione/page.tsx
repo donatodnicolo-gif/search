@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { ficStato } from "@/lib/fic";
 import { scritturaAnagraficheAttiva } from "@/lib/anagrafiche";
 import { costruisciRiconciliazione, campiProposti, type EsitoRiga } from "@/lib/riconciliazione-fic";
-import { confermaRiconciliazione, ignoraRiconciliazione, riapriRiconciliazione, salvaDatiBancari, creaInAnagrafiche, aggiornaDatiEsterniRiconciliazione, riconciliaManuale } from "@/lib/riconciliazione-actions";
+import { confermaRiconciliazione, ignoraRiconciliazione, riapriRiconciliazione, salvaDatiBancari, creaInAnagrafiche, aggiornaDatiEsterniRiconciliazione, riconciliaManuale, allineaAnagraficheTutti } from "@/lib/riconciliazione-actions";
 
 export const dynamic = "force-dynamic";
 // La prima costruzione (cache fredda) interroga FIC e Qonto: diamo margine ampio.
@@ -156,7 +156,12 @@ export default async function RiconciliazionePage({
             (P.IVA, CF, indirizzo) nel registro <strong>Anagrafiche</strong>, su tua conferma.
           </p>
         </div>
-        <div className="page-actions">
+        <div className="page-actions" style={{ display: "flex", gap: 8 }}>
+          <form action={allineaAnagraficheTutti}>
+            <button className="btn secondary" type="submit" title="Ricopia in locale i dati del registro (ragione sociale, IBAN, email amministrazione) per tutti i partner collegati: e quello che l app usa per i bonifici e i solleciti.">
+              Allinea dal registro
+            </button>
+          </form>
           <form action={aggiornaDatiEsterniRiconciliazione}>
             <button className="btn secondary" type="submit" title="Ricarica clienti FIC e beneficiari Qonto (dati in cache 10 min)">
               Aggiorna dati
