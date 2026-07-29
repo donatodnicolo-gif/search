@@ -448,9 +448,14 @@ Tre precisazioni che sono servite per non sbagliare, e che valgono anche la pros
 2. **I margini per tipologia a budget** (D2C 35%, Eventi 20%, B2B 20%) restano scritti sul venduto
    lordo: applicati a ricavi ormai netti danno un EBITDA a budget negativo e «12 mesi in perdita»,
    che è un artefatto. Rifarli **cambia i premi**.
-3. **7.326 € ancora senza categoria** nel 2026 (207 controparti, copertura **99,1%**) e 12.646 € sul
-   2025 (98,1%). Erano 23.705 in 412 la mattina del 29/07/2026: **2.035 regole** in tutto. Quello che
-   resta sono scontrini senza causale — non si può decidere cosa siano dal nome del negozio. Erano **23.705 in 412**: il
+3. **4.117 € ancora senza categoria** nel 2026 (140 controparti, copertura **99,5%**) e 4.015 € sul
+   2025 (99,4%). Erano 23.705 € in 412 controparti la mattina del 29/07/2026: **2.187 regole** in
+   tutto, scritte guardando l'elenco insieme all'utente. L'ultima passata ha sistemato LinkedIn
+   (pubblicità), il software a canone (Tauros, Tavus, Apollo, Miro, Iubenda, WATI, Gloobo, OpenAI,
+   Anthropic), gli acquisti per l'ecommerce (Metro, Rajapack, Amazon, Notino, champagne e vini,
+   Giocattoli Quaglia), la rappresentanza (Cova, Carlsberg, cantina Giannone), le trasferte
+   (autogrill, stabilimenti balneari, Villa Giada) e i **fioristi pagati online** — i nomi di persona
+   senza causale, confermati dall'utente. Erano **23.705 in 412**: il
    29/07/2026, guardando l'elenco, l'utente ha riconosciuto le famiglie una per una e sono diventate
    **oltre 210 regole** — più tre categorie nuove: **Carburante e pedaggi** (81 regole, 2.962 €:
    distributori `ENI`, `PV####`, pedaggi `MISER`/`ASPIT`, parcheggi), **Viaggi e trasferte** e
