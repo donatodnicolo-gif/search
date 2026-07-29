@@ -191,6 +191,19 @@ a ciò che è ancora in sospeso. E capisce se gli stai chiedendo una **risposta*
 originale citata sotto, destinatario scelto fra i contatti se lo riconosce) invece di una
 risposta al mittente. Non invia mai da solo: la controlli e la mandi tu.
 
+**Chiedi a Renè.** Il riquadro dei comandi a parole (in **Renè AI** e dal «+» nella barra
+laterale) capisce cinque cose:
+
+- «**Riassumi le mail di oggi**» — o della settimana, o del mese: rilegge la posta del
+  periodo (in arrivo, sezioni, SPAM e cestino insieme) e scrive il punto della situazione
+  in Renè AI, con gli urgenti senza risposta e le proposte da confermare. Se non dici il
+  periodo, vale la settimana. Col menu accanto puoi limitarlo a una sezione: «riassumi le
+  mail di oggi» + *Sezione: Commerciale*.
+- «cancella tutte le mail di mario@…» e «archivia le mail con oggetto sollecito» — prima
+  ti dice **quante** ne tocca e chiede conferma.
+- «crea un appuntamento domani alle 12» — finisce subito in Calendario.
+- «invia una mail a info@… chiedendo …» — Renè la scrive, tu la controlli e la mandi.
+
 ## 6-bis. I testi pronti dell'azienda (Deluxy Scripts)
 
 Le parole con cui Deluxy parla ai clienti — offerte, inviti, presentazioni, solleciti,

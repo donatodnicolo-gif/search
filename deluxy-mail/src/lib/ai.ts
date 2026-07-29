@@ -1295,13 +1295,19 @@ export async function classificaDelega(istruzione: string): Promise<'risposta' |
 const SCHEMA_COMANDO_POSTA = {
   type: 'object',
   additionalProperties: false,
-  required: ['azione', 'criterio', 'valore', 'destinatario', 'istruzione'],
+  required: ['azione', 'criterio', 'valore', 'destinatario', 'istruzione', 'periodo'],
   properties: {
     azione: {
       type: 'string',
-      enum: ['cestina', 'archivia', 'appuntamento', 'invia', 'nessuna'],
+      enum: ['cestina', 'archivia', 'appuntamento', 'invia', 'riassunto', 'nessuna'],
       description:
-        "'cestina' se l'utente vuole cancellare/eliminare/buttare via delle mail; 'archivia' se vuole archiviarle; 'appuntamento' se chiede di creare un appuntamento/evento/riunione in calendario (es. «crea appuntamento domani ore 12», anche con i dati di una riunione Teams/Zoom incollati); 'invia' se chiede di SCRIVERE/MANDARE una mail NUOVA a qualcuno (es. «invia mail a info@… chiedendo …», «scrivi a Mario che …», «manda una mail a X per …»); 'nessuna' se non è un comando di questo tipo.",
+        "'cestina' se l'utente vuole cancellare/eliminare/buttare via delle mail; 'archivia' se vuole archiviarle; 'appuntamento' se chiede di creare un appuntamento/evento/riunione in calendario (es. «crea appuntamento domani ore 12», anche con i dati di una riunione Teams/Zoom incollati); 'invia' se chiede di SCRIVERE/MANDARE una mail NUOVA a qualcuno (es. «invia mail a info@… chiedendo …», «scrivi a Mario che …», «manda una mail a X per …»); 'riassunto' se chiede di RIASSUMERE la posta o di fare il punto su un periodo (es. «riassumi le mail di oggi», «fammi il punto della settimana», «cosa è arrivato questo mese»); 'nessuna' se non è un comando di questo tipo.",
+    },
+    periodo: {
+      type: 'string',
+      enum: ['oggi', 'settimana', 'mese', ''],
+      description:
+        "Solo per 'riassunto': il periodo chiesto. «oggi»/«stamattina»/«nelle ultime ore» → oggi; «settimana»/«ultimi giorni» → settimana; «mese»/«ultimi 30 giorni» → mese. Se non è detto, stringa vuota. Vuoto per le altre azioni.",
     },
     criterio: {
       type: 'string',
@@ -1328,17 +1334,19 @@ const SCHEMA_COMANDO_POSTA = {
 } as const
 
 export type ComandoPosta = {
-  azione: 'cestina' | 'archivia' | 'appuntamento' | 'invia' | 'nessuna'
+  azione: 'cestina' | 'archivia' | 'appuntamento' | 'invia' | 'riassunto' | 'nessuna'
   criterio: 'mittente' | 'oggetto' | 'nessuno'
   valore: string
   destinatario: string
   istruzione: string
+  /** Solo per 'riassunto': 'oggi' | 'settimana' | 'mese' (vuoto = non detto). */
+  periodo: string
 }
 
 /** Interpreta un comando tipo "cancella tutte le mail di Mario" / "archivia le mail con oggetto sollecito". */
 export async function interpretaComandoPosta(comando: string): Promise<ComandoPosta> {
   const c = comando.trim()
-  if (!c) return { azione: 'nessuna', criterio: 'nessuno', valore: '', destinatario: '', istruzione: '' }
+  if (!c) return { azione: 'nessuna', criterio: 'nessuno', valore: '', destinatario: '', istruzione: '', periodo: '' }
   try {
     const risposta = await client().chat.completions.create({
       model: MODELLO,
@@ -1348,15 +1356,15 @@ export async function interpretaComandoPosta(comando: string): Promise<ComandoPo
         json_schema: { name: 'comando', strict: true, schema: SCHEMA_COMANDO_POSTA as unknown as Record<string, unknown> },
       },
       messages: [
-        { role: 'system', content: "Interpreta il comando dato all'assistente di posta: azione su un gruppo di mail (cestina/archivia), creazione di un appuntamento (appuntamento), oppure invio di una mail nuova a qualcuno (invia). Per 'invia' riempi destinatario e istruzione; per cestina/archivia riempi criterio e valore; gli altri campi vuoti." },
+        { role: 'system', content: "Interpreta il comando dato all'assistente di posta: azione su un gruppo di mail (cestina/archivia), creazione di un appuntamento (appuntamento), invio di una mail nuova a qualcuno (invia), oppure RIASSUNTO della posta di un periodo (riassunto). Per 'invia' riempi destinatario e istruzione; per cestina/archivia riempi criterio e valore; per 'riassunto' riempi periodo; gli altri campi vuoti." },
         { role: 'user', content: `Comando: ${c}` },
       ],
     })
     const json = risposta.choices[0]?.message?.content
-    if (!json) return { azione: 'nessuna', criterio: 'nessuno', valore: '', destinatario: '', istruzione: '' }
+    if (!json) return { azione: 'nessuna', criterio: 'nessuno', valore: '', destinatario: '', istruzione: '', periodo: '' }
     return JSON.parse(json) as ComandoPosta
   } catch {
-    return { azione: 'nessuna', criterio: 'nessuno', valore: '', destinatario: '', istruzione: '' }
+    return { azione: 'nessuna', criterio: 'nessuno', valore: '', destinatario: '', istruzione: '', periodo: '' }
   }
 }
 

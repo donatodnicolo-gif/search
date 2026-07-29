@@ -44,7 +44,10 @@ export function ComandoRene({ sezioni = [] }: { sezioni?: { id: string; nome: st
         mostraFlash(r.messaggio)
         setTesto('')
         // «Invia mail a…»: apri la bozza pronta, così la controlli e la mandi.
-        if (r.vaiA) {
+        // «Riassumi le mail di oggi»: porta su Renè, dove c'è il punto della
+        // situazione — ma se ci sei già, un push sulla stessa pagina non
+        // rileggerebbe nulla: lì serve il refresh.
+        if (r.vaiA && r.vaiA !== window.location.pathname) {
           router.push(r.vaiA)
         } else {
           router.refresh()
@@ -73,12 +76,13 @@ export function ComandoRene({ sezioni = [] }: { sezioni?: { id: string; nome: st
         <span className="ai-toggle-mark">AI</span> Chiedi a Renè
       </div>
       <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 10, lineHeight: 1.5 }}>
-        Comandi su un gruppo di mail — es. «cancella tutte le mail di mario@rossi.it», «archivia le
-        mail con oggetto sollecito» — «crea un appuntamento domani alle 12» (anche coi dati di una
-        riunione Teams/Zoom) — oppure «invia una mail a info@… chiedendo …» (Renè la scrive, tu la
-        controlli e la mandi). Puoi limitare la ricerca a una sezione col menu qui sotto. Sulle mail,
-        prima di agire ti dico quante ne tocco e chiedo conferma (il cestino è recuperabile); gli
-        appuntamenti finiscono subito in Calendario.
+        «<strong>Riassumi le mail di oggi</strong>» (o della settimana, o del mese: rilegge la posta
+        del periodo e fa il punto qui sotto) — comandi su un gruppo di mail, es. «cancella tutte le
+        mail di mario@rossi.it», «archivia le mail con oggetto sollecito» — «crea un appuntamento
+        domani alle 12» (anche coi dati di una riunione Teams/Zoom) — oppure «invia una mail a
+        info@… chiedendo …» (Renè la scrive, tu la controlli e la mandi). Puoi limitare tutto a una
+        sezione col menu qui sotto. Sulle mail, prima di agire ti dico quante ne tocco e chiedo
+        conferma (il cestino è recuperabile); gli appuntamenti finiscono subito in Calendario.
       </p>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         <select
@@ -105,7 +109,7 @@ export function ComandoRene({ sezioni = [] }: { sezioni?: { id: string; nome: st
             setTesto(e.target.value)
             setAnt(null)
           }}
-          placeholder="Es. cancella tutte le mail di …"
+          placeholder="Es. riassumi le mail di oggi"
           style={{ flex: 1, minWidth: 240, padding: '10px 14px', fontSize: 14 }}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && testo.trim() && !daConfermare) chiedi()

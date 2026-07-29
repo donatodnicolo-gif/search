@@ -1297,6 +1297,30 @@ export async function comandoPostaAnteprima(
   const utenteId = await uid()
   const p = await interpretaComandoPosta(comando)
 
+  // «Riassumi le mail di oggi»: è lo stesso giro dei tasti di periodo in
+  // /rene, chiesto a parole. Il riassunto lo fa già Renè — quello che mancava
+  // era capirlo dal comando, e finiva in «non ho capito».
+  if (p.azione === 'riassunto') {
+    // Import dinamico come nell'altro punto che lancia Renè: rene.ts tira
+    // dentro l'AI, e non serve al resto delle azioni.
+    const { eseguiRene, periodoValidoRene } = await import('./rene')
+    const periodo = periodoValidoRene(p.periodo || 'settimana')
+    const esito = await eseguiRene(utenteId, periodo, sezioneId)
+    if (!esito.ok) return { ok: false, messaggio: esito.messaggio }
+    const quando =
+      periodo === 'oggi' ? 'di oggi' : periodo === 'mese' ? 'degli ultimi 30 giorni' : 'degli ultimi 7 giorni'
+    const ambito = await etichettaAmbito(utenteId, sezioneId)
+    revalidatePath('/rene')
+    return {
+      ok: true,
+      fatto: true,
+      // Il riassunto è lungo: si legge nella pagina di Renè, dove ci sono
+      // anche gli urgenti senza risposta e le proposte da confermare.
+      vaiA: '/rene',
+      messaggio: `Ho riletto la posta ${quando}${ambito}: il punto della situazione è qui sotto, in Renè AI.`,
+    }
+  }
+
   // «Invia mail a info@… chiedendo …»: Renè SCRIVE la mail (non la manda: la
   // regola è che l'AI propone, tu invii) e la apre come bozza pronta.
   if (p.azione === 'invia') {
@@ -1413,7 +1437,7 @@ export async function comandoPostaAnteprima(
     return {
       ok: false,
       messaggio:
-        'Non ho capito il comando. Prova: «cancella tutte le mail di mario@…», «archivia le mail con oggetto sollecito», «crea un appuntamento domani alle 12» oppure «invia una mail a info@… chiedendo …».',
+        'Non ho capito il comando. Prova: «riassumi le mail di oggi», «cancella tutte le mail di mario@…», «archivia le mail con oggetto sollecito», «crea un appuntamento domani alle 12» oppure «invia una mail a info@… chiedendo …».',
     }
   }
   const filtro: FiltroLotto = { criterio: p.criterio, valore: p.valore, sezioneId }
