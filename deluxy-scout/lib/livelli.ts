@@ -19,7 +19,10 @@
 //               dismesso`, GET /api/clienti/stato di deluxy-partner): finché
 //               quel dato non arriva qui si usa lo stato del registro, che
 //               significa «rapporto interrotto» e non «non fattura da N mesi».
-//   PERSO       chiuso senza esito, o non target.
+//
+// ⚠️ **PERSO NON È PIÙ UN LIVELLO** (decisione utente del 29/07/2026): è un
+// segno addosso al negozio, `ePerso()` qui sotto. Il negozio resta nella lista
+// del suo livello — un lead perso resta fra i Lead — col badge «Perso».
 //
 // Sopra ai livelli restano le TRATTATIVE: sono le conversazioni in corso, con
 // valore e scadenza. Il livello dice "a che punto è il rapporto", la trattativa
@@ -34,10 +37,10 @@
 
 import type { Place } from '@/types';
 
-export type Livello = 'selezionato' | 'lead' | 'prospect' | 'cliente' | 'dormiente' | 'perso';
+export type Livello = 'selezionato' | 'lead' | 'prospect' | 'cliente' | 'dormiente';
 
-/** L'ordine in cui mostrarli: il funnel, poi chi è uscito. */
-export const LIVELLI: Livello[] = ['selezionato', 'lead', 'prospect', 'cliente', 'dormiente', 'perso'];
+/** L'ordine in cui mostrarli: il funnel, poi chi si è fermato. */
+export const LIVELLI: Livello[] = ['selezionato', 'lead', 'prospect', 'cliente', 'dormiente'];
 
 export const LABEL_LIVELLO: Record<Livello, string> = {
   selezionato: 'Selezionato',
@@ -45,7 +48,6 @@ export const LABEL_LIVELLO: Record<Livello, string> = {
   prospect: 'Prospect',
   cliente: 'Cliente',
   dormiente: 'Dormiente',
-  perso: 'Perso',
 };
 
 export const AIUTO_LIVELLO: Record<Livello, string> = {
@@ -54,8 +56,28 @@ export const AIUTO_LIVELLO: Record<Livello, string> = {
   prospect: 'Ha mostrato interesse e la trattativa è aperta: si sta giocando qualcosa.',
   cliente: 'Ha chiuso una trattativa: ha comprato.',
   dormiente: 'Cliente che ha smesso di fatturare: da riattivare.',
-  perso: 'Chiuso senza esito o non in target.',
 };
+
+/**
+ * PERSO NON È UN LIVELLO: è un **segno addosso al negozio** (decisione utente
+ * del 29/07/2026, «dovrei averlo comunque in lead ma perso»).
+ *
+ * Prima «perso» vinceva su tutto il resto e il negozio spariva dalla sua lista
+ * per ricomparire in «Dormienti e persi»: un lead con una persona in rubbrica,
+ * chiuso con esito «non target», usciva dai Lead — cioè dal posto dove uno lo
+ * cerca. Ora il livello resta quello del funnel (Lead resta Lead) e il fatto
+ * che sia chiuso si legge come badge sulla riga.
+ *
+ * Da dove viene: l'esito «non target» di una visita (che porta
+ * `places.stato = 'perso'`, vedi `statoDaEsito`) oppure il registro Anagrafiche
+ * che dice «non interessato».
+ */
+export function ePerso(p: Place): boolean {
+  return p.stato === 'perso' || p.anagrafiche_stato === 'non_interessato';
+}
+
+export const LABEL_PERSO = 'Perso';
+export const COLORE_PERSO = '#B3261E';
 
 /**
  * Il livello di un negozio.
@@ -91,9 +113,14 @@ export function livelloDi(
   // calcolato sui movimenti). Lo stato del registro resta come ripiego: dice
   // «rapporto interrotto», che è una cosa diversa da «non fattura da N mesi» ma
   // è il segnale più vicino quando Finance non è collegato.
+  //
+  // ⚠️ **Dormiente = solo chi il registro dichiara `dismesso`** (più, quando
+  // FINANCE sarà collegato, chi ha smesso di fatturare davvero). Decisione
+  // utente del 29/07/2026: in «Dormienti» ci vanno solo quelli, e i **persi non
+  // ci vanno più** — restano nella loro lista del funnel col badge «Perso»
+  // (vedi `ePerso`). Un rapporto chiuso senza esito non è un cliente che si è
+  // fermato: mescolarli faceva sparire i lead persi dai Lead.
   if (nonFattura || p.anagrafiche_stato === 'dismesso') return 'dormiente';
-
-  if (p.stato === 'perso' || p.anagrafiche_stato === 'non_interessato') return 'perso';
 
   // CLIENTE — la trattativa è andata bene.
   if (p.stato === 'cliente' || p.anagrafiche_stato === 'attivo') return 'cliente';
@@ -149,8 +176,6 @@ export function coloreLivello(l: Livello): string {
       return '#5B8DEF';
     case 'dormiente':
       return '#B7791F';
-    case 'perso':
-      return '#B3261E';
     default:
       return '#8A8A8E';
   }

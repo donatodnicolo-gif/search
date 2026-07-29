@@ -5,7 +5,7 @@ import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-rou
 import type { Contact, Deal, Place, Priorita, Task, Visit } from '@/types';
 import { canonizzaLinee } from '@/types';
 import { colors, labelFase, labelStato, radius, spacing } from '@/lib/theme';
-import { LABEL_LIVELLO, coloreLivello, livelloDi } from '@/lib/livelli';
+import { COLORE_PERSO, LABEL_LIVELLO, LABEL_PERSO, coloreLivello, ePerso, livelloDi } from '@/lib/livelli';
 import { StatusBadge } from '@/components/ui';
 import { aggiornaNascosto, aggiornaPlace, completaTask, eliminaPlace, fetchAziendeScartate, fetchContatti, fetchContattiScartati, fetchDealPlace, fetchPlace, fetchTaskPlace, fetchVisitePlace, ignoraDuplicato, inserisciContatto, scartaAzienda, scartaContatto, sincronizzaPlaceRegistro, trovaDuplicati, unisciPlaces } from '@/lib/db';
 import { useAuth } from '@/lib/auth';
@@ -333,9 +333,12 @@ export default function SchedaAttivita() {
     [place, contatti, visite, deal],
   );
 
-  /** Da dove viene un livello che chiude il rapporto: si legge, non si indovina. */
+  /** Il negozio è segnato come chiuso? (non è un livello: è un segno addosso) */
+  const perso = Boolean(place && ePerso(place));
+
+  /** Da dove viene un rapporto chiuso: si legge, non si indovina. */
   const perche = useMemo(() => {
-    if (!place || (livello !== 'perso' && livello !== 'dormiente')) return null;
+    if (!place || (!perso && livello !== 'dormiente')) return null;
     if (place.anagrafiche_stato === 'non_interessato') return 'Lo dice il registro Anagrafiche: «non interessato».';
     if (place.anagrafiche_stato === 'dismesso') return 'Lo dice il registro Anagrafiche: «dismesso».';
     if (place.stato === 'perso') {
@@ -344,7 +347,7 @@ export default function SchedaAttivita() {
         : 'Lo stato del negozio è «perso»: da una visita «non è un target», o scelto a mano in Modifica.';
     }
     return null;
-  }, [place, livello, visite]);
+  }, [place, livello, perso, visite]);
 
   /**
    * È mio? Cioè: l'ho creato io. `creato_da` è NULL sui record storici (import
@@ -448,6 +451,7 @@ export default function SchedaAttivita() {
           {livello ? (
             <StatusBadge small label={LABEL_LIVELLO[livello]} colore={coloreLivello(livello)} />
           ) : null}
+          {perso ? <StatusBadge small label={LABEL_PERSO} colore={COLORE_PERSO} /> : null}
         </View>
         <Text style={styles.nome}>{place.nome}</Text>
         <Text style={styles.meta} numberOfLines={1}>

@@ -31,8 +31,19 @@ non è un campo in più da aggiornare a mano.
 | **Lead** | **c'è un contatto** | una persona in rubrica, un messaggio partito (mail/chiamata/visita), oppure è arrivato lui — richiesta dal sito, segnalazione — e lo si dichiara |
 | **Prospect** | **ha mostrato interesse**: ha risposto e la trattativa è aperta | trattativa aperta in Scout o su HubSpot |
 | **Cliente** | la trattativa è andata bene | trattativa vinta → ordine |
-| **Dormiente** | cliente che **ha smesso di fatturare** | FINANCE (`statoAnalisi` calcolato sui movimenti, via la Edge Function `finance`); lo stato `dismesso` del registro resta come ripiego |
-| **Perso** | chiuso senza esito o non in target | esito visita, stato registro |
+| **Dormiente** | cliente che **ha smesso di fatturare** | il registro Anagrafiche lo dà `dismesso`; quando FINANCE sarà collegato, `statoAnalisi` calcolato sui movimenti |
+
+**Perso non è un livello: è un segno addosso al negozio** (`ePerso()` in
+`lib/livelli.ts`). Viene dall'esito «non target» di una visita o dal registro
+che dice «non interessato».
+
+⚠️ **Cambiato il 29/07/2026 su decisione dell'utente.** Prima «perso» vinceva su
+tutto: un lead con una persona in rubrica, chiuso come «non target», **spariva
+dai Lead** e ricompariva in «Dormienti e persi». Cioè spariva dal posto dove uno
+lo va a cercare. Ora il livello resta quello del funnel — un lead perso resta
+fra i Lead — e il badge rosso dice che è chiuso. In **Dormienti** ci vanno
+**solo i dismessi del registro**: un rapporto chiuso senza esito non è un
+cliente che si è fermato, e mescolarli rendeva illeggibili tutt'e due le liste.
 
 ⚠️ **Scala ridefinita dall'utente il 28/07/2026.** Il confine fra Lead e Prospect
 era «c'è una persona in rubrica»; ora è **la trattativa**. Un nome in rubrica non

@@ -53,7 +53,9 @@ const SEZIONI: { titolo: string; voci: Voce[] }[] = [
       { name: 'lista-lead', route: 'lista', params: { vista: 'lead' }, label: 'Lead', icon: 'send-outline' },
       { name: 'lista-prospect', route: 'lista', params: { vista: 'prospect' }, label: 'Prospect', icon: 'people-outline' },
       { name: 'clienti', label: 'Clienti', icon: 'storefront-outline' },
-      { name: 'lista-inattivi', route: 'lista', params: { vista: 'inattivi' }, label: 'Dormienti e persi', icon: 'moon-outline' },
+      // Solo i dormienti: i persi restano nella lista del loro livello, col
+      // badge «Perso» (decisione utente 29/07/2026).
+      { name: 'lista-inattivi', route: 'lista', params: { vista: 'inattivi' }, label: 'Dormienti', icon: 'moon-outline' },
       // Le stesse persone, tagliate per linea di servizio invece che per
       // livello: «per il Gifting a che punto siamo?» non aveva un posto.
       { name: 'interessi', label: 'Per interesse', icon: 'pricetags-outline' },

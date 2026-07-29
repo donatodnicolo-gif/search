@@ -12,7 +12,7 @@ import { isAdmin } from '@/lib/admin';
 import { Filters, filtriVuoti, type FiltriMappa } from '@/components/Filters';
 import { PriorityBadge } from '@/components/PriorityBadge';
 import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
-import { coloreLivello, inLavorazione, LABEL_LIVELLO, LIVELLI, livelloDi, type Livello } from '@/lib/livelli';
+import { coloreLivello, COLORE_PERSO, ePerso, inLavorazione, LABEL_LIVELLO, LABEL_PERSO, LIVELLI, livelloDi, type Livello } from '@/lib/livelli';
 import { ScegliScriptModal } from '@/components/ScegliScriptModal';
 import { VisitaModal } from '@/components/VisitaModal';
 import { IconaAzione } from '@/components/AzioniRiga';
@@ -36,7 +36,10 @@ const LIVELLI_VISTA: Record<Vista, Livello[]> = {
   lead: ['lead'],
   prospect: ['prospect'],
   cliente: ['cliente'],
-  inattivi: ['dormiente', 'perso'],
+  // ⚠️ Solo i dormienti (decisione utente 29/07/2026): «in Dormienti e persi ci
+  // vanno solo quelli che Anagrafiche indica come dismessi». I persi restano
+  // nella lista del loro livello, con il badge — vedi `ePerso` in lib/livelli.
+  inattivi: ['dormiente'],
 };
 // Il titolo in cima alla schermata: la rotta è una sola (/lista) ma le viste
 // sono cinque, e un titolo fisso contraddiceva la voce di menu da cui si era
@@ -46,7 +49,7 @@ const NOME_VISTA: Record<Vista, string> = {
   lead: 'Lead',
   prospect: 'Prospect',
   cliente: 'Clienti',
-  inattivi: 'Dormienti e persi',
+  inattivi: 'Dormienti',
 };
 
 const TITOLO_VISTA: Record<Vista, string> = {
@@ -54,7 +57,8 @@ const TITOLO_VISTA: Record<Vista, string> = {
   lead: 'Lead — c’è un contatto: una persona in rubrica, un messaggio partito, o è arrivato lui. Non ha ancora mostrato interesse: sono quelli da incalzare.',
   prospect: 'Prospect — ha risposto e c’è una trattativa aperta: qui si sta giocando qualcosa, e l’azione è portarla a casa.',
   cliente: 'Clienti — hanno chiuso una trattativa.',
-  inattivi: 'Dormienti e persi — clienti che hanno smesso di fatturare (la lista più redditizia da riattivare) e rapporti chiusi senza esito.',
+  inattivi:
+    'Dormienti — clienti che il registro Anagrafiche dà per dismessi: ci conoscono e hanno già comprato, ed è la lista più redditizia da riattivare. I rapporti chiusi senza esito NON stanno qui: restano nella loro lista col badge «Perso».',
 };
 
 const RANK: Record<string, number> = { P1: 0, P2: 1, P3: 2 };
@@ -338,6 +342,9 @@ function Riga({
       badge={
         <>
           <StatusBadge small label={LABEL_LIVELLO[livello]} colore={coloreLivello(livello)} />
+          {/* Perso non toglie il negozio dalla sua lista: lo marca. Un lead
+              chiuso resta fra i Lead, e si vede che è chiuso. */}
+          {ePerso(place) ? <StatusBadge small label={LABEL_PERSO} colore={COLORE_PERSO} /> : null}
           <PriorityBadge priorita={place.priorita} small />
         </>
       }

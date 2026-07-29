@@ -2,11 +2,19 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { EsitoVisita } from '@/types';
 import { colors, radius, spacing } from '@/lib/theme';
 
-const OPZIONI: { key: EsitoVisita; label: string; colore: string }[] = [
-  { key: 'interessato', label: 'Interessato', colore: colors.successo },
-  { key: 'da_richiamare', label: 'Da richiamare', colore: colors.attenzione },
-  { key: 'non_target', label: 'Non target', colore: colors.grigio },
-  { key: 'chiuso', label: 'Chiuso', colore: colors.oro },
+/**
+ * ⚠️ L'esito **cambia lo stato del negozio** (`statoDaEsito` in @/types), e
+ * finora i bottoni non lo dicevano: «Non target» lo chiudeva come **Perso** —
+ * fuori da tutte le liste di lavoro — e «Chiuso» lo promuoveva a **Cliente**.
+ * Due conseguenze grosse dietro due parole che sembrano solo un appunto.
+ * Segnalato dall'utente due volte («perché è diventato perso?», 29/07/2026).
+ * La conseguenza ora sta scritta sul bottone.
+ */
+const OPZIONI: { key: EsitoVisita; label: string; effetto: string; colore: string }[] = [
+  { key: 'interessato', label: 'Interessato', effetto: 'resta da lavorare', colore: colors.successo },
+  { key: 'da_richiamare', label: 'Da richiamare', effetto: 'resta da lavorare', colore: colors.attenzione },
+  { key: 'non_target', label: 'Non target', effetto: 'lo chiude come PERSO', colore: colors.grigio },
+  { key: 'chiuso', label: 'Chiuso', effetto: 'lo porta a CLIENTE', colore: colors.oro },
 ];
 
 /** Selettore esito a bottoni grandi (uso con una mano). */
@@ -34,6 +42,9 @@ export function EsitoButtons({
             <Text style={[styles.txt, attivo ? styles.txtOn : { color: o.colore }]}>
               {o.label}
             </Text>
+            <Text style={[styles.effetto, attivo ? styles.effettoOn : { color: o.colore }]} numberOfLines={2}>
+              {o.effetto}
+            </Text>
           </Pressable>
         );
       })}
@@ -53,6 +64,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: spacing.sm,
   },
-  txt: { fontSize: 16, fontWeight: '800' },
+  txt: { fontSize: 16, fontWeight: '800', textAlign: 'center' },
   txtOn: { color: colors.bianco },
+  effetto: { fontSize: 11, fontWeight: '600', marginTop: 3, textAlign: 'center', opacity: 0.85 },
+  effettoOn: { color: colors.bianco },
 });
