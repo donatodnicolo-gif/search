@@ -81,7 +81,7 @@ export function AzioneSezione({
         <>
           <p className="sez-azione-nota">
             {modo === 'automatico'
-              ? `Spostando una mail in «questa» sezione, i dati vengono estratti dalla mail e mandati a ${scelta.app} senza chiedere niente. L’esito si legge sotto la mail, in «Risposte dalle app». Lo smistamento dell’AI e quello delle regole NON fanno partire nulla: solo lo spostamento fatto da te.`
+              ? `Spostando una mail in «questa» sezione, l’AI legge la mail (mittente, destinatari, oggetto, testo) ed estrae i dati, che vanno a ${scelta.app} senza chiedere niente. L’esito compare subito in cima alla posta, e resta scritto sotto la mail in «Risposte dalle app» insieme ai dati mandati. Lo smistamento dell’AI e quello delle regole NON fanno partire nulla: solo lo spostamento fatto da te.`
               : `Spostando una mail in «questa» sezione si apre la proposta con i dati già pronti: parte solo quando confermi tu.`}
           </p>
           <label className="field-label" style={{ marginTop: 10 }}>

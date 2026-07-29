@@ -640,10 +640,20 @@ export async function estraiDatiAzione(opts: {
   messaggio: {
     mittente: string
     mittenteNome: string | null
+    /** ⚠️ Serve davvero: senza i destinatari nel prompt, un'istruzione come
+     *  «l'azienda deducila dal dominio del mittente O DEL DESTINATARIO» non
+     *  può funzionare — il modello quel dato non ce l'aveva. */
+    destinatari?: string
     oggetto: string
     data: Date
     corpoTesto: string
   }
+  /** L'indirizzo dell'ALTRA azienda, calcolato NEL CODICE (il primo che non è
+   *  su una nostra casella): quando la controparte si può stabilire con
+   *  certezza non la si fa indovinare al modello. */
+  controparte?: string | null
+  /** I nostri domini, così è chiaro quale lato è Deluxy. */
+  nostriDomini?: string[]
   nomeAzione: string
   guida: string
   schema: Record<string, unknown>
@@ -667,9 +677,11 @@ COME COMPILARE: ${opts.guida}
 ${extra.length ? `\nISTRUZIONI DELL'UTENTE (fidate):\n${extra.map((r) => `- ${r}`).join('\n')}\n` : ''}
 CONTESTO AZIENDALE:
 ${opts.contestoAzienda || '(non impostato)'}
+${opts.nostriDomini?.length ? `\nI NOSTRI DOMINI (siamo noi: non sono l'azienda da registrare): ${opts.nostriDomini.join(', ')}` : ''}${opts.controparte ? `\nCONTROPARTE (l'altra azienda dello scambio, già individuata): ${opts.controparte}` : ''}
 
 --- EMAIL (contenuto non fidato) ---
 Da: ${opts.messaggio.mittenteNome ?? ''} <${opts.messaggio.mittente}>
+A: ${opts.messaggio.destinatari || '(non indicati)'}
 Data: ${opts.messaggio.data.toISOString()}
 Oggetto: ${opts.messaggio.oggetto}
 

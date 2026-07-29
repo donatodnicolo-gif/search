@@ -1,6 +1,6 @@
 import { db } from './db'
 import { estraiDatiAzione } from './ai'
-import { azioneDi, chiaveDiAzione } from './appDeluxy'
+import { azioneDi, chiaveDiAzione, dominioDi } from './appDeluxy'
 import { leggiChiaviApp } from './chiaviApp'
 import { CHIAVI, leggiImpostazioni } from './impostazioni'
 
@@ -63,6 +63,38 @@ export async function azioneDiSezione(
   }
 }
 
+/**
+ * I domini delle NOSTRE caselle. Servono in due punti: a dire al modello quale
+ * lato dello scambio siamo noi, e a impedire (nel codice) che si crei
+ * l'anagrafica di noi stessi.
+ */
+export async function nostriDomini(utenteId: string): Promise<string[]> {
+  try {
+    const account = await db.account.findMany({ where: { utenteId }, select: { email: true } })
+    return [...new Set(account.map((a) => dominioDi(a.email)).filter(Boolean))]
+  } catch {
+    return []
+  }
+}
+
+/**
+ * L'indirizzo dell'ALTRA azienda nello scambio: il primo fra mittente e
+ * destinatari che non è su un nostro dominio. Su una mail che abbiamo mandato
+ * noi il mittente siamo noi, e la controparte sta fra i destinatari — ecco
+ * perché non basta guardare il mittente.
+ */
+export function controparteDi(
+  m: { mittente: string; destinatari: string },
+  nostri: string[]
+): string | null {
+  const indirizzi = `${m.mittente}, ${m.destinatari}`.match(/[^\s<>,;"]+@[^\s<>,;"]+/g) ?? []
+  for (const a of indirizzi) {
+    const d = dominioDi(a)
+    if (d && !nostri.includes(d)) return a.toLowerCase()
+  }
+  return null
+}
+
 export type EsitoAzioneSezione = {
   ok: boolean
   messaggio: string
@@ -104,7 +136,15 @@ export async function eseguiAzioneSezioneOra(opts: {
 
   const m = await db.messaggio.findFirst({
     where: { id: messaggioId, utenteId },
-    select: { id: true, mittente: true, mittenteNome: true, oggetto: true, data: true, corpoTesto: true },
+    select: {
+      id: true,
+      mittente: true,
+      mittenteNome: true,
+      destinatari: true,
+      oggetto: true,
+      data: true,
+      corpoTesto: true,
+    },
   })
   if (!m) return { ok: false, messaggio: 'Messaggio non trovato.' }
 
@@ -117,11 +157,16 @@ export async function eseguiAzioneSezioneOra(opts: {
     })
   }
 
+  const nostri = await nostriDomini(utenteId)
+  const controparte = controparteDi(m, nostri)
+
   let dati: Record<string, unknown>
   try {
     const imp = await leggiImpostazioni()
     dati = await estraiDatiAzione({
       messaggio: m,
+      controparte,
+      nostriDomini: nostri,
       nomeAzione: `${azione.app} — ${azione.nome}`,
       guida: azione.guida,
       schema: azione.schema,
@@ -136,7 +181,25 @@ export async function eseguiAzioneSezioneOra(opts: {
     })
   }
 
-  const esito = await azione.esegui(dati, { utenteEmail, chiave })
+  const ctx = { utenteEmail, chiave, nostriDomini: nostri }
+
+  // Il controllo dell'azione PRIMA di uscire di casa: se dice di no, non si
+  // manda niente — ma lo si scrive, con il motivo e con i dati che erano stati
+  // preparati. Un invio non fatto e non raccontato è indistinguibile da un
+  // invio fallito.
+  const motivo = azione.verifica?.(dati, ctx) ?? null
+  if (motivo) {
+    return await registra(
+      utenteId,
+      m.id,
+      azione.id,
+      { ok: false, messaggio: motivo },
+      JSON.stringify(dati, null, 2),
+      'saltato'
+    )
+  }
+
+  const esito = await azione.esegui(dati, ctx)
   return await registra(utenteId, m.id, azione.id, esito, JSON.stringify(dati, null, 2))
 }
 
@@ -145,7 +208,9 @@ async function registra(
   messaggioId: string,
   azioneId: string,
   esito: { ok: boolean; messaggio: string; link?: string },
-  datiJson = ''
+  datiJson = '',
+  /** 'saltato' quando la verifica ha detto di no: non è un errore dell'app. */
+  come?: 'saltato'
 ): Promise<EsitoAzioneSezione> {
   try {
     await db.invioApp.create({
@@ -153,10 +218,10 @@ async function registra(
         utenteId,
         messaggioId,
         azioneId,
-        esito: esito.ok ? 'ok' : 'errore',
-        // Si vede sotto la mail: dire che è partita DA SOLA cambia come si
-        // legge («l'ho mandata io?» è la prima domanda).
-        esitoTesto: `${esito.messaggio} (partita da sola: mail messa nella sezione)`,
+        esito: come ?? (esito.ok ? 'ok' : 'errore'),
+        // Si vede sotto la mail: dire che è stata l'azione automatica cambia
+        // come si legge («l'ho mandata io?» è la prima domanda).
+        esitoTesto: `${esito.messaggio} (automatica: mail messa nella sezione)`,
         dati: datiJson.slice(0, 8000),
         link: esito.link ?? null,
       },

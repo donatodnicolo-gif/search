@@ -32,6 +32,7 @@ import { threadEChiuso } from '@/lib/threadChiusi'
 import { ChiudiThread } from '@/components/ChiudiThread'
 import { eContattoAI } from '@/lib/contattiAI'
 import { azioneDi, descriviAzioni } from '@/lib/appDeluxy'
+import { DatiInviati } from '@/components/DatiInviati'
 import { leggiChiaviApp } from '@/lib/chiaviApp'
 import { AppSuMessaggio } from '@/components/AppSuMessaggio'
 import { leggiEventoProposto } from '@/lib/eventoProposto'
@@ -73,6 +74,9 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
     azioneId: string
     esito: string
     esitoTesto: string
+    /** I dati effettivamente mandati all'app, in JSON: è il log di cosa è
+     *  uscito di casa (quale azienda, quale email). */
+    dati: string
     link: string | null
     creatoIl: Date
   }
@@ -89,7 +93,7 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
       .findMany({
         where: { utenteId: u.id, messaggioId: messaggio.id },
         orderBy: { creatoIl: 'desc' },
-        select: { id: true, azioneId: true, esito: true, esitoTesto: true, link: true, creatoIl: true },
+        select: { id: true, azioneId: true, esito: true, esitoTesto: true, dati: true, link: true, creatoIl: true },
       })
       .catch(() => [] as InvioAppRiga[]),
     // Quali APP DELUXY sono collegate: decide cosa si può richiamare da qui.
@@ -497,9 +501,15 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
                     <span className="dot" />
                     {az ? `${az.app} — ${az.nome}` : iv.azioneId}
                   </span>
-                  <span className={`badge ${iv.esito === 'ok' ? 'green' : 'red'}`}>
+                  <span
+                    className={`badge ${
+                      iv.esito === 'ok' ? 'green' : iv.esito === 'saltato' ? 'neutral' : 'red'
+                    }`}
+                  >
                     <span className="dot" />
-                    {iv.esito === 'ok' ? 'Riuscito' : 'Errore'}
+                    {/* «Saltato» non è un errore dell'app: è un controllo
+                        nostro che ha detto di no PRIMA di mandare. */}
+                    {iv.esito === 'ok' ? 'Riuscito' : iv.esito === 'saltato' ? 'Non mandato' : 'Errore'}
                   </span>
                   <span className="muted" style={{ fontSize: 12 }}>
                     {iv.creatoIl.toLocaleString('it-IT', {
@@ -512,6 +522,10 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
                   </span>
                 </div>
                 <div className="invio-app-testo">{iv.esitoTesto}</div>
+                {/* COSA è stato mandato. Era già salvato ma non si vedeva: e
+                    senza, «contatto registrato» non permette di controllare
+                    niente — quale azienda, quale email, quale città. */}
+                <DatiInviati json={iv.dati} />
                 {iv.link && (
                   <a href={iv.link} target="_blank" rel="noreferrer" className="azione-riga" style={{ marginTop: 6, display: 'inline-block' }}>
                     Apri nell’app →

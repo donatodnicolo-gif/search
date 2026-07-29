@@ -30,8 +30,15 @@ export const CHIAVE_DI_APP: Record<string, NomeChiaveApp> = {
 
 export type EsitoAzione = { ok: boolean; messaggio: string; link?: string }
 
-/** Contesto passato a un'azione: chi la esegue (header/log) e la sua chiave. */
-export type ContestoAzione = { utenteEmail?: string; chiave: string }
+/** Contesto passato a un'azione: chi la esegue (header/log), la sua chiave e i
+ *  domini delle NOSTRE caselle (per non registrare noi stessi come azienda). */
+export type ContestoAzione = { utenteEmail?: string; chiave: string; nostriDomini?: string[] }
+
+/** Il dominio di un indirizzo, minuscolo ('Mario <m@Chanel.com>' → 'chanel.com'). */
+export function dominioDi(indirizzo: string | null | undefined): string {
+  const m = String(indirizzo ?? '').match(/@([^\s>,;]+)/)
+  return m ? m[1].toLowerCase().replace(/[.>,;]+$/, '') : ''
+}
 
 /** Un campo del FORM con cui l'utente controlla i dati prima dell'invio.
  *  Senza `campi` il dialogo mostra il JSON grezzo (serve per le azioni con
@@ -62,6 +69,13 @@ export type AzioneApp = {
   cercaAzienda?: boolean
   /** Guida per l'AI su come compilare i dati. */
   guida: string
+  /**
+   * Controllo PRIMA di partire: torna il motivo per cui NON si deve mandare,
+   * oppure null se si può. Esiste perché certe cose non si possono affidare al
+   * prompt: «non creare anagrafiche del nostro dominio» dev'essere vera sempre,
+   * e un'azione automatica non ha nessuno che la guardi.
+   */
+  verifica?: (dati: Record<string, unknown>, ctx: ContestoAzione) => string | null
   esegui: (dati: Record<string, unknown>, ctx: ContestoAzione) => Promise<EsitoAzione>
 }
 
@@ -148,6 +162,19 @@ const AZIONI: AzioneApp[] = [
         note: { type: ['string', 'null'], description: 'Cosa chiede / contesto utile, in una frase.' },
       },
     },
+    // ⚠️ Il registro delle aziende non deve riempirsi di NOI. L'istruzione
+    // «i contatti del nostro dominio non vanno creati» scritta nel prompt non
+    // basta: qui si crea una scheda vera, e in automatico non c'è nessuno che
+    // controlli. Quindi è una regola di codice.
+    verifica(dati, ctx) {
+      const nostri = (ctx.nostriDomini ?? []).filter(Boolean)
+      const dominio = dominioDi(typeof dati.email === 'string' ? dati.email : '')
+      if (dominio && nostri.includes(dominio)) {
+        return `Non registro «${String(dati.nome ?? '')}»: l’indirizzo ${dati.email} è del nostro dominio (${dominio}), non di un’azienda esterna.`
+      }
+      if (!String(dati.nome ?? '').trim()) return 'Non registro: dalla mail non è uscito il nome dell’azienda.'
+      return null
+    },
     async esegui(dati, ctx) {
       const referente =
         typeof dati.referenteNome === 'string' && dati.referenteNome
@@ -179,12 +206,15 @@ const AZIONI: AzioneApp[] = [
             body: JSON.stringify(patch),
           },
           (status, risposta) => {
-            if (status >= 200 && status < 300)
+            if (status >= 200 && status < 300) {
+              const p = (risposta ?? {}) as { nome?: string }
+              const chi = p.nome || String(dati.partnerNome ?? dati.nome ?? 'azienda scelta')
               return {
                 ok: true,
-                messaggio: `Contatto agganciato all’azienda già presente in Anagrafiche.`,
+                messaggio: `Contatto ${dati.email ? `«${dati.email}» ` : ''}agganciato a «${chi}», scheda già presente in Anagrafiche.`,
                 link: `${ANAGRAFICHE_URL}/partner/${partnerId}`,
               }
+            }
             if (status === 401 || status === 403)
               return { ok: false, messaggio: 'Chiave Anagrafiche non valida o di sola lettura (serve la chiave di scrittura).' }
             if (status === 404) return { ok: false, messaggio: 'L’azienda scelta non esiste più in Anagrafiche.' }
@@ -216,8 +246,21 @@ const AZIONI: AzioneApp[] = [
           body: JSON.stringify(body),
         },
         (status, risposta) => {
-          if (status === 201) return { ok: true, messaggio: 'Contatto registrato in Anagrafiche.', link: ANAGRAFICHE_URL }
-          if (status === 200) return { ok: true, messaggio: 'Contatto già presente: dati aggiornati in Anagrafiche.', link: ANAGRAFICHE_URL }
+          // Il registro risponde con la scheda: si dice QUALE, e ci si va
+          // direttamente. «Contatto registrato» senza dire chi non permette di
+          // controllare niente — men che meno quando parte da sola.
+          const p = (risposta ?? {}) as { id?: string; nome?: string; esito?: string; applicati?: string[] }
+          const chi = [p.nome, dati.email].filter(Boolean).join(' · ') || String(dati.nome ?? '')
+          const link = p.id ? `${ANAGRAFICHE_URL}/partner/${p.id}` : ANAGRAFICHE_URL
+          if (status === 201) return { ok: true, messaggio: `Creata la scheda «${chi}» in Anagrafiche.`, link }
+          if (status === 200) {
+            const campi = p.applicati?.length ? ` Aggiornati: ${p.applicati.join(', ')}.` : ''
+            return {
+              ok: true,
+              messaggio: `«${chi}» era già in Anagrafiche (${p.esito ?? 'aggancio'}): scheda aggiornata.${campi}`,
+              link,
+            }
+          }
           if (status === 401 || status === 403)
             return { ok: false, messaggio: 'Chiave Anagrafiche non valida o di sola lettura (serve la chiave di scrittura).' }
           return { ok: false, messaggio: testoErrore(risposta, `Anagrafiche ha risposto ${status}.`) }

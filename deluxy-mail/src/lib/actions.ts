@@ -13,8 +13,10 @@ import type { Account, Messaggio, Prisma } from '@prisma/client'
 import { alternative } from './condizioni'
 import {
   azioneDiSezione,
+  controparteDi,
   eseguiAzioneSezioneOra,
   modoValido as modoAzioneSezione,
+  nostriDomini,
 } from './azioneSezione'
 import { htmlDiMessaggio } from './htmlServer'
 import { sanitizzaHtml } from './sanitizzaHtml'
@@ -117,7 +119,13 @@ import { ricorrenzaDaForm, dateRicorrenza, descriviRicorrenza } from './ricorren
 import { CODICI_PRIORITA, FUSO } from './format'
 import { traduciVerso, pianificaAttivita, pianificaConProposta, estraiDatiAzione, riassumiSezione, classificaDelega, interpretaComandoPosta, estraiAppuntamentoDaTesto, scriviMailNuova } from './ai'
 import { raggruppa } from './thread'
-import { azioneDi, regolaAppPerMail, chiaveDiAzione, type AzioneDescritta } from './appDeluxy'
+import {
+  azioneDi,
+  regolaAppPerMail,
+  chiaveDiAzione,
+  type AzioneDescritta,
+  type EsitoAzione,
+} from './appDeluxy'
 import { leggiChiaviApp, salvaChiaveApp, type NomeChiaveApp } from './chiaviApp'
 import { provaConnessione, salvaInInviata, trovaCartellaInviata, leggiAllegati as leggiAllegatiImap } from './imap'
 import { scriviImpostazione, leggiImpostazioni, CHIAVI } from './impostazioni'
@@ -3164,7 +3172,14 @@ export async function proponiPerApp(
   const utenteId = await uid()
   const m = await db.messaggio.findFirst({
     where: { id: messaggioId, utenteId },
-    select: { mittente: true, mittenteNome: true, oggetto: true, data: true, corpoTesto: true },
+    select: {
+      mittente: true,
+      mittenteNome: true,
+      destinatari: true,
+      oggetto: true,
+      data: true,
+      corpoTesto: true,
+    },
   })
   if (!m) return { ok: false, messaggio: 'Messaggio non trovato.' }
 
@@ -3205,8 +3220,14 @@ export async function proponiPerApp(
 
   try {
     const imp = await leggiImpostazioni()
+    // Chi è l'altra azienda si stabilisce nel codice (mittente o destinatari,
+    // scartando i nostri domini) e si passa già risolta: su una mail che
+    // abbiamo mandato noi, il mittente siamo noi.
+    const nostri = await nostriDomini(utenteId)
     const dati = await estraiDatiAzione({
       messaggio: m,
+      controparte: controparteDi(m, nostri),
+      nostriDomini: nostri,
       nomeAzione: `${azione.app} — ${azione.nome}`,
       guida: azione.guida,
       schema: azione.schema,
@@ -3302,7 +3323,15 @@ export async function eseguiInvioApp(
     return { ok: false, messaggio: 'I dati non sono un JSON valido: correggi e riprova.' }
   }
 
-  const esito = await azione.esegui(dati, { utenteEmail: u.email, chiave })
+  const ctx = { utenteEmail: u.email, chiave, nostriDomini: await nostriDomini(utenteId) }
+
+  // Lo stesso controllo dell'invio automatico: vale anche qui, dove a premere
+  // è una persona — «non registrare noi stessi» non cambia se il tasto lo
+  // schiacci tu. Non si manda, si dice perché, e resta scritto.
+  const motivo = azione.verifica?.(dati, ctx) ?? null
+  const esito: EsitoAzione = motivo
+    ? { ok: false, messaggio: motivo }
+    : await azione.esegui(dati, ctx)
 
   try {
     await db.invioApp.create({
@@ -3310,7 +3339,7 @@ export async function eseguiInvioApp(
         utenteId,
         messaggioId: m.id,
         azioneId: azione.id,
-        esito: esito.ok ? 'ok' : 'errore',
+        esito: motivo ? 'saltato' : esito.ok ? 'ok' : 'errore',
         esitoTesto: esito.messaggio,
         dati: datiJson.slice(0, 8000),
         link: esito.link ?? null,

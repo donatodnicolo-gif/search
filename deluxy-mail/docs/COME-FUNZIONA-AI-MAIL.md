@@ -67,10 +67,25 @@ Così «questo è un contatto nuovo» diventa un gesto solo: trascini la mail ne
 sezione *Contatti nuovi* e la scheda nasce in Anagrafiche.
 
 **La risposta la vedi lì, dalla posta in arrivo**: sopra la lista compare l'avviso
-con l'esito vero — «Anagrafiche: contatto registrato», oppure in rosso il motivo per
-cui non è riuscita — senza aprire la mail. (L'invio automatico parte dopo lo
-spostamento, quindi l'avviso dice prima «sto mandando…» e poi com'è andata.) Sotto la
-mail, in «Risposte dalle app», resta comunque lo storico.
+con l'esito vero — «Anagrafiche: creata la scheda «Chanel · info@chanel.com»», oppure
+in rosso il motivo per cui non è riuscita — senza aprire la mail. (L'invio automatico
+parte dopo lo spostamento, quindi l'avviso dice prima «sto mandando…» e poi com'è
+andata.) Sotto la mail, in «Risposte dalle app», resta lo storico: esito, link diretto
+alla scheda nell'app e **«Cosa è stato mandato»**, cioè i campi estratti dalla mail,
+uno per riga.
+
+**Cosa legge l'AI prima di mandare.** Legge la mail vera: mittente, **destinatari**,
+oggetto, data e il corpo (i primi 6.000 caratteri), più il contesto aziendale, le tue
+istruzioni per quella sezione e — calcolata prima, non indovinata — la **controparte**,
+cioè il primo indirizzo dello scambio che non è su un nostro dominio. È così che
+un'istruzione tipo «l'azienda deducila dal dominio del mittente o del destinatario»
+può funzionare anche su una mail che abbiamo mandato noi.
+
+**Due cose non dipendono dall'AI**, perché qui si scrive in un registro aziendale:
+non si crea mai l'anagrafica di un indirizzo **del nostro dominio**, e non si manda
+niente se dalla mail non è uscito il nome dell'azienda. In quei casi la riga resta
+scritta come **«Non mandato»** con il motivo e con i dati che erano stati preparati:
+un invio non fatto e non raccontato sarebbe indistinguibile da uno fallito.
 
 ⚠️ **Vale solo per lo spostamento fatto da te.** Lo smistamento dell'AI e quello
 delle regole non chiamano nessuno: la sezione la scrivono anche loro, e un errore
