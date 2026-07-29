@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { pezziDiTesto, ripulisciTestoEmail } from '@/lib/testo-email'
+import { inserisciScript } from '@/lib/script-testo'
 
 // L'inbox unificata: elenco conversazioni a sinistra, thread a destra.
 // Si aggiorna da sola con un polling leggero (le nuove conversazioni e i
@@ -42,6 +43,16 @@ type MessaggioDto = {
   stato: string
   errore: string
   creatoIl: string
+}
+
+/** Una risposta pronta, come sta in /script. */
+type ScriptDto = {
+  id: string
+  titolo: string
+  categoria: string
+  testo: string
+  quando: string
+  attivo: boolean
 }
 
 const NOMI_CANALE: Record<string, string> = {
@@ -339,6 +350,44 @@ export function Inbox({
     return gruppi
   }, [brandNoti, conversazioni, marchioDi])
 
+  // ── Risposte pronte, per tipologia ──
+  //
+  // La «Risposta rapida» chiede all'AI di scegliere: costa qualche secondo e
+  // ogni tanto sceglie male. Qui l'operatore prende la tipologia che sa già
+  // essere quella giusta e il testo entra subito. Le due cose convivono: l'AI
+  // per i casi da capire, l'elenco per i novanta casi su cento che si
+  // riconoscono a colpo d'occhio.
+  const [risposteAperte, setRisposteAperte] = useState(false)
+  const [risposte, setRisposte] = useState<ScriptDto[]>([])
+  const [cercaRisposta, setCercaRisposta] = useState('')
+  const bozzaRef = useRef<HTMLTextAreaElement>(null)
+
+  useEffect(() => {
+    if (!risposteAperte || risposte.length) return
+    fetch('/api/script')
+      .then((r) => (r.ok ? r.json() : { script: [] }))
+      .then((d: { script?: ScriptDto[] }) => setRisposte((d.script ?? []).filter((s) => s.attivo)))
+      .catch(() => setRisposte([]))
+  }, [risposteAperte, risposte.length])
+
+  function usaRisposta(s: ScriptDto) {
+    const campo = bozzaRef.current
+    // Il testo entra dove sta il cursore e, se nel riquadro c'è già un saluto,
+    // quello dello script si toglie: altrimenti il cliente riceve
+    // «Buongiorno… Buongiorno…» ogni singola volta.
+    const da = campo?.selectionStart ?? bozza.length
+    const a = campo?.selectionEnd ?? bozza.length
+    const esito = inserisciScript(bozza, s.testo, da, a)
+    setBozza(esito.testo)
+    setRisposteAperte(false)
+    // Il conteggio degli usi ordina l'elenco: i più usati vengono prima.
+    fetch(`/api/script/${s.id}/usato`, { method: 'POST' }).catch(() => {})
+    requestAnimationFrame(() => {
+      campo?.focus()
+      campo?.setSelectionRange(esito.nuovoCursore, esito.nuovoCursore)
+    })
+  }
+
   // Manda un file su WhatsApp. Il testo scritto nel riquadro diventa la
   // didascalia della foto: è quello che ci si aspetta scrivendo prima e
   // allegando dopo.
@@ -554,8 +603,72 @@ export function Inbox({
               </div>
             ) : null}
 
+            {/* Le risposte pronte, raggruppate per tipologia. Sta sopra il
+                riquadro e non è una finestra: si legge la conversazione mentre
+                si sceglie, che è esattamente quello che si fa. */}
+            {risposteAperte ? (
+              <div className="risposte-pronte">
+                <input
+                  autoFocus
+                  placeholder="Cerca fra le risposte…"
+                  value={cercaRisposta}
+                  onChange={(e) => setCercaRisposta(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') setRisposteAperte(false)
+                  }}
+                />
+                <div className="elenco-risposte">
+                  {(() => {
+                    const q = cercaRisposta.trim().toLowerCase()
+                    const trovate = risposte.filter(
+                      (s) =>
+                        !q ||
+                        s.titolo.toLowerCase().includes(q) ||
+                        s.categoria.toLowerCase().includes(q) ||
+                        s.quando.toLowerCase().includes(q) ||
+                        s.testo.toLowerCase().includes(q)
+                    )
+                    if (!trovate.length) {
+                      return (
+                        <p className="colonna-vuota">
+                          {risposte.length
+                            ? 'Nessuna risposta con queste parole.'
+                            : 'Nessuna risposta pronta: si scrivono in Script.'}
+                        </p>
+                      )
+                    }
+                    // Raggruppate per tipologia, nell'ordine in cui arrivano da
+                    // /api/script (categoria, poi le più usate).
+                    const perCategoria = new Map<string, ScriptDto[]>()
+                    for (const s of trovate) {
+                      const gruppo = perCategoria.get(s.categoria) ?? []
+                      gruppo.push(s)
+                      perCategoria.set(s.categoria, gruppo)
+                    }
+                    return [...perCategoria].map(([categoria, righe]) => (
+                      <div className="gruppo-risposte" key={categoria}>
+                        <span className="tipologia">{categoria}</span>
+                        {righe.map((s) => (
+                          <button
+                            key={s.id}
+                            className="risposta"
+                            onClick={() => usaRisposta(s)}
+                            title={s.quando || 'Inserisce il testo nel riquadro'}
+                          >
+                            <span className="titolo">{s.titolo}</span>
+                            <span className="anteprima-testo">{s.testo}</span>
+                          </button>
+                        ))}
+                      </div>
+                    ))
+                  })()}
+                </div>
+              </div>
+            ) : null}
+
             <div className="composer">
               <textarea
+                ref={bozzaRef}
                 rows={1}
                 placeholder={`Rispondi su ${etichettaCanale(selezionata.canale)}…`}
                 value={bozza}
@@ -567,6 +680,16 @@ export function Inbox({
                   }
                 }}
               />
+              {/* Le risposte pronte per tipologia: nessuna attesa e nessuna
+                  scelta da indovinare. L'AI resta accanto, per i casi che
+                  vanno capiti. */}
+              <button
+                className="bottone secondario"
+                onClick={() => setRisposteAperte(!risposteAperte)}
+                title="Le risposte pronte, per tipologia"
+              >
+                Risposte
+              </button>
               {/* Allegati: per ora solo WhatsApp. Sugli altri canali il bottone
                   non c'è invece di esserci e fallire — Meta e SMTP vogliono
                   strade diverse. */}

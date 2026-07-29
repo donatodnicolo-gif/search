@@ -55,6 +55,24 @@ locale, altrimenti nulla si decifra.
 
 ## FATTO
 
+- **RISPOSTE PRONTE PER TIPOLOGIA NEL RIQUADRO DI RISPOSTA** (29/07/2026).
+  Bottone **Risposte** accanto a «Risposta rapida»: apre l'elenco degli Script
+  attivi **raggruppati per categoria**, con ricerca; un clic e il testo entra
+  nel riquadro dove sta il cursore. Il conteggio `usi` cresce, quindi i più
+  usati salgono in cima.
+  - Convive con la **Risposta rapida** (AI) e non la sostituisce: l'AI serve
+    per i messaggi da capire, l'elenco per i casi che si riconoscono a colpo
+    d'occhio — e non fa aspettare né sceglie al posto tuo.
+  - Riusa `inserisciScript()` di `src/lib/script-testo.ts`: se nel riquadro c'è
+    già un saluto, quello dello script si toglie. Senza, il cliente riceveva
+    «Buongiorno… Buongiorno…» ogni volta.
+  - ⚠️ **Niente invio automatico.** Il testo si mette nel riquadro e parte solo
+    quando lo manda una persona. Un invio davvero automatico va deciso a parte:
+    servono le regole di quando scatta, e sbagliarne una vuol dire scrivere una
+    cosa sbagliata a un cliente vero senza che nessuno l'abbia letta.
+  - Da fare: **i testi veri**. In tabella ci sono ancora i 3 script di prova
+    creati per collaudare l'AI.
+
 - **L'ETICHETTA DI UN ACCOUNT NON È UN MARCHIO** (29/07/2026). In Inbox
   comparivano quattro colonne — Cake, Deluxy, FLowers, **CakeDesignMe** — ma
   «CakeDesignMe» non è un brand: è il nome che avevamo dato al numero WhatsApp
