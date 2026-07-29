@@ -582,6 +582,16 @@ cd deluxy-messaging && node scripts/stato-whatsapp.mjs
 - **Serve**: `DATABASE_URL` e `APP_SECRET` nel `.env` dell'app
 - **Nota**: sola lettura, non scrive niente. Dei segreti stampa solo «presente/MANCA». ⚠️ Se l'`APP_SECRET` locale non è quello di Vercel, i token salvati dall'app in produzione risultano **illeggibili** e la parte su Meta non parte: è un disallineamento di ambiente, non un token sbagliato.
 
+### token-instagram.mjs — deluxy-messaging
+Tira fuori i dati da incollare in `/account-meta`: per ogni Pagina Facebook l'id, l'**ID dell'account Instagram**, il `@nome utente`, il **Page Access Token** e se l'app è già iscritta agli eventi.
+
+```bash
+cd deluxy-messaging && node scripts/token-instagram.mjs --mostra-token
+```
+
+- **Serve**: `META_TOKEN` nel `.env` dell'app — il token dell'**utente di sistema** (Business Manager → Impostazioni azienda → Utenti → Utenti di sistema → Genera token) con `pages_show_list`, `pages_messaging`, `pages_manage_metadata`, `instagram_basic`, `instagram_manage_messages`
+- **Nota**: un «token Instagram» non esiste — Instagram Messaging usa il Page Access Token della Pagina collegata. Sola lettura: non iscrive la Pagina e non tocca il database. Senza `--mostra-token` i token restano mascherati (usalo nel tuo terminale, non in una sessione condivisa). Se non vede nessuna Pagina, all'utente di sistema è stato assegnato solo il WhatsApp Business e non la Pagina.
+
 ---
 
 ## 5. Asset e documenti
