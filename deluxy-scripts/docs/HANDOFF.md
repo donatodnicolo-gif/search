@@ -1,10 +1,14 @@
 # Deluxy Scripts — handoff
 
-**Aggiornato: 26 luglio 2026.** Cartella `C:\Users\nicol\scoutwt\deluxy-scripts`,
+**Aggiornato: 29 luglio 2026.** Cartella `C:\Users\nicol\scoutwt\deluxy-scripts`,
 branch `scout-ui`, porta **3170**. **LIVE su
 [deluxy-scripts.vercel.app](https://deluxy-scripts.vercel.app)** (progetto Vercel
 `deluxy-scripts`, team `deluxy`), protetta da password del team, con ingresso
 automatico dal Hub.
+
+> Il database condiviso risponde: verificato il 29/07 sia da locale sia dalla
+> produzione (Vercel → Postgres) dopo che l'utente aveva cambiato una password.
+> Le credenziali in uso sono ancora valide.
 
 Cos'è, in una riga: l'archivio dei **testi pronti** dell'azienda — offerte e
 script di vendita, inviti, presentazioni, solleciti, risposte ai clienti — con i
@@ -69,27 +73,42 @@ buchi `{{COSÌ}}` che si riempiono con i dati di chi riceve. Manuale d'uso:
   e segnalata, `mailto:` con oggetto e corpo, API che restituisce
   `daCompilare: [AZIENDA, DATA, NOME_CLIENTE, ORA]` e l'origine di ogni valore.
   Il testo di prova è stato cancellato: l'archivio parte vuoto.
+- **Scrittura da un'altra app** (aggiunta da un'altra sessione, commit
+  `1e65a10d`): `POST /api/v1/script` crea o aggiorna un testo con una chiave di
+  **scrittura**, e lo accende per l'app che l'ha mandato — così chi riconosce
+  una formula buona mentre lavora in AI Mail la salva senza cambiare app, e il
+  testo continua a vivere qui. Stesso commit: la sezione «Risposte rapide» in AI
+  Mail.
 - `npx tsc --noEmit` e `npm run build`: puliti.
 
-## MANCA
+## PUNTI APERTI (in ordine di cosa sblocca cosa)
 
-1. **Riempire l'archivio**: i primi candidati sono i testi che oggi si copiano a
-   mano da una chat all'altra — l'invito agli eventi, la presentazione per i
-   nuovi partner B2B, il sollecito di pagamento, le risposte standard ai reclami.
-2. **Usarlo dalle app**: Customer Service e AI Mail sono i due naturali (prendono
-   il testo via API e riempiono `{{NOME_CLIENTE}}`, `{{DATA}}` con i dati
-   dell'ordine che hanno già). Nessuna app lo chiama ancora.
-3. **Storico delle versioni**: oggi il testo si sovrascrive. Se serve tornare
-   indietro va aggiunta una tabella `VersioneScript` (corpo + nota + data).
-4. **Scrittura via API**: le chiavi hanno già il flag `scrittura`, ma nessun
-   endpoint POST/PATCH lo usa.
-5. **Allegati e formattazione**: i testi sono testo semplice. Niente grassetto,
-   niente immagini, niente PDF della presentazione.
+1. **L'archivio è vuoto.** Finché non ci sono testi veri, tutto il resto è
+   impianto: nessuno lo apre, nessuna app ha niente da leggere. Primi candidati,
+   quelli che oggi si copiano a mano da una chat all'altra: invito agli eventi,
+   presentazione per i nuovi partner B2B, sollecito di pagamento, le tre o
+   quattro risposte standard ai reclami.
+2. **Nessuna chiave è stata data a nessuno.** L'elenco chiavi è vuoto: si
+   generano da *Impostazioni → Crea una chiave* (o `npm run chiave -- <app>`) e
+   vanno nel `.env` dell'app come `SCRIPTS_API_KEY`, più cassaforte del Hub.
+3. **Customer Service non lo chiama ancora.** AI Mail sì (sezione «Risposte
+   rapide»); Customer Service è il naturale successivo: prende il testo via API e
+   riempie `{{NOME_CLIENTE}}`, `{{DATA}}` coi dati dell'ordine che ha già.
+4. **Nessuno ha ancora deciso i valori per app.** L'idea forte — stessa lettera,
+   firma di Customer Service o del commerciale — funziona solo se qualcuno
+   imposta `{{FIRMA}}` e i recapiti per ciascuna app.
+5. **Storico delle versioni**: oggi il testo si sovrascrive, anche quando lo
+   riscrive l'AI. Se serve tornare indietro va aggiunta una tabella
+   `VersioneScript` (corpo + nota + data) e un pulsante «ripristina».
 6. **AI, secondo giro**: oggi la bozza nasce solo da un brief scritto a mano. I
-   passi successivi naturali sono (a) partire da un testo che esiste già («fanne
-   una versione per gli hotel»), (b) far leggere all'AI i testi migliori
-   dell'archivio come esempi di tono, (c) far riempire le variabili all'app che
-   usa il testo, coi dati veri dell'ordine.
+   passi naturali: (a) partire da un testo che esiste già («fanne una versione
+   per gli hotel»), (b) dare all'AI i testi migliori dell'archivio come esempi di
+   tono, (c) far riempire le variabili all'app che usa il testo, coi dati veri.
+7. **Allegati e formattazione**: i testi sono testo semplice. Niente grassetto,
+   niente immagini, niente PDF della presentazione.
+8. **Password del database**: se un giorno cambia davvero, va aggiornata in
+   `DATABASE_URL` e `DIRECT_URL` di **dieci app** (locale + Vercel, poi
+   ripubblicare) — la password va URL-encoded dentro la stringa di connessione.
 
 ## Trappole già pagate
 
