@@ -11,7 +11,17 @@ import { ANNO_CORRENTE } from "@/lib/queries";
 //   GET /api/spese?anno=2026&mese=6          un mese solo
 //   GET /api/spese?anno=2026&dal=1&al=6      intervallo di mesi (inclusi)
 //   GET /api/spese?anno=2026&stato=tutte     include anche le transazioni "ignorata"
+//   GET /api/spese?anno=2026&controparte=X   i MOVIMENTI di quella controparte,
+//                                            uno per uno, con data e causale
 //   Header: X-API-Key: <chiave>   (la stessa di /api/verifiche)
+//
+// Il parametro `controparte` serve a chi deve **decidere cosa è** un pagamento:
+// il nome da solo non basta — «Formenti Patrizia» può essere una fiorista o una
+// valet — mentre la **causale** lo dice (un numero d'ordine è un fioraio pagato
+// per quell'ordine, un mese è il rimborso di un valet). E per spostare un
+// importo su un altro esercizio serve la **data**, che l'aggregato per mese non
+// ha. Sono gli stessi movimenti dell'aggregato, non filtrati diversamente:
+// cambia solo che non vengono sommati.
 //
 // Solo importi < 0 (uscite). Ogni controparte riporta l'uscita totale (valore
 // assoluto), il numero di movimenti, la quota % e la ripartizione per mese.
@@ -52,6 +62,35 @@ export async function GET(req: NextRequest) {
     },
     select: { data: true, importo: true, descrizione: true, controparte: true, categoriaNome: true, categoriaTipoPL: true },
   });
+
+  // ---- Dettaglio di una sola controparte: i movimenti, non la somma ----
+  // Si filtra sugli stessi movimenti già letti, con la stessa regola di
+  // aggregazione del nome (controparte, altrimenti descrizione): se qui il nome
+  // si formasse in modo diverso, una controparte dell'elenco non troverebbe i
+  // propri movimenti e sembrerebbe vuota.
+  const chiediControparte = (sp.get("controparte") ?? "").trim();
+  if (chiediControparte) {
+    const righe = movimenti
+      .filter(
+        (m) =>
+          (m.controparte?.trim() || m.descrizione?.trim() || "Senza controparte").slice(0, 120) ===
+          chiediControparte
+      )
+      .sort((a, b) => b.data.getTime() - a.data.getTime())
+      .map((m) => ({
+        data: m.data.toISOString().slice(0, 10),
+        importo: +Math.abs(m.importo).toFixed(2),
+        descrizione: m.descrizione ?? null,
+        categoria: m.categoriaNome ?? null,
+      }));
+    return NextResponse.json({
+      anno,
+      controparte: chiediControparte,
+      periodo: { dal: meseDa, al: meseA },
+      movimenti: righe,
+      totale: +righe.reduce((s, r) => s + r.importo, 0).toFixed(2),
+    });
+  }
 
   // aggregazione per controparte (fallback: descrizione)
   const perContro = new Map<
