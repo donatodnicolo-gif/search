@@ -166,6 +166,9 @@ export function DettaglioVoce({
   const [errore, setErrore] = useState<string | null>(null);
   const [espansa, setEspansa] = useState<string | null>(null);
   const [assegna, setAssegna] = useState<Record<string, string>>({});
+  // Categoria nuova, creata dalla riga che si sta assegnando: `per` è la
+  // controparte che l'ha fatta nascere, e a cui verrà assegnata subito dopo.
+  const [nuova, setNuova] = useState<{ per: string; nome: string; tipoPL: string } | null>(null);
   // I movimenti si chiedono a Finance **quando si apre una controparte**: farlo
   // per tutte insieme vorrebbe dire una chiamata per ognuna, su una pagina che
   // ne mostra centinaia.
@@ -237,6 +240,38 @@ export function DettaglioVoce({
       setErrore(b?.error ?? "Modifica non riuscita.");
       return;
     }
+    router.refresh();
+  }
+
+  // Creare una categoria **da qui**, senza passare dal CFO. Sembra un dettaglio
+  // e non lo è: si scopre che manca «Viaggi e trasferte» proprio mentre si sta
+  // guardando un parcheggio da assegnare, e mandare in un'altra schermata a
+  // crearla — per poi tornare e ritrovare il posto — è il modo migliore perché
+  // la riga resti dov'è.
+  async function creaEAssegna(controparte: string) {
+    const nome = (nuova?.nome ?? "").trim();
+    if (!nome) { setErrore("Indica il nome della categoria."); return; }
+    setBusy(true);
+    setErrore(null);
+    const res = await fetch("/api/cfo/categorie", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nome, tipoPL: nuova?.tipoPL ?? "STRUTTURA" }),
+    });
+    const body = await res.json().catch(() => null);
+    if (!res.ok || !body?.id) {
+      setBusy(false);
+      setErrore(body?.error ?? "Creazione non riuscita.");
+      return;
+    }
+    const reg = await fetch("/api/cfo/regole", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ match: controparte, esatto: true, categoriaId: body.id }),
+    });
+    setBusy(false);
+    if (!reg.ok) { setErrore("Categoria creata, ma l'assegnazione non è riuscita."); return; }
+    setNuova(null);
     router.refresh();
   }
 
@@ -490,22 +525,60 @@ export function DettaglioVoce({
                         </td>
                         <td className="num">{eur(c.uscite)}</td>
                         <td style={{ minWidth: 220 }}>
-                          <select
-                            value={assegna[c.controparte] ?? ""}
-                            onChange={(e) => setAssegna((p) => ({ ...p, [c.controparte]: e.target.value }))}
-                          >
-                            <option value="">Scegli…</option>
-                            {categorie.map((cat) => (<option key={cat.id} value={cat.id}>{cat.nome}</option>))}
-                          </select>
+                          {nuova?.per === c.controparte ? (
+                            <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                              <input
+                                autoFocus
+                                value={nuova.nome}
+                                placeholder="Nome della categoria"
+                                onChange={(e) => setNuova({ ...nuova, nome: e.target.value })}
+                                style={{ width: 160, padding: "4px 6px", fontSize: 13 }}
+                              />
+                              <select
+                                value={nuova.tipoPL}
+                                onChange={(e) => setNuova({ ...nuova, tipoPL: e.target.value })}
+                                style={{ padding: "4px 6px", fontSize: 13 }}
+                              >
+                                {TIPI_PL.map((t) => (<option key={t.key} value={t.key}>{t.label}</option>))}
+                              </select>
+                            </div>
+                          ) : (
+                            <select
+                              value={assegna[c.controparte] ?? ""}
+                              onChange={(e) => {
+                                if (e.target.value === "__nuova__") {
+                                  setErrore(null);
+                                  setNuova({ per: c.controparte, nome: "", tipoPL: "STRUTTURA" });
+                                  return;
+                                }
+                                setAssegna((p) => ({ ...p, [c.controparte]: e.target.value }));
+                              }}
+                            >
+                              <option value="">Scegli…</option>
+                              {categorie.map((cat) => (<option key={cat.id} value={cat.id}>{cat.nome}</option>))}
+                              <option value="__nuova__">+ Nuova categoria…</option>
+                            </select>
+                          )}
                         </td>
-                        <td>
-                          <button
-                            className="btn primary small"
-                            disabled={!assegna[c.controparte] || busy}
-                            onClick={() => assegnaControparte(c.controparte)}
-                          >
-                            Assegna
-                          </button>
+                        <td style={{ whiteSpace: "nowrap" }}>
+                          {nuova?.per === c.controparte ? (
+                            <>
+                              <button className="btn primary small" disabled={busy} onClick={() => creaEAssegna(c.controparte)}>
+                                {busy ? "Creo…" : "Crea e assegna"}
+                              </button>
+                              <button className="btn secondary small" style={{ marginLeft: 6 }} onClick={() => setNuova(null)}>
+                                Annulla
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              className="btn primary small"
+                              disabled={!assegna[c.controparte] || busy}
+                              onClick={() => assegnaControparte(c.controparte)}
+                            >
+                              Assegna
+                            </button>
+                          )}
                         </td>
                       </tr>
                       {aperta === c.controparte && (

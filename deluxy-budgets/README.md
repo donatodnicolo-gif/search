@@ -130,6 +130,11 @@ pubblicato), *sfidante* e *irraggiungibile*.
   della sua data. I movimenti li espone Finance (`GET /api/spese?controparte=…`, aggiunto lo stesso
   giorno) e si chiedono **solo quando si apre una controparte** — farlo per tutte vorrebbe dire una
   chiamata per ognuna su una pagina che ne mostra centinaia.
+- **La categoria nuova si crea dalla riga che la fa nascere**: nella tendina di assegnazione c'è
+  **«+ Nuova categoria…»** — nome e voce di P&L, si crea e si assegna in un gesto solo. Ci si accorge
+  che manca «Viaggi e trasferte» proprio mentre si guarda un parcheggio da assegnare, e mandare in
+  un'altra schermata a crearla — per poi tornare e ritrovare il punto — è il modo migliore perché
+  quella riga resti dov'è.
 - **Piattaforme ADV** (`/piattaforme`): ripartizione del budget pubblicitario tra le **piattaforme**
   (Google, Meta, TikTok e altre **aggiungibili/rimovibili**). Si impostano le **% per mese** — diverse
   mese per mese — e l'**importo per piattaforma si calcola da solo** (= budget ADV del mese × %). La
@@ -351,6 +356,21 @@ essere una fiorista o una valet. **La descrizione del movimento lo dice**, e que
 | un **mese** (`gennaio`, `Deluxy Dicembre 2025`) | rimborso servizi del **valet** | **costo vero** |
 | niente (pagamento con carta al POS) | non si sa | resta nel residuo |
 
+### I rimborsi ai clienti non sono un costo (29/07/2026)
+
+Un bonifico `Rimborso ordine 10858` **non va fra i costi**, e la ragione è che il venduto
+letto da Orders **esclude già** gli ordini annullati e rimborsati. Verificato su quel caso:
+l'ordine #10858 di deluxy.it, 13/02/2026, 250 € — `REFUNDED` e annullato — non è mai entrato
+nei ricavi, e il bonifico di pari importo è la restituzione di un incasso che il conto economico
+non ha mai visto. Contarlo come costo toglierebbe **due volte** lo stesso denaro. Categoria
+dedicata **«Rimborsi ai clienti»**, fuori dal conto economico.
+
+> ⚠️ **L'eccezione sono i rimborsi parziali**: Orders li conta **per intero** (l'importo reso non
+> esiste nel registro ordini) — sul 2026 sono **32 ordini per 4.802 €** di valore. Per quelli il
+> ricavo resta gonfiato dell'importo restituito, e tenere il rimborso fuori dai costi non lo
+> corregge. È un errore piccolo e dichiarato, non un errore nascosto: si chiude quando Orders saprà
+> dire quanto è stato reso.
+
 > ⚠️ **Le regole del CFO matchano solo sulla controparte, non sulla causale.** La classificazione
 > si è fatta leggendo `TransazioneBancaria.descrizione` in Finance e trasformandola in **regole per
 > nome**: 563 regole, residuo 2026 da 117.364 a **23.705 €**. Se un domani serve rifarlo su nuovi
@@ -366,9 +386,11 @@ essere una fiorista o una valet. **La descrizione del movimento lo dice**, e que
 2. **I margini per tipologia a budget** (D2C 35%, Eventi 20%, B2B 20%) restano scritti sul venduto
    lordo: applicati a ricavi ormai netti danno un EBITDA a budget negativo e «12 mesi in perdita»,
    che è un artefatto. Rifarli **cambia i premi**.
-3. **16.187 € ancora senza categoria** nel 2026 (314 controparti), 22.998 € sul 2025. Erano 23.705 e
-   412: il 29/07/2026, guardando l'elenco, l'utente ha riconosciuto tre famiglie e sono diventate
-   **129 regole** — i **fiorai** (41 nomi, anche esteri come `TLF*MIAMI FLOWERS`, `Everything
+3. **8.419 € ancora senza categoria** nel 2026 (222 controparti). Erano **23.705 in 412**: il
+   29/07/2026, guardando l'elenco, l'utente ha riconosciuto le famiglie una per una e sono diventate
+   **oltre 210 regole** — più tre categorie nuove: **Carburante e pedaggi** (81 regole, 2.962 €:
+   distributori `ENI`, `PV####`, pedaggi `MISER`/`ASPIT`, parcheggi), **Viaggi e trasferte** e
+   **Rimborsi ai clienti**. Prima di queste erano già diventate **129 regole** — i **fiorai** (41 nomi, anche esteri come `TLF*MIAMI FLOWERS`, `Everything
    Flowers` KE, `NATURELLE` FR) sono acquisti fiori **per ordini ecommerce**, quindi quota partner;
    **ristoranti e bar** (87 nomi) sono pasti e cene aziendali, quindi rappresentanza; `Gabriele
    Salazar Gordillo` è una partita IVA che **fa consegne**, quindi servizi di consegna. Effetto sul
