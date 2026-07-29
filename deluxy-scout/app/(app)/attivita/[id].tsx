@@ -336,15 +336,27 @@ export default function SchedaAttivita() {
   /** Il negozio è segnato come chiuso? (non è un livello: è un segno addosso) */
   const perso = Boolean(place && ePerso(place));
 
-  /** Da dove viene un rapporto chiuso: si legge, non si indovina. */
-  const perche = useMemo(() => {
+  /**
+   * Da dove viene un rapporto chiuso: si legge, non si indovina.
+   *
+   * ⚠️ Distingue anche **chi può correggerlo**. Se la causa è il registro
+   * Anagrafiche (`anagrafiche_stato`), da Scout non si sistema: quel campo lo
+   * scrive l'altra app, e un bottone qui cambierebbe `places.stato` senza
+   * togliere il badge — un no-op che sembra un'azione riuscita.
+   */
+  const perche: { testo: string; correggibileQui: boolean } | null = useMemo(() => {
     if (!place || (!perso && livello !== 'dormiente')) return null;
-    if (place.anagrafiche_stato === 'non_interessato') return 'Lo dice il registro Anagrafiche: «non interessato».';
-    if (place.anagrafiche_stato === 'dismesso') return 'Lo dice il registro Anagrafiche: «dismesso».';
+    if (place.anagrafiche_stato === 'non_interessato')
+      return { testo: 'Lo dice il registro Anagrafiche: «non interessato».', correggibileQui: false };
+    if (place.anagrafiche_stato === 'dismesso')
+      return { testo: 'Lo dice il registro Anagrafiche: «dismesso».', correggibileQui: false };
     if (place.stato === 'perso') {
-      return visite.some((v) => v.esito === 'non_target')
-        ? 'Da una visita chiusa con esito «non è un target».'
-        : 'Lo stato del negozio è «perso»: da una visita «non è un target», o scelto a mano in Modifica.';
+      return {
+        testo: visite.some((v) => v.esito === 'non_target')
+          ? 'Da una visita chiusa con esito «non è un target».'
+          : 'Lo stato del negozio è «perso»: da una visita «non è un target», o scelto a mano in Modifica.',
+        correggibileQui: true,
+      };
     }
     return null;
   }, [place, livello, perso, visite]);
@@ -377,7 +389,15 @@ export default function SchedaAttivita() {
     );
   }
 
-  /** Riporta un negozio chiuso all'inizio del percorso. */
+  /**
+   * Toglie il segno «Perso»: il negozio torna in gioco.
+   *
+   * ⚠️ **Non lo declassa a Selezionato**, anche se scrive `stato_affiliazione`.
+   * Il livello si ricalcola dai dati (lib/livelli.ts): un lead con una persona
+   * in rubrica resta un Lead. Il bottone prima si chiamava «Riportalo fra i
+   * Selezionati» e prometteva una retrocessione che non avveniva — segnalato
+   * dall'utente il 29/07/2026 («è un lead che ho creato io»).
+   */
   async function riapri() {
     if (!place) return;
     try {
@@ -463,11 +483,26 @@ export default function SchedaAttivita() {
         {perche ? (
           <View style={styles.perche}>
             <Text style={styles.percheTxt}>
-              <Ionicons name="information-circle-outline" size={13} color={colors.testoSoft} /> {perche}
+              <Ionicons name="information-circle-outline" size={13} color={colors.testoSoft} /> {perche.testo}
             </Text>
-            <Pressable style={styles.btnRiapri} onPress={riapri}>
-              <Text style={styles.btnRiapriTxt}>Riportalo fra i Selezionati</Text>
-            </Pressable>
+            {perche.correggibileQui ? (
+              <>
+                <Text style={styles.percheTxt}>
+                  Togliendolo il negozio torna in gioco e resta al livello che ha: un lead con una persona in rubrica
+                  resta un Lead.
+                </Text>
+                <Pressable style={styles.btnRiapri} onPress={riapri}>
+                  <Text style={styles.btnRiapriTxt}>Togli il segno «Perso»</Text>
+                </Pressable>
+              </>
+            ) : (
+              // Il campo lo possiede l'altra app: un bottone qui cambierebbe
+              // `places.stato` senza togliere il badge, e sembrerebbe riuscito.
+              <Text style={styles.percheTxt}>
+                Questo stato arriva dal registro Anagrafiche e da qui non si cambia: va corretto lì, poi Scout si
+                riallinea.
+              </Text>
+            )}
           </View>
         ) : null}
 
