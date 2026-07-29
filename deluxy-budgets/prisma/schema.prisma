@@ -215,6 +215,12 @@ model CategoriaCosto {
   // la quota che resta a Deluxy invece di stimarla — pagato ai partner diviso
   // venduto, anno per anno.
   quotaPartner Boolean  @default(false)
+  // **Cosa ci va dentro, e cosa no.** Il nome da solo non basta: «Fornitori /
+  // COGS» non dice niente a chi non l'ha creata, e chi deve assegnare una
+  // controparte finisce per indovinare — cioè per mettere la stessa spesa oggi
+  // in una categoria e domani in un'altra. Una riga di spiegazione vale più di
+  // un nome più lungo.
+  descrizione String?
   colore String?
   ordine Int           @default(0)
   regole RegolaCosto[]

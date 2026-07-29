@@ -338,6 +338,9 @@ export function DettaglioVoce({
                       <tr>
                         <td>
                           <div style={{ fontWeight: 600 }}>{c.nome}</div>
+                          {c.descrizione && (
+                            <div className="muted" style={{ fontSize: 11.5, maxWidth: 260 }}>{c.descrizione}</div>
+                          )}
                           {c.predefinita && (
                             <div className="muted" style={{ fontSize: 11 }}>raccoglie il residuo</div>
                           )}

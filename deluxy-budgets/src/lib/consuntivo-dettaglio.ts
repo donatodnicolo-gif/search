@@ -65,6 +65,7 @@ function categorieDiTipo(
     out.push({
       id: cat.id,
       nome: cat.nome,
+      descrizione: cat.descrizione,
       tipoPL: cat.tipoPL,
       voceCE: cat.voceCE,
       voceCEImpostata: cat.voceCEImpostata,

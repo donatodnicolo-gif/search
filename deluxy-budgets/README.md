@@ -344,6 +344,31 @@ npm run db:seed
 npm run dev               # http://localhost:3080
 ```
 
+## Le categorie di spesa dicono cosa sono (riassetto del 29/07/2026)
+
+Le categorie avevano solo un nome, e il nome non basta: «Fornitori / COGS» non dice niente a chi
+non l'ha creata, e chi deve assegnare una controparte finisce per indovinare — cioè per mettere la
+stessa spesa oggi in una categoria e domani in un'altra. Tre cose cambiate:
+
+1. **Ogni categoria ha una descrizione** (campo `descrizione`, scritto nel CFO e letto ovunque la
+   categoria compaia): *cosa ci va dentro e cosa no*. Le 18 categorie ce l'hanno tutte.
+2. **Nomi che si capiscono senza saperne la storia**: `Fornitori fiori e torte` → **Partner che
+   eseguono gli ordini** (è il loro incasso, non un costo), `Servizi Personale Consegne` →
+   **Consegne (valet e corrieri)**, `Personale Azienda` → **Stipendi dei dipendenti**, `Sviluppi
+   Software` / `Software` → **Sviluppo su commessa** (freelance) e **Abbonamenti software** (canoni),
+   che prima si confondevano. `Altre uscite (da classificare)` → **Da classificare**: non è una
+   categoria, è la coda del lavoro da fare.
+3. **Un doppione fuso**: `Fornitori / COGS` conteneva fioristi ed era già quota partner come
+   `Fornitori fiori e torte` — 84 regole spostate, categoria eliminata. Nessun euro si è mosso
+   (stesso `tipoPL` e stesso `voceCE`): erano due nomi per la stessa cosa, e due nomi per la stessa
+   cosa sono un modo garantito di dividere i totali a caso.
+
+Anche le **etichette delle due lenti** sono state riscritte per chi sceglie, non per chi legge il
+codice civile: «Costo del servizio», «Fuori dal conto economico», «B6 · Roba comprata», «B7 · Servizi
+di qualcun altro», «B9 · Dipendenti» — ognuna con la riga che dice **quando sceglierla e quando no**,
+perché gli errori stanno sui confini. Aggiunta la voce **imposte sul reddito**, che prima non era
+selezionabile.
+
 ## La causale del bonifico dice cosa è (criterio dell'utente, 28/07/2026)
 
 Il nome della controparte non basta a capire cosa sia un pagamento: `Formenti Patrizia` può

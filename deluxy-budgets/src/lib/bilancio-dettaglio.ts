@@ -31,6 +31,7 @@ export type Controparte = { controparte: string; uscite: number; daRegola: boole
 export type CategoriaVoce = {
   id: string;
   nome: string;
+  descrizione: string | null;
   tipoPL: string;
   voceCE: string;
   voceCEImpostata: boolean; // false = dedotta da tipoPL, mai confermata
@@ -66,7 +67,7 @@ export type DettaglioVoce = {
   avvisi: string[];
 };
 
-const VOCI_DI_BANCA = ["B6", "B7", "B8", "B14", "C17", "ESCLUSA"];
+const VOCI_DI_BANCA = ["B6", "B7", "B8", "B14", "C17", "IMPOSTE", "ESCLUSA"];
 
 // Le categorie che confluiscono in una voce di bilancio, con i loro importi.
 // `ESCLUSA` non è una voce di legge ma si guarda allo stesso modo: è dove
@@ -88,6 +89,7 @@ function categorieDellaVoce(
     out.push({
       id: cat.id,
       nome: cat.nome,
+      descrizione: cat.descrizione,
       tipoPL: cat.tipoPL,
       voceCE: voce,
       voceCEImpostata: cat.voceCEImpostata,

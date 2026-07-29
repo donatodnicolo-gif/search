@@ -8,6 +8,7 @@ import { eur, MESI, pct } from "@/lib/format";
 type Riga = {
   categoriaId: string | null;
   categoriaNome: string | null;
+  descrizione: string | null;
   tipoPL: string | null;
   voceCE: string | null;
   voceCEImpostata: boolean;
@@ -185,7 +186,7 @@ export function CfoBoard({
   // che le erano state insegnate.
   async function salvaCategoria(
     id: string,
-    patch: { nome?: string; tipoPL?: string; voceCE?: string; predefinita?: boolean }
+    patch: { nome?: string; tipoPL?: string; voceCE?: string; predefinita?: boolean; descrizione?: string }
   ) {
     setBusy(true);
     setErrore(null);
@@ -461,6 +462,20 @@ export function CfoBoard({
                         else e.target.value = r.categoriaNome ?? "";
                       }}
                     />
+                    {/* Cosa ci va dentro: si scrive qui, e si legge ovunque la
+                        categoria compaia. Senza, chi assegna una controparte
+                        deve dedurlo dal nome — e due persone dedurranno cose
+                        diverse. */}
+                    <input
+                      defaultValue={r.descrizione ?? ""}
+                      disabled={busy}
+                      placeholder="cosa ci va dentro, e cosa no"
+                      style={{ width: 230, padding: "3px 6px", fontSize: 11.5, marginTop: 3, display: "block" }}
+                      onBlur={(e) => {
+                        const descrizione = e.target.value.trim();
+                        if (descrizione !== (r.descrizione ?? "")) salvaCategoria(r.categoriaId!, { descrizione });
+                      }}
+                    />
                   </td>
                   <td>
                     {/* La voce di P&L si cambia da qui: è il modo per spostare una
@@ -471,11 +486,15 @@ export function CfoBoard({
                       disabled={busy}
                       onChange={(e) => salvaCategoria(r.categoriaId!, { tipoPL: e.target.value })}
                       style={{ padding: "4px 6px", fontSize: 13 }}
+                      title={TIPI_PL.find((t) => t.key === (r.tipoPL ?? "STRUTTURA"))?.aiuto}
                     >
                       {TIPI_PL.map((t) => (
                         <option key={t.key} value={t.key}>{t.label}</option>
                       ))}
                     </select>
+                    <div className="muted" style={{ fontSize: 11, maxWidth: 230, marginTop: 3 }}>
+                      {TIPI_PL.find((t) => t.key === (r.tipoPL ?? "STRUTTURA"))?.aiuto}
+                    </div>
                   </td>
                   <td>
                     {/* Dove va la stessa categoria nel bilancio civilistico. Non

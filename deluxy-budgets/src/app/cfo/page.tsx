@@ -61,6 +61,7 @@ export default async function CfoPage({
           righe={ricostruisci(res.dati.controparti, categorie).map((r) => ({
             categoriaId: r.categoria?.id ?? null,
             categoriaNome: r.categoria?.nome ?? null,
+            descrizione: r.categoria?.descrizione ?? null,
             tipoPL: r.categoria?.tipoPL ?? null,
             voceCE: r.categoria?.voceCE ?? null,
             voceCEImpostata: r.categoria?.voceCEImpostata ?? false,
