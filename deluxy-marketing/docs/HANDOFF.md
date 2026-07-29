@@ -572,6 +572,36 @@ analisi importate); seconda corsa 0 scritture.
    La route `sync/meta` **non ha `maxDuration`** (il cron sì, 60 s): se un
    giorno si vuole allungare la finestra, è lì che va messo.
 
+### Gli ordini si aggiornano da soli (29/07/2026)
+
+`GET /api/cron/ordini`, ogni notte alle **03:20 UTC** (`vercel.json`), più la
+gemella a richiesta `POST /api/v1/sync/ordini` (chiave di scrittura). Logica
+condivisa in `lib/sync-ordini.ts`.
+
+Prima l'unico modo era `npm run import:ordini-orders` **dal PC di qualcuno**, e
+il 29/07 la spesa era aggiornata a oggi e gli ordini fermi al **27**.
+
+> ⚠️ **Due giorni di sfasamento non si vedono: si vedono dei rapporti sbagliati.**
+> Gli ordini sono la metà «vendite» di ogni KPI — ROS reale, MER, costo di
+> acquisizione. Con la spesa che corre e le vendite ferme, quei numeri risultano
+> **peggiori del vero** e non lo dichiarano. È lo stesso difetto che aveva Meta
+> finché l'unica porta era un bottone.
+
+- Finestra di **7 giorni**, non 1: un ordine cambia stato dopo essere stato
+  creato (rimborso, annullamento).
+- Si **ferma da sola** a 45 s dei 60 di `maxDuration`, dicendo a che pagina è
+  arrivata: il resto entra al giro dopo. Per i caricamenti storici lunghi resta
+  lo **script**, che non ha il limite delle funzioni serverless.
+- Serve **`ORDERS_API_KEY`** fra le variabili d'ambiente (impostata su
+  Production il 29/07): senza, l'endpoint risponde 503 spiegandolo, invece di
+  fallire in silenzio.
+- La consegna si annota in `RicezioneDati` (`fonte: "orders"`), così **Dati in
+  arrivo** sa dire anche degli ordini: una fonte che tace è esattamente ciò che
+  quella pagina esiste per mostrare.
+
+Provato in produzione: **45 ordini nuovi** (proprio il buco dei due giorni), 2
+aggiornati, 74 invariati, 0 saltati, in 42 s. Ordini ora **8.080, fino a oggi**.
+
 ### L'import non fa più una query per riga (29/07/2026)
 
 `salvaMetriche` faceva una `findFirst` **per ogni riga** per ritrovare la
