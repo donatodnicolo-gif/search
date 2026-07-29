@@ -186,7 +186,14 @@ export async function salvaMetriche(
       // Non si scrive qui: si annota e si applica una volta sola in fondo.
       // L'ultimo valore vince, esattamente come quando ogni riga faceva il suo
       // update — ma con una query invece di trenta.
+      //
+      // ⚠️ Si FONDE con quanto già annotato, non si sostituisce. Sostituendo,
+      // la riga 2 di una campagna cancellava il `brand` che la riga 1 aveva
+      // appena promosso — e la promozione non riscattava, perché la cache in
+      // memoria diceva già il brand giusto. Risultato: il brand corretto
+      // spariva prima di arrivare al database.
       daAggiornare.set(campagna.id, {
+        ...(daAggiornare.get(campagna.id) ?? {}),
         ...(r.stato ? { stato: r.stato } : {}),
         ...(r.budgetGiornaliero != null ? { budgetGiornaliero: numero(r.budgetGiornaliero) } : {}),
         ...(r.strategiaOfferta ? { strategiaOfferta: String(r.strategiaOfferta) } : {}),
