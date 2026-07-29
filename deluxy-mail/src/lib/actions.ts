@@ -11,7 +11,6 @@ import nodemailer from 'nodemailer'
 import MailComposer from 'nodemailer/lib/mail-composer'
 import type { Account, Messaggio, Prisma } from '@prisma/client'
 import { alternative } from './condizioni'
-import { svuotaCestinoDi } from './cestino'
 import {
   azioneDiSezione,
   eseguiAzioneSezioneOra,
@@ -964,22 +963,12 @@ export async function ripristinaMessaggio(id: string) {
   revalidatePath('/', 'layout')
 }
 
-/**
- * Svuota il cestino. ⚠️ La usa solo chi non può passare dalla rotta: dall'app si
- * chiama `POST /api/svuota-cestino`, perché una Server Action lunga si accoda
- * con le navigazioni e blocca i clic ovunque (è il motivo per cui «l'app
- * rimaneva bloccata mentre si svuotava il cestino»). Il lavoro vero sta in
- * `lib/cestino.ts`, condiviso fra le due strade.
- */
-export async function svuotaCestino(): Promise<{ ok: boolean; messaggio: string }> {
-  try {
-    const esito = await svuotaCestinoDi(await uid())
-    revalidatePath('/', 'layout')
-    return { ok: esito.ok, messaggio: esito.messaggio }
-  } catch (e) {
-    return { ok: false, messaggio: e instanceof Error ? e.message : 'Errore imprevisto' }
-  }
-}
+// ⚠️ Qui c'era una Server Action `svuotaCestino()` che nessuno chiamava più.
+// Lo svuotamento ha UNA porta sola, `POST /api/svuota-cestino`: è la rotta che
+// tiene lo stato del lavoro (avanzamento, «già in corso», esito) e che lo fa
+// girare in `after()` anche se chi l'ha lanciato cambia schermata. Una seconda
+// strada che scavalca quello stato vorrebbe dire due svuotamenti in parallelo
+// sulle stesse mail — e qui si cancella per sempre.
 
 /**
  * Esito dello spostamento a mano. Se la sezione di arrivo ha un'azione APP

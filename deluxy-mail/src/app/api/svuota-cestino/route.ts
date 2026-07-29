@@ -1,9 +1,9 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, after } from 'next/server'
 import { cookies } from 'next/headers'
 import { SESSION_COOKIE, verificaSessione } from '@/lib/auth'
-import { svuotaCestinoDi } from '@/lib/cestino'
+import { eseguiSvuotaCestino, leggiStatoSvuota, prenotaSvuotaCestino } from '@/lib/cestino'
 
-// POST /api/svuota-cestino — svuota il cestino dell'utente loggato.
+// /api/svuota-cestino — svuota il cestino dell'utente loggato.
 //
 // ⚠️ È una ROTTA, non una Server Action, e per lo stesso motivo di
 // `/api/leggi-posta`: le Server Action di Next si mettono **in coda con le
@@ -14,24 +14,58 @@ import { svuotaCestinoDi } from '@/lib/cestino'
 // sicura, vedi `eliminaDalServer`). Con qualche centinaio di mail nel cestino
 // sono minuti — minuti in cui l'app pareva piantata.
 //
-// Con una fetch a questa rotta il lavoro gira per conto suo e l'interfaccia
-// resta libera: si può continuare a leggere la posta mentre si svuota.
+// ⚠️ E il lavoro NON deve dipendere dalla pagina aperta. Prima girava dentro la
+// fetch del browser: cambiando schermata la richiesta se ne andava col
+// componente, lo svuotamento si fermava a metà e dell'esito non restava
+// traccia. Ora il POST **prenota** il lavoro e risponde subito; il lavoro vero
+// gira in `after()`, cioè nella stessa invocazione ma dopo che la risposta è
+// partita, quindi continua anche se chi l'ha lanciato cambia schermata o chiude
+// la scheda. L'avanzamento si chiede col GET: è così che il lavoro si ritrova
+// tornando sul cestino, invece di sparire.
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
 
-export async function POST() {
+async function utenteDellaSessione() {
   const token = (await cookies()).get(SESSION_COOKIE)?.value
-  const userId = await verificaSessione(token)
+  return await verificaSessione(token)
+}
+
+export async function POST() {
+  const userId = await utenteDellaSessione()
   if (!userId) {
     return NextResponse.json({ ok: false, messaggio: 'Sessione scaduta: rientra.' }, { status: 401 })
   }
 
   try {
-    return NextResponse.json(await svuotaCestinoDi(userId))
+    const avvio = await prenotaSvuotaCestino(userId)
+    if (!avvio.avviato) {
+      return NextResponse.json({ ok: false, messaggio: avvio.messaggio, stato: await leggiStatoSvuota(userId) })
+    }
+
+    // Il lavoro vero, dopo la risposta. Gli errori finiscono nello stato, che
+    // la pagina legge col GET: qui non c'è più nessuno ad ascoltarli.
+    after(() => eseguiSvuotaCestino(userId).catch(() => {}))
+
+    return NextResponse.json({
+      ok: true,
+      avviato: true,
+      messaggio: avvio.messaggio,
+      stato: await leggiStatoSvuota(userId),
+    })
   } catch (e) {
     return NextResponse.json(
       { ok: false, messaggio: e instanceof Error ? e.message : 'Errore imprevisto' },
       { status: 500 }
     )
   }
+}
+
+/** A che punto è (o com'è finito). La pagina del cestino lo chiede anche appena
+ *  aperta: è così che uno svuotamento avviato prima si ritrova. */
+export async function GET() {
+  const userId = await utenteDellaSessione()
+  if (!userId) {
+    return NextResponse.json({ ok: false, messaggio: 'Sessione scaduta: rientra.' }, { status: 401 })
+  }
+  return NextResponse.json({ ok: true, stato: await leggiStatoSvuota(userId) })
 }

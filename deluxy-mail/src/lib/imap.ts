@@ -215,7 +215,10 @@ export async function salvaInInviata(
 export async function eliminaDalServer(
   account: Account,
   cartella: string,
-  mail: { uid: number; messageId: string | null }[]
+  mail: { uid: number; messageId: string | null }[],
+  /** Chiamata a ogni mail cercata: è l'unico modo di far vedere l'avanzamento
+   *  di un lavoro lungo (svuota cestino) mentre gira. */
+  onAvanzamento?: (cercate: number, totali: number) => void
 ): Promise<number> {
   if (mail.length === 0) return 0
   const client = connessione(account)
@@ -224,7 +227,9 @@ export async function eliminaDalServer(
     await client.mailboxOpen(cartella, { readOnly: false })
 
     const daCancellare: number[] = []
+    let cercate = 0
     for (const m of mail) {
+      onAvanzamento?.(++cercate, mail.length)
       if (m.messageId) {
         try {
           const trovati = (await client.search({ header: { 'message-id': m.messageId } }, { uid: true })) || []

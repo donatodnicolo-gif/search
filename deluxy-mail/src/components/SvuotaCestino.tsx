@@ -1,46 +1,120 @@
 'use client'
 
-import { useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import type { StatoSvuota } from '@/lib/cestino'
 
 /**
  * Svuotare il cestino è l'unica azione dell'app che cancella davvero qualcosa
  * (la copia locale e, quando la si ritrova, la mail sul server), quindi chiede
  * conferma dicendo cosa si perde e cosa no.
  *
- * ⚠️ Passa da una FETCH a `/api/svuota-cestino`, non da una Server Action. Le
- * Server Action di Next si accodano con le navigazioni: finché lo svuotamento
- * girava come azione, l'app restava bloccata per tutto il tempo — e il tempo è
- * tanto, perché ogni mail va ritrovata sul server per Message-ID prima di
- * cancellarla. Stessa cura già applicata a «Aggiorna posta».
+ * ⚠️ Il lavoro NON vive più dentro questa pagina. Prima era una fetch che
+ * restava appesa al componente: cambiando schermata la richiesta se ne andava
+ * con lui e lo svuotamento si fermava a metà. Ora la rotta lo avvia e lo fa
+ * girare per conto suo (`after()`), qui si **guarda** soltanto: si chiede a che
+ * punto è, ogni tre secondi, e lo si ritrova anche riaprendo la pagina o da un
+ * altro dispositivo.
  */
 export function SvuotaCestino({ quanti }: { quanti: number }) {
   const [conferma, setConferma] = useState(false)
-  const [stato, setStato] = useState<string | null>(null)
-  const [inCorso, setInCorso] = useState(false)
+  const [stato, setStato] = useState<StatoSvuota | null>(null)
+  const [errore, setErrore] = useState<string | null>(null)
+  const [inAvvio, setInAvvio] = useState(false)
   const router = useRouter()
+  // Per aggiornare la lista una volta sola, quando il lavoro finisce.
+  const eraInCorso = useRef(false)
 
-  const svuota = async () => {
-    setInCorso(true)
+  const chiediStato = useCallback(async () => {
+    try {
+      const res = await fetch('/api/svuota-cestino', { cache: 'no-store' })
+      const dati = (await res.json()) as { stato?: StatoSvuota | null }
+      setStato(dati.stato ?? null)
+      if (dati.stato?.stato === 'in-corso') eraInCorso.current = true
+      else if (eraInCorso.current) {
+        eraInCorso.current = false
+        router.refresh() // finito: la lista non deve restare piena di mail sparite
+      }
+    } catch {
+      /* un giro a vuoto non è un errore: si riprova al prossimo */
+    }
+  }, [router])
+
+  // All'apertura si guarda se c'è un lavoro in giro, e finché c'è lo si segue.
+  useEffect(() => {
+    void chiediStato()
+  }, [chiediStato])
+
+  useEffect(() => {
+    if (stato?.stato !== 'in-corso') return
+    const id = setInterval(() => void chiediStato(), 3000)
+    return () => clearInterval(id)
+  }, [stato?.stato, chiediStato])
+
+  const avvia = async () => {
+    setInAvvio(true)
+    setErrore(null)
     try {
       const res = await fetch('/api/svuota-cestino', { method: 'POST' })
-      const dati = (await res.json()) as { messaggio?: string }
-      setStato(dati.messaggio ?? 'Cestino svuotato.')
-      router.refresh()
+      const dati = (await res.json()) as { ok: boolean; messaggio?: string; stato?: StatoSvuota | null }
+      if (dati.stato) setStato(dati.stato)
+      if (!dati.ok) setErrore(dati.messaggio ?? 'Non riuscito: riprova fra poco.')
+      setConferma(false)
     } catch {
-      setStato('Non riuscito: riprova fra poco.')
+      setErrore('Non riuscito: riprova fra poco.')
     } finally {
-      setInCorso(false)
+      setInAvvio(false)
     }
   }
 
-  if (stato) return <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{stato}</span>
+  // ---- In corso: la riga di avanzamento, che sopravvive ai cambi di pagina ----
+  if (stato?.stato === 'in-corso') {
+    const perc = stato.totali > 0 ? Math.min(100, Math.round((stato.fatte / stato.totali) * 100)) : 0
+    return (
+      <div className="svuota-stato">
+        <span className="badge orange">
+          <span className="dot" />
+          Svuoto il cestino
+        </span>
+        <span style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>
+          {stato.fase} {stato.totali > 0 && `${stato.fatte} di ${stato.totali} (${perc}%)`}
+        </span>
+        <span style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
+          Va avanti da sé: <strong>puoi cambiare schermata o chiudere l’app</strong>.
+        </span>
+      </div>
+    )
+  }
+
+  // ---- Interrotto (la funzione ha un tetto di 5 minuti): si riprende ----
+  if (stato?.stato === 'interrotto') {
+    return (
+      <div className="svuota-stato">
+        <span style={{ fontSize: 13, color: 'var(--red)' }}>{stato.messaggio}</span>
+        <button className="btn danger small" disabled={inAvvio} onClick={avvia}>
+          {inAvvio ? 'Riprendo…' : 'Riprendi'}
+        </button>
+      </div>
+    )
+  }
+
+  // ---- Finito: l'esito resta finché non si ricarica la pagina ----
+  if (stato?.stato === 'finito' && stato.messaggio) {
+    return (
+      <span style={{ fontSize: 13, color: stato.ok ? 'var(--text-secondary)' : 'var(--red)' }}>
+        {stato.messaggio}
+      </span>
+    )
+  }
 
   if (!conferma) {
     return (
-      <button className="btn danger small" onClick={() => setConferma(true)}>
-        Svuota cestino
-      </button>
+      <div className="svuota-stato">
+        {errore && <span style={{ fontSize: 13, color: 'var(--red)' }}>{errore}</span>}
+        <button className="btn danger small" onClick={() => setConferma(true)}>
+          Svuota cestino
+        </button>
+      </div>
     )
   }
 
@@ -50,18 +124,12 @@ export function SvuotaCestino({ quanti }: { quanti: number }) {
         Rimuovo {quanti} messaggi da AI Mail. Le mail restano sulla casella, ma qui si perdono
         riassunti, attività, bozze e priorità.
       </span>
-      <button className="btn secondary small" onClick={() => setConferma(false)} disabled={inCorso}>
+      <button className="btn secondary small" onClick={() => setConferma(false)} disabled={inAvvio}>
         Annulla
       </button>
-      <button className="btn danger small" disabled={inCorso} onClick={svuota}>
-        {inCorso ? 'Svuoto…' : 'Confermo'}
+      <button className="btn danger small" disabled={inAvvio} onClick={avvia}>
+        {inAvvio ? 'Avvio…' : 'Confermo'}
       </button>
-      {inCorso && (
-        <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-          Ogni mail va ritrovata sul server prima di cancellarla: con molte ci vuole un po’.
-          <strong> Puoi continuare a usare l’app</strong>, il lavoro va avanti da sé.
-        </span>
-      )}
     </div>
   )
 }

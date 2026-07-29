@@ -312,6 +312,18 @@ attimo dopo.
 istante dopo, al posto della scritta «Carico la posta…». Prima si restava sul bianco
 finché non era pronto tutto: il lavoro è lo stesso, ma non blocca più il passaggio.
 
+### Svuotare il cestino: parte e va avanti da sé
+
+Svuotare il cestino è lungo — ogni mail va ritrovata sul server per Message-ID prima
+di cancellarla — ed è **l'unica cosa che cancella per sempre**. Perciò non dipende
+più dalla schermata aperta: premi «Confermo» e il lavoro parte **sul server**. Puoi
+cambiare pagina, chiudere l'app, spegnere il telefono: continua.
+
+Sul cestino resta una riga che dice a che punto è («Cancello sulla casella …, 120 di
+400, 30%»), e la ritrovi tornandoci, anche da un altro dispositivo. Se il lavoro
+viene troncato (c'è un tetto di 5 minuti per giro), lo dice e offre **Riprendi**:
+ricomincia da ciò che è rimasto, non da capo.
+
 ## 7. Sicurezza
 
 **Password.** Cifrate con AES-256-GCM (`src/lib/crypto.ts`), chiave derivata da
