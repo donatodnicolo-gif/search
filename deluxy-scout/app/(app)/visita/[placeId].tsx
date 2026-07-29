@@ -24,8 +24,9 @@ import { syncVisita } from '@/lib/hubspot';
 import { programmaRecapEmail } from '@/lib/reminders';
 import { env } from '@/lib/env';
 import { supabase } from '@/lib/supabase';
-import { BoxIpotesi } from '@/components/BoxIpotesi';
 import { EsitoButtons } from '@/components/EsitoButtons';
+import { PianificaVisitaModal } from '@/components/PianificaVisitaModal';
+import { giornoBreve } from '@/lib/statoVisita';
 import { TaskFormModal } from '@/components/TaskFormModal';
 import { fetchTaskPlace } from '@/lib/db';
 import { Loader } from '../../_layout';
@@ -60,6 +61,7 @@ export default function NuovaVisita() {
   // lunedì» va scritto mentre lo si pensa, non dopo essere tornati indietro.
   const [taskAperto, setTaskAperto] = useState(false);
   const [taskPlace, setTaskPlace] = useState<Task[]>([]);
+  const [pianificaAperta, setPianificaAperta] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -234,8 +236,18 @@ export default function NuovaVisita() {
             {pos ? 'Check-in acquisito' : 'Acquisizione posizione…'}
           </Text>
 
-          {/* Ipotesi editabile */}
-          <BoxIpotesi linea={motivi[0] ?? null} aggancio={aggancio} />
+          {/* Quando ci vai: la data che ci si dà (`places.visita_pianificata`),
+              non quella della visita fatta. Si sposta e si toglie. */}
+          <Pressable style={styles.quando} onPress={() => setPianificaAperta(true)}>
+            <Ionicons name="calendar-outline" size={18} color={colors.testo} />
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={styles.quandoLbl}>Quando ci vai</Text>
+              <Text style={styles.quandoVal} numberOfLines={1}>
+                {place.visita_pianificata ? giornoBreve(place.visita_pianificata) : 'Nessuna data — tocca per metterla'}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={colors.grigio} />
+          </Pressable>
 
           {/* Cosa il negozio ha GIÀ segnato: si entra sapendo di cosa gli
               interessa parlare, invece di riaprire la scheda per ricordarlo. */}
@@ -282,7 +294,7 @@ export default function NuovaVisita() {
             ))}
           </View>
 
-          <Label>Esito</Label>
+          <Label obbligatorio>Esito</Label>
           <EsitoButtons value={esito} onChange={setEsito} />
 
           <Label>Briefing</Label>
@@ -305,8 +317,8 @@ export default function NuovaVisita() {
             placeholderTextColor={colors.grigio}
           />
 
-          <Label>Next step *</Label>
-          <TextInput style={styles.input} value={nextStep} onChangeText={setNextStep} placeholder="Obbligatorio: il prossimo passo" placeholderTextColor={colors.grigio} />
+          <Label obbligatorio>Next step</Label>
+          <TextInput style={styles.input} value={nextStep} onChangeText={setNextStep} placeholder="Il prossimo passo — es. «richiamare giovedì per il preventivo»" placeholderTextColor={colors.grigio} />
 
           {/* Il next step è una frase; il task è una cosa con una data e un
               nome sopra. Aprirlo da qui evita di uscire dalla visita per
@@ -350,6 +362,17 @@ export default function NuovaVisita() {
         </ScrollView>
       </KeyboardAvoidingView>
 
+      {pianificaAperta ? (
+        <PianificaVisitaModal
+          place={place}
+          onClose={() => setPianificaAperta(false)}
+          onDone={(giorno) => {
+            setPlace({ ...place, visita_pianificata: giorno });
+            setPianificaAperta(false);
+          }}
+        />
+      ) : null}
+
       {taskAperto ? (
         <TaskFormModal
           placeId={place.id}
@@ -365,8 +388,19 @@ export default function NuovaVisita() {
   );
 }
 
-function Label({ children }: { children: ReactNode }) {
-  return <Text style={styles.label}>{children}</Text>;
+/**
+ * Etichetta di campo. `obbligatorio` mette un asterisco rosso e la parola:
+ * prima l'unico segnale era un `*` nel testo del Next step, e l'Esito — che è
+ * obbligatorio uguale — non lo diceva affatto: lo si scopriva al salvataggio,
+ * con un avviso, dopo aver compilato tutto il resto.
+ */
+function Label({ children, obbligatorio }: { children: ReactNode; obbligatorio?: boolean }) {
+  return (
+    <Text style={styles.label}>
+      {children}
+      {obbligatorio ? <Text style={styles.obbligatorio}> * obbligatorio</Text> : null}
+    </Text>
+  );
 }
 
 function Chip({ label, on, onPress, standby }: { label: string; on: boolean; onPress: () => void; standby?: boolean }) {
@@ -392,6 +426,21 @@ const styles = StyleSheet.create({
   nome: { fontSize: 22, fontWeight: '900', color: colors.navy },
   checkin: { color: colors.testoSoft, marginBottom: spacing.sm, fontWeight: '600' },
   label: { color: colors.navy, fontWeight: '800', fontSize: 14, marginTop: spacing.md, marginBottom: 6 },
+  obbligatorio: { color: colors.errore, fontWeight: '700', fontSize: 12 },
+  quando: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: colors.bianco,
+    borderWidth: 1,
+    borderColor: colors.grigioChiaro,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 12,
+    marginTop: spacing.sm,
+  },
+  quandoLbl: { color: colors.testoSoft, fontSize: 11.5, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.4 },
+  quandoVal: { color: colors.testo, fontWeight: '700', fontSize: 14, marginTop: 1 },
   hint: { color: colors.testoSoft, fontSize: 12, marginBottom: 6 },
   input: {
     backgroundColor: colors.bianco,

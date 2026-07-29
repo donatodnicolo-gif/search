@@ -16,6 +16,7 @@ import { env } from '@/lib/env';
 import { LineaSelector } from '@/components/LineaSelector';
 import { PriorityBadge } from '@/components/PriorityBadge';
 import { TaskFormModal } from '@/components/TaskFormModal';
+import { ScegliScriptModal } from '@/components/ScegliScriptModal';
 import { AnagraficaRegistroCard } from '@/components/AnagraficaRegistroCard';
 import { FinanceCard } from '@/components/FinanceCard';
 import { MailContattoCard } from '@/components/MailContattoCard';
@@ -78,6 +79,7 @@ export default function SchedaAttivita() {
   const [duplicati, setDuplicati] = useState<Place[]>([]);
   const [unendo, setUnendo] = useState(false);
   const [eliminando, setEliminando] = useState(false);
+  const [mailAperta, setMailAperta] = useState(false);
   const { session } = useAuth();
 
   // Conciliazione: cerca nella copia locale HubSpot azienda/contatti del negozio,
@@ -480,11 +482,15 @@ export default function SchedaAttivita() {
             disabled={!telefonoPrincipale}
             onPress={() => telefonoPrincipale && Linking.openURL(`https://wa.me/${telefonoPrincipale.replace(/[^0-9]/g, '')}`)}
           />
+          {/* Mail = lo stesso percorso delle liste (script dalla libreria o
+              «Nuova mail»), non più `mailto:`. Con mailto la mail usciva dal
+              client di posta del telefono: nessuna traccia in Scout, il negozio
+              non diventava Lead e la copia non finiva in «Inviata». */}
           <AzioneRapida
             icona="mail-outline"
             label="Email"
             disabled={!emailPrincipale}
-            onPress={() => emailPrincipale && Linking.openURL(`mailto:${emailPrincipale}`)}
+            onPress={() => setMailAperta(true)}
           />
           <AzioneRapida icona="checkbox-outline" label="Task" onPress={() => { setTaskInModifica(null); setTaskAperto(true); }} />
           <AzioneRapida icona="person-add-outline" label="Contatto" onPress={() => router.push(`/(app)/contatto/${place.id}`)} />
@@ -586,6 +592,10 @@ export default function SchedaAttivita() {
             ))
           )}
         </Sezione>
+
+        {mailAperta ? (
+          <ScegliScriptModal place={{ id: place.id, nome: place.nome }} onClose={() => setMailAperta(false)} />
+        ) : null}
 
         {taskAperto ? (
           <TaskFormModal

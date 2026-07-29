@@ -37,6 +37,8 @@ export default function InvioScript() {
   // di uno**, separati da virgola, quando si arriva dalla scelta multipla.
   const { scriptId, place: placeParam } = useLocalSearchParams<{ scriptId: string; place?: string }>();
   const router = useRouter();
+  /** `/invio/nuovo` = mail scritta al momento, senza modello in libreria. */
+  const nuova = scriptId === 'nuovo';
   // useMemo e non una costante: `placeParam` è un valore nuovo a ogni render e
   // farebbe ripartire in continuazione gli effetti che lo guardano.
   const placeIds = useMemo(
@@ -230,7 +232,11 @@ export default function InvioScript() {
       await registraContattoAvviato({
         placeIds,
         canale: 'email',
-        scriptId,
+        // ⚠️ `contatti_avviati.script_id` è una FK verso `script_email`: con la
+        // mail scritta al momento non c'è nessuno script, e passare la stringa
+        // «nuovo» farebbe rifiutare la riga (che è best-effort, quindi il
+        // contatto sparirebbe in silenzio e il negozio non diventerebbe Lead).
+        scriptId: nuova ? null : scriptId,
         oggetto,
         destinatari: selezionati.map((c) => c.email as string).filter(Boolean),
       }).catch(() => {});
@@ -248,7 +254,10 @@ export default function InvioScript() {
   }
 
   if (caricando) return <Loader />;
-  if (!script) {
+  // `nuovo` non è l'id di uno script: è la mail scritta al momento, che in
+  // libreria non ci va. Tutto il resto della schermata è identico — scelta dei
+  // contatti, revisione, conferma — perché l'invio è lo stesso invio.
+  if (!script && !nuova) {
     return (
       <View style={styles.centro}>
         <Stack.Screen options={{ title: 'Invio' }} />
@@ -349,14 +358,17 @@ export default function InvioScript() {
     <View style={styles.container}>
       {/* Il titolo diceva solo il nome dello script: chi arrivava qui dopo aver
           scelto «scrivi a questo cliente» non trovava più traccia del cliente. */}
-      <Stack.Screen options={{ title: negozio ? `Mail a ${negozio}` : script.titolo }} />
+      <Stack.Screen
+        options={{ title: negozio ? `Mail a ${negozio}` : script ? script.titolo : 'Nuova mail' }}
+      />
 
       <View style={styles.intro}>
         <Text style={styles.introPasso}>Passo 1 di 2 · A chi la mandi</Text>
         <Text style={styles.introTesto}>
-          {negozio
-            ? `Testo scelto: «${script.titolo}». Qui sotto ci sono solo i contatti di ${negozio}, già spuntati — non tutta la rubrica. Per aggiungere qualcun altro, cercalo. Al passo 2 rivedi il testo e confermi: niente parte prima.`
-            : `Testo scelto: «${script.titolo}». Cerca i contatti a cui mandarlo e spuntali. Al passo 2 rivedi il testo e confermi: niente parte prima.`}
+          {(script ? `Testo scelto: «${script.titolo}». ` : 'Mail scritta da te: oggetto e testo si compilano al passo 2. ') +
+            (negozio
+              ? `Qui sotto ci sono solo i contatti di ${negozio}, già spuntati — non tutta la rubrica. Per aggiungere qualcun altro, cercalo. Al passo 2 rivedi il testo e confermi: niente parte prima.`
+              : 'Cerca i contatti a cui mandarla e spuntali. Al passo 2 rivedi il testo e confermi: niente parte prima.')}
         </Text>
       </View>
 

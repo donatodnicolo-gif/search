@@ -1850,22 +1850,38 @@ export async function fetchDaCompletare(): Promise<Place[]> {
 export async function inserisciVisita(
   v: Omit<Visit, 'id' | 'created_at' | 'hubspot_synced'>,
 ): Promise<Visit> {
-  const payload = { ...v, hubspot_synced: false };
+  // Colonne che il database potrebbe non avere ancora (migrazione non
+  // applicata): si tolgono UNA ALLA VOLTA, quella che l'errore nomina, e si
+  // riprova. Perdere un campo accessorio è meglio che perdere la visita, che è
+  // il lavoro di una persona uscita di casa.
+  //
+  // ⚠️ Il giro serve perché le colonne mancanti possono essere PIÙ DI UNA, e
+  // PostgREST ne nomina una sola per volta. Prima c'erano due `if` separati, uno
+  // per `concorrenti` e uno per `motivi`: il secondo ricostruiva il payload
+  // dall'originale e **rimetteva dentro `concorrenti`**, così con entrambe le
+  // colonne mancanti il salvataggio falliva comunque — è successo davvero
+  // (29/07/2026: «Could not find the 'concorrenti' column of 'visits'»).
+  //
+  // Il campo si ricava dal messaggio di PostgREST (PGRST204), che ha sempre la
+  // forma: Could not find the 'xxx' column of 'visits' in the schema cache.
+  const payload: Record<string, unknown> = { ...v, hubspot_synced: false };
+  // Senza questi la visita non è una visita: se manca uno di loro è un guasto
+  // vero e va detto, non aggirato togliendo il campo.
+  const IRRINUNCIABILI = new Set(['place_id', 'data', 'esito', 'next_step', 'owner', 'hubspot_synced']);
+  const tolte: string[] = [];
+
   let res = await supabase.from('visits').insert(payload).select('*').single();
-  // Degrada con grazia se la migrazione 0013 (colonna concorrenti) non è applicata:
-  // salva la visita senza quel campo invece di far fallire tutto il salvataggio.
-  if (res.error && /concorrenti/i.test(res.error.message)) {
-    const { concorrenti: _omesso, ...senzaConcorrenti } = payload;
-    res = await supabase.from('visits').insert(senzaConcorrenti).select('*').single();
-  }
-  // Stessa cosa per `motivi` (migrazione 0053): il primo motivo sta comunque in
-  // `linea_proposta`, quindi senza la colonna si perde l'elenco completo — non
-  // la visita, che è il lavoro di una persona uscita di casa.
-  if (res.error && /motivi/i.test(res.error.message)) {
-    const { motivi: _senzaMotivi, ...resto } = payload;
-    res = await supabase.from('visits').insert(resto).select('*').single();
+  for (let giro = 0; res.error && giro < 6; giro++) {
+    const nome = /could not find the '([^']+)' column/i.exec(res.error.message ?? '')?.[1];
+    if (!nome || IRRINUNCIABILI.has(nome) || !(nome in payload)) break;
+    delete payload[nome];
+    tolte.push(nome);
+    res = await supabase.from('visits').insert(payload).select('*').single();
   }
   if (res.error) throw res.error;
+  // Non è un errore, ma non è nemmeno niente: chi legge i log deve poter capire
+  // perché una visita non ha i concorrenti o i motivi.
+  if (tolte.length) console.warn(`[visita] salvata senza ${tolte.join(', ')}: colonne assenti nel database.`);
   return res.data as Visit;
 }
 

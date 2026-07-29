@@ -27,6 +27,7 @@ import { daRicontattare, type Richiamo } from '@/lib/metrics';
 import { GIORNI_RISPOSTA_LEAD } from '@/lib/cadenze';
 import type { Lead } from '@/types';
 import { avvisa } from '@/lib/dialoghi';
+import { RicercaGlobale } from '@/components/RicercaGlobale';
 
 const MESI = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'];
 const GIORNI = ['domenica', 'lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato'];
@@ -156,6 +157,11 @@ export default function Oggi() {
       contentContainerStyle={[styles.content, contenutoCentrato]}
       refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}
     >
+      {/* Prima di tutto la ricerca: la prima domanda della giornata è «quel
+          negozio come si chiamava?», e prima bisognava indovinare in quale
+          sezione andarlo a cercare. Cerca in tutta l'app (lib/ricerca.ts). */}
+      <RicercaGlobale />
+
       {/* Testata sobria: niente blocchi scenografici, si va dritti alle azioni */}
       <View style={styles.testata}>
         <Text style={styles.data}>{dataLunga}{nome ? ` · ${nome}` : ''}</Text>

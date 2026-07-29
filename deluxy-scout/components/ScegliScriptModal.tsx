@@ -38,11 +38,19 @@ export function ScegliScriptModal({
       .catch(() => setScript([]));
   }, []);
 
+  const destinatari = () => `?place=${scelti.map((p) => p.id).join(',')}`;
+
   function scegli(s: ScriptEmail) {
     onClose();
     // Si porta dietro i negozi: nella schermata d'invio i loro contatti
     // risultano già selezionati, invece di ripescarli fra tutti.
-    router.push(`/(app)/invio/${s.id}?place=${scelti.map((p) => p.id).join(',')}`);
+    router.push(`/(app)/invio/${s.id}${destinatari()}`);
+  }
+
+  /** Mail scritta al momento: stesso percorso d'invio, senza modello. */
+  function nuovaMail() {
+    onClose();
+    router.push(`/(app)/invio/nuovo${destinatari()}`);
   }
 
   // Con più negozi il titolo dice quanti sono: «Mail a 12 negozi» è
@@ -90,15 +98,23 @@ export function ScegliScriptModal({
             </ScrollView>
           )}
 
+          {/* Due cose diverse, e la differenza conta:
+              · NUOVA MAIL = la scrivi ora e parte ora, in libreria non ci va.
+                È il caso più frequente, quindi sta sopra e in nero.
+              · NUOVO SCRIPT = un modello da riusare, e porta in Script. */}
+          <Pressable style={styles.btnNuovo} onPress={nuovaMail}>
+            <Ionicons name="create-outline" size={16} color={colors.bianco} />
+            <Text style={styles.btnNuovoTxt}>Nuova mail</Text>
+          </Pressable>
           <Pressable
-            style={styles.btnNuovo}
+            style={styles.btnSec}
             onPress={() => {
               onClose();
               router.push('/(app)/script');
             }}
           >
-            <Ionicons name="add" size={16} color={colors.bianco} />
-            <Text style={styles.btnNuovoTxt}>Nuovo script</Text>
+            <Ionicons name="add" size={15} color={colors.testo} />
+            <Text style={styles.btnSecTxt}>Nuovo script da riusare</Text>
           </Pressable>
         </View>
       </View>
@@ -141,4 +157,14 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
   },
   btnNuovoTxt: { color: colors.bianco, fontWeight: '700', fontSize: 13.5 },
+  btnSec: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    backgroundColor: colors.fill,
+    borderRadius: radius.pill,
+    paddingVertical: 10,
+  },
+  btnSecTxt: { color: colors.testo, fontWeight: '700', fontSize: 13 },
 });
