@@ -2,11 +2,13 @@
 // nuovo) e vai alla schermata di invio. Lo script è il testo, l'invio resta
 // quello di sempre — con revisione e conferma esplicita, mai automatico.
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { colors, radius, spacing } from '@/lib/theme';
 import { fetchScript, LABEL_TIPO, type ScriptEmail } from '@/lib/script';
+import { fetchRecapitiPlace } from '@/lib/db';
+import { urlScriviAiMail } from '@/lib/aimail';
 import type { Place } from '@/types';
 
 type Destinatario = Pick<Place, 'id' | 'nome'>;
@@ -30,12 +32,22 @@ export function ScegliScriptModal({
 }) {
   const router = useRouter();
   const [script, setScript] = useState<ScriptEmail[] | null>(null);
+  // Gli indirizzi dei negozi scelti: servono solo alla finestra di AI Mail,
+  // che vuole un destinatario nell'URL. L'invio di Scout se li ricava da sé.
+  const [recapiti, setRecapiti] = useState<Map<string, string>>(new Map());
   const scelti: Destinatario[] = places?.length ? places : place ? [place] : [];
 
   useEffect(() => {
     fetchScript()
       .then(setScript)
       .catch(() => setScript([]));
+    fetchRecapitiPlace()
+      .then((m) => {
+        const soli = new Map<string, string>();
+        for (const [id, r] of m) if (r.email) soli.set(id, r.email);
+        setRecapiti(soli);
+      })
+      .catch(() => {});
   }, []);
 
   const destinatari = () => `?place=${scelti.map((p) => p.id).join(',')}`;
@@ -51,6 +63,27 @@ export function ScegliScriptModal({
   function nuovaMail() {
     onClose();
     router.push(`/(app)/invio/nuovo${destinatari()}`);
+  }
+
+  /**
+   * Apre la finestra «scrivi» di AI Mail con il destinatario già dentro.
+   *
+   * È la strada per scriverla a mano da lì: la mail parte dalla casella
+   * collegata ad AI Mail e la copia resta in «Inviata». In cambio si perde
+   * quello che sa fare l'invio di Scout — più negozi insieme, variabili,
+   * formattazione, e la traccia in `contatti_avviati` che fa diventare Lead il
+   * negozio. Per questo sta come terza scelta e non al posto delle altre.
+   */
+  function scriviInAiMail() {
+    const indirizzi = scelti.map((p) => recapiti.get(p.id)).filter(Boolean) as string[];
+    if (!indirizzi.length) return;
+    onClose();
+    Linking.openURL(
+      urlScriviAiMail({
+        a: indirizzi.join(', '),
+        rif: scelti.length === 1 ? scelti[0].nome : `${scelti.length} negozi`,
+      }),
+    );
   }
 
   // Con più negozi il titolo dice quanti sono: «Mail a 12 negozi» è
@@ -106,6 +139,22 @@ export function ScegliScriptModal({
             <Ionicons name="create-outline" size={16} color={colors.bianco} />
             <Text style={styles.btnNuovoTxt}>Nuova mail</Text>
           </Pressable>
+          {/* Terza strada: la finestra di AI Mail. Un destinatario alla volta e
+              senza variabili, ma si scrive di là e la copia resta in «Inviata».
+              Spenta se del negozio non abbiamo nessun indirizzo: una finestra
+              «scrivi a nessuno» non serve. */}
+          {(() => {
+            const conMail = scelti.filter((p) => recapiti.get(p.id)).length;
+            return (
+              <Pressable style={[styles.btnSec, !conMail && styles.off]} onPress={scriviInAiMail} disabled={!conMail}>
+                <Ionicons name="open-outline" size={15} color={colors.testo} />
+                <Text style={styles.btnSecTxt} numberOfLines={1}>
+                  {conMail ? 'Scrivi in AI Mail' : 'Scrivi in AI Mail — nessun indirizzo'}
+                </Text>
+              </Pressable>
+            );
+          })()}
+
           <Pressable
             style={styles.btnSec}
             onPress={() => {
@@ -167,4 +216,5 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   btnSecTxt: { color: colors.testo, fontWeight: '700', fontSize: 13 },
+  off: { opacity: 0.45 },
 });

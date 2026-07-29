@@ -3,11 +3,12 @@
 // 3) conferma e invia dalla tua casella. Ogni email è personalizzata per il
 // contatto ({nome}/{negozio}) e l'esito è mostrato per destinatario.
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, FlatList, Linking, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { colors, radius, spacing } from '@/lib/theme';
 import { conferma, avvisa } from '@/lib/dialoghi';
+import { urlScriviAiMail } from '@/lib/aimail';
 import { fetchPlace, fetchTuttiContatti, registraContattoAvviato, type ContattoConLuogo } from '@/lib/db';
 import { doveLaTrovi, fetchScript, inviaEmailContatti, type ScriptEmail } from '@/lib/script';
 import { applicaVariabili, htmlDaTesto, sembraHtml, testoSemplice, variabiliManuali, type DatiContatto } from '@/lib/variabili';
@@ -398,6 +399,28 @@ export default function InvioScript() {
           <Pressable style={styles.btnIndietro} onPress={() => setFase('scelta')} disabled={inviando}>
             <Text style={styles.btnIndietroTxt}>Indietro</Text>
           </Pressable>
+          {/* Scorciatoia: finire di scriverla nella finestra di AI Mail, con
+              oggetto e testo già dentro. Solo con UN destinatario: le variabili
+              si applicano a lui, e con più contatti il testo uscirebbe
+              personalizzato per il primo e mandato a tutti. */}
+          {selezionati.length === 1 && primo ? (
+            <Pressable
+              style={styles.btnIndietro}
+              disabled={inviando}
+              onPress={() =>
+                Linking.openURL(
+                  urlScriviAiMail({
+                    a: primo.email as string,
+                    oggetto: applicaVariabili(oggetto, datiContatto(primo), variabili),
+                    corpo: applicaVariabili(sembraHtml(corpo) ? corpo : htmlDaTesto(corpo), datiContatto(primo), variabili),
+                    rif: primo.place_nome,
+                  }),
+                )
+              }
+            >
+              <Text style={styles.btnIndietroTxt}>Apri in AI Mail</Text>
+            </Pressable>
+          ) : null}
           <Pressable
             style={[styles.btnInvia, (inviando || varMancanti.length > 0) && styles.off]}
             onPress={invia}
