@@ -5,6 +5,8 @@ import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-rou
 import type { Contact, Deal, Place, Priorita, Task, Visit } from '@/types';
 import { canonizzaLinee } from '@/types';
 import { colors, labelFase, labelStato, radius, spacing } from '@/lib/theme';
+import { LABEL_LIVELLO, coloreLivello, livelloDi } from '@/lib/livelli';
+import { StatusBadge } from '@/components/ui';
 import { aggiornaNascosto, aggiornaPlace, completaTask, fetchAziendeScartate, fetchContatti, fetchContattiScartati, fetchDealPlace, fetchPlace, fetchTaskPlace, fetchVisitePlace, ignoraDuplicato, inserisciContatto, scartaAzienda, scartaContatto, sincronizzaPlaceRegistro, trovaDuplicati, unisciPlaces } from '@/lib/db';
 import { avvisa, conferma } from '@/lib/dialoghi';
 import { urlNavigazione } from '@/lib/nav';
@@ -299,6 +301,58 @@ export default function SchedaAttivita() {
 
   const lineeDaSalvare = !stessaTipologia(linee, lineeSalvate);
 
+  /**
+   * Il livello del rapporto — la stessa parola che usano tutte le liste
+   * (Selezionato · Lead · Prospect · Cliente · Dormiente · Perso).
+   *
+   * Prima qui compariva lo **stato di pipeline** (`labelStato`), che ha solo 4
+   * valori e nessuno che voglia dire «nuovo»: un negozio appena creato leggeva
+   * «Da visitare», e uno segnato perso leggeva «Perso» senza dire da dove
+   * venisse. Segnalato dall'utente il 29/07/2026 («perché esce perso? l'ho
+   * appena creato»).
+   *
+   * ⚠️ `contattato` qui è approssimato alle **visite**: chiamate e
+   * `contatti_avviati` non sono caricati in questa schermata. Al massimo un
+   * Lead si mostra come Selezionato — mai il contrario.
+   */
+  const livello = useMemo(
+    () =>
+      place
+        ? livelloDi(
+            place,
+            contatti.length > 0,
+            visite.length > 0,
+            deal.some((d) => d.fase !== 'closedwon' && d.fase !== 'closedlost'),
+          )
+        : null,
+    [place, contatti, visite, deal],
+  );
+
+  /** Da dove viene un livello che chiude il rapporto: si legge, non si indovina. */
+  const perche = useMemo(() => {
+    if (!place || (livello !== 'perso' && livello !== 'dormiente')) return null;
+    if (place.anagrafiche_stato === 'non_interessato') return 'Lo dice il registro Anagrafiche: «non interessato».';
+    if (place.anagrafiche_stato === 'dismesso') return 'Lo dice il registro Anagrafiche: «dismesso».';
+    if (place.stato === 'perso') {
+      return visite.some((v) => v.esito === 'non_target')
+        ? 'Da una visita chiusa con esito «non è un target».'
+        : 'Lo stato del negozio è «perso»: da una visita «non è un target», o scelto a mano in Modifica.';
+    }
+    return null;
+  }, [place, livello, visite]);
+
+  /** Riporta un negozio chiuso all'inizio del percorso. */
+  async function riapri() {
+    if (!place) return;
+    try {
+      await aggiornaPlace(place.id, { stato: 'da_visitare', stato_affiliazione: 'selezionato' });
+      setPlace({ ...place, stato: 'da_visitare', stato_affiliazione: 'selezionato' });
+      sincronizzaPlaceRegistro(place.id).catch(() => {});
+    } catch (e) {
+      avvisa('Non è stato possibile riaprirlo', (e as Error)?.message ?? 'Riprova.');
+    }
+  }
+
   // Non proporre "+ Aggiungi" per contatti che abbiamo GIÀ in rubrica locale:
   // confronto per telefono, email o nome normalizzati (così "Ivan Arioli" e il
   // suggerimento HubSpot con lo stesso numero non risultano come nuovo contatto).
@@ -358,12 +412,27 @@ export default function SchedaAttivita() {
               </Pressable>
             ))}
           </View>
-          <Text style={styles.stato}>{labelStato[place.stato]}</Text>
+          {livello ? (
+            <StatusBadge small label={LABEL_LIVELLO[livello]} colore={coloreLivello(livello)} />
+          ) : null}
         </View>
         <Text style={styles.nome}>{place.nome}</Text>
         <Text style={styles.meta} numberOfLines={1}>
           {[place.indirizzo, place.categoria, place.zona].filter(Boolean).join(' · ')}
         </Text>
+        {/* Lo stato di pipeline resta visibile, ma sotto: dice a che punto è il
+            lavoro sul campo, non a che punto è il rapporto. */}
+        <Text style={styles.stato}>Percorso: {labelStato[place.stato]}</Text>
+        {perche ? (
+          <View style={styles.perche}>
+            <Text style={styles.percheTxt}>
+              <Ionicons name="information-circle-outline" size={13} color={colors.testoSoft} /> {perche}
+            </Text>
+            <Pressable style={styles.btnRiapri} onPress={riapri}>
+              <Text style={styles.btnRiapriTxt}>Riportalo fra i Selezionati</Text>
+            </Pressable>
+          </View>
+        ) : null}
 
         {/* Le azioni SUBITO sotto il nome: la scheda serve a vendere, non a leggere. */}
         <View style={styles.azioniGrid}>
@@ -710,7 +779,25 @@ const styles = StyleSheet.create({
   head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   prioRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   prioOff: { opacity: 0.35 },
-  stato: { color: colors.testoSoft, fontWeight: '700' },
+  stato: { color: colors.testoSoft, fontWeight: '700', fontSize: 12.5, marginTop: 2 },
+  perche: {
+    marginTop: spacing.sm,
+    backgroundColor: colors.bianco,
+    borderWidth: 1,
+    borderColor: colors.grigioChiaro,
+    borderRadius: radius.md,
+    padding: spacing.sm,
+    gap: 8,
+  },
+  percheTxt: { color: colors.testoSoft, fontSize: 12.5, lineHeight: 18 },
+  btnRiapri: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.fill,
+    borderRadius: radius.pill,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  btnRiapriTxt: { color: colors.testo, fontWeight: '700', fontSize: 13 },
   nome: { fontSize: 24, fontWeight: '900', color: colors.navy, marginTop: spacing.sm },
   meta: { color: colors.testoSoft, fontSize: 14, marginTop: 2 },
   // Azione primaria DS: pillola nera (ink), mai oro.

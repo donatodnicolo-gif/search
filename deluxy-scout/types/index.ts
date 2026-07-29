@@ -238,6 +238,10 @@ export interface Visit {
   esito_analisi: string | null;
   next_step: string;
   linea_proposta: string | null;
+  /** Perché si è andati: uno o più motivi (migrazione 0053). `linea_proposta`
+   *  resta il PRIMO motivo — lo leggono già storico, export e sync HubSpot.
+   *  Opzionale: le visite registrate prima della 0053 non ce l'hanno. */
+  motivi?: string[] | null;
   cross_sell: string[] | null;
   concorrenti: string | null; // concorrenti rilevati sul campo (testo libero, da riconciliare)
   foto_url: string | null;

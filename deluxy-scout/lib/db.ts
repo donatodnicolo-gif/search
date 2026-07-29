@@ -1833,6 +1833,13 @@ export async function inserisciVisita(
     const { concorrenti: _omesso, ...senzaConcorrenti } = payload;
     res = await supabase.from('visits').insert(senzaConcorrenti).select('*').single();
   }
+  // Stessa cosa per `motivi` (migrazione 0053): il primo motivo sta comunque in
+  // `linea_proposta`, quindi senza la colonna si perde l'elenco completo — non
+  // la visita, che è il lavoro di una persona uscita di casa.
+  if (res.error && /motivi/i.test(res.error.message)) {
+    const { motivi: _senzaMotivi, ...resto } = payload;
+    res = await supabase.from('visits').insert(resto).select('*').single();
+  }
   if (res.error) throw res.error;
   return res.data as Visit;
 }

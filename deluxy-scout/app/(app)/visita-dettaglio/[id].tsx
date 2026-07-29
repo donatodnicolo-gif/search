@@ -56,7 +56,13 @@ export default function DettaglioVisita() {
           </Text>
         ) : null}
 
-        {visit.linea_proposta ? <Campo label="Linea proposta" valore={visit.linea_proposta} /> : null}
+        {/* I motivi della visita (migr. 0053). Le visite di prima hanno solo
+            `linea_proposta`: si mostra quella, senza far sparire lo storico. */}
+        {visit.motivi?.length ? (
+          <Campo label="Motivo della visita" valore={visit.motivi.join(', ')} />
+        ) : visit.linea_proposta ? (
+          <Campo label="Motivo della visita" valore={visit.linea_proposta} />
+        ) : null}
         {visit.cross_sell?.length ? <Campo label="Cross-sell" valore={visit.cross_sell.join(', ')} /> : null}
         {visit.concorrenti ? <Campo label="Concorrenti già presenti" valore={visit.concorrenti} /> : null}
         <Campo label="Briefing" valore={visit.briefing} />

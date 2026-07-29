@@ -13,8 +13,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import type { EsitoVisita, Linea, Place } from '@/types';
-import { LINEE_STANDBY } from '@/types';
+import type { EsitoVisita, Linea, Place, Task } from '@/types';
+import { LINEE_STANDBY, canonizzaLinee } from '@/types';
 import { colors, radius, spacing } from '@/lib/theme';
 import { fetchLinee, fetchPlace, aggiornaStatoPlace, caricaFotoVetrina, inserisciVisita } from '@/lib/db';
 import { avvisa } from '@/lib/dialoghi';
@@ -26,6 +26,8 @@ import { env } from '@/lib/env';
 import { supabase } from '@/lib/supabase';
 import { BoxIpotesi } from '@/components/BoxIpotesi';
 import { EsitoButtons } from '@/components/EsitoButtons';
+import { TaskFormModal } from '@/components/TaskFormModal';
+import { fetchTaskPlace } from '@/lib/db';
 import { Loader } from '../../_layout';
 
 export default function NuovaVisita() {
@@ -39,7 +41,12 @@ export default function NuovaVisita() {
   const [salvataggio, setSalvataggio] = useState(false);
 
   // Campi visita
-  const [linea, setLinea] = useState<string | null>(null);
+  // ⚠️ Perché si è andati: **uno o più motivi**, non uno solo (richiesta utente
+  // del 29/07/2026). In un negozio si entra per più ragioni insieme — «gli
+  // parlo delle consegne e già che ci sono del gifting» — e sceglierne una
+  // faceva perdere l'altra metà del motivo per cui ci si è andati. Il primo
+  // resta in `visits.linea_proposta`, che leggono già storico, export e HubSpot.
+  const [motivi, setMotivi] = useState<string[]>([]);
   const [aggancio, setAggancio] = useState<string>('');
   const [crossSell, setCrossSell] = useState<string[]>([]);
   const [esito, setEsito] = useState<EsitoVisita | null>(null);
@@ -49,20 +56,37 @@ export default function NuovaVisita() {
   const [nextStep, setNextStep] = useState('');
   const [concorrenti, setConcorrenti] = useState('');
   const [fotoUri, setFotoUri] = useState<string | null>(null);
+  // Task del negozio: si aprono da qui, senza uscire dalla visita — «richiamalo
+  // lunedì» va scritto mentre lo si pensa, non dopo essere tornati indietro.
+  const [taskAperto, setTaskAperto] = useState(false);
+  const [taskPlace, setTaskPlace] = useState<Task[]>([]);
 
   useEffect(() => {
     (async () => {
       if (!placeId) return;
-      const [p, ls] = await Promise.all([fetchPlace(placeId), fetchLinee()]);
+      const [p, ls, tk] = await Promise.all([
+        fetchPlace(placeId),
+        fetchLinee(),
+        fetchTaskPlace(placeId).catch(() => [] as Task[]),
+      ]);
       setPlace(p);
       setLinee(ls);
-      setLinea(p?.linea_ipotizzata ?? null);
+      setTaskPlace(tk);
+      // Il motivo parte da ciò che il negozio ha già segnato: è l'ipotesi più
+      // probabile, e resta togliibile.
+      setMotivi(canonizzaLinee(p?.linee_ipotizzate ?? (p?.linea_ipotizzata ? [p.linea_ipotizzata] : [])));
       setAggancio(p?.aggancio_apertura ?? '');
       setLoading(false);
       // Check-in: cattura posizione al momento dell'apertura.
       posizioneCorrente().then(setPos);
     })();
   }, [placeId]);
+
+  /** Gli interessi già segnati sul negozio (dal registro o messi qui). */
+  const interessiSegnati = useMemo(
+    () => canonizzaLinee(place?.linee_ipotizzate ?? (place?.linea_ipotizzata ? [place.linea_ipotizzata] : [])),
+    [place],
+  );
 
   const lineePrimarie = useMemo(
     () => linee.filter((l) => l.attiva_bool && !LINEE_STANDBY.includes(l.nome)),
@@ -73,15 +97,30 @@ export default function NuovaVisita() {
     [linee],
   );
 
-  // Linee di interesse selezionate (primaria + cross-sell), come contesto ai concorrenti.
+  // Linee di interesse selezionate (motivi + cross-sell), come contesto ai concorrenti.
   const interessi = useMemo(
-    () => [linea, ...crossSell].filter(Boolean).join(', '),
-    [linea, crossSell],
+    () => [...motivi, ...crossSell].filter(Boolean).join(', '),
+    [motivi, crossSell],
   );
 
   const toggleCross = useCallback((nome: string) => {
     setCrossSell((cur) => (cur.includes(nome) ? cur.filter((n) => n !== nome) : [...cur, nome]));
   }, []);
+
+  const toggleMotivo = useCallback((nome: string) => {
+    setMotivi((cur) => (cur.includes(nome) ? cur.filter((n) => n !== nome) : [...cur, nome]));
+  }, []);
+
+  /**
+   * I motivi selezionabili: le linee attive **più** quelli già scelti che non
+   * sono fra queste. Senza l'unione, un interesse ereditato dal registro ma non
+   * più in catalogo resterebbe selezionato **senza il suo chip**: nel salvataggio
+   * ci sarebbe, ma sullo schermo non si vedrebbe e non si potrebbe togliere.
+   */
+  const opzioniMotivo = useMemo(() => {
+    const nomi: string[] = lineePrimarie.map((l) => l.nome);
+    return [...nomi, ...motivi.filter((m) => !nomi.includes(m))];
+  }, [lineePrimarie, motivi]);
 
   async function scegliFoto() {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
@@ -117,7 +156,10 @@ export default function NuovaVisita() {
       note_post_meeting: notePost.trim() || null,
       esito_analisi: analisi.trim() || null,
       next_step: nextStep.trim(),
-      linea_proposta: linea,
+      // Il primo motivo resta dov'era: storico, export CSV e `hubspot-sync`
+      // (che ci costruisce il nome della deal) leggono `linea_proposta`.
+      linea_proposta: motivi[0] ?? null,
+      motivi: motivi.length ? motivi : null,
       cross_sell: crossSell.length ? crossSell : null,
       concorrenti: concorrenti.trim() || null,
       foto_url: null as string | null,
@@ -193,12 +235,33 @@ export default function NuovaVisita() {
           </Text>
 
           {/* Ipotesi editabile */}
-          <BoxIpotesi linea={linea} aggancio={aggancio} />
+          <BoxIpotesi linea={motivi[0] ?? null} aggancio={aggancio} />
 
-          <Label>Linea proposta (primaria)</Label>
+          {/* Cosa il negozio ha GIÀ segnato: si entra sapendo di cosa gli
+              interessa parlare, invece di riaprire la scheda per ricordarlo. */}
+          <Label>Interessi già segnati</Label>
+          {interessiSegnati.length ? (
+            <View style={styles.chipWrap}>
+              {interessiSegnati.map((nome) => (
+                <View key={nome} style={styles.chipFermo}>
+                  <Ionicons name="pricetag-outline" size={12} color={colors.testoSoft} />
+                  <Text style={styles.chipFermoTxt}>{nome}</Text>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <Text style={styles.hint}>
+              Nessun interesse segnato per questo negozio. Si impostano dalla sua scheda, in «Tipologia di interesse».
+            </Text>
+          )}
+
+          <Label>Motivo della visita — scegline uno o più</Label>
+          <Text style={styles.hint}>
+            Perché ci vai. Parte da quello che il negozio ha già segnato: togli o aggiungi.
+          </Text>
           <View style={styles.chipWrap}>
-            {lineePrimarie.map((l) => (
-              <Chip key={l.id} label={l.nome} on={linea === l.nome} onPress={() => setLinea(l.nome)} />
+            {opzioniMotivo.map((nome) => (
+              <Chip key={nome} label={nome} on={motivi.includes(nome)} onPress={() => toggleMotivo(nome)} />
             ))}
           </View>
 
@@ -245,6 +308,27 @@ export default function NuovaVisita() {
           <Label>Next step *</Label>
           <TextInput style={styles.input} value={nextStep} onChangeText={setNextStep} placeholder="Obbligatorio: il prossimo passo" placeholderTextColor={colors.grigio} />
 
+          {/* Il next step è una frase; il task è una cosa con una data e un
+              nome sopra. Aprirlo da qui evita di uscire dalla visita per
+              scriverlo — che è il modo più sicuro di non scriverlo. */}
+          <View style={styles.taskBox}>
+            <View style={styles.taskTesta}>
+              <Text style={styles.taskTitolo}>
+                Task del negozio{taskPlace.length ? ` (${taskPlace.filter((t) => !t.completata).length} da fare)` : ''}
+              </Text>
+              <Pressable style={styles.btnTask} onPress={() => setTaskAperto(true)}>
+                <Ionicons name="add" size={15} color={colors.bianco} />
+                <Text style={styles.btnTaskTxt}>Nuovo task</Text>
+              </Pressable>
+            </View>
+            {taskPlace.filter((t) => !t.completata).slice(0, 3).map((t) => (
+              <Text key={t.id} style={styles.taskRiga} numberOfLines={1}>
+                • {t.titolo}
+                {t.scadenza ? ` — entro il ${new Date(t.scadenza).toLocaleDateString('it-IT')}` : ''}
+              </Text>
+            ))}
+          </View>
+
           <Pressable style={styles.foto} onPress={scegliFoto}>
             {fotoUri ? (
               <Image source={{ uri: fotoUri }} style={styles.fotoImg} />
@@ -265,6 +349,18 @@ export default function NuovaVisita() {
           </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {taskAperto ? (
+        <TaskFormModal
+          placeId={place.id}
+          placeNome={place.nome}
+          onClose={() => setTaskAperto(false)}
+          onSalvato={async () => {
+            setTaskAperto(false);
+            setTaskPlace(await fetchTaskPlace(place.id).catch(() => taskPlace));
+          }}
+        />
+      ) : null}
     </>
   );
 }
@@ -321,6 +417,39 @@ const styles = StyleSheet.create({
   chipStandbyOn: { backgroundColor: colors.oro, borderColor: colors.oro },
   chipTxt: { color: colors.navy, fontWeight: '700' },
   chipTxtOn: { color: colors.bianco },
+  // Solo da leggere: non si preme, e si vede che non si preme.
+  chipFermo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: colors.fill,
+    borderRadius: radius.pill,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  chipFermoTxt: { color: colors.testoSoft, fontWeight: '700', fontSize: 13 },
+  taskBox: {
+    marginTop: spacing.md,
+    backgroundColor: colors.bianco,
+    borderWidth: 1,
+    borderColor: colors.grigioChiaro,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    gap: 6,
+  },
+  taskTesta: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' },
+  taskTitolo: { flex: 1, color: colors.navy, fontWeight: '800', fontSize: 14, minWidth: 120 },
+  btnTask: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.ink,
+    borderRadius: radius.pill,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  btnTaskTxt: { color: colors.bianco, fontWeight: '700', fontSize: 13 },
+  taskRiga: { color: colors.testoSoft, fontSize: 13, lineHeight: 18 },
   foto: {
     marginTop: spacing.md,
     height: 120,
