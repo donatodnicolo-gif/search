@@ -46,8 +46,36 @@ export async function GET(req: NextRequest) {
 
   const fatture = await prisma.fatturaServizio.findMany({
     where: { anno, imponibile: { gt: 0 }, ...meseFiltro, ...statoFiltro },
-    include: { tipologia: true },
+    include: { tipologia: true, partner: { select: { nome: true } } },
   });
+
+  // ---- Dettaglio di una tipologia: le fatture, non la somma ----
+  // Simmetrico a `?controparte=` su /api/spese. Un totale per tipologia dice
+  // quanto, non **di chi**: chi guarda un ricavo che non torna ha bisogno delle
+  // fatture che lo compongono, col partner e il numero.
+  const chiediTipologia = (sp.get("tipologia") ?? "").trim();
+  if (chiediTipologia) {
+    const righe = fatture
+      .filter((f) => f.tipologia.nome.toLowerCase() === chiediTipologia.toLowerCase())
+      .sort((a, b) => b.mese - a.mese || b.imponibile - a.imponibile)
+      .map((f) => ({
+        numero: f.numero,
+        mese: f.mese,
+        emissione: f.emissione ? f.emissione.toISOString().slice(0, 10) : null,
+        partner: f.partner?.nome ?? null,
+        imponibile: +f.imponibile.toFixed(2),
+        totale: +ivato(f).toFixed(2),
+        pagata: f.pagata,
+        descrizione: f.descrizione ?? null,
+      }));
+    return NextResponse.json({
+      anno,
+      tipologia: chiediTipologia,
+      periodo: { dal: mese ?? Math.min(dal, al), al: mese ?? Math.max(dal, al) },
+      fatture: righe,
+      totale: +righe.reduce((s, r) => s + r.imponibile, 0).toFixed(2),
+    });
+  }
 
   // aggregazione per tipologia
   const perTip = new Map<
