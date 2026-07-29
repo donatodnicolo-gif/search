@@ -1,4 +1,7 @@
-// Segnalati · Fornitori — i potenziali che **un'altra app** ha già trovato.
+// Segnalazioni CS — i potenziali che **un'altra app** ha già trovato.
+//
+// ⚠️ Il nome della voce di menu è cambiato (era «Segnalati · Fornitori»), la
+// rotta no: resta `/segnalati`, così i link già in giro continuano a valere.
 //
 // L'app fornitori (deluxy-suppliers) cerca fioristi e pasticcerie in tutta
 // Italia e li scrive nel registro Anagrafiche come `prospect` con interesse

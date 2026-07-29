@@ -27,12 +27,56 @@ export interface Sequenza {
   created_at: string;
 }
 
+/**
+ * Un passo dice DUE cose: quale testo mandare e dopo quanti giorni.
+ *
+ * Il testo può venire da due parti, mai da tutt'e due:
+ *  · `script_id` → un modello della libreria Script (condiviso: se lo si
+ *    corregge lì, cambia in tutte le sequenze che lo usano);
+ *  · `oggetto` + `corpo` → una mail scritta dentro il passo, che in libreria
+ *    non ci finisce. È il caso del sollecito di due righe, che come modello
+ *    non serve a nessuno.
+ * Le variabili tra [ ] valgono identiche nei due casi: le riempie sempre
+ * `invio-email` al momento dell'invio (lib/variabili.ts).
+ */
 export interface PassoSequenza {
   id: string;
   sequenza_id: string;
   ordine: number;
   script_id: string | null;
+  oggetto: string | null;
+  corpo: string | null;
   giorni_attesa: number;
+}
+
+/** Il testo di un passo, da qualunque delle due parti arrivi. */
+export interface TestoPasso {
+  /** Come chiamarlo nelle liste. */
+  titolo: string;
+  oggetto: string;
+  corpo: string;
+  /** L'id del modello, se il testo viene dalla libreria: serve allo storico. */
+  scriptId: string | null;
+}
+
+/**
+ * Risolve il testo di un passo. Torna `null` solo se il passo puntava a un
+ * modello che nel frattempo è stato cancellato — caso che va detto a chi manda,
+ * non aggirato mandando una mail vuota.
+ */
+export function testoDelPasso(
+  passo: PassoSequenza,
+  script: { id: string; titolo: string; oggetto: string | null; corpo: string }[],
+): TestoPasso | null {
+  if (passo.script_id) {
+    const s = script.find((x) => x.id === passo.script_id);
+    if (!s) return null;
+    return { titolo: s.titolo, oggetto: s.oggetto ?? '', corpo: s.corpo, scriptId: s.id };
+  }
+  const corpo = (passo.corpo ?? '').trim();
+  if (!corpo) return null;
+  const oggetto = (passo.oggetto ?? '').trim();
+  return { titolo: oggetto || 'Mail del passo', oggetto, corpo, scriptId: null };
 }
 
 export interface Iscrizione {
@@ -84,12 +128,25 @@ export async function creaSequenza(nome: string, descrizione?: string): Promise<
   return data as Sequenza;
 }
 
-export async function aggiungiPasso(sequenzaId: string, scriptId: string, giorniAttesa: number): Promise<void> {
+/** Cosa manda il passo: o un modello della libreria, o una mail scritta qui. */
+export type TestoNuovoPasso =
+  | { scriptId: string }
+  | { oggetto: string; corpo: string };
+
+export async function aggiungiPasso(
+  sequenzaId: string,
+  testo: TestoNuovoPasso,
+  giorniAttesa: number,
+): Promise<void> {
   const passi = await fetchPassi(sequenzaId);
+  const daLibreria = 'scriptId' in testo;
+  if (!daLibreria && !testo.corpo.trim()) throw new Error('La mail del passo è vuota.');
   const { error } = await supabase.from('sequenza_passi').insert({
     sequenza_id: sequenzaId,
     ordine: (passi[passi.length - 1]?.ordine ?? 0) + 1,
-    script_id: scriptId,
+    script_id: daLibreria ? testo.scriptId : null,
+    oggetto: daLibreria ? null : testo.oggetto.trim() || null,
+    corpo: daLibreria ? null : testo.corpo,
     // Il primo passo parte subito: aspettare prima ancora di aver detto la
     // prima parola non ha senso.
     giorni_attesa: passi.length === 0 ? 0 : Math.max(0, Math.round(giorniAttesa)),

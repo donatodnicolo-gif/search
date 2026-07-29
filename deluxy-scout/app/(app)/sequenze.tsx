@@ -32,10 +32,14 @@ import {
   rimuoviPasso,
   segnaInviato,
   segnaRisposto,
+  testoDelPasso,
   type InCoda,
   type PassoSequenza,
   type Sequenza,
+  type TestoNuovoPasso,
 } from '@/lib/sequenze';
+import { RichTextEditor } from '@/components/RichTextEditor';
+import { testoSemplice, variabiliManuali } from '@/lib/variabili';
 
 export default function Sequenze() {
   const router = useRouter();
@@ -87,7 +91,8 @@ export default function Sequenze() {
     }, [carica]),
   );
 
-  const titoloScript = (id: string | null) => script.find((s) => s.id === id)?.titolo ?? 'Testo non trovato';
+  /** Come si chiama il testo di un passo, da qualunque parte arrivi. */
+  const etichettaPasso = (p: PassoSequenza) => testoDelPasso(p, script)?.titolo ?? 'Testo non trovato';
 
   /**
    * Manda un passo della coda. Prima controlla se il cliente ha risposto: se
@@ -102,9 +107,24 @@ export default function Sequenze() {
       );
       return;
     }
-    const testo = script.find((s) => s.id === c.passo.script_id);
+    const testo = testoDelPasso(c.passo, script);
     if (!testo) {
-      avvisa('Testo mancante', 'Lo script di questo passo è stato cancellato: apri la sequenza e sostituiscilo.');
+      avvisa(
+        'Testo mancante',
+        'Il testo di questo passo non c’è più: se veniva dalla libreria, lo script è stato cancellato. Apri la sequenza e sostituiscilo.',
+      );
+      return;
+    }
+    // Le variabili del CONTATTO ([nome], [negozio]…) le riempie l'invio. Quelle
+    // manuali ([data]…) nell'invio a mano si compilano in un modulo prima di
+    // partire: qui non c'è nessuno a cui chiederlo, e la mail uscirebbe con
+    // «[data]» scritto dentro. Meglio fermarsi e dirlo.
+    const daCompilare = variabiliManuali(testo.oggetto, testo.corpo);
+    if (daCompilare.length) {
+      avvisa(
+        'Ci sono variabili da compilare a mano',
+        `Il testo contiene ${daCompilare.map((v) => `[${v}]`).join(', ')}: in una sequenza nessuno le riempie e partirebbero scritte così. Togline il segnaposto o mandalo dagli Script.`,
+      );
       return;
     }
 
@@ -132,7 +152,7 @@ export default function Sequenze() {
           setInCorso(c.iscrizione.id);
           try {
             const r = await inviaEmailContatti(
-              testo.oggetto ?? '',
+              testo.oggetto,
               testo.corpo,
               suoi.map((x) => ({
                 email: x.email as string,
@@ -156,8 +176,10 @@ export default function Sequenze() {
             await registraContattoAvviato({
               placeIds: [c.iscrizione.place_id],
               canale: 'email',
-              scriptId: testo.id,
-              oggetto: testo.oggetto ?? null,
+              // Null quando la mail è scritta dentro il passo: in libreria non
+              // c'è, e inventarle un id la farebbe sembrare un modello.
+              scriptId: testo.scriptId,
+              oggetto: testo.oggetto || null,
             }).catch(() => {});
             avvisa('Mandato', `Inviate ${r.inviate} su ${r.totale}.`);
             await carica();
@@ -229,7 +251,7 @@ export default function Sequenze() {
             {c.ritardo > 0 ? <Text style={styles.tardi}>in ritardo di {c.ritardo} g</Text> : <Text style={styles.oggi}>oggi</Text>}
           </View>
           <Text style={styles.cardMeta} numberOfLines={2}>
-            {c.sequenza.nome} · passo {c.passo.ordine} · «{titoloScript(c.passo.script_id)}»
+            {c.sequenza.nome} · passo {c.passo.ordine} · «{etichettaPasso(c.passo)}»
           </Text>
           <View style={styles.azioni}>
             <Pressable style={styles.btnSec} onPress={() => ferma(c)} disabled={inCorso === c.iscrizione.id}>
@@ -287,7 +309,7 @@ export default function Sequenze() {
             <Text style={styles.cardMeta}>
               {suoi.length === 0
                 ? 'Nessun passo: aprila e aggiungi il primo testo'
-                : `${suoi.length} pass${suoi.length === 1 ? 'o' : 'i'} · ${riassunto(suoi, titoloScript)}`}
+                : `${suoi.length} pass${suoi.length === 1 ? 'o' : 'i'} · ${riassunto(suoi, etichettaPasso)}`}
             </Text>
 
             {apertaOra ? (
@@ -296,10 +318,16 @@ export default function Sequenze() {
                   <View key={p.id} style={styles.passo}>
                     <Text style={styles.passoOrdine}>{p.ordine}</Text>
                     <View style={{ flex: 1, minWidth: 0 }}>
-                      <Text style={styles.passoTitolo} numberOfLines={2}>{titoloScript(p.script_id)}</Text>
+                      <Text style={styles.passoTitolo} numberOfLines={2}>{etichettaPasso(p)}</Text>
                       <Text style={styles.passoQuando}>
                         {p.giorni_attesa === 0 ? 'subito' : `dopo ${p.giorni_attesa} giorni dal precedente`}
+                        {p.script_id ? ' · dalla libreria' : ' · mail di questo passo'}
                       </Text>
+                      {/* L'anteprima del testo scritto qui: senza, un passo
+                          «Mail del passo» non si distingue dall'altro. */}
+                      {!p.script_id && p.corpo ? (
+                        <Text style={styles.passoAnteprima} numberOfLines={2}>{testoSemplice(p.corpo)}</Text>
+                      ) : null}
                     </View>
                     <Pressable
                       hitSlop={8}
@@ -317,8 +345,8 @@ export default function Sequenze() {
                 <AggiungiPasso
                   script={script}
                   primo={suoi.length === 0}
-                  onAggiungi={async (scriptId, giorni) => {
-                    await aggiungiPasso(s.id, scriptId, giorni);
+                  onAggiungi={async (testo, giorni) => {
+                    await aggiungiPasso(s.id, testo, giorni);
                     await carica();
                   }}
                 />
@@ -356,12 +384,20 @@ export default function Sequenze() {
 }
 
 /** «Presentazione → 5g → Sollecito» : il percorso in una riga. */
-function riassunto(passi: PassoSequenza[], titolo: (id: string | null) => string): string {
+function riassunto(passi: PassoSequenza[], titolo: (p: PassoSequenza) => string): string {
   return passi
-    .map((p, i) => (i === 0 ? titolo(p.script_id) : `${p.giorni_attesa}g → ${titolo(p.script_id)}`))
+    .map((p, i) => (i === 0 ? titolo(p) : `${p.giorni_attesa}g → ${titolo(p)}`))
     .join(' · ');
 }
 
+/**
+ * Il pannello «Aggiungi un passo». Due strade, e si vede quale si sta usando:
+ *  · DALLA LIBRERIA — un modello degli Script, condiviso con tutti;
+ *  · SCRIVILA QUI — la mail di questo passo e basta. Serve per i solleciti
+ *    corti («ci risentiamo?»), che come modello in libreria non li vuole
+ *    nessuno — ed è il motivo per cui il secondo passo non si aggiungeva mai.
+ * Le variabili tra [ ] sono le stesse nei due casi: le riempie l'invio.
+ */
 function AggiungiPasso({
   script,
   primo,
@@ -369,32 +405,95 @@ function AggiungiPasso({
 }: {
   script: ScriptEmail[];
   primo: boolean;
-  onAggiungi: (scriptId: string, giorni: number) => Promise<void>;
+  onAggiungi: (testo: TestoNuovoPasso, giorni: number) => Promise<void>;
 }) {
+  // Senza libreria la scelta è già fatta: si scrive, non c'è altro modo.
+  const [modo, setModo] = useState<'libreria' | 'mia'>(script.length ? 'libreria' : 'mia');
   const [scriptId, setScriptId] = useState<string | null>(null);
+  const [oggetto, setOggetto] = useState('');
+  const [corpo, setCorpo] = useState('');
   const [giorni, setGiorni] = useState('5');
   const [salvo, setSalvo] = useState(false);
+  // L'editor scrive il suo HTML iniziale una volta sola, al montaggio: azzerare
+  // lo stato non lo svuoterebbe e il passo dopo nascerebbe col testo del passo
+  // prima. Cambiando `key` si rimonta pulito.
+  const [versione, setVersione] = useState(0);
 
-  if (!script.length) {
-    return <Text style={styles.vuotoRiga}>Nessun testo in libreria: creane uno in Script, poi torna qui.</Text>;
-  }
+  const corpoPieno = testoSemplice(corpo).trim().length > 0;
+  const pronto = modo === 'libreria' ? Boolean(scriptId) : corpoPieno;
+  // Le manuali non le riempirebbe nessuno al momento dell'invio: si dice qui,
+  // mentre si scrive, non dopo — quando la coda si è già fermata.
+  const manuali = modo === 'mia' ? variabiliManuali(oggetto, corpo) : [];
 
   return (
     <View style={styles.aggiungi}>
       <Text style={styles.aggiungiTitolo}>Aggiungi un passo</Text>
+
       <View style={styles.chips}>
-        {script.map((s) => (
-          <Pressable
-            key={s.id}
-            onPress={() => setScriptId(s.id)}
-            style={[styles.chip, scriptId === s.id && styles.chipOn]}
-          >
-            <Text style={[styles.chipTxt, scriptId === s.id && styles.chipTxtOn]} numberOfLines={1}>
-              {s.titolo}
-            </Text>
-          </Pressable>
-        ))}
+        <Pressable
+          onPress={() => setModo('libreria')}
+          style={[styles.chip, modo === 'libreria' && styles.chipOn, !script.length && styles.off]}
+          disabled={!script.length}
+        >
+          <Text style={[styles.chipTxt, modo === 'libreria' && styles.chipTxtOn]}>Testo dalla libreria</Text>
+        </Pressable>
+        <Pressable onPress={() => setModo('mia')} style={[styles.chip, modo === 'mia' && styles.chipOn]}>
+          <Text style={[styles.chipTxt, modo === 'mia' && styles.chipTxtOn]}>Scrivi la mail</Text>
+        </Pressable>
       </View>
+
+      {modo === 'libreria' ? (
+        script.length ? (
+          <View style={styles.chips}>
+            {script.map((s) => (
+              <Pressable
+                key={s.id}
+                onPress={() => setScriptId(s.id)}
+                style={[styles.chip, scriptId === s.id && styles.chipOn]}
+              >
+                <Text style={[styles.chipTxt, scriptId === s.id && styles.chipTxtOn]} numberOfLines={1}>
+                  {s.titolo}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : (
+          <Text style={styles.vuotoRiga}>Nessun testo in libreria: creane uno in Script, oppure scrivi la mail qui.</Text>
+        )
+      ) : (
+        <View style={styles.mia}>
+          <TextInput
+            style={styles.input}
+            value={oggetto}
+            onChangeText={setOggetto}
+            placeholder="Oggetto — es. Deluxy per [negozio]"
+            placeholderTextColor={colors.grigio}
+          />
+          <RichTextEditor
+            key={versione}
+            valueHtml={corpo}
+            onChangeHtml={setCorpo}
+            placeholder={'Gentile [nome], la richiamo su quanto ci siamo detti…'}
+            minHeight={140}
+          />
+          <Text style={styles.hint}>
+            Variabili tra [ ]: <Text style={styles.hintForte}>[nome]</Text>, <Text style={styles.hintForte}>[negozio]</Text>,{' '}
+            <Text style={styles.hintForte}>[ruolo]</Text>, <Text style={styles.hintForte}>[email]</Text>,{' '}
+            <Text style={styles.hintForte}>[telefono]</Text>, <Text style={styles.hintForte}>[zona]</Text> — si riempiono
+            dal contatto a cui parte la mail (il menu «variabili» dell’editor le inserisce). Questa mail resta di questo
+            passo: in libreria non ci va.
+          </Text>
+          {manuali.length ? (
+            <Text style={styles.avvisoVar}>
+              <Ionicons name="warning-outline" size={12} color={colors.errore} />{' '}
+              {manuali.map((v) => `[${v}]`).join(', ')} non {manuali.length === 1 ? 'è una variabile' : 'sono variabili'} del
+              contatto: in una sequenza nessuno {manuali.length === 1 ? 'la' : 'le'} compila e partirebbe scritt
+              {manuali.length === 1 ? 'a' : 'e'} così nella mail.
+            </Text>
+          ) : null}
+        </View>
+      )}
+
       <View style={styles.giorniRiga}>
         {/* Il primo passo parte subito: chiedere «dopo quanti giorni» prima
             ancora di aver detto la prima parola non avrebbe senso. */}
@@ -415,14 +514,21 @@ function AggiungiPasso({
         )}
       </View>
       <Pressable
-        style={[styles.btnPri, (!scriptId || salvo) && styles.off]}
-        disabled={!scriptId || salvo}
+        style={[styles.btnPri, (!pronto || salvo) && styles.off]}
+        disabled={!pronto || salvo}
         onPress={async () => {
-          if (!scriptId) return;
           setSalvo(true);
           try {
-            await onAggiungi(scriptId, primo ? 0 : Number(giorni || '0'));
-            setScriptId(null);
+            if (modo === 'libreria') {
+              if (!scriptId) return;
+              await onAggiungi({ scriptId }, primo ? 0 : Number(giorni || '0'));
+              setScriptId(null);
+            } else {
+              await onAggiungi({ oggetto, corpo }, primo ? 0 : Number(giorni || '0'));
+              setOggetto('');
+              setCorpo('');
+              setVersione((v) => v + 1);
+            }
           } finally {
             setSalvo(false);
           }
@@ -465,6 +571,11 @@ const styles = StyleSheet.create({
   passoOrdine: { width: 22, height: 22, borderRadius: 11, backgroundColor: colors.ink, color: colors.bianco, textAlign: 'center', lineHeight: 22, fontSize: 11, fontWeight: '800', overflow: 'hidden' },
   passoTitolo: { color: colors.testo, fontWeight: '700', fontSize: 13.5 },
   passoQuando: { color: colors.testoSoft, fontSize: 12 },
+  passoAnteprima: { color: colors.grigio, fontSize: 12, lineHeight: 16, marginTop: 2 },
+  mia: { gap: 8 },
+  hint: { color: colors.testoSoft, fontSize: 12, lineHeight: 17 },
+  hintForte: { color: colors.testo, fontWeight: '700' },
+  avvisoVar: { color: colors.errore, fontSize: 12, lineHeight: 17, fontWeight: '600' },
   aggiungi: { gap: 8, backgroundColor: colors.sfondo, borderRadius: radius.md, padding: spacing.sm },
   aggiungiTitolo: { color: colors.testoSoft, fontSize: 11, fontWeight: '800', letterSpacing: 0.4, textTransform: 'uppercase' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },

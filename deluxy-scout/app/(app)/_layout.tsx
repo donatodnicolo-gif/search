@@ -39,7 +39,7 @@ const SEZIONI: { titolo: string; voci: Voce[] }[] = [
       { name: 'province', label: 'Province · Copertura', icon: 'grid-outline' },
       { name: 'lead', label: 'Richieste Web', icon: 'globe-outline' },
       // Quarto canale: non li troviamo noi, ce li passa un'altra app.
-      { name: 'segnalati', label: 'Segnalati · Fornitori', icon: 'cube-outline' },
+      { name: 'segnalati', label: 'Segnalazioni CS', icon: 'cube-outline' },
     ],
   },
   {
@@ -369,6 +369,12 @@ export default function AppLayout() {
         <Drawer.Screen name="trattative" options={{ title: 'Trattative' }} />
         <Drawer.Screen name="ordini" options={{ title: 'Ordini' }} />
         <Drawer.Screen name="lead" options={{ title: 'Richieste Web' }} />
+        {/* Le schermate del 28/07 non avevano un titolo dichiarato: senza, la
+            testata mostra il nome della rotta («segnalati», «province»…). */}
+        <Drawer.Screen name="segnalati" options={{ title: 'Segnalazioni CS' }} />
+        <Drawer.Screen name="province" options={{ title: 'Province · Copertura' }} />
+        <Drawer.Screen name="interessi" options={{ title: 'Per interesse' }} />
+        <Drawer.Screen name="sequenze" options={{ title: 'Sequenze' }} />
         <Drawer.Screen name="clienti" options={{ title: 'Clienti' }} />
         <Drawer.Screen name="affiliazioni" options={{ title: 'Affiliazioni' }} />
         <Drawer.Screen name="pagamenti" options={{ title: 'Pagamenti' }} />

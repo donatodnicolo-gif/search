@@ -33,6 +33,7 @@ const MIGRAZIONI = [
   '0049_linee_canoniche.sql',
   '0050_sequenze.sql',
   '0051_stato_lead.sql',
+  '0052_passo_mail_propria.sql',
 ];
 // `ordini` è il proxy verso Deluxy Orders (venduto per provincia): resta inerte
 // finché in cassaforte non c'è `ORDERS_API_KEY`, ma senza deploy non esiste
@@ -105,19 +106,31 @@ for (const f of FUNZIONI) {
     );
     console.log(SENZA_JWT.has(f) ? 'deployata (pubblica)' : 'deployata');
   } catch (e) {
-    // stderr del CLI: contiene il motivo vero (Docker mancante, token scaduto…).
-    const grezzo = (e.stderr?.toString() || e.message || '').trim();
-    const dettaglio = grezzo.split('\n').filter((r) => r.trim()).slice(-3).join(' ');
-    // I due errori che capitano davvero, tradotti: il testo del CLI dice cosa
-    // è successo ma non cosa fare.
+    // ⚠️ Il motivo vero sta qui dentro, e va stampato PER INTERO.
+    // Prima si tenevano le ultime 3 righe: sul fallimento del 28/07/2026 non
+    // bastavano — restava «fallito passo 4» e nessuno sapeva perché. Un errore
+    // riassunto non è un errore: è un secondo giro a vuoto.
+    const grezzo = [e.stderr?.toString(), e.stdout?.toString(), e.message]
+      .filter(Boolean)
+      .join('\n')
+      .trim();
+    // I casi che capitano davvero, tradotti: il testo del CLI dice cosa è
+    // successo ma non cosa fare.
     let consiglio = '';
     if (/docker/i.test(grezzo)) {
       consiglio =
         '\n     → Serve Docker, che qui non c\'è. Questo script usa --use-api apposta per non averne bisogno: se l\'errore resta, aggiorna il CLI (la flag è nelle versioni recenti).';
-    } else if (/unauthorized|invalid.*token|401/i.test(grezzo)) {
-      consiglio = '\n     → Il token non è valido o è scaduto: creane uno nuovo e rilancia.';
+    } else if (/unauthorized|invalid.*token|401|403/i.test(grezzo)) {
+      consiglio =
+        '\n     → Token non valido, scaduto, o di un account che non vede questo progetto.\n       Verifica con: curl -H "Authorization: Bearer <pat>" https://api.supabase.com/v1/projects';
+    } else if (/enoent|not recognized|non è riconosciuto/i.test(grezzo)) {
+      consiglio =
+        '\n     → npx non è partito affatto: aggiungi Node al PATH ($env:Path = "$env:ProgramFiles\\nodejs;$env:Path") e rilancia.';
     }
-    console.log(`FALLITO\n     ${dettaglio}${consiglio}`);
+    const indentato = grezzo
+      ? grezzo.split('\n').map((r) => `     ${r}`).join('\n')
+      : '     (il CLI non ha scritto niente: esito ' + (e.status ?? '?') + ')';
+    console.log(`FALLITO\n${indentato}${consiglio}`);
     errori++;
   }
 }

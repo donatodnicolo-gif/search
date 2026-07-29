@@ -120,6 +120,26 @@ tot giorni quest'altro. Si iscrive un negozio (`Sequenze`, o l'azione 🌿 nelle
 liste) e l'app tiene il conto delle scadenze, invece di affidarlo alla memoria
 di chi vende — che è il motivo per cui il secondo colpo non parte quasi mai.
 
+Il testo di un passo può venire da **due parti**, mai da tutt'e due
+(`testoDelPasso()` in `lib/sequenze.ts`):
+
+- **dalla libreria Script** — un modello condiviso: correggendolo lì cambia in
+  tutte le sequenze che lo usano;
+- **scritto dentro il passo** (`sequenza_passi.oggetto` + `corpo`, migrazione
+  0052) — e in libreria non ci finisce. È il caso del sollecito di due righe
+  («ci risentiamo la settimana prossima?»): obbligare a creare un modello per
+  quello significava sporcare la libreria, e infatti il secondo passo non lo
+  aggiungeva nessuno.
+
+Le **variabili tra `[ ]`** funzionano identiche nei due casi — le riempie sempre
+`invio-email` al momento dell'invio, non esiste un secondo motore. Quelle del
+contatto (`[nome]`, `[negozio]`, `[ruolo]`, `[email]`, `[telefono]`, `[zona]`)
+si riempiono da sole; quelle **manuali** (`[data]`, `[evento]`…) no: nell'invio
+a mano si compilano in un modulo prima di partire, ma in una sequenza non c'è
+nessuno a cui chiederlo. Perciò un testo che ne contiene viene **fermato** —
+mentre si scrive e di nuovo prima di mandare — invece di uscire con `[data]`
+scritto dentro la mail.
+
 **Due regole non negoziabili**, entrambe in `lib/sequenze.ts`:
 
 1. **Se il cliente ha risposto, la sequenza si ferma.** Prima di ogni invio si
