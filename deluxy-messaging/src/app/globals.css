@@ -439,7 +439,12 @@ button {
 }
 
 .colonna-inbox {
-  flex: 0 0 260px;
+  /* Le colonne si allargano a riempire lo spazio invece di lasciare il vuoto a
+     destra: con tre marchi su uno schermo largo, 260px fissi sprecavano metà
+     della bacheca. Sotto i 260px non scendono — a quel punto si scorre di lato
+     (overflow-x sul contenitore) invece di stringere tutto fino a illeggibile. */
+  flex: 1 1 260px;
+  min-width: 260px;
   display: flex;
   flex-direction: column;
   min-height: 0;
