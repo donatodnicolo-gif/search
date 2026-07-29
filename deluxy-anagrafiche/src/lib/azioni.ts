@@ -384,6 +384,54 @@ export async function aggiungiReferente(
   return { ok: true };
 }
 
+// Aggiunge in un colpo solo più persone prese dalla rubrica Google. Chi è già
+// fra i referenti (stesso telefono o stessa email) viene saltato invece che
+// duplicato: dalla rubrica si pesca spesso due volte la stessa persona.
+export async function aggiungiReferentiDaRubrica(
+  partnerId: string,
+  persone: { nome: string; telefono: string | null; email: string | null; ruolo: string | null }[],
+): Promise<{ ok: true; aggiunti: number; saltati: number } | { ok: false; errore: string }> {
+  const partner = await prisma.partner.findUnique({ where: { id: partnerId }, select: { id: true } });
+  if (!partner) return { ok: false, errore: "Anagrafica non trovata." };
+
+  const esistenti = await prisma.contatto.findMany({
+    where: { partnerId },
+    select: { telefono: true, email: true },
+  });
+  const soloCifre = (v: string | null) => (v ?? "").replace(/[^\d]/g, "").slice(-9);
+  const telefoni = new Set(esistenti.map((c) => soloCifre(c.telefono)).filter(Boolean));
+  const email = new Set(esistenti.map((c) => (c.email ?? "").trim().toLowerCase()).filter(Boolean));
+
+  const daCreare = [];
+  let saltati = 0;
+  for (const p of persone) {
+    const nome = (p.nome ?? "").trim() || null;
+    const telefono = (p.telefono ?? "").trim() || null;
+    const mail = (p.email ?? "").trim() || null;
+    if (!nome && !telefono && !mail) continue;
+    const tel = soloCifre(telefono);
+    const em = (mail ?? "").toLowerCase();
+    if ((tel && telefoni.has(tel)) || (em && email.has(em))) {
+      saltati++;
+      continue;
+    }
+    if (tel) telefoni.add(tel);
+    if (em) email.add(em);
+    daCreare.push({
+      partnerId,
+      nome,
+      telefono,
+      email: mail,
+      ruolo: (p.ruolo ?? "").trim().toUpperCase() || null,
+      fonte: "ui",
+    });
+  }
+  if (daCreare.length) await prisma.contatto.createMany({ data: daCreare });
+  revalidatePath(`/partner/${partnerId}`);
+  revalidatePath("/contatti");
+  return { ok: true, aggiunti: daCreare.length, saltati };
+}
+
 // Sposta un referente da una sede all'altra della stessa insegna: capita
 // spesso che una persona sia stata censita sulla madre e lavori invece in un
 // negozio preciso. La destinazione arriva dal menu della riga.

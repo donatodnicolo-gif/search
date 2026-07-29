@@ -20,6 +20,12 @@ export type PersonaScelta = {
 // Il nome viene ripulito dai pezzi che ci mettiamo noi salvando ("PARTNER
 // Basara Milano MILANO Mara Roveda" → "Mara Roveda"), perché altrimenti quella
 // zavorra rientrerebbe nel registro a ogni import.
+//
+// La scelta è MULTIPLA e il riquadro non si chiude a ogni click: di solito da
+// un negozio si prendono il titolare e due persone in sala, e chiuderlo ogni
+// volta vorrebbe dire riaprirlo, riautorizzare e ricercare. Le selezioni
+// restano anche cambiando ricerca, così si può pescare in giro e confermare
+// una volta sola.
 export function CercaInRubrica({
   partnerNome,
   citta,
@@ -28,7 +34,7 @@ export function CercaInRubrica({
 }: {
   partnerNome: string;
   citta: string | null;
-  onScegli: (p: PersonaScelta) => void;
+  onScegli: (persone: PersonaScelta[]) => void;
   etichetta?: string;
 }) {
   const [aperto, setAperto] = useState(false);
@@ -37,7 +43,20 @@ export function CercaInRubrica({
   const [stato, setStato] = useState<"" | "cerco" | "fatto">("");
   const [errore, setErrore] = useState<string | null>(null);
   const [montato, setMontato] = useState(false);
+  // Chiave della persona in rubrica → dati già ripuliti. È una mappa e non una
+  // lista perché sopravvive ai cambi di ricerca: la spunta deve restare anche
+  // quando il risultato sparisce dall'elenco.
+  const [scelte, setScelte] = useState<Map<string, PersonaScelta>>(new Map());
   useEffect(() => setMontato(true), []);
+
+  function alterna(chiave: string, persona: PersonaScelta) {
+    setScelte((prec) => {
+      const nuova = new Map(prec);
+      if (nuova.has(chiave)) nuova.delete(chiave);
+      else nuova.set(chiave, persona);
+      return nuova;
+    });
+  }
 
   async function cerca() {
     if (query.trim().length < 2) return;
@@ -65,6 +84,13 @@ export function CercaInRubrica({
     setRisultati([]);
     setStato("");
     setErrore(null);
+    setScelte(new Map());
+  }
+
+  function conferma() {
+    if (scelte.size === 0) return;
+    onScegli([...scelte.values()]);
+    chiudi();
   }
 
   // Il riquadro esce dal flusso della pagina (portale sul body): questo
@@ -119,31 +145,48 @@ export function CercaInRubrica({
               )}
               {risultati.map((p) => {
                 const nome = nomePersonaDaRubrica(p.nomeInRubrica, { partnerNome, citta });
+                const scelta = scelte.has(p.chiave);
                 return (
                   <button
                     key={p.chiave}
                     type="button"
-                    className="modale-voce"
-                    onClick={() => {
-                      onScegli({ nome, telefono: p.telefono, email: p.email, ruolo: p.ruolo });
-                      chiudi();
-                    }}
+                    className={`modale-voce voce-scelta${scelta ? " attiva" : ""}`}
+                    aria-pressed={scelta}
+                    onClick={() => alterna(p.chiave, { nome, telefono: p.telefono, email: p.email, ruolo: p.ruolo })}
                   >
-                    <span className="modale-voce-nome">{nome}</span>
-                    <span className="modale-voce-sub">
-                      {[p.telefono, p.email, p.organizzazione].filter(Boolean).join(" · ") || "—"}
+                    <span className="spunta" aria-hidden="true">{scelta ? "✓" : ""}</span>
+                    <span className="voce-testo">
+                      <span className="modale-voce-nome">{nome}</span>
+                      <span className="modale-voce-sub">
+                        {[p.telefono, p.email, p.organizzazione].filter(Boolean).join(" · ") || "—"}
+                      </span>
+                      {nome !== p.nomeInRubrica && (
+                        <span className="modale-voce-sub">in rubrica: {p.nomeInRubrica}</span>
+                      )}
                     </span>
-                    {nome !== p.nomeInRubrica && (
-                      <span className="modale-voce-sub">in rubrica: {p.nomeInRubrica}</span>
-                    )}
                   </button>
                 );
               })}
               {stato === "" && !errore && (
                 <div className="modale-vuoto">
-                  Scrivi almeno due lettere e premi Cerca. I campi restano modificabili prima di salvare.
+                  Scrivi almeno due lettere e premi Cerca. Puoi spuntarne più di una, anche cambiando
+                  ricerca: le scelte restano finché non confermi.
                 </div>
               )}
+            </div>
+
+            <div className="modale-piede">
+              <span className="testo-guida">
+                {scelte.size === 0
+                  ? "Nessuna persona selezionata"
+                  : `${scelte.size} ${scelte.size === 1 ? "persona selezionata" : "persone selezionate"}: ${[...scelte.values()].map((s) => s.nome).join(", ")}`}
+              </span>
+              <button type="button" className="btn btn-secondario" onClick={chiudi}>
+                Annulla
+              </button>
+              <button type="button" className="btn" onClick={conferma} disabled={scelte.size === 0}>
+                {scelte.size > 1 ? `Aggiungi ${scelte.size} persone` : "Aggiungi"}
+              </button>
             </div>
           </div>
         </div>,

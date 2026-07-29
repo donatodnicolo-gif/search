@@ -168,11 +168,20 @@ Ogni scrittura via API è un **merge governato per campo**, mai una sostituzione
   dell'account con cui l'operatore si collega (in azienda `deluxy.delivery@gmail.com`) invece di
   ridigitarlo. Stesso OAuth e stesso scope `contacts` del salvataggio automatico, nel verso
   opposto (People API `searchContacts`, con la **warm-up call obbligatoria**: senza, la prima
-  ricerca torna vuota anche se il contatto c'è). Sta in due posti: bottone **⌕ Dalla rubrica**
-  dentro ＋ Referente sulla scheda (crea subito) e nella sezione «Persone di riferimento» del
-  form di modifica (`RubricaNelModulo`, riempie la **prima riga libera** e si salva col resto —
-  scrivere subito farebbe perdere le modifiche non salvate negli altri campi; se non ci sono
-  righe libere lo dice).
+  ricerca torna vuota anche se il contatto c'è).
+  **La scelta è multipla e il riquadro non si chiude a ogni click**: da un negozio si prendono
+  titolare e persone in sala, e richiuderlo ogni volta vorrebbe dire riaprire, riautorizzare e
+  ricercare. Le spunte **sopravvivono al cambio di ricerca** (mappa chiave→persona, non lista),
+  il piede dice quante sono e con chi, si conferma una volta sola.
+  Sta in due posti, e fanno due cose diverse:
+  · **scheda** (`ReferentiDallaRubrica`, accanto a ＋ Referente) → `aggiungiReferentiDaRubrica`
+    li **crea subito** tutti; chi ha già lo stesso telefono (ultime 9 cifre) o la stessa email
+    fra i referenti viene **saltato**, non duplicato, e l'esito lo dice («2 referenti aggiunti ·
+    1 già in elenco»). Un modulo a una riga non poteva reggere più persone insieme.
+  · **form di modifica** (`RubricaNelModulo`) riempie **le righe libere in ordine** e si salva
+    col resto — scrivere subito farebbe perdere le modifiche non salvate negli altri campi. Se
+    le persone sono più delle righe lo dice coi numeri («inserite 2 di 3»), invece di perderne
+    una in silenzio.
   Il nome viene **ripulito** con `nomePersonaDaRubrica` (src/lib/rubrica.ts), l'inverso di
   `nomeRubricaDefault`: toglie stato, azienda, città e le etichette dell'app fornitori
   («PARTNER Basara Milano MILANO Mara Roveda» → «Mara Roveda»), altrimenti quella zavorra

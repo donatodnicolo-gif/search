@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { aggiungiReferente } from "@/lib/azioni";
-import { CercaInRubrica } from "./CercaInRubrica";
 
 const VUOTO = { ruolo: "", nome: "", telefono: "", email: "" };
 
@@ -10,16 +9,9 @@ const VUOTO = { ruolo: "", nome: "", telefono: "", email: "" };
 // form completo dell'anagrafica. Le sedi di una stessa insegna hanno referenti
 // diversi — il direttore di Montenapoleone non è quello di Corso Como — e
 // devono potersi compilare una per una.
-// I campi si possono anche pescare dalla rubrica Google invece di ridigitarli.
-export function AggiungiReferente({
-  partnerId,
-  nome,
-  citta,
-}: {
-  partnerId: string;
-  nome: string;
-  citta: string | null;
-}) {
+// Per prenderle dalla rubrica Google c'è invece `ReferentiDallaRubrica`, che
+// sta lì accanto: qui si scrive a mano una persona che in rubrica non c'è.
+export function AggiungiReferente({ partnerId, nome }: { partnerId: string; nome: string }) {
   const [aperto, setAperto] = useState(false);
   const [campi, setCampi] = useState(VUOTO);
   const [errore, setErrore] = useState<string | null>(null);
@@ -100,19 +92,6 @@ export function AggiungiReferente({
         />
       </div>
       <div className="azioni-modulo campo-modulo largo">
-        <CercaInRubrica
-          partnerNome={nome}
-          citta={citta}
-          onScegli={(p) =>
-            setCampi({
-              ruolo: p.ruolo ?? campi.ruolo,
-              nome: p.nome,
-              telefono: p.telefono ?? "",
-              email: p.email ?? "",
-            })
-          }
-        />
-        <span style={{ marginRight: "auto" }} />
         <button type="button" className="btn btn-secondario" onClick={chiudi}>
           Annulla
         </button>

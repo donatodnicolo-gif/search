@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { AggiungiReferente } from "@/components/AggiungiReferente";
 import { AggiungiSede } from "@/components/AggiungiSede";
+import { ReferentiDallaRubrica } from "@/components/ReferentiDallaRubrica";
 import { FormFeedbackD2C } from "@/components/FormFeedbackD2C";
 import { GestioneGruppo } from "@/components/GestioneGruppo";
 import type { RigaContatto } from "@/components/google-rubrica";
@@ -523,7 +524,12 @@ export default async function Dettaglio({
                   : "nessun referente ancora"}
               </span>
             </h2>
-            {p.attivo && <AggiungiReferente partnerId={p.id} nome={p.nome} citta={p.citta} />}
+            {p.attivo && (
+              <span className="azioni-testata">
+                <ReferentiDallaRubrica partnerId={p.id} nome={p.nome} citta={p.citta} />
+                <AggiungiReferente partnerId={p.id} nome={p.nome} />
+              </span>
+            )}
           </div>
           {p.contatti.length === 0 ? (
             <p className="testo-guida" style={{ margin: 0 }}>

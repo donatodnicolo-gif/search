@@ -894,3 +894,26 @@ a.dash-riga:hover .dash-etichetta { color: var(--text); }
 .ricerca-rubrica { display: flex; gap: 8px; align-items: center; }
 .ricerca-rubrica .modale-ricerca { flex: 1; margin: 0; }
 .rubrica-nel-modulo { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.azioni-testata { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+/* Il modulo del referente a mano si apre sotto la testata, a tutta larghezza:
+   schiacciato accanto ai bottoni non ci sta. */
+.testata-sezione .riga-nuovo-referente { flex: 1 0 100%; }
+
+/* Scelta multipla nella rubrica: si spuntano più persone e il riquadro resta
+   aperto, quindi serve una colonna per la spunta e un piede che dica quante
+   sono e permetta di confermare. */
+.modale-voce.voce-scelta { display: flex; align-items: flex-start; gap: 10px; }
+.voce-scelta .spunta {
+  flex: 0 0 18px; height: 18px; margin-top: 2px;
+  border: 1px solid var(--hairline-strong); border-radius: 5px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; line-height: 1; color: #fff;
+}
+.voce-scelta.attiva { background: var(--fill); }
+.voce-scelta.attiva .spunta { background: var(--ink); border-color: var(--ink); }
+.voce-scelta .voce-testo { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.modale-piede {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--hairline);
+}
+.modale-piede .testo-guida { flex: 1; min-width: 140px; }

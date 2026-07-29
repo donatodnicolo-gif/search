@@ -22,29 +22,44 @@ export function RubricaNelModulo({
   const ancora = useRef<HTMLSpanElement>(null);
   const [avviso, setAvviso] = useState<string | null>(null);
 
-  function riempi(p: PersonaScelta) {
+  // Le persone scelte riempiono, in ordine, le righe ancora libere. Se sono più
+  // delle righe disponibili lo si dice con i numeri: sparire a metà sarebbe il
+  // modo migliore per perdere un referente senza accorgersene.
+  function riempi(persone: PersonaScelta[]) {
     const form = ancora.current?.closest("form");
     if (!form) return;
     const campo = (i: number, nome: string) =>
       form.querySelector<HTMLInputElement>(`input[name="c${i}-${nome}"]`);
 
-    for (let i = 0; i < righe; i++) {
+    let messi = 0;
+    let primo: HTMLInputElement | null = null;
+    for (let i = 0; i < righe && messi < persone.length; i++) {
       const nome = campo(i, "nome");
       const telefono = campo(i, "telefono");
       const email = campo(i, "email");
       const ruolo = campo(i, "ruolo");
       if (!nome || !telefono || !email || !ruolo) continue;
-      const libera = ![nome, telefono, email, ruolo].some((c) => c.value.trim());
-      if (!libera) continue;
+      if ([nome, telefono, email, ruolo].some((c) => c.value.trim())) continue;
+      const p = persone[messi];
       nome.value = p.nome;
       telefono.value = p.telefono ?? "";
       email.value = p.email ?? "";
       ruolo.value = p.ruolo ?? "";
-      nome.focus();
-      setAvviso(null);
-      return;
+      primo ??= nome;
+      messi++;
     }
-    setAvviso("Non c'è una riga libera: salva quelle compilate e riapri la modifica per aggiungerne altre.");
+    primo?.focus();
+    if (messi === persone.length) {
+      setAvviso(
+        messi === 1
+          ? "Persona inserita nella riga libera: controlla il ruolo e salva."
+          : `${messi} persone inserite nelle righe libere: controlla i ruoli e salva.`,
+      );
+    } else {
+      setAvviso(
+        `Righe libere finite: inserite ${messi} di ${persone.length}. Salva queste e riapri la modifica per le altre.`,
+      );
+    }
   }
 
   return (
