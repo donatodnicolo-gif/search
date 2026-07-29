@@ -536,9 +536,30 @@ analisi importate); seconda corsa 0 scritture.
    > sistema non ha accesso a *quegli asset*. Si risolve in Business Manager,
    > non toccando il token — cercare di rigenerarlo non produce niente.
 
-   Verificato subito dopo: 64 righe entrate, **zero errori** sui tre account.
-   Copertura Meta oggi: **382 righe dal 28/01/2026**, 5.648 € di spesa, 25
-   campagne.
+   Verificato subito dopo: **zero errori** sui tre account. Recuperato anche
+   tutto lo storico: da 382 righe dal 28/01/2026 a **2.120 righe dal
+   01/01/2025**, **42.300 €** di spesa, 69 campagne.
+
+   | brand | campagne | righe | spesa |
+   | --- | --- | --- | --- |
+   | gifts | 49 | 1.360 | 35.036 € (83%) |
+   | flowers | 13 | 431 | 3.896 € (9%) |
+   | cake | 7 | 329 | 3.368 € (8%) |
+   | **cross** | **0** | **0** | **0 €** |
+
+   Flowers e Cake non hanno nulla fra luglio e dicembre 2025: le loro campagne
+   Meta sono nate dopo, non è un buco da riempire.
+
+   > ⚠️ **Chiedere UN account per id faceva perdere il brand.** `sync-meta`
+   > costruiva l'oggetto account con `brand: undefined` senza guardare i
+   > censiti: ogni sync mirata — un backfill, una prova — importava le campagne
+   > senza brand, e quelle il cui *nome* non nomina il marchio finivano in
+   > `cross`. Erano **451 righe e 12.339 €**, il 61% della spesa Meta,
+   > invisibili in ogni vista per brand. Ora l'account passato per id eredita
+   > il brand dai censiti, e le campagne già sbagliate si promuovono da sole al
+   > primo giro utile — **solo da `cross` verso un brand noto**, mai il
+   > contrario: un brand deciso a mano non si tocca. `cross` non vuol dire «di
+   > tutti i marchi», vuol dire «non lo so».
 
    **Lo storico Meta prima del 28/01/2026 c'è, ma va preso a scaglioni.**
    `POST /api/v1/sync/meta` accetta `account`, `dal` e `al` oltre a `giorni`:
@@ -568,8 +589,19 @@ per chi sta usando l'app in quel momento.
 
 > ⚠️ **La campagna appena creata va rimessa subito nelle mappe.** Senza, la
 > seconda riga della stessa campagna non la troverebbe e ne creerebbe un'altra:
-> trenta giorni, trenta doppioni. È l'unica insidia della cache, ed è il motivo
-> per cui il codice riscrive `perId`/`perNome`/`senzaId` dopo ogni create.
+> trenta giorni, trenta doppioni. È il motivo per cui il codice riscrive
+> `perId`/`perNome`/`senzaId` dopo ogni create.
+
+> ⚠️ **Chi accumula deve FONDERE, non sostituire** — pagata lo stesso giorno,
+> poche ore dopo. Il ramo che annota stato e budget faceva `daAggiornare.set()`
+> sovrascrivendo la voce: la riga 2 di una campagna cancellava il `brand` che
+> la riga 1 aveva appena promosso, e la promozione non riscattava perché la
+> cache in memoria diceva già il brand giusto. Il dato corretto spariva prima
+> di arrivare al database. **È il rischio che questa ottimizzazione introduce**:
+> passando da «una query per riga» a «accumula e scrivi in fondo», l'ordine
+> delle scritture in memoria diventa qualcosa di cui rispondere.
+> L'ha smascherata un numero: `cross` sceso al 41% invece che a zero era troppo
+> preciso per essere un caso.
 
 **Misurato sullo stesso lavoro**, un mese di un account Meta:
 **3m06s → 35s** (120 righe a 1,55 s/riga contro 99 righe a 0,36 s/riga).
