@@ -24,9 +24,11 @@ In sintesi al 29/7/2026: sul tema `182574317891` c'è il **numero di telefono mi
 è stato **allineato al live**; resta da **pubblicare**, da correggere la **privacy policy** e da
 disattivare il **banner cookie nativo Shopify** che fa doppione con iubenda.
 
-> 🚨 **Il numero definitivo è cambiato il 29/7/2026: `+39 02 8294 1380`.** Il tema di sviluppo
-> porta ancora `8295 2899` (mai pubblicato, quindi mai online). Prima di pubblicare va rifatta
-> la sostituzione `8295 2899` → `8294 1380` sugli stessi 19 file elencati qui sotto.
+> ✅ **29/7/2026: numero definitivo `+39 02 8294 1380` scritto sul tema di sviluppo**,
+> 54 occorrenze in **20** file — i 19 qui sotto **più `sections/header-group.context.it.json`**,
+> che la mappa non elencava (barra annunci del mercato Italia, presente su ogni pagina).
+> Cercare sempre anche i file `*.context.*.json`. Le traduzioni **inglesi** non stanno nel
+> tema e restano col numero vecchio: vedi [STATO-CAKEDESIGN.md](STATO-CAKEDESIGN.md).
 
 ## Sistema data di consegna — chi fa cosa
 
@@ -82,6 +84,7 @@ passarli tutti, altrimenti resta il vecchio numero in qualche landing.
 | `page.cakedesign-lead` · `page.condizioni-di-acquisto` · `page.pagina-per-aziende` · `page.pagina-per-eventi` | 3 cad. | In `condizioni-di-acquisto` è **testo visibile** in 3 blocchi rich-text |
 | 9 landing (`landing-torta-per-oggi`, `landing-torte-compleanno`, `landing-torte-regalo`, `aw-landing`, `cake-design-acquisto`, `san-valentino`, `torte_a_domicilio`, `landing-festa-della-mamma`, `landing-torta-custom`) | 2 cad. | Quasi sempre `bottom_help_bar_*.settings`; in alcune il numero è dentro HTML incorporato in `html_*.settings.code` |
 | `page.matrimonio` · `page.come_funziona` | 1 cad. | Bottone WhatsApp |
+| **`sections/header-group.context.it.json`** | 1 | **Barra annunci del mercato Italia** ("TORTE PER I TUOI EVENTI / CONTATTACI"): sta in cima a **ogni** pagina. Mancava dalla mappa fino al 29/7/2026 |
 
 Forme in cui compare, tutte da sostituire: `wa.me/<num>`, `wa.me/+<num>`,
 `api.whatsapp.com/send?phone=<num>`, `tel:+<num>`, `tel:+39 02 …` spaziato, e testo visibile
