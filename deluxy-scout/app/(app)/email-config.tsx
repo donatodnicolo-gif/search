@@ -124,6 +124,15 @@ export default function EmailConfig() {
         Collega la tua casella email (Register.it): da qui Deluxy Scout invierà per tuo conto le notifiche dei task
         assegnati e il riepilogo giornaliero. La password viene salvata cifrata e non è più visibile.
       </Text>
+      {/* Le mail ai clienti prendono un'altra strada, e la differenza si vede:
+          o restano nella cartella «Inviata» o no. Dirlo qui evita la domanda
+          «ma dove finisce quello che scrivo da Scout?». */}
+      <Text style={styles.intro}>
+        Le email ai contatti (Script e Sequenze) partono invece da <Text style={styles.introForte}>AI Mail</Text>, se lì
+        la tua casella è collegata: così la copia resta nella tua cartella «Inviata» e la ritrovi in AI Mail e in
+        Outlook. Queste credenziali restano come ripiego — con quelle la mail parte lo stesso, ma nella tua posta non ne
+        resta traccia.
+      </Text>
 
       <View style={styles.card}>
         <View style={styles.statoRow}>
@@ -195,6 +204,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.sfondo },
   content: { padding: spacing.md, paddingBottom: spacing.xl, gap: spacing.md },
   intro: { color: colors.testoSoft, fontSize: 13.5, lineHeight: 19 },
+  introForte: { color: colors.testo, fontWeight: '700' },
   card: {
     backgroundColor: colors.bianco,
     borderRadius: radius.md,

@@ -113,6 +113,25 @@ Due cose che la schermata **dichiara invece di nascondere**:
   parziali e viene detto. Una lista incompleta che sembra completa fa credere
   che il lavoro sia finito.
 
+## Dove finisce una mail scritta da Scout
+
+Le email ai contatti (Script, Sequenze) partono **da AI Mail**
+(`POST /api/v1/invia`, Edge Function `invio-email`), non dall'SMTP di Scout. La
+differenza non è tecnica, è quella che si vede:
+
+- **da AI Mail** — la mail parte dalla casella del venditore **e la copia resta
+  nella cartella «Inviata»** del server, più la registrazione dentro AI Mail:
+  quello che si è scritto da Scout si ritrova in Outlook, in webmail e nel
+  thread della conversazione;
+- **in SMTP diretto** (il ripiego, per chi in AI Mail non ha la casella
+  collegata) — la mail arriva al destinatario, ma **nella propria posta non ne
+  resta traccia**. SMTP consegna e basta: mettere la copia in «Inviata» è
+  un'operazione IMAP separata, e nessuno la fa per conto tuo.
+
+Per questo l'ordine è AI Mail prima, SMTP dopo, **mai tutte e due per lo stesso
+destinatario** (sarebbe una mail doppia). L'esito dice sempre da che strada è
+passata, così «dove la ritrovo?» non è una domanda che si fa a posteriori.
+
 ## Le sequenze (solleciti a scadenza)
 
 Una sequenza è un percorso scritto **una volta sola**: questo testo, poi dopo

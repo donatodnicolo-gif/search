@@ -1868,19 +1868,28 @@ export async function inviaNuovaMail(form: FormData): Promise<{ ok: boolean; mes
  */
 export async function inviaMailApi(
   utenteId: string,
-  dati: { a: string; cc?: string; oggetto: string; corpo: string }
+  dati: { a: string; cc?: string; oggetto: string; corpo: string; corpoHtml?: string }
 ): Promise<{ ok: boolean; messaggio: string }> {
   try {
     const a = (dati.a ?? '').trim()
     const oggetto = (dati.oggetto ?? '').trim()
-    const corpo = (dati.corpo ?? '').trim()
+    // Il corpo può arrivare FORMATTATO: o esplicito in `corpoHtml`, o come HTML
+    // dentro `corpo` (e allora lo si riconosce). Senza questo, un'app che
+    // compone mail formattate — Scout con i suoi Script — le vedeva partire
+    // come testo semplice **coi tag scritti dentro**: «<p>Gentile…».
+    const grezzo = (dati.corpo ?? '').trim()
+    const html = (dati.corpoHtml ?? '').trim() || (sembraHtml(grezzo) ? grezzo : '')
+    // Il text/plain del multipart: se è arrivato solo HTML se ne ricava la
+    // versione leggibile, perché un client che l'HTML non lo mostra deve
+    // comunque poter leggere la mail.
+    const corpo = html ? htmlAPlain(html) : grezzo
     if (!a) return { ok: false, messaggio: 'Manca il destinatario (a).' }
-    if (!corpo) return { ok: false, messaggio: 'Il messaggio (corpo) è vuoto.' }
+    if (!corpo && !html) return { ok: false, messaggio: 'Il messaggio (corpo) è vuoto.' }
 
     const account = await db.account.findFirst({ where: { utenteId } })
     if (!account) return { ok: false, messaggio: 'Nessuna casella collegata per questo utente.' }
 
-    const daInviare: DaInviare = { a, cc: dati.cc, oggetto, corpo, inRispostaA: null }
+    const daInviare: DaInviare = { a, cc: dati.cc, oggetto, corpo, corpoHtml: html || undefined, inRispostaA: null }
     const { raw, messageId } = await spedisci(account, daInviare)
     const avviso = await registraInviato(utenteId, account, daInviare, raw, messageId, null)
 

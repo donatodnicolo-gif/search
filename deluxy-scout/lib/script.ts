@@ -65,6 +65,19 @@ export interface EsitoInvio {
   da?: string;
   reason?: string;
   error?: string;
+  /** Quante mail sono passate da AI Mail, cioè quante hanno lasciato la copia
+   *  nella cartella «Inviata» della casella. Le altre sono partite in SMTP
+   *  diretto: arrivano, ma nella propria posta non se ne trova traccia. */
+  inInviata?: number;
+  via?: 'aimail' | 'smtp' | 'misto';
+}
+
+/** La riga da mostrare a chi ha appena mandato: dove ritroverà la mail. */
+export function doveLaTrovi(r: EsitoInvio): string {
+  if (!r.inviate) return '';
+  if (r.via === 'aimail') return 'La copia è nella tua cartella «Inviata».';
+  if (r.via === 'misto') return `${r.inInviata} su ${r.inviate} sono anche nella tua cartella «Inviata».`;
+  return 'Non restano nella tua cartella «Inviata»: sono partite in SMTP diretto.';
 }
 
 export interface DestinatarioInvio {

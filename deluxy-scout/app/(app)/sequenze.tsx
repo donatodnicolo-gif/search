@@ -17,7 +17,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { colors, radius, spacing, contenutoCentrato } from '@/lib/theme';
 import { avvisa, conferma } from '@/lib/dialoghi';
 import { EmptyState, PageIntro } from '@/components/ui';
-import { fetchScript, inviaEmailContatti, type ScriptEmail } from '@/lib/script';
+import { doveLaTrovi, fetchScript, inviaEmailContatti, type ScriptEmail } from '@/lib/script';
 import { fetchRecapitiPlace, fetchTuttiContatti, registraContattoAvviato, type ContattoConLuogo } from '@/lib/db';
 import {
   aggiungiPasso,
@@ -181,7 +181,7 @@ export default function Sequenze() {
               scriptId: testo.scriptId,
               oggetto: testo.oggetto || null,
             }).catch(() => {});
-            avvisa('Mandato', `Inviate ${r.inviate} su ${r.totale}.`);
+            avvisa('Mandato', `Inviate ${r.inviate} su ${r.totale}. ${doveLaTrovi(r)}`.trim());
             await carica();
           } catch (e: any) {
             avvisa('Errore', e?.message ?? 'Invio non riuscito.');

@@ -9,7 +9,7 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { colors, radius, spacing } from '@/lib/theme';
 import { conferma, avvisa } from '@/lib/dialoghi';
 import { fetchPlace, fetchTuttiContatti, registraContattoAvviato, type ContattoConLuogo } from '@/lib/db';
-import { fetchScript, inviaEmailContatti, type ScriptEmail } from '@/lib/script';
+import { doveLaTrovi, fetchScript, inviaEmailContatti, type ScriptEmail } from '@/lib/script';
 import { applicaVariabili, htmlDaTesto, sembraHtml, testoSemplice, variabiliManuali, type DatiContatto } from '@/lib/variabili';
 import { RichTextEditor } from '@/components/RichTextEditor';
 import { Loader } from '../../_layout';
@@ -236,7 +236,8 @@ export default function InvioScript() {
       }).catch(() => {});
       avvisa(
         'Invio completato',
-        `Inviate ${r.inviate} su ${r.totale}.` + (falliti ? `\nNon riuscite: ${falliti} (email errata o rifiutata).` : ''),
+        `Inviate ${r.inviate} su ${r.totale}. ${doveLaTrovi(r)}`.trim() +
+          (falliti ? `\nNon riuscite: ${falliti} (email errata o rifiutata).` : ''),
         () => router.back(),
       );
     } catch (e: any) {
