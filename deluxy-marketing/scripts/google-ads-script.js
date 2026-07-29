@@ -101,6 +101,12 @@ var INCLUDI_RIMOSSE = false;
 // solo 7/14/30). 30 giorni è la lettura standard dei Definitivi.
 var GIORNI_COPY = 30;
 
+// Finestra dei NUMERI degli asset (sitelink, callout, snippet, immagini).
+// Separata da GIORNI_COPY perche' "quale sitelink ha reso di piu" e' una
+// domanda che si fa su anni, non su un mese. Gli asset RIMOSSI non tornano
+// comunque: quelli spenti anni fa sono persi per sempre.
+var GIORNI_ASSET = 365;
+
 // SCRITTURA (solo con AZIONE = "esegui")
 // Rete di sicurezza in più rispetto ai guardrail dell'app: rifiuta un budget
 // che cambia di più di questo fattore (3 = da 20 €/g si può andare da 6,66 a 60).
@@ -990,7 +996,21 @@ function mandaAsset(conto) {
   var esito = inviaABlocchi("/api/v1/ingest/copy", righe, function (lotto) {
     return corpoBase(conto, { annunci: lotto });
   });
-  RIEPILOGO.push("asset: " + esito.inviate + "/" + righe.length + " righe inviate");
+  var quantiNumeri = 0, spesaTot = 0, piuCaro = null;
+  for (var n = 0; n < righe.length; n++) {
+    if (righe[n].spesa != null) {
+      quantiNumeri++;
+      spesaTot += righe[n].spesa;
+      if (!piuCaro || righe[n].spesa > piuCaro.spesa) piuCaro = righe[n];
+    }
+  }
+  if (quantiNumeri > 0) {
+    Logger.log("Asset con numeri: " + quantiNumeri + "/" + righe.length + " - spesa totale " + arrotonda(spesaTot) + " EUR su " + GIORNI_ASSET + " giorni");
+    if (piuCaro) Logger.log("  il piu' caro: \"" + piuCaro.testo + "\" (" + piuCaro.tipo + ") " + piuCaro.spesa + " EUR, " + piuCaro.clic + " clic, incasso " + piuCaro.incasso);
+  } else {
+    Logger.log("ATTENZIONE: nessun asset ha numeri. La query e' ripiegata sull'anagrafica: nell'app resteranno senza spesa e senza clic.");
+  }
+  RIEPILOGO.push("asset: " + esito.inviate + "/" + righe.length + " righe inviate - " + quantiNumeri + " con numeri");
 }
 
 function leggiAsset(conto, vista, livello) {
@@ -999,39 +1019,76 @@ function leggiAsset(conto, vista, livello) {
     vista === "campaign_asset" ? "campaign.name, " :
     vista === "ad_group_asset" ? "campaign.name, ad_group.name, " : "";
 
-  var query =
+  var campiAsset =
     "SELECT " + campiContesto + vista + ".status, asset.id, asset.type, asset.name, " +
     "asset.sitelink_asset.link_text, asset.sitelink_asset.description1, " +
     "asset.sitelink_asset.description2, asset.final_urls, " +
     "asset.callout_asset.callout_text, " +
     "asset.structured_snippet_asset.header, asset.structured_snippet_asset.values, " +
     "asset.image_asset.full_size.url, asset.image_asset.full_size.width_pixels, " +
-    "asset.image_asset.full_size.height_pixels " +
-    "FROM " + vista + " " +
+    "asset.image_asset.full_size.height_pixels";
+
+  // I numeri dell'asset. Senza segments.date nella SELECT, Google aggrega tutto
+  // il periodo in una riga sola per asset: e' esattamente quello che serve per
+  // dire "questo sitelink ha reso tanto negli ultimi N giorni". Con la data
+  // nella SELECT arriverebbe una riga per giorno, da sommare a mano.
+  var campiNumeri =
+    ", metrics.cost_micros, metrics.impressions, metrics.clicks, " +
+    "metrics.conversions, metrics.conversions_value";
+
+  var coda =
+    " FROM " + vista + " " +
     "WHERE " + vista + ".status != 'REMOVED' " +
     "AND asset.type IN ('SITELINK', 'CALLOUT', 'STRUCTURED_SNIPPET', 'IMAGE')";
+  var codaConData =
+    coda + " AND segments.date BETWEEN '" + dataIso(-GIORNI_ASSET) + "' AND '" + dataIso(0) + "'";
 
   var campoVista = vista === "customer_asset" ? "customerAsset"
     : vista === "campaign_asset" ? "campaignAsset" : "adGroupAsset";
 
+  // Prima si prova con i numeri. Se la vista non li regge (customer_asset
+  // spesso no) si torna all'anagrafica sola, DICENDOLO: un ripiego muto
+  // farebbe credere che quell'asset non abbia speso niente.
+  var risultati = null;
+  var conNumeri = true;
   try {
-    var risultati = AdsApp.search(query);
+    risultati = AdsApp.search(campiAsset + campiNumeri + codaConData);
+    risultati.hasNext(); // la prima pagina arriva qui: e' qui che Google si lamenta
+  } catch (e) {
+    Logger.log("Vista " + vista + ": numeri non disponibili (" + e + "). Leggo la sola anagrafica.");
+    conNumeri = false;
+    try {
+      risultati = AdsApp.search(campiAsset + coda);
+      risultati.hasNext();
+    } catch (e2) {
+      Logger.log("Vista " + vista + " non letta affatto: " + e2);
+      return righe;
+    }
+  }
+
+  try {
     while (risultati.hasNext()) {
       var r = risultati.next();
       var a = r.asset;
       var contesto = r[campoVista] || {};
+      var m = r.metrics || {};
       var riga = {
         idEsterno: conto.id + ":" + a.id,
         campagna: (r.campaign && r.campaign.name) || "(account " + conto.id + ")",
         gruppo: (r.adGroup && r.adGroup.name) || null,
         livello: livello,
         statoPiattaforma: contesto.status || "ENABLED",
+        spesa: conNumeri ? arrotonda(Number(m.costMicros || 0) / 1000000) : null,
+        incasso: conNumeri ? arrotonda(Number(m.conversionsValue || 0)) : null,
+        clic: conNumeri ? Number(m.clicks || 0) : null,
+        impressioni: conNumeri ? Number(m.impressions || 0) : null,
+        conversioni: conNumeri ? arrotonda(Number(m.conversions || 0)) : null,
       };
 
       if (a.type === "SITELINK" && a.sitelinkAsset) {
         riga.tipo = "sitelink";
         riga.testo = a.sitelinkAsset.linkText;
-        riga.note = filtraVuoti([a.sitelinkAsset.description1, a.sitelinkAsset.description2]).join(" · ");
+        riga.note = filtraVuoti([a.sitelinkAsset.description1, a.sitelinkAsset.description2]).join(" - ");
         riga.finalUrl = a.finalUrls && a.finalUrls.length ? a.finalUrls[0] : null;
       } else if (a.type === "CALLOUT" && a.calloutAsset) {
         riga.tipo = "callout";
@@ -1039,7 +1096,7 @@ function leggiAsset(conto, vista, livello) {
       } else if (a.type === "STRUCTURED_SNIPPET" && a.structuredSnippetAsset) {
         riga.tipo = "snippet";
         riga.testo = a.structuredSnippetAsset.header;
-        riga.note = (a.structuredSnippetAsset.values || []).join(" · ");
+        riga.note = (a.structuredSnippetAsset.values || []).join(" - ");
       } else if (a.type === "IMAGE" && a.imageAsset) {
         riga.tipo = "immagine";
         riga.testo = a.name || ("Immagine " + a.id);
@@ -1052,8 +1109,8 @@ function leggiAsset(conto, vista, livello) {
       if (!riga.testo) continue;
       righe.push(riga);
     }
-  } catch (e) {
-    Logger.log("Vista " + vista + " non letta: " + e + (righe.length ? " (tengo le " + righe.length + " righe già lette)" : ""));
+  } catch (e3) {
+    Logger.log("Vista " + vista + " interrotta a meta': " + e3 + (righe.length ? " (tengo le " + righe.length + " righe gia' lette)" : ""));
   }
   return righe;
 }
@@ -1077,6 +1134,15 @@ function accorpaAsset(grezzi) {
     if (g.gruppo && indiceIn(v.gruppi, g.gruppo) === -1) v.gruppi.push(g.gruppo);
     if (g.statoPiattaforma === "ENABLED") v.statoPiattaforma = "ENABLED";
     if (!v.finalUrl && g.finalUrl) v.finalUrl = g.finalUrl;
+    // Campagna e gruppo sono due agganci distinti dello stesso asset, ognuno
+    // coi suoi numeri: il totale dell'asset e' la loro somma. Gli asset di
+    // livello ACCOUNT non finiscono qui (la loro "campagna" e' "(account NNN)"),
+    // quindi non si contano due volte.
+    v.spesa = sommaSeCe(v.spesa, g.spesa);
+    v.incasso = sommaSeCe(v.incasso, g.incasso);
+    v.clic = sommaSeCe(v.clic, g.clic);
+    v.impressioni = sommaSeCe(v.impressioni, g.impressioni);
+    v.conversioni = sommaSeCe(v.conversioni, g.conversioni);
   }
 
   var righe = [];
@@ -1738,6 +1804,12 @@ function brandDa(nome) {
 
 function tempoScaduto() {
   return new Date().getTime() - INIZIO > MINUTI_MASSIMI * 60 * 1000;
+}
+
+/** Somma due numeri che possono non esserci: null + null resta null. */
+function sommaSeCe(a, b) {
+  if (a == null && b == null) return null;
+  return arrotonda(Number(a || 0) + Number(b || 0));
 }
 
 function arrotonda(n) {
