@@ -27,20 +27,32 @@ async function apriSessione(userId: string, email: string) {
   jar.set(EMAIL_COOKIE, email, { ...comune, maxAge: 60 * 60 * 24 * 180 })
 }
 
+/**
+ * Dove mandare l'utente dopo il login: ci pensa il middleware a metterlo nel
+ * link quando ti ferma su una pagina precisa. ⚠️ Solo percorsi INTERNI — il
+ * valore arriva da un campo del form, e un `dopo` che punta fuori
+ * trasformerebbe la login in un redirect aperto verso un sito qualsiasi.
+ */
+function dopoIlLogin(form: FormData): string {
+  const v = testo(form, 'dopo')
+  return v.startsWith('/') && !v.startsWith('//') ? v : '/'
+}
+
 /** Login con email + password. */
 export async function accedi(form: FormData) {
   const email = testo(form, 'email').toLowerCase()
   const password = testo(form, 'password')
+  const dopo = dopoIlLogin(form)
 
   const u = await db.utente.findUnique({ where: { email } })
   // Stesso messaggio per email inesistente e password errata: non riveliamo
   // quali email esistono.
   if (!u || !u.attivo || !verificaPassword(password, u.passwordHash)) {
-    redirect('/login?errore=1')
+    redirect(`/login?errore=1${dopo !== '/' ? `&dopo=${encodeURIComponent(dopo)}` : ''}`)
   }
 
   await apriSessione(u.id, u.email)
-  redirect('/')
+  redirect(dopo)
 }
 
 /**

@@ -8,9 +8,13 @@ export const dynamic = 'force-dynamic'
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ errore?: string }>
+  searchParams: Promise<{ errore?: string; dopo?: string }>
 }) {
   const sp = await searchParams
+  // Solo un percorso interno: un `dopo` che punta fuori sarebbe un redirect
+  // aperto (stesso controllo del middleware, ripetuto qui perché questo valore
+  // finisce in un form e chiunque può cambiarlo).
+  const dopo = sp.dopo && sp.dopo.startsWith('/') && !sp.dopo.startsWith('//') ? sp.dopo : ''
   // Primo avvio: se non c'è nessun utente, la login diventa "crea il primo
   // amministratore". Così il sistema parte senza porte di servizio.
   const nessunUtente = (await db.utente.count().catch(() => 1)) === 0
@@ -65,6 +69,10 @@ export default async function LoginPage({
         </p>
 
         <form action={nessunUtente ? creaPrimoAdmin : accedi}>
+          {/* Dove tornare dopo il login: lo mette il middleware quando ti ha
+              fermato su una pagina precisa (es. una mail già compilata aperta
+              da un'altra app Deluxy). */}
+          {dopo && <input type="hidden" name="dopo" value={dopo} />}
           {nessunUtente && (
             <input
               type="text"

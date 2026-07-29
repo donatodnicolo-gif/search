@@ -7,7 +7,18 @@ export async function middleware(req: NextRequest) {
   const userId = await verificaSessione(req.cookies.get(SESSION_COOKIE)?.value)
   if (userId) return NextResponse.next()
 
-  return NextResponse.redirect(new URL('/login', req.url))
+  // Dove stava andando: dopo il login ci si torna. Serve ai link che arrivano
+  // dalle ALTRE app Deluxy (es. «scrivi a questo partner» apre /scrivi già
+  // compilata): senza, il login riportava sempre alla posta e la mail
+  // preparata dall'altra app spariva per strada.
+  // ⚠️ Si tiene solo il percorso interno (path + query): un `dopo` che
+  // puntasse fuori sarebbe un redirect aperto verso un sito qualsiasi.
+  const login = new URL('/login', req.url)
+  const dove = `${req.nextUrl.pathname}${req.nextUrl.search}`
+  if (dove.startsWith('/') && !dove.startsWith('//') && dove !== '/') {
+    login.searchParams.set('dopo', dove)
+  }
+  return NextResponse.redirect(login)
 }
 
 export const config = {

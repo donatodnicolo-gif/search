@@ -191,6 +191,13 @@ a ciò che è ancora in sospeso. E capisce se gli stai chiedendo una **risposta*
 originale citata sotto, destinatario scelto fra i contatti se lo riconosce) invece di una
 risposta al mittente. Non invia mai da solo: la controlli e la mandi tu.
 
+**Le altre app possono aprirti la mail già scritta.** Da Partner, Orders o Customer
+Service un tasto «Scrivi a…» può aprire la finestra di AI Mail **già compilata** —
+destinatario, oggetto e testo — con l'indicazione di chi l'ha preparata («Preparata da
+Deluxy Orders · ordine 2529»). Tu la leggi, la correggi e **la mandi tu**: nessuna mail
+parte da un link. Se la sessione è scaduta, dopo il login torni esattamente su quella
+mail invece di ritrovarti nella posta.
+
 **Chiedi a Renè.** Il riquadro dei comandi a parole (in **Renè AI** e dal «+» nella barra
 laterale) capisce cinque cose:
 
