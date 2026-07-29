@@ -112,6 +112,57 @@ export async function fetchSpeseBanca(f: {
   }
 }
 
+// ---------- I movimenti di una controparte, uno per uno ----------
+//
+// L'aggregato dice quanto e in che mese; questo dice **quando** e **con quale
+// causale**. Servono tutti e due: la causale è il criterio con cui si decide
+// cosa sia un pagamento (un numero d'ordine = fioraio di quell'ordine, un mese =
+// rimborso del valet), e la data è quello che serve per spostare un importo su
+// un altro esercizio senza indovinare.
+
+export type MovimentoBanca = {
+  data: string; // AAAA-MM-GG
+  importo: number;
+  descrizione: string | null;
+  categoria: string | null;
+};
+
+export type MovimentiResult =
+  | { ok: true; movimenti: MovimentoBanca[]; totale: number }
+  | { ok: false; errore: string };
+
+export async function fetchMovimenti(f: {
+  anno: number;
+  dal: number;
+  al: number;
+  controparte: string;
+}): Promise<MovimentiResult> {
+  const key = await chiave("FINANCE_API_KEY");
+  if (!key) return { ok: false, errore: "Chiave Finance non configurata." };
+  const qs = new URLSearchParams({
+    anno: String(f.anno),
+    dal: String(f.dal),
+    al: String(f.al),
+    controparte: f.controparte,
+  });
+  try {
+    const res = await fetch(`${BASE}/api/spese?${qs.toString()}`, {
+      headers: { "X-API-Key": key, "X-App": "deluxy-budgets" },
+      cache: "no-store",
+    });
+    if (!res.ok) return { ok: false, errore: `Finance ha risposto ${res.status}.` };
+    const dati = (await res.json()) as { movimenti?: MovimentoBanca[]; totale?: number };
+    if (!Array.isArray(dati?.movimenti)) {
+      // Finance non ha ancora la versione che espone i movimenti: si dice, invece
+      // di mostrare una lista vuota che sembrerebbe «nessun movimento».
+      return { ok: false, errore: "Questa versione di Finance non espone i singoli movimenti (serve il deploy con ?controparte=)." };
+    }
+    return { ok: true, movimenti: dati.movimenti, totale: dati.totale ?? 0 };
+  } catch {
+    return { ok: false, errore: "Finance non raggiungibile." };
+  }
+}
+
 export async function fetchConsuntivo(f: FiltroConsuntivo): Promise<ConsuntivoResult> {
   const key = await chiave("FINANCE_API_KEY");
   if (!key) {

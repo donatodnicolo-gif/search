@@ -92,7 +92,12 @@ export default async function VoceConsuntivoPage({
         </div>
       </div>
 
-      <DettaglioVoce d={d} categorie={categorie.map((c) => ({ id: c.id, nome: c.nome }))} />
+      <DettaglioVoce
+        d={d}
+        categorie={categorie.map((c) => ({ id: c.id, nome: c.nome }))}
+        dal={mesiPeriodo.length > 0 ? dal : 1}
+        al={mesiPeriodo.length > 0 ? al : 12}
+      />
 
       <p className="page-caption" style={{ marginTop: 16 }}>
         Le stesse categorie si vedono tutte insieme nel{" "}

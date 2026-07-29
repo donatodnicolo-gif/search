@@ -120,6 +120,16 @@ pubblicato), *sfidante* e *irraggiungibile*.
   davvero dal conto per stipendi nello stesso periodo — non sommato, che sarebbe contare due volte le
   stesse persone, ma affiancato, che è l'unico modo per accorgersi se pianificato e pagato si stanno
   allontanando. Motore in `src/lib/consuntivo-dettaglio.ts`, stessa UI del conto economico.
+- **Ogni controparte si apre sui suoi movimenti — data e causale** (29/07/2026): cliccando una
+  controparte, nel dettaglio di una voce o nell'elenco delle senza-categoria, si vedono i suoi
+  movimenti uno per uno con **data**, importo e **causale**. Serviva per due motivi diversi e
+  entrambi pratici: per decidere *cosa è* un pagamento — il nome non basta, `Formenti Patrizia` può
+  essere una fiorista o una valet, mentre la causale lo dice — e per **scegliere l'anno di
+  competenza** di quel singolo movimento, che è l'unica cosa che la vista per mese non permetteva.
+  Lo spostamento si fa dalla riga del movimento: il **mese di origine non si sceglie**, è quello
+  della sua data. I movimenti li espone Finance (`GET /api/spese?controparte=…`, aggiunto lo stesso
+  giorno) e si chiedono **solo quando si apre una controparte** — farlo per tutte vorrebbe dire una
+  chiamata per ognuna su una pagina che ne mostra centinaia.
 - **Piattaforme ADV** (`/piattaforme`): ripartizione del budget pubblicitario tra le **piattaforme**
   (Google, Meta, TikTok e altre **aggiungibili/rimovibili**). Si impostano le **% per mese** — diverse
   mese per mese — e l'**importo per piattaforma si calcola da solo** (= budget ADV del mese × %). La

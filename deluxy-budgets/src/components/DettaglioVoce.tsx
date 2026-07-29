@@ -13,20 +13,213 @@ import { Fragment, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { TIPI_PL, VOCI_CE } from "@/lib/cfo";
-import { eur, pct } from "@/lib/format";
+import { eur, MESI, pct } from "@/lib/format";
 import type { DettaglioVoce as Dettaglio } from "@/lib/bilancio-dettaglio";
 
 type CatOpt = { id: string; nome: string };
+type Movimento = { data: string; importo: number; descrizione: string | null; categoria: string | null };
 
 const tipoLabel = (k: string) => TIPI_PL.find((t) => t.key === k)?.label ?? k;
 const tipoBadge = (k: string) => TIPI_PL.find((t) => t.key === k)?.badge ?? "neutral";
+const giorno = (iso: string) => {
+  const [a, m, g] = iso.split("-");
+  return `${g}/${m}/${a}`;
+};
 
-export function DettaglioVoce({ d, categorie }: { d: Dettaglio; categorie: CatOpt[] }) {
+// I movimenti di una controparte: quando, quanto, e **con quale causale**.
+// Sta fuori dal componente padre di proposito — definito dentro, React ne
+// creerebbe un tipo nuovo a ogni render e rimonterebbe il pannello a ogni
+// battuta, facendo perdere il fuoco al campo dell'importo.
+function Movimenti({
+  controparte,
+  dati,
+  anno,
+  comp,
+  setComp,
+  busy,
+  onSposta,
+}: {
+  controparte: string;
+  dati: Movimento[] | { errore: string } | undefined;
+  anno: number;
+  comp: { chiave: string; anno: number; mese: number; importo: string } | null;
+  setComp: (c: { chiave: string; anno: number; mese: number; importo: string } | null) => void;
+  busy: boolean;
+  onSposta: (mov: Movimento) => void;
+}) {
+  if (!dati) return <p className="muted" style={{ fontSize: 12.5, marginTop: 10 }}>Carico i movimenti di «{controparte}»…</p>;
+  if ("errore" in dati) {
+    return (
+      <p className="muted" style={{ fontSize: 12.5, marginTop: 10 }}>
+        Movimenti non disponibili: {dati.errore}
+      </p>
+    );
+  }
+  if (dati.length === 0) {
+    return <p className="muted" style={{ fontSize: 12.5, marginTop: 10 }}>Nessun movimento nel periodo.</p>;
+  }
+  return (
+    <div className="table-wrap" style={{ marginTop: 10 }}>
+      <table>
+        <thead>
+          <tr>
+            <th style={{ width: 100 }}>Data</th>
+            <th className="num" style={{ width: 110 }}>Importo</th>
+            <th>Causale</th>
+            <th style={{ width: 120 }} />
+          </tr>
+        </thead>
+        <tbody>
+          {dati.map((m, i) => {
+            const chiave = `${controparte}#${i}`;
+            const aperto = comp?.chiave === chiave;
+            return (
+              <Fragment key={chiave}>
+                <tr>
+                  <td style={{ whiteSpace: "nowrap" }}>{giorno(m.data)}</td>
+                  <td className="num" style={{ fontWeight: 600 }}>{eur(m.importo)}</td>
+                  <td className="muted" style={{ fontSize: 12.5 }}>
+                    {m.descrizione || <em>nessuna causale (pagamento con carta)</em>}
+                  </td>
+                  <td>
+                    <button
+                      className="btn secondary small"
+                      onClick={() =>
+                        setComp(
+                          aperto
+                            ? null
+                            : { chiave, anno: Number(m.data.slice(0, 4)) - 1, mese: 12, importo: "" }
+                        )
+                      }
+                    >
+                      Competenza
+                    </button>
+                  </td>
+                </tr>
+                {aperto && (
+                  <tr>
+                    <td colSpan={4} style={{ background: "rgba(0,0,0,.04)" }}>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "flex-end" }}>
+                        <label style={{ display: "grid", gap: 3, fontSize: 12 }}>
+                          Competenza anno
+                          <select
+                            value={comp.anno}
+                            onChange={(e) => setComp({ ...comp, anno: Number(e.target.value) })}
+                          >
+                            {[anno - 2, anno - 1, anno, anno + 1].map((y) => (
+                              <option key={y} value={y}>{y}</option>
+                            ))}
+                          </select>
+                        </label>
+                        <label style={{ display: "grid", gap: 3, fontSize: 12 }}>
+                          e mese
+                          <select
+                            value={comp.mese}
+                            onChange={(e) => setComp({ ...comp, mese: Number(e.target.value) })}
+                          >
+                            {MESI.map((mm, j) => (<option key={mm} value={j + 1}>{mm}</option>))}
+                          </select>
+                        </label>
+                        <label style={{ display: "grid", gap: 3, fontSize: 12 }}>
+                          Importo
+                          <input
+                            value={comp.importo}
+                            placeholder={String(m.importo)}
+                            onChange={(e) => setComp({ ...comp, importo: e.target.value })}
+                            style={{ width: 110, padding: "5px 7px" }}
+                          />
+                        </label>
+                        <button className="btn" disabled={busy} onClick={() => onSposta(m)}>
+                          {busy ? "Sposto…" : "Sposta"}
+                        </button>
+                        <button className="btn secondary" onClick={() => setComp(null)}>Annulla</button>
+                        <span className="muted" style={{ fontSize: 12 }}>
+                          Il movimento del {giorno(m.data)} verrà <strong>letto</strong> in quell&apos;esercizio.
+                          Vuoto = tutto l&apos;importo. Il dato di Finance non cambia: resta la verità di cassa.
+                        </span>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+export function DettaglioVoce({
+  d,
+  categorie,
+  dal = 1,
+  al = 12,
+}: {
+  d: Dettaglio;
+  categorie: CatOpt[];
+  dal?: number;
+  al?: number;
+}) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
   const [espansa, setEspansa] = useState<string | null>(null);
   const [assegna, setAssegna] = useState<Record<string, string>>({});
+  // I movimenti si chiedono a Finance **quando si apre una controparte**: farlo
+  // per tutte insieme vorrebbe dire una chiamata per ognuna, su una pagina che
+  // ne mostra centinaia.
+  const [aperta, setAperta] = useState<string | null>(null);
+  const [movimenti, setMovimenti] = useState<Record<string, Movimento[] | { errore: string }>>({});
+  // Quale movimento sta decidendo il proprio esercizio, e verso dove.
+  const [comp, setComp] = useState<{ chiave: string; anno: number; mese: number; importo: string } | null>(null);
+
+  async function apri(controparte: string) {
+    if (aperta === controparte) { setAperta(null); return; }
+    setAperta(controparte);
+    setComp(null);
+    if (movimenti[controparte]) return;
+    const qs = new URLSearchParams({ controparte, anno: String(d.anno), dal: String(dal), al: String(al) });
+    const res = await fetch(`/api/movimenti?${qs.toString()}`);
+    const body = await res.json().catch(() => null);
+    setMovimenti((p) => ({
+      ...p,
+      [controparte]: body?.ok ? (body.movimenti as Movimento[]) : { errore: body?.error ?? "Movimenti non disponibili." },
+    }));
+  }
+
+  // Sposta un singolo movimento su un altro esercizio. Il mese di origine non si
+  // sceglie: è quello della sua data — è il vantaggio di lavorare sul movimento
+  // invece che sul totale del mese.
+  async function spostaCompetenza(controparte: string, mov: Movimento) {
+    const scritto = Number((comp?.importo || "").replace(",", "."));
+    const importo = Number.isFinite(scritto) && scritto > 0 ? scritto : mov.importo;
+    const meseOrigine = Number(mov.data.slice(5, 7));
+    const annoOrigine = Number(mov.data.slice(0, 4));
+    setBusy(true);
+    setErrore(null);
+    const res = await fetch("/api/competenza", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        tipo: "USCITA",
+        voce: controparte,
+        annoOrigine,
+        meseOrigine,
+        annoCompetenza: comp?.anno ?? annoOrigine - 1,
+        meseCompetenza: comp?.mese ?? 12,
+        importo,
+      }),
+    });
+    setBusy(false);
+    if (!res.ok) {
+      const b = await res.json().catch(() => null);
+      setErrore(b?.error ?? "Spostamento non riuscito.");
+      return;
+    }
+    setComp(null);
+    router.refresh();
+  }
 
   // Cambiare la voce di bilancio (o il tipo di P&L) di una categoria: è lo
   // stesso gesto del CFO e la stessa API — cambia solo il posto da cui si fa.
@@ -163,16 +356,34 @@ export function DettaglioVoce({ d, categorie }: { d: Dettaglio; categorie: CatOp
                           <td colSpan={7} style={{ background: "rgba(0,0,0,.03)" }}>
                             <div className="chips">
                               {c.controparti.slice(0, 200).map((x) => (
-                                <span
+                                // Cliccabile: sotto si aprono i suoi movimenti
+                                // con data e causale, ed è da lì che si decide
+                                // l'anno di competenza.
+                                <button
                                   className="chip"
                                   key={x.controparte}
-                                  title={x.daRegola ? "presa da una regola" : "nessuna regola la prende: è nel residuo"}
-                                  style={x.daRegola ? undefined : { borderStyle: "dashed" }}
+                                  onClick={() => apri(x.controparte)}
+                                  title={x.daRegola ? "presa da una regola — apri i movimenti" : "nessuna regola la prende: è nel residuo — apri i movimenti"}
+                                  style={{
+                                    borderStyle: x.daRegola ? undefined : "dashed",
+                                    fontWeight: aperta === x.controparte ? 600 : undefined,
+                                  }}
                                 >
-                                  {x.controparte} · {eur(x.uscite)}
-                                </span>
+                                  {x.controparte} · {eur(x.uscite)} {aperta === x.controparte ? "▲" : "▾"}
+                                </button>
                               ))}
                             </div>
+                            {aperta && c.controparti.some((x) => x.controparte === aperta) && (
+                              <Movimenti
+                                controparte={aperta}
+                                dati={movimenti[aperta]}
+                                anno={d.anno}
+                                comp={comp}
+                                setComp={setComp}
+                                busy={busy}
+                                onSposta={(mov) => spostaCompetenza(aperta, mov)}
+                              />
+                            )}
                             {c.controparti.length > 200 && (
                               <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>
                                 Mostrate le prime 200 di {c.controparti.length}, dalla più costosa.
@@ -180,7 +391,9 @@ export function DettaglioVoce({ d, categorie }: { d: Dettaglio; categorie: CatOp
                             )}
                             <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>
                               Il bordo tratteggiato segna le controparti che <strong>nessuna regola prende</strong>:
-                              stanno qui solo perché questa categoria raccoglie il residuo.
+                              stanno qui solo perché questa categoria raccoglie il residuo. Cliccandone una si vedono
+                              i suoi movimenti con <strong>data e causale</strong> — ed è la causale che dice cosa
+                              sono — e da lì si sposta un importo su un altro esercizio.
                             </p>
                           </td>
                         </tr>
@@ -262,28 +475,55 @@ export function DettaglioVoce({ d, categorie }: { d: Dettaglio; categorie: CatOp
                 </thead>
                 <tbody>
                   {senzaRegola.slice(0, 150).map((c) => (
-                    <tr key={c.controparte}>
-                      <td style={{ fontWeight: 500 }}>{c.controparte}</td>
-                      <td className="num">{eur(c.uscite)}</td>
-                      <td style={{ minWidth: 220 }}>
-                        <select
-                          value={assegna[c.controparte] ?? ""}
-                          onChange={(e) => setAssegna((p) => ({ ...p, [c.controparte]: e.target.value }))}
-                        >
-                          <option value="">Scegli…</option>
-                          {categorie.map((cat) => (<option key={cat.id} value={cat.id}>{cat.nome}</option>))}
-                        </select>
-                      </td>
-                      <td>
-                        <button
-                          className="btn primary small"
-                          disabled={!assegna[c.controparte] || busy}
-                          onClick={() => assegnaControparte(c.controparte)}
-                        >
-                          Assegna
-                        </button>
-                      </td>
-                    </tr>
+                    <Fragment key={c.controparte}>
+                      <tr>
+                        <td>
+                          {/* Cliccabile: per decidere in che categoria va serve
+                              la causale, e la causale sta nei movimenti. */}
+                          <button
+                            className="btn secondary small"
+                            onClick={() => apri(c.controparte)}
+                            style={{ fontWeight: 500 }}
+                          >
+                            {c.controparte} {aperta === c.controparte ? "▲" : "▾"}
+                          </button>
+                        </td>
+                        <td className="num">{eur(c.uscite)}</td>
+                        <td style={{ minWidth: 220 }}>
+                          <select
+                            value={assegna[c.controparte] ?? ""}
+                            onChange={(e) => setAssegna((p) => ({ ...p, [c.controparte]: e.target.value }))}
+                          >
+                            <option value="">Scegli…</option>
+                            {categorie.map((cat) => (<option key={cat.id} value={cat.id}>{cat.nome}</option>))}
+                          </select>
+                        </td>
+                        <td>
+                          <button
+                            className="btn primary small"
+                            disabled={!assegna[c.controparte] || busy}
+                            onClick={() => assegnaControparte(c.controparte)}
+                          >
+                            Assegna
+                          </button>
+                        </td>
+                      </tr>
+                      {aperta === c.controparte && (
+                        <tr>
+                          <td colSpan={4} style={{ background: "rgba(0,0,0,.03)" }}>
+                            <Movimenti
+                              controparte={c.controparte}
+                              dati={movimenti[c.controparte]}
+                              anno={d.anno}
+                              comp={comp}
+                              setComp={setComp}
+                              busy={busy}
+                              onSposta={(mov) => spostaCompetenza(c.controparte, mov)}
+                            />
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
                   ))}
                 </tbody>
               </table>
