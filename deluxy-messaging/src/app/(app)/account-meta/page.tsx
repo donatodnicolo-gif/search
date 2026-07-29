@@ -1,5 +1,6 @@
 import { db } from '@/lib/db'
 import { pagineCollegate, type PaginaCollegata } from '@/lib/pagine-meta'
+import { DiagnosiWhatsApp } from '@/components/DiagnosiWhatsApp'
 import { salvaPaginaAction, eliminaPaginaAction } from './actions'
 
 export const dynamic = 'force-dynamic'
@@ -265,6 +266,22 @@ export default async function PaginaAccountMeta() {
         <Scheda key={p.id} p={p} negozi={negozi} />
       ))}
       <ModuloNuovo canale="instagram" negozi={negozi} />
+
+      {/* La diagnosi è la stessa di Numeri WhatsApp — controlla già gli oggetti
+          `instagram` e `page` — ma stava solo là dentro: chi collega Instagram
+          non passa da quella pagina e restava senza risposta alla domanda
+          «perché il mio DM non è arrivato?». */}
+      <div className="card">
+        <h2 style={{ marginTop: 0, fontSize: 16 }}>Non arrivano i messaggi?</h2>
+        <p className="descrizione">
+          Il controllo interroga Meta con i token salvati qui e dice a che punto si ferma. La
+          domanda che conta è l&apos;<strong>iscrizione al webhook</strong>: Instagram e Messenger
+          si iscrivono <strong>a parte</strong> rispetto a WhatsApp, e finché il campo{' '}
+          <code>messages</code> del prodotto Instagram non è spuntato, Meta non ci manda niente —
+          il messaggio resta nella posta di Instagram e qui non arriva.
+        </p>
+        <DiagnosiWhatsApp />
+      </div>
 
       <div className="card">
         <h2 style={{ marginTop: 0, fontSize: 16 }}>Dove si trovano questi dati</h2>
