@@ -55,6 +55,28 @@ locale, altrimenti nulla si decifra.
 
 ## FATTO
 
+- **LE COLONNE SONO TUTTI I MARCHI, E LA CONVERSAZIONE SI APRE IN UNA FINESTRA**
+  (29/07/2026). Seguito immediato della voce qui sotto, che nasceva monca.
+  - Le colonne ora partono da **tutti i negozi attivi** (`Cake`, `Deluxy`,
+    `FLowers`), non solo da quelli con un account Meta collegato: prima esisteva
+    la sola colonna «FLowers» e deluxy.it non c'era.
+  - **`CasellaEmail.negozioId`** (campo nuovo, `prisma db push` fatto): una mail
+    non porta con sé «il nostro numero» come WhatsApp, quindi il marchio è
+    quello della casella, dichiarato in **`/caselle` → Marchio**. Vuoto resta
+    una risposta legittima (una casella che serve tutti i marchi).
+    ⚠️ **Dato cambiato in produzione**: `cs@deluxy.it` è stato assegnato al
+    marchio **Deluxy** (= deluxy.it), così le 112 mail hanno una colonna. Si
+    cambia dal menu in `/caselle`.
+  - A colonne il thread **non sta più di fianco**: la bacheca prende tutta la
+    larghezza e la conversazione si apre in una **finestra** (`.velo` +
+    `.pannello-thread`, gli stessi del dettaglio ordine) con Esc, clic fuori e
+    bottone Chiudi. In vista Elenco resta il classico elenco + thread a destra.
+  - ⚠️ **`src/lib/marchio-conversazione.ts`**: il marchio si calcola in UN posto
+    solo, usato dalla pagina e da `/api/conversazioni`. Erano due logiche
+    diverse — la rotta non conosceva Messenger/Instagram — e con l'inbox a
+    colonne una conversazione **cambiava colonna da sola** al primo
+    aggiornamento automatico (5 secondi dopo).
+
 - **INBOX A COLONNE PER MARCHIO** (29/07/2026). L'elenco unico non rispondeva a
   «come stiamo andando su Flowers?». Ora `/inbox` apre con **una colonna per
   marchio** (stessa grammatica della bacheca degli Ordini: pallino, nome,

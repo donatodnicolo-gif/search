@@ -67,6 +67,7 @@ model NegozioShopify {
   documentiAI  DocumentoAI[]
   numeriWhatsApp NumeroWhatsApp[]
   pagineMeta     PaginaMeta[]
+  caselleEmail   CasellaEmail[]
 }
 
 // Uno "script": una risposta pronta da dare ai clienti. Sono la memoria
@@ -213,7 +214,17 @@ model CasellaEmail {
   ignoraCertTls Boolean @default(true)
   attiva       Boolean  @default(true)
   predefinita  Boolean  @default(false) // da quale casella parte una mail nuova
+  // Il marchio della casella: è l'unico modo di sapere a chi ha scritto un
+  // cliente via email. Una mail non porta con sé «il nostro numero» come fa
+  // WhatsApp, quindi senza questo campo finisce «senza marchio» e nell'inbox a
+  // colonne resta in un mucchio unico. Vuoto resta una risposta legittima: una
+  // casella può servire tutti i marchi insieme.
+  negozioId    String?
   creatoIl     DateTime @default(now())
+
+  negozio NegozioShopify? @relation(fields: [negozioId], references: [id], onDelete: SetNull)
+
+  @@index([negozioId])
 }
 
 // Ordini scaricati da Shopify. Ne teniamo una copia locale per mostrarli senza

@@ -416,8 +416,10 @@ button {
    domanda «come stiamo andando su Flowers?». Le colonne sì, e senza filtrare:
    si vedono tutte insieme. Il thread resta a destra, che è dove si lavora. */
 
+/* A colonne la bacheca prende tutta la larghezza: il thread non sta di
+   fianco, si apre in una finestra sopra (vedi .pannello-thread). */
 .inbox.a-colonne {
-  grid-template-columns: minmax(0, 1fr) minmax(340px, 460px);
+  grid-template-columns: 1fr;
 }
 
 .inbox.a-colonne .elenco {
@@ -469,11 +471,33 @@ button {
   display: none;
 }
 
-/* Sotto i 1100px le due cose non ci stanno più: il thread va sotto. */
-@media (max-width: 1100px) {
-  .inbox.a-colonne {
-    grid-template-columns: 1fr;
-    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+/* La conversazione aperta dalle colonne: una finestra, non una colonna in
+   più. Riusa .velo e .pannello del dettaglio ordine — stesso gesto, stesso
+   aspetto — ma dentro ci va una chat, che ha bisogno di un'altezza propria e
+   di scorrere per conto suo. */
+.pannello-thread {
+  width: min(880px, 100%);
+  padding: 0;
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.pannello-thread .thread {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: min(76vh, 720px);
+}
+
+.testata-thread .chiudi-finestra {
+  margin-left: auto;
+}
+
+/* Su schermi bassi la finestra si prende quasi tutto: una chat corta è
+   inutile, si passa il tempo a scorrere. */
+@media (max-height: 760px) {
+  .pannello-thread .thread {
+    height: 82vh;
   }
 }
 

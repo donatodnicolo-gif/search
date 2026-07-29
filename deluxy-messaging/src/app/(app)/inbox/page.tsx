@@ -1,26 +1,27 @@
 import { db } from '@/lib/db'
 import { Inbox, type ConversazioneDto } from '@/components/Inbox'
-import { brandPerNumero } from '@/lib/numeri-whatsapp'
-import { brandPerPagina } from '@/lib/pagine-meta'
+import { risolutoreMarchio } from '@/lib/marchio-conversazione'
 
 export const dynamic = 'force-dynamic'
 
 export default async function PaginaInbox() {
-  const [conversazioni, brandNumeri, brandPagine] = await Promise.all([
+  const [conversazioni, marchioDi, negozi] = await Promise.all([
     db.conversazione.findMany({
       where: { archiviata: false },
       orderBy: { ultimoMessaggioIl: 'desc' },
       take: 200,
     }),
-    // Account nostro → brand: con più WhatsApp Business, più Pagine Facebook e
-    // più profili Instagram, sapere a chi ha scritto il cliente è la prima cosa
-    // da vedere — cambia tono, firma e chi risponde.
-    brandPerNumero(),
-    brandPerPagina(),
+    // A chi ha scritto il cliente: cambia tono, firma e chi risponde.
+    risolutoreMarchio(),
+    // Tutti i marchi dell'app, non solo quelli con un account collegato: una
+    // colonna vuota dice «oggi non ha scritto nessuno», che è un'informazione;
+    // una colonna che manca fa credere che il marchio non esista.
+    db.negozioShopify.findMany({
+      where: { attivo: true },
+      select: { nome: true },
+      orderBy: { nome: 'asc' },
+    }),
   ])
-  // Una mappa sola: `numeroId` porta il numero WhatsApp o l'id dell'account
-  // Meta a seconda del canale, e qui la distinzione non serve più.
-  const brand = new Map([...brandNumeri, ...brandPagine])
 
   const iniziali: ConversazioneDto[] = conversazioni.map((c) => ({
     id: c.id,
@@ -31,13 +32,10 @@ export default async function PaginaInbox() {
     ultimoMessaggioIl: c.ultimoMessaggioIl.toISOString(),
     nonLetti: c.nonLetti,
     numeroNostro: c.numeroNostro,
-    brand: brand.get(c.numeroId) ?? '',
+    brand: marchioDi(c),
   }))
 
-  // I marchi che possono ricevere: la loro colonna si vede anche a zero
-  // messaggi, così «oggi nessuno ha scritto a Cake» non si confonde con
-  // «Cake non è collegato».
-  const brandNoti = [...new Set([...brand.values()])].filter(Boolean).sort((a, b) =>
+  const brandNoti = [...new Set(negozi.map((n) => n.nome).filter(Boolean))].sort((a, b) =>
     a.localeCompare(b, 'it')
   )
 

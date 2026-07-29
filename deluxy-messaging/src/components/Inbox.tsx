@@ -257,6 +257,28 @@ export function Inbox({
   // l'elenco unico di sempre. Le colonne rispondono a «come stiamo andando su
   // Flowers?» senza filtrare; l'elenco resta per lavorare a ordine di arrivo.
   const [vista, setVista] = useState<'colonne' | 'elenco'>('colonne')
+  // A colonne il thread non ha una sua metà di schermo: si apre in una
+  // finestra sopra la bacheca, come il dettaglio di un ordine.
+  const aFinestra = vista === 'colonne'
+
+  function chiudiFinestra() {
+    setSelezionataId(null)
+    setErroreInvio('')
+    setSuggerimento(null)
+  }
+
+  // Esc chiude: aperta una finestra, è il gesto che tutti provano per primo.
+  useEffect(() => {
+    if (!aFinestra || !selezionataId) return
+    function suTasto(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        setSelezionataId(null)
+        setErroreInvio('')
+      }
+    }
+    window.addEventListener('keydown', suTasto)
+    return () => window.removeEventListener('keydown', suTasto)
+  }, [aFinestra, selezionataId])
 
   const marchioDi = useCallback((c: ConversazioneDto) => c.brand || SENZA_MARCHIO, [])
 
@@ -334,7 +356,8 @@ export function Inbox({
   }
 
   return (
-    <div className={`inbox${vista === 'colonne' ? ' a-colonne' : ''}`}>
+    <>
+    <div className={`inbox${aFinestra ? ' a-colonne' : ''}`}>
       <div className="elenco">
         <div className="barra-elenco">
           <button className="bottone secondario mini" onClick={scaricaPosta} disabled={scaricoPosta === '…'}>
@@ -390,7 +413,29 @@ export function Inbox({
         )}
       </div>
 
-      <div className="thread">
+      {aFinestra ? null : <div className="thread">{contenutoThread()}</div>}
+    </div>
+
+    {/* A colonne la conversazione si apre in una finestra sopra la bacheca:
+        le colonne prendono tutta la larghezza e restano visibili sotto. */}
+    {aFinestra && selezionata ? (
+      <div className="velo" onClick={chiudiFinestra} role="presentation">
+        <div
+          className="pannello pannello-thread"
+          onClick={(e) => e.stopPropagation()}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="thread">{contenutoThread()}</div>
+        </div>
+      </div>
+    ) : null}
+    </>
+  )
+
+  function contenutoThread() {
+    return (
+      <>
         {!selezionata ? (
           <div className="vuoto">Scegli una conversazione a sinistra.</div>
         ) : (
@@ -409,6 +454,15 @@ export function Inbox({
                 {etichettaCanale(selezionata.canale)}
               </span>
               <span className="dettaglio">{selezionata.idEsterno}</span>
+              {aFinestra ? (
+                <button
+                  className="bottone secondario mini chiudi-finestra"
+                  onClick={chiudiFinestra}
+                  title="Chiudi (Esc)"
+                >
+                  Chiudi
+                </button>
+              ) : null}
             </div>
 
             <div className="messaggi">
@@ -460,7 +514,7 @@ export function Inbox({
             </div>
           </>
         )}
-      </div>
-    </div>
-  )
+      </>
+    )
+  }
 }

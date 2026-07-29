@@ -99,6 +99,8 @@ export async function salvaCasella(
     smtpPort: number
     smtpSicuro: boolean
     predefinita?: boolean
+    /** Il marchio della casella; stringa vuota = nessuno (serve a tutti). */
+    negozioId?: string
   }
 ): Promise<void> {
   const base = {
@@ -110,6 +112,7 @@ export async function salvaCasella(
     smtpHost: dati.smtpHost.trim() || SMTP_DEFAULT,
     smtpPort: dati.smtpPort || 465,
     smtpSicuro: dati.smtpSicuro,
+    negozioId: dati.negozioId?.trim() ? dati.negozioId.trim() : null,
   }
   const conPassword = dati.password?.trim()
     ? { password: cifra(dati.password.trim()) }

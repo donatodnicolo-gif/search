@@ -6,9 +6,14 @@ import { eliminaCasellaAction, salvaCasellaAction } from './actions'
 export const dynamic = 'force-dynamic'
 
 export default async function PaginaCaselle() {
-  const caselle = await db.casellaEmail.findMany({
-    orderBy: [{ predefinita: 'desc' }, { indirizzo: 'asc' }],
-  })
+  const [caselle, negozi] = await Promise.all([
+    db.casellaEmail.findMany({ orderBy: [{ predefinita: 'desc' }, { indirizzo: 'asc' }] }),
+    db.negozioShopify.findMany({
+      where: { attivo: true },
+      select: { id: true, nome: true },
+      orderBy: { nome: 'asc' },
+    }),
+  ])
 
   return (
     <main>
@@ -81,6 +86,20 @@ export default async function PaginaCaselle() {
                   <input name="smtpPort" type="number" defaultValue={c.smtpPort} />
                 </label>
               </div>
+              {/* Il marchio della casella: una mail non porta con sé «il nostro
+                  numero» come WhatsApp, quindi senza questo l'inbox non sa a
+                  chi ha scritto il cliente e la mette senza marchio. */}
+              <label className="campo">
+                <span>Marchio</span>
+                <select name="negozioId" defaultValue={c.negozioId ?? ''}>
+                  <option value="">Nessuno (serve tutti i marchi)</option>
+                  {negozi.map((n) => (
+                    <option key={n.id} value={n.id}>
+                      {n.nome}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <label
                 style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13, marginBottom: 12 }}
               >
@@ -141,6 +160,17 @@ export default async function PaginaCaselle() {
                 <input name="smtpPort" type="number" defaultValue={465} />
               </label>
             </div>
+            <label className="campo">
+              <span>Marchio</span>
+              <select name="negozioId" defaultValue="">
+                <option value="">Nessuno (serve tutti i marchi)</option>
+                {negozi.map((n) => (
+                  <option key={n.id} value={n.id}>
+                    {n.nome}
+                  </option>
+                ))}
+              </select>
+            </label>
             <label
               style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13, marginBottom: 12 }}
             >

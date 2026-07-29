@@ -21,8 +21,11 @@ export async function salvaCasellaAction(formData: FormData) {
     // Sulla 587 si usa STARTTLS: la connessione parte in chiaro e si cifra dopo.
     smtpSicuro: Number(formData.get('smtpPort') ?? 465) !== 587,
     predefinita: formData.get('predefinita') === '1',
+    negozioId: String(formData.get('negozioId') ?? ''),
   })
   revalidatePath('/caselle')
+  // L'inbox raggruppa per marchio: cambiare la casella cambia le colonne.
+  revalidatePath('/inbox')
 }
 
 export async function eliminaCasellaAction(formData: FormData) {
