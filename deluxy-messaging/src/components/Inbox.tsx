@@ -1,6 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { pezziDiTesto, ripulisciTestoEmail } from '@/lib/testo-email'
 
 // L'inbox unificata: elenco conversazioni a sinistra, thread a destra.
 // Si aggiorna da sola con un polling leggero (le nuove conversazioni e i
@@ -24,6 +25,8 @@ type MessaggioDto = {
   id: string
   direzione: string
   testo: string
+  /** L'oggetto, solo sulle mail: è la prima cosa che si legge. */
+  oggetto?: string
   /** Chi ha scritto, solo in uscita. Vuoto sui messaggi vecchi: parte da ora. */
   utenteNome?: string
   stato: string
@@ -49,6 +52,82 @@ function oraBreve(iso: string): string {
   const stessoGiorno = d.toDateString() === oggi.toDateString()
   if (stessoGiorno) return d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })
   return d.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })
+}
+
+/** Oltre questa lunghezza la bolla si chiude: una mail intera è un muro. */
+const LIMITE_TESTO = 900
+
+// Una bolla del thread. Le mail arrivano lunghissime e piene di link di
+// tracciamento: qui si mostrano ripulite, accorciate e coi link ridotti al
+// nome del sito. Il testo com'era arrivato resta a un clic di distanza.
+function Bolla({ m, canale }: { m: MessaggioDto; canale: string }) {
+  const [tutto, setTutto] = useState(false)
+  const [grezzo, setGrezzo] = useState(false)
+
+  // Solo le mail si ripuliscono: su WhatsApp e widget il cliente scrive a mano
+  // e quello che manda va letto com'è.
+  const pulito = useMemo(
+    () => (canale === 'email' ? ripulisciTestoEmail(m.testo) : m.testo),
+    [canale, m.testo]
+  )
+  const testo = grezzo ? m.testo : pulito
+  const tagliato = !tutto && testo.length > LIMITE_TESTO
+  const visibile = tagliato ? `${testo.slice(0, LIMITE_TESTO).trimEnd()}…` : testo
+  const pezzi = useMemo(() => (grezzo ? null : pezziDiTesto(visibile)), [grezzo, visibile])
+
+  const accorciaLink = pezzi?.some((p) => p.tipo === 'link' && p.etichetta !== p.url) ?? false
+  const cambiato = pulito !== m.testo || accorciaLink
+
+  return (
+    <div className={`bolla ${m.direzione === 'out' ? 'out' : 'in'}`}>
+      {m.oggetto ? <span className="oggetto">{m.oggetto}</span> : null}
+      {pezzi
+        ? pezzi.map((p, i) =>
+            p.tipo === 'link' ? (
+              <a
+                key={i}
+                className="link-messaggio"
+                href={p.url}
+                title={p.url}
+                target="_blank"
+                rel="noreferrer noopener"
+              >
+                {p.etichetta}
+              </a>
+            ) : (
+              <span key={i}>{p.testo}</span>
+            )
+          )
+        : visibile}
+      {tagliato || tutto || cambiato ? (
+        <span className="azioni-testo">
+          {tagliato || tutto ? (
+            <button type="button" onClick={() => setTutto(!tutto)}>
+              {tutto ? 'Mostra meno' : 'Mostra tutto'}
+            </button>
+          ) : null}
+          {cambiato ? (
+            <button
+              type="button"
+              onClick={() => setGrezzo(!grezzo)}
+              title="Il testo com'è arrivato, link di tracciamento compresi"
+            >
+              {grezzo ? 'Testo leggibile' : 'Testo originale'}
+            </button>
+          ) : null}
+        </span>
+      ) : null}
+      <span className={`meta${m.stato === 'errore' ? ' errore' : ''}`}>
+        {oraBreve(m.creatoIl)}
+        {/* Chi ha risposto: quando la conversazione passa di mano è la
+            prima cosa che si cerca. Vuoto sui messaggi vecchi. */}
+        {m.direzione === 'out' && m.utenteNome ? ` · ${m.utenteNome}` : ''}
+        {m.direzione === 'out' && m.stato
+          ? ` · ${m.stato === 'errore' ? m.errore || 'errore' : m.stato}`
+          : ''}
+      </span>
+    </div>
+  )
 }
 
 export function Inbox({ conversazioniIniziali }: { conversazioniIniziali: ConversazioneDto[] }) {
@@ -253,18 +332,7 @@ export function Inbox({ conversazioniIniziali }: { conversazioniIniziali: Conver
 
             <div className="messaggi">
               {messaggi.map((m) => (
-                <div key={m.id} className={`bolla ${m.direzione === 'out' ? 'out' : 'in'}`}>
-                  {m.testo}
-                  <span className={`meta${m.stato === 'errore' ? ' errore' : ''}`}>
-                    {oraBreve(m.creatoIl)}
-                    {/* Chi ha risposto: quando la conversazione passa di mano è la
-                        prima cosa che si cerca. Vuoto sui messaggi vecchi. */}
-                    {m.direzione === 'out' && m.utenteNome ? ` · ${m.utenteNome}` : ''}
-                    {m.direzione === 'out' && m.stato
-                      ? ` · ${m.stato === 'errore' ? m.errore || 'errore' : m.stato}`
-                      : ''}
-                  </span>
-                </div>
+                <Bolla key={m.id} m={m} canale={selezionata.canale} />
               ))}
               <div ref={fondoRef} />
             </div>

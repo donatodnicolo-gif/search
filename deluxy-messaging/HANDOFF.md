@@ -55,6 +55,28 @@ locale, altrimenti nulla si decifra.
 
 ## FATTO
 
+- **UNA MAIL APERTA IN INBOX SI LEGGE** (29/07/2026). Cliccando una mail, la
+  schermata si smontava: elenco delle conversazioni bianco, testata e riquadro
+  di scrittura fuori campo, e al posto del testo un muro di link di
+  tracciamento SendGrid e di indirizzi di immagini.
+  - ⚠️ **Il colpevole era un `min-height` mancante**, non la mail. In una
+    colonna flex il figlio non scende sotto la dimensione del suo contenuto: con
+    un messaggio lungo `.messaggi` non attivava mai il proprio scorrimento, e lo
+    `scrollIntoView` di fine thread finiva per scorrere `.inbox` — che è
+    `overflow: hidden` ma resta scorribile da codice. Aggiunto
+    `min-height: 0` a `.inbox .thread` e `.thread .messaggi` in `globals.css`.
+  - `src/lib/testo-email.ts`: le mail HTML arrivano come testo generato da chi
+    le manda, con i link fra parentesi quadre e le immagini scritte per esteso.
+    `ripulisciTestoEmail()` toglie immagini, parentesi, spazi invisibili e
+    righe vuote a colonne; `pezziDiTesto()` rende i link cliccabili mostrando
+    **solo il nome del sito** (un link SendGrid è lungo 300 caratteri).
+  - La pulizia è **solo per gli occhi**: nel database il testo resta intero e la
+    bolla ha «Testo originale» per rileggerlo com'era arrivato. Oltre 900
+    caratteri si chiude con «Mostra tutto». L'oggetto della mail si vede in
+    grassetto in cima alla bolla (`Messaggio.oggetto`, c'era già ma non usciva).
+  - Ripulitura attiva **solo sul canale email**: su WhatsApp e widget scrive una
+    persona e quello che manda va letto com'è.
+
 - **IL WIDGET SI ADATTA AL SITO CHE LO OSPITA** (28/07/2026). Pagina
   **`/aspetto-widget`** («Widget dei siti»): sei temi, colore del sito,
   posizione, scritta accanto al bottone, anteprima e codice pronto da copiare.
