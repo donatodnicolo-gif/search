@@ -20,7 +20,8 @@ import { TraduzioneAllApertura } from '@/components/TraduzioneAllApertura'
 import { AllegatiMessaggio } from '@/components/AllegatiMessaggio'
 import { chiaveThread } from '@/lib/thread'
 import { nomeDiThread } from '@/lib/nomiThread'
-import { NomeThreadForm } from '@/components/NomeThreadForm'
+import { NomeThreadBottone, NomeThreadDialog } from '@/components/NomeThreadRiga'
+import { AgganciaBottone, AgganciaDialog } from '@/components/AgganciaRiga'
 import { ThreadAIToggle } from '@/components/ThreadAIToggle'
 import { CestinaThread } from '@/components/CestinaThread'
 import { InvitoCalendario } from '@/components/InvitoCalendario'
@@ -160,175 +161,46 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
         />
       </div>
 
-      {/* La conversazione (aggancia mail, istruzioni AI, punti di vista) va in
-          cima, subito dopo le azioni: è il contesto con cui l'AI legge la mail,
-          quindi si vede prima del corpo. */}
-      {conversazione.length === 1 && (
-        <div className="card">
-          <div className="mail-subject" style={{ fontSize: 18, marginBottom: 10 }}>
-            Conversazione
-          </div>
-          <p style={{ fontSize: 13.5, color: 'var(--text-secondary)', marginBottom: 12 }}>
-            Questa mail è da sola. Se un’altra mail parla della stessa cosa, agganciala qui:
-            quando dai una priorità, l’AI le legge insieme. Oppure apri la{' '}
-            <Link href={`/messaggio/${id}?ampia=1`} style={{ textDecoration: 'underline' }}>
-              vista con le mail correlate
-            </Link>{' '}
-            (scambiate con le stesse persone).
-          </p>
-
-          {/* Nome e cestinamento ci sono ANCHE qui. Prima comparivano solo con
-              due o più messaggi: su una mail che l'app vede da sola non si
-              poteva né darle un nome né cestinarla da questa scheda, e non è
-              detto che sia davvero sola — se domani le agganci una compagna, il
-              nome è già lì e vale per tutte e due. */}
-          <NomeThreadForm messaggioId={messaggio.id} valore={nomeConv} />
-
-          <div style={{ marginBottom: 14, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-            <ThreadAIToggle messaggioId={messaggio.id} attivo={threadAI} />
-            <ChiudiThread messaggioId={messaggio.id} chiuso={threadChiuso} />
-            <CestinaThread messaggioId={messaggio.id} quante={conversazione.length} />
-          </div>
-
-          <AgganciaMail messaggioId={messaggio.id} agganciata={Boolean(messaggio.threadManuale)} />
-        </div>
-      )}
-
-      {conversazione.length > 1 && (
-        <div className="card">
-          <div
-            className="mail-subject"
-            style={{ fontSize: 18, marginBottom: 4, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}
-          >
-            <span>
-              {ampia ? 'Conversazione completa' : 'Conversazione'} · {conversazione.length} messaggi
-              {ampia && conversazione.length > strette && (
-                <span className="muted" style={{ fontSize: 13, fontWeight: 400 }}>
-                  {' '}
-                  ({conversazione.length - strette} correlate)
-                </span>
-              )}
+      {/* CONVERSAZIONE IN UNA RIGA. Prima qui c'erano due schede piene di
+          spiegazioni e la mail partiva sotto la piega: per LEGGERLA bisognava
+          scorrere. Le stesse azioni — nessuna tolta — stanno ora in una riga
+          sottile (i moduli si aprono a richiesta nei dialoghi di pagina), e il
+          dettaglio della conversazione (riassunto, elenco messaggi, stacca) è
+          SOTTO la mail: prima si legge, poi si guarda il contesto. */}
+      <div className="card tight" style={{ padding: '8px 14px', marginBottom: 14 }}>
+        <div className="riga-azioni" style={{ marginTop: 0 }}>
+          <span className="muted" style={{ fontSize: 12.5 }}>
+            {conversazione.length > 1
+              ? `Conversazione · ${conversazione.length} messaggi`
+              : 'Mail singola'}
+          </span>
+          {nomeConv && (
+            <span className="badge gold">
+              <span className="dot" />
+              {nomeConv}
             </span>
-            {/* Questo thread ⇄ Con le correlate (le mail scambiate con le stesse persone). */}
-            <span className="vista-tabs" style={{ margin: 0 }}>
-              <Link href={`/messaggio/${id}`} className={`vista-tab ${!ampia ? 'attivo' : ''}`}>
-                Questo thread
-              </Link>
-              <Link href={`/messaggio/${id}?ampia=1`} className={`vista-tab ${ampia ? 'attivo' : ''}`}>
-                Con le correlate
-              </Link>
-            </span>
-          </div>
-          <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12 }}>
-            {ampia
-              ? 'Oltre alla catena di risposte, anche le altre mail scambiate con le stesse persone.'
-              : 'Quando dai una priorità, l’AI analizza l’ultima mail avendo letto tutta questa conversazione.'}
-          </p>
-
-          {/* Il nome che dai tu alla conversazione: si vede nelle liste e si
-              può cercare fra i thread. */}
-          <NomeThreadForm messaggioId={messaggio.id} valore={nomeConv} />
-
-          {/* PLUS AI sulla conversazione + cestinamento di tutto il thread. */}
-          <div style={{ marginBottom: 14, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-            <ThreadAIToggle messaggioId={messaggio.id} attivo={threadAI} />
-            <ChiudiThread messaggioId={messaggio.id} chiuso={threadChiuso} />
-            <CestinaThread messaggioId={messaggio.id} quante={conversazione.length} />
-          </div>
-
-          <div style={{ marginBottom: 14 }}>
-            <AgganciaMail
-              messaggioId={messaggio.id}
-              agganciata={Boolean(messaggio.threadManuale)}
-              staccabile={conversazione.length > 1}
-            />
-          </div>
-
-          {/* Il form «Istruzioni AI per questa conversazione» non si mostra più:
-              per dire all'AI cosa fare c'è «Delega Renè», che si scrive a
-              parole. Le istruzioni già salvate restano attive e continuano a
-              essere applicate (istruzioniMirate in sync.ts). */}
-
-          <RiassuntoConversazione
-            messaggioId={messaggio.id}
-            // Riassunto VECCHIO = generato quando la conversazione aveva meno
-            // messaggi di adesso (o mai generato). Se il thread è AI+ e il
-            // riassunto è vecchio, il componente lo rigenera da solo — SOLO per
-            // QUESTA conversazione (non il conteggio globale della casella, che
-            // confondeva: "ne restano 189" mentre il thread ne ha 65).
-            autoAggiorna={
-              threadAI &&
-              (!riassuntoThread || riassuntoThread.messaggiVisti < conversazione.length)
-            }
-            iniziale={
-              riassuntoThread
-                ? {
-                    analisi: riassuntoThread.analisi,
-                    partecipanti: riassuntoThread.partecipanti,
-                    messaggiVisti: riassuntoThread.messaggiVisti,
-                    generatoIl: riassuntoThread.generatoIl,
-                  }
-                : null
-            }
-          />
-
-          <p style={{ fontSize: 12.5, color: 'var(--text-tertiary)', margin: '14px 0 6px' }}>
-            Una mail non c’entra? «Stacca» la toglie dalla conversazione (anche
-            quando è unita dalla catena di risposte).
-          </p>
-          <div className="thread-list">
-            {conversazione.map((c) => {
-              const attuale = c.id === messaggio.id
-              return (
-                <div
-                  key={c.id}
-                  className="thread-item"
-                  style={{
-                    display: 'flex',
-                    gap: 8,
-                    alignItems: 'center',
-                    padding: '4px 6px',
-                    borderRadius: 10,
-                    background: attuale ? 'var(--fill)' : 'transparent',
-                  }}
-                >
-                  <Link
-                    href={`/messaggio/${c.id}`}
-                    style={{
-                      display: 'flex',
-                      gap: 12,
-                      alignItems: 'baseline',
-                      flex: 1,
-                      minWidth: 0,
-                      padding: '4px 4px',
-                      textDecoration: 'none',
-                      color: 'inherit',
-                    }}
-                  >
-                    <span style={{ fontWeight: 600, minWidth: 140, flexShrink: 0 }}>
-                      {c.direzione === 'uscita' ? 'Tu' : c.mittenteNome || c.mittente}
-                    </span>
-                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {c.oggetto}
-                    </span>
-                    <span className="muted" style={{ fontSize: 12, flexShrink: 0 }}>
-                      {dataLunga(c.data)}
-                    </span>
-                  </Link>
-                  {/* Rispondi / A tutti / Inoltra su OGNI messaggio del thread:
-                      così puoi ripartire da una qualsiasi mail della catena. */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                    <RispostaAzioni id={c.id} />
-                    {/* La mail aperta si stacca col bottone in alto; qui si staccano
-                        le ALTRE, quelle finite nel thread per sbaglio. */}
-                    {!attuale && <StaccaRiga messaggioId={c.id} />}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+          )}
+          <NomeThreadBottone id={messaggio.id} nome={nomeConv || null} />
+          <ThreadAIToggle messaggioId={messaggio.id} attivo={threadAI} variante="riga" />
+          <ChiudiThread messaggioId={messaggio.id} chiuso={threadChiuso} variante="riga" />
+          <AgganciaBottone id={messaggio.id} />
+          {conversazione.length > 1 ? (
+            <a href="#conversazione" className="azione-riga" title="Riassunto ed elenco dei messaggi, sotto la mail">
+              Messaggi ↓
+            </a>
+          ) : (
+            <Link
+              href={`/messaggio/${id}?ampia=1`}
+              className="azione-riga"
+              title="Le altre mail scambiate con le stesse persone"
+            >
+              Correlate
+            </Link>
+          )}
+          <CestinaThread messaggioId={messaggio.id} quante={conversazione.length} />
         </div>
-      )}
+      </div>
+
 
       <div className="card">
         <div className="mail-head">
@@ -445,12 +317,16 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
           </div>
         )}
 
+        {/* Una riga sola: la spiegazione lunga spingeva il corpo della mail
+            sotto la piega — e questa nota c'è su OGNI mail non analizzata. */}
         {!messaggio.riassunto && !messaggio.erroreAI && (
-          <div className="ai-box" style={{ background: 'var(--fill)', borderColor: 'var(--hairline)' }}>
-            <div className="ai-box-text" style={{ color: 'var(--text-secondary)' }}>
-              L’AI non ha ancora letto questo messaggio. Dagli una priorità qui sopra: te lo
-              riassume, crea l’attività da fare e, se la mail fissa un appuntamento senza
-              allegare un invito di calendario, te lo propone da mettere in agenda.
+          <div
+            className="ai-box"
+            style={{ background: 'var(--fill)', borderColor: 'var(--hairline)', padding: '8px 12px' }}
+          >
+            <div className="ai-box-text" style={{ color: 'var(--text-secondary)', fontSize: 13 }}>
+              L’AI non ha ancora letto questa mail: dalle una priorità qui sopra e te la riassume,
+              con l’attività da fare.
             </div>
           </div>
         )}
@@ -470,6 +346,123 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
           <AllegatiMessaggio messaggioId={messaggio.id} quanti={messaggio.allegati} />
         )}
       </div>
+
+      {/* IL DETTAGLIO DELLA CONVERSAZIONE sta DOPO la mail: prima si legge,
+          poi si guarda il contesto (riassunto, elenco, stacca). Le azioni
+          rapide sono nella riga sottile in cima; da lì «Messaggi ↓» porta qui. */}
+      {conversazione.length > 1 && (
+        <div className="card" id="conversazione">
+          <div
+            className="mail-subject"
+            style={{ fontSize: 17, marginBottom: 4, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}
+          >
+            <span>
+              {ampia ? 'Conversazione completa' : 'Conversazione'} · {conversazione.length} messaggi
+              {ampia && conversazione.length > strette && (
+                <span className="muted" style={{ fontSize: 13, fontWeight: 400 }}>
+                  {' '}({conversazione.length - strette} correlate)
+                </span>
+              )}
+            </span>
+            {/* Questo thread ⇄ Con le correlate (stesse persone). */}
+            <span className="vista-tabs" style={{ margin: 0 }}>
+              <Link href={`/messaggio/${id}#conversazione`} className={`vista-tab ${!ampia ? 'attivo' : ''}`}>
+                Questo thread
+              </Link>
+              <Link href={`/messaggio/${id}?ampia=1#conversazione`} className={`vista-tab ${ampia ? 'attivo' : ''}`}>
+                Con le correlate
+              </Link>
+            </span>
+          </div>
+
+          <div style={{ margin: '10px 0 14px' }}>
+            <AgganciaMail
+              messaggioId={messaggio.id}
+              agganciata={Boolean(messaggio.threadManuale)}
+              staccabile={conversazione.length > 1}
+            />
+          </div>
+
+          <RiassuntoConversazione
+            messaggioId={messaggio.id}
+            // Riassunto VECCHIO = generato quando la conversazione aveva meno
+            // messaggi di adesso (o mai generato). Se il thread è AI+ e il
+            // riassunto è vecchio, il componente lo rigenera da solo — SOLO per
+            // QUESTA conversazione (non il conteggio globale della casella, che
+            // confondeva: "ne restano 189" mentre il thread ne ha 65).
+            autoAggiorna={
+              threadAI &&
+              (!riassuntoThread || riassuntoThread.messaggiVisti < conversazione.length)
+            }
+            iniziale={
+              riassuntoThread
+                ? {
+                    analisi: riassuntoThread.analisi,
+                    partecipanti: riassuntoThread.partecipanti,
+                    messaggiVisti: riassuntoThread.messaggiVisti,
+                    generatoIl: riassuntoThread.generatoIl,
+                  }
+                : null
+            }
+          />
+
+          <p style={{ fontSize: 12.5, color: 'var(--text-tertiary)', margin: '14px 0 6px' }}>
+            Una mail non c’entra? «Stacca» la toglie dalla conversazione (anche
+            quando è unita dalla catena di risposte).
+          </p>
+          <div className="thread-list">
+            {conversazione.map((c) => {
+              const attuale = c.id === messaggio.id
+              return (
+                <div
+                  key={c.id}
+                  className="thread-item"
+                  style={{
+                    display: 'flex',
+                    gap: 8,
+                    alignItems: 'center',
+                    padding: '4px 6px',
+                    borderRadius: 10,
+                    background: attuale ? 'var(--fill)' : 'transparent',
+                  }}
+                >
+                  <Link
+                    href={`/messaggio/${c.id}`}
+                    style={{
+                      display: 'flex',
+                      gap: 12,
+                      alignItems: 'baseline',
+                      flex: 1,
+                      minWidth: 0,
+                      padding: '4px 4px',
+                      textDecoration: 'none',
+                      color: 'inherit',
+                    }}
+                  >
+                    <span style={{ fontWeight: 600, minWidth: 140, flexShrink: 0 }}>
+                      {c.direzione === 'uscita' ? 'Tu' : c.mittenteNome || c.mittente}
+                    </span>
+                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {c.oggetto}
+                    </span>
+                    <span className="muted" style={{ fontSize: 12, flexShrink: 0 }}>
+                      {dataLunga(c.data)}
+                    </span>
+                  </Link>
+                  {/* Rispondi / A tutti / Inoltra su OGNI messaggio del thread:
+                      così puoi ripartire da una qualsiasi mail della catena. */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                    <RispostaAzioni id={c.id} />
+                    {/* La mail aperta si stacca col bottone in alto; qui si staccano
+                        le ALTRE, quelle finite nel thread per sbaglio. */}
+                    {!attuale && <StaccaRiga messaggioId={c.id} />}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {bozzaAI && (
         <div className="card draft-box">
@@ -535,6 +528,9 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
           senza, «Manda a un'app» qui non aprirebbe niente (finora stava solo
           in posta in arrivo, ed è per questo che dalla mail non si poteva). */}
       <InvioAppDialog azioni={azioniApp} />
+      {/* I dialoghi di nome e aggancio: li aprono i bottoni della riga sottile. */}
+      <NomeThreadDialog />
+      <AgganciaDialog />
     </>
   )
 }
