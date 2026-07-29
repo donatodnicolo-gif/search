@@ -1,6 +1,6 @@
 # Handoff — Deluxy Orders
 
-Stato al **26/07/2026**. Aggiornare a ogni tappa (regole di lavoro Deluxy).
+Stato al **28/07/2026**. Aggiornare a ogni tappa (regole di lavoro Deluxy).
 Serve a far ripartire una finestra nuova senza contesto: prima lo stato, poi le
 **trappole già pagate** — quelle valgono più dell'elenco delle funzioni.
 
@@ -15,7 +15,7 @@ Manuale funzionale completo: [COME-FUNZIONA.md](COME-FUNZIONA.md).
 
 ## Stato: funziona tutto, con dati reali
 
-**13.959 ordini** importati e allineati esattamente con Shopify
+**13.995 ordini** importati e allineati esattamente con Shopify (13.959 al 26/07)
 (`npm run verifica:totali` lo dimostra negozio per negozio: deluxy.it 11.640,
 Flowers 1.584, cakedesign.me 730). Tre negozi collegati con Client ID+Secret,
 credenziali riusate da Finance.
@@ -505,6 +505,32 @@ Scelte da conoscere prima di toccarlo:
   quindi si dichiara in `esclusi.parzialmenteRimborsati` invece di stimarlo;
 - restituisce il **lordo Shopify** (IVA e spedizione incluse): l'aliquota non è
   sull'ordine, lo scorporo lo fa chi consuma e deve dichiararlo.
+
+## PUNTI APERTI al 28/07/2026 — in ordine di cosa sblocca cosa
+
+1. **Il bug del tema di cakedesign.me.** Il sito scrive `Data_Consegna =
+   "2026-undefined-27"`: quegli ordini restano «consegna non indicata» (giusto,
+   ma è un buco vero). **Si corregge nel tema**, in `sviluppi-siti-deluxy/` —
+   non qui. Finché resta, quegli ordini non hanno una data.
+2. **1.098 «probabili aziende» da confermare a mano** (pagina Clienti). Finché
+   non lo sono, in Analisi la tipologia «azienda» resta a 11 ordini sul 2026 e
+   il loro venduto sta dentro «privato». È la coda di lavoro che sblocca tutte
+   le analisi B2B.
+3. **Le occasioni «da precisare»** sono il 59% del venduto 2026: sono ricorrenze
+   vere di cui nessuno ha detto il motivo. Si fanno leggere all'AI dalla pagina
+   Eventi clienti — finché non si fa, la dimensione «occasione» dice poco.
+4. **2.421 ordini restano senza città** dopo la riconciliazione, e **607** senza
+   categoria. Sono il residuo onesto: né i tag né i titoli dicono niente.
+5. **Riepiloghi AI dei clienti: 3 su 10.217.** Il motore c'è ed è provato; vanno
+   generati in blocco dalla pagina Clienti (ogni cliente è una chiamata a
+   pagamento, quindi il numero si sceglie).
+6. **Gli stessi dati nel Customer Service.** `repeater`, `marketing`, `mittente`
+   e `urgenza` escono dalle API di Orders ma le tabelle «Ordini aperti /
+   globali» di deluxy-messaging non li mostrano ancora. **In quella cartella
+   lavora un'altra sessione**: da concordare prima di entrarci.
+7. **Finance: cosa fare degli annullati** (vedi sotto, punto 0 storico): è una
+   scelta contabile che aspetta l'utente.
+8. **`ORDERS_APP_PASSWORD` da cambiare**: è comparsa in chiaro in una chat.
 
 ## MANCA / prossimi passi
 0. **Finance: cosa fare degli annullati.** Ora li riceve ma li tratta come
