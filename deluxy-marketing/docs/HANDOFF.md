@@ -523,14 +523,36 @@ analisi importate); seconda corsa 0 scritture.
 
 ## MANCA
 
-0. **Token Meta non autorizzato sugli account** (28/07/2026, misurato). Il cron
-   funziona — auth, tre account interrogati, esito riportato — ma la Graph API
-   risponde **403 `(#200) Ad account owner has NOT grant ads_management or
-   ads_read permission`** su tutti e tre (Flowers 965988141913909, Cake
-   1040175814157216, Gifts 2802316249885506). Finché non si assegnano gli
-   account all'utente di sistema con `ads_read`, **Meta resta fermo al 27/07**
-   per quanto giri il cron. Gli errori finiscono in `RicezioneDati` e si vedono
-   in **Dati in arrivo**.
+0. ~~**Token Meta non autorizzato sugli account**~~ — **RISOLTO il 29/07/2026.**
+   Bastava assegnare i tre account pubblicitari all'utente di sistema in
+   Business Settings (Utenti → Utenti di sistema → Aggiungi risorse → Account
+   pubblicitari, permesso «Visualizza prestazioni» = `ads_read`). **Il token
+   non è stato rigenerato**: non serviva.
+
+   > ⚠️ **`403 (#200)` e `190` sono due guasti diversi e si curano in due modi
+   > opposti.** Il `190 Invalid OAuth access token` è il token: scaduto o
+   > sbagliato, va rigenerato. Il **`#200 Ad account owner has NOT grant…`** è
+   > l'esatto contrario: il token è **valido e autenticato**, ma l'utente di
+   > sistema non ha accesso a *quegli asset*. Si risolve in Business Manager,
+   > non toccando il token — cercare di rigenerarlo non produce niente.
+
+   Verificato subito dopo: 64 righe entrate, **zero errori** sui tre account.
+   Copertura Meta oggi: **382 righe dal 28/01/2026**, 5.648 € di spesa, 25
+   campagne.
+
+   **Lo storico Meta prima del 28/01/2026 c'è, ma va preso a scaglioni.**
+   `POST /api/v1/sync/meta` accetta `account`, `dal` e `al` oltre a `giorni`:
+   servono quelli, perché `{giorni: 400}` muore in
+   **`FUNCTION_INVOCATION_TIMEOUT`** (provato) e persino sei mesi su un solo
+   account non ce la fanno. Misura vera: **un mese di un account = 3m06s**,
+   120 righe, 5 campagne nuove (dicembre 2025).
+   ⚠️ Il collo di bottiglia **non è Meta, è il salvataggio**: 1,5 s per riga
+   sono gli upsert uno-per-uno di `salvaMetriche` (`ingest-metriche.ts:105`,
+   `findFirst` dentro il ciclo) contro un Postgres remoto con
+   `connection_limit=5`. Finché resta così, il backfill si fa un mese per
+   volta e in sequenza — in parallelo si satura il pool.
+   La route `sync/meta` **non ha `maxDuration`** (il cron sì, 60 s): se un
+   giorno si vuole allungare la finestra, è lì che va messo.
 1. **Chiave OpenAI** — la sezione `/ai` è pronta ma dirà che serve
    `OPENAI_API_KEY`: va nella cassaforte del Hub (progetto `deluxy-marketing`,
    più `HUB_KEYS_TOKEN` su Vercel) o come variabile su Vercel.
