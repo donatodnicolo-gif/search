@@ -42,11 +42,16 @@ anagrafici nelle vostre app — leggeteli da qui.
 ### Dati finanziari (fatturazione) — lettura e scrittura
 
 Ogni partner risponde con un blocco **`datiFinanziari`**: `pec`, `codiceSdi`,
-`iban`, `banca`, `metodoPagamento`, `condizioniPagamento`, `noteAmministrative`,
-`amministrazioneNome/Telefono/Email` (il contatto amministrativo) e
-**`aggiornamenti`** — per ogni campo chi l'ha scritto (`sistema`) e quando
-(`asOf`). P.IVA e codice fiscale restano ai livelli alti della risposta.
+`iban`, `banca`, `metodoPagamento`, `condizioniPagamento`, `gruppoPagamento`,
+`noteAmministrative`, `amministrazioneNome/Telefono/Email` (il contatto
+amministrativo) e **`aggiornamenti`** — per ogni campo chi l'ha scritto
+(`sistema`) e quando (`asOf`). P.IVA e codice fiscale restano ai livelli alti
+della risposta.
 
+- **`gruppoPagamento` è facoltativo e vuol dire una cosa sola**: quando è
+  valorizzato **paga la centrale indicata per tutte le sedi dell'insegna**, e la
+  singola sede non va fatturata a parte. Vuoto = ogni sede paga per sé. Chi
+  emette fatture o richieste di pagamento lo legga **prima** dell'IBAN.
 - **Sono condivisi tra le sedi della stessa insegna** (la fatturazione è della
   società): scrivendoli su una sede valgono per tutte; leggendo una sede
   qualsiasi si ottiene lo stesso blocco.

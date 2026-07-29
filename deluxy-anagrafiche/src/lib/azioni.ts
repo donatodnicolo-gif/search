@@ -281,6 +281,7 @@ export async function aggiornaPartner(partnerId: string, fd: FormData) {
     banca: testo("banca"),
     metodoPagamento: testo("metodoPagamento"),
     condizioniPagamento: testo("condizioniPagamento"),
+    gruppoPagamento: testo("gruppoPagamento"),
     noteAmministrative: testo("noteAmministrative"),
     amministrazioneNome: testo("amministrazioneNome"),
     amministrazioneTelefono: testo("amministrazioneTelefono"),
@@ -321,6 +322,7 @@ export async function aggiornaPartner(partnerId: string, fd: FormData) {
       banca: testo("banca"),
       metodoPagamento: testo("metodoPagamento"),
       condizioniPagamento: testo("condizioniPagamento"),
+      gruppoPagamento: testo("gruppoPagamento"),
       noteAmministrative: testo("noteAmministrative"),
       amministrazioneNome: testo("amministrazioneNome"),
       amministrazioneTelefono: testo("amministrazioneTelefono"),
@@ -427,6 +429,108 @@ export async function raggruppaSotto(partnerId: string, capogruppoId: string | n
   revalidatePath(`/partner/${partnerId}`);
   if (capogruppoId) revalidatePath(`/partner/${capogruppoId}`);
   revalidatePath("/");
+}
+
+// Aggiunge una sede a un'insegna: crea una nuova anagrafica già collegata alla
+// madre. Serve per le insegne con più luoghi — anche **due negozi nella stessa
+// città**, che è il caso che il duplicato-guard di `creaPartner` bloccherebbe:
+// qui a distinguerli è l'indirizzo, non la città.
+// La sede eredita categoria, stati e interessi della madre (è la stessa
+// azienda) e, via `propagaDatiFinanziari`, tutta la fatturazione — gruppo di
+// pagamento compreso.
+export async function aggiungiSede(
+  madreId: string,
+  fd: FormData,
+): Promise<{ ok: true; id: string } | { ok: false; errore: string }> {
+  const testo = (k: string) => String(fd.get(k) ?? "").trim() || null;
+  const maiuscolo = (k: string) => testo(k)?.toUpperCase() ?? null;
+
+  const madre = await prisma.partner.findUnique({ where: { id: madreId } });
+  if (!madre) return { ok: false, errore: "Insegna non trovata." };
+  if (!madre.attivo) return { ok: false, errore: "L'insegna è archiviata: ripristinala prima di aggiungere sedi." };
+  // Il gruppo è a un livello solo: una sede non può avere sedi proprie.
+  if (madre.capogruppoId) {
+    return { ok: false, errore: "Questa anagrafica è già una sede: aggiungi le altre sedi dall'insegna madre." };
+  }
+
+  const nome = testo("nome") ?? madre.nome;
+  const citta = maiuscolo("citta") ?? madre.citta;
+  const indirizzo = testo("indirizzo");
+
+  const gemella = await prisma.partner.findFirst({
+    where: {
+      attivo: true,
+      nome: { equals: nome, mode: "insensitive" },
+      ...(citta ? { citta: { equals: citta, mode: "insensitive" } } : { citta: null }),
+      ...(indirizzo ? { indirizzo: { equals: indirizzo, mode: "insensitive" } } : { indirizzo: null }),
+    },
+    select: { id: true },
+  });
+  if (gemella) {
+    return {
+      ok: false,
+      errore: indirizzo
+        ? "Esiste già una sede con questo nome, città e indirizzo."
+        : "Esiste già una sede con questo nome e città: scrivi l'indirizzo per distinguerla.",
+    };
+  }
+
+  const sede = await prisma.partner.create({
+    data: {
+      nome,
+      categoria: madre.categoria,
+      stato: madre.stato,
+      statoFinanziario: madre.statoFinanziario,
+      statoAnalisi: madre.statoAnalisi,
+      interessi: madre.interessi,
+      citta,
+      provincia: maiuscolo("provincia") ?? madre.provincia,
+      regione: maiuscolo("regione") ?? madre.regione,
+      indirizzo,
+      ragioneSociale: madre.ragioneSociale,
+      email: testo("email"),
+      telefono: testo("telefono"),
+      account: madre.account,
+      capogruppoId: madre.id,
+      fonte: "ui",
+    },
+  });
+  // La fatturazione è della società: la sede nuova parte con gli stessi dati.
+  await propagaDatiFinanziari(madre.id);
+  revalidatePath(`/partner/${madre.id}`);
+  revalidatePath("/");
+  return { ok: true, id: sede.id };
+}
+
+// Collega un'anagrafica che esiste già come sede dell'insegna. Stessa cosa di
+// `raggruppaSotto` vista dal lato della madre, ma dice *perché* non si può
+// quando non si può, invece di non fare niente.
+export async function collegaSede(
+  madreId: string,
+  sedeId: string,
+): Promise<{ ok: true } | { ok: false; errore: string }> {
+  if (madreId === sedeId) return { ok: false, errore: "Un'insegna non può essere sede di sé stessa." };
+  const [madre, sede, sediDellaSede] = await Promise.all([
+    prisma.partner.findUnique({ where: { id: madreId }, select: { capogruppoId: true } }),
+    prisma.partner.findUnique({ where: { id: sedeId }, select: { capogruppoId: true, nome: true } }),
+    prisma.partner.count({ where: { capogruppoId: sedeId } }),
+  ]);
+  if (!madre || !sede) return { ok: false, errore: "Anagrafica non trovata." };
+  if (madre.capogruppoId) {
+    return { ok: false, errore: "Questa anagrafica è già una sede: aggiungi le altre sedi dall'insegna madre." };
+  }
+  if (sediDellaSede > 0) {
+    return {
+      ok: false,
+      errore: `«${sede.nome}» ha già sedi proprie: i gruppi sono a un livello solo, sganciale prima.`,
+    };
+  }
+  await prisma.partner.update({ where: { id: sedeId }, data: { capogruppoId: madreId } });
+  await propagaDatiFinanziari(madreId);
+  revalidatePath(`/partner/${madreId}`);
+  revalidatePath(`/partner/${sedeId}`);
+  revalidatePath("/");
+  return { ok: true };
 }
 
 // Risolve a mano una richiesta di aggancio: collega l'anagrafica scelta e,

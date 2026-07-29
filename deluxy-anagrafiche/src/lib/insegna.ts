@@ -14,6 +14,9 @@ export const CAMPI_FINANZIARI = [
   "banca",
   "metodoPagamento",
   "condizioniPagamento",
+  // Chi paga per tutte le sedi (facoltativo): è una scelta della società, non
+  // della singola sede, quindi vive qui con gli altri campi condivisi.
+  "gruppoPagamento",
   "noteAmministrative",
   "amministrazioneNome",
   "amministrazioneTelefono",

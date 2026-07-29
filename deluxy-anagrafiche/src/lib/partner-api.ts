@@ -33,6 +33,7 @@ const CAMPI_TESTO = [
   "banca",
   "metodoPagamento",
   "condizioniPagamento",
+  "gruppoPagamento",
   "noteAmministrative",
   "amministrazioneNome",
   "amministrazioneTelefono",
@@ -191,6 +192,8 @@ export function serializzaPartner(p: PartnerConContatti) {
       banca: p.banca,
       metodoPagamento: p.metodoPagamento,
       condizioniPagamento: p.condizioniPagamento,
+      // Se valorizzato: paga la centrale indicata, non la singola sede.
+      gruppoPagamento: p.gruppoPagamento,
       noteAmministrative: p.noteAmministrative,
       amministrazioneNome: p.amministrazioneNome,
       amministrazioneTelefono: p.amministrazioneTelefono,

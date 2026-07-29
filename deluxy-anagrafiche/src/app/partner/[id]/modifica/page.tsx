@@ -147,6 +147,20 @@ export default async function Modifica({
               <Campo etichetta="Banca" nome="banca" valore={fin.banca} />
               <Campo etichetta="Metodo di pagamento" nome="metodoPagamento" valore={fin.metodoPagamento} />
               <Campo etichetta="Condizioni di pagamento" nome="condizioniPagamento" valore={fin.condizioniPagamento} />
+              <Campo etichetta="Gruppo di pagamento" nome="gruppoPagamento" largo>
+                <input
+                  id="gruppoPagamento"
+                  name="gruppoPagamento"
+                  type="text"
+                  defaultValue={fin.gruppoPagamento ?? ""}
+                  placeholder="Es. sede centrale di Milano · facoltativo"
+                />
+                <p className="testo-guida">
+                  Facoltativo. Compilalo quando <strong>paga una centrale per tutte le sedi</strong>:
+                  la scheda lo mette in evidenza e le singole sedi non si fatturano separatamente.
+                  Lascialo vuoto se ogni sede paga per sé.
+                </p>
+              </Campo>
               <Campo etichetta="Contatto amministrativo" nome="amministrazioneNome" valore={fin.amministrazioneNome} />
               <Campo etichetta="Telefono amministrazione" nome="amministrazioneTelefono" valore={fin.amministrazioneTelefono} />
               <Campo etichetta="Email amministrazione" nome="amministrazioneEmail">

@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { AggiungiSede } from "@/components/AggiungiSede";
 import { FormFeedbackD2C } from "@/components/FormFeedbackD2C";
 import { GestioneGruppo } from "@/components/GestioneGruppo";
 import type { RigaContatto } from "@/components/google-rubrica";
@@ -55,8 +56,17 @@ export default async function Dettaglio({
       capogruppo: { select: { id: true, nome: true, citta: true } },
       sedi: {
         where: { attivo: true },
-        select: { id: true, nome: true, citta: true, stato: true, categoria: true, contatti: { select: { id: true } } },
-        orderBy: { nome: "asc" },
+        select: {
+          id: true,
+          nome: true,
+          citta: true,
+          // Due sedi possono stare nella stessa città: a distinguerle è l'indirizzo.
+          indirizzo: true,
+          stato: true,
+          categoria: true,
+          contatti: { select: { id: true } },
+        },
+        orderBy: [{ citta: "asc" }, { indirizzo: "asc" }],
       },
     },
   });
@@ -189,6 +199,9 @@ export default async function Dettaglio({
               </a>
             )}
             {/* Una sede non può avere sedi proprie: il gruppo è a un livello */}
+            {p.attivo && !p.capogruppo && (
+              <AggiungiSede madreId={p.id} nome={p.nome} citta={p.citta} compatto />
+            )}
             {p.attivo && !p.capogruppo && p.sedi.length === 0 && (
               <GestioneGruppo partnerId={p.id} nome={p.nome} />
             )}
@@ -373,8 +386,16 @@ export default async function Dettaglio({
             fatturazione e pagamenti{haSedi ? " · condivisi con le sedi dell'insegna" : ""}
           </span>
         </h2>
+        {/* Il gruppo di pagamento è una risposta a «chi paga»: quando c'è, va
+            letta prima dell'IBAN, non cercata in mezzo agli altri campi. */}
+        {fin.gruppoPagamento && (
+          <p className="avviso-pagamento">
+            <strong>Pagamento centralizzato:</strong> paga <strong>{fin.gruppoPagamento}</strong> per
+            tutte le sedi dell&apos;insegna — le singole sedi non si fatturano separatamente.
+          </p>
+        )}
         {[p.ragioneSociale, fin.pIva, fin.codiceFiscale, fin.pec, fin.codiceSdi, fin.iban, fin.banca,
-          fin.metodoPagamento, fin.condizioniPagamento, fin.noteAmministrative,
+          fin.metodoPagamento, fin.condizioniPagamento, fin.gruppoPagamento, fin.noteAmministrative,
           fin.amministrazioneNome, fin.amministrazioneTelefono, fin.amministrazioneEmail,
         ].every((v) => !v) ? (
           <p className="testo-guida" style={{ margin: 0 }}>
@@ -391,6 +412,7 @@ export default async function Dettaglio({
             <Campo etichetta="Banca" valore={fin.banca} />
             <Campo etichetta="Metodo di pagamento" valore={fin.metodoPagamento} />
             <Campo etichetta="Condizioni di pagamento" valore={fin.condizioniPagamento} />
+            <Campo etichetta="Gruppo di pagamento" valore={fin.gruppoPagamento} />
             <Campo etichetta="Contatto amministrativo" valore={fin.amministrazioneNome} />
             <Campo etichetta="Telefono amministrazione" valore={fin.amministrazioneTelefono} />
             <Campo etichetta="Email amministrazione" valore={fin.amministrazioneEmail} />
@@ -399,46 +421,68 @@ export default async function Dettaglio({
         )}
       </section>
 
-      {p.sedi.length > 0 && (
+      {/* La sezione c'è anche a zero sedi: è da qui che si aggiunge la seconda
+          boutique in città, e senza il riquadro non si saprebbe che si può. */}
+      {(p.sedi.length > 0 || (p.attivo && !p.capogruppo)) && (
         <section className="scheda">
-          <h2 className="scheda-titolo">
-            Sedi del gruppo <span className="scheda-sub">{p.sedi.length} anagrafiche collegate</span>
-          </h2>
-          <div className="tabella-wrap" style={{ boxShadow: "none", border: "1px solid var(--hairline)" }}>
-            <table>
-              <thead>
-                <tr>
-                  <th>Sede</th>
-                  <th>Città</th>
-                  <th>Stato commerciale</th>
-                  <th>Referenti</th>
-                  <th aria-label="Azioni"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {p.sedi.map((s) => (
-                  <tr key={s.id}>
-                    <td>
-                      <a href={`/partner/${s.id}`}>
-                        <div className="cella-nome">{s.nome}</div>
-                        <div className="cella-sub">{s.categoria}</div>
-                      </a>
-                    </td>
-                    <td className="cella-muta">{s.citta ?? "—"}</td>
-                    <td className="cella-muta">{nomeStato(s.stato)}</td>
-                    <td className="cella-muta">{s.contatti.length}</td>
-                    <td>
-                      <form action={raggruppaSotto.bind(null, s.id, null)}>
-                        <button type="submit" className="btn-archivia" title="Togli questa sede dal gruppo">
-                          ✕
-                        </button>
-                      </form>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="testata-sezione">
+            <h2 className="scheda-titolo" style={{ marginBottom: 0 }}>
+              Sedi{" "}
+              <span className="scheda-sub">
+                {p.sedi.length > 0
+                  ? `${p.sedi.length + 1} luoghi in tutto, questa compresa`
+                  : "un solo luogo: questa anagrafica"}
+              </span>
+            </h2>
+            {p.attivo && !p.capogruppo && (
+              <AggiungiSede madreId={p.id} nome={p.nome} citta={p.citta} compatto />
+            )}
           </div>
+          {p.sedi.length === 0 ? (
+            <p className="testo-guida" style={{ margin: 0 }}>
+              Se l&apos;insegna ha più luoghi — anche due indirizzi nella stessa città — aggiungili con
+              <strong> ＋ Sede</strong>: ognuno resta un&apos;anagrafica a sé per stato, referenti e
+              feedback, mentre fatturazione e gruppo di pagamento restano quelli della società.
+            </p>
+          ) : (
+            <div className="tabella-wrap" style={{ boxShadow: "none", border: "1px solid var(--hairline)" }}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Sede</th>
+                    <th>Città</th>
+                    <th>Indirizzo</th>
+                    <th>Stato commerciale</th>
+                    <th>Referenti</th>
+                    <th aria-label="Azioni"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {p.sedi.map((s) => (
+                    <tr key={s.id}>
+                      <td>
+                        <a href={`/partner/${s.id}`}>
+                          <div className="cella-nome">{s.nome}</div>
+                          <div className="cella-sub">{s.categoria}</div>
+                        </a>
+                      </td>
+                      <td className="cella-muta">{s.citta ?? "—"}</td>
+                      <td className="cella-muta">{s.indirizzo ?? "—"}</td>
+                      <td className="cella-muta">{nomeStato(s.stato)}</td>
+                      <td className="cella-muta">{s.contatti.length}</td>
+                      <td>
+                        <form action={raggruppaSotto.bind(null, s.id, null)}>
+                          <button type="submit" className="btn-archivia" title="Togli questa sede dal gruppo">
+                            ✕
+                          </button>
+                        </form>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </section>
       )}
 

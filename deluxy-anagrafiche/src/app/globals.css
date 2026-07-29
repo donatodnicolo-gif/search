@@ -858,3 +858,20 @@ a.dash-riga:hover .dash-etichetta { color: var(--text); }
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px;
   overflow-x: auto; white-space: pre;
 }
+
+/* ---------- Sedi e gruppo di pagamento ----------
+   Il titolo della sezione e il bottone «＋ Sede» sulla stessa riga: l'azione
+   sta dove si guarda l'elenco. Il gruppo di pagamento è una risposta a «chi
+   paga», quindi si legge prima dei campi, non dentro la griglia. */
+.testata-sezione {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap; margin-bottom: 14px;
+}
+.avviso-pagamento {
+  margin: 0 0 14px; padding: 10px 14px;
+  background: var(--gold-soft); border-radius: var(--radius-m);
+  font-size: 13.5px; line-height: 1.5;
+}
+/* Nella modale il modulo sta su una colonna sola sotto i 560px del riquadro. */
+.modale .modulo { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 560px) { .modale .modulo { grid-template-columns: 1fr; } }

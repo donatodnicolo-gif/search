@@ -50,6 +50,11 @@ model Partner {
   banca               String?
   metodoPagamento     String? // bonifico, RID/SEPA, carta, ...
   condizioniPagamento String? // es. "30 gg d.f.", "pagamento anticipato"
+  // Gruppo di pagamento (facoltativo): quando è compilato, chi paga è la sede
+  // centrale indicata qui e le singole sedi NON si fatturano separatamente.
+  // È un campo finanziario come gli altri, quindi condiviso e propagato a
+  // tutte le sedi dell'insegna (vedi src/lib/insegna.ts).
+  gruppoPagamento     String?
   noteAmministrative  String?
   // Contatto amministrativo (fatturazione/pagamenti)
   amministrazioneNome     String?

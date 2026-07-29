@@ -159,6 +159,17 @@ Ogni scrittura via API è un **merge governato per campo**, mai una sostituzione
   **Gruppi**: `⧉ Raggruppa` (`GestioneGruppo`) mette l'anagrafica sotto un'insegna madre;
   una sede mostra «Sede del gruppo X» + «Togli dal gruppo»; la madre ha la sezione
   **Sedi del gruppo** (✕ per sganciarne una). Azione unica `raggruppaSotto(partnerId, capogruppoId|null)`.
+  **＋ Sede (29/07/2026)** — `AggiungiSede`, bottone in testata e nella sezione **Sedi**, che ora
+  compare **anche a zero sedi** (altrimenti non si sa che si può). Due strade nella stessa modale:
+  · **Nuova sede** → `aggiungiSede(madreId, fd)`: crea l'anagrafica già collegata (`capogruppoId`),
+    eredita da madre categoria/stati/interessi/account/ragione sociale e, via `propagaDatiFinanziari`,
+    tutta la fatturazione. **A distinguere due sedi nella stessa città è l'indirizzo**: il guard sul
+    duplicato è nome+città+indirizzo, non nome+città come in `creaPartner` (che infatti bloccherebbe
+    la seconda boutique in centro). Senza indirizzo, la seconda sede con stesso nome e città viene
+    rifiutata con un messaggio, non creata di nascosto.
+  · **Collega una esistente** → `collegaSede(madreId, sedeId)`: come `raggruppaSotto` visto dalla
+    madre, ma **dice perché** quando non si può (madre già sede, oppure la candidata ha sedi proprie:
+    i gruppi restano a un livello). Nell'elenco delle sedi c'è la colonna **Indirizzo**.
   **Diventata cliente → rubrica Google in automatico**: quando lo stato passa a `attivo`
   (etichetta «Partner»), `cambiaStato` fa redirect a `?rubrica=1` e il pannello
   `SalvaRubricaAuto` salva tutti i referenti nella rubrica dell'operatore (verifica per numero,
@@ -183,9 +194,15 @@ Ogni scrittura via API è un **merge governato per campo**, mai una sostituzione
   scrittura vengono propagati alle sedi (valori + timbri). Anche la UI timbra la provenienza
   (`sistema: "ui"`, asOf = adesso) dei campi finanziari cambiati. Contratto per le app nel
   README, sezione «Dati finanziari».
+  **Gruppo di pagamento (29/07/2026)** — campo **facoltativo** `gruppoPagamento`: quando è
+  compilato **paga una centrale per tutte le sedi** e le singole sedi non si fatturano a parte.
+  È un campo finanziario a tutti gli effetti (condiviso e propagato all'insegna, nel merge, nelle
+  API dentro `datiFinanziari` con il timbro in `aggiornamenti`). Nella scheda non sta in mezzo agli
+  altri campi: se c'è, apre la sezione con la riga in evidenza «Pagamento centralizzato: paga X per
+  tutte le sedi» — è una risposta a «chi paga», si legge prima dell'IBAN. Vuoto = ogni sede paga per sé.
   **Condivisi a livello di insegna** (`src/lib/insegna.ts`, `CAMPI_FINANZIARI` = pIva,
-  codiceFiscale, pec, codiceSdi, iban, banca, metodo/condizioni pagamento, note ammin.,
-  contatto ammin.): la fatturazione è della società, non della singola sede. La scheda e il
+  codiceFiscale, pec, codiceSdi, iban, banca, metodo/condizioni pagamento, **gruppo di pagamento**,
+  note ammin., contatto ammin.): la fatturazione è della società, non della singola sede. La scheda e il
   form li leggono via `datiFinanziariCondivisi` (merge per campo tra le sedi della stessa
   insegna = stesso nome, o sedi collegate a mano alla madre con quel nome); al salvataggio
   `aggiornaPartner` chiama `propagaDatiFinanziari` che li copia su tutte le sedi (updateMany).

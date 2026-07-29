@@ -52,6 +52,7 @@ const FATTUALI = [
   "banca",
   "metodoPagamento",
   "condizioniPagamento",
+  "gruppoPagamento",
   "amministrazioneNome",
   "amministrazioneTelefono",
   "amministrazioneEmail",
