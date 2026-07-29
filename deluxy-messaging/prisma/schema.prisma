@@ -370,6 +370,16 @@ model Messaggio {
   // archivio: parte da adesso, a posteriori non si indovina.
   utenteId        String   @default("")
   utenteNome      String   @default("")
+  // ── Allegati (WhatsApp) ──
+  // Il file NON si copia da nessuna parte: Meta lo tiene e ce lo dà a richiesta
+  // con questo id. Salvarne una copia vorrebbe dire uno storage nostro, con le
+  // foto dei clienti dentro, per mostrare una miniatura. `/api/media/[id]` fa
+  // da ponte: chiede a Meta l'indirizzo e passa i byte, col token giusto.
+  // ⚠️ In arrivo l'id resta valido finché Meta tiene il file (circa 30 giorni);
+  // in uscita è quello che abbiamo caricato noi.
+  mediaId         String   @default("")
+  mimeType        String   @default("")
+  nomeFile        String   @default("") // solo documenti: come si chiamava
   creatoIl        DateTime @default(now())
 
   @@index([conversazioneId, creatoIl])

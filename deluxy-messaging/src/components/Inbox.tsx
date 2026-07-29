@@ -27,6 +27,10 @@ type MessaggioDto = {
   testo: string
   /** L'oggetto, solo sulle mail: è la prima cosa che si legge. */
   oggetto?: string
+  /** C'è un file allegato (WhatsApp): si scarica da /api/media/[id]. */
+  mediaId?: string
+  mimeType?: string
+  nomeFile?: string
   /** Chi ha scritto, solo in uscita. Vuoto sui messaggi vecchi: parte da ora. */
   utenteNome?: string
   stato: string
@@ -78,27 +82,56 @@ function Bolla({ m, canale }: { m: MessaggioDto; canale: string }) {
   const accorciaLink = pezzi?.some((p) => p.tipo === 'link' && p.etichetta !== p.url) ?? false
   const cambiato = pulito !== m.testo || accorciaLink
 
+  // L'allegato viene prima del testo: quando c'è una foto, il testo è la sua
+  // didascalia. Il file non è nostro — lo tiene Meta — e `/api/media/[id]` fa
+  // da ponte col token giusto.
+  const allegato = m.mediaId ? `/api/media/${m.id}` : ''
+  const eFoto = (m.mimeType ?? '').startsWith('image/')
+  // Col file davanti, un testo tipo «[image]» o il nome del file è rumore: è
+  // già scritto sopra. Una didascalia vera invece si mostra.
+  const testoInutile =
+    Boolean(allegato) && (/^\[[^\]]+\]$/.test(m.testo.trim()) || m.testo.trim() === m.nomeFile)
+
   return (
     <div className={`bolla ${m.direzione === 'out' ? 'out' : 'in'}`}>
       {m.oggetto ? <span className="oggetto">{m.oggetto}</span> : null}
-      {pezzi
-        ? pezzi.map((p, i) =>
-            p.tipo === 'link' ? (
-              <a
-                key={i}
-                className="link-messaggio"
-                href={p.url}
-                title={p.url}
-                target="_blank"
-                rel="noreferrer noopener"
-              >
-                {p.etichetta}
-              </a>
-            ) : (
-              <span key={i}>{p.testo}</span>
-            )
+      {allegato ? (
+        eFoto ? (
+          <a href={allegato} target="_blank" rel="noreferrer noopener" className="allegato-foto">
+            {/* Niente <Image> di Next: il file passa dalla nostra rotta con la
+                sessione, e l'ottimizzatore non ci arriva. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={allegato} alt={m.nomeFile || 'Foto ricevuta'} loading="lazy" />
+          </a>
+        ) : (
+          <a href={allegato} target="_blank" rel="noreferrer noopener" className="allegato-file">
+            <span className="icona" aria-hidden="true">
+              ↓
+            </span>
+            <span className="nome">{m.nomeFile || 'Allegato'}</span>
+          </a>
+        )
+      ) : null}
+      {testoInutile ? null : pezzi ? (
+        pezzi.map((p, i) =>
+          p.tipo === 'link' ? (
+            <a
+              key={i}
+              className="link-messaggio"
+              href={p.url}
+              title={p.url}
+              target="_blank"
+              rel="noreferrer noopener"
+            >
+              {p.etichetta}
+            </a>
+          ) : (
+            <span key={i}>{p.testo}</span>
           )
-        : visibile}
+        )
+      ) : (
+        visibile
+      )}
       {tagliato || tutto || cambiato ? (
         <span className="azioni-testo">
           {tagliato || tutto ? (
@@ -300,6 +333,37 @@ export function Inbox({
     return gruppi
   }, [brandNoti, conversazioni, marchioDi])
 
+  // Manda un file su WhatsApp. Il testo scritto nel riquadro diventa la
+  // didascalia della foto: è quello che ci si aspetta scrivendo prima e
+  // allegando dopo.
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [caricando, setCaricando] = useState(false)
+
+  async function mandaFile(file: File) {
+    if (!selezionataId || caricando) return
+    setCaricando(true)
+    setErroreInvio('')
+    try {
+      const modulo = new FormData()
+      modulo.append('file', file)
+      if (bozza.trim()) modulo.append('didascalia', bozza.trim())
+      const res = await fetch(`/api/conversazioni/${selezionataId}/allegati`, {
+        method: 'POST',
+        body: modulo,
+      })
+      const d = (await res.json().catch(() => ({}))) as { errore?: string }
+      if (!res.ok) setErroreInvio(d.errore || 'Invio del file non riuscito.')
+      else setBozza('')
+      await caricaMessaggi(selezionataId)
+      await aggiornaConversazioni()
+    } catch {
+      setErroreInvio('Invio del file non riuscito: problema di rete.')
+    } finally {
+      setCaricando(false)
+      if (fileRef.current) fileRef.current.value = '' // lo stesso file si può rimandare
+    }
+  }
+
   // Scarica la posta dalla casella register.it: le mail entrano come
   // conversazioni del canale Email.
   const [scaricoPosta, setScaricoPosta] = useState('')
@@ -498,6 +562,30 @@ export function Inbox({
                   }
                 }}
               />
+              {/* Allegati: per ora solo WhatsApp. Sugli altri canali il bottone
+                  non c'è invece di esserci e fallire — Meta e SMTP vogliono
+                  strade diverse. */}
+              {selezionata.canale === 'whatsapp' ? (
+                <>
+                  <input
+                    ref={fileRef}
+                    type="file"
+                    hidden
+                    onChange={(e) => {
+                      const f = e.target.files?.[0]
+                      if (f) mandaFile(f)
+                    }}
+                  />
+                  <button
+                    className="bottone secondario"
+                    onClick={() => fileRef.current?.click()}
+                    disabled={caricando}
+                    title="Manda una foto o un documento (max 4 MB). Il testo scritto qui diventa la didascalia."
+                  >
+                    {caricando ? 'Carico…' : 'Allega'}
+                  </button>
+                </>
+              ) : null}
               {/* Risposta rapida: l'AI sceglie fra gli Script e adatta il testo.
                   Finisce nel riquadro, NON parte da sola: la si controlla prima. */}
               <button

@@ -55,6 +55,31 @@ locale, altrimenti nulla si decifra.
 
 ## FATTO
 
+- **FOTO E ALLEGATI SU WHATSAPP, IN USCITA E IN ENTRATA** (29/07/2026). Prima si
+  mandava solo testo, e di una foto ricevuta restava la scritta «[image]».
+  - **In uscita**: bottone **Allega** nel riquadro di risposta (solo WhatsApp).
+    Sono due chiamate, non una: `POST /{phoneNumberId}/media` per caricare il
+    file e avere un id, poi il messaggio che punta a quell'id
+    (`caricaMediaWhatsApp` + `inviaMediaWhatsApp` in `src/lib/meta.ts`). Il
+    testo già scritto nel riquadro diventa la **didascalia**.
+  - ⚠️ **Tetto 4 MB, e non è una scelta estetica**: la richiesta passa da una
+    funzione serverless, che accetta ~4,5 MB di corpo. Oltre, il file non
+    arriva nemmeno alla rotta e l'errore non spiega niente: meglio dirlo prima
+    (`/api/conversazioni/[id]/allegati`).
+  - **In entrata** il webhook ora salva `mediaId`, `mimeType` e `nomeFile` di
+    foto, video, audio, sticker e documenti — e la **didascalia**, che prima si
+    buttava insieme al resto (era il messaggio del cliente).
+  - ⚠️ **Il file non lo teniamo noi.** Lo tiene Meta e lo dà a richiesta;
+    `/api/media/[id]` fa da ponte. L'`id` nella rotta è quello del
+    **messaggio**, non del media: così si sa quale token usare (quello del
+    numero che ha ricevuto) e un id indovinato non tira fuori la foto di un
+    altro cliente. L'indirizzo che dà Meta vale pochi minuti e vuole il token
+    anche solo per leggerlo: come `src` di una `<img>` risponderebbe 401.
+    Dopo ~30 giorni Meta il file non ce l'ha più e la rotta lo dice.
+  - Non ancora: allegati su **email, Messenger, Instagram** (strade diverse —
+    SMTP e altre rotte Meta); sugli altri canali il bottone non compare invece
+    di comparire e fallire.
+
 - **LE COLONNE SONO TUTTI I MARCHI, E LA CONVERSAZIONE SI APRE IN UNA FINESTRA**
   (29/07/2026). Seguito immediato della voce qui sotto, che nasceva monca.
   - Le colonne ora partono da **tutti i negozi attivi** (`Cake`, `Deluxy`,

@@ -109,6 +109,15 @@ type MetaWebhook = {
           text?: { body?: string }
           button?: { text?: string }
           interactive?: { button_reply?: { title?: string }; list_reply?: { title?: string } }
+          // Foto, video, audio, documenti e sticker: Meta manda l'ID del file,
+          // non il file. Con quell'id il file si può poi chiedere e mostrare
+          // (vedi /api/media/[id]); senza salvarlo restava la scritta
+          // «[image]» e il contenuto era perso.
+          image?: { id?: string; mime_type?: string; caption?: string }
+          video?: { id?: string; mime_type?: string; caption?: string }
+          audio?: { id?: string; mime_type?: string }
+          sticker?: { id?: string; mime_type?: string }
+          document?: { id?: string; mime_type?: string; caption?: string; filename?: string }
         }[]
         statuses?: { id?: string; status?: string; errors?: { message?: string }[] }[]
       }
@@ -143,6 +152,8 @@ async function registraInArrivo(opz: {
   numeroId?: string
   /** Lo stesso, in forma leggibile, per mostrarlo in inbox (solo WhatsApp). */
   numeroNostro?: string
+  /** L'allegato, se c'è: l'id del file da Meta, il tipo e il nome originale. */
+  media?: { id: string; mimeType: string; nomeFile: string }
 }) {
   // Dedup: Meta può consegnare lo stesso evento più volte.
   if (opz.idMessaggio) {
@@ -183,6 +194,9 @@ async function registraInArrivo(opz: {
       testo: opz.testo,
       tipo: opz.tipo ?? 'testo',
       idEsterno: opz.idMessaggio,
+      mediaId: opz.media?.id ?? '',
+      mimeType: opz.media?.mimeType ?? '',
+      nomeFile: opz.media?.nomeFile ?? '',
     },
   })
 }
@@ -204,12 +218,27 @@ async function gestisciWhatsApp(corpo: MetaWebhook) {
 
       for (const msg of valore.messages ?? []) {
         if (!msg.from) continue
+        // L'allegato, se c'è: si tiene l'id del file, non il file.
+        const allegato = msg.image ?? msg.video ?? msg.audio ?? msg.sticker ?? msg.document
+        const media = allegato?.id
+          ? {
+              id: allegato.id,
+              mimeType: allegato.mime_type ?? '',
+              nomeFile: msg.document?.filename ?? '',
+            }
+          : undefined
         const testo =
           msg.text?.body ||
           msg.button?.text ||
           msg.interactive?.button_reply?.title ||
           msg.interactive?.list_reply?.title ||
-          `[${msg.type ?? 'contenuto'}]` // media, audio, sticker…: v1 mostra il tipo
+          // La DIDASCALIA di una foto è il messaggio: buttarla e scrivere
+          // «[image]» vuol dire perdere quello che il cliente ha scritto.
+          msg.image?.caption ||
+          msg.video?.caption ||
+          msg.document?.caption ||
+          msg.document?.filename ||
+          `[${msg.type ?? 'contenuto'}]`
         await registraInArrivo({
           canale: 'whatsapp',
           idEsterno: msg.from,
@@ -219,6 +248,7 @@ async function gestisciWhatsApp(corpo: MetaWebhook) {
           idMessaggio: msg.id ?? '',
           numeroId,
           numeroNostro,
+          media,
         })
       }
 
