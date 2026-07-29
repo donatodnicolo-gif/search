@@ -39,19 +39,24 @@ export interface EsitoAiMail {
 
 /**
  * Manda una mail dalla casella `casella` (email dell'utente) a UN destinatario.
- * Il corpo viaggia come HTML: AI Mail ne ricava da sé la versione testo.
+ *
+ * ⚠️ Si mandano **tutt'e due le versioni**, HTML e testo, e non è ridondanza:
+ * `corpoHtml` lo capisce solo AI Mail aggiornata. Mandando il solo HTML, una
+ * AI Mail non ancora deployata lo infilerebbe nel testo semplice e al cliente
+ * arriverebbe «<p>Gentile…». Così, qualunque versione risponda, la mail è
+ * leggibile: la peggiore delle ipotesi è che perda la formattazione.
  */
 export async function inviaViaAiMail(
   chiave: string,
   casella: string,
-  m: { a: string; oggetto: string; html: string },
+  m: { a: string; oggetto: string; html: string; testo: string },
 ): Promise<EsitoAiMail> {
   let res: Response;
   try {
     res = await fetch(`${BASE}/api/v1/invia`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': chiave, 'x-utente': casella },
-      body: JSON.stringify({ a: m.a, oggetto: m.oggetto, corpo: '', corpoHtml: m.html }),
+      body: JSON.stringify({ a: m.a, oggetto: m.oggetto, corpo: m.testo, corpoHtml: m.html }),
     });
   } catch (e) {
     return { ok: false, errore: `AI Mail non raggiungibile: ${String((e as Error)?.message ?? e)}` };

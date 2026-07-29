@@ -120,11 +120,12 @@ Deno.serve(async (req) => {
     for (const d of validi) {
       const a = String(d.email);
       const html = comeHtml(personalizza(corpo, d, manuali));
+      const testo = comeTesto(html);
       const subject = personalizza(oggetto || 'Deluxy', d, manuali) || 'Deluxy';
 
       // ── Strada 1: AI Mail (la copia resta in «Inviata») ──────────────────
       if (!aiMailFuoriGioco && chiave) {
-        const r = await inviaViaAiMail(chiave, casella, { a, oggetto: subject, html });
+        const r = await inviaViaAiMail(chiave, casella, { a, oggetto: subject, html, testo });
         if (r.ok) {
           esiti.push({ email: a, ok: true, via: 'aimail' });
           continue;
@@ -144,7 +145,7 @@ Deno.serve(async (req) => {
         continue;
       }
       try {
-        const esito = await inviaMail(credCorrente, { to: a, subject, html, content: comeTesto(html) });
+        const esito = await inviaMail(credCorrente, { to: a, subject, html, content: testo });
         if (!esito.ok) throw new Error(esito.errore ?? 'invio non riuscito');
         if (esito.hostUsato && esito.hostUsato !== credCorrente.host) credCorrente = { ...credCorrente, host: esito.hostUsato };
         esiti.push({ email: a, ok: true, via: 'smtp' });
