@@ -13,6 +13,7 @@ import {
 } from '@/lib/actions'
 import { DelegaReneBottone, DelegaReneDialog } from './DelegaRene'
 import { AgganciaDialog } from './AgganciaRiga'
+import { dopoSpostamento } from './dopoSpostamento'
 
 type Props = {
   id: string
@@ -72,7 +73,13 @@ export function AzioniMessaggio({
         <select
           value={sezioneId ?? ''}
           disabled={inCorso}
-          onChange={(e) => esegui(() => spostaInSezione(id, e.target.value || null))}
+          onChange={(e) =>
+            // La sezione d'arrivo può chiamare un'app Deluxy: la proposta si
+            // apre qui, oppure l'invio automatico è già partito.
+            esegui(async () => {
+              dopoSpostamento(id, await spostaInSezione(id, e.target.value || null))
+            })
+          }
           style={{ width: 'auto', minWidth: 150, padding: '7px 11px', fontSize: 13 }}
         >
           <option value="">Nessuna sezione</option>

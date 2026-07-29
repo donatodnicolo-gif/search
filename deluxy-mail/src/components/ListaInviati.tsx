@@ -8,6 +8,7 @@ import { BarraOrdinamento, confrontaRighe, pesoLeggibile, type Ordine } from './
 import { cestinaMessaggio, spostaInSezione, azioneMassa } from '@/lib/actions'
 import { AgganciaBottone, AgganciaDialog } from './AgganciaRiga'
 import { NomeThreadBottone, NomeThreadDialog } from './NomeThreadRiga'
+import { dopoSpostamento } from './dopoSpostamento'
 
 export type RigaInviata = {
   /** Il "volto" della riga: la mail più recente della conversazione. */
@@ -227,13 +228,14 @@ export function ListaInviati({
                   className="mail-select-sposta"
                   value={m.sezioneId ?? ''}
                   disabled={inCorso}
-                  onChange={(e) =>
-                    singola(m.id, () =>
-                      m.nel > 1
-                        ? azioneMassa(m.ids, 'sposta', e.target.value || null)
-                        : spostaInSezione(m.id, e.target.value || null)
-                    )
-                  }
+                  onChange={(e) => {
+                    const v = e.target.value || null
+                    singola(m.id, async () => {
+                      if (m.nel > 1) return azioneMassa(m.ids, 'sposta', v)
+                      // La sezione d'arrivo può chiamare un'app Deluxy.
+                      dopoSpostamento(m.id, await spostaInSezione(m.id, v))
+                    })
+                  }}
                   aria-label={m.nel > 1 ? 'Sposta la conversazione in una sezione' : 'Sposta questa mail in una sezione'}
                 >
                   <option value="">Sposta in…</option>

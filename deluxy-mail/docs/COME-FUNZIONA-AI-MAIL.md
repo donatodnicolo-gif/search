@@ -51,6 +51,26 @@ dice tutto.
 Se nessuna sezione calza, il messaggio resta senza sezione: meglio niente che una
 sezione sbagliata.
 
+### Una sezione può chiamare un'app Deluxy
+
+Ogni sezione può avere agganciata un'**azione APP DELUXY** (le stesse del tasto
+«→ App»: *Registra contatto* in Anagrafiche, *Crea proforma*, *Verifica partner*,
+*Trova fornitore*, *Apri trattativa*). Si sceglie sulla scheda della sezione, in
+**Sezioni**, insieme al modo:
+
+- **Chiedimi conferma** — spostando la mail lì si apre la proposta con i dati già
+  estratti dalla mail: parte solo quando confermi.
+- **Fallo da solo** — la chiamata parte da sé, subito dopo lo spostamento. L'esito
+  (riuscito o no) si legge sotto la mail, in «Risposte dalle app».
+
+Così «questo è un contatto nuovo» diventa un gesto solo: trascini la mail nella
+sezione *Contatti nuovi* e la scheda nasce in Anagrafiche.
+
+⚠️ **Vale solo per lo spostamento fatto da te.** Lo smistamento dell'AI e quello
+delle regole non chiamano nessuno: la sezione la scrivono anche loro, e un errore
+del modello creerebbe schede vere dentro un registro aziendale. La stessa mail non
+richiama due volte la stessa app (se è già partita bene, si salta).
+
 ## 4. Regole
 
 Una regola ha due metà, e puoi usarne una sola o entrambe.

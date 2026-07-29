@@ -366,6 +366,11 @@ const stmts = [
   // tutto ciò che archiviato non è, finché non ne trovava 800 — e le archiviate
   // sono vecchie per definizione, quindi si scorreva l'intera casella.
   `CREATE INDEX IF NOT EXISTS "Messaggio_posta_idx" ON "Messaggio"("utenteId","direzione","cestinato","archiviato","data")`,
+  // L'azione APP DELUXY agganciata a una sezione: spostandoci a mano una mail
+  // parte (o si propone) la chiamata all'app.
+  `ALTER TABLE "Sezione" ADD COLUMN IF NOT EXISTS "azioneId" TEXT`,
+  `ALTER TABLE "Sezione" ADD COLUMN IF NOT EXISTS "azioneModo" TEXT NOT NULL DEFAULT 'chiedi'`,
+  `ALTER TABLE "Sezione" ADD COLUMN IF NOT EXISTS "azioneIstruzioni" TEXT NOT NULL DEFAULT ''`,
 ]
 
 async function main() {

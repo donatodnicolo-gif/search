@@ -3,6 +3,7 @@
 import { useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { spostaInSezione } from '@/lib/actions'
+import { dopoSpostamento } from './dopoSpostamento'
 
 /** Menu rapido per spostare una mail in una sezione, direttamente dalla riga. */
 export function SpostaSezione({
@@ -29,7 +30,9 @@ export function SpostaSezione({
       onChange={(e) => {
         const v = e.target.value || null
         start(async () => {
-          await spostaInSezione(id, v)
+          // La sezione d'arrivo può chiamare un'app Deluxy: o si apre la
+          // proposta, o l'invio è già partito (vedi dopoSpostamento).
+          dopoSpostamento(id, await spostaInSezione(id, v))
           router.refresh()
         })
       }}

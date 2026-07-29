@@ -3,6 +3,9 @@ import './globals.css'
 import { Sidebar } from '@/components/Sidebar'
 import { Shell } from '@/components/Shell'
 import { Flash } from '@/components/Flash'
+import { InvioAppDialog } from '@/components/InvioAppDialog'
+import { descriviAzioni } from '@/lib/appDeluxy'
+import { leggiChiaviApp } from '@/lib/chiaviApp'
 import { utenteCorrente } from '@/lib/sessione'
 
 export const metadata: Metadata = {
@@ -27,6 +30,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // Se c'è un utente mostriamo la sidebar (e su mobile l'hamburger); sul login
   // no: contenuto a tutta pagina.
   const utente = await utenteCorrente()
+  // Il dialogo APP DELUXY sta QUI, non nelle singole pagine: si apre con
+  // l'evento `aimail:app`, che oggi lo lanciano il tasto «→ App», le carte del
+  // pannello e lo spostamento in una sezione collegata a un'app — cioè da
+  // pagine diverse. Montato in una pagina sola, sarebbe una funzione che
+  // esiste solo lì (già successo: dalla mail aperta non si poteva mandare
+  // niente a nessuna app). `leggiChiaviApp` è in cache 5 minuti.
+  const azioniApp = utente ? descriviAzioni(await leggiChiaviApp()) : []
   return (
     <html lang="it">
       <body>
@@ -34,6 +44,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <Shell mostraNav={!!utente} sidebar={utente ? <Sidebar /> : null}>
           {children}
         </Shell>
+        {utente && <InvioAppDialog azioni={azioniApp} />}
       </body>
     </html>
   )

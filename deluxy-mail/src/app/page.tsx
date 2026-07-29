@@ -10,7 +10,6 @@ import { NuoveAzioni } from '@/components/NuoveAzioni'
 import { RicercaMail } from '@/components/RicercaMail'
 import { CercaServer } from '@/components/CercaServer'
 import { CarteApp } from '@/components/CarteApp'
-import { InvioAppDialog } from '@/components/InvioAppDialog'
 import { DelegaReneDialog } from '@/components/DelegaRene'
 import { AgganciaDialog } from '@/components/AgganciaRiga'
 import { NomeThreadDialog } from '@/components/NomeThreadRiga'
@@ -315,7 +314,8 @@ export default async function PostaInArrivo({ searchParams }: Props) {
         </div>
       </div>
 
-      <InvioAppDialog azioni={azioniApp} />
+      {/* Il dialogo APP DELUXY è montato nel layout: da lì risponde all'evento
+          `aimail:app` su TUTTE le pagine, non solo qui. */}
       <DelegaReneDialog />
       <AgganciaDialog />
       <NomeThreadDialog />

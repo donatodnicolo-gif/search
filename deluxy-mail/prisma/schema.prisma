@@ -254,6 +254,21 @@ model Sezione {
   genitore      Sezione?  @relation("SottoSezioni", fields: [genitoreId], references: [id], onDelete: Cascade)
   sottosezioni  Sezione[] @relation("SottoSezioni")
 
+  // ---------- L'azione APP DELUXY agganciata alla sezione ----------
+  // Mettendo A MANO una mail in questa sezione parte la chiamata all'app (es.
+  // «Registra contatto» in Anagrafiche). È l'id dell'azione nel catalogo di
+  // src/lib/appDeluxy.ts; vuoto = la sezione non chiama nessuno.
+  // ⚠️ Vale SOLO per lo spostamento manuale: lo smistamento dell'AI e quello
+  // delle regole non fanno partire niente — un errore del modello creerebbe
+  // schede vere dentro un registro aziendale.
+  azioneId String?
+  // 'chiedi' = si apre la proposta coi dati da controllare (predefinito).
+  // 'automatico' = parte da sola dopo la risposta; l'esito si legge sotto la
+  // mail, in «Risposte dalle app».
+  azioneModo       String @default("chiedi")
+  // Nota in italiano passata all'AI quando prepara i dati per questa azione.
+  azioneIstruzioni String @default("") @db.Text
+
   messaggi    Messaggio[]
   regole      Regola[]
   riassunti   RiassuntoSezione[]

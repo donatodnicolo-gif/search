@@ -34,7 +34,6 @@ import { eContattoAI } from '@/lib/contattiAI'
 import { azioneDi, descriviAzioni } from '@/lib/appDeluxy'
 import { leggiChiaviApp } from '@/lib/chiaviApp'
 import { AppSuMessaggio } from '@/components/AppSuMessaggio'
-import { InvioAppDialog } from '@/components/InvioAppDialog'
 import { leggiEventoProposto } from '@/lib/eventoProposto'
 import { PropostaEvento } from '@/components/PropostaEvento'
 
@@ -524,10 +523,9 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
         </div>
       )}
 
-      {/* Il dialogo di conferma delle app, montato una volta per la pagina:
-          senza, «Manda a un'app» qui non aprirebbe niente (finora stava solo
-          in posta in arrivo, ed è per questo che dalla mail non si poteva). */}
-      <InvioAppDialog azioni={azioniApp} />
+      {/* Il dialogo di conferma delle app ora sta nel LAYOUT: risponde
+          all'evento `aimail:app` da qualunque pagina (montato qui e in posta
+          in arrivo, da «Posta inviata» non esisteva). */}
       {/* I dialoghi di nome e aggancio: li aprono i bottoni della riga sottile. */}
       <NomeThreadDialog />
       <AgganciaDialog />

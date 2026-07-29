@@ -12,6 +12,11 @@ import MailComposer from 'nodemailer/lib/mail-composer'
 import type { Account, Messaggio, Prisma } from '@prisma/client'
 import { alternative } from './condizioni'
 import { svuotaCestinoDi } from './cestino'
+import {
+  azioneDiSezione,
+  eseguiAzioneSezioneOra,
+  modoValido as modoAzioneSezione,
+} from './azioneSezione'
 import { htmlDiMessaggio } from './htmlServer'
 import { sanitizzaHtml } from './sanitizzaHtml'
 import { leggiEventoProposto } from './eventoProposto'
@@ -976,18 +981,56 @@ export async function svuotaCestino(): Promise<{ ok: boolean; messaggio: string 
   }
 }
 
-export async function spostaInSezione(id: string, sezioneId: string | null) {
-  const utenteId = await uid()
+/**
+ * Esito dello spostamento a mano. Se la sezione di arrivo ha un'azione APP
+ * DELUXY in modo «chiedi», il client apre la proposta (evento `aimail:app`)
+ * con quell'azione già scelta; in modo «automatico» la chiamata è già partita
+ * (dentro `after()`) e qui torna solo cosa dire all'utente.
+ */
+export type EsitoSpostamento = {
+  chiedi?: { azioneId: string; app: string; nome: string }
+  avviata?: { app: string; nome: string }
+}
+
+export async function spostaInSezione(
+  id: string,
+  sezioneId: string | null
+): Promise<EsitoSpostamento> {
+  const u = await utenteCorrente()
+  if (!u) return {}
+  const utenteId = u.id
   // La sezione, se indicata, dev'essere dell'utente.
   if (sezioneId) {
     const mia = await db.sezione.findFirst({ where: { id: sezioneId, utenteId } })
-    if (!mia) return
+    if (!mia) return {}
   }
   await db.messaggio.updateMany({
     where: { id, utenteId },
     data: { sezioneId, smistatoDa: sezioneId ? 'manuale' : null },
   })
   revalidatePath('/', 'layout')
+
+  // Lo spostamento è un gesto dell'utente, ed è l'unico punto da cui una
+  // sezione può far partire la chiamata a un'altra app: l'AI e le regole
+  // scrivono `sezioneId` altrove e non passano di qui — è voluto.
+  const azione = await azioneDiSezione(utenteId, sezioneId)
+  if (!azione) return {}
+  if (azione.modo === 'chiedi')
+    return { chiedi: { azioneId: azione.azioneId, app: azione.app, nome: azione.nome } }
+
+  // Automatica: DOPO che la risposta è partita, altrimenti spostare una riga
+  // vorrebbe dire aspettare l'AI più una chiamata di rete (lezione già pagata
+  // con la spunta delle attività). L'esito si legge sotto la mail, in
+  // «Risposte dalle app».
+  after(() =>
+    eseguiAzioneSezioneOra({
+      utenteId,
+      utenteEmail: u.email,
+      messaggioId: id,
+      azione,
+    }).catch(() => {})
+  )
+  return { avviata: { app: azione.app, nome: azione.nome } }
 }
 
 /**
@@ -1031,6 +1074,37 @@ export async function azioneMassa(
         where,
         data: { sezioneId: sezioneId ?? null, smistatoDa: sezioneId ? 'manuale' : null },
       })).count
+
+      // Anche in massa la sezione può chiamare l'app, ma solo se l'azione è
+      // AUTOMATICA: «chiedi» vorrebbe dire aprire un dialogo per ogni mail, e
+      // qui le mail sono tante — lo si dice e basta.
+      const azione = await azioneDiSezione(utenteId, sezioneId ?? null)
+      if (azione?.modo === 'automatico') {
+        const u = await utenteCorrente()
+        if (u) {
+          // In coda, dopo la risposta, una per volta: sono N chiamate AI + N
+          // chiamate a un'altra app, e vanno fatte con calma.
+          after(async () => {
+            for (const mid of puliti) {
+              await eseguiAzioneSezioneOra({
+                utenteId,
+                utenteEmail: u.email,
+                messaggioId: mid,
+                azione,
+              }).catch(() => {})
+            }
+          })
+          return {
+            ok: true,
+            messaggio: `${n} mail spostate. ${azione.app} — ${azione.nome}: la chiamata parte da sola per ognuna, l'esito si vede sotto ogni mail.`,
+          }
+        }
+      }
+      if (azione)
+        return {
+          ok: true,
+          messaggio: `${n} mail spostate. Per «${azione.nome}» serve la tua conferma: apri la mail e usa → App.`,
+        }
       break
     }
     default:
@@ -3427,6 +3501,11 @@ export async function creaSezione(form: FormData) {
       })
     : null
 
+  // L'azione APP DELUXY, se scelta subito. Un id che non esiste nel catalogo
+  // si scarta (meglio nessuna azione di una che non parte).
+  const azioneId = opzionale(form, 'azioneId')
+  const azione = azioneId && azioneDi(azioneId) ? azioneId : null
+
   await db.sezione.create({
     data: {
       utenteId,
@@ -3436,9 +3515,53 @@ export async function creaSezione(form: FormData) {
       colore: genitore?.colore ?? (testo(form, 'colore') || 'blue'),
       ordine: (ultima?.ordine ?? 0) + 1,
       genitoreId: genitore?.id ?? null,
+      azioneId: azione,
+      azioneModo: modoAzioneSezione(opzionale(form, 'azioneModo')),
+      azioneIstruzioni: opzionale(form, 'azioneIstruzioni') ?? '',
     },
   })
   revalidatePath('/', 'layout')
+}
+
+/**
+ * Aggancia (o stacca) un'azione APP DELUXY a una sezione: da qui si decide
+ * anche SE chiedere conferma o partire da soli.
+ */
+export async function salvaAzioneSezione(
+  sezioneId: string,
+  azioneId: string,
+  modo: string,
+  istruzioni: string
+): Promise<{ ok: boolean; messaggio: string }> {
+  const utenteId = await uid()
+  const mia = await db.sezione.findFirst({ where: { id: sezioneId, utenteId }, select: { id: true } })
+  if (!mia) return { ok: false, messaggio: 'Sezione non trovata.' }
+  if (azioneId && !azioneDi(azioneId)) return { ok: false, messaggio: 'Azione sconosciuta.' }
+
+  try {
+    await db.sezione.update({
+      where: { id: mia.id },
+      data: {
+        azioneId: azioneId || null,
+        azioneModo: modoAzioneSezione(modo),
+        azioneIstruzioni: istruzioni.slice(0, 2000),
+      },
+    })
+  } catch {
+    // Colonne non ancora migrate: lo si dice, invece di far finta di aver salvato.
+    return { ok: false, messaggio: 'Non salvata: la migrazione del database non è ancora passata.' }
+  }
+  revalidatePath('/sezioni')
+  revalidatePath('/', 'layout')
+  if (!azioneId) return { ok: true, messaggio: 'Nessuna app: la sezione non chiama più nessuno.' }
+  const a = azioneDi(azioneId)!
+  return {
+    ok: true,
+    messaggio:
+      modoAzioneSezione(modo) === 'automatico'
+        ? `Salvato: mettendo una mail qui, «${a.nome}» parte da sola.`
+        : `Salvato: mettendo una mail qui, ti chiedo conferma per «${a.nome}».`,
+  }
 }
 
 /**
