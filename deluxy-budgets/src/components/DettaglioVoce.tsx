@@ -98,7 +98,7 @@ export function DettaglioVoce({ d, categorie }: { d: Dettaglio; categorie: CatOp
                     <th>Categoria</th>
                     <th>Voce P&amp;L</th>
                     <th>Voce di bilancio</th>
-                    <th className="num">Uscite {d.anno}</th>
+                    <th className="num">Uscite {d.periodo ?? d.anno}</th>
                     <th className="num">Quota</th>
                     <th className="num">Senza regola</th>
                     <th className="num">Controparti</th>
@@ -214,7 +214,7 @@ export function DettaglioVoce({ d, categorie }: { d: Dettaglio; categorie: CatOp
                 <thead>
                   <tr>
                     <th>Voce</th>
-                    <th className="num">Importo {d.anno}</th>
+                    <th className="num">Importo {d.periodo ?? d.anno}</th>
                     <th>Da dove viene</th>
                   </tr>
                 </thead>

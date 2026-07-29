@@ -109,6 +109,17 @@ pubblicato), *sfidante* e *irraggiungibile*.
   invece che spacciato per completo: il conto di banca del 2025 parte da **luglio**, quindi nella
   vista Anno i costi del 2025 coprono 6 mesi su 12 e la pagina avvisa che quella percentuale è
   gonfiata dal minor tempo misurato, non solo da maggiore spesa.
+- **Ogni riga del consuntivo si apre** (`/consuntivo/[voce]`, 29/07/2026): «Costo per servizi 75.622 €» è
+  un numero che o si crede o non si crede, finché non si vede da quali categorie di banca è fatto e con
+  quali controparti. Cliccando la riga si scende — categorie con importi, controparti, e le **stesse
+  tendine** di voce di P&L e voce di bilancio del CFO, perché è lì che ci si accorge di una categoria
+  classificata male ed è lì che deve esserci il modo di spostarla. Gli importi sono quelli dei **mesi del
+  periodo** scelto (le controparti portano il loro `perMese`), quindi il dettaglio somma esattamente al
+  totale da cui si è arrivati. Si aprono: totale ricavi, costo per servizi, ADV, personale, struttura.
+  Il **personale** fa eccezione e lo dichiara: il totale è il roster, e accanto si legge quanto è uscito
+  davvero dal conto per stipendi nello stesso periodo — non sommato, che sarebbe contare due volte le
+  stesse persone, ma affiancato, che è l'unico modo per accorgersi se pianificato e pagato si stanno
+  allontanando. Motore in `src/lib/consuntivo-dettaglio.ts`, stessa UI del conto economico.
 - **Piattaforme ADV** (`/piattaforme`): ripartizione del budget pubblicitario tra le **piattaforme**
   (Google, Meta, TikTok e altre **aggiungibili/rimovibili**). Si impostano le **% per mese** — diverse
   mese per mese — e l'**importo per piattaforma si calcola da solo** (= budget ADV del mese × %). La

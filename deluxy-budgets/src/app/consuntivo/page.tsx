@@ -310,6 +310,10 @@ export default async function ConsuntivoPage({
     precParziale?: boolean;
     tipo: "ricavo" | "costo" | "totale";
     dettaglio?: boolean;
+    // La riga si apre: chiave del dettaglio in /consuntivo/[voce]. Le righe
+    // senza chiave restano testo — un link che porta a una pagina vuota è
+    // peggio di nessun link.
+    apre?: string;
   };
   // I ricavi si aprono subito sotto il totale, una riga per voce di budget:
   // «totale ricavi» da solo non dice quanto viene dall'ecommerce e quanto dal
@@ -327,16 +331,16 @@ export default async function ConsuntivoPage({
     dettaglio: true,
   }));
   const righePL: RigaPL[] = [
-    { label: "Totale ricavi", cons: ricaviCons, budget: budgetRicavi, prec: ricaviPrec, tipo: "totale" },
+    { label: "Totale ricavi", cons: ricaviCons, budget: budgetRicavi, prec: ricaviPrec, tipo: "totale", apre: "ricavi" },
     ...righeRicavi,
     // Non è più «costo del venduto»: la quota del partner è già tolta a monte,
     // nel passaggio da venduto a fatturato. Quello che resta è il costo dei
     // servizi — quanto si paga ai valet per la consegna.
-    { label: "Costo per servizi", nota: "banca · valet e servizi", cons: costi.COGS, budget: B("cogs"), prec: costoPrec("COGS"), precParziale: bancaPrecParziale, tipo: "costo" },
+    { label: "Costo per servizi", nota: "banca · valet e servizi", cons: costi.COGS, budget: B("cogs"), prec: costoPrec("COGS"), precParziale: bancaPrecParziale, tipo: "costo", apre: "cogs" },
     { label: "Margine lordo", cons: margineLordoCons, budget: B("margineLordo"), prec: margineLordoPrec, tipo: "totale" },
-    { label: "Spesa pubblicitaria (ADV)", nota: "banca · Marketing", cons: costi.ADV, budget: B("adv"), prec: costoPrec("ADV"), precParziale: bancaPrecParziale, tipo: "costo" },
-    { label: "Costo del personale", nota: "anagrafica Dipendenti", cons: personaleCons, budget: B("personale"), prec: personalePrec, tipo: "costo" },
-    { label: "Costi di struttura", nota: "banca · Struttura", cons: costi.STRUTTURA, budget: B("costiFissi"), prec: costoPrec("STRUTTURA"), precParziale: bancaPrecParziale, tipo: "costo" },
+    { label: "Spesa pubblicitaria (ADV)", nota: "banca · Marketing", cons: costi.ADV, budget: B("adv"), prec: costoPrec("ADV"), precParziale: bancaPrecParziale, tipo: "costo", apre: "adv" },
+    { label: "Costo del personale", nota: "anagrafica Dipendenti", cons: personaleCons, budget: B("personale"), prec: personalePrec, tipo: "costo", apre: "personale" },
+    { label: "Costi di struttura", nota: "banca · Struttura", cons: costi.STRUTTURA, budget: B("costiFissi"), prec: costoPrec("STRUTTURA"), precParziale: bancaPrecParziale, tipo: "costo", apre: "struttura" },
     { label: "EBITDA", cons: ebitdaCons, budget: B("ebitda"), prec: ebitdaPrec, tipo: "totale" },
   ];
   const buono = (r: RigaPL) => (r.tipo === "costo" ? r.cons - r.budget <= 0 : r.cons - r.budget >= 0);
@@ -513,7 +517,20 @@ export default async function ConsuntivoPage({
                       <tr key={r.label} className={r.label === "EBITDA" ? "tot" : undefined}>
                         <td style={{ fontWeight: forte ? 600 : 400, paddingLeft: r.dettaglio ? 26 : undefined }}>
                           {r.dettaglio && <span className="muted" style={{ marginRight: 6 }}>└</span>}
-                          {r.label}
+                          {/* Le righe che hanno un dettaglio si aprono: da un
+                              costo si scende alle categorie di banca che lo
+                              compongono e alle loro controparti, e lì si
+                              correggono le associazioni sbagliate. */}
+                          {r.apre ? (
+                            <Link
+                              href={`/consuntivo/${r.apre}?periodo=${periodo.key}&stato=${stato}&anno=${anno}`}
+                              style={{ color: "var(--blue)" }}
+                            >
+                              {r.label}
+                            </Link>
+                          ) : (
+                            r.label
+                          )}
                           {r.nota && <div className="muted" style={{ fontSize: 11.5, paddingLeft: r.dettaglio ? 16 : 0 }}>{r.nota}</div>}
                         </td>
                         <td className="num" style={{ fontWeight: forte ? 600 : 400 }}>

@@ -52,6 +52,9 @@ export type DettaglioVoce = {
   nome: string;
   aiuto?: string;
   anno: number;
+  // Etichetta del periodo, quando il dettaglio non è su tutto l'anno (il
+  // consuntivo si guarda a YTD, a trimestre, a semestre).
+  periodo?: string;
   // Da dove arriva questa voce. `nessuna` non è un errore: gli ammortamenti non
   // passano dalla banca, e dirlo è più utile di una tabella vuota.
   origine: "banca" | "ricavi" | "personale" | "nessuna";
