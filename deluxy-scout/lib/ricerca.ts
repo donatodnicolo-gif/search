@@ -166,11 +166,16 @@ export async function cercaOvunque(term: string): Promise<Risultato[]> {
           .or(`titolo.ilike.${like},note.ilike.${like}`)
           .limit(PER_FONTE),
       ),
+      // ⚠️ La colonna è `cliente` (chi deve pagare), NON `beneficiario`: la
+      // 0025 aveva un beneficiario con IBAN — soldi in uscita — ma la 0027 ha
+      // **ricreato la tabella da zero** ribaltandone il senso (è una richiesta
+      // di incasso al cliente). Scritto qui perché il nome vecchio è ancora in
+      // giro nella 0025 e sembra plausibile.
       prova(
         supabase
           .from('richieste_pagamento')
-          .select('id, beneficiario, causale, importo, stato')
-          .or(`beneficiario.ilike.${like},causale.ilike.${like}`)
+          .select('id, cliente, causale, importo, stato')
+          .or(`cliente.ilike.${like},causale.ilike.${like},nota.ilike.${like}`)
           .limit(PER_FONTE),
       ),
       prova(
@@ -267,7 +272,7 @@ export async function cercaOvunque(term: string): Promise<Risultato[]> {
     out.push({
       tipo: 'pagamento',
       id: p.id,
-      titolo: p.beneficiario,
+      titolo: p.cliente,
       sottotitolo:
         [p.causale, p.importo != null ? `€ ${Number(p.importo).toLocaleString('it-IT')}` : null, p.stato]
           .filter(Boolean)
