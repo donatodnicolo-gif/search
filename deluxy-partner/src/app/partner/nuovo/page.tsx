@@ -1,9 +1,9 @@
-import { gruppiEsistenti } from "@/lib/gruppi";
+import { suggerimentiGruppi } from "@/lib/gruppi";
 import { PartnerForm } from "@/components/PartnerForm";
 import { createPartner } from "@/lib/actions";
 
 export default async function NuovoPartner() {
-  const gruppi = await gruppiEsistenti();
+  const gruppi = await suggerimentiGruppi();
   return (
     <>
       <div className="page-head">

@@ -1,6 +1,8 @@
 import type { Partner } from "@prisma/client";
 import type { Anagrafica } from "@/lib/anagrafiche";
 import { BottoneInvio } from "@/components/BottoneInvio";
+import { SceltaGruppo } from "@/components/SceltaGruppo";
+import type { SuggerimentoGruppo } from "@/lib/gruppi";
 
 // Form anagrafica partner (usato da /partner/nuovo e /partner/[id]/modifica)
 export function PartnerForm({
@@ -17,9 +19,10 @@ export function PartnerForm({
   // presente, i campi anagrafici (ragione sociale, IBAN, email, telefono, contatto
   // amministrativo) sono precompilati da qui; al salvataggio tornano nel registro.
   anagrafica?: Anagrafica | null;
-  // Gruppi di pagamento gia in uso, per suggerirli invece di farli riscrivere
-  // (e sbagliare: «CHANEL» e «Chanel» sarebbero due gruppi diversi).
-  gruppi?: string[];
+  // Gruppi da suggerire nel campo «Gruppo di pagamento»: quelli gia in uso e
+  // le insegne che si ripetono. Farli riscrivere a mano significa ritrovarsi
+  // «CHANEL» e «Chanel» come due gruppi diversi.
+  gruppi?: SuggerimentoGruppo[];
 }) {
   const p = partner;
   const fin = anagrafica?.datiFinanziari;
@@ -67,22 +70,12 @@ export function PartnerForm({
         </div>
         <div>
           <label className="field-label">Gruppo di pagamento</label>
-          <input
-            type="text"
+          <SceltaGruppo
             name="gruppo"
-            defaultValue={p?.gruppo ?? ""}
-            placeholder="es. CHANEL"
-            list="gruppi-esistenti"
-            title="Se piu schede vengono saldate da un unica amministrazione, scrivi qui lo stesso nome su tutte: nello scadenzario si sollecitano insieme."
+            valore={p?.gruppo ?? ""}
+            suggerimenti={gruppi ?? []}
+            nomePartner={p?.nome}
           />
-          <span className="muted" style={{ fontSize: 11.5 }}>
-            Stesso nome su piu partner = nello scadenzario si vedono insieme.
-          </span>
-          {gruppi && gruppi.length > 0 && (
-            <datalist id="gruppi-esistenti">
-              {gruppi.map((g) => <option key={g} value={g} />)}
-            </datalist>
-          )}
         </div>
         <div>
           <label className="field-label">Categoria</label>

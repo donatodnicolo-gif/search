@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { gruppiEsistenti } from "@/lib/gruppi";
+import { suggerimentiGruppi } from "@/lib/gruppi";
 import { PartnerForm } from "@/components/PartnerForm";
 import { AnagraficaCard } from "@/components/AnagraficaCard";
 import { risolviAnagrafica } from "@/lib/anagrafiche";
@@ -34,7 +34,7 @@ export default async function ModificaPartner({ params }: { params: Promise<{ id
         </div>
       </div>
       <PartnerForm
-        gruppi={await gruppiEsistenti()}
+        gruppi={await suggerimentiGruppi()}
         partner={partner}
         action={action}
         submitLabel="Salva modifiche"
