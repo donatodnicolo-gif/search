@@ -1,4 +1,5 @@
-// A quale marchio appartiene una conversazione.
+// A quale marchio appartiene una conversazione, e su quale nostro account è
+// arrivata. Sono due cose diverse e vanno tenute separate.
 //
 // Sta in un posto solo perché la risposta serve in due: la pagina `/inbox` (il
 // primo caricamento) e `/api/conversazioni` (l'aggiornamento automatico ogni 5
@@ -11,25 +12,70 @@
 //  - Messenger e Instagram: l'id dell'account nostro → la pagina collegata;
 //  - Email: la CASELLA che ha ricevuto, perché una mail non porta con sé un
 //    «nostro numero»; il marchio della casella lo dichiara una persona.
-// Vuoto è una risposta onesta: vuol dire «non lo sappiamo», non «Deluxy».
+//
+// ⚠️ **Il MARCHIO è solo il negozio collegato, mai l'etichetta dell'account.**
+// L'etichetta è un nome che ci siamo dati noi («CakeDesignMe» sul numero di
+// Cake): usarla come marchio faceva nascere una colonna in più, che sembrava un
+// quarto brand mentre era lo stesso di «Cake» con un altro nome. Un account
+// senza negozio finisce in «Senza marchio» — che è vero, e si vede che manca un
+// collegamento invece di credere a un marchio che non esiste.
+// L'etichetta resta buona per il badge della riga, dove dice su quale linea è
+// arrivato il messaggio: per quello si usa `etichettaDi`.
 
 import { db } from './db'
-import { brandPerNumero } from './numeri-whatsapp'
-import { brandPerPagina } from './pagine-meta'
 
 type ConversazioneMinima = { canale: string; numeroId: string; casellaId: string }
 
-export async function risolutoreMarchio(): Promise<(c: ConversazioneMinima) => string> {
+export type Marchi = {
+  /** Il negozio, o stringa vuota se l'account non ne ha uno: decide la colonna. */
+  marchioDi: (c: ConversazioneMinima) => string
+  /** Come si chiama la linea che ha ricevuto: per il badge, non per la colonna. */
+  etichettaDi: (c: ConversazioneMinima) => string
+}
+
+export async function risolutoreMarchio(): Promise<Marchi> {
   const [numeri, pagine, caselle] = await Promise.all([
-    brandPerNumero(),
-    brandPerPagina(),
-    db.casellaEmail.findMany({ select: { id: true, negozio: { select: { nome: true } } } }),
+    db.numeroWhatsApp.findMany({
+      select: {
+        phoneNumberId: true,
+        nome: true,
+        numeroVisibile: true,
+        negozio: { select: { nome: true } },
+      },
+    }),
+    db.paginaMeta.findMany({
+      select: {
+        idPagina: true,
+        nome: true,
+        riferimento: true,
+        negozio: { select: { nome: true } },
+      },
+    }),
+    db.casellaEmail.findMany({
+      select: { id: true, nome: true, indirizzo: true, negozio: { select: { nome: true } } },
+    }),
   ])
+
   // `numeroId` porta il numero WhatsApp o l'id dell'account Meta a seconda del
   // canale: qui la distinzione non serve più.
-  const perAccount = new Map([...numeri, ...pagine])
-  const perCasella = new Map(caselle.map((c) => [c.id, c.negozio?.nome ?? '']))
+  const marchioAccount = new Map<string, string>([
+    ...numeri.map((n) => [n.phoneNumberId, n.negozio?.nome ?? ''] as const),
+    ...pagine.map((p) => [p.idPagina, p.negozio?.nome ?? ''] as const),
+  ])
+  const etichettaAccount = new Map<string, string>([
+    ...numeri.map((n) => [n.phoneNumberId, n.nome || n.numeroVisibile] as const),
+    ...pagine.map((p) => [p.idPagina, p.riferimento || p.nome] as const),
+  ])
+  const marchioCasella = new Map(caselle.map((c) => [c.id, c.negozio?.nome ?? '']))
+  const etichettaCasella = new Map(caselle.map((c) => [c.id, c.nome || c.indirizzo]))
 
-  return (c) =>
-    (c.canale === 'email' ? perCasella.get(c.casellaId) : perAccount.get(c.numeroId)) ?? ''
+  return {
+    marchioDi: (c) =>
+      (c.canale === 'email' ? marchioCasella.get(c.casellaId) : marchioAccount.get(c.numeroId)) ??
+      '',
+    etichettaDi: (c) =>
+      (c.canale === 'email'
+        ? etichettaCasella.get(c.casellaId)
+        : etichettaAccount.get(c.numeroId)) ?? '',
+  }
 }

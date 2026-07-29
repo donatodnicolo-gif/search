@@ -5,7 +5,7 @@ import { risolutoreMarchio } from '@/lib/marchio-conversazione'
 export const dynamic = 'force-dynamic'
 
 export default async function PaginaInbox() {
-  const [conversazioni, marchioDi, negozi] = await Promise.all([
+  const [conversazioni, marchi, negozi] = await Promise.all([
     db.conversazione.findMany({
       where: { archiviata: false },
       orderBy: { ultimoMessaggioIl: 'desc' },
@@ -32,7 +32,8 @@ export default async function PaginaInbox() {
     ultimoMessaggioIl: c.ultimoMessaggioIl.toISOString(),
     nonLetti: c.nonLetti,
     numeroNostro: c.numeroNostro,
-    brand: marchioDi(c),
+    brand: marchi.marchioDi(c),
+    etichettaAccount: marchi.etichettaDi(c),
   }))
 
   const brandNoti = [...new Set(negozi.map((n) => n.nome).filter(Boolean))].sort((a, b) =>

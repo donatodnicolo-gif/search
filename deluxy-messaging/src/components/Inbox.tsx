@@ -17,8 +17,14 @@ export type ConversazioneDto = {
   nonLetti: number
   /** Il nostro numero che ha ricevuto (solo WhatsApp), in forma leggibile. */
   numeroNostro?: string
-  /** Il brand di quel numero, se lo abbiamo collegato in Negozi. */
+  /** Il marchio di quell'account, se è collegato a un negozio. Decide la colonna. */
   brand?: string
+  /**
+   * Come si chiama la linea che ha ricevuto («CakeDesignMe», «@deluxyflowers»,
+   * «Servizio Clienti»). ⚠️ NON è un marchio: è un nome che ci siamo dati noi, e
+   * usarlo come marchio faceva nascere una colonna che sembrava un brand in più.
+   */
+  etichettaAccount?: string
 }
 
 type MessaggioDto = {
@@ -400,16 +406,15 @@ export function Inbox({
         </span>
         <span className="anteprima">
           <span className={`badge canale-${c.canale}`}>{etichettaCanale(c.canale)}</span>
-          {/* A quale nostro numero ha scritto. Con più WhatsApp
-              Business è la prima cosa da sapere: cambia il tono, la
-              firma e chi risponde. Dentro le colonne sparisce: la
-              colonna dice già il marchio. */}
-          {c.brand || c.numeroNostro ? (
+          {/* Su quale nostra linea ha scritto. Con più WhatsApp Business è la
+              prima cosa da sapere: cambia il tono, la firma e chi risponde.
+              Dentro le colonne sparisce: la colonna dice già il marchio. */}
+          {c.brand || c.etichettaAccount || c.numeroNostro ? (
             <span
               className="badge badge-marchio"
-              title={`Arrivato sul nostro numero ${c.numeroNostro || '—'}`}
+              title={`Arrivato su ${c.etichettaAccount || c.numeroNostro || 'una linea non collegata'}`}
             >
-              {c.brand || c.numeroNostro}
+              {c.brand || c.etichettaAccount || c.numeroNostro}
             </span>
           ) : null}
           <span className="testo">{c.ultimoTesto}</span>
@@ -506,12 +511,12 @@ export function Inbox({
           <>
             <div className="testata-thread">
               <span className="nome">{selezionata.nome || selezionata.idEsterno}</span>
-              {selezionata.brand || selezionata.numeroNostro ? (
+              {selezionata.brand || selezionata.etichettaAccount || selezionata.numeroNostro ? (
                 <span
                   className="badge"
-                  title="Il nostro numero che ha ricevuto: la risposta parte da qui"
+                  title="La nostra linea che ha ricevuto: la risposta parte da qui"
                 >
-                  {selezionata.brand || selezionata.numeroNostro}
+                  {selezionata.brand || selezionata.etichettaAccount || selezionata.numeroNostro}
                 </span>
               ) : null}
               <span className={`badge canale-${selezionata.canale}`}>

@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic'
 
 // Elenco conversazioni per l'inbox (protetto dal middleware di sessione).
 export async function GET() {
-  const [righe, marchioDi] = await Promise.all([
+  const [righe, marchi] = await Promise.all([
     db.conversazione.findMany({
       where: { archiviata: false },
       orderBy: { ultimoMessaggioIl: 'desc' },
@@ -18,6 +18,10 @@ export async function GET() {
   // aggiorna da questa rotta, e senza l'etichetta spariva al primo
   // aggiornamento automatico — che adesso, con l'inbox a colonne, vuol dire
   // vedere la conversazione cambiare colonna da sola.
-  const conversazioni = righe.map((c) => ({ ...c, brand: marchioDi(c) }))
+  const conversazioni = righe.map((c) => ({
+    ...c,
+    brand: marchi.marchioDi(c),
+    etichettaAccount: marchi.etichettaDi(c),
+  }))
   return NextResponse.json({ conversazioni })
 }

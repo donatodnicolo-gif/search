@@ -55,6 +55,20 @@ locale, altrimenti nulla si decifra.
 
 ## FATTO
 
+- **L'ETICHETTA DI UN ACCOUNT NON È UN MARCHIO** (29/07/2026). In Inbox
+  comparivano quattro colonne — Cake, Deluxy, FLowers, **CakeDesignMe** — ma
+  «CakeDesignMe» non è un brand: è il nome che avevamo dato al numero WhatsApp
+  di Cake. Il ripiego «se il numero non ha un negozio, usa la sua etichetta»
+  andava bene per il badge di una riga e **inventava un marchio** in una
+  bacheca a colonne.
+  - `risolutoreMarchio()` ora restituisce **due** cose: `marchioDi` (solo il
+    negozio collegato, altrimenti vuoto → colonna «Senza marchio») e
+    `etichettaDi` (come si chiama la linea, per il badge). Una linea non
+    collegata adesso si vede che manca, invece di sembrare un brand in più.
+  - Dati sistemati in produzione: il numero **CakeDesignMe → Cake**, e i due
+    account Instagram **@deluxyflowers → FLowers**, **@cakedesignme → Cake**
+    (erano senza marchio: appena Instagram riceve, sarebbero finiti fuori posto).
+
 - **FOTO E ALLEGATI SU WHATSAPP, IN USCITA E IN ENTRATA** (29/07/2026). Prima si
   mandava solo testo, e di una foto ricevuta restava la scritta «[image]».
   - **In uscita**: bottone **Allega** nel riquadro di risposta (solo WhatsApp).
