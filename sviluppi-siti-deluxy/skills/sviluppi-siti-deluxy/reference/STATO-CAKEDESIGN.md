@@ -1,4 +1,9 @@
-# Stato cakedesign.me — 26/7/2026
+# Stato cakedesign.me — 29/7/2026
+
+> 🚨 **Il numero buono è cambiato di nuovo il 29/7/2026: `+39 02 8294 1380`.**
+> Sul tema di sviluppo `182574317891` c'è ancora `+39 02 8295 2899`, mai andato online.
+> **Non pubblicare quel tema così com'è**: prima va rifatta la sostituzione
+> `8295 2899` → `8294 1380` sulle stesse 53 occorrenze / 19 file. Dettagli sotto.
 
 Documento da leggere **per primo** prima di toccare cakedesign.me. Mappa tecnica del tema e
 insidie storiche: [TEMA_CAKEDESIGN.md](TEMA_CAKEDESIGN.md). Gemello per deluxy.it:
@@ -17,14 +22,27 @@ Gli id annotati il 10/7 sono obsoleti (il vecchio dev oggi è "fino al 13.07"). 
 
 ## Pronto sul tema di lavoro, DA PUBBLICARE
 
-### 1. Numero WhatsApp/telefono migrato
-`+39 02 9475 1221` → **`+39 02 8295 2899`**. **53 occorrenze in 19 file**, comprese le forme
-`wa.me/`, `api.whatsapp.com/send?phone=`, `tel:` (compatto e spaziato) e il numero scritto a
-video. Mappa file per file in [TEMA_CAKEDESIGN.md](TEMA_CAKEDESIGN.md) §Numero di telefono.
+### 1. Numero WhatsApp/telefono migrato — ⚠️ da rifare con le cifre nuove
+Storia: il live ha `+39 02 9475 1221`; il 26/7 sul tema di sviluppo è stato messo
+`+39 02 8295 2899`; il **29/7 l'utente ha comunicato il numero definitivo:
+`+39 02 8294 1380`** (WhatsApp e assistenza). Siccome il tema non è mai stato pubblicato,
+`8295 2899` non è mai andato online e va semplicemente riscritto.
 
-Tutte verificate una per una confrontando *contenuto del live + sostituzioni* con quello
-effettivamente salvato (MD5 dove possibile, confronto integrale altrove): **zero discrepanze**,
-ogni file differisce dal live solo per le cifre del numero.
+**Cosa resta da fare sul tema `182574317891`**: sostituire `8295 2899` → `8294 1380`
+sulle stesse **53 occorrenze in 19 file** già mappate. Forme da coprire, le stesse di prima:
+compatta `390282952899` → `390282941380` (usata da `wa.me/`, `wa.me/+`,
+`api.whatsapp.com/send?phone=`, `tel:+`) e spaziata `02 8295 2899` → `02 8294 1380`
+(usata da `tel:+39 02 …` e dal numero scritto a video). Mappa file per file in
+[TEMA_CAKEDESIGN.md](TEMA_CAKEDESIGN.md) §Numero di telefono.
+
+Della migrazione del 26/7 resta valido tutto il resto: le 53 occorrenze erano state
+verificate una per una confrontando *contenuto del live + sostituzioni* con quello
+effettivamente salvato (MD5 dove possibile, confronto integrale altrove), **zero discrepanze**.
+Quindi non serve ripartire dal live: basta ripassare gli stessi 19 file cambiando le cifre.
+
+> Il numero `+39 02 8295 2899` compare anche su **deluxy.it** (vedi
+> [STATO-DELUXY-IT.md](STATO-DELUXY-IT.md) §7). L'utente ha chiesto il numero nuovo **solo per
+> cakedesign.me**: non migrare deluxy.it senza chiederglielo.
 
 ### 2. Tema allineato al live
 Il dev era fermo al 16/7 mentre il live era al 24/7. Ricopiati dal live i **4 file** che
@@ -41,8 +59,11 @@ differivano — il dev è ora una fotografia del live più il numero nuovo:
 ## Da fare, e le può fare solo l'utente dall'admin
 
 1. **Pubblicare** il tema `182574317891` — è il passo che porta online il nuovo numero.
-2. **Privacy policy**: contiene ancora `+39 02 9475 1221`. Le policy non stanno nel tema, valgono
-   per tutti i canali e la modifica è immediata sul live. `Impostazioni → Policy`.
+   **Solo dopo** che le 53 occorrenze portano `8294 1380`: pubblicarlo oggi metterebbe online
+   `8295 2899`, che non è il numero definitivo.
+2. **Privacy policy**: contiene ancora `+39 02 9475 1221`; va portata a `+39 02 8294 1380`.
+   Le policy non stanno nel tema, valgono per tutti i canali e la modifica è immediata sul
+   live. `Impostazioni → Policy`.
 3. **Banner cookie doppio**: convivono iubenda (app embed `cmp-insert-code`) e il banner nativo
    Shopify. Si tiene iubenda e si rimuove il nativo da `Impostazioni → Privacy dei clienti`.
    **Mai disattivarli entrambi.** Identico al caso già risolto su deluxy.it.

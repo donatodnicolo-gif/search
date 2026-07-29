@@ -19,10 +19,14 @@ Cosa è pronto sul tema di sviluppo e non ancora pubblicato, cosa deve fare l'ut
 problemi aperti e trappole già pagate stanno **lì**, non qui. Questo documento resta la mappa
 tecnica del tema (file, id DOM, sistema date).
 
-In sintesi al 26/7/2026: sul tema `182574317891` c'è il **numero di telefono migrato**
+In sintesi al 29/7/2026: sul tema `182574317891` c'è il **numero di telefono migrato**
 (`+39 02 9475 1221` → `+39 02 8295 2899`, 53 occorrenze in 19 file, tutte verificate) e il tema
 è stato **allineato al live**; resta da **pubblicare**, da correggere la **privacy policy** e da
 disattivare il **banner cookie nativo Shopify** che fa doppione con iubenda.
+
+> 🚨 **Il numero definitivo è cambiato il 29/7/2026: `+39 02 8294 1380`.** Il tema di sviluppo
+> porta ancora `8295 2899` (mai pubblicato, quindi mai online). Prima di pubblicare va rifatta
+> la sostituzione `8295 2899` → `8294 1380` sugli stessi 19 file elencati qui sotto.
 
 ## Sistema data di consegna — chi fa cosa
 
@@ -82,6 +86,14 @@ passarli tutti, altrimenti resta il vecchio numero in qualche landing.
 Forme in cui compare, tutte da sostituire: `wa.me/<num>`, `wa.me/+<num>`,
 `api.whatsapp.com/send?phone=<num>`, `tel:+<num>`, `tel:+39 02 …` spaziato, e testo visibile
 `02 … …`. Due sole regole letterali bastano: la forma compatta `39…` e la forma spaziata `02 … …`.
+
+Numeri in gioco, per non confondersi:
+
+| Dove | Compatta | Spaziata |
+|---|---|---|
+| Live oggi (vecchio) | `390294751221` | `02 9475 1221` |
+| Tema di sviluppo oggi (intermedio, mai online) | `390282952899` | `02 8295 2899` |
+| **Definitivo dal 29/7/2026** | **`390282941380`** | **`02 8294 1380`** |
 
 **Fuori dal tema** (valgono per tutti i temi, modifica immediata sul live, si fanno dall'admin):
 la **privacy policy** contiene il numero; `Impostazioni → Policy`.
