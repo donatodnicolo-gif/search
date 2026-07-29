@@ -22,7 +22,51 @@ Riceve già dati veri da Google Ads (Gifts e Flowers) e ha 2.426 ordini Shopify 
 
 ## FATTO
 
-### Il 28/07/2026 (questa sessione)
+### Il 29/07/2026 (questa sessione)
+
+**Gli asset dicono quanto hanno speso e reso.** Prima non lo dicevano: i 296
+sitelink, 129 callout, 4 snippet e 121 immagini in tabella avevano **zero**
+clic, zero impressioni, zero spesa. Non era una finestra temporale sbagliata —
+`leggiAsset()` nello script Google non chiedeva **nessun** `metrics.*`: mandava
+l'anagrafica degli asset, non la loro resa. Alla domanda «quale sitelink rende
+di più» non esisteva risposta, né sugli anni né sull'ultimo mese.
+
+Ora la query chiede anche spesa, clic, impressioni, conversioni e valore, con
+`segments.date` **solo nella WHERE** — così Google aggrega il periodo in una
+riga per asset invece di spaccarlo per giorno. Finestra in `GIORNI_ASSET`
+(costante nuova, separata da `GIORNI_COPY`: quella domanda si fa su anni, non su
+un mese). Se la vista non regge le metriche — `customer_asset` spesso no — si
+ripiega sulla sola anagrafica **dicendolo nel log**, invece di far credere che
+l'asset non abbia speso niente.
+
+> ⚠️ **Il null non deve azzerare il numero buono.** `salva()` in
+> `ingest/copy/route.ts` fa `update({ data })` con tutti i campi passati: se il
+> giro ripiegato sull'anagrafica avesse mandato `spesa: null`, avrebbe
+> **cancellato** i numeri del giro riuscito, e la tabella avrebbe detto che quel
+> sitelink non ha mai speso niente. I numeri degli asset ora si scrivono **solo
+> se ci sono** (`numeriAsset`, costruito campo per campo). Provato davvero in
+> produzione: mandato l'asset con 12,34 € e 9 clic, rimandato lo stesso asset
+> con tutti null, i numeri sono **sopravvissuti**; riga di test poi rimossa.
+
+Le copie configurate dello script (5 lavori × 3 account) si rigenerano con lo
+script generatore: legge e scrive in **latin1**, perché `google-ads-script.js`
+ha byte non-UTF8 (box-drawing e accenti in encoding misto) e latin1 è l'unico
+encoding byte-preserving 1:1 — modificarlo come UTF-8 corrompe i caratteri.
+
+### Quanto c'è dentro davvero (verificato sul database, 29/07/2026)
+
+| Cosa | Copertura |
+| --- | --- |
+| Metriche campagna | 4.265 righe, **19/06/2025 → oggi** (i 400 giorni del primo caricamento) |
+| Metriche gruppo | 3.472 righe, 23/06/2025 → oggi · 49 gruppi |
+| Termini di ricerca | 814 righe, **solo 28/06 → 28/07** (tetto `MAX_TERMINI = 300`) |
+| Titoli / descrizioni | 622 / 183 · solo etichetta BEST/GOOD/LOW, nessun numero |
+| Campagne | 30 attive · 147 in pausa · **0 bozza · 0 in lancio** |
+
+Le campagne «da lanciare» non stanno in bozza: bozza e in-lancio sono **vuote**,
+il serbatoio vero sono le **147 in pausa**.
+
+### Il 28/07/2026
 
 **Vendite Shopify sulla scheda campagna.** Sotto i gruppi c'è il venduto vero:
 categorie, ordini, clienti nuovi contro di ritorno, scontrino medio, e i KPI
@@ -496,11 +540,24 @@ analisi importate); seconda corsa 0 scritture.
    965988141913909, Cake 1040175814157216) → token con `ads_read`.
    ⚠️ Il portfolio `1298043513875111` è **disabilitato da Meta**: mai usarlo.
    L'account `45888139` "Owned by deluxy.it" non si usa (ISTRUZIONI Gifts).
-3. **Script Google su Cake** (846-090-5423) — non ancora installato.
-4. **Schedulazione** — verificare che su Gifts e Flowers la colonna *Frequenza*
-   sia impostata (non basta "Esegui": lancia una volta sola). Il 24/07 i dati si
-   sono fermati due giorni per questo. Consigliato: ogni giorno, e
-   `GIORNI_INDIETRO = 7` (400 solo per il primo caricamento storico).
+3. ~~**Script Google su Cake**~~ — **installato**: verificato il 29/07, Cake
+   (846-090-5423) consegna dal 26/07, **27 consegne**, ultima il 28/07 alle
+   10:45. Tutti e tre gli account hanno lavorato negli stessi giorni.
+4. **Schedulazione: NON impostata su nessuno dei tre** (verificato 29/07). La
+   prova è l'orario della prima consegna di ogni giorno — 26/07 **10:06**,
+   27/07 **15:31**, 28/07 **09:00**, 29/07 **09:46** (e solo Gifts): una
+   frequenza «ogni giorno» gira sempre nella stessa fascia, orari sparsi sono
+   lanci a mano. Confronto: il cron di Meta, che è vero, gira puntuale al minuto
+   7 di **ogni** ora.
+   ⚠️ **Non si risolve dal codice**: gli Apps Script non possono auto-programmarsi,
+   la frequenza è una proprietà dell'account (colonna *Frequenza* nella lista
+   degli script). Va impostata **su ogni account**, e `GIORNI_INDIETRO = 7`
+   (800 solo per il caricamento storico, una volta sola).
+   ⚠️ Con `AZIONE = "tutto"` i 7 lavori **non ci stanno** nei 30 minuti che
+   Google concede: misurato il 26/07, le sole metriche di Gifts hanno preso
+   31 minuti (10:06 → 10:37). `copy` e `asset`, ultimi in coda, rischiano di
+   non arrivare **mai** senza che nessuno se ne accorga. Meglio una copia per
+   lavoro, con frequenze diverse.
 5. **Chiave Google Drive API** — `GOOGLE_DRIVE_API_KEY` per la sync del Drive
    **dal server**: da Vercel la cartella `G:\` non esiste. Senza chiave l'indice
    si aggiorna solo lanciando `npm run sync-drive` dal PC.

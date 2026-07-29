@@ -112,6 +112,20 @@ export async function POST(req: NextRequest) {
 
   for (const a of annunci) {
     if (!a?.testo || !a?.campagna || !a?.tipo) continue;
+    // I numeri di un asset (sitelink, callout, snippet, immagine) arrivano solo
+    // se la vista di Google li ha retti: lo script prova con le metriche e, se
+    // la query viene rifiutata, ripiega sulla sola anagrafica.
+    //
+    // ⚠️ Quando mancano NON si scrivono. `salva()` fa un update con tutti i
+    // campi passati: mandare null azzererebbe i numeri del giro riuscito, e la
+    // tabella direbbe che quel sitelink non ha mai speso niente — che è la
+    // risposta sbagliata alla domanda "quale ha reso di più".
+    const numeriAsset: Record<string, unknown> = {};
+    if (a.spesa != null) numeriAsset.spesa = numero(a.spesa);
+    if (a.incasso != null) numeriAsset.incasso = numero(a.incasso);
+    if (a.clic != null) numeriAsset.clic = intero(a.clic);
+    if (a.impressioni != null) numeriAsset.impressioni = intero(a.impressioni);
+    if (a.conversioni != null) numeriAsset.conversioni = numero(a.conversioni);
     const esito = await salva(String(a.tipo), a, {
       gruppo: a.gruppo ?? null,
       posizione: intero(a.posizione),
@@ -121,6 +135,7 @@ export async function POST(req: NextRequest) {
       note: a.note ?? null,
       idEsterno: a.idEsterno ? String(a.idEsterno) : null,
       rendimento: a.rendimento ?? null,
+      ...numeriAsset,
       statoPiattaforma: a.statoPiattaforma ?? null,
       caratteri: String(a.testo).length,
       metricheAl: adesso,
