@@ -520,12 +520,15 @@ Tre precisazioni che sono servite per non sbagliare, e che valgono anche la pros
    confermare»: confermarle o spostarle è mezz'ora di lavoro e rende il bilancio proposto difendibile.
 6. **PayPal**: 18.300 € nel 2025 e 8.600 nel 2026 stanno in «Banca e finanziari», esclusa dal P&L.
    Se dentro c'è pubblicità Meta il 2025 è sottostimato di quella cifra: serve l'estratto PayPal.
-7. **Manca gennaio–15 luglio 2025 in banca** (Qonto ce l'ha, l'import no; 41.703 € di sola
-   pubblicità). Finché manca, ogni confronto 2025 vs 2026 è sbagliato e la quota 2025 non si misura.
-   **Adesso la pagina lo dice anche quando si sceglie il 2025 come anno** (prima l'avviso c'era solo
-   sull'anno di confronto, quindi guardando il 2025 i costi sembravano non calcolati): sui dodici
-   mesi la banca ne copre sei, e margine ed EBITDA di quell'anno sono più belli del vero perché i
-   ricavi valgono dodici mesi e i costi sei.
+7. ✅ **RISOLTO il 29/07/2026 — il 2025 in banca è completo.** Mancava gennaio–15 luglio: la sync
+   normale scarica dal più recente e si ferma a 30 pagine, quindi il vecchio non entrava mai.
+   Recuperati **3.423 movimenti** con `deluxy-partner/scripts/recupera-qonto-storico.mjs` (intervallo
+   di date + deduplica per hash): uscite 2025 da 668.322 a **1.113.632 €**, e i dodici mesi ci sono
+   tutti. **Cosa dice il dato completo**: pubblicità 2025 **84.925 €**, che combacia con gli ~84.000
+   ricostruiti dal bilancio 2024 — due strade indipendenti, stesso numero; e soprattutto la **quota
+   Deluxy 2025 misurata è 41,6%**, sopra il 40% che era stato stimato a tavolino. Il che rende più
+   sospetta la quota 2026 al 27,1%: la differenza fra i due anni non è il business, è quanto
+   abbiamo classificato — sul 2026 sono state scritte 2.187 regole guardando l'elenco, sul 2025 no.
    **Non si aggiusta qui**: la sync Qonto vive in Finance (`deluxy-partner`), ed è lì che va alzato
    il limite di pagine.
 8. **Google Ads `956-137-8913`** non è censito in Marketing (1.305 € nel 2026).

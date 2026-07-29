@@ -226,6 +226,25 @@ cd deluxy-partner && npm run sync:stato-analisi
 - **Serve**: `DATABASE_URL` nel `.env` di deluxy-partner, più `ANAGRAFICHE_URL` e `ANAGRAFICHE_WRITE_KEY` (in mancanza usa `ANAGRAFICHE_API_KEY`, che dal 20/07/2026 ha scrittura piena)
 - **Nota**: idempotente — chi ha già lo stato giusto viene saltato. Aggancia il partner al registro per `anagraficaId`, altrimenti per nome esatto (o per sola insegna se il risultato è univoco, eventualmente disambiguato dalla città) e salva il collegamento trovato. Gli ambigui non vengono toccati: si risolvono a mano in `/match` del registro.
 
+### recupera-qonto-storico.mjs — deluxy-partner
+Scarica da Qonto i movimenti di un **intervallo di date** e li aggiunge all'archivio, deduplicati per hash.
+Serve perché la sincronizzazione normale parte dal più recente e si ferma a 30 pagine: basta per il
+quotidiano, ma il vecchio non entra mai — e infatti l'archivio partiva dal 16/07/2025 mentre Qonto ha i
+movimenti dal 13/05/2024.
+
+```bash
+# dalla radice del repo — prima la prova a vuoto, poi la scrittura
+cd deluxy-partner && node --env-file=.env scripts/recupera-qonto-storico.mjs 2025-01-01 2025-07-31
+cd deluxy-partner && node --env-file=.env scripts/recupera-qonto-storico.mjs 2025-01-01 2025-07-31 scrivi
+```
+
+- **Serve**: `DATABASE_URL` nel `.env` di deluxy-partner. Le credenziali Qonto **non** si passano a mano: si
+  leggono dalla tabella `Impostazione` (chiavi `qonto.login` e `qonto.secretKey`), le stesse che usa l'app.
+- **Nota**: senza `scrivi` non tocca niente, dice solo cosa troverebbe. La deduplica usa lo stesso hash
+  dell'app (`hashMovimento` in `src/lib/estratto.ts`): se cambiasse, gli stessi movimenti entrerebbero due
+  volte. Usato il 29/07/2026 per recuperare gennaio–luglio 2025: **3.423 movimenti**, uscite 2025 da
+  668.322 a **1.113.632 €**.
+
 ### import-monitoraggio.mjs — deluxy-marketing
 Importa il file «Monitoraggio 2026.xlsx» nell'app Marketing: vendite e budget ADV mensili per sito, settimane MKT 2025/2026 (totale e per brand, per il confronto anno su anno), copy RSA con keyword.
 
