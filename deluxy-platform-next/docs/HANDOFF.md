@@ -273,6 +273,15 @@ Feedback "in app.deluxy.it ci sono cose che non hai considerato". Confrontata la
 
 ## MANCA / PROSSIMI PASSI
 
+0-ter. **🔴 [26/07 — PRODUZIONE GIÙ] `DATABASE_URL` scaduta su Vercel.** L'utente ha cambiato la
+   password del database; su Vercel è rimasta quella vecchia. `POST /api/v1/auth/login` risponde
+   **HTTP 500 `FUNCTION_INVOCATION_FAILED`** (prima rispondeva 401 «Credenziali non valide», cioè
+   leggeva la tabella utenti). **Nessuno può accedere a deluxy-delivery.vercel.app.**
+   Rimedio: aggiornare `DATABASE_URL` (+ `DIRECT_URL` se presente) nelle env del progetto Vercel
+   `deluxy-delivery`, **poi fare un redeploy** — le variabili entrano in vigore solo al deploy
+   successivo. Usare la stringa **pooler porta 6543**, non la diretta 5432.
+   Salvarla anche in `api/.env.production` (gitignored) e nella cassaforte del Hub.
+
 0. **[26/07 — IN CORSO] Partner attivi da Anagrafiche + province/servizi dal legacy.**
    - **Fatto**: `api/scripts/importa-partner-anagrafiche.mjs` (idempotente, prova a vuoto per
      default, `--scrivi` per applicare). Legge `GET /api/v1/partners?stato=attivo` e aggancia
@@ -300,8 +309,22 @@ Feedback "in app.deluxy.it ci sono cose che non hai considerato". Confrontata la
      `stato` che `anagrafiche-sync.service.ts` invia viene **scartato** dal registro (finisce in
      `in_revisione`). Il flag `active` della piattaforma non è mai arrivato ad Anagrafiche.
      Su 943 anagrafiche **1 sola ha `platformId`** → oggi i due archivi non si agganciano.
+   - **Prova a vuoto contro la PRODUZIONE (26/07, sessione admin dal browser)**: in produzione
+     ci sono **2 soli partner**, entrambi del seed (*Fioraio Milano Centro*, *Pasticceria Brera*)
+     → **0 agganci, 33 da creare, 8 saltati**. L'import **non è stato eseguito**: attende la
+     decisione dell'utente (tutti e 33 subito, oppure solo i 4 con email aziendale e gli altri
+     29 dopo aver preso gli indirizzi dal legacy).
+   - ⚠️ **Per 29 dei 33 l'email è quella di una persona**, non del negozio
+     (`laura.puliti@chanel.com`, `elisabetta.tagli@brioni.com`): è l'unica che Anagrafiche ha, e
+     sulla piattaforma quel campo è l'account del partner. Oggi non parte nulla — **la piattaforma
+     non ha alcuna capacità di invio email** (nessuna dipendenza di posta, nessuna chiamata di
+     invio nel codice: `provisionForAnagrafica` genera solo un token) — ma se un domani si
+     attivano gli inviti, andrebbero a quelle persone. Il referente è salvato in `contactName`.
+   - 🔴 **La produzione è stata popolata col seed**: `admin@deluxy.it` / `Deluxy2026!`, la password
+     scritta in chiaro in `api/prisma/seed.ts`, **funziona su deluxy-delivery.vercel.app**. Da
+     cambiare.
    - **Manca**: province abilitate e tipi di servizio (esistono **solo** nel legacy → passo 1);
-     replica in **produzione**.
+     esecuzione dell'import in **produzione** (bloccata da 0-ter).
    - ⚠️ **Dove NON è la produzione** (verificato il 26/07, tre vicoli ciechi):
      1. Il branch **`scout-ui`** ha ancora `provider = "sqlite"` e **non ha** `vercel.json` né
         `api/src/vercel.ts`: non è la versione pubblicata. La produzione si costruisce da **`main`**
