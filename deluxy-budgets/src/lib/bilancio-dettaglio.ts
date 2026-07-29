@@ -46,7 +46,16 @@ export type CategoriaVoce = {
 // Una voce alimentata da una fonte che non è la banca: il fatturato di Finance,
 // il venduto ecommerce, il roster dei dipendenti. Non ha categorie da
 // riassegnare — si dice da dove viene e si linka dove si cambia.
-export type RigaFonte = { nome: string; importo: number; fonte: string; dove?: string };
+export type RigaFonte = {
+  nome: string;
+  importo: number;
+  fonte: string;
+  dove?: string;
+  // Nome della tipologia di Finance da cui questa riga viene: se c'è, la riga si
+  // apre sulle sue **fatture**. Le righe dell'ecommerce non ce l'hanno — lì
+  // sotto non ci sono fatture, ci sono ordini di un negozio.
+  fatture?: string;
+};
 
 export type DettaglioVoce = {
   codice: string;

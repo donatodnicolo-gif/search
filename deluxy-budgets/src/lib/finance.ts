@@ -163,6 +163,55 @@ export async function fetchMovimenti(f: {
   }
 }
 
+// ---------- Le fatture di una tipologia, una per una ----------
+// Simmetrico ai movimenti di banca: il totale per tipologia dice quanto, non
+// **di chi**. Chi guarda un ricavo che non torna ha bisogno delle fatture.
+
+export type FatturaTipologia = {
+  numero: string | null;
+  mese: number;
+  emissione: string | null;
+  partner: string | null;
+  imponibile: number;
+  totale: number;
+  pagata: boolean;
+  descrizione: string | null;
+};
+
+export type FattureResult =
+  | { ok: true; fatture: FatturaTipologia[]; totale: number }
+  | { ok: false; errore: string };
+
+export async function fetchFatture(f: {
+  anno: number;
+  dal: number;
+  al: number;
+  tipologia: string;
+}): Promise<FattureResult> {
+  const key = await chiave("FINANCE_API_KEY");
+  if (!key) return { ok: false, errore: "Chiave Finance non configurata." };
+  const qs = new URLSearchParams({
+    anno: String(f.anno),
+    dal: String(f.dal),
+    al: String(f.al),
+    tipologia: f.tipologia,
+  });
+  try {
+    const res = await fetch(`${BASE}/api/tipologie?${qs.toString()}`, {
+      headers: { "X-API-Key": key, "X-App": "deluxy-budgets" },
+      cache: "no-store",
+    });
+    if (!res.ok) return { ok: false, errore: `Finance ha risposto ${res.status}.` };
+    const dati = (await res.json()) as { fatture?: FatturaTipologia[]; totale?: number };
+    if (!Array.isArray(dati?.fatture)) {
+      return { ok: false, errore: "Questa versione di Finance non espone le singole fatture (serve il deploy con ?tipologia=)." };
+    }
+    return { ok: true, fatture: dati.fatture, totale: dati.totale ?? 0 };
+  } catch {
+    return { ok: false, errore: "Finance non raggiungibile." };
+  }
+}
+
 export async function fetchConsuntivo(f: FiltroConsuntivo): Promise<ConsuntivoResult> {
   const key = await chiave("FINANCE_API_KEY");
   if (!key) {

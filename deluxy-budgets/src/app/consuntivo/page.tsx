@@ -329,6 +329,10 @@ export default async function ConsuntivoPage({
     prec: c.precedente,
     tipo: "ricavo",
     dettaglio: true,
+    // Anche le singole voci di ricavo si aprono: portano allo stesso dettaglio
+    // del totale, dove ci sono le fatture di ogni tipologia e l'ecommerce
+    // negozio per negozio.
+    apre: "ricavi",
   }));
   const righePL: RigaPL[] = [
     { label: "Totale ricavi", cons: ricaviCons, budget: budgetRicavi, prec: ricaviPrec, tipo: "totale", apre: "ricavi" },

@@ -130,6 +130,17 @@ pubblicato), *sfidante* e *irraggiungibile*.
   della sua data. I movimenti li espone Finance (`GET /api/spese?controparte=…`, aggiunto lo stesso
   giorno) e si chiedono **solo quando si apre una controparte** — farlo per tutte vorrebbe dire una
   chiamata per ognuna su una pagina che ne mostra centinaia.
+- **Anche i ricavi si aprono, fino alla singola fattura** (29/07/2026): dal Consuntivo si clicca
+  «Totale ricavi» — o una qualsiasi voce di ricavo — e si scende alle **tipologie di Finance**, ognuna
+  apribile sulle **fatture che la compongono** (numero, mese, partner, imponibile, saldata o aperta;
+  `GET /api/tipologie?tipologia=…` aggiunto a Finance, simmetrico a `?controparte=` sulle spese).
+  L'**ecommerce si apre per negozio** invece che in una riga sola: il totale non dice se sta tirando
+  Deluxy.it o Flowers, che è la prima cosa che si vuole sapere. I negozi non abbinati a nessuna
+  maison restano a parte, invece di sparire nel totale.
+  In cima alla sezione la pagina risponde alla domanda che si fanno tutti — **«ci sono dentro gli
+  ordini annullati?»** — con i numeri presi dal registro: annullati e rimborsati **esclusi** (sul
+  2026: 86 ordini per 26.960 € e 59 per 5.856 €), rimborsi parziali **contati per intero**, che è
+  l'unico punto in cui i ricavi restano gonfiati.
 - **La categoria nuova si crea dalla riga che la fa nascere**: nella tendina di assegnazione c'è
   **«+ Nuova categoria…»** — nome e voce di P&L, si crea e si assegna in un gesto solo. Ci si accorge
   che manca «Viaggi e trasferte» proprio mentre si guarda un parcheggio da assegnare, e mandare in

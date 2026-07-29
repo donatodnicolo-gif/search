@@ -18,6 +18,63 @@ import type { DettaglioVoce as Dettaglio } from "@/lib/bilancio-dettaglio";
 
 type CatOpt = { id: string; nome: string };
 type Movimento = { data: string; importo: number; descrizione: string | null; categoria: string | null };
+type Fattura = {
+  numero: string | null;
+  mese: number;
+  emissione: string | null;
+  partner: string | null;
+  imponibile: number;
+  totale: number;
+  pagata: boolean;
+  descrizione: string | null;
+};
+
+// Le fatture che compongono una riga di ricavo. Stessa idea dei movimenti di
+// banca dall'altra parte del conto economico: un totale dice quanto, non di chi.
+function Fatture({ tipologia, dati }: { tipologia: string; dati: Fattura[] | { errore: string } | undefined }) {
+  if (!dati) return <p className="muted" style={{ fontSize: 12.5 }}>Carico le fatture di «{tipologia}»…</p>;
+  if ("errore" in dati) return <p className="muted" style={{ fontSize: 12.5 }}>Fatture non disponibili: {dati.errore}</p>;
+  if (dati.length === 0) return <p className="muted" style={{ fontSize: 12.5 }}>Nessuna fattura nel periodo.</p>;
+  const TETTO = 100;
+  return (
+    <div className="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style={{ width: 90 }}>Numero</th>
+            <th style={{ width: 70 }}>Mese</th>
+            <th>Partner</th>
+            <th className="num" style={{ width: 110 }}>Imponibile</th>
+            <th style={{ width: 80 }}>Stato</th>
+          </tr>
+        </thead>
+        <tbody>
+          {dati.slice(0, TETTO).map((f, i) => (
+            <tr key={`${f.numero ?? "-"}-${i}`}>
+              <td style={{ whiteSpace: "nowrap" }}>{f.numero ?? "—"}</td>
+              <td className="muted">{MESI[f.mese - 1] ?? "—"}</td>
+              <td>
+                {f.partner ?? <span className="muted">—</span>}
+                {f.descrizione && <div className="muted" style={{ fontSize: 11.5 }}>{f.descrizione}</div>}
+              </td>
+              <td className="num" style={{ fontWeight: 600 }}>{eur(f.imponibile)}</td>
+              <td>
+                <span className={`badge ${f.pagata ? "green" : "gold"}`}>
+                  <span className="dot" />{f.pagata ? "saldata" : "aperta"}
+                </span>
+              </td>
+            </tr>
+          ))}
+          <tr className="tot">
+            <td colSpan={3}>{dati.length} fatture{dati.length > TETTO ? ` (mostrate le prime ${TETTO})` : ""}</td>
+            <td className="num">{eur(dati.reduce((s, f) => s + f.imponibile, 0))}</td>
+            <td />
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
 const tipoLabel = (k: string) => TIPI_PL.find((t) => t.key === k)?.label ?? k;
 const tipoBadge = (k: string) => TIPI_PL.find((t) => t.key === k)?.badge ?? "neutral";
@@ -174,8 +231,23 @@ export function DettaglioVoce({
   // ne mostra centinaia.
   const [aperta, setAperta] = useState<string | null>(null);
   const [movimenti, setMovimenti] = useState<Record<string, Movimento[] | { errore: string }>>({});
+  const [fatturePer, setFatturePer] = useState<string | null>(null);
+  const [fatture, setFatture] = useState<Record<string, Fattura[] | { errore: string }>>({});
   // Quale movimento sta decidendo il proprio esercizio, e verso dove.
   const [comp, setComp] = useState<{ chiave: string; anno: number; mese: number; importo: string } | null>(null);
+
+  async function apriFatture(tipologia: string) {
+    if (fatturePer === tipologia) { setFatturePer(null); return; }
+    setFatturePer(tipologia);
+    if (fatture[tipologia]) return;
+    const qs = new URLSearchParams({ tipologia, anno: String(d.anno), dal: String(dal), al: String(al) });
+    const res = await fetch(`/api/fatture?${qs.toString()}`);
+    const body = await res.json().catch(() => null);
+    setFatture((p) => ({
+      ...p,
+      [tipologia]: body?.ok ? (body.fatture as Fattura[]) : { errore: body?.error ?? "Fatture non disponibili." },
+    }));
+  }
 
   async function apri(controparte: string) {
     if (aperta === controparte) { setAperta(null); return; }
@@ -471,17 +543,33 @@ export function DettaglioVoce({
                 </thead>
                 <tbody>
                   {d.righe.map((r) => (
-                    <tr key={r.nome}>
-                      <td style={{ fontWeight: 500 }}>
-                        {r.dove ? (
-                          <Link href={r.dove} style={{ color: "var(--blue)" }}>{r.nome}</Link>
-                        ) : (
-                          r.nome
-                        )}
-                      </td>
-                      <td className="num" style={{ fontWeight: 600 }}>{eur(r.importo)}</td>
-                      <td className="muted" style={{ fontSize: 12.5 }}>{r.fonte}</td>
-                    </tr>
+                    <Fragment key={r.nome}>
+                      <tr>
+                        <td style={{ fontWeight: 500 }}>
+                          {/* Le righe che vengono da Finance si aprono sulle
+                              fatture: un ricavo che non torna si guarda una
+                              fattura alla volta, non a totale. */}
+                          {r.fatture ? (
+                            <button className="btn secondary small" onClick={() => apriFatture(r.fatture!)}>
+                              {r.nome} {fatturePer === r.fatture ? "▲" : "▾"}
+                            </button>
+                          ) : r.dove ? (
+                            <Link href={r.dove} style={{ color: "var(--blue)" }}>{r.nome}</Link>
+                          ) : (
+                            r.nome
+                          )}
+                        </td>
+                        <td className="num" style={{ fontWeight: 600 }}>{eur(r.importo)}</td>
+                        <td className="muted" style={{ fontSize: 12.5 }}>{r.fonte}</td>
+                      </tr>
+                      {r.fatture && fatturePer === r.fatture && (
+                        <tr>
+                          <td colSpan={3} style={{ background: "rgba(0,0,0,.03)" }}>
+                            <Fatture tipologia={r.fatture} dati={fatture[r.fatture]} />
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
                   ))}
                   <tr className="tot">
                     <td>Totale</td>

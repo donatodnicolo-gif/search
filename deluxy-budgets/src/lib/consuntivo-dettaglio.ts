@@ -194,6 +194,7 @@ export async function dettaglioConsuntivo(
           nome: t.tipologia,
           importo: t.imponibile,
           fonte: `fatturato in Finance — ${t.fatture} fatture, imponibile`,
+          fatture: t.tipologia,
         });
       }
     } else {
@@ -203,12 +204,38 @@ export async function dettaglioConsuntivo(
     const venduto = mesi.reduce((s, m) => s + (vend.mese[m - 1] ?? 0), 0);
     if (venduto > 0) {
       const quota = await misuraQuota(anno, mesi, vend.mese);
-      righe.push({
-        nome: "Ecommerce — quota che resta a Deluxy",
-        importo: fatturatoDaVenduto(venduto, quota),
-        fonte: `venduto ${Math.round(venduto).toLocaleString("it-IT")} € dai negozi × ${quota.percentuale}% (${quota.spiegazione})`,
-        dove: "/venduto",
-      });
+      // Una riga per **negozio**, non una sola per «ecommerce»: il totale non
+      // dice se sta tirando Deluxy.it o Flowers, ed è la prima cosa che si
+      // vuole sapere aprendo i ricavi.
+      const perNegozio: { nome: string; mesi: number[] }[] = [
+        ...[...vend.perMaison].map(([slug, m]) => ({
+          nome: dati.maisons.find((x) => x.slug === slug)?.nome ?? slug,
+          mesi: m,
+        })),
+        // I negozi che non corrispondono a nessuna maison del budget restano a
+        // parte invece di sparire nel totale.
+        ...vend.senzaMaison.map((s) => ({ nome: `${s.brand} (non abbinato)`, mesi: s.mesi })),
+      ];
+      for (const b of perNegozio) {
+        const v = mesi.reduce((s, m) => s + (b.mesi[m - 1] ?? 0), 0);
+        if (v <= 0) continue;
+        righe.push({
+          nome: `Ecommerce · ${b.nome}`,
+          importo: fatturatoDaVenduto(v, quota),
+          fonte: `venduto ${Math.round(v).toLocaleString("it-IT")} € × ${quota.percentuale}% che resta a Deluxy (${quota.misurata ? "misurato" : "stimato"})`,
+          dove: "/venduto",
+        });
+      }
+      // La domanda che si fanno tutti guardando questa riga, con la risposta
+      // presa dal registro invece che a memoria.
+      {
+        const e = vend.esclusi;
+        if (e) {
+          avvisi.push(
+            `**Gli ordini annullati e rimborsati non sono qui dentro**: il registro li esclude — ${e.annullati?.ordini ?? 0} annullati per ${Math.round(e.annullati?.lordo ?? 0).toLocaleString("it-IT")} € e ${e.rimborsati?.ordini ?? 0} rimborsati per ${Math.round(e.rimborsati?.lordo ?? 0).toLocaleString("it-IT")} € sul ${anno}. I **rimborsi parziali** invece restano contati per intero (${e.parzialmenteRimborsati?.ordini ?? 0} ordini): l'importo reso non esiste nel registro, e questo gonfia i ricavi di quanto è stato restituito.`
+          );
+        }
+      }
     }
     avvisi.push(
       "Le due fonti stanno su **basi diverse**: Finance dà l'imponibile, i negozi il totale pagato dal cliente con IVA e spedizione incluse. Il totale è dichiarato, non omogeneo — Shopify non salva l'aliquota sull'ordine, e uniformarle con una percentuale indovinata sarebbe peggio."
