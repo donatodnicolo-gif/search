@@ -349,19 +349,25 @@ essere una fiorista o una valet. **La descrizione del movimento lo dice**, e que
 
 ## Punti aperti (29/07/2026)
 
-1. **La quota Deluxy misurata è scesa al 29,0%** (431.014 € girati ai partner su 606.919 di venduto)
+1. **La quota Deluxy misurata è scesa al 28,4%** (434.310 € girati ai partner su 606.919 di venduto)
    ed è **distorta verso il basso**: quei pagamenti comprendono i fioristi degli ordini **B2B ed
    eventi**, che non si dividono per il venduto Shopify. Serve l'aggancio pagamento → ordine →
    canale. Finché manca, il 29% è un limite inferiore, non la misura.
 2. **I margini per tipologia a budget** (D2C 35%, Eventi 20%, B2B 20%) restano scritti sul venduto
    lordo: applicati a ricavi ormai netti danno un EBITDA a budget negativo e «12 mesi in perdita»,
    che è un artefatto. Rifarli **cambia i premi**.
-3. **23.705 € ancora senza categoria** nel 2026 (412 controparti, media 58 €): quasi tutte con
-   causale vuota, pagamenti con carta. Il criterio della causale lì non si applica. **Ora si vedono
-   e si assegnano** dal dettaglio di B7; guardandole, metà è riconoscibile a famiglie — ristorazione
-   1.651 €, carburante e parcheggi 818 €, viaggi 1.210 €, software e abbonamenti 1.509 €, fiorai
-   esteri 1.384 € (`TLF*MIAMI FLOWERS`, `Everything Flowers` KE, `NATURELLE` FR: sono partner, non
-   spese) — mentre 12.075 € restano nomi singoli senza famiglia.
+3. **16.187 € ancora senza categoria** nel 2026 (314 controparti), 22.998 € sul 2025. Erano 23.705 e
+   412: il 29/07/2026, guardando l'elenco, l'utente ha riconosciuto tre famiglie e sono diventate
+   **129 regole** — i **fiorai** (41 nomi, anche esteri come `TLF*MIAMI FLOWERS`, `Everything
+   Flowers` KE, `NATURELLE` FR) sono acquisti fiori **per ordini ecommerce**, quindi quota partner;
+   **ristoranti e bar** (87 nomi) sono pasti e cene aziendali, quindi rappresentanza; `Gabriele
+   Salazar Gordillo` è una partita IVA che **fa consegne**, quindi servizi di consegna. Effetto sul
+   2026: costo per servizi 75.622 → **69.104 €**, struttura 53.392 → **56.615 €**, girato ai partner
+   431.014 → **434.310 €**. Sette nomi ambigui (`ROSA LUNA`, `GINROSA`, `LA ROSA DEI VENTI`,
+   `ORTOBELLO`, …) sono stati **lasciati fuori di proposito**: un fioraio messo fra i costi o un
+   ristorante messo fra le partite di giro sposta denaro nel posto sbagliato e non se ne accorge più
+   nessuno. Quello che resta è coda vera: carburante e pedaggi sotto sigla (`PV####`, `MISER
+   DIREZ.`), materiali (`RAJAPACK` 255 €), 96 voci sotto i 10 € che valgono 412 € in tutto.
 4. **529.364 € (il 66% delle uscite 2026) sono «fuori dal conto economico»**, ed è emerso aprendo la
    voce: dentro non c'è solo la quota partner (`Fornitori fiori e torte` 410.798 €, che è corretto
    escludere nel modello C) ma anche **Tasse e contributi 56.802 €** e **Banca e finanziari
