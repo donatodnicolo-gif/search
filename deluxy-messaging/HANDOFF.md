@@ -55,6 +55,24 @@ locale, altrimenti nulla si decifra.
 
 ## FATTO
 
+- **LE MAIL SI POSSONO SCRIVERE DA AI MAIL** (29/07/2026). `src/lib/ai-mail.ts`
+  → `urlScriviAiMail()` costruisce il deep link
+  `https://deluxy-mail.vercel.app/scrivi?a=…&oggetto=…&corpo=…&app=Deluxy Customer Service&rif=…`,
+  la strada comune a tutte le app Deluxy (stessa convenzione di
+  `deluxy-scout/lib/aimail.ts`).
+  - Due punti d'ingresso: il bottone **AI Mail** nel riquadro di risposta delle
+    conversazioni **email** (destinatario, `Re: oggetto` e bozza già dentro) e
+    **Apri in AI Mail** nel pop-up di composizione degli Ordini.
+  - ⚠️ **Quello che parte da AI Mail NON torna in questa conversazione**: il
+    thread registra solo ciò che spedisce quest'app. È scritto accanto al
+    bottone e nel titolino, perché è la cosa che si scoprirebbe dopo.
+  - Il corpo si ferma a 6000 caratteri: oltre, l'URL non arriva (i browser
+    tagliano intorno a 8000 e AI Mail taglia a 8000).
+  - L'invio SMTP di quest'app **resta**: è quello che tiene la traccia in Inbox.
+    Oggi però la casella `cs@deluxy.it` non ha la password salvata, quindi la
+    posta da qui non parte davvero: finché è così, AI Mail è la strada che
+    funziona.
+
 - **RISPOSTE PRONTE PER TIPOLOGIA NEL RIQUADRO DI RISPOSTA** (29/07/2026).
   Bottone **Risposte** accanto a «Risposta rapida»: apre l'elenco degli Script
   attivi **raggruppati per categoria**, con ricerca; un clic e il testo entra

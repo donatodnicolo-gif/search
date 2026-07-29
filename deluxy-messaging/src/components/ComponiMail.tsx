@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { inserisciScript } from '@/lib/script-testo'
+import { urlScriviAiMail } from '@/lib/ai-mail'
 
 // Il pop-up per scrivere e MANDARE una mail al cliente da dentro l'app.
 //
@@ -317,13 +318,31 @@ export function ComponiMail({
           >
             {inviando ? 'Invio…' : inviata ? 'Inviata ✓' : 'Invia'}
           </button>
+          {/* La stessa mail, ma scritta dal programma di posta vero. Serve
+              quando c'è da allegare, formattare o rileggere un thread lungo —
+              cose che questo riquadro non fa. ⚠️ Quello che parte da lì NON
+              finisce nella conversazione qui: sta scritto accanto al bottone,
+              non si scopre dopo. */}
+          <a
+            className="btn btn-secondario"
+            href={urlScriviAiMail({
+              a,
+              oggetto,
+              corpo: testo,
+              rif: bozza.ordineNumero ? `ordine ${bozza.ordineNumero}` : bozza.clienteNome ?? '',
+            })}
+            target="_blank"
+            rel="noreferrer noopener"
+          >
+            Apri in AI Mail
+          </a>
           <button className="btn btn-secondario" onClick={onChiudi} disabled={inviando}>
             {inviata ? 'Chiudi' : 'Annulla'}
           </button>
           <span className="descrizione" style={{ margin: 0 }}>
             {inviata
               ? 'La trovi in Inbox, nella conversazione del cliente.'
-              : 'Rileggi prima di inviare: parte davvero.'}
+              : 'Rileggi prima di inviare: parte davvero. Da AI Mail parte dalla casella collegata là, e in Inbox non resta traccia.'}
           </span>
         </div>
       </div>

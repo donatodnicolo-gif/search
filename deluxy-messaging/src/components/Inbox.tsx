@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { pezziDiTesto, ripulisciTestoEmail } from '@/lib/testo-email'
 import { inserisciScript } from '@/lib/script-testo'
+import { urlScriviAiMail } from '@/lib/ai-mail'
 
 // L'inbox unificata: elenco conversazioni a sinistra, thread a destra.
 // Si aggiorna da sola con un polling leggero (le nuove conversazioni e i
@@ -357,6 +358,16 @@ export function Inbox({
   // essere quella giusta e il testo entra subito. Le due cose convivono: l'AI
   // per i casi da capire, l'elenco per i novanta casi su cento che si
   // riconoscono a colpo d'occhio.
+  // L'oggetto con cui rispondere a una mail: quello dell'ultima ricevuta, con
+  // «Re:» davanti se non ce l'ha già. È la stessa regola che usa l'invio
+  // dell'app, così la finestra di AI Mail si apre con quello che ci si aspetta.
+  const oggettoRisposta = useMemo(() => {
+    const ultimo = [...messaggi].reverse().find((m) => m.direzione === 'in' && m.oggetto?.trim())
+      ?.oggetto
+    if (!ultimo) return 'Messaggio da Deluxy'
+    return /^re:/i.test(ultimo) ? ultimo : `Re: ${ultimo}`
+  }, [messaggi])
+
   const [risposteAperte, setRisposteAperte] = useState(false)
   const [risposte, setRisposte] = useState<ScriptDto[]>([])
   const [cercaRisposta, setCercaRisposta] = useState('')
@@ -680,6 +691,26 @@ export function Inbox({
                   }
                 }}
               />
+              {/* Sulle mail: la stessa risposta, ma scritta dal programma di
+                  posta vero (allegati, formattazione, thread lungo). Quello che
+                  parte da lì NON torna in questa conversazione — sta nel
+                  titolino, così non lo si scopre dopo. */}
+              {selezionata.canale === 'email' ? (
+                <a
+                  className="bottone secondario"
+                  href={urlScriviAiMail({
+                    a: selezionata.idEsterno,
+                    oggetto: oggettoRisposta,
+                    corpo: bozza,
+                    rif: `conversazione con ${selezionata.nome || selezionata.idEsterno}`,
+                  })}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  title="Apre AI Mail con destinatario, oggetto e testo già compilati. La mail parte dalla casella collegata là e in questa conversazione non resta traccia."
+                >
+                  AI Mail
+                </a>
+              ) : null}
               {/* Le risposte pronte per tipologia: nessuna attesa e nessuna
                   scelta da indovinare. L'AI resta accanto, per i casi che
                   vanno capiti. */}
