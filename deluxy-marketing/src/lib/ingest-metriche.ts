@@ -195,6 +195,16 @@ export async function salvaMetriche(
       });
     }
 
+    // ⚠️ "cross" non vuol dire «di tutti i marchi»: vuol dire «non lo so».
+    // Se l'import sa da quale account arriva la riga, quel dubbio si scioglie
+    // e la campagna smette di essere invisibile nelle viste per brand.
+    // Si promuove SOLO da cross a un brand noto: un brand già deciso — a mano
+    // o da un nome che parla chiaro — non si tocca.
+    if (opzioni.brand && opzioni.brand !== "cross" && campagna.brand === "cross") {
+      daAggiornare.set(campagna.id, { ...(daAggiornare.get(campagna.id) ?? {}), brand: opzioni.brand });
+      campagna.brand = opzioni.brand; // la cache resta d'accordo col database
+    }
+
     // Le righe che portano solo i conteggi di approvazione non hanno metriche
     if (r.spesa == null && r.impression == null && r.click == null && r.annunciTotali != null) {
       esito.metricheSalvate++;

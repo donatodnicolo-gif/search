@@ -61,8 +61,26 @@ export async function eseguiSyncMeta(
 
   // L'account portfolio 1298043513875111 è DISABILITATO da Meta: non va mai
   // interrogato, e infatti non è fra quelli censiti attivi.
+  // ⚠️ Chiedere UN account per id non deve far perdere il brand che l'app già
+  // conosce. Prima qui si costruiva l'oggetto con `brand: undefined` senza
+  // guardare gli account censiti: ogni sync mirata (un backfill, una prova)
+  // importava le campagne senza brand, e quelle il cui NOME non nomina il
+  // marchio finivano in "cross" — cioè "non lo so". Il 29/07/2026 erano 451
+  // righe e 12.339 € di spesa Meta invisibili nelle viste per brand.
+  const censito = opzioni.account
+    ? await prisma.accountAdv.findFirst({
+        where: { piattaforma: "meta_ads", idEsterno: String(opzioni.account) },
+        select: { idEsterno: true, nome: true, brand: true },
+      })
+    : null;
   const account = opzioni.account
-    ? [{ idEsterno: String(opzioni.account), nome: String(opzioni.account), brand: undefined as string | undefined }]
+    ? [
+        {
+          idEsterno: String(opzioni.account),
+          nome: censito?.nome ?? String(opzioni.account),
+          brand: censito?.brand as string | undefined,
+        },
+      ]
     : (
         await prisma.accountAdv.findMany({
           where: { piattaforma: "meta_ads", attivo: true },
