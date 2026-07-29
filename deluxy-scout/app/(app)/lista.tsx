@@ -3,6 +3,7 @@ import { FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, View 
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import type { Place } from '@/types';
+import { canonizzaLinee } from '@/types';
 import { colors, radius, shadow, spacing, contenutoCentrato } from '@/lib/theme';
 import { aggiornaNascosto } from '@/lib/db';
 import { avvisa } from '@/lib/dialoghi';
@@ -337,7 +338,10 @@ function Riga({
       nome={place.nome}
       meta={place.indirizzo}
       account={place.anagrafiche_account ?? null}
-      tag={place.linea_ipotizzata ? [place.linea_ipotizzata] : []}
+      // TUTTI gli interessi, non solo il primo: la riga mostrava la sola
+      // `linea_ipotizzata` mentre la scheda ne elencava tre, e sembrava che il
+      // negozio ne avesse uno solo (segnalato dall'utente il 29/07/2026).
+      tag={canonizzaLinee(place.linee_ipotizzate ?? (place.linea_ipotizzata ? [place.linea_ipotizzata] : []))}
       onPress={onPress}
       badge={
         <>

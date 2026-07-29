@@ -15,6 +15,7 @@ import { RefreshControl, SectionList, StyleSheet, Text, View } from 'react-nativ
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import type { Place, Visit } from '@/types';
+import { canonizzaLinee } from '@/types';
 import { colors, radius, spacing, contenutoCentrato } from '@/lib/theme';
 import {
   fetchAllVisits,
@@ -186,7 +187,7 @@ export default function Visite() {
                 titoloIcona={LABEL_VISITA.da_finire}
                 nome={p.nome}
                 meta={p.indirizzo}
-                tag={p.linea_ipotizzata ? [p.linea_ipotizzata] : []}
+                tag={canonizzaLinee(p.linee_ipotizzate ?? (p.linea_ipotizzata ? [p.linea_ipotizzata] : []))}
                 onPress={() => setDaCompletare(p)}
                 badge={<StatusBadge small label="Da completare" colore={COLORE_VISITA.da_finire} />}
                 azioni={azioniPotenziale(p, { bozza: true })}
@@ -204,7 +205,9 @@ export default function Visite() {
               titoloIcona={LABEL_VISITA.fatta}
               nome={nome}
               meta={`${quando(v.data)}${v.next_step ? ' · ' + v.next_step : ''}`}
-              tag={v.linea_proposta ? [v.linea_proposta] : []}
+              // I motivi della visita (migr. 0053); le visite di prima hanno
+              // solo `linea_proposta`, che resta il primo motivo.
+              tag={v.motivi?.length ? v.motivi : v.linea_proposta ? [v.linea_proposta] : []}
               onPress={() => router.push(`/(app)/attivita/${v.place_id}`)}
               badge={
                 esito ? (

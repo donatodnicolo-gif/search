@@ -113,6 +113,9 @@ export function CardElenco({
                   <Text style={styles.lineaTagTxt}>{t}</Text>
                 </View>
               ))}
+              {/* Oltre i tre la riga diventa illeggibile, ma **tacere** che ce
+                  ne sono altri fa credere che siano tutti lì: si dice quanti. */}
+              {tag.length > 3 ? <Text style={styles.lineaAltri}>+{tag.length - 3}</Text> : null}
             </View>
           ) : null}
         </View>
@@ -161,5 +164,6 @@ const styles = StyleSheet.create({
   lineeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4 },
   lineaTag: { backgroundColor: colors.goldSoft, borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 2 },
   lineaTagTxt: { color: colors.goldStrong, fontWeight: '700', fontSize: 11 },
+  lineaAltri: { color: colors.testoSoft, fontWeight: '700', fontSize: 11, alignSelf: 'center' },
   badgeCol: { alignItems: 'flex-end', gap: 4 },
 });
