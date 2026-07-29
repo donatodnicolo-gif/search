@@ -318,6 +318,43 @@ npm run db:seed
 npm run dev               # http://localhost:3080
 ```
 
+## La causale del bonifico dice cosa è (criterio dell'utente, 28/07/2026)
+
+Il nome della controparte non basta a capire cosa sia un pagamento: `Formenti Patrizia` può
+essere una fiorista o una valet. **La descrizione del movimento lo dice**, e questo è il criterio:
+
+| Nella causale c'è… | È… | Dove va |
+|---|---|---|
+| un **numero d'ordine** (`2104`, `9139`) | fioraio pagato per quel singolo ordine | **quota partner** |
+| **«vendite» / «vostri incassi»** | gli si gira il suo incasso | **quota partner** |
+| un **mese** (`gennaio`, `Deluxy Dicembre 2025`) | rimborso servizi del **valet** | **costo vero** |
+| niente (pagamento con carta al POS) | non si sa | resta nel residuo |
+
+> ⚠️ **Le regole del CFO matchano solo sulla controparte, non sulla causale.** La classificazione
+> si è fatta leggendo `TransazioneBancaria.descrizione` in Finance e trasformandola in **regole per
+> nome**: 563 regole, residuo 2026 da 117.364 a **23.705 €**. Se un domani serve rifarlo su nuovi
+> movimenti, il criterio è questo — e varrebbe la pena farlo diventare una regola vera sulla
+> causale, invece di ripetere l'esercizio a mano.
+
+## Punti aperti (28/07/2026)
+
+1. **La quota Deluxy misurata è scesa al 29,0%** (431.014 € girati ai partner su 606.919 di venduto)
+   ed è **distorta verso il basso**: quei pagamenti comprendono i fioristi degli ordini **B2B ed
+   eventi**, che non si dividono per il venduto Shopify. Serve l'aggancio pagamento → ordine →
+   canale. Finché manca, il 29% è un limite inferiore, non la misura.
+2. **I margini per tipologia a budget** (D2C 35%, Eventi 20%, B2B 20%) restano scritti sul venduto
+   lordo: applicati a ricavi ormai netti danno un EBITDA a budget negativo e «12 mesi in perdita»,
+   che è un artefatto. Rifarli **cambia i premi**.
+3. **23.705 € ancora senza categoria** nel 2026 (412 controparti, media 58 €): quasi tutte con
+   causale vuota, pagamenti con carta. Il criterio della causale lì non si applica.
+4. **PayPal**: 18.300 € nel 2025 e 8.600 nel 2026 stanno in «Banca e finanziari», esclusa dal P&L.
+   Se dentro c'è pubblicità Meta il 2025 è sottostimato di quella cifra: serve l'estratto PayPal.
+5. **Manca gennaio–15 luglio 2025 in banca** (Qonto ce l'ha, l'import no; 41.703 € di sola
+   pubblicità). Finché manca, ogni confronto 2025 vs 2026 è sbagliato e la quota 2025 non si misura.
+6. **Google Ads `956-137-8913`** non è censito in Marketing (1.305 € nel 2026).
+7. **`HUB_SSO_SECRET` e `APP_SECRET` mancano su Vercel**: senza il primo l'accesso dal Hub non
+   funziona e l'app chiede la password di team.
+
 ## Stato
 
 **FATTO**: schema dati, seed 2026 dai file Excel, dashboard 3 livelli, **P&L aziendale
