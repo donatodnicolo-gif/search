@@ -34,5 +34,12 @@ export default async function PaginaInbox() {
     brand: brand.get(c.numeroId) ?? '',
   }))
 
-  return <Inbox conversazioniIniziali={iniziali} />
+  // I marchi che possono ricevere: la loro colonna si vede anche a zero
+  // messaggi, così «oggi nessuno ha scritto a Cake» non si confonde con
+  // «Cake non è collegato».
+  const brandNoti = [...new Set([...brand.values()])].filter(Boolean).sort((a, b) =>
+    a.localeCompare(b, 'it')
+  )
+
+  return <Inbox conversazioniIniziali={iniziali} brandNoti={brandNoti} />
 }

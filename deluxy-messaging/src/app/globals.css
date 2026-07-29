@@ -411,6 +411,72 @@ button {
   overflow-y: auto;
 }
 
+/* ---- Inbox a colonne: una per marchio ----
+   Con più WhatsApp Business e più Pagine, l'elenco unico non risponde alla
+   domanda «come stiamo andando su Flowers?». Le colonne sì, e senza filtrare:
+   si vedono tutte insieme. Il thread resta a destra, che è dove si lavora. */
+
+.inbox.a-colonne {
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 460px);
+}
+
+.inbox.a-colonne .elenco {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; /* scorre dentro le colonne, non tutta la colonna sinistra */
+}
+
+.colonne-inbox {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  overflow-x: auto; /* molti marchi: si scorre di lato, non si stringono */
+  background: var(--bg);
+}
+
+.colonna-inbox {
+  flex: 0 0 260px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-l);
+  overflow: hidden;
+}
+
+.colonna-inbox .colonna-testata {
+  padding: 10px 12px;
+  margin-bottom: 0;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.colonna-inbox .corpo-colonna {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.colonna-inbox .riga-conversazione {
+  padding: 10px 12px;
+}
+
+/* Dentro una colonna il marchio è scritto in testa: ripeterlo su ogni riga
+   ruba lo spazio all'anteprima del messaggio. */
+.a-colonne .riga-conversazione .badge-marchio {
+  display: none;
+}
+
+/* Sotto i 1100px le due cose non ci stanno più: il thread va sotto. */
+@media (max-width: 1100px) {
+  .inbox.a-colonne {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+
 .riga-conversazione {
   display: block;
   width: 100%;

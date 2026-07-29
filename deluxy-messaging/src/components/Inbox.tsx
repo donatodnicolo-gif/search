@@ -130,7 +130,19 @@ function Bolla({ m, canale }: { m: MessaggioDto; canale: string }) {
   )
 }
 
-export function Inbox({ conversazioniIniziali }: { conversazioniIniziali: ConversazioneDto[] }) {
+/** Dove finiscono le conversazioni che non sappiamo di chi sono. */
+const SENZA_MARCHIO = 'Senza marchio'
+
+export function Inbox({
+  conversazioniIniziali,
+  brandNoti = [],
+}: {
+  conversazioniIniziali: ConversazioneDto[]
+  /** I marchi che POSSONO ricevere (numeri WhatsApp e account Meta collegati):
+   *  la loro colonna si vede anche vuota, altrimenti «zero messaggi oggi»
+   *  sembrerebbe «marchio non configurato». */
+  brandNoti?: string[]
+}) {
   const [conversazioni, setConversazioni] = useState(conversazioniIniziali)
   const [selezionataId, setSelezionataId] = useState<string | null>(null)
   const [messaggi, setMessaggi] = useState<MessaggioDto[]>([])
@@ -241,6 +253,31 @@ export function Inbox({ conversazioniIniziali }: { conversazioniIniziali: Conver
     }
   }
 
+  // Vista: una colonna per marchio (come la bacheca degli Ordini) oppure
+  // l'elenco unico di sempre. Le colonne rispondono a «come stiamo andando su
+  // Flowers?» senza filtrare; l'elenco resta per lavorare a ordine di arrivo.
+  const [vista, setVista] = useState<'colonne' | 'elenco'>('colonne')
+
+  const marchioDi = useCallback((c: ConversazioneDto) => c.brand || SENZA_MARCHIO, [])
+
+  // Le colonne: prima i marchi collegati (anche se oggi non hanno scritto),
+  // poi quelli che compaiono solo nelle conversazioni, e per ultimo il
+  // «senza marchio» — che è un lavoro da fare, non un marchio.
+  const colonne = useMemo(() => {
+    const nomi: string[] = [...brandNoti]
+    for (const c of conversazioni) {
+      const m = marchioDi(c)
+      if (m !== SENZA_MARCHIO && !nomi.includes(m)) nomi.push(m)
+    }
+    const gruppi = nomi.map((nome) => ({
+      nome,
+      righe: conversazioni.filter((c) => marchioDi(c) === nome),
+    }))
+    const orfane = conversazioni.filter((c) => marchioDi(c) === SENZA_MARCHIO)
+    if (orfane.length) gruppi.push({ nome: SENZA_MARCHIO, righe: orfane })
+    return gruppi
+  }, [brandNoti, conversazioni, marchioDi])
+
   // Scarica la posta dalla casella register.it: le mail entrano come
   // conversazioni del canale Email.
   const [scaricoPosta, setScaricoPosta] = useState('')
@@ -261,8 +298,43 @@ export function Inbox({ conversazioniIniziali }: { conversazioniIniziali: Conver
     setTimeout(() => setScaricoPosta(''), 6000)
   }
 
+  function riga(c: ConversazioneDto) {
+    return (
+      <button
+        key={c.id}
+        className={`riga-conversazione${c.id === selezionataId ? ' selezionata' : ''}`}
+        onClick={() => {
+          setSelezionataId(c.id)
+          setErroreInvio('')
+        }}
+      >
+        <span className="testata">
+          <span className="nome">{c.nome || c.idEsterno}</span>
+          <span className="ora">{oraBreve(c.ultimoMessaggioIl)}</span>
+        </span>
+        <span className="anteprima">
+          <span className={`badge canale-${c.canale}`}>{etichettaCanale(c.canale)}</span>
+          {/* A quale nostro numero ha scritto. Con più WhatsApp
+              Business è la prima cosa da sapere: cambia il tono, la
+              firma e chi risponde. Dentro le colonne sparisce: la
+              colonna dice già il marchio. */}
+          {c.brand || c.numeroNostro ? (
+            <span
+              className="badge badge-marchio"
+              title={`Arrivato sul nostro numero ${c.numeroNostro || '—'}`}
+            >
+              {c.brand || c.numeroNostro}
+            </span>
+          ) : null}
+          <span className="testo">{c.ultimoTesto}</span>
+          {c.nonLetti > 0 ? <span className="pill-nonletti">{c.nonLetti}</span> : null}
+        </span>
+      </button>
+    )
+  }
+
   return (
-    <div className="inbox">
+    <div className={`inbox${vista === 'colonne' ? ' a-colonne' : ''}`}>
       <div className="elenco">
         <div className="barra-elenco">
           <button className="bottone secondario mini" onClick={scaricaPosta} disabled={scaricoPosta === '…'}>
@@ -271,41 +343,50 @@ export function Inbox({ conversazioniIniziali }: { conversazioniIniziali: Conver
           {scaricoPosta && scaricoPosta !== '…' ? (
             <span className="esito">{scaricoPosta}</span>
           ) : null}
+          <button
+            className="bottone secondario mini"
+            style={{ marginLeft: 'auto' }}
+            onClick={() => setVista(vista === 'colonne' ? 'elenco' : 'colonne')}
+            title={
+              vista === 'colonne'
+                ? 'Tutte le conversazioni in un elenco solo, per ordine di arrivo'
+                : 'Una colonna per marchio'
+            }
+          >
+            {vista === 'colonne' ? 'Elenco' : 'Colonne'}
+          </button>
         </div>
+
         {conversazioni.length === 0 ? (
           <div className="vuoto" style={{ padding: 30 }}>
             Nessuna conversazione ancora. Quando un cliente scrive su WhatsApp, Messenger,
             Instagram o dal widget del sito, appare qui.
           </div>
+        ) : vista === 'elenco' ? (
+          conversazioni.map(riga)
         ) : (
-          conversazioni.map((c) => (
-            <button
-              key={c.id}
-              className={`riga-conversazione${c.id === selezionataId ? ' selezionata' : ''}`}
-              onClick={() => {
-                setSelezionataId(c.id)
-                setErroreInvio('')
-              }}
-            >
-              <span className="testata">
-                <span className="nome">{c.nome || c.idEsterno}</span>
-                <span className="ora">{oraBreve(c.ultimoMessaggioIl)}</span>
-              </span>
-              <span className="anteprima">
-                <span className={`badge canale-${c.canale}`}>{etichettaCanale(c.canale)}</span>
-                {/* A quale nostro numero ha scritto. Con più WhatsApp
-                    Business è la prima cosa da sapere: cambia il tono, la
-                    firma e chi risponde. */}
-                {c.brand || c.numeroNostro ? (
-                  <span className="badge" title={`Arrivato sul nostro numero ${c.numeroNostro || '—'}`}>
-                    {c.brand || c.numeroNostro}
-                  </span>
-                ) : null}
-                <span className="testo">{c.ultimoTesto}</span>
-                {c.nonLetti > 0 ? <span className="pill-nonletti">{c.nonLetti}</span> : null}
-              </span>
-            </button>
-          ))
+          <div className="colonne-inbox">
+            {colonne.map((col) => {
+              const daLeggere = col.righe.reduce((s, c) => s + c.nonLetti, 0)
+              return (
+                <div className="colonna-inbox" key={col.nome}>
+                  <div className="colonna-testata">
+                    <span className="pallino" aria-hidden="true" />
+                    <span className="nome">{col.nome}</span>
+                    {daLeggere > 0 ? <span className="pill-nonletti">{daLeggere}</span> : null}
+                    <span className="conteggio">{col.righe.length}</span>
+                  </div>
+                  <div className="corpo-colonna">
+                    {col.righe.length === 0 ? (
+                      <p className="colonna-vuota">Nessuna conversazione.</p>
+                    ) : (
+                      col.righe.map(riga)
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         )}
       </div>
 

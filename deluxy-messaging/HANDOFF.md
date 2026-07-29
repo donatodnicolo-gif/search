@@ -55,6 +55,28 @@ locale, altrimenti nulla si decifra.
 
 ## FATTO
 
+- **INBOX A COLONNE PER MARCHIO** (29/07/2026). L'elenco unico non rispondeva a
+  «come stiamo andando su Flowers?». Ora `/inbox` apre con **una colonna per
+  marchio** (stessa grammatica della bacheca degli Ordini: pallino, nome,
+  conteggio, pill dei non letti) e il thread resta a destra; il bottone
+  **Elenco/Colonne** riporta alla lista unica per ordine di arrivo. Sotto i
+  1100px il thread passa sotto le colonne.
+  - Le colonne partono dai **marchi collegati** (numeri WhatsApp + account Meta),
+    così un marchio a zero messaggi si vede lo stesso: «oggi nessuno ha
+    scritto» e «non è collegato» sono due cose diverse.
+  - ⚠️ **Oggi la vista dice poco, ed è colpa dei dati, non della vista.**
+    Misurato in produzione il 29/07: 112 conversazioni email + 1 WhatsApp, e
+    **113 su 113 finiscono in «Senza marchio»**. Due motivi distinti:
+    1. **le mail non hanno marchio**: `CasellaEmail` non ha un legame col
+       negozio, e c'è una casella sola (`cs@deluxy.it`). Per dare un marchio
+       alle mail servirebbe o un campo `negozioId` sulla casella, o una casella
+       per marchio — è una decisione, non un dettaglio tecnico: il servizio
+       clienti potrebbe legittimamente essere unico per tutti i marchi.
+    2. **l'unica conversazione WhatsApp è arrivata su `numeroId`
+       `1227556353776499`, che non è il numero registrato**
+       (`677520672119409`, marchio «FLowers»): finché quell'id non è in
+       `/numeri-whatsapp`, la conversazione resta senza marchio.
+
 - **UNA MAIL APERTA IN INBOX SI LEGGE** (29/07/2026). Cliccando una mail, la
   schermata si smontava: elenco delle conversazioni bianco, testata e riquadro
   di scrittura fuori campo, e al posto del testo un muro di link di
