@@ -363,6 +363,26 @@ stessa spesa oggi in una categoria e domani in un'altra. Tre cose cambiate:
    (stesso `tipoPL` e stesso `voceCE`): erano due nomi per la stessa cosa, e due nomi per la stessa
    cosa sono un modo garantito di dividere i totali a caso.
 
+### La regola «sumup» teneva 59 fornitori fuori dal conto economico
+
+Il riassetto ha fatto emergere l'errore più caro della giornata: in «Banca e giroconti» c'era una
+regola generica **`sumup`**, e siccome SumUp è un **POS**, quella regola non prendeva spese bancarie
+— prendeva **chiunque incassasse con SumUp**: 59 controparti per **9.455 €**, quasi tutte fioristi e
+pasticcerie che eseguono ordini (`SUMUP *FIORI E PIANTE`, `SUMUP *EMILI FLOWERS`, `SUMUP *PATISSERIE
+BO`, `SumUp *Les reveries`), più un NCC che fa consegne e un'enoteca. Tenuti fuori dal P&L come se
+fossero commissioni di banca.
+
+Regola rimossa e sostituita da **31 regole per nome**. Effetto sul 2026: banca 41.548 → **34.083 €**,
+partner 436.274 → **440.971 €**, consegne 26.243 → **27.402 €**. Nella stessa passata:
+`donato nicolo` da **Stipendi dei dipendenti** a **Amministratore e collaboratori** (11.500 €, che in
+bilancio è B7 e non B9), e **Signorvino** da rappresentanza a **Materiali per gli ordini** — è un
+fornitore di vini, non un pranzo.
+
+> **Da qui la regola generale**: una regola che matcha il **circuito di pagamento** (`sumup`,
+> `paypal`, `satispay`) non classifica una spesa, classifica **come è stata pagata**. Il POS non dice
+> niente su cosa hai comprato, e mettendo tutto in «banca» si nasconde un costo vero dentro una voce
+> che nessuno guarda.
+
 Anche le **etichette delle due lenti** sono state riscritte per chi sceglie, non per chi legge il
 codice civile: «Costo del servizio», «Fuori dal conto economico», «B6 · Roba comprata», «B7 · Servizi
 di qualcun altro», «B9 · Dipendenti» — ognuna con la riga che dice **quando sceglierla e quando no**,
@@ -411,7 +431,9 @@ dedicata **«Rimborsi ai clienti»**, fuori dal conto economico.
 2. **I margini per tipologia a budget** (D2C 35%, Eventi 20%, B2B 20%) restano scritti sul venduto
    lordo: applicati a ricavi ormai netti danno un EBITDA a budget negativo e «12 mesi in perdita»,
    che è un artefatto. Rifarli **cambia i premi**.
-3. **8.419 € ancora senza categoria** nel 2026 (222 controparti). Erano **23.705 in 412**: il
+3. **9.996 € ancora senza categoria** nel 2026 (232 controparti) — risaliti da 8.419 perché i SumUp
+   non riconoscibili dal nome (`SumUp *Versace` 1.200 €, `SumUp *InformTechniSy`, nomi di persona)
+   sono usciti da «banca» e ora stanno dove devono: nella coda da classificare, visibile. Erano **23.705 in 412**: il
    29/07/2026, guardando l'elenco, l'utente ha riconosciuto le famiglie una per una e sono diventate
    **oltre 210 regole** — più tre categorie nuove: **Carburante e pedaggi** (81 regole, 2.962 €:
    distributori `ENI`, `PV####`, pedaggi `MISER`/`ASPIT`, parcheggi), **Viaggi e trasferte** e
