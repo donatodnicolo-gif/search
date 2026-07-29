@@ -978,7 +978,9 @@ export async function ripristinaMessaggio(id: string) {
  */
 export type EsitoSpostamento = {
   chiedi?: { azioneId: string; app: string; nome: string }
-  avviata?: { app: string; nome: string }
+  /** L'azione automatica è partita: `azioneId` serve alla lista per andarsi a
+   *  prendere l'esito (gira in `after()`, qui non c'è ancora). */
+  avviata?: { azioneId: string; app: string; nome: string }
 }
 
 export async function spostaInSezione(
@@ -1019,7 +1021,7 @@ export async function spostaInSezione(
       azione,
     }).catch(() => {})
   )
-  return { avviata: { app: azione.app, nome: azione.nome } }
+  return { avviata: { azioneId: azione.azioneId, app: azione.app, nome: azione.nome } }
 }
 
 /**
@@ -3226,6 +3228,48 @@ export async function proponiPerApp(
       return { ok: false, messaggio: 'Connessione a OpenAI non riuscita: riprova.' }
     if (/401|API key/i.test(t)) return { ok: false, messaggio: 'Chiave OpenAI non valida.' }
     return { ok: false, messaggio: t.slice(0, 140) }
+  }
+}
+
+export type EsitoAppMessaggio = {
+  trovato: boolean
+  ok?: boolean
+  messaggio?: string
+  link?: string | null
+  /** Quando è stato registrato (ISO): serve a distinguere l'esito di ADESSO da
+   *  uno di ieri sulla stessa mail. */
+  quando?: string
+}
+
+/**
+ * L'ultimo esito registrato per (mail, azione). Lo interroga la posta in
+ * arrivo dopo uno spostamento in una sezione che chiama un'app **da sola**:
+ * quella chiamata gira in `after()`, cioè dopo la risposta, quindi al momento
+ * dello spostamento l'esito non esiste ancora e va chiesto un attimo dopo.
+ * Senza, dalla lista si saprebbe solo che «è partita» — e «è partita» non è
+ * una risposta.
+ */
+export async function esitoAzioneMessaggio(
+  messaggioId: string,
+  azioneId: string
+): Promise<EsitoAppMessaggio> {
+  const utenteId = await uid()
+  try {
+    const r = await db.invioApp.findFirst({
+      where: { utenteId, messaggioId, azioneId },
+      orderBy: { creatoIl: 'desc' },
+      select: { esito: true, esitoTesto: true, link: true, creatoIl: true },
+    })
+    if (!r) return { trovato: false }
+    return {
+      trovato: true,
+      ok: r.esito === 'ok',
+      messaggio: r.esitoTesto,
+      link: r.link,
+      quando: r.creatoIl.toISOString(),
+    }
+  } catch {
+    return { trovato: false }
   }
 }
 

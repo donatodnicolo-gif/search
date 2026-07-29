@@ -66,6 +66,12 @@ Ogni sezione può avere agganciata un'**azione APP DELUXY** (le stesse del tasto
 Così «questo è un contatto nuovo» diventa un gesto solo: trascini la mail nella
 sezione *Contatti nuovi* e la scheda nasce in Anagrafiche.
 
+**La risposta la vedi lì, dalla posta in arrivo**: sopra la lista compare l'avviso
+con l'esito vero — «Anagrafiche: contatto registrato», oppure in rosso il motivo per
+cui non è riuscita — senza aprire la mail. (L'invio automatico parte dopo lo
+spostamento, quindi l'avviso dice prima «sto mandando…» e poi com'è andata.) Sotto la
+mail, in «Risposte dalle app», resta comunque lo storico.
+
 ⚠️ **Vale solo per lo spostamento fatto da te.** Lo smistamento dell'AI e quello
 delle regole non chiamano nessuno: la sezione la scrivono anche loro, e un errore
 del modello creerebbe schede vere dentro un registro aziendale. La stessa mail non
