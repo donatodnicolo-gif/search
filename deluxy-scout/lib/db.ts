@@ -1026,6 +1026,31 @@ export async function aggiornaStatoPlace(placeId: string, stato: StatoPlace): Pr
   sincronizzaPlaceRegistro(placeId).catch(() => {}); // best-effort verso Anagrafiche
 }
 
+/**
+ * Cancella un negozio. **Solo chi l'ha creato** (migrazione 0054: la policy di
+ * delete su `places` richiede `creato_da = auth.uid()`).
+ *
+ * ⚠️ Il controllo vero è nel database, non qui: il bottone nell'app si nasconde
+ * per non proporre un'azione che fallirebbe, ma è la RLS a decidere.
+ *
+ * ⚠️ TRAPPOLA: con la RLS una DELETE che non trova righe **non è un errore** —
+ * torna zero righe e basta. Senza il `.select('id')` qui sotto, l'app direbbe
+ * «eliminato» anche quando non ha eliminato niente, che è il modo peggiore di
+ * sbagliare: l'utente crede che sia sparito e lo ritrova domani.
+ *
+ * Si porta via anche contatti, visite, trattative, chiamate e iscrizioni alle
+ * sequenze (FK `on delete cascade`). Il registro Anagrafiche non viene toccato.
+ */
+export async function eliminaPlace(placeId: string): Promise<void> {
+  const { data, error } = await supabase.from('places').delete().eq('id', placeId).select('id');
+  if (error) throw error;
+  if (!data?.length) {
+    throw new Error(
+      'Non è stato cancellato: puoi cancellare solo i negozi che hai creato tu. I record importati o trovati da Google non hanno un creatore e non si cancellano dall’app.',
+    );
+  }
+}
+
 /** Marca/smarca un negozio come interessante (⭐ → entra nel giro). Azzera "novità". */
 export async function aggiornaStarred(placeId: string, starred: boolean): Promise<void> {
   const { error } = await supabase.from('places').update({ starred, novita: false }).eq('id', placeId);

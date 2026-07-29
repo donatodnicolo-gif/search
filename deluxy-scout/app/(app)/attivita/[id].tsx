@@ -7,7 +7,8 @@ import { canonizzaLinee } from '@/types';
 import { colors, labelFase, labelStato, radius, spacing } from '@/lib/theme';
 import { LABEL_LIVELLO, coloreLivello, livelloDi } from '@/lib/livelli';
 import { StatusBadge } from '@/components/ui';
-import { aggiornaNascosto, aggiornaPlace, completaTask, fetchAziendeScartate, fetchContatti, fetchContattiScartati, fetchDealPlace, fetchPlace, fetchTaskPlace, fetchVisitePlace, ignoraDuplicato, inserisciContatto, scartaAzienda, scartaContatto, sincronizzaPlaceRegistro, trovaDuplicati, unisciPlaces } from '@/lib/db';
+import { aggiornaNascosto, aggiornaPlace, completaTask, eliminaPlace, fetchAziendeScartate, fetchContatti, fetchContattiScartati, fetchDealPlace, fetchPlace, fetchTaskPlace, fetchVisitePlace, ignoraDuplicato, inserisciContatto, scartaAzienda, scartaContatto, sincronizzaPlaceRegistro, trovaDuplicati, unisciPlaces } from '@/lib/db';
+import { useAuth } from '@/lib/auth';
 import { avvisa, conferma } from '@/lib/dialoghi';
 import { urlNavigazione } from '@/lib/nav';
 import { cercaContattiHubspot, dealsPerPlace, type ContattoAI, type MatchAI } from '@/lib/hubspot';
@@ -76,6 +77,8 @@ export default function SchedaAttivita() {
   const [taskInModifica, setTaskInModifica] = useState<Task | null>(null);
   const [duplicati, setDuplicati] = useState<Place[]>([]);
   const [unendo, setUnendo] = useState(false);
+  const [eliminando, setEliminando] = useState(false);
+  const { session } = useAuth();
 
   // Conciliazione: cerca nella copia locale HubSpot azienda/contatti del negozio,
   // escludendo le aziende già rifiutate e i contatti "non pertinenti".
@@ -340,6 +343,34 @@ export default function SchedaAttivita() {
     }
     return null;
   }, [place, livello, visite]);
+
+  /**
+   * È mio? Cioè: l'ho creato io. `creato_da` è NULL sui record storici (import
+   * da terminale, scoperta Google): senza creatore non c'è nessun «solo il
+   * creatore» da applicare, e il bottone non compare a nessuno.
+   */
+  const mio = Boolean(place?.creato_da && place.creato_da === session?.user?.id);
+
+  async function elimina() {
+    if (!place) return;
+    conferma(
+      `Elimino «${place.nome}»?`,
+      'Spariscono anche i suoi contatti, le visite, le trattative, le chiamate e le iscrizioni alle sequenze. ' +
+        'Non si torna indietro. Il registro Anagrafiche resta com’è.',
+      async () => {
+        setEliminando(true);
+        try {
+          await eliminaPlace(place.id);
+          router.replace('/(app)/lista');
+        } catch (e) {
+          avvisa('Non è stato eliminato', (e as Error)?.message ?? 'Riprova.');
+        } finally {
+          setEliminando(false);
+        }
+      },
+      { testoConferma: 'Elimina', distruttivo: true },
+    );
+  }
 
   /** Riporta un negozio chiuso all'inizio del percorso. */
   async function riapri() {
@@ -703,6 +734,28 @@ export default function SchedaAttivita() {
             ))
           )}
         </Sezione>
+
+        {/* Cancellazione: in fondo, staccata, e solo per chi l'ha creato.
+            La regola vera sta nella RLS (migrazione 0054) — qui il bottone si
+            nasconde soltanto per non proporre un'azione che fallirebbe. */}
+        {mio ? (
+          <View style={styles.zonaRossa}>
+            <Text style={styles.zonaRossaNota}>
+              Cancellando «{place.nome}» spariscono anche i suoi contatti, le visite, le trattative, le chiamate e le
+              iscrizioni alle sequenze. Task, pagamenti e ordini restano, ma perdono il collegamento. Il registro
+              Anagrafiche non viene toccato.
+            </Text>
+            <Pressable style={[styles.btnElimina, eliminando && { opacity: 0.5 }]} onPress={elimina} disabled={eliminando}>
+              {eliminando ? (
+                <ActivityIndicator size="small" color={colors.errore} />
+              ) : (
+                <Text style={styles.btnEliminaTxt}>
+                  <Ionicons name="trash-outline" size={15} color={colors.errore} /> Elimina questo negozio
+                </Text>
+              )}
+            </Pressable>
+          </View>
+        ) : null}
       </ScrollView>
     </>
   );
@@ -798,6 +851,24 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   btnRiapriTxt: { color: colors.testo, fontWeight: '700', fontSize: 13 },
+  // In fondo e staccata: un'azione che non si annulla non sta fra le altre.
+  zonaRossa: {
+    marginTop: spacing.xl,
+    borderTopWidth: 1,
+    borderTopColor: colors.grigioChiaro,
+    paddingTop: spacing.md,
+    gap: spacing.sm,
+  },
+  zonaRossaNota: { color: colors.testoSoft, fontSize: 12.5, lineHeight: 18 },
+  btnElimina: {
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: colors.errore,
+    borderRadius: radius.pill,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  btnEliminaTxt: { color: colors.errore, fontWeight: '700', fontSize: 13.5 },
   nome: { fontSize: 24, fontWeight: '900', color: colors.navy, marginTop: spacing.sm },
   meta: { color: colors.testoSoft, fontSize: 14, marginTop: 2 },
   // Azione primaria DS: pillola nera (ink), mai oro.
