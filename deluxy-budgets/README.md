@@ -336,7 +336,7 @@ essere una fiorista o una valet. **La descrizione del movimento lo dice**, e que
 > movimenti, il criterio è questo — e varrebbe la pena farlo diventare una regola vera sulla
 > causale, invece di ripetere l'esercizio a mano.
 
-## Punti aperti (28/07/2026)
+## Punti aperti (29/07/2026)
 
 1. **La quota Deluxy misurata è scesa al 29,0%** (431.014 € girati ai partner su 606.919 di venduto)
    ed è **distorta verso il basso**: quei pagamenti comprendono i fioristi degli ordini **B2B ed
@@ -346,14 +346,32 @@ essere una fiorista o una valet. **La descrizione del movimento lo dice**, e que
    lordo: applicati a ricavi ormai netti danno un EBITDA a budget negativo e «12 mesi in perdita»,
    che è un artefatto. Rifarli **cambia i premi**.
 3. **23.705 € ancora senza categoria** nel 2026 (412 controparti, media 58 €): quasi tutte con
-   causale vuota, pagamenti con carta. Il criterio della causale lì non si applica.
-4. **PayPal**: 18.300 € nel 2025 e 8.600 nel 2026 stanno in «Banca e finanziari», esclusa dal P&L.
+   causale vuota, pagamenti con carta. Il criterio della causale lì non si applica. **Ora si vedono
+   e si assegnano** dal dettaglio di B7; guardandole, metà è riconoscibile a famiglie — ristorazione
+   1.651 €, carburante e parcheggi 818 €, viaggi 1.210 €, software e abbonamenti 1.509 €, fiorai
+   esteri 1.384 € (`TLF*MIAMI FLOWERS`, `Everything Flowers` KE, `NATURELLE` FR: sono partner, non
+   spese) — mentre 12.075 € restano nomi singoli senza famiglia.
+4. **529.364 € (il 66% delle uscite 2026) sono «fuori dal conto economico»**, ed è emerso aprendo la
+   voce: dentro non c'è solo la quota partner (`Fornitori fiori e torte` 410.798 €, che è corretto
+   escludere nel modello C) ma anche **Tasse e contributi 56.802 €** e **Banca e finanziari
+   41.548 €**, che in bilancio esistono eccome — sono B14 e C17 — più **Fornitori / COGS 20.216 €**,
+   che dal nome è un costo vero. Escludere è una decisione, e queste tre non sembrano decise: vanno
+   riportate nelle loro voci.
+5. **Il B7 2026 è per due terzi dedotto, non scelto**: su 224.907 €, cinque categorie (Marketing e
+   ADV 97.729, Struttura e uffici 31.618, Eventi e catering 23.141, …) hanno la voce di bilancio
+   **dedotta dal tipo di P&L** e mai confermata da nessuno. Il dettaglio le segna «dedotta, da
+   confermare»: confermarle o spostarle è mezz'ora di lavoro e rende il bilancio proposto difendibile.
+6. **PayPal**: 18.300 € nel 2025 e 8.600 nel 2026 stanno in «Banca e finanziari», esclusa dal P&L.
    Se dentro c'è pubblicità Meta il 2025 è sottostimato di quella cifra: serve l'estratto PayPal.
-5. **Manca gennaio–15 luglio 2025 in banca** (Qonto ce l'ha, l'import no; 41.703 € di sola
+7. **Manca gennaio–15 luglio 2025 in banca** (Qonto ce l'ha, l'import no; 41.703 € di sola
    pubblicità). Finché manca, ogni confronto 2025 vs 2026 è sbagliato e la quota 2025 non si misura.
-6. **Google Ads `956-137-8913`** non è censito in Marketing (1.305 € nel 2026).
-7. **`HUB_SSO_SECRET` e `APP_SECRET` mancano su Vercel**: senza il primo l'accesso dal Hub non
+   **Non si aggiusta qui**: la sync Qonto vive in Finance (`deluxy-partner`), ed è lì che va alzato
+   il limite di pagine.
+8. **Google Ads `956-137-8913`** non è censito in Marketing (1.305 € nel 2026).
+9. **`HUB_SSO_SECRET` e `APP_SECRET` mancano su Vercel**: senza il primo l'accesso dal Hub non
    funziona e l'app chiede la password di team.
+10. **Lo scontrino del partner**: il modello C regge solo se il fioraio lo emette davvero. Non è
+    codice — è una verifica coi partner, ed è l'unico punto che può invalidare il resto.
 
 ## Stato
 
@@ -446,6 +464,32 @@ codici del PDF del commercialista. Non sostituisce il Consuntivo: risponde a un'
 il totale è un campo libero prima o poi non quadra e nessuno se ne accorge.
 
 **Proposta dai dati dell app**: un riquadro propone le voci che l app puo ricavare da se — A1 dal fatturato Finance (tutte le tipologie, non solo quelle mappate) piu la quota ecommerce, B7 dalle uscite di banca «Costo per servizi» e «Pubblicita», B9 dal roster, B14 dalla «Struttura». Ogni riga dice **da dove viene** e nulla si salva da solo: si spunta e si conferma. Le voci gia compilate sono segnalate in arancio perche accettare la proposta le sovrascriverebbe. Sotto, l elenco di **quello che l app non puo sapere** con il motivo (ammortamenti, rimanenze, imposte di competenza…): e la parte piu utile, perche dice perche il gestionale non torna col bilancio. Se in banca ci sono uscite non ancora categorizzate, la proposta lo dichiara e avverte che i costi sono sottostimati di almeno quella cifra.
+
+**Cliccando una voce si vede di cosa è fatta** (`/conto-economico/[codice]`, 29/07/2026): le
+**categorie di banca** che la compongono con importo, quota e controparti, e — nella stessa riga —
+le tendine per cambiare **voce di bilancio** e **voce di P&L**. La correzione si fa dove si vede
+l'errore: quando ci si accorge che il B6 proposto è 349.377 € contro i 42.299 € del bilancio 2024,
+si è in questa pagina, e mandare a cercare la categoria per nome nel CFO è il modo migliore perché
+la correzione non venga fatta. In cima, accanto al ricostruito, c'è **quanto è scritto in bilancio**
+su quella voce e la differenza: non devono coincidere — sono due contabilità diverse — ma una
+differenza grande è quello che si viene a cercare qui.
+
+Le voci che **non nascono dalla banca** dichiarano la loro provenienza invece di mostrare una
+tabella vuota: A1/A5 elencano il fatturato per tipologia da Finance più la quota ecommerce (e
+scrivono che la divisione fra A1 e A5 l'app non sa farla), B9 elenca le persone a budget una per
+una, B10 e le imposte spiegano **perché** nessuna fonte dell'app le conosce. Si apre anche
+**«fuori dal conto economico»**, che di legge non è una voce: è dove finisce quello che si è deciso
+di togliere — le partite di giro coi partner — e chi controlla un bilancio deve vedere anche cosa è
+stato tolto.
+
+**Il residuo si distingue da quello che una regola ha davvero classificato.** Da quando una
+categoria «raccoglie il residuo» la copertura del CFO è al 100%, e quel 100% nasconde una cosa: che
+dentro ci sono controparti che nessuno ha mai classificato, lì solo perché dovevano stare da
+qualche parte. Ora `abbina()` in `src/lib/cfo.ts` dice **come** una controparte è arrivata nella
+categoria, il conto economico avvisa in cima quanti euro stanno in una voce senza che nessuna regola
+lo dica (**23.705 € sul 2026, 412 controparti**, tutti in B7), e il dettaglio della voce li elenca
+con l'assegnazione rapida — che crea una regola permanente e li toglie da lì per sempre. Motore in
+`src/lib/bilancio-dettaglio.ts`.
 
 **Import**: si incollano le righe copiate dal PDF o dall'Excel, «codice importo». Il parser dei
 numeri (`numero()`) non tira a indovinare: **l'ultimo fra punto e virgola è il separatore

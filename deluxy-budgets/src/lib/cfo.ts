@@ -92,6 +92,19 @@ export async function caricaCategorie(): Promise<Categoria[]> {
 // dichiarata che raccoglie il residuo, che milleduecento controparti fuori da
 // ogni voce di conto economico.
 export function categoriaDi(controparte: string, categorie: Categoria[]): Categoria | null {
+  return abbina(controparte, categorie).categoria;
+}
+
+// La stessa cosa, ma dicendo **come** ci è arrivata. Serve perché da quando una
+// categoria «raccoglie il residuo» le due cose si confondono: chi guarda una
+// voce di bilancio vede un importo unico, e non sa che dentro ci sono
+// controparti che nessuno ha mai classificato — sono lì solo perché dovevano
+// stare da qualche parte. Un totale che non distingue le due cose fa credere
+// che il lavoro sia finito.
+export function abbina(
+  controparte: string,
+  categorie: Categoria[]
+): { categoria: Categoria | null; daRegola: boolean } {
   const c = controparte.toLowerCase();
   let migliore: { cat: Categoria; peso: number } | null = null;
   for (const cat of categorie) {
@@ -104,7 +117,8 @@ export function categoriaDi(controparte: string, categorie: Categoria[]): Catego
       if (!migliore || peso > migliore.peso) migliore = { cat, peso };
     }
   }
-  return migliore?.cat ?? categorie.find((x) => x.predefinita) ?? null;
+  if (migliore) return { categoria: migliore.cat, daRegola: true };
+  return { categoria: categorie.find((x) => x.predefinita) ?? null, daRegola: false };
 }
 
 export type RigaCategoria = {
@@ -112,10 +126,13 @@ export type RigaCategoria = {
   uscite: number;
   movimenti: number;
   perMese: number[];
+  // Quanto, di quelle uscite, è arrivato qui **senza** che una regola lo dicesse:
+  // è il residuo raccolto dalla categoria predefinita. Su tutte le altre è zero.
+  residuo: number;
   // `perMese` anche sulla singola controparte: serve a decidere l'anno di
   // competenza direttamente da qui, dove si guardano le uscite — spostare un
   // importo vuol dire sapere in quale mese sta.
-  controparti: { controparte: string; uscite: number; perMese: number[] }[];
+  controparti: { controparte: string; uscite: number; perMese: number[]; daRegola: boolean }[];
 };
 
 // Raggruppa gli addebiti per categoria applicando le regole.
@@ -124,15 +141,16 @@ export function ricostruisci(controparti: SpesaControparte[], categorie: Categor
   const chiave = (c: Categoria | null) => c?.id ?? "__none__";
 
   for (const s of controparti) {
-    const cat = categoriaDi(s.controparte, categorie);
+    const { categoria: cat, daRegola } = abbina(s.controparte, categorie);
     const k = chiave(cat);
     const r: RigaCategoria =
       perCat.get(k) ??
-      { categoria: cat, uscite: 0, movimenti: 0, perMese: Array(12).fill(0), controparti: [] };
+      { categoria: cat, uscite: 0, movimenti: 0, perMese: Array(12).fill(0), residuo: 0, controparti: [] };
     r.uscite += s.uscite;
     r.movimenti += s.movimenti;
+    if (!daRegola) r.residuo += s.uscite;
     for (let i = 0; i < 12; i++) r.perMese[i] += s.perMese[i] ?? 0;
-    r.controparti.push({ controparte: s.controparte, uscite: s.uscite, perMese: s.perMese });
+    r.controparti.push({ controparte: s.controparte, uscite: s.uscite, perMese: s.perMese, daRegola });
     perCat.set(k, r);
   }
 

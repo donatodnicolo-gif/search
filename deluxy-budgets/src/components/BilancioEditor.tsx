@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { eur, MESI } from "@/lib/format";
 import { SCHEMA, totali, valoreSezione, type Voce } from "@/lib/bilancio-voci";
@@ -95,7 +96,18 @@ export function BilancioEditor({ anno, valori }: { anno: number; valori: Valore[
                   <tr key={v.codice} className={v.codice === "UTILE" ? "tot" : undefined}>
                     <td style={{ fontWeight: sezione ? 700 : 500 }}>{sezione ? "" : v.codice}</td>
                     <td style={{ fontWeight: sezione ? 600 : 400 }}>
-                      {v.nome}
+                      {/* Il nome della voce apre il dettaglio: da quale
+                          categoria di banca è fatta, con quali controparti, e
+                          dove cambiarne l'associazione. Un numero di bilancio
+                          senza il modo di aprirlo si può solo credere o non
+                          credere. */}
+                      {sezione ? (
+                        v.nome
+                      ) : (
+                        <Link href={`/conto-economico/${v.codice}?anno=${anno}`} style={{ color: "var(--blue)" }}>
+                          {v.nome}
+                        </Link>
+                      )}
                       {v.aiuto && <div className="muted" style={{ fontSize: 11.5 }}>{v.aiuto}</div>}
                     </td>
                     <td className="num">

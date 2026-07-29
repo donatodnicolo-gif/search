@@ -6,6 +6,7 @@ import { eur, MESI, pct } from "@/lib/format";
 import { BilancioEditor } from "@/components/BilancioEditor";
 import { PropostaBilancio } from "@/components/PropostaBilancio";
 import { proponiDaApp } from "@/lib/bilancio-proposta";
+import { residuoAnno } from "@/lib/bilancio-dettaglio";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +28,10 @@ export default async function ContoEconomicoPage({
   // sempre: servono anche a bilancio già compilato, per vedere quanto si
   // discosta il gestionale — ma non si scrive niente senza conferma.
   const datiProposta = await caricaAnno(anno);
-  const { proposte, avvisi } = await proponiDaApp(datiProposta);
+  const [{ proposte, avvisi }, residuo] = await Promise.all([
+    proponiDaApp(datiProposta),
+    residuoAnno(anno),
+  ]);
 
   // Il confronto col gestionale ha senso solo su un anno concluso e solo se il
   // bilancio c'è: su un anno in corso il bilancio non esiste ancora, e mettere
@@ -79,6 +83,23 @@ export default async function ContoEconomicoPage({
           <div className="kpi-sub">dopo oneri finanziari e imposte</div>
         </div>
       </div>
+
+      {residuo && residuo.importo > 0 && (
+        <p className="page-caption" style={{ marginTop: 0 }}>
+          <strong>{eur(residuo.importo)}</strong> di uscite {anno} ({residuo.controparti} controparti) stanno in una
+          voce di bilancio <strong>senza che nessuna regola lo dica</strong>: le raccoglie
+          {residuo.categoria ? ` «${residuo.categoria}»` : " la categoria predefinita"}, che confluisce in{" "}
+          {residuo.voce ? (
+            <Link href={`/conto-economico/${residuo.voce}?anno=${anno}`} style={{ color: "var(--blue)" }}>
+              {residuo.voce}
+            </Link>
+          ) : (
+            "nessuna voce"
+          )}
+          . Il totale è giusto — quei soldi sono usciti davvero — ma <em>dove</em> stanno non l&apos;ha deciso
+          nessuno. Si assegnano dal dettaglio della voce.
+        </p>
+      )}
 
       <PropostaBilancio
         anno={anno}
