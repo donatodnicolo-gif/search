@@ -22,6 +22,34 @@ function AnteprimaCorpo({ html }: { html: string }) {
   return <Text style={styles.anteprimaCorpo}>{testoSemplice(html)}</Text>;
 }
 
+/**
+ * Un destinatario che in rubrica non c'è: solo un indirizzo.
+ *
+ * `place_id` è quello del negozio da cui si è arrivati, quando ce n'è **uno
+ * solo**: serve a `registraContattoAvviato` per far diventare Lead il negozio
+ * a cui abbiamo scritto. Con più negozi non si può attribuire, e resta vuoto.
+ */
+function rigaAdHoc(id: string, email: string, placeIds: Set<string>, negozio: string | null): ContattoConLuogo {
+  const solo = placeIds.size === 1 ? [...placeIds][0] : '';
+  return {
+    id,
+    place_id: solo,
+    nome: '',
+    ruolo: null,
+    telefono: null,
+    email,
+    is_decisore: false,
+    hubspot_contact_id: null,
+    place_nome: solo ? negozio : null,
+    place_indirizzo: null,
+    place_linea: null,
+    place_stato: null,
+    place_zona: null,
+    place_in_trattativa: false,
+    place_nel_registro: false,
+  };
+}
+
 const datiContatto = (c: ContattoConLuogo): DatiContatto => ({
   nome: c.nome,
   negozio: c.place_nome,
@@ -126,11 +154,41 @@ export default function InvioScript() {
     [contatti, placeIds],
   );
 
+  /**
+   * Indirizzi scritti a mano, non in rubrica.
+   *
+   * ⚠️ Senza questo la schermata era un vicolo cieco: se il negozio non ha
+   * nessun contatto con un'email — e capita spesso su un lead appena creato —
+   * non c'era **niente da spuntare**, il bottone restava spento e non si poteva
+   * fare nulla (segnalato dall'utente il 29/07/2026 su `/invio/nuovo`). Una mail
+   * si manda a un indirizzo: se l'indirizzo lo si conosce, deve bastare quello.
+   *
+   * Restano fuori dalla rubrica di proposito: qui si sta mandando una mail, non
+   * censendo una persona. Per salvarlo c'è «Nuovo contatto» sulla scheda.
+   */
+  const [adHoc, setAdHoc] = useState<ContattoConLuogo[]>([]);
+  const emailValida = (s: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
+  const qEmail = query.trim().toLowerCase();
+  /** L'indirizzo digitato è mandabile e non ce l'abbiamo già? */
+  const emailNuova =
+    emailValida(qEmail) &&
+    ![...contatti, ...adHoc].some((c) => (c.email ?? '').toLowerCase() === qEmail)
+      ? qEmail
+      : null;
+
+  function aggiungiIndirizzo(email: string) {
+    const id = `adhoc:${email}`;
+    setAdHoc((cur) => (cur.some((c) => c.id === id) ? cur : [...cur, rigaAdHoc(id, email, placeIds, negozioAtteso)]));
+    setSel((cur) => new Set(cur).add(id));
+    setQuery('');
+  }
+
   // Chi è stato aggiunto a mano resta visibile anche a ricerca svuotata: se
-  // sparisse, spuntarlo non servirebbe a niente.
+  // sparisse, spuntarlo non servirebbe a niente. Gli indirizzi scritti a mano
+  // stanno qui insieme ai contatti pescati dalla rubrica.
   const aggiunti = useMemo(
-    () => contatti.filter((c) => sel.has(c.id) && !placeIds.has(c.place_id)),
-    [contatti, sel, placeIds],
+    () => [...contatti.filter((c) => sel.has(c.id) && !placeIds.has(c.place_id)), ...adHoc],
+    [contatti, sel, placeIds, adHoc],
   );
 
   const risultati = useMemo(() => {
@@ -172,7 +230,12 @@ export default function InvioScript() {
     [dati],
   );
 
-  const selezionati = useMemo(() => contatti.filter((c) => sel.has(c.id)), [contatti, sel]);
+  // Gli indirizzi scritti a mano contano come destinatari a tutti gli effetti:
+  // stanno nello stesso insieme dei contatti di rubrica.
+  const selezionati = useMemo(
+    () => [...contatti, ...adHoc].filter((c) => sel.has(c.id)),
+    [contatti, adHoc, sel],
+  );
 
   function toggle(id: string) {
     setSel((prev) => {
@@ -377,7 +440,7 @@ export default function InvioScript() {
           style={styles.search}
           value={query}
           onChangeText={setQuery}
-          placeholder="Aggiungi dalla rubrica: cerca nome, negozio, email…"
+          placeholder="Cerca in rubrica, o scrivi un indirizzo email"
           placeholderTextColor={colors.grigio}
           autoCapitalize="none"
           clearButtonMode="while-editing"
@@ -388,6 +451,18 @@ export default function InvioScript() {
           </Text>
         </Pressable>
       </View>
+
+      {/* Se quello che hai scritto È un indirizzo, si può mandare lì e basta:
+          senza, un negozio senza contatti in rubrica era un vicolo cieco. */}
+      {emailNuova ? (
+        <Pressable style={styles.adHoc} onPress={() => aggiungiIndirizzo(emailNuova)}>
+          <Ionicons name="mail-outline" size={16} color={colors.ink} />
+          <Text style={styles.adHocTxt} numberOfLines={2}>
+            Scrivi a <Text style={styles.adHocMail}>{emailNuova}</Text> — indirizzo non in rubrica
+          </Text>
+          <Ionicons name="add-circle" size={20} color={colors.ink} />
+        </Pressable>
+      ) : null}
 
       <FlatList
         data={dati}
@@ -404,13 +479,13 @@ export default function InvioScript() {
             </Text>
             <Text style={styles.nessunoTesto}>
               {negozio
-                ? 'Una mail si può mandare solo a un indirizzo, e di questo negozio non ne abbiamo nessuno in rubrica. Puoi cercare un altro contatto qui sopra — per esempio la sede o un referente di un negozio dello stesso gruppo — oppure aggiungere l’email dalla scheda del negozio e tornare qui.'
-                : 'Cerca qui sopra chi vuoi raggiungere: compaiono i contatti della rubrica che hanno un’email.'}
+                ? 'Una mail si può mandare solo a un indirizzo, e di questo negozio non ne abbiamo nessuno in rubrica. Se l’indirizzo lo sai, scrivilo qui sopra e comparirà «Scrivi a…»: parte lo stesso, senza doverlo prima censire. Altrimenti aggiungi il contatto alla scheda del negozio.'
+                : 'Scrivi qui sopra un indirizzo email, oppure cerca in rubrica: compaiono i contatti che hanno un’email.'}
             </Text>
-            {negozio ? (
-              <Pressable style={styles.nessunoBtn} onPress={() => router.push('/(app)/rubrica')}>
-                <Ionicons name="book-outline" size={15} color={colors.testo} />
-                <Text style={styles.nessunoBtnTxt}>Apri la Rubrica</Text>
+            {negozio && placeIds.size === 1 ? (
+              <Pressable style={styles.nessunoBtn} onPress={() => router.push(`/(app)/contatto/${[...placeIds][0]}`)}>
+                <Ionicons name="person-add-outline" size={15} color={colors.testo} />
+                <Text style={styles.nessunoBtnTxt}>Aggiungi un contatto a {negozio}</Text>
               </Pressable>
             ) : null}
           </View>
@@ -460,6 +535,21 @@ const styles = StyleSheet.create({
   search: { flex: 1, backgroundColor: colors.bianco, borderWidth: 1, borderColor: colors.grigioChiaro, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: 9, fontSize: 14, color: colors.testo },
   selTutti: { paddingHorizontal: 6 },
   selTuttiTxt: { color: colors.goldStrong, fontWeight: '700', fontSize: 12.5 },
+  adHoc: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: spacing.md,
+    marginTop: spacing.sm,
+    backgroundColor: colors.bianco,
+    borderWidth: 1,
+    borderColor: colors.ink,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 11,
+  },
+  adHocTxt: { flex: 1, color: colors.testo, fontSize: 13.5 },
+  adHocMail: { fontWeight: '800' },
   list: { padding: spacing.md, paddingBottom: 96, gap: 6 },
   // Intestazione della schermata: dice a che punto sei e cosa succede dopo.
   intro: { paddingHorizontal: spacing.md, paddingTop: spacing.md, paddingBottom: spacing.sm, gap: 4 },
