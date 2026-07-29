@@ -888,3 +888,9 @@ a.dash-riga:hover .dash-etichetta { color: var(--text); }
   border-radius: var(--radius-s); padding: 4px 8px; max-width: 170px; cursor: pointer;
 }
 .sposta-referente select:focus { background: var(--surface); border-color: var(--hairline-strong); outline: none; }
+
+/* Ricerca in rubrica Google: campo e bottone sulla stessa riga (la ricerca
+   parte a comando, non a ogni tasto — ogni chiamata passa dalla People API). */
+.ricerca-rubrica { display: flex; gap: 8px; align-items: center; }
+.ricerca-rubrica .modale-ricerca { flex: 1; margin: 0; }
+.rubrica-nel-modulo { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; }

@@ -164,6 +164,22 @@ Ogni scrittura via API è un **merge governato per campo**, mai una sostituzione
   **Sposta in**: un menu con gli altri luoghi (etichetta «città · indirizzo») che sposta il
   referente con `spostaReferenteInSede` — **si sposta, non si ricrea**, quindi la persona si
   porta dietro `hubspotId` e lo storico.
+  **Dalla rubrica Google (29/07/2026)** — `CercaInRubrica`: pesca il referente dalla rubrica
+  dell'account con cui l'operatore si collega (in azienda `deluxy.delivery@gmail.com`) invece di
+  ridigitarlo. Stesso OAuth e stesso scope `contacts` del salvataggio automatico, nel verso
+  opposto (People API `searchContacts`, con la **warm-up call obbligatoria**: senza, la prima
+  ricerca torna vuota anche se il contatto c'è). Sta in due posti: bottone **⌕ Dalla rubrica**
+  dentro ＋ Referente sulla scheda (crea subito) e nella sezione «Persone di riferimento» del
+  form di modifica (`RubricaNelModulo`, riempie la **prima riga libera** e si salva col resto —
+  scrivere subito farebbe perdere le modifiche non salvate negli altri campi; se non ci sono
+  righe libere lo dice).
+  Il nome viene **ripulito** con `nomePersonaDaRubrica` (src/lib/rubrica.ts), l'inverso di
+  `nomeRubricaDefault`: toglie stato, azienda, città e le etichette dell'app fornitori
+  («PARTNER Basara Milano MILANO Mara Roveda» → «Mara Roveda»), altrimenti quella zavorra
+  rientrerebbe nel registro a ogni import. Se non resta niente si tiene il nome originale.
+  ⚠️ Il riquadro esce in un **portale sul body**: vive dentro il `<form>` della pagina di
+  modifica e un form dentro un form è HTML non valido — con l'Invio che salvava l'anagrafica
+  mentre cercavi una persona. Ce n'eravamo accorti solo dagli errori in console.
   ⚠️ **Corretto un guasto silenzioso (29/07/2026)**: `aggiornaPartner` faceva
   `contatti: { deleteMany: {}, create: [...] }`, cioè a **ogni** salvataggio della scheda
   cancellava e ricreava i referenti — perdendo `hubspotId`, `fonte`, `nomeRubrica` e

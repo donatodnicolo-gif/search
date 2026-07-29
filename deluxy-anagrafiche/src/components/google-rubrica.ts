@@ -103,6 +103,56 @@ export async function findByPhone(token: string, phone: string): Promise<{ names
   return null;
 }
 
+export type PersonaRubrica = {
+  chiave: string;
+  nomeInRubrica: string;
+  telefono: string | null;
+  email: string | null;
+  organizzazione: string | null;
+  ruolo: string | null;
+};
+
+// Cerca persone nella rubrica dell'operatore (People API searchContacts, sugli
+// stessi contatti che vede in contacts.google.com). Serve la stessa warm-up
+// call di `findByPhone`: senza, la prima ricerca torna vuota anche quando il
+// contatto c'è — è un comportamento noto dell'endpoint.
+export async function cercaInRubrica(token: string, query: string): Promise<PersonaRubrica[]> {
+  const q = query.trim();
+  if (q.length < 2) return [];
+  const auth = { headers: { Authorization: "Bearer " + token } };
+  const readMask = "names,phoneNumbers,emailAddresses,organizations";
+  await fetch(`https://people.googleapis.com/v1/people:searchContacts?query=&readMask=${readMask}`, auth).catch(() => {});
+  const r = await fetch(
+    `https://people.googleapis.com/v1/people:searchContacts?pageSize=20&readMask=${readMask}&query=${encodeURIComponent(q)}`,
+    auth,
+  );
+  if (!r.ok) {
+    const j = await r.json().catch(() => ({}));
+    throw new Error(j?.error?.message || "Ricerca in rubrica non riuscita (HTTP " + r.status + ")");
+  }
+  type Persona = {
+    resourceName?: string;
+    names?: { displayName?: string }[];
+    phoneNumbers?: { value?: string }[];
+    emailAddresses?: { value?: string }[];
+    organizations?: { name?: string; title?: string }[];
+  };
+  const results = ((await r.json()).results || []) as { person?: Persona }[];
+  return results
+    .map(({ person }, i) => {
+      const p = person ?? {};
+      return {
+        chiave: p.resourceName || `persona-${i}`,
+        nomeInRubrica: p.names?.[0]?.displayName?.trim() || "",
+        telefono: p.phoneNumbers?.[0]?.value?.trim() || null,
+        email: p.emailAddresses?.[0]?.value?.trim() || null,
+        organizzazione: p.organizations?.[0]?.name?.trim() || null,
+        ruolo: p.organizations?.[0]?.title?.trim() || null,
+      };
+    })
+    .filter((p) => p.nomeInRubrica || p.telefono || p.email);
+}
+
 export async function createContact(token: string, r: RigaContatto): Promise<void> {
   const body = {
     names: [{ givenName: contactName(r) }],

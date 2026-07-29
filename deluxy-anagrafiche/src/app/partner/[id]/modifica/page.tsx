@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { RubricaNelModulo } from "@/components/RubricaNelModulo";
 import { Sidebar } from "@/components/Sidebar";
 import { CATEGORIE, isCategoria } from "@/lib/categorie";
 import { aggiornaPartner } from "@/lib/azioni";
@@ -183,7 +184,13 @@ export default async function Modifica({
           </section>
 
           <section className="scheda">
-            <h2 className="scheda-titolo">Persone di riferimento</h2>
+            <div className="testata-sezione">
+              <h2 className="scheda-titolo" style={{ marginBottom: 0 }}>
+                Persone di riferimento{" "}
+                <span className="scheda-sub">di questa sede</span>
+              </h2>
+              <RubricaNelModulo partnerNome={p.nome} citta={p.citta} righe={righe.length} />
+            </div>
             <input type="hidden" name="righeContatti" value={righe.length} />
             {righe.map((c, i) => (
               <div className="modulo modulo-contatto" key={c?.id ?? `nuova-${i}`}>

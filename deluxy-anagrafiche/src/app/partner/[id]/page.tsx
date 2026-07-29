@@ -523,7 +523,7 @@ export default async function Dettaglio({
                   : "nessun referente ancora"}
               </span>
             </h2>
-            {p.attivo && <AggiungiReferente partnerId={p.id} nome={p.nome} />}
+            {p.attivo && <AggiungiReferente partnerId={p.id} nome={p.nome} citta={p.citta} />}
           </div>
           {p.contatti.length === 0 ? (
             <p className="testo-guida" style={{ margin: 0 }}>
