@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { Sidebar } from "@/components/Sidebar";
 import { Badge } from "@/components/Badge";
+import { tipologiaRisposta } from "@/lib/risposta-bisogno";
 import { BarraMargine } from "@/components/BarraMargine";
 import { prisma } from "@/lib/db";
 import { aggiornaProdotto, aggiungiVariante, cambiaFase, eliminaVariante, segnaShopify } from "@/lib/azioni";
@@ -89,6 +90,12 @@ export default async function ProdottoPage({
               <Badge testo={ETICHETTA_FASE[prodotto.fase]} colore={COLORE_FASE[prodotto.fase]} />
               <Badge testo={etichettaCategoria(prodotto.categoria)} colore="var(--text-tertiary)" />
               <Badge testo={ETICHETTA_SHOPIFY[prodotto.shopifyStato]} colore={COLORE_SHOPIFY[prodotto.shopifyStato]} />
+              {(() => {
+                const tr = tipologiaRisposta(prodotto.ggDispMin);
+                return tr ? (
+                  <Badge testo={tr.etichetta} colore={tr.colore} title={`Risposta al bisogno · ${tr.spiega}`} />
+                ) : null;
+              })()}
               {prodotto.collezione && (
                 <a className="badge" style={{ color: "var(--blue)" }} href={`/collezioni/${prodotto.collezioneId}`}>
                   {prodotto.collezione.nome}

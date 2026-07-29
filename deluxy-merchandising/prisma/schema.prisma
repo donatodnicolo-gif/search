@@ -103,6 +103,11 @@ model Prodotto {
   vendorShopify  String?
   tagShopify     String? // separati da virgola, come li dà Shopify
   handleShopify  String?
+  // Giorni minimi per evadere il prodotto: il metafield Shopify `prodotto.consegna`
+  // (mostrato come "gg_disp_min"). Da qui si ricava la **tipologia di risposta al
+  // bisogno** (0 = urgenze, 1 = da domani, 2-3 = pianificato, 4-10 = su misura),
+  // in src/lib/risposta-bisogno.ts. Null = non dichiarato: non si deduce.
+  ggDispMin      Int?
   // — Sincronizzazione Shopify (canale di vendita a valle) —
   shopifyStato   String  @default("non_pubblicato") // non_pubblicato | bozza | pubblicato
   shopifyId      String? // id prodotto su Shopify una volta pubblicato

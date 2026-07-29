@@ -187,6 +187,9 @@ type ProdottoShopifyApi = {
   tags: string[];
   variants: { nodes: { sku: string | null }[] };
   collections: { nodes: { id: string }[] };
+  // Il metafield `prodotto.consegna` (mostrato come "gg_disp_min"): giorni minimi
+  // per evadere. Da qui la tipologia di risposta al bisogno.
+  consegna: { value: string } | null;
 };
 
 /**
@@ -210,6 +213,7 @@ async function leggiProdotti(n: Negozio): Promise<ProdottoShopifyApi[]> {
              category { id name fullName }
              variants(first: 10) { nodes { sku } }
              collections(first: 10) { nodes { id } }
+             consegna: metafield(namespace: "prodotto", key: "consegna") { value }
            }
          }
        }`,
@@ -295,7 +299,7 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
 
     // — Le appartenenze, e quello che Shopify sa del prodotto —
     const legami: { collezioneId: string; prodottoId: string; prodottoShopifyId: string; posizione: number }[] = [];
-    const daAggiornare: { id: string; tipoShopify: string | null; categoriaShopifyId: string | null; categoriaShopifyNome: string | null; vendorShopify: string | null; tagShopify: string | null; handleShopify: string }[] = [];
+    const daAggiornare: { id: string; tipoShopify: string | null; categoriaShopifyId: string | null; categoriaShopifyNome: string | null; vendorShopify: string | null; tagShopify: string | null; handleShopify: string; ggDispMin: number | null }[] = [];
     for (const p of prodottiShopify) {
       let nostroId: string | undefined;
       for (const v of p.variants.nodes) {
@@ -327,6 +331,8 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
       // Il tipo prodotto lo scrive chi cura il negozio: è un dato, non una
       // deduzione dal titolo. Si salva accanto alla categoria interna senza
       // sovrascriverla — una si legge da Shopify, l'altra la decide una persona.
+      const ggRaw = p.consegna?.value?.trim();
+      const gg = ggRaw != null && ggRaw !== "" ? Number.parseInt(ggRaw, 10) : NaN;
       daAggiornare.push({
         id: nostroId,
         tipoShopify: p.productType?.trim() || null,
@@ -335,6 +341,7 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
         vendorShopify: p.vendor?.trim() || null,
         tagShopify: p.tags?.length ? p.tags.join(", ").slice(0, 500) : null,
         handleShopify: p.handle,
+        ggDispMin: Number.isFinite(gg) ? gg : null,
       });
     }
 
@@ -377,6 +384,7 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
               vendorShopify: d.vendorShopify,
               tagShopify: d.tagShopify,
               handleShopify: d.handleShopify,
+              ggDispMin: d.ggDispMin,
             },
           })
         )
