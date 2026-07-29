@@ -352,11 +352,37 @@ solo dove siamo e come si lavora.
    sintassi OK, console pulita. NON collaudati end-to-end su Google (serve chiave+login): infowindow
    mappa e URL «vedi su Maps» — logica verificata staticamente.
 
+37. **Ordine↔indirizzo, Azzera, fix Storico ricerche senza ordine** (27/07):
+   - **Numero ordine vuoto ⇒ indirizzo vuoto**: l'indirizzo non si precompila più da
+     `localStorage` senza un ordine e si svuota appena si cancella il numero ordine
+     (`$('#orderNum')` input listener).
+   - **Pulsante «🔄 Azzera»** (accanto a «Cerca in zona»): `resetSearch()` riporta la vista allo
+     stato iniziale (svuota ordine, indirizzo, risultati, mappa, footer; filtri→Tutti;
+     categorie→Fiorai+Pasticcerie; azzera `extendRadius`/`lastSearchCtx`/`ultimaRicercaLoggata`;
+     pulisce i parametri URL).
+   - **Fix Storico — ricerche senza ordine Shopify**: in `renderResults` il logging della
+     ricerca in zona usava `address`, che NON è in scope (locale a `run()`); come bareword il
+     browser lo risolveva nell'**elemento `<input id="address">`** → `ultimaRicercaLoggata`
+     diventava l'elemento e il dedup bloccava ogni ricerca zona dopo la prima (+ `nome` evento
+     rotto). Ora si legge `$('#address').value`. Inoltre «↻ Riapri ricerca» azzera il contesto
+     ordine così la ripresa è una ricerca zona pulita e ri-registrata. Verificato dal vivo.
+
 ## Cose in sospeso
 - **Utenze operative**: da creare in Impostazioni (finché non esistono si entra solo col
   pass code amministratore + un'email qualsiasi). Le email degli operatori vanno anche
   aggiunte come **test user** dell'app OAuth (vedi sotto).
 - **Bottone nelle altre app**: deciso il deep link, manca l'integrazione (in quale app?).
+- **Numeri della mappa (proposto, non fatto)**: l'utente chiede perché i vicini a volte hanno
+  numero più alto. Risposta: i numeri = rango in lista (per «Ordina per»: Distanza=strada, o
+  Valutazione), e i marker filtrati/archiviati lasciano buchi. Offerto ma da confermare:
+  **rinumerare solo i marker visibili (contigui) + badge «#N» anche sulla scheda**.
+- **Pulizia eventi Storico vecchi**: gli eventi «ricerca» salvati prima del fix (27/07) hanno il
+  `negozio.nome` rotto (elemento invece dell'indirizzo). Offerto: pulizia una-tantum che li
+  sistema/nasconde. Da confermare.
+- **Cache anagrafiche (offerto)**: `ctData` è cache in memoria per sessione (Contatti/Province/
+  Archiviati). Si può persistere in `sessionStorage` con scadenza o precaricare in background
+  per evitare il ricarico al refresh. Da confermare.
+- **Filtro «4+ stelle»**: soglia attuale ≥ 4 (include 4.0). Se serve *strettamente* >4, 1 riga.
 
 ## OAuth Google rubrica — CONFIGURATO E VERIFICATO (20/07/2026)
 - Il client attivo è **«Deluxy search rubrica» `813248887384-kdksp8lq8p8pg4tou6b2q4i7r0avchjt`**
