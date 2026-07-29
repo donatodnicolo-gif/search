@@ -875,3 +875,16 @@ a.dash-riga:hover .dash-etichetta { color: var(--text); }
 /* Nella modale il modulo sta su una colonna sola sotto i 560px del riquadro. */
 .modale .modulo { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 @media (max-width: 560px) { .modale .modulo { grid-template-columns: 1fr; } }
+
+/* Referenti: riga di aggiunta rapida e spostamento fra le sedi dell'insegna. */
+.riga-nuovo-referente {
+  border-top: 1px solid var(--hairline); border-bottom: none;
+  padding-top: 14px; margin-top: 4px;
+}
+.sposta-referente { display: flex; align-items: center; gap: 4px; }
+.sposta-referente select {
+  font: inherit; font-size: 12.5px; color: var(--text);
+  background: var(--fill); border: 1px solid transparent;
+  border-radius: var(--radius-s); padding: 4px 8px; max-width: 170px; cursor: pointer;
+}
+.sposta-referente select:focus { background: var(--surface); border-color: var(--hairline-strong); outline: none; }

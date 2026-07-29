@@ -156,6 +156,21 @@ Ogni scrittura via API è un **merge governato per campo**, mai una sostituzione
   Analisi, `SelettoreStato` + `SelettoreStatoAzienda`) + menu interessi, ✎ Modifica, archivia,
   sezione **Contatti** (Excel+HubSpot con link al CRM, telefono cliccabile, **✕ rimuove il
   referente** dall'azienda → `staccaContatto`), Note, Dati del tracker, **Storia** (timeline).
+  **Referenti per sede (29/07/2026)** — i referenti sono di **quella sede**, non dell'insegna:
+  due negozi hanno persone diverse. La sezione Contatti compare **anche a zero referenti** (una
+  sede appena aperta è proprio il caso in cui serve aggiungerne uno) con **＋ Referente**
+  (`AggiungiReferente` → `aggiungiReferente(partnerId, fd)`, fonte `ui`, ruolo in maiuscolo,
+  serve almeno nome/telefono/email). Quando l'insegna ha più luoghi compare la colonna
+  **Sposta in**: un menu con gli altri luoghi (etichetta «città · indirizzo») che sposta il
+  referente con `spostaReferenteInSede` — **si sposta, non si ricrea**, quindi la persona si
+  porta dietro `hubspotId` e lo storico.
+  ⚠️ **Corretto un guasto silenzioso (29/07/2026)**: `aggiornaPartner` faceva
+  `contatti: { deleteMany: {}, create: [...] }`, cioè a **ogni** salvataggio della scheda
+  cancellava e ricreava i referenti — perdendo `hubspotId`, `fonte`, `nomeRubrica` e
+  l'archiviazione, che il form non conosce. Ora il form manda anche `c<i>-id` e i referenti si
+  **aggiornano per id** (`update`/`create`/`deleteMany` mirati); riga svuotata = rimosso, come
+  prima. Verificato sul contatto HubSpot di Basara Milano: dopo il salvataggio conserva id,
+  `fonte: hubspot` e `hubspotId`.
   **Gruppi**: `⧉ Raggruppa` (`GestioneGruppo`) mette l'anagrafica sotto un'insegna madre;
   una sede mostra «Sede del gruppo X» + «Togli dal gruppo»; la madre ha la sezione
   **Sedi del gruppo** (✕ per sganciarne una). Azione unica `raggruppaSotto(partnerId, capogruppoId|null)`.

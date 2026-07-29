@@ -187,6 +187,9 @@ export default async function Modifica({
             <input type="hidden" name="righeContatti" value={righe.length} />
             {righe.map((c, i) => (
               <div className="modulo modulo-contatto" key={c?.id ?? `nuova-${i}`}>
+                {/* L'id fa sì che il referente venga aggiornato e non ricreato:
+                    così non perde il collegamento a HubSpot né il nome rubrica. */}
+                {c && <input type="hidden" name={`c${i}-id`} value={c.id} />}
                 <Campo etichetta="Ruolo" nome={`c${i}-ruolo`} valore={c?.ruolo} />
                 <Campo etichetta="Nome" nome={`c${i}-nome`} valore={c?.nome} />
                 <Campo etichetta="Telefono" nome={`c${i}-telefono`} valore={c?.telefono} />

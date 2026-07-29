@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { AggiungiReferente } from "@/components/AggiungiReferente";
 import { AggiungiSede } from "@/components/AggiungiSede";
 import { FormFeedbackD2C } from "@/components/FormFeedbackD2C";
 import { GestioneGruppo } from "@/components/GestioneGruppo";
@@ -9,7 +10,13 @@ import { SelettoreStato } from "@/components/SelettoreStato";
 import { SelettoreStatoAzienda } from "@/components/SelettoreStatoAzienda";
 import { Sidebar } from "@/components/Sidebar";
 import { FasciaD2C, StelleD2C } from "@/components/StelleD2C";
-import { eliminaFeedbackD2C, impostaArchiviato, raggruppaSotto, staccaContatto } from "@/lib/azioni";
+import {
+  eliminaFeedbackD2C,
+  impostaArchiviato,
+  raggruppaSotto,
+  spostaReferenteInSede,
+  staccaContatto,
+} from "@/lib/azioni";
 import { prisma } from "@/lib/db";
 import {
   ETICHETTE_MOTIVO,
@@ -76,6 +83,23 @@ export default async function Dettaglio({
   // tutte le sedi della stessa insegna (non del singolo record).
   const fin = await datiFinanziariCondivisi(p);
   const haSedi = p.sedi.length > 0 || Boolean(p.capogruppo);
+
+  // Gli altri luoghi della stessa insegna: servono per spostare un referente
+  // sulla sede dove lavora davvero. Da una sede si vedono la madre e le
+  // sorelle; dalla madre, le sue sedi.
+  const altriLuoghi = p.capogruppo
+    ? await prisma.partner.findMany({
+        where: {
+          attivo: true,
+          NOT: { id: p.id },
+          OR: [{ id: p.capogruppo.id }, { capogruppoId: p.capogruppo.id }],
+        },
+        select: { id: true, nome: true, citta: true, indirizzo: true },
+        orderBy: [{ citta: "asc" }, { indirizzo: "asc" }],
+      })
+    : p.sedi.map((s) => ({ id: s.id, nome: s.nome, citta: s.citta, indirizzo: s.indirizzo }));
+  const etichettaLuogo = (l: { nome: string; citta: string | null; indirizzo: string | null }) =>
+    [l.citta, l.indirizzo].filter(Boolean).join(" · ") || l.nome;
   const linee = await getLinee();
 
   // Appena diventata cliente: i referenti vanno in rubrica Google in automatico
@@ -486,11 +510,28 @@ export default async function Dettaglio({
         </section>
       )}
 
-      {p.contatti.length > 0 && (
-        <section className="scheda">
-          <h2 className="scheda-titolo">
-            Contatti <span className="scheda-sub">{p.contatti.length} persone di riferimento</span>
-          </h2>
+      {/* Anche a zero referenti: una sede appena aperta è esattamente il caso
+          in cui bisogna poterne aggiungere uno. I referenti sono di QUESTA
+          sede, non dell'insegna: due negozi hanno persone diverse. */}
+      <section className="scheda">
+          <div className="testata-sezione">
+            <h2 className="scheda-titolo" style={{ marginBottom: 0 }}>
+              Contatti{" "}
+              <span className="scheda-sub">
+                {p.contatti.length > 0
+                  ? `${p.contatti.length} persone di riferimento${haSedi ? " di questa sede" : ""}`
+                  : "nessun referente ancora"}
+              </span>
+            </h2>
+            {p.attivo && <AggiungiReferente partnerId={p.id} nome={p.nome} />}
+          </div>
+          {p.contatti.length === 0 ? (
+            <p className="testo-guida" style={{ margin: 0 }}>
+              {haSedi
+                ? "Ogni sede ha i suoi referenti: aggiungi qui le persone che lavorano in questo luogo."
+                : "Nessuna persona di riferimento: aggiungila con ＋ Referente."}
+            </p>
+          ) : (
           <div className="tabella-wrap" style={{ boxShadow: "none", border: "1px solid var(--hairline)" }}>
             <table>
               <thead>
@@ -500,6 +541,7 @@ export default async function Dettaglio({
                   <th>Telefono</th>
                   <th>Email</th>
                   <th>Fonte</th>
+                  {altriLuoghi.length > 0 && <th>Sposta in</th>}
                   <th aria-label="Rimuovi"></th>
                 </tr>
               </thead>
@@ -528,6 +570,23 @@ export default async function Dettaglio({
                     </td>
                     <td className="cella-muta">{c.email ?? "—"}</td>
                     <td className="cella-muta">{c.fonte === "hubspot" ? "HubSpot" : c.fonte ? c.fonte : "Excel"}</td>
+                    {altriLuoghi.length > 0 && (
+                      <td>
+                        {/* Spostare, non ricreare: la persona porta con sé il
+                            collegamento a HubSpot e lo storico. */}
+                        <form action={spostaReferenteInSede.bind(null, c.id)} className="sposta-referente">
+                          <select name="destinazione" defaultValue="" aria-label={`Sposta ${c.nome ?? "il referente"} in un'altra sede`}>
+                            <option value="">—</option>
+                            {altriLuoghi.map((l) => (
+                              <option key={l.id} value={l.id}>{etichettaLuogo(l)}</option>
+                            ))}
+                          </select>
+                          <button type="submit" className="btn-archivia" title="Sposta il referente nella sede scelta">
+                            →
+                          </button>
+                        </form>
+                      </td>
+                    )}
                     <td>
                       <form action={staccaContatto.bind(null, c.id)}>
                         <button
@@ -544,8 +603,8 @@ export default async function Dettaglio({
               </tbody>
             </table>
           </div>
+          )}
         </section>
-      )}
 
       {(p.note || p.contattiRaw) && (
         <section className="scheda">

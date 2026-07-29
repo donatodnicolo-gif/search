@@ -255,16 +255,30 @@ export async function aggiornaPartner(partnerId: string, fd: FormData) {
   const categoria = maiuscolo("categoria");
   if (!nome || !categoria) redirect(`/partner/${partnerId}/modifica?errore=1`);
 
+  // Referenti: si aggiornano PER ID, non si cancellano e ricreano. La riga
+  // porta con sé `c<i>-id` quando il referente esiste già; così restano
+  // attaccati `hubspotId`, `fonte`, `nomeRubrica` e l'archiviazione, che il
+  // form non conosce e che un delete+create buttava via a ogni salvataggio.
+  // Riga svuotata = referente rimosso (comportamento storico, dichiarato nel form).
   const righeContatti = Number(fd.get("righeContatti")) || 0;
-  const contatti = [];
+  const daCreare = [];
+  const daAggiornare: { id: string; dati: Record<string, string | null> }[] = [];
+  const daRimuovere: string[] = [];
   for (let i = 0; i < righeContatti; i++) {
+    const id = String(fd.get(`c${i}-id`) ?? "").trim();
     const c = {
       ruolo: testo(`c${i}-ruolo`)?.toUpperCase() ?? null,
       nome: testo(`c${i}-nome`),
       telefono: testo(`c${i}-telefono`),
       email: testo(`c${i}-email`),
     };
-    if (c.ruolo || c.nome || c.telefono || c.email) contatti.push(c);
+    const compilata = Boolean(c.ruolo || c.nome || c.telefono || c.email);
+    if (id) {
+      if (compilata) daAggiornare.push({ id, dati: c });
+      else daRimuovere.push(id);
+    } else if (compilata) {
+      daCreare.push({ ...c, fonte: "ui" });
+    }
   }
 
   const ultimaVisita = testo("ultimaVisita");
@@ -327,7 +341,13 @@ export async function aggiornaPartner(partnerId: string, fd: FormData) {
       amministrazioneNome: testo("amministrazioneNome"),
       amministrazioneTelefono: testo("amministrazioneTelefono"),
       amministrazioneEmail: testo("amministrazioneEmail"),
-      contatti: { deleteMany: {}, create: contatti },
+      contatti: {
+        ...(daAggiornare.length
+          ? { update: daAggiornare.map((c) => ({ where: { id: c.id }, data: c.dati })) }
+          : {}),
+        ...(daCreare.length ? { create: daCreare } : {}),
+        ...(daRimuovere.length ? { deleteMany: { id: { in: daRimuovere } } } : {}),
+      },
     },
   });
   // La fatturazione è della società: propaga i dati finanziari a tutte le sedi
@@ -336,6 +356,41 @@ export async function aggiornaPartner(partnerId: string, fd: FormData) {
   revalidatePath("/");
   revalidatePath(`/partner/${partnerId}`);
   redirect(`/partner/${partnerId}`);
+}
+
+// Aggiunge un referente a QUESTA anagrafica — cioè a questa sede, non
+// all'insegna: due negozi della stessa insegna hanno persone diverse, e il
+// referente sta dove lavora. Si fa dalla scheda, senza passare dal form
+// completo (che tocca tutta l'anagrafica).
+export async function aggiungiReferente(
+  partnerId: string,
+  fd: FormData,
+): Promise<{ ok: true } | { ok: false; errore: string }> {
+  const testo = (k: string) => String(fd.get(k) ?? "").trim() || null;
+  const dati = {
+    ruolo: testo("ruolo")?.toUpperCase() ?? null,
+    nome: testo("nome"),
+    telefono: testo("telefono"),
+    email: testo("email"),
+  };
+  if (!dati.nome && !dati.telefono && !dati.email) {
+    return { ok: false, errore: "Serve almeno il nome, il telefono o l'email." };
+  }
+  const partner = await prisma.partner.findUnique({ where: { id: partnerId }, select: { id: true } });
+  if (!partner) return { ok: false, errore: "Anagrafica non trovata." };
+  await prisma.contatto.create({ data: { ...dati, partnerId, fonte: "ui" } });
+  revalidatePath(`/partner/${partnerId}`);
+  revalidatePath("/contatti");
+  return { ok: true };
+}
+
+// Sposta un referente da una sede all'altra della stessa insegna: capita
+// spesso che una persona sia stata censita sulla madre e lavori invece in un
+// negozio preciso. La destinazione arriva dal menu della riga.
+export async function spostaReferenteInSede(contattoId: string, fd: FormData) {
+  const destinazione = String(fd.get("destinazione") ?? "");
+  if (!destinazione) return;
+  await spostaContatto(contattoId, destinazione);
 }
 
 // Salvataggio della scheda contatto (/contatti/:id): aggiorna il singolo
