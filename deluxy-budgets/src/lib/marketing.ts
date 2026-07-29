@@ -17,6 +17,7 @@
 // è più basso del vero: mostrarlo come se fosse completo direbbe «si è speso
 // meno», che è esattamente la conclusione sbagliata.
 
+import { RIVALIDA } from "./cache";
 import { chiave } from "./chiavi";
 
 const BASE = process.env.MARKETING_URL ?? "https://deluxy-marketing.vercel.app";
@@ -94,7 +95,7 @@ export async function fetchSpesaAdv(anno: number, dal: number, al: number): Prom
     const qs = new URLSearchParams({ dal: dalIso, al: alIso, raggruppa: "mese" });
     const res = await fetch(`${BASE}/api/v1/spesa?${qs.toString()}`, {
       headers: { "x-api-key": key, "X-App": "deluxy-budgets" },
-      cache: "no-store",
+      next: { revalidate: RIVALIDA },
       signal: AbortSignal.timeout(8000),
     });
     if (res.status === 401) {

@@ -5,6 +5,7 @@
 // in .env (FINANCE_API_KEY), mai committata. L'URL base è configurabile
 // (FINANCE_API_URL) e in mancanza punta alla produzione.
 
+import { RIVALIDA } from "./cache";
 import { chiave } from "./chiavi";
 
 const BASE = process.env.FINANCE_API_URL ?? "https://deluxy-partner.vercel.app";
@@ -89,7 +90,7 @@ export async function fetchSpeseBanca(f: {
   try {
     const res = await fetch(`${BASE}/api/spese?${qs.toString()}`, {
       headers: { "X-API-Key": key, "X-App": "deluxy-budgets" },
-      cache: "no-store",
+      next: { revalidate: RIVALIDA },
     });
     if (res.status === 401) {
       return { ok: false, configurato: true, errore: "Chiave Finance non valida (401): controlla FINANCE_API_KEY." };
@@ -148,7 +149,7 @@ export async function fetchMovimenti(f: {
   try {
     const res = await fetch(`${BASE}/api/spese?${qs.toString()}`, {
       headers: { "X-API-Key": key, "X-App": "deluxy-budgets" },
-      cache: "no-store",
+      next: { revalidate: RIVALIDA },
     });
     if (!res.ok) return { ok: false, errore: `Finance ha risposto ${res.status}.` };
     const dati = (await res.json()) as { movimenti?: MovimentoBanca[]; totale?: number };
@@ -160,6 +161,48 @@ export async function fetchMovimenti(f: {
     return { ok: true, movimenti: dati.movimenti, totale: dati.totale ?? 0 };
   } catch {
     return { ok: false, errore: "Finance non raggiungibile." };
+  }
+}
+
+// ---------- Il fatturato dell'anno, mese per mese, in UNA chiamata ----------
+//
+// Il conto economico mensile ha bisogno dei dodici mesi. Chiedendoli uno per
+// uno erano **dodici viaggi di rete** a ogni caricamento di pagina, in serie
+// con tutto il resto: è stata la cosa più lenta dell'app. Finance ora sa
+// raggruppare per mese; se risponde con la vecchia forma si torna alle dodici
+// chiamate, invece di mostrare una tabella vuota.
+
+export type FatturatoMensile = { tipologia: string; mesi: number[]; imponibile: number };
+
+export async function fetchConsuntivoMensile(f: {
+  anno: number;
+  dal: number;
+  al: number;
+  stato?: "tutte" | "pagate" | "aperte";
+}): Promise<{ ok: true; tipologie: FatturatoMensile[] } | { ok: false }> {
+  const key = await chiave("FINANCE_API_KEY");
+  if (!key) return { ok: false };
+  const qs = new URLSearchParams({
+    anno: String(f.anno),
+    dal: String(f.dal),
+    al: String(f.al),
+    raggruppa: "mese",
+  });
+  if (f.stato && f.stato !== "tutte") qs.set("stato", f.stato);
+  try {
+    const res = await fetch(`${BASE}/api/tipologie?${qs.toString()}`, {
+      headers: { "X-API-Key": key, "X-App": "deluxy-budgets" },
+      next: { revalidate: RIVALIDA },
+    });
+    if (!res.ok) return { ok: false };
+    const dati = (await res.json()) as { tipologie?: { tipologia: string; mesi?: number[]; imponibile: number }[] };
+    const righe = dati?.tipologie;
+    // La vecchia versione risponde con le stesse chiavi ma **senza** `mesi`:
+    // accorgersene qui evita di sommare dodici zeri e chiamarlo consuntivo.
+    if (!Array.isArray(righe) || righe.some((t) => !Array.isArray(t.mesi))) return { ok: false };
+    return { ok: true, tipologie: righe as FatturatoMensile[] };
+  } catch {
+    return { ok: false };
   }
 }
 
@@ -199,7 +242,7 @@ export async function fetchFatture(f: {
   try {
     const res = await fetch(`${BASE}/api/tipologie?${qs.toString()}`, {
       headers: { "X-API-Key": key, "X-App": "deluxy-budgets" },
-      cache: "no-store",
+      next: { revalidate: RIVALIDA },
     });
     if (!res.ok) return { ok: false, errore: `Finance ha risposto ${res.status}.` };
     const dati = (await res.json()) as { fatture?: FatturaTipologia[]; totale?: number };
@@ -234,7 +277,7 @@ export async function fetchConsuntivo(f: FiltroConsuntivo): Promise<ConsuntivoRe
   try {
     const res = await fetch(`${BASE}/api/tipologie?${qs.toString()}`, {
       headers: { "X-API-Key": key, "X-App": "deluxy-budgets" },
-      cache: "no-store",
+      next: { revalidate: RIVALIDA },
     });
     if (res.status === 401) {
       return { ok: false, configurato: true, errore: "Chiave Finance non valida (401): controlla FINANCE_API_KEY." };

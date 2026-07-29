@@ -17,7 +17,7 @@
 
 import { costoPersonaleMese, leggiVociFinance, type DatiAnno } from "./calc";
 import { caricaCategorie, categoriaDi, ricostruisci } from "./cfo";
-import { fetchConsuntivo, fetchSpeseBanca } from "./finance";
+import { fetchConsuntivo, fetchConsuntivoMensile, fetchSpeseBanca } from "./finance";
 import { normalizzaNome } from "./scout";
 import { fatturatoDaVenduto, QUOTA_STIMATA, quotaMisurata, raggruppa, sommaMesi, type Quota } from "./venduto";
 import { fetchRicaviD2C } from "./orders";
@@ -88,19 +88,27 @@ export async function caricaConsuntivo(
 
   const dal = Math.min(...mesi);
   const al = Math.max(...mesi);
-  // Il fatturato si chiede una volta per il totale e una volta per ogni mese:
-  // l'API di Finance dà il periodo, non la ripartizione mensile. I costi no —
-  // `/api/spese` restituisce già il `perMese` di ogni controparte — e nemmeno
-  // l'ecommerce, che arriva da Orders in dodici caselle.
-  const [fatt, spese, categorie, ordini, fattMese, rettifiche, spesaAdv] = await Promise.all([
+  // Il fatturato si chiede due volte: il totale del periodo e la ripartizione
+  // mensile. Quest'ultima era **una chiamata per mese** — dodici viaggi di rete
+  // a ogni caricamento, la cosa più lenta dell'app — e adesso è una sola, da
+  // quando Finance sa raggruppare per mese. I costi non hanno mai avuto il
+  // problema (`/api/spese` porta già il `perMese` di ogni controparte) e
+  // nemmeno l'ecommerce, che arriva da Orders in dodici caselle.
+  const [fatt, spese, categorie, ordini, mensile, rettifiche, spesaAdv] = await Promise.all([
     fetchConsuntivo({ anno: dati.year, dal, al, stato: "tutte" }),
     fetchSpeseBanca({ anno: dati.year, dal, al }),
     caricaCategorie(),
     fetchRicaviD2C(dati.year),
-    Promise.all(mesi.map((m) => fetchConsuntivo({ anno: dati.year, mese: m, stato: "tutte" }))),
+    fetchConsuntivoMensile({ anno: dati.year, dal, al, stato: "tutte" }),
     caricaRettifiche(dati.year),
     fetchSpesaAdv(dati.year, dal, al),
   ]);
+  // Se Finance non è ancora aggiornato si torna alla vecchia strada, invece di
+  // mostrare un andamento mensile tutto a zero.
+  const fattPerMese = mensile.ok ? mensile : null;
+  const fattMese = fattPerMese
+    ? []
+    : await Promise.all(mesi.map((m) => fetchConsuntivo({ anno: dati.year, mese: m, stato: "tutte" })));
   // L'anno di competenza lo decide questa app: Finance dice quando il denaro si
   // è mosso, le rettifiche dicono a quale esercizio appartiene.
   const eff = effettoSu(rettifiche, dati.year, mesi);
@@ -235,12 +243,18 @@ export async function caricaConsuntivo(
   const advCopertura: CoperturaAdv | null = spesaAdv.ok ? spesaAdv.dati.copertura : null;
 
   const perMese: ConsuntivoMese[] = mesi.map((m, idx) => {
+    // Il fatturato del mese: dalla risposta unica quando Finance sa
+    // raggrupparla, altrimenti dalla chiamata dedicata a quel mese.
     const f = fattMese[idx];
-    const daFinance = f.ok
-      ? f.dati.tipologie
+    const daFinance = fattPerMese
+      ? fattPerMese.tipologie
           .filter((t) => nomiMappati.has(normalizzaNome(t.tipologia)))
-          .reduce((s, t) => s + t.imponibile, 0)
-      : 0;
+          .reduce((s, t) => s + (t.mesi[m - 1] ?? 0), 0)
+      : f && f.ok
+        ? f.dati.tipologie
+            .filter((t) => nomiMappati.has(normalizzaNome(t.tipologia)))
+            .reduce((s, t) => s + t.imponibile, 0)
+        : 0;
     const daEcommerce = vend.ok ? fatturatoDaVenduto(vend.mese[m - 1] ?? 0, quota) : 0;
     const ricaviM = daFinance + daEcommerce + (ricaviRettificaMese[m - 1] ?? 0);
     const cogsM = cogsMese[m - 1] ?? 0;

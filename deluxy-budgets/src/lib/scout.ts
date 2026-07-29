@@ -2,6 +2,7 @@
 // interesse, con sottolinee). Budgets le legge da qui invece di tenerne una
 // copia. Sorgente: Edge Function Supabase `linee` (header x-api-key). La chiave
 // LINEE_API_KEY arriva dalla cassaforte del Hub (o dall'env locale in dev).
+import { RIVALIDA } from "./cache";
 import { chiave } from "./chiavi";
 
 const URL_LINEE =
@@ -34,7 +35,7 @@ export async function fetchLineeScout(opts: { soloAttive?: boolean } = {}): Prom
   try {
     const res = await fetch(`${URL_LINEE}${qs}`, {
       headers: { "x-api-key": key },
-      cache: "no-store",
+      next: { revalidate: RIVALIDA },
     });
     if (res.status === 401) {
       return { ok: false, configurato: true, errore: "Chiave Scout non valida (401)." };

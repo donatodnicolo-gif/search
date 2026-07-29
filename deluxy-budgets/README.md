@@ -331,6 +331,26 @@ contro 42.299 € del 2024, perché dentro «Fornitori fiori e torte» ci sono i
 merce non sono; e il B9 è 217.254 € contro 36.725 €, perché l'anagrafica Dipendenti comprende molto
 più del lavoro dipendente.
 
+## Perché l'app era lenta, e cosa è cambiato (29/07/2026)
+
+Ogni pagina del consuntivo faceva **una chiamata a Finance per ogni mese** — dodici viaggi di rete
+per disegnare l'andamento mensile — e tutte le letture verso le altre app erano `no-store`, quindi
+si rifacevano da capo anche solo passando dal Consuntivo al P&L, che guardano gli stessi numeri.
+Due interventi:
+
+- **Il fatturato mensile arriva in una chiamata sola**: `GET /api/tipologie?raggruppa=mese` su
+  Finance restituisce i dodici mesi di ogni tipologia. Misurato su Gen–Lug: **0,8 s contro 2,4 s**,
+  e soprattutto una query invece di dodici sul server di Finance. Se Finance non è aggiornato si
+  torna da soli alla vecchia strada, invece di mostrare un andamento tutto a zero.
+- **Le letture verso Finance, Orders, Marketing e Scout durano un minuto** (`RIVALIDA` in
+  `src/lib/cache.ts`). Un minuto perché questi conti si muovono quando arriva un movimento in banca
+  o un ordine, non da un secondo all'altro, e nessuna decisione cambia perché un totale è vecchio di
+  sessanta secondi. Le **scritture** non passano di qui: dopo un salvataggio la pagina si ricarica e
+  rilegge.
+
+Verificato che i numeri non cambiano: la somma dei dodici mesi coincide all'euro con l'aggregato del
+periodo (185.949 € su Gen–Lug 2026).
+
 ## Chiavi (cassaforte del Hub)
 
 Le chiavi (`FINANCE_API_KEY`, `ORDERS_API_KEY`, `OPENAI_API_KEY`, …) non stanno nel `.env` di questa app: si
@@ -502,6 +522,10 @@ Tre precisazioni che sono servite per non sbagliare, e che valgono anche la pros
    Se dentro c'è pubblicità Meta il 2025 è sottostimato di quella cifra: serve l'estratto PayPal.
 7. **Manca gennaio–15 luglio 2025 in banca** (Qonto ce l'ha, l'import no; 41.703 € di sola
    pubblicità). Finché manca, ogni confronto 2025 vs 2026 è sbagliato e la quota 2025 non si misura.
+   **Adesso la pagina lo dice anche quando si sceglie il 2025 come anno** (prima l'avviso c'era solo
+   sull'anno di confronto, quindi guardando il 2025 i costi sembravano non calcolati): sui dodici
+   mesi la banca ne copre sei, e margine ed EBITDA di quell'anno sono più belli del vero perché i
+   ricavi valgono dodici mesi e i costi sei.
    **Non si aggiusta qui**: la sync Qonto vive in Finance (`deluxy-partner`), ed è lì che va alzato
    il limite di pagine.
 8. **Google Ads `956-137-8913`** non è censito in Marketing (1.305 € nel 2026).

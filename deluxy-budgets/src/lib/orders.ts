@@ -9,6 +9,7 @@
 // La chiave è un SEGRETO: vive nel .env locale (ORDERS_API_KEY) o nella
 // cassaforte del Hub, mai committata.
 
+import { RIVALIDA } from "./cache";
 import { chiave } from "./chiavi";
 import { normalizzaNome } from "./scout";
 
@@ -62,7 +63,7 @@ export async function fetchRicaviD2C(anno: number, fino?: string): Promise<Ricav
     }
     const res = await fetch(`${BASE}/api/v1/ricavi?${qs.toString()}`, {
       headers: { "x-api-key": key, "X-App": "deluxy-budgets" },
-      cache: "no-store",
+      next: { revalidate: RIVALIDA },
     });
     if (res.status === 401) {
       return { ok: false, configurato: true, errore: "Chiave Orders non valida (401): controlla ORDERS_API_KEY." };

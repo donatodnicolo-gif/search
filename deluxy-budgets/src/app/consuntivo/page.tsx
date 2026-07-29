@@ -237,6 +237,18 @@ export default async function ConsuntivoPage({
   }
   const vociServizi = [...serviziPerCategoria.entries()].sort((a, b) => b[1] - a[1]);
 
+  // ---- Quanto del periodo la banca copre DAVVERO ----
+  // L'avviso sui dati parziali c'era solo per l'anno di confronto. Ma se si
+  // guarda il 2025 come anno *scelto*, i costi vengono da luglio in poi — i
+  // movimenti di gennaio-giugno non sono mai stati importati — e senza dirlo
+  // sembrano semplicemente bassi, o non calcolati. Un costo non misurato e un
+  // costo basso hanno lo stesso aspetto: la differenza la fa questa riga.
+  const mesiConBanca = spese.ok
+    ? mesiPeriodo.filter((m) => (spese.dati.totali.perMese[m - 1] ?? 0) > 0)
+    : [];
+  const mesiSenzaBanca = mesiPeriodo.filter((m) => !mesiConBanca.includes(m));
+  const bancaIncompleta = spese.ok && mesiSenzaBanca.length > 0 && mesiConBanca.length > 0;
+
   // Costi dell'anno prima. **Solo se il dato esiste**: se la banca non ha
   // movimenti per quel periodo il costo non è «zero», è *non misurato* — e uno
   // zero in colonna direbbe che l'anno scorso non si spendeva niente, che è
@@ -497,6 +509,21 @@ export default async function ConsuntivoPage({
               </div>
             </div>
           </div>
+
+          {bancaIncompleta && (
+            <div className="card" style={{ marginBottom: 12, borderColor: "var(--orange)" }}>
+              <strong>I costi di questo periodo coprono {mesiConBanca.length} mesi su {mesiPeriodo.length}.</strong>{" "}
+              In banca non ci sono movimenti per {mesiSenzaBanca.map((m) => MESI[m - 1]).join(", ")}: quei mesi non
+              sono a zero, sono <strong>non misurati</strong>. Costo per servizi, pubblicità e struttura qui sotto
+              valgono {mesiConBanca.length} mesi, mentre ricavi e budget ne valgono {mesiPeriodo.length}, quindi{" "}
+              <strong>il margine e l&apos;EBITDA di questo periodo sono più belli del vero</strong>.
+              <div className="muted" style={{ marginTop: 6 }}>
+                Sul {anno === 2025 ? "2025" : "quell'anno"} il conto Qonto ha i movimenti dal 13/05/2024, ma
+                l&apos;import in Finance parte dal 16/07/2025: si chiude alzando il limite di pagine nella sync di
+                Finance, non qui.
+              </div>
+            </div>
+          )}
 
           <h2 className="section-title">Conto economico — consuntivo vs budget</h2>
           <div className="card tight">
