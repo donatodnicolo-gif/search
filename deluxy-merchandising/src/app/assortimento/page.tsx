@@ -85,18 +85,35 @@ export default async function AssortimentoPage({
           <div className="nota-info">
             <span className="nota-icona">◆</span>
             <span>
-              <b>{percentuale(daClassificare.quota)}</b> del venduto sta in «Da classificare»
-              ({daClassificare.prodottiVenduti} prodotti): finché la categoria non è assegnata, questa pagina
-              può dire poco. Si assegna dalla scheda del prodotto — conviene partire dai più venduti in{" "}
-              <Link href="/classifiche">Classifiche</Link>.
+              <b>{percentuale(daClassificare.quota)}</b> del venduto sta ancora in «Da classificare» come
+              <b> categoria interna</b> ({daClassificare.prodottiVenduti} prodotti): quella lente (in fondo alla
+              pagina) e la linea si riempiono in{" "}
+              <Link href="/classificazione">Imposta categorie e linee</Link>. Nel frattempo le lenti qui sotto —
+              categoria del negozio e fornitore, <b>lette da Shopify</b> — hanno già dati veri.
             </span>
           </div>
         )}
 
+        {/* Prima le lenti importate da Shopify: hanno dati veri anche prima che
+            qualcuno tocchi la categoria interna. */}
         <Tabellone
-          titolo="Per categoria"
-          righe={a.categorie.map((r) => ({ ...r, nome: etichettaCategoria(r.chiave) }))}
-          etichettaGruppo="Categoria"
+          titolo="Per categoria del negozio"
+          righe={a.tipi}
+          etichettaGruppo="Tipo (Shopify)"
+          nota='Il «Tipo» del prodotto letto da Shopify — la categoria del negozio, non dedotta dal titolo.'
+        />
+
+        <Tabellone titolo="Per fornitore" righe={a.fornitori} etichettaGruppo="Fornitore (Shopify vendor)" />
+
+        <Tabellone
+          titolo="Per linea"
+          righe={a.linee}
+          etichettaGruppo="Linea"
+          nota={
+            a.linee.every((r) => r.chiave === "—")
+              ? "Nessuna linea assegnata: si decidono in «Imposta categorie e linee», poi compaiono qui."
+              : undefined
+          }
         />
 
         <Tabellone
@@ -108,6 +125,14 @@ export default async function AssortimentoPage({
               ? `${senzaCollezione.prodottiACatalogo} prodotti non appartengono a nessuna collezione: compaiono nella riga «Senza collezione».`
               : undefined
           }
+        />
+
+        {/* La categoria interna resta in fondo: oggi è quasi tutta «Da
+            classificare», ma una volta assegnata diventa la lente nostra. */}
+        <Tabellone
+          titolo="Per categoria interna"
+          righe={a.categorie.map((r) => ({ ...r, nome: etichettaCategoria(r.chiave) }))}
+          etichettaGruppo="Categoria interna"
         />
       </main>
     </div>

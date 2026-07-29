@@ -623,6 +623,11 @@ export type Assortimento = {
   // I «tipi» sono quelli scritti sul negozio (Shopify productType): finché le
   // categorie interne non sono assegnate, sono l'unica lettura vera.
   tipi: RigaAssortimento[];
+  // Le altre due lenti **importate**: il fornitore (Shopify vendor) e la linea
+  // (decisa da noi). Come i tipi, hanno dati veri anche prima che qualcuno tocchi
+  // la categoria interna, quindi il report ha qualcosa da dire da subito.
+  fornitori: RigaAssortimento[];
+  linee: RigaAssortimento[];
   totale: { pezzi: number; ricavo: number; prodottiVenduti: number };
   senzaCosto: number; // prodotti venduti senza costo di produzione
 };
@@ -661,6 +666,9 @@ export async function analizzaAssortimento(
             nome: true,
             categoria: true,
             tipoShopify: true,
+            vendorShopify: true,
+            lineaId: true,
+            linea: { select: { nome: true } },
             costoProduzione: true,
             collezione: { select: { id: true, nome: true } },
           },
@@ -674,7 +682,16 @@ export async function analizzaAssortimento(
         esclusoDaAnalisi: false,
         ...(canale ? { vendite: { some: { canale } } } : {}),
       },
-      select: { id: true, categoria: true, tipoShopify: true, collezioneId: true, collezione: { select: { nome: true } } },
+      select: {
+        id: true,
+        categoria: true,
+        tipoShopify: true,
+        vendorShopify: true,
+        lineaId: true,
+        linea: { select: { nome: true } },
+        collezioneId: true,
+        collezione: { select: { nome: true } },
+      },
     }),
   ]);
 
@@ -704,7 +721,10 @@ export async function analizzaAssortimento(
   const perCategoria = new Map<string, Acc>();
   const perCollezione = new Map<string, Acc>();
   const perTipo = new Map<string, Acc>();
+  const perFornitore = new Map<string, Acc>();
+  const perLinea = new Map<string, Acc>();
   const senzaCosto = new Set<string>();
+  const nomiLinea = new Map<string, string>();
 
   for (const r of righe) {
     if (!r.prodotto) continue;
@@ -716,11 +736,17 @@ export async function analizzaAssortimento(
     const nomeCol = r.prodotto.collezione?.nome ?? "Senza collezione";
 
     const tipo = r.prodotto.tipoShopify?.trim() || "(senza tipo)";
+    const forn = r.prodotto.vendorShopify?.trim() || "(senza fornitore)";
+    const chiaveLinea = r.prodotto.lineaId ?? "—";
+    const nomeLinea = r.prodotto.linea?.nome ?? "Senza linea";
+    if (r.prodotto.lineaId && r.prodotto.linea) nomiLinea.set(r.prodotto.lineaId, r.prodotto.linea.nome);
 
     for (const [mappa, chiave, nome] of [
       [perCategoria, chiaveCat, chiaveCat],
       [perCollezione, chiaveCol, nomeCol],
       [perTipo, tipo, tipo],
+      [perFornitore, forn, forn],
+      [perLinea, chiaveLinea, nomeLinea],
     ] as const) {
       const a = mappa.get(chiave) ?? nuovo(chiave, nome);
       if (corrente) {
@@ -753,11 +779,18 @@ export async function analizzaAssortimento(
   const catalogoCat = new Map<string, number>();
   const catalogoTipo = new Map<string, number>();
   const catalogoCol = new Map<string, number>();
+  const catalogoForn = new Map<string, number>();
+  const catalogoLinea = new Map<string, number>();
   const nomiCol = new Map<string, string>();
   for (const p of prodotti) {
     catalogoCat.set(p.categoria, (catalogoCat.get(p.categoria) ?? 0) + 1);
     const kt = p.tipoShopify?.trim() || "(senza tipo)";
     catalogoTipo.set(kt, (catalogoTipo.get(kt) ?? 0) + 1);
+    const kf = p.vendorShopify?.trim() || "(senza fornitore)";
+    catalogoForn.set(kf, (catalogoForn.get(kf) ?? 0) + 1);
+    const kl = p.lineaId ?? "—";
+    catalogoLinea.set(kl, (catalogoLinea.get(kl) ?? 0) + 1);
+    if (p.lineaId && p.linea) nomiLinea.set(p.lineaId, p.linea.nome);
     const k = p.collezioneId ?? "—";
     catalogoCol.set(k, (catalogoCol.get(k) ?? 0) + 1);
     if (p.collezioneId && p.collezione) nomiCol.set(p.collezioneId, p.collezione.nome);
@@ -788,6 +821,10 @@ export async function analizzaAssortimento(
   for (const [cat, quanti] of catalogoCat) if (!perCategoria.has(cat)) perCategoria.set(cat, nuovo(cat, cat));
   for (const [col, quanti] of catalogoCol)
     if (!perCollezione.has(col)) perCollezione.set(col, nuovo(col, col === "—" ? "Senza collezione" : nomiCol.get(col) ?? col));
+  for (const [tipo] of catalogoTipo) if (!perTipo.has(tipo)) perTipo.set(tipo, nuovo(tipo, tipo));
+  for (const [forn] of catalogoForn) if (!perFornitore.has(forn)) perFornitore.set(forn, nuovo(forn, forn));
+  for (const [lin] of catalogoLinea)
+    if (!perLinea.has(lin)) perLinea.set(lin, nuovo(lin, lin === "—" ? "Senza linea" : nomiLinea.get(lin) ?? lin));
 
   return {
     finestra: f,
@@ -799,6 +836,12 @@ export async function analizzaAssortimento(
       .sort((a, b) => b.ricavo - a.ricavo),
     tipi: [...perTipo.values()]
       .map((a) => componi(a, catalogoTipo.get(a.chiave) ?? 0))
+      .sort((a, b) => b.ricavo - a.ricavo),
+    fornitori: [...perFornitore.values()]
+      .map((a) => componi(a, catalogoForn.get(a.chiave) ?? 0))
+      .sort((a, b) => b.ricavo - a.ricavo),
+    linee: [...perLinea.values()]
+      .map((a) => componi(a, catalogoLinea.get(a.chiave) ?? 0))
       .sort((a, b) => b.ricavo - a.ricavo),
     totale: {
       pezzi: [...perCategoria.values()].reduce((s, a) => s + a.pezzi, 0),

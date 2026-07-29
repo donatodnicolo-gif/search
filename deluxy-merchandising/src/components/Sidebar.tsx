@@ -125,18 +125,20 @@ export async function Sidebar({
               i prodotti, non in una sezione a parte. */}
           {voce("multi-prodotto", "/multi-prodotto", "prodotti", "Multi prodotto", nComposti || undefined)}
           {voce("anagrafica", "/anagrafica", "anagrafica", "Anagrafica completa")}
-          {/* Il catalogo visto per insieme, come le collezioni: da chi lo fa
-              (fornitore, letto da Shopify) e da che cosa è (categoria). */}
+          {voce("sviluppo", "/sviluppo", "sviluppo", "Sviluppo", nInSviluppo)}
+          {voce("costi", "/costi", "costi", "Costi & margini")}
+        </SbSezione>
+
+        {/* Il catalogo visto per insieme (fornitore, categoria, linea, fascia) e
+            le griglie che incrociano due lenti: è lo stesso mestiere. In fondo la
+            pagina dove quelle lenti si impostano. */}
+        <SbSezione titolo="Il catalogo per insieme">
           {voce("fornitori", "/fornitori", "prodotti", "Per fornitore", fornitori.length)}
           {voce("categorie", "/categorie", "collezioni", "Per categoria", tipi.length)}
           {voce("linee", "/linee", "collezioni", "Per linea", nLinee)}
           {voce("fasce", "/fasce", "costi", "Per fascia di prezzo", nFasce)}
-          {/* Le griglie incrociano due di queste lenti: stanno qui sotto perché
-              è lo stesso mestiere, guardato da due parti insieme. */}
           {voce("griglie", "/griglie", "classifiche", "Griglie")}
-          {voce("classificazione", "/classificazione", "collezioni", "Categorie, linee, collezioni")}
-          {voce("sviluppo", "/sviluppo", "sviluppo", "Sviluppo", nInSviluppo)}
-          {voce("costi", "/costi", "costi", "Costi & margini")}
+          {voce("classificazione", "/classificazione", "impostazioni", "Imposta categorie e linee")}
         </SbSezione>
 
         {/* La vetrina è il visual merchandising e basta. Shopify e i negozi
