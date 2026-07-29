@@ -546,13 +546,35 @@ analisi importate); seconda corsa 0 scritture.
    **`FUNCTION_INVOCATION_TIMEOUT`** (provato) e persino sei mesi su un solo
    account non ce la fanno. Misura vera: **un mese di un account = 3m06s**,
    120 righe, 5 campagne nuove (dicembre 2025).
-   ⚠️ Il collo di bottiglia **non è Meta, è il salvataggio**: 1,5 s per riga
-   sono gli upsert uno-per-uno di `salvaMetriche` (`ingest-metriche.ts:105`,
-   `findFirst` dentro il ciclo) contro un Postgres remoto con
-   `connection_limit=5`. Finché resta così, il backfill si fa un mese per
-   volta e in sequenza — in parallelo si satura il pool.
+   Il collo di bottiglia **non era Meta, era il salvataggio** — ed è stato
+   tolto lo stesso giorno (vedi qui sotto).
    La route `sync/meta` **non ha `maxDuration`** (il cron sì, 60 s): se un
    giorno si vuole allungare la finestra, è lì che va messo.
+
+### L'import non fa più una query per riga (29/07/2026)
+
+`salvaMetriche` faceva una `findFirst` **per ogni riga** per ritrovare la
+campagna: con 30 giorni della stessa campagna erano 29 query che riscoprivano
+ogni volta la stessa cosa, più una `findMany` di tutte le censite ogni volta
+che un nome non combaciava, più un `update` di stato/budget ripetuto a ogni
+riga. Su Postgres remoto con `connection_limit=5` l'attesa di rete era tutto
+il costo dell'import.
+
+Ora le campagne si caricano **una volta sola** in tre mappe (per id, per nome,
+e le censite senza id), gli aggiornamenti di campagna si applicano **una volta
+per campagna** invece che per riga, e gli upsert delle metriche vanno a gruppi
+di **4 in parallelo** — quattro e non cinque: l'ultima connessione resta libera
+per chi sta usando l'app in quel momento.
+
+> ⚠️ **La campagna appena creata va rimessa subito nelle mappe.** Senza, la
+> seconda riga della stessa campagna non la troverebbe e ne creerebbe un'altra:
+> trenta giorni, trenta doppioni. È l'unica insidia della cache, ed è il motivo
+> per cui il codice riscrive `perId`/`perNome`/`senzaId` dopo ogni create.
+
+**Misurato sullo stesso lavoro**, un mese di un account Meta:
+**3m06s → 35s** (120 righe a 1,55 s/riga contro 99 righe a 0,36 s/riga).
+Ne guadagna anche ogni ingest quotidiano di Google, che passa dalla stessa
+funzione.
 1. **Chiave OpenAI** — la sezione `/ai` è pronta ma dirà che serve
    `OPENAI_API_KEY`: va nella cassaforte del Hub (progetto `deluxy-marketing`,
    più `HUB_KEYS_TOKEN` su Vercel) o come variabile su Vercel.

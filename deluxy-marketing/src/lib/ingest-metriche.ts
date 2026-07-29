@@ -88,6 +88,36 @@ export async function salvaMetriche(
     giornoMax: null,
   };
 
+  // ⚠️ Le campagne si caricano UNA volta sola, non una volta per riga.
+  //
+  // Prima qui c'era una `findFirst` dentro il ciclo: con 30 giorni della stessa
+  // campagna erano 29 query per riscoprire ogni volta la stessa cosa, più una
+  // `findMany` di tutte le censite ogni volta che un nome non combaciava. Su un
+  // Postgres remoto con `connection_limit=5` quelle andate e ritorno ERANO il
+  // costo dell'import: misurato 1,5 s per riga, cioè 3 minuti per un mese di un
+  // solo account, e `{giorni:400}` moriva in timeout senza arrivare in fondo.
+  // Meta non c'entrava niente: era questo.
+  const campagne = await prisma.campagna.findMany({ where: { canale } });
+  type Campagna = (typeof campagne)[number];
+  const perId = new Map<string, Campagna>();
+  const perNome = new Map<string, Campagna>();
+  let senzaId: Campagna[] = [];
+  for (const c of campagne) {
+    if (c.idEsterno) perId.set(c.idEsterno, c);
+    else senzaId.push(c);
+    perNome.set(c.nome, c);
+  }
+
+  // Le metriche si accumulano e si scrivono in fondo: due righe per lo stesso
+  // (campagna, giorno) — doppioni nell'invio — si schiacciano qui invece di
+  // diventare due upsert che si sovrascrivono a vicenda.
+  const daScrivere = new Map<string, { campagnaId: string; giorno: Date; valori: Record<string, number | null> }>();
+  // Gli aggiornamenti di stato/budget della campagna valgono per tutta la
+  // campagna, non per il singolo giorno: si applicano una volta sola alla fine.
+  // Prima si eseguiva un update per OGNI riga, cioè 30 update identici per una
+  // campagna con 30 giorni.
+  const daAggiornare = new Map<string, Record<string, unknown>>();
+
   for (const r of righe) {
     if (!r?.idCampagna || !r?.nome || !r?.data) {
       esito.righeScartate++;
@@ -102,14 +132,13 @@ export async function salvaMetriche(
     giorno.setUTCHours(0, 0, 0, 0);
 
     // La campagna si riconosce dall'id di piattaforma; se non c'è, si crea.
-    let campagna = await prisma.campagna.findFirst({ where: { idEsterno, canale } });
+    let campagna: Campagna | null = perId.get(idEsterno) ?? null;
     if (!campagna) {
-      campagna = await prisma.campagna.findFirst({ where: { nome: String(r.nome), canale } });
+      campagna = perNome.get(String(r.nome)) ?? null;
       if (!campagna) {
         const nRiga = normalizza(String(r.nome));
-        const censite = await prisma.campagna.findMany({ where: { canale, idEsterno: null } });
         campagna =
-          censite.find((c) => {
+          senzaId.find((c) => {
             const n = normalizza(c.nome);
             return n.length > 3 && nRiga.length > 3 && (n === nRiga || n.includes(nRiga) || nRiga.includes(n));
           }) ?? null;
@@ -147,16 +176,22 @@ export async function salvaMetriche(
         });
         esito.campagneCreate++;
       }
+      // La campagna appena creata o agganciata entra SUBITO nelle mappe: senza
+      // questo, la seconda riga della stessa campagna non la troverebbe e ne
+      // creerebbe un'altra — trenta giorni, trenta doppioni.
+      perId.set(idEsterno, campagna);
+      perNome.set(campagna.nome, campagna);
+      senzaId = senzaId.filter((c) => c.id !== campagna!.id);
     } else if (r.stato || r.budgetGiornaliero != null || r.strategiaOfferta || r.annunciTotali != null) {
-      await prisma.campagna.update({
-        where: { id: campagna.id },
-        data: {
-          ...(r.stato ? { stato: r.stato } : {}),
-          ...(r.budgetGiornaliero != null ? { budgetGiornaliero: numero(r.budgetGiornaliero) } : {}),
-          ...(r.strategiaOfferta ? { strategiaOfferta: String(r.strategiaOfferta) } : {}),
-          ...(r.annunciTotali != null ? { annunciTotali: intero(r.annunciTotali) } : {}),
-          ...(r.annunciInReview != null ? { annunciInReview: intero(r.annunciInReview) } : {}),
-        },
+      // Non si scrive qui: si annota e si applica una volta sola in fondo.
+      // L'ultimo valore vince, esattamente come quando ogni riga faceva il suo
+      // update — ma con una query invece di trenta.
+      daAggiornare.set(campagna.id, {
+        ...(r.stato ? { stato: r.stato } : {}),
+        ...(r.budgetGiornaliero != null ? { budgetGiornaliero: numero(r.budgetGiornaliero) } : {}),
+        ...(r.strategiaOfferta ? { strategiaOfferta: String(r.strategiaOfferta) } : {}),
+        ...(r.annunciTotali != null ? { annunciTotali: intero(r.annunciTotali) } : {}),
+        ...(r.annunciInReview != null ? { annunciInReview: intero(r.annunciInReview) } : {}),
       });
     }
 
@@ -175,15 +210,34 @@ export async function salvaMetriche(
       persaBudget: quota(r.persaBudget),
       persaRank: quota(r.persaRank),
     };
-    await prisma.metricaCampagna.upsert({
-      where: { campagnaId_data: { campagnaId: campagna.id, data: giorno } },
-      create: { campagnaId: campagna.id, data: giorno, ...valori },
-      update: valori,
-    });
+    daScrivere.set(`${campagna.id}|${giorno.getTime()}`, { campagnaId: campagna.id, giorno, valori });
     esito.metricheSalvate++;
     esito.campagneToccate.add(campagna.id);
     if (esito.giornoMin == null || giorno < esito.giornoMin) esito.giornoMin = giorno;
     if (esito.giornoMax == null || giorno > esito.giornoMax) esito.giornoMax = giorno;
+  }
+
+  for (const [id, dati] of daAggiornare) {
+    await prisma.campagna.update({ where: { id }, data: dati });
+  }
+
+  // Gli upsert restano uno per (campagna, giorno) — non c'è un modo di farne
+  // uno solo — ma vanno a piccoli gruppi invece che in fila indiana: con la
+  // latenza verso Postgres remoto è l'attesa a dominare, non il lavoro.
+  // Quattro per volta e non di più: le connessioni disponibili sono cinque e
+  // la quinta deve restare libera per chi sta usando l'app in quel momento.
+  const LOTTO = 4;
+  const voci = [...daScrivere.values()];
+  for (let i = 0; i < voci.length; i += LOTTO) {
+    await Promise.all(
+      voci.slice(i, i + LOTTO).map((v) =>
+        prisma.metricaCampagna.upsert({
+          where: { campagnaId_data: { campagnaId: v.campagnaId, data: v.giorno } },
+          create: { campagnaId: v.campagnaId, data: v.giorno, ...v.valori },
+          update: v.valori,
+        })
+      )
+    );
   }
 
   return esito;
