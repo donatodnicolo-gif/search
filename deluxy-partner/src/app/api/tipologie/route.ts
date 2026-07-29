@@ -93,6 +93,34 @@ export async function GET(req: NextRequest) {
     perTip.set(k, e);
   }
 
+  // ---- Tutto l'anno mese per mese, in una chiamata sola ----
+  // Chi costruisce un conto economico mensile ha bisogno dei dodici mesi: senza
+  // questo deve chiedere dodici volte lo stesso periodo cambiando `mese`, e
+  // sono dodici viaggi di rete per disegnare una riga di tabella.
+  if ((sp.get("raggruppa") ?? "").toLowerCase() === "mese") {
+    const perTipMese = new Map<string, number[]>();
+    for (const f of fatture) {
+      const k = f.tipologia.nome;
+      const arr = perTipMese.get(k) ?? Array(12).fill(0);
+      arr[f.mese - 1] += f.imponibile;
+      perTipMese.set(k, arr);
+    }
+    return NextResponse.json({
+      anno,
+      periodo: { dal: mese ?? Math.min(dal, al), al: mese ?? Math.max(dal, al) },
+      tipologie: [...perTipMese.entries()].map(([tipologia, mesi]) => ({
+        tipologia,
+        mesi: mesi.map((v) => +v.toFixed(2)),
+        imponibile: +mesi.reduce((a, b) => a + b, 0).toFixed(2),
+      })),
+      totali: {
+        mesi: Array.from({ length: 12 }, (_, i) =>
+          +[...perTipMese.values()].reduce((a, x) => a + x[i], 0).toFixed(2)
+        ),
+      },
+    });
+  }
+
   const totaleImponibile = [...perTip.values()].reduce((a, x) => a + x.imponibile, 0);
   const tipologie = [...perTip.values()]
     .sort((a, b) => b.imponibile - a.imponibile)
