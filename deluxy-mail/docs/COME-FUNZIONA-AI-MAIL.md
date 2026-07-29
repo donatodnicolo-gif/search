@@ -81,6 +81,12 @@ cioè il primo indirizzo dello scambio che non è su un nostro dominio. È così
 un'istruzione tipo «l'azienda deducila dal dominio del mittente o del destinatario»
 può funzionare anche su una mail che abbiamo mandato noi.
 
+**L'azienda è sempre la controparte, anche nelle mail che mandiamo noi.** Se il nome
+o l'indirizzo estratti sono i nostri (succede sulle presentazioni: chi scrive siamo
+noi), vengono **sostituiti con quelli della controparte** — l'indirizzo è quello vero
+dello scambio, e il nome, se manca, si ricava dal dominio (`zimmermann.com` →
+«Zimmermann»).
+
 **Due cose non dipendono dall'AI**, perché qui si scrive in un registro aziendale:
 non si crea mai l'anagrafica di un indirizzo **del nostro dominio**, e non si manda
 niente se dalla mail non è uscito il nome dell'azienda. In quei casi la riga resta

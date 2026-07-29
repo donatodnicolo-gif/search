@@ -3305,7 +3305,8 @@ export async function eseguiInvioApp(
   const utenteId = u.id
   const m = await db.messaggio.findFirst({
     where: { id: messaggioId, utenteId },
-    select: { id: true },
+    // mittente/destinatari servono a ricavare la controparte (vedi sotto).
+    select: { id: true, mittente: true, destinatari: true },
   })
   if (!m) return { ok: false, messaggio: 'Messaggio non trovato.' }
 
@@ -3323,15 +3324,24 @@ export async function eseguiInvioApp(
     return { ok: false, messaggio: 'I dati non sono un JSON valido: correggi e riprova.' }
   }
 
-  const ctx = { utenteEmail: u.email, chiave, nostriDomini: await nostriDomini(utenteId) }
+  const nostri = await nostriDomini(utenteId)
+  const ctx = {
+    utenteEmail: u.email,
+    chiave,
+    nostriDomini: nostri,
+    controparte: controparteDi(m, nostri),
+  }
 
-  // Lo stesso controllo dell'invio automatico: vale anche qui, dove a premere
-  // è una persona — «non registrare noi stessi» non cambia se il tasto lo
-  // schiacci tu. Non si manda, si dice perché, e resta scritto.
-  const motivo = azione.verifica?.(dati, ctx) ?? null
+  // Lo stesso trattamento dell'invio automatico: vale anche qui, dove a
+  // premere è una persona — «non registrare noi stessi» non cambia se il tasto
+  // lo schiacci tu. ⚠️ La normalizzazione NON tocca i dati che l'utente ha
+  // scritto a mano nel modulo: quelli sono già in `dati`, e `normalizza`
+  // interviene solo dove il campo è vuoto o è un nostro indirizzo.
+  const finali = azione.normalizza?.(dati, ctx) ?? dati
+  const motivo = azione.verifica?.(finali, ctx) ?? null
   const esito: EsitoAzione = motivo
     ? { ok: false, messaggio: motivo }
-    : await azione.esegui(dati, ctx)
+    : await azione.esegui(finali, ctx)
 
   try {
     await db.invioApp.create({
@@ -3341,7 +3351,9 @@ export async function eseguiInvioApp(
         azioneId: azione.id,
         esito: motivo ? 'saltato' : esito.ok ? 'ok' : 'errore',
         esitoTesto: esito.messaggio,
-        dati: datiJson.slice(0, 8000),
+        // Si registra ciò che è PARTITO davvero (dopo la normalizzazione), non
+        // quello che era stato proposto.
+        dati: JSON.stringify(finali, null, 2).slice(0, 8000),
         link: esito.link ?? null,
       },
     })

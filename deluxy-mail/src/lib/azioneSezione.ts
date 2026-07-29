@@ -181,26 +181,27 @@ export async function eseguiAzioneSezioneOra(opts: {
     })
   }
 
-  const ctx = { utenteEmail, chiave, nostriDomini: nostri }
+  const ctx = { utenteEmail, chiave, nostriDomini: nostri, controparte }
 
-  // Il controllo dell'azione PRIMA di uscire di casa: se dice di no, non si
-  // manda niente — ma lo si scrive, con il motivo e con i dati che erano stati
-  // preparati. Un invio non fatto e non raccontato è indistinguibile da un
-  // invio fallito.
-  const motivo = azione.verifica?.(dati, ctx) ?? null
+  // Prima la correzione (quel che il codice SA vince su quel che il modello ha
+  // scritto), poi il controllo: se dice di no non si manda niente — ma lo si
+  // scrive, col motivo e coi dati preparati. Un invio non fatto e non
+  // raccontato è indistinguibile da uno fallito.
+  const finali = azione.normalizza?.(dati, ctx) ?? dati
+  const motivo = azione.verifica?.(finali, ctx) ?? null
   if (motivo) {
     return await registra(
       utenteId,
       m.id,
       azione.id,
       { ok: false, messaggio: motivo },
-      JSON.stringify(dati, null, 2),
+      JSON.stringify(finali, null, 2),
       'saltato'
     )
   }
 
-  const esito = await azione.esegui(dati, ctx)
-  return await registra(utenteId, m.id, azione.id, esito, JSON.stringify(dati, null, 2))
+  const esito = await azione.esegui(finali, ctx)
+  return await registra(utenteId, m.id, azione.id, esito, JSON.stringify(finali, null, 2))
 }
 
 async function registra(

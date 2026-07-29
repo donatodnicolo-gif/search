@@ -2,8 +2,10 @@
 // richiamare a partire da una mail. Ogni azione dichiara: lo schema dei dati
 // che l'AI deve estrarre dalla mail, e come eseguire la chiamata HTTP.
 //
-// Regola di prodotto: l'AI PREPARA i dati, l'utente li vede e CONFERMA.
-// Niente parte da solo.
+// Regola di prodotto: l'AI PREPARA i dati e di norma l'utente li vede e
+// CONFERMA. L'unica strada che parte da sola è l'azione agganciata a una
+// sezione in modo «automatico» (vedi azioneSezione.ts), e per questo ogni
+// azione può avere `normalizza` e `verifica`: lì non c'è nessuno a guardare.
 
 import type { RegolaApp } from '@prisma/client'
 import type { ChiaviApp, NomeChiaveApp } from './chiaviApp'
@@ -30,14 +32,45 @@ export const CHIAVE_DI_APP: Record<string, NomeChiaveApp> = {
 
 export type EsitoAzione = { ok: boolean; messaggio: string; link?: string }
 
-/** Contesto passato a un'azione: chi la esegue (header/log), la sua chiave e i
- *  domini delle NOSTRE caselle (per non registrare noi stessi come azienda). */
-export type ContestoAzione = { utenteEmail?: string; chiave: string; nostriDomini?: string[] }
+/** Contesto passato a un'azione: chi la esegue (header/log), la sua chiave, i
+ *  domini delle NOSTRE caselle (per non registrare noi stessi come azienda) e
+ *  l'indirizzo della controparte, già risolto dal codice. */
+export type ContestoAzione = {
+  utenteEmail?: string
+  chiave: string
+  nostriDomini?: string[]
+  controparte?: string | null
+}
 
 /** Il dominio di un indirizzo, minuscolo ('Mario <m@Chanel.com>' → 'chanel.com'). */
 export function dominioDi(indirizzo: string | null | undefined): string {
   const m = String(indirizzo ?? '').match(/@([^\s>,;]+)/)
   return m ? m[1].toLowerCase().replace(/[.>,;]+$/, '') : ''
+}
+
+/** L'etichetta di un dominio: 'mail.deluxy.it' → 'deluxy' (via il penultimo
+ *  pezzo, così i domini di secondo livello tipo '.co.uk' non ingannano). */
+export function etichettaDominio(dominio: string): string {
+  const p = dominio.split('.').filter(Boolean)
+  if (p.length < 2) return dominio
+  const penultimo = p[p.length - 2]
+  // 'azienda.co.uk' → 'azienda' e non 'co'
+  if (['co', 'com', 'net', 'org', 'gov', 'edu'].includes(penultimo) && p.length >= 3)
+    return p[p.length - 3]
+  return penultimo
+}
+
+/** Il nome commerciale ricavato dal dominio: 'zimmermann.com' → 'Zimmermann'.
+ *  È un fatto (sta nell'indirizzo), non un'invenzione: si usa solo quando il
+ *  nome manca o è il nostro. */
+export function nomeDaDominio(dominio: string): string {
+  const e = etichettaDominio(dominio)
+  if (!e) return ''
+  return e
+    .split(/[-_]/)
+    .filter(Boolean)
+    .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
+    .join(' ')
 }
 
 /** Un campo del FORM con cui l'utente controlla i dati prima dell'invio.
@@ -69,6 +102,12 @@ export type AzioneApp = {
   cercaAzienda?: boolean
   /** Guida per l'AI su come compilare i dati. */
   guida: string
+  /**
+   * Correzione dei dati PRIMA della verifica: quello che il codice sa con
+   * certezza vince su quello che ha scritto il modello (es. l'indirizzo della
+   * controparte, che è calcolato, non dedotto).
+   */
+  normalizza?: (dati: Record<string, unknown>, ctx: ContestoAzione) => Record<string, unknown>
   /**
    * Controllo PRIMA di partire: torna il motivo per cui NON si deve mandare,
    * oppure null se si può. Esiste perché certe cose non si possono affidare al
@@ -127,7 +166,7 @@ const AZIONI: AzioneApp[] = [
     descrizione: 'Crea o aggiorna il partner/prospect nel registro centralizzato.',
     colore: 'blue',
     guida:
-      'Estrai i dati anagrafici dell’AZIENDA che scrive (non di Deluxy). nome = ragione sociale o nome commerciale. Se un dato non è nella mail, null: MAI inventare.',
+      'Estrai i dati anagrafici dell’AZIENDA CONTROPARTE: quella con cui parliamo, MAI Deluxy. Se ti è data la CONTROPARTE, l’azienda è la sua — non quella del mittente, che su una mail partita da noi siamo noi. nome = ragione sociale o nome commerciale (in mancanza, il nome dal dominio della controparte). email = l’indirizzo della controparte. Se un dato non è nella mail, null: MAI inventare.',
     // Il form di conferma (al posto del JSON grezzo) e la ricerca dell'azienda
     // già presente in Anagrafiche a cui agganciare il contatto.
     cercaAzienda: true,
@@ -161,6 +200,33 @@ const AZIONI: AzioneApp[] = [
         referenteRuolo: { type: ['string', 'null'] },
         note: { type: ['string', 'null'], description: 'Cosa chiede / contesto utile, in una frase.' },
       },
+    },
+    // ⚠️ Caso reale del 29 luglio: mail di presentazione di Martina (@deluxy.it)
+    // a un contatto @zimmermann.com. Il modello ha estratto «Deluxy» con
+    // l'indirizzo di Martina e ha aggiornato la nostra stessa scheda: la
+    // controparte non era nel prompt, e la guida diceva «di norma il mittente».
+    // Ora l'indirizzo della controparte è CALCOLATO, e qui vince su quello che
+    // ha scritto il modello: quel che si sa non lo si fa dedurre.
+    normalizza(dati, ctx) {
+      const controparte = ctx.controparte ?? null
+      if (!controparte) return dati
+      const nostri = (ctx.nostriDomini ?? []).filter(Boolean)
+      const d = { ...dati }
+
+      const emailScritta = typeof d.email === 'string' ? d.email.trim() : ''
+      const dominioScritto = dominioDi(emailScritta)
+      // Nessuna email, o l'email siamo noi → si mette quella della controparte.
+      if (!emailScritta || nostri.includes(dominioScritto)) d.email = controparte
+
+      // Stesso discorso per il NOME: se manca, o se è il nome di una nostra
+      // azienda (dedotto dal dominio: «deluxy.it» → «Deluxy»), si ricava dal
+      // dominio della controparte — che è un fatto, non un'invenzione.
+      const nomeScritto = String(d.nome ?? '').trim()
+      const nostreEtichette = nostri.map(etichettaDominio)
+      if (!nomeScritto || nostreEtichette.includes(nomeScritto.toLowerCase())) {
+        d.nome = nomeDaDominio(dominioDi(controparte)) || nomeScritto
+      }
+      return d
     },
     // ⚠️ Il registro delle aziende non deve riempirsi di NOI. L'istruzione
     // «i contatti del nostro dominio non vanno creati» scritta nel prompt non
