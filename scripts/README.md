@@ -571,6 +571,17 @@ cd deluxy-scout && HUBSPOT_TOKEN=<token-privato> node scripts/hubspot-setup-prop
 - **Serve**: `HUBSPOT_TOKEN` (HubSpot → Impostazioni → Integrazioni → App private)
 - **Nota**: idempotente — le proprietà già esistenti vengono saltate. Attenzione: qui la variabile si chiama `HUBSPOT_TOKEN`, mentre in `deluxy-anagrafiche` la stessa credenziale si chiama `HUBSPOT_ACCESS_TOKEN`.
 
+### stato-whatsapp.mjs — deluxy-messaging
+Dice **cosa manca perché un numero WhatsApp riceva**: numeri in tabella, credenziali presenti o assenti, ultima chiamata del webhook e — se il token è leggibile — cosa risponde Meta su quei numeri e quali app sono iscritte al WhatsApp Business Account.
+
+```bash
+# dalla radice del repo
+cd deluxy-messaging && node scripts/stato-whatsapp.mjs
+```
+
+- **Serve**: `DATABASE_URL` e `APP_SECRET` nel `.env` dell'app
+- **Nota**: sola lettura, non scrive niente. Dei segreti stampa solo «presente/MANCA». ⚠️ Se l'`APP_SECRET` locale non è quello di Vercel, i token salvati dall'app in produzione risultano **illeggibili** e la parte su Meta non parte: è un disallineamento di ambiente, non un token sbagliato.
+
 ---
 
 ## 5. Asset e documenti
