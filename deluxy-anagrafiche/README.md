@@ -252,6 +252,23 @@ sul partner (`votoD2C`, `numeroFeedbackD2C`, `ultimoFeedbackD2C`,
 
 ## Chiavi API
 
+Si gestiscono dalla pagina **`/chiavi`** dell'app (voce «Chiavi API» in fondo alla
+sidebar): l'elenco di chi chiama il registro — con che tipologia, con che prefisso e
+quando l'ha fatto l'ultima volta — e i comandi che servono: **＋ Nuova chiave**,
+**Permessi** (cambia tipologia), **Rigenera**, **Sospendi/Riattiva**, **Elimina**.
+
+Le **tipologie** sono i mestieri delle chiavi; la lettura è sempre inclusa:
+
+| Tipologia | Cosa aggiunge alla lettura | Chi la usa |
+| --- | --- | --- |
+| Sola lettura | niente | deluxy-suppliers, deluxy-scout, deluxy-messaging |
+| Scrittura piena | POST/PATCH/DELETE dei partner | deluxy-platform, deluxy-partner |
+| Driver di prima parte | solo POST dei partner, ma può dichiarare stato e interessi | deluxy-scout-partner |
+| Archivio referenti | `POST /api/v1/referenti/archivia` | deluxy-scout-referenti |
+| Feedback D2C | `POST /api/v1/feedback` | nessuna, ancora |
+
+Stessa tabella, stesso effetto, anche da terminale:
+
 ```bash
 npm run chiave -- deluxy-platform --scrittura   # lettura + scrittura (solo la piattaforma consegne)
 npm run chiave -- deluxy-partner                # sola lettura
@@ -260,10 +277,11 @@ npm run chiave -- deluxy-scout                  # sola lettura
 npm run chiave -- <app>-feedback --scrittura-feedback  # lettura + invio feedback D2C
 ```
 
-La chiave viene stampata una sola volta: copiarla nel `.env` dell'app client
-(consegnarla per canale privato, mai committarla). Il nome usato qui è la
-**sorgente** che comparirà nella provenienza dei dati e nel ranking di fiducia.
-Rilanciare il comando con lo stesso nome rigenera (e revoca) la chiave.
+La chiave si vede **una volta sola**, alla creazione: copiarla nel `.env` dell'app
+client (consegnarla per canale privato, mai committarla). Il nome è la **sorgente**
+che comparirà nella provenienza dei dati e nel ranking di fiducia: per questo non si
+rinomina, si rigenera. Rigenerare **revoca** la chiave precedente all'istante;
+«Sospendi» è la via reversibile per spegnere un'app senza perdere la traccia.
 
 ## API REST (`/api/v1`)
 

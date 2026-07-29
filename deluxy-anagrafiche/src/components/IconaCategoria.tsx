@@ -140,6 +140,13 @@ const GLIFI: Record<string, React.ReactNode> = {
       <path d="M10 12.5h4" {...TRATTO} />
     </>
   ),
+  // Chiave: accessi delle app alle API
+  CHIAVI: (
+    <>
+      <circle cx="8" cy="8" r="3.5" {...TRATTO} />
+      <path d="m10.5 10.5 8 8M16 15l-2 2M18.5 12.5l-2 2" {...TRATTO} />
+    </>
+  ),
   // Palloncino
   PARTY: (
     <>

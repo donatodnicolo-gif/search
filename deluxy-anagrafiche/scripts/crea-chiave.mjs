@@ -28,11 +28,14 @@ if (!nome) {
 
 const chiave = `dlxk_${randomBytes(24).toString("hex")}`;
 const hash = createHash("sha256").update(chiave).digest("hex");
+// Primi caratteri in chiaro: bastano a riconoscere la chiave nella pagina
+// /chiavi, non a usarla.
+const prefisso = `${chiave.slice(0, 12)}…`;
 
 await prisma.apiKey.upsert({
   where: { nome },
-  create: { nome, hash, scrittura, scritturaReferenti, scritturaPartner, scritturaFeedback },
-  update: { hash, scrittura, scritturaReferenti, scritturaPartner, scritturaFeedback, attiva: true },
+  create: { nome, hash, prefisso, scrittura, scritturaReferenti, scritturaPartner, scritturaFeedback },
+  update: { hash, prefisso, scrittura, scritturaReferenti, scritturaPartner, scritturaFeedback, attiva: true },
 });
 
 const permesso = scrittura

@@ -71,7 +71,10 @@ opzionale `ANAGRAFICHE_APP_PASSWORD` (in locale se assente la UI è aperta).
 - **RichiestaMatch** — storico delle richieste di aggancio (`/api/v1/partners/match`): sistema,
   tipo, esito, confidenza, partner risolto, `risolto`.
 - **PassaggioStato** — storico dei cambi di stato/archivio (da·a·origine·quando).
-- **ApiKey** — chiavi delle app client (solo SHA-256 nel DB).
+- **ApiKey** — chiavi delle app client (solo SHA-256 nel DB): `nome` @unique (= la sorgente nella
+  provenienza), `hash`, i 4 flag di permesso, `attiva`, `creataIl`, `ultimoUso`, e dal 29/07/2026
+  `prefisso` (primi 12 caratteri in chiaro, per riconoscerla in elenco: non basta per autenticarsi)
+  e `note` (a cosa serve). Si gestiscono dalla pagina `/chiavi` o da `npm run chiave`.
 
 ### Regola automatica: chi entra dai fornitori è «Affiliazioni» (26/07/2026)
 Le scritture `POST /api/v1/partners` che arrivano dall'**app di ricerca fornitori** aggiungono
@@ -188,9 +191,30 @@ Ogni scrittura via API è un **merge governato per campo**, mai una sostituzione
   `aggiornaPartner` chiama `propagaDatiFinanziari` che li copia su tutte le sedi (updateMany).
   Compili una volta su una sede → valgono per Milano/Roma/Capri. NON condivisi: ragioneSociale,
   indirizzo, città, telefono/email, stato, interessi, referenti (restano per-sede).
+- **`/chiavi`** — **gestione delle chiavi API dalla UI (29/07/2026)**: chi chiama il registro, con
+  che permessi, quando l'abbiamo visto l'ultima volta. Prima si potevano creare solo da terminale
+  (`npm run chiave`): ora si **aggiungono, si tolgono e si cambia loro tipologia** senza terminale,
+  con lo stesso effetto sul database (nel DB resta solo lo SHA-256).
+  - **Tipologie** (`src/lib/chiavi.ts`, catalogo unico): Sola lettura · Scrittura piena · Driver di
+    prima parte (upsert partner) · Archivio referenti · Feedback D2C · Personalizzata. La tipologia
+    **è il nome della combinazione di permessi**, non una colonna: le pillole spuntano i permessi
+    giusti, sotto restano i 4 singoli ambiti (con endpoint e spiegazione) perché è lì che si decide
+    davvero. La **lettura è implicita** su ogni chiave attiva.
+  - **Azioni**: ＋ Nuova chiave (mostra il valore in chiaro **una volta sola**, con Copia) ·
+    Permessi (cambia tipologia e nota) · Rigenera (ruota l'hash: la vecchia smette di valere
+    all'istante) · Sospendi/Riattiva (reversibile, `attiva=false` → 401) · Elimina (definitiva).
+    Rigenera ed Elimina chiedono conferma.
+  - **Nome normalizzato** («Prova Chiavi UI» → `prova-chiavi-ui`): è anche la **sorgente** nella
+    provenienza e nel ranking del merge, quindi non si rinomina — si crea/rigenera.
+  - Colonne nuove su `ApiKey`: `prefisso` (primi 12 caratteri in chiaro, solo per riconoscerla in
+    elenco) e `note` (a cosa serve). Le chiavi create prima d'ora hanno `prefisso` nullo → in
+    elenco «prefisso ignoto (chiave creata da terminale)»; rigenerandole lo prendono.
+  - **Attenzione**: la UI è protetta dalla sola password condivisa dell'app, e da qui si creano
+    chiavi di scrittura piena → quella password vale quanto le chiavi. Con il login dall'Hub
+    (§7) andrebbe ristretta agli admin.
 - **Sidebar** a sezioni espandibili (Registro·Tipologie·**Stati commerciali·Stati finanziari·Stati
-  analisi**·Interessi·Archivio·Identità aziende), con i conteggi per ogni stato, toggle a
-  scomparsa (☰), preferenze in localStorage.
+  analisi**·Interessi·Archivio·Identità aziende·**Impostazioni → Chiavi API**), con i conteggi per
+  ogni stato, toggle a scomparsa (☰), preferenze in localStorage.
 
 ## 5. API (base `https://deluxy-anagrafiche.vercel.app`)
 
@@ -218,10 +242,12 @@ scrittura si accettano tutti e quattro i nomi; `statoAnalisi` accetta anche "P.P
 "Dismesso" di FINANCE. Ogni cambio finisce in `PassaggioStato` (prefissi `fin:` / `ana:`,
 resi leggibili da `nomeEventoStato`).
 
-**Chiavi**: una per app, in `<app>/.env` (gitignored), mai committare i valori. Rigenera con
-`npm run chiave -- <nome-app> [--scrittura]` (stampa la chiave una volta; nel DB solo l'hash;
-la upsert è per `nome`, quindi rigenerare **ruota** l'hash: la vecchia chiave smette di valere).
-Scope chiavi (4 oltre la sola lettura):
+**Chiavi**: una per app, in `<app>/.env` (gitignored), mai committare i valori. Si gestiscono
+dalla pagina **`/chiavi`** (crea/rigenera/sospendi/elimina, cambio di tipologia) oppure da
+terminale con `npm run chiave -- <nome-app> [--scrittura]` — stessa tabella, stesso effetto
+(stampa la chiave una volta; nel DB solo l'hash; la upsert è per `nome`, quindi rigenerare
+**ruota** l'hash: la vecchia chiave smette di valere).
+Scope chiavi (4 oltre la sola lettura; catalogo leggibile in `src/lib/chiavi.ts`):
 - **`scrittura`** — partner completo, PATCH/DELETE inclusi (deluxy-platform, deluxy-partner).
 - **`scritturaPartner`** (`--scrittura-partner`, es. `deluxy-scout-partner`) — **solo `POST /partners`**
   (no PATCH/DELETE → 403) E può impostare **stato/interessi** (driver di prima parte: Scout dichiara
@@ -233,7 +259,8 @@ Scope chiavi (4 oltre la sola lettura):
 - **`scritturaFeedback`** (`--scrittura-feedback`) — solo `POST /feedback`: manda i giudizi dei
   clienti finali senza poter toccare il golden record. `autentica(req, {feedback:true})` passa
   con scrittura piena O feedback. **Nessuna app ha ancora questa chiave**: si genera quando si
-  decide chi raccoglie i feedback (candidato naturale: Deluxy Customer Service).
+  decide chi raccoglie i feedback (candidato naturale: Deluxy Customer Service) — da `/chiavi`
+  bastano due click, tipologia «Feedback D2C».
 Le app con chiave: `deluxy-platform` (scrittura), **`deluxy-partner` (scrittura dal 20/07/2026**,
 ruotata da lettura → la vecchia read key non vale più, aggiornare `ANAGRAFICHE_API_KEY` in
 deluxy-partner sia per lettura che scrittura), `deluxy-suppliers`, `deluxy-scout` (lettura). Il
@@ -307,8 +334,10 @@ trovano un match nel registro. Lato registro misurato: 578 attivi, 316 boutique,
    (deciso il 26/07/2026): niente recensioni pubbliche, niente moduli al cliente finale. Oggi
    si registrano a mano dalla scheda; manca **collegare le app interne** — il candidato è
    Deluxy Customer Service (un reclamo chiuso con colpa al partner → un feedback), poi la
-   piattaforma consegne. Serve la chiave `--scrittura-feedback` e la chiamata
-   `POST /api/v1/feedback` con `riferimento`+`idEsterno`+`autore`.
+   piattaforma consegne. Serve una chiave di tipologia **«Feedback D2C»** (da `/chiavi` o
+   `npm run chiave -- <nome> --scrittura-feedback`) e la chiamata `POST /api/v1/feedback` con
+   `riferimento`+`idEsterno`+`autore`. **La chiave non è ancora stata generata**: si genera
+   quando si decide chi la usa, così non resta in giro una chiave di scrittura inutilizzata.
    Da valutare poi: se la valutazione debba entrare nella scelta del partner in fase di
    smistamento (oggi è solo informativa) e se serva una regola che sospende un partner critico.
 6. **deluxy-partner**: ha già `anagraficaId` e join per id (fatto). Le altre app (suppliers,

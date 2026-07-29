@@ -255,6 +255,10 @@ model ApiKey {
   id        String    @id @default(cuid())
   nome      String    @unique // app client: deluxy-platform, deluxy-partner, ...
   hash      String    @unique // sha256 esadecimale della chiave
+  // Primi caratteri della chiave in chiaro ("dlxk_a1b2c3…"): non basta per
+  // autenticarsi, serve a riconoscere quale chiave si ha in mano nell'elenco.
+  prefisso  String?
+  note      String? // a cosa serve / in quale .env vive (testo libero, per chi la gestisce)
   scrittura Boolean   @default(false) // true = può creare/modificare/disattivare il partner (PATCH/DELETE inclusi)
   scritturaReferenti Boolean @default(false) // true = può solo archiviare i referenti (scope ristretto, es. Scout)
   scritturaFeedback  Boolean @default(false) // true = può solo inviare feedback D2C (scope ristretto, es. Customer Service)

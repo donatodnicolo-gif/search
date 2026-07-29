@@ -32,6 +32,7 @@ export async function Sidebar({
   riconciliazioneAttiva = false,
   riconciliazioniAttive = false,
   identitaAttiva = false,
+  chiaviAttive = false,
 }: {
   categoriaAttiva?: string | null;
   statoAttivo?: string | null;
@@ -46,6 +47,7 @@ export async function Sidebar({
   riconciliazioneAttiva?: boolean;
   riconciliazioniAttive?: boolean;
   identitaAttiva?: boolean;
+  chiaviAttive?: boolean;
 }) {
   const [
     categorie,
@@ -81,6 +83,8 @@ export async function Sidebar({
   // dai referenti qui sopra: lì si assegna una persona, qui si sceglie fra due
   // valori dello stesso campo).
   const disaccordi = await prisma.riconciliazione.count({ where: { stato: "aperta" } });
+  // Chiavi che oggi autenticano davvero: le sospese non si contano.
+  const chiaviAttiveConteggio = await prisma.apiKey.count({ where: { attiva: true } });
   const totale = categorie.reduce((somma, c) => somma + c._count._all, 0);
   const perStato = new Map(statiConteggio.map((s) => [s.stato, s._count._all]));
   const perStatoFinanziario = new Map(statiFinanziariConteggio.map((s) => [s.statoFinanziario, s._count._all]));
@@ -88,7 +92,7 @@ export async function Sidebar({
   const perInteresse = new Map(interessiConteggio.map((i) => [i.interesse, Number(i.totale)]));
 
   const globaleAttiva =
-    !categoriaAttiva && !statoAttivo && !statoFinanziarioAttivo && !statoAnalisiAttivo && !interesseAttivo && !archivioAttivo && !hubspotAttivo && !dashboardAttiva && !matchAttivo && !contattiAttiva && !riconciliazioneAttiva && !identitaAttiva;
+    !categoriaAttiva && !statoAttivo && !statoFinanziarioAttivo && !statoAnalisiAttivo && !interesseAttivo && !archivioAttivo && !hubspotAttivo && !dashboardAttiva && !matchAttivo && !contattiAttiva && !riconciliazioneAttiva && !identitaAttiva && !chiaviAttive;
 
   return (
     <aside className="sidebar">
@@ -225,6 +229,14 @@ export async function Sidebar({
             <span className="sb-icona"><IconaCategoria categoria="MATCH" /></span>
             <span className="sb-nome">Riconciliazioni dati</span>
             {disaccordi > 0 && <span className="sb-count">{disaccordi}</span>}
+          </a>
+        </SbSezione>
+
+        <SbSezione titolo="Impostazioni">
+          <a className={`sb-item${chiaviAttive ? " attiva" : ""}`} href="/chiavi">
+            <span className="sb-icona"><IconaCategoria categoria="CHIAVI" /></span>
+            <span className="sb-nome">Chiavi API</span>
+            <span className="sb-count">{chiaviAttiveConteggio}</span>
           </a>
         </SbSezione>
       </nav>
