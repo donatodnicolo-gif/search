@@ -371,8 +371,20 @@ model CollezioneShopify {
   seoTitolo       String?
   seoDescrizione  String?
   modelloTema     String? // templateSuffix: quale layout usa il tema
+  // È pubblicata sul negozio online, cioè la vedono i clienti? Letto da Shopify
+  // (publishedOnPublication sull'Online Store). Visual mostra solo queste: una
+  // collezione non pubblicata non è "in scena".
+  pubblicataShopify Boolean @default(false)
   aggiornataShopifyIl DateTime?
   // — Quello che decidiamo qui (Shopify non lo sa) —
+  // La regola con cui l'app propone l'ordine dei prodotti in vetrina (best
+  // seller, novità, margine, prezzo…), da src/lib/ordinamento-vetrina.ts. È
+  // solo il punto di partenza: dopo si ritocca a mano. "manuale" = nessuna regola.
+  regolaOrdinamento String?
+  // Quando l'ordine curato qui è stato cambiato l'ultima volta e quando è stato
+  // spinto su Shopify: se il primo è più recente del secondo, c'è da sincronizzare.
+  ordineModificatoIl DateTime?
+  ordineSpintoIl     DateTime?
   // Dove si usa questa collezione: vetrina, home, menu, campagne… Più valori,
   // separati da virgola, dal catalogo in src/lib/collezioni.ts.
   posizioni       String?
@@ -395,8 +407,15 @@ model ProdottoInCollezioneShopify {
   collezione   CollezioneShopify @relation(fields: [collezioneId], references: [id], onDelete: Cascade)
   prodottoId   String
   prodotto     Prodotto          @relation(fields: [prodottoId], references: [id], onDelete: Cascade)
+  // L'ordine curato del prodotto dentro questa collezione: è quello che si
+  // spinge su Shopify (collectionReorderProducts). 0 finché non lo si ordina.
+  posizione    Int               @default(0)
+  // Il GID Shopify del prodotto su questo negozio (gid://shopify/Product/…):
+  // serve per riordinare su Shopify, che ragiona per id suoi. Salvato all'import.
+  prodottoShopifyId String?
 
   @@unique([collezioneId, prodottoId])
+  @@index([collezioneId, posizione])
   @@index([prodottoId])
 }
 

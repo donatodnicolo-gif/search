@@ -119,18 +119,44 @@ type CollezioneShopifyApi = {
     appliedDisjunctively: boolean;
     rules: { column: string; relation: string; condition: string }[];
   } | null;
+  // È pubblicata sul negozio online (la vedono i clienti)? Alias `pubblicata`:
+  // dietro c'è publishedOnPublication(Online Store) o, se non troviamo quella
+  // pubblicazione, publishedOnCurrentPublication.
+  pubblicata: boolean | null;
 };
 
-/** Tutte le collezioni del negozio, pagina per pagina. */
-async function leggiCollezioni(n: Negozio): Promise<CollezioneShopifyApi[]> {
+/**
+ * L'id della pubblicazione "Online Store", cioè la vetrina che vedono i clienti.
+ * Serve per sapere se una collezione è davvero pubblicata sul sito e non solo
+ * esistente. Se non la troviamo (negozio senza Online Store, o permessi che non
+ * la mostrano) si torna null e l'import userà `publishedOnCurrentPublication`.
+ */
+async function trovaOnlineStore(n: Negozio): Promise<string | null> {
+  try {
+    const dati: { publications: { nodes: { id: string; name: string }[] } } = await graphql(
+      n,
+      `query { publications(first: 20) { nodes { id name } } }`
+    );
+    const os = dati.publications.nodes.find((p) => /online store/i.test(p.name));
+    return os?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Tutte le collezioni del negozio, pagina per pagina, col loro stato di pubblicazione. */
+async function leggiCollezioni(n: Negozio, osId: string | null): Promise<CollezioneShopifyApi[]> {
   const fuori: CollezioneShopifyApi[] = [];
+  const campoPubblicata = osId
+    ? "pubblicata: publishedOnPublication(publicationId: $osId)"
+    : "pubblicata: publishedOnCurrentPublication";
   let cursore: string | null = null;
   for (let pagina = 0; pagina < 40; pagina++) {
     const dati: {
       collections: { pageInfo: { hasNextPage: boolean; endCursor: string }; nodes: CollezioneShopifyApi[] };
     } = await graphql(
       n,
-      `query($cursore: String) {
+      `query($cursore: String${osId ? ", $osId: ID!" : ""}) {
          collections(first: 100, after: $cursore) {
            pageInfo { hasNextPage endCursor }
            nodes {
@@ -138,10 +164,11 @@ async function leggiCollezioni(n: Negozio): Promise<CollezioneShopifyApi[]> {
              sortOrder templateSuffix updatedAt
              seo { title description }
              ruleSet { appliedDisjunctively rules { column relation condition } }
+             ${campoPubblicata}
            }
          }
        }`,
-      { cursore }
+      osId ? { cursore, osId } : { cursore }
     );
     fuori.push(...dati.collections.nodes);
     if (!dati.collections.pageInfo.hasNextPage) break;
@@ -208,7 +235,8 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
   };
 
   try {
-    const [collezioni, prodottiShopify] = await Promise.all([leggiCollezioni(n), leggiProdotti(n)]);
+    const osId = await trovaOnlineStore(n);
+    const [collezioni, prodottiShopify] = await Promise.all([leggiCollezioni(n, osId), leggiProdotti(n)]);
     base.collezioniLette = collezioni.length;
     base.prodottiLetti = prodottiShopify.length;
 
@@ -231,6 +259,7 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
           seoTitolo: c.seo?.title ?? null,
           seoDescrizione: c.seo?.description ?? null,
           modelloTema: c.templateSuffix ?? null,
+          pubblicataShopify: c.pubblicata ?? false,
           aggiornataShopifyIl: c.updatedAt ? new Date(c.updatedAt) : null,
         },
         update: {
@@ -245,7 +274,11 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
           seoTitolo: c.seo?.title ?? null,
           seoDescrizione: c.seo?.description ?? null,
           modelloTema: c.templateSuffix ?? null,
+          pubblicataShopify: c.pubblicata ?? false,
           aggiornataShopifyIl: c.updatedAt ? new Date(c.updatedAt) : null,
+          // I campi nostri (regolaOrdinamento, ordine*, posizioni, stato, note,
+          // inCampagne) NON si toccano: li decide una persona, un import non li
+          // sovrascrive.
         },
       });
       idLocale.set(c.id, riga.id);
@@ -261,7 +294,7 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
     const perNome = new Map(nostri.map((p) => [normalizza(p.nome), p.id]));
 
     // — Le appartenenze, e quello che Shopify sa del prodotto —
-    const legami: { collezioneId: string; prodottoId: string }[] = [];
+    const legami: { collezioneId: string; prodottoId: string; prodottoShopifyId: string; posizione: number }[] = [];
     const daAggiornare: { id: string; tipoShopify: string | null; categoriaShopifyId: string | null; categoriaShopifyNome: string | null; vendorShopify: string | null; tagShopify: string | null; handleShopify: string }[] = [];
     for (const p of prodottiShopify) {
       let nostroId: string | undefined;
@@ -286,7 +319,9 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
       }
       for (const c of p.collections.nodes) {
         const collezioneId = idLocale.get(c.id);
-        if (collezioneId) legami.push({ collezioneId, prodottoId: nostroId });
+        // La posizione curata si recupera più sotto, dopo aver riletto quella
+        // esistente: qui si mette 0 come segnaposto.
+        if (collezioneId) legami.push({ collezioneId, prodottoId: nostroId, prodottoShopifyId: p.id, posizione: 0 });
       }
 
       // Il tipo prodotto lo scrive chi cura il negozio: è un dato, non una
@@ -305,9 +340,17 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
 
     // Si riscrive l'appartenenza di questo negozio: un prodotto tolto da una
     // collezione su Shopify deve sparire anche qui, altrimenti l'app racconta
-    // una vetrina che non esiste più.
+    // una vetrina che non esiste più. Ma **l'ordine curato non si perde**: prima
+    // di cancellare si legge la posizione già decisa (collezione+prodotto) e la
+    // si riporta sui legami che restano; i prodotti nuovi entrano a 0.
     const idCollezioniNegozio = [...idLocale.values()];
     if (idCollezioniNegozio.length > 0) {
+      const esistenti = await prisma.prodottoInCollezioneShopify.findMany({
+        where: { collezioneId: { in: idCollezioniNegozio } },
+        select: { collezioneId: true, prodottoId: true, posizione: true },
+      });
+      const posizionePrec = new Map(esistenti.map((e) => [`${e.collezioneId}|${e.prodottoId}`, e.posizione]));
+      for (const l of legami) l.posizione = posizionePrec.get(`${l.collezioneId}|${l.prodottoId}`) ?? 0;
       await prisma.prodottoInCollezioneShopify.deleteMany({
         where: { collezioneId: { in: idCollezioniNegozio } },
       });

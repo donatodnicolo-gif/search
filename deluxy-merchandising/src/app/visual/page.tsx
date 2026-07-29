@@ -1,26 +1,41 @@
+import Link from "next/link";
 import { Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
-import { creaVetrina } from "@/lib/azioni";
-import { etichettaStagione } from "@/lib/dominio";
-import Link from "next/link";
+import { etichettaRegola } from "@/lib/ordinamento-vetrina";
 
 export const dynamic = "force-dynamic";
 
-const TIPI: [string, string][] = [
-  ["vetrina", "Vetrina"],
-  ["lookbook", "Lookbook"],
-  ["homepage", "Homepage"],
-  ["capsule", "Capsule"],
-];
-
-export default async function VisualPage() {
-  const [vetrine, pianiBozza] = await Promise.all([
-    prisma.vetrina.findMany({
-      orderBy: { creataIl: "desc" },
+// Visual merchandising = curare **le collezioni vere del negozio**, non
+// allestimenti inventati qui. Si mostrano solo quelle **pubblicate su Shopify**
+// (le vedono i clienti): una collezione non pubblicata non è in scena. Per ognuna
+// si sceglie una regola d'ordine, si ritocca a mano e si spinge l'ordine al
+// negozio.
+export default async function VisualPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ esito?: string; messaggio?: string }>;
+}) {
+  const sp = await searchParams;
+  const [collezioni, totali, pubblicate, pianiBozza] = await Promise.all([
+    prisma.collezioneShopify.findMany({
+      where: { pubblicataShopify: true },
+      orderBy: [{ negozio: "asc" }, { titolo: "asc" }],
       include: { _count: { select: { prodotti: true } } },
     }),
+    prisma.collezioneShopify.count(),
+    prisma.collezioneShopify.count({ where: { pubblicataShopify: true } }),
     prisma.pianoRiordino.count({ where: { stato: "bozza" } }),
   ]);
+
+  const perNegozio = new Map<string, typeof collezioni>();
+  for (const c of collezioni) {
+    const arr = perNegozio.get(c.negozio) ?? [];
+    arr.push(c);
+    perNegozio.set(c.negozio, arr);
+  }
+
+  const daSincronizzare = (c: (typeof collezioni)[number]) =>
+    c.ordineModificatoIl != null && (c.ordineSpintoIl == null || c.ordineModificatoIl > c.ordineSpintoIl);
 
   return (
     <div className="layout">
@@ -29,69 +44,87 @@ export default async function VisualPage() {
         <div className="page-head">
           <div>
             <h1 className="page-title">Visual merchandising</h1>
-            <p className="page-sub">Gli allestimenti: vetrine, lookbook e capsule in cui il prodotto viene messo in scena, in un ordine curato.</p>
+            <p className="page-sub">
+              Le collezioni <b>pubblicate sul negozio</b>: per ognuna scegli una regola d'ordine, la ritocchi a mano
+              e la mandi a Shopify uguale a come la vedi qui.
+            </p>
           </div>
-          {/* L'ipotesi di ordinativo non ha più una voce di menu propria: si
-              apre da qui, perché mettere un prodotto in vetrina e assicurarsi
-              di averlo sono la stessa decisione a due minuti di distanza. */}
           <Link className="btn btn-secondario" href="/riordini">
             Ipotesi di ordinativo{pianiBozza > 0 ? ` · ${pianiBozza} in bozza` : ""}
           </Link>
         </div>
 
-        <div className="due-colonne">
-          <div>
-            {vetrine.length === 0 ? (
-              <div className="vuoto">Nessun allestimento. Creane uno dal modulo a fianco.</div>
-            ) : (
-              <div className="griglia-collezioni">
-                {vetrine.map((v) => (
-                  <Link key={v.id} href={`/visual/${v.id}`} className="card-collezione">
-                    <div className="card-cover">
-                      <span className="card-cover-stagione">{v.tipo}{v.stagione ? ` · ${etichettaStagione(v.stagione)}` : ""}</span>
-                    </div>
-                    <div className="card-corpo">
-                      <span className="card-nome">{v.nome}</span>
-                      <p className="card-tema">{v.descrizione ?? "—"}</p>
-                      <div className="card-meta">
-                        <span className="card-meta-num"><b>{v._count.prodotti}</b> prodotti in scena</span>
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
+        {sp.messaggio && (
+          <div className={`nota-info${sp.esito === "errore" ? " nota-errore" : ""}`}>
+            <span className="nota-icona">{sp.esito === "errore" ? "△" : "◆"}</span>
+            <span>{sp.messaggio}</span>
           </div>
+        )}
 
-          <form action={creaVetrina}>
-            <div className="scheda">
-              <div className="scheda-titolo">Nuovo allestimento</div>
-              <div className="modulo" style={{ gridTemplateColumns: "1fr" }}>
-                <div className="campo-modulo">
-                  <label>Nome <span className="obbligatorio">*</span></label>
-                  <input name="nome" required placeholder="Vetrina Flagship — Ora Blu" />
+        {collezioni.length === 0 ? (
+          <div className="vuoto">
+            <p>Nessuna collezione <b>pubblicata sul negozio</b> da mettere in scena.</p>
+            <p className="page-sub" style={{ marginTop: 8 }}>
+              {totali === 0
+                ? "Non ci sono collezioni importate: importale da "
+                : `Ci sono ${totali} collezioni importate ma nessuna risulta pubblicata sul negozio online. Lo stato di pubblicazione si legge solo rifacendo l'import da `}
+              <Link href="/collezioni">Collezioni → Importa da Shopify</Link>. «Attive» qui vuol dire pubblicate sul
+              negozio, cioè visibili ai clienti.
+            </p>
+          </div>
+        ) : (
+          <>
+            <p className="page-sub" style={{ marginBottom: 16 }}>
+              {pubblicate} collezioni pubblicate su {totali} importate.
+            </p>
+            {[...perNegozio.entries()].map(([negozio, lista]) => (
+              <div key={negozio} style={{ marginBottom: 28 }}>
+                <div className="scheda-titolo" style={{ marginBottom: 12 }}>
+                  {negozio} · {lista.length}
                 </div>
-                <div className="campo-modulo">
-                  <label>Tipo</label>
-                  <select name="tipo" defaultValue="vetrina">
-                    {TIPI.map(([v, l]) => (<option key={v} value={v}>{l}</option>))}
-                  </select>
-                </div>
-                <div className="campo-modulo">
-                  <label>Stagione</label>
-                  <input name="stagione" placeholder="SS26" />
-                </div>
-                <div className="campo-modulo">
-                  <label>Descrizione</label>
-                  <textarea name="descrizione" rows={2} />
+                <div className="griglia-collezioni">
+                  {lista.map((c) => (
+                    <Link key={c.id} href={`/visual/${c.id}`} className="card-collezione">
+                      <div className="card-cover">
+                        {c.immagine ? (
+                          <img src={c.immagine} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                        ) : (
+                          <span className="card-cover-stagione">{c.tipo === "automatica" ? "Automatica" : "Manuale"}</span>
+                        )}
+                      </div>
+                      <div className="card-corpo">
+                        <span className="card-nome">{c.titolo}</span>
+                        <p className="card-tema">
+                          Ordine: {etichettaRegola(c.regolaOrdinamento)}
+                          {c.tipo === "automatica" ? " · automatica (smart)" : ""}
+                        </p>
+                        <div className="card-meta">
+                          <span className="card-meta-num">
+                            <b>{c._count.prodotti}</b> prodotti qui
+                          </span>
+                          {daSincronizzare(c) && (
+                            <span
+                              style={{
+                                fontSize: 11,
+                                fontWeight: 600,
+                                color: "var(--orange)",
+                                background: "color-mix(in srgb, var(--orange) 12%, transparent)",
+                                padding: "2px 8px",
+                                borderRadius: 999,
+                              }}
+                            >
+                              da sincronizzare
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
                 </div>
               </div>
-              <div className="azioni-modulo">
-                <button type="submit" className="btn">Crea</button>
-              </div>
-            </div>
-          </form>
-        </div>
+            ))}
+          </>
+        )}
       </main>
     </div>
   );
