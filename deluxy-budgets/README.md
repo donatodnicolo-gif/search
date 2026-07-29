@@ -452,7 +452,15 @@ Tre precisazioni che sono servite per non sbagliare, e che valgono anche la pros
 
 ## Punti aperti (29/07/2026)
 
-1. **La quota Deluxy misurata è scesa al 28,4%** (434.310 € girati ai partner su 606.919 di venduto)
+1. ⚠️ **La quota Deluxy misurata è scesa al 25,9% su Gen–Giu 2026** (382.801 € girati ai partner su
+   516.517 € di venduto) — era 39,1% prima delle classificazioni del 29/07/2026. **Ogni fiorista che
+   si riconosce abbassa la quota**, e siccome la quota moltiplica il venduto per fare i ricavi
+   ecommerce del consuntivo, l'effetto sul P&L è grosso: sui mesi chiusi i ricavi ecommerce valgono
+   **133.716 €** contro i 206.607 € che darebbe il 40% stimato — **73.000 € di differenza**. La
+   misura è più onesta della stima, ma **è un limite inferiore**: quei pagamenti comprendono anche i
+   fioristi degli ordini B2B ed eventi, che non si dividono per il venduto Shopify. Prima era un
+   punto aperto teorico, ora sposta il conto economico: serve l'aggancio pagamento → ordine → canale.
+   (Sull'anno intero la quota misurata è **28,4%**: 434.310 € su 606.919 di venduto.)
    ed è **distorta verso il basso**: quei pagamenti comprendono i fioristi degli ordini **B2B ed
    eventi**, che non si dividono per il venduto Shopify. Serve l'aggancio pagamento → ordine →
    canale. Finché manca, il 29% è un limite inferiore, non la misura.
