@@ -87,6 +87,15 @@ noi), vengono **sostituiti con quelli della controparte** — l'indirizzo è que
 dello scambio, e il nome, se manca, si ricava dal dominio (`zimmermann.com` →
 «Zimmermann»).
 
+**Stato commerciale e linee di interesse** vengono letti dalla mail insieme al resto:
+chi chiede un preventivo o dei prezzi diventa *in trattativa*, chi parla di regali
+aziendali prende la linea *Gifting*. I valori sono **chiusi** — gli otto stati e le
+nove linee del registro — e quello che non è in catalogo si butta: uno stato inventato
+farebbe rifiutare l'intera richiesta, una linea inventata sporcherebbe Anagrafiche.
+⚠️ Anagrafiche però tiene stato e interessi **curati dal team**: li applica solo se la
+chiave dell'app è di prima parte. Se li scarta, l'esito lo dice invece di far finta di
+averli mandati.
+
 **Due cose non dipendono dall'AI**, perché qui si scrive in un registro aziendale:
 non si crea mai l'anagrafica di un indirizzo **del nostro dominio**, e non si manda
 niente se dalla mail non è uscito il nome dell'azienda. In quei casi la riga resta

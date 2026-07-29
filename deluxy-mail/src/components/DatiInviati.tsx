@@ -38,7 +38,7 @@ export function DatiInviati({ json }: { json: string }) {
         {righe.map(([k, v]) => (
           <div key={k}>
             <dt>{ETICHETTE[k] ?? k}</dt>
-            <dd>{typeof v === 'object' ? JSON.stringify(v) : String(v)}</dd>
+            <dd>{Array.isArray(v) ? v.join(', ') : typeof v === 'object' ? JSON.stringify(v) : String(v)}</dd>
           </div>
         ))}
       </dl>
@@ -60,5 +60,7 @@ const ETICHETTE: Record<string, string> = {
   pIva: 'Partita IVA',
   referenteNome: 'Referente',
   referenteRuolo: 'Ruolo del referente',
+  stato: 'Stato commerciale',
+  interessi: 'Interessi',
   note: 'Note',
 }

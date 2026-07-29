@@ -48,6 +48,104 @@ export function dominioDi(indirizzo: string | null | undefined): string {
   return m ? m[1].toLowerCase().replace(/[.>,;]+$/, '') : ''
 }
 
+// ---------- I cataloghi di Anagrafiche (copia di servizio) ----------
+//
+// ⚠️ Il padrone di queste liste NON è qui: gli stati stanno in
+// `deluxy-anagrafiche/src/lib/stati.ts`, le linee di interesse hanno come
+// master Deluxy Scout. Qui servono per due cose sole: dire al modello fra
+// quali valori scegliere, e SCARTARE nel codice quello che si inventa. Un
+// valore fuori catalogo non si manda: Anagrafiche rifiuterebbe l'intera
+// richiesta con «Stato non valido» (gli interessi invece li accetta tutti, e
+// creeremmo linee fantasma).
+
+export const STATI_COMMERCIALI = [
+  'prospect',
+  'in_contatto',
+  'in_attesa',
+  'in_trattativa',
+  'da_ricontattare',
+  'attivo',
+  'non_interessato',
+  'dismesso',
+] as const
+
+const ETICHETTE_STATO: Record<string, string> = {
+  prospect: 'Prospect',
+  in_contatto: 'In contatto',
+  in_attesa: 'In attesa',
+  in_trattativa: 'In trattativa',
+  da_ricontattare: 'Da ricontattare',
+  attivo: 'Attivo',
+  non_interessato: 'Non interessato',
+  dismesso: 'Dismesso',
+}
+
+export const INTERESSI_LINEE = [
+  'Affiliazioni',
+  'Clientelling',
+  'Concierge',
+  'Consegne',
+  'Eventi & Catering',
+  'Food Supplier',
+  'Gifting',
+  'Magazzino',
+  'Re-seller',
+] as const
+
+const semplifica = (v: string) =>
+  v
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/&/g, 'e')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+
+/** Lo stato commerciale in forma canonica ('In trattativa' → 'in_trattativa'),
+ *  o null se non è uno degli otto: meglio non dirlo che dirlo sbagliato. */
+export function statoCanonico(v: unknown): string | null {
+  const s = semplifica(String(v ?? ''))
+  if (!s) return null
+  for (const stato of STATI_COMMERCIALI) {
+    if (semplifica(stato) === s || semplifica(ETICHETTE_STATO[stato]) === s) return stato
+  }
+  return null
+}
+
+/** Le linee di interesse riconosciute, ripulite e senza doppioni. Quello che
+ *  non è in catalogo si butta: una linea inventata sporcherebbe il registro. */
+export function interessiCanonici(v: unknown): string[] {
+  const grezzi = Array.isArray(v)
+    ? v.map(String)
+    : String(v ?? '')
+        .split(/[,;\n]/)
+        .map((x) => x.trim())
+  const fuori: string[] = []
+  for (const g of grezzi) {
+    if (!g) continue
+    const trovato = INTERESSI_LINEE.find((i) => semplifica(i) === semplifica(g))
+    if (trovato) fuori.push(trovato)
+  }
+  return [...new Set(fuori)]
+}
+
+/**
+ * Stato e interessi ricondotti ai valori di catalogo — vale sia per quello che
+ * scrive il modello sia per quello che scrive l'utente nel modulo (dove sono
+ * campi di testo, e «In trattativa» o «gifting, eventi» sono scritture
+ * legittime). Quello che non si riconosce si toglie: uno stato inventato fa
+ * rifiutare l'intera richiesta da Anagrafiche.
+ */
+function normalizzaCurati(d: Record<string, unknown>): Record<string, unknown> {
+  const out = { ...d }
+  if ('stato' in out) out.stato = statoCanonico(out.stato)
+  if ('interessi' in out) {
+    const linee = interessiCanonici(out.interessi)
+    out.interessi = linee.length ? linee : null
+  }
+  return out
+}
+
 /** L'etichetta di un dominio: 'mail.deluxy.it' → 'deluxy' (via il penultimo
  *  pezzo, così i domini di secondo livello tipo '.co.uk' non ingannano). */
 export function etichettaDominio(dominio: string): string {
@@ -166,7 +264,7 @@ const AZIONI: AzioneApp[] = [
     descrizione: 'Crea o aggiorna il partner/prospect nel registro centralizzato.',
     colore: 'blue',
     guida:
-      'Estrai i dati anagrafici dell’AZIENDA CONTROPARTE: quella con cui parliamo, MAI Deluxy. Se ti è data la CONTROPARTE, l’azienda è la sua — non quella del mittente, che su una mail partita da noi siamo noi. nome = ragione sociale o nome commerciale (in mancanza, il nome dal dominio della controparte). email = l’indirizzo della controparte. Se un dato non è nella mail, null: MAI inventare.',
+      'Estrai i dati anagrafici dell’AZIENDA CONTROPARTE: quella con cui parliamo, MAI Deluxy. Se ti è data la CONTROPARTE, l’azienda è la sua — non quella del mittente, che su una mail partita da noi siamo noi. nome = ragione sociale o nome commerciale (in mancanza, il nome dal dominio della controparte). email = l’indirizzo della controparte. Compila anche STATO commerciale e INTERESSI leggendo cosa chiede la mail (chiede un preventivo o dei prezzi = in_trattativa; parla di regali aziendali = Gifting), scegliendo SOLO fra i valori ammessi. Se un dato non è nella mail, null: MAI inventare.',
     // Il form di conferma (al posto del JSON grezzo) e la ricerca dell'azienda
     // già presente in Anagrafiche a cui agganciare il contatto.
     cercaAzienda: true,
@@ -181,13 +279,40 @@ const AZIONI: AzioneApp[] = [
       { nome: 'provincia', etichetta: 'Provincia', aiuto: 'Sigla, es. MI' },
       { nome: 'referenteNome', etichetta: 'Referente' },
       { nome: 'referenteRuolo', etichetta: 'Ruolo del referente' },
+      {
+        nome: 'stato',
+        etichetta: 'Stato commerciale',
+        aiuto: 'prospect · in_contatto · in_attesa · in_trattativa · da_ricontattare · attivo · non_interessato',
+      },
+      {
+        nome: 'interessi',
+        etichetta: 'Interessi (linee)',
+        aiuto: 'Gifting, Eventi & Catering, Consegne, Concierge, Clientelling, Affiliazioni, Food Supplier, Magazzino, Re-seller',
+        largo: true,
+      },
       { nome: 'note', etichetta: 'Note', tipo: 'lungo', largo: true },
     ],
     schema: {
       type: 'object',
       additionalProperties: false,
-      required: ['nome', 'categoria', 'citta', 'provincia', 'indirizzo', 'email', 'telefono', 'pIva', 'referenteNome', 'referenteRuolo', 'note'],
+      required: ['nome', 'categoria', 'citta', 'provincia', 'indirizzo', 'email', 'telefono', 'pIva', 'referenteNome', 'referenteRuolo', 'stato', 'interessi', 'note'],
       properties: {
+        // Stato e interessi: valori CHIUSI. Uno stato fuori catalogo farebbe
+        // rifiutare l'intera richiesta da Anagrafiche («Stato non valido»), e
+        // una linea inventata sporcherebbe il registro — quindi enum qui, e
+        // ricontrollo nel codice (`normalizza`).
+        stato: {
+          type: ['string', 'null'],
+          enum: [...STATI_COMMERCIALI, null],
+          description:
+            'Stato commerciale dedotto dalla mail. Chiede prezzi/preventivo o sta trattando = in_trattativa; primo contatto o risposta interlocutoria = in_contatto; dice di no = non_interessato; chiede di risentirsi più avanti = da_ricontattare; è già cliente che ordina = attivo. Se la mail non dice abbastanza: null.',
+        },
+        interessi: {
+          type: ['array', 'null'],
+          items: { type: 'string', enum: [...INTERESSI_LINEE] },
+          description:
+            'Le linee di cui parla la mail: Gifting (regali aziendali), Eventi & Catering, Consegne, Concierge, Clientelling, Affiliazioni, Food Supplier, Magazzino, Re-seller. Solo quelle davvero citate o evidenti: se non si capisce, null.',
+        },
         nome: { type: 'string', description: 'Nome dell’azienda/attività.' },
         categoria: { type: ['string', 'null'], description: 'Es. hotel, ristorante, fioraio, pasticceria.' },
         citta: { type: ['string', 'null'] },
@@ -209,9 +334,11 @@ const AZIONI: AzioneApp[] = [
     // ha scritto il modello: quel che si sa non lo si fa dedurre.
     normalizza(dati, ctx) {
       const controparte = ctx.controparte ?? null
-      if (!controparte) return dati
       const nostri = (ctx.nostriDomini ?? []).filter(Boolean)
       const d = { ...dati }
+      // Senza controparte non c'è niente da correggere sull'identità, ma stato
+      // e interessi vanno ripuliti lo stesso (li può aver scritti l'utente).
+      if (!controparte) return normalizzaCurati(d)
 
       const emailScritta = typeof d.email === 'string' ? d.email.trim() : ''
       const dominioScritto = dominioDi(emailScritta)
@@ -226,7 +353,7 @@ const AZIONI: AzioneApp[] = [
       if (!nomeScritto || nostreEtichette.includes(nomeScritto.toLowerCase())) {
         d.nome = nomeDaDominio(dominioDi(controparte)) || nomeScritto
       }
-      return d
+      return normalizzaCurati(d)
     },
     // ⚠️ Il registro delle aziende non deve riempirsi di NOI. L'istruzione
     // «i contatti del nostro dominio non vanno creati» scritta nel prompt non
@@ -253,6 +380,10 @@ const AZIONI: AzioneApp[] = [
       const partnerId = typeof dati.partnerId === 'string' ? dati.partnerId.trim() : ''
       if (partnerId) {
         const patch: Record<string, unknown> = {
+          stato: statoCanonico(dati.stato) ?? undefined,
+          interessi: interessiCanonici(dati.interessi).length
+            ? interessiCanonici(dati.interessi)
+            : undefined,
           contatti: referente ?? (dati.email ? [{ nome: '', ruolo: '', telefono: '', email: dati.email }] : undefined),
           // Sui dati dell'azienda si manda solo ciò che è valorizzato: il
           // registro fa merge per campo e non deve ricevere null a raffica.
@@ -289,8 +420,17 @@ const AZIONI: AzioneApp[] = [
         )
       }
 
+      // Stato commerciale e linee di interesse: si mandano sempre (già
+      // ricondotti al catalogo). ⚠️ Anagrafiche li tiene «curati dal team» e li
+      // scarta se la chiave non è di prima parte (`scritturaPartner`): sotto si
+      // controlla cosa è stato davvero applicato e lo si dice.
+      const stato = statoCanonico(dati.stato)
+      const interessi = interessiCanonici(dati.interessi)
+
       const body: Record<string, unknown> = {
         nome: dati.nome,
+        stato: stato ?? undefined,
+        interessi: interessi.length ? interessi : undefined,
         categoria: dati.categoria || undefined,
         citta: dati.citta || undefined,
         provincia: dati.provincia || undefined,
@@ -315,15 +455,35 @@ const AZIONI: AzioneApp[] = [
           // Il registro risponde con la scheda: si dice QUALE, e ci si va
           // direttamente. «Contatto registrato» senza dire chi non permette di
           // controllare niente — men che meno quando parte da sola.
-          const p = (risposta ?? {}) as { id?: string; nome?: string; esito?: string; applicati?: string[] }
+          const p = (risposta ?? {}) as {
+            id?: string
+            nome?: string
+            esito?: string
+            applicati?: string[]
+            stato?: string
+            interessi?: string[]
+          }
           const chi = [p.nome, dati.email].filter(Boolean).join(' · ') || String(dati.nome ?? '')
           const link = p.id ? `${ANAGRAFICHE_URL}/partner/${p.id}` : ANAGRAFICHE_URL
-          if (status === 201) return { ok: true, messaggio: `Creata la scheda «${chi}» in Anagrafiche.`, link }
+          // Abbiamo chiesto stato/interessi e il registro non li ha presi? Lo
+          // si DICE: sono i due campi che Anagrafiche tiene curati dal team, e
+          // silenziosamente sembrerebbe che AI Mail non li mandi.
+          const scartati: string[] = []
+          if (stato && p.stato && p.stato !== stato) scartati.push(`stato «${stato}» (è rimasto «${p.stato}»)`)
+          if (interessi.length && Array.isArray(p.interessi)) {
+            const mancanti = interessi.filter((i) => !p.interessi!.includes(i))
+            if (mancanti.length) scartati.push(`interessi ${mancanti.join(', ')}`)
+          }
+          const nota = scartati.length
+            ? ` ⚠️ Anagrafiche non ha applicato: ${scartati.join(' · ')} — sono campi curati dal team, servirebbe una chiave di prima parte.`
+            : ''
+          if (status === 201)
+            return { ok: true, messaggio: `Creata la scheda «${chi}» in Anagrafiche.${nota}`, link }
           if (status === 200) {
             const campi = p.applicati?.length ? ` Aggiornati: ${p.applicati.join(', ')}.` : ''
             return {
               ok: true,
-              messaggio: `«${chi}» era già in Anagrafiche (${p.esito ?? 'aggancio'}): scheda aggiornata.${campi}`,
+              messaggio: `«${chi}» era già in Anagrafiche (${p.esito ?? 'aggancio'}): scheda aggiornata.${campi}${nota}`,
               link,
             }
           }
