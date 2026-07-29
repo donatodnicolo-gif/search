@@ -416,6 +416,23 @@ dedicata **«Rimborsi ai clienti»**, fuori dal conto economico.
 > corregge. È un errore piccolo e dichiarato, non un errore nascosto: si chiude quando Orders saprà
 > dire quanto è stato reso.
 
+### Il criterio applicato ai bonifici alle persone (29/07/2026)
+
+Sui bonifici a nomi di persona la regola dell'utente è: **numero d'ordine, «ordine», «fiori» o
+«torta» nella causale ⇒ fioraio** (partner); **altrimenti ⇒ personale per le consegne**. Applicata
+leggendo le causali vere di 59 controparti: 33 ai partner (6.297 €), 26 alle consegne (4.136 €).
+
+Tre precisazioni che sono servite per non sbagliare, e che valgono anche la prossima volta:
+
+- **senza causale non si decide**: uno scontrino al POS non è né un fioraio né un valet, e
+  assegnarlo lo stesso avrebbe messo autogrill e supermercati fra le consegne. Restano nel residuo,
+  dove si vedono;
+- **un nome di mese vince su tutto**: `Deluxy Dicembre 2025` è il rimborso mensile di un valet, ma
+  contiene un numero di quattro cifre che lo faceva sembrare un ordine. Gli anni non sono numeri
+  d'ordine;
+- **`17/001` e `50/001` sono numeri di documento, non di ordine**: senza questa distinzione chi
+  manda una fattura («SALDO proforma n. 17/001») veniva preso per fioraio.
+
 > ⚠️ **Le regole del CFO matchano solo sulla controparte, non sulla causale.** La classificazione
 > si è fatta leggendo `TransazioneBancaria.descrizione` in Finance e trasformandola in **regole per
 > nome**: 563 regole, residuo 2026 da 117.364 a **23.705 €**. Se un domani serve rifarlo su nuovi
@@ -431,9 +448,9 @@ dedicata **«Rimborsi ai clienti»**, fuori dal conto economico.
 2. **I margini per tipologia a budget** (D2C 35%, Eventi 20%, B2B 20%) restano scritti sul venduto
    lordo: applicati a ricavi ormai netti danno un EBITDA a budget negativo e «12 mesi in perdita»,
    che è un artefatto. Rifarli **cambia i premi**.
-3. **9.996 € ancora senza categoria** nel 2026 (232 controparti) — risaliti da 8.419 perché i SumUp
-   non riconoscibili dal nome (`SumUp *Versace` 1.200 €, `SumUp *InformTechniSy`, nomi di persona)
-   sono usciti da «banca» e ora stanno dove devono: nella coda da classificare, visibile. Erano **23.705 in 412**: il
+3. **7.326 € ancora senza categoria** nel 2026 (207 controparti, copertura **99,1%**) e 12.646 € sul
+   2025 (98,1%). Erano 23.705 in 412 la mattina del 29/07/2026: **2.035 regole** in tutto. Quello che
+   resta sono scontrini senza causale — non si può decidere cosa siano dal nome del negozio. Erano **23.705 in 412**: il
    29/07/2026, guardando l'elenco, l'utente ha riconosciuto le famiglie una per una e sono diventate
    **oltre 210 regole** — più tre categorie nuove: **Carburante e pedaggi** (81 regole, 2.962 €:
    distributori `ENI`, `PV####`, pedaggi `MISER`/`ASPIT`, parcheggi), **Viaggi e trasferte** e
