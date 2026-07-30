@@ -28,16 +28,69 @@ export default async function TransazioniPage({
 }) {
   const sp = await searchParams;
 
-  const [tutteLeTransazioni, partners, fattureAperte, tutti, associazioniRec] = await Promise.all([
-    prisma.transazioneBancaria.findMany({ orderBy: { data: "desc" } }),
-    prisma.partner.findMany({ orderBy: { nome: "asc" } }),
-    prisma.fatturaServizio.findMany({
-      where: { pagata: false, imponibile: { gt: 0 } },
-      include: { partner: true },
-    }),
-    riepilogoTutti(ANNO_CORRENTE),
-    prisma.associazioneControparte.findMany({ orderBy: { updatedAt: "desc" } }),
-  ]);
+  // Ricerca "morbida" tradotta in SQL: ogni termine deve comparire in
+  // descrizione/controparte/esito (o combaciare con l'importo). Prima si
+  // caricavano TUTTE le ~11.000 transazioni e si filtrava in memoria.
+  const query = (sp.cerca ?? "").trim();
+  const termini = query.split(/\s+/).filter(Boolean);
+  const filtroRicerca =
+    termini.length === 0
+      ? {}
+      : {
+          AND: termini.map((term) => {
+            const n = parseFloat(term.replace(",", "."));
+            const perImporto =
+              !isNaN(n) && term.length > 1
+                ? [
+                    { importo: { gte: n - 0.005, lte: n + 0.005 } },
+                    { importo: { gte: -n - 0.005, lte: -n + 0.005 } },
+                  ]
+                : [];
+            return {
+              OR: [
+                { descrizione: { contains: term, mode: "insensitive" as const } },
+                { controparte: { contains: term, mode: "insensitive" as const } },
+                { esito: { contains: term, mode: "insensitive" as const } },
+                ...perImporto,
+              ],
+            };
+          }),
+        };
+
+  // Il motore di riconoscimento (suggerisci) è costoso: lo applichiamo alle
+  // transazioni "nuove" più recenti, non a tutte. Il numero totale resta visibile.
+  const MAX_NUOVE = 400;
+
+  const [nuoveRec, nuoveTotali, registrate, ignorate, totaleTransazioni, estremi, importi, partners, fattureAperte, tutti, associazioniRec] =
+    await Promise.all([
+      prisma.transazioneBancaria.findMany({
+        where: { stato: "nuova", ...filtroRicerca },
+        orderBy: { data: "desc" },
+        take: MAX_NUOVE,
+      }),
+      prisma.transazioneBancaria.count({ where: { stato: "nuova", ...filtroRicerca } }),
+      prisma.transazioneBancaria.findMany({
+        where: { stato: "registrata", ...filtroRicerca },
+        orderBy: { data: "desc" },
+        take: 300,
+      }),
+      prisma.transazioneBancaria.findMany({
+        where: { stato: "ignorata", ...filtroRicerca },
+        orderBy: { data: "desc" },
+        take: 300,
+      }),
+      prisma.transazioneBancaria.count(),
+      prisma.transazioneBancaria.aggregate({ _min: { data: true }, _max: { data: true } }),
+      // solo gli importi (non i record interi) per gli "attesi mancanti"
+      prisma.transazioneBancaria.findMany({ select: { importo: true } }),
+      prisma.partner.findMany({ orderBy: { nome: "asc" } }),
+      prisma.fatturaServizio.findMany({
+        where: { pagata: false, imponibile: { gt: 0 } },
+        include: { partner: true },
+      }),
+      riepilogoTutti(ANNO_CORRENTE),
+      prisma.associazioneControparte.findMany({ orderBy: { updatedAt: "desc" } }),
+    ]);
 
   // mappa controparte-normalizzata → partner, usata dal motore di riconoscimento
   const partnerPerId = new Map(partners.map((p) => [p.id, p]));
@@ -47,18 +100,8 @@ export default async function TransazioniPage({
       .filter((x): x is [string, (typeof partners)[number]] => Boolean(x[1]))
   );
 
-  // Ricerca "morbida": senza accenti, per parole parziali e importi. Tutti i
-  // termini digitati devono comparire (in qualsiasi ordine) nel testo/importo
-  // del movimento — così "gru 500" trova un movimento di GRUÈ da 500 €.
-  const query = (sp.cerca ?? "").trim();
-  const normS = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
-  const termini = normS(query).split(/\s+/).filter(Boolean);
-  const searchable = (t: (typeof tutteLeTransazioni)[number]) =>
-    normS(`${t.descrizione} ${t.controparte ?? ""} ${t.esito ?? ""} ${t.importo.toFixed(2)} ${Math.abs(t.importo).toFixed(2)}`);
-  const passaRicerca = (t: (typeof tutteLeTransazioni)[number]) =>
-    termini.length === 0 || termini.every((term) => searchable(t).includes(term));
-
-  const transazioni = tutteLeTransazioni.filter(passaRicerca);
+  const nuove = nuoveRec;
+  const transazioni = [...nuove, ...registrate, ...ignorate];
 
   const daBonificare = tutti.flatMap((t) =>
     t.mesi
@@ -73,35 +116,30 @@ export default async function TransazioniPage({
     : null;
   const ultimaSync = ultimaSyncRow ? new Date(ultimaSyncRow.valore) : null;
   const ctx = { partners, fattureAperte, daBonificare, associazioni };
-  const nuove = transazioni.filter((t) => t.stato === "nuova");
-  const registrate = transazioni.filter((t) => t.stato === "registrata");
-  const ignorate = transazioni.filter((t) => t.stato === "ignorata");
 
   const conSugg = nuove.map((tx) => ({ tx, sugg: suggerisci(tx, ctx) }));
   const daRegistrare = conSugg.filter((x) => ["fattura", "incasso_partner", "bonifico_partner"].includes(x.sugg.tipo));
   const discrepanze = conSugg.filter((x) => x.sugg.tipo === "discrepanza");
   const sconosciute = conSugg.filter((x) => x.sugg.tipo === "sconosciuta");
+  // quante "nuove" restano fuori dall'analisi (cap dichiarato, non silenzioso)
+  const nuoveNonAnalizzate = Math.max(0, nuoveTotali - nuove.length);
 
-  // Attesi mancanti e periodo: sempre sull'insieme completo (la ricerca non
-  // deve falsare cosa manca in banca); la sezione è nascosta durante la ricerca.
-  const periodo = tutteLeTransazioni.length
-    ? {
-        da: new Date(Math.min(...tutteLeTransazioni.map((t) => t.data.getTime()))),
-        a: new Date(Math.max(...tutteLeTransazioni.map((t) => t.data.getTime()))),
-      }
-    : null;
+  // Attesi mancanti e periodo: calcolati sull'insieme completo (aggregati SQL +
+  // soli importi), non caricando tutti i record.
+  const periodo =
+    estremi._min.data && estremi._max.data ? { da: estremi._min.data, a: estremi._max.data } : null;
   const TOL = 0.02;
-  const accrediti = tutteLeTransazioni.filter((t) => t.importo > 0);
-  const addebiti = tutteLeTransazioni.filter((t) => t.importo < 0);
+  const accreditiImporti = importi.filter((t) => t.importo > 0).map((t) => t.importo);
+  const addebitiImporti = importi.filter((t) => t.importo < 0).map((t) => Math.abs(t.importo));
   const fattureMancanti = periodo
     ? fattureAperte.filter(
         (f) =>
           f.scadenza && f.scadenza <= periodo.a &&
-          !accrediti.some((t) => Math.abs(t.importo - ivato(f)) <= TOL)
+          !accreditiImporti.some((v) => Math.abs(v - ivato(f)) <= TOL)
       )
     : [];
   const bonificiMancanti = periodo
-    ? daBonificare.filter((x) => !addebiti.some((t) => Math.abs(Math.abs(t.importo) - x.importo) <= TOL))
+    ? daBonificare.filter((x) => !addebitiImporti.some((v) => Math.abs(v - x.importo) <= TOL))
     : [];
 
   const importoTx = (v: number) => (
@@ -201,7 +239,7 @@ export default async function TransazioniPage({
         </p>
       </div>
 
-      {tutteLeTransazioni.length > 0 && (
+      {totaleTransazioni > 0 && (
         <div className="card" style={{ marginBottom: 16, padding: 16 }}>
           <form method="get" className="filters" style={{ width: "100%" }}>
             <input
@@ -222,6 +260,14 @@ export default async function TransazioniPage({
               {transazioni.length} risultati per «{query}» ·{" "}
               {daRegistrare.length} con match · {discrepanze.length} discrepanze ·{" "}
               {sconosciute.length} non riconosciute · {registrate.length + ignorate.length} nello storico.
+            </p>
+          )}
+          {nuoveNonAnalizzate > 0 && (
+            <p className="muted" style={{ fontSize: 12.5, marginTop: 10 }}>
+              Analizzate le <strong>{nuove.length}</strong> transazioni da lavorare più recenti
+              {query ? " fra i risultati" : ""} · altre <strong>{nuoveNonAnalizzate}</strong> in attesa
+              (compaiono man mano che registri o ignori queste). Usa la ricerca per andare dritto a una in
+              particolare.
             </p>
           )}
         </div>
@@ -537,7 +583,7 @@ export default async function TransazioniPage({
         </div>
       )}
 
-      {tutteLeTransazioni.length === 0 && !sp.errore && (
+      {totaleTransazioni === 0 && !sp.errore && (
         <div className="card">
           <div className="empty">
             <div className="empty-icon">⇅</div>

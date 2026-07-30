@@ -45,30 +45,52 @@ export async function riepilogoPartner(partnerId: string, anno: number) {
 }
 
 // Riepilogo di tutti i partner (per dashboard, saldi, report).
+// Ottimizzata: le tipologie (poche righe) si caricano a parte invece di un
+// `include` su ogni fattura, e il raggruppamento per partner/mese usa mappe
+// invece di filtrare l'intero elenco per ogni partner (era O(partner × righe)).
 export async function riepilogoTutti(anno: number) {
-  const [partners, fatture, vendite, saldi] = await Promise.all([
+  const [partners, fattureRaw, vendite, saldi, tipologie] = await Promise.all([
     prisma.partner.findMany({ orderBy: { nome: "asc" } }),
-    prisma.fatturaServizio.findMany({ where: { anno }, include: { tipologia: true } }),
+    prisma.fatturaServizio.findMany({ where: { anno } }),
     prisma.venditaVendor.findMany({ where: { anno } }),
     prisma.saldoMensile.findMany({ where: { anno } }),
+    prisma.tipologiaServizio.findMany(),
   ]);
+  const tipPerId = new Map(tipologie.map((t) => [t.id, t]));
+  const fatture = fattureRaw.map((f) => ({ ...f, tipologia: tipPerId.get(f.tipologiaId)! }));
+
+  // indicizza una volta sola per partner
+  const perPartner = <T extends { partnerId: string }>(righe: T[]) => {
+    const m = new Map<string, T[]>();
+    for (const r of righe) {
+      const arr = m.get(r.partnerId);
+      if (arr) arr.push(r);
+      else m.set(r.partnerId, [r]);
+    }
+    return m;
+  };
+  const fattureBy = perPartner(fatture);
+  const venditeBy = perPartner(vendite);
+  const saldiBy = perPartner(saldi);
 
   return partners.map((p) => {
-    const pf = fatture.filter((f) => f.partnerId === p.id);
-    const pv = vendite.filter((v) => v.partnerId === p.id);
-    const ps = saldi.filter((x) => x.partnerId === p.id);
+    const pf = fattureBy.get(p.id) ?? [];
+    const pv = venditeBy.get(p.id) ?? [];
+    const ps = saldiBy.get(p.id) ?? [];
+    // raggruppa per mese in una passata sola (invece di 12 filtri per partner)
+    const fMese: (typeof pf)[] = Array.from({ length: 13 }, () => []);
+    for (const f of pf) fMese[f.mese]?.push(f);
+    const vMese: (typeof pv)[] = Array.from({ length: 13 }, () => []);
+    for (const v of pv) vMese[v.mese]?.push(v);
+    const sMese = new Map(ps.map((x) => [x.mese, x]));
+
     const mesi = Array.from({ length: 12 }, (_, i) => {
       const mese = i + 1;
-      const saldo = ps.find((x) => x.mese === mese) ?? null;
+      const saldo = sMese.get(mese) ?? null;
       return {
         mese,
         saldo,
-        riepilogo: riepilogoMese(
-          pf.filter((f) => f.mese === mese),
-          pv.filter((v) => v.mese === mese),
-          saldo,
-          p.compensazione
-        ),
+        riepilogo: riepilogoMese(fMese[mese], vMese[mese], saldo, p.compensazione),
       };
     });
     return { partner: p, fatture: pf, vendite: pv, saldiRecords: ps, mesi, rolling: rolling(mesi.map((m) => m.riepilogo)) };
