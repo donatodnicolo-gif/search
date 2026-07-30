@@ -7,6 +7,7 @@ import { registraEvento } from "@/lib/classificazione";
 import { GESTIONI_INCASSO, movimentiUsati, salvaQuotaFornitore, valutaQuota, quotaFornitore } from "@/lib/controllo";
 import { importaMovimenti, adottaControlloDaFinance } from "@/lib/movimenti";
 import { eseguiAbbinamentoPerNumero } from "@/lib/abbina";
+import { linkPagamento, type EsitoLink } from "@/lib/pagamento-link";
 import { euro } from "@/lib/ordini";
 
 // Le mutazioni del CONTROLLO. Ogni decisione lascia una traccia sull'ordine
@@ -259,6 +260,23 @@ export async function azzeraCosto(fd: FormData) {
   });
   await registraEvento(ordineId, "controllo", "Costo fornitore rimosso");
   revalida(ordineId);
+}
+
+// ---- Il link per far pagare un ordine ----
+// Si chiede a Shopify sul momento e NON si salva: dentro c'è un segreto, e un
+// link vecchio salvato sarebbe una bugia con dentro una chiave. Chi lo chiede
+// resta scritto nella storia dell'ordine, perché mandare un link di pagamento è
+// un fatto, non una consultazione.
+export async function chiediLinkPagamento(ordineId: string): Promise<EsitoLink> {
+  const esito = await linkPagamento(ordineId);
+  if (esito.ok) {
+    await registraEvento(
+      ordineId,
+      "controllo",
+      `Chiesto il link di pagamento Shopify${esito.daPagare != null ? ` (${euro(esito.daPagare)} da incassare)` : ""}`,
+    );
+  }
+  return esito;
 }
 
 // ---- La quota attesa ----

@@ -11,7 +11,8 @@ import { statiOrdinati } from "@/lib/stati";
 import { CATEGORIE_PAGAMENTO, APP_DESTINAZIONI, nomeApp } from "@/lib/classificazione";
 import { linkRicerca, brandPerRicerca } from "@/lib/fornitori";
 import { cambiaStato, toggleEtichetta, aggiornaClassificazione, segnaProblemaGestito } from "@/app/actions";
-import { registraCosto, azzeraCosto } from "@/app/controllo/actions";
+import { registraCosto, azzeraCosto, chiediLinkPagamento } from "@/app/controllo/actions";
+import { LinkPagamento } from "@/components/LinkPagamento";
 import { GESTIONI_INCASSO, STATI_INCASSO, quotaFornitore, valutaQuota } from "@/lib/controllo";
 import { ordinali } from "@/lib/repeater";
 import { canale } from "@/lib/marketing";
@@ -316,6 +317,20 @@ export default async function DettaglioOrdine({ params }: { params: Promise<{ id
             </dd>
           </div>
         </div>
+        {/* Far pagare l'ordine: il link è di Shopify e paga QUESTO ordine, che
+            diventa PAID da solo. Si mostra solo dove ha senso — un ordine già
+            incassato non si fa pagare due volte. */}
+        {ordine.statoIncasso !== "riconciliato" && ordine.financialStatus !== "PAID" && !ordine.annullatoIl && (
+          <div style={{ marginTop: 10 }}>
+            <LinkPagamento ordineId={ordine.id} chiedi={chiediLinkPagamento} />
+            <p className="testo-guida" style={{ marginTop: 6 }}>
+              È la pagina su cui <strong>questo</strong> cliente paga <strong>questo</strong> ordine con carta: quando
+              paga, l&apos;ordine diventa pagato su Shopify e la sync lo porta qui. Il link contiene un segreto e non
+              viene salvato: si chiede, si copia e si manda. <strong>L&apos;app non lo invia a nessuno.</strong>
+            </p>
+          </div>
+        )}
+
         <form action={registraCosto} className="modulo" style={{ marginTop: 10 }}>
           <input type="hidden" name="ordineId" value={ordine.id} />
           <div className="campo-modulo">

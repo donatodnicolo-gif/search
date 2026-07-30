@@ -344,6 +344,38 @@ per il costo del fornitore non troverebbe mai niente.
   e i costi già registrati (249 ordini, 23.224,47 €) e **non sovrascrive** quello
   che è stato deciso qui.
 
+#### Far pagare un ordine: il link di Shopify
+Sugli ordini non ancora incassati compare **«Link di pagamento»**: è la pagina su
+cui *quel* cliente paga *quell'ordine* con la carta. È il modo più corto di
+chiudere un bonifico che non arriva — si manda il link, il cliente paga, l'ordine
+diventa `PAID` su Shopify e la sync lo porta qui.
+
+Tre cose da sapere, e sono il motivo per cui è fatto così:
+
+- **paga l'ordine che c'è già, non ne crea un altro.** L'altro modo di fare un
+  link su Shopify è la *bozza d'ordine* (`draftOrderCreate` → `invoiceUrl`), ma
+  quando il cliente paga **nasce un ordine nuovo**: nel registro ci sarebbero due
+  ordini per una vendita sola, il vecchio resterebbe non pagato per sempre e il
+  venduto risulterebbe doppio. Quel modo serve solo per far pagare **qualcosa che
+  non è ancora un ordine** (vedi sotto);
+- **il link non si salva.** Contiene un segreto (`?secret=…`) che vale un
+  pagamento: si chiede a Shopify sul momento, si copia e si manda. Un link vecchio
+  tenuto in tabella sarebbe una bugia con dentro una chiave;
+- **l'app non manda niente al cliente.** Prepara il link, come le automazioni
+  preparano i messaggi: a mandarlo è una persona, dal Customer Service o da dove
+  preferisce. Ogni volta che il link viene chiesto resta scritto nella storia
+  dell'ordine.
+
+Se l'ordine è già pagato, o se Shopify non offre un link per quello stato, la
+pagina lo dice invece di dare un indirizzo che porterebbe il cliente a una pagina
+morta.
+
+**Cosa NON si può ancora fare**: un link per un importo qualsiasi (un
+supplemento, un ordine preso al telefono, un acconto). Serve la bozza d'ordine, e
+quindi il permesso `write_draft_orders`, che i token dei tre negozi oggi non
+hanno — hanno `read_orders`/`write_orders`. È una modifica da fare nell'app della
+Dev Dashboard di ciascun negozio, poi il token si riconia da sé.
+
 La **quota attesa del fornitore** (60% di default) si cambia in Impostazioni:
 pagare sotto è bene, sopra è male. Non serve a *calcolare* un costo — quello si
 registra ordine per ordine — ma a segnalare gli scostamenti.

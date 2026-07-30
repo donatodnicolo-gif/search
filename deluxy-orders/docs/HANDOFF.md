@@ -394,7 +394,37 @@ rispondeva con la PAGINA di login e stato 200.
    hydration e rimonta la pagina. Succede appena si mette un bottone-azione dentro
    una frase.
 
+### Link di pagamento Shopify (30/07/2026)
+`src/lib/pagamento-link.ts` + `LinkPagamento.tsx`: sugli ordini non incassati si
+chiede a Shopify `paymentCollectionDetails.additionalPaymentCollectionUrl` — la
+pagina su cui **quel** cliente paga **quell'ordine**. Verificato su ordini veri
+(#2242 Flowers, 255 € da incassare).
+
+- **Funziona con i permessi che già ci sono.** Scope misurati sui tre negozi il
+  30/07/2026: `read_all_orders read_audit_events read_channels read_customers
+  read_orders write_channels write_customers write_orders`. Il link si **legge**,
+  non si crea.
+- ⚠️ **Non usare `draftOrderCreate`/`invoiceUrl` per far pagare un ordine che
+  esiste già**: quando il cliente paga la bozza, Shopify crea un **ordine nuovo**
+  → due ordini per una vendita, il vecchio non pagato per sempre, venduto doppio
+  in Analisi e nei Margini. La bozza serve solo per far pagare qualcosa che
+  ordine non è ancora, e richiede lo scope **`write_draft_orders`** che oggi i
+  token NON hanno (va aggiunto nell'app della Dev Dashboard, poi il token si
+  riconia da sé col client credentials grant).
+- ⚠️ **Il link contiene un segreto** (`?secret=…`): non si salva nel database,
+  non si scrive nei log, si chiede quando serve. Un link vecchio salvato sarebbe
+  una bugia con dentro una chiave.
+- **L'app non invia niente**: prepara il link (come le automazioni preparano i
+  messaggi). Ogni richiesta lascia una riga in `EventoOrdine`.
+- Esiste anche la mutazione `orderInvoiceSend` (manda l'email di pagamento
+  dell'ordine, e `write_orders` c'è): **non è stata collegata** perché scrivere a
+  un cliente è un'azione che va decisa da una persona, non da un bottone dentro
+  una tabella.
+
 **MANCA / da decidere**
+- **Link per un importo qualsiasi** (supplemento, ordine al telefono, acconto):
+  serve `write_draft_orders`. Da decidere se aggiungerlo, e con quale regola per
+  non creare doppioni nel registro.
 - **La pagina `/ordini` di Finance non è stata rimossa**: la funzione è qui, ma
   togliere di là pagina, modelli e cron è una scelta contabile (i `Pagamento` con
   riferimento `PAY-…` nascono là e `/api/incassi` li espone) e **in quella cartella

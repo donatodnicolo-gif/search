@@ -12,10 +12,12 @@ import {
 } from "@/lib/controllo";
 import { riepilogoMovimenti, configurazioneFinance } from "@/lib/movimenti";
 import { AbbinaMovimento } from "@/components/AbbinaMovimento";
+import { LinkPagamento } from "@/components/LinkPagamento";
 import {
   abbinaIncasso,
   abbinaPerNumero,
   adottaDaFinance,
+  chiediLinkPagamento,
   cercaMovimentiCosto,
   cercaMovimentiIncasso,
   ignoraIncasso,
@@ -516,6 +518,13 @@ export default async function Controllo({
                           />
                           {o.statoIncasso === "da_riconciliare" ? (
                             <>
+                              {/* Il modo più corto di incassare un bonifico che
+                                  non arriva: mandare il link e lasciar pagare
+                                  con la carta. Paga QUESTO ordine, non ne crea
+                                  un altro. */}
+                              {o.financialStatus !== "PAID" && (
+                                <LinkPagamento ordineId={o.id} chiedi={chiediLinkPagamento} compatto />
+                              )}
                               <form action={segnaIncassato}>
                                 <input type="hidden" name="ordineId" value={o.id} />
                                 <button className="btn btn-secondario small" type="submit" title="Incassato senza un movimento da abbinare">

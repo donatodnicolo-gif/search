@@ -1037,6 +1037,23 @@ a.periodo-opz:hover { background: var(--fill); color: var(--text); }
 }
 .btn-testo:hover { color: var(--text); }
 
+/* Il link per far pagare un ordine */
+.link-pagamento {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  font-size: 13px;
+}
+.link-pagamento.compatto { justify-content: flex-end; }
+.link-campo {
+  flex: 1 1 240px;
+  min-width: 160px;
+  padding: 5px 10px;
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-s);
+  background: var(--fill);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
 /* Popup di abbinamento del movimento bancario */
 .modale-fondo {
   position: fixed; inset: 0; z-index: 60;
