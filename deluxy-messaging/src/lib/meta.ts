@@ -195,13 +195,17 @@ export async function inviaPagina(
   // solo con `graph.instagram.com`. Vuoto = si comporta come prima (Facebook).
   canale = ''
 ): Promise<EsitoInvio> {
-  const corpo = {
-    recipient: { id: destinatarioId },
-    messaging_type: 'RESPONSE',
-    message: { text: testo },
-  }
+  // ⚠️ Il corpo NON è identico sui due Graph: `messaging_type` è un campo della
+  // Messenger Platform, e su `graph.instagram.com` è un parametro che quella API
+  // non conosce. Meglio non mandarlo dove non è previsto: un «(#100) Invalid
+  // parameter» sarebbe indistinguibile da un problema di token.
+  const corpoPer = (base: string) =>
+    base === GRAPH_INSTAGRAM
+      ? { recipient: { id: destinatarioId }, message: { text: testo } }
+      : { recipient: { id: destinatarioId }, messaging_type: 'RESPONSE', message: { text: testo } }
+
   const base = graphPerCanale(canale, token)
-  const esito = await chiamaGraph(`${base}/${mittenteId || 'me'}/messages`, corpo, token)
+  const esito = await chiamaGraph(`${base}/${mittenteId || 'me'}/messages`, corpoPer(base), token)
   if (esito.ok) return esito
 
   // Se Meta dice che quel token non sa nemmeno leggerlo, l'indirizzo era
@@ -212,6 +216,10 @@ export async function inviaPagina(
   // giusta per come è configurato l'account.
   const altro = base === GRAPH ? GRAPH_INSTAGRAM : GRAPH
   if (!tokenDiUnAltroGraph(esito.errore)) return esito
-  const secondo = await chiamaGraph(`${altro}/${mittenteId || 'me'}/messages`, corpo, token)
+  const secondo = await chiamaGraph(
+    `${altro}/${mittenteId || 'me'}/messages`,
+    corpoPer(altro),
+    token
+  )
   return secondo.ok ? secondo : esito
 }
