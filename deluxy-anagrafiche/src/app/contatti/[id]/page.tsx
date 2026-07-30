@@ -4,6 +4,7 @@ import { nomeRubricaDefault } from "@/lib/rubrica";
 import { aggiornaContatto, eliminaContatto } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
 import { linkContattoHubspot } from "@/lib/hubspot-link";
+import { eAzione, etichettaCampo, etichettaOrigine } from "@/lib/log-modifiche";
 import { ETICHETTE_STATO, isStato } from "@/lib/stati";
 
 export const dynamic = "force-dynamic";
@@ -39,6 +40,16 @@ export default async function SchedaContatto({ params }: { params: Promise<{ id:
     include: { partner: { select: { id: true, nome: true, categoria: true, citta: true, stato: true } } },
   });
   if (!contatto) notFound();
+
+  // Storia di QUESTA persona: le righe di log che la riguardano, comprese
+  // quelle scritte quando è stata spostata da un'altra azienda (il log resta
+  // agganciato al contatto, non solo all'azienda di adesso).
+  const modifiche = await prisma.modifica.findMany({
+    where: { contattoId: contatto.id },
+    orderBy: { creatoIl: "desc" },
+    take: 60,
+    include: { partner: { select: { id: true, nome: true } } },
+  });
 
   const aggiorna = aggiornaContatto.bind(null, contatto.id);
   const elimina = eliminaContatto.bind(null, contatto.id);
@@ -107,6 +118,61 @@ export default async function SchedaContatto({ params }: { params: Promise<{ id:
             <a className="btn btn-secondario" href="/contatti">Annulla</a>
           </div>
         </form>
+
+        <section className="scheda">
+          <h2 className="scheda-titolo">
+            Storia <span className="scheda-sub">i cambiamenti registrati su questa persona</span>
+          </h2>
+          {modifiche.length === 0 ? (
+            <p className="testo-guida" style={{ margin: 0 }}>
+              Nessuna modifica registrata. Il log parte dal 30/07/2026: quello che è stato cambiato
+              prima non è stato tracciato.
+            </p>
+          ) : (
+            <ol className="storia">
+              {modifiche.map((m) => (
+                <li key={m.id}>
+                  <span className="storia-data">
+                    {m.creatoIl.toLocaleString("it-IT", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      year: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </span>
+                  <span>
+                    <span className="storia-campo">{etichettaCampo(m.campo)}</span>
+                    {eAzione(m.campo) ? (
+                      (m.a ?? m.da) ? (
+                        <>
+                          {" "}
+                          <strong>{m.a ?? m.da}</strong>
+                        </>
+                      ) : null
+                    ) : (
+                      <>
+                        {" "}
+                        <span className="storia-da">{m.da ?? "(vuoto)"}</span>{" "}
+                        <span className="storia-freccia">→</span> <strong>{m.a ?? "(vuoto)"}</strong>
+                      </>
+                    )}
+                    {m.partnerId !== contatto.partner.id && (
+                      <span className="cella-fonte">
+                        {" "}
+                        · in <a href={`/partner/${m.partner.id}`}>{m.partner.nome}</a>
+                      </span>
+                    )}
+                  </span>
+                  <span className="storia-origine">
+                    {etichettaOrigine(m.origine)}
+                    {m.autore ? ` · ${m.autore}` : ""}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          )}
+        </section>
 
         <form action={elimina} style={{ marginTop: 24 }}>
           <button

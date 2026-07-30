@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { autentica, erroreApi } from "@/lib/api-auth";
 import { prisma } from "@/lib/db";
 import { CAMPI_FINANZIARI, propagaDatiFinanziari } from "@/lib/insegna";
+import { diffCampi, registraModifiche } from "@/lib/log-modifiche";
 import { mergeContatti } from "@/lib/merge";
 import { serializzaPartner, validaPartner } from "@/lib/partner-api";
 import { PREFISSO_ANALISI, PREFISSO_FINANZIARIO } from "@/lib/stati";
@@ -71,6 +72,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     },
     include: INCLUDE,
   });
+  await registraModifiche(id, { origine: client.nome }, diffCampi(esistente, dati));
   // La fatturazione è della società: propaga i campi finanziari alle sedi
   if ((CAMPI_FINANZIARI as readonly string[]).some((c) => c in dati)) {
     await propagaDatiFinanziari(id);

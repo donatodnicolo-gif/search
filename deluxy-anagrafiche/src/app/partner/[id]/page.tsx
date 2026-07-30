@@ -28,6 +28,7 @@ import {
   valutazioneD2C,
 } from "@/lib/feedback-d2c";
 import { linkContattoHubspot } from "@/lib/hubspot-link";
+import { eAzione, etichettaCampo, etichettaOrigine } from "@/lib/log-modifiche";
 import { datiFinanziariCondivisi } from "@/lib/insegna";
 import { eAffiliatoReseller } from "@/lib/interessi";
 import { getLinee } from "@/lib/linee";
@@ -62,6 +63,9 @@ export default async function Dettaglio({
       // i singoli feedback per capire *perché* quel voto.
       feedbackD2C: { orderBy: { dataFeedback: "desc" }, take: 30 },
       passaggi: { orderBy: { creatoIl: "desc" } },
+      // Log delle modifiche: campo per campo, chi e quando. Gli ultimi 120 —
+      // oltre non si legge, e la scheda non deve caricarsi un archivio.
+      modifiche: { orderBy: { creatoIl: "desc" }, take: 120 },
       capogruppo: { select: { id: true, nome: true, citta: true } },
       sedi: {
         where: { attivo: true },
@@ -161,6 +165,36 @@ export default async function Dettaglio({
     s === "archiviata" ? "Archiviata" : isStato(s) ? ETICHETTE_STATO[s] : s;
   const dataOra = (d: Date) =>
     d.toLocaleString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+
+  // La storia è UNA sola, letta da due tabelle: gli stati vivono in
+  // `PassaggioStato` (lo leggono anche le API), tutto il resto nel log delle
+  // modifiche. Qui si uniscono e si ordinano per data — duplicarli in una
+  // tabella sola avrebbe voluto dire migrare uno storico che è già buono.
+  const eventi = [
+    ...p.passaggi.map((ev) => ({
+      chiave: `stato-${ev.id}`,
+      quando: ev.creatoIl,
+      etichetta: "Stato",
+      da: nomeEventoStato(ev.da),
+      a: nomeEventoStato(ev.a),
+      origine: ev.origine,
+      autore: null as string | null,
+      azione: false,
+    })),
+    // La creazione non si mostra due volte: in fondo alla lista c'è già la
+    // riga «Creata» costruita da `creatoIl` + `fonte`. La riga di log resta nel
+    // database per l'audit, ma qui sarebbe un doppione.
+    ...p.modifiche.filter((m) => m.campo !== "creata").map((m) => ({
+      chiave: `mod-${m.id}`,
+      quando: m.creatoIl,
+      etichetta: etichettaCampo(m.campo),
+      da: m.da,
+      a: m.a,
+      origine: m.origine,
+      autore: m.autore,
+      azione: eAzione(m.campo),
+    })),
+  ].sort((x, y) => y.quando.getTime() - x.quando.getTime());
 
   return (
     <div className="layout">
@@ -649,16 +683,37 @@ export default async function Dettaglio({
       )}
 
       <section className="scheda">
-        <h2 className="scheda-titolo">Storia</h2>
+        <h2 className="scheda-titolo">
+          Storia{" "}
+          <span className="scheda-sub">
+            ogni cambiamento registrato: campo, valore prima e dopo, e da dove è arrivato
+          </span>
+        </h2>
         <ol className="storia">
-          {p.passaggi.map((ev) => (
-            <li key={ev.id}>
-              <span className="storia-data">{dataOra(ev.creatoIl)}</span>
+          {eventi.map((ev) => (
+            <li key={ev.chiave}>
+              <span className="storia-data">{dataOra(ev.quando)}</span>
               <span>
-                {nomeEventoStato(ev.da)} <span className="storia-freccia">→</span>{" "}
-                <strong>{nomeEventoStato(ev.a)}</strong>
+                <span className="storia-campo">{ev.etichetta}</span>
+                {ev.azione ? (
+                  ev.a || ev.da ? (
+                    <>
+                      {" "}
+                      <strong>{ev.a ?? ev.da}</strong>
+                    </>
+                  ) : null
+                ) : (
+                  <>
+                    {" "}
+                    <span className="storia-da">{ev.da ?? "(vuoto)"}</span>{" "}
+                    <span className="storia-freccia">→</span> <strong>{ev.a ?? "(vuoto)"}</strong>
+                  </>
+                )}
               </span>
-              <span className="storia-origine">{ev.origine === "ui" ? "dal registro" : ev.origine}</span>
+              <span className="storia-origine">
+                {etichettaOrigine(ev.origine)}
+                {ev.autore ? ` · ${ev.autore}` : ""}
+              </span>
             </li>
           ))}
           <li>
@@ -667,6 +722,11 @@ export default async function Dettaglio({
             <span className="storia-origine">{ETICHETTE_FONTE[p.fonte] ?? p.fonte}</span>
           </li>
         </ol>
+        {p.modifiche.length >= 120 && (
+          <p className="testo-guida" style={{ marginTop: 10 }}>
+            Mostrate le ultime 120 modifiche: le più vecchie restano nel database.
+          </p>
+        )}
       </section>
       </main>
     </div>

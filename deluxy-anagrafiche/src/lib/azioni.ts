@@ -7,6 +7,7 @@ import { isCategoria } from "./categorie";
 import { prisma } from "./db";
 import { MOTIVI_FEEDBACK, normalizzaVoto, ricalcolaValutazioneD2C } from "./feedback-d2c";
 import { propagaDatiFinanziari } from "./insegna";
+import { diffCampi, registraModifica, registraModifiche } from "./log-modifiche";
 import {
   PREFISSO_ANALISI,
   PREFISSO_FINANZIARIO,
@@ -105,6 +106,16 @@ export async function toggleInteresse(partnerId: string, fd: FormData) {
     END,
     "aggiornatoIl" = now()
     WHERE "id" = ${partnerId}`;
+  // Il log si scrive rileggendo: l'UPDATE è fatto in SQL con array_append/remove
+  // e non torna il valore nuovo.
+  const dopo = await prisma.partner.findUnique({ where: { id: partnerId }, select: { interessi: true } });
+  await registraModifica(partnerId, { origine: "ui" }, {
+    campo: "interessi",
+    da: dopo?.interessi.includes(valore)
+      ? dopo.interessi.filter((i) => i !== valore)
+      : [...(dopo?.interessi ?? []), valore],
+    a: dopo?.interessi ?? [],
+  });
   revalidatePath(`/partner/${partnerId}`);
   revalidatePath("/");
 }
@@ -170,6 +181,7 @@ export async function creaPartner(fd: FormData) {
       contatti: contatti.length ? { create: contatti } : undefined,
     },
   });
+  await registraModifica(creato.id, { origine: "ui" }, { campo: "creata", a: `${nome}${citta ? ` · ${citta}` : ""}` });
   revalidatePath("/");
   redirect(`/partner/${creato.id}`);
 }
@@ -301,8 +313,14 @@ export async function aggiornaPartner(partnerId: string, fd: FormData) {
     amministrazioneTelefono: testo("amministrazioneTelefono"),
     amministrazioneEmail: testo("amministrazioneEmail"),
   };
-  const attuale = await prisma.partner.findUnique({ where: { id: partnerId } });
+  const attuale = await prisma.partner.findUnique({
+    where: { id: partnerId },
+    include: { contatti: true },
+  });
   if (!attuale) redirect("/");
+  // Fotografia dei referenti prima del salvataggio: serve al log per dire cosa
+  // è cambiato su ognuno (dopo l'update i valori vecchi non ci sono più).
+  const contattiPrima = attuale.contatti;
   const provenienza = { ...((attuale.provenienza ?? {}) as Record<string, unknown>) };
   const adesso = new Date().toISOString();
   for (const [campo, valore] of Object.entries(finInput)) {
@@ -310,6 +328,24 @@ export async function aggiornaPartner(partnerId: string, fd: FormData) {
       provenienza[campo] = { sistema: "ui", asOf: adesso };
     }
   }
+
+  // Valori nuovi dei campi dell'anagrafica, tenuti in una variabile perché
+  // servono due volte: per scrivere e per fare il diff del log.
+  const campiPartner = {
+    nome,
+    categoria,
+    ragioneSociale: testo("ragioneSociale"),
+    citta: maiuscolo("citta"),
+    provincia: maiuscolo("provincia"),
+    regione: maiuscolo("regione"),
+    indirizzo: testo("indirizzo"),
+    email: testo("email"),
+    telefono: testo("telefono"),
+    account: maiuscolo("account"),
+    note: testo("note"),
+    ultimaVisita: ultimaVisita ? new Date(ultimaVisita) : null,
+    ...finInput,
+  };
 
   await prisma.partner.update({
     where: { id: partnerId },
@@ -345,11 +381,38 @@ export async function aggiornaPartner(partnerId: string, fd: FormData) {
         ...(daAggiornare.length
           ? { update: daAggiornare.map((c) => ({ where: { id: c.id }, data: c.dati })) }
           : {}),
-        ...(daCreare.length ? { create: daCreare } : {}),
         ...(daRimuovere.length ? { deleteMany: { id: { in: daRimuovere } } } : {}),
       },
     },
   });
+
+  // I referenti nuovi si creano uno per uno invece che con la `create`
+  // annidata: così se ne conosce l'id e il log si aggancia alla PERSONA —
+  // altrimenti la sua scheda resterebbe senza storia.
+  for (const c of daCreare) {
+    const nuovo = await prisma.contatto.create({ data: { ...c, partnerId } });
+    await registraModifica(partnerId, { origine: "ui", contattoId: nuovo.id, entita: "contatto" }, {
+      campo: "creato",
+      a: [c.nome, c.ruolo, c.telefono].filter(Boolean).join(" · "),
+    });
+  }
+  // Log dei campi dell'anagrafica: solo quelli davvero cambiati.
+  await registraModifiche(partnerId, { origine: "ui" }, diffCampi(attuale, campiPartner));
+  for (const c of daAggiornare) {
+    const prima = contattiPrima.find((x) => x.id === c.id);
+    await registraModifiche(
+      partnerId,
+      { origine: "ui", contattoId: c.id, entita: "contatto" },
+      diffCampi(prima, c.dati),
+    );
+  }
+  for (const id of daRimuovere) {
+    const prima = contattiPrima.find((x) => x.id === id);
+    await registraModifica(partnerId, { origine: "ui", entita: "contatto" }, {
+      campo: "eliminato",
+      da: [prima?.nome, prima?.ruolo, prima?.telefono].filter(Boolean).join(" · ") || id,
+    });
+  }
   // La fatturazione è della società: propaga i dati finanziari a tutte le sedi
   // della stessa insegna, così restano un unico set condiviso.
   await propagaDatiFinanziari(partnerId);
@@ -378,7 +441,11 @@ export async function aggiungiReferente(
   }
   const partner = await prisma.partner.findUnique({ where: { id: partnerId }, select: { id: true } });
   if (!partner) return { ok: false, errore: "Anagrafica non trovata." };
-  await prisma.contatto.create({ data: { ...dati, partnerId, fonte: "ui" } });
+  const creato = await prisma.contatto.create({ data: { ...dati, partnerId, fonte: "ui" } });
+  await registraModifica(partnerId, { origine: "ui", contattoId: creato.id, entita: "contatto" }, {
+    campo: "creato",
+    a: [dati.nome, dati.ruolo, dati.telefono, dati.email].filter(Boolean).join(" · "),
+  });
   revalidatePath(`/partner/${partnerId}`);
   revalidatePath("/contatti");
   return { ok: true };
@@ -426,7 +493,14 @@ export async function aggiungiReferentiDaRubrica(
       fonte: "ui",
     });
   }
-  if (daCreare.length) await prisma.contatto.createMany({ data: daCreare });
+  // Uno per uno, non createMany: serve l'id per agganciare il log alla persona.
+  for (const c of daCreare) {
+    const nuovo = await prisma.contatto.create({ data: c });
+    await registraModifica(partnerId, { origine: "ui", contattoId: nuovo.id, entita: "contatto" }, {
+      campo: "creato",
+      a: `${[c.nome, c.ruolo, c.telefono, c.email].filter(Boolean).join(" · ")} (dalla rubrica Google)`,
+    });
+  }
   revalidatePath(`/partner/${partnerId}`);
   revalidatePath("/contatti");
   return { ok: true, aggiunti: daCreare.length, saltati };
@@ -448,17 +522,24 @@ export async function aggiornaContatto(contattoId: string, fd: FormData) {
     const v = String(fd.get(k) ?? "").trim();
     return v || null;
   };
+  const prima = await prisma.contatto.findUnique({ where: { id: contattoId } });
+  const nuovi = {
+    ruolo: testo("ruolo")?.toUpperCase() ?? null,
+    nome: testo("nome"),
+    telefono: testo("telefono"),
+    email: testo("email"),
+    nomeRubrica: testo("nomeRubrica"),
+  };
   const c = await prisma.contatto.update({
     where: { id: contattoId },
-    data: {
-      ruolo: testo("ruolo")?.toUpperCase() ?? null,
-      nome: testo("nome"),
-      telefono: testo("telefono"),
-      email: testo("email"),
-      nomeRubrica: testo("nomeRubrica"),
-    },
+    data: nuovi,
     select: { partnerId: true },
   });
+  await registraModifiche(
+    c.partnerId,
+    { origine: "ui", contattoId, entita: "contatto" },
+    diffCampi(prima, nuovi),
+  );
   revalidatePath("/contatti");
   revalidatePath(`/partner/${c.partnerId}`);
   redirect("/contatti?salvato=1");
@@ -467,11 +548,32 @@ export async function aggiornaContatto(contattoId: string, fd: FormData) {
 // Riconciliazione referenti: sposta un contatto sotto l'anagrafica giusta
 // (es. da un contenitore/holding all'insegna corretta). Non duplica, muove.
 export async function spostaContatto(contattoId: string, nuovoPartnerId: string) {
-  const c = await prisma.contatto.findUnique({ where: { id: contattoId }, select: { partnerId: true } });
+  const c = await prisma.contatto.findUnique({
+    where: { id: contattoId },
+    select: { partnerId: true, nome: true, partner: { select: { nome: true, citta: true } } },
+  });
   if (!c) return;
-  const dest = await prisma.partner.findUnique({ where: { id: nuovoPartnerId }, select: { id: true } });
+  const dest = await prisma.partner.findUnique({
+    where: { id: nuovoPartnerId },
+    select: { id: true, nome: true, citta: true },
+  });
   if (!dest) return;
   await prisma.contatto.update({ where: { id: contattoId }, data: { partnerId: nuovoPartnerId } });
+  // Lo spostamento si scrive su ENTRAMBE le schede: da una il referente è
+  // uscito, nell'altra è entrato, e da nessuna delle due si capirebbe da sola.
+  const dove = (p: { nome: string; citta: string | null } | null | undefined) =>
+    p ? [p.nome, p.citta].filter(Boolean).join(" · ") : "—";
+  const persona = c.nome ?? "referente";
+  await registraModifica(c.partnerId, { origine: "ui", contattoId, entita: "contatto" }, {
+    campo: "spostato",
+    da: persona,
+    a: `verso ${dove(dest)}`,
+  });
+  await registraModifica(nuovoPartnerId, { origine: "ui", contattoId, entita: "contatto" }, {
+    campo: "spostato",
+    da: `da ${dove(c.partner)}`,
+    a: persona,
+  });
   revalidatePath("/riconciliazione");
   revalidatePath("/contatti");
   revalidatePath(`/partner/${c.partnerId}`);
@@ -494,7 +596,13 @@ export async function spostaContattiMulti(contattoIds: string[], nuovoPartnerId:
 export async function eliminaContatto(contattoId: string) {
   const c = await prisma.contatto.delete({
     where: { id: contattoId },
-    select: { partnerId: true },
+    select: { partnerId: true, nome: true, ruolo: true, telefono: true },
+  });
+  // Una cancellazione senza traccia è il buco più grosso di un registro:
+  // il referente sparisce e non resta scritto da nessuna parte che c'era.
+  await registraModifica(c.partnerId, { origine: "ui", entita: "contatto" }, {
+    campo: "eliminato",
+    da: [c.nome, c.ruolo, c.telefono].filter(Boolean).join(" · ") || contattoId,
   });
   revalidatePath("/contatti");
   revalidatePath(`/partner/${c.partnerId}`);
@@ -507,7 +615,11 @@ export async function eliminaContatto(contattoId: string) {
 export async function staccaContatto(contattoId: string) {
   const c = await prisma.contatto.delete({
     where: { id: contattoId },
-    select: { partnerId: true },
+    select: { partnerId: true, nome: true, ruolo: true, telefono: true },
+  });
+  await registraModifica(c.partnerId, { origine: "ui", entita: "contatto" }, {
+    campo: "eliminato",
+    da: [c.nome, c.ruolo, c.telefono].filter(Boolean).join(" · ") || contattoId,
   });
   revalidatePath(`/partner/${c.partnerId}`);
   revalidatePath("/contatti");
@@ -528,7 +640,32 @@ export async function raggruppaSotto(partnerId: string, capogruppoId: string | n
     // la madre è già una sede di qualcun altro, oppure questa ha già sedi proprie
     if (madre.capogruppoId || figlia > 0) return;
   }
+  const [prima, madreNuova] = await Promise.all([
+    prisma.partner.findUnique({
+      where: { id: partnerId },
+      select: { nome: true, citta: true, capogruppo: { select: { id: true, nome: true } } },
+    }),
+    capogruppoId
+      ? prisma.partner.findUnique({ where: { id: capogruppoId }, select: { nome: true } })
+      : Promise.resolve(null),
+  ]);
   await prisma.partner.update({ where: { id: partnerId }, data: { capogruppoId } });
+  const sede = [prima?.nome, prima?.citta].filter(Boolean).join(" · ");
+  await registraModifica(partnerId, { origine: "ui" }, {
+    campo: "capogruppoId",
+    da: prima?.capogruppo?.nome,
+    a: madreNuova?.nome,
+  });
+  // Anche sulla scheda della madre: è lì che si guarda l'elenco delle sedi.
+  if (capogruppoId) {
+    await registraModifica(capogruppoId, { origine: "ui", entita: "sede" }, { campo: "sede_collegata", a: sede });
+  }
+  if (prima?.capogruppo?.id && prima.capogruppo.id !== capogruppoId) {
+    await registraModifica(prima.capogruppo.id, { origine: "ui", entita: "sede" }, {
+      campo: "sede_sganciata",
+      da: sede,
+    });
+  }
   revalidatePath(`/partner/${partnerId}`);
   if (capogruppoId) revalidatePath(`/partner/${capogruppoId}`);
   revalidatePath("/");
@@ -598,6 +735,15 @@ export async function aggiungiSede(
       fonte: "ui",
     },
   });
+  const etichettaSede = [nome, citta, indirizzo].filter(Boolean).join(" · ");
+  await registraModifica(madre.id, { origine: "ui", entita: "sede" }, {
+    campo: "sede_creata",
+    a: etichettaSede,
+  });
+  await registraModifica(sede.id, { origine: "ui" }, {
+    campo: "creata",
+    a: `${etichettaSede} — come sede di ${madre.nome}`,
+  });
   // La fatturazione è della società: la sede nuova parte con gli stessi dati.
   await propagaDatiFinanziari(madre.id);
   revalidatePath(`/partner/${madre.id}`);
@@ -629,6 +775,12 @@ export async function collegaSede(
     };
   }
   await prisma.partner.update({ where: { id: sedeId }, data: { capogruppoId: madreId } });
+  const madreNome = await prisma.partner.findUnique({ where: { id: madreId }, select: { nome: true } });
+  await registraModifica(madreId, { origine: "ui", entita: "sede" }, {
+    campo: "sede_collegata",
+    a: sede.nome,
+  });
+  await registraModifica(sedeId, { origine: "ui" }, { campo: "capogruppoId", a: madreNome?.nome });
   await propagaDatiFinanziari(madreId);
   revalidatePath(`/partner/${madreId}`);
   revalidatePath(`/partner/${sedeId}`);
@@ -697,6 +849,10 @@ export async function registraFeedbackD2C(partnerId: string, fd: FormData) {
       dataFeedback,
     },
   });
+  await registraModifica(partnerId, { origine: "ui", autore: testo("autore"), entita: "feedback" }, {
+    campo: "feedback_aggiunto",
+    a: [`${voto}/5`, testo("origine"), testo("ordine")].filter(Boolean).join(" · "),
+  });
   await ricalcolaValutazioneD2C(partnerId);
   revalidatePath(`/partner/${partnerId}`);
   revalidatePath("/");
@@ -707,7 +863,11 @@ export async function registraFeedbackD2C(partnerId: string, fd: FormData) {
 export async function eliminaFeedbackD2C(feedbackId: string) {
   const f = await prisma.feedbackD2C.delete({
     where: { id: feedbackId },
-    select: { partnerId: true },
+    select: { partnerId: true, voto: true, origine: true, dataFeedback: true },
+  });
+  await registraModifica(f.partnerId, { origine: "ui", entita: "feedback" }, {
+    campo: "feedback_eliminato",
+    da: [`${f.voto}/5`, f.origine, f.dataFeedback.toISOString().slice(0, 10)].filter(Boolean).join(" · "),
   });
   await ricalcolaValutazioneD2C(f.partnerId);
   revalidatePath(`/partner/${f.partnerId}`);

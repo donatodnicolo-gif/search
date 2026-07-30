@@ -4,6 +4,7 @@ import { autentica, erroreApi } from "@/lib/api-auth";
 import { prisma } from "@/lib/db";
 import { CAMPI_FINANZIARI, propagaDatiFinanziari } from "@/lib/insegna";
 import { INTERESSE_AFFILIAZIONE, eRicercaFornitori } from "@/lib/interessi";
+import { diffCampi, registraModifica, registraModifiche } from "@/lib/log-modifiche";
 import { calcolaMerge, mergeContatti, nomeSistema, provenienzaIniziale } from "@/lib/merge";
 import { serializzaPartner, validaPartner } from "@/lib/partner-api";
 import { whereRicerca } from "@/lib/ricerca";
@@ -203,6 +204,10 @@ export async function POST(req: NextRequest) {
         ...(contattiWrite ? { contatti: contattiWrite } : {}),
       },
     });
+    // Log delle modifiche: quali campi ha davvero cambiato QUESTA app.
+    // `datiMerge` contiene solo ciò che il merge ha applicato, quindi il diff
+    // non registra i campi che la sorgente ha mandato ma ha perso il confronto.
+    await registraModifiche(esistente.id, { origine: sistema }, diffCampi(esistente, datiMerge));
     await registraRiferimenti(esistente.id, refs);
     // Audit dei cambi di stato: commerciale (solo driver di prima parte),
     // finanziario e analisi (FINANCE) finiscono tutti nella stessa storia.
@@ -276,6 +281,10 @@ export async function POST(req: NextRequest) {
       provenienza: provenienzaIniziale(datiCreate, sistema, asOf) as Prisma.InputJsonValue,
       contatti: contatti ? { create: contatti.map((c) => ({ ...c, fonte: sistema })) } : undefined,
     },
+  });
+  await registraModifica(creato.id, { origine: sistema }, {
+    campo: "creata",
+    a: [creato.nome, creato.citta].filter(Boolean).join(" · "),
   });
   await registraRiferimenti(creato.id, refs);
   // Audit: se nasce già con uno stato non-prospect (driver di prima parte)

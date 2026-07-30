@@ -79,6 +79,7 @@ model Partner {
   datiExtra      String?
   contatti       Contatto[]
   passaggi       PassaggioStato[]
+  modifiche      Modifica[]
   riferimenti    RiferimentoEsterno[]
   riconciliazioni Riconciliazione[]
   // Gruppo aziendale: un'insegna madre (es. BOTTEGA VENETA) con le sue sedi
@@ -259,6 +260,40 @@ model RichiestaMatch {
 
   @@index([creatoIl])
   @@index([sistema])
+}
+
+// Registro delle MODIFICHE: una riga per ogni campo cambiato, con il valore
+// prima e dopo e chi l'ha cambiato. Serve a rispondere a «questo dato chi
+// l'ha scritto, e quando?» — che con la sola `provenienza` (ultimo scrittore
+// per campo) non si poteva sapere, e con `PassaggioStato` valeva solo per gli
+// stati.
+//
+// Il log vive sempre sotto un'AZIENDA (`partnerId`): anche le modifiche a un
+// referente si leggono dalla scheda dell'azienda, perché è lì che si guarda.
+// `contattoId` è valorizzato quando la riga riguarda una persona, così la sua
+// scheda mostra solo la sua storia.
+//
+// Nota onesta: `autore` oggi resta quasi sempre vuoto — la UI ha una password
+// condivisa e non sa CHI è la persona (punto aperto 6 dell'handoff). `origine`
+// invece dice sempre da dove arriva: "ui" o il nome della chiave dell'app.
+model Modifica {
+  id         String   @id @default(cuid())
+  partnerId  String
+  contattoId String? // valorizzato per le modifiche a un referente
+  entita     String   @default("partner") // partner | contatto | sede | feedback
+  // Nome del campo cambiato, oppure l'azione quando non è un campo:
+  // creata | archiviata | ripristinata | eliminato | spostato | aggiunto | collegata
+  campo      String
+  da         String? // valore precedente, come testo (troncato)
+  a          String? // valore nuovo, come testo (troncato)
+  origine    String // "ui" oppure il nome della chiave API dell'app che ha scritto
+  autore     String? // la persona, quando la conosciamo
+  creatoIl   DateTime @default(now())
+
+  partner Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+
+  @@index([partnerId, creatoIl])
+  @@index([contattoId, creatoIl])
 }
 
 // Chiavi API delle app client. La chiave in chiaro non viene mai salvata:

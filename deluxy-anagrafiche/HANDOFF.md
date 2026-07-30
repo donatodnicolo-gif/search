@@ -71,6 +71,18 @@ opzionale `ANAGRAFICHE_APP_PASSWORD` (in locale se assente la UI è aperta).
 - **RichiestaMatch** — storico delle richieste di aggancio (`/api/v1/partners/match`): sistema,
   tipo, esito, confidenza, partner risolto, `risolto`.
 - **PassaggioStato** — storico dei cambi di stato/archivio (da·a·origine·quando).
+- **Modifica** (30/07/2026) — **registro delle modifiche**: una riga per campo cambiato, con
+  `campo`, `da`, `a`, `origine` (`ui` o il nome della chiave dell'app), `autore` (quando lo
+  sappiamo) e `creatoIl`. Vive sempre sotto un'azienda (`partnerId`, cascade); `contattoId` è
+  valorizzato quando riguarda un referente, così la sua scheda mostra solo la sua storia.
+  Risponde a tre domande che prima non ne avevano: la **storia** di un campo (`provenienza` tiene
+  solo l'ultimo scrittore, e solo dei campi finanziari), le modifiche ai **referenti** (che non
+  lasciavano traccia da nessuna parte) e le **cancellazioni** (un referente o un feedback rimosso
+  sparivano senza dire chi li aveva toccati). Gli stati restano in `PassaggioStato` — lo leggono
+  anche le API — e la timeline della scheda unisce i due flussi invece di duplicarli.
+  Helper unico: `src/lib/log-modifiche.ts` (`diffCampi` scarta i campi che non cambiano davvero,
+  altrimenti ogni salvataggio scriverebbe decine di righe finte; `registraModifiche` non fa mai
+  fallire l'operazione che l'ha chiamata).
 - **ApiKey** — chiavi delle app client (solo SHA-256 nel DB): `nome` @unique (= la sorgente nella
   provenienza), `hash`, i 4 flag di permesso, `attiva`, `creataIl`, `ultimoUso`, e dal 29/07/2026
   `prefisso` (primi 12 caratteri in chiaro, per riconoscerla in elenco: non basta per autenticarsi)
@@ -132,6 +144,10 @@ Ogni scrittura via API è un **merge governato per campo**, mai una sostituzione
   nome/ruolo/telefono/email + **Nome su rubrica** (`aggiornaContatto`) ed eliminazione
   (`eliminaContatto`). Il nome Google è `Contatto.nomeRubrica` se compilato, altrimenti
   `[STATO] [AZIENDA] [CITTÀ] [Nome contatto]` (`src/lib/rubrica.ts`).
+  **Storia della persona (30/07/2026)**: le righe di log con `contattoId` = questo referente —
+  campi cambiati, spostamenti fra sedi, archiviazioni dalle app. Il log segue la **persona**, non
+  l'azienda di adesso: se è stata spostata, le righe scritte sotto l'azienda precedente restano e
+  si mostrano con il nome di quell'azienda accanto.
 - **`/sync-hubspot`** — confronto registro ↔ companies HubSpot (match per nome normalizzato +
   riferimenti): riepilogo, liste "solo HubSpot"/"solo registro"/"in entrambi", ricerca+ordinamenti,
   **⇄ riconcilia** (crea xref hubspot), **＋ importa** company come prospect DA CLASSIFICARE.
@@ -156,6 +172,15 @@ Ogni scrittura via API è un **merge governato per campo**, mai una sostituzione
   Analisi, `SelettoreStato` + `SelettoreStatoAzienda`) + menu interessi, ✎ Modifica, archivia,
   sezione **Contatti** (Excel+HubSpot con link al CRM, telefono cliccabile, **✕ rimuove il
   referente** dall'azienda → `staccaContatto`), Note, Dati del tracker, **Storia** (timeline).
+  **Storia = log completo (30/07/2026)**: non più solo i cambi di stato. Ogni riga dice *quale
+  campo* è cambiato, *da* cosa *a* cosa e *da dove* («dal registro» o il nome dell'app), incluse le
+  modifiche ai referenti, gli spostamenti fra sedi, le sedi aggiunte/collegate/sganciate e i
+  feedback aggiunti o eliminati. Ultime 120 righe; la creazione non si ripete (in fondo c'è già
+  «Creata»). Coperto sia dalla UI (`aggiornaPartner`, referenti, sedi, interessi, feedback) sia
+  dalle **API** (`POST`/`PATCH /partners` registrano i campi che quell'app ha davvero applicato —
+  il diff parte da `datiMerge`, quindi i campi che hanno perso il confronto di autorevolezza non
+  compaiono — e `POST /referenti/archivia`).
+  **Il log parte dal 30/07/2026**: quello cambiato prima non è tracciato.
   **Referenti per sede (29/07/2026)** — i referenti sono di **quella sede**, non dell'insegna:
   due negozi hanno persone diverse. La sezione Contatti compare **anche a zero referenti** (una
   sede appena aperta è proprio il caso in cui serve aggiungerne uno) con **＋ Referente**
@@ -426,10 +451,12 @@ scelte da fare, in fondo le pulizie. Quando un punto si chiude, si cancella da q
    sospeso. (I giudizi restano **solo interni**, deciso il 26/07/2026: niente recensioni
    pubbliche, niente moduli al cliente finale.)
 
-6. **Chi ha fatto cosa nella UI**: il registro non ha utenti, solo la password condivisa. Due
-   conseguenze: «chi valuta» su un feedback è testo libero, e da `/chiavi` chiunque entri può
-   creare una chiave di **scrittura piena** — quella password vale quanto le chiavi. Servirebbe il
-   login dall'Hub, con `/chiavi` riservata agli admin.
+6. **Chi ha fatto cosa nella UI**: il registro non ha utenti, solo la password condivisa. Il
+   **cosa** dal 30/07/2026 è tracciato (modello `Modifica` + sezione «Storia» su azienda e
+   contatto: campo, valore prima e dopo, da quale app); il **chi** no — `autore` resta vuoto per
+   le modifiche dalla UI, e da `/chiavi` chiunque entri può creare una chiave di **scrittura
+   piena**, quindi quella password vale quanto le chiavi. Serve il login dall'Hub, con `/chiavi`
+   riservata agli admin: da lì `autore` si riempie da sé.
 
 7. **Ambito «dati finanziari» sulle chiavi**: oggi **qualsiasi** chiave di lettura vede il blocco
    `datiFinanziari`, IBAN compreso (`deluxy-suppliers` e `deluxy-scout` inclusi). Finché sono dati

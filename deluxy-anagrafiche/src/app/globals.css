@@ -681,6 +681,15 @@ a.dash-riga:hover .dash-etichetta { color: var(--text); }
 .storia-data { flex: 0 0 120px; color: var(--text-tertiary); font-size: 12.5px; font-variant-numeric: tabular-nums; }
 .storia-freccia { color: var(--text-tertiary); }
 .storia-origine { margin-left: auto; color: var(--text-tertiary); font-size: 12px; }
+/* Nel log si legge prima QUALE campo è cambiato, poi da cosa a cosa: il nome
+   del campo fa da etichetta, il valore vecchio resta leggibile ma spento. */
+.storia-campo {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.3px; text-transform: uppercase;
+  color: var(--text-secondary); background: var(--fill);
+  border-radius: var(--radius-pill); padding: 2px 9px; margin-right: 6px;
+}
+.storia-da { color: var(--text-tertiary); }
+.storia li > span:nth-child(2) { min-width: 0; overflow-wrap: anywhere; }
 
 /* ---------- Paginazione ---------- */
 .paginazione {

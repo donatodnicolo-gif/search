@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { autentica, erroreApi } from "@/lib/api-auth";
 import { prisma } from "@/lib/db";
+import { registraModifica } from "@/lib/log-modifiche";
 import { nomeSistema } from "@/lib/merge";
 
 // POST /api/v1/referenti/archivia — archivia (o ripristina) un referente di un
@@ -82,5 +83,10 @@ export async function POST(req: NextRequest) {
     data: { archiviato, archiviatoIl: archiviato ? new Date() : null },
   });
 
+  await registraModifica(partnerId, { origine: client.nome, contattoId: match.id, entita: "contatto" }, {
+    campo: "archiviato",
+    da: !archiviato,
+    a: archiviato,
+  });
   return NextResponse.json({ ok: true, partnerId, contattoId: match.id, archiviato });
 }
