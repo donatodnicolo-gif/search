@@ -371,60 +371,103 @@ trovano un match nel registro. Lato registro misurato: 578 attivi, 316 boutique,
 - **Export vCard** (`npm run export:vcard` → `~/Downloads/Deluxy-Anagrafiche-Contatti.vcf`),
   importabile in bulk su contacts.google.com.
 
-## 7. Sviluppi IN CORSO / pending
+## 7. Punti aperti
 
-1. ~~Google OAuth Client ID~~ **RISOLTO (20/07/2026)**: `src/lib/google.ts` ora usa il client
-   **«Deluxy search rubrica»** `813248887384-kdksp8lq8p8pg4tou6b2q4i7r0avchjt.apps.googleusercontent.com`
-   (progetto **«My Project 75759»** = `xenon-jetty-502714-c9`, account **deluxy.delivery@gmail.com**,
-   in console via `?authuser=1`). Configurato sul client: origini JS
-   `https://search-deluxy.vercel.app` + `https://deluxy-anagrafiche.vercel.app` + `http://localhost:3060`;
-   People API già abilitata; test user: deividcala, deluxy.delivery, donatod.nicolo (@gmail.com).
-   Gotcha console: il tasto Salva può restare coperto dal banner cookie e il carattere `/` digitato
-   ruba il focus alla ricerca globale — impostare i campi via DOM se succede.
-2. **Fase 2 architettura** (non ancora costruita): coda **proposte** per i campi bloccati toccati
-   dalle app + UI di revisione; **Fase 3**: outbox/webhook sui cambi + Idempotency-Key.
-3. **Pulizia contatti Excel**: alcuni referenti dall'Excel hanno il campo `nome` sporco (testo
-   libero). Passata di normalizzazione possibile sfruttando i dati HubSpot più strutturati.
-4. **Stati finanziario/analisi ↔ FINANCE** (23/07/2026):
-   - **statoAnalisi: fatto lato FINANCE.** `deluxy-partner` lo manda al registro quando si salva
-     un partner (`updatePartner` → `aggiornaAnagrafica`, mappa `clienteAnno` → pp/nuovo/dismesso)
-     e c'è il travaso una-tantum `npm run sync:stato-analisi` (`--dry` per la prova). Il match usa
-     `anagraficaId`, poi il nome esatto, poi la sola insegna se univoca: i partner FINANCE senza
-     corrispondenza nel registro restano da riconciliare a mano.
-   - **statoFinanziario: ancora manuale.** Nessuna app lo scrive: manca la regola che, dai dati
-     di FINANCE (fatture scadute, piano di rientro `pdrDebito`, insoluti), decida
-     regolare/in_ritardo/insoluto/piano_di_rientro/bloccato. Oggi si cura dalla UI del registro.
-5b. **Reclami di Customer Service → voto (30/07/2026, FATTO lato registro)**: `POST /api/v1/feedback`
-   accetta il reclamo **così com'è** — `gravita` (1 lieve · 2 media · 3 grave) + `stato`
-   (aperto·in_lavorazione·risolto·chiuso) — e **il voto lo ricava il registro** con `votoDaReclamo`
-   (`src/lib/feedback-d2c.ts`), non l'app che manda: la regola sta in un posto solo.
-   Tabella: lieve 3/4 · media 2/3 · grave 1/2 (secondo valore = risolto). Due scelte dichiarate:
-   **rimediare conta** (+1 se chiuso, come Customer Service che dimezza il peso dei reclami
-   risolti) e **un reclamo non arriva mai a 5** (il 5 resta ai giudizi positivi).
-   Si conservano `gravita`, `reclamoRisolto` e `casistica` sul feedback: un voto va spiegato,
-   altrimenti sulla scheda resta «2 stelle» e nessuno sa perché. Alias accettati dai nomi di
-   Customer Service: `descrizione`/`esito`→commento, `ordineNumero`→ordine, `stato`→risolto.
-   **Aggiornare un reclamo non cancella più i campi non rispediti**: mandando solo
-   `idEsterno`+`stato` (il caso «ora è risolto»), ordine, autore e commento della prima chiamata
-   restano — prima l'upsert li azzerava in silenzio. Un reclamo che si risolve **alza** il voto
-   da sé, stesso `idEsterno`.
-   **Manca solo il lato Customer Service**: creare la chiave di tipologia «Feedback D2C» da
-   `/chiavi` e chiamare l'API quando un reclamo si chiude con `colpaTipo = "partner"`, mandando
-   `riferimento{sistema,idEsterno}` (o `partnerId`, che CS ha già in `colpaId`), `idEsterno` = id
+Aggiornato il **30/07/2026**. Ordine: prima quello che blocca un uso reale, poi le
+scelte da fare, in fondo le pulizie. Quando un punto si chiude, si cancella da qui.
+
+### A. Integrazioni che aspettano l'altra metà
+
+1. **Customer Service → voti degli affiliati: manca il lato Customer Service.**
+   Il registro è pronto (30/07/2026): `POST /api/v1/feedback` accetta il reclamo così com'è
+   (`gravita` 1|2|3 + `stato`) e ricava il voto con `votoDaReclamo` — lieve 3/4 · media 2/3 ·
+   grave 1/2, secondo valore = risolto. Conserva `gravita`, `reclamoRisolto`, `casistica` perché
+   un voto va spiegato; rimandando lo stesso `idEsterno` il feedback si aggiorna (il voto **sale**
+   se il reclamo è stato risolto) e i campi non rispediti restano.
+   Da fare **in `deluxy-messaging`**: (a) creare la chiave di tipologia «Feedback D2C» da `/chiavi`
+   e metterla nel suo `.env`; (b) chiamare l'API quando un reclamo si chiude con
+   `colpaTipo === "partner"`, mandando `partnerId` (CS ce l'ha già in `colpaId`), `idEsterno` = id
    del reclamo, `gravita`, `stato`, `casistica`, `ordineNumero`, `autore`.
-5. **Valutazione D2C — chi manda i feedback** (26/07/2026): l'impianto è pronto e vuoto
-   (tabella, API, chiave dedicata, UI, inserimento manuale). I giudizi sono **solo interni**
-   (deciso il 26/07/2026): niente recensioni pubbliche, niente moduli al cliente finale. Oggi
-   si registrano a mano dalla scheda; manca **collegare le app interne** — il candidato è
-   Deluxy Customer Service (un reclamo chiuso con colpa al partner → un feedback), poi la
-   piattaforma consegne. Serve una chiave di tipologia **«Feedback D2C»** (da `/chiavi` o
-   `npm run chiave -- <nome> --scrittura-feedback`) e la chiamata `POST /api/v1/feedback` con
-   `riferimento`+`idEsterno`+`autore`. **La chiave non è ancora stata generata**: si genera
-   quando si decide chi la usa, così non resta in giro una chiave di scrittura inutilizzata.
-   Da valutare poi: se la valutazione debba entrare nella scelta del partner in fase di
-   smistamento (oggi è solo informativa) e se serva una regola che sospende un partner critico.
-6. **deluxy-partner**: ha già `anagraficaId` e join per id (fatto). Le altre app (suppliers,
-   scout, search) hanno la chiave ma non ancora l'integrazione in lettura.
+   La chiave **non è ancora stata generata**: si genera quando si collega l'app, così non resta in
+   giro una chiave di scrittura inutilizzata.
+
+2. **`statoFinanziario`: nessuna app lo scrive.** In FINANCE non esiste una colonna da copiare —
+   ci sono i fatti (fatture scadute, `pdrDebito`, `debiti2025`). Serve la regola che li traduce in
+   regolare/in_ritardo/insoluto/piano_di_rientro/bloccato, e va scritta **in `deluxy-partner`**,
+   che possiede i dati e ha già la chiave di scrittura.
+   Proposta: `pdrDebito` valorizzato → piano_di_rientro; almeno una fattura scaduta → in_ritardo;
+   scaduta da oltre N giorni o sopra un importo → insoluto; nessuna scaduta → regolare; `bloccato`
+   solo a mano. **Decisione aperta: N.**
+   Misurato il 29/07/2026 su BASARA (`anagraficaId` già agganciato): 18 fatture, 6 non pagate, 1
+   scaduta, debiti 2025 = 0 → con questa regola sarebbe «regolare», mentre il registro dice ancora
+   «da verificare». È questo il disallineamento che si vede confrontando le due schede.
+
+3. **Letture del registro dalle altre app**: `deluxy-partner` fatto (join per `anagraficaId`);
+   **Ricerca fornitori legge già** (proxy `/api/anagrafiche` con la chiave lato server) e segnala
+   nuovi prospect con `/api/segnala`; **Scout ha la chiave ma non legge ancora**.
+
+### B. Scelte da prendere (il codice viene dopo)
+
+4. **Fornitori nel registro** (impianto discusso il 30/07/2026, non costruito). Il fornitore
+   oggi vive come testo libero altrove: `fornitore` sull'ordine in Orders, `beneficiario` sulla
+   richiesta di pagamento in FINANCE, e una tabella `Fornitore` tutta sua in Merchandising.
+   Disegno concordato: **`ruoli[]`** sull'anagrafica (cliente · fornitore · vendor — non
+   esclusivi: la stessa azienda ci compra, ci fornisce e ci fa vendere a commissione), uno
+   **stato fornitore** suo (da provare / abituale / da evitare: «prospect» su un fornitore non
+   vuol dire niente), e un livello **cercabile** — cosa fornisce (tag), province servite, lead
+   time, tagli minimi, canale per la richiesta. I **preventivi non stanno nel registro**: sono
+   transazioni, casa naturale l'app Ricerca fornitori (già manda richieste e tiene lo storico —
+   ma su KV, per i preventivi serve una tabella) oppure `deluxy-acquisti`.
+   **Decisione aperta: il catalogo del «cosa fornisce» è chiuso (come le categorie) o aperto
+   (come le linee di Scout)?**
+
+5. **Il voto conta o è solo informativo?** Oggi la valutazione D2C non entra nella scelta del
+   partner in fase di smistamento. Da decidere se ci entra e se un «Critico» va solo segnalato o
+   sospeso. (I giudizi restano **solo interni**, deciso il 26/07/2026: niente recensioni
+   pubbliche, niente moduli al cliente finale.)
+
+6. **Chi ha fatto cosa nella UI**: il registro non ha utenti, solo la password condivisa. Due
+   conseguenze: «chi valuta» su un feedback è testo libero, e da `/chiavi` chiunque entri può
+   creare una chiave di **scrittura piena** — quella password vale quanto le chiavi. Servirebbe il
+   login dall'Hub, con `/chiavi` riservata agli admin.
+
+7. **Ambito «dati finanziari» sulle chiavi**: oggi **qualsiasi** chiave di lettura vede il blocco
+   `datiFinanziari`, IBAN compreso (`deluxy-suppliers` e `deluxy-scout` inclusi). Finché sono dati
+   di clienti è brutto; col registro usato anche per i fornitori — cioè per chi paghiamo — diventa
+   una superficie da frode. L'impianto delle tipologie in `src/lib/chiavi.ts` è pronto ad
+   accogliere l'ambito nuovo.
+
+8. **Gruppo di pagamento in due posti**: `gruppoPagamento` qui (dal 29/07/2026) e `gruppo` in
+   `deluxy-partner`, documentato lì come «GRUPPO DI PAGAMENTO» con l'esempio CHANEL
+   Firenze/Milano/Roma. Stesso concetto, due copie: da allineare, probabilmente nello stesso giro
+   della regola dello `statoFinanziario`.
+
+9. **Fase 2 dell'architettura** (non costruita): coda di **proposte** per i campi curati toccati
+   dalle app + UI di revisione. **Fase 3**: outbox/webhook sui cambi + `Idempotency-Key`.
+
+### C. Pulizie di dati (piccole, misurate il 30/07/2026)
+
+10. **Linee scritte in due modi**: `consegne` (10 anagrafiche) accanto a `Consegne` (5), e
+    `gifting` (2) accanto a `Gifting` (51). I filtri e la sidebar ne vedono una per volta, quindi
+    quei partner spariscono dal conteggio giusto. Il nome canonico è quello con l'iniziale
+    maiuscola (catalogo master in Scout): serve una passata di normalizzazione.
+
+11. **Quattro anagrafiche di prova archiviate** (`attivo: false`, nessun interesse): «PROVA PATCH
+    NOTE», «PROVA MILANO» (fonte `platform`), «PROVA MERGE SUPPLIERS», «PROVA REGOLE INGAGGIO»
+    (fonte `deluxy-suppliers`). Da cancellare o marcare, così non inquinano i conteggi
+    dell'archivio.
+
+12. **Nomi dei referenti importati dall'Excel**: il campo `nome` è testo libero sporco. Passata di
+    normalizzazione possibile appoggiandosi ai dati HubSpot, più strutturati. (Dal 29/07/2026 la
+    modifica della scheda **non li ricrea più**, quindi una pulizia non viene più sovrascritta.)
+
+### D. Verifiche in sospeso
+
+13. **Ricerca in rubrica Google**: implementata il 29/07/2026 e provata con Google Identity e
+    People API sostituiti da finti nel browser (pulizia dei nomi, selezione multipla, riempimento
+    righe, creazione dei referenti). **La ricerca vera non è mai stata eseguita**: il consenso
+    Google richiede un click in un browser reale, con un account fra i test user
+    (deluxy.delivery, deividcala, donatod.nicolo). L'app OAuth è ancora in **modalità test**.
 
 ## 8. Script (`package.json`)
 
