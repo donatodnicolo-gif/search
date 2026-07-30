@@ -77,6 +77,41 @@ locale, altrimenti nulla si decifra.
   - Solo WhatsApp: su Instagram e Messenger l'id non è un numero di telefono e
     in rubrica non c'è niente da cercare.
 
+- **SCHERMATA INIZIALE «OGGI», MENU RIORDINATO, PROMEMORIA** (29/07/2026).
+  `/` non è più la bacheca ordini: è la **dashboard dell'operatore**. La bacheca
+  sta su **`/ordini`**, che era un redirect ed è diventato la pagina vera —
+  ⚠️ è anche l'URL registrato dell'app su Shopify, quindi chi arriva da lì
+  continua a trovare gli ordini.
+  - Fascia dei numeri (ognuno è un link a dove si lavora): chat da rispondere,
+    consegne di oggi, ordini da gestire con quanti in ritardo, reclami aperti,
+    rimborsi da decidere, pagamenti da inviare.
+  - ⚠️ **Chat ed email sono contate a parte, e non è estetica.** Misurato:
+    **106 conversazioni non lette, di cui 105 email** — quasi tutte newsletter.
+    Un unico «106 da rispondere» sarebbe un allarme che suona sempre, cioè che
+    non si guarda più. Il numero grande sono le chat; le mail stanno nella nota.
+  - «Chi aspetta una risposta» ordina per: **finestra WhatsApp che sta
+    scadendo** → chat → chi aspetta da più tempo. La finestra è l'unica cosa
+    rossa della schermata: passate 24 ore dal messaggio del cliente, Meta non
+    lascia più rispondere in testo libero e serve un modello approvato.
+  - «Ordini da lavorare» usa le **stesse fasce di urgenza della bacheca**
+    (`src/lib/urgenza.ts`: oggi → prossimi → scaduti da poco → senza data →
+    scaduti da tempo) su tutti i marchi, solo i non gestiti. Le due schermate
+    non devono raccontare priorità diverse.
+  - I collegamenti portano sulla **riga precisa**: `/inbox?c=<id>` apre quella
+    conversazione, `/ordini?apri=<id>` apre quel dettaglio.
+  - **Menu laterale riordinato per priorità**: `Lavoro` (Oggi, Inbox, Ordini
+    aperti, Calendario) · `Ordini` · `Reclami` · **`Qualità`** (Punteggi,
+    Feedback, Giudizi, Valet) · Messaggi · Configurazione. Le misure servono a
+    chi guarda indietro una volta a settimana, non a chi ha un cliente al
+    telefono: erano in cima, ora sono in fondo.
+  - **Promemoria** (`Attivita`, `/api/attivita`): si scrivono dalla dashboard,
+    con scadenza facoltativa, e si spuntano. ⚠️ **Non sono il registro attività
+    dell'ecosistema**: quello è **Deluxy Tasks** (porta 3090, API a chiave).
+    Questi sono i promemoria attaccati al lavoro di questa schermata; quando la
+    chiave di Tasks sarà configurata **vanno spinti anche là**, altrimenti
+    diventano due registri. La cartella `deluxy-tasks/` non è su questo branch:
+    il contratto dell'API va letto lì prima di integrare.
+
 - **ICONCINE SULLA RIGA E LINGUETTA «ARCHIVIATE»** (29/07/2026). Archiviare
   richiedeva di aprire la conversazione: per fare pulizia di 112 newsletter è
   un clic di troppo per riga.

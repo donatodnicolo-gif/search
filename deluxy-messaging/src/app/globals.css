@@ -2304,3 +2304,266 @@ td .azioni-ordine {
   overflow-x: auto;
   white-space: pre;
 }
+
+/* ---- Schermata iniziale (Oggi) ----
+   Una griglia di riquadri, non una pagina di grafici: quello che serve è
+   «chi aspetta» e «cosa consegno», leggibili senza interpretare. */
+
+.dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.numeri {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+/* Ogni numero è un link: un conteggio che non porta dove si lavora fa alzare
+   le spalle e nient'altro. */
+.numeri .numero {
+  display: block;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-l);
+  box-shadow: var(--shadow-card);
+  color: inherit;
+  text-decoration: none;
+}
+
+.numeri .numero:hover {
+  border-color: var(--hairline-strong);
+}
+
+/* L'allerta è un filo d'oro sul bordo, non un riquadro rosso: se tutto urla,
+   niente urla. */
+.numeri .numero.allerta {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 1px var(--gold) inset, var(--shadow-card);
+}
+
+.numeri .valore {
+  display: block;
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.numeri .etichetta {
+  display: block;
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.numeri .nota {
+  display: block;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-top: 4px;
+}
+
+.griglia-dashboard {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 18px;
+  align-items: start;
+}
+
+.riquadro .testa-riquadro {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.riquadro .testa-riquadro h2 {
+  margin: 0;
+  font-size: 16px;
+  flex: 1;
+}
+
+.elenco-attese,
+.elenco-ordini-urgenti,
+.elenco-attivita {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.elenco-attese li,
+.elenco-ordini-urgenti li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--hairline);
+  font-size: 13.5px;
+}
+
+.elenco-attese li:last-child,
+.elenco-ordini-urgenti li:last-child {
+  border-bottom: 0;
+}
+
+.elenco-attese .chi,
+.elenco-ordini-urgenti .numero-ordine {
+  font-weight: 600;
+  color: inherit;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.elenco-attese .chi:hover,
+.elenco-ordini-urgenti .numero-ordine:hover {
+  text-decoration: underline;
+}
+
+.elenco-attese .testo,
+.elenco-ordini-urgenti .cliente {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.elenco-attese .attesa,
+.elenco-ordini-urgenti .quando {
+  color: var(--text-tertiary);
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+
+/* La finestra di WhatsApp: 24 ore dal messaggio del cliente e Meta chiude il
+   testo libero. Quando sta per scadere è l'unica cosa rossa della schermata. */
+.elenco-attese .finestra {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+.elenco-attese .finestra.critica {
+  color: var(--red);
+  font-weight: 600;
+}
+
+.elenco-attese li.critica .chi {
+  color: var(--red);
+}
+
+.elenco-ordini-urgenti .fascia {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.elenco-ordini-urgenti .fascia.f-oggi {
+  color: var(--gold);
+  font-weight: 600;
+}
+
+.elenco-ordini-urgenti .fascia.f-scadute-recenti {
+  color: var(--red);
+}
+
+/* ---- Da fare ---- */
+
+.nuova-attivita {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.nuova-attivita input[type='text'],
+.nuova-attivita input:not([type]) {
+  flex: 1;
+  min-width: 180px;
+}
+
+.nuova-attivita input {
+  padding: 8px 11px;
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-m);
+  font: inherit;
+  font-size: 13px;
+}
+
+.nuova-attivita input:focus {
+  outline: none;
+  border-color: var(--blue);
+}
+
+.elenco-attivita li {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--hairline);
+  font-size: 13.5px;
+}
+
+.elenco-attivita li:last-child {
+  border-bottom: 0;
+}
+
+.elenco-attivita .testo-attivita {
+  flex: 1;
+  min-width: 0;
+}
+
+.elenco-attivita .rif {
+  color: var(--text-tertiary);
+}
+
+.elenco-attivita .quando {
+  color: var(--text-tertiary);
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+
+.elenco-attivita .quando.scaduta {
+  color: var(--red);
+  font-weight: 600;
+}
+
+/* ---- Strumenti ---- */
+
+.strumenti {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 8px;
+}
+
+.strumenti .strumento {
+  display: block;
+  padding: 10px 12px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-m);
+  color: inherit;
+  text-decoration: none;
+  background: var(--surface);
+}
+
+.strumenti .strumento:hover {
+  background: var(--fill);
+}
+
+.strumenti .strumento .nome {
+  display: block;
+  font-weight: 600;
+  font-size: 13.5px;
+}
+
+.strumenti .strumento .che-cosa {
+  display: block;
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 1px;
+}

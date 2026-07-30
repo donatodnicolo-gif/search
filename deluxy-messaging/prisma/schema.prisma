@@ -395,6 +395,35 @@ model Messaggio {
   @@index([idEsterno])
 }
 
+// Un promemoria dell'operatore: «richiamare il cliente domani», «sollecitare il
+// fiorista sull'ordine 2529».
+//
+// ⚠️ Non è il registro attività dell'ecosistema. Quello è **Deluxy Tasks**
+// (porta 3090), che tiene le attività di una PERSONA su tutte le app. Qui
+// vivono i promemoria attaccati al lavoro di questa schermata — un ordine, una
+// conversazione — che senza un posto dove stare finiscono su un foglietto.
+// Quando ci sarà la chiave di Deluxy Tasks queste vanno anche spinte là: è
+// scritto nell'handoff, non va dimenticato o diventano due registri.
+model Attivita {
+  id              String   @id @default(cuid())
+  testo           String   @db.Text
+  fatta           Boolean  @default(false)
+  scadenza        DateTime?
+  // A cosa si riferisce: si tiene l'id **e l'etichetta**, così il promemoria si
+  // legge («ordine #2529») anche se quell'ordine non c'è più in tabella.
+  ordineId        String   @default("")
+  conversazioneId String   @default("")
+  riferimento     String   @default("")
+  // Chi l'ha scritta: con più operatori, «di chi è questo promemoria» è la prima
+  // domanda. Copiato e non collegato, come su Messaggio.
+  utenteId        String   @default("")
+  utenteNome      String   @default("")
+  fattaIl         DateTime?
+  creatoIl        DateTime @default(now())
+
+  @@index([fatta, scadenza])
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // CUSTOMER SERVICE — RECLAMI
 //

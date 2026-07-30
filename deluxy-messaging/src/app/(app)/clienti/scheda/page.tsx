@@ -38,7 +38,7 @@ export default async function PaginaSchedaCliente({
             <strong>telefono</strong>: il nome non basta, perché due persone possono chiamarsi
             uguale e aprire la scheda sbagliata è peggio che non aprirla.
           </p>
-          <Link className="btn btn-secondario" href="/">
+          <Link className="btn btn-secondario" href="/ordini">
             Torna agli ordini
           </Link>
         </div>

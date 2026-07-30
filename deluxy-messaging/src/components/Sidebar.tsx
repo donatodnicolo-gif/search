@@ -18,13 +18,43 @@ export function Sidebar() {
     document.documentElement.removeAttribute('data-menu-aperto')
   }, [path])
 
+  // ⚠️ L'ORDINE DI QUESTO MENU È UNA SCELTA, non un elenco alfabetico.
+  //
+  // Il lavoro di un operatore, in ordine: rispondere a chi aspetta, portare a
+  // casa gli ordini di oggi, chiudere i reclami aperti. Le MISURE — punteggi,
+  // giudizi, pagelle dei valet — servono a chi guarda indietro una volta a
+  // settimana, non a chi ha un cliente al telefono adesso: stanno in fondo, in
+  // «Qualità», e non più in mezzo alle cose da fare.
   const gruppi = [
     {
-      titolo: 'Customer Service',
+      titolo: 'Lavoro',
+      voci: [
+        { href: '/', nome: 'Oggi', icona: iconaOggi },
+        { href: '/inbox', nome: 'Inbox', icona: iconaChat },
+        { href: '/ordini', nome: 'Ordini aperti', icona: iconaLista },
+        { href: '/calendario', nome: 'Calendario', icona: iconaCalendario },
+      ],
+    },
+    {
+      titolo: 'Ordini',
+      voci: [
+        { href: '/ordini-globali', nome: 'Ordini globali', icona: iconaArchivio },
+        { href: '/clienti', nome: 'Clienti', icona: iconaClienti },
+        { href: '/pagamenti', nome: 'Pagamenti', icona: iconaPagamenti },
+        { href: '/partner', nome: 'Partner', icona: iconaPartner },
+      ],
+    },
+    {
+      titolo: 'Reclami',
       voci: [
         { href: '/reclami', nome: 'Reclami', icona: iconaReclamo },
-        { href: '/reclami/casistiche', nome: 'Casistiche', icona: iconaCasistiche },
         { href: '/rimborsi', nome: 'Rimborsi', icona: iconaRimborso },
+        { href: '/reclami/casistiche', nome: 'Casistiche', icona: iconaCasistiche },
+      ],
+    },
+    {
+      titolo: 'Qualità',
+      voci: [
         { href: '/reclami/punteggi', nome: 'Punteggi', icona: iconaPunteggi },
         { href: '/reclami/feedback', nome: 'Feedback e orari', icona: iconaFeedback },
         { href: '/reclami/giudizi', nome: 'Giudizi', icona: iconaGiudizi },
@@ -32,21 +62,9 @@ export function Sidebar() {
       ],
     },
     {
-      titolo: 'Ordini',
-      voci: [
-        { href: '/', nome: 'Ordini aperti', icona: iconaLista },
-        { href: '/ordini-globali', nome: 'Ordini globali', icona: iconaArchivio },
-        { href: '/calendario', nome: 'Calendario', icona: iconaCalendario },
-        { href: '/clienti', nome: 'Clienti', icona: iconaClienti },
-        { href: '/partner', nome: 'Partner', icona: iconaPartner },
-        { href: '/pagamenti', nome: 'Pagamenti', icona: iconaPagamenti },
-      ],
-    },
-    {
       titolo: 'Messaggi',
       voci: [
-        { href: '/inbox', nome: 'Inbox', icona: iconaChat },
-        { href: '/script', nome: 'Script', icona: iconaScript },
+        { href: '/script', nome: 'Risposte pronte', icona: iconaScript },
         { href: '/cs-ai', nome: 'CS AI', icona: iconaCsAi },
       ],
     },
@@ -112,6 +130,21 @@ const iconaArchivio = (
     <path d="M10 13h4" />
   </svg>
 );
+// «Oggi»: un sole basso. La schermata iniziale è il turno che comincia.
+const iconaOggi = (
+  <svg {...T}>
+    <circle cx="12" cy="12" r="4" />
+    <line x1="12" y1="3" x2="12" y2="5" />
+    <line x1="12" y1="19" x2="12" y2="21" />
+    <line x1="3" y1="12" x2="5" y2="12" />
+    <line x1="19" y1="12" x2="21" y2="12" />
+    <line x1="5.6" y1="5.6" x2="7" y2="7" />
+    <line x1="17" y1="17" x2="18.4" y2="18.4" />
+    <line x1="5.6" y1="18.4" x2="7" y2="17" />
+    <line x1="17" y1="7" x2="18.4" y2="5.6" />
+  </svg>
+)
+
 const iconaLista = (
   <svg {...T}>
     <line x1="8" y1="6" x2="21" y2="6" />

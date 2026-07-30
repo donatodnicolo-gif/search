@@ -51,7 +51,7 @@ export default function ErroreApp({
             Riprova
           </button>
           <a className="btn btn-secondario" href="/">
-            Torna agli ordini
+            Torna a Oggi
           </a>
         </div>
 

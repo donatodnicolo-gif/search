@@ -1,7 +1,13 @@
-import { redirect } from 'next/navigation'
+import { OrdiniLista } from '@/components/OrdiniLista'
 
-// Gli ordini sono la pagina iniziale (/). Questo indirizzo resta valido perché
-// è quello registrato come URL dell'app su Shopify: reindirizza alla home.
-export default function OrdiniLegacy() {
-  redirect('/')
+export const dynamic = 'force-dynamic'
+
+// La bacheca degli ordini aperti. Stava su `/`, che adesso è la schermata
+// iniziale del Customer Service.
+//
+// ⚠️ Questo indirizzo è anche quello registrato come URL dell'app su Shopify:
+// prima era un redirect verso `/`, ora è la pagina vera — chi arriva da Shopify
+// continua a trovare gli ordini, che è quello che si aspetta.
+export default function PaginaOrdini() {
+  return <OrdiniLista />
 }

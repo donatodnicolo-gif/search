@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { GESTIONI, coloreGestione, nomeGestione } from '@/lib/gestione'
 import {
   TIPI_CLIENTE,
@@ -506,7 +507,12 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
   const [avviso, setAvviso] = useState('')
   const [errore, setErrore] = useState('')
   // Quale ordine è aperto nel pannello di dettaglio ('' = nessuno).
-  const [dettaglio, setDettaglio] = useState('')
+  //
+  // `?apri=<id>`: la schermata «Oggi» manda qui sull'ordine preciso, col
+  // dettaglio già aperto. Un collegamento che porta all'elenco e basta lascia a
+  // chi lavora il compito di ricercare la riga che aveva appena letto.
+  const parametri = useSearchParams()
+  const [dettaglio, setDettaglio] = useState(parametri.get('apri') ?? '')
   // La bozza aperta nel pop-up di posta (null = chiuso). Il pop-up sostituisce
   // il vecchio `mailto:`, che apriva il programma di posta del computer.
   const [mail, setMail] = useState<BozzaMail | null>(null)

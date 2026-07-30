@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { pezziDiTesto, ripulisciTestoEmail } from '@/lib/testo-email'
 import { inserisciScript } from '@/lib/script-testo'
 import { urlScriviAiMail } from '@/lib/ai-mail'
@@ -236,7 +237,11 @@ export function Inbox({
   brandNoti?: string[]
 }) {
   const [conversazioni, setConversazioni] = useState(conversazioniIniziali)
-  const [selezionataId, setSelezionataId] = useState<string | null>(null)
+  // `?c=<id>`: la schermata «Oggi» manda qui su una conversazione precisa. Senza,
+  // il collegamento «chi aspetta una risposta» aprirebbe l'inbox e lascerebbe a
+  // chi lavora il compito di ritrovare la riga che aveva appena letto.
+  const parametri = useSearchParams()
+  const [selezionataId, setSelezionataId] = useState<string | null>(parametri.get('c'))
   // Posta in arrivo o archivio: due elenchi, la stessa schermata. L'archivio
   // non è un cestino — le conversazioni ci sono tutte e si riportano indietro.
   const [archivio, setArchivio] = useState(false)
@@ -267,7 +272,17 @@ export function Inbox({
   // Cambiando linguetta l'elenco si ricarica subito, senza aspettare i 5
   // secondi del polling — e la conversazione aperta si chiude, perché appartiene
   // all'elenco di prima.
+  //
+  // ⚠️ Al PRIMO giro non si chiude niente: le conversazioni iniziali arrivano
+  // già dal server e la selezione può venire da `?c=`. Senza questa guardia, il
+  // collegamento dalla schermata «Oggi» apriva la conversazione e la richiudeva
+  // da solo un istante dopo.
+  const primoGiro = useRef(true)
   useEffect(() => {
+    if (primoGiro.current) {
+      primoGiro.current = false
+      return
+    }
     setSelezionataId(null)
     aggiornaConversazioni()
   }, [archivio, aggiornaConversazioni])
