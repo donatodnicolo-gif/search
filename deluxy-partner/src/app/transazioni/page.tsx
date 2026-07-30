@@ -61,7 +61,7 @@ export default async function TransazioniPage({
   // transazioni "nuove" più recenti, non a tutte. Il numero totale resta visibile.
   const MAX_NUOVE = 400;
 
-  const [nuoveRec, nuoveTotali, registrate, ignorate, totaleTransazioni, estremi, importi, partners, fattureAperte, tutti, associazioniRec] =
+  const [nuoveRec, nuoveTotali, registrate, ignorate, totaleTransazioni, estremi, importi, partners, fattureAperte, tutti, associazioniRec, qonto, ultimaSyncRow] =
     await Promise.all([
       prisma.transazioneBancaria.findMany({
         where: { stato: "nuova", ...filtroRicerca },
@@ -90,6 +90,9 @@ export default async function TransazioniPage({
       }),
       riepilogoTutti(ANNO_CORRENTE),
       prisma.associazioneControparte.findMany({ orderBy: { updatedAt: "desc" } }),
+      // in parallelo anche stato Qonto e ultima sync (prima erano due await in coda)
+      qontoConfigurato(),
+      prisma.impostazione.findUnique({ where: { chiave: "qonto.ultimaSync" } }),
     ]);
 
   // mappa controparte-normalizzata → partner, usata dal motore di riconoscimento
@@ -109,12 +112,8 @@ export default async function TransazioniPage({
       .map((m) => ({ partner: t.partner, mese: m.mese, importo: m.riepilogo.daBonificare }))
   );
 
-  const qonto = await qontoConfigurato();
   // ultima sincronizzazione riuscita (bottone manuale o cron notturno)
-  const ultimaSyncRow = qonto
-    ? await prisma.impostazione.findUnique({ where: { chiave: "qonto.ultimaSync" } })
-    : null;
-  const ultimaSync = ultimaSyncRow ? new Date(ultimaSyncRow.valore) : null;
+  const ultimaSync = qonto && ultimaSyncRow ? new Date(ultimaSyncRow.valore) : null;
   const ctx = { partners, fattureAperte, daBonificare, associazioni };
 
   const conSugg = nuove.map((tx) => ({ tx, sugg: suggerisci(tx, ctx) }));
