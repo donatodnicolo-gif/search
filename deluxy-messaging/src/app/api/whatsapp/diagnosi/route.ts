@@ -43,6 +43,7 @@ export async function GET() {
     'waBusinessAccountId',
     'metaVerifyToken',
     'metaAppSecret',
+    'igAppSecret',
     'igToken',
     'fbPageToken',
   ])
@@ -62,6 +63,16 @@ export async function GET() {
     dettaglio: c.metaAppSecret?.trim()
       ? 'C’è: accettiamo solo richieste firmate da Meta.'
       : 'Manca: il webhook accetta chiunque conosca l’indirizzo. Da riempire.',
+  })
+  // ⚠️ «Instagram API con login di Instagram» firma i suoi webhook con una
+  // chiave segreta SUA: senza quella la firma non combacia, i DM vengono
+  // respinti con 401 e da fuori sembra che Meta non ci chiami affatto.
+  esiti.push({
+    passo: 'Chiave segreta di Instagram',
+    ok: c.igAppSecret?.trim() ? true : null,
+    dettaglio: c.igAppSecret?.trim()
+      ? 'C’è: accettiamo anche i webhook firmati con la chiave di Instagram.'
+      : 'Non impostata. Serve se usi «Instagram API con login di Instagram»: quel prodotto firma i DM con una chiave propria e senza il webhook li respinge con 401 (Impostazioni → Chiave segreta di Instagram).',
   })
 
   // 2. Ogni numero collegato si controlla da solo: token, numero, iscrizione.

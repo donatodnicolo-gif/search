@@ -5,16 +5,9 @@ import { leggiImpostazioni } from '@/lib/impostazioni'
 import { redirectUri } from '@/lib/google'
 import { salvaImpostazioni } from './actions'
 import { DiagnosiWhatsApp } from '@/components/DiagnosiWhatsApp'
+import { CampoSegreto } from '@/components/CampoSegreto'
 
 export const dynamic = 'force-dynamic'
-
-function BadgeConfigurato({ pieno }: { pieno: boolean }) {
-  return pieno ? (
-    <span className="badge verde">configurato</span>
-  ) : (
-    <span className="badge rosso">mancante</span>
-  )
-}
 
 export default async function PaginaImpostazioni({
   searchParams,
@@ -30,6 +23,7 @@ export default async function PaginaImpostazioni({
     'igToken',
     'metaVerifyToken',
     'metaAppSecret',
+    'igAppSecret',
     'widgetTitolo',
     'widgetMessaggio',
     'googleClientId',
@@ -81,18 +75,23 @@ export default async function PaginaImpostazioni({
               <span>Verify token (lo scegli tu, uguale su Meta)</span>
               <input name="metaVerifyToken" defaultValue={config.metaVerifyToken} />
             </label>
-            <label className="campo">
-              <span>
-                App Secret (verifica la firma dei webhook){' '}
-                <BadgeConfigurato pieno={!!config.metaAppSecret} />
-              </span>
-              <input
-                name="metaAppSecret"
-                type="password"
-                placeholder={config.metaAppSecret ? 'salvato — incolla per sostituire' : ''}
-                autoComplete="off"
-              />
-            </label>
+            <CampoSegreto
+              nome="metaAppSecret"
+              etichetta="App Secret (verifica la firma dei webhook)"
+              valore={config.metaAppSecret}
+              aiuto="App Meta → Impostazioni → Di base → Chiave segreta dell'app. Vale per WhatsApp e per le Pagine Facebook."
+            />
+            {/* ⚠️ L'app «Instagram API con login di Instagram» ha una chiave
+                segreta SUA: firma i webhook dei DM con quella, non con l'App
+                Secret di Facebook. Senza, la firma non combacia e il webhook
+                risponde 401 — cioè i messaggi Instagram non arrivano mai, e da
+                fuori sembra un problema di iscrizione. */}
+            <CampoSegreto
+              nome="igAppSecret"
+              etichetta="Chiave segreta di Instagram"
+              valore={config.igAppSecret}
+              aiuto="Solo se usi «Instagram API con login di Instagram»: quel prodotto ha una chiave segreta propria e firma i suoi webhook con quella. Se lasci vuoto vale l'App Secret qui sopra."
+            />
           </div>
 
           <div className="card">
@@ -101,17 +100,7 @@ export default async function PaginaImpostazioni({
               WhatsApp Cloud API: serve il token permanente e il Phone Number ID del numero
               Business (app Meta → WhatsApp → Configurazione API).
             </p>
-            <label className="campo">
-              <span>
-                Token permanente <BadgeConfigurato pieno={!!config.waToken} />
-              </span>
-              <input
-                name="waToken"
-                type="password"
-                placeholder={config.waToken ? 'salvato — incolla per sostituire' : ''}
-                autoComplete="off"
-              />
-            </label>
+            <CampoSegreto nome="waToken" etichetta="Token permanente" valore={config.waToken} />
             <label className="campo">
               <span>Phone Number ID</span>
               <input name="waPhoneNumberId" defaultValue={config.waPhoneNumberId} />
@@ -140,17 +129,7 @@ export default async function PaginaImpostazioni({
               più marchi, ognuno ha il suo token e si collegano in{' '}
               <Link href="/account-meta">Facebook e Instagram</Link> — questo resta come ripiego.
             </p>
-            <label className="campo">
-              <span>
-                Page Access Token <BadgeConfigurato pieno={!!config.fbPageToken} />
-              </span>
-              <input
-                name="fbPageToken"
-                type="password"
-                placeholder={config.fbPageToken ? 'salvato — incolla per sostituire' : ''}
-                autoComplete="off"
-              />
-            </label>
+            <CampoSegreto nome="fbPageToken" etichetta="Page Access Token" valore={config.fbPageToken} />
           </div>
 
           <div className="card">
@@ -161,17 +140,7 @@ export default async function PaginaImpostazioni({
               Instagram si collegano in{' '}
               <Link href="/account-meta">Facebook e Instagram</Link>, uno per marchio.
             </p>
-            <label className="campo">
-              <span>
-                Token <BadgeConfigurato pieno={!!config.igToken} />
-              </span>
-              <input
-                name="igToken"
-                type="password"
-                placeholder={config.igToken ? 'salvato — incolla per sostituire' : ''}
-                autoComplete="off"
-              />
-            </label>
+            <CampoSegreto nome="igToken" etichetta="Token" valore={config.igToken} />
           </div>
 
           <div className="card">
@@ -201,17 +170,7 @@ export default async function PaginaImpostazioni({
                 autoComplete="off"
               />
             </label>
-            <label className="campo">
-              <span>
-                Client Secret <BadgeConfigurato pieno={!!config.googleClientSecret} />
-              </span>
-              <input
-                name="googleClientSecret"
-                type="password"
-                placeholder={config.googleClientSecret ? 'salvato — incolla per sostituire' : ''}
-                autoComplete="off"
-              />
-            </label>
+            <CampoSegreto nome="googleClientSecret" etichetta="Client Secret" valore={config.googleClientSecret} />
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
               {googleCollegato ? (
                 <span className="badge verde">collegato</span>
@@ -262,17 +221,7 @@ export default async function PaginaImpostazioni({
                 placeholder="https://deluxy-partner.vercel.app"
               />
             </label>
-            <label className="campo">
-              <span>
-                Chiave API <BadgeConfigurato pieno={!!config.partnerApiKey} />
-              </span>
-              <input
-                name="partnerApiKey"
-                type="password"
-                placeholder={config.partnerApiKey ? 'salvata — incolla per sostituire' : ''}
-                autoComplete="off"
-              />
-            </label>
+            <CampoSegreto nome="partnerApiKey" etichetta="Chiave API" valore={config.partnerApiKey} />
           </div>
 
           <div className="card">
@@ -283,17 +232,7 @@ export default async function PaginaImpostazioni({
               chiave delle altre app Deluxy; se manca si ripiega su Claude. In ogni caso
               l&apos;IBAN letto viene verificato col codice di controllo.
             </p>
-            <label className="campo">
-              <span>
-                Chiave API OpenAI <BadgeConfigurato pieno={!!config.openaiApiKey} />
-              </span>
-              <input
-                name="openaiApiKey"
-                type="password"
-                placeholder={config.openaiApiKey ? 'salvata — incolla per sostituire' : 'sk-proj-…'}
-                autoComplete="off"
-              />
-            </label>
+            <CampoSegreto nome="openaiApiKey" etichetta="Chiave API OpenAI" valore={config.openaiApiKey} segnaposto="sk-proj-…" />
             <div style={{ display: 'flex', gap: 10 }}>
               <label className="campo" style={{ flex: 1 }}>
                 <span>Modello per il testo</span>
@@ -334,19 +273,7 @@ export default async function PaginaImpostazioni({
             <p className="descrizione" style={{ margin: '2px 0 10px' }}>
               — in alternativa — Claude (usato solo se manca la chiave OpenAI):
             </p>
-            <label className="campo">
-              <span>
-                Chiave API Anthropic <BadgeConfigurato pieno={!!config.anthropicApiKey} />
-              </span>
-              <input
-                name="anthropicApiKey"
-                type="password"
-                placeholder={
-                  config.anthropicApiKey ? 'salvata — incolla per sostituire' : 'sk-ant-…'
-                }
-                autoComplete="off"
-              />
-            </label>
+            <CampoSegreto nome="anthropicApiKey" etichetta="Chiave API Anthropic" valore={config.anthropicApiKey} segnaposto="sk-ant-…" />
           </div>
 
           <div className="card">
@@ -364,17 +291,7 @@ export default async function PaginaImpostazioni({
                 placeholder="https://search-deluxy.vercel.app"
               />
             </label>
-            <label className="campo">
-              <span>
-                Chiave API <BadgeConfigurato pieno={!!config.searchApiKey} />
-              </span>
-              <input
-                name="searchApiKey"
-                type="password"
-                placeholder={config.searchApiKey ? 'salvata — incolla per sostituire' : 'dlxs_…'}
-                autoComplete="off"
-              />
-            </label>
+            <CampoSegreto nome="searchApiKey" etichetta="Chiave API" valore={config.searchApiKey} segnaposto="dlxs_…" />
           </div>
 
           <div className="card">
@@ -392,17 +309,7 @@ export default async function PaginaImpostazioni({
                 placeholder="https://deluxy-orders.vercel.app"
               />
             </label>
-            <label className="campo">
-              <span>
-                Chiave API (sola lettura) <BadgeConfigurato pieno={!!config.ordersApiKey} />
-              </span>
-              <input
-                name="ordersApiKey"
-                type="password"
-                placeholder={config.ordersApiKey ? 'salvata — incolla per sostituire' : ''}
-                autoComplete="off"
-              />
-            </label>
+            <CampoSegreto nome="ordersApiKey" etichetta="Chiave API (sola lettura)" valore={config.ordersApiKey} />
           </div>
 
           <div className="card">
@@ -420,18 +327,7 @@ export default async function PaginaImpostazioni({
                 placeholder="https://deluxy-anagrafiche.vercel.app"
               />
             </label>
-            <label className="campo">
-              <span>
-                Chiave API (sola lettura){' '}
-                <BadgeConfigurato pieno={!!config.anagraficheApiKey} />
-              </span>
-              <input
-                name="anagraficheApiKey"
-                type="password"
-                placeholder={config.anagraficheApiKey ? 'salvata — incolla per sostituire' : 'dlxk_…'}
-                autoComplete="off"
-              />
-            </label>
+            <CampoSegreto nome="anagraficheApiKey" etichetta="Chiave API (sola lettura)" valore={config.anagraficheApiKey} segnaposto="dlxk_…" />
           </div>
 
           <div className="card">

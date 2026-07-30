@@ -77,6 +77,30 @@ locale, altrimenti nulla si decifra.
   - Solo WhatsApp: su Instagram e Messenger l'id non è un numero di telefono e
     in rubrica non c'è niente da cercare.
 
+- **IL WEBHOOK ACCETTA DUE FIRME, E I SEGRETI SI POSSONO CANCELLARE**
+  (30/07/2026). Due cose che si tenevano per mano.
+  - ⚠️ **«Instagram API con login di Instagram» ha una chiave segreta SUA** e
+    firma i webhook dei DM con quella, non con l'App Secret dell'app Facebook.
+    `POST /api/webhooks/meta` verificava con un segreto solo: gli eventi
+    Instagram venivano respinti con **401**, e da fuori sembrava «Meta non ci
+    manda niente» — si andava a controllare l'iscrizione al webhook, che era a
+    posto. Ora si provano **tutti i segreti configurati** e basta che uno
+    combaci. Nuovo campo in Impostazioni: **Chiave segreta di Instagram**
+    (`igAppSecret`); vuoto = vale l'App Secret.
+  - **Non si sceglie la chiave da `body.object`**: quel campo sta nel corpo, e il
+    corpo non è ancora verificato — decidere quale serratura usare partendo da un
+    dato non firmato vuol dire lasciarla scegliere a chi chiama. Provato: firma
+    Instagram + solo App Secret → 401; con entrambi → accettata; firma di un
+    estraneo → 401.
+  - **I segreti ora si cancellano.** I campi segreti si salvavano solo se pieni
+    (comodo: non si reincolla tutto a ogni modifica) e quindi **un token
+    revocato o incollato per errore non si poteva togliere**, solo sovrascrivere.
+    Nuovo componente `CampoSegreto` con la casella «Cancella il valore salvato»
+    (arriva come `svuota_<chiave>`), usato da tutti gli 11 campi segreti della
+    pagina. La cancellazione vince sul valore incollato: se qualcuno spunta e
+    incolla, l'intenzione dichiarata è la casella.
+  - La diagnosi ha una riga in più sulla chiave di Instagram.
+
 - **LA GUIDA CUSTOMER SERVICE È DENTRO L'AI** (30/07/2026).
   `scripts/carica-guida-cs.mjs` (in catalogo) porta nell'app la parte della
   **Guida Customer Service Deluxy unificata v1.0** (14/07/2026, 49.000 caratteri)

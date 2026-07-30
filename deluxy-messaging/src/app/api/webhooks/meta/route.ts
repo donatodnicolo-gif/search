@@ -55,16 +55,38 @@ async function annotaChiamata(esito: string) {
 export async function POST(req: NextRequest) {
   const grezzo = await req.text()
 
-  // Se l'App Secret è configurato, accettiamo solo richieste firmate da Meta.
-  const { metaAppSecret } = await leggiImpostazioni(['metaAppSecret'])
-  if (metaAppSecret) {
+  // Accettiamo solo richieste firmate da Meta — ma la firma può venire da DUE
+  // segreti diversi.
+  //
+  // ⚠️ IL PRODOTTO «Instagram API con login di Instagram» HA UNA CHIAVE SEGRETA
+  // SUA. Firma i webhook dei DM con quella, non con l'App Secret dell'app
+  // Facebook. Verificando con un segreto solo, i messaggi Instagram venivano
+  // respinti con 401: da fuori sembrava «Meta non ci manda niente», e si andava
+  // a cercare l'iscrizione al webhook — che era a posto.
+  //
+  // Si provano tutti i segreti configurati e basta che UNO combaci. Non si
+  // sceglie in base a `body.object`: quel campo sta nel corpo, e il corpo non è
+  // ancora stato verificato — decidere quale chiave usare partendo da un dato
+  // non firmato vuol dire lasciare a chi chiama la scelta della serratura.
+  const { metaAppSecret, igAppSecret } = await leggiImpostazioni(['metaAppSecret', 'igAppSecret'])
+  const segreti = [metaAppSecret, igAppSecret].filter((s): s is string => Boolean(s?.trim()))
+  if (segreti.length) {
     const firma = req.headers.get('x-hub-signature-256') || ''
-    const attesa =
-      'sha256=' + crypto.createHmac('sha256', metaAppSecret).update(grezzo).digest('hex')
-    const a = Buffer.from(firma)
-    const b = Buffer.from(attesa)
-    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
-      await annotaChiamata('firma non valida — l’App Secret salvato non è quello di questa app Meta')
+    const inviata = Buffer.from(firma)
+    const combacia = segreti.some((segreto) => {
+      const attesa = Buffer.from(
+        'sha256=' + crypto.createHmac('sha256', segreto).update(grezzo).digest('hex')
+      )
+      // `timingSafeEqual` pretende la stessa lunghezza: senza il controllo
+      // solleva un'eccezione invece di rispondere «firma sbagliata».
+      return inviata.length === attesa.length && crypto.timingSafeEqual(inviata, attesa)
+    })
+    if (!combacia) {
+      await annotaChiamata(
+        segreti.length > 1
+          ? 'firma non valida — non combacia né con l’App Secret né con la chiave segreta di Instagram'
+          : 'firma non valida — l’App Secret salvato non è quello di questa app Meta. Se è un evento Instagram, serve la «Chiave segreta di Instagram» (Impostazioni)'
+      )
       return new NextResponse('Firma non valida', { status: 401 })
     }
   }
