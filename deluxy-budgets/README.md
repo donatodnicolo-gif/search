@@ -256,6 +256,27 @@ compare); quello che **esce** non si toglie dalle campagne — lì dentro non c'
 sarebbe sottrarre due volte — ma dalla cassa, che è il numero da cui è stato spostato. Con il
 ripiego sulla banca la riga torna a essere cassa e la competenza vale in entrambi i versi.
 
+## Cos'è un ricavo D2C (definizione dell'utente, 29/07/2026)
+
+Il ricavo dell'ecommerce è fatto di **due pezzi**, e vanno sommati tutti e due:
+
+1. le **commissioni** fatturate a vendor, affiliati e re-seller per le vendite fatte sul sito — sono
+   in Finance, tipologia **«Affiliazioni»**;
+2. la **differenza fra l'incasso e quanto è stato pagato** al fornitore o al re-seller: incasso dal
+   registro ordini, pagato dalle categorie di banca marcate «quota partner».
+
+Il secondo pezzo è quello che l'app calcolava già — `venduto × quota` è aritmeticamente
+`venduto − pagato`, e la percentuale serve solo a mostrarlo. Sul 2026: incasso 610.500 € meno
+443.749 € pagati ai partner fa **166.751 €**; sul 2025, 765.576 − 447.140 = **318.435 €**.
+
+Il primo pezzo **mancava**: «Affiliazioni» era mappata su B2B (1.850 € nel 2026, 950 € nel 2025), ma
+una commissione su una vendita fatta sul sito è ricavo D2C, non un servizio a un'azienda. Spostata
+sulla voce D2C in Margini.
+
+> ⚠️ **Due voci di Finance restano da decidere**: **«Clientelling»** (60 € nel 2026) è ancora su B2B —
+> se anche quella è una commissione su vendite del sito va spostata; e **«Altro»** (2.005 € nel 2026)
+> **non è mappata su nessuna voce di budget**, quindi non entra nei ricavi di nessuno.
+
 ## Modello C: intermediario sull'ecommerce, venditore sugli eventi
 
 Deciso il 28/07/2026 rispondendo alle quattro domande che distinguono un venditore da un
