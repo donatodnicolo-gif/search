@@ -25,7 +25,22 @@ export default function PaginaWidget() {
   // Da quale sito ci stanno scrivendo: lo dichiara lo snippet (`data-sito`) e
   // decide il titolo e il saluto — e, in Inbox, la colonna in cui finisce la
   // chat. Vuoto = snippet vecchio: valgono i testi generali.
-  const [sito, setSito] = useState('')
+  //
+  // ⚠️ SI LEGGE SUBITO, non dentro un `useEffect`. La prima richiesta al server
+  // parte da un altro effetto, e gli effetti girano tutti dopo il primo disegno:
+  // con il sito preso da uno `setState`, quella richiesta partiva ancora col
+  // valore vuoto e il widget chiedeva la configurazione GENERALE. Misurato in
+  // produzione il 30/07/2026: su cakedesign.me lo snippet mandava
+  // `data-sito="cake"`, l'API rispondeva «CakedesignMe», e la chat mostrava
+  // «Deluxy — Ciao! Come possiamo aiutarti?».
+  const [sito] = useState(() =>
+    typeof window === 'undefined'
+      ? ''
+      : (new URLSearchParams(window.location.search).get('sito') ?? '')
+          .toLowerCase()
+          .replace(/[^a-z0-9-]/g, '')
+          .slice(0, 40)
+  )
   const [tema, setTema] = useState('chiaro')
   const [accento, setAccento] = useState('')
   const [titolo, setTitolo] = useState('Deluxy')
@@ -45,9 +60,6 @@ export default function PaginaWidget() {
     const t = (p.get('tema') ?? '').toLowerCase()
     if (TEMI.includes(t)) setTema(t)
     setAccento(accentoValido(p.get('accento') ?? ''))
-    // Solo minuscole, cifre e trattini: arriva da un attributo scritto a mano
-    // sul sito ospite e finisce in una richiesta al nostro server.
-    setSito((p.get('sito') ?? '').toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 40))
     if (p.get('anteprima')) {
       // ⚠️ L'ANTEPRIMA NON APRE UNA SESSIONE. Guardare i temi nella pagina
       // «Aspetto del widget» creava una conversazione vuota in Inbox per ogni
@@ -101,7 +113,10 @@ export default function PaginaWidget() {
     return () => {
       annullato = true
     }
-  }, [anteprima])
+    // `sito` è costante dopo il primo disegno, ma sta fra le dipendenze perché è
+    // quello che decide QUALE configurazione si chiede: lasciarlo fuori è
+    // esattamente il difetto che si è appena corretto.
+  }, [anteprima, sito])
 
   const aggiorna = useCallback(async () => {
     if (!token) return
