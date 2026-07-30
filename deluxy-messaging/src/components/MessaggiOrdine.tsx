@@ -101,7 +101,20 @@ export function MessaggiOrdine({ ordineId }: { ordineId: string }) {
     }
   }
 
-  if (conversazioni === null) return null
+  // ⚠️ Mentre carica si tiene il posto invece di sparire: il dettaglio è a tre
+  // colonne fisse, e un riquadro che non c'è fa slittare a sinistra quello dopo
+  // — per mezzo secondo la colonna «Ordine» finisce dove ci si aspetta i
+  // messaggi, e l'occhio deve ricominciare da capo.
+  if (conversazioni === null) {
+    return (
+      <div className="card">
+        <h3 style={{ marginTop: 0, fontSize: 15 }}>Messaggi del cliente</h3>
+        <p className="cella-sub" style={{ marginBottom: 0 }}>
+          Cerco…
+        </p>
+      </div>
+    )
+  }
   if (!conversazioni.length) {
     return (
       <div className="card">

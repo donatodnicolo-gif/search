@@ -3055,9 +3055,16 @@ td .azioni-ordine {
   width: min(1240px, 100%);
 }
 
+/* ⚠️ TRE COLONNE, ognuna con il suo mestiere:
+     1. il RECAP dell'ordine — foto, biglietto, messaggio per il fornitore: è
+        quello che si guarda per decidere se il prodotto è fattibile;
+     2. i MESSAGGI del cliente, per sapere cosa ci si è già detti;
+     3. l'ORDINE come sta su Shopify — chi compra, chi riceve, indirizzo, totale.
+   Non è un `auto-fit`: le tre cose vanno guardate INSIEME, e un riquadro che
+   cambia colonna a seconda della larghezza costringe a ricercarlo ogni volta. */
 .griglia-dettaglio {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  grid-template-columns: minmax(320px, 1.15fr) minmax(280px, 0.95fr) minmax(300px, 1fr);
   gap: 16px;
   /* I riquadri hanno altezze molto diverse: si allineano in alto invece di
      allungarsi a vuoto per pareggiare il vicino. */
@@ -3070,11 +3077,10 @@ td .azioni-ordine {
   margin-bottom: 0 !important;
 }
 
-/* Il riquadro del fornitore è quello che si guarda per primo e contiene la foto
-   grande: su schermi larghi prende tutta la riga, così la foto resta leggibile
-   e il resto si dispone sotto in due colonne. */
-@media (min-width: 1100px) {
-  .griglia-dettaglio > .card:first-child {
-    grid-column: 1 / -1;
+/* Sotto i 1150px tre colonne diventano tre strisce illeggibili: si passa a due
+   e poi a una — che è il comportamento giusto su un portatile piccolo. */
+@media (max-width: 1150px) {
+  .griglia-dettaglio {
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   }
 }
