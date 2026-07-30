@@ -590,6 +590,16 @@ cd deluxy-scout && HUBSPOT_TOKEN=<token-privato> node scripts/hubspot-setup-prop
 - **Serve**: `HUBSPOT_TOKEN` (HubSpot → Impostazioni → Integrazioni → App private)
 - **Nota**: idempotente — le proprietà già esistenti vengono saltate. Attenzione: qui la variabile si chiama `HUBSPOT_TOKEN`, mentre in `deluxy-anagrafiche` la stessa credenziale si chiama `HUBSPOT_ACCESS_TOKEN`.
 
+### carica-guida-cs.mjs — deluxy-messaging
+Carica nell'app la parte della **Guida Customer Service Deluxy** che serve a rispondere ai clienti: le **risposte pronte** (Script) coi fatti dichiarabili, le **istruzioni** di tono per brand e canale, e il **documento** di riferimento da cui risalire a ogni regola.
+
+```bash
+cd deluxy-messaging && node scripts/carica-guida-cs.mjs --esegui
+```
+
+- **Serve**: `DATABASE_URL` nel `.env` dell'app
+- **Nota**: senza `--esegui` non scrive. Idempotente: riconosce Script e Istruzioni dal titolo e li aggiorna invece di duplicarli — per correggere un testo si modifica **dentro lo script** e si rilancia. ⚠️ La divisione non è arbitraria: l'AI delle risposte rapide **non può inventare fatti**, prende il contenuto da uno Script e ne cambia solo la forma seguendo le Istruzioni (prompt in `src/lib/ai.ts`) — quindi ciò che si può *dire* va negli Script, non nelle Istruzioni. Restano **fuori** operatività interna, listini, partner, ricarichi e margini, e i punti su cui i documenti sorgente si contraddicono (numero Postepay, soglie di feedback, link recensioni, compensazioni, orari di contatto): su quelli c'è un'istruzione che vieta di rispondere. Eseguito il 30/07/2026: 27 risposte pronte, 12 istruzioni, 1 documento.
+
 ### chiudi-consegne-passate.mjs — deluxy-messaging
 Segna come **gestiti** gli ordini la cui consegna è già passata: `gestione` è arrivata dopo, e nessuno è tornato a spuntare i vecchi — con quelli in mezzo, «ordini da gestire» non è un numero di lavoro ma archeologia, e la bacheca delle priorità mente.
 

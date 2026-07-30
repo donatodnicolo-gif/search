@@ -77,6 +77,39 @@ locale, altrimenti nulla si decifra.
   - Solo WhatsApp: su Instagram e Messenger l'id non è un numero di telefono e
     in rubrica non c'è niente da cercare.
 
+- **LA GUIDA CUSTOMER SERVICE È DENTRO L'AI** (30/07/2026).
+  `scripts/carica-guida-cs.mjs` (in catalogo) porta nell'app la parte della
+  **Guida Customer Service Deluxy unificata v1.0** (14/07/2026, 49.000 caratteri)
+  che serve a rispondere ai clienti: **27 risposte pronte**, **12 istruzioni** di
+  tono per brand e canale, **1 documento** di riferimento.
+  - ⚠️ **La divisione fatti / forma non è arbitraria.** Il prompt delle risposte
+    rapide (`src/lib/ai.ts`) vieta all'AI di aggiungere fatti: prende il
+    contenuto da uno **Script** e ne cambia solo la forma seguendo le
+    **Istruzioni**. Quindi tempi, cut-off, costi e coperture stanno negli
+    Script; tono, firma e lessico nelle Istruzioni. Mettere un fatto in
+    un'istruzione vuol dire che non arriverà mai in una risposta.
+  - Gli Script **non hanno un campo marchio**: quelli validi per un solo brand lo
+    dichiarano in coda al `quando` («Vale SOLO per il marchio …»), che è il testo
+    su cui l'AI decide. Senza, avrebbe proposto i guanti bianchi a chi scrive ai
+    fiori.
+  - **Restano fuori di proposito**: operatività interna (Shopify admin, bozze,
+    tag, ticket Tidio), liste partner e fornitori, sconti riconosciuti, ricarichi
+    +30%/+40%, costi a noi e margini, nomi delle persone interne.
+  - ⚠️ **I punti in conflitto NON sono stati caricati come fatti.** La guida
+    marca «DA VALIDARE» sei punti dove i due documenti sorgente si contraddicono
+    — **numero della carta Postepay (due carte diverse)**, soglia di spesa per la
+    chiamata di feedback, link per la recensione, tipo di compensazione, orari di
+    contatto, formato del nome in rubrica. C'è un'istruzione esplicita che vieta
+    di rispondere su quei punti. Far scegliere all'AI una delle due versioni
+    voleva dire dare a un cliente un numero di carta sbagliato.
+  - I 3 script che l'handoff chiamava «di prova» **sono rimasti**: «Ritardo nella
+    consegna» ha **199 usi** e copre un caso che il set nuovo non ha. Allineate
+    solo le categorie (`Consegne`→`Consegna`, `Amministrazione`→`Pagamenti`):
+    nel selettore comparivano come gruppi separati.
+  - **Non verificato con l'AI vera**: la chiave OpenAI è cifrata con l'`APP_SECRET`
+    di produzione e da qui non si legge. Va provato dall'app pubblicata con
+    «Risposta rapida» su un messaggio vero.
+
 - **603 ORDINI VECCHI CHIUSI, E I RECLAMI APERTI IN PRIMA PAGINA** (29/07/2026).
   - `scripts/chiudi-consegne-passate.mjs` (in catalogo in `scripts/README.md`):
     segna **gestiti** gli ordini con consegna precedente a ieri. Eseguito in
