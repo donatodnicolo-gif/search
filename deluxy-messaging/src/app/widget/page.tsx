@@ -63,6 +63,7 @@ export default function PaginaWidget() {
   const [accento, setAccento] = useState('')
   const [titolo, setTitolo] = useState('Deluxy')
   const [benvenuto, setBenvenuto] = useState('')
+  const [linkRapidi, setLinkRapidi] = useState<{ testo: string; url: string }[]>([])
   const [messaggi, setMessaggi] = useState<MessaggioWidget[]>([])
   const [bozza, setBozza] = useState('')
   const [pronto, setPronto] = useState(false)
@@ -111,9 +112,14 @@ export default function PaginaWidget() {
         // SITO — titolo e benvenuto cambiano da deluxy.it a cakedesign.me.
         const res = await fetch(`/api/widget/messaggi${sito ? `?sito=${sito}` : ''}`)
         if (res.ok && !annullato) {
-          const dati = (await res.json()) as { titolo: string; benvenuto: string }
+          const dati = (await res.json()) as {
+            titolo: string
+            benvenuto: string
+            linkRapidi?: { testo: string; url: string }[]
+          }
           setTitolo(dati.titolo)
           setBenvenuto(dati.benvenuto)
+          setLinkRapidi(dati.linkRapidi ?? [])
         }
         if (!annullato) setPronto(true)
         return
@@ -165,6 +171,31 @@ export default function PaginaWidget() {
   useEffect(() => {
     fondoRef.current?.scrollIntoView({ block: 'end' })
   }, [messaggi.length])
+
+  /**
+   * Porta il visitatore dove dice il link rapido.
+   *
+   * ⚠️ La chat vive dentro un iframe su un dominio diverso: da qui
+   * `window.top.location` è vietato dal browser, e `window.open` aprirebbe una
+   * scheda nuova lasciando il sito alle spalle. L'unica strada pulita è chiedere
+   * alla pagina ospite di navigare — `postMessage` — e lasciare che sia lei a
+   * decidere se quell'indirizzo va bene. In `widget.js` c'è il controllo.
+   *
+   * Se il messaggio non arrivasse (script vecchio sul sito), si ripiega su una
+   * scheda nuova: meglio una scheda in più che un bottone che non fa niente.
+   */
+  function vaiA(url: string) {
+    try {
+      window.parent.postMessage({ tipo: 'deluxy-chat-vai', url }, '*')
+      // Se dopo un attimo siamo ancora qui e la pagina ospite non ha fatto
+      // niente, il visitatore resterebbe con un clic a vuoto.
+      window.setTimeout(() => {
+        if (!document.hidden) window.open(url, '_blank', 'noopener')
+      }, 600)
+    } catch {
+      window.open(url, '_blank', 'noopener')
+    }
+  }
 
   async function invia() {
     const testo = bozza.trim()
@@ -240,6 +271,21 @@ export default function PaginaWidget() {
             risposte. Era marcato «out», cioè dalla parte del visitatore: con i
             temi, che colorano la sua bolla, sembrava scritto da lui. */}
         {pronto && benvenuto ? <div className="bolla in">{benvenuto}</div> : null}
+
+        {/* I LINK RAPIDI: la risposta alla domanda del saluto.
+            Chi apre la chat vuole spesso una cosa che il sito ha già — «regali
+            per oggi» — e mandarcelo subito vale più di una risposta scritta bene
+            dieci minuti dopo. Spariscono appena la conversazione comincia: sopra
+            la risposta di una persona sarebbero un invito ad andarsene. */}
+        {pronto && !messaggi.length && linkRapidi.length ? (
+          <div className="link-rapidi">
+            {linkRapidi.map((l) => (
+              <button key={l.url + l.testo} type="button" onClick={() => vaiA(l.url)}>
+                {l.testo}
+              </button>
+            ))}
+          </div>
+        ) : null}
         {messaggi.map((m) => (
           // Nel widget la prospettiva si ribalta: "in" (il visitatore) sta a destra.
           <div key={m.id} className={`bolla ${m.direzione === 'in' ? 'out' : 'in'}`}>

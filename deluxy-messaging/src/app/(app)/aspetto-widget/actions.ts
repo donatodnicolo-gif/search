@@ -22,6 +22,16 @@ export async function salvaAspettoSito(formData: FormData) {
     saluto: String(formData.get('saluto') ?? ''),
     selettoreApri: String(formData.get('selettoreApri') ?? ''),
     mostraBottone: String(formData.get('mostraBottone') ?? '1') !== '0',
+    // I link rapidi arrivano come JSON dal campo nascosto: se è storto,
+    // `salvaSitoWidget` li ripulisce e quello che non si capisce non entra.
+    linkRapidi: (() => {
+      try {
+        const d = JSON.parse(String(formData.get('linkRapidi') ?? '[]'))
+        return Array.isArray(d) ? d : []
+      } catch {
+        return []
+      }
+    })(),
   })
 
   revalidatePath('/aspetto-widget')

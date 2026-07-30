@@ -77,6 +77,25 @@ locale, altrimenti nulla si decifra.
   - Solo WhatsApp: su Instagram e Messenger l'id non è un numero di telefono e
     in rubrica non c'è niente da cercare.
 
+- **LINK RAPIDI NEL WIDGET: «Come ti aiutiamo?» → «Regali per oggi»**
+  (30/07/2026). Sotto il saluto compaiono le opzioni, e ognuna porta a una
+  pagina del sito: chi apre la chat vuole spesso una cosa che il sito ha già, e
+  mandarcelo subito vale più di una risposta scritta bene dieci minuti dopo.
+  Si configurano per sito in «Widget dei siti» (testo + indirizzo, massimo sei,
+  `WidgetSito.linkRapidi` in JSON).
+  - ⚠️ **Come funziona la navigazione, e perché non è banale**: i bottoni vivono
+    dentro l'iframe, su un altro dominio, e da lì il browser **non lascia
+    cambiare l'indirizzo della pagina ospite**. Quindi la chat *chiede* con
+    `postMessage` e **decide `widget.js`**: accetta solo i messaggi che vengono
+    dal nostro iframe e dalla nostra origine, apre i link **di quel sito** al
+    posto della pagina e quelli esterni in una scheda nuova. Il controllo sta
+    fuori perché un messaggio può arrivare da qualunque iframe della pagina.
+  - Se sul sito c'è uno snippet vecchio che non ascolta i messaggi, dopo mezzo
+    secondo il link si apre comunque in una scheda nuova: meglio una scheda in
+    più che un bottone che non fa niente.
+  - I bottoni **spariscono appena la conversazione comincia**: sopra la risposta
+    di una persona sarebbero un invito ad andarsene.
+
 - **DA DOVE ARRIVA CHI SCRIVE, E IL RIASSUNTO DELLA CHAT** (30/07/2026).
   - **PROVENIENZA** (`Conversazione.origine`, `origineDettaglio`,
     `paginaIngresso`): chi apre la chat dopo un annuncio non è chi arriva dal

@@ -274,6 +274,32 @@
     );
   }
 
+  // ── I link rapidi della chat portano il visitatore sul sito ──────────────
+  //
+  // I bottoni («Regali per oggi») vivono dentro l'iframe, su un altro dominio:
+  // da là dentro il browser NON lascia cambiare l'indirizzo della pagina che
+  // ospita. Quindi la chat chiede, e qui si decide.
+  //
+  // ⚠️ Il controllo è qui e non di là: un messaggio può arrivare da chiunque
+  // abbia un iframe in questa pagina. Si accettano solo i messaggi che vengono
+  // dal NOSTRO iframe e solo indirizzi di questo stesso sito — un link a un
+  // dominio esterno si apre in una scheda nuova, non porta via il visitatore.
+  window.addEventListener('message', function (ev) {
+    if (ev.source !== iframe.contentWindow) return;
+    if (ev.origin !== origine) return;
+    var dati = ev.data;
+    if (!dati || dati.tipo !== 'deluxy-chat-vai' || !dati.url) return;
+    var url;
+    try {
+      url = new URL(String(dati.url), window.location.href);
+    } catch (e) {
+      return;
+    }
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
+    if (url.hostname === window.location.hostname) window.location.href = url.href;
+    else window.open(url.href, '_blank', 'noopener');
+  });
+
   dentro.appendChild(stile);
   dentro.appendChild(iframe);
   // Il bottone flottante si può togliere: se la chat si apre dalla voce di menu

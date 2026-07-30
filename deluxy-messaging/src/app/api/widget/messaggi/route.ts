@@ -33,6 +33,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       titolo: sito?.titolo || config.widgetTitolo || 'Deluxy',
       benvenuto: sito?.saluto || config.widgetMessaggio || 'Ciao! Come possiamo aiutarti?',
+      // I link rapidi si mandano SOLO prima che la chat cominci: dopo il primo
+      // messaggio c'è una persona che risponde, e dei bottoni «vai alla
+      // collezione» sopra la sua risposta sarebbero un invito ad andarsene.
+      linkRapidi: sito?.linkRapidi ?? [],
       messaggi: [],
     })
   }

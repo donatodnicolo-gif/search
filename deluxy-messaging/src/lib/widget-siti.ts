@@ -29,6 +29,30 @@ export type AspettoSito = {
   selettoreApri: string
   /** Il bottone flottante in basso: si toglie quando si apre dal menu. */
   mostraBottone: boolean
+  /**
+   * I link rapidi sotto il saluto: «Regali per oggi» → /collections/oggi.
+   *
+   * Sono la risposta alla domanda del saluto: chi apre la chat spesso vuole una
+   * cosa che il sito ha già, e mandarcelo subito vale più di una risposta
+   * scritta bene dieci minuti dopo.
+   */
+  linkRapidi: LinkRapido[]
+}
+
+export type LinkRapido = { testo: string; url: string }
+
+/** Legge i link rapidi salvati come JSON, senza fidarsi di quello che trova. */
+export function leggiLinkRapidi(grezzo: string): LinkRapido[] {
+  try {
+    const d = JSON.parse(grezzo || '[]')
+    if (!Array.isArray(d)) return []
+    return d
+      .map((x) => ({ testo: String(x?.testo ?? '').trim().slice(0, 40), url: String(x?.url ?? '').trim().slice(0, 300) }))
+      .filter((x) => x.testo && x.url)
+      .slice(0, 6)
+  } catch {
+    return []
+  }
 }
 
 export type SitoWidget = AspettoSito & {
@@ -63,6 +87,11 @@ const PROPOSTE: Record<string, AspettoSito & { nome: string; dominio: string; ne
       'Buongiorno, sono il servizio clienti Deluxy. Mi dica pure che sorpresa ha in mente e la seguo io.',
     selettoreApri: '',
     mostraBottone: true,
+    linkRapidi: [
+      { testo: 'Regali per oggi', url: '/collections/oggi' },
+      { testo: 'Fiori', url: '/collections/fiori' },
+      { testo: 'Torte', url: '/collections/torte' },
+    ],
   },
   flowers: {
     nome: 'Deluxy Flowers',
@@ -79,6 +108,11 @@ const PROPOSTE: Record<string, AspettoSito & { nome: string; dominio: string; ne
       'Buongiorno, siamo l’atelier Deluxy Flowers. Ci racconti l’occasione e le proponiamo una creazione su misura.',
     selettoreApri: '',
     mostraBottone: true,
+    linkRapidi: [
+      { testo: 'Consegna oggi', url: '/collections/oggi' },
+      { testo: 'Bouquet', url: '/collections/bouquet' },
+      { testo: 'Maxi 100 rose', url: '/collections/maxi' },
+    ],
   },
   cake: {
     nome: 'Cakedesign',
@@ -97,6 +131,11 @@ const PROPOSTE: Record<string, AspettoSito & { nome: string; dominio: string; ne
     // un servizio esterno: con questo selettore apre la nostra.
     selettoreApri: 'a.dialogify',
     mostraBottone: true,
+    linkRapidi: [
+      { testo: 'Torte per oggi', url: '/collections/oggi' },
+      { testo: 'Torte nuziali', url: '/collections/torte-nuziali' },
+      { testo: 'Crea con AI', url: '/pages/crea-con-ai' },
+    ],
   },
 }
 
@@ -110,6 +149,7 @@ export const ASPETTO_NEUTRO: AspettoSito = {
   saluto: 'Buongiorno, come possiamo aiutarla?',
   selettoreApri: '',
   mostraBottone: true,
+  linkRapidi: [],
 }
 
 /**
@@ -149,6 +189,7 @@ export async function sitiWidget(): Promise<SitoWidget[]> {
         saluto: s.saluto,
         selettoreApri: s.selettoreApri,
         mostraBottone: s.mostraBottone,
+        linkRapidi: leggiLinkRapidi(s.linkRapidi),
         proposto: false,
       })
     } else {
@@ -166,6 +207,7 @@ export async function sitiWidget(): Promise<SitoWidget[]> {
         saluto: p.saluto,
         selettoreApri: p.selettoreApri,
         mostraBottone: p.mostraBottone,
+        linkRapidi: p.linkRapidi,
         proposto: true,
       })
     }
@@ -188,6 +230,7 @@ export async function sitiWidget(): Promise<SitoWidget[]> {
       saluto: s.saluto,
       selettoreApri: s.selettoreApri,
       mostraBottone: s.mostraBottone,
+      linkRapidi: leggiLinkRapidi(s.linkRapidi),
       proposto: false,
     })
   }
@@ -210,6 +253,7 @@ export async function aspettoDelSito(slug: string): Promise<AspettoSito | null> 
       saluto: salvato.saluto,
       selettoreApri: salvato.selettoreApri,
       mostraBottone: salvato.mostraBottone,
+      linkRapidi: leggiLinkRapidi(salvato.linkRapidi),
     }
   }
   // Non salvato ma conosciuto: vale la proposta. Meglio il widget giusto di un
@@ -242,6 +286,7 @@ export async function salvaSitoWidget(dati: {
   saluto: string
   selettoreApri: string
   mostraBottone: boolean
+  linkRapidi: { testo: string; url: string }[]
 }): Promise<void> {
   const slug = normalizzaSlug(dati.slug)
   if (!slug) return
@@ -261,6 +306,9 @@ export async function salvaSitoWidget(dati: {
     // doppie lo spezzerebbero a metà.
     selettoreApri: dati.selettoreApri.trim().replace(/"/g, '').slice(0, 120),
     mostraBottone: dati.mostraBottone !== false,
+    // Si salva quello che si e' capito, non quello che e' arrivato: cosi' un
+    // JSON storto non finisce in tabella e da li' nel widget dei clienti.
+    linkRapidi: JSON.stringify(leggiLinkRapidi(JSON.stringify(dati.linkRapidi ?? []))),
     attivo: true,
   }
   await db.widgetSito.upsert({ where: { slug }, update: base, create: { slug, ...base } })

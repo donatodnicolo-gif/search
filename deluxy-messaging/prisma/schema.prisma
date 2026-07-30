@@ -493,6 +493,16 @@ model WidgetSito {
   // Il bottone flottante si puo' togliere: se la chat si apre dal menu, due
   // punti d'ingresso sono uno di troppo.
   mostraBottone Boolean @default(true)
+  // I LINK RAPIDI sotto il saluto: «Regali per oggi», «Torte nuziali»…
+  //
+  // Sono la risposta alla domanda del saluto («Come ti aiutiamo?»): il
+  // visitatore sceglie e va dritto alla collezione giusta, senza scrivere e
+  // senza aspettare che qualcuno risponda. La maggior parte di chi apre una chat
+  // vuole una cosa che il sito ha gia': mandarcelo subito vale piu' di una
+  // risposta scritta bene dieci minuti dopo.
+  //
+  // JSON: [{ "testo": "Regali per oggi", "url": "/collections/oggi" }]
+  linkRapidi    String  @default("") @db.Text
   // Testi della chat: se vuoti valgono quelli generali delle Impostazioni.
   titolo    String  @default("")
   saluto    String  @default("") @db.Text

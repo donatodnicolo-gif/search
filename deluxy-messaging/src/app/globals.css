@@ -2912,3 +2912,33 @@ td .azioni-ordine {
   padding-left: 18px;
   color: var(--text-secondary);
 }
+
+/* ---- Link rapidi nel widget ----
+   La risposta alla domanda del saluto: «Come ti aiutiamo?» → «Regali per oggi».
+   Stanno sotto il saluto e spariscono appena la conversazione comincia. */
+
+.widget-app .link-rapidi {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 2px 0 4px;
+}
+
+.widget-app .link-rapidi button {
+  border: 1px solid var(--w-bordo, rgba(0, 0, 0, 0.12));
+  background: var(--w-superficie, #fff);
+  color: var(--w-testo, #1d1d1f);
+  border-radius: 980px;
+  padding: 7px 13px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  /* Il colore del sito, quando c'è: sono bottoni che invitano a cliccare. */
+  border-color: var(--w-accento, rgba(0, 0, 0, 0.12));
+}
+
+.widget-app .link-rapidi button:hover {
+  background: var(--w-accento, #111318);
+  color: #fff;
+  border-color: transparent;
+}

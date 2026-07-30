@@ -63,6 +63,9 @@ export function AspettoWidget({
   const [saluto, setSaluto] = useState(sito?.saluto ?? '')
   const [selettoreApri, setSelettoreApri] = useState(sito?.selettoreApri ?? '')
   const [mostraBottone, setMostraBottone] = useState(sito?.mostraBottone ?? true)
+  const [linkRapidi, setLinkRapidi] = useState<{ testo: string; url: string }[]>(
+    sito?.linkRapidi ?? []
+  )
   const [copiato, setCopiato] = useState(false)
 
   // Cambiando sito i campi si ricaricano da quel sito: senza, si finiva a
@@ -79,6 +82,7 @@ export function AspettoWidget({
     setSaluto(s.saluto)
     setSelettoreApri(s.selettoreApri)
     setMostraBottone(s.mostraBottone)
+    setLinkRapidi(s.linkRapidi)
     // L'URL segue la scelta senza ricaricare la pagina: se si ricarica — o se il
     // salvataggio la rimonta — si riparte da questo sito e non dal primo.
     if (typeof window !== 'undefined') {
@@ -172,6 +176,7 @@ export function AspettoWidget({
         <input type="hidden" name="posizione" value={posizione} />
         <input type="hidden" name="etichetta" value={etichetta} />
         <input type="hidden" name="mostraBottone" value={mostraBottone ? '1' : '0'} />
+        <input type="hidden" name="linkRapidi" value={JSON.stringify(linkRapidi)} />
 
         <div className="card" style={{ marginBottom: 14 }}>
           <h2 style={{ marginTop: 0, fontSize: 16 }}>Tema</h2>
@@ -260,6 +265,72 @@ export function AspettoWidget({
             {accento && !accentoValido ? (
               <strong> Adesso non è valido: serve un # e sei cifre.</strong>
             ) : null}
+          </p>
+        </div>
+
+        {/* I LINK RAPIDI: la risposta alla domanda del saluto. Chi apre la chat
+            vuole spesso una cosa che il sito ha già, e mandarcelo subito vale
+            più di una risposta scritta bene dieci minuti dopo. */}
+        <div className="card" style={{ marginBottom: 14 }}>
+          <h2 style={{ marginTop: 0, fontSize: 16 }}>Link rapidi sotto il saluto</h2>
+          <p className="descrizione">
+            Le opzioni che il visitatore vede subito sotto il messaggio di benvenuto: cliccandone
+            una va dritto a quella pagina del sito. Se il saluto chiede «Come ti aiutiamo?», questi
+            sono le risposte — «Regali per oggi», «Torte nuziali». Massimo sei.
+          </p>
+          {linkRapidi.map((l, i) => (
+            <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+              <label className="campo" style={{ flex: 1 }}>
+                <span>Cosa c&apos;è scritto</span>
+                <input
+                  value={l.testo}
+                  maxLength={40}
+                  placeholder="Regali per oggi"
+                  onChange={(e) =>
+                    setLinkRapidi(
+                      linkRapidi.map((x, j) => (i === j ? { ...x, testo: e.target.value } : x))
+                    )
+                  }
+                />
+              </label>
+              <label className="campo" style={{ flex: 1.4 }}>
+                <span>Dove porta</span>
+                <input
+                  value={l.url}
+                  maxLength={300}
+                  spellCheck={false}
+                  placeholder="/collections/oggi"
+                  onChange={(e) =>
+                    setLinkRapidi(
+                      linkRapidi.map((x, j) => (i === j ? { ...x, url: e.target.value } : x))
+                    )
+                  }
+                />
+              </label>
+              <button
+                type="button"
+                className="bottone secondario mini"
+                style={{ marginBottom: 14, color: 'var(--red)' }}
+                onClick={() => setLinkRapidi(linkRapidi.filter((_, j) => j !== i))}
+              >
+                Togli
+              </button>
+            </div>
+          ))}
+          {linkRapidi.length < 6 ? (
+            <button
+              type="button"
+              className="bottone secondario"
+              onClick={() => setLinkRapidi([...linkRapidi, { testo: '', url: '' }])}
+            >
+              Aggiungi un link
+            </button>
+          ) : null}
+          <p className="cella-sub" style={{ marginTop: 8, marginBottom: 0 }}>
+            L&apos;indirizzo può essere relativo (<code>/collections/oggi</code>) o completo. ⚠️ Un
+            link <strong>di questo sito</strong> apre la pagina lì dov&apos;è; un link di un altro
+            sito si apre in una scheda nuova, per non portare via il visitatore. I bottoni spariscono
+            appena la conversazione comincia.
           </p>
         </div>
 
