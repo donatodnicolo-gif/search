@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { riepilogoTutti, ANNO_CORRENTE } from "@/lib/queries";
+import { MESI, nomeMese } from "@/lib/calc";
 import { euro, pctIt } from "@/lib/format";
 import { ThSort, ordina } from "@/components/ThSort";
 import { BadgeCredito } from "@/components/BadgeCredito";
@@ -34,6 +35,7 @@ export default async function PartnerList({
   searchParams: Promise<{
     q?: string; citta?: string; categoria?: string; stato?: string;
     credito?: string; sort?: string; dir?: string;
+    attivita?: string; dal?: string; al?: string;
   }>;
 }) {
   const sp = await searchParams;
@@ -45,6 +47,52 @@ export default async function PartnerList({
   const vuota = schedaVuota();
   const credito = (id: string) => schede.get(id) ?? vuota;
 
+  // ————— Filtri "attività" e "periodo" —————
+  // attivita: "" tutte · "vendor" solo vendite come vendor · "servizi" tutti i
+  // servizi a fatturazione · "tip:<id>" una singola tipologia (es. Consegne).
+  const attivita = sp.attivita ?? "";
+  const tipologiaId = attivita.startsWith("tip:") ? attivita.slice(4) : null;
+  const soloVendor = attivita === "vendor";
+  const soloServizi = attivita === "servizi" || Boolean(tipologiaId);
+  // elenco tipologie realmente presenti sulle fatture dell'anno
+  const tipologie = [
+    ...new Map(
+      tutti.flatMap((t) => t.fatture.map((f) => [f.tipologiaId, f.tipologia?.nome ?? "—"] as const))
+    ),
+  ].sort((a, b) => a[1].localeCompare(b[1], "it"));
+
+  const nMese = (v: string | undefined, def: number) => {
+    const n = v ? parseInt(v) : NaN;
+    return Number.isFinite(n) && n >= 1 && n <= 12 ? n : def;
+  };
+  const dal = nMese(sp.dal, 1);
+  const al = Math.max(dal, nMese(sp.al, 12));
+  const periodoRidotto = dal !== 1 || al !== 12;
+  const filtroAttivo = Boolean(attivita) || periodoRidotto;
+  const inPeriodo = (mese: number) => mese >= dal && mese <= al;
+
+  // Valori mostrati in tabella: se non ci sono filtri restano i rolling YTD già
+  // calcolati; con un filtro si ricalcolano su mesi/attività selezionati.
+  type Riga = (typeof tutti)[number];
+  const vistaDi = (t: Riga) => {
+    if (!filtroAttivo) {
+      return { vendite: t.rolling.vendite, servizi: t.rolling.fatture, residuo: t.rolling.residuo };
+    }
+    const vendite = soloServizi
+      ? 0
+      : t.vendite.filter((v) => inPeriodo(v.mese)).reduce((a, v) => a + v.incassoLordo, 0);
+    const servizi = soloVendor
+      ? 0
+      : t.fatture
+          .filter((f) => inPeriodo(f.mese) && (!tipologiaId || f.tipologiaId === tipologiaId))
+          .reduce((a, f) => a + f.imponibile, 0);
+    // il residuo resta un dato di cassa del mese: si somma sui mesi del periodo
+    const residuo = t.mesi.filter((m) => inPeriodo(m.mese)).reduce((a, m) => a + m.riepilogo.residuo, 0);
+    return { vendite, servizi, residuo };
+  };
+  const viste = new Map(tutti.map((t) => [t.partner.id, vistaDi(t)]));
+  const vista = (id: string) => viste.get(id) ?? { vendite: 0, servizi: 0, residuo: 0 };
+
   // confronto a parità di periodo: fino all'ultimo mese con movimenti nel 2026
   const meseMax = Math.max(
     1,
@@ -52,14 +100,33 @@ export default async function PartnerList({
       t.mesi.filter((m) => m.riepilogo.vendite || m.riepilogo.serviziNetto).map((m) => m.mese)
     )
   );
+  // Confronto anno su anno sullo STESSO perimetro: quando ci sono filtri usa gli
+  // stessi mesi e la stessa attività, altrimenti il periodo YTD.
   const precPeriodo = new Map(
-    prec.map((t) => [
-      t.partner.id,
-      {
-        vendite: t.mesi.slice(0, meseMax).reduce((a, m) => a + m.riepilogo.vendite, 0),
-        servizi: t.mesi.slice(0, meseMax).reduce((a, m) => a + m.riepilogo.serviziNetto, 0),
-      },
-    ])
+    prec.map((t) => {
+      if (!filtroAttivo) {
+        return [
+          t.partner.id,
+          {
+            vendite: t.mesi.slice(0, meseMax).reduce((a, m) => a + m.riepilogo.vendite, 0),
+            servizi: t.mesi.slice(0, meseMax).reduce((a, m) => a + m.riepilogo.serviziNetto, 0),
+          },
+        ] as const;
+      }
+      return [
+        t.partner.id,
+        {
+          vendite: soloServizi
+            ? 0
+            : t.vendite.filter((v) => inPeriodo(v.mese)).reduce((a, v) => a + v.incassoLordo, 0),
+          servizi: soloVendor
+            ? 0
+            : t.fatture
+                .filter((f) => inPeriodo(f.mese) && (!tipologiaId || f.tipologiaId === tipologiaId))
+                .reduce((a, f) => a + f.imponibile, 0),
+        },
+      ] as const;
+    })
   );
 
   const citta = [...new Set(tutti.map((t) => t.partner.citta).filter(Boolean))].sort() as string[];
@@ -74,6 +141,12 @@ export default async function PartnerList({
     if (sp.stato === "dismessi" && p.clienteAnno !== "Dismesso") return false;
     if (sp.credito === "arischio" && GRAVITA[credito(p.id).stato] < GRAVITA.ritardo) return false;
     if (sp.credito && sp.credito !== "arischio" && credito(p.id).stato !== sp.credito) return false;
+    // con un filtro attività/periodo mostra solo chi ha davvero movimenti dentro
+    // il perimetro scelto (altrimenti l'elenco sarebbe pieno di righe a zero)
+    if (filtroAttivo) {
+      const v = vista(p.id);
+      if (Math.abs(v.vendite) < 0.005 && Math.abs(v.servizi) < 0.005) return false;
+    }
     return true;
   });
 
@@ -87,9 +160,9 @@ export default async function PartnerList({
     credito: (t) => GRAVITA[credito(t.partner.id).stato],
     scaduto: (t) => credito(t.partner.id).scaduto,
     fee: (t) => t.partner.feePercent,
-    vendite: (t) => t.rolling.vendite,
-    servizio: (t) => t.rolling.fatture,
-    residuo: (t) => t.rolling.residuo,
+    vendite: (t) => vista(t.partner.id).vendite,
+    servizio: (t) => vista(t.partner.id).servizi,
+    residuo: (t) => vista(t.partner.id).residuo,
   };
   if (sp.sort && campi[sp.sort]) filtered = ordina(filtered, campi[sp.sort], sp.dir);
 
@@ -133,8 +206,34 @@ export default async function PartnerList({
             <option value="insoluto">Insoluti</option>
             <option value="nessuna">Senza esposizione</option>
           </select>
+          <select name="attivita" defaultValue={attivita} aria-label="Tipo di attività">
+            <option value="">Attività: tutte</option>
+            <option value="vendor">Solo vendite come vendor</option>
+            <option value="servizi">Solo servizi a fatturazione</option>
+            {tipologie.map(([id, nome]) => (
+              <option key={id} value={`tip:${id}`}>Servizi · {nome}</option>
+            ))}
+          </select>
+          <select name="dal" defaultValue={String(dal)} aria-label="Dal mese">
+            {MESI.map((m, i) => <option key={m} value={i + 1}>Da {m}</option>)}
+          </select>
+          <select name="al" defaultValue={String(al)} aria-label="Al mese">
+            {MESI.map((m, i) => <option key={m} value={i + 1}>A {m}</option>)}
+          </select>
           <button className="btn secondary small" type="submit">Filtra</button>
+          {filtroAttivo && <Link href="/partner" className="btn secondary small">Azzera</Link>}
         </form>
+        {filtroAttivo && (
+          <p className="muted" style={{ fontSize: 12.5, marginTop: 10 }}>
+            Valori di <strong>{nomeMese(dal)}–{nomeMese(al)} {ANNO_CORRENTE}</strong>
+            {soloVendor && <> · solo <strong>vendite come vendor</strong></>}
+            {tipologiaId && <> · solo servizi <strong>{tipologie.find(([id]) => id === tipologiaId)?.[1]}</strong></>}
+            {attivita === "servizi" && <> · solo <strong>servizi a fatturazione</strong></>}
+            {" "}· in elenco i {filtered.length} partner con movimenti nel perimetro. Il confronto % è sullo
+            stesso periodo {ANNO_CORRENTE - 1} <strong>per questi partner</strong>: chi lavorava nel{" "}
+            {ANNO_CORRENTE - 1} ma non nel periodo scelto non entra nel totale.
+          </p>
+        )}
       </div>
 
       <div className="card tight">
@@ -150,8 +249,8 @@ export default async function PartnerList({
                 <ThSort label="Credito" campo="credito" sp={sp} path="/partner" />
                 <ThSort label="Scaduto" campo="scaduto" sp={sp} path="/partner" num />
                 <ThSort label="Fee" campo="fee" sp={sp} path="/partner" num />
-                <ThSort label="Vendite YTD" campo="vendite" sp={sp} path="/partner" num />
-                <ThSort label="Servizi YTD" campo="servizio" sp={sp} path="/partner" num />
+                <ThSort label={filtroAttivo ? "Vendite periodo" : "Vendite YTD"} campo="vendite" sp={sp} path="/partner" num />
+                <ThSort label={filtroAttivo ? "Servizi periodo" : "Servizi YTD"} campo="servizio" sp={sp} path="/partner" num />
                 <ThSort label="Residuo" campo="residuo" sp={sp} path="/partner" num />
               </tr>
             </thead>
@@ -169,23 +268,23 @@ export default async function PartnerList({
                   </td>
                   <td className="num">{pctIt(t.partner.feePercent)}</td>
                   <td className="num">
-                    {euro(t.rolling.vendite)}
-                    <DeltaAnno cur={t.rolling.vendite} prev={precPeriodo.get(t.partner.id)?.vendite ?? 0} />
+                    {euro(vista(t.partner.id).vendite)}
+                    <DeltaAnno cur={vista(t.partner.id).vendite} prev={precPeriodo.get(t.partner.id)?.vendite ?? 0} />
                   </td>
                   <td className="num">
-                    {euro(t.rolling.fatture)}
-                    <DeltaAnno cur={t.rolling.fatture} prev={precPeriodo.get(t.partner.id)?.servizi ?? 0} />
+                    {euro(vista(t.partner.id).servizi)}
+                    <DeltaAnno cur={vista(t.partner.id).servizi} prev={precPeriodo.get(t.partner.id)?.servizi ?? 0} />
                   </td>
-                  <td className={`num ${Math.abs(t.rolling.residuo) < 0.01 ? "" : t.rolling.residuo > 0 ? "pos" : "neg"}`}>
-                    {euro(t.rolling.residuo)}
+                  <td className={`num ${Math.abs(vista(t.partner.id).residuo) < 0.01 ? "" : vista(t.partner.id).residuo > 0 ? "pos" : "neg"}`}>
+                    {euro(vista(t.partner.id).residuo)}
                   </td>
                 </tr>
               ))}
               {(() => {
                 const somma = (fn: (t: T) => number) => filtered.reduce((a, t) => a + fn(t), 0);
-                const totVendite = somma((t) => t.rolling.vendite);
-                const totServizi = somma((t) => t.rolling.fatture);
-                const totResiduo = somma((t) => t.rolling.residuo);
+                const totVendite = somma((t) => vista(t.partner.id).vendite);
+                const totServizi = somma((t) => vista(t.partner.id).servizi);
+                const totResiduo = somma((t) => vista(t.partner.id).residuo);
                 const totVenditePrec = somma((t) => precPeriodo.get(t.partner.id)?.vendite ?? 0);
                 const totServiziPrec = somma((t) => precPeriodo.get(t.partner.id)?.servizi ?? 0);
                 return (
