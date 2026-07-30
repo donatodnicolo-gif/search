@@ -80,6 +80,8 @@ porta **3120**. Design system Deluxy v1.0.
 
 - **30/07/2026 — import collezioni eseguito su tutti i negozi** (`scripts/importa-tutte-collezioni.ts`, via `npx tsx`, riusa `negoziAttivi`+`importaCollezioniDa`): Cake 47 collezioni/1.056 appartenenze, Flowers 62/2.678, Gifts 234/7.260. Popolati: **787 prodotti con `gg_disp_min`** (546 Urgenze, 125 Da domani, 115 Pianificato, 1 Su misura → badge risposta al bisogno attivo), **10.994 appartenenze col GID Shopify** (push ordine ora possibile). **`pubblicataShopify` = true su tutte le 343**: lo stato di pubblicazione **non è leggibile** con questi token (manca lo scope `read_publications`; `publishedOnCurrentPublication` fa fallire la query, quindi la lettura è best-effort e in mancanza si mostra tutto). Fix reso non fatale in `shopify-collezioni.ts`. **Per avere il filtro «solo pubblicate» vero serve aggiungere lo scope `read_publications` ai token** (poi ri-verificare in Impostazioni e reimportare). Finché non c'è, in Visual compaiono anche le collezioni tecniche/smart: si sospendono a mano (`stato`).
 
+- **30/07/2026 — Visual rispetta l'ambito**: `/visual` ignorava il selettore brand in alto e mostrava tutte le collezioni. Ora filtra per il **negozio del brand scelto**: il brand è un canale di vendita (`deluxy.it`, `Flowers`, `cakedesign.me`), la collezione appartiene a un negozio (`Gifts`, `Flowers`, `Cake`), il ponte è `NegozioShopify.canaleVendite` — nuovo helper `negoziDelBrand()` in `brand.ts`. Verificato: deluxy.it→234 (Gifts), Flowers→62, globale→343. Le **tipologie** restano trasversali ai brand (config editoriale, non filtrata). Mappatura canaleVendite completa: Flowers↔Flowers, Gifts↔deluxy.it, Cake↔cakedesign.me.
+
 ## COME AVVIARE
 ```
 cd deluxy-merchandising
