@@ -4,20 +4,13 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "./db";
 import { tokenDi, VERSIONE_API } from "./negozi";
-import { numeraPosizioni, ordineSecondoRegola, type RegolaOrdinamento, isRegola } from "./ordinamento-vetrina";
+import { numeraPosizioni, applicaRegolaACollezione, isRegola } from "./ordinamento-vetrina";
 
 /** Applica una regola: propone l'ordine e lo scrive come punto di partenza. */
 export async function applicaRegolaOrdinamento(collezioneId: string, fd: FormData) {
   const regola = fd.get("regola");
   if (!isRegola(regola)) return;
-  if (regola !== "manuale") {
-    const ordine = await ordineSecondoRegola(collezioneId, regola);
-    await numeraPosizioni(collezioneId, ordine);
-  }
-  await prisma.collezioneShopify.update({
-    where: { id: collezioneId },
-    data: { regolaOrdinamento: regola, ordineModificatoIl: new Date() },
-  });
+  await applicaRegolaACollezione(collezioneId, regola);
   revalidatePath(`/visual/${collezioneId}`);
 }
 

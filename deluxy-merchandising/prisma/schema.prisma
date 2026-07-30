@@ -386,6 +386,12 @@ model CollezioneShopify {
   // seller, novità, margine, prezzo…), da src/lib/ordinamento-vetrina.ts. È
   // solo il punto di partenza: dopo si ritocca a mano. "manuale" = nessuna regola.
   regolaOrdinamento String?
+  // La **tipologia** editoriale a cui appartiene la collezione (Bouquet, Torte,
+  // Occasioni…), decisa da noi. Se la tipologia ha una regola, quella è
+  // "standing": si riapplica da sola a ogni import, così i prodotti nuovi si
+  // sistemano invece di restare in fondo. La assegna una persona.
+  tipologiaId  String?
+  tipologia    TipologiaCollezione? @relation(fields: [tipologiaId], references: [id], onDelete: SetNull)
   // Quando l'ordine curato qui è stato cambiato l'ultima volta e quando è stato
   // spinto su Shopify: se il primo è più recente del secondo, c'è da sincronizzare.
   ordineModificatoIl DateTime?
@@ -404,6 +410,26 @@ model CollezioneShopify {
 
   @@unique([negozio, shopifyId])
   @@index([negozio])
+  @@index([tipologiaId])
+}
+
+// Una **tipologia di collezione**: un'etichetta editoriale nostra (Bouquet,
+// Torte, Occasioni…) che raggruppa collezioni di negozi diversi e porta una
+// **regola d'ordine standing**. Si imposta la regola una volta sola sulla
+// tipologia e vale per tutte le collezioni che le assegni; si riapplica da sola
+// a ogni import (i prodotti nuovi si sistemano da soli). È la "regola per
+// tipologia estesa a più collezioni".
+model TipologiaCollezione {
+  id           String   @id @default(cuid())
+  nome         String   @unique
+  descrizione  String?
+  // La regola d'ordine standing, dalle chiavi di src/lib/ordinamento-vetrina.ts
+  // (best_seller, ricavo, novita, margine, prezzo_*, manuale). null/"manuale" =
+  // nessuna regola automatica, l'ordine si cura a mano collezione per collezione.
+  regolaOrdinamento String?
+  collezioni   CollezioneShopify[]
+  creataIl     DateTime @default(now())
+  aggiornataIl DateTime @updatedAt
 }
 
 model ProdottoInCollezioneShopify {

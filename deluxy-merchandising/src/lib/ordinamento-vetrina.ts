@@ -108,6 +108,50 @@ export async function ordineSecondoRegola(
 }
 
 /**
+ * Applica una regola a una collezione: materializza l'ordine in `posizione` e
+ * segna sulla collezione qual è la regola e che l'ordine è cambiato. `manuale`
+ * non tocca le posizioni (l'ordine lo cura la persona) ma resta registrato.
+ * Riusata dall'azione di pagina, dall'assegnazione a una tipologia e dal
+ * riapplico standing all'import: una funzione sola, così non divergono.
+ */
+export async function applicaRegolaACollezione(
+  collezioneId: string,
+  regola: RegolaOrdinamento
+): Promise<void> {
+  if (regola !== "manuale") {
+    const ordine = await ordineSecondoRegola(collezioneId, regola);
+    await numeraPosizioni(collezioneId, ordine);
+  }
+  await prisma.collezioneShopify.update({
+    where: { id: collezioneId },
+    data: { regolaOrdinamento: regola, ordineModificatoIl: new Date() },
+  });
+}
+
+/**
+ * Riapplica le regole **standing** delle tipologie alle collezioni di un negozio.
+ * Serve all'import: quando arrivano prodotti nuovi, una collezione gestita da una
+ * tipologia con regola li deve risistemare da sola invece di lasciarli in fondo.
+ * Le collezioni **senza** tipologia (o con tipologia senza regola) non si toccano:
+ * lì l'ordine è curato a mano e non va sovrascritto. Ritorna quante ne ha rifatte.
+ */
+export async function riapplicaStandingPerNegozio(negozio: string): Promise<number> {
+  const colls = await prisma.collezioneShopify.findMany({
+    where: { negozio, tipologia: { is: { regolaOrdinamento: { not: null } } } },
+    select: { id: true, tipologia: { select: { regolaOrdinamento: true } } },
+  });
+  let fatte = 0;
+  for (const c of colls) {
+    const r = c.tipologia?.regolaOrdinamento;
+    if (isRegola(r) && r !== "manuale") {
+      await applicaRegolaACollezione(c.id, r);
+      fatte++;
+    }
+  }
+  return fatte;
+}
+
+/**
  * Scrive `posizione = 0..n-1` seguendo l'ordine dato. A blocchi e non in una
  * transazione unica: una collezione grande può avere migliaia di prodotti e una
  * transazione così lunga andrebbe in timeout.

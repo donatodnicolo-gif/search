@@ -49,9 +49,12 @@ export default async function VisualPage({
               e la mandi a Shopify uguale a come la vedi qui.
             </p>
           </div>
-          <Link className="btn btn-secondario" href="/riordini">
-            Ipotesi di ordinativo{pianiBozza > 0 ? ` · ${pianiBozza} in bozza` : ""}
-          </Link>
+          <div style={{ display: "flex", gap: 8 }}>
+            <Link className="btn btn-secondario" href="/visual/tipologie">Tipologie & regole</Link>
+            <Link className="btn btn-secondario" href="/riordini">
+              Ipotesi di ordinativo{pianiBozza > 0 ? ` · ${pianiBozza} in bozza` : ""}
+            </Link>
+          </div>
         </div>
 
         {sp.messaggio && (

@@ -16,6 +16,7 @@
 
 import { prisma } from "./db";
 import { VERSIONE_API } from "./negozi";
+import { riapplicaStandingPerNegozio } from "./ordinamento-vetrina";
 
 type Negozio = { id: string; nome: string; dominio: string; token: string };
 
@@ -392,6 +393,15 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
     }
 
     await aggiornaRegistroCategorie();
+
+    // Regole standing: le collezioni con una tipologia che ha una regola si
+    // risistemano da sole coi prodotti appena arrivati. Non deve far fallire
+    // l'import se qualcosa va storto qui.
+    try {
+      await riapplicaStandingPerNegozio(n.nome);
+    } catch {
+      // l'import è comunque riuscito: il riordino standing si rifà alla prossima.
+    }
 
     base.ok = true;
     base.messaggio =

@@ -26,6 +26,7 @@ export default async function CurazioneCollezionePage({
   const c = await prisma.collezioneShopify.findUnique({
     where: { id },
     include: {
+      tipologia: { select: { nome: true, regolaOrdinamento: true } },
       prodotti: {
         orderBy: [{ posizione: "asc" }, { prodotto: { nome: "asc" } }],
         include: {
@@ -66,6 +67,12 @@ export default async function CurazioneCollezionePage({
             <h1 className="page-title">{c.titolo}</h1>
             <p className="page-sub">
               {c.prodotti.length} prodotti conosciuti · ordine attuale: <b>{etichettaRegola(c.regolaOrdinamento)}</b>
+              {c.tipologia && (
+                <>
+                  {" "}· tipologia <b>{c.tipologia.nome}</b> (regola standing {etichettaRegola(c.tipologia.regolaOrdinamento)}) ·{" "}
+                  <a href="/visual/tipologie">gestisci</a>
+                </>
+              )}
             </p>
           </div>
         </div>
