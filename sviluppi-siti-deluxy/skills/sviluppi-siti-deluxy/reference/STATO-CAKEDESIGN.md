@@ -285,6 +285,66 @@ Il calendario della scheda prodotto rispetta il metacampo `prodotto.consegna`, b
 data in memoria è troppo vicina, e le regole di taglio orario sono coerenti. Il problema nasce
 **solo quando i prodotti in carrello diventano più di uno**.
 
+## QA del 30/7/2026 (secondo giro, sul tema PUBBLICATO) — acquisto di una torta personalizzata
+
+Percorso completo da cliente: scegliere una torta, personalizzarla col wizard, chiederla per
+**domenica 2 agosto 2026**, dedica, fino alla soglia del pagamento (nessun ordine).
+
+**Esito: si compra, a 210,00 € — ma solo correggendo la data a mano.** Celebration Pink 190 € +
+20 € di frutta esotica, fascia 16-20, domenica confermata al checkout. La domenica **è**
+consegnabile e il calendario del wizard propone correttamente il 2 agosto.
+
+### Le due cose che fanno danno
+
+1. **La data scelta non arriva al carrello.** Scelto il 2 agosto nel wizard, subito dopo
+   «Acquista» `cart.attributes.Data_Consegna` vale **`2026-07-31`** — una data che viola
+   perfino il preavviso di 3 giorni del prodotto stesso. La pagina carrello la ripete su ogni
+   riga e dichiara *«La prima data di consegna disponibile è Ven Luglio 31, 2026»*, mentre il
+   suo stesso datepicker ha `minDate` = 2 agosto. Chi si fida riceve la torta **venerdì invece
+   che domenica**.
+2. **Un click, due torte, ~2 volte su 3.** Confermato il doppio `POST /cart/add.js` (9 ms di
+   distanza, 3 prove su 3), e in 2 casi su 3 il carrello è finito a quantità 2 → **380 €**. La
+   causa ora è nota: **lo script del wizard gira due volte**, si vede dai log di debug stampati
+   in doppio (`"AI Cake Add to Cart clicked"` ×2).
+
+### Difetti nuovi
+
+| # | Difetto | Gravità |
+|---|---|---|
+| N1 | La data del wizard non arriva al carrello (2/8 → `2026-07-31`) | **Critica** |
+| N2 | Il carrello propone come prima data il 31/7, sotto il `minDate` del suo datepicker e sotto il preavviso del prodotto | **Critica** |
+| N3 | Tornando su `/cart` la fascia oraria non è ripristinata e «COMPLETA IL TUO ACQUISTO» **resta muto** finché non la si riseleziona | Alta |
+| N5 | Su **Dot Cake** «CREA LA TUA TORTA» non apre nessun wizard: esce solo il pannello contatti (l'app opzioni non carica, `#ez-ds-option-widget` mai creato) | Alta |
+| N4 | I 22 spazi del bigliettino rientrano dopo il ricaricamento e finiscono nell'ordine | Media |
+| N6 | Il sito riscrive `user_lang='en'` e rimanda su `/en` anche dopo averlo messo a `it` | Media |
+| N7 | Al checkout «Subtotale · **21 articoli**» per una torta sola (l'Extra vale 20 unità) | Media |
+| N8 | Abbassando la quantità l'Extra non si riduce (2→1 lascia Extra a 40 → 230 € invece di 210) | Media |
+| N12 | Calendario prodotto: in vista Luglio l'unica cella cliccabile è il **31**, sotto `minDate`; l'1 agosto risulta selezionabile pur essendo sotto `minDate` | Media |
+| N9 | **Log di debug in produzione**, tutti duplicati (`TESTING>> …`, `currentStep:`, `totalOptions:`) | Bassa |
+| N10 | Testi non tradotti: il modale conflitto in inglese e il calendario del carrello con «August 2026» in pagina italiana | Bassa |
+| N11 | Il link Live Chat conserva `href="https://chatting.page/…"`: se JS non intercetta si esce dal sito (scelta voluta come rete di sicurezza, ma va saputo) | Bassa |
+| N13 | `localStorage.new_delivery_date_val = "undefined"` (stringa) e `variantDelDate` incoerente con la scelta | Bassa |
+
+### Gli 11 difetti del primo giro, riverificati sul tema pubblicato
+
+**Dieci su undici confermati**: doppio add-to-cart, sovrapprezzo solo su `/cart`, riga Extra
+cancellabile dal cliente, opzioni obbligatorie non controllate (ho lasciato «Numero di piani»
+vuoto e il riepilogo **e l'ordine** hanno scritto «1»), data unica di carrello, colonna Totale
+che ignora la quantità (q.tà 2 → mostra 190 €), campo quantità che si autoricarica a 1,
+bigliettino e fascia salvati solo al checkout con 22 spazi (178 caratteri utili su 200),
+`Є` cirillico **U+0404** nel wizard (`var currencyFormat = ' Є'`), «Ricomincia» che non azzera.
+
+**Uno non provabile**: il modale del conflitto date (`#custom-modal`, `visibility:hidden`) non
+si è potuto innescare — **nessun prodotto del catalogo ha una finestra incompatibile** (preavviso
+massimo 3 giorni, nessuna data massima), e forzando `Data_Consegna=2026-07-31` il carrello l'ha
+**auto-corretta**. Il pulsante muto esiste comunque, ma per la causa N3.
+
+### La chat verificata dal percorso cliente
+
+Il link apre la chat **dentro il sito** (`#deluxy-chat`, iframe `…/widget?tema=minimale&sito=cake`,
+`DeluxyChat.eAperta() === true`), non naviga su chatting.page, e si chiude. **Nessuna pastiglia
+flottante**: `.avvio` è definito nel CSS ma l'elemento non viene creato.
+
 ## Aperto, non ancora affrontato
 
 - **jQuery e Semantic UI caricati due volte** su home, `/en` e prodotto (~1 MB di parsing in
