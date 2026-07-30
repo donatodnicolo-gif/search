@@ -121,16 +121,19 @@ type CollezioneShopifyApi = {
     rules: { column: string; relation: string; condition: string }[];
   } | null;
   // È pubblicata sul negozio online (la vedono i clienti)? Alias `pubblicata`:
-  // dietro c'è publishedOnPublication(Online Store) o, se non troviamo quella
-  // pubblicazione, publishedOnCurrentPublication.
-  pubblicata: boolean | null;
+  // dietro c'è publishedOnPublication(Online Store). Presente **solo** se abbiamo
+  // trovato la pubblicazione Online Store (serve lo scope read_publications):
+  // altrimenti il campo si omette del tutto, perché `publishedOnCurrentPublication`
+  // fa fallire l'intera query sui token che non hanno una pubblicazione propria.
+  pubblicata?: boolean | null;
 };
 
 /**
  * L'id della pubblicazione "Online Store", cioè la vetrina che vedono i clienti.
  * Serve per sapere se una collezione è davvero pubblicata sul sito e non solo
- * esistente. Se non la troviamo (negozio senza Online Store, o permessi che non
- * la mostrano) si torna null e l'import userà `publishedOnCurrentPublication`.
+ * esistente. Se non la troviamo (negozio senza Online Store, o manca lo scope
+ * read_publications) si torna null: l'import allora non chiede la pubblicazione e
+ * mostra comunque tutte le collezioni (ripiego dichiarato).
  */
 async function trovaOnlineStore(n: Negozio): Promise<string | null> {
   try {
@@ -145,12 +148,17 @@ async function trovaOnlineStore(n: Negozio): Promise<string | null> {
   }
 }
 
-/** Tutte le collezioni del negozio, pagina per pagina, col loro stato di pubblicazione. */
+/**
+ * Tutte le collezioni del negozio, pagina per pagina. Se abbiamo l'id della
+ * pubblicazione Online Store (`osId`) chiediamo anche se ognuna è pubblicata; se
+ * non ce l'abbiamo (token senza `read_publications`) **omettiamo** il campo: non
+ * si può usare `publishedOnCurrentPublication` perché su questi token fa fallire
+ * tutta la query. In quel caso la pubblicazione resta ignota e il chiamante
+ * decide il ripiego.
+ */
 async function leggiCollezioni(n: Negozio, osId: string | null): Promise<CollezioneShopifyApi[]> {
   const fuori: CollezioneShopifyApi[] = [];
-  const campoPubblicata = osId
-    ? "pubblicata: publishedOnPublication(publicationId: $osId)"
-    : "pubblicata: publishedOnCurrentPublication";
+  const campoPubblicata = osId ? "pubblicata: publishedOnPublication(publicationId: $osId)" : "";
   let cursore: string | null = null;
   for (let pagina = 0; pagina < 40; pagina++) {
     const dati: {
@@ -246,8 +254,14 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
     base.prodottiLetti = prodottiShopify.length;
 
     // — Le collezioni, tutte —
+    // Se non abbiamo potuto leggere la pubblicazione (nessun Online Store /
+    // manca read_publications) mostriamo comunque la collezione in Visual (pub =
+    // true): «esiste sul negozio» è meglio di una Visual vuota, e la si può
+    // sospendere a mano. Quando invece l'abbiamo letta, vale il dato vero.
+    const pubblicazioneLetta = osId != null;
     const idLocale = new Map<string, string>(); // gid Shopify → id nostro
     for (const c of collezioni) {
+      const pub = pubblicazioneLetta ? c.pubblicata ?? false : true;
       const riga = await prisma.collezioneShopify.upsert({
         where: { negozio_shopifyId: { negozio: n.nome, shopifyId: c.id } },
         create: {
@@ -264,7 +278,7 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
           seoTitolo: c.seo?.title ?? null,
           seoDescrizione: c.seo?.description ?? null,
           modelloTema: c.templateSuffix ?? null,
-          pubblicataShopify: c.pubblicata ?? false,
+          pubblicataShopify: pub,
           aggiornataShopifyIl: c.updatedAt ? new Date(c.updatedAt) : null,
         },
         update: {
@@ -279,7 +293,7 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
           seoTitolo: c.seo?.title ?? null,
           seoDescrizione: c.seo?.description ?? null,
           modelloTema: c.templateSuffix ?? null,
-          pubblicataShopify: c.pubblicata ?? false,
+          pubblicataShopify: pub,
           aggiornataShopifyIl: c.updatedAt ? new Date(c.updatedAt) : null,
           // I campi nostri (regolaOrdinamento, ordine*, posizioni, stato, note,
           // inCampagne) NON si toccano: li decide una persona, un import non li
@@ -406,7 +420,10 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
     base.ok = true;
     base.messaggio =
       `${base.collezioniLette} collezioni lette, ${base.abbinamenti} appartenenze salvate su ${base.prodottiLetti} prodotti del negozio` +
-      (base.prodottiIgnoti ? `; ${base.prodottiIgnoti} prodotti del negozio non corrispondono a nessun prodotto qui.` : ".");
+      (base.prodottiIgnoti ? `; ${base.prodottiIgnoti} prodotti del negozio non corrispondono a nessun prodotto qui` : "") +
+      (pubblicazioneLetta
+        ? "."
+        : "; stato di pubblicazione non leggibile (manca lo scope read_publications): mostrate tutte in Visual, sospendi a mano quelle che non vuoi.");
   } catch (e) {
     base.messaggio = e instanceof Error ? e.message : "Errore sconosciuto durante l'import.";
   }
