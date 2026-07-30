@@ -87,7 +87,16 @@ export async function POST(req: NextRequest, { params }: Params) {
       const nostroAccount = conversazione.numeroId
       const tokenDiQuellAccount = await tokenPerPagina(conversazione.canale, nostroAccount)
       esito = tokenDiQuellAccount
-        ? await inviaPagina(tokenDiQuellAccount, conversazione.idEsterno, pulito, nostroAccount)
+        ? // ⚠️ Il canale viaggia fino in fondo: Instagram con un token IGAA
+          // parla solo con `graph.instagram.com`, e senza questo i direct si
+          // ricevevano ma non si potevano mandare.
+          await inviaPagina(
+            tokenDiQuellAccount,
+            conversazione.idEsterno,
+            pulito,
+            nostroAccount,
+            conversazione.canale
+          )
         : {
             ok: false,
             errore:

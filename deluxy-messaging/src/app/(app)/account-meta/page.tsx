@@ -64,7 +64,17 @@ function Scheda({
             </select>
           </label>
           <label className="campo" style={{ gridColumn: '1 / -1' }}>
-            <span>Token di questo account</span>
+            {/* ⚠️ Due token diversi, due strade diverse: quello che comincia per
+                «IGAA» viene dall'Instagram API con login di Instagram e parla
+                solo con graph.instagram.com; quello per «EAA» è il Page Access
+                Token di Facebook. L'app sceglie l'indirizzo giusto dal prefisso,
+                ma chi incolla deve sapere cosa sta incollando. */}
+            <span>
+              Token di questo account
+              {p.canale === 'instagram'
+                ? ' — «IGAA…» dall’Instagram API con login di Instagram, «EAA…» dalla Pagina Facebook'
+                : ''}
+            </span>
             <input
               name="token"
               type="password"
@@ -150,7 +160,7 @@ function ModuloNuovo({
               name="token"
               type="password"
               autoComplete="off"
-              placeholder="Page Access Token di QUESTA pagina"
+              placeholder={ig ? "Token IGAA… oppure Page Access Token" : "Page Access Token di QUESTA pagina"}
             />
           </label>
         </div>

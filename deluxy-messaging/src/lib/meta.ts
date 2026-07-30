@@ -5,6 +5,38 @@
 
 const GRAPH = 'https://graph.facebook.com/v21.0'
 
+/**
+ * ⚠️ INSTAGRAM HA UN GRAPH SUO, e non è un dettaglio: è il motivo per cui i
+ * direct si ricevevano ma non si potevano mandare.
+ *
+ * Il prodotto «Instagram API con login di Instagram» rilascia token che
+ * cominciano per **IGAA**, e quei token vivono SOLO su `graph.instagram.com`: su
+ * `graph.facebook.com` non sono nemmeno leggibili, e Meta risponde «cannot parse
+ * access token». Un Page Access Token di Facebook (`EAA…`) invece parla col
+ * Graph di Facebook, ed è quello che serve a Messenger e agli account Instagram
+ * collegati a una Pagina.
+ *
+ * Quindi l'indirizzo non si sceglie una volta per tutte nel codice: lo decide il
+ * TOKEN che ha quell'account.
+ */
+const GRAPH_INSTAGRAM = 'https://graph.instagram.com/v21.0'
+
+/** Un token dell'Instagram API con login di Instagram? Si vede dal prefisso. */
+function eTokenInstagram(token: string): boolean {
+  return (token ?? '').trim().startsWith('IGAA')
+}
+
+function graphPerCanale(canale: string, token: string): string {
+  return canale === 'instagram' && eTokenInstagram(token) ? GRAPH_INSTAGRAM : GRAPH
+}
+
+/** L'errore dice che il token non è di questo Graph? Allora si prova l'altro. */
+function tokenDiUnAltroGraph(errore: string): boolean {
+  return /cannot parse access token|malformed access token|invalid oauth access token/i.test(
+    errore ?? ''
+  )
+}
+
 type EsitoInvio = { ok: true; idEsterno: string } | { ok: false; errore: string }
 
 async function chiamaGraph(url: string, corpo: unknown, token: string): Promise<EsitoInvio> {
@@ -158,15 +190,28 @@ export async function inviaPagina(
   token: string,
   destinatarioId: string,
   testo: string,
-  mittenteId = ''
+  mittenteId = '',
+  // Il canale serve a scegliere il Graph giusto: Instagram con token IGAA parla
+  // solo con `graph.instagram.com`. Vuoto = si comporta come prima (Facebook).
+  canale = ''
 ): Promise<EsitoInvio> {
-  return chiamaGraph(
-    `${GRAPH}/${mittenteId || 'me'}/messages`,
-    {
-      recipient: { id: destinatarioId },
-      messaging_type: 'RESPONSE',
-      message: { text: testo },
-    },
-    token
-  )
+  const corpo = {
+    recipient: { id: destinatarioId },
+    messaging_type: 'RESPONSE',
+    message: { text: testo },
+  }
+  const base = graphPerCanale(canale, token)
+  const esito = await chiamaGraph(`${base}/${mittenteId || 'me'}/messages`, corpo, token)
+  if (esito.ok) return esito
+
+  // Se Meta dice che quel token non sa nemmeno leggerlo, l'indirizzo era
+  // sbagliato: si prova l'altro Graph una volta sola. Serve ai casi che il
+  // prefisso non copre — un token vecchio, un account migrato — ed è meglio di
+  // un errore che l'operatore non può interpretare. Se fallisce anche il
+  // secondo, si torna l'errore del PRIMO: è quello che descrive la strada
+  // giusta per come è configurato l'account.
+  const altro = base === GRAPH ? GRAPH_INSTAGRAM : GRAPH
+  if (!tokenDiUnAltroGraph(esito.errore)) return esito
+  const secondo = await chiamaGraph(`${altro}/${mittenteId || 'me'}/messages`, corpo, token)
+  return secondo.ok ? secondo : esito
 }

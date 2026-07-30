@@ -55,6 +55,34 @@ locale, altrimenti nulla si decifra.
 
 ## FATTO
 
+- **OGNI CANALE RISPONDE DAL SUO INDIRIZZO: INSTAGRAM HA UN GRAPH SUO**
+  (30/07/2026). I direct Instagram si **ricevevano** ma non si potevano
+  **mandare**: la risposta restava lì con «errore».
+  - ⚠️ **Il prodotto «Instagram API con login di Instagram» rilascia token che
+    cominciano per `IGAA`, e quei token vivono SOLO su `graph.instagram.com`.**
+    Su `graph.facebook.com` non sono nemmeno leggibili: Meta risponde *cannot
+    parse access token*, cioè un errore che sembra «token sbagliato» mentre il
+    token è giusto ed è l'indirizzo a essere quello di un altro prodotto. Il
+    Page Access Token di Facebook (`EAA…`) invece parla col Graph di Facebook,
+    ed è quello che serve a Messenger e agli account Instagram collegati a una
+    Pagina.
+  - Quindi l'indirizzo **non si sceglie una volta per tutte nel codice**: lo
+    decide il token di quell'account. `graphPerCanale()` in `src/lib/meta.ts`
+    guarda il prefisso; `inviaPagina()` prende il **canale** come parametro e
+    lo riceve dalla rotta `/api/conversazioni/[id]/messaggi` (che vale anche
+    per le risposte dalla scheda dell'ordine, `MessaggiOrdine.tsx`: è la stessa
+    rotta).
+  - Se Meta dice che il token non sa nemmeno leggerlo, si riprova **una volta
+    sola** sull'altro Graph: copre i casi che il prefisso non prende (un token
+    vecchio, un account migrato). Se fallisce anche il secondo si torna
+    l'errore del **primo**, che è quello che descrive la strada giusta per come
+    è configurato l'account.
+  - In `/account-meta` il campo del token ora dice quale dei due si sta
+    incollando: chi lo prende dal Business Manager non ha modo di saperlo da sé.
+  - ⚠️ **Non verificabile da qui**: serve un direct vero su Instagram e una
+    risposta dall'app in produzione. Il permesso richiesto è
+    `instagram_business_manage_messages`.
+
 - **I NUMERI SI RICONOSCONO DALLA RUBRICA GOOGLE** (29/07/2026). Su WhatsApp
   arrivava il nome che il cliente si è messo sul profilo — «Nicolo», «Ale», a
   volte niente. In rubrica (`deluxy.delivery@gmail.com`, la stessa che l'app
@@ -1644,7 +1672,9 @@ locale, altrimenti nulla si decifra.
 - Webhook Meta unico (`/api/webhooks/meta`): verifica GET col verify token, firma
   X-Hub-Signature-256 con l'App Secret, ricezione WhatsApp/Messenger/Instagram,
   aggiornamenti di stato WhatsApp.
-- Invio: WhatsApp Cloud API, Messenger e Instagram via `/me/messages` (src/lib/meta.ts).
+- Invio: WhatsApp Cloud API, Messenger e Instagram via `/{nostro account}/messages`
+  (src/lib/meta.ts) — su `graph.facebook.com` col Page Access Token, su
+  `graph.instagram.com` se il token comincia per `IGAA`.
 - Inbox a due colonne con polling (elenco 5s, thread 4s), badge canale, non letti,
   stati di consegna e errori d'invio visibili in bolla.
 - Widget: `public/widget.js` (bottone flottante + iframe) → pagina `/widget` (pubblica,
