@@ -94,6 +94,20 @@ Ogni partner risponde con il blocco **`valutazioneD2C`**:
 - **`affidabile: false`** = sotto i 3 feedback: mostratelo come indicativo.
 - Filtri sull'elenco: `votoD2CMin`, `votoD2CMax`, `feedbackD2C=si|nessuno`.
 
+### Valet (le persone che consegnano)
+
+`GET /api/v1/valet` e `GET /api/v1/valet/:id` — **sola lettura**. Serve a chi oggi
+si tiene una copia locale dei valet solo per nominarli: Customer Service, per
+attribuire la colpa di un reclamo, può leggerli da qui.
+
+- Filtri: `q`, `stato` (`in_servizio`|`sospeso`|`cessato`), `provincia` (guarda
+  anche le **province servite**), `attivo=false|tutti`, `page`, `perPage`.
+- `:id` accetta l'id del registro **o** il `platformId` (l'id nella piattaforma
+  consegne): non serve una tabella di traduzione.
+- La risposta ha `nomeCompleto` già composto e `provinceServite` come **lista**.
+- **Qui non ci sono paghe, disponibilità, stipendi né IBAN**: quelli stanno nella
+  piattaforma consegne, che è il master dell'operatività e che i valet li paga.
+
 ### Reclami di Customer Service: mandate il reclamo, non il voto
 
 Se chiudete un reclamo con la colpa al partner, **non calcolate voi le stelle**:
@@ -280,6 +294,14 @@ consegna D2C — `voto` 1–5 (normalizzato da `votoOriginale`/`scala`), `origin
 sul partner (`votoD2C`, `numeroFeedbackD2C`, `ultimoFeedbackD2C`,
 `votoD2CAggiornatoIl`): quelli sono di sola lettura, si scrive solo un feedback.
 **Nessun feedback = nessun voto** («Da valutare»), mai zero.
+
+`Valet`: le persone che fanno le consegne — anagrafica e recapiti. Paghe,
+province assegnate, disponibilità e stipendi **restano nella piattaforma
+consegne**: qui non ci sono, e nemmeno l'IBAN. Si leggono con
+`GET /api/v1/valet` (sola lettura).
+
+`Modifica`: registro delle modifiche (chi ha cambiato cosa, da che valore a che
+valore). Il soggetto è un'azienda o un valet.
 
 `ApiKey`: chiavi delle app client; nel DB c'è solo lo SHA-256.
 

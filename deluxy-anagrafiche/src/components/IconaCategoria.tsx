@@ -140,6 +140,16 @@ const GLIFI: Record<string, React.ReactNode> = {
       <path d="M10 12.5h4" {...TRATTO} />
     </>
   ),
+  // Scooter: i valet, chi porta materialmente le consegne
+  VALET: (
+    <>
+      <circle cx="6" cy="17" r="2.6" {...TRATTO} />
+      <circle cx="18" cy="17" r="2.6" {...TRATTO} />
+      <path d="M8.6 17h6.8l-1.9-8H16" {...TRATTO} />
+      <path d="M13.5 9H9.5l-2 4.5" {...TRATTO} />
+      <path d="M15.4 17c0-3 1-5.5 2.6-6.5" {...TRATTO} />
+    </>
+  ),
   // Stella in cerchio: la pagella degli affiliati e re-seller
   AFFILIATI: (
     <>

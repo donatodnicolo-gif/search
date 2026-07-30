@@ -34,6 +34,7 @@ export async function Sidebar({
   identitaAttiva = false,
   chiaviAttive = false,
   affiliatiAttivi = false,
+  valetAttivo = false,
 }: {
   categoriaAttiva?: string | null;
   statoAttivo?: string | null;
@@ -50,6 +51,7 @@ export async function Sidebar({
   identitaAttiva?: boolean;
   chiaviAttive?: boolean;
   affiliatiAttivi?: boolean;
+  valetAttivo?: boolean;
 }) {
   const [
     categorie,
@@ -87,6 +89,9 @@ export async function Sidebar({
   const disaccordi = await prisma.riconciliazione.count({ where: { stato: "aperta" } });
   // Chiavi che oggi autenticano davvero: le sospese non si contano.
   const chiaviAttiveConteggio = await prisma.apiKey.count({ where: { attiva: true } });
+  // I valet in servizio: le persone che fanno le consegne, accanto alla
+  // rubrica dei referenti delle aziende.
+  const valet = await prisma.valet.count({ where: { attivo: true } });
   const affiliati = await prisma.partner.count({
     where: { attivo: true, interessi: { hasSome: [...INTERESSI_AFFILIAZIONE] } },
   });
@@ -97,7 +102,7 @@ export async function Sidebar({
   const perInteresse = new Map(interessiConteggio.map((i) => [i.interesse, Number(i.totale)]));
 
   const globaleAttiva =
-    !categoriaAttiva && !statoAttivo && !statoFinanziarioAttivo && !statoAnalisiAttivo && !interesseAttivo && !archivioAttivo && !hubspotAttivo && !dashboardAttiva && !matchAttivo && !contattiAttiva && !riconciliazioneAttiva && !identitaAttiva && !chiaviAttive && !affiliatiAttivi;
+    !categoriaAttiva && !statoAttivo && !statoFinanziarioAttivo && !statoAnalisiAttivo && !interesseAttivo && !archivioAttivo && !hubspotAttivo && !dashboardAttiva && !matchAttivo && !contattiAttiva && !riconciliazioneAttiva && !identitaAttiva && !chiaviAttive && !affiliatiAttivi && !valetAttivo;
 
   return (
     <aside className="sidebar">
@@ -115,6 +120,11 @@ export async function Sidebar({
           <a className={`sb-item${contattiAttiva ? " attiva" : ""}`} href="/contatti">
             <span className="sb-icona"><IconaCategoria categoria="CONTATTI" /></span>
             <span className="sb-nome">Contatti</span>
+          </a>
+          <a className={`sb-item${valetAttivo ? " attiva" : ""}`} href="/valet">
+            <span className="sb-icona"><IconaCategoria categoria="VALET" /></span>
+            <span className="sb-nome">Valet</span>
+            <span className="sb-count">{valet}</span>
           </a>
           {/* La pagella di chi serve le consegne D2C: i giudizi arrivano dai
               reclami di Customer Service, e qui si legge chi lavora male. */}

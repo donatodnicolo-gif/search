@@ -262,6 +262,50 @@ model RichiestaMatch {
   @@index([sistema])
 }
 
+// VALET — le persone che fanno materialmente le consegne.
+//
+// Qui sta l'ANAGRAFICA della persona: come si chiama, come si raggiunge, dove
+// lavora, se è in servizio. **Non** la sua operatività: paghe per servizio,
+// province assegnate, disponibilità giorno per giorno, stipendi, ricevute e
+// ritenute restano nella piattaforma consegne (app.deluxy.it), che è il master
+// di quel pezzo e che i valet li paga. Duplicarli qui rifarebbe esattamente il
+// danno che il registro esiste per evitare.
+// `platformId` è il ponte: l'id del valet nella piattaforma.
+//
+// Perché non un `Contatto`: un Contatto è il referente di un'AZIENDA e vive
+// attaccato a lei (`partnerId` obbligatorio, cascade). Un valet non è di
+// nessuna azienda — è di Deluxy — quindi ha una tabella sua.
+model Valet {
+  id            String   @id @default(cuid())
+  nome          String
+  cognome       String?
+  telefono      String?
+  email         String?
+  indirizzo     String?
+  citta         String?
+  provincia     String?
+  // Province su cui lavora: testo libero separato da virgola, per orientarsi.
+  // L'assegnazione vera è nella piattaforma (ValetProvince).
+  provinceServite String?
+  mezzo         String? // Auto | Moto/Scooter | Bicicletta | Furgone | A piedi
+  // Identità fiscale della persona: il registro è la fonte dell'identità.
+  // I dati di PAGAMENTO (IBAN, ritenuta, frequenza stipendio) no: quelli stanno
+  // nella piattaforma, che emette gli stipendi.
+  codiceFiscale String?
+  pIva          String?
+  // in_servizio | sospeso | cessato — vedi src/lib/valet.ts
+  stato         String   @default("in_servizio")
+  note          String?
+  platformId    String?  @unique // id del valet nella piattaforma consegne
+  fonte         String   @default("ui") // ui | platform | <nome chiave app>
+  attivo        Boolean  @default(true) // soft delete, come per i partner
+  creatoIl      DateTime @default(now())
+  aggiornatoIl  DateTime @updatedAt
+
+  @@index([attivo, stato])
+  @@index([cognome, nome])
+}
+
 // Registro delle MODIFICHE: una riga per ogni campo cambiato, con il valore
 // prima e dopo e chi l'ha cambiato. Serve a rispondere a «questo dato chi
 // l'ha scritto, e quando?» — che con la sola `provenienza` (ultimo scrittore
@@ -278,7 +322,10 @@ model RichiestaMatch {
 // invece dice sempre da dove arriva: "ui" o il nome della chiave dell'app.
 model Modifica {
   id         String   @id @default(cuid())
-  partnerId  String
+  // Il soggetto: un'azienda (con eventualmente un suo referente) oppure un
+  // valet. Uno dei due è sempre valorizzato.
+  partnerId  String?
+  valetId    String?
   contattoId String? // valorizzato per le modifiche a un referente
   entita     String   @default("partner") // partner | contatto | sede | feedback
   // Nome del campo cambiato, oppure l'azione quando non è un campo:
@@ -290,9 +337,10 @@ model Modifica {
   autore     String? // la persona, quando la conosciamo
   creatoIl   DateTime @default(now())
 
-  partner Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  partner Partner? @relation(fields: [partnerId], references: [id], onDelete: Cascade)
 
   @@index([partnerId, creatoIl])
+  @@index([valetId, creatoIl])
   @@index([contattoId, creatoIl])
 }
 

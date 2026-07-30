@@ -157,7 +157,7 @@ export default async function SchedaContatto({ params }: { params: Promise<{ id:
                         <span className="storia-freccia">→</span> <strong>{m.a ?? "(vuoto)"}</strong>
                       </>
                     )}
-                    {m.partnerId !== contatto.partner.id && (
+                    {m.partner && m.partner.id !== contatto.partner.id && (
                       <span className="cella-fonte">
                         {" "}
                         · in <a href={`/partner/${m.partner.id}`}>{m.partner.nome}</a>

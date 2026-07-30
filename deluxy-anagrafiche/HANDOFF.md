@@ -71,10 +71,23 @@ opzionale `ANAGRAFICHE_APP_PASSWORD` (in locale se assente la UI è aperta).
 - **RichiestaMatch** — storico delle richieste di aggancio (`/api/v1/partners/match`): sistema,
   tipo, esito, confidenza, partner risolto, `risolto`.
 - **PassaggioStato** — storico dei cambi di stato/archivio (da·a·origine·quando).
+- **Valet** (30/07/2026) — le persone che fanno le consegne. Qui c'è **l'anagrafica**: nome,
+  cognome, telefono, email, indirizzo, città/provincia, `provinceServite` (sigle a testo, per
+  cercarlo), `mezzo`, `codiceFiscale`/`pIva`, `stato` (in_servizio·sospeso·cessato, catalogo in
+  `src/lib/valet.ts`), `note`, `platformId` @unique (ponte con la piattaforma), `fonte`, `attivo`
+  (soft delete come i partner).
+  **Non** c'è la sua operatività: paghe per servizio, province assegnate, disponibilità giorno per
+  giorno, stipendi, ricevute e ritenute restano nella **piattaforma consegne**, che di quel pezzo è
+  il master e che i valet li paga (lì `Valet` ha `ValetService`, `ValetProvince`,
+  `ValetAvailability`, `Salary`, `withholdingPercent`…). Duplicarli qui rifarebbe il danno che il
+  registro esiste per evitare. Stessa ragione per cui l'IBAN non c'è.
+  **Perché non un `Contatto`**: un Contatto è il referente di un'AZIENDA e vive attaccato a lei
+  (`partnerId` obbligatorio, cascade). Un valet non è di nessuna azienda, è di Deluxy.
 - **Modifica** (30/07/2026) — **registro delle modifiche**: una riga per campo cambiato, con
   `campo`, `da`, `a`, `origine` (`ui` o il nome della chiave dell'app), `autore` (quando lo
-  sappiamo) e `creatoIl`. Vive sempre sotto un'azienda (`partnerId`, cascade); `contattoId` è
-  valorizzato quando riguarda un referente, così la sua scheda mostra solo la sua storia.
+  sappiamo) e `creatoIl`. Il soggetto è un'azienda (`partnerId`, cascade) **oppure un valet**
+  (`valetId`, dal 30/07/2026): uno dei due è sempre valorizzato. `contattoId` è valorizzato quando
+  riguarda un referente, così la sua scheda mostra solo la sua storia.
   Risponde a tre domande che prima non ne avevano: la **storia** di un campo (`provenienza` tiene
   solo l'ultimo scrittore, e solo dei campi finanziari), le modifiche ai **referenti** (che non
   lasciavano traccia da nessuna parte) e le **cancellazioni** (un referente o un feedback rimosso
@@ -273,6 +286,19 @@ Ogni scrittura via API è un **merge governato per campo**, mai una sostituzione
   `aggiornaPartner` chiama `propagaDatiFinanziari` che li copia su tutte le sedi (updateMany).
   Compili una volta su una sede → valgono per Milano/Roma/Capri. NON condivisi: ragioneSociale,
   indirizzo, città, telefono/email, stato, interessi, referenti (restano per-sede).
+- **`/valet`, `/valet/nuovo`, `/valet/:id`, `/valet/:id/modifica`** — **anagrafica dei valet
+  (30/07/2026)**: la rubrica delle persone che fanno le consegne, accanto a quella dei referenti
+  delle aziende («contatti per aziende e per valet»). Elenco con ricerca (nome, telefono, email,
+  città, province servite), filtro per stato con conteggi, archiviati a parte. Form unico
+  `FormValet` per Nuovo e Modifica, in tre blocchi: **la persona**, **come lavora** (province
+  servite + mezzo) e **identità fiscale** (facoltativa). Sulla scheda: pillole dello stato di
+  servizio (come i partner), ✎ Modifica, ⌫ Archivia e la **Storia** dei cambiamenti.
+  **Doppione per telefono**: creando un valet con un numero già in elenco (confronto sulle ultime
+  9 cifre, quindi `+39 348 1234567` e `3481234567` sono la stessa persona) non si crea un secondo
+  record — si apre la scheda esistente con un avviso. È l'unico dato che identifica davvero una
+  persona in un elenco di consegne.
+  Lo **stato di servizio non è nel form di modifica**: si cambia dalle pillole, come i tre stati
+  del partner, così ogni cambio resta un gesto tracciato e non un campo salvato per sbaglio.
 - **`/affiliati`** — **pagella di affiliati e re-seller (30/07/2026)**: sono loro a servire le
   consegne D2C, quindi sono loro ad avere un voto. Popolazione = anagrafiche attive con linea
   **Affiliazioni** o **Re-seller** (`INTERESSI_AFFILIAZIONE` in `src/lib/interessi.ts`, unica
@@ -322,6 +348,8 @@ Pubbliche `/api/v1` — auth header `x-api-key: <chiave>` (o `Authorization: Bea
 | DELETE | `/api/v1/partners/:id` | scrittura | Soft delete (attivo=false) |
 | GET | `/api/v1/feedback` | lettura | Feedback D2C: `partnerId`, `origine`, `sistema`, `votoMin/votoMax`, `dal/al`, page, perPage. Con `partnerId` include anche `valutazioneD2C` |
 | POST | `/api/v1/feedback` | scrittura **o** feedback | Registra un giudizio interno (`origine`, `autore`). Aggancio: `partnerId` → `riferimento{sistema,idEsterno}` → `platformId` → `negozio`+`citta`; niente aggancio = **404** (mai attribuito a caso). `voto` obbligatorio (+`scala` per NPS/percentuali, fuori scala = 400), `idEsterno` = idempotenza (la riga viene sostituita), `motivi` solo dal catalogo. Risponde con il feedback e la valutazione ricalcolata |
+| GET | `/api/v1/valet` | lettura | Elenco valet. Filtri: `q`, `stato`, `provincia` (guarda anche le province servite), `attivo` (`false`/`tutti`), page, perPage. `provinceServite` esce come **lista** e c'è `nomeCompleto` già composto |
+| GET | `/api/v1/valet/:id` | lettura | Un valet, per id del registro **o** per `platformId` |
 | POST | `/api/v1/referenti/archivia` | referenti | Archivia/ripristina un referente (Scout): `{riferimento?{sistema,idEsterno}, negozio?, citta?, referente{email?,telefono?,nome?}, archiviato?}` → trova partner (xref→negozio+città) e referente (email>tel>nome), setta `Contatto.archiviato`. `200 {ok:true}` / `404 {ok:false, reason}` |
 
 Interne `/api/interno/*` (solo UI, cookie di sessione, NON per le app): `cerca-partner`, `cerca-hubspot`.
@@ -430,6 +458,16 @@ scelte da fare, in fondo le pulizie. Quando un punto si chiude, si cancella da q
 3. **Letture del registro dalle altre app**: `deluxy-partner` fatto (join per `anagraficaId`);
    **Ricerca fornitori legge già** (proxy `/api/anagrafiche` con la chiave lato server) e segnala
    nuovi prospect con `/api/segnala`; **Scout ha la chiave ma non legge ancora**.
+
+3b. **Valet: chi è il master?** L'anagrafica è nel registro dal 30/07/2026 e si legge via
+   `GET /api/v1/valet` (**sola lettura di proposito**: aprire la scrittura prima di aver deciso
+   vorrebbe dire ritrovarsi tre copie della stessa persona). Oggi i valet nascono nella
+   **piattaforma consegne**, che li assume, li paga e li assegna, e **Customer Service** ne tiene
+   una copia minima (nome + recapito) solo per attribuire la colpa di un reclamo.
+   Da fare: (a) far leggere Customer Service da qui invece di duplicare — il suo `Valet.id`
+   diventa `platformId`/xref; (b) decidere se il registro riceve i valet dalla piattaforma (come
+   fa FINANCE per `statoAnalisi`) o se resta compilato a mano; (c) travaso una-tantum dei valet
+   esistenti, che oggi la tabella è **vuota**.
 
 ### B. Scelte da prendere (il codice viene dopo)
 

@@ -25,7 +25,7 @@ export type ContestoModifica = {
   /** La persona, quando la conosciamo (con la password condivisa: quasi mai). */
   autore?: string | null;
   contattoId?: string | null;
-  entita?: "partner" | "contatto" | "sede" | "feedback";
+  entita?: "partner" | "contatto" | "sede" | "feedback" | "valet";
 };
 
 export function testoValore(v: unknown): string | null {
@@ -94,6 +94,41 @@ export async function registraModifica(
   await registraModifiche(partnerId, contesto, [cambio]);
 }
 
+// Stesse righe, soggetto diverso: un valet non appartiene a nessuna azienda,
+// quindi il log si aggancia a lui (`valetId`) e non a un partner. Due funzioni
+// separate invece di un parametro «soggetto» per non riscrivere i quindici
+// punti che già loggano sui partner e che sono verificati.
+export async function registraModificheValet(
+  valetId: string,
+  contesto: Omit<ContestoModifica, "contattoId" | "entita">,
+  cambi: Cambio[],
+): Promise<void> {
+  if (cambi.length === 0) return;
+  try {
+    await prisma.modifica.createMany({
+      data: cambi.map((c) => ({
+        valetId,
+        entita: "valet",
+        campo: c.campo,
+        da: testoValore(c.da),
+        a: testoValore(c.a),
+        origine: contesto.origine,
+        autore: contesto.autore?.trim() || null,
+      })),
+    });
+  } catch {
+    // come sopra: il log non deve far fallire il salvataggio
+  }
+}
+
+export async function registraModificaValet(
+  valetId: string,
+  contesto: Omit<ContestoModifica, "contattoId" | "entita">,
+  cambio: Cambio,
+): Promise<void> {
+  await registraModificheValet(valetId, contesto, [cambio]);
+}
+
 // Nomi leggibili: nel log si legge «Codice SDI», non «codiceSdi».
 export const ETICHETTE_CAMPO: Record<string, string> = {
   nome: "Nome / Insegna",
@@ -129,6 +164,10 @@ export const ETICHETTE_CAMPO: Record<string, string> = {
   statoFinanziario: "Stato finanziario",
   statoAnalisi: "Stato analisi",
   stato: "Stato commerciale",
+  // valet
+  cognome: "Cognome",
+  provinceServite: "Province servite",
+  mezzo: "Mezzo",
   // referenti
   ruolo: "Ruolo",
   nomeRubrica: "Nome su rubrica",
