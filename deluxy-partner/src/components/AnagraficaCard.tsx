@@ -1,4 +1,5 @@
 import { risolviAnagrafica, urlAnagrafiche, type Anagrafica } from "@/lib/anagrafiche";
+import { collegaAnagraficaEsistente, scollegaAnagrafica } from "@/lib/riconciliazione-actions";
 
 // Etichetta e colore badge per gli stati del registro (vedi deluxy-anagrafiche)
 const STATI: Record<string, { etichetta: string; classe: string }> = {
@@ -38,26 +39,50 @@ function Voce({ k, v }: { k: string; v: string | null | undefined }) {
 export async function AnagraficaCard({
   nomePartner,
   anagraficaId,
+  partnerId,
 }: {
   nomePartner: string;
   anagraficaId?: string | null;
+  partnerId?: string;
 }) {
   // Collegato per id = join affidabile; altrimenti ripiego sul match per nome
   const anagrafica: Anagrafica | null = await risolviAnagrafica(nomePartner, anagraficaId);
+  // Aggancio manuale: quando i nomi non combaciano (es. «DR VRANJES gennaio» qui
+  // e «Dr. Vranjes» nel registro) l'automatismo non trova nulla e creare
+  // l'anagrafica farebbe un doppione: qui si incolla id o link della scheda.
+  const formCollega = partnerId && (
+    <form
+      action={collegaAnagraficaEsistente.bind(null, partnerId)}
+      style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginTop: 12 }}
+    >
+      <input
+        type="text"
+        name="anagraficaRif"
+        placeholder="Incolla qui l'id o il link della scheda in Anagrafiche"
+        style={{ flex: "1 1 320px", fontSize: 12.5, padding: "6px 8px" }}
+      />
+      <button className="btn small primary" type="submit" title="Collega questo partner a un'anagrafica già presente nel registro">
+        Collega anagrafica
+      </button>
+    </form>
+  );
 
   return (
     <>
       <h2 className="section-title">Anagrafica dal registro centralizzato</h2>
       <div className="card">
         {!anagrafica ? (
-          <p style={{ fontSize: 13.5, color: "var(--text-secondary)" }}>
-            Nessuna corrispondenza nel registro Anagrafiche (o registro non
-            raggiungibile). Le anagrafiche si gestiscono su{" "}
-            <a href={urlAnagrafiche()} target="_blank" style={{ color: "var(--blue)" }}>
-              Deluxy Anagrafiche
-            </a>
-            .
-          </p>
+          <>
+            <p style={{ fontSize: 13.5, color: "var(--text-secondary)" }}>
+              Nessuna corrispondenza automatica nel registro Anagrafiche. Se la scheda <strong>esiste già</strong>{" "}
+              (magari con un nome scritto diversamente), aprila su{" "}
+              <a href={urlAnagrafiche()} target="_blank" style={{ color: "var(--blue)" }}>
+                Deluxy Anagrafiche
+              </a>{" "}
+              e incolla qui sotto il suo link: le due schede restano collegate per sempre, senza creare doppioni.
+            </p>
+            {formCollega}
+          </>
         ) : (
           <>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 14 }}>
@@ -68,14 +93,38 @@ export async function AnagraficaCard({
                   <span className="badge gold"><span className="dot" />da app.deluxy.it</span>
                 )}
               </span>
-              <a
-                href={`${urlAnagrafiche()}/partner/${anagrafica.id}`}
-                target="_blank"
-                className="btn small secondary"
-              >
-                Apri nel registro ↗
-              </a>
+              <span style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <a
+                  href={`${urlAnagrafiche()}/partner/${anagrafica.id}`}
+                  target="_blank"
+                  className="btn small secondary"
+                >
+                  Apri nel registro ↗
+                </a>
+                {partnerId && anagraficaId && (
+                  <form action={scollegaAnagrafica.bind(null, partnerId)} style={{ display: "inline" }}>
+                    <button className="btn small secondary" type="submit" title="Rimuove solo il collegamento: i dati nel registro restano">
+                      Scollega
+                    </button>
+                  </form>
+                )}
+              </span>
             </div>
+
+            {/* Trovata per somiglianza di nome ma NON agganciata per id: il legame
+                non è salvato e potrebbe rompersi se un nome cambia. */}
+            {partnerId && !anagraficaId && (
+              <div style={{ marginBottom: 14, padding: 12, borderRadius: "var(--radius-m)", background: "var(--bg)" }}>
+                <span className="badge orange"><span className="dot" />Corrispondenza trovata per nome, non ancora collegata</span>
+                <p className="muted" style={{ fontSize: 12.5, margin: "8px 0 0" }}>
+                  Se è la scheda giusta, collegala: l&apos;abbinamento resta stabile anche se un nome cambia.
+                </p>
+                <form action={collegaAnagraficaEsistente.bind(null, partnerId)} style={{ marginTop: 8 }}>
+                  <input type="hidden" name="anagraficaRif" value={anagrafica.id} />
+                  <button className="btn small primary" type="submit">Collega questa anagrafica</button>
+                </form>
+              </div>
+            )}
             <div className="info-grid">
               <Voce k="Ragione sociale" v={anagrafica.ragioneSociale} />
               <Voce k="P. IVA" v={anagrafica.pIva} />

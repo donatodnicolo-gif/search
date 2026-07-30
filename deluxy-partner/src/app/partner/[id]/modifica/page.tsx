@@ -50,7 +50,7 @@ export default async function ModificaPartner({ params }: { params: Promise<{ id
           configurazione finanziaria locale di questo partner. Qui sotto il record del registro com'è adesso.
         </p>
       </div>
-      <AnagraficaCard nomePartner={partner.nome} anagraficaId={partner.anagraficaId} />
+      <AnagraficaCard nomePartner={partner.nome} anagraficaId={partner.anagraficaId} partnerId={partner.id} />
     </>
   );
 }

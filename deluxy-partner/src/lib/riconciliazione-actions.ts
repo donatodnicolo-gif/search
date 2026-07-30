@@ -3,7 +3,7 @@
 import { revalidatePath, revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "./db";
-import { aggiornaAnagrafica, creaAnagrafica, type CampiAnagrafica } from "./anagrafiche";
+import { aggiornaAnagrafica, creaAnagrafica, anagraficaPerId, type CampiAnagrafica } from "./anagrafiche";
 import { campiPropostiPerNome } from "./riconciliazione-fic";
 import { ibanValido } from "./impostazioni";
 import { allineaPartnerDaRegistro } from "./allinea-registro";
@@ -204,6 +204,43 @@ export async function riconciliaManuale(ficNome: string, fd: FormData) {
   }
   revalidatePath("/registrazioni/riconciliazione", "layout");
   redirect(`/registrazioni/riconciliazione?creato=${encodeURIComponent(`${ficNome} → ${partner.nome}`)}`);
+}
+
+// Collega un partner FINANCE a un'anagrafica GIÀ ESISTENTE nel registro, dato il
+// suo id (o l'URL della scheda). Serve quando i due nomi non combaciano — es.
+// «DR VRANJES gennaio» qui e «Dr. Vranjes» nel registro — dove la riconciliazione
+// automatica non aggancia e «Crea in Anagrafiche» produrrebbe un doppione.
+export async function collegaAnagraficaEsistente(partnerId: string, fd: FormData) {
+  const grezzo = String(fd.get("anagraficaRif") ?? "").trim();
+  const err = (m: string) => redirect(`/partner/${partnerId}?anag=${encodeURIComponent(m)}`);
+  if (!grezzo) err("Incolla l'id o il link della scheda in Anagrafiche.");
+  // accetta sia l'id nudo sia un URL tipo .../partner/<id>
+  const id = grezzo.includes("/") ? grezzo.replace(/[?#].*$/, "").split("/").filter(Boolean).pop()! : grezzo;
+
+  const anagrafica = await anagraficaPerId(id);
+  if (!anagrafica) {
+    err(`Nessuna anagrafica trovata con id «${id}» (o registro non raggiungibile).`);
+  }
+  // l'id del registro è unico su Partner: se un altro lo usa, spiega chi
+  const altro = await prisma.partner.findFirst({
+    where: { anagraficaId: id, NOT: { id: partnerId } },
+    select: { nome: true },
+  });
+  if (altro) err(`Quell'anagrafica è già collegata al partner «${altro.nome}».`);
+
+  await prisma.partner.update({ where: { id: partnerId }, data: { anagraficaId: id } });
+  revalidatePath(`/partner/${partnerId}`, "layout");
+  revalidatePath("/registrazioni/riconciliazione", "layout");
+  redirect(`/partner/${partnerId}?anag=${encodeURIComponent(`Collegato a «${anagrafica!.nome}» nel registro`)}`);
+}
+
+// Toglie il collegamento col registro (per correggere un abbinamento sbagliato).
+// Non tocca i dati nel registro: rimuove solo il riferimento su questo partner.
+export async function scollegaAnagrafica(partnerId: string) {
+  await prisma.partner.update({ where: { id: partnerId }, data: { anagraficaId: null } });
+  revalidatePath(`/partner/${partnerId}`, "layout");
+  revalidatePath("/registrazioni/riconciliazione", "layout");
+  redirect(`/partner/${partnerId}?anag=${encodeURIComponent("Collegamento al registro rimosso")}`);
 }
 
 // Forza il ricarico dei dati esterni in cache (clienti FIC + beneficiari Qonto):

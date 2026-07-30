@@ -31,7 +31,7 @@ export default async function PartnerDetail({
 }: {
   params: Promise<{ id: string }>;
   searchParams: Promise<{
-    amm?: string; fic?: string; ficreg?: string; mail?: string; nota?: string; mese?: string;
+    amm?: string; fic?: string; ficreg?: string; mail?: string; nota?: string; mese?: string; anag?: string;
   }>;
 }) {
   const { id } = await params;
@@ -158,6 +158,14 @@ export default async function PartnerDetail({
         </div>
       )}
 
+      {sp.anag && (
+        <div className="card" style={{ padding: 14, marginBottom: 16 }}>
+          <span className={`badge ${/Collegat|rimoss/i.test(sp.anag) ? "green" : "orange"}`}>
+            <span className="dot" />{decodeURIComponent(sp.anag)}
+          </span>
+        </div>
+      )}
+
       {sp.ficreg && (
         <div className="card" style={{ padding: 14, marginBottom: 16 }}>
           {sp.ficreg === "ok" ? (
@@ -195,7 +203,7 @@ export default async function PartnerDetail({
           </>
         }
       >
-        <AnagraficaCard nomePartner={partner.nome} anagraficaId={partner.anagraficaId} />
+        <AnagraficaCard nomePartner={partner.nome} anagraficaId={partner.anagraficaId} partnerId={partner.id} />
       </Suspense>
 
       {aiMailConfigurata() && (
