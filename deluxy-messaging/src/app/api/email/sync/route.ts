@@ -39,6 +39,7 @@ export async function POST() {
             ultimoMessaggioIl: m.data,
             nonLetti: { increment: 1 },
             archiviata: false,
+            eliminataIl: null,
           },
           create: {
             canale: 'email',

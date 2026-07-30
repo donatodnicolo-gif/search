@@ -68,6 +68,7 @@ model NegozioShopify {
   numeriWhatsApp NumeroWhatsApp[]
   pagineMeta     PaginaMeta[]
   caselleEmail   CasellaEmail[]
+  widgetSiti     WidgetSito[]
 }
 
 // Uno "script": una risposta pronta da dare ai clienti. Sono la memoria
@@ -201,6 +202,13 @@ model CasellaEmail {
   nome         String   @default("") // etichetta, es. "Servizio clienti"
   indirizzo    String   @unique // es. cs@deluxy.it — è anche l'utente IMAP/SMTP
   nomeMittente String   @default("Deluxy")
+  // La FIRMA di questa casella, in coda a ogni mail che parte da qui.
+  //
+  // ⚠️ Una firma sola per tutte le caselle non va: le tre voci sono diverse — il
+  // maggiordomo di deluxy.it, l'atelier dei fiori, il complice di Cakedesign — e
+  // firmare una mail della pasticceria «Servizio Clienti Deluxy, consegna in
+  // guanti bianchi» è dire al cliente una cosa che per quel brand non esiste.
+  firma        String   @default("") @db.Text
   password     String   @default("") @db.Text // cifrata
   imapHost     String   @default("pop.securemail.pro")
   imapPort     Int      @default(993)
@@ -349,6 +357,15 @@ model Conversazione {
   ultimoMessaggioIl DateTime @default(now())
   nonLetti          Int      @default(0) // messaggi in arrivo non ancora letti dall'operatore
   archiviata        Boolean  @default(false)
+  // CESTINO: quando è stata buttata. `null` = non è nel cestino.
+  //
+  // ⚠️ Eliminare non cancella più subito. Una conversazione buttata per errore
+  // portava con sé tutti i suoi messaggi — il testo delle mail, gli allegati,
+  // chi aveva risposto — e non c'era modo di riaverla. Ora finisce nel cestino e
+  // ci resta **30 giorni**: dopo, il cron `/api/cron/cestino` la cancella
+  // davvero. Trenta giorni sono la finestra in cui un cliente riscrive «ma la
+  // mia mail?», che è il momento in cui serve.
+  eliminataIl       DateTime?
   creatoIl          DateTime @default(now())
 
   messaggi Messaggio[]
@@ -393,6 +410,41 @@ model Messaggio {
 
   @@index([conversazioneId, creatoIl])
   @@index([idEsterno])
+}
+
+// L'aspetto e i testi del widget di chat, UN SITO PER VOLTA.
+//
+// ⚠️ Prima la configurazione era una sola per tutti: un tema, un titolo, un
+// saluto nelle Impostazioni. Ma i tre siti non si somigliano — deluxy.it è nero
+// e oro e dà del Lei, cakedesign.me è friendly e usa le emoji, deluxyflowers.com
+// è un atelier — e un widget solo li faceva sembrare la stessa azienda, che è
+// esattamente il contrario di quello che vendono.
+//
+// `slug` è la chiave che il sito ospite scrive nello snippet (`data-sito`):
+// serve al widget per chiedere il SUO titolo e il SUO saluto, e finisce in
+// `Conversazione.numeroId`, così in Inbox si vede da quale sito è arrivato il
+// messaggio e la conversazione va nella colonna del marchio giusto.
+model WidgetSito {
+  id        String  @id @default(cuid())
+  slug      String  @unique // deluxy | flowers | cake | …
+  nome      String  @default("") // come lo chiamiamo noi
+  dominio   String  @default("") // deluxy.it, cakedesign.me…
+  negozioId String?
+  // Aspetto: gli stessi valori che lo snippet mette negli attributi data-*.
+  tema      String  @default("chiaro")
+  accento   String  @default("") // #rrggbb, vuoto = quello del tema
+  posizione String  @default("destra")
+  etichetta String  @default("") // il testo accanto al bottone
+  // Testi della chat: se vuoti valgono quelli generali delle Impostazioni.
+  titolo    String  @default("")
+  saluto    String  @default("") @db.Text
+  attivo    Boolean @default(true)
+  creatoIl  DateTime @default(now())
+  aggiornatoIl DateTime @updatedAt
+
+  negozio NegozioShopify? @relation(fields: [negozioId], references: [id], onDelete: SetNull)
+
+  @@index([negozioId])
 }
 
 // Un promemoria dell'operatore: «richiamare il cliente domani», «sollecitare il

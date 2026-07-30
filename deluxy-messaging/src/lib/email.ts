@@ -27,6 +27,8 @@ export type Casella = {
   nome: string
   indirizzo: string
   nomeMittente: string
+  /** La firma di questa casella, aggiunta in coda alle mail che partono. */
+  firma: string
   password: string
   imapHost: string
   imapPort: number
@@ -50,6 +52,7 @@ type RigaCasella = {
   nome: string
   indirizzo: string
   nomeMittente: string
+  firma: string
   password: string
   imapHost: string
   imapPort: number
@@ -101,6 +104,8 @@ export async function salvaCasella(
     predefinita?: boolean
     /** Il marchio della casella; stringa vuota = nessuno (serve a tutti). */
     negozioId?: string
+    /** La firma in coda alle mail di questa casella. */
+    firma?: string
   }
 ): Promise<void> {
   const base = {
@@ -113,6 +118,7 @@ export async function salvaCasella(
     smtpPort: dati.smtpPort || 465,
     smtpSicuro: dati.smtpSicuro,
     negozioId: dati.negozioId?.trim() ? dati.negozioId.trim() : null,
+    firma: (dati.firma ?? '').trim().slice(0, 600),
   }
   const conPassword = dati.password?.trim()
     ? { password: cifra(dati.password.trim()) }
@@ -142,7 +148,23 @@ function trasporto(c: Casella) {
   })
 }
 
-/** Invia una mail dalla casella indicata. */
+/**
+ * Il testo con la firma della casella in coda.
+ *
+ * ⚠️ Se il testo contiene già la firma non la si aggiunge una seconda volta: le
+ * risposte pronte e l'AI a volte firmano da sole, e una mail che finisce con due
+ * firme si nota subito. Il confronto è sulla PRIMA riga della firma, che è la
+ * parte che non cambia («Servizio Clienti Deluxy»).
+ */
+export function conFirma(testo: string, firma: string): string {
+  const f = (firma ?? '').trim()
+  if (!f) return testo
+  const primaRiga = f.split('\n')[0]?.trim()
+  if (primaRiga && testo.includes(primaRiga)) return testo
+  return `${testo.trimEnd()}\n\n${f}`
+}
+
+/** Invia una mail dalla casella indicata, firmata con la firma di quella casella. */
 export async function inviaEmail(
   c: Casella,
   a: string,
@@ -153,7 +175,7 @@ export async function inviaEmail(
     from: { name: c.nomeMittente, address: c.indirizzo },
     to: a,
     subject: oggetto || '(nessun oggetto)',
-    text: testo,
+    text: conFirma(testo, c.firma),
   })
   return esito.messageId ?? ''
 }

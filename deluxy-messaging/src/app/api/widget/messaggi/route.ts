@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { leggiImpostazioni } from '@/lib/impostazioni'
+import { aspettoDelSito } from '@/lib/widget-siti'
 
 export const dynamic = 'force-dynamic'
 
@@ -21,11 +22,17 @@ export async function GET(req: NextRequest) {
   // saluto, e nient'altro. Serve a mostrare il benvenuto SENZA aprire una
   // conversazione — prima bastava che il widget si caricasse per far comparire
   // in Inbox un cliente che non aveva scritto niente.
+  // `?sito=` dice DA QUALE SITO arriva la chat: ogni sito ha il suo titolo e il
+  // suo saluto (pagina «Widget dei siti»). Senza, valgono quelli generali delle
+  // Impostazioni — che restano il ripiego per gli snippet vecchi, già incollati
+  // sui siti senza `data-sito`.
+  const sito = await aspettoDelSito(req.nextUrl.searchParams.get('sito') ?? '')
+
   if (!token) {
     const config = await leggiImpostazioni(['widgetTitolo', 'widgetMessaggio'])
     return NextResponse.json({
-      titolo: config.widgetTitolo || 'Deluxy',
-      benvenuto: config.widgetMessaggio || 'Ciao! Come possiamo aiutarti?',
+      titolo: sito?.titolo || config.widgetTitolo || 'Deluxy',
+      benvenuto: sito?.saluto || config.widgetMessaggio || 'Ciao! Come possiamo aiutarti?',
       messaggi: [],
     })
   }
@@ -44,8 +51,8 @@ export async function GET(req: NextRequest) {
   ])
 
   return NextResponse.json({
-    titolo: config.widgetTitolo || 'Deluxy',
-    benvenuto: config.widgetMessaggio || 'Ciao! Come possiamo aiutarti?',
+    titolo: sito?.titolo || config.widgetTitolo || 'Deluxy',
+    benvenuto: sito?.saluto || config.widgetMessaggio || 'Ciao! Come possiamo aiutarti?',
     messaggi,
   })
 }
@@ -72,6 +79,7 @@ export async function POST(req: NextRequest) {
       ultimoMessaggioIl: new Date(),
       nonLetti: { increment: 1 },
       archiviata: false,
+      eliminataIl: null,
     },
   })
 

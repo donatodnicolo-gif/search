@@ -22,6 +22,7 @@ export async function salvaCasellaAction(formData: FormData) {
     smtpSicuro: Number(formData.get('smtpPort') ?? 465) !== 587,
     predefinita: formData.get('predefinita') === '1',
     negozioId: String(formData.get('negozioId') ?? ''),
+    firma: String(formData.get('firma') ?? ''),
   })
   revalidatePath('/caselle')
   // L'inbox raggruppa per marchio: cambiare la casella cambia le colonne.

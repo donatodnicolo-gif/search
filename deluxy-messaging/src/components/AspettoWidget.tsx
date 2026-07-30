@@ -1,8 +1,21 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import type { SitoWidget } from '@/lib/widget-siti'
 
-// Scelta dell'aspetto del widget + il codice da incollare sul sito.
+// L'aspetto e i testi del widget, UN SITO PER VOLTA.
+//
+// Prima questa pagina configurava «il widget»: un tema, un colore, e il titolo e
+// il saluto letti dalle Impostazioni generali. Ma i tre siti non si somigliano —
+// deluxy.it è nero e oro e dà del Lei, l'atelier dei fiori parla per sottrazione,
+// cakedesign.me usa le emoji — e un widget solo li faceva sembrare la stessa
+// azienda: l'opposto di quello che vendono.
+//
+// Ora si sceglie il sito e la pagina PROPONE già la sua versione: tema, colore,
+// scritta del bottone, titolo e saluto nella voce di quel brand. La proposta però
+// non si salva da sola: finché nessuno conferma, quel sito resta «proposto». Fra
+// «così l'abbiamo deciso» e «così te lo suggeriamo» c'è la differenza fra una
+// configurazione e un'ipotesi, e in una pagina di impostazioni si deve vedere.
 //
 // L'anteprima è il widget VERO dentro un iframe (`/widget?anteprima=1`), non un
 // disegno che gli somiglia: un finto anteprima è la cosa che invecchia peggio —
@@ -17,113 +30,226 @@ const TEMI = [
   { id: 'automatico', nome: 'Automatico', quando: 'Chiaro o scuro come lo ha impostato chi guarda.' },
 ]
 
-export function AspettoWidget({ origine, titolo }: { origine: string; titolo: string }) {
-  const [tema, setTema] = useState('chiaro')
-  const [accento, setAccento] = useState('')
-  const [posizione, setPosizione] = useState('destra')
-  const [etichetta, setEtichetta] = useState('')
+export function AspettoWidget({
+  origine,
+  siti,
+  salva,
+}: {
+  origine: string
+  siti: SitoWidget[]
+  /** Server action che salva la configurazione del sito scelto. */
+  salva: (dati: FormData) => void
+}) {
+  const [slug, setSlug] = useState(siti[0]?.slug ?? '')
+  const sito = siti.find((s) => s.slug === slug) ?? siti[0]
+
+  const [tema, setTema] = useState(sito?.tema ?? 'chiaro')
+  const [accento, setAccento] = useState(sito?.accento ?? '')
+  const [posizione, setPosizione] = useState(sito?.posizione ?? 'destra')
+  const [etichetta, setEtichetta] = useState(sito?.etichetta ?? '')
+  const [titolo, setTitolo] = useState(sito?.titolo ?? '')
+  const [saluto, setSaluto] = useState(sito?.saluto ?? '')
   const [copiato, setCopiato] = useState(false)
+
+  // Cambiando sito i campi si ricaricano da quel sito: senza, si finiva a
+  // modificare il tema di Flowers con i testi di Cake sotto gli occhi.
+  function scegliSito(nuovo: string) {
+    const s = siti.find((x) => x.slug === nuovo)
+    if (!s) return
+    setSlug(nuovo)
+    setTema(s.tema)
+    setAccento(s.accento)
+    setPosizione(s.posizione)
+    setEtichetta(s.etichetta)
+    setTitolo(s.titolo)
+    setSaluto(s.saluto)
+  }
 
   const accentoValido = /^#[0-9a-f]{6}$/i.test(accento)
 
   const codice = useMemo(() => {
     const righe = [`<script src="${origine}/widget.js" defer`]
     const attributi: string[] = []
+    // `data-sito` viene per primo: è quello che porta i testi giusti e, in
+    // Inbox, mette la chat nella colonna del marchio.
+    if (slug) attributi.push(`data-sito="${slug}"`)
     if (tema !== 'chiaro') attributi.push(`data-tema="${tema}"`)
     if (accentoValido) attributi.push(`data-accento="${accento.toLowerCase()}"`)
     if (posizione !== 'destra') attributi.push(`data-posizione="${posizione}"`)
     if (etichetta.trim()) attributi.push(`data-etichetta="${etichetta.trim().replace(/"/g, '')}"`)
     if (attributi.length) righe.push('        ' + attributi.join(' '))
     return righe.join('\n') + '></script>'
-  }, [origine, tema, accento, accentoValido, posizione, etichetta])
+  }, [origine, slug, tema, accento, accentoValido, posizione, etichetta])
 
+  const titoloAnteprima = titolo || sito?.nome || 'Deluxy'
   const urlAnteprima = useMemo(() => {
-    const p = new URLSearchParams({ anteprima: '1', tema, titolo })
+    const p = new URLSearchParams({ anteprima: '1', tema, titolo: titoloAnteprima })
     if (accentoValido) p.set('accento', accento.toLowerCase())
     return `/widget?${p.toString()}`
-  }, [tema, accento, accentoValido, titolo])
+  }, [tema, accento, accentoValido, titoloAnteprima])
 
   return (
     <>
       <div className="card" style={{ marginBottom: 14 }}>
-        <h2 style={{ marginTop: 0, fontSize: 16 }}>Tema</h2>
-        <div className="temi-griglia">
-          {TEMI.map((t) => (
+        <h2 style={{ marginTop: 0, fontSize: 16 }}>Per quale sito</h2>
+        <div className="siti-widget">
+          {siti.map((s) => (
             <button
-              key={t.id}
+              key={s.slug}
               type="button"
-              className={`tema-scelta${tema === t.id ? ' scelto' : ''}`}
-              onClick={() => setTema(t.id)}
+              className={`sito-scelta${s.slug === slug ? ' scelto' : ''}`}
+              onClick={() => scegliSito(s.slug)}
             >
-              <iframe
-                className="tema-mini"
-                src={`/widget?anteprima=1&tema=${t.id}&titolo=${encodeURIComponent(titolo)}`}
-                title={`Anteprima tema ${t.nome}`}
-                tabIndex={-1}
-              />
-              <div className="tema-nome">{t.nome}</div>
-              <div className="cella-sub">{t.quando}</div>
+              <span className="nome">{s.nome}</span>
+              <span className="dominio">{s.dominio || s.slug}</span>
+              <span className="stato">
+                {s.proposto ? (
+                  <span className="badge">proposto</span>
+                ) : (
+                  <span className="badge verde">salvato</span>
+                )}
+                {s.brand ? <span className="badge">{s.brand}</span> : null}
+              </span>
             </button>
           ))}
         </div>
+        {sito?.proposto ? (
+          <p className="cella-sub" style={{ marginBottom: 0 }}>
+            Questa è la nostra <strong>proposta</strong> per {sito.nome}, non una configurazione
+            salvata: tema, colore e testi sono già nella voce di quel brand. Cambia quello che vuoi
+            e premi <strong>Salva</strong>. Anche senza salvare il widget di quel sito usa già
+            questa proposta — i testi generali valgono solo per i siti che non sono fra i nostri.
+          </p>
+        ) : null}
       </div>
 
-      <div className="card" style={{ marginBottom: 14 }}>
-        <h2 style={{ marginTop: 0, fontSize: 16 }}>Ritocchi</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+      <form action={salva}>
+        <input type="hidden" name="slug" value={slug} />
+        <input type="hidden" name="nome" value={sito?.nome ?? ''} />
+        <input type="hidden" name="dominio" value={sito?.dominio ?? ''} />
+        <input type="hidden" name="negozioId" value={sito?.negozioId ?? ''} />
+        <input type="hidden" name="tema" value={tema} />
+        <input type="hidden" name="accento" value={accento} />
+        <input type="hidden" name="posizione" value={posizione} />
+        <input type="hidden" name="etichetta" value={etichetta} />
+
+        <div className="card" style={{ marginBottom: 14 }}>
+          <h2 style={{ marginTop: 0, fontSize: 16 }}>Tema</h2>
+          <div className="temi-griglia">
+            {TEMI.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                className={`tema-scelta${tema === t.id ? ' scelto' : ''}`}
+                onClick={() => setTema(t.id)}
+              >
+                <iframe
+                  className="tema-mini"
+                  src={`/widget?anteprima=1&tema=${t.id}&titolo=${encodeURIComponent(titoloAnteprima)}`}
+                  title={`Anteprima tema ${t.nome}`}
+                  tabIndex={-1}
+                />
+                <div className="tema-nome">{t.nome}</div>
+                <div className="cella-sub">{t.quando}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="card" style={{ marginBottom: 14 }}>
+          <h2 style={{ marginTop: 0, fontSize: 16 }}>Testi di questo sito</h2>
+          <p className="descrizione">
+            Il titolo in cima alla chat e la prima frase che legge il visitatore, <strong>per
+            questo sito</strong>: chi scrive ai fiori non deve leggere il saluto della pasticceria.
+            Vuoti = valgono quelli generali delle Impostazioni.
+          </p>
           <label className="campo">
-            <span>Colore del sito (facoltativo)</span>
+            <span>Titolo della chat</span>
             <input
-              value={accento}
-              onChange={(e) => setAccento(e.target.value)}
-              placeholder="#9c5b3f"
-              spellCheck={false}
+              name="titolo"
+              value={titolo}
+              onChange={(e) => setTitolo(e.target.value)}
+              placeholder={sito?.nome ?? 'Deluxy'}
+              maxLength={60}
             />
           </label>
           <label className="campo">
-            <span>Posizione</span>
-            <select value={posizione} onChange={(e) => setPosizione(e.target.value)}>
-              <option value="destra">In basso a destra</option>
-              <option value="sinistra">In basso a sinistra</option>
-            </select>
-          </label>
-          <label className="campo" style={{ gridColumn: '1 / -1' }}>
-            <span>Scritta accanto al bottone (facoltativa)</span>
-            <input
-              value={etichetta}
-              onChange={(e) => setEtichetta(e.target.value)}
-              placeholder="Scrivici"
-              maxLength={24}
+            <span>Primo messaggio (il saluto)</span>
+            <textarea
+              name="saluto"
+              value={saluto}
+              onChange={(e) => setSaluto(e.target.value)}
+              rows={3}
+              maxLength={400}
             />
           </label>
         </div>
-        <p className="cella-sub" style={{ marginBottom: 0 }}>
-          Il colore va scritto come <code>#rrggbb</code>; se è sbagliato viene ignorato e resta
-          quello del tema — meglio un widget col tema giusto che uno senza colori.
-          {accento && !accentoValido ? (
-            <strong> Adesso non è valido: serve un # e sei cifre.</strong>
-          ) : null}
-        </p>
-      </div>
 
-      <div className="card" style={{ marginBottom: 14 }}>
-        <h2 style={{ marginTop: 0, fontSize: 16 }}>Come viene</h2>
-        <p className="descrizione">
-          È il widget vero, con messaggi finti: nessuna conversazione finisce in Inbox.
-        </p>
-        <div className="anteprima-cornice">
-          <iframe className="anteprima-widget" src={urlAnteprima} title="Anteprima del widget" />
+        <div className="card" style={{ marginBottom: 14 }}>
+          <h2 style={{ marginTop: 0, fontSize: 16 }}>Ritocchi</h2>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <label className="campo">
+              <span>Colore del sito (facoltativo)</span>
+              <input
+                value={accento}
+                onChange={(e) => setAccento(e.target.value)}
+                placeholder="#9c5b3f"
+                spellCheck={false}
+              />
+            </label>
+            <label className="campo">
+              <span>Posizione</span>
+              <select value={posizione} onChange={(e) => setPosizione(e.target.value)}>
+                <option value="destra">In basso a destra</option>
+                <option value="sinistra">In basso a sinistra</option>
+              </select>
+            </label>
+            <label className="campo" style={{ gridColumn: '1 / -1' }}>
+              <span>Scritta accanto al bottone (facoltativa)</span>
+              <input
+                value={etichetta}
+                onChange={(e) => setEtichetta(e.target.value)}
+                placeholder="Scrivici"
+                maxLength={24}
+              />
+            </label>
+          </div>
+          <p className="cella-sub" style={{ marginBottom: 0 }}>
+            Il colore va scritto come <code>#rrggbb</code>; se è sbagliato viene ignorato e resta
+            quello del tema — meglio un widget col tema giusto che uno senza colori.
+            {accento && !accentoValido ? (
+              <strong> Adesso non è valido: serve un # e sei cifre.</strong>
+            ) : null}
+          </p>
         </div>
-      </div>
+
+        <div className="card" style={{ marginBottom: 14 }}>
+          <h2 style={{ marginTop: 0, fontSize: 16 }}>Come viene</h2>
+          <p className="descrizione">
+            È il widget vero, con messaggi finti: nessuna conversazione finisce in Inbox.
+          </p>
+          <div className="anteprima-cornice">
+            <iframe className="anteprima-widget" src={urlAnteprima} title="Anteprima del widget" />
+          </div>
+          <div style={{ marginTop: 12 }}>
+            <button className="bottone">Salva per {sito?.nome ?? 'questo sito'}</button>
+          </div>
+        </div>
+      </form>
 
       <div className="card">
-        <h2 style={{ marginTop: 0, fontSize: 16 }}>Codice da incollare sul sito</h2>
+        <h2 style={{ marginTop: 0, fontSize: 16 }}>
+          Codice da incollare su {sito?.dominio || 'il sito'}
+        </h2>
         <p className="descrizione">
           Va prima di <code>&lt;/body&gt;</code>. Su Shopify: Negozio online → Temi → Modifica
-          codice → <code>theme.liquid</code>.
+          codice → <code>theme.liquid</code>. Ogni sito ha il <strong>suo</strong> codice: quello
+          che cambia è <code>data-sito</code>, ed è quello che porta i testi giusti e, in Inbox, il
+          marchio della conversazione.
         </p>
         <pre className="codice-incolla">{codice}</pre>
         <button
+          type="button"
           className="bottone"
           onClick={() => {
             navigator.clipboard.writeText(codice).then(

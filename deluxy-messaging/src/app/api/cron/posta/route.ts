@@ -1,0 +1,100 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { db } from '@/lib/db'
+import { caselleAttive, scaricaEmail } from '@/lib/email'
+import { risolutoreMarchio } from '@/lib/marchio-conversazione'
+
+// Scarica la posta da sola, ogni 5 minuti.
+//
+// Prima bisognava premere «Scarica posta» in Inbox: una mail arrivata alle 9:02
+// restava invisibile fino a quando qualcuno si ricordava di cliccare. In un
+// servizio clienti la velocità di risposta è la leva di fiducia più forte che
+// abbiamo, e non può dipendere da un pulsante.
+//
+// ⚠️ È lo stesso lavoro di `POST /api/email/sync`, ma la rotta del cron sta
+// **fuori dal middleware di sessione** (`api/cron` è escluso) e si autentica col
+// `CRON_SECRET`: una funzione chiamata da Vercel non ha un cookie di login, e di
+// là verrebbe rimandata al login senza fare niente.
+export const dynamic = 'force-dynamic'
+// IMAP su più caselle: misurate decine di secondi. I 10 di default non bastano.
+export const maxDuration = 60
+
+export async function GET(req: NextRequest) {
+  const segreto = process.env.CRON_SECRET
+  if (!segreto) {
+    return NextResponse.json(
+      { errore: 'CRON_SECRET non configurato: scarico automatico disattivato.' },
+      { status: 503 }
+    )
+  }
+  if (req.headers.get('authorization') !== `Bearer ${segreto}`) {
+    return NextResponse.json({ errore: 'Non autorizzato.' }, { status: 401 })
+  }
+
+  const caselle = await caselleAttive()
+  if (caselle.length === 0) {
+    return NextResponse.json({ ok: true, nuove: 0, nota: 'Nessuna casella configurata.' })
+  }
+
+  const risultati: { casella: string; nuove: number; errore: string }[] = []
+
+  for (const casella of caselle) {
+    try {
+      // Finestra corta: il cron passa ogni 5 minuti, e rileggere 7 giorni di
+      // posta a ogni giro vuol dire scaricare le stesse mail 288 volte al
+      // giorno per trovarne una nuova.
+      const mail = await scaricaEmail(casella, 2)
+      let nuove = 0
+      for (const m of [...mail].reverse()) {
+        if (m.idEsterno) {
+          const gia = await db.messaggio.findFirst({ where: { idEsterno: m.idEsterno } })
+          if (gia) continue
+        }
+        const conversazione = await db.conversazione.upsert({
+          where: { canale_idEsterno_numeroId: { canale: 'email', idEsterno: m.da, numeroId: '' } },
+          update: {
+            nome: m.nome,
+            casellaId: casella.id,
+            ultimoTesto: m.oggetto || m.testo.slice(0, 120),
+            ultimoMessaggioIl: m.data,
+            nonLetti: { increment: 1 },
+            archiviata: false,
+            // Una mail nuova riporta la conversazione in inbox anche se era nel
+            // cestino: chi scrive di nuovo non sa che l'avevamo buttata.
+            eliminataIl: null,
+          },
+          create: {
+            canale: 'email',
+            idEsterno: m.da,
+            nome: m.nome,
+            casellaId: casella.id,
+            ultimoTesto: m.oggetto || m.testo.slice(0, 120),
+            ultimoMessaggioIl: m.data,
+            nonLetti: 1,
+          },
+        })
+        await db.messaggio.create({
+          data: {
+            conversazioneId: conversazione.id,
+            direzione: 'in',
+            oggetto: m.oggetto,
+            testo: m.testo,
+            idEsterno: m.idEsterno,
+            creatoIl: m.data,
+          },
+        })
+        nuove++
+      }
+      risultati.push({ casella: casella.indirizzo, nuove, errore: '' })
+    } catch (e) {
+      // Una casella che non risponde non deve fermare le altre.
+      risultati.push({ casella: casella.indirizzo, nuove: 0, errore: (e as Error).message })
+    }
+  }
+
+  const nuove = risultati.reduce((s, r) => s + r.nuove, 0)
+  // Serve solo a tenere «caldo» il risolutore dei marchi in cache: se una mail
+  // nuova arriva su una casella collegata a un marchio, l'inbox la mostra già
+  // nella colonna giusta al primo caricamento.
+  if (nuove) await risolutoreMarchio()
+  return NextResponse.json({ ok: true, nuove, risultati })
+}

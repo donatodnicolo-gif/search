@@ -193,6 +193,7 @@ async function registraInArrivo(opz: {
       ultimoMessaggioIl: new Date(),
       nonLetti: { increment: 1 },
       archiviata: false,
+      eliminataIl: null,
       ...(opz.nome ? { nome: opz.nome } : {}),
       // Il numero leggibile può arrivare dopo: si scrive quando c'è, senza
       // cancellare quello già noto.

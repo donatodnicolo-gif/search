@@ -12,6 +12,9 @@
 //  - Messenger e Instagram: l'id dell'account nostro → la pagina collegata;
 //  - Email: la CASELLA che ha ricevuto, perché una mail non porta con sé un
 //    «nostro numero»; il marchio della casella lo dichiara una persona.
+//  - Widget dei siti: lo SLUG del sito che ospita la chat, scritto nello
+//    snippet e salvato anch'esso in `numeroId`. Senza, tutte le chat dei tre
+//    siti finivano in «Senza marchio» e non si sapeva da quale sito venissero.
 //
 // ⚠️ **Il MARCHIO è solo il negozio collegato, mai l'etichetta dell'account.**
 // L'etichetta è un nome che ci siamo dati noi («CakeDesignMe» sul numero di
@@ -23,6 +26,7 @@
 // arrivato il messaggio: per quello si usa `etichettaDi`.
 
 import { db } from './db'
+import { brandPerSitoWidget } from './widget-siti'
 
 type ConversazioneMinima = { canale: string; numeroId: string; casellaId: string }
 
@@ -34,7 +38,7 @@ export type Marchi = {
 }
 
 export async function risolutoreMarchio(): Promise<Marchi> {
-  const [numeri, pagine, caselle] = await Promise.all([
+  const [numeri, pagine, caselle, siti] = await Promise.all([
     db.numeroWhatsApp.findMany({
       select: {
         phoneNumberId: true,
@@ -54,6 +58,7 @@ export async function risolutoreMarchio(): Promise<Marchi> {
     db.casellaEmail.findMany({
       select: { id: true, nome: true, indirizzo: true, negozio: { select: { nome: true } } },
     }),
+    brandPerSitoWidget(),
   ])
 
   // `numeroId` porta il numero WhatsApp o l'id dell'account Meta a seconda del
@@ -70,12 +75,18 @@ export async function risolutoreMarchio(): Promise<Marchi> {
   const etichettaCasella = new Map(caselle.map((c) => [c.id, c.nome || c.indirizzo]))
 
   return {
-    marchioDi: (c) =>
-      (c.canale === 'email' ? marchioCasella.get(c.casellaId) : marchioAccount.get(c.numeroId)) ??
-      '',
-    etichettaDi: (c) =>
-      (c.canale === 'email'
-        ? etichettaCasella.get(c.casellaId)
-        : etichettaAccount.get(c.numeroId)) ?? '',
+    marchioDi: (c) => {
+      if (c.canale === 'email') return marchioCasella.get(c.casellaId) ?? ''
+      // Widget: in `numeroId` c'è lo slug del sito che ospita la chat.
+      if (c.canale === 'widget') return siti.get(c.numeroId) ?? ''
+      return marchioAccount.get(c.numeroId) ?? ''
+    },
+    etichettaDi: (c) => {
+      if (c.canale === 'email') return etichettaCasella.get(c.casellaId) ?? ''
+      // Sul widget l'etichetta è il sito stesso: «flowers» dice già tutto, e un
+      // nome più bello non c'è finché quel sito non viene salvato.
+      if (c.canale === 'widget') return c.numeroId
+      return etichettaAccount.get(c.numeroId) ?? ''
+    },
   }
 }

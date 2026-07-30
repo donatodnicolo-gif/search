@@ -3,6 +3,10 @@
   "regions": ["fra1"],
   "crons": [
     {
+      "path": "/api/cron/posta",
+      "schedule": "*/5 * * * *"
+    },
+    {
       "path": "/api/cron/ordini",
       "schedule": "*/15 * * * *"
     },
@@ -13,6 +17,10 @@
     {
       "path": "/api/cron/rubrica",
       "schedule": "37 * * * *"
+    },
+    {
+      "path": "/api/cron/cestino",
+      "schedule": "20 4 * * *"
     }
   ]
 }

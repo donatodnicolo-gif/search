@@ -142,12 +142,12 @@ export async function datiDashboard(): Promise<DatiDashboard> {
     // alle email: prendendone 12 secche, con 105 mail non lette, in cima non
     // arriverebbe mai una chat.
     db.conversazione.findMany({
-      where: { archiviata: false, nonLetti: { gt: 0 } },
+      where: { archiviata: false, eliminataIl: null, nonLetti: { gt: 0 } },
       orderBy: { ultimoMessaggioIl: 'asc' },
       take: 200,
     }),
-    db.conversazione.count({ where: { archiviata: false } }),
-    db.conversazione.count({ where: { archiviata: false, nonLetti: { gt: 0 } } }),
+    db.conversazione.count({ where: { archiviata: false, eliminataIl: null } }),
+    db.conversazione.count({ where: { archiviata: false, eliminataIl: null, nonLetti: { gt: 0 } } }),
     db.ordine.count({ where: { dataConsegna: { gte: oggi, lt: domani } } }),
     db.ordine.count({ where: { gestione: { not: 'gestito' } } }),
     // In ritardo = consegna passata e non ancora spuntato come gestito, ma solo

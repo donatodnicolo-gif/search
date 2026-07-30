@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic'
 export default async function PaginaInbox() {
   const [conversazioni, marchi, negozi] = await Promise.all([
     db.conversazione.findMany({
-      where: { archiviata: false },
+      where: { archiviata: false, eliminataIl: null },
       orderBy: { ultimoMessaggioIl: 'desc' },
       take: 200,
     }),

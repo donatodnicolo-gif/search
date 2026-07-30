@@ -22,6 +22,10 @@ function accentoValido(v: string): string {
 
 export default function PaginaWidget() {
   const [token, setToken] = useState<string | null>(null)
+  // Da quale sito ci stanno scrivendo: lo dichiara lo snippet (`data-sito`) e
+  // decide il titolo e il saluto — e, in Inbox, la colonna in cui finisce la
+  // chat. Vuoto = snippet vecchio: valgono i testi generali.
+  const [sito, setSito] = useState('')
   const [tema, setTema] = useState('chiaro')
   const [accento, setAccento] = useState('')
   const [titolo, setTitolo] = useState('Deluxy')
@@ -41,6 +45,9 @@ export default function PaginaWidget() {
     const t = (p.get('tema') ?? '').toLowerCase()
     if (TEMI.includes(t)) setTema(t)
     setAccento(accentoValido(p.get('accento') ?? ''))
+    // Solo minuscole, cifre e trattini: arriva da un attributo scritto a mano
+    // sul sito ospite e finisce in una richiesta al nostro server.
+    setSito((p.get('sito') ?? '').toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 40))
     if (p.get('anteprima')) {
       // ⚠️ L'ANTEPRIMA NON APRE UNA SESSIONE. Guardare i temi nella pagina
       // «Aspetto del widget» creava una conversazione vuota in Inbox per ogni
@@ -70,8 +77,9 @@ export default function PaginaWidget() {
     async function riprendi() {
       const salvato = window.localStorage.getItem(CHIAVE_TOKEN)
       if (!salvato) {
-        // Nessuno storico: si chiede solo com'è configurato il saluto.
-        const res = await fetch('/api/widget/messaggi')
+        // Nessuno storico: si chiede solo com'è configurato il saluto DI QUESTO
+        // SITO — titolo e benvenuto cambiano da deluxy.it a cakedesign.me.
+        const res = await fetch(`/api/widget/messaggi${sito ? `?sito=${sito}` : ''}`)
         if (res.ok && !annullato) {
           const dati = (await res.json()) as { titolo: string; benvenuto: string }
           setTitolo(dati.titolo)
@@ -145,7 +153,13 @@ export default function PaginaWidget() {
       // c'è davvero qualcuno dall'altra parte da far vedere in Inbox.
       let miaSessione = token
       if (!miaSessione) {
-        const res = await fetch('/api/widget/sessione', { method: 'POST' })
+        // Il sito viaggia con l'apertura della sessione: è l'unico momento in
+        // cui si può scrivere sulla conversazione da dove arriva.
+        const res = await fetch('/api/widget/sessione', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sito }),
+        })
         const dati = (await res.json()) as { token: string }
         miaSessione = dati.token
         window.localStorage.setItem(CHIAVE_TOKEN, miaSessione)

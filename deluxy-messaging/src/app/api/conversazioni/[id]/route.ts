@@ -5,41 +5,63 @@ export const dynamic = 'force-dynamic'
 
 type Params = { params: Promise<{ id: string }> }
 
-// Togliere una conversazione dall'inbox. Due gesti diversi, e la differenza
-// conta:
+// Togliere una conversazione dall'inbox. Tre gesti, e la differenza conta:
 //
-//  · ARCHIVIA (PATCH): sparisce dall'elenco e resta nel database. È quello che
-//    serve nel 99% dei casi — la pubblicità che non interessa, il thread chiuso.
-//    Si può riportare indietro.
-//  · ELIMINA (DELETE): cancella la conversazione **e tutti i suoi messaggi**
-//    (`onDelete: Cascade`). ⚠️ Non si torna indietro: il testo delle mail, gli
-//    allegati registrati e chi aveva risposto se ne vanno con lei. Per questo la
-//    conferma sta davanti al bottone, non qui.
+//  · ARCHIVIA (PATCH `archiviata`): sparisce dall'elenco e resta dov'è. È quello
+//    che serve nel 99% dei casi — la pubblicità, il thread chiuso.
+//  · ELIMINA (DELETE): va nel **cestino**, dove resta 30 giorni. Non cancella
+//    niente adesso: una conversazione buttata per errore portava con sé il testo
+//    delle mail, gli allegati e chi aveva risposto, senza modo di riaverla.
+//  · SVUOTA (DELETE `?definitivo=1`): cancella davvero, conversazione **e tutti
+//    i suoi messaggi** (`onDelete: Cascade`). Da qui non si torna: la conferma
+//    sta davanti al bottone, non qui.
 //
-// Nessuna delle due tocca la casella di posta vera: la mail resta sul server
-// IMAP. Cancellare qui vuol dire «non lavorarla in quest'app», non «buttarla».
-// ⚠️ Con «Scarica posta» una mail cancellata **rientra**, se è ancora nella
-// posta in arrivo della casella e dentro la finestra dei 7 giorni: la dedup
-// guarda i messaggi che abbiamo, e quello cancellato non c'è più. Archiviare
-// invece regge — la conversazione esiste, torna solo a farsi vedere.
-export async function DELETE(_req: NextRequest, { params }: Params) {
+// Nessuno dei tre tocca la casella di posta vera: la mail resta sul server IMAP.
+// ⚠️ Con «Scarica posta» una mail **eliminata definitivamente rientra**, se è
+// ancora nella posta in arrivo e dentro la finestra dello scarico: la dedup
+// guarda i messaggi che abbiamo, e quello cancellato non c'è più. Il cestino
+// invece regge — la conversazione esiste, è solo da un'altra parte.
+export async function DELETE(req: NextRequest, { params }: Params) {
   const { id } = await params
+  const definitivo = req.nextUrl.searchParams.get('definitivo') === '1'
   const c = await db.conversazione.findUnique({
     where: { id },
-    select: { id: true, _count: { select: { messaggi: true } } },
+    select: { id: true, eliminataIl: true, _count: { select: { messaggi: true } } },
   })
   if (!c) return NextResponse.json({ errore: 'Conversazione non trovata' }, { status: 404 })
 
-  await db.conversazione.delete({ where: { id } })
-  return NextResponse.json({ eliminata: true, messaggi: c._count.messaggi })
+  if (definitivo) {
+    await db.conversazione.delete({ where: { id } })
+    return NextResponse.json({ eliminata: true, messaggi: c._count.messaggi })
+  }
+
+  await db.conversazione.update({
+    where: { id },
+    data: { eliminataIl: new Date(), nonLetti: 0 },
+  })
+  return NextResponse.json({ nelCestino: true })
 }
 
-// Archivia o riporta in inbox.
+// Archivia, riporta in inbox, o ripristina dal cestino.
 export async function PATCH(req: NextRequest, { params }: Params) {
   const { id } = await params
-  const { archiviata } = (await req.json().catch(() => ({}))) as { archiviata?: boolean }
+  const { archiviata, ripristina } = (await req.json().catch(() => ({}))) as {
+    archiviata?: boolean
+    ripristina?: boolean
+  }
   const c = await db.conversazione.findUnique({ where: { id }, select: { id: true } })
   if (!c) return NextResponse.json({ errore: 'Conversazione non trovata' }, { status: 404 })
+
+  if (ripristina) {
+    // Dal cestino si torna in posta in arrivo, non in archivio: chi ripristina
+    // vuole rivedere quella conversazione, non nasconderla di nuovo.
+    const tornata = await db.conversazione.update({
+      where: { id },
+      data: { eliminataIl: null, archiviata: false },
+      select: { id: true, eliminataIl: true },
+    })
+    return NextResponse.json(tornata)
+  }
 
   const aggiornata = await db.conversazione.update({
     where: { id },

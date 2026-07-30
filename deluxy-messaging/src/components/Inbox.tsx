@@ -242,10 +242,14 @@ export function Inbox({
   // chi lavora il compito di ritrovare la riga che aveva appena letto.
   const parametri = useSearchParams()
   const [selezionataId, setSelezionataId] = useState<string | null>(parametri.get('c'))
-  // Posta in arrivo o archivio: due elenchi, la stessa schermata. L'archivio
-  // non è un cestino — le conversazioni ci sono tutte e si riportano indietro.
-  const [archivio, setArchivio] = useState(false)
+  // Tre elenchi, la stessa schermata: in arrivo, archivio, cestino. L'archivio
+  // è dove si mette via quello che non serve più; il cestino è dove finisce
+  // quello che si butta, e da cui si può ancora tornare per 30 giorni.
+  const [vistaElenco, setVistaElenco] = useState<'arrivo' | 'archivio' | 'cestino'>('arrivo')
+  const archivio = vistaElenco === 'archivio'
+  const cestino = vistaElenco === 'cestino'
   const [quanteArchiviate, setQuanteArchiviate] = useState(0)
+  const [quanteNelCestino, setQuanteNelCestino] = useState(0)
   const [messaggi, setMessaggi] = useState<MessaggioDto[]>([])
   const [bozza, setBozza] = useState('')
   const [inviando, setInviando] = useState(false)
@@ -256,18 +260,22 @@ export function Inbox({
 
   const aggiornaConversazioni = useCallback(async () => {
     try {
-      const res = await fetch(`/api/conversazioni${archivio ? '?archiviate=1' : ''}`)
+      const res = await fetch(
+        `/api/conversazioni${vistaElenco === 'arrivo' ? '' : `?vista=${vistaElenco}`}`
+      )
       if (!res.ok) return
       const dati = (await res.json()) as {
         conversazioni: (ConversazioneDto & { ultimoMessaggioIl: string })[]
         archiviate?: number
+        nelCestino?: number
       }
       setConversazioni(dati.conversazioni)
       setQuanteArchiviate(dati.archiviate ?? 0)
+      setQuanteNelCestino(dati.nelCestino ?? 0)
     } catch {
       // rete assente: si ritenta al giro dopo
     }
-  }, [archivio])
+  }, [vistaElenco])
 
   // Cambiando linguetta l'elenco si ricarica subito, senza aspettare i 5
   // secondi del polling — e la conversazione aperta si chiude, perché appartiene
@@ -285,7 +293,60 @@ export function Inbox({
     }
     setSelezionataId(null)
     aggiornaConversazioni()
-  }, [archivio, aggiornaConversazioni])
+  }, [vistaElenco, aggiornaConversazioni])
+
+  // ── Notifica audio: quando arriva un messaggio si sente ──
+  //
+  // ⚠️ Il suono si genera con la Web Audio API, non con un file: un mp3 va
+  // caricato, servito e può non arrivare, e per due note è peso inutile. E ⚠️ i
+  // browser non fanno suonare niente prima che l'utente abbia cliccato qualcosa
+  // nella pagina — è una regola loro, non un difetto: perciò il contesto audio
+  // si crea al primo clic, e finché non c'è il primo clic non si sente nulla.
+  const [audioAcceso, setAudioAcceso] = useState(true)
+  const audioRef = useRef<AudioContext | null>(null)
+  const nonLettiPrec = useRef<number | null>(null)
+
+  const suona = useCallback(() => {
+    if (!audioAcceso) return
+    try {
+      type ConWebkit = typeof window & { webkitAudioContext?: typeof AudioContext }
+      const Costruttore = window.AudioContext ?? (window as ConWebkit).webkitAudioContext
+      if (!Costruttore) return
+      audioRef.current ??= new Costruttore()
+      const ctx = audioRef.current
+      if (ctx.state === 'suspended') void ctx.resume()
+      // Due note brevi che salgono: si sente in un ufficio ma non fa saltare.
+      const ora = ctx.currentTime
+      for (const [i, frequenza] of [880, 1174].entries()) {
+        const osc = ctx.createOscillator()
+        const volume = ctx.createGain()
+        osc.type = 'sine'
+        osc.frequency.value = frequenza
+        // L'attacco e la coda evitano il «clic» secco di un'onda tagliata.
+        volume.gain.setValueAtTime(0, ora + i * 0.12)
+        volume.gain.linearRampToValueAtTime(0.14, ora + i * 0.12 + 0.02)
+        volume.gain.exponentialRampToValueAtTime(0.001, ora + i * 0.12 + 0.16)
+        osc.connect(volume).connect(ctx.destination)
+        osc.start(ora + i * 0.12)
+        osc.stop(ora + i * 0.12 + 0.18)
+      }
+    } catch {
+      // audio non disponibile: non è un errore che valga un avviso
+    }
+  }, [audioAcceso])
+
+  // Il totale dei non letti è il segnale più semplice e più affidabile: cresce
+  // solo quando arriva davvero qualcosa. Contare le conversazioni nuove
+  // suonerebbe anche quando una torna in cima per una nostra risposta.
+  useEffect(() => {
+    if (vistaElenco !== 'arrivo') return
+    const totale = conversazioni.reduce((s, c) => s + c.nonLetti, 0)
+    const prima = nonLettiPrec.current
+    nonLettiPrec.current = totale
+    // Al primo caricamento non si suona: aprire l'inbox con 106 non letti non è
+    // un messaggio appena arrivato.
+    if (prima !== null && totale > prima) suona()
+  }, [conversazioni, vistaElenco, suona])
 
   const caricaMessaggi = useCallback(async (id: string) => {
     try {
@@ -492,28 +553,64 @@ export function Inbox({
     }
   }
 
+  /** Dal cestino torna in posta in arrivo. */
+  async function ripristina(id: string) {
+    if (inCorsoTogli) return
+    setInCorsoTogli(true)
+    try {
+      const res = await fetch(`/api/conversazioni/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ripristina: true }),
+      })
+      if (!res.ok) {
+        setErroreInvio('Ripristino non riuscito.')
+        return
+      }
+      togliDallElenco(id)
+      setQuanteNelCestino((n) => Math.max(0, n - 1))
+    } catch {
+      setErroreInvio('Ripristino non riuscito: problema di rete.')
+    } finally {
+      setInCorsoTogli(false)
+    }
+  }
+
+  /**
+   * Elimina: dall'inbox va nel CESTINO (30 giorni per cambiare idea); dal
+   * cestino cancella per sempre, e solo lì la conferma parla di «per sempre».
+   */
   async function elimina(id: string) {
     if (inCorsoTogli) return
     const c = conversazioni.find((x) => x.id === id)
-    // La conferma sta QUI, davanti al gesto: il messaggio dice cosa se ne va e
-    // che non torna. Un «sei sicuro?» generico non è una conferma.
     const chi = c ? c.nomeRubrica || c.nome || c.idEsterno : 'questa conversazione'
-    if (
-      !window.confirm(
-        `Eliminare la conversazione con ${chi}?\n\nSpariscono anche tutti i suoi messaggi, e non si torna indietro. Per toglierla dall'elenco senza cancellarla, usa Archivia.`
-      )
-    ) {
-      return
+    // La conferma sta QUI, davanti al gesto, e dice cosa succede davvero: un
+    // «sei sicuro?» generico non è una conferma.
+    if (cestino) {
+      if (
+        !window.confirm(
+          `Cancellare per sempre la conversazione con ${chi}?\n\nSpariscono anche tutti i suoi messaggi e non si torna indietro. Se aspetti, il cestino si svuota da solo dopo 30 giorni.`
+        )
+      ) {
+        return
+      }
     }
     setInCorsoTogli(true)
     try {
-      const res = await fetch(`/api/conversazioni/${id}`, { method: 'DELETE' })
+      const res = await fetch(
+        `/api/conversazioni/${id}${cestino ? '?definitivo=1' : ''}`,
+        { method: 'DELETE' }
+      )
       if (!res.ok) {
         setErroreInvio('Eliminazione non riuscita.')
         return
       }
       togliDallElenco(id)
-      if (archivio) setQuanteArchiviate((n) => Math.max(0, n - 1))
+      if (cestino) setQuanteNelCestino((n) => Math.max(0, n - 1))
+      else {
+        setQuanteNelCestino((n) => n + 1)
+        if (archivio) setQuanteArchiviate((n) => Math.max(0, n - 1))
+      }
     } catch {
       setErroreInvio('Eliminazione non riuscita: problema di rete.')
     } finally {
@@ -669,7 +766,19 @@ export function Inbox({
             ⚠️ `stopPropagation`: senza, archiviare aprirebbe anche il thread di
             una conversazione che sta sparendo. */}
         <span className="azioni-riga">
-          {archivio ? (
+          {cestino ? (
+            <button
+              aria-label="Ripristina"
+              title="Riporta in posta in arrivo"
+              onClick={(e) => {
+                e.stopPropagation()
+                ripristina(c.id)
+              }}
+              disabled={inCorsoTogli}
+            >
+              <IconaRiporta />
+            </button>
+          ) : archivio ? (
             <button
               aria-label="Riporta in inbox"
               title="Riporta in posta in arrivo"
@@ -696,8 +805,12 @@ export function Inbox({
           )}
           <button
             className="pericolo"
-            aria-label="Elimina"
-            title="Elimina la conversazione e tutti i suoi messaggi"
+            aria-label={cestino ? 'Cancella per sempre' : 'Sposta nel cestino'}
+            title={
+              cestino
+                ? 'Cancella per sempre, coi suoi messaggi'
+                : 'Sposta nel cestino: resta 30 giorni, poi si cancella'
+            }
             onClick={(e) => {
               e.stopPropagation()
               elimina(c.id)
@@ -721,18 +834,25 @@ export function Inbox({
               «quante ne ho messe via» si vede senza dover cliccare. */}
           <span className="linguette">
             <button
-              className={archivio ? '' : 'attiva'}
-              onClick={() => setArchivio(false)}
+              className={vistaElenco === 'arrivo' ? 'attiva' : ''}
+              onClick={() => setVistaElenco('arrivo')}
               title="Le conversazioni da lavorare"
             >
               In arrivo
             </button>
             <button
-              className={archivio ? 'attiva' : ''}
-              onClick={() => setArchivio(true)}
+              className={vistaElenco === 'archivio' ? 'attiva' : ''}
+              onClick={() => setVistaElenco('archivio')}
               title="Quelle messe via: ci sono tutte e si riportano indietro"
             >
               Archiviate{quanteArchiviate ? ` ${quanteArchiviate}` : ''}
+            </button>
+            <button
+              className={vistaElenco === 'cestino' ? 'attiva' : ''}
+              onClick={() => setVistaElenco('cestino')}
+              title="Quelle buttate: restano 30 giorni, poi si cancellano da sole"
+            >
+              Cestino{quanteNelCestino ? ` ${quanteNelCestino}` : ''}
             </button>
           </span>
           <button className="bottone secondario mini" onClick={scaricaPosta} disabled={scaricoPosta === '…'}>
@@ -741,9 +861,28 @@ export function Inbox({
           {scaricoPosta && scaricoPosta !== '…' ? (
             <span className="esito">{scaricoPosta}</span>
           ) : null}
+          {/* Il suono si può spegnere: in una stanza con tre operatori, tre
+              campanelli sullo stesso messaggio sono rumore. */}
           <button
             className="bottone secondario mini"
             style={{ marginLeft: 'auto' }}
+            onClick={() => {
+              const nuovo = !audioAcceso
+              setAudioAcceso(nuovo)
+              // Si prova subito: un interruttore audio che non fa sentire cosa
+              // hai acceso è un interruttore di cui non si sa lo stato.
+              if (nuovo) setTimeout(suona, 60)
+            }}
+            title={
+              audioAcceso
+                ? 'Suono acceso: si sente quando arriva un messaggio'
+                : 'Suono spento'
+            }
+          >
+            {audioAcceso ? 'Suono' : 'Muto'}
+          </button>
+          <button
+            className="bottone secondario mini"
             onClick={() => setVista(vista === 'colonne' ? 'elenco' : 'colonne')}
             title={
               vista === 'colonne'
@@ -757,9 +896,11 @@ export function Inbox({
 
         {conversazioni.length === 0 ? (
           <div className="vuoto" style={{ padding: 30 }}>
-            {archivio
-              ? 'Archivio vuoto. Le conversazioni che archivi finiscono qui, e da qui si riportano indietro.'
-              : 'Nessuna conversazione ancora. Quando un cliente scrive su WhatsApp, Messenger, Instagram o dal widget del sito, appare qui.'}
+            {cestino
+              ? 'Cestino vuoto. Quello che elimini finisce qui e ci resta 30 giorni: poi si cancella da solo, coi suoi messaggi.'
+              : archivio
+                ? 'Archivio vuoto. Le conversazioni che archivi finiscono qui, e da qui si riportano indietro.'
+                : 'Nessuna conversazione ancora. Quando un cliente scrive su WhatsApp, Messenger, Instagram o dal widget del sito, appare qui.'}
           </div>
         ) : vista === 'elenco' ? (
           conversazioni.map(riga)
@@ -855,24 +996,30 @@ export function Inbox({
                 ) : null}
                 <button
                   className="bottone secondario mini"
-                  onClick={() => archivia(selezionata.id, !archivio)}
+                  onClick={() =>
+                    cestino ? ripristina(selezionata.id) : archivia(selezionata.id, !archivio)
+                  }
                   disabled={inCorsoTogli}
                   title={
-                    archivio
+                    cestino || archivio
                       ? 'Torna nella posta in arrivo'
                       : "Sparisce dall'elenco ma resta salvata"
                   }
                 >
-                  {archivio ? 'Riporta in inbox' : 'Archivia'}
+                  {cestino ? 'Ripristina' : archivio ? 'Riporta in inbox' : 'Archivia'}
                 </button>
                 <button
                   className="bottone secondario mini"
                   onClick={() => elimina(selezionata.id)}
                   disabled={inCorsoTogli}
                   style={{ color: 'var(--red)' }}
-                  title="Cancella la conversazione e tutti i suoi messaggi: non si torna indietro"
+                  title={
+                    cestino
+                      ? 'Cancella per sempre, coi suoi messaggi'
+                      : 'Sposta nel cestino: resta 30 giorni, poi si cancella'
+                  }
                 >
-                  Elimina
+                  {cestino ? 'Cancella per sempre' : 'Elimina'}
                 </button>
               </span>
 

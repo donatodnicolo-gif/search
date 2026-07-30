@@ -34,6 +34,10 @@
   var margine = parseInt(dato('margine', '20'), 10);
   if (isNaN(margine) || margine < 0 || margine > 200) margine = 20;
   var etichetta = dato('etichetta', ''); // testo accanto al bottone, facoltativo
+  // DA QUALE SITO arriva la chat: decide titolo e saluto, e in Inbox la colonna
+  // del marchio. Senza `data-sito` tutto funziona come prima, coi testi
+  // generali: gli snippet già incollati sui siti non vanno toccati.
+  var sito = String(dato('sito', '')).toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 40);
 
   // I colori del BOTTONE, che vive sul sito ospite e non dentro l'iframe:
   // devono corrispondere al tema scelto, altrimenti si vede una pastiglia nera
@@ -131,6 +135,7 @@
   var iframe = document.createElement('iframe');
   var parametri = 'tema=' + encodeURIComponent(tema);
   if (accento) parametri += '&accento=' + encodeURIComponent(accento);
+  if (sito) parametri += '&sito=' + encodeURIComponent(sito);
   iframe.src = origine + '/widget?' + parametri;
   iframe.title = 'Chat con il servizio clienti';
   iframe.className = 'pannello';

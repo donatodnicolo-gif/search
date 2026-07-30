@@ -77,6 +77,48 @@ locale, altrimenti nulla si decifra.
   - Solo WhatsApp: su Instagram e Messenger l'id non è un numero di telefono e
     in rubrica non c'è niente da cercare.
 
+- **UN WIDGET PER OGNI SITO, CESTINO A 30 GIORNI, POSTA OGNI 5 MINUTI, FIRME,
+  SUONO** (30/07/2026). Sei richieste in fila, tutte in produzione.
+  - **`/aspetto-widget` → «Widget dei siti»**: si scegle il sito e la pagina
+    PROPONE già la sua versione — tema, colore, scritta del bottone, titolo e
+    saluto nella voce di quel brand (deluxy.it nero e oro e cerimonioso,
+    l'atelier dei fiori minimale, Cakedesign caldo e con le emoji). Tabella
+    nuova **`WidgetSito`**; la proposta **non si salva da sola**: finché nessuno
+    conferma il sito è marcato «proposto», perché fra «così l'abbiamo deciso» e
+    «così te lo suggeriamo» c'è la differenza fra una configurazione e
+    un'ipotesi. Anche non salvata, però, la proposta è quella che il widget usa.
+  - Lo snippet ora porta **`data-sito`**, e quello slug finisce in
+    `Conversazione.numeroId`: in Inbox le chat dei siti vanno **nella colonna
+    del marchio** invece di stare tutte in «Senza marchio». Gli snippet vecchi
+    senza `data-sito` continuano a funzionare coi testi generali.
+  - **CESTINO**: `Conversazione.eliminataIl`. Elimina non cancella più subito —
+    la conversazione va nel cestino e ci resta **30 giorni**, poi
+    `/api/cron/cestino` (ogni notte alle 4:20) la cancella davvero coi suoi
+    messaggi. Terza linguetta in Inbox con Ripristina e «Cancella per sempre».
+    ⚠️ Un messaggio nuovo **riporta fuori dal cestino** la conversazione: chi
+    riscrive non sa che l'avevamo buttata.
+  - **POSTA OGNI 5 MINUTI**: `/api/cron/posta`. Prima serviva premere «Scarica
+    posta»: una mail delle 9:02 restava invisibile fino al clic. Finestra di 2
+    giorni e non 7 — a 288 giri al giorno, rileggere una settimana di posta per
+    trovare una mail nuova è lavoro buttato.
+  - **FIRME PER CASELLA**: `CasellaEmail.firma`, in coda alle mail che partono da
+    quella casella. `conFirma()` non la aggiunge se il testo già la contiene (le
+    risposte pronte e l'AI a volte firmano da sole, e due firme si notano).
+    Firmare una mail della pasticceria «Servizio Clienti Deluxy, guanti bianchi»
+    è dire al cliente una cosa che per quel brand non esiste.
+  - **SUONO ALL'ARRIVO**: due note generate con la Web Audio API (nessun file da
+    caricare), con l'interruttore **Suono/Muto** in Inbox. ⚠️ I browser non
+    suonano niente prima di un clic dell'utente nella pagina: è una regola loro.
+    E si suona solo quando il totale dei non letti **cresce** — aprire l'inbox
+    con 106 non letti non è un messaggio appena arrivato.
+  - **Layout della testata del thread**: nome, badge e bottoni stavano su tre
+    righe diverse. Ora la riga è una, e chi si accorcia è l'indirizzo.
+  - ⚠️ **Perché una mail arrivata a Cake risultava «Senza marchio»**: la casella
+    `info@cakedesignme.it` esisteva ma non era collegata a nessun marchio.
+    Collegata a **Cake** (dato di produzione). Non l'ho dedotta dal dominio: il
+    collegamento casella → marchio lo dichiara una persona, e «cakedesignme.it»
+    somiglia a «Cake» ma somigliare non è essere.
+
 - **IL WEBHOOK ACCETTA DUE FIRME, E I SEGRETI SI POSSONO CANCELLARE**
   (30/07/2026). Due cose che si tenevano per mano.
   - ⚠️ **«Instagram API con login di Instagram» ha una chiave segreta SUA** e

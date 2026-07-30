@@ -86,6 +86,20 @@ export default async function PaginaCaselle() {
                   <input name="smtpPort" type="number" defaultValue={c.smtpPort} />
                 </label>
               </div>
+              {/* La FIRMA di questa casella. Le tre voci sono diverse: firmare
+                  una mail della pasticceria «Servizio Clienti Deluxy, consegna
+                  in guanti bianchi» è dire al cliente una cosa che per quel
+                  brand non esiste. */}
+              <label className="campo">
+                <span>Firma delle mail di questa casella</span>
+                <textarea
+                  name="firma"
+                  defaultValue={c.firma}
+                  rows={4}
+                  maxLength={600}
+                  placeholder={'Servizio Clienti Deluxy\nWhatsApp +39 …\ndeluxy.it'}
+                />
+              </label>
               {/* Il marchio della casella: una mail non porta con sé «il nostro
                   numero» come WhatsApp, quindi senza questo l'inbox non sa a
                   chi ha scritto il cliente e la mette senza marchio. */}
@@ -160,6 +174,15 @@ export default async function PaginaCaselle() {
                 <input name="smtpPort" type="number" defaultValue={465} />
               </label>
             </div>
+            <label className="campo">
+              <span>Firma delle mail di questa casella</span>
+              <textarea
+                name="firma"
+                rows={4}
+                maxLength={600}
+                placeholder={'Servizio Clienti Deluxy\nWhatsApp +39 …\ndeluxy.it'}
+              />
+            </label>
             <label className="campo">
               <span>Marchio</span>
               <select name="negozioId" defaultValue="">
