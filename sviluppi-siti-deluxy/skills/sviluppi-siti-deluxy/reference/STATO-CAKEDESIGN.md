@@ -1,12 +1,15 @@
 # Stato cakedesign.me — 29/7/2026
 
-> ✅ **Numero definitivo `+39 02 8294 1380` scritto sul tema di sviluppo `182574317891`
-> il 29/7/2026.** 54 occorrenze in 20 file (le 53 mappate + 1 che la mappa non aveva).
+> ✅ **Numero definitivo `+39 02 8294 1380`: scritto il 29/7/2026 e PUBBLICATO** la sera
+> stessa dall'utente. 54 occorrenze in 20 file (le 53 mappate + 1 che la mappa non aveva).
 > Verificato: ogni file è tornato alla **size identica** alla baseline e le pagine italiane
-> in anteprima non contengono più nessuna forma del vecchio numero. Resta da **pubblicare**.
+> non contengono più nessuna forma del vecchio numero.
 >
-> ⚠️ **Il sito inglese `/en` mostra ancora il numero vecchio** e non si sistema pubblicando:
-> vive nelle **traduzioni**, non nei file del tema. Vedi §Traduzioni inglesi.
+> ⚠️ **Il sito inglese `/en` mostra ancora il numero vecchio** e non si è sistemato
+> pubblicando: vive nelle **traduzioni**, non nei file del tema. Vedi §Traduzioni inglesi.
+>
+> 🔧 **Pronto sul tema di lavoro `182627729731`, da pubblicare**: i pulsanti WhatsApp non
+> aprono più una scheda nuova. Vedi §Pulsanti WhatsApp.
 
 Documento da leggere **per primo** prima di toccare cakedesign.me. Mappa tecnica del tema e
 insidie storiche: [TEMA_CAKEDESIGN.md](TEMA_CAKEDESIGN.md). Gemello per deluxy.it:
@@ -16,9 +19,10 @@ insidie storiche: [TEMA_CAKEDESIGN.md](TEMA_CAKEDESIGN.md). Gemello per deluxy.i
 
 | Ruolo | Nome | Id | Note |
 |---|---|---|---|
-| MAIN (live) | `live` | `182574350659` | aggiornato 24/7/2026 |
-| UNPUBLISHED (lavoro) | `Version to work on` | `182574317891` | **contiene lavoro pronto, non pubblicato** |
-| UNPUBLISHED | `Version to work on (test Deivid)` | `182608265539` | **non** è il tema di sviluppo standard: non scriverci senza chiedere |
+| MAIN (live) | `live` | `182574317891` | **pubblicato la sera del 29/7/2026**: è il tema col numero nuovo |
+| UNPUBLISHED (lavoro) | `Version to work on` | `182627729731` | nato con quella pubblicazione; **è qui che si lavora adesso** |
+| UNPUBLISHED | `fino al 2907` | `182574350659` | il vecchio live, archiviato |
+| UNPUBLISHED | `Version to work on (test Deivid)` | `182608265539` | copia del dev del 26/7, ferma a lunedì 27/7. **Ha ancora il numero vecchio**: non pubblicarla. Unica cosa sua che il live non ha: vedi §Tema di Deivid |
 
 Gli id annotati il 10/7 sono obsoleti (il vecchio dev oggi è "fino al 13.07"). Interroga sempre
 `themes(first:30){ nodes{ id name role updatedAt } }` prima di lavorare.
@@ -83,6 +87,31 @@ differivano — il dev è ora una fotografia del live più il numero nuovo:
    Shopify. Si tiene iubenda e si rimuove il nativo da `Impostazioni → Privacy dei clienti`.
    **Mai disattivarli entrambi.** Identico al caso già risolto su deluxy.it.
 
+## Pulsanti WhatsApp: niente più scheda nuova (30/7/2026, sul tema di lavoro)
+
+I punti di contatto WhatsApp erano **sei** e si comportavano in modo incoerente: tre aprivano
+una scheda nuova (`target="_blank"`), tre no. Su telefono `wa.me` passa la mano all'app, quindi
+con `_blank` restava aperta una **scheda vuota** del browser: è il fastidio che si notava.
+
+Tolto `target="_blank"` dalle sole àncore WhatsApp in **3 file** (lasciando `tel:`, `mailto:`,
+Koalendar e Trustpilot come stavano):
+
+| File | Cosa | Verifica |
+|---|---|---|
+| `sections/bottom-help-bar.liquid` | pulsante verde `.bhb-btn` della barra in basso | 5420 → **5404** (−16 byte) |
+| `sections/footer-group.json` | footer "Contattaci via Whatsapp", su ogni pagina | 7440 → **7422** (−18) |
+| `templates/page.contact.json` | "Contattaci via Whatsapp" della pagina Contatti | 9586 → **9568** (−18) |
+
+Il calo di size è esattamente il peso dell'attributo (18 e non 16 nei `.json` perché lì gli
+apici sono escapati): conferma che non è stato toccato altro. Sweep su 10 pagine italiane:
+**zero** àncore WhatsApp con scheda nuova, e numero di link per pagina invariato.
+
+> Nel `.json` l'attributo pesa 18 byte, nel `.liquid` 16: è un buon controllo a costo zero
+> quando si toglie un attributo da un template.
+
+**Non coperto**: su `/en` il footer inglese apre ancora una scheda nuova (e col numero
+vecchio), perché quel testo è una **traduzione**, non un file del tema — vedi sotto.
+
 ## Traduzioni inglesi: un secondo posto dove vive il numero (scoperto 29/7/2026)
 
 Il numero **non sta solo nei file del tema**: le versioni inglesi delle stesse sezioni sono
@@ -103,6 +132,26 @@ l'utente aveva chiesto esplicitamente di **non toccare il MAIN**. Si aggiornano 
 `Impostazioni → Lingue → Traduci e adatta` (o via `translationsRegister`), e vanno rifatte
 **dopo** la pubblicazione, perché al cambio del testo sorgente Shopify marca la traduzione
 come non aggiornata.
+
+## Tema di Deivid (`182608265539`) — confronto col live, 30/7/2026
+
+Confrontati **~299 file** (61 `.json` di contenuto compresi tutti i 53 template di pagina,
+77 sezioni, 108 snippet, 3 layout, 12 traduzioni, 38 asset). Differenze **vere: due**.
+
+1. **Il numero**: 20 file col vecchio `8295 2899`. Se quel tema viene pubblicato, rimette
+   online il numero sbagliato ovunque, barra annunci compresa.
+2. **`snippets/css-variables.liquid`** (6.429 byte nel live → 9.980 da Deivid): in fondo ha un
+   blocco in più, `Product delivery EXTRA info (test Deivid)`, attivo **solo sulle pagine
+   prodotto**. Dopo `.delivery-date-block` aggiunge "Pronta a partire da oggi/domani/N giorni"
+   (letta dal metacampo `prodotto.consegna` della **variante selezionata**) e "Costo consegna
+   10€", con traduzione EN. **Non è nel live**: se serve, va riportato sul tema di lavoro.
+
+Differenze **solo apparenti**, da non inseguire:
+- `templates/collection.json` e i 19 `.json` che ho riscritto: checksum e size diversi ma
+  contenuto **identico** — è solo indentato invece che minificato (confrontato riga per riga).
+- `assets/theme.css` e `assets/country-flags.css`: checksum diverso ma **stessa identica
+  dimensione** e sorgenti `.css.liquid` identici → sono i compilati che Shopify rigenera per
+  ogni tema, non modifiche di qualcuno.
 
 ## Aperto, non ancora affrontato
 

@@ -1,7 +1,10 @@
 # Mappa tecnica — tema cakedesign.me
 
-Negozio: `cakedesign-5921.myshopify.com`. Temi **al 26/7/2026**: live "live" (MAIN)
-`182574350659`, sviluppo "Version to work on" (UNPUBLISHED) `182574317891`.
+Negozio: `cakedesign-5921.myshopify.com`. Temi **al 30/7/2026**: live "live" (MAIN)
+**`182574317891`**, sviluppo "Version to work on" (UNPUBLISHED) **`182627729731`**.
+Attenzione: con la pubblicazione del 29/7 gli id si sono **scambiati di ruolo** — quello che
+fino al 29/7 era il tema di sviluppo (`182574317891`) adesso è il **live**, e il vecchio live
+`182574350659` è stato archiviato come "fino al 2907".
 **Verifica sempre id e role prima di scrivere** (nel negozio ci sono ~20 temi di backup).
 
 > ⚠️ Gli id cambiano spesso: quelli annotati il 10/7 (`182508781891` / `182548955459`) sono
