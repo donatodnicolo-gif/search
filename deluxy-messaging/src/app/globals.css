@@ -480,8 +480,12 @@ button {
   overflow-y: auto;
 }
 
+/* ⚠️ La scorciatoia `padding` riscrive anche il lato destro, e lì ci vanno le
+   iconcine: con `padding: 10px 12px` l'anteprima del messaggio e la pastiglia
+   dei non letti finivano SOTTO archivia ed elimina. Lo spazio a destra si
+   ridichiara ogni volta che si tocca il padding di questa riga. */
 .colonna-inbox .riga-conversazione {
-  padding: 10px 12px;
+  padding: 10px 58px 10px 12px;
 }
 
 /* Dentro una colonna il marchio è scritto in testa: ripeterlo su ogni riga
