@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { leggiHtmlMessaggio } from '@/lib/actions'
+import { dividiCitato } from '@/lib/citato'
 
 type Props = {
   /** HTML già sanitizzato lato server, o null se la mail è di solo testo. */
@@ -140,7 +141,7 @@ export function CorpoMessaggio({ html: htmlIniziale, testo, tradotto, lingua, ht
       )}
 
       {vista === 'tradotto' && tradotto ? (
-        <div className="mail-body">{tradotto}</div>
+        <TestoConCitazione testo={tradotto} />
       ) : vista === 'html' && html ? (
         <iframe
           ref={ref}
@@ -151,8 +152,36 @@ export function CorpoMessaggio({ html: htmlIniziale, testo, tradotto, lingua, ht
           style={{ width: '100%', height: altezza, border: 'none', display: 'block' }}
         />
       ) : (
-        <div className="mail-body">{testo}</div>
+        <TestoConCitazione testo={testo} />
       )}
     </>
+  )
+}
+
+/**
+ * Il testo di una mail con la CITAZIONE ripiegata: si vede quello che ha
+ * scritto chi manda, e la conversazione riportata sotto sta dietro un «…».
+ * In un thread di dieci messaggi il decimo contiene i nove precedenti: senza
+ * questo, leggere l'ultima risposta vuol dire scorrere tutto ciò che si è già
+ * letto. Non si butta niente: si apre con un clic.
+ */
+function TestoConCitazione({ testo }: { testo: string }) {
+  const [apri, setApri] = useState(false)
+  const { testo: nuovo, citato } = dividiCitato(testo)
+  if (!citato) return <div className="mail-body">{testo}</div>
+  return (
+    <div className="mail-body">
+      {nuovo}
+      {'\n'}
+      <button
+        type="button"
+        className="citato-tasto"
+        onClick={() => setApri((v) => !v)}
+        title={apri ? 'Nascondi la conversazione riportata' : 'Mostra la conversazione riportata sotto'}
+      >
+        {apri ? '− nascondi il testo citato' : '··· mostra il testo citato'}
+      </button>
+      {apri && <div className="citato-testo">{citato}</div>}
+    </div>
   )
 }

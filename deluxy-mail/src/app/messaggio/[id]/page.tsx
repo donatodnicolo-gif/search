@@ -1,7 +1,9 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { db } from '@/lib/db'
-import { dataLunga, FUSO } from '@/lib/format'
+import { dataBreve, dataLunga, FUSO } from '@/lib/format'
+import { anteprimaPulita } from '@/lib/citato'
+import { ConversazioneStack } from '@/components/ConversazioneStack'
 import { BozzaEditor } from '@/components/BozzaEditor'
 import { AzioniMessaggio } from '@/components/AzioniMessaggio'
 import { PrioritaButtons } from '@/components/PrioritaButtons'
@@ -11,8 +13,6 @@ import { RiassuntoConversazione } from '@/components/RiassuntoConversazione'
 import { BottoneContattoAI } from '@/components/BottoneContattoAI'
 import { BottoneNonSpam } from '@/components/BottoneNonSpam'
 import { AgganciaMail } from '@/components/AgganciaMail'
-import { StaccaRiga } from '@/components/StaccaRiga'
-import { RispostaAzioni } from '@/components/RispostaAzioni'
 import { sanitizzaHtml } from '@/lib/sanitizzaHtml'
 import { richiediUtente } from '@/lib/sessione'
 import { messaggiThread, leggiRiassuntoThread } from '@/lib/sync'
@@ -410,60 +410,33 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
           />
 
           <p style={{ fontSize: 12.5, color: 'var(--text-tertiary)', margin: '14px 0 6px' }}>
-            Una mail non c’entra? «Stacca» la toglie dalla conversazione (anche
-            quando è unita dalla catena di risposte).
+            Ogni messaggio si apre QUI sotto, senza cambiare pagina. Una mail non
+            c’entra? «Stacca» la toglie dalla conversazione (anche quando è unita
+            dalla catena di risposte).
           </p>
-          <div className="thread-list">
-            {conversazione.map((c) => {
-              const attuale = c.id === messaggio.id
-              return (
-                <div
-                  key={c.id}
-                  className="thread-item"
-                  style={{
-                    display: 'flex',
-                    gap: 8,
-                    alignItems: 'center',
-                    padding: '4px 6px',
-                    borderRadius: 10,
-                    background: attuale ? 'var(--fill)' : 'transparent',
-                  }}
-                >
-                  <Link
-                    href={`/messaggio/${c.id}`}
-                    style={{
-                      display: 'flex',
-                      gap: 12,
-                      alignItems: 'baseline',
-                      flex: 1,
-                      minWidth: 0,
-                      padding: '4px 4px',
-                      textDecoration: 'none',
-                      color: 'inherit',
-                    }}
-                  >
-                    <span style={{ fontWeight: 600, minWidth: 140, flexShrink: 0 }}>
-                      {c.direzione === 'uscita' ? 'Tu' : c.mittenteNome || c.mittente}
-                    </span>
-                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {c.oggetto}
-                    </span>
-                    <span className="muted" style={{ fontSize: 12, flexShrink: 0 }}>
-                      {dataLunga(c.data)}
-                    </span>
-                  </Link>
-                  {/* Rispondi / A tutti / Inoltra su OGNI messaggio del thread:
-                      così puoi ripartire da una qualsiasi mail della catena. */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                    <RispostaAzioni id={c.id} />
-                    {/* La mail aperta si stacca col bottone in alto; qui si staccano
-                        le ALTRE, quelle finite nel thread per sbaglio. */}
-                    {!attuale && <StaccaRiga messaggioId={c.id} />}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+          {/* La conversazione si LEGGE, non si naviga: prima era un elenco di
+              link e per il quinto messaggio si cambiava pagina perdendo il
+              segno. Vedi components/ConversazioneStack.tsx. */}
+          <ConversazioneStack
+            correnteId={messaggio.id}
+            oggetto={messaggio.oggetto}
+            righe={conversazione.map((c) => ({
+              id: c.id,
+              mittente: c.mittente,
+              mittenteNome: c.mittenteNome,
+              destinatari: c.destinatari,
+              direzione: c.direzione,
+              oggetto: c.oggetto,
+              // La PRIMA RIGA scritta davvero: in un thread l'oggetto è uguale
+              // per tutti e non aiuta a trovare niente.
+              anteprima: anteprimaPulita(c.corpoTesto || c.anteprima || ''),
+              quando: dataBreve(c.data),
+              quandoLungo: dataLunga(c.data),
+              letto: c.letto,
+              allegati: c.allegati,
+              priorita: c.priorita,
+            }))}
+          />
         </div>
       )}
 

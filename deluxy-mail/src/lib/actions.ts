@@ -3276,6 +3276,39 @@ export async function proponiPerApp(
   }
 }
 
+/**
+ * Il corpo di UNA mail della conversazione, chiesto quando la si apre nella
+ * pila (`ConversazioneStack`). Così la pagina non si porta dietro il testo di
+ * tutte le mail del thread — su una conversazione lunga sarebbero megabyte —
+ * e leggere il quinto messaggio non vuol dire più cambiare pagina.
+ */
+export async function corpoDiMessaggio(id: string): Promise<{
+  ok: boolean
+  testo: string
+  html: string | null
+  tradotto: string | null
+  lingua: string | null
+  /** true quando l'HTML non è in casa ma può stare sul server IMAP. */
+  htmlDalServer: boolean
+}> {
+  const vuoto = { testo: '', html: null, tradotto: null, lingua: null, htmlDalServer: false }
+  const utenteId = await uid()
+  const m = await db.messaggio.findFirst({
+    where: { id, utenteId },
+    select: { corpoTesto: true, corpoHtml: true, corpoTradotto: true, lingua: true, uid: true },
+  })
+  if (!m) return { ok: false, ...vuoto }
+  return {
+    ok: true,
+    testo: m.corpoTesto,
+    html: m.corpoHtml ? sanitizzaHtml(m.corpoHtml) : null,
+    tradotto: m.corpoTradotto || null,
+    lingua: m.lingua || null,
+    // Mail vecchia alleggerita (l'HTML abita sul server, vedi htmlServer.ts).
+    htmlDalServer: !m.corpoHtml && m.uid > 0,
+  }
+}
+
 export type EsitoAppMessaggio = {
   trovato: boolean
   ok?: boolean

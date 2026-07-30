@@ -327,6 +327,30 @@ quando la apri. Ora funziona così:
 L'unico caso in cui l'impaginato non c'è più: una mail **cancellata dal server** della
 casella. Per quella resta il testo — l'HTML non esiste più da nessuna parte.
 
+## 6b-quater. Leggere una conversazione
+
+Sotto la mail aperta c'è **tutta la conversazione, in pila**: ogni messaggio si apre
+**lì**, con un clic, senza cambiare pagina e senza perdere il segno. Prima era un
+elenco di link: per leggere il quinto messaggio si cambiava pagina, e due messaggi non
+si potevano mai vedere insieme.
+
+Tre cose che rendono la pila leggibile:
+
+- **Sulla riga chiusa non c'è l'oggetto** — in un thread è identico per tutti e non dice
+  niente — ma la **prima riga scritta davvero**, senza la parte citata. È quello che
+  permette di scorrere venti messaggi e capire dove guardare.
+- **Il testo citato è ripiegato**: la risposta mostra quello che ha scritto chi manda, e
+  la conversazione riportata sotto sta dietro «··· mostra il testo citato». Niente viene
+  buttato, e se non si riconosce una citazione **non si taglia niente**: nascondere per
+  sbaglio un pezzo di messaggio vero sarebbe peggio del disturbo.
+- **Si gira con la tastiera**: `j` e `k` per muoversi fra i messaggi, `Invio` per
+  aprire e chiudere, `r` per rispondere a quello su cui sei. (Non mentre scrivi: dentro
+  un campo di testo le lettere restano lettere.)
+
+In più: un pallino blu sulle non lette, la riga **«da qui non hai letto»** che dice dove
+riprendere, la graffetta di chi ha allegati, e «Apri tutte / Chiudi tutte». L'ultimo
+messaggio è già aperto, perché è quasi sempre quello che serve.
+
 ## 6c. La conversazione: nome, chiusura, cestinamento
 
 Ogni mail sta in una **conversazione** (la catena di risposte, o mail con lo stesso
