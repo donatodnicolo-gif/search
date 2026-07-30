@@ -84,6 +84,18 @@ porta **3120**. Design system Deluxy v1.0.
 
 - **30/07/2026 — più regole d'ordine in priorità**: una tipologia (e la singola collezione) può avere **più regole in priorità** invece di una: la 1ª decide l'ordine, le successive spezzano i pareggi (es. «più venduti → margine → prezzo alto»). Salvate in `regolaOrdinamento` separate da virgola (retro-compatibile: un valore singolo è una lista di uno). In `ordinamento-vetrina.ts`: `parseRegole`/`serializeRegole`/`regoleDaForm`, `ordineSecondoRegole(regole[])` (sort multi-chiave), `applicaRegoleACollezione(regole[])`; `etichettaRegola` mostra «A → B → C». UI: componente `SelettoreRegole` (N `<select name="regola">` in priorità, senza JS; il form li manda come lista). Verificato: creata «Prodotti Partner» = best_seller,margine,prezzo_desc, salvata e mostrata in priorità (poi rimossa).
 
+- **30/07/2026 — prestazioni: da 3–7 secondi a mezzo secondo**. Misurato in produzione (minimo su più giri), non a naso. In ordine di guadagno:
+  1. **La funzione girava a Washington, il database è a Francoforte.** Senza `regions` Vercel esegue in `iad1`: l'header diceva `X-Vercel-Id: fra1::iad1::…`, cioè ogni query attraversava l'Atlantico (~120 ms di sola latenza) e una pagina ne fa decine. Aggiunto [vercel.json](../vercel.json) con `"regions": ["fra1"]` → ora `fra1::fra1`. **Da solo ha tagliato il 77–89%.** È la prima cosa da controllare in ogni app Deluxy su Vercel col database in Europa.
+  2. **I contatori del menu: nove query diventate una** ([Sidebar.tsx](../src/components/Sidebar.tsx), `$queryRaw` con le sotto-selezioni). La barra sta in *ogni* pagina, quindi quel costo si pagava ovunque e con `connection_limit=5` le query si accodavano: misurato **4,7 s → 0,3 s** in globale, 1,3 s → 0,14 s dentro un brand. I numeri sono stati **confrontati uno a uno** con le vecchie query (globale e brand) prima di sostituire. ⚠️ La query nomina lo schema `merchandising` esplicitamente.
+  3. **Indici mancanti sul venduto**: `Vendita` non aveva indice su `canale` (ci passa ogni filtro d'ambito e l'elenco dei brand) né su `statoPagamento` (`FILTRO_BUON_FINE`, in quasi ogni conto). Aggiunti `[canale]`, `[canale,data]`, `[statoPagamento,data]`.
+  4. **`brandCorrente`/`brandDisponibili` avvolte in `cache()` di React**: pagina, Sidebar e barra dell'ambito le chiedevano ognuna per conto suo (tre `distinct` sul venduto a schermata). È deduplica **per richiesta**, non una cache a tempo: nessun rischio di numeri vecchi.
+  5. **La home esce subito** ([page.tsx](../src/app/page.tsx)): aspettava la più lenta di 6 analisi prima di mostrare qualsiasi cosa. Ora guscio, menu, titolo e periodo sono immediati e il contenuto arriva in **streaming** (`<Suspense>` + scheletro della stessa forma). Nessun calcolo cambiato. È il primo uso di Suspense nell'app.
+  6. **`/collezioni`**: `brandCorrente` ed `elencoNegozi` erano in fila pur non dipendendo l'uno dall'altro; e il venduto usava un `IN (…)` con centinaia di id (la trappola di [feedback-prestazioni-next-liste]). Ora in parallelo e senza `IN`.
+
+  **Esito (primo byte / pagina completa, produzione):** `/` 6,75 s → 1,27 s · `/anagrafica` 5,76 → 0,45 · `/collezioni` 6,78 → 1,11 · `/classifiche` 3,53 → 0,72 · `/griglie` 3,19 → 0,35 · `/prodotti` 2,62 → 0,47 · `/visual` 3,39 → 0,56. Tutte e 22 le pagine verificate 200.
+
+  **Resta aperto**: la home ha ancora ~0,9 s di primo byte perché le 6 analisi pesanti saturano il pool (`connection_limit=5` nella `DATABASE_URL`) e le query del menu si accodano. Alzare quel numero aiuterebbe, **ma il cluster Postgres è condiviso con altre 5 app**: è una decisione da prendere guardando la capacità del pooler, non da cambiare di slancio.
+
 ## COME AVVIARE
 ```
 cd deluxy-merchandising
