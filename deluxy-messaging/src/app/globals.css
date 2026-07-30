@@ -281,6 +281,20 @@ button {
   cursor: pointer;
 }
 
+/* ⚠️ La regola qui sopra vale per OGNI input dentro un campo, quindi prendeva
+   anche le caselle di spunta: una casella larga tutto il campo, col bordo e
+   l'imbottitura di un campo di testo, che non si riconosce più come casella.
+   Le caselle tornano caselle. */
+.campo input[type='checkbox'],
+.campo input[type='radio'] {
+  width: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  accent-color: var(--ink);
+}
+
 .campo input:focus,
 .campo textarea:focus,
 .campo select:focus {
@@ -2686,4 +2700,14 @@ td .azioni-ordine {
 
 .campo-segreto .svuota input {
   margin: 0;
+  flex: none;
+}
+
+/* `.campo span` è a blocco con un margine sotto: dentro la riga della casella
+   quel testo andava a capo e restava disallineato dalla spunta. */
+.campo-segreto .svuota span {
+  display: inline;
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.3;
 }
