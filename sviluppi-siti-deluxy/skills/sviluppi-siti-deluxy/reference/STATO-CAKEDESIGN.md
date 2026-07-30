@@ -112,6 +112,30 @@ apici sono escapati): conferma che non è stato toccato altro. Sweep su 10 pagin
 **Non coperto**: su `/en` il footer inglese apre ancora una scheda nuova (e col numero
 vecchio), perché quel testo è una **traduzione**, non un file del tema — vedi sotto.
 
+## 30/7/2026 — recapiti ripuliti ovunque
+
+**Il vecchio numero era in 11 file del tema, non in 2**, e in punti che nessun pannello Shopify
+espone: `snippets/product-template.liquid` (quello che si vede su **ogni** pagina prodotto),
+`snippets/product-form.liquid`, `sections/main-cart.liquid`, più 8 template. In 4 file era
+scritto **URL-encoded** (`%2B393498853209`), quindi una ricerca normale non lo trovava.
+Scansione finale su tutti i file di testo del tema: **0 residui** di `3498853209` e di
+`@deluxy.it`. Attenzione: i 7 asset oltre 256 KB tornano dall'API come **URL, non come testo** —
+un grep sulla risposta GraphQL non guarda nulla, vanno scaricati a parte.
+
+Trovato per strada: in `templates/customers/account.liquid` c'era **l'indirizzo personale**
+`nicolo.donato@deluxy.it`, mostrato ai clienti registrati. Sostituito con `info@cakedesignme.it`.
+Quello stesso file è pieno di segnaposto mai rimossi ("Lorem ipsum", un nome di fantasia, link
+`href="#"`): è una pagina che i clienti loggati vedono, **da sistemare**.
+Altro relitto: `templates/page.dolci_rientri.liquid` contiene JSON puro con estensione
+`.liquid` — se usato stamperebbe il JSON grezzo a video.
+
+**Etichette del carrello ora traducibili**: `MODIFICA`/`CONTATTACI`/`Modifica opzioni` non sono
+più scritte nel codice ma in `locales/it.json` e `locales/en.default.json`, sotto
+`cart.general.edit_button`, `cart.general.contact_us_button`, `cart.general.edit_options`.
+Si cambiano da "Traduci e adatta" senza toccare il tema. Controllo che vale la pena rifare
+sempre dopo un lavoro così: caricare la pagina e contare `translation missing` — se le chiavi
+non combaciano, esce quella scritta invece del testo.
+
 ## Traduzioni inglesi: un secondo posto dove vive il numero (scoperto 29/7/2026)
 
 Il numero **non sta solo nei file del tema**: le versioni inglesi delle stesse sezioni sono
@@ -152,6 +176,54 @@ Differenze **solo apparenti**, da non inseguire:
 - `assets/theme.css` e `assets/country-flags.css`: checksum diverso ma **stessa identica
   dimensione** e sorgenti `.css.liquid` identici → sono i compilati che Shopify rigenera per
   ogni tema, non modifiche di qualcuno.
+
+## QA del 30/7/2026 — i difetti del carrello (nessuno ancora corretto)
+
+Cinque percorsi cliente provati su desktop e mobile, in italiano e in inglese. I difetti sotto
+sono **confermati e ancora aperti**: nessuno è stato toccato, vanno decisi.
+
+### Costano soldi
+1. **La data di consegna è UNA per tutto il carrello.** Verificato sulla struttura dati:
+   `cart.attributes.Data_Consegna` è un singolo campo e le righe **non hanno alcuna data**.
+   Quindi l'ultimo prodotto aggiunto detta la data a tutti, ignorando i tempi di preparazione
+   degli altri: una torta da 7 giorni finisce consegnata in 4. Rimuovendo il prodotto veloce la
+   data sbagliata **non** si ripristina. Non è una riga da aggiustare: manca il posto dove
+   tenere una data per riga.
+2. **Un click su "Acquista" del wizard aggiunge due torte** (due `POST /cart/add.js`): il
+   bottone è `type="submit"` dentro il form e viene intercettato sia da `ProductForm` sia dallo
+   script custom, che non fa `preventDefault()`. Intermittente: 4 volte su 7.
+3. **Il prezzo del wizard non è quello addebitato**: il riepilogo mostra il totale con le
+   opzioni, ma il sovrapprezzo viene applicato **solo aprendo `/cart`**.
+4. **Il cliente può cancellarsi il sovrapprezzo**: la riga "Extra" su `/cart` ha quantità
+   modificabile e "RIMUOVI". Portandola a 1 si paga 141 € invece di 260 €.
+5. **Le opzioni obbligatorie non sono controllate** e il riepilogo mostra la prima opzione di
+   ogni gruppo **come se fosse stata scelta**. In IT quei valori mai scelti finiscono in
+   carrello; in EN base e farcitura spariscono del tutto.
+
+### Rompono l'esperienza
+6. In conflitto di date il checkout è disabilitato e **il modale d'avviso è `visibility:hidden`**:
+   pulsante morto e nessuna spiegazione. L'unica uscita è cambiare data.
+7. La colonna "Totale" della riga **ignora la quantità** (mostra 190 € e ne addebita 380).
+8. Il campo quantità su `/cart` non funziona: la pagina si autoricarica e torna a 1. Nel
+   cassetto funziona.
+9. Bigliettino e fascia oraria **non si salvano** fino al click sul checkout; il bigliettino
+   nasce con **22 spazi** dentro che si mangiano 22 dei 200 caratteri.
+10. XSS nel riepilogo del wizard: la scritta personalizzata è iniettata come HTML e lo
+    `<script>` viene eseguito. **Non** memorizzato: `/cart` codifica correttamente.
+11. Note per il cake designer **mai raggiungibili** dal wizard; porzioni non selezionabili lì
+    dentro; "Ricomincia" non azzera (la funzione `resetCakeSteps` esiste e non è mai chiamata).
+12. Simbolo di valuta **`Є` cirillico** (U+0404) invece di `€`: `var currencyFormat = ' Є';`.
+13. Su `/en`: etichette e valori in italiano nel carrello, date con giorni e mesi italiani,
+    "today" seguito da una data che non è oggi.
+
+### Chiuso, era un falso allarme
+Il cassetto carrello **non** permette di saltare `/cart`: ha un solo pulsante e porta lì. Il
+sovrapprezzo non si aggira per quella via.
+
+### Verificato funzionante
+Il calendario della scheda prodotto rispetta il metacampo `prodotto.consegna`, blocca quando la
+data in memoria è troppo vicina, e le regole di taglio orario sono coerenti. Il problema nasce
+**solo quando i prodotti in carrello diventano più di uno**.
 
 ## Aperto, non ancora affrontato
 
