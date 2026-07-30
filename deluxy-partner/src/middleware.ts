@@ -51,6 +51,10 @@ export const config = {
     // `api/health` è il controllo di salute letto dalla pagina Stato servizi
     // del Hub, che non ha una sessione di questa app: risponde solo se il
     // server e il database rispondono, nessun dato contabile.
-    "/((?!login|api/health|api/sso|api/fic/callback|api/shopify|api/verifiche|api/fatture|api/proforma|api/tipologie|api/incassi|api/tasks|api/riepilogo-finanziario|api/clienti|api/spese|api/pagamenti/notifica|api/cron|_next/static|_next/image|favicon.ico).*)",
+    // `api/v1` sono le API a chiave dello standard Deluxy (movimenti,
+    // ordini-controllo): si autenticano da sé con X-API-Key. Senza questa
+    // esclusione il middleware le manda al login e chi legge riceve la PAGINA
+    // di login con stato 200, credendo di aver ricevuto dei dati.
+    "/((?!login|api/health|api/sso|api/fic/callback|api/shopify|api/verifiche|api/fatture|api/proforma|api/tipologie|api/incassi|api/tasks|api/riepilogo-finanziario|api/clienti|api/spese|api/vendor|api/pagamenti/notifica|api/cron|api/v1|_next/static|_next/image|favicon.ico).*)",
   ],
 };

@@ -156,6 +156,13 @@ Base `https://deluxy-partner.vercel.app`. Auth: header `X-API-Key: <chiave>` (un
    - `condizioni{giorniPagamento, compensazione}` e `url` alla scheda; nell'elenco c'è anche `regole` = le soglie con cui gli stati sono stati calcolati, così chi consuma l'API sa cosa vuol dire «insoluto» oggi.
    Sola lettura. `src/app/api/clienti/stato/route.ts`. Gli stessi due stati (in forma sintetica) sono ora anche dentro `/api/riepilogo-finanziario`, così la card Finance di Scout non deve fare due chiamate.
 
+8. **`GET /api/v1/movimenti`** (30/07/2026) → **l'estratto conto**, di sola lettura, per Deluxy Orders. Filtri `da`/`a` (data del movimento), `segno=entrate|uscite`, `daImport=<iso>` (incrementale su `createdAt`: la data del movimento può essere vecchia anche se il movimento è arrivato oggi), `page`/`limit` (max 500). Ogni riga: `id`, `hash` (identità stabile: chi copia lo usa per non duplicare), `data`, `importo` (>0 accredito), `descrizione`, `controparte`, `fonte`, `stato`, `importatoIl`. **Non** espone `partnerId`, categoria di costo interna né `esito`. `src/app/api/v1/movimenti/route.ts`.
+9. **`GET /api/v1/ordini-controllo`** (30/07/2026) → il **controllo già fatto qui** sugli ordini: `gestione`, `incasso{stato, movimentoId, riconciliatoIl}`, `costo{importo, fornitore, movimentoId, pagatoIl}`, identificati da `brand` + `orderId`. `?solo=con-costo` per i soli ordini con un costo. Serve a Orders per **adottare** il lavoro già fatto (249 ordini con costo, 23.224,47 €) invece di ricominciarlo. `src/app/api/v1/ordini-controllo/route.ts`.
+
+⚠️ **`api/v1` va escluso dal matcher del middleware** (fatto il 30/07/2026): senza, la rotta viene mandata al login e chi legge riceve **la pagina HTML con stato 200**, credendo di aver ricevuto dati. È la stessa trappola del webhook di Transactions.
+
+**Il controllo degli ordini si sposta in Deluxy Orders (30/07/2026).** Deciso con l'utente: gli **incassi** e i **costi del fornitore** per ordine si lavorano in `deluxy-orders` (`/controllo` e `/margini`), che è il registro degli ordini; qui restano **i movimenti bancari**, che sono di Finance, esposti dalle due API sopra. La pagina `/ordini` di quest'app **non è stata rimossa**: la rimozione va decisa a parte, perché i `Pagamento` con riferimento `PAY-…` nascono qui (`ordini-actions.ts` → `pagamenti-rif.ts`) e `/api/incassi` li espone alle altre app.
+
 Esiti: 200 trovato · 404 non trovato (con `candidati`) · 401 chiave errata · 400 parametro mancante. Auth condivisa in `src/lib/apiauth.ts`.
 
 ## 7-bis. Stato finanziario del cliente (credit management) — 23/07/2026
