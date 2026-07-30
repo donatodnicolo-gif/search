@@ -418,6 +418,35 @@ ACE e crediti d'imposta, il tetto dell'1,5% sulla rappresentanza e la deducibili
 compenso amministratore: ognuna può spostare il conto di migliaia di euro, e sono elencate in fondo
 alla pagina invece di essere taciute.
 
+## Utenti e ruoli (Configurazione → Accesso, 29/07/2026)
+
+Prima si entrava con **una password sola, condivisa**: in queste pagine ci sono stipendi, premi e
+margini, e una password che gira in chat non si revoca — si cambia per tutti. Ora ogni persona ha il
+proprio accesso (, motore in ): si entra scrivendo **email e
+password**, e si sa **chi** è entrato.
+
+| Ruolo | Cosa può fare |
+| --- | --- |
+| **Amministratore** | tutto |
+| **Sola lettura** (il commercialista) | vede **tutte** le pagine, non modifica **niente** |
+| **Responsabile** | solo : manda il proprio budget, non vede stipendi né margini |
+
+> **La sola lettura è una serratura, non un cartello.** Nascondere i bottoni non basta: il blocco è
+> nel middleware ed è **sul metodo** — per quel ruolo passano solo GET e HEAD, tutto il resto riceve
+> **403**. Ferma anche le *server action*, che sono POST verso la pagina stessa, quindi non si
+> modifica nemmeno passando di lato. Restano possibili solo login e logout: chiudere la propria
+> sessione non è una modifica dei dati.
+
+Le password si salvano con **scrypt** (sale casuale, confronto a tempo costante) e non tornano mai
+indietro: nemmeno un amministratore può rileggerle, può solo sostituirle. Minimo dieci caratteri.
+Chi non serve più si **disattiva, non si cancella** — resta lo storico di chi aveva accesso. E
+**l'ultimo amministratore attivo non si può disattivare né degradare**: un'app in cui nessuno può più
+entrare non è più sicura, è solo rotta.
+
+> **La password di team resta come via di riserva**: si entra lasciando vuota l'email, con pieni
+> poteri. Se il database non risponde o gli utenti non ci sono ancora, nessuno resta chiuso fuori. È
+> una porta che resta aperta, ed è una scelta — ma chi entra da lì non ha un nome.
+
 ## Chiavi (cassaforte del Hub)
 
 Le chiavi (`FINANCE_API_KEY`, `ORDERS_API_KEY`, `OPENAI_API_KEY`, …) non stanno nel `.env` di questa app: si

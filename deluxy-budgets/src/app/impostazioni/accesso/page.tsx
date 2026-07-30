@@ -1,3 +1,5 @@
+import { UtentiEditor } from "@/components/UtentiEditor";
+import { elencoUtenti } from "@/lib/utenti";
 import Link from "next/link";
 import { statoAccesso } from "@/lib/accesso";
 import { AccessoEditor } from "@/components/AccessoEditor";
@@ -5,7 +7,7 @@ import { AccessoEditor } from "@/components/AccessoEditor";
 export const dynamic = "force-dynamic";
 
 export default async function AccessoPage() {
-  const stato = await statoAccesso();
+  const [stato, utenti] = await Promise.all([statoAccesso(), elencoUtenti()]);
 
   return (
     <>
@@ -37,6 +39,15 @@ export default async function AccessoPage() {
         daConfermare={stato.daConfermare}
         cifraturaOk={stato.cifraturaOk}
       />
+
+      <UtentiEditor utenti={utenti} />
+
+      <p className="page-caption" style={{ marginTop: 14 }}>
+        <strong>La password del team resta</strong>, come via di riserva: si entra lasciando vuota l'email. È una
+        porta che resta aperta ed è una scelta — se il database non risponde o gli utenti non ci sono ancora,
+        nessuno resta chiuso fuori. Ma chi entra da lì ha pieni poteri e non si sa chi sia: per le persone, meglio
+        un utente.
+      </p>
 
       <p className="page-caption" style={{ marginTop: 14 }}>
         <strong>Non ci si può chiudere fuori</strong>, ed è la regola che governa questa pagina. Il codice diventa

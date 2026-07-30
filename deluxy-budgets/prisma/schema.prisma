@@ -317,3 +317,29 @@ model VoceBilancio {
   @@unique([anno, codice])
   @@index([anno])
 }
+
+// Chi può entrare, con nome e cognome. Prima c'era **una sola password
+// condivisa**: dentro ci sono stipendi, premi e margini, e una password che gira
+// in chat non si revoca — si cambia per tutti. Con un utente per persona si sa
+// **chi** è entrato e si toglie l'accesso a uno solo.
+//
+// L'elenco vive qui e non nel Hub per scelta dell'utente (29/07/2026): serviva
+// dare accesso a un commercialista esterno, che nel Hub un account non ce l'ha.
+// Il prezzo è due elenchi che possono divergere, ed è il motivo per cui la
+// password di team resta come via di riserva e non come norma.
+model UtenteBudgets {
+  id    String @id @default(cuid())
+  email String @unique
+  nome  String
+  // scrypt: sale e derivata nello stesso campo, separati da ":". Mai la
+  // password in chiaro, nemmeno per un attimo.
+  hash  String
+  // admin = tutta l'app · lettura = vede tutto e non tocca niente (il
+  // commercialista) · proposte = manda solo il proprio budget
+  ruolo String @default("lettura")
+  // Disattivare invece di cancellare: chi se n'è andato resta nello storico di
+  // chi aveva accesso, che è la domanda che si fa dopo, non prima.
+  attivo        Boolean   @default(true)
+  creato        DateTime  @default(now())
+  ultimoAccesso DateTime?
+}

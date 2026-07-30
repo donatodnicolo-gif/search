@@ -42,6 +42,21 @@ export async function middleware(req: NextRequest) {
   const sessione = await leggiSessione(cookie);
   if (sessione) {
     if (sessione.ruolo === "admin") return NextResponse.next();
+
+    // **Sola lettura**: vede tutte le pagine, non scrive niente. Il blocco è sul
+    // **metodo**, non sui bottoni: nascondere un pulsante è un cartello, questa
+    // è la serratura. Ferma anche le server action, che sono POST verso la
+    // pagina stessa — quindi non si modifica nemmeno passando di lato.
+    if (sessione.ruolo === "lettura") {
+      if (req.method === "GET" || req.method === "HEAD") return NextResponse.next();
+      // Chiudere la propria sessione non è una modifica dei dati.
+      if (pathname === "/api/logout" || pathname === "/login") return NextResponse.next();
+      return NextResponse.json(
+        { error: "Profilo in sola lettura: puoi consultare tutto, ma non modificare." },
+        { status: 403 }
+      );
+    }
+
     const permesso = APERTE_A_TUTTI.some((p) => pathname === p || pathname.startsWith(`${p}/`));
     if (permesso) return NextResponse.next();
     // Non un errore: si viene portati dove si può stare.

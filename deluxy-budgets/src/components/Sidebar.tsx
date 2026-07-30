@@ -188,7 +188,7 @@ const nav: AreaNav[] = [
 // Un non-admin vede solo le proposte: e la stessa regola del middleware, qui
 // applicata alle voci di menu. Mostrare porte che poi si chiudono in faccia e
 // il modo piu sicuro per far pensare che l app sia rotta.
-export function Sidebar({ ruolo = "admin", nome = null }: { ruolo?: "admin" | "proposte"; nome?: string | null }) {
+export function Sidebar({ ruolo = "admin", nome = null }: { ruolo?: "admin" | "lettura" | "proposte"; nome?: string | null }) {
   const pathname = usePathname();
   const visibile = ruolo === "admin"
     ? nav

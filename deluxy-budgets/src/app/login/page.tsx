@@ -3,11 +3,42 @@ import { redirect } from "next/navigation";
 import { SESSION_COOKIE, sessionToken } from "@/lib/auth";
 import { segretoAccesso, statoAccesso } from "@/lib/accesso";
 import { codiceTotpValido } from "@/lib/totp";
+import { autentica } from "@/lib/utenti";
+import { creaSessione, type Ruolo } from "@/lib/sessione";
 
 async function login(fd: FormData) {
   "use server";
   const password = process.env.BUDGETS_APP_PASSWORD;
   const tentativo = String(fd.get("password") ?? "");
+  const email = String(fd.get("email") ?? "").trim();
+
+  // **Con l'email si entra come persona**, con il proprio ruolo. Chi la lascia
+  // vuota usa la password di team, che resta la via di riserva: se il database
+  // non risponde o non ci sono ancora utenti, l'app non si chiude fuori da sola.
+  if (email) {
+    const utente = await autentica(email, tentativo);
+    if (!utente) redirect("/login?errore=1");
+    const jarU = await cookies();
+    jarU.set(
+      SESSION_COOKIE,
+      await creaSessione({
+        uid: utente.id,
+        email: utente.email,
+        nome: utente.nome,
+        ruolo: utente.ruolo as Ruolo,
+        via: "email",
+      }),
+      {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 60 * 60 * 24 * 7, // 7 giorni: meno dei 30 della password di team
+        path: "/",
+      }
+    );
+    redirect(utente.ruolo === "proposte" ? "/proposte" : "/");
+  }
+
   if (!password || tentativo !== password) {
     redirect("/login?errore=1");
   }
@@ -90,10 +121,29 @@ export default async function LoginPage({
           <div className="avviso-errore">Password non corretta.</div>
         ) : null}
         <form action={login} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {/* L'email è facoltativa: chi ce l'ha entra come persona, con il proprio
+              ruolo; chi la lascia vuota usa la password di team, che resta la via
+              di riserva per non restare chiusi fuori. */}
+          <input
+            type="email"
+            name="email"
+            placeholder="Email (vuoto = password del team)"
+            autoComplete="username"
+            style={{
+              font: "inherit",
+              fontSize: 15,
+              color: "var(--text)",
+              background: "var(--fill)",
+              border: "1px solid transparent",
+              borderRadius: "var(--radius-m)",
+              padding: "11px 14px",
+              outline: "none",
+            }}
+          />
           <input
             type="password"
             name="password"
-            placeholder="Password del team"
+            placeholder="Password"
             autoFocus
             required
             style={{

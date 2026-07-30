@@ -14,7 +14,7 @@
 
 // I due profili di Budgets. «proposte» e chi manda il proprio budget e basta:
 // qui dentro ci sono stipendi e premi, e non e roba che riguarda tutti.
-export type Ruolo = "admin" | "proposte";
+export type Ruolo = "admin" | "lettura" | "proposte";
 
 export type DatiSessione = {
   uid: string;
@@ -109,7 +109,7 @@ export async function leggiSessione(cookie: string | undefined): Promise<DatiSes
     if (!ok) return null;
     const d = JSON.parse(stringaDaB64url(payload)) as DatiSessione;
     if (typeof d.exp !== "number" || d.exp < Date.now()) return null;
-    if (d.ruolo !== "admin" && d.ruolo !== "proposte") return null;
+    if (d.ruolo !== "admin" && d.ruolo !== "lettura" && d.ruolo !== "proposte") return null;
     return d;
   } catch {
     return null;
