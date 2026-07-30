@@ -336,6 +336,15 @@ model Conversazione {
   numeroId          String   @default("")
   numeroNostro      String   @default("")
   nome              String   @default("")
+  // Il nome come sta nella NOSTRA rubrica Google (deluxy.delivery@gmail.com).
+  // Tenuto separato da `nome`, che è quello scelto dal cliente sul suo profilo
+  // WhatsApp: sono due cose diverse e nessuna delle due va sovrascritta.
+  // «FL Mario Rossi #1042» dice chi è e con che ordine; «Nicolo» no.
+  nomeRubrica       String   @default("")
+  // Quando abbiamo guardato in rubrica. Serve a NON richiedere ogni ora i
+  // numeri che non ci sono: la People API si paga in tempo, e un numero che
+  // manca oggi manca anche fra un'ora.
+  rubricaCercataIl  DateTime?
   ultimoTesto       String   @default("") @db.Text
   ultimoMessaggioIl DateTime @default(now())
   nonLetti          Int      @default(0) // messaggi in arrivo non ancora letti dall'operatore

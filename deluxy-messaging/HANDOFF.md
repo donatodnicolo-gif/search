@@ -55,6 +55,39 @@ locale, altrimenti nulla si decifra.
 
 ## FATTO
 
+- **I NUMERI SI RICONOSCONO DALLA RUBRICA GOOGLE** (29/07/2026). Su WhatsApp
+  arrivava il nome che il cliente si è messo sul profilo — «Nicolo», «Ale», a
+  volte niente. In rubrica (`deluxy.delivery@gmail.com`, la stessa che l'app
+  riempie dagli ordini) quel numero è già salvato come **«FL Mario Rossi
+  #1042»**, che dice chi è e con quale ordine.
+  - `src/lib/rubrica.ts`: `riconosciConversazione(id)` per una sola (bottone
+    **Rubrica** nella testata del thread, risposta immediata) e
+  `riconosciDaRubrica(25)` per il giro automatico — cron **`/api/cron/rubrica`
+    al minuto 37**, sfasato da quello dei contatti (minuto 7) perché usano la
+    stessa People API e insieme si rubano il tempo.
+  - `Conversazione.nomeRubrica` è un campo **a parte** da `nome`: sono due cose
+    diverse (il nostro nome e quello del profilo) e nessuna sovrascrive l'altra.
+    In elenco vince la rubrica, e il titolino mostra entrambi.
+  - `rubricaCercataIl` evita di richiedere ogni ora i numeri che non ci sono: un
+    numero che manca oggi manca anche fra un'ora. Se Google non risponde la data
+    **non** si scrive, così quella conversazione si riprova.
+  - ⚠️ **Non si cerca dentro il webhook.** Una ricerca sono 2-3 chiamate HTTP:
+    nel percorso che riceve i messaggi allungano la risposta a Meta e, se Google
+    è lento, mandano il webhook in timeout — cioè fanno perdere messaggi.
+  - Solo WhatsApp: su Instagram e Messenger l'id non è un numero di telefono e
+    in rubrica non c'è niente da cercare.
+
+- **SI PUÒ TOGLIERE UNA CONVERSAZIONE DALL'INBOX** (29/07/2026). Nella testata
+  del thread: **Archivia** (sparisce dall'elenco, resta nel database — è il
+  gesto giusto per la pubblicità) e **Elimina** (cancella la conversazione **e
+  tutti i suoi messaggi**, `onDelete: Cascade`, con conferma che dice cosa se ne
+  va). `DELETE` e `PATCH` su `/api/conversazioni/[id]`.
+  - ⚠️ **Nessuna delle due tocca la casella di posta vera**: la mail resta sul
+    server IMAP. E con **«Scarica posta» una mail eliminata rientra**, se è
+    ancora in posta in arrivo e dentro la finestra dei 7 giorni — la dedup
+    guarda i messaggi che abbiamo, e quello cancellato non c'è più. Archiviare
+    invece regge.
+
 - **LE MAIL SI POSSONO SCRIVERE DA AI MAIL** (29/07/2026). `src/lib/ai-mail.ts`
   → `urlScriviAiMail()` costruisce il deep link
   `https://deluxy-mail.vercel.app/scrivi?a=…&oggetto=…&corpo=…&app=Deluxy Customer Service&rif=…`,

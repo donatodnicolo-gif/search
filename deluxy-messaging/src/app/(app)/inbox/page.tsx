@@ -27,6 +27,7 @@ export default async function PaginaInbox() {
     id: c.id,
     canale: c.canale,
     nome: c.nome,
+    nomeRubrica: c.nomeRubrica,
     idEsterno: c.idEsterno,
     ultimoTesto: c.ultimoTesto,
     ultimoMessaggioIl: c.ultimoMessaggioIl.toISOString(),

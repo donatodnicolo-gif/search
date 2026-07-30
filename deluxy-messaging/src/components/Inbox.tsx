@@ -13,6 +13,12 @@ export type ConversazioneDto = {
   id: string
   canale: string
   nome: string
+  /**
+   * Il nome come sta nella NOSTRA rubrica Google: «FL Mario Rossi #1042» dice
+   * chi è e con che ordine, «Nicolo» (il nome del profilo WhatsApp) no. Vince
+   * su `nome` quando c'è, senza cancellarlo.
+   */
+  nomeRubrica?: string
   idEsterno: string
   ultimoTesto: string
   ultimoMessaggioIl: string
@@ -358,6 +364,83 @@ export function Inbox({
   // essere quella giusta e il testo entra subito. Le due cose convivono: l'AI
   // per i casi da capire, l'elenco per i novanta casi su cento che si
   // riconoscono a colpo d'occhio.
+  // ── Chi è questo numero? ──
+  // La rubrica Google (deluxy.delivery@gmail.com) sa già chi sono: il giro
+  // automatico ci passa ogni ora, ma chi ha il cliente davanti non aspetta
+  // l'ora.
+  const [cercandoRubrica, setCercandoRubrica] = useState(false)
+  async function cercaInRubrica() {
+    if (!selezionataId || cercandoRubrica) return
+    setCercandoRubrica(true)
+    setErroreInvio('')
+    try {
+      const res = await fetch(`/api/conversazioni/${selezionataId}/rubrica`, { method: 'POST' })
+      const d = (await res.json().catch(() => ({}))) as {
+        trovato?: boolean
+        nome?: string
+        errore?: string
+      }
+      if (!res.ok) setErroreInvio(d.errore || 'Ricerca in rubrica non riuscita.')
+      else if (!d.trovato) setErroreInvio('Questo numero non è nella rubrica Google.')
+      else
+        setConversazioni((prec) =>
+          prec.map((c) => (c.id === selezionataId ? { ...c, nomeRubrica: d.nome ?? '' } : c))
+        )
+    } catch {
+      setErroreInvio('Ricerca in rubrica non riuscita: problema di rete.')
+    } finally {
+      setCercandoRubrica(false)
+    }
+  }
+
+  // ── Togliere una conversazione dall'inbox ──
+  // Archivia = sparisce e resta; Elimina = via davvero, messaggi compresi.
+  const [inCorsoTogli, setInCorsoTogli] = useState(false)
+
+  async function archivia() {
+    if (!selezionataId || inCorsoTogli) return
+    setInCorsoTogli(true)
+    try {
+      await fetch(`/api/conversazioni/${selezionataId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ archiviata: true }),
+      })
+      setConversazioni((prec) => prec.filter((c) => c.id !== selezionataId))
+      setSelezionataId(null)
+    } finally {
+      setInCorsoTogli(false)
+    }
+  }
+
+  async function elimina() {
+    if (!selezionata || inCorsoTogli) return
+    // La conferma sta QUI, davanti al gesto: il messaggio dice cosa se ne va e
+    // che non torna. Un «sei sicuro?» generico non è una conferma.
+    const chi = selezionata.nomeRubrica || selezionata.nome || selezionata.idEsterno
+    if (
+      !window.confirm(
+        `Eliminare la conversazione con ${chi}?\n\nSpariscono anche tutti i suoi messaggi, e non si torna indietro. Per toglierla dall'elenco senza cancellarla, usa Archivia.`
+      )
+    ) {
+      return
+    }
+    setInCorsoTogli(true)
+    try {
+      const res = await fetch(`/api/conversazioni/${selezionata.id}`, { method: 'DELETE' })
+      if (!res.ok) {
+        setErroreInvio('Eliminazione non riuscita.')
+        return
+      }
+      setConversazioni((prec) => prec.filter((c) => c.id !== selezionata.id))
+      setSelezionataId(null)
+    } catch {
+      setErroreInvio('Eliminazione non riuscita: problema di rete.')
+    } finally {
+      setInCorsoTogli(false)
+    }
+  }
+
   // L'oggetto con cui rispondere a una mail: quello dell'ultima ricevuta, con
   // «Re:» davanti se non ce l'ha già. È la stessa regola che usa l'invio
   // dell'app, così la finestra di AI Mail si apre con quello che ci si aspetta.
@@ -461,7 +544,12 @@ export function Inbox({
         }}
       >
         <span className="testata">
-          <span className="nome">{c.nome || c.idEsterno}</span>
+          <span
+            className="nome"
+            title={c.nomeRubrica ? `In rubrica: ${c.nomeRubrica}` : undefined}
+          >
+            {c.nomeRubrica || c.nome || c.idEsterno}
+          </span>
           <span className="ora">{oraBreve(c.ultimoMessaggioIl)}</span>
         </span>
         <span className="anteprima">
@@ -570,7 +658,16 @@ export function Inbox({
         ) : (
           <>
             <div className="testata-thread">
-              <span className="nome">{selezionata.nome || selezionata.idEsterno}</span>
+              <span
+                className="nome"
+                title={
+                  selezionata.nomeRubrica
+                    ? `In rubrica Google: ${selezionata.nomeRubrica}${selezionata.nome ? ` · sul profilo: ${selezionata.nome}` : ''}`
+                    : undefined
+                }
+              >
+                {selezionata.nomeRubrica || selezionata.nome || selezionata.idEsterno}
+              </span>
               {selezionata.brand || selezionata.etichettaAccount || selezionata.numeroNostro ? (
                 <span
                   className="badge"
@@ -583,6 +680,39 @@ export function Inbox({
                 {etichettaCanale(selezionata.canale)}
               </span>
               <span className="dettaglio">{selezionata.idEsterno}</span>
+
+              <span className="azioni-thread">
+                {/* Chi è questo numero: lo chiede alla rubrica Google, adesso.
+                    Solo su WhatsApp — è l'unico canale con un telefono. */}
+                {selezionata.canale === 'whatsapp' && !selezionata.nomeRubrica ? (
+                  <button
+                    className="bottone secondario mini"
+                    onClick={cercaInRubrica}
+                    disabled={cercandoRubrica}
+                    title="Cerca questo numero nella rubrica Google collegata"
+                  >
+                    {cercandoRubrica ? 'Cerco…' : 'Rubrica'}
+                  </button>
+                ) : null}
+                <button
+                  className="bottone secondario mini"
+                  onClick={archivia}
+                  disabled={inCorsoTogli}
+                  title="Sparisce dall'elenco ma resta salvata"
+                >
+                  Archivia
+                </button>
+                <button
+                  className="bottone secondario mini"
+                  onClick={elimina}
+                  disabled={inCorsoTogli}
+                  style={{ color: 'var(--red)' }}
+                  title="Cancella la conversazione e tutti i suoi messaggi: non si torna indietro"
+                >
+                  Elimina
+                </button>
+              </span>
+
               {aFinestra ? (
                 <button
                   className="bottone secondario mini chiudi-finestra"
