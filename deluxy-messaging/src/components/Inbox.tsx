@@ -190,6 +190,41 @@ function Bolla({ m, canale }: { m: MessaggioDto; canale: string }) {
 /** Dove finiscono le conversazioni che non sappiamo di chi sono. */
 const SENZA_MARCHIO = 'Senza marchio'
 
+// Le iconcine delle azioni rapide. Disegnate qui e non prese da una libreria:
+// tre icone non giustificano un pacchetto, e `currentColor` le fa seguire il
+// colore del bottone (grigie, rosse sull'elimina) senza doppioni di CSS.
+
+function IconaArchivia() {
+  return (
+    <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
+      <rect x="2" y="3" width="12" height="3" rx="1" />
+      <path d="M3 6.5v6a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-6" />
+      <path d="M6.5 9h3" />
+    </svg>
+  )
+}
+
+function IconaRiporta() {
+  return (
+    <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
+      <path d="M8 13V4" />
+      <path d="M4.5 7.5 8 4l3.5 3.5" />
+      <path d="M3 13h10" />
+    </svg>
+  )
+}
+
+function IconaElimina() {
+  return (
+    <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
+      <path d="M3 5h10" />
+      <path d="M6.5 5V3.5h3V5" />
+      <path d="M4.5 5v8a1 1 0 0 0 1 1h5a1 1 0 0 0 1-1V5" />
+      <path d="M7 7.5v4M9 7.5v4" />
+    </svg>
+  )
+}
+
 export function Inbox({
   conversazioniIniziali,
   brandNoti = [],
@@ -202,6 +237,10 @@ export function Inbox({
 }) {
   const [conversazioni, setConversazioni] = useState(conversazioniIniziali)
   const [selezionataId, setSelezionataId] = useState<string | null>(null)
+  // Posta in arrivo o archivio: due elenchi, la stessa schermata. L'archivio
+  // non è un cestino — le conversazioni ci sono tutte e si riportano indietro.
+  const [archivio, setArchivio] = useState(false)
+  const [quanteArchiviate, setQuanteArchiviate] = useState(0)
   const [messaggi, setMessaggi] = useState<MessaggioDto[]>([])
   const [bozza, setBozza] = useState('')
   const [inviando, setInviando] = useState(false)
@@ -212,14 +251,26 @@ export function Inbox({
 
   const aggiornaConversazioni = useCallback(async () => {
     try {
-      const res = await fetch('/api/conversazioni')
+      const res = await fetch(`/api/conversazioni${archivio ? '?archiviate=1' : ''}`)
       if (!res.ok) return
-      const dati = (await res.json()) as { conversazioni: (ConversazioneDto & { ultimoMessaggioIl: string })[] }
+      const dati = (await res.json()) as {
+        conversazioni: (ConversazioneDto & { ultimoMessaggioIl: string })[]
+        archiviate?: number
+      }
       setConversazioni(dati.conversazioni)
+      setQuanteArchiviate(dati.archiviate ?? 0)
     } catch {
       // rete assente: si ritenta al giro dopo
     }
-  }, [])
+  }, [archivio])
+
+  // Cambiando linguetta l'elenco si ricarica subito, senza aspettare i 5
+  // secondi del polling — e la conversazione aperta si chiude, perché appartiene
+  // all'elenco di prima.
+  useEffect(() => {
+    setSelezionataId(null)
+    aggiornaConversazioni()
+  }, [archivio, aggiornaConversazioni])
 
   const caricaMessaggi = useCallback(async (id: string) => {
     try {
@@ -394,30 +445,44 @@ export function Inbox({
   }
 
   // ── Togliere una conversazione dall'inbox ──
-  // Archivia = sparisce e resta; Elimina = via davvero, messaggi compresi.
+  // Archivia = sparisce e resta (e si riporta indietro dall'archivio);
+  // Elimina = via davvero, messaggi compresi.
   const [inCorsoTogli, setInCorsoTogli] = useState(false)
 
-  async function archivia() {
-    if (!selezionataId || inCorsoTogli) return
+  /** Sparisce dall'elenco che stiamo guardando e la selezione si libera. */
+  function togliDallElenco(id: string) {
+    setConversazioni((prec) => prec.filter((c) => c.id !== id))
+    setSelezionataId((prec) => (prec === id ? null : prec))
+  }
+
+  async function archivia(id: string, archiviata = true) {
+    if (inCorsoTogli) return
     setInCorsoTogli(true)
     try {
-      await fetch(`/api/conversazioni/${selezionataId}`, {
+      const res = await fetch(`/api/conversazioni/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ archiviata: true }),
+        body: JSON.stringify({ archiviata }),
       })
-      setConversazioni((prec) => prec.filter((c) => c.id !== selezionataId))
-      setSelezionataId(null)
+      if (!res.ok) {
+        setErroreInvio(archiviata ? 'Archiviazione non riuscita.' : 'Non è tornata in inbox.')
+        return
+      }
+      togliDallElenco(id)
+      setQuanteArchiviate((n) => Math.max(0, n + (archiviata ? 1 : -1)))
+    } catch {
+      setErroreInvio('Operazione non riuscita: problema di rete.')
     } finally {
       setInCorsoTogli(false)
     }
   }
 
-  async function elimina() {
-    if (!selezionata || inCorsoTogli) return
+  async function elimina(id: string) {
+    if (inCorsoTogli) return
+    const c = conversazioni.find((x) => x.id === id)
     // La conferma sta QUI, davanti al gesto: il messaggio dice cosa se ne va e
     // che non torna. Un «sei sicuro?» generico non è una conferma.
-    const chi = selezionata.nomeRubrica || selezionata.nome || selezionata.idEsterno
+    const chi = c ? c.nomeRubrica || c.nome || c.idEsterno : 'questa conversazione'
     if (
       !window.confirm(
         `Eliminare la conversazione con ${chi}?\n\nSpariscono anche tutti i suoi messaggi, e non si torna indietro. Per toglierla dall'elenco senza cancellarla, usa Archivia.`
@@ -427,13 +492,13 @@ export function Inbox({
     }
     setInCorsoTogli(true)
     try {
-      const res = await fetch(`/api/conversazioni/${selezionata.id}`, { method: 'DELETE' })
+      const res = await fetch(`/api/conversazioni/${id}`, { method: 'DELETE' })
       if (!res.ok) {
         setErroreInvio('Eliminazione non riuscita.')
         return
       }
-      setConversazioni((prec) => prec.filter((c) => c.id !== selezionata.id))
-      setSelezionataId(null)
+      togliDallElenco(id)
+      if (archivio) setQuanteArchiviate((n) => Math.max(0, n - 1))
     } catch {
       setErroreInvio('Eliminazione non riuscita: problema di rete.')
     } finally {
@@ -534,13 +599,29 @@ export function Inbox({
   }
 
   function riga(c: ConversazioneDto) {
+    function apri() {
+      setSelezionataId(c.id)
+      setErroreInvio('')
+    }
     return (
-      <button
+      /**
+       * ⚠️ Un `div` con `role="button"`, non un `<button>`: dentro ci stanno le
+       * iconcine di archiviazione, e un bottone dentro un bottone è HTML non
+       * valido (i browser lo "riparano" sputando fuori i figli, e la riga si
+       * scompone). `tabIndex` + Invio/Spazio perché una riga cliccabile che la
+       * tastiera non raggiunge è un bottone solo per il mouse.
+       */
+      <div
         key={c.id}
+        role="button"
+        tabIndex={0}
         className={`riga-conversazione${c.id === selezionataId ? ' selezionata' : ''}`}
-        onClick={() => {
-          setSelezionataId(c.id)
-          setErroreInvio('')
+        onClick={apri}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            apri()
+          }
         }}
       >
         <span className="testata">
@@ -568,7 +649,50 @@ export function Inbox({
           <span className="testo">{c.ultimoTesto}</span>
           {c.nonLetti > 0 ? <span className="pill-nonletti">{c.nonLetti}</span> : null}
         </span>
-      </button>
+
+        {/* Le due azioni che si fanno di continuo, senza aprire niente.
+            ⚠️ `stopPropagation`: senza, archiviare aprirebbe anche il thread di
+            una conversazione che sta sparendo. */}
+        <span className="azioni-riga">
+          {archivio ? (
+            <button
+              aria-label="Riporta in inbox"
+              title="Riporta in posta in arrivo"
+              onClick={(e) => {
+                e.stopPropagation()
+                archivia(c.id, false)
+              }}
+              disabled={inCorsoTogli}
+            >
+              <IconaRiporta />
+            </button>
+          ) : (
+            <button
+              aria-label="Archivia"
+              title="Archivia: sparisce dall'elenco ma resta salvata"
+              onClick={(e) => {
+                e.stopPropagation()
+                archivia(c.id)
+              }}
+              disabled={inCorsoTogli}
+            >
+              <IconaArchivia />
+            </button>
+          )}
+          <button
+            className="pericolo"
+            aria-label="Elimina"
+            title="Elimina la conversazione e tutti i suoi messaggi"
+            onClick={(e) => {
+              e.stopPropagation()
+              elimina(c.id)
+            }}
+            disabled={inCorsoTogli}
+          >
+            <IconaElimina />
+          </button>
+        </span>
+      </div>
     )
   }
 
@@ -577,6 +701,25 @@ export function Inbox({
     <div className={`inbox${aFinestra ? ' a-colonne' : ''}`}>
       <div className="elenco">
         <div className="barra-elenco">
+          {/* Le due linguette: posta in arrivo e archivio. Il numero
+              sull'archivio arriva sempre dal server, anche stando in arrivo:
+              «quante ne ho messe via» si vede senza dover cliccare. */}
+          <span className="linguette">
+            <button
+              className={archivio ? '' : 'attiva'}
+              onClick={() => setArchivio(false)}
+              title="Le conversazioni da lavorare"
+            >
+              In arrivo
+            </button>
+            <button
+              className={archivio ? 'attiva' : ''}
+              onClick={() => setArchivio(true)}
+              title="Quelle messe via: ci sono tutte e si riportano indietro"
+            >
+              Archiviate{quanteArchiviate ? ` ${quanteArchiviate}` : ''}
+            </button>
+          </span>
           <button className="bottone secondario mini" onClick={scaricaPosta} disabled={scaricoPosta === '…'}>
             {scaricoPosta === '…' ? 'Scarico posta…' : 'Scarica posta'}
           </button>
@@ -599,8 +742,9 @@ export function Inbox({
 
         {conversazioni.length === 0 ? (
           <div className="vuoto" style={{ padding: 30 }}>
-            Nessuna conversazione ancora. Quando un cliente scrive su WhatsApp, Messenger,
-            Instagram o dal widget del sito, appare qui.
+            {archivio
+              ? 'Archivio vuoto. Le conversazioni che archivi finiscono qui, e da qui si riportano indietro.'
+              : 'Nessuna conversazione ancora. Quando un cliente scrive su WhatsApp, Messenger, Instagram o dal widget del sito, appare qui.'}
           </div>
         ) : vista === 'elenco' ? (
           conversazioni.map(riga)
@@ -696,15 +840,19 @@ export function Inbox({
                 ) : null}
                 <button
                   className="bottone secondario mini"
-                  onClick={archivia}
+                  onClick={() => archivia(selezionata.id, !archivio)}
                   disabled={inCorsoTogli}
-                  title="Sparisce dall'elenco ma resta salvata"
+                  title={
+                    archivio
+                      ? 'Torna nella posta in arrivo'
+                      : "Sparisce dall'elenco ma resta salvata"
+                  }
                 >
-                  Archivia
+                  {archivio ? 'Riporta in inbox' : 'Archivia'}
                 </button>
                 <button
                   className="bottone secondario mini"
-                  onClick={elimina}
+                  onClick={() => elimina(selezionata.id)}
                   disabled={inCorsoTogli}
                   style={{ color: 'var(--red)' }}
                   title="Cancella la conversazione e tutti i suoi messaggi: non si torna indietro"

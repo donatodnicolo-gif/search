@@ -77,6 +77,25 @@ locale, altrimenti nulla si decifra.
   - Solo WhatsApp: su Instagram e Messenger l'id non è un numero di telefono e
     in rubrica non c'è niente da cercare.
 
+- **ICONCINE SULLA RIGA E LINGUETTA «ARCHIVIATE»** (29/07/2026). Archiviare
+  richiedeva di aprire la conversazione: per fare pulizia di 112 newsletter è
+  un clic di troppo per riga.
+  - Ogni riga ha ora **due iconcine in basso a destra**: archivia (o «riporta in
+    inbox», quando si è nell'archivio) ed elimina. Sempre visibili, smorzate —
+    un'azione che compare solo se la cerchi non è un'azione rapida. Le icone
+    sono SVG scritti nel componente: tre disegni non giustificano un pacchetto.
+  - **Linguette «In arrivo» / «Archiviate N»** in cima all'elenco. Il numero
+    dell'archivio arriva sempre dal server (`/api/conversazioni` lo torna anche
+    quando si guarda la posta in arrivo), così si sa quante se ne sono messe via
+    senza dover cliccare. `?archiviate=1` filtra al contrario, stesso
+    raggruppamento per marchio.
+  - ⚠️ **La riga è un `div role="button"`, non più un `<button>`**: le iconcine
+    sono bottoni, e un bottone dentro un bottone è HTML non valido — i browser
+    lo "riparano" buttando fuori i figli e la riga si scompone. Con
+    `tabIndex` + Invio/Spazio resta raggiungibile da tastiera.
+  - ⚠️ Sulle iconcine c'è `stopPropagation()`: senza, archiviare aprirebbe anche
+    il thread di una conversazione che sta sparendo.
+
 - **SI PUÒ TOGLIERE UNA CONVERSAZIONE DALL'INBOX** (29/07/2026). Nella testata
   del thread: **Archivia** (sparisce dall'elenco, resta nel database — è il
   gesto giusto per la pubblicità) e **Elimina** (cancella la conversazione **e
