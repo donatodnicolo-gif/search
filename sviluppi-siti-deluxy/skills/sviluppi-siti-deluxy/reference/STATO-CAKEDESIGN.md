@@ -290,6 +290,11 @@ data in memoria è troppo vicina, e le regole di taglio orario sono coerenti. Il
 Percorso completo da cliente: scegliere una torta, personalizzarla col wizard, chiederla per
 **domenica 2 agosto 2026**, dedica, fino alla soglia del pagamento (nessun ordine).
 
+> ⚠️ **Quanto sotto viene da un agente e solo in parte è stato ricontrollato a mano.** Un
+> difetto (N5, «il wizard non si apre su Dot Cake») si è rivelato **falso** alla riprova: era
+> l'app delle opzioni non ancora caricata. Prima di aprire un intervento su una di queste voci,
+> riprovarla di persona — soprattutto quelle senza una prova numerica allegata.
+
 **Esito: si compra, a 210,00 € — ma solo correggendo la data a mano.** Celebration Pink 190 € +
 20 € di frutta esotica, fascia 16-20, domenica confermata al checkout. La domenica **è**
 consegnabile e il calendario del wizard propone correttamente il 2 agosto.
@@ -314,7 +319,7 @@ consegnabile e il calendario del wizard propone correttamente il 2 agosto.
 | N1 | La data del wizard non arriva al carrello (2/8 → `2026-07-31`) | **Critica** |
 | N2 | Il carrello propone come prima data il 31/7, sotto il `minDate` del suo datepicker e sotto il preavviso del prodotto | **Critica** |
 | N3 | Tornando su `/cart` la fascia oraria non è ripristinata e «COMPLETA IL TUO ACQUISTO» **resta muto** finché non la si riseleziona | Alta |
-| N5 | Su **Dot Cake** «CREA LA TUA TORTA» non apre nessun wizard: esce solo il pannello contatti (l'app opzioni non carica, `#ez-ds-option-widget` mai creato) | Alta |
+| ~~N5~~ | ~~Su Dot Cake «CREA LA TUA TORTA» non apre nessun wizard~~ — **FALSO, ritirato il 30/7**. Ricontrollato a mano su `/products/dot-cake`: `#ez-ds-option-widget`, `.all-wrpp-varit` e `#nextStep` esistono **già prima del click**, e `#ai_cake_button` non apre il pannello contatti. L'agente ha misurato mentre l'app delle opzioni non era ancora caricata e ha scambiato la lentezza per un'assenza. **Su quella app aspettare non basta: va aspettato l'elemento.** | — |
 | N4 | I 22 spazi del bigliettino rientrano dopo il ricaricamento e finiscono nell'ordine | Media |
 | N6 | Il sito riscrive `user_lang='en'` e rimanda su `/en` anche dopo averlo messo a `it` | Media |
 | N7 | Al checkout «Subtotale · **21 articoli**» per una torta sola (l'Extra vale 20 unità) | Media |
