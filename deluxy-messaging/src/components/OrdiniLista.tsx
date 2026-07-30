@@ -54,6 +54,11 @@ type OrdineDto = {
   // e "non indicata" è una risposta, inventarla no.
   dataConsegna: string | null
   fasciaConsegna: string
+  /**
+   * Se quel cliente ci ha gia' scritto — e se aspetta ancora una risposta.
+   * Si collega per numero d'ordine citato nella mail, per email o per telefono.
+   */
+  messaggi: { quanti: number; nonLetti: number } | null
 }
 
 /**
@@ -193,6 +198,31 @@ function SegnoBiglietto() {
  */
 function haProblemaConsegna(o: OrdineDto): boolean {
   return !o.dataConsegna && Boolean(o.fasciaConsegna?.trim())
+}
+
+/**
+ * Quel cliente ci ha scritto.
+ *
+ * ⚠️ Non è un dettaglio estetico: rispondere a un ordine senza sapere che il
+ * cliente ha già scritto vuol dire richiedergli quello che ha già detto, o
+ * chiamarlo per una cosa che aveva spiegato per iscritto. E se i messaggi non
+ * letti sono più di zero, quell'ordine ha qualcuno che **aspetta**: si vede in
+ * oro, come i non letti dell'inbox.
+ */
+function SegnoMessaggi({ messaggi }: { messaggi: { quanti: number; nonLetti: number } | null }) {
+  if (!messaggi?.quanti) return null
+  return (
+    <span
+      className={`badge segno-messaggi${messaggi.nonLetti ? ' aspetta' : ''}`}
+      title={
+        messaggi.nonLetti
+          ? `${messaggi.nonLetti} messaggi non letti di questo cliente: apri l'ordine per leggerli e rispondere`
+          : `${messaggi.quanti} conversazion${messaggi.quanti === 1 ? 'e' : 'i'} con questo cliente`
+      }
+    >
+      ✉ {messaggi.nonLetti || messaggi.quanti}
+    </span>
+  )
 }
 
 function BollinoProblema() {
@@ -1069,6 +1099,9 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
                             <BollinoNuovo />
                           ) : null}
                           {o.haBiglietto ? <SegnoBiglietto /> : null}
+                          {/* Il cliente ci ha scritto: in oro se aspetta ancora
+                              una risposta. */}
+                          <SegnoMessaggi messaggi={o.messaggi} />
                           <ProfiloCliente numeroOrdine={o.clienteNumeroOrdine} />
                           <TipoCliente tipo={o.clienteTipo} da={o.clienteTipoDa} />
                           <span

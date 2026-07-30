@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { MessaggiOrdine } from './MessaggiOrdine'
 import { coloreGestione, nomeGestione } from '@/lib/gestione'
 import { coloreTipoCliente, nomeTipoCliente } from '@/lib/clienti-tipo'
 import { fasciaRitiro, messaggioFornitore } from '@/lib/ritiro'
@@ -496,6 +497,11 @@ export function DettaglioOrdine({
                 ) : null}
               </p>
             </div>
+
+            {/* Cosa si sono detti: mail e chat collegate a questo ordine, con la
+                risposta a portata di mano. Uscire, cercare la conversazione in
+                Inbox e tornare indietro è il modo migliore per non rispondere. */}
+            <MessaggiOrdine ordineId={ordine.id} />
 
             {/* I dati dell'ordine. */}
             <div className="card">

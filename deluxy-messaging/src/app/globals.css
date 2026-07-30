@@ -2946,3 +2946,102 @@ td .azioni-ordine {
   color: #fff;
   border-color: transparent;
 }
+
+/* ---- Messaggi collegati a un ordine ---- */
+
+/* «✉ 2» sulla scheda dell'ordine: in oro quando qualcuno aspetta ancora. */
+.segno-messaggi {
+  white-space: nowrap;
+}
+
+.segno-messaggi.aspetta {
+  color: var(--gold);
+  border-color: var(--gold);
+  font-weight: 600;
+}
+
+.conversazione-ordine {
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-m);
+  padding: 10px 12px;
+  margin-bottom: 10px;
+}
+
+.conversazione-ordine .testa {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+  font-size: 13.5px;
+}
+
+.conversazione-ordine .testa .btn {
+  margin-left: auto;
+}
+
+.conversazione-ordine .battute {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 260px;
+  overflow-y: auto;
+  margin-bottom: 8px;
+}
+
+.conversazione-ordine .battuta {
+  padding: 7px 10px;
+  border-radius: var(--radius-m);
+  font-size: 13px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: var(--fill);
+}
+
+/* Le nostre risposte a destra, come in chat: si legge chi ha detto cosa senza
+   dover cercare il nome. */
+.conversazione-ordine .battuta.nostra {
+  background: var(--ink);
+  color: #fff;
+  align-self: flex-end;
+  max-width: 85%;
+}
+
+.conversazione-ordine .battuta.sua {
+  align-self: flex-start;
+  max-width: 85%;
+}
+
+.conversazione-ordine .battuta .oggetto {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.conversazione-ordine .battuta .quando {
+  display: block;
+  font-size: 11px;
+  opacity: 0.6;
+  margin-top: 3px;
+}
+
+.conversazione-ordine .rispondi {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.conversazione-ordine .rispondi textarea {
+  flex: 1;
+  resize: vertical;
+  padding: 8px 11px;
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-m);
+  font: inherit;
+  font-size: 13px;
+}
+
+.conversazione-ordine .rispondi textarea:focus {
+  outline: none;
+  border-color: var(--blue);
+}

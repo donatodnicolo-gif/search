@@ -77,6 +77,29 @@ locale, altrimenti nulla si decifra.
   - Solo WhatsApp: su Instagram e Messenger l'id non è un numero di telefono e
     in rubrica non c'è niente da cercare.
 
+- **GLI ORDINI MOSTRANO SE IL CLIENTE HA SCRITTO, E SI RISPONDE DA LÌ**
+  (30/07/2026). Rispondere a un ordine senza sapere che quel cliente ha già
+  scritto vuol dire richiedergli quello che ha già detto — o chiamarlo per una
+  cosa che aveva spiegato per iscritto.
+  - Sulla scheda dell'ordine compare **«✉ 2»**, in **oro quando ci sono messaggi
+    non letti**: quell'ordine ha qualcuno che aspetta.
+  - Nella scheda laterale, riquadro **«Messaggi del cliente»**: le conversazioni
+    collegate con le ultime sei battute e un riquadro per **rispondere** senza
+    uscire — la risposta passa dalla stessa rotta dell'Inbox, quindi esce dal
+    canale giusto e dall'account che aveva ricevuto.
+  - ⚠️ **Come si collega un ordine a una conversazione**, in ordine di certezza:
+    il **numero d'ordine** scritto sulla conversazione (lo mette lo smistamento
+    delle mail), l'**email**, il **telefono** (coda di 9 cifre, perché lo stesso
+    numero gira come `349…` e come `39349…`). **Mai per nome**: due clienti
+    possono chiamarsi uguale, e mostrare la conversazione di un'altra persona
+    sotto l'ordine sbagliato è peggio che non mostrare niente. Il riquadro dice
+    anche **come** è collegata («cita questo ordine» / «stessa email»).
+  - ⚠️ In elenco i collegamenti si calcolano con **due query per tutta la
+    pagina**, non una per ordine: con 200 ordini a schermo sarebbero 200 andate
+    e ritorni al database a ogni caricamento della bacheca.
+  - Misurato il 30/07: 17 conversazioni con un numero d'ordine, 9 mail che
+    combaciano con l'email di un ordine, 5 chat WhatsApp da confrontare.
+
 - **LINK RAPIDI NEL WIDGET: «Come ti aiutiamo?» → «Regali per oggi»**
   (30/07/2026). Sotto il saluto compaiono le opzioni, e ognuna porta a una
   pagina del sito: chi apre la chat vuole spesso una cosa che il sito ha già, e

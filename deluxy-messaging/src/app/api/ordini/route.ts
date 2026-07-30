@@ -4,6 +4,7 @@ import { db } from '@/lib/db'
 import { googleAccessToken } from '@/lib/contatti'
 import { brandRicercaDaNegozio } from '@/lib/negozi'
 import { ultimoImportOrders } from '@/lib/orders'
+import { ordiniConMessaggi } from '@/lib/messaggi-ordine'
 import { inizioDomani, inizioOggi, limiteCalde } from '@/lib/urgenza'
 
 export const dynamic = 'force-dynamic'
@@ -202,8 +203,16 @@ export async function GET(req: NextRequest) {
     valore: statistiche[n.id]?.valore ?? 0,
   }))
 
+  // Quali ordini hanno messaggi: due query per tutta la lista, non una per
+  // ordine — con 200 ordini a schermo sarebbero 200 andate e ritorni al
+  // database a ogni caricamento della bacheca.
+  const messaggiPerOrdine = await ordiniConMessaggi(
+    ordini.map((o) => ({ id: o.id, numero: o.numero, email: o.email, telefono: o.telefono }))
+  )
+
   return NextResponse.json({
-    ordini,
+    // Se quel cliente ci ha scritto, e se aspetta ancora una risposta.
+    ordini: ordini.map((o) => ({ ...o, messaggi: messaggiPerOrdine.get(o.id) ?? null })),
     totale, // quanti corrispondono in tutto (la lista è tagliata a 200)
     negozi,
     googleCollegato: !!token,
