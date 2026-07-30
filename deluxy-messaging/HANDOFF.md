@@ -77,6 +77,22 @@ locale, altrimenti nulla si decifra.
   - Solo WhatsApp: su Instagram e Messenger l'id non è un numero di telefono e
     in rubrica non c'è niente da cercare.
 
+- **LA CHAT SI APRE DA UN LINK CHE C'È GIÀ SUL SITO** (30/07/2026). Sui siti la
+  voce «Live Chat» del menu contatti esiste già e punta a un servizio esterno
+  (`<a class="dialogify" href="https://chatting.page/…">`). Ora quel link può
+  aprire la nostra chat senza mettere le mani nel tema: nello snippet
+  **`data-apri-da="a.dialogify"`** (più selettori separati da virgola), e
+  **`data-bottone="no"`** per togliere il bottone tondo quando quel punto
+  d'ingresso basta. Si configurano per sito in «Widget dei siti»
+  (`WidgetSito.selettoreApri`, `mostraBottone`).
+  - ⚠️ Il clic si ascolta **sul documento**, non sull'elemento: i menu dei temi
+    Shopify si costruiscono con JavaScript e quel link spesso non esiste ancora
+    quando parte lo script. Con la delega funziona anche se compare dopo, e per
+    tutti gli elementi che combaciano.
+  - Un selettore scritto male non rompe il sito ospite: `closest()` sta in un
+    `try` e in caso di errore il clic prosegue come prima.
+  - Da codice resta `window.DeluxyChat.apri()` (già presente).
+
 - **LE MAIL D'ORDINE SI SMISTANO PER SITO, E IL TOKEN INSTAGRAM SI RINNOVA DA SÉ**
   (30/07/2026).
   - ⚠️ **Le notifiche d'ordine dei tre siti arrivano tutte sulla stessa casella**:

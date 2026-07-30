@@ -195,9 +195,47 @@
     eAperta: function () { return aperto; },
   };
 
+  // ── Aprire la chat da un elemento CHE C'È GIÀ SUL SITO ───────────────────
+  //
+  // Caso reale: nel menu contatti c'è già una voce «Live Chat» che punta a un
+  // servizio esterno — `<a class="dialogify" href="https://chatting.page/…">`.
+  // Cambiare quel link vorrebbe dire mettere le mani nel tema; con
+  // `data-apri-da="a.dialogify"` invece la stessa voce apre la nostra chat e
+  // basta lo snippet.
+  //
+  // ⚠️ Il click si ascolta sul DOCUMENTO, non sull'elemento: i menu dei temi
+  // Shopify si costruiscono con JavaScript e spesso quel link non esiste ancora
+  // quando questo script parte. Con la delega funziona anche se compare dopo, e
+  // funziona per tutti gli elementi che combaciano, non solo per il primo.
+  var selettoreApri = dato('apri-da', '');
+  if (selettoreApri) {
+    document.addEventListener(
+      'click',
+      function (ev) {
+        var partenza = ev.target;
+        if (!partenza || !partenza.closest) return;
+        var bersaglio;
+        try {
+          bersaglio = partenza.closest(selettoreApri);
+        } catch (e) {
+          return; // selettore scritto male: non si rompe il sito per un refuso
+        }
+        if (!bersaglio) return;
+        // `preventDefault` perché quel link porterebbe altrove — è il punto:
+        // il visitatore resta sulla pagina e la chat si apre qui.
+        ev.preventDefault();
+        apri(true);
+      },
+      true
+    );
+  }
+
   dentro.appendChild(stile);
   dentro.appendChild(iframe);
-  dentro.appendChild(bottone);
+  // Il bottone flottante si può togliere: se la chat si apre dalla voce di menu
+  // che c'era già, due punti d'ingresso sono uno di troppo — e in fondo a destra
+  // c'è spesso già il carrello o il consenso ai cookie.
+  if (String(dato('bottone', 'si')).toLowerCase() !== 'no') dentro.appendChild(bottone);
 
   function monta() {
     document.body.appendChild(ospite);

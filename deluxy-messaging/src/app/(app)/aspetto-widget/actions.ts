@@ -19,6 +19,8 @@ export async function salvaAspettoSito(formData: FormData) {
     etichetta: String(formData.get('etichetta') ?? ''),
     titolo: String(formData.get('titolo') ?? ''),
     saluto: String(formData.get('saluto') ?? ''),
+    selettoreApri: String(formData.get('selettoreApri') ?? ''),
+    mostraBottone: String(formData.get('mostraBottone') ?? '1') !== '0',
   })
 
   revalidatePath('/aspetto-widget')

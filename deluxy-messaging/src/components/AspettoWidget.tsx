@@ -49,6 +49,8 @@ export function AspettoWidget({
   const [etichetta, setEtichetta] = useState(sito?.etichetta ?? '')
   const [titolo, setTitolo] = useState(sito?.titolo ?? '')
   const [saluto, setSaluto] = useState(sito?.saluto ?? '')
+  const [selettoreApri, setSelettoreApri] = useState(sito?.selettoreApri ?? '')
+  const [mostraBottone, setMostraBottone] = useState(sito?.mostraBottone ?? true)
   const [copiato, setCopiato] = useState(false)
 
   // Cambiando sito i campi si ricaricano da quel sito: senza, si finiva a
@@ -63,6 +65,8 @@ export function AspettoWidget({
     setEtichetta(s.etichetta)
     setTitolo(s.titolo)
     setSaluto(s.saluto)
+    setSelettoreApri(s.selettoreApri)
+    setMostraBottone(s.mostraBottone)
   }
 
   const accentoValido = /^#[0-9a-f]{6}$/i.test(accento)
@@ -77,9 +81,24 @@ export function AspettoWidget({
     if (accentoValido) attributi.push(`data-accento="${accento.toLowerCase()}"`)
     if (posizione !== 'destra') attributi.push(`data-posizione="${posizione}"`)
     if (etichetta.trim()) attributi.push(`data-etichetta="${etichetta.trim().replace(/"/g, '')}"`)
+    // Il punto d'ingresso che c'è già sul sito, e il bottone flottante che si
+    // può togliere quando quel punto basta.
+    if (selettoreApri.trim())
+      attributi.push(`data-apri-da="${selettoreApri.trim().replace(/"/g, '')}"`)
+    if (!mostraBottone) attributi.push('data-bottone="no"')
     if (attributi.length) righe.push('        ' + attributi.join(' '))
     return righe.join('\n') + '></script>'
-  }, [origine, slug, tema, accento, accentoValido, posizione, etichetta])
+  }, [
+    origine,
+    slug,
+    tema,
+    accento,
+    accentoValido,
+    posizione,
+    etichetta,
+    selettoreApri,
+    mostraBottone,
+  ])
 
   const titoloAnteprima = titolo || sito?.nome || 'Deluxy'
   const urlAnteprima = useMemo(() => {
@@ -132,6 +151,7 @@ export function AspettoWidget({
         <input type="hidden" name="accento" value={accento} />
         <input type="hidden" name="posizione" value={posizione} />
         <input type="hidden" name="etichetta" value={etichetta} />
+        <input type="hidden" name="mostraBottone" value={mostraBottone ? '1' : '0'} />
 
         <div className="card" style={{ marginBottom: 14 }}>
           <h2 style={{ marginTop: 0, fontSize: 16 }}>Tema</h2>
@@ -220,6 +240,47 @@ export function AspettoWidget({
             {accento && !accentoValido ? (
               <strong> Adesso non è valido: serve un # e sei cifre.</strong>
             ) : null}
+          </p>
+        </div>
+
+        {/* ⚠️ Aprire la chat da un elemento CHE C'È GIÀ. Nei siti la voce «Live
+            Chat» del menu contatti spesso esiste e punta a un servizio esterno
+            (`<a class="dialogify" href="https://chatting.page/…">`): con il suo
+            selettore diventa il punto d'ingresso della nostra chat, senza mettere
+            le mani nel tema. */}
+        <div className="card" style={{ marginBottom: 14 }}>
+          <h2 style={{ marginTop: 0, fontSize: 16 }}>Aprire la chat da un link del sito</h2>
+          <p className="descrizione">
+            Se sul sito c&apos;è già una voce «Live Chat» — o un bottone in una landing — puoi farla
+            aprire questa chat: scrivi qui il suo <strong>selettore CSS</strong>. Il link non porterà
+            più fuori dal sito. Esempio, per la voce che punta a chatting.page:{' '}
+            <code>a.dialogify</code>. Più selettori si separano con la virgola.
+          </p>
+          <label className="campo">
+            <span>Selettore dell&apos;elemento che apre la chat (facoltativo)</span>
+            <input
+              name="selettoreApri"
+              value={selettoreApri}
+              onChange={(e) => setSelettoreApri(e.target.value)}
+              placeholder="a.dialogify, .apri-chat"
+              spellCheck={false}
+              maxLength={120}
+            />
+          </label>
+          <label
+            style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13, marginTop: 4 }}
+          >
+            <input
+              type="checkbox"
+              checked={mostraBottone}
+              onChange={(e) => setMostraBottone(e.target.checked)}
+            />
+            Mostra anche il bottone tondo in basso
+          </label>
+          <p className="cella-sub" style={{ marginBottom: 0, marginTop: 6 }}>
+            Se la chat si apre dal menu, il bottone tondo si può togliere: in basso a destra c&apos;è
+            spesso già il carrello o il banner dei cookie. Da codice la chat si apre anche con{' '}
+            <code>window.DeluxyChat.apri()</code>.
           </p>
         </div>
 

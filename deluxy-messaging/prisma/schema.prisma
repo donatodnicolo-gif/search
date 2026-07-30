@@ -464,6 +464,12 @@ model WidgetSito {
   accento   String  @default("") // #rrggbb, vuoto = quello del tema
   posizione String  @default("destra")
   etichetta String  @default("") // il testo accanto al bottone
+  // Il selettore CSS di un elemento CHE C'E' GIA' sul sito (la voce «Live Chat»
+  // del menu): cliccandolo si apre la nostra chat, senza toccare il tema.
+  selettoreApri String @default("")
+  // Il bottone flottante si puo' togliere: se la chat si apre dal menu, due
+  // punti d'ingresso sono uno di troppo.
+  mostraBottone Boolean @default(true)
   // Testi della chat: se vuoti valgono quelli generali delle Impostazioni.
   titolo    String  @default("")
   saluto    String  @default("") @db.Text

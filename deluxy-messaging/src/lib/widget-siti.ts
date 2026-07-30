@@ -21,6 +21,14 @@ export type AspettoSito = {
   etichetta: string
   titolo: string
   saluto: string
+  /**
+   * Il selettore CSS di un elemento CHE C'È GIÀ sul sito — la voce «Live Chat»
+   * del menu contatti — che deve aprire la nostra chat. Vuoto = solo il bottone
+   * flottante.
+   */
+  selettoreApri: string
+  /** Il bottone flottante in basso: si toglie quando si apre dal menu. */
+  mostraBottone: boolean
 }
 
 export type SitoWidget = AspettoSito & {
@@ -53,6 +61,8 @@ const PROPOSTE: Record<string, AspettoSito & { nome: string; dominio: string; ne
     titolo: 'Deluxy',
     saluto:
       'Buongiorno, sono il servizio clienti Deluxy. Mi dica pure che sorpresa ha in mente e la seguo io.',
+    selettoreApri: '',
+    mostraBottone: true,
   },
   flowers: {
     nome: 'Deluxy Flowers',
@@ -67,6 +77,8 @@ const PROPOSTE: Record<string, AspettoSito & { nome: string; dominio: string; ne
     titolo: 'Deluxy Flowers',
     saluto:
       'Buongiorno, siamo l’atelier Deluxy Flowers. Ci racconti l’occasione e le proponiamo una creazione su misura.',
+    selettoreApri: '',
+    mostraBottone: true,
   },
   cake: {
     nome: 'Cakedesign',
@@ -81,6 +93,10 @@ const PROPOSTE: Record<string, AspettoSito & { nome: string; dominio: string; ne
     titolo: 'Cakedesign',
     saluto:
       'Ciao! Raccontaci che torta hai in mente — anche solo un’idea — e ti aiutiamo a realizzarla 🎂',
+    // Il menu contatti di cakedesign.me ha già la voce «Live Chat» che punta a
+    // un servizio esterno: con questo selettore apre la nostra.
+    selettoreApri: 'a.dialogify',
+    mostraBottone: true,
   },
 }
 
@@ -92,6 +108,8 @@ export const ASPETTO_NEUTRO: AspettoSito = {
   etichetta: '',
   titolo: 'Deluxy',
   saluto: 'Buongiorno, come possiamo aiutarla?',
+  selettoreApri: '',
+  mostraBottone: true,
 }
 
 /**
@@ -129,6 +147,8 @@ export async function sitiWidget(): Promise<SitoWidget[]> {
         etichetta: s.etichetta,
         titolo: s.titolo,
         saluto: s.saluto,
+        selettoreApri: s.selettoreApri,
+        mostraBottone: s.mostraBottone,
         proposto: false,
       })
     } else {
@@ -144,6 +164,8 @@ export async function sitiWidget(): Promise<SitoWidget[]> {
         etichetta: p.etichetta,
         titolo: p.titolo,
         saluto: p.saluto,
+        selettoreApri: p.selettoreApri,
+        mostraBottone: p.mostraBottone,
         proposto: true,
       })
     }
@@ -164,6 +186,8 @@ export async function sitiWidget(): Promise<SitoWidget[]> {
       etichetta: s.etichetta,
       titolo: s.titolo,
       saluto: s.saluto,
+      selettoreApri: s.selettoreApri,
+      mostraBottone: s.mostraBottone,
       proposto: false,
     })
   }
@@ -184,6 +208,8 @@ export async function aspettoDelSito(slug: string): Promise<AspettoSito | null> 
       etichetta: salvato.etichetta,
       titolo: salvato.titolo,
       saluto: salvato.saluto,
+      selettoreApri: salvato.selettoreApri,
+      mostraBottone: salvato.mostraBottone,
     }
   }
   // Non salvato ma conosciuto: vale la proposta. Meglio il widget giusto di un
@@ -214,6 +240,8 @@ export async function salvaSitoWidget(dati: {
   etichetta: string
   titolo: string
   saluto: string
+  selettoreApri: string
+  mostraBottone: boolean
 }): Promise<void> {
   const slug = normalizzaSlug(dati.slug)
   if (!slug) return
@@ -229,6 +257,10 @@ export async function salvaSitoWidget(dati: {
     etichetta: dati.etichetta.trim().slice(0, 40),
     titolo: dati.titolo.trim().slice(0, 60),
     saluto: dati.saluto.trim().slice(0, 400),
+    // Il selettore finisce in un attributo HTML dello snippet: le virgolette
+    // doppie lo spezzerebbero a metà.
+    selettoreApri: dati.selettoreApri.trim().replace(/"/g, '').slice(0, 120),
+    mostraBottone: dati.mostraBottone !== false,
     attivo: true,
   }
   await db.widgetSito.upsert({ where: { slug }, update: base, create: { slug, ...base } })
