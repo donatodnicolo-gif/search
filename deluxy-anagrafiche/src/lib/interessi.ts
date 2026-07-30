@@ -35,10 +35,14 @@ export function coloreInteresse(nome: string): string {
   return PALETTE_INTERESSE[h % PALETTE_INTERESSE.length];
 }
 
-// Linee che indicano affiliato/reseller (per il nome in rubrica Google:
-// a questi si aggiunge la provincia).
+// Linee che indicano affiliato/reseller: sono i partner che servono davvero le
+// consegne D2C, quindi quelli che hanno una pagella (vedi la pagina /affiliati)
+// e a cui arrivano i giudizi dai reclami di Customer Service. Serve anche al
+// nome in rubrica Google, dove a questi si aggiunge la provincia.
+export const INTERESSI_AFFILIAZIONE = ["Affiliazioni", "Re-seller"] as const;
+
 export function eAffiliatoReseller(interessi: string[]): boolean {
-  return interessi.includes("Affiliazioni") || interessi.includes("Re-seller");
+  return interessi.some((i) => (INTERESSI_AFFILIAZIONE as readonly string[]).includes(i));
 }
 
 // ————————————————————— Regola: chi entra dai fornitori è affiliato —————————————————————

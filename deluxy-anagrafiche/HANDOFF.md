@@ -248,6 +248,14 @@ Ogni scrittura via API è un **merge governato per campo**, mai una sostituzione
   `aggiornaPartner` chiama `propagaDatiFinanziari` che li copia su tutte le sedi (updateMany).
   Compili una volta su una sede → valgono per Milano/Roma/Capri. NON condivisi: ragioneSociale,
   indirizzo, città, telefono/email, stato, interessi, referenti (restano per-sede).
+- **`/affiliati`** — **pagella di affiliati e re-seller (30/07/2026)**: sono loro a servire le
+  consegne D2C, quindi sono loro ad avere un voto. Popolazione = anagrafiche attive con linea
+  **Affiliazioni** o **Re-seller** (`INTERESSI_AFFILIAZIONE` in `src/lib/interessi.ts`, unica
+  definizione usata anche da `eAffiliatoReseller`). KPI (quanti sono · quanti hanno una pagella ·
+  quanti critici), tabella **dal peggiore al migliore con i mai valutati in fondo**
+  (`votoD2C asc nulls last`: chi non ha giudizi non è il problema più grave), e **Ultimi reclami
+  arrivati** con casistica, gravità, se è risolto, ordine e app che l'ha mandato.
+  Voce «Affiliati e re-seller» nella sezione Registro della sidebar, col conteggio.
 - **`/chiavi`** — **gestione delle chiavi API dalla UI (29/07/2026)**: chi chiama il registro, con
   che permessi, quando l'abbiamo visto l'ultima volta. Prima si potevano creare solo da terminale
   (`npm run chiave`): ora si **aggiungono, si tolgono e si cambia loro tipologia** senza terminale,
@@ -386,6 +394,24 @@ trovano un match nel registro. Lato registro misurato: 578 attivi, 316 boutique,
    - **statoFinanziario: ancora manuale.** Nessuna app lo scrive: manca la regola che, dai dati
      di FINANCE (fatture scadute, piano di rientro `pdrDebito`, insoluti), decida
      regolare/in_ritardo/insoluto/piano_di_rientro/bloccato. Oggi si cura dalla UI del registro.
+5b. **Reclami di Customer Service → voto (30/07/2026, FATTO lato registro)**: `POST /api/v1/feedback`
+   accetta il reclamo **così com'è** — `gravita` (1 lieve · 2 media · 3 grave) + `stato`
+   (aperto·in_lavorazione·risolto·chiuso) — e **il voto lo ricava il registro** con `votoDaReclamo`
+   (`src/lib/feedback-d2c.ts`), non l'app che manda: la regola sta in un posto solo.
+   Tabella: lieve 3/4 · media 2/3 · grave 1/2 (secondo valore = risolto). Due scelte dichiarate:
+   **rimediare conta** (+1 se chiuso, come Customer Service che dimezza il peso dei reclami
+   risolti) e **un reclamo non arriva mai a 5** (il 5 resta ai giudizi positivi).
+   Si conservano `gravita`, `reclamoRisolto` e `casistica` sul feedback: un voto va spiegato,
+   altrimenti sulla scheda resta «2 stelle» e nessuno sa perché. Alias accettati dai nomi di
+   Customer Service: `descrizione`/`esito`→commento, `ordineNumero`→ordine, `stato`→risolto.
+   **Aggiornare un reclamo non cancella più i campi non rispediti**: mandando solo
+   `idEsterno`+`stato` (il caso «ora è risolto»), ordine, autore e commento della prima chiamata
+   restano — prima l'upsert li azzerava in silenzio. Un reclamo che si risolve **alza** il voto
+   da sé, stesso `idEsterno`.
+   **Manca solo il lato Customer Service**: creare la chiave di tipologia «Feedback D2C» da
+   `/chiavi` e chiamare l'API quando un reclamo si chiude con `colpaTipo = "partner"`, mandando
+   `riferimento{sistema,idEsterno}` (o `partnerId`, che CS ha già in `colpaId`), `idEsterno` = id
+   del reclamo, `gravita`, `stato`, `casistica`, `ordineNumero`, `autore`.
 5. **Valutazione D2C — chi manda i feedback** (26/07/2026): l'impianto è pronto e vuoto
    (tabella, API, chiave dedicata, UI, inserimento manuale). I giudizi sono **solo interni**
    (deciso il 26/07/2026): niente recensioni pubbliche, niente moduli al cliente finale. Oggi

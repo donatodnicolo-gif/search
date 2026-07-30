@@ -65,6 +65,48 @@ export const ETICHETTE_MOTIVO: Record<string, string> = {
   conformita_ordine: "Conformità all'ordine",
 };
 
+// ————————————————— Reclami di Customer Service → voto —————————————————
+// Deluxy Customer Service non dà stelle: chiude un reclamo con una CASISTICA,
+// una GRAVITÀ (1 lieve · 2 media · 3 grave) e la colpa. Quando la colpa è del
+// partner, quel reclamo diventa un feedback qui — e il voto lo ricava il
+// registro, non l'app che manda: la regola sta in un posto solo, così due app
+// che segnalano lo stesso problema producono lo stesso voto.
+//
+// La tabella:
+//            aperto   risolto
+//   lieve       3        4
+//   media       2        3
+//   grave       1        2
+//
+// Due scelte dichiarate:
+//  - **rimediare conta**: un reclamo chiuso vale un punto in più, la stessa
+//    logica con cui Customer Service dimezza il peso dei reclami risolti;
+//  - **un reclamo non arriva mai a 5**: il 5 resta ai giudizi positivi, se no
+//    un partner con soli reclami lievi risolti risulterebbe eccellente.
+export const GRAVITA_RECLAMO = [1, 2, 3] as const;
+
+export const ETICHETTE_GRAVITA: Record<number, string> = {
+  1: "Lieve",
+  2: "Media",
+  3: "Grave",
+};
+
+export function gravitaValida(v: unknown): v is 1 | 2 | 3 {
+  return v === 1 || v === 2 || v === 3;
+}
+
+export function votoDaReclamo(gravita: 1 | 2 | 3, risolto: boolean): number {
+  const base = { 1: 3, 2: 2, 3: 1 }[gravita];
+  return risolto ? base + 1 : base;
+}
+
+// Gli stati di un reclamo in Customer Service: aperto · in_lavorazione ·
+// risolto · chiuso. Solo gli ultimi due sono "rimediato".
+export function reclamoRisolto(stato: unknown): boolean {
+  const s = String(stato ?? "").trim().toLowerCase();
+  return s === "risolto" || s === "chiuso";
+}
+
 // Fasce della valutazione: l'etichetta con cui si legge un voto medio.
 export const FASCE = [
   { min: 4.5, chiave: "eccellente", etichetta: "Eccellente", colore: "var(--green)" },
@@ -176,6 +218,9 @@ type FeedbackSerializzabile = {
   ordine: string | null;
   autore: string | null;
   commento: string | null;
+  gravita: number | null;
+  reclamoRisolto: boolean | null;
+  casistica: string | null;
   motivi: string[];
   dataFeedback: Date;
   creatoIl: Date;
@@ -195,6 +240,10 @@ export function serializzaFeedback(f: FeedbackSerializzabile) {
     ordine: f.ordine,
     autore: f.autore,
     commento: f.commento,
+    // Presenti quando il giudizio nasce da un reclamo: dicono da dove viene il voto.
+    gravita: f.gravita,
+    reclamoRisolto: f.reclamoRisolto,
+    casistica: f.casistica,
     motivi: f.motivi,
     dataFeedback: f.dataFeedback,
     creatoIl: f.creatoIl,

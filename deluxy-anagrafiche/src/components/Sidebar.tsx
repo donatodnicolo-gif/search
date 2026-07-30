@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { coloreInteresse } from "@/lib/interessi";
+import { INTERESSI_AFFILIAZIONE, coloreInteresse } from "@/lib/interessi";
 import { getLinee } from "@/lib/linee";
 import {
   COLORE_STATO,
@@ -33,6 +33,7 @@ export async function Sidebar({
   riconciliazioniAttive = false,
   identitaAttiva = false,
   chiaviAttive = false,
+  affiliatiAttivi = false,
 }: {
   categoriaAttiva?: string | null;
   statoAttivo?: string | null;
@@ -48,6 +49,7 @@ export async function Sidebar({
   riconciliazioniAttive?: boolean;
   identitaAttiva?: boolean;
   chiaviAttive?: boolean;
+  affiliatiAttivi?: boolean;
 }) {
   const [
     categorie,
@@ -85,6 +87,9 @@ export async function Sidebar({
   const disaccordi = await prisma.riconciliazione.count({ where: { stato: "aperta" } });
   // Chiavi che oggi autenticano davvero: le sospese non si contano.
   const chiaviAttiveConteggio = await prisma.apiKey.count({ where: { attiva: true } });
+  const affiliati = await prisma.partner.count({
+    where: { attivo: true, interessi: { hasSome: [...INTERESSI_AFFILIAZIONE] } },
+  });
   const totale = categorie.reduce((somma, c) => somma + c._count._all, 0);
   const perStato = new Map(statiConteggio.map((s) => [s.stato, s._count._all]));
   const perStatoFinanziario = new Map(statiFinanziariConteggio.map((s) => [s.statoFinanziario, s._count._all]));
@@ -92,7 +97,7 @@ export async function Sidebar({
   const perInteresse = new Map(interessiConteggio.map((i) => [i.interesse, Number(i.totale)]));
 
   const globaleAttiva =
-    !categoriaAttiva && !statoAttivo && !statoFinanziarioAttivo && !statoAnalisiAttivo && !interesseAttivo && !archivioAttivo && !hubspotAttivo && !dashboardAttiva && !matchAttivo && !contattiAttiva && !riconciliazioneAttiva && !identitaAttiva && !chiaviAttive;
+    !categoriaAttiva && !statoAttivo && !statoFinanziarioAttivo && !statoAnalisiAttivo && !interesseAttivo && !archivioAttivo && !hubspotAttivo && !dashboardAttiva && !matchAttivo && !contattiAttiva && !riconciliazioneAttiva && !identitaAttiva && !chiaviAttive && !affiliatiAttivi;
 
   return (
     <aside className="sidebar">
@@ -110,6 +115,13 @@ export async function Sidebar({
           <a className={`sb-item${contattiAttiva ? " attiva" : ""}`} href="/contatti">
             <span className="sb-icona"><IconaCategoria categoria="CONTATTI" /></span>
             <span className="sb-nome">Contatti</span>
+          </a>
+          {/* La pagella di chi serve le consegne D2C: i giudizi arrivano dai
+              reclami di Customer Service, e qui si legge chi lavora male. */}
+          <a className={`sb-item${affiliatiAttivi ? " attiva" : ""}`} href="/affiliati">
+            <span className="sb-icona"><IconaCategoria categoria="AFFILIATI" /></span>
+            <span className="sb-nome">Affiliati e re-seller</span>
+            <span className="sb-count">{affiliati}</span>
           </a>
         </SbSezione>
 

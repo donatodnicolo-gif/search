@@ -140,6 +140,13 @@ const GLIFI: Record<string, React.ReactNode> = {
       <path d="M10 12.5h4" {...TRATTO} />
     </>
   ),
+  // Stella in cerchio: la pagella degli affiliati e re-seller
+  AFFILIATI: (
+    <>
+      <circle cx="12" cy="12" r="8.5" {...TRATTO} />
+      <path d="m12 7.5 1.4 3 3.1.4-2.3 2.2.6 3.1-2.8-1.6-2.8 1.6.6-3.1L7.5 10.9l3.1-.4z" {...TRATTO} />
+    </>
+  ),
   // Chiave: accessi delle app alle API
   CHIAVI: (
     <>

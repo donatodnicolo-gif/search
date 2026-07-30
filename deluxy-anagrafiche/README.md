@@ -94,7 +94,35 @@ Ogni partner risponde con il blocco **`valutazioneD2C`**:
 - **`affidabile: false`** = sotto i 3 feedback: mostratelo come indicativo.
 - Filtri sull'elenco: `votoD2CMin`, `votoD2CMax`, `feedbackD2C=si|nessuno`.
 
-**Per mandare un feedback**: `POST /api/v1/feedback` con una chiave di
+### Reclami di Customer Service: mandate il reclamo, non il voto
+
+Se chiudete un reclamo con la colpa al partner, **non calcolate voi le stelle**:
+mandate `gravita` (1 lieve · 2 media · 3 grave) e `stato` del reclamo, e il
+registro ricava il voto. Così due app che segnalano lo stesso problema producono
+lo stesso voto, e la regola si cambia in un punto solo.
+
+| gravità | reclamo aperto | risolto/chiuso |
+| --- | --- | --- |
+| 1 lieve | 3 | 4 |
+| 2 media | 2 | 3 |
+| 3 grave | 1 | 2 |
+
+Rimediare conta (+1 quando è chiuso) e un reclamo **non arriva mai a 5**: quello
+resta ai giudizi positivi. Esempio:
+
+```json
+{ "riferimento": { "sistema": "messaging", "idEsterno": "<id partner in CS>" },
+  "idEsterno": "<id del reclamo>", "gravita": 3, "stato": "risolto",
+  "casistica": "Consegna mai arrivata", "ordineNumero": "#1234",
+  "autore": "customer service" }
+```
+
+Quando il reclamo cambia stato **rimandate lo stesso `idEsterno`**: il feedback
+viene aggiornato (il voto sale se è stato risolto) e non se ne crea un secondo.
+I campi che non rispedite restano quelli di prima. Alias accettati:
+`descrizione`/`esito` → commento, `ordineNumero` → ordine.
+
+**Per mandare un feedback** (con un voto vostro): `POST /api/v1/feedback` con una chiave di
 scrittura piena o con lo scope dedicato `--scrittura-feedback` (non tocca il
 golden record del partner).
 

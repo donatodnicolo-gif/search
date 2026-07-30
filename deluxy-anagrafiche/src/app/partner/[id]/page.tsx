@@ -20,6 +20,7 @@ import {
 } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
 import {
+  ETICHETTE_GRAVITA,
   ETICHETTE_MOTIVO,
   ETICHETTE_ORIGINE,
   SOGLIA_AFFIDABILE,
@@ -369,6 +370,20 @@ export default async function Dettaglio({
                     <td className="cella-muta">{f.ordine ?? "—"}</td>
                     <td className="cella-muta">{f.autore ?? "—"}</td>
                     <td className="cella-muta">
+                      {/* Se il voto nasce da un reclamo, la casistica e la
+                          gravità sono la spiegazione del voto: vanno lette
+                          prima del commento. */}
+                      {(f.casistica || f.gravita) && (
+                        <div style={{ marginBottom: 4 }}>
+                          <strong>{f.casistica ?? "Reclamo"}</strong>
+                          {f.gravita && (
+                            <span className="cella-fonte">
+                              {" "}· {ETICHETTE_GRAVITA[f.gravita]?.toLowerCase()}
+                              {f.reclamoRisolto != null && (f.reclamoRisolto ? ", risolto" : ", aperto")}
+                            </span>
+                          )}
+                        </div>
+                      )}
                       {f.motivi.length > 0 && (
                         <div className="interessi-pillole" style={{ marginBottom: f.commento ? 4 : 0 }}>
                           {f.motivi.map((m) => (

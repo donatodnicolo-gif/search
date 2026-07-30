@@ -4,10 +4,13 @@ import { autentica, erroreApi } from "@/lib/api-auth";
 import { prisma } from "@/lib/db";
 import {
   MOTIVI_FEEDBACK,
+  gravitaValida,
   normalizzaVoto,
+  reclamoRisolto,
   ricalcolaValutazioneD2C,
   serializzaFeedback,
   valutazioneD2C,
+  votoDaReclamo,
 } from "@/lib/feedback-d2c";
 import { nomeSistema } from "@/lib/merge";
 
@@ -146,11 +149,21 @@ export async function GET(req: NextRequest) {
 //
 // Body:
 //   { partnerId? | riferimento?{sistema,idEsterno} | platformId? | negozio?+citta?,
-//     voto (obbligatorio), scala?=5, origine?, idEsterno?, ordine?, autore?,
-//     commento?, motivi?: string[], data? (ISO, default adesso) }
+//     voto | gravita (1|2|3),  scala?=5, origine?, idEsterno?, ordine?, autore?,
+//     commento?, casistica?, stato?, risolto?, motivi?: string[],
+//     data? (ISO, default adesso) }
+//
+// Da Customer Service arriva un RECLAMO, non un voto: `gravita` + `stato` e il
+// voto lo ricava il registro. Esempio di chiamata reale:
+//   { riferimento: {sistema:"messaging", idEsterno:"<id partner in CS>"},
+//     idEsterno: "<id del reclamo>", gravita: 3, stato: "risolto",
+//     casistica: "Consegna in ritardo", ordineNumero: "#1234",
+//     autore: "customer service" }
 //
 // Idempotente: mandare due volte lo stesso `idEsterno` aggiorna quel feedback,
-// non ne crea un secondo (le medie non si gonfiano per un retry).
+// non ne crea un secondo (le medie non si gonfiano per un retry). È anche il
+// modo in cui un reclamo che passa da aperto a risolto **alza** il suo voto:
+// stesso `idEsterno`, `stato: "risolto"`, e la pagella si ricalcola.
 export async function POST(req: NextRequest) {
   const client = await autentica(req, { feedback: true });
   if (client instanceof NextResponse) return client;
@@ -164,12 +177,33 @@ export async function POST(req: NextRequest) {
 
   const sistema = nomeSistema(client.nome, typeof body.sistema === "string" ? body.sistema : undefined);
 
-  const scala = Number(body.scala ?? body.votoMax ?? 5);
-  const voto = normalizzaVoto(body.voto, scala);
-  if (voto == null) {
-    return erroreApi(400, `Voto non valido: atteso un numero fra 0 e ${isFinite(scala) ? scala : 5}`);
+  // Due modi di mandare un giudizio, e uno è pensato per Customer Service:
+  //  a) `voto` esplicito (chi ha già una scala: la UI, la piattaforma);
+  //  b) `gravita` + `stato` del reclamo, e il voto lo ricava il registro
+  //     (`votoDaReclamo`) — così la regola vive in un posto solo.
+  // Se arrivano entrambi vince il voto esplicito: chi lo manda sa quello che fa.
+  const gravitaGrezza = body.gravita ?? body.gravità;
+  const gravita = gravitaValida(Number(gravitaGrezza)) ? (Number(gravitaGrezza) as 1 | 2 | 3) : null;
+  const statoReclamo = pulisci(body.statoReclamo) ?? pulisci(body.stato);
+  const risolto =
+    typeof body.risolto === "boolean" ? body.risolto : statoReclamo ? reclamoRisolto(statoReclamo) : false;
+
+  const haVoto = body.voto != null && String(body.voto).trim() !== "";
+  if (!haVoto && gravitaGrezza != null && gravita == null) {
+    return erroreApi(400, "Gravità non valida: attesa 1 (lieve), 2 (media) o 3 (grave)");
   }
-  const votoOriginale = Number(String(body.voto).replace(",", "."));
+
+  const scala = Number(body.scala ?? body.votoMax ?? 5);
+  const voto = haVoto ? normalizzaVoto(body.voto, scala) : gravita ? votoDaReclamo(gravita, risolto) : null;
+  if (voto == null) {
+    return erroreApi(
+      400,
+      haVoto
+        ? `Voto non valido: atteso un numero fra 0 e ${isFinite(scala) ? scala : 5}`
+        : "Serve 'voto', oppure 'gravita' (1|2|3) per un giudizio che nasce da un reclamo",
+    );
+  }
+  const votoOriginale = haVoto ? Number(String(body.voto).replace(",", ".")) : NaN;
 
   const dataGrezza = pulisci(body.data) ?? pulisci(body.dataFeedback);
   const dataFeedback = dataGrezza ? new Date(dataGrezza) : new Date();
@@ -209,16 +243,47 @@ export async function POST(req: NextRequest) {
     voto,
     votoOriginale: isFinite(votoOriginale) ? votoOriginale : null,
     scala: isFinite(scala) && scala >= 5 ? Math.round(scala) : 5,
-    origine: pulisci(body.origine)?.toLowerCase() ?? null,
+    // Con la gravità l'origine è un reclamo, anche se l'app non la dichiara.
+    origine: pulisci(body.origine)?.toLowerCase() ?? (gravita ? "reclamo" : null),
     sistema,
-    ordine: pulisci(body.ordine) ?? pulisci(body.numeroOrdine),
+    // `gravita`/`casistica` si conservano solo quando il voto nasce da lì:
+    // su un giudizio dato a mano sarebbero rumore.
+    gravita,
+    reclamoRisolto: gravita ? risolto : null,
+    casistica: gravita ? pulisci(body.casistica) : null,
+    ordine: pulisci(body.ordine) ?? pulisci(body.numeroOrdine) ?? pulisci(body.ordineNumero),
     // Chi ha valutato, dentro Deluxy: senza autore il giudizio resta anonimo
     // (accettato, ma è un dato che vale la pena mandare).
     autore: pulisci(body.autore) ?? pulisci(body.operatore),
-    commento: pulisci(body.commento) ?? pulisci(body.testo),
+    // `descrizione`/`esito` sono i nomi che usa Customer Service sul reclamo.
+    commento:
+      pulisci(body.commento) ?? pulisci(body.testo) ?? pulisci(body.descrizione) ?? pulisci(body.esito),
     motivi,
     dataFeedback,
   };
+
+  // In AGGIORNAMENTO si riscrive solo ciò che è stato mandato davvero. Un
+  // reclamo che passa da aperto a risolto arriva spesso con due soli campi
+  // (`idEsterno` e `stato`): con l'update secco, ordine, autore e commento
+  // registrati la prima volta sarebbero stati azzerati in silenzio.
+  const presente = (...chiavi: string[]) => chiavi.some((k) => k in body);
+  const datiAggiornamento: Record<string, unknown> = {
+    partnerId: dati.partnerId,
+    voto: dati.voto,
+    gravita: dati.gravita,
+    reclamoRisolto: dati.reclamoRisolto,
+  };
+  if (haVoto) {
+    datiAggiornamento.votoOriginale = dati.votoOriginale;
+    datiAggiornamento.scala = dati.scala;
+  }
+  if (presente("origine") || gravita) datiAggiornamento.origine = dati.origine;
+  if (presente("casistica")) datiAggiornamento.casistica = dati.casistica;
+  if (presente("ordine", "numeroOrdine", "ordineNumero")) datiAggiornamento.ordine = dati.ordine;
+  if (presente("autore", "operatore")) datiAggiornamento.autore = dati.autore;
+  if (presente("commento", "testo", "descrizione", "esito")) datiAggiornamento.commento = dati.commento;
+  if (presente("motivi")) datiAggiornamento.motivi = dati.motivi;
+  if (presente("data", "dataFeedback")) datiAggiornamento.dataFeedback = dati.dataFeedback;
 
   const idEsterno = pulisci(body.idEsterno);
   // Se lo stesso feedback era già stato agganciato a un altro partner (correzione
@@ -233,7 +298,7 @@ export async function POST(req: NextRequest) {
     ? await prisma.feedbackD2C.upsert({
         where: { sistema_idEsterno: { sistema, idEsterno } },
         create: { ...dati, idEsterno },
-        update: dati,
+        update: datiAggiornamento,
       })
     : await prisma.feedbackD2C.create({ data: dati });
 

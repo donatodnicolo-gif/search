@@ -133,6 +133,13 @@ model FeedbackD2C {
   ordine        String? // numero d'ordine/consegna a cui si riferisce
   autore        String? // CHI ha valutato, dentro Deluxy (persona o team)
   commento      String?
+  // — Quando il giudizio nasce da un RECLAMO di Customer Service —
+  // Il voto lì non si digita: si ricava da questi due (vedi votoDaReclamo in
+  // src/lib/feedback-d2c.ts). Si conservano perché un voto va spiegato: senza,
+  // sulla scheda resterebbe «2 stelle» e nessuno saprebbe perché.
+  gravita        Int? // 1 lieve · 2 media · 3 grave (peso della casistica in Customer Service)
+  reclamoRisolto Boolean? // reclamo chiuso/risolto: rimediare alza il voto
+  casistica      String? // tipo di problema, come si chiama in Customer Service
   motivi        String[] @default([]) // tag del giudizio (puntualita, qualita_prodotto, …)
   dataFeedback  DateTime // a quando si riferisce il giudizio (non quando è arrivato qui)
   creatoIl      DateTime @default(now())
