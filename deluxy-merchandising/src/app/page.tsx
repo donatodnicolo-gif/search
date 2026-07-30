@@ -16,6 +16,7 @@ import {
   panoramicaBrand,
   type RigaAssortimento,
 } from "@/lib/vendite";
+import { Suspense } from "react";
 
 export const dynamic = "force-dynamic";
 
@@ -33,15 +34,6 @@ export default async function CruscottoPage({
     ? Number(sp.giorni)
     : 90;
   const brand = await brandCorrente();
-
-  const [analisi, cls, ipotesi, catalogo, panoramica, assortimento] = await Promise.all([
-    analizzaVendite(giorni, { canale: brand }),
-    classifiche({ giorni, canale: brand, limite: 5 }),
-    calcolaIpotesi({ ...PARAMETRI_DEFAULT, canale: brand }),
-    prisma.prodotto.count({ where: { ...filtroProdotti(brand), fase: { not: "archiviato" } } }),
-    brand ? null : panoramicaBrand(giorni),
-    analizzaAssortimento(giorni, brand),
-  ]);
 
   return (
     <div className="layout">
@@ -70,6 +62,43 @@ export default async function CruscottoPage({
           </form>
         </div>
 
+        {/* Il guscio (menu, titolo, periodo) esce subito; le analisi — che
+            scandagliano il venduto — arrivano in streaming appena pronte.
+            Prima la pagina restava bianca finche' non era pronta la piu' lenta. */}
+        <Suspense fallback={<ScheletroCruscotto />}>
+          <ContenutoCruscotto giorni={giorni} brand={brand} />
+        </Suspense>
+      </main>
+    </div>
+  );
+}
+
+/** Il posto delle cose mentre arrivano: stessa forma, cosi' non balla il layout. */
+function ScheletroCruscotto() {
+  return (
+    <div className="kpi-riga" aria-hidden>
+      {[0, 1, 2, 3, 4].map((i) => (
+        <div className="kpi" key={i}>
+          <div className="kpi-valore" style={{ color: "var(--text-tertiary)" }}>…</div>
+          <div className="kpi-etichetta">calcolo in corso</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+async function ContenutoCruscotto({ giorni, brand }: { giorni: number; brand: string | null }) {
+  const [analisi, cls, ipotesi, catalogo, panoramica, assortimento] = await Promise.all([
+    analizzaVendite(giorni, { canale: brand }),
+    classifiche({ giorni, canale: brand, limite: 5 }),
+    calcolaIpotesi({ ...PARAMETRI_DEFAULT, canale: brand }),
+    prisma.prodotto.count({ where: { ...filtroProdotti(brand), fase: { not: "archiviato" } } }),
+    brand ? null : panoramicaBrand(giorni),
+    analizzaAssortimento(giorni, brand),
+  ]);
+
+  return (
+    <>
         <div className="kpi-riga">
           <div className="kpi">
             <div className="kpi-valore">{euro(cls.totale.ricavo)}</div>
@@ -241,10 +270,10 @@ export default async function CruscottoPage({
             </p>
           </div>
         </div>
-      </main>
-    </div>
+    </>
   );
 }
+
 
 // Un blocco «top»: le voci che pesano di più, con quota e variazione. Stessa
 // forma per le categorie nostre e per i tipi del negozio, così si confrontano
