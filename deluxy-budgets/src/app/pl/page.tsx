@@ -103,6 +103,7 @@ export default async function ContoEconomico({
           advCompetenza: { dentro: 0, fuori: 0 },
           quota: QUOTA_STIMATA,
           pagatoAiPartner: 0,
+          d2c: null,
           competenza: null,
           perMese: [],
         };

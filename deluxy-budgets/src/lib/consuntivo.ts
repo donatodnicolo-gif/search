@@ -21,6 +21,7 @@ import { fetchConsuntivo, fetchConsuntivoMensile, fetchSpeseBanca } from "./fina
 import { normalizzaNome } from "./scout";
 import { fatturatoDaVenduto, QUOTA_STIMATA, quotaMisurata, raggruppa, sommaMesi, type Quota } from "./venduto";
 import { fetchRicaviD2C } from "./orders";
+import { ricavoD2C, ricavoDeiMesi, MARGINE_FORNITORI } from "./ricavo-d2c";
 import { fetchSpesaAdv, type CoperturaAdv } from "./marketing";
 import { caricaRettifiche, effettoSu, type EffettoAnno } from "./competenza";
 
@@ -65,6 +66,17 @@ export type ConsuntivoPeriodo = {
   // quando i dati bastano, stimata quando no. La pagina dichiara quale.
   quota: Quota;
   pagatoAiPartner: number;
+  // Come è stato calcolato il ricavo dell'ecommerce in questo periodo: `null`
+  // quando le vendite dei partner non sono disponibili e si è ripiegato sulla
+  // quota. La pagina lo dichiara invece di far sembrare tutto uguale.
+  d2c: {
+    fee: number; // fatturato ai vendor, misurato partner per partner
+    margineFornitori: number; // stimato sul venduto non-partner
+    vendutoPartner: number;
+    vendutoFornitori: number;
+    percentualeFornitori: number;
+    mesiNonCaricati: number[];
+  } | null;
   // Le rettifiche di competenza che toccano questo periodo: si dichiarano,
   // perche un totale corretto di nascosto e peggio di uno sbagliato in chiaro.
   competenza: EffettoAnno | null;
@@ -80,7 +92,7 @@ export async function caricaConsuntivo(
     ok: false, mancanti: [], mesi, ricavi: 0, ricaviPerTipologia: {}, vendutoEcommerce: 0,
     cogs: 0, adv: 0, struttura: 0, personale: 0, margineLordo: 0, ebitda: 0, nonCategorizzato: 0,
     advMarketing: null, advCopertura: null, advCompetenza: { dentro: 0, fuori: 0 },
-    quota: QUOTA_STIMATA, pagatoAiPartner: 0,
+    quota: QUOTA_STIMATA, pagatoAiPartner: 0, d2c: null,
     competenza: null,
     perMese: [],
   };
@@ -145,12 +157,20 @@ export async function caricaConsuntivo(
   const quota =
     quotaMisurata(vendutoEcommerce, pagatoAiPartner, mesiConVenduto, mesiConBanca) ?? QUOTA_STIMATA;
 
+  // ---- Il ricavo dell'ecommerce: fee vere dai vendor + margine sui fornitori ----
+  // Sostituisce la quota unica dove i dati ci sono. La quota resta come ripiego
+  // dichiarato per gli anni in cui le vendite dei partner non sono caricate.
+  const d2c = await ricavoD2C(dati.year, vend.mese);
+  const d2cPeriodo = d2c.ok ? ricavoDeiMesi(d2c, mesi) : null;
+  const daVendor = Boolean(d2cPeriodo && d2cPeriodo.fee > 0);
+  const ricavoEcommerce = daVendor ? d2cPeriodo!.ricavo : fatturatoDaVenduto(vendutoEcommerce, quota);
+
   const ricaviPerTipologia: Record<string, number> = {};
   for (const t of dati.tipologie) {
     const nomi = t.vociFinance.length ? t.vociFinance : [t.nome];
     let v = 0;
     for (const n of nomi) v += perNome.get(normalizzaNome(n)) ?? 0;
-    if (t.slug === SLUG_D2C && vend.ok) v += fatturatoDaVenduto(vendutoEcommerce, quota);
+    if (t.slug === SLUG_D2C && vend.ok) v += ricavoEcommerce;
     ricaviPerTipologia[t.slug] = v;
   }
   let ricavi = Object.values(ricaviPerTipologia).reduce((s, v) => s + v, 0);
@@ -255,7 +275,14 @@ export async function caricaConsuntivo(
             .filter((t) => nomiMappati.has(normalizzaNome(t.tipologia)))
             .reduce((s, t) => s + t.imponibile, 0)
         : 0;
-    const daEcommerce = vend.ok ? fatturatoDaVenduto(vend.mese[m - 1] ?? 0, quota) : 0;
+    // Mese per mese vale la stessa regola del totale: fee vere dove il mese è
+    // caricato, quota di ripiego dove no.
+    const rigaD2C = daVendor ? d2c.mesi.find((x) => x.mese === m) : null;
+    const daEcommerce = daVendor
+      ? (rigaD2C?.caricato ? rigaD2C.ricavo : 0)
+      : vend.ok
+        ? fatturatoDaVenduto(vend.mese[m - 1] ?? 0, quota)
+        : 0;
     const ricaviM = daFinance + daEcommerce + (ricaviRettificaMese[m - 1] ?? 0);
     const cogsM = cogsMese[m - 1] ?? 0;
     const advM = advMese[m - 1] ?? 0;
@@ -297,6 +324,16 @@ export async function caricaConsuntivo(
     advCompetenza: { dentro: advDentro, fuori: advFuori },
     quota,
     pagatoAiPartner,
+    d2c: daVendor && d2cPeriodo
+      ? {
+          fee: d2cPeriodo.fee,
+          margineFornitori: d2cPeriodo.ricavo - d2cPeriodo.fee,
+          vendutoPartner: d2c.mesi.filter((x) => mesi.includes(x.mese) && x.caricato).reduce((a, x) => a + x.vendutoPartner, 0),
+          vendutoFornitori: d2c.mesi.filter((x) => mesi.includes(x.mese) && x.caricato).reduce((a, x) => a + x.vendutoFornitori, 0),
+          percentualeFornitori: MARGINE_FORNITORI,
+          mesiNonCaricati: d2cPeriodo.nonCaricati,
+        }
+      : null,
     competenza: eff,
     perMese,
   };

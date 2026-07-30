@@ -258,12 +258,38 @@ ripiego sulla banca la riga torna a essere cassa e la competenza vale in entramb
 
 ## Cos'è un ricavo D2C (definizione dell'utente, 29/07/2026)
 
-Il ricavo dell'ecommerce è **la differenza fra l'incasso e quanto è stato pagato** al fornitore o al
-re-seller: incasso dal registro ordini, pagato dalle categorie di banca marcate «quota partner».
+Quello che entra in cassa dai negozi non è un ricavo: una parte è denaro dei partner. E la parte che
+resta a Deluxy **non è una percentuale unica** — sono due mestieri diversi, e dal 29/07/2026 l'app li
+tiene separati (motore in `src/lib/ricavo-d2c.ts`, dati da `GET /api/vendor` di Finance):
 
-È quello che l'app calcolava già — `venduto × quota` è aritmeticamente `venduto − pagato`, e la
-percentuale serve solo a mostrarlo. Sul 2026: incasso 610.500 € meno 443.749 € pagati ai partner fa
-**166.751 €**; sul 2025, 765.576 − 447.140 = **318.435 €**.
+1. gli ordini eseguiti dai **partner vendor**: lì Deluxy fattura una **fee sua**, concordata partner
+   per partner — dal 15% al 25% — che Finance tiene scritta e applica **vendita per vendita**. Non
+   si stima niente;
+2. gli ordini eseguiti comprando dai **fornitori**: lì il ricavo è quanto resta dopo la merce, e
+   finché non ci sono le riconciliazioni si usa una percentuale dichiarata (`MARGINE_FORNITORI`,
+   oggi **25%**).
+
+| Gen–Giu 2026 | | 8 mesi 2025 | |
+|---|---:|---|---:|
+| incassato | 516.517 € | incassato | 465.419 € |
+| di cui dai partner | 243.082 € | di cui dai partner | 221.541 € |
+| **fee fatturate** (misurate) | **49.381 €** | **fee fatturate** | **40.701 €** |
+| di cui dai fornitori | 273.436 € | di cui dai fornitori | 243.878 € |
+| margine stimato 25% | 68.359 € | margine stimato 25% | 60.970 € |
+| **ricavo D2C** | **117.740 €** | **ricavo D2C** | **101.670 €** |
+
+**Perché non basta più la quota misurata dalla banca** (`1 − pagato ÷ venduto`): quel conto divide
+*tutti* i pagamenti ai fioristi per il *solo* venduto dei negozi, quindi ci mette dentro anche i
+fioristi che hanno eseguito ordini B2B ed eventi. Peggiorava ogni volta che si classificava meglio la
+banca — 39,1% la mattina del 29/07, 27,1% la sera — che è il contrario di come deve comportarsi una
+misura. Resta come **ripiego dichiarato** per gli anni in cui le vendite dei partner non sono caricate.
+
+> ⚠️ **Un mese senza vendite vendor caricate non è un mese senza partner.** Le vendite si inseriscono
+> a mano in Finance: un mese vuoto farebbe finire tutto l'incasso fra i «fornitori» e gli
+> attribuirebbe il 25%, cioè un ricavo che sembra misurato e invece è un foglio non inserito. Sotto
+> il **15%** del proprio incasso il mese si dichiara **non misurato** e resta fuori dai totali — nei
+> mesi pieni il venduto dei partner sta fra il 40% e il 60%. Oggi restano fuori **luglio 2026** e
+> **agosto, settembre, novembre, dicembre 2025**.
 
 > **Le commissioni di affiliazione invece stanno in B2B** (decisione dell'utente, 29/07/2026). Erano
 > state provate su D2C — nascono da una vendita fatta sul sito — ma la voce di Finance

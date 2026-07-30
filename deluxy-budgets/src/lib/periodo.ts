@@ -36,7 +36,11 @@ export function risolviPeriodo(sp: { periodo?: string; anno?: string }) {
   const meseInCorso = oggi.getUTCMonth() + 1; // 1..12
   const giornoInCorso = oggi.getUTCDate();
   const giorniDelMese = new Date(Date.UTC(annoInCorso, meseInCorso, 0)).getUTCDate();
-  const ANNI = [annoInCorso - 2, annoInCorso - 1, annoInCorso];
+  // Da quando esiste l'archivio: la banca parte dal 23/11/2020 (recuperata da
+  // Qonto il 29/07/2026), quindi gli anni apribili arrivano fin lì. Prima non
+  // c'è niente da vedere, e un anno vuoto nel selettore è solo un vicolo cieco.
+  const PRIMO_ANNO = 2021;
+  const ANNI = Array.from({ length: annoInCorso - PRIMO_ANNO + 1 }, (_, i) => PRIMO_ANNO + i);
   const anno = ANNI.includes(Number(sp.anno)) ? Number(sp.anno) : annoInCorso;
 
   // Ultimo mese disponibile per l'anno scelto: anni passati = 12, anno in corso

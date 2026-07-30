@@ -7,6 +7,7 @@ import { normalizzaNome } from "@/lib/scout";
 import { fetchRicaviD2C } from "@/lib/orders";
 import { fatturatoDaVenduto, raggruppa, sommaMesi } from "@/lib/venduto";
 import { misuraQuota } from "@/lib/quota";
+import { ricavoD2C, ricavoDeiMesi, MARGINE_FORNITORI } from "@/lib/ricavo-d2c";
 
 export const dynamic = "force-dynamic";
 
@@ -57,7 +58,11 @@ export default async function ConsuntivoPage({
   const annoInCorso = oggi.getUTCFullYear();
   const meseInCorso = oggi.getUTCMonth() + 1; // 1..12
   const giornoInCorso = oggi.getUTCDate();
-  const ANNI = [annoInCorso - 2, annoInCorso - 1, annoInCorso];
+  // Da quando esiste l'archivio: la banca parte dal 23/11/2020 (recuperata da
+  // Qonto il 29/07/2026), quindi gli anni apribili arrivano fin lì. Prima non
+  // c'è niente da vedere, e un anno vuoto nel selettore è solo un vicolo cieco.
+  const PRIMO_ANNO = 2021;
+  const ANNI = Array.from({ length: annoInCorso - PRIMO_ANNO + 1 }, (_, i) => PRIMO_ANNO + i);
   const anno = ANNI.includes(Number(sp.anno)) ? Number(sp.anno) : annoInCorso;
 
   // Ultimo mese disponibile per l'anno scelto: anni passati = 12, anno in corso
@@ -131,8 +136,27 @@ export default async function ConsuntivoPage({
     misuraQuota(anno, mesiPeriodo, vend.mese),
     misuraQuota(annoPrec, mesiRif, vendPrec.mese),
   ]);
-  const d2cMese = vend.mese.map((v) => fatturatoDaVenduto(v, quotaDeluxy));
-  const d2cPrecMese = vendPrec.mese.map((v) => fatturatoDaVenduto(v, quotaPrec));
+  // Il ricavo dell'ecommerce: fee vere sui partner + margine stimato sui
+  // fornitori. Dove le vendite dei partner non sono caricate si ripiega sulla
+  // quota, che è dichiarata come tale.
+  const [rd2c, rd2cPrec] = await Promise.all([
+    ricavoD2C(anno, vend.mese),
+    ricavoD2C(annoPrec, vendPrec.mese),
+  ]);
+  const daVendor = rd2c.ok && rd2c.totale.fee > 0;
+  const daVendorPrec = rd2cPrec.ok && rd2cPrec.totale.fee > 0;
+  const d2cMese = vend.mese.map((v, i) => {
+    const r = rd2c.mesi.find((x) => x.mese === i + 1);
+    if (daVendor) return r?.caricato ? r.ricavo : 0;
+    return fatturatoDaVenduto(v, quotaDeluxy);
+  });
+  const d2cPrecMese = vendPrec.mese.map((v, i) => {
+    const r = rd2cPrec.mesi.find((x) => x.mese === i + 1);
+    if (daVendorPrec) return r?.caricato ? r.ricavo : 0;
+    return fatturatoDaVenduto(v, quotaPrec);
+  });
+  const dettaglioD2C = daVendor ? ricavoDeiMesi(rd2c, mesiPeriodo) : null;
+  const sceltiD2C = rd2c.mesi.filter((x) => mesiPeriodo.includes(x.mese) && x.caricato);
   const vendutoPeriodo = sommaMesi(vend.mese, mesiPeriodo);
   const d2cPeriodo = sommaMesi(d2cMese, mesiPeriodo);
   const d2cPrecPeriodo = sommaMesi(d2cPrecMese, mesiRif);
@@ -509,6 +533,32 @@ export default async function ConsuntivoPage({
               </div>
             </div>
           </div>
+
+          {dettaglioD2C && (
+            <div className="card" style={{ marginBottom: 12 }}>
+              <strong>Il ricavo dell&apos;ecommerce non è più una percentuale unica.</strong> Di quello che è
+              entrato in cassa,{" "}
+              <strong>{eur(sceltiD2C.reduce((s, x) => s + x.vendutoPartner, 0))}</strong> sono ordini eseguiti dai{" "}
+              <strong>partner</strong>: lì il ricavo è la <strong>fee di ciascuno</strong> — dal 15% al 25%,
+              scritta in Finance e applicata vendita per vendita — e vale <strong>{eur(dettaglioD2C.fee)}</strong>.
+              Gli altri <strong>{eur(sceltiD2C.reduce((s, x) => s + x.vendutoFornitori, 0))}</strong> sono ordini
+              eseguiti comprando dai fornitori: lì il ricavo è quanto resta dopo la merce, oggi{" "}
+              <strong>stimato al {MARGINE_FORNITORI}%</strong> ({eur(dettaglioD2C.ricavo - dettaglioD2C.fee)}), in
+              attesa delle riconciliazioni.
+              {dettaglioD2C.nonCaricati.length > 0 && (
+                <div style={{ marginTop: 6, color: "var(--orange)" }}>
+                  <strong>
+                    {dettaglioD2C.nonCaricati.map((m) => MESI[m - 1]).join(", ")}{" "}
+                    {dettaglioD2C.nonCaricati.length === 1 ? "è escluso" : "sono esclusi"}
+                  </strong>
+                  : le vendite dei partner di {dettaglioD2C.nonCaricati.length === 1 ? "quel mese" : "quei mesi"} non
+                  sono ancora caricate in Finance. Contarli vorrebbe dire trattare tutto il loro incasso come venduto
+                  dai fornitori e attribuirgli il {MARGINE_FORNITORI}% — un ricavo che sembra misurato e invece è un
+                  foglio non inserito.
+                </div>
+              )}
+            </div>
+          )}
 
           {bancaIncompleta && (
             <div className="card" style={{ marginBottom: 12, borderColor: "var(--orange)" }}>
