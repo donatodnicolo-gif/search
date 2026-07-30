@@ -293,7 +293,7 @@ export function DettaglioOrdine({
     <div className="velo" onClick={onChiudi} role="presentation">
       {/* Il clic dentro il pannello non deve chiuderlo. */}
       <div
-        className="pannello"
+        className="pannello pannello-ordine"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
@@ -315,7 +315,14 @@ export function DettaglioOrdine({
         {!caricato ? <p style={{ color: 'var(--text-secondary)' }}>Carico…</p> : null}
 
         {ordine ? (
-          <>
+          /* ⚠️ A COLONNE, non una pila.
+             Nel dettaglio ci sono cinque riquadri — fornitore, messaggi del
+             cliente, dati dell'ordine, destinatario, azioni — e in una colonna
+             sola stanno su due schermate: si scorre, e quello che serve resta
+             sopra o sotto il bordo. Affiancati si vedono insieme.
+             I riquadri hanno altezze molto diverse, quindi si allineano in alto
+             invece di allungarsi a vuoto per pareggiare il vicino. */
+          <div className="griglia-dettaglio">
             {/* IL FORM RAPIDO: foto + messaggio da mandare al fornitore. */}
             <div className="card" style={{ marginBottom: 16 }}>
               <h3 style={{ marginTop: 0, fontSize: 15 }}>Chiedi al fornitore</h3>
@@ -727,7 +734,7 @@ export function DettaglioOrdine({
                 </button>
               </div>
             </div>
-          </>
+          </div>
         ) : null}
       </div>
     </div>

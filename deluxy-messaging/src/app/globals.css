@@ -3045,3 +3045,36 @@ td .azioni-ordine {
   outline: none;
   border-color: var(--blue);
 }
+
+/* ---- Dettaglio ordine a colonne ----
+   Cinque riquadri in una colonna sola stanno su due schermate: si scorre, e
+   quello che serve resta sopra o sotto il bordo. Affiancati si vedono insieme.
+   La finestra si allarga di conseguenza, restando dentro lo schermo. */
+
+.pannello-ordine {
+  width: min(1240px, 100%);
+}
+
+.griglia-dettaglio {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: 16px;
+  /* I riquadri hanno altezze molto diverse: si allineano in alto invece di
+     allungarsi a vuoto per pareggiare il vicino. */
+  align-items: start;
+}
+
+/* Dentro la griglia il margine sotto delle card non serve più: lo spazio lo
+   dà il `gap`, e sommati facevano due buchi diversi fra una riga e l'altra. */
+.griglia-dettaglio > .card {
+  margin-bottom: 0 !important;
+}
+
+/* Il riquadro del fornitore è quello che si guarda per primo e contiene la foto
+   grande: su schermi larghi prende tutta la riga, così la foto resta leggibile
+   e il resto si dispone sotto in due colonne. */
+@media (min-width: 1100px) {
+  .griglia-dettaglio > .card:first-child {
+    grid-column: 1 / -1;
+  }
+}
