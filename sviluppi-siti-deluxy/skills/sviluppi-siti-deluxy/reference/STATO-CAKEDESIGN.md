@@ -120,31 +120,41 @@ widget di [Deluxy Customer Service](../../../../deluxy-messaging/HANDOFF.md), ch
 Inbox insieme a WhatsApp e Messenger.
 
 Tutto sta in **un solo file**, `snippets/all_tags_and_script.liquid` (era vuoto dal 13/7, ed è
-incluso nell'`<head>` di ogni pagina da `layout/theme.liquid`): il tag del widget più un
-ascoltatore delegato su `a[href*="chatting.page"]`.
+incluso nell'`<head>` di ogni pagina da `layout/theme.liquid`): il tag del widget con
+`data-apri-da`, più tre righe che chiudono il pannello.
 
 Tre scelte, tutte volute:
 
 - **Il link non è stato toccato.** L'`href` resta l'impostazione `chat_url` della sezione
   `cart-information-popup`. Se il widget non si carica, il cliente finisce ancora su
   chatting.page: meglio una chat altrove che un click che non fa niente.
-- **L'ascoltatore è delegato sull'URL**, non sull'elemento: intercetta la voce ovunque compaia,
-  senza riscrivere `sections/cart-information-popup.liquid` (11 KB pieni di SVG — riscriverlo
-  per intero per due righe è rischio inutile).
+- **Il dirottamento è del widget**, via `data-apri-da`: ascolta il click sul documento e annulla
+  il link da solo. Così non serve riscrivere `sections/cart-information-popup.liquid` (11 KB
+  pieni di SVG — riscriverlo per intero per due righe è rischio inutile).
 - **Il pannello contatti viene chiuso** (`#contact-slide-model.active` e
-  `body.overflow-hidden-popup-open`) prima di aprire la chat, altrimenti la chat si apre dietro
-  una tendina che copre lo schermo.
+  `body.overflow-hidden-popup-open`) al click, altrimenti la chat si apre dietro una tendina che
+  copre lo schermo. Questa parte il widget non può saperla: resta nel tema.
+
+> ⚠️ **Il selettore giusto è `a[href*='chatting.page']`, e nient'altro.** Misurato sulla pagina:
+> `a.dialogify` (l'esempio proposto dalla pagina «Widget dei siti» dell'app) colpisce **3 link**
+> — Email e Whatsapp hanno la stessa classe, e finirebbero ad aprire la chat invece di scrivere
+> o telefonare. `apri-chat` scritto senza punto è un **selettore di tag**: colpisce **0**
+> elementi. L'`href` è l'unica cosa che distingue davvero la voce.
 
 > ⚠️ Il widget vive dentro uno **shadow DOM**: da fuori non si apre in nessun altro modo che con
-> la sua API. Per questo è stata aggiunta `window.DeluxyChat` (`apri` · `chiudi` · `alterna` ·
-> `eAperta`) in `deluxy-messaging/public/widget.js`. **Finché quel deploy non è in produzione
-> l'aggancio non funziona** e il click continua ad andare su chatting.page: il push su GitHub
-> non pubblica, serve `npx vercel deploy --prod --yes`.
+> la sua API. Per questo esiste `window.DeluxyChat` (`apri` · `chiudi` · `alterna` · `eAperta`)
+> in `deluxy-messaging/public/widget.js`, insieme a `data-apri-da` e `data-bottone`. Il push su
+> GitHub **non pubblica** quell'app: serve `npx vercel deploy --prod --yes`.
 
-Verificato sull'anteprima del tema di lavoro: il tag c'è, il widget si monta, la pastiglia
-«Scrivici 🎂» compare, e col click sulla voce la navigazione è annullata, il pannello si chiude,
-lo scroll si sblocca e la chat viene aperta una volta sola. La pagina della chat risponde 200
-senza `X-Frame-Options` né CSP, quindi si può incorniciare su cakedesign.me.
+Verificato sull'anteprima del tema di lavoro, col widget già in produzione: navigazione
+annullata, URL invariato, pannello contatti chiuso, scroll sbloccato, chat aperta
+(`DeluxyChat.eAperta()` → `true`), iframe 372×568 con `sito=cake`. La pagina della chat risponde
+200 senza `X-Frame-Options` né CSP, quindi si può incorniciare su cakedesign.me.
+
+> La dissolvenza d'apertura **non** si vede in un test automatico: il `requestAnimationFrame`
+> doppio che aggiunge la classe `aperto` non scatta in una scheda in background, quindi
+> `opacity` resta `0` mentre il pannello è già `display:block` a dimensione piena. Guardare le
+> classi (`visibile`/`aperto`) e `document.hidden`, non `getComputedStyle`.
 
 Da decidere: lo snippet usa `data-tema="minimale"`, mentre l'aspetto che l'app propone per
 cakedesign è **`caldo`** (avorio e terracotta, pensato per le foto di pasticceria) — vedi
