@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useState } from 'react'
 import type { AttesaDto, AttivitaDto, DatiDashboard, OrdineUrgenteDto } from '@/lib/dashboard'
+// I reclami arrivano dentro `dati`: il tipo sta in lib/dashboard.ts con gli altri.
 
 // La schermata iniziale: cosa c'è da fare, adesso, in un colpo d'occhio.
 //
@@ -21,6 +22,8 @@ const NOMI_CANALE: Record<string, string> = {
   widget: 'Sito',
   email: 'Email',
 }
+
+const NOMI_GRAVITA: Record<number, string> = { 1: 'lieve', 2: 'media', 3: 'grave' }
 
 const NOMI_FASCIA: Record<string, string> = {
   oggi: 'Oggi',
@@ -157,6 +160,46 @@ export function Dashboard({ dati }: { dati: DatiDashboard }) {
             <ul className="elenco-ordini-urgenti">
               {dati.ordini.map((o) => (
                 <RigaOrdine key={o.id} o={o} />
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section className="card riquadro">
+          <div className="testa-riquadro">
+            <h2>Reclami aperti</h2>
+            <Link href="/reclami" className="bottone secondario mini">
+              Tutti i reclami
+            </Link>
+          </div>
+          {dati.reclami.length === 0 ? (
+            <p className="colonna-vuota">Nessun reclamo aperto.</p>
+          ) : (
+            <ul className="elenco-reclami">
+              {dati.reclami.map((r) => (
+                <li key={r.id}>
+                  <span className={`gravita g${r.gravita}`} title={NOMI_GRAVITA[r.gravita]}>
+                    {NOMI_GRAVITA[r.gravita] ?? '—'}
+                  </span>
+                  {/* Porta all'elenco reclami: aprire QUEL reclamo servirebbe un
+                      parametro che quella pagina non legge, e un link che
+                      promette di aprire una cosa e non la apre è peggio di uno
+                      che porta all'elenco. */}
+                  <Link href="/reclami" className="ordine">
+                    {r.ordineNumero || '—'}
+                  </Link>
+                  {r.brand ? <span className="badge">{r.brand}</span> : null}
+                  <span className="di-cosa">
+                    {r.casistica || 'senza casistica'}
+                    {r.azioni ? <span className="azione"> · {r.azioni}</span> : null}
+                  </span>
+                  {r.colpa ? <span className="colpa">{r.colpa}</span> : null}
+                  {/* Da quanti giorni è aperto: un reclamo che invecchia è il
+                      modo in cui un problema piccolo diventa una recensione. */}
+                  <span className={`eta${r.giorniAperto >= 3 ? ' vecchio' : ''}`}>
+                    {r.giorniAperto === 0 ? 'oggi' : `${r.giorniAperto} g`}
+                  </span>
+                </li>
               ))}
             </ul>
           )}

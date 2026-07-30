@@ -77,6 +77,26 @@ locale, altrimenti nulla si decifra.
   - Solo WhatsApp: su Instagram e Messenger l'id non è un numero di telefono e
     in rubrica non c'è niente da cercare.
 
+- **603 ORDINI VECCHI CHIUSI, E I RECLAMI APERTI IN PRIMA PAGINA** (29/07/2026).
+  - `scripts/chiudi-consegne-passate.mjs` (in catalogo in `scripts/README.md`):
+    segna **gestiti** gli ordini con consegna precedente a ieri. Eseguito in
+    produzione: **603 chiusi**, da 907 a **304 da gestire**. `gestione` era
+    arrivata dopo e nessuno aveva spuntato i vecchi: la bacheca metteva il
+    lavoro di oggi sotto due mesi di archeologia.
+    - Senza `--esegui` non scrive; `--giorni N` sposta il confine.
+    - ⚠️ Non tocca i **286 ordini senza data di consegna**: non si sa se sono
+      passati, e chiuderli a scatola chiusa vuol dire perderli. Sono il prossimo
+      problema da guardare, ed è un problema di dati (Orders non manda la data),
+      non di questa app.
+    - `gestioneDaNome = "Chiusura automatica · consegna passata"`, non il nome di
+      una persona: quel campo dice chi ha spuntato l'ordine, e una firma falsa in
+      un registro di chi-ha-fatto-cosa è peggio del campo vuoto.
+  - Nella schermata «Oggi» c'è il riquadro **Reclami aperti**: gravità in
+    parole (lieve/media/grave), ordine, marchio, casistica + **prima azione da
+    fare**, colpa e **da quanti giorni è aperto** — dal terzo giorno in rosso.
+    Ordinati per gravità e poi per età: un grave di ieri prima di un lieve di una
+    settimana, ma il lieve che invecchia non sparisce sotto.
+
 - **SCHERMATA INIZIALE «OGGI», MENU RIORDINATO, PROMEMORIA** (29/07/2026).
   `/` non è più la bacheca ordini: è la **dashboard dell'operatore**. La bacheca
   sta su **`/ordini`**, che era un redirect ed è diventato la pagina vera —

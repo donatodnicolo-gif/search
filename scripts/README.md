@@ -590,6 +590,16 @@ cd deluxy-scout && HUBSPOT_TOKEN=<token-privato> node scripts/hubspot-setup-prop
 - **Serve**: `HUBSPOT_TOKEN` (HubSpot → Impostazioni → Integrazioni → App private)
 - **Nota**: idempotente — le proprietà già esistenti vengono saltate. Attenzione: qui la variabile si chiama `HUBSPOT_TOKEN`, mentre in `deluxy-anagrafiche` la stessa credenziale si chiama `HUBSPOT_ACCESS_TOKEN`.
 
+### chiudi-consegne-passate.mjs — deluxy-messaging
+Segna come **gestiti** gli ordini la cui consegna è già passata: `gestione` è arrivata dopo, e nessuno è tornato a spuntare i vecchi — con quelli in mezzo, «ordini da gestire» non è un numero di lavoro ma archeologia, e la bacheca delle priorità mente.
+
+```bash
+cd deluxy-messaging && node scripts/chiudi-consegne-passate.mjs
+```
+
+- **Serve**: `DATABASE_URL` nel `.env` dell'app
+- **Nota**: **senza `--esegui` non scrive niente** — lanciarlo così, guardare il numero, poi rilanciare con `--esegui`. `--giorni N` sposta il confine (default 1 = «prima di ieri»; ieri e oggi restano lavoro aperto). Non tocca gli ordini **senza data di consegna** (non si sa se sono passati) né lo stato della pipeline di Deluxy Orders. Scrive `gestioneDaNome = "Chiusura automatica · consegna passata"` e non il nome di una persona: quel campo dice chi ha spuntato l'ordine, e una firma falsa in un registro di chi-ha-fatto-cosa è peggio del campo vuoto. ⚠️ Scrive in **produzione**. Eseguito il 29/07/2026: **603 ordini chiusi**, restano 304 da gestire (286 dei quali senza data di consegna).
+
 ### stato-whatsapp.mjs — deluxy-messaging
 Dice **cosa manca perché un numero WhatsApp riceva**: numeri in tabella, credenziali presenti o assenti, ultima chiamata del webhook e — se il token è leggibile — cosa risponde Meta su quei numeri e quali app sono iscritte al WhatsApp Business Account.
 

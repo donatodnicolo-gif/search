@@ -56,6 +56,21 @@ export type OrdineUrgenteDto = {
   fasciaOraria: string
 }
 
+export type ReclamoApertoDto = {
+  id: string
+  ordineNumero: string
+  brand: string
+  cliente: string
+  casistica: string
+  /** 1 lieve, 2 media, 3 grave. */
+  gravita: number
+  stato: string
+  /** Le azioni da fare, prima riga: è quello che manca per chiuderlo. */
+  azioni: string
+  colpa: string
+  giorniAperto: number
+}
+
 export type AttivitaDto = {
   id: string
   testo: string
@@ -91,6 +106,7 @@ export type DatiDashboard = {
   }
   attese: AttesaDto[]
   ordini: OrdineUrgenteDto[]
+  reclami: ReclamoApertoDto[]
   attivita: AttivitaDto[]
 }
 
@@ -115,6 +131,7 @@ export async function datiDashboard(): Promise<DatiDashboard> {
     pagamentiDaInviare,
     marchi,
     ordiniUrgenti,
+    reclamiVivi,
     attivita,
   ] = await Promise.all([
     // Chi aspetta: conversazioni con messaggi non letti, la più vecchia prima —
@@ -159,6 +176,28 @@ export async function datiDashboard(): Promise<DatiDashboard> {
         gestione: true,
         dataConsegna: true,
         fasciaConsegna: true,
+      },
+    }),
+    // I reclami vivi. Ordinati per GRAVITÀ e poi per età: un reclamo grave di
+    // ieri viene prima di uno lieve di una settimana, ma un lieve che invecchia
+    // non deve sparire sotto — è così che un reclamo «lieve» diventa una
+    // recensione da una stella.
+    db.reclamo.findMany({
+      where: { stato: { in: ['aperto', 'in_lavorazione'] } },
+      orderBy: [{ gravita: 'desc' }, { creatoIl: 'asc' }],
+      take: 10,
+      select: {
+        id: true,
+        ordineNumero: true,
+        negozioNome: true,
+        clienteNome: true,
+        casistica: true,
+        gravita: true,
+        stato: true,
+        azioni: true,
+        colpaTipo: true,
+        colpaNome: true,
+        creatoIl: true,
       },
     }),
     db.attivita.findMany({
@@ -251,6 +290,20 @@ export async function datiDashboard(): Promise<DatiDashboard> {
     },
     attese,
     ordini,
+    reclami: reclamiVivi.map((r) => ({
+      id: r.id,
+      ordineNumero: r.ordineNumero,
+      brand: r.negozioNome,
+      cliente: r.clienteNome,
+      casistica: r.casistica,
+      gravita: r.gravita,
+      stato: r.stato,
+      // Solo la prima riga delle azioni: serve a sapere COSA manca, non a
+      // rileggere tutto il reclamo in una lista.
+      azioni: r.azioni.split('\n')[0]?.trim().slice(0, 90) ?? '',
+      colpa: r.colpaNome || (r.colpaTipo && r.colpaTipo !== 'nessuno' ? r.colpaTipo : ''),
+      giorniAperto: Math.max(0, Math.round((Date.now() - r.creatoIl.getTime()) / 86400000)),
+    })),
     attivita: attivita.map((a) => ({
       id: a.id,
       testo: a.testo,
