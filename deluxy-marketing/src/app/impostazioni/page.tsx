@@ -30,6 +30,8 @@ const CONFERME: Record<string, string> = {
   cartella: "Cartella salvata: la prossima sincronizzazione leggerà da qui.",
   account: "Account salvato.",
   apikey: "Chiave API salvata: ora la sincronizzazione può leggere Google Drive online.",
+  "apikey-tolta": "Chiave API cancellata: la sincronizzazione del Drive dal server non parte più (resta quella dal PC, con npm run sync-drive).",
+  "apikey-invariata": "Niente da salvare: la casella era vuota. La chiave già impostata è rimasta al suo posto — per toglierla c'è la spunta apposta.",
   ai: "Impostazioni AI salvate: la prossima lettura userà questo fornitore.",
   tiktok: "Token TikTok salvato: ora la sincronizzazione può leggere l’advertiser.",
   istruzioni: "Istruzioni operative salvate: valgono da subito per ogni chiamata all’AI.",
@@ -513,6 +515,13 @@ export default async function PaginaImpostazioni({
                   autoComplete="off"
                 />
               </div>
+              {haApiKey && (
+                <div className="campo-modulo largo">
+                  <label style={{ fontWeight: 400 }}>
+                    <input type="checkbox" name="svuota" value="1" /> cancella la chiave salvata
+                  </label>
+                </div>
+              )}
               <div className="azioni-modulo" style={{ gridColumn: "1 / -1" }}>
                 <button className="btn" type="submit">Salva chiave</button>
               </div>

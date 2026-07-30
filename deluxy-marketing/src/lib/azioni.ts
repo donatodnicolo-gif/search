@@ -544,12 +544,35 @@ export async function salvaCartellaDrive(fd: FormData) {
   redirect("/impostazioni?salvato=cartella");
 }
 
+// ⚠️ Il campo vuoto NON cancella più.
+//
+// La casella non può mostrare la chiave già salvata — i segreti non si
+// rileggono mai — quindi si trova SEMPRE vuota. E qui si scriveva `?? ""`:
+// bastava premere «Salva chiave» senza scrivere niente per spegnere la sync
+// del Drive, senza un avviso. Il placeholder prometteva già «lascia vuoto per
+// non cambiarla»: la promessa e il comportamento andavano in due direzioni
+// opposte, e vinceva il codice.
+//
+// Per cancellarla davvero c'è la spunta apposta: un gesto esplicito, come per
+// le chiavi AI, il token TikTok e le credenziali Drive.
 export async function salvaApiKeyDrive(fd: FormData) {
   const chiaveApi = testo(fd, "apikey");
+  const svuota = fd.get("svuota") === "1";
+
+  if (svuota) {
+    await prisma.impostazione.deleteMany({ where: { chiave: CHIAVE_APIKEY } });
+    await registra({ autore: "utente", tipo: "modifica", entita: "drive", titolo: "Chiave API Google Drive cancellata" });
+    redirect("/impostazioni?salvato=apikey-tolta");
+  }
+  if (!chiaveApi) {
+    // Salva premuto a vuoto, senza chiedere di cancellare: non si fa niente.
+    // Fra non fare nulla e fare la cosa irreversibile, si sceglie la prima.
+    redirect("/impostazioni?salvato=apikey-invariata");
+  }
   await prisma.impostazione.upsert({
     where: { chiave: CHIAVE_APIKEY },
-    create: { chiave: CHIAVE_APIKEY, valore: chiaveApi ?? "" },
-    update: { valore: chiaveApi ?? "" },
+    create: { chiave: CHIAVE_APIKEY, valore: chiaveApi },
+    update: { valore: chiaveApi },
   });
   await registra({ autore: "utente", tipo: "modifica", entita: "drive", titolo: "Chiave API Google Drive aggiornata" });
   redirect("/impostazioni?salvato=apikey");
@@ -2001,7 +2024,12 @@ export async function salvaImpersonazioneDrive(formData: FormData) {
     revalidatePath("/impostazioni");
     redirect("/impostazioni?salvato=drive-impersona-tolta");
   }
-  if (!/^[^@s]+@[^@s]+.[a-z]{2,}$/.test(email)) {
+  // ⚠️ Due backslash mancanti rendevano questo controllo una trappola:
+  // `[^@s]` non esclude gli SPAZI, esclude la lettera «s». Le email che
+  // contengono una s — assistenza@…, mario.rossi@… — venivano respinte come
+  // «non valide», e il messaggio dava la colpa all'indirizzo invece che al
+  // controllo. Provato: 2 su 4 indirizzi normali rifiutati.
+  if (!/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i.test(email)) {
     redirect("/impostazioni?salvato=drive-impersona-invalida");
   }
   await prisma.impostazione.upsert({
