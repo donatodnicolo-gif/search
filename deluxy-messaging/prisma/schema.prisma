@@ -168,6 +168,21 @@ model NumeroWhatsApp {
 model PaginaMeta {
   id        String @id @default(cuid())
   canale    String // messenger | instagram
+  // ── Scadenza del token ──
+  //
+  // ⚠️ Il token dell'«Instagram API con login di Instagram» NASCE CON LA
+  // SCADENZA: un'ora quello breve, **60 giorni** quello lungo, e non si rinnova
+  // da sé. Al sessantesimo giorno i direct smettono di arrivare senza che niente
+  // lo dica — sembra un guasto e invece è il calendario.
+  //
+  // Qui si tiene quando scade e com'è andato l'ultimo rinnovo, e il cron
+  // `/api/cron/token-meta` lo rinnova prima che sia tardi. Un token generato da
+  // un UTENTE DI SISTEMA invece non scade: quando c'è quello, questi campi
+  // restano vuoti ed è giusto così — è la strada migliore, non un ripiego.
+  tokenScadeIl     DateTime?
+  tokenRinnovatoIl DateTime?
+  /** Com'è andato l'ultimo tentativo di rinnovo: vuoto = mai provato. */
+  tokenEsito       String   @default("") @db.Text
   // L'ID della Pagina (Messenger) o dell'account Instagram professionale.
   // È la chiave con cui il webhook riconosce il destinatario: sta in
   // `entry[].messaging[].recipient.id`, e finisce in Conversazione.numeroId.
@@ -343,6 +358,20 @@ model Conversazione {
   // nostro (widget, Messenger, Instagram).
   numeroId          String   @default("")
   numeroNostro      String   @default("")
+  // ── Smistamento per sito, quando lo sappiamo con certezza ──
+  //
+  // Il marchio di una conversazione arriva di norma dall'account che ha ricevuto
+  // (numero WhatsApp, pagina Meta, casella email). Ma le notifiche d'ordine
+  // arrivano TUTTE sulla stessa casella: `[cakedesign] Ordine #1742…` finiva
+  // nella colonna della casella, non in quella del sito che ha venduto.
+  //
+  // Se nell'oggetto c'è un numero d'ordine e quel numero esiste nella nostra
+  // tabella ordini, il marchio è quello dell'ordine: è una RICERCA, non una
+  // deduzione dal testo. `negozioId` vince su tutto il resto.
+  // Misurato il 30/07/2026: 981 ordini, **zero numeri ripetuti** fra i tre siti.
+  negozioId         String?
+  /** Il numero dell'ordine di cui parla la conversazione, se lo sappiamo. */
+  ordineNumero      String   @default("")
   nome              String   @default("")
   // Il nome come sta nella NOSTRA rubrica Google (deluxy.delivery@gmail.com).
   // Tenuto separato da `nome`, che è quello scelto dal cliente sul suo profilo

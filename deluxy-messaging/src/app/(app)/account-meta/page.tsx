@@ -1,6 +1,7 @@
 import { db } from '@/lib/db'
 import { pagineCollegate, type PaginaCollegata } from '@/lib/pagine-meta'
 import { DiagnosiWhatsApp } from '@/components/DiagnosiWhatsApp'
+import { RinnovaTokenMeta } from '@/components/RinnovaTokenMeta'
 import { salvaPaginaAction, eliminaPaginaAction } from './actions'
 
 export const dynamic = 'force-dynamic'
@@ -271,6 +272,42 @@ export default async function PaginaAccountMeta() {
           `instagram` e `page` — ma stava solo là dentro: chi collega Instagram
           non passa da quella pagina e restava senza risposta alla domanda
           «perché il mio DM non è arrivato?». */}
+      {/* ⚠️ La scadenza dei token Instagram: 60 giorni, e non si rinnova da sé.
+          Al sessantesimo giorno i direct smettono di arrivare e non lo dice
+          nessuno — sembra un guasto ed è il calendario. */}
+      <div className="card">
+        <h2 style={{ marginTop: 0, fontSize: 16 }}>Scadenza dei token</h2>
+        <p className="descrizione">
+          Il token dell&apos;<strong>Instagram API con login di Instagram</strong> dura{' '}
+          <strong>60 giorni</strong> e non si rinnova da solo: al sessantesimo giorno i direct
+          smettono di arrivare senza che niente lo segnali. Ogni notte l&apos;app lo rinnova in
+          anticipo (dal quindicesimo giorno prima della scadenza), perché Meta lascia rinnovarlo
+          solo mentre è ancora valido.
+        </p>
+        <p className="descrizione">
+          La strada migliore però è un&apos;altra: un token generato da un{' '}
+          <strong>utente di sistema</strong> in Meta Business Suite <strong>non scade</strong>. Se
+          usi quello, qui sotto leggerai «non rinnovato» con l&apos;errore di Meta — ed è la
+          risposta giusta, non un guasto: quel token non ha bisogno di rinnovi.
+        </p>
+        {instagram.some((p) => p.tokenScadeIl || p.tokenEsito) ? (
+          <ul className="elenco-esiti">
+            {instagram
+              .filter((p) => p.tokenScadeIl || p.tokenEsito)
+              .map((p) => (
+                <li key={p.id}>
+                  <strong>{p.riferimento || p.nome}</strong> —{' '}
+                  {p.tokenScadeIl
+                    ? `scade il ${new Date(p.tokenScadeIl).toLocaleDateString('it-IT')}`
+                    : 'scadenza non nota'}
+                  {p.tokenEsito ? ` · ${p.tokenEsito}` : ''}
+                </li>
+              ))}
+          </ul>
+        ) : null}
+        <RinnovaTokenMeta />
+      </div>
+
       <div className="card">
         <h2 style={{ marginTop: 0, fontSize: 16 }}>Non arrivano i messaggi?</h2>
         <p className="descrizione">

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { caselleAttive, scaricaEmail } from '@/lib/email'
+import { smistaMailPerSito } from '@/lib/ordine-da-email'
 import { risolutoreMarchio } from '@/lib/marchio-conversazione'
 
 // Scarica la posta da sola, ogni 5 minuti.
@@ -49,6 +50,12 @@ export async function GET(req: NextRequest) {
           const gia = await db.messaggio.findFirst({ where: { idEsterno: m.idEsterno } })
           if (gia) continue
         }
+        // A QUALE SITO appartiene questa mail: dal numero d'ordine citato
+        // nell'oggetto o nel corpo, cercato nella tabella ordini. Le notifiche
+        // dei tre siti arrivano tutte sulla stessa casella, e senza questo
+        // finiscono tutte nella colonna della casella che le ha ricevute.
+        const sito = await smistaMailPerSito(m.oggetto, m.testo)
+
         const conversazione = await db.conversazione.upsert({
           where: { canale_idEsterno_numeroId: { canale: 'email', idEsterno: m.da, numeroId: '' } },
           update: {
@@ -57,6 +64,10 @@ export async function GET(req: NextRequest) {
             ultimoTesto: m.oggetto || m.testo.slice(0, 120),
             ultimoMessaggioIl: m.data,
             nonLetti: { increment: 1 },
+            // Il marchio si scrive solo se lo sappiamo: un null non deve
+            // cancellare quello trovato prima da un altro messaggio.
+            ...(sito.negozioId ? { negozioId: sito.negozioId } : {}),
+            ...(sito.ordineNumero ? { ordineNumero: sito.ordineNumero } : {}),
             archiviata: false,
             // Una mail nuova riporta la conversazione in inbox anche se era nel
             // cestino: chi scrive di nuovo non sa che l'avevamo buttata.
@@ -69,7 +80,8 @@ export async function GET(req: NextRequest) {
             casellaId: casella.id,
             ultimoTesto: m.oggetto || m.testo.slice(0, 120),
             ultimoMessaggioIl: m.data,
-            nonLetti: 1,
+            negozioId: sito.negozioId,
+            ordineNumero: sito.ordineNumero,            nonLetti: 1,
           },
         })
         await db.messaggio.create({

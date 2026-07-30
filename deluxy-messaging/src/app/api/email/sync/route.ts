@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { caselleAttive, scaricaEmail } from '@/lib/email'
+import { smistaMailPerSito } from '@/lib/ordine-da-email'
 
 export const dynamic = 'force-dynamic'
 // Lo scarico IMAP può richiedere qualche decina di secondi (più caselle).
@@ -30,6 +31,12 @@ export async function POST() {
           if (gia) continue
         }
 
+        // A QUALE SITO appartiene questa mail: dal numero d'ordine citato
+        // nell'oggetto o nel corpo, cercato nella tabella ordini. Le notifiche
+        // dei tre siti arrivano tutte sulla stessa casella, e senza questo
+        // finiscono tutte nella colonna della casella che le ha ricevute.
+        const sito = await smistaMailPerSito(m.oggetto, m.testo)
+
         const conversazione = await db.conversazione.upsert({
           where: { canale_idEsterno_numeroId: { canale: 'email', idEsterno: m.da, numeroId: '' } },
           update: {
@@ -38,6 +45,10 @@ export async function POST() {
             ultimoTesto: m.oggetto || m.testo.slice(0, 120),
             ultimoMessaggioIl: m.data,
             nonLetti: { increment: 1 },
+            // Il marchio si scrive solo se lo sappiamo: un null non deve
+            // cancellare quello trovato prima da un altro messaggio.
+            ...(sito.negozioId ? { negozioId: sito.negozioId } : {}),
+            ...(sito.ordineNumero ? { ordineNumero: sito.ordineNumero } : {}),
             archiviata: false,
             eliminataIl: null,
           },
@@ -48,7 +59,8 @@ export async function POST() {
             casellaId: casella.id,
             ultimoTesto: m.oggetto || m.testo.slice(0, 120),
             ultimoMessaggioIl: m.data,
-            nonLetti: 1,
+            negozioId: sito.negozioId,
+            ordineNumero: sito.ordineNumero,            nonLetti: 1,
           },
         })
 

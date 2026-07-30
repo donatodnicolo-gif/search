@@ -29,11 +29,69 @@ function eImmagine(url: string): boolean {
  * come indirizzo, le parentesi quadre intorno ai link, gli spazi invisibili e
  * le colonne di righe vuote.
  */
+/**
+ * I fogli di stile che finiscono nel testo.
+ *
+ * ⚠️ Caso reale, notifica d'ordine Shopify: il testo comincia con
+ * `.button__cell { background: #d04c66; }`, `@media print{ body { color: black
+ * !important; } }` e altre venti righe di CSS prima di arrivare a «Rrenja Tafe
+ * ha effettuato l'ordine #1742». Chi apre quella mail vede un muro di codice e
+ * il messaggio vero sta sotto, fuori schermo.
+ *
+ * Si riconoscono due forme: la regola con le graffe (`selettore { … }`) e la
+ * riga di sola proprietà (`padding: 0 !important;`) che resta dopo.
+ */
+/**
+ * Una riga che «sembra CSS»: un selettore o una proprietà.
+ *
+ * ⚠️ Il confronto è volutamente stretto. Una riga di testo vero può finire con
+ * la virgola («Gentile cliente,») e non deve sparire: perciò si accettano solo
+ * le righe che COMINCIANO come un selettore — punto, cancelletto, chiocciola,
+ * asterisco, o un nome di tag minuscolo con pseudo-classe — e le proprietà nella
+ * forma `nome: valore;`.
+ */
+const RE_SELETTORE = /^\s*([.#@*][a-z0-9_-]|[a-z]+(:[a-z-]+)?\s*[,{])/i
+const RE_PROPRIETA = /^\s*[a-z-]{2,30}\s*:\s*[^;\n{}]{1,120};?\s*$/i
+/** Dentro le graffe c'è una proprietà CSS? Distingue una regola da una frase. */
+const RE_PROPRIETA_DENTRO = /[{][^{}]*[a-z-]{2,30}\s*:\s*[^;{}]+[;}]/i
+
+/**
+ * Il testo senza i fogli di stile.
+ *
+ * Non è una regex sola perché il CSS nelle mail è su più righe: un elenco di
+ * selettori, la graffa aperta, le proprietà, la graffa chiusa. Si conta la
+ * profondità delle graffe e si buttano le righe che stanno dentro.
+ */
+function senzaCss(testo: string): string {
+  const fuori: string[] = []
+  let dentro = 0
+  for (const riga of testo.split('\n')) {
+    const aperte = (riga.match(/\{/g) ?? []).length
+    const chiuse = (riga.match(/\}/g) ?? []).length
+    if (dentro > 0) {
+      dentro = Math.max(0, dentro + aperte - chiuse)
+      continue // riga interna a una regola: via
+    }
+    if (RE_SELETTORE.test(riga) || (aperte > 0 && chiuse === 0 && riga.trim().endsWith('{'))) {
+      dentro = Math.max(0, aperte - chiuse)
+      continue
+    }
+    if (aperte > 0 && aperte === chiuse && /[{][^{}]*[}]/.test(riga) && RE_PROPRIETA_DENTRO.test(riga)) {
+      continue // regola tutta su una riga: `sel { colore: rosso; }`
+    }
+    if (RE_PROPRIETA.test(riga)) continue
+    if (/^\s*[{}]\s*$/.test(riga)) continue
+    fuori.push(riga)
+  }
+  return fuori.join('\n')
+}
+
 export function ripulisciTestoEmail(testo: string): string {
+  // Il CSS va via PRIMA di tutto: dopo, spezzato dalle altre pulizie, diventa
+  // irriconoscibile e resta lì in mezzo al messaggio.
+  const senzaStili = senzaCss(testo.replace(/\r\n?/g, '\n').replace(RE_INVISIBILI, ' '))
   return (
-    testo
-      .replace(/\r\n?/g, '\n')
-      .replace(RE_INVISIBILI, ' ')
+    senzaStili
       // «Happiest of Days [https://…/foto.jpg]» → resta solo il nome;
       // «BUY NOW [https://…/click?…]» → il link resta, senza parentesi.
       .replace(RE_URL_PARENTESI, (_intero, url: string) => (eImmagine(url) ? '' : ` ${url} `))

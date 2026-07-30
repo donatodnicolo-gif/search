@@ -26,6 +26,10 @@ export type PaginaCollegata = {
   attivo: boolean
   /** Ha un token suo, o ripiega su quello generale delle Impostazioni? */
   tokenProprio: boolean
+  /** Quando scade il token, se scade: i token dell API Instagram durano 60 giorni. */
+  tokenScadeIl: Date | null
+  /** Com e andato l ultimo rinnovo: vuoto = mai provato. */
+  tokenEsito: string
 }
 
 /** Tutte le pagine e gli account collegati, col nome del marchio già risolto. */
@@ -44,6 +48,8 @@ export async function pagineCollegate(): Promise<PaginaCollegata[]> {
     brand: p.negozio?.nome ?? '',
     attivo: p.attivo,
     tokenProprio: Boolean(p.token),
+    tokenScadeIl: p.tokenScadeIl,
+    tokenEsito: p.tokenEsito,
   }))
 }
 

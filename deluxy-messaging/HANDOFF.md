@@ -77,6 +77,50 @@ locale, altrimenti nulla si decifra.
   - Solo WhatsApp: su Instagram e Messenger l'id non è un numero di telefono e
     in rubrica non c'è niente da cercare.
 
+- **LE MAIL D'ORDINE SI SMISTANO PER SITO, E IL TOKEN INSTAGRAM SI RINNOVA DA SÉ**
+  (30/07/2026).
+  - ⚠️ **Le notifiche d'ordine dei tre siti arrivano tutte sulla stessa casella**:
+    `[cakedesign] Ordine #1742…` finiva nella colonna della CASELLA («Deluxy»,
+    perché la posta arriva a cs@deluxy.it) e non in quella del sito che ha
+    venduto. Ora `src/lib/ordine-da-email.ts` prende il **numero d'ordine**
+    dall'oggetto o dal corpo e lo **cerca nella tabella ordini**: se lo trova, il
+    marchio è quello dell'ordine. È una ricerca, non una deduzione dal testo.
+    - Misurato il 30/07: **981 ordini, zero numeri ripetuti** fra i siti (Deluxy
+      12121–12684, Cake 1623–1742, Flowers 2318–2614). La tabella locale però
+      tiene solo ~60 giorni: per una mail su un ordine più vecchio si scende al
+      tag `[cakedesign]`, usato **solo se combacia con un solo negozio** — se ne
+      pesca due o nessuno non si assegna niente.
+    - `Conversazione.negozioId` + `ordineNumero`: il marchio scritto sulla
+      conversazione **vince** su quello della casella. Il numero d'ordine si vede
+      nella testata del thread.
+  - **Si vede su quale ACCOUNT è arrivata**: nella testata, accanto al marchio,
+    ora c'è `← cs@deluxy.it`. Prima con due caselle non si sapeva quale delle due
+    avesse ricevuto — la prima cosa da sapere per rispondere. Per le mail
+    l'etichetta è l'**indirizzo**, non il nome che ci siamo dati noi.
+  - **Il CSS non si legge più nelle mail**: le notifiche Shopify cominciano con
+    venti righe di `.button__cell { background: #d04c66 }` e il messaggio vero sta
+    sotto, fuori schermo. `senzaCss()` in `src/lib/testo-email.ts` conta le graffe
+    e butta le righe interne. ⚠️ Il riconoscimento è **stretto di proposito**:
+    solo righe che COMINCIANO come un selettore, perché una riga di testo vero può
+    finire con la virgola («Gentile cliente,») e non deve sparire. Provato su
+    prosa con orari (`10:00-12:00`) e virgole: intatta.
+  - ⚠️ **IL TOKEN INSTAGRAM SCADE OGNI 60 GIORNI** e non si rinnova da sé: al
+    sessantesimo giorno i direct smettono di arrivare e non lo segnala nessuno.
+    `src/lib/token-instagram.ts` + cron **`/api/cron/token-meta`** (ogni notte
+    alle 4:50) lo rinnovano **dal quindicesimo giorno prima** della scadenza —
+    Meta lascia rinnovare solo un token ancora valido, quindi «quando ce ne
+    accorgiamo» è troppo tardi. In `/account-meta` si vede la scadenza di ogni
+    account e c'è «Rinnova i token adesso».
+    - **La strada migliore resta un'altra**: un token generato da un **utente di
+      sistema non scade**. Su quello l'endpoint di rinnovo risponde errore, e
+      l'app lo scrive come esito invece di ritentare ogni notte: un rinnovo che
+      non serve non è un guasto.
+  - **AVVISI DEL BROWSER**: bottone «Avvisi» in Inbox. Il permesso lo chiede un
+    clic (i browser rifiutano la richiesta al caricamento, e chiederlo subito è il
+    modo migliore per farselo negare per sempre) e l'avviso compare **solo a
+    scheda non in primo piano**: se stai guardando l'inbox la conversazione nuova
+    la vedi, e una notifica sopra ciò che guardi è rumore.
+
 - **UN WIDGET PER OGNI SITO, CESTINO A 30 GIORNI, POSTA OGNI 5 MINUTI, FIRME,
   SUONO** (30/07/2026). Sei richieste in fila, tutte in produzione.
   - **`/aspetto-widget` → «Widget dei siti»**: si scegle il sito e la pagina

@@ -26,6 +26,8 @@ export type ConversazioneDto = {
   nonLetti: number
   /** Il nostro numero che ha ricevuto (solo WhatsApp), in forma leggibile. */
   numeroNostro?: string
+  /** Il numero dell'ordine di cui parla la conversazione, se lo sappiamo. */
+  ordineNumero?: string
   /** Il marchio di quell'account, se è collegato a un negozio. Decide la colonna. */
   brand?: string
   /**
@@ -335,6 +337,70 @@ export function Inbox({
     }
   }, [audioAcceso])
 
+  // ── Avvisi del browser ──
+  //
+  // ⚠️ Il permesso lo deve chiedere un CLIC: i browser rifiutano
+  // `requestPermission()` chiamata al caricamento della pagina, e chiederlo
+  // appena si apre l'app è anche il modo migliore per farselo negare per sempre.
+  // Perciò c'è un bottone.
+  //
+  // E si avvisa solo a **scheda non in primo piano**: se stai guardando l'inbox
+  // la conversazione nuova la vedi comparire, e una notifica di sistema sopra la
+  // cosa che stai già guardando è rumore. Con la scheda dietro, invece, è
+  // l'unico modo per sapere che è arrivato qualcosa.
+  const [avvisi, setAvvisi] = useState(false)
+
+  useEffect(() => {
+    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+      setAvvisi(true)
+    }
+  }, [])
+
+  async function chiediAvvisi() {
+    if (typeof Notification === 'undefined') {
+      setErroreInvio('Questo browser non sa mostrare avvisi di sistema.')
+      return
+    }
+    if (avvisi) {
+      // Il permesso non si revoca da qui — lo fa il browser: quello che si può
+      // spegnere è il nostro uso, e va detto invece di far finta.
+      setAvvisi(false)
+      return
+    }
+    const esito = await Notification.requestPermission()
+    if (esito === 'granted') setAvvisi(true)
+    else
+      setErroreInvio(
+        'Avvisi bloccati dal browser: si riattivano dall’icona del lucchetto accanto all’indirizzo.'
+      )
+  }
+
+  const avvisa = useCallback(
+    (quante: number) => {
+      if (!avvisi || typeof Notification === 'undefined') return
+      if (Notification.permission !== 'granted') return
+      if (typeof document !== 'undefined' && !document.hidden) return
+      try {
+        const n = new Notification(
+          quante === 1 ? 'Nuovo messaggio' : `${quante} nuovi messaggi`,
+          {
+            body: 'Deluxy Customer Service — un cliente sta aspettando una risposta.',
+            // `tag` fa sostituire l'avviso precedente invece di impilarne dieci
+            // durante una raffica.
+            tag: 'deluxy-inbox',
+          }
+        )
+        n.onclick = () => {
+          window.focus()
+          n.close()
+        }
+      } catch {
+        // avviso non mostrato: non è un errore che valga un messaggio in pagina
+      }
+    },
+    [avvisi]
+  )
+
   // Il totale dei non letti è il segnale più semplice e più affidabile: cresce
   // solo quando arriva davvero qualcosa. Contare le conversazioni nuove
   // suonerebbe anche quando una torna in cima per una nostra risposta.
@@ -345,8 +411,11 @@ export function Inbox({
     nonLettiPrec.current = totale
     // Al primo caricamento non si suona: aprire l'inbox con 106 non letti non è
     // un messaggio appena arrivato.
-    if (prima !== null && totale > prima) suona()
-  }, [conversazioni, vistaElenco, suona])
+    if (prima !== null && totale > prima) {
+      suona()
+      avvisa(totale - prima)
+    }
+  }, [conversazioni, vistaElenco, suona, avvisa])
 
   const caricaMessaggi = useCallback(async (id: string) => {
     try {
@@ -881,6 +950,19 @@ export function Inbox({
           >
             {audioAcceso ? 'Suono' : 'Muto'}
           </button>
+          {/* Avvisi del browser: arrivano anche con la scheda dietro, che è
+              quando servono. Il permesso lo deve chiedere un clic. */}
+          <button
+            className="bottone secondario mini"
+            onClick={chiediAvvisi}
+            title={
+              avvisi
+                ? 'Avvisi attivi: compaiono quando la scheda non è in primo piano'
+                : 'Chiedi al browser di mostrare un avviso quando arriva un messaggio'
+            }
+          >
+            {avvisi ? 'Avvisi' : 'Avvisi off'}
+          </button>
           <button
             className="bottone secondario mini"
             onClick={() => setVista(vista === 'colonne' ? 'elenco' : 'colonne')}
@@ -968,12 +1050,28 @@ export function Inbox({
               >
                 {selezionata.nomeRubrica || selezionata.nome || selezionata.idEsterno}
               </span>
-              {selezionata.brand || selezionata.etichettaAccount || selezionata.numeroNostro ? (
+              {selezionata.brand ? (
+                <span className="badge" title="Il marchio di questa conversazione">
+                  {selezionata.brand}
+                </span>
+              ) : null}
+              {/* SU QUALE NOSTRO ACCOUNT è arrivata: la casella di posta, il
+                  numero WhatsApp, il profilo Instagram. Prima si vedeva solo il
+                  marchio, e con due caselle non si sapeva quale delle due aveva
+                  ricevuto — che è la prima cosa da sapere per rispondere. */}
+              {selezionata.etichettaAccount || selezionata.numeroNostro ? (
                 <span
                   className="badge"
-                  title="La nostra linea che ha ricevuto: la risposta parte da qui"
+                  title="Il nostro account che ha ricevuto: la risposta parte da qui"
                 >
-                  {selezionata.brand || selezionata.etichettaAccount || selezionata.numeroNostro}
+                  ← {selezionata.etichettaAccount || selezionata.numeroNostro}
+                </span>
+              ) : null}
+              {/* Il numero dell'ordine: è quello che ha deciso il marchio di
+                  questa conversazione, e chi risponde lo cerca comunque. */}
+              {selezionata.ordineNumero ? (
+                <span className="badge" title="L'ordine di cui parla questa conversazione">
+                  {selezionata.ordineNumero}
                 </span>
               ) : null}
               <span className={`badge canale-${selezionata.canale}`}>

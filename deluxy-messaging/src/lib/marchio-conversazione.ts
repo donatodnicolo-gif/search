@@ -28,7 +28,13 @@
 import { db } from './db'
 import { brandPerSitoWidget } from './widget-siti'
 
-type ConversazioneMinima = { canale: string; numeroId: string; casellaId: string }
+type ConversazioneMinima = {
+  canale: string
+  numeroId: string
+  casellaId: string
+  /** Il marchio attribuito a QUESTA conversazione: se c'è, vince su tutto. */
+  negozioId?: string | null
+}
 
 export type Marchi = {
   /** Il negozio, o stringa vuota se l'account non ne ha uno: decide la colonna. */
@@ -38,7 +44,7 @@ export type Marchi = {
 }
 
 export async function risolutoreMarchio(): Promise<Marchi> {
-  const [numeri, pagine, caselle, siti] = await Promise.all([
+  const [numeri, pagine, caselle, siti, negozi] = await Promise.all([
     db.numeroWhatsApp.findMany({
       select: {
         phoneNumberId: true,
@@ -59,6 +65,9 @@ export async function risolutoreMarchio(): Promise<Marchi> {
       select: { id: true, nome: true, indirizzo: true, negozio: { select: { nome: true } } },
     }),
     brandPerSitoWidget(),
+    // Serve al marchio scritto sulla conversazione (quello che arriva dal numero
+    // d'ordine): là dentro c'è l'id del negozio, e qui si traduce nel nome.
+    db.negozioShopify.findMany({ select: { id: true, nome: true } }),
   ])
 
   // `numeroId` porta il numero WhatsApp o l'id dell'account Meta a seconda del
@@ -71,11 +80,21 @@ export async function risolutoreMarchio(): Promise<Marchi> {
     ...numeri.map((n) => [n.phoneNumberId, n.nome || n.numeroVisibile] as const),
     ...pagine.map((p) => [p.idPagina, p.riferimento || p.nome] as const),
   ])
+  const marchioNegozio = new Map(negozi.map((n) => [n.id, n.nome]))
   const marchioCasella = new Map(caselle.map((c) => [c.id, c.negozio?.nome ?? '']))
-  const etichettaCasella = new Map(caselle.map((c) => [c.id, c.nome || c.indirizzo]))
+  // L'INDIRIZZO della casella, non la sua etichetta: «cs@deluxy.it» dice a quale
+  // account è arrivata la mail, «Servizio Clienti Deluxy» è un nome che ci siamo
+  // dati noi e con due caselle non basta a distinguere chi ha ricevuto.
+  const etichettaCasella = new Map(caselle.map((c) => [c.id, c.indirizzo || c.nome]))
 
   return {
     marchioDi: (c) => {
+      // ⚠️ PRIMA di tutto il marchio scritto sulla conversazione: ci arriva dal
+      // NUMERO D'ORDINE trovato nella mail (una ricerca nella tabella ordini,
+      // non una deduzione dal testo). Le notifiche d'ordine dei tre siti
+      // arrivano tutte sulla stessa casella: senza questo, la torta di
+      // cakedesign finiva nella colonna della casella che l'ha ricevuta.
+      if (c.negozioId) return marchioNegozio.get(c.negozioId) ?? ''
       if (c.canale === 'email') return marchioCasella.get(c.casellaId) ?? ''
       // Widget: in `numeroId` c'è lo slug del sito che ospita la chat.
       if (c.canale === 'widget') return siti.get(c.numeroId) ?? ''
