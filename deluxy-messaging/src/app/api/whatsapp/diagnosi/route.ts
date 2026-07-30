@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { leggiImpostazioni } from '@/lib/impostazioni'
 import { db } from '@/lib/db'
 import { numeriCollegati, tokenPerNumero } from '@/lib/numeri-whatsapp'
@@ -36,7 +36,16 @@ async function chiedi(url: string, token: string) {
   return { ok: res.ok, stato: res.status, corpo }
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  // ⚠️ UN NUMERO PER VOLTA, se lo si chiede.
+  //
+  // Il controllo completo fa 4-5 chiamate a Meta PER NUMERO: con più numeri
+  // collegati la richiesta sfora i 30 secondi della funzione e torna un errore
+  // che sembra un guasto della diagnosi — cioè proprio lo strumento che serve a
+  // capire cos'è rotto. Con `?numero=<phoneNumberId>` si controlla solo quello:
+  // il conto delle chiamate resta fisso, e un numero che non risponde non porta
+  // giù anche la diagnosi degli altri.
+  const soloQuesto = (req.nextUrl.searchParams.get('numero') ?? '').trim()
   const c = await leggiImpostazioni([
     'waToken',
     'waPhoneNumberId',
@@ -79,9 +88,12 @@ export async function GET() {
   //    Se non ce n'è nessuno in tabella si ricade sulla vecchia configurazione
   //    singola delle Impostazioni, che è ancora valida per chi ha un numero solo.
   const collegati = await numeriCollegati()
-  const daControllare = collegati.length
-    ? collegati
-        .filter((n) => n.attivo)
+  const scelti = soloQuesto
+    ? collegati.filter((n) => n.phoneNumberId === soloQuesto)
+    : collegati
+  const daControllare = scelti.length
+    ? scelti
+        .filter((n) => n.attivo || Boolean(soloQuesto))
         .map((n) => ({
           etichetta: n.brand || n.nome || n.phoneNumberId,
           phoneNumberId: n.phoneNumberId,

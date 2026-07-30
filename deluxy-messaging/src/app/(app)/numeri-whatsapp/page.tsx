@@ -102,6 +102,13 @@ export default async function PaginaNumeriWhatsApp() {
 
           <RegistraNumero phoneNumberId={n.phoneNumberId} etichetta={n.brand || n.nome} />
 
+          {/* ⚠️ La diagnosi DI QUESTO NUMERO. Quella generale li controlla tutti,
+              e siccome ognuno costa 4-5 chiamate a Meta, con più numeri la
+              richiesta sfora il tempo massimo della funzione e torna un errore:
+              si rompe proprio lo strumento che serve a capire cos'è rotto. Qui
+              il conto delle chiamate è fisso. */}
+          <DiagnosiWhatsApp numero={n.phoneNumberId} etichetta={n.brand || n.nome} />
+
           <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
             {/* Sospendi/riattiva riusa la stessa action cambiando solo `attivo`. */}
             <form action={salvaNumeroAction}>
@@ -177,6 +184,12 @@ export default async function PaginaNumeriWhatsApp() {
           Il controllo interroga Meta con le credenziali salvate e dice a che punto si ferma: la
           domanda che conta è se la nostra app è <strong>iscritta</strong> al WhatsApp Business —
           senza quella, Meta non manda niente per quanto il webhook risulti verificato.
+        </p>
+        <p className="descrizione">
+          ⚠️ Questo controlla <strong>tutti</strong> i numeri, e ognuno costa quattro o cinque
+          chiamate a Meta: con più numeri collegati la richiesta può sforare il tempo massimo e
+          rispondere con un errore. In quel caso usa <strong>«Controlla questo numero»</strong>
+          nella scheda del numero qui sopra: è la stessa diagnosi, su uno solo.
         </p>
         <DiagnosiWhatsApp />
       </div>

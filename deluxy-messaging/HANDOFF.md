@@ -77,6 +77,18 @@ locale, altrimenti nulla si decifra.
   - Solo WhatsApp: su Instagram e Messenger l'id non è un numero di telefono e
     in rubrica non c'è niente da cercare.
 
+- **LA DIAGNOSI SI PUÒ FARE SU UN NUMERO SOLO** (30/07/2026). Con più numeri
+  collegati «Perché non arrivano i messaggi?» rispondeva **errore**: ogni numero
+  costa 4-5 chiamate a Meta e la richiesta sforava i 30 secondi della funzione.
+  Si rompeva proprio lo strumento che serve a capire cos'è rotto — e un numero
+  che non risponde portava giù la diagnosi di tutti gli altri.
+  - `GET /api/whatsapp/diagnosi?numero=<phoneNumberId>` controlla solo quello: il
+    conto delle chiamate resta fisso. In `/numeri-whatsapp` ogni scheda ha il suo
+    **«Controlla questo numero»**; quello generale resta in fondo, con scritto
+    accanto che su più numeri può sforare.
+  - Un numero **sospeso** si può comunque controllare se lo si chiede per id: è il
+    caso in cui si vuole capire perché è stato sospeso.
+
 - **SI PUÒ SCRIVERE PER PRIMI: «NUOVO MESSAGGIO» IN INBOX** (30/07/2026). Prima
   si poteva solo *rispondere*: per scrivere a un cliente che non aveva mai
   scritto bisognava uscire dall'app. Bottone in cima all'elenco, finestra con tre

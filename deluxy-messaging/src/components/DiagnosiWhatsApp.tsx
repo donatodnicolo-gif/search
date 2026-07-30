@@ -13,7 +13,23 @@ import { useState } from 'react'
 
 type Esito = { passo: string; ok: boolean | null; dettaglio: string }
 
-export function DiagnosiWhatsApp() {
+export function DiagnosiWhatsApp({
+  numero = '',
+  etichetta = '',
+}: {
+  /**
+   * Il `phoneNumberId` da controllare DA SOLO.
+   *
+   * ⚠️ Serve perché il controllo completo fa 4-5 chiamate a Meta **per numero**:
+   * con più numeri collegati la richiesta sfora il tempo massimo della funzione e
+   * torna un errore — cioè si rompe proprio lo strumento che serve a capire
+   * cos'è rotto, e un numero che non risponde porta giù la diagnosi degli altri.
+   * Vuoto = controlla tutti, come prima.
+   */
+  numero?: string
+  /** Come si chiama quel numero: finisce nel titolino del bottone. */
+  etichetta?: string
+} = {}) {
   const [esiti, setEsiti] = useState<Esito[] | null>(null)
   const [conclusione, setConclusione] = useState('')
   const [inCorso, setInCorso] = useState(false)
@@ -24,7 +40,9 @@ export function DiagnosiWhatsApp() {
     setErrore('')
     setEsiti(null)
     try {
-      const res = await fetch('/api/whatsapp/diagnosi')
+      const res = await fetch(
+        `/api/whatsapp/diagnosi${numero ? `?numero=${encodeURIComponent(numero)}` : ''}`
+      )
       const d = (await res.json().catch(() => ({}))) as {
         esiti?: Esito[]
         conclusione?: string
@@ -47,8 +65,22 @@ export function DiagnosiWhatsApp() {
     <div style={{ marginTop: 4 }}>
       {/* type="button": sta dentro il form delle impostazioni e senza questo
           lo invierebbe, salvando mezza pagina invece di fare la diagnosi. */}
-      <button type="button" className="btn btn-secondario small" onClick={controlla} disabled={inCorso}>
-        {inCorso ? 'Controllo…' : 'Perché non arrivano i messaggi?'}
+      <button
+        type="button"
+        className="btn btn-secondario small"
+        onClick={controlla}
+        disabled={inCorso}
+        title={
+          numero
+            ? `Controlla solo questo numero${etichetta ? ` (${etichetta})` : ''}: poche chiamate a Meta, risposta rapida`
+            : 'Controlla tutti i numeri collegati: con più di due può sforare il tempo massimo'
+        }
+      >
+        {inCorso
+          ? 'Controllo…'
+          : numero
+            ? 'Controlla questo numero'
+            : 'Perché non arrivano i messaggi?'}
       </button>
 
       {errore ? <div className="avviso-errore">{errore}</div> : null}
