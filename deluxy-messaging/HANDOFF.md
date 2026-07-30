@@ -77,6 +77,22 @@ locale, altrimenti nulla si decifra.
   - Solo WhatsApp: su Instagram e Messenger l'id non è un numero di telefono e
     in rubrica non c'è niente da cercare.
 
+- **IL WIDGET CHIEDEVA LA CONFIGURAZIONE PRIMA DI SAPERE IL SITO** (30/07/2026).
+  Su cakedesign.me lo snippet mandava `data-sito="cake"` e l'API rispondeva
+  «CakedesignMe», ma la chat mostrava «Deluxy — Ciao! Come possiamo aiutarti?»:
+  i testi generali.
+  - ⚠️ **La causa è l'ordine degli effetti.** Il sito veniva letto dentro un
+    `useEffect`, e gli effetti girano tutti **dopo** il primo disegno: la
+    richiesta al server partiva da un altro effetto quando `sito` era ancora
+    vuoto, e non si ripeteva perché `sito` non stava fra le sue dipendenze.
+  - Ora si legge nell'inizializzatore dello stato (`useState(() => …)`, con la
+    guardia `typeof window`) e sta fra le dipendenze della richiesta.
+  - **Verificato sulla pagina pubblicata**: `/widget?sito=cake` mostra
+    «CakedesignMe» col saluto delle torte, `/widget` senza parametro mostra
+    «Deluxy» coi testi generali.
+  - Da tenere a mente: un valore che decide **quale** richiesta fare non può
+    nascere in un effetto se la richiesta parte da un altro effetto.
+
 - **LE NEWSLETTER SI TOLGONO DI MEZZO, E SI VEDONO SOLO GLI ORDINI**
   (30/07/2026). Misurato: colonna Deluxy con **85 conversazioni e 107 non
   letti**, quasi tutte newsletter e piattaforme (TikTok, chatbot Shopify,
