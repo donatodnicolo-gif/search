@@ -77,6 +77,28 @@ locale, altrimenti nulla si decifra.
   - Solo WhatsApp: su Instagram e Messenger l'id non è un numero di telefono e
     in rubrica non c'è niente da cercare.
 
+- **SI PUÒ SCRIVERE PER PRIMI: «NUOVO MESSAGGIO» IN INBOX** (30/07/2026). Prima
+  si poteva solo *rispondere*: per scrivere a un cliente che non aveva mai
+  scritto bisognava uscire dall'app. Bottone in cima all'elenco, finestra con tre
+  cose nell'ordine in cui si pensa: **da quale casella** parte (predefinita
+  preselezionata), **quale ordine** agganciare, **a chi** e cosa.
+  - `GET /api/ordini/cerca?numero=1742` trova l'ordine e riempie destinatario e
+    oggetto — ma **non sovrascrive** quello che una persona ha già scritto.
+    Agganciare l'ordine fa anche finire il thread nella **colonna del suo
+    marchio** invece che in quella della casella.
+  - `POST /api/email/nuovo` invia dalla casella scelta (con la sua **firma**) e
+    ⚠️ **crea la conversazione in Inbox**: se il nostro messaggio non lasciasse
+    traccia, la risposta del cliente arriverebbe in un thread che comincia a
+    metà. I non letti restano a 0 — le nostre uscite non sono un debito.
+  - **Per ora solo posta.** Su WhatsApp scrivere per primi fuori dalle 24 ore
+    richiede un modello approvato da Meta: è un lavoro a parte, non un campo in
+    più in questa finestra.
+  - **17 conversazioni email già arrivate rismistate** con
+    `scripts/rismista-mail.mjs` (numero d'ordine → ordine in tabella → marchio):
+    `#1742 → Cake` (era in Deluxy), `#2587 → FLowers`, `#12663 → Deluxy`… Su 125
+    conversazioni senza marchio, 17 avevano un numero d'ordine che esiste in
+    tabella; le altre sono newsletter e mail senza ordine.
+
 - **IL WIDGET CHIEDEVA LA CONFIGURAZIONE PRIMA DI SAPERE IL SITO** (30/07/2026).
   Su cakedesign.me lo snippet mandava `data-sito="cake"` e l'API rispondeva
   «CakedesignMe», ma la chat mostrava «Deluxy — Ciao! Come possiamo aiutarti?»:

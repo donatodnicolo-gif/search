@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { pezziDiTesto, ripulisciTestoEmail } from '@/lib/testo-email'
 import { inserisciScript } from '@/lib/script-testo'
 import { urlScriviAiMail } from '@/lib/ai-mail'
+import { NuovaMail } from './NuovaMail'
 
 // L'inbox unificata: elenco conversazioni a sinistra, thread a destra.
 // Si aggiorna da sola con un polling leggero (le nuove conversazioni e i
@@ -783,6 +784,11 @@ export function Inbox({
     }
   }
 
+  // La finestra «Nuovo messaggio»: per ora solo posta. Su WhatsApp scrivere per
+  // primi fuori dalle 24 ore vuole un modello approvato da Meta, quindi è un
+  // lavoro a parte e non un campo in più in questa finestra.
+  const [nuovaMail, setNuovaMail] = useState(false)
+
   // Scarica la posta dalla casella register.it: le mail entrano come
   // conversazioni del canale Email.
   const [scaricoPosta, setScaricoPosta] = useState('')
@@ -948,6 +954,11 @@ export function Inbox({
               Cestino{quanteNelCestino ? ` ${quanteNelCestino}` : ''}
             </button>
           </span>
+          {/* Scrivere per primi: prima si poteva solo rispondere, e per un
+              cliente che non aveva mai scritto bisognava uscire dall'app. */}
+          <button className="bottone mini" onClick={() => setNuovaMail(true)}>
+            Nuovo messaggio
+          </button>
           <button className="bottone secondario mini" onClick={scaricaPosta} disabled={scaricoPosta === '…'}>
             {scaricoPosta === '…' ? 'Scarico posta…' : 'Scarica posta'}
           </button>
@@ -1055,6 +1066,18 @@ export function Inbox({
 
     {/* A colonne la conversazione si apre in una finestra sopra la bacheca:
         le colonne prendono tutta la larghezza e restano visibili sotto. */}
+    {nuovaMail ? (
+      <NuovaMail
+        onChiudi={() => setNuovaMail(false)}
+        onInviata={() => {
+          setNuovaMail(false)
+          // L'elenco si ricarica: la conversazione appena creata deve comparire
+          // subito, altrimenti sembra che il messaggio non sia partito.
+          aggiornaConversazioni()
+        }}
+      />
+    ) : null}
+
     {aFinestra && selezionata ? (
       <div className="velo" onClick={chiudiFinestra} role="presentation">
         <div
