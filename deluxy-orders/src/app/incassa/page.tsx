@@ -4,7 +4,7 @@ import { euro, dataBreve } from "@/lib/ordini";
 import { negoziPronti } from "@/lib/incassa";
 import { ModuloIncasso } from "@/components/ModuloIncasso";
 import { RigaLinkIncasso } from "@/components/RigaLinkIncasso";
-import { creaLink, aggiornaStatoLink, annullaLink } from "./actions";
+import { creaLink, aggiornaStatoLink, annullaLink, rileggiPermessi } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -60,6 +60,15 @@ export default async function Incassa() {
             Dev Dashboard del negozio; il token si rifà da sé al primo uso, senza reincollare niente qui.
             {pronti.length > 0 && ` Intanto ${pronti.map((n) => n.brand).join(", ")} funziona già.`}
           </span>
+          {/* Il token che abbiamo in mano dura ~24 ore e i permessi li ha
+              dentro: appena il permesso è stato aggiunto in Shopify va fatto
+              scadere, altrimenti il cambiamento si vedrebbe domani e sembrerebbe
+              non aver funzionato. */}
+          <form action={rileggiPermessi}>
+            <button className="btn small" type="submit" title="Fa scadere il token: al primo uso l'app se ne conia uno nuovo coi permessi aggiornati">
+              Ho aggiunto il permesso — rileggi
+            </button>
+          </form>
         </div>
       )}
       {sconosciuti.length > 0 && (
