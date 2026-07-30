@@ -20,6 +20,24 @@ function accentoValido(v: string): string {
   return /^#[0-9a-f]{6}$/i.test(v) ? v : ''
 }
 
+/**
+ * Da dove arriva il visitatore, così come lo ha letto `widget.js` sulla pagina
+ * ospite e passato nell'URL di questo iframe.
+ *
+ * ⚠️ Non si può leggere qui dentro: `document.referrer` dentro l'iframe è il
+ * sito che ci ospita, non Google. Per questo lo raccoglie lo script di fuori.
+ */
+function leggiProvenienza(): Record<string, string> {
+  if (typeof window === 'undefined') return {}
+  const p = new URLSearchParams(window.location.search)
+  const fuori: Record<string, string> = {}
+  for (const chiave of ['utm_source', 'utm_medium', 'utm_campaign', 'gclid', 'fbclid', 'rif', 'pagina']) {
+    const v = p.get(chiave)
+    if (v) fuori[chiave] = v.slice(0, 120)
+  }
+  return fuori
+}
+
 export default function PaginaWidget() {
   const [token, setToken] = useState<string | null>(null)
   // Da quale sito ci stanno scrivendo: lo dichiara lo snippet (`data-sito`) e
@@ -173,7 +191,7 @@ export default function PaginaWidget() {
         const res = await fetch('/api/widget/sessione', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sito }),
+          body: JSON.stringify({ sito, provenienza: leggiProvenienza() }),
         })
         const dati = (await res.json()) as { token: string }
         miaSessione = dati.token

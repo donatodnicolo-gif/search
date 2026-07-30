@@ -6,6 +6,8 @@ import { pezziDiTesto, ripulisciTestoEmail } from '@/lib/testo-email'
 import { inserisciScript } from '@/lib/script-testo'
 import { urlScriviAiMail } from '@/lib/ai-mail'
 import { NuovaMail } from './NuovaMail'
+import { RiassuntoChat } from './RiassuntoChat'
+import { NOMI_ORIGINE } from '@/lib/provenienza'
 
 // L'inbox unificata: elenco conversazioni a sinistra, thread a destra.
 // Si aggiorna da sola con un polling leggero (le nuove conversazioni e i
@@ -27,6 +29,10 @@ export type ConversazioneDto = {
   nonLetti: number
   /** Il nostro numero che ha ricevuto (solo WhatsApp), in forma leggibile. */
   numeroNostro?: string
+  /** Da dove arriva chi ha aperto la chat dal sito: google-ads, diretto, … */
+  origine?: string
+  origineDettaglio?: string
+  paginaIngresso?: string
   /** Il numero dell'ordine di cui parla la conversazione, se lo sappiamo. */
   ordineNumero?: string
   /** Il marchio di quell'account, se è collegato a un negozio. Decide la colonna. */
@@ -788,6 +794,9 @@ export function Inbox({
   // primi fuori dalle 24 ore vuole un modello approvato da Meta, quindi è un
   // lavoro a parte e non un campo in più in questa finestra.
   const [nuovaMail, setNuovaMail] = useState(false)
+  // Il pannello del riassunto: chiuso di suo. Aprirlo mostra quello gia' salvato,
+  // rifarlo e' un gesto in piu' — l'AI non si scomoda da sola.
+  const [riassuntoAperto, setRiassuntoAperto] = useState(false)
 
   // Scarica la posta dalla casella register.it: le mail entrano come
   // conversazioni del canale Email.
@@ -1141,6 +1150,13 @@ export function Inbox({
               <span className="dettaglio">{selezionata.idEsterno}</span>
 
               <span className="azioni-thread">
+                <button
+                  className="bottone secondario mini"
+                  onClick={() => setRiassuntoAperto(!riassuntoAperto)}
+                  title="Data, ora, luogo e prodotto detti dal cliente, con la frase da cui vengono"
+                >
+                  Riassunto
+                </button>
                 {/* Chi è questo numero: lo chiede alla rubrica Google, adesso.
                     Solo su WhatsApp — è l'unico canale con un telefono. */}
                 {selezionata.canale === 'whatsapp' && !selezionata.nomeRubrica ? (
@@ -1192,6 +1208,30 @@ export function Inbox({
                 </button>
               ) : null}
             </div>
+
+            {/* Da dove arriva chi ha aperto la chat: chi ha cliccato un annuncio
+                non è chi arriva dal passaparola. Solo per il widget dei siti —
+                sugli altri canali non lo sappiamo, e non lo si finge. */}
+            {selezionata.canale === 'widget' && selezionata.origine ? (
+              <div className="provenienza">
+                <span className="badge">
+                  {NOMI_ORIGINE[selezionata.origine] ?? selezionata.origine}
+                </span>
+                {selezionata.origineDettaglio ? (
+                  <span>{selezionata.origineDettaglio}</span>
+                ) : null}
+                {selezionata.paginaIngresso ? (
+                  <span title="La pagina da cui ha aperto la chat">
+                    da {selezionata.paginaIngresso}
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
+
+            {/* Il riassunto: data, ora, luogo e prodotto, ognuno con la frase del
+                cliente da cui viene. Si apre a richiesta e non chiama l'AI da
+                solo: mostra prima quello già salvato. */}
+            {riassuntoAperto ? <RiassuntoChat conversazioneId={selezionata.id} /> : null}
 
             <div className="messaggi">
               {messaggi.map((m) => (

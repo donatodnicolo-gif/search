@@ -136,8 +136,52 @@
   bottone.innerHTML = segnoBottone(true);
   if (etichetta) bottone.querySelector('.testo').textContent = etichetta;
 
+  // ── DA DOVE ARRIVA CHI SCRIVE ────────────────────────────────────────────
+  //
+  // Chi apre la chat dopo aver cliccato un annuncio non è chi arriva dal
+  // passaparola: cambia l'urgenza e cambia cosa vale la pena proporgli. Queste
+  // informazioni le ha solo la PAGINA OSPITE — dentro l'iframe `document.referrer`
+  // è il sito, non Google — quindi si leggono qui e si passano di là.
+  //
+  // ⚠️ Si legge solo quello che c'è ADESSO: niente cookie, niente storia salvata
+  // sul sito ospite. Chi clicca l'annuncio oggi e scrive fra due giorni risulta
+  // «diretto», ed è meglio dirlo che costruirci sopra un tracciamento.
+  // ⚠️ Della pagina si prende il PERCORSO, non la query: in quei parametri può
+  // finire di tutto, email comprese, e non è roba da mettere in un URL nostro.
+  var provenienza = (function () {
+    try {
+      var q = new URLSearchParams(window.location.search);
+      var dati = {};
+      var utm = ['utm_source', 'utm_medium', 'utm_campaign'];
+      for (var i = 0; i < utm.length; i++) {
+        var v = q.get(utm[i]);
+        if (v) dati[utm[i]] = String(v).slice(0, 60);
+      }
+      // `gclid` c'è solo se il clic viene da Google Ads; `fbclid` da Meta. Si
+      // tiene il FATTO che ci sono, non il loro valore: quello identifica il
+      // singolo clic e a noi non serve.
+      if (q.get('gclid') || q.get('gbraid') || q.get('wbraid')) dati.gclid = '1';
+      if (q.get('fbclid') || q.get('ttclid')) dati.fbclid = '1';
+      if (document.referrer) {
+        try {
+          var r = new URL(document.referrer);
+          if (r.hostname !== window.location.hostname) dati.rif = r.hostname.slice(0, 80);
+        } catch (e) {}
+      }
+      dati.pagina = String(window.location.pathname || '/').slice(0, 120);
+      return dati;
+    } catch (e) {
+      return {};
+    }
+  })();
+
   var iframe = document.createElement('iframe');
   var parametri = 'tema=' + encodeURIComponent(tema);
+  for (var chiave in provenienza) {
+    if (Object.prototype.hasOwnProperty.call(provenienza, chiave)) {
+      parametri += '&' + chiave + '=' + encodeURIComponent(provenienza[chiave]);
+    }
+  }
   if (accento) parametri += '&accento=' + encodeURIComponent(accento);
   if (sito) parametri += '&sito=' + encodeURIComponent(sito);
   iframe.src = origine + '/widget?' + parametri;

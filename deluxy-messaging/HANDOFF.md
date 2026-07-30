@@ -77,6 +77,37 @@ locale, altrimenti nulla si decifra.
   - Solo WhatsApp: su Instagram e Messenger l'id non è un numero di telefono e
     in rubrica non c'è niente da cercare.
 
+- **DA DOVE ARRIVA CHI SCRIVE, E IL RIASSUNTO DELLA CHAT** (30/07/2026).
+  - **PROVENIENZA** (`Conversazione.origine`, `origineDettaglio`,
+    `paginaIngresso`): chi apre la chat dopo un annuncio non è chi arriva dal
+    passaparola — cambia urgenza, tono e cosa vale la pena proporgli, e in Inbox
+    erano tutti «Visitatore sito». `widget.js` legge sulla **pagina ospite**
+    `utm_*`, la presenza di `gclid`/`fbclid`, il sito che ha mandato e il
+    percorso della pagina; `src/lib/provenienza.ts` classifica in google-ads ·
+    google · meta-ads · social · referral · **diretto**.
+    - ⚠️ Dentro l'iframe non si potrebbe sapere: là `document.referrer` è il sito
+      che ci ospita, non Google. Per questo lo raccoglie lo script di fuori.
+    - ⚠️ **Niente cookie e niente storia salvata sul sito ospite**: si legge solo
+      quello che c'è quando la chat si apre. Chi clicca l'annuncio oggi e scrive
+      fra due giorni risulta «diretto» — che vuol dire «non lo sappiamo», e va
+      detto così invece di costruirci sopra un tracciamento.
+    - Del `gclid` si tiene **il fatto che c'è, non il valore** (identifica il
+      singolo clic), e della pagina il **percorso senza query**: in quei parametri
+      finisce di tutto, email comprese.
+  - **RIASSUNTO AI** (bottone «Riassunto» nella testata del thread,
+    `POST /api/conversazioni/[id]/riassunto`): legge la conversazione e ne tira
+    fuori **data, ora, luogo, prodotto** più due righe di sintesi e cosa manca
+    ancora da chiedere. Si salva su `Conversazione.riassunto`: riaprendo si
+    rilegge, l'AI si scomoda solo con «Rifai».
+    - ⚠️ **Ogni campo esce solo con la FRASE del cliente da cui viene**, e il
+      controllo che la frase ci sia è **nostro**, non del modello: un campo senza
+      citazione viene buttato. È la differenza fra «lo ha detto il cliente» e «lo
+      ha pensato l'AI», e su una consegna quella differenza è tutta — un «08/12»
+      che è una fascia oraria letto come l'8 dicembre manda i fiori quattro mesi
+      dopo. Il prompt vieta esplicitamente di convertire «domani» in una data.
+    - Quello che il cliente non ha detto resta **«non indicato»**, in un riquadro
+      tratteggiato: è un'informazione, non un buco da riempire a intuito.
+
 - **LA DIAGNOSI SI PUÒ FARE SU UN NUMERO SOLO** (30/07/2026). Con più numeri
   collegati «Perché non arrivano i messaggi?» rispondeva **errore**: ogni numero
   costa 4-5 chiamate a Meta e la richiesta sforava i 30 secondi della funzione.

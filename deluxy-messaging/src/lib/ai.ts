@@ -561,3 +561,150 @@ export async function ricavaIstruzioni(
     return { stato: 'errore', messaggio: (e as Error).message }
   }
 }
+
+// ————— Riassunto di una conversazione —————
+//
+// Una chat di trenta battute contiene quattro cose che servono davvero: QUANDO
+// va consegnato, A CHE ORA, DOVE e COSA. Rileggerla tutta per ritrovarle è il
+// lavoro che si rifà ogni volta che la conversazione passa di mano.
+//
+// ⚠️ QUI NON SI DEDUCE NIENTE. È la regola che costa più cara sbagliare: un
+// «08/12» che è una fascia oraria letto come l'8 dicembre manda i fiori quattro
+// mesi dopo. Quindi ogni campo esce SOLO se il cliente l'ha detto, e insieme al
+// campo il modello deve riportare la FRASE ESATTA da cui l'ha preso: chi legge
+// verifica in due secondi invece di fidarsi. Niente frase, niente campo.
+
+const SCHEMA_RIASSUNTO = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    riassunto: {
+      type: 'string',
+      description:
+        'Due o tre frasi in italiano: cosa vuole il cliente e a che punto siamo. Se la conversazione non dice niente di utile, scrivilo.',
+    },
+    data: { type: 'string', description: 'La data di consegna che il cliente ha detto, come l’ha detta. Vuoto se non l’ha detta.' },
+    dataCitazione: { type: 'string', description: 'La frase esatta del cliente da cui viene la data. Vuoto se non c’è.' },
+    ora: { type: 'string', description: 'L’ora o la fascia oraria che ha chiesto. Vuoto se non l’ha detta.' },
+    oraCitazione: { type: 'string', description: 'La frase esatta da cui viene l’ora. Vuoto se non c’è.' },
+    luogo: { type: 'string', description: 'Il luogo di consegna: città, via, «a casa sua». Vuoto se non l’ha detto.' },
+    luogoCitazione: { type: 'string', description: 'La frase esatta da cui viene il luogo. Vuoto se non c’è.' },
+    prodotto: { type: 'string', description: 'Cosa desidera: prodotto, quantità, colore, personalizzazione. Vuoto se non l’ha detto.' },
+    prodottoCitazione: { type: 'string', description: 'La frase esatta da cui viene il prodotto. Vuoto se non c’è.' },
+    daChiedere: {
+      type: 'array',
+      items: { type: 'string' },
+      description:
+        'Le informazioni che mancano per poter preparare l’ordine, in una riga ciascuna. Vuoto se non manca niente.',
+    },
+  },
+  required: [
+    'riassunto',
+    'data',
+    'dataCitazione',
+    'ora',
+    'oraCitazione',
+    'luogo',
+    'luogoCitazione',
+    'prodotto',
+    'prodottoCitazione',
+    'daChiedere',
+  ],
+} as const
+
+const ISTRUZIONI_RIASSUNTO = `Sei l'assistente di un servizio clienti. Ti do una conversazione con un cliente e devi ricavarne quello che serve per preparare l'ordine.
+
+REGOLE, in ordine di importanza:
+1. NON DEDURRE. Ogni campo lo riempi SOLO se il cliente lo ha detto a parole. Se non l'ha detto, lascia il campo vuoto: «vuoto» è una risposta giusta, un'ipotesi no.
+2. Per ogni campo che riempi devi riportare la FRASE ESATTA del cliente da cui l'hai preso, copiata, non riscritta. Se non riesci a indicare la frase, allora quel campo va lasciato vuoto.
+3. NON CONVERTIRE E NON INTERPRETARE i numeri. «08/12» può essere una fascia oraria (dalle 8 alle 12) o una data: riporta quello che c'è scritto, senza scegliere. Non trasformare «domani» in una data.
+4. Il riassunto è per chi deve rispondere adesso: cosa vuole il cliente, a che punto siamo, cosa aspetta da noi. Niente giudizi, niente frasi di cortesia.
+5. In «daChiedere» metti solo quello che manca DAVVERO per preparare l'ordine (per esempio: manca l'indirizzo, manca l'ora).
+Scrivi in italiano, anche se la conversazione è in un'altra lingua.`
+
+export type RiassuntoChat = {
+  riassunto: string
+  data: string
+  dataCitazione: string
+  ora: string
+  oraCitazione: string
+  luogo: string
+  luogoCitazione: string
+  prodotto: string
+  prodottoCitazione: string
+  daChiedere: string[]
+}
+
+export type EsitoRiassunto =
+  | { stato: 'ok'; riassunto: RiassuntoChat; fornitore: string }
+  | { stato: 'non-configurato' }
+  | { stato: 'errore'; messaggio: string }
+
+/** Riassume una conversazione. `messaggi` in ordine cronologico. */
+export async function riassumiConversazione(
+  messaggi: { direzione: string; testo: string; creatoIl: Date }[]
+): Promise<EsitoRiassunto> {
+  const c = await leggiImpostazioni(['openaiApiKey', 'openaiModelloRisposte'])
+  const chiave = (c.openaiApiKey ?? '').trim()
+  if (!chiave) return { stato: 'non-configurato' }
+
+  // Le ultime 60 battute bastano: oltre, il modello paga il contesto e la
+  // conversazione utile è comunque quella recente.
+  const testo = messaggi
+    .slice(-60)
+    .map(
+      (m) =>
+        `[${m.creatoIl.toLocaleString('it-IT')}] ${m.direzione === 'in' ? 'CLIENTE' : 'NOI'}: ${m.testo.slice(0, 1500)}`
+    )
+    .join('\n')
+  if (!testo.trim()) return { stato: 'errore', messaggio: 'Nessun messaggio da riassumere.' }
+
+  const modello = (c.openaiModelloRisposte || MODELLO_RISPOSTE_DEFAULT).trim()
+  try {
+    const client = new OpenAI({ apiKey: chiave, timeout: 45_000, maxRetries: 2 })
+    const risposta = await client.chat.completions.create({
+      model: modello,
+      temperature: 0,
+      response_format: {
+        type: 'json_schema',
+        json_schema: {
+          name: 'riassunto_chat',
+          strict: true,
+          schema: SCHEMA_RIASSUNTO as unknown as Record<string, unknown>,
+        },
+      },
+      messages: [
+        { role: 'system', content: ISTRUZIONI_RIASSUNTO },
+        { role: 'user', content: `CONVERSAZIONE:\n${testo}` },
+      ],
+    })
+    const grezzo = risposta.choices[0]?.message?.content
+    if (!grezzo) return { stato: 'errore', messaggio: 'Risposta vuota dal modello.' }
+    const d = JSON.parse(grezzo) as RiassuntoChat
+
+    // ⚠️ Controllo NOSTRO, non del modello: un campo senza la sua citazione si
+    // butta. È la differenza fra «lo ha detto il cliente» e «lo ha pensato l'AI»,
+    // e su una data di consegna quella differenza è tutta.
+    const conProva = (valore: string, citazione: string) =>
+      valore.trim() && citazione.trim() ? valore.trim() : ''
+
+    return {
+      stato: 'ok',
+      fornitore: `OpenAI ${modello}`,
+      riassunto: {
+        riassunto: (d.riassunto ?? '').trim(),
+        data: conProva(d.data ?? '', d.dataCitazione ?? ''),
+        dataCitazione: (d.dataCitazione ?? '').trim(),
+        ora: conProva(d.ora ?? '', d.oraCitazione ?? ''),
+        oraCitazione: (d.oraCitazione ?? '').trim(),
+        luogo: conProva(d.luogo ?? '', d.luogoCitazione ?? ''),
+        luogoCitazione: (d.luogoCitazione ?? '').trim(),
+        prodotto: conProva(d.prodotto ?? '', d.prodottoCitazione ?? ''),
+        prodottoCitazione: (d.prodottoCitazione ?? '').trim(),
+        daChiedere: (d.daChiedere ?? []).map((x) => String(x).trim()).filter(Boolean),
+      },
+    }
+  } catch (e) {
+    return { stato: 'errore', messaggio: (e as Error).message }
+  }
+}

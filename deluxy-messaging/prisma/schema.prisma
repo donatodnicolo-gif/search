@@ -382,6 +382,29 @@ model Conversazione {
   // numeri che non ci sono: la People API si paga in tempo, e un numero che
   // manca oggi manca anche fra un'ora.
   rubricaCercataIl  DateTime?
+  // ── Da dove arriva chi scrive dal widget del sito ──
+  //
+  // Chi apre la chat dopo aver cliccato un annuncio non è chi arriva dal
+  // passaparola: cambia l'urgenza, cambia il tono e cambia cosa vale la pena
+  // proporgli. Finora in Inbox erano tutti uguali.
+  //
+  // `origine`: google-ads | google | meta-ads | social | referral | diretto.
+  // `origineDettaglio`: la campagna (utm_campaign) o il sito che ha mandato.
+  // `paginaIngresso`: la pagina da cui ha aperto la chat, senza query — «stava
+  // guardando /collections/torte-oggi» dice più di mille indovinelli.
+  //
+  // ⚠️ Si legge SOLO quello che c'è nel momento in cui la chat si apre: niente
+  // cookie, niente storia salvata sul sito ospite. Chi clicca l'annuncio oggi e
+  // scrive fra due giorni risulta «diretto», ed è giusto dirlo così invece di
+  // costruirci sopra un tracciamento.
+  origine           String   @default("")
+  origineDettaglio  String   @default("")
+  paginaIngresso    String   @default("")
+  // Il riassunto della conversazione fatto dall'AI, con quello che il cliente ha
+  // detto su data, ora, luogo e prodotto. Si salva per non rifarlo a ogni
+  // apertura; si aggiorna a richiesta.
+  riassunto         String   @default("") @db.Text
+  riassuntoIl       DateTime?
   ultimoTesto       String   @default("") @db.Text
   ultimoMessaggioIl DateTime @default(now())
   nonLetti          Int      @default(0) // messaggi in arrivo non ancora letti dall'operatore
