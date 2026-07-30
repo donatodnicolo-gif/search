@@ -146,6 +146,17 @@ Tre scelte, tutte volute:
 > in `deluxy-messaging/public/widget.js`, insieme a `data-apri-da` e `data-bottone`. Il push su
 > GitHub **non pubblica** quell'app: serve `npx vercel deploy --prod --yes`.
 
+**`data-bottone="no"`: si entra solo dal menu.** Niente pastiglia flottante — in basso a destra
+c'erano già la barra di aiuto e il consenso ai cookie, e due ingressi per la stessa chat erano
+uno di troppo.
+
+> ⚠️ **Difetto aperto che nasce da questa scelta.** In `deluxy-messaging/src/app/globals.css`
+> la × dentro la chat (`.widget-chiudi`) è `display: none` e torna visibile **solo sotto i
+> 480px**: il commento nel codice dà per scontato che sul desktop si chiuda con la pastiglia
+> flottante. Tolta la pastiglia, **da desktop resta solo il tasto Esc**. Non è un vicolo cieco,
+> ma non si scopre. Rimedio: mostrare `.widget-chiudi` anche sul desktop quando il bottone è
+> disattivato (il widget dovrebbe passarlo all'iframe, es. `&chiudibile=1`).
+
 Verificato sull'anteprima del tema di lavoro, col widget già in produzione: navigazione
 annullata, URL invariato, pannello contatti chiuso, scroll sbloccato, chat aperta
 (`DeluxyChat.eAperta()` → `true`), iframe 372×568 con `sito=cake`. La pagina della chat risponde
