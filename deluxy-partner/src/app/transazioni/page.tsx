@@ -24,7 +24,7 @@ export const dynamic = "force-dynamic";
 export default async function TransazioniPage({
   searchParams,
 }: {
-  searchParams: Promise<{ import?: string; nuove?: string; doppioni?: string; scartate?: string; iban?: string; errore?: string; cerca?: string; qonto?: string; conti?: string; totali?: string }>;
+  searchParams: Promise<{ import?: string; nuove?: string; doppioni?: string; scartate?: string; iban?: string; errore?: string; cerca?: string; qonto?: string; conti?: string; totali?: string; estesa?: string }>;
 }) {
   const sp = await searchParams;
 
@@ -57,17 +57,30 @@ export default async function TransazioniPage({
           }),
         };
 
-  // Il motore di riconoscimento (suggerisci) è costoso: lo applichiamo alle
-  // transazioni "nuove" più recenti, non a tutte. Il numero totale resta visibile.
-  const MAX_NUOVE = 400;
+  // Il motore di riconoscimento (suggerisci) è costoso: si lavora sulle
+  // transazioni con più probabilità di essere riconciliate, non su tutte.
+  // Criterio: importo significativo (i micro-movimenti sono spese, non incassi
+  // di partner). Sotto i 100 € sta il 69% dei movimenti ma quasi nessun match.
+  // «Ricerca estesa» (estesa=1) toglie il filtro; durante una ricerca testuale
+  // il filtro non si applica mai — se cerchi, vuoi trovare.
+  const SOGLIA_PROBABILI = 100;
+  const estesa = sp.estesa === "1";
+  const filtroProbabili =
+    estesa || termini.length > 0
+      ? {}
+      : { OR: [{ importo: { gte: SOGLIA_PROBABILI } }, { importo: { lte: -SOGLIA_PROBABILI } }] };
+  const whereNuove = { stato: "nuova", ...filtroProbabili, ...filtroRicerca };
+  const MAX_NUOVE = 600;
 
-  const [nuoveRec, nuoveTotali, registrate, ignorate, totaleTransazioni, estremi, importi, partners, fattureAperte, tutti, associazioniRec, qonto, ultimaSyncRow] =
+  const [nuoveRec, nuoveTotali, nuoveInTutto, registrate, ignorate, totaleTransazioni, estremi, importi, partners, fattureAperte, tutti, associazioniRec, qonto, ultimaSyncRow] =
     await Promise.all([
       prisma.transazioneBancaria.findMany({
-        where: { stato: "nuova", ...filtroRicerca },
+        where: whereNuove,
         orderBy: { data: "desc" },
         take: MAX_NUOVE,
       }),
+      prisma.transazioneBancaria.count({ where: whereNuove }),
+      // totale delle "da lavorare" senza il filtro probabilità (per l'avviso)
       prisma.transazioneBancaria.count({ where: { stato: "nuova", ...filtroRicerca } }),
       prisma.transazioneBancaria.findMany({
         where: { stato: "registrata", ...filtroRicerca },
@@ -120,8 +133,11 @@ export default async function TransazioniPage({
   const daRegistrare = conSugg.filter((x) => ["fattura", "incasso_partner", "bonifico_partner"].includes(x.sugg.tipo));
   const discrepanze = conSugg.filter((x) => x.sugg.tipo === "discrepanza");
   const sconosciute = conSugg.filter((x) => x.sugg.tipo === "sconosciuta");
-  // quante "nuove" restano fuori dall'analisi (cap dichiarato, non silenzioso)
-  const nuoveNonAnalizzate = Math.max(0, nuoveTotali - nuove.length);
+  // Cosa resta fuori (dichiarato, mai silenzioso):
+  // - oltreIlLimite: rientrano nel filtro ma eccedono le MAX_NUOVE mostrate
+  // - sottoSoglia: escluse dal filtro "probabili" (importo piccolo)
+  const oltreIlLimite = Math.max(0, nuoveTotali - nuove.length);
+  const sottoSoglia = Math.max(0, nuoveInTutto - nuoveTotali);
 
   // Attesi mancanti e periodo: calcolati sull'insieme completo (aggregati SQL +
   // soli importi), non caricando tutti i record.
@@ -261,12 +277,23 @@ export default async function TransazioniPage({
               {sconosciute.length} non riconosciute · {registrate.length + ignorate.length} nello storico.
             </p>
           )}
-          {nuoveNonAnalizzate > 0 && (
-            <p className="muted" style={{ fontSize: 12.5, marginTop: 10 }}>
-              Analizzate le <strong>{nuove.length}</strong> transazioni da lavorare più recenti
-              {query ? " fra i risultati" : ""} · altre <strong>{nuoveNonAnalizzate}</strong> in attesa
-              (compaiono man mano che registri o ignori queste). Usa la ricerca per andare dritto a una in
-              particolare.
+          {(oltreIlLimite > 0 || sottoSoglia > 0) && (
+            <p className="muted" style={{ fontSize: 12.5, marginTop: 10, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+              <span>
+                In lavorazione le <strong>{nuove.length}</strong> più recenti
+                {!estesa && !query && <> con importo da <strong>{SOGLIA_PROBABILI} €</strong> in su (le più probabili)</>}
+                {oltreIlLimite > 0 && <> · altre <strong>{oltreIlLimite}</strong> in coda</>}
+                {sottoSoglia > 0 && <> · <strong>{sottoSoglia}</strong> sotto i {SOGLIA_PROBABILI} € non mostrate</>}
+              </span>
+              {!query && (
+                <Link
+                  href={estesa ? "/transazioni" : "/transazioni?estesa=1"}
+                  className="btn secondary small"
+                  title={estesa ? "Torna alle transazioni più probabili" : "Mostra anche i movimenti sotto i 100 €"}
+                >
+                  {estesa ? "Solo le probabili" : "Ricerca estesa"}
+                </Link>
+              )}
             </p>
           )}
         </div>
