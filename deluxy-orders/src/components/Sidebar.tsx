@@ -7,7 +7,7 @@ import { usePathname } from "next/navigation";
 export function Sidebar({
   conteggi,
 }: {
-  conteggi: { ordini: number; daClassificare: number; clienti: number; liste: number; automazioni: number; script: number; eventi: number };
+  conteggi: { ordini: number; daClassificare: number; clienti: number; liste: number; automazioni: number; script: number; eventi: number; daRiconciliare: number };
 }) {
   const path = usePathname();
 
@@ -31,8 +31,14 @@ export function Sidebar({
       ],
     },
     {
+      // Analisi = i numeri. Il venduto (quanto entra), il margine (quanto resta)
+      // e il controllo (se il denaro è arrivato davvero e quanto è uscito).
       titolo: "Analisi",
-      voci: [{ href: "/analisi", nome: "Andamento vendite", count: null, icona: iconaAnalisi }],
+      voci: [
+        { href: "/analisi", nome: "Andamento vendite", count: null, icona: iconaAnalisi },
+        { href: "/margini", nome: "Margini", count: null, icona: iconaMargini },
+        { href: "/controllo", nome: "Controllo incassi", count: conteggi.daRiconciliare, icona: iconaControllo },
+      ],
     },
     {
       titolo: "Clienti",
@@ -134,6 +140,17 @@ const iconaAnalisi = (
   <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <path d="M4 19V5" /><path d="M4 19h16" />
     <path d="M8 16V11" /><path d="M13 16V7" /><path d="M18 16v-4" />
+  </svg>
+);
+const iconaMargini = (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M4 18 20 6" /><circle cx="7" cy="8" r="2.5" /><circle cx="17" cy="16" r="2.5" />
+  </svg>
+);
+const iconaControllo = (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="2.5" y="6" width="19" height="12" rx="2" />
+    <path d="M2.5 10h19" /><path d="m8 14.5 1.6 1.6L13 12.8" />
   </svg>
 );
 const iconaCategorie = (

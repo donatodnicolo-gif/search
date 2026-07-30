@@ -456,6 +456,33 @@ model Ordine {
   problemaGestito Boolean @default(false)
   problemaNota    String? // "rimborsata la spedizione, cliente d'accordo"
 
+  // ---- CONTROLLO: i soldi di questo ordine (incasso e costo) ----------------
+  // Le due metà del margine, tenute separate perché arrivano da due strade e non
+  // valgono uguale: l'INCASSO è quello che il cliente ci ha davvero pagato, il
+  // COSTO è quello che abbiamo pagato al fornitore. Nessuno dei due si deduce
+  // dal totale dell'ordine: senza il dato si scrive che non c'è.
+  //
+  // COME si incassa: `riconciliazione` (si cerca il movimento in banca),
+  // `partner` (l'ordine rientra nel conto mensile del partner, in banca non c'è
+  // niente da cercare), `pagamento_esterno` (richiesta di pagamento fuori da
+  // Shopify: il denaro arriva in banca e va abbinato).
+  gestioneIncasso String @default("riconciliazione")
+  // da_riconciliare | riconciliato | incassato_gateway | ignorato
+  statoIncasso       String    @default("da_riconciliare")
+  movimentoIncassoId String? // MovimentoBanca.id (specchio di Finance)
+  incassatoIl        DateTime?
+
+  // Quanto abbiamo PAGATO al fioraio/pasticceria per quest'ordine. Il fornitore
+  // non sta nell'ordine Shopify: l'abbinamento è manuale o per numero d'ordine
+  // in causale. `costoDa` dice CHI l'ha deciso, perché un costo scritto a mano e
+  // uno agganciato da una regola non meritano la stessa fiducia.
+  costoFornitore     Float?
+  costoFornitoreNome String?
+  costoMovimentoId   String? // MovimentoBanca.id dell'addebito
+  costoIl            DateTime?
+  costoDa            String? // manuale | causale | finance
+  controlloNota      String?
+
   noteInterne      String?
   ultimaClassifica DateTime? // ultima modifica manuale della classificazione
   eventi           EventoOrdine[]
@@ -466,6 +493,10 @@ model Ordine {
 
   @@unique([negozioId, orderId])
   @@index([statoId])
+  @@index([statoIncasso, data])
+  @@index([costoFornitore])
+  @@index([movimentoIncassoId])
+  @@index([costoMovimentoId])
   @@index([brand, data])
   @@index([dataConsegna])
   @@index([annullatoIl])
@@ -597,6 +628,51 @@ model EventoOrdine {
   creatoIl    DateTime @default(now())
 
   @@index([ordineId, creatoIl])
+}
+
+// MOVIMENTO BANCARIO — specchio di SOLA LETTURA dell'estratto conto che vive in
+// Finance (deluxy-partner, `GET /api/v1/movimenti`).
+//
+// Perché una copia e non una lettura al volo: il controllo degli ordini cerca,
+// filtra e abbina su ~11.000 movimenti, e deve funzionare anche quando Finance è
+// lento o giù. La copia è idempotente su `hash` (l'identità del movimento in
+// Finance): reimportare non duplica niente.
+//
+// ⚠️ Qui NON si scrive mai niente che riguardi Finance: il denaro, la categoria
+// di costo e lo stato contabile restano suoi. Di nostro c'è solo l'uso che ne fa
+// il controllo degli ordini, e quello sta sull'ORDINE (movimentoIncassoId /
+// costoMovimentoId), non qui: così una reimportazione non può cancellarlo.
+model MovimentoBanca {
+  id        String @id @default(cuid())
+  idFinance String @unique // id del movimento in deluxy-partner
+  hash      String @unique // identità stabile del movimento nell'estratto
+
+  data        DateTime
+  importo     Float // > 0 accredito (incasso), < 0 addebito (pagamento)
+  divisa      String  @default("EUR")
+  descrizione String  @db.Text
+  controparte String?
+  fonte       String? // nome del file/estratto da cui è arrivato
+  // Come lo vede Finance: nuova | registrata | ignorata. Un movimento già
+  // «registrata» là è stato usato per altro (una fattura, una spesa) e non va
+  // offerto come incasso libero di un ordine.
+  statoFinance String @default("nuova")
+
+  importatoIl  DateTime @default(now())
+  aggiornatoIl DateTime @updatedAt
+
+  @@index([data])
+  @@index([importo])
+  @@index([statoFinance])
+}
+
+// Impostazione dell'app: chiave → valore, testuale. Serve alle poche scelte che
+// non sono dati (la quota attesa del fornitore) e che devono valere anche in
+// produzione senza un deploy.
+model Impostazione {
+  chiave       String   @id
+  valore       String   @db.Text
+  aggiornatoIl DateTime @updatedAt
 }
 
 // Chiave API di un'app client. Nel database c'è solo lo SHA-256 della chiave.

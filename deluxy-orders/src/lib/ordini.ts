@@ -374,6 +374,22 @@ export function serializzaOrdine(
       gestito: o.problemaGestito,
       nota: o.problemaNota,
     },
+    // I SOLDI dell'ordine: l'incasso del cliente e il costo del fornitore, con il
+    // margine già fatto dove si può fare. `costo` è `null` quando non lo sappiamo
+    // — e allora `margine` è `null` anche lui, non zero: uno zero verrebbe letto
+    // come «nessun margine», che è un'altra cosa. `costoDa` dice chi l'ha
+    // deciso: manuale | causale (agganciato per numero in causale) | finance.
+    controllo: {
+      gestioneIncasso: o.gestioneIncasso,
+      statoIncasso: o.statoIncasso,
+      incassatoIl: o.incassatoIl?.toISOString() ?? null,
+      costo: o.costoFornitore,
+      costoFornitore: o.costoFornitoreNome,
+      costoIl: o.costoIl?.toISOString() ?? null,
+      costoDa: o.costoDa,
+      margine: o.costoFornitore != null ? +(o.totale - o.costoFornitore).toFixed(2) : null,
+      nota: o.controlloNota,
+    },
     updatedAt: o.updatedAt.toISOString(),
   };
 }

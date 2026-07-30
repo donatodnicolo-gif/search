@@ -8,6 +8,9 @@ import {
   toggleChiave, sincronizza, importaFeedbackOrdini, impostaCategoriaNegozio, ricalcolaCategorieOrdini, riconciliaOrdini,
 } from "@/app/actions";
 import { configurazione, riepilogoFeedback } from "@/lib/feedback";
+import { configurazioneFinance, riepilogoMovimenti } from "@/lib/movimenti";
+import { quotaFornitore } from "@/lib/controllo";
+import { importaMovimentiBanca, adottaDaFinance, abbinaPerNumero, salvaQuota } from "@/app/controllo/actions";
 import { CATEGORIE } from "@/lib/categorie";
 
 export const dynamic = "force-dynamic";
@@ -18,14 +21,19 @@ export default async function Impostazioni({
   searchParams: Promise<Record<string, string>>;
 }) {
   const sp = await searchParams;
-  const [negozi, stati, etichette, chiavi, feedback] = await Promise.all([
+  const [negozi, stati, etichette, chiavi, feedback, movimenti, quota, conCosto] = await Promise.all([
     prisma.negozioShopify.findMany({ orderBy: { brand: "asc" } }),
     statiOrdinati(),
     prisma.etichetta.findMany({ orderBy: { nome: "asc" } }),
     prisma.apiKey.findMany({ orderBy: { creataIl: "desc" } }),
     riepilogoFeedback(),
+    riepilogoMovimenti(),
+    quotaFornitore(),
+    prisma.ordine.count({ where: { costoFornitore: { not: null } } }),
   ]);
   const csConfigurato = configurazione() != null;
+  const financeConfigurato = configurazioneFinance() != null;
+  const controllo = { conCosto };
 
   return (
     <main className="main">
@@ -141,6 +149,88 @@ export default async function Impostazioni({
             </form>
           </>
         )}
+      </div>
+
+      {/* ---------- Controllo dei soldi: Finance e quota del fornitore ---------- */}
+      <div className="scheda">
+        <div className="scheda-titolo">Controllo dei soldi (movimenti da Finance)</div>
+        <p className="testo-guida">
+          I <strong>movimenti bancari</strong> arrivano da Finance (deluxy-partner), che resta il padrone
+          dell&apos;estratto conto: qui se ne tiene una copia di sola lettura per poter dire{" "}
+          <strong>a quale ordine appartiene</strong> ciascun incasso e ciascun pagamento al fornitore. Da lì
+          nascono i <strong>margini</strong>. L&apos;import e l&apos;abbinamento automatico girano ogni notte con la
+          sincronizzazione da Shopify.
+        </p>
+
+        {!financeConfigurato ? (
+          <p className="testo-guida" style={{ marginTop: 10 }}>
+            Non configurato: servono <code className="inline">FINANCE_URL</code> e{" "}
+            <code className="inline">FINANCE_API_KEY</code> (la chiave è quella delle API di verifica di
+            deluxy-partner, in Impostazioni là).
+          </p>
+        ) : (
+          <>
+            <div className="kpi-riga" style={{ marginTop: 12 }}>
+              <div className="kpi">
+                <div className="kpi-valore">{movimenti.totale.toLocaleString("it-IT")}</div>
+                <div className="kpi-etichetta">Movimenti copiati</div>
+              </div>
+              <div className="kpi">
+                <div className="kpi-valore">{movimenti.entrate.toLocaleString("it-IT")}</div>
+                <div className="kpi-etichetta">Entrate (incassi)</div>
+              </div>
+              <div className="kpi">
+                <div className="kpi-valore">{movimenti.uscite.toLocaleString("it-IT")}</div>
+                <div className="kpi-etichetta">Uscite (pagamenti)</div>
+              </div>
+              <div className="kpi">
+                <div className="kpi-valore">{controllo.conCosto.toLocaleString("it-IT")}</div>
+                <div className="kpi-etichetta">Ordini con un costo</div>
+              </div>
+            </div>
+            <p className="testo-guida">
+              {movimenti.ultimoImport ? `Ultimo scarico: ${dataBreve(movimenti.ultimoImport)}.` : "Mai scaricato finora."}{" "}
+              {movimenti.primo && movimenti.ultimo
+                ? `L'estratto copre dal ${dataBreve(movimenti.primo)} al ${dataBreve(movimenti.ultimo)}: gli ordini più vecchi non hanno un movimento da abbinare, e non è un errore.`
+                : ""}
+            </p>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 8 }}>
+              <form action={importaMovimentiBanca} style={{ display: "flex", gap: 14, alignItems: "center" }}>
+                <button className="btn" type="submit">Scarica i movimenti</button>
+                <label style={{ fontSize: 13, color: "var(--text-secondary)", display: "flex", gap: 6, alignItems: "center" }}>
+                  <input type="checkbox" name="completo" value="si" /> rileggi tutto dall&apos;inizio
+                </label>
+              </form>
+              <form action={adottaDaFinance}>
+                <button
+                  className="btn btn-secondario"
+                  type="submit"
+                  title="Prende da Finance lo stato dell'incasso e i costi già registrati là. Non sovrascrive quello che è stato deciso qui."
+                >
+                  Adotta il controllo fatto in Finance
+                </button>
+              </form>
+              <form action={abbinaPerNumero}>
+                <button className="btn btn-secondario" type="submit">⇄ Abbina per numero in causale</button>
+              </form>
+            </div>
+          </>
+        )}
+
+        <form action={salvaQuota} className="modulo" style={{ marginTop: 14 }}>
+          <div className="campo-modulo">
+            <label htmlFor="quota">Quota attesa del fornitore (%)</label>
+            <input id="quota" name="quota" inputMode="decimal" defaultValue={String(quota)} />
+          </div>
+          <div className="azioni-modulo campo-modulo">
+            <button className="btn btn-secondario" type="submit">Salva la quota</button>
+          </div>
+        </form>
+        <p className="testo-guida">
+          È la parte del valore dell&apos;ordine che di norma paghiamo al fornitore: pagare <strong>sotto</strong> è
+          bene, <strong>sopra</strong> è male. Non serve a calcolare un costo — quello si registra ordine per ordine
+          — ma a segnalare gli scostamenti e a dare l&apos;ordine di grandezza del margine atteso.
+        </p>
       </div>
 
       {/* ---------- Negozi Shopify ---------- */}

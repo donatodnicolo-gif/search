@@ -263,6 +263,95 @@ i KPI riga per riga: è lì che si confrontano fra loro settimane, mesi e anni.
 **L'ultima riga della serie è il periodo in corso**: va letta sapendo che non è
 ancora finita.
 
+### Margini (`/margini`)
+Quanto **resta** di un ordine dopo aver pagato il fornitore. È la domanda che il
+venduto non risponde: 86.000 € di ordini con che margine?
+
+**La regola della pagina: si misura solo dove il costo c'è.** Il costo del fioraio
+non sta nell'ordine Shopify — nessuno lo scrive lì — quindi entra dal
+[Controllo](#controllo-controllo): si abbina l'addebito in banca all'ordine. Dove
+il costo manca, quell'ordine **non entra nel conto**, e accanto a ogni numero la
+pagina scrive su quanti ordini è calcolato. Un margine del 48% misurato su un
+ordine su dieci è un'informazione diversa da un margine del 48% su tutti, e
+spalmare una media sui mancanti darebbe un numero preciso e falso.
+
+I numeri, sul periodo scelto (settimane/mesi/anni, con le stesse pillole di anni e
+mesi della pagina Analisi):
+
+- **margine misurato** in euro e in percentuale, e il **costo fornitore** con la
+  sua quota del valore;
+- **copertura della misura**: quanti ordini e quanto venduto sono misurati. Al
+  30/07/2026, sul 2026: **318 ordini su 3.469 (9%)**, 26.213 € di margine su
+  54.663 € di venduto misurato → **48,0%**;
+- **margine atteso**, dichiarato come *ipotesi*: quello che verrebbe se ogni
+  ordine costasse la quota di riferimento (60%). Serve a dare l'ordine di
+  grandezza di ciò che non è misurato, non a far finta di saperlo;
+- **sopra la quota**: quanti ordini abbiamo pagato più del concordato;
+- un riquadro **«cosa non è misurato»** che scrive quanti ordini e quanti euro
+  restano fuori. Non si nasconde: è la coda di lavoro.
+
+**Dove si fa il margine**: gli stessi numeri per **negozio**, **categoria di
+prodotto**, **fornitore pagato**, **città**, **tempo di consegna**, **canale** e
+**mese**. Ogni riga porta la sua copertura, perché due righe con lo stesso margine
+e coperture diverse non valgono uguale. Numeri veri sul 2026: deluxy.it 52,9% ·
+Flowers 44,1% · cakedesign.me 45,6%.
+
+**Pagati sopra la quota — da guardare**: l'elenco degli ordini su cui abbiamo
+pagato più del 60%, ordinati per **quanto ci sono costati in più**, non per
+percentuale: il 90% su un ordine da 30 € pesa meno del 70% su uno da 900 €.
+
+**Il lordo è lordo.** `totale` è il totale Shopify, IVA e spedizione incluse.
+L'aliquota non sta sull'ordine (fiori e torte non hanno la stessa), quindi qui non
+si scorpora niente e questo è un margine **sul lordo**. Chi deve fare il conto
+netto lo scorpora e lo dichiara.
+
+### Controllo (`/controllo`)
+I soldi di ogni ordine: **quello che il cliente ha pagato** e **quello che abbiamo
+pagato al fornitore**. È il mestiere che si faceva in Finance
+(deluxy-partner, `/ordini`), portato dove stanno gli ordini. In Finance restano i
+**movimenti bancari**, che sono suoi: qui se ne tiene una copia di sola lettura e
+si decide **a quale ordine appartiene** ciascuno.
+
+Due domande, tenute separate perché hanno due risposte:
+
+| | domanda | come si riconosce |
+| --- | --- | --- |
+| **Incasso** | il cliente ha pagato? | accredito di importo ~ uguale al totale |
+| **Costo** | quanto ci è costato? | addebito di una **frazione** del totale (~60%) |
+
+Da qui la regola che conta: **l'abbinamento si fa per NUMERO D'ORDINE in causale,
+non per importo.** Cercare l'importo uguale funzionerebbe solo per gli incassi;
+per il costo del fornitore non troverebbe mai niente.
+
+- **% incassato** sul periodo, con la barra e il dettaglio per metodo di
+  pagamento. Al 30/07/2026, tutto lo storico: **86,0%** (carte 98,5%).
+- «Incassato» = carte pagate su Shopify (l'incasso è avvenuto sul gateway: il
+  versamento in banca arriva a blocchi, non ordine per ordine) + ordini abbinati a
+  un movimento + ordini segnati incassati a mano.
+- **Come si incassa** un ordine è una scelta, e cambia se in banca c'è qualcosa da
+  cercare: *incasso da riconciliare*, *ordine partner* (rientra nel conto mensile
+  del partner: in banca non c'è niente da cercare, ed è il caso di deluxy.it),
+  *richiesta di pagamento esterna*. Gli ordini partner **non sono un arretrato** e
+  la pagina lo scrive: 1.325 ordini per 238.140 €.
+- **⇄ Abbina per numero** aggancia in automatico, solo dove la corrispondenza è
+  **unica** 1:1. Un numero che compare su due ordini o due movimenti resta
+  «ambiguo» e non viene scritto. Sul primo giro vero: **122 costi** e 5 incassi
+  agganciati, oltre a quelli che arrivavano da Finance.
+- Guardia di plausibilità sui costi: un costo sta fra il **5% e il 90%** del valore
+  dell'ordine. Fuori da lì l'aggancio è un caso, e un caso scritto in automatico
+  dentro un margine è un numero falso che nessuno rileggerà.
+- **Adotta il controllo già fatto in Finance**: prende di là lo stato dell'incasso
+  e i costi già registrati (249 ordini, 23.224,47 €) e **non sovrascrive** quello
+  che è stato deciso qui.
+
+La **quota attesa del fornitore** (60% di default) si cambia in Impostazioni:
+pagare sotto è bene, sopra è male. Non serve a *calcolare* un costo — quello si
+registra ordine per ordine — ma a segnalare gli scostamenti.
+
+Sulla **scheda di ogni ordine** c'è il riquadro «I soldi di questo ordine»: stato
+dell'incasso, movimento abbinato, costo con la quota pagata, margine, e il campo
+per scrivere il costo a mano.
+
 #### Da dove viene il risultato: gli stessi numeri tagliati in sei modi
 «Il venduto è sceso» non è una notizia finché non si sa **dove**. La stessa
 tabella si può guardare per:

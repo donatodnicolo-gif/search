@@ -4,6 +4,9 @@ import { prisma } from "@/lib/db";
 import { eseguiSyncOrdini } from "@/lib/sync";
 import { importaFeedback } from "@/lib/feedback";
 import { rilevaEventi } from "@/lib/eventi";
+import { importaMovimenti } from "@/lib/movimenti";
+import { eseguiAbbinamentoPerNumero } from "@/lib/abbina";
+import { normalizzaControllo } from "@/lib/controllo";
 
 // Sincronizzazione automatica degli ordini Shopify (cron Vercel, vedi
 // vercel.json). Scarica gli ordini recenti da tutti i negozi collegati e li
@@ -71,8 +74,26 @@ export async function GET(req: NextRequest) {
     const eventi = veloce
       ? "saltati (giro veloce)"
       : await rilevaEventi().catch((e) => ({ errore: (e as Error).message }));
+    // I MOVIMENTI BANCARI da Finance e l'abbinamento per numero in causale:
+    // anche questi solo nella passata piena. L'estratto conto di Finance si
+    // aggiorna una volta al giorno, quindi chiederlo ogni quarto d'ora sarebbe
+    // solo traffico. L'ordine conta: prima i movimenti, poi l'abbinamento —
+    // altrimenti si abbinerebbe su un estratto vecchio di un giorno.
+    const movimenti = veloce
+      ? "saltati (giro veloce)"
+      : await importaMovimenti().catch((e) => ({ errore: (e as Error).message }));
+    // La normalizzazione porta al punto di partenza giusto gli ordini arrivati
+    // prima che il controllo esistesse (carte già incassate sul gateway, ordini
+    // di deluxy.it nel conto del partner). È idempotente e tocca solo ciò su cui
+    // nessuno ha ancora deciso: due UPDATE, non dodicimila.
+    const normalizzati = veloce
+      ? "saltata (giro veloce)"
+      : await normalizzaControllo().catch((e) => ({ errore: (e as Error).message }));
+    const abbinati = veloce
+      ? "saltato (giro veloce)"
+      : await eseguiAbbinamentoPerNumero().catch((e) => ({ errore: (e as Error).message }));
     revalidatePath("/", "layout");
-    return NextResponse.json({ ok: true, giorni, veloce, ...esito, feedback, eventi });
+    return NextResponse.json({ ok: true, giorni, veloce, ...esito, feedback, eventi, movimenti, normalizzati, abbinati });
   } catch (e) {
     return NextResponse.json({ errore: (e as Error).message }, { status: 500 });
   }

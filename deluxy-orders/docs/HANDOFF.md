@@ -336,6 +336,73 @@ categorie di prodotto e serie storica.
   un ordine multi-categoria è contato in ogni riga e la somma supera il totale.
   Scritto in pagina.
 
+### Margini e Controllo: i soldi degli ordini arrivano qui (30/07/2026)
+Il controllo degli ordini — **incassi** e **costi del fornitore** — che si faceva
+in Finance (`deluxy-partner/ordini`) ora vive qui, dove stanno gli ordini. In
+Finance restano **i movimenti bancari**, che sono suoi.
+
+**Come sono divisi i mestieri (deciso con l'utente)**
+- Finance possiede l'estratto conto e lo espone in sola lettura:
+  `GET /api/v1/movimenti` e `GET /api/v1/ordini-controllo` (chiave = quella delle
+  API di verifica, `Impostazione api.verificheKey`).
+- Orders copia i movimenti in `MovimentoBanca` (specchio, idempotente su `hash`) e
+  possiede lo **stato del controllo** sull'ordine: `gestioneIncasso`,
+  `statoIncasso`, `movimentoIncassoId`, `costoFornitore`, `costoMovimentoId`,
+  `costoDa`.
+- ⚠️ **Orders non scrive niente in Finance.** Là il movimento abbinato veniva
+  marcato «registrata»; qui no: che un movimento sia usato lo dice **l'ordine che
+  lo cita** (`movimentiUsati()` lo deriva). Così una reimportazione dell'estratto
+  non può perdere il lavoro. È una deviazione voluta dal comportamento di Finance.
+- **`/api/v1/ordini` porta un blocco `controllo{}`** (stato incasso, costo,
+  margine): `margine` è `null` quando il costo non c'è, mai zero.
+
+**Configurazione**: `FINANCE_URL` + `FINANCE_API_KEY` (impostate su Vercel per
+production/preview/development il 30/07/2026, e nel `.env` locale puntano a
+`localhost:3040`). Nel middleware di Finance è stato escluso `api/v1`, altrimenti
+rispondeva con la PAGINA di login e stato 200.
+
+**Numeri veri del primo giro (30/07/2026)**
+- 10.998 movimenti copiati (1.497 entrate, 9.501 uscite, dal 01/01/2025);
+- adozione da Finance: **249 costi** (23.224,47 € su 43.754,83 €) e 1.347 incassi
+  da gateway, identici a Finance;
+- abbinamento per numero in causale: **+122 costi** e +5 incassi che Finance non
+  aveva (là c'erano solo 1.484 ordini, qui 14.027);
+- **371 ordini con un costo** → margine misurato 33.916,16 € (49,7%), copertura 3%
+  di tutto l'archivio e **9% sul 2026**.
+
+**⚠️ Trappole di questo giro — tre, tutte pagate**
+1. **La normalizzazione dell'archivio serve, e va fatta PRIMA dell'adozione.**
+   Gli ordini importati prima che il controllo esistesse erano tutti «da
+   riconciliare»: **12.680 ordini** in una coda che nessuno deve lavorare.
+   `normalizzaControllo()` (due `updateMany`) porta le carte PAID a
+   `incassato_gateway` e gli ordini deluxy.it a `gestione = partner`, ma **solo
+   dove nessuno ha deciso niente**. Risultato: 10.728 + 10.823 righe sistemate, e
+   la coda vera scende a **240 ordini**. Senza questo passo l'adozione da Finance
+   non adottava le gestioni, perché confrontava col default dello schema.
+2. **Niente una-riga-per-volta verso Supabase.** La prima versione dell'import
+   faceva un upsert per movimento: 11.000 movimenti × ~135 ms = mezz'ora, e su
+   Vercel la server action muore prima. Ora: una `findMany` per capire cosa c'è,
+   `createMany` per i nuovi, `UPDATE … FROM (VALUES …)` a blocchi di 100 per i
+   cambiati, `$transaction` a blocchi di 50 per l'adozione. Quarta volta che
+   questa trappola si presenta in questo progetto.
+3. **L'abbinamento per numero non si fa a coppie.** Una regex per ogni
+   ordine×movimento sono **18 milioni** di confronti. Ora si costruisce un indice
+   `numero → movimenti` in una passata (`numeriIsolati()` in `controllo.ts`, che è
+   l'unico posto dove la regola del «token isolato» è scritta: chi fa un confronto
+   solo usa `causaleContieneNumero`, che si appoggia allo stesso indice).
+4. Un `<form>` dentro un `<p>` è HTML non valido: React lo segnala come errore di
+   hydration e rimonta la pagina. Succede appena si mette un bottone-azione dentro
+   una frase.
+
+**MANCA / da decidere**
+- **La pagina `/ordini` di Finance non è stata rimossa**: la funzione è qui, ma
+  togliere di là pagina, modelli e cron è una scelta contabile (i `Pagamento` con
+  riferimento `PAY-…` nascono là e `/api/incassi` li espone) e **in quella cartella
+  lavora un'altra sessione**. Da concordare prima di toccarla.
+- Il costo dei 13.271 ordini senza costo si recupera solo abbinando gli addebiti:
+  l'estratto parte dal 01/01/2025, quindi per gli ordini più vecchi non c'è niente
+  da trovare, e la pagina lo dice invece di lasciarlo indovinare.
+
 ### Scelta rapida di anni e mesi + filtro per anno (30/07/2026)
 Due cose sole, ma toccano `whereOrdini`, quindi anche le API.
 

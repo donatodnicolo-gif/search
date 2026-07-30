@@ -3,6 +3,7 @@ import { categorieOrdine } from "./categorie";
 import { scaricaOrdini, tokenNegozio, type OrdineNormalizzato } from "./shopify";
 import { statoPredefinito } from "./stati";
 import { ricalcolaUrgenza } from "./urgenza-ricalcolo";
+import { gestioneIniziale, statoIncassoIniziale } from "./controllo";
 
 // Nucleo dello scarico ordini Shopify, riutilizzabile dal bottone in pagina, dal
 // cron e dagli script CLI. Scarica gli ordini da tutti i negozi collegati e li
@@ -264,6 +265,15 @@ async function salvaBloccoOrdini(
         ...datiShopify(brand, o, categoriaPredefinita),
         categoriaPagamento: o.categoriaPagamento,
         statoId: statoIniziale,
+        // Il CONTROLLO parte già dal punto giusto, invece di dire «da
+        // riconciliare» a tutti: un ordine pagato con carta è già incassato sul
+        // gateway (il versamento in banca arriva a blocchi, non ordine per
+        // ordine), e gli ordini di deluxy.it rientrano nel conto mensile del
+        // partner. Sono le stesse regole di Finance, e senza di esse la coda
+        // «da riconciliare» conterebbe dodicimila ordini che nessuno deve
+        // cercare in banca.
+        gestioneIncasso: gestioneIniziale(brand),
+        statoIncasso: statoIncassoIniziale(o.categoriaPagamento, o.financialStatus),
       })),
       skipDuplicates: true,
     });

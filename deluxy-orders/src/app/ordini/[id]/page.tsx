@@ -11,6 +11,8 @@ import { statiOrdinati } from "@/lib/stati";
 import { CATEGORIE_PAGAMENTO, APP_DESTINAZIONI, nomeApp } from "@/lib/classificazione";
 import { linkRicerca, brandPerRicerca } from "@/lib/fornitori";
 import { cambiaStato, toggleEtichetta, aggiornaClassificazione, segnaProblemaGestito } from "@/app/actions";
+import { registraCosto, azzeraCosto } from "@/app/controllo/actions";
+import { GESTIONI_INCASSO, STATI_INCASSO, quotaFornitore, valutaQuota } from "@/lib/controllo";
 import { ordinali } from "@/lib/repeater";
 import { canale } from "@/lib/marketing";
 import { PillRepeater, TagLuoghi, PillUrgenza } from "@/components/Provenienza";
@@ -44,6 +46,16 @@ export default async function DettaglioOrdine({ params }: { params: Promise<{ id
   const urlShopify = linkShopify(ordine.negozio?.dominio, ordine.orderId);
 
   const etichetteAttive = new Set(ordine.etichette.map((e) => e.id));
+
+  // I soldi dell'ordine: stato dell'incasso, movimento abbinato, quota pagata al
+  // fornitore rispetto a quella attesa.
+  const quota = await quotaFornitore();
+  const statoIncasso = STATI_INCASSO[ordine.statoIncasso] ?? STATI_INCASSO.da_riconciliare;
+  const gestioneIncasso = GESTIONI_INCASSO[ordine.gestioneIncasso] ?? GESTIONI_INCASSO.riconciliazione;
+  const quotaPagata = ordine.costoFornitore != null ? valutaQuota(ordine.totale, ordine.costoFornitore, quota) : null;
+  const movimentoIncasso = ordine.movimentoIncassoId
+    ? await prisma.movimentoBanca.findUnique({ where: { id: ordine.movimentoIncassoId } })
+    : null;
 
   return (
     <main className="main">
@@ -234,6 +246,111 @@ export default async function DettaglioOrdine({ params }: { params: Promise<{ id
             <button className="btn" type="submit">Salva classificazione</button>
           </div>
         </form>
+      </div>
+
+      {/* I SOLDI di questo ordine: quanto è entrato e quanto è uscito. Il costo
+          del fornitore NON si deduce dal totale: si abbina all'addebito in banca
+          o si scrive a mano, e finché non c'è il margine non si calcola. */}
+      <div className="scheda">
+        <div className="scheda-titolo">I soldi di questo ordine</div>
+        <div className="griglia-campi">
+          <div className="campo">
+            <dt>Incasso</dt>
+            <dd>
+              <span className="pill-stato" style={{ color: statoIncasso.colore }} title={statoIncasso.spiega}>
+                <span className="dot" style={{ background: statoIncasso.colore }} />
+                {statoIncasso.nome}
+              </span>
+              {ordine.incassatoIl && <div className="cella-muta">{dataBreve(ordine.incassatoIl)}</div>}
+              {movimentoIncasso && (
+                <div className="cella-muta">
+                  {euro(movimentoIncasso.importo)} · {movimentoIncasso.descrizione.slice(0, 60)}
+                </div>
+              )}
+            </dd>
+          </div>
+          <div className="campo">
+            <dt>Come si incassa</dt>
+            <dd>
+              {gestioneIncasso.nome}
+              <div className="cella-muta">{gestioneIncasso.spiega}</div>
+            </dd>
+          </div>
+          <div className="campo">
+            <dt>Costo del fornitore</dt>
+            <dd>
+              {ordine.costoFornitore != null ? (
+                <>
+                  {euro(ordine.costoFornitore)}
+                  <div style={{ fontSize: 12, fontWeight: 600, color: quotaPagata!.stato === "buono" ? "var(--green)" : "var(--red)" }}>
+                    {quotaPagata!.pct.toFixed(0)}% del valore · quota attesa {quota}%{" "}
+                    {quotaPagata!.stato === "buono" ? "✓" : "⚠"}
+                  </div>
+                  {ordine.costoFornitoreNome && <div className="cella-muta">{ordine.costoFornitoreNome}</div>}
+                  {ordine.costoDa && (
+                    <div className="cella-muta">
+                      {ordine.costoDa === "causale"
+                        ? "agganciato in automatico dal numero in causale"
+                        : ordine.costoDa === "finance"
+                          ? "arrivato da Finance"
+                          : "scritto a mano"}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <span className="tag-vuoto">non lo sappiamo</span>
+              )}
+            </dd>
+          </div>
+          <div className="campo">
+            <dt>Margine</dt>
+            <dd>
+              {ordine.costoFornitore != null ? (
+                <strong style={{ color: ordine.totale - ordine.costoFornitore >= 0 ? "var(--green)" : "var(--red)" }}>
+                  {euro(ordine.totale - ordine.costoFornitore)}
+                </strong>
+              ) : (
+                <span className="tag-vuoto">—</span>
+              )}
+              <div className="cella-muta">sul lordo, IVA e spedizione incluse</div>
+            </dd>
+          </div>
+        </div>
+        <form action={registraCosto} className="modulo" style={{ marginTop: 10 }}>
+          <input type="hidden" name="ordineId" value={ordine.id} />
+          <div className="campo-modulo">
+            <label htmlFor="costo-importo">Pagato al fornitore</label>
+            <input
+              id="costo-importo"
+              name="importo"
+              inputMode="decimal"
+              defaultValue={ordine.costoFornitore != null ? String(ordine.costoFornitore) : ""}
+              placeholder={`atteso ~${(ordine.totale * (quota / 100)).toFixed(2)}`}
+            />
+          </div>
+          <div className="campo-modulo">
+            <label htmlFor="costo-fornitore">A chi</label>
+            <input id="costo-fornitore" name="fornitore" defaultValue={ordine.costoFornitoreNome ?? ""} placeholder="fioraio, pasticceria…" />
+          </div>
+          <div className="campo-modulo">
+            <label htmlFor="costo-data">Quando</label>
+            <input id="costo-data" type="date" name="data" defaultValue={ordine.costoIl ? ordine.costoIl.toISOString().slice(0, 10) : ""} />
+          </div>
+          <div className="azioni-modulo campo-modulo largo">
+            <button className="btn" type="submit">Salva il costo</button>
+          </div>
+        </form>
+        {ordine.costoFornitore != null && (
+          <form action={azzeraCosto} style={{ marginTop: 6 }}>
+            <input type="hidden" name="ordineId" value={ordine.id} />
+            <button className="btn btn-secondario small" type="submit">Rimuovi il costo</button>
+          </form>
+        )}
+        <p className="testo-guida" style={{ marginTop: 10 }}>
+          L&apos;abbinamento con i movimenti bancari — e l&apos;aggancio automatico dove il numero dell&apos;ordine è
+          in causale — si fa dalla pagina <Link href="/controllo" className="ritorno">Controllo</Link>; il quadro
+          d&apos;insieme è in <Link href="/margini" className="ritorno">Margini</Link>.
+        </p>
       </div>
 
       {/* Rimborso parziale: l'ordine è vivo, ma una parte del denaro è tornata
