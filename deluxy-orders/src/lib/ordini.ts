@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import { inizioGiornoItaliano } from "./analisi";
 import { chiaveCliente } from "./tipologia-cliente";
 import { CANALI_PAGATI } from "./marketing";
 import { prisma } from "./db";
@@ -8,7 +9,8 @@ import { giorniDiAnticipo } from "./urgenza";
 // Costruzione del filtro Prisma degli ordini, condivisa tra la UI (elenco) e le
 // API di lettura, così i due percorsi filtrano allo stesso modo.
 // Parametri accettati: q (ricerca a parole), brand, stato (chiave), categoria
-// (di pagamento), app (destinazione), etichetta (nome), da/a (date ISO).
+// (di pagamento), app (destinazione), etichetta (nome), anno (anno civile
+// italiano), da/a (date ISO).
 // I campi in cui cerca una singola parola. Include l'ordine (anche senza "#"),
 // il cliente (nome, email, telefono), il destinatario e l'indirizzo completo, i
 // prodotti (titolo, variante, SKU), le note e i tag Shopify, e la
@@ -180,6 +182,20 @@ export function whereOrdini(p: URLSearchParams): Prisma.OrdineWhereInput {
   if (nuoviDa) {
     const quando = new Date(nuoviDa);
     if (!Number.isNaN(quando.getTime())) where.createdAt = { gte: quando };
+  }
+
+  // ANNO dell'ordine. È il taglio che si chiede più spesso («quanto abbiamo
+  // fatto nel 2025») e con `da`/`a` erano due date da scrivere a mano.
+  // ⚠️ L'anno è quello ITALIANO: `Ordine.data` è UTC, e tagliare sul 1° gennaio
+  // di Greenwich metterebbe l'ultima ora del 31 dicembre nell'anno dopo. Il
+  // confine lo dà `inizioGiornoItaliano`, la stessa regola dell'analisi.
+  // Sta in `AND` e non in `where.data` per convivere con `da`/`a` invece di
+  // sovrascriverli in silenzio.
+  const anno = Number(p.get("anno")?.trim());
+  if (Number.isInteger(anno) && anno >= 2000 && anno <= 2100) {
+    const inizioAnno = inizioGiornoItaliano(`${anno}-01-01`);
+    const inizioDopo = inizioGiornoItaliano(`${anno + 1}-01-01`);
+    if (inizioAnno && inizioDopo) and.push({ data: { gte: inizioAnno, lt: inizioDopo } });
   }
 
   const da = p.get("da")?.trim();

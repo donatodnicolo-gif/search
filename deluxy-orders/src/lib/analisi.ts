@@ -449,3 +449,48 @@ export function nomePeriodo(inizio: Date, gran: Granularita): string {
   const g = (d: Date) => new Intl.DateTimeFormat("it-IT", { timeZone: FUSO, day: "2-digit", month: "short" }).format(d);
   return `${g(inizio)} – ${g(fine)}`;
 }
+
+// ---- Scelta rapida del periodo: un anno o un mese in un clic ----------------
+//
+// Le frecce vanno bene per «il periodo prima»; per arrivare a giugno 2024
+// erano venticinque clic, e nessuno li fa. L'anno e il mese si scelgono
+// direttamente: la pagina resta quella di sempre (stesso `salto`, stesso
+// confronto), qui si calcola solo **quanti periodi indietro** sta la scelta.
+
+export const MESI_BREVI = ["gen", "feb", "mar", "apr", "mag", "giu", "lug", "ago", "set", "ott", "nov", "dic"];
+
+// Anno e mese (1-12) come li vede l'Italia. `getFullYear()` darebbe l'ora del
+// server, che su Vercel è UTC: dalle 23 del 31 dicembre l'anno sarebbe ancora
+// quello vecchio per un'ora — e la scelta rapida partirebbe dall'anno sbagliato.
+export function annoMeseItaliano(d: Date): { anno: number; mese: number } {
+  const n = (o: Intl.DateTimeFormatOptions) =>
+    Number(new Intl.DateTimeFormat("en-CA", { timeZone: FUSO, ...o }).format(d));
+  return { anno: n({ year: "numeric" }), mese: n({ month: "numeric" }) };
+}
+
+// Quanti anni indietro sta `anno` rispetto ad adesso. Negativo = nel futuro:
+// chi chiama lo usa per non offrire un periodo che non è ancora cominciato.
+export function saltoAnno(adesso: Date, anno: number): number {
+  return annoMeseItaliano(adesso).anno - anno;
+}
+
+// Quanti mesi indietro sta il mese `mese` (1-12) dell'anno `anno`.
+export function saltoMese(adesso: Date, anno: number, mese: number): number {
+  const ora = annoMeseItaliano(adesso);
+  return ora.anno * 12 + ora.mese - (anno * 12 + mese);
+}
+
+// Gli anni in cui c'è almeno un ordine, dal più recente. Sono quelli da
+// offrire: un elenco fisso mostrerebbe anni vuoti e, prima o poi, ne
+// nasconderebbe uno vero.
+// ⚠️ La conversione del fuso è quella giusta — `AT TIME ZONE 'UTC'` PRIMA,
+// altrimenti Postgres sottrae due ore invece di aggiungerle e gli ordini della
+// notte di Capodanno finiscono nell'anno sbagliato (vedi la trappola nel handoff).
+export async function anniConOrdini(): Promise<number[]> {
+  const righe = await prisma.$queryRawUnsafe<{ anno: number }[]>(
+    `SELECT DISTINCT EXTRACT(YEAR FROM ("data" AT TIME ZONE 'UTC' AT TIME ZONE '${FUSO}'))::int AS anno
+       FROM "${SCHEMA}"."Ordine"
+      ORDER BY 1 DESC`,
+  );
+  return righe.map((r) => r.anno);
+}

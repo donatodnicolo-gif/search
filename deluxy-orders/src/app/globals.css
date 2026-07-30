@@ -952,6 +952,39 @@ td .badge-problema { margin-top: 3px; }
 }
 .navigazione-periodo strong { min-width: 130px; text-align: center; }
 
+/* Scelta rapida dell'anno e del mese. Classi proprie e non `.scelta-vista`
+   perché quella sparisce sotto i 700px: qui il periodo serve anche da telefono. */
+.scelta-rapida { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+.riga-rapida { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.rapida-etichetta {
+  min-width: 76px;
+  font-size: 12.5px;
+  color: var(--text-tertiary);
+}
+.periodo-opz {
+  padding: 5px 11px;
+  border-radius: var(--radius-pill);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  transition: background 140ms var(--ease), color 140ms var(--ease);
+}
+a.periodo-opz:hover { background: var(--fill); color: var(--text); }
+.periodo-opz.attiva {
+  background: var(--text);
+  color: var(--surface);
+  font-weight: 600;
+}
+/* L'anno di cui si sta guardando un mese: segnato, ma non «scelto». */
+.periodo-opz.contesto {
+  background: var(--fill);
+  color: var(--text);
+  font-weight: 600;
+}
+.periodo-opz.futuro { color: var(--text-tertiary); opacity: 0.45; cursor: default; }
+
 .griglia-kpi {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));

@@ -15,6 +15,7 @@ import { ordinali } from "@/lib/repeater";
 import { URGENZE } from "@/lib/urgenza";
 import { SegnoCanale, PillRepeater, TagLuoghi, PillUrgenza, PillNuovo } from "@/components/Provenienza";
 import { daQuando, daQuandoLeggibile } from "@/lib/sessione";
+import { anniConOrdini } from "@/lib/analisi";
 import { sincronizza, segnaOrdiniVisti } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -38,10 +39,12 @@ export default async function ElencoOrdini({
   // Due viste: colonne per brand (predefinita) ed elenco in tabella.
   const vista = sp.vista === "elenco" ? "elenco" : "brand";
 
-  const [stati, brand, etichette, totale, somma, problemiAperti, arrivatiOra, ordini] = await Promise.all([
+  const [stati, brand, etichette, anni, totale, somma, problemiAperti, arrivatiOra, ordini] = await Promise.all([
     statiOrdinati(),
     brandConColore(),
     prisma.etichetta.findMany({ orderBy: { nome: "asc" } }),
+    // Gli anni che esistono davvero nel registro: il filtro non offre anni vuoti.
+    anniConOrdini(),
     prisma.ordine.count({ where }),
     prisma.ordine.aggregate({ where, _sum: { totale: true } }),
     // Quanti ordini problematici aspettano ancora un occhio (su TUTTO il
@@ -183,7 +186,7 @@ export default async function ElencoOrdini({
       {/* Ricerca in evidenza: una sola casella che cerca ovunque */}
       <form className="ricerca" method="get">
         {/* conserva i filtri attivi mentre si cerca */}
-        {["brand", "stato", "categoria", "app", "etichetta", "citta", "paese", "cittaMittente", "paeseMittente", "urgenza", "canale", "estero"].map((k) =>
+        {["brand", "anno", "stato", "categoria", "app", "etichetta", "citta", "paese", "cittaMittente", "paeseMittente", "urgenza", "canale", "estero"].map((k) =>
           sp[k] ? <input key={k} type="hidden" name={k} value={sp[k]} /> : null,
         )}
         <span className="ricerca-icona" aria-hidden="true">
@@ -225,6 +228,15 @@ export default async function ElencoOrdini({
           <option value="">Tutti i brand</option>
           {negozi.map((n) => (
             <option key={n.id} value={n.nome}>{n.nome}</option>
+          ))}
+        </select>
+        {/* Anno dell'ordine: cambia sia l'elenco sia i due KPI in cima (quanti
+            ordini e quanto valgono), che è il modo più corto di chiedere
+            «quanto abbiamo fatto nel 2025». */}
+        <select name="anno" defaultValue={sp.anno ?? ""}>
+          <option value="">Tutti gli anni</option>
+          {anni.map((a) => (
+            <option key={a} value={String(a)}>{a}</option>
           ))}
         </select>
         <select name="stato" defaultValue={sp.stato ?? ""}>

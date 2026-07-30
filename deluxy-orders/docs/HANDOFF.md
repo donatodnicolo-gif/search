@@ -1,6 +1,6 @@
 # Handoff — Deluxy Orders
 
-Stato al **28/07/2026**. Aggiornare a ogni tappa (regole di lavoro Deluxy).
+Stato al **30/07/2026**. Aggiornare a ogni tappa (regole di lavoro Deluxy).
 Serve a far ripartire una finestra nuova senza contesto: prima lo stato, poi le
 **trappole già pagate** — quelle valgono più dell'elenco delle funzioni.
 
@@ -335,6 +335,33 @@ categorie di prodotto e serie storica.
 - ⚠️ **Categorie: doppio conteggio voluto.** Stanno sull'ordine, non sulla riga;
   un ordine multi-categoria è contato in ogni riga e la somma supera il totale.
   Scritto in pagina.
+
+### Scelta rapida di anni e mesi + filtro per anno (30/07/2026)
+Due cose sole, ma toccano `whereOrdini`, quindi anche le API.
+
+- **`/analisi`: due file di pillole** (anni del registro, mesi dell'anno
+  mostrato). Non introducono un modo nuovo di dire il periodo: calcolano il
+  **`salto`** che la pagina già usa (`saltoAnno` / `saltoMese` in `analisi.ts`),
+  così confronto, parità di giorni ed etichette restano gli stessi. Il periodo a
+  mano (`da`/`a`) viene azzerato dalla scelta rapida, altrimenti vincerebbe lui e
+  la pillola sembrerebbe non funzionare.
+- **I mesi futuri sono `<span>`, non link**: `salto` sulla pagina è clampato a
+  `>= 0` (non si va nel futuro), quindi un link a dicembre 2026 avrebbe portato a
+  luglio fingendo di aver capito.
+- **`anniConOrdini()`**: gli anni si leggono dal database (`DISTINCT EXTRACT(YEAR
+  …)`), non da una lista scritta. Sui dati veri: 2020…2026.
+- **Ordini (`/`) e API: filtro `anno=`** in `whereOrdini`. Sta in `AND` e non in
+  `where.data` per **convivere** con `da`/`a` invece di sovrascriverli in
+  silenzio. Il confine è la mezzanotte **italiana** (`inizioGiornoItaliano`,
+  riusata da `analisi.ts`: una sola implementazione della regola del fuso).
+- **Verifica incrociata sui dati veri**: `/?anno=2025` dà 4.640 ordini ·
+  845.505,69 €; l'Analisi del 2025, che ci arriva con SQL suo, dà 4.490 validi +
+  118 annullati + 32 rimborsati = **4.640**, e le somme tornano. È la prova che i
+  due tagli dell'anno cadono nello stesso punto.
+- ⚠️ `ordini.ts` ora importa `analisi.ts`. Non è un ciclo (analisi non importa
+  ordini) ma va tenuto d'occhio: se un giorno `analisi.ts` avesse bisogno di
+  qualcosa da `ordini.ts`, la regola del fuso va spostata in un modulo suo, non
+  duplicata.
 
 **⚠️ Trappola del fuso orario, trovata e corretta il 27/07/2026 — riguardava
 anche codice già in produzione.** `Ordine.data` è `timestamp without time zone`

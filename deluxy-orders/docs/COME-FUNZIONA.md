@@ -38,6 +38,17 @@ destra):
   consegnato** (giorno e fascia oraria) oltre alla data dell'ordine. Su schermo
   stretto le colonne si impilano; il selettore sparisce sotto i 700px.
 
+**Filtro per anno.** Fra i filtri c'è **l'anno dell'ordine** (solo gli anni in
+cui c'è davvero almeno un ordine: 2020…2026, non un elenco inventato).
+Cambia l'elenco *e* i due numeri in cima — quanti ordini e quanto valgono — che è
+il modo più corto di chiedere «quanto abbiamo fatto nel 2025» senza scrivere due
+date. Vale anche nelle colonne per brand, nella ricerca e nelle API
+(`?anno=2025`). L'anno è quello **italiano**: `Ordine.data` è UTC, e tagliare sul
+1° gennaio di Greenwich metterebbe l'ultima ora del 31 dicembre nell'anno dopo.
+Convive con `da`/`a` invece di sovrascriverli. Verificato sui dati veri: 2025 =
+**4.640 ordini · 845.505,69 €**, che è esattamente quello che l'Analisi conta per
+lo stesso anno per un'altra strada (4.490 validi + 118 annullati + 32 rimborsati).
+
 ### Chi ordina e da dove arriva
 Su ogni ordine, in tutte e due le viste, ci sono due segni che si leggono prima
 di aprire qualsiasi cosa.
@@ -199,6 +210,18 @@ in un mese è tanto o poco? Da solo quel numero non lo dice. Si sceglie
 **settimane, mesi o anni** e il confronto — *periodo precedente* oppure *stesso
 periodo dell'anno scorso* — e ogni misura esce con la sua variazione. Con le
 frecce si va indietro nel tempo; il filtro per negozio taglia tutto.
+
+**Anni e mesi si scelgono in un clic.** Sotto i filtri ci sono due file di
+pillole: gli **anni** che esistono nel registro (2020…2026) e i **mesi**
+dell'anno che si sta guardando. Un anno porta all'anno intero, un mese a quel
+mese: qualunque periodo è a **due clic** — prima l'anno, poi il mese — mentre con
+le frecce «giugno 2024» erano venticinque. La fila dei mesi segue l'anno scelto,
+e l'anno di cui si sta guardando un mese resta segnato (davanti a «marzo 2025» la
+pillola *2025* è accesa in grigio, *mar* in nero). I **mesi non ancora
+cominciati** si vedono spenti e non si possono cliccare: risponderebbero zero e
+sembrerebbe un crollo. Il confronto scelto, il negozio e la dimensione non si
+perdono; un periodo scritto a mano nelle due date viene annullato dalla scelta
+rapida, perché sono due modi di chiedere la stessa cosa.
 
 **Il periodo in corso si confronta a parità di giorni.** Al 27 luglio si è al 27
 luglio: il confronto si ferma al 27 del mese prima. Senza questo accorgimento

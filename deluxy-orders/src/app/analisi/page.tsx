@@ -17,6 +17,11 @@ import {
   giorniTrascorsi,
   inizioPeriodo,
   chiaveGiorno,
+  anniConOrdini,
+  annoMeseItaliano,
+  saltoAnno,
+  saltoMese,
+  MESI_BREVI,
   kpi,
   metriche,
   nomePeriodo,
@@ -152,14 +157,22 @@ export default async function Analisi({
   // occasione, tipo di ordine, provenienza.
   const dim = dimensione(sp.dim);
 
-  const [negozi, ora, prima, dimOra, dimPrima, storico] = await Promise.all([
+  const [negozi, ora, prima, dimOra, dimPrima, storico, anniRegistrati] = await Promise.all([
     brandConColore(),
     metriche(inizio, fineOra, brand),
     metriche(inizioPrima, fineConfronto, brand),
     perDimensione(dim, inizio, fineOra, brand),
     perDimensione(dim, inizioPrima, fineConfronto, brand),
     serie(gran, QUANTI_NELLA_SERIE[gran], brand, adesso),
+    anniConOrdini(),
   ]);
+
+  // SCELTA RAPIDA: gli anni che esistono davvero nel registro, più l'anno di
+  // adesso e quello che si sta guardando — così l'elenco non salta mai il
+  // periodo aperto, nemmeno se ci si è arrivati con le frecce.
+  const oraItaliana = annoMeseItaliano(adesso);
+  const mostrato = annoMeseItaliano(inizio);
+  const anni = [...new Set([...anniRegistrati, oraItaliana.anno, mostrato.anno])].sort((a, b) => b - a);
 
   const k = kpi(ora);
   const kPrima = kpi(prima);
@@ -372,6 +385,59 @@ export default async function Analisi({
               </Link>
             )}
           </form>
+        </div>
+
+        {/* SCELTA RAPIDA DEL PERIODO. Le frecce servono per «il periodo prima»:
+            per arrivare a giugno 2024 erano venticinque clic. L'anno porta
+            all'anno intero; i mesi sotto sono quelli dell'anno che si sta
+            guardando, quindi qualunque mese è a due clic. */}
+        <div className="scelta-rapida">
+          <div className="riga-rapida">
+            <span className="rapida-etichetta">Anno</span>
+            {anni.map((a) => {
+              const attivo = !suMisura && gran === "anno" && mostrato.anno === a;
+              // L'anno del periodo mostrato resta segnato anche quando si sta
+              // guardando un suo mese: senza, davanti a «marzo 2025» nessuna
+              // pillola sarebbe accesa e non si capirebbe dove si è.
+              const contesto = !attivo && mostrato.anno === a;
+              return (
+                <Link
+                  key={a}
+                  className={`periodo-opz${attivo ? " attiva" : contesto ? " contesto" : ""}`}
+                  href={link({ gran: "anno", salto: String(Math.max(0, saltoAnno(adesso, a))), da: "", a: "" })}
+                  title={`Tutto il ${a}`}
+                >
+                  {a}
+                </Link>
+              );
+            })}
+          </div>
+          <div className="riga-rapida">
+            <span className="rapida-etichetta">Mesi {mostrato.anno}</span>
+            {MESI_BREVI.map((nome, i) => {
+              const mese = i + 1;
+              const indietro = saltoMese(adesso, mostrato.anno, mese);
+              // Un mese non ancora cominciato non si offre: risponderebbe zero
+              // e sembrerebbe un crollo. Resta visibile, spento, al suo posto.
+              if (indietro < 0) {
+                return (
+                  <span key={nome} className="periodo-opz futuro" title="Mese non ancora cominciato">
+                    {nome}
+                  </span>
+                );
+              }
+              const attivo = !suMisura && gran === "mese" && mostrato.mese === mese;
+              return (
+                <Link
+                  key={nome}
+                  className={`periodo-opz${attivo ? " attiva" : ""}`}
+                  href={link({ gran: "mese", salto: String(indietro), da: "", a: "" })}
+                >
+                  {nome}
+                </Link>
+              );
+            })}
+          </div>
         </div>
 
         <p className="testo-guida" style={{ marginTop: 10 }}>

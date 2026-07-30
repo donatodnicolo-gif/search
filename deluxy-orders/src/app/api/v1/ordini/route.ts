@@ -7,7 +7,8 @@ import { tipologiePerOrdini } from "@/lib/tipologia-cliente";
 
 // GET /api/v1/ordini — elenco ordini per le altre app (sola lettura).
 // Filtri (querystring): q, brand, stato (chiave), categoria, app (destinazione),
-// etichetta, da, a, consegnaDa, consegnaA, pagamento.
+// etichetta, anno, da, a, consegnaDa, consegnaA, pagamento.
+// `anno=2025` è l'anno civile ITALIANO (non UTC): è la scorciatoia di da/a.
 // Paginazione: page (1..), limit (default 50, max 200).
 //
 // GLI ORDINI ANNULLATI NON ESCONO DA QUI. Un'app a valle che li ricevesse
