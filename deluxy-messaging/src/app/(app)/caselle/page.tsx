@@ -1,18 +1,21 @@
 import { db } from '@/lib/db'
 import { IMAP_DEFAULT, SMTP_DEFAULT } from '@/lib/email'
 import { ProvaCasella } from '@/components/ProvaCasella'
-import { eliminaCasellaAction, salvaCasellaAction } from './actions'
+import { RismistaMail } from '@/components/RismistaMail'
+import { eliminaCasellaAction, salvaCasellaAction, salvaMittentiIgnoratiAction } from './actions'
+import { elencoMittentiIgnorati } from '@/lib/mittenti-ignorati'
 
 export const dynamic = 'force-dynamic'
 
 export default async function PaginaCaselle() {
-  const [caselle, negozi] = await Promise.all([
+  const [caselle, negozi, mittentiIgnorati] = await Promise.all([
     db.casellaEmail.findMany({ orderBy: [{ predefinita: 'desc' }, { indirizzo: 'asc' }] }),
     db.negozioShopify.findMany({
       where: { attivo: true },
       select: { id: true, nome: true },
       orderBy: { nome: 'asc' },
     }),
+    elencoMittentiIgnorati(),
   ])
 
   return (
@@ -203,6 +206,43 @@ export default async function PaginaCaselle() {
             <button className="btn">Aggiungi casella</button>
           </form>
         </div>
+      </div>
+
+      {/* ⚠️ Non è un antispam. Misurato il 30/07/2026: nella colonna Deluxy 85
+          conversazioni e 107 non letti, quasi tutte newsletter e piattaforme —
+          il lavoro vero stava in mezzo. Qui si ignorano i mittenti che UNA
+          PERSONA mette in elenco: un filtro che decide da sé, il giorno che
+          sbaglia, fa sparire la mail di un cliente e nessuno se ne accorge. */}
+      <div className="card" style={{ marginTop: 18 }}>
+        <h2 style={{ marginTop: 0 }}>Mittenti da ignorare</h2>
+        <p className="descrizione">
+          Le mail di questi mittenti entrano <strong>già archiviate</strong> e non contano fra i non
+          letti: restano cercabili nell&apos;archivio, ma non occupano il posto di un cliente che
+          aspetta. Non si cancella niente, e non si indovina niente: valgono solo i mittenti scritti
+          qui.
+        </p>
+        <form action={salvaMittentiIgnoratiAction}>
+          <label className="campo">
+            <span>Uno per riga</span>
+            <textarea
+              name="mittentiIgnorati"
+              defaultValue={mittentiIgnorati}
+              rows={8}
+              spellCheck={false}
+              placeholder={
+                'info@tiktok.com\n@shopify.com\nnewsletter\n# le righe con il cancelletto sono commenti'
+              }
+            />
+          </label>
+          <p className="cella-sub">
+            Tre forme, dalla più precisa alla più larga: <code>info@tiktok.com</code> per un
+            indirizzo, <code>@tiktok.com</code> per tutto il dominio, <code>tiktok</code> per un
+            pezzo dell&apos;indirizzo — utile per chi cambia casella a ogni invio, ma da usare con
+            prudenza: una parola troppo comune farebbe sparire mezza inbox.
+          </p>
+          <button className="btn">Salva l&apos;elenco</button>
+        </form>
+        <RismistaMail />
       </div>
     </main>
   )

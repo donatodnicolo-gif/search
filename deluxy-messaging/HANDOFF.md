@@ -77,6 +77,31 @@ locale, altrimenti nulla si decifra.
   - Solo WhatsApp: su Instagram e Messenger l'id non è un numero di telefono e
     in rubrica non c'è niente da cercare.
 
+- **LE NEWSLETTER SI TOLGONO DI MEZZO, E SI VEDONO SOLO GLI ORDINI**
+  (30/07/2026). Misurato: colonna Deluxy con **85 conversazioni e 107 non
+  letti**, quasi tutte newsletter e piattaforme (TikTok, chatbot Shopify,
+  agenzie immobiliari) — il lavoro vero stava in mezzo. Due strumenti, diversi
+  di proposito:
+  - **Filtro «Solo ordini»** in Inbox: mostra le conversazioni con un numero
+    d'ordine (o che lo citano) **più tutte le chat**, perché una persona che
+    scrive su WhatsApp non è mai rumore anche se non nomina un ordine. È un
+    filtro sulla vista, non tocca i dati.
+  - **Mittenti da ignorare** (`/caselle`, `Impostazione.mittentiIgnorati`): le
+    loro mail entrano **già archiviate** e non contano fra i non letti. Tre
+    forme: `info@tiktok.com`, `@tiktok.com`, `tiktok` (pezzo dell'indirizzo, da
+    usare con prudenza). Le righe con `#` sono commenti.
+  - ⚠️ **Non è un antispam e non deve diventarlo.** Non si indovina se una mail è
+    pubblicità: si ignorano i mittenti che **una persona** ha messo in elenco. Un
+    filtro che decide da sé, il giorno che sbaglia, fa sparire la mail di un
+    cliente e nessuno se ne accorge — perché il posto dove cercarla non esiste.
+    Per lo stesso motivo si **archivia**, non si cancella.
+  - ⚠️ **Entrambe agiscono all'ARRIVO**: le conversazioni già in casa restano
+    dove sono. Per questo in Inbox si vedeva ancora «[cakedesign] Ordine #1742»
+    nella colonna Deluxy. Il bottone **«Applica alle mail già arrivate»**
+    (`POST /api/email/rismista`) ripassa fino a 500 conversazioni email: smista
+    per numero d'ordine e archivia i mittenti in elenco. Non tocca chi ha già un
+    marchio scritto a mano, e non cancella niente.
+
 - **IL SITO SCELTO RESTA DOPO IL SALVATAGGIO** (30/07/2026). Sembrava che
   «Mostra anche il bottone tondo» si riaccendesse da sola dopo Salva. In tabella
   il dato era **giusto** (`mostraBottone: false`): a mentire era la schermata —

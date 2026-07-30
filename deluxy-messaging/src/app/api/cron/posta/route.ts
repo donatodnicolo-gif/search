@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { caselleAttive, scaricaEmail } from '@/lib/email'
 import { smistaMailPerSito } from '@/lib/ordine-da-email'
+import { daIgnorare, elencoMittentiIgnorati } from '@/lib/mittenti-ignorati'
 import { risolutoreMarchio } from '@/lib/marchio-conversazione'
 
 // Scarica la posta da sola, ogni 5 minuti.
@@ -36,6 +37,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, nuove: 0, nota: 'Nessuna casella configurata.' })
   }
 
+  const ignorati = await elencoMittentiIgnorati()
+
   const risultati: { casella: string; nuove: number; errore: string }[] = []
 
   for (const casella of caselle) {
@@ -55,6 +58,10 @@ export async function GET(req: NextRequest) {
         // dei tre siti arrivano tutte sulla stessa casella, e senza questo
         // finiscono tutte nella colonna della casella che le ha ricevute.
         const sito = await smistaMailPerSito(m.oggetto, m.testo)
+        // Mittente in elenco: la mail entra GIÀ ARCHIVIATA e non conta fra i non
+        // letti. Non si scarta — resta cercabile in archivio — ma non occupa il
+        // posto di un cliente che aspetta.
+        const ignorare = daIgnorare(m.da, ignorati)
 
         const conversazione = await db.conversazione.upsert({
           where: { canale_idEsterno_numeroId: { canale: 'email', idEsterno: m.da, numeroId: '' } },
@@ -63,12 +70,12 @@ export async function GET(req: NextRequest) {
             casellaId: casella.id,
             ultimoTesto: m.oggetto || m.testo.slice(0, 120),
             ultimoMessaggioIl: m.data,
-            nonLetti: { increment: 1 },
+            nonLetti: ignorare ? undefined : { increment: 1 },
+            archiviata: ignorare ? true : false,
             // Il marchio si scrive solo se lo sappiamo: un null non deve
             // cancellare quello trovato prima da un altro messaggio.
             ...(sito.negozioId ? { negozioId: sito.negozioId } : {}),
             ...(sito.ordineNumero ? { ordineNumero: sito.ordineNumero } : {}),
-            archiviata: false,
             // Una mail nuova riporta la conversazione in inbox anche se era nel
             // cestino: chi scrive di nuovo non sa che l'avevamo buttata.
             eliminataIl: null,
@@ -81,7 +88,9 @@ export async function GET(req: NextRequest) {
             ultimoTesto: m.oggetto || m.testo.slice(0, 120),
             ultimoMessaggioIl: m.data,
             negozioId: sito.negozioId,
-            ordineNumero: sito.ordineNumero,            nonLetti: 1,
+            ordineNumero: sito.ordineNumero,
+            nonLetti: ignorare ? 0 : 1,
+            archiviata: ignorare,
           },
         })
         await db.messaggio.create({

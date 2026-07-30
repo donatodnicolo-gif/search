@@ -535,6 +535,30 @@ export function Inbox({
 
   const marchioDi = useCallback((c: ConversazioneDto) => c.brand || SENZA_MARCHIO, [])
 
+  // ── «Solo ordini» ──
+  //
+  // Nella colonna Deluxy ci sono 85 conversazioni e 107 non letti, quasi tutte
+  // newsletter e piattaforme: il lavoro vero — «Ordine #1742», «Re: Order #2599
+  // confirmed» — sta in mezzo e si perde. Questo filtro tiene solo le
+  // conversazioni per cui sappiamo il numero d'ordine, o che lo citano nel testo.
+  //
+  // ⚠️ Non è un antispam e non prova a essere furbo: non indovina se una mail è
+  // pubblicità, mostra quelle che parlano di un ordine. Le chat dei clienti
+  // restano sempre, perché una persona che scrive su WhatsApp non è mai rumore
+  // anche quando non nomina un ordine.
+  const [soloOrdini, setSoloOrdini] = useState(false)
+  const CANALI_PERSONA = ['whatsapp', 'messenger', 'instagram', 'widget']
+
+  const visibili = useMemo(() => {
+    if (!soloOrdini) return conversazioni
+    return conversazioni.filter(
+      (c) =>
+        CANALI_PERSONA.includes(c.canale) ||
+        Boolean(c.ordineNumero) ||
+        /#\d{3,7}\b/.test(c.ultimoTesto)
+    )
+  }, [conversazioni, soloOrdini])
+
   // Le colonne: prima i marchi collegati (anche se oggi non hanno scritto),
   // poi quelli che compaiono solo nelle conversazioni, e per ultimo il
   // «senza marchio» — che è un lavoro da fare, non un marchio.
@@ -546,12 +570,12 @@ export function Inbox({
     }
     const gruppi = nomi.map((nome) => ({
       nome,
-      righe: conversazioni.filter((c) => marchioDi(c) === nome),
+      righe: visibili.filter((c) => marchioDi(c) === nome),
     }))
-    const orfane = conversazioni.filter((c) => marchioDi(c) === SENZA_MARCHIO)
+    const orfane = visibili.filter((c) => marchioDi(c) === SENZA_MARCHIO)
     if (orfane.length) gruppi.push({ nome: SENZA_MARCHIO, righe: orfane })
     return gruppi
-  }, [brandNoti, conversazioni, marchioDi])
+  }, [brandNoti, visibili, marchioDi])
 
   // ── Risposte pronte, per tipologia ──
   //
@@ -930,11 +954,25 @@ export function Inbox({
           {scaricoPosta && scaricoPosta !== '…' ? (
             <span className="esito">{scaricoPosta}</span>
           ) : null}
+          {/* «Solo ordini»: mostra le conversazioni che parlano di un ordine e le
+              chat delle persone. Non è un antispam — non indovina se una mail è
+              pubblicità — ma è quello che serve per lavorare. */}
+          <button
+            className={`bottone ${soloOrdini ? '' : 'secondario '}mini`}
+            style={{ marginLeft: 'auto' }}
+            onClick={() => setSoloOrdini(!soloOrdini)}
+            title={
+              soloOrdini
+                ? 'Stai vedendo solo ordini e chat: premi per rivedere tutto'
+                : 'Mostra solo le conversazioni che parlano di un ordine, più le chat'
+            }
+          >
+            {soloOrdini ? 'Solo ordini' : 'Tutto'}
+          </button>
           {/* Il suono si può spegnere: in una stanza con tre operatori, tre
               campanelli sullo stesso messaggio sono rumore. */}
           <button
             className="bottone secondario mini"
-            style={{ marginLeft: 'auto' }}
             onClick={() => {
               const nuovo = !audioAcceso
               setAudioAcceso(nuovo)
@@ -976,7 +1014,7 @@ export function Inbox({
           </button>
         </div>
 
-        {conversazioni.length === 0 ? (
+        {visibili.length === 0 ? (
           <div className="vuoto" style={{ padding: 30 }}>
             {cestino
               ? 'Cestino vuoto. Quello che elimini finisce qui e ci resta 30 giorni: poi si cancella da solo, coi suoi messaggi.'
@@ -985,7 +1023,7 @@ export function Inbox({
                 : 'Nessuna conversazione ancora. Quando un cliente scrive su WhatsApp, Messenger, Instagram o dal widget del sito, appare qui.'}
           </div>
         ) : vista === 'elenco' ? (
-          conversazioni.map(riga)
+          visibili.map(riga)
         ) : (
           <div className="colonne-inbox">
             {colonne.map((col) => {

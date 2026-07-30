@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { db } from '@/lib/db'
 import { salvaCasella } from '@/lib/email'
+import { salvaMittentiIgnorati } from '@/lib/mittenti-ignorati'
 
 export async function salvaCasellaAction(formData: FormData) {
   const id = String(formData.get('id') ?? '').trim() || null
@@ -26,6 +27,15 @@ export async function salvaCasellaAction(formData: FormData) {
   })
   revalidatePath('/caselle')
   // L'inbox raggruppa per marchio: cambiare la casella cambia le colonne.
+  revalidatePath('/inbox')
+}
+
+// I mittenti che non devono finire nell'inbox: newsletter, piattaforme,
+// notifiche automatiche. Le loro mail entrano già archiviate — non si cancella
+// niente, si toglie soltanto dal mucchio di chi aspetta una risposta.
+export async function salvaMittentiIgnoratiAction(formData: FormData) {
+  await salvaMittentiIgnorati(String(formData.get('mittentiIgnorati') ?? ''))
+  revalidatePath('/caselle')
   revalidatePath('/inbox')
 }
 

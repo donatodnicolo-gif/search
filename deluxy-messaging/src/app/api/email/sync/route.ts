@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { caselleAttive, scaricaEmail } from '@/lib/email'
 import { smistaMailPerSito } from '@/lib/ordine-da-email'
+import { daIgnorare, elencoMittentiIgnorati } from '@/lib/mittenti-ignorati'
 
 export const dynamic = 'force-dynamic'
 // Lo scarico IMAP può richiedere qualche decina di secondi (più caselle).
@@ -17,6 +18,8 @@ export async function POST() {
       { status: 400 }
     )
   }
+
+  const ignorati = await elencoMittentiIgnorati()
 
   const risultati: { casella: string; ok: boolean; nuove: number; errore: string }[] = []
 
@@ -36,6 +39,10 @@ export async function POST() {
         // dei tre siti arrivano tutte sulla stessa casella, e senza questo
         // finiscono tutte nella colonna della casella che le ha ricevute.
         const sito = await smistaMailPerSito(m.oggetto, m.testo)
+        // Mittente in elenco: la mail entra GIÀ ARCHIVIATA e non conta fra i non
+        // letti. Non si scarta — resta cercabile in archivio — ma non occupa il
+        // posto di un cliente che aspetta.
+        const ignorare = daIgnorare(m.da, ignorati)
 
         const conversazione = await db.conversazione.upsert({
           where: { canale_idEsterno_numeroId: { canale: 'email', idEsterno: m.da, numeroId: '' } },
@@ -44,12 +51,12 @@ export async function POST() {
             casellaId: casella.id,
             ultimoTesto: m.oggetto || m.testo.slice(0, 120),
             ultimoMessaggioIl: m.data,
-            nonLetti: { increment: 1 },
+            nonLetti: ignorare ? undefined : { increment: 1 },
+            archiviata: ignorare ? true : false,
             // Il marchio si scrive solo se lo sappiamo: un null non deve
             // cancellare quello trovato prima da un altro messaggio.
             ...(sito.negozioId ? { negozioId: sito.negozioId } : {}),
             ...(sito.ordineNumero ? { ordineNumero: sito.ordineNumero } : {}),
-            archiviata: false,
             eliminataIl: null,
           },
           create: {
@@ -60,7 +67,9 @@ export async function POST() {
             ultimoTesto: m.oggetto || m.testo.slice(0, 120),
             ultimoMessaggioIl: m.data,
             negozioId: sito.negozioId,
-            ordineNumero: sito.ordineNumero,            nonLetti: 1,
+            ordineNumero: sito.ordineNumero,
+            nonLetti: ignorare ? 0 : 1,
+            archiviata: ignorare,
           },
         })
 
