@@ -70,7 +70,8 @@ export default async function PaginaCampagne({
             </p>
           </div>
           <a className="btn btn-secondario" href="/campagne/nuova">Censisci esistente</a>
-          <a className="btn" href="/campagne/lancia">Lancia su Google Ads</a>
+          <a className="btn btn-secondario" href="/campagne/lancia">Lancia su Google Ads</a>
+          <a className="btn" href="/campagne/crea">Crea da ciò che funziona</a>
         </div>
 
         <VisteSalvate pagina="campagne" base="/campagne" parametri={p} />
