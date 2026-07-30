@@ -77,6 +77,20 @@ locale, altrimenti nulla si decifra.
   - Solo WhatsApp: su Instagram e Messenger l'id non è un numero di telefono e
     in rubrica non c'è niente da cercare.
 
+- **IL SITO SCELTO RESTA DOPO IL SALVATAGGIO** (30/07/2026). Sembrava che
+  «Mostra anche il bottone tondo» si riaccendesse da sola dopo Salva. In tabella
+  il dato era **giusto** (`mostraBottone: false`): a mentire era la schermata —
+  dopo il salvataggio la pagina si rimonta e ripartiva dal **primo** sito
+  dell'elenco, quindi chi aveva appena configurato Cakedesign si ritrovava
+  davanti Deluxy con la sua spunta accesa.
+  - Ora il sito scelto sta nell'**URL** (`?sito=cake`, aggiornato senza ricaricare
+    quando si cambia scheda) e l'action **torna su quel sito** con `?salvato=1`,
+    che mostra anche la conferma «Widget salvato per questo sito» — prima dopo
+    Salva non compariva niente.
+  - Da tenere a mente: un form che si rimonta perde lo stato del client. Se una
+    scelta deve sopravvivere al salvataggio, va nell'URL o nel database, non
+    soltanto in `useState`.
+
 - **LA CHAT SI APRE DA UN LINK CHE C'È GIÀ SUL SITO** (30/07/2026). Sui siti la
   voce «Live Chat» del menu contatti esiste già e punta a un servizio esterno
   (`<a class="dialogify" href="https://chatting.page/…">`). Ora quel link può

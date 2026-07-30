@@ -14,7 +14,12 @@ export const dynamic = 'force-dynamic'
 // parte di quel sito senza toccarne il codice; i testi per sito servono perché
 // deluxy.it, l'atelier dei fiori e la pasticceria non parlano allo stesso modo.
 
-export default async function PaginaAspettoWidget() {
+export default async function PaginaAspettoWidget({
+  searchParams,
+}: {
+  searchParams: Promise<{ sito?: string; salvato?: string }>
+}) {
+  const { sito: sitoScelto, salvato } = await searchParams
   const intestazioni = await headers()
   const host = intestazioni.get('host') ?? 'deluxy-messaging.vercel.app'
   const protocollo = host.startsWith('localhost') ? 'http' : 'https'
@@ -33,7 +38,16 @@ export default async function PaginaAspettoWidget() {
         </div>
       </div>
 
-      <AspettoWidget origine={`${protocollo}://${host}`} siti={siti} salva={salvaAspettoSito} />
+      {salvato ? <div className="avviso-ok">Widget salvato per questo sito.</div> : null}
+
+      {/* Il sito scelto viaggia nell'URL: così dopo il salvataggio si torna su
+          quello che si stava configurando, e non sul primo dell'elenco. */}
+      <AspettoWidget
+        origine={`${protocollo}://${host}`}
+        siti={siti}
+        slugIniziale={sitoScelto ?? ''}
+        salva={salvaAspettoSito}
+      />
     </main>
   )
 }

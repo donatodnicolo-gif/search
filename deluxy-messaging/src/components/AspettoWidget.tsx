@@ -33,14 +33,26 @@ const TEMI = [
 export function AspettoWidget({
   origine,
   siti,
+  slugIniziale = '',
   salva,
 }: {
   origine: string
   siti: SitoWidget[]
+  /**
+   * Il sito da mostrare all'apertura, dall'URL (`?sito=cake`).
+   *
+   * ⚠️ Non è un vezzo: dopo il salvataggio la pagina si ricarica e questo
+   * componente riparte da zero. Senza il sito nell'URL ripartiva dal PRIMO
+   * dell'elenco, e chi aveva appena tolto il bottone tondo a Cakedesign si
+   * ritrovava davanti Deluxy con la spunta accesa — sembrava che
+   * l'impostazione si riattivasse da sola.
+   */
+  slugIniziale?: string
   /** Server action che salva la configurazione del sito scelto. */
   salva: (dati: FormData) => void
 }) {
-  const [slug, setSlug] = useState(siti[0]?.slug ?? '')
+  const primo = siti.find((s) => s.slug === slugIniziale)?.slug ?? siti[0]?.slug ?? ''
+  const [slug, setSlug] = useState(primo)
   const sito = siti.find((s) => s.slug === slug) ?? siti[0]
 
   const [tema, setTema] = useState(sito?.tema ?? 'chiaro')
@@ -67,6 +79,14 @@ export function AspettoWidget({
     setSaluto(s.saluto)
     setSelettoreApri(s.selettoreApri)
     setMostraBottone(s.mostraBottone)
+    // L'URL segue la scelta senza ricaricare la pagina: se si ricarica — o se il
+    // salvataggio la rimonta — si riparte da questo sito e non dal primo.
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href)
+      url.searchParams.set('sito', nuovo)
+      url.searchParams.delete('salvato')
+      window.history.replaceState(null, '', url.toString())
+    }
   }
 
   const accentoValido = /^#[0-9a-f]{6}$/i.test(accento)
