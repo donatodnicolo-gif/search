@@ -12,33 +12,44 @@
 // significa sempre **prodotti venduti sul brand X**, non un'etichetta messa a
 // mano su una scheda.
 
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { prisma } from "./db";
 
 export const COOKIE_BRAND = "mrc_brand";
 
-/** I brand che compaiono davvero nel venduto (nessun elenco scritto a mano). */
-export async function brandDisponibili(): Promise<string[]> {
+/**
+ * I brand che compaiono davvero nel venduto (nessun elenco scritto a mano).
+ *
+ * Avvolta in `cache()` di React: pagina, Sidebar e barra dell'ambito la chiedono
+ * tutte nello stesso rendering, e senza questo sarebbero tre `distinct` su tutto
+ * il venduto per ogni schermata. È una deduplica **per richiesta**, non una cache
+ * a tempo: il dato resta sempre quello vero del momento.
+ */
+export const brandDisponibili = cache(async (): Promise<string[]> => {
   const righe = await prisma.vendita.findMany({
     distinct: ["canale"],
     select: { canale: true },
     orderBy: { canale: "asc" },
   });
   return righe.map((r) => r.canale).filter(Boolean);
-}
+});
 
 /**
  * Il brand scelto, o null per "Globale".
  * Se il cookie contiene un brand che non esiste più nel venduto si torna al
  * globale: meglio la vista completa che una pagina vuota senza spiegazione.
+ *
+ * Anche questa è deduplicata per richiesta (vedi sopra): la chiamano quasi tutte
+ * le pagine **e** la Sidebar.
  */
-export async function brandCorrente(): Promise<string | null> {
+export const brandCorrente = cache(async (): Promise<string | null> => {
   const jar = await cookies();
   const scelto = jar.get(COOKIE_BRAND)?.value?.trim();
   if (!scelto) return null;
   const disponibili = await brandDisponibili();
   return disponibili.includes(scelto) ? scelto : null;
-}
+});
 
 /** Filtro sulle vendite: {} in globale, altrimenti il canale scelto. */
 export function filtroVendite(brand: string | null) {

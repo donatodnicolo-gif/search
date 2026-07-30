@@ -42,11 +42,12 @@ export default async function CollezioniPage({
   }>;
 }) {
   const sp = await searchParams;
-  const brand = await brandCorrente();
+  // Insieme e non in fila: l'elenco dei negozi non dipende dall'ambito, e
+  // aspettarlo dopo raddoppiava i giri al database.
+  const [brand, negoziTutti] = await Promise.all([brandCorrente(), elencoNegozi()]);
 
   // Quali negozi corrispondono all'ambito scelto: per la corrispondenza
   // impostata sul negozio («nome nel venduto») o, in mancanza, per nome uguale.
-  const negoziTutti = await elencoNegozi();
   const negoziDellAmbito = brand
     ? negoziTutti.filter((n) => n.canaleVendite === brand || n.nome === brand).map((n) => n.nome)
     : [];
@@ -80,11 +81,13 @@ export default async function CollezioniPage({
   // Il venduto di ogni collezione: una query sola per tutti i prodotti che
   // compaiono in almeno una collezione, poi si somma in memoria.
   const f = finestra(90);
-  const idProdotti = [...new Set(collezioniShopify.flatMap((c) => c.prodotti.map((p) => p.prodottoId)))];
-  const venditePerProdotto = idProdotti.length
+  // Niente `IN (...)` con centinaia di id: si raggruppa il venduto della finestra
+  // e si legge solo quello che serve. Una lista di id lunga rende la query più
+  // pesante del giro completo, e cresce col catalogo.
+  const venditePerProdotto = collezioniShopify.length
     ? await prisma.vendita.groupBy({
         by: ["prodottoId"],
-        where: { prodottoId: { in: idProdotti }, data: { gte: f.dal, lte: f.al }, ...FILTRO_BUON_FINE },
+        where: { data: { gte: f.dal, lte: f.al }, ...FILTRO_BUON_FINE },
         _sum: { quantita: true, ricavo: true },
       })
     : [];

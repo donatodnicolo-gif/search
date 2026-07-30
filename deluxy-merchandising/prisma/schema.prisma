@@ -551,6 +551,14 @@ model Vendita {
   @@index([prodottoId, data])
   @@index([varianteId, data])
   @@index([origine])
+  // Il **brand** è il canale della vendita: ci passa ogni filtro d'ambito
+  // (`filtroVendite`) e l'elenco dei brand disponibili (distinct su canale).
+  // Senza indice erano scansioni piene su tutto il venduto, a ogni pagina.
+  @@index([canale])
+  @@index([canale, data])
+  // `FILTRO_BUON_FINE` (statoPagamento in PAID/PARTIALLY_PAID) sta in quasi ogni
+  // conto di vendita: classifiche, trend, riordino, assortimento.
+  @@index([statoPagamento, data])
 }
 
 // Storico delle importazioni dal registro ordini: quando, quanto, com'è andata.
