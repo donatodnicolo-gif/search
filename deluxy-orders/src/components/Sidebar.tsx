@@ -28,6 +28,7 @@ export function Sidebar({
         { href: "/", nome: "Tutti gli ordini", count: conteggi.ordini, icona: iconaLista },
         { href: "/bacheca", nome: "Bacheca", count: conteggi.daClassificare, icona: iconaBacheca },
         { href: "/consegna", nome: "Consegna", count: null, icona: iconaConsegna },
+        { href: "/incassa", nome: "Fatti pagare", count: null, icona: iconaIncassa },
       ],
     },
     {
@@ -140,6 +141,12 @@ const iconaAnalisi = (
   <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <path d="M4 19V5" /><path d="M4 19h16" />
     <path d="M8 16V11" /><path d="M13 16V7" /><path d="M18 16v-4" />
+  </svg>
+);
+const iconaIncassa = (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="2.5" y="5.5" width="19" height="13" rx="2" />
+    <circle cx="12" cy="12" r="2.6" /><path d="M6 9.5v.01" /><path d="M18 14.5v.01" />
   </svg>
 );
 const iconaMargini = (

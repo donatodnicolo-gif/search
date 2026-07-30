@@ -666,6 +666,42 @@ model MovimentoBanca {
   @@index([statoFinance])
 }
 
+// UN LINK PER FARSI PAGARE QUALCOSA CHE NON È ANCORA UN ORDINE — «100 rose,
+// 450 €»: si scrive cosa e quanto, Shopify prepara una **bozza d'ordine** e ne
+// esce un link. Quando il cliente paga, la bozza **diventa un ordine vero** e la
+// sync lo porta qui: nessun doppione, perché prima non c'era niente.
+//
+// Qui si tiene solo il promemoria di ciò che è stato chiesto: cosa, quanto, a
+// chi, e com'è finita. ⚠️ **L'indirizzo del link NON si salva**: contiene un
+// segreto che vale un pagamento e si richiede a Shopify quando serve, così non
+// resta una chiave a riposo e non si mostra mai un link scaduto.
+model LinkIncasso {
+  id           String @id @default(cuid())
+  brand        String // da quale negozio esce il link (e il denaro entra)
+  draftOrderId String @unique // gid della bozza su Shopify: è la fonte di verità
+  nome         String // come Shopify la chiama, es. «#D12»
+
+  descrizione String @db.Text // cosa si sta facendo pagare, in chiaro
+  totale      Float // quanto ha calcolato Shopify (tasse comprese, se le applica)
+  valuta      String @default("EUR")
+
+  clienteNome     String?
+  clienteEmail    String?
+  clienteTelefono String?
+  note            String? @db.Text
+
+  // aperto = in attesa · pagato = diventato ordine · annullato = bozza eliminata
+  stato        String    @default("aperto")
+  ordineNumero String? // il numero dell'ordine nato quando ha pagato
+  pagatoIl     DateTime?
+
+  creatoIl     DateTime @default(now())
+  aggiornatoIl DateTime @updatedAt
+
+  @@index([stato, creatoIl])
+  @@index([brand])
+}
+
 // Impostazione dell'app: chiave → valore, testuale. Serve alle poche scelte che
 // non sono dati (la quota attesa del fornitore) e che devono valere anche in
 // produzione senza un deploy.

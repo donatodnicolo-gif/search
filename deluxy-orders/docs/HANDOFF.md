@@ -421,10 +421,32 @@ pagina su cui **quel** cliente paga **quell'ordine**. Verificato su ordini veri
   un cliente è un'azione che va decisa da una persona, non da un bottone dentro
   una tabella.
 
+### «Fatti pagare» — link per ciò che non è ancora un ordine (30/07/2026)
+`/incassa` + `src/lib/incassa.ts` + modello `LinkIncasso`. Si scrivono righe
+libere («100 rose × 4,50»), Shopify crea una **bozza d'ordine** e ne esce
+l'`invoiceUrl`. Pagando, la bozza **diventa un ordine vero** che la sync importa:
+nessun doppione, perché prima non c'era niente.
+
+- ⚠️ **BLOCCATO SUL PERMESSO**: `draftOrderCreate` risponde
+  `ACCESS_DENIED — Required access: write_draft_orders access scope or
+  write_quick_sale`. Provato davvero il 30/07/2026 su Flowers: nessuna bozza
+  creata. Va aggiunto lo scope nell'app della Dev Dashboard di ogni negozio
+  (**non c'è nessun `shopify.app.toml` nel repo**: la configurazione è solo lì);
+  il token si riconia da sé col client credentials grant, senza toccare l'app.
+- La pagina **diagnostica da sé** quali negozi sono pronti, leggendo
+  `/admin/oauth/access_scopes.json` (`negoziPronti()`): non fa fallire il bottone
+  per scoprirlo, e l'errore di Shopify è tradotto in cosa fare.
+- **L'URL non si salva** (contiene un segreto): `LinkIncasso` tiene solo cosa,
+  quanto, a chi e com'è finita; il link e lo stato si richiedono a Shopify.
+- Le bozze nascono con i tag `deluxy-orders` + `link-di-pagamento`: dentro Shopify
+  si riconosce da dove vengono.
+- ⚠️ **Non sostituire questa pagina con `orderCreate`** (che i permessi
+  attuali consentirebbero): un ordine creato prima del pagamento comparirebbe in
+  bacheca, in consegna e al Customer Service anche se il cliente non paga mai.
+
 **MANCA / da decidere**
-- **Link per un importo qualsiasi** (supplemento, ordine al telefono, acconto):
-  serve `write_draft_orders`. Da decidere se aggiungerlo, e con quale regola per
-  non creare doppioni nel registro.
+- **Aggiungere `write_draft_orders`** ai tre negozi: finché non c'è, `/incassa`
+  mostra tutto ma non può creare il link. È l'unica cosa che manca.
 - **La pagina `/ordini` di Finance non è stata rimossa**: la funzione è qui, ma
   togliere di là pagina, modelli e cron è una scelta contabile (i `Pagamento` con
   riferimento `PAY-…` nascono là e `/api/incassi` li espone) e **in quella cartella

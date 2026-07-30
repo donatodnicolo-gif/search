@@ -370,11 +370,37 @@ Se l'ordine è già pagato, o se Shopify non offre un link per quello stato, la
 pagina lo dice invece di dare un indirizzo che porterebbe il cliente a una pagina
 morta.
 
-**Cosa NON si può ancora fare**: un link per un importo qualsiasi (un
-supplemento, un ordine preso al telefono, un acconto). Serve la bozza d'ordine, e
-quindi il permesso `write_draft_orders`, che i token dei tre negozi oggi non
-hanno — hanno `read_orders`/`write_orders`. È una modifica da fare nell'app della
-Dev Dashboard di ciascun negozio, poi il token si riconia da sé.
+Per far pagare **qualcosa che non è ancora un ordine** — «100 rose» — c'è la
+pagina [Fatti pagare](#fatti-pagare-incassa).
+
+### Fatti pagare (`/incassa`)
+Un link di pagamento per una cosa concordata al telefono: **«100 rose × 4,50 =
+450 €»**. Si scrivono le righe (descrizione, quantità, prezzo), si sceglie il
+negozio da cui esce il link, e ne esce un indirizzo da mandare al cliente. Quando
+paga, **quella bozza diventa un ordine vero**: entra nel negozio, la sync lo porta
+nel registro e da lì in poi è un ordine come tutti gli altri — con la sua
+consegna, il suo margine, il suo controllo.
+
+- **Le righe sono libere**: «100 rose» non è un prodotto a catalogo, è un accordo.
+  Il totale che conta lo calcola **Shopify** (tasse e spedizione secondo le
+  impostazioni del negozio); in pagina si vede anche la somma delle righe, e se i
+  due numeri non coincidono vince Shopify, perché è quello che vedrà il cliente.
+- **Perché una bozza e non un ordine creato subito**: un ordine non pagato
+  comparirebbe **ovunque** — bacheca, consegna, Customer Service — anche se il
+  cliente non paga mai. Una bozza non è un ordine finché non è pagata, ed è
+  esattamente cosa significa un preventivo.
+- **Lo stato non si aggiorna da solo**: «Mostra il link» lo richiede a Shopify e
+  nello stesso giro scopre se nel frattempo è stato pagato (e con quale numero
+  d'ordine). Il link non è salvato qui: contiene un segreto.
+- **L'app non manda niente al cliente**: lo copi e lo mandi tu.
+- Una bozza non ancora pagata si può **annullare**; una pagata no — non si
+  disfa un incasso avvenuto.
+
+⚠️ **Serve il permesso `write_draft_orders`** sull'app Shopify di ciascun negozio.
+Al 30/07/2026 i tre negozi non ce l'hanno (hanno `read_orders`, `write_orders`,
+`write_customers`), e la pagina lo dice negozio per negozio invece di far fallire
+il bottone. Si aggiunge **una volta sola** nella Dev Dashboard del negozio: il
+token si riconia da sé al primo uso, senza reincollare niente nell'app.
 
 La **quota attesa del fornitore** (60% di default) si cambia in Impostazioni:
 pagare sotto è bene, sopra è male. Non serve a *calcolare* un costo — quello si

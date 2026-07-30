@@ -1037,6 +1037,33 @@ a.periodo-opz:hover { background: var(--fill); color: var(--text); }
 }
 .btn-testo:hover { color: var(--text); }
 
+/* Le righe di «Fatti pagare»: cosa, quante, a quanto */
+.riga-incasso {
+  display: grid;
+  grid-template-columns: 1fr 90px 130px 40px;
+  gap: 8px;
+  align-items: center;
+  margin-top: 6px;
+}
+.riga-incasso.testa {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-top: 10px;
+}
+.riga-incasso input {
+  padding: 7px 10px;
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-s);
+  font: inherit;
+  font-size: 13.5px;
+  background: var(--surface);
+  color: var(--text);
+}
+@media (max-width: 640px) {
+  .riga-incasso { grid-template-columns: 1fr 1fr; }
+  .riga-incasso.testa { display: none; }
+}
+
 /* Il link per far pagare un ordine */
 .link-pagamento {
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
