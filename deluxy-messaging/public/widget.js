@@ -8,6 +8,10 @@
 //           data-tema="caldo" data-accento="#9c5b3f"
 //           data-posizione="destra" data-etichetta="Scrivici"></script>
 //
+// Aprire la chat da un punto d'ingresso del sito (una voce «Live Chat» nel menu
+// contatti, un bottone in una landing):
+//   window.DeluxyChat.apri()      // .chiudi() .alterna() .eAperta()
+//
 // ⚠️ PERCHÉ TUTTO STA DENTRO UNO SHADOW DOM
 // Questo script gira su siti che non controlliamo: temi Shopify, WordPress,
 // pagine fatte a mano. Il loro CSS colpisce qualunque cosa attacchiamo alla
@@ -178,6 +182,18 @@
   document.addEventListener('keydown', function (ev) {
     if (ev.key === 'Escape' && aperto) apri(false);
   });
+
+  // ── Aprire la chat da fuori ───────────────────────────────────────────────
+  // Diversi siti hanno già il loro punto d'ingresso — la voce «Live Chat» nel
+  // menu contatti, un bottone dentro una landing — e vogliono che sia quello ad
+  // aprire la chat. Senza questo appiglio l'unica via è il bottone flottante:
+  // il resto è chiuso qui dentro e dentro uno shadow DOM, irraggiungibile.
+  window.DeluxyChat = {
+    apri: function () { apri(true); },
+    chiudi: function () { apri(false); },
+    alterna: function () { apri(!aperto); },
+    eAperta: function () { return aperto; },
+  };
 
   dentro.appendChild(stile);
   dentro.appendChild(iframe);
