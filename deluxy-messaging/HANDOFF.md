@@ -419,6 +419,19 @@ locale, altrimenti nulla si decifra.
   - Sul telefono (≤480px) la chat va a schermo intero e la × è **dentro** la
     chat: il bottone che l'ha aperta ci finisce sotto. `100dvh`, `16px` esatti
     sul campo (sotto, Safari zooma) e `env(safe-area-inset-bottom)`.
+  - **IL WIDGET SI APRE ANCHE DAI PULSANTI DEL SITO** (30/07/2026). Lo shadow DOM
+    protegge dai CSS altrui ma chiude fuori anche noi: il bottone flottante era
+    l'**unico** modo di aprire la chat, e i siti hanno già il loro punto
+    d'ingresso. Aggiunta `window.DeluxyChat` in `public/widget.js`: `apri()`,
+    `chiudi()`, `alterna()`, `eAperta()`. Nient'altro è cambiato.
+    - Primo uso: **cakedesign.me**, dove la voce «Live Chat» del pannello
+      contatti portava a `chatting.page` — servizio esterno, il cliente usciva
+      dal sito e la conversazione non arrivava mai in Inbox. Il tema intercetta
+      il click e chiama `DeluxyChat.apri()`; il link vecchio resta come rete di
+      sicurezza se il widget non si carica. Codice e trappole:
+      `sviluppi-siti-deluxy/skills/sviluppi-siti-deluxy/reference/STATO-CAKEDESIGN.md`.
+    - ⚠️ Chi si aggancia deve **chiudere il proprio pannello** prima di chiamare
+      `apri()`: un menu a tendina che copre lo schermo lascia la chat dietro.
   - ⚠️ **La conversazione nasce al PRIMO MESSAGGIO, non al caricamento.** Prima
     bastava che il widget si caricasse: ogni visitatore di passaggio (e ogni
     anteprima, e ogni prova) lasciava in Inbox una conversazione vuota

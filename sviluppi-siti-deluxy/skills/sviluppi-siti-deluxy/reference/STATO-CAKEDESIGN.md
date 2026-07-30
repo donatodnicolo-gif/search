@@ -112,6 +112,45 @@ apici sono escapati): conferma che non è stato toccato altro. Sweep su 10 pagin
 **Non coperto**: su `/en` il footer inglese apre ancora una scheda nuova (e col numero
 vecchio), perché quel testo è una **traduzione**, non un file del tema — vedi sotto.
 
+## Chat del sito: la «Live Chat» è Deluxy Customer Service (30/7/2026, sul tema di lavoro)
+
+La voce **Live Chat** del pannello contatti portava a **`chatting.page`**, un servizio esterno:
+il cliente usciva dal sito e la conversazione restava fuori dall'Inbox. Ora quel click apre il
+widget di [Deluxy Customer Service](../../../../deluxy-messaging/HANDOFF.md), che arriva in
+Inbox insieme a WhatsApp e Messenger.
+
+Tutto sta in **un solo file**, `snippets/all_tags_and_script.liquid` (era vuoto dal 13/7, ed è
+incluso nell'`<head>` di ogni pagina da `layout/theme.liquid`): il tag del widget più un
+ascoltatore delegato su `a[href*="chatting.page"]`.
+
+Tre scelte, tutte volute:
+
+- **Il link non è stato toccato.** L'`href` resta l'impostazione `chat_url` della sezione
+  `cart-information-popup`. Se il widget non si carica, il cliente finisce ancora su
+  chatting.page: meglio una chat altrove che un click che non fa niente.
+- **L'ascoltatore è delegato sull'URL**, non sull'elemento: intercetta la voce ovunque compaia,
+  senza riscrivere `sections/cart-information-popup.liquid` (11 KB pieni di SVG — riscriverlo
+  per intero per due righe è rischio inutile).
+- **Il pannello contatti viene chiuso** (`#contact-slide-model.active` e
+  `body.overflow-hidden-popup-open`) prima di aprire la chat, altrimenti la chat si apre dietro
+  una tendina che copre lo schermo.
+
+> ⚠️ Il widget vive dentro uno **shadow DOM**: da fuori non si apre in nessun altro modo che con
+> la sua API. Per questo è stata aggiunta `window.DeluxyChat` (`apri` · `chiudi` · `alterna` ·
+> `eAperta`) in `deluxy-messaging/public/widget.js`. **Finché quel deploy non è in produzione
+> l'aggancio non funziona** e il click continua ad andare su chatting.page: il push su GitHub
+> non pubblica, serve `npx vercel deploy --prod --yes`.
+
+Verificato sull'anteprima del tema di lavoro: il tag c'è, il widget si monta, la pastiglia
+«Scrivici 🎂» compare, e col click sulla voce la navigazione è annullata, il pannello si chiude,
+lo scroll si sblocca e la chat viene aperta una volta sola. La pagina della chat risponde 200
+senza `X-Frame-Options` né CSP, quindi si può incorniciare su cakedesign.me.
+
+Da decidere: lo snippet usa `data-tema="minimale"`, mentre l'aspetto che l'app propone per
+cakedesign è **`caldo`** (avorio e terracotta, pensato per le foto di pasticceria) — vedi
+`deluxy-messaging/src/lib/widget-siti.ts`. Il bottone è terracotta in entrambi i casi, perché
+`data-accento` vince sulla tavolozza; cambia solo l'interno della chat.
+
 ## 30/7/2026 — recapiti ripuliti ovunque
 
 **Il vecchio numero era in 11 file del tema, non in 2**, e in punti che nessun pannello Shopify
