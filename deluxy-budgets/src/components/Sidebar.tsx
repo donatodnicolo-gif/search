@@ -165,6 +165,7 @@ const nav: AreaNav[] = [
           { href: "/cfo", label: "Costi reali (CFO)", icon: icons.cfo },
           { href: "/competenza", label: "Competenza", icon: icons.impostazioni },
           { href: "/conto-economico", label: "Conto economico", icon: icons.pl },
+          { href: "/tasse", label: "Tasse", icon: icons.impostazioni },
         ],
       },
     ],

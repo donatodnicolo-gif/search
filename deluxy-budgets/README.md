@@ -394,6 +394,30 @@ Due interventi:
 Verificato che i numeri non cambiano: la somma dei dodici mesi coincide all'euro con l'aggregato del
 periodo (185.949 € su Gen–Lug 2026).
 
+## Tasse () — una perdita non vuol dire zero imposte
+
+Nel 2024 Deluxy ha chiuso con una **perdita di 21.130 €** e ha pagato imposte lo stesso: il reddito
+**fiscale** era **+48.970 €** e la base IRAP 97.120 €. Il gestionale guarda l'EBITDA e di quella
+differenza non sa niente — un F24 a giugno che nessuna pagina aveva anticipato.
+
+La pagina parte dal risultato ante imposte del bilancio (o dall'EBITDA, dichiarandolo, se il bilancio
+non c'è ancora), somma le **variazioni in aumento** applicando le regole del TUIR alle categorie del
+CFO — vitto e alloggio al 75%, veicoli non strumentali al 20%, imposte indeducibili da se stesse,
+oneri finanziari e compenso amministratore deducibili IRES ma non IRAP — e calcola **IRES 24%** e
+**IRAP 3,9%**. Motore in .
+
+> ⚠️ **Quanto vale questa stima, misurato**: sul 2024 le variazioni vere sono state **70.100 €**, e
+> le percentuali per categoria ne spiegano **1.385 — il 2%**. Il resto sono voci che l'app non vede
+> (accantonamenti, ammortamenti oltre i coefficienti, compensi deliberati e non pagati, perdite su
+> crediti). Quindi il numero è un **minimo**, non una previsione, e la pagina lo scrive in rosso in
+> cima. Il metro più affidabile resta il rapporto dell'ultimo anno vero: nel 2024 le variazioni
+> valevano il **16% dei costi**.
+
+Restano fuori anche ROL sugli interessi, perdite pregresse riportabili (fino all'80% dell'imponibile),
+ACE e crediti d'imposta, il tetto dell'1,5% sulla rappresentanza e la deducibilità **per cassa** del
+compenso amministratore: ognuna può spostare il conto di migliaia di euro, e sono elencate in fondo
+alla pagina invece di essere taciute.
+
 ## Chiavi (cassaforte del Hub)
 
 Le chiavi (`FINANCE_API_KEY`, `ORDERS_API_KEY`, `OPENAI_API_KEY`, …) non stanno nel `.env` di questa app: si
