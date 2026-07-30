@@ -56,3 +56,20 @@ export function filtroProdotti(brand: string | null) {
 export function etichettaAmbito(brand: string | null): string {
   return brand ?? "Globale";
 }
+
+/**
+ * I **negozi Shopify** che corrispondono al brand scelto. Il brand è un *canale
+ * di vendita* (`deluxy.it`, `Flowers`, `cakedesign.me`), mentre le collezioni
+ * appartengono a un *negozio* (`Gifts`, `Flowers`, `Cake`): il ponte è
+ * `NegozioShopify.canaleVendite`. Ritorna `null` in globale (nessun filtro).
+ * Ritorna `[]` se il brand non è mappato a nessun negozio: chi filtra deve
+ * dichiararlo invece di mostrare tutto come se il filtro non esistesse.
+ */
+export async function negoziDelBrand(brand: string | null): Promise<string[] | null> {
+  if (!brand) return null;
+  const negozi = await prisma.negozioShopify.findMany({
+    where: { canaleVendite: brand },
+    select: { nome: true },
+  });
+  return negozi.map((n) => n.nome);
+}

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
+import { brandCorrente, negoziDelBrand, etichettaAmbito } from "@/lib/brand";
 import { etichettaRegola } from "@/lib/ordinamento-vetrina";
 
 export const dynamic = "force-dynamic";
@@ -10,20 +11,29 @@ export const dynamic = "force-dynamic";
 // (le vedono i clienti): una collezione non pubblicata non è in scena. Per ognuna
 // si sceglie una regola d'ordine, si ritocca a mano e si spinge l'ordine al
 // negozio.
+//
+// Rispetta l'**ambito** in alto: in un brand mostra solo le collezioni del suo
+// negozio (il brand è un canale di vendita, la collezione appartiene a un negozio,
+// il ponte è NegozioShopify.canaleVendite).
 export default async function VisualPage({
   searchParams,
 }: {
   searchParams: Promise<{ esito?: string; messaggio?: string }>;
 }) {
   const sp = await searchParams;
+  const brand = await brandCorrente();
+  const negozi = await negoziDelBrand(brand); // null = globale, [] = brand senza negozio
+  const filtroNegozio = negozi ? { negozio: { in: negozi } } : {};
+  const doveColl = { pubblicataShopify: true, ...filtroNegozio };
+
   const [collezioni, totali, pubblicate, pianiBozza] = await Promise.all([
     prisma.collezioneShopify.findMany({
-      where: { pubblicataShopify: true },
+      where: doveColl,
       orderBy: [{ negozio: "asc" }, { titolo: "asc" }],
       include: { _count: { select: { prodotti: true } } },
     }),
-    prisma.collezioneShopify.count(),
-    prisma.collezioneShopify.count({ where: { pubblicataShopify: true } }),
+    prisma.collezioneShopify.count({ where: filtroNegozio }),
+    prisma.collezioneShopify.count({ where: doveColl }),
     prisma.pianoRiordino.count({ where: { stato: "bozza" } }),
   ]);
 
@@ -43,10 +53,10 @@ export default async function VisualPage({
       <main className="main">
         <div className="page-head">
           <div>
-            <h1 className="page-title">Visual merchandising</h1>
+            <h1 className="page-title">Visual merchandising{brand ? ` — ${etichettaAmbito(brand)}` : ""}</h1>
             <p className="page-sub">
-              Le collezioni <b>pubblicate sul negozio</b>: per ognuna scegli una regola d'ordine, la ritocchi a mano
-              e la mandi a Shopify uguale a come la vedi qui.
+              Le collezioni <b>pubblicate sul negozio</b>{brand ? <> del brand <b>{etichettaAmbito(brand)}</b></> : ""}: per ognuna
+              scegli una regola d'ordine, la ritocchi a mano e la mandi a Shopify uguale a come la vedi qui.
             </p>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
