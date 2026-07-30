@@ -68,6 +68,9 @@ const SEZIONI: { titolo: string; voci: Voce[] }[] = [
     voci: [
       { name: 'visite', label: 'Potenziali', icon: 'walk-outline' },
       { name: 'trattative', label: 'Trattative', icon: 'briefcase-outline' },
+      // Sta fra la trattativa e l'ordine perché è lì che serve: per fare un
+      // prezzo al cliente bisogna prima sapere quanto ci costa.
+      { name: 'preventivi', label: 'Preventivi fornitori', icon: 'calculator-outline' },
       { name: 'ordini', label: 'Ordini', icon: 'receipt-outline' },
       { name: 'pagamenti', label: 'Pagamenti', icon: 'wallet-outline' },
     ],
@@ -377,6 +380,7 @@ export default function AppLayout() {
         <Drawer.Screen name="province" options={{ title: 'Province · Copertura' }} />
         <Drawer.Screen name="interessi" options={{ title: 'Per interesse' }} />
         <Drawer.Screen name="sequenze" options={{ title: 'Sequenze' }} />
+        <Drawer.Screen name="preventivi" options={{ title: 'Preventivi fornitori' }} />
         <Drawer.Screen name="clienti" options={{ title: 'Clienti' }} />
         <Drawer.Screen name="affiliazioni" options={{ title: 'Affiliazioni' }} />
         <Drawer.Screen name="pagamenti" options={{ title: 'Pagamenti' }} />
