@@ -28,23 +28,56 @@ export const REGOLE: { chiave: RegolaOrdinamento; nome: string; spiega: string }
   { chiave: "manuale", nome: "Solo a mano", spiega: "Nessuna regola: l'ordine lo decidi tu con le frecce." },
 ];
 
-export function etichettaRegola(chiave: string | null | undefined): string {
-  return REGOLE.find((r) => r.chiave === chiave)?.nome ?? "Solo a mano";
-}
-
 export function isRegola(v: unknown): v is RegolaOrdinamento {
   return typeof v === "string" && REGOLE.some((r) => r.chiave === v);
 }
 
 /**
- * L'ordine dei prodotti di una collezione secondo una regola. Ritorna gli id
- * prodotto nell'ordine nuovo; **non scrive niente** — la scrittura la fa
- * `numeraPosizioni`. Il pareggio si spezza sempre col nome, così l'ordine è
- * deterministico (due esecuzioni danno lo stesso risultato).
+ * Un ordine può essere fatto di **più regole in priorità**: la prima decide, le
+ * successive spezzano i pareggi (più venduti → a parità, margine → a parità,
+ * prezzo…). In `regolaOrdinamento` si salvano separate da virgola. `manuale`
+ * non è una regola, quindi si scarta dall'elenco: [] significa «solo a mano».
  */
-export async function ordineSecondoRegola(
+export function parseRegole(valore: string | null | undefined): RegolaOrdinamento[] {
+  if (!valore) return [];
+  const out: RegolaOrdinamento[] = [];
+  for (const raw of valore.split(",")) {
+    const v = raw.trim();
+    if (isRegola(v) && v !== "manuale" && !out.includes(v)) out.push(v);
+  }
+  return out;
+}
+
+export function serializeRegole(regole: RegolaOrdinamento[]): string {
+  const clean = regole.filter((r) => r !== "manuale");
+  return clean.length ? clean.join(",") : "manuale";
+}
+
+/** Legge da un form la lista ordinata di regole (campi `regola`, in priorità). */
+export function regoleDaForm(fd: FormData): RegolaOrdinamento[] {
+  const out: RegolaOrdinamento[] = [];
+  for (const v of fd.getAll("regola")) {
+    if (isRegola(v) && v !== "manuale" && !out.includes(v)) out.push(v);
+  }
+  return out;
+}
+
+/** L'etichetta leggibile di un ordine, singolo o a più criteri: «A → B → C». */
+export function etichettaRegola(valore: string | null | undefined): string {
+  const rs = parseRegole(valore);
+  if (rs.length === 0) return "Solo a mano";
+  return rs.map((r) => REGOLE.find((x) => x.chiave === r)?.nome ?? r).join(" → ");
+}
+
+/**
+ * L'ordine dei prodotti di una collezione secondo **una o più regole** in
+ * priorità. Ritorna gli id prodotto nell'ordine nuovo; **non scrive niente** —
+ * la scrittura la fa `numeraPosizioni`. Il pareggio finale si spezza sempre col
+ * nome, così l'ordine è deterministico.
+ */
+export async function ordineSecondoRegole(
   collezioneId: string,
-  regola: RegolaOrdinamento,
+  regole: RegolaOrdinamento[],
   giorni = 90
 ): Promise<string[]> {
   const membri = await prisma.prodottoInCollezioneShopify.findMany({
@@ -56,14 +89,15 @@ export async function ordineSecondoRegola(
     },
   });
 
-  if (regola === "manuale") {
+  const effettive = regole.filter((r) => r !== "manuale");
+  if (effettive.length === 0) {
     return [...membri]
       .sort((a, b) => a.posizione - b.posizione || a.prodotto.nome.localeCompare(b.prodotto.nome))
       .map((m) => m.prodottoId);
   }
 
   let venduto = new Map<string, { pezzi: number; ricavo: number }>();
-  if (regola === "best_seller" || regola === "ricavo") {
+  if (effettive.some((r) => r === "best_seller" || r === "ricavo")) {
     const da = new Date();
     da.setDate(da.getDate() - giorni);
     const agg = await prisma.vendita.groupBy({
@@ -78,7 +112,9 @@ export async function ordineSecondoRegola(
     );
   }
 
-  const chiave = (m: (typeof membri)[number]): number => {
+  // Valore per una singola regola: più alto = più in cima (prezzo_asc torna il
+  // prezzo negato, così la logica di ordinamento è sempre «decrescente»).
+  const valore = (m: (typeof membri)[number], regola: RegolaOrdinamento): number => {
     const v = venduto.get(m.prodottoId);
     const prezzo = m.prodotto.prezzoVendita || 0;
     const costo = m.prodotto.costoProduzione || 0;
@@ -103,28 +139,35 @@ export async function ordineSecondoRegola(
   };
 
   return [...membri]
-    .sort((a, b) => chiave(b) - chiave(a) || a.prodotto.nome.localeCompare(b.prodotto.nome))
+    .sort((a, b) => {
+      for (const r of effettive) {
+        const d = valore(b, r) - valore(a, r);
+        if (d !== 0) return d;
+      }
+      return a.prodotto.nome.localeCompare(b.prodotto.nome);
+    })
     .map((m) => m.prodottoId);
 }
 
 /**
- * Applica una regola a una collezione: materializza l'ordine in `posizione` e
- * segna sulla collezione qual è la regola e che l'ordine è cambiato. `manuale`
- * non tocca le posizioni (l'ordine lo cura la persona) ma resta registrato.
- * Riusata dall'azione di pagina, dall'assegnazione a una tipologia e dal
- * riapplico standing all'import: una funzione sola, così non divergono.
+ * Applica una o più regole a una collezione: materializza l'ordine in
+ * `posizione` e segna sulla collezione quali regole e che l'ordine è cambiato.
+ * Nessuna regola effettiva (solo «manuale») non tocca le posizioni ma resta
+ * registrato. Riusata da: azione di pagina, assegnazione a tipologia, riapplico
+ * standing all'import — una funzione sola, così non divergono.
  */
-export async function applicaRegolaACollezione(
+export async function applicaRegoleACollezione(
   collezioneId: string,
-  regola: RegolaOrdinamento
+  regole: RegolaOrdinamento[]
 ): Promise<void> {
-  if (regola !== "manuale") {
-    const ordine = await ordineSecondoRegola(collezioneId, regola);
+  const effettive = regole.filter((r) => r !== "manuale");
+  if (effettive.length > 0) {
+    const ordine = await ordineSecondoRegole(collezioneId, effettive);
     await numeraPosizioni(collezioneId, ordine);
   }
   await prisma.collezioneShopify.update({
     where: { id: collezioneId },
-    data: { regolaOrdinamento: regola, ordineModificatoIl: new Date() },
+    data: { regolaOrdinamento: serializeRegole(regole), ordineModificatoIl: new Date() },
   });
 }
 
@@ -142,9 +185,9 @@ export async function riapplicaStandingPerNegozio(negozio: string): Promise<numb
   });
   let fatte = 0;
   for (const c of colls) {
-    const r = c.tipologia?.regolaOrdinamento;
-    if (isRegola(r) && r !== "manuale") {
-      await applicaRegolaACollezione(c.id, r);
+    const rs = parseRegole(c.tipologia?.regolaOrdinamento);
+    if (rs.length > 0) {
+      await applicaRegoleACollezione(c.id, rs);
       fatte++;
     }
   }

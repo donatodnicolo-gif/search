@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
-import { REGOLE, etichettaRegola } from "@/lib/ordinamento-vetrina";
+import { etichettaRegola } from "@/lib/ordinamento-vetrina";
+import { SelettoreRegole } from "@/components/SelettoreRegole";
 import {
   creaTipologia,
   aggiornaTipologia,
@@ -76,10 +77,8 @@ export default async function TipologiePage() {
               <input name="nome" required placeholder="Bouquet" />
             </div>
             <div className="campo-modulo">
-              <label>Regola d'ordine standing</label>
-              <select name="regola" defaultValue="best_seller">
-                {REGOLE.map((r) => (<option key={r.chiave} value={r.chiave}>{r.nome}</option>))}
-              </select>
+              <label>Regole d'ordine standing (in priorità)</label>
+              <SelettoreRegole nuovo />
             </div>
             <div className="campo-modulo" style={{ gridColumn: "1 / -1" }}>
               <label>Descrizione</label>
@@ -109,10 +108,8 @@ export default async function TipologiePage() {
                   <input name="nome" defaultValue={t.nome} />
                 </div>
                 <div className="campo-modulo">
-                  <label>Regola standing</label>
-                  <select name="regola" defaultValue={t.regolaOrdinamento ?? "manuale"}>
-                    {REGOLE.map((r) => (<option key={r.chiave} value={r.chiave}>{r.nome}</option>))}
-                  </select>
+                  <label>Regole standing (in priorità)</label>
+                  <SelettoreRegole valore={t.regolaOrdinamento} />
                 </div>
                 <div className="campo-modulo" style={{ gridColumn: "1 / -1" }}>
                   <label>Descrizione</label>

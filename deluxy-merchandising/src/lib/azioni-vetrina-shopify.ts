@@ -4,13 +4,11 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "./db";
 import { tokenDi, VERSIONE_API } from "./negozi";
-import { numeraPosizioni, applicaRegolaACollezione, isRegola } from "./ordinamento-vetrina";
+import { numeraPosizioni, applicaRegoleACollezione, regoleDaForm } from "./ordinamento-vetrina";
 
-/** Applica una regola: propone l'ordine e lo scrive come punto di partenza. */
+/** Applica una o più regole in priorità: propone l'ordine come punto di partenza. */
 export async function applicaRegolaOrdinamento(collezioneId: string, fd: FormData) {
-  const regola = fd.get("regola");
-  if (!isRegola(regola)) return;
-  await applicaRegolaACollezione(collezioneId, regola);
+  await applicaRegoleACollezione(collezioneId, regoleDaForm(fd));
   revalidatePath(`/visual/${collezioneId}`);
 }
 

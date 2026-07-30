@@ -2,7 +2,8 @@ import { notFound } from "next/navigation";
 import { Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
 import { euro } from "@/lib/dominio";
-import { REGOLE, etichettaRegola } from "@/lib/ordinamento-vetrina";
+import { etichettaRegola } from "@/lib/ordinamento-vetrina";
+import { SelettoreRegole } from "@/components/SelettoreRegole";
 import {
   applicaRegolaOrdinamento,
   spostaInCollezione,
@@ -87,20 +88,11 @@ export default async function CurazioneCollezionePage({
         {/* Regola d'ordine: propone il punto di partenza, poi si ritocca a mano. */}
         <div className="scheda">
           <div className="scheda-titolo">Regola d'ordine</div>
-          <form action={applicaRegolaOrdinamento.bind(null, id)} style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-            <select
-              name="regola"
-              defaultValue={c.regolaOrdinamento ?? "manuale"}
-              style={{ font: "inherit", padding: "9px 12px", borderRadius: "var(--radius-m)", background: "var(--fill)", border: "1px solid transparent", minWidth: 260 }}
-            >
-              {REGOLE.map((r) => (
-                <option key={r.chiave} value={r.chiave}>{r.nome}</option>
-              ))}
-            </select>
-            <button type="submit" className="btn">Applica regola</button>
-            <span className="page-sub" style={{ margin: 0 }}>
-              {REGOLE.find((r) => r.chiave === (c.regolaOrdinamento ?? "manuale"))?.spiega}
-            </span>
+          <form action={applicaRegolaOrdinamento.bind(null, id)} style={{ display: "grid", gap: 10, maxWidth: 420 }}>
+            <SelettoreRegole valore={c.regolaOrdinamento} />
+            <div>
+              <button type="submit" className="btn">Applica regole</button>
+            </div>
           </form>
         </div>
 

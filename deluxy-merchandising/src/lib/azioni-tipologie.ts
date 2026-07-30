@@ -2,33 +2,31 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "./db";
-import { applicaRegolaACollezione, isRegola } from "./ordinamento-vetrina";
+import { applicaRegoleACollezione, parseRegole, regoleDaForm, serializeRegole } from "./ordinamento-vetrina";
 
 function testo(fd: FormData, k: string): string {
   const v = fd.get(k);
   return typeof v === "string" ? v.trim() : "";
 }
 
-/** Crea una tipologia di collezione con la sua regola d'ordine standing. */
+/** Crea una tipologia di collezione con le sue regole d'ordine standing (in priorità). */
 export async function creaTipologia(fd: FormData) {
   const nome = testo(fd, "nome");
   if (!nome) return;
-  const regola = testo(fd, "regola");
   await prisma.tipologiaCollezione.create({
     data: {
       nome,
       descrizione: testo(fd, "descrizione") || null,
-      regolaOrdinamento: isRegola(regola) ? regola : null,
+      regolaOrdinamento: serializeRegole(regoleDaForm(fd)),
     },
   });
   revalidatePath("/visual/tipologie");
 }
 
-/** Cambia nome/descrizione/regola. Se la regola cambia, la riapplica subito a tutte le sue collezioni. */
+/** Cambia nome/descrizione/regole. Se le regole cambiano, le riapplica subito a tutte le sue collezioni. */
 export async function aggiornaTipologia(id: string, fd: FormData) {
   const nome = testo(fd, "nome");
-  const regola = testo(fd, "regola");
-  const nuovaRegola = isRegola(regola) ? regola : null;
+  const nuovaRegola = serializeRegole(regoleDaForm(fd));
   const prima = await prisma.tipologiaCollezione.findUnique({ where: { id }, select: { regolaOrdinamento: true } });
   await prisma.tipologiaCollezione.update({
     where: { id },
@@ -38,7 +36,7 @@ export async function aggiornaTipologia(id: string, fd: FormData) {
       regolaOrdinamento: nuovaRegola,
     },
   });
-  if (nuovaRegola && nuovaRegola !== prima?.regolaOrdinamento) {
+  if (nuovaRegola !== (prima?.regolaOrdinamento ?? null) && parseRegole(nuovaRegola).length > 0) {
     await applicaTipologiaAlleSueCollezioni(id);
   }
   revalidatePath("/visual/tipologie");
@@ -62,9 +60,9 @@ export async function assegnaCollezioniATipologia(fd: FormData) {
   if (!tipologiaId || ids.length === 0) return;
   await prisma.collezioneShopify.updateMany({ where: { id: { in: ids } }, data: { tipologiaId } });
   const tip = await prisma.tipologiaCollezione.findUnique({ where: { id: tipologiaId }, select: { regolaOrdinamento: true } });
-  const r = tip?.regolaOrdinamento;
-  if (isRegola(r) && r !== "manuale") {
-    for (const cid of ids) await applicaRegolaACollezione(cid, r);
+  const regole = parseRegole(tip?.regolaOrdinamento);
+  if (regole.length > 0) {
+    for (const cid of ids) await applicaRegoleACollezione(cid, regole);
   }
   revalidatePath("/visual/tipologie");
   revalidatePath("/visual");
@@ -83,9 +81,9 @@ export async function applicaTipologiaAlleSueCollezioni(tipologiaId: string) {
     where: { id: tipologiaId },
     select: { regolaOrdinamento: true, collezioni: { select: { id: true } } },
   });
-  const r = tip?.regolaOrdinamento;
-  if (!tip || !isRegola(r) || r === "manuale") return;
-  for (const c of tip.collezioni) await applicaRegolaACollezione(c.id, r);
+  const regole = parseRegole(tip?.regolaOrdinamento);
+  if (!tip || regole.length === 0) return;
+  for (const c of tip.collezioni) await applicaRegoleACollezione(c.id, regole);
   revalidatePath("/visual/tipologie");
   revalidatePath("/visual");
 }

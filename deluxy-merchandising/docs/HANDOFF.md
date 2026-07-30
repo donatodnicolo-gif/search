@@ -82,6 +82,8 @@ porta **3120**. Design system Deluxy v1.0.
 
 - **30/07/2026 — Visual rispetta l'ambito**: `/visual` ignorava il selettore brand in alto e mostrava tutte le collezioni. Ora filtra per il **negozio del brand scelto**: il brand è un canale di vendita (`deluxy.it`, `Flowers`, `cakedesign.me`), la collezione appartiene a un negozio (`Gifts`, `Flowers`, `Cake`), il ponte è `NegozioShopify.canaleVendite` — nuovo helper `negoziDelBrand()` in `brand.ts`. Verificato: deluxy.it→234 (Gifts), Flowers→62, globale→343. Le **tipologie** restano trasversali ai brand (config editoriale, non filtrata). Mappatura canaleVendite completa: Flowers↔Flowers, Gifts↔deluxy.it, Cake↔cakedesign.me.
 
+- **30/07/2026 — più regole d'ordine in priorità**: una tipologia (e la singola collezione) può avere **più regole in priorità** invece di una: la 1ª decide l'ordine, le successive spezzano i pareggi (es. «più venduti → margine → prezzo alto»). Salvate in `regolaOrdinamento` separate da virgola (retro-compatibile: un valore singolo è una lista di uno). In `ordinamento-vetrina.ts`: `parseRegole`/`serializeRegole`/`regoleDaForm`, `ordineSecondoRegole(regole[])` (sort multi-chiave), `applicaRegoleACollezione(regole[])`; `etichettaRegola` mostra «A → B → C». UI: componente `SelettoreRegole` (N `<select name="regola">` in priorità, senza JS; il form li manda come lista). Verificato: creata «Prodotti Partner» = best_seller,margine,prezzo_desc, salvata e mostrata in priorità (poi rimossa).
+
 ## COME AVVIARE
 ```
 cd deluxy-merchandising
