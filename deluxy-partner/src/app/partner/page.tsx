@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { riepilogoTutti, ANNO_CORRENTE } from "@/lib/queries";
+import { AttiviDaRegistro } from "@/components/AttiviDaRegistro";
 import { MESI, nomeMese } from "@/lib/calc";
 import { euro, pctIt } from "@/lib/format";
 import { ThSort, ordina } from "@/components/ThSort";
@@ -36,6 +38,7 @@ export default async function PartnerList({
     q?: string; citta?: string; categoria?: string; stato?: string;
     credito?: string; sort?: string; dir?: string;
     attivita?: string; dal?: string; al?: string;
+    importFatto?: string; importErrore?: string;
   }>;
 }) {
   const sp = await searchParams;
@@ -179,6 +182,22 @@ export default async function PartnerList({
           <Link href="/partner/nuovo" className="btn primary">+ Nuovo partner</Link>
         </div>
       </div>
+
+      {sp.importFatto && (
+        <div className="card" style={{ padding: 14, marginBottom: 16 }}>
+          <span className="badge green"><span className="dot" />Da Anagrafiche: {sp.importFatto}</span>
+        </div>
+      )}
+      {sp.importErrore && (
+        <div className="card" style={{ padding: 14, marginBottom: 16, borderColor: "rgba(215,0,21,0.15)", background: "rgba(215,0,21,0.06)" }}>
+          <span style={{ color: "var(--red)", fontSize: 14 }}>{sp.importErrore}</span>
+        </div>
+      )}
+      {/* Interroga il registro: sta in Suspense perché l'elenco dei partner non
+          deve aspettare una chiamata di rete per comparire. */}
+      <Suspense fallback={null}>
+        <AttiviDaRegistro />
+      </Suspense>
 
       <div className="card" style={{ marginBottom: 16, padding: 16 }}>
         <form className="filters" method="get">
