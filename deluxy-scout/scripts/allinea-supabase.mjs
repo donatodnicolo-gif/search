@@ -15,7 +15,7 @@
 // schermata restava vuota senza dire perché (è successo con `anagrafiche` e il
 // filtro per fonte). Qui c'è la lista di cosa deve essere allineato.
 import { readFileSync } from 'node:fs';
-import { execFileSync } from 'node:child_process';
+import { execSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -87,26 +87,34 @@ console.log('\n── Edge Functions ──────────────�
 for (const f of FUNZIONI) {
   process.stdout.write(`  ${f} … `);
   try {
-    execFileSync(
-      process.platform === 'win32' ? 'npx.cmd' : 'npx',
-      [
-        '-y',
-        'supabase@latest',
-        'functions',
-        'deploy',
-        f,
-        '--project-ref',
-        PROJECT_REF,
-        // Il bundling lo fanno i server di Supabase invece che Docker in
-        // locale. Senza, il CLI cerca Docker, non lo trova e fallisce — ed è
-        // esattamente com'è andata al primo lancio (28/07/2026): le sei
-        // migrazioni passate, le funzioni tutte no, e su questa macchina
-        // Docker non è installato.
-        '--use-api',
-        ...(SENZA_JWT.has(f) ? ['--no-verify-jwt'] : []),
-      ],
-      { cwd: RADICE, stdio: 'pipe', env: { ...process.env, SUPABASE_ACCESS_TOKEN: PAT } },
-    );
+    // ⚠️ NON usare execFileSync('npx.cmd', […]).
+    // Da Node 18.20.2 / 20.12.2 in poi (correzione della CVE-2024-27980),
+    // `spawn` su Windows **rifiuta di eseguire un .cmd** senza shell e muore
+    // con `spawnSync npx.cmd EINVAL`. Ed è esattamente ciò che è successo il
+    // 28 e il 29/07/2026: tutte e quattro le funzioni «FALLITO», sempre, con
+    // qualunque token — perché npx non partiva nemmeno. Non c'entravano né
+    // Docker né l'autorizzazione, le due piste su cui abbiamo perso un giorno.
+    //
+    // Si passa quindi dalla shell, con un comando costruito a mano: con
+    // `shell: true` più l'array di argomenti, Node 24 avvisa che gli argomenti
+    // vengono concatenati senza escape (DEP0190). Qui la riga la scriviamo noi
+    // e i pezzi sono tutti nostri e validati qui sotto.
+    if (!/^[a-z0-9-]+$/.test(f) || !/^[a-z0-9-]+$/.test(PROJECT_REF)) {
+      throw new Error(`nome funzione o project-ref non valido: ${f} / ${PROJECT_REF}`);
+    }
+    // `--use-api`: il bundling lo fanno i server di Supabase invece che Docker
+    // in locale, che su questa macchina non è installato.
+    const comando = [
+      'npx -y supabase@latest functions deploy',
+      f,
+      '--project-ref',
+      PROJECT_REF,
+      '--use-api',
+      SENZA_JWT.has(f) ? '--no-verify-jwt' : '',
+    ]
+      .filter(Boolean)
+      .join(' ');
+    execSync(comando, { cwd: RADICE, stdio: 'pipe', env: { ...process.env, SUPABASE_ACCESS_TOKEN: PAT } });
     console.log(SENZA_JWT.has(f) ? 'deployata (pubblica)' : 'deployata');
   } catch (e) {
     // ⚠️ Il motivo vero sta qui dentro, e va stampato PER INTERO.
@@ -129,6 +137,11 @@ for (const f of FUNZIONI) {
     } else if (/enoent|not recognized|non è riconosciuto/i.test(grezzo)) {
       consiglio =
         '\n     → npx non è partito affatto: aggiungi Node al PATH ($env:Path = "$env:ProgramFiles\\nodejs;$env:Path") e rilancia.';
+    } else if (/einval/i.test(grezzo)) {
+      // Non dovrebbe più capitare (si passa dalla shell), ma se qualcuno
+      // «semplifica» tornando a execFileSync su .cmd, l'errore si spiega da sé.
+      consiglio =
+        '\n     → Node su Windows rifiuta di eseguire un .cmd senza shell (dalla CVE-2024-27980).\n       Il comando va lanciato con execSync/shell, non con execFileSync("npx.cmd").';
     }
     const indentato = grezzo
       ? grezzo.split('\n').map((r) => `     ${r}`).join('\n')
