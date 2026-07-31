@@ -232,6 +232,16 @@ detta a chi le usa.
   fa il confronto con `improntaDistinta()`. Se un domani si aggiungono campi che
   contano (data di esecuzione, valuta diversa), vanno messi dentro quell'impronta,
   altrimenti si può far firmare una cosa e pagarne un'altra.
+- **Un campo precompilato e non valido bloccava tutto il modulo.** Il salvataggio
+  delle impostazioni controlla tutti i campi prima di scriverne uno solo (giusto:
+  non si vuole metà configurazione). Ma il campo «pagatore» arriva precompilato
+  con il valore di partenza scritto nel codice, che non corrispondeva a nessun
+  operatore: il controllo scattava a ogni salvataggio e **rifiutava anche le
+  modifiche che non c'entravano**, IBAN dell'ordinante compreso. Da fuori si
+  vedeva solo «cambio le impostazioni e tornano quelle vecchie». Ora il pagatore
+  si valida **solo se il campo è stato cambiato** (31/07/2026). La regola
+  generale: un valore di partenza che non passa la propria validazione trasforma
+  un modulo tutto-o-niente in un modulo che non salva mai.
 - Gli script `scripts/*.mjs` ripetono la cifratura invece di importarla da
   `src/lib/crypto.ts`: se cambia l'algoritmo là, vanno allineati anche loro.
 

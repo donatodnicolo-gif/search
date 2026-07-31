@@ -502,6 +502,21 @@ export async function cambiaStatoOperatore(fd: FormData): Promise<void> {
 // Impostazioni
 // ---------------------------------------------------------------------------
 
+// I campi si chiamano in un modo nel codice e in un altro sulla pagina: negli
+// errori si usa il secondo, altrimenti si dice a chi sta configurando dei
+// pagamenti «valore non valido per sogliaRischioDoppiaFirma».
+const ETICHETTE: Record<string, string> = {
+  sogliaDoppiaFirma: "«Da questa cifra in su servono due firme»",
+  tettoAssoluto: "«Oltre questa cifra non approva nessuno»",
+  sogliaRischioDoppiaFirma: "«Quanto dev'essere sospetta una richiesta perché servano due firme»",
+  colpiAlMinuto: "«Quante richieste al minuto può mandare un'app»",
+  minutiFirma: "«Di quanto può sbagliare l'orologio dell'app che chiede»",
+  minutiCodicePagamento: "«Per quanti minuti vale il codice ricevuto per email»",
+  minutiSbloccoPagamento: "«Per quanti minuti resta aperta la porta dopo lo sblocco»",
+  urlPortaleBanca: "«Indirizzo del sito della banca»",
+  urlCaricamentoSepa: "«Indirizzo della pagina dove si carica il file»",
+};
+
 export async function salvaImpostazioni(_stato: unknown, fd: FormData): Promise<{ errore?: string; ok?: string }> {
   const admin = await esigiAdmin();
   const prima = await leggiRegole();
@@ -514,7 +529,9 @@ export async function salvaImpostazioni(_stato: unknown, fd: FormData): Promise<
     const grezzo = testo(fd, campo);
     if (!grezzo) continue;
     const cent = aCentesimi(grezzo);
-    if (cent == null) return { errore: `Valore non valido per ${campo}.` };
+    if (cent == null) {
+      return { errore: `${ETICHETTE[campo]}: «${grezzo}» non è una cifra in euro. Scrivila come 1.500,00 oppure 1500.` };
+    }
     daSalvare.push([campo, String(cent)]);
   }
 
@@ -528,24 +545,41 @@ export async function salvaImpostazioni(_stato: unknown, fd: FormData): Promise<
     const grezzo = testo(fd, campo);
     if (!grezzo) continue;
     const n = Number(grezzo);
-    if (!Number.isFinite(n) || n < 0) return { errore: `Valore non valido per ${campo}.` };
+    if (!Number.isFinite(n) || n < 0) {
+      return { errore: `${ETICHETTE[campo]}: «${grezzo}» non è un numero. Ci va un numero intero, senza lettere né simboli.` };
+    }
     daSalvare.push([campo, String(Math.round(n))]);
   }
 
   const ordIban = normalizzaIban(testo(fd, "ordinanteIban"));
   if (ordIban) {
     const { ibanValido } = await import("@/lib/iban");
-    if (!ibanValido(ordIban)) return { errore: "IBAN dell'ordinante non valido." };
+    if (!ibanValido(ordIban)) {
+      return { errore: "L'IBAN da cui parte il denaro non è valido: ricontrollalo carattere per carattere. Nient'altro è stato salvato." };
+    }
   }
 
   // Il pagatore non è un campo libero: se si scrive un'email che non è di
   // nessun operatore attivo, il denaro non esce più da nessuna parte e nessuno
   // capisce perché. Meglio fermarsi qui.
+  //
+  // Si controlla però SOLO se il campo è stato cambiato. Il modulo arriva
+  // precompilato con il pagatore attuale, che finché nessuno lo salva è un
+  // valore di partenza scritto nel codice e non corrisponde a nessun operatore:
+  // validandolo comunque, quel campo teneva in ostaggio tutte le altre
+  // impostazioni — IBAN dell'ordinante compreso — e ogni salvataggio tornava
+  // indietro. Chi non tocca il campo non deve pagare per il suo valore.
   const pagatore = testo(fd, "pagatoreEmail").toLowerCase();
-  if (pagatore) {
+  if (pagatore && pagatore !== prima.pagatoreEmail.trim().toLowerCase()) {
     const p = await prisma.operatore.findUnique({ where: { email: pagatore } });
-    if (!p) return { errore: `Nessun operatore con l'email ${pagatore}: crealo prima in Operatori.` };
-    if (!p.attivo) return { errore: `L'operatore ${pagatore} è disattivato: non può essere il pagatore.` };
+    if (!p) {
+      return {
+        errore: `Nessun operatore con l'email ${pagatore}: il pagatore dev'essere una persona che esiste già, crealo in Operatori. Nient'altro è stato salvato.`,
+      };
+    }
+    if (!p.attivo) {
+      return { errore: `L'operatore ${pagatore} è disattivato: non può essere il pagatore. Nient'altro è stato salvato.` };
+    }
     daSalvare.push(["pagatoreEmail", pagatore]);
   }
 
@@ -554,7 +588,10 @@ export async function salvaImpostazioni(_stato: unknown, fd: FormData): Promise<
   // una distinta sbloccata.
   const vuoleBanca = Boolean(fd.get("qontoEsecuzioneAttiva"));
   if (vuoleBanca && !(await qontoConfigurato())) {
-    return { errore: "Qonto non è collegato (QONTO_LOGIN / QONTO_SECRET_KEY): non posso accendere il pagamento dalla banca." };
+    return {
+      errore:
+        "La banca non è collegata: incolla prima le chiavi in «Collegamento alla banca», qui sotto, poi accendi l'interruttore. Nient'altro è stato salvato.",
+    };
   }
   daSalvare.push(["qontoEsecuzioneAttiva", vuoleBanca ? "true" : "false"]);
 
@@ -574,10 +611,10 @@ export async function salvaImpostazioni(_stato: unknown, fd: FormData): Promise<
     try {
       url = new URL(grezzo);
     } catch {
-      return { errore: `Il link ${campo} non è un indirizzo valido: deve cominciare con https://` };
+      return { errore: `${ETICHETTE[campo]}: «${grezzo}» non è un indirizzo. Deve cominciare con https:// — copialo dalla barra del browser.` };
     }
     if (url.protocol !== "https:" && url.protocol !== "http:") {
-      return { errore: `Il link ${campo} deve essere http o https.` };
+      return { errore: `${ETICHETTE[campo]}: si accettano solo indirizzi che cominciano con http o https.` };
     }
     daSalvare.push([campo, url.toString()]);
   }
