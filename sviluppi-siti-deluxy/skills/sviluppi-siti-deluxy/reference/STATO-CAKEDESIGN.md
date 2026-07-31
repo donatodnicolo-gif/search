@@ -350,6 +350,60 @@ Il link apre la chat **dentro il sito** (`#deluxy-chat`, iframe `…/widget?tema
 `DeluxyChat.eAperta() === true`), non naviga su chatting.page, e si chiude. **Nessuna pastiglia
 flottante**: `.avvio` è definito nel CSS ma l'elemento non viene creato.
 
+## Doppia quantita' nel carrello: CORRETTO il 31/7/2026 (tema bozza `182632415555`)
+
+**La causa non era jQuery.** Il bottone «Acquista» del wizard (`#add-to-cart-new-cake-ai`) e' un
+`<button type="submit">` dentro il `<form action="/cart/add">`. Il gestore del wizard fa il suo
+`$.ajax` e **non chiama mai `preventDefault()`**, quindi dopo di lui parte l'attivazione nativa
+del submit, che il tema trasforma in una **seconda** aggiunta (`ProductForm.addItemFromForm` in
+`assets/theme.js`). Due meccanismi diversi, non due jQuery: misurato su 9 click, sempre 2 POST —
+una da `XMLHttpRequest`, una da `fetch` — e **una sola** riga di log del wizard.
+
+Descrizione corretta del difetto: non e' «a volte parte due volte», e' **«parte sempre due volte
+e a volte Shopify ne perde una»**, perche' le due scritture corrono in parallelo sullo stesso
+carrello (5 volte su 7 finiva a quantita' 2, 2 volte su 7 a 1, con entrambe le risposte 200).
+
+### Dove sta la correzione, e perche' non dove ci si aspetta
+
+Andrebbe dentro quel gestore, in `snippets/delivery-date.liquid`. Ma **quel file non e'
+riscrivibile dall'API** (vedi la lezione 2 qui sotto). Si ottiene lo stesso risultato da fuori:
+un ascoltatore in **fase di cattura** su `document` che annulla l'azione predefinita del click.
+Annullato il default, il submit nativo non parte; il gestore del wizard continua a girare, perche'
+`preventDefault` **non** ferma la propagazione.
+
+Sta in `snippets/all_tags_and_script.liquid` (nell'`<head>` di ogni pagina):
+
+```js
+document.addEventListener('click', function (ev) {
+  var bottone = ev.target && ev.target.closest ? ev.target.closest('#add-to-cart-new-cake-ai') : null;
+  if (!bottone) return;
+  ev.preventDefault();
+}, true);
+```
+
+Il guard `$btn.off('click')` che sta dentro il wizard, con scritto sopra «Prevent multiple
+clicks», **non c'entra**: stacca i gestori diretti dal bottone, non la delega su `document`.
+
+### Verifica
+
+| Prova | POST `/cart/add.js` | Carrello |
+|---|---|---|
+| 5 click consecutivi | **1** ogni volta (0 `fetch`) | 1 articolo, 190 € |
+| primo click dopo un caricamento pulito | **1** | 1 articolo, 190 €, properties conservate (`Scritta personalizzata`, `Numero della candelina`, `Note per la torta`) |
+
+Lo stack conferma la struttura: `HTMLDocument.dispatch` in **jquery-2.1.4.js** (il gestore e'
+registrato li') che chiama `w.ajax` della **3.3.1** (il `$` globale a quel momento).
+
+> ⚠️ **Una lettura anomala.** La primissima misura, prima di un ricaricamento pulito, dava ancora
+> 2 chiamate (entrambe XHR). Non si e' piu' ripresentata in 6 prove successive, compresa quella
+> sul primo click dopo il caricamento. Se ricompare, e' un terzo percorso di aggiunta e va cercato
+> con la cattura degli stack, non con il conteggio.
+
+> ⚠️ **Cosa resta da provare**: il percorso completo del wizard **con un'opzione a sovrapprezzo
+> selezionata**. Le prove qui sopra cliccano il bottone senza passare dai passi delle opzioni,
+> quindi la riga «Extra» non era in gioco. Il sovrapprezzo viene aggiunto **aprendo `/cart`**, non
+> dalla scheda prodotto, quindi in teoria non e' toccato — ma va confermato prima di pubblicare.
+
 ## Doppio jQuery: tentativo FALLITO del 30/7/2026, e le tre lezioni
 
 Obiettivo: una sola jQuery e un solo Semantic. **Tentativo annullato, tutto ripristinato.** Il
