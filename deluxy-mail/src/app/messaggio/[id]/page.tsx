@@ -15,7 +15,7 @@ import { BottoneNonSpam } from '@/components/BottoneNonSpam'
 import { AgganciaMail } from '@/components/AgganciaMail'
 import { sanitizzaHtml } from '@/lib/sanitizzaHtml'
 import { richiediUtente } from '@/lib/sessione'
-import { messaggiThread, leggiRiassuntoThread } from '@/lib/sync'
+import { messaggiThread, membriThread, righeThread, leggiRiassuntoThread } from '@/lib/sync'
 import { TraduzioneAllApertura } from '@/components/TraduzioneAllApertura'
 import { AllegatiMessaggio } from '@/components/AllegatiMessaggio'
 import { chiaveThread } from '@/lib/thread'
@@ -82,11 +82,15 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
   }
   const [sezioni, conversazione, conversazioneStretta, contattoAI, inviiApp, chiaviApp] = await Promise.all([
     db.sezione.findMany({ where: { utenteId: u.id }, orderBy: { ordine: 'asc' } }),
-    // La conversazione a cui appartiene questo messaggio. Vista "completa"
-    // (ampia): comprende anche le mail scambiate con le stesse persone.
-    messaggiThread(u.id, messaggio.id, ampia),
+    // La conversazione a cui appartiene questo messaggio, in forma LEGGERA:
+    // la pila mostra mittente, anteprima e data, e il corpo di un messaggio se
+    // lo chiede quando lo apri. Con `messaggiThread` si trasportavano testo,
+    // HTML e traduzione di OGNI mail del thread — per non mostrarli.
+    // ⚠️ La vista «ampia» (con le correlate) resta su `messaggiThread`: lì il
+    // raggruppamento guarda anche i partecipanti.
+    ampia ? messaggiThread(u.id, messaggio.id, true) : righeThread(u.id, messaggio.id),
     // Solo in vista "ampia" serve anche il thread stretto (per contare le correlate).
-    ampia ? messaggiThread(u.id, messaggio.id, false) : Promise.resolve(null),
+    ampia ? membriThread(u.id, messaggio.id) : Promise.resolve(null),
     messaggio.direzione === 'entrata' ? eContattoAI(u.id, contattoEmail) : Promise.resolve(false),
     // Le risposte delle APP DELUXY richiamate da questa mail (tabella opzionale).
     db.invioApp
@@ -433,8 +437,10 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
               direzione: c.direzione,
               oggetto: c.oggetto,
               // La PRIMA RIGA scritta davvero: in un thread l'oggetto è uguale
-              // per tutti e non aiuta a trovare niente.
-              anteprima: anteprimaPulita(c.corpoTesto || c.anteprima || ''),
+              // per tutti e non aiuta a trovare niente. Si usa `anteprima` (200
+              // caratteri già salvati) e non il corpo intero: il corpo non
+              // viene più caricato apposta.
+              anteprima: anteprimaPulita(c.anteprima || ''),
               quando: dataBreve(c.data),
               quandoLungo: dataLunga(c.data),
               letto: c.letto,

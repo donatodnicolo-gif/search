@@ -1,5 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "//regions": "Il database (Supabase) sta in eu-west-1, cioè IRLANDA. Senza questa riga Vercel esegue le funzioni a Washington — si riconosce dall'header X-Vercel-Id: fra1::iad1 — e OGNI query attraversa l'Atlantico: aprire una mail ne fa una decina, quindi ci mette secondi. dub1 = Dublino, accanto al database.",
+  "regions": ["dub1"],
   "crons": [
     {
       "path": "/api/sync",

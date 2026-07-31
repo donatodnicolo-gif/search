@@ -1622,6 +1622,54 @@ export async function idsThread(utenteId: string, messaggioId: string): Promise<
   return ids
 }
 
+/** Una riga della conversazione come serve per MOSTRARLA: niente corpi. */
+export type RigaThread = {
+  id: string
+  mittente: string
+  mittenteNome: string | null
+  destinatari: string
+  direzione: string
+  oggetto: string
+  anteprima: string
+  data: Date
+  letto: boolean
+  allegati: number
+  priorita: string | null
+}
+
+/**
+ * La conversazione per la PILA della pagina del messaggio: senza i corpi.
+ *
+ * ⚠️ `messaggiThread` fa un `findMany` senza `select`, quindi trasporta testo,
+ * HTML e traduzione di OGNI mail del thread — decine di KB per una
+ * conversazione normale, centinaia per una lunga — e la pagina quei testi non
+ * li mostra nemmeno: il corpo di un messaggio si chiede quando lo apri. È la
+ * stessa trappola già pagata in posta in arrivo («tutto tranne due campi»
+ * invece dei campi che servono). `messaggiThread` resta per chi le mail deve
+ * LEGGERLE davvero: AI, riassunti, risposte.
+ */
+export async function righeThread(utenteId: string, messaggioId: string): Promise<RigaThread[]> {
+  const ids = await idsThread(utenteId, messaggioId)
+  if (ids.size === 0) return []
+  return db.messaggio.findMany({
+    where: { id: { in: [...ids] }, utenteId },
+    orderBy: { data: 'asc' },
+    select: {
+      id: true,
+      mittente: true,
+      mittenteNome: true,
+      destinatari: true,
+      direzione: true,
+      oggetto: true,
+      anteprima: true,
+      data: true,
+      letto: true,
+      allegati: true,
+      priorita: true,
+    },
+  })
+}
+
 /**
  * Le mail della conversazione in forma LEGGERA: solo id e data, dalla più
  * vecchia alla più recente. Basta a ricavarne la chiave (`chiaveThread`) e a
