@@ -332,10 +332,18 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
   type Gruppo = { chiave: string; nome: string; membri: RigaPartner[] };
   const gruppi: Gruppo[] = [];
   const indiceGruppo = new Map<string, number>();
+  // ⚠️ Una riga per anagrafica, sempre. **Durante una ricerca l'elenco torna
+  // piatto** (niente filtro `capogruppoId: null`), quindi una sede che
+  // corrisponde ai criteri arriva due volte: come riga propria e dentro le
+  // `sedi` della madre. Senza questo controllo la si vedeva duplicata, con lo
+  // stesso indirizzo e lo stesso stato, e sembrava un doppione nei dati.
+  const gia = new Set<string>();
   for (const p of partner) {
     const chiave = p.nome.trim().toUpperCase();
     const i = indiceGruppo.get(chiave);
-    const conSedi = [p, ...p.sedi];
+    const conSedi = [p, ...p.sedi].filter((m) => !gia.has(m.id));
+    for (const m of conSedi) gia.add(m.id);
+    if (!conSedi.length) continue;
     if (i === undefined) {
       indiceGruppo.set(chiave, gruppi.length);
       gruppi.push({ chiave, nome: p.nome, membri: conSedi });

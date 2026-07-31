@@ -145,6 +145,10 @@ Ogni scrittura via API è un **merge governato per campo**, mai una sostituzione
      insegne scritte diversamente (es. «BOTTEGA VENETA FLAGSHIP»): `⧉ Raggruppa` nella scheda.
   Le sedi collegate a mano non compaiono come righe a sé (`where.capogruppoId = null`).
   **Durante una ricerca (`?q=`) l'elenco torna piatto**, così una sede resta trovabile per nome.
+  ⚠️ Proprio per questo una sede che corrisponde alla ricerca arriva **due volte** (riga propria +
+  dentro le `sedi` della madre): il raggruppamento **deduplica per id** (31/07/2026). Senza,
+  compariva due righe identiche e sembrava un doppione nei dati — mentre nel database il record
+  era uno solo.
   Nota: la paginazione conta i record, non i gruppi — una pagina da 50 record mostra meno righe.
 - **`/dashboard`** — analisi con **macro-filtri** (tipologia/regione/stato commerciale/stato
   finanziario/stato analisi/interesse in AND): KPI (compreso **A rischio incasso** = ritardo →
