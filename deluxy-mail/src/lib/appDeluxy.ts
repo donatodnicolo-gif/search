@@ -264,7 +264,7 @@ const AZIONI: AzioneApp[] = [
     descrizione: 'Crea o aggiorna il partner/prospect nel registro centralizzato.',
     colore: 'blue',
     guida:
-      'Estrai i dati anagrafici dell’AZIENDA CONTROPARTE: quella con cui parliamo, MAI Deluxy. Se ti è data la CONTROPARTE, l’azienda è la sua — non quella del mittente, che su una mail partita da noi siamo noi. nome = ragione sociale o nome commerciale (in mancanza, il nome dal dominio della controparte). email = l’indirizzo della controparte. Compila anche STATO commerciale e INTERESSI leggendo cosa chiede la mail (chiede un preventivo o dei prezzi = in_trattativa; parla di regali aziendali = Gifting), scegliendo SOLO fra i valori ammessi. Se un dato non è nella mail, null: MAI inventare.',
+      'Estrai i dati anagrafici dell’AZIENDA CONTROPARTE: quella con cui parliamo, MAI Deluxy. Se ti è data la CONTROPARTE, l’azienda è la sua — non quella del mittente, che su una mail partita da noi siamo noi. nome = ragione sociale o nome commerciale (in mancanza, il nome dal dominio della controparte). email = l’indirizzo della controparte. Compila anche STATO commerciale e INTERESSI leggendo cosa dice la mail, scegliendo SOLO fra i valori ammessi e SOLO quando la mail lo dice davvero: sugli interessi, se non nomina una linea, null. Se un dato non è nella mail, null: MAI inventare.',
     // Il form di conferma (al posto del JSON grezzo) e la ricerca dell'azienda
     // già presente in Anagrafiche a cui agganciare il contatto.
     cercaAzienda: true,
@@ -310,8 +310,20 @@ const AZIONI: AzioneApp[] = [
         interessi: {
           type: ['array', 'null'],
           items: { type: 'string', enum: [...INTERESSI_LINEE] },
+          // ⚠️ Ogni linea con la sua definizione VERA (il catalogo è di Deluxy
+          // Scout, `supabase/migrations/0003_seed.sql`). Senza, il modello
+          // sceglieva quasi sempre «Gifting»: era l'unica con una spiegazione
+          // accanto, e Deluxy consegna regali.
           description:
-            'Le linee di cui parla la mail: Gifting (regali aziendali), Eventi & Catering, Consegne, Concierge, Clientelling, Affiliazioni, Food Supplier, Magazzino, Re-seller. Solo quelle davvero citate o evidenti: se non si capisce, null.',
+            "Le linee di business di cui parla la mail. Definizioni: " +
+            '«Affiliazioni» = il partner entra nel network Deluxy (programma di affiliazione, quota di attivazione, «collaborazione», «circuito»); ' +
+            '«Re-seller» = rivende Deluxy sul proprio canale; ' +
+            '«Consegne» = consegne guanti bianchi, assicurate, multi-città; ' +
+            '«Eventi & Catering» = catering per eventi e allestimenti; ' +
+            '«Gifting» = REGALI AZIENDALI (gifting stagionale, macarons B2B, kit per ricorrenze) — non ogni mail che nomina un regalo; ' +
+            '«Food Supplier» = fornitura B2B di torte e pasticceria; ' +
+            '«Clientelling», «Concierge», «Magazzino» = linee ferme, solo cross-sell dichiarato. ' +
+            'Scegli SOLO le linee che la mail dice chiaramente, al massimo due. Se la mail non le nomina, null: null è la risposta giusta più spesso di quanto sembri.',
         },
         nome: { type: 'string', description: 'Nome dell’azienda/attività.' },
         categoria: { type: ['string', 'null'], description: 'Es. hotel, ristorante, fioraio, pasticceria.' },
