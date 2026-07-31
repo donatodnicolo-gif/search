@@ -6,7 +6,7 @@ import { eur, MESI, pct } from "@/lib/format";
 import { BilancioEditor } from "@/components/BilancioEditor";
 import { PropostaBilancio } from "@/components/PropostaBilancio";
 import { proponiDaApp } from "@/lib/bilancio-proposta";
-import { residuoAnno } from "@/lib/bilancio-dettaglio";
+import { dettaglioVoce, residuoAnno } from "@/lib/bilancio-dettaglio";
 
 export const dynamic = "force-dynamic";
 
@@ -28,9 +28,10 @@ export default async function ContoEconomicoPage({
   // sempre: servono anche a bilancio già compilato, per vedere quanto si
   // discosta il gestionale — ma non si scrive niente senza conferma.
   const datiProposta = await caricaAnno(anno);
-  const [{ proposte, avvisi }, residuo] = await Promise.all([
+  const [{ proposte, avvisi }, residuo, dettaglioB7] = await Promise.all([
     proponiDaApp(datiProposta),
     residuoAnno(anno),
+    dettaglioVoce(anno, "B7"),
   ]);
 
   // Il confronto col gestionale ha senso solo su un anno concluso e solo se il
@@ -107,6 +108,54 @@ export default async function ContoEconomicoPage({
         avvisi={avvisi}
         gia={Object.fromEntries(valori.map((v) => [v.codice, v.importo]))}
       />
+
+      {dettaglioB7.categorie.length > 0 && (
+        <>
+          <h2 className="section-title">Dentro B7 · Servizi comprati da fuori</h2>
+          <div className="card tight">
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>di cui…</th>
+                    <th className="num">Importo {anno}</th>
+                    <th className="num">Quota di B7</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dettaglioB7.categorie.map((c) => (
+                    <tr key={c.id}>
+                      <td style={{ paddingLeft: 26 }}>
+                        <span className="muted" style={{ marginRight: 6 }}>↳</span>
+                        {c.nome}
+                      </td>
+                      <td className="num" style={{ fontWeight: 600 }}>{eur(c.uscite)}</td>
+                      <td className="num muted">{pct((c.uscite / (dettaglioB7.totale || 1)) * 100, 0)}</td>
+                    </tr>
+                  ))}
+                  <tr className="tot">
+                    <td>Totale B7 ricostruito</td>
+                    <td className="num">{eur(dettaglioB7.totale)}</td>
+                    <td className="num" />
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <p className="page-caption" style={{ marginTop: 12 }}>
+            <strong>La pubblicità non ha una voce sua nello schema di legge</strong> (art. 2425 c.c.): sta dentro
+            B7 insieme a valet, consulenti e compensi non da dipendente — e così l&apos;ha messa il commercialista
+            nel bilancio 2024, dove valeva 82.802 €. Separarla di pari livello farebbe smettere di combaciare il
+            confronto col bilancio depositato. Qui si legge come <strong>dettaglio dentro B7</strong>, che è come
+            si scrive in nota integrativa: totale a norma sopra, scomposizione sotto.
+          </p>
+          <p className="page-caption">
+            Nel <Link href="/pl" style={{ color: "var(--blue)" }}>P&amp;L gestionale</Link> invece la pubblicità è
+            una riga a sé, staccata dal costo del servizio: lì comanda la domanda «quanto margine faccio», non il
+            codice civile.
+          </p>
+        </>
+      )}
 
       <BilancioEditor anno={anno} valori={valori} />
 
