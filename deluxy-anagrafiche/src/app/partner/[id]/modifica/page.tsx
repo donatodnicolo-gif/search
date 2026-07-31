@@ -3,6 +3,7 @@ import { RubricaNelModulo } from "@/components/RubricaNelModulo";
 import { Sidebar } from "@/components/Sidebar";
 import { CATEGORIE, isCategoria } from "@/lib/categorie";
 import { aggiornaPartner } from "@/lib/azioni";
+import { getOpzioniAccount } from "@/lib/commerciali";
 import { prisma } from "@/lib/db";
 import { datiFinanziariCondivisi } from "@/lib/insegna";
 
@@ -56,6 +57,9 @@ export default async function Modifica({
   // Opzioni categoria: il catalogo chiuso, più il valore attuale se fuori
   // catalogo (es. scritto da un'app), così non lo si perde aprendo la scheda.
   const opzioniCategoria = isCategoria(p.categoria) ? [...CATEGORIE] : [p.categoria, ...CATEGORIE];
+
+  // Chi può seguire l'anagrafica: il team commerciale arriva da Budgets.
+  const opzioniAccount = await getOpzioniAccount(p.account);
 
   // Dati finanziari condivisi dall'insegna: si compilano una volta e valgono
   // per tutte le sedi della stessa società.
@@ -114,7 +118,18 @@ export default async function Modifica({
               <Campo etichetta="Telefono" nome="telefono" valore={p.telefono} />
               <Campo etichetta="P. IVA" nome="pIva" valore={fin.pIva} />
               <Campo etichetta="Codice fiscale" nome="codiceFiscale" valore={fin.codiceFiscale} />
-              <Campo etichetta="Account commerciale" nome="account" valore={p.account} />
+              <Campo etichetta="Account commerciale" nome="account">
+                <select id="account" name="account" defaultValue={p.account ?? ""}>
+                  <option value="">— nessuno —</option>
+                  {opzioniAccount.map((n) => (
+                    <option key={n} value={n}>{n}</option>
+                  ))}
+                </select>
+                <p className="testo-guida">
+                  Team commerciale di Deluxy Budgets. Chi non c&apos;è più resta selezionabile solo
+                  sulle anagrafiche che l&apos;hanno già.
+                </p>
+              </Campo>
               <Campo etichetta="Ultimo contatto" nome="ultimaVisita">
                 <input
                   id="ultimaVisita"

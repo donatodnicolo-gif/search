@@ -227,7 +227,16 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
       <td>
         <a href={`/partner/${p.id}`}>
           <div className={sede ? "cella-nome cella-nome-sede" : "cella-nome"}>{p.nome}</div>
-          {p.indirizzo && <div className="cella-sub">{p.indirizzo}</div>}
+          {/* In un gruppo tutte le sedi si chiamano uguale: a distinguerle è
+              l'indirizzo. Quando manca, la riga sarebbe indistinguibile dalle
+              sorelle — e allora lo si dice, invece di lasciarla muta. */}
+          {p.indirizzo ? (
+            <div className="cella-sub">{p.indirizzo}</div>
+          ) : sede ? (
+            <div className="cella-sub cella-manca" title="Senza indirizzo non si distingue dalle altre sedi">
+              indirizzo mancante
+            </div>
+          ) : null}
         </a>
       </td>
       <td className="cella-muta">{p.categoria}</td>

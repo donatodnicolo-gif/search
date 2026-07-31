@@ -328,6 +328,18 @@ Ogni scrittura via API è un **merge governato per campo**, mai una sostituzione
   - **Attenzione**: la UI è protetta dalla sola password condivisa dell'app, e da qui si creano
     chiavi di scrittura piena → quella password vale quanto le chiavi. Con il login dall'Hub
     (§7) andrebbe ristretta agli admin.
+- **Account commerciale a scelta di lista (30/07/2026)**: nei form Nuovo e Modifica non è più
+  testo libero ma un menu. Il MASTER è **Deluxy Budgets**: si legge il team «Commerciale» da
+  `GET /api/v1/team` (chiave `BUDGETS_API_KEY`, cache 1h) — l'organico nasce dal budget del
+  personale, tenerne una copia qui vorrebbe dire non aggiornarla mai. Più le persone che seguono
+  anagrafiche pur non stando in quella squadra (`SEMPRE_IN_ELENCO` in `src/lib/commerciali.ts`:
+  oggi **Nicolò Donato**, che in Budgets è amministratore e risulta senza team).
+  **Il valore già presente sull'anagrafica resta in cima all'elenco anche se fuori lista**: chi non
+  c'è più non deve sparire dal record aprendo la modifica. Se Budgets non risponde, il fallback
+  sono i nomi già in uso nel registro.
+  ⚠️ **L'account non si mette più in MAIUSCOLO** (`creaPartner`/`aggiornaPartner`): i nomi arrivano
+  da Budgets con la loro grafia, e forzarli avrebbe fatto sì che il valore salvato non combaciasse
+  più con l'opzione del menu. I valori vecchi («ELEONORA», «GAIA, ELEONORA») restano come sono.
 - **Sidebar** a sezioni espandibili (Registro·Tipologie·**Stati commerciali·Stati finanziari·Stati
   analisi**·Interessi·Archivio·Identità aziende·**Impostazioni → Chiavi API**), con i conteggi per
   ogni stato, toggle a scomparsa (☰), preferenze in localStorage.

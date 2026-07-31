@@ -1,6 +1,7 @@
 import { Sidebar } from "@/components/Sidebar";
 import { CATEGORIE, isCategoria } from "@/lib/categorie";
 import { creaPartner } from "@/lib/azioni";
+import { getCommerciali } from "@/lib/commerciali";
 import {
   DESCRIZIONI_STATO_ANALISI,
   ETICHETTE_STATO,
@@ -47,6 +48,8 @@ export default async function Nuovo({
 }) {
   const sp = await searchParams;
   const catPreset = sp.categoria && isCategoria(sp.categoria.toUpperCase()) ? sp.categoria.toUpperCase() : "";
+  // Team commerciale da Deluxy Budgets: l'organico lo sa lui, non noi.
+  const opzioniAccount = await getCommerciali();
 
   return (
     <div className="layout">
@@ -120,7 +123,14 @@ export default async function Nuovo({
               </Campo>
               <Campo etichetta="Telefono" nome="telefono" />
               <Campo etichetta="P. IVA" nome="pIva" />
-              <Campo etichetta="Account commerciale" nome="account" />
+              <Campo etichetta="Account commerciale" nome="account">
+                <select id="account" name="account" defaultValue="">
+                  <option value="">— nessuno —</option>
+                  {opzioniAccount.map((n) => (
+                    <option key={n} value={n}>{n}</option>
+                  ))}
+                </select>
+              </Campo>
               <Campo etichetta="Note" nome="note" largo>
                 <textarea id="note" name="note" rows={3} />
               </Campo>

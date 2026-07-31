@@ -689,6 +689,8 @@ a.dash-riga:hover .dash-etichetta { color: var(--text); }
   border-radius: var(--radius-pill); padding: 2px 9px; margin-right: 6px;
 }
 .storia-da { color: var(--text-tertiary); }
+/* Un dato che manca dove servirebbe: si vede che non c'è, senza gridare. */
+.cella-manca { color: var(--orange); font-style: italic; }
 .storia li > span:nth-child(2) { min-width: 0; overflow-wrap: anywhere; }
 
 /* ---------- Paginazione ---------- */
