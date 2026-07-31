@@ -90,6 +90,19 @@ cd deluxy-mail && node --env-file=.env scripts/migrate-prod.mjs
 - **Serve**: `DATABASE_URL` (dal `.env` dell'app; se assente lo script salta senza errore)
 - **Nota**: è già dentro `npm run build`, di norma **non va lanciato a mano**. È volutamente non bloccante: logga e prosegue anche se il DB non risponde.
 
+### ripara-testi-sporchi.mjs — deluxy-mail
+Rimette a posto il testo delle mail sporcato dagli indirizzi dei link. Il caso: un client di posta avvolge singole **lettere** in un link (`Buongio<a href="mailto:x@y.it">r</a>no`) e la conversione in testo semplice ci infila dentro l'indirizzo — «Buongior mailto:x@y.itno Luca». Non è solo l'anteprima: quel testo è anche **quello che legge l'AI**. Lo script ricava il testo dall'HTML che è ancora nel database.
+
+```bash
+# dalla radice del repo — PRIMA conta soltanto
+cd deluxy-mail && node --env-file=.env scripts/ripara-testi-sporchi.mjs
+# poi, se il numero convince, ripara davvero
+cd deluxy-mail && node --env-file=.env scripts/ripara-testi-sporchi.mjs --applica
+```
+
+- **Serve**: `DATABASE_URL` (col pooler aggiungere `&pgbouncer=true`)
+- **Nota**: senza `--applica` **non scrive niente**. Le mail nuove nascono già pulite (`testoMigliore` in `src/lib/htmlMail.ts`), quindi è una tantum. ⚠️ Ripara solo le mail che hanno ancora l'HTML in casa: quelle vecchie sono state alleggerite (l'HTML abita sul server IMAP) e lo script le salta.
+
 ### diagnosi-spazio.sql — deluxy-mail
 Perché il database è pieno: peso di ogni tabella (con indici e TOAST a parte), righe morte e ultimo VACUUM, peso reale dei corpi delle mail anno per anno. Da incollare nel **SQL Editor di Supabase**.
 

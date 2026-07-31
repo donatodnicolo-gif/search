@@ -65,6 +65,9 @@ export function htmlAPlain(html: string): string {
     .replace(/&gt;/gi, '>')
     .replace(/&quot;/gi, '"')
     .replace(/&#39;/gi, "'")
+    // Le righe fatte di soli spazi vengono dai <div> vuoti dell'HTML: non sono
+    // righe bianche volute, e senza toglierle il testo esce a scaletta.
+    .replace(/[ \t]+$/gm, '')
     .replace(/\n{3,}/g, '\n\n')
     .trim()
 }
