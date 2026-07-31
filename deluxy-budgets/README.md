@@ -266,17 +266,16 @@ tiene separati (motore in `src/lib/ricavo-d2c.ts`, dati da `GET /api/vendor` di 
    per partner — dal 15% al 25% — che Finance tiene scritta e applica **vendita per vendita**. Non
    si stima niente;
 2. gli ordini eseguiti comprando dai **fornitori**: lì il ricavo è quanto resta dopo la merce, e
-   finché non ci sono le riconciliazioni si usa una percentuale dichiarata (`MARGINE_FORNITORI`,
-   oggi **25%**).
+   finché non ci sono le riconciliazioni si usa una percentuale dichiarata (MARGINE_FORNITORI, oggi **35%**).
 
 | Gen–Giu 2026 | | 8 mesi 2025 | |
 |---|---:|---|---:|
 | incassato | 516.517 € | incassato | 465.419 € |
 | di cui dai partner | 243.082 € | di cui dai partner | 221.541 € |
-| **fee fatturate** (misurate) | **49.381 €** | **fee fatturate** | **40.701 €** |
+| **fee + margine 20%** | **110.151 €** | **fee + margine 20%** | **96.086 €** |
 | di cui dai fornitori | 273.436 € | di cui dai fornitori | 243.878 € |
-| margine stimato 25% | 68.359 € | margine stimato 25% | 60.970 € |
-| **ricavo D2C** | **117.740 €** | **ricavo D2C** | **101.670 €** |
+| margine stimato 35% | 74.433 € | margine stimato 35% | 65.972 € |
+| **ricavo D2C** | **184.584 €** | **ricavo D2C** | **162.058 €** |
 
 **Perché non basta più la quota misurata dalla banca** (`1 − pagato ÷ venduto`): quel conto divide
 *tutti* i pagamenti ai fioristi per il *solo* venduto dei negozi, quindi ci mette dentro anche i

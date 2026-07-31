@@ -157,6 +157,14 @@ export default async function ConsuntivoPage({
   });
   const dettaglioD2C = daVendor ? ricavoDeiMesi(rd2c, mesiPeriodo) : null;
   const sceltiD2C = rd2c.mesi.filter((x) => mesiPeriodo.includes(x.mese) && x.caricato);
+  // La percentuale da mostrare è quella che il calcolo produce davvero — ricavo
+  // diviso incasso — non la vecchia quota di banca: due numeri diversi accanto
+  // allo stesso importo si contraddicono, e vince quello sbagliato.
+  const incassoScelto = sceltiD2C.reduce((s, x) => s + x.incasso, 0);
+  const pctD2C =
+    dettaglioD2C && incassoScelto > 0
+      ? Math.round((dettaglioD2C.ricavo / incassoScelto) * 1000) / 10
+      : quotaDeluxy.percentuale;
   const vendutoPeriodo = sommaMesi(vend.mese, mesiPeriodo);
   const d2cPeriodo = sommaMesi(d2cMese, mesiPeriodo);
   const d2cPrecPeriodo = sommaMesi(d2cPrecMese, mesiRif);
@@ -214,7 +222,7 @@ export default async function ConsuntivoPage({
     // solo la quota che resta a Deluxy dopo i partner.
     if (t.slug === SLUG_D2C && d2c.ok) {
       consuntivo += d2cPeriodo;
-      collegati.push(`${quotaDeluxy.percentuale}% del venduto · ${d2c.dati.brand.length} negozi`);
+      collegati.push(`${pctD2C}% dell'incassato · ${d2c.dati.brand.length} negozi`);
     }
     if (t.slug === SLUG_D2C && d2cPrec.ok) precedente += d2cPrecPeriodo;
     return {
@@ -358,7 +366,7 @@ export default async function ConsuntivoPage({
     label: c.slug === SLUG_D2C ? "Ecommerce (D2C)" : c.nome,
     nota:
       c.slug === SLUG_D2C
-        ? `${quotaDeluxy.percentuale}% del venduto (${quotaDeluxy.misurata ? "misurato" : "stimato"}), al netto dei partner`
+        ? `${pctD2C}% dell'incassato: fee dei partner + margine sui fornitori`
         : c.collegati.join(" + ") || "nessuna voce collegata",
     cons: c.consuntivo,
     budget: c.budgetPeriodo,
@@ -417,7 +425,7 @@ export default async function ConsuntivoPage({
     { label: "Ricavi", get: ricaviM },
     // Quanto di quei ricavi è ecommerce, mese per mese: è la riga che dice se
     // l'andamento dei negozi sta reggendo, e da sola nel totale non si vede.
-    ...(d2c.ok ? [{ label: `di cui ecommerce (${quotaDeluxy.percentuale}%)`, dettaglio: true, get: (m: number) => d2cMese[m - 1] ?? 0 }] : []),
+    ...(d2c.ok ? [{ label: `di cui ecommerce (${pctD2C}%)`, dettaglio: true, get: (m: number) => d2cMese[m - 1] ?? 0 }] : []),
     { label: "Costo per servizi", costo: true, get: (m) => costoM("COGS", m) },
     { label: "Margine lordo", forte: true, get: margineM },
     { label: "ADV", costo: true, get: (m) => costoM("ADV", m) },

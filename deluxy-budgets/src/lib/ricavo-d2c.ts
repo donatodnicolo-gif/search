@@ -32,7 +32,18 @@ const BASE = process.env.FINANCE_API_URL ?? "https://deluxy-partner.vercel.app";
 // Quanto resta a Deluxy sugli ordini eseguiti comprando dai fornitori. È una
 // **stima dichiarata**, decisa dall'utente in attesa delle riconciliazioni:
 // quando ci saranno, questo numero si sostituisce con il margine misurato.
-export const MARGINE_FORNITORI = 25;
+export const MARGINE_FORNITORI = 35;
+
+// **Il venduto dei vendor registrato in Finance è al NETTO del nostro margine.**
+// Non è una stima: è come il dato è fatto. Sui 27.685,60 € di gennaio 2026 il
+// venduto vero al cliente è 34.607 € — quei 27.685 sono l'80% — e la differenza
+// (6.921 €) è margine nostro che si somma alla fee fatturata. Senza questa
+// rettifica il ricavo dell'ecommerce risultava di un terzo più basso, e il
+// venduto "dei fornitori" di altrettanto più alto.
+//
+// Si toglie il giorno in cui Finance registrerà il lordo: allora questa costante
+// va a 0 e il conto non cambia di una virgola.
+export const RETTIFICA_VENDOR = 20;
 
 // Sotto questa soglia il mese è considerato **non caricato**: nei mesi pieni il
 // venduto dei partner sta fra il 40% e il 60% dell'incasso, quindi un 3% non è
@@ -96,9 +107,12 @@ export async function ricavoD2C(anno: number, incassoMese: number[]): Promise<Ri
   for (let m = 1; m <= 12; m++) {
     const v = dati.mesi.find((x) => x.mese === m);
     const incasso = incassoMese[m - 1] ?? 0;
-    const vendutoPartner = v?.venduto ?? 0;
-    const fee = v?.commissioni ?? 0;
-    const caricato = incasso > 0 && (vendutoPartner / incasso) * 100 >= SOGLIA_CARICATO;
+    const registrato = v?.venduto ?? 0;
+    // Dal netto al lordo: 27.685,60 × 100/80 = 34.607
+    const vendutoPartner = registrato * (100 / (100 - RETTIFICA_VENDOR));
+    const margineVendor = vendutoPartner - registrato;
+    const fee = (v?.commissioni ?? 0) + margineVendor;
+    const caricato = incasso > 0 && (registrato / incasso) * 100 >= SOGLIA_CARICATO;
     const vendutoFornitori = Math.max(0, incasso - vendutoPartner);
     const margineFornitori = (vendutoFornitori * MARGINE_FORNITORI) / 100;
     mesi.push({
