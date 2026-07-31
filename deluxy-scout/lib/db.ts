@@ -430,7 +430,7 @@ export async function aggiornaPlace(
   // restava piantato sulle vecchie coordinate — e sulla mappa è il punto che
   // conta, non il testo.
   patch: Partial<
-    Pick<Place, 'nome' | 'indirizzo' | 'zona' | 'categoria' | 'settore' | 'priorita' | 'stato' | 'stato_affiliazione' | 'anagrafiche_account' | 'linea_ipotizzata' | 'linee_ipotizzate' | 'aggancio_apertura' | 'lat' | 'lng'>
+    Pick<Place, 'nome' | 'indirizzo' | 'zona' | 'categoria' | 'settore' | 'priorita' | 'stato' | 'stato_affiliazione' | 'livello_contatto' | 'anagrafiche_account' | 'linea_ipotizzata' | 'linee_ipotizzate' | 'aggancio_apertura' | 'lat' | 'lng'>
   >,
 ): Promise<void> {
   const { error } = await supabase.from('places').update(patch).eq('id', id);

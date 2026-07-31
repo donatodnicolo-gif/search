@@ -176,15 +176,14 @@ export function livelloDi(
   // Gli stati di LAVORAZIONE del registro dicono tutti la stessa cosa per la
   // scala di Scout: il contatto c'è stato. Il dettaglio (quando, come, con chi)
   // vive qui in `contatti_avviati`, `chiamate` e `visits`, ed è più preciso.
-  const commerciale = statoCommerciale(p);
-  if (
-    commerciale === 'lead' ||
-    commerciale === 'in_contatto' ||
-    commerciale === 'in_attesa' ||
-    commerciale === 'da_ricontattare'
-  ) {
-    return 'lead';
-  }
+  // ⚠️ Anche il MOMENTO DEL CONTATTO fa un Lead, ed è il pezzo che dal
+  // 31/07/2026 porta l'informazione che prima stava nello stato: «in contatto»,
+  // «in attesa» e «da ricontattare» dicono tutti che un contatto c'è stato —
+  // che è esattamente la definizione di Lead. Senza questa riga, le 180
+  // anagrafiche spostate su quella dimensione sarebbero retrocesse a
+  // Selezionato in silenzio.
+  if (p.livello_contatto) return 'lead';
+  if (statoCommerciale(p) === 'lead') return 'lead';
 
   // SELEZIONATO — scelto, e basta.
   return 'selezionato';

@@ -3,7 +3,7 @@ import { FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, View 
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import type { Place } from '@/types';
-import { canonizzaLinee } from '@/types';
+import { canonizzaLinee, LABEL_MOMENTO } from '@/types';
 import { colors, radius, shadow, spacing, contenutoCentrato } from '@/lib/theme';
 import { aggiornaNascosto } from '@/lib/db';
 import { avvisa } from '@/lib/dialoghi';
@@ -362,6 +362,11 @@ function Riga({
           {/* Ancora cliente, ma i segnali peggiorano: è il momento in cui si
               può fare qualcosa, e prima non lo diceva niente. */}
           {aRischio(place) ? <StatusBadge small label={LABEL_A_RISCHIO} colore={COLORE_A_RISCHIO} /> : null}
+          {/* Il momento del contatto: dice dove siamo DENTRO il livello — «in
+              attesa» su un Lead è un'informazione che cambia cosa fare oggi. */}
+          {place.livello_contatto ? (
+            <StatusBadge small label={LABEL_MOMENTO[place.livello_contatto]} colore={colors.blue} />
+          ) : null}
           <PriorityBadge priorita={place.priorita} small />
         </>
       }

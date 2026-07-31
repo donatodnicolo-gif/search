@@ -12,7 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import type { CategoryRule, Place, Priorita, Profilo, StatoAffiliazione } from '@/types';
-import { STATI_AFFILIAZIONE, affiliazioneDaStatoPlace, canonizzaLinee, statoPlaceDaAffiliazione } from '@/types';
+import { LABEL_MOMENTO, MOMENTI_CONTATTO, STATI_AFFILIAZIONE, affiliazioneDaStatoPlace, canonizzaLinee, statoPlaceDaAffiliazione, type MomentoContatto } from '@/types';
 import { coloreAffiliazione, colors, labelAffiliazione, radius, spacing } from '@/lib/theme';
 import { aggiornaPlace, fetchPlace, fetchProfiles, nomeDaProfilo, sincronizzaPlaceRegistro } from '@/lib/db';
 import { avvisa } from '@/lib/dialoghi';
@@ -43,6 +43,8 @@ export default function ModificaAttivita() {
   // Stato = gli 8 stati di Anagrafiche (StatoAffiliazione). Lo stato di pipeline
   // interno di Scout viene derivato al salvataggio.
   const [statoAff, setStatoAff] = useState<StatoAffiliazione>('prospect');
+  // Il momento del contatto: dimensione a sé, facoltativa (migr. 0057).
+  const [momento, setMomento] = useState<MomentoContatto | null>(null);
   // Account = venditore che segue il cliente (memorizzato come nome, = campo del registro).
   const [account, setAccount] = useState<string | null>(null);
   const [linee, setLinee] = useState<string[]>([]);
@@ -62,6 +64,7 @@ export default function ModificaAttivita() {
         setPriorita(p.priorita);
         // Stato "vero" da Anagrafiche se presente, altrimenti derivato dallo stato di pipeline.
         setStatoAff(p.stato_affiliazione ?? affiliazioneDaStatoPlace[p.stato] ?? 'prospect');
+        setMomento(p.livello_contatto ?? null);
         setAccount(p.anagrafiche_account ?? null);
         // Riconduci eventuali linee legacy (es. "Regali aziendali") ai nomi del catalogo.
         setLinee(canonizzaLinee(p.linee_ipotizzate ?? (p.linea_ipotizzata ? [p.linea_ipotizzata] : [])));
@@ -102,6 +105,7 @@ export default function ModificaAttivita() {
         categoria,
         priorita,
         stato_affiliazione: statoAff,
+        livello_contatto: momento,
         // Deriva lo stato di pipeline dallo stato di Anagrafiche (percorso/filtri coerenti).
         stato: statoPlaceDaAffiliazione[statoAff],
         anagrafiche_account: account,
@@ -187,6 +191,30 @@ export default function ModificaAttivita() {
                 <Pressable key={s} onPress={() => setStatoAff(s)} style={[styles.chip, styles.chipStato, on && styles.chipOn]}>
                   <View style={[styles.dot, { backgroundColor: on ? colors.bianco : coloreAffiliazione[s] }]} />
                   <Text style={[styles.chipTxt, on && styles.chipTxtOn]}>{labelAffiliazione[s]}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          {/* La seconda dimensione: dove siamo DENTRO lo stato. Si toglie
+              premendolo di nuovo — «nessun momento» è una risposta valida, e
+              anzi è quella giusta appena la conversazione si chiude. */}
+          <Text style={styles.label}>Momento del contatto</Text>
+          <Text style={styles.hint}>
+            Facoltativo. Dice a che punto è la conversazione, non a che punto è il rapporto: un «in attesa» vale su un
+            Lead come su un Cliente. Premi di nuovo per toglierlo.
+          </Text>
+          <View style={styles.chipWrap}>
+            {MOMENTI_CONTATTO.map((m) => {
+              const on = momento === m;
+              return (
+                <Pressable
+                  key={m}
+                  onPress={() => setMomento(on ? null : m)}
+                  style={[styles.chip, styles.chipStato, on && styles.chipOn]}
+                >
+                  <View style={[styles.dot, { backgroundColor: on ? colors.bianco : colors.blue }]} />
+                  <Text style={[styles.chipTxt, on && styles.chipTxtOn]}>{LABEL_MOMENTO[m]}</Text>
                 </Pressable>
               );
             })}

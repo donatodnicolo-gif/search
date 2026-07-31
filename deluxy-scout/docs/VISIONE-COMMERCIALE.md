@@ -132,8 +132,22 @@ etichette (`deluxy-scout/types/index.ts` ↔ `deluxy-anagrafiche/src/lib/stati.t
 Un'azienda ha **un solo stato**, e dev'essere lo stesso da qualunque app la si
 guardi.
 
-    selezionato · lead · prospect · in_contatto · in_attesa · in_trattativa
-    da_ricontattare · attivo · a_rischio · non_interessato · dismesso
+    selezionato · lead · prospect · in_trattativa · attivo · a_rischio
+    non_interessato · dismesso
+
+E **una seconda dimensione**, dentro lo stato: il **momento del contatto** —
+`in_contatto · in_attesa · da_ricontattare`, facoltativo. Fino al 31/07/2026
+erano stati anche loro, e stare nella stessa lista costringeva a scegliere fra
+due cose vere insieme: «è un prospect» **e** «sta aspettando una risposta». Con
+uno stato solo, la seconda si perdeva — o peggio, cancellava la prima.
+
+⚠️ Nel registro quel campo si chiama `livello`. **In Scout no**, si chiama
+`places.livello_contatto`: qui «livello» è già la scala del funnel, e chiamarli
+uguale avrebbe creato la stessa trappola di `prospect` — la stessa parola per
+due cose diverse nelle due app. I valori sono identici, cambia il nome del campo.
+
+Un momento impostato **fa un Lead**, qualunque sia lo stato: quei tre valori
+dicono tutti che un contatto c'è stato.
 
 Rispetto a prima: il registro non conosceva `selezionato` e `lead` — Scout
 glieli traduceva in `prospect`, perdendoli — e **`a_rischio` non ce l'aveva

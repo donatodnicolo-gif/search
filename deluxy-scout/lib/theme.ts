@@ -160,10 +160,7 @@ export const labelAffiliazione: Record<StatoAffiliazione, string> = {
   selezionato: 'Selezionato',
   lead: 'Lead',
   prospect: 'Prospect',
-  in_contatto: 'In contatto',
-  in_attesa: 'In attesa',
   in_trattativa: 'In trattativa',
-  da_ricontattare: 'Da ricontattare',
   attivo: 'Attivo',
   a_rischio: 'A rischio',
   non_interessato: 'Non interessato',
@@ -178,10 +175,7 @@ export const coloreAffiliazione: Record<StatoAffiliazione, string> = {
   selezionato: '#8A8A8E',
   lead: '#5B8DEF',
   prospect: colors.grigio,
-  in_contatto: colors.blue,
-  in_attesa: colors.attenzione,
   in_trattativa: colors.oro,
-  da_ricontattare: colors.attenzione,
   attivo: colors.successo,
   // Ancora cliente, ma da guardare: giallo, non rosso — il rosso è di chi se
   // n'è andato, e confonderli fa reagire tardi o troppo presto.

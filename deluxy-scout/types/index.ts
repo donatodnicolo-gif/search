@@ -17,14 +17,18 @@ export type EsitoVisita = 'interessato' | 'da_richiamare' | 'non_target' | 'chiu
 // `selezionato` né `lead`, che Scout doveva tradurre in `prospect` perdendo
 // l'informazione. Ora li ha anche lui, e `a_rischio` — che non aveva nessuno
 // dei due — li ha entrambi.
+// ⚠️ 31/07/2026 — `in_contatto`, `in_attesa` e `da_ricontattare` **non sono più
+// stati commerciali**: sono passati alla dimensione MOMENTO DEL CONTATTO qui
+// sotto. Non erano gradini del funnel ma il *momento* del contatto, e
+// mescolarli agli altri costringeva a scegliere fra due informazioni vere
+// insieme: «è un prospect» **e** «sta aspettando una risposta». La stessa
+// decisione è stata presa nel registro, dove le 180 anagrafiche che li avevano
+// sono diventate `prospect` conservando il vecchio valore come livello.
 export type StatoAffiliazione =
   | 'selezionato'
   | 'lead'
   | 'prospect'
-  | 'in_contatto'
-  | 'in_attesa'
   | 'in_trattativa'
-  | 'da_ricontattare'
   | 'attivo'
   | 'a_rischio'
   | 'non_interessato'
@@ -35,15 +39,34 @@ export const STATI_AFFILIAZIONE: StatoAffiliazione[] = [
   'selezionato',
   'lead',
   'prospect',
-  'in_contatto',
-  'in_attesa',
   'in_trattativa',
-  'da_ricontattare',
   'attivo',
   'a_rischio',
   'non_interessato',
   'dismesso',
 ];
+
+/**
+ * IL MOMENTO DEL CONTATTO — la seconda dimensione, dentro lo stato.
+ *
+ * Nel registro si chiama `livello`. ⚠️ **Qui NO**, e non è pignoleria: in Scout
+ * «livello» è già la scala del funnel (Selezionato · Lead · Prospect · Cliente
+ * · Dormiente, `lib/livelli.ts`). Chiamare `livello` anche questo avrebbe
+ * creato la stessa trappola di `prospect`, che nelle due app voleva dire due
+ * cose opposte e ci è costata un giro a vuoto. I **valori** sono gli stessi del
+ * registro; cambia solo il nome del campo.
+ *
+ * Vuoto = non indicato. Nessuno dei tre è il punto di partenza «giusto».
+ */
+export type MomentoContatto = 'in_contatto' | 'in_attesa' | 'da_ricontattare';
+
+export const MOMENTI_CONTATTO: MomentoContatto[] = ['in_contatto', 'in_attesa', 'da_ricontattare'];
+
+export const LABEL_MOMENTO: Record<MomentoContatto, string> = {
+  in_contatto: 'In contatto',
+  in_attesa: 'In attesa',
+  da_ricontattare: 'Da ricontattare',
+};
 
 /**
  * Lo stato da mandare ad Anagrafiche.
@@ -66,10 +89,7 @@ export const statoPlaceDaAffiliazione: Record<StatoAffiliazione, StatoPlace> = {
   selezionato: 'da_visitare',
   lead: 'da_visitare',
   prospect: 'da_visitare',
-  in_contatto: 'visitato',
-  in_attesa: 'visitato',
   in_trattativa: 'visitato',
-  da_ricontattare: 'visitato',
   attivo: 'cliente',
   // A rischio è un cliente a tutti gli effetti: compra ancora. Il segnale sta
   // nello stato commerciale, non nella pipeline.
@@ -82,7 +102,10 @@ export const statoPlaceDaAffiliazione: Record<StatoAffiliazione, StatoPlace> = {
 // (nessuno stato registro ancora impostato).
 export const affiliazioneDaStatoPlace: Record<StatoPlace, StatoAffiliazione> = {
   da_visitare: 'prospect',
-  visitato: 'in_contatto',
+  // Era `in_contatto`, che dal 31/07/2026 non è più uno stato ma il momento del
+  // contatto. «Visitato» vuol dire che qualcuno c'è andato: come stato
+  // commerciale è un lead, e il dettaglio sta in `livello_contatto`.
+  visitato: 'lead',
   cliente: 'attivo',
   perso: 'non_interessato',
 };
@@ -190,7 +213,9 @@ export interface Place {
   aggancio_apertura: string | null;
   fuoco_espansione: string | null;
   stato: StatoPlace; // stato di pipeline interno (derivato)
-  stato_affiliazione?: StatoAffiliazione | null; // stato "vero" = gli 8 stati di Anagrafiche
+  stato_affiliazione?: StatoAffiliazione | null; // stato commerciale, condiviso col registro
+  /** Il momento del contatto: dove siamo *dentro* lo stato (migr. 0057). */
+  livello_contatto?: MomentoContatto | null;
   creato_da?: string | null; // uuid dell'utente che ha inserito il target
   creato_da_nome?: string | null; // nome del creatore, risolto dai profili
   zona: string | null;

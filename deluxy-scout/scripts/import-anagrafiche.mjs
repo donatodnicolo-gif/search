@@ -85,15 +85,19 @@ const STATO = {
   selezionato: 'da_visitare',
   lead: 'da_visitare',
   prospect: 'da_visitare',
-  in_attesa: 'visitato',
-  in_contatto: 'visitato',
-  da_ricontattare: 'visitato',
   in_trattativa: 'visitato',
   attivo: 'cliente',
   a_rischio: 'cliente',
   non_interessato: 'perso',
   dismesso: 'perso',
 };
+
+// ⚠️ 31/07/2026 — «in contatto / in attesa / da ricontattare» non sono più
+// stati: sono il MOMENTO del contatto, una dimensione a sé (registro: `livello`,
+// Scout: `places.livello_contatto`). Le anagrafiche vecchie possono averli
+// ancora come stato: si spostano qui e lo stato diventa `lead`, che è ciò che
+// quei tre hanno sempre voluto dire — un contatto c'è stato.
+const MOMENTI = ['in_contatto', 'in_attesa', 'da_ricontattare'];
 const DECISORE = /titolare|founder|owner|proprietar|ceo|general manager|direttore/i;
 
 // ── 1. Scarica il registro ──────────────────────────────────────────────────
@@ -161,9 +165,13 @@ for (const p of partners) {
     zona: p.citta || null,
     settore: catOrig, // categoria originale del registro, per riferimento
     categoria: CATEGORIA[catOrig] ?? 'altro',
-    stato: STATO[p.stato] ?? 'da_visitare',
+    // Se il registro manda ancora uno dei tre vecchi valori come stato, quello
+    // è il momento del contatto e lo stato commerciale è `lead`.
+    stato: STATO[MOMENTI.includes(p.stato) ? 'lead' : p.stato] ?? 'da_visitare',
     account: p.account || null,
-    ana_stato: p.stato || null,
+    ana_stato: MOMENTI.includes(p.stato) ? 'lead' : p.stato || null,
+    // `livello` è il nome che ha nel registro; qui diventa `livello_contatto`.
+    momento: MOMENTI.includes(p.livello) ? p.livello : MOMENTI.includes(p.stato) ? p.stato : null,
     ultima_visita: p.ultimaVisita || null,
     lat: c.lat,
     lng: c.lng,
@@ -189,7 +197,7 @@ if (DRY) { console.log('(--dry: nessuna scrittura)'); process.exit(0); }
 
 // ── 5. Upsert places (a lotti) ──────────────────────────────────────────────
 const COLONNE = `x(aid text, nome text, indirizzo text, zona text, settore text, categoria text,
-  stato text, account text, ana_stato text, ultima_visita timestamptz, lat float8, lng float8)`;
+  stato text, account text, ana_stato text, momento text, ultima_visita timestamptz, lat float8, lng float8)`;
 
 for (let i = 0; i < righe.length; i += 100) {
   const lotto = righe.slice(i, i + 100);
@@ -199,13 +207,14 @@ for (let i = 0; i < righe.length; i += 100) {
           from d left join category_rules cr on lower(cr.categoria) = lower(d.categoria))
     insert into places (nome, indirizzo, zona, settore, categoria, stato, lat, lng, source,
                         anagrafiche_id, anagrafiche_account, anagrafiche_stato, anagrafiche_ultima_visita,
-                        stato_affiliazione, starred,
+                        stato_affiliazione, livello_contatto, starred,
                         linea_ipotizzata, aggancio_apertura, priorita)
     select r.nome, r.indirizzo, r.zona, r.settore, r.categoria, r.stato::stato_place_t, r.lat, r.lng,
            'anagrafiche', r.aid, r.account, r.ana_stato, r.ultima_visita,
            -- Lo stato commerciale su cui lavora Scout: senza, il livello non si
            -- ricava e un `in_trattativa` del registro resterebbe Selezionato.
            r.ana_stato::stato_affiliazione_t,
+           r.momento,
            -- ⚠️ `starred` è obbligatorio perché il negozio si VEDA: gli elenchi
            -- mostrano solo chi è stato scelto da qualcuno (`inLavorazione` in
            -- lib/livelli.ts), e un partner del registro è una scelta fatta in
@@ -221,6 +230,7 @@ for (let i = 0; i < righe.length; i += 100) {
       settore = excluded.settore,
       anagrafiche_account = excluded.anagrafiche_account,
       stato_affiliazione = excluded.stato_affiliazione,
+      livello_contatto = excluded.livello_contatto,
       starred = true,
       anagrafiche_stato = excluded.anagrafiche_stato,
       anagrafiche_ultima_visita = excluded.anagrafiche_ultima_visita;

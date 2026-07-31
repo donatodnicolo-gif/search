@@ -44,25 +44,30 @@ const STATI = new Set([
   'selezionato',
   'lead',
   'prospect',
-  'in_contatto',
-  'in_attesa',
   'in_trattativa',
-  'da_ricontattare',
   'attivo',
   'a_rischio',
   'non_interessato',
   'dismesso',
 ]);
 
+/**
+ * Il MOMENTO del contatto: nel registro si chiama `livello`, qui
+ * `places.livello_contatto` — «livello» in Scout è già la scala del funnel.
+ *
+ * ⚠️ Fino al 31/07/2026 questi tre erano **stati**. Un registro non ancora
+ * aggiornato può mandarli ancora come `stato`: in quel caso valgono come
+ * momento, e lo stato commerciale diventa `lead` — che è ciò che hanno sempre
+ * voluto dire.
+ */
+const MOMENTI = new Set(['in_contatto', 'in_attesa', 'da_ricontattare']);
+
 /** Stato commerciale → stato di pipeline di Scout (types/index.ts). */
 const PIPELINE: Record<string, string> = {
   selezionato: 'da_visitare',
   lead: 'da_visitare',
   prospect: 'da_visitare',
-  in_contatto: 'visitato',
-  in_attesa: 'visitato',
   in_trattativa: 'visitato',
-  da_ricontattare: 'visitato',
   attivo: 'cliente',
   a_rischio: 'cliente',
   non_interessato: 'perso',
@@ -92,8 +97,17 @@ Deno.serve(async (req) => {
     if (!nome) return json({ error: 'Manca `nome`.' }, 400);
 
     const statoRegistro = testo(body.stato, 40);
+    const livelloRegistro = testo(body.livello, 40);
+    // Un registro non aggiornato può mandare il momento al posto dello stato:
+    // in quel caso è un lead, e il valore vecchio diventa il momento.
+    const daStato = statoRegistro && MOMENTI.has(statoRegistro);
     // Uno stato che non conosciamo non viene tradotto a caso: si ignora.
-    const stato = statoRegistro && STATI.has(statoRegistro) ? statoRegistro : null;
+    const stato = daStato ? 'lead' : statoRegistro && STATI.has(statoRegistro) ? statoRegistro : null;
+    const momento = livelloRegistro && MOMENTI.has(livelloRegistro)
+      ? livelloRegistro
+      : daStato
+        ? statoRegistro
+        : null;
     const interessi = Array.isArray(body.interessi)
       ? (body.interessi as unknown[]).filter((x): x is string => typeof x === 'string' && !!x.trim()).slice(0, 20)
       : null;
@@ -113,6 +127,9 @@ Deno.serve(async (req) => {
       categoria: testo(body.categoria, 80),
       anagrafiche_account: testo(body.account, 120),
       ...(stato ? { anagrafiche_stato: stato, stato_affiliazione: stato, stato: PIPELINE[stato] } : {}),
+      // Si scrive anche quando è null: togliere il momento è un'informazione
+      // quanto metterlo — vuol dire che quella conversazione è chiusa.
+      ...(stato || momento ? { livello_contatto: momento } : {}),
       ...(interessi?.length ? { linee_ipotizzate: interessi, linea_ipotizzata: interessi[0] } : {}),
     };
 
