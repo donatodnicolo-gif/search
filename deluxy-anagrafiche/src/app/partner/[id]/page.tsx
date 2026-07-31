@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { AggiungiReferente } from "@/components/AggiungiReferente";
 import { AggiungiSede } from "@/components/AggiungiSede";
 import { ReferentiDallaRubrica } from "@/components/ReferentiDallaRubrica";
+import { UnisciAnagrafiche } from "@/components/UnisciAnagrafiche";
 import { FormFeedbackD2C } from "@/components/FormFeedbackD2C";
 import { GestioneGruppo } from "@/components/GestioneGruppo";
 import type { RigaContatto } from "@/components/google-rubrica";
@@ -319,6 +320,9 @@ export default async function Dettaglio({
             {p.attivo && !p.capogruppo && p.sedi.length === 0 && (
               <GestioneGruppo partnerId={p.id} nome={p.nome} />
             )}
+            {/* I doppioni non si raggruppano, si uniscono: due schede della
+                stessa azienda vogliono dire due stati e due valutazioni. */}
+            {p.attivo && <UnisciAnagrafiche partnerId={p.id} nome={p.nome} />}
             <form action={impostaArchiviato.bind(null, p.id, p.attivo)}>
               <button type="submit" className="btn btn-secondario" style={{ fontSize: 12.5, padding: "6px 14px" }}>
                 {p.attivo ? "⌫ Archivia" : "↩ Ripristina"}

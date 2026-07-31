@@ -244,6 +244,17 @@ Ogni scrittura via API è un **merge governato per campo**, mai una sostituzione
   **aggiornano per id** (`update`/`create`/`deleteMany` mirati); riga svuotata = rimosso, come
   prima. Verificato sul contatto HubSpot di Basara Milano: dopo il salvataggio conserva id,
   `fonte: hubspot` e `hubspotId`.
+  **⇄ Unisci a… (31/07/2026)** — i **doppioni** non si raggruppano, si uniscono: «Flowers & More»
+  e «Flowers and More» sono la stessa azienda entrata due volte, e tenerle accanto vuol dire due
+  stati, due valutazioni e i referenti divisi. `unisciAnagrafiche(sorgenteId, destinazioneId)`,
+  con tre regole che la rendono usabile senza paura:
+  **la destinazione vince** (i suoi campi non si sovrascrivono mai, si riempiono solo i vuoti),
+  **non si cancella niente** (la sorgente viene *archiviata* con la nota «Unita a X il …»), e
+  **tutto si sposta** — referenti senza doppioni (chiave email > telefono > nome), feedback con
+  ricalcolo della pagella, riferimenti esterni, sedi, interessi in unione, note accodate.
+  `platformId`/`hubspotId` sono @unique: si liberano dalla sorgente prima di travasarli, se no il
+  database rifiuta. La ricerca è **parziale e a parole** (`whereRicerca`): «flowers» trova entrambe,
+  che per nome esatto non si incontrerebbero mai — ed è proprio così che i doppioni nascono.
   **Gruppi** — i due bottoni sono l'uno l'inverso dell'altro, e dal 31/07/2026 **il nome dice il
   verso**: `⧉ Raggruppa` veniva letto al contrario (sembrava «aggancia altre a questa») ed è
   diventato **↳ È una sede di…**, mentre `＋ Sede` è **＋ Sedi di questa**. Ogni modale dichiara la

@@ -7,7 +7,7 @@ import { redirect } from "next/navigation";
 import { isCategoria } from "./categorie";
 import { prisma } from "./db";
 import { MOTIVI_FEEDBACK, normalizzaVoto, ricalcolaValutazioneD2C } from "./feedback-d2c";
-import { propagaDatiFinanziari } from "./insegna";
+import { CAMPI_FINANZIARI, propagaDatiFinanziari } from "./insegna";
 import { diffCampi, registraModifica, registraModifiche } from "./log-modifiche";
 import {
   PREFISSO_ANALISI,
@@ -868,6 +868,132 @@ export async function collegaSedi(
   revalidatePath(`/partner/${madreId}`);
   revalidatePath("/");
   return { ok: true, collegate: daCollegare.length, scartate };
+}
+
+// Unisce due anagrafiche che sono la stessa azienda scritta in due modi
+// («Flowers & More» e «Flowers and More», «Ketty Flowers» e «Ketty Flowers -
+// Floral Designer»). Il raggruppamento non basta: quello le mette accanto, ma
+// restano due schede con due stati, due valutazioni e i referenti divisi.
+//
+// Tre regole, e sono il motivo per cui questa funzione si può usare senza paura:
+//  1. **La destinazione vince**: i suoi campi non vengono mai sovrascritti, si
+//     riempiono solo quelli vuoti. Unire non deve poter peggiorare il record buono.
+//  2. **Non si cancella niente**: la sorgente viene ARCHIVIATA, non eliminata,
+//     con la nota di dove è finita. Se l'unione era sbagliata, il record c'è ancora.
+//  3. **Tutto si sposta**: referenti (senza doppioni), feedback, riferimenti
+//     esterni, sedi. Un'unione che lascia indietro i referenti è peggio del doppione.
+export async function unisciAnagrafiche(
+  sorgenteId: string,
+  destinazioneId: string,
+): Promise<{ ok: true; spostati: { referenti: number; feedback: number; sedi: number; riferimenti: number } } | { ok: false; errore: string }> {
+  if (sorgenteId === destinazioneId) return { ok: false, errore: "Sono la stessa anagrafica." };
+
+  const [sorgente, destinazione] = await Promise.all([
+    prisma.partner.findUnique({ where: { id: sorgenteId }, include: { contatti: true } }),
+    prisma.partner.findUnique({ where: { id: destinazioneId }, include: { contatti: true } }),
+  ]);
+  if (!sorgente || !destinazione) return { ok: false, errore: "Anagrafica non trovata." };
+  if (!destinazione.attivo) return { ok: false, errore: "La destinazione è archiviata: ripristinala prima di unire." };
+
+  // Campi fattuali: si riempiono solo i buchi della destinazione.
+  const DA_TRAVASARE = [
+    "ragioneSociale", "citta", "provincia", "regione", "sede", "tipoLuogo", "indirizzo",
+    "email", "telefono", "pIva", "codiceFiscale", "account", "tipoProspect", "ultimaVisita",
+    "pec", "codiceSdi", "iban", "banca", "metodoPagamento", "condizioniPagamento",
+    "gruppoPagamento", "amministrazioneNome", "amministrazioneTelefono", "amministrazioneEmail",
+    "platformId", "hubspotId",
+  ] as const;
+  const dati: Record<string, unknown> = {};
+  const riempiti: string[] = [];
+  for (const campo of DA_TRAVASARE) {
+    const attuale = destinazione[campo];
+    const arrivo = sorgente[campo];
+    if ((attuale == null || attuale === "") && arrivo != null && arrivo !== "") {
+      dati[campo] = arrivo;
+      riempiti.push(campo);
+    }
+  }
+  // Interessi: unione, non sostituzione.
+  const interessi = [...new Set([...destinazione.interessi, ...sorgente.interessi])];
+  if (interessi.length !== destinazione.interessi.length) dati.interessi = interessi;
+  // Note: si accodano, non si perdono.
+  if (sorgente.note && !destinazione.note?.includes(sorgente.note)) {
+    dati.note = destinazione.note ? `${destinazione.note}\n${sorgente.note}` : sorgente.note;
+  }
+
+  // Referenti: si spostano quelli che la destinazione non ha già (stessa email,
+  // stesso telefono o stesso nome). Gli altri restano sulla sorgente archiviata.
+  const chiave = (c: { nome: string | null; telefono: string | null; email: string | null }) =>
+    c.email?.toLowerCase().trim() ||
+    (c.telefono ? c.telefono.replace(/[^\d]/g, "").slice(-9) : "") ||
+    c.nome?.toLowerCase().trim() ||
+    "";
+  const giaPresenti = new Set(destinazione.contatti.map(chiave).filter(Boolean));
+  const referentiDaSpostare = sorgente.contatti.filter((c) => {
+    const k = chiave(c);
+    return k ? !giaPresenti.has(k) : true;
+  });
+
+  const [feedback, sedi, riferimenti] = await Promise.all([
+    prisma.feedbackD2C.count({ where: { partnerId: sorgenteId } }),
+    prisma.partner.count({ where: { capogruppoId: sorgenteId } }),
+    prisma.riferimentoEsterno.count({ where: { partnerId: sorgenteId } }),
+  ]);
+
+  // `platformId` e `hubspotId` sono @unique: se li travaso devono prima
+  // lasciare la sorgente, o il database rifiuta la scrittura.
+  const daLiberare: Record<string, null> = {};
+  if ("platformId" in dati) daLiberare.platformId = null;
+  if ("hubspotId" in dati) daLiberare.hubspotId = null;
+
+  await prisma.$transaction([
+    ...(Object.keys(daLiberare).length
+      ? [prisma.partner.update({ where: { id: sorgenteId }, data: daLiberare })]
+      : []),
+    prisma.partner.update({ where: { id: destinazioneId }, data: dati }),
+    prisma.contatto.updateMany({
+      where: { id: { in: referentiDaSpostare.map((c) => c.id) } },
+      data: { partnerId: destinazioneId },
+    }),
+    prisma.feedbackD2C.updateMany({ where: { partnerId: sorgenteId }, data: { partnerId: destinazioneId } }),
+    prisma.riferimentoEsterno.updateMany({ where: { partnerId: sorgenteId }, data: { partnerId: destinazioneId } }),
+    prisma.partner.updateMany({ where: { capogruppoId: sorgenteId }, data: { capogruppoId: destinazioneId } }),
+    // Archiviata, non cancellata: se l'unione era sbagliata il record c'è ancora.
+    prisma.partner.update({
+      where: { id: sorgenteId },
+      data: {
+        attivo: false,
+        capogruppoId: null,
+        note: [sorgente.note, `Unita a «${destinazione.nome}» il ${new Date().toLocaleDateString("it-IT")}.`]
+          .filter(Boolean)
+          .join("\n"),
+      },
+    }),
+  ]);
+
+  if (feedback > 0) await ricalcolaValutazioneD2C(destinazioneId);
+  if (Object.keys(dati).some((c) => (CAMPI_FINANZIARI as readonly string[]).includes(c))) {
+    await propagaDatiFinanziari(destinazioneId);
+  }
+
+  after(async () => {
+    await registraModifica(destinazioneId, { origine: "ui" }, {
+      campo: "unita",
+      a: `«${sorgente.nome}» unita a questa · ${referentiDaSpostare.length} referenti, ${feedback} feedback, ${sedi} sedi${riempiti.length ? ` · campi riempiti: ${riempiti.join(", ")}` : ""}`,
+    });
+    await registraModifica(sorgenteId, { origine: "ui" }, {
+      campo: "unita",
+      a: `archiviata perché unita a «${destinazione.nome}»`,
+    });
+  });
+
+  revalidatePath(`/partner/${destinazioneId}`);
+  revalidatePath(`/partner/${sorgenteId}`);
+  revalidatePath("/");
+  return {
+    ok: true,
+    spostati: { referenti: referentiDaSpostare.length, feedback, sedi, riferimenti },
+  };
 }
 
 // Risolve a mano una richiesta di aggancio: collega l'anagrafica scelta e,
