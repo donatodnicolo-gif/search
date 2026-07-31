@@ -231,11 +231,21 @@ export default async function SpesePage({
           </div>
           <div className="kpi-sub">{euro(totaleCat)} su {euro(totale)}</div>
         </div>
-        <div className="kpi">
+        {/* Il numero da classificare è il punto da cui si comincia a lavorare:
+            cliccarlo filtra l'elenco, senza passare dalla tendina. Il periodo
+            scelto resta quello. */}
+        <Link
+          href={`/spese?anno=${anno}&dal=${dal}&al=${al}${sp.solo === "senza" ? "" : "&solo=senza"}`}
+          className="kpi"
+          style={{ textDecoration: "none", color: "inherit", cursor: "pointer", outline: sp.solo === "senza" ? "2px solid var(--red)" : undefined }}
+          title={sp.solo === "senza" ? "Torna a tutte le uscite" : "Mostra solo le uscite senza categoria"}
+        >
           <div className="kpi-label">Ancora da classificare</div>
           <div className={`kpi-value ${senzaCat > 0 ? "neg" : "pos"}`}>{senzaCat}</div>
-          <div className="kpi-sub">movimenti senza categoria</div>
-        </div>
+          <div className="kpi-sub" style={{ color: "var(--blue)" }}>
+            {sp.solo === "senza" ? "◂ mostra tutte le uscite" : "movimenti senza categoria — clicca per vederli"}
+          </div>
+        </Link>
       </div>
 
       {perTipo.length > 0 && (
