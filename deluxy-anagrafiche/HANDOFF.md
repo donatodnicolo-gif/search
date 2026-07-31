@@ -27,7 +27,10 @@ npm run dev            # http://localhost:3060
 ```
 
 Il `.env` (gitignored) contiene anche: `HUBSPOT_ACCESS_TOKEN` (Sync/import HubSpot),
-opzionale `ANAGRAFICHE_APP_PASSWORD` (in locale se assente la UI è aperta).
+`BUDGETS_API_KEY` (elenco dei commerciali), opzionale `ANAGRAFICHE_APP_PASSWORD` (in locale se
+assente la UI è aperta) e — **non ancora impostata** — `FINANCE_API_KEY` (+ opzionale
+`FINANCE_URL`, default `https://deluxy-partner.vercel.app`): serve a creare in FINANCE le aziende
+che diventano clienti, vedi §7-A punto 0. Finché manca, quel richiamo è inerte.
 
 > **⚠️ Branch condiviso**: il lavoro sta su **`scout-ui`**, un branch usato in parallelo da
 > più sessioni Claude (anche deluxy-partner, deluxy-scout, deluxy-mail). Fai sempre
@@ -555,6 +558,33 @@ Aggiornato il **31/07/2026**. Ordine: prima quello che blocca un uso reale, poi 
 scelte da fare, in fondo le pulizie. Quando un punto si chiude, si cancella da qui.
 
 ### A. Integrazioni che aspettano l'altra metà
+
+0. **«Attivo» qui deve creare il partner in FINANCE — manca l'endpoint in `deluxy-partner`.**
+   Richiesta dell'utente il 31/07/2026: quando un'azienda passa ad `attivo` è un cliente vero
+   (le si fattura, si incassa, la si paga) e **deve comparire anche in FINANCE**, che oggi non la
+   vede: un partner lì nasce solo dal form «Nuovo partner» (`createPartner` in
+   `deluxy-partner/src/lib/actions.ts`), e tutte le API di FINANCE sono in **sola lettura**.
+   **Lato registro è già fatto** (`src/lib/finance.ts`): al passaggio ad `attivo` — dalla UI e
+   dalle API (POST e PATCH), quindi anche quando è Scout a dichiarare «cliente» — parte
+   `segnalaClienteAFinance` dentro `after()`. Manda nome + città, ragione sociale, categoria,
+   contatti e i **dati finanziari dell'insegna** (P.IVA, CF, IBAN, intestatario, contatto
+   amministrativo, gruppo di pagamento). È **inerte** finché manca `FINANCE_API_KEY`: scrive un
+   warning e non tocca niente, e **non fa mai fallire il cambio di stato** (verificato: senza
+   chiave l'azienda diventa comunque attiva e lo storico si scrive).
+   **Da fare in `deluxy-partner`** — `POST /api/v1/partners`, chiave con `chiaveApiValida`
+   (header `x-api-key`), **idempotente**, in quest'ordine:
+   1. partner con quell'`anagraficaId` → aggiorna e basta;
+   2. altrimenti partner con lo **stesso `nome`** → gli attacca l'`anagraficaId` (**non** creare
+      un doppione: in FINANCE `nome` è `@unique` e i clienti storici sono già lì senza id del
+      registro — questo è il passo che evita di duplicare i 45 attivi);
+   3. solo se non esiste nessuno dei due → lo crea.
+   Risposta `{ esito: "creato" | "collegato" | "aggiornato", id }`.
+   Poi generare la chiave da `/chiavi` di FINANCE e metterla in `FINANCE_API_KEY` nel `.env` di
+   Anagrafiche **e su Vercel** (attenzione all'a-capo: usare `--value`).
+   ⚠️ Non l'ho scritto io perché il 31/07/2026 **un'altra sessione stava lavorando in
+   `deluxy-partner`** (regola: una sola sessione per cartella).
+   Resta da decidere una cosa sola: le **45 aziende già attive** oggi non sono in FINANCE e questo
+   richiamo scatta solo sul *passaggio*. Serve un giro una tantum che le mandi tutte.
 
 1. **Customer Service → voti degli affiliati: manca il lato Customer Service.**
    Il registro è pronto (30/07/2026): `POST /api/v1/feedback` accetta il reclamo così com'è

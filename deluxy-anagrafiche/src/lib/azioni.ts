@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { isCategoria } from "./categorie";
 import { prisma } from "./db";
 import { MOTIVI_FEEDBACK, normalizzaVoto, ricalcolaValutazioneD2C } from "./feedback-d2c";
+import { segnalaClienteAFinance } from "./finance";
 import { CAMPI_FINANZIARI, propagaDatiFinanziari } from "./insegna";
 import { diffCampi, registraModifica, registraModifiche } from "./log-modifiche";
 import {
@@ -32,7 +33,7 @@ export async function cambiaStato(partnerId: string, fd: FormData) {
     select: { stato: true },
   });
   if (!attuale) return;
-  await prisma.partner.update({
+  const aggiornato = await prisma.partner.update({
     where: { id: partnerId },
     data: { stato: nuovo },
   });
@@ -40,6 +41,13 @@ export async function cambiaStato(partnerId: string, fd: FormData) {
   // prima. È un audit, non un dato che serve a disegnare la pagina, e un
   // andata-e-ritorno in più si sentiva a ogni click.
   after(() => registraPassaggio(partnerId, attuale.stato, nuovo, "ui"));
+  // Diventata cliente: da qui in poi le si fatturerà e la si pagherà, quindi
+  // deve esistere anche in FINANCE. Sempre in `after()`: se FINANCE è giù o
+  // non è ancora configurato, il cambio di stato è già avvenuto e nessuno
+  // resta a guardare la rotellina.
+  if (nuovo === "attivo" && attuale.stato !== "attivo") {
+    after(() => segnalaClienteAFinance(partnerId, aggiornato.nome));
+  }
   revalidatePath(`/partner/${partnerId}`);
   revalidatePath("/");
   // Diventata cliente ("attivo" = Partner): la scheda si riapre con il

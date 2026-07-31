@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { autentica, erroreApi } from "@/lib/api-auth";
 import { prisma } from "@/lib/db";
+import { segnalaClienteAFinance } from "@/lib/finance";
 import { CAMPI_FINANZIARI, propagaDatiFinanziari } from "@/lib/insegna";
 import { diffCampi, registraModifiche } from "@/lib/log-modifiche";
 import { mergeContatti } from "@/lib/merge";
@@ -77,7 +78,12 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   if ((CAMPI_FINANZIARI as readonly string[]).some((c) => c in dati)) {
     await propagaDatiFinanziari(id);
   }
-  if (dati.stato) await registraPassaggio(id, esistente.stato, aggiornato.stato, client.nome);
+  if (dati.stato) {
+    await registraPassaggio(id, esistente.stato, aggiornato.stato, client.nome);
+    if (aggiornato.stato === "attivo" && esistente.stato !== "attivo") {
+      await segnalaClienteAFinance(id, aggiornato.nome);
+    }
+  }
   if (dati.statoFinanziario) {
     await registraPassaggio(
       id,

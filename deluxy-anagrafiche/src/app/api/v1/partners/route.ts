@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { autentica, erroreApi } from "@/lib/api-auth";
 import { prisma } from "@/lib/db";
+import { segnalaClienteAFinance } from "@/lib/finance";
 import { CAMPI_FINANZIARI, propagaDatiFinanziari } from "@/lib/insegna";
 import { INTERESSE_AFFILIAZIONE, eRicercaFornitori } from "@/lib/interessi";
 import { diffCampi, registraModifica, registraModifiche } from "@/lib/log-modifiche";
@@ -214,6 +215,11 @@ export async function POST(req: NextRequest) {
     // finanziario e analisi (FINANCE) finiscono tutti nella stessa storia.
     if (typeof datiMerge.stato === "string" && datiMerge.stato !== esistente.stato) {
       await registraPassaggio(esistente.id, esistente.stato, datiMerge.stato, sistema);
+      // Diventata cliente da un'altra app (Scout dichiara "cliente"): deve
+      // esistere anche in FINANCE, come se fosse stata attivata da qui.
+      if (datiMerge.stato === "attivo") {
+        await segnalaClienteAFinance(esistente.id, esistente.nome);
+      }
     }
     if (typeof datiMerge.livello === "string" && datiMerge.livello !== esistente.livello) {
       await registraPassaggio(
