@@ -54,11 +54,14 @@ export async function creaRichiestaPagamento(fd: FormData) {
   if (partnerId) {
     const p = await prisma.partner.findUnique({
       where: { id: partnerId },
-      select: { nome: true, ragioneSociale: true, iban: true },
+      select: { nome: true, ragioneSociale: true, iban: true, intestatarioConto: true },
     });
     if (!p) torna("errore", "Partner non trovato.");
     partnerNome = p.nome;
-    beneficiario = p.ragioneSociale?.trim() || p.nome;
+    // A chi esce il bonifico: vince l'INTESTATARIO DEL CONTO, che la banca
+    // verifica contro l'IBAN. Ragione sociale e insegna sono ripieghi: un conto
+    // può essere intestato a una persona o a un'altra società.
+    beneficiario = p.intestatarioConto?.trim() || p.ragioneSociale?.trim() || p.nome;
     iban = (p.iban ?? "").replace(/\s+/g, "").toUpperCase();
     if (!iban) torna("errore", `${p.nome} non ha un IBAN in anagrafica: aggiungilo, oppure scrivilo qui sotto scegliendo «Beneficiario libero».`);
   }

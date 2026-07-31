@@ -109,24 +109,34 @@ export async function creaInAnagrafiche(partnerId: string, campiJson: string) {
   redirect(`/registrazioni/riconciliazione?creato=${encodeURIComponent(partner.nome)}`);
 }
 
-// Salva i dati bancari (IBAN, banca) di un partner: li scrive sul partner (per i
-// bonifici SEPA futuri) e, se la scrittura è attiva, li invia al registro
-// Anagrafiche (datiFinanziari). L'IBAN va inserito a mano — non è ricavabile
-// dai bonifici (né Qonto né i movimenti espongono l'IBAN della controparte).
+// Salva i dati bancari (IBAN, intestatario del conto, banca) di un partner: li
+// scrive sul partner (per i bonifici SEPA futuri) e, se la scrittura è attiva,
+// li invia al registro Anagrafiche (datiFinanziari).
+//
+// L'intestatario non è un di più: è il nome a cui esce il bonifico, la banca
+// controlla che combaci con l'IBAN e col nome sbagliato il pagamento viene
+// rifiutato. Non si deduce dall'insegna — «NEGOZIO ROSATO» incassa su un conto
+// intestato a un'altra società — quindi si prende da chi abbiamo già pagato
+// (beneficiari Qonto) e si corregge a mano dove serve.
 export async function salvaDatiBancari(partnerId: string, anagraficaId: string | null, fd: FormData) {
   const iban = String(fd.get("iban") ?? "").replace(/\s/g, "").toUpperCase();
   const banca = String(fd.get("banca") ?? "").trim();
+  const intestatarioConto = String(fd.get("intestatarioConto") ?? "").trim();
   if (iban && !ibanValido(iban)) {
     revalidatePath("/registrazioni/riconciliazione", "layout");
     redirect(`/registrazioni/riconciliazione?errore=${encodeURIComponent(`IBAN non valido per il partner: ${iban}`)}`);
   }
   // sul partner locale (per i SEPA)
-  await prisma.partner.update({ where: { id: partnerId }, data: { iban: iban || null } });
+  await prisma.partner.update({
+    where: { id: partnerId },
+    data: { iban: iban || null, intestatarioConto: intestatarioConto || null },
+  });
   // sul registro (se collegato e scrittura attiva)
   let esito = "solo locale";
-  if (anagraficaId && (iban || banca)) {
+  if (anagraficaId && (iban || banca || intestatarioConto)) {
     const res = await aggiornaAnagrafica(anagraficaId, {
       ...(iban ? { iban } : {}),
+      ...(intestatarioConto ? { intestatarioConto } : {}),
       ...(banca ? { banca } : {}),
     });
     esito = res.ok ? "registro aggiornato" : res.errore;

@@ -36,12 +36,24 @@ export async function GET(req: NextRequest) {
   const causale = (nome: string) =>
     soloAscii(`Saldo vendite ${nomeMese(mese)} ${anno} - ${nome}`);
 
+  // A CHI si intesta il bonifico: l'INTESTATARIO DEL CONTO, non l'insegna. La
+  // banca controlla che il nome combaci con l'IBAN, e un negozio può incassare
+  // benissimo su un conto di un'altra società o di una persona. L'insegna resta
+  // nella causale, che è quella che serve al partner per riconoscere il
+  // pagamento.
+  const beneficiario = (p: {
+    nome: string;
+    ragioneSociale: string | null;
+    intestatarioConto: string | null;
+  }) => p.intestatarioConto?.trim() || p.ragioneSociale?.trim() || p.nome;
+
   if (formato === "csv") {
     const righe = [
-      "Partner;IBAN;Importo;Divisa;Causale;Note",
+      "Partner;Intestatario del conto;IBAN;Importo;Divisa;Causale;Note",
       ...pendenti.map((x) =>
         [
           x.partner.nome.replace(/;/g, ","),
+          beneficiario(x.partner).replace(/;/g, ","),
           x.partner.iban ?? "MANCANTE",
           x.importo.toFixed(2).replace(".", ","),
           "EUR",
@@ -81,7 +93,7 @@ export async function GET(req: NextRequest) {
       <CdtTrfTxInf>
         <PmtId><EndToEndId>${esc(msgId)}-${i + 1}</EndToEndId></PmtId>
         <Amt><InstdAmt Ccy="EUR">${x.importo.toFixed(2)}</InstdAmt></Amt>
-        <Cdtr><Nm>${esc(soloAscii(x.partner.nome))}</Nm></Cdtr>
+        <Cdtr><Nm>${esc(soloAscii(beneficiario(x.partner)))}</Nm></Cdtr>
         <CdtrAcct><Id><IBAN>${esc(x.partner.iban!.replace(/\s/g, ""))}</IBAN></Id></CdtrAcct>
         <RmtInf><Ustrd>${esc(causale(x.partner.nome))}</Ustrd></RmtInf>
       </CdtTrfTxInf>`

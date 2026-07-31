@@ -41,6 +41,13 @@ model Partner {
   addebitoDiretto        Boolean  @default(false)
   cartaCreditoApp        Boolean  @default(false)
   iban                   String? // per bonifici SEPA
+  // A CHI è intestato il conto: è il nome a cui esce il bonifico, e non è
+  // sempre l'insegna né la ragione sociale (ditte individuali, società che
+  // incassano per il negozio). La banca controlla che intestatario e IBAN
+  // combacino: col nome sbagliato il pagamento viene rifiutato. Fonte di
+  // verità nel registro Anagrafiche (`intestatarioConto`); qui è la copia
+  // operativa che serve a generare i SEPA, come già per l'IBAN.
+  intestatarioConto      String?
   email                  String?
   telefono               String?
   // Referente amministrativo (chi paga le fatture): destinatario predefinito di

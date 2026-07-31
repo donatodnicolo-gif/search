@@ -41,6 +41,12 @@ export type EsitoRiga = {
   stato: "confermata" | "ignorata" | null; // da RiconciliazioneAnagrafica
   esitoUltimoInvio: string | null;
   ibanSuggerito: string | null; // IBAN del beneficiario Qonto (bonifici) col nome del partner
+  // A CHI era intestato quel conto quando gli abbiamo bonificato: il nome del
+  // beneficiario in banca È l'intestatario del conto, e spesso non è né
+  // l'insegna né la ragione sociale (ditte individuali, società che incassano
+  // per il negozio). Va nel registro perché la banca rifiuta il pagamento se
+  // intestatario e IBAN non combaciano.
+  intestatarioSuggerito: string | null;
 };
 
 export type Riconciliazione = {
@@ -111,13 +117,15 @@ export async function costruisciRiconciliazione(): Promise<Riconciliazione> {
     const nome = (m.controparte ?? m.descrizione ?? "").trim();
     if (nome && m.ibanControparte) fonti.push({ nome, iban: m.ibanControparte, trusted: false });
   }
-  // IBAN il cui nome (beneficiario/controparte) corrisponde al partner (preferendo i trusted Qonto)
-  const ibanPerPartner = (partner: Partner | null): string | null => {
+  // IBAN il cui nome (beneficiario/controparte) corrisponde al partner
+  // (preferendo i trusted Qonto). Torna anche il NOME: è l'intestatario del
+  // conto, e si perde se si tiene solo l'IBAN.
+  const contoPerPartner = (partner: Partner | null): { iban: string; nome: string } | null => {
     if (!partner) return null;
     const candidati = fonti
       .filter((b) => matchPartner(b.nome, [partner]) != null)
       .sort((a, b) => Number(b.trusted) - Number(a.trusted));
-    return candidati[0]?.iban ?? null;
+    return candidati[0] ? { iban: candidati[0].iban, nome: candidati[0].nome.trim() } : null;
   };
 
   const conciliati: EsitoRiga[] = [];
@@ -132,6 +140,7 @@ export async function costruisciRiconciliazione(): Promise<Riconciliazione> {
     const partner =
       (st?.partnerId ? partners.find((p) => p.id === st.partnerId) ?? null : null) ??
       matchPartner(dati.nome, partners);
+    const conto = contoPerPartner(partner);
     const riga: EsitoRiga = {
       ficNome: dati.nome,
       dati,
@@ -139,7 +148,8 @@ export async function costruisciRiconciliazione(): Promise<Riconciliazione> {
       collegatoRegistro: Boolean(partner?.anagraficaId),
       stato: (st?.stato as "confermata" | "ignorata" | undefined) ?? null,
       esitoUltimoInvio: st?.esito ?? null,
-      ibanSuggerito: ibanPerPartner(partner),
+      ibanSuggerito: conto?.iban ?? null,
+      intestatarioSuggerito: conto?.nome ?? null,
     };
     if (!partner) senzaMatch.push(riga);
     else if (partner.anagraficaId) conciliati.push(riga);

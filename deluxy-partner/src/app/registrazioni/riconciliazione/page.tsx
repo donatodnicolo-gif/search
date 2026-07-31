@@ -34,8 +34,12 @@ function RigaConciliata({ r, scrittura }: { r: EsitoRiga; scrittura: boolean }) 
         {!nCampi && <span className="muted">nessun dato fiscale da FIC</span>}
       </td>
       <td style={{ fontSize: 12.5, minWidth: 220 }}>
-        {/* IBAN dai beneficiari dei bonifici Qonto, precompilato quando il nome
-            del beneficiario corrisponde al partner. Modificabile prima di salvare. */}
+        {/* IBAN e INTESTATARIO dai beneficiari dei bonifici Qonto, precompilati
+            quando il nome del beneficiario corrisponde al partner. Il nome del
+            beneficiario in banca È l'intestatario del conto: la banca rifiuta
+            il bonifico se non combacia con l'IBAN, quindi va nel registro
+            insieme all'IBAN e non dedotto dall'insegna. Modificabili prima di
+            salvare. */}
         <form action={salvaDatiBancari.bind(null, r.partner!.id, anagraficaId)} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           <input
             type="text"
@@ -47,9 +51,27 @@ function RigaConciliata({ r, scrittura }: { r: EsitoRiga; scrittura: boolean }) 
           {!r.partner!.iban && r.ibanSuggerito && (
             <span style={{ fontSize: 11, color: "var(--gold-strong, #8a6d2f)" }}>⤷ dai bonifici Qonto — verifica</span>
           )}
+          <input
+            type="text"
+            name="intestatarioConto"
+            defaultValue={r.partner!.intestatarioConto ?? r.intestatarioSuggerito ?? ""}
+            placeholder="Intestatario del conto"
+            title="Il nome a cui esce il bonifico. Non è sempre l'insegna né la ragione sociale: la banca controlla che combaci con l'IBAN."
+            style={{ fontSize: 12, padding: "5px 8px" }}
+          />
+          {!r.partner!.intestatarioConto && r.intestatarioSuggerito && (
+            <span style={{ fontSize: 11, color: "var(--gold-strong, #8a6d2f)" }}>
+              ⤷ beneficiario dei bonifici — verifica
+            </span>
+          )}
           <div style={{ display: "flex", gap: 6 }}>
             <input type="text" name="banca" placeholder="Banca (facoltativo)" style={{ fontSize: 12, padding: "5px 8px", flex: 1 }} />
-            <button className="btn small secondary" type="submit" disabled={!scrittura} title={scrittura ? "Salva IBAN sul partner e nel registro" : "Serve la chiave di scrittura"}>
+            <button
+              className="btn small secondary"
+              type="submit"
+              disabled={!scrittura}
+              title={scrittura ? "Salva IBAN e intestatario sul partner e nel registro" : "Serve la chiave di scrittura"}
+            >
               Salva
             </button>
           </div>

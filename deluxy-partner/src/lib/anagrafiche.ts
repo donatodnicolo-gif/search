@@ -22,6 +22,9 @@ export type DatiFinanziari = {
   pec: string | null;
   codiceSdi: string | null;
   iban: string | null;
+  // a chi è intestato il conto: il nome a cui esce il bonifico, che la banca
+  // pretende combaci con l'IBAN
+  intestatarioConto: string | null;
   banca: string | null;
   metodoPagamento: string | null;
   condizioniPagamento: string | null;
@@ -153,6 +156,7 @@ export type CampiAnagrafica = Partial<{
   pec: string;
   codiceSdi: string;
   iban: string;
+  intestatarioConto: string;
   banca: string;
   amministrazioneNome: string;
   amministrazioneTelefono: string;
