@@ -41,7 +41,11 @@ const MIGRAZIONI = [
 // `ordini` è il proxy verso Deluxy Orders (venduto per provincia): resta inerte
 // finché in cassaforte non c'è `ORDERS_API_KEY`, ma senza deploy non esiste
 // proprio e la vista Province non mostra nessun valore di vendita.
-const FUNZIONI = ['anagrafiche', 'ordini', 'health', 'finance'];
+// `invio-email` è cambiata il 29/07: prova PRIMA a mandare da AI Mail, che
+// lascia la copia in «Inviata», e tiene l'SMTP come ripiego. Finché non è
+// rideployata, le mail di Scout continuano a partire in SMTP diretto e nella
+// casella di chi le scrive non ne resta traccia.
+const FUNZIONI = ['anagrafiche', 'ordini', 'health', 'finance', 'invio-email'];
 // `health` deve rispondere SENZA sessione (il Hub non ne ha una): va deployata
 // con --no-verify-jwt, altrimenti risponde 401 e la pagina «stato dei servizi»
 // vede Scout come irraggiungibile.
