@@ -173,7 +173,13 @@ Ogni scrittura via API è un **merge governato per campo**, mai una sostituzione
 - **`/identita-aziende`** — cruscotto che raccoglie le tre viste dell'identità: Sync HubSpot
   (N/tot collegate), Richieste di aggancio (da risolvere), Riconciliazione (referenti da riassegnare).
   Sidebar sezione **«Identità aziende»** (ex «Sync»): Panoramica · Sync HubSpot · Richieste di aggancio · Riconciliazione.
-- **`/riconciliazione`** — smistamento dei **referenti** sotto anagrafiche «DA CLASSIFICARE»
+- **`/riconciliazione`** — **due ambiti (31/07/2026)**, perche sono due lavori diversi: *Da
+  smistare (contenitori)* e la **coda** da svuotare (predefinito, il comportamento di sempre), *Tutti
+  i referenti del registro* e uno **strumento**: una persona finita sotto l azienda sbagliata prima
+  da qui non si poteva nemmeno trovare. In ambito «tutti» i **suggerimenti dal dominio email** non
+  si calcolano (per chi sta gia sotto un azienda vera sarebbero rumore) e restano comunque al
+  massimo 12 per pagina: e una query per radice distinta.
+  Smistamento dei **referenti** sotto anagrafiche «DA CLASSIFICARE»
   (contenitore «Contatti senza azienda (HubSpot)» + gruppi/holding creati dal sync).
   `TabellaRiconciliazione` (client): **chip di suggerimento** dell'insegna dal dominio email
   (radice dominio, esclusi i provider generici → `whereRicerca`, solo anagrafiche non-DA CLASSIFICARE);

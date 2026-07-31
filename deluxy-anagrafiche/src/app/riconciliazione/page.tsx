@@ -24,7 +24,7 @@ function radiceDominio(email: string | null): string | null {
   return radice && radice.length >= 3 ? radice : null;
 }
 
-type Ricerca = { q?: string; pagina?: string };
+type Ricerca = { q?: string; pagina?: string; ambito?: string };
 
 // Riconciliazione dei referenti: i contatti finiti sotto un'anagrafica
 // «DA CLASSIFICARE» (contenitore "senza azienda" o holding create dal sync
@@ -33,9 +33,15 @@ export default async function Riconciliazione({ searchParams }: { searchParams: 
   const filtri = await searchParams;
   const pagina = Math.max(1, Number(filtri.pagina) || 1);
 
+  // Due ambiti, perche sono due lavori diversi:
+  //  - "da_classificare" (predefinito) e la CODA: i referenti finiti sotto i
+  //    contenitori, che vanno smistati prima o poi;
+  //  - "tutti" e uno STRUMENTO: una persona sotto l azienda sbagliata si trova
+  //    solo cercandola, e prima da qui non si poteva spostare affatto.
+  const ambito = filtri.ambito === "tutti" ? "tutti" : "da_classificare";
   const where: Prisma.ContattoWhereInput = {
     archiviato: false,
-    partner: { attivo: true, categoria: "DA CLASSIFICARE" },
+    partner: ambito === "tutti" ? { attivo: true } : { attivo: true, categoria: "DA CLASSIFICARE" },
   };
   if (filtri.q) {
     const q = filtri.q;
@@ -51,7 +57,7 @@ export default async function Riconciliazione({ searchParams }: { searchParams: 
     prisma.contatto.count({ where }),
     prisma.contatto.findMany({
       where,
-      include: { partner: { select: { id: true, nome: true, citta: true } } },
+      include: { partner: { select: { id: true, nome: true, citta: true, categoria: true } } },
       orderBy: [{ partner: { nome: "asc" } }, { nome: "asc" }],
       skip: (pagina - 1) * PER_PAGINA,
       take: PER_PAGINA,
@@ -61,7 +67,18 @@ export default async function Riconciliazione({ searchParams }: { searchParams: 
   // Suggerimenti d'insegna dal dominio email — calcolati una volta per radice
   // distinta (molti contatti condividono il dominio), solo verso anagrafiche
   // "vere" (non altri contenitori DA CLASSIFICARE).
-  const radici = [...new Set(contatti.map((c) => radiceDominio(c.email)).filter(Boolean))] as string[];
+  // ⚠️ PRESTAZIONI: una query per radice distinta. Si calcolano solo per i
+  // referenti che stanno ancora sotto un contenitore — per gli altri l azienda
+  // attuale e presumibilmente giusta e il suggerimento sarebbe rumore — e si
+  // tengono al massimo 12 per pagina.
+  const radici = ([
+    ...new Set(
+      contatti
+        .filter((c) => c.partner.categoria === "DA CLASSIFICARE")
+        .map((c) => radiceDominio(c.email))
+        .filter(Boolean),
+    ),
+  ] as string[]).slice(0, 12);
   const perRadice = new Map<string, RigaRiconc["suggeriti"]>();
   await Promise.all(
     radici.map(async (r) => {
@@ -93,6 +110,7 @@ export default async function Riconciliazione({ searchParams }: { searchParams: 
   const linkPagina = (n: number) => {
     const p = new URLSearchParams();
     if (filtri.q) p.set("q", filtri.q);
+    if (ambito === "tutti") p.set("ambito", "tutti");
     if (n > 1) p.set("pagina", String(n));
     const qs = p.toString();
     return qs ? `/riconciliazione?${qs}` : "/riconciliazione";
@@ -106,8 +124,9 @@ export default async function Riconciliazione({ searchParams }: { searchParams: 
           <div>
             <h1 className="page-title">Riconciliazione</h1>
             <p className="page-sub">
-              {totale} referenti sotto anagrafiche «DA CLASSIFICARE» (contenitore senza azienda + gruppi
-              creati dal sync) — riassegnali all&apos;insegna giusta
+              {ambito === "tutti"
+                ? `${totale} referenti in tutto il registro — cerca la persona e spostala sull’azienda giusta`
+                : `${totale} referenti sotto anagrafiche «DA CLASSIFICARE» (contenitore senza azienda + gruppi creati dal sync) — riassegnali all’insegna giusta`}
             </p>
           </div>
         </div>
@@ -119,11 +138,19 @@ export default async function Riconciliazione({ searchParams }: { searchParams: 
             placeholder="Cerca per nome, email, ruolo o anagrafica attuale…"
             defaultValue={filtri.q ?? ""}
           />
+          <select name="ambito" defaultValue={ambito}>
+            <option value="da_classificare">Da smistare (contenitori)</option>
+            <option value="tutti">Tutti i referenti del registro</option>
+          </select>
           <button className="btn" type="submit">Filtra</button>
         </form>
 
         {contatti.length === 0 ? (
-          <div className="vuoto">Nessun referente da riconciliare{filtri.q ? " con questi filtri" : ""}. 🎉</div>
+          <div className="vuoto">
+            {ambito === "tutti"
+              ? "Nessun referente con questi filtri."
+              : `Nessun referente da smistare${filtri.q ? " con questi filtri" : ""}. 🎉`}
+          </div>
         ) : (
           <TabellaRiconciliazione righe={righe} />
         )}
