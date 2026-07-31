@@ -37,6 +37,7 @@ export function Sidebar({
       titolo: "Analisi",
       voci: [
         { href: "/analisi", nome: "Andamento vendite", count: null, icona: iconaAnalisi },
+        { href: "/marketing", nome: "Marketing", count: null, icona: iconaMarketing },
         { href: "/margini", nome: "Margini", count: null, icona: iconaMargini },
         { href: "/controllo", nome: "Controllo incassi", count: conteggi.daRiconciliare, icona: iconaControllo },
       ],
@@ -141,6 +142,12 @@ const iconaAnalisi = (
   <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <path d="M4 19V5" /><path d="M4 19h16" />
     <path d="M8 16V11" /><path d="M13 16V7" /><path d="M18 16v-4" />
+  </svg>
+);
+const iconaMarketing = (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 10v4h3l5 3.5v-11L6 10H3z" />
+    <path d="M16 9.5a3.5 3.5 0 0 1 0 5" /><path d="M18.5 7a7 7 0 0 1 0 10" />
   </svg>
 );
 const iconaIncassa = (

@@ -263,6 +263,61 @@ i KPI riga per riga: è lì che si confrontano fra loro settimane, mesi e anni.
 **L'ultima riga della serie è il periodo in corso**: va letta sapendo che non è
 ancora finita.
 
+### Marketing (`/marketing`)
+Quanto vende ogni **canale di provenienza** — Google Ads, ricerca non pagata,
+diretto, email, social — e, accanto, **che tipo di clienti** porta. Le due metà
+vanno insieme: un canale che porta solo gente che tornava già non sta acquistando
+niente, sta rifatturando la fedeltà, e in una tabella di soli euro sembrerebbe il
+migliore di tutti.
+
+Sul **2026** (numeri veri al 30/07/2026, tutto lo storico del periodo):
+
+| canale | venduto | quota | clienti nuovi |
+| --- | --- | --- | --- |
+| Diretto | 149.738 € | 24,5% | 60% |
+| Google Ads *(a pagamento)* | 145.194 € | 23,7% | 89% |
+| Ricerca non pagata | 124.480 € | 20,3% | 88% |
+| Ordine creato a mano | 107.967 € | 17,6% | 71% |
+| Provenienza sconosciuta | 50.697 € | 8,3% | — |
+| Email | 9.243 € | 1,5% | 21% |
+
+Tre righe da leggere con la testa, e la pagina le spiega dov'è il caso:
+
+- **«Ordine creato a mano» non è un canale di traffico**: sono ordini presi al
+  telefono, su WhatsApp o di persona. È venduto vero, ma non si confronta con
+  Google;
+- **«Provenienza sconosciuta» resta lì**: Shopify non ha associato nessuna
+  visita. Non viene spalmata sugli altri canali — sarebbe un numero comodo e
+  falso;
+- **l'attribuzione è al primo contatto**: chi ci ha trovati con Google Ads e poi
+  è tornato scrivendo l'indirizzo resta Google Ads.
+
+#### Da quale strumento arrivano — e dov'è Klaviyo
+Sotto il canale c'è lo **strumento**: quello che c'è scritto nel link
+(`utm_source`) o il sito da cui è arrivata la persona. **Klaviyo è visto, ma come
+«Email»**: il canale mette insieme Klaviyo, Shopify Email e le newsletter, e
+questa tabella li separa. Sul 2026: **Klaviyo 5.797 € su 36 ordini, di cui solo
+il 22% clienti nuovi** — che è esattamente cosa ci si aspetta da un canale che
+parla a chi ha già comprato. Accanto, `shopify_email`, `adwords` (Google Ads),
+`chatgpt.com`, `l.wl.co` (WhatsApp).
+
+La riga più grande è quasi sempre **«nessun link tracciato»**, ed è normale: chi
+arriva da Google o scrivendo l'indirizzo non porta nessun `utm_*`.
+
+⚠️ **La pagina avvisa da sola quando un confronto non è leale.** Se fra i due
+periodi cambia quanta parte degli ordini portava un link marcato, compare un
+avviso: sul 2026 il **27%** degli ordini aveva un `utm_*` contro l'**1%** del
+2025, quindi «Google Ads +8.785%» dice soprattutto che nel 2025 quei clic non
+erano marcati e finivano in *Ricerca* o *Diretto*. Senza quell'avviso sarebbe una
+notizia commerciale inventata.
+
+**Quello che qui NON c'è: la spesa.** Quanto è costato ogni canale lo sa l'app
+Marketing (deluxy-marketing), non il registro degli ordini: finché le due non si
+parlano, questa pagina misura il **fatturato per canale**, non il ritorno. Gli
+stessi numeri escono già da `GET /api/v1/marketing`, che l'app ADV legge — un
+motore solo (`src/lib/canali.ts`) per pagina e API, così non raccontano due
+storie diverse.
+
 ### Margini (`/margini`)
 Quanto **resta** di un ordine dopo aver pagato il fornitore. È la domanda che il
 venduto non risponde: 86.000 € di ordini con che margine?

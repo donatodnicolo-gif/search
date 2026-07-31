@@ -336,6 +336,31 @@ categorie di prodotto e serie storica.
   un ordine multi-categoria è contato in ogni riga e la somma supera il totale.
   Scritto in pagina.
 
+### Sezione Marketing (30/07/2026)
+`/marketing` + `src/lib/canali.ts`. Quanto vende ogni canale di provenienza, con
+la variazione sul periodo prima e il taglio nuovi/di ritorno.
+
+- **Il motore è stato estratto dall'API**: `venditePerCanale()` sta in
+  `src/lib/canali.ts` e lo usano sia la pagina sia `/api/v1/marketing` (che
+  l'app ADV legge). Prima la query viveva dentro la rotta: due implementazioni
+  degli stessi numeri divergono, e quando divergono nessuno se ne accorge.
+  Risposta dell'API invariata, più due campi nuovi (`sorgenti`,
+  `totali.tracciati`); provata in locale con una chiave temporanea, poi
+  cancellata.
+- **`sorgenti`**: `utm_source` (o il sito di provenienza) sotto il canale. Nasce
+  dalla domanda «Klaviyo lo vedi come canale?»: **sì, ma come *Email***, insieme a
+  Shopify Email e alle newsletter. Sul 2026 Klaviyo è 5.797 € su 36 ordini, con
+  il 22% di clienti nuovi.
+- ⚠️ **Avviso automatico sui confronti sleali**: `totali.tracciati` conta gli
+  ordini con un `utm_*`. Se la quota cambia molto fra i due periodi (soglia: 8
+  punti) la pagina lo scrive. Caso vero: 2026 **27%** contro 2025 **1%**, da cui
+  un «Google Ads +8.785%» che è soprattutto tracciamento, non mercato — i clic
+  del 2025 finivano in *Ricerca* o *Diretto*. Verificato che **non** è un buco di
+  import: la copertura del canale è ~90% in tutti gli anni, sono i link a essere
+  cambiati.
+- La **spesa** non c'è: sta in deluxy-marketing. Finché non si collega, la pagina
+  misura il fatturato per canale, non il ritorno (niente ROAS/MER qui).
+
 ### Margini e Controllo: i soldi degli ordini arrivano qui (30/07/2026)
 Il controllo degli ordini — **incassi** e **costi del fornitore** — che si faceva
 in Finance (`deluxy-partner/ordini`) ora vive qui, dove stanno gli ordini. In
