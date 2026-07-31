@@ -44,9 +44,16 @@ async function inviaSollecito(fatturaId: string, fd: FormData) {
     });
   }
   revalidatePath("/scadenzario");
+  revalidatePath("/", "layout");
   revalidatePath(`/partner/${fattura?.partnerId ?? ""}`, "layout");
-  // tornando dalla scheda partner si resta lì, altrimenti allo scadenzario
-  redirect(da === "partner" && fattura ? `/partner/${fattura.partnerId}?sollecito=ok` : "/scadenzario?sollecito=ok");
+  // si torna da dove si è partiti: scheda partner, dashboard o scadenzario
+  redirect(
+    da === "partner" && fattura
+      ? `/partner/${fattura.partnerId}?sollecito=ok`
+      : da === "dashboard"
+        ? "/?sollecito=ok"
+        : "/scadenzario?sollecito=ok"
+  );
 }
 
 async function segnaSollecitoManuale(fatturaId: string) {
@@ -69,6 +76,7 @@ export default async function SollecitoPage({
   const { id } = await params;
   const sp = await searchParams;
   const daPartner = sp.da === "partner";
+  const daDashboard = sp.da === "dashboard";
   const fattura = await prisma.fatturaServizio.findUnique({
     where: { id },
     include: { partner: true, tipologia: true },
@@ -88,11 +96,11 @@ export default async function SollecitoPage({
       <div className="page-head">
         <div>
           <Link
-            href={daPartner ? `/partner/${fattura.partnerId}` : "/scadenzario"}
+            href={daPartner ? `/partner/${fattura.partnerId}` : daDashboard ? "/" : "/scadenzario"}
             className="btn secondary small"
             style={{ marginBottom: 10 }}
           >
-            ← {daPartner ? "Torna alla scheda partner" : "Torna allo scadenzario"}
+            ← {daPartner ? "Torna alla scheda partner" : daDashboard ? "Torna alla dashboard" : "Torna allo scadenzario"}
           </Link>
           <h1 className="page-title">Sollecito di pagamento</h1>
           <p className="page-caption">

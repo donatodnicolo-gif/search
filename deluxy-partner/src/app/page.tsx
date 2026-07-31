@@ -3,7 +3,7 @@ import { riepilogoTutti, ANNI_DISPONIBILI, annoValido } from "@/lib/queries";
 import { prisma } from "@/lib/db";
 import { euro, dataIt } from "@/lib/format";
 import { nomeMese, ivato, residuoFattura, parzialmenteIncassata } from "@/lib/calc";
-import { registraBonifico } from "@/lib/actions";
+import { registraBonifico, segnaFatturaPagata } from "@/lib/actions";
 import { richiediPagamento } from "@/lib/pagamenti-partner-actions";
 import { transactionsConfigurato, STATI_RICHIESTA, richiestaRifacibile } from "@/lib/transactions";
 
@@ -177,9 +177,9 @@ export default async function Dashboard({
                             <button
                               className="btn small primary"
                               type="submit"
-                              title={`Chiede a Deluxy Transactions di pagare ${euro(x.r.daBonificare)} a ${x.partner.nome}. NON esce denaro adesso: la richiesta va autorizzata da una persona dentro Transactions.`}
+                              title={`Avvia il pagamento di ${euro(x.r.daBonificare)} a ${x.partner.nome} su Deluxy Transactions. NON esce denaro adesso: la richiesta va autorizzata da una persona dentro Transactions.`}
                             >
-                              Richiedi pagamento
+                              Paga
                             </button>
                           </form>
                         )}
@@ -240,6 +240,7 @@ export default async function Dashboard({
                   <th>Tipologia</th>
                   <th>Scadenza</th>
                   <th className="num">Residuo (IVA incl.)</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -254,6 +255,28 @@ export default async function Dashboard({
                       {parzialmenteIncassata(f) && (
                         <div className="muted" style={{ fontSize: 11 }}>su {euro(ivato(f))}</div>
                       )}
+                    </td>
+                    <td style={{ whiteSpace: "nowrap", textAlign: "right" }}>
+                      <span style={{ display: "inline-flex", gap: 6, justifyContent: "flex-end" }}>
+                        {/* Sollecito: prepara l'email al contatto amministrativo */}
+                        <Link className="btn small secondary" href={`/solleciti/${f.id}?da=dashboard`}>
+                          Sollecita
+                        </Link>
+                        {/* Incasso ricevuto: segna la fattura saldata (data odierna).
+                            Si annulla dalla scheda del partner con «Riapri». */}
+                        <form action={segnaFatturaPagata.bind(null, f.id, true, undefined)} style={{ display: "inline" }}>
+                          <button
+                            className="btn small secondary"
+                            type="submit"
+                            title={`Segna incassata la fattura ${f.numero ?? "s.n."} di ${euro(residuoFattura(f))} (data odierna)`}
+                          >
+                            Annota pagato
+                          </button>
+                        </form>
+                        <Link className="btn small primary" href={`/fatture/${f.id}`}>
+                          Gestisci
+                        </Link>
+                      </span>
                     </td>
                   </tr>
                 ))}

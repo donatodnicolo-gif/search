@@ -80,8 +80,8 @@ export function PagamentoMese({
         {daBonificare >= 0.01 && trxAttiva && (!richiestaRif || richiestaRifacibile(richiestaStato)) && (
           <form action={richiedi} className="pay-group">
             <span className="pay-title" style={{ color: "var(--blue)" }}>Chiedi a Transactions</span>
-            <button className="btn small primary" type="submit" title="Chiede a Deluxy Transactions di pagare il residuo del mese. NON esce denaro adesso: la richiesta va autorizzata da una persona.">
-              Richiedi pagamento
+            <button className="btn small primary" type="submit" title="Avvia il pagamento del residuo del mese su Deluxy Transactions. NON esce denaro adesso: la richiesta va autorizzata da una persona.">
+              Paga
             </button>
           </form>
         )}
