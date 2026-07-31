@@ -274,7 +274,7 @@ Ogni scrittura via API è un **merge governato per campo**, mai una sostituzione
   Quando serve mettere insieme N anagrafiche il verso giusto è l'altro: **una è l'insegna, le
   altre sono sue sedi**.
   **E spesso non serve affatto**: le anagrafiche con lo **stesso nome** sono già lo stesso gruppo —
-  l'elenco le mostra unite e  le tratta come una società sola (il match è
+  l'elenco le mostra unite e `datiFinanziariCondivisi` le tratta come una società sola (il match è
   per nome). Il legame manuale serve solo quando l'insegna è **scritta in modo diverso**.
   Dal 31/07/2026 la sezione **Sedi** lo dice sulla scheda: elenca **tutti gli altri luoghi
   dell'insegna** — sedi formali, madre e sorelle se questa è una sede, e le omonime non collegate —
