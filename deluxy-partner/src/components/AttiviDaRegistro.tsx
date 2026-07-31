@@ -2,11 +2,17 @@ import { attiviDaImportare } from "@/lib/importa-registro";
 import { importaAttiviOra } from "@/lib/importa-actions";
 import { BottoneInvio } from "./BottoneInvio";
 
-// «Nel registro ci sono N partner attivi che qui non ci sono».
+// «Nel registro ci sono N clienti che qui non ci sono».
 //
-// L'import gira da solo ogni notte (cron `/api/cron/anagrafiche`), ma chi
-// attiva un'anagrafica alle dieci di mattina non deve aspettare la notte per
-// registrarci una vendita: da qui si porta dentro subito.
+// Nel registro lo stato si chiama «Cliente» (il valore salvato è `attivo`):
+// vuol dire che con quell'azienda ci lavoriamo davvero — le si fattura, si
+// incassa, la si paga — e quindi deve avere una scheda anche qui.
+//
+// L'ingresso avviene da solo in due modi: il registro ci chiama appena una
+// scheda diventa cliente (`POST /api/v1/partners`), e ogni notte il cron
+// `/api/cron/anagrafiche` ripassa l'elenco per recuperare chi era già cliente
+// prima, o chi è sfuggito perché l'app era irraggiungibile. Questo bottone
+// serve solo a non aspettare.
 //
 // Non compare nulla quando non c'è niente da fare: un riquadro fisso che dice
 // «0 da importare» è solo rumore in cima all'elenco.
@@ -20,7 +26,7 @@ export async function AttiviDaRegistro() {
       <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
         <span className="badge blue">
           <span className="dot" />
-          {mancanti.length} {mancanti.length === 1 ? "partner attivo" : "partner attivi"} in Anagrafiche non {mancanti.length === 1 ? "è" : "sono"} qui
+          {mancanti.length} {mancanti.length === 1 ? "cliente" : "clienti"} di Anagrafiche non {mancanti.length === 1 ? "è" : "sono"} qui
         </span>
         <form action={importaAttiviOra} style={{ display: "inline" }}>
           <BottoneInvio className="btn small primary" inCorso="Importo…">

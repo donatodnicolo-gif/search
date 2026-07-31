@@ -2,14 +2,21 @@ import { prisma } from "./db";
 import { urlAnagrafiche, type Anagrafica } from "./anagrafiche";
 import { registra } from "./registro";
 
-// I partner che nel registro Anagrafiche sono diventati ATTIVI entrano da soli
+// I partner che nel registro Anagrafiche sono diventati CLIENTI entrano da soli
 // in FINANCE.
 //
-// Il registro è la fonte di verità delle anagrafiche, e «attivo» è la sua
-// risposta alla domanda «con questa azienda ci lavoriamo davvero». Finché il
-// passaggio si faceva a mano, un partner attivato dal commerciale esisteva nel
-// registro ma non qui: le sue vendite si registravano su una scheda che
-// bisognava prima ricordarsi di creare.
+// ⚠️ Nel registro il valore salvato è `attivo` ma l'etichetta è **«Cliente»**
+// (rinominata il 31/07/2026): «attivo» diceva due cose in una parola sola. È
+// la risposta alla domanda «con questa azienda ci lavoriamo davvero» — le si
+// fattura, si incassa, la si paga — e quindi deve avere una scheda anche qui.
+// Finché il passaggio si faceva a mano, un'azienda dichiarata cliente dal
+// commerciale esisteva nel registro ma non qui: le sue vendite si registravano
+// su una scheda che bisognava prima ricordarsi di creare.
+//
+// Questa è la **rete di sicurezza**: il registro chiama già FINANCE al momento
+// del passaggio (`POST /api/v1/partners`), ma quel richiamo scatta solo sul
+// cambio di stato — chi era cliente da prima, o chi è passato mentre l'app era
+// irraggiungibile, lo recupera solo un ripasso periodico dell'elenco.
 //
 // Verso: **pull**, non push. È FINANCE a chiedere al registro chi è attivo, come
 // per ogni altro dato anagrafico. Il registro non ha (e non deve avere) una
