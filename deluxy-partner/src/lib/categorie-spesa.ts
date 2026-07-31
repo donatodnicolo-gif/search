@@ -133,22 +133,37 @@ export async function proponiConAI(
   }
 }
 
+// Il nome come lo confronta Budgets: minuscolo, spazi ripetuti schiacciati,
+// niente spazi ai bordi. Vale sia per il nome della controparte sia per il
+// testo della regola — se una delle due parti non è normalizzata il confronto
+// esatto non scatta, ed è quello che stava succedendo.
+const normalizza = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
+
 /** La categoria suggerita dalle REGOLE di Budgets per una controparte.
  *  Stesso criterio dell'originale: vince il `match` più lungo, così una regola
  *  specifica batte una generica ("ENEL ENERGIA" batte "ENEL"). Torna null se
- *  nessuna regola risponde: meglio «non categorizzata» che categorizzata a caso. */
+ *  nessuna regola risponde: meglio «non categorizzata» che categorizzata a caso.
+ *
+ *  ⚠️ **Il nome va normalizzato prima di confrontarlo, e per un motivo misurato**
+ *  (31/07/2026): 2.411 delle 2.500 regole di Budgets sono a **match esatto**, e
+ *  un match esatto contro `" Alice Angelotti"` con lo spazio davanti non scatta
+ *  mai. Budgets non se ne accorgeva perché riceve i nomi **già aggregati e
+ *  ripuliti** da `/api/spese`, mentre qui si confronta il campo grezzo del
+ *  movimento. Risultato: 54 movimenti del 2026 per 4.078 € che Budgets
+ *  classificava e Finance no — cioè le due app in disaccordo per un motivo che
+ *  non c'entra niente con la contabilità. */
 export function categoriaDaRegole(
   controparte: string | null,
   descrizione: string,
   categorie: CategoriaCosto[]
 ): CategoriaCosto | null {
-  const testo = (controparte ?? descrizione ?? "").toLowerCase();
-  if (!testo.trim()) return null;
+  const testo = normalizza(controparte ?? descrizione ?? "");
+  if (!testo) return null;
 
   let vincente: { cat: CategoriaCosto; lunghezza: number } | null = null;
   for (const c of categorie) {
     for (const r of c.regole ?? []) {
-      const m = r.match.trim().toLowerCase();
+      const m = normalizza(r.match);
       if (!m) continue;
       const colpisce = r.esatto ? testo === m : testo.includes(m);
       if (colpisce && (!vincente || m.length > vincente.lunghezza)) {

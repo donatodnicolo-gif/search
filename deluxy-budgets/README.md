@@ -916,6 +916,27 @@ lo mostra come badge «partita di giro».
 > costo. Due app che chiamano in due modi la stessa voce di conto economico sono un modo garantito
 > di far litigare due numeri identici.
 
+### Finance e Budgets classificano due volte, non una
+
+**Le due app non condividono un risultato: condividono le regole.** Finance salva la categoria
+**sul singolo movimento** quando si preme «Applica le regole di Budgets»; Budgets **la ricalcola
+ogni volta** leggendo `/api/spese` e riapplicando le stesse regole. Conseguenza da tenere a mente:
+la categoria salvata in Finance è una **fotografia**, quella di Budgets è **live**. Scrivendo una
+regola nuova, il conto economico cambia subito e Finance no, finché non si ripreme il bottone.
+
+Confrontate voce per voce sul 2026 (1.663 controparti): **1.476 uguali, zero in disaccordo**. Non
+esiste una controparte su cui le due app dicano due categorie diverse — il che è il punto: la fonte
+delle regole è una sola.
+
+> ⚠️ **Le 46 che Budgets classificava e Finance no non erano un problema di regole, ma di spazi**
+> (31/07/2026). **2.411 delle 2.500 regole sono a match esatto**, e un match esatto contro
+> `" Alice Angelotti"` — con lo spazio davanti, come arriva da Qonto — non scatta mai. Budgets non
+> se ne accorgeva perché riceve i nomi **già aggregati e ripuliti** da `/api/spese`, mentre Finance
+> confronta il campo grezzo del movimento: **54 movimenti del 2026 per 4.078 €**. È anche la
+> spiegazione del residuo che non tornava fra le due app (Finance 8.662 € contro 4.117 € qui).
+> Corretto in `categoriaDaRegole()` di Finance, che ora normalizza entrambe le parti del confronto.
+> **Va ripremuto il bottone** perché la fotografia si rifaccia.
+
 **`/api/v1/maison` nasce per Marketing**, che deve sapere due cose che vivono solo qui: quanto una
 maison deve vendere in un mese e **quanto può spendere in ADV** in quel mese. Senza, Marketing
 terrebbe una copia dei budget — e due copie che divergono fanno decidere le campagne su numeri
