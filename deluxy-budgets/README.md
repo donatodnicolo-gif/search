@@ -192,28 +192,29 @@ pubblicato), *sfidante* e *irraggiungibile*.
   > secondo semestre il totale del mese è spaccato in percentuali fisse (10/20/70, 10/90), nel primo
   > no. Va confrontato col foglio prima di leggere qualsiasi scostamento di quel brand.
 
-  **E adesso il budget si può scrivere** (31/07/2026). Fino a quel giorno in `BudgetEntry` scrivevano
-  solo tre cose: il **seed** dall'Excel, `/margini` (che cancella le voci di una tipologia eliminata)
-  e il **consolidamento di una proposta**. Cioè il budget si poteva *importare* o *ereditare*, ma non
-  *scrivere*: se a un brand mancava un canale, l'unico modo di aggiungerlo era inventarsi una
-  proposta e consolidarla. In `/maison/[slug]` la griglia **canale × dodici mesi** è editabile
-  (`PUT /api/budget`, componente `BudgetMaison`), e sotto si vede l'**ADV consentito ricalcolarsi da
-  solo**.
+  **Il budget non si digita: si propone, si approva, si consolida** (31/07/2026). Per qualche ora
+  questa griglia è stata modificabile ed era la strada sbagliata — correzione dell'utente, e la
+  ragione va lasciata scritta: **un budget scritto a mano su una pagina non ha un autore, non ha una
+  data e non ha il «va bene» di nessuno**, cioè non si sa più *chi* ha promesso quel numero, che è
+  metà del motivo per cui il budget esiste. La rotta di scrittura è stata tolta.
+
+  Quello che serviva davvero era **vedere da dove viene ogni casella**, e adesso si vede: le proposte
+  consolidate dicono esattamente quali *(linea, mese)* hanno scritto, quindi la provenienza si
+  ricostruisce **cella per cella**. Un <span>●</span> verde accanto al numero vuol dire «arrivato da
+  una proposta approvata»; passandoci sopra si legge **di chi** e **di quando**. Le caselle senza
+  pallino vengono dal file di partenza. In cima alla griglia c'è chi ha proposto, con il link alla
+  proposta, e — separato — l'avviso delle proposte **approvate ma non ancora consolidate**:
+  approvare vuol dire «va bene», consolidare è il gesto che riscrive i numeri, e finché non avviene
+  il budget pubblicato non è cambiato di un euro.
 
   > **Un canale senza budget non è un canale a zero: è un canale che non porta ADV con sé.** Quanto
   > si può spendere in pubblicità è `vendite del mese × % ADV`, e le vendite del mese sono la somma
   > **di tutti i canali** (`advConsentitoMese` in `src/lib/calc.ts`). Quindi un brand a cui manca
   > Eventi o B2B non perde solo quella riga di ricavo: si vede assegnare **meno soldi per fare
-  > pubblicità**, e nessuna schermata lo diceva. Oggi la pagina lo dice, con il badge dei canali
-  > vuoti. Al 31/07/2026 mancano **4 coppie brand-canale su 15**: Business B2B non ha D2C né Eventi,
-  > Experience non ha D2C né B2B — e Deluxy.it ha sei mesi a zero su tutti e tre, quindi **ADV
-  > consentito zero da gennaio a giugno**.
-
-  > **Si scrive solo il livello pubblicato.** Su *sfidante* e *irraggiungibile* le caselle sono in
-  > sola lettura e la pagina spiega perché: quei numeri non sono un dato, sono il pubblicato per un
-  > moltiplicatore, e lasciarli scrivere vorrebbe dire salvare uno scenario credendo di salvare un
-  > budget. Il salvataggio avviene **uscendo dalla casella**, non a ogni tasto: scrivere «55000»
-  > sono cinque salvataggi, e i primi quattro sono numeri che nessuno ha mai voluto scrivere.
+  > pubblicità**, e nessuna schermata lo diceva. Oggi la pagina lo dice. Al 31/07/2026 mancano
+  > **4 coppie brand-canale su 15**: Business B2B non ha D2C né Eventi, Experience non ha D2C né
+  > B2B — e Deluxy.it ha sei mesi a zero su tutti e tre, quindi **ADV consentito zero da gennaio a
+  > giugno**. Si riempiono con una proposta su quella maison, che oggi si scrive linea per linea.
 - **Team commerciale** (`/commerciale`): le **linee di vendita** (con sottolinee) sono richiamate
   live da **Scout**, che ne è il master (edge function Supabase `linee`, chiave `LINEE_API_KEY`
   dal vault del Hub). Il budget per linea (valore/clienti) resta in Budgets e si aggancia alle
