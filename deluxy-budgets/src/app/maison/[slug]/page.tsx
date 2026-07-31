@@ -2,10 +2,11 @@ import Link from "next/link";
 import { misuraQuota } from "@/lib/quota";
 import { notFound } from "next/navigation";
 import {
-  advConsentitoMese, ANNO_CORRENTE, caricaAnno, contoEconomico, LIVELLI,
-  moltiplicatore, totaliMaison, venditeMese, type Livello,
+  ANNO_CORRENTE, caricaAnno, contoEconomico, LIVELLI,
+  moltiplicatore, totaliMaison, type Livello,
 } from "@/lib/calc";
-import { eur, MESI, pct } from "@/lib/format";
+import { eur, pct } from "@/lib/format";
+import { BudgetMaison } from "@/components/BudgetMaison";
 
 export const dynamic = "force-dynamic";
 
@@ -78,55 +79,33 @@ export default async function MaisonDetail({
         </div>
       </div>
 
-      <div className="card tight">
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Mese</th>
-                {dati.tipologie.map((tip) => (
-                  <th className="num" key={tip.slug}>{tip.nome}</th>
-                ))}
-                <th className="num">Totale</th>
-                <th className="num">% ADV</th>
-                <th className="num">ADV consentito</th>
-                <th className="num">ADV pubblicato</th>
-              </tr>
-            </thead>
-            <tbody>
-              {maison.mesi.map((mese) => {
-                const tot = venditeMese(mese);
-                return (
-                  <tr key={mese.month}>
-                    <td style={{ fontWeight: 500 }}>{MESI[mese.month - 1]}</td>
-                    {dati.tipologie.map((tip) => (
-                      <td className="num" key={tip.slug}>{eur((mese.vendite[tip.slug] ?? 0) * molt)}</td>
-                    ))}
-                    <td className="num" style={{ fontWeight: 600 }}>{eur(tot * molt)}</td>
-                    <td className="num muted">{pct(mese.advPercent)}</td>
-                    <td className="num">{eur(advConsentitoMese(mese) * molt)}</td>
-                    <td className="num muted">{eur(mese.advPubblicato)}</td>
-                  </tr>
-                );
-              })}
-              <tr className="tot">
-                <td>Totale</td>
-                {dati.tipologie.map((tip) => (
-                  <td className="num" key={tip.slug}>{eur((t.perServizio[tip.slug] ?? 0) * molt)}</td>
-                ))}
-                <td className="num">{eur(t.totale * molt)}</td>
-                <td className="num">{t.totale > 0 ? pct((t.adv / t.totale) * 100) : "—"}</td>
-                <td className="num">{eur(t.adv * molt)}</td>
-                <td className="num">{eur(t.advPubblicato)}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
+      {/* Il budget si SCRIVE qui (31/07/2026). Prima si poteva solo importare
+          dall'Excel o ereditare da una proposta consolidata: mancava un canale
+          a un brand e non c'era modo di aggiungerlo. E siccome l'ADV consentito
+          è una percentuale sulle vendite del mese, un canale senza budget non è
+          «un canale a zero»: è un canale che non porta con sé i soldi per
+          farlo. */}
+      <BudgetMaison
+        anno={dati.year}
+        maison={maison.slug}
+        tipologie={dati.tipologie.map((tip) => ({ slug: tip.slug, nome: tip.nome }))}
+        mesi={maison.mesi.map((m) => ({
+          month: m.month,
+          vendite: m.vendite,
+          advPercent: m.advPercent,
+          advPubblicato: m.advPubblicato,
+        }))}
+        molt={molt}
+        modificabile={livello === "RAGGIUNGIBILE"}
+      />
 
       <p className="page-caption" style={{ marginTop: 18 }}>
-        Le % ADV per mese si modificano in <Link href="/spese" style={{ color: "var(--blue)" }}>Spese ADV</Link>.
-        &quot;ADV pubblicato&quot; è il budget HP del monitoraggio 2026, mostrato come riferimento (non scala con il livello).
+        Le vendite si scrivono qui, canale per canale e mese per mese: sono il <strong>budget pubblicato</strong>,
+        e da loro nasce tutto il resto — l&apos;<strong>ADV consentito</strong> si ricalcola da solo, e il P&amp;L
+        con lui. Le <strong>% ADV</strong> per mese si cambiano invece in{" "}
+        <Link href="/spese" style={{ color: "var(--blue)" }}>Spese ADV</Link>, dove si vedono tutte le maison
+        insieme. &quot;ADV pubblicato&quot; è il budget HP del monitoraggio {dati.year}, tenuto come riferimento:
+        non scala con il livello, perché è un numero storico e non uno scenario.
       </p>
     </>
   );
