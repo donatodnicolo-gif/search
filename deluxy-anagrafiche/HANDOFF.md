@@ -268,6 +268,18 @@ Ogni scrittura via API è un **merge governato per campo**, mai una sostituzione
     modale e ricercare per ognuno, cioè lasciare il gruppo a metà. Chi non si può collegare **non
     ferma gli altri** e torna indietro col proprio motivo. Nell'elenco delle sedi c'è la colonna
     **Indirizzo**.
+  **Un'anagrafica ha UNA sola insegna** (`capogruppoId` singolo): non si può dire «è sede di
+  Milano e anche di Roma». Non è un limite da togliere — se una sede avesse due insegne, «di chi è
+  questo negozio?» non avrebbe risposta e la fatturazione, che è dell'insegna, resterebbe ambigua.
+  Quando serve mettere insieme N anagrafiche il verso giusto è l'altro: **una è l'insegna, le
+  altre sono sue sedi**.
+  **E spesso non serve affatto**: le anagrafiche con lo **stesso nome** sono già lo stesso gruppo —
+  l'elenco le mostra unite e  le tratta come una società sola (il match è
+  per nome). Il legame manuale serve solo quando l'insegna è **scritta in modo diverso**.
+  Dal 31/07/2026 la sezione **Sedi** lo dice sulla scheda: elenca **tutti gli altri luoghi
+  dell'insegna** — sedi formali, madre e sorelle se questa è una sede, e le omonime non collegate —
+  con il conteggio «N luoghi in tutto». Prima da una sede non si vedeva nulla, e si finiva a
+  cercare di dare a un'anagrafica due insegne.
   ⚠️ Da una **sede** i due bottoni non compaiono: una sede non può avere sedi proprie. È il
   motivo per cui su un'anagrafica già raggruppata la scheda sembra «senza azioni».
   **Diventata cliente → rubrica Google in automatico**: quando lo stato passa a `attivo`

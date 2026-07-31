@@ -93,7 +93,13 @@ export default async function Dettaglio({
   // verso Francoforte, ~250 ms l'una, su una pagina che si riapre a ogni
   // cambio di stato.
   const haSedi = p.sedi.length > 0 || Boolean(p.capogruppo);
-  const [fin, altriLuoghi, perVoto, linee] = await Promise.all([
+  // Le anagrafiche con la STESSA INSEGNA (stesso nome) sono già lo stesso
+  // gruppo, anche senza legame manuale: è così che le mostra l'elenco ed è così
+  // che condividono la fatturazione. Sulla scheda però non si vedevano, e chi
+  // guardava una sede pensava di doverle collegare a mano — cercando di dare a
+  // un'anagrafica due insegne, che il modello non permette e non deve.
+  const nomeInsegna = (p.capogruppo?.nome ?? p.nome).trim();
+  const [fin, altriLuoghi, perVoto, linee, stessaInsegna] = await Promise.all([
     // Fatturazione a livello di società: condivisa da tutte le sedi dell'insegna.
     datiFinanziariCondivisi(p),
     // Gli altri luoghi della stessa insegna: servono per spostare un referente
@@ -115,7 +121,25 @@ export default async function Dettaglio({
     // La distribuzione delle stelle conta TUTTI i feedback, non solo i 30 elencati.
     prisma.feedbackD2C.groupBy({ by: ["voto"], where: { partnerId: p.id }, _count: { _all: true } }),
     getLinee(),
+    prisma.partner.findMany({
+      where: {
+        attivo: true,
+        NOT: { id: p.id },
+        nome: { equals: nomeInsegna, mode: "insensitive" },
+        capogruppoId: null,
+        ...(p.capogruppo ? { NOT: [{ id: p.id }, { id: p.capogruppo.id }] } : {}),
+      },
+      select: { id: true, nome: true, sede: true, citta: true, indirizzo: true, stato: true },
+      orderBy: [{ citta: "asc" }],
+    }),
   ]);
+  // Tutti gli ALTRI luoghi della stessa insegna, comunque siano legati: le sedi
+  // formali, la madre e le sorelle quando questa è una sede, e le anagrafiche
+  // con lo stesso nome che stanno insieme senza legame manuale. Deduplicati:
+  // una stessa anagrafica può arrivare da due strade.
+  const luoghiInsegna = [...p.sedi, ...(p.capogruppo ? altriLuoghi : []), ...stessaInsegna].filter(
+    (x, i, tutti) => tutti.findIndex((y) => y.id === x.id) === i,
+  );
   const etichettaLuogo = (l: { nome: string; citta: string | null; sede: string | null; indirizzo: string | null }) =>
     [l.sede, l.citta, l.sede ? null : l.indirizzo].filter(Boolean).join(" · ") || l.nome;
 
@@ -513,14 +537,14 @@ export default async function Dettaglio({
 
       {/* La sezione c'è anche a zero sedi: è da qui che si aggiunge la seconda
           boutique in città, e senza il riquadro non si saprebbe che si può. */}
-      {(p.sedi.length > 0 || (p.attivo && !p.capogruppo)) && (
+      {(luoghiInsegna.length > 0 || (p.attivo && !p.capogruppo)) && (
         <section className="scheda">
           <div className="testata-sezione">
             <h2 className="scheda-titolo" style={{ marginBottom: 0 }}>
               Sedi{" "}
               <span className="scheda-sub">
-                {p.sedi.length > 0
-                  ? `${p.sedi.length + 1} luoghi in tutto, questa compresa`
+                {luoghiInsegna.length > 0
+                  ? `${luoghiInsegna.length + 1} luoghi in tutto, questa compresa`
                   : "un solo luogo: questa anagrafica"}
               </span>
             </h2>
@@ -536,11 +560,29 @@ export default async function Dettaglio({
               />
             )}
           </div>
+          {luoghiInsegna.length > 0 && (
+            <p className="avviso-pagamento">
+              <strong>Gli altri luoghi di questa insegna:</strong>{" "}
+              {luoghiInsegna.map((x, i) => (
+                <span key={x.id}>
+                  {i > 0 && ", "}
+                  <a href={"/partner/" + x.id}>
+                    {[x.sede, x.citta].filter(Boolean).join(" · ") || x.nome}
+                  </a>
+                </span>
+              ))}
+              . Sono tutte la stessa insegna: l&apos;elenco le mostra come un gruppo solo e
+              condividono i dati di fatturazione. Quelle che <strong>portano lo stesso nome stanno
+              insieme da sé</strong>, senza collegarle a mano — il legame manuale serve solo quando
+              l&apos;insegna è scritta in modo diverso.
+            </p>
+          )}
           {p.sedi.length === 0 ? (
             <p className="testo-guida" style={{ margin: 0 }}>
               Se l&apos;insegna ha più luoghi — anche due indirizzi nella stessa città — aggiungili con
-              <strong> ＋ Sede</strong>: ognuno resta un&apos;anagrafica a sé per stato, referenti e
-              feedback, mentre fatturazione e gruppo di pagamento restano quelli della società.
+              <strong> ＋ Sedi di questa</strong>: ognuno resta un&apos;anagrafica a sé per stato,
+              referenti e feedback, mentre fatturazione e gruppo di pagamento restano quelli della
+              società.
             </p>
           ) : (
             <div className="tabella-wrap" style={{ boxShadow: "none", border: "1px solid var(--hairline)" }}>
