@@ -167,7 +167,9 @@ export const labelAffiliazione: Record<StatoAffiliazione, string> = {
   attivo: 'Attivo',
   a_rischio: 'A rischio',
   non_interessato: 'Non interessato',
-  dismesso: 'Dismesso',
+  // Il valore resta `dismesso` (è quello del registro), ma si legge «Dormiente»:
+  // è la stessa cosa, e chiamarla in due modi obbligava a tradurre a mente.
+  dismesso: 'Dormiente',
 };
 
 export const coloreAffiliazione: Record<StatoAffiliazione, string> = {

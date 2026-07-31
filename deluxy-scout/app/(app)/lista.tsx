@@ -31,12 +31,16 @@ import type { RecapitoPlace } from '@/lib/db';
 // `vista=prospect` mostra i Prospect veri, non più i Selezionati. Chi avesse un
 // vecchio link salvato finisce su una lista diversa da prima — il titolo in
 // cima dice sempre quale.
-type Vista = 'selezionato' | 'lead' | 'prospect' | 'cliente' | 'inattivi';
+type Vista = 'selezionato' | 'lead' | 'prospect' | 'cliente' | 'a-rischio' | 'inattivi';
 const LIVELLI_VISTA: Record<Vista, Livello[]> = {
   selezionato: ['selezionato'],
   lead: ['lead'],
   prospect: ['prospect'],
   cliente: ['cliente'],
+  // «A rischio» è un taglio dentro i Clienti, non un livello a sé: compra
+  // ancora, ed è il motivo per cui vale la pena occuparsene adesso. Il filtro
+  // vero lo fa `aRischio()` più sotto.
+  'a-rischio': ['cliente'],
   // ⚠️ Solo i dormienti (decisione utente 29/07/2026): «in Dormienti e persi ci
   // vanno solo quelli che Anagrafiche indica come dismessi». I persi restano
   // nella lista del loro livello, con il badge — vedi `ePerso` in lib/livelli.
@@ -50,6 +54,7 @@ const NOME_VISTA: Record<Vista, string> = {
   lead: 'Lead',
   prospect: 'Prospect',
   cliente: 'Clienti',
+  'a-rischio': 'A rischio',
   inattivi: 'Dormienti',
 };
 
@@ -58,8 +63,10 @@ const TITOLO_VISTA: Record<Vista, string> = {
   lead: 'Lead — c’è un contatto: una persona in rubrica, un messaggio partito, o è arrivato lui. Non ha ancora mostrato interesse: sono quelli da incalzare.',
   prospect: 'Prospect — ha risposto e c’è una trattativa aperta: qui si sta giocando qualcosa, e l’azione è portarla a casa.',
   cliente: 'Clienti — hanno chiuso una trattativa.',
+  'a-rischio':
+    'A rischio — compra ancora, ma i segnali peggiorano. È la finestra in cui si può ancora fare qualcosa: dopo diventa un dormiente, e riattivarlo costa molto di più. Lo stato lo mette il registro Anagrafiche.',
   inattivi:
-    'Dormienti — clienti che il registro Anagrafiche dà per dismessi: ci conoscono e hanno già comprato, ed è la lista più redditizia da riattivare. I rapporti chiusi senza esito NON stanno qui: restano nella loro lista col badge «Perso».',
+    'Dormienti — clienti che hanno smesso di comprare (nel registro Anagrafiche sono i «dismessi»): ci conoscono e hanno già comprato, ed è la lista più redditizia da riattivare. I rapporti chiusi senza esito NON stanno qui: restano nella loro lista col badge «Perso».',
 };
 
 const RANK: Record<string, number> = { P1: 0, P2: 1, P3: 2 };
@@ -77,7 +84,7 @@ export default function Lista() {
     livelloDi(p, conContatto.has(p.id), contattati.has(p.id), inTrattativa.has(p.id), nonFatturano.has(p.id));
   const [filtri, setFiltri] = useState<FiltriMappa>(filtriVuoti);
   const { vista } = useLocalSearchParams<{ vista?: string }>();
-  const vistaCorr = (['selezionato', 'lead', 'prospect', 'cliente', 'inattivi'] as Vista[]).includes(vista as Vista)
+  const vistaCorr = (['selezionato', 'lead', 'prospect', 'cliente', 'a-rischio', 'inattivi'] as Vista[]).includes(vista as Vista)
     ? (vista as Vista)
     : null;
   const livelliVista = vistaCorr ? LIVELLI_VISTA[vistaCorr] : null;
@@ -122,6 +129,9 @@ export default function Lista() {
       // già bastate a far sparire dei negozi da una vista sola.
       .filter((p) => inLavorazione(p, conContatto.has(p.id), contattati.has(p.id)))
       .filter((p) => (livelliVista ? livelliVista.includes(livelloPlace(p)) : true))
+      // «A rischio» è un taglio dentro i Clienti: il livello non basta a
+      // distinguerlo, lo dice lo stato commerciale.
+      .filter((p) => (vistaCorr === 'a-rischio' ? aRischio(p) : true))
       .filter((p) => (livello ? livelloPlace(p) === livello : true))
       .filter((p) => {
       if (!q) return true;
@@ -134,7 +144,7 @@ export default function Lista() {
       );
     });
     return [...f].sort((a, b) => RANK[a.priorita] - RANK[b.priorita] || a.nome.localeCompare(b.nome));
-  }, [places, conContatto, contattati, filtri, query, livello, livelliVista]);
+  }, [places, conContatto, contattati, filtri, query, livello, livelliVista, vistaCorr]);
 
   // Quanti ce ne sono per livello (i numeri sui chip: dicono dove sta il lavoro).
   const perLivello = useMemo(() => {

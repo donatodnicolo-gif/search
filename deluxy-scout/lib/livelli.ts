@@ -73,7 +73,23 @@ export const AIUTO_LIVELLO: Record<Livello, string> = {
  * che dice «non interessato».
  */
 export function ePerso(p: Place): boolean {
-  return p.stato === 'perso' || p.anagrafiche_stato === 'non_interessato';
+  return p.stato === 'perso' || statoCommerciale(p) === 'non_interessato';
+}
+
+/**
+ * Lo stato commerciale del negozio, da qualunque delle due colonne arrivi.
+ *
+ * `stato_affiliazione` è la copia su cui lavora Scout; `anagrafiche_stato` è la
+ * parola del registro. Dal 29/07/2026 **il vocabolario è lo stesso**, quindi
+ * non c'è più niente da tradurre: si guarda quella impostata, e fra le due
+ * vince la prima perché è quella che si può cambiare da qui.
+ *
+ * ⚠️ Prima si leggeva solo `stato_affiliazione`, e l'import dal registro scrive
+ * **solo** `anagrafiche_stato`: i partner importati non prendevano il livello
+ * che gli spettava — un `in_trattativa` del registro restava Selezionato.
+ */
+export function statoCommerciale(p: Place): string | null {
+  return p.stato_affiliazione ?? p.anagrafiche_stato ?? null;
 }
 
 export const LABEL_PERSO = 'Perso';
@@ -88,7 +104,7 @@ export const COLORE_PERSO = '#B3261E';
  * quando aveva già smesso — cioè quando è tardi per fare qualcosa.
  */
 export function aRischio(p: Place): boolean {
-  return p.anagrafiche_stato === 'a_rischio' || p.stato_affiliazione === 'a_rischio';
+  return statoCommerciale(p) === 'a_rischio';
 }
 
 export const LABEL_A_RISCHIO = 'A rischio';
@@ -135,14 +151,14 @@ export function livelloDi(
   // ci vanno più** — restano nella loro lista del funnel col badge «Perso»
   // (vedi `ePerso`). Un rapporto chiuso senza esito non è un cliente che si è
   // fermato: mescolarli faceva sparire i lead persi dai Lead.
-  if (nonFattura || p.anagrafiche_stato === 'dismesso') return 'dormiente';
+  if (nonFattura || statoCommerciale(p) === 'dismesso') return 'dormiente';
 
   // CLIENTE — la trattativa è andata bene.
   if (p.stato === 'cliente' || p.anagrafiche_stato === 'attivo') return 'cliente';
 
   // PROSPECT — ha mostrato interesse: ha risposto, e c'è una trattativa
   // aperta. È il lead che si è mosso, non quello di cui abbiamo l'indirizzo.
-  if (inTrattativa || p.hubspot_deal_aperta || p.stato_affiliazione === 'in_trattativa') return 'prospect';
+  if (inTrattativa || p.hubspot_deal_aperta || statoCommerciale(p) === 'in_trattativa') return 'prospect';
 
   // ⚠️ **`prospect` NON è più un Prospect di Scout** (29/07/2026). Nel registro
   // Anagrafiche `prospect` è lo stato di DEFAULT — un'azienda appena creata che
@@ -160,11 +176,12 @@ export function livelloDi(
   // Gli stati di LAVORAZIONE del registro dicono tutti la stessa cosa per la
   // scala di Scout: il contatto c'è stato. Il dettaglio (quando, come, con chi)
   // vive qui in `contatti_avviati`, `chiamate` e `visits`, ed è più preciso.
+  const commerciale = statoCommerciale(p);
   if (
-    p.stato_affiliazione === 'lead' ||
-    p.stato_affiliazione === 'in_contatto' ||
-    p.stato_affiliazione === 'in_attesa' ||
-    p.stato_affiliazione === 'da_ricontattare'
+    commerciale === 'lead' ||
+    commerciale === 'in_contatto' ||
+    commerciale === 'in_attesa' ||
+    commerciale === 'da_ricontattare'
   ) {
     return 'lead';
   }

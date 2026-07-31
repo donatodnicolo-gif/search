@@ -46,7 +46,12 @@ export const ETICHETTE_STATO: Record<Stato, string> = {
   attivo: "Attivo",
   a_rischio: "A rischio",
   non_interessato: "Non interessato",
-  dismesso: "Dismesso",
+  // ⚠️ Il VALORE resta `dismesso` (è nel database di 976 anagrafiche e cambiarlo
+  // sarebbe una migrazione), ma l'ETICHETTA è «Dormiente»: è la parola che usa
+  // l'app commerciale per la stessa identica cosa, e due nomi per un concetto
+  // solo costringono a tradurre a mente ogni volta (decisione utente
+  // 29/07/2026).
+  dismesso: "Dormiente",
 };
 
 // Colore semantico del badge (token del design system)

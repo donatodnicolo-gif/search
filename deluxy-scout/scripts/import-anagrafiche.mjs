@@ -74,14 +74,23 @@ const CATEGORIA = {
   'CHEF PRIVATO': 'altro',
   CONCIERGE: 'altro',
 };
-// Stato del registro (7 valori) → stato Scout (4). Quello originale resta in anagrafiche_stato.
+// Stato commerciale (vocabolario condiviso, 11 valori) → stato di PIPELINE di
+// Scout (4).
+//
+// ⚠️ Il valore originale finisce in `anagrafiche_stato` **e** in
+// `stato_affiliazione`: è da lì che `lib/livelli.ts` ricava il livello —
+// attivo→Cliente, in_contatto/in_attesa→Lead, in_trattativa→Prospect,
+// dismesso→Dormiente, a_rischio→Cliente col segno «a rischio».
 const STATO = {
+  selezionato: 'da_visitare',
+  lead: 'da_visitare',
   prospect: 'da_visitare',
-  in_attesa: 'da_visitare',
-  in_contatto: 'da_visitare',
-  da_ricontattare: 'da_visitare',
+  in_attesa: 'visitato',
+  in_contatto: 'visitato',
+  da_ricontattare: 'visitato',
   in_trattativa: 'visitato',
   attivo: 'cliente',
+  a_rischio: 'cliente',
   non_interessato: 'perso',
   dismesso: 'perso',
 };
@@ -190,9 +199,19 @@ for (let i = 0; i < righe.length; i += 100) {
           from d left join category_rules cr on lower(cr.categoria) = lower(d.categoria))
     insert into places (nome, indirizzo, zona, settore, categoria, stato, lat, lng, source,
                         anagrafiche_id, anagrafiche_account, anagrafiche_stato, anagrafiche_ultima_visita,
+                        stato_affiliazione, starred,
                         linea_ipotizzata, aggancio_apertura, priorita)
     select r.nome, r.indirizzo, r.zona, r.settore, r.categoria, r.stato::stato_place_t, r.lat, r.lng,
            'anagrafiche', r.aid, r.account, r.ana_stato, r.ultima_visita,
+           -- Lo stato commerciale su cui lavora Scout: senza, il livello non si
+           -- ricava e un `in_trattativa` del registro resterebbe Selezionato.
+           r.ana_stato::stato_affiliazione_t,
+           -- ⚠️ `starred` è obbligatorio perché il negozio si VEDA: gli elenchi
+           -- mostrano solo chi è stato scelto da qualcuno (`inLavorazione` in
+           -- lib/livelli.ts), e un partner del registro è una scelta fatta in
+           -- un'altra app. Senza, l'import riempie il database e le liste
+           -- restano vuote.
+           true,
            r.linea_ipotizzata, r.aggancio_apertura, coalesce(r.priorita, 'P3')::priorita_t
     from r
     on conflict (anagrafiche_id) where anagrafiche_id is not null do update set
@@ -201,6 +220,8 @@ for (let i = 0; i < righe.length; i += 100) {
       zona = excluded.zona,
       settore = excluded.settore,
       anagrafiche_account = excluded.anagrafiche_account,
+      stato_affiliazione = excluded.stato_affiliazione,
+      starred = true,
       anagrafiche_stato = excluded.anagrafiche_stato,
       anagrafiche_ultima_visita = excluded.anagrafiche_ultima_visita;
   `);

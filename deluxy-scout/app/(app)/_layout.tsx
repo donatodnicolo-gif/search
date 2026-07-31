@@ -53,6 +53,9 @@ const SEZIONI: { titolo: string; voci: Voce[] }[] = [
       { name: 'lista-lead', route: 'lista', params: { vista: 'lead' }, label: 'Lead', icon: 'send-outline' },
       { name: 'lista-prospect', route: 'lista', params: { vista: 'prospect' }, label: 'Prospect', icon: 'people-outline' },
       { name: 'clienti', label: 'Clienti', icon: 'storefront-outline' },
+      // Clienti che comprano ancora ma peggiorano: la finestra in cui si può
+      // ancora fare qualcosa, prima che diventino dormienti.
+      { name: 'lista-a-rischio', route: 'lista', params: { vista: 'a-rischio' }, label: 'A rischio', icon: 'warning-outline' },
       // Solo i dormienti: i persi restano nella lista del loro livello, col
       // badge «Perso» (decisione utente 29/07/2026).
       { name: 'lista-inattivi', route: 'lista', params: { vista: 'inattivi' }, label: 'Dormienti', icon: 'moon-outline' },

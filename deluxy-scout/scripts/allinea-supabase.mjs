@@ -37,6 +37,7 @@ const MIGRAZIONI = [
   '0053_visita_motivi.sql',
   '0054_places_cancellazione.sql',
   '0055_preventivi_fornitori.sql',
+  '0056_stato_a_rischio.sql',
 ];
 // `ordini` è il proxy verso Deluxy Orders (venduto per provincia): resta inerte
 // finché in cassaforte non c'è `ORDERS_API_KEY`, ma senza deploy non esiste

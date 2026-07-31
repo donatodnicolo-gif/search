@@ -1,0 +1,17 @@
+-- Deluxy Scout — 0056: lo stato «a rischio» nell'enum degli stati commerciali.
+-- Idempotente. Applicare con scripts/allinea-supabase.mjs.
+--
+-- Il cliente che compra ancora ma peggiora. Prima fra «attivo» e «dismesso»
+-- non c'era niente: un cliente usciva dal radar solo quando aveva già smesso,
+-- cioè quando riattivarlo costa molto di più. Viene dalla pratica dei CRM di
+-- mercato (lifecycle: active → at-risk → churned → win-back).
+--
+-- ⚠️ Il vocabolario è **condiviso col registro Anagrafiche**
+-- (`deluxy-anagrafiche/src/lib/stati.ts`): aggiungendo un valore là, va aggiunto
+-- anche qui, o il registro manda a Scout uno stato che l'enum rifiuta e la
+-- sincronizzazione fallisce sulla singola riga.
+--
+-- ⚠️ `alter type ... add value` **non può stare in una transazione** e non si
+-- può annullare: sta da solo in questa migrazione, come già la 0023, la 0048 e
+-- la 0051. `if not exists` la rende ripetibile.
+alter type stato_affiliazione_t add value if not exists 'a_rischio' after 'attivo';
