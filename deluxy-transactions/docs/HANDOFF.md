@@ -258,6 +258,15 @@ detta a chi le usa.
   si valida **solo se il campo è stato cambiato** (31/07/2026). La regola
   generale: un valore di partenza che non passa la propria validazione trasforma
   un modulo tutto-o-niente in un modulo che non salva mai.
+- **Da telefono il menu non si apriva affatto** (fino al 31/07/2026). Sotto gli
+  800px la sidebar era `display: none` e il pulsante ☰ spostava solo un margine:
+  nessuna delle altre pagine era raggiungibile da mobile. Ora è un cassetto che
+  entra da sinistra (`[data-menu-aperto]`), si chiude toccando lo sfondo,
+  scegliendo una voce o con Esc, e la preferenza del desktop
+  (`data-sidebar-chiusa`) è neutralizzata dentro la media query — altrimenti
+  chi aveva chiuso la sidebar sul computer non avrebbe potuto aprirla sul
+  telefono. Attenzione se si tocca `.sidebar`: le due modalità convivono nello
+  stesso selettore.
 - **Due account intestati alla stessa persona si distinguono solo dall'email.**
   Successo davvero il 31/07/2026: `deluxy.delivery@gmail.com` ha `nome` «Nicolo
   Donato» e `nicolo.donato@deluxy.it` ha «Nicolo Daniele Donato». L'intestazione
