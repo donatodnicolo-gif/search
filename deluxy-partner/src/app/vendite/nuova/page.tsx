@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export default async function NuovaVendita({
   searchParams,
 }: {
-  searchParams: Promise<{ partnerId?: string }>;
+  searchParams: Promise<{ partnerId?: string; incasso?: string }>;
 }) {
   const sp = await searchParams;
   const [partners, tariffe] = await Promise.all([
@@ -44,6 +44,7 @@ export default async function NuovaVendita({
           <FeeVendita
             partners={feePartners}
             partnerIniziale={sp.partnerId}
+            incassoIniziale={sp.incasso}
             meseIniziale={meseCorrente}
             annoIniziale={ANNO_CORRENTE}
           />
