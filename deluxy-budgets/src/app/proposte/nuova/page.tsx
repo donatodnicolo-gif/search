@@ -2,7 +2,7 @@ import { prisma } from "@/lib/db";
 import { ANNO_CORRENTE } from "@/lib/calc";
 import { PropostaForm } from "@/components/PropostaForm";
 import { caricaAnno } from "@/lib/calc";
-import { caricaConsuntivo } from "@/lib/consuntivo";
+import { consuntivoPerAmbito } from "@/lib/proposta-consuntivo";
 
 export const dynamic = "force-dynamic";
 
@@ -20,11 +20,15 @@ export default async function NuovaProposta() {
     prisma.lineaCommerciale.findMany({ orderBy: { ordine: "asc" } }),
     caricaAnno(ANNO_CORRENTE),
   ]);
-  const cons = mesiChiusi.length > 0 ? await caricaConsuntivo(dati, mesiChiusi) : null;
-  // Ricavi reali mese per mese: la stessa fonte del Consuntivo, così il numero
-  // che il responsabile vede qui è quello che vede l'amministratore là.
-  const consuntivoMese = Array(12).fill(null) as (number | null)[];
-  for (const r of cons?.perMese ?? []) consuntivoMese[r.month - 1] = r.ricavi;
+  // **Il consuntivo dipende dall'ambito**: quello aziendale su una proposta di
+  // maison non è «un'approssimazione», è il numero di qualcun altro. Il calcolo
+  // è qui sul server, una mappa ambito → dodici mesi, e il pannello si limita a
+  // leggere la casella dell'ambito scelto.
+  const ambiti = await consuntivoPerAmbito(
+    dati,
+    mesiChiusi,
+    linee.map((l) => ({ slug: l.slug, nome: l.nome }))
+  );
 
   return (
     <>
@@ -40,7 +44,8 @@ export default async function NuovaProposta() {
         year={ANNO_CORRENTE}
         maisons={maisons.map((m) => ({ slug: m.slug, nome: m.nome }))}
         linee={linee.map((l) => ({ slug: l.slug, nome: l.nome }))}
-        consuntivoMese={consuntivoMese}
+        ambiti={ambiti}
+        mesiChiusi={mesiChiusi}
       />
     </>
   );

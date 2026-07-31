@@ -153,6 +153,15 @@ export type StimaImposte = {
   // variazioni in aumento per costi indeducibili
   variazioni: VariazioneFiscale[];
   totaleVariazioniIres: number;
+  // Gli ammortamenti che il fisco non riconosce: non nascono da una categoria
+  // di banca (gli ammortamenti in banca non passano), li dà il commercialista.
+  variazioneAmmortamenti: number;
+  // Prima delle perdite pregresse: è l'imponibile su cui si calcola l'80%.
+  redditoLordo: number;
+  // Perdite di esercizi precedenti effettivamente usate quest'anno.
+  perditeUsate: number;
+  perditeDisponibili: number;
+  perditeResidue: number;
   redditoImponibile: number;
   ires: number;
   // IRAP: base diversa, non parte dall'utile
@@ -164,12 +173,22 @@ export type StimaImposte = {
   avvertenze: string[];
 };
 
+// Quanta parte dell'imponibile può essere abbattuta dalle perdite pregresse
+// (art. 84 c.1 TUIR). Non è il 100%: anche con perdite enormi un quinto del
+// reddito resta tassato.
+export const USO_MASSIMO_PERDITE = 80;
+
 export function stimaImposte(input: {
   utileCivilistico: number;
   costiPerCategoria: { categoria: string; costo: number }[];
   // valore della produzione e costi che concorrono alla base IRAP
   valoreProduzione: number;
   costiIrapDeducibili: number;
+  // ---- I due numeri che solo il commercialista ha ----
+  // Si passano `undefined` finché non arrivano: zero e «non comunicato» non
+  // sono la stessa cosa, e la pagina lo dice invece di calcolare su un vuoto.
+  perditePregresse?: number;
+  ammortamentiIndeducibili?: number;
 }): StimaImposte {
   const variazioni: VariazioneFiscale[] = [];
   for (const c of input.costiPerCategoria) {
@@ -188,9 +207,23 @@ export function stimaImposte(input: {
     });
   }
   const totaleVariazioniIres = variazioni.reduce((s, v) => s + v.variazioneIres, 0);
-  const redditoImponibile = input.utileCivilistico + totaleVariazioniIres;
+  // Gli ammortamenti eccedenti i coefficienti fiscali sono una variazione in
+  // aumento come le altre, ma non hanno una categoria di banca da cui nascere:
+  // in banca gli ammortamenti non passano. Arrivano dal conto economico.
+  const variazioneAmmortamenti = input.ammortamentiIndeducibili ?? 0;
+  const redditoLordo = input.utileCivilistico + totaleVariazioniIres + variazioneAmmortamenti;
+
+  // ---- Perdite pregresse (art. 84 TUIR) ----
+  // Abbattono l'imponibile ma **fino all'80%**: anche con perdite più grandi
+  // del reddito, un quinto resta tassato. È il motivo per cui «abbiamo le
+  // perdite, non paghiamo niente» è quasi sempre falso.
+  const perditeDisponibili = Math.max(0, input.perditePregresse ?? 0);
+  const perditeUsate =
+    redditoLordo > 0 ? Math.min(perditeDisponibili, (redditoLordo * USO_MASSIMO_PERDITE) / 100) : 0;
+  const perditeResidue = perditeDisponibili - perditeUsate;
+  const redditoImponibile = redditoLordo - perditeUsate;
   // L'IRES si paga solo su un reddito positivo: una perdita non genera credito,
-  // si riporta agli anni successivi (e questo file non la riporta).
+  // si riporta agli anni successivi.
   const ires = redditoImponibile > 0 ? (redditoImponibile * ALIQUOTA_IRES) / 100 : 0;
 
   const baseIrap = input.valoreProduzione - input.costiIrapDeducibili;
@@ -200,6 +233,11 @@ export function stimaImposte(input: {
     utileCivilistico: input.utileCivilistico,
     variazioni: variazioni.sort((a, b) => b.variazioneIres - a.variazioneIres),
     totaleVariazioniIres,
+    variazioneAmmortamenti,
+    redditoLordo,
+    perditeUsate,
+    perditeDisponibili,
+    perditeResidue,
     redditoImponibile,
     ires,
     baseIrap,
@@ -207,7 +245,12 @@ export function stimaImposte(input: {
     totale: ires + irap,
     avvertenze: [
       "**Interessi passivi**: qui sono dedotti per intero, ma l'art. 96 TUIR li ammette entro il 30% del ROL. Con molti oneri finanziari l'imponibile vero è più alto.",
-      "**Perdite pregresse**: una perdita fiscale di anni passati abbatte questo imponibile fino all'80% (illimitatamente nel tempo). L'app non le conosce, quindi l'IRES stimata è un massimo.",
+      input.perditePregresse === undefined
+        ? "**Perdite pregresse: non comunicate.** Una perdita fiscale di anni passati abbatte questo imponibile fino all'80%, senza limiti di tempo. Finché il campo nel conto economico è vuoto, l'IRES stimata è un **massimo**. Deluxy ha chiuso il 2024 in perdita civilistica, quindi è probabile che qualcosa ci sia."
+        : `**Perdite pregresse**: ${Math.round(perditeUsate).toLocaleString("it-IT")} € usati sui ${Math.round(perditeDisponibili).toLocaleString("it-IT")} € comunicati (tetto dell'80% dell'imponibile, art. 84 TUIR); ne restano ${Math.round(perditeResidue).toLocaleString("it-IT")} € per gli anni prossimi.`,
+      input.ammortamentiIndeducibili === undefined
+        ? "**Ammortamenti eccedenti: non comunicati.** La parte di B10 che supera i coefficienti fiscali è una variazione in aumento, e il gestionale non la può vedere: gli ammortamenti in banca non passano. Il campo è nel conto economico."
+        : `**Ammortamenti eccedenti i coefficienti**: ${Math.round(variazioneAmmortamenti).toLocaleString("it-IT")} € sommati all'imponibile, comunicati dal commercialista.`,
       "**ACE e crediti d'imposta** (ricerca, formazione, beni strumentali) riducono ulteriormente il conto e non sono nei dati.",
       "**Deducibilità per cassa**: il compenso dell'amministratore si deduce solo se pagato nell'anno; qui vale il criterio del bilancio.",
       "**Rappresentanza**: oltre al 75% c'è il tetto dell'1,5% dei ricavi, non applicato in questa stima.",

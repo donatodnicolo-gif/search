@@ -56,7 +56,23 @@ export default async function TassePage({
     return s + c.costo * r;
   }, 0);
 
-  const s = stimaImposte({ utileCivilistico, costiPerCategoria, valoreProduzione, costiIrapDeducibili });
+  // ---- I due numeri che solo il commercialista ha ----
+  // Perdite fiscali riportabili ed eccedenza degli ammortamenti civilistici sui
+  // fiscali: non nascono da nessuna fonte dell'app (in banca gli ammortamenti
+  // non passano, e le perdite stanno nel quadro RS della dichiarazione), quindi
+  // si scrivono a mano nel conto economico. **Vuoto ≠ zero**: se il campo non
+  // c'è si passa `undefined` e la stima dichiara che manca, invece di calcolare
+  // come se fossero stati comunicati e valessero zero.
+  const perditePregresse = importi.get("FPERDITE");
+  const ammortamentiIndeducibili = importi.get("FAMMORT");
+  const s = stimaImposte({
+    utileCivilistico,
+    costiPerCategoria,
+    valoreProduzione,
+    costiIrapDeducibili,
+    perditePregresse,
+    ammortamentiIndeducibili,
+  });
 
   // ---- IVA: non è un costo, ma è cassa che esce ----
   // Il fatturato di Finance porta già l'IVA separata (è un dato); sull'ecommerce
@@ -102,6 +118,8 @@ export default async function TassePage({
           <div className="kpi-sub">
             {eur(s.utileCivilistico)} {daBilancio ? "di risultato ante imposte" : "di EBITDA gestionale"} +{" "}
             {eur(s.totaleVariazioniIres)} di costi non deducibili
+            {s.variazioneAmmortamenti !== 0 && ` + ${eur(s.variazioneAmmortamenti)} di ammortamenti eccedenti`}
+            {s.perditeUsate > 0 && ` − ${eur(s.perditeUsate)} di perdite pregresse`}
           </div>
         </div>
         <div className="kpi">
@@ -140,7 +158,11 @@ export default async function TassePage({
         civilistica di −21.130 €), mentre le percentuali per categoria qui sotto ne spiegano{" "}
         <strong>1.385 €: il 2%</strong>. Il resto sono voci che l&apos;app non vede — accantonamenti,
         ammortamenti oltre i coefficienti, compensi deliberati e non pagati, perdite su crediti, costi non
-        documentati.
+        documentati. Due di quelle voci ora hanno un campo:{" "}
+        <Link href={`/conto-economico?anno=${anno}`} style={{ color: "var(--blue)" }}>
+          ammortamenti eccedenti e perdite riportabili
+        </Link>{" "}
+        si scrivono a mano quando arrivano dal commercialista, ed entrano nel conto qui sotto.
         <div style={{ marginTop: 6 }} className="muted">
           Quindi <strong>il numero qui sopra è un minimo, non una previsione</strong>. Il metro più affidabile,
           finché il modello non conosce quelle voci, è il rapporto dell&apos;ultimo anno vero: nel 2024 le
@@ -188,6 +210,81 @@ export default async function TassePage({
           </table>
         </div>
       </div>
+      {/* Il passaggio dal risultato all'imponibile, riga per riga. Le ultime due
+          righe non nascono da nessuna fonte dell'app: gli ammortamenti in banca
+          non passano e le perdite pregresse stanno nella dichiarazione. Vuoto e
+          zero non sono la stessa cosa, e la tabella lo dice. */}
+      <h2 className="section-title">Dal risultato all&apos;imponibile</h2>
+      <div className="card tight">
+        <div className="table-wrap">
+          <table>
+            <tbody>
+              <tr>
+                <td>{daBilancio ? "Risultato prima delle imposte (bilancio)" : "EBITDA gestionale (bilancio non caricato)"}</td>
+                <td className="num" style={{ width: 170 }}>{eur(s.utileCivilistico)}</td>
+                <td className="muted" style={{ fontSize: 12 }}>
+                  {daBilancio ? "voce ANTE del conto economico" : "manca tutto quello che sta sotto l'EBITDA"}
+                </td>
+              </tr>
+              <tr>
+                <td>+ Costi non deducibili (regole TUIR sulle categorie)</td>
+                <td className="num">{eur(s.totaleVariazioniIres)}</td>
+                <td className="muted" style={{ fontSize: 12 }}>la tabella qui sopra</td>
+              </tr>
+              <tr>
+                <td>+ Ammortamenti eccedenti i coefficienti fiscali</td>
+                <td className={`num ${ammortamentiIndeducibili === undefined ? "muted" : ""}`}>
+                  {ammortamentiIndeducibili === undefined ? "non comunicato" : eur(s.variazioneAmmortamenti)}
+                </td>
+                <td className="muted" style={{ fontSize: 12 }}>
+                  {ammortamentiIndeducibili === undefined ? (
+                    <>
+                      il gestionale non li può vedere: in banca gli ammortamenti non passano. Il campo è in{" "}
+                      <Link href={`/conto-economico?anno=${anno}`} style={{ color: "var(--blue)" }}>Conto economico</Link>
+                    </>
+                  ) : (
+                    "comunicato dal commercialista"
+                  )}
+                </td>
+              </tr>
+              <tr className="tot">
+                <td>Reddito prima delle perdite pregresse</td>
+                <td className="num">{eur(s.redditoLordo)}</td>
+                <td />
+              </tr>
+              <tr>
+                <td>− Perdite fiscali di esercizi precedenti</td>
+                <td className={`num ${perditePregresse === undefined ? "muted" : ""}`}>
+                  {perditePregresse === undefined ? "non comunicate" : `− ${eur(s.perditeUsate)}`}
+                </td>
+                <td className="muted" style={{ fontSize: 12 }}>
+                  {perditePregresse === undefined ? (
+                    <>
+                      abbattono l&apos;imponibile fino all&apos;80%: finché mancano, l&apos;IRES qui è un{" "}
+                      <strong>massimo</strong>. Il campo è in{" "}
+                      <Link href={`/conto-economico?anno=${anno}`} style={{ color: "var(--blue)" }}>Conto economico</Link>
+                    </>
+                  ) : (
+                    `su ${eur(s.perditeDisponibili)} disponibili — tetto dell'80% (art. 84 TUIR); ne restano ${eur(s.perditeResidue)}`
+                  )}
+                </td>
+              </tr>
+              <tr className="tot">
+                <td>Reddito imponibile IRES</td>
+                <td className="num">{eur(s.redditoImponibile)}</td>
+                <td className="muted" style={{ fontSize: 12 }}>× {ALIQUOTA_IRES}% = {eur(s.ires)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <p className="page-caption" style={{ marginTop: 12 }}>
+        <strong>Le perdite non azzerano l&apos;IRES</strong>: si usano fino all&apos;80% dell&apos;imponibile
+        (art. 84 TUIR), quindi anche con perdite più grandi del reddito un quinto resta tassato. E valgono solo
+        sull&apos;IRES: <strong>l&apos;IRAP si paga lo stesso</strong>, perché ha una base sua che non parte
+        dall&apos;utile.
+      </p>
+
       <p className="page-caption" style={{ marginTop: 12 }}>
         Le percentuali sono le regole ordinarie del TUIR applicate alle categorie del{" "}
         <Link href="/cfo" style={{ color: "var(--blue)" }}>CFO</Link>: è il motivo per cui classificare bene una
@@ -257,6 +354,7 @@ export default async function TassePage({
               <tr>
                 <th>IVA a credito — quanto si detrae</th>
                 <th className="num">Speso (IVA inclusa)</th>
+                <th className="num">Aliquota</th>
                 <th className="num">IVA detraibile</th>
                 <th>Perché</th>
               </tr>
@@ -266,12 +364,22 @@ export default async function TassePage({
                 <tr key={r.voce}>
                   <td style={{ fontWeight: 500 }}>{r.voce}</td>
                   <td className="num muted">{eur(r.imponibile + r.iva)}</td>
+                  {/* L'aliquota si vede: un credito basso su una categoria
+                      grossa è una scelta (i fiori stanno al 10%), non un
+                      errore di conto, e senza questa colonna sembra l'altro. */}
+                  <td
+                    className="num"
+                    style={r.aliquota !== ALIQUOTA_IVA ? { fontWeight: 600, color: "var(--gold)" } : { color: "var(--muted)" }}
+                  >
+                    {r.aliquota}%
+                  </td>
                   <td className="num" style={{ fontWeight: 600 }}>{eur(r.iva)}</td>
                   <td className="muted" style={{ fontSize: 12 }}>{r.nota}</td>
                 </tr>
               ))}
               <tr className="tot">
                 <td>Totale a credito</td>
+                <td className="num" />
                 <td className="num" />
                 <td className="num">{eur(iva.totaleCredito)}</td>
                 <td />

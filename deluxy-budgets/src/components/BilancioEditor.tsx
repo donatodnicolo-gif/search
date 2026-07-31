@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { eur, MESI } from "@/lib/format";
-import { SCHEMA, totali, valoreSezione, type Voce } from "@/lib/bilancio-voci";
+import { SCHEMA, VOCI_FISCALI, totali, valoreSezione, type Voce } from "@/lib/bilancio-voci";
 
 type Valore = { codice: string; importo: number; mesi: number[] | null; nota: string | null };
 
@@ -147,6 +147,59 @@ export function BilancioEditor({ anno, valori }: { anno: number; valori: Valore[
           </table>
         </div>
       </div>
+
+      {/* I due numeri che il bilancio non contiene e che decidono le imposte.
+          Separati dallo schema di legge perché voci di conto economico non sono:
+          non entrano in nessun totale, e metterli in mezzo alle altre farebbe
+          credere il contrario. Restano vuoti finché non arrivano dal
+          commercialista — un valore inventato qui sposta l'IRES di migliaia di
+          euro con l'aria di essere calcolato. */}
+      <h2 className="section-title">Dati fiscali dal commercialista</h2>
+      <div className="card tight">
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Quello che il bilancio non dice, ma cambia le imposte</th>
+                <th className="num" style={{ width: 160 }}>Importo {anno}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {VOCI_FISCALI.map((v) => {
+                const attuale = mappa.get(v.codice);
+                return (
+                  <tr key={v.codice}>
+                    <td>
+                      {v.nome}
+                      {v.aiuto && <div className="muted" style={{ fontSize: 11.5 }}>{v.aiuto}</div>}
+                    </td>
+                    <td className="num">
+                      <input
+                        defaultValue={attuale ? String(attuale.importo) : ""}
+                        placeholder="non comunicato"
+                        disabled={busy === v.codice}
+                        onBlur={(e) => {
+                          const nuovo = e.target.value.trim();
+                          if (nuovo === "" && !attuale) return;
+                          if (Number(nuovo.replace(",", ".")) !== attuale?.importo) salva(v.codice, nuovo || "0");
+                        }}
+                        style={{ width: 130, padding: "5px 7px", textAlign: "right" }}
+                      />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <p className="page-caption" style={{ marginTop: 12 }}>
+        Finché queste caselle sono vuote, la stima in{" "}
+        <Link href="/tasse" style={{ color: "var(--blue)" }}>Tasse</Link> le dichiara mancanti invece di far finta
+        che valgano zero: <strong>le perdite pregresse abbassano l&apos;IRES</strong> (fino all&apos;80%
+        dell&apos;imponibile) e <strong>gli ammortamenti eccedenti la alzano</strong>. Sul 2024 le variazioni vere
+        erano 70.100 € e le percentuali per categoria ne spiegavano il 2%: il resto è di questo tipo.
+      </p>
 
       {apriMesi && (
         <div className="card" style={{ marginTop: 12 }}>

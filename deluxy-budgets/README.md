@@ -171,7 +171,28 @@ pubblicato), *sfidante* e *irraggiungibile*.
   Corporate, Catering & Eventi, Torte e Mono, Regalistica, Retail Marketing & Concierge,
   Eventi & Altro, Magazzino) e **nuovi clienti** per mese.
 - **Proposte budget** (`/proposte`): ogni utente di livello Responsabile invia la propria
-  proposta (ambito: azienda / maison / linea, 12 mesi + note); elenco con stato.
+  proposta (ambito: azienda / maison / linea, 12 mesi + note); elenco con stato. **I mesi già
+  passati non si propongono: si leggono**, con la casella bloccata — chiedere di «proporre»
+  gennaio a luglio inoltrato è un invito a scrivere un numero che non conta niente e che poi
+  finisce nel budget consolidato accanto a quelli veri.
+  **E il consuntivo che si legge dipende dall'ambito** (31/07/2026): fino al giorno prima era
+  *sempre* quello aziendale, anche su una proposta di maison o di linea — cioè al responsabile
+  di Deluxyflowers veniva mostrato il fatturato di tutta Deluxy come se fosse il suo. Un numero
+  giusto nel posto sbagliato è peggio di un numero mancante: quello mancante si va a cercare,
+  quello sbagliato si usa. Le tre risposte sono diverse perché **le fonti non sanno le stesse
+  cose**:
+
+  | Ambito | Cosa mostra | Perché |
+  | --- | --- | --- |
+  | **Azienda** | i ricavi reali del Consuntivo | fatturato Finance + ricavo dell'ecommerce: l'unica lettura completa che esiste |
+  | **Maison** | **solo il venduto ecommerce** di quella maison | il fatturato di Finance è per *tipologia di servizio* (consegne, eventi, B2B), non per maison: ripartirlo vorrebbe dire inventare una chiave di riparto. Eventi e B2B della maison quindi non ci sono, ed è scritto |
+  | **Linea commerciale** | **niente**, con la riga che dice perché | né Finance né il registro ordini sanno a quale linea appartiene una vendita |
+
+  Il calcolo è **sul server** (`src/lib/proposta-consuntivo.ts`), una mappa ambito → dodici mesi;
+  il pannello legge la casella dell'ambito scelto. Le maison **senza negozio** (Business B2B,
+  Experience) non mostrano zero — che sarebbe una bugia — ma un trattino e il motivo. I mesi
+  chiusi restano bloccati **anche dove il consuntivo non c'è**: il motivo per cui non si
+  propongono è che sono passati, non che c'era un numero da mettere al loro posto.
 - **Spese ADV** (`/spese`): quanto si può spendere in pubblicità per maison come **% delle
   vendite del mese**, personalizzabile mese per mese; l'importo consentito si ricalcola.
 - **Impostazioni** (`/impostazioni`): moltiplicatori dei livelli sfidante/irraggiungibile,
@@ -289,6 +310,14 @@ misura. Resta come **ripiego dichiarato** per gli anni in cui le vendite dei par
 > il **15%** del proprio incasso il mese si dichiara **non misurato** e resta fuori dai totali — nei
 > mesi pieni il venduto dei partner sta fra il 40% e il 60%. Oggi restano fuori **luglio 2026** e
 > **agosto, settembre, novembre, dicembre 2025**.
+>
+> **Verificato il 31/07/2026 su `/api/vendor?anno=2026`: luglio è ancora vuoto.** Il mese ha
+> **137 €** di venduto vendor su una riga sola, contro ~95.700 € di incasso — lo **0,14%**, cioè
+> nemmeno vicino alla soglia. Il meccanismo funziona ed è dalla parte giusta: luglio resta fuori
+> dai totali invece di far passare l'intero incasso per «ordini eseguiti da fornitori» e
+> attribuirgli il 35% di margine. **Non c'è niente da correggere in Budgets**: il foglio delle
+> vendite vendor si inserisce a mano in Finance, e il giorno in cui c'è i 95.688 € entrano nel
+> ricavo D2C da soli. I sei mesi caricati stanno fra 27.686 e 51.051 € di venduto vendor.
 
 > **Le commissioni di affiliazione invece stanno in B2B** (decisione dell'utente, 29/07/2026). Erano
 > state provate su D2C — nascono da una vendita fatta sul sito — ma la voce di Finance
@@ -412,10 +441,28 @@ oneri finanziari e compenso amministratore deducibili IRES ma non IRAP — e cal
 > cima. Il metro più affidabile resta il rapporto dell'ultimo anno vero: nel 2024 le variazioni
 > valevano il **16% dei costi**.
 
-Restano fuori anche ROL sugli interessi, perdite pregresse riportabili (fino all'80% dell'imponibile),
-ACE e crediti d'imposta, il tetto dell'1,5% sulla rappresentanza e la deducibilità **per cassa** del
-compenso amministratore: ognuna può spostare il conto di migliaia di euro, e sono elencate in fondo
-alla pagina invece di essere taciute.
+**Due di quelle voci ora hanno un campo** (31/07/2026), perché sono le due che spostano di più e
+nessuna fonte dell'app le può sapere: le **perdite fiscali riportabili** da esercizi precedenti e
+l'**eccedenza degli ammortamenti civilistici sui fiscali**. Si scrivono a mano in
+`/conto-economico`, sezione «Dati fiscali dal commercialista» — **fuori dallo schema di legge**,
+perché voci di conto economico non sono e in nessun totale devono entrare (codici `FPERDITE` e
+`FAMMORT` in `VOCI_FISCALI`, stessa tabella `VoceBilancio`: nessuna migrazione).
+
+In `/tasse` compare la catena **«Dal risultato all'imponibile»** riga per riga: risultato ante
+imposte + costi non deducibili + ammortamenti eccedenti = reddito lordo, meno le perdite usate =
+imponibile. Due regole scritte nel motore (`src/lib/tasse.ts`):
+
+- **le perdite non azzerano l'IRES**: si usano fino all'**80%** dell'imponibile (art. 84 TUIR),
+  quindi anche con perdite più grandi del reddito un quinto resta tassato — e valgono solo
+  sull'IRES, mentre **l'IRAP si paga lo stesso** perché ha una base sua che non parte dall'utile;
+- **vuoto non è zero**: finché il campo non è compilato la stima passa `undefined` e la pagina
+  scrive «non comunicato», invece di calcolare come se il commercialista avesse detto zero. Con le
+  perdite mancanti l'IRES stimata è un **massimo** — e Deluxy il 2024 l'ha chiuso in perdita
+  civilistica, quindi qualcosa quasi certamente c'è.
+
+Restano fuori ROL sugli interessi, ACE e crediti d'imposta, il tetto dell'1,5% sulla rappresentanza
+e la deducibilità **per cassa** del compenso amministratore: ognuna può spostare il conto di
+migliaia di euro, e sono elencate in fondo alla pagina invece di essere taciute.
 
 ## Utenti e ruoli (Configurazione → Accesso, 29/07/2026)
 
@@ -464,6 +511,24 @@ quasi pareggiava il debito.
 > pieno lo incassa il partner e l IVA la fa lui col suo scontrino. Contarla sul venduto vorrebbe dire
 > versare l IVA di un altro. Sulla parte comprata dai fornitori invece Deluxy compra e rivende, quindi
 > l IVA netta e quella sul **margine**.
+
+> ⚠️ **I fiori stanno al 10%, e adesso il conto lo sa** (31/07/2026). Prima si scorporava il 22% da
+> **tutte** le spese, ma fiori, piante e prodotti del florovivaismo scontano l'aliquota ridotta del
+> **10%** (tabella A parte III, DPR 633/72) — cioè esattamente quello che Deluxy compra di più.
+> Scorporare il 22% da una spesa che il 22% non l'ha mai avuto tira fuori il **doppio** dell'IVA
+> davvero pagata: su 1.000 € di fiori 180 € invece di 91. E siccome il credito si sottrae dal
+> debito, il numero che ne usciva peggio era proprio quello per cui la pagina esiste — **quanto
+> accantonare**, che risultava più basso del vero. Ora l'aliquota si sceglie **per categoria**
+> (`ALIQUOTA_PER_CATEGORIA` in `src/lib/iva.ts`): *Materiali per gli ordini* e *Partner che
+> eseguono gli ordini* al 10%, tutto il resto al 22%, e la tabella del credito ha la colonna
+> **Aliquota** — senza, un credito più basso sembra un errore di conto invece di una scelta.
+>
+> Due cose da sapere. La regola sta sulla **categoria** e non sul singolo movimento, perché la
+> banca dice **a chi** hai pagato, non cosa c'era in fattura: è un'approssimazione, dichiarata, ma
+> molto più vicina del 22% su tutto. E **sul debito il 10% non è stato applicato**: il margine
+> sugli ordini eseguiti da fornitori resta scorporato al 22%; se anche la vendita al consumatore è
+> di fiori al 10%, quella riga è più alta del vero — cioè l'errore che resta è dalla parte
+> prudente. Il 4% non è gestito.
 
 > ⚠️ **La detraibilita non e mai piena su tutto**: veicoli al 40%, rappresentanza **indetraibile** (salvo
 > omaggi sotto i 50 euro), stipendi e tributi fuori campo, quota partner senza fattura. Le categorie a

@@ -44,7 +44,50 @@ export const SCHEMA: Voce[] = [
   { codice: "UTILE", nome: "Utile (perdita) dell'esercizio", tipo: "sezione", gruppo: "RISULTATO" },
 ];
 
-export const VOCI_DIGITABILI = SCHEMA.filter((v) => v.tipo === "voce");
+// ---- Quello che il bilancio non dice e il commercialista sì ----
+//
+// Due numeri che **non stanno nello schema di legge** ma decidono quanto si
+// paga, e che oggi la stima delle imposte non ha:
+//
+//  - le **perdite fiscali riportabili** degli esercizi precedenti abbattono
+//    l'imponibile fino all'80% (illimitatamente nel tempo, art. 84 TUIR). Una
+//    società che ha chiuso in perdita nel 2024 può non pagare IRES nel 2026 pur
+//    avendo un reddito: senza questo campo l'app dice il contrario;
+//  - la **differenza fra ammortamenti civilistici e fiscali**: in bilancio si
+//    ammortizza secondo l'utilità del bene, il fisco entro i coefficienti del
+//    DM 31/12/1988. L'eccedenza è una variazione in aumento, ed è una delle voci
+//    che il gestionale per costruzione non vede — gli ammortamenti non passano
+//    dalla banca.
+//
+// **Perché conta**: misurato sul 2024, le variazioni vere erano 70.100 € e le
+// percentuali per categoria ne spiegavano 1.385, cioè il 2%. Il resto è
+// esattamente roba di questo tipo. Sono campi che restano **vuoti finché il
+// commercialista non li dà**: un valore inventato qui sposta l'IRES di migliaia
+// di euro con l'aria di essere calcolato.
+//
+// Stanno **fuori da `SCHEMA`** di proposito: non sono voci di conto economico,
+// non entrano in nessun totale di legge e non hanno un dettaglio da aprire.
+// Codici senza trattini né underscore perché l'import da testo li ripulisce.
+export const VOCI_FISCALI: Voce[] = [
+  {
+    codice: "FPERDITE",
+    nome: "Perdite fiscali riportabili da esercizi precedenti",
+    tipo: "voce",
+    gruppo: "IMPOSTE",
+    aiuto:
+      "Quanto c'è ancora da usare, non quanto se ne userà quest'anno: l'utilizzo è limitato all'80% dell'imponibile e lo calcola l'app. Lo dice il quadro RS della dichiarazione.",
+  },
+  {
+    codice: "FAMMORT",
+    nome: "Ammortamenti: eccedenza civilistica sul fiscale",
+    tipo: "voce",
+    gruppo: "IMPOSTE",
+    aiuto:
+      "Quanto degli ammortamenti in bilancio (B10) il fisco non riconosce quest'anno, perché supera i coefficienti. Va sommato all'imponibile. Se il fiscale è più alto del civilistico, si scrive col segno meno.",
+  },
+];
+
+export const VOCI_DIGITABILI = [...SCHEMA.filter((v) => v.tipo === "voce"), ...VOCI_FISCALI];
 
 // Leggere un importo copiato da un bilancio è più delicato di quanto sembri:
 // «1.250.000,00» è italiano, «1,250,000.00» è inglese, e trattare il punto
