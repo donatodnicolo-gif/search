@@ -127,6 +127,7 @@ proprio: l'approvazione passa solo dalla UI, da una persona.
 | Messaggio d'errore **sempre uguale** | non si scopre quali email esistono |
 | **Sessioni sul database**, revocabili | disattivare una persona ha effetto immediato |
 | Cookie `httpOnly`, `secure`, **`SameSite=strict`**, 8 ore | niente CSRF, niente sessioni eterne |
+| **Scadenza a 10 minuti di inattività** (31/07/2026) | il computer lasciato aperto uscendo dalla stanza non resta autorizzato: le 8 ore coprono la giornata, non la pausa caffè |
 | **Ruoli**: admin / approvatore / osservatore | chi deve solo guardare, guarda |
 | **Tetto personale** di approvazione | non tutti firmano qualunque cifra |
 

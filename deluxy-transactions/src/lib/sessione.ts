@@ -16,7 +16,16 @@ import { COOKIE_SESSIONE, componiCookie, idDaCookie } from "./cookie-firma";
 // Le sessioni vivono sul database: revocarne una ha effetto immediato, mentre
 // un cookie firmato e basta resterebbe valido fino alla scadenza.
 
-const DURATA_ORE = 8; // giornata lavorativa, poi si rientra
+const DURATA_ORE = 8; // tetto assoluto: dopo si rientra comunque, anche lavorando
+// Scadenza per inattività: dieci minuti fermi e la sessione è morta. Serve al
+// caso concreto di un'app che autorizza bonifici — il computer lasciato aperto
+// mentre si esce dalla stanza — che le otto ore non coprono per niente.
+const INATTIVITA_MINUTI = 10;
+// Ogni pagina aperta rimette il contatore a zero, ma si scrive sul database al
+// massimo una volta ogni mezzo minuto: senza, ogni navigazione costerebbe due
+// UPDATE (il layout e la pagina chiedono entrambi chi è l'operatore). Il prezzo
+// è che il conto può partire fino a 30 secondi prima dell'ultimo clic vero.
+const TOCCO_SECONDI = 30;
 const MAX_TENTATIVI = 5;
 const BLOCCO_MINUTI = 15;
 
@@ -56,8 +65,18 @@ export async function operatoreCorrente(): Promise<OperatoreSessione | null> {
     });
     if (!sessione || sessione.revocataIl) return null;
     if (sessione.scadeIl.getTime() < Date.now()) return null;
+    // Ferma da troppo: si esce. Non serve scrivere niente per chiuderla —
+    // `ultimoUso` non si aggiorna più, quindi da qui in poi il conto è sempre
+    // scaduto e la sessione non può tornare buona.
+    const fermaDa = Date.now() - sessione.ultimoUso.getTime();
+    if (fermaDa > INATTIVITA_MINUTI * 60_000) return null;
     const o = sessione.operatore;
     if (!o.attivo) return null;
+    if (fermaDa > TOCCO_SECONDI * 1000) {
+      await prisma.sessione
+        .update({ where: { id: sessione.id }, data: { ultimoUso: new Date() } })
+        .catch(() => {}); // una scrittura persa non deve buttare fuori nessuno
+    }
     return {
       id: o.id,
       email: o.email,
@@ -173,6 +192,27 @@ export async function confermaSecondoFattore(operatoreId: string, codice: string
   if (!o || !o.totpAttivo || !o.totpSegreto) return false;
   try {
     return codiceTotpValido(decifra(o.totpSegreto), codice);
+  } catch {
+    return false;
+  }
+}
+
+/** I minuti di inattività, per scriverli nella pagina senza ricopiare il numero. */
+export const MINUTI_INATTIVITA = INATTIVITA_MINUTI;
+
+/**
+ * true se il cookie che il browser ha ancora in mano punta a una sessione morta
+ * per inattività. Serve alla pagina di accesso per dire *perché* si è finiti lì:
+ * senza, un'uscita automatica sembra un guasto.
+ */
+export async function uscitoPerInattivita(): Promise<boolean> {
+  try {
+    const id = await idDaCookie((await cookies()).get(COOKIE_SESSIONE)?.value);
+    if (!id) return false;
+    const s = await prisma.sessione.findUnique({ where: { hash: sha256(id) } });
+    if (!s || s.revocataIl) return false; // uscita volontaria, non scadenza
+    if (s.scadeIl.getTime() < Date.now()) return false; // scaduta per le otto ore
+    return Date.now() - s.ultimoUso.getTime() > INATTIVITA_MINUTI * 60_000;
   } catch {
     return false;
   }

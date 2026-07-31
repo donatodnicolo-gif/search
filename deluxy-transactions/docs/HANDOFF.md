@@ -66,6 +66,13 @@ bancarie non ce ne sono ancora: il file SEPA lo carica una persona in banca.
   VoP, saldo), idempotenza derivata dall'id della richiesta, stop al primo
   errore. Codice: [src/lib/qonto.ts](../src/lib/qonto.ts) e
   [src/lib/pagamento-banca.ts](../src/lib/pagamento-banca.ts).
+- **Sessione che scade per inattività** (31/07/2026): dieci minuti fermi e si
+  rientra. Ogni pagina aperta rimette il contatore a zero (colonna
+  `Sessione.ultimoUso`, scritta al massimo una volta ogni 30 secondi per non
+  fare due UPDATE a navigazione); le 8 ore restano come tetto assoluto. La
+  pagina di accesso dice **perché** si è usciti, invece di sembrare un guasto.
+  I numeri stanno in [src/lib/sessione.ts](../src/lib/sessione.ts)
+  (`INATTIVITA_MINUTI`, `TOCCO_SECONDI`).
 - **Impostazioni che si spiegano da sole** (31/07/2026): la pagina è divisa in
   blocchi con un titolo in italiano corrente e una riga di aiuto sotto ogni
   campo («da questa cifra in su servono due firme», non «soglia doppia firma»),

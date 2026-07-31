@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { ModuloAccesso } from "@/components/ModuloAccesso";
-import { esistonoOperatori, operatoreCorrente } from "@/lib/sessione";
+import { MINUTI_INATTIVITA, esistonoOperatori, operatoreCorrente, uscitoPerInattivita } from "@/lib/sessione";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +12,7 @@ export default async function PaginaLogin({
   if (await operatoreCorrente()) redirect("/");
   const { da } = await searchParams;
   const conOperatori = await esistonoOperatori();
+  const perInattivita = await uscitoPerInattivita();
 
   return (
     <div className="accesso">
@@ -21,8 +22,20 @@ export default async function PaginaLogin({
         </div>
         <h1>Deluxy Transactions</h1>
         <p>Autorizzazione dei pagamenti</p>
+        {perInattivita && (
+          <div className="avviso-attenzione" style={{ textAlign: "left" }}>
+            Sei uscito da solo: la sessione si chiude dopo {MINUTI_INATTIVITA} minuti senza attività. Rientra e riprendi
+            da dove eri.
+          </div>
+        )}
         {conOperatori ? (
-          <ModuloAccesso da={da ?? ""} />
+          <>
+            <ModuloAccesso da={da ?? ""} />
+            <p className="firma-nota" style={{ textAlign: "left" }}>
+              Per sicurezza la sessione si chiude da sola dopo {MINUTI_INATTIVITA} minuti di inattività, e comunque a
+              fine giornata.
+            </p>
+          </>
         ) : (
           <div className="testo-guida" style={{ textAlign: "left" }}>
             Nessun operatore configurato. Dalla cartella dell&apos;app:

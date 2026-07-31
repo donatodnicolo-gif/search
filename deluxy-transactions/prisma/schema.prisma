@@ -65,6 +65,9 @@ model Sessione {
   ip          String?
   userAgent   String?
   creataIl    DateTime  @default(now())
+  // Ultima pagina aperta con questa sessione: da qui si contano i minuti di
+  // inattività. `scadeIl` resta il tetto assoluto, questo è il tempo fermo.
+  ultimoUso   DateTime  @default(now())
   scadeIl     DateTime
   revocataIl  DateTime?
 

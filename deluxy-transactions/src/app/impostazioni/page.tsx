@@ -50,8 +50,16 @@ export default async function Impostazioni() {
       {!postaConfigurata() && (
         <div className="avviso-errore">
           <strong>La posta non è configurata, quindi non può uscire nessun pagamento.</strong> Il codice che serve al
-          pagatore viaggia per email: finché mancano le impostazioni SMTP, la distinta non si genera. È voluto — davanti
-          a un dubbio questa app si chiude, non si apre.
+          pagatore viaggia per email: finché manca, la distinta non si genera. È voluto — davanti a un dubbio questa app
+          si chiude, non si apre.
+          <br />
+          <br />
+          <strong>Non cercarla in questa pagina: non c&apos;è, ed è una scelta.</strong> La posta si configura solo nelle
+          variabili d&apos;ambiente del server (<code className="inline">SMTP_HOST</code>,{" "}
+          <code className="inline">SMTP_PORT</code>, <code className="inline">SMTP_USER</code>,{" "}
+          <code className="inline">SMTP_PASS</code>, <code className="inline">SMTP_FROM</code>), su Vercel. Se stesse nel
+          database come le altre impostazioni, chi entrasse nel database potrebbe cambiare il server di posta e farsi
+          arrivare i codici di pagamento nella propria casella.
         </div>
       )}
 
