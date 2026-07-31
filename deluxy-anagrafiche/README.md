@@ -35,6 +35,11 @@ anagrafici nelle vostre app — leggeteli da qui.
   → `{ totale, dati: [...] }`. `q` è multi-parola su **tutti i campi** (anagrafica
   + referenti); i filtri si combinano in AND. Città e province sono in MAIUSCOLO.
 - `GET /api/v1/partners/:id` — accetta anche il vostro `platformId`.
+- `tipoLuogo` dice **che cosa è** quel luogo: `sede` (legale/amministrativa) ·
+  `negozio` · `showroom` · `magazzino` · `altro`. Vuoto = non indicato. È la
+  risposta a «di queste tre anagrafiche uguali, quale è la sede e quali sono i
+  negozi?» — non si deduce dal gruppo: la sede legale può non essere
+  l'anagrafica madre.
 - `sede` è il nome di **quel luogo** dentro l'insegna (Montenapoleone, Flagship):
   le sedi di un gruppo hanno lo stesso `nome`, quindi per distinguerle mostrate
   `sede` e, se manca, `indirizzo`.

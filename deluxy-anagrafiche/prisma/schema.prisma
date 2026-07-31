@@ -41,6 +41,12 @@ model Partner {
   // `nome`, quindi senza questa etichetta si distinguono solo dall'indirizzo —
   // e chi non ce l'ha resta una riga muta in mezzo alle sorelle.
   sede           String?
+  // Che cosa E questo luogo: sede | negozio | showroom | magazzino | altro
+  // (catalogo in src/lib/luoghi.ts). Dimensione diversa dal gruppo: il gruppo
+  // dice DI CHI e l anagrafica, questo dice CHE RUOLO ha il luogo. Vuoto = non
+  // indicato; non si deduce dall indirizzo ne dall essere capogruppo, perche
+  // la sede legale puo benissimo non essere l anagrafica madre.
+  tipoLuogo      String?
   indirizzo      String?
   email          String?
   telefono       String?

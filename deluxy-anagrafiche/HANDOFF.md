@@ -368,6 +368,17 @@ Ogni scrittura via API è un **merge governato per campo**, mai una sostituzione
   - **Attenzione**: la UI è protetta dalla sola password condivisa dell'app, e da qui si creano
     chiavi di scrittura piena → quella password vale quanto le chiavi. Con il login dall'Hub
     (§7) andrebbe ristretta agli admin.
+- **Campo «Tipo di luogo» (31/07/2026)**: `tipoLuogo` — **sede · negozio · showroom · magazzino ·
+  altro** (catalogo in `src/lib/luoghi.ts`). Risponde alla domanda che il gruppo non risponde:
+  «di queste tre anagrafiche identiche, quale è la sede dell'azienda e quali sono i negozi?».
+  È una dimensione **diversa dal gruppo**: il gruppo dice *di chi è* un'anagrafica, questo *che
+  ruolo ha* il luogo — e la sede legale può benissimo non essere l'anagrafica madre, quindi non si
+  deduce. Vuoto = non indicato.
+  Sta nei form Nuovo e Modifica (con la descrizione di ogni voce nel menu), nella modale ＋ Sedi di
+  questa (predefinito **Negozio**: la sede è una sola), sulla scheda come badge accanto a
+  categoria/città e come campo, nella tabella delle sedi come colonna **Tipo**, e nell'elenco come
+  pillola accanto al nome — che è dove serve di più, perché in un gruppo la domanda è sempre quella.
+  Campo fattuale come gli altri: merge, API `tipoLuogo`, log delle modifiche.
 - **Campo «Sede» (31/07/2026)**: come si chiama QUESTA sede dentro l'insegna — «Montenapoleone»,
   «Flagship», «Outlet». Serve perché le sedi di un gruppo hanno tutte lo **stesso `nome`**: senza
   etichetta si distinguono solo dall'indirizzo, e chi non ce l'ha resta una riga muta in mezzo

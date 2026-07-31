@@ -691,6 +691,13 @@ a.dash-riga:hover .dash-etichetta { color: var(--text); }
 .storia-da { color: var(--text-tertiary); }
 /* Un dato che manca dove servirebbe: si vede che non c'è, senza gridare. */
 .cella-manca { color: var(--orange); font-style: italic; }
+/* Che cosa e quel luogo (sede, negozio, magazzino): accanto al nome, perche in
+   un gruppo la domanda e sempre «quale delle tre e la sede?». */
+.pill-luogo {
+  margin-left: 6px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.3px;
+  text-transform: uppercase; background: var(--fill);
+  border-radius: var(--radius-pill); padding: 2px 7px; vertical-align: middle;
+}
 /* Referente gia in rubrica Google: e un fatto acquisito, non un bottone. */
 .in-rubrica { color: var(--green); font-size: 12.5px; font-weight: 600; white-space: nowrap; }
 .storia li > span:nth-child(2) { min-width: 0; overflow-wrap: anywhere; }

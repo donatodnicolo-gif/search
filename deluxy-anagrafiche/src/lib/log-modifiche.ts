@@ -138,6 +138,7 @@ export const ETICHETTE_CAMPO: Record<string, string> = {
   provincia: "Provincia",
   regione: "Regione",
   sede: "Sede",
+  tipoLuogo: "Tipo di luogo",
   indirizzo: "Indirizzo",
   email: "Email",
   telefono: "Telefono",

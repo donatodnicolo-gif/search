@@ -4,6 +4,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { CATEGORIE, isCategoria } from "@/lib/categorie";
 import { aggiornaPartner } from "@/lib/azioni";
 import { getOpzioniAccount } from "@/lib/commerciali";
+import { DESCRIZIONI_TIPO_LUOGO, ETICHETTE_TIPO_LUOGO, TIPI_LUOGO } from "@/lib/luoghi";
 import { prisma } from "@/lib/db";
 import { datiFinanziariCondivisi } from "@/lib/insegna";
 
@@ -116,6 +117,20 @@ export default async function Modifica({
                 <p className="testo-guida">
                   Come si chiama questo luogo dentro l&apos;insegna. Serve quando l&apos;azienda ha
                   più sedi: senza, si distinguono solo dall&apos;indirizzo.
+                </p>
+              </Campo>
+              <Campo etichetta="Tipo di luogo" nome="tipoLuogo">
+                <select id="tipoLuogo" name="tipoLuogo" defaultValue={p.tipoLuogo ?? ""}>
+                  <option value="">— non indicato —</option>
+                  {TIPI_LUOGO.map((t) => (
+                    <option key={t} value={t}>
+                      {ETICHETTE_TIPO_LUOGO[t]} — {DESCRIZIONI_TIPO_LUOGO[t]}
+                    </option>
+                  ))}
+                </select>
+                <p className="testo-guida">
+                  Distingue <strong>la sede</strong> dell&apos;azienda dai <strong>negozi</strong>: senza,
+                  il registro non sa dire quale dei luoghi sia quale.
                 </p>
               </Campo>
               <Campo etichetta="Indirizzo" nome="indirizzo" valore={p.indirizzo} largo />

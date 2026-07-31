@@ -29,6 +29,7 @@ import {
 } from "@/lib/feedback-d2c";
 import { linkContattoHubspot } from "@/lib/hubspot-link";
 import { eAzione, etichettaCampo, etichettaOrigine } from "@/lib/log-modifiche";
+import { COLORE_TIPO_LUOGO, etichettaTipoLuogo, isTipoLuogo } from "@/lib/luoghi";
 import { datiFinanziariCondivisi } from "@/lib/insegna";
 import { eAffiliatoReseller } from "@/lib/interessi";
 import { getLinee } from "@/lib/linee";
@@ -76,6 +77,7 @@ export default async function Dettaglio({
           // Due sedi possono stare nella stessa città: a distinguerle è il nome
           // della sede, e in mancanza l'indirizzo.
           sede: true,
+          tipoLuogo: true,
           indirizzo: true,
           stato: true,
           categoria: true,
@@ -240,6 +242,19 @@ export default async function Dettaglio({
           <h1 className="page-title">{p.nome}</h1>
           <p className="page-sub">
             {[p.categoria, p.citta, p.regione].filter(Boolean).join(" · ")}
+            {p.tipoLuogo && (
+              <>
+                {" "}
+                <span
+                  className="badge"
+                  style={{ color: isTipoLuogo(p.tipoLuogo) ? COLORE_TIPO_LUOGO[p.tipoLuogo] : undefined }}
+                  title="Che cosa e questo luogo dentro l azienda"
+                >
+                  <span className="dot" />
+                  {etichettaTipoLuogo(p.tipoLuogo)}
+                </span>
+              </>
+            )}
           </p>
         </div>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 10 }}>
@@ -338,6 +353,7 @@ export default async function Dettaglio({
           <Campo etichetta="Ragione sociale" valore={p.ragioneSociale} />
           <Campo etichetta="P. IVA" valore={fin.pIva} />
           <Campo etichetta="Codice fiscale" valore={fin.codiceFiscale} />
+          <Campo etichetta="Tipo di luogo" valore={etichettaTipoLuogo(p.tipoLuogo)} />
           <Campo etichetta="Sede" valore={p.sede} />
           <Campo etichetta="Indirizzo" valore={p.indirizzo} />
           <Campo etichetta="Città" valore={p.citta} />
@@ -590,6 +606,7 @@ export default async function Dettaglio({
                 <thead>
                   <tr>
                     <th>Sede</th>
+                    <th>Tipo</th>
                     <th>Città</th>
                     <th>Indirizzo</th>
                     <th>Stato commerciale</th>
@@ -606,6 +623,7 @@ export default async function Dettaglio({
                           <div className="cella-sub">{s.sede ? s.nome : s.categoria}</div>
                         </a>
                       </td>
+                      <td className="cella-muta">{etichettaTipoLuogo(s.tipoLuogo) ?? "—"}</td>
                       <td className="cella-muta">{s.citta ?? "—"}</td>
                       <td className="cella-muta">{s.indirizzo ?? "—"}</td>
                       <td className="cella-muta">{nomeStato(s.stato)}</td>

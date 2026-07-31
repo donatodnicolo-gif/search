@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { aggiungiSede, collegaSedi } from "@/lib/azioni";
+import { ETICHETTE_TIPO_LUOGO, TIPI_LUOGO } from "@/lib/luoghi";
 
 type RisultatoPartner = {
   id: string;
@@ -157,6 +158,16 @@ export function AggiungiSede({
                     <label htmlFor="sede-sede">Nome della sede</label>
                     <input id="sede-sede" name="sede" placeholder="Montenapoleone, Flagship…" />
                     <p className="testo-guida">Come chiamate questo luogo fra voi.</p>
+                  </div>
+                  <div className="campo-modulo">
+                    <label htmlFor="sede-tipo">Tipo di luogo</label>
+                    <select id="sede-tipo" name="tipoLuogo" defaultValue="negozio">
+                      <option value="">— non indicato —</option>
+                      {TIPI_LUOGO.map((t) => (
+                        <option key={t} value={t}>{ETICHETTE_TIPO_LUOGO[t]}</option>
+                      ))}
+                    </select>
+                    <p className="testo-guida">Un luogo nuovo di solito è un negozio; la sede è una sola.</p>
                   </div>
                   <div className="campo-modulo">
                     <label htmlFor="sede-citta">Città</label>

@@ -9,6 +9,7 @@ import { StelleD2C } from "@/components/StelleD2C";
 import { impostaArchiviato } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
 import { valutazioneAggregata } from "@/lib/feedback-d2c";
+import { COLORE_TIPO_LUOGO, etichettaTipoLuogo, isTipoLuogo } from "@/lib/luoghi";
 import { getLinee } from "@/lib/linee";
 import { whereRicerca } from "@/lib/ricerca";
 import {
@@ -234,7 +235,17 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
     <>
       <td>
         <a href={`/partner/${p.id}`}>
-          <div className={sede ? "cella-nome cella-nome-sede" : "cella-nome"}>{p.nome}</div>
+          <div className={sede ? "cella-nome cella-nome-sede" : "cella-nome"}>
+            {p.nome}
+            {p.tipoLuogo && (
+              <span
+                className="pill-luogo"
+                style={{ color: isTipoLuogo(p.tipoLuogo) ? COLORE_TIPO_LUOGO[p.tipoLuogo] : undefined }}
+              >
+                {etichettaTipoLuogo(p.tipoLuogo)}
+              </span>
+            )}
+          </div>
           {/* In un gruppo tutte le sedi si chiamano uguale: a distinguerle è
               l'indirizzo. Quando manca, la riga sarebbe indistinguibile dalle
               sorelle — e allora lo si dice, invece di lasciarla muta. */}

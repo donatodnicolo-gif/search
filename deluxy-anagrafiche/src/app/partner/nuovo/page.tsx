@@ -2,6 +2,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { CATEGORIE, isCategoria } from "@/lib/categorie";
 import { creaPartner } from "@/lib/azioni";
 import { getCommerciali } from "@/lib/commerciali";
+import { DESCRIZIONI_TIPO_LUOGO, ETICHETTE_TIPO_LUOGO, TIPI_LUOGO } from "@/lib/luoghi";
 import {
   DESCRIZIONI_STATO_ANALISI,
   ETICHETTE_STATO,
@@ -119,6 +120,20 @@ export default async function Nuovo({
               <Campo etichetta="Regione" nome="regione" />
               <Campo etichetta="Sede" nome="sede">
                 <input id="sede" name="sede" type="text" placeholder="Montenapoleone, Flagship…" />
+              </Campo>
+              <Campo etichetta="Tipo di luogo" nome="tipoLuogo">
+                <select id="tipoLuogo" name="tipoLuogo" defaultValue={""}>
+                  <option value="">— non indicato —</option>
+                  {TIPI_LUOGO.map((t) => (
+                    <option key={t} value={t}>
+                      {ETICHETTE_TIPO_LUOGO[t]} — {DESCRIZIONI_TIPO_LUOGO[t]}
+                    </option>
+                  ))}
+                </select>
+                <p className="testo-guida">
+                  Distingue <strong>la sede</strong> dell&apos;azienda dai <strong>negozi</strong>: senza,
+                  il registro non sa dire quale dei luoghi sia quale.
+                </p>
               </Campo>
               <Campo etichetta="Indirizzo" nome="indirizzo" largo />
               <Campo etichetta="Email" nome="email">
