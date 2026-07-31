@@ -572,6 +572,85 @@ analisi importate); seconda corsa 0 scritture.
    La route `sync/meta` **non ha `maxDuration`** (il cron sì, 60 s): se un
    giorno si vuole allungare la finestra, è lì che va messo.
 
+### L'obiettivo del mese è quello del budget (31/07/2026)
+
+La dashboard leggeva `VenditaMensile.vendite`, il piano **SALES GLOBAL** del
+Monitoraggio. Per Flowers quel piano diceva **143.040 €** a luglio 2026 contro
+**31.948 €** venduti davvero, e **2,08 milioni** sull'anno contro 140.252 € in
+sette mesi: **quindici volte la realtà**.
+
+Non era un errore di import — le quote mensili sommano a 1, il budget ADV è
+proporzionale — ma un piano mai riallineato. E il numero giusto era già nello
+stesso file, in un altro foglio: `BudgetMensile.venditaPrevista`, **30.000 €**
+contro 31.948 venduti.
+
+> ⚠️ **Un obiettivo che sbaglia di quindici volte non è un obiettivo severo: è
+> un numero che non si può leggere.** La barra segnava 23% e sembrava un
+> disastro mentre il mese stava andando bene.
+
+| | prima | adesso |
+| --- | --- | --- |
+| Gifts | 104.440 € · 57% | **65.000 € · 91%** |
+| Flowers | 143.040 € · 23% | **30.000 € · 110%** |
+| Cake | 5.000 € · 133% | **8.000 € · 83%** |
+| Totale | 252.480 € · 39% | **103.000 € · 96%** |
+
+Il piano resta nel database e nella pagina Vendite: non guida più il semaforo.
+Il totale ora si **somma dalle righe mostrate**, non da una query sua: se le due
+strade divergessero, «Tutti i brand» non combacerebbe con la somma di quello
+che ha sopra.
+
+> ℹ️ **`VenditaMensile` non ha righe per il 2025, ed è giusto così: nel 2025 il
+> budget non si faceva** (confermato dall'utente il 31/07/2026). Non è un import
+> fallito, non c'è niente da riempire. I confronti anno su anno non passano di
+> lì: il trend vendite usa gli **Ordini** (dal 01/01/2025) e «MKT vs 2025» usa
+> `SettimanaMkt`.
+
+### Una campagna nuova nasce da ciò che funziona (31/07/2026)
+
+`/campagne/crea` (+ `lib/nuova-campagna.ts`). `/campagne/lancia` resta, ma è un
+foglio bianco: chiede di ricordarsi a memoria quali parole rendono. Qui si
+scelgono **brand → prodotto → città** e il resto arriva dallo storico.
+
+- Le **categorie** sono quelle che il negozio vende davvero, col venduto a
+  fianco (`servizio` escluso: spedizioni e gift card non si promuovono).
+- Le **keyword** proposte sono solo quelle sopra il break-even **del brand**,
+  con almeno 10 clic e 20 € alle spalle.
+- Il pezzo che vale: **le keyword di un'altra città vengono riscritte**,
+  traducendo la lingua — `fiori milano` (12,5×) → `fiori napoli`,
+  `flower delivery in milan` → `flower delivery in naples`.
+- Il traguardo è lo **stesso modulo di `/lancia`** e chiama `lanciaCampagna`:
+  lint 7.2/7.3, coda, approvazione a mano, campagna che nasce **in pausa**. Un
+  suggeritore che scavalcasse l'approvazione sarebbe un modo elegante di
+  perdere il controllo.
+- I **titoli** sono dichiarati per quello che sono — *usati dalle campagne
+  affini*, **non «i migliori»**: Google non assegna un rendimento a quegli asset
+  (tutti `NOT_APPLICABLE`) e fingere di saperlo sarebbe un numero inventato.
+
+> ⚠️ **Trovato aprendo la pagina davvero**: `flowers delivery Como` veniva
+> proposta **per Napoli**, perché Como non era fra le città riconosciute — e
+> sarebbe finita in una campagna vera con la città sbagliata dentro. `CITTA_NOTE`
+> ora ha 40 città, più `scartaSeAltraCitta()` che butta le keyword contenenti un
+> luogo sconosciuto. **Chi aggiunge una città alle campagne la aggiunga anche
+> lì.** Nel dubbio si scarta: un suggerimento in meno non costa niente.
+
+### Impostazioni: due trappole sui token (31/07/2026)
+
+> ⚠️ **La chiave del Drive si cancellava premendo «Salva».**
+> `salvaApiKeyDrive` scriveva `valore: chiaveApi ?? ""`. La casella non può
+> mostrare la chiave salvata — i segreti non si rileggono mai — quindi si trova
+> **sempre vuota**: bastava premere Salva senza scrivere per spegnere la sync
+> del Drive, in silenzio. E il placeholder prometteva già «lascia vuoto per non
+> cambiarla»: promessa e comportamento andavano in direzioni opposte, e vinceva
+> il codice. Ora il vuoto non tocca niente e c'è la spunta esplicita, come per
+> chiavi AI, TikTok e credenziali Drive.
+
+> ⚠️ **`[^@s]` non esclude gli spazi, esclude la lettera «s».** Due backslash
+> mancanti nella validazione dell'email di impersonazione Drive: gli indirizzi
+> con una s — `assistenza@`, `mario.rossi@` — venivano respinti come «non
+> valida», e il messaggio dava la colpa all'indirizzo invece che al controllo.
+> Misurato: 2 indirizzi normali su 4 rifiutati prima, 0 dopo.
+
 ### Gli ordini si aggiornano da soli (29/07/2026)
 
 `GET /api/cron/ordini`, ogni notte alle **03:20 UTC** (`vercel.json`), più la
@@ -649,12 +728,28 @@ funzione.
 3. ~~**Script Google su Cake**~~ — **installato**: verificato il 29/07, Cake
    (846-090-5423) consegna dal 26/07, **27 consegne**, ultima il 28/07 alle
    10:45. Tutti e tre gli account hanno lavorato negli stessi giorni.
-4. **Schedulazione: NON impostata su nessuno dei tre** (verificato 29/07). La
-   prova è l'orario della prima consegna di ogni giorno — 26/07 **10:06**,
-   27/07 **15:31**, 28/07 **09:00**, 29/07 **09:46** (e solo Gifts): una
-   frequenza «ogni giorno» gira sempre nella stessa fascia, orari sparsi sono
-   lanci a mano. Confronto: il cron di Meta, che è vero, gira puntuale al minuto
-   7 di **ogni** ora.
+4. **Schedulazione: attiva su GIFTS, manca su Flowers e Cake** (verificato
+   31/07). La prova è l'orario della prima consegna di ogni giorno:
+
+   | | 28/07 | 29/07 | 30/07 | 31/07 |
+   | --- | --- | --- | --- | --- |
+   | **Gifts** | 09:00 | 09:46 | **03:47** | **03:47** ✅ |
+   | Flowers | 10:19 | — | 07:56 | — |
+   | Cake | 10:20 | — | 07:50 | — |
+
+   Gifts gira due giorni di fila **all'ora identica**: è la firma di una
+   schedulazione vera. Gli altri due hanno orari sparsi e **saltano giorni**:
+   sono lanci a mano.
+
+   ✅ **`AZIONE = "tutto"` ci sta, `copy` incluso**: il 31/07 Gifts ha fatto il
+   giro completo in **22 minuti** (03:47 → 04:09) — anagrafica, diagnosi,
+   metriche, gruppi, asset **e copy**. Il timore che gli ultimi due saltassero
+   era infondato con `GIORNI_COPY = 30` e `GIORNI_ASSET = 90`: non serve
+   spezzare in `G1`…`G7`.
+
+   ⚠️ **Flowers ha lo storico corto**: parte dal **21/06/2025** invece che dal
+   2024 come Gifts (20/05/2024) e Cake (27/06/2024). Su quell'account `S1`/`S2`
+   non hanno fatto il giro da 800 giorni.
    ⚠️ **Non si risolve dal codice**: gli Apps Script non possono auto-programmarsi,
    la frequenza è una proprietà dell'account (colonna *Frequenza* nella lista
    degli script). Va impostata **su ogni account**, e `GIORNI_INDIETRO = 7`
