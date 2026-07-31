@@ -139,6 +139,12 @@ locale, altrimenti nulla si decifra.
   - Verificato sul database vero, andata e ritorno: 5 + 3 ordini → **8 ordini in
     una riga** col secondo numero mostrato come recapito in più, poi «Separa» e
     di nuovo 5 e 3. Nessuna riga di prova lasciata indietro.
+  - ⚠️ **Le righe selezionate sono NUMERATE, e il bottone dice chi sparisce.**
+    Gli omonimi sono il caso per cui questa funzione esiste, quindi i due
+    bottoni uscivano identici — «Tieni Adhiraj singh rathore» e «Tieni Adhiraj
+    singh rathore» — e sceglierne uno era un sorteggio. Ora ogni riga
+    selezionata porta il suo numero e il bottone dice **«Tieni 1 — togli 2»**,
+    col dettaglio (telefono, città) nel titolo al passaggio del mouse.
   - ⚠️ **Appena unita, la riga NON è più un doppione**: col filtro «Possibili
     doppioni» attivo spariva subito dopo l'unione, e la pagina diceva «Nessun
     cliente per donato» — sembrava di averla persa. Ora le chiavi unite in

@@ -130,9 +130,26 @@ export function ClientiLista() {
     setScelti((p) => (p.includes(chiave) ? p.filter((k) => k !== chiave) : [...p, chiave]))
   }
 
-  // I selezionati, nell'ordine in cui compaiono: il primo dell'elenco è quello
-  // proposto come principale.
+  // I selezionati, nell'ordine in cui compaiono nell'elenco.
+  //
+  // ⚠️ Da qui nasce la NUMERAZIONE, e non è cosmetica: gli omonimi sono
+  // esattamente il caso in cui si usa questa funzione, quindi i bottoni «Tieni
+  // Adhiraj singh rathore» e «Tieni Adhiraj singh rathore» erano identici e
+  // sceglierne uno era tirare a sorte. Il numero compare sulla riga e sul
+  // bottone: è l'unica cosa che li distingue davvero.
   const selezionati = clienti.filter((c) => scelti.includes(c.chiave))
+
+  /** Il numero d'ordine di una riga fra le selezionate; 0 se non è selezionata. */
+  const numeroScelta = (chiave: string) =>
+    selezionati.findIndex((c) => c.chiave === chiave) + 1
+
+  /** «2», oppure «2 e 3»: le righe che spariscono tenendo la numero `i + 1`. */
+  const numeriDaTogliere = (i: number) => {
+    const altri = selezionati.map((_, j) => j + 1).filter((n) => n !== i + 1)
+    return altri.length > 1
+      ? `${altri.slice(0, -1).join(', ')} e ${altri[altri.length - 1]}`
+      : String(altri[0] ?? '')
+  }
 
   /**
    * Unisce i selezionati in `principale`.
@@ -336,24 +353,39 @@ export function ClientiLista() {
           <span>
             {selezionati.length === 1
               ? 'Selezionato 1 cliente: scegline un altro da unire.'
-              : `${selezionati.length} clienti selezionati. Quale resta?`}
+              : `${selezionati.length} righe selezionate — le trovi numerate qui sotto. Quale resta?`}
           </span>
           {selezionati.length > 1
-            ? selezionati.map((c) => (
+            ? selezionati.map((c, i) => (
                 <button
                   key={c.chiave}
                   className="btn"
                   disabled={occupato}
                   onClick={() => unisci(c.chiave)}
-                  title={`Restano il telefono e l'email di ${c.nome || c.chiave}`}
+                  // Nel titolo i dati che distinguono davvero due omonimi: il
+                  // numero da solo dice quale riga, non chi è.
+                  title={
+                    `Resta la riga ${i + 1} (${c.telefono || c.email || 'senza recapito'}` +
+                    `${c.citta ? `, ${c.citta}` : ''}): telefono ed email del cliente restano i suoi. ` +
+                    `La riga ${numeriDaTogliere(i)} sparisce dall'elenco e i suoi ordini si sommano a questa. ` +
+                    `Nessun ordine viene toccato: si può separare.`
+                  }
                 >
-                  Tieni {c.nome || c.telefono || c.email}
+                  <span className="numero-scelta chiaro">{i + 1}</span>
+                  Tieni {i + 1} — togli {numeriDaTogliere(i)}
                 </button>
               ))
             : null}
           <button className="btn btn-secondario" onClick={() => setScelti([])}>
             Annulla
           </button>
+          {selezionati.length > 1 ? (
+            <span className="cella-sub" style={{ flexBasis: '100%' }}>
+              La riga che togli sparisce dall&apos;elenco: i suoi ordini, la sua spesa e i suoi
+              recapiti passano a quella che tieni. Nessun ordine viene toccato — «Separa» rimette
+              tutto com&apos;era.
+            </span>
+          ) : null}
         </div>
       ) : null}
 
@@ -393,12 +425,19 @@ export function ClientiLista() {
                 {clienti.map((c) => (
                   <tr key={c.chiave} className={scelti.includes(c.chiave) ? 'riga-scelta' : ''}>
                     <td>
-                      <input
-                        type="checkbox"
-                        checked={scelti.includes(c.chiave)}
-                        onChange={() => spunta(c.chiave)}
-                        aria-label={`Seleziona ${c.nome || c.chiave}`}
-                      />
+                      <span className="cella-scelta">
+                        <input
+                          type="checkbox"
+                          checked={scelti.includes(c.chiave)}
+                          onChange={() => spunta(c.chiave)}
+                          aria-label={`Seleziona ${c.nome || c.chiave}`}
+                        />
+                        {/* Il numero della riga fra le selezionate: è quello
+                            che compare sui bottoni «Tieni 1 — togli 2». */}
+                        {numeroScelta(c.chiave) ? (
+                          <span className="numero-scelta">{numeroScelta(c.chiave)}</span>
+                        ) : null}
+                      </span>
                     </td>
                     <td>
                       <div className="cella-nome">{c.nome || c.telefono || c.email || '—'}</div>

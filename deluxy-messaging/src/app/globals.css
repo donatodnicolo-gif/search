@@ -3225,3 +3225,36 @@ td .azioni-ordine {
     min-height: 42px;
   }
 }
+
+/* Il numero della riga selezionata.
+ *
+ * ⚠️ Serve perché gli OMONIMI sono il caso tipico di questa funzione: due
+ * bottoni «Tieni Adhiraj singh rathore» identici non sono una scelta, sono un
+ * sorteggio. Il numero è la sola cosa che lega il bottone alla riga. */
+.numero-scelta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* Sul bottone nero il tondo si inverte, o sparirebbe dentro il bottone. */
+.numero-scelta.chiaro {
+  background: #fff;
+  color: var(--ink);
+  margin-right: 2px;
+}
+
+.cella-scelta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
