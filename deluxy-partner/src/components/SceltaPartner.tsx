@@ -36,6 +36,7 @@ export function SceltaPartner({
   valoreIniziale,
   obbligatorio = true,
   mostraFee = true,
+  nomeCampo = "partnerId",
 }: {
   partners: PartnerScelta[];
   /** Chi ha già lo stato del partner (il form della vendita) lo passa qui. */
@@ -45,6 +46,8 @@ export function SceltaPartner({
   valoreIniziale?: string;
   obbligatorio?: boolean;
   mostraFee?: boolean;
+  /** Nome del campo inviato: le azioni più vecchie leggono `partner`. */
+  nomeCampo?: string;
 }) {
   const [valoreInterno, setValoreInterno] = useState(valoreIniziale ?? "");
   const controllato = valoreEsterno !== undefined;

@@ -137,9 +137,13 @@ export async function costruisciRiconciliazione(): Promise<Riconciliazione> {
     // Un abbinamento manuale salvato (st.partnerId) ha priorità sull'auto-match
     // per nome: così un cliente "solo FIC" riconciliato a mano con un partner
     // FINANCE passa dai "senza conciliazione" ai conciliati.
-    const partner =
-      (st?.partnerId ? partners.find((p) => p.id === st.partnerId) ?? null : null) ??
-      matchPartner(dati.nome, partners);
+    // ⚠️ Su una riga IGNORATA l'abbinamento automatico non si riapplica: chi ha
+    // premuto «Ignora» ha detto che quel partner non è il suo, e riproporglielo
+    // a ogni ricarica lo rimetterebbe esattamente dove non lo voleva. Senza
+    // questo, «CIOCCOLATO S.A.S. DI SIMONA SOLBIATI» tornava agganciato ad AMIR
+    // subito dopo essere stato scollegato.
+    const scelto = st?.partnerId ? partners.find((p) => p.id === st.partnerId) ?? null : null;
+    const partner = scelto ?? (st?.stato === "ignorata" ? null : matchPartner(dati.nome, partners));
     const conto = contoPerPartner(partner);
     const riga: EsitoRiga = {
       ficNome: dati.nome,

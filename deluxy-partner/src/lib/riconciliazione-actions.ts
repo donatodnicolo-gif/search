@@ -12,16 +12,49 @@ import { registra } from "./registro";
 // Conferma la riconciliazione di un cliente FIC e INVIA i campi al registro
 // Anagrafiche (solo se la scrittura è configurata). L'azione parte solo da un
 // click esplicito dell'operatore, un record per volta.
-export async function confermaRiconciliazione(
+export type StatoRiga = "confermata" | "ignorata" | null;
+export type EsitoAzione = { stato: StatoRiga; ok: boolean; testo: string } | null;
+
+// Conferma / ignora / riapri SENZA ricostruire la pagina.
+//
+// Le tre azioni finivano tutte con `revalidatePath("/registrazioni/riconciliazione")`,
+// e quella pagina interroga Fatture in Cloud e Qonto: ogni clic costava secondi
+// di attesa in cui il bottone restava identico a prima — sembrava che non fosse
+// successo niente, e si ricliccava. Qui torna l'esito, e la riga si aggiorna da
+// sola: la pagina non ha motivo di rinascere per una riga su cinquanta.
+export async function azioneRiconciliazione(
   ficNome: string,
   partnerId: string,
   anagraficaId: string,
-  campiJson: string
-) {
-  // Ricalcola SEMPRE i campi lato server dai dati FIC correnti: così la conferma
-  // usa la logica aggiornata (es. include la ragione sociale) anche se la pagina
-  // nel browser è una versione vecchia. Fallback al payload della pagina solo se
-  // il cliente FIC non è più reperibile.
+  campiJson: string,
+  _precedente: EsitoAzione,
+  fd: FormData
+): Promise<EsitoAzione> {
+  const cosa = String(fd.get("cosa") ?? "");
+
+  if (cosa === "riapri") {
+    await prisma.riconciliazioneAnagrafica.deleteMany({ where: { ficNome } });
+    return { stato: null, ok: true, testo: "Riaperta: torna fra quelle da confermare." };
+  }
+
+  if (cosa === "ignora") {
+    // ⚠️ Ignorare SCOLLEGA. Prima marcava solo lo stato e teneva il `partnerId`
+    // dell'abbinamento automatico: il cliente FIC restava attaccato a un partner
+    // che non è il suo, e non c'era modo di dargliene un altro. Caso vero:
+    // «CIOCCOLATO S.A.S. DI SIMONA SOLBIATI E C.» agganciato ad «AMIR».
+    await prisma.riconciliazioneAnagrafica.upsert({
+      where: { ficNome },
+      create: { ficNome, partnerId: null, stato: "ignorata" },
+      update: { partnerId: null, anagraficaId: null, stato: "ignorata", esito: null },
+    });
+    return {
+      stato: "ignorata",
+      ok: true,
+      testo: "Scollegata. Ricaricando la pagina la trovi fra i clienti senza conciliazione, dove si abbina al partner giusto.",
+    };
+  }
+
+  // conferma: stessa logica di `confermaRiconciliazione`, senza il redirect
   let campi: CampiAnagrafica = await campiPropostiPerNome(ficNome);
   if (Object.keys(campi).length === 0) {
     try {
@@ -30,19 +63,11 @@ export async function confermaRiconciliazione(
       campi = {};
     }
   }
-
   const res = await aggiornaAnagrafica(anagraficaId, campi);
   const esito = res.ok ? "ok" : res.errore;
 
-  // IL COLLEGAMENTO SUL PARTNER. Mancava: la conferma scriveva solo la propria
-  // tabella, e la scheda ritrovava il record del registro soltanto perché lo
-  // cercava per nome a ogni apertura — finché il nome combaciava. Un partner
-  // «riconciliato» ma non collegato è, per il resto dell'app, un partner senza
-  // dati fiscali: è così che una fattura elettronica si blocca.
   if (res.ok) {
     await prisma.partner.update({ where: { id: partnerId }, data: { anagraficaId } });
-    // e si porta in locale ciò che serve FUORI dalla scheda: il beneficiario
-    // dei bonifici e l'email dell'amministrazione per i solleciti.
     await allineaPartnerDaRegistro(partnerId).catch(() => null);
     revalidatePath(`/partner/${partnerId}`, "layout");
   }
@@ -60,15 +85,18 @@ export async function confermaRiconciliazione(
     update: {
       partnerId,
       anagraficaId,
-      // se l'invio fallisce non marchiamo "confermata": resta da ritentare
       ...(res.ok ? { stato: "confermata" } : {}),
       campiInviati: Object.keys(campi).join(", ") || null,
       esito,
     },
   });
 
-  revalidatePath("/registrazioni/riconciliazione", "layout");
+  const inviati = Object.keys(campi).join(", ");
+  return res.ok
+    ? { stato: "confermata", ok: true, testo: `Inviati al registro: ${inviati || "nessun campo"}` }
+    : { stato: null, ok: false, testo: `Il registro ha rifiutato: ${res.errore}` };
 }
+
 
 // Crea il partner nel registro Anagrafiche (o lo aggancia se già esiste per
 // nome+città) con i dati osservati, e collega l'id al partner Deluxy
@@ -174,21 +202,9 @@ export async function salvaDatiBancariInline(
 }
 
 
-// Segna un cliente FIC come "ignorato" (non riproporlo nella riconciliazione).
-export async function ignoraRiconciliazione(ficNome: string, partnerId?: string) {
-  await prisma.riconciliazioneAnagrafica.upsert({
-    where: { ficNome },
-    create: { ficNome, partnerId: partnerId ?? null, stato: "ignorata" },
-    update: { stato: "ignorata" },
-  });
-  revalidatePath("/registrazioni/riconciliazione", "layout");
-}
-
-// Riporta un cliente FIC in "da riconciliare" (annulla conferma/ignora).
-export async function riapriRiconciliazione(ficNome: string) {
-  await prisma.riconciliazioneAnagrafica.deleteMany({ where: { ficNome } });
-  revalidatePath("/registrazioni/riconciliazione", "layout");
-}
+// Ignora e riapri vivono dentro `azioneRiconciliazione`: erano tre funzioni che
+// finivano tutte con un revalidate della pagina intera, ed è quello che la
+// rendeva lenta a ogni clic.
 
 // Abbina MANUALMENTE un cliente "solo FIC" (senza match automatico) a un partner
 // FINANCE scelto dall'operatore, e ne porta i dati fiscali nel registro. Se il

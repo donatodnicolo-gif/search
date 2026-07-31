@@ -3,8 +3,9 @@ import { prisma } from "@/lib/db";
 import { ficStato } from "@/lib/fic";
 import { scritturaAnagraficheAttiva } from "@/lib/anagrafiche";
 import { costruisciRiconciliazione, campiProposti, type EsitoRiga } from "@/lib/riconciliazione-fic";
-import { confermaRiconciliazione, ignoraRiconciliazione, riapriRiconciliazione, creaInAnagrafiche, aggiornaDatiEsterniRiconciliazione, riconciliaManuale, allineaAnagraficheTutti } from "@/lib/riconciliazione-actions";
+import { creaInAnagrafiche, aggiornaDatiEsterniRiconciliazione, riconciliaManuale, allineaAnagraficheTutti } from "@/lib/riconciliazione-actions";
 import { DatiBancariRiga } from "@/components/DatiBancariRiga";
+import { AzioniRiconciliazione } from "@/components/AzioniRiconciliazione";
 
 export const dynamic = "force-dynamic";
 // La prima costruzione (cache fredda) interroga FIC e Qonto: diamo margine ampio.
@@ -54,49 +55,19 @@ function RigaConciliata({ r, scrittura }: { r: EsitoRiga; scrittura: boolean }) 
           scrittura={scrittura}
         />
       </td>
-      <td>
-        {r.stato === "confermata" ? (
-          <span className="badge green"><span className="dot" />Inviato al registro</span>
-        ) : r.esitoUltimoInvio && r.esitoUltimoInvio !== "ok" ? (
-          <span className="badge red" title={r.esitoUltimoInvio}><span className="dot" />Invio fallito</span>
-        ) : r.stato === "ignorata" ? (
-          <span className="badge neutral"><span className="dot" />Ignorato</span>
-        ) : (
-          <span className="badge blue"><span className="dot" />Da confermare</span>
-        )}
-      </td>
-      <td style={{ whiteSpace: "nowrap", textAlign: "right" }}>
-        {r.stato === "confermata" || r.stato === "ignorata" ? (
-          <form action={riapriRiconciliazione.bind(null, r.ficNome)} style={{ display: "inline" }}>
-            <button className="btn small secondary" type="submit">Riapri</button>
-          </form>
-        ) : (
-          <span style={{ display: "inline-flex", gap: 6 }}>
-            <form
-              action={confermaRiconciliazione.bind(null, r.ficNome, r.partner!.id, anagraficaId, JSON.stringify(campi))}
-              style={{ display: "inline" }}
-            >
-              <button
-                className="btn small primary"
-                type="submit"
-                disabled={!scrittura || nCampi === 0}
-                title={
-                  !scrittura
-                    ? "Configura la chiave di scrittura per aggiornare il registro"
-                    : nCampi === 0
-                      ? "Nessun dato fiscale da inviare"
-                      : `Invia al registro: ${Object.keys(campi).join(", ")}`
-                }
-              >
-                Conferma e aggiorna
-              </button>
-            </form>
-            <form action={ignoraRiconciliazione.bind(null, r.ficNome, r.partner!.id)} style={{ display: "inline" }}>
-              <button className="btn small secondary" type="submit">Ignora</button>
-            </form>
-          </span>
-        )}
-      </td>
+      {/* Stato + azioni: confermare parla col registro e prende il suo tempo.
+          Sta in un client component perché l'esito si veda mentre succede,
+          senza ricostruire una pagina che interroga FIC e Qonto. */}
+      <AzioniRiconciliazione
+        ficNome={r.ficNome}
+        partnerId={r.partner!.id}
+        anagraficaId={anagraficaId}
+        campiJson={JSON.stringify(campi)}
+        statoIniziale={r.stato}
+        esitoUltimoInvio={r.esitoUltimoInvio}
+        scrittura={scrittura}
+        nCampi={nCampi}
+      />
     </tr>
   );
 }

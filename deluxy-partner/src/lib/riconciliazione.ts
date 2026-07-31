@@ -42,6 +42,15 @@ const PAROLE_GENERICHE = new Set([
   "FIORI", "FIORE", "FIORAIO", "FIORISTA", "FIORERIA", "FLOWERS", "FLOWER", "FLEURS",
   "PASTICCERIA", "BOTTEGA", "MARKET", "SHOP", "STORE", "ATELIER", "CAFFE", "BAR",
   "DOLCE", "DOLCI", "NUOVO", "NUOVA", "REAL", "GRUPPO", "CASA", "ANGOLO", "OASI",
+  // ⚠️ 31/07/2026 — caso vero: «CIOCCOLATO S.A.S. DI SIMONA SOLBIATI E C.» veniva
+  // abbinato ad «AMIR (LA BOTTEGA DI CIOCCOLATO SRLS)» perché condividono la
+  // parola CIOCCOLATO, che da sola bastava (è lunga, quindi contava come token
+  // «forte»). Sono due aziende diverse. Le parole che dicono il MESTIERE non
+  // identificano nessuno: qui ci vanno tutte quelle che descrivono cosa si
+  // vende, non chi vende.
+  "CIOCCOLATO", "CIOCCOLATERIA", "GELATERIA", "PANIFICIO", "FORNO", "RISTORANTE",
+  "PIZZERIA", "SUSHI", "CATERING", "BOUTIQUE", "GIFTING", "PROFUMERIA", "ENOTECA",
+  "CANTINA", "VINI", "LABORATORIO", "OFFICINE", "OFFICINA",
 ]);
 
 // token significativi del nome partner (incluso il contenuto tra parentesi)
