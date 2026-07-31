@@ -54,13 +54,23 @@ export default async function SpesePage({
   // una percentuale di copertura fatta sul troncamento sarebbe una bugia.
   const tutte = await prisma.transazioneBancaria.findMany({
     where: { importo: { lt: 0 }, data: { gte: inizio, lt: fine }, stato: { not: "ignorata" } },
-    select: { importo: true, categoriaId: true, categoriaNome: true, categoriaTipoPL: true },
+    select: { importo: true, categoriaId: true, categoriaNome: true, categoriaTipoPL: true, categoriaDa: true },
   });
   const totale = tutte.reduce((a, t) => a + Math.abs(t.importo), 0);
   const conCat = tutte.filter((t) => t.categoriaId);
   const totaleCat = conCat.reduce((a, t) => a + Math.abs(t.importo), 0);
   const pctCopertura = totale > 0.005 ? (totaleCat / totale) * 100 : 0;
   const senzaCat = tutte.length - conCat.length;
+
+  // ⚠️ **Un'assegnazione fatta a mano qui non arriva al conto economico.**
+  // Budgets non legge la categoria salvata sul movimento: ricalcola tutto dalle
+  // proprie regole a ogni caricamento. Quindi la tendina qui sotto cambia
+  // questa pagina e basta — il bilancio continua a leggere quella controparte
+  // come dice la regola. Finché sono poche non è un dramma, ma devono
+  // **vedersi**: una divergenza silenziosa fra due app che mostrano lo stesso
+  // numero è il modo peggiore di sbagliare.
+  const manuali = tutte.filter((t) => t.categoriaDa === "manuale");
+  const manualiImporto = manuali.reduce((a, t) => a + Math.abs(t.importo), 0);
 
   const perCategoria = [...conCat.reduce((m, t) => {
     const k = t.categoriaNome ?? "—";
@@ -89,6 +99,10 @@ export default async function SpesePage({
           <p className="page-caption">
             Le uscite di banca classificate con le <strong>categorie di costo di Budgets</strong>, quelle con cui
             si costruisce il conto economico. L&apos;elenco delle categorie si gestisce lì: qui si assegna.
+            <br />
+            <strong>Quello che decide il bilancio sono le regole</strong>, non la categoria salvata su questa
+            pagina: Budgets non legge quest&apos;ultima, ricalcola tutto dalle proprie regole a ogni caricamento.
+            Il bottone qui accanto serve proprio a rifare la fotografia quando in Budgets ne nasce una nuova.
           </p>
         </div>
         <div className="page-actions">
@@ -206,6 +220,24 @@ export default async function SpesePage({
             </p>
           </div>
         </>
+      )}
+
+      {manuali.length > 0 && (
+        <div className="card" style={{ marginBottom: 16, padding: 16, borderColor: "var(--gold)" }}>
+          <strong>
+            {manuali.length} {manuali.length === 1 ? "movimento assegnato" : "movimenti assegnati"} a mano
+            {" "}({euro(manualiImporto)}): {manuali.length === 1 ? "sta" : "stanno"} solo qui.
+          </strong>{" "}
+          Budgets non legge la categoria salvata sul movimento — ricalcola tutto dalle proprie regole — quindi
+          nel <strong>conto economico quel denaro resta dov&apos;era</strong>. Per farlo valere anche lì va
+          creata la regola in Budgets (CFO, o l&apos;assegnazione rapida dal dettaglio di una voce): lì diventa
+          permanente e da lì torna anche qui col bottone «Applica le regole».
+          <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
+            Attenzione a cosa si trasforma in regola: una regola nomina la <em>controparte</em>, quindi vale per
+            tutti i suoi movimenti. Su un circuito di pagamento — PayPal, SumUp, Satispay — sarebbe sbagliata:
+            dice <em>come</em> hai pagato, non <em>cosa</em> hai comprato.
+          </div>
+        </div>
       )}
 
       {perCategoria.length > 0 && (
