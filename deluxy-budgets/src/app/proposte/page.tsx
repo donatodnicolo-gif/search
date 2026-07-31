@@ -44,7 +44,10 @@ export default async function Proposte() {
         <div>
           <h1 className="page-title">Proposte budget</h1>
           <p className="page-caption">
-            Ogni Responsabile invia qui la propria proposta di budget {ANNO_CORRENTE}. L'admin la apre, risponde e — se la prende — la <strong>consolida nel budget ufficiale</strong>. Finche' non e' consolidata, il budget pubblicato non cambia.
+            Ogni Responsabile invia qui la propria proposta di budget {ANNO_CORRENTE}.{" "}
+            <strong>Si approva aprendo la proposta</strong> — il bottone in fondo alla riga: lì dentro ci sono
+            «Approva», «Respingi» (con nota obbligatoria) e, in un <strong>secondo gesto separato</strong>,
+            «Consolida nel budget». Finché non è consolidata, il budget pubblicato non cambia di un euro.
           </p>
         </div>
         <div className="page-actions">
@@ -77,6 +80,11 @@ export default async function Proposte() {
                   <th>Stato</th>
                   <th>Data</th>
                   <th>Note</th>
+                  {/* La decisione si prende nella scheda della proposta, e
+                      finché l'unico link era il nome dell'autore nessuno la
+                      trovava: un bottone che dice cosa succede vale più di una
+                      riga cliccabile che non lo dice. */}
+                  <th />
                 </tr>
               </thead>
               <tbody>
@@ -97,6 +105,18 @@ export default async function Proposte() {
                     <td className="muted">{p.createdAt.toLocaleDateString("it-IT")}</td>
                     <td className="muted" style={{ maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {p.note ?? "—"}
+                    </td>
+                    <td className="num" style={{ whiteSpace: "nowrap" }}>
+                      <Link
+                        className={`btn small ${p.stato === "INVIATA" ? "primary" : "secondary"}`}
+                        href={`/proposte/${p.id}`}
+                      >
+                        {p.stato === "INVIATA"
+                          ? "Leggi e decidi"
+                          : p.stato === "APPROVATA" && !p.consolidataSu
+                            ? "Consolida"
+                            : "Apri"}
+                      </Link>
                     </td>
                   </tr>
                 ))}

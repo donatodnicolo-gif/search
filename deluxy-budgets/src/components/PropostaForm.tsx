@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { eur, MESI } from "@/lib/format";
+import { CampoEuro } from "@/components/CampoEuro";
 // Solo il tipo: `import type` sparisce in compilazione, quindi il client non si
 // tira dietro la catena che parla con Finance e Orders.
 import type { ConsuntivoAmbiti } from "@/lib/proposta-consuntivo";
@@ -143,16 +144,14 @@ export function PropostaForm({
                 {typeof consuntivoMese[i] === "number" ? eur(consuntivoMese[i] ?? 0) : <span className="muted">—</span>}
               </div>
             ) : (
-              <input
-                type="number"
-                min={0}
-                step={100}
-                value={valori[i] || ""}
-                onChange={(e) => {
-                  const v = [...valori];
-                  v[i] = e.target.value === "" ? 0 : Number(e.target.value);
-                  setValori(v);
-                }}
+              // I punti delle migliaia e il simbolo € compaiono mentre si
+              // digita: un campo che mostra `55000` accanto a una riga che
+              // mostra `50.576 €` obbliga a contare gli zeri a occhio, ed è
+              // così che si scrive un numero dieci volte più grande senza
+              // accorgersene.
+              <CampoEuro
+                valore={valori[i]}
+                onChange={(v) => setValori((p) => p.map((x, j) => (j === i ? v : x)))}
               />
             )}
           </div>

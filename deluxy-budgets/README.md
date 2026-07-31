@@ -193,6 +193,18 @@ pubblicato), *sfidante* e *irraggiungibile*.
   Experience) non mostrano zero — che sarebbe una bugia — ma un trattino e il motivo. I mesi
   chiusi restano bloccati **anche dove il consuntivo non c'è**: il motivo per cui non si
   propongono è che sono passati, non che c'era un numero da mettere al loro posto.
+  **I campi degli euro si formattano mentre si scrive** (`src/components/CampoEuro.tsx`): punti
+  delle migliaia e simbolo €, così `55.000 €` sta accanto a `50.576 €` di consuntivo e non a
+  `55000` — contare gli zeri a occhio è il modo in cui si scrive un numero dieci volte più grande
+  senza accorgersene. Il cursore **non salta**: si contano i caratteri significativi prima di lui e
+  lo si rimette dopo gli stessi, qualunque punto sia comparso. Il punto digitato si **ignora** (le
+  migliaia le mettiamo noi), la virgola vale come decimale, e un campo **vuoto resta vuoto**: `0 €`
+  sarebbe una proposta di non vendere niente, che è un'altra cosa.
+  **Si approva aprendo la proposta** — bottone «Leggi e decidi» in fondo alla riga dell'elenco.
+  Prima l'unico modo di arrivarci era cliccare il **nome dell'autore**, che nessuno interpreta come
+  «qui si approva»: la domanda «dove approvo le proposte?» è arrivata dall'utente guardando la
+  pagina. Il bottone dice cosa succede, e cambia con lo stato (`Leggi e decidi` → `Consolida` →
+  `Apri`).
 - **Spese ADV** (`/spese`): quanto si può spendere in pubblicità per maison come **% delle
   vendite del mese**, personalizzabile mese per mese; l'importo consentito si ricalcola.
 - **Impostazioni** (`/impostazioni`): moltiplicatori dei livelli sfidante/irraggiungibile,
