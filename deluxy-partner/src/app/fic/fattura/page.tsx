@@ -233,6 +233,10 @@ export default async function EmettiFatturaPage({
                   {scelta.alternative.length > 0 &&
                     ` Riconciliato anche con ${scelta.alternative.map((a) => `«${a.nome}»`).join(", ")}.`}
                 </p>
+              ) : scelta.da === "storico" ? (
+                <p className="muted" style={{ fontSize: 12.5, marginTop: 6 }}>
+                  Intestatario delle fatture già emesse a &laquo;{partnerNome}&raquo;: &laquo;{scelta.ficNome}&raquo;.
+                </p>
               ) : suggerito ? (
                 <p className="muted" style={{ fontSize: 12.5, marginTop: 6 }}>
                   Proposto per somiglianza con &laquo;{partnerNome}&raquo;: controlla che sia il cliente giusto.

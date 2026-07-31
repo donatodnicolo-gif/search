@@ -1,6 +1,7 @@
 import type { Partner } from "@prisma/client";
 import { prisma } from "./db";
 import { matchPartner } from "./riconciliazione";
+import { ficIntestatarioDaNumero } from "./fic";
 
 // Quale soggetto di Fatture in Cloud corrisponde a un partner Deluxy.
 //
@@ -26,13 +27,45 @@ const chiave = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
 
 export type SuggerimentoCliente<T> = {
   cliente: T | null;
-  /** da dove arriva: riconciliazione confermata, somiglianza di nome, oppure niente */
-  da: "riconciliazione" | "nome" | null;
+  /** da dove arriva: riconciliazione confermata, fatture già emesse a quel
+   *  partner, somiglianza di nome, oppure niente */
+  da: "riconciliazione" | "storico" | "nome" | null;
   /** il nome con cui il soggetto è registrato su FIC */
   ficNome?: string;
   /** altri soggetti FIC riconciliati con lo stesso partner (intestazioni alternative) */
   alternative: T[];
 };
+
+// L'intestatario dell'ultima fattura commissioni emessa dall'app per questo
+// partner, se quel soggetto è ancora fra i fatturabili. Si guardano gli ultimi
+// numeri salvati (non solo l'ultimissimo): un numero può non essere più
+// rintracciabile su FIC — fattura cancellata, numerazione cambiata — e in quel
+// caso vale il precedente. Tre tentativi bastano: sono chiamate di rete.
+async function soggettoDaFattureEmesse<T>(
+  partnerId: string,
+  perNome: Map<string, T>
+): Promise<{ cliente: T; nome: string } | null> {
+  const emesse = await prisma.saldoMensile.findMany({
+    where: { partnerId, commFattEmessa: true, commFattNumero: { not: null } },
+    orderBy: [{ anno: "desc" }, { mese: "desc" }],
+    select: { anno: true, commFattNumero: true },
+    take: 3,
+  });
+  const visti = new Set<string>();
+  for (const s of emesse) {
+    const numero = s.commFattNumero!;
+    if (visti.has(numero)) continue; // lo stesso numero può ripetersi su più mesi
+    visti.add(numero);
+    try {
+      const nome = await ficIntestatarioDaNumero(numero, s.anno);
+      const trovato = nome ? perNome.get(chiave(nome)) : undefined;
+      if (nome && trovato) return { cliente: trovato, nome };
+    } catch {
+      // FIC non risponde su quel numero: si prova col precedente
+    }
+  }
+  return null;
+}
 
 export async function suggerisciClienteFic<T extends { nome: string }>(
   partner: Pick<Partner, "id" | "nome">,
@@ -58,6 +91,15 @@ export async function suggerisciClienteFic<T extends { nome: string }>(
       ficNome: riconciliati[0].nome,
       alternative: riconciliati.slice(1),
     };
+  }
+
+  // Seconda via, altrettanto solida: le fatture commissioni che l'app ha già
+  // emesso a questo partner. Il numero è salvato in `SaldoMensile`, e chi c'era
+  // scritto sopra è il cliente giusto — non un'ipotesi. Vale per i partner
+  // fatturati da mesi che nessuno ha mai riconciliato.
+  const daStorico = await soggettoDaFattureEmesse(partner.id, perNome);
+  if (daStorico) {
+    return { cliente: daStorico.cliente, da: "storico", ficNome: daStorico.nome, alternative: [] };
   }
 
   // ripiego: la ragione sociale FIC compare nel nome partner («MOSCATI SRL» in

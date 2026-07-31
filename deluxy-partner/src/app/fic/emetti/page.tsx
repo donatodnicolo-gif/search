@@ -183,10 +183,15 @@ export default async function EmettiPage({
                       .map((a) => `«${a.nome}»`)
                       .join(", ")}: se la fattura va intestata a quello, cambialo qui.`}
                 </p>
+              ) : scelta.da === "storico" ? (
+                <p className="muted" style={{ fontSize: 12.5, marginTop: 6 }}>
+                  È l&apos;intestatario delle <strong style={{ color: "var(--text)" }}>fatture commissioni
+                  già emesse</strong> a questo partner: su Fatture in Cloud è «{scelta.ficNome}».
+                </p>
               ) : (
                 <p className="muted" style={{ fontSize: 12.5, marginTop: 6 }}>
-                  Scelto per somiglianza del nome, non da una riconciliazione: controlla che sia il
-                  cliente giusto.
+                  Scelto per somiglianza del nome, non da una riconciliazione né da fatture passate:
+                  controlla che sia il cliente giusto.
                 </p>
               )}
             </div>

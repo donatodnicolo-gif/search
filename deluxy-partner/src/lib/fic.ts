@@ -878,6 +878,23 @@ export async function ficIdDaNumero(numero: string, annoFallback?: number): Prom
   return r.data.length === 1 ? r.data[0].id : null;
 }
 
+// A CHI era intestata una fattura già emessa, dato il numero interno
+// ("460/2026"). Se l'app ha già fatturato le commissioni a un partner,
+// l'intestatario di quella fattura è un FATTO: non una somiglianza di nomi.
+export async function ficIntestatarioDaNumero(
+  numero: string,
+  annoFallback?: number
+): Promise<string | null> {
+  const { companyId } = await ficStato();
+  if (!companyId) return null;
+  const id = await ficIdDaNumero(numero, annoFallback);
+  if (!id) return null;
+  const r = await ficFetch<{ data: { entity?: { name?: string | null } } }>(
+    `/c/${companyId}/issued_documents/${id}?fields=entity`
+  );
+  return r.data.entity?.name?.trim() || null;
+}
+
 // Allinea a Fatture in Cloud lo stato di incasso deciso nell'app (fattura
 // segnata saldata a mano o dalla riconciliazione bancaria): senza questo la
 // fattura restava «Da incassare» su FIC e nell'elenco /registrazioni/fatture.

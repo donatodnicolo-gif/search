@@ -4,18 +4,38 @@ import { ANNO_CORRENTE } from "@/lib/queries";
 import { euro, dataIt, pctIt } from "@/lib/format";
 import { nomeMese, MESI, commissione, dovutoVendita } from "@/lib/calc";
 import { deleteVendita } from "@/lib/actions";
+import { emettiCommissioniRapido } from "@/lib/fic-actions";
 import { ThSort, ordina } from "@/components/ThSort";
+import { BottoneInvio } from "@/components/BottoneInvio";
 
 export const dynamic = "force-dynamic";
 
 export default async function VenditePage({
   searchParams,
 }: {
-  searchParams: Promise<{ anno?: string; mese?: string; sort?: string; dir?: string; q?: string }>;
+  searchParams: Promise<{
+    anno?: string;
+    mese?: string;
+    sort?: string;
+    dir?: string;
+    q?: string;
+    ficFatta?: string;
+    ficErrore?: string;
+  }>;
 }) {
   const sp = await searchParams;
   const anno = sp.anno ? parseInt(sp.anno) : ANNO_CORRENTE;
   const mese = sp.mese ? parseInt(sp.mese) : undefined;
+  // dove tornare dopo aver emesso: la stessa vista, coi filtri di adesso
+  const tornaA =
+    "/vendite?" +
+    new URLSearchParams({
+      anno: String(anno),
+      ...(sp.mese ? { mese: sp.mese } : {}),
+      ...(sp.q ? { q: sp.q } : {}),
+      ...(sp.sort ? { sort: sp.sort } : {}),
+      ...(sp.dir ? { dir: sp.dir } : {}),
+    }).toString();
   // Ricerca su partner, descrizione e importo: si cerca «chi» o «cosa», e a
   // volte si ha in mano solo la cifra di un incasso.
   const q = (sp.q ?? "").trim();
@@ -75,6 +95,25 @@ export default async function VenditePage({
           <Link href="/vendite/nuova" className="btn primary">+ Nuova vendita</Link>
         </div>
       </div>
+
+      {sp.ficFatta && (
+        <div className="card" style={{ padding: 14, marginBottom: 16 }}>
+          <span className="badge green"><span className="dot" />
+            Fattura commissioni creata su Fatture in Cloud: {sp.ficFatta}
+          </span>
+          <p className="muted" style={{ fontSize: 12.5, marginTop: 8, marginBottom: 0 }}>
+            È stata creata <strong>senza invio allo SDI</strong>: la controlli e la invii da Fatture in Cloud.
+          </p>
+        </div>
+      )}
+      {sp.ficErrore && (
+        <div
+          className="card"
+          style={{ padding: 14, marginBottom: 16, borderColor: "rgba(215,0,21,0.15)", background: "rgba(215,0,21,0.06)" }}
+        >
+          <span style={{ color: "var(--red)", fontSize: 14 }}>{sp.ficErrore}</span>
+        </div>
+      )}
 
       <div className="kpi-grid">
         <div className="kpi">
@@ -161,7 +200,9 @@ export default async function VenditePage({
                         </form>
                         {/* La commissione si fattura una volta per partner+mese:
                             se è già emessa si mostra il numero, altrimenti il
-                            bottone che la crea su Fatture in Cloud. */}
+                            bottone che la crea DAVVERO su Fatture in Cloud (e
+                            apre la pagina di emissione solo quando il cliente
+                            non è certo — vedi src/lib/fic-actions.ts). */}
                         {(() => {
                           const f = fattComm.get(`${v.partnerId}:${v.mese}`);
                           if (f?.commFattEmessa) {
@@ -172,13 +213,18 @@ export default async function VenditePage({
                             );
                           }
                           return (
-                            <Link
-                              className="btn small primary"
-                              href={`/fic/emetti?partnerId=${v.partnerId}&anno=${anno}&mese=${v.mese}`}
-                              title={`Crea su Fatture in Cloud la fattura delle commissioni di ${nomeMese(v.mese)} per ${v.partner.nome}`}
+                            <form
+                              action={emettiCommissioniRapido.bind(null, v.partnerId, anno, v.mese, tornaA)}
+                              style={{ display: "inline" }}
                             >
-                              Fattura commissioni
-                            </Link>
+                              <BottoneInvio
+                                className="btn small primary"
+                                inCorso="Creo…"
+                                title={`Crea su Fatture in Cloud la fattura delle commissioni di ${nomeMese(v.mese)} per ${v.partner.nome} — imponibile ${euro(commissione(v))}. Se il cliente FIC non è quello riconciliato, si apre la pagina per sceglierlo.`}
+                              >
+                                Fattura commissioni
+                              </BottoneInvio>
+                            </form>
                           );
                         })()}
                       </span>
