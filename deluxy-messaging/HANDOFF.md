@@ -92,6 +92,26 @@ locale, altrimenti nulla si decifra.
     «ciao»), 2 portoghese. Con «leggo italiano e inglese» si traducono **2
     messaggi su 384** — la traduzione non è un costo di massa.
 
+- **IL NUMERO DI CHI SCRIVE, E UNA TESTATA CHE NON SI TAGLIA** (31/07/2026).
+  - Su WhatsApp `idEsterno` **è** il numero del cliente (Meta lo manda senza
+    «+»): ora si legge in chiaro accanto ai badge ed è un link `tel:`. Prima
+    stava nel testo grigio `.dettaglio`, che è `flex: 1 1 auto` e quindi, appena
+    la testata si riempiva, si accorciava fino a sparire: c'era e non si vedeva.
+    Su Messenger e Instagram resta piccolo — lì è un id interno che non dice
+    niente a nessuno.
+  - ⚠️ **La testata ora va a capo sempre, non solo su mobile.** Con quattro
+    azioni, tre badge e il numero, in una finestra da 760px la riga non ci stava
+    e «Chiudi» finiva tagliato contro il bordo: si perdevano insieme il dato più
+    utile e l'unica via d'uscita della finestra.
+  - ⚠️ **La larghezza della finestra non era mai stata applicata.**
+    `.pannello-thread` e `.pannello` hanno la stessa specificità e `.pannello`
+    sta più in basso nel file: vinceva lei, quindi la chat è sempre stata larga
+    760px invece degli 880 che c'erano scritti. Ora la regola è
+    `.pannello.pannello-thread` (due classi) e la finestra è **1000px**: a
+    quella larghezza la testata sta su una riga sola. Verificato a 1480 e a 900
+    px sul CSS compilato: niente fuori dal bordo, «Chiudi» dentro, numero
+    visibile, nessuno scorrimento orizzontale.
+
 - **LA CONVERSAZIONE SI APRE ANCHE DAL TELEFONO** (31/07/2026). Da mobile la
   finestra della chat si rompeva in tre punti: i bottoni del riquadro di
   scrittura uscivano dal bordo (si leggeva «R…» e «Invia» non c'era), le azioni

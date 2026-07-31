@@ -498,8 +498,14 @@ button {
    più. Riusa .velo e .pannello del dettaglio ordine — stesso gesto, stesso
    aspetto — ma dentro ci va una chat, che ha bisogno di un'altezza propria e
    di scorrere per conto suo. */
-.pannello-thread {
-  width: min(880px, 100%);
+/* ⚠️ Due classi, non una: `.pannello` arriva DOPO in questo file e, a parità di
+   specificità, vinceva lei — la larghezza scritta qui non ha mai avuto effetto
+   e la finestra è sempre stata quella generica da 760px. Con `.pannello` e
+   `.pannello-thread` insieme la specificità è più alta e l'ordine non conta. */
+.pannello.pannello-thread {
+  /* Più larga: la testata ci sta in una riga sola più spesso, e una mail lunga
+     si legge invece di essere una colonnina. */
+  width: min(1000px, 100%);
   padding: 0;
   overflow: hidden;
   background: var(--surface);
@@ -521,6 +527,23 @@ button {
   /* I bottoni restano in fila: impilati sembravano due errori diversi. */
   flex-wrap: nowrap;
   flex: 0 0 auto;
+}
+
+/* Il numero di chi scrive: si legge, si copia, si clicca per chiamare. Non è
+   un dettaglio grigio come l'id di Messenger — è IL dato del canale. */
+.numero-cliente {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  text-decoration: none;
+  white-space: nowrap;
+  flex: 0 0 auto;
+  user-select: text;
+}
+.numero-cliente:hover {
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .testata-thread .azioni-thread .bottone {
@@ -693,6 +716,14 @@ button {
   gap: 10px;
   padding: 12px 18px;
   border-bottom: 1px solid var(--hairline);
+  /* ⚠️ VA A CAPO, sempre — non solo sul telefono.
+     Con quattro azioni, tre badge e il numero del cliente, in una finestra da
+     880px la riga non ci sta: restando su una riga sola «Chiudi» finiva tagliato
+     a metà contro il bordo, e il numero — che è `flex: 1 1 auto` — si accorciava
+     fino a sparire. Cioè si perdevano il dato più utile e l'unica via d'uscita
+     della finestra, insieme. Andare a capo costa una riga di altezza. */
+  flex-wrap: wrap;
+  row-gap: 8px;
 }
 
 /* ⚠️ La testata sta su UNA riga, e ogni pezzo dichiara come si comporta quando

@@ -1277,7 +1277,24 @@ export function Inbox({
               <span className={`badge canale-${selezionata.canale}`}>
                 {etichettaCanale(selezionata.canale)}
               </span>
-              <span className="dettaglio">{selezionata.idEsterno}</span>
+              {/* ⚠️ CHI SCRIVE, in chiaro. Su WhatsApp `idEsterno` è il numero
+                  vero del cliente (Meta lo manda senza «+»), ed è il dato che
+                  serve per chiamarlo, cercarlo negli ordini o salvarlo in
+                  rubrica. Prima era un testo grigio che, appena la testata si
+                  riempiva, si accorciava fino a sparire: c'era e non si vedeva.
+                  Su email è l'indirizzo, su Messenger e Instagram un id interno
+                  che non vuol dire niente a nessuno — quello resta piccolo. */}
+              {selezionata.canale === 'whatsapp' && selezionata.idEsterno ? (
+                <a
+                  className="numero-cliente"
+                  href={`tel:+${selezionata.idEsterno.replace(/\D/g, '')}`}
+                  title="Il numero da cui scrive: cliccalo per chiamarlo"
+                >
+                  +{selezionata.idEsterno.replace(/\D/g, '')}
+                </a>
+              ) : (
+                <span className="dettaglio">{selezionata.idEsterno}</span>
+              )}
 
               {/* In che lingua ci ha scritto: è il dato che decide in che lingua
                   gli si risponde, e va visto senza doverlo dedurre dal testo. */}
