@@ -162,7 +162,35 @@ pubblicato), *sfidante* e *irraggiungibile*.
   Dipendenti. Sciogliere un team **non cancella le persone**: restano a budget senza team.
 - **Maison** (`/maison`, `/maison/[slug]`): per ogni brand (Deluxy.it, CakeDesign.me,
   Deluxyflowers.com, Business B2B, Experience) la vista mensile **D2C · Eventi · B2B
-  (lead generation)** con selettore del livello.
+  (lead generation)** con selettore del livello. **L'elenco non è più solo cinque riquadri**
+  (31/07/2026): c'è la tabella **mese per mese, brand per brand**, con sotto ogni brand le sue righe
+  **per canale** — nella stessa tabella, perché «questo mese chi lo fa e con cosa» è una domanda
+  sola e in due tabelle separate si scorre avanti e indietro. Un mese a **—** è un mese *senza
+  budget* su quel canale, non un mese a zero vendite: la differenza conta, e la pagina la scrive.
+  In fondo l'**avanzamento sui mesi chiusi**: budget D2C contro venduto ecommerce reale,
+  scostamento, % realizzata e barra.
+
+  > **L'avanzamento è solo l'ecommerce, e non per scelta.** Il consuntivo *per brand* esiste
+  > soltanto per i negozi Shopify: il fatturato di Finance è per **tipologia di servizio** (consegne,
+  > eventi, B2B) e ripartirlo per maison vorrebbe dire inventare una chiave di riparto. Quindi
+  > eventi e B2B di ogni brand lì non ci sono, ed è dichiarato. Le due colonne sono però sulla stessa
+  > base — prezzo pieno, IVA e spedizione incluse, come è scritto il budget D2C. Il **mese in corso
+  > resta fuori**: mezzo mese di vendite contro un mese intero di budget farebbe sembrare in ritardo
+  > chi non lo è. **Business B2B ed Experience non compaiono**: non hanno negozio, e una riga a zero
+  > sembrerebbe un crollo invece di un dato che non esiste. Dove il budget D2C è zero la percentuale
+  > **non si mostra**: dividere per zero non dà «0%», e uno 0% direbbe che il brand è fermo mentre
+  > sta vendendo.
+
+  > ⚠️ **Da dove arrivano i valori di Eventi e B2B** (domanda dell'utente, 31/07/2026): dalle righe
+  > `BudgetEntry` con `canale` = `EVENTI` / `B2B`, scritte dal **seed** (`prisma/seed-data.json`,
+  > estratto da *Monitoraggio 2026.xlsx*, foglio `SALES GLOBAL 26 - REVISED`). Non li tocca nessun
+  > altro: gli unici che scrivono in `BudgetEntry` sono il seed, `/margini` (che cancella le voci di
+  > una tipologia eliminata) e il **consolidamento di una proposta**. **E su Deluxy.it il dato di
+  > origine è anomalo**: eventi e B2B esistono **solo da luglio a dicembre**, e su gennaio–giugno
+  > tutti e tre i canali sono a zero — mentre Deluxyflowers e CakeDesign hanno il D2C su tutti e
+  > dodici i mesi. Non è un'ipotesi di business, ha la forma di un'estrazione andata storta: nel
+  > secondo semestre il totale del mese è spaccato in percentuali fisse (10/20/70, 10/90), nel primo
+  > no. Va confrontato col foglio prima di leggere qualsiasi scostamento di quel brand.
 - **Team commerciale** (`/commerciale`): le **linee di vendita** (con sottolinee) sono richiamate
   live da **Scout**, che ne è il master (edge function Supabase `linee`, chiave `LINEE_API_KEY`
   dal vault del Hub). Il budget per linea (valore/clienti) resta in Budgets e si aggancia alle
