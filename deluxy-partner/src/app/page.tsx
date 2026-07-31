@@ -153,11 +153,35 @@ export default async function Dashboard({
                     <td className="num">{euro(x.r.dovutoPartner)}</td>
                     <td className="num">{euro(x.r.bonificoInviato)}</td>
                     <td className="num neg">{euro(x.r.daBonificare)}</td>
-                    <td style={{ whiteSpace: "nowrap" }}>
-                      <span style={{ display: "inline-flex", gap: 8 }}>
+                    {/* Stesse azioni, stesso ordine e stesso allineamento della
+                        tabella degli incassi qui sotto: apri il dettaglio ·
+                        annota · azione principale (in nero) per ultima. */}
+                    <td style={{ whiteSpace: "nowrap", textAlign: "right" }}>
+                      <span style={{ display: "inline-flex", gap: 6, justifyContent: "flex-end", alignItems: "center" }}>
                         <Link className="btn small secondary" href={`/partner/${x.partner.id}`}>
                           Gestisci
                         </Link>
+                        <form
+                          action={registraBonifico.bind(
+                            null,
+                            x.partner.id,
+                            anno,
+                            x.mese,
+                            +x.r.daBonificare.toFixed(2),
+                            undefined
+                          )}
+                          style={{ display: "inline" }}
+                        >
+                          {/* Per i bonifici fatti a mano dalla banca: annota e
+                              basta, non chiede niente a nessuno. */}
+                          <button
+                            className="btn small secondary"
+                            type="submit"
+                            title={`Annota che il bonifico di ${euro(x.r.daBonificare)} è GIÀ stato fatto (es. a mano dalla banca), con data odierna. Si annulla dalla scheda del partner.`}
+                          >
+                            Annota pagato
+                          </button>
+                        </form>
                         {/* «Paga» CHIEDE il pagamento a Deluxy Transactions,
                             l'unica app da cui può uscire denaro: qui non esce
                             niente e non si segna niente come pagato. Se la
@@ -173,6 +197,7 @@ export default async function Dashboard({
                               +x.r.daBonificare.toFixed(2),
                               `/?anno=${anno}`
                             )}
+                            style={{ display: "inline" }}
                           >
                             <button
                               className="btn small primary"
@@ -192,26 +217,6 @@ export default async function Dashboard({
                             {STATI_RICHIESTA[x.saldo.richiestaStato ?? ""]?.label ?? x.saldo.richiestaStato}
                           </span>
                         )}
-                        <form
-                          action={registraBonifico.bind(
-                            null,
-                            x.partner.id,
-                            anno,
-                            x.mese,
-                            +x.r.daBonificare.toFixed(2),
-                            undefined
-                          )}
-                        >
-                          {/* Resta per i bonifici fatti a mano dalla banca:
-                              annota e basta, non chiede niente a nessuno. */}
-                          <button
-                            className="btn small secondary"
-                            type="submit"
-                            title={`Annota che il bonifico di ${euro(x.r.daBonificare)} è GIÀ stato fatto (es. a mano dalla banca), con data odierna. Si annulla dalla scheda del partner.`}
-                          >
-                            Annota pagato
-                          </button>
-                        </form>
                       </span>
                     </td>
                   </tr>
@@ -256,11 +261,12 @@ export default async function Dashboard({
                         <div className="muted" style={{ fontSize: 11 }}>su {euro(ivato(f))}</div>
                       )}
                     </td>
+                    {/* Stesso schema della tabella dei bonifici qui sopra:
+                        apri il dettaglio · annota · azione principale in nero. */}
                     <td style={{ whiteSpace: "nowrap", textAlign: "right" }}>
-                      <span style={{ display: "inline-flex", gap: 6, justifyContent: "flex-end" }}>
-                        {/* Sollecito: prepara l'email al contatto amministrativo */}
-                        <Link className="btn small secondary" href={`/solleciti/${f.id}?da=dashboard`}>
-                          Sollecita
+                      <span style={{ display: "inline-flex", gap: 6, justifyContent: "flex-end", alignItems: "center" }}>
+                        <Link className="btn small secondary" href={`/fatture/${f.id}`}>
+                          Gestisci
                         </Link>
                         {/* Incasso ricevuto: segna la fattura saldata (data odierna).
                             Si annulla dalla scheda del partner con «Riapri». */}
@@ -273,8 +279,9 @@ export default async function Dashboard({
                             Annota pagato
                           </button>
                         </form>
-                        <Link className="btn small primary" href={`/fatture/${f.id}`}>
-                          Gestisci
+                        {/* Sollecito: prepara l'email al contatto amministrativo */}
+                        <Link className="btn small primary" href={`/solleciti/${f.id}?da=dashboard`}>
+                          Sollecita
                         </Link>
                       </span>
                     </td>
