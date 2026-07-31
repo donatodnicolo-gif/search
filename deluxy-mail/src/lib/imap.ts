@@ -2,6 +2,7 @@ import { ImapFlow } from 'imapflow'
 import { simpleParser, type ParsedMail, type AddressObject } from 'mailparser'
 import type { Account } from '@prisma/client'
 import { decifra } from './crypto'
+import { testoMigliore } from './htmlMail'
 
 export type MessaggioScaricato = {
   uid: number
@@ -559,8 +560,12 @@ async function converti(uid: number, source: Buffer, letto: boolean): Promise<Me
       .join(', '),
     oggetto: ripulisciPerDatabase(parsed.subject ?? '(senza oggetto)'),
     data: parsed.date ?? new Date(),
-    anteprima: testo.replace(/\s+/g, ' ').slice(0, 200),
-    corpoTesto: testo,
+    // ⚠️ Il «testo» che arriva dal server può essere sporco degli indirizzi dei
+    // link (un client che avvolge singole lettere in un `mailto:` produce
+    // «Buongior mailto:x@y.itno Luca»). Quando succede si ricava dall'HTML:
+    // quel testo è anche quello che legge l'AI, non solo l'anteprima.
+    anteprima: testoMigliore(testo, html).replace(/\s+/g, ' ').slice(0, 200),
+    corpoTesto: testoMigliore(testo, html),
     corpoHtml: html,
     allegati: parsed.attachments?.length ?? 0,
     dimensione: source.length, // byte reali del messaggio grezzo

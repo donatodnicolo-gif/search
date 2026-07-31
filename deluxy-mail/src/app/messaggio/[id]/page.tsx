@@ -205,10 +205,16 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
       </div>
 
 
+      {/* ⚠️ TESTATA COMPATTA. Prima erano cinque blocchi impilati (oggetto,
+          mittente, destinatario+data, AI del contatto, etichette, priorità) e
+          il corpo della mail partiva sotto la piega: per LEGGERE bisognava
+          scorrere. Nessuna azione è stata tolta — si è stretta la cornice:
+          etichette corte, una riga sola per i recapiti, e tutto il resto in
+          una striscia che va a capo da sé. */}
       <div className="card">
-        <div className="mail-head">
+        <div className="mail-head compatta">
           <h1 className="mail-subject">{messaggio.oggetto}</h1>
-          <div className="mail-meta">
+          <div className="mail-meta una-riga" title={`da ${messaggio.mittente} · a ${messaggio.destinatari}`}>
             <Link
               href={`/rubrica/${encodeURIComponent(messaggio.mittente)}`}
               style={{ textDecoration: 'underline' }}
@@ -217,21 +223,25 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
               <strong>{messaggio.mittenteNome || messaggio.mittente}</strong>{' '}
               &lt;{messaggio.mittente}&gt;
             </Link>
-            <br />
-            a {messaggio.destinatari} · {dataLunga(messaggio.data)}
+            {' · a '}
+            {messaggio.destinatari}
+            {' · '}
+            {dataLunga(messaggio.data)}
           </div>
 
-          {messaggio.direzione === 'entrata' && (
-            <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <div className="mail-strip">
+            {messaggio.direzione === 'entrata' && (
               <BottoneContattoAI email={contattoEmail} attivo={contattoAI} />
-              {contattoAI && (
-                <Link href={`/rubrica/${encodeURIComponent(messaggio.mittente)}`} className="btn secondary small">
-                  Quadro AI del contatto →
-                </Link>
-              )}
-            </div>
-          )}
-          <div className="mail-tags">
+            )}
+            {messaggio.direzione === 'entrata' && contattoAI && (
+              <Link
+                href={`/rubrica/${encodeURIComponent(messaggio.mittente)}`}
+                className="azione-riga"
+                title="Il quadro della situazione con questo contatto"
+              >
+                Quadro AI →
+              </Link>
+            )}
             {messaggio.sezione && (
               <span className={`badge ${messaggio.sezione.colore}`}>
                 <span className="dot" />
@@ -241,27 +251,34 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
             {messaggio.sezione?.nome === 'SPAM' && <BottoneNonSpam id={messaggio.id} />}
             {messaggio.smistatoDa && (
               <span className="badge neutral">
-                smistato da{' '}
+                da{' '}
                 {messaggio.smistatoDa === 'ai'
                   ? 'AI'
                   : messaggio.smistatoDa === 'regola'
-                    ? 'una regola'
+                    ? 'regola'
                     : 'te'}
               </span>
             )}
             {messaggio.allegati > 0 && (
               <span className="badge neutral">
-                {messaggio.allegati} allegat{messaggio.allegati === 1 ? 'o' : 'i'}
+                📎 {messaggio.allegati}
               </span>
             )}
-          </div>
 
-          <PrioritaButtons
-            id={messaggio.id}
-            priorita={messaggio.priorita}
-            prioritaDa={messaggio.prioritaDa}
-            analizzato={messaggio.analizzatoIl !== null}
-          />
+            <PrioritaButtons
+              id={messaggio.id}
+              priorita={messaggio.priorita}
+              prioritaDa={messaggio.prioritaDa}
+              analizzato={messaggio.analizzatoIl !== null}
+            />
+
+            {/* Le mail che invitano A PAROLE non hanno un invito iCalendar:
+                la data la si fa cercare all'AI. Sta qui, in linea, invece di
+                occupare una riga sua. */}
+            {!eventoProposto && messaggio.direzione === 'entrata' && (
+              <CercaAppuntamento messaggioId={messaggio.id} />
+            )}
+          </div>
         </div>
 
         {/* Invito di calendario vero (Outlook/Google): Accetta / Forse /
@@ -273,13 +290,6 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
         {conDiagnosi && <DiagnosiInvito messaggioId={messaggio.id} />}
 
         {eventoProposto && <PropostaEvento messaggioId={messaggio.id} evento={eventoProposto} />}
-
-        {/* Le mail che invitano A PAROLE non hanno un invito iCalendar, quindi
-            niente Accetta/Rifiuta: la data la si fa cercare all'AI, e da lì si
-            mette in agenda o si ignora. */}
-        {!eventoProposto && messaggio.direzione === 'entrata' && (
-          <CercaAppuntamento messaggioId={messaggio.id} />
-        )}
 
         {messaggio.riassunto && (
           <div className="ai-box">
@@ -320,17 +330,12 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
           </div>
         )}
 
-        {/* Una riga sola: la spiegazione lunga spingeva il corpo della mail
-            sotto la piega — e questa nota c'è su OGNI mail non analizzata. */}
+        {/* Una riga sottile, senza riquadro: questa nota compare su OGNI mail
+            non analizzata, e un box con bordo e padding rubava altezza alla
+            mail su tutte quante. */}
         {!messaggio.riassunto && !messaggio.erroreAI && (
-          <div
-            className="ai-box"
-            style={{ background: 'var(--fill)', borderColor: 'var(--hairline)', padding: '8px 12px' }}
-          >
-            <div className="ai-box-text" style={{ color: 'var(--text-secondary)', fontSize: 13 }}>
-              L’AI non ha ancora letto questa mail: dalle una priorità qui sopra e te la riassume,
-              con l’attività da fare.
-            </div>
+          <div className="nota-sottile">
+            L’AI non ha ancora letto questa mail: dalle una priorità qui sopra e te la riassume.
           </div>
         )}
 
