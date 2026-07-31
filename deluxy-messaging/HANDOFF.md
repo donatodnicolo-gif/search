@@ -55,6 +55,40 @@ locale, altrimenti nulla si decifra.
 
 ## FATTO
 
+- **DUE RIGHE, UNA PERSONA: I CLIENTI SI UNISCONO A MANO** (31/07/2026). In
+  `/clienti` la stessa persona compariva due volte con metà storia ciascuna.
+  - I clienti non sono una tabella: si ricavano dagli ordini raggruppando per
+    telefono (ultime 9 cifre) e, in mancanza, per email. Regge finché la persona
+    usa sempre gli stessi recapiti.
+  - ⚠️ **Non si può indovinare.** Misurato sui dati veri: «Nicolò Donato» sono
+    **due righe** — `+393338052490 / nicolo.donato@deluxy.it` (5 ordini) e
+    `+393498853209 / donatod.nicolo@gmail.com` (3 ordini). Nessun dato le
+    collega: solo il nome, e il nome non è una chiave — unire due omonimi
+    vorrebbe dire mostrare a un cliente gli ordini di un altro. Quindi l'app
+    **consiglia** e una persona **decide**.
+  - Su 865 righe: **23** hanno la stessa email di un'altra (indizio forte),
+    **32** lo stesso nome (indizio debole). Il filtro «Possibili doppioni» le
+    mostra ordinate per nome, così i gemelli stanno uno sotto l'altro.
+  - Si spuntano le righe e si sceglie **quale resta**: non è estetica, il suo
+    telefono e la sua email restano quelli «buoni», ed è a quelli che si scrive.
+  - Nuova tabella `ClienteUnito` (`chiave` assorbita → `principale`):
+    `src/lib/clienti-uniti.ts`, rotte `POST/DELETE /api/clienti/unisci`.
+    **Nessun ordine viene toccato**, per questo «Separa» rimette tutto com'era.
+  - ⚠️ **GOOGLE NON HA UN'API PER FONDERE DUE CONTATTI.** La People API sa
+    creare, aggiornare e cancellare; «Unisci e correggi» esiste solo dentro
+    contacts.google.com. Quindi «Allinea in Google»
+    (`POST /api/clienti/google`) fa la metà che si può fare bene: il contatto
+    principale prende **tutti** i numeri e **tutte** le email della persona, e i
+    doppioni rimasti li elenca per nome. **Non cancella nulla**: un doppione è un
+    fastidio, un contatto cancellato per sbaglio è una perdita (e può avere note,
+    foto e gruppi che noi non vediamo).
+  - Verificato sul database vero, andata e ritorno: 5 + 3 ordini → **8 ordini in
+    una riga** col secondo numero mostrato come recapito in più, poi «Separa» e
+    di nuovo 5 e 3. Nessuna riga di prova lasciata indietro.
+  - **Non ancora**: la *scheda* cliente (`/clienti/scheda`) non segue l'unione —
+    interroga Orders con UN identificativo per volta, e farla seguire vuol dire
+    cambiare quelle chiamate.
+
 - **OGNI CANALE RISPONDE DAL SUO INDIRIZZO: INSTAGRAM HA UN GRAPH SUO**
   (30/07/2026). I direct Instagram si **ricevevano** ma non si potevano
   **mandare**: la risposta restava lì con «errore».

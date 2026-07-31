@@ -909,3 +909,33 @@ model DocumentoAI {
 
   @@index([negozioId])
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CLIENTI UNITI A MANO.
+//
+// I clienti non sono una tabella: si ricavano dagli ordini raggruppando per
+// telefono (ultime 9 cifre) e, in mancanza, per email. Funziona finché la stessa
+// persona usa sempre gli stessi contatti — e spesso non è così: due numeri, la
+// mail di lavoro e quella di casa, e la stessa persona diventa due righe con
+// metà storia ciascuna.
+//
+// ⚠️ Queste unioni si fanno A MANO e non si indovinano. «Nicolò Donato» esiste
+// due volte con due numeri e due email diverse: nessun dato le collega, solo il
+// nome — e il nome non è una chiave, gli omonimi esistono. Unire da soli per
+// nome vorrebbe dire mostrare a un cliente gli ordini di un altro.
+//
+// Si salva la riga ASSORBITA (`chiave`) e quella che resta (`principale`), così
+// l'unione si può sempre disfare: nessun ordine viene toccato.
+// ─────────────────────────────────────────────────────────────────────────────
+model ClienteUnito {
+  id         String   @id @default(cuid())
+  // La riga assorbita: "tel:<ultime 9 cifre>" oppure "mail:<indirizzo>".
+  chiave     String   @unique
+  // La riga che resta, nella stessa forma.
+  principale String
+  // Chi ha unito: un'unione sbagliata va potuta chiedere a qualcuno.
+  unitoDa    String   @default("")
+  creatoIl   DateTime @default(now())
+
+  @@index([principale])
+}

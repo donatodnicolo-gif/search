@@ -154,14 +154,38 @@ type DatiContatto = {
   email?: string
   indirizzo?: string
   note?: string
+  /**
+   * Gli ALTRI recapiti della stessa persona, quando due righe della rubrica
+   * sono state unite a mano. Un cliente con due numeri ne ha due davvero: chi
+   * deve chiamarlo per una consegna dev'esserseli trovati tutti sul contatto,
+   * non sparsi su due schede che si somigliano.
+   */
+  altriTelefoni?: string[]
+  altreEmail?: string[]
+}
+
+/** Senza doppioni e senza vuoti, mantenendo l'ordine: il primo è il principale. */
+function elenco(principale: string | undefined, altri: string[] | undefined): string[] {
+  const tutti = [principale ?? '', ...(altri ?? [])].map((v) => (v ?? '').trim()).filter(Boolean)
+  const visti = new Set<string>()
+  return tutti.filter((v) => {
+    const k = v.toLowerCase().replace(/\s+/g, '')
+    if (visti.has(k)) return false
+    visti.add(k)
+    return true
+  })
 }
 
 function corpoContatto(c: DatiContatto) {
+  const telefoni = elenco(c.telefono, c.altriTelefoni)
+  const email = elenco(c.email, c.altreEmail)
   return {
     // givenName soltanto: il nome che componiamo è già completo (sigla + nome + ordine)
     names: [{ givenName: c.nome || 'Cliente Deluxy' }],
-    phoneNumbers: c.telefono ? [{ value: c.telefono, type: 'mobile' }] : [],
-    emailAddresses: c.email ? [{ value: c.email, type: 'home' }] : [],
+    // Il primo è «mobile», gli altri «other»: su Google il tipo è un'etichetta,
+    // e due numeri marcati entrambi «mobile» sul telefono si confondono.
+    phoneNumbers: telefoni.map((value, i) => ({ value, type: i === 0 ? 'mobile' : 'other' })),
+    emailAddresses: email.map((value, i) => ({ value, type: i === 0 ? 'home' : 'other' })),
     addresses: c.indirizzo ? [{ formattedValue: c.indirizzo, type: 'home' }] : [],
     biographies: [{ value: MARCATORE + (c.note ? ' · ' + c.note : '') }],
   }

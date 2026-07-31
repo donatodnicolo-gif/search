@@ -18,6 +18,8 @@ type ClienteDto = {
   ultimoNumero: string
   ultimaData: string
   inRubrica: boolean
+  uniti: { telefono: string; email: string; nome: string }[]
+  doppione: '' | 'email' | 'nome'
 }
 
 const ORDINAMENTI = [
@@ -46,15 +48,21 @@ export function ClientiLista() {
   const [qCercata, setQCercata] = useState('')
   const [ordina, setOrdina] = useState('recenti')
   const [soloDaSalvare, setSoloDaSalvare] = useState(false)
+  const [soloDoppioni, setSoloDoppioni] = useState(false)
   const [occupato, setOccupato] = useState(false)
   const [avviso, setAvviso] = useState('')
   const [errore, setErrore] = useState('')
+  // Le righe spuntate per l'unione. Restano fra un caricamento e l'altro finché
+  // l'unione non è fatta: si sceglie il primo, si cerca il secondo, e una
+  // selezione che si azzera durante la ricerca renderebbe il gesto impossibile.
+  const [scelti, setScelti] = useState<string[]>([])
 
   const carica = useCallback(async () => {
     try {
       const p = new URLSearchParams()
       if (qCercata) p.set('q', qCercata)
       if (soloDaSalvare) p.set('rubrica', 'no')
+      if (soloDoppioni) p.set('doppioni', 'si')
       p.set('ordina', ordina)
       const res = await fetch('/api/clienti?' + p.toString())
       if (!res.ok) return
@@ -75,7 +83,7 @@ export function ClientiLista() {
     } finally {
       setCaricato(true)
     }
-  }, [qCercata, soloDaSalvare, ordina])
+  }, [qCercata, soloDaSalvare, soloDoppioni, ordina])
 
   useEffect(() => {
     const t = setTimeout(() => setQCercata(q.trim()), 300)
@@ -113,6 +121,99 @@ export function ClientiLista() {
     }
   }
 
+  function spunta(chiave: string) {
+    setScelti((p) => (p.includes(chiave) ? p.filter((k) => k !== chiave) : [...p, chiave]))
+  }
+
+  // I selezionati, nell'ordine in cui compaiono: il primo dell'elenco è quello
+  // proposto come principale.
+  const selezionati = clienti.filter((c) => scelti.includes(c.chiave))
+
+  /**
+   * Unisce i selezionati in `principale`.
+   *
+   * ⚠️ La riga principale non è un dettaglio: il suo telefono e la sua email
+   * restano quelli «buoni» del cliente, ed è a quelli che si scrive.
+   */
+  async function unisci(principale: string) {
+    setOccupato(true)
+    setAvviso('')
+    setErrore('')
+    try {
+      const res = await fetch('/api/clienti/unisci', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chiavi: scelti, principale }),
+      })
+      const d = (await res.json().catch(() => ({}))) as { uniti?: number; errore?: string }
+      if (!res.ok) {
+        setErrore(d.errore || 'Unione non riuscita.')
+        return
+      }
+      setAvviso(`Uniti: ${(d.uniti ?? 0) + 1} clienti ora sono uno solo.`)
+      setScelti([])
+      await carica()
+    } catch {
+      setErrore('Unione non riuscita: problema di rete.')
+    } finally {
+      setOccupato(false)
+    }
+  }
+
+  async function separa(chiave: string) {
+    setOccupato(true)
+    setAvviso('')
+    setErrore('')
+    try {
+      const res = await fetch('/api/clienti/unisci?chiave=' + encodeURIComponent(chiave), {
+        method: 'DELETE',
+      })
+      if (!res.ok) setErrore('Non sono riuscito a separarli.')
+      else setAvviso('Separati: tornano righe distinte.')
+      await carica()
+    } catch {
+      setErrore('Operazione non riuscita: problema di rete.')
+    } finally {
+      setOccupato(false)
+    }
+  }
+
+  /** Porta il cliente unito in rubrica Google come UN contatto con tutti i recapiti. */
+  async function allineaGoogle(chiave: string) {
+    setOccupato(true)
+    setAvviso('')
+    setErrore('')
+    try {
+      const res = await fetch('/api/clienti/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chiave }),
+      })
+      const d = (await res.json().catch(() => ({}))) as {
+        esito?: string
+        doppioni?: string[]
+        errore?: string
+      }
+      if (!res.ok) {
+        setErrore(d.errore || 'Rubrica non aggiornata.')
+        return
+      }
+      // I doppioni rimasti si dicono per nome: è l'elenco che serve per finire
+      // il lavoro dentro Google, dove la fusione va fatta a mano.
+      setAvviso(
+        (d.esito ?? '') +
+          (d.doppioni?.length
+            ? ` In rubrica restano i contatti ${d.doppioni.join(', ')}: Google non ha un comando per fondere i contatti da fuori, si fa da contacts.google.com → «Unisci e correggi».`
+            : '')
+      )
+      await carica()
+    } catch {
+      setErrore('Rubrica non aggiornata: problema di rete.')
+    } finally {
+      setOccupato(false)
+    }
+  }
+
   return (
     <main>
       <div className="page-head">
@@ -120,7 +221,8 @@ export function ClientiLista() {
           <h1 className="page-title">Clienti</h1>
           <p className="page-sub">
             Chi ha ordinato, ricavato dagli ordini: un cliente per telefono (o email), con tutti i
-            suoi ordini in un posto solo.
+            suoi ordini in un posto solo. Se la stessa persona compare due volte — due numeri, due
+            email — spunta le righe e uniscile.
           </p>
         </div>
         <button
@@ -203,7 +305,46 @@ export function ClientiLista() {
         >
           Da salvare
         </button>
+        {/* Il filtro che rende l'unione un lavoro finito e non una caccia: mostra
+            solo le righe che hanno un gemello, ordinate per nome così stanno
+            una sotto l'altra. */}
+        <button
+          className={`stato-pill${soloDoppioni ? ' attuale' : ''}`}
+          onClick={() => setSoloDoppioni(!soloDoppioni)}
+          style={{ marginLeft: 8 }}
+          title="Righe che potrebbero essere la stessa persona: stessa email, o stesso nome"
+        >
+          Possibili doppioni
+        </button>
       </div>
+
+      {/* La barra compare solo quando c'è qualcosa da unire: chi sceglie deve
+          dire QUALE riga resta, perché è quella a cui si scriverà. */}
+      {selezionati.length > 0 ? (
+        <div className="barra-unione">
+          <span>
+            {selezionati.length === 1
+              ? 'Selezionato 1 cliente: scegline un altro da unire.'
+              : `${selezionati.length} clienti selezionati. Quale resta?`}
+          </span>
+          {selezionati.length > 1
+            ? selezionati.map((c) => (
+                <button
+                  key={c.chiave}
+                  className="btn"
+                  disabled={occupato}
+                  onClick={() => unisci(c.chiave)}
+                  title={`Restano il telefono e l'email di ${c.nome || c.chiave}`}
+                >
+                  Tieni {c.nome || c.telefono || c.email}
+                </button>
+              ))
+            : null}
+          <button className="btn btn-secondario" onClick={() => setScelti([])}>
+            Annulla
+          </button>
+        </div>
+      ) : null}
 
       {!googleCollegato && caricato ? (
         <div className="avviso-errore">
@@ -227,6 +368,7 @@ export function ClientiLista() {
             <table>
               <thead>
                 <tr>
+                  <th style={{ width: 34 }} aria-label="Selezione" />
                   <th>Cliente</th>
                   <th>Contatti</th>
                   <th>Negozi</th>
@@ -238,15 +380,38 @@ export function ClientiLista() {
               </thead>
               <tbody>
                 {clienti.map((c) => (
-                  <tr key={c.chiave}>
+                  <tr key={c.chiave} className={scelti.includes(c.chiave) ? 'riga-scelta' : ''}>
+                    <td>
+                      <input
+                        type="checkbox"
+                        checked={scelti.includes(c.chiave)}
+                        onChange={() => spunta(c.chiave)}
+                        aria-label={`Seleziona ${c.nome || c.chiave}`}
+                      />
+                    </td>
                     <td>
                       <div className="cella-nome">{c.nome || c.telefono || c.email || '—'}</div>
                       {c.citta ? <div className="cella-sub">{c.citta}</div> : null}
+                      {/* Perché questa riga è qui: «stessa email» è quasi una
+                          certezza, «stesso nome» è solo un indizio, e chi
+                          decide deve vedere la differenza. */}
+                      {c.doppione ? (
+                        <span className="badge" title="Potrebbe essere la stessa persona di un'altra riga">
+                          {c.doppione === 'email' ? 'stessa email' : 'stesso nome'}
+                        </span>
+                      ) : null}
                     </td>
                     <td className="cella-muta">
                       {c.email ? <div>{c.email}</div> : null}
                       {c.telefono ? <div className="cella-sub">{c.telefono}</div> : null}
                       {!c.email && !c.telefono ? '—' : null}
+                      {/* Gli altri recapiti della persona: sono numeri a cui
+                          risponde davvero, non si nascondono dopo l'unione. */}
+                      {c.uniti.map((u, i) => (
+                        <div key={i} className="cella-sub" style={{ opacity: 0.75 }}>
+                          + {u.telefono || u.email}
+                        </div>
+                      ))}
                     </td>
                     <td>
                       <span className="etichette">
@@ -269,6 +434,30 @@ export function ClientiLista() {
                       ) : (
                         <span className="badge">da salvare</span>
                       )}
+                      {c.uniti.length ? (
+                        <div className="azioni-unito">
+                          <span className="badge">unito · {c.uniti.length + 1}</span>
+                          <button
+                            className="btn btn-secondario small"
+                            disabled={occupato || !googleCollegato}
+                            onClick={() => allineaGoogle(c.chiave)}
+                            title={
+                              googleCollegato
+                                ? 'Un contatto solo in rubrica, con tutti i numeri e tutte le email'
+                                : 'Collega Google Contacts nelle Impostazioni'
+                            }
+                          >
+                            Allinea in Google
+                          </button>
+                          <button
+                            className="btn btn-secondario small"
+                            disabled={occupato}
+                            onClick={() => separa(c.chiave)}
+                          >
+                            Separa
+                          </button>
+                        </div>
+                      ) : null}
                     </td>
                   </tr>
                 ))}

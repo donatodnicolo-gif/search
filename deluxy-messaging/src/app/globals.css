@@ -3084,3 +3084,46 @@ td .azioni-ordine {
     grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   }
 }
+
+/* ── Unire due clienti che sono la stessa persona (pagina Clienti) ────────── */
+.barra-unione {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md, 12px);
+  background: var(--surface, #fff);
+  border: 1px solid var(--hairline, rgba(0, 0, 0, 0.08));
+  /* Sta sopra la tabella e ci resta: si scorre per cercare il gemello, e una
+     barra che scompare a metà pagina fa perdere quello che si era scelto. */
+  position: sticky;
+  top: 8px;
+  z-index: 3;
+}
+
+.riga-scelta > td {
+  background: rgba(184, 150, 62, 0.08); /* oro appena accennato: è un accento */
+}
+
+.azioni-unito {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+/* ⚠️ La spunta della tabella si dichiara qui perché altrove `input` è largo
+   tutta la colonna: senza questo, una casella diventa un rettangolo bordato
+   alto quanto la riga. */
+.tabella-wrap td > input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  accent-color: var(--gold, #b8963e);
+  cursor: pointer;
+}
