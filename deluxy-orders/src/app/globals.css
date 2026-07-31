@@ -1037,6 +1037,21 @@ a.periodo-opz:hover { background: var(--fill); color: var(--text); }
 }
 .btn-testo:hover { color: var(--text); }
 
+/* La chiave API appena creata: si vede una volta sola, quindi si vede bene */
+.chiave-nata {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin: 12px 0;
+  padding: 12px 14px;
+  border: 1px solid var(--hairline);
+  border-left: 3px solid var(--gold-strong);
+  border-radius: var(--radius-l);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+  font-size: 13.5px;
+}
+.chiave-nata > div:first-child { flex: 1 1 260px; }
+.chiave-nata .link-campo { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
 /* Le righe di «Fatti pagare»: cosa, quante, a quanto */
 .riga-incasso {
   display: grid;

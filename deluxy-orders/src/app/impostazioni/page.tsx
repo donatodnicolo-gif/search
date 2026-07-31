@@ -11,6 +11,8 @@ import { configurazione, riepilogoFeedback } from "@/lib/feedback";
 import { configurazioneFinance, riepilogoMovimenti } from "@/lib/movimenti";
 import { quotaFornitore } from "@/lib/controllo";
 import { importaMovimentiBanca, adottaDaFinance, abbinaPerNumero, salvaQuota } from "@/app/controllo/actions";
+import { creaChiaveApi, rigeneraChiaveApi, eliminaChiaveApi } from "./chiavi-actions";
+import { ChiaviApi } from "@/components/ChiaviApi";
 import { CATEGORIE } from "@/lib/categorie";
 
 export const dynamic = "force-dynamic";
@@ -394,40 +396,20 @@ export default async function Impostazioni({
       </div>
 
       {/* ---------- Chiavi API ---------- */}
-      <div className="scheda">
-        <div className="scheda-titolo">Chiavi API (per le altre app)</div>
-        {chiavi.length === 0 ? (
-          <p className="testo-guida">Nessuna chiave. Creane una dalla riga di comando (vedi sotto).</p>
-        ) : (
-          <div className="tabella-wrap" style={{ marginBottom: 14 }}>
-            <table>
-              <thead><tr><th>Nome app</th><th>Permesso</th><th>Creata</th><th>Ultimo uso</th><th>Stato</th></tr></thead>
-              <tbody>
-                {chiavi.map((k) => (
-                  <tr key={k.id}>
-                    <td className="cella-nome">{k.nome}</td>
-                    <td className="cella-muta">{k.scrittura ? "lettura + scrittura" : "sola lettura"}</td>
-                    <td className="cella-muta">{dataBreve(k.creataIl)}</td>
-                    <td className="cella-muta">{k.ultimoUso ? dataBreve(k.ultimoUso) : "mai"}</td>
-                    <td>
-                      <form action={toggleChiave} style={{ display: "inline" }}>
-                        <input type="hidden" name="id" value={k.id} />
-                        <button className={`badge${k.attiva ? "" : " neutro"}`} style={{ border: 0, cursor: "pointer", color: k.attiva ? "var(--green)" : "var(--text-tertiary)" }}>
-                          <span className="dot" />{k.attiva ? "attiva" : "sospesa"}
-                        </button>
-                      </form>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-        <p className="testo-guida">
-          Le chiavi si creano dalla riga di comando (la chiave in chiaro si vede una sola volta):
-        </p>
-        <p className="testo-guida"><code className="inline">npm run chiave -- deluxy-search</code> (sola lettura) · <code className="inline">npm run chiave -- deluxy-partner --scrittura</code></p>
-      </div>
+      <ChiaviApi
+        chiavi={chiavi.map((k) => ({
+          id: k.id,
+          nome: k.nome,
+          scrittura: k.scrittura,
+          attiva: k.attiva,
+          creata: dataBreve(k.creataIl),
+          ultimoUso: k.ultimoUso ? dataBreve(k.ultimoUso) : null,
+        }))}
+        crea={creaChiaveApi}
+        rigenera={rigeneraChiaveApi}
+        elimina={eliminaChiaveApi}
+        sospendi={toggleChiave}
+      />
     </main>
   );
 }

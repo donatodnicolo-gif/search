@@ -336,6 +336,30 @@ categorie di prodotto e serie storica.
   un ordine multi-categoria è contato in ogni riga e la somma supera il totale.
   Scritto in pagina.
 
+### Chiavi API create dall'app (30/07/2026)
+`src/lib/chiavi.ts` + `ChiaviApi.tsx` + `chiavi-actions.ts`: le chiavi delle altre
+app si creano, rigenerano, sospendono ed eliminano da **Impostazioni**, non più
+solo da riga di comando.
+
+- **Un solo motore**: `creaChiave()` sta in `src/lib/chiavi.ts` e lo usano sia la
+  pagina sia `npm run chiave` (lo script è passato da `.mjs` a `.ts` per poterlo
+  importare). Due modi di generare una credenziale divergono, e sulle credenziali
+  divergere si scopre il giorno che una non funziona.
+- ⚠️ **La chiave in chiaro non passa mai da un redirect**: torna nel valore di
+  ritorno della server action. In una querystring finirebbe nella cronologia del
+  browser e nei log, dove resta per sempre.
+- Il riquadro della chiave appena nata **si chiude a mano**: nel DB c'è solo lo
+  SHA-256, quindi chi non fa in tempo a copiarla deve rigenerarla.
+- Rigenera ed Elimina sono **a due clic** (l'etichetta diventa «Confermi?»):
+  spengono un'altra app all'istante.
+- ⚠️ **`revalidatePath` non basta quando l'azione parte da un clic** e non da un
+  `form action`: la tabella restava con la chiave appena eliminata ancora
+  visibile — su una credenziale è la bugia peggiore, sembra attiva e non lo è.
+  Serve `router.refresh()` nel client dopo crea/rigenera/elimina.
+- **Provato davvero il 30/07/2026**: chiave creata → `GET /api/v1/ordini` risponde
+  200; rigenerata → la vecchia risponde **401** e la nuova 200; eliminata → 401.
+  Le due chiavi di prova sono state cancellate (restano le 7 vere).
+
 ### Sezione Marketing (30/07/2026)
 `/marketing` + `src/lib/canali.ts`. Quanto vende ogni canale di provenienza, con
 la variazione sul periodo prima e il taglio nuovi/di ritorno.

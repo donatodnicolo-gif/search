@@ -987,8 +987,31 @@ sposta» di colonna. Filtro per brand.
   quale è predefinito e quali sono «di chiusura»). Eliminare uno stato lascia i
   suoi ordini «senza stato», non li cancella.
 - **Etichette**: crea/elimina etichette colorate.
-- **Chiavi API**: elenco (nome, permesso, uso), attiva/sospendi. La creazione è
-  da riga di comando (`npm run chiave`).
+- **Chiavi API**: si creano **dall'app** (30/07/2026). Si scrive il nome
+  dell'app che la userà, si sceglie il permesso, e la chiave compare **una volta
+  sola** in un riquadro da copiare — nel database resta solo la sua impronta
+  SHA-256, quindi non è recuperabile da nessuno, nemmeno da chi l'ha creata. Il
+  riquadro non sparisce da solo: si chiude a mano, perché chi non fa in tempo a
+  copiarla deve rigenerarla.
+  - una chiave per app: così si vede **chi chiama** (colonna «ultimo uso»), si
+    sospende una sola app quando serve e si rigenera senza toccare le altre;
+  - **Rigenera** fa una chiave nuova per la stessa app: quella di prima smette di
+    funzionare all'istante. **Elimina** toglie l'accesso. Tutt'e due chiedono
+    conferma sullo stesso bottone («Confermi?»), perché interrompono un'altra app
+    con un clic;
+  - **sospendi/riattiva** dal badge di stato: la chiave resta, l'accesso no;
+  - **sola lettura** basta a quasi tutti (ordini, clienti, liste, ricavi,
+    marketing). **Lettura + scrittura** serve solo a chi deve *riclassificare* un
+    ordine via `PATCH`: oggi nessuno, e una chiave di scrittura in giro prima o
+    poi qualcuno la usa;
+  - la riga di comando resta e fa la stessa cosa, dallo stesso motore
+    (`src/lib/chiavi.ts`): `npm run chiave -- deluxy-search [--scrittura]
+    [--rigenera]`.
+
+  ⚠️ La chiave in chiaro **non passa mai da un indirizzo**: torna nel valore
+  dell'azione, non in una querystring. Un segreto in un URL finisce nella
+  cronologia del browser e nei log del server, dove resta per sempre e nessuno lo
+  va a cercare.
 
 ## Import da Shopify
 Per ogni negozio attivo si scaricano gli ordini via Admin API GraphQL, in sola

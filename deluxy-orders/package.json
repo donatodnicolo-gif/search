@@ -9,7 +9,7 @@
     "postinstall": "prisma generate",
     "start": "next start -p 3150",
     "db:push": "prisma db push",
-    "chiave": "node scripts/crea-chiave.mjs",
+    "chiave": "tsx scripts/crea-chiave.ts",
     "sync": "node scripts/sync-ordini.mjs",
     "import:storico": "tsx scripts/import-storico.ts",
     "verifica:totali": "tsx scripts/verifica-totali.ts",
