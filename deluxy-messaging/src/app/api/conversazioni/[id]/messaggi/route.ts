@@ -6,6 +6,7 @@ import { casellaPerId, inviaEmail } from '@/lib/email'
 import { tokenPerNumero } from '@/lib/numeri-whatsapp'
 import { tokenPerPagina } from '@/lib/pagine-meta'
 import { utenteCorrente } from '@/lib/sessione'
+import { daTradurre, linguaDelTesto, lingueLette } from '@/lib/lingua-testo'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,7 +26,34 @@ export async function GET(_req: NextRequest, { params }: Params) {
   if (conversazione.nonLetti > 0) {
     await db.conversazione.update({ where: { id }, data: { nonLetti: 0 } })
   }
-  return NextResponse.json({ conversazione, messaggi })
+
+  // ── C'è qualcosa da tradurre, qui dentro? ──
+  //
+  // ⚠️ La domanda si risponde QUI, non nel browser: dipende da quali lingue
+  // leggiamo, che è un'impostazione. Mandando al browser un sì/no già deciso si
+  // evita che chieda la traduzione di una mail inglese a chi l'inglese lo
+  // legge — una chiamata pagata a ogni apertura, per niente.
+  const conf = await leggiImpostazioni(['traduzioneAuto', 'lingueLette'])
+  const lette = lingueLette(conf.lingueLette)
+  const cEDaTradurre = messaggi.some(
+    (m) =>
+      m.direzione === 'in' && !m.traduzione && daTradurre(m.lingua || linguaDelTesto(m.testo), lette)
+  )
+
+  // La lingua del cliente: l'ultima riconosciuta fra i SUOI messaggi. Serve al
+  // bottone «Traduci prima di inviare», che deve sapere verso dove tradurre.
+  const suoi = messaggi.filter((m) => m.direzione === 'in')
+  const linguaCliente =
+    [...suoi].reverse().find((m) => m.lingua)?.lingua ??
+    linguaDelTesto(suoi[suoi.length - 1]?.testo ?? '')
+
+  return NextResponse.json({
+    conversazione,
+    messaggi,
+    traduzioneAuto: conf.traduzioneAuto === 'si',
+    daTradurre: cEDaTradurre,
+    linguaCliente,
+  })
 }
 
 // Invia una risposta sul canale della conversazione.

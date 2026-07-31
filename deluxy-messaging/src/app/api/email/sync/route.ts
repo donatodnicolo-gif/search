@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { caselleAttive, scaricaEmail } from '@/lib/email'
 import { smistaMailPerSito } from '@/lib/ordine-da-email'
 import { daIgnorare, elencoMittentiIgnorati } from '@/lib/mittenti-ignorati'
+import { linguaDelTesto } from '@/lib/lingua-testo'
 
 export const dynamic = 'force-dynamic'
 // Lo scarico IMAP può richiedere qualche decina di secondi (più caselle).
@@ -80,6 +81,7 @@ export async function POST() {
             oggetto: m.oggetto,
             testo: m.testo,
             idEsterno: m.idEsterno,
+            lingua: linguaDelTesto(m.testo),
             creatoIl: m.data,
           },
         })

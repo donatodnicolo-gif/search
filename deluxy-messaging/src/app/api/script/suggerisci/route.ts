@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { suggerisciRisposta } from '@/lib/ai'
+import { linguaDelTesto } from '@/lib/lingua-testo'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -24,13 +25,21 @@ export async function POST(req: NextRequest) {
   // Se arriva l'id della conversazione, si prende da lì l'ultimo messaggio
   // ricevuto: l'operatore non deve copiarlo a mano.
   let testo = (messaggio ?? '').trim()
+  // In che lingua ha scritto il cliente: si risponde in quella.
+  let lingua = ''
   if (!testo && conversazioneId) {
     const ultimo = await db.messaggio.findFirst({
       where: { conversazioneId, direzione: 'in' },
       orderBy: { creatoIl: 'desc' },
     })
     testo = ultimo?.testo?.trim() ?? ''
+    lingua = ultimo?.lingua ?? ''
   }
+  // ⚠️ Se sul messaggio la lingua non c'è, la si riconosce ADESSO dal testo:
+  // è gratis (nessuna chiamata) e copre i messaggi arrivati prima che questa
+  // colonna esistesse. Senza, nelle conversazioni già aperte — cioè quelle
+  // vere — si sarebbe continuato a rispondere in italiano a chi scrive inglese.
+  if (!lingua) lingua = linguaDelTesto(testo)
   if (!testo) {
     return NextResponse.json({ errore: 'Nessun messaggio del cliente da cui partire.' }, { status: 400 })
   }
@@ -65,7 +74,8 @@ export async function POST(req: NextRequest) {
     testo,
     script,
     contesto === 'email' ? 'email' : 'chat',
-    brand
+    brand,
+    lingua
   )
   if (esito.stato === 'non-configurato') {
     return NextResponse.json(
@@ -89,5 +99,8 @@ export async function POST(req: NextRequest) {
     suggerimento: esito.suggerimento,
     fornitore: esito.fornitore,
     messaggioUsato: testo.slice(0, 300),
+    // Si dice a schermo in che lingua è stata scritta: chi rilegge deve sapere
+    // che quell'inglese è voluto, non un errore.
+    lingua,
   })
 }

@@ -57,6 +57,10 @@ type MessaggioDto = {
   nomeFile?: string
   /** Chi ha scritto, solo in uscita. Vuoto sui messaggi vecchi: parte da ora. */
   utenteNome?: string
+  /** La lingua in cui è scritto ("inglese", "francese"…). Vuoto = non si sa. */
+  lingua?: string
+  /** La traduzione in italiano, se è arrivato in una lingua che non leggiamo. */
+  traduzione?: string
   stato: string
   errore: string
   creatoIl: string
@@ -101,6 +105,12 @@ const LIMITE_TESTO = 900
 function Bolla({ m, canale }: { m: MessaggioDto; canale: string }) {
   const [tutto, setTutto] = useState(false)
   const [grezzo, setGrezzo] = useState(false)
+  // ⚠️ Quando c'è la traduzione si parte da QUELLA, non dall'originale: chi apre
+  // una conversazione in olandese deve capirla al primo sguardo, non dopo aver
+  // trovato un bottone. L'originale resta a un clic — è lui la prova di cosa ha
+  // scritto il cliente, e su una data o un indirizzo si controlla lì.
+  const [originale, setOriginale] = useState(false)
+  const tradotto = Boolean(m.traduzione) && !originale
 
   // Solo le mail si ripuliscono: su WhatsApp e widget il cliente scrive a mano
   // e quello che manda va letto com'è.
@@ -108,7 +118,7 @@ function Bolla({ m, canale }: { m: MessaggioDto; canale: string }) {
     () => (canale === 'email' ? ripulisciTestoEmail(m.testo) : m.testo),
     [canale, m.testo]
   )
-  const testo = grezzo ? m.testo : pulito
+  const testo = tradotto ? (m.traduzione as string) : grezzo ? m.testo : pulito
   const tagliato = !tutto && testo.length > LIMITE_TESTO
   const visibile = tagliato ? `${testo.slice(0, LIMITE_TESTO).trimEnd()}…` : testo
   const pezzi = useMemo(() => (grezzo ? null : pezziDiTesto(visibile)), [grezzo, visibile])
@@ -166,14 +176,33 @@ function Bolla({ m, canale }: { m: MessaggioDto; canale: string }) {
       ) : (
         visibile
       )}
-      {tagliato || tutto || cambiato ? (
+      {tagliato || tutto || cambiato || m.traduzione ? (
         <span className="azioni-testo">
+          {/* Da che lingua viene: si dice sempre, perché un testo tradotto
+              letto come originale è un testo di cui ci si fida troppo. */}
+          {m.traduzione ? (
+            <button
+              type="button"
+              onClick={() => setOriginale(!originale)}
+              title={
+                originale
+                  ? 'Torna alla traduzione italiana'
+                  : `Il messaggio com'è arrivato${m.lingua ? `, in ${m.lingua}` : ''}`
+              }
+            >
+              {originale
+                ? 'Traduzione'
+                : `Originale${m.lingua ? ` (${m.lingua})` : ''}`}
+            </button>
+          ) : null}
           {tagliato || tutto ? (
             <button type="button" onClick={() => setTutto(!tutto)}>
               {tutto ? 'Mostra meno' : 'Mostra tutto'}
             </button>
           ) : null}
-          {cambiato ? (
+          {/* Mentre si legge la traduzione, «testo grezzo» non vuol dire niente:
+              i due bottoni uno accanto all'altro sembrerebbero la stessa cosa. */}
+          {cambiato && !tradotto ? (
             <button
               type="button"
               onClick={() => setGrezzo(!grezzo)}
@@ -265,6 +294,12 @@ export function Inbox({
   const [erroreInvio, setErroreInvio] = useState('')
   const fondoRef = useRef<HTMLDivElement>(null)
   const contenitoreRef = useRef<HTMLDivElement>(null)
+  // Lingua e traduzione della conversazione aperta: le decide il server, che è
+  // l'unico a sapere quali lingue leggiamo (impostazione).
+  const [daTradurre, setDaTradurre] = useState(false)
+  const [traduzioneAuto, setTraduzioneAuto] = useState(false)
+  const [linguaCliente, setLinguaCliente] = useState('')
+  const [traducendo, setTraducendo] = useState(false)
 
   const selezionata = conversazioni.find((c) => c.id === selezionataId) ?? null
 
@@ -429,14 +464,85 @@ export function Inbox({
     try {
       const res = await fetch(`/api/conversazioni/${id}/messaggi`)
       if (!res.ok) return
-      const dati = (await res.json()) as { messaggi: MessaggioDto[] }
+      const dati = (await res.json()) as {
+        messaggi: MessaggioDto[]
+        traduzioneAuto?: boolean
+        daTradurre?: boolean
+        linguaCliente?: string
+      }
       setMessaggi(dati.messaggi)
+      setDaTradurre(Boolean(dati.daTradurre))
+      setTraduzioneAuto(Boolean(dati.traduzioneAuto))
+      setLinguaCliente(dati.linguaCliente ?? '')
       // aprire il thread azzera i non letti anche in locale
       setConversazioni((prec) => prec.map((c) => (c.id === id ? { ...c, nonLetti: 0 } : c)))
     } catch {
       // rete assente: si ritenta al giro dopo
     }
   }, [])
+
+  /**
+   * Traduce in italiano i messaggi arrivati in una lingua che non leggiamo.
+   *
+   * ⚠️ Non si traduce nel webhook — una chiamata a OpenAI dentro il percorso che
+   * riceve i messaggi manda Meta in timeout, cioè fa PERDERE messaggi — quindi
+   * si traduce qui, all'apertura: è il momento in cui serve, ed è normale
+   * aspettare un secondo.
+   */
+  const traduciArrivati = useCallback(
+    async (id: string) => {
+      if (traducendo) return
+      setTraducendo(true)
+      try {
+        const res = await fetch(`/api/conversazioni/${id}/traduci`, { method: 'POST' })
+        const d = (await res.json().catch(() => ({}))) as { tradotti?: number; errore?: string }
+        if (d.errore && !d.tradotti) setErroreInvio(`Traduzione: ${d.errore}`)
+        if (d.tradotti) await caricaMessaggi(id)
+        else setDaTradurre(false)
+      } catch {
+        // rete assente: resta il testo originale, che è comunque leggibile
+      } finally {
+        setTraducendo(false)
+      }
+    },
+    [caricaMessaggi, traducendo]
+  )
+
+  /** Traduce la bozza verso la lingua del cliente. Non invia: riempie il riquadro. */
+  const traduciBozza = useCallback(
+    async (verso: string) => {
+      const testo = bozza.trim()
+      if (!testo || !selezionataId || traducendo) return
+      setTraducendo(true)
+      setErroreInvio('')
+      try {
+        const res = await fetch(`/api/conversazioni/${selezionataId}/traduci`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ verso, testo }),
+        })
+        const d = (await res.json().catch(() => ({}))) as { testo?: string; errore?: string }
+        if (!res.ok || !d.testo) {
+          setErroreInvio(d.errore || 'Traduzione non riuscita.')
+          return
+        }
+        setBozza(d.testo)
+      } catch {
+        setErroreInvio('Traduzione non riuscita: problema di rete.')
+      } finally {
+        setTraducendo(false)
+      }
+    },
+    [bozza, selezionataId, traducendo]
+  )
+
+  // Traduzione all'apertura, se è accesa in Impostazioni. `daTradurre` lo decide
+  // il server: qui non si sa quali lingue leggiamo, e chiedere una traduzione
+  // che non serve è una chiamata pagata a ogni apertura.
+  useEffect(() => {
+    if (!selezionataId || !traduzioneAuto || !daTradurre) return
+    traduciArrivati(selezionataId)
+  }, [selezionataId, traduzioneAuto, daTradurre, traduciArrivati])
 
   // Polling: elenco ogni 5s, thread aperto ogni 4s.
   useEffect(() => {
@@ -1173,6 +1279,14 @@ export function Inbox({
               </span>
               <span className="dettaglio">{selezionata.idEsterno}</span>
 
+              {/* In che lingua ci ha scritto: è il dato che decide in che lingua
+                  gli si risponde, e va visto senza doverlo dedurre dal testo. */}
+              {linguaCliente && linguaCliente !== 'italiano' ? (
+                <span className="badge" title="La lingua in cui scrive il cliente: la risposta AI esce in questa lingua">
+                  {linguaCliente}
+                </span>
+              ) : null}
+
               <span className="azioni-thread">
                 <button
                   className="bottone secondario mini"
@@ -1181,6 +1295,19 @@ export function Inbox({
                 >
                   Riassunto
                 </button>
+                {/* Col traduci automatico spento resta il gesto a mano: la
+                    traduzione costa una chiamata, e c'è chi preferisce
+                    decidere volta per volta se serve. */}
+                {daTradurre ? (
+                  <button
+                    className="bottone secondario mini"
+                    onClick={() => traduciArrivati(selezionata.id)}
+                    disabled={traducendo}
+                    title="Traduci in italiano i messaggi del cliente. L'originale resta a un clic."
+                  >
+                    {traducendo ? 'Traduco…' : 'Traduci'}
+                  </button>
+                ) : null}
                 {/* Chi è questo numero: lo chiede alla rubrica Google, adesso.
                     Solo su WhatsApp — è l'unico canale con un telefono. */}
                 {selezionata.canale === 'whatsapp' && !selezionata.nomeRubrica ? (
@@ -1418,6 +1545,21 @@ export function Inbox({
               >
                 {suggerendo ? 'Penso…' : 'Risposta rapida'}
               </button>
+              {/* ⚠️ Tradurre PRIMA di inviare, mai durante: quello che esce da
+                  qui lo legge un cliente. La traduzione torna nel riquadro,
+                  l'operatore la vede, e solo dopo preme Invia. Mandare la
+                  traduzione senza mostrarla vorrebbe dire far leggere a un
+                  cliente una frase che in azienda non ha letto nessuno. */}
+              {linguaCliente && linguaCliente !== 'italiano' ? (
+                <button
+                  className="bottone secondario"
+                  onClick={() => traduciBozza(linguaCliente)}
+                  disabled={traducendo || !bozza.trim()}
+                  title={`Traduci quello che hai scritto in ${linguaCliente}. Resta qui: parte solo con Invia.`}
+                >
+                  {traducendo ? 'Traduco…' : `Traduci in ${linguaCliente}`}
+                </button>
+              ) : null}
               <button className="bottone" onClick={invia} disabled={inviando || !bozza.trim()}>
                 Invia
               </button>

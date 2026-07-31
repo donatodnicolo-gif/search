@@ -3,6 +3,7 @@ import { headers } from 'next/headers'
 import { leggiImpostazioni } from '@/lib/impostazioni'
 
 import { redirectUri } from '@/lib/google'
+import { lingueLette } from '@/lib/lingua-testo'
 import { salvaImpostazioni } from './actions'
 import { DiagnosiWhatsApp } from '@/components/DiagnosiWhatsApp'
 import { CampoSegreto } from '@/components/CampoSegreto'
@@ -38,6 +39,8 @@ export default async function PaginaImpostazioni({
     'openaiModello',
     'openaiModelloImmagini',
     'openaiModelloRisposte',
+    'lingueLette',
+    'traduzioneAuto',
     'partnerUrl',
     'partnerApiKey',
     'anagraficheUrl',
@@ -274,6 +277,58 @@ export default async function PaginaImpostazioni({
               — in alternativa — Claude (usato solo se manca la chiave OpenAI):
             </p>
             <CampoSegreto nome="anthropicApiKey" etichetta="Chiave API Anthropic" valore={config.anthropicApiKey} segnaposto="sk-ant-…" />
+          </div>
+
+          <div className="card">
+            <h2>Lingue e traduzione</h2>
+            <p className="descrizione">
+              La lingua di un messaggio si riconosce <strong>da sola e gratis</strong>, contando
+              le parole più comuni: nessuna chiamata, nessuna attesa. La <strong>traduzione</strong>{' '}
+              invece costa una chiamata a OpenAI — per questo si fa solo su quello che non
+              leggiamo, e solo quando qualcuno apre la conversazione.
+            </p>
+            <p className="descrizione">
+              Spunta le lingue che <strong>leggi già</strong>: quelle non vengono mai tradotte.
+              L&apos;italiano non si traduce in nessun caso.
+            </p>
+            {/* Le caselle non spuntate non arrivano nel form: questo campo dice
+                all'azione «la sezione c'era», così può salvare anche il vuoto —
+                cioè togliere una lingua, che altrimenti sarebbe impossibile. */}
+            <input type="hidden" name="sezioneLingue" value="1" />
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, margin: '6px 0 12px' }}>
+              {['inglese', 'francese', 'spagnolo', 'tedesco', 'portoghese', 'olandese'].map((l) => (
+                <label
+                  key={l}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                >
+                  <input
+                    type="checkbox"
+                    name="lingueLette"
+                    value={l}
+                    defaultChecked={lingueLette(config.lingueLette).includes(l)}
+                  />
+                  <span>{l}</span>
+                </label>
+              ))}
+            </div>
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+              <input
+                type="checkbox"
+                name="traduzioneAuto"
+                defaultChecked={config.traduzioneAuto === 'si'}
+              />
+              <span>
+                Traduci da solo all&apos;apertura della conversazione — altrimenti resta il
+                bottone «Traduci», da premere quando serve
+              </span>
+            </label>
+            <p className="descrizione" style={{ marginTop: 10 }}>
+              ⚠️ <strong>La risposta AI esce nella lingua del cliente</strong> anche con la
+              traduzione automatica spenta: chi scrive in inglese si vede rispondere in inglese, e
+              la lingua riconosciuta è scritta in testa alla conversazione. Quello che scrivi tu
+              invece non parte mai tradotto da solo: il bottone «Traduci in …» mette la traduzione
+              nel riquadro, e la mandi tu.
+            </p>
           </div>
 
           <div className="card">

@@ -59,5 +59,23 @@ export async function salvaImpostazioni(formData: FormData) {
     const v = formData.get(chiave)
     if (typeof v === 'string' && v.trim()) await salvaImpostazione(chiave, v.trim())
   }
+
+  // ── Lingue e traduzione ──
+  //
+  // ⚠️ Le caselle NON spuntate non arrivano nel form: sono indistinguibili da
+  // «campo assente». Senza il segnale `sezioneLingue`, togliere una lingua o
+  // spegnere la traduzione automatica sarebbe impossibile — l'impostazione si
+  // comporterebbe come un interruttore che si accende e non si spegne.
+  if (formData.get('sezioneLingue') === '1') {
+    const lingue = formData
+      .getAll('lingueLette')
+      .filter((v): v is string => typeof v === 'string')
+      .map((v) => v.trim().toLowerCase())
+      .filter(Boolean)
+    // L'italiano c'è sempre: non è una scelta, è la lingua in cui si lavora.
+    await salvaImpostazione('lingueLette', ['italiano', ...lingue].join(', '))
+    await salvaImpostazione('traduzioneAuto', formData.get('traduzioneAuto') ? 'si' : '')
+  }
+
   redirect('/impostazioni?salvato=1')
 }

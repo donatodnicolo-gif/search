@@ -55,6 +55,43 @@ locale, altrimenti nulla si decifra.
 
 ## FATTO
 
+- **SI LEGGE IN ITALIANO E SI RISPONDE NELLA LINGUA DEL CLIENTE** (31/07/2026).
+  Come su AI Mail, ma qui vale su tutti i canali (WhatsApp, Messenger,
+  Instagram, widget, email).
+  - **La lingua si riconosce in CODICE, gratis**: si contano le parole più
+    comuni (`src/lib/lingua-testo.ts`, stesso impianto di
+    `deluxy-mail/src/lib/rilevaLingua.ts`). ⚠️ Nel webhook non entra nessuna
+    chiamata a OpenAI: una chiamata lenta lì manda Meta in timeout, cioè fa
+    **perdere messaggi**. La lingua si scrive su `Messaggio.lingua` appena il
+    messaggio arriva; la traduzione si compra dopo.
+  - **Si traduce solo quello che non leggiamo**, e solo **all'apertura** della
+    conversazione (`POST /api/conversazioni/[id]/traduci`). Le lingue lette e
+    l'interruttore «traduci da solo» stanno in Impostazioni → *Lingue e
+    traduzione* (`lingueLette`, `traduzioneAuto`). La traduzione si salva:
+    riaprire non la ricompra.
+  - Nella bolla si parte **dalla traduzione**, con «Originale (inglese)» a un
+    clic: chi apre una conversazione in olandese deve capirla subito, ma su una
+    data o un indirizzo si controlla l'originale.
+  - **La risposta AI esce nella lingua del cliente** anche con la traduzione
+    spenta. ⚠️ L'istruzione sta in fondo al prompt e in maiuscolo: gli script
+    sono in italiano e occupano dieci volte lo spazio, quindi trascinano il
+    modello: senza dirglielo esplicitamente rispondeva in italiano a chi aveva
+    scritto in inglese.
+  - **Quello che scrivi tu non parte mai tradotto da solo**: «Traduci in
+    inglese» mette la traduzione nel riquadro e la mandi tu. Una frase che un
+    cliente legge e in azienda non ha letto nessuno non esiste.
+  - ⚠️ **Il rumore decide la lingua, se non lo togli.** Misurato sugli ultimi
+    384 messaggi veri: contando le parole *senza* togliere URL ed entità HTML,
+    **12 newsletter italiane e inglesi risultavano portoghesi** — in una mail
+    dove il testo vero sono tre righe, un indirizzo lungo e una riga di
+    `&#8203;` sono la maggioranza. Togliendoli: da 12 falsi a **2** (due
+    «Respuesta automática» spagnole lette come portoghese, che comunque
+    finiscono tradotte in italiano lo stesso). Serve anche un **margine di 2
+    punti** sul secondo classificato: vincere per un punto è rumore.
+  - Esito della misura: 180 inglese, 113 italiano, 89 non deciso (troppo corti:
+    «ciao»), 2 portoghese. Con «leggo italiano e inglese» si traducono **2
+    messaggi su 384** — la traduzione non è un costo di massa.
+
 - **LA CONVERSAZIONE SI APRE ANCHE DAL TELEFONO** (31/07/2026). Da mobile la
   finestra della chat si rompeva in tre punti: i bottoni del riquadro di
   scrittura uscivano dal bordo (si leggeva «R…» e «Invia» non c'era), le azioni

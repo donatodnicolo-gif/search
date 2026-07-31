@@ -4,6 +4,7 @@ import { caselleAttive, scaricaEmail } from '@/lib/email'
 import { smistaMailPerSito } from '@/lib/ordine-da-email'
 import { daIgnorare, elencoMittentiIgnorati } from '@/lib/mittenti-ignorati'
 import { risolutoreMarchio } from '@/lib/marchio-conversazione'
+import { linguaDelTesto } from '@/lib/lingua-testo'
 
 // Scarica la posta da sola, ogni 5 minuti.
 //
@@ -100,6 +101,9 @@ export async function GET(req: NextRequest) {
             oggetto: m.oggetto,
             testo: m.testo,
             idEsterno: m.idEsterno,
+            // Gratis e senza chiamate: la lingua serve a far rispondere l'AI
+            // nella lingua del cliente, e va saputa PRIMA che qualcuno apra.
+            lingua: linguaDelTesto(m.testo),
             creatoIl: m.data,
           },
         })

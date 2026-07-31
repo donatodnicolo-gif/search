@@ -458,6 +458,15 @@ model Messaggio {
   mediaId         String   @default("")
   mimeType        String   @default("")
   nomeFile        String   @default("") // solo documenti: come si chiamava
+  // ── Lingua e traduzione ──
+  // `lingua` è il nome esteso ("inglese", "francese"…), riconosciuto IN CODICE
+  // contando le parole comuni: nessuna chiamata, nessun costo, nessuna attesa.
+  // Vuoto = testo troppo corto per decidere, e allora non si forza niente.
+  lingua          String   @default("")
+  // La traduzione in italiano di un messaggio ARRIVATO in una lingua che non
+  // leggiamo. Si salva perché è costata una chiamata: riaprire la
+  // conversazione non deve ricomprarla.
+  traduzione      String   @default("") @db.Text
   creatoIl        DateTime @default(now())
 
   @@index([conversazioneId, creatoIl])

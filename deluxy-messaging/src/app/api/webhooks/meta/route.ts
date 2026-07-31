@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'node:crypto'
 import { db } from '@/lib/db'
 import { leggiImpostazioni } from '@/lib/impostazioni'
+import { linguaDelTesto } from '@/lib/lingua-testo'
 
 export const dynamic = 'force-dynamic'
 
@@ -215,6 +216,9 @@ async function registraInArrivo(opz: {
       conversazioneId: conversazione.id,
       direzione: 'in',
       testo: opz.testo,
+      // ⚠️ Riconoscimento IN CODICE: nel webhook non entra nessuna chiamata a
+      // OpenAI, o si perdono messaggi. La traduzione vera si fa dopo.
+      lingua: linguaDelTesto(opz.testo),
       tipo: opz.tipo ?? 'testo',
       idEsterno: opz.idMessaggio,
       mediaId: opz.media?.id ?? '',
