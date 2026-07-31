@@ -484,6 +484,21 @@ cd deluxy-anagrafiche && npm run chiave -- deluxy-platform --scrittura
 - **Serve**: `DATABASE_URL` nel `.env` dell'app
 - **Nota**: la chiave (`dlxk_...`) viene stampata **una sola volta** — nel database resta solo lo SHA-256. Copiarla subito nel `.env` dell'app client come `ANAGRAFICHE_API_KEY`. Rilanciarlo sullo stesso nome **rigenera** la chiave e invalida la precedente. L'unica app che deve avere `--scrittura` è `deluxy-platform-next`.
 
+### permessi-chiave.mjs — deluxy-anagrafiche
+Cambia i **permessi** di una chiave che esiste già, **senza rigenerarla**: `crea-chiave.mjs` rifà anche il segreto, quindi per aggiungere uno scope a una chiave in uso bisognerebbe reincollarla ovunque.
+
+```bash
+# dalla radice del repo — mostra i permessi
+cd deluxy-anagrafiche && node --env-file=.env scripts/permessi-chiave.mjs app-ai-mail
+# rende la chiave un driver di PRIMA PARTE (può dichiarare stato e interessi)
+cd deluxy-anagrafiche && node --env-file=.env scripts/permessi-chiave.mjs app-ai-mail --scrittura-partner
+# e per toglierlo
+cd deluxy-anagrafiche && node --env-file=.env scripts/permessi-chiave.mjs app-ai-mail --no-scrittura-partner
+```
+
+- **Serve**: `DATABASE_URL` nel `.env` dell'app
+- **Nota**: senza scope indicati **mostra e basta**. Non stampa mai la chiave: solo nome e permessi. ⚠️ `--scrittura-partner` non è un dettaglio: stato commerciale e interessi sono i campi «curati dal team», e da quel momento l'app li può scrivere.
+
 ### crea-chiave.mjs — deluxy-orders
 Crea (o rigenera) una chiave API per un'app client del registro ordini Orders.
 
