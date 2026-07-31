@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { aggiungiSede, collegaSede } from "@/lib/azioni";
+import { aggiungiSede, collegaSedi } from "@/lib/azioni";
 
 type RisultatoPartner = {
   id: string;
@@ -33,6 +33,18 @@ export function AggiungiSede({
   const [query, setQuery] = useState("");
   const [risultati, setRisultati] = useState<RisultatoPartner[]>([]);
   const [statoRicerca, setStatoRicerca] = useState<"" | "cerco" | "errore" | "fatto">("");
+  // Scelta MULTIPLA: le spunte restano anche cambiando ricerca, così si
+  // possono pescare i negozi uno a uno e collegarli tutti in un colpo.
+  const [scelte, setScelte] = useState<Map<string, RisultatoPartner>>(new Map());
+
+  function alterna(r: RisultatoPartner) {
+    setScelte((prec) => {
+      const nuova = new Map(prec);
+      if (nuova.has(r.id)) nuova.delete(r.id);
+      else nuova.set(r.id, r);
+      return nuova;
+    });
+  }
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -64,6 +76,7 @@ export function AggiungiSede({
     setQuery("");
     setRisultati([]);
     setStatoRicerca("");
+    setScelte(new Map());
     setModo("nuova");
   }
 
@@ -106,7 +119,7 @@ export function AggiungiSede({
                 className={`tab-voce${modo === "collega" ? " attiva" : ""}`}
                 onClick={() => { setModo("collega"); setErrore(null); }}
               >
-                Collega una esistente
+                Collega esistenti
               </button>
             </div>
 
@@ -183,29 +196,73 @@ export function AggiungiSede({
                   {statoRicerca === "fatto" && risultati.length === 0 && (
                     <div className="modale-vuoto">Nessun risultato per «{query}».</div>
                   )}
-                  {risultati.map((r) => (
-                    <button
-                      key={r.id}
-                      type="button"
-                      className="modale-voce"
-                      disabled={salvo}
-                      onClick={async () => {
-                        setSalvo(true);
-                        try {
-                          const esito = await collegaSede(madreId, r.id);
-                          if (esito.ok) chiudi();
-                          else setErrore(esito.errore);
-                        } finally {
-                          setSalvo(false);
+                  {risultati.map((r) => {
+                    const scelta = scelte.has(r.id);
+                    return (
+                      <button
+                        key={r.id}
+                        type="button"
+                        className={`modale-voce voce-scelta${scelta ? " attiva" : ""}`}
+                        aria-pressed={scelta}
+                        disabled={salvo}
+                        onClick={() => alterna(r)}
+                      >
+                        <span className="spunta" aria-hidden="true">{scelta ? "✓" : ""}</span>
+                        <span className="voce-testo">
+                          <span className="modale-voce-nome">{r.nome}</span>
+                          <span className="modale-voce-sub">
+                            {[r.categoria, r.citta].filter(Boolean).join(" · ")}
+                          </span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                  {statoRicerca === "" && (
+                    <div className="modale-vuoto">
+                      Cerca l&apos;insegna: puoi spuntarne <strong>più di una</strong>, anche cambiando
+                      ricerca. Diventano tutte sedi di «{nome}».
+                    </div>
+                  )}
+                </div>
+
+                <div className="modale-piede">
+                  <span className="testo-guida">
+                    {scelte.size === 0
+                      ? "Nessuna anagrafica selezionata"
+                      : `${scelte.size} ${scelte.size === 1 ? "anagrafica" : "anagrafiche"}: ${[...scelte.values()].map((s) => s.nome).join(", ")}`}
+                  </span>
+                  <button type="button" className="btn btn-secondario" onClick={chiudi}>Annulla</button>
+                  <button
+                    type="button"
+                    className="btn"
+                    disabled={scelte.size === 0 || salvo}
+                    onClick={async () => {
+                      setSalvo(true);
+                      try {
+                        const esito = await collegaSedi(madreId, [...scelte.keys()]);
+                        if (!esito.ok) {
+                          setErrore(esito.errore);
+                          return;
                         }
-                      }}
-                    >
-                      <span className="modale-voce-nome">{r.nome}</span>
-                      <span className="modale-voce-sub">
-                        {[r.categoria, r.citta].filter(Boolean).join(" · ")}
-                      </span>
-                    </button>
-                  ))}
+                        // Chi non si è potuto collegare va detto con il nome e
+                        // il motivo: un conteggio più basso e nessuna
+                        // spiegazione è il modo migliore per non accorgersene.
+                        if (esito.scartate.length) {
+                          setErrore(
+                            `Collegate ${esito.collegate}. Non collegate: ` +
+                              esito.scartate.map((s) => `${s.nome} (${s.motivo})`).join(", "),
+                          );
+                          setScelte(new Map());
+                          return;
+                        }
+                        chiudi();
+                      } finally {
+                        setSalvo(false);
+                      }
+                    }}
+                  >
+                    {salvo ? "Collego…" : scelte.size > 1 ? `Collega ${scelte.size} sedi` : "Collega"}
+                  </button>
                 </div>
               </>
             )}

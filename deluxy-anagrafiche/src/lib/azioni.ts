@@ -799,41 +799,71 @@ export async function aggiungiSede(
   return { ok: true, id: sede.id };
 }
 
-// Collega un'anagrafica che esiste già come sede dell'insegna. Stessa cosa di
-// `raggruppaSotto` vista dal lato della madre, ma dice *perché* non si può
-// quando non si può, invece di non fare niente.
-export async function collegaSede(
+// Collega PIÙ anagrafiche esistenti come sedi della stessa insegna, in un
+// gesto solo. Una alla volta voleva dire riaprire la modale, ricercare e
+// ricliccare per ogni negozio: con quattro «Dr. Vranjes» sparsi è il lavoro che
+// non si fa mai, e il gruppo resta a metà.
+// Ogni candidata viene comunque controllata da sé: quelle che non si possono
+// collegare non fermano le altre, e si torna indietro col motivo di ognuna.
+export async function collegaSedi(
   madreId: string,
-  sedeId: string,
-): Promise<{ ok: true } | { ok: false; errore: string }> {
-  if (madreId === sedeId) return { ok: false, errore: "Un'insegna non può essere sede di sé stessa." };
-  const [madre, sede, sediDellaSede] = await Promise.all([
-    prisma.partner.findUnique({ where: { id: madreId }, select: { capogruppoId: true } }),
-    prisma.partner.findUnique({ where: { id: sedeId }, select: { capogruppoId: true, nome: true } }),
-    prisma.partner.count({ where: { capogruppoId: sedeId } }),
-  ]);
-  if (!madre || !sede) return { ok: false, errore: "Anagrafica non trovata." };
-  if (madre.capogruppoId) {
-    return { ok: false, errore: "Questa anagrafica è già una sede: aggiungi le altre sedi dall'insegna madre." };
-  }
-  if (sediDellaSede > 0) {
-    return {
-      ok: false,
-      errore: `«${sede.nome}» ha già sedi proprie: i gruppi sono a un livello solo, sganciale prima.`,
-    };
-  }
-  await prisma.partner.update({ where: { id: sedeId }, data: { capogruppoId: madreId } });
-  const madreNome = await prisma.partner.findUnique({ where: { id: madreId }, select: { nome: true } });
-  await registraModifica(madreId, { origine: "ui", entita: "sede" }, {
-    campo: "sede_collegata",
-    a: sede.nome,
+  sedeIds: string[],
+): Promise<{ ok: true; collegate: number; scartate: { nome: string; motivo: string }[] } | { ok: false; errore: string }> {
+  const ids = [...new Set(sedeIds.filter(Boolean))].filter((id) => id !== madreId);
+  if (!ids.length) return { ok: false, errore: "Nessuna anagrafica selezionata." };
+
+  const madre = await prisma.partner.findUnique({
+    where: { id: madreId },
+    select: { id: true, nome: true, capogruppoId: true },
   });
-  await registraModifica(sedeId, { origine: "ui" }, { campo: "capogruppoId", a: madreNome?.nome });
-  await propagaDatiFinanziari(madreId);
+  if (!madre) return { ok: false, errore: "Insegna non trovata." };
+  if (madre.capogruppoId) {
+    return { ok: false, errore: "Questa anagrafica è già una sede: collega le altre dall'insegna madre." };
+  }
+
+  const candidate = await prisma.partner.findMany({
+    where: { id: { in: ids } },
+    select: { id: true, nome: true, citta: true, capogruppoId: true, _count: { select: { sedi: true } } },
+  });
+
+  const daCollegare: string[] = [];
+  const scartate: { nome: string; motivo: string }[] = [];
+  for (const c of candidate) {
+    // I gruppi restano a un livello: chi ha già sedi proprie non può diventare
+    // sede di qualcun altro, se no si crea una catena che nessuna vista sa
+    // disegnare.
+    if (c._count.sedi > 0) {
+      scartate.push({ nome: c.nome, motivo: "ha già sedi proprie" });
+      continue;
+    }
+    if (c.capogruppoId === madreId) {
+      scartate.push({ nome: c.nome, motivo: "era già una sede di questa insegna" });
+      continue;
+    }
+    daCollegare.push(c.id);
+  }
+
+  if (daCollegare.length) {
+    await prisma.partner.updateMany({
+      where: { id: { in: daCollegare } },
+      data: { capogruppoId: madreId },
+    });
+    await propagaDatiFinanziari(madreId);
+    after(async () => {
+      for (const c of candidate.filter((x) => daCollegare.includes(x.id))) {
+        await registraModifica(madreId, { origine: "ui", entita: "sede" }, {
+          campo: "sede_collegata",
+          a: [c.nome, c.citta].filter(Boolean).join(" · "),
+        });
+        await registraModifica(c.id, { origine: "ui" }, { campo: "capogruppoId", a: madre.nome });
+      }
+    });
+  }
+
+  for (const id of daCollegare) revalidatePath(`/partner/${id}`);
   revalidatePath(`/partner/${madreId}`);
-  revalidatePath(`/partner/${sedeId}`);
   revalidatePath("/");
-  return { ok: true };
+  return { ok: true, collegate: daCollegare.length, scartate };
 }
 
 // Risolve a mano una richiesta di aggancio: collega l'anagrafica scelta e,

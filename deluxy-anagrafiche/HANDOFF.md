@@ -245,9 +245,15 @@ Ogni scrittura via API è un **merge governato per campo**, mai una sostituzione
     duplicato è nome+città+indirizzo, non nome+città come in `creaPartner` (che infatti bloccherebbe
     la seconda boutique in centro). Senza indirizzo, la seconda sede con stesso nome e città viene
     rifiutata con un messaggio, non creata di nascosto.
-  · **Collega una esistente** → `collegaSede(madreId, sedeId)`: come `raggruppaSotto` visto dalla
+  · **Collega esistenti** → `collegaSedi(madreId, sedeIds[])`, a **selezione multipla** (31/07/2026): come `raggruppaSotto` visto dalla
     madre, ma **dice perché** quando non si può (madre già sede, oppure la candidata ha sedi proprie:
-    i gruppi restano a un livello). Nell'elenco delle sedi c'è la colonna **Indirizzo**.
+    i gruppi restano a un livello). Le spunte **restano cambiando ricerca**, così si pescano i
+    negozi uno a uno e si collegano in un gesto solo: una alla volta significava riaprire la
+    modale e ricercare per ognuno, cioè lasciare il gruppo a metà. Chi non si può collegare **non
+    ferma gli altri** e torna indietro col proprio motivo. Nell'elenco delle sedi c'è la colonna
+    **Indirizzo**.
+  ⚠️ Da una **sede** i due bottoni non compaiono: una sede non può avere sedi proprie. È il
+  motivo per cui su un'anagrafica già raggruppata la scheda sembra «senza azioni».
   **Diventata cliente → rubrica Google in automatico**: quando lo stato passa a `attivo`
   (etichetta «Partner»), `cambiaStato` fa redirect a `?rubrica=1` e il pannello
   `SalvaRubricaAuto` salva tutti i referenti nella rubrica dell'operatore (verifica per numero,
