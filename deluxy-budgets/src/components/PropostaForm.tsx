@@ -10,10 +10,14 @@ export function PropostaForm({
   year,
   maisons,
   linee,
+  consuntivoMese = [],
 }: {
   year: number;
   maisons: Opzione[];
   linee: Opzione[];
+  // Ricavi reali dei mesi già chiusi: dove c'è un numero, quel mese non si
+  // propone più.
+  consuntivoMese?: (number | null)[];
 }) {
   const router = useRouter();
   const [autore, setAutore] = useState("");
@@ -92,19 +96,36 @@ export function PropostaForm({
       <h2 className="section-title">Vendite proposte per mese (€)</h2>
       <div className="mesi-grid">
         {MESI.map((m, i) => (
-          <div className="mese-cell" key={m}>
-            <div className="k">{m} {year}</div>
-            <input
-              type="number"
-              min={0}
-              step={100}
-              value={valori[i] || ""}
-              onChange={(e) => {
-                const v = [...valori];
-                v[i] = e.target.value === "" ? 0 : Number(e.target.value);
-                setValori(v);
-              }}
-            />
+          <div className="mese-cell" key={m} style={typeof consuntivoMese[i] === "number" ? { opacity: 0.75 } : undefined}>
+            <div className="k">
+              {m} {year}
+              {typeof consuntivoMese[i] === "number" && (
+                <span className="muted" style={{ fontSize: 10.5, marginLeft: 4 }}>consuntivo</span>
+              )}
+            </div>
+            {/* Un mese già passato non si propone: si legge. La casella resta
+                visibile — toglierla farebbe perdere il confronto con i mesi che
+                restano — ma mostra il ricavo vero e non si può scrivere. */}
+            {typeof consuntivoMese[i] === "number" ? (
+              <div
+                style={{ padding: "9px 0", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}
+                title="Mese già chiuso: questo è il ricavo reale, non una proposta"
+              >
+                {eur(consuntivoMese[i] ?? 0)}
+              </div>
+            ) : (
+              <input
+                type="number"
+                min={0}
+                step={100}
+                value={valori[i] || ""}
+                onChange={(e) => {
+                  const v = [...valori];
+                  v[i] = e.target.value === "" ? 0 : Number(e.target.value);
+                  setValori(v);
+                }}
+              />
+            )}
           </div>
         ))}
       </div>
