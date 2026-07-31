@@ -1,13 +1,14 @@
 # Handoff — Deluxy Transactions
 
-Aggiornato: **28 luglio 2026**
+Aggiornato: **31 luglio 2026**
 
-> ⚠️ **Leggi prima questo.** Il codice su `scout-ui` è **avanti rispetto alla
-> produzione**: i tre commit del cancello sui pagamenti (`bddbe50`, `c1299a7`,
-> `fee50bc`) **non sono mai stati pubblicati**, e la migrazione del database è a
-> metà. In produzione gira ancora la versione del 26/07 senza sblocco: **il file
-> SEPA si scarica senza codice né PIN**. La sequenza per allinearsi è in
-> «Punti aperti» in fondo a questo documento — e l'ordine conta.
+> ⚠️ **Leggi prima questo.** Il codice del cancello è finalmente **in
+> produzione** (31/07/2026): database migrato e app ripubblicata, `/pin` e
+> `/banca` rispondono. Ma **da qui non esce ancora un euro, ed è giusto così**:
+> mancano SMTP, il PIN del pagatore e — cosa che prima non era scritta — la
+> tabella `Impostazione` è **vuota**, quindi non ci sono nome e IBAN
+> dell'ordinante e nemmeno una distinta si può generare. La sequenza è in
+> «Punti aperti» in fondo — e l'ordine conta.
 
 ## Dove si lavora
 
@@ -75,18 +76,37 @@ bancarie non ce ne sono ancora: il file SEPA lo carica una persona in banca.
   idempotenza, tetti, IBAN), accesso + firma con TOTP, creazione distinta,
   generazione XML, catena del registro integra.
 
-## Stato in produzione (26/07/2026)
+## Stato in produzione (31/07/2026)
 
 Pubblicata e viva: `GET /api/v1/health` risponde
 `{"ok":true,"database":true,"cifratura":true}`. Su Vercel sono impostate
 `DATABASE_URL`, `DIRECT_URL`, `TRANSACTIONS_ENC_KEY`, `APP_SECRET`,
-`CRON_SECRET` (production + preview). Il Hub ha `APP_URL_TRANSACTIONS` ed è
-stato ripubblicato: l'icona «Transactions» compare agli admin.
+`CRON_SECRET` (production + preview) — **e nient'altro: niente SMTP, niente
+Qonto**. Il Hub ha `APP_URL_TRANSACTIONS` ed è stato ripubblicato: l'icona
+«Transactions» compare agli admin.
 
-Primo operatore creato il 26/07/2026: `deluxy.delivery@gmail.com`, ruolo admin
-(credenziali consegnate al titolare fuori dalla trascrizione — quelle di prova
-della sessione precedente erano finite in chat e per questo erano state
-cancellate).
+**31/07/2026 — allineamento fatto.** `npx prisma db push --accept-data-loss` ha
+aggiunto le quattro colonne Qonto su `Richiesta` (`pagatoCon`,
+`qontoTransferId`, `qontoStato`, `qontoMovimentoId`): il diff era davvero solo
+additivo, l'unico avviso riguardava il vincolo di unicità su una colonna che non
+esisteva ancora, quindi senza righe da duplicare. Poi
+`npx vercel deploy --prod --yes`: i tre commit del cancello (`bddbe50`,
+`c1299a7`, `fee50bc`) sono in produzione, `/pin` e `/banca` rispondono
+(307 → `/login`).
+
+Verificato sul database il 31/07/2026 (le 13 tabelle e tutte le colonne
+combaciano con `schema.prisma`):
+
+- unico operatore `deluxy.delivery@gmail.com`, admin, attivo, **`pinHash` NULL**
+  (credenziali consegnate al titolare fuori dalla trascrizione — quelle di prova
+  della sessione precedente erano finite in chat e per questo erano state
+  cancellate);
+- tabella **`Impostazione` vuota, zero righe**. Valgono quindi i valori di
+  partenza scritti in [src/lib/impostazioni.ts](../src/lib/impostazioni.ts):
+  `ordinanteNome` e `ordinanteIban` sono **stringhe vuote** — senza quelli non
+  si genera nessuna distinta — e `pagatoreEmail` vale
+  `nicolo.donato@deluxy.it`, che **non è un operatore**. Non è un'impostazione
+  «da correggere»: non è mai stata salvata nessuna impostazione.
 
 **Chiavi API create il 26/07/2026** (i valori sono stati consegnati su file, non
 in chat; vanno messi nelle variabili d'ambiente dell'app corrispondente come
@@ -209,46 +229,44 @@ detta a chi le usa.
 - Gli script `scripts/*.mjs` ripetono la cifratura invece di importarla da
   `src/lib/crypto.ts`: se cambia l'algoritmo là, vanno allineati anche loro.
 
-## Punti aperti al 28/07/2026
+## Punti aperti al 31/07/2026
 
-Nell'ordine in cui vanno chiusi. I primi due sono **bloccanti**: finché non si
-fanno, tutto il resto è codice che non gira.
+Nell'ordine in cui vanno chiusi. I punti 1 e 2 della lista precedente (migrare
+il database, pubblicare) sono **chiusi il 31/07/2026**: vedi «Stato in
+produzione». Restano questi, e i primi tre li può fare solo una persona con le
+credenziali — non si automatizzano da qui.
 
-1. **Migrare il database** — mancano le colonne di Qonto su `Richiesta`
-   (`pagatoCon`, `qontoTransferId`, `qontoStato`, `qontoMovimentoId`). La
-   tabella `SbloccoPagamento` e le colonne del PIN ci sono già.
-   `npx prisma db push --accept-data-loss` (il diff è solo additivo: nessun dato
-   può andare perso, il flag ha un nome peggiore di quello che fa).
-2. **Pubblicare** — `npx vercel deploy --prod --yes`. **Dopo** il punto 1: al
-   contrario, il codice nuovo interroga colonne che non esistono e le pagine
-   delle richieste vanno in errore. Entrambi i comandi vanno lanciati
-   dall'utente: in sessione sono stati bloccati dal classifier.
-3. **SMTP su Vercel** (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`,
+1. **SMTP su Vercel** (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`,
    `SMTP_FROM`). Senza, il codice di sblocco non parte e **non esce un euro**.
-4. **Il pagatore non esiste come operatore**: `pagatoreEmail` vale
-   `nicolo.donato@deluxy.it`, ma l'unico operatore è `deluxy.delivery@gmail.com`
-   (admin, creato il 26/07). O si crea l'operatore con quell'email, o si cambia
-   `pagatoreEmail` in Impostazioni. Finché non si fa, nessuno può pagare.
-5. **PIN del pagatore** da `/pin`, con password e TOTP. Nessun altro lo può
-   mettere al posto suo.
-6. **Chiavi Qonto** da Impostazioni → Collegamento alla banca; poi rendere
+   Attenzione all'a-capo: usare `vercel env add … --value`, non lo stdin.
+2. **Impostazioni mai salvate**: la tabella `Impostazione` è vuota. Da
+   Impostazioni vanno scritti **nome e IBAN dell'ordinante** (senza, la distinta
+   non si genera: non è un dettaglio estetico) e il **pagatore**.
+3. **Il pagatore non esiste come operatore**: il valore di partenza di
+   `pagatoreEmail` è `nicolo.donato@deluxy.it`, ma l'unico operatore è
+   `deluxy.delivery@gmail.com` (admin, creato il 26/07). O si crea l'operatore
+   con quell'email (`npm run operatore -- --email …`), o si salva un
+   `pagatoreEmail` diverso al punto 2. Finché non si fa, nessuno può pagare.
+4. **PIN del pagatore** da `/pin`, con password e TOTP (oggi `pinHash` è NULL).
+   Nessun altro lo può mettere al posto suo.
+5. **Chiavi Qonto** da Impostazioni → Collegamento alla banca; poi rendere
    *fidati* in Qonto i beneficiari; poi accendere l'interruttore. **Il percorso
    VoP → bonifico non è mai stato eseguito contro l'API vera**: il primo giro va
    fatto con una cifra piccola verso un beneficiario proprio.
-7. **Link «vai a pagare»**: compilare in Impostazioni l'indirizzo della pagina
+6. **Link «vai a pagare»**: compilare in Impostazioni l'indirizzo della pagina
    di caricamento del file SEPA (il portale è già precompilato).
-8. **Chiavi API delle app**: create il 26/07 per `deluxy-partner`,
+7. **Chiavi API delle app**: create il 26/07 per `deluxy-partner`,
    `deluxy-messaging`, `deluxy-acquisti` (valori consegnati su file). Restano da
    mettere nelle variabili d'ambiente delle rispettive app e, soprattutto, **da
    usare**: nessuna delle tre chiama ancora queste API. Primo candidato Finance.
-9. **Un secondo pagatore di riserva**: oggi il potere di pagare sta su una sola
+8. **Un secondo pagatore di riserva**: oggi il potere di pagare sta su una sola
    casella email e un solo PIN. Se si perde l'accesso, l'azienda non paga
    nessuno. Proposto all'utente, non ancora deciso.
-10. **Password del database**: l'utente dice di averla cambiata, ma il `.env`
-    del 26/07 si connette ancora — probabilmente ha cambiato la password
-    dell'account Supabase, non quella del database. Se la ruota davvero, vanno
-    aggiornate `DATABASE_URL` e `DIRECT_URL` di **dieci app** (stesso progetto
-    `zegbztfxisqeowngvgvh`), in locale e su Vercel.
+9. **Password del database**: l'utente dice di averla cambiata, ma il `.env`
+   del 26/07 **si connette ancora** — riverificato il 31/07/2026 — quindi ha
+   cambiato la password dell'account Supabase, non quella del database. Se la
+   ruota davvero, vanno aggiornate `DATABASE_URL` e `DIRECT_URL` di **dieci
+   app** (stesso progetto `zegbztfxisqeowngvgvh`), in locale e su Vercel.
 
 ## Da fare al prossimo commit che cambia comportamento
 
