@@ -38,6 +38,16 @@ export async function GET(req: NextRequest) {
   const q = (p.get('q') ?? '').trim()
   const soloDaSalvare = p.get('rubrica') === 'no'
   const soloDoppioni = p.get('doppioni') === 'si'
+  // ⚠️ Le righe appena unite restano visibili anche se un filtro le
+  // escluderebbe. Appena unite non sono più «possibili doppioni» — è il
+  // risultato giusto — ma sparire subito dopo che ci hai lavorato sopra si
+  // legge come «l'ho persa», non come «è fatta».
+  const tieni = new Set(
+    (p.get('tieni') ?? '')
+      .split(',')
+      .map((k) => k.trim())
+      .filter(Boolean)
+  )
 
   const dove: Prisma.OrdineWhereInput = {}
   if (q) {
@@ -110,8 +120,8 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  if (soloDaSalvare) clienti = clienti.filter((c) => !c.inRubrica)
-  if (soloDoppioni) clienti = clienti.filter((c) => c.doppione)
+  if (soloDaSalvare) clienti = clienti.filter((c) => tieni.has(c.chiave) || !c.inRubrica)
+  if (soloDoppioni) clienti = clienti.filter((c) => tieni.has(c.chiave) || c.doppione)
 
   // Ordinamento (come in Deluxy Orders): più spesa, più ordini, più recenti, nome.
   const ordina = p.get('ordina') ?? 'recenti'

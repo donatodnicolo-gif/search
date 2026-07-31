@@ -55,6 +55,23 @@ locale, altrimenti nulla si decifra.
 
 ## FATTO
 
+- **LA CONVERSAZIONE SI APRE ANCHE DAL TELEFONO** (31/07/2026). Da mobile la
+  finestra della chat si rompeva in tre punti: i bottoni del riquadro di
+  scrittura uscivano dal bordo (si leggeva «R…» e «Invia» non c'era), le azioni
+  della testata (Riassunto/Archivia/Elimina/Chiudi) finivano fuori schermo
+  perché la riga era `nowrap`, e le bolle larghe al massimo il 68% riducevano
+  una mail a due parole per riga.
+  - ⚠️ **Non si toglie nessuna azione per fare spazio**: i bottoni ci sono
+    tutti, si accorcia la cornice (etichette a larghezza naturale, meno
+    padding, font 13px) e si va a capo. Un'azione che sparisce su mobile è
+    un'azione che non esiste, e chi risponde dal telefono ha più fretta.
+  - Misurato a 375×812 sul CSS compilato: nessuno scorrimento orizzontale,
+    tutti e quattro i bottoni della testata dentro lo schermo, i tre aiuti del
+    composer su una riga sola e «Invia» da solo sulla sua (è l'unica azione
+    irreversibile del gruppo). Cornice da 374px a 300px, cioè **399px per i
+    messaggi invece di 324**.
+  - Media query `max-width: 700px` in fondo a `globals.css`.
+
 - **DUE RIGHE, UNA PERSONA: I CLIENTI SI UNISCONO A MANO** (31/07/2026). In
   `/clienti` la stessa persona compariva due volte con metà storia ciascuna.
   - I clienti non sono una tabella: si ricavano dagli ordini raggruppando per
@@ -85,6 +102,11 @@ locale, altrimenti nulla si decifra.
   - Verificato sul database vero, andata e ritorno: 5 + 3 ordini → **8 ordini in
     una riga** col secondo numero mostrato come recapito in più, poi «Separa» e
     di nuovo 5 e 3. Nessuna riga di prova lasciata indietro.
+  - ⚠️ **Appena unita, la riga NON è più un doppione**: col filtro «Possibili
+    doppioni» attivo spariva subito dopo l'unione, e la pagina diceva «Nessun
+    cliente per donato» — sembrava di averla persa. Ora le chiavi unite in
+    quella sessione viaggiano nel parametro `tieni` e saltano i filtri, e
+    l'avviso lo dice a parole.
   - **Non ancora**: la *scheda* cliente (`/clienti/scheda`) non segue l'unione —
     interroga Orders con UN identificativo per volta, e farla seguire vuol dire
     cambiare quelle chiamate.

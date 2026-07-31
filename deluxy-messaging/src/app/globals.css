@@ -3127,3 +3127,101 @@ td .azioni-ordine {
   accent-color: var(--gold, #b8963e);
   cursor: pointer;
 }
+
+/* ── La conversazione sul telefono ────────────────────────────────────────────
+ *
+ * Aperta da mobile, la finestra della chat andava in pezzi in tre punti diversi:
+ * il riquadro di scrittura restava su una riga sola e i suoi bottoni finivano
+ * mezzi fuori dal bordo (si vedeva «R…» al posto di «Rispondi», e «Invia» non
+ * c'era proprio); la testata teneva le sue azioni su una riga che non ci stava,
+ * quindi Riassunto/Archivia/Elimina/Chiudi uscivano dallo schermo; e le bolle,
+ * larghe al massimo il 68%, riducevano una mail a una colonnina di due parole
+ * per riga.
+ *
+ * ⚠️ Niente viene tolto per fare spazio: i bottoni restano tutti, si allargano
+ * su più righe. Un'azione che sparisce su mobile è un'azione che non esiste, e
+ * chi risponde dal telefono è chi ha più fretta.
+ */
+@media (max-width: 700px) {
+  .velo {
+    padding: 12px 8px;
+  }
+
+  .pannello-thread {
+    width: 100%;
+  }
+
+  /* Più alta: sul telefono lo spazio verticale è tutto quello che si ha. */
+  .pannello-thread .thread {
+    height: 86vh;
+  }
+
+  .thread .testata-thread {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px 12px;
+  }
+
+  /* Il nome può prendersi tutta la riga: sotto ci sono i badge, non i bottoni. */
+  .thread .testata-thread .nome {
+    max-width: 100%;
+  }
+
+  .testata-thread .azioni-thread {
+    margin-left: 0;
+    /* Qui invece si va a capo: su 360px «nowrap» non è un ordine, è una
+       promessa che il telefono non può mantenere. */
+    flex-wrap: wrap;
+    /* Larghezza naturale, non tutta la riga: così «Chiudi», che sta fuori da
+       questo gruppo, gli va accanto invece di prendersi una riga da solo. */
+    flex: 1 1 auto;
+  }
+
+  .testata-thread .azioni-thread .bottone,
+  .testata-thread .chiudi-finestra {
+    /* Stretti quanto basta al testo — si accorcia la cornice, non il numero
+       delle azioni — ma alti abbastanza da prendersi col dito. */
+    flex: 0 1 auto;
+    min-height: 38px;
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
+  .thread .messaggi {
+    padding: 12px;
+  }
+
+  /* Una mail dentro il 68% della larghezza sono due parole per riga. */
+  .thread .bolla {
+    max-width: 92%;
+  }
+
+  .thread .composer {
+    flex-wrap: wrap;
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  /* Il testo su una riga sua, tutta larga: è la cosa che si sta scrivendo. */
+  .thread .composer textarea {
+    flex: 1 1 100%;
+    min-height: 44px;
+  }
+
+  /* Gli aiuti (AI Mail, Risposte, Risposta rapida) stanno su UNA riga sola:
+     stirati a tutta larghezza si prendevano tre righe, e ogni riga qui è una
+     riga di conversazione in meno che si legge. */
+  .thread .composer .bottone.secondario {
+    flex: 0 1 auto;
+    min-height: 40px;
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
+  /* «Invia» si prende tutta la riga: è l'unica azione irreversibile del gruppo,
+     e va colpita di proposito, non sfiorata mirando a quella accanto. */
+  .thread .composer .bottone:not(.secondario) {
+    flex: 1 1 100%;
+    min-height: 42px;
+  }
+}

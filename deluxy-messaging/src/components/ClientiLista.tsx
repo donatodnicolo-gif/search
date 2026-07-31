@@ -56,6 +56,10 @@ export function ClientiLista() {
   // l'unione non è fatta: si sceglie il primo, si cerca il secondo, e una
   // selezione che si azzera durante la ricerca renderebbe il gesto impossibile.
   const [scelti, setScelti] = useState<string[]>([])
+  // Le righe unite in questa sessione: restano a schermo anche se il filtro
+  // «Possibili doppioni» le escluderebbe — appena unite non sono più doppioni,
+  // e vederle sparire subito dopo averle unite sembra di averle perse.
+  const [appenaUniti, setAppenaUniti] = useState<string[]>([])
 
   const carica = useCallback(async () => {
     try {
@@ -63,6 +67,7 @@ export function ClientiLista() {
       if (qCercata) p.set('q', qCercata)
       if (soloDaSalvare) p.set('rubrica', 'no')
       if (soloDoppioni) p.set('doppioni', 'si')
+      if (appenaUniti.length) p.set('tieni', appenaUniti.join(','))
       p.set('ordina', ordina)
       const res = await fetch('/api/clienti?' + p.toString())
       if (!res.ok) return
@@ -83,7 +88,7 @@ export function ClientiLista() {
     } finally {
       setCaricato(true)
     }
-  }, [qCercata, soloDaSalvare, soloDoppioni, ordina])
+  }, [qCercata, soloDaSalvare, soloDoppioni, ordina, appenaUniti])
 
   useEffect(() => {
     const t = setTimeout(() => setQCercata(q.trim()), 300)
@@ -150,9 +155,15 @@ export function ClientiLista() {
         setErrore(d.errore || 'Unione non riuscita.')
         return
       }
-      setAvviso(`Uniti: ${(d.uniti ?? 0) + 1} clienti ora sono uno solo.`)
+      setAvviso(
+        `Uniti: ${(d.uniti ?? 0) + 1} clienti ora sono uno solo` +
+          (soloDoppioni ? ' — non è più un doppione, ma resta qui sotto.' : '.')
+      )
       setScelti([])
-      await carica()
+      // Basta segnarla: cambia le dipendenze di `carica`, che riparte da sola
+      // coi parametri nuovi. Ricaricare anche qui la farebbe sparire per un
+      // istante, che è proprio la cosa che stiamo evitando.
+      setAppenaUniti((p) => [...new Set([...p, principale])])
     } catch {
       setErrore('Unione non riuscita: problema di rete.')
     } finally {
