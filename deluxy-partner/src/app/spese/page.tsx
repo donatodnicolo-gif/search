@@ -4,7 +4,7 @@ import { euro, dataIt } from "@/lib/format";
 import { MESI } from "@/lib/calc";
 import { ANNO_CORRENTE } from "@/lib/queries";
 import { categorieDaBudgets, budgetsConfigurato, TIPI_PL } from "@/lib/categorie-spesa";
-import { impostaCategoriaSpesa, applicaRegoleCategorie, proponiCategorieAI } from "@/lib/spese-actions";
+import { impostaCategoriaSpesa, applicaRegoleCategorie, riclassificaTutteLeSpese, proponiCategorieAI } from "@/lib/spese-actions";
 import { CategoriaSpesa } from "@/components/CategoriaSpesa";
 import { BottoneAI } from "@/components/BottoneAI";
 
@@ -21,7 +21,7 @@ export const maxDuration = 60;
 export default async function SpesePage({
   searchParams,
 }: {
-  searchParams: Promise<{ anno?: string; dal?: string; al?: string; cat?: string; solo?: string; errore?: string; applicate?: string; restano?: string; ai?: string; saltate?: string }>;
+  searchParams: Promise<{ anno?: string; dal?: string; al?: string; cat?: string; solo?: string; errore?: string; applicate?: string; restano?: string; riclassificate?: string; svuotate?: string; ai?: string; saltate?: string }>;
 }) {
   const sp = await searchParams;
   const anno = parseInt(sp.anno ?? "") || ANNO_CORRENTE;
@@ -113,6 +113,21 @@ export default async function SpesePage({
               </button>
             </form>
           )}
+          {/* Riclassificare è un'altra cosa dall'assegnare: le regole cambiano,
+              e finché si riempivano solo le caselle vuote quello che era già
+              stato assegnato restava com'era per sempre — anche quando la
+              regola che l'aveva deciso veniva corretta. */}
+          {categorie.length > 0 && (
+            <form action={riclassificaTutteLeSpese}>
+              <button
+                className="btn secondary"
+                type="submit"
+                title="Riapplica le regole di Budgets a TUTTE le uscite, anche a quelle già categorizzate: serve quando una regola viene corretta o aggiunta. Non tocca le assegnazioni fatte a mano."
+              >
+                ↻ Riclassifica tutto
+              </button>
+            </form>
+          )}
           {categorie.length > 0 && (
             <form action={proponiCategorieAI}>
               <BottoneAI />
@@ -165,6 +180,21 @@ export default async function SpesePage({
               qui sotto, oppure aggiungi la regola in Budgets e rilancia.
             </p>
           )}
+        </div>
+      )}
+      {sp.riclassificate != null && (
+        <div className="card" style={{ padding: 14, marginBottom: 16 }}>
+          <span className="badge green">
+            <span className="dot" />
+            {sp.riclassificate} spese hanno cambiato categoria
+          </span>
+          <p className="muted" style={{ fontSize: 12.5, marginTop: 8, marginBottom: 0 }}>
+            Riapplicate le regole a tutte le uscite, comprese quelle già categorizzate. Le assegnazioni fatte a
+            mano non sono state toccate.
+            {Number(sp.svuotate) > 0 && (
+              <> {sp.svuotate} sono rimaste senza categoria: la regola che le teneva lì non esiste più.</>
+            )}
+          </p>
         </div>
       )}
 

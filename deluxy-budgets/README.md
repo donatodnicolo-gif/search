@@ -951,6 +951,40 @@ perché le due app usavano già le stesse regole.
 
 Confrontate voce per voce sul 2026 (1.663 controparti): **1.476 uguali, zero in disaccordo**.
 
+### 67 regole erano morte per uno spazio che non è uno spazio
+
+Trovato il 31/07/2026 cercando perché uno **stipendio** stesse fra le quote dei partner. Due
+caratteri invisibili, incollati insieme al nome copiando da una pagina web:
+
+- lo **spazio non separabile** (U+00A0), che si scrive esattamente come uno spazio normale ma non lo
+  è — quindi una regola a **match esatto** non scatta *mai*;
+- il letterale **`&nbsp;`**, cioè HTML finito dentro il campo.
+
+**67 regole su 2.500** ne avevano uno dentro. Una di queste nominava
+`Giada Maria Francesca Lo Proto` come **dipendente**: non scattando, vinceva la regola generica
+`lo proto` e quegli **8.194 €** finivano in «Partner che eseguono gli ordini» — cioè *fuori dal
+conto economico* invece che nel **costo del personale**. Le altre 66 erano doppioni di regole già
+funzionanti, e infatti la correzione sposta **una sola** controparte: quella.
+
+Corretto nel confronto, non nei dati: `normalizzaNomeRegola()` in `src/lib/cfo.ts` e la gemella in
+`deluxy-partner/src/lib/categorie-spesa.ts` ripuliscono **entrambe le parti** prima di confrontarle.
+Due normalizzazioni diverse sarebbero due classificazioni diverse sulla stessa spesa, quindi le due
+funzioni devono restare identiche.
+
+### «Riclassifica tutto» in Finance
+
+Il bottone «Applica le regole» riempie **solo le caselle vuote** — giusto, ma vuol dire che quello
+che è già stato assegnato resta com'è **per sempre**, anche quando la regola che l'aveva deciso
+viene corretta. È esattamente il caso qui sopra: sistemata la regola, quegli 8.194 € sarebbero
+rimasti dov'erano.
+
+Da qui il secondo bottone, **«↻ Riclassifica tutto»** (richiesta dell'utente, 31/07/2026: *«Finance
+deve importare le regole di budget per le spese e usare quelle per riclassificare le proprie
+spese»*): riapplica le regole a **tutte** le uscite. Due cose che non tocca, ed è deliberato — le
+assegnazioni **fatte a mano** (una persona che decide batte una regola) e le entrate. E quando
+nessuna regola riconosce più una controparte la categoria si **toglie**: una regola cancellata deve
+poter disfare quello che aveva fatto, altrimenti «riclassifica» sarebbe solo «aggiungi».
+
 > ⚠️ **Le 46 che Budgets classificava e Finance no non erano un problema di regole, ma di spazi**
 > (31/07/2026). **2.411 delle 2.500 regole sono a match esatto**, e un match esatto contro
 > `" Alice Angelotti"` — con lo spazio davanti, come arriva da Qonto — non scatta mai. Budgets non

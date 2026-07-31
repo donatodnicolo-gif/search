@@ -137,7 +137,22 @@ export async function proponiConAI(
 // niente spazi ai bordi. Vale sia per il nome della controparte sia per il
 // testo della regola — se una delle due parti non è normalizzata il confronto
 // esatto non scatta, ed è quello che stava succedendo.
-const normalizza = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
+// Deve dare **esattamente** lo stesso risultato di `normalizzaNomeRegola` in
+// `deluxy-budgets/src/lib/cfo.ts`: due normalizzazioni diverse sullo stesso
+// confronto sono due classificazioni diverse sulla stessa spesa.
+//
+// Oltre agli spazi ai bordi, due cose invisibili che valgono soldi veri: lo
+// **spazio non separabile** (U+00A0), che si scrive come uno spazio e non lo è,
+// e il letterale **`&nbsp;`** finito nel campo copiando da una pagina web.
+// Misurato il 31/07/2026: **67 regole su 2.500** ne avevano uno dentro ed erano
+// morte in silenzio.
+const normalizza = (s: string) =>
+  s
+    .replace(/&nbsp;/gi, " ")
+    .replace(/[​-‍﻿]/g, "") // zero-width
+    .replace(/\s+/g, " ") // `\s` copre anche U+00A0
+    .trim()
+    .toLowerCase();
 
 /** La categoria suggerita dalle REGOLE di Budgets per una controparte.
  *  Stesso criterio dell'originale: vince il `match` più lungo, così una regola

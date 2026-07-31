@@ -119,6 +119,95 @@ export async function applicaRegoleCategorie() {
   redirect(`/spese?applicate=${assegnate}&restano=${daFare.length - assegnate}`);
 }
 
+/** **Riclassifica TUTTE le spese** con le regole importate da Budgets, non solo
+ *  quelle ancora vuote (31/07/2026, richiesta dell'utente: «Finance deve
+ *  importare le regole di budget per le spese e usare quelle per riclassificare
+ *  le proprie spese»).
+ *
+ *  Perché serviva un secondo bottone invece di cambiare il primo: le regole
+ *  **cambiano**. Se ne corregge una sbagliata, se ne aggiunge una più specifica,
+ *  se ne cancella una — e finché si riempivano solo le caselle vuote, tutto
+ *  quello che era già stato assegnato restava com'era per sempre. Il caso che
+ *  l'ha fatto nascere: 8.194 € di uno **stipendio** classificati fra le quote
+ *  dei partner, cioè fuori dal conto economico, perché la regola giusta non era
+ *  mai potuta scattare.
+ *
+ *  Due cose che NON tocca, e sono deliberate:
+ *   - le assegnazioni **fatte a mano** (`categoriaDa = "manuale"`): una persona
+ *     che decide batte una regola, altrimenti quel lavoro si perde a ogni giro;
+ *   - le entrate: qui si riclassificano solo le **uscite**.
+ *
+ *  Quando nessuna regola riconosce più una controparte, la categoria si
+ *  **toglie** invece di restare quella di prima: una regola cancellata deve
+ *  poter disfare quello che aveva fatto, altrimenti «riclassifica» sarebbe solo
+ *  «aggiungi». */
+export async function riclassificaTutteLeSpese() {
+  const esito = await categorieDaBudgets(true);
+  if (!esito.ok) {
+    redirect(`/spese?errore=${encodeURIComponent(esito.errore)}`);
+  }
+
+  const uscite = await prisma.transazioneBancaria.findMany({
+    where: { importo: { lt: 0 }, categoriaDa: { not: "manuale" } },
+    select: { id: true, descrizione: true, controparte: true, categoriaId: true },
+  });
+
+  // Si raggruppa per categoria di destinazione e si scrive con `updateMany`:
+  // sono quasi diecimila uscite, e un update per riga vuol dire il timeout
+  // della funzione a metà lavoro — cioè metà spese riclassificate e nessun
+  // messaggio che lo dica.
+  const perCategoria = new Map<string, { cat: (typeof esito.categorie)[number]; ids: string[] }>();
+  const daSvuotare: string[] = [];
+  let invariate = 0;
+  for (const tx of uscite) {
+    const cat = categoriaDaRegole(tx.controparte, tx.descrizione, esito.categorie);
+    if (!cat) {
+      if (tx.categoriaId) daSvuotare.push(tx.id);
+      continue;
+    }
+    if (cat.id === tx.categoriaId) {
+      invariate++;
+      continue;
+    }
+    const gruppo = perCategoria.get(cat.id) ?? { cat, ids: [] };
+    gruppo.ids.push(tx.id);
+    perCategoria.set(cat.id, gruppo);
+  }
+
+  const adesso = new Date();
+  let cambiate = 0;
+  for (const { cat, ids } of perCategoria.values()) {
+    for (let i = 0; i < ids.length; i += 500) {
+      const blocco = ids.slice(i, i + 500);
+      await prisma.transazioneBancaria.updateMany({
+        where: { id: { in: blocco } },
+        data: {
+          categoriaId: cat.id,
+          categoriaNome: cat.nome,
+          categoriaTipoPL: cat.tipoPL,
+          categoriaDa: "regola",
+          categoriaIl: adesso,
+        },
+      });
+      cambiate += blocco.length;
+    }
+  }
+  for (let i = 0; i < daSvuotare.length; i += 500) {
+    await prisma.transazioneBancaria.updateMany({
+      where: { id: { in: daSvuotare.slice(i, i + 500) } },
+      data: { categoriaId: null, categoriaNome: null, categoriaTipoPL: null, categoriaDa: null, categoriaIl: null },
+    });
+  }
+
+  await registra({
+    azione: `Spese riclassificate con le regole di Budgets: ${cambiate} cambiate`,
+    categoria: "transazioni",
+    dettaglio: `${invariate} già giuste, ${daSvuotare.length} svuotate (nessuna regola le riconosce più); le assegnazioni manuali non sono state toccate`,
+  });
+  revalidatePath("/spese");
+  redirect(`/spese?riclassificate=${cambiate}&svuotate=${daSvuotare.length}`);
+}
+
 // ————— Proposte dell'AI —————
 // L'AI vive in Budgets (stesse categorie, stesso prompt): qui si raccolgono le
 // controparti ancora senza categoria, si chiede la proposta e si applica.

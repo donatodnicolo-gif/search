@@ -141,15 +141,41 @@ export function categoriaDi(controparte: string, categorie: Categoria[]): Catego
 // controparti che nessuno ha mai classificato — sono lì solo perché dovevano
 // stare da qualche parte. Un totale che non distingue le due cose fa credere
 // che il lavoro sia finito.
+// Il nome come si confronta: minuscolo, senza spazi ai bordi, spazi ripetuti
+// schiacciati. Due dettagli invisibili che valgono soldi veri:
+//
+//  - lo **spazio non separabile** (U+00A0) si scrive come un normale spazio ma
+//    non lo è: `"Lo Proto" !== "Lo Proto"`, quindi una regola a match
+//    esatto incollata da una pagina web non scatta **mai**;
+//  - il letterale **`&nbsp;`**, cioè HTML finito dentro il campo copiando da un
+//    browser.
+//
+// Misurato il 31/07/2026: **67 regole su 2.500** avevano uno dei due dentro ed
+// erano morte senza che niente lo dicesse. Una di queste è la regola esatta che
+// nomina `Giada Maria Francesca Lo Proto` come **dipendente**: non scattando,
+// vinceva la regola generica `lo proto` e quegli 8.194 € finivano fra le quote
+// dei partner, cioè fuori dal conto economico invece che nel costo del
+// personale. Stessa normalizzazione in Finance (`categoriaDaRegole`), che deve
+// dare lo stesso risultato su tutto.
+export const normalizzaNomeRegola = (s: string) =>
+  s
+    .replace(/&nbsp;/gi, " ")
+    // zero-width: si incollano senza vedersi e spezzano il confronto
+    .replace(/[​-‍﻿]/g, "")
+    // `\s` copre anche lo spazio non separabile U+00A0
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+
 export function abbina(
   controparte: string,
   categorie: Categoria[]
 ): { categoria: Categoria | null; daRegola: boolean } {
-  const c = controparte.toLowerCase();
+  const c = normalizzaNomeRegola(controparte);
   let migliore: { cat: Categoria; peso: number } | null = null;
   for (const cat of categorie) {
     for (const r of cat.regole) {
-      const m = r.match.trim().toLowerCase();
+      const m = normalizzaNomeRegola(r.match);
       if (!m) continue;
       const ok = r.esatto ? c === m : c.includes(m);
       if (!ok) continue;
