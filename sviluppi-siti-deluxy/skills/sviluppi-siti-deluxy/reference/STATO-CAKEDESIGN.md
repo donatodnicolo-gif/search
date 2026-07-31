@@ -384,12 +384,38 @@ document.addEventListener('click', function (ev) {
 Il guard `$btn.off('click')` che sta dentro il wizard, con scritto sopra «Prevent multiple
 clicks», **non c'entra**: stacca i gestori diretti dal bottone, non la delega su `document`.
 
+### ⚠️ La regressione che ne e' nata, e come si chiude
+
+Annullando il submit si e' annullato anche **cio' che apriva il cassetto laterale del
+carrello**: era il percorso del tema a farlo. Risultato: la torta finiva in carrello ma non
+si vedeva succedere niente, e il click sembrava non funzionare. Segnalato dall'utente
+provando il sito.
+
+Il cassetto va riaperto da noi, agganciandosi alla **fine della chiamata vera** (evento
+`loadend` sull'XHR di `/cart/add.js`) e non a un ritardo a caso. Servono **due** azioni, e
+una sola non basta — misurato:
+
+| Azione | Effetto |
+|---|---|
+| click su `.js-drawer-open-cart` | il cassetto si apre ma resta **`is-empty`**, «Totale €0,00», anche col carrello pieno lato server |
+| `document.dispatchEvent(new CustomEvent('cart:build'))` | il contenuto si ricostruisce, ma senza aprire |
+| **le due insieme** | cassetto aperto **e** pieno |
+
 ### Verifica
 
 | Prova | POST `/cart/add.js` | Carrello |
 |---|---|---|
 | 5 click consecutivi | **1** ogni volta (0 `fetch`) | 1 articolo, 190 € |
-| primo click dopo un caricamento pulito | **1** | 1 articolo, 190 €, properties conservate (`Scritta personalizzata`, `Numero della candelina`, `Note per la torta`) |
+| primo click dopo un caricamento pulito | **1** | 1 articolo, 190 €, properties conservate |
+| **percorso completo con sovrapprezzo** (pink-flower-cake, pan di spagna cacao + chantilly + **frutta esotica +20**) | **1** | riepilogo 115,00 € → cassetto **aperto e pieno** con le opzioni → `/cart` **115,00 €** (95 + Extra 20×1) |
+
+Le properties arrivano tutte: `Base`, `Forma`, `Farcitura`, `Ingredienti: FRUTTA ESOTICA
+(+20,00 €)`, piu' `__additional_price_total: 20` che e' il valore su cui `/cart` costruisce
+la riga «Extra».
+
+Un giro indipendente su **22 configurazioni** (3 prodotti da 90/190/240 €, tutte le opzioni a
+pagamento: ingredienti da 10 e 20 €, piani da 50 a 200 €) ha dato **1 sola POST e il totale
+esatto in tutti i casi**. Nessuna opzione perde il sovrapprezzo.
 
 Lo stack conferma la struttura: `HTMLDocument.dispatch` in **jquery-2.1.4.js** (il gestore e'
 registrato li') che chiama `w.ajax` della **3.3.1** (il `$` globale a quel momento).
