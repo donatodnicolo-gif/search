@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "./db";
 import { aggiornaAnagrafica, creaAnagrafica, anagraficaPerId, type CampiAnagrafica } from "./anagrafiche";
 import { campiPropostiPerNome } from "./riconciliazione-fic";
-import { ibanValido } from "./impostazioni";
+import { ibanValido, diagnosiIban } from "./impostazioni";
 import { allineaPartnerDaRegistro } from "./allinea-registro";
 import { registra } from "./registro";
 
@@ -118,33 +118,61 @@ export async function creaInAnagrafiche(partnerId: string, campiJson: string) {
 // rifiutato. Non si deduce dall'insegna — «NEGOZIO ROSATO» incassa su un conto
 // intestato a un'altra società — quindi si prende da chi abbiamo già pagato
 // (beneficiari Qonto) e si corregge a mano dove serve.
-export async function salvaDatiBancari(partnerId: string, anagraficaId: string | null, fd: FormData) {
+export type EsitoSalvataggio = { ok: boolean; testo: string } | null;
+
+// Versione che NON ricarica la pagina: torna l'esito al componente, che lo
+// mostra accanto alla riga.
+//
+// Serve perché questa pagina interroga Fatture in Cloud e Qonto: ricostruirla
+// dopo ogni salvataggio costa secondi, e con cinquanta righe da compilare
+// significa aspettare cinquanta volte per un dato che riguarda una riga sola.
+// Il redirect è rimasto solo dove serve davvero (errori di validazione a monte).
+export async function salvaDatiBancariInline(
+  partnerId: string,
+  anagraficaId: string | null,
+  _precedente: EsitoSalvataggio,
+  fd: FormData
+): Promise<EsitoSalvataggio> {
   const iban = String(fd.get("iban") ?? "").replace(/\s/g, "").toUpperCase();
   const banca = String(fd.get("banca") ?? "").trim();
   const intestatarioConto = String(fd.get("intestatarioConto") ?? "").trim();
-  if (iban && !ibanValido(iban)) {
-    revalidatePath("/registrazioni/riconciliazione", "layout");
-    redirect(`/registrazioni/riconciliazione?errore=${encodeURIComponent(`IBAN non valido per il partner: ${iban}`)}`);
+
+  const diag = iban ? diagnosiIban(iban) : { ok: true as const };
+  if (!diag.ok) {
+    return {
+      ok: false,
+      testo:
+        `IBAN rifiutato: ${diag.motivo}.` +
+        (diag.forse ? ` Forse è ${diag.forse} (la I si scambia col 1, la O con lo 0).` : ""),
+    };
   }
-  // sul partner locale (per i SEPA)
+
   await prisma.partner.update({
     where: { id: partnerId },
     data: { iban: iban || null, intestatarioConto: intestatarioConto || null },
   });
-  // sul registro (se collegato e scrittura attiva)
-  let esito = "solo locale";
+
+  const salvati = [
+    iban ? "IBAN" : null,
+    intestatarioConto ? "intestatario" : null,
+    banca ? "banca" : null,
+  ].filter(Boolean);
+  const cosa = salvati.length ? salvati.join(" + ") : "campi svuotati";
+
   if (anagraficaId && (iban || banca || intestatarioConto)) {
     const res = await aggiornaAnagrafica(anagraficaId, {
       ...(iban ? { iban } : {}),
       ...(intestatarioConto ? { intestatarioConto } : {}),
       ...(banca ? { banca } : {}),
     });
-    esito = res.ok ? "registro aggiornato" : res.errore;
+    if (!res.ok) return { ok: false, testo: `Salvato qui, ma il registro no: ${res.errore}` };
+    return { ok: true, testo: `${cosa} — salvati anche in Anagrafiche` };
   }
-  revalidatePath("/registrazioni/riconciliazione", "layout");
+  // la scheda partner mostra questi dati: quella va rinfrescata
   revalidatePath(`/partner/${partnerId}`, "layout");
-  redirect(`/registrazioni/riconciliazione?banca=${encodeURIComponent(esito)}`);
+  return { ok: true, testo: `${cosa} — salvati (nessun record collegato nel registro)` };
 }
+
 
 // Segna un cliente FIC come "ignorato" (non riproporlo nella riconciliazione).
 export async function ignoraRiconciliazione(ficNome: string, partnerId?: string) {

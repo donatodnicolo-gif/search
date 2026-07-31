@@ -3,7 +3,8 @@ import { prisma } from "@/lib/db";
 import { ficStato } from "@/lib/fic";
 import { scritturaAnagraficheAttiva } from "@/lib/anagrafiche";
 import { costruisciRiconciliazione, campiProposti, type EsitoRiga } from "@/lib/riconciliazione-fic";
-import { confermaRiconciliazione, ignoraRiconciliazione, riapriRiconciliazione, salvaDatiBancari, creaInAnagrafiche, aggiornaDatiEsterniRiconciliazione, riconciliaManuale, allineaAnagraficheTutti } from "@/lib/riconciliazione-actions";
+import { confermaRiconciliazione, ignoraRiconciliazione, riapriRiconciliazione, creaInAnagrafiche, aggiornaDatiEsterniRiconciliazione, riconciliaManuale, allineaAnagraficheTutti } from "@/lib/riconciliazione-actions";
+import { DatiBancariRiga } from "@/components/DatiBancariRiga";
 
 export const dynamic = "force-dynamic";
 // La prima costruzione (cache fredda) interroga FIC e Qonto: diamo margine ampio.
@@ -40,42 +41,18 @@ function RigaConciliata({ r, scrittura }: { r: EsitoRiga; scrittura: boolean }) 
             il bonifico se non combacia con l'IBAN, quindi va nel registro
             insieme all'IBAN e non dedotto dall'insegna. Modificabili prima di
             salvare. */}
-        <form action={salvaDatiBancari.bind(null, r.partner!.id, anagraficaId)} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <input
-            type="text"
-            name="iban"
-            defaultValue={r.partner!.iban ?? r.ibanSuggerito ?? ""}
-            placeholder="IBAN del partner"
-            style={{ fontFamily: "ui-monospace, monospace", fontSize: 12, padding: "5px 8px" }}
-          />
-          {!r.partner!.iban && r.ibanSuggerito && (
-            <span style={{ fontSize: 11, color: "var(--gold-strong, #8a6d2f)" }}>⤷ dai bonifici Qonto — verifica</span>
-          )}
-          <input
-            type="text"
-            name="intestatarioConto"
-            defaultValue={r.partner!.intestatarioConto ?? r.intestatarioSuggerito ?? ""}
-            placeholder="Intestatario del conto"
-            title="Il nome a cui esce il bonifico. Non è sempre l'insegna né la ragione sociale: la banca controlla che combaci con l'IBAN."
-            style={{ fontSize: 12, padding: "5px 8px" }}
-          />
-          {!r.partner!.intestatarioConto && r.intestatarioSuggerito && (
-            <span style={{ fontSize: 11, color: "var(--gold-strong, #8a6d2f)" }}>
-              ⤷ beneficiario dei bonifici — verifica
-            </span>
-          )}
-          <div style={{ display: "flex", gap: 6 }}>
-            <input type="text" name="banca" placeholder="Banca (facoltativo)" style={{ fontSize: 12, padding: "5px 8px", flex: 1 }} />
-            <button
-              className="btn small secondary"
-              type="submit"
-              disabled={!scrittura}
-              title={scrittura ? "Salva IBAN e intestatario sul partner e nel registro" : "Serve la chiave di scrittura"}
-            >
-              Salva
-            </button>
-          </div>
-        </form>
+        {/* Salvataggio in-place: questa pagina interroga FIC e Qonto, e
+            ricaricarla a ogni riga salvata costava secondi per un dato che
+            riguarda una riga sola. L'esito compare qui sotto. */}
+        <DatiBancariRiga
+          partnerId={r.partner!.id}
+          anagraficaId={anagraficaId}
+          ibanIniziale={r.partner!.iban ?? ""}
+          ibanSuggerito={r.ibanSuggerito}
+          intestatarioIniziale={r.partner!.intestatarioConto ?? ""}
+          intestatarioSuggerito={r.intestatarioSuggerito}
+          scrittura={scrittura}
+        />
       </td>
       <td>
         {r.stato === "confermata" ? (
@@ -211,7 +188,11 @@ export default async function RiconciliazionePage({
 
       {sp.banca && (
         <div className="card" style={{ padding: 14, marginBottom: 16 }}>
-          <span className="badge green"><span className="dot" />Dati bancari salvati — {decodeURIComponent(sp.banca)}</span>
+          {/* salvato in locale ma non nel registro non è un successo pieno:
+              deve vedersi, altrimenti si crede che il registro sia allineato */}
+          <span className={`badge ${/MA il registro/.test(decodeURIComponent(sp.banca)) ? "orange" : "green"}`}>
+            <span className="dot" />Dati bancari salvati — {decodeURIComponent(sp.banca)}
+          </span>
         </div>
       )}
       {sp.creato && (
