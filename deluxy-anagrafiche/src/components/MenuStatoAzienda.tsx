@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useOptimistic, useRef, useState } from "react";
 import { cambiaStatoAnalisi, cambiaStatoFinanziario } from "@/lib/azioni";
 import { BadgeStatoAnalisi, BadgeStatoFinanziario } from "./BadgeStato";
 import {
@@ -31,6 +31,9 @@ export function MenuStatoAzienda({
 }) {
   const ancora = useRef<HTMLElement | null>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  // ⚠️ PRESTAZIONI PERCEPITE: vedi MenuStato — il badge cambia al click, la
+  // rivalidazione della pagina arriva dopo.
+  const [statoMostrato, setStatoMostrato] = useOptimistic(stato ?? "");
 
   const finanziario = dimensione === "finanziario";
   const azione = finanziario ? cambiaStatoFinanziario : cambiaStatoAnalisi;
@@ -51,9 +54,9 @@ export function MenuStatoAzienda({
       ];
 
   const badge = finanziario ? (
-    <BadgeStatoFinanziario stato={stato ?? ""} />
+    <BadgeStatoFinanziario stato={statoMostrato} />
   ) : (
-    <BadgeStatoAnalisi stato={stato} />
+    <BadgeStatoAnalisi stato={statoMostrato || null} />
   );
 
   if (disabilitato) return badge;
@@ -62,7 +65,7 @@ export function MenuStatoAzienda({
     // key: al cambio di stato il menu si smonta e si richiude da solo
     <details
       className="menu-stato"
-      key={stato ?? "vuoto"}
+      key={statoMostrato || "vuoto"}
       onToggle={(e) => {
         if (e.currentTarget.open && ancora.current) {
           const r = ancora.current.getBoundingClientRect();
@@ -78,9 +81,14 @@ export function MenuStatoAzienda({
         className="menu-stato-lista"
         style={pos ? { position: "fixed", top: pos.top, left: pos.left } : undefined}
       >
-        <form action={azione.bind(null, partnerId)}>
+        <form
+          action={async (fd) => {
+            setStatoMostrato(String(fd.get(campo) ?? ""));
+            await azione(partnerId, fd);
+          }}
+        >
           {voci
-            .filter((v) => v.valore !== (stato ?? ""))
+            .filter((v) => v.valore !== statoMostrato)
             .map((v) => (
               <button
                 key={v.valore || "vuoto"}

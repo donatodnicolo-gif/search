@@ -105,8 +105,16 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
     prisma.partner.findMany({
       where,
       include: {
-        contatti: true,
-        sedi: { where: { attivo: !inArchivio }, include: { contatti: true }, orderBy: { nome: "asc" } },
+        // ⚠️ PRESTAZIONI: dei referenti serve SOLO il telefono di ripiego
+        // (`telefonoDi`). Caricarli interi — per 50 anagrafiche più tutte le
+        // loro sedi — voleva dire trascinarsi nomi, email, note e id HubSpot
+        // che nessuna colonna mostra.
+        contatti: { select: { telefono: true }, where: { telefono: { not: null } }, take: 1 },
+        sedi: {
+          where: { attivo: !inArchivio },
+          include: { contatti: { select: { telefono: true }, where: { telefono: { not: null } }, take: 1 } },
+          orderBy: { nome: "asc" },
+        },
       },
       // Nome come criterio secondario per un ordine stabile a parità di valore;
       // per "Ultimo contatto" i record senza data vanno in fondo
@@ -141,13 +149,13 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
           const [creati, contattati] = await Promise.all([
             prisma.partner.findMany({
               where: { attivo: true },
-              include: { contatti: true },
+              include: { contatti: { select: { telefono: true }, where: { telefono: { not: null } }, take: 1 } },
               orderBy: { creatoIl: "desc" },
               take: 10,
             }),
             prisma.partner.findMany({
               where: { attivo: true, ultimaVisita: { lte: adesso } },
-              include: { contatti: true },
+              include: { contatti: { select: { telefono: true }, where: { telefono: { not: null } }, take: 1 } },
               orderBy: { ultimaVisita: "desc" },
               take: 10,
             }),

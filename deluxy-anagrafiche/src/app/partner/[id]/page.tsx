@@ -87,16 +87,20 @@ export default async function Dettaglio({
   });
   if (!p) notFound();
 
-  // Fatturazione a livello di società: i dati finanziari sono condivisi da
-  // tutte le sedi della stessa insegna (non del singolo record).
-  const fin = await datiFinanziariCondivisi(p);
+  // ⚠️ PRESTAZIONI: tutto quello che serve DOPO aver letto l'anagrafica va in
+  // un solo giro. Erano quattro await in fila (fatturazione dell'insegna,
+  // altri luoghi, distribuzione dei voti, linee): quattro andate-e-ritorno
+  // verso Francoforte, ~250 ms l'una, su una pagina che si riapre a ogni
+  // cambio di stato.
   const haSedi = p.sedi.length > 0 || Boolean(p.capogruppo);
-
-  // Gli altri luoghi della stessa insegna: servono per spostare un referente
-  // sulla sede dove lavora davvero. Da una sede si vedono la madre e le
-  // sorelle; dalla madre, le sue sedi.
-  const altriLuoghi = p.capogruppo
-    ? await prisma.partner.findMany({
+  const [fin, altriLuoghi, perVoto, linee] = await Promise.all([
+    // Fatturazione a livello di società: condivisa da tutte le sedi dell'insegna.
+    datiFinanziariCondivisi(p),
+    // Gli altri luoghi della stessa insegna: servono per spostare un referente
+    // sulla sede dove lavora davvero. Da una sede si vedono la madre e le
+    // sorelle; dalla madre, le sue sedi.
+    p.capogruppo
+    ? prisma.partner.findMany({
         where: {
           attivo: true,
           NOT: { id: p.id },
@@ -105,10 +109,15 @@ export default async function Dettaglio({
         select: { id: true, nome: true, citta: true, sede: true, indirizzo: true },
         orderBy: [{ citta: "asc" }, { indirizzo: "asc" }],
       })
-    : p.sedi.map((s) => ({ id: s.id, nome: s.nome, citta: s.citta, sede: s.sede, indirizzo: s.indirizzo }));
+    : Promise.resolve(
+        p.sedi.map((s) => ({ id: s.id, nome: s.nome, citta: s.citta, sede: s.sede, indirizzo: s.indirizzo })),
+      ),
+    // La distribuzione delle stelle conta TUTTI i feedback, non solo i 30 elencati.
+    prisma.feedbackD2C.groupBy({ by: ["voto"], where: { partnerId: p.id }, _count: { _all: true } }),
+    getLinee(),
+  ]);
   const etichettaLuogo = (l: { nome: string; citta: string | null; sede: string | null; indirizzo: string | null }) =>
     [l.sede, l.citta, l.sede ? null : l.indirizzo].filter(Boolean).join(" · ") || l.nome;
-  const linee = await getLinee();
 
   // Appena diventata cliente: i referenti vanno in rubrica Google in automatico
   const affiliatoReseller = eAffiliatoReseller(p.interessi);
@@ -142,11 +151,7 @@ export default async function Dettaglio({
   // feedback non c'è voto (né zero): la sezione lo dice e basta.
   const valutazione = valutazioneD2C(p);
   // La distribuzione conta TUTTI i feedback, non solo quelli elencati sotto.
-  const perVoto = await prisma.feedbackD2C.groupBy({
-    by: ["voto"],
-    where: { partnerId: p.id },
-    _count: { _all: true },
-  });
+
   const contaVoto = new Map(perVoto.map((v) => [v.voto, v._count._all]));
   const distribuzione = [5, 4, 3, 2, 1].map((stelle) => ({
     stelle,

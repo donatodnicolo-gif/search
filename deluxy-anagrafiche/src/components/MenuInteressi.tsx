@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useOptimistic, useRef, useState } from "react";
 import { toggleInteresse } from "@/lib/azioni";
 import { coloreInteresse, INTERESSI } from "@/lib/interessi";
 
@@ -25,7 +25,14 @@ export function MenuInteressi({
   // Catalogo selezionabile: linee live dal master se passate, altrimenti il
   // fallback statico. Gli attivi mostrano comunque tutti i valori memorizzati.
   const catalogo = linee && linee.length ? linee : [...INTERESSI];
-  const attivi = interessi;
+  // ⚠️ PRESTAZIONI PERCEPITE: la pillola cambia al click, senza aspettare il
+  // server. L'azione rivalida la pagina intera (elenco + sidebar), e stare
+  // mezzo secondo a guardare un menu che non reagisce fa sembrare rotta
+  // un'app che sta solo lavorando. Se la scrittura fallisce, React rimette
+  // il valore vero da sé.
+  const [attivi, setAttivi] = useOptimistic(interessi, (adesso: string[], voce: string) =>
+    adesso.includes(voce) ? adesso.filter((x) => x !== voce) : [...adesso, voce],
+  );
 
   return (
     <details
@@ -65,7 +72,12 @@ export function MenuInteressi({
         className="menu-stato-lista"
         style={pos ? { position: "fixed", top: pos.top, left: pos.left } : undefined}
       >
-        <form action={toggleInteresse.bind(null, partnerId)}>
+        <form
+          action={async (fd) => {
+            setAttivi(String(fd.get("interesse") ?? ""));
+            await toggleInteresse(partnerId, fd);
+          }}
+        >
           {catalogo.map((i) => {
             const attivo = attivi.includes(i);
             return (

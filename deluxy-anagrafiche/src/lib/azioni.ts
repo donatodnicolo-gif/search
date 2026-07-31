@@ -2,6 +2,7 @@
 
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { redirect } from "next/navigation";
 import { isCategoria } from "./categorie";
 import { prisma } from "./db";
@@ -32,7 +33,10 @@ export async function cambiaStato(partnerId: string, fd: FormData) {
     where: { id: partnerId },
     data: { stato: nuovo },
   });
-  await registraPassaggio(partnerId, attuale.stato, nuovo, "ui");
+  // ⚠️ PRESTAZIONI: lo storico si scrive DOPO la risposta (after di Next), non
+  // prima. È un audit, non un dato che serve a disegnare la pagina, e un
+  // andata-e-ritorno in più si sentiva a ogni click.
+  after(() => registraPassaggio(partnerId, attuale.stato, nuovo, "ui"));
   revalidatePath(`/partner/${partnerId}`);
   revalidatePath("/");
   // Diventata cliente ("attivo" = Partner): la scheda si riapre con il
@@ -54,11 +58,13 @@ export async function cambiaStatoFinanziario(partnerId: string, fd: FormData) {
   });
   if (!attuale) return;
   await prisma.partner.update({ where: { id: partnerId }, data: { statoFinanziario: nuovo } });
-  await registraPassaggio(
-    partnerId,
-    `${PREFISSO_FINANZIARIO}${attuale.statoFinanziario}`,
-    `${PREFISSO_FINANZIARIO}${nuovo}`,
-    "ui",
+  after(() =>
+    registraPassaggio(
+      partnerId,
+      `${PREFISSO_FINANZIARIO}${attuale.statoFinanziario}`,
+      `${PREFISSO_FINANZIARIO}${nuovo}`,
+      "ui",
+    ),
   );
   revalidatePath(`/partner/${partnerId}`);
   revalidatePath("/");
@@ -76,11 +82,13 @@ export async function cambiaStatoAnalisi(partnerId: string, fd: FormData) {
   });
   if (!attuale) return;
   await prisma.partner.update({ where: { id: partnerId }, data: { statoAnalisi: nuovo } });
-  await registraPassaggio(
-    partnerId,
-    `${PREFISSO_ANALISI}${attuale.statoAnalisi ?? ""}`,
-    `${PREFISSO_ANALISI}${nuovo ?? ""}`,
-    "ui",
+  after(() =>
+    registraPassaggio(
+      partnerId,
+      `${PREFISSO_ANALISI}${attuale.statoAnalisi ?? ""}`,
+      `${PREFISSO_ANALISI}${nuovo ?? ""}`,
+      "ui",
+    ),
   );
   revalidatePath(`/partner/${partnerId}`);
   revalidatePath("/");
@@ -97,7 +105,10 @@ export async function toggleInteresse(partnerId: string, fd: FormData) {
   // Schema qualificato esplicitamente: via pgbouncer il search_path non è
   // garantito e "Partner" senza schema può risolvere nella tabella di
   // un'altra app del cluster (successo in produzione: errore 42703).
-  await prisma.$executeRaw`
+  // ⚠️ PRESTAZIONI: `RETURNING` invece di rileggere. Il valore nuovo serve al
+  // log, e una `findUnique` dopo l'UPDATE era un secondo andata-e-ritorno verso
+  // Francoforte (~250 ms) su un gesto che si fa a raffica.
+  const righe = await prisma.$queryRaw<{ interessi: string[] }[]>`
     UPDATE "anagrafiche"."Partner"
     SET "interessi" = CASE
       WHEN "interessi" @> ARRAY[${valore}]::text[]
@@ -105,17 +116,13 @@ export async function toggleInteresse(partnerId: string, fd: FormData) {
       ELSE array_append("interessi", ${valore})
     END,
     "aggiornatoIl" = now()
-    WHERE "id" = ${partnerId}`;
-  // Il log si scrive rileggendo: l'UPDATE è fatto in SQL con array_append/remove
-  // e non torna il valore nuovo.
-  const dopo = await prisma.partner.findUnique({ where: { id: partnerId }, select: { interessi: true } });
-  await registraModifica(partnerId, { origine: "ui" }, {
-    campo: "interessi",
-    da: dopo?.interessi.includes(valore)
-      ? dopo.interessi.filter((i) => i !== valore)
-      : [...(dopo?.interessi ?? []), valore],
-    a: dopo?.interessi ?? [],
-  });
+    WHERE "id" = ${partnerId}
+    RETURNING "interessi"`;
+  const dopo = righe[0]?.interessi ?? [];
+  const prima = dopo.includes(valore) ? dopo.filter((i) => i !== valore) : [...dopo, valore];
+  // Il log non blocca la risposta: la pagina si rivalida subito, la riga di
+  // storia si scrive per conto suo.
+  after(() => registraModifica(partnerId, { origine: "ui" }, { campo: "interessi", da: prima, a: dopo }));
   revalidatePath(`/partner/${partnerId}`);
   revalidatePath("/");
 }

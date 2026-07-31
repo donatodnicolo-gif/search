@@ -564,6 +564,39 @@ senza azienda (HubSpot)» da riassegnare a mano), `export:vcard`, `chiave`,
 `scripts/configura-db-condiviso.mjs`, `scripts/crea-chiave.mjs`, `scripts/esporta-vcard-google.mjs`,
 `scripts/importa-hubspot-contatti.mjs`.
 
+## 8bis. Prestazioni (31/07/2026) — perche l app era lenta
+
+Assegnare uno stato o un interesse prendeva **~4 secondi**. Non erano le
+scritture: era la **rivalidazione**. Ogni azione fa `revalidatePath("/")`, e la
+pagina si ricostruiva tutta.
+
+Misurato, prima → dopo:
+
+| | prima | dopo |
+|---|---|---|
+| conteggi della sidebar | 3320 ms (12 query in fila) | **485 ms (una query sola)** |
+| query dell elenco | 1076 ms | 720 ms |
+| pagina `/` (build di produzione) | ~4 s | **~0,9 s** |
+| scheda partner | ~2,4 s | **~1,5 s** |
+
+Cosa e stato fatto, e perche va tenuto cosi:
+
+1. **La sidebar fa UNA query.** Erano dodici `await` in fila; metterle in
+   `Promise.all` non bastava (1,4 s) perche il pooler ha `connection_limit=5` e
+   le "parallele" vanno a ondate. Ora e un solo SQL con dodici sotto-select.
+   **Aggiungendo un conteggio, aggiungi un sotto-select li dentro**, non un
+   `await` sotto: e il modo in cui questa lentezza e nata.
+2. **L elenco carica dei referenti solo il telefono** (`select`), non l intero
+   record per 50 anagrafiche piu tutte le loro sedi.
+3. **La scheda partner fa un solo giro** dopo aver letto l anagrafica
+   (fatturazione + altri luoghi + voti + linee in `Promise.all`).
+4. **I badge sono ottimistici** (`useOptimistic` in MenuStato, MenuStatoAzienda,
+   MenuInteressi): la pillola cambia al click e la rivalidazione arriva dopo.
+   E quello che si **sente**: il resto e misura, questo e percezione.
+5. **Gli audit si scrivono dopo la risposta** (`after` di Next):
+   `registraPassaggio` e `registraModifica` non sono dati che servono a
+   disegnare la pagina. `toggleInteresse` usa `RETURNING` invece di rileggere.
+
 ## 9. Gotchas (imparati a caro prezzo)
 
 - **SQL raw sul cluster condiviso**: qualificare SEMPRE lo schema (`"anagrafiche"."Partner"`),

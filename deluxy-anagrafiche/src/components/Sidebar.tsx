@@ -53,53 +53,77 @@ export async function Sidebar({
   affiliatiAttivi?: boolean;
   valetAttivo?: boolean;
 }) {
-  const [
-    categorie,
-    archiviate,
-    statiConteggio,
-    statiFinanziariConteggio,
-    statiAnalisiConteggio,
-    interessiConteggio,
-  ] = await Promise.all([
-    prisma.partner.groupBy({
-      by: ["categoria"],
-      where: { attivo: true },
-      _count: { _all: true },
-      orderBy: [{ _count: { categoria: "desc" } }, { categoria: "asc" }],
-    }),
-    prisma.partner.count({ where: { attivo: false } }),
-    prisma.partner.groupBy({ by: ["stato"], where: { attivo: true }, _count: { _all: true } }),
-    prisma.partner.groupBy({ by: ["statoFinanziario"], where: { attivo: true }, _count: { _all: true } }),
-    prisma.partner.groupBy({ by: ["statoAnalisi"], where: { attivo: true }, _count: { _all: true } }),
-    // Gli interessi sono un array: si contano i singoli valori con unnest.
-    // Schema sempre qualificato nelle query dirette (pgbouncer).
-    prisma.$queryRaw<{ interesse: string; totale: bigint }[]>`
-      SELECT unnest("interessi") AS interesse, count(*) AS totale
-      FROM "anagrafiche"."Partner" WHERE "attivo" GROUP BY 1`,
+  // ⚠️ PRESTAZIONI — leggere prima di toccare.
+  // La sidebar sta su OGNI pagina e viene ricostruita a ogni azione (cambiare
+  // stato o interesse rivalida `/`). I suoi conteggi erano dodici query: prima
+  // in fila (3,3 s), poi in `Promise.all` (1,4 s, perché la connessione al
+  // pooler ha `connection_limit=5` e le "parallele" vanno a ondate).
+  // Ora sono **una sola query**: 0,5 s, e non peggiora aggiungendo conteggi.
+  // Se ne serve un altro, aggiungi un sotto-select qui, non un `await` sotto.
+  const [conteggi, linee] = await Promise.all([
+    prisma.$queryRaw<
+      {
+        categorie: { categoria: string; n: number }[] | null;
+        archiviate: number;
+        stati: { v: string; n: number }[] | null;
+        finanziari: { v: string; n: number }[] | null;
+        analisi: { v: string; n: number }[] | null;
+        interessi: { v: string; n: number }[] | null;
+        damatch: number;
+        dariconciliare: number;
+        disaccordi: number;
+        chiavi: number;
+        valet: number;
+        affiliati: number;
+      }[]
+      // Schema sempre qualificato: via pgbouncer il `search_path` non è
+      // garantito e "Partner" senza schema può colpire la tabella di un'altra
+      // app del cluster (già successo in produzione, errore 42703).
+    >`
+      SELECT
+        (SELECT json_agg(t) FROM (
+          SELECT "categoria", count(*)::int AS n FROM "anagrafiche"."Partner"
+          WHERE "attivo" GROUP BY 1 ORDER BY n DESC, "categoria" ASC) t) AS categorie,
+        (SELECT count(*)::int FROM "anagrafiche"."Partner" WHERE NOT "attivo") AS archiviate,
+        (SELECT json_agg(t) FROM (
+          SELECT "stato" AS v, count(*)::int AS n FROM "anagrafiche"."Partner"
+          WHERE "attivo" GROUP BY 1) t) AS stati,
+        (SELECT json_agg(t) FROM (
+          SELECT "statoFinanziario" AS v, count(*)::int AS n FROM "anagrafiche"."Partner"
+          WHERE "attivo" GROUP BY 1) t) AS finanziari,
+        (SELECT json_agg(t) FROM (
+          SELECT coalesce("statoAnalisi", 'nessuno') AS v, count(*)::int AS n
+          FROM "anagrafiche"."Partner" WHERE "attivo" GROUP BY 1) t) AS analisi,
+        (SELECT json_agg(t) FROM (
+          SELECT unnest("interessi") AS v, count(*)::int AS n FROM "anagrafiche"."Partner"
+          WHERE "attivo" GROUP BY 1) t) AS interessi,
+        (SELECT count(*)::int FROM "anagrafiche"."RichiestaMatch"
+          WHERE NOT "risolto" AND "esito" <> 'agganciata') AS damatch,
+        (SELECT count(*)::int FROM "anagrafiche"."Contatto" c
+          JOIN "anagrafiche"."Partner" pa ON pa."id" = c."partnerId"
+          WHERE NOT c."archiviato" AND pa."attivo" AND pa."categoria" = 'DA CLASSIFICARE') AS dariconciliare,
+        (SELECT count(*)::int FROM "anagrafiche"."Riconciliazione" WHERE "stato" = 'aperta') AS disaccordi,
+        (SELECT count(*)::int FROM "anagrafiche"."ApiKey" WHERE "attiva") AS chiavi,
+        (SELECT count(*)::int FROM "anagrafiche"."Valet" WHERE "attivo") AS valet,
+        (SELECT count(*)::int FROM "anagrafiche"."Partner"
+          WHERE "attivo" AND "interessi" && ARRAY['Affiliazioni','Re-seller']::text[]) AS affiliati`,
+    getLinee(),
   ]);
-  const linee = await getLinee();
-  const daRisolvere = await prisma.richiestaMatch.count({ where: { risolto: false, esito: { not: "agganciata" } } });
-  // Referenti da riassegnare: quelli sotto anagrafiche "DA CLASSIFICARE"
-  const daRiconciliare = await prisma.contatto.count({
-    where: { archiviato: false, partner: { attivo: true, categoria: "DA CLASSIFICARE" } },
-  });
-  // Disaccordi fra registro e tracker Excel ancora da decidere (cosa diversa
-  // dai referenti qui sopra: lì si assegna una persona, qui si sceglie fra due
-  // valori dello stesso campo).
-  const disaccordi = await prisma.riconciliazione.count({ where: { stato: "aperta" } });
-  // Chiavi che oggi autenticano davvero: le sospese non si contano.
-  const chiaviAttiveConteggio = await prisma.apiKey.count({ where: { attiva: true } });
-  // I valet in servizio: le persone che fanno le consegne, accanto alla
-  // rubrica dei referenti delle aziende.
-  const valet = await prisma.valet.count({ where: { attivo: true } });
-  const affiliati = await prisma.partner.count({
-    where: { attivo: true, interessi: { hasSome: [...INTERESSI_AFFILIAZIONE] } },
-  });
-  const totale = categorie.reduce((somma, c) => somma + c._count._all, 0);
-  const perStato = new Map(statiConteggio.map((s) => [s.stato, s._count._all]));
-  const perStatoFinanziario = new Map(statiFinanziariConteggio.map((s) => [s.statoFinanziario, s._count._all]));
-  const perStatoAnalisi = new Map(statiAnalisiConteggio.map((s) => [s.statoAnalisi ?? "nessuno", s._count._all]));
-  const perInteresse = new Map(interessiConteggio.map((i) => [i.interesse, Number(i.totale)]));
+
+  const c = conteggi[0];
+  const categorie = c?.categorie ?? [];
+  const archiviate = c?.archiviate ?? 0;
+  const daRisolvere = c?.damatch ?? 0;
+  const daRiconciliare = c?.dariconciliare ?? 0;
+  const disaccordi = c?.disaccordi ?? 0;
+  const chiaviAttiveConteggio = c?.chiavi ?? 0;
+  const valet = c?.valet ?? 0;
+  const affiliati = c?.affiliati ?? 0;
+  const totale = categorie.reduce((somma, x) => somma + x.n, 0);
+  const perStato = new Map((c?.stati ?? []).map((s) => [s.v, s.n]));
+  const perStatoFinanziario = new Map((c?.finanziari ?? []).map((s) => [s.v, s.n]));
+  const perStatoAnalisi = new Map((c?.analisi ?? []).map((s) => [s.v, s.n]));
+  const perInteresse = new Map((c?.interessi ?? []).map((i) => [i.v, i.n]));
 
   const globaleAttiva =
     !categoriaAttiva && !statoAttivo && !statoFinanziarioAttivo && !statoAnalisiAttivo && !interesseAttivo && !archivioAttivo && !hubspotAttivo && !dashboardAttiva && !matchAttivo && !contattiAttiva && !riconciliazioneAttiva && !identitaAttiva && !chiaviAttive && !affiliatiAttivi && !valetAttivo;
@@ -144,7 +168,7 @@ export async function Sidebar({
             >
               <span className="sb-icona"><IconaCategoria categoria={c.categoria} /></span>
               <span className="sb-nome">{etichetta(c.categoria)}</span>
-              <span className="sb-count">{c._count._all}</span>
+              <span className="sb-count">{c.n}</span>
             </a>
           ))}
         </SbSezione>

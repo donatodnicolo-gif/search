@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useOptimistic, useRef, useState } from "react";
 import { cambiaStato, impostaArchiviato } from "@/lib/azioni";
 import { BadgeStato } from "./BadgeStato";
 import { COLORE_STATO, ETICHETTE_STATO, STATI } from "@/lib/stati";
@@ -21,12 +21,16 @@ export function MenuStato({
 }) {
   const ancora = useRef<HTMLElement | null>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  // ⚠️ PRESTAZIONI PERCEPITE: il badge cambia al click. Il salvataggio dura
+  // quanto dura, ma l'elenco non deve sembrare bloccato mentre la pagina si
+  // rivalida. In caso di errore React ripristina lo stato vero.
+  const [statoMostrato, setStatoMostrato] = useOptimistic(stato);
 
   return (
     // key: al cambio di stato/archivio il menu si smonta e si richiude da solo
     <details
       className="menu-stato"
-      key={`${stato}-${archiviato}`}
+      key={`${statoMostrato}-${archiviato}`}
       onToggle={(e) => {
         if (e.currentTarget.open && ancora.current) {
           const r = ancora.current.getBoundingClientRect();
@@ -35,7 +39,7 @@ export function MenuStato({
       }}
     >
       <summary ref={(el) => { ancora.current = el; }}>
-        <BadgeStato stato={stato} />
+        <BadgeStato stato={statoMostrato} />
         <span className="menu-freccia">▾</span>
       </summary>
       <div
@@ -43,8 +47,13 @@ export function MenuStato({
         style={pos ? { position: "fixed", top: pos.top, left: pos.left } : undefined}
       >
         {!archiviato && (
-          <form action={cambiaStato.bind(null, partnerId)}>
-            {STATI.filter((s) => s !== stato).map((s) => (
+          <form
+            action={async (fd) => {
+              setStatoMostrato(String(fd.get("stato") ?? ""));
+              await cambiaStato(partnerId, fd);
+            }}
+          >
+            {STATI.filter((s) => s !== statoMostrato).map((s) => (
               <button
                 key={s}
                 type="submit"
