@@ -161,9 +161,10 @@ export const labelAffiliazione: Record<StatoAffiliazione, string> = {
   lead: 'Lead',
   prospect: 'Prospect',
   in_trattativa: 'In trattativa',
-  attivo: 'Attivo',
-  a_rischio: 'A rischio',
-  non_interessato: 'Non interessato',
+  // ⚠️ Il valore resta `attivo` ma si legge «Cliente» (31/07/2026): «attivo»
+  // diceva due cose in una parola sola — la scheda ha già un `attivo` che vuol
+  // dire «non archiviata». «Cliente» dice l'unica che conta: ci compra.
+  attivo: 'Cliente',
   // Il valore resta `dismesso` (è quello del registro), ma si legge «Dormiente»:
   // è la stessa cosa, e chiamarla in due modi obbligava a tradurre a mente.
   dismesso: 'Dormiente',
@@ -177,10 +178,6 @@ export const coloreAffiliazione: Record<StatoAffiliazione, string> = {
   prospect: colors.grigio,
   in_trattativa: colors.oro,
   attivo: colors.successo,
-  // Ancora cliente, ma da guardare: giallo, non rosso — il rosso è di chi se
-  // n'è andato, e confonderli fa reagire tardi o troppo presto.
-  a_rischio: colors.attenzione,
-  non_interessato: colors.errore,
   dismesso: colors.grigio,
 };
 

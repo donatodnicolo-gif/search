@@ -94,10 +94,20 @@ const STATO = {
 
 // ⚠️ 31/07/2026 — «in contatto / in attesa / da ricontattare» non sono più
 // stati: sono il MOMENTO del contatto, una dimensione a sé (registro: `livello`,
-// Scout: `places.livello_contatto`). Le anagrafiche vecchie possono averli
+// Scout: `places.livello_rapporto`). Le anagrafiche vecchie possono averli
 // ancora come stato: si spostano qui e lo stato diventa `lead`, che è ciò che
 // quei tre hanno sempre voluto dire — un contatto c'è stato.
-const MOMENTI = ['in_contatto', 'in_attesa', 'da_ricontattare'];
+const MOMENTI = ['in_contatto', 'in_attesa', 'da_ricontattare', 'attivo', 'a_rischio', 'non_interessato'];
+// Se uno di quelli arriva ancora come STATO (registro non aggiornato), ecco
+// cosa diventa lo stato: «a rischio» resta un cliente, gli altri sono lead.
+const STATO_DA_LIVELLO = {
+  in_contatto: 'lead',
+  in_attesa: 'lead',
+  da_ricontattare: 'lead',
+  non_interessato: 'lead',
+  a_rischio: 'attivo',
+  attivo: 'attivo',
+};
 const DECISORE = /titolare|founder|owner|proprietar|ceo|general manager|direttore/i;
 
 // ── 1. Scarica il registro ──────────────────────────────────────────────────
@@ -165,12 +175,12 @@ for (const p of partners) {
     zona: p.citta || null,
     settore: catOrig, // categoria originale del registro, per riferimento
     categoria: CATEGORIA[catOrig] ?? 'altro',
-    // Se il registro manda ancora uno dei tre vecchi valori come stato, quello
-    // è il momento del contatto e lo stato commerciale è `lead`.
-    stato: STATO[MOMENTI.includes(p.stato) ? 'lead' : p.stato] ?? 'da_visitare',
+    // Se il registro manda ancora un livello come stato, quello è il livello e
+    // lo stato è quello che c'era sempre stato sotto (STATO_DA_LIVELLO).
+    stato: STATO[MOMENTI.includes(p.stato) ? STATO_DA_LIVELLO[p.stato] : p.stato] ?? 'da_visitare',
     account: p.account || null,
-    ana_stato: MOMENTI.includes(p.stato) ? 'lead' : p.stato || null,
-    // `livello` è il nome che ha nel registro; qui diventa `livello_contatto`.
+    ana_stato: MOMENTI.includes(p.stato) ? STATO_DA_LIVELLO[p.stato] : p.stato || null,
+    // `livello` è il nome che ha nel registro; qui diventa `livello_rapporto`.
     momento: MOMENTI.includes(p.livello) ? p.livello : MOMENTI.includes(p.stato) ? p.stato : null,
     ultima_visita: p.ultimaVisita || null,
     lat: c.lat,
@@ -207,7 +217,7 @@ for (let i = 0; i < righe.length; i += 100) {
           from d left join category_rules cr on lower(cr.categoria) = lower(d.categoria))
     insert into places (nome, indirizzo, zona, settore, categoria, stato, lat, lng, source,
                         anagrafiche_id, anagrafiche_account, anagrafiche_stato, anagrafiche_ultima_visita,
-                        stato_affiliazione, livello_contatto, starred,
+                        stato_affiliazione, livello_rapporto, starred,
                         linea_ipotizzata, aggancio_apertura, priorita)
     select r.nome, r.indirizzo, r.zona, r.settore, r.categoria, r.stato::stato_place_t, r.lat, r.lng,
            'anagrafiche', r.aid, r.account, r.ana_stato, r.ultima_visita,
@@ -230,7 +240,7 @@ for (let i = 0; i < righe.length; i += 100) {
       settore = excluded.settore,
       anagrafiche_account = excluded.anagrafiche_account,
       stato_affiliazione = excluded.stato_affiliazione,
-      livello_contatto = excluded.livello_contatto,
+      livello_rapporto = excluded.livello_rapporto,
       starred = true,
       anagrafiche_stato = excluded.anagrafiche_stato,
       anagrafiche_ultima_visita = excluded.anagrafiche_ultima_visita;

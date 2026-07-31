@@ -364,8 +364,8 @@ function Riga({
           {aRischio(place) ? <StatusBadge small label={LABEL_A_RISCHIO} colore={COLORE_A_RISCHIO} /> : null}
           {/* Il momento del contatto: dice dove siamo DENTRO il livello — «in
               attesa» su un Lead è un'informazione che cambia cosa fare oggi. */}
-          {place.livello_contatto ? (
-            <StatusBadge small label={LABEL_MOMENTO[place.livello_contatto]} colore={colors.blue} />
+          {place.livello_rapporto ? (
+            <StatusBadge small label={LABEL_MOMENTO[place.livello_rapporto]} colore={colors.blue} />
           ) : null}
           <PriorityBadge priorita={place.priorita} small />
         </>

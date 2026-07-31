@@ -40,27 +40,33 @@ function json(body: unknown, status = 200) {
  * scarta e si lascia il negozio come sta, perché scrivere uno stato sbagliato è
  * peggio che non scriverlo.
  */
-const STATI = new Set([
-  'selezionato',
-  'lead',
-  'prospect',
-  'in_trattativa',
-  'attivo',
-  'a_rischio',
-  'non_interessato',
-  'dismesso',
-]);
+const STATI = new Set(['selezionato', 'lead', 'prospect', 'in_trattativa', 'attivo', 'dismesso']);
 
 /**
  * Il MOMENTO del contatto: nel registro si chiama `livello`, qui
- * `places.livello_contatto` — «livello» in Scout è già la scala del funnel.
+ * `places.livello_rapporto` — «livello» in Scout è già la scala del funnel.
  *
  * ⚠️ Fino al 31/07/2026 questi tre erano **stati**. Un registro non ancora
  * aggiornato può mandarli ancora come `stato`: in quel caso valgono come
  * momento, e lo stato commerciale diventa `lead` — che è ciò che hanno sempre
  * voluto dire.
  */
-const MOMENTI = new Set(['in_contatto', 'in_attesa', 'da_ricontattare']);
+const MOMENTI = new Set([
+  'in_contatto',
+  'in_attesa',
+  'da_ricontattare',
+  'attivo',
+  'a_rischio',
+  'non_interessato',
+]);
+/** Se il vecchio stato era uno di questi, ecco cosa diventa lo stato nuovo. */
+const STATO_DA_LIVELLO: Record<string, string> = {
+  in_contatto: 'lead',
+  in_attesa: 'lead',
+  da_ricontattare: 'lead',
+  non_interessato: 'lead',
+  a_rischio: 'attivo', // resta un cliente: è tutto il punto della separazione
+};
 
 /** Stato commerciale → stato di pipeline di Scout (types/index.ts). */
 const PIPELINE: Record<string, string> = {
@@ -69,8 +75,6 @@ const PIPELINE: Record<string, string> = {
   prospect: 'da_visitare',
   in_trattativa: 'visitato',
   attivo: 'cliente',
-  a_rischio: 'cliente',
-  non_interessato: 'perso',
   dismesso: 'perso',
 };
 
@@ -98,11 +102,16 @@ Deno.serve(async (req) => {
 
     const statoRegistro = testo(body.stato, 40);
     const livelloRegistro = testo(body.livello, 40);
-    // Un registro non aggiornato può mandare il momento al posto dello stato:
-    // in quel caso è un lead, e il valore vecchio diventa il momento.
-    const daStato = statoRegistro && MOMENTI.has(statoRegistro);
+    // Un registro non aggiornato può mandare un livello al posto dello stato:
+    // in quel caso il valore vecchio diventa il livello, e lo stato è quello
+    // che c'era sempre stato sotto (un «a rischio» è un cliente, non un perso).
+    const daStato = Boolean(statoRegistro && MOMENTI.has(statoRegistro));
     // Uno stato che non conosciamo non viene tradotto a caso: si ignora.
-    const stato = daStato ? 'lead' : statoRegistro && STATI.has(statoRegistro) ? statoRegistro : null;
+    const stato = daStato
+      ? STATO_DA_LIVELLO[statoRegistro!]
+      : statoRegistro && STATI.has(statoRegistro)
+        ? statoRegistro
+        : null;
     const momento = livelloRegistro && MOMENTI.has(livelloRegistro)
       ? livelloRegistro
       : daStato
@@ -129,7 +138,7 @@ Deno.serve(async (req) => {
       ...(stato ? { anagrafiche_stato: stato, stato_affiliazione: stato, stato: PIPELINE[stato] } : {}),
       // Si scrive anche quando è null: togliere il momento è un'informazione
       // quanto metterlo — vuol dire che quella conversazione è chiusa.
-      ...(stato || momento ? { livello_contatto: momento } : {}),
+      ...(stato || momento ? { livello_rapporto: momento } : {}),
       ...(interessi?.length ? { linee_ipotizzate: interessi, linea_ipotizzata: interessi[0] } : {}),
     };
 

@@ -64,7 +64,7 @@ export default function ModificaAttivita() {
         setPriorita(p.priorita);
         // Stato "vero" da Anagrafiche se presente, altrimenti derivato dallo stato di pipeline.
         setStatoAff(p.stato_affiliazione ?? affiliazioneDaStatoPlace[p.stato] ?? 'prospect');
-        setMomento(p.livello_contatto ?? null);
+        setMomento(p.livello_rapporto ?? null);
         setAccount(p.anagrafiche_account ?? null);
         // Riconduci eventuali linee legacy (es. "Regali aziendali") ai nomi del catalogo.
         setLinee(canonizzaLinee(p.linee_ipotizzate ?? (p.linea_ipotizzata ? [p.linea_ipotizzata] : [])));
@@ -105,7 +105,7 @@ export default function ModificaAttivita() {
         categoria,
         priorita,
         stato_affiliazione: statoAff,
-        livello_contatto: momento,
+        livello_rapporto: momento,
         // Deriva lo stato di pipeline dallo stato di Anagrafiche (percorso/filtri coerenti).
         stato: statoPlaceDaAffiliazione[statoAff],
         anagrafiche_account: account,

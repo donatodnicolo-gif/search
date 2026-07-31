@@ -17,21 +17,20 @@ export type EsitoVisita = 'interessato' | 'da_richiamare' | 'non_target' | 'chiu
 // `selezionato` né `lead`, che Scout doveva tradurre in `prospect` perdendo
 // l'informazione. Ora li ha anche lui, e `a_rischio` — che non aveva nessuno
 // dei due — li ha entrambi.
-// ⚠️ 31/07/2026 — `in_contatto`, `in_attesa` e `da_ricontattare` **non sono più
-// stati commerciali**: sono passati alla dimensione MOMENTO DEL CONTATTO qui
-// sotto. Non erano gradini del funnel ma il *momento* del contatto, e
-// mescolarli agli altri costringeva a scegliere fra due informazioni vere
-// insieme: «è un prospect» **e** «sta aspettando una risposta». La stessa
-// decisione è stata presa nel registro, dove le 180 anagrafiche che li avevano
-// sono diventate `prospect` conservando il vecchio valore come livello.
+// ⚠️ 31/07/2026 — cinque valori se ne sono andati da qui: `in_contatto`,
+// `in_attesa`, `da_ricontattare`, `a_rischio` e `non_interessato` sono passati
+// alla dimensione LIVELLO DEL RAPPORTO qui sotto. Non erano gradini del funnel
+// ma modi in cui va il rapporto, e tenerli nella stessa lista costringeva a
+// scegliere fra due informazioni vere insieme: «a rischio» toglieva la parola
+// *cliente* proprio a chi cliente lo è ancora, «non interessato» cancellava il
+// fatto che restava un lead a cui avevamo parlato. Stessa decisione presa nel
+// registro Anagrafiche, e stessi valori.
 export type StatoAffiliazione =
   | 'selezionato'
   | 'lead'
   | 'prospect'
   | 'in_trattativa'
   | 'attivo'
-  | 'a_rischio'
-  | 'non_interessato'
   | 'dismesso';
 
 // Ordine dello "step" (dal primo contatto alla chiusura) per la UI.
@@ -41,8 +40,6 @@ export const STATI_AFFILIAZIONE: StatoAffiliazione[] = [
   'prospect',
   'in_trattativa',
   'attivo',
-  'a_rischio',
-  'non_interessato',
   'dismesso',
 ];
 
@@ -58,14 +55,34 @@ export const STATI_AFFILIAZIONE: StatoAffiliazione[] = [
  *
  * Vuoto = non indicato. Nessuno dei tre è il punto di partenza «giusto».
  */
-export type MomentoContatto = 'in_contatto' | 'in_attesa' | 'da_ricontattare';
+export type MomentoContatto =
+  | 'in_contatto'
+  | 'in_attesa'
+  | 'da_ricontattare'
+  | 'attivo'
+  | 'a_rischio'
+  | 'non_interessato';
 
-export const MOMENTI_CONTATTO: MomentoContatto[] = ['in_contatto', 'in_attesa', 'da_ricontattare'];
+export const MOMENTI_CONTATTO: MomentoContatto[] = [
+  'in_contatto',
+  'in_attesa',
+  'da_ricontattare',
+  'attivo',
+  'a_rischio',
+  'non_interessato',
+];
 
 export const LABEL_MOMENTO: Record<MomentoContatto, string> = {
   in_contatto: 'In contatto',
   in_attesa: 'In attesa',
   da_ricontattare: 'Da ricontattare',
+  // ⚠️ Stesso slug dello stato commerciale `attivo`, ma è un'altra colonna e
+  // vuol dire un'altra cosa: là «è un cliente», qui «il rapporto è vivo, ci
+  // parliamo». Un cliente che non risponde più è stato `attivo` con livello
+  // `da_ricontattare` — ed è proprio la coppia che prima non si poteva scrivere.
+  attivo: 'Attivo',
+  a_rischio: 'A rischio',
+  non_interessato: 'Non interessato',
 };
 
 /**
@@ -91,10 +108,6 @@ export const statoPlaceDaAffiliazione: Record<StatoAffiliazione, StatoPlace> = {
   prospect: 'da_visitare',
   in_trattativa: 'visitato',
   attivo: 'cliente',
-  // A rischio è un cliente a tutti gli effetti: compra ancora. Il segnale sta
-  // nello stato commerciale, non nella pipeline.
-  a_rischio: 'cliente',
-  non_interessato: 'perso',
   dismesso: 'perso',
 };
 
@@ -104,10 +117,13 @@ export const affiliazioneDaStatoPlace: Record<StatoPlace, StatoAffiliazione> = {
   da_visitare: 'prospect',
   // Era `in_contatto`, che dal 31/07/2026 non è più uno stato ma il momento del
   // contatto. «Visitato» vuol dire che qualcuno c'è andato: come stato
-  // commerciale è un lead, e il dettaglio sta in `livello_contatto`.
+  // commerciale è un lead, e il dettaglio sta in `livello_rapporto`.
   visitato: 'lead',
   cliente: 'attivo',
-  perso: 'non_interessato',
+  // `non_interessato` non è più uno stato: è un livello. Un rapporto chiuso
+  // resta un lead a cui abbiamo parlato — il «non interessato» si scrive
+  // accanto, non al posto.
+  perso: 'lead',
 };
 
 // Contatto della scheda, per la lista Affiliazioni (numero da chiamare + referente).
@@ -214,8 +230,8 @@ export interface Place {
   fuoco_espansione: string | null;
   stato: StatoPlace; // stato di pipeline interno (derivato)
   stato_affiliazione?: StatoAffiliazione | null; // stato commerciale, condiviso col registro
-  /** Il momento del contatto: dove siamo *dentro* lo stato (migr. 0057). */
-  livello_contatto?: MomentoContatto | null;
+  /** Come va il rapporto *dentro* lo stato (migr. 0057). */
+  livello_rapporto?: MomentoContatto | null;
   creato_da?: string | null; // uuid dell'utente che ha inserito il target
   creato_da_nome?: string | null; // nome del creatore, risolto dai profili
   zona: string | null;

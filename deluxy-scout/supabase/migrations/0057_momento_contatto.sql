@@ -1,46 +1,60 @@
--- Deluxy Scout — 0057: «in contatto / in attesa / da ricontattare» diventano
--- una dimensione a sé, non più stati commerciali.
+-- Deluxy Scout — 0057: due dimensioni per il rapporto commerciale.
 -- Idempotente. Applicare con scripts/allinea-supabase.mjs.
 --
--- Non erano gradini del funnel ma il **momento del contatto**, e stare nella
--- stessa lista degli altri costringeva a scegliere fra due informazioni vere
--- insieme: «è un prospect» **e** «sta aspettando una risposta». Con uno stato
--- solo, la seconda si perdeva — o peggio, cancellava la prima.
+-- LO STATO dice **a che punto del funnel** siamo: selezionato · lead ·
+-- prospect · in_trattativa · attivo (che si legge «Cliente») · dismesso
+-- (che si legge «Dormiente»).
 --
--- La stessa decisione è stata presa nel registro Anagrafiche (31/07/2026), dove
--- le 180 anagrafiche che li avevano sono diventate `prospect` conservando il
--- vecchio valore come livello. Qui si fa lo stesso, sugli stessi valori.
+-- IL LIVELLO dice **come va il rapporto** dentro quel punto: in_contatto ·
+-- in_attesa · da_ricontattare · attivo · a_rischio · non_interessato.
 --
--- ⚠️ Il campo si chiama `livello_contatto`, **non** `livello`: in Scout
--- «livello» è già la scala del funnel (Selezionato · Lead · Prospect · Cliente
--- · Dormiente, lib/livelli.ts). Chiamarlo uguale avrebbe creato la stessa
--- trappola di `prospect`, che nelle due app voleva dire due cose opposte.
-alter table places add column if not exists livello_contatto text
-  check (livello_contatto is null or livello_contatto in ('in_contatto', 'in_attesa', 'da_ricontattare'));
+-- Perché separarli (decisione utente 31/07/2026, presa prima nel registro
+-- Anagrafiche e poi qui): con una dimensione sola si era costretti a scegliere
+-- fra due informazioni vere insieme. «A rischio» toglieva la parola *cliente*
+-- proprio a chi cliente lo è ancora; «non interessato» cancellava il fatto che
+-- restava un lead a cui avevamo parlato; «in attesa» sostituiva «prospect»
+-- invece di aggiungersi. Sono modi in cui va il rapporto, non gradini.
+--
+-- ⚠️ La colonna si chiama `livello_rapporto`, **non** `livello` — che nel
+-- registro è invece il suo nome. In Scout «livello» è già la scala del funnel
+-- (Selezionato · Lead · Prospect · Cliente · Dormiente, lib/livelli.ts):
+-- chiamarli uguale avrebbe rifatto la trappola di `prospect`, che nelle due app
+-- voleva dire due cose opposte e ci è costata un giro a vuoto. I **valori** sono
+-- gli stessi del registro; cambia solo il nome della colonna.
+alter table places add column if not exists livello_rapporto text
+  check (livello_rapporto is null or livello_rapporto in
+    ('in_contatto', 'in_attesa', 'da_ricontattare', 'attivo', 'a_rischio', 'non_interessato'));
 
-comment on column places.livello_contatto is
-  'Momento del contatto (in_contatto|in_attesa|da_ricontattare). Nel registro Anagrafiche si chiama `livello`; qui no, perché «livello» è già la scala del funnel.';
+comment on column places.livello_rapporto is
+  'Come va il rapporto dentro lo stato. Nel registro Anagrafiche si chiama `livello`; qui no, perché «livello» è già la scala del funnel.';
 
-create index if not exists places_livello_contatto_ix on places (livello_contatto)
-  where livello_contatto is not null;
+create index if not exists places_livello_rapporto_ix on places (livello_rapporto)
+  where livello_rapporto is not null;
 
 -- ── I dati che stanno sui vecchi stati ────────────────────────────────────────
--- Si sposta il valore nella colonna nuova e lo stato commerciale diventa
--- `lead`: quei tre valori dicevano tutti che **un contatto c'è stato**, che è
--- esattamente la definizione di Lead nella scala di Scout.
+-- Il valore si sposta nella colonna nuova e lo stato diventa quello che è
+-- sempre stato sotto: chi è «in contatto» è un lead, chi è «a rischio» è un
+-- cliente, chi è «non interessato» è un lead a cui abbiamo parlato.
 --
--- ⚠️ NON si può togliere un valore da un enum Postgres: `in_contatto` &c.
--- restano dentro `stato_affiliazione_t` per sempre. Nessun problema — nessuno
--- li scriverà più — ma è il motivo per cui questa migrazione sposta i dati
--- invece di «rinominare» il tipo.
+-- ⚠️ NON si può togliere un valore da un enum Postgres: quei cinque restano
+-- dentro `stato_affiliazione_t` per sempre. Nessuno li scriverà più, ma è il
+-- motivo per cui qui si spostano i dati invece di ridefinire il tipo.
 update places
-   set livello_contatto = stato_affiliazione::text,
-       stato_affiliazione = 'lead'
- where stato_affiliazione::text in ('in_contatto', 'in_attesa', 'da_ricontattare');
+   set livello_rapporto = stato_affiliazione::text,
+       stato_affiliazione = case stato_affiliazione::text
+                              when 'a_rischio' then 'attivo'
+                              else 'lead'
+                            end::stato_affiliazione_t
+ where stato_affiliazione::text in
+   ('in_contatto', 'in_attesa', 'da_ricontattare', 'a_rischio', 'non_interessato');
 
 -- Lo stesso per quello che arriva dal registro: `anagrafiche_stato` è testo
--- libero, quindi qui si riscrive senza vincoli di enum.
+-- libero, quindi si riscrive senza vincoli di enum.
 update places
-   set livello_contatto = coalesce(livello_contatto, anagrafiche_stato),
-       anagrafiche_stato = 'lead'
- where anagrafiche_stato in ('in_contatto', 'in_attesa', 'da_ricontattare');
+   set livello_rapporto = coalesce(livello_rapporto, anagrafiche_stato),
+       anagrafiche_stato = case anagrafiche_stato
+                             when 'a_rischio' then 'attivo'
+                             else 'lead'
+                           end
+ where anagrafiche_stato in
+   ('in_contatto', 'in_attesa', 'da_ricontattare', 'a_rischio', 'non_interessato');
