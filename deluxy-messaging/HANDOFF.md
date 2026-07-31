@@ -139,13 +139,21 @@ locale, altrimenti nulla si decifra.
   - Verificato sul database vero, andata e ritorno: 5 + 3 ordini → **8 ordini in
     una riga** col secondo numero mostrato come recapito in più, poi «Separa» e
     di nuovo 5 e 3. Nessuna riga di prova lasciata indietro.
-  - **Pulizia fatta il 31/07/2026: da 865 righe a 833** (32 unite). Regola usata:
+  - **Pulizia fatta il 31/07/2026: da 865 righe a 834** (31 unite). Regola usata:
     resta la riga **con più dati**, e email + telefono insieme valgono più di
     tutto — dopo l'unione **nessuna** riga sopravvissuta è senza telefono o
     senza email. 22 gruppi per *stessa email*, 10 per *stesso nome + stessa
     città*. Lasciato aperto **1** gruppo: «Mustafa Moneir», stesso nome ma
     città diverse — potrebbero essere due persone, e quello lo decide una
     persona.
+  - ⚠️ **STESSA EMAIL NON VUOL DIRE SEMPRE STESSA PERSONA**, e questo cambia la
+    regola. `dandrea_michele@virgilio.it` stava su due righe con nomi diversi —
+    *Danila Cattani* (Paris) e *Michele Dandrea* (Châtillon): una casella di
+    posta condivisa in famiglia, non un doppione. Unite dalla pulizia e poi
+    **separate a mano su decisione dell'utente**. Quindi «stessa email» resta
+    l'indizio più forte che abbiamo, ma quando i **nomi sono diversi** va
+    guardato prima di unire — nel dubbio si lascia stare, perché unire due
+    persone fa vedere a un cliente gli ordini di un altro.
   - ⚠️ **GLI ANELLI**: unendo gli stessi due clienti prima a mano e poi in
     blocco, nei due versi opposti, si scrivono `A→B` e `B→A`. Le due unioni si
     annullano e le righe restano separate **senza che si capisca perché**
