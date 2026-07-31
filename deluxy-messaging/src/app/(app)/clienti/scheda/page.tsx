@@ -61,7 +61,20 @@ export default async function PaginaSchedaCliente({
             {scheda.telefono || 'nessun telefono'} · gli si scrive in{' '}
             <strong>{nomeLingua(lingua.lingua)}</strong>
           </p>
+          {/* ⚠️ Se questa scheda tiene insieme due righe unite a mano va detto,
+              o non si spiega perché ci sono ordini fatti da un numero diverso
+              da quello scritto qui sopra — e si sospetta un errore. */}
+          {scheda.uniti.email.length || scheda.uniti.telefoni.length ? (
+            <p className="descrizione" style={{ marginTop: 4 }}>
+              Scheda unita: qui dentro c&apos;è anche{' '}
+              <strong>{[...scheda.uniti.telefoni, ...scheda.uniti.email].join(', ')}</strong>. Si
+              separa dalla pagina <Link href="/clienti">Clienti</Link>.
+            </p>
+          ) : null}
         </div>
+        <Link className="btn btn-secondario" href="/clienti">
+          Tutti i clienti
+        </Link>
       </div>
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>

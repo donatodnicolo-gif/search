@@ -172,9 +172,20 @@ locale, altrimenti nulla si decifra.
     cliente per donato» — sembrava di averla persa. Ora le chiavi unite in
     quella sessione viaggiano nel parametro `tieni` e saltano i filtri, e
     l'avviso lo dice a parole.
-  - **Non ancora**: la *scheda* cliente (`/clienti/scheda`) non segue l'unione —
-    interroga Orders con UN identificativo per volta, e farla seguire vuol dire
-    cambiare quelle chiamate.
+  - **Dall'elenco si apre la SCHEDA** (31/07/2026): dal nome del cliente si va a
+    `/clienti/scheda`, con ordini passati, reclami, rimborsi, conversazioni, a
+    chi manda di solito e quando ordina. È un link sul nome e non la riga
+    intera: la riga ha già una casella da spuntare e due bottoni, e cliccarla
+    per sbaglio sarebbe la norma.
+  - ⚠️ **La scheda ora SEGUE le unioni.** Prima interrogava Orders con un solo
+    identificativo: su un cliente unito avrebbe mostrato la metà da cui si
+    entrava — il problema che l'unione doveva risolvere, spostato dove non si
+    vede. Ora raccoglie tutti i recapiti del gruppo, chiede a Orders per
+    ognuno (**tetto di 4**: ogni recapito è una chiamata di rete) e fonde le
+    risposte per numero d'ordine. Verificato sui dati veri: Michele Capaccioli
+    (i due numeri che differiscono di una cifra) apre **6 ordini** da entrambe
+    le direzioni, e Rodrigo Taddeo dà la stessa scheda sia dalla riga
+    principale sia da quella assorbita.
 
 - **OGNI CANALE RISPONDE DAL SUO INDIRIZZO: INSTAGRAM HA UN GRAPH SUO**
   (30/07/2026). I direct Instagram si **ricevevano** ma non si potevano

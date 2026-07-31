@@ -3258,3 +3258,16 @@ td .azioni-ordine {
   align-items: center;
   gap: 6px;
 }
+
+/* Il nome del cliente in elenco apre la sua scheda. Sta scritto come il resto
+   della colonna finché non ci passi sopra: un elenco con 800 righe blu
+   sembrerebbe un indice, non una tabella. */
+.link-scheda {
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+.link-scheda:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}

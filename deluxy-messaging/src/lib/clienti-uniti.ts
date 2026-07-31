@@ -169,6 +169,44 @@ export async function ricostruisciCliente(chiave: string): Promise<ClienteRicost
   }
 }
 
+/**
+ * TUTTI i recapiti di una persona, unioni comprese, partendo da uno solo.
+ *
+ * ⚠️ Serve alla scheda cliente. Senza, dopo un'unione la scheda mostrerebbe
+ * solo la metà da cui si è entrati: tre ordini invece di otto, i reclami di un
+ * numero e non dell'altro — cioè esattamente il problema che l'unione doveva
+ * risolvere, ma spostato in un posto dove non si vede.
+ */
+export async function contattiDelGruppo(
+  email: string,
+  telefono: string
+): Promise<{ email: string[]; telefoni: string[] }> {
+  const partenza = chiaveDi(telefono, email)
+  if (!partenza) return { email: [], telefoni: [] }
+
+  const unioni = await mappaUnioni()
+  const capo = unioni.get(partenza) ?? partenza
+  // Il gruppo: la riga che resta più tutte quelle assorbite da lei.
+  const gruppo = new Set([capo, ...[...unioni].filter(([, p]) => p === capo).map(([k]) => k)])
+  // Da soli non basterebbero: se si entra da una riga assorbita, quella chiave
+  // dev'esserci comunque.
+  gruppo.add(partenza)
+  if (gruppo.size === 1) return { email: [], telefoni: [] }
+
+  const ordini = await db.ordine.findMany({
+    where: { OR: [{ NOT: { email: '' } }, { NOT: { telefono: '' } }] },
+    select: { email: true, telefono: true },
+  })
+  const email_ = new Set<string>()
+  const telefoni = new Set<string>()
+  for (const o of ordini) {
+    if (!gruppo.has(chiaveDi(o.telefono, o.email))) continue
+    if (o.email) email_.add(o.email)
+    if (o.telefono) telefoni.add(o.telefono)
+  }
+  return { email: [...email_], telefoni: [...telefoni] }
+}
+
 /** Senza accenti, senza maiuscole, senza spazi doppi: «Nicolò» e «Nicolo». */
 export function nomeConfrontabile(nome: string): string {
   return (nome ?? '')

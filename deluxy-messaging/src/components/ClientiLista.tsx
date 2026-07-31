@@ -440,7 +440,19 @@ export function ClientiLista() {
                       </span>
                     </td>
                     <td>
-                      <div className="cella-nome">{c.nome || c.telefono || c.email || '—'}</div>
+                      {/* Il nome apre la SCHEDA: ordini passati, reclami,
+                          rimborsi, messaggi. Link e non riga cliccabile,
+                          perché la riga contiene già una casella da spuntare e
+                          due bottoni — cliccare per sbagliare sarebbe la norma.
+                          La chiave passa in query string: contiene @ e +, che
+                          in un pezzo di percorso si incastrano. */}
+                      <a
+                        className="cella-nome link-scheda"
+                        href={`/clienti/scheda?email=${encodeURIComponent(c.email)}&telefono=${encodeURIComponent(c.telefono)}`}
+                        title="Apri la scheda: ordini passati, reclami, rimborsi e messaggi"
+                      >
+                        {c.nome || c.telefono || c.email || '—'}
+                      </a>
                       {c.citta ? <div className="cella-sub">{c.citta}</div> : null}
                       {/* Perché questa riga è qui: «stessa email» è quasi una
                           certezza, «stesso nome» è solo un indizio, e chi

@@ -12,7 +12,8 @@
 // scheda non si apre — meglio nessuna scheda che la scheda di un altro.
 
 import { db } from './db'
-import { cercaInArchivio, ordiniClienteDaOrders } from './orders'
+import { cercaInArchivio, ordiniClienteDaOrders, type OrdineCliente } from './orders'
+import { contattiDelGruppo } from './clienti-uniti'
 
 export type Chiave = { email: string; telefono: string }
 
@@ -69,6 +70,13 @@ export type SchedaCliente = {
    * un'abitudine, due ordini a maggio nello stesso anno sono due ordini.
    */
   ricorrenze: { mese: string; volte: number; anni: number }[]
+  /**
+   * Gli altri recapiti della stessa persona, quando due righe della rubrica
+   * sono state unite. Va detto a schermo: chi legge deve sapere che questa
+   * scheda tiene insieme due contatti, o non si spiega perché ci sono ordini
+   * fatti da un numero che non è quello scritto in cima.
+   */
+  uniti: { email: string[]; telefoni: string[] }
   /** L'ultimo scambio: quando, su che canale, e da che parte. */
   ultimoContatto: { quando: string; canale: string; direzione: string; chi: string } | null
   avvisi: string[]
@@ -79,10 +87,19 @@ export async function schedaCliente(k: Chiave): Promise<SchedaCliente | null> {
   const cifre = cifreTelefono(k.telefono)
   if (!email && !cifre) return null
 
+  // ⚠️ Se questa persona è stata UNITA a un'altra riga della rubrica, la scheda
+  // deve seguire l'unione: altrimenti mostra la metà da cui si è entrati — tre
+  // ordini invece di otto, i reclami di un numero e non dell'altro — cioè il
+  // problema che l'unione doveva risolvere, spostato dove non si vede.
+  const gruppo = await contattiDelGruppo(email, k.telefono)
+  const tutteLeEmail = [...new Set([email, ...gruppo.email.map((e) => e.toLowerCase())])].filter(Boolean)
+  const tutteLeCifre = [...new Set([cifre, ...gruppo.telefoni.map(cifreTelefono)])].filter(Boolean)
+  const unita = gruppo.email.length > 0 || gruppo.telefoni.length > 0
+
   const dove = {
     OR: [
-      ...(email ? [{ email: { equals: email, mode: 'insensitive' as const } }] : []),
-      ...(cifre ? [{ telefono: { contains: cifre } }] : []),
+      ...tutteLeEmail.map((e) => ({ email: { equals: e, mode: 'insensitive' as const } })),
+      ...tutteLeCifre.map((c) => ({ telefono: { contains: c } })),
     ],
   }
 
@@ -91,8 +108,8 @@ export async function schedaCliente(k: Chiave): Promise<SchedaCliente | null> {
     db.conversazione.findMany({
       where: {
         OR: [
-          ...(email ? [{ idEsterno: { equals: email, mode: 'insensitive' as const } }] : []),
-          ...(cifre ? [{ idEsterno: { contains: cifre } }] : []),
+          ...tutteLeEmail.map((e) => ({ idEsterno: { equals: e, mode: 'insensitive' as const } })),
+          ...tutteLeCifre.map((c) => ({ idEsterno: { contains: c } })),
         ],
       },
       orderBy: { ultimoMessaggioIl: 'desc' },
@@ -109,23 +126,46 @@ export async function schedaCliente(k: Chiave): Promise<SchedaCliente | null> {
   // legge, ed è la conclusione opposta a quella giusta.
   let ordini: OrdinePassato[] = []
   let fonteOrdini: 'registro' | 'copia locale' = 'copia locale'
-  const esito = await cercaInArchivio(email || k.telefono, 50)
-  if (esito.stato === 'ok') {
+
+  // ⚠️ Orders cerca per UN identificativo alla volta. Su un cliente unito
+  // bisogna chiedere per ognuno dei suoi recapiti e mettere insieme le
+  // risposte, altrimenti lo storico è quello di mezza persona. Il tetto di
+  // quattro non è pigrizia: ogni recapito è una chiamata di rete a un'altra
+  // app, e una scheda che ci mette cinque secondi non la apre più nessuno.
+  const identificativi = [
+    ...new Set([email || k.telefono, ...tutteLeEmail, ...gruppo.telefoni].filter(Boolean)),
+  ].slice(0, 4)
+
+  const risposte = await Promise.all(identificativi.map((id) => cercaInArchivio(id, 50)))
+  const trovati = risposte.filter((r) => r.stato === 'ok')
+  if (trovati.length) {
     fonteOrdini = 'registro'
-    ordini = esito.ordini.map((o) => ({
-      numero: o.numero,
-      brand: o.brand,
-      data: o.data,
-      totale: o.totale,
-      valuta: o.valuta,
-      dataConsegna: o.dataConsegna,
-      destinatario: '',
-    }))
+    // Lo stesso ordine può tornare da due recapiti: si tiene una volta sola.
+    const perNumero = new Map<string, OrdinePassato>()
+    for (const r of trovati) {
+      if (r.stato !== 'ok') continue
+      for (const o of r.ordini) {
+        if (perNumero.has(o.numero)) continue
+        perNumero.set(o.numero, {
+          numero: o.numero,
+          brand: o.brand,
+          data: o.data,
+          totale: o.totale,
+          valuta: o.valuta,
+          dataConsegna: o.dataConsegna,
+          destinatario: '',
+        })
+      }
+    }
+    ordini = [...perNumero.values()].sort((a, b) => b.data.localeCompare(a.data))
   } else {
+    // Il motivo del primo tentativo fallito: dire «non raggiungibile» senza
+    // dire perché lascia chi legge senza niente da fare.
+    const fallito = risposte.find((r) => r.stato !== 'ok')
     avvisi.push(
-      esito.stato === 'non-configurato'
+      !fallito || fallito.stato === 'non-configurato'
         ? 'Storico non disponibile (app Ordini non configurata): qui sotto ci sono solo gli ordini degli ultimi due mesi.'
-        : `Storico non raggiungibile (${esito.messaggio}): qui sotto ci sono solo gli ordini degli ultimi due mesi.`
+        : `Storico non raggiungibile (${fallito.messaggio}): qui sotto ci sono solo gli ordini degli ultimi due mesi.`
     )
     ordini = ordiniLocali.map((o) => ({
       numero: o.numero,
@@ -143,7 +183,18 @@ export async function schedaCliente(k: Chiave): Promise<SchedaCliente | null> {
   // `cercaInArchivio` non porta: si chiedono a parte.
   const destinatari: { nome: string; volte: number; citta: string }[] = []
   const ricorrenze: { mese: string; volte: number; anni: number }[] = []
-  const conDest = await ordiniClienteDaOrders(email || k.telefono, 100)
+  // Anche qui: su un cliente unito si chiede per ogni recapito e si uniscono le
+  // risposte, così «a chi manda di solito» conta i destinatari di tutti i suoi
+  // ordini e non di metà.
+  const risposteDest = await Promise.all(
+    identificativi.map((id) => ordiniClienteDaOrders(id, 100))
+  )
+  const perNumeroDest = new Map<string, OrdineCliente>()
+  for (const r of risposteDest) {
+    if (r.stato !== 'ok') continue
+    for (const o of r.ordini) if (!perNumeroDest.has(o.numero)) perNumeroDest.set(o.numero, o)
+  }
+  const conDest = { stato: 'ok' as const, ordini: [...perNumeroDest.values()] }
   if (conDest.stato === 'ok' && conDest.ordini.length) {
     const perNome = new Map<string, { volte: number; citta: string }>()
     for (const o of conDest.ordini) {
@@ -199,10 +250,21 @@ export async function schedaCliente(k: Chiave): Promise<SchedaCliente | null> {
   const piuRecente = ordiniLocali[0]
   const speso = ordini.reduce((s, o) => s + (o.totale || 0), 0)
 
+  const emailInTesta = email || piuRecente?.email || ''
+  const telefonoInTesta = piuRecente?.telefono || k.telefono || ''
+  // Gli ALTRI recapiti: quelli già scritti in cima non sono «anche», sono
+  // quelli che si sta guardando. Ripeterli fa sembrare l'unione un pasticcio.
+  const altriRecapiti = {
+    email: gruppo.email.filter((e) => e.toLowerCase() !== emailInTesta.toLowerCase()),
+    telefoni: gruppo.telefoni.filter(
+      (t) => cifreTelefono(t) !== cifreTelefono(telefonoInTesta)
+    ),
+  }
+
   return {
     nome: piuRecente?.clienteNome || '',
-    email: email || piuRecente?.email || '',
-    telefono: piuRecente?.telefono || k.telefono || '',
+    email: emailInTesta,
+    telefono: telefonoInTesta,
     ordiniInTutto: piuRecente?.clienteNumeroOrdine ?? null,
     tipoCliente: piuRecente?.clienteTipo ?? '',
     speso,
@@ -230,6 +292,7 @@ export async function schedaCliente(k: Chiave): Promise<SchedaCliente | null> {
     })),
     destinatari,
     ricorrenze,
+    uniti: unita ? altriRecapiti : { email: [], telefoni: [] },
     ultimoContatto: ultimo
       ? {
           quando: ultimo.creatoIl.toISOString(),
