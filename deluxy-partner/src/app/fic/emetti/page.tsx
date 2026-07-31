@@ -6,9 +6,15 @@ import { riepilogoPartner } from "@/lib/queries";
 import { euro } from "@/lib/format";
 import { BottoneInvio } from "@/components/BottoneInvio";
 import { nomeMese } from "@/lib/calc";
-import { ficStato, ficClientiCached, ficCreaFattura, ficMetodiPagamento } from "@/lib/fic";
-import { matchPartner } from "@/lib/riconciliazione";
-import type { Partner } from "@prisma/client";
+import {
+  ficStato,
+  ficClientiFatturabiliCached,
+  ficEntityUltimaFattura,
+  ficCreaFattura,
+  ficMetodiPagamento,
+  type FicEntity,
+} from "@/lib/fic";
+import { suggerisciClienteFic } from "@/lib/fic-cliente";
 
 export const dynamic = "force-dynamic";
 
@@ -17,18 +23,35 @@ export const dynamic = "force-dynamic";
 // restano su Fatture in Cloud. Il numero assegnato torna nell'app da solo.
 async function emetti(partnerId: string, anno: number, mese: number, fd: FormData) {
   "use server";
-  const clienteId = parseInt(String(fd.get("clienteId") ?? ""));
+  const clienteVal = String(fd.get("cliente") ?? "").trim();
   const imponibile = parseFloat(String(fd.get("imponibile") ?? "").replace(",", "."));
   const descrizione = String(fd.get("descrizione") ?? "").trim();
   const back = `/fic/emetti?partnerId=${partnerId}&anno=${anno}&mese=${mese}`;
-  if (!clienteId || !imponibile || imponibile <= 0 || !descrizione) {
+  if (!clienteVal || !imponibile || imponibile <= 0 || !descrizione) {
     redirect(back + "&errore=" + encodeURIComponent("Compila cliente, descrizione e imponibile."));
+  }
+
+  // Il soggetto può stare in rubrica (`id:`) oppure comparire solo come
+  // intestatario di fatture passate (`nome:`): in quel secondo caso i dati
+  // fiscali si riprendono dall'ultima fattura e viaggiano con la nuova, senza
+  // doverlo prima censire in rubrica.
+  let clienteId: number | undefined;
+  let entity: FicEntity | undefined;
+  if (clienteVal.startsWith("id:")) {
+    clienteId = parseInt(clienteVal.slice(3)) || undefined;
+  } else if (clienteVal.startsWith("nome:")) {
+    const nome = clienteVal.slice(5);
+    entity = (await ficEntityUltimaFattura(nome)) ?? { name: nome };
+  }
+  if (!clienteId && !entity) {
+    redirect(back + "&errore=" + encodeURIComponent("Scegli il cliente dall'elenco."));
   }
 
   let numero: string;
   try {
     const res = await ficCreaFattura({
       clienteId,
+      entity,
       descrizione,
       imponibile,
       visibleSubject: `Commissioni ${nomeMese(mese)} ${anno}`,
@@ -67,22 +90,22 @@ export default async function EmettiPage({
   const r = mesi[mese - 1].riepilogo;
   const saldo = mesi[mese - 1].saldo;
 
-  let clienti: Awaited<ReturnType<typeof ficClientiCached>> = [];
+  // Elenco dei soggetti FATTURABILI: la rubrica clienti di FIC più gli
+  // intestatari delle fatture già emesse. Con la sola rubrica qui mancavano i
+  // due terzi dei partner riconciliati (53 nomi in rubrica contro 112 intestati).
+  let clienti: Awaited<ReturnType<typeof ficClientiFatturabiliCached>> = [];
   let erroreFic: string | null = null;
   if (fic.collegato) {
     try {
-      clienti = await ficClientiCached();
+      clienti = await ficClientiFatturabiliCached();
     } catch (e) {
       erroreFic = (e as Error).message;
     }
   }
-  // pre-selezione del cliente: la ragione sociale FIC deve comparire nel nome
-  // partner (es. "MOSCATI SRL" in "BELLAVIA (MOSCATI SRL)") o viceversa
-  const comePartner = (nome: string) => ({ nome }) as Partner;
-  const suggerito =
-    clienti.find((c) => matchPartner(partner.nome, [comePartner(c.name)]) != null) ??
-    clienti.find((c) => matchPartner(c.name, [partner]) != null) ??
-    null;
+  // pre-selezione del cliente: prima la riconciliazione già confermata, poi la
+  // somiglianza dei nomi (vedi src/lib/fic-cliente.ts)
+  const scelta = await suggerisciClienteFic(partner, clienti);
+  const suggerito = scelta.cliente;
 
   const descrizioneDefault = `Commissioni su vendite ${nomeMese(mese)} ${anno}${partner.feePercent != null ? ` (fee ${partner.feePercent}%)` : ""}`;
   const action = emetti.bind(null, partnerId, anno, mese);
@@ -131,20 +154,39 @@ export default async function EmettiPage({
           <div className="form-grid">
             <div className="full">
               <label className="field-label">Cliente su Fatture in Cloud ({fic.companyName}) <span className="req">*</span></label>
-              <select name="clienteId" required defaultValue={suggerito?.id ?? ""}>
+              <select name="cliente" required defaultValue={suggerito?.valore ?? ""}>
                 <option value="" disabled>Seleziona il cliente…</option>
-                {clienti
-                  .slice()
-                  .sort((a, b) => a.name.localeCompare(b.name, "it"))
-                  .map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}{c.vat_number ? ` — P.IVA ${c.vat_number}` : ""}{suggerito?.id === c.id ? "  ← suggerito" : ""}
-                    </option>
-                  ))}
+                {clienti.map((c) => (
+                  <option key={c.valore} value={c.valore}>
+                    {c.nome}
+                    {c.piva ? ` — P.IVA ${c.piva}` : ""}
+                    {c.inRubrica ? "" : " · già fatturato (non in rubrica)"}
+                    {suggerito?.valore === c.valore ? "  ← suggerito" : ""}
+                  </option>
+                ))}
               </select>
-              {!suggerito && (
+              {!suggerito ? (
                 <p style={{ fontSize: 12.5, color: "var(--orange)", marginTop: 6 }}>
-                  Nessun cliente combacia col nome del partner: scegli manualmente (o crealo prima su Fatture in Cloud).
+                  Nessun cliente combacia col nome del partner, e per questo partner non risulta una
+                  riconciliazione confermata: scegli qui il cliente (oppure fallo una volta sola in{" "}
+                  <Link href="/registrazioni/riconciliazione" style={{ color: "var(--blue)" }}>
+                    Riconciliazione clienti
+                  </Link>
+                  , e da lì in poi arriva già scelto).
+                </p>
+              ) : scelta.da === "riconciliazione" ? (
+                <p className="muted" style={{ fontSize: 12.5, marginTop: 6 }}>
+                  Preso dalla <strong style={{ color: "var(--text)" }}>riconciliazione confermata</strong>: su
+                  Fatture in Cloud questo partner è «{scelta.ficNome}».
+                  {scelta.alternative.length > 0 &&
+                    ` Risulta riconciliato anche con ${scelta.alternative
+                      .map((a) => `«${a.nome}»`)
+                      .join(", ")}: se la fattura va intestata a quello, cambialo qui.`}
+                </p>
+              ) : (
+                <p className="muted" style={{ fontSize: 12.5, marginTop: 6 }}>
+                  Scelto per somiglianza del nome, non da una riconciliazione: controlla che sia il
+                  cliente giusto.
                 </p>
               )}
             </div>

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { feeDaTariffe, tariffeApplicabili, type Tariffa } from "@/lib/fee-calc";
 import { MESI, IVA_DEFAULT, commissione, dovutoVendita } from "@/lib/calc";
 import { euro } from "@/lib/format";
+import { SceltaPartner } from "@/components/SceltaPartner";
 
 // Partner, mese, anno, incasso e fee stanno insieme in un solo componente
 // perché sono legati: la fee da applicare dipende da CHI e da QUANDO, e i
@@ -62,14 +63,7 @@ export function FeeVendita({
     <>
       <div>
         <label className="field-label">Partner <span className="req">*</span></label>
-        <select name="partnerId" required value={partnerId} onChange={(e) => setPartnerId(e.target.value)}>
-          <option value="" disabled>Seleziona partner…</option>
-          {partners.map((x) => (
-            <option key={x.id} value={x.id}>
-              {x.nome}{x.feeBase ? ` — fee ${x.feeBase}%` : ""}
-            </option>
-          ))}
-        </select>
+        <SceltaPartner partners={partners} valore={partnerId} onScegli={setPartnerId} />
       </div>
       <div>
         <label className="field-label">Incasso lordo € <span className="req">*</span></label>

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { createProForma } from "@/lib/proforma-actions";
 import { RigheProForma } from "@/components/RigheProForma";
+import { SceltaPartner } from "@/components/SceltaPartner";
 
 export const dynamic = "force-dynamic";
 
@@ -30,10 +31,11 @@ export default async function NuovaProForma({
         <div className="form-grid">
           <div>
             <label className="field-label">Partner <span className="req">*</span></label>
-            <select name="partnerId" required defaultValue={sp.partnerId ?? ""}>
-              <option value="" disabled>Seleziona partner…</option>
-              {partners.map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}
-            </select>
+            <SceltaPartner
+              partners={partners.map((p) => ({ id: p.id, nome: p.nome, feeBase: p.feePercent ?? 0 }))}
+              valoreIniziale={sp.partnerId}
+              mostraFee={false}
+            />
           </div>
           <div>
             <label className="field-label">Data documento <span className="req">*</span></label>

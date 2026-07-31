@@ -3,6 +3,7 @@ import { createFattura } from "@/lib/actions";
 import { ANNO_CORRENTE } from "@/lib/queries";
 import { MESI } from "@/lib/calc";
 import { ScadenzaRapida } from "@/components/ScadenzaRapida";
+import { SceltaPartner } from "@/components/SceltaPartner";
 
 export const dynamic = "force-dynamic";
 
@@ -35,10 +36,11 @@ export default async function NuovaFattura({
         <div className="form-grid">
           <div>
             <label className="field-label">Partner <span className="req">*</span></label>
-            <select name="partnerId" required defaultValue={sp.partnerId ?? ""}>
-              <option value="" disabled>Seleziona partner…</option>
-              {partners.map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}
-            </select>
+            <SceltaPartner
+              partners={partners.map((p) => ({ id: p.id, nome: p.nome, feeBase: p.feePercent ?? 0 }))}
+              valoreIniziale={sp.partnerId}
+              mostraFee={false}
+            />
           </div>
           <div>
             <label className="field-label">Tipologia (Piano per Area) <span className="req">*</span></label>
