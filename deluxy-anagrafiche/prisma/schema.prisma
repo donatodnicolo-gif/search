@@ -58,6 +58,11 @@ model Partner {
   pec                 String?
   codiceSdi           String? // codice destinatario per la fatturazione elettronica
   iban                String?
+  // A CHI e' intestato il conto: e' il nome a cui esce il bonifico, e non e'
+  // sempre l'insegna ne' la ragione sociale (ditte individuali, societa' che
+  // incassano per il negozio). La banca controlla che intestatario e IBAN
+  // combacino: se qui non c'e' il nome giusto, il pagamento viene rifiutato.
+  intestatarioConto   String?
   banca               String?
   metodoPagamento     String? // bonifico, RID/SEPA, carta, ...
   condizioniPagamento String? // es. "30 gg d.f.", "pagamento anticipato"

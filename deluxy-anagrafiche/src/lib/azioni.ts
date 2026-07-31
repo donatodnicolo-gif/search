@@ -327,6 +327,7 @@ export async function aggiornaPartner(partnerId: string, fd: FormData) {
     pec: testo("pec"),
     codiceSdi: maiuscolo("codiceSdi"),
     iban: testo("iban")?.replace(/\s+/g, "").toUpperCase() ?? null,
+    intestatarioConto: testo("intestatarioConto"),
     banca: testo("banca"),
     metodoPagamento: testo("metodoPagamento"),
     condizioniPagamento: testo("condizioniPagamento"),
@@ -396,6 +397,7 @@ export async function aggiornaPartner(partnerId: string, fd: FormData) {
       pec: testo("pec"),
       codiceSdi: maiuscolo("codiceSdi"),
       iban: testo("iban")?.replace(/\s+/g, "").toUpperCase() ?? null,
+      intestatarioConto: testo("intestatarioConto"),
       banca: testo("banca"),
       metodoPagamento: testo("metodoPagamento"),
       condizioniPagamento: testo("condizioniPagamento"),
@@ -913,7 +915,7 @@ export async function unisciAnagrafiche(
   const DA_TRAVASARE = [
     "ragioneSociale", "citta", "provincia", "regione", "sede", "tipoLuogo", "indirizzo",
     "email", "telefono", "pIva", "codiceFiscale", "account", "tipoProspect", "ultimaVisita",
-    "pec", "codiceSdi", "iban", "banca", "metodoPagamento", "condizioniPagamento",
+    "pec", "codiceSdi", "iban", "intestatarioConto", "banca", "metodoPagamento", "condizioniPagamento",
     "gruppoPagamento", "amministrazioneNome", "amministrazioneTelefono", "amministrazioneEmail",
     "platformId", "hubspotId",
   ] as const;

@@ -11,6 +11,7 @@ export const CAMPI_FINANZIARI = [
   "pec",
   "codiceSdi",
   "iban",
+  "intestatarioConto",
   "banca",
   "metodoPagamento",
   "condizioniPagamento",

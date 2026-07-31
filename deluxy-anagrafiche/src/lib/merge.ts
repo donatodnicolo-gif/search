@@ -51,6 +51,7 @@ const FATTUALI = [
   "pec",
   "codiceSdi",
   "iban",
+  "intestatarioConto",
   "banca",
   "metodoPagamento",
   "condizioniPagamento",

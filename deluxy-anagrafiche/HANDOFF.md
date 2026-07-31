@@ -336,8 +336,18 @@ Ogni scrittura via API è un **merge governato per campo**, mai una sostituzione
   API dentro `datiFinanziari` con il timbro in `aggiornamenti`). Nella scheda non sta in mezzo agli
   altri campi: se c'è, apre la sezione con la riga in evidenza «Pagamento centralizzato: paga X per
   tutte le sedi» — è una risposta a «chi paga», si legge prima dell'IBAN. Vuoto = ogni sede paga per sé.
+  **Intestatario del conto (31/07/2026)** — `intestatarioConto`: il nome **a cui esce il
+  bonifico**, accanto all'IBAN perché è con l'IBAN che la banca lo confronta. Non è un doppione
+  della ragione sociale: ditte individuali e società che incassano per il negozio hanno un
+  intestatario diverso dall'insegna, e se il nome non corrisponde all'IBAN la banca **rifiuta** il
+  pagamento — è il controllo che [`deluxy-transactions`](../deluxy-transactions/docs/SICUREZZA.md)
+  fa prima di far uscire un euro. Campo finanziario come gli altri: condiviso e propagato
+  all'insegna, fattuale nel merge, dentro `datiFinanziari` nelle API col timbro in `aggiornamenti`,
+  nel log delle modifiche come «Intestatario del conto». Vuoto = non indicato (il segnaposto nel
+  form mostra la ragione sociale, ma **non la copia**: sarebbe una deduzione, e qui la deduzione
+  costa un bonifico rifiutato).
   **Condivisi a livello di insegna** (`src/lib/insegna.ts`, `CAMPI_FINANZIARI` = pIva,
-  codiceFiscale, pec, codiceSdi, iban, banca, metodo/condizioni pagamento, **gruppo di pagamento**,
+  codiceFiscale, pec, codiceSdi, iban, **intestatarioConto**, banca, metodo/condizioni pagamento, **gruppo di pagamento**,
   note ammin., contatto ammin.): la fatturazione è della società, non della singola sede. La scheda e il
   form li leggono via `datiFinanziariCondivisi` (merge per campo tra le sedi della stessa
   insegna = stesso nome, o sedi collegate a mano alla madre con quel nome); al salvataggio

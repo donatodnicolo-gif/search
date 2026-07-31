@@ -528,7 +528,8 @@ export default async function Dettaglio({
             tutte le sedi dell&apos;insegna — le singole sedi non si fatturano separatamente.
           </p>
         )}
-        {[p.ragioneSociale, fin.pIva, fin.codiceFiscale, fin.pec, fin.codiceSdi, fin.iban, fin.banca,
+        {[p.ragioneSociale, fin.pIva, fin.codiceFiscale, fin.pec, fin.codiceSdi, fin.iban,
+          fin.intestatarioConto, fin.banca,
           fin.metodoPagamento, fin.condizioniPagamento, fin.gruppoPagamento, fin.noteAmministrative,
           fin.amministrazioneNome, fin.amministrazioneTelefono, fin.amministrazioneEmail,
         ].every((v) => !v) ? (
@@ -543,6 +544,9 @@ export default async function Dettaglio({
             <Campo etichetta="PEC" valore={fin.pec} />
             <Campo etichetta="Codice SDI" valore={fin.codiceSdi} />
             <Campo etichetta="IBAN" valore={fin.iban} largo />
+            {/* A chi esce il bonifico: sta accanto all'IBAN perché è con l'IBAN
+                che la banca lo confronta. */}
+            <Campo etichetta="Intestatario del conto" valore={fin.intestatarioConto} largo />
             <Campo etichetta="Banca" valore={fin.banca} />
             <Campo etichetta="Metodo di pagamento" valore={fin.metodoPagamento} />
             <Campo etichetta="Condizioni di pagamento" valore={fin.condizioniPagamento} />

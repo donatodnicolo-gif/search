@@ -151,6 +151,7 @@ export const ETICHETTE_CAMPO: Record<string, string> = {
   pec: "PEC",
   codiceSdi: "Codice SDI",
   iban: "IBAN",
+  intestatarioConto: "Intestatario del conto",
   banca: "Banca",
   metodoPagamento: "Metodo di pagamento",
   condizioniPagamento: "Condizioni di pagamento",

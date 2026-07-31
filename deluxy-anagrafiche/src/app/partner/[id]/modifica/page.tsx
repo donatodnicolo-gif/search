@@ -182,6 +182,21 @@ export default async function Modifica({
               </Campo>
               <Campo etichetta="Codice SDI" nome="codiceSdi" valore={fin.codiceSdi} />
               <Campo etichetta="IBAN" nome="iban" valore={fin.iban} largo />
+              <Campo etichetta="Intestatario del conto" nome="intestatarioConto" largo>
+                <input
+                  id="intestatarioConto"
+                  name="intestatarioConto"
+                  type="text"
+                  defaultValue={fin.intestatarioConto ?? ""}
+                  placeholder={p.ragioneSociale ?? p.nome}
+                />
+                <p className="testo-guida">
+                  Il nome <strong>a cui esce il bonifico</strong>. Non sempre è l&apos;insegna né la
+                  ragione sociale: ditte individuali e società che incassano per il negozio hanno
+                  un intestatario diverso. La banca controlla che intestatario e IBAN combacino, e
+                  se non combaciano il pagamento viene <strong>rifiutato</strong>.
+                </p>
+              </Campo>
               <Campo etichetta="Banca" nome="banca" valore={fin.banca} />
               <Campo etichetta="Metodo di pagamento" nome="metodoPagamento" valore={fin.metodoPagamento} />
               <Campo etichetta="Condizioni di pagamento" nome="condizioniPagamento" valore={fin.condizioniPagamento} />

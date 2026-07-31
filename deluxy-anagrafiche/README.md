@@ -50,7 +50,7 @@ anagrafici nelle vostre app — leggeteli da qui.
 ### Dati finanziari (fatturazione) — lettura e scrittura
 
 Ogni partner risponde con un blocco **`datiFinanziari`**: `pec`, `codiceSdi`,
-`iban`, `banca`, `metodoPagamento`, `condizioniPagamento`, `gruppoPagamento`,
+`iban`, `intestatarioConto`, `banca`, `metodoPagamento`, `condizioniPagamento`, `gruppoPagamento`,
 `noteAmministrative`, `amministrazioneNome/Telefono/Email` (il contatto
 amministrativo) e **`aggiornamenti`** — per ogni campo chi l'ha scritto
 (`sistema`) e quando (`asOf`). P.IVA e codice fiscale restano ai livelli alti
@@ -60,6 +60,11 @@ della risposta.
   valorizzato **paga la centrale indicata per tutte le sedi dell'insegna**, e la
   singola sede non va fatturata a parte. Vuoto = ogni sede paga per sé. Chi
   emette fatture o richieste di pagamento lo legga **prima** dell'IBAN.
+- **`intestatarioConto` è il nome a cui esce il bonifico**, e non coincide
+  sempre con l'insegna né con la ragione sociale (ditte individuali, società
+  che incassano per il negozio). Va usato **così com'è** insieme all'IBAN: la
+  banca controlla che i due combacino e rifiuta il pagamento se non combaciano.
+  Se è vuoto vuol dire *non indicato* — non ricavatelo dal nome.
 - **Sono condivisi tra le sedi della stessa insegna** (la fatturazione è della
   società): scrivendoli su una sede valgono per tutte; leggendo una sede
   qualsiasi si ottiene lo stesso blocco.
