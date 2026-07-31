@@ -48,10 +48,29 @@ salvarle l'app le prova contro `GET /v2/bank_accounts`: chiavi sbagliate non si
 salvano, così non si scoprono davanti a una distinta sbloccata. Dopo il
 salvataggio non si rileggono: si sostituiscono.
 
-Perché qui il database è ammesso e per l'SMTP no: chi riuscisse a scrivere sul
-database e sostituisse le chiavi Qonto **non ruberebbe niente** — pagherebbe dal
-proprio conto. Sostituire l'SMTP invece dirotta i codici di sblocco, e quello sì
-che è un furto. La differenza è il motivo, non l'abitudine.
+Perché qui il database è ammesso: chi riuscisse a scrivere sul database e
+sostituisse le chiavi Qonto **non ruberebbe niente** — pagherebbe dal proprio
+conto.
+
+**Il server di posta (31/07/2026).** Fino al 30/07 stava *solo* nelle variabili
+d'ambiente, perché sostituire l'SMTP dirotta i codici di sblocco, e quello sì
+che è un furto. Ora si configura anche dalla pagina Impostazioni, e il buco
+resta chiuso per due motivi che valgono solo insieme:
+
+1. **I valori sul database sono cifrati** AES-256-GCM con
+   `TRANSACTIONS_ENC_KEY`, che vive nell'ambiente. Chi scrive sul database non
+   sa produrre un testo cifrato valido: può cancellare o corrompere le righe, e
+   allora la posta non parte e **nessun pagamento esce**. L'attacco degrada da
+   «rubo i codici» a «blocco i pagamenti» — rumoroso e senza guadagno.
+2. **L'ambiente vince sempre sul database.** Se `SMTP_HOST` / `SMTP_USER` /
+   `SMTP_PASS` esistono su Vercel, sono quelle a valere e il modulo nell'app non
+   ha effetto: un'installazione già irrigidita non si ammorbidisce da una pagina
+   web.
+
+In più: serve il ruolo admin **e il secondo fattore** (una sessione rubata non
+basta), le credenziali si provano contro il server vero prima di essere salvate,
+la password non si rilegge e non entra nel registro, e il cambio è un evento
+`posta.configurata` nella catena di hash.
 
 Un bonifico parte solo dopo **sei** controlli in fila, in
 [src/lib/pagamento-banca.ts](../src/lib/pagamento-banca.ts):

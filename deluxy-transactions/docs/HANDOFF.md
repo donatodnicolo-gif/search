@@ -66,6 +66,11 @@ bancarie non ce ne sono ancora: il file SEPA lo carica una persona in banca.
   VoP, saldo), idempotenza derivata dall'id della richiesta, stop al primo
   errore. Codice: [src/lib/qonto.ts](../src/lib/qonto.ts) e
   [src/lib/pagamento-banca.ts](../src/lib/pagamento-banca.ts).
+- **Server di posta configurabile dall'app** (31/07/2026): Impostazioni →
+  «Server di posta», con prova della connessione prima del salvataggio, email di
+  prova facoltativa, valori cifrati sul database e secondo fattore obbligatorio
+  per cambiarli. Le variabili d'ambiente restano e hanno la precedenza. Il
+  perché di ogni pezzo è in [SICUREZZA.md](SICUREZZA.md) §0-bis.
 - **Sessione che scade per inattività** (31/07/2026): dieci minuti fermi e si
   rientra. Ogni pagina aperta rimette il contatore a zero (colonna
   `Sessione.ultimoUso`, scritta al massimo una volta ogni 30 secondi per non
@@ -222,10 +227,12 @@ detta a chi le usa.
 - **La firma HMAC comprende la query.** Il client deve firmare
   `/api/v1/richieste?limite=5`, non solo il percorso.
 - **`TRANSACTIONS_ENC_KEY` non si cambia** dopo il primo avvio.
-- **La configurazione SMTP sta solo nelle variabili d'ambiente**, non sul
-  database come in `deluxy-partner`. Chi entrasse nel database potrebbe
-  altrimenti cambiare il server di posta e dirottare i codici di pagamento su
-  una casella sua. Non «uniformare» questa differenza senza pensarci.
+- **La configurazione SMTP si fa dall'app, ma cifrata e con l'ambiente che
+  vince** (dal 31/07/2026; prima stava *solo* nell'ambiente). La regola da non
+  rompere è il motivo, non il posto: chi scrive sul database non deve poter
+  *dirottare* i codici di sblocco. Ci riesce solo se i valori sono in chiaro —
+  con la cifratura AES-256-GCM può romperli, e allora si fallisce chiusi. Se un
+  domani si tolgono la cifratura o la precedenza dell'ambiente, il buco torna.
 - **Qonto: l'header non è Basic.** Vuole `Authorization: <login>:<segreto>` in
   chiaro, senza base64. Con base64 risponde 401 e il messaggio non lo dice.
 - **Qonto: senza beneficiario «fidato» il bonifico chiede la SCA** (conferma sul
@@ -259,9 +266,10 @@ il database, pubblicare) sono **chiusi il 31/07/2026**: vedi «Stato in
 produzione». Restano questi, e i primi tre li può fare solo una persona con le
 credenziali — non si automatizzano da qui.
 
-1. **SMTP su Vercel** (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`,
-   `SMTP_FROM`). Senza, il codice di sblocco non parte e **non esce un euro**.
-   Attenzione all'a-capo: usare `vercel env add … --value`, non lo stdin.
+1. **Configurare la posta**, ora dalla pagina Impostazioni → «Server di posta»
+   (in alternativa le variabili su Vercel, che hanno la precedenza; lì
+   attenzione all'a-capo: `vercel env add … --value`, non lo stdin). Senza, il
+   codice di sblocco non parte e **non esce un euro**.
 2. **Impostazioni mai salvate**: la tabella `Impostazione` è vuota. Da
    Impostazioni vanno scritti **nome e IBAN dell'ordinante** (senza, la distinta
    non si genera: non è un dettaglio estetico) e il **pagatore**.

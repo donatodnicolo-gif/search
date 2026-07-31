@@ -3,11 +3,12 @@ import { operatoreCorrente } from "@/lib/sessione";
 import { leggiRegole } from "@/lib/impostazioni";
 import { euroSemplice } from "@/lib/denaro";
 import { cifraturaPronta } from "@/lib/crypto";
-import { postaConfigurata } from "@/lib/mail";
+import { statoPosta } from "@/lib/mail";
 import { qontoConfigurato, statoCollegamento } from "@/lib/qonto";
 import { prisma } from "@/lib/db";
 import { ModuloBanca } from "@/components/ModuloBanca";
 import { ModuloImpostazioni } from "@/components/ModuloImpostazioni";
+import { ModuloPosta } from "@/components/ModuloPosta";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,7 @@ export default async function Impostazioni() {
   if (operatore.ruolo !== "admin") redirect("/");
 
   const r = await leggiRegole();
+  const posta = await statoPosta();
 
   // Gli avvisi in cima dicono, in ordine, cosa manca perché un pagamento possa
   // arrivare in fondo. Meglio scoprirlo qui che davanti a una distinta che non
@@ -47,19 +49,11 @@ export default async function Impostazioni() {
         </div>
       )}
 
-      {!postaConfigurata() && (
+      {!posta.configurata && (
         <div className="avviso-errore">
           <strong>La posta non è configurata, quindi non può uscire nessun pagamento.</strong> Il codice che serve al
           pagatore viaggia per email: finché manca, la distinta non si genera. È voluto — davanti a un dubbio questa app
-          si chiude, non si apre.
-          <br />
-          <br />
-          <strong>Non cercarla in questa pagina: non c&apos;è, ed è una scelta.</strong> La posta si configura solo nelle
-          variabili d&apos;ambiente del server (<code className="inline">SMTP_HOST</code>,{" "}
-          <code className="inline">SMTP_PORT</code>, <code className="inline">SMTP_USER</code>,{" "}
-          <code className="inline">SMTP_PASS</code>, <code className="inline">SMTP_FROM</code>), su Vercel. Se stesse nel
-          database come le altre impostazioni, chi entrasse nel database potrebbe cambiare il server di posta e farsi
-          arrivare i codici di pagamento nella propria casella.
+          si chiude, non si apre. Si configura qui sotto, in «Server di posta».
         </div>
       )}
 
@@ -108,6 +102,17 @@ export default async function Impostazioni() {
             urlCaricamentoSepa: r.urlCaricamentoSepa,
           }}
         />
+      </div>
+
+      <div className="scheda">
+        <div className="scheda-titolo">Server di posta</div>
+        <p className="gruppo-sommario">
+          Da qui parte l&apos;unica email che conta: il codice usa-e-getta con cui il pagatore sblocca l&apos;uscita del
+          denaro. Password e indirizzi si salvano <strong>cifrati</strong>, con una chiave che vive sul server e non nel
+          database: chi entrasse nel database può romperli — e allora non esce niente — ma non può dirottarli su una
+          casella sua.
+        </p>
+        <ModuloPosta {...posta} chiedeCodice={operatore.totpAttivo} />
       </div>
 
       <div className="scheda">

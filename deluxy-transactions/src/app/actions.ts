@@ -22,6 +22,7 @@ import { aCentesimi, euro } from "@/lib/denaro";
 import { chiediCodice, impronteDelPin, pinAccettabile, sblocca, verificaCancello } from "@/lib/sblocco";
 import { pagaLottoConQonto } from "@/lib/pagamento-banca";
 import { provaChiaviQonto, qontoConfigurato, salvaChiaviQonto, scollegaQonto } from "@/lib/qonto";
+import { inviaEmail, provaSmtp, salvaConfigSmtp, scollegaPosta, type ConfigSmtp } from "@/lib/mail";
 
 // Tutte le azioni della UI. Ognuna ricontrolla chi è l'operatore: il middleware
 // filtra i cookie falsi, ma l'autorizzazione vera si decide qui, dove si sa
@@ -328,6 +329,72 @@ export async function scollegaBanca(): Promise<void> {
   await registra("banca.collegata", admin.email, { scollegata: true }, { ip: await ipRichiesta() });
   revalidatePath("/impostazioni");
   revalidatePath("/banca");
+}
+
+// ---------------------------------------------------------------------------
+// Server di posta
+// ---------------------------------------------------------------------------
+
+// Da qui passa il codice che sblocca il denaro: cambiare il server di posta
+// vale quanto cambiare il pagatore. Perciò, oltre al ruolo admin, si chiede il
+// secondo fattore — una sessione rubata non basta a dirottare i codici — e la
+// modifica finisce nel registro. La password non entra mai né nel registro né
+// nella pagina: si scrive, si prova, si salva cifrata.
+export async function collegaPosta(_stato: unknown, fd: FormData): Promise<{ errore?: string; ok?: string }> {
+  const admin = await esigiAdmin();
+
+  if (admin.totpAttivo && !(await confermaSecondoFattore(admin.id, testo(fd, "codice")))) {
+    return { errore: "Codice a 6 cifre errato: il server di posta non è stato cambiato." };
+  }
+
+  const host = testo(fd, "host");
+  const utente = testo(fd, "utente");
+  const password = String(fd.get("password") ?? "").trim();
+  const mittente = testo(fd, "mittente") || utente;
+  const porta = Number(testo(fd, "porta") || 587);
+  if (!host || !utente || !password) return { errore: "Servono l'indirizzo del server, l'utente e la password." };
+  if (!Number.isFinite(porta) || porta <= 0 || porta > 65535) return { errore: "La porta non è un numero valido (di solito 587)." };
+
+  const config: ConfigSmtp = { host, porta: Math.round(porta), utente, password, mittente };
+
+  // Si prova PRIMA di salvare, come per le chiavi della banca: una posta che
+  // non funziona si scoprirebbe davanti a una distinta da sbloccare.
+  const prova = await provaSmtp(config);
+  if (!prova.ok) return { errore: `Il server di posta non accetta questi dati: ${prova.errore}` };
+
+  await salvaConfigSmtp(config);
+  await registra(
+    "posta.configurata",
+    admin.email,
+    { host, porta: Math.round(porta), utente, mittente }, // mai la password
+    { ip: await ipRichiesta() },
+  );
+
+  let coda = "";
+  if (fd.get("prova")) {
+    try {
+      await inviaEmail({
+        a: admin.email,
+        oggetto: "Deluxy Transactions — prova di invio",
+        testo:
+          "Se leggi questo messaggio, il server di posta funziona e i codici di sblocco dei pagamenti possono partire.\n\n" +
+          `Configurato da ${admin.email} su ${host}:${Math.round(porta)}.`,
+      });
+      coda = ` Email di prova mandata a ${admin.email}.`;
+    } catch (e) {
+      coda = ` Attenzione: la connessione funziona ma l'invio di prova è fallito (${e instanceof Error ? e.message : "errore"}).`;
+    }
+  }
+
+  revalidatePath("/impostazioni");
+  return { ok: `Server di posta collegato e salvato cifrato.${coda}` };
+}
+
+export async function scollegaPostaAzione(): Promise<void> {
+  const admin = await esigiAdmin();
+  await scollegaPosta();
+  await registra("posta.configurata", admin.email, { scollegata: true }, { ip: await ipRichiesta() });
+  revalidatePath("/impostazioni");
 }
 
 // ---------------------------------------------------------------------------

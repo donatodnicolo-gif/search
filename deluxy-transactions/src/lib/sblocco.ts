@@ -108,11 +108,11 @@ export async function chiediCodice(
   if (!o?.pinHash || !o.pinSalt) {
     return { ok: false, errore: "Prima imposta il PIN di pagamento nella pagina PIN: senza, il denaro non esce." };
   }
-  if (!postaConfigurata()) {
+  if (!(await postaConfigurata())) {
     return {
       ok: false,
       errore:
-        "Posta non configurata (SMTP_HOST / SMTP_USER / SMTP_PASS): il codice non può essere spedito, quindi il pagamento non parte.",
+        "Posta non configurata: il codice non può essere spedito, quindi il pagamento non parte. Si configura in Impostazioni → Server di posta.",
     };
   }
 
