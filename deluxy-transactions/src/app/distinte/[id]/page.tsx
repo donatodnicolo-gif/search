@@ -97,7 +97,12 @@ export default async function Distinta({ params }: { params: Promise<{ id: strin
           <div className="scheda-titolo">Sblocco del pagamento</div>
           <p className="firma-nota">
             Il file SEPA lo genera solo <strong>{await emailPagatore()}</strong>, con un codice che riceve per email e
-            un PIN. Tu puoi preparare la distinta e controllarla: non puoi farla uscire.
+            un PIN. Tu sei entrato come <strong>{operatore.email}</strong>: puoi preparare la distinta e controllarla,
+            non puoi farla uscire.
+          </p>
+          <p className="aiuto-campo">
+            Se quelle due email sono tue, sono comunque due account distinti: esci e rientra con quello del pagatore. Il
+            nome che compare in alto non basta a distinguerli.
           </p>
         </div>
       )}

@@ -56,8 +56,15 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 </a>
               </div>
               <div className="topbar-azioni">
-                <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>
-                  {operatore.nome} · {operatore.ruolo}
+                {/* L'email, non solo il nome: due account intestati alla stessa
+                    persona si distinguono solo così, e qui la differenza fra
+                    l'uno e l'altro è chi può far uscire il denaro. */}
+                <span style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.25, textAlign: "right" }}>
+                  {operatore.email}
+                  <br />
+                  <span style={{ color: "var(--text-tertiary)" }}>
+                    {operatore.nome} · {operatore.ruolo}
+                  </span>
                 </span>
                 <form action={esci}>
                   <button className="btn btn-secondario small" type="submit">

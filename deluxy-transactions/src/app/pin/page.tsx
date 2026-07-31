@@ -23,6 +23,17 @@ export default async function Pin() {
         </div>
       </div>
 
+      {/* L'avviso sta QUI, sopra il modulo, e non solo fra le note in fondo:
+          impostare il PIN sull'account sbagliato non dà nessun errore, e ci si
+          accorge dello scambio solo davanti a una distinta che non si sblocca. */}
+      {!pagatore && (
+        <div className="avviso-attenzione">
+          <strong>Stai per impostare il PIN di un account che non è il pagatore.</strong> Sei entrato come{" "}
+          {operatore.email}, ma il denaro lo fa uscire {await emailPagatore()}. Questo PIN non sbloccherà nessun
+          pagamento: se le due email sono entrambe tue, esci e rientra con l&apos;altra.
+        </div>
+      )}
+
       <div className="scheda">
         <div className="scheda-titolo">{o?.pinHash ? "Cambia il PIN" : "Imposta il PIN"}</div>
         {o?.pinAggiornatoIl && <p className="firma-nota">Ultimo aggiornamento: {quando(o.pinAggiornatoIl)}.</p>}

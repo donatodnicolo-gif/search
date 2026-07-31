@@ -258,6 +258,14 @@ detta a chi le usa.
   si valida **solo se il campo è stato cambiato** (31/07/2026). La regola
   generale: un valore di partenza che non passa la propria validazione trasforma
   un modulo tutto-o-niente in un modulo che non salva mai.
+- **Due account intestati alla stessa persona si distinguono solo dall'email.**
+  Successo davvero il 31/07/2026: `deluxy.delivery@gmail.com` ha `nome` «Nicolo
+  Donato» e `nicolo.donato@deluxy.it` ha «Nicolo Daniele Donato». L'intestazione
+  mostrava solo il nome, quindi sembrava che l'app negasse lo sblocco al
+  pagatore — e il PIN era finito sull'account sbagliato senza nessun errore.
+  Ora l'intestazione mostra **l'email**, la distinta dice con quale account sei
+  entrato, e la pagina PIN avvisa in cima se non sei il pagatore. Regola: dove
+  l'identità decide chi può far uscire denaro, si scrive l'email, mai il nome.
 - Gli script `scripts/*.mjs` ripetono la cifratura invece di importarla da
   `src/lib/crypto.ts`: se cambia l'algoritmo là, vanno allineati anche loro.
 
