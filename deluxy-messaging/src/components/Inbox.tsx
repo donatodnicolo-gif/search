@@ -264,6 +264,7 @@ export function Inbox({
   const [inviando, setInviando] = useState(false)
   const [erroreInvio, setErroreInvio] = useState('')
   const fondoRef = useRef<HTMLDivElement>(null)
+  const contenitoreRef = useRef<HTMLDivElement>(null)
 
   const selezionata = conversazioni.find((c) => c.id === selezionataId) ?? null
 
@@ -450,7 +451,30 @@ export function Inbox({
     return () => clearInterval(t)
   }, [selezionataId, caricaMessaggi])
 
+  // ⚠️ Le chat si aprono in fondo, le MAIL no.
+  //
+  // Andare sempre in fondo è la regola giusta per WhatsApp, dove i messaggi sono
+  // corti e l'ultimo è quello che conta. Su una mail lunga invece la coda è la
+  // firma e il testo citato («On Mon, Jul 27… wrote: > Hey Deluxy Flowers»): si
+  // apriva lì, cioè sulla parte che non serve a nessuno, e per leggere quello
+  // che il cliente ha scritto bisognava risalire ogni volta.
+  //
+  // Quindi: se l'ultimo messaggio NON ci sta tutto nello spazio visibile, ci si
+  // mette sul suo INIZIO; se ci sta, si va in fondo come prima — lo si vede
+  // comunque intero, e la chat resta una chat.
   useEffect(() => {
+    const contenitore = contenitoreRef.current
+    if (!contenitore) return
+    const ultimo = contenitore.children[messaggi.length - 1] as HTMLElement | undefined
+    if (ultimo && ultimo.getBoundingClientRect().height > contenitore.clientHeight) {
+      // getBoundingClientRect invece di offsetTop: non dipende da quale
+      // antenato sia posizionato, che è una cosa che si cambia dal CSS senza
+      // sapere che qui sotto qualcuno la stava usando per contare.
+      const dislivello =
+        ultimo.getBoundingClientRect().top - contenitore.getBoundingClientRect().top
+      contenitore.scrollTop += dislivello - 8
+      return
+    }
     fondoRef.current?.scrollIntoView({ block: 'end' })
   }, [messaggi.length, selezionataId])
 
@@ -1233,7 +1257,7 @@ export function Inbox({
                 solo: mostra prima quello già salvato. */}
             {riassuntoAperto ? <RiassuntoChat conversazioneId={selezionata.id} /> : null}
 
-            <div className="messaggi">
+            <div className="messaggi" ref={contenitoreRef}>
               {messaggi.map((m) => (
                 <Bolla key={m.id} m={m} canale={selezionata.canale} />
               ))}
