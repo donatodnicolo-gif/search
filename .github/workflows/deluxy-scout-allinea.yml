@@ -1,0 +1,56 @@
+# Allinea da solo il backend di Deluxy Scout: applica le migrazioni e ripubblica
+# le Edge Function, a ogni push che le tocca.
+#
+# Perché esiste: fin qui ogni cambio di schema voleva un giro a mano —
+# `APPLICA-MIGRAZIONI.cmd`, incolla il token, aspetta. Non erano le migrazioni a
+# pesare, era che potevi lanciarle solo tu, perché il token ce l'hai solo tu.
+# Qui il token ce l'ha GitHub, una volta, e il lavoro lo fa lui.
+#
+# ⚠️ QUESTO WORKFLOW SCRIVE IN PRODUZIONE: applica SQL sul database vero e
+# pubblica funzioni vere. Per questo parte **solo** quando cambia qualcosa che
+# lo riguarda (vedi `paths`), e non a ogni push del repo — che ospita quindici
+# app e viene spinto in continuazione anche da altre sessioni.
+name: Deluxy Scout — allinea database e funzioni
+
+on:
+  push:
+    branches: [scout-ui, main]
+    paths:
+      - 'deluxy-scout/supabase/migrations/**'
+      - 'deluxy-scout/supabase/functions/**'
+      - 'deluxy-scout/scripts/allinea-supabase.mjs'
+      - '.github/workflows/deluxy-scout-allinea.yml'
+  # Per lanciarlo a mano dalla pagina Actions, senza dover toccare un file.
+  workflow_dispatch:
+
+# Due push ravvicinati non devono applicare migrazioni in parallelo sullo stesso
+# database: il secondo aspetta il primo invece di sovrapporsi.
+concurrency:
+  group: allinea-deluxy-scout
+  cancel-in-progress: false
+
+jobs:
+  allinea:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # Lo script non ha dipendenze: usa solo `fetch` e `npx supabase@latest`.
+      # Niente `npm ci`, che qui vorrebbe dire installare un'app Expo intera per
+      # eseguire un file solo.
+      - name: Applica migrazioni e pubblica le Edge Function
+        working-directory: deluxy-scout
+        env:
+          # Da impostare una volta in Settings → Secrets and variables →
+          # Actions → New repository secret.
+          SUPABASE_PAT: ${{ secrets.SUPABASE_PAT }}
+        run: |
+          if [ -z "$SUPABASE_PAT" ]; then
+            echo "::error::Manca il segreto SUPABASE_PAT. Si aggiunge in Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+          node scripts/allinea-supabase.mjs

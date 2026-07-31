@@ -2,7 +2,13 @@
 // Allinea il backend Supabase di Deluxy Scout: applica le migrazioni non ancora
 // applicate e rideploya le Edge Functions che sono cambiate.
 //
-// Uso (PowerShell):
+// ⚠️ DA LUGLIO 2026 QUESTO SCRIPT LO LANCIA DA SOLO GITHUB, a ogni push che
+// tocca `supabase/migrations/**` o `supabase/functions/**`:
+// `.github/workflows/deluxy-scout-allinea.yml`. Il token sta nei segreti del
+// repo. Lanciarlo a mano resta possibile e non fa danni — le migrazioni sono
+// idempotenti — ma di norma non serve più.
+//
+// Uso a mano (PowerShell):
 //   $env:SUPABASE_PAT = "sbp_..."
 //   node scripts/allinea-supabase.mjs
 //

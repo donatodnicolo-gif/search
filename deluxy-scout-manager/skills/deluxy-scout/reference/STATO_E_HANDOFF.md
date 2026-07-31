@@ -408,6 +408,11 @@ App mobile React Native (Expo Router, TypeScript) per la prospezione commerciale
 
 ## 3. ⏳ Cosa manca (richiede l'utente / suoi account)
 
+0⁰. 🤖 **LE MIGRAZIONI SI APPLICANO DA SOLE** (31/07/2026, richiesta utente «ok migrazioni che girano da sole»). `.github/workflows/deluxy-scout-allinea.yml` lancia `scripts/allinea-supabase.mjs` a ogni push su `scout-ui`/`main` che tocchi `deluxy-scout/supabase/migrations/**`, `…/functions/**` o lo script stesso. Applica le migrazioni **e** ripubblica le Edge Function.
+   - **Prerequisito una volta sola**: il segreto **`SUPABASE_PAT`** in *Settings → Secrets and variables → Actions*. Senza, il workflow fallisce subito con un messaggio esplicito invece di provarci e mentire.
+   - ⚠️ **Scrive in produzione**, quindi il filtro sui percorsi è stretto: il repo ospita quindici app e viene spinto in continuazione anche da altre sessioni. Un `concurrency` impedisce a due push ravvicinati di applicare SQL in parallelo sullo stesso database.
+   - `APPLICA-MIGRAZIONI.cmd` resta e non fa danni (le migrazioni sono idempotenti), ma di norma non serve più.
+
 0. ✅ **Migrazioni 0045–0051 APPLICATE** (28/07/2026, verificate sul database: tabelle `chiavi_app`, `contatti_avviati`, `bozze_visita`, `sequenze`, `sequenza_passi`, colonna `places.visita_pianificata`, valori `selezionato`/`lead` nell'enum). Si applicano con **`APPLICA-MIGRAZIONI.cmd`** (doppio clic, chiede il token) o `node scripts/allinea-supabase.mjs`.
 
 0b. ✅ **TROVATA LA CAUSA VERA del deploy che falliva sempre (29/07/2026): `spawnSync npx.cmd EINVAL`.** Da Node 18.20.2 / 20.12.2 in poi (correzione della CVE-2024-27980) `spawn` su Windows **rifiuta di eseguire un `.cmd`** senza shell: `execFileSync('npx.cmd', …)` moriva prima ancora di far partire npx. Ecco perché fallivano **tutte e quattro** le funzioni, sempre, con qualunque token — e perché non usciva nessun messaggio dal CLI. Docker e il token, le due piste su cui si è perso un giorno, **non c'entravano niente**: l'unico indizio era `e.message`, che lo script non stampava. Corretto passando da `execSync` con la riga costruita a mano (con `shell:true` + array Node 24 avvisa DEP0190: gli argomenti verrebbero concatenati senza escape). Verificato: con un token finto il CLI ora arriva davvero all'upload e si ferma solo sul 401.
