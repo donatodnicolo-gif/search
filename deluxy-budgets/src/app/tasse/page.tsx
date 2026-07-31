@@ -3,9 +3,10 @@ import { ANNO_CORRENTE, caricaAnno } from "@/lib/calc";
 import { caricaBilancio, totali } from "@/lib/bilancio";
 import { caricaConsuntivo } from "@/lib/consuntivo";
 import { caricaCategorie, ricostruisci } from "@/lib/cfo";
-import { fetchSpeseBanca } from "@/lib/finance";
+import { fetchConsuntivo, fetchSpeseBanca } from "@/lib/finance";
 import { eur, pct } from "@/lib/format";
 import { stimaImposte, ALIQUOTA_IRES, ALIQUOTA_IRAP } from "@/lib/tasse";
+import { stimaIva, ALIQUOTA_IVA } from "@/lib/iva";
 
 export const dynamic = "force-dynamic";
 
@@ -56,6 +57,22 @@ export default async function TassePage({
   }, 0);
 
   const s = stimaImposte({ utileCivilistico, costiPerCategoria, valoreProduzione, costiIrapDeducibili });
+
+  // ---- IVA: non è un costo, ma è cassa che esce ----
+  // Il fatturato di Finance porta già l'IVA separata (è un dato); sull'ecommerce
+  // si versa solo quella sulla provvigione, perché il prezzo pieno lo incassa il
+  // partner col suo scontrino.
+  const fatt = await fetchConsuntivo({ anno, dal: 1, al: 12, stato: 'tutte' });
+  const provvigioni = cons.d2c?.fee ?? 0;
+  const margineForn = cons.d2c?.margineFornitori ?? 0;
+  const iva = stimaIva({
+    mesi: mesi.length,
+    ivaFatture: fatt.ok ? fatt.dati.totali.iva : 0,
+    imponibileFatture: fatt.ok ? fatt.dati.totali.imponibile : 0,
+    provvigioniEcommerce: provvigioni,
+    margineFornitori: margineForn,
+    costiPerCategoria,
+  });
 
   return (
     <>
@@ -177,6 +194,106 @@ export default async function TassePage({
         spesa non serve solo al margine. Una cena di lavoro finita fra i costi ordinari si deduce al 100% invece
         che al 75%, e la differenza la paga l&apos;azienda con gli interessi.
       </p>
+
+      <h2 className="section-title">IVA — quanto mettere da parte</h2>
+      <div className="kpi-grid">
+        <div className="kpi">
+          <div className="kpi-label">IVA incassata sulle vendite</div>
+          <div className="kpi-value">{eur(iva.totaleDebito)}</div>
+          <div className="kpi-sub">a debito</div>
+        </div>
+        <div className="kpi">
+          <div className="kpi-label">IVA pagata e detraibile</div>
+          <div className="kpi-value">{eur(iva.totaleCredito)}</div>
+          <div className="kpi-sub">a credito, sugli acquisti</div>
+        </div>
+        <div className="kpi">
+          <div className="kpi-label">Da versare</div>
+          <div className={`kpi-value ${iva.daVersare > 0 ? "neg" : "pos"}`}>{eur(iva.daVersare)}</div>
+          <div className="kpi-sub">{iva.daVersare > 0 ? "esce dalla cassa" : "credito: si porta al periodo dopo"}</div>
+        </div>
+        <div className="kpi">
+          <div className="kpi-label">Da accantonare al mese</div>
+          <div className="kpi-value neg">{eur(iva.accantonamentoMensile)}</div>
+          <div className="kpi-sub">per non arrivare scoperti al 16</div>
+        </div>
+      </div>
+
+      <div className="card tight" style={{ marginBottom: 12 }}>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>IVA a debito — da cosa nasce</th>
+                <th className="num">Imponibile</th>
+                <th className="num">IVA</th>
+                <th>Perché</th>
+              </tr>
+            </thead>
+            <tbody>
+              {iva.debito.map((r) => (
+                <tr key={r.voce}>
+                  <td style={{ fontWeight: 500 }}>{r.voce}</td>
+                  <td className="num muted">{eur(r.imponibile)}</td>
+                  <td className="num" style={{ fontWeight: 600 }}>{eur(r.iva)}</td>
+                  <td className="muted" style={{ fontSize: 12 }}>{r.nota}</td>
+                </tr>
+              ))}
+              <tr className="tot">
+                <td>Totale a debito</td>
+                <td className="num" />
+                <td className="num">{eur(iva.totaleDebito)}</td>
+                <td />
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="card tight">
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>IVA a credito — quanto si detrae</th>
+                <th className="num">Speso (IVA inclusa)</th>
+                <th className="num">IVA detraibile</th>
+                <th>Perché</th>
+              </tr>
+            </thead>
+            <tbody>
+              {iva.credito.map((r) => (
+                <tr key={r.voce}>
+                  <td style={{ fontWeight: 500 }}>{r.voce}</td>
+                  <td className="num muted">{eur(r.imponibile + r.iva)}</td>
+                  <td className="num" style={{ fontWeight: 600 }}>{eur(r.iva)}</td>
+                  <td className="muted" style={{ fontSize: 12 }}>{r.nota}</td>
+                </tr>
+              ))}
+              <tr className="tot">
+                <td>Totale a credito</td>
+                <td className="num" />
+                <td className="num">{eur(iva.totaleCredito)}</td>
+                <td />
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <p className="page-caption" style={{ marginTop: 12 }}>
+        <strong>L&apos;IVA non è un costo</strong> e non compare nel conto economico: è denaro incassato per conto
+        dello Stato che va riversato. Ma <strong>è cassa che esce</strong>, e un&apos;azienda che la spende
+        credendola sua si trova senza soldi il 16. Le categorie con IVA indetraibile — stipendi, tributi, banca,
+        rappresentanza, quota partner — non compaiono nella seconda tabella: su quelle non c&apos;è niente da
+        detrarre.
+      </p>
+      <div className="card" style={{ marginTop: 12 }}>
+        <ul style={{ margin: 0, paddingLeft: 18, display: "grid", gap: 8 }}>
+          {iva.avvertenze.map((a, i) => (
+            <li key={i} className="muted" style={{ fontSize: 13 }}>{a.split("**").join("")}</li>
+          ))}
+        </ul>
+      </div>
 
       <h2 className="section-title">Cosa questa stima non sa</h2>
       <div className="card">

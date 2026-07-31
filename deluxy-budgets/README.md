@@ -446,6 +446,31 @@ entrare non è più sicura, è solo rotta.
 > poteri. Se il database non risponde o gli utenti non ci sono ancora, nessuno resta chiuso fuori. È
 > una porta che resta aperta, ed è una scelta — ma chi entra da lì non ha un nome.
 
+
+### IVA: quanto mettere da parte
+
+Dentro la stessa pagina, perche e la stessa domanda — quanta cassa serve per il fisco — ma il conto e
+un altro. **L IVA non e un costo** e non passa dal conto economico: e denaro incassato per conto dello
+Stato che va riversato. Ma **e cassa che esce**, e chi la spende credendola sua si trova scoperto il 16.
+
+Il conto: IVA incassata sulle vendite meno IVA pagata e detraibile sugli acquisti. Le tre parti del
+debito, sul 2026: **42.739 euro** dalle fatture emesse (dato vero, Finance separa gia imponibile e IVA),
+**24.233 euro** sulle provvigioni dell ecommerce e **13.422 euro** sul margine degli ordini eseguiti
+da fornitori. Il credito vale **38.802 euro**: da versare **41.593 euro**, cioe **3.466 euro al mese**
+da accantonare. Sul 2025 il saldo era molto piu basso — 4.955 euro — perche il credito sugli acquisti
+quasi pareggiava il debito.
+
+> **Sull ecommerce si versa l IVA solo sulla provvigione**, non sul venduto: nel modello C il prezzo
+> pieno lo incassa il partner e l IVA la fa lui col suo scontrino. Contarla sul venduto vorrebbe dire
+> versare l IVA di un altro. Sulla parte comprata dai fornitori invece Deluxy compra e rivende, quindi
+> l IVA netta e quella sul **margine**.
+
+> ⚠️ **La detraibilita non e mai piena su tutto**: veicoli al 40%, rappresentanza **indetraibile** (salvo
+> omaggi sotto i 50 euro), stipendi e tributi fuori campo, quota partner senza fattura. Le categorie a
+> zero non compaiono nella tabella del credito: su quelle non c e niente da detrarre. E resta una stima
+> **di cassa**, non la liquidazione vera, che si fa sui registri per data di fattura: qui gli acquisti
+> arrivano dalla banca, cioe da quando il denaro e uscito. Motore in .
+
 ## Chiavi (cassaforte del Hub)
 
 Le chiavi (`FINANCE_API_KEY`, `ORDERS_API_KEY`, `OPENAI_API_KEY`, …) non stanno nel `.env` di questa app: si
