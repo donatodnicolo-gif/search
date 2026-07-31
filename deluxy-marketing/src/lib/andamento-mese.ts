@@ -17,8 +17,12 @@ import { prisma } from "@/lib/db";
 
 export type RigaMese = {
   brand: string;
-  // Piano dal Monitoraggio
+  // L'obiettivo di vendita del mese: viene da `BudgetMensile.venditaPrevista`
+  // (il piano SALES GLOBAL si è rivelato aspirazionale — vedi il commento in
+  // testa a `andamentoMese`). Il nome resta `pianoVendite` perché è quello che
+  // la UI già usa; la fonte è cambiata, la domanda a cui risponde no.
   pianoVendite: number | null;
+  // Questo invece resta il budget ADV del Monitoraggio.
   pianoBudgetAdv: number | null;
   // Consuntivo dai dati veri
   vendite: number;
@@ -68,8 +72,26 @@ export async function andamentoMese(anno: number, mese: number): Promise<Andamen
 
   const fine = meseInCorso ? new Date(anno, mese - 1, adesso.getDate()) : inizioProssimo;
 
-  const [piano, ordini, spese] = await Promise.all([
+  // ⚠️ L'obiettivo di vendita viene da BudgetMensile, NON da VenditaMensile.
+  //
+  // Le due tabelle nascono dallo stesso file (il Monitoraggio) ma da fogli
+  // diversi, e dicono numeri diversi. `VenditaMensile.vendite` è il piano
+  // SALES GLOBAL: per Flowers prevedeva 143.040 € a luglio 2026 contro 31.948 €
+  // venduti davvero, e 2,08 MILIONI sull'anno contro 140.252 € fatti in sette
+  // mesi — quindici volte la realtà. Non era un errore di import (le quote
+  // mensili sommano a 1, il budget ADV è proporzionale): è un piano
+  // aspirazionale mai riallineato.
+  //
+  // `BudgetMensile.venditaPrevista` invece regge il confronto: 30.000 € contro
+  // 31.948 € venduti. Un obiettivo che sbaglia di quindici volte non è un
+  // obiettivo severo, è un numero che non si può leggere: la barra segna 23% e
+  // sembra un disastro quando il mese è andato bene.
+  //
+  // Il piano resta nel database e nella pagina Vendite: qui non guida più il
+  // semaforo. (Deciso con l'utente il 31/07/2026.)
+  const [piano, budget, ordini, spese] = await Promise.all([
     prisma.venditaMensile.findMany({ where: { anno, mese } }),
+    prisma.budgetMensile.findMany({ where: { anno, mese } }),
     prisma.ordine.groupBy({
       by: ["brand"],
       where: { data: { gte: inizio, lt: fine }, stato: { notIn: ["annullato", "rimborsato"] } },
@@ -109,17 +131,26 @@ export async function andamentoMese(anno: number, mese: number): Promise<Andamen
       : null;
 
   const perBrand = (brand: string): RigaMese => {
-    const p = piano.find((x) => x.sito === BRAND_SITO[brand]);
+    const sito = BRAND_SITO[brand];
+    const p = piano.find((x) => x.sito === sito);
+    const b = budget.find((x) => x.sito === sito);
     const o = ordini.find((x) => x.brand === brand);
     const vendite = o?._sum.totale ?? 0;
     const spesa = spesaBrand.get(brand) ?? 0;
-    return costruisci(brand, p?.vendite ?? null, p?.budgetAdv ?? null, vendite, o?._count._all ?? 0, spesa, giorniConclusi, giorniMese);
+    // L'obiettivo è quello del budget; se per quel mese non è stato compilato
+    // si ripiega sul piano, che è meglio di niente — ma resta il ripiego.
+    const obiettivo = b?.venditaPrevista ?? p?.vendite ?? null;
+    return costruisci(brand, obiettivo, p?.budgetAdv ?? null, vendite, o?._count._all ?? 0, spesa, giorniConclusi, giorniMese);
   };
 
   const righe = ["gifts", "flowers", "cake"].map(perBrand);
   const totale = costruisci(
     "totale",
-    somma(piano.map((p) => p.vendite)),
+    // Il totale si somma dalle stesse righe mostrate sopra, non da una query
+    // sua: se le due strade divergessero, la riga «Tutti i brand» non
+    // combacerebbe con la somma di quelle che ha sopra, ed è il genere di
+    // incoerenza che fa perdere fiducia in tutta la pagina.
+    somma(righe.map((r) => r.pianoVendite)),
     somma(piano.map((p) => p.budgetAdv)),
     righe.reduce((s, r) => s + r.vendite, 0),
     righe.reduce((s, r) => s + r.ordini, 0),
