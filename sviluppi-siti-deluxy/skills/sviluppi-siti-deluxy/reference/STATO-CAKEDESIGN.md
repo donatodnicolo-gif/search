@@ -350,6 +350,83 @@ Il link apre la chat **dentro il sito** (`#deluxy-chat`, iframe `…/widget?tema
 `DeluxyChat.eAperta() === true`), non naviga su chatting.page, e si chiude. **Nessuna pastiglia
 flottante**: `.avvio` è definito nel CSS ma l'elemento non viene creato.
 
+## Doppio jQuery: tentativo FALLITO del 30/7/2026, e le tre lezioni
+
+Obiettivo: una sola jQuery e un solo Semantic. **Tentativo annullato, tutto ripristinato.** Il
+live non e' mai stato toccato (il connettore blocca le scritture sul tema pubblicato).
+
+### Com'e' fatto il doppio caricamento (questa parte resta valida)
+
+| File | Cosa | Dove |
+|---|---|---|
+| `sections/header.liquid` 331/333/334 | jQuery **2.1.4** + Semantic JS + CSS, **sincroni** | ogni pagina |
+| `sections/main-product.liquid` riga 1 | jQuery **3.3.1** da googleapis, **defer** | schede prodotto |
+| `snippets/delivery-date.liquid` 162/163 | Semantic JS + CSS, **defer**, dentro il `<form>` | schede prodotto |
+| `sections/home-delivery-section.liquid` 109/110/111 | jQuery 2.1.4 + Semantic + CSS **di nuovo** | home e 12 landing |
+| `country-ak.liquid` + `multi-selectors.liquid` | flag-icon da cdnjs | 3 copie |
+
+La regola che spiega tutto: il codice inline eseguito **durante il parsing** si lega alla 2.1.4
+sincrona; quello dentro `ready()` risolve `$` a DOMContentLoaded, quando la 3.3.1 differita l'ha
+gia' sostituita in `window`. Per questo i calendari stanno sulla 3.3.1 e il gestore del carrello
+del wizard sulla 2.1.4, irraggiungibile. Sulla pagina `/cart` la 3.3.1 **non arriva affatto**.
+
+### ⚠️ Lezione 1: l'app delle opzioni PRETENDE jQuery 3
+
+Ho unificato sulla **2.1.4** (ragionamento: e' quella su cui gira gia' il carrello, i 343 KB di
+BSS e i 122 KB di easy-options) togliendo la 3.3.1 differita dalla scheda prodotto. **Sbagliato:
+sono spariti tutti i sovrapprezzi del wizard.** Su `/products/diana`, scegliendo «frutta esotica»,
+il `+ €20` non veniva piu' aggiunto. Se ne e' accorto l'utente provando il sito, non i miei
+controlli, che guardavano il conteggio degli script e non il prezzo.
+
+Motivo: `easy-options` gira **dopo** il caricamento, quindi oggi vive sulla 3.3.1. Spostarlo sulla
+2.1.4 lo rompe. **L'unificazione va fatta sulla 3.3.1**, che era la scelta del piano originale.
+Il che comporta la parte scomoda: la jQuery unica dev'essere **sincrona e in `<head>`**, perche'
+il codice inline che gira durante il parsing la trovi gia' pronta.
+
+Resta da provare **prima** del prossimo tentativo, isolatamente: il carrello oggi gira su 2.1.4 e
+usa **jQuery UI 1.9.2** (2012), che supporta ufficialmente jQuery 3 solo dalla 1.12. Spostarlo
+sulla 3.3.1 puo' rompere il datepicker della data di consegna.
+
+### ⚠️ Lezione 2: `snippets/delivery-date.liquid` NON si puo' riscrivere da qui
+
+Alla riga 1580 il file contiene, dentro una stringa JavaScript, la **sequenza letterale di sei
+caratteri** ` ` (backslash, u, 0, 0, a, 0):
+
+```js
+if (inputField.value.replace(/ /g, ' ').trim() !== '') {
+```
+
+Quella sequenza **non e' trasmissibile** attraverso l'API dei file del tema da questo ambiente:
+inviata con un backslash diventa il carattere NBSP vero (−4 byte), inviata con due backslash
+arriva come due backslash (+1 byte, e la regex cerca un backslash letterale invece dello spazio
+unificatore). Misurato con un file di prova: ` ` produce un file di **2 byte**, cioe' il
+carattere. Le due forme cadono ai lati opposti del bersaglio e la via di mezzo non e' esprimibile.
+
+**Conseguenza pratica: quel file va modificato a mano dall'editor di codice del tema.** Vale per
+qualunque intervento futuro sul selettore della data della scheda prodotto.
+
+### ⚠️ Lezione 3: cosa il connettore blocca davvero
+
+- `themeFilesCopy` e' bloccato **anche quando il tema live e' solo la SORGENTE**, non solo quando
+  e' la destinazione: non si puo' far copiare un file dal live alla bozza lato server.
+- `themeFilesDelete` e' bloccato **sempre**, anche su un tema bozza: i file creati per sbaglio si
+  cancellano solo dall'admin.
+- Quindi **l'unico modo di riportare un file allo stato del live e' ritrascriverlo per intero**,
+  con tutti i rischi del caso. Il `checksumMd5` restituito dall'upsert e' la prova: se combacia
+  con quello del live, il ripristino e' byte per byte.
+
+### Stato in cui e' rimasta la bozza `182629630275`
+
+| File | Stato |
+|---|---|
+| `sections/main-product.liquid` | ripristinato **byte per byte** (`ee68fc822d4b1169db28fbaee16c7808`) |
+| `sections/home-delivery-section.liquid` | ripristinato **byte per byte** (`64edd1c1c4b81c020ada66de3b5959cd`) |
+| `snippets/delivery-date.liquid` | **1 byte di troppo** alla riga 1580 (doppio backslash): da correggere a mano |
+| `snippets/prova-escape-nbsp.liquid` | file di prova inerte, da cancellare dall'admin |
+
+Conviene **cancellare la bozza e riduplicare il live**: risolve entrambi i residui in un colpo e
+da' una base pulita al prossimo tentativo.
+
 ## Aperto, non ancora affrontato
 
 - **jQuery e Semantic UI caricati due volte** su home, `/en` e prodotto (~1 MB di parsing in
