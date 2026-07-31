@@ -239,6 +239,23 @@ pubblicato), *sfidante* e *irraggiungibile*.
   | **Maison** | **solo il venduto ecommerce** di quella maison | il fatturato di Finance è per *tipologia di servizio* (consegne, eventi, B2B), non per maison: ripartirlo vorrebbe dire inventare una chiave di riparto. Eventi e B2B della maison quindi non ci sono, ed è scritto |
   | **Linea commerciale** | **niente**, con la riga che dice perché | né Finance né il registro ordini sanno a quale linea appartiene una vendita |
 
+  **Su una maison si propone linea per linea** (31/07/2026, richiesta dell'utente): non un numero al
+  mese ma una griglia **D2C · Eventi · B2B × dodici mesi**, con il totale del mese calcolato sotto.
+  Due motivi, e valgono entrambi: un brand deve avere un budget su **ognuna** delle sue linee, e da
+  tutte insieme nasce **quanto può spendere in pubblicità** — l'ADV consentito è una percentuale
+  sulle vendite del mese *sommate su tutti i canali*, quindi una linea lasciata a zero non è «una
+  linea a zero», è una linea che non porta con sé i soldi per farla.
+
+  > **E il consolidamento non chiede più su quale voce applicarla.** Era l'ultima domanda che
+  > costringeva chi approva a indovinare — «questa proposta è D2C, Eventi o B2B?» — e un numero
+  > messo sulla voce sbagliata poi non lo ritrova più nessuno. Adesso lo dice la proposta, riga per
+  > riga. La tendina resta **solo per le proposte vecchie**, quelle scritte con un numero unico per
+  > mese: senza, non si potrebbero più applicare.
+
+  Sui mesi già chiusi il consuntivo si mostra **sulla riga D2C**, non su tutte e tre: per una maison
+  l'unico consuntivo che esiste è il venduto ecommerce, e ripeterlo su Eventi e B2B lo farebbe
+  sembrare tre misure invece di una.
+
   Il calcolo è **sul server** (`src/lib/proposta-consuntivo.ts`), una mappa ambito → dodici mesi;
   il pannello legge la casella dell'ambito scelto. Le maison **senza negozio** (Business B2B,
   Experience) non mostrano zero — che sarebbe una bugia — ma un trattino e il motivo. I mesi

@@ -11,16 +11,27 @@ export async function POST(req: Request) {
   // i mesi già chiusi: siccome il consolidamento scrive nel budget *quello che
   // la proposta contiene*, quegli zeri cancellavano il budget pubblicato dei
   // mesi passati. Si accettano da 1 a 12 mesi, ognuno valido e senza doppioni.
-  const valori = (Array.isArray(body.valori) ? body.valori : []) as { month?: unknown; valore?: unknown }[];
-  const mesi = new Set<number>();
+  //
+  // Ogni riga può portare un **canale** (la linea di business): su una proposta
+  // di maison si propone linea per linea, così chi consolida non deve scegliere
+  // lui su quale voce di budget applicarla. La chiave unica è quindi
+  // `mese+canale`, non il solo mese.
+  const valori = (Array.isArray(body.valori) ? body.valori : []) as {
+    month?: unknown;
+    canale?: unknown;
+    valore?: unknown;
+  }[];
+  const viste = new Set<string>();
   for (const v of valori) {
     const m = Number(v?.month);
-    if (!Number.isInteger(m) || m < 1 || m > 12 || mesi.has(m)) {
+    const canale = typeof v?.canale === "string" ? v.canale : "";
+    const k = `${m}·${canale}`;
+    if (!Number.isInteger(m) || m < 1 || m > 12 || viste.has(k)) {
       return NextResponse.json({ error: "mesi non validi o ripetuti" }, { status: 400 });
     }
-    mesi.add(m);
+    viste.add(k);
   }
-  if (mesi.size === 0) {
+  if (viste.size === 0) {
     return NextResponse.json({ error: "serve almeno un mese da proporre" }, { status: 400 });
   }
   const ambitoTipo = ["MAISON", "LINEA", "GLOBALE"].includes(body.ambitoTipo)
@@ -36,7 +47,13 @@ export async function POST(req: Request) {
       ambitoSlug: ambitoTipo === "GLOBALE" ? null : (body.ambitoSlug ?? null),
       note: typeof body.note === "string" ? body.note : null,
       valori: JSON.stringify(
-        valori.map((v) => ({ month: Number(v.month), valore: Number(v.valore) || 0 }))
+        valori.map((v) => ({
+          month: Number(v.month),
+          // `canale` c'è solo sulle proposte di maison: sulle altre resta
+          // assente, e chi legge distingue le due forme senza un flag in più.
+          ...(typeof v.canale === "string" && v.canale ? { canale: v.canale } : {}),
+          valore: Number(v.valore) || 0,
+        }))
       ),
     },
   });

@@ -47,7 +47,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Si consolida solo una proposta approvata." }, { status: 400 });
   }
 
-  let valori: { month: number; valore: number }[];
+  let valori: { month: number; canale?: string; valore: number }[];
   try {
     valori = JSON.parse(p.valori);
   } catch {
@@ -55,26 +55,38 @@ export async function POST(req: Request) {
   }
 
   if (p.ambitoTipo === "MAISON") {
-    if (!canale) {
+    // **Il canale lo dice la proposta, quando ce l'ha.** Dal 31/07/2026 una
+    // proposta di maison si scrive linea per linea, quindi ogni riga sa già su
+    // quale voce atterrare. Prima lo si chiedeva a chi consolidava: era un modo
+    // educato di fargli indovinare, e un numero messo sulla voce sbagliata poi
+    // non lo ritrova più nessuno. Le proposte vecchie — un numero solo per mese
+    // — continuano a chiederlo, altrimenti non si potrebbero più applicare.
+    const conCanale = valori.filter((v) => typeof v.canale === "string" && v.canale);
+    const daScrivere = conCanale.length > 0
+      ? conCanale.map((v) => ({ month: v.month, canale: v.canale as string, valore: v.valore }))
+      : valori.map((v) => ({ month: v.month, canale, valore: v.valore }));
+    if (conCanale.length === 0 && !canale) {
       return NextResponse.json(
-        { error: "Serve la voce di budget su cui applicarla: una proposta per maison non dice se è D2C, Eventi o B2B." },
+        { error: "Serve la voce di budget su cui applicarla: questa proposta non dice se è D2C, Eventi o B2B." },
         { status: 400 }
       );
     }
     const maison = await prisma.maison.findUnique({ where: { slug: p.ambitoSlug ?? "" } });
     if (!maison) return NextResponse.json({ error: "maison non trovata" }, { status: 404 });
-    for (const v of valori) {
+    for (const v of daScrivere) {
       await prisma.budgetEntry.upsert({
-        where: { year_maisonId_month_canale: { year: p.year, maisonId: maison.id, month: v.month, canale } },
-        create: { year: p.year, maisonId: maison.id, month: v.month, canale, vendite: v.valore },
+        where: { year_maisonId_month_canale: { year: p.year, maisonId: maison.id, month: v.month, canale: v.canale } },
+        create: { year: p.year, maisonId: maison.id, month: v.month, canale: v.canale, vendite: v.valore },
         update: { vendite: v.valore },
       });
     }
+    const voci = [...new Set(daScrivere.map((v) => v.canale))].join(", ");
+    const dove = `${maison.nome} · ${voci}`;
     await prisma.propostaBudget.update({
       where: { id },
-      data: { consolidataIl: new Date(), consolidataSu: `${maison.nome} · ${canale}` },
+      data: { consolidataIl: new Date(), consolidataSu: dove },
     });
-    return NextResponse.json({ ok: true, dove: `${maison.nome} · ${canale}` });
+    return NextResponse.json({ ok: true, dove });
   }
 
   if (p.ambitoTipo === "LINEA") {

@@ -25,13 +25,19 @@ export default async function DettaglioProposta({ params }: { params: Promise<{ 
     caricaAnno(p.year),
   ]);
 
-  let valori: { month: number; valore: number }[] = [];
+  let valori: { month: number; canale?: string; valore: number }[] = [];
   try {
     valori = JSON.parse(p.valori);
   } catch {
     valori = [];
   }
   const totale = valori.reduce((s, v) => s + (v.valore || 0), 0);
+  // Le linee di business che la proposta nomina, nell'ordine delle tipologie.
+  // Vuoto = proposta scritta con un numero solo per mese (globale, linea
+  // commerciale, o una maison proposta prima del 31/07/2026).
+  const canaliProposti = dati.tipologie
+    .map((t) => t.slug)
+    .filter((slug) => valori.some((v) => v.canale === slug));
 
   const ambito =
     p.ambitoTipo === "GLOBALE"
@@ -101,28 +107,77 @@ export default async function DettaglioProposta({ params }: { params: Promise<{ 
         )}
       </div>
 
-      <h2 className="section-title">I dodici mesi proposti</h2>
+      <h2 className="section-title">I mesi proposti</h2>
       <div className="card tight">
         <div className="table-wrap">
           <table>
             <thead>
               <tr>
+                {canaliProposti.length > 0 && <th style={{ minWidth: 140 }}>Linea di business</th>}
                 {MESI.map((m) => (<th className="num" key={m}>{m}</th>))}
                 <th className="num">Totale</th>
               </tr>
             </thead>
             <tbody>
-              <tr>
-                {MESI.map((_, i) => {
-                  const v = valori.find((x) => x.month === i + 1)?.valore ?? 0;
-                  return <td className="num" key={i}>{eur(v)}</td>;
-                })}
-                <td className="num" style={{ fontWeight: 700 }}>{eur(totale)}</td>
-              </tr>
+              {/* Una proposta di maison arriva **linea per linea** (dal
+                  31/07/2026): mostrarla schiacciata su una riga sola
+                  nasconderebbe proprio l'informazione per cui si chiede il
+                  dettaglio — su quale linea il responsabile sta puntando. */}
+              {canaliProposti.length > 0 ? (
+                <>
+                  {canaliProposti.map((slug) => {
+                    const righe = valori.filter((v) => v.canale === slug);
+                    const tot = righe.reduce((s, v) => s + (v.valore || 0), 0);
+                    return (
+                      <tr key={slug}>
+                        <td style={{ fontWeight: 500 }}>
+                          {dati.tipologie.find((t) => t.slug === slug)?.nome ?? slug}
+                        </td>
+                        {MESI.map((_, i) => {
+                          const v = righe.find((x) => x.month === i + 1);
+                          return (
+                            <td className={`num ${v ? "" : "muted"}`} key={i}>
+                              {v ? eur(v.valore) : "—"}
+                            </td>
+                          );
+                        })}
+                        <td className="num" style={{ fontWeight: 600 }}>{eur(tot)}</td>
+                      </tr>
+                    );
+                  })}
+                  <tr className="tot">
+                    <td>Totale</td>
+                    {MESI.map((_, i) => {
+                      const v = valori.filter((x) => x.month === i + 1);
+                      return (
+                        <td className={`num ${v.length ? "" : "muted"}`} key={i}>
+                          {v.length ? eur(v.reduce((s, x) => s + (x.valore || 0), 0)) : "—"}
+                        </td>
+                      );
+                    })}
+                    <td className="num">{eur(totale)}</td>
+                  </tr>
+                </>
+              ) : (
+                <tr>
+                  {MESI.map((_, i) => {
+                    const v = valori.find((x) => x.month === i + 1);
+                    return (
+                      <td className={`num ${v ? "" : "muted"}`} key={i}>{v ? eur(v.valore) : "—"}</td>
+                    );
+                  })}
+                  <td className="num" style={{ fontWeight: 700 }}>{eur(totale)}</td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
       </div>
+      <p className="page-caption" style={{ marginTop: 12 }}>
+        Un mese a <strong>—</strong> non è un mese proposto a zero: è un mese che la proposta{" "}
+        <strong>non contiene</strong>, e che il consolidamento quindi non tocca. I mesi già chiusi non si
+        propongono, per questo di solito mancano.
+      </p>
 
       {p.note && (
         <div className="card" style={{ marginTop: 12 }}>

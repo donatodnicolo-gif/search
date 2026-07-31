@@ -44,6 +44,7 @@ export default async function NuovaProposta() {
         year={ANNO_CORRENTE}
         maisons={maisons.map((m) => ({ slug: m.slug, nome: m.nome }))}
         linee={linee.map((l) => ({ slug: l.slug, nome: l.nome }))}
+        tipologie={dati.tipologie.map((t) => ({ slug: t.slug, nome: t.nome }))}
         ambiti={ambiti}
         mesiChiusi={mesiChiusi}
       />

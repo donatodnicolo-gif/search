@@ -21,7 +21,7 @@ export function DecisioneProposta({
   tipologie: { slug: string; nome: string }[];
   // I mesi che la proposta contiene davvero: sono esattamente quelli che il
   // consolidamento scriverà.
-  valori?: { month: number; valore: number }[];
+  valori?: { month: number; canale?: string; valore: number }[];
   // Quanto c'è a budget oggi, per voce e per mese. Serve a **far vedere cosa si
   // sta per sovrascrivere prima di premere**: il 31/07/2026 un consolidamento
   // ha azzerato 692.728 € di budget pubblicato di Deluxy.it perché la proposta
@@ -55,12 +55,21 @@ export function DecisioneProposta({
     router.refresh();
   }
 
+  // **La proposta dice già su quale linea va, quando è stata scritta così.**
+  // Dal 31/07/2026 una proposta di maison si compila linea per linea: la
+  // tendina della voce serve solo alle proposte vecchie, che portavano un
+  // numero solo per mese e obbligavano chi consolidava a sceglierla lui.
+  const conCanale = valori.some((v) => v.canale);
+  const nomeCanale = (slug: string) => tipologie.find((t) => t.slug === slug)?.nome ?? slug;
+
   // Le righe che il consolidamento scriverà davvero, con il prima e il dopo.
-  const attuale = budgetAttuale[canale] ?? [];
   const righe = valori
     .slice()
-    .sort((a, b) => a.month - b.month)
-    .map((v) => ({ ...v, prima: attuale[v.month - 1] ?? 0 }));
+    .sort((a, b) => (a.canale ?? "").localeCompare(b.canale ?? "") || a.month - b.month)
+    .map((v) => {
+      const suQuale = v.canale ?? canale;
+      return { ...v, suQuale, prima: (budgetAttuale[suQuale] ?? [])[v.month - 1] ?? 0 };
+    });
   const perde = righe.filter((r) => r.prima > 0 && r.valore < r.prima);
   const persi = perde.reduce((s, r) => s + (r.prima - r.valore), 0);
 
@@ -132,7 +141,7 @@ export function DecisioneProposta({
       {stato === "APPROVATA" && (
         <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--hairline, rgba(0,0,0,.08))" }}>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end" }}>
-            {ambitoTipo === "MAISON" && (
+            {ambitoTipo === "MAISON" && !conCanale && (
               <label style={{ display: "grid", gap: 4, fontSize: 12.5 }}>
                 Voce di budget su cui applicarla
                 <select value={canale} onChange={(e) => setCanale(e.target.value)}>
@@ -141,6 +150,12 @@ export function DecisioneProposta({
                   ))}
                 </select>
               </label>
+            )}
+            {ambitoTipo === "MAISON" && conCanale && (
+              <span className="badge green" style={{ alignSelf: "center" }}>
+                <span className="dot" />
+                la proposta dice già su quali linee va
+              </span>
             )}
             <button className="btn" disabled={busy} onClick={consolida}>
               {busy ? "Scrivo…" : `Consolida ${righe.length} mes${righe.length === 1 ? "e" : "i"} nel budget`}
@@ -154,6 +169,7 @@ export function DecisioneProposta({
               <table>
                 <thead>
                   <tr>
+                    {conCanale && <th>Linea</th>}
                     <th>Mese</th>
                     <th className="num">A budget oggi</th>
                     <th className="num">Dalla proposta</th>
@@ -164,7 +180,10 @@ export function DecisioneProposta({
                   {righe.map((r) => {
                     const d = r.valore - r.prima;
                     return (
-                      <tr key={r.month}>
+                      <tr key={`${r.suQuale}-${r.month}`}>
+                        {conCanale && (
+                          <td className="muted" style={{ fontSize: 12.5 }}>{nomeCanale(r.suQuale)}</td>
+                        )}
                         <td style={{ fontWeight: 500 }}>{MESI[r.month - 1]}</td>
                         <td className="num muted">{eur(r.prima)}</td>
                         <td className="num" style={{ fontWeight: 600 }}>{eur(r.valore)}</td>
@@ -181,7 +200,7 @@ export function DecisioneProposta({
           {perde.length > 0 && (
             <div className="card" style={{ borderColor: "var(--red)", marginTop: 10 }}>
               <strong>{perde.length} mesi scendono</strong>, per{" "}
-              <strong>{eur(persi)}</strong> di budget in meno su questa voce. Se non è quello che
+              <strong>{eur(persi)}</strong> di budget in meno. Se non è quello che
               vuoi, la proposta va corretta prima — non dopo: consolidare <strong>sovrascrive</strong>,
               non somma, e il valore di prima non si recupera da qui.
             </div>
