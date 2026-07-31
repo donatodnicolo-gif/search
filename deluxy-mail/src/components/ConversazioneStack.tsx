@@ -6,6 +6,9 @@ import { azioneMassa, corpoDiMessaggio, segnaLetto } from '@/lib/actions'
 import { CorpoMessaggio } from './CorpoMessaggio'
 import { RispostaAzioni } from './RispostaAzioni'
 import { StaccaRiga } from './StaccaRiga'
+import { BottoneApp } from './BottoneApp'
+import { DelegaReneBottone } from './DelegaRene'
+import { dichiaraFuocoConversazione } from './fuocoConversazione'
 
 export type RigaConversazione = {
   id: string
@@ -90,7 +93,12 @@ export function ConversazioneStack({ righe, correnteId, oggetto }: Props) {
       return n
     })
     setFuoco(id)
+    // Da qui in poi «r» risponde a QUESTO messaggio, non a quello in cima.
+    dichiaraFuocoConversazione(id)
   }, [])
+
+  // Uscendo dalla pagina il tasto «r» torna alla mail aperta.
+  useEffect(() => () => dichiaraFuocoConversazione(null), [])
 
   const tutteAperte = aperte.size >= righe.filter((r) => r.id !== correnteId).length && righe.length > 1
 
@@ -114,6 +122,7 @@ export function ConversazioneStack({ righe, correnteId, oggetto }: Props) {
         const r = righe[prossimo]
         if (!r) return
         setFuoco(r.id)
+        dichiaraFuocoConversazione(r.id)
         document.getElementById(`conv-${r.id}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' })
         return
       }
@@ -124,10 +133,9 @@ export function ConversazioneStack({ righe, correnteId, oggetto }: Props) {
         else apriChiudi(fuoco)
         return
       }
-      if (e.key === 'r') {
-        e.preventDefault()
-        window.location.href = `/messaggio/${fuoco}/scrivi?modo=rispondi`
-      }
+      // ⚠️ «r» NON si gestisce qui: lo fanno le scorciatoie globali, che sanno
+      // già quale messaggio è a fuoco (vedi fuocoConversazione.ts). Averlo in
+      // due posti significherebbe due comportamenti diversi per lo stesso tasto.
     }
     window.addEventListener('keydown', su)
     return () => window.removeEventListener('keydown', su)
@@ -147,7 +155,7 @@ export function ConversazioneStack({ righe, correnteId, oggetto }: Props) {
           <div className="conv-oggetto">{oggetto}</div>
           <div className="conv-sotto">
             {righe.length} messaggi · <kbd>j</kbd>/<kbd>k</kbd> per muoverti, <kbd>Invio</kbd> per
-            aprire, <kbd>r</kbd> per rispondere
+            aprire, <kbd>r</kbd> per rispondere · <kbd>?</kbd> tutte le scorciatoie
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -250,6 +258,14 @@ export function ConversazioneStack({ righe, correnteId, oggetto }: Props) {
                         ✓ Segna come letto
                       </button>
                     )}
+                    {/* Anche da qui si richiama un'app Deluxy: dentro un
+                        thread la mail che interessa al registro è spesso una
+                        di MEZZO (quella con i dati dell'azienda), non l'ultima
+                        — e prima bisognava aprirla a tutta pagina per poterlo
+                        fare. Il dialogo è montato nel layout, quindi risponde
+                        anche da qui. */}
+                    <BottoneApp id={r.id} />
+                    <DelegaReneBottone id={r.id} />
                     <Link href={`/messaggio/${r.id}`} className="azione-riga">
                       Apri a tutta pagina →
                     </Link>

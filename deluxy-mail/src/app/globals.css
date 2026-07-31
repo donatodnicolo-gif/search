@@ -1010,6 +1010,17 @@ mark.ricerca-hit {
 .sez-testa-lato { display: flex; align-items: center; gap: 12px; flex: 0 0 auto; }
 .sez-descrizione { font-size: 13px; color: var(--text-secondary); margin-top: 8px; line-height: 1.5; }
 
+/* L'elenco delle scorciatoie (si apre con «?»). */
+.scorciatoie { display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; margin: 0; font-size: 13.5px; }
+.scorciatoie > div { display: contents; }
+.scorciatoie dt { margin: 0; }
+.scorciatoie dd { margin: 0; color: var(--text-secondary); }
+.scorciatoie kbd, .modal kbd {
+  font: inherit; font-size: 12px; padding: 2px 7px; border-radius: 6px;
+  border: 1px solid var(--hairline-strong); background: var(--surface-2, #f5f5f7);
+  white-space: nowrap;
+}
+
 /* ---------- La conversazione come PILA (si legge, non si naviga) ---------- */
 .conv-stack { margin-top: 6px; }
 .conv-testa {

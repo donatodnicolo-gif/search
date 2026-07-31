@@ -346,6 +346,29 @@ Tre cose che rendono la pila leggibile:
 - **Si gira con la tastiera**: `j` e `k` per muoversi fra i messaggi, `Invio` per
   aprire e chiudere, `r` per rispondere a quello su cui sei. (Non mentre scrivi: dentro
   un campo di testo le lettere restano lettere.)
+- **Ogni messaggio è azionabile dov'è**: Rispondi, A tutti, Inoltra, «✓ Segna come
+  letto», **→ App** (manda i dati a un'app Deluxy) e **Delega Renè** stanno su ogni
+  mail della pila, non solo sulla prima. In un thread la mail che interessa al registro
+  è spesso una di mezzo.
+
+### Le scorciatoie da tastiera
+
+Premi **`?`** in qualsiasi momento per l'elenco. Le principali:
+
+| tasto | cosa fa |
+|---|---|
+| `c` | scrivi una mail nuova |
+| `u` | torna alla posta in arrivo |
+| `r` · `a` · `f` | rispondi · rispondi a tutti · inoltra |
+| `e` | archivia |
+| `#` o `Canc` | cestina (si recupera) |
+| `s` | segna da leggere |
+| `j` / `k` · `Invio` | muoviti nella conversazione · apri il messaggio |
+
+Sono **lettere singole, senza `Ctrl`**: `Ctrl+R` ricarica la pagina e `Ctrl+F` apre la
+ricerca del browser: sono di chi usa il computer, non dell'app. E non scattano mai
+mentre stai scrivendo. Se ti sei spostato con `j`/`k` dentro la conversazione, `r`
+risponde **a quel messaggio** — a quello che stai guardando, non a quello in cima.
 
 In più: un pallino blu sulle non lette, la riga **«da qui non hai letto»** che dice dove
 riprendere, la graffetta di chi ha allegati, e «Apri tutte / Chiudi tutte». L'ultimo

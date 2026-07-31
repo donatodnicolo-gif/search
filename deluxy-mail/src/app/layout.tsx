@@ -4,6 +4,7 @@ import { Sidebar } from '@/components/Sidebar'
 import { Shell } from '@/components/Shell'
 import { Flash } from '@/components/Flash'
 import { InvioAppDialog } from '@/components/InvioAppDialog'
+import { Scorciatoie } from '@/components/Scorciatoie'
 import { descriviAzioni } from '@/lib/appDeluxy'
 import { leggiChiaviApp } from '@/lib/chiaviApp'
 import { utenteCorrente } from '@/lib/sessione'
@@ -45,6 +46,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           {children}
         </Shell>
         {utente && <InvioAppDialog azioni={azioniApp} />}
+        {/* Le scorciatoie stanno qui perché valgono ovunque; quelle che
+            riguardano una mail si accendono da sole sulla sua pagina. */}
+        {utente && <Scorciatoie />}
       </body>
     </html>
   )
