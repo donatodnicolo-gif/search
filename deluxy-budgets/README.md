@@ -205,6 +205,24 @@ pubblicato), *sfidante* e *irraggiungibile*.
   «qui si approva»: la domanda «dove approvo le proposte?» è arrivata dall'utente guardando la
   pagina. Il bottone dice cosa succede, e cambia con lo stato (`Leggi e decidi` → `Consolida` →
   `Apri`).
+
+  > ⚠️ **CONSOLIDARE HA CANCELLATO 692.728 € DI BUDGET, ED È COLPA DEGLI ZERI (31/07/2026).** Il
+  > pannello mandava **dodici mesi** anche quando ne proponeva sei: i mesi chiusi, bloccati in
+  > pagina, viaggiavano come `0`. Il consolidamento scrive nel budget *quello che la proposta
+  > contiene* — quindi una proposta di Deluxy.it su luglio–dicembre ha **azzerato il D2C di
+  > gennaio–giugno** (50.112 · 74.936 · 135.000 · 134.280 · 193.960 · 104.440), portando il totale
+  > della maison da 1.492.440 a 1.173.904 €. Due correzioni, perché una sola non basta:
+  >
+  > 1. **la causa**: una proposta contiene **solo i mesi che propone**. Il pannello non manda i
+  >    mesi bloccati e `POST /api/proposte` accetta da 1 a 12 mesi invece di pretenderne dodici —
+  >    quel controllo sembrava completezza ed era il generatore degli zeri;
+  > 2. **la difesa**: prima di consolidare si vede la tabella **«a budget oggi → dalla proposta →
+  >    differenza»** sui soli mesi che verranno scritti, e se qualcosa scende un riquadro rosso
+  >    dice quanto. Consolidare **sovrascrive, non somma**, e da lì il valore di prima non torna.
+  >
+  > Il ripristino si fa con `scripts/ripristina-budget-azzerato.mjs` (prova a vuoto senza
+  > argomenti, `scrivi` per applicare); i valori vengono dal seed, che è la fonte da cui il budget
+  > era nato.
 - **Spese ADV** (`/spese`): quanto si può spendere in pubblicità per maison come **% delle
   vendite del mese**, personalizzabile mese per mese; l'importo consentito si ricalcola.
 - **Impostazioni** (`/impostazioni`): moltiplicatori dei livelli sfidante/irraggiungibile,

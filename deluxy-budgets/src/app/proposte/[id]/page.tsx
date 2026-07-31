@@ -47,6 +47,18 @@ export default async function DettaglioProposta({ params }: { params: Promise<{ 
     ? maison.mesi.reduce((s, m) => s + Object.values(m.vendite).reduce((a, v) => a + v, 0), 0)
     : null;
 
+  // Il budget di oggi voce per voce e mese per mese: serve al pannello per
+  // mostrare **cosa si sovrascrive** prima di consolidare. Senza, «Consolida»
+  // è un bottone che riscrive il budget pubblicato senza far vedere cosa
+  // toglie — ed è così che il 31/07/2026 sono spariti 692.728 € di budget
+  // Deluxy.it su gennaio-giugno.
+  const budgetAttuale: Record<string, number[]> = {};
+  if (maison) {
+    for (const t of dati.tipologie) {
+      budgetAttuale[t.slug] = maison.mesi.map((m) => m.vendite[t.slug] ?? 0);
+    }
+  }
+
   return (
     <>
       <div className="page-head">
@@ -132,6 +144,8 @@ export default async function DettaglioProposta({ params }: { params: Promise<{ 
         ambitoTipo={p.ambitoTipo}
         consolidataSu={p.consolidataSu}
         tipologie={dati.tipologie.map((t) => ({ slug: t.slug, nome: t.nome }))}
+        valori={valori}
+        budgetAttuale={budgetAttuale}
       />
     </>
   );

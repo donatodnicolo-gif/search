@@ -64,7 +64,16 @@ export function PropostaForm({
         ambitoTipo,
         ambitoSlug,
         note: note.trim() || null,
-        valori: valori.map((valore, i) => ({ month: i + 1, valore: valore || 0 })),
+        // **Si mandano solo i mesi che si sono davvero proposti.** Mandare uno
+        // zero per i mesi già chiusi sembrava innocuo — la casella è bloccata,
+        // il totale non li conta — ma il consolidamento scrive nel budget
+        // *quello che la proposta contiene*: quegli zeri hanno cancellato il
+        // budget pubblicato dei mesi passati (Deluxy.it, 31/07/2026: 692.728 €
+        // di gennaio-giugno finiti a zero). Un mese che non si propone non deve
+        // esistere nella proposta.
+        valori: valori
+          .map((valore, i) => ({ month: i + 1, valore: valore || 0 }))
+          .filter((v) => !mesiChiusi.includes(v.month)),
       }),
     });
     setInvio(false);

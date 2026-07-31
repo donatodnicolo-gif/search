@@ -103,6 +103,19 @@ cd deluxy-mail && node --env-file=.env scripts/ripara-testi-sporchi.mjs --applic
 - **Serve**: `DATABASE_URL` (col pooler aggiungere `&pgbouncer=true`)
 - **Nota**: senza `--applica` **non scrive niente**. Le mail nuove nascono già pulite (`testoMigliore` in `src/lib/htmlMail.ts`), quindi è una tantum. ⚠️ Ripara solo le mail che hanno ancora l'HTML in casa: quelle vecchie sono state alleggerite (l'HTML abita sul server IMAP) e lo script le salta.
 
+### ripristina-budget-azzerato.mjs — deluxy-budgets
+Rimette il budget **D2C di Deluxy.it su gennaio–giugno 2026**, azzerato il 31/07/2026 dal consolidamento di una proposta che portava con sé degli zeri sui mesi già chiusi (692.728 € spariti dal budget pubblicato; totale maison sceso da 1.492.440 a 1.173.904 €). I valori vengono dal seed (`prisma/seed-data.json`, estratto da *Monitoraggio 2026.xlsx*), cioè dalla fonte da cui il budget era nato.
+
+```bash
+# dalla cartella dell'app — PRIMA la prova a vuoto, che stampa solo cosa farebbe
+cd deluxy-budgets && node scripts/ripristina-budget-azzerato.mjs
+# poi, se i numeri convincono, scrive davvero
+cd deluxy-budgets && node scripts/ripristina-budget-azzerato.mjs scrivi
+```
+
+- **Serve**: `DATABASE_URL` nel `.env` dell'app (lo legge Prisma da solo)
+- **Nota**: senza `scrivi` **non tocca niente**. Tocca **solo** i sei mesi indicati e **solo** il canale `D2C` di quella maison, e **salta i mesi che non sono a zero**: se nel frattempo qualcuno ha scritto un numero vero, quella è una decisione e lo script non la cancella. La causa è stata tolta (una proposta non contiene più i mesi che non propone, e il consolidamento mostra il prima/dopo), quindi è una tantum.
+
 ### diagnosi-spazio.sql — deluxy-mail
 Perché il database è pieno: peso di ogni tabella (con indici e TOAST a parte), righe morte e ultimo VACUUM, peso reale dei corpi delle mail anno per anno. Da incollare nel **SQL Editor di Supabase**.
 

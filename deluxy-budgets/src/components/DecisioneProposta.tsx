@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { eur, MESI } from "@/lib/format";
 
 export function DecisioneProposta({
   id,
@@ -9,6 +10,8 @@ export function DecisioneProposta({
   ambitoTipo,
   consolidataSu,
   tipologie,
+  valori = [],
+  budgetAttuale = {},
 }: {
   id: string;
   stato: string;
@@ -16,6 +19,16 @@ export function DecisioneProposta({
   consolidataSu: string | null;
   // Le voci di budget su cui si può far atterrare una proposta di maison.
   tipologie: { slug: string; nome: string }[];
+  // I mesi che la proposta contiene davvero: sono esattamente quelli che il
+  // consolidamento scriverà.
+  valori?: { month: number; valore: number }[];
+  // Quanto c'è a budget oggi, per voce e per mese. Serve a **far vedere cosa si
+  // sta per sovrascrivere prima di premere**: il 31/07/2026 un consolidamento
+  // ha azzerato 692.728 € di budget pubblicato di Deluxy.it perché la proposta
+  // portava con sé degli zeri sui mesi già chiusi, e nessuna schermata lo
+  // diceva. La causa è stata tolta (una proposta non contiene più i mesi che
+  // non propone), ma la difesa vera è vedere il prima e il dopo.
+  budgetAttuale?: Record<string, number[]>;
 }) {
   const router = useRouter();
   const [nota, setNota] = useState("");
@@ -42,8 +55,21 @@ export function DecisioneProposta({
     router.refresh();
   }
 
+  // Le righe che il consolidamento scriverà davvero, con il prima e il dopo.
+  const attuale = budgetAttuale[canale] ?? [];
+  const righe = valori
+    .slice()
+    .sort((a, b) => a.month - b.month)
+    .map((v) => ({ ...v, prima: attuale[v.month - 1] ?? 0 }));
+  const perde = righe.filter((r) => r.prima > 0 && r.valore < r.prima);
+  const persi = perde.reduce((s, r) => s + (r.prima - r.valore), 0);
+
   async function consolida() {
-    if (!confirm("Scrivere questi dodici valori nel budget ufficiale? Sovrascrive quello che c'è adesso.")) return;
+    const quanti = righe.length;
+    const avviso = perde.length
+      ? `\n\nATTENZIONE: ${perde.length} mesi scendono, per ${Math.round(persi).toLocaleString("it-IT")} € di budget in meno.`
+      : "";
+    if (!confirm(`Scrivere ${quanti} mes${quanti === 1 ? "e" : "i"} nel budget ufficiale? Sovrascrive quello che c'è adesso.${avviso}`)) return;
     setBusy(true);
     setErrore(null);
     setFatto(null);
@@ -117,9 +143,49 @@ export function DecisioneProposta({
               </label>
             )}
             <button className="btn" disabled={busy} onClick={consolida}>
-              {busy ? "Scrivo…" : "Consolida nel budget"}
+              {busy ? "Scrivo…" : `Consolida ${righe.length} mes${righe.length === 1 ? "e" : "i"} nel budget`}
             </button>
           </div>
+
+          {/* Cosa cambia, prima di premere. Una proposta scrive **solo i mesi
+              che contiene**: gli altri restano come sono, e si vede. */}
+          {righe.length > 0 && (
+            <div className="table-wrap" style={{ marginTop: 12 }}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Mese</th>
+                    <th className="num">A budget oggi</th>
+                    <th className="num">Dalla proposta</th>
+                    <th className="num">Differenza</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {righe.map((r) => {
+                    const d = r.valore - r.prima;
+                    return (
+                      <tr key={r.month}>
+                        <td style={{ fontWeight: 500 }}>{MESI[r.month - 1]}</td>
+                        <td className="num muted">{eur(r.prima)}</td>
+                        <td className="num" style={{ fontWeight: 600 }}>{eur(r.valore)}</td>
+                        <td className={`num ${d === 0 ? "muted" : d > 0 ? "pos" : "neg"}`}>
+                          {d === 0 ? "—" : `${d > 0 ? "+" : ""}${eur(d)}`}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {perde.length > 0 && (
+            <div className="card" style={{ borderColor: "var(--red)", marginTop: 10 }}>
+              <strong>{perde.length} mesi scendono</strong>, per{" "}
+              <strong>{eur(persi)}</strong> di budget in meno su questa voce. Se non è quello che
+              vuoi, la proposta va corretta prima — non dopo: consolidare <strong>sovrascrive</strong>,
+              non somma, e il valore di prima non si recupera da qui.
+            </div>
+          )}
           {consolidataSu && (
             <p className="page-caption" style={{ marginTop: 8, marginBottom: 0 }}>
               Già consolidata su <strong>{consolidataSu}</strong>: rifarlo sovrascrive di nuovo.
