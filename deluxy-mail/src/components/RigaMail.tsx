@@ -6,6 +6,7 @@ import { dataBreve } from '@/lib/format'
 import { ripulisciAnteprima } from '@/lib/citato'
 import { PrioritaButtons } from './PrioritaButtons'
 import { AzioniRiga } from './AzioniRiga'
+import { SegnaLettoRiga } from './SegnaLettoRiga'
 import { BottoneNonSpam } from './BottoneNonSpam'
 import { SpostaSezione } from './SpostaSezione'
 import { RispostaAzioni } from './RispostaAzioni'
@@ -99,9 +100,11 @@ export const RigaMail = memo(function RigaMail({
   // Rimozione ottimistica: appena archivi/cestini la riga sparisce all'istante,
   // il server si riallinea al refresh successivo.
   const [nascosto, setNascosto] = useState(false)
+  // Il pallino «non letta» si spegne al clic su «Letto», non al giro dopo.
+  const [nonLetti, setNonLetti] = useState(r.nonLetti)
   if (nascosto) return null
   return (
-    <MailDrag id={r.id} className={`mail-row ${r.nonLetti ? 'non-letto' : ''} ${selezionato ? 'selezionato' : ''}`}>
+    <MailDrag id={r.id} className={`mail-row ${nonLetti ? 'non-letto' : ''} ${selezionato ? 'selezionato' : ''}`}>
       <div className="mail-row-head">
         {onSelezione && (
           <label
@@ -119,7 +122,7 @@ export const RigaMail = memo(function RigaMail({
         )}
         <Link href={`/messaggio/${r.id}`} className="mail-row-link">
           <div className="mail-top">
-            <span className={r.nonLetti ? 'dot-unread' : 'dot-spacer'} />
+            <span className={nonLetti ? 'dot-unread' : 'dot-spacer'} />
             <span className="mail-mittente">
               {r.inviata ? `a ${r.destinatari || '—'}` : r.mittenteNome || r.mittente}
             </span>
@@ -244,6 +247,9 @@ export const RigaMail = memo(function RigaMail({
             perThread
             onFatto={() => setNascosto(true)}
           />
+          {/* «Letto» sulla riga: la richiesta più semplice e più usata —
+              togliere il pallino senza aprire la mail. */}
+          <SegnaLettoRiga id={r.id} nonLetto={nonLetti} onCambio={(letto) => setNonLetti(!letto)} />
           <DelegaReneBottone id={r.id} />
           <AgganciaBottone id={r.id} />
           {/* Dai (o cambi) il nome alla conversazione senza aprirla. */}

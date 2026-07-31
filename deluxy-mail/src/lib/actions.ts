@@ -917,6 +917,23 @@ export async function cestinaMessaggio(id: string) {
 
 /** Cestina TUTTE le mail di un thread (dato un messaggio qualsiasi del thread).
  *  Usa `idsThread`: servono gli id, non i corpi (vedi la nota in sync.ts). */
+/**
+ * Segna letta (o da leggere) TUTTA la conversazione. In posta in arrivo una
+ * riga è un thread: marcare solo il messaggio più recente lascerebbe acceso il
+ * pallino, che è il contrario di quello che si è chiesto.
+ */
+export async function segnaLettoThread(
+  messaggioId: string,
+  letto: boolean
+): Promise<{ ok: boolean; quante: number }> {
+  const utenteId = await uid()
+  const ids = [...(await idsThread(utenteId, messaggioId))]
+  if (ids.length === 0) return { ok: false, quante: 0 }
+  const r = await db.messaggio.updateMany({ where: { id: { in: ids }, utenteId }, data: { letto } })
+  revalidatePath('/', 'layout')
+  return { ok: true, quante: r.count }
+}
+
 export async function cestinaThread(messaggioId: string): Promise<{ ok: boolean; messaggio: string }> {
   const utenteId = await uid()
   const ids = [...(await idsThread(utenteId, messaggioId))]
