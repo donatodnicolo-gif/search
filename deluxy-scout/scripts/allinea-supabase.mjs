@@ -45,14 +45,20 @@ const MIGRAZIONI = [
 // lascia la copia in «Inviata», e tiene l'SMTP come ripiego. Finché non è
 // rideployata, le mail di Scout continuano a partire in SMTP diretto e nella
 // casella di chi le scrive non ne resta traccia.
-const FUNZIONI = ['anagrafiche', 'ordini', 'health', 'finance', 'invio-email', 'partner'];
+// `lead` e `trattativa` sono qui dal 29/07: accettano anche la chiave generata
+// dall'app (Profilo → Impostazioni), non più solo il secret.
+const FUNZIONI = ['anagrafiche', 'ordini', 'health', 'finance', 'invio-email', 'partner', 'lead', 'trattativa'];
 // `health` deve rispondere SENZA sessione (il Hub non ne ha una): va deployata
 // con --no-verify-jwt, altrimenti risponde 401 e la pagina «stato dei servizi»
 // vede Scout come irraggiungibile.
 // `partner` la chiama il registro Anagrafiche server-to-server: non ha e non
 // può avere una sessione utente. L'auth è la chiave `COMMERCIALE_API_KEY`, come
 // per `lead` e `trattativa`.
-const SENZA_JWT = new Set(['health', 'partner']);
+// ⚠️ `lead` e `trattativa` erano GIÀ pubblicate così: rideployarle senza la
+// flag le romperebbe: col gateway JWT attivo la chiamata muore prima di
+// arrivare al codice («Missing authorization header») e l'`x-api-key` non
+// serve a niente. Chi le chiama è un server, non un utente loggato.
+const SENZA_JWT = new Set(['health', 'partner', 'lead', 'trattativa']);
 
 if (!PAT) {
   console.error('\n✗ Manca SUPABASE_PAT.\n');

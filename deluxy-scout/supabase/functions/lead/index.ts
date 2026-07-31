@@ -10,6 +10,7 @@
 //   { nome, contatto?, fonte?, messaggio? }   fonte: sito|mail|social|passaparola|altro
 //   → 201 { ok, id }
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { chiaveIngressoValida, clientAdmin } from '../_shared/chiaveIn.ts';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -26,10 +27,11 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
 
   try {
-    const atteso = Deno.env.get('COMMERCIALE_API_KEY');
-    if (!atteso) return json({ error: 'COMMERCIALE_API_KEY non configurata su Scout.' }, 500);
+    // La chiave d'ingresso: quella generata dall'app (Profilo → Impostazioni)
+    // oppure il secret storico. Vedi `_shared/chiaveIn.ts`.
     const key = req.headers.get('x-api-key') ?? req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
-    if (key !== atteso) return json({ error: 'Chiave API mancante o non valida (header x-api-key).' }, 401);
+    const auth = await chiaveIngressoValida(key, clientAdmin());
+    if (!auth.ok) return json({ error: auth.motivo }, 401);
 
     const body = await req.json().catch(() => ({} as Record<string, unknown>));
     const nome = typeof body.nome === 'string' ? body.nome.trim() : '';

@@ -23,7 +23,7 @@
 // stato commerciale e i campi anagrafici, ma si lasciano stare `starred`,
 // `creato_da`, la priorità e le coordinate. Quelli sono lavoro fatto in Scout
 // da una persona, e il registro non ne sa niente.
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { chiaveIngressoValida, clientAdmin } from '../_shared/chiaveIn.ts';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -78,10 +78,12 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
 
   try {
-    const atteso = Deno.env.get('COMMERCIALE_API_KEY');
-    if (!atteso) return json({ error: 'COMMERCIALE_API_KEY non configurata su Scout.' }, 500);
+    const admin = clientAdmin();
+    // La chiave d'ingresso: quella generata dall'app (tabella `chiavi_app`)
+    // oppure il secret storico. Vedi `_shared/chiaveIn.ts`.
     const key = req.headers.get('x-api-key') ?? req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
-    if (key !== atteso) return json({ error: 'Chiave API mancante o non valida (header x-api-key).' }, 401);
+    const auth = await chiaveIngressoValida(key, admin);
+    if (!auth.ok) return json({ error: auth.motivo }, 401);
 
     const body = await req.json().catch(() => ({} as Record<string, unknown>));
     const anagraficheId = testo(body.anagraficheId, 80);
@@ -95,8 +97,6 @@ Deno.serve(async (req) => {
     const interessi = Array.isArray(body.interessi)
       ? (body.interessi as unknown[]).filter((x): x is string => typeof x === 'string' && !!x.trim()).slice(0, 20)
       : null;
-
-    const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
 
     const { data: gia } = await admin
       .from('places')

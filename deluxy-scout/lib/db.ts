@@ -1997,6 +1997,60 @@ export async function rimuoviChiaveApp(app: string): Promise<void> {
   if (error) throw error;
 }
 
+// ── La chiave con cui le ALTRE app chiamano Scout ─────────────────────────────
+//
+// Le righe di `chiavi_app` sono «la chiave per chiamare l'app X». Questa è il
+// verso opposto: **il segreto di Scout**, quello che le Edge Function `partner`,
+// `lead` e `trattativa` confrontano con l'header `x-api-key` di chi bussa.
+//
+// Perché sta qui e non solo nei secret di Supabase: un secret **non si rilegge**
+// (`supabase secrets list` mostra un'impronta, non il valore). Quando serve
+// darlo a un'altra app — al registro Anagrafiche, ad AI Mail — o ce l'hai
+// scritto da qualche parte, o devi rigenerarlo e aggiornarlo ovunque, con il
+// rischio di spegnere in silenzio le integrazioni che lo usavano già. È
+// esattamente il muro contro cui si è finiti il 29/07/2026.
+//
+// L'id della riga comincia con `_`: le altre sono nomi di app, e questa non lo
+// è. Il catalogo `APP_DELUXY` non la contiene, quindi non compare nell'elenco
+// delle app collegate.
+export const APP_CHIAVE_INGRESSO = '_ingresso';
+
+/**
+ * Genera una chiave nuova, la salva e la **restituisce una volta sola**.
+ *
+ * ⚠️ Il valore si vede adesso o mai più: nel database resta, ma la vista di
+ * stato non lo espone e il client non lo rilegge. È lo stesso patto delle
+ * chiavi di Anagrafiche, e serve a non lasciare segreti in giro per le
+ * schermate.
+ *
+ * ⚠️ Niente `Math.random()`: per un segreto serve un generatore
+ * crittografico. Se l'ambiente non ce l'ha si fallisce e lo si dice — una
+ * chiave debole è peggio di nessuna chiave, perché sembra una chiave.
+ */
+export async function generaChiaveIngresso(): Promise<string> {
+  const rnd = globalThis.crypto?.getRandomValues?.bind(globalThis.crypto);
+  if (!rnd) {
+    throw new Error(
+      'Questo dispositivo non ha un generatore casuale sicuro: genera la chiave dal browser (versione web di Scout).',
+    );
+  }
+  const buf = rnd(new Uint8Array(24));
+  const esa = Array.from(buf, (b) => b.toString(16).padStart(2, '0')).join('');
+  const chiave = `dlxs_${esa}`;
+  await salvaChiaveApp(APP_CHIAVE_INGRESSO, chiave);
+  return chiave;
+}
+
+/** C'è già una chiave d'ingresso? (solo il fatto, mai il valore) */
+export async function chiaveIngressoConfigurata(): Promise<boolean> {
+  const { data } = await supabase
+    .from('chiavi_app_stato')
+    .select('configurata')
+    .eq('app', APP_CHIAVE_INGRESSO)
+    .maybeSingle();
+  return Boolean(data?.configurata);
+}
+
 /** Il recapito da usare per contattare un negozio (dal referente migliore). */
 export interface RecapitoPlace {
   telefono: string | null;

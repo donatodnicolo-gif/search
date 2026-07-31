@@ -4,7 +4,7 @@
 // In fondo, riservate all'admin, le chiavi delle altre app Deluxy (migr. 0044):
 // stanno in una tabella che solo lui può leggere, e non tornano mai al client.
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { colors, radius, spacing } from '@/lib/theme';
@@ -13,7 +13,9 @@ import { isAdmin } from '@/lib/admin';
 import {
   APP_DELUXY,
   CHIAVE_CASELLA_RICHIESTE,
+  chiaveIngressoConfigurata,
   fetchStatoChiaviApp,
+  generaChiaveIngresso,
   leggiImpostazione,
   rimuoviChiaveApp,
   salvaChiaveApp,
@@ -142,12 +144,101 @@ export default function Impostazioni() {
           (RLS sulla tabella chiavi_app, migr. 0044). */}
       {admin ? <SezioneAppCollegate /> : null}
 
+      {/* Il verso opposto: la chiave con cui le ALTRE app chiamano Scout. */}
+      {admin ? <SezioneChiaveIngresso /> : null}
+
       <Text style={styles.piede}>
         Le chiavi delle altre app le inserisce e le vede solo un amministratore, e restano sul
         server: l&apos;app non le riceve mai. Le password delle caselle continuano a stare nei
         secret e si cambiano da riga di comando.
       </Text>
     </ScrollView>
+  );
+}
+
+/**
+ * La chiave con cui le ALTRE app chiamano Scout — il verso opposto della
+ * sezione qui sopra.
+ *
+ * Perché serve una schermata: quella chiave vive come secret di Supabase, e un
+ * secret **non si rilegge**. Quando bisogna darla a un'altra app (il registro
+ * Anagrafiche, AI Mail) o la si ha scritta da qualche parte, o si è costretti a
+ * rigenerarla dalla riga di comando — spegnendo in silenzio le integrazioni che
+ * la usavano già. Qui si genera, si copia subito, e si sa sempre se c'è.
+ */
+function SezioneChiaveIngresso() {
+  const [configurata, setConfigurata] = useState<boolean | null>(null);
+  const [chiave, setChiave] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [errore, setErrore] = useState<string | null>(null);
+
+  useEffect(() => {
+    chiaveIngressoConfigurata()
+      .then(setConfigurata)
+      .catch(() => setConfigurata(false));
+  }, []);
+
+  async function genera() {
+    setBusy(true);
+    setErrore(null);
+    try {
+      const nuova = await generaChiaveIngresso();
+      setChiave(nuova);
+      setConfigurata(true);
+    } catch (e) {
+      setErrore((e as Error)?.message ?? 'Non è stato possibile generare la chiave.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <View style={styles.card}>
+      <Text style={styles.cardLabel}>CHI PUÒ SCRIVERE IN SCOUT</Text>
+      <Text style={styles.aiuto}>
+        La chiave con cui le altre app parlano a Scout: il registro Anagrafiche quando crea un partner, AI Mail quando
+        apre una trattativa. Generala qui e incollala di là.
+      </Text>
+
+      <View style={styles.appTesta}>
+        <Text style={styles.appNome}>Chiave d&apos;ingresso</Text>
+        <View style={[styles.appStato, configurata ? styles.appStatoOk : styles.appStatoNo]}>
+          <Text style={[styles.appStatoTxt, configurata ? styles.appStatoTxtOk : styles.appStatoTxtNo]}>
+            {configurata === null ? '…' : configurata ? 'impostata' : 'da generare'}
+          </Text>
+        </View>
+      </View>
+
+      {/* Il valore si vede ADESSO o mai più: dopo, la schermata sa solo che c'è. */}
+      {chiave ? (
+        <View style={styles.chiaveBox}>
+          <Text style={styles.chiaveTxt} selectable>
+            {chiave}
+          </Text>
+          <Text style={styles.chiaveNota}>
+            Copiala adesso: non si potrà più rileggere. Va incollata in Anagrafiche (variabile
+            COMMERCIALE_API_KEY su Vercel) e in AI Mail (Impostazioni App → Commerciale).
+          </Text>
+        </View>
+      ) : null}
+
+      {errore ? <Text style={styles.erroreChiave}>{errore}</Text> : null}
+
+      <Pressable style={[styles.btn, busy && styles.btnOff]} onPress={genera} disabled={busy}>
+        {busy ? (
+          <ActivityIndicator color={colors.bianco} />
+        ) : (
+          <Text style={styles.btnTxt}>{configurata ? 'Rigenera la chiave' : 'Genera la chiave'}</Text>
+        )}
+      </Pressable>
+
+      {configurata ? (
+        <Text style={styles.aiuto}>
+          ⚠️ Rigenerandola, la vecchia smette di funzionare all&apos;istante: le app che la usano vanno aggiornate
+          subito, o le loro chiamate cominciano a essere rifiutate senza dire niente.
+        </Text>
+      ) : null}
+    </View>
   );
 }
 
@@ -353,4 +444,18 @@ const styles = StyleSheet.create({
   appStatoTxtOk: { color: '#2F7D46' },
   appStatoTxtNo: { color: colors.grigio },
   appForm: { gap: 6, marginTop: 8 },
+  // Il segreto mostrato una volta: monospazio e selezionabile, perché il gesto
+  // che segue è copiarlo.
+  chiaveBox: {
+    backgroundColor: colors.sfondo,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.ink,
+    padding: spacing.sm,
+    gap: 6,
+    marginTop: 8,
+  },
+  chiaveTxt: { color: colors.testo, fontSize: 13, fontWeight: '700', fontFamily: 'monospace' },
+  chiaveNota: { color: colors.testoSoft, fontSize: 12, lineHeight: 17 },
+  erroreChiave: { color: colors.errore, fontSize: 12.5, fontWeight: '600', lineHeight: 17 },
 });
