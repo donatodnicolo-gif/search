@@ -63,6 +63,17 @@ export function budgetsConfigurato(): boolean {
 let cache: { valore: CategoriaCosto[]; scadenza: number } | null = null;
 const TTL_MS = 5 * 60_000;
 
+// Le REGOLE sono 2.500 e pesano 124 KB: sei secondi bastano quando Budgets è
+// caldo (misurato 1,1–1,5 s) ma non quando la funzione parte da fredda (3,4 s
+// al primo colpo, e quello è il caso buono). Un timeout qui non è un fastidio:
+// è una riclassificazione che parte **senza regole**. Per un'azione che
+// l'utente ha chiesto esplicitamente si può aspettare.
+const TIMEOUT_REGOLE_MS = 25_000;
+const TIMEOUT_ELENCO_MS = 6_000;
+
+export const contaRegole = (categorie: CategoriaCosto[]) =>
+  categorie.reduce((s, c) => s + (c.regole?.length ?? 0), 0);
+
 export type EsitoCategorie =
   | { ok: true; categorie: CategoriaCosto[] }
   | { ok: false; errore: string };
@@ -81,19 +92,36 @@ export async function categorieDaBudgets(conRegole = false): Promise<EsitoCatego
     const res = await fetch(`${baseUrl()}/api/v1/categorie${conRegole ? "?regole=1" : ""}`, {
       headers: { "x-api-key": key },
       cache: "no-store",
-      // Budgets non deve poter bloccare una pagina di Finance.
-      signal: AbortSignal.timeout(6000),
+      // Budgets non deve poter bloccare una pagina di Finance. Ma quando si
+      // chiedono le regole non è una pagina: è un'azione richiesta a mano, e
+      // arrivare a metà è peggio che aspettare.
+      signal: AbortSignal.timeout(conRegole ? TIMEOUT_REGOLE_MS : TIMEOUT_ELENCO_MS),
     });
     if (res.status === 401) return { ok: false, errore: "Chiave rifiutata da Budgets (401): controlla BUDGETS_API_KEY." };
     if (!res.ok) return { ok: false, errore: `Budgets ha risposto ${res.status}.` };
     const j = (await res.json()) as { categorie?: CategoriaCosto[] };
     const categorie = j.categorie ?? [];
+    // ⚠️ **Regole chieste e non arrivate = si ferma qui.** Una risposta valida
+    // ma senza regole classificherebbe zero controparti — e per
+    // `riclassificaTutteLeSpese`, che toglie la categoria dove nessuna regola
+    // risponde, vorrebbe dire **cancellare la classificazione di tutta
+    // l'azienda** credendo di aggiornarla.
+    if (conRegole && contaRegole(categorie) === 0) {
+      return {
+        ok: false,
+        errore:
+          "Budgets ha risposto senza nessuna regola di classificazione. Non si procede: applicarle così vorrebbe dire togliere la categoria a tutte le spese.",
+      };
+    }
     if (!conRegole) cache = { valore: categorie, scadenza: Date.now() + TTL_MS };
     return { ok: true, categorie };
   } catch (e) {
-    // Se c'è una copia in cache la si usa: meglio un elenco di 5 minuti fa che
-    // una pagina che non funziona perché l'altra app è giù.
-    if (cache) return { ok: true, categorie: cache.valore };
+    // ⚠️ **La copia in cache non ha le regole**: si salva per l'elenco (dove
+    // basta il nome) e si scarta quando le regole servono. Ripiegarci sopra
+    // vorrebbe dire eseguire una riclassificazione con zero regole, cioè
+    // svuotare tutto — un guasto di rete non deve poter riscrivere il conto
+    // economico.
+    if (!conRegole && cache) return { ok: true, categorie: cache.valore };
     return { ok: false, errore: `Budgets non raggiungibile: ${(e as Error).message}` };
   }
 }

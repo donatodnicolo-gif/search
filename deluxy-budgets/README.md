@@ -985,6 +985,18 @@ assegnazioni **fatte a mano** (una persona che decide batte una regola) e le ent
 nessuna regola riconosce più una controparte la categoria si **toglie**: una regola cancellata deve
 poter disfare quello che aveva fatto, altrimenti «riclassifica» sarebbe solo «aggiungi».
 
+> ⚠️ **Le regole non sono salvate in Finance: si rileggono a ogni passata.** Sono 2.500, pesano
+> **124 KB** e la chiamata dura **1,1–3,4 s** (misurato; il 3,4 è a freddo). Il che ha fatto venire
+> fuori un guasto grosso: il timeout era **6 s**, e nel `catch` Finance ripiegava sulla **cache dei
+> nomi — che le regole non le ha** — restituendo però `ok: true`. Una riclassificazione partita così
+> avrebbe avuto **zero regole**, e siccome toglie la categoria dove nessuna regola risponde,
+> **avrebbe cancellato la classificazione di due anni** credendo di aggiornarla. Corretto su tre
+> livelli: timeout a **25 s** quando si chiedono le regole (è un'azione chiesta a mano, non il
+> render di una pagina), la cache **non** si usa più come ripiego quando servono le regole, e sia il
+> client sia l'azione **si fermano se le regole ricevute sono zero**. In pagina si legge **quante
+> regole sono arrivate**: «Finance ha le regole?» è una domanda a cui si deve poter rispondere
+> guardando, non fidandosi.
+
 > ⚠️ **Le 46 che Budgets classificava e Finance no non erano un problema di regole, ma di spazi**
 > (31/07/2026). **2.411 delle 2.500 regole sono a match esatto**, e un match esatto contro
 > `" Alice Angelotti"` — con lo spazio davanti, come arriva da Qonto — non scatta mai. Budgets non

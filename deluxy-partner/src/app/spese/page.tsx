@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { euro, dataIt } from "@/lib/format";
 import { MESI } from "@/lib/calc";
 import { ANNO_CORRENTE } from "@/lib/queries";
-import { categorieDaBudgets, budgetsConfigurato, TIPI_PL } from "@/lib/categorie-spesa";
+import { categorieDaBudgets, budgetsConfigurato, contaRegole, TIPI_PL } from "@/lib/categorie-spesa";
 import { impostaCategoriaSpesa, applicaRegoleCategorie, riclassificaTutteLeSpese, proponiCategorieAI } from "@/lib/spese-actions";
 import { CategoriaSpesa } from "@/components/CategoriaSpesa";
 import { BottoneAI } from "@/components/BottoneAI";
@@ -30,8 +30,14 @@ export default async function SpesePage({
   const inizio = new Date(Date.UTC(anno, dal - 1, 1));
   const fine = new Date(Date.UTC(anno, al, 1));
 
-  const esitoCat = await categorieDaBudgets();
+  // Le REGOLE si chiedono anche per la pagina, non solo al momento di
+  // applicarle: «Finance ha le regole di Budgets?» è una domanda a cui si deve
+  // poter rispondere guardando, non fidandosi. Se la chiamata con le regole non
+  // riesce si ripiega sul solo elenco, che è quello che serve alle tendine.
+  const esitoConRegole = await categorieDaBudgets(true);
+  const esitoCat = esitoConRegole.ok ? esitoConRegole : await categorieDaBudgets();
   const categorie = esitoCat.ok ? esitoCat.categorie : [];
+  const regoleImportate = esitoConRegole.ok ? contaRegole(esitoConRegole.categorie) : null;
 
   const uscite = await prisma.transazioneBancaria.findMany({
     where: {
@@ -103,6 +109,20 @@ export default async function SpesePage({
             <strong>Quello che decide il bilancio sono le regole</strong>, non la categoria salvata su questa
             pagina: Budgets non legge quest&apos;ultima, ricalcola tutto dalle proprie regole a ogni caricamento.
             Il bottone qui accanto serve proprio a rifare la fotografia quando in Budgets ne nasce una nuova.
+            <br />
+            {regoleImportate === null ? (
+              <span style={{ color: "var(--red)" }}>
+                <strong>Le regole non sono arrivate da Budgets.</strong> Le tendine funzionano lo stesso, ma
+                applicare o riclassificare adesso non farebbe niente: i due bottoni si fermano da soli invece di
+                svuotare tutto.
+              </span>
+            ) : (
+              <>
+                Adesso da Budgets sono arrivate <strong>{regoleImportate.toLocaleString("it-IT")} regole</strong> su{" "}
+                {categorie.length} categorie. Non si salvano qui: si rileggono a ogni passata, così una regola
+                scritta in Budgets un minuto fa è già quella che vale.
+              </>
+            )}
           </p>
         </div>
         <div className="page-actions">

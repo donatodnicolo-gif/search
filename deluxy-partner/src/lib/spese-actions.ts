@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "./db";
 import { registra } from "./registro";
-import { categorieDaBudgets, categoriaDaRegole, proponiConAI } from "./categorie-spesa";
+import { categorieDaBudgets, categoriaDaRegole, contaRegole, proponiConAI } from "./categorie-spesa";
 
 // Assegnazione della categoria di costo alle USCITE. L'elenco delle categorie
 // è di Budgets (vedi `categorie-spesa.ts`): qui si scrive solo la scelta.
@@ -147,6 +147,22 @@ export async function riclassificaTutteLeSpese() {
     redirect(`/spese?errore=${encodeURIComponent(esito.errore)}`);
   }
 
+  // ⚠️ **Seconda cintura, e non è ridondanza.** Questa azione toglie la
+  // categoria dove nessuna regola risponde: se le regole non fossero arrivate —
+  // rete lenta, Budgets riavviato, chiave scaduta a metà — «nessuna regola
+  // risponde» sarebbe vero per **tutte** le spese, e una riclassificazione
+  // cancellerebbe la classificazione di due anni credendo di aggiornarla. Il
+  // client già si rifiuta di tornare senza regole; qui si controlla lo stesso,
+  // perché il costo di sbagliare è tutto il conto economico.
+  const quanteRegole = contaRegole(esito.categorie);
+  if (quanteRegole === 0) {
+    redirect(
+      `/spese?errore=${encodeURIComponent(
+        "Nessuna regola ricevuta da Budgets: riclassificare adesso toglierebbe la categoria a tutte le spese. Riprova fra un minuto."
+      )}`
+    );
+  }
+
   const uscite = await prisma.transazioneBancaria.findMany({
     where: { importo: { lt: 0 }, categoriaDa: { not: "manuale" } },
     select: { id: true, descrizione: true, controparte: true, categoriaId: true },
@@ -202,7 +218,7 @@ export async function riclassificaTutteLeSpese() {
   await registra({
     azione: `Spese riclassificate con le regole di Budgets: ${cambiate} cambiate`,
     categoria: "transazioni",
-    dettaglio: `${invariate} già giuste, ${daSvuotare.length} svuotate (nessuna regola le riconosce più); le assegnazioni manuali non sono state toccate`,
+    dettaglio: `${quanteRegole} regole importate da Budgets · ${invariate} già giuste, ${daSvuotare.length} svuotate (nessuna regola le riconosce più); le assegnazioni manuali non sono state toccate`,
   });
   revalidatePath("/spese");
   redirect(`/spese?riclassificate=${cambiate}&svuotate=${daSvuotare.length}`);
