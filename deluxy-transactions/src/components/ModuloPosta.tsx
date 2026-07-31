@@ -15,6 +15,7 @@ export function ModuloPosta({
   porta,
   utente,
   mittente,
+  destinatari,
   chiedeCodice,
 }: {
   configurata: boolean;
@@ -24,6 +25,7 @@ export function ModuloPosta({
   porta: number;
   utente: string;
   mittente: string;
+  destinatari: string[];
   chiedeCodice: boolean;
 }) {
   const [stato, azione, inCorso] = useActionState(collegaPosta, {} as { errore?: string; ok?: string });
@@ -39,6 +41,14 @@ export function ModuloPosta({
           Posta attiva su <strong>{host}:{porta}</strong> come <strong>{utente}</strong>
           {mittente && mittente !== utente ? `, mittente ${mittente}` : ""} — impostata{" "}
           {nellApp ? "da questa pagina" : "dalle variabili d'ambiente di Vercel"}.
+          {destinatari.length ? (
+            <>
+              {" "}
+              Può scrivere solo a <strong>{destinatari.join(", ")}</strong>.
+            </>
+          ) : (
+            <> Nessun limite sui destinatari: può scrivere a qualunque indirizzo.</>
+          )}
         </p>
       )}
 
@@ -60,15 +70,20 @@ export function ModuloPosta({
             defaultValue={nellApp ? host : ""}
             spellCheck={false}
             autoComplete="off"
-            placeholder="smtp.gmail.com"
+            placeholder="authsmtp.securemail.pro"
             required
           />
-          <p className="aiuto-campo">Con Gmail o Google Workspace è <code className="inline">smtp.gmail.com</code>.</p>
+          <p className="aiuto-campo">
+            Con le caselle <strong>Register.it</strong> è <code className="inline">authsmtp.securemail.pro</code>. Con
+            Gmail o Google Workspace è <code className="inline">smtp.gmail.com</code>.
+          </p>
         </div>
         <div className="campo-modulo">
           <label htmlFor="p-porta">Porta</label>
-          <input id="p-porta" name="porta" defaultValue={nellApp ? String(porta) : "587"} inputMode="numeric" />
-          <p className="aiuto-campo">587 quasi sempre. La 465 si usa quando il server vuole il canale cifrato da subito.</p>
+          <input id="p-porta" name="porta" defaultValue={nellApp ? String(porta) : "465"} inputMode="numeric" />
+          <p className="aiuto-campo">
+            <strong>465</strong> con Register (canale cifrato da subito), 587 con Gmail e con quasi tutti gli altri.
+          </p>
         </div>
         <div className="campo-modulo">
           <label htmlFor="p-utente">Casella (utente)</label>
@@ -82,6 +97,7 @@ export function ModuloPosta({
             placeholder="pagamenti@deluxy.it"
             required
           />
+          <p className="aiuto-campo">Con Register è l&apos;indirizzo completo della casella, non solo il nome prima della chiocciola.</p>
         </div>
         <div className="campo-modulo">
           <label htmlFor="p-password">Password</label>
@@ -95,9 +111,9 @@ export function ModuloPosta({
             required
           />
           <p className="aiuto-campo">
-            Con Gmail <strong>non</strong> è la password con cui entri: serve una «password per le app», che si genera
-            nel tuo account Google e vale solo per questo. Va riscritta anche solo per cambiare la porta: è ciò che
-            permette di provare la connessione prima di salvare.
+            Con Register è la password della casella. Con Gmail <strong>non</strong> è la password con cui entri: serve
+            una «password per le app», generata nel tuo account Google. Va riscritta anche solo per cambiare la porta: è
+            ciò che permette di provare la connessione prima di salvare.
           </p>
         </div>
         <div className="campo-modulo largo">
@@ -111,6 +127,25 @@ export function ModuloPosta({
             placeholder="Deluxy Transactions <pagamenti@deluxy.it>"
           />
           <p className="aiuto-campo">Vuoto = si usa la casella qui sopra.</p>
+        </div>
+
+        <div className="campo-modulo largo">
+          <label htmlFor="p-destinatari">A chi può scrivere questa app</label>
+          <input
+            id="p-destinatari"
+            name="destinatari"
+            defaultValue={destinatari.join(", ")}
+            spellCheck={false}
+            autoComplete="off"
+            placeholder="nicolo.donato@deluxy.it"
+            required
+          />
+          <p className="aiuto-campo">
+            Fuori da questo elenco l&apos;app <strong>non manda niente</strong>, nemmeno se qualcuno riesce a cambiare
+            chi è il pagatore: è un secondo lucchetto, indipendente dal primo. Se il pagatore non è qui dentro, il
+            codice non gli arriva e il pagamento resta fermo — è il comportamento voluto. Più indirizzi si separano con
+            una virgola.
+          </p>
         </div>
 
         {chiedeCodice && (
@@ -128,8 +163,12 @@ export function ModuloPosta({
           <label htmlFor="p-prova">Prova</label>
           <label className="riga-interruttore">
             <input id="p-prova" type="checkbox" name="prova" defaultChecked />
-            mandami un&apos;email di prova appena salvato
+            manda un&apos;email di prova appena salvato
           </label>
+          <p className="aiuto-campo">
+            Va al primo indirizzo dell&apos;elenco qui sopra, non a te: è l&apos;unico momento in cui si può scoprire che
+            quell&apos;elenco è sbagliato.
+          </p>
         </div>
 
         <div className="azioni-modulo campo-modulo largo">

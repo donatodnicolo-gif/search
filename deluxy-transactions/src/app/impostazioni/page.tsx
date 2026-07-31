@@ -3,7 +3,7 @@ import { operatoreCorrente } from "@/lib/sessione";
 import { leggiRegole } from "@/lib/impostazioni";
 import { euroSemplice } from "@/lib/denaro";
 import { cifraturaPronta } from "@/lib/crypto";
-import { statoPosta } from "@/lib/mail";
+import { destinatarioAmmesso, statoPosta } from "@/lib/mail";
 import { qontoConfigurato, statoCollegamento } from "@/lib/qonto";
 import { prisma } from "@/lib/db";
 import { ModuloBanca } from "@/components/ModuloBanca";
@@ -29,6 +29,10 @@ export default async function Impostazioni() {
     : null;
   const pagatoreMancante = !pagatore || !pagatore.attivo;
   const pagatoreSenzaPin = Boolean(pagatore?.attivo) && !pagatore?.pinHash;
+  // Le due serrature devono guardare la stessa porta: se il pagatore non è fra
+  // le caselle a cui l'app può scrivere, il codice non gli arriverà mai.
+  const pagatoreNonRaggiungibile =
+    posta.configurata && Boolean(r.pagatoreEmail) && !destinatarioAmmesso(r.pagatoreEmail, posta.destinatari);
 
   return (
     <main className="main">
@@ -73,6 +77,14 @@ export default async function Impostazioni() {
         </div>
       )}
 
+      {pagatoreNonRaggiungibile && (
+        <div className="avviso-errore">
+          <strong>Il codice non arriverebbe al pagatore.</strong> {r.pagatoreEmail} non è fra le caselle a cui questa
+          app può scrivere ({posta.destinatari.join(", ")}): l&apos;invio verrebbe rifiutato e il pagamento resterebbe
+          fermo. O si aggiunge quell&apos;indirizzo in «Server di posta», o si cambia il pagatore.
+        </div>
+      )}
+
       {pagatoreSenzaPin && (
         <div className="avviso-attenzione">
           Il pagatore non ha ancora impostato il PIN, e senza PIN il pagamento non si sblocca. Deve farlo da solo dalla
@@ -112,7 +124,13 @@ export default async function Impostazioni() {
           database: chi entrasse nel database può romperli — e allora non esce niente — ma non può dirottarli su una
           casella sua.
         </p>
-        <ModuloPosta {...posta} chiedeCodice={operatore.totpAttivo} />
+        <ModuloPosta
+          {...posta}
+          // Non ancora configurata: si propone il pagatore, che è l'unica
+          // casella che deve davvero ricevere qualcosa da qui.
+          destinatari={posta.destinatari.length ? posta.destinatari : [r.pagatoreEmail].filter(Boolean)}
+          chiedeCodice={operatore.totpAttivo}
+        />
       </div>
 
       <div className="scheda">

@@ -22,7 +22,7 @@ import { aCentesimi, euro } from "@/lib/denaro";
 import { chiediCodice, impronteDelPin, pinAccettabile, sblocca, verificaCancello } from "@/lib/sblocco";
 import { pagaLottoConQonto } from "@/lib/pagamento-banca";
 import { provaChiaviQonto, qontoConfigurato, salvaChiaviQonto, scollegaQonto } from "@/lib/qonto";
-import { inviaEmail, provaSmtp, salvaConfigSmtp, scollegaPosta, type ConfigSmtp } from "@/lib/mail";
+import { elencoDestinatari, inviaEmail, provaSmtp, salvaConfigSmtp, scollegaPosta, type ConfigSmtp } from "@/lib/mail";
 
 // Tutte le azioni della UI. Ognuna ricontrolla chi è l'operatore: il middleware
 // filtra i cookie falsi, ma l'autorizzazione vera si decide qui, dove si sa
@@ -352,10 +352,17 @@ export async function collegaPosta(_stato: unknown, fd: FormData): Promise<{ err
   const password = String(fd.get("password") ?? "").trim();
   const mittente = testo(fd, "mittente") || utente;
   const porta = Number(testo(fd, "porta") || 587);
+  const destinatari = elencoDestinatari(testo(fd, "destinatari"));
   if (!host || !utente || !password) return { errore: "Servono l'indirizzo del server, l'utente e la password." };
-  if (!Number.isFinite(porta) || porta <= 0 || porta > 65535) return { errore: "La porta non è un numero valido (di solito 587)." };
+  if (!Number.isFinite(porta) || porta <= 0 || porta > 65535) return { errore: "La porta non è un numero valido (465 con Register, 587 con Gmail)." };
+  if (!destinatari.length) {
+    return {
+      errore:
+        "Serve almeno una casella fra i destinatari ammessi: senza, questa app potrebbe scrivere a chiunque e il secondo lucchetto sui codici di pagamento non esisterebbe.",
+    };
+  }
 
-  const config: ConfigSmtp = { host, porta: Math.round(porta), utente, password, mittente };
+  const config: ConfigSmtp = { host, porta: Math.round(porta), utente, password, mittente, destinatari };
 
   // Si prova PRIMA di salvare, come per le chiavi della banca: una posta che
   // non funziona si scoprirebbe davanti a una distinta da sbloccare.
@@ -366,23 +373,27 @@ export async function collegaPosta(_stato: unknown, fd: FormData): Promise<{ err
   await registra(
     "posta.configurata",
     admin.email,
-    { host, porta: Math.round(porta), utente, mittente }, // mai la password
+    { host, porta: Math.round(porta), utente, mittente, destinatari }, // mai la password
     { ip: await ipRichiesta() },
   );
 
   let coda = "";
   if (fd.get("prova")) {
+    // La prova va al primo destinatario ammesso, non a chi sta configurando:
+    // se andasse all'admin, l'elenco degli ammessi non verrebbe mai messo alla
+    // prova proprio nell'unico momento in cui si può scoprire che è sbagliato.
+    const a = destinatari[0];
     try {
       await inviaEmail({
-        a: admin.email,
+        a,
         oggetto: "Deluxy Transactions — prova di invio",
         testo:
           "Se leggi questo messaggio, il server di posta funziona e i codici di sblocco dei pagamenti possono partire.\n\n" +
           `Configurato da ${admin.email} su ${host}:${Math.round(porta)}.`,
       });
-      coda = ` Email di prova mandata a ${admin.email}.`;
+      coda = ` Email di prova mandata a ${a}.`;
     } catch (e) {
-      coda = ` Attenzione: la connessione funziona ma l'invio di prova è fallito (${e instanceof Error ? e.message : "errore"}).`;
+      coda = ` Attenzione: la connessione funziona ma l'invio di prova a ${a} è fallito (${e instanceof Error ? e.message : "errore"}).`;
     }
   }
 

@@ -72,6 +72,15 @@ basta), le credenziali si provano contro il server vero prima di essere salvate,
 la password non si rilegge e non entra nel registro, e il cambio è un evento
 `posta.configurata` nella catena di hash.
 
+**Le caselle a cui si può scrivere sono un elenco chiuso** (31/07/2026). Il
+controllo sta dentro `inviaEmail()` in [src/lib/mail.ts](../src/lib/mail.ts),
+cioè nell'unico punto da cui esce un'email: una regola sul destinatario che si
+aggira cambiando chiamante non è una regola. È un lucchetto **indipendente** da
+`pagatoreEmail`: anche riuscendo a spostare il pagatore su una persona propria,
+il codice non partirebbe verso un indirizzo fuori elenco. Oggi l'elenco è
+`nicolo.donato@deluxy.it`. Se il pagatore non è in elenco la pagina Impostazioni
+lo dice in rosso, e il pagamento resta fermo: si fallisce chiusi.
+
 Un bonifico parte solo dopo **sei** controlli in fila, in
 [src/lib/pagamento-banca.ts](../src/lib/pagamento-banca.ts):
 

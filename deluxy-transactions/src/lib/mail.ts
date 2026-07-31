@@ -34,7 +34,15 @@ import { cifra, decifra } from "./crypto";
 // Chi cambia la posta dall'app deve essere admin, confermare col secondo
 // fattore, e la modifica finisce nel registro a catena di hash.
 
-export type ConfigSmtp = { host: string; porta: number; utente: string; password: string; mittente: string };
+export type ConfigSmtp = {
+  host: string;
+  porta: number;
+  utente: string;
+  password: string;
+  mittente: string;
+  // Le uniche caselle a cui questa app può scrivere. Vuoto = nessun limite.
+  destinatari: string[];
+};
 export type DaDove = "app" | "ambiente";
 
 export const CHIAVI_SMTP = {
@@ -43,7 +51,18 @@ export const CHIAVI_SMTP = {
   utente: "smtp.utente",
   password: "smtp.password",
   mittente: "smtp.mittente",
+  destinatari: "smtp.destinatari",
 } as const;
+
+/** "a@b.it, c@d.it" → ["a@b.it", "c@d.it"], in minuscolo e senza doppioni. */
+export function elencoDestinatari(grezzo: string): string[] {
+  const visti = new Set<string>();
+  for (const pezzo of grezzo.split(/[,;\s]+/)) {
+    const e = pezzo.trim().toLowerCase();
+    if (e.includes("@")) visti.add(e);
+  }
+  return [...visti];
+}
 
 function daAmbiente(): ConfigSmtp | null {
   const host = (process.env.SMTP_HOST ?? "").trim();
@@ -57,6 +76,7 @@ function daAmbiente(): ConfigSmtp | null {
     utente,
     password,
     mittente: (process.env.SMTP_FROM ?? "").trim() || utente,
+    destinatari: elencoDestinatari(process.env.SMTP_DESTINATARI ?? ""),
   };
 }
 
@@ -72,12 +92,14 @@ async function daDatabase(): Promise<ConfigSmtp | null> {
     if (!host || !utente || !password) return null;
     const porta = Number(m.get(CHIAVI_SMTP.porta) ?? 587);
     const mittente = m.get(CHIAVI_SMTP.mittente);
+    const destinatari = m.get(CHIAVI_SMTP.destinatari);
     return {
       host: decifra(host),
       porta: Number.isFinite(porta) && porta > 0 ? porta : 587,
       utente: decifra(utente),
       password: decifra(password),
       mittente: mittente ? decifra(mittente) : decifra(utente),
+      destinatari: destinatari ? elencoDestinatari(decifra(destinatari)) : [],
     };
   } catch {
     // Database irraggiungibile, oppure righe che non si decifrano (chiave
@@ -104,6 +126,7 @@ export async function statoPosta(): Promise<{
   porta: number;
   utente: string;
   mittente: string;
+  destinatari: string[];
 }> {
   const ambiente = daAmbiente();
   const c = ambiente ?? (await daDatabase());
@@ -115,7 +138,20 @@ export async function statoPosta(): Promise<{
     porta: c?.porta ?? 587,
     utente: c?.utente ?? "",
     mittente: c?.mittente ?? "",
+    destinatari: c?.destinatari ?? [],
   };
+}
+
+/**
+ * L'elenco delle caselle ammesse è un secondo lucchetto, indipendente da chi è
+ * il pagatore: anche se qualcuno riuscisse a spostare `pagatoreEmail` su una
+ * persona sua, il codice non partirebbe comunque verso un indirizzo che non è
+ * in questo elenco. Vuoto = nessun limite (è il caso di chi configura la posta
+ * solo dalle variabili d'ambiente e non imposta SMTP_DESTINATARI).
+ */
+export function destinatarioAmmesso(a: string, ammessi: string[]): boolean {
+  if (!ammessi.length) return true;
+  return ammessi.includes(a.trim().toLowerCase());
 }
 
 function trasporto(c: ConfigSmtp) {
@@ -149,6 +185,8 @@ export async function salvaConfigSmtp(c: ConfigSmtp): Promise<void> {
     [CHIAVI_SMTP.utente, cifra(c.utente)],
     [CHIAVI_SMTP.password, cifra(c.password)],
     [CHIAVI_SMTP.mittente, cifra(c.mittente)],
+    // Cifrato come il resto: chi tocca il database può romperlo, non allargarlo.
+    [CHIAVI_SMTP.destinatari, cifra(c.destinatari.join(","))],
   ];
   for (const [chiave, valore] of valori) {
     await prisma.impostazione.upsert({ where: { chiave }, update: { valore }, create: { chiave, valore } });
@@ -166,6 +204,16 @@ export async function inviaEmail(opzioni: { a: string; oggetto: string; testo: s
   if (!c) {
     throw new Error(
       "Posta non configurata: senza server di posta il codice di pagamento non può essere spedito, quindi nessun pagamento può partire.",
+    );
+  }
+  // Il filtro sta QUI, non nei chiamanti: è l'unico punto da cui esce un'email,
+  // e una regola sul destinatario che si può aggirare cambiando chiamante non è
+  // una regola. Si fallisce chiusi: se l'indirizzo non è ammesso non si manda,
+  // e chi aspettava quel codice non lo riceve.
+  if (!destinatarioAmmesso(opzioni.a, c.destinatari)) {
+    throw new Error(
+      `Questa app può scrivere solo a ${c.destinatari.join(", ")}: l'invio a ${opzioni.a} è stato rifiutato. ` +
+        "Se l'indirizzo è legittimo, va aggiunto in Impostazioni → Server di posta.",
     );
   }
   await trasporto(c).sendMail({

@@ -69,8 +69,10 @@ bancarie non ce ne sono ancora: il file SEPA lo carica una persona in banca.
 - **Server di posta configurabile dall'app** (31/07/2026): Impostazioni →
   «Server di posta», con prova della connessione prima del salvataggio, email di
   prova facoltativa, valori cifrati sul database e secondo fattore obbligatorio
-  per cambiarli. Le variabili d'ambiente restano e hanno la precedenza. Il
-  perché di ogni pezzo è in [SICUREZZA.md](SICUREZZA.md) §0-bis.
+  per cambiarli. Le variabili d'ambiente restano e hanno la precedenza. Include
+  l'**elenco chiuso dei destinatari** (oggi `nicolo.donato@deluxy.it`): fuori da
+  lì l'app non manda niente, controllo dentro `inviaEmail()`. Il perché di ogni
+  pezzo è in [SICUREZZA.md](SICUREZZA.md) §0-bis.
 - **Sessione che scade per inattività** (31/07/2026): dieci minuti fermi e si
   rientra. Ogni pagina aperta rimette il contatore a zero (colonna
   `Sessione.ultimoUso`, scritta al massimo una volta ogni 30 secondi per non
