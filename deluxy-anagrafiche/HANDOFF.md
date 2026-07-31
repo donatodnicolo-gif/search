@@ -1,6 +1,6 @@
 # Deluxy Anagrafiche — Handoff / Stato del progetto
 
-> Documento per riprendere il lavoro da zero in una nuova sessione. Aggiornato il 26/07/2026.
+> Documento per riprendere il lavoro da zero in una nuova sessione. Aggiornato il 31/07/2026.
 > Leggi anche `README.md` (brief di integrazione per le altre app) e il `CLAUDE.md` alla radice del repo.
 
 ## 1. Cos'è, in una riga
@@ -521,7 +521,7 @@ trovano un match nel registro. Lato registro misurato: 578 attivi, 316 boutique,
 
 ## 7. Punti aperti
 
-Aggiornato il **30/07/2026**. Ordine: prima quello che blocca un uso reale, poi le
+Aggiornato il **31/07/2026**. Ordine: prima quello che blocca un uso reale, poi le
 scelte da fare, in fondo le pulizie. Quando un punto si chiude, si cancella da qui.
 
 ### A. Integrazioni che aspettano l'altra metà
@@ -621,9 +621,22 @@ scelte da fare, in fondo le pulizie. Quando un punto si chiude, si cancella da q
     normalizzazione possibile appoggiandosi ai dati HubSpot, più strutturati. (Dal 29/07/2026 la
     modifica della scheda **non li ricrea più**, quindi una pulizia non viene più sovrascritta.)
 
+13. **Doppioni già individuati, da unire** (31/07/2026): «Flowers & More» (OLBIA, excel, 2 referenti)
+    e «Flowers and More» (senza città, ai-mail, 1 referente); «Ketty Flowers» (PORTO CERVO, excel,
+    2 referenti) e «Ketty Flowers - Floral Designer» (PORTO CERVO, deluxy-suppliers, 0 referenti).
+    Lo strumento c'è — **⇄ Unisci a…** sulla scheda — ma **non sono stati uniti**: decide chi lavora
+    quale record tenere come destinazione, perché quello vince e l'altro viene archiviato.
+    Vale la pena cercarne altri: i doppioni nascono quando la stessa azienda entra da fonti diverse
+    (excel / ai-mail / deluxy-suppliers) col nome scritto in modo diverso.
+
+14. **Password del database esposta** (31/07/2026): durante un controllo sulla stringa di
+    connessione la password del cluster Supabase è finita **in chiaro nel transcript** della
+    sessione. Non è stata cambiata. Se si ruota, vanno aggiornate `DATABASE_URL` **e**
+    `DIRECT_URL` nei `.env` delle **sei app** del cluster e su Vercel, poi redeploy di ognuna.
+
 ### D. Verifiche in sospeso
 
-13. **Ricerca in rubrica Google**: implementata il 29/07/2026 e provata con Google Identity e
+15. **Ricerca in rubrica Google**: implementata il 29/07/2026 e provata con Google Identity e
     People API sostituiti da finti nel browser (pulizia dei nomi, selezione multipla, riempimento
     righe, creazione dei referenti). **La ricerca vera non è mai stata eseguita**: il consenso
     Google richiede un click in un browser reale, con un account fra i test user
