@@ -916,17 +916,40 @@ lo mostra come badge «partita di giro».
 > costo. Due app che chiamano in due modi la stessa voce di conto economico sono un modo garantito
 > di far litigare due numeri identici.
 
-### Finance e Budgets classificano due volte, non una
+### Chi classifica è Finance; qui si scrivono le regole
 
-**Le due app non condividono un risultato: condividono le regole.** Finance salva la categoria
-**sul singolo movimento** quando si preme «Applica le regole di Budgets»; Budgets **la ricalcola
-ogni volta** leggendo `/api/spese` e riapplicando le stesse regole. Conseguenza da tenere a mente:
-la categoria salvata in Finance è una **fotografia**, quella di Budgets è **live**. Scrivendo una
-regola nuova, il conto economico cambia subito e Finance no, finché non si ripreme il bottone.
+**Deciso dall'utente il 31/07/2026**: «Finance importa le regole di Budgets e poi sarà Finance a
+classificarle, anche con l'uso dell'AI». Quindi il lavoro è diviso così:
 
-Confrontate voce per voce sul 2026 (1.663 controparti): **1.476 uguali, zero in disaccordo**. Non
-esiste una controparte su cui le due app dicano due categorie diverse — il che è il punto: la fonte
-delle regole è una sola.
+| | Chi comanda |
+| --- | --- |
+| l'**elenco** delle categorie (nome, voce di P&L, voce di bilancio, quota partner) | **Budgets** |
+| le **regole** controparte → categoria | **Budgets** (si scrivono nel CFO) |
+| la **categoria del singolo movimento** | **Finance** — applica le regole, l'AI, e la mano |
+
+Fino a quel giorno `ricostruisci()` **ricalcolava tutto** dalle proprie regole e buttava via la
+categoria che Finance le mandava già dentro `/api/spese`: due calcoli sulla stessa spesa, e una
+categoria cambiata a mano in Finance che non arrivava mai al conto economico. Ora vale quella di
+Finance; le regole di qui si applicano **solo dove Finance non ha ancora niente**.
+
+`/api/spese` di Finance manda ora, per ogni controparte, le sue categorie con **id**, **importo** e
+**dodici mesi** ciascuna: una controparte usata per spese di natura diversa si **divide** fra le sue
+voci invece di finire tutta nella prima. L'`id` evita che una rinomina faccia divergere le due app
+in silenzio.
+
+> ⚠️ **Conseguenza voluta, e va saputa: scrivere una regola qui non cambia più il conto economico
+> da solo.** La categoria di Finance è una **fotografia**, scattata quando si preme «Applica le
+> regole di Budgets». Finché quella passata non si rifà, la regola nuova non si vede. Prima era il
+> contrario — Budgets live, Finance ferma — ed è quello che faceva divergere le due app. È scritto
+> in cima al CFO, altrimenti sembra rotto.
+
+**Quanto è costato il passaggio, misurato prima di farlo**: sul 2026 si muovono **1.000 €** (COGS
++1.000, esclusa −1.000) e sul 2025 **700 €** (personale +700, COGS −700). I mille euro del 2026 sono
+il pagamento PayPal del 29/07 che era stato assegnato a mano in Finance a «Consegne (valet e
+corrieri)» e che il conto economico **non vedeva**: adesso lo vede. Tutto il resto è invariato,
+perché le due app usavano già le stesse regole.
+
+Confrontate voce per voce sul 2026 (1.663 controparti): **1.476 uguali, zero in disaccordo**.
 
 > ⚠️ **Le 46 che Budgets classificava e Finance no non erano un problema di regole, ma di spazi**
 > (31/07/2026). **2.411 delle 2.500 regole sono a match esatto**, e un match esatto contro

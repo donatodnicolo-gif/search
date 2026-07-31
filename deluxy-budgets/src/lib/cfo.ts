@@ -175,23 +175,96 @@ export type RigaCategoria = {
   controparti: { controparte: string; uscite: number; perMese: number[]; daRegola: boolean }[];
 };
 
-// Raggruppa gli addebiti per categoria applicando le regole.
+// Raggruppa gli addebiti per categoria.
+//
+// ⭐ **CHI CLASSIFICA È FINANCE** (31/07/2026, decisione dell'utente: «Finance
+// importa le regole di Budgets e poi sarà Finance a classificarle, anche con
+// l'uso dell'AI»). Prima questa funzione **ricalcolava tutto** dalle regole e
+// buttava via la categoria che Finance le mandava già dentro `/api/spese`: due
+// calcoli sulla stessa spesa, e una categoria cambiata a mano — o dall'AI — in
+// Finance che non arrivava mai al conto economico. Adesso:
+//
+//  1. se Finance ha classificato quella controparte, **vale quella**, divisa per
+//     categoria con i suoi importi (una controparte può aver pagato cose di
+//     natura diversa, e va spezzata invece di finire tutta nella prima);
+//  2. solo dove Finance non ha ancora niente si applicano le **regole** di
+//     Budgets, che restano scritte qui e da qui Finance le importa.
+//
+// Conseguenza da sapere, ed è voluta: la categoria di Finance è una
+// **fotografia**, scattata quando si preme «Applica le regole». Scrivendo una
+// regola nuova qui, il conto economico **non cambia** finché quella fotografia
+// non viene rifatta. Prima era il contrario, e il contrario è quello che faceva
+// divergere le due app.
 export function ricostruisci(controparti: SpesaControparte[], categorie: Categoria[]): RigaCategoria[] {
   const perCat = new Map<string, RigaCategoria>();
   const chiave = (c: Categoria | null) => c?.id ?? "__none__";
+  const perId = new Map(categorie.map((c) => [c.id, c]));
+  const perNome = new Map(categorie.map((c) => [c.nome.toLowerCase(), c]));
 
-  for (const s of controparti) {
-    const { categoria: cat, daRegola } = abbina(s.controparte, categorie);
+  const aggiungi = (
+    cat: Categoria | null,
+    daRegola: boolean,
+    pezzo: { controparte: string; uscite: number; movimenti: number; perMese: number[] }
+  ) => {
     const k = chiave(cat);
     const r: RigaCategoria =
       perCat.get(k) ??
       { categoria: cat, uscite: 0, movimenti: 0, perMese: Array(12).fill(0), residuo: 0, controparti: [] };
-    r.uscite += s.uscite;
-    r.movimenti += s.movimenti;
-    if (!daRegola) r.residuo += s.uscite;
-    for (let i = 0; i < 12; i++) r.perMese[i] += s.perMese[i] ?? 0;
-    r.controparti.push({ controparte: s.controparte, uscite: s.uscite, perMese: s.perMese, daRegola });
+    r.uscite += pezzo.uscite;
+    r.movimenti += pezzo.movimenti;
+    if (!daRegola) r.residuo += pezzo.uscite;
+    for (let i = 0; i < 12; i++) r.perMese[i] += pezzo.perMese[i] ?? 0;
+    r.controparti.push({ controparte: pezzo.controparte, uscite: pezzo.uscite, perMese: pezzo.perMese, daRegola });
     perCat.set(k, r);
+  };
+
+  for (const s of controparti) {
+    // La categoria di Budgets che corrisponde a quella scritta da Finance:
+    // prima per **id** (una rinomina non deve far divergere niente in silenzio),
+    // poi per nome, che è tutto quello che c'era prima del 31/07/2026.
+    const daFinance = (s.categorie ?? [])
+      .map((c) => ({
+        cat: (c.id ? perId.get(c.id) : undefined) ?? perNome.get(c.nome.toLowerCase()) ?? null,
+        uscite: c.uscite,
+        perMese: c.perMese,
+      }))
+      .filter((x) => x.cat !== null);
+
+    if (daFinance.length === 0) {
+      // Finance non ha ancora classificato: valgono le regole di Budgets.
+      const { categoria, daRegola } = abbina(s.controparte, categorie);
+      aggiungi(categoria, daRegola, {
+        controparte: s.controparte,
+        uscite: s.uscite,
+        movimenti: s.movimenti,
+        perMese: s.perMese,
+      });
+      continue;
+    }
+
+    // Con gli importi per categoria la controparte si divide; senza (Finance
+    // non ancora aggiornato) si attribuisce tutto alla prima, che è quello che
+    // succedeva comunque prima.
+    const conImporti = daFinance.every((x) => typeof x.uscite === "number");
+    if (!conImporti || daFinance.length === 1) {
+      aggiungi(daFinance[0].cat, true, {
+        controparte: s.controparte,
+        uscite: s.uscite,
+        movimenti: s.movimenti,
+        perMese: s.perMese,
+      });
+      continue;
+    }
+    for (const x of daFinance) {
+      aggiungi(x.cat, true, {
+        controparte: s.controparte,
+        uscite: x.uscite ?? 0,
+        // I movimenti non si sanno per categoria: si contano una volta sola,
+        // sulla prima, invece di moltiplicarli per il numero di voci.
+        movimenti: x === daFinance[0] ? s.movimenti : 0,
+        perMese: x.perMese ?? Array(12).fill(0),
+      });
+    }
   }
 
   // controparti dalla più costosa; categorie per ordine configurato, non

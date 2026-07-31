@@ -35,6 +35,16 @@ export default async function CfoPage({
             struttura dei costi e la si confronta con il P&amp;L. Le regole imparano una volta e valgono
             per sempre.
           </p>
+          {/* Chi classifica è Finance (decisione del 31/07/2026). Va scritto
+              proprio qui, perché è qui che si creano le regole e ci si aspetta
+              di veder cambiare i numeri subito: adesso non cambiano finché
+              Finance non rifà la sua passata. Senza questa riga sembra rotto. */}
+          <p className="page-caption" style={{ marginTop: 6 }}>
+            <strong>La categoria di ogni movimento la decide Finance</strong>, che importa queste regole e le
+            applica (anche con l&apos;AI). Qui le regole si <em>scrivono</em>: una regola nuova entra nel conto
+            economico <strong>quando Finance rifà la sua passata</strong> — «Applica le regole di Budgets», nella
+            sua pagina Spese. Dove Finance non ha ancora classificato, valgono le regole di qui.
+          </p>
         </div>
         <div className="page-actions">
           <div className="seg">

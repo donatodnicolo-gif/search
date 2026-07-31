@@ -60,7 +60,7 @@ export async function GET(req: NextRequest) {
       importo: { lt: 0 }, // solo uscite
       ...(includiIgnorate ? {} : { stato: { not: "ignorata" } }),
     },
-    select: { data: true, importo: true, descrizione: true, controparte: true, categoriaNome: true, categoriaTipoPL: true },
+    select: { data: true, importo: true, descrizione: true, controparte: true, categoriaId: true, categoriaNome: true, categoriaTipoPL: true },
   });
 
   // ---- Dettaglio di una sola controparte: i movimenti, non la somma ----
@@ -95,17 +95,39 @@ export async function GET(req: NextRequest) {
   // aggregazione per controparte (fallback: descrizione)
   const perContro = new Map<
     string,
-    { controparte: string; uscite: number; movimenti: number; perMese: number[]; categorie: Map<string, string> }
+    {
+      controparte: string;
+      uscite: number;
+      movimenti: number;
+      perMese: number[];
+      categorie: Map<string, { id: string | null; tipoPL: string; uscite: number; perMese: number[] }>;
+    }
   >();
   for (const m of movimenti) {
     const k = (m.controparte?.trim() || m.descrizione?.trim() || "Senza controparte").slice(0, 120);
-    const e = perContro.get(k) ?? { controparte: k, uscite: 0, movimenti: 0, perMese: Array(12).fill(0), categorie: new Map<string, string>() };
+    const e = perContro.get(k) ?? { controparte: k, uscite: 0, movimenti: 0, perMese: Array(12).fill(0), categorie: new Map() };
+    const uscita = Math.abs(m.importo);
+    const meseIdx = m.data.getUTCMonth();
     // Categoria di costo assegnata in Finance (elenco di Budgets). Si raccolgono
     // TUTTE quelle viste per la stessa controparte: se sono piu' di una, chi
     // legge deve saperlo invece di ricevere la prima a caso.
-    if (m.categoriaNome) e.categorie.set(m.categoriaNome, m.categoriaTipoPL ?? "STRUTTURA");
-    const uscita = Math.abs(m.importo);
-    const meseIdx = m.data.getUTCMonth();
+    //
+    // **Con l'importo e i dodici mesi di ciascuna** (31/07/2026): da quando la
+    // classificazione la decide Finance, Budgets ci costruisce sopra il conto
+    // economico, e una controparte usata per spese di natura diversa va
+    // **divisa** fra le sue voci. Senza gli importi si potrebbe solo prendere
+    // la prima e attribuirle tutto.
+    if (m.categoriaNome) {
+      const c = e.categorie.get(m.categoriaNome) ?? {
+        id: m.categoriaId ?? null,
+        tipoPL: m.categoriaTipoPL ?? "STRUTTURA",
+        uscite: 0,
+        perMese: Array(12).fill(0) as number[],
+      };
+      c.uscite += uscita;
+      c.perMese[meseIdx] += uscita;
+      e.categorie.set(m.categoriaNome, c);
+    }
     e.uscite += uscita;
     e.movimenti += 1;
     e.perMese[meseIdx] += uscita;
@@ -123,7 +145,15 @@ export async function GET(req: NextRequest) {
       perMese: x.perMese.map((v) => +v.toFixed(2)),
       // null = nessuna categoria assegnata; piu' voci = controparte usata per
       // spese di natura diversa, da guardare prima di sommarla a un totale.
-      categorie: [...x.categorie.entries()].map(([nome, tipoPL]) => ({ nome, tipoPL })),
+      categorie: [...x.categorie.entries()].map(([nome, c]) => ({
+        // `id` e' quello della categoria in Budgets: permette di agganciarla
+        // senza passare dal nome, che una rinomina fa divergere in silenzio.
+        id: c.id,
+        nome,
+        tipoPL: c.tipoPL,
+        uscite: +c.uscite.toFixed(2),
+        perMese: c.perMese.map((v) => +v.toFixed(2)),
+      })),
     }));
 
   const etichettaPeriodo = mese

@@ -51,6 +51,15 @@ export type SpesaControparte = {
   movimenti: number;
   quota: number;
   perMese: number[]; // 12 valori
+  // **La classificazione decisa in Finance** (31/07/2026, decisione dell'utente:
+  // «Finance importa le regole di Budgets e poi sarà Finance a classificarle,
+  // anche con l'uso dell'AI»). Prima Budgets riceveva questo campo e lo
+  // **ignorava**, ricalcolando tutto dalle proprie regole: due conti sulla
+  // stessa spesa, e una categoria cambiata a mano in Finance che non arrivava
+  // mai al conto economico. Ogni voce porta il proprio importo e i propri dodici
+  // mesi, così una controparte usata per spese di natura diversa si **divide**
+  // fra le sue voci invece di finire tutta nella prima.
+  categorie?: { id?: string | null; nome: string; tipoPL: string; uscite?: number; perMese?: number[] }[];
 };
 
 export type SpeseBanca = {
