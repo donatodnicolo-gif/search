@@ -201,7 +201,7 @@ export function richiestaRifacibile(stato: string | null | undefined): boolean {
 }
 
 export const STATI_RICHIESTA: Record<string, { label: string; badge: string }> = {
-  in_attesa: { label: "In attesa di firma", badge: "orange" },
+  in_attesa: { label: "Pagamento in attesa", badge: "orange" },
   sospesa: { label: "Sospesa", badge: "orange" },
   approvata: { label: "Approvata", badge: "blue" },
   in_lotto: { label: "In distinta SEPA", badge: "blue" },
@@ -209,3 +209,11 @@ export const STATI_RICHIESTA: Record<string, { label: string; badge: string }> =
   rifiutata: { label: "Rifiutata", badge: "red" },
   annullata: { label: "Annullata", badge: "neutral" },
 };
+
+/** Etichetta da mostrare per una richiesta già inviata. Se Transactions
+ *  restituisce uno stato che non conosciamo, meglio dire «Pagamento in attesa»
+ *  che stampare la sigla grezza: la richiesta è comunque partita e non va
+ *  rifatta. */
+export function etichettaRichiesta(stato: string | null | undefined) {
+  return STATI_RICHIESTA[stato ?? ""] ?? { label: "Pagamento in attesa", badge: "orange" };
+}

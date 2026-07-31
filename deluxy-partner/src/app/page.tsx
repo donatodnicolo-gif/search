@@ -5,7 +5,8 @@ import { euro, dataIt } from "@/lib/format";
 import { nomeMese, ivato, residuoFattura, parzialmenteIncassata } from "@/lib/calc";
 import { registraBonifico, segnaFatturaPagata } from "@/lib/actions";
 import { richiediPagamento } from "@/lib/pagamenti-partner-actions";
-import { transactionsConfigurato, STATI_RICHIESTA, richiestaRifacibile } from "@/lib/transactions";
+import { transactionsConfigurato, etichettaRichiesta, richiestaRifacibile } from "@/lib/transactions";
+import { BottoneInvio } from "@/components/BottoneInvio";
 
 export const dynamic = "force-dynamic";
 
@@ -199,22 +200,27 @@ export default async function Dashboard({
                             )}
                             style={{ display: "inline" }}
                           >
-                            <button
+                            {/* si blocca mentre parte, così un doppio clic non
+                                manda due richieste */}
+                            <BottoneInvio
                               className="btn small primary"
-                              type="submit"
+                              inCorso="Invio…"
                               title={`Avvia il pagamento di ${euro(x.r.daBonificare)} a ${x.partner.nome} su Deluxy Transactions. NON esce denaro adesso: la richiesta va autorizzata da una persona dentro Transactions.`}
                             >
                               Paga
-                            </button>
+                            </BottoneInvio>
                           </form>
                         )}
+                        {/* Richiesta già partita: niente più bottone, solo lo
+                            stato. Si ritorna cliccabile solo se annullata o
+                            rifiutata (vedi richiestaRifacibile). */}
                         {x.saldo?.richiestaRif && !richiestaRifacibile(x.saldo.richiestaStato) && (
                           <span
-                            className={`badge ${STATI_RICHIESTA[x.saldo.richiestaStato ?? ""]?.badge ?? "neutral"}`}
-                            title={`Richiesta ${x.saldo.richiestaRif} inviata a Deluxy Transactions`}
+                            className={`badge ${etichettaRichiesta(x.saldo.richiestaStato).badge}`}
+                            title={`Richiesta ${x.saldo.richiestaRif} inviata a Deluxy Transactions — il pagamento va autorizzato lì`}
                           >
                             <span className="dot" />
-                            {STATI_RICHIESTA[x.saldo.richiestaStato ?? ""]?.label ?? x.saldo.richiestaStato}
+                            {etichettaRichiesta(x.saldo.richiestaStato).label}
                           </span>
                         )}
                       </span>

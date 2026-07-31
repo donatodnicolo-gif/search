@@ -1,7 +1,8 @@
 import { euro, dataIt } from "@/lib/format";
 import { registraPagamentoMese, azzeraPagamentoMese, salvaNoteMese } from "@/lib/actions";
 import { richiediPagamento } from "@/lib/pagamenti-partner-actions";
-import { STATI_RICHIESTA, richiestaRifacibile } from "@/lib/transactions";
+import { etichettaRichiesta, richiestaRifacibile } from "@/lib/transactions";
+import { BottoneInvio } from "./BottoneInvio";
 
 // Footer del blocco mese nella scheda partner.
 // Mostra SOLO ciò che serve: un riquadro "Da pagare al partner" se c'è un
@@ -80,16 +81,16 @@ export function PagamentoMese({
         {daBonificare >= 0.01 && trxAttiva && (!richiestaRif || richiestaRifacibile(richiestaStato)) && (
           <form action={richiedi} className="pay-group">
             <span className="pay-title" style={{ color: "var(--blue)" }}>Chiedi a Transactions</span>
-            <button className="btn small primary" type="submit" title="Avvia il pagamento del residuo del mese su Deluxy Transactions. NON esce denaro adesso: la richiesta va autorizzata da una persona.">
+            <BottoneInvio className="btn small primary" inCorso="Invio…" title="Avvia il pagamento del residuo del mese su Deluxy Transactions. NON esce denaro adesso: la richiesta va autorizzata da una persona.">
               Paga
-            </button>
+            </BottoneInvio>
           </form>
         )}
         {richiestaRif && !richiestaRifacibile(richiestaStato) && (
           <span className="pay-group" style={{ alignItems: "center" }}>
             <span className="pay-title">Richiesta a Transactions</span>
-            <span className={`badge ${STATI_RICHIESTA[richiestaStato ?? ""]?.badge ?? "neutral"}`} title={richiestaRif}>
-              <span className="dot" />{STATI_RICHIESTA[richiestaStato ?? ""]?.label ?? richiestaStato}
+            <span className={`badge ${etichettaRichiesta(richiestaStato).badge}`} title={`${richiestaRif} — il pagamento va autorizzato in Transactions`}>
+              <span className="dot" />{etichettaRichiesta(richiestaStato).label}
             </span>
           </span>
         )}
