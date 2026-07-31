@@ -24,11 +24,14 @@ function Tendina({ valore, categorie }: { valore: string; categorie: CategoriaCo
       style={{ fontSize: 12.5, padding: "4px 8px", maxWidth: 230 }}
     >
       <option value="">— senza categoria —</option>
-      {categorie.map((c) => (
-        <option key={c.id} value={c.id}>
-          {c.nome}
-        </option>
-      ))}
+      {/* in ordine alfabetico: si cerca a colpo d'occhio scorrendo i nomi */}
+      {[...categorie]
+        .sort((a, b) => a.nome.localeCompare(b.nome, "it", { sensitivity: "base" }))
+        .map((c) => (
+          <option key={c.id} value={c.id}>
+            {c.nome}
+          </option>
+        ))}
     </select>
   );
 }

@@ -70,7 +70,8 @@ export default async function SpesePage({
     m.set(k, r);
     return m;
   }, new Map<string, { nome: string; tipoPL: string; importo: number; n: number }>()).values()]
-    .sort((a, b) => b.importo - a.importo);
+    // in ordine alfabetico: si cerca una categoria per nome, non per quanto pesa
+    .sort((a, b) => a.nome.localeCompare(b.nome, "it", { sensitivity: "base" }));
 
   const perTipo = [...conCat.reduce((m, t) => {
     const k = t.categoriaTipoPL ?? "STRUTTURA";
@@ -241,7 +242,9 @@ export default async function SpesePage({
           </select>
           <select name="cat" defaultValue={sp.cat ?? ""}>
             <option value="">Tutte le categorie</option>
-            {categorie.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+            {[...categorie]
+              .sort((a, b) => a.nome.localeCompare(b.nome, "it", { sensitivity: "base" }))
+              .map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
           </select>
           <select name="solo" defaultValue={sp.solo ?? ""}>
             <option value="">Tutte le uscite</option>

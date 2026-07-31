@@ -153,6 +153,13 @@ const sections: { label: string; items: Item[] }[] = [
       { href: "/transazioni", label: "Import transazioni", icon: icons.transazioni },
       { href: "/spese", label: "Spese per categoria", icon: icons.analisi },
       { href: "/scadenzario", label: "Scadenzario", icon: icons.scadenze },
+    ],
+  },
+  {
+    // Le viste che servono a capire l'andamento, separate dalle pagine dove si
+    // registra qualcosa: qui non si tocca nessun dato, si legge e si confronta.
+    label: "Analisi",
+    items: [
       { href: "/report", label: "Report", icon: icons.report },
       { href: "/analisi", label: "Analisi finanziaria", icon: icons.analisi },
       { href: "/confronti", label: "Confronti", icon: icons.confronti },
