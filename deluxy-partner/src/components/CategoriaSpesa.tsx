@@ -10,8 +10,24 @@ import type { CategoriaCosto } from "@/lib/categorie-spesa";
 // controllato: senza, dopo il salvataggio continuerebbe a mostrare la scelta
 // precedente mentre la riga è già cambiata.
 
+// **Cosa ci va dentro**, con le parole di Budgets. È qui che serve: assegnare a
+// mano si fa davanti al movimento, e finché la tendina mostrava solo i nomi si
+// finiva per indovinare — cioè per mettere la stessa spesa oggi in una
+// categoria e domani in un'altra. Il primo pezzo è la cosa più importante che
+// Budgets sa e Finance non diceva: che quella categoria non è un costo.
+function aiuto(c: CategoriaCosto): string | undefined {
+  const pezzi = [
+    c.quotaPartner
+      ? "PARTITA DI GIRO: non è un costo, è la quota del partner che ha eseguito l'ordine."
+      : null,
+    c.descrizione ?? null,
+  ].filter(Boolean);
+  return pezzi.length ? pezzi.join(" ") : undefined;
+}
+
 function Tendina({ valore, categorie }: { valore: string; categorie: CategoriaCosto[] }) {
   const { pending } = useFormStatus();
+  const scelta = categorie.find((c) => c.id === valore);
   return (
     <select
       name="categoria"
@@ -20,6 +36,7 @@ function Tendina({ valore, categorie }: { valore: string; categorie: CategoriaCo
       disabled={pending}
       aria-busy={pending}
       aria-label="Categoria di costo"
+      title={scelta ? aiuto(scelta) : undefined}
       onChange={(e) => e.currentTarget.form?.requestSubmit()}
       style={{ fontSize: 12.5, padding: "4px 8px", maxWidth: 230 }}
     >
@@ -28,8 +45,8 @@ function Tendina({ valore, categorie }: { valore: string; categorie: CategoriaCo
       {[...categorie]
         .sort((a, b) => a.nome.localeCompare(b.nome, "it", { sensitivity: "base" }))
         .map((c) => (
-          <option key={c.id} value={c.id}>
-            {c.nome}
+          <option key={c.id} value={c.id} title={aiuto(c)}>
+            {c.quotaPartner ? `${c.nome} ⇄` : c.nome}
           </option>
         ))}
     </select>

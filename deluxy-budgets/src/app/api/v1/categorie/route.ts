@@ -58,6 +58,16 @@ export async function GET(req: NextRequest) {
       nome: c.nome,
       tipoPL: c.tipoPL,
       voceCE: c.voceCE,
+      // **Cosa ci va dentro e cosa no** (31/07/2026). Chi assegna una spesa a
+      // mano lo fa quasi sempre in Finance, davanti al movimento — cioè
+      // nell'unico posto dove questa riga non arrivava. Il nome da solo fa
+      // indovinare, e indovinare vuol dire mettere la stessa spesa oggi in una
+      // categoria e domani in un'altra.
+      descrizione: c.descrizione,
+      // **Questa categoria non è un costo: è denaro dei partner** (modello C).
+      // È il campo che cambia di più la lettura di un movimento — un bonifico a
+      // un fioraio non è una spesa, è la sua quota — e Finance non ce l'aveva.
+      quotaPartner: c.quotaPartner,
       colore: c.colore,
       ordine: c.ordine,
       ...(conRegole && "regole" in c

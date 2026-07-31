@@ -899,6 +899,23 @@ nell'header, confronta trimmato e risponde **503** se la chiave non è configura
 | GET | `/api/v1/maison` | i **budget per maison**, per Marketing (`?anno`, `?livello`, `?maison`) |
 | GET | `/api/v1/team` | **squadre e persone**, per il Hub (`?anno`, `?compensi=1`) |
 
+**`/api/v1/categorie` non manda più solo i nomi** (31/07/2026). Insieme a `tipoPL` e `voceCE`
+viaggiano ora anche **`descrizione`** — *cosa ci va dentro e cosa no* — e **`quotaPartner`**, due
+campi aggiuntivi che non cambiano il contratto. Servono dove si assegna davvero a mano, cioè in
+**Finance davanti al movimento**: con i soli nomi si finisce per indovinare, e indovinare vuol dire
+mettere la stessa spesa oggi in una categoria e domani in un'altra.
+
+`quotaPartner` è quello che cambia di più la lettura di una riga: un bonifico a un fioraio che ha
+eseguito un ordine ecommerce **non è una spesa**, è la sua quota — nei ricavi c'è già solo la parte
+che resta a Deluxy, e contarlo anche fra i costi toglierebbe due volte lo stesso denaro. Finance ora
+lo mostra come badge «partita di giro».
+
+> **Le etichette delle voci di P&L devono essere le stesse nelle due app.** In Finance c'era ancora
+> «Costo del venduto», che qui è stato rinominato **«Costo per servizi (valet)»** il 26/07/2026
+> proprio perché era sbagliato — se la quota del partner è già tolta dai ricavi non è *anche* un
+> costo. Due app che chiamano in due modi la stessa voce di conto economico sono un modo garantito
+> di far litigare due numeri identici.
+
 **`/api/v1/maison` nasce per Marketing**, che deve sapere due cose che vivono solo qui: quanto una
 maison deve vendere in un mese e **quanto può spendere in ADV** in quel mese. Senza, Marketing
 terrebbe una copia dei budget — e due copie che divergono fanno decidere le campagne su numeri

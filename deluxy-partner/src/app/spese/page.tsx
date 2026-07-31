@@ -199,8 +199,10 @@ export default async function SpesePage({
               </table>
             </div>
             <p className="muted" style={{ fontSize: 12, padding: "10px 20px", margin: 0 }}>
-              «Fuori dal margine» sono banca e tasse: non sono costi di gestione e restano fuori dal margine —
-              non vuol dire che siano spese da ignorare.
+              «Fuori dal conto economico» sono banca, tasse e la <strong>quota dei partner</strong>: non vuol dire
+              spese da ignorare. La quota in particolare <strong>non è un costo</strong> — sull&apos;ecommerce Deluxy
+              fa l&apos;intermediario, il partner che esegue documenta la vendita, e nei ricavi c&apos;è già solo la
+              parte che resta a noi. Contarla anche fra i costi toglierebbe due volte lo stesso denaro.
             </p>
           </div>
         </>
@@ -213,17 +215,41 @@ export default async function SpesePage({
             <div className="table-wrap">
               <table>
                 <thead>
-                  <tr><th>Categoria</th><th>Voce di P&amp;L</th><th className="num">Movimenti</th><th className="num">Uscite</th></tr>
+                  <tr><th>Categoria</th><th>Voce di P&amp;L</th><th>In bilancio</th><th className="num">Movimenti</th><th className="num">Uscite</th></tr>
                 </thead>
                 <tbody>
-                  {perCategoria.map((c) => (
-                    <tr key={c.nome}>
-                      <td style={{ fontWeight: 500 }}>{c.nome}</td>
-                      <td style={{ fontSize: 12.5, color: "var(--text-secondary)" }}>{TIPI_PL[c.tipoPL]?.label ?? c.tipoPL}</td>
-                      <td className="num">{c.n}</td>
-                      <td className="num">{euro(c.importo)}</td>
-                    </tr>
-                  ))}
+                  {perCategoria.map((c) => {
+                    // La scheda della categoria come la tiene Budgets: cosa ci va
+                    // dentro, dove finisce in bilancio, e soprattutto se è una
+                    // **partita di giro**. Il nome da solo fa indovinare, e qui
+                    // davanti ai movimenti è dove si assegna a mano.
+                    const b = categorie.find((x) => x.nome === c.nome);
+                    return (
+                      <tr key={c.nome}>
+                        <td style={{ fontWeight: 500 }}>
+                          {c.nome}
+                          {b?.quotaPartner && (
+                            <span className="badge gold" style={{ marginLeft: 8 }}>
+                              <span className="dot" />partita di giro
+                            </span>
+                          )}
+                          {b?.descrizione && (
+                            <div style={{ fontSize: 11.5, color: "var(--text-secondary)", fontWeight: 400, marginTop: 2, maxWidth: 460 }}>
+                              {b.descrizione}
+                            </div>
+                          )}
+                        </td>
+                        <td style={{ fontSize: 12.5, color: "var(--text-secondary)" }}>{TIPI_PL[c.tipoPL]?.label ?? c.tipoPL}</td>
+                        <td style={{ fontSize: 12.5, color: "var(--text-secondary)" }}>
+                          {b?.voceCE ?? (
+                            <span title="Nessuno l'ha ancora decisa in Budgets: vale quella dedotta dalla voce di P&L">dedotta</span>
+                          )}
+                        </td>
+                        <td className="num">{c.n}</td>
+                        <td className="num">{euro(c.importo)}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

@@ -15,20 +15,38 @@ export type CategoriaCosto = {
   id: string;
   nome: string;
   tipoPL: string;
+  // La stessa categoria vista dal **bilancio civilistico** (B6, B7, B9, B14…).
+  // `null` = nessuno l'ha ancora decisa in Budgets.
+  voceCE?: string | null;
+  // **Cosa ci va dentro e cosa no.** Arriva da Budgets ed è la riga che evita di
+  // indovinare: qui davanti al movimento è dove si assegna davvero a mano.
+  descrizione?: string | null;
+  // **Non è un costo: è denaro dei partner** (modello C). Un bonifico a un
+  // fioraio che ha eseguito un ordine ecommerce è la sua quota, non una spesa
+  // di Deluxy — nei ricavi c'è già solo la parte che resta a noi. Contarlo come
+  // costo toglierebbe due volte lo stesso denaro.
+  quotaPartner?: boolean;
   colore: string | null;
   ordine: number;
   regole?: { match: string; esatto: boolean }[];
 };
 
+// ⚠️ **Le etichette devono dire quello che dicono in Budgets.** Qui c'era
+// «Costo del venduto», che in Budgets è stato rinominato il 26/07/2026 proprio
+// perché era sbagliato: se la quota del partner è già tolta dai ricavi non è
+// *anche* un costo, e quella voce è quanto si paga ai valet per la consegna.
+// Due app che chiamano in due modi la stessa voce di conto economico sono un
+// modo garantito di far litigare due numeri identici.
 export const TIPI_PL: Record<string, { label: string; badge: string }> = {
-  COGS: { label: "Costo del venduto", badge: "orange" },
+  COGS: { label: "Costo per servizi (valet)", badge: "orange" },
   ADV: { label: "Marketing e ADV", badge: "purple" },
   PERSONALE: { label: "Personale", badge: "blue" },
   STRUTTURA: { label: "Struttura", badge: "neutral" },
   // «ESCLUSA» non vuol dire «da ignorare»: vuol dire che non è un costo di
-  // gestione (banca, tasse) e resta fuori dal margine. Scritto male, qualcuno
-  // ci metterebbe dentro le spese che non ha voglia di classificare.
-  ESCLUSA: { label: "Fuori dal margine", badge: "gold" },
+  // gestione (banca, tasse, quota dei partner) e resta fuori dal conto
+  // economico. Scritto male, qualcuno ci metterebbe dentro le spese che non ha
+  // voglia di classificare.
+  ESCLUSA: { label: "Fuori dal conto economico", badge: "gold" },
 };
 
 function baseUrl(): string {
