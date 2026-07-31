@@ -103,6 +103,12 @@ porta **3120**. Design system Deluxy v1.0.
   - `ordinaProdotti()` estratta in [ordinamento-vetrina.ts](../src/lib/ordinamento-vetrina.ts): la usano sia l'ordine dentro una collezione sia l'anteprima della tipologia — una funzione sola, altrimenti lo stesso concetto ordinerebbe in due modi.
   - **Verificato su dati veri**: «Lusso» = fasce Luxury+Eccezionale → **209 prodotti**, identico alla controprova indipendente (`prezzoVendita >= 400`); criteri descritti «fascia Luxury o Eccezionale»; con priorità «Più fatturato → Prezzo alto» l'ordine è passato dall'alfabetico ai prodotti che hanno fatturato di più. Tipologia di prova poi rimossa.
 
+- **30/07/2026 — `/visual` dice a colpo d'occhio cosa sono e quanto vendono le collezioni**. Da griglia di card a **tabella ordinabile**: per ogni collezione le caratteristiche in pillole (**In vetrina / Non in vetrina**, Manuale/Automatica, Sospesa, tipologia, in campagne, altre posizioni, «da sincronizzare»), i **prodotti**, il **venduto 90gg** e la **quota %**, più la data di ultima modifica sul negozio.
+  - **La vetrina si accende dalla riga** (bollino ★/☆, `cambiaVetrina` in `azioni-collezioni-shopify.ts`): «vetrina» è una delle `posizioni` già esistenti — non un flag nuovo, altrimenti la stessa cosa sarebbe scritta in due punti che possono contraddirsi. Vederlo senza poterlo cambiare sarebbe stata mezza risposta: al 30/07/2026 **nessuna collezione era segnata**, quindi il badge avrebbe detto «no» per sempre.
+  - **Ordinamenti**: più vendute · ultima modifica sul negozio · più prodotti · nome · prima quelle in vetrina. **«Novità» non c'è, di proposito**: Shopify non espone una data di creazione per le collezioni e la nostra `creataIl` è il momento dell'import (343 valori a millisecondi di distanza) — ordinarci sopra darebbe una classifica che sembra vera e non lo è. È scritto in pagina.
+  - **Trappola evitata**: sommando il venduto delle collezioni veniva **3.141.052 €** contro i 229.280 € reali del periodo, perché un prodotto sta in molte collezioni e il suo incasso si contava più volte. Ora il totale è il **venduto vero** (`229.280,42 €`, verificato con una controprova indipendente) e la quota dice «quanta parte del venduto passa da questa collezione»; in pagina è scritto che **le quote non sommano a 100%**.
+  - Verificato in dev su dati veri: 343 collezioni, KPI corretti, toggle vetrina scritto e riletto, ordinamento «prima quelle in vetrina» che porta in testa quella segnata. Stato di prova poi ripristinato.
+
 ## COME AVVIARE
 ```
 cd deluxy-merchandising

@@ -27,6 +27,32 @@ export async function salvaProprietaCollezione(id: string, fd: FormData) {
 }
 
 /**
+ * Mette o toglie la collezione dalla **vetrina**, dal Visual merchandising.
+ *
+ * La vetrina è una delle «posizioni» (dove usiamo la collezione): si tiene
+ * insieme alle altre invece di avere un flag a parte, altrimenti la stessa cosa
+ * finirebbe scritta in due punti che possono dire il contrario. Le altre
+ * posizioni già impostate non si toccano.
+ */
+export async function cambiaVetrina(collezioneId: string) {
+  const c = await prisma.collezioneShopify.findUnique({
+    where: { id: collezioneId },
+    select: { posizioni: true },
+  });
+  if (!c) return;
+  const attuali = (c.posizioni ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+  const dentro = attuali.includes("vetrina");
+  const nuove = dentro ? attuali.filter((p) => p !== "vetrina") : [...attuali, "vetrina"];
+  await prisma.collezioneShopify.update({
+    where: { id: collezioneId },
+    data: { posizioni: nuove.join(",") || null },
+  });
+  revalidatePath("/visual");
+  revalidatePath(`/visual/${collezioneId}`);
+  revalidatePath("/collezioni");
+}
+
+/**
  * Elimina una collezione.
  *
  * Due gesti diversi, mai confusi:
