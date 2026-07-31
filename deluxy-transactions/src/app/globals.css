@@ -15,6 +15,12 @@ html, body {
 
 a { color: inherit; text-decoration: none; }
 
+/* L'altezza della barra in alto era ripetuta a mano (63px) in quattro punti:
+   bastava una riga di testo in più là dentro e sidebar, cassetto e sfondo si
+   agganciavano nel posto sbagliato. Ora è un valore solo, e la barra è alta
+   esattamente quello: il contenuto si adatta a lei, non il contrario. */
+:root { --h-topbar: 63px; }
+
 /* ---------- Barra superiore ---------- */
 .toggle-sidebar {
   display: inline-flex; align-items: center; justify-content: center;
@@ -31,12 +37,13 @@ a { color: inherit; text-decoration: none; }
 .topbar {
   position: sticky;
   top: 0;
-  z-index: 10;
+  z-index: 70; /* sopra il cassetto del menu, che le scorre sotto */
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 12px 24px;
+  height: var(--h-topbar);
+  padding: 0 24px;
   background: var(--surface-translucent);
   backdrop-filter: blur(24px) saturate(180%);
   -webkit-backdrop-filter: blur(24px) saturate(180%);
@@ -54,18 +61,28 @@ a { color: inherit; text-decoration: none; }
   display: flex; align-items: center; justify-content: center;
   flex: 0 0 auto;
 }
-.brand-name { font-weight: 600; font-size: 15px; letter-spacing: -0.01em; }
-.brand-sub { font-size: 12px; color: var(--text-secondary); }
-.topbar-azioni { display: flex; align-items: center; gap: 10px; }
+.brand-name { font-weight: 600; font-size: 15px; letter-spacing: -0.01em; white-space: nowrap; }
+.brand-sub { font-size: 12px; color: var(--text-secondary); white-space: nowrap; }
+.topbar-azioni { display: flex; align-items: center; gap: 10px; min-width: 0; }
+
+/* Chi è entrato. L'email sta sopra il nome perché è l'unica cosa che distingue
+   due account intestati alla stessa persona, e su quella differenza si decide
+   chi può far uscire denaro. */
+.topbar-identita { display: flex; flex-direction: column; line-height: 1.2; text-align: right; min-width: 0; }
+.topbar-identita .email {
+  font-size: 13px; color: var(--text-secondary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.topbar-identita .ruolo { font-size: 12px; color: var(--text-tertiary); white-space: nowrap; }
 
 /* ---------- Layout con sidebar ---------- */
-.layout { display: flex; align-items: flex-start; min-height: calc(100vh - 63px); }
+.layout { display: flex; align-items: flex-start; min-height: calc(100vh - var(--h-topbar)); }
 
 .sidebar {
   position: sticky;
-  top: 63px; /* altezza topbar */
+  top: var(--h-topbar);
   flex: 0 0 240px;
-  height: calc(100vh - 63px);
+  height: calc(100vh - var(--h-topbar));
   overflow-y: auto;
   padding: 20px 12px 24px;
   background: var(--surface-translucent);
@@ -114,10 +131,10 @@ a { color: inherit; text-decoration: none; }
 @media (max-width: 800px) {
   .sidebar {
     position: fixed;
-    top: 63px;
+    top: var(--h-topbar);
     left: 0;
     width: min(280px, 82vw);
-    height: calc(100vh - 63px);
+    height: calc(100vh - var(--h-topbar));
     z-index: 60;
     margin-left: 0;
     opacity: 1;
@@ -135,14 +152,18 @@ a { color: inherit; text-decoration: none; }
   [data-menu-aperto] .sfondo-menu {
     display: block;
     position: fixed;
-    inset: 63px 0 0 0;
+    inset: var(--h-topbar) 0 0 0;
     z-index: 55;
     background: rgba(0, 0, 0, 0.32);
   }
 
   .main { padding: 24px 16px 48px; }
-  .topbar { padding: 10px 14px; gap: 10px; }
-  .brand-sub { display: none; }
+  .topbar { padding: 0 12px; gap: 8px; }
+  /* Resta il logo: il nome per esteso mangiava la metà dello schermo e spingeva
+     «Esci» fuori dal bordo destro. */
+  .brand-name, .brand-sub { display: none; }
+  .topbar-identita .ruolo { display: none; }
+  .topbar-identita .email { max-width: 52vw; }
 }
 
 /* ---------- Contenuto ---------- */
@@ -392,20 +413,34 @@ th.num { text-align: right; }
 .campo-modulo select:focus,
 .campo-modulo textarea:focus { background: var(--surface); border-color: var(--hairline-strong); }
 .azioni-modulo { display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px; }
+/* I messaggi dicono cosa è andato storto con i soldi: devono leggersi, non
+   stare stretti. Interlinea larga, parole lunghe (IBAN, indirizzi, messaggi
+   della banca) che vanno a capo invece di sfondare il riquadro. */
+.avviso-errore,
+.avviso-ok,
+.avviso-attenzione {
+  padding: 12px 14px; margin-bottom: 14px;
+  border-radius: var(--radius-m);
+  font-size: 13.5px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
 .avviso-errore {
-  padding: 10px 14px; margin-bottom: 14px;
   background: rgba(215, 0, 21, 0.07);
   color: var(--red);
-  border-radius: var(--radius-m);
-  font-size: 13.5px;
 }
 .avviso-ok {
-  padding: 10px 14px; margin-bottom: 14px;
   background: rgba(36, 138, 61, 0.08);
   color: var(--green);
-  border-radius: var(--radius-m);
-  font-size: 13.5px;
 }
+/* Un motivo per riga: incollati in fila non si capisce quale controllo abbia
+   fermato quale pagamento. */
+.elenco-motivi {
+  margin: 8px 0 4px;
+  padding-left: 20px;
+  display: flex; flex-direction: column; gap: 7px;
+}
+.elenco-motivi li { list-style: disc; }
 @media (max-width: 800px) { .modulo { grid-template-columns: 1fr; } }
 
 /* Blocchi di un modulo lungo: un titolo e una frase spiegano il gruppo prima di
@@ -528,12 +563,10 @@ th.num { text-align: right; }
 }
 
 /* ---------- Avviso arancione (attenzione, non errore) ---------- */
+/* Il resto (padding, interlinea, a capo) sta con gli altri avvisi, più su. */
 .avviso-attenzione {
-  padding: 10px 14px; margin-bottom: 14px;
   background: rgba(201, 52, 0, 0.08);
   color: var(--orange);
-  border-radius: var(--radius-m);
-  font-size: 13.5px;
 }
 
 /* ---------- Riquadro della firma (approva / rifiuta) ---------- */

@@ -412,7 +412,13 @@ export async function scollegaPostaAzione(): Promise<void> {
 // Pagamento dalla banca (Qonto)
 // ---------------------------------------------------------------------------
 
-export async function pagaConQonto(_stato: unknown, fd: FormData): Promise<{ errore?: string; ok?: string }> {
+export type EsitoPagamentoUI = {
+  errore?: string;
+  ok?: string;
+  bloccate?: { riferimento: string; motivo: string }[];
+};
+
+export async function pagaConQonto(_stato: unknown, fd: FormData): Promise<EsitoPagamentoUI> {
   const operatore = await esigiOperatore();
   const id = testo(fd, "id");
   const esito = await pagaLottoConQonto(id, operatore, await ipRichiesta());
@@ -421,16 +427,16 @@ export async function pagaConQonto(_stato: unknown, fd: FormData): Promise<{ err
   revalidatePath("/distinte");
   revalidatePath("/richieste");
 
-  const parti: string[] = [];
-  if (esito.pagate.length) {
-    const somma = esito.pagate.reduce((s, p) => s + p.importoCent, 0);
-    parti.push(`Partiti ${esito.pagate.length} bonifici per ${euro(somma)}.`);
-  }
-  if (esito.bloccate.length) {
-    parti.push(`Non partiti: ${esito.bloccate.map((b) => `${b.riferimento} (${b.motivo})`).join(" · ")}`);
-  }
-  if (esito.errore) return { errore: [esito.errore, ...parti].join(" ") };
-  return parti.length ? { ok: parti.join(" ") } : { ok: "Niente da pagare." };
+  // I motivi tornano come elenco, non incollati in una frase sola: chi legge
+  // deve capire al primo colpo *quale* controllo ha fermato *quale* pagamento.
+  const bloccate = esito.bloccate.length ? esito.bloccate : undefined;
+  const pagate = esito.pagate.length
+    ? `Partiti ${esito.pagate.length} bonifici per ${euro(esito.pagate.reduce((s, p) => s + p.importoCent, 0))}.`
+    : "";
+
+  if (esito.errore) return { errore: esito.errore, ok: pagate || undefined, bloccate };
+  if (!pagate && !bloccate) return { ok: "Niente da pagare." };
+  return { ok: pagate || undefined, bloccate };
 }
 
 /** Genera l'XML e lo restituisce come testo, registrandone l'impronta. */

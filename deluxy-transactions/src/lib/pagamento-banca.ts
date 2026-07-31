@@ -215,6 +215,10 @@ export async function pagaLottoConQonto(
       lotto: lotto.riferimento,
       pagate: esito.pagate.length,
       bloccate: esito.bloccate.length,
+      // Il *perché* di ogni blocco, non solo quanti: con il solo conteggio, un
+      // «bloccate: 1» nel registro non dice niente a chi lo rilegge domani, e
+      // il motivo — che qui sopra c'è già — andrebbe perso.
+      motivi: esito.bloccate.map((b) => `${b.riferimento}: ${b.motivo}`),
       totalePagatoCent: esito.pagate.reduce((s, p) => s + p.importoCent, 0),
     },
     { ip },

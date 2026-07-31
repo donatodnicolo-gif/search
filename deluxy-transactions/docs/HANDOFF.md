@@ -258,6 +258,19 @@ detta a chi le usa.
   si valida **solo se il campo è stato cambiato** (31/07/2026). La regola
   generale: un valore di partenza che non passa la propria validazione trasforma
   un modulo tutto-o-niente in un modulo che non salva mai.
+- **La risposta della banca spariva prima di essere letta** (fino al
+  31/07/2026). Gli esiti di `pagaConQonto` erano disegnati solo dentro il
+  riquadro «Pagamento sbloccato», ma pagare **consuma lo sblocco**: la pagina si
+  ridisegnava sull'altro riquadro e il messaggio non aveva più dove comparire.
+  Da fuori: «l'app non risponde». Ora gli esiti stanno in un blocco unico
+  presente in entrambi i rami, i motivi dei blocchi tornano come **elenco** e
+  finiscono anche nel registro (campo `motivi` dell'evento `pagamento.eseguito`,
+  prima c'era solo il conteggio). Regola: un messaggio disegnato solo nel ramo
+  che l'azione stessa fa sparire non si vedrà mai.
+- **L'altezza della barra in alto era scritta a mano (63px) in quattro punti.**
+  Aggiungendole una riga di testo, sidebar, cassetto e sfondo si agganciavano
+  7px più in alto e la pagina scrollava in orizzontale su telefono. Ora è
+  `--h-topbar`, e la barra è alta esattamente quello.
 - **Da telefono il menu non si apriva affatto** (fino al 31/07/2026). Sotto gli
   800px la sidebar era `display: none` e il pulsante ☰ spostava solo un margine:
   nessuna delle altre pagine era raggiungibile da mobile. Ora è un cassetto che

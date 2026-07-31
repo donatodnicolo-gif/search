@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { chiediCodicePagamento, pagaConQonto, sbloccaPagamento } from "@/app/actions";
+import { chiediCodicePagamento, pagaConQonto, sbloccaPagamento, type EsitoPagamentoUI } from "@/app/actions";
 
 // La porta da cui esce il denaro, in due tempi:
 //   1. «Mandami il codice» → arriva un'email al pagatore con importo e
@@ -35,15 +35,49 @@ export function ModuloSblocco({
   );
   const [statoBanca, azioneBanca, bancaInCorso] = useActionState(
     pagaConQonto,
-    {} as { errore?: string; ok?: string },
+    {} as EsitoPagamentoUI,
+  );
+
+  // Gli esiti si disegnano una volta sola, qui, e compaiono in tutti e due i
+  // riquadri. Prima stavano solo dentro «Pagamento sbloccato»: siccome pagare
+  // consuma lo sblocco, la pagina si ridisegnava sull'altro riquadro e la
+  // risposta della banca spariva senza che nessuno la leggesse.
+  const esiti = (
+    <>
+      {statoBanca?.errore && <div className="avviso-errore">{statoBanca.errore}</div>}
+      {statoBanca?.ok && <div className="avviso-ok">{statoBanca.ok}</div>}
+      {statoBanca?.bloccate?.length ? (
+        <div className="avviso-errore">
+          <strong>
+            {statoBanca.bloccate.length === 1
+              ? "Un pagamento non è partito."
+              : `${statoBanca.bloccate.length} pagamenti non sono partiti.`}{" "}
+            Nessun denaro è uscito per questi:
+          </strong>
+          <ul className="elenco-motivi">
+            {statoBanca.bloccate.map((b) => (
+              <li key={b.riferimento}>
+                <strong>{b.riferimento}</strong> — {b.motivo}
+              </li>
+            ))}
+          </ul>
+          <span className="aiuto-campo">
+            Lo sblocco si è consumato: per riprovare, dopo aver sistemato il motivo, serve un codice nuovo.
+          </span>
+        </div>
+      ) : null}
+      {statoCodice?.errore && <div className="avviso-errore">{statoCodice.errore}</div>}
+      {statoCodice?.ok && <div className="avviso-ok">{statoCodice.ok}</div>}
+      {statoSblocco?.errore && <div className="avviso-errore">{statoSblocco.errore}</div>}
+      {statoSblocco?.ok && <div className="avviso-ok">{statoSblocco.ok}</div>}
+    </>
   );
 
   if (sbloccoFinoA) {
     return (
       <div className="scheda">
         <div className="scheda-titolo">Pagamento sbloccato</div>
-        {statoBanca?.errore && <div className="avviso-errore">{statoBanca.errore}</div>}
-        {statoBanca?.ok && <div className="avviso-ok">{statoBanca.ok}</div>}
+        {esiti}
         <div className="avviso-ok">
           Fino alle {sbloccoFinoA} puoi far uscire questa distinta. Dopo serve un codice nuovo.
         </div>
@@ -81,9 +115,7 @@ export function ModuloSblocco({
           Non hai ancora un PIN di pagamento. <a href="/pin">Impostalo</a>: senza, il denaro non esce.
         </div>
       )}
-      {statoCodice?.errore && <div className="avviso-errore">{statoCodice.errore}</div>}
-      {statoCodice?.ok && <div className="avviso-ok">{statoCodice.ok}</div>}
-      {statoSblocco?.errore && <div className="avviso-errore">{statoSblocco.errore}</div>}
+      {esiti}
 
       <form action={azioneCodice} style={{ marginBottom: 18 }}>
         <input type="hidden" name="id" value={id} />

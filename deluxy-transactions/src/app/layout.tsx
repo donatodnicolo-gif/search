@@ -59,10 +59,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 {/* L'email, non solo il nome: due account intestati alla stessa
                     persona si distinguono solo così, e qui la differenza fra
                     l'uno e l'altro è chi può far uscire il denaro. */}
-                <span style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.25, textAlign: "right" }}>
-                  {operatore.email}
-                  <br />
-                  <span style={{ color: "var(--text-tertiary)" }}>
+                <span className="topbar-identita">
+                  <span className="email">{operatore.email}</span>
+                  <span className="ruolo">
                     {operatore.nome} · {operatore.ruolo}
                   </span>
                 </span>
