@@ -1007,8 +1007,21 @@ mark.ricerca-hit {
 .conv-riga.fuoco { box-shadow: inset 3px 0 0 var(--gold, #b8963e); }
 .conv-riga.corrente { background: var(--fill, rgba(0,0,0,0.03)); border-radius: 10px; }
 
+.conv-riga-testa { display: flex; align-items: center; gap: 2px; }
+/* «Segna come letto» sulla riga: si preme senza aprire il messaggio. */
+.conv-segna {
+  flex: 0 0 auto; width: 30px; height: 30px; border-radius: 50%;
+  border: 1px solid var(--hairline-strong); background: transparent;
+  color: var(--text-secondary); font-size: 13px; cursor: pointer;
+  opacity: 0; transition: opacity 0.15s ease;
+}
+.conv-riga:hover .conv-segna, .conv-riga.fuoco .conv-segna, .conv-segna:focus-visible { opacity: 1; }
+.conv-segna:hover { background: var(--fill, rgba(0,0,0,0.05)); color: var(--text-primary); }
+/* Su schermo tattile non esiste il passaggio del mouse: sempre visibile. */
+@media (hover: none) { .conv-segna { opacity: 1; } }
+
 .conv-intestazione {
-  width: 100%; display: flex; align-items: center; gap: 12px;
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px;
   padding: 11px 10px; background: none; border: none; text-align: left;
   cursor: pointer; font: inherit; color: inherit; border-radius: 10px;
 }

@@ -1,8 +1,8 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
 import Link from 'next/link'
-import { corpoDiMessaggio } from '@/lib/actions'
+import { azioneMassa, corpoDiMessaggio, segnaLetto } from '@/lib/actions'
 import { CorpoMessaggio } from './CorpoMessaggio'
 import { RispostaAzioni } from './RispostaAzioni'
 import { StaccaRiga } from './StaccaRiga'
@@ -50,6 +50,29 @@ type Props = {
  *    lavora sulla posta non deve prendere il mouse per leggere.
  */
 export function ConversazioneStack({ righe, correnteId, oggetto }: Props) {
+  // Lo stato «letta» si tiene anche QUI, in locale: la spunta deve muoversi al
+  // clic, non a fine giro (lezione già pagata con le attività). Parte da
+  // quello che dice il server e vince finché la pagina non si rilegge.
+  const [lette, setLette] = useState<Set<string>>(new Set())
+  const eLetta = (r: RigaConversazione) => r.letto || lette.has(r.id)
+  const [inCorso, start] = useTransition()
+
+  const segna = (ids: string[]) =>
+    start(async () => {
+      setLette((s) => new Set([...s, ...ids]))
+      try {
+        if (ids.length === 1) await segnaLetto(ids[0], true)
+        else await azioneMassa(ids, 'letto')
+      } catch {
+        // Non è riuscito: si torna indietro, invece di mostrare una cosa falsa.
+        setLette((s) => {
+          const n = new Set(s)
+          for (const i of ids) n.delete(i)
+          return n
+        })
+      }
+    })
+
   // Aperte: di default l'ULTIMA (se non è quella già aperta sopra a tutta
   // pagina). È la regola di Gmail e vale: l'ultima è quella che serve.
   const ultima = righe.length > 0 ? righe[righe.length - 1] : null
@@ -114,7 +137,8 @@ export function ConversazioneStack({ righe, correnteId, oggetto }: Props) {
 
   // La prima non letta: sopra ci va la riga «da qui non hai letto», come nei
   // client che si usano davvero — dice dove riprendere senza contare.
-  const primaNonLetta = righe.find((r) => !r.letto && r.direzione === 'entrata' && r.id !== correnteId)
+  const nonLette = righe.filter((r) => !eLetta(r) && r.direzione === 'entrata' && r.id !== correnteId)
+  const primaNonLetta = nonLette[0]
 
   return (
     <div className="conv-stack" ref={contenitore}>
@@ -126,17 +150,30 @@ export function ConversazioneStack({ righe, correnteId, oggetto }: Props) {
             aprire, <kbd>r</kbd> per rispondere
           </div>
         </div>
-        <button
-          type="button"
-          className="azione-riga"
-          onClick={() =>
-            setAperte(
-              tutteAperte ? new Set() : new Set(righe.filter((r) => r.id !== correnteId).map((r) => r.id))
-            )
-          }
-        >
-          {tutteAperte ? 'Chiudi tutte' : 'Apri tutte'}
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          {nonLette.length > 0 && (
+            <button
+              type="button"
+              className="azione-riga"
+              disabled={inCorso}
+              title="Toglie il pallino blu da tutte le mail non lette di questa conversazione"
+              onClick={() => segna(nonLette.map((r) => r.id))}
+            >
+              ✓ Segna come {nonLette.length === 1 ? 'letto' : `letti (${nonLette.length})`}
+            </button>
+          )}
+          <button
+            type="button"
+            className="azione-riga"
+            onClick={() =>
+              setAperte(
+                tutteAperte ? new Set() : new Set(righe.filter((r) => r.id !== correnteId).map((r) => r.id))
+              )
+            }
+          >
+            {tutteAperte ? 'Chiudi tutte' : 'Apri tutte'}
+          </button>
+        </div>
       </div>
 
       {righe.map((r) => {
@@ -154,8 +191,9 @@ export function ConversazioneStack({ righe, correnteId, oggetto }: Props) {
               id={`conv-${r.id}`}
               className={`conv-riga${aperta ? ' aperta' : ''}${corrente ? ' corrente' : ''}${
                 fuoco === r.id ? ' fuoco' : ''
-              }${!r.letto && r.direzione === 'entrata' ? ' nonletta' : ''}`}
+              }${!eLetta(r) && r.direzione === 'entrata' ? ' nonletta' : ''}`}
             >
+              <div className="conv-riga-testa">
               <button
                 type="button"
                 className="conv-intestazione"
@@ -180,12 +218,38 @@ export function ConversazioneStack({ righe, correnteId, oggetto }: Props) {
                   {r.quando}
                 </span>
               </button>
+              {/* ⚠️ Fuori dal bottone della riga: un bottone dentro un altro
+                  bottone non si può, e questo deve poter essere premuto senza
+                  aprire il messaggio. */}
+              {!eLetta(r) && r.direzione === 'entrata' && !corrente && (
+                <button
+                  type="button"
+                  className="conv-segna"
+                  disabled={inCorso}
+                  title="Segna come letto (senza aprirlo)"
+                  aria-label="Segna come letto"
+                  onClick={() => segna([r.id])}
+                >
+                  ✓
+                </button>
+              )}
+              </div>
 
               {aperta && !corrente && (
                 <div className="conv-corpo">
                   <CorpoDellaRiga id={r.id} />
                   <div className="conv-azioni">
                     <RispostaAzioni id={r.id} />
+                    {!eLetta(r) && r.direzione === 'entrata' && (
+                      <button
+                        type="button"
+                        className="azione-riga"
+                        disabled={inCorso}
+                        onClick={() => segna([r.id])}
+                      >
+                        ✓ Segna come letto
+                      </button>
+                    )}
                     <Link href={`/messaggio/${r.id}`} className="azione-riga">
                       Apri a tutta pagina →
                     </Link>

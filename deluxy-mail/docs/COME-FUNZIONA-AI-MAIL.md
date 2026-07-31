@@ -351,6 +351,14 @@ In più: un pallino blu sulle non lette, la riga **«da qui non hai letto»** ch
 riprendere, la graffetta di chi ha allegati, e «Apri tutte / Chiudi tutte». L'ultimo
 messaggio è già aperto, perché è quasi sempre quello che serve.
 
+**Segna come letto.** Sulle mail non lette della conversazione compare un **✓** sulla
+riga: toglie il pallino **senza aprire il messaggio**. In cima alla conversazione c'è lo
+stesso comando per tutte insieme («✓ Segna come letti (3)»), e dentro un messaggio
+aperto la voce per esteso. La spunta si muove al clic, non a fine giro: se il
+salvataggio non riesce, torna indietro invece di mostrarti una cosa falsa. La mail che
+stai leggendo in cima alla pagina ha il suo «Segna letto / Segna non letto» di sempre,
+nella riga dei comandi.
+
 ## 6c. La conversazione: nome, chiusura, cestinamento
 
 Ogni mail sta in una **conversazione** (la catena di risposte, o mail con lo stesso
