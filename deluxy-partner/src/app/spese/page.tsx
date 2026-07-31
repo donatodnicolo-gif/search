@@ -44,9 +44,16 @@ export default async function SpesePage({
       importo: { lt: 0 },
       data: { gte: inizio, lt: fine },
       stato: { not: "ignorata" },
-      ...(sp.solo === "senza" ? { categoriaId: null } : {}),
+      // «Senza categoria» e «una categoria precisa» sono due filtri sulla stessa
+      // colonna: insieme si annullano e la pagina esce vuota (succedeva usando la
+      // tendina con una categoria già scelta, perché il form la rimanda). Se si
+      // chiedono le non classificate, il filtro per categoria non si applica.
+      ...(sp.solo === "senza"
+        ? { categoriaId: null }
+        : sp.cat
+          ? { categoriaId: sp.cat }
+          : {}),
       ...(sp.solo === "ai" ? { categoriaDa: "ai" } : {}),
-      ...(sp.cat ? { categoriaId: sp.cat } : {}),
     },
     orderBy: [{ data: "desc" }],
     take: 400,
