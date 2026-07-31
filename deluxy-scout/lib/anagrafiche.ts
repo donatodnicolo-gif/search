@@ -41,7 +41,26 @@ async function chiama<T>(body: unknown): Promise<T> {
     },
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(`Registro anagrafiche ${res.status}`);
+  if (!res.ok) {
+    // «Registro anagrafiche 401» non dice niente a chi lo legge, e il numero da
+    // solo manda a cercare nel posto sbagliato: il 401 non è la TUA sessione, è
+    // il registro che rifiuta la chiave di Scout (l'errore viene inoltrato con
+    // lo stesso codice). Succede quando quella chiave viene rigenerata dentro
+    // Anagrafiche: la vecchia muore all'istante.
+    const dettaglio = await res.text().catch(() => '');
+    if (res.status === 401) {
+      throw new Error(
+        'Il registro Anagrafiche rifiuta la chiave di Scout. Di solito vuol dire che è stata rigenerata di là: ' +
+          'incolla quella nuova in Profilo → Impostazioni → App collegate → Anagrafiche.',
+      );
+    }
+    if (res.status === 500 && /non configurata/i.test(dettaglio)) {
+      throw new Error(
+        'Manca la chiave del registro Anagrafiche: mettila in Profilo → Impostazioni → App collegate.',
+      );
+    }
+    throw new Error(`Registro anagrafiche ${res.status}${dettaglio ? ` — ${dettaglio.slice(0, 160)}` : ''}`);
+  }
   return (await res.json()) as T;
 }
 
