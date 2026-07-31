@@ -18,11 +18,17 @@ export function AggiungiSede({
   madreId,
   nome,
   citta,
+  provincia,
+  ragioneSociale,
+  categoria,
   compatto = false,
 }: {
   madreId: string;
   nome: string;
   citta: string | null;
+  provincia: string | null;
+  ragioneSociale: string | null;
+  categoria: string;
   compatto?: boolean;
 }) {
   const [aperto, setAperto] = useState(false);
@@ -153,6 +159,14 @@ export function AggiungiSede({
                     <label htmlFor="sede-citta">Città</label>
                     <input id="sede-citta" name="citta" defaultValue={citta ?? ""} />
                   </div>
+                  <div className="campo-modulo">
+                    <label htmlFor="sede-provincia">Provincia</label>
+                    <input id="sede-provincia" name="provincia" defaultValue={provincia ?? ""} />
+                    <p className="testo-guida">
+                      Cambiala se la sede è in un&apos;altra provincia: senza, prende quella
+                      dell&apos;insegna e resterebbe sbagliata in silenzio.
+                    </p>
+                  </div>
                   <div className="campo-modulo largo">
                     <label htmlFor="sede-indirizzo">Indirizzo</label>
                     <input id="sede-indirizzo" name="indirizzo" placeholder="Via Montenapoleone 12" />
@@ -171,7 +185,11 @@ export function AggiungiSede({
                   </div>
                 </div>
                 <p className="testo-guida" style={{ marginTop: 10 }}>
-                  Categoria, stati, interessi e dati di fatturazione arrivano dall&apos;insegna.
+                  <strong>Arriva tutto dall&apos;insegna, non serve riscriverlo</strong>:{" "}
+                  {[ragioneSociale, categoria].filter(Boolean).join(" · ")}, stati, interessi, account
+                  e i dati di fatturazione. Qui si scrive solo quello che <em>cambia</em> da una sede
+                  all&apos;altra — e l&apos;indirizzo resta vuoto apposta: una sede nuova e un altro
+                  luogo, copiarlo creerebbe un gemello.
                 </p>
                 <div className="azioni-modulo">
                   <button type="button" className="btn btn-secondario" onClick={chiudi}>Annulla</button>

@@ -243,7 +243,14 @@ Ogni scrittura via API è un **merge governato per campo**, mai una sostituzione
   **Sedi del gruppo** (✕ per sganciarne una). Azione unica `raggruppaSotto(partnerId, capogruppoId|null)`.
   **＋ Sede (29/07/2026)** — `AggiungiSede`, bottone in testata e nella sezione **Sedi**, che ora
   compare **anche a zero sedi** (altrimenti non si sa che si può). Due strade nella stessa modale:
-  · **Nuova sede** → `aggiungiSede(madreId, fd)`: crea l'anagrafica già collegata (`capogruppoId`),
+  · **Nuova sede** → `aggiungiSede(madreId, fd)`: nel modulo si scrive **solo ciò che cambia da una
+    sede all'altra** (nome della sede, città, provincia, indirizzo, telefono, email); il resto
+    arriva dall'insegna e la nota in fondo **lo elenca coi valori veri**, se no i campi vuoti
+    sembrano dati persi. L'indirizzo resta vuoto apposta: una sede nuova è un altro luogo.
+    ⚠️ **La provincia è un campo del modulo (31/07/2026)**: prima veniva ereditata dall'insegna e
+    basta, quindi una sede a Roma creata da un'insegna di Firenze nasceva con provincia FI —
+    sbagliata in silenzio.
+    Crea l'anagrafica già collegata (`capogruppoId`),
     eredita da madre categoria/stati/interessi/account/ragione sociale e, via `propagaDatiFinanziari`,
     tutta la fatturazione. **A distinguere due sedi nella stessa città è l'indirizzo**: il guard sul
     duplicato è nome+città+indirizzo, non nome+città come in `creaPartner` (che infatti bloccherebbe

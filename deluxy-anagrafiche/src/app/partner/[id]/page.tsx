@@ -267,7 +267,15 @@ export default async function Dettaglio({
             )}
             {/* Una sede non può avere sedi proprie: il gruppo è a un livello */}
             {p.attivo && !p.capogruppo && (
-              <AggiungiSede madreId={p.id} nome={p.nome} citta={p.citta} compatto />
+              <AggiungiSede
+                madreId={p.id}
+                nome={p.nome}
+                citta={p.citta}
+                provincia={p.provincia}
+                ragioneSociale={p.ragioneSociale}
+                categoria={p.categoria}
+                compatto
+              />
             )}
             {p.attivo && !p.capogruppo && p.sedi.length === 0 && (
               <GestioneGruppo partnerId={p.id} nome={p.nome} />
@@ -517,7 +525,15 @@ export default async function Dettaglio({
               </span>
             </h2>
             {p.attivo && !p.capogruppo && (
-              <AggiungiSede madreId={p.id} nome={p.nome} citta={p.citta} compatto />
+              <AggiungiSede
+                madreId={p.id}
+                nome={p.nome}
+                citta={p.citta}
+                provincia={p.provincia}
+                ragioneSociale={p.ragioneSociale}
+                categoria={p.categoria}
+                compatto
+              />
             )}
           </div>
           {p.sedi.length === 0 ? (
