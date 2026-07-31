@@ -19,6 +19,7 @@ type ClienteDto = {
   ultimaData: string
   inRubrica: boolean
   uniti: { telefono: string; email: string; nome: string }[]
+  assorbite: number
   doppione: '' | 'email' | 'nome'
 }
 
@@ -60,6 +61,10 @@ export function ClientiLista() {
   // «Possibili doppioni» le escluderebbe — appena unite non sono più doppioni,
   // e vederle sparire subito dopo averle unite sembra di averle perse.
   const [appenaUniti, setAppenaUniti] = useState<string[]>([])
+  // Quale riga sta lavorando, e com'è andata: il riscontro va dove si è
+  // cliccato, non solo in cima alla pagina.
+  const [rigaOccupata, setRigaOccupata] = useState('')
+  const [esitoRiga, setEsitoRiga] = useState<{ chiave: string; testo: string } | null>(null)
 
   const carica = useCallback(async () => {
     try {
@@ -211,6 +216,11 @@ export function ClientiLista() {
     setOccupato(true)
     setAvviso('')
     setErrore('')
+    // ⚠️ L'esito si scrive ANCHE sulla riga, non solo in cima alla pagina: con
+    // 800 clienti si clicca a metà elenco, e un avviso comparso in testa —
+    // fuori schermo — si legge come «non fa niente».
+    setRigaOccupata(chiave)
+    setEsitoRiga(null)
     try {
       const res = await fetch('/api/clienti/google', {
         method: 'POST',
@@ -224,21 +234,25 @@ export function ClientiLista() {
       }
       if (!res.ok) {
         setErrore(d.errore || 'Rubrica non aggiornata.')
+        setEsitoRiga({ chiave, testo: d.errore || 'Non riuscito.' })
         return
       }
       // I doppioni rimasti si dicono per nome: è l'elenco che serve per finire
       // il lavoro dentro Google, dove la fusione va fatta a mano.
-      setAvviso(
+      const testo =
         (d.esito ?? '') +
-          (d.doppioni?.length
-            ? ` In rubrica restano i contatti ${d.doppioni.join(', ')}: Google non ha un comando per fondere i contatti da fuori, si fa da contacts.google.com → «Unisci e correggi».`
-            : '')
-      )
+        (d.doppioni?.length
+          ? ` In rubrica restano i contatti ${d.doppioni.join(', ')}: Google non ha un comando per fondere i contatti da fuori, si fa da contacts.google.com → «Unisci e correggi».`
+          : '')
+      setAvviso(testo)
+      setEsitoRiga({ chiave, testo })
       await carica()
     } catch {
       setErrore('Rubrica non aggiornata: problema di rete.')
+      setEsitoRiga({ chiave, testo: 'Non riuscito: problema di rete.' })
     } finally {
       setOccupato(false)
+      setRigaOccupata('')
     }
   }
 
@@ -496,9 +510,9 @@ export function ClientiLista() {
                       ) : (
                         <span className="badge">da salvare</span>
                       )}
-                      {c.uniti.length ? (
+                      {c.assorbite ? (
                         <div className="azioni-unito">
-                          <span className="badge">unito · {c.uniti.length + 1}</span>
+                          <span className="badge" title="Quante righe della rubrica stanno dentro questa">unito · {c.assorbite + 1}</span>
                           <button
                             className="btn btn-secondario small"
                             disabled={occupato || !googleCollegato}
@@ -509,7 +523,7 @@ export function ClientiLista() {
                                 : 'Collega Google Contacts nelle Impostazioni'
                             }
                           >
-                            Allinea in Google
+                            {rigaOccupata === c.chiave ? 'Allineo…' : 'Allinea in Google'}
                           </button>
                           <button
                             className="btn btn-secondario small"
@@ -518,6 +532,12 @@ export function ClientiLista() {
                           >
                             Separa
                           </button>
+                          {/* L'esito accanto al bottone che l'ha prodotto. */}
+                          {esitoRiga?.chiave === c.chiave ? (
+                            <div className="cella-sub" style={{ flexBasis: '100%' }}>
+                              {esitoRiga.testo}
+                            </div>
+                          ) : null}
                         </div>
                       ) : null}
                     </td>

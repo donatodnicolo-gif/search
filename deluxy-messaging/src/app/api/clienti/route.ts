@@ -29,6 +29,8 @@ export type ClienteDto = {
   inRubrica: boolean
   /** Gli altri contatti finiti in questa riga perché qualcuno li ha uniti. */
   uniti: { telefono: string; email: string; nome: string }[]
+  /** Quante righe della rubrica sono state assorbite qui dentro. */
+  assorbite: number
   /** Con chi *potrebbe* essere la stessa persona, e perché. */
   doppione: '' | 'email' | 'nome'
 }
@@ -65,30 +67,54 @@ export async function GET(req: NextRequest) {
   ])
 
   const mappa = new Map<string, ClienteDto>()
+  // ⚠️ I recapiti del gruppo si raccolgono A PARTE e si assegnano DOPO.
+  //
+  // Farlo dentro il ciclo sembrava più semplice e invece perdeva i casi
+  // peggiori: se l'ordine più recente del gruppo apparteneva alla riga
+  // ASSORBITA, quella riga apriva il gruppo (ramo «else») e il suo recapito non
+  // veniva registrato da nessuna parte — la riga risultava non unita, senza
+  // badge «unito» e senza il bottone «Allinea in Google», proprio sui clienti
+  // appena uniti. Capitato davvero su Nicolò Donato.
+  const recapiti = new Map<string, { telefono: string; email: string; nome: string }[]>()
+  // Quante righe della rubrica sono finite dentro questo gruppo: è il numero
+  // del badge «unito · N», e non si può dedurre dai recapiti — due righe unite
+  // possono avere la stessa email e differire solo per il telefono.
+  const assorbite = new Map<string, Set<string>>()
   for (const o of ordini) {
     const originale = chiaveDi(o.telefono, o.email)
     if (!originale) continue
     // ⚠️ Il raggruppamento segue l'unione: la riga assorbita non compare più da
     // sola, i suoi ordini si sommano a quella che resta.
     const chiave = unioni.get(originale) ?? originale
+
+    // Tutti i recapiti visti in questo gruppo, quale che sia l'ordine in cui
+    // arrivano gli ordini.
+    const suoi = recapiti.get(chiave) ?? []
+    if (!suoi.some((r) => r.telefono === o.telefono && r.email === o.email)) {
+      suoi.push({ telefono: o.telefono, email: o.email, nome: o.clienteNome })
+      recapiti.set(chiave, suoi)
+    }
+    if (originale !== chiave) {
+      const s = assorbite.get(chiave) ?? new Set<string>()
+      s.add(originale)
+      assorbite.set(chiave, s)
+    }
+
     const esistente = mappa.get(chiave)
     if (esistente) {
       esistente.ordini++
       esistente.speso += o.totale
       if (!esistente.negozi.includes(o.negozioNome)) esistente.negozi.push(o.negozioNome)
-      // i campi mancanti si completano con quelli degli ordini più vecchi
+      // I campi mancanti si completano con quelli degli ordini più vecchi.
+      // ⚠️ Il TELEFONO non c'era, e si vedeva: una riga unita il cui ordine più
+      // recente arrivava dalla parte senza numero mostrava «—» al posto del
+      // telefono che il cliente ha davvero — proprio il dato per cui l'unione
+      // era stata fatta.
+      if (!esistente.telefono && o.telefono) esistente.telefono = o.telefono
       if (!esistente.email && o.email) esistente.email = o.email
       if (!esistente.citta && o.citta) esistente.citta = o.citta
       if (!esistente.nome && o.clienteNome) esistente.nome = o.clienteNome
       if (o.contattoSalvato) esistente.inRubrica = true
-      // Il contatto della riga assorbita non si butta: è un numero a cui quel
-      // cliente risponde davvero, e chi deve chiamarlo deve poterlo vedere.
-      if (
-        originale !== chiave &&
-        !esistente.uniti.some((u) => u.telefono === o.telefono && u.email === o.email)
-      ) {
-        esistente.uniti.push({ telefono: o.telefono, email: o.email, nome: o.clienteNome })
-      }
     } else {
       mappa.set(chiave, {
         chiave,
@@ -103,9 +129,29 @@ export async function GET(req: NextRequest) {
         ultimaData: o.data.toISOString(),
         inRubrica: o.contattoSalvato,
         uniti: [],
+        assorbite: 0,
         doppione: '',
       })
     }
+  }
+
+  // Gli ALTRI recapiti della persona: quelli diversi da quello mostrato in
+  // riga. È anche il segnale che fa comparire il badge «unito» e il bottone
+  // «Allinea in Google», quindi qui una svista si vede subito come «il bottone
+  // non c'è».
+  const cifre = (t: string) => (t ?? '').replace(/\D/g, '').slice(-9)
+  for (const [chiave, tutti] of recapiti) {
+    const c = mappa.get(chiave)
+    if (!c) continue
+    c.assorbite = assorbite.get(chiave)?.size ?? 0
+    // Si mostrano solo i recapiti che AGGIUNGONO qualcosa: un telefono o
+    // un'email che sulla riga non ci sono già. Ripetere quello che è scritto
+    // due centimetri più su fa sembrare l'unione un errore.
+    c.uniti = tutti.filter(
+      (r) =>
+        (r.telefono && cifre(r.telefono) !== cifre(c.telefono)) ||
+        (r.email && r.email.toLowerCase() !== c.email.toLowerCase())
+    )
   }
 
   let clienti = [...mappa.values()]

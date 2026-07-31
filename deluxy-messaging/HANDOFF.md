@@ -172,6 +172,21 @@ locale, altrimenti nulla si decifra.
     cliente per donato» — sembrava di averla persa. Ora le chiavi unite in
     quella sessione viaggiano nel parametro `tieni` e saltano i filtri, e
     l'avviso lo dice a parole.
+  - ⚠️ **«ALLINEA IN GOOGLE NON FA NULLA»**, e non era Google. La rotta
+    funzionava (token ottenuto, cliente ricostruito, contatto trovato e nostro):
+    a mancare era il **bottone**. In `/api/clienti` i recapiti uniti si
+    raccoglievano dentro il ciclo, e se l'ordine più recente del gruppo
+    apparteneva alla riga **assorbita**, quella riga apriva il gruppo dal ramo
+    «else» e il suo recapito non veniva registrato: niente `uniti`, quindi
+    niente badge «unito» e niente bottone — proprio sui clienti appena uniti.
+    Ora i recapiti si raccolgono a parte e si assegnano dopo, e il conteggio
+    delle righe assorbite (`assorbite`) è un dato suo, non dedotto dai recapiti.
+  - ⚠️ Due contorni dello stesso problema: il **telefono non si completava**
+    dagli ordini più vecchi (una riga unita mostrava «—» proprio dove il
+    cliente un numero ce l'ha), e l'esito dell'operazione compariva **solo in
+    cima alla pagina** — con 833 righe si clicca a metà elenco e l'avviso è
+    fuori schermo, che si legge come «non fa niente». Ora il bottone dice
+    «Allineo…» e l'esito si scrive **sulla riga**.
   - **Dall'elenco si apre la SCHEDA** (31/07/2026): dal nome del cliente si va a
     `/clienti/scheda`, con ordini passati, reclami, rimborsi, conversazioni, a
     chi manda di solito e quando ordina. È un link sul nome e non la riga
