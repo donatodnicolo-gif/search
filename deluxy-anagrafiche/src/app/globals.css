@@ -511,6 +511,18 @@ a.dash-riga:hover .dash-etichetta { color: var(--text); }
   color: var(--text-tertiary); font-size: 14px; padding: 4px 6px; border-radius: var(--radius-s);
 }
 .modale-chiudi:hover { background: var(--fill); color: var(--text); }
+/* Con che cosa si riconcilia la riga: una company HubSpot o un'altra
+   anagrafica del registro (i doppioni nati qui dentro con HubSpot non
+   c'entrano niente). */
+.scelta-modo { display: flex; gap: 4px; margin-bottom: 12px; }
+.scelta-modo .modo {
+  padding: 6px 14px; border-radius: var(--radius-pill);
+  font: inherit; font-size: 13px; font-weight: 600; color: var(--text-secondary);
+  border: 1px solid var(--hairline); background: var(--surface); cursor: pointer;
+  transition: background 120ms var(--ease), color 120ms var(--ease);
+}
+.scelta-modo .modo:hover { background: var(--fill); color: var(--text); }
+.scelta-modo .modo.attivo { background: var(--ink); color: #fff; border-color: var(--ink); }
 .modale-ricerca {
   width: 100%;
   font: inherit; color: var(--text);

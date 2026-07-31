@@ -255,6 +255,13 @@ Ogni scrittura via API è un **merge governato per campo**, mai una sostituzione
   `platformId`/`hubspotId` sono @unique: si liberano dalla sorgente prima di travasarli, se no il
   database rifiuta. La ricerca è **parziale e a parole** (`whereRicerca`): «flowers» trova entrambe,
   che per nome esatto non si incontrerebbero mai — ed è proprio così che i doppioni nascono.
+  **Si unisce anche dall'elenco (31/07/2026)**: il ⇄ di ogni riga parlava *solo* con HubSpot, ma
+  due doppioni nati dentro il registro con HubSpot non c'entrano niente — e i doppioni si vedono
+  proprio lì, uno sotto l'altro nella lista, non entrando nella scheda. Ora il modale ha due modi,
+  **Company HubSpot** e **Un'altra anagrafica** (`unibile` su `Riconcilia`, passato solo da `/`):
+  il primo collega, il secondo unisce, con la stessa schermata di conferma della scheda perché
+  unire **archivia** un'anagrafica e non va fatto al primo clic. Sulle righe di `/sync-hubspot` il
+  ⇄ resta quello di prima (lì la riga *è* una company HubSpot).
   **Gruppi** — i due bottoni sono l'uno l'inverso dell'altro, e dal 31/07/2026 **il nome dice il
   verso**: `⧉ Raggruppa` veniva letto al contrario (sembrava «aggancia altre a questa») ed è
   diventato **↳ È una sede di…**, mentre `＋ Sede` è **＋ Sedi di questa**. Ogni modale dichiara la

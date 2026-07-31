@@ -290,7 +290,13 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
       <td className="cella-muta col-secondaria">{dataIt(p.creatoIl)}</td>
       <td>
         <span style={{ display: "inline-flex", gap: 2 }}>
-          <Riconcilia cerca="hubspot" partnerId={p.id} nomeRiga={p.nome} collegato={Boolean(p.hubspotId)} />
+          <Riconcilia
+            cerca="hubspot"
+            partnerId={p.id}
+            nomeRiga={p.nome}
+            collegato={Boolean(p.hubspotId)}
+            unibile
+          />
           <form action={impostaArchiviato.bind(null, p.id, !inArchivio)}>
             <button type="submit" className="btn-archivia" title={inArchivio ? "Ripristina" : "Archivia"}>
               {inArchivio ? "↩" : "⌫"}
