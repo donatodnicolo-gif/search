@@ -68,11 +68,11 @@ export const TIPI_PL = [
 // parole di tutti i giorni, perché chi sceglie qui non ha il codice civile
 // davanti: sa che ha comprato dei fiori, non che sta compilando un B6.
 export const VOCI_CE = [
-  { key: "B6", label: "B6 · Roba comprata (merci e materiali)", aiuto: "Quello che si compra per rivenderlo o consumarlo: fiori, torte, confezioni, carburante." },
-  { key: "B7", label: "B7 · Servizi di qualcun altro", aiuto: "Chi lavora per noi senza essere dipendente: valet, corrieri, consulenti, agenzie, piattaforme, e anche la pubblicità e il compenso dell'amministratore." },
-  { key: "B8", label: "B8 · Cose usate ma non nostre", aiuto: "Affitti, noleggi, leasing, spese condominiali: si paga per usare, non per possedere." },
+  { key: "B6", label: "B6 · Merci e materiali comprati", aiuto: "Quello che si compra per rivenderlo o consumarlo: fiori, torte, confezioni, carburante." },
+  { key: "B7", label: "B7 · Servizi comprati da fuori", aiuto: "Tutto quello che qualcun altro fa PER NOI senza essere dipendente: valet, corrieri, consulenti, agenzie, piattaforme, pubblicità e compenso dell'amministratore. È la voce più grande del bilancio." },
+  { key: "B8", label: "B8 · Affitti e noleggi", aiuto: "Affitti, noleggi, leasing, spese condominiali: si paga per usare, non per possedere." },
   { key: "B9", label: "B9 · Dipendenti", aiuto: "SOLO chi ha una busta paga: stipendi, contributi, TFR. Amministratore e collaboratori vanno in B7, anche se nell'app stanno fra le «persone»." },
-  { key: "B14", label: "B14 · Il resto che costa", aiuto: "Tributi che non sono sul reddito (bolli, tasse locali), multe, arrotondamenti, sopravvenienze passive." },
+  { key: "B14", label: "B14 · Altri costi (tributi, multe)", aiuto: "Tributi che non sono sul reddito (bolli, tasse locali), multe, arrotondamenti, sopravvenienze passive." },
   { key: "C17", label: "C17 · Costo del denaro", aiuto: "Interessi, commissioni bancarie, canoni del conto, oneri sui finanziamenti." },
   { key: "IMPOSTE", label: "Imposte sul reddito (IRES, IRAP)", aiuto: "Quello che si versa all'Agenzia delle Entrate sul reddito. Sta sotto l'EBITDA: nel P&L gestionale resta fuori, in bilancio no." },
   { key: "ESCLUSA", label: "Non entra in bilancio", aiuto: "Non è un costo dell'esercizio: giroconti fra conti propri, IVA che si versa e si recupera, quota dei partner sull'ecommerce, rimborsi di ordini già tolti dai ricavi." },
