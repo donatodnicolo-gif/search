@@ -272,8 +272,8 @@ Ogni azienda ha **quattro stati indipendenti** (catalogo in `src/lib/stati.ts`):
 
 | Dimensione | Campo | Valori | Chi la governa |
 | --- | --- | --- | --- |
-| **Commerciale** | `stato` (alias in lettura/scrittura: `statoCommerciale`) | `selezionato`, `lead`, `prospect`, `in_trattativa`, `attivo` (= Partner), `a_rischio`, `non_interessato`, `dismesso` (mostrato «Dormiente») | il team commerciale (curato: le app non lo scrivono) |
-| **Livello del contatto** | `livello` | `in_contatto`, `in_attesa`, `da_ricontattare`; vuoto = non indicato | il team commerciale / Scout (curato come lo stato) |
+| **Commerciale** | `stato` (alias in lettura/scrittura: `statoCommerciale`) | `selezionato`, `lead`, `prospect`, `in_trattativa`, `attivo` (mostrato **«Cliente»**), `dismesso` (mostrato «Dormiente») | il team commerciale (curato: le app non lo scrivono) |
+| **Livello del contatto** | `livello` | `in_contatto`, `in_attesa`, `da_ricontattare`, `attivo`, `a_rischio`, `non_interessato`; vuoto = non indicato | il team commerciale / Scout (curato come lo stato) |
 | **Finanziario** | `statoFinanziario` | `da_verificare` (predefinito), `regolare`, `in_ritardo`, `insoluto`, `piano_di_rientro`, `bloccato` | amministrazione / FINANCE |
 | **Analisi** | `statoAnalisi` | `pp` (P.P., pari perimetro), `nuovo`, `dismesso`; vuoto = mai analizzata | FINANCE (`Partner.clienteAnno` di deluxy-partner) |
 
@@ -282,11 +282,21 @@ In scrittura `statoAnalisi` accetta anche le forme di FINANCE (`"P.P."`,
 dimensioni finiscono tutti in `PassaggioStato`, con prefisso `liv:`, `fin:` e
 `ana:` per le tre non commerciali.
 
-⚠️ **Se mandate ancora `stato: "in_contatto" | "in_attesa" | "da_ricontattare"`**
-(erano stati commerciali fino al 31/07/2026) la scrittura **non viene
-rifiutata**: il registro la accetta e mette il valore nel campo `livello`,
-lasciando `stato` com'era. Non c'è fretta di cambiare le vostre chiamate, ma
-d'ora in poi il posto giusto è `livello`.
+⚠️ **`attivo` esiste in due dimensioni e vuol dire due cose**: come *stato* «è
+un cliente», come *livello* «il rapporto è vivo, ci parliamo». Un cliente che
+non risponde più è `stato: attivo` + `livello: da_ricontattare` — la coppia che
+prima non si poteva scrivere.
+
+⚠️ **Se mandate ancora come `stato` uno di `in_contatto`, `in_attesa`,
+`da_ricontattare`, `non_interessato`, `a_rischio`** (erano stati commerciali
+fino al 31/07/2026) la scrittura **non viene rifiutata**: il registro la accetta
+e mette il valore nel campo `livello`, lasciando `stato` com'era. **`attivo` no**:
+quello resta uno stato, ed è così che si dichiara un cliente. Non c'è fretta di
+cambiare le vostre chiamate, ma d'ora in poi il posto giusto è `livello`.
+
+⚠️ **Un'anagrafica creata da FINANCE (`sistema: deluxy-partner`) nasce
+`attivo`**, non `prospect`: in FINANCE ci finiscono le aziende a cui si fattura,
+quindi se FINANCE la conosce è già un cliente. Vale solo alla creazione.
 
 `Partner`: nome, ragione sociale, categoria (BOUTIQUE, FIORISTA, PASTICCERIA, …),
 i tre stati qui sopra, `interessi` (array

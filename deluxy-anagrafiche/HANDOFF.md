@@ -44,13 +44,21 @@ che diventano clienti, vedi §7-A punto 0. Finché manca, quel richiamo è inert
   (catalogo unico in `src/lib/stati.ts`, dal 23/07/2026):
   · `stato` = **stato commerciale**, cioè a che punto del funnel siamo (ex "stato", nome del campo
   invariato per compatibilità):
-  selezionato·lead·prospect·in_trattativa·attivo(=Partner)·a_rischio·non_interessato·dismesso(=Dormiente);
-  · `livello` = **livello del contatto** (31/07/2026): in_contatto·in_attesa·da_ricontattare,
-  vuoto = non indicato. Erano tre *stati commerciali*: non sono gradini del funnel ma il **momento
+  selezionato·lead·prospect·in_trattativa·**attivo (etichetta «Cliente»)**·dismesso(=Dormiente).
+  ⚠️ Le **etichette non sono gli slug**: `attivo` si mostra «Cliente» (31/07/2026) e `dismesso`
+  «Dormiente». I valori restano quelli, cambiarli sarebbe una migrazione su ~1000 record e su Scout;
+  · `livello` = **livello del contatto** (31/07/2026): in_contatto·in_attesa·da_ricontattare·
+  **attivo**·**a_rischio**·**non_interessato**, vuoto = non indicato. ⚠️ `attivo` sta in
+  **entrambe** le liste e vuol dire due cose diverse: come *stato* «è un cliente», come *livello*
+  «il rapporto è vivo». La coppia che prima non si poteva scrivere è «Cliente + Da ricontattare»:
+  un cliente che ha smesso di rispondere. Erano tre *stati commerciali*: non sono gradini del funnel ma il **momento
   del contatto**, e stando nella stessa lista obbligavano a scegliere fra due cose vere insieme
   («è un prospect» **e** «sta aspettando una risposta»). Le **182 anagrafiche** che li avevano sono
   diventate `prospect` tenendo il vecchio valore come livello (`scripts/migra-livello.mjs`, con
-  il passaggio scritto nello storico come `migrazione-livello`);
+  il passaggio scritto nello storico come `migrazione-livello`). Stessa sorte, poche ore dopo, per
+  **`non_interessato` (89 anagrafiche → prospect)** e `a_rischio` (0 record; se ne comparissero
+  diventano **clienti**, non prospect: chi è a rischio compra ancora, ed è il motivo per cui era
+  un pessimo stato commerciale — toglieva la parola «cliente» a chi cliente lo è);
   · `statoFinanziario` = da_verificare(default)·regolare·in_ritardo·insoluto·piano_di_rientro·bloccato;
   · `statoAnalisi` = pp(P.P., pari perimetro)·nuovo·dismesso, vuoto = mai analizzata — catalogo preso
   da **FINANCE** (`Partner.clienteAnno` di deluxy-partner, "P.P./Nuovo/Dismesso": in API si accettano

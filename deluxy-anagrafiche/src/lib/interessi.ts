@@ -56,3 +56,13 @@ export function eRicercaFornitori(sistema: string): boolean {
   const s = sistema.trim().toLowerCase().replace(/^deluxy-/, "");
   return s.includes("supplier") || s.includes("fornitor") || s === "search" || s.startsWith("search-");
 }
+
+// FINANCE (deluxy-partner) è l'app delle fatture e degli incassi: un'anagrafica
+// che nasce da lì non è un contatto da coltivare, è **gente a cui stiamo già
+// fatturando**. Nasce quindi come cliente (`stato: attivo`) invece che come
+// prospect — decisione dell'utente del 31/07/2026. Vale solo alla CREAZIONE:
+// su un'anagrafica che esiste già lo stato resta quello curato dal team.
+export function eFinance(sistema: string): boolean {
+  const s = sistema.trim().toLowerCase().replace(/^deluxy-/, "");
+  return s === "partner" || s === "finance" || s.startsWith("partner-") || s.startsWith("finance-");
+}

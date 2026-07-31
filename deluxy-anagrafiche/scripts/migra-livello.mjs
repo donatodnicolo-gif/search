@@ -22,8 +22,18 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 const prova = process.argv.includes("--prova");
-const DA_SPOSTARE = ["in_contatto", "in_attesa", "da_ricontattare"];
-const STATO_NUOVO = "prospect";
+// Vecchio stato commerciale → stato che resta + livello che nasce.
+// «a rischio» diventa CLIENTE, non prospect: chi è a rischio compra ancora, ed
+// è proprio il motivo per cui era un pessimo stato commerciale — toglieva la
+// parola «cliente» a chi cliente lo è.
+const SPOSTAMENTI = {
+  in_contatto: "prospect",
+  in_attesa: "prospect",
+  da_ricontattare: "prospect",
+  non_interessato: "prospect",
+  a_rischio: "attivo",
+};
+const DA_SPOSTARE = Object.keys(SPOSTAMENTI);
 
 async function main() {
   const partner = await prisma.partner.findMany({
@@ -40,7 +50,7 @@ async function main() {
   const perStato = {};
   for (const p of partner) perStato[p.stato] = (perStato[p.stato] ?? 0) + 1;
   console.log(`${partner.length} anagrafiche da migrare:`);
-  for (const [s, n] of Object.entries(perStato)) console.log(`  ${s}: ${n} → stato ${STATO_NUOVO}, livello ${s}`);
+  for (const [st, n] of Object.entries(perStato)) console.log(`  ${st}: ${n} → stato ${SPOSTAMENTI[st]}, livello ${st}`);
 
   // Un livello già scritto a mano vince: non lo si sovrascrive con quello
   // dedotto dal vecchio stato.
@@ -52,7 +62,7 @@ async function main() {
   if (prova) {
     console.log("\n--prova: non ho scritto niente. Primi 10:");
     for (const p of partner.slice(0, 10)) {
-      console.log(`  ${p.nome}${p.citta ? " · " + p.citta : ""} — ${p.stato} → ${STATO_NUOVO} + livello ${p.livello ?? p.stato}`);
+      console.log(`  ${p.nome}${p.citta ? " · " + p.citta : ""} — ${p.stato} → ${SPOSTAMENTI[p.stato]} + livello ${p.livello ?? p.stato}`);
     }
     return;
   }
@@ -61,10 +71,10 @@ async function main() {
   for (const p of partner) {
     await prisma.partner.update({
       where: { id: p.id },
-      data: { stato: STATO_NUOVO, livello: p.livello ?? p.stato },
+      data: { stato: SPOSTAMENTI[p.stato], livello: p.livello ?? p.stato },
     });
     await prisma.passaggioStato.create({
-      data: { partnerId: p.id, da: p.stato, a: STATO_NUOVO, origine: "migrazione-livello" },
+      data: { partnerId: p.id, da: p.stato, a: SPOSTAMENTI[p.stato], origine: "migrazione-livello" },
     });
     fatte++;
     if (fatte % 25 === 0) console.log(`  …${fatte}/${partner.length}`);

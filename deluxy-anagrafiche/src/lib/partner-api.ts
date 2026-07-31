@@ -99,7 +99,12 @@ export function validaPartner(
   // «da_ricontattare» erano stati commerciali e Scout li manda ancora come
   // `stato`. Rifiutarli con un 400 vorrebbe dire rompere in silenzio l'app
   // commerciale: si accettano e si mettono dove vivono adesso, nel livello.
-  if (dati.stato && isLivello(String(dati.stato))) {
+  //
+  // ⚠️⚠️ Solo QUESTI TRE, mai `attivo`: `attivo` esiste in **entrambe** le liste
+  // (stato = «è un cliente», livello = «il rapporto è vivo») e Scout manda
+  // `stato: "attivo"` per dichiarare un cliente. Spostarlo nel livello
+  // vorrebbe dire perdere l'unica scrittura che conta davvero.
+  if (dati.stato && dati.stato !== "attivo" && isLivello(String(dati.stato))) {
     dati.livello = dati.stato;
     delete dati.stato;
   }

@@ -31,10 +31,6 @@ export const STATI = [
   "prospect",
   "in_trattativa",
   "attivo",
-  // NUOVO (29/07/2026): compra ancora, ma i segnali peggiorano. Prima si
-  // passava da «attivo» a «dismesso» senza preavviso, cioè quando era tardi.
-  "a_rischio",
-  "non_interessato",
   "dismesso",
 ] as const;
 
@@ -45,9 +41,13 @@ export const ETICHETTE_STATO: Record<Stato, string> = {
   lead: "Lead",
   prospect: "Prospect",
   in_trattativa: "In trattativa",
-  attivo: "Attivo",
-  a_rischio: "A rischio",
-  non_interessato: "Non interessato",
+  // ⚠️ Il VALORE resta `attivo` (è nel database di quasi mille anagrafiche e in
+  // Scout, cambiarlo sarebbe una migrazione), ma l'ETICHETTA è «Cliente»
+  // (31/07/2026, decisione dell'utente): «attivo» diceva due cose in una sola
+  // parola — la scheda ha già un `attivo` che vuol dire «non archiviata», e
+  // un'anagrafica archiviata risultava «Attivo» in elenco. «Cliente» dice
+  // invece l'unica cosa che conta: ci compra.
+  attivo: "Cliente",
   // ⚠️ Il VALORE resta `dismesso` (è nel database di 976 anagrafiche e cambiarlo
   // sarebbe una migrazione), ma l'ETICHETTA è «Dormiente»: è la parola che usa
   // l'app commerciale per la stessa identica cosa, e due nomi per un concetto
@@ -63,10 +63,6 @@ export const COLORE_STATO: Record<Stato, string> = {
   prospect: "var(--text-tertiary)",
   in_trattativa: "var(--purple)",
   attivo: "var(--green)",
-  // Ancora cliente, ma da guardare: giallo, non rosso — il rosso è per chi se
-  // n'è andato, e confonderli farebbe reagire tardi o troppo presto.
-  a_rischio: "var(--orange)",
-  non_interessato: "var(--red)",
   dismesso: "var(--red)",
 };
 
@@ -80,7 +76,20 @@ export function isStato(v: string): v is Stato {
 // o un cliente — quello è lo stato — e per questo è una dimensione a parte:
 // «prospect» e «in attesa di risposta» sono veri nello stesso momento.
 // Vuoto = non indicato (nessun livello è quello «giusto» di partenza).
-export const LIVELLI = ["in_contatto", "in_attesa", "da_ricontattare"] as const;
+// L'ordine è quello in cui un rapporto si scalda: gli abbiamo parlato, aspetta
+// una risposta, va ripreso in mano, ed è vivo.
+export const LIVELLI = [
+  "in_contatto",
+  "in_attesa",
+  "da_ricontattare",
+  "attivo",
+  // Erano stati commerciali fino al 31/07/2026, e come stati non funzionavano:
+  // «a rischio» toglieva la parola «cliente» proprio a chi cliente lo è ancora,
+  // e «non interessato» cancellava il fatto che restava un prospect a cui
+  // avevamo parlato. Sono modi in cui va il rapporto, non gradini del funnel.
+  "a_rischio",
+  "non_interessato",
+] as const;
 
 export type Livello = (typeof LIVELLI)[number];
 
@@ -88,6 +97,13 @@ export const ETICHETTE_LIVELLO: Record<Livello, string> = {
   in_contatto: "In contatto",
   in_attesa: "In attesa",
   da_ricontattare: "Da ricontattare",
+  // Stesso slug dello stato commerciale `attivo`, ma è un'altra colonna e vuol
+  // dire un'altra cosa: lì «è un cliente», qui «il rapporto è vivo, ci
+  // parliamo». Un cliente che non risponde più è stato Cliente con livello
+  // «Da ricontattare», ed è proprio la coppia che prima non si poteva scrivere.
+  attivo: "Attivo",
+  a_rischio: "A rischio",
+  non_interessato: "Non interessato",
 };
 
 export const COLORE_LIVELLO: Record<Livello, string> = {
@@ -97,6 +113,11 @@ export const COLORE_LIVELLO: Record<Livello, string> = {
   // se ne accorga.
   in_attesa: "var(--orange)",
   da_ricontattare: "var(--orange)",
+  attivo: "var(--green)",
+  // Ancora cliente, ma da guardare: arancione, non rosso — il rosso è per chi
+  // se n'è andato, e confonderli farebbe reagire tardi o troppo presto.
+  a_rischio: "var(--orange)",
+  non_interessato: "var(--red)",
 };
 
 export function isLivello(v: string): v is Livello {

@@ -4,7 +4,7 @@ import { autentica, erroreApi } from "@/lib/api-auth";
 import { prisma } from "@/lib/db";
 import { segnalaClienteAFinance } from "@/lib/finance";
 import { CAMPI_FINANZIARI, propagaDatiFinanziari } from "@/lib/insegna";
-import { INTERESSE_AFFILIAZIONE, eRicercaFornitori } from "@/lib/interessi";
+import { INTERESSE_AFFILIAZIONE, eFinance, eRicercaFornitori } from "@/lib/interessi";
 import { diffCampi, registraModifica, registraModifiche } from "@/lib/log-modifiche";
 import { calcolaMerge, mergeContatti, nomeSistema, provenienzaIniziale } from "@/lib/merge";
 import { serializzaPartner, validaPartner } from "@/lib/partner-api";
@@ -279,6 +279,13 @@ export async function POST(req: NextRequest) {
   if (!sbloccaCurati) {
     delete datiCreate.stato;
     delete datiCreate.interessi;
+  }
+  // Eccezione ai curati: un'anagrafica che nasce da FINANCE è già un cliente.
+  // Lì dentro ci finiscono le aziende a cui si fattura e da cui si incassa: se
+  // FINANCE la conosce, commercialmente non è un prospect da coltivare. Solo
+  // alla creazione, e solo se non ha già detto lui che stato ha.
+  if (eFinance(sistema) && !datiCreate.stato) {
+    datiCreate.stato = "attivo";
   }
   // Eccezione ai curati: un'anagrafica che nasce dall'app di ricerca fornitori
   // è un'affiliazione, quindi l'interesse lo mette il registro da sé.
