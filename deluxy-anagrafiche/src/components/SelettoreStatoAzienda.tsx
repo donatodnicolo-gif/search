@@ -1,46 +1,80 @@
-import { cambiaStatoAnalisi, cambiaStatoFinanziario } from "@/lib/azioni";
+import { cambiaLivello, cambiaStatoAnalisi, cambiaStatoFinanziario } from "@/lib/azioni";
 import {
+  COLORE_LIVELLO,
   COLORE_STATO_ANALISI,
   COLORE_STATO_FINANZIARIO,
   DESCRIZIONI_STATO_ANALISI,
+  ETICHETTE_LIVELLO,
   ETICHETTE_STATO_FINANZIARIO,
+  LIVELLI,
   STATI_ANALISI,
   STATI_FINANZIARI,
+  isLivello,
   isStatoAnalisi,
   isStatoFinanziario,
 } from "@/lib/stati";
 
-// Pillole dello stato finanziario / analisi nella scheda azienda: gemelle di
-// SelettoreStato (che governa lo stato commerciale), una riga per dimensione.
+export type DimensioneAzienda = "livello" | "finanziario" | "analisi";
+
+type Voce = { valore: string; etichetta: string; colore: string };
+
+// Le dimensioni diverse da quella commerciale, tutte con la stessa meccanica:
+// pillole, una sola scelta, la corrente disabilitata. Aggiungerne una vuol dire
+// una riga qui, non un altro componente.
+const DIMENSIONI: Record<
+  DimensioneAzienda,
+  { campo: string; azione: (id: string, fd: FormData) => Promise<void>; voci: Voce[]; noto: (v: string | null) => boolean }
+> = {
+  // Vuoto è una scelta legittima e va offerta: un'anagrafica appena nata non è
+  // «in contatto», e senza la pillola «Non indicato» il livello si potrebbe
+  // solo mettere, mai togliere.
+  livello: {
+    campo: "livello",
+    azione: cambiaLivello,
+    voci: [
+      ...LIVELLI.map((l) => ({ valore: l as string, etichetta: ETICHETTE_LIVELLO[l], colore: COLORE_LIVELLO[l] })),
+      { valore: "", etichetta: "Non indicato", colore: "var(--text-tertiary)" },
+    ],
+    noto: (v) => !v || isLivello(v),
+  },
+  finanziario: {
+    campo: "statoFinanziario",
+    azione: cambiaStatoFinanziario,
+    voci: STATI_FINANZIARI.map((s) => ({
+      valore: s as string,
+      etichetta: ETICHETTE_STATO_FINANZIARIO[s],
+      colore: COLORE_STATO_FINANZIARIO[s],
+    })),
+    noto: (v) => isStatoFinanziario(v ?? ""),
+  },
+  analisi: {
+    campo: "statoAnalisi",
+    azione: cambiaStatoAnalisi,
+    voci: [
+      ...STATI_ANALISI.map((s) => ({
+        valore: s as string,
+        etichetta: DESCRIZIONI_STATO_ANALISI[s],
+        colore: COLORE_STATO_ANALISI[s],
+      })),
+      { valore: "", etichetta: "Non analizzata", colore: "var(--text-tertiary)" },
+    ],
+    noto: (v) => !v || isStatoAnalisi(v),
+  },
+};
+
+// Pillole di livello / stato finanziario / stato analisi nella scheda azienda:
+// gemelle di SelettoreStato (che governa lo stato commerciale), una riga per
+// dimensione.
 export function SelettoreStatoAzienda({
   partnerId,
   dimensione,
   statoAttuale,
 }: {
   partnerId: string;
-  dimensione: "finanziario" | "analisi";
+  dimensione: DimensioneAzienda;
   statoAttuale: string | null;
 }) {
-  const finanziario = dimensione === "finanziario";
-  const azione = finanziario ? cambiaStatoFinanziario : cambiaStatoAnalisi;
-  const campo = finanziario ? "statoFinanziario" : "statoAnalisi";
-  const voci = finanziario
-    ? STATI_FINANZIARI.map((s) => ({
-        valore: s as string,
-        etichetta: ETICHETTE_STATO_FINANZIARIO[s],
-        colore: COLORE_STATO_FINANZIARIO[s],
-      }))
-    : [
-        ...STATI_ANALISI.map((s) => ({
-          valore: s as string,
-          etichetta: DESCRIZIONI_STATO_ANALISI[s],
-          colore: COLORE_STATO_ANALISI[s],
-        })),
-        { valore: "", etichetta: "Non analizzata", colore: "var(--text-tertiary)" },
-      ];
-  const attualeNoto = finanziario
-    ? isStatoFinanziario(statoAttuale ?? "")
-    : !statoAttuale || isStatoAnalisi(statoAttuale);
+  const { campo, azione, voci, noto } = DIMENSIONI[dimensione];
 
   return (
     <form action={azione.bind(null, partnerId)} className="selettore-stato">
@@ -63,7 +97,7 @@ export function SelettoreStatoAzienda({
         );
       })}
       {/* Valore fuori catalogo (scritto da un'app): lo si vede comunque */}
-      {!attualeNoto && (
+      {!noto(statoAttuale) && (
         <span className="stato-pill attuale" style={{ color: "var(--text-tertiary)" }}>
           <span className="dot" />
           <span className="stato-label">{statoAttuale}</span>

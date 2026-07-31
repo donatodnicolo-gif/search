@@ -1,13 +1,17 @@
 "use client";
 
 import { useOptimistic, useRef, useState } from "react";
-import { cambiaStatoAnalisi, cambiaStatoFinanziario } from "@/lib/azioni";
-import { BadgeStatoAnalisi, BadgeStatoFinanziario } from "./BadgeStato";
+import { cambiaLivello, cambiaStatoAnalisi, cambiaStatoFinanziario } from "@/lib/azioni";
+import { BadgeLivello, BadgeStatoAnalisi, BadgeStatoFinanziario } from "./BadgeStato";
+import type { DimensioneAzienda } from "./SelettoreStatoAzienda";
 import {
+  COLORE_LIVELLO,
   COLORE_STATO_ANALISI,
   COLORE_STATO_FINANZIARIO,
   DESCRIZIONI_STATO_ANALISI,
+  ETICHETTE_LIVELLO,
   ETICHETTE_STATO_FINANZIARIO,
+  LIVELLI,
   STATI_ANALISI,
   STATI_FINANZIARI,
 } from "@/lib/stati";
@@ -25,7 +29,7 @@ export function MenuStatoAzienda({
   disabilitato = false,
 }: {
   partnerId: string;
-  dimensione: "finanziario" | "analisi";
+  dimensione: DimensioneAzienda;
   stato: string | null;
   disabilitato?: boolean;
 }) {
@@ -35,29 +39,47 @@ export function MenuStatoAzienda({
   // rivalidazione della pagina arriva dopo.
   const [statoMostrato, setStatoMostrato] = useOptimistic(stato ?? "");
 
-  const finanziario = dimensione === "finanziario";
-  const azione = finanziario ? cambiaStatoFinanziario : cambiaStatoAnalisi;
-  const campo = finanziario ? "statoFinanziario" : "statoAnalisi";
-  const voci: Voce[] = finanziario
-    ? STATI_FINANZIARI.map((s) => ({
-        valore: s,
-        etichetta: ETICHETTE_STATO_FINANZIARIO[s],
-        colore: COLORE_STATO_FINANZIARIO[s],
-      }))
-    : [
-        ...STATI_ANALISI.map((s) => ({
-          valore: s,
-          etichetta: DESCRIZIONI_STATO_ANALISI[s],
-          colore: COLORE_STATO_ANALISI[s],
-        })),
-        { valore: "", etichetta: "Non analizzata", colore: "var(--text-tertiary)" },
-      ];
+  const azione =
+    dimensione === "finanziario"
+      ? cambiaStatoFinanziario
+      : dimensione === "analisi"
+        ? cambiaStatoAnalisi
+        : cambiaLivello;
+  const campo =
+    dimensione === "finanziario" ? "statoFinanziario" : dimensione === "analisi" ? "statoAnalisi" : "livello";
+  const voci: Voce[] =
+    dimensione === "finanziario"
+      ? STATI_FINANZIARI.map((s) => ({
+          valore: s as string,
+          etichetta: ETICHETTE_STATO_FINANZIARIO[s],
+          colore: COLORE_STATO_FINANZIARIO[s],
+        }))
+      : dimensione === "analisi"
+        ? [
+            ...STATI_ANALISI.map((s) => ({
+              valore: s as string,
+              etichetta: DESCRIZIONI_STATO_ANALISI[s],
+              colore: COLORE_STATO_ANALISI[s],
+            })),
+            { valore: "", etichetta: "Non analizzata", colore: "var(--text-tertiary)" },
+          ]
+        : [
+            ...LIVELLI.map((l) => ({
+              valore: l as string,
+              etichetta: ETICHETTE_LIVELLO[l],
+              colore: COLORE_LIVELLO[l],
+            })),
+            { valore: "", etichetta: "Non indicato", colore: "var(--text-tertiary)" },
+          ];
 
-  const badge = finanziario ? (
-    <BadgeStatoFinanziario stato={statoMostrato} />
-  ) : (
-    <BadgeStatoAnalisi stato={statoMostrato || null} />
-  );
+  const badge =
+    dimensione === "finanziario" ? (
+      <BadgeStatoFinanziario stato={statoMostrato} />
+    ) : dimensione === "analisi" ? (
+      <BadgeStatoAnalisi stato={statoMostrato || null} />
+    ) : (
+      <BadgeLivello livello={statoMostrato || null} />
+    );
 
   if (disabilitato) return badge;
 

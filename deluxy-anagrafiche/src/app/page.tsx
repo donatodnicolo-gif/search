@@ -34,6 +34,7 @@ const COLONNE_ORDINABILI = {
   categoria: "Categoria",
   citta: "Città",
   stato: "Stato commerciale",
+  livello: "Livello",
   statoFinanziario: "Stato finanziario",
   statoAnalisi: "Stato analisi",
   votoD2C: "D2C",
@@ -48,6 +49,7 @@ type Ricerca = {
   categoria?: string;
   citta?: string;
   stato?: string;
+  livello?: string;
   statoFinanziario?: string;
   statoAnalisi?: string;
   interesse?: string;
@@ -78,6 +80,8 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
   if (filtri.categoria) where.categoria = filtri.categoria;
   if (filtri.citta) where.citta = filtri.citta;
   if (filtri.stato) where.stato = filtri.stato;
+  // "nessuno" = livello non indicato (≠ nessun risultato)
+  if (filtri.livello) where.livello = filtri.livello === "nessuno" ? null : filtri.livello;
   if (filtri.statoFinanziario) where.statoFinanziario = filtri.statoFinanziario;
   // "nessuno" = mai analizzata (colonna vuota nel registro)
   if (filtri.statoAnalisi) {
@@ -95,6 +99,7 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
     !filtri.q &&
     !filtri.citta &&
     !filtri.stato &&
+    !filtri.livello &&
     !filtri.statoFinanziario &&
     !filtri.statoAnalisi &&
     !interesse &&
@@ -124,8 +129,8 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
           ? { nome: dir }
           : ordina === "ultimaVisita"
             ? [{ ultimaVisita: { sort: dir, nulls: "last" } }, { nome: "asc" }]
-            : ordina === "statoAnalisi"
-              ? [{ statoAnalisi: { sort: dir, nulls: "last" } }, { nome: "asc" }]
+            : ordina === "statoAnalisi" || ordina === "livello"
+              ? [{ [ordina]: { sort: dir, nulls: "last" } }, { nome: "asc" }]
               : // Chi non ha feedback non ha un voto: resta in fondo in
                 // entrambi i versi, non finisce fra i peggiori.
                 ordina === "votoD2C"
@@ -267,6 +272,14 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
       <td>
         <MenuStatoAzienda
           partnerId={p.id}
+          dimensione="livello"
+          stato={p.livello}
+          disabilitato={inArchivio}
+        />
+      </td>
+      <td>
+        <MenuStatoAzienda
+          partnerId={p.id}
           dimensione="finanziario"
           stato={p.statoFinanziario}
           disabilitato={inArchivio}
@@ -328,7 +341,8 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
         <td className="cella-muta">{citta.length === 1 ? citta[0] : `${citta.length} città`}</td>
         <td className="cella-muta">—</td>
         <td className="cella-muta">—</td>
-        {/* stato finanziario e stato analisi: stanno sulle sedi, come gli altri */}
+        {/* livello, stato finanziario e stato analisi: stanno sulle sedi */}
+        <td className="cella-muta">—</td>
         <td className="cella-muta">—</td>
         <td className="cella-muta">—</td>
         <td className="cella-muta">—</td>
@@ -383,6 +397,7 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
       <Sidebar
         categoriaAttiva={filtri.categoria ?? null}
         statoAttivo={!inArchivio ? (filtri.stato ?? null) : null}
+        livelloAttivo={!inArchivio ? (filtri.livello ?? null) : null}
         statoFinanziarioAttivo={!inArchivio ? (filtri.statoFinanziario ?? null) : null}
         statoAnalisiAttivo={!inArchivio ? (filtri.statoAnalisi ?? null) : null}
         interesseAttivo={interesse ?? null}
@@ -481,6 +496,7 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
                   <th>Città</th>
                   <th>Telefono</th>
                   <th>Stato commerciale</th>
+                  <th>Livello</th>
                   <th>Stato finanziario</th>
                   <th>Stato analisi</th>
                   <th>Interessi</th>
@@ -503,6 +519,7 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
                     <td className="cella-muta">{p.citta ?? "—"}</td>
                     <td className="cella-muta">{telefonoDi(p) ?? "—"}</td>
                     <td><MenuStato partnerId={p.id} stato={p.stato} /></td>
+                    <td><MenuStatoAzienda partnerId={p.id} dimensione="livello" stato={p.livello} /></td>
                     <td><MenuStatoAzienda partnerId={p.id} dimensione="finanziario" stato={p.statoFinanziario} /></td>
                     <td><MenuStatoAzienda partnerId={p.id} dimensione="analisi" stato={p.statoAnalisi} /></td>
                     <td><MenuInteressi partnerId={p.id} interessi={p.interessi} compatto linee={linee} /></td>
@@ -541,6 +558,7 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
                 <Intestazione campo="citta" />
                 <th>Telefono</th>
                 <Intestazione campo="stato" />
+                <Intestazione campo="livello" />
                 <Intestazione campo="statoFinanziario" />
                 <Intestazione campo="statoAnalisi" />
                 <th>Interessi</th>

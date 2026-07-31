@@ -147,6 +147,7 @@ export const ETICHETTE_CAMPO: Record<string, string> = {
   account: "Account commerciale",
   note: "Note",
   ultimaVisita: "Ultimo contatto",
+  livello: "Livello del contatto",
   interessi: "Linee di interesse",
   pec: "PEC",
   codiceSdi: "Codice SDI",

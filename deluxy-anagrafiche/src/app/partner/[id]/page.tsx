@@ -259,36 +259,7 @@ export default async function Dettaglio({
           </p>
         </div>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 10 }}>
-          {p.attivo && (
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span className="etichetta-interessi">Interessi</span>
-              <MenuInteressi partnerId={p.id} interessi={p.interessi} linee={linee} />
-            </div>
-          )}
-          {p.attivo ? (
-            <>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span className="etichetta-interessi">Commerciale</span>
-                <SelettoreStato partnerId={p.id} statoAttuale={p.stato} />
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span className="etichetta-interessi">Finanziario</span>
-                <SelettoreStatoAzienda
-                  partnerId={p.id}
-                  dimensione="finanziario"
-                  statoAttuale={p.statoFinanziario}
-                />
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span className="etichetta-interessi">Analisi</span>
-                <SelettoreStatoAzienda
-                  partnerId={p.id}
-                  dimensione="analisi"
-                  statoAttuale={p.statoAnalisi}
-                />
-              </div>
-            </>
-          ) : (
+          {!p.attivo && (
             <span className="badge" style={{ color: "var(--text-tertiary)" }}>
               <span className="dot" />
               <span style={{ color: "var(--text)" }}>Archiviata</span>
@@ -331,6 +302,43 @@ export default async function Dettaglio({
           </div>
         </div>
       </div>
+
+      {/* Le quattro dimensioni + gli interessi in un pannello a griglia, non
+          più incastrate a destra dell'intestazione: lì le pillole erano
+          allineate a destra e ogni riga finiva in un punto diverso, e con la
+          quarta dimensione sarebbero state cinque righe sfilacciate. Qui le
+          etichette stanno in colonna e le pillole partono tutte dallo stesso
+          punto: si legge in verticale «a che punto è questa azienda». */}
+      {p.attivo && (
+        <section className="scheda pannello-stati">
+          <div className="riga-dimensione">
+            <span className="etichetta-dimensione">Commerciale</span>
+            <SelettoreStato partnerId={p.id} statoAttuale={p.stato} />
+          </div>
+          <div className="riga-dimensione">
+            <span className="etichetta-dimensione" title="A che punto è il contatto dentro lo stato commerciale">
+              Livello
+            </span>
+            <SelettoreStatoAzienda partnerId={p.id} dimensione="livello" statoAttuale={p.livello} />
+          </div>
+          <div className="riga-dimensione">
+            <span className="etichetta-dimensione">Finanziario</span>
+            <SelettoreStatoAzienda
+              partnerId={p.id}
+              dimensione="finanziario"
+              statoAttuale={p.statoFinanziario}
+            />
+          </div>
+          <div className="riga-dimensione">
+            <span className="etichetta-dimensione">Analisi</span>
+            <SelettoreStatoAzienda partnerId={p.id} dimensione="analisi" statoAttuale={p.statoAnalisi} />
+          </div>
+          <div className="riga-dimensione">
+            <span className="etichetta-dimensione">Interessi</span>
+            <MenuInteressi partnerId={p.id} interessi={p.interessi} linee={linee} />
+          </div>
+        </section>
+      )}
 
       {righeRubrica.length > 0 && <SalvaRubricaAuto contatti={righeRubrica} />}
 

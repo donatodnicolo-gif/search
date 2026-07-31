@@ -31,7 +31,7 @@ anagrafici nelle vostre app — leggeteli da qui.
 
 ### Se leggi (tutte le app)
 
-- `GET /api/v1/partners?q=&categoria=&citta=&provincia=&regione=&stato=&statoFinanziario=&statoAnalisi=&interesse=&page=&perPage=`
+- `GET /api/v1/partners?q=&categoria=&citta=&provincia=&regione=&stato=&livello=&statoFinanziario=&statoAnalisi=&interesse=&page=&perPage=`
   → `{ totale, dati: [...] }`. `q` è multi-parola su **tutti i campi** (anagrafica
   + referenti); i filtri si combinano in AND. Città e province sono in MAIUSCOLO.
 - `GET /api/v1/partners/:id` — accetta anche il vostro `platformId`.
@@ -266,20 +266,27 @@ L'import è idempotente: rilanciandolo sostituisce solo le anagrafiche con
 
 ## Modello dati
 
-### Le tre dimensioni di stato
+### Le quattro dimensioni di stato
 
-Ogni azienda ha **tre stati indipendenti** (catalogo in `src/lib/stati.ts`):
+Ogni azienda ha **quattro stati indipendenti** (catalogo in `src/lib/stati.ts`):
 
 | Dimensione | Campo | Valori | Chi la governa |
 | --- | --- | --- | --- |
-| **Commerciale** | `stato` (alias in lettura/scrittura: `statoCommerciale`) | `prospect`, `in_contatto`, `in_attesa`, `in_trattativa`, `da_ricontattare`, `attivo` (= Partner), `non_interessato`, `dismesso` | il team commerciale (curato: le app non lo scrivono) |
+| **Commerciale** | `stato` (alias in lettura/scrittura: `statoCommerciale`) | `selezionato`, `lead`, `prospect`, `in_trattativa`, `attivo` (= Partner), `a_rischio`, `non_interessato`, `dismesso` (mostrato «Dormiente») | il team commerciale (curato: le app non lo scrivono) |
+| **Livello del contatto** | `livello` | `in_contatto`, `in_attesa`, `da_ricontattare`; vuoto = non indicato | il team commerciale / Scout (curato come lo stato) |
 | **Finanziario** | `statoFinanziario` | `da_verificare` (predefinito), `regolare`, `in_ritardo`, `insoluto`, `piano_di_rientro`, `bloccato` | amministrazione / FINANCE |
 | **Analisi** | `statoAnalisi` | `pp` (P.P., pari perimetro), `nuovo`, `dismesso`; vuoto = mai analizzata | FINANCE (`Partner.clienteAnno` di deluxy-partner) |
 
 In scrittura `statoAnalisi` accetta anche le forme di FINANCE (`"P.P."`,
-`"Nuovo"`, `"Dismesso"`) e le normalizza sugli slug. I cambi delle tre
-dimensioni finiscono tutti in `PassaggioStato`, con prefisso `fin:` e `ana:`
-per le due non commerciali.
+`"Nuovo"`, `"Dismesso"`) e le normalizza sugli slug. I cambi delle quattro
+dimensioni finiscono tutti in `PassaggioStato`, con prefisso `liv:`, `fin:` e
+`ana:` per le tre non commerciali.
+
+⚠️ **Se mandate ancora `stato: "in_contatto" | "in_attesa" | "da_ricontattare"`**
+(erano stati commerciali fino al 31/07/2026) la scrittura **non viene
+rifiutata**: il registro la accetta e mette il valore nel campo `livello`,
+lasciando `stato` com'era. Non c'è fretta di cambiare le vostre chiamate, ma
+d'ora in poi il posto giusto è `livello`.
 
 `Partner`: nome, ragione sociale, categoria (BOUTIQUE, FIORISTA, PASTICCERIA, …),
 i tre stati qui sopra, `interessi` (array

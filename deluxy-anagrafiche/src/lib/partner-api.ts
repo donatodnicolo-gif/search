@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { valutazioneD2C } from "./feedback-d2c";
 import { CAMPI_FINANZIARI } from "./insegna";
-import { isStato, isStatoFinanziario, normalizzaStatoAnalisi } from "./stati";
+import { isLivello, isStato, isStatoFinanziario, normalizzaStatoAnalisi } from "./stati";
 
 // Campi scalari accettati in scrittura dalle API (POST/PATCH).
 const CAMPI_TESTO = [
@@ -9,8 +9,10 @@ const CAMPI_TESTO = [
   "ragioneSociale",
   "categoria",
   "tipoProspect",
-  // i tre stati dell'azienda: commerciale (storico `stato`), finanziario, analisi
+  // gli stati dell'azienda: commerciale (storico `stato`), livello del
+  // contatto, finanziario, analisi
   "stato",
+  "livello",
   "statoFinanziario",
   "statoAnalisi",
   "citta",
@@ -93,8 +95,19 @@ export function validaPartner(
   // Normalizzazioni finanziarie (stesse regole della UI)
   if (dati.iban) dati.iban = String(dati.iban).replace(/\s+/g, "").toUpperCase();
   if (dati.codiceSdi) dati.codiceSdi = String(dati.codiceSdi).toUpperCase();
+  // ⚠️ COMPATIBILITÀ CON SCOUT (31/07/2026). «in_contatto», «in_attesa» e
+  // «da_ricontattare» erano stati commerciali e Scout li manda ancora come
+  // `stato`. Rifiutarli con un 400 vorrebbe dire rompere in silenzio l'app
+  // commerciale: si accettano e si mettono dove vivono adesso, nel livello.
+  if (dati.stato && isLivello(String(dati.stato))) {
+    dati.livello = dati.stato;
+    delete dati.stato;
+  }
   if (dati.stato && !isStato(String(dati.stato))) {
     return { errore: `Stato non valido: '${dati.stato}'` };
+  }
+  if (dati.livello && !isLivello(String(dati.livello))) {
+    return { errore: `Livello non valido: '${dati.livello}'` };
   }
   if (dati.statoFinanziario && !isStatoFinanziario(String(dati.statoFinanziario))) {
     return { errore: `Stato finanziario non valido: '${dati.statoFinanziario}'` };
@@ -175,6 +188,9 @@ export function serializzaPartner(p: PartnerConContatti) {
     // esplicito con cui leggerle simmetricamente.
     stato: p.stato,
     statoCommerciale: p.stato,
+    // A che punto è il contatto dentro lo stato: in_contatto | in_attesa |
+    // da_ricontattare. Vuoto = non indicato.
+    livello: p.livello,
     statoFinanziario: p.statoFinanziario,
     statoAnalisi: p.statoAnalisi,
     citta: p.citta,

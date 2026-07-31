@@ -1,10 +1,13 @@
 import {
+  COLORE_LIVELLO,
   COLORE_STATO,
   COLORE_STATO_ANALISI,
   COLORE_STATO_FINANZIARIO,
+  ETICHETTE_LIVELLO,
   ETICHETTE_STATO,
   ETICHETTE_STATO_ANALISI,
   ETICHETTE_STATO_FINANZIARIO,
+  isLivello,
   isStato,
   isStatoAnalisi,
   isStatoFinanziario,
@@ -49,6 +52,19 @@ export function BadgeStatoAnalisi({ stato }: { stato: string | null }) {
     <Badge
       colore={noto ? COLORE_STATO_ANALISI[stato] : "var(--text-tertiary)"}
       etichetta={noto ? ETICHETTE_STATO_ANALISI[stato] : stato}
+    />
+  );
+}
+
+// Livello del contatto dentro lo stato commerciale. Vuoto = non indicato: si
+// mostra un trattino, non una parola inventata.
+export function BadgeLivello({ livello }: { livello: string | null }) {
+  if (!livello) return <Badge colore="var(--text-tertiary)" etichetta="Non indicato" />;
+  const noto = isLivello(livello);
+  return (
+    <Badge
+      colore={noto ? COLORE_LIVELLO[livello] : "var(--text-tertiary)"}
+      etichetta={noto ? ETICHETTE_LIVELLO[livello] : livello}
     />
   );
 }

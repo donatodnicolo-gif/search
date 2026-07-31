@@ -23,10 +23,15 @@ model Partner {
   // RISTORANTE, CATERING, GIFTING, CONCIERGE, ...
   categoria      String     @default("ALTRO")
   tipoProspect   String? // valore grezzo "TIPO PROSPECT" del tracker Excel
-  // Stato COMMERCIALE (ciclo di vita della relazione):
-  // prospect | in_contatto | in_attesa | in_trattativa | da_ricontattare |
-  // attivo (= partner) | non_interessato | dismesso — vedi src/lib/stati.ts
+  // Stato COMMERCIALE (a che punto del funnel siamo): selezionato | lead |
+  // prospect | in_trattativa | attivo (= partner) | a_rischio |
+  // non_interessato | dismesso — vedi src/lib/stati.ts
   stato          String     @default("prospect")
+  // LIVELLO del contatto dentro quello stato: in_contatto | in_attesa |
+  // da_ricontattare. Vuoto = non indicato. Dal 31/07/2026: erano stati
+  // commerciali, ma dicevano il MOMENTO del contatto, non il gradino del
+  // funnel, e obbligavano a scegliere fra due cose vere insieme.
+  livello          String?
   // Stato FINANZIARIO (come paga l'azienda, dimensione dell'amministrazione):
   // da_verificare | regolare | in_ritardo | insoluto | piano_di_rientro | bloccato
   statoFinanziario String   @default("da_verificare")
@@ -121,6 +126,7 @@ model Partner {
   @@index([stato])
   @@index([statoFinanziario])
   @@index([statoAnalisi])
+  @@index([livello])
   @@index([citta])
   @@index([nome])
   @@index([capogruppoId])

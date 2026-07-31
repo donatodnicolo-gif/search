@@ -229,6 +229,19 @@ cd deluxy-anagrafiche && npm run import:excel -- "C:/Users/nicol/Downloads/ANAGR
 - **Serve**: `DATABASE_URL` / `DIRECT_URL` nel `.env` dell'app (vedi `configura-db-condiviso.mjs`)
 - **Nota**: idempotente ma **distruttivo sul proprio perimetro**: cancella e ricrea solo le anagrafiche con fonte `excel`; quelle create dalla piattaforma o a mano non vengono toccate. Default del percorso: `~/Downloads/ANAGRAFICHE B2B COMPLETE - ACTIVITY TRACKER.xlsx`.
 
+### migra-livello.mjs — deluxy-anagrafiche
+Sposta «in contatto / in attesa / da ricontattare» dallo **stato commerciale** al nuovo **livello del contatto** (31/07/2026): non erano gradini del funnel ma il momento del contatto.
+
+```bash
+# elenca senza scrivere (lanciarla sempre prima)
+cd deluxy-anagrafiche && node scripts/migra-livello.mjs --prova
+# esegue
+cd deluxy-anagrafiche && node scripts/migra-livello.mjs
+```
+
+- **Serve**: `DATABASE_URL` / `DIRECT_URL` nel `.env` dell'app
+- **Nota**: **già eseguita in produzione il 31/07/2026** (182 anagrafiche). Rieseguibile: dopo il primo giro non trova più niente. Per ogni record: `livello` = vecchio valore, `stato` = `prospect` (scelta dell'utente: sono contattate ma non ancora in trattativa), più un `PassaggioStato` con origine `migrazione-livello` così sulla scheda si vede che è stata una migrazione. Un livello già scritto a mano non viene sovrascritto.
+
 ### importa-hubspot-contatti.mjs — deluxy-anagrafiche
 Importa i contatti (persone) da HubSpot e li aggancia come referenti ai partner del registro.
 

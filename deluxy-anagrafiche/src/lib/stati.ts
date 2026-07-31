@@ -1,5 +1,6 @@
-// Un'azienda ha tre stati indipendenti, uno per dimensione:
-//  - COMMERCIALE (`stato`)            — ciclo di vita della relazione commerciale
+// Un'azienda ha quattro stati indipendenti, uno per dimensione:
+//  - COMMERCIALE (`stato`)            — a che punto del funnel siamo arrivati
+//  - LIVELLO     (`livello`)          — com'è messo il contatto *dentro* quel punto
 //  - FINANZIARIO (`statoFinanziario`) — come paga, se possiamo lavorarci a credito
 //  - ANALISI     (`statoAnalisi`)     — perimetro di analisi, catalogo di FINANCE
 //                                       (deluxy-partner, campo "Cliente per l'anno")
@@ -15,16 +16,20 @@
 // Scout uno stato che Scout non sa leggere, e viceversa.
 //
 // L'ordine è quello del funnel, dal nome sulla lista al rapporto chiuso.
+//
+// ⚠️ 31/07/2026 — «in contatto», «in attesa» e «da ricontattare» NON sono più
+// stati commerciali: sono passati alla dimensione LIVELLO qui sotto. Non erano
+// gradini del funnel ma il *momento* del contatto, e mescolarli agli altri
+// costringeva a scegliere fra due informazioni vere insieme («è un prospect»
+// **e** «sta aspettando una risposta»). Le 180 anagrafiche che li avevano sono
+// diventate `prospect` tenendo il vecchio valore come livello.
 export const STATI = [
   // I due che arrivano da Scout: prima di parlargli, il registro non aveva
   // parole per distinguere «l'ho scelto io» da «ce l'abbiamo e basta».
   "selezionato",
   "lead",
   "prospect",
-  "in_contatto",
-  "in_attesa",
   "in_trattativa",
-  "da_ricontattare",
   "attivo",
   // NUOVO (29/07/2026): compra ancora, ma i segnali peggiorano. Prima si
   // passava da «attivo» a «dismesso» senza preavviso, cioè quando era tardi.
@@ -39,10 +44,7 @@ export const ETICHETTE_STATO: Record<Stato, string> = {
   selezionato: "Selezionato",
   lead: "Lead",
   prospect: "Prospect",
-  in_contatto: "In contatto",
-  in_attesa: "In attesa",
   in_trattativa: "In trattativa",
-  da_ricontattare: "Da ricontattare",
   attivo: "Attivo",
   a_rischio: "A rischio",
   non_interessato: "Non interessato",
@@ -59,10 +61,7 @@ export const COLORE_STATO: Record<Stato, string> = {
   selezionato: "var(--text-tertiary)",
   lead: "var(--blue)",
   prospect: "var(--text-tertiary)",
-  in_contatto: "var(--blue)",
-  in_attesa: "var(--orange)",
   in_trattativa: "var(--purple)",
-  da_ricontattare: "var(--orange)",
   attivo: "var(--green)",
   // Ancora cliente, ma da guardare: giallo, non rosso — il rosso è per chi se
   // n'è andato, e confonderli farebbe reagire tardi o troppo presto.
@@ -74,6 +73,43 @@ export const COLORE_STATO: Record<Stato, string> = {
 export function isStato(v: string): v is Stato {
   return (STATI as readonly string[]).includes(v);
 }
+
+// ————————————————————— LIVELLO —————————————————————
+// A che punto è il contatto *dentro* lo stato commerciale: gli abbiamo parlato,
+// stiamo aspettando una risposta, va ripreso in mano. Non dice se è un prospect
+// o un cliente — quello è lo stato — e per questo è una dimensione a parte:
+// «prospect» e «in attesa di risposta» sono veri nello stesso momento.
+// Vuoto = non indicato (nessun livello è quello «giusto» di partenza).
+export const LIVELLI = ["in_contatto", "in_attesa", "da_ricontattare"] as const;
+
+export type Livello = (typeof LIVELLI)[number];
+
+export const ETICHETTE_LIVELLO: Record<Livello, string> = {
+  in_contatto: "In contatto",
+  in_attesa: "In attesa",
+  da_ricontattare: "Da ricontattare",
+};
+
+export const COLORE_LIVELLO: Record<Livello, string> = {
+  in_contatto: "var(--blue)",
+  // Aspettare e dover richiamare sono due modi di essere fermi: arancione
+  // entrambi, perché è lì che le trattative si spengono senza che nessuno
+  // se ne accorga.
+  in_attesa: "var(--orange)",
+  da_ricontattare: "var(--orange)",
+};
+
+export function isLivello(v: string): v is Livello {
+  return (LIVELLI as readonly string[]).includes(v);
+}
+
+// ⚠️ In Deluxy Scout la stessa dimensione si chiama **momento del contatto**
+// (`MomentoContatto`, colonna `livello_contatto`): valori identici, nome
+// diverso. La funzione di sincronizzazione di Scout manda ancora questi tre
+// come `stato`, e le API del registro li spostano da sé nel livello — vedi la
+// nota «COMPATIBILITÀ CON SCOUT» in src/lib/partner-api.ts. Finché quella
+// funzione non manda `livello`, non togliere quello spostamento: senza, ogni
+// scrittura di Scout tornerebbe 400.
 
 // ————————————————————— Stato FINANZIARIO —————————————————————
 // Come si comporta l'azienda sui pagamenti: è la dimensione che guarda
@@ -162,10 +198,15 @@ export function normalizzaStatoAnalisi(v: string): StatoAnalisi | null {
 // leggibili senza ambiguità.
 export const PREFISSO_FINANZIARIO = "fin:";
 export const PREFISSO_ANALISI = "ana:";
+export const PREFISSO_LIVELLO = "liv:";
 
 // Nome leggibile di un valore che compare nello storico dei passaggi.
 export function nomeEventoStato(v: string): string {
   if (v === "archiviata") return "Archiviata";
+  if (v.startsWith(PREFISSO_LIVELLO)) {
+    const s = v.slice(PREFISSO_LIVELLO.length);
+    return `Livello: ${isLivello(s) ? ETICHETTE_LIVELLO[s] : s || "—"}`;
+  }
   if (v.startsWith(PREFISSO_FINANZIARIO)) {
     const s = v.slice(PREFISSO_FINANZIARIO.length);
     return `Finanziario: ${isStatoFinanziario(s) ? ETICHETTE_STATO_FINANZIARIO[s] : s || "—"}`;
@@ -174,5 +215,10 @@ export function nomeEventoStato(v: string): string {
     const s = v.slice(PREFISSO_ANALISI.length);
     return `Analisi: ${isStatoAnalisi(s) ? ETICHETTE_STATO_ANALISI[s] : s || "—"}`;
   }
-  return isStato(v) ? ETICHETTE_STATO[v] : v;
+  if (isStato(v)) return ETICHETTE_STATO[v];
+  // Storico più vecchio del 31/07/2026: «in_contatto» & C. erano stati
+  // commerciali senza prefisso. Restano leggibili invece di comparire come
+  // slug grezzo, ma dichiarati per quello che sono adesso.
+  if (isLivello(v)) return `Livello: ${ETICHETTE_LIVELLO[v]}`;
+  return v;
 }

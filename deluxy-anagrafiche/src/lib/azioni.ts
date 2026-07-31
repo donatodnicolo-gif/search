@@ -12,7 +12,9 @@ import { diffCampi, registraModifica, registraModifiche } from "./log-modifiche"
 import {
   PREFISSO_ANALISI,
   PREFISSO_FINANZIARIO,
+  PREFISSO_LIVELLO,
   STATO_FINANZIARIO_PREDEFINITO,
+  isLivello,
   isStato,
   isStatoAnalisi,
   isStatoFinanziario,
@@ -88,6 +90,31 @@ export async function cambiaStatoAnalisi(partnerId: string, fd: FormData) {
       partnerId,
       `${PREFISSO_ANALISI}${attuale.statoAnalisi ?? ""}`,
       `${PREFISSO_ANALISI}${nuovo ?? ""}`,
+      "ui",
+    ),
+  );
+  revalidatePath(`/partner/${partnerId}`);
+  revalidatePath("/");
+}
+
+// Cambio del LIVELLO del contatto (in contatto / in attesa / da ricontattare).
+// Vuoto = non indicato: si toglie senza dover scegliere un ripiego, perché
+// nessuno dei tre è il livello «di partenza» di un'anagrafica.
+export async function cambiaLivello(partnerId: string, fd: FormData) {
+  const grezzo = String(fd.get("livello") ?? "");
+  const nuovo = grezzo === "" ? null : isLivello(grezzo) ? grezzo : undefined;
+  if (nuovo === undefined) return;
+  const attuale = await prisma.partner.findUnique({
+    where: { id: partnerId },
+    select: { livello: true },
+  });
+  if (!attuale) return;
+  await prisma.partner.update({ where: { id: partnerId }, data: { livello: nuovo } });
+  after(() =>
+    registraPassaggio(
+      partnerId,
+      `${PREFISSO_LIVELLO}${attuale.livello ?? ""}`,
+      `${PREFISSO_LIVELLO}${nuovo ?? ""}`,
       "ui",
     ),
   );

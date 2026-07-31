@@ -2,12 +2,15 @@ import { prisma } from "@/lib/db";
 import { INTERESSI_AFFILIAZIONE, coloreInteresse } from "@/lib/interessi";
 import { getLinee } from "@/lib/linee";
 import {
+  COLORE_LIVELLO,
   COLORE_STATO,
   COLORE_STATO_ANALISI,
   COLORE_STATO_FINANZIARIO,
+  ETICHETTE_LIVELLO,
   ETICHETTE_STATO,
   ETICHETTE_STATO_ANALISI,
   ETICHETTE_STATO_FINANZIARIO,
+  LIVELLI,
   STATI,
   STATI_ANALISI,
   STATI_FINANZIARI,
@@ -21,6 +24,7 @@ import { SbSezione } from "./SbSezione";
 export async function Sidebar({
   categoriaAttiva,
   statoAttivo,
+  livelloAttivo,
   statoFinanziarioAttivo,
   statoAnalisiAttivo,
   interesseAttivo,
@@ -38,6 +42,7 @@ export async function Sidebar({
 }: {
   categoriaAttiva?: string | null;
   statoAttivo?: string | null;
+  livelloAttivo?: string | null;
   statoFinanziarioAttivo?: string | null;
   statoAnalisiAttivo?: string | null;
   interesseAttivo?: string | null;
@@ -66,6 +71,7 @@ export async function Sidebar({
         categorie: { categoria: string; n: number }[] | null;
         archiviate: number;
         stati: { v: string; n: number }[] | null;
+        livelli: { v: string; n: number }[] | null;
         finanziari: { v: string; n: number }[] | null;
         analisi: { v: string; n: number }[] | null;
         interessi: { v: string; n: number }[] | null;
@@ -88,6 +94,9 @@ export async function Sidebar({
         (SELECT json_agg(t) FROM (
           SELECT "stato" AS v, count(*)::int AS n FROM "anagrafiche"."Partner"
           WHERE "attivo" GROUP BY 1) t) AS stati,
+        (SELECT json_agg(t) FROM (
+          SELECT coalesce("livello", 'nessuno') AS v, count(*)::int AS n
+          FROM "anagrafiche"."Partner" WHERE "attivo" GROUP BY 1) t) AS livelli,
         (SELECT json_agg(t) FROM (
           SELECT "statoFinanziario" AS v, count(*)::int AS n FROM "anagrafiche"."Partner"
           WHERE "attivo" GROUP BY 1) t) AS finanziari,
@@ -121,12 +130,13 @@ export async function Sidebar({
   const affiliati = c?.affiliati ?? 0;
   const totale = categorie.reduce((somma, x) => somma + x.n, 0);
   const perStato = new Map((c?.stati ?? []).map((s) => [s.v, s.n]));
+  const perLivello = new Map((c?.livelli ?? []).map((s) => [s.v, s.n]));
   const perStatoFinanziario = new Map((c?.finanziari ?? []).map((s) => [s.v, s.n]));
   const perStatoAnalisi = new Map((c?.analisi ?? []).map((s) => [s.v, s.n]));
   const perInteresse = new Map((c?.interessi ?? []).map((i) => [i.v, i.n]));
 
   const globaleAttiva =
-    !categoriaAttiva && !statoAttivo && !statoFinanziarioAttivo && !statoAnalisiAttivo && !interesseAttivo && !archivioAttivo && !hubspotAttivo && !dashboardAttiva && !matchAttivo && !contattiAttiva && !riconciliazioneAttiva && !identitaAttiva && !chiaviAttive && !affiliatiAttivi && !valetAttivo;
+    !categoriaAttiva && !statoAttivo && !livelloAttivo && !statoFinanziarioAttivo && !statoAnalisiAttivo && !interesseAttivo && !archivioAttivo && !hubspotAttivo && !dashboardAttiva && !matchAttivo && !contattiAttiva && !riconciliazioneAttiva && !identitaAttiva && !chiaviAttive && !affiliatiAttivi && !valetAttivo;
 
   return (
     <aside className="sidebar">
@@ -185,6 +195,31 @@ export async function Sidebar({
               <span className="sb-count">{perStato.get(s) ?? 0}</span>
             </a>
           ))}
+        </SbSezione>
+
+        {/* Livello: dove sta il contatto dentro lo stato commerciale. Vive
+            accanto agli stati perché si legge insieme a loro («prospect in
+            attesa»), non da solo. */}
+        <SbSezione titolo="Livello del contatto">
+          {LIVELLI.map((l) => (
+            <a
+              key={l}
+              className={`sb-item${livelloAttivo === l ? " attiva" : ""}`}
+              href={`/?livello=${l}`}
+            >
+              <span className="sb-icona"><span className="sb-dot" style={{ background: COLORE_LIVELLO[l] }} /></span>
+              <span className="sb-nome">{ETICHETTE_LIVELLO[l]}</span>
+              <span className="sb-count">{perLivello.get(l) ?? 0}</span>
+            </a>
+          ))}
+          <a
+            className={`sb-item${livelloAttivo === "nessuno" ? " attiva" : ""}`}
+            href="/?livello=nessuno"
+          >
+            <span className="sb-icona"><span className="sb-dot" style={{ background: "var(--text-tertiary)" }} /></span>
+            <span className="sb-nome">Non indicato</span>
+            <span className="sb-count">{perLivello.get("nessuno") ?? 0}</span>
+          </a>
         </SbSezione>
 
         <SbSezione titolo="Stati finanziari">

@@ -8,7 +8,7 @@ import { diffCampi, registraModifica, registraModifiche } from "@/lib/log-modifi
 import { calcolaMerge, mergeContatti, nomeSistema, provenienzaIniziale } from "@/lib/merge";
 import { serializzaPartner, validaPartner } from "@/lib/partner-api";
 import { whereRicerca } from "@/lib/ricerca";
-import { PREFISSO_ANALISI, PREFISSO_FINANZIARIO, normalizzaStatoAnalisi } from "@/lib/stati";
+import { PREFISSO_ANALISI, PREFISSO_FINANZIARIO, PREFISSO_LIVELLO, normalizzaStatoAnalisi } from "@/lib/stati";
 import { registraPassaggio } from "@/lib/storico";
 
 // La fatturazione è della società: se una scrittura ha toccato campi
@@ -57,6 +57,7 @@ export async function GET(req: NextRequest) {
     "provincia",
     "regione",
     "stato",
+    "livello",
     "statoFinanziario",
     "fonte",
   ] as const) {
@@ -213,6 +214,14 @@ export async function POST(req: NextRequest) {
     // finanziario e analisi (FINANCE) finiscono tutti nella stessa storia.
     if (typeof datiMerge.stato === "string" && datiMerge.stato !== esistente.stato) {
       await registraPassaggio(esistente.id, esistente.stato, datiMerge.stato, sistema);
+    }
+    if (typeof datiMerge.livello === "string" && datiMerge.livello !== esistente.livello) {
+      await registraPassaggio(
+        esistente.id,
+        `${PREFISSO_LIVELLO}${esistente.livello ?? ""}`,
+        `${PREFISSO_LIVELLO}${datiMerge.livello}`,
+        sistema,
+      );
     }
     if (
       typeof datiMerge.statoFinanziario === "string" &&

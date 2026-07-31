@@ -37,10 +37,17 @@ opzionale `ANAGRAFICHE_APP_PASSWORD` (in locale se assente la UI è aperta).
 ## 3. Modello dati (Prisma, schema `anagrafiche`)
 
 - **Partner** — l'anagrafica. Campi chiave: `nome` (insegna), `ragioneSociale`, `categoria`
-  (MAIUSCOLO: BOUTIQUE/FIORISTA/PASTICCERIA/…/`DA CLASSIFICARE`), **tre stati indipendenti**
+  (MAIUSCOLO: BOUTIQUE/FIORISTA/PASTICCERIA/…/`DA CLASSIFICARE`), **quattro stati indipendenti**
   (catalogo unico in `src/lib/stati.ts`, dal 23/07/2026):
-  · `stato` = **stato commerciale** (ex "stato", nome del campo invariato per compatibilità):
-  prospect·in_contatto·in_attesa·in_trattativa·da_ricontattare·attivo(=Partner)·non_interessato·dismesso;
+  · `stato` = **stato commerciale**, cioè a che punto del funnel siamo (ex "stato", nome del campo
+  invariato per compatibilità):
+  selezionato·lead·prospect·in_trattativa·attivo(=Partner)·a_rischio·non_interessato·dismesso(=Dormiente);
+  · `livello` = **livello del contatto** (31/07/2026): in_contatto·in_attesa·da_ricontattare,
+  vuoto = non indicato. Erano tre *stati commerciali*: non sono gradini del funnel ma il **momento
+  del contatto**, e stando nella stessa lista obbligavano a scegliere fra due cose vere insieme
+  («è un prospect» **e** «sta aspettando una risposta»). Le **182 anagrafiche** che li avevano sono
+  diventate `prospect` tenendo il vecchio valore come livello (`scripts/migra-livello.mjs`, con
+  il passaggio scritto nello storico come `migrazione-livello`);
   · `statoFinanziario` = da_verificare(default)·regolare·in_ritardo·insoluto·piano_di_rientro·bloccato;
   · `statoAnalisi` = pp(P.P., pari perimetro)·nuovo·dismesso, vuoto = mai analizzata — catalogo preso
   da **FINANCE** (`Partner.clienteAnno` di deluxy-partner, "P.P./Nuovo/Dismesso": in API si accettano
@@ -433,8 +440,8 @@ Ogni scrittura via API è un **merge governato per campo**, mai una sostituzione
   ⚠️ **L'account non si mette più in MAIUSCOLO** (`creaPartner`/`aggiornaPartner`): i nomi arrivano
   da Budgets con la loro grafia, e forzarli avrebbe fatto sì che il valore salvato non combaciasse
   più con l'opzione del menu. I valori vecchi («ELEONORA», «GAIA, ELEONORA») restano come sono.
-- **Sidebar** a sezioni espandibili (Registro·Tipologie·**Stati commerciali·Stati finanziari·Stati
-  analisi**·Interessi·Archivio·Identità aziende·**Impostazioni → Chiavi API**), con i conteggi per
+- **Sidebar** a sezioni espandibili (Registro·Tipologie·**Stati commerciali·Livello del contatto·
+  Stati finanziari·Stati analisi**·Interessi·Archivio·Identità aziende·**Impostazioni → Chiavi API**), con i conteggi per
   ogni stato, toggle a scomparsa (☰), preferenze in localStorage.
 
 ## 5. API (base `https://deluxy-anagrafiche.vercel.app`)
@@ -444,7 +451,7 @@ Pubbliche `/api/v1` — auth header `x-api-key: <chiave>` (o `Authorization: Bea
 | Metodo | Percorso | Permesso | Note |
 |---|---|---|---|
 | GET | `/api/v1/health` | — | Stato servizio |
-| GET | `/api/v1/partners` | lettura | Filtri: q, categoria, citta, provincia, regione, stato (commerciale), statoFinanziario, statoAnalisi (`nessuno` = mai analizzate), interesse, fonte, platformId, attivo; page, perPage |
+| GET | `/api/v1/partners` | lettura | Filtri: q, categoria, citta, provincia, regione, stato (commerciale), **livello** (`nessuno` = non indicato), statoFinanziario, statoAnalisi (`nessuno` = mai analizzate), interesse, fonte, platformId, attivo; page, perPage |
 | GET | `/api/v1/partners/:id` | lettura | id registro, platformId, o **qualsiasi** idEsterno via xref |
 | GET | `/api/v1/partners/by-ref/:sistema/:idEsterno` | lettura | Risolve dall'id di un'altra app |
 | GET | `/api/v1/partners/match` | lettura | `?pIva=&codiceFiscale=&nome=&citta=&idEsterno=` → match/candidati+confidenza; registra RichiestaMatch |

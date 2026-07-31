@@ -331,8 +331,23 @@ tbody tr:hover { background: var(--fill); }
 
 /* ---------- Selettore di stato (scheda partner) ---------- */
 .selettore-stato {
-  display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end;
-  max-width: 480px;
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+
+/* Pannello delle dimensioni nella scheda azienda: etichette in colonna,
+   pillole allineate allo stesso punto di partenza. Stava a destra
+   dell'intestazione, dove ogni riga finiva dove capitava. */
+.pannello-stati { display: grid; gap: 10px; }
+.riga-dimensione {
+  display: grid; grid-template-columns: 104px 1fr; align-items: baseline; gap: 12px;
+}
+.riga-dimensione + .riga-dimensione { border-top: 1px solid var(--hairline); padding-top: 10px; }
+.etichetta-dimensione {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--text-tertiary);
+}
+@media (max-width: 720px) {
+  .riga-dimensione { grid-template-columns: 1fr; gap: 6px; }
 }
 .stato-pill {
   display: inline-flex; align-items: center; gap: 6px;

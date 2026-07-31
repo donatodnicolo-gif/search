@@ -26,7 +26,9 @@ export function fiducia(sistema?: string | null): number {
 // interessi) o li riempiono solo se vuoti (account). categoria è gestita a
 // parte. Stato finanziario e stato analisi NON sono qui: nascono in FINANCE,
 // quindi seguono la regola fattuale (vince il più fresco / il più autorevole).
-const BLOCCATI_DURI = ["stato", "interessi"] as const;
+// `livello` sta con `stato`: è la stessa dimensione commerciale vista più da
+// vicino, e chi può dichiarare «è cliente» può dire anche «sta aspettando».
+const BLOCCATI_DURI = ["stato", "livello", "interessi"] as const;
 // Fattuali: vince il più fresco / la sorgente più autorevole.
 const FATTUALI = [
   "nome",
