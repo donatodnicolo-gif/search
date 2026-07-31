@@ -73,7 +73,9 @@ export default async function Dettaglio({
           id: true,
           nome: true,
           citta: true,
-          // Due sedi possono stare nella stessa città: a distinguerle è l'indirizzo.
+          // Due sedi possono stare nella stessa città: a distinguerle è il nome
+          // della sede, e in mancanza l'indirizzo.
+          sede: true,
           indirizzo: true,
           stato: true,
           categoria: true,
@@ -100,12 +102,12 @@ export default async function Dettaglio({
           NOT: { id: p.id },
           OR: [{ id: p.capogruppo.id }, { capogruppoId: p.capogruppo.id }],
         },
-        select: { id: true, nome: true, citta: true, indirizzo: true },
+        select: { id: true, nome: true, citta: true, sede: true, indirizzo: true },
         orderBy: [{ citta: "asc" }, { indirizzo: "asc" }],
       })
-    : p.sedi.map((s) => ({ id: s.id, nome: s.nome, citta: s.citta, indirizzo: s.indirizzo }));
-  const etichettaLuogo = (l: { nome: string; citta: string | null; indirizzo: string | null }) =>
-    [l.citta, l.indirizzo].filter(Boolean).join(" · ") || l.nome;
+    : p.sedi.map((s) => ({ id: s.id, nome: s.nome, citta: s.citta, sede: s.sede, indirizzo: s.indirizzo }));
+  const etichettaLuogo = (l: { nome: string; citta: string | null; sede: string | null; indirizzo: string | null }) =>
+    [l.sede, l.citta, l.sede ? null : l.indirizzo].filter(Boolean).join(" · ") || l.nome;
   const linee = await getLinee();
 
   // Appena diventata cliente: i referenti vanno in rubrica Google in automatico
@@ -299,6 +301,7 @@ export default async function Dettaglio({
           <Campo etichetta="Ragione sociale" valore={p.ragioneSociale} />
           <Campo etichetta="P. IVA" valore={fin.pIva} />
           <Campo etichetta="Codice fiscale" valore={fin.codiceFiscale} />
+          <Campo etichetta="Sede" valore={p.sede} />
           <Campo etichetta="Indirizzo" valore={p.indirizzo} />
           <Campo etichetta="Città" valore={p.citta} />
           <Campo etichetta="Provincia" valore={p.provincia} />
@@ -536,8 +539,8 @@ export default async function Dettaglio({
                     <tr key={s.id}>
                       <td>
                         <a href={`/partner/${s.id}`}>
-                          <div className="cella-nome">{s.nome}</div>
-                          <div className="cella-sub">{s.categoria}</div>
+                          <div className="cella-nome">{s.sede ?? s.nome}</div>
+                          <div className="cella-sub">{s.sede ? s.nome : s.categoria}</div>
                         </a>
                       </td>
                       <td className="cella-muta">{s.citta ?? "—"}</td>

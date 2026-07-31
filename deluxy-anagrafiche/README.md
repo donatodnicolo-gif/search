@@ -35,6 +35,9 @@ anagrafici nelle vostre app — leggeteli da qui.
   → `{ totale, dati: [...] }`. `q` è multi-parola su **tutti i campi** (anagrafica
   + referenti); i filtri si combinano in AND. Città e province sono in MAIUSCOLO.
 - `GET /api/v1/partners/:id` — accetta anche il vostro `platformId`.
+- `sede` è il nome di **quel luogo** dentro l'insegna (Montenapoleone, Flagship):
+  le sedi di un gruppo hanno lo stesso `nome`, quindi per distinguerle mostrate
+  `sede` e, se manca, `indirizzo`.
 - Per "esiste un partner in questa città?" usate i filtri e guardate `totale`.
 - Non tenete una copia locale: rileggete. Se vi serve una cache, invalidatela
   spesso (in futuro arriveranno webhook sui cambi — vedi Fase 3 dell'architettura).

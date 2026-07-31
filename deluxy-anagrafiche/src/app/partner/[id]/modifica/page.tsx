@@ -111,6 +111,13 @@ export default async function Modifica({
               <Campo etichetta="Città" nome="citta" valore={p.citta} />
               <Campo etichetta="Provincia" nome="provincia" valore={p.provincia} />
               <Campo etichetta="Regione" nome="regione" valore={p.regione} />
+              <Campo etichetta="Sede" nome="sede">
+                <input id="sede" name="sede" type="text" defaultValue={p.sede ?? ""} placeholder="Montenapoleone, Flagship, Outlet…" />
+                <p className="testo-guida">
+                  Come si chiama questo luogo dentro l&apos;insegna. Serve quando l&apos;azienda ha
+                  più sedi: senza, si distinguono solo dall&apos;indirizzo.
+                </p>
+              </Campo>
               <Campo etichetta="Indirizzo" nome="indirizzo" valore={p.indirizzo} largo />
               <Campo etichetta="Email" nome="email">
                 <input id="email" name="email" type="email" defaultValue={p.email ?? ""} />

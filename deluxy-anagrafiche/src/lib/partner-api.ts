@@ -16,6 +16,7 @@ const CAMPI_TESTO = [
   "citta",
   "provincia",
   "regione",
+  "sede",
   "indirizzo",
   "email",
   "telefono",
@@ -177,6 +178,8 @@ export function serializzaPartner(p: PartnerConContatti) {
     citta: p.citta,
     provincia: p.provincia,
     regione: p.regione,
+    // Nome di QUESTA sede dentro l'insegna (Montenapoleone, Flagship…).
+    sede: p.sede,
     indirizzo: p.indirizzo,
     email: p.email,
     telefono: p.telefono,

@@ -328,6 +328,14 @@ Ogni scrittura via API è un **merge governato per campo**, mai una sostituzione
   - **Attenzione**: la UI è protetta dalla sola password condivisa dell'app, e da qui si creano
     chiavi di scrittura piena → quella password vale quanto le chiavi. Con il login dall'Hub
     (§7) andrebbe ristretta agli admin.
+- **Campo «Sede» (31/07/2026)**: come si chiama QUESTA sede dentro l'insegna — «Montenapoleone»,
+  «Flagship», «Outlet». Serve perché le sedi di un gruppo hanno tutte lo **stesso `nome`**: senza
+  etichetta si distinguono solo dall'indirizzo, e chi non ce l'ha resta una riga muta in mezzo
+  alle sorelle. Sta nei form Nuovo e Modifica, nella modale **＋ Sede**, sulla scheda, nella
+  tabella delle sedi (dove diventa il titolo della riga, col nome dell'insegna sotto) e nel menu
+  «Sposta in» dei referenti. Nell'elenco identifica la riga: **sede · indirizzo**, poi il solo
+  indirizzo, e se mancano entrambi «sede senza nome né indirizzo» in arancio.
+  È un campo fattuale come gli altri (merge, API `sede`, log delle modifiche).
 - **Account commerciale a scelta di lista (30/07/2026)**: nei form Nuovo e Modifica non è più
   testo libero ma un menu. Il MASTER è **Deluxy Budgets**: si legge il team «Commerciale» da
   `GET /api/v1/team` (chiave `BUDGETS_API_KEY`, cache 1h) — l'organico nasce dal budget del

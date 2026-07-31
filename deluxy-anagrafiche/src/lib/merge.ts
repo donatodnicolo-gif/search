@@ -34,6 +34,7 @@ const FATTUALI = [
   "citta",
   "provincia",
   "regione",
+  "sede",
   "indirizzo",
   "email",
   "telefono",

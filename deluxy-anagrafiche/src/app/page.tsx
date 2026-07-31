@@ -230,11 +230,13 @@ export default async function Elenco({ searchParams }: { searchParams: Promise<R
           {/* In un gruppo tutte le sedi si chiamano uguale: a distinguerle è
               l'indirizzo. Quando manca, la riga sarebbe indistinguibile dalle
               sorelle — e allora lo si dice, invece di lasciarla muta. */}
-          {p.indirizzo ? (
+          {p.sede ? (
+            <div className="cella-sub cella-sede">{p.sede}{p.indirizzo ? ` · ${p.indirizzo}` : ""}</div>
+          ) : p.indirizzo ? (
             <div className="cella-sub">{p.indirizzo}</div>
           ) : sede ? (
-            <div className="cella-sub cella-manca" title="Senza indirizzo non si distingue dalle altre sedi">
-              indirizzo mancante
+            <div className="cella-sub cella-manca" title="Senza un nome di sede o un indirizzo non si distingue dalle altre">
+              sede senza nome né indirizzo
             </div>
           ) : null}
         </a>

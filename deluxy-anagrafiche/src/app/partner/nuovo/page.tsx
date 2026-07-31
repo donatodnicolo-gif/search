@@ -117,6 +117,9 @@ export default async function Nuovo({
               <Campo etichetta="Città" nome="citta" />
               <Campo etichetta="Provincia" nome="provincia" />
               <Campo etichetta="Regione" nome="regione" />
+              <Campo etichetta="Sede" nome="sede">
+                <input id="sede" name="sede" type="text" placeholder="Montenapoleone, Flagship…" />
+              </Campo>
               <Campo etichetta="Indirizzo" nome="indirizzo" largo />
               <Campo etichetta="Email" nome="email">
                 <input id="email" name="email" type="email" />

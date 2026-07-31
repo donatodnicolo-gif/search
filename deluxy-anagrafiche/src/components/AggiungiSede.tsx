@@ -127,8 +127,14 @@ export function AggiungiSede({
               >
                 <div className="modulo">
                   <div className="campo-modulo">
-                    <label htmlFor="sede-nome">Nome della sede</label>
+                    <label htmlFor="sede-nome">Insegna</label>
                     <input id="sede-nome" name="nome" defaultValue={nome} />
+                    <p className="testo-guida">Resta il nome dell&apos;azienda: è uguale per tutte le sedi.</p>
+                  </div>
+                  <div className="campo-modulo">
+                    <label htmlFor="sede-sede">Nome della sede</label>
+                    <input id="sede-sede" name="sede" placeholder="Montenapoleone, Flagship…" />
+                    <p className="testo-guida">Come chiamate questo luogo fra voi.</p>
                   </div>
                   <div className="campo-modulo">
                     <label htmlFor="sede-citta">Città</label>
@@ -138,7 +144,7 @@ export function AggiungiSede({
                     <label htmlFor="sede-indirizzo">Indirizzo</label>
                     <input id="sede-indirizzo" name="indirizzo" placeholder="Via Montenapoleone 12" />
                     <p className="testo-guida">
-                      È quello che distingue due sedi nella stessa città: senza indirizzo, una seconda
+                      Con il nome della sede è quello che distingue due luoghi nella stessa città: senza né l’uno né l’altro, una seconda
                       sede con lo stesso nome e la stessa città non viene creata.
                     </p>
                   </div>

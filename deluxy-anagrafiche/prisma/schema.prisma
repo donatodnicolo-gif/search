@@ -36,6 +36,11 @@ model Partner {
   citta          String?
   provincia      String?
   regione        String?
+  // Come si chiama QUESTA sede dentro l'insegna: «Montenapoleone», «Corso
+  // Vercelli», «Flagship», «Outlet». Le sedi di un gruppo hanno tutte lo stesso
+  // `nome`, quindi senza questa etichetta si distinguono solo dall'indirizzo —
+  // e chi non ce l'ha resta una riga muta in mezzo alle sorelle.
+  sede           String?
   indirizzo      String?
   email          String?
   telefono       String?
