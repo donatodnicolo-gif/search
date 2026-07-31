@@ -213,6 +213,12 @@ export async function ficClienti(): Promise<FicCliente[]> {
   return clienti;
 }
 
+// Stati di pagamento che in Fatture in Cloud significano «incassato».
+// `reversed` è il caso insidioso: in inglese suona come «stornato», ma FIC lo usa
+// per i pagamenti RISCOSSI tramite conto/effetti — nella sua interfaccia quelle
+// fatture risultano incassate, e infatti non hanno scadenze pendenti.
+const PAGAMENTO_CHIUSO = new Set(["paid", "settled", "reversed"]);
+
 // Una fattura come arriva da Fatture in Cloud (campi normalizzati per l'elenco).
 export type FicFattura = {
   id: number;
@@ -284,10 +290,15 @@ export async function ficFatture(opts?: {
     for (const d of r.data) {
       const anno = (d.date ?? "").slice(0, 4);
       const pagamenti = d.payments_list ?? [];
-      // "Saldata" = tutti i pagamenti in stato pagato (paid/settled). Qualsiasi
-      // not_paid/reversed → ancora da incassare. Nessun pagamento → da incassare.
+      // "Saldata" = nessun pagamento ancora aperto. Attenzione a `reversed`: in
+      // Fatture in Cloud NON vuol dire stornato ma «riscosso» (tipico degli
+      // incassi tramite conto/effetti), e nella sua interfaccia la fattura
+      // risulta incassata. Verificato sui dati: le `reversed`, come le `paid`,
+      // non hanno scadenze pendenti (next_due_date nullo), mentre le `not_paid`
+      // sì. Trattarle come da incassare faceva risultare aperte fatture già
+      // incassate. Nessun pagamento in elenco → da incassare.
       const daPagare = pagamenti
-        .filter((x) => x.status !== "paid" && x.status !== "settled")
+        .filter((x) => !PAGAMENTO_CHIUSO.has(x.status))
         .reduce((a, x) => a + (x.amount ?? 0), 0);
       const pagata = pagamenti.length > 0 && daPagare <= 0.005;
       // residuo = quanto resta da incassare (i saldi parziali lo abbassano)
@@ -828,7 +839,7 @@ export async function ficIncassaParzialePerId(id: number, importo: number, data?
   const payments = cur.data.payments_list ?? [];
   const totale = +(cur.data.amount_gross ?? 0).toFixed(2);
   const daPagare = payments.length
-    ? payments.filter((p) => p.status !== "paid" && p.status !== "settled").reduce((a, p) => a + p.amount, 0)
+    ? payments.filter((p) => !PAGAMENTO_CHIUSO.has(p.status)).reduce((a, p) => a + p.amount, 0)
     : totale;
   const giaPagato = +(totale - daPagare).toFixed(2);
   const nuovoIncassato = +Math.min(totale, giaPagato + importo).toFixed(2);
