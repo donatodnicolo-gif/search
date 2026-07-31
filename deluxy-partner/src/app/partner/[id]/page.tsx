@@ -170,6 +170,11 @@ export default async function PartnerDetail({
         <div className="card" style={{ padding: 14, marginBottom: 16 }}>
           {sp.ficreg === "ok" ? (
             <span className="badge green"><span className="dot" />Fattura FIC registrata come «Servizio a fatturazione» — ora è nei conteggi</span>
+          ) : sp.ficreg === "fee" ? (
+            <span className="badge green">
+              <span className="dot" />Agganciata come <strong>fattura commissioni</strong> del mese: la fee era già
+              conteggiata sulle vendite, quindi non viene sommata di nuovo
+            </span>
           ) : sp.ficreg === "gia" ? (
             <span className="badge neutral"><span className="dot" />Quella fattura era già registrata come servizio</span>
           ) : (

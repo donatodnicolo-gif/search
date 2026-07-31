@@ -82,6 +82,11 @@ export async function FattureFicPartner({ partnerId, partnerNome }: { partnerId:
                         <input type="hidden" name="descrizione" value={`FIC ${f.numero}`} />
                         <select name="tipologiaId" defaultValue={tipDefault} style={{ fontSize: 12, padding: "4px 6px" }}>
                           {tipologie.map((t) => <option key={t.id} value={t.id}>{t.nome}</option>)}
+                          {/* Le commissioni sulle vendite vendor NON sono un servizio
+                              venduto: sono già calcolate sulla vendita e già tolte dal
+                              dovuto. Scegliendo questa voce la fattura viene agganciata
+                              al mese come «fattura commissioni», senza doppio conteggio. */}
+                          <option value="__fee__">Fee vendor (fattura commissioni)</option>
                         </select>
                         <button className="btn small primary" type="submit" title="Crea un «Servizio a fatturazione» da questa fattura FIC">Registra</button>
                       </form>
@@ -100,6 +105,10 @@ export async function FattureFicPartner({ partnerId, partnerNome }: { partnerId:
         <p className="muted" style={{ fontSize: 12, marginTop: 10 }}>
           Sono fatture su Fatture in Cloud non ancora nei conteggi del partner. Scegli una tipologia e premi
           <strong> Registra</strong> per portarne una tra i «Servizi a fatturazione» (entra nel fatturato/dovuto).
+          <br />
+          Se invece è la fattura delle <strong>commissioni</strong> sulle vendite come vendor, scegli
+          <strong> «Fee vendor»</strong>: viene agganciata al mese come fattura commissioni e <strong>non</strong> si
+          somma al fatturato — la fee è già calcolata sulla vendita e già tolta dal dovuto al partner.
         </p>
       </div>
     </>

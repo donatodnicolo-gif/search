@@ -441,6 +441,22 @@ export async function registraFicComeServizio(partnerId: string, fd: FormData) {
   if (!tipologiaId || imponibile == null || !anno || !mese) {
     redirect(`/partner/${partnerId}?ficreg=errore`);
   }
+
+  // FEE VENDOR: è la fattura delle COMMISSIONI sulle vendite come vendor, non un
+  // servizio venduto al partner. La commissione è già calcolata sulla vendita
+  // (incasso × fee%) e già tolta dal dovuto: registrarla come «servizio a
+  // fatturazione» la conterebbe una seconda volta e falserebbe il dovuto. Qui si
+  // aggancia soltanto il numero della fattura al mese.
+  if (tipologiaId === "__fee__") {
+    await prisma.saldoMensile.upsert({
+      where: { partnerId_anno_mese: { partnerId, anno, mese } },
+      create: { partnerId, anno, mese, commFattEmessa: true, commFattNumero: numero },
+      update: { commFattEmessa: true, commFattNumero: numero },
+    });
+    revalidateAll();
+    redirect(`/partner/${partnerId}?ficreg=fee#mese-${mese}`);
+  }
+
   if (numero) {
     const esiste = await prisma.fatturaServizio.findFirst({ where: { partnerId, numero } });
     if (esiste) redirect(`/partner/${partnerId}?ficreg=gia#mese-${mese}`);
