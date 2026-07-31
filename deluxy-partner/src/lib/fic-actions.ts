@@ -5,7 +5,15 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "./db";
 import { riepilogoPartner } from "./queries";
 import { nomeMese } from "./calc";
-import { ficStato, ficClientiFatturabili, ficEntityUltimaFattura, ficCreaFattura, type FicEntity } from "./fic";
+import {
+  ficStato,
+  ficClientiFatturabili,
+  ficEntityUltimaFattura,
+  ficCreaFattura,
+  ficIdDaNumero,
+  ficIntestatarioDaNumero,
+  type FicEntity,
+} from "./fic";
 import { suggerisciClienteFic } from "./fic-cliente";
 
 // Emissione della fattura commissioni in un clic, dall'elenco delle vendite.
@@ -110,4 +118,90 @@ export async function emettiCommissioniRapido(
     revalidatePath(p, "layout");
   }
   redirect(conEsito("ficFatta", `${numero} · ${partner.nome} · ${nomeMese(mese)}`));
+}
+
+// Collega al mese una fattura commissioni GIÀ emessa su Fatture in Cloud.
+//
+// Emettere non è l'unico modo in cui una fattura viene al mondo: capita di
+// farla a mano su FIC, o di averla emessa prima che l'app tenesse il conto.
+// Finché l'unico bottone era «Emetti», quel mese restava «da emettere» per
+// sempre — e l'unica via d'uscita era emetterne una seconda, cioè fatturare
+// due volte la stessa commissione.
+//
+// Il numero non si accetta sulla fiducia: si cerca su FIC, e se non esiste
+// l'azione si ferma. Meglio un errore adesso che un numero inventato nei conti.
+export async function collegaFatturaCommissioni(
+  partnerId: string,
+  anno: number,
+  mese: number,
+  tornaA: string,
+  fd: FormData
+) {
+  const conEsito = (chiave: string, valore: string) =>
+    `${tornaA}${tornaA.includes("?") ? "&" : "?"}${chiave}=${encodeURIComponent(valore)}`;
+  // la tendina manda il numero scelto; il campo libero vale se la tendina è vuota
+  const numero =
+    String(fd.get("numeroScelto") ?? "").trim() || String(fd.get("numero") ?? "").trim();
+  if (!numero) {
+    redirect(conEsito("ficErrore", "Scrivi il numero della fattura da collegare (es. 460/2026)."));
+  }
+
+  const partner = await prisma.partner.findUnique({ where: { id: partnerId } });
+  if (!partner) redirect(tornaA);
+
+  // esiste davvero su Fatture in Cloud?
+  const stato = await ficStato();
+  let intestata: string | null = null;
+  if (stato.collegato) {
+    try {
+      const id = await ficIdDaNumero(numero, anno);
+      if (!id) {
+        redirect(
+          conEsito(
+            "ficErrore",
+            `Su Fatture in Cloud non c'è nessuna fattura ${numero} del ${anno}: controlla il numero.`
+          )
+        );
+      }
+      intestata = await ficIntestatarioDaNumero(numero, anno);
+    } catch (e) {
+      // `redirect` lancia: non va scambiato per un errore di rete
+      if ((e as { digest?: string })?.digest?.startsWith("NEXT_REDIRECT")) throw e;
+      redirect(conEsito("ficErrore", `Fatture in Cloud non risponde: ${(e as Error).message}`));
+    }
+  }
+
+  await prisma.saldoMensile.upsert({
+    where: { partnerId_anno_mese: { partnerId, anno, mese } },
+    create: { partnerId, anno, mese, commFattEmessa: true, commFattNumero: numero },
+    update: { commFattEmessa: true, commFattNumero: numero },
+  });
+  for (const p of ["/", "/vendite", "/saldi", "/scadenzario", `/partner/${partnerId}`]) {
+    revalidatePath(p, "layout");
+  }
+  redirect(
+    conEsito(
+      "ficCollegata",
+      `${numero}${intestata ? ` · intestata a ${intestata}` : ""} · ${partner.nome} · ${nomeMese(mese)}`
+    )
+  );
+}
+
+// Torna indietro: il mese ridiventa «da emettere». Serve perché collegare è
+// un'azione a un clic, e un numero sbagliato dev'essere correggibile senza
+// passare dal database.
+export async function scollegaFatturaCommissioni(
+  partnerId: string,
+  anno: number,
+  mese: number,
+  tornaA: string
+) {
+  await prisma.saldoMensile.updateMany({
+    where: { partnerId, anno, mese },
+    data: { commFattEmessa: false, commFattNumero: null },
+  });
+  for (const p of ["/", "/vendite", "/saldi", "/scadenzario", `/partner/${partnerId}`]) {
+    revalidatePath(p, "layout");
+  }
+  redirect(tornaA);
 }

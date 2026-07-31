@@ -8,6 +8,9 @@ import { nomeMese, commissione, dovutoVendita, ivato, residuoFattura, incassatoF
 import { segnaFatturaPagata, segnaFatturaCompensata, riallineaFeeVendite, aggiungiTariffa, eliminaTariffa, aggiungiExtra, eliminaExtra } from "@/lib/actions";
 import { feeDaTariffe } from "@/lib/fee";
 import { transactionsConfigurato } from "@/lib/transactions";
+import { fattureFicDelPartner } from "@/lib/fic-partner";
+import { scollegaFatturaCommissioni } from "@/lib/fic-actions";
+import { CollegaFatturaCommissioni } from "@/components/CollegaFatturaCommissioni";
 import { AnagraficaCard } from "@/components/AnagraficaCard";
 import { FattureFicPartner } from "@/components/FattureFicPartner";
 import { ContattoAmministrativo } from "@/components/ContattoAmministrativo";
@@ -32,6 +35,7 @@ export default async function PartnerDetail({
   params: Promise<{ id: string }>;
   searchParams: Promise<{
     amm?: string; fic?: string; ficreg?: string; mail?: string; nota?: string; mese?: string; anag?: string;
+    ficCollegata?: string; ficErrore?: string;
   }>;
 }) {
   const { id } = await params;
@@ -54,6 +58,18 @@ export default async function PartnerDetail({
     prisma.extraSaldo.findMany({ where: { partnerId: id, anno }, orderBy: { createdAt: "asc" } }),
     analisiPartner(id),
   ]);
+  // Le fatture FIC intestate a questo partner: servono a proporre quale
+  // collegare come «fattura commissioni» di un mese. Si caricano una volta per
+  // scheda (non per riga) e non fanno mai fallire la pagina: se FIC è giù,
+  // resta il campo dove scrivere il numero a mano.
+  //
+  // ⚠️ Solo se c'è davvero un mese da collegare: sui partner in regola —
+  // la maggior parte — sarebbe una chiamata di rete per una tendina che
+  // nessuno aprirà, pagata a ogni apertura della scheda.
+  const daCollegare = mesi.some((m) => m.vendite.length > 0 && !m.saldo?.commFattEmessa);
+  const candidateFic = daCollegare ? await fattureFicDelPartner(id, partner.nome, anno) : [];
+  // dove tornano le azioni della scheda
+  const tornaA = `/partner/${id}`;
   // voci extra raggruppate per mese, per la gestione nel blocco mensile
   const extraPerMese = new Map<number, typeof extra>();
   for (const e of extra) {
@@ -163,6 +179,25 @@ export default async function PartnerDetail({
           <span className={`badge ${/Collegat|rimoss/i.test(sp.anag) ? "green" : "orange"}`}>
             <span className="dot" />{decodeURIComponent(sp.anag)}
           </span>
+        </div>
+      )}
+
+      {sp.ficCollegata && (
+        <div className="card" style={{ padding: 14, marginBottom: 16 }}>
+          <span className="badge green"><span className="dot" />
+            Fattura commissioni collegata: {sp.ficCollegata}
+          </span>
+          <p className="muted" style={{ fontSize: 12.5, marginTop: 8, marginBottom: 0 }}>
+            Su Fatture in Cloud non è cambiato niente: è l&apos;app che ora sa qual è la fattura di quel mese.
+          </p>
+        </div>
+      )}
+      {sp.ficErrore && (
+        <div
+          className="card"
+          style={{ padding: 14, marginBottom: 16, borderColor: "rgba(215,0,21,0.15)", background: "rgba(215,0,21,0.06)" }}
+        >
+          <span style={{ color: "var(--red)", fontSize: 14 }}>{sp.ficErrore}</span>
         </div>
       )}
 
@@ -489,7 +524,23 @@ export default async function PartnerDetail({
                       </td>
                       <td>
                         {saldo?.commFattEmessa ? (
-                          <span className="badge green"><span className="dot" />Fatt. comm. {saldo.commFattNumero ?? ""}</span>
+                          <span style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
+                            <span className="badge green"><span className="dot" />Fatt. comm. {saldo.commFattNumero ?? ""}</span>
+                            {/* correggibile: collegare è un clic, e un numero
+                                sbagliato non deve richiedere il database */}
+                            <form
+                              action={scollegaFatturaCommissioni.bind(null, partner.id, anno, mese, tornaA)}
+                              style={{ display: "inline" }}
+                            >
+                              <button
+                                className="btn small secondary"
+                                type="submit"
+                                title="Toglie il collegamento: il mese torna «da emettere». Non cancella niente su Fatture in Cloud."
+                              >
+                                Scollega
+                              </button>
+                            </form>
+                          </span>
                         ) : (
                           <span style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
                             <span className="badge neutral"><span className="dot" />Fatt. comm. da emettere</span>
@@ -500,6 +551,15 @@ export default async function PartnerDetail({
                             >
                               Emetti
                             </Link>
+                            {/* la fattura può essere già stata fatta a mano su FIC */}
+                            <CollegaFatturaCommissioni
+                              partnerId={partner.id}
+                              partnerNome={partner.nome}
+                              anno={anno}
+                              mese={mese}
+                              tornaA={tornaA}
+                              candidate={candidateFic}
+                            />
                           </span>
                         )}
                       </td>

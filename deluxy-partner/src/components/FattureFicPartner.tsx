@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
-import { ficStato, ficFattureCached, type FicFattura } from "@/lib/fic";
+import { ficStato } from "@/lib/fic";
+import { fattureFicDelPartner } from "@/lib/fic-partner";
 import { euro, dataIt } from "@/lib/format";
 import { ANNO_CORRENTE } from "@/lib/queries";
 import { registraFicComeServizio } from "@/lib/actions";
@@ -9,32 +10,19 @@ import { registraFicComeServizio } from "@/lib/actions";
 // a questo partner (RiconciliazioneAnagrafica) più il nome del partner stesso.
 // Da qui si può "Registra come servizio" per portarle nei conteggi del partner.
 
-function norm(s: string): string {
-  return s.toLowerCase().normalize("NFD").replace(/[^a-z0-9]+/g, " ").trim();
-}
-
 export async function FattureFicPartner({ partnerId, partnerNome }: { partnerId: string; partnerNome: string }) {
   const stato = await ficStato().catch(() => ({ collegato: false }));
   if (!stato.collegato) return null;
 
-  const [ric, tipologie] = await Promise.all([
-    prisma.riconciliazioneAnagrafica.findMany({ where: { partnerId, stato: "confermata" }, select: { ficNome: true } }),
-    prisma.tipologiaServizio.findMany({ orderBy: { ordine: "asc" }, select: { id: true, nome: true } }),
-  ]);
-  const tipDefault = tipologie.find((t) => /altro/i.test(t.nome))?.id ?? tipologie[0]?.id ?? "";
-  const nomi = [partnerNome, ...ric.map((r) => r.ficNome)].map(norm).filter(Boolean);
-  if (nomi.length === 0) return null;
-
-  let fatture: FicFattura[] = [];
-  try {
-    fatture = await ficFattureCached({ anno: ANNO_CORRENTE });
-  } catch {
-    return null;
-  }
-  const matchNome = fatture.filter((f) => {
-    const c = norm(f.cliente);
-    return c && nomi.some((n) => c === n || c.includes(n) || n.includes(c));
+  const tipologie = await prisma.tipologiaServizio.findMany({
+    orderBy: { ordine: "asc" },
+    select: { id: true, nome: true },
   });
+  const tipDefault = tipologie.find((t) => /altro/i.test(t.nome))?.id ?? tipologie[0]?.id ?? "";
+  // stessa logica di aggancio usata per collegare la fattura commissioni a un
+  // mese: due filtri diversi darebbero due elenchi diversi per la stessa domanda
+  const matchNome = await fattureFicDelPartner(partnerId, partnerNome, ANNO_CORRENTE);
+  if (matchNome.length === 0) return null;
   // escludi le fatture già registrate come "Servizio a fatturazione" (per numero)
   const registrate = await prisma.fatturaServizio.findMany({
     where: { partnerId, numero: { not: null } },
