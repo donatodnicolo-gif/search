@@ -73,6 +73,14 @@ export function dividiCitato(testo: string): TestoDiviso {
  */
 export function ripulisciAnteprima(testo: string): string {
   let t = testo
+    // ⚠️ CSS finito nel testo: le mail di Outlook portano un blocco <style> e
+    // certi client, convertendo in testo semplice, ne lasciano il CONTENUTO —
+    // «P {margin-top:0;margin-bottom:0;} Gentile Nicolò…». Si toglie solo se
+    // dentro le graffe c'è una proprietà con i due punti: una frase con una
+    // parentesi graffa non deve sparire.
+    .replace(/[^{}\n]{0,60}\{[^{}]{0,400}[a-z-]+\s*:[^{}]{0,400}\}/gi, ' ')
+    // Commenti condizionali e residui di <style> aperti a metà.
+    .replace(/<!--[\s\S]{0,400}?-->/g, ' ')
     // Immagine in stile markdown/testo: [https://…] oppure [cid:…] o [logo].
     .replace(/\[(?:https?:\/\/|cid:)[^\]]*\]/gi, ' ')
     // Link markdown [testo](url): resta il testo, che è quello che si legge.

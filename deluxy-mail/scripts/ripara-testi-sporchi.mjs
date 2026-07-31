@@ -22,12 +22,22 @@ const applica = process.argv.includes('--applica')
 function sporco(testo) {
   const mailto = (testo.match(/mailto:/gi) ?? []).length
   if (mailto >= 3) return true
+  // CSS finito nel testo: le mail di Outlook portano un blocco <style> e certi
+  // client, convertendo in testo semplice, ne lasciano il contenuto —
+  // «P {margin-top:0;margin-bottom:0;} Gentile Nicolò…».
+  if (/[^{}\n]{0,60}\{[^{}]{0,400}[a-z-]+\s*:[^{}]{0,400}\}/i.test(testo.slice(0, 600))) return true
   const url = testo.match(/https?:\/\/\S{6,}/gi) ?? []
   return url.length >= 4 && new Set(url.map((u) => u.slice(0, 40))).size <= 2
 }
 
 function htmlAPlain(html) {
   return html
+    // Prima i blocchi che non sono testo: togliendo solo i tag, il CONTENUTO
+    // di <style> resterebbe — ed è proprio da lì che nasce il CSS in cima.
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<head[^>]*>[\s\S]*?<\/head>/gi, ' ')
+    .replace(/<!--[\s\S]*?-->/g, ' ')
     .replace(/<\s*br\s*\/?\s*>/gi, '\n')
     .replace(/<\/\s*(p|div|li|tr|h[1-6])\s*>/gi, '\n')
     .replace(/<\s*li[^>]*>/gi, '• ')

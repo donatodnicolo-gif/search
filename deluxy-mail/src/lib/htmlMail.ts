@@ -54,20 +54,29 @@ export function testoMigliore(testo: string, html: string | null | undefined): s
 
 /** HTML → testo semplice leggibile (per text/plain e per tradurre). */
 export function htmlAPlain(html: string): string {
-  return html
-    .replace(/<\s*br\s*\/?\s*>/gi, '\n')
-    .replace(/<\/\s*(p|div|li|tr|h[1-6])\s*>/gi, '\n')
-    .replace(/<\s*li[^>]*>/gi, '• ')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/&amp;/gi, '&')
-    .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>')
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;/gi, "'")
-    // Le righe fatte di soli spazi vengono dai <div> vuoti dell'HTML: non sono
-    // righe bianche volute, e senza toglierle il testo esce a scaletta.
-    .replace(/[ \t]+$/gm, '')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim()
+  return (
+    html
+      // ⚠️ PRIMA i blocchi con dentro roba che non è testo: togliendo solo i
+      // tag, il CONTENUTO di <style> resta — ed è così che in cima a una mail
+      // compariva «P {margin-top:0;margin-bottom:0;}».
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, ' ')
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, ' ')
+      .replace(/<head[^>]*>[\s\S]*?<\/head>/gi, ' ')
+      .replace(/<!--[\s\S]*?-->/g, ' ')
+      .replace(/<\s*br\s*\/?\s*>/gi, '\n')
+      .replace(/<\/\s*(p|div|li|tr|h[1-6])\s*>/gi, '\n')
+      .replace(/<\s*li[^>]*>/gi, '• ')
+      .replace(/<[^>]+>/g, '')
+      .replace(/&nbsp;/gi, ' ')
+      .replace(/&amp;/gi, '&')
+      .replace(/&lt;/gi, '<')
+      .replace(/&gt;/gi, '>')
+      .replace(/&quot;/gi, '"')
+      .replace(/&#39;/gi, "'")
+      // Le righe fatte di soli spazi vengono dai <div> vuoti dell'HTML: non
+      // sono righe bianche volute, e senza toglierle il testo esce a scaletta.
+      .replace(/[ \t]+$/gm, '')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim()
+  )
 }
