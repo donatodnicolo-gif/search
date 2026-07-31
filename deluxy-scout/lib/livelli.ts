@@ -80,6 +80,21 @@ export const LABEL_PERSO = 'Perso';
 export const COLORE_PERSO = '#B3261E';
 
 /**
+ * Cliente **a rischio**: compra ancora, ma i segnali peggiorano.
+ *
+ * Come «perso», non è un livello ma un segno: resta un Cliente, e lo si vede
+ * dal badge. Nasce dalla ricerca sui CRM di mercato (29/07/2026): fra «attivo»
+ * e «dismesso» non c'era niente, quindi un cliente spariva dal radar solo
+ * quando aveva già smesso — cioè quando è tardi per fare qualcosa.
+ */
+export function aRischio(p: Place): boolean {
+  return p.anagrafiche_stato === 'a_rischio' || p.stato_affiliazione === 'a_rischio';
+}
+
+export const LABEL_A_RISCHIO = 'A rischio';
+export const COLORE_A_RISCHIO = '#B7791F';
+
+/**
  * Il livello di un negozio.
  *
  * - `haContatto` = esiste almeno una persona in rubrica per quel negozio;
@@ -128,12 +143,31 @@ export function livelloDi(
   // PROSPECT — ha mostrato interesse: ha risposto, e c'è una trattativa
   // aperta. È il lead che si è mosso, non quello di cui abbiamo l'indirizzo.
   if (inTrattativa || p.hubspot_deal_aperta || p.stato_affiliazione === 'in_trattativa') return 'prospect';
-  if (p.stato_affiliazione === 'prospect') return 'prospect';
+
+  // ⚠️ **`prospect` NON è più un Prospect di Scout** (29/07/2026). Nel registro
+  // Anagrafiche `prospect` è lo stato di DEFAULT — un'azienda appena creata che
+  // nessuno ha ancora toccato — mentre qui Prospect è il gradino più alto prima
+  // del cliente: ha risposto e c'è una trattativa in gioco. La riga
+  // `if (stato_affiliazione === 'prospect') return 'prospect'` era rimasta da
+  // prima che la scala venisse ridefinita, e con la sincronizzazione accesa
+  // avrebbe fatto entrare OGNI partner nuovo del registro dritto fra i Prospect,
+  // senza che nessuno gli avesse mai parlato. Stessa parola, significato
+  // opposto: è la trappola classica di due cataloghi che si somigliano.
 
   // LEAD — c'è un contatto. Una persona in rubrica, un contatto avviato da noi,
   // o il fatto che sia arrivato lui (dichiarato a mano).
   if (haContatto || p.hubspot_ha_contatto || contattato) return 'lead';
-  if (p.stato_affiliazione === 'lead') return 'lead';
+  // Gli stati di LAVORAZIONE del registro dicono tutti la stessa cosa per la
+  // scala di Scout: il contatto c'è stato. Il dettaglio (quando, come, con chi)
+  // vive qui in `contatti_avviati`, `chiamate` e `visits`, ed è più preciso.
+  if (
+    p.stato_affiliazione === 'lead' ||
+    p.stato_affiliazione === 'in_contatto' ||
+    p.stato_affiliazione === 'in_attesa' ||
+    p.stato_affiliazione === 'da_ricontattare'
+  ) {
+    return 'lead';
+  }
 
   // SELEZIONATO — scelto, e basta.
   return 'selezionato';

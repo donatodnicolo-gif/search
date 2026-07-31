@@ -5,7 +5,7 @@ import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-rou
 import type { Contact, Deal, Place, Priorita, Task, Visit } from '@/types';
 import { canonizzaLinee } from '@/types';
 import { colors, labelFase, labelStato, radius, spacing } from '@/lib/theme';
-import { COLORE_PERSO, LABEL_LIVELLO, LABEL_PERSO, coloreLivello, ePerso, livelloDi } from '@/lib/livelli';
+import { COLORE_A_RISCHIO, COLORE_PERSO, LABEL_A_RISCHIO, LABEL_LIVELLO, LABEL_PERSO, aRischio, coloreLivello, ePerso, livelloDi } from '@/lib/livelli';
 import { StatusBadge } from '@/components/ui';
 import { aggiornaNascosto, aggiornaPlace, completaTask, eliminaPlace, fetchAziendeScartate, fetchContatti, fetchContattiScartati, fetchDealPlace, fetchPlace, fetchTaskPlace, fetchVisitePlace, ignoraDuplicato, inserisciContatto, scartaAzienda, scartaContatto, sincronizzaPlaceRegistro, trovaDuplicati, unisciPlaces } from '@/lib/db';
 import { useAuth } from '@/lib/auth';
@@ -472,6 +472,9 @@ export default function SchedaAttivita() {
             <StatusBadge small label={LABEL_LIVELLO[livello]} colore={coloreLivello(livello)} />
           ) : null}
           {perso ? <StatusBadge small label={LABEL_PERSO} colore={COLORE_PERSO} /> : null}
+          {place && aRischio(place) ? (
+            <StatusBadge small label={LABEL_A_RISCHIO} colore={COLORE_A_RISCHIO} />
+          ) : null}
         </View>
         <Text style={styles.nome}>{place.nome}</Text>
         <Text style={styles.meta} numberOfLines={1}>

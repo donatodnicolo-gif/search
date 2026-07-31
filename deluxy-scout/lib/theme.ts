@@ -153,9 +153,9 @@ export const coloreFase: Record<DealStage, string> = {
   closedlost: colors.errore,
 };
 
-// Etichette + colore-dot per gli stati affiliazione (quelli del registro
-// Anagrafiche, più `selezionato` e `lead` che sono solo di Scout — vedi
-// types/index.ts).
+// Etichette + colore-dot per gli stati commerciali. ⚠️ Sono gli **stessi** del
+// registro Anagrafiche (`deluxy-anagrafiche/src/lib/stati.ts`): stessi valori,
+// stesso ordine, stesse etichette. Vedi types/index.ts.
 export const labelAffiliazione: Record<StatoAffiliazione, string> = {
   selezionato: 'Selezionato',
   lead: 'Lead',
@@ -165,6 +165,7 @@ export const labelAffiliazione: Record<StatoAffiliazione, string> = {
   in_trattativa: 'In trattativa',
   da_ricontattare: 'Da ricontattare',
   attivo: 'Attivo',
+  a_rischio: 'A rischio',
   non_interessato: 'Non interessato',
   dismesso: 'Dismesso',
 };
@@ -180,6 +181,9 @@ export const coloreAffiliazione: Record<StatoAffiliazione, string> = {
   in_trattativa: colors.oro,
   da_ricontattare: colors.attenzione,
   attivo: colors.successo,
+  // Ancora cliente, ma da guardare: giallo, non rosso — il rosso è di chi se
+  // n'è andato, e confonderli fa reagire tardi o troppo presto.
+  a_rischio: colors.attenzione,
   non_interessato: colors.errore,
   dismesso: colors.grigio,
 };

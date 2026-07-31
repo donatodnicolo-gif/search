@@ -124,6 +124,60 @@ Due cose che la schermata **dichiara invece di nascondere**:
   parziali e viene detto. Una lista incompleta che sembra completa fa credere
   che il lavoro sia finito.
 
+## Uno stato solo, in tutte e due le app
+
+Dal 29/07/2026 il **vocabolario dello stato commerciale è condiviso** fra Scout
+e il registro Anagrafiche: stessi undici valori, stesso ordine, stesse
+etichette (`deluxy-scout/types/index.ts` ↔ `deluxy-anagrafiche/src/lib/stati.ts`).
+Un'azienda ha **un solo stato**, e dev'essere lo stesso da qualunque app la si
+guardi.
+
+    selezionato · lead · prospect · in_contatto · in_attesa · in_trattativa
+    da_ricontattare · attivo · a_rischio · non_interessato · dismesso
+
+Rispetto a prima: il registro non conosceva `selezionato` e `lead` — Scout
+glieli traduceva in `prospect`, perdendoli — e **`a_rischio` non ce l'aveva
+nessuno dei due**. Quest'ultimo viene dalla pratica dei CRM di mercato: fra
+«attivo» e «dismesso» non c'era niente, quindi un cliente usciva dal radar solo
+quando aveva già smesso di comprare, cioè quando è tardi per fare qualcosa.
+
+⚠️ **`prospect` non è un Prospect di Scout.** Nel registro è lo stato di
+*default* — un'azienda appena creata che nessuno ha toccato — mentre qui
+Prospect è il gradino più alto prima del cliente: ha risposto e c'è una
+trattativa in gioco. C'era una riga che li equiparava, rimasta da prima della
+ridefinizione della scala: con la sincronizzazione accesa avrebbe fatto entrare
+**ogni partner nuovo del registro dritto fra i Prospect**. Stessa parola,
+significato opposto: è la trappola classica di due cataloghi che si somigliano.
+
+Gli stati di **lavorazione** del registro (`in_contatto`, `in_attesa`,
+`da_ricontattare`) qui valgono tutti **Lead**: dicono che il contatto c'è
+stato. Il dettaglio — quando, come, con chi — vive in Scout, in
+`contatti_avviati`, `chiamate` e `visits`, ed è più preciso di un'etichetta.
+
+## Quando nasce un partner, lo sanno tutte e due
+
+Le due app si avvisano a vicenda:
+
+- **Scout → registro**: creando un negozio, `sincronizzaPlaceRegistro` chiama
+  l'azione `upsert_partner` (esisteva già);
+- **registro → Scout**: creando un partner, `notificaCommerciale()` chiama la
+  Edge Function **`partner`**, che crea il negozio in Scout col legame
+  `anagrafiche_id` e lo stato già tradotto.
+
+Tre scelte dietro, tutte per lo stesso motivo — che le due app non si facciano
+male a vicenda:
+
+1. **Best-effort**: se l'altra app non risponde, il salvataggio riesce lo
+   stesso. Una notifica persa resta persa, quindi il legame vero è
+   `anagrafiche_id` e una risincronizzazione può sempre ripassare da capo.
+2. **Idempotente**: la `partner` non duplica mai — l'indice unico su
+   `anagrafiche_id` è il paletto. Su un negozio che esiste già aggiorna stato e
+   anagrafica, ma **non tocca** stella, creatore, priorità e coordinate: quello
+   è lavoro fatto in Scout da una persona, e il registro non ne sa niente.
+3. **Nessun rimbalzo**: Scout, ricevendo la chiamata, non richiama il registro.
+   Due app che si avvisano a vicenda a ogni scrittura si rimbalzano
+   all'infinito.
+
 ## Dove finisce una mail scritta da Scout
 
 Le email ai contatti (Script, Sequenze) partono **da AI Mail**

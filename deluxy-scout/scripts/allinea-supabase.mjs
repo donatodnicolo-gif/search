@@ -45,11 +45,14 @@ const MIGRAZIONI = [
 // lascia la copia in «Inviata», e tiene l'SMTP come ripiego. Finché non è
 // rideployata, le mail di Scout continuano a partire in SMTP diretto e nella
 // casella di chi le scrive non ne resta traccia.
-const FUNZIONI = ['anagrafiche', 'ordini', 'health', 'finance', 'invio-email'];
+const FUNZIONI = ['anagrafiche', 'ordini', 'health', 'finance', 'invio-email', 'partner'];
 // `health` deve rispondere SENZA sessione (il Hub non ne ha una): va deployata
 // con --no-verify-jwt, altrimenti risponde 401 e la pagina «stato dei servizi»
 // vede Scout come irraggiungibile.
-const SENZA_JWT = new Set(['health']);
+// `partner` la chiama il registro Anagrafiche server-to-server: non ha e non
+// può avere una sessione utente. L'auth è la chiave `COMMERCIALE_API_KEY`, come
+// per `lead` e `trattativa`.
+const SENZA_JWT = new Set(['health', 'partner']);
 
 if (!PAT) {
   console.error('\n✗ Manca SUPABASE_PAT.\n');

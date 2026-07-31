@@ -18,6 +18,7 @@ import {
   isStatoFinanziario,
 } from "./stati";
 import { ARCHIVIATA, registraPassaggio } from "./storico";
+import { notificaCommerciale } from "./commerciale";
 
 // Cambio di stato dalla scheda partner (UI interna). Le app esterne passano
 // dalle API /api/v1 con le chiavi; qui la UI è già protetta dal login.
@@ -191,6 +192,19 @@ export async function creaPartner(fd: FormData) {
     },
   });
   await registraModifica(creato.id, { origine: "ui" }, { campo: "creata", a: `${nome}${citta ? ` · ${citta}` : ""}` });
+  // Avvisa l'app commerciale: da lì il partner dev'essere lavorabile subito,
+  // senza aspettare un import. Best-effort — se Scout non risponde il partner
+  // resta salvato qui, e non si fa fallire un salvataggio per un'altra app.
+  await notificaCommerciale({
+    id: creato.id,
+    nome: creato.nome,
+    stato: creato.stato,
+    citta: creato.citta,
+    provincia: creato.provincia,
+    indirizzo: creato.indirizzo,
+    categoria: creato.categoria,
+    account: creato.account,
+  });
   revalidatePath("/");
   redirect(`/partner/${creato.id}`);
 }

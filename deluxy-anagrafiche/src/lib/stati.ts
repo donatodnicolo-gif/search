@@ -6,13 +6,29 @@
 // Etichette, colori e guardie di ogni dimensione stanno qui.
 
 // Stati del ciclo di vita COMMERCIALE. "attivo" = partner operativo.
+//
+// ⚠️ **LISTA CONDIVISA CON DELUXY SCOUT** (l'app commerciale): stessi valori,
+// stesso ordine, in `deluxy-scout/types/index.ts` → `StatoAffiliazione`.
+// Decisione dell'utente del 29/07/2026: un'azienda ha UN solo stato
+// commerciale, e dev'essere lo stesso da qualunque app la si guardi.
+// Aggiungendone uno qui, va aggiunto anche di là: se no il registro manda a
+// Scout uno stato che Scout non sa leggere, e viceversa.
+//
+// L'ordine è quello del funnel, dal nome sulla lista al rapporto chiuso.
 export const STATI = [
+  // I due che arrivano da Scout: prima di parlargli, il registro non aveva
+  // parole per distinguere «l'ho scelto io» da «ce l'abbiamo e basta».
+  "selezionato",
+  "lead",
   "prospect",
   "in_contatto",
   "in_attesa",
   "in_trattativa",
   "da_ricontattare",
   "attivo",
+  // NUOVO (29/07/2026): compra ancora, ma i segnali peggiorano. Prima si
+  // passava da «attivo» a «dismesso» senza preavviso, cioè quando era tardi.
+  "a_rischio",
   "non_interessato",
   "dismesso",
 ] as const;
@@ -20,24 +36,32 @@ export const STATI = [
 export type Stato = (typeof STATI)[number];
 
 export const ETICHETTE_STATO: Record<Stato, string> = {
+  selezionato: "Selezionato",
+  lead: "Lead",
   prospect: "Prospect",
   in_contatto: "In contatto",
   in_attesa: "In attesa",
   in_trattativa: "In trattativa",
   da_ricontattare: "Da ricontattare",
   attivo: "Attivo",
+  a_rischio: "A rischio",
   non_interessato: "Non interessato",
   dismesso: "Dismesso",
 };
 
 // Colore semantico del badge (token del design system)
 export const COLORE_STATO: Record<Stato, string> = {
+  selezionato: "var(--text-tertiary)",
+  lead: "var(--blue)",
   prospect: "var(--text-tertiary)",
   in_contatto: "var(--blue)",
   in_attesa: "var(--orange)",
   in_trattativa: "var(--purple)",
   da_ricontattare: "var(--orange)",
   attivo: "var(--green)",
+  // Ancora cliente, ma da guardare: giallo, non rosso — il rosso è per chi se
+  // n'è andato, e confonderli farebbe reagire tardi o troppo presto.
+  a_rischio: "var(--orange)",
   non_interessato: "var(--red)",
   dismesso: "var(--red)",
 };

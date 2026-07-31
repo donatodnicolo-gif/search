@@ -13,7 +13,7 @@ import { isAdmin } from '@/lib/admin';
 import { Filters, filtriVuoti, type FiltriMappa } from '@/components/Filters';
 import { PriorityBadge } from '@/components/PriorityBadge';
 import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
-import { coloreLivello, COLORE_PERSO, ePerso, inLavorazione, LABEL_LIVELLO, LABEL_PERSO, LIVELLI, livelloDi, type Livello } from '@/lib/livelli';
+import { aRischio, coloreLivello, COLORE_A_RISCHIO, COLORE_PERSO, ePerso, inLavorazione, LABEL_A_RISCHIO, LABEL_LIVELLO, LABEL_PERSO, LIVELLI, livelloDi, type Livello } from '@/lib/livelli';
 import { ScegliScriptModal } from '@/components/ScegliScriptModal';
 import { VisitaModal } from '@/components/VisitaModal';
 import { IconaAzione } from '@/components/AzioniRiga';
@@ -349,6 +349,9 @@ function Riga({
           {/* Perso non toglie il negozio dalla sua lista: lo marca. Un lead
               chiuso resta fra i Lead, e si vede che è chiuso. */}
           {ePerso(place) ? <StatusBadge small label={LABEL_PERSO} colore={COLORE_PERSO} /> : null}
+          {/* Ancora cliente, ma i segnali peggiorano: è il momento in cui si
+              può fare qualcosa, e prima non lo diceva niente. */}
+          {aRischio(place) ? <StatusBadge small label={LABEL_A_RISCHIO} colore={COLORE_A_RISCHIO} /> : null}
           <PriorityBadge priorita={place.priorita} small />
         </>
       }

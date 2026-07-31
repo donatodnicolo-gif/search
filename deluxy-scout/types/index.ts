@@ -7,11 +7,16 @@ export type StatoPlace = 'da_visitare' | 'visitato' | 'cliente' | 'perso';
 export type EsitoVisita = 'interessato' | 'da_richiamare' | 'non_target' | 'chiuso';
 
 // Stato di lavorazione dell'affiliazione — gli 8 valori del registro Deluxy Anagrafiche.
-// ⚠️ `selezionato` è **di Scout, non del registro**: Anagrafiche ha i suoi 8
-// stati e questo non è fra quelli. Esiste perché nel funnel di Scout
-// (lib/livelli.ts) un negozio scelto con la ⭐ ma mai contattato è un
-// SELEZIONATO, e finora lo si poteva solo dedurre, non dichiarare. Verso il
-// registro viene tradotto in `prospect` (`statoRegistroDaAffiliazione`).
+// ⚠️ **VOCABOLARIO CONDIVISO CON DELUXY ANAGRAFICHE** (decisione dell'utente
+// del 29/07/2026): stessi valori, stesso ordine, in
+// `deluxy-anagrafiche/src/lib/stati.ts` → `STATI`. Un'azienda ha UN solo stato
+// commerciale e dev'essere lo stesso da qualunque app la si guardi.
+// Aggiungendone uno qui, va aggiunto anche di là.
+//
+// Prima erano due liste diverse: il registro ne aveva 8 e non conosceva
+// `selezionato` né `lead`, che Scout doveva tradurre in `prospect` perdendo
+// l'informazione. Ora li ha anche lui, e `a_rischio` — che non aveva nessuno
+// dei due — li ha entrambi.
 export type StatoAffiliazione =
   | 'selezionato'
   | 'lead'
@@ -21,6 +26,7 @@ export type StatoAffiliazione =
   | 'in_trattativa'
   | 'da_ricontattare'
   | 'attivo'
+  | 'a_rischio'
   | 'non_interessato'
   | 'dismesso';
 
@@ -34,23 +40,22 @@ export const STATI_AFFILIAZIONE: StatoAffiliazione[] = [
   'in_trattativa',
   'da_ricontattare',
   'attivo',
+  'a_rischio',
   'non_interessato',
   'dismesso',
 ];
 
 /**
- * Lo stato da mandare ad Anagrafiche. Il registro conosce i suoi 8 stati: se
- * gli si manda `selezionato` lo scarta (o peggio, lo accetta e nessuno capisce
- * più cosa vuol dire). Un selezionato per il registro è un prospect.
+ * Lo stato da mandare ad Anagrafiche.
+ *
+ * ⚠️ Ora è l'identità: dal 29/07/2026 il registro conosce gli **stessi** stati,
+ * `selezionato` e `lead` compresi, quindi non si traduce più niente — prima
+ * diventavano entrambi `prospect` e l'informazione si perdeva per strada.
+ * La funzione resta perché la chiamano già in tre punti, e perché il giorno che
+ * i due cataloghi divergono di nuovo è qui che si mette la traduzione.
  */
 export function statoRegistroDaAffiliazione(s: StatoAffiliazione | null | undefined): string | null {
-  if (!s) return null;
-  // `selezionato` e `lead` sono di Scout: il registro non li conosce. Per lui
-  // sono entrambi «prospect» — potenziali su cui non c'è ancora una trattativa.
-  // ⚠️ `lead` NON diventa `in_contatto`: un lead può esistere senza che gli
-  // abbiamo scritto (una richiesta dal sito, una segnalazione), e dire al
-  // registro «in contatto» sarebbe un fatto non avvenuto.
-  return s === 'selezionato' || s === 'lead' ? 'prospect' : s;
+  return s ?? null;
 }
 
 // Ponte tra i due modelli di stato: il registro Anagrafiche ha 8 stati
@@ -66,6 +71,9 @@ export const statoPlaceDaAffiliazione: Record<StatoAffiliazione, StatoPlace> = {
   in_trattativa: 'visitato',
   da_ricontattare: 'visitato',
   attivo: 'cliente',
+  // A rischio è un cliente a tutti gli effetti: compra ancora. Il segnale sta
+  // nello stato commerciale, non nella pipeline.
+  a_rischio: 'cliente',
   non_interessato: 'perso',
   dismesso: 'perso',
 };
