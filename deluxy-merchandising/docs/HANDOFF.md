@@ -96,6 +96,13 @@ porta **3120**. Design system Deluxy v1.0.
 
   **Resta aperto**: la home ha ancora ~0,9 s di primo byte perché le 6 analisi pesanti saturano il pool (`connection_limit=5` nella `DATABASE_URL`) e le query del menu si accodano. Alzare quel numero aiuterebbe, **ma il cluster Postgres è condiviso con altre 5 app**: è una decisione da prendere guardando la capacità del pooler, non da cambiare di slancio.
 
+- **30/07/2026 — le tipologie si definiscono per criteri** (`/visual/tipologie` + scheda `/visual/tipologie/[id]`). Una tipologia non è più un'etichetta da appiccicare a mano alle collezioni: è un **mondo commerciale definito dai criteri** che dicono quali prodotti ne fanno parte — «Lusso» = fasce alte, «Linea rose» = quella linea, «Originale» = quel tipo. `TipologiaCollezione.criteri` (JSON) + [src/lib/criteri-tipologia.ts](../src/lib/criteri-tipologia.ts).
+  - **Otto criteri mescolabili**: fascia di prezzo · tipo prodotto (dal negozio) · fornitore (dal negozio) · linea · collezione del negozio · area (città del fornitore interno) · tag · novità (ultimi N giorni). **Dentro** un criterio i valori valgono in alternativa, **fra** criteri valgono tutti insieme — scritto in pagina, perché è la cosa che si sbaglia a intuito.
+  - **Il giro è: definisci i criteri → guarda cosa hanno preso → scegli la priorità.** La creazione porta dritti sulla scheda, dove si vedono quanti e quali prodotti rientrano *già ordinati*, e lì si sceglie la priorità (le regole multiple di prima). `quantiCriteri()===0` non vuol dire «tutti i prodotti» ma «tipologia da finire»: `filtroCriteri` torna `null` apposta, così nessuno seleziona per sbaglio l'intero catalogo.
+  - **Copertura reale dei criteri** (dichiarata nelle note sotto ogni riquadro, non nascosta): fascia 2.168/2.171 · tipo 50 valori · fornitore 47 · tag 768 prodotti · **linea 0 (nessuna creata)** · **area: solo 5 prodotti hanno un fornitore interno**, quindi quel criterio ne prende pochissimi. L'area è la città del fornitore per scelta dell'utente; nei dati l'area geografica vive piuttosto nelle collezioni («Roma», «Milano»).
+  - `ordinaProdotti()` estratta in [ordinamento-vetrina.ts](../src/lib/ordinamento-vetrina.ts): la usano sia l'ordine dentro una collezione sia l'anteprima della tipologia — una funzione sola, altrimenti lo stesso concetto ordinerebbe in due modi.
+  - **Verificato su dati veri**: «Lusso» = fasce Luxury+Eccezionale → **209 prodotti**, identico alla controprova indipendente (`prezzoVendita >= 400`); criteri descritti «fascia Luxury o Eccezionale»; con priorità «Più fatturato → Prezzo alto» l'ordine è passato dall'alfabetico ai prodotti che hanno fatturato di più. Tipologia di prova poi rimossa.
+
 ## COME AVVIARE
 ```
 cd deluxy-merchandising

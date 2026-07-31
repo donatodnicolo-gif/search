@@ -1,7 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { prisma } from "./db";
+import { criteriDaForm, serializeCriteri } from "./criteri-tipologia";
 import { applicaRegoleACollezione, parseRegole, regoleDaForm, serializeRegole } from "./ordinamento-vetrina";
 
 function testo(fd: FormData, k: string): string {
@@ -9,36 +11,53 @@ function testo(fd: FormData, k: string): string {
   return typeof v === "string" ? v.trim() : "";
 }
 
-/** Crea una tipologia di collezione con le sue regole d'ordine standing (in priorità). */
+/**
+ * Crea una tipologia coi suoi criteri e porta **sulla sua scheda**: lì si vede
+ * quali prodotti ha preso e si sceglie la priorità d'ordine. Prima si guarda cosa
+ * si è selezionato, poi si decide come ordinarlo.
+ */
 export async function creaTipologia(fd: FormData) {
   const nome = testo(fd, "nome");
   if (!nome) return;
-  await prisma.tipologiaCollezione.create({
+  const t = await prisma.tipologiaCollezione.create({
     data: {
       nome,
       descrizione: testo(fd, "descrizione") || null,
+      criteri: serializeCriteri(criteriDaForm(fd)),
       regolaOrdinamento: serializeRegole(regoleDaForm(fd)),
     },
   });
   revalidatePath("/visual/tipologie");
+  redirect(`/visual/tipologie/${t.id}`);
 }
 
-/** Cambia nome/descrizione/regole. Se le regole cambiano, le riapplica subito a tutte le sue collezioni. */
-export async function aggiornaTipologia(id: string, fd: FormData) {
+/** Cambia nome/descrizione/criteri. Non tocca le regole d'ordine: si scelgono a parte. */
+export async function aggiornaCriteriTipologia(id: string, fd: FormData) {
   const nome = testo(fd, "nome");
-  const nuovaRegola = serializeRegole(regoleDaForm(fd));
-  const prima = await prisma.tipologiaCollezione.findUnique({ where: { id }, select: { regolaOrdinamento: true } });
   await prisma.tipologiaCollezione.update({
     where: { id },
     data: {
       ...(nome ? { nome } : {}),
       descrizione: testo(fd, "descrizione") || null,
-      regolaOrdinamento: nuovaRegola,
+      criteri: serializeCriteri(criteriDaForm(fd)),
     },
+  });
+  revalidatePath(`/visual/tipologie/${id}`);
+  revalidatePath("/visual/tipologie");
+}
+
+/** Cambia le regole d'ordine. Se cambiano, le riapplica subito alle sue collezioni. */
+export async function aggiornaTipologia(id: string, fd: FormData) {
+  const nuovaRegola = serializeRegole(regoleDaForm(fd));
+  const prima = await prisma.tipologiaCollezione.findUnique({ where: { id }, select: { regolaOrdinamento: true } });
+  await prisma.tipologiaCollezione.update({
+    where: { id },
+    data: { regolaOrdinamento: nuovaRegola },
   });
   if (nuovaRegola !== (prima?.regolaOrdinamento ?? null) && parseRegole(nuovaRegola).length > 0) {
     await applicaTipologiaAlleSueCollezioni(id);
   }
+  revalidatePath(`/visual/tipologie/${id}`);
   revalidatePath("/visual/tipologie");
 }
 
@@ -47,6 +66,9 @@ export async function eliminaTipologia(id: string) {
   await prisma.tipologiaCollezione.delete({ where: { id } });
   revalidatePath("/visual/tipologie");
   revalidatePath("/visual");
+  // Si può eliminare anche dalla scheda della tipologia: senza questo si
+  // resterebbe su una pagina che non esiste più.
+  redirect("/visual/tipologie");
 }
 
 /**

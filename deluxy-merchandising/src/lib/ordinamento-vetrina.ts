@@ -69,11 +69,92 @@ export function etichettaRegola(valore: string | null | undefined): string {
   return rs.map((r) => REGOLE.find((x) => x.chiave === r)?.nome ?? r).join(" → ");
 }
 
+/** Il minimo che serve per ordinare un prodotto secondo le regole. */
+export type ProdottoOrdinabile = {
+  prodottoId: string;
+  nome: string;
+  prezzoVendita: number;
+  costoProduzione: number;
+  creatoIl: Date;
+  posizione?: number; // l'ordine curato a mano, dove esiste
+};
+
 /**
- * L'ordine dei prodotti di una collezione secondo **una o più regole** in
- * priorità. Ritorna gli id prodotto nell'ordine nuovo; **non scrive niente** —
- * la scrittura la fa `numeraPosizioni`. Il pareggio finale si spezza sempre col
- * nome, così l'ordine è deterministico.
+ * Ordina un insieme di prodotti secondo **una o più regole** in priorità: la
+ * prima decide, le successive spezzano i pareggi, e il pareggio finale si spezza
+ * col nome (così due esecuzioni danno lo stesso risultato).
+ *
+ * La usano sia l'ordine dentro una collezione sia l'anteprima di una tipologia:
+ * una funzione sola, altrimenti lo stesso concetto finirebbe per ordinare in due
+ * modi diversi.
+ */
+export async function ordinaProdotti<T extends ProdottoOrdinabile>(
+  items: T[],
+  regole: RegolaOrdinamento[],
+  giorni = 90
+): Promise<T[]> {
+  const effettive = regole.filter((r) => r !== "manuale");
+  if (effettive.length === 0) {
+    return [...items].sort((a, b) => (a.posizione ?? 0) - (b.posizione ?? 0) || a.nome.localeCompare(b.nome));
+  }
+
+  let venduto = new Map<string, { pezzi: number; ricavo: number }>();
+  if (effettive.some((r) => r === "best_seller" || r === "ricavo")) {
+    const da = new Date();
+    da.setDate(da.getDate() - giorni);
+    // Si raggruppa tutto il venduto della finestra invece di elencare gli id:
+    // una lista lunga rende la query più pesante del giro completo.
+    const agg = await prisma.vendita.groupBy({
+      by: ["prodottoId"],
+      where: { ...FILTRO_BUON_FINE, data: { gte: da } },
+      _sum: { quantita: true, ricavo: true },
+    });
+    venduto = new Map(
+      agg
+        .filter((a) => a.prodottoId)
+        .map((a) => [a.prodottoId as string, { pezzi: a._sum.quantita ?? 0, ricavo: a._sum.ricavo ?? 0 }])
+    );
+  }
+
+  // Valore per una singola regola: più alto = più in cima (prezzo_asc torna il
+  // prezzo negato, così la logica di ordinamento è sempre «decrescente»).
+  const valore = (m: T, regola: RegolaOrdinamento): number => {
+    const v = venduto.get(m.prodottoId);
+    const prezzo = m.prezzoVendita || 0;
+    const costo = m.costoProduzione || 0;
+    switch (regola) {
+      case "best_seller":
+        return v?.pezzi ?? 0;
+      case "ricavo":
+        return v?.ricavo ?? 0;
+      case "novita":
+        return m.creatoIl.getTime();
+      case "margine":
+        // Senza costo il margine non si sa: va in fondo, non a zero (stessa
+        // regola del resto dell'app: un dato mancante si esclude, non vale 0).
+        return prezzo > 0 && costo > 0 ? (prezzo - costo) / prezzo : -Infinity;
+      case "prezzo_desc":
+        return prezzo;
+      case "prezzo_asc":
+        return -prezzo;
+      default:
+        return 0;
+    }
+  };
+
+  return [...items].sort((a, b) => {
+    for (const r of effettive) {
+      const d = valore(b, r) - valore(a, r);
+      if (d !== 0) return d;
+    }
+    return a.nome.localeCompare(b.nome);
+  });
+}
+
+/**
+ * L'ordine dei prodotti di una collezione secondo una o più regole. Ritorna gli
+ * id prodotto nell'ordine nuovo; **non scrive niente** — la scrittura la fa
+ * `numeraPosizioni`.
  */
 export async function ordineSecondoRegole(
   collezioneId: string,
@@ -88,65 +169,15 @@ export async function ordineSecondoRegole(
       prodotto: { select: { nome: true, prezzoVendita: true, costoProduzione: true, creatoIl: true } },
     },
   });
-
-  const effettive = regole.filter((r) => r !== "manuale");
-  if (effettive.length === 0) {
-    return [...membri]
-      .sort((a, b) => a.posizione - b.posizione || a.prodotto.nome.localeCompare(b.prodotto.nome))
-      .map((m) => m.prodottoId);
-  }
-
-  let venduto = new Map<string, { pezzi: number; ricavo: number }>();
-  if (effettive.some((r) => r === "best_seller" || r === "ricavo")) {
-    const da = new Date();
-    da.setDate(da.getDate() - giorni);
-    const agg = await prisma.vendita.groupBy({
-      by: ["prodottoId"],
-      where: { ...FILTRO_BUON_FINE, prodottoId: { in: membri.map((m) => m.prodottoId) }, data: { gte: da } },
-      _sum: { quantita: true, ricavo: true },
-    });
-    venduto = new Map(
-      agg
-        .filter((a) => a.prodottoId)
-        .map((a) => [a.prodottoId as string, { pezzi: a._sum.quantita ?? 0, ricavo: a._sum.ricavo ?? 0 }])
-    );
-  }
-
-  // Valore per una singola regola: più alto = più in cima (prezzo_asc torna il
-  // prezzo negato, così la logica di ordinamento è sempre «decrescente»).
-  const valore = (m: (typeof membri)[number], regola: RegolaOrdinamento): number => {
-    const v = venduto.get(m.prodottoId);
-    const prezzo = m.prodotto.prezzoVendita || 0;
-    const costo = m.prodotto.costoProduzione || 0;
-    switch (regola) {
-      case "best_seller":
-        return v?.pezzi ?? 0;
-      case "ricavo":
-        return v?.ricavo ?? 0;
-      case "novita":
-        return m.prodotto.creatoIl.getTime();
-      case "margine":
-        // Senza costo il margine non si sa: va in fondo, non a zero (stessa
-        // regola del resto dell'app: un dato mancante si esclude, non vale 0).
-        return prezzo > 0 && costo > 0 ? (prezzo - costo) / prezzo : -Infinity;
-      case "prezzo_desc":
-        return prezzo;
-      case "prezzo_asc":
-        return -prezzo;
-      default:
-        return 0;
-    }
-  };
-
-  return [...membri]
-    .sort((a, b) => {
-      for (const r of effettive) {
-        const d = valore(b, r) - valore(a, r);
-        if (d !== 0) return d;
-      }
-      return a.prodotto.nome.localeCompare(b.prodotto.nome);
-    })
-    .map((m) => m.prodottoId);
+  const items = membri.map((m) => ({
+    prodottoId: m.prodottoId,
+    posizione: m.posizione,
+    nome: m.prodotto.nome,
+    prezzoVendita: m.prodotto.prezzoVendita,
+    costoProduzione: m.prodotto.costoProduzione,
+    creatoIl: m.prodotto.creatoIl,
+  }));
+  return (await ordinaProdotti(items, regole, giorni)).map((m) => m.prodottoId);
 }
 
 /**

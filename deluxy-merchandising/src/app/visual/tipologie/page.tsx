@@ -1,153 +1,139 @@
 import Link from "next/link";
 import { Sidebar } from "@/components/Sidebar";
+import { SelettoreCriteri } from "@/components/SelettoreCriteri";
 import { prisma } from "@/lib/db";
-import { etichettaRegola } from "@/lib/ordinamento-vetrina";
-import { SelettoreRegole } from "@/components/SelettoreRegole";
 import {
-  creaTipologia,
-  aggiornaTipologia,
-  eliminaTipologia,
-  assegnaCollezioniATipologia,
-  applicaTipologiaAlleSueCollezioni,
-} from "@/lib/azioni-tipologie";
+  descriviCriteri,
+  filtroCriteri,
+  parseCriteri,
+  quantiCriteri,
+  vociDisponibili,
+} from "@/lib/criteri-tipologia";
+import { etichettaRegola } from "@/lib/ordinamento-vetrina";
+import { creaTipologia } from "@/lib/azioni-tipologie";
 
 export const dynamic = "force-dynamic";
 
-// Le **tipologie di collezione**: etichette editoriali nostre (Bouquet, Torte,
-// Occasioni…) con una regola d'ordine **standing**. Si imposta la regola una
-// volta sulla tipologia e vale per tutte le collezioni assegnate; si riapplica
-// da sola a ogni import. È il «regole per tipologia estese a più collezioni».
+// Le **tipologie**: mondi commerciali decisi da noi (Lusso, Accessibile, Linea
+// rose, Originale). Non sono un'etichetta da appiccicare a mano: sono i **criteri**
+// che dicono quali prodotti ne fanno parte — fascia, linea, tipo, fornitore, area,
+// novità, tag, collezione — mescolabili come serve. Dalla scheda si vede cosa
+// hanno preso e si sceglie la priorità con cui ordinarli.
 export default async function TipologiePage() {
-  const [tipologie, pubblicate] = await Promise.all([
+  const [tipologie, voci] = await Promise.all([
     prisma.tipologiaCollezione.findMany({
       orderBy: { nome: "asc" },
-      include: { _count: { select: { collezioni: true } }, collezioni: { select: { id: true, titolo: true, negozio: true } } },
+      include: { _count: { select: { collezioni: true } } },
     }),
-    prisma.collezioneShopify.findMany({
-      where: { pubblicataShopify: true },
-      orderBy: [{ negozio: "asc" }, { titolo: "asc" }],
-      select: { id: true, titolo: true, negozio: true, tipologiaId: true },
-    }),
+    vociDisponibili(),
   ]);
 
-  const perNegozio = new Map<string, typeof pubblicate>();
-  for (const c of pubblicate) {
-    const arr = perNegozio.get(c.negozio) ?? [];
-    arr.push(c);
-    perNegozio.set(c.negozio, arr);
-  }
-
-  const SelettoreCollezioni = () =>
-    pubblicate.length === 0 ? (
-      <p className="page-sub" style={{ margin: 0 }}>
-        Nessuna collezione pubblicata da assegnare: rifai l'import da <Link href="/collezioni">Collezioni</Link>.
-      </p>
-    ) : (
-      <select multiple name="collezioni" size={6} style={{ width: "100%", font: "inherit", padding: 8, borderRadius: "var(--radius-m)", background: "var(--fill)", border: "1px solid transparent" }}>
-        {[...perNegozio.entries()].map(([negozio, lista]) => (
-          <optgroup key={negozio} label={negozio}>
-            {lista.map((c) => (
-              <option key={c.id} value={c.id}>{c.titolo}{c.tipologiaId ? " ·(già assegnata)" : ""}</option>
-            ))}
-          </optgroup>
-        ))}
-      </select>
-    );
+  // Quanti prodotti prende ognuna: è la domanda che si fa guardando l'elenco.
+  const conteggi = await Promise.all(
+    tipologie.map(async (t) => {
+      const dove = await filtroCriteri(parseCriteri(t.criteri));
+      return dove ? prisma.prodotto.count({ where: dove }) : null;
+    })
+  );
 
   return (
     <div className="layout">
       <Sidebar attiva="visual" />
-      <main className="main" style={{ maxWidth: 900 }}>
+      <main className="main" style={{ maxWidth: 1000 }}>
         <a className="ritorno" href="/visual">← Visual merchandising</a>
         <div className="page-head">
           <div>
-            <h1 className="page-title">Tipologie di collezione</h1>
+            <h1 className="page-title">Tipologie</h1>
             <p className="page-sub">
-              Etichette tue (Bouquet, Torte, Occasioni…) con una <b>regola d'ordine standing</b>: la imposti una volta
-              e vale per tutte le collezioni che le assegni, riapplicandosi da sola a ogni import.
+              I tuoi mondi commerciali — Lusso, Accessibile, Linea rose, Originale — definiti dai <b>criteri</b> che
+              dicono quali prodotti ne fanno parte. Si mescolano fascia di prezzo, linea, tipo, fornitore, area,
+              novità, tag e collezione. Creata la tipologia, sulla sua scheda vedi cosa ha preso e scegli la priorità
+              con cui ordinarla.
             </p>
           </div>
         </div>
 
-        <div className="scheda">
-          <div className="scheda-titolo">Nuova tipologia</div>
-          <form action={creaTipologia} className="modulo" style={{ gridTemplateColumns: "1fr 1fr" }}>
-            <div className="campo-modulo">
-              <label>Nome <span className="obbligatorio">*</span></label>
-              <input name="nome" required placeholder="Bouquet" />
-            </div>
-            <div className="campo-modulo">
-              <label>Regole d'ordine standing (in priorità)</label>
-              <SelettoreRegole nuovo />
-            </div>
-            <div className="campo-modulo" style={{ gridColumn: "1 / -1" }}>
-              <label>Descrizione</label>
-              <input name="descrizione" placeholder="A cosa serve questa tipologia" />
-            </div>
-            <div className="azioni-modulo" style={{ gridColumn: "1 / -1" }}>
-              <button type="submit" className="btn">Crea tipologia</button>
-            </div>
-          </form>
-        </div>
-
         {tipologie.length === 0 ? (
-          <div className="vuoto-mini">Nessuna tipologia ancora. Creane una qui sopra.</div>
+          <div className="vuoto-mini" style={{ marginBottom: 20 }}>
+            Nessuna tipologia ancora. Creane una qui sotto.
+          </div>
         ) : (
-          tipologie.map((t) => (
-            <div className="scheda" key={t.id}>
-              <div className="scheda-titolo" style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                <span>{t.nome}</span>
-                <span className="page-sub" style={{ margin: 0 }}>
-                  {etichettaRegola(t.regolaOrdinamento)} · {t._count.collezioni} collezioni
-                </span>
-              </div>
-
-              <form action={aggiornaTipologia.bind(null, t.id)} className="modulo" style={{ gridTemplateColumns: "1fr 1fr", marginBottom: 12 }}>
-                <div className="campo-modulo">
-                  <label>Nome</label>
-                  <input name="nome" defaultValue={t.nome} />
-                </div>
-                <div className="campo-modulo">
-                  <label>Regole standing (in priorità)</label>
-                  <SelettoreRegole valore={t.regolaOrdinamento} />
-                </div>
-                <div className="campo-modulo" style={{ gridColumn: "1 / -1" }}>
-                  <label>Descrizione</label>
-                  <input name="descrizione" defaultValue={t.descrizione ?? ""} />
-                </div>
-                <div className="azioni-modulo" style={{ gridColumn: "1 / -1", gap: 8 }}>
-                  <button type="submit" className="btn btn-secondario">Salva (e riapplica se cambia)</button>
-                </div>
-              </form>
-
-              <div style={{ display: "grid", gap: 8 }}>
-                <label className="page-sub" style={{ margin: 0 }}>Assegna collezioni (tieni premuto Ctrl/Cmd per sceglierne più d'una)</label>
-                <form action={assegnaCollezioniATipologia} style={{ display: "grid", gap: 8 }}>
-                  <input type="hidden" name="tipologiaId" value={t.id} />
-                  <SelettoreCollezioni />
-                  <div>
-                    <button type="submit" className="btn" disabled={pubblicate.length === 0}>Assegna a «{t.nome}»</button>
-                  </div>
-                </form>
-                {/* Form separati: annidarli dentro quello di assegnazione sarebbe HTML non valido. */}
-                <div style={{ display: "flex", gap: 8 }}>
-                  <form action={applicaTipologiaAlleSueCollezioni.bind(null, t.id)}>
-                    <button type="submit" className="btn btn-secondario" disabled={t._count.collezioni === 0}>Riapplica ora</button>
-                  </form>
-                  <form action={eliminaTipologia.bind(null, t.id)}>
-                    <button type="submit" className="btn btn-secondario">Elimina</button>
-                  </form>
-                </div>
-              </div>
-
-              {t.collezioni.length > 0 && (
-                <p className="page-sub" style={{ marginTop: 10 }}>
-                  Collezioni: {t.collezioni.map((c) => `${c.titolo} (${c.negozio})`).join(" · ")}
-                </p>
-              )}
+          <div className="scheda" style={{ marginBottom: 22 }}>
+            <div className="scheda-titolo">Le tue tipologie</div>
+            <div className="tabella-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Tipologia</th>
+                    <th>Criteri</th>
+                    <th className="num">Prodotti</th>
+                    <th>Ordine</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tipologie.map((t, i) => {
+                    const c = parseCriteri(t.criteri);
+                    return (
+                      <tr key={t.id} className="riga-cliccabile">
+                        <td>
+                          <Link href={`/visual/tipologie/${t.id}`} className="cella-nome link-riga">
+                            {t.nome}
+                          </Link>
+                          {t.descrizione && <div className="cella-sub">{t.descrizione}</div>}
+                        </td>
+                        <td>
+                          <span className="cella-sub">{descriviCriteri(c, voci)}</span>
+                        </td>
+                        <td className="num">
+                          {conteggi[i] == null ? (
+                            <span style={{ color: "var(--orange)" }}>da definire</span>
+                          ) : (
+                            conteggi[i]
+                          )}
+                        </td>
+                        <td>
+                          <span className="cella-sub">{etichettaRegola(t.regolaOrdinamento)}</span>
+                          {t._count.collezioni > 0 && (
+                            <div className="cella-sub">{t._count.collezioni} collezioni collegate</div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
-          ))
+          </div>
         )}
+
+        <form action={creaTipologia}>
+          <div className="scheda">
+            <div className="scheda-titolo">Nuova tipologia</div>
+            <div className="modulo" style={{ gridTemplateColumns: "1fr 2fr", marginBottom: 6 }}>
+              <div className="campo-modulo">
+                <label>
+                  Nome <span className="obbligatorio">*</span>
+                </label>
+                <input name="nome" required placeholder="Lusso" />
+              </div>
+              <div className="campo-modulo">
+                <label>Descrizione</label>
+                <input name="descrizione" placeholder="A cosa serve questa tipologia" />
+              </div>
+            </div>
+
+            <SelettoreCriteri criteri={{}} voci={voci} />
+
+            <div className="azioni-modulo" style={{ marginTop: 14 }}>
+              <button type="submit" className="btn">
+                Crea e guarda i prodotti
+              </button>
+              <span className="page-sub" style={{ margin: 0 }}>
+                Poi, sulla scheda, scegli la priorità d'ordine.
+              </span>
+            </div>
+          </div>
+        </form>
       </main>
     </div>
   );

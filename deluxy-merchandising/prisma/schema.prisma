@@ -423,6 +423,12 @@ model TipologiaCollezione {
   id           String   @id @default(cuid())
   nome         String   @unique
   descrizione  String?
+  // **I criteri che dicono quali prodotti sono di questa tipologia**: «Lusso» =
+  // fasce alte, «Linea rose» = quella linea, «Originale» = quel tipo di prodotto.
+  // JSON (vedi src/lib/criteri-tipologia.ts): dentro un criterio i valori valgono
+  // in alternativa (una qualsiasi), fra criteri diversi valgono tutti insieme.
+  // Vuoto = nessun criterio, la tipologia non seleziona niente da sola.
+  criteri      String?
   // La regola d'ordine standing, dalle chiavi di src/lib/ordinamento-vetrina.ts
   // (best_seller, ricavo, novita, margine, prezzo_*, manuale). null/"manuale" =
   // nessuna regola automatica, l'ordine si cura a mano collezione per collezione.
