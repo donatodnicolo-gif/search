@@ -58,10 +58,41 @@ export function dividiCitato(testo: string): TestoDiviso {
   return { testo, citato: '' }
 }
 
+/**
+ * L'anteprima leggibile di una mail.
+ *
+ * ⚠️ Il testo di una mail HTML (newsletter, notifiche) non è testo: è la
+ * conversione fatta dal server di posta, e viene fuori roba come
+ * `[https://…/logo.png]https://click.…/f/a/YTRVAK…` — cioè l'indirizzo
+ * dell'immagine e quello del link, uno attaccato all'altro. In elenco quella
+ * riga occupa lo spazio dell'anteprima senza dire NIENTE.
+ *
+ * Qui si tolgono immagini, link e residui di formattazione e restano le
+ * parole. Se di parole non ne resta nessuna si torna stringa vuota: meglio una
+ * riga vuota che una riga di indirizzi — l'oggetto la mail la racconta già.
+ */
+export function ripulisciAnteprima(testo: string): string {
+  let t = testo
+    // Immagine in stile markdown/testo: [https://…] oppure [cid:…] o [logo].
+    .replace(/\[(?:https?:\/\/|cid:)[^\]]*\]/gi, ' ')
+    // Link markdown [testo](url): resta il testo, che è quello che si legge.
+    .replace(/\[([^\]]{1,80})\]\((?:https?:\/\/|mailto:)[^)]*\)/gi, '$1')
+    // Indirizzi nudi (compresi quelli lunghissimi di tracciamento).
+    .replace(/\b(?:https?:\/\/|www\.)\S+/gi, ' ')
+    .replace(/\bcid:\S+/gi, ' ')
+    // Righe di separazione e simboli avanzati dalla conversione.
+    .replace(/[-=_*~|]{3,}/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  // Un residuo di sole parentesi/punteggiatura non è testo.
+  if (!/[\p{L}\p{N}]/u.test(t)) t = ''
+  return t
+}
+
 /** L'anteprima di una riga: la prima parte di quello che è stato scritto
- *  davvero, senza la citazione e senza a-capo. */
+ *  davvero, senza la citazione, senza link e senza a-capo. */
 export function anteprimaPulita(testo: string, max = 140): string {
   const { testo: nuovo } = dividiCitato(testo)
-  const piatto = nuovo.replace(/\s+/g, ' ').trim()
+  const piatto = ripulisciAnteprima(nuovo)
   return piatto.length > max ? `${piatto.slice(0, max - 1).trimEnd()}…` : piatto
 }

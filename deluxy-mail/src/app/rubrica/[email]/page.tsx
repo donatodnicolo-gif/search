@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { ripulisciAnteprima } from '@/lib/citato'
 import { notFound } from 'next/navigation'
 import { db } from '@/lib/db'
 import { coloreDiPriorita, dataBreve, FUSO } from '@/lib/format'
@@ -198,7 +199,7 @@ export default async function Contatto({ params }: Props) {
                       <span>{m.riassunto}</span>
                     </>
                   ) : (
-                    <span className="muted">{m.anteprima}</span>
+                    <span className="muted">{ripulisciAnteprima(m.anteprima)}</span>
                   )}
                 </div>
 

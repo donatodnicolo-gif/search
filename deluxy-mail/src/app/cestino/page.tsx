@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { ripulisciAnteprima } from '@/lib/citato'
 import { db } from '@/lib/db'
 import { dataBreve } from '@/lib/format'
 import { AzioniRiga } from '@/components/AzioniRiga'
@@ -57,7 +58,7 @@ export default async function Cestino() {
                     {m.oggetto}
                   </div>
                   <div className="mail-riassunto" style={{ paddingLeft: 17 }}>
-                    <span className="muted">{m.riassunto || m.anteprima}</span>
+                    <span className="muted">{m.riassunto || ripulisciAnteprima(m.anteprima)}</span>
                   </div>
                 </Link>
                 <div className="riga-azioni" style={{ paddingLeft: 17 }}>

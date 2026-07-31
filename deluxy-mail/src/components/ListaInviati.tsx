@@ -9,6 +9,7 @@ import { cestinaMessaggio, spostaInSezione, azioneMassa } from '@/lib/actions'
 import { AgganciaBottone, AgganciaDialog } from './AgganciaRiga'
 import { NomeThreadBottone, NomeThreadDialog } from './NomeThreadRiga'
 import { dopoSpostamento } from './dopoSpostamento'
+import { ripulisciAnteprima } from '@/lib/citato'
 
 export type RigaInviata = {
   /** Il "volto" della riga: la mail più recente della conversazione. */
@@ -192,7 +193,7 @@ export function ListaInviati({
                 {m.oggetto}
               </div>
               <div className="mail-riassunto" style={{ paddingLeft: 17 }}>
-                <span className="muted">{m.anteprima}</span>
+                <span className="muted">{ripulisciAnteprima(m.anteprima)}</span>
               </div>
             </Link>
             <div className="mail-row-side">

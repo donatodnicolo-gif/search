@@ -3,6 +3,7 @@
 import { memo, useState } from 'react'
 import Link from 'next/link'
 import { dataBreve } from '@/lib/format'
+import { ripulisciAnteprima } from '@/lib/citato'
 import { PrioritaButtons } from './PrioritaButtons'
 import { AzioniRiga } from './AzioniRiga'
 import { BottoneNonSpam } from './BottoneNonSpam'
@@ -172,9 +173,16 @@ export const RigaMail = memo(function RigaMail({
               <span>{r.riassunto}</span>
             </div>
           ) : (
+            /* ⚠️ L'anteprima passa dal ripulitore: il «testo» di una mail HTML
+               è la conversione del server, e senza questo la riga mostrava
+               l'indirizzo del logo attaccato a quello del link invece delle
+               parole. Se non resta niente da leggere, riga vuota: l'oggetto la
+               mail la racconta già. */
             <div className="mail-riassunto" style={{ paddingLeft: 17 }}>
               <span className="muted">
-                {r.corpoTradotto ? r.corpoTradotto.replace(/\s+/g, ' ').slice(0, 200) : r.anteprima}
+                {ripulisciAnteprima(
+                  r.corpoTradotto ? r.corpoTradotto.slice(0, 400) : r.anteprima
+                ).slice(0, 200)}
               </span>
             </div>
           )}
