@@ -238,7 +238,12 @@ Ogni scrittura via API è un **merge governato per campo**, mai una sostituzione
   **aggiornano per id** (`update`/`create`/`deleteMany` mirati); riga svuotata = rimosso, come
   prima. Verificato sul contatto HubSpot di Basara Milano: dopo il salvataggio conserva id,
   `fonte: hubspot` e `hubspotId`.
-  **Gruppi**: `⧉ Raggruppa` (`GestioneGruppo`) mette l'anagrafica sotto un'insegna madre;
+  **Gruppi** — i due bottoni sono l'uno l'inverso dell'altro, e dal 31/07/2026 **il nome dice il
+  verso**: `⧉ Raggruppa` veniva letto al contrario (sembrava «aggancia altre a questa») ed è
+  diventato **↳ È una sede di…**, mentre `＋ Sede` è **＋ Sedi di questa**. Ogni modale dichiara la
+  direzione in testa e rimanda all'altra: se l'operazione è quella opposta, si scopre lì invece
+  che dopo averla fatta.
+  `↳ È una sede di…` (`GestioneGruppo`) mette l'anagrafica sotto un'insegna madre;
   una sede mostra «Sede del gruppo X» + «Togli dal gruppo»; la madre ha la sezione
   **Sedi del gruppo** (✕ per sganciarne una). Azione unica `raggruppaSotto(partnerId, capogruppoId|null)`.
   **＋ Sede (29/07/2026)** — `AggiungiSede`, bottone in testata e nella sezione **Sedi**, che ora

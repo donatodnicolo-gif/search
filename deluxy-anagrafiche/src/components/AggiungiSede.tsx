@@ -95,7 +95,7 @@ export function AggiungiSede({
         onClick={() => setAperto(true)}
         title={`Aggiungi un'altra sede di ${nome}`}
       >
-        ＋ Sede
+        ＋ Sedi di questa
       </button>
 
       {aperto && (
@@ -105,8 +105,11 @@ export function AggiungiSede({
               <div>
                 <div className="modale-titolo">Aggiungi una sede a «{nome}»</div>
                 <div className="modale-sub">
-                  Resta un&apos;anagrafica autonoma per stato, referenti e feedback: fatturazione e
-                  gruppo di pagamento restano invece quelli dell&apos;insegna
+                  <strong>Altre realtà diventano sedi di questa.</strong> Ognuna resta
+                  un&apos;anagrafica autonoma per stato, referenti e feedback; fatturazione e gruppo
+                  di pagamento restano quelli dell&apos;insegna. Per il contrario — dire che è
+                  <strong> questa</strong> a essere la sede di un&apos;altra — usa <strong>↳ È una
+                  sede di…</strong>
                 </div>
               </div>
               <button type="button" className="modale-chiudi" onClick={chiudi}>✕</button>

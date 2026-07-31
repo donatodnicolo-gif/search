@@ -63,9 +63,9 @@ export function GestioneGruppo({ partnerId, nome }: { partnerId: string; nome: s
         className="btn btn-secondario"
         style={{ fontSize: 12.5, padding: "6px 14px" }}
         onClick={() => setAperto(true)}
-        title="Raggruppa questa anagrafica sotto un'insegna madre"
+        title={`Indica che «${nome}» è una sede di un'altra insegna`}
       >
-        ⧉ Raggruppa
+        ↳ È una sede di…
       </button>
 
       {aperto && (
@@ -73,9 +73,11 @@ export function GestioneGruppo({ partnerId, nome }: { partnerId: string; nome: s
           <div className="modale" onClick={(e) => e.stopPropagation()}>
             <div className="modale-testata">
               <div>
-                <div className="modale-titolo">Raggruppa «{nome}»</div>
+                <div className="modale-titolo">«{nome}» è una sede di…</div>
                 <div className="modale-sub">
-                  Cerca l&apos;insegna madre: questa anagrafica diventa una sua sede
+                  Cerca l&apos;insegna a cui appartiene: <strong>questa</strong> anagrafica diventa una
+                  sua sede. Per fare il contrario — agganciare altre realtà come sedi di questa — usa
+                  <strong> ＋ Sedi di questa → Collega esistenti</strong>
                 </div>
               </div>
               <button type="button" className="modale-chiudi" onClick={() => setAperto(false)}>✕</button>
@@ -84,7 +86,7 @@ export function GestioneGruppo({ partnerId, nome }: { partnerId: string; nome: s
               autoFocus
               type="search"
               className="modale-ricerca"
-              placeholder="Nome dell'insegna madre…"
+              placeholder="Nome dell'insegna a cui appartiene…"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
