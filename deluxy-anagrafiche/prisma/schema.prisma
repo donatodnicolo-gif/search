@@ -168,6 +168,12 @@ model Contatto {
   fonte     String? // sorgente che ha inserito il referente (per il merge)
   hubspotId String? // id del contatto nel CRM HubSpot (per aprirlo)
   nomeRubrica String? // nome con cui salvarlo in rubrica Google; se vuoto: [STATO] [AZIENDA] [CITTÀ] [Nome]
+  // Quando questo referente è finito nella rubrica Google (o è stato trovato
+  // già presente). Prima il salvataggio avveniva solo nel browser e non
+  // lasciava traccia: riaprendo la scheda non si sapeva se era già stato fatto,
+  // e si rifaceva. Non è il momento in cui è stato CREATO in Google, è il
+  // momento in cui il registro ha avuto conferma che c'è.
+  salvatoInRubricaIl DateTime?
   archiviato   Boolean   @default(false) // referente archiviato (es. da Scout): escluso da rubrica/elenchi
   archiviatoIl DateTime?
   partner   Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)

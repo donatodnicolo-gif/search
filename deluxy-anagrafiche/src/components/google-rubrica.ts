@@ -15,6 +15,8 @@ export type RigaContatto = {
   fonte: string | null;
   hubspotId: string | null;
   nomeRubrica: string | null;
+  /** Quando il registro ha avuto conferma che e in rubrica Google. */
+  salvatoInRubricaIl?: Date | string | null;
   partnerId: string;
   partnerNome: string;
   categoria: string | null;

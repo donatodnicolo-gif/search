@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { segnaSalvatiInRubrica } from "@/lib/azioni";
 import {
   contactName,
   getToken,
@@ -38,11 +39,13 @@ export function SalvaRubricaAuto({ contatti }: { contatti: RigaContatto[] }) {
       setStato("consenso");
       return;
     }
+    const riusciti: string[] = [];
     for (const c of contatti) {
       setEsiti((s) => ({ ...s, [c.id]: { fase: "lavoro", testo: "Salvo…" } }));
       try {
         const esito = await salvaSeAssente(token, c);
         setEsiti((s) => ({ ...s, [c.id]: esito }));
+        riusciti.push(c.id);
       } catch (e) {
         setEsiti((s) => ({
           ...s,
@@ -50,6 +53,8 @@ export function SalvaRubricaAuto({ contatti }: { contatti: RigaContatto[] }) {
         }));
       }
     }
+    // Un giro solo alla fine invece di una scrittura per persona.
+    if (riusciti.length) await segnaSalvatiInRubrica(riusciti);
     setStato("fatto");
   }
 

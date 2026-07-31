@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { segnaSalvatiInRubrica } from "@/lib/azioni";
 import { linkContattoHubspot } from "@/lib/hubspot-link";
 import {
   contactName,
@@ -25,7 +26,12 @@ export function TabellaContattiGoogle({ contatti }: { contatti: RigaContatto[] }
     set(r.id, { fase: "lavoro", testo: "Verifico…" });
     try {
       const token = await getToken();
-      set(r.id, await salvaSeAssente(token, r));
+      const esito = await salvaSeAssente(token, r);
+      set(r.id, esito);
+      // Il salvataggio avviene nel browser: senza questa riga il registro non
+      // saprebbe che e stato fatto. Vale anche per "gia presente": il punto e
+      // sapere che quella persona in rubrica c'e.
+      await segnaSalvatiInRubrica([r.id]);
     } catch (e) {
       set(r.id, { fase: "errore", testo: e instanceof Error ? e.message : "Errore" });
     }
@@ -88,6 +94,12 @@ export function TabellaContattiGoogle({ contatti }: { contatti: RigaContatto[] }
                   <td>
                     {e && (e.fase === "presente" || e.fase === "aggiunto") ? (
                       <span className={`match-esito ${e.fase === "aggiunto" ? "ok" : "warn"}`}>{e.testo}</span>
+                    ) : c.salvatoInRubricaIl ? (
+                      // Gia in rubrica: si vede, e il bottone non ricompare a
+                      // invitare un salvataggio che e gia stato fatto.
+                      <span className="in-rubrica" title={`In rubrica dal ${new Date(c.salvatoInRubricaIl).toLocaleDateString("it-IT")}`}>
+                        ✓ In rubrica
+                      </span>
                     ) : (
                       <span style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
                         <button

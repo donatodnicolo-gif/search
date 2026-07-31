@@ -516,6 +516,43 @@ export async function aggiungiReferentiDaRubrica(
   return { ok: true, aggiunti: daCreare.length, saltati };
 }
 
+// Segna che questi referenti sono in rubrica Google. La chiama il browser dopo
+// un salvataggio riuscito (o dopo aver verificato che il contatto c'era già):
+// il salvataggio avviene lì, con l'OAuth dell'operatore, e senza questa riga il
+// registro non saprebbe mai che è stato fatto — riaprendo la scheda si rifaceva
+// tutto da capo, e non si poteva sapere chi era già in rubrica e chi no.
+export async function segnaSalvatiInRubrica(contattoIds: string[]): Promise<void> {
+  const ids = contattoIds.filter(Boolean);
+  if (!ids.length) return;
+  const contatti = await prisma.contatto.findMany({
+    where: { id: { in: ids } },
+    select: { id: true, partnerId: true, nome: true, salvatoInRubricaIl: true },
+  });
+  if (!contatti.length) return;
+  await prisma.contatto.updateMany({
+    where: { id: { in: ids } },
+    data: { salvatoInRubricaIl: new Date() },
+  });
+  // Nel log solo il PRIMO salvataggio: riaprire la pagina non deve riempire la
+  // storia di righe identiche.
+  const nuovi = contatti.filter((c) => !c.salvatoInRubricaIl);
+  after(() =>
+    Promise.all(
+      nuovi.map((c) =>
+        registraModifica(
+          c.partnerId,
+          { origine: "ui", contattoId: c.id, entita: "contatto" },
+          { campo: "salvatoInRubricaIl", a: `${c.nome ?? "referente"} salvato nella rubrica Google` },
+        ),
+      ),
+    ),
+  );
+  for (const partnerId of new Set(contatti.map((c) => c.partnerId))) {
+    revalidatePath(`/partner/${partnerId}`);
+  }
+  revalidatePath("/contatti");
+}
+
 // Sposta un referente da una sede all'altra della stessa insegna: capita
 // spesso che una persona sia stata censita sulla madre e lavori invece in un
 // negozio preciso. La destinazione arriva dal menu della riga.

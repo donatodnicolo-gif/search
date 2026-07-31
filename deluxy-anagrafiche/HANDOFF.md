@@ -441,6 +441,19 @@ trovano un match nel registro. Lato registro misurato: 578 attivi, 316 boutique,
   `src/lib/google.ts`): OAuth **lato browser** (GIS token flow, scope `contacts`); verifica per
   numero (searchContacts con warm-up, ultime 9 cifre) e crea solo se assente, nome `[STATO] NOME`
   (+ provincia per affiliati/reseller = interessi affiliazione/vendor). Fallback `.vcf`.
+- **Segno del salvataggio in rubrica (31/07/2026)**: `Contatto.salvatoInRubricaIl`. Il
+  salvataggio in Google avviene **nel browser** (OAuth dell operatore) e prima non lasciava
+  traccia: riaprendo la scheda non si sapeva se era gia stato fatto, e si rifaceva. Ora dopo un
+  salvataggio riuscito il browser chiama `segnaSalvatiInRubrica(ids)` — sia dalla tabella di
+  `/contatti` sia dal salvataggio automatico della scheda, che manda un solo giro alla fine
+  invece di una scrittura per persona. Vale anche per l esito **gia presente**: il punto e sapere
+  che quella persona in rubrica c e.
+  Si vede come **✓ In rubrica** (con la data nel tooltip) in `/contatti`, nella sezione Contatti
+  della scheda partner e sulla scheda del referente; dove c e la spunta il bottone «Salva in
+  Google» non ricompare. Nel log finisce **solo il primo** salvataggio.
+  ⚠️ **Il campo parte vuoto per tutti**: si riempie dal prossimo salvataggio in avanti. Per
+  allineare lo storico basta una passata di «Salva in Google» su `/contatti` — chi c e gia in
+  rubrica viene riconosciuto dal numero e marcato senza creare doppioni.
 - **Export vCard** (`npm run export:vcard` → `~/Downloads/Deluxy-Anagrafiche-Contatti.vcf`),
   importabile in bulk su contacts.google.com.
 

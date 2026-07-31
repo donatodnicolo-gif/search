@@ -632,7 +632,17 @@ export default async function Dettaglio({
                       )}
                     </td>
                     <td className="cella-muta">{c.email ?? "—"}</td>
-                    <td className="cella-muta">{c.fonte === "hubspot" ? "HubSpot" : c.fonte ? c.fonte : "Excel"}</td>
+                    <td className="cella-muta">
+                      {c.fonte === "hubspot" ? "HubSpot" : c.fonte ? c.fonte : "Excel"}
+                      {c.salvatoInRubricaIl && (
+                        <div
+                          className="in-rubrica"
+                          title={`In rubrica Google dal ${c.salvatoInRubricaIl.toLocaleDateString("it-IT")}`}
+                        >
+                          ✓ In rubrica
+                        </div>
+                      )}
+                    </td>
                     {altriLuoghi.length > 0 && (
                       <td>
                         {/* Spostare, non ricreare: la persona porta con sé il

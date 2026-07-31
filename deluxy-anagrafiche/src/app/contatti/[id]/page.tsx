@@ -77,6 +77,15 @@ export default async function SchedaContatto({ params }: { params: Promise<{ id:
               <a href={`/partner/${contatto.partner.id}`}>{contatto.partner.nome}</a>
               {[contatto.partner.categoria, contatto.partner.citta].filter(Boolean).length > 0 &&
                 " · " + [contatto.partner.categoria, contatto.partner.citta].filter(Boolean).join(" · ")}
+              {contatto.salvatoInRubricaIl && (
+                <>
+                  {" · "}
+                  <span className="in-rubrica">
+                    ✓ In rubrica Google dal{" "}
+                    {contatto.salvatoInRubricaIl.toLocaleDateString("it-IT")}
+                  </span>
+                </>
+              )}
               {contatto.hubspotId && (
                 <>
                   {" · "}
