@@ -371,6 +371,12 @@ Ogni scrittura via API è un **merge governato per campo**, mai una sostituzione
     Permessi (cambia tipologia e nota) · Rigenera (ruota l'hash: la vecchia smette di valere
     all'istante) · Sospendi/Riattiva (reversibile, `attiva=false` → 401) · Elimina (definitiva).
     Rigenera ed Elimina chiedono conferma.
+  - ⚠️ **Il riquadro con la chiave in chiaro è un MODALE** (`createPortal` sul `body`), non un
+    avviso in cima alla pagina: lì stava prima, e **rigenerando una chiave in fondo all'elenco
+    compariva 1344 px sopra il bordo dello schermo** — la chiave veniva mostrata, ma fuori dalla
+    vista, e sembrava che «Rigenera non la mostri» (segnalato il 31/07/2026). Lo sfondo **non**
+    chiude il modale (solo ✕ e «Ho copiato»): un click di troppo farebbe perdere per sempre un
+    segreto che si vede una volta sola. Vale lo stesso per la chiave appena creata.
   - **Nome normalizzato** («Prova Chiavi UI» → `prova-chiavi-ui`): è anche la **sorgente** nella
     provenienza e nel ranking del merge, quindi non si rinomina — si crea/rigenera.
   - Colonne nuove su `ApiKey`: `prefisso` (primi 12 caratteri in chiaro, solo per riconoscerla in

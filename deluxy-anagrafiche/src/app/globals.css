@@ -865,6 +865,9 @@ a.dash-riga:hover .dash-etichetta { color: var(--text); }
   overflow-wrap: anywhere; user-select: all;
 }
 .chiave-in-chiaro-piede { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+/* La chiave in chiaro è un modale (non un avviso in cima alla pagina): nasceva
+   lì e, rigenerando una chiave in fondo all'elenco, compariva fuori schermo. */
+.modale.chiave-in-chiaro { width: 620px; margin-bottom: 0; box-shadow: var(--shadow-float); }
 
 .avviso-ok {
   padding: 10px 14px; margin-bottom: 14px;

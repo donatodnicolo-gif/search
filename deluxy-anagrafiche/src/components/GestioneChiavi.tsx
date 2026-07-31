@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   AMBITI,
   type Ambito,
@@ -317,37 +318,52 @@ function ChiaveAppenaCreata({
   onChiudi: () => void;
 }) {
   const [copiata, setCopiata] = useState(false);
-  return (
-    <div className="chiave-in-chiaro">
-      <div className="chiave-in-chiaro-testa">
-        <strong>Chiave di «{nome}» — copiala adesso</strong>
-        <button type="button" className="btn btn-secondario btn-compatto" onClick={onChiudi}>
-          Ho copiato
-        </button>
+  // ⚠️ Il riquadro e un MODALE, non un avviso in cima alla pagina: li nasceva
+  // prima, e rigenerando una chiave in fondo all elenco compariva **fuori dallo
+  // schermo** (misurato: 1344 px sopra il bordo). La chiave si vede una volta
+  // sola: se te la perdi devi rigenerarla, e la precedente e gia morta.
+  // Lo sfondo NON chiude: un click di troppo non deve farti perdere un segreto.
+  const [montato, setMontato] = useState(false);
+  useEffect(() => setMontato(true), []);
+  if (!montato) return null;
+
+  return createPortal(
+    <div className="modale-sfondo">
+      <div className="modale chiave-in-chiaro">
+        <div className="chiave-in-chiaro-testa">
+          <strong>Chiave di «{nome}» — copiala adesso</strong>
+          <button type="button" className="modale-chiudi" onClick={onChiudi} title="Ho copiato la chiave">
+            ✕
+          </button>
+        </div>
+        <code className="chiave-valore">{valore}</code>
+        <div className="chiave-in-chiaro-piede">
+          <button
+            type="button"
+            className="btn btn-compatto"
+            onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(valore);
+                setCopiata(true);
+              } catch {
+                setCopiata(false);
+              }
+            }}
+          >
+            {copiata ? "Copiata ✓" : "Copia"}
+          </button>
+          <button type="button" className="btn btn-secondario btn-compatto" onClick={onChiudi}>
+            Ho copiato
+          </button>
+          <span className="testo-guida">
+            Nel database resta solo lo SHA-256: chiudendo questo riquadro la chiave non è più recuperabile. Va incollata
+            in <code>ANAGRAFICHE_API_KEY</code> nel <code>.env</code> dell&apos;app (e su Vercel), mai in un file
+            committato.
+          </span>
+        </div>
       </div>
-      <code className="chiave-valore">{valore}</code>
-      <div className="chiave-in-chiaro-piede">
-        <button
-          type="button"
-          className="btn btn-compatto"
-          onClick={async () => {
-            try {
-              await navigator.clipboard.writeText(valore);
-              setCopiata(true);
-            } catch {
-              setCopiata(false);
-            }
-          }}
-        >
-          {copiata ? "Copiata ✓" : "Copia"}
-        </button>
-        <span className="testo-guida">
-          Nel database resta solo lo SHA-256: chiudendo questo riquadro la chiave non è più recuperabile. Va incollata
-          in <code>ANAGRAFICHE_API_KEY</code> nel <code>.env</code> dell&apos;app (e su Vercel), mai in un file
-          committato.
-        </span>
-      </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
