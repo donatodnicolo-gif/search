@@ -5,6 +5,7 @@ import { euroSemplice } from "@/lib/denaro";
 import { cifraturaPronta } from "@/lib/crypto";
 import { postaConfigurata } from "@/lib/mail";
 import { qontoConfigurato, statoCollegamento } from "@/lib/qonto";
+import { prisma } from "@/lib/db";
 import { ModuloBanca } from "@/components/ModuloBanca";
 import { ModuloImpostazioni } from "@/components/ModuloImpostazioni";
 
@@ -17,26 +18,64 @@ export default async function Impostazioni() {
 
   const r = await leggiRegole();
 
+  // Gli avvisi in cima dicono, in ordine, cosa manca perché un pagamento possa
+  // arrivare in fondo. Meglio scoprirlo qui che davanti a una distinta che non
+  // si genera e non spiega perché.
+  const ordinanteIncompleto = !r.ordinanteNome.trim() || !r.ordinanteIban.trim();
+  const pagatore = r.pagatoreEmail
+    ? await prisma.operatore.findUnique({ where: { email: r.pagatoreEmail } }).catch(() => null)
+    : null;
+  const pagatoreMancante = !pagatore || !pagatore.attivo;
+  const pagatoreSenzaPin = Boolean(pagatore?.attivo) && !pagatore?.pinHash;
+
   return (
     <main className="main">
       <div className="page-head">
         <div>
           <h1 className="page-title">Impostazioni</h1>
-          <p className="page-sub">Le soglie che decidono quando serve una seconda firma, e i dati dell&apos;ordinante.</p>
+          <p className="page-sub">
+            Chi può approvare, chi può pagare e con quali limiti. Ogni modifica resta scritta nel registro, con il
+            valore di prima e quello di dopo.
+          </p>
         </div>
       </div>
 
       {!cifraturaPronta() && (
         <div className="avviso-errore">
-          TRANSACTIONS_ENC_KEY non è configurata. Senza, l&apos;app non può leggere i segreti di firma delle app né i
-          secondi fattori degli operatori.
+          Manca <code className="inline">TRANSACTIONS_ENC_KEY</code>: senza, l&apos;app non riesce a leggere i segreti
+          che tiene cifrati — i secondi fattori delle persone e le firme delle altre app. Qui non funziona quasi niente.
         </div>
       )}
 
       {!postaConfigurata() && (
         <div className="avviso-errore">
-          Posta non configurata (SMTP_HOST / SMTP_PORT / SMTP_USER / SMTP_PASS / SMTP_FROM). Senza, il codice di
-          pagamento non può essere spedito e <strong>nessun pagamento può uscire</strong>: è voluto, si fallisce chiusi.
+          <strong>La posta non è configurata, quindi non può uscire nessun pagamento.</strong> Il codice che serve al
+          pagatore viaggia per email: finché mancano le impostazioni SMTP, la distinta non si genera. È voluto — davanti
+          a un dubbio questa app si chiude, non si apre.
+        </div>
+      )}
+
+      {ordinanteIncompleto && (
+        <div className="avviso-errore">
+          <strong>Mancano ragione sociale e IBAN dell&apos;ordinante</strong>, cioè il conto da cui esce il denaro:
+          senza, la distinta per la banca non si può nemmeno costruire. Si compilano qui sotto, in «I tuoi dati, come li
+          legge la banca».
+        </div>
+      )}
+
+      {pagatoreMancante && (
+        <div className="avviso-errore">
+          <strong>Nessuno può pagare.</strong> Il pagatore indicato ({r.pagatoreEmail || "nessuno"}) non è un operatore
+          attivo di questa app: o lo si crea in Operatori, o qui sotto si indica l&apos;email di una persona che c&apos;è
+          già.
+        </div>
+      )}
+
+      {pagatoreSenzaPin && (
+        <div className="avviso-attenzione">
+          Il pagatore non ha ancora impostato il PIN, e senza PIN il pagamento non si sblocca. Deve farlo da solo dalla
+          pagina <strong>PIN</strong>, con la sua password e il suo secondo fattore: nessun altro può metterlo al posto
+          suo, nemmeno un amministratore.
         </div>
       )}
 
@@ -69,24 +108,26 @@ export default async function Impostazioni() {
       </div>
 
       <div className="scheda">
-        <div className="scheda-titolo">Cosa fa questa app e cosa non fa</div>
+        <div className="scheda-titolo">Come funziona, in quattro righe</div>
         <ul className="elenco-secco">
           <li>
             <span className="pallino" />
-            Riceve le richieste di pagamento delle altre app Deluxy, firmate e tracciate.
+            Le altre app Deluxy non pagano nessuno: mandano <strong>qui</strong> la richiesta, firmata e tracciata.
           </li>
           <li>
             <span className="pallino" />
-            Le fa autorizzare da persone, con secondo fattore e — sopra soglia — due firme distinte.
+            Le richieste le approvano <strong>persone</strong>, con il secondo fattore, e sopra le soglie qui sopra ne
+            servono due diverse.
           </li>
           <li>
             <span className="pallino" />
-            Produce la distinta SEPA da caricare in banca e ne conserva l&apos;impronta.
+            Approvata non vuol dire pagata: il denaro esce solo quando il <strong>pagatore</strong> digita il codice
+            ricevuto per email e il suo PIN.
           </li>
           <li>
             <span className="pallino" />
-            <strong>Non</strong> muove denaro e <strong>non</strong> contiene credenziali bancarie: l&apos;ultimo passo lo
-            fa una persona nel portale della banca.
+            Da lì le strade sono due, mai una terza: il <strong>file da caricare in banca</strong>, oppure i{" "}
+            <strong>bonifici veri</strong> dal conto, se l&apos;interruttore è acceso e la banca è collegata.
           </li>
         </ul>
       </div>

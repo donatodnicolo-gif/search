@@ -66,6 +66,12 @@ bancarie non ce ne sono ancora: il file SEPA lo carica una persona in banca.
   VoP, saldo), idempotenza derivata dall'id della richiesta, stop al primo
   errore. Codice: [src/lib/qonto.ts](../src/lib/qonto.ts) e
   [src/lib/pagamento-banca.ts](../src/lib/pagamento-banca.ts).
+- **Impostazioni che si spiegano da sole** (31/07/2026): la pagina è divisa in
+  blocchi con un titolo in italiano corrente e una riga di aiuto sotto ogni
+  campo («da questa cifra in su servono due firme», non «soglia doppia firma»),
+  e in cima avvisa quando manca qualcosa che impedisce di pagare: posta non
+  configurata, ordinante senza ragione sociale o IBAN, pagatore che non è un
+  operatore attivo, pagatore senza PIN.
 - **Rubrica beneficiari** con verifica manuale e rilevamento del cambio IBAN.
 - **UI completa**: coda, richieste + dettaglio, nuova richiesta manuale,
   distinte, beneficiari, registro, chiavi, operatori, impostazioni, accesso.

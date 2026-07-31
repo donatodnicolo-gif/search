@@ -371,6 +371,23 @@ th.num { text-align: right; }
 }
 @media (max-width: 800px) { .modulo { grid-template-columns: 1fr; } }
 
+/* Blocchi di un modulo lungo: un titolo e una frase spiegano il gruppo prima di
+   chiedere i valori, e ogni campo può portarsi dietro la sua riga di aiuto. */
+.gruppo-modulo { padding-top: 22px; margin-top: 22px; border-top: 1px solid var(--hairline); }
+.gruppo-modulo:first-of-type { padding-top: 0; margin-top: 0; border-top: none; }
+.gruppo-titolo { font-size: 16px; font-weight: 600; letter-spacing: -0.015em; color: var(--text); }
+.gruppo-sommario {
+  font-size: 13.5px; color: var(--text-secondary); line-height: 1.55;
+  margin: 5px 0 16px; max-width: 68ch;
+}
+.aiuto-campo { font-size: 12.5px; color: var(--text-tertiary); line-height: 1.5; margin-top: 1px; }
+/* Serve la doppia classe: `.campo-modulo label` qui sopra è più specifico e
+   altrimenti rimetterebbe il maiuscoletto da etichetta sulla riga della spunta. */
+.campo-modulo label.riga-interruttore {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13.5px; text-transform: none; letter-spacing: 0;
+}
+
 /* ---------- Dettaglio / schede ---------- */
 .ritorno { font-size: 13.5px; font-weight: 500; color: var(--blue); display: inline-block; margin-bottom: 14px; }
 .scheda {
