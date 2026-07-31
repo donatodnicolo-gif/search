@@ -417,7 +417,9 @@ Prependi sempre Node al PATH: `$env:Path = "$env:ProgramFiles\nodejs;$env:Path"`
 
 ```powershell
 # 0. posizionati
-Set-Location 'C:\Users\nicol\app\deluxy-scout'
+# ⚠️ È il WORKTREE la cartella buona (branch scout-ui). `C:\Users\nicol\app\deluxy-scout`
+#    è una copia ferma alla migrazione 0028 e non ha nemmeno gli script nuovi.
+Set-Location 'C:\Users\nicol\scoutwt\deluxy-scout'
 $env:Path = "$env:ProgramFiles\nodejs;$env:Path"
 
 # 1. dipendenze (se node_modules manca)
@@ -468,7 +470,7 @@ node scripts/import-places.mjs supabase/seed/lead.example.csv
 
 ## 8. Creare l'utente di login (comando)
 ```powershell
-Set-Location 'C:\Users\nicol\app\deluxy-scout'
+Set-Location 'C:\Users\nicol\scoutwt\deluxy-scout'
 $env:Path = "$env:ProgramFiles\nodejs;$env:Path"
 $env:SUPABASE_URL = "https://fdsziebgkljfsugqqbqd.supabase.co"
 $env:SUPABASE_SERVICE_ROLE_KEY = "<service_role key>"   # Supabase → Project Settings → API
