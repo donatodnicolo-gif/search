@@ -64,7 +64,22 @@ export async function unisciClienti(
   // Se la principale era a sua volta assorbita da qualcun altro, si unisce a
   // quella: due unioni fatte in ordine diverso devono finire nello stesso posto.
   const mappa = await mappaUnioni()
-  const capo = mappa.get(principale) ?? principale
+  let capo = mappa.get(principale) ?? principale
+
+  // ⚠️ CAMBIARE IDEA SU QUALE RIGA TENERE.
+  //
+  // Se la riga scelta adesso era già stata assorbita proprio da una di quelle
+  // che stiamo unendo, seguire la vecchia unione vorrebbe dire ignorare la
+  // scelta appena fatta — e, scrivendola comunque, creare un ANELLO (A→B e
+  // B→A) che si annulla da solo: le due righe resterebbero separate senza che
+  // nessuno capisca perché. Succede davvero: è capitato unendo gli stessi due
+  // clienti prima a mano e poi in blocco, nei due versi opposti.
+  //
+  // L'ultima parola è di chi sta scegliendo ora: si scioglie il vecchio legame.
+  if (daUnire.includes(capo)) {
+    await db.clienteUnito.deleteMany({ where: { chiave: principale } })
+    capo = principale
+  }
 
   await db.$transaction([
     // Chi puntava a una delle righe che stiamo assorbendo deve seguirla.

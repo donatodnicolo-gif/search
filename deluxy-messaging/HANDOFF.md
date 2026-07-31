@@ -139,6 +139,20 @@ locale, altrimenti nulla si decifra.
   - Verificato sul database vero, andata e ritorno: 5 + 3 ordini → **8 ordini in
     una riga** col secondo numero mostrato come recapito in più, poi «Separa» e
     di nuovo 5 e 3. Nessuna riga di prova lasciata indietro.
+  - **Pulizia fatta il 31/07/2026: da 865 righe a 833** (32 unite). Regola usata:
+    resta la riga **con più dati**, e email + telefono insieme valgono più di
+    tutto — dopo l'unione **nessuna** riga sopravvissuta è senza telefono o
+    senza email. 22 gruppi per *stessa email*, 10 per *stesso nome + stessa
+    città*. Lasciato aperto **1** gruppo: «Mustafa Moneir», stesso nome ma
+    città diverse — potrebbero essere due persone, e quello lo decide una
+    persona.
+  - ⚠️ **GLI ANELLI**: unendo gli stessi due clienti prima a mano e poi in
+    blocco, nei due versi opposti, si scrivono `A→B` e `B→A`. Le due unioni si
+    annullano e le righe restano separate **senza che si capisca perché**
+    (`mappaUnioni` interrompe il giro per non bloccare la pagina). Successo
+    davvero su Donato. Ora `unisciClienti()` scioglie il vecchio legame quando
+    la riga scelta era stata assorbita da una di quelle che si stanno unendo:
+    **l'ultima parola è di chi sceglie adesso**.
   - ⚠️ **Le righe selezionate sono NUMERATE, e il bottone dice chi sparisce.**
     Gli omonimi sono il caso per cui questa funzione esiste, quindi i due
     bottoni uscivano identici — «Tieni Adhiraj singh rathore» e «Tieni Adhiraj
