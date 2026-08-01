@@ -1,4 +1,47 @@
-# Stato cakedesign.me — 29/7/2026
+# Stato cakedesign.me — 31/7/2026
+
+## 🧭 DA DOVE RIPRENDERE (31/7/2026, ore 08)
+
+**Tema live: `182632546627`** (pubblicato dall'utente alle 07:54). **Non esiste un tema bozza**:
+il connettore blocca ogni scrittura sul tema pubblicato, quindi per lavorare serve che l'utente
+duplichi il live dall'admin. Gli id cambiano a ogni pubblicazione: **interrogare sempre
+`themes(first:30)` prima di scrivere**, mai fidarsi degli id scritti qui.
+
+### Gia' fatto e ONLINE
+Numero e recapiti puliti ovunque · WhatsApp senza scheda nuova · etichette del carrello tradotte ·
+`info@cakedesignme.it` ovunque (tolto anche l'indirizzo personale del titolare da
+`templates/customers/account.liquid`) · **Live Chat che apre la chat Deluxy dentro il sito**, senza
+pastiglia flottante · **doppia quantita' nel carrello CORRETTA**.
+
+### I tre lavori aperti, in ordine di valore
+
+**1. La data scelta nel wizard non arriva al carrello — CRITICO, non toccato.**
+Scelto il 2 agosto, il carrello scrive `Data_Consegna = 2026-07-31`, violando anche il preavviso di
+3 giorni del prodotto. Il cliente riceve la torta **nel giorno sbagliato** senza che nessuno se ne
+accorga prima della consegna. E' il difetto piu' grave rimasto su questo sito.
+
+**2. «Crea con AI» non restituisce nessuna immagine.**
+`app.deluxy.it/api/open-ai/generate-image` risponde **500 a qualunque cosa** (auth OK: con chiave
+sbagliata da 401). Il codice di quel backend **non sta in nessun repo**. Ipotesi da confermare:
+DALL·E rimosso dall'API OpenAI il 12/05/2026 → serve cambiare modello **e** forma della risposta
+(`gpt-image-1` restituisce `b64_json`, non `url`).
+
+**3. La chiave `x-internal-key` e' in chiaro nell'HTML pubblico.**
+Chiunque legge il sorgente puo' generare immagini a spese di Deluxy. **Va invalidata sul legacy**,
+non solo tolta dalla pagina: le copie archiviate restano leggibili. Prova che e' fatto: il vecchio
+valore deve rispondere **401**, non 500. Il progetto per spostarla dietro merchandising e' stato
+**bocciato due volte** dalla revisione: vedi §«Secondo giro di piano» per i difetti da chiudere.
+
+### Le tre trappole che costano piu' tempo su questo sito
+- **`snippets/delivery-date.liquid` (78 KB) NON e' riscrivibile dall'API dei temi**: alla riga 1580
+  ha la sequenza letterale backslash-u00a0, che in transito si trasforma sempre. Si modifica **a
+  mano dall'editor di codice dell'admin**.
+- **`themeFilesCopy` e' bloccato anche col live come sola SORGENTE**, e `themeFilesDelete` sempre.
+  L'unico ripristino possibile e' ritrascrivere il file e verificare il `checksumMd5`.
+- **La scheda in background falsa i test**: con `document.hidden` le transizioni non avanzano e
+  `getComputedStyle` da' i valori iniziali. Guardare le **classi**, non l'opacita'.
+
+---
 
 > ✅ **Numero definitivo `+39 02 8294 1380`: scritto il 29/7/2026 e PUBBLICATO** la sera
 > stessa dall'utente. 54 occorrenze in 20 file (le 53 mappate + 1 che la mappa non aveva).
