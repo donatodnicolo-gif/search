@@ -31,12 +31,33 @@ export async function collegaDubbio(fd: FormData) {
   const anagraficaId = String(fd.get("anagraficaId") ?? "").trim();
   const partnerId = String(fd.get("partnerId") ?? "").trim();
   if (!anagraficaId || !partnerId) redirect("/partner");
+  const a = (await anagraficheAttive()).find((x) => x.id === anagraficaId);
   const p = await prisma.partner.update({
     where: { id: partnerId },
     data: { anagraficaId },
   });
   revalidatePath("/partner", "layout");
-  redirect(`/partner?importFatto=${encodeURIComponent(`«${p.nome}» collegato all'anagrafica del registro.`)}`);
+  // ⚠️ Va detto QUALE anagrafica è stata collegata, città compresa: nel
+  // registro ci sono più schede con lo stesso nome — «DR. VRANJES MILANO» e
+  // «Dr. Vranjes BAGNO A RIPOLI», «MONCLER» a Firenze e a Forte dei Marmi —
+  // e collegandone una l'altra resta in elenco identica. Senza questa riga
+  // sembra che il clic non abbia fatto niente.
+  const quale = a ? `«${a.nome.replace(/\s+/g, " ")}${a.citta ? ` · ${a.citta}` : ""}»` : "l'anagrafica";
+  const restano = a
+    ? (await anagraficheAttive()).filter(
+        (x) => x.id !== a.id && x.nome.trim().toLowerCase() === a.nome.trim().toLowerCase()
+      )
+    : [];
+  redirect(
+    `/partner?importFatto=${encodeURIComponent(
+      `${quale} è ora collegata a «${p.nome}».` +
+        (restano.length
+          ? ` Attenzione: nel registro c'è ancora ${restano.length === 1 ? "un'altra scheda" : `altre ${restano.length} schede`} con lo stesso nome (${restano
+              .map((r) => r.citta ?? "senza città")
+              .join(", ")}): è una sede diversa e va decisa a parte.`
+          : "")
+    )}`
+  );
 }
 
 // «È un'altra azienda»: si crea la scheda, nonostante la somiglianza.
