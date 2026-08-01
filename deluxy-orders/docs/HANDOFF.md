@@ -13,6 +13,15 @@ Next.js 15 + Prisma + Postgres condiviso (**schema `orders`**), porta **3150**.
 **LIVE su https://deluxy-orders.vercel.app** (progetto Vercel `deluxy-orders`).
 Manuale funzionale completo: [COME-FUNZIONA.md](COME-FUNZIONA.md).
 
+## Le sezioni, e dove sono documentate qui sotto
+Ordini (`/`) · Bacheca · Consegna · **Fatti pagare** (`/incassa`) · Analisi ·
+**Marketing** (`/marketing`) · **Margini** (`/margini`) · **Controllo**
+(`/controllo`) · Clienti · Liste · Eventi clienti · Script · Automazioni ·
+Categorie · Impostazioni.
+
+Le quattro in grassetto sono del **30/07/2026** e hanno una sezione propria più
+sotto, con i numeri veri e le trappole pagate. Le altre sono precedenti.
+
 ## Stato: funziona tutto, con dati reali
 
 **13.995 ordini** importati e allineati esattamente con Shopify (13.959 al 26/07)
@@ -701,31 +710,55 @@ Scelte da conoscere prima di toccarlo:
 - restituisce il **lordo Shopify** (IVA e spedizione incluse): l'aliquota non è
   sull'ordine, lo scorporo lo fa chi consuma e deve dichiararlo.
 
-## PUNTI APERTI al 28/07/2026 — in ordine di cosa sblocca cosa
+## PUNTI APERTI al 30/07/2026 — in ordine di cosa sblocca cosa
 
-1. **Il bug del tema di cakedesign.me.** Il sito scrive `Data_Consegna =
+**Le prime due sono le uniche che bloccano qualcosa di già costruito.**
+
+1. **`write_draft_orders` sui tre negozi Shopify.** Senza, la pagina
+   **/incassa** («Fatti pagare», link per «100 rose») non può creare il link:
+   `draftOrderCreate` risponde ACCESS_DENIED — provato davvero. Si aggiunge
+   nella **Dev Dashboard** dell'app di ogni negozio (nel repo non c'è nessun
+   `shopify.app.toml`: la configurazione sta solo lì), poi si preme «Ho aggiunto
+   il permesso — rileggi» in pagina, che fa scadere il token: dura ~24 ore e i
+   permessi ce li ha dentro. La pagina dice da sé quali negozi sono pronti.
+2. **1.105 «probabili aziende» da confermare** (pagina Clienti, lista
+   *Probabili aziende*). Al 30/07 la tabella `TagCliente` è **vuota**: nessuna
+   tipologia è mai stata confermata a mano, quindi tutte sono dedotte dal nome
+   dell'acquirente — aziende 75, hotel 4, eventi 1, rivenditori 0, tutto il
+   resto «privato». Sono **317.669 €** di venduto quasi certamente B2B contati
+   come privati, in Analisi e in Marketing. Oggi si conferma **un cliente alla
+   volta**: la cosa che sblocca la coda è la conferma in blocco dalla lista.
+3. **Il costo fornitore c'è solo su 371 ordini su 14.027** (copertura 3% dello
+   storico, **9% sul 2026**): il margine misurato è vero ma su una fetta. Si
+   allarga dal **/controllo**, abbinando gli addebiti. ⚠️ L'estratto conto di
+   Finance parte dal **01/01/2025**: per gli ordini più vecchi non c'è niente da
+   trovare, e la pagina lo dice invece di lasciarlo indovinare.
+4. **La pagina `/ordini` di Finance non è stata rimossa.** La funzione è qui
+   (/controllo), ma togliere di là pagina, modelli e cron è una **scelta
+   contabile**: i `Pagamento` con riferimento `PAY-…` nascono in Finance e
+   `/api/incassi` li espone alle altre app. **In quella cartella lavora
+   un'altra sessione**: concordare prima.
+5. **Il bug del tema di cakedesign.me.** Il sito scrive `Data_Consegna =
    "2026-undefined-27"`: quegli ordini restano «consegna non indicata» (giusto,
    ma è un buco vero). **Si corregge nel tema**, in `sviluppi-siti-deluxy/` —
-   non qui. Finché resta, quegli ordini non hanno una data.
-2. **1.098 «probabili aziende» da confermare a mano** (pagina Clienti). Finché
-   non lo sono, in Analisi la tipologia «azienda» resta a 11 ordini sul 2026 e
-   il loro venduto sta dentro «privato». È la coda di lavoro che sblocca tutte
-   le analisi B2B.
-3. **Le occasioni «da precisare»** sono il 59% del venduto 2026: sono ricorrenze
-   vere di cui nessuno ha detto il motivo. Si fanno leggere all'AI dalla pagina
+   non qui.
+6. **Le occasioni «da precisare»** sono il 59% del venduto 2026: ricorrenze vere
+   di cui nessuno ha detto il motivo. Si fanno leggere all'AI dalla pagina
    Eventi clienti — finché non si fa, la dimensione «occasione» dice poco.
-4. **2.421 ordini restano senza città** dopo la riconciliazione, e **607** senza
-   categoria. Sono il residuo onesto: né i tag né i titoli dicono niente.
-5. **Riepiloghi AI dei clienti: 3 su 10.217.** Il motore c'è ed è provato; vanno
+7. **2.421 ordini senza città** dopo la riconciliazione e **607** senza
+   categoria. Residuo onesto: né i tag né i titoli dicono niente.
+8. **Riepiloghi AI dei clienti: 3 su 10.285.** Il motore c'è ed è provato; vanno
    generati in blocco dalla pagina Clienti (ogni cliente è una chiamata a
    pagamento, quindi il numero si sceglie).
-6. **Gli stessi dati nel Customer Service.** `repeater`, `marketing`, `mittente`
-   e `urgenza` escono dalle API di Orders ma le tabelle «Ordini aperti /
-   globali» di deluxy-messaging non li mostrano ancora. **In quella cartella
-   lavora un'altra sessione**: da concordare prima di entrarci.
-7. **Finance: cosa fare degli annullati** (vedi sotto, punto 0 storico): è una
-   scelta contabile che aspetta l'utente.
-8. **`ORDERS_APP_PASSWORD` da cambiare**: è comparsa in chiaro in una chat.
+9. **La spesa pubblicitaria non è in /marketing.** La pagina misura il fatturato
+   per canale, non il ritorno: la spesa vive in **deluxy-marketing**, che
+   espone già la spesa reale via API. Collegandola nascono ROAS e MER per canale.
+10. **Gli stessi dati nel Customer Service.** `repeater`, `marketing`,
+    `mittente` e `urgenza` escono dalle API ma le tabelle di deluxy-messaging non
+    li mostrano. Lì lavora un'altra sessione: concordare prima.
+11. **Finance: cosa fare degli annullati** — li riceve ma li tratta come normali
+    e finiscono in coda di riconciliazione. Scelta contabile, aspetta l'utente.
+12. **`ORDERS_APP_PASSWORD` da cambiare**: è comparsa in chiaro in una chat.
 
 ## MANCA / prossimi passi
 0. **Finance: cosa fare degli annullati.** Ora li riceve ma li tratta come
