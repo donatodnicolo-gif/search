@@ -66,21 +66,36 @@ async function graphqlNegozio(dominio: string, token: string, query: string, var
  *   rifiuta le mosse.
  */
 export async function spingiOrdineSuShopify(collezioneId: string) {
+  const esito = await spingiOrdineSuShopifySilenzioso(collezioneId);
+  if (esito !== true) {
+    redirect(`/visual/${collezioneId}?esito=errore&messaggio=${encodeURIComponent(esito)}`);
+  }
+  revalidatePath(`/visual/${collezioneId}`);
+  redirect(
+    `/visual/${collezioneId}?esito=ok&messaggio=${encodeURIComponent(
+      "Ordine inviato a Shopify. Il negozio lo applica in pochi istanti."
+    )}`
+  );
+}
+
+/**
+ * Lo stesso invio, ma **senza redirect**: torna `true` se è andata, altrimenti il
+ * messaggio dell'errore. Serve alla rotazione automatica, che gira da un cron e
+ * non ha nessuna pagina dove mandare l'utente — e a chiunque debba sapere com'è
+ * finita invece di essere sbalzato altrove.
+ */
+export async function spingiOrdineSuShopifySilenzioso(collezioneId: string): Promise<true | string> {
   const c = await prisma.collezioneShopify.findUnique({ where: { id: collezioneId } });
-  if (!c) redirect("/visual?esito=errore&messaggio=" + encodeURIComponent("Collezione non trovata."));
-  const errore = (m: string) =>
-    redirect(`/visual/${collezioneId}?esito=errore&messaggio=${encodeURIComponent(m)}`);
+  if (!c) return "Collezione non trovata.";
 
   if (c.tipo !== "manuale") {
-    return errore(
-      "È una collezione automatica: su Shopify l'ordine lo decide la regola, non si può imporre a mano."
-    );
+    return "È una collezione automatica: su Shopify l'ordine lo decide la regola, non si può imporre a mano.";
   }
 
   const negozio = await prisma.negozioShopify.findFirst({ where: { nome: c.negozio }, select: { id: true } });
   const accesso = negozio ? await tokenDi(negozio.id) : null;
   if (!accesso) {
-    return errore(`Il negozio «${c.negozio}» non è collegato: collega un token con write_products in Impostazioni.`);
+    return `Il negozio «${c.negozio}» non è collegato: collega un token con write_products in Impostazioni.`;
   }
 
   const membri = await prisma.prodottoInCollezioneShopify.findMany({
@@ -89,7 +104,7 @@ export async function spingiOrdineSuShopify(collezioneId: string) {
     select: { prodottoShopifyId: true },
   });
   if (membri.length === 0) {
-    return errore("Nessun prodotto con un id Shopify: rilancia l'import delle collezioni e riprova.");
+    return "Nessun prodotto con un id Shopify: rilancia l'import delle collezioni e riprova.";
   }
 
   // 1) sortOrder = MANUAL (se non lo è già): senza, il riordino viene rifiutato.
@@ -106,7 +121,7 @@ export async function spingiOrdineSuShopify(collezioneId: string) {
       ...(corpo.errors ?? []).map((e) => e.message),
       ...((corpo.data?.collectionUpdate?.userErrors as { message: string }[] | undefined) ?? []).map((e) => e.message),
     ];
-    if (err.length) return errore(`Shopify non ha messo l'ordine su «manuale»: ${err.join(" · ")}`);
+    if (err.length) return `Shopify non ha messo l'ordine su «manuale»: ${err.join(" · ")}`;
   }
 
   // 2) le mosse, a blocchi: si riordina tutto verso la testa nell'ordine curato.
@@ -129,17 +144,12 @@ export async function spingiOrdineSuShopify(collezioneId: string) {
         (e) => e.message
       ),
     ];
-    if (err.length) return errore(`Shopify ha rifiutato il riordino: ${err.join(" · ")}`);
+    if (err.length) return `Shopify ha rifiutato il riordino: ${err.join(" · ")}`;
   }
 
   await prisma.collezioneShopify.update({
     where: { id: collezioneId },
     data: { ordinamento: "MANUAL", ordineSpintoIl: new Date() },
   });
-  revalidatePath(`/visual/${collezioneId}`);
-  redirect(
-    `/visual/${collezioneId}?esito=ok&messaggio=${encodeURIComponent(
-      `Ordine inviato a Shopify per «${c.titolo}» (${moves.length} prodotti). Shopify lo applica in pochi istanti.`
-    )}`
-  );
+  return true;
 }

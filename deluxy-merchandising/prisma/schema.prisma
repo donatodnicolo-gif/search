@@ -392,6 +392,10 @@ model CollezioneShopify {
   // sistemano invece di restare in fondo. La assegna una persona.
   tipologiaId  String?
   tipologia    TipologiaCollezione? @relation(fields: [tipologiaId], references: [id], onDelete: SetNull)
+  // La **rotazione periodica** a cui è iscritta questa collezione: ogni quanto
+  // l'ordine si rifà da solo, perché una vetrina ferma smette di essere vista.
+  rotazioneId  String?
+  rotazione    RegolaRotazione? @relation(fields: [rotazioneId], references: [id], onDelete: SetNull)
   // Quando l'ordine curato qui è stato cambiato l'ultima volta e quando è stato
   // spinto su Shopify: se il primo è più recente del secondo, c'è da sincronizzare.
   ordineModificatoIl DateTime?
@@ -411,6 +415,41 @@ model CollezioneShopify {
   @@unique([negozio, shopifyId])
   @@index([negozio])
   @@index([tipologiaId])
+  @@index([rotazioneId])
+}
+
+// Una **regola di rotazione**: ogni quanto l'ordine delle collezioni iscritte si
+// rifà da solo. Una vetrina che resta identica per settimane smette di essere
+// guardata; qui si decide il ritmo una volta e vale per tutte le collezioni che
+// le assegni.
+//
+// Chi la esegue: il cron giornaliero (`/api/cron/rotazioni`, vedi vercel.json).
+// Gira una volta al giorno e fa scattare **solo le regole scadute**: così
+// giornaliera, settimanale e mensile convivono con un solo cron.
+model RegolaRotazione {
+  id        String @id @default(cuid())
+  nome      String @unique
+  // giornaliera | settimanale | mensile
+  frequenza String @default("settimanale")
+  // Che cosa fa quando scatta:
+  // - "rinfresca": riapplica le regole d'ordine, così l'ordine segue i dati
+  //   aggiornati (chi vende di più oggi sale oggi);
+  // - "ruota": i primi passano in fondo, così a turno tutti i prodotti hanno il
+  //   loro momento in cima. Serve quando i primi sono sempre gli stessi.
+  modo      String @default("rinfresca")
+  // Quanti prodotti passano in fondo a ogni giro, per il modo "ruota".
+  passo     Int    @default(1)
+  attiva    Boolean @default(true)
+  // Se mandare l'ordine **anche a Shopify** a ogni giro. Di default NO: un
+  // automatismo che scrive da solo sul negozio vero è una decisione da prendere
+  // apposta, non un effetto collaterale. Senza, l'ordine si rifà qui e la
+  // collezione resta segnata «da sincronizzare».
+  spingiSuShopify Boolean @default(false)
+  ultimaEsecuzioneIl DateTime?
+  ultimoEsito        String?
+  collezioni  CollezioneShopify[]
+  creataIl     DateTime @default(now())
+  aggiornataIl DateTime @updatedAt
 }
 
 // Una **tipologia di collezione**: un'etichetta editoriale nostra (Bouquet,

@@ -6,6 +6,7 @@ import { nomePosizione, posizioniDa } from "@/lib/collezioni";
 import { euro, percentuale } from "@/lib/dominio";
 import { etichettaRegola } from "@/lib/ordinamento-vetrina";
 import { FILTRO_BUON_FINE, finestra } from "@/lib/vendite";
+import { etichettaFrequenza, etichettaModo } from "@/lib/rotazione";
 import { cambiaVetrina } from "@/lib/azioni-collezioni-shopify";
 
 export const dynamic = "force-dynamic";
@@ -44,6 +45,7 @@ export default async function VisualPage({
       include: {
         _count: { select: { prodotti: true } },
         tipologia: { select: { nome: true } },
+        rotazione: { select: { nome: true, frequenza: true, modo: true, attiva: true } },
         prodotti: { select: { prodottoId: true } },
       },
     }),
@@ -125,6 +127,7 @@ export default async function VisualPage({
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             <Link className="btn btn-secondario" href="/visual/tipologie">Tipologie & regole</Link>
+            <Link className="btn btn-secondario" href="/visual/rotazioni">Rotazioni</Link>
             <Link className="btn btn-secondario" href="/riordini">
               Ipotesi di ordinativo{pianiBozza > 0 ? ` · ${pianiBozza} in bozza` : ""}
             </Link>
@@ -184,6 +187,7 @@ export default async function VisualPage({
                       <th className="num">Venduto 90gg</th>
                       <th className="num">Quota</th>
                       <th>Ordine</th>
+                      <th>Rotazione</th>
                       <th>Modificata</th>
                     </tr>
                   </thead>
@@ -239,6 +243,22 @@ export default async function VisualPage({
                         </td>
                         <td>
                           <span className="cella-sub">{etichettaRegola(r.c.regolaOrdinamento)}</span>
+                        </td>
+                        <td>
+                          {r.c.rotazione ? (
+                            <>
+                              <Pill
+                                testo={etichettaFrequenza(r.c.rotazione.frequenza)}
+                                colore={r.c.rotazione.attiva ? "var(--green)" : "var(--text-tertiary)"}
+                              />
+                              <div className="cella-sub">
+                                {r.c.rotazione.nome} · {etichettaModo(r.c.rotazione.modo)}
+                                {r.c.rotazione.attiva ? "" : " · in pausa"}
+                              </div>
+                            </>
+                          ) : (
+                            <span className="cella-sub">—</span>
+                          )}
                         </td>
                         <td>
                           <span className="cella-sub">{dataIt(r.c.aggiornataShopifyIl)}</span>
