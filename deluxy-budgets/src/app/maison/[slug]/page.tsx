@@ -7,6 +7,7 @@ import {
   moltiplicatore, totaliMaison, type Livello,
 } from "@/lib/calc";
 import { eur, pct } from "@/lib/format";
+import { caricaVenduto } from "@/lib/venduto";
 import { BudgetMaison } from "@/components/BudgetMaison";
 
 export const dynamic = "force-dynamic";
@@ -30,6 +31,22 @@ export default async function MaisonDetail({
   const q = (await misuraQuota(dati.year, [1,2,3,4,5,6,7,8,9,10,11,12], [])).percentuale / 100;
   const pl = contoEconomico(dati, livello, maison.slug, q);
 
+  // ---- Il consuntivo dei mesi già chiusi ----
+  // Per una maison l'unico consuntivo che esiste è il **venduto ecommerce**:
+  // il fatturato di Finance è per tipologia di servizio e non si ripartisce per
+  // brand. Si mostra sotto la riga D2C, in un colore diverso, perché un numero
+  // già successo e un numero promesso non devono somigliarsi. Il mese in corso
+  // resta fuori: è parziale, e accanto a un budget intero sembrerebbe un crollo.
+  const oggi = new Date();
+  const meseInCorso = oggi.getUTCFullYear() === ANNO_CORRENTE ? oggi.getUTCMonth() + 1 : 13;
+  const mesiChiusi = Array.from({ length: Math.max(0, meseInCorso - 1) }, (_, i) => i + 1);
+  const vend = mesiChiusi.length > 0 ? await caricaVenduto(dati.year, dati.maisons) : null;
+  const consuntivoMese = Array(12).fill(null) as (number | null)[];
+  if (vend?.ok) {
+    const mesiMaison = vend.perMaison.get(maison.slug);
+    if (mesiMaison) for (const m of mesiChiusi) consuntivoMese[m - 1] = mesiMaison[m - 1] ?? 0;
+  }
+
   // ---- Da dove viene ogni casella del budget ----
   // Il budget non si digita: si propone, si approva, si consolida. Le proposte
   // consolidate dicono **esattamente** quali (linea, mese) hanno scritto,
@@ -49,7 +66,10 @@ export default async function MaisonDetail({
     }
   };
   const origini: Record<string, { autore: string; propostaId: string; il: string }> = {};
-  const approvate: { id: string; autore: string; il: string; voci: string; totale: number }[] = [];
+  const approvate: {
+    id: string; autore: string; il: string; voci: string; totale: number;
+    fonte: string; inUso: boolean; sostituitaDa: string | null;
+  }[] = [];
   const daConsolidare: { id: string; autore: string; totale: number }[] = [];
   for (const p of proposte) {
     const valori = leggiValori(p.valori);
@@ -62,7 +82,7 @@ export default async function MaisonDetail({
     for (const v of valori) {
       // Una proposta senza `canale` è di quelle vecchie, scritte con un numero
       // solo per mese: la voce su cui è atterrata è scritta in `consolidataSu`.
-      const canale = v.canale ?? p.consolidataSu?.split("·").pop()?.trim() ?? "";
+      const canale = v.canale ?? p.consolidataSu?.split("·")[1]?.trim() ?? "";
       if (canale) origini[`${canale}|${v.month}`] = { autore: p.autore, propostaId: p.id, il };
     }
     approvate.push({
@@ -71,7 +91,23 @@ export default async function MaisonDetail({
       il,
       voci: p.consolidataSu?.replace(`${maison.nome} · `, "") || "budget",
       totale,
+      fonte: p.fonte,
+      inUso: true,
+      sostituitaDa: null,
     });
+  }
+  // **Quale proposta comanda davvero.** Sulla stessa fonte una proposta nuova
+  // riscrive quella di prima: l'ultima consolidata è quella che si sta
+  // leggendo, le precedenti restano nello storico ma **non sono più il
+  // budget**. Senza dirlo, due proposte approvate della stessa squadra si
+  // somigliano e non si sa quale delle due si sta guardando. (Fra fonti diverse
+  // invece non c'è nessuna sostituzione: si sommano.)
+  for (const a of approvate) {
+    const piuRecente = approvate.filter((x) => x.fonte === a.fonte).at(-1);
+    if (piuRecente && piuRecente.id !== a.id) {
+      a.inUso = false;
+      a.sostituitaDa = `${piuRecente.autore}, ${piuRecente.il}`;
+    }
   }
 
   return (
@@ -139,6 +175,7 @@ export default async function MaisonDetail({
         }))}
         fonti={FONTI}
         molt={molt}
+        consuntivoD2C={consuntivoMese}
         origini={origini}
         approvate={approvate}
         daConsolidare={daConsolidare}

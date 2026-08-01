@@ -225,6 +225,18 @@ pubblicato), *sfidante* e *irraggiungibile*.
   data e non ha il «va bene» di nessuno**, cioè non si sa più *chi* ha promesso quel numero, che è
   metà del motivo per cui il budget esiste. La rotta di scrittura è stata tolta.
 
+  **Quale proposta si sta usando, detto in chiaro.** Su una **stessa fonte** una proposta nuova
+  riscrive quella di prima: l'ultima consolidata è il budget, le precedenti restano come storico e
+  la pagina le marca «sostituita da *autore, data*». Fra **fonti diverse** invece non si sostituisce
+  niente — pubblicità web e team commerciale si **sommano**. Senza dirlo, due proposte approvate
+  della stessa squadra si somigliano e non si sa quale delle due si sta guardando.
+
+  **Il consuntivo dei mesi chiusi è in blu**, sotto la riga D2C: quello che è davvero stato venduto,
+  non una promessa — sono le due cose che in questa pagina non vanno mai confuse. C'è solo lì perché
+  per una maison l'unico consuntivo è il venduto dei negozi, ed è sulla **stessa base** del budget
+  D2C (prezzo pieno, IVA e spedizione incluse), quindi il confronto è omogeneo. Il **mese in corso
+  resta fuori**: è parziale, e accanto a un budget intero sembrerebbe un crollo.
+
   Quello che serviva davvero era **vedere da dove viene ogni casella**, e adesso si vede: le proposte
   consolidate dicono esattamente quali *(linea, mese)* hanno scritto, quindi la provenienza si
   ricostruisce **cella per cella**. Un <span>●</span> verde accanto al numero vuol dire «arrivato da

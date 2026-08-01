@@ -19,12 +19,16 @@ import { eur, MESI, pct } from "@/lib/format";
 
 export type OrigineCella = { autore: string; propostaId: string; il: string };
 
+const nomeFonte = (key: string, fonti: { key: string; nome: string }[]) =>
+  fonti.find((f) => f.key === key)?.nome ?? key;
+
 export function BudgetMaison({
   maison,
   tipologie,
   mesi,
   fonti,
   molt,
+  consuntivoD2C,
   origini,
   approvate,
   daConsolidare,
@@ -40,9 +44,18 @@ export function BudgetMaison({
   }[];
   fonti: { key: string; nome: string; aiuto: string }[];
   molt: number;
+  // Il venduto ecommerce dei mesi già chiusi (`null` sui mesi non chiusi).
+  // È l'unico consuntivo che esiste per una maison.
+  consuntivoD2C: (number | null)[];
   // chiave `canale|mese` → chi ha proposto quel numero
   origini: Record<string, OrigineCella>;
-  approvate: { id: string; autore: string; il: string; voci: string; totale: number }[];
+  // `inUso` = è l'ultima consolidata **su quella fonte**, cioè quella che si
+  // sta leggendo. Le precedenti restano nello storico ma non sono più il
+  // budget: fra fonti diverse invece non c'è sostituzione, si sommano.
+  approvate: {
+    id: string; autore: string; il: string; voci: string; totale: number;
+    fonte: string; inUso: boolean; sostituitaDa: string | null;
+  }[];
   daConsolidare: { id: string; autore: string; totale: number }[];
 }) {
   const valore = (slug: string, i: number) => (mesi[i].vendite[slug] ?? 0) * molt;
@@ -59,16 +72,40 @@ export function BudgetMaison({
           <div className="muted" style={{ fontSize: 12.5, marginBottom: 6 }}>
             Da dove viene questo budget
           </div>
+          {/* **Quale si usa.** Sulla stessa fonte una proposta nuova riscrive
+              quella di prima: l'ultima consolidata è il budget, le precedenti
+              sono storico. Fra fonti diverse non c'è sostituzione — si
+              sommano — e la differenza dev'essere leggibile a colpo d'occhio,
+              altrimenti due proposte approvate si somigliano e non si sa quale
+              si sta guardando. */}
           {approvate.map((a) => (
-            <div key={a.id} style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginTop: 4 }}>
-              <span className="badge green"><span className="dot" />approvata</span>
+            <div
+              key={a.id}
+              style={{
+                display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginTop: 6,
+                opacity: a.inUso ? 1 : 0.6,
+              }}
+            >
+              {a.inUso ? (
+                <span className="badge green"><span className="dot" />in uso</span>
+              ) : (
+                <span className="badge neutral"><span className="dot" />sostituita</span>
+              )}
               <strong>{a.autore}</strong>
+              <span className="badge gold"><span className="dot" />{nomeFonte(a.fonte, fonti)}</span>
               <span className="muted" style={{ fontSize: 13 }}>
                 {a.voci} · {eur(a.totale)} · consolidata il {a.il}
+                {a.sostituitaDa && ` · sostituita da ${a.sostituitaDa}`}
               </span>
               <Link href={`/proposte/${a.id}`} className="btn secondary small">Apri la proposta</Link>
             </div>
           ))}
+          <p className="muted" style={{ fontSize: 12, marginTop: 10, marginBottom: 0 }}>
+            Su <strong>una stessa fonte</strong> vale l&apos;ultima consolidata: una proposta nuova riscrive
+            quella di prima, e la precedente resta come storico. <strong>Fra fonti diverse</strong> invece non
+            si sostituisce niente — pubblicità web e team commerciale <strong>si sommano</strong>, e il totale
+            della linea qui sotto è la loro somma.
+          </p>
         </div>
       )}
 
@@ -153,6 +190,31 @@ export function BudgetMaison({
                         </td>
                       </tr>
                     ))}
+                  {/* **Il consuntivo dei mesi già chiusi, in un colore suo.**
+                      Un numero già successo e un numero promesso non devono
+                      somigliarsi: sono le due cose che non vanno mai confuse in
+                      questa pagina. Esiste solo sotto il D2C perché per una
+                      maison l'unico consuntivo è il venduto dei negozi. */}
+                  {t.slug === "D2C" && consuntivoD2C.some((v) => v !== null) && (
+                    <tr style={{ color: "var(--blue)" }}>
+                      <td style={{ paddingLeft: 26, fontSize: 12.5 }}>
+                        <span style={{ marginRight: 6 }}>↳</span>
+                        Consuntivo · venduto reale
+                      </td>
+                      {mesi.map((_, i) => (
+                        <td className="num" key={i} style={{ fontSize: 12.5, fontWeight: 600 }}>
+                          {consuntivoD2C[i] === null ? (
+                            <span className="muted" title="Mese non ancora chiuso">—</span>
+                          ) : (
+                            eur(consuntivoD2C[i] ?? 0)
+                          )}
+                        </td>
+                      ))}
+                      <td className="num" style={{ fontSize: 12.5, fontWeight: 600 }}>
+                        {eur(consuntivoD2C.reduce((s: number, v) => s + (v ?? 0), 0))}
+                      </td>
+                    </tr>
+                  )}
                 </Fragment>
               ))}
               <tr className="tot">
@@ -194,6 +256,18 @@ export function BudgetMaison({
           </table>
         </div>
       </div>
+
+      {consuntivoD2C.some((v) => v !== null) && (
+        <p className="page-caption" style={{ marginTop: 12 }}>
+          <span style={{ color: "var(--blue)", fontWeight: 600 }}>In blu il consuntivo</span>: quello che è
+          <strong> davvero stato venduto</strong> nei mesi già chiusi, non una promessa — sono le due cose che
+          in questa pagina non vanno mai confuse. C&apos;è solo sotto il D2C perché per una maison l&apos;unico
+          consuntivo è il venduto dei negozi: il fatturato di Finance è per tipologia di servizio (consegne,
+          eventi, B2B) e non si può ripartire per brand. È sulla <strong>stessa base</strong> del budget D2C —
+          prezzo pieno, IVA e spedizione incluse — quindi il confronto è omogeneo. Il <strong>mese in corso
+          resta fuori</strong>: è parziale, e accanto a un budget intero sembrerebbe un crollo.
+        </p>
+      )}
 
       <p className="page-caption" style={{ marginTop: 12 }}>
         <span style={{ color: "var(--green)" }}>●</span> = numero arrivato da una <strong>proposta
