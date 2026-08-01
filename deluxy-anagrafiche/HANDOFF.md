@@ -634,6 +634,37 @@ scelte da fare, in fondo le pulizie. Quando un punto si chiude, si cancella da q
 
 ### B. Scelte da prendere (il codice viene dopo)
 
+3bis. **Area «clienti» (chi ci COMPRA) — studio del 31/07/2026, misurato, non ancora costruito.**
+   Richiesta dell'utente: «studia da Orders come dovrebbe essere l'area su Anagrafiche per i
+   clienti». Lo studio ha trovato prima di tutto un **equivoco di vocabolario**, ed è quello che
+   decide il disegno: **«cliente» vuol dire due cose diverse nelle due app.**
+   · Nel registro `stato: attivo` («Cliente») vuol dire **partner operativo**: un fiorista o una
+     pasticceria che *lavora per noi*, non che compra da noi.
+   · In Orders «cliente» è **chi ha comprato su Shopify**.
+   Misura sui dati veri (31/07/2026, 14.053 ordini · 10.285 clienti · 1.004 anagrafiche attive):
+   **42 dei 46 «Cliente» del registro non hanno un solo ordine in Orders** — non è un buco nei
+   dati, sono un'altra cosa. E all'opposto: **56 anagrafiche marcate `prospect` hanno già
+   comprato**, 185 ordini per **43.033 €** (Lavazza, McCann, Jil Sander, Berggruen, Liwathon: è
+   corporate gifting). Il registro le chiama prospect mentre sono già clienti.
+   Quindi l'area **non è una vista dei «Cliente» di oggi**, è una **dimensione nuova**: *quest'azienda
+   ci compra? quanto? da quanto non compra?* — letta da Orders, mai copiata (Orders possiede gli
+   ordini, vedi la regola del CLAUDE.md di radice).
+   Come agganciare: **email (44 casi su 61), poi telefono (15), il nome quasi mai (2)** — il nome
+   non basta e produce falsi positivi, quindi l'aggancio va **salvato** in `RiferimentoEsterno`
+   (`sistema: "orders"`) alla prima conferma, non ricalcolato ogni volta.
+   Da Orders si prende già tutto pronto: `GET /api/v1/clienti/{email}` dà ordini, speso, ordine
+   medio, primo/ultimo ordine, giorni dall'ultimo, brand, **segmento** (VIP · Da non perdere ·
+   Fedele · Ricorrente · Nuovo · Una tantum · Da riattivare · Perso), **attività** e il riassunto
+   scritto dall'AI. Serve una chiave di lettura di Orders in `ORDERS_API_KEY`.
+   Sul lato opposto c'è poco: dei 10.285 clienti di Orders solo **68 hanno un nome che sembra
+   B2B**, e 64 non sono nel registro (18.920 € in tutto, di cui 6 con più di un ordine). Poco
+   materiale, e la tipologia di Orders si deduce dal nome: è un elenco di suggerimenti, non una
+   lista di aziende da importare.
+   **Da decidere prima di scrivere codice**: se «ha comprato» debba **cambiare da sé** lo stato
+   commerciale (le 56 diventerebbero Cliente in automatico) oppure restare un **suggerimento da
+   confermare**. Il registro ha sempre tenuto lo stato commerciale come campo curato dal team:
+   cambiarlo in automatico sarebbe la prima eccezione.
+
 4. **Fornitori nel registro** (impianto discusso il 30/07/2026, non costruito). Il fornitore
    oggi vive come testo libero altrove: `fornitore` sull'ordine in Orders, `beneficiario` sulla
    richiesta di pagamento in FINANCE, e una tabella `Fornitore` tutta sua in Merchandising.
