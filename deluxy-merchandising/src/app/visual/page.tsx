@@ -16,14 +16,8 @@ export const dynamic = "force-dynamic";
 // collezioni, e la nostra `creataIl` è il momento dell'import — ordinarci sopra
 // darebbe una classifica che sembra vera e non lo è. «Ultima modifica» invece è
 // il `updatedAt` vero del negozio.
-const ORDINI = [
-  { chiave: "venduto", nome: "Più vendute" },
-  { chiave: "modifica", nome: "Ultima modifica sul negozio" },
-  { chiave: "prodotti", nome: "Più prodotti" },
-  { chiave: "nome", nome: "Nome" },
-  { chiave: "vetrina", nome: "Prima quelle in vetrina" },
-] as const;
-type Ordine = (typeof ORDINI)[number]["chiave"];
+const CRITERI = ["venduto", "modifica", "prodotti", "nome", "vetrina", "ordine", "rotazione"] as const;
+type Criterio = (typeof CRITERI)[number];
 
 export default async function VisualPage({
   searchParams,
@@ -31,7 +25,11 @@ export default async function VisualPage({
   searchParams: Promise<{ esito?: string; messaggio?: string; ordina?: string }>;
 }) {
   const sp = await searchParams;
-  const ordina: Ordine = (ORDINI.find((o) => o.chiave === sp.ordina)?.chiave ?? "venduto") as Ordine;
+  // L'ordinamento sta tutto in un parametro: "criterio-verso". Le intestazioni
+  // sono scorciatoie — un clic ordina per quella colonna, il successivo inverte.
+  const [critRaw, versoRaw] = (sp.ordina ?? "venduto-desc").split("-");
+  const criterio: Criterio = (CRITERI as readonly string[]).includes(critRaw) ? (critRaw as Criterio) : "venduto";
+  const verso: "asc" | "desc" = versoRaw === "asc" ? "asc" : "desc";
 
   const brand = await brandCorrente();
   const negozi = await negoziDelBrand(brand); // null = globale, [] = brand senza negozio
@@ -94,20 +92,52 @@ export default async function VisualPage({
   const totaleRicavo = venditePerProdotto.reduce((s, v) => s + (v._sum.ricavo ?? 0), 0);
   const inVetrina = righe.filter((r) => r.inVetrina).length;
 
-  righe.sort((a, b) => {
-    switch (ordina) {
+  // Confronto "decrescente" per ogni colonna; il verso lo si inverte dopo, così
+  // la regola sta scritta una volta sola. Il pareggio si spezza sempre col nome,
+  // altrimenti righe uguali ballano fra un caricamento e l'altro.
+  const confronta = (a: (typeof righe)[number], b: (typeof righe)[number]): number => {
+    switch (criterio) {
       case "modifica":
         return (b.c.aggiornataShopifyIl?.getTime() ?? 0) - (a.c.aggiornataShopifyIl?.getTime() ?? 0);
       case "prodotti":
         return b.c._count.prodotti - a.c._count.prodotti;
       case "nome":
-        return a.c.titolo.localeCompare(b.c.titolo);
+        return b.c.titolo.localeCompare(a.c.titolo);
       case "vetrina":
         return Number(b.inVetrina) - Number(a.inVetrina) || b.ricavo - a.ricavo;
+      case "ordine":
+        return etichettaRegola(b.c.regolaOrdinamento).localeCompare(etichettaRegola(a.c.regolaOrdinamento));
+      case "rotazione":
+        // Senza rotazione si finisce in fondo: "non ne ha" non è un valore che
+        // compete con le frequenze, è l'assenza.
+        return (
+          (b.c.rotazione ? 1 : 0) - (a.c.rotazione ? 1 : 0) ||
+          etichettaFrequenza(b.c.rotazione?.frequenza).localeCompare(etichettaFrequenza(a.c.rotazione?.frequenza))
+        );
       default:
         return b.ricavo - a.ricavo;
     }
+  };
+  righe.sort((a, b) => {
+    const d = confronta(a, b);
+    return (verso === "asc" ? -d : d) || a.c.titolo.localeCompare(b.c.titolo);
   });
+
+  // Link e freccia per l'intestazione di una colonna.
+  const linkCol = (c: Criterio) => {
+    const q = new URLSearchParams();
+    q.set("ordina", `${c}-${criterio === c && verso === "desc" ? "asc" : "desc"}`);
+    return `/visual?${q.toString()}`;
+  };
+  const segno = (c: Criterio) => (criterio !== c ? "" : verso === "asc" ? " ↑" : " ↓");
+  const Intestazione = ({ c, testo, num }: { c: Criterio; testo: string; num?: boolean }) => (
+    <th className={num ? "num" : undefined}>
+      <a href={linkCol(c)} style={{ color: criterio === c ? "var(--text)" : "inherit", textDecoration: "none" }}>
+        {testo}
+        {segno(c)}
+      </a>
+    </th>
+  );
 
   const dataIt = (d: Date | null) =>
     d ? d.toLocaleDateString("it-IT", { day: "2-digit", month: "short", year: "numeric" }) : "—";
@@ -173,22 +203,20 @@ export default async function VisualPage({
               </div>
             </div>
 
-            <FormOrdina ordina={ordina} />
-
             <div className="scheda">
               <div className="tabella-wrap">
                 <table>
                   <thead>
                     <tr>
-                      <th style={{ width: 34 }}></th>
-                      <th>Collezione</th>
+                      <Intestazione c="vetrina" testo="★" />
+                      <Intestazione c="nome" testo="Collezione" />
                       <th>Caratteristiche</th>
-                      <th className="num">Prodotti</th>
-                      <th className="num">Venduto 90gg</th>
-                      <th className="num">Quota</th>
-                      <th>Ordine</th>
-                      <th>Rotazione</th>
-                      <th>Modificata</th>
+                      <Intestazione c="prodotti" testo="Prodotti" num />
+                      <Intestazione c="venduto" testo="Venduto 90gg" num />
+                      <Intestazione c="venduto" testo="Quota" num />
+                      <Intestazione c="ordine" testo="Ordine" />
+                      <Intestazione c="rotazione" testo="Rotazione" />
+                      <Intestazione c="modifica" testo="Modificata" />
                     </tr>
                   </thead>
                   <tbody>
@@ -269,6 +297,11 @@ export default async function VisualPage({
                 </table>
               </div>
               <p className="page-sub" style={{ marginTop: 12 }}>
+                <b>Clicca un&apos;intestazione per ordinare</b>, riclicca per invertire. Non c&apos;è «novità»: Shopify
+                non dà una data di creazione per le collezioni, quindi si ordina per <b>ultima modifica sul negozio</b>,
+                che è un dato vero.
+              </p>
+              <p className="page-sub" style={{ marginTop: 8 }}>
                 La quota dice <b>quanta parte del venduto del periodo passa da quella collezione</b> (base: {euro(totaleRicavo)},
                 tutto il venduto a buon fine). Un prodotto sta in più collezioni, quindi <b>le quote non sommano a
                 100%</b>: sommarle conterebbe più volte lo stesso incasso.
@@ -300,22 +333,3 @@ function Pill({ testo, colore }: { testo: string; colore: string }) {
   );
 }
 
-function FormOrdina({ ordina }: { ordina: Ordine }) {
-  return (
-    <form method="get" className="riga-azione" style={{ marginBottom: 14 }}>
-      <label className="page-sub" style={{ margin: 0 }}>Ordina per</label>
-      <select name="ordina" defaultValue={ordina} aria-label="Ordina le collezioni">
-        {ORDINI.map((o) => (
-          <option key={o.chiave} value={o.chiave}>
-            {o.nome}
-          </option>
-        ))}
-      </select>
-      <button className="btn btn-secondario" type="submit">Applica</button>
-      <span className="page-sub" style={{ margin: 0 }}>
-        Shopify non dà una data di creazione per le collezioni: «novità» non si può ordinare senza inventarla, quindi
-        c&apos;è «ultima modifica sul negozio», che è un dato vero.
-      </span>
-    </form>
-  );
-}

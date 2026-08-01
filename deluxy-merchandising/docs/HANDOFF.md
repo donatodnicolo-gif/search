@@ -116,6 +116,8 @@ porta **3120**. Design system Deluxy v1.0.
   - `spingiOrdineSuShopify` è stata divisa in due: `spingiOrdineSuShopifySilenzioso` (torna `true` o il messaggio d'errore, la usa il cron che non ha una pagina dove mandare l'utente) e l'azione di pagina che ci si appoggia per i redirect.
   - **Verificato end-to-end su dati veri** (collezione «Roma», 58 prodotti): regola mai eseguita = subito scaduta; dopo un giro in modo «ruota» il primo prodotto è passato in fondo, dopo due giri lo scorrimento era di due; a esecuzione fatta la regola non risultava più scaduta; `spinte: 0` perché l'invio a Shopify era spento. Stato di prova poi ripulito.
 
+- **30/07/2026 — la tabella di `/visual` si ordina dalle intestazioni**: un clic ordina per quella colonna, il successivo inverte (freccia ↑↓ sulla colonna attiva), come già in `/griglie` — stessa convenzione, non una nuova. Ordinabili: vetrina (★), collezione, prodotti, venduto/quota, ordine, rotazione, ultima modifica. L'ordinamento sta in un solo parametro `?ordina=criterio-verso`; il menu a tendina di prima è stato tolto perché ridondante. Due scelte: il **pareggio si spezza sempre col nome** (altrimenti righe uguali ballano fra un caricamento e l'altro) e le collezioni **senza rotazione finiscono in fondo** (l'assenza non è un valore che compete con le frequenze). Verificato in dev: nome A→Z e Z→A, prodotti 730→0 e 0→730, modifica su date vere, e l'intestazione attiva che propone l'inversione.
+
 ## COME AVVIARE
 ```
 cd deluxy-merchandising
