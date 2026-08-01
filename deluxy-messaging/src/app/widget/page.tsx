@@ -59,6 +59,22 @@ export default function PaginaWidget() {
           .replace(/[^a-z0-9-]/g, '')
           .slice(0, 40)
   )
+  /**
+   * Il dominio del sito, quando la chat NON è dentro un sito ma è la pagina
+   * pubblica `/chat/<codice>`.
+   *
+   * Serve solo ai link rapidi: sono indirizzi relativi («/collections/oggi») e
+   * senza un sito attorno non si sa a quale sito appartengano. Si legge subito,
+   * per lo stesso motivo di `sito` qui sopra.
+   */
+  const [dominioSito] = useState(() =>
+    typeof window === 'undefined'
+      ? ''
+      : (new URLSearchParams(window.location.search).get('dominio') ?? '')
+          .toLowerCase()
+          .replace(/[^a-z0-9.-]/g, '')
+          .slice(0, 80)
+  )
   const [tema, setTema] = useState('chiaro')
   const [accento, setAccento] = useState('')
   const [titolo, setTitolo] = useState('Deluxy')
@@ -185,6 +201,21 @@ export default function PaginaWidget() {
    * scheda nuova: meglio una scheda in più che un bottone che non fa niente.
    */
   function vaiA(url: string) {
+    // ⚠️ SUL LINK PUBBLICO (/chat/<codice>) non c'è nessun sito ospite.
+    //
+    // Lì `postMessage` non lo ascolta nessuno e il ripiego aprirebbe
+    // `deluxy-messaging.vercel.app/collections/oggi`, che non esiste: il link
+    // rapido porterebbe a una pagina di errore. Quando la pagina che ci ospita
+    // è la nostra, il dominio del sito arriva nell'URL e l'indirizzo si
+    // ricostruisce qui.
+    if (dominioSito) {
+      try {
+        window.open(new URL(url, `https://${dominioSito}`).toString(), '_blank', 'noopener')
+        return
+      } catch {
+        // indirizzo storto: si prosegue con la strada normale
+      }
+    }
     try {
       window.parent.postMessage({ tipo: 'deluxy-chat-vai', url }, '*')
       // Se dopo un attimo siamo ancora qui e la pagina ospite non ha fatto

@@ -67,6 +67,7 @@ export function AspettoWidget({
     sito?.linkRapidi ?? []
   )
   const [copiato, setCopiato] = useState(false)
+  const [linkCopiato, setLinkCopiato] = useState(false)
 
   // Cambiando sito i campi si ricaricano da quel sito: senza, si finiva a
   // modificare il tema di Flowers con i testi di Cake sotto gli occhi.
@@ -415,6 +416,62 @@ export function AspettoWidget({
         >
           {copiato ? 'Copiato' : 'Copia il codice'}
         </button>
+      </div>
+
+      {/* IL LINK PUBBLICO: la stessa chat, ma senza un sito attorno.
+          Serve dove un widget non può stare — la bio di Instagram, la firma
+          delle mail, un QR sul biglietto che va col mazzo — e le conversazioni
+          arrivano in Inbox nella colonna di questo marchio, esattamente come
+          quelle del widget. */}
+      <div className="card">
+        <h2 style={{ marginTop: 0, fontSize: 16 }}>Link della chat (senza sito)</h2>
+        {sito?.codice ? (
+          <>
+            <p className="descrizione">
+              Da mandare così com&apos;è: nella bio di Instagram, in firma alle mail, dietro un QR
+              sul biglietto. Chi lo apre scrive a <strong>{sito.nome}</strong> e la conversazione
+              arriva in <a href="/inbox">Inbox</a> come quelle del widget.
+            </p>
+            <pre className="codice-incolla">{`${origine}/chat/${sito.codice}`}</pre>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className="bottone"
+                onClick={() => {
+                  navigator.clipboard.writeText(`${origine}/chat/${sito.codice}`).then(
+                    () => {
+                      setLinkCopiato(true)
+                      setTimeout(() => setLinkCopiato(false), 2000)
+                    },
+                    () => setLinkCopiato(false)
+                  )
+                }}
+              >
+                {linkCopiato ? 'Copiato' : 'Copia il link'}
+              </button>
+              <a
+                className="bottone secondario"
+                href={`${origine}/chat/${sito.codice}`}
+                target="_blank"
+                rel="noreferrer noopener"
+              >
+                Aprilo
+              </a>
+            </div>
+            <p className="descrizione" style={{ marginTop: 10, marginBottom: 0 }}>
+              ⚠️ Il pezzo finale è un codice casuale, non il nome del sito: con{' '}
+              <code>/chat/{sito.slug}</code> chiunque potrebbe indovinare gli altri e aprire
+              conversazioni a nome di un marchio che non è il suo. Per lo stesso motivo il codice
+              non cambia mai: cambiarlo romperebbe i QR già stampati.
+            </p>
+          </>
+        ) : (
+          <p className="descrizione" style={{ marginBottom: 0 }}>
+            Il link nasce quando salvi la configurazione di questo sito: finché è solo una
+            proposta non c&apos;è niente a cui mandare i clienti. Premi{' '}
+            <strong>Salva per {sito?.nome ?? 'questo sito'}</strong> qui sopra.
+          </p>
+        )}
       </div>
     </>
   )

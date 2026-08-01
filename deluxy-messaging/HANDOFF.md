@@ -92,6 +92,33 @@ locale, altrimenti nulla si decifra.
     «ciao»), 2 portoghese. Con «leggo italiano e inglese» si traducono **2
     messaggi su 384** — la traduzione non è un costo di massa.
 
+- **LA CHAT COME LINK: `/chat/<codice>`** (31/07/2026). La stessa chat del
+  widget, ma senza un sito attorno: si manda per link. Bio di Instagram, firma
+  delle mail, QR sul biglietto che va col mazzo, «scrivici qui» su WhatsApp. Le
+  conversazioni arrivano in Inbox nella colonna del marchio giusto, perché sotto
+  è sempre `/widget?sito=<slug>`.
+  - ⚠️ **Il pezzo finale è un codice casuale, non lo slug.** Lo slug è pubblico
+    per costruzione (sta nello snippet di ogni sito, lo legge chiunque guardi il
+    sorgente): con `/chat/cake` bastava provare `/chat/deluxy` per aprire
+    conversazioni a nome di un altro marchio. Il codice sta in
+    `WidgetSito.codice`, 32 caratteri da `crypto.getRandomValues` — non
+    `Math.random()`, perché due siti creati nello stesso istante possono uscire
+    uguali e un codice uguale vuol dire scrivere al marchio sbagliato. **Non
+    cambia mai**: cambiarlo romperebbe i QR già stampati.
+  - ⚠️ **Va escluso dal middleware** (`chat` nel matcher), o il link mandato ai
+    clienti finisce al login: cioè non funziona per nessuno tranne noi.
+  - ⚠️ **I link rapidi sono relativi** («/collections/oggi») e qui non c'è un
+    sito ospite a cui appoggiarli: `postMessage` non lo ascolta nessuno e il
+    ripiego avrebbe aperto `deluxy-messaging.vercel.app/collections/oggi`. Il
+    dominio del sito viaggia nell'URL dell'iframe (`&dominio=`) e il widget
+    ricostruisce l'indirizzo vero.
+  - Il link si copia da **Widget dei siti**, che crea il codice alla prima
+    apertura per i soli siti **salvati** (a una proposta non si mandano
+    clienti). Verificato in locale: codice valido → la chat di Cakedesign col
+    suo saluto e il suo tema; codice inventato → «questa chat non esiste più»;
+    **`/chat/cake` non funziona**; e le pagine protette continuano a
+    rimandare al login (307).
+
 - **IL NUMERO DI CHI SCRIVE, E UNA TESTATA CHE NON SI TAGLIA** (31/07/2026).
   - Su WhatsApp `idEsterno` **è** il numero del cliente (Meta lo manda senza
     «+»): ora si legge in chiaro accanto ai badge ed è un link `tel:`. Prima

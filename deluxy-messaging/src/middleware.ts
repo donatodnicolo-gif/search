@@ -45,7 +45,12 @@ export const config = {
   // insegna a ignorare i rossi.
   // Restare pubblico è accettabile perché la risposta non contiene dati: solo
   // «risponde», «il database scrive», e due conteggi.
+  //
+  // ⚠️ `chat` è la pagina pubblica del link `/chat/<codice>`: se passasse di qui
+  // finirebbe al login, cioè il link mandato ai clienti non funzionerebbe per
+  // nessuno tranne noi. È pubblica di proposito, e il suo cancello è il codice
+  // casuale nell'indirizzo, non la sessione.
   matcher: [
-    '/((?!login|registrati|widget|api/widget|api/webhooks|api/cron|api/health|_next/static|_next/image|favicon.ico).*)',
+    '/((?!login|registrati|widget|chat|api/widget|api/webhooks|api/cron|api/health|_next/static|_next/image|favicon.ico).*)',
   ],
 }

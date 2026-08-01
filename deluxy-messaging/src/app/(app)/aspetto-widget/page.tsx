@@ -1,7 +1,7 @@
 import { headers } from 'next/headers'
 import Link from 'next/link'
 import { AspettoWidget } from '@/components/AspettoWidget'
-import { sitiWidget } from '@/lib/widget-siti'
+import { codiceDelSito, sitiWidget } from '@/lib/widget-siti'
 import { salvaAspettoSito } from './actions'
 
 export const dynamic = 'force-dynamic'
@@ -24,6 +24,15 @@ export default async function PaginaAspettoWidget({
   const host = intestazioni.get('host') ?? 'deluxy-messaging.vercel.app'
   const protocollo = host.startsWith('localhost') ? 'http' : 'https'
   const siti = await sitiWidget()
+
+  // Il codice del link pubblico si crea alla prima apertura di questa pagina,
+  // per i soli siti SALVATI: chi ha già confermato la configurazione ha diritto
+  // al suo link senza doverlo chiedere. I siti solo «proposti» no — dare un
+  // link a una configurazione che nessuno ha confermato vuol dire mandare
+  // clienti dentro un'ipotesi.
+  for (const s of siti) {
+    if (!s.proposto && !s.codice) s.codice = await codiceDelSito(s.slug)
+  }
 
   return (
     <main>

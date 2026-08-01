@@ -57,6 +57,8 @@ export function leggiLinkRapidi(grezzo: string): LinkRapido[] {
 
 export type SitoWidget = AspettoSito & {
   slug: string
+  /** Il codice del link pubblico /chat/<codice>. Vuoto se il sito non è salvato. */
+  codice: string
   nome: string
   dominio: string
   negozioId: string | null
@@ -177,6 +179,7 @@ export async function sitiWidget(): Promise<SitoWidget[]> {
     if (s) {
       fuori.push({
         slug: s.slug,
+        codice: s.codice ?? '',
         nome: s.nome || p.nome,
         dominio: s.dominio || p.dominio,
         negozioId: s.negozioId,
@@ -195,6 +198,7 @@ export async function sitiWidget(): Promise<SitoWidget[]> {
     } else {
       fuori.push({
         slug,
+        codice: '',
         nome: p.nome,
         dominio: p.dominio,
         negozioId: negozio?.id ?? null,
@@ -218,6 +222,7 @@ export async function sitiWidget(): Promise<SitoWidget[]> {
     if (PROPOSTE[s.slug]) continue
     fuori.push({
       slug: s.slug,
+      codice: s.codice ?? '',
       nome: s.nome || s.slug,
       dominio: s.dominio,
       negozioId: s.negozioId,
@@ -260,6 +265,76 @@ export async function aspettoDelSito(slug: string): Promise<AspettoSito | null> 
   // widget generico solo perché nessuno ha ancora premuto Salva.
   const p = PROPOSTE[pulito]
   return p ? { ...p } : null
+}
+
+// ── IL LINK PUBBLICO DELLA CHAT: /chat/<codice> ──────────────────────────────
+//
+// La stessa chat del widget, ma come pagina a sé: da mettere nella bio di
+// Instagram, in firma alle mail, dietro un QR sul biglietto che va col mazzo.
+//
+// ⚠️ Non si usa lo `slug`. Quello è pubblico per costruzione — sta nello snippet
+// di ogni sito, lo legge chiunque guardi il sorgente — e con `/chat/cake`
+// bastava provare `/chat/deluxy` per aprire conversazioni a nome di un altro
+// marchio. Il codice è casuale e lungo, come nei servizi di chat pubblica: non
+// è un segreto (chi ce l'ha entra, ed è il punto), ma non si indovina.
+
+/** Un codice da URL: 32 caratteri fra lettere minuscole e cifre. */
+export function nuovoCodicePubblico(): string {
+  const alfabeto = 'abcdefghijklmnopqrstuvwxyz0123456789'
+  const byte = new Uint8Array(32)
+  crypto.getRandomValues(byte)
+  // ⚠️ `crypto.getRandomValues`, non `Math.random()`: due siti creati nello
+  // stesso istante con un generatore prevedibile possono uscire uguali, e qui
+  // un codice uguale a un altro vuol dire scrivere al marchio sbagliato.
+  return Array.from(byte, (b) => alfabeto[b % alfabeto.length]).join('')
+}
+
+/** Il sito dietro un codice pubblico: `null` se non esiste o è sospeso. */
+export async function sitoDaCodice(codice: string): Promise<(SitoWidget & { codice: string }) | null> {
+  const pulito = (codice ?? '').trim().toLowerCase()
+  if (!/^[a-z0-9]{16,64}$/.test(pulito)) return null
+  const s = await db.widgetSito.findUnique({
+    where: { codice: pulito },
+    include: { negozio: { select: { nome: true } } },
+  })
+  if (!s || !s.attivo) return null
+  const p = PROPOSTE[s.slug]
+  return {
+    codice: pulito,
+    slug: s.slug,
+    nome: s.nome || p?.nome || s.slug,
+    dominio: s.dominio || p?.dominio || '',
+    negozioId: s.negozioId,
+    brand: s.negozio?.nome ?? '',
+    tema: s.tema,
+    accento: s.accento,
+    posizione: s.posizione,
+    etichetta: s.etichetta,
+    titolo: s.titolo,
+    saluto: s.saluto,
+    selettoreApri: s.selettoreApri,
+    mostraBottone: s.mostraBottone,
+    linkRapidi: leggiLinkRapidi(s.linkRapidi),
+    proposto: false,
+  }
+}
+
+/**
+ * Il codice pubblico di un sito, creandolo se non ce l'ha ancora.
+ *
+ * Si crea a richiesta e non a tavolino: i siti solo «proposti» non hanno una
+ * riga, e non avrebbe senso dare un link a una configurazione che nessuno ha
+ * ancora confermato.
+ */
+export async function codiceDelSito(slug: string): Promise<string> {
+  const pulito = normalizzaSlug(slug)
+  if (!pulito) return ''
+  const s = await db.widgetSito.findUnique({ where: { slug: pulito } })
+  if (!s) return ''
+  if (s.codice) return s.codice
+  const codice = nuovoCodicePubblico()
+  await db.widgetSito.update({ where: { slug: pulito }, data: { codice } })
+  return codice
 }
 
 /** Solo minuscole, cifre e trattini: lo slug finisce in un URL e in uno snippet. */
@@ -311,7 +386,13 @@ export async function salvaSitoWidget(dati: {
     linkRapidi: JSON.stringify(leggiLinkRapidi(JSON.stringify(dati.linkRapidi ?? []))),
     attivo: true,
   }
-  await db.widgetSito.upsert({ where: { slug }, update: base, create: { slug, ...base } })
+  // Il codice del link pubblico nasce col sito e NON si tocca più: cambiarlo
+  // romperebbe il QR già stampato e il link già messo nella bio di Instagram.
+  await db.widgetSito.upsert({
+    where: { slug },
+    update: base,
+    create: { slug, ...base, codice: nuovoCodicePubblico() },
+  })
 }
 
 /** Mappa `slug → marchio`, per dare un brand alle conversazioni del widget. */

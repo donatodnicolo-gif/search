@@ -488,6 +488,19 @@ model Messaggio {
 model WidgetSito {
   id        String  @id @default(cuid())
   slug      String  @unique // deluxy | flowers | cake | …
+  // IL CODICE DEL LINK PUBBLICO: /chat/<codice>.
+  //
+  // La stessa chat del widget, ma come pagina a sé — da mettere nella bio di
+  // Instagram, in firma alle mail, dietro un QR sul biglietto che va col
+  // mazzo. Non è lo `slug`: quello è pubblico per costruzione (sta nello
+  // snippet di ogni sito) e con `/chat/cake` chiunque potrebbe indovinare gli
+  // altri e aprire una conversazione a nome di un marchio. Il codice invece è
+  // casuale e lungo, come fanno i servizi di chat pubblica.
+  //
+  // Opzionale perché i siti creati prima non ce l'hanno: si riempie al primo
+  // salvataggio o dallo script di allineamento. In Postgres più NULL non
+  // rompono l'unicità, più stringhe vuote sì.
+  codice    String? @unique
   nome      String  @default("") // come lo chiamiamo noi
   dominio   String  @default("") // deluxy.it, cakedesign.me…
   negozioId String?
