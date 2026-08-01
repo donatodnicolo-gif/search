@@ -550,8 +550,35 @@ button {
   white-space: nowrap;
 }
 
+/* La ✕ della finestra: tonda, discreta, sempre l'ultima a destra.
+   ⚠️ Non usa `.bottone`: quella classe ha padding e bordo da bottone con
+   scritta, e su un'icona sola diventa un rettangolo con dentro una crocetta
+   storta. */
 .testata-thread .chiudi-finestra {
   margin-left: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 140ms var(--ease), color 140ms var(--ease);
+}
+
+.testata-thread .chiudi-finestra:hover {
+  background: var(--fill);
+  color: var(--text);
+}
+
+.testata-thread .chiudi-finestra:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
 }
 
 /* Su schermi bassi la finestra si prende quasi tutto: una chat corta è
@@ -3208,14 +3235,20 @@ td .azioni-ordine {
     flex: 1 1 auto;
   }
 
-  .testata-thread .azioni-thread .bottone,
-  .testata-thread .chiudi-finestra {
+  .testata-thread .azioni-thread .bottone {
     /* Stretti quanto basta al testo — si accorcia la cornice, non il numero
        delle azioni — ma alti abbastanza da prendersi col dito. */
     flex: 0 1 auto;
     min-height: 38px;
     padding: 8px 12px;
     font-size: 13px;
+  }
+
+  /* La ✕ resta tonda anche qui, solo un po' più grande: col dito si sbaglia
+     mira, e questo è il bottone che chiude. */
+  .testata-thread .chiudi-finestra {
+    width: 38px;
+    height: 38px;
   }
 
   .thread .messaggi {

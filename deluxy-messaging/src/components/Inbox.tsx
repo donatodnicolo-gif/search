@@ -1366,13 +1366,29 @@ export function Inbox({
                 </button>
               </span>
 
+              {/* La ✕ di sempre. Un bottone con scritto «Chiudi» occupava lo
+                  spazio di due azioni vere in una riga che già non ci stava, e
+                  la ✕ in alto a destra la cerca chiunque senza doverla leggere.
+                  Il nome resta per chi non vede l'icona: `aria-label`. */}
               {aFinestra ? (
                 <button
-                  className="bottone secondario mini chiudi-finestra"
+                  className="chiudi-finestra"
                   onClick={chiudiFinestra}
                   title="Chiudi (Esc)"
+                  aria-label="Chiudi"
                 >
-                  Chiudi
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.7"
+                    strokeLinecap="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M4 4l8 8M12 4l-8 8" />
+                  </svg>
                 </button>
               ) : null}
             </div>
