@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
 import { euro } from "@/lib/dominio";
-import { etichettaRegola } from "@/lib/ordinamento-vetrina";
+import { etichettaRegola, isRegola, ordinaProdotti, type RegolaOrdinamento } from "@/lib/ordinamento-vetrina";
 import { SelettoreRegole } from "@/components/SelettoreRegole";
 import {
   applicaRegolaOrdinamento,
@@ -13,13 +13,14 @@ import {
 export const dynamic = "force-dynamic";
 
 const MAX_RIGHE = 300;
+const MAX_ANTEPRIMA = 60;
 
 export default async function CurazioneCollezionePage({
   params,
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ esito?: string; messaggio?: string }>;
+  searchParams: Promise<{ esito?: string; messaggio?: string; regola?: string | string[] }>;
 }) {
   const { id } = await params;
   const sp = await searchParams;
@@ -32,7 +33,15 @@ export default async function CurazioneCollezionePage({
         orderBy: [{ posizione: "asc" }, { prodotto: { nome: "asc" } }],
         include: {
           prodotto: {
-            select: { id: true, nome: true, codice: true, immagine: true, prezzoVendita: true, costoProduzione: true },
+            select: {
+              id: true,
+              nome: true,
+              codice: true,
+              immagine: true,
+              prezzoVendita: true,
+              costoProduzione: true,
+              creatoIl: true,
+            },
           },
         },
       },
@@ -42,10 +51,25 @@ export default async function CurazioneCollezionePage({
 
   // Il push funziona solo se il negozio ha un token con write_products: lo si
   // legge dalla verifica salvata in Impostazioni, senza chiamare Shopify qui.
+  // Il dominio serve per il link alla collezione **sul sito**.
   const negozio = await prisma.negozioShopify.findFirst({
     where: { nome: c.negozio },
-    select: { permessi: true, attivo: true },
+    select: { permessi: true, attivo: true, dominio: true },
   });
+
+  // L'indirizzo della collezione sul negozio online. Si passa dal dominio
+  // myshopify: è quello che conosciamo sempre, e Shopify manda da solo al
+  // dominio vero del sito. Inventare qui il dominio pubblico vorrebbe dire
+  // sbagliarlo per i negozi che non l'hanno impostato.
+  const linkNegozio = negozio?.dominio ? `https://${negozio.dominio}/collections/${c.handle}` : null;
+
+  // **Anteprima dell'ordine.** Le regole scelte arrivano nell'indirizzo (il form
+  // è in GET): così si guarda come verrebbe *senza scrivere niente*, si cambia
+  // idea quante volte si vuole, e si applica solo alla conferma. Stessa idea
+  // della bozza di /multi-prodotto: finché non confermi, non esiste.
+  const grezze = sp.regola == null ? [] : Array.isArray(sp.regola) ? sp.regola : [sp.regola];
+  const inAnteprima = grezze.length > 0;
+  const regoleAnteprima = grezze.filter((r): r is RegolaOrdinamento => isRegola(r) && r !== "manuale");
   const puoScrivere = !!negozio?.attivo && (negozio?.permessi ?? "").includes("write_products");
   const manuale = c.tipo === "manuale";
   const daSincronizzare =
@@ -53,6 +77,28 @@ export default async function CurazioneCollezionePage({
 
   const righe = c.prodotti.slice(0, MAX_RIGHE);
   const restano = c.prodotti.length - righe.length;
+
+  // Dov'è adesso ogni prodotto: serve a dire, nell'anteprima, chi sale e chi
+  // scende. Un ordine nuovo senza il confronto è solo un altro elenco.
+  const posizioneAttuale = new Map(c.prodotti.map((vp, i) => [vp.prodottoId, i]));
+  const anteprima = inAnteprima
+    ? (
+        await ordinaProdotti(
+          c.prodotti.map((vp) => ({
+            prodottoId: vp.prodottoId,
+            posizione: vp.posizione,
+            nome: vp.prodotto.nome,
+            prezzoVendita: vp.prodotto.prezzoVendita,
+            costoProduzione: vp.prodotto.costoProduzione,
+            creatoIl: vp.prodotto.creatoIl,
+            codice: vp.prodotto.codice,
+            immagine: vp.prodotto.immagine,
+          })),
+          regoleAnteprima
+        )
+      ).map((p, i) => ({ ...p, da: posizioneAttuale.get(p.prodottoId) ?? i, a: i }))
+    : [];
+  const quantiSiMuovono = anteprima.filter((p) => p.da !== p.a).length;
 
   return (
     <div className="layout">
@@ -76,6 +122,13 @@ export default async function CurazioneCollezionePage({
               )}
             </p>
           </div>
+          {/* La collezione com'è **sul sito**: serve a confrontare quello che si
+              decide qui con quello che vede davvero il cliente. */}
+          {linkNegozio && (
+            <a className="btn btn-secondario" href={linkNegozio} target="_blank" rel="noreferrer">
+              Apri sul sito ↗
+            </a>
+          )}
         </div>
 
         {sp.messaggio && (
@@ -85,16 +138,107 @@ export default async function CurazioneCollezionePage({
           </div>
         )}
 
-        {/* Regola d'ordine: propone il punto di partenza, poi si ritocca a mano. */}
+        {/* Regola d'ordine: prima si **guarda** come verrebbe, poi si applica. */}
         <div className="scheda">
-          <div className="scheda-titolo">Regola d'ordine</div>
-          <form action={applicaRegolaOrdinamento.bind(null, id)} style={{ display: "grid", gap: 10, maxWidth: 420 }}>
-            <SelettoreRegole valore={c.regolaOrdinamento} />
-            <div>
-              <button type="submit" className="btn">Applica regole</button>
+          <div className="scheda-titolo">Regola d&apos;ordine</div>
+          <form method="get" style={{ display: "grid", gap: 10, maxWidth: 420 }}>
+            <SelettoreRegole valore={inAnteprima ? regoleAnteprima.join(",") : c.regolaOrdinamento} />
+            <div style={{ display: "flex", gap: 8 }}>
+              <button type="submit" className="btn btn-secondario">Vedi come verrebbe</button>
             </div>
           </form>
+          <p className="page-sub" style={{ marginTop: 10, marginBottom: 0 }}>
+            Guardare non cambia niente: l&apos;ordine si scrive solo quando confermi.
+          </p>
         </div>
+
+        {/* L'anteprima: l'ordine ipotizzato, con chi sale e chi scende. */}
+        {inAnteprima && (
+          <div className="scheda" style={{ borderColor: "var(--gold)" }}>
+            <div className="scheda-titolo">
+              Anteprima ·{" "}
+              {regoleAnteprima.length === 0 ? "nessuna regola scelta" : etichettaRegola(regoleAnteprima.join(","))}
+            </div>
+            {regoleAnteprima.length === 0 ? (
+              <div className="vuoto-mini">
+                Non hai scelto nessuna regola: l&apos;ordine resterebbe quello curato a mano, com&apos;è adesso.
+              </div>
+            ) : anteprima.length === 0 ? (
+              // Con zero prodotti «nessuno cambierebbe posto» sarebbe vero e
+              // inutile: il motivo è che non c'è niente da ordinare.
+              <div className="vuoto-mini">
+                Questa collezione non ha prodotti conosciuti qui: non c&apos;è niente da mettere in ordine. Rilancia
+                l&apos;import da <a href="/collezioni">Collezioni</a>.
+              </div>
+            ) : (
+              <>
+                <p className="page-sub" style={{ marginTop: 0 }}>
+                  <b>Non è ancora applicato.</b> Così verrebbe:{" "}
+                  {quantiSiMuovono === 0 ? (
+                    <>nessun prodotto cambierebbe posto — l&apos;ordine è già questo.</>
+                  ) : (
+                    <>
+                      <b>{quantiSiMuovono}</b> prodotti su {anteprima.length} cambierebbero posto.
+                    </>
+                  )}
+                </p>
+                <div className="tabella-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th style={{ width: 40 }}>#</th>
+                        <th>Prodotto</th>
+                        <th className="num">Prezzo</th>
+                        <th>Si muove</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {anteprima.slice(0, MAX_ANTEPRIMA).map((p) => {
+                        const salto = p.da - p.a; // positivo = sale
+                        return (
+                          <tr key={p.prodottoId}>
+                            <td className="num">{p.a + 1}</td>
+                            <td>
+                              <a href={`/prodotti/${p.prodottoId}`} className="cella-nome">{p.nome}</a>
+                              <div className="cella-sub">{p.codice}</div>
+                            </td>
+                            <td className="num">{p.prezzoVendita > 0 ? euro(p.prezzoVendita) : "—"}</td>
+                            <td>
+                              {salto === 0 ? (
+                                <span className="cella-sub">resta {p.da + 1}º</span>
+                              ) : (
+                                <span style={{ color: salto > 0 ? "var(--green)" : "var(--orange)", fontWeight: 600 }}>
+                                  {salto > 0 ? "↑" : "↓"} {Math.abs(salto)}
+                                  <span className="cella-sub" style={{ fontWeight: 400 }}> (era {p.da + 1}º)</span>
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                {anteprima.length > MAX_ANTEPRIMA && (
+                  <p className="page-sub" style={{ marginTop: 10 }}>
+                    Mostrati i primi {MAX_ANTEPRIMA} di {anteprima.length}: applicando, l&apos;ordine vale per tutti.
+                  </p>
+                )}
+              </>
+            )}
+            <div style={{ display: "flex", gap: 8, marginTop: 14, alignItems: "center" }}>
+              <form action={applicaRegolaOrdinamento.bind(null, id)}>
+                {regoleAnteprima.map((r) => (
+                  <input key={r} type="hidden" name="regola" value={r} />
+                ))}
+                <button type="submit" className="btn" disabled={regoleAnteprima.length === 0}>
+                  Applica quest&apos;ordine
+                </button>
+              </form>
+              <a className="btn btn-secondario" href={`/visual/${id}`}>Annulla anteprima</a>
+            </div>
+          </div>
+        )}
 
         {/* Push su Shopify: guardato per collezione manuale + token con write_products. */}
         <div className="scheda">
