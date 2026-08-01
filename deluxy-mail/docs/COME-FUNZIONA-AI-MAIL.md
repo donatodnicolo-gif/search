@@ -360,10 +360,15 @@ Premi **`?`** in qualsiasi momento per l'elenco. Le principali:
 | `c` | scrivi una mail nuova |
 | `u` | torna alla posta in arrivo |
 | `r` · `a` · `f` | rispondi · rispondi a tutti · inoltra |
-| `e` | archivia |
-| `#` o `Canc` | cestina (si recupera) |
+| `e` | archivia **e apri la successiva** |
+| `#` o `Canc` | cestina **e apri la successiva** (si recupera) |
 | `s` | segna da leggere |
 | `j` / `k` · `Invio` | muoviti nella conversazione · apri il messaggio |
+
+**Smaltire una mail apre la successiva.** Con `Canc` (o col tasto «Cestina») non torni
+nell'elenco a cercare dov'eri: si apre subito la mail dopo — quella che in elenco sta
+sotto — e resti dove sei: se stai leggendo una sezione, la prossima è di quella sezione;
+se guardi una sola casella, di quella casella. Finite le mail, torni all'elenco.
 
 Sono **lettere singole, senza `Ctrl`**: `Ctrl+R` ricarica la pagina e `Ctrl+F` apre la
 ricerca del browser: sono di chi usa il computer, non dell'app. E non scattano mai

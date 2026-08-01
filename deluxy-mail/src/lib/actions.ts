@@ -11,6 +11,7 @@ import nodemailer from 'nodemailer'
 import MailComposer from 'nodemailer/lib/mail-composer'
 import type { Account, Messaggio, Prisma } from '@prisma/client'
 import { alternative } from './condizioni'
+import { accountAttivoId } from './accountAttivo'
 import {
   azioneDiSezione,
   controparteDi,
@@ -213,6 +214,72 @@ export async function scaricaStoricoOra(
 export async function segnaLetto(id: string, letto: boolean) {
   await db.messaggio.updateMany({ where: { id, utenteId: await uid() }, data: { letto } })
   revalidatePath('/', 'layout')
+}
+
+/**
+ * Cestina (o archivia) e dice QUALE APRIRE DOPO: smaltire una mail e ritrovarsi
+ * nell'elenco vuol dire ricominciare da capo ogni volta — cercare dov'eri,
+ * riaprire. Con la mail successiva già pronta, si scorre la posta senza mai
+ * tornare indietro.
+ *
+ * ⚠️ La successiva si cerca PRIMA di toccare questa: dopo, il filtro
+ * «non cestinate» cambierebbe sotto i piedi. E si resta nello stesso posto in
+ * cui sei: se stai leggendo una sezione (SPAM compreso), la prossima è di
+ * quella sezione; se guardi una sola casella, di quella casella.
+ */
+export async function smaltisciEProssimo(
+  id: string,
+  azione: 'cestina' | 'archivia'
+): Promise<{ ok: boolean; prossimo: string | null; messaggio: string }> {
+  const utenteId = await uid()
+  const m = await db.messaggio.findFirst({
+    where: { id, utenteId },
+    select: { data: true, sezioneId: true, direzione: true },
+  })
+  if (!m) return { ok: false, prossimo: null, messaggio: 'Messaggio non trovato.' }
+
+  const attivo = await accountAttivoId(utenteId)
+  const spam = m.sezioneId
+    ? null
+    : await db.sezione.findFirst({ where: { utenteId, nome: 'SPAM' }, select: { id: true } })
+
+  const prossimo = await db.messaggio.findFirst({
+    where: {
+      utenteId,
+      direzione: m.direzione,
+      cestinato: false,
+      archiviato: false,
+      id: { not: id },
+      // La successiva è quella SOTTO nell'elenco, che è ordinato per data
+      // decrescente: la più recente fra le più vecchie di questa.
+      data: { lt: m.data },
+      ...(attivo ? { accountId: attivo } : {}),
+      ...(m.sezioneId
+        ? { sezioneId: m.sezioneId }
+        : spam
+          ? { OR: [{ sezioneId: null }, { sezioneId: { not: spam.id } }] }
+          : {}),
+    },
+    orderBy: { data: 'desc' },
+    select: { id: true },
+  })
+
+  await db.messaggio.updateMany({
+    where: { id, utenteId },
+    data:
+      azione === 'cestina'
+        ? { cestinato: true, cestinatoIl: new Date(), letto: true }
+        : { archiviato: true, letto: true },
+  })
+  revalidatePath('/', 'layout')
+  return {
+    ok: true,
+    prossimo: prossimo?.id ?? null,
+    messaggio:
+      azione === 'cestina'
+        ? 'Nel cestino. Si recupera da lì.'
+        : 'Archiviata. La trovi in Archiviati.',
+  }
 }
 
 export async function archiviaMessaggio(id: string) {

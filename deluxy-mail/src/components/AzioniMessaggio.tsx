@@ -6,9 +6,9 @@ import { useRouter } from 'next/navigation'
 import {
   archiviaDefinitivo,
   archiviaSenzaAggiornare,
-  cestinaMessaggio,
   segnaLetto,
   segnalaSpam,
+  smaltisciEProssimo,
   spostaInSezione,
 } from '@/lib/actions'
 import { DelegaReneBottone, DelegaReneDialog } from './DelegaRene'
@@ -135,11 +135,13 @@ export function AzioniMessaggio({
         <button
           className="btn secondary small"
           disabled={inCorso}
-          title="Sposta nel cestino di AI Mail (la mail resta sul server)"
+          title="Sposta nel cestino e apri la mail successiva (la mail resta sul server)"
           onClick={() =>
-            esegui(async () => {
-              await cestinaMessaggio(id)
-              router.push('/')
+            // Come il tasto Canc: cestinata questa si apre la successiva,
+            // invece di rimandare all'elenco a ricominciare da capo.
+            startTransition(async () => {
+              const r = await smaltisciEProssimo(id, 'cestina')
+              router.push(r.prossimo ? `/messaggio/${r.prossimo}` : '/')
             })
           }
         >

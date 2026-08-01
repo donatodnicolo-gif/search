@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { archiviaSenzaAggiornare, cestinaMessaggio, segnaLetto } from '@/lib/actions'
+import { segnaLetto, smaltisciEProssimo } from '@/lib/actions'
 import { mostraFlash } from './Flash'
 import { fuocoConversazione } from './fuocoConversazione'
 
@@ -77,23 +77,18 @@ export function Scorciatoie() {
       if (e.key === 'a') return vaiA('tutti')
       if (e.key === 'f') return vaiA('inoltra')
 
-      if (e.key === 'e') {
+      // Archivia / cestina e VAI AVANTI: smaltita una mail si apre la
+      // successiva, non si torna nell'elenco a cercare dov'eri.
+      const smaltisci = (azione: 'cestina' | 'archivia') => {
         e.preventDefault()
-        void archiviaSenzaAggiornare(id).then(() => {
-          mostraFlash('Archiviata. La trovi in Archiviati.')
-          router.push('/')
+        void smaltisciEProssimo(id, azione).then((r) => {
+          mostraFlash(r.messaggio)
+          router.push(r.prossimo ? `/messaggio/${r.prossimo}` : '/')
         })
-        return
       }
+      if (e.key === 'e') return smaltisci('archivia')
       // «#» come su Gmail, e il Canc per chi lo cerca lì.
-      if (e.key === '#' || e.key === 'Delete') {
-        e.preventDefault()
-        void cestinaMessaggio(id).then(() => {
-          mostraFlash('Nel cestino. Si recupera da lì.')
-          router.push('/')
-        })
-        return
-      }
+      if (e.key === '#' || e.key === 'Delete') return smaltisci('cestina')
       if (e.key === 's') {
         e.preventDefault()
         void segnaLetto(id, false).then(() => {
@@ -123,8 +118,8 @@ export function Scorciatoie() {
             ['r', 'Rispondi alla mail aperta'],
             ['a', 'Rispondi a tutti'],
             ['f', 'Inoltra'],
-            ['e', 'Archivia'],
-            ['# o Canc', 'Cestina (si recupera)'],
+            ['e', 'Archivia e apri la successiva'],
+            ['# o Canc', 'Cestina e apri la successiva (si recupera)'],
             ['s', 'Segna da leggere'],
             ['j / k', 'Muoviti fra i messaggi della conversazione'],
             ['Invio', 'Apri o chiudi il messaggio a fuoco'],
