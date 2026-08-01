@@ -1,5 +1,6 @@
 import { Sidebar } from "@/components/Sidebar";
 import { VenditeAttese } from "@/components/VenditeAttese";
+import { BudgetUfficiale } from "@/components/BudgetUfficiale";
 import { prisma } from "@/lib/db";
 import { ETICHETTA_SITO, formattaEuro, MESI_IT, SITI } from "@/lib/dominio";
 
@@ -44,6 +45,15 @@ export default async function PaginaBudget({
             a cercarle: qui restano perché è la pagina della spesa e le due cose
             si guardano insieme. */}
         <VenditeAttese anno={anno} mese={mese} salvato={salvato === "1"} />
+
+        {/* Il tetto ufficiale sta in Budgets, e copre tutti e dodici i mesi:
+            sta in cima perché è la cosa da guardare per prima, e perché la
+            tabella qui sotto — importata a mano dal Monitoraggio — ne copre
+            solo una parte. */}
+        <BudgetUfficiale
+          anno={anno}
+          locali={righe.map((r) => ({ sito: r.sito, mese: r.mese, budgetMese: r.budgetMese }))}
+        />
 
         <div className="pill-scelta" style={{ marginBottom: 18 }}>
           {MESI_IT.map((nome, i) => (

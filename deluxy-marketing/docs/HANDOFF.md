@@ -22,6 +22,33 @@ Riceve già dati veri da Google Ads (Gifts e Flowers) e ha 2.426 ordini Shopify 
 
 ## FATTO
 
+### Il budget di vendita arriva da Deluxy Budgets (01/08/2026)
+
+**Il tetto pubblicitario non nasce qui**: nasce dal budget di vendita della maison, che vive in
+**deluxy-budgets** — `advConsentito = vendite del mese × % decisa in /spese`. Fino a oggi questa app
+ne teneva una **copia propria**, la tabella `BudgetMensile` importata a mano dal foglio «Budget adv»
+del Monitoraggio, e non parlava con nessuno. Al momento di collegarle la copia locale conteneva
+**nove righe in tutto** — giugno, luglio e agosto per i tre siti — quindi **da settembre in poi qui
+non esisteva nessun tetto di spesa**, mentre Budgets sapeva già quanto si poteva spendere fino a
+dicembre.
+
+- Client `src/lib/budgets.ts` → `GET /api/v1/maison?anno=` di Budgets, chiave **`BUDGETS_API_KEY`**
+  (aggiunta all'ambiente di produzione il 01/08/2026; si risolve con `chiave()`, quindi vale anche
+  dalla cassaforte del Hub);
+- l'abbinamento **sito → maison** sta scritto in un punto solo (`MAISON_DI_SITO`): `gifts`→Deluxy.it,
+  `cake`→CakeDesign.me, `flowers`→Deluxyflowers.com. Verificato end-to-end: ADV consentito 2026
+  70.417 € · 18.180 € · 47.224 €;
+- in cima a `/budget` il componente `BudgetUfficiale` mostra **tutti e dodici i mesi**: vendite a
+  budget, % ADV, ADV consentito, e accanto il budget calcolato qui dal ROS con la **differenza**.
+
+> **Le due cifre restano affiancate e non fuse, di proposito.** Sono due strade per lo stesso numero
+> — qui il ROS (vendita prevista ÷ ritorno atteso), là una percentuale sulle vendite — e dove si
+> discostano la differenza è **una domanda da fare**, non un errore da nascondere sotto una media.
+> Su agosto per esempio coincidono quasi all'euro (6.702 contro 6.700), perché un ROS di 7,46 è
+> l'inverso del 13,4%: ma è una coincidenza di derivazione dalla stessa fonte, non un collegamento.
+> Un mese senza riga importata mostra **—**, non zero: non è un mese a budget zero, è un mese che
+> nessuno ha ancora caricato.
+
 ### Il 29/07/2026 (questa sessione)
 
 **Gli asset dicono quanto hanno speso e reso.** Prima non lo dicevano: i 296

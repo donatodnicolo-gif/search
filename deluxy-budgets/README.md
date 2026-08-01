@@ -1134,6 +1134,17 @@ poter disfare quello che aveva fatto, altrimenti «riclassifica» sarebbe solo �
 > Corretto in `categoriaDaRegole()` di Finance, che ora normalizza entrambe le parti del confronto.
 > **Va ripremuto il bottone** perché la fotografia si rifaccia.
 
+**Dal 01/08/2026 Marketing la chiama davvero.** Fino a quel giorno l'API esisteva «per Marketing» ma
+nessuno l'aveva collegata: Marketing teneva una **copia propria** del budget pubblicitario, la
+tabella `BudgetMensile` importata a mano dal foglio «Budget adv» del Monitoraggio — che al momento
+del collegamento aveva **nove righe in tutto** (giugno, luglio, agosto per i tre siti). Cioè **da
+settembre in poi Marketing non aveva nessun tetto di spesa**, mentre qui il budget arrivava a
+dicembre. Client in `deluxy-marketing/src/lib/budgets.ts`, chiave `BUDGETS_API_KEY` aggiunta al suo
+ambiente di produzione; l'abbinamento sito → maison (`gifts`→Deluxy.it, `cake`→CakeDesign,
+`flowers`→Deluxyflowers) sta scritto in un punto solo. Le due cifre restano **affiancate**: sono due
+strade per lo stesso numero — lì il ROS, qui una percentuale sulle vendite — e dove si discostano la
+differenza è una domanda da fare, non un errore da nascondere.
+
 **`/api/v1/maison` nasce per Marketing**, che deve sapere due cose che vivono solo qui: quanto una
 maison deve vendere in un mese e **quanto può spendere in ADV** in quel mese. Senza, Marketing
 terrebbe una copia dei budget — e due copie che divergono fanno decidere le campagne su numeri
