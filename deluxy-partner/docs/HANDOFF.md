@@ -1,6 +1,32 @@
-# Deluxy Partner — Handoff / Stato del prodotto
+# FINANCE (cartella `deluxy-partner`) — Handoff / Stato del prodotto
 
-**Ultimo aggiornamento:** 26 luglio 2026 · branch `scout-ui` (origin, repo condiviso da PIÙ sessioni Claude — non è raro trovare le proprie modifiche dentro commit altrui).
+> ⚠️ **L'app si chiama FINANCE.** Dal 01/08/2026 è così che si presenta a schermo (titolo, sidebar, accesso). **Cartella, database, URL `deluxy-partner.vercel.app`, cookie `dp_session` e il `sistema: "deluxy-partner"` con cui il registro Anagrafiche riconosce chi scrive NON sono stati rinominati**: cambiarli scollegherebbe le altre app.
+
+## ⏱️ PUNTO DI RIPRESA — 01/08/2026, fine sessione
+
+**Tutto committato e pushato** su `scout-ui` (repo condiviso: i commit di questa sessione stanno in mezzo a quelli di Scout e Anagrafiche). Ultimo deploy in produzione `● Ready`, health 200.
+
+### Cosa aspetta una decisione o un gesto tuo
+
+1. **`FINANCE_API_KEY` manca in Anagrafiche** — è l'ultimo pezzo dell'integrazione «diventa Cliente → nasce la scheda qui». Il registro chiama già `POST /api/v1/partners` (scritto e provato, vedi §6), ma **finché la variabile non c'è quel richiamo è inerte**: scrive un warning e non fa fallire niente. La chiave si copia da **`/verifiche`** di FINANCE e va nel `.env` di `deluxy-anagrafiche` **e su Vercel** (usare `--value`, mai stdin: l'a-capo rompe il confronto in silenzio). Senza, resta comunque il ripasso notturno del cron delle 5:45.
+2. **Il vocabolario dello stato finanziario** — deciso con l'utente («anagrafiche prende i valori di finance») ma **NON fatto**: va cambiato in `deluxy-anagrafiche`, dove un'altra sessione stava lavorando proprio sugli stati (commit del 31/07 «"in attesa" non è più uno stato», «si chiama Cliente»). Regola del repo: una sola sessione per cartella. Oggi FINANCE traduce (`statoPerRegistro()` in `stato-credito.ts`) e ci perde: `monitorare`+`ritardo` → `in_ritardo`, `grave`+`insoluto` → `insoluto`. Quando il registro adotterà i sei valori di qui, quella funzione diventa un passa-carte.
+3. **Primo invio degli stati finanziari**: **12 clienti** hanno uno stato da mandare (bottone «Aggiorna Anagrafiche» in `/partner`, o cron delle 5:45). Non l'ho eseguito io: scrive su 12 anagrafiche del registro.
+4. **3 anagrafiche «da decidere»** in `/partner`: Fioreria Vivy Fleurs (Alessandria), Fiori.Rimini (Rimini), Pasticceria Bozzo (Montalto Uffugo). Somigliano a schede esistenti solo per la **parola di mestiere**, quindi quasi certamente vanno create con «È un'altra: crea».
+5. ⚠️ **83 fatture aperte su 125 non hanno la scadenza** (40.685 € di imponibile). Senza scadenza **non entrano nel calcolo dello scaduto**: il credit management, i solleciti e lo stato finanziario che mandiamo al registro vedono solo un terzo del problema. Caso visto: ARMANI FIORI ha 4 fatture aperte, due senza scadenza (2.384 € e 77 €). I partner hanno `ggPagamento` impostato, quindi la scadenza sarebbe deducibile dall'emissione — **ma dedurla in automatico su un dato contabile va deciso con l'utente**, non fatto di iniziativa.
+6. Pregressi non miei ma ancora aperti: `SHOPIFY_CLIENT_SECRET` su Vercel + redirect URL, RLS sul database, le regole di Budgets per le ~25 controparti classificate.
+
+### Cosa è cambiato oggi (tutto in produzione)
+
+- **Vendite**: fee applicata visibile mentre compili + commissione/IVA/dovuto in chiaro; ricerca in elenco; «Fattura commissioni» che **crea davvero** la fattura su FIC quando il cliente è certo (riconciliazione o storico), altrimenti apre la pagina.
+- **Fattura commissioni «Esiste già»**: si collega una fattura emessa a mano invece di emetterne una seconda; il numero viene verificato su FIC. C'è «Scollega».
+- **Cliente FIC**: la scelta parte dalla **riconciliazione confermata**, non dai nomi; l'elenco è quello dei **fatturabili** (rubrica + già fatturati: 53 contro 112).
+- **Campo partner**: si cerca, non si scorre (`SceltaPartner`), in vendite/fatture/pro-forma.
+- **Dati bancari**: aggiunto **intestatario del conto** (va anche nei SEPA e nelle richieste a Transactions); salvataggio **senza ricaricare la pagina**; IBAN rifiutato che **spiega perché** e propone la correzione I/1 e O/0.
+- **Riconciliazione**: conferma/ignora/riapri in-place; «Ignora» ora **scollega davvero**.
+- **Clienti dal registro**: import automatico (cron 5:45 + bottone), con i somiglianti messi da parte invece che creati; più sedi del registro possono stare **sulla stessa scheda** (`AnagraficaCollegata`).
+- **Stato finanziario** verso il registro, solo sui Clienti e solo quando cambia.
+
+**Ultimo aggiornamento:** 1 agosto 2026 · branch `scout-ui` (origin, repo condiviso da PIÙ sessioni Claude — non è raro trovare le proprie modifiche dentro commit altrui).
 Questo è il documento "parti da qui": stato reale del prodotto, funzioni, API, integrazioni, dati e come lavorarci. La fonte di verità funzionale storica resta [PROGETTO.md](PROGETTO.md); questo file è il quadro corrente più completo.
 
 > **Novità 23–26/07/2026** (dettagli nelle sezioni sotto): allineamento incasso app→**Fatture in Cloud** (con conto di saldo Qonto); **stato finanziario del cliente** (credit management, aging) + API `/api/clienti/stato`; **regole degli stati** configurabili; **saldo parziale** delle fatture; **registro modifiche** (audit log, `/impostazioni/logs`); note del mese datate con verifica AI; **Orders**: sorgente ordini = **registro Deluxy Orders** (non più Shopify diretto), **costo fornitore** per ordine con quota attesa **60%** (sotto=bene/sopra=male), abbinamento automatico per **numero d'ordine in causale**, scheda ordine con transazione corrispondente + **popup «Riconcilia»** (ricerca per importo/nome) + «Richiedi pagamento». **RIMOSSA** tutta la parte pagamenti in uscita (Pagamenti diretti, Approvazioni, conferma via email) → passerà all'app **transazioni**.
