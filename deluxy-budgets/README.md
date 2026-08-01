@@ -200,6 +200,18 @@ pubblicato), *sfidante* e *irraggiungibile*.
   **cancellava quella dell'altra** — misurato sulla proposta di Deluxy.it: **648.404 €** sarebbero
   spariti in un clic, e nessuno avrebbe saputo di chi era il numero cancellato.
 
+  Ma **il budget iniziale non è un addendo: è un punto di partenza.** Le proposte si sommano *fra
+  loro* e insieme **sostituiscono** quello che veniva dal file di monitoraggio — il nuovo budget
+  rimpiazza il precedente. Solo dove nessuno ha ancora proposto vale ancora l'iniziale.
+
+  > ⚠️ **Senza questa seconda metà della regola il totale sommava il vecchio e il nuovo**, e su
+  > Deluxy.it faceva **1.699.404 €** invece di 525.500: il D2C di luglio valeva 105.000 (55.000
+  > rimasti in `iniziale` da un consolidamento fatto *prima* che la colonna `fonte` esistesse, più i
+  > 50.000 della proposta). Un totale che somma il budget vecchio e quello nuovo non è il budget di
+  > nessuno. Motore: `venditeApplicate()` in `src/lib/calc.ts`. Il valore sostituito **non sparisce**,
+  > si mostra ~~barrato~~ nella riga della sua fonte: chi guarda deve capire che è stato rimpiazzato,
+  > non perso — e che non entra nel totale.
+
   `BudgetEntry` ha quindi una colonna **`fonte`** (`iniziale` · `adv-web` · `commerciale`) e la
   chiave unica diventa `(anno, maison, mese, canale, fonte)`. Conseguenze, tutte volute:
 

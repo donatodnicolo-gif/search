@@ -83,6 +83,33 @@ export const FONTI = [
 
 export const nomeFonte = (key: string) => FONTI.find((f) => f.key === key)?.nome ?? key;
 
+// **Il budget iniziale è un punto di partenza, non un addendo.**
+//
+// Il totale di una casella non è la somma di tutto quello che c'è dentro: le
+// proposte (pubblicità web, team commerciale) **si sommano fra loro**, ma
+// **sostituiscono** il budget che veniva dal file di monitoraggio. Il nuovo
+// budget rimpiazza il precedente; solo dove nessuno ha ancora proposto vale
+// ancora quello iniziale.
+//
+// Senza questa regola su Deluxy.it il D2C di luglio valeva **105.000 €** invece
+// di 50.000: 55.000 finiti in `iniziale` da un consolidamento fatto prima che
+// la colonna `fonte` esistesse, più i 50.000 della proposta nuova. Un totale
+// che somma il vecchio e il nuovo non è il budget di nessuno.
+export const INIZIALE = "iniziale";
+
+export function venditeApplicate(perFonteCanale: Record<string, number> | undefined): number {
+  if (!perFonteCanale) return 0;
+  const daProposte = Object.entries(perFonteCanale).filter(([f]) => f !== INIZIALE);
+  if (daProposte.length > 0) return daProposte.reduce((s, [, v]) => s + v, 0);
+  return perFonteCanale[INIZIALE] ?? 0;
+}
+
+// `true` quando su quella casella una proposta ha parlato, quindi il valore
+// iniziale non conta più. Serve alla pagina per mostrarlo barrato invece di
+// farlo sparire: chi guarda deve capire che è stato **sostituito**, non perso.
+export const inizialeSuperato = (perFonteCanale: Record<string, number> | undefined): boolean =>
+  Object.keys(perFonteCanale ?? {}).some((f) => f !== INIZIALE);
+
 export type MeseMaison = {
   month: number;
   // vendite pubblicate per slug di tipologia: **la somma di tutte le fonti**
@@ -151,9 +178,11 @@ export async function caricaAnno(year = ANNO_CORRENTE): Promise<DatiAnno> {
       const perFonte: Record<string, Record<string, number>> = {};
       for (const t of tipologie) {
         const righe = entries.filter((e) => e.maisonId === m.id && e.month === month && e.canale === t.slug);
-        vendite[t.slug] = righe.reduce((s, e) => s + e.vendite, 0);
         perFonte[t.slug] = {};
         for (const e of righe) perFonte[t.slug][e.fonte] = (perFonte[t.slug][e.fonte] ?? 0) + e.vendite;
+        // Le proposte si sommano fra loro e **sostituiscono** il budget
+        // iniziale: il nuovo rimpiazza il precedente, non ci si aggiunge.
+        vendite[t.slug] = venditeApplicate(perFonte[t.slug]);
       }
       mesi.push({
         month,

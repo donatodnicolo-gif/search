@@ -59,6 +59,10 @@ export function BudgetMaison({
   daConsolidare: { id: string; autore: string; totale: number }[];
 }) {
   const valore = (slug: string, i: number) => (mesi[i].vendite[slug] ?? 0) * molt;
+  // Dove una proposta ha parlato, il budget iniziale è **sostituito**: le
+  // proposte si sommano fra loro ma rimpiazzano quello che veniva dal file.
+  const superatoIn = (slug: string, i: number) =>
+    Object.keys(mesi[i].perFonte[slug] ?? {}).some((f) => f !== "iniziale");
   const totaleMese = (i: number) => tipologie.reduce((s, t) => s + valore(t.slug, i), 0);
   const advMese = (i: number) => (totaleMese(i) * mesi[i].advPercent) / 100;
   const totaleAnno = mesi.reduce((s, _, i) => s + totaleMese(i), 0);
@@ -101,10 +105,13 @@ export function BudgetMaison({
             </div>
           ))}
           <p className="muted" style={{ fontSize: 12, marginTop: 10, marginBottom: 0 }}>
-            Su <strong>una stessa fonte</strong> vale l&apos;ultima consolidata: una proposta nuova riscrive
-            quella di prima, e la precedente resta come storico. <strong>Fra fonti diverse</strong> invece non
-            si sostituisce niente — pubblicità web e team commerciale <strong>si sommano</strong>, e il totale
-            della linea qui sotto è la loro somma.
+            <strong>Come si compone il totale, in tre regole.</strong> Le <strong>proposte si sommano fra
+            loro</strong>: pubblicità web e team commerciale sono due pezzi dello stesso budget. Ma insieme
+            <strong> sostituiscono il budget iniziale</strong>, quello che veniva dal file di monitoraggio: il
+            nuovo rimpiazza il precedente, non ci si aggiunge — dove è stato sostituito lo vedi{" "}
+            <span style={{ textDecoration: "line-through", opacity: 0.6 }}>barrato</span>, e quel numero non
+            entra nel totale. E su <strong>una stessa fonte</strong> vale l&apos;ultima consolidata: una
+            proposta nuova riscrive quella di prima, che resta come storico.
           </p>
         </div>
       )}
@@ -179,14 +186,34 @@ export function BudgetMaison({
                         </td>
                         {mesi.map((m, i) => {
                           const v = (m.perFonte[t.slug]?.[f.key] ?? 0) * molt;
+                          // Un valore **iniziale sostituito** da una proposta si
+                          // mostra barrato invece di sparire: chi guarda deve
+                          // capire che è stato rimpiazzato, non perso — e che
+                          // quel numero non è dentro il totale.
+                          const superato = f.key === "iniziale" && superatoIn(t.slug, i);
                           return (
-                            <td className={`num ${v ? "muted" : "muted"}`} key={i} style={{ fontSize: 12.5 }}>
+                            <td
+                              className="num muted"
+                              key={i}
+                              style={{
+                                fontSize: 12.5,
+                                textDecoration: superato ? "line-through" : undefined,
+                                opacity: superato ? 0.55 : undefined,
+                              }}
+                              title={superato ? "Sostituito da una proposta: non entra nel totale" : undefined}
+                            >
                               {v ? eur(v) : "—"}
                             </td>
                           );
                         })}
                         <td className="num muted" style={{ fontSize: 12.5 }}>
-                          {eur(mesi.reduce((s, m) => s + (m.perFonte[t.slug]?.[f.key] ?? 0), 0) * molt)}
+                          {eur(
+                            mesi.reduce(
+                              (s, m, i) =>
+                                s + (f.key === "iniziale" && superatoIn(t.slug, i) ? 0 : m.perFonte[t.slug]?.[f.key] ?? 0),
+                              0
+                            ) * molt
+                          )}
                         </td>
                       </tr>
                     ))}
