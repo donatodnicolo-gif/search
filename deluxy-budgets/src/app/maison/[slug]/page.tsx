@@ -3,7 +3,7 @@ import { misuraQuota } from "@/lib/quota";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import {
-  ANNO_CORRENTE, caricaAnno, contoEconomico, LIVELLI,
+  ANNO_CORRENTE, caricaAnno, contoEconomico, FONTI, LIVELLI,
   moltiplicatore, totaliMaison, type Livello,
 } from "@/lib/calc";
 import { eur, pct } from "@/lib/format";
@@ -133,9 +133,11 @@ export default async function MaisonDetail({
         mesi={maison.mesi.map((m) => ({
           month: m.month,
           vendite: m.vendite,
+          perFonte: m.perFonte,
           advPercent: m.advPercent,
           advPubblicato: m.advPubblicato,
         }))}
+        fonti={FONTI}
         molt={molt}
         origini={origini}
         approvate={approvate}

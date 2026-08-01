@@ -40,6 +40,11 @@ export function PropostaForm({
   const [autore, setAutore] = useState("");
   const [ruolo, setRuolo] = useState("Responsabile");
   const [ambito, setAmbito] = useState("GLOBALE"); // "GLOBALE" | "MAISON:slug" | "LINEA:slug"
+  // **Da quale lavoro nascono questi numeri.** Il budget di un mese è la somma
+  // di più contributi — la pubblicità web e il team commerciale ci scrivono
+  // sopra separatamente — e dichiararlo qui è quello che permette al
+  // consolidamento di **sommare invece di sovrascrivere**.
+  const [fonte, setFonte] = useState("adv-web");
   const [valori, setValori] = useState<number[]>(Array(12).fill(0));
   // Su una maison si propone **canale per canale**: una riga di dodici mesi per
   // ogni linea di business. Sta in uno stato separato perché è una forma
@@ -80,6 +85,7 @@ export function PropostaForm({
         ruolo,
         ambitoTipo,
         ambitoSlug,
+        fonte,
         note: note.trim() || null,
         // **Si mandano solo i mesi che si sono davvero proposti.** Mandare uno
         // zero per i mesi già chiusi sembrava innocuo — la casella è bloccata,
@@ -140,6 +146,17 @@ export function PropostaForm({
               ))}
             </optgroup>
           </select>
+        </div>
+        <div>
+          <label className="field-label">Da dove nascono questi numeri</label>
+          <select value={fonte} onChange={(e) => setFonte(e.target.value)}>
+            <option value="adv-web">Pubblicità web</option>
+            <option value="commerciale">Team commerciale</option>
+          </select>
+          <div className="muted" style={{ fontSize: 11.5, marginTop: 4, maxWidth: 320 }}>
+            Il budget di un mese è la <strong>somma</strong> di più contributi. Dicendolo qui, questa proposta
+            scrive <strong>solo la propria riga</strong> e non cancella quella dell&apos;altra squadra.
+          </div>
         </div>
       </div>
 

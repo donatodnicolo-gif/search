@@ -81,14 +81,18 @@ async function main() {
         ["EVENTI", row.eventi],
         ["B2B", row.b2b],
       ]) {
+        // Il seed scrive la fonte **iniziale**: e il budget che arriva dal file
+        // di monitoraggio. Sopra ci si sommano la pubblicita web e il team
+        // commerciale, ognuno sulla propria riga — cosi rilanciare il seed non
+        // cancella il loro lavoro.
         await prisma.budgetEntry.upsert({
           where: {
-            year_maisonId_month_canale: {
-              year: YEAR, maisonId: maison.id, month: row.month, canale,
+            year_maisonId_month_canale_fonte: {
+              year: YEAR, maisonId: maison.id, month: row.month, canale, fonte: "iniziale",
             },
           },
           update: { vendite },
-          create: { year: YEAR, maisonId: maison.id, month: row.month, canale, vendite },
+          create: { year: YEAR, maisonId: maison.id, month: row.month, canale, fonte: "iniziale", vendite },
         });
       }
       const venditeTot = row.d2c + row.eventi + row.b2b;

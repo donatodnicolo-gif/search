@@ -72,10 +72,25 @@ export type TeamBudget = {
   note: string | null;
 };
 
+// **Da dove nasce un pezzo di budget.** Non è un'etichetta descrittiva: decide
+// che cosa un consolidamento sovrascrive. Ogni squadra scrive solo la propria
+// riga, e il budget del mese è la somma di tutte.
+export const FONTI = [
+  { key: "iniziale", nome: "Budget iniziale", aiuto: "quello che veniva dal file di monitoraggio caricato a inizio anno" },
+  { key: "adv-web", nome: "Pubblicità web", aiuto: "le vendite che nascono dalle campagne: le propone chi gestisce l'ADV" },
+  { key: "commerciale", nome: "Team commerciale", aiuto: "quello che porta la rete di vendita, sopra il resto" },
+];
+
+export const nomeFonte = (key: string) => FONTI.find((f) => f.key === key)?.nome ?? key;
+
 export type MeseMaison = {
   month: number;
-  // vendite pubblicate per slug di tipologia
+  // vendite pubblicate per slug di tipologia: **la somma di tutte le fonti**
   vendite: Record<string, number>;
+  // Le stesse vendite spaccate per fonte — `vendite[canale]` è la somma di
+  // `perFonte[canale][*]`. Serve a far vedere di chi è ogni pezzo, e a far
+  // sovrascrivere a ciascuna squadra solo il suo.
+  perFonte: Record<string, Record<string, number>>;
   advPercent: number;
   advPubblicato: number;
 };
@@ -128,14 +143,22 @@ export async function caricaAnno(year = ANNO_CORRENTE): Promise<DatiAnno> {
     const mesi: MeseMaison[] = [];
     for (let month = 1; month <= 12; month++) {
       const adv = advs.find((a) => a.maisonId === m.id && a.month === month);
+      // **Il budget di un canale è la SOMMA delle sue fonti**, non una riga
+      // sola: sullo stesso mese ci scrivono la pubblicità web e il team
+      // commerciale, e prima di questo (31/07/2026) l'una cancellava l'altra
+      // perché la casella era una.
       const vendite: Record<string, number> = {};
+      const perFonte: Record<string, Record<string, number>> = {};
       for (const t of tipologie) {
-        vendite[t.slug] =
-          entries.find((e) => e.maisonId === m.id && e.month === month && e.canale === t.slug)?.vendite ?? 0;
+        const righe = entries.filter((e) => e.maisonId === m.id && e.month === month && e.canale === t.slug);
+        vendite[t.slug] = righe.reduce((s, e) => s + e.vendite, 0);
+        perFonte[t.slug] = {};
+        for (const e of righe) perFonte[t.slug][e.fonte] = (perFonte[t.slug][e.fonte] ?? 0) + e.vendite;
       }
       mesi.push({
         month,
         vendite,
+        perFonte,
         advPercent: adv?.percent ?? 0,
         advPubblicato: adv?.budgetPubblicato ?? 0,
       });

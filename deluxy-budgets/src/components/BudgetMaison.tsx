@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import Link from "next/link";
 import { eur, MESI, pct } from "@/lib/format";
 
@@ -22,6 +23,7 @@ export function BudgetMaison({
   maison,
   tipologie,
   mesi,
+  fonti,
   molt,
   origini,
   approvate,
@@ -29,7 +31,14 @@ export function BudgetMaison({
 }: {
   maison: string;
   tipologie: { slug: string; nome: string }[];
-  mesi: { month: number; vendite: Record<string, number>; advPercent: number; advPubblicato: number }[];
+  mesi: {
+    month: number;
+    vendite: Record<string, number>;
+    perFonte: Record<string, Record<string, number>>;
+    advPercent: number;
+    advPubblicato: number;
+  }[];
+  fonti: { key: string; nome: string; aiuto: string }[];
   molt: number;
   // chiave `canale|mese` → chi ha proposto quel numero
   origini: Record<string, OrigineCella>;
@@ -95,34 +104,56 @@ export function BudgetMaison({
               </tr>
             </thead>
             <tbody>
+              {/* Il totale della linea in grassetto e sotto **i contributi che
+                  lo compongono**: la pubblicità web, il team commerciale, il
+                  budget iniziale. Il budget di un mese è la loro somma, e
+                  vederli separati è l'unico modo per sapere di chi è il numero
+                  — e per accorgersi se una squadra non ha ancora proposto. */}
               {tipologie.map((t) => (
-                <tr key={t.slug}>
-                  <td style={{ fontWeight: 500 }}>{t.nome}</td>
-                  {mesi.map((_, i) => {
-                    const v = valore(t.slug, i);
-                    const da = origini[`${t.slug}|${i + 1}`];
-                    return (
-                      <td className={`num ${v ? "" : "muted"}`} key={i}>
-                        {/* Il pallino dice «questo numero l'ha proposto
-                            qualcuno e qualcuno l'ha approvato». Senza, un budget
-                            e l'altro si somigliano, e non si sa più chi ha
-                            promesso cosa. */}
-                        {v ? eur(v) : "—"}
-                        {da && (
-                          <span
-                            title={`Proposta di ${da.autore}, approvata e consolidata il ${da.il}`}
-                            style={{ color: "var(--green)", marginLeft: 4, fontSize: 11 }}
-                          >
-                            ●
-                          </span>
-                        )}
-                      </td>
-                    );
-                  })}
-                  <td className="num" style={{ fontWeight: 600 }}>
-                    {eur(mesi.reduce((s, _, i) => s + valore(t.slug, i), 0))}
-                  </td>
-                </tr>
+                <Fragment key={t.slug}>
+                  <tr style={{ fontWeight: 600 }}>
+                    <td>{t.nome}</td>
+                    {mesi.map((_, i) => {
+                      const v = valore(t.slug, i);
+                      const da = origini[`${t.slug}|${i + 1}`];
+                      return (
+                        <td className={`num ${v ? "" : "muted"}`} key={i}>
+                          {v ? eur(v) : "—"}
+                          {da && (
+                            <span
+                              title={`Proposta di ${da.autore}, approvata e consolidata il ${da.il}`}
+                              style={{ color: "var(--green)", marginLeft: 4, fontSize: 11 }}
+                            >
+                              ●
+                            </span>
+                          )}
+                        </td>
+                      );
+                    })}
+                    <td className="num">{eur(mesi.reduce((s, _, i) => s + valore(t.slug, i), 0))}</td>
+                  </tr>
+                  {fonti
+                    .filter((f) => mesi.some((m) => (m.perFonte[t.slug]?.[f.key] ?? 0) !== 0))
+                    .map((f) => (
+                      <tr key={`${t.slug}-${f.key}`}>
+                        <td style={{ paddingLeft: 26, fontSize: 12.5 }}>
+                          <span className="muted" style={{ marginRight: 6 }}>↳</span>
+                          {f.nome}
+                        </td>
+                        {mesi.map((m, i) => {
+                          const v = (m.perFonte[t.slug]?.[f.key] ?? 0) * molt;
+                          return (
+                            <td className={`num ${v ? "muted" : "muted"}`} key={i} style={{ fontSize: 12.5 }}>
+                              {v ? eur(v) : "—"}
+                            </td>
+                          );
+                        })}
+                        <td className="num muted" style={{ fontSize: 12.5 }}>
+                          {eur(mesi.reduce((s, m) => s + (m.perFonte[t.slug]?.[f.key] ?? 0), 0) * molt)}
+                        </td>
+                      </tr>
+                    ))}
+                </Fragment>
               ))}
               <tr className="tot">
                 <td>Totale vendite</td>

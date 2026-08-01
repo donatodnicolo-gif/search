@@ -45,6 +45,10 @@ export async function POST(req: Request) {
       ruolo: typeof body.ruolo === "string" ? body.ruolo : "Responsabile",
       ambitoTipo,
       ambitoSlug: ambitoTipo === "GLOBALE" ? null : (body.ambitoSlug ?? null),
+      // Da quale lavoro nascono questi numeri. Non è una nota: decide su quale
+      // riga di budget atterrano e quindi che cosa il consolidamento
+      // sovrascrive — la propria fonte, mai quella degli altri.
+      fonte: ["adv-web", "commerciale"].includes(body.fonte) ? body.fonte : "adv-web",
       note: typeof body.note === "string" ? body.note : null,
       valori: JSON.stringify(
         valori.map((v) => ({

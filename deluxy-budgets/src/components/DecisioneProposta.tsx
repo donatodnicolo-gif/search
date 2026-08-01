@@ -12,6 +12,8 @@ export function DecisioneProposta({
   tipologie,
   valori = [],
   budgetAttuale = {},
+  fonteProposta = "adv-web",
+  fonti = [],
 }: {
   id: string;
   stato: string;
@@ -28,11 +30,19 @@ export function DecisioneProposta({
   // portava con sé degli zeri sui mesi già chiusi, e nessuna schermata lo
   // diceva. La causa è stata tolta (una proposta non contiene più i mesi che
   // non propone), ma la difesa vera è vedere il prima e il dopo.
+  // Chiave `canale|fonte` → dodici mesi. **Il confronto si fa sulla stessa
+  // fonte**: mettere la proposta della pubblicità accanto al totale del canale
+  // — che comprende anche il commerciale e il budget iniziale — mostrerebbe un
+  // crollo enorme che non avverrà, visto che il consolidamento tocca solo la
+  // sua riga.
   budgetAttuale?: Record<string, number[]>;
+  fonteProposta?: string;
+  fonti?: { key: string; nome: string; aiuto: string }[];
 }) {
   const router = useRouter();
   const [nota, setNota] = useState("");
   const [canale, setCanale] = useState(tipologie[0]?.slug ?? "");
+  const [fonte, setFonte] = useState(fonteProposta);
   const [busy, setBusy] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
   const [fatto, setFatto] = useState<string | null>(null);
@@ -68,7 +78,7 @@ export function DecisioneProposta({
     .sort((a, b) => (a.canale ?? "").localeCompare(b.canale ?? "") || a.month - b.month)
     .map((v) => {
       const suQuale = v.canale ?? canale;
-      return { ...v, suQuale, prima: (budgetAttuale[suQuale] ?? [])[v.month - 1] ?? 0 };
+      return { ...v, suQuale, prima: (budgetAttuale[`${suQuale}|${fonte}`] ?? [])[v.month - 1] ?? 0 };
     });
   const perde = righe.filter((r) => r.prima > 0 && r.valore < r.prima);
   const persi = perde.reduce((s, r) => s + (r.prima - r.valore), 0);
@@ -94,7 +104,7 @@ export function DecisioneProposta({
     const res = await fetch("/api/proposte/decisione", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, canale }),
+      body: JSON.stringify({ id, canale, fonte }),
     });
     setBusy(false);
     const b = await res.json().catch(() => null);
@@ -166,13 +176,27 @@ export function DecisioneProposta({
                 la proposta dice già su quali linee va
               </span>
             )}
+            {/* Su quale **riga** del budget atterra. Non è una etichetta: il
+                budget di un mese è la somma dei contributi, e questa scelta
+                decide quale dei tre viene riscritto — gli altri restano. */}
+            {fonti.length > 0 && (
+              <label style={{ display: "grid", gap: 4, fontSize: 12.5 }}>
+                Si somma come
+                <select value={fonte} onChange={(e) => setFonte(e.target.value)}>
+                  {fonti.map((f) => (
+                    <option key={f.key} value={f.key}>{f.nome}</option>
+                  ))}
+                </select>
+              </label>
+            )}
             <button className="btn" disabled={busy} onClick={consolida}>
               {busy ? "Scrivo…" : `Consolida ${quante} nel budget`}
             </button>
           </div>
 
           {/* Cosa cambia, prima di premere. Una proposta scrive **solo i mesi
-              che contiene**: gli altri restano come sono, e si vede. */}
+              che contiene** e **solo la propria fonte**: tutto il resto resta
+              dov'è, e si vede. */}
           {righe.length > 0 && (
             <div className="table-wrap" style={{ marginTop: 12 }}>
               <table>
@@ -180,7 +204,7 @@ export function DecisioneProposta({
                   <tr>
                     {conCanale && <th>Linea</th>}
                     <th>Mese</th>
-                    <th className="num">A budget oggi</th>
+                    <th className="num">Su questa fonte oggi</th>
                     <th className="num">Dalla proposta</th>
                     <th className="num">Differenza</th>
                   </tr>

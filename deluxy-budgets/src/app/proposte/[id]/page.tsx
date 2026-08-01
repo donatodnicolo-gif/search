@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { caricaAnno } from "@/lib/calc";
+import { caricaAnno, FONTI, nomeFonte } from "@/lib/calc";
 import { eur, MESI } from "@/lib/format";
 import { DecisioneProposta } from "@/components/DecisioneProposta";
 
@@ -58,10 +58,16 @@ export default async function DettaglioProposta({ params }: { params: Promise<{ 
   // è un bottone che riscrive il budget pubblicato senza far vedere cosa
   // toglie — ed è così che il 31/07/2026 sono spariti 692.728 € di budget
   // Deluxy.it su gennaio-giugno.
+  // Chiave `canale|fonte`: il confronto si fa **sulla stessa fonte**, perché il
+  // consolidamento riscrive solo quella. Metterlo accanto al totale del canale
+  // — che comprende anche il commerciale e il budget iniziale — mostrerebbe un
+  // crollo enorme che non avverrà.
   const budgetAttuale: Record<string, number[]> = {};
   if (maison) {
     for (const t of dati.tipologie) {
-      budgetAttuale[t.slug] = maison.mesi.map((m) => m.vendite[t.slug] ?? 0);
+      for (const f of FONTI) {
+        budgetAttuale[`${t.slug}|${f.key}`] = maison.mesi.map((m) => m.perFonte[t.slug]?.[f.key] ?? 0);
+      }
     }
   }
 
@@ -71,7 +77,8 @@ export default async function DettaglioProposta({ params }: { params: Promise<{ 
         <div>
           <h1 className="page-title">Proposta di {p.autore}</h1>
           <p className="page-caption">
-            {p.ruolo} · {ambito} · budget {p.year} · inviata il {p.createdAt.toLocaleDateString("it-IT")}
+            {p.ruolo} · {ambito} · budget {p.year} · <strong>{nomeFonte(p.fonte)}</strong> · inviata il{" "}
+            {p.createdAt.toLocaleDateString("it-IT")}
           </p>
         </div>
         <div className="page-actions">
@@ -206,6 +213,8 @@ export default async function DettaglioProposta({ params }: { params: Promise<{ 
         tipologie={dati.tipologie.map((t) => ({ slug: t.slug, nome: t.nome }))}
         valori={valori}
         budgetAttuale={budgetAttuale}
+        fonteProposta={p.fonte}
+        fonti={FONTI}
       />
     </>
   );

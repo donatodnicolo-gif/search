@@ -192,6 +192,33 @@ pubblicato), *sfidante* e *irraggiungibile*.
   > secondo semestre il totale del mese è spaccato in percentuali fisse (10/20/70, 10/90), nel primo
   > no. Va confrontato col foglio prima di leggere qualsiasi scostamento di quel brand.
 
+  ### Il budget di un mese è una SOMMA, non un numero solo (31/07/2026)
+
+  Regola dell'utente, e cambia il modello dei dati: le vendite che nascono dalla **pubblicità web**
+  le propone chi gestisce l'ADV; sopra ci si somma il budget del **team commerciale**, che nasce da
+  tutt'altro lavoro. Finché la casella era una sola, consolidare la proposta di una squadra
+  **cancellava quella dell'altra** — misurato sulla proposta di Deluxy.it: **648.404 €** sarebbero
+  spariti in un clic, e nessuno avrebbe saputo di chi era il numero cancellato.
+
+  `BudgetEntry` ha quindi una colonna **`fonte`** (`iniziale` · `adv-web` · `commerciale`) e la
+  chiave unica diventa `(anno, maison, mese, canale, fonte)`. Conseguenze, tutte volute:
+
+  - il budget di un canale in un mese è la **somma delle sue fonti** (`caricaAnno` le somma e porta
+    anche `perFonte` per mostrarle separate);
+  - **ogni squadra sovrascrive solo la propria riga**: le altre restano dove sono;
+  - **riconsolidare due volte la stessa proposta non raddoppia niente** — riscrive la stessa riga;
+  - il **seed** scrive `iniziale`, quindi rilanciarlo non cancella il lavoro delle squadre.
+
+  La proposta dichiara da dove nasce (campo `fonte`, scelto nel modulo), e chi consolida può
+  cambiarlo — una proposta può essere stata scritta prima che la distinzione esistesse. **L'anteprima
+  del consolidamento confronta la stessa fonte**, non il totale del canale: metterla accanto al
+  totale mostrerebbe un crollo enorme che non avverrà.
+
+  Migrazione fatta con `prisma db push` sul Postgres condiviso: le 180 righe esistenti sono passate
+  a `fonte = "iniziale"`, totali invariati (1.840.404 € sul 2026). Allargare una chiave unica non può
+  creare duplicati — se `(a,b,c,d)` era unica, `(a,b,c,d,e)` lo è per forza — quindi l'avviso di
+  «possibile perdita di dati» di Prisma era generico.
+
   **Il budget non si digita: si propone, si approva, si consolida** (31/07/2026). Per qualche ora
   questa griglia è stata modificabile ed era la strada sbagliata — correzione dell'utente, e la
   ragione va lasciata scritta: **un budget scritto a mano su una pagina non ha un autore, non ha una

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { FONTI, nomeFonte } from "@/lib/calc";
 
 // La risposta dell'admin a una proposta di budget, e — se approvata — il
 // passaggio nel budget ufficiale.
@@ -39,6 +40,10 @@ export async function POST(req: Request) {
   const b = await req.json().catch(() => null);
   const id = String(b?.id ?? "");
   const canale = String(b?.canale ?? "");
+  // La fonte si può cambiare al momento di consolidare: una proposta può essere
+  // stata scritta prima che esistesse questa distinzione, e chi approva sa da
+  // quale lavoro nasce.
+  const fonteRichiesta = String(b?.fonte ?? "");
   if (!id) return NextResponse.json({ error: "id mancante" }, { status: 400 });
 
   const p = await prisma.propostaBudget.findUnique({ where: { id } });
@@ -73,15 +78,27 @@ export async function POST(req: Request) {
     }
     const maison = await prisma.maison.findUnique({ where: { slug: p.ambitoSlug ?? "" } });
     if (!maison) return NextResponse.json({ error: "maison non trovata" }, { status: 404 });
+    // **Si scrive solo la propria fonte.** Il budget di un mese è la somma dei
+    // contributi — pubblicità web, team commerciale, budget iniziale — e
+    // ciascuno tocca il suo. Prima la casella era una sola: consolidare la
+    // proposta della pubblicità cancellava il lavoro degli altri, e su
+    // Deluxy.it sarebbero stati 648.404 € spariti in un clic. Come effetto
+    // secondario, riconsolidare due volte la stessa proposta non raddoppia
+    // niente: si riscrive la stessa riga.
+    const fonte = FONTI.some((f) => f.key === fonteRichiesta) ? fonteRichiesta : p.fonte;
     for (const v of daScrivere) {
       await prisma.budgetEntry.upsert({
-        where: { year_maisonId_month_canale: { year: p.year, maisonId: maison.id, month: v.month, canale: v.canale } },
-        create: { year: p.year, maisonId: maison.id, month: v.month, canale: v.canale, vendite: v.valore },
+        where: {
+          year_maisonId_month_canale_fonte: {
+            year: p.year, maisonId: maison.id, month: v.month, canale: v.canale, fonte,
+          },
+        },
+        create: { year: p.year, maisonId: maison.id, month: v.month, canale: v.canale, fonte, vendite: v.valore },
         update: { vendite: v.valore },
       });
     }
     const voci = [...new Set(daScrivere.map((v) => v.canale))].join(", ");
-    const dove = `${maison.nome} · ${voci}`;
+    const dove = `${maison.nome} · ${voci} · ${nomeFonte(fonte)}`;
     await prisma.propostaBudget.update({
       where: { id },
       data: { consolidataIl: new Date(), consolidataSu: dove },

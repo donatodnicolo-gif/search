@@ -53,11 +53,25 @@ model BudgetEntry {
   year     Int
   month    Int // 1..12
   canale   String // slug di TipologiaServizio (D2C, EVENTI, B2B, …)
+  // **Da dove nasce questo pezzo di budget** (31/07/2026, regola dell utente).
+  //
+  // Il budget di un mese non e un numero solo: e la **somma di piu contributi**.
+  // Le vendite che arrivano dalla pubblicita web le propone chi gestisce l ADV;
+  // sopra ci si somma il budget del **team commerciale**, che nasce da tutt
+  // altro lavoro. Tenerli in una casella sola costringeva a sovrascrivere:
+  // consolidare la proposta della pubblicita cancellava il lavoro dei
+  // commerciali e viceversa — su Deluxy.it sarebbero stati 648.404 € spariti in
+  // un clic, senza che si sapesse di chi era il numero cancellato.
+  //
+  // Con la fonte sulla riga ogni squadra scrive **solo la propria**, il budget e
+  // la somma, e riconsolidare due volte la stessa proposta non raddoppia
+  // niente. `iniziale` e quello che veniva dal file di monitoraggio.
+  fonte    String @default("iniziale") // iniziale | adv-web | commerciale
   vendite  Float  @default(0)
   maison   Maison @relation(fields: [maisonId], references: [id], onDelete: Cascade)
   maisonId String
 
-  @@unique([year, maisonId, month, canale])
+  @@unique([year, maisonId, month, canale, fonte])
 }
 
 // Scenari su 3 livelli con moltiplicatore sul budget pubblicato e premio
@@ -245,7 +259,12 @@ model PropostaBudget {
   ruolo      String   @default("Responsabile")
   ambitoTipo String // MAISON | LINEA | GLOBALE
   ambitoSlug String? // slug della maison o della linea
-  valori     String // JSON: [{month, valore}] × 12
+  valori     String // JSON: [{month, canale?, valore}]
+  // Da quale lavoro nascono questi numeri: la pubblicita web o il team
+  // commerciale. Decide **su quale riga di budget** atterrano, e quindi che
+  // cosa il consolidamento sovrascrive — la propria fonte, mai quella degli
+  // altri.
+  fonte      String   @default("adv-web") // adv-web | commerciale
   note       String?
   stato      String   @default("INVIATA") // BOZZA | INVIATA | APPROVATA | RESPINTA
   // La risposta dell admin: chi manda un budget deve sapere se e stato preso e
