@@ -1,10 +1,12 @@
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/Badge";
 import { GraficoSpesa } from "@/components/GraficoSpesa";
+import { SceltaPeriodo } from "@/components/SceltaPeriodo";
 import { SelettoreStato } from "@/components/SelettoreStato";
 import { Sidebar } from "@/components/Sidebar";
 import { cambiaStatoGruppo, creaOperazioneGruppo } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
+import { periodoApp } from "@/lib/periodo-condiviso";
 import {
   COLORE_BRAND,
   ETICHETTA_BRAND,
@@ -19,8 +21,7 @@ import {
   ETICHETTA_STATO_GRUPPO,
   ETICHETTA_STATO_PIATTAFORMA,
   ETICHETTA_TIPO_GRUPPO,
-  GIORNI_LETTURA,
-  daGiorni,
+
   letturaRoas,
   STATI_GRUPPO,
 } from "@/lib/gruppi";
@@ -35,23 +36,36 @@ export default async function SchedaGruppo({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ bloccata?: string }>;
+  searchParams: Promise<{ bloccata?: string; preset?: string; da?: string; a?: string }>;
 }) {
   const { id } = await params;
-  const { bloccata } = await searchParams;
+  const sp = await searchParams;
+  const { bloccata } = sp;
+
+  // Il periodo è quello condiviso di tutta l'app, come sulla scheda campagna.
+  // Prima qui era inchiodato agli ultimi 30 giorni: su un gruppo fermo da
+  // settimane quella finestra è VUOTA, e la scheda mostrava tutti zeri senza
+  // dire che era una questione di date. Un gruppo con 761 giorni di storia
+  // sembrava non aver mai speso niente.
+  const periodo = await periodoApp(sp);
 
   const gruppo = await prisma.gruppo.findUnique({
     where: { id },
     include: {
       campagna: { select: { id: true, nome: true, brand: true, classe: true, stato: true } },
-      metriche: { orderBy: { data: "desc" }, take: 90 },
+      // Tutte le metriche: il filtro sul periodo si fa qui sotto, e serve
+      // conoscere anche l'ultimo giorno con dati per poterlo dire.
+      metriche: { orderBy: { data: "desc" } },
       operazioni: { orderBy: { creataIl: "desc" }, take: 10 },
     },
   });
   if (!gruppo) notFound();
 
-  const da = daGiorni(GIORNI_LETTURA);
-  const nelPeriodo = gruppo.metriche.filter((m) => m.data >= da);
+  const da = periodo.corrente.da;
+  const nelPeriodo = gruppo.metriche.filter((m) => m.data >= periodo.corrente.da && m.data < periodo.corrente.a);
+  // L'ultimo giorno in cui questo gruppo ha davvero speso: è la risposta alla
+  // domanda «perché è tutto a zero?».
+  const ultimoConDati = gruppo.metriche.find((m) => (m.spesa ?? 0) > 0)?.data ?? null;
   const spesa = nelPeriodo.reduce((s, m) => s + (m.spesa ?? 0), 0);
   const ricavi = nelPeriodo.reduce((s, m) => s + (m.ricavi ?? 0), 0);
   const conversioni = nelPeriodo.reduce((s, m) => s + (m.conversioni ?? 0), 0);
@@ -114,9 +128,33 @@ export default async function SchedaGruppo({
           </div>
         </div>
 
+        <SceltaPeriodo periodo={periodo} da={sp.da} a={sp.a} azione={`/gruppi/${gruppo.id}`} />
+
         {bloccata && (
           <div className="avviso-errore">
             <strong>Bloccata dal change control:</strong> {bloccata}
+          </div>
+        )}
+
+        {/* Zero speso in un periodo non vuol dire zero speso mai. Senza questa
+            riga la scheda di un gruppo fermo è indistinguibile da quella di un
+            gruppo che non ha mai funzionato — e la differenza è tutta. */}
+        {nelPeriodo.length === 0 && (
+          <div className="nota-info">
+            <span className="nota-icona">📅</span>
+            <span>
+              <b>In questo periodo il gruppo non ha dati.</b>{" "}
+              {ultimoConDati ? (
+                <>
+                  L&apos;ultimo giorno in cui ha speso è il <b>{formattaData(ultimoConDati)}</b>: i numeri
+                  qui sotto sono a zero per le date scelte, non perché il gruppo non abbia mai lavorato
+                  (ne ha {formattaNumero(gruppo.metriche.length)} giorni in archivio). Allarga il periodo
+                  qui sopra per vederli.
+                </>
+              ) : (
+                <>Non risulta spesa in nessun giorno: questo gruppo non ha mai erogato.</>
+              )}
+            </span>
           </div>
         )}
 
@@ -124,7 +162,7 @@ export default async function SchedaGruppo({
           <div className="kpi">
             <div className="kpi-valore">{formattaEuro(spesa)}</div>
             <div className="kpi-etichetta">
-              Spesa (ultimi {GIORNI_LETTURA} gg){quota != null ? ` · ${Math.round(quota * 100)}% della campagna` : ""}
+              Spesa nel periodo{quota != null ? ` · ${Math.round(quota * 100)}% della campagna` : ""}
             </div>
           </div>
           <div className="kpi">
