@@ -151,6 +151,21 @@ npm run dev   # http://localhost:3120
 > non ci sono i costi, tutte le pagine che parlano di margine dicono onestamente
 > «non lo sappiamo», e sono tante.
 
+**⚠️ SEGNALATO 30/07/2026 — nelle collezioni da ordinare si vedono pochi (o zero) prodotti.**
+La scheda `/visual/[id]` e le tipologie mostrano **solo i prodotti abbinati per SKU**
+durante l'import (tabella `ProdottoInCollezioneShopify`), non tutti quelli che la
+collezione ha davvero su Shopify. Misurato: **70 collezioni pubblicate su 343 hanno
+zero prodotti qui** pur avendone su Shopify, e molte ne mostrano una frazione — es.
+«Torte Classiche» 127 qui contro **440 su Shopify**, «MATRIMONI» 2 contro 34. È lo
+stesso buco dell'abbinamento (2.060 prodotti di Gifts non agganciati, vedi «1.377
+senza fornitore»): l'import lega per SKU di variante → codice → titolo normalizzato,
+e quello che non combacia resta fuori. **Da fare**: (a) migliorare l'abbinamento
+(provare il nome normalizzato, riusando `normalizza()` di `riconciliazione.ts`),
+oppure (b) all'import leggere e salvare **tutti** i prodotti della collezione dal
+lato Shopify (`collection.products`), non solo quelli già a catalogo qui, creando le
+schede mancanti come fa `prodotti:da-vendite`. La pagina già dichiara «X prodotti
+conosciuti»: il numero non è sbagliato, è la copertura dell'abbinamento a essere bassa.
+
 **I tre che sbloccano il resto**
 1. **Costi di produzione: nessun prodotto ne ha uno.** Conseguenze a catena, tutte già visibili: `/costi` non ha niente da confrontare col target; le griglie non possono mostrare marginalità; **ogni prodotto composto** creato in `/multi-prodotto` esce con costo «non lo sappiamo» e margine non calcolabile. Nell'anagrafica c'è già il filtro «senza costo di produzione» e l'export CSV con gli stessi filtri, pensato apposta per compilarli in foglio di calcolo — manca il **reimport del CSV compilato**, che oggi non esiste.
 2. **Classificazione: 2.163 prodotti su 2.171 sono `DA_CLASSIFICARE`** e **nessuna linea è stata creata** (`/linee` dice 0, tutti i prodotti in «senza linea»). Categoria interna e linea sono le due lenti *nostre*: finché sono vuote, `/categorie`, `/linee` e metà delle griglie girano a vuoto. Gli strumenti ci sono tutti (classificazione dalla riga in anagrafica, vocabolario per l'AI in `vocabolarioPerAI()`); manca **l'AI che propone** la categoria leggendo le descrizioni — è il pezzo per cui il vocabolario era stato scritto.
