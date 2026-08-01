@@ -232,8 +232,14 @@ console.log(`  geocodificate: ${coord.size} | senza coordinate: ${falliti}`);
 // ── 4. Prepara i record ─────────────────────────────────────────────────────
 const righe = [];
 for (const p of partners) {
-  const c = coord.get(p.id) ?? gia.get(p.id);
-  if (!c || !isFinite(c.lat) || !isFinite(c.lng)) continue; // senza coordinate Scout non può mapparla
+  // ⚠️ SENZA COORDINATE SI IMPORTA LO STESSO, a 0,0 (decisione utente
+  // 31/07/2026). Prima si saltava — e 196 anagrafiche su 1012 restavano fuori
+  // da Scout senza che nulla lo dicesse: un'esclusione silenziosa, che è il
+  // modo peggiore di perdere dei dati. Lo 0,0 non è una posizione vera ed è
+  // riconoscibile come tale: la sezione **Riconciliazione** le elenca e ci fa
+  // mettere l'indirizzo. È la stessa scelta della Edge Function `partner`.
+  const trovata = coord.get(p.id) ?? gia.get(p.id);
+  const c = trovata && isFinite(trovata.lat) && isFinite(trovata.lng) ? trovata : { lat: 0, lng: 0 };
   const catOrig = (p.categoria || 'ALTRO').toUpperCase().trim();
   righe.push({
     aid: p.id,

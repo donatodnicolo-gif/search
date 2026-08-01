@@ -40,6 +40,9 @@ const SEZIONI: { titolo: string; voci: Voce[] }[] = [
       { name: 'lead', label: 'Richieste Web', icon: 'globe-outline' },
       // Quarto canale: non li troviamo noi, ce li passa un'altra app.
       { name: 'segnalati', label: 'Segnalazioni CS', icon: 'cube-outline' },
+      // Quello che l'import non ha potuto decidere da solo: posizioni mancanti
+      // e schede che forse sono lo stesso negozio.
+      { name: 'riconciliazione', label: 'Riconciliazione', icon: 'git-merge-outline' },
     ],
   },
   {
@@ -380,6 +383,7 @@ export default function AppLayout() {
         {/* Le schermate del 28/07 non avevano un titolo dichiarato: senza, la
             testata mostra il nome della rotta («segnalati», «province»…). */}
         <Drawer.Screen name="segnalati" options={{ title: 'Segnalazioni CS' }} />
+        <Drawer.Screen name="riconciliazione" options={{ title: 'Riconciliazione' }} />
         <Drawer.Screen name="province" options={{ title: 'Province · Copertura' }} />
         <Drawer.Screen name="interessi" options={{ title: 'Per interesse' }} />
         <Drawer.Screen name="sequenze" options={{ title: 'Sequenze' }} />
