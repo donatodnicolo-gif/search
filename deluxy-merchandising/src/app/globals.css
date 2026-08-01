@@ -63,7 +63,12 @@ a { color: inherit; text-decoration: none; }
   border-right: 1px solid var(--hairline);
   transition: margin-left 240ms var(--ease), opacity 200ms var(--ease);
 }
-[data-sidebar-chiusa] .sidebar { margin-left: -250px; opacity: 0; pointer-events: none; }
+/* Il richiudersi della barra è **solo da schermo grande**: sotto gli 800px
+   diventa un pannello a scomparsa con una logica sua (in fondo al file), e
+   queste regole le darebbero contro. */
+@media (min-width: 801px) {
+  [data-sidebar-chiusa] .sidebar { margin-left: -250px; opacity: 0; pointer-events: none; }
+}
 
 .sb-label {
   font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
@@ -95,7 +100,57 @@ a { color: inherit; text-decoration: none; }
 .sb-count { font-size: 12px; color: var(--text-tertiary); font-weight: 400; }
 .sb-dot { display: block; width: 8px; height: 8px; border-radius: 50%; margin: 0 auto; }
 
-@media (max-width: 800px) { .sidebar { display: none; } }
+/* ---------- Il menu su schermo piccolo ----------
+   Prima qui c'era `display: none`: la barra spariva e **non c'era modo di
+   aprirla**, perché il bottone agisce su margine e opacità e `display` vince su
+   tutto. Ora è un pannello a scomparsa: sta fuori schermo e rientra quando si
+   tocca il bottone, con un velo dietro per tornare al contenuto.
+   Il velo e il pannello partono **chiusi a ogni caricamento**: un menu che si
+   ritrova aperto da solo copre la pagina che si voleva leggere. */
+.velo-menu { display: none; }
+
+@media (max-width: 800px) {
+  .sidebar {
+    position: fixed;
+    top: 63px;
+    left: 0;
+    bottom: 0;
+    height: auto;
+    width: 82vw;
+    max-width: 300px;
+    flex: none;
+    z-index: 60;
+    margin-left: 0;
+    opacity: 1;
+    transform: translateX(-101%);
+    transition: transform 240ms var(--ease);
+    box-shadow: var(--ombra-m, 0 8px 30px rgba(0, 0, 0, 0.18));
+  }
+  [data-menu-aperto] .sidebar { transform: translateX(0); }
+
+  .velo-menu {
+    display: block;
+    position: fixed;
+    inset: 63px 0 0 0;
+    z-index: 55;
+    background: rgba(0, 0, 0, 0.34);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 200ms var(--ease);
+    border: 0;
+    padding: 0;
+    width: 100%;
+  }
+  [data-menu-aperto] .velo-menu { opacity: 1; pointer-events: auto; }
+
+  /* Col pannello fuori dal flusso il contenuto prende tutta la larghezza. */
+  .main { padding: 24px 16px 56px; }
+}
+
+/* Dove non c'è una barra laterale — la pagina di accesso — il bottone non ha
+   niente da aprire: mostrarlo vorrebbe dire un velo scuro sopra il nulla. */
+body:not(:has(.sidebar)) .toggle-sidebar,
+body:not(:has(.sidebar)) .velo-menu { display: none; }
 
 /* ---------- Contenuto ---------- */
 .main { flex: 1; min-width: 0; max-width: 1500px; margin: 0 auto; padding: 40px 24px 64px; }
