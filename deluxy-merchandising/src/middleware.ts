@@ -20,6 +20,13 @@ export async function middleware(req: NextRequest) {
   // se il server e il database rispondono (due booleani).
   if (pathname === "/api/health") return NextResponse.next();
 
+  // /api/cron/* lo chiama il cron di Vercel, che manda l'header
+  // "Authorization: Bearer <CRON_SECRET>" ma **non ha il cookie di sessione**:
+  // passando di qui veniva dirottato al login e il giro automatico non partiva
+  // mai, in silenzio. Ha la sua autenticazione, più forte della password del
+  // team: senza CRON_SECRET la rotta risponde 503 da sola.
+  if (pathname.startsWith("/api/cron/")) return NextResponse.next();
+
   const password = process.env.MERCHANDISING_APP_PASSWORD;
   if (!password || pathname === "/login") return NextResponse.next();
 
@@ -35,5 +42,5 @@ export async function middleware(req: NextRequest) {
 // modo che una modifica futura al codice qui sopra rimetta la password davanti
 // al controllo di stato che legge il Hub.
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|login|api/health|api/v1).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|login|api/health|api/v1|api/cron).*)"],
 };
