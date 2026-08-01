@@ -66,15 +66,47 @@ if (!GKEY) {
 }
 
 /** Esegue SQL sul DB Scout via Management API. */
+/**
+ * Riprova una chiamata di rete che è caduta.
+ *
+ * ⚠️ Serve, e non è prudenza generica: il 31/07/2026 un `ECONNRESET` — una
+ * connessione chiusa dall'altra parte, cosa che capita — ha ucciso un import
+ * intero dopo aver già scaricato 1012 anagrafiche. Con un giro notturno
+ * automatico quel fallimento sarebbe passato inosservato fino al giorno dopo.
+ *
+ * Si riprova solo sugli errori di TRASPORTO: un 400 o un 401 sono risposte, e
+ * ripeterle dà lo stesso risultato più tardi.
+ */
+async function conRiprova(fn, cosa, tentativi = 4) {
+  let ultimo;
+  for (let i = 1; i <= tentativi; i++) {
+    try {
+      return await fn();
+    } catch (e) {
+      ultimo = e;
+      const rete = /fetch failed|ECONNRESET|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|socket hang up/i.test(
+        `${e?.message} ${e?.cause?.code ?? ''}`,
+      );
+      if (!rete || i === tentativi) throw e;
+      const attesa = 1000 * 2 ** (i - 1); // 1s, 2s, 4s
+      console.log(`  rete instabile su ${cosa} (${e?.cause?.code ?? 'errore'}): riprovo fra ${attesa / 1000}s`);
+      await new Promise((r) => setTimeout(r, attesa));
+    }
+  }
+  throw ultimo;
+}
+
 async function sql(query) {
-  const r = await fetch(`https://api.supabase.com/v1/projects/${REF}/database/query`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${PAT}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query }),
-  });
-  const t = await r.text();
-  if (!r.ok) throw new Error(`SQL ${r.status}: ${t.slice(0, 400)}`);
-  return JSON.parse(t || '[]');
+  return conRiprova(async () => {
+    const r = await fetch(`https://api.supabase.com/v1/projects/${REF}/database/query`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${PAT}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query }),
+    });
+    const t = await r.text();
+    if (!r.ok) throw new Error(`SQL ${r.status}: ${t.slice(0, 400)}`);
+    return JSON.parse(t || '[]');
+  }, 'il database');
 }
 
 /** Incapsula un oggetto JS come letterale jsonb dollar-quoted (niente escaping fragile). */
@@ -206,7 +238,7 @@ async function geocodifica(p) {
   const parti = [p.indirizzo, p.citta, p.provincia].filter(Boolean).join(', ');
   if (!parti.trim()) return null;
   const u = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(parti + ', Italia')}&region=it&key=${GKEY}`;
-  const g = await (await fetch(u)).json();
+  const g = await conRiprova(async () => (await fetch(u)).json(), 'Google');
   if (g.status !== 'OK' || !g.results?.length) return null;
   const l = g.results[0].geometry.location;
   return { lat: l.lat, lng: l.lng };
