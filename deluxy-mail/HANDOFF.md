@@ -1,6 +1,6 @@
 # AI Mail 2.0 (deluxy-mail) — Handoff tecnico
 
-> Documento di ripartenza. Aggiornato: **29 luglio 2026**.
+> Documento di ripartenza. Aggiornato: **1 agosto 2026**.
 > Leggi anche `CLAUDE.md` alla radice del repo e il design system in `deluxy-design-system/`.
 
 ---
@@ -16,58 +16,60 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB:** Supabase Postgres, progetto **`feleldlsreurqpdhstla`** («cs@deluxy.it's», piano Pro, eu-west-1), **schema `mail`** — dal 28/07/2026, migrato con `scripts/sposta-database.mjs` (17.484 messaggi, tutte le 31 tabelle verificate riga per riga). ⚠️ Lo stesso database ospita in `public` la piattaforma consegne: lo schema dedicato è ciò che tiene le due app separate — `?schema=mail` va SEMPRE nelle stringhe di connessione (`DATABASE_URL` col pooler 6543 + `&pgbouncer=true`; `DIRECT_URL` col pooler 5432). Il progetto vecchio `sxovckndpmdbqfrfkxhl` (Free, 500 MB, finito in sola lettura a 1,57 GB) resta intatto come rete di sicurezza: **si spegne solo dopo qualche giorno di esercizio sereno del nuovo**, poi si valuta la disdetta di eventuali abbonamenti doppi.
 - **Porta locale:** 3070.
 
-### Dove siamo (29 luglio 2026)
+### Dove siamo (1 agosto 2026)
 
-Tutto committato e **pushato** su `origin/scout-ui`. Le ultime due cose fatte
-sono l'**azione APP DELUXY sulla sezione** (§7, prima voce) — mettere una mail
-in una sezione può chiedere conferma o chiamare l'app da sé — e lo
-**svuota-cestino che non si ferma più cambiando schermata** (§9, prima voce). ⚠️ **Il push non pubblica**: il
-deploy è manuale (`npx vercel --prod --cwd C:/Users/nicol/scoutwt/deluxy-mail`,
-da lanciare come comando **semplice**), quindi prima di dire «è online» va
-verificato che la produzione abbia l'ultimo lavoro.
+Tutto committato e **pushato** su `origin/scout-ui`, e verificato **sul
+contenuto** (non sullo SHA: su questo branch altre sessioni riscrivono la
+storia, quindi si controlla che i file ci siano su `origin`, non che il numero
+del commit combaci). ⚠️ **Il push non pubblica**: il deploy è manuale —
+`npx vercel --prod --cwd C:/Users/nicol/scoutwt/deluxy-mail`, da lanciare come
+comando **semplice** — quindi prima di dire «è online» si verifica che la
+produzione abbia l'ultimo lavoro.
 
-**Cronologia dei lavori:** le voci di §7 sono tutte della sessione del 23 luglio
-(dalla più recente); i lavori del **26-29 luglio** stanno in §9, con la data fra
-parentesi.
+**Cronologia dei lavori:** le voci di §7 sono della sessione del 23 luglio (dalla
+più recente); i lavori dal **26 luglio al 1 agosto** stanno in §9, con la data
+fra parentesi. Le ultime, in ordine: cestinare apre la **mail successiva**;
+**Spam** spostato fra le cartelle (su telefono era introvabile); **scorciatoie da
+tastiera** (`?` per l'elenco); la **conversazione come pila** che si legge senza
+cambiare pagina; le **anteprime ripulite** da link e CSS; e soprattutto
+l'apertura di una mail resa veloce (vedi punto 1 qui sotto).
 
 #### Punti aperti (in ordine di cosa sblocca cosa)
 
-1. **Spegnere il vecchio Supabase** `sxovckndpmdbqfrfkxhl` dopo qualche giorno di
-   esercizio sereno del nuovo (~31/07), verificando che non restino DUE
-   abbonamenti Pro attivi.
+1. **Verificare la velocità** dopo lo spostamento delle funzioni a **dub1**
+   (Dublino, accanto al database): era la causa principale della lentezza
+   — le funzioni giravano a Washington. Se aprire una mail è ancora lento, il
+   prossimo indiziato sono le **due ondate di query** della pagina del
+   messaggio: la seconda aspetta la prima e ora si possono fondere.
 2. **Ruotare i segreti finiti in chat il 28/07**: chiave OpenAI e password del
    database (è la stessa su vecchio e nuovo). Rigenerare, aggiornare Vercel e
    `.env`. **`APP_SECRET` no**: cambiarlo scollegherebbe le caselle.
-3. **Timeout del cron `/api/sync` a 300s**: la lettura posta viene ancora uccisa
+3. **Spegnere il vecchio Supabase** `sxovckndpmdbqfrfkxhl` (il nuovo gira sereno
+   dal 28/07), verificando che non restino DUE abbonamenti Pro attivi.
+4. **Timeout del cron `/api/sync` a 300s**: la lettura posta viene ancora uccisa
    a ogni giro quando c'è arretrato. Registri e pulizia HTML girano prima
    apposta (vedi §9), ma il problema di fondo resta aperto.
-4. **Calendario condiviso spento**: manca la chiave `mail` dell'app
+5. **856 mail vecchie col testo sporco** (804 con `mailto:` incastrati, 56 col
+   CSS): sono tutte **senza HTML nel database** (alleggerite, l'impaginato sta
+   sul server IMAP), quindi `scripts/ripara-testi-sporchi.mjs` non le tocca. In
+   elenco si vedono pulite lo stesso (la pulizia è anche in lettura), ma il
+   testo che legge l'**AI** resta sporco: per sistemarle servirebbe rileggerle
+   dal server una per una.
+6. **Calendario condiviso spento**: manca la chiave `mail` dell'app
    deluxy-calendario (`npm run chiave -- mail --scrittura` in
    `C:\Users\nicol\app\deluxy-calendario`) da incollare in Impostazioni App.
-5. **Scripts**: la chiave qui dev'essere di **scrittura** per salvare le
+7. **Scripts**: la chiave qui dev'essere di **scrittura** per salvare le
    «Risposte rapide» (`npm run chiave -- deluxy-mail --scrittura` in
    deluxy-scripts) e i testi vanno accesi per AI Mail dall'app Scripts.
-6. **Verifica dell'utente** su: apertura di mail vecchie (HTML ripreso dal
-   server, §9), `/attivita` raggruppata per conversazione, Top thread con azioni
-   rapide, e la nuova pagina del messaggio (sotto).
+8. **Da verificare a schermo** (non ho la sessione dell'utente): la pila della
+   conversazione, le scorciatoie (`j`/`k` poi `r` deve rispondere al messaggio a
+   fuoco), la testata compatta, «Spam» nel menu da telefono, e l'invio a
+   Anagrafiche **con stato e interessi** ora che la chiave è di prima parte.
 
-Chiuso il 29/07: il **recupero delle mail scavalcate** (cursori riportati
-indietro su tutte e 5 le caselle, 4 mail vere recuperate; le altre ~16 non sono
-più sulla INBOX del server — doppioni di notifiche ordini e newsletter, nessuna
-perdita operativa).
-
-#### La pagina del messaggio, riorganizzata (29 lug)
-
-Prima del corpo c'erano due schede piene di spiegazioni: aprire una mail voleva
-dire **scorrere per leggerla**. Ora nome della conversazione, PLUS AI, chiudi,
-cestina, aggancia e correlate stanno in una **riga sottile sopra** la mail, coi
-moduli che si aprono a richiesta nei dialoghi di pagina (gli stessi della lista
-Thread); il **dettaglio della conversazione** (riassunto AI, elenco messaggi con
-rispondi/stacca, aggancio) è sceso **sotto** il corpo, raggiungibile con
-«Messaggi» dalla riga: prima si legge, poi si guarda il contesto. Anche la nota
-«l'AI non ha ancora letto» è ridotta a una riga. ⚠️ **Nessuna azione è stata
-tolta** — è una lezione già pagata: per fare spazio si stringe la cornice dei
-comandi, non se ne riduce il numero.
+Chiusi in questi giorni: recupero delle mail scavalcate (29/07); trasloco del
+database (28/07); **166 + 105 mail** col testo riparato (30-31/07); la chiave
+`app-ai-mail` resa **driver di prima parte** in Anagrafiche (31/07), che era ciò
+che impediva a stato commerciale e interessi di arrivare.
 
 **Se riprendi da qui, sappi anche che:**
 
