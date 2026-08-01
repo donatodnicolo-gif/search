@@ -165,6 +165,11 @@ export type CampiAnagrafica = Partial<{
   // l'anno"). Il registro accetta sia gli slug (pp/nuovo/dismesso) sia le
   // etichette che usiamo qui ("P.P.", "Nuovo", "Dismesso").
   statoAnalisi: string;
+  // Come paga il cliente: nasce qui (dalle fatture aperte e dallo scaduto) e
+  // il registro lo mostra al commerciale. Valori ammessi là: regolare |
+  // in_ritardo | insoluto | piano_di_rientro (più da_verificare e bloccato,
+  // che però non li decide un calcolo). Traduzione in `statoPerRegistro()`.
+  statoFinanziario: string;
 }>;
 
 // "Cliente per l'anno" di FINANCE → stato analisi del registro.

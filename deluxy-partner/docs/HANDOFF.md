@@ -168,6 +168,14 @@ Base `https://deluxy-partner.vercel.app`. Auth: header `X-API-Key: <chiave>` (un
 
 Esiti: 200 trovato · 404 non trovato (con `candidati`) · 401 chiave errata · 400 parametro mancante. Auth condivisa in `src/lib/apiauth.ts`.
 
+### Lo stato finanziario torna al registro Anagrafiche (01/08/2026)
+
+**Come paga un cliente lo sa solo FINANCE** — ha fatture, scadenze e scaduto — **ma serve a chi apre il registro prima di andare dal partner.** Finché quel campo restava «da verificare» per tutti, un commerciale poteva firmare con un insoluto senza saperlo. `inviaStatiFinanziari()` in `src/lib/stato-finanziario-registro.ts` manda `statoFinanziario` via PATCH al registro.
+
+⚠️ **I due vocabolari non coincidono** e la traduzione sta in un posto solo (`statoPerRegistro()` in `stato-credito.ts`): qui si guarda l'**anzianità dello scaduto** (`nessuna|regolare|monitorare|ritardo|grave|insoluto`), là **come paga** (`da_verificare|regolare|in_ritardo|insoluto|piano_di_rientro|bloccato`). Mappa: monitorare/ritardo → `in_ritardo`; grave/insoluto → `insoluto`; `Partner.pdrDebito` valorizzato → **`piano_di_rientro`** (un accordo di rientro descrive il rapporto meglio del semaforo). ⚠️ **`nessuna` non si traduce**: chi non ha crediti aperti non si tocca — non avere fatture in giro non dice come paga, e sovrascrivere un giudizio scritto a mano nel registro è peggio del silenzio. **`bloccato` non lo decide un calcolo**: è una scelta di chi tratta col cliente e resta al registro.
+
+⚠️ **Si manda solo quando CAMBIA**, grazie a `Partner.statoFinInviato` (memoria dell'ultimo valore spedito): lo stato qui è ricalcolato ogni volta dalle fatture aperte, e senza quella memoria ogni notte partirebbero un centinaio di PATCH identici e nello storico del registro ogni cliente risulterebbe «cambiato» tutti i giorni. Parte nel **cron delle 5:45** insieme all'import dei clienti (un giro solo), e in `/partner` c'è il bottone **«Aggiorna Anagrafiche»** con quanti stati sono in attesa. Misurato al 01/08/2026: 61 partner collegati al registro, **22 da allineare** (16 regolari, 11 in ritardo, 1 piano di rientro, 1 insoluto sui conteggi grezzi; il calcolo vero applica anche le tolleranze di `/impostazioni/stati`, che ne escludono alcuni), 32 senza crediti aperti e quindi non toccati.
+
 ## 7-bis. Stato finanziario del cliente (credit management) — 23/07/2026
 
 `src/lib/stato-credito.ts` è l'unica fonte: classifica ogni cliente come farebbe un CFO, su due dimensioni tenute separate.

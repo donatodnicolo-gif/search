@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "./db";
 import { importaAttivi, anagraficheAttive, creaDaAnagrafica } from "./importa-registro";
+import { inviaStatiFinanziari } from "./stato-finanziario-registro";
 
 // «Portali in Finance»: l'import a mano, per non aspettare il cron della notte.
 export async function importaAttiviOra() {
@@ -65,6 +66,25 @@ export async function collegaDubbio(fd: FormData) {
     `/partner?importFatto=${encodeURIComponent(
       `${quale}: ${comeCollegata} su «${partner!.nome}». Tutto quello che riguarda questa sede finisce su quell'unica scheda.`
     )}`
+  );
+}
+
+// «Manda gli stati ora»: rispedisce al registro come paga ogni cliente, senza
+// aspettare il giro della notte.
+export async function inviaStatiOra() {
+  const e = await inviaStatiFinanziari();
+  revalidatePath("/partner", "layout");
+  const messaggio = e.errore
+    ? e.errore
+    : e.inviati.length === 0
+      ? `Nessuno stato da aggiornare: i ${e.invariati} clienti collegati risultano già allineati nel registro.`
+      : `${e.inviati.length} stati aggiornati in Anagrafiche (${e.inviati
+          .slice(0, 6)
+          .map((x) => `${x.nome}: ${x.a}`)
+          .join(", ")}${e.inviati.length > 6 ? "…" : ""})` +
+        (e.errori.length ? ` · ${e.errori.length} non riusciti: ${e.errori[0]}` : "");
+  redirect(
+    `/partner?${e.errore || e.errori.length ? "importErrore" : "importFatto"}=${encodeURIComponent(messaggio)}`
   );
 }
 

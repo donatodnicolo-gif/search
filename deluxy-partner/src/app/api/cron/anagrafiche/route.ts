@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { importaAttivi } from "@/lib/importa-registro";
+import { inviaStatiFinanziari } from "@/lib/stato-finanziario-registro";
 import { env, pulisci } from "@/lib/env";
 
 // Ogni notte: i partner diventati ATTIVI nel registro Anagrafiche entrano in
@@ -30,16 +31,31 @@ export async function GET(req: NextRequest) {
 
   try {
     const esito = await importaAttivi("cron");
-    if (esito.errore) return NextResponse.json({ ok: false, errore: esito.errore }, { status: 200 });
     if (esito.creati.length || esito.collegati.length) {
       revalidatePath("/partner", "layout");
       revalidatePath("/", "layout");
     }
+    // Nello stesso giro si rimanda al registro COME PAGA ciascun cliente: è un
+    // dato che nasce qui (fatture e scaduto) e che al registro serve per non
+    // mandare un commerciale a firmare con un insoluto. Parte solo per chi è
+    // cambiato, e non deve far fallire l'import se il registro non risponde.
+    const stati = await inviaStatiFinanziari().catch((e) => ({
+      inviati: [],
+      invariati: 0,
+      errori: [(e as Error).message],
+      errore: undefined,
+    }));
     return NextResponse.json({
-      ok: true,
+      ok: !esito.errore,
+      ...(esito.errore ? { errore: esito.errore } : {}),
       creati: esito.creati.length,
       collegati: esito.collegati.length,
+      daDecidere: esito.dubbi,
       nomi: esito.creati,
+      statiInviati: stati.inviati.length,
+      statiInvariati: stati.invariati,
+      ...(stati.errore ? { statiErrore: stati.errore } : {}),
+      ...(stati.errori.length ? { statiErrori: stati.errori.slice(0, 5) } : {}),
     });
   } catch (e) {
     return NextResponse.json({ errore: (e as Error).message }, { status: 500 });

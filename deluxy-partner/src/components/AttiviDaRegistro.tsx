@@ -1,5 +1,6 @@
 import { attiviDaImportare } from "@/lib/importa-registro";
-import { importaAttiviOra, collegaDubbio, creaDubbioComunque } from "@/lib/importa-actions";
+import { statiDaAllineare } from "@/lib/stato-finanziario-registro";
+import { importaAttiviOra, collegaDubbio, creaDubbioComunque, inviaStatiOra } from "@/lib/importa-actions";
 import { BottoneInvio } from "./BottoneInvio";
 
 // «Nel registro ci sono N clienti che qui non ci sono».
@@ -19,11 +20,36 @@ import { BottoneInvio } from "./BottoneInvio";
 // non la riconosce un confronto di stringhe: qui si mostra e decide una
 // persona.
 export async function AttiviDaRegistro() {
-  const { nuovi, dubbi } = await attiviDaImportare();
-  if (nuovi.length === 0 && dubbi.length === 0) return null;
+  const [{ nuovi, dubbi }, stati] = await Promise.all([attiviDaImportare(), statiDaAllineare()]);
+  if (nuovi.length === 0 && dubbi.length === 0 && stati === 0) return null;
 
   return (
     <div className="card" style={{ padding: 14, marginBottom: 16 }}>
+      {stati > 0 && (
+        <div
+          style={{
+            display: "flex",
+            gap: 12,
+            alignItems: "center",
+            flexWrap: "wrap",
+            marginBottom: nuovi.length || dubbi.length ? 14 : 0,
+          }}
+        >
+          <span className="badge gold">
+            <span className="dot" />
+            {stati} {stati === 1 ? "cliente ha" : "clienti hanno"} uno stato finanziario da mandare al registro
+          </span>
+          <form action={inviaStatiOra} style={{ display: "inline" }}>
+            <BottoneInvio className="btn small secondary" inCorso="Mando…">
+              Aggiorna Anagrafiche
+            </BottoneInvio>
+          </form>
+          <span className="muted" style={{ fontSize: 12 }}>
+            Come paga il cliente lo sa Finance, ma serve a chi apre il registro prima di andarci:
+            parte da solo ogni notte, solo per chi è cambiato.
+          </span>
+        </div>
+      )}
       {nuovi.length > 0 && (
         <>
           <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>

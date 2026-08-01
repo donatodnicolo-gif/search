@@ -63,6 +63,11 @@ model Partner {
   // `anagrafiche` (vedi AnagraficaCollegata).
   anagraficaId           String?  @unique
   anagrafiche            AnagraficaCollegata[]
+  // Ultimo stato finanziario spedito al registro Anagrafiche. Serve a mandare
+  // un aggiornamento SOLO quando cambia: lo stato qui è calcolato ogni volta
+  // dalle fatture aperte, e senza questa memoria ogni notte partirebbero cento
+  // PATCH identici a quelli della notte prima.
+  statoFinInviato        String?
   attivo                 Boolean  @default(true)
   fatture                FatturaServizio[]
   vendite                VenditaVendor[]

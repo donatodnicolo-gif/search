@@ -220,6 +220,42 @@ export const GRAVITA: Record<StatoCredito, number> = {
   nessuna: 0, regolare: 1, monitorare: 2, ritardo: 3, grave: 4, insoluto: 5,
 };
 
+/** Come si dice questo stato nel registro Anagrafiche.
+ *
+ *  I due vocabolari non coincidono: qui si guarda l'ANZIANITÀ dello scaduto
+ *  (monitorare / ritardo / grave), là si guarda COME PAGA il cliente
+ *  (`da_verificare | regolare | in_ritardo | insoluto | piano_di_rientro |
+ *  bloccato`). La traduzione sta qui, in un posto solo.
+ *
+ *  ⚠️ `nessuna` — nessun credito aperto — **non si traduce**: non avere fatture
+ *  in giro non dice come paga. Mandare «regolare» promuoverebbe chi non ha mai
+ *  comprato; mandare «da_verificare» cancellerebbe un giudizio scritto a mano
+ *  nel registro. Meglio non dire niente.
+ *
+ *  ⚠️ `bloccato` non lo decide un calcolo: è una scelta di chi tratta col
+ *  cliente, e resta al registro.
+ */
+export function statoPerRegistro(
+  stato: StatoCredito,
+  opts?: { pianoDiRientro?: boolean }
+): "regolare" | "in_ritardo" | "insoluto" | "piano_di_rientro" | null {
+  // un piano di rientro concordato descrive il rapporto meglio del semaforo:
+  // c'è dello scaduto, ma c'è anche un accordo su come rientrerà
+  if (opts?.pianoDiRientro) return "piano_di_rientro";
+  switch (stato) {
+    case "nessuna":
+      return null;
+    case "regolare":
+      return "regolare";
+    case "monitorare":
+    case "ritardo":
+      return "in_ritardo";
+    case "grave":
+    case "insoluto":
+      return "insoluto";
+  }
+}
+
 function arrotonda(v: number): string {
   return `${Math.round(v).toLocaleString("it-IT")} €`;
 }
