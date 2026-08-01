@@ -396,6 +396,56 @@ sta in un backend Nest, non nel tema Shopify.
    verso quell'endpoint), perche' il codice del wizard sta in `snippets/delivery-date.liquid`, che
    **non e' riscrivibile dall'API**.
 
+### ⚠️ L'ipotesi piu' forte sul 500: il modello non esiste piu'
+
+DALL·E 2 e 3 sarebbero stati **rimossi dall'API di OpenAI il 12/05/2026** (annuncio del
+14/11/2025), sostituiti da `gpt-image-*`. Se `app.deluxy.it` chiama ancora `dall-e-3`, ogni
+richiesta fallisce **a prescindere dalla chiave** — e spiega un 500 costante, veloce e identico
+anche col corpo vuoto meglio di «chiave mancante».
+
+> Questa data **non e' stata verificata direttamente**: viene da un agente e va confermata sulla
+> console OpenAI prima di agire. Costa cinque minuti e cambia la diagnosi.
+
+Seconda conseguenza, se confermata: `gpt-image-1` restituisce **`b64_json`**, non `url`. Il tema
+legge `response.data[0].url`, quindi **anche sistemando la chiave l'immagine non arriverebbe**.
+Chi ripara il legacy deve cambiare **modello e forma della risposta**, non solo la credenziale.
+
+### Progetto per togliere la chiave dalla vetrina (31/7/2026) — NON ancora realizzato
+
+Richiesta del proprietario: spostare la chiave su `deluxy-merchandising`. **Attenzione
+all'equivoco da cui nasce**: far «comunicare la chiave a Shopify» non risolve niente — impostazioni
+del tema, metafield e variabili Liquid finiscono tutti nel sorgente pubblico. L'unica forma che
+funziona e' che **merchandising faccia la chiamata al posto del browser**.
+
+**App Proxy Shopify: conviene, ma in fase 2.** Shopify **firma** le richieste che passano da
+`/apps/…` (HMAC col client secret dell'app): e' l'unico modo, senza login del cliente, di provare
+che la chiamata arriva dalla vetrina — un controllo su `Origin` non lo e', `curl` manda gli header
+che vuole. E merchandising **ha gia' quel segreto** (`clientSecretCifrato` in `src/lib/negozi.ts`):
+zero chiavi nuove. Costo: il negozio dev'essere collegato in modo *credenziali* e non *token*,
+serve lo scope `write_app_proxy` (→ **reinstallazione dell'app**, la stessa che conia il token
+degli import: farlo fuori orario), e prefisso e sottopercorso sono **immutabili** dopo
+l'installazione. Fase 1: chiamata diretta a Vercel. Fase 2: cambia **una sola stringa** nel tema.
+
+**La modifica al tema si fa dall'editor di codice dell'admin**, non dall'API: si salva quello che
+si vede a schermo e il problema dei byte della riga 1580 non si pone.
+
+> ⚠️ **Il piano NON e' pronto da scrivere.** Tre revisori adversariali hanno trovato difetti
+> **certi** nella difesa principale: il tetto giornaliero conta solo i successi (chi fa fallire il
+> salvataggio genera all'infinito) e la riga di registro si scrive 30-90 secondi **dopo** la
+> generazione, quindi 200 richieste in volo leggono tutte lo stesso contatore e passano. Piu':
+> tre percorsi che saltano il limitatore, il messaggio d'eccezione grezzo rimandato a un endpoint
+> anonimo, il matcher del middleware che cancellerebbe `api/cron`, e un budget di tempo che non
+> torna (90 s di timeout OpenAI + caricamento su Shopify Files > 120 s di `maxDuration`).
+
+**Ordine di grandezza del rischio**: ~0,03-0,05 € a immagine. Uno script a una richiesta al secondo
+fa ~150 €/ora; una notte non presidiata supera i **1.000 €**. E' questo numero che rende il tetto
+non negoziabile — e che rende inaccettabile un tetto che non funziona.
+
+**Prerequisito a tutto, e la prova che dice se e' fatto**: la chiave a 64 esadecimali va
+**invalidata** su app.deluxy.it, non solo tolta dalla pagina — le copie archiviate restano
+leggibili per sempre. Verifica: dopo la rotazione il vecchio valore deve rispondere **401**, non
+500.
+
 ### Cosa fare, in ordine
 
 1. Su **`app.deluxy.it`**: verificare la variabile d'ambiente con la chiave OpenAI e il credito
