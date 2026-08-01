@@ -1082,6 +1082,10 @@ export async function creaOperazione(fd: FormData) {
 // Stessa coda approvata delle operazioni campagna. Livelli dal doc 11:
 // negativa puntuale = L0 (libera) · aggiunta keyword = L1 · pausa/attiva = L2.
 export async function creaOperazioneKeyword(fd: FormData) {
+  // Chi chiama può dire dove tornare: la stessa azione parte dalla pagina
+  // Keywords e dalla scheda gruppo, e finire altrove dopo un blocco fa perdere
+  // il filo di quello che si stava guardando.
+  const ritorno = testo(fd, "ritorno") ?? "/keywords";
   const tipo = testo(fd, "tipo");
   const campagnaId = testo(fd, "campagnaId");
   const kwGrezzo = testo(fd, "testo");
@@ -1099,7 +1103,7 @@ export async function creaOperazioneKeyword(fd: FormData) {
   const livello = tipo === "negativa" ? "L0" : tipo === "nuova_keyword" ? "L1" : "L2";
 
   if (campagna.incidenti.length > 0) {
-    redirect(`/keywords?bloccata=${encodeURIComponent(`Freeze ${campagna.incidenti[0].codice}: incidente aperto su ${campagna.nome}`)}`);
+    redirect(`${ritorno}${ritorno.includes("?") ? "&" : "?"}bloccata=${encodeURIComponent(`Freeze ${campagna.incidenti[0].codice}: incidente aperto su ${campagna.nome}`)}`);
   }
   if (livello !== "L0") {
     const inizioSettimana = new Date();
@@ -1118,7 +1122,7 @@ export async function creaOperazioneKeyword(fd: FormData) {
       l2Settimana,
     });
     if (esito.blocchi.length > 0) {
-      redirect(`/keywords?bloccata=${encodeURIComponent(esito.blocchi[0])}`);
+      redirect(`${ritorno}${ritorno.includes("?") ? "&" : "?"}bloccata=${encodeURIComponent(esito.blocchi[0])}`);
     }
   }
 

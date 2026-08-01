@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { AndamentoMensile } from "@/components/AndamentoMensile";
 import { FreschezzaDati } from "@/components/FreschezzaDati";
 import { GuardrailCampagna } from "@/components/GuardrailCampagna";
 import { KeywordCampagna } from "@/components/KeywordCampagna";
@@ -276,42 +277,11 @@ export default async function SchedaCampagna({
             </section>
 
             <section className="scheda">
-              <div className="scheda-titolo">Metriche giornaliere</div>
-              {campagna.metriche.length === 0 ? (
-                <div className="vuoto-mini">Nessuna metrica: aggiungila qui sotto o via API.</div>
-              ) : (
-                <div style={{ overflowX: "auto" }}>
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Giorno</th>
-                        <th className="num">Spesa</th>
-                        <th className="num">Impr.</th>
-                        <th className="num">Click</th>
-                        <th className="num">Conv.</th>
-                        <th className="num">Ricavi</th>
-                        <th className="num">ROAS</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {campagna.metriche.map((m) => {
-                        const rm = roas(m.ricavi, m.spesa);
-                        return (
-                          <tr key={m.id}>
-                            <td className="cella-muta">{formattaData(m.data)}</td>
-                            <td className="num">{formattaEuro(m.spesa)}</td>
-                            <td className="num">{formattaNumero(m.impression)}</td>
-                            <td className="num">{formattaNumero(m.click)}</td>
-                            <td className="num">{formattaNumero(m.conversioni)}</td>
-                            <td className="num">{formattaEuro(m.ricavi)}</td>
-                            <td className="num">{rm != null ? `${rm.toFixed(1)}×` : "—"}</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+              <div className="scheda-titolo">Metriche per mese ({campagna.metriche.length} giorni)</div>
+              <AndamentoMensile
+                metriche={campagna.metriche}
+                vuoto="Nessuna metrica: aggiungila qui sotto o via API."
+              />
             </section>
           </div>
 
