@@ -350,6 +350,61 @@ Il link apre la chat **dentro il sito** (`#deluxy-chat`, iframe `…/widget?tema
 `DeluxyChat.eAperta() === true`), non naviga su chatting.page, e si chiude. **Nessuna pastiglia
 flottante**: `.avvio` è definito nel CSS ma l'elemento non viene creato.
 
+## «Crea con AI» non restituisce nessuna torta (31/7/2026) — il guasto NON e' nel tema
+
+Prodotto `/products/cake-ai-maker`. Alla fine del percorso il wizard dovrebbe mostrare
+l'immagine generata dentro `.aicakeimg`: non arriva niente, e **non compare nessun messaggio**.
+
+### Come funziona
+
+Il tema fa una `POST` a **`https://app.deluxy.it/api/open-ai/generate-image`** (la piattaforma
+legacy, **il cui codice non sta ne' in `scoutwt` ne' in `app`**) con header `x-internal-key` e
+corpo `{prompt}`, e si aspetta `response.data[0].url` — la forma di risposta di DALL·E.
+Nel codice c'e' ancora, commentato, un residuo `http://localhost:3000/open-ai/generate-image`.
+
+### La diagnosi, misurata
+
+| Chiamata | Esito |
+|---|---|
+| chiave `x-internal-key` **sbagliata** | **401** `{"message":"Invalid source"}` |
+| **senza** chiave | **401** `{"message":"Invalid source"}` |
+| chiave **vera**, prompt valido | **500** `{"message":"Internal server error"}` in ~650 ms |
+| chiave vera, prompt **vuoto** | **500**, ~580 ms |
+| chiave vera, **corpo vuoto** (nessun prompt) | **500**, ~1180 ms |
+
+Cosa dicono questi numeri: **la rotta esiste e la chiave e' accettata** (altrimenti 401), quindi
+il problema non e' l'autenticazione ne' il tema. E il 500 arriva **identico e in mezzo secondo
+anche quando non c'e' nessun prompt**: se il guasto fosse dentro la generazione, una richiesta
+senza prompt fallirebbe in modo diverso (validazione, 400) o piu' lentamente. Fallire subito e
+sempre uguale indica che l'errore avviene **prima**, nell'inizializzazione del client OpenAI —
+cioe' **chiave OpenAI mancante, scaduta o senza credito su `app.deluxy.it`**.
+
+Il formato dell'errore (`{statusCode, message, error}`) e' quello predefinito di NestJS: la rotta
+sta in un backend Nest, non nel tema Shopify.
+
+### Due difetti del tema che restano nostri
+
+1. ⚠️ **La chiave interna e' in chiaro nell'HTML pubblico della vetrina** (64 caratteri esadecimali,
+   nell'header `x-internal-key` dentro uno script inline della scheda prodotto). Chiunque apra il
+   sorgente della pagina puo' leggerla e generare immagini **a nostre spese**. Va spostata dietro
+   un app proxy Shopify (`/apps/...`, che gira lato server) oppure ruotata e messa dietro un limite
+   di frequenza. Finche' sta li', ruotarla e basta non risolve: tornerebbe pubblica al primo deploy.
+2. **Il fallimento e' completamente muto.** Il ramo `.fail()` fa solo `console.error`: il loader
+   sparisce, il bottone si riabilita e il cliente non vede **niente**. Per questo sembra rotto
+   invece che «momentaneamente non disponibile». Un messaggio visibile e' l'unica cosa che si puo'
+   correggere lato tema, e va messa in `snippets/all_tags_and_script.liquid` (agganciando l'XHR
+   verso quell'endpoint), perche' il codice del wizard sta in `snippets/delivery-date.liquid`, che
+   **non e' riscrivibile dall'API**.
+
+### Cosa fare, in ordine
+
+1. Su **`app.deluxy.it`**: verificare la variabile d'ambiente con la chiave OpenAI e il credito
+   residuo dell'account. E' li' che si risolve: nessuna modifica al tema fa tornare le immagini.
+2. Far propagare l'errore vero invece di un 500 generico, altrimenti la prossima volta si ricomincia
+   da capo con la stessa diagnosi.
+3. Togliere la chiave interna dalla vetrina.
+4. Rimuovere il residuo `localhost:3000`.
+
 ## Doppia quantita' nel carrello: CORRETTO il 31/7/2026 (tema bozza `182632415555`)
 
 **La causa non era jQuery.** Il bottone «Acquista» del wizard (`#add-to-cart-new-cake-ai`) e' un
