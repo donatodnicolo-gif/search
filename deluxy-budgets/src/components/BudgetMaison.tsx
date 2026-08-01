@@ -258,6 +258,34 @@ export function BudgetMaison({
                       </td>
                     </tr>
                   )}
+                  {/* **La riga del D2C non si somma da sola col consuntivo.**
+                      Sopra c'è il budget (415.000 sull'anno) e sotto il venduto
+                      vero dei mesi chiusi (432.941): due numeri veri che non
+                      rispondono alla domanda «dove si chiude». Questa riga la
+                      risponde per la singola linea, come quella in fondo la
+                      risponde per il totale — e sul D2C serve più che altrove,
+                      perché è l'unica linea che un consuntivo ce l'ha. */}
+                  {t.slug === "D2C" && conConsuntivo && (
+                    <tr style={{ color: "var(--blue)" }}>
+                      <td style={{ paddingLeft: 26, fontSize: 12.5, fontWeight: 600 }}>
+                        <span style={{ marginRight: 6 }}>↳</span>
+                        Attuale — consuntivo + budget
+                      </td>
+                      {mesi.map((_, i) => (
+                        <td className="num" key={i} style={{ fontSize: 12.5, fontWeight: 600 }}>
+                          {eur(consuntivoD2C[i] === null ? valore(t.slug, i) : consuntivoD2C[i] ?? 0)}
+                        </td>
+                      ))}
+                      <td className="num" style={{ fontSize: 12.5, fontWeight: 700 }}>
+                        {eur(
+                          mesi.reduce(
+                            (s, _, i) => s + (consuntivoD2C[i] === null ? valore(t.slug, i) : consuntivoD2C[i] ?? 0),
+                            0
+                          )
+                        )}
+                      </td>
+                    </tr>
+                  )}
                 </Fragment>
               ))}
               <tr className="tot">
@@ -331,9 +359,12 @@ export function BudgetMaison({
 
       {conConsuntivo && (
         <p className="page-caption">
-          La riga <strong style={{ color: "var(--blue)" }}>Attuale</strong> risponde alla domanda di metà anno —{" "}
-          <em>dato come è andata finora, dove si chiude</em>: i mesi già chiusi valgono per quello che è
-          successo davvero, quelli che restano per quello che è a budget. Fa{" "}
+          Le righe <strong style={{ color: "var(--blue)" }}>Attuale</strong> — una sotto il D2C e una in fondo
+          alla tabella — rispondono alla domanda di metà anno: <em>dato come è andata finora, dove si
+          chiude</em>. I mesi già chiusi valgono per quello che è successo davvero, quelli che restano per
+          quello che è a budget. Servono perché <strong>budget e consuntivo non si sommano da soli</strong>:
+          sulla riga del D2C c&apos;è la promessa, su quella blu il venduto vero, e nessuna delle due dice dove
+          si arriva. In fondo fa{" "}
           <strong>{eur(attualeAnno)}</strong> contro <strong>{eur(totaleAnno)}</strong> di budget,{" "}
           {Math.abs(attualeAnno - totaleAnno) < 1 ? (
             "cioè in linea"
