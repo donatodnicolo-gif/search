@@ -446,6 +446,50 @@ non negoziabile — e che rende inaccettabile un tetto che non funziona.
 leggibili per sempre. Verifica: dopo la rotazione il vecchio valore deve rispondere **401**, non
 500.
 
+### ⚠️ Secondo giro di piano (31/7/2026): BOCCIATO. Le tre correzioni che cambiano il progetto
+
+**1. L'App Proxy NON dimostra che la richiesta viene dalla vetrina.** E' l'errore su cui poggiava
+tutto il progetto. `https://cakedesign.me/apps/…` e' un URL **pubblico** dello storefront, e finisce
+in chiaro nel JS del tema: chiunque puo' fare `curl -X POST https://cakedesign.me/apps/…` ed e'
+**Shopify** a calcolare la firma e inoltrarla. La firma prova che la richiesta e' **passata da
+Shopify**, non che l'abbia fatta un cliente vero con un browser. Resta utile (niente CORS, il
+percorso e' same-origin, si scarta il traffico che non passa dal negozio) ma **non e' un cancello**.
+
+Conseguenza di progetto: **nessun controllo puo' provare la provenienza**. Il progetto giusto non e'
+«tenerli fuori», e' **limitare il danno**: tetto rigido lato OpenAI, parametri di costo decisi dal
+server, prenotazione prima della spesa, cache, moderazione, interruttore che funziona.
+
+**2. Su OpenAI il tetto di spesa si imposta per PROGETTO, non per chiave.** Una chiave dedicata
+coniata **dentro lo stesso progetto** condivide il budget di tutte le altre: la «seconda rete» non
+esiste. La chiave della vetrina va creata in un **progetto OpenAI separato**, col suo limite.
+
+**3. Il rimborso del posto sul timeout riapre la spesa illimitata.** Interrompere la nostra `fetch`
+non annulla niente: OpenAI genera e **fattura comunque**. Restituire il posto prenotato in quel caso
+significa pagare senza contare — e i modelli immagine superano spesso i 38 s.
+
+### Gli altri difetti certi, da chiudere prima di scrivere una riga
+
+- **L'interruttore d'emergenza fa l'opposto**: `tetto()` accetta il valore solo se `> 0`, quindi
+  mettere il tetto a `0` per fermare l'emorragia **riapplica la riserva di 120**.
+- **Un refuso in `OPENAI_IMAGE_MODEL` brucia il tetto in pochi secondi**: OpenAI risponde 400 anche
+  per modello inesistente, e sul 400 il piano non rimborsa.
+- **Il codice per il tema ha un errore di sintassi JavaScript** (`'piu' del previsto'`: l'apostrofo
+  chiude la stringa). Andrebbe in `snippets/delivery-date.liquid`, dove vive **tutto il wizard**: un
+  `SyntaxError` aborte l'intero blocco `<script>` e spegne la personalizzazione, non solo l'AI.
+- **La rotta di lettura dell'immagine e' del tutto aperta**: nessun freno, `force-dynamic`, fino a
+  8 MB letti dal **Postgres condiviso con altre sei app**, e l'id circola dentro gli ordini.
+- **Il freno per IP misura l'IP sbagliato**: dietro il proxy la connessione arriva dal server di
+  Shopify. O si limita tutto il negozio insieme, o il freno non c'e'.
+- **Nessun `try/catch` in cima**: la prima I/O che sbatte diventa un 500 grezzo di Next, e il tema
+  cerca `xhr.responseJSON.errore` che non esiste.
+- **Il codice non compila** (`Record<string, unknown>` passato a `data` di Prisma, `@@index` su un
+  campo inesistente) e la migrazione userebbe `db push` **sul cluster di produzione condiviso**,
+  senza storia e senza possibilita' di tornare indietro.
+- **Collisione di nomi**: in merchandising `Vetrina` significa gia' un'altra cosa (visual
+  merchandising, `model Vetrina`, `/visual`).
+- **I costi sono sbagliati di circa 4 volte**: 0,03-0,05 € e' il listino DALL·E 3, non di
+  `gpt-image-1`, il cui prezzo dipende dalla qualita' — che il piano sceglie di non mandare.
+
 ### Cosa fare, in ordine
 
 1. Su **`app.deluxy.it`**: verificare la variabile d'ambiente con la chiave OpenAI e il credito
