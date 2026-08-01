@@ -2,13 +2,24 @@
 
 Aggiornato: **31 luglio 2026**
 
-> ⚠️ **Leggi prima questo.** Il codice del cancello è finalmente **in
-> produzione** (31/07/2026): database migrato e app ripubblicata, `/pin` e
-> `/banca` rispondono. Ma **da qui non esce ancora un euro, ed è giusto così**:
-> mancano SMTP, il PIN del pagatore e — cosa che prima non era scritta — la
-> tabella `Impostazione` è **vuota**, quindi non ci sono nome e IBAN
-> dell'ordinante e nemmeno una distinta si può generare. La sequenza è in
-> «Punti aperti» in fondo — e l'ordine conta.
+> ⚠️ **Leggi prima questo (aggiornato la sera del 31/07/2026).** L'app è
+> **configurata e in produzione**, e la catena è stata percorsa fino in fondo su
+> un caso vero: richiesta arrivata da Finance → due firme → distinta → codice
+> per email → sblocco con PIN → tentativo di bonifico. **Il denaro non è
+> uscito**, e per il motivo giusto: su Qonto ci sono **1131 beneficiari e zero
+> fidati**, quindi il quarto dei sei controlli ferma tutto.
+>
+> Due cose da sapere prima di toccare qualsiasi cosa:
+>
+> 1. **Nessun bonifico è mai partito da questa app.** `pagate: 0` è l'unico
+>    risultato mai ottenuto contro l'API vera.
+> 2. **Il repo `scoutwt` è condiviso con un'altra sessione** che lavora sullo
+>    stesso branch `scout-ui`. Il `HEAD` locale può sembrare tornato indietro:
+>    verificare il proprio lavoro **per contenuto** su `origin/scout-ui`
+>    (`git merge-base --is-ancestor <mio-commit> origin/scout-ui`), mai
+>    confrontando gli SHA.
+>
+> La sequenza per far uscire il primo euro è in «Punti aperti» in fondo.
 
 ## Dove si lavora
 
@@ -101,9 +112,45 @@ bancarie non ce ne sono ancora: il file SEPA lo carica una persona in banca.
 Pubblicata e viva: `GET /api/v1/health` risponde
 `{"ok":true,"database":true,"cifratura":true}`. Su Vercel sono impostate
 `DATABASE_URL`, `DIRECT_URL`, `TRANSACTIONS_ENC_KEY`, `APP_SECRET`,
-`CRON_SECRET` (production + preview) — **e nient'altro: niente SMTP, niente
-Qonto**. Il Hub ha `APP_URL_TRANSACTIONS` ed è stato ripubblicato: l'icona
-«Transactions» compare agli admin.
+`CRON_SECRET` (production + preview) — **e nient'altro**: posta e chiavi della
+banca stanno sul database, cifrate, messe dall'app. Il Hub ha
+`APP_URL_TRANSACTIONS` ed è stato ripubblicato: l'icona «Transactions» compare
+agli admin.
+
+### Com'è configurata adesso (letto dal database la sera del 31/07/2026)
+
+| Cosa | Valore |
+|---|---|
+| Operatori | `deluxy.delivery@gmail.com` (nome «Nicolo Donato», PIN impostato) e `nicolo.donato@deluxy.it` (nome «Nicolo Daniele Donato», **è il pagatore**, PIN impostato) |
+| Ordinante | `DELUXY SRL`, IBAN `IT51M3609201600364189687708`, BIC vuoto |
+| Doppia firma | da **10,00 €** in su, oppure rischio ≥ **10** |
+| Tetto assoluto | **5.000 €** |
+| Solo beneficiari verificati | acceso |
+| Posta | `authsmtp.securemail.pro:465`, utente e mittente `nicolo.donato@deluxy.it`, destinatari ammessi: **solo** `nicolo.donato@deluxy.it` |
+| Qonto | chiavi presenti e valide (HTTP 200), **interruttore acceso** |
+| Link banca | portale `https://app.qonto.com/`, pagina di caricamento SEPA **vuota** |
+
+⚠️ La soglia di rischio a **10** rende la doppia firma quasi sempre obbligatoria
+(un primo pagamento a un fornitore nuovo vale già 15 punti). Se non è voluto, il
+valore sensato è intorno a 50.
+
+### La catena percorsa per intero, e dove si è fermata
+
+Il 31/07/2026, sulla richiesta vera `TRX-2026-000003` (5,79 € a «142
+RESTAURANT», arrivata da `deluxy-partner`):
+
+1. **09:12** richiesta creata via API da Finance — rischio 40, doppia firma;
+2. **09:19** due firme di due operatori distinti → `approvata`;
+3. **09:23** `LOTTO-2026-0001` creato;
+4. **09:52** codice chiesto e **ricevuto per email** — la posta funziona;
+5. **09:53:24** sblocco riuscito con codice + PIN;
+6. **09:53:35** bonifico tentato → **`pagate: 0, bloccate: 1`**.
+
+Il blocco è il quarto dei sei controlli: **l'IBAN non è fra i beneficiari
+fidati**. Verificato contro l'API di Qonto: **1131 beneficiari, zero fidati**.
+L'IBAN della richiesta c'è ed è intestato a **«BEYOND 142 SRL»**
+(`status: validated`, `trusted: false`) — non a «142 RESTAURANT», che è il nome
+commerciale con cui lo manda Finance.
 
 **31/07/2026 — allineamento fatto.** `npx prisma db push --accept-data-loss` ha
 aggiunto le quattro colonne Qonto su `Richiesta` (`pagatoCon`,
@@ -114,19 +161,9 @@ esisteva ancora, quindi senza righe da duplicare. Poi
 `c1299a7`, `fee50bc`) sono in produzione, `/pin` e `/banca` rispondono
 (307 → `/login`).
 
-Verificato sul database il 31/07/2026 (le 13 tabelle e tutte le colonne
-combaciano con `schema.prisma`):
-
-- unico operatore `deluxy.delivery@gmail.com`, admin, attivo, **`pinHash` NULL**
-  (credenziali consegnate al titolare fuori dalla trascrizione — quelle di prova
-  della sessione precedente erano finite in chat e per questo erano state
-  cancellate);
-- tabella **`Impostazione` vuota, zero righe**. Valgono quindi i valori di
-  partenza scritti in [src/lib/impostazioni.ts](../src/lib/impostazioni.ts):
-  `ordinanteNome` e `ordinanteIban` sono **stringhe vuote** — senza quelli non
-  si genera nessuna distinta — e `pagatoreEmail` vale
-  `nicolo.donato@deluxy.it`, che **non è un operatore**. Non è un'impostazione
-  «da correggere»: non è mai stata salvata nessuna impostazione.
+Le credenziali degli operatori sono state consegnate al titolare fuori dalla
+trascrizione: in chat non vanno mai, e quelle di una sessione precedente erano
+state cancellate proprio per questo.
 
 **Chiavi API create il 26/07/2026** (i valori sono stati consegnati su file, non
 in chat; vanno messi nelle variabili d'ambiente dell'app corrispondente come
@@ -293,35 +330,45 @@ detta a chi le usa.
 
 ## Punti aperti al 31/07/2026
 
-Nell'ordine in cui vanno chiusi. I punti 1 e 2 della lista precedente (migrare
-il database, pubblicare) sono **chiusi il 31/07/2026**: vedi «Stato in
-produzione». Restano questi, e i primi tre li può fare solo una persona con le
-credenziali — non si automatizzano da qui.
+Configurazione, PIN, posta e chiavi della banca sono **fatti** (vedi «Stato in
+produzione»). Quello che manca adesso è far uscire il primo euro, e i primi due
+punti sono lavoro *dentro Qonto* e *dentro Finance*: non si risolvono scrivendo
+codice qui.
 
-1. **Configurare la posta**, ora dalla pagina Impostazioni → «Server di posta»
-   (in alternativa le variabili su Vercel, che hanno la precedenza; lì
-   attenzione all'a-capo: `vercel env add … --value`, non lo stdin). Senza, il
-   codice di sblocco non parte e **non esce un euro**.
-2. **Impostazioni mai salvate**: la tabella `Impostazione` è vuota. Da
-   Impostazioni vanno scritti **nome e IBAN dell'ordinante** (senza, la distinta
-   non si genera: non è un dettaglio estetico) e il **pagatore**.
-3. **Il pagatore non esiste come operatore**: il valore di partenza di
-   `pagatoreEmail` è `nicolo.donato@deluxy.it`, ma l'unico operatore è
-   `deluxy.delivery@gmail.com` (admin, creato il 26/07). O si crea l'operatore
-   con quell'email (`npm run operatore -- --email …`), o si salva un
-   `pagatoreEmail` diverso al punto 2. Finché non si fa, nessuno può pagare.
-4. **PIN del pagatore** da `/pin`, con password e TOTP (oggi `pinHash` è NULL).
-   Nessun altro lo può mettere al posto suo.
-5. **Chiavi Qonto** da Impostazioni → Collegamento alla banca; poi rendere
-   *fidati* in Qonto i beneficiari; poi accendere l'interruttore. **Il percorso
-   VoP → bonifico non è mai stato eseguito contro l'API vera**: il primo giro va
-   fatto con una cifra piccola verso un beneficiario proprio.
-6. **Link «vai a pagare»**: compilare in Impostazioni l'indirizzo della pagina
-   di caricamento del file SEPA (il portale è già precompilato).
-7. **Chiavi API delle app**: create il 26/07 per `deluxy-partner`,
-   `deluxy-messaging`, `deluxy-acquisti` (valori consegnati su file). Restano da
-   mettere nelle variabili d'ambiente delle rispettive app e, soprattutto, **da
-   usare**: nessuna delle tre chiama ancora queste API. Primo candidato Finance.
+1. **Rendere fidato il beneficiario dentro l'app Qonto.** È ciò che ha fermato
+   il primo pagamento vero. Attenzione: in Qonto quell'IBAN è intestato a
+   **«BEYOND 142 SRL»**, non a «142 RESTAURANT» — si cerca con la ragione
+   sociale. Il percorso passa dall'elenco dei beneficiari (con 1131 nomi, la via
+   comoda è cominciare un «Nuovo bonifico» e digitare il nome), poi «segna come
+   fidato» e **conferma sul telefono**: senza quella conferma non è fatto. Da
+   verificare dopo, con una lettura dell'API, prima di bruciare un altro sblocco.
+   Vale per **ogni** fornitore da pagare: oggi i fidati sono zero su 1131.
+2. **Il nome del beneficiario va corretto alla fonte, in Finance.** Il quinto
+   controllo confronta il nome della richiesta con l'intestatario che risponde
+   la banca, e accetta solo la corrispondenza piena. Finché Finance manda il
+   nome commerciale («142 RESTAURANT») e il conto è intestato alla società
+   («BEYOND 142 SRL»), il controllo fallirà anche a beneficiario fidato.
+   **Non allentare il controllo qui**: è l'unica difesa contro la fattura con
+   l'IBAN cambiato.
+3. **Il primo bonifico vero non è mai partito.** `pagate: 0` è l'unico esito mai
+   ottenuto. Il giro va chiuso con la cifra piccola che è già in coda (5,79 €)
+   prima di considerare la strada affidabile.
+4. **Soglia di rischio a 10**: rende la doppia firma quasi sempre obbligatoria.
+   Da confermare con l'utente o riportare a ~50.
+5. **Link «vai a pagare»**: compilare in Impostazioni l'indirizzo della pagina
+   di caricamento del file SEPA (il portale è già precompilato). Vuoto, il
+   bottone ripiega sull'ingresso del portale: non si rompe niente, è un clic in
+   più.
+6. **Chiavi API delle app**: create il 26/07 per `deluxy-partner`,
+   `deluxy-messaging`, `deluxy-acquisti` (valori consegnati su file). **Finance
+   la usa già**: `TRX-2026-000003` è arrivata da lì il 31/07. Restano da
+   collegare `deluxy-messaging` e `deluxy-acquisti`, e va deciso quando spegnere
+   il percorso `Messaggi → Finance` per non tenere due code di approvazione.
+7. **I due account sono la stessa persona.** `deluxy.delivery@gmail.com` e
+   `nicolo.donato@deluxy.it` sono entrambi del titolare, ed è con quei due che
+   si è ottenuta la «doppia firma» sulla prima richiesta. Funziona, ma come
+   controllo vale solo se le persone sono davvero due: quando entra qualcun
+   altro in azienda, il secondo account va dato a lui.
 8. **Un secondo pagatore di riserva**: oggi il potere di pagare sta su una sola
    casella email e un solo PIN. Se si perde l'accesso, l'azienda non paga
    nessuno. Proposto all'utente, non ancora deciso.
