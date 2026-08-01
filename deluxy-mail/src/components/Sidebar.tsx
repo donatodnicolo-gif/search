@@ -104,6 +104,13 @@ export async function Sidebar() {
   //   SEZIONI      — le colonne in cui smisti la posta (dinamiche)
   //   GESTIONE     — come si configura l'app
   // Dentro ogni gruppo l'ordine è per frequenza d'uso, non alfabetico.
+  // ⚠️ Lo SPAM è una CARTELLA, non una sezione tua: lo crea l'app da sola e
+  // sta con Cestino e Archivio. Finché stava in fondo, insieme alle sezioni,
+  // su telefono finiva sotto quattordici voci — dentro un cassetto, cioè
+  // introvabile. Qui è al suo posto, e più sotto viene tolto dall'elenco delle
+  // sezioni per non averlo due volte.
+  const spam = sezioni.find((s) => s.nome === 'SPAM')
+
   const posta: Voce[] = [
     { href: '/', label: 'Posta in arrivo', badge: nonLette },
     { href: '/bozze', label: 'Bozze', badge: bozze },
@@ -111,6 +118,7 @@ export async function Sidebar() {
     // Archiviata = messa via ma tenuta (non è nel Cestino). È il filtro
     // "Archiviati" della posta in arrivo, qui come voce a sé per ritrovarla.
     { href: '/?stato=archiviati', label: 'Archivio' },
+    ...(spam ? [{ href: `/?sezione=${spam.id}`, label: 'Spam', badge: spam._count.messaggi }] : []),
     { href: '/cestino', label: 'Cestino', badge: cestinati },
   ]
 
@@ -169,11 +177,13 @@ export async function Sidebar() {
       <Gruppo titolo="Strumenti" voci={strumenti} />
       <Gruppo titolo="Applicazioni" voci={applicazioni} />
 
-      {sezioni.length > 0 && (
+      {sezioni.some((s) => s.nome !== 'SPAM') && (
         <nav className="nav-section">
           <div className="nav-label">Sezioni</div>
           {/* Prima le principali, e sotto a ognuna le sue sottosezioni rientrate. */}
           {sezioni
+            // Lo SPAM sta con le cartelle, qui sopra: non si ripete.
+            .filter((s) => s.nome !== 'SPAM')
             .filter((s) => !s.genitoreId)
             .flatMap((s) => [s, ...sezioni.filter((f) => f.genitoreId === s.id)])
             .map((s) => (
