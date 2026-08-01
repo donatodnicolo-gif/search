@@ -67,6 +67,22 @@ export function BudgetMaison({
   const advMese = (i: number) => (totaleMese(i) * mesi[i].advPercent) / 100;
   const totaleAnno = mesi.reduce((s, _, i) => s + totaleMese(i), 0);
   const advAnno = mesi.reduce((s, _, i) => s + advMese(i), 0);
+
+  // ---- «Attuale»: com'è andata finora + quello che resta a budget ----
+  // A metà anno la domanda non è «quanto avevamo pianificato» ma «dato come è
+  // andata, dove si chiude». Nei mesi già chiusi il D2C vale il **venduto
+  // vero**; Eventi e B2B restano a budget perché per una maison un loro
+  // consuntivo non esiste — ed è dichiarato sotto la tabella, invece di far
+  // passare per misurato un numero che è ancora una promessa.
+  const conConsuntivo = consuntivoD2C.some((v) => v !== null);
+  const attualeMese = (i: number) => {
+    if (consuntivoD2C[i] === null) return totaleMese(i);
+    const altreLinee = tipologie
+      .filter((t) => t.slug !== "D2C")
+      .reduce((s, t) => s + valore(t.slug, i), 0);
+    return (consuntivoD2C[i] ?? 0) + altreLinee;
+  };
+  const attualeAnno = mesi.reduce((s, _, i) => s + attualeMese(i), 0);
   const senzaBudget = tipologie.filter((t) => mesi.every((m) => (m.vendite[t.slug] ?? 0) === 0));
 
   return (
@@ -245,10 +261,27 @@ export function BudgetMaison({
                 </Fragment>
               ))}
               <tr className="tot">
-                <td>Totale vendite</td>
+                <td>Totale vendite (budget)</td>
                 {mesi.map((_, i) => (<td className="num" key={i}>{eur(totaleMese(i))}</td>))}
                 <td className="num">{eur(totaleAnno)}</td>
               </tr>
+              {/* **Dove si chiude l'anno.** A metà anno la domanda non è «quanto
+                  avevamo pianificato» ma «dato come è andata finora, dove
+                  arriviamo»: i mesi già chiusi valgono per quello che è
+                  successo davvero, quelli che restano per quello che è a
+                  budget. Il totale del budget resta sopra, perché servono
+                  entrambi — uno dice la promessa, l'altro la rotta. */}
+              {conConsuntivo && (
+                <tr className="tot" style={{ color: "var(--blue)" }}>
+                  <td>Attuale — consuntivo + budget</td>
+                  {mesi.map((_, i) => (
+                    <td className="num" key={i} style={{ fontWeight: 600 }}>
+                      {eur(attualeMese(i))}
+                    </td>
+                  ))}
+                  <td className="num">{eur(attualeAnno)}</td>
+                </tr>
+              )}
               <tr>
                 <td className="muted" style={{ fontSize: 12.5 }}>% ADV sulle vendite</td>
                 {mesi.map((m, i) => (
@@ -293,6 +326,25 @@ export function BudgetMaison({
           eventi, B2B) e non si può ripartire per brand. È sulla <strong>stessa base</strong> del budget D2C —
           prezzo pieno, IVA e spedizione incluse — quindi il confronto è omogeneo. Il <strong>mese in corso
           resta fuori</strong>: è parziale, e accanto a un budget intero sembrerebbe un crollo.
+        </p>
+      )}
+
+      {conConsuntivo && (
+        <p className="page-caption">
+          La riga <strong style={{ color: "var(--blue)" }}>Attuale</strong> risponde alla domanda di metà anno —{" "}
+          <em>dato come è andata finora, dove si chiude</em>: i mesi già chiusi valgono per quello che è
+          successo davvero, quelli che restano per quello che è a budget. Fa{" "}
+          <strong>{eur(attualeAnno)}</strong> contro <strong>{eur(totaleAnno)}</strong> di budget,{" "}
+          {Math.abs(attualeAnno - totaleAnno) < 1 ? (
+            "cioè in linea"
+          ) : (
+            <span className={attualeAnno >= totaleAnno ? "pos" : "neg"}>
+              {attualeAnno >= totaleAnno ? "+" : ""}{eur(attualeAnno - totaleAnno)}
+            </span>
+          )}
+          . ⚠️ Nei mesi chiusi <strong>solo il D2C è misurato</strong>: Eventi e B2B restano a budget, perché per
+          una maison un loro consuntivo non esiste. Quella parte della riga è ancora una promessa, non una
+          misura.
         </p>
       )}
 

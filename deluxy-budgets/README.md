@@ -243,6 +243,14 @@ pubblicato), *sfidante* e *irraggiungibile*.
   niente — pubblicità web e team commerciale si **sommano**. Senza dirlo, due proposte approvate
   della stessa squadra si somigliano e non si sa quale delle due si sta guardando.
 
+  **E il totale ha una riga «Attuale»**: i mesi già chiusi valgono per quello che è successo davvero,
+  quelli che restano per quello che è a budget — la domanda di metà anno non è «quanto avevamo
+  pianificato» ma *dato come è andata finora, dove si chiude*. Il totale a budget resta sopra, perché
+  servono entrambi: uno dice la promessa, l'altro la rotta. Su Deluxy.it al 01/08/2026 fa **908.441 €**
+  contro 525.500 di budget. ⚠️ Nei mesi chiusi **solo il D2C è misurato**: Eventi e B2B restano a
+  budget, perché per una maison un loro consuntivo non esiste — e quella parte della riga è ancora una
+  promessa, non una misura. È scritto sotto la tabella.
+
   **Il consuntivo dei mesi chiusi è in blu**, sotto la riga D2C: quello che è davvero stato venduto,
   non una promessa — sono le due cose che in questa pagina non vanno mai confuse. C'è solo lì perché
   per una maison l'unico consuntivo è il venduto dei negozi, ed è sulla **stessa base** del budget
