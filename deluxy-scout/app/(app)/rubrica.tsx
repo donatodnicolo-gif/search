@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { colors, coloreStato, labelStato, radius, spacing, contenutoCentrato } from '@/lib/theme';
 import type { StatoPlace } from '@/types';
-import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
+import { ContoRighe, EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 import { PercorsoCliente } from '@/components/PercorsoCliente';
 import { archiviaContatto, fetchTuttiContatti, type ContattoConLuogo } from '@/lib/db';
 import { avvisa } from '@/lib/dialoghi';
@@ -126,6 +126,9 @@ export default function Rubrica() {
           <View style={styles.headerScroll}>
         <View style={[styles.head, contenutoCentrato]}>
           <PageIntro testo="Tutti i contatti raccolti sul campo. Filtra per stato del negozio o per interessi, e cerca per nome, ruolo, negozio o telefono. Il badge conferma la sincronizzazione col registro Anagrafiche." />
+          {/* Quante righe si stanno guardando: con un filtro attivo, un elenco
+              corto senza questo numero sembra un elenco che ha perso i dati. */}
+          <ContoRighe mostrati={dati.length} totale={contatti.length} nome="contatti" />
           <TextInput
             style={styles.search}
             value={query}

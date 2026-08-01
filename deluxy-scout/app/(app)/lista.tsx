@@ -12,7 +12,7 @@ import { useAuth } from '@/lib/auth';
 import { isAdmin } from '@/lib/admin';
 import { Filters, filtriVuoti, type FiltriMappa } from '@/components/Filters';
 import { PriorityBadge } from '@/components/PriorityBadge';
-import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
+import { ContoRighe, EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 import { aRischio, coloreLivello, COLORE_A_RISCHIO, COLORE_PERSO, ePerso, inLavorazione, LABEL_A_RISCHIO, LABEL_LIVELLO, LABEL_PERSO, LIVELLI, livelloDi, type Livello } from '@/lib/livelli';
 import { ScegliScriptModal } from '@/components/ScegliScriptModal';
 import { VisitaModal } from '@/components/VisitaModal';
@@ -146,6 +146,21 @@ export default function Lista() {
     return [...f].sort((a, b) => RANK[a.priorita] - RANK[b.priorita] || a.nome.localeCompare(b.nome));
   }, [places, conContatto, contattati, filtri, query, livello, livelliVista, vistaCorr]);
 
+  /**
+   * Quante righe ha questa vista **prima** di ricerca e filtri: è il numero
+   * con cui confrontare quelle mostrate. Senza, una lista ristretta a tre
+   * righe sembra una lista che ha perso i dati.
+   */
+  const totaleVista = useMemo(
+    () =>
+      places
+        .filter((p) => inLavorazione(p, conContatto.has(p.id), contattati.has(p.id)))
+        .filter((p) => (livelliVista ? livelliVista.includes(livelloPlace(p)) : true))
+        .filter((p) => (vistaCorr === 'a-rischio' ? aRischio(p) : true)).length,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [places, conContatto, contattati, livelliVista, vistaCorr],
+  );
+
   // Quanti ce ne sono per livello (i numeri sui chip: dicono dove sta il lavoro).
   const perLivello = useMemo(() => {
     // Partire dai livelli veri: con le chiavi scritte a mano, aggiungerne uno
@@ -185,6 +200,7 @@ export default function Lista() {
                   : 'I negozi che qualcuno ha scelto di lavorare. SELEZIONATO: scelto con la ⭐, ancora senza un contatto. PROSPECT: ha una persona in rubrica. CLIENTE: ha chiuso una trattativa.'
               }
             />
+            <ContoRighe mostrati={dati.length} totale={totaleVista} nome="negozi" />
             {mostraChip ? (
               <View style={styles.livelli}>
                 <ChipLivello label="Tutti" on={!livello} onPress={() => setLivello(null)} />

@@ -200,3 +200,37 @@ const styles = StyleSheet.create({
   btnTxtSmall: { fontSize: 13 },
   link: { color: colors.goldStrong, fontWeight: '600', fontSize: 13, paddingVertical: 4 },
 });
+
+/**
+ * «12 di 340» — quante righe si stanno guardando, e quante ce ne sono in tutto.
+ *
+ * Sta in un file solo perché la stessa riga serve a sei elenchi, e sei copie
+ * divergono al primo ritocco: è già successo con le azioni delle schede.
+ *
+ * ⚠️ Quando un filtro è attivo il numero **deve** cambiare: senza, una lista
+ * ristretta a tre righe sembra una lista che ha perso i dati. È il motivo per
+ * cui questa riga esiste (segnalazione dell'utente del 31/07/2026).
+ */
+export function ContoRighe({
+  mostrati,
+  totale,
+  nome,
+}: {
+  mostrati: number;
+  totale: number;
+  /** Come si chiamano le righe: «clienti», «contatti», «negozi»… */
+  nome: string;
+}) {
+  const filtrato = mostrati !== totale;
+  return (
+    <Text style={stiliConto.riga}>
+      {filtrato ? `${mostrati} di ${totale} ${nome}` : `${totale} ${nome}`}
+      {filtrato ? <Text style={stiliConto.nota}> · filtro attivo</Text> : null}
+    </Text>
+  );
+}
+
+const stiliConto = StyleSheet.create({
+  riga: { color: colors.testoSoft, fontSize: 12.5, fontWeight: '700' },
+  nota: { color: colors.goldStrong, fontWeight: '700' },
+});
