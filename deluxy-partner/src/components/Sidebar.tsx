@@ -219,8 +219,8 @@ export function Sidebar({
       <div className="brand">
         <div className="brand-logo">D</div>
         <div className="solo-estesa">
-          <div className="brand-name">Deluxy Partner</div>
-          <div className="brand-sub">Gestione partner</div>
+          <div className="brand-name">Finance</div>
+          <div className="brand-sub">Amministrazione Deluxy</div>
         </div>
       </div>
 

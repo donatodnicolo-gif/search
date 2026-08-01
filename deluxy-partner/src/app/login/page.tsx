@@ -111,7 +111,7 @@ export default async function LoginPage({
         <div className="brand-logo" style={{ width: 52, height: 52, fontSize: 30, margin: "0 auto 16px", borderRadius: 14 }}>
           D
         </div>
-        <h1 style={{ fontSize: 24, fontWeight: 600, letterSpacing: "-0.022em" }}>Deluxy Partner</h1>
+        <h1 style={{ fontSize: 24, fontWeight: 600, letterSpacing: "-0.022em" }}>Finance</h1>
         <p style={{ fontSize: 14, color: "var(--text-secondary)", marginTop: 6, marginBottom: 24 }}>
           Gestione finanziaria partner. Accesso riservato al team.
         </p>

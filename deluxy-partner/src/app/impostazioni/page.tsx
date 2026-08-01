@@ -105,9 +105,9 @@ async function inviaProva(fd: FormData) {
   try {
     await inviaEmail({
       to,
-      subject: "Prova invio — Deluxy Partner",
+      subject: "Prova invio — Finance",
       text:
-        "Questa è un'email di prova inviata da Deluxy Partner per verificare la configurazione SMTP.\n" +
+        "Questa è un'email di prova inviata da Finance per verificare la configurazione SMTP.\n" +
         "Se la stai leggendo, l'invio dei solleciti è pronto.",
     });
   } catch (e) {

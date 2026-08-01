@@ -242,7 +242,7 @@ export async function creaAnagrafica(opts: {
   );
   // segnalazione di provenienza (le note del registro sono additive)
   const oggi = new Date().toLocaleDateString("it-IT");
-  const notaProvenienza = `Anagrafica creata da Deluxy Partner — riconciliazione con Fatture in Cloud (${oggi}).`;
+  const notaProvenienza = `Anagrafica creata da Finance — riconciliazione con Fatture in Cloud (${oggi}).`;
   try {
     const res = await fetch(`${urlAnagrafiche()}/api/v1/partners`, {
       method: "POST",

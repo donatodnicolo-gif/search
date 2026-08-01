@@ -5,8 +5,12 @@ import "./globals.css";
 import { Sidebar } from "@/components/Sidebar";
 import { SESSION_COOKIE, sessioneCorrente } from "@/lib/auth";
 
+// Il nome dell'app è FINANCE: è così che la chiamano in azienda e negli altri
+// progetti del repo. «Deluxy Partner» restano la cartella, il database, l'URL e
+// il `sistema` con cui il registro Anagrafiche riconosce chi scrive: quelli non
+// si toccano, rinominarli scollegherebbe le altre app.
 export const metadata: Metadata = {
-  title: "Deluxy Partner",
+  title: "Finance",
   description: "Gestione finanziaria e operativa dei partner Deluxy",
 };
 
