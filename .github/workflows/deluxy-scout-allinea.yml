@@ -47,10 +47,27 @@ jobs:
         env:
           # Da impostare una volta in Settings → Secrets and variables →
           # Actions → New repository secret.
+          #
+          # ⚠️ Si accettano DUE nomi. Il secondo è quello che usa la CLI di
+          # Supabase, ed è il nome che viene in mente per primo a chi crea il
+          # token: chiamarlo così e vedersi dire «manca SUPABASE_PAT» è un
+          # vicolo cieco che non aiuta nessuno.
           SUPABASE_PAT: ${{ secrets.SUPABASE_PAT }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
+          # Se il primo non c'è si prova l'altro nome.
+          if [ -z "$SUPABASE_PAT" ] && [ -n "$SUPABASE_ACCESS_TOKEN" ]; then
+            export SUPABASE_PAT="$SUPABASE_ACCESS_TOKEN"
+            echo "Uso il segreto SUPABASE_ACCESS_TOKEN."
+          fi
           if [ -z "$SUPABASE_PAT" ]; then
-            echo "::error::Manca il segreto SUPABASE_PAT. Si aggiunge in Settings → Secrets and variables → Actions."
+            echo "::error::Nessun token trovato: né SUPABASE_PAT né SUPABASE_ACCESS_TOKEN."
+            echo "Va messo come **repository secret**, in:"
+            echo "  Settings → Secrets and variables → **Actions** → tab «Secrets» → New repository secret"
+            echo "Tre posti in cui NON funziona, e in cui è facile finire:"
+            echo "  · il tab «Variables» accanto a «Secrets» (sono due elenchi diversi)"
+            echo "  · Settings → Secrets → **Codespaces** oppure **Dependabot**"
+            echo "  · un **Environment secret**, che serve solo ai job con 'environment:'"
             exit 1
           fi
           node scripts/allinea-supabase.mjs
