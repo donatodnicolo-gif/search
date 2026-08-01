@@ -1,0 +1,55 @@
+# Porta il registro Anagrafiche dentro Scout, da solo, una volta al giorno.
+#
+# Perché a orario e non a ogni push: l'import non dipende dal codice ma dai
+# DATI dell'altra app — un partner creato là stamattina deve comparire qui
+# senza che nessuno lanci niente. È l'unica cosa che il push non può sapere.
+#
+# ⚠️ SCRIVE IN PRODUZIONE, e costa: geocodifica su Google le anagrafiche che
+# non hanno ancora una posizione. È un costo **limitato e calante** — si
+# riprova solo su chi è a 0,0, e ognuna che si sistema esce dall'elenco — ma
+# è il motivo per cui gira una volta al giorno e non a ogni ora.
+name: Deluxy Scout — importa il registro Anagrafiche
+
+on:
+  schedule:
+    # 04:20 UTC, cioè le 6:20 in Italia d'estate: prima che qualcuno apra l'app,
+    # dopo che il registro ha finito le sue sincronizzazioni notturne.
+    - cron: '20 4 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: import-deluxy-scout
+  cancel-in-progress: false
+
+jobs:
+  importa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Importa
+        working-directory: deluxy-scout
+        env:
+          SUPABASE_PAT: ${{ secrets.SUPABASE_PAT }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          ANAGRAFICHE_API_KEY: ${{ secrets.ANAGRAFICHE_API_KEY }}
+          # La chiave Google del geocoding: senza, l'import si ferma prima di
+          # scrivere. Sta come secret a parte perché è l'unica che costa soldi.
+          GOOGLE_GEOCODING_KEY: ${{ secrets.GOOGLE_GEOCODING_KEY }}
+        run: |
+          if [ -z "$SUPABASE_PAT" ] && [ -n "$SUPABASE_ACCESS_TOKEN" ]; then
+            export SUPABASE_PAT="$SUPABASE_ACCESS_TOKEN"
+          fi
+          mancanti=""
+          [ -z "$SUPABASE_PAT" ] && mancanti="$mancanti SUPABASE_PAT"
+          [ -z "$ANAGRAFICHE_API_KEY" ] && mancanti="$mancanti ANAGRAFICHE_API_KEY"
+          [ -z "$GOOGLE_GEOCODING_KEY" ] && mancanti="$mancanti GOOGLE_GEOCODING_KEY"
+          if [ -n "$mancanti" ]; then
+            echo "::error::Mancano questi segreti del repo:$mancanti"
+            echo "Si aggiungono in Settings → Secrets and variables → Actions → Secrets."
+            exit 1
+          fi
+          node scripts/import-anagrafiche.mjs

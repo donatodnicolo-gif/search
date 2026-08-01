@@ -212,7 +212,12 @@ async function geocodifica(p) {
   return { lat: l.lat, lng: l.lng };
 }
 
-const daGeocodificare = partners.filter((p) => !gia.has(p.id));
+// ⚠️ Si riprova anche su chi è già dentro ma **senza posizione** (0,0): se
+// qualcuno completa l'indirizzo nel registro, il giro dopo lo trova. Senza
+// questa condizione quelle 196 anagrafiche sarebbero rimaste a 0,0 per sempre,
+// perché «già importata» valeva come «già a posto».
+const senzaPosizione = (r) => !r || (Number(r.lat) === 0 && Number(r.lng) === 0);
+const daGeocodificare = partners.filter((p) => senzaPosizione(gia.get(p.id)));
 console.log(`→ geocodifico ${daGeocodificare.length} anagrafiche…`);
 const coord = new Map();
 let fatte = 0, falliti = 0;
