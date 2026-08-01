@@ -103,6 +103,9 @@ model Partner {
   modifiche      Modifica[]
   riferimenti    RiferimentoEsterno[]
   riconciliazioni Riconciliazione[]
+  // Le persone (B2C) che comprano da noi e che sono la stessa realta di questa
+  // azienda: nasce dall aggancio per email o telefono coi clienti di Orders.
+  consumers      Consumer[]
   // Gruppo aziendale: un'insegna madre (es. BOTTEGA VENETA) con le sue sedi
   // (Milano, Roma). Ogni sede resta un'anagrafica autonoma con i propri
   // referenti, stato e azioni; la madre le raggruppa e basta.
@@ -389,4 +392,71 @@ model ApiKey {
   attiva    Boolean   @default(true)
   creataIl  DateTime  @default(now())
   ultimoUso DateTime?
+}
+
+// ————————————————————— CONSUMERS —————————————————————
+// Le PERSONE che comprano da noi su Shopify (B2C), importate da Orders.
+//
+// ⚠️ Non confondere con `Partner`: lì stanno le AZIENDE del B2B — quelle che
+// lavorano per noi (fioristi, pasticcerie) o a cui vendiamo come azienda. Qui
+// sta chi ha messo la carta di credito su deluxy.it. Il registro delle
+// anagrafiche le tiene entrambe, ma sono due popolazioni diverse e non vanno
+// mescolate: misurato il 31/07/2026, solo 61 delle 1.004 anagrafiche B2B si
+// ritrovano fra i 10.285 clienti di Orders.
+//
+// ⚠️ È uno SPECCHIO, non la fonte di verità. Gli ordini sono di Orders
+// (regola del CLAUDE.md di radice): qui c'è la fotografia che Orders ha
+// calcolato, con scritto quando è stata scattata (`sincronizzatoIl`). Non si
+// modificano a mano i numeri: si rifà la sincronizzazione.
+model Consumer {
+  id     String @id @default(cuid())
+  // La chiave con cui Orders identifica la persona: email → telefono → nome,
+  // in quest'ordine. È la stessa che usano le sue API e la sua UI, quindi è
+  // anche il modo per tornare alla scheda di là.
+  chiave String @unique
+  nome     String?
+  email    String?
+  telefono String?
+  citta    String?
+
+  // ---- fotografia calcolata da Orders ----
+  ordini           Int       @default(0)
+  annullati        Int       @default(0)
+  speso            Float     @default(0)
+  ordineMedio      Float     @default(0)
+  primoOrdine      DateTime?
+  ultimoOrdine     DateTime?
+  giorniDallUltimo Int?
+  brand            String[]  @default([])
+  // Vocabolario di Orders, copiato così com'è per non inventarne un secondo:
+  // segmento  = vip | da-non-perdere | fedele | ricorrente | nuovo | una-tantum | da-riattivare | perso
+  // tipologia = privato | azienda | horeca | eventi | rivenditore
+  segmento  String?
+  tipologia String?
+  // Il canale del PRIMO ordine: da dove ci è arrivata questa persona.
+  // Vuoto = quel primo ordine non ha provenienza, e NON va letto come «diretto».
+  acquisizioneCanale String?
+  acquisizionePrimo  DateTime?
+
+  // ---- riepilogo scritto dall'AI in Orders ----
+  // Vuoto = non ancora scritto (costa una chiamata a pagamento per persona),
+  // non «persona senza preferenze».
+  riassunto        String?
+  gusti            String?
+  riepilogoOrdini  Int?      // su quanti ordini era basato quando l'hanno scritto
+
+  // ---- collegamento all'anagrafica B2B, quando è la stessa realtà ----
+  // Nasce dall'aggancio per email/telefono. Il nome NON basta: sui dati veri
+  // ha trovato 2 casi su 61 e produce falsi positivi.
+  partnerId String?
+  partner   Partner? @relation(fields: [partnerId], references: [id], onDelete: SetNull)
+  agganciatoCome String? // email | telefono | manuale
+
+  sincronizzatoIl DateTime @default(now())
+  creatoIl        DateTime @default(now())
+
+  @@index([segmento])
+  @@index([tipologia])
+  @@index([partnerId])
+  @@index([speso])
 }

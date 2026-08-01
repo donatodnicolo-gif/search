@@ -69,6 +69,18 @@ che diventano clienti, vedi §7-A punto 0. Finché manca, quel richiamo è inert
   `platformId` @unique, `hubspotId` @unique, `provenienzaCampi` (JSON: chi/quando per campo),
   `fonte` (excel·platform·manuale·ui·hubspot), `attivo` (soft delete),
   `capogruppoId` → self-relation `capogruppo`/`sedi` (gruppi aziendali a un livello).
+- **Consumer** (01/08/2026) — le **PERSONE che comprano da noi su Shopify** (B2C), importate da
+  Orders. ⚠️ **Non sono i Partner**: lì stanno le AZIENDE del B2B (chi lavora per noi o con cui
+  trattiamo), qui chi ha messo la carta su deluxy.it. Misurato: **10.285 persone contro 1.004
+  aziende, e solo 83 sono la stessa realtà** — due popolazioni, non due viste della stessa.
+  È uno **SPECCHIO**: gli ordini sono di Orders (regola del CLAUDE.md di radice), qui c'è la
+  fotografia che Orders ha calcolato con dentro `sincronizzatoIl`, che la UI mostra in testa alla
+  pagina. Campi: `chiave` @unique (**quella di Orders**, decodificata dal codice base64url che
+  manda — vedi il gotcha), nome/email/telefono/città, `ordini`, `annullati`, `speso`,
+  `ordineMedio`, primo/ultimo ordine, `giorniDallUltimo`, `brand[]`, `segmento` e `tipologia`
+  (vocabolario di Orders copiato in `src/lib/consumers.ts`), `acquisizioneCanale` (il canale del
+  **primo** ordine; vuoto ≠ «diretto»), `riassunto`/`gusti` scritti dall'AI in Orders, e
+  `partnerId` + `agganciatoCome` per chi è anche un'anagrafica B2B.
 - **Contatto** — referenti (persone): `ruolo·nome·telefono·email·fonte·hubspotId` (id del
   contatto nel CRM, per aprirlo) · `nomeRubrica` (nome per la rubrica Google; se vuoto si
   usa `[STATO] [AZIENDA] [CITTÀ] [Nome contatto]`). Fonti: Excel + HubSpot.
@@ -785,6 +797,15 @@ Cosa e stato fatto, e perche va tenuto cosi:
    disegnare la pagina. `toggleInteresse` usa `RETURNING` invece di rileggere.
 
 ## 9. Gotchas (imparati a caro prezzo)
+
+- **Importando i Consumers, la chiave la decide Orders.** Ricalcolarla qui (email → telefono →
+  nome, normalizzando il telefono a modo mio) sembrava equivalente e non lo era: due clienti
+  distinti di Orders finivano sulla stessa chiave e l'INSERT moriva con
+  `ON CONFLICT DO UPDATE cannot affect row a second time`. Si decodifica il codice base64url che
+  Orders manda (`c.cliente`) e si usa quello.
+- **10.000 record non si scrivono uno alla volta.** Il primo import faceva leggi-poi-scrivi per
+  ogni persona: 20.000 andate e ritorni su un pooler con `connection_limit=5`, e il server ha
+  chiuso la connessione al 140° record. Ora è un `INSERT ... ON CONFLICT` a blocchi di 200.
 
 - **SQL raw sul cluster condiviso**: qualificare SEMPRE lo schema (`"anagrafiche"."Partner"`),
   altrimenti via pgbouncer il `search_path` non è garantito e si colpisce la tabella di un'altra

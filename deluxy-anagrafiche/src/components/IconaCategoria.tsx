@@ -140,6 +140,14 @@ const GLIFI: Record<string, React.ReactNode> = {
       <path d="M10 12.5h4" {...TRATTO} />
     </>
   ),
+  // Sacchetto della spesa: i consumers, le PERSONE che comprano su Shopify
+  // (le aziende hanno l'icona dell'edificio: due popolazioni, due simboli)
+  CONSUMERS: (
+    <>
+      <path d="M5.5 8h13l-1.1 11.2a1.5 1.5 0 0 1-1.5 1.3H8.1a1.5 1.5 0 0 1-1.5-1.3z" {...TRATTO} />
+      <path d="M9 10.5V7a3 3 0 0 1 6 0v3.5" {...TRATTO} />
+    </>
+  ),
   // Scooter: i valet, chi porta materialmente le consegne
   VALET: (
     <>

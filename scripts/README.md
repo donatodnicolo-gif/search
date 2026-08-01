@@ -229,6 +229,19 @@ cd deluxy-anagrafiche && npm run import:excel -- "C:/Users/nicol/Downloads/ANAGR
 - **Serve**: `DATABASE_URL` / `DIRECT_URL` nel `.env` dell'app (vedi `configura-db-condiviso.mjs`)
 - **Nota**: idempotente ma **distruttivo sul proprio perimetro**: cancella e ricrea solo le anagrafiche con fonte `excel`; quelle create dalla piattaforma o a mano non vengono toccate. Default del percorso: `~/Downloads/ANAGRAFICHE B2B COMPLETE - ACTIVITY TRACKER.xlsx`.
 
+### importa-consumers.mjs — deluxy-anagrafiche
+Importa da Orders i **consumers** (le persone che comprano su Shopify) nella sezione Consumers del registro, e le aggancia all'anagrafica B2B quando sono la stessa realtà.
+
+```bash
+# legge e non scrive (lanciarla sempre prima)
+cd deluxy-anagrafiche && node scripts/importa-consumers.mjs --prova
+# importa
+cd deluxy-anagrafiche && npm run importa:consumers
+```
+
+- **Serve**: `ORDERS_API_KEY` (chiave di **sola lettura** creata in Orders col nome `deluxy-anagrafiche`) e `DATABASE_URL`/`DIRECT_URL` nel `.env` dell'app. Facoltativa `ORDERS_URL` (default: produzione).
+- **Nota**: idempotente e non distruttivo — aggiorna chi c'è, aggiunge chi è comparso, **non cancella nessuno**. Primo giro il 01/08/2026: 10.285 persone, 83 agganciate a un'anagrafica B2B. L'aggancio è per **email e telefono, mai per nome** (sui dati veri il nome trovava 2 casi su 61 e dava falsi positivi); un aggancio messo a mano (`agganciatoCome = 'manuale'`) non viene sovrascritto. La scrittura è a blocchi di 200 con `ON CONFLICT`: una alla volta il pooler chiudeva la connessione a metà.
+
 ### migra-livello.mjs — deluxy-anagrafiche
 Sposta «in contatto / in attesa / da ricontattare» dallo **stato commerciale** al nuovo **livello del contatto** (31/07/2026): non erano gradini del funnel ma il momento del contatto.
 

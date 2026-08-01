@@ -39,6 +39,7 @@ export async function Sidebar({
   chiaviAttive = false,
   affiliatiAttivi = false,
   valetAttivo = false,
+  consumersAttivi = false,
 }: {
   categoriaAttiva?: string | null;
   statoAttivo?: string | null;
@@ -57,6 +58,7 @@ export async function Sidebar({
   chiaviAttive?: boolean;
   affiliatiAttivi?: boolean;
   valetAttivo?: boolean;
+  consumersAttivi?: boolean;
 }) {
   // ⚠️ PRESTAZIONI — leggere prima di toccare.
   // La sidebar sta su OGNI pagina e viene ricostruita a ogni azione (cambiare
@@ -80,6 +82,7 @@ export async function Sidebar({
         disaccordi: number;
         chiavi: number;
         valet: number;
+        consumers: number;
         affiliati: number;
       }[]
       // Schema sempre qualificato: via pgbouncer il `search_path` non è
@@ -114,6 +117,7 @@ export async function Sidebar({
         (SELECT count(*)::int FROM "anagrafiche"."Riconciliazione" WHERE "stato" = 'aperta') AS disaccordi,
         (SELECT count(*)::int FROM "anagrafiche"."ApiKey" WHERE "attiva") AS chiavi,
         (SELECT count(*)::int FROM "anagrafiche"."Valet" WHERE "attivo") AS valet,
+        (SELECT count(*)::int FROM "anagrafiche"."Consumer") AS consumers,
         (SELECT count(*)::int FROM "anagrafiche"."Partner"
           WHERE "attivo" AND "interessi" && ARRAY['Affiliazioni','Re-seller']::text[]) AS affiliati`,
     getLinee(),
@@ -127,6 +131,7 @@ export async function Sidebar({
   const disaccordi = c?.disaccordi ?? 0;
   const chiaviAttiveConteggio = c?.chiavi ?? 0;
   const valet = c?.valet ?? 0;
+  const consumers = c?.consumers ?? 0;
   const affiliati = c?.affiliati ?? 0;
   const totale = categorie.reduce((somma, x) => somma + x.n, 0);
   const perStato = new Map((c?.stati ?? []).map((s) => [s.v, s.n]));
@@ -136,7 +141,7 @@ export async function Sidebar({
   const perInteresse = new Map((c?.interessi ?? []).map((i) => [i.v, i.n]));
 
   const globaleAttiva =
-    !categoriaAttiva && !statoAttivo && !livelloAttivo && !statoFinanziarioAttivo && !statoAnalisiAttivo && !interesseAttivo && !archivioAttivo && !hubspotAttivo && !dashboardAttiva && !matchAttivo && !contattiAttiva && !riconciliazioneAttiva && !identitaAttiva && !chiaviAttive && !affiliatiAttivi && !valetAttivo;
+    !categoriaAttiva && !statoAttivo && !livelloAttivo && !statoFinanziarioAttivo && !statoAnalisiAttivo && !interesseAttivo && !archivioAttivo && !hubspotAttivo && !dashboardAttiva && !matchAttivo && !contattiAttiva && !riconciliazioneAttiva && !identitaAttiva && !chiaviAttive && !affiliatiAttivi && !valetAttivo && !consumersAttivi;
 
   return (
     <aside className="sidebar">
@@ -159,6 +164,15 @@ export async function Sidebar({
             <span className="sb-icona"><IconaCategoria categoria="VALET" /></span>
             <span className="sb-nome">Valet</span>
             <span className="sb-count">{valet}</span>
+          </a>
+          {/* CONSUMERS: le PERSONE che comprano su Shopify, non le aziende.
+              Sta accanto ad «Aziende» perché è l'altra metà delle anagrafiche,
+              ma è un'altra popolazione — 10.285 persone contro 1.004 aziende, e
+              solo 83 sono la stessa realtà. */}
+          <a className={`sb-item${consumersAttivi ? " attiva" : ""}`} href="/consumers">
+            <span className="sb-icona"><IconaCategoria categoria="CONSUMERS" /></span>
+            <span className="sb-nome">Consumers</span>
+            <span className="sb-count">{consumers}</span>
           </a>
           {/* La pagella di chi serve le consegne D2C: i giudizi arrivano dai
               reclami di Customer Service, e qui si legge chi lavora male. */}
