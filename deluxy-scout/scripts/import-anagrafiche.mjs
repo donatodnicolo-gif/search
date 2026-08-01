@@ -222,13 +222,15 @@ for (let i = 0; i < righe.length; i += 100) {
     select r.nome, r.indirizzo, r.zona, r.settore, r.categoria, r.stato::stato_place_t, r.lat, r.lng,
            'anagrafiche', r.aid, r.account, r.ana_stato, r.ultima_visita,
            -- Lo stato commerciale su cui lavora Scout: senza, il livello non si
-           -- ricava e un `in_trattativa` del registro resterebbe Selezionato.
+           -- ricava e un in_trattativa del registro resterebbe Selezionato.
+           -- (Niente apici inversi in questi commenti: sono dentro un template
+           -- literal JS, e chiuderebbero la stringa. Ci sono già cascato.)
            r.ana_stato::stato_affiliazione_t,
            r.momento,
-           -- ⚠️ `starred` è obbligatorio perché il negozio si VEDA: gli elenchi
-           -- mostrano solo chi è stato scelto da qualcuno (`inLavorazione` in
-           -- lib/livelli.ts), e un partner del registro è una scelta fatta in
-           -- un'altra app. Senza, l'import riempie il database e le liste
+           -- starred e obbligatorio perche il negozio si VEDA: gli elenchi
+           -- mostrano solo chi e stato scelto da qualcuno (inLavorazione in
+           -- lib/livelli.ts), e un partner del registro e una scelta fatta in
+           -- un altra app. Senza, l import riempie il database e le liste
            -- restano vuote.
            true,
            r.linea_ipotizzata, r.aggancio_apertura, coalesce(r.priorita, 'P3')::priorita_t
