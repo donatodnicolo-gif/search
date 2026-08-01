@@ -172,7 +172,18 @@ model Campagna {
 // gruppi di ASSET: stesso livello, stessa lettura (tipo = asset_group_pmax).
 model Gruppo {
   id               String          @id @default(cuid())
+  // Il nome che il gruppo ha SU GOOGLE. Non si tocca: è anche la chiave con
+  // cui l'import lo ritrova quando manca l'id di piattaforma
+  // (ingest-gruppi.ts, findFirst per campagna+nome). Cambiarlo qui vorrebbe
+  // dire che al giro dopo Google ne crea un altro.
   nome             String
+  // Il nome che gli diamo NOI, per leggerlo. "Fiori a Domicilio + località
+  // d'interesse" dice tutto e non si legge; qui ci si può scrivere "Fiori
+  // Milano - generiche". Se c'è, comanda in ogni elenco; il nome di Google
+  // resta visibile sotto, perché è quello che si cerca in interfaccia.
+  // Stessa idea di `stato` contro `statoPiattaforma`: la nostra parola e il
+  // fatto della piattaforma non sono la stessa cosa e non si sovrascrivono.
+  nomeVisibile     String?
   campagnaId       String
   campagna         Campagna        @relation(fields: [campagnaId], references: [id], onDelete: Cascade)
   canale           String          @default("google_ads")

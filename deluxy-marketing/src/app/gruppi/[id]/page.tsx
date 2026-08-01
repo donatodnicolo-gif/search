@@ -4,7 +4,7 @@ import { GraficoSpesa } from "@/components/GraficoSpesa";
 import { SceltaPeriodo } from "@/components/SceltaPeriodo";
 import { SelettoreStato } from "@/components/SelettoreStato";
 import { Sidebar } from "@/components/Sidebar";
-import { cambiaStatoGruppo, creaOperazioneGruppo } from "@/lib/azioni";
+import { cambiaStatoGruppo, creaOperazioneGruppo, rinominaGruppo } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
 import { periodoApp } from "@/lib/periodo-condiviso";
 import {
@@ -23,6 +23,7 @@ import {
   ETICHETTA_TIPO_GRUPPO,
 
   letturaRoas,
+  nomeGruppo,
   STATI_GRUPPO,
 } from "@/lib/gruppi";
 
@@ -103,8 +104,16 @@ export default async function SchedaGruppo({
         <a className="ritorno" href="/gruppi">← Gruppi di annunci</a>
         <div className="page-head">
           <div>
-            <h1 className="page-title">{gruppo.nome}</h1>
+            <h1 className="page-title">{nomeGruppo(gruppo)}</h1>
             <p className="page-sub" style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+              {/* Quando il nome è nostro, quello di Google resta a vista: è
+                  quello da cercare nell'interfaccia di Google Ads, e senza si
+                  perderebbe l'unico modo di ritrovare il gruppo di là. */}
+              {gruppo.nomeVisibile && (
+                <span className="tag-neutro" title="Il nome che ha su Google Ads">
+                  su Google: {gruppo.nome}
+                </span>
+              )}
               <a href={`/campagne/${gruppo.campagnaId}`}>{gruppo.campagna.nome}</a>
               <Badge testo={ETICHETTA_BRAND[gruppo.brand] ?? gruppo.brand} colore={COLORE_BRAND[gruppo.brand] ?? "var(--text-tertiary)"} />
               {gruppo.tipo && <span className="tag-neutro">{ETICHETTA_TIPO_GRUPPO[gruppo.tipo] ?? gruppo.tipo}</span>}
@@ -287,6 +296,29 @@ export default async function SchedaGruppo({
           </div>
 
           <div>
+            <section className="scheda">
+              <div className="scheda-titolo">Come si chiama qui</div>
+              <form className="modulo" action={rinominaGruppo}>
+                <input type="hidden" name="id" value={gruppo.id} />
+                <div className="campo-modulo largo">
+                  <input
+                    name="nomeVisibile"
+                    defaultValue={gruppo.nomeVisibile ?? ""}
+                    placeholder={gruppo.nome}
+                    maxLength={120}
+                  />
+                </div>
+                <div className="azioni-modulo">
+                  <button className="btn small" type="submit">Salva nome</button>
+                </div>
+              </form>
+              <p className="cella-sub">
+                Vale <b>solo dentro l&apos;app</b>: su Google Ads il gruppo continua a chiamarsi
+                «{gruppo.nome}», ed è giusto così — quel nome è la chiave con cui l&apos;import lo
+                ritrova. Svuota la casella per tornare a mostrare quello di Google.
+              </p>
+            </section>
+
             <section className="scheda">
               <div className="scheda-titolo">Stato nell&apos;app</div>
               <form action={cambiaStatoGruppo}>

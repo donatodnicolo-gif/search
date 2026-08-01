@@ -7,7 +7,12 @@ import { breakEvenRoas } from "@/lib/guardrail";
 
 export type GruppoConNumeri = {
   id: string;
+  // Il nome da mostrare: quello scelto da noi se c'è, altrimenti quello di
+  // Google. Chi disegna una pagina usa questo e non deve saperne di più.
   nome: string;
+  // Il nome vero su Google, sempre disponibile: è quello che si cerca
+  // nell'interfaccia di Google Ads, e va mostrato quando i due differiscono.
+  nomeGoogle: string;
   campagnaId: string;
   campagna: string;
   brand: string;
@@ -26,6 +31,20 @@ export type GruppoConNumeri = {
   giorniConDati: number;
   ultimoGiorno: Date | null;
 };
+
+/**
+ * Il nome da mostrare per un gruppo: il nostro se c'è, quello di Google
+ * altrimenti.
+ *
+ * Un punto solo, perché il giorno che si decide di mostrarli diversamente non
+ * si va a caccia della stessa `??` in otto pagine. Il nome di Google non si
+ * cambia mai: è la chiave con cui l'import ritrova il gruppo quando manca
+ * l'id di piattaforma.
+ */
+export function nomeGruppo(g: { nome: string; nomeVisibile?: string | null }): string {
+  const nostro = g.nomeVisibile?.trim();
+  return nostro && nostro.length > 0 ? nostro : g.nome;
+}
 
 export const GIORNI_LETTURA = 30; // finestra standard dei Definitivi
 
@@ -63,7 +82,8 @@ export async function gruppiConNumeri(opzioni: {
     const conversioni = g.metriche.reduce((s, m) => s + (m.conversioni ?? 0), 0);
     return {
       id: g.id,
-      nome: g.nome,
+      nome: nomeGruppo(g),
+      nomeGoogle: g.nome,
       campagnaId: g.campagnaId,
       campagna: g.campagna.nome,
       brand: g.brand,

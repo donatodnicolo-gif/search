@@ -1347,6 +1347,38 @@ export async function lanciaCampagna(fd: FormData) {
 // Lo stato del gruppo nell'app è una scelta dell'utente (come per le keyword):
 // l'import non lo tocca mai, tiene il suo in statoPiattaforma.
 
+/**
+ * Il nome leggibile di un gruppo, deciso da noi.
+ *
+ * ⚠️ Non tocca il nome su Google, e non deve: quello è la chiave con cui
+ * l'import ritrova il gruppo quando manca l'id di piattaforma
+ * (`ingest-gruppi.ts`). Cambiarlo qui vorrebbe dire che al giro dopo Google ne
+ * crea uno nuovo e questo resta orfano con tutta la sua storia.
+ * Casella vuota = si torna a mostrare il nome di Google.
+ */
+export async function rinominaGruppo(fd: FormData) {
+  const id = testo(fd, "id");
+  if (!id) return;
+  const nuovo = (testo(fd, "nomeVisibile") ?? "").trim();
+  const gruppo = await prisma.gruppo.update({
+    where: { id },
+    data: { nomeVisibile: nuovo.length > 0 ? nuovo : null },
+    include: { campagna: { select: { nome: true } } },
+  });
+  await registra({
+    autore: "utente",
+    tipo: "modifica",
+    entita: "gruppo",
+    entitaId: gruppo.id,
+    titolo: nuovo
+      ? `Gruppo "${gruppo.nome}" si chiama "${nuovo}"`
+      : `Gruppo "${gruppo.nome}": tolto il nome scelto, torna quello di Google`,
+    dettaglio: gruppo.campagna.nome,
+  });
+  revalidatePath(`/gruppi/${id}`);
+  revalidatePath("/gruppi");
+}
+
 export async function cambiaStatoGruppo(fd: FormData) {
   const id = testo(fd, "id");
   const stato = testo(fd, "stato");

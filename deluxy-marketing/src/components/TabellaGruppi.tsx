@@ -58,6 +58,12 @@ export function TabellaGruppi({
                 <td style={{ maxWidth: 320 }}>
                   <a className="cella-nome" href={`/gruppi/${g.id}`}>{g.nome}</a>
                   <div className="cella-sub">
+                    {/* Se il nome è stato cambiato qui, quello di Google resta
+                        leggibile: è l'unico modo di ritrovare il gruppo
+                        nell'interfaccia di Google Ads. */}
+                    {g.nomeGoogle !== g.nome && (
+                      <span title="Il nome che ha su Google Ads">su Google: {g.nomeGoogle} · </span>
+                    )}
                     {mostraCampagna && (
                       <a href={`/campagne/${g.campagnaId}`} style={{ color: "inherit" }}>{g.campagna}</a>
                     )}
