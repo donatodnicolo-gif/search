@@ -87,7 +87,12 @@ export default async function DettaglioProposta({ params }: { params: Promise<{ 
         <div className="kpi">
           <div className="kpi-label">Totale proposto {p.year}</div>
           <div className="kpi-value">{eur(totale)}</div>
-          <div className="kpi-sub">{valori.length} mesi compilati</div>
+          {/* «18 mesi» erano 6 mesi × 3 linee: contare le righe e chiamarle
+              mesi fa dubitare del numero anche quando il numero è giusto. */}
+          <div className="kpi-sub">
+            {new Set(valori.map((v) => v.month)).size} mesi
+            {canaliProposti.length > 0 && ` × ${canaliProposti.length} linee`} · {valori.length} caselle
+          </div>
         </div>
         {attuale !== null && (
           <div className="kpi">

@@ -73,12 +73,21 @@ export function DecisioneProposta({
   const perde = righe.filter((r) => r.prima > 0 && r.valore < r.prima);
   const persi = perde.reduce((s, r) => s + (r.prima - r.valore), 0);
 
+  // **Quante caselle, dette come sono fatte.** Diceva «18 mesi» perché contava
+  // le righe: su una proposta per linea sono 6 mesi × 3 linee, e un anno di 18
+  // mesi non esiste. Un'etichetta che conta una cosa e ne nomina un'altra fa
+  // dubitare del numero anche quando il numero è giusto.
+  const mesiTocchi = new Set(righe.map((r) => r.month)).size;
+  const linee = new Set(righe.map((r) => r.suQuale)).size;
+  const quante = conCanale
+    ? `${mesiTocchi} mes${mesiTocchi === 1 ? "e" : "i"} × ${linee} line${linee === 1 ? "a" : "e"}`
+    : `${mesiTocchi} mes${mesiTocchi === 1 ? "e" : "i"}`;
+
   async function consolida() {
-    const quanti = righe.length;
     const avviso = perde.length
-      ? `\n\nATTENZIONE: ${perde.length} mesi scendono, per ${Math.round(persi).toLocaleString("it-IT")} € di budget in meno.`
+      ? `\n\nATTENZIONE: ${perde.length} caselle scendono, per ${Math.round(persi).toLocaleString("it-IT")} € di budget in meno.`
       : "";
-    if (!confirm(`Scrivere ${quanti} mes${quanti === 1 ? "e" : "i"} nel budget ufficiale? Sovrascrive quello che c'è adesso.${avviso}`)) return;
+    if (!confirm(`Scrivere ${quante} (${righe.length} caselle) nel budget ufficiale? Sovrascrive quello che c'è adesso.${avviso}`)) return;
     setBusy(true);
     setErrore(null);
     setFatto(null);
@@ -158,7 +167,7 @@ export function DecisioneProposta({
               </span>
             )}
             <button className="btn" disabled={busy} onClick={consolida}>
-              {busy ? "Scrivo…" : `Consolida ${righe.length} mes${righe.length === 1 ? "e" : "i"} nel budget`}
+              {busy ? "Scrivo…" : `Consolida ${quante} nel budget`}
             </button>
           </div>
 
@@ -199,7 +208,7 @@ export function DecisioneProposta({
           )}
           {perde.length > 0 && (
             <div className="card" style={{ borderColor: "var(--red)", marginTop: 10 }}>
-              <strong>{perde.length} mesi scendono</strong>, per{" "}
+              <strong>{perde.length} caselle scendono</strong>, per{" "}
               <strong>{eur(persi)}</strong> di budget in meno. Se non è quello che
               vuoi, la proposta va corretta prima — non dopo: consolidare <strong>sovrascrive</strong>,
               non somma, e il valore di prima non si recupera da qui.
