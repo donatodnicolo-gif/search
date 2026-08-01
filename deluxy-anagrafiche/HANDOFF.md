@@ -619,7 +619,16 @@ scelte da fare, in fondo le pulizie. Quando un punto si chiude, si cancella da q
    La chiave **non è ancora stata generata**: si genera quando si collega l'app, così non resta in
    giro una chiave di scrittura inutilizzata.
 
-2. **`statoFinanziario`: nessuna app lo scrive.** In FINANCE non esiste una colonna da copiare —
+2. **`statoFinanziario`: nessuna app lo scrive.** ⚠️ Caso reale chiesto dall'utente il
+   01/08/2026 — «perché il finanziario di Armani Fiori non è aggiornato?». La sua storia dice
+   tutto: `17/07 in_trattativa → attivo (ui)` e `31/07 ana: → ana:nuovo (deluxy-partner)`. FINANCE
+   **scrive davvero** nel registro, ma manda **solo lo stato analisi**. Lo stato finanziario è
+   `da_verificare` (il default) su **999 anagrafiche su 1.004**: le 5 diverse sono state messe a
+   mano. Mancano due cose: il **trasporto** (nessuno chiama `GET /api/clienti/stato` di FINANCE,
+   che il valore lo **calcola già**, e lo scrive qui) e la **traduzione** (i vocabolari non
+   coincidono: FINANCE dice «da monitorare» e «scaduto grave», il registro ha «piano di rientro»
+   e «bloccato»). Serve la soglia in giorni oltre la quale uno scaduto è **insoluto**: è una
+   decisione aziendale, l'utente non l'ha ancora data. In FINANCE non esiste una colonna da copiare —
    ci sono i fatti (fatture scadute, `pdrDebito`, `debiti2025`). Serve la regola che li traduce in
    regolare/in_ritardo/insoluto/piano_di_rientro/bloccato, e va scritta **in `deluxy-partner`**,
    che possiede i dati e ha già la chiave di scrittura.
@@ -646,7 +655,24 @@ scelte da fare, in fondo le pulizie. Quando un punto si chiude, si cancella da q
 
 ### B. Scelte da prendere (il codice viene dopo)
 
-3bis. **Area «clienti» (chi ci COMPRA) — studio del 31/07/2026, misurato, non ancora costruito.**
+3bis. **CONSUMERS — sezione COSTRUITA il 01/08/2026 (lo studio che l'ha generata è qui sotto).**
+   ✅ FATTO: modello `Consumer`, import da Orders (`npm run importa:consumers`), pagina
+   `/consumers` con filtri e KPI, scheda `/consumers/{id}`, voce in sidebar, chiave
+   `ORDERS_API_KEY` in locale **e su Vercel**. Primo import: **10.285 persone, 2.046.059 €,
+   13.091 ordini, 83 agganciate a un'anagrafica B2B**.
+   ❌ RESTA DA FARE, in ordine di valore:
+   (a) **la lista «hanno già comprato ma sono segnati prospect»** — sono **56 anagrafiche per
+       43.033 €** (Lavazza, McCann, Jil Sander, Berggruen, Liwathon: corporate gifting). È il
+       motivo per cui la sezione è nata e **non è ancora stata costruita**;
+   (b) **la risincronizzazione non è automatica**: oggi si lancia a mano da locale. Serve un cron
+       (Vercel) o un bottone in pagina, se no la fotografia invecchia in silenzio;
+   (c) **nessuna API espone i Consumers** alle altre app: per ora si leggono solo dalla UI;
+   (d) **l'aggancio manuale non si può fare dalla UI** (il campo `agganciatoCome: "manuale"`
+       esiste già ed è rispettato dall'import, ma non c'è il bottone per scriverlo);
+   (e) **la scheda azienda non mostra ancora gli acquisti** di chi le è agganciato.
+   Sotto, lo studio che ha deciso il disegno — da rileggere prima di toccare la sezione.
+
+   **Studio del 31/07/2026, misurato.**
    Richiesta dell'utente: «studia da Orders come dovrebbe essere l'area su Anagrafiche per i
    clienti». Lo studio ha trovato prima di tutto un **equivoco di vocabolario**, ed è quello che
    decide il disegno: **«cliente» vuol dire due cose diverse nelle due app.**
@@ -676,6 +702,18 @@ scelte da fare, in fondo le pulizie. Quando un punto si chiude, si cancella da q
    commerciale (le 56 diventerebbero Cliente in automatico) oppure restare un **suggerimento da
    confermare**. Il registro ha sempre tenuto lo stato commerciale come campo curato dal team:
    cambiarlo in automatico sarebbe la prima eccezione.
+
+3ter. **Scout e il registro non dicono più le stesse parole** (dal 31/07/2026, da allineare).
+   Qui `non_interessato` e `a_rischio` sono passati al **livello**; in `deluxy-scout` sono ancora
+   **stati commerciali**. E la stessa dimensione si chiama **livello** qui e **momento del
+   contatto** là (`MomentoContatto`, colonna `livello_contatto`). Le scritture **non si rompono**
+   — le API del registro spostano da sé quei valori nel livello (`src/lib/partner-api.ts`, nota
+   «COMPATIBILITÀ CON SCOUT») — ma le due app mostrano gli stessi fatti in caselle diverse.
+   Da fare **in `deluxy-scout`**: togliere i due valori da `StatoAffiliazione`, aggiungerli a
+   `MomentoContatto`, e far mandare `livello` invece di `stato` dalla funzione
+   `supabase/functions/anagrafiche` (che oggi manda ancora `visitato → in_contatto` come stato).
+   ⚠️ Non toccare la compatibilità nel registro **prima** che quella funzione sia cambiata: senza,
+   ogni scrittura di Scout tornerebbe 400.
 
 4. **Fornitori nel registro** (impianto discusso il 30/07/2026, non costruito). Il fornitore
    oggi vive come testo libero altrove: `fornitore` sull'ordine in Orders, `beneficiario` sulla
