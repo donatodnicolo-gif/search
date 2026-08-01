@@ -14,32 +14,39 @@
 import { prisma } from "../src/lib/db";
 import { creaChiave } from "../src/lib/chiavi";
 
-const argomenti = process.argv.slice(2).filter((a) => a !== "--");
-const nome = argomenti.find((a) => !a.startsWith("--"));
-const scrittura = argomenti.includes("--scrittura");
-const rigenera = argomenti.includes("--rigenera");
+// ⚠️ Tutto dentro una funzione: qui i `.ts` degli script vengono compilati come
+// CommonJS e un `await` di primo livello non compila («Top-level await is
+// currently not supported with the "cjs" output format»).
+async function main() {
+  const argomenti = process.argv.slice(2).filter((a) => a !== "--");
+  const nome = argomenti.find((a) => !a.startsWith("--"));
+  const scrittura = argomenti.includes("--scrittura");
+  const rigenera = argomenti.includes("--rigenera");
 
-if (!nome) {
-  console.error("Uso: npm run chiave -- <nome-app> [--scrittura] [--rigenera]");
-  process.exit(1);
-}
+  if (!nome) {
+    console.error("Uso: npm run chiave -- <nome-app> [--scrittura] [--rigenera]");
+    process.exit(1);
+  }
 
-const esito = await creaChiave(nome, scrittura, rigenera);
+  const esito = await creaChiave(nome, scrittura, rigenera);
 
-if (!esito.ok) {
-  console.error(esito.motivo);
-  console.error("Aggiungi --rigenera per sostituire il segreto della chiave esistente.");
+  if (!esito.ok) {
+    console.error(esito.motivo);
+    console.error("Aggiungi --rigenera per sostituire il segreto della chiave esistente.");
+    await prisma.$disconnect();
+    process.exit(1);
+  }
+
+  console.log(
+    `Chiave API ${esito.rigenerata ? "RIGENERATA" : "creata"} per "${esito.nome}" (${scrittura ? "lettura + scrittura" : "sola lettura"}):`,
+  );
+  console.log();
+  console.log(`  ${esito.chiave}`);
+  console.log();
+  console.log("Conservala ora: non sarà più recuperabile (nel DB c'è solo l'hash).");
+  if (esito.rigenerata) console.log("La chiave di prima ha smesso di funzionare in questo istante.");
+
   await prisma.$disconnect();
-  process.exit(1);
 }
 
-console.log(
-  `Chiave API ${esito.rigenerata ? "RIGENERATA" : "creata"} per "${esito.nome}" (${scrittura ? "lettura + scrittura" : "sola lettura"}):`,
-);
-console.log();
-console.log(`  ${esito.chiave}`);
-console.log();
-console.log("Conservala ora: non sarà più recuperabile (nel DB c'è solo l'hash).");
-if (esito.rigenerata) console.log("La chiave di prima ha smesso di funzionare in questo istante.");
-
-await prisma.$disconnect();
+main();
