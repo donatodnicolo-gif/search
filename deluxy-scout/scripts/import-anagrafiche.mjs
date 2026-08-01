@@ -19,19 +19,45 @@
 import { readFileSync } from 'node:fs';
 
 const ANAG_URL = process.env.ANAGRAFICHE_URL || 'https://deluxy-anagrafiche.vercel.app';
-const ANAG_KEY = process.env.ANAGRAFICHE_API_KEY;
-const PAT = process.env.SUPABASE_PAT;
+// `let`: se mancano nella finestra si leggono dal .env, qui sotto.
+let ANAG_KEY = process.env.ANAGRAFICHE_API_KEY;
+let PAT = process.env.SUPABASE_PAT ?? process.env.SUPABASE_ACCESS_TOKEN;
 const REF = process.env.SUPABASE_REF || 'fdsziebgkljfsugqqbqd';
 const DRY = process.argv.includes('--dry');
 
 let GKEY = process.env.GOOGLE_GEOCODING_KEY;
-if (!GKEY) {
+/**
+ * Le chiavi si leggono anche dal `.env` della cartella, non solo dalle
+ * variabili della finestra.
+ *
+ * Perché: prima bisognava incollarle a ogni lancio, in una finestra che poi si
+ * chiude — ed è il tipo di attrito che fa rimandare un import finché non serve
+ * più. Il `.env` è **gitignored** (vedi §4 dell'handoff): un token lì è un
+ * token sul tuo disco, non nel repo. Le variabili della finestra, se ci sono,
+ * hanno comunque la precedenza.
+ */
+function daEnvFile(nome) {
   try {
-    GKEY = (readFileSync('.env', 'utf8').match(/EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_KEY=(.+)/) || [])[1]?.trim();
-  } catch { /* .env assente */ }
+    const riga = readFileSync('.env', 'utf8').match(new RegExp(`^${nome}=(.+)$`, 'm'));
+    // Via apici e spazi: un valore incollato fra virgolette è l'errore più
+    // comune, e produrrebbe una chiave che sembra giusta e viene rifiutata.
+    return riga?.[1]?.trim().replace(/^["']|["']$/g, '');
+  } catch {
+    return undefined; // .env assente
+  }
 }
+
+if (!GKEY) GKEY = daEnvFile('EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_KEY');
+if (!ANAG_KEY) ANAG_KEY = daEnvFile('ANAGRAFICHE_API_KEY');
+if (!PAT) PAT = daEnvFile('SUPABASE_PAT') ?? daEnvFile('SUPABASE_ACCESS_TOKEN');
+
 if (!ANAG_KEY || !PAT) {
-  console.error('Servono ANAGRAFICHE_API_KEY e SUPABASE_PAT');
+  console.error('\n✗ Manca una chiave.\n');
+  console.error(`  ANAGRAFICHE_API_KEY  ${ANAG_KEY ? 'ok' : 'MANCA — chiave di sola lettura del registro'}`);
+  console.error(`  SUPABASE_PAT         ${PAT ? 'ok' : 'MANCA — https://supabase.com/dashboard/account/tokens'}`);
+  console.error('\n  Si mettono in una riga del file deluxy-scout/.env (che non finisce su git):');
+  console.error('    SUPABASE_PAT=sbp_...\n');
+  console.error('  Oppure, solo per questa finestra:  $env:SUPABASE_PAT = "sbp_..."\n');
   process.exit(1);
 }
 if (!GKEY) {
