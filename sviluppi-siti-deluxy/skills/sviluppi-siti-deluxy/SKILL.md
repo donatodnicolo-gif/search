@@ -25,6 +25,11 @@ senza rompere il sito live. Leggi anche:
   id dei temi, correzioni pubblicate, correzioni pronte da pubblicare, elenco dei problemi
   aperti diviso fra codice e dati, e le trappole di misura. Leggilo per primo se lavori su
   deluxy.it.
+- `reference/STATO-DELUXYFLOWERS.md` — **punto di ripresa per deluxyflowers.com (31/07/2026)**:
+  cambio numero WhatsApp (16 file su 20, già in produzione → il sito è incoerente finché non si
+  chiudono gli altri 4), due correzioni di codice pubblicate, e l'elenco dei 13 errori aperti
+  trovati con l'audit. Leggilo per primo se lavori su deluxyflowers.com.
+- `reference/STATO-CAKEDESIGN.md` — punto di ripresa per cakedesign.me.
 
 ## Negozi
 
@@ -37,7 +42,11 @@ senza rompere il sito live. Leggi anche:
 ## Regola d'oro n.1 — mai toccare il tema live
 
 1. Tutto lo sviluppo si fa sul tema **"Version to work on"** (role `UNPUBLISHED`).
-   Su fb72b1-2: dev id `202100179269`, live id `202097721669` (verifica sempre, possono cambiare).
+   Su fb72b1-2 il MAIN al 31/07/2026 è `203646435653` (gli id `202100179269`/`202097721669` e
+   `203134304581`/`203522212165` sono **obsoleti**: cambiano a ogni pubblicazione, e in una sola
+   sessione sono cambiati due volte). **Verifica sempre `themes(...)` prima di scrivere.**
+   ⚠️ Verifica anche `get-shop-info`: il connettore MCP può cambiare negozio da solo dopo una
+   riconnessione (successo davvero: da deluxyflowers a cakedesign a metà sessione).
 2. **Prima di OGNI scrittura** interroga `theme { name role }` e procedi **solo se**
    `role == UNPUBLISHED` e il nome è quello del tema di sviluppo. Se non torna, fermati.
 3. La **pubblicazione** la fa l'utente dall'admin (o la chiede esplicitamente). Mai pubblicare
