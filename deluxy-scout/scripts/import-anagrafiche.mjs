@@ -136,6 +136,47 @@ const STATO_DA_LIVELLO = {
 };
 const DECISORE = /titolare|founder|owner|proprietar|ceo|general manager|direttore/i;
 
+// Gli INTERESSI del registro (Re-seller, Consegne, Gifting…) sono la cosa che
+// dice di che si parla con quel negozio, e fino al 31/07/2026 l'import **non li
+// portava affatto**: Scout mostrava la linea indovinata dalla categoria, quindi
+// un partner «Re-seller + Consegne» compariva come «Food Supplier». Segnalato
+// dall'utente.
+//
+// ⚠️ Copia dell'alias in types/index.ts: questo file è JS puro e non può
+// importare il TypeScript dell'app. Se là si aggiunge un alias, va aggiunto qui.
+const ALIAS_LINEE = {
+  'regali aziendali': 'Gifting',
+  regali: 'Gifting',
+  gifting: 'Gifting',
+  catering: 'Eventi & Catering',
+  eventi: 'Eventi & Catering',
+  'eventi & catering': 'Eventi & Catering',
+};
+// Il catalogo, per riportare alla grafia giusta le varianti di maiuscole: nel
+// registro convivono «Consegne» e «consegne», e senza questo passaggio sono due
+// tag diversi — filtri per uno e perdi gli altri.
+const LINEE = [
+  'Consegne',
+  'Eventi & Catering',
+  'Gifting',
+  'Affiliazioni',
+  'Re-seller',
+  'Food Supplier',
+  'Clientelling',
+  'Concierge',
+  'Magazzino',
+];
+const canonizzaLinee = (linee) => {
+  const out = [];
+  for (const l of linee ?? []) {
+    const grezzo = String(l).trim();
+    const min = grezzo.toLowerCase();
+    const c = ALIAS_LINEE[min] ?? LINEE.find((x) => x.toLowerCase() === min) ?? grezzo;
+    if (c && !out.includes(c)) out.push(c);
+  }
+  return out;
+};
+
 // ── 1. Scarica il registro ──────────────────────────────────────────────────
 console.log('→ scarico le anagrafiche…');
 const partners = [];
@@ -208,6 +249,7 @@ for (const p of partners) {
     ana_stato: MOMENTI.includes(p.stato) ? STATO_DA_LIVELLO[p.stato] : p.stato || null,
     // `livello` è il nome che ha nel registro; qui diventa `livello_rapporto`.
     momento: MOMENTI.includes(p.livello) ? p.livello : MOMENTI.includes(p.stato) ? p.stato : null,
+    interessi: canonizzaLinee(p.interessi),
     ultima_visita: p.ultimaVisita || null,
     lat: c.lat,
     lng: c.lng,
@@ -233,7 +275,8 @@ if (DRY) { console.log('(--dry: nessuna scrittura)'); process.exit(0); }
 
 // ── 5. Upsert places (a lotti) ──────────────────────────────────────────────
 const COLONNE = `x(aid text, nome text, indirizzo text, zona text, settore text, categoria text,
-  stato text, account text, ana_stato text, momento text, ultima_visita timestamptz, lat float8, lng float8)`;
+  stato text, account text, ana_stato text, momento text, interessi text[],
+  ultima_visita timestamptz, lat float8, lng float8)`;
 
 for (let i = 0; i < righe.length; i += 100) {
   const lotto = righe.slice(i, i + 100);
@@ -244,7 +287,7 @@ for (let i = 0; i < righe.length; i += 100) {
     insert into places (nome, indirizzo, zona, settore, categoria, stato, lat, lng, source,
                         anagrafiche_id, anagrafiche_account, anagrafiche_stato, anagrafiche_ultima_visita,
                         stato_affiliazione, livello_rapporto, starred,
-                        linea_ipotizzata, aggancio_apertura, priorita)
+                        linea_ipotizzata, linee_ipotizzate, aggancio_apertura, priorita)
     select r.nome, r.indirizzo, r.zona, r.settore, r.categoria, r.stato::stato_place_t, r.lat, r.lng,
            'anagrafiche', r.aid, r.account, r.ana_stato, r.ultima_visita,
            -- Lo stato commerciale su cui lavora Scout: senza, il livello non si
@@ -259,7 +302,11 @@ for (let i = 0; i < righe.length; i += 100) {
            -- un altra app. Senza, l import riempie il database e le liste
            -- restano vuote.
            true,
-           r.linea_ipotizzata, r.aggancio_apertura, coalesce(r.priorita, 'P3')::priorita_t
+           -- Gli interessi del registro vincono; la linea indovinata dalla
+           -- categoria resta solo come ripiego per chi non ne ha nessuno.
+           coalesce(r.interessi[1], r.linea_ipotizzata),
+           case when coalesce(array_length(r.interessi, 1), 0) > 0 then r.interessi end,
+           r.aggancio_apertura, coalesce(r.priorita, 'P3')::priorita_t
     from r
     on conflict (anagrafiche_id) where anagrafiche_id is not null do update set
       nome = excluded.nome,
@@ -269,6 +316,13 @@ for (let i = 0; i < righe.length; i += 100) {
       anagrafiche_account = excluded.anagrafiche_account,
       stato_affiliazione = excluded.stato_affiliazione,
       livello_rapporto = excluded.livello_rapporto,
+      -- Gli interessi si riscrivono SOLO se il registro ne ha: è lui la fonte
+      -- di verità, ma un registro vuoto non deve cancellare quello che un
+      -- venditore ha scelto qui e non ha ancora rimandato di là.
+      linee_ipotizzate = case when coalesce(array_length(excluded.linee_ipotizzate, 1), 0) > 0
+                              then excluded.linee_ipotizzate else places.linee_ipotizzate end,
+      linea_ipotizzata = case when coalesce(array_length(excluded.linee_ipotizzate, 1), 0) > 0
+                              then excluded.linea_ipotizzata else places.linea_ipotizzata end,
       starred = true,
       anagrafiche_stato = excluded.anagrafiche_stato,
       anagrafiche_ultima_visita = excluded.anagrafiche_ultima_visita;

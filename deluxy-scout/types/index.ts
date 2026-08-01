@@ -205,11 +205,26 @@ const ALIAS_LINEE: Record<string, string> = {
   'eventi & catering': 'Eventi & Catering',
 };
 
-/** Riconduce una lista di linee ai nomi canonici del catalogo (dedup, ordine invariato). */
+/**
+ * Riconduce una lista di linee ai nomi canonici del catalogo (dedup, ordine
+ * invariato).
+ *
+ * ⚠️ Anche le MAIUSCOLE contano, ed è il motivo per cui questa funzione non
+ * bastava: nel registro Anagrafiche convivono «Consegne» e «consegne», e senza
+ * questo passaggio erano due tag diversi — filtravi per uno e perdevi gli altri
+ * (segnalato il 31/07/2026). Prima si guardava solo la lista degli alias, che
+ * copre i nomi *vecchi*, non le varianti di scrittura di quelli giusti.
+ */
 export function canonizzaLinee(linee: string[] | null | undefined): string[] {
   const out: string[] = [];
   for (const l of linee ?? []) {
-    const c = ALIAS_LINEE[l.trim().toLowerCase()] ?? l.trim();
+    const grezzo = l.trim();
+    const minuscolo = grezzo.toLowerCase();
+    const c =
+      ALIAS_LINEE[minuscolo] ??
+      // Stesso nome scritto in un altro modo: vince la grafia del catalogo.
+      LINEE.find((x) => x.toLowerCase() === minuscolo) ??
+      grezzo;
     if (c && !out.includes(c)) out.push(c);
   }
   return out;
