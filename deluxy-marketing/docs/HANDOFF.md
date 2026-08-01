@@ -550,6 +550,56 @@ analisi importate); seconda corsa 0 scritture.
 
 ## MANCA
 
+### Punti aperti al 01/08/2026 (in cima perché sono i più freschi)
+
+- **Date di FINE campagna — feature iniziata e RITIRATA, da rifare intera.**
+  L'1/8 una sessione multi-agente ha scoperto live che `DC9 Regali B2B` ha una
+  **end date 31/08/2026** su Google, ignota all'app (risulta attiva e senza
+  scadenza). Una campagna con end date **si spegne da sola** quel giorno, e nel-
+  l'app sembra solo che smetta di spendere — indistinguibile da un calo. L'utente
+  ha chiesto di **registrare le date di fine per tutte le campagne**. La catena è
+  rotta in **tre punti** e nessuno da solo basta: (1) `scripts/google-ads-script.js`
+  non legge `campaign.end_date`/`start_date` (0 occorrenze); (2) `RigaMetrica` in
+  `ingest-metriche.ts` non ha i campi; (3) `salvaMetriche` non scrive
+  `Campagna.inizio`/`.fine`. ⚠️ **Trappola già individuata**: Google usa
+  **`2037-12-30` come sentinella di «nessuna fine»** — va tradotto in `null`, o
+  l'app si riempie di finte scadenze 2037. Un abbozzo (tipo + helper `dataCampagna`)
+  era stato scritto e **poi tolto** per non lasciare codice a metà nel repo: si
+  riparte da zero ma il disegno è questo.
+
+- **Tre APPEND ADV Gifts nuovi sul Drive (01/08 20:15), NON ancora indicizzati.**
+  `ads/Definitivi/APPEND 00.2|00.3|00.4 ADV-Gifts 2026-08-01 2015.md`, da una
+  sessione multi-agente (analisi Google live + Meta documentale + audit + 3
+  verificatori ostili). La **sync Drive è fallita** (DB irraggiungibile, vedi
+  sotto): rilanciare `npm run sync-drive` quando il Postgres risponde. Dentro,
+  cose che toccano l'app: **DC9 end date** (sopra); **DC5 Roma italian** ha lingua
+  targeting EN+IT mentre la scheda dice ITA (drift); **policy Alcohol** = 12
+  annunci "Limited" su 10/12 campagne (critico, l'app non lo vede).
+
+- **Break-even Meta con la DST Italia 3% — IN ATTESA DEL CUSTODE, non applicare.**
+  Gli APPEND propongono BE Meta `3,33 × 1,03 = 3,43` per Gifts (DST dal 1/7/26).
+  È la **proposta n.4 al custode, ancora APERTA**. L'utente ha deciso il 01/08 di
+  **aspettare**: non toccare `MARGINE_BRAND`/`breakEvenRoas` in `guardrail.ts`
+  finché non c'è risposta — cambia la soglia sopra/sotto di ogni keyword, gruppo,
+  sitelink e del wizard.
+
+- **Il Postgres condiviso rifiutava connessioni** (01/08 sera): `Can't reach
+  database server … pooler.supabase.com:6543` e P2024 a raffica in dev. Con
+  `connection_limit=5` la sola Sidebar fa ~8 query a pagina: due dev server sullo
+  stesso DB lo saturano. **In produzione regge oggi perché il traffico è basso**,
+  ma è il primo punto che cede. Candidato n.1 da alzare.
+
+- **Cron ordini una volta a notte (03:20): l'utente ha chiesto ogni 3 ore, NON
+  fatto.** Oggi gli ordini restano indietro di un giorno rispetto a spesa Google/
+  Meta che sono a oggi → i KPI di giornata (ROS, MER, costo acq.) risultano
+  peggiori del vero fino al mattino dopo. Basta cambiare lo schedule in
+  `vercel.json` (finestra 7 gg già a posto).
+
+- **TikTok completamente scollegato** (0 account, 0 token, 0 consegne). Il
+  connettore `lib/tiktok.ts` c'è e funziona, ma serve access token + advertiser id
+  in Impostazioni, e **manca il cron** (staleness silenziosa come Meta pre-28/07).
+  Da fare solo se su TikTok si spende davvero.
+
 0. ~~**Token Meta non autorizzato sugli account**~~ — **RISOLTO il 29/07/2026.**
    Bastava assegnare i tre account pubblicitari all'utente di sistema in
    Business Settings (Utenti → Utenti di sistema → Aggiungi risorse → Account
