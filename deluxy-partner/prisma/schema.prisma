@@ -59,7 +59,10 @@ model Partner {
   note                   String?
   // Chiave di join con il registro Deluxy Anagrafiche (id del partner lì).
   // Popolata una volta per riconciliazione; è la "lingua comune di id" tra le app.
+  // È l'anagrafica PRINCIPALE: le altre sedi della stessa azienda stanno in
+  // `anagrafiche` (vedi AnagraficaCollegata).
   anagraficaId           String?  @unique
+  anagrafiche            AnagraficaCollegata[]
   attivo                 Boolean  @default(true)
   fatture                FatturaServizio[]
   vendite                VenditaVendor[]
@@ -68,6 +71,33 @@ model Partner {
   proforme               ProForma[]
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt
+}
+
+// PIÙ ANAGRAFICHE DEL REGISTRO SULLA STESSA SCHEDA DI FINANCE.
+//
+// Nel registro le sedi sono record distinti — «DR. VRANJES» a Milano e «Dr.
+// Vranjes» a Bagno a Ripoli, «MONCLER» a Firenze e a Forte dei Marmi — mentre
+// qui sono un cliente solo: si fattura, si incassa e si paga una volta.
+// `Partner.anagraficaId` ne regge una (ed è @unique, quindi non basta):
+// le altre sedi si agganciano qui.
+//
+// Serve a due cose, entrambe già costate doppioni: l'import non riproporrà una
+// sede già assegnata, e il richiamo del registro (`POST /api/v1/partners`)
+// riconosce la sede come «questo cliente c'è già» invece di creargli una
+// seconda scheda.
+model AnagraficaCollegata {
+  id           String   @id @default(cuid())
+  partnerId    String
+  partner      Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  // id del record nel registro Anagrafiche: una sede appartiene a un solo
+  // partner, quindi non può comparire due volte
+  anagraficaId String   @unique
+  // com'era scritta quando è stata collegata: serve a chi guarda dopo
+  nome         String?
+  citta        String?
+  createdAt    DateTime @default(now())
+
+  @@index([partnerId])
 }
 
 // Utente dell'app con account personale (email + password). Serve a chi NON

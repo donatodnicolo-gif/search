@@ -111,6 +111,21 @@ function somiglianti<T extends { nome: string }>(nome: string, partners: T[]): T
     .map((x) => x.p);
 }
 
+/** Gli id del registro già assegnati a una scheda di FINANCE: sia l'anagrafica
+ *  principale del partner sia le **altre sedi** collegate alla stessa scheda
+ *  (`AnagraficaCollegata`). Un solo posto da chiedere, perché la domanda «questa
+ *  anagrafica ce l'ho già?» ha una risposta sola. */
+export async function anagraficheGiaAssegnate(): Promise<Set<string>> {
+  const [principali, collegate] = await Promise.all([
+    prisma.partner.findMany({ where: { anagraficaId: { not: null } }, select: { anagraficaId: true } }),
+    prisma.anagraficaCollegata.findMany({ select: { anagraficaId: true } }),
+  ]);
+  return new Set([
+    ...principali.map((p) => p.anagraficaId!),
+    ...collegate.map((c) => c.anagraficaId),
+  ]);
+}
+
 export type DubbioImport = { anagrafica: AnagraficaAttiva; simili: { id: string; nome: string }[] };
 export type DaImportare = { nuovi: AnagraficaAttiva[]; dubbi: DubbioImport[] };
 
@@ -121,7 +136,7 @@ export async function attiviDaImportare(): Promise<DaImportare> {
   const attive = await anagraficheAttive();
   if (attive.length === 0) return { nuovi: [], dubbi: [] };
   const partners = await prisma.partner.findMany({ select: { id: true, nome: true, anagraficaId: true } });
-  const perId = new Set(partners.map((p) => p.anagraficaId).filter(Boolean));
+  const perId = await anagraficheGiaAssegnate();
   const perNome = new Set(partners.map((p) => norm(p.nome)));
 
   const nuovi: AnagraficaAttiva[] = [];
@@ -220,7 +235,7 @@ export async function importaAttivi(origine: string): Promise<EsitoImport> {
   }
 
   const partners = await prisma.partner.findMany({ select: { id: true, nome: true, anagraficaId: true } });
-  const perId = new Set(partners.map((p) => p.anagraficaId).filter(Boolean));
+  const perId = await anagraficheGiaAssegnate();
   const perNome = new Map(partners.map((p) => [norm(p.nome), p]));
 
   const creati: string[] = [];

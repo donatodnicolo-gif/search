@@ -90,13 +90,29 @@ export async function POST(req: NextRequest) {
   };
 
   try {
-    // 1) già collegato al registro
+    // 1) già collegato al registro — come anagrafica principale del partner
+    //    OPPURE come altra sede della stessa scheda (`AnagraficaCollegata`):
+    //    nel registro «MONCLER» Firenze e Forte dei Marmi sono due record, qui
+    //    sono un cliente solo, e senza questo controllo il richiamo della
+    //    seconda sede creerebbe una scheda doppia.
     if (anagraficaId) {
-      const esistente = await prisma.partner.findFirst({ where: { anagraficaId } });
-      if (esistente) {
-        await prisma.partner.update({ where: { id: esistente.id }, data: dati });
-        revalidatePath(`/partner/${esistente.id}`, "layout");
-        return NextResponse.json({ esito: "aggiornato", id: esistente.id });
+      const principale = await prisma.partner.findFirst({ where: { anagraficaId } });
+      if (principale) {
+        await prisma.partner.update({ where: { id: principale.id }, data: dati });
+        revalidatePath(`/partner/${principale.id}`, "layout");
+        return NextResponse.json({ esito: "aggiornato", id: principale.id });
+      }
+      // La stessa scheda vista da una SEDE SECONDARIA: si riconosce e basta.
+      // ⚠️ Non si scrive niente. I dati della scheda vengono dalla sede
+      // principale, e lasciare passare l'aggiornamento significherebbe che il
+      // richiamo di Forte dei Marmi riscrive città e ragione sociale del
+      // MONCLER di Firenze — visto succedere in prova.
+      const sede = await prisma.anagraficaCollegata.findUnique({
+        where: { anagraficaId },
+        select: { partnerId: true },
+      });
+      if (sede) {
+        return NextResponse.json({ esito: "aggiornato", id: sede.partnerId, nota: "sede secondaria: scheda già presente, non modificata" });
       }
     }
 

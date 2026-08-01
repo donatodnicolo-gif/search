@@ -32,30 +32,38 @@ export async function collegaDubbio(fd: FormData) {
   const partnerId = String(fd.get("partnerId") ?? "").trim();
   if (!anagraficaId || !partnerId) redirect("/partner");
   const a = (await anagraficheAttive()).find((x) => x.id === anagraficaId);
-  const p = await prisma.partner.update({
+  const partner = await prisma.partner.findUnique({
     where: { id: partnerId },
-    data: { anagraficaId },
+    select: { id: true, nome: true, anagraficaId: true },
   });
+  if (!partner) redirect("/partner");
+
+  // ⚠️ Nel registro le SEDI sono record distinti — «DR. VRANJES» a Milano e
+  // «Dr. Vranjes» a Bagno a Ripoli, «MONCLER» a Firenze e a Forte dei Marmi —
+  // mentre qui sono un cliente solo. Se il partner ha già la sua anagrafica
+  // principale, la seconda sede si AGGIUNGE: sostituirla vorrebbe dire perdere
+  // il collegamento di prima, e in FINANCE il campo è uno solo.
+  let comeCollegata: string;
+  if (!partner!.anagraficaId) {
+    await prisma.partner.update({ where: { id: partnerId }, data: { anagraficaId } });
+    comeCollegata = "collegata";
+  } else if (partner!.anagraficaId === anagraficaId) {
+    comeCollegata = "era già collegata";
+  } else {
+    await prisma.anagraficaCollegata.upsert({
+      where: { anagraficaId },
+      create: { anagraficaId, partnerId, nome: a?.nome ?? null, citta: a?.citta ?? null },
+      update: { partnerId, nome: a?.nome ?? null, citta: a?.citta ?? null },
+    });
+    comeCollegata = "aggiunta come altra sede della stessa scheda";
+  }
+
   revalidatePath("/partner", "layout");
-  // ⚠️ Va detto QUALE anagrafica è stata collegata, città compresa: nel
-  // registro ci sono più schede con lo stesso nome — «DR. VRANJES MILANO» e
-  // «Dr. Vranjes BAGNO A RIPOLI», «MONCLER» a Firenze e a Forte dei Marmi —
-  // e collegandone una l'altra resta in elenco identica. Senza questa riga
-  // sembra che il clic non abbia fatto niente.
-  const quale = a ? `«${a.nome.replace(/\s+/g, " ")}${a.citta ? ` · ${a.citta}` : ""}»` : "l'anagrafica";
-  const restano = a
-    ? (await anagraficheAttive()).filter(
-        (x) => x.id !== a.id && x.nome.trim().toLowerCase() === a.nome.trim().toLowerCase()
-      )
-    : [];
+  revalidatePath(`/partner/${partnerId}`, "layout");
+  const quale = a ? `«${a.nome.replace(/\s+/g, " ")}${a.citta ? ` · ${a.citta}` : ""}»` : "L'anagrafica";
   redirect(
     `/partner?importFatto=${encodeURIComponent(
-      `${quale} è ora collegata a «${p.nome}».` +
-        (restano.length
-          ? ` Attenzione: nel registro c'è ancora ${restano.length === 1 ? "un'altra scheda" : `altre ${restano.length} schede`} con lo stesso nome (${restano
-              .map((r) => r.citta ?? "senza città")
-              .join(", ")}): è una sede diversa e va decisa a parte.`
-          : "")
+      `${quale}: ${comeCollegata} su «${partner!.nome}». Tutto quello che riguarda questa sede finisce su quell'unica scheda.`
     )}`
   );
 }
