@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/db";
+import { conteggiSidebar } from "@/lib/conteggi-sidebar";
 import { BRANDS, COLORE_BRAND, ETICHETTA_BRAND, STATI_AZIONE_APERTI, STATI_CAMPAGNA_VIVE } from "@/lib/dominio";
 import { Icona } from "./Icona";
 import { SbSezione } from "./SbSezione";
@@ -20,58 +20,18 @@ export async function Sidebar({
   brandAttivo?: string;
   canaleAttivo?: string;
 }) {
-  const [
+  // Un solo giro al database invece di 19, con 60 secondi di cache: la sidebar
+  // sta su OGNI pagina, e quei contatori li pagava tutti a ogni click.
+  const {
     nAnalisi, nAudit, nAzioniAperte, nCampagneVive, nLanding, nTestAperti, nDocumenti,
-    aperteBrand, aperteCanale, analisiCanale, auditCanale, campagneCanale, nPubblici, nOrdini, nErroriAperti, nIncongruenzeAperte, nOperazioni,
-    nGruppi,
-    nTermini,
-  ] = await Promise.all([
-    prisma.analisi.count(),
-    prisma.analisi.count({
-      where: { tipo: { in: ["audit_google", "audit_meta", "revisione_creativi", "revisione_landing"] } },
-    }),
-    prisma.azione.count({ where: { stato: { in: STATI_AZIONE_APERTI } } }),
-    prisma.campagna.count({ where: { stato: { in: [...STATI_CAMPAGNA_VIVE] } } }),
-    prisma.landingPage.count(),
-    prisma.testMeta.count({ where: { stato: { in: ["idea", "pianificato", "in_corso"] } } }),
-    prisma.documentoDrive.count(),
-    prisma.azione.groupBy({
-      by: ["brand"],
-      where: { stato: { in: STATI_AZIONE_APERTI } },
-      _count: { _all: true },
-    }),
-    prisma.azione.groupBy({
-      by: ["canale"],
-      where: { stato: { in: STATI_AZIONE_APERTI } },
-      _count: { _all: true },
-    }),
-    prisma.analisi.groupBy({ by: ["canale"], _count: { _all: true } }),
-    prisma.analisi.groupBy({
-      by: ["canale"],
-      where: { tipo: { in: ["audit_google", "audit_meta", "revisione_creativi", "revisione_landing"] } },
-      _count: { _all: true },
-    }),
-    prisma.campagna.groupBy({
-      by: ["canale"],
-      where: { stato: { in: [...STATI_CAMPAGNA_VIVE] } },
-      _count: { _all: true },
-    }),
-    prisma.pubblico.count(),
-    prisma.ordine.count(),
-    prisma.incidente.count({ where: { stato: "aperto" } }),
-    prisma.incongruenza.count({ where: { stato: "aperta" } }),
-    prisma.operazioneAdv.count({ where: { stato: { in: ["in_attesa", "approvata"] } } }),
-    prisma.gruppo.count(),
-    // Non quante parole ci sono, ma quante stanno bruciando: e il numero che
-    // dice se vale la pena aprire la pagina.
-    prisma.termineRicerca.count({ where: { spesa: { gt: 0 }, conversioni: { equals: 0 } } }),
-  ]);
+    aperteBrand, aperteCanale, analisiCanale, auditCanale, campagneCanale,
+    nPubblici, nOrdini, nErroriAperti, nIncongruenzeAperte, nOperazioni, nGruppi, nTermini,
+  } = await conteggiSidebar();
 
-  const conta = (
-    gruppi: { canale: string | null; _count: { _all: number } }[],
-    canale: string
-  ) => gruppi.find((r) => r.canale === canale)?._count._all ?? 0;
-  const aperteDi = (brand: string) => aperteBrand.find((r) => r.brand === brand)?._count._all ?? 0;
+
+  // I conteggi per canale/brand arrivano già come mappa dalla query unica
+  const conta = (per: Record<string, number>, canale: string) => per[canale] ?? 0;
+  const aperteDi = (brand: string) => aperteBrand[brand] ?? 0;
 
   const voce = (id: VoceSidebar, href: string, icona: string, nome: string, count?: number) => (
     <a className={`sb-item${attiva === id && !canaleAttivo ? " attiva" : ""}`} href={href}>
