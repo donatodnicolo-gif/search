@@ -108,6 +108,26 @@ export async function VenditeCampagna({
               </>
             )}
           </p>
+
+          {/* Dove sono ANDATI gli ordini attribuiti: su una campagna che punta
+              a una citta e la verifica piu diretta che esista — se "Fiori
+              Milano" consegna a Torino, il targeting non sta tenendo. */}
+          {v.attribuite.citta.length > 0 && (
+            <div style={{ marginTop: 14 }}>
+              <div className="cella-sub" style={{ marginBottom: 7 }}>
+                <b>Dove sono state consegnate</b> — città di consegna degli ordini attribuiti,
+                non residenza di chi ha comprato:
+              </div>
+              <div className="pill-scelta">
+                {v.attribuite.citta.map((c) => (
+                  <span className="pill-opt attuale" key={c.citta} title={`${formattaEuro(c.vendite)} da ${c.citta}`}>
+                    {c.citta}
+                    <b style={{ marginLeft: 2 }}>{c.ordini}</b>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
         </>
       )}
 

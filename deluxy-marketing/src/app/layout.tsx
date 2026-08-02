@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { TabelleOrdinabili } from "@/components/TabelleOrdinabili";
 import { ToggleSidebar } from "@/components/ToggleSidebar";
 import "./globals.css";
 
@@ -34,6 +35,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </div>
         </header>
         {children}
+        {/* Rende ordinabile ogni tabella dell app: monta una volta, vale ovunque */}
+        <TabelleOrdinabili />
       </body>
     </html>
   );

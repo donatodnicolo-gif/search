@@ -199,6 +199,9 @@ export type BloccoVendite = {
   perCategoria: RigaCategoria[];
   // Solo per il blocco di contesto: da dove arrivano gli ordini
   paesi: { paese: string; ordini: number }[];
+  // Le citta di CONSEGNA: su campagne geolocalizzate (Fiori Milano, Torte ROMA)
+  // dicono se gli ordini arrivano dove la campagna punta davvero.
+  citta: { citta: string; ordini: number; vendite: number }[];
 };
 
 type OrdineLetto = {
@@ -207,6 +210,7 @@ type OrdineLetto = {
   totale: number | null;
   email: string | null;
   paese: string | null;
+  citta: string | null;
   utmCampagna: string | null;
   righe: { titolo: string; categoria: string | null; quantita: number; totale: number | null; prezzo: number | null }[];
 };
@@ -220,13 +224,38 @@ const BLOCCO_VUOTO: BloccoVendite = {
   senzaEmail: 0,
   perCategoria: [],
   paesi: [],
+  citta: [],
 };
+
+// Le citta arrivano scritte a mano dai clienti: "Roma" e "Rome", "Milano" e
+// "Milan", con o senza accenti e maiuscole. Si riportano al nome italiano,
+// altrimenti la stessa destinazione si spezza in due righe e nessuna delle due
+// sembra contare.
+const CITTA_ALTRE_LINGUE: Record<string, string> = {
+  rome: "Roma", milan: "Milano", milano: "Milano", florence: "Firenze",
+  turin: "Torino", naples: "Napoli", venice: "Venezia", genoa: "Genova",
+  "reggio calabria": "Reggio Calabria",
+};
+
+export function nomeCitta(grezza: string | null): string | null {
+  const t = grezza?.trim();
+  if (!t) return null;
+  const chiave = t.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  if (CITTA_ALTRE_LINGUE[chiave]) return CITTA_ALTRE_LINGUE[chiave];
+  // Iniziali maiuscole: "MILANO" e "milano" diventano "Milano"
+  return t
+    .toLowerCase()
+    .split(/s+/)
+    .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
+    .join(" ");
+}
 
 function aggrega(ordini: OrdineLetto[], primoOrdineDi: Map<string, number>): BloccoVendite {
   if (ordini.length === 0) return { ...BLOCCO_VUOTO };
 
   const perCategoria = new Map<string, RigaCategoria>();
   const perPaese = new Map<string, number>();
+  const perCitta = new Map<string, { ordini: number; vendite: number }>();
   let vendite = 0;
   let clientiNuovi = 0;
   let clientiRitorno = 0;
@@ -236,6 +265,17 @@ function aggrega(ordini: OrdineLetto[], primoOrdineDi: Map<string, number>): Blo
     vendite += o.totale ?? 0;
     const paese = o.paese?.trim() || "—";
     perPaese.set(paese, (perPaese.get(paese) ?? 0) + 1);
+
+    // "Roma" e "Rome" sono la stessa citta scritta da due clienti diversi:
+    // senza normalizzare, la stessa destinazione compare due volte e nessuna
+    // delle due sembra importante.
+    const citta = nomeCitta(o.citta);
+    if (citta) {
+      const c = perCitta.get(citta) ?? { ordini: 0, vendite: 0 };
+      c.ordini += 1;
+      c.vendite += o.totale ?? 0;
+      perCitta.set(citta, c);
+    }
 
     // Nuovo o di ritorno: si guarda se questo è il PRIMO ordine mai registrato
     // per quella email. Senza email non si può dire, e non si tira a indovinare.
@@ -266,6 +306,10 @@ function aggrega(ordini: OrdineLetto[], primoOrdineDi: Map<string, number>): Blo
     clientiRitorno,
     senzaEmail,
     perCategoria: [...perCategoria.values()].sort((a, b) => b.valore - a.valore),
+    citta: [...perCitta.entries()]
+      .map(([citta, v]) => ({ citta, ordini: v.ordini, vendite: v.vendite }))
+      .sort((a, b) => b.ordini - a.ordini)
+      .slice(0, 12),
     paesi: [...perPaese.entries()]
       .map(([paese, ordini]) => ({ paese, ordini }))
       .sort((a, b) => b.ordini - a.ordini)
@@ -333,6 +377,7 @@ export async function venditeDiCampagna(
         totale: true,
         email: true,
         paese: true,
+        citta: true,
         utmCampagna: true,
         righe: { select: { titolo: true, categoria: true, quantita: true, totale: true, prezzo: true } },
       },

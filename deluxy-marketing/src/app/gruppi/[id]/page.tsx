@@ -9,6 +9,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { cambiaStatoGruppo, cambiaStatoKeyword, creaOperazioneGruppo, creaOperazioneKeyword, rinominaGruppo } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
 import { periodoApp } from "@/lib/periodo-condiviso";
+import { giudizioKeyword } from "@/lib/salute";
 import {
   COLORE_BRAND,
   ETICHETTA_BRAND,
@@ -378,10 +379,18 @@ export default async function SchedaGruppo({
                     <tbody>
                       {keyword.map((k) => {
                         const inPausaGoogle = k.statoPiattaforma === "PAUSED";
+                        // Il giudizio e lo stesso della pagina Keywords: una
+                        // parola che spende senza rendere si vede in rosso da
+                        // qui, senza doverla cercare altrove.
+                        const g = giudizioKeyword(k.incasso ?? 0, k.spesa ?? 0);
                         return (
                           <tr key={k.id}>
                             <td>
-                              <div className="cella-nome">{k.testo}</div>
+                              <div className="cella-nome" style={g.colore === "var(--red)" ? { color: "var(--red)" } : undefined} title={g.spiega}>
+                                {g.colore === "var(--red)" && <span aria-hidden="true">● </span>}
+                                {k.testo}
+                              </div>
+                              <div className="cella-sub" style={{ color: g.colore }}>{g.etichetta}</div>
                               {k.gruppo && k.gruppo !== gruppo.nome && (
                                 <div className="cella-sub">anche in: {k.gruppo}</div>
                               )}
@@ -417,6 +426,19 @@ export default async function SchedaGruppo({
                                 </span>
                                 <button className="btn small btn-secondario" type="submit">
                                   {inPausaGoogle ? "Riattiva" : "Metti in pausa"}
+                                </button>
+                              </form>
+                              {/* Escludere e diverso da mettere in pausa: la
+                                  negativa impedisce alla parola di far scattare
+                                  gli annunci anche in futuro, e vale su tutta la
+                                  campagna. Livello L0, il piu leggero. */}
+                              <form action={creaOperazioneKeyword} style={{ marginTop: 6 }}>
+                                <input type="hidden" name="campagnaId" value={gruppo.campagna.id} />
+                                <input type="hidden" name="testo" value={k.testo} />
+                                <input type="hidden" name="ritorno" value={`/gruppi/${gruppo.id}`} />
+                                <input type="hidden" name="tipo" value="negativa" />
+                                <button className="btn small btn-secondario" type="submit" title="Aggiunge la parola come negativa: non fara piu scattare gli annunci di questa campagna">
+                                  Escludi
                                 </button>
                               </form>
                             </td>
@@ -457,13 +479,23 @@ export default async function SchedaGruppo({
                         <th className="num">Conv.</th>
                         <th className="num">Ricavi</th>
                         <th>Intercettata da</th>
+                        <th data-no-ordina>Azione</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {termini.map((t) => (
+                      {termini.map((t) => {
+                        // Una parola cercata che spende e non converte e il
+                        // caso da guardare per primo: si segna in rosso qui,
+                        // invece di lasciarla in mezzo alle altre.
+                        const brucia = (t.spesa ?? 0) >= 15 && (t.conversioni ?? 0) === 0;
+                        const gia = t.stato === "escluso" || t.stato === "da_escludere";
+                        return (
                         <tr key={t.id}>
                           <td style={{ maxWidth: 260 }}>
-                            <div className="cella-nome">{t.testo}</div>
+                            <div className="cella-nome" style={brucia ? { color: "var(--red)" } : undefined} title={brucia ? `${(t.spesa ?? 0).toFixed(0)} EUR spesi e nessuna conversione` : undefined}>
+                              {brucia && <span aria-hidden="true">● </span>}
+                              {t.testo}
+                            </div>
                             {t.stato !== "nuovo" && (
                               <div className="cella-sub">{t.stato.replace("_", " ")}</div>
                             )}
@@ -480,8 +512,25 @@ export default async function SchedaGruppo({
                               </div>
                             )}
                           </td>
+                          <td>
+                            {gia ? (
+                              <span className="cella-sub">già segnata</span>
+                            ) : (
+                              <form action={creaOperazioneKeyword}>
+                                <input type="hidden" name="campagnaId" value={gruppo.campagna.id} />
+                                <input type="hidden" name="testo" value={t.testo} />
+                                <input type="hidden" name="ritorno" value={`/gruppi/${gruppo.id}`} />
+                                <input type="hidden" name="tipo" value="negativa" />
+                                <input type="hidden" name="motivo" value={`Parola cercata: ${(t.spesa ?? 0).toFixed(0)} EUR, ${t.clic ?? 0} clic, ${t.conversioni ?? 0} conversioni`} />
+                                <button className="btn small btn-secondario" type="submit" title="Mette in coda la negativa: la parola non fara piu scattare gli annunci">
+                                  Escludi
+                                </button>
+                              </form>
+                            )}
+                          </td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

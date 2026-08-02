@@ -1,46 +1,69 @@
 import { avviaSyncDrive } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
 import { formattaDataOra } from "@/lib/dominio";
+import { BottoneSyncAzione } from "./BottoneSyncAzione";
 
 // Bottone "Sincronizza": rilegge la cartella Drive e aggiorna l'indice.
-// Sotto al bottone resta scritto com'è andata l'ultima volta: senza esito
-// visibile non si capisce se il click ha fatto qualcosa.
+// Sotto al bottone resta scritto QUANDO è stata l'ultima volta e com'è andata.
+// Senza la data non si distingue "sincronizzato poco fa" da "fermo da giorni",
+// e senza l'esito non si capisce se il click ha fatto qualcosa — soprattutto
+// quando la corsa non trova niente di nuovo, che è il caso più frequente e
+// quello che somiglia di più a un bottone rotto.
+function quando(d: Date): string {
+  const min = Math.round((Date.now() - d.getTime()) / 60_000);
+  if (min < 1) return "adesso";
+  if (min < 60) return `${min} min fa`;
+  const ore = Math.round(min / 60);
+  if (ore < 24) return `${ore} ${ore === 1 ? "ora" : "ore"} fa`;
+  const gg = Math.round(ore / 24);
+  return `${gg} ${gg === 1 ? "giorno" : "giorni"} fa`;
+}
+
 export async function BottoneSync({ etichetta = "Sincronizza" }: { etichetta?: string }) {
   const ultima = await prisma.registroEvento
     .findFirst({ where: { entita: "drive", tipo: "sync" }, orderBy: { creatoIl: "desc" } })
     .catch(() => null);
+
+  const dettaglio = ultima?.dettaglio ?? "";
   const fallita =
-    ultima?.dettaglio?.toLowerCase().includes("non raggiungibile") ||
-    ultima?.dettaglio?.toLowerCase().includes("manca la chiave") ||
-    ultima?.dettaglio?.toLowerCase().includes("drive api");
-  // Messaggio breve: gli errori lunghi (con URL) andrebbero a capo sul bottone.
+    dettaglio.toLowerCase().includes("non raggiungibile") ||
+    dettaglio.toLowerCase().includes("manca la chiave") ||
+    dettaglio.toLowerCase().includes("drive api");
+  const interrotta = dettaglio.includes("INTERROTTA");
+
+  // Quando non cambia niente il messaggio grezzo ("nuovi 0 · aggiornati 0")
+  // sembra un fallimento: va detto che è andata bene ed era già tutto a posto.
+  const nulla = /nuovi 0 · aggiornati 0 · rimossi 0/.test(dettaglio);
+  const trovati = dettaglio.match(/trovati (\d+)/)?.[1];
+
   const messaggio = fallita
-    ? "Sincronizzazione non riuscita — vedi Impostazioni"
-    : ultima?.dettaglio ?? "eseguita";
+    ? "non riuscita — vedi Impostazioni"
+    : interrotta
+      ? "interrotta a metà, riprende alla prossima"
+      : nulla
+        ? `già aggiornato${trovati ? `, ${trovati} documenti` : ""}`
+        : dettaglio || "eseguita";
+
+  const vecchia = ultima ? Date.now() - ultima.creatoIl.getTime() > 3 * 86_400_000 : false;
+  const colore = fallita ? "var(--red)" : vecchia ? "var(--orange)" : undefined;
 
   return (
     <div className="sync-blocco">
       <form action={avviaSyncDrive}>
-        <button
-          className="btn btn-secondario"
-          type="submit"
-          title="Rilegge la cartella Drive ADV DELUXY SRL e aggiorna l'indice dei documenti"
-        >
-          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M20 11.5A8 8 0 0 0 6.3 6.3L4 8.5" />
-            <path d="M4 4v4.5h4.5" />
-            <path d="M4 12.5a8 8 0 0 0 13.7 5.2L20 15.5" />
-            <path d="M20 20v-4.5h-4.5" />
-          </svg>
-          {etichetta}
-        </button>
+        <BottoneSyncAzione etichetta={etichetta} />
       </form>
-      {ultima && (
-        <div className="sync-esito" style={fallita ? { color: "var(--red)" } : undefined} title={ultima.dettaglio ?? ""}>
-          {fallita ? "⚠ " : "✓ "}
-          {messaggio}
+      {ultima ? (
+        <div className="sync-esito" style={colore ? { color: colore } : undefined} title={dettaglio}>
+          {fallita ? "⚠ " : interrotta ? "◐ " : "✓ "}
+          <b>{quando(ultima.creatoIl)}</b>
           {" · "}
-          <span style={{ color: "var(--text-tertiary)" }}>{formattaDataOra(ultima.creatoIl)}</span>
+          {formattaDataOra(ultima.creatoIl)}
+          {" · "}
+          <span style={{ color: "var(--text-tertiary)" }}>{messaggio}</span>
+        </div>
+      ) : (
+        <div className="sync-esito" style={{ color: "var(--text-tertiary)" }}>
+          Mai sincronizzato
         </div>
       )}
     </div>

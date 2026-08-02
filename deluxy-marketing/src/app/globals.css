@@ -657,3 +657,27 @@ tbody tr:hover { background: var(--fill); }
 .stagione-legenda .q-anno { background: var(--ink); }
 .stagione-legenda .q-storico { background: var(--fill); border: 1px solid var(--hairline-strong); }
 .stagione-misura { margin-left: auto; color: var(--text-tertiary); }
+
+/* ---------- Intestazioni di tabella ordinabili ---------- */
+.th-ordinabile {
+  cursor: pointer; user-select: none; position: relative;
+  padding-right: 16px !important;
+  transition: color 120ms var(--ease);
+}
+.th-ordinabile:hover { color: var(--text); }
+.th-ordinabile:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; border-radius: 4px; }
+/* La freccia compare in grigio al passaggio e resta nera sulla colonna attiva:
+   così si capisce che è ordinabile prima ancora di cliccarla. */
+.th-ordinabile::after {
+  content: "↕"; position: absolute; right: 3px;
+  font-size: 10px; opacity: 0; color: var(--text-tertiary);
+  transition: opacity 120ms var(--ease);
+}
+.th-ordinabile:hover::after { opacity: .55; }
+.th-asc::after, .th-desc::after { opacity: 1; color: var(--text); font-size: 11px; }
+.th-asc::after { content: "↑"; }
+.th-desc::after { content: "↓"; }
+
+/* Icona che gira mentre la sincronizzazione lavora */
+@keyframes gira-tondo { to { transform: rotate(360deg); } }
+.gira { animation: gira-tondo 1.1s linear infinite; transform-origin: center; }
