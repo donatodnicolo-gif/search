@@ -8,6 +8,7 @@ import { UltimaCorsa } from "@/components/UltimaCorsa";
 import { ScelteBrand } from "@/components/ScelteBrand";
 import { Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
+import { risultatoAtteso } from "@/lib/risultato";
 import { variazione } from "@/lib/periodo";
 import { periodoApp } from "@/lib/periodo-condiviso";
 import {
@@ -181,6 +182,11 @@ export default async function Dashboard({
     cake: rosCake,
   };
 
+  // Stima di quanto resta: margine lordo sul venduto meno la pubblicita.
+  // Le vendite sono quelle vere di Shopify, non i ricavi dichiarati dalle
+  // piattaforme — quelli sono gonfiati e il margine lo sarebbe con loro.
+  const atteso = risultatoAtteso(vendite, spesaPeriodo);
+
   return (
     <div className="layout">
       <Sidebar attiva="home" />
@@ -248,6 +254,23 @@ export default async function Dashboard({
                 <span style={{ color: delta(vendite, venditePrec)!.colore, fontWeight: 600 }}>
                   {" "}· {delta(vendite, venditePrec)!.testo}
                 </span>
+              )}
+            </div>
+          </div>
+          {/* Quanto lascia la pubblicita, prima di tutto il resto: e la
+              domanda che ne il ROAS ne il MER rispondono. */}
+          <div className="kpi">
+            <div
+              className="kpi-valore"
+              style={{ color: atteso.risultato >= 0 ? "var(--green)" : "var(--red)" }}
+              title={`Vendite ${formattaEuro(vendite)} × ${Math.round(atteso.margineUsato * 100)}% = ${formattaEuro(atteso.margineLordo)} di margine lordo, meno ${formattaEuro(atteso.spesa)} di pubblicità`}
+            >
+              {vendite > 0 ? formattaEuro(atteso.risultato) : "—"}
+            </div>
+            <div className="kpi-etichetta">
+              Risultato atteso · {Math.round(atteso.margineUsato * 100)}% di margine − ADV
+              {atteso.incidenzaAdv != null && (
+                <> · la pubblicità pesa il {(atteso.incidenzaAdv * 100).toFixed(1)}% sul venduto</>
               )}
             </div>
           </div>

@@ -681,3 +681,25 @@ tbody tr:hover { background: var(--fill); }
 /* Icona che gira mentre la sincronizzazione lavora */
 @keyframes gira-tondo { to { transform: rotate(360deg); } }
 .gira { animation: gira-tondo 1.1s linear infinite; transform-origin: center; }
+
+/* ---------- Il conto: venduto → margine → spesa → risultato ---------- */
+.conto {
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-l);
+  overflow: hidden;
+  max-width: 520px;
+}
+.conto-riga {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 16px;
+  padding: 10px 14px; font-size: 13.5px;
+}
+.conto-riga + .conto-riga { border-top: 1px solid var(--hairline); }
+.conto-riga b { font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap; }
+.conto-riga span { color: var(--text-secondary); }
+.conto-riga.totale {
+  background: var(--fill);
+  font-weight: 600;
+  border-top-width: 2px;
+}
+.conto-riga.totale span { color: var(--text); }
+.conto-riga.totale b { font-size: 17px; letter-spacing: -0.02em; }

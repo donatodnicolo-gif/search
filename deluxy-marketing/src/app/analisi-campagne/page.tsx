@@ -3,6 +3,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
 import { ETICHETTA_BRAND, ETICHETTA_CANALE, formattaEuro } from "@/lib/dominio";
 import { breakEvenRoas } from "@/lib/guardrail";
+import { risultatoAtteso } from "@/lib/risultato";
 import { PRESET_PERIODO, variazione, type Periodo } from "@/lib/periodo";
 import { periodoApp } from "@/lib/periodo-condiviso";
 
@@ -130,6 +131,21 @@ export default async function AnalisiCampagne({
     aggregaPeriodo(periodo.annoPrima, canale, brand),
   ]);
 
+  // Il venduto VERO per il risultato atteso: i ricavi dichiarati dalle
+  // piattaforme sono gonfiati (il reale e il 60-75%), e un margine calcolato
+  // su quelli sarebbe ottimistico due volte.
+  const venduto = await prisma.ordine.aggregate({
+    where: {
+      data: { gte: periodo.corrente.da, lt: periodo.corrente.a },
+      stato: { not: "annullato" },
+      ...(brand ? { brand } : {}),
+    },
+    _sum: { totale: true },
+    _count: { _all: true },
+  });
+  const venditeVere = venduto._sum.totale ?? 0;
+  const atteso = risultatoAtteso(venditeVere, ora.totale.spesa);
+
   const campagne = [...ora.perCampagna.entries()].sort((x, y) => y[1].spesa - x[1].spesa);
   const brands = [...ora.perBrand.entries()].sort((x, y) => y[1].spesa - x[1].spesa);
   const roasOra = roas(ora.totale);
@@ -236,6 +252,62 @@ export default async function AnalisiCampagne({
                 </div>
               </div>
             </div>
+
+
+            {/* Il conto della serva, in chiaro: quanto lascia la pubblicità
+                prima di tutto il resto. Non è un utile e la pagina lo dice. */}
+            <section className="scheda">
+              <div className="scheda-titolo">Risultato atteso nel periodo</div>
+              {venditeVere === 0 ? (
+                <div className="vuoto-mini">
+                  Nessun ordine Shopify nel periodo{brand ? ` per ${ETICHETTA_BRAND[brand] ?? brand}` : ""}:
+                  senza il venduto vero il margine non si può stimare. I ricavi dichiarati dalle
+                  piattaforme non vanno usati per questo conto — sono gonfiati, e il margine lo
+                  sarebbe due volte.
+                </div>
+              ) : (
+                <>
+                  <div className="conto">
+                    <div className="conto-riga">
+                      <span>Venduto (Shopify, {venduto._count._all} ordini)</span>
+                      <b>{formattaEuro(venditeVere)}</b>
+                    </div>
+                    <div className="conto-riga">
+                      <span>Margine lordo stimato · {Math.round(atteso.margineUsato * 100)}%</span>
+                      <b>{formattaEuro(atteso.margineLordo)}</b>
+                    </div>
+                    <div className="conto-riga">
+                      <span>Spesa pubblicitaria</span>
+                      <b style={{ color: "var(--red)" }}>− {formattaEuro(atteso.spesa)}</b>
+                    </div>
+                    <div className="conto-riga totale">
+                      <span>Risultato atteso</span>
+                      <b style={{ color: atteso.risultato >= 0 ? "var(--green)" : "var(--red)" }}>
+                        {formattaEuro(atteso.risultato)}
+                      </b>
+                    </div>
+                  </div>
+
+                  <p className="cella-sub" style={{ marginTop: 12, whiteSpace: "normal" }}>
+                    {atteso.incidenzaAdv != null && (
+                      <>
+                        La pubblicità pesa il <b>{(atteso.incidenzaAdv * 100).toFixed(1)}%</b> sul venduto;
+                        con un margine del {Math.round(atteso.margineUsato * 100)}% il pareggio arriva a{" "}
+                        <b>{atteso.pareggio.toFixed(2)}×</b> di ritorno.{" "}
+                      </>
+                    )}
+                    <b>Non è un utile.</b> È il margine lordo di prodotto meno la pubblicità: sotto non
+                    ci sono personale, logistica, commissioni di pagamento e resi. E il {Math.round(atteso.margineUsato * 100)}%
+                    è una media dichiarata, non il costo reale di quei prodotti.
+                  </p>
+                  <p className="cella-sub" style={{ marginTop: 6, whiteSpace: "normal" }}>
+                    Il venduto è <b>tutto</b> quello di Shopify nel periodo, non solo quello attribuito
+                    alle campagne: la pubblicità si paga sul fatturato che l&apos;azienda fa, non su
+                    quello che le piattaforme si attribuiscono.
+                  </p>
+                </>
+              )}
+            </section>
 
             {/* Per brand */}
             {brands.length > 1 && (
