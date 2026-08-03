@@ -117,6 +117,19 @@ a { color: inherit; text-decoration: none; }
   .azioni-gruppo.azioni-fine { margin-left: 0; }
 }
 
+/* La lettera della scorciatoia STAMPATA sul bottone (Rispondi R, Inoltra I…):
+   è l'unico modo perché uno la scopra senza sapere del «?». Discreta — mezzo
+   tono più chiara del testo — e nascosta su telefono, dove tastiera non c'è. */
+.btn kbd.tasto {
+  font: inherit; font-size: 11px; line-height: 1; margin-left: 6px;
+  padding: 2px 5px; border-radius: 5px; opacity: 0.6;
+  border: 1px solid currentColor; background: transparent; white-space: nowrap;
+}
+.tasti-aiuto { font-size: 12.5px; }
+@media (max-width: 900px) {
+  .btn kbd.tasto, .tasti-aiuto { display: none; }
+}
+
 .section-title { font-size: 19px; font-weight: 600; letter-spacing: -0.02em; margin: 28px 0 12px; }
 
 /* ---------- Card ---------- */

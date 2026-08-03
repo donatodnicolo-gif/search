@@ -353,13 +353,16 @@ Tre cose che rendono la pila leggibile:
 
 ### Le scorciatoie da tastiera
 
-Premi **`?`** in qualsiasi momento per l'elenco. Le principali:
+Premi **`?`** in qualsiasi momento per l'elenco — oppure, quando hai una mail aperta,
+il tasto **«⌨ Scorciatoie»** accanto a *Rispondi*. Le lettere sono anche **stampate
+sui bottoni** (`Rispondi R`, `Inoltra I`, `Archivia E`, `Cestina Canc`): una scorciatoia
+scritta solo dentro un elenco la trova soltanto chi già sa che esiste. Le principali:
 
 | tasto | cosa fa |
 |---|---|
 | `c` | scrivi una mail nuova |
 | `u` | torna alla posta in arrivo |
-| `r` · `a` · `f` | rispondi · rispondi a tutti · inoltra |
+| `r` · `t` o `a` · `i` o `f` | rispondi · rispondi a tutti · inoltra |
 | `e` | archivia **e apri la successiva** |
 | `#` o `Canc` | cestina **e apri la successiva** (si recupera) |
 | `s` | segna da leggere |
@@ -369,6 +372,10 @@ Premi **`?`** in qualsiasi momento per l'elenco. Le principali:
 nell'elenco a cercare dov'eri: si apre subito la mail dopo — quella che in elenco sta
 sotto — e resti dove sei: se stai leggendo una sezione, la prossima è di quella sezione;
 se guardi una sola casella, di quella casella. Finite le mail, torni all'elenco.
+
+**Inoltra ha due lettere apposta**: `f` è quella di Gmail (chi ci arriva da lì ce l'ha
+nelle dita), `i` è l'iniziale italiana — ed è quella che uno prova per prima qui dentro.
+Stessa cosa per *rispondi a tutti*: `a` come Gmail, `t` come «tutti».
 
 Sono **lettere singole, senza `Ctrl`**: `Ctrl+R` ricarica la pagina e `Ctrl+F` apre la
 ricerca del browser: sono di chi usa il computer, non dell'app. E non scattano mai

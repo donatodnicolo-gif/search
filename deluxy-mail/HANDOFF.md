@@ -1,6 +1,6 @@
 # AI Mail 2.0 (deluxy-mail) — Handoff tecnico
 
-> Documento di ripartenza. Aggiornato: **1 agosto 2026**.
+> Documento di ripartenza. Aggiornato: **3 agosto 2026**.
 > Leggi anche `CLAUDE.md` alla radice del repo e il design system in `deluxy-design-system/`.
 
 ---
@@ -16,7 +16,7 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB:** Supabase Postgres, progetto **`feleldlsreurqpdhstla`** («cs@deluxy.it's», piano Pro, eu-west-1), **schema `mail`** — dal 28/07/2026, migrato con `scripts/sposta-database.mjs` (17.484 messaggi, tutte le 31 tabelle verificate riga per riga). ⚠️ Lo stesso database ospita in `public` la piattaforma consegne: lo schema dedicato è ciò che tiene le due app separate — `?schema=mail` va SEMPRE nelle stringhe di connessione (`DATABASE_URL` col pooler 6543 + `&pgbouncer=true`; `DIRECT_URL` col pooler 5432). Il progetto vecchio `sxovckndpmdbqfrfkxhl` (Free, 500 MB, finito in sola lettura a 1,57 GB) resta intatto come rete di sicurezza: **si spegne solo dopo qualche giorno di esercizio sereno del nuovo**, poi si valuta la disdetta di eventuali abbonamenti doppi.
 - **Porta locale:** 3070.
 
-### Dove siamo (1 agosto 2026)
+### Dove siamo (3 agosto 2026)
 
 Tutto committato e **pushato** su `origin/scout-ui`, e verificato **sul
 contenuto** (non sullo SHA: su questo branch altre sessioni riscrivono la
@@ -27,8 +27,11 @@ comando **semplice** — quindi prima di dire «è online» si verifica che la
 produzione abbia l'ultimo lavoro.
 
 **Cronologia dei lavori:** le voci di §7 sono della sessione del 23 luglio (dalla
-più recente); i lavori dal **26 luglio al 1 agosto** stanno in §9, con la data
-fra parentesi. Le ultime, in ordine: cestinare apre la **mail successiva**;
+più recente); i lavori dal **26 luglio al 3 agosto** stanno in §9, con la data
+fra parentesi. L'ultimo (3 ago): le **scorciatoie si vedono** — la lettera è
+stampata sul bottone (`Rispondi R`, `Inoltra I`) e `i`/`t` funzionano come
+`f`/`a`, perché le iniziali erano quelle di Gmail e non quelle italiane.
+Prima, in ordine: cestinare apre la **mail successiva**;
 **Spam** spostato fra le cartelle (su telefono era introvabile); **scorciatoie da
 tastiera** (`?` per l'elenco); la **conversazione come pila** che si legge senza
 cambiare pagina; le **anteprime ripulite** da link e CSS; e soprattutto
@@ -65,6 +68,12 @@ l'apertura di una mail resa veloce (vedi punto 1 qui sotto).
    conversazione, le scorciatoie (`j`/`k` poi `r` deve rispondere al messaggio a
    fuoco), la testata compatta, «Spam» nel menu da telefono, e l'invio a
    Anagrafiche **con stato e interessi** ora che la chiave è di prima parte.
+   Dal 3 ago anche: le **lettere sui bottoni** della mail aperta (`R`, `T`, `I`,
+   `E`, `Canc`) e che `i` inoltri e `t` risponda a tutti davvero.
+9. **Le altre pagine non dicono le loro scorciatoie**: le lettere sono stampate
+   sui bottoni della **mail aperta**, ma in posta in arrivo `c` (scrivi) e `u`
+   (torna) restano invisibili, e il tasto «⌨ Scorciatoie» sta solo lì. Se
+   l'utente le cerca anche altrove, il pezzo da riusare è `apriScorciatoie()`.
 
 Chiusi in questi giorni: recupero delle mail scavalcate (29/07); trasloco del
 database (28/07); **166 + 105 mail** col testo riparato (30-31/07); la chiave
@@ -380,6 +389,7 @@ Cron: **`/api/sync`** (route, autenticata con `CRON_SECRET`) — su Vercel Hobby
 
 ## 9. Problemi noti / gotchas
 
+- **Le scorciatoie c'erano ma nessuno le vedeva — ora sono STAMPATE sui bottoni (3 ago)** — segnalazione dell'utente sulla pagina di un messaggio: «non vedo opzioni per pulsanti rapidi… R per rispondere, I per inoltrare». Due cose sbagliate, non una. (1) **Scoperta**: le scorciatoie esistevano dal 31 luglio ma stavano SOLO nell'elenco che si apre col `?`, e un elenco dietro un tasto lo trova soltanto chi già sa che c'è — cioè chi non ne ha bisogno. Ora la lettera è scritta sul bottone stesso (`Rispondi R`, `Rispondi a tutti T`, `Inoltra I`, `Archivia E`, `Cestina Canc`, classe `.btn kbd.tasto`) più un tasto **«⌨ Scorciatoie»** che apre l'elenco senza indovinare il `?` (`apriScorciatoie()` in `components/Scorciatoie.tsx`, evento `aimail:scorciatoie`). Su schermo ≤900px lettere e tasto **spariscono**: senza tastiera sono rumore. (2) **La lettera giusta**: `inoltra` era solo `f` e `rispondi a tutti` solo `a` — le iniziali **di Gmail**, non quelle italiane. Ora `i` e `t` fanno la stessa cosa, `f` e `a` restano per chi arriva da Gmail. ⚠️ Attenzione ad aggiungerne altre: `i` e `t` erano libere, ma le lettere singole si esauriscono in fretta e un doppione muto (due handler sullo stesso tasto) è già costato caro con `r` — vedi §7, `fuocoConversazione.ts`. **Lezione**: una funzione che si scopre solo leggendo la documentazione, per l'utente non esiste; e le scorciatoie si scelgono nella lingua di chi le preme, non in quella del client da cui abbiamo copiato.
 - **Il database era a 1,5 GB: i corpi HTML ora abitano sul server (28 lug)** — a disco pieno Supabase mette il progetto in SOLA LETTURA e l'app «si inchioda» (vedi sotto): la causa era la tabella `Messaggio` (1471 MB su 1485 totali, righe morte trascurabili → non era gonfiore, erano dati veri, e il grosso erano i **corpi HTML**: 5-10 volte il testo, usati solo per rimostrare la mail impaginata). Soluzione in `lib/htmlServer.ts`, stessa filosofia di allegati e inviti: **la casella IMAP è la fonte di verità, l'HTML si riprende da lì quando serve**. In pratica: (1) l'HTML resta nel DB solo per la posta degli ultimi `GIORNI_HTML_CALDO` (30) giorni — quella si apre di continuo e resta istantanea; (2) `pulisciHtmlVecchio()` nel cron toglie l'HTML alle mail più vecchie con `uid > 0`, mille a giro (graduale APPOSTA: un UPDATE unico su decine di migliaia di TEXT terrebbe il DB occupato per minuti); (3) all'apertura, `CorpoMessaggio` mostra subito il testo e `leggiHtmlMessaggio` riprende l'impaginato dal server (`htmlDalServer`: BODYSTRUCTURE → sola parte `text/html` senza nome file → decodifica col charset dichiarato) — **senza risalvarlo**; (4) risposta/inoltro citano formattato lo stesso: `htmlDiMessaggio` riempie il buco prima di `preparaRisposta`; (5) lo storico scaricato non salva più HTML per mail fuori finestra (`htmlCaldo` in `salvaMessaggi`/`salvaInviati`). Copie solo-locali (`uid ≤ 0`) tengono l'HTML: per loro il DB è l'unico posto dove esiste. ⚠️ Lo spazio liberato diventa riusabile con l'autovacuum (il DB smette di crescere); il **numero** riportato da Supabase scende solo con un `VACUUM FULL` una tantum (libera-spazio.sql). ⚠️ Mail cancellata dal server = impaginato perso per sempre, resta il testo.
 - **Lo svuota-cestino si fermava cambiando schermata (RISOLTO 29 lug)** — il 27 luglio il lavoro era uscito dalla Server Action ed era finito in una **fetch** verso `POST /api/svuota-cestino`: l'app non si bloccava più, ma il lavoro restava appeso al browser. Cambiando pagina il componente spariva, la richiesta se ne andava con lui e lo svuotamento si fermava a metà — senza che nulla lo dicesse. Ora il POST **prenota** il lavoro (scrive «in corso» e risponde subito) e il lavoro vero gira in **`after()`**: stessa invocazione, ma dopo che la risposta è partita, quindi continua anche a scheda chiusa. L'avanzamento sta sul SERVER, in una riga di `Impostazione` per utente (`cestino.lavoro:<utenteId>`: fase, fatte/totali, esito), e `GET /api/svuota-cestino` lo restituisce: la pagina lo chiede all'apertura e ogni 3 secondi, quindi il lavoro **si ritrova** tornando sul cestino o da un altro dispositivo. `svuotaCestinoDi` accetta ora un `Avanzamento` e `eliminaDalServer` un `onAvanzamento` per mail (la scrittura è limitata a una ogni 2s: non deve rallentare per farsi vedere). ⚠️ Tre paletti: la funzione **muore comunque a 300s**, quindi uno stato «in corso» fermo da 90s si dichiara **interrotto** e il tasto diventa «Riprendi» (riparte da ciò che è rimasto — la query rilegge i `cestinato: true`, non c'è niente da riavvolgere); un esito «finito» **scade** dopo 15 minuti, se no al posto del tasto resterebbe per sempre il messaggio dell'ultima volta; e la vecchia Server Action `svuotaCestino()`, che non chiamava più nessuno, è stata **tolta** — una seconda porta che scavalca lo stato vorrebbe dire due svuotamenti in parallelo sulle stesse mail, e qui si cancella per sempre. **Lezione**: «gira in una fetch invece che in una Server Action» libera l'interfaccia, non rende il lavoro indipendente; per quello serve che a tenerlo in piedi sia il server, non la pagina.
 - **Svuotare il cestino bloccava tutta l'app (RISOLTO 27 lug)** — `svuotaCestino` era una **Server Action**, e le Server Action di Next si accodano con le navigazioni: finché girava, ogni clic nell'app restava fermo. Ed è lunga davvero — apre una connessione IMAP per casella e, per **ogni** mail, cerca il suo Message-ID sul server prima di cancellarla. È lo **stesso identico inciampo** già pagato con «Aggiorna posta» (vedi più sotto): la lezione era scritta nell'handoff e l'ho ripetuta lo stesso. Ora il lavoro sta in `lib/cestino.ts` (`svuotaCestinoDi`) e si chiama con una **fetch** a `POST /api/svuota-cestino` (`maxDuration=300`); il componente lo dice esplicitamente all'utente: «puoi continuare a usare l'app». ⚠️ **La lentezza in sé NON è stata toccata, ed è voluto**: la ricerca per Message-ID esiste perché un UID vecchio può puntare a un'ALTRA mail, e qui si cancella per sempre. Su un'operazione irreversibile la prudenza vale più della velocità — il problema era far aspettare l'utente, non la durata.

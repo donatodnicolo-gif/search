@@ -21,10 +21,25 @@ import { fuocoConversazione } from './fuocoConversazione'
  * Alt o Cmd premuti — e nemmeno se qualcun altro ha già gestito il tasto
  * (la pila della conversazione usa j/k/Invio/r sulla riga a fuoco).
  */
+const APRI_AIUTO = 'aimail:scorciatoie'
+
+/** Apre l'elenco delle scorciatoie (lo usa il tasto «⌨» della barra azioni). */
+export function apriScorciatoie() {
+  window.dispatchEvent(new CustomEvent(APRI_AIUTO))
+}
+
 export function Scorciatoie() {
   const [aiuto, setAiuto] = useState(false)
   const percorso = usePathname()
   const router = useRouter()
+
+  // Il «?» lo trova solo chi già sa che esiste: l'elenco si apre anche dal
+  // tasto visibile accanto ai bottoni della mail.
+  useEffect(() => {
+    const su = () => setAiuto(true)
+    window.addEventListener(APRI_AIUTO, su)
+    return () => window.removeEventListener(APRI_AIUTO, su)
+  }, [])
 
   useEffect(() => {
     const su = (e: KeyboardEvent) => {
@@ -73,9 +88,13 @@ export function Scorciatoie() {
         // risposta parte da QUELLO: è quello che l'utente sta guardando.
         router.push(`/messaggio/${fuocoConversazione() ?? id}/scrivi?modo=${modo}`)
       }
+      // Due lettere per la stessa cosa apposta: `r`/`a`/`f` sono quelle di
+      // Gmail (chi ci arriva da lì le ha nelle dita), `i` e `t` sono le
+      // iniziali italiane — Inoltra, Tutti — che è quello che uno prova per
+      // primo qui dentro.
       if (e.key === 'r') return vaiA('rispondi')
-      if (e.key === 'a') return vaiA('tutti')
-      if (e.key === 'f') return vaiA('inoltra')
+      if (e.key === 'a' || e.key === 't') return vaiA('tutti')
+      if (e.key === 'f' || e.key === 'i') return vaiA('inoltra')
 
       // Archivia / cestina e VAI AVANTI: smaltita una mail si apre la
       // successiva, non si torna nell'elenco a cercare dov'eri.
@@ -116,8 +135,8 @@ export function Scorciatoie() {
             ['c', 'Scrivi una mail nuova'],
             ['u', 'Torna alla posta in arrivo'],
             ['r', 'Rispondi alla mail aperta'],
-            ['a', 'Rispondi a tutti'],
-            ['f', 'Inoltra'],
+            ['a o t', 'Rispondi a tutti'],
+            ['i o f', 'Inoltra'],
             ['e', 'Archivia e apri la successiva'],
             ['# o Canc', 'Cestina e apri la successiva (si recupera)'],
             ['s', 'Segna da leggere'],

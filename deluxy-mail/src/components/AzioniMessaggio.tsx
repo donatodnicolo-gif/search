@@ -12,6 +12,7 @@ import {
   spostaInSezione,
 } from '@/lib/actions'
 import { DelegaReneBottone, DelegaReneDialog } from './DelegaRene'
+import { apriScorciatoie } from './Scorciatoie'
 import { AgganciaDialog } from './AgganciaRiga'
 import { dopoSpostamento } from './dopoSpostamento'
 
@@ -51,19 +52,42 @@ export function AzioniMessaggio({
 
   return (
     <div className="azioni-messaggio">
-      {/* Gruppo 1: rispondere / inoltrare / delegare */}
+      {/* Gruppo 1: rispondere / inoltrare / delegare.
+          La lettera stampata sul bottone È la scorciatoia: scritte solo
+          nell'elenco che si apre col «?», le trovava soltanto chi già sapeva
+          che esistevano. Su schermo stretto spariscono (niente tastiera). */}
       <div className="azioni-gruppo">
-        <Link href={`/messaggio/${id}/scrivi?modo=rispondi`} className="btn primary small">
-          Rispondi
+        <Link
+          href={`/messaggio/${id}/scrivi?modo=rispondi`}
+          className="btn primary small"
+          title="Rispondi (tasto R)"
+        >
+          Rispondi <kbd className="tasto">R</kbd>
         </Link>
-        <Link href={`/messaggio/${id}/scrivi?modo=tutti`} className="btn secondary small">
-          Rispondi a tutti
+        <Link
+          href={`/messaggio/${id}/scrivi?modo=tutti`}
+          className="btn secondary small"
+          title="Rispondi a tutti (tasto T, oppure A)"
+        >
+          Rispondi a tutti <kbd className="tasto">T</kbd>
         </Link>
-        <Link href={`/messaggio/${id}/scrivi?modo=inoltra`} className="btn secondary small">
-          Inoltra
+        <Link
+          href={`/messaggio/${id}/scrivi?modo=inoltra`}
+          className="btn secondary small"
+          title="Inoltra (tasto I, oppure F)"
+        >
+          Inoltra <kbd className="tasto">I</kbd>
         </Link>
         <DelegaReneBottone id={id} variante="bottone" />
         <DelegaReneDialog />
+        <button
+          type="button"
+          className="azione-riga tasti-aiuto"
+          title="Tutte le scorciatoie da tastiera (anche col tasto ?)"
+          onClick={apriScorciatoie}
+        >
+          ⌨ Scorciatoie
+        </button>
       </div>
 
       <span className="azioni-sep" />
@@ -118,7 +142,7 @@ export function AzioniMessaggio({
           <button
             className="btn secondary small"
             disabled={inCorso}
-            title="Togli dalla posta in arrivo (resta negli Archiviati)"
+            title="Togli dalla posta in arrivo, resta negli Archiviati (tasto E)"
             onClick={() =>
               // Archivia subito (SENZA refresh, così la domanda resta), poi
               // chiedi se per sempre restando qui.
@@ -128,14 +152,14 @@ export function AzioniMessaggio({
               })
             }
           >
-            Archivia
+            Archivia <kbd className="tasto">E</kbd>
           </button>
         )}
 
         <button
           className="btn secondary small"
           disabled={inCorso}
-          title="Sposta nel cestino e apri la mail successiva (la mail resta sul server)"
+          title="Sposta nel cestino e apri la mail successiva, la mail resta sul server (tasto Canc)"
           onClick={() =>
             // Come il tasto Canc: cestinata questa si apre la successiva,
             // invece di rimandare all'elenco a ricominciare da capo.
@@ -145,7 +169,7 @@ export function AzioniMessaggio({
             })
           }
         >
-          Cestina
+          Cestina <kbd className="tasto">Canc</kbd>
         </button>
 
         {!giaInSpam && (
