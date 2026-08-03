@@ -1,10 +1,12 @@
 import Link from "next/link";
+import { FormFiltri } from "@/components/FormFiltri";
 import { Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
 import { brandCorrente, negoziDelBrand, etichettaAmbito } from "@/lib/brand";
 import { nomePosizione, posizioniDa } from "@/lib/collezioni";
 import { euro, percentuale } from "@/lib/dominio";
 import { etichettaRegola } from "@/lib/ordinamento-vetrina";
+import { normalizza } from "@/lib/riconciliazione";
 import { FILTRO_BUON_FINE, finestra } from "@/lib/vendite";
 import { etichettaFrequenza, etichettaModo } from "@/lib/rotazione";
 import { cambiaVetrina } from "@/lib/azioni-collezioni-shopify";
@@ -19,10 +21,34 @@ export const dynamic = "force-dynamic";
 const CRITERI = ["venduto", "modifica", "prodotti", "nome", "vetrina", "ordine", "rotazione"] as const;
 type Criterio = (typeof CRITERI)[number];
 
+// Le condizioni con cui si restringe l'elenco. Sono le domande che ci si fa
+// davanti a 343 collezioni: quali sto curando, quali non ho ancora toccato,
+// quali sono rimaste indietro rispetto al negozio.
+const FILTRI = [
+  { chiave: "vetrina", nome: "Solo in vetrina" },
+  { chiave: "no-vetrina", nome: "Non in vetrina" },
+  { chiave: "da-sincronizzare", nome: "Da sincronizzare su Shopify" },
+  { chiave: "senza-ordine", nome: "Senza regola d'ordine" },
+  { chiave: "senza-rotazione", nome: "Senza rotazione" },
+  { chiave: "senza-tipologia", nome: "Senza tipologia" },
+  { chiave: "manuale", nome: "Solo manuali (ordinabili)" },
+  { chiave: "automatica", nome: "Solo automatiche" },
+  { chiave: "sospesa", nome: "Sospese" },
+  { chiave: "senza-prodotti", nome: "Senza prodotti conosciuti" },
+] as const;
+
 export default async function VisualPage({
   searchParams,
 }: {
-  searchParams: Promise<{ esito?: string; messaggio?: string; ordina?: string }>;
+  searchParams: Promise<{
+    esito?: string;
+    messaggio?: string;
+    ordina?: string;
+    q?: string;
+    negozio?: string;
+    tipologia?: string;
+    filtro?: string;
+  }>;
 }) {
   const sp = await searchParams;
   // L'ordinamento sta tutto in un parametro: "criterio-verso". Le intestazioni
@@ -42,7 +68,7 @@ export default async function VisualPage({
       where: doveColl,
       include: {
         _count: { select: { prodotti: true } },
-        tipologia: { select: { nome: true } },
+        tipologia: { select: { id: true, nome: true } },
         rotazione: { select: { nome: true, frequenza: true, modo: true, attiva: true } },
         prodotti: { select: { prodottoId: true } },
       },
@@ -90,7 +116,75 @@ export default async function VisualPage({
   // sfuggita sembra il fatturato. La quota si legge quindi come «quanta parte del
   // venduto passa da questa collezione».
   const totaleRicavo = venditePerProdotto.reduce((s, v) => s + (v._sum.ricavo ?? 0), 0);
-  const inVetrina = righe.filter((r) => r.inVetrina).length;
+
+  // — Ricerca e filtri —
+  // Le tendine offrono **solo i valori che esistono davvero** in questo ambito:
+  // un menu che propone un negozio senza collezioni fa cercare a vuoto.
+  const negoziInElenco = [...new Set(righe.map((r) => r.c.negozio))].sort((a, b) => a.localeCompare(b));
+  const tipologieInElenco = [
+    ...new Map(righe.filter((r) => r.c.tipologia).map((r) => [r.c.tipologia!.id, r.c.tipologia!.nome])),
+  ].sort((a, b) => a[1].localeCompare(b[1]));
+
+  // Il testo si confronta **normalizzato** (via accenti, trattini e maiuscole):
+  // cercando "saint honore" si vuole trovare «SAINT-HONORÈ», che è proprio il
+  // caso per cui si cerca. Stessa `normalizza()` della riconciliazione — con
+  // poche centinaia di righe già in memoria non serve chiederlo al database, e
+  // un `contains` sul titolo vero darebbe zero risultati (trappola già pagata).
+  const q = (sp.q ?? "").trim();
+  const parole = normalizza(q).split(" ").filter(Boolean);
+  const filtro = FILTRI.some((f) => f.chiave === sp.filtro) ? sp.filtro : "";
+
+  const passa = (r: (typeof righe)[number]) => {
+    if (sp.negozio && r.c.negozio !== sp.negozio) return false;
+    if (sp.tipologia && r.c.tipologia?.id !== sp.tipologia) return false;
+    if (parole.length > 0) {
+      // Tutte le parole devono comparire, in qualunque ordine e in qualunque
+      // campo: si cerca «roma san valentino» senza sapere com'è scritto il nome.
+      const testo = normalizza(
+        `${r.c.titolo} ${r.c.negozio} ${r.c.handle} ${r.c.tipologia?.nome ?? ""} ${r.posizioni.join(" ")}`,
+      );
+      if (!parole.every((p) => testo.includes(p))) return false;
+    }
+    switch (filtro) {
+      case "vetrina":
+        return r.inVetrina;
+      case "no-vetrina":
+        return !r.inVetrina;
+      case "da-sincronizzare":
+        return r.daSincronizzare;
+      case "senza-ordine":
+        return !r.c.regolaOrdinamento;
+      case "senza-rotazione":
+        return r.c.rotazione == null;
+      case "senza-tipologia":
+        return r.c.tipologia == null;
+      case "manuale":
+        return r.c.tipo !== "automatica";
+      case "automatica":
+        return r.c.tipo === "automatica";
+      case "sospesa":
+        return r.c.stato === "sospesa";
+      case "senza-prodotti":
+        return r.c._count.prodotti === 0;
+      default:
+        return true;
+    }
+  };
+
+  const inScena = righe.length; // le pubblicate dell'ambito, prima di filtrare
+  const filtrate = righe.filter(passa);
+  const cercando = q !== "" || filtro !== "" || Boolean(sp.negozio) || Boolean(sp.tipologia);
+  const inVetrina = filtrate.filter((r) => r.inVetrina).length;
+  // Il venduto che passa dalle collezioni trovate. **Non è la somma delle loro
+  // righe**: un prodotto sta in più collezioni e sommandole si conta più volte
+  // lo stesso incasso — misurato, 2.874.458 € su un periodo che ne vale 218.637.
+  // Si sommano quindi i **prodotti distinti** che stanno in almeno una di esse.
+  // La base della quota resta il venduto totale del periodo: non cambia perché
+  // sto cercando.
+  const prodottiFiltrati = new Set<string>();
+  for (const r of filtrate) for (const p of r.c.prodotti) prodottiFiltrati.add(p.prodottoId);
+  let ricavoFiltrate = 0;
+  for (const id of prodottiFiltrati) ricavoFiltrate += vp.get(id)?._sum.ricavo ?? 0;
 
   // Confronto "decrescente" per ogni colonna; il verso lo si inverte dopo, così
   // la regola sta scritta una volta sola. Il pareggio si spezza sempre col nome,
@@ -118,16 +212,22 @@ export default async function VisualPage({
         return b.ricavo - a.ricavo;
     }
   };
-  righe.sort((a, b) => {
+  filtrate.sort((a, b) => {
     const d = confronta(a, b);
     return (verso === "asc" ? -d : d) || a.c.titolo.localeCompare(b.c.titolo);
   });
 
-  // Link e freccia per l'intestazione di una colonna.
+  // Link e freccia per l'intestazione di una colonna. **Ordinare non azzera la
+  // ricerca**: i filtri restano nell'indirizzo, altrimenti un clic
+  // sull'intestazione rimetterebbe davanti tutte e 343 le collezioni.
   const linkCol = (c: Criterio) => {
-    const q = new URLSearchParams();
-    q.set("ordina", `${c}-${criterio === c && verso === "desc" ? "asc" : "desc"}`);
-    return `/visual?${q.toString()}`;
+    const p = new URLSearchParams();
+    if (q) p.set("q", q);
+    if (sp.negozio) p.set("negozio", sp.negozio);
+    if (sp.tipologia) p.set("tipologia", sp.tipologia);
+    if (filtro) p.set("filtro", filtro);
+    p.set("ordina", `${c}-${criterio === c && verso === "desc" ? "asc" : "desc"}`);
+    return `/visual?${p.toString()}`;
   };
   const segno = (c: Criterio) => (criterio !== c ? "" : verso === "asc" ? " ↑" : " ↓");
   const Intestazione = ({ c, testo, num }: { c: Criterio; testo: string; num?: boolean }) => (
@@ -171,7 +271,7 @@ export default async function VisualPage({
           </div>
         )}
 
-        {righe.length === 0 ? (
+        {inScena === 0 ? (
           <div className="vuoto">
             <p>Nessuna collezione <b>pubblicata sul negozio</b> da mettere in scena.</p>
             <p className="page-sub" style={{ marginTop: 8 }}>
@@ -183,26 +283,95 @@ export default async function VisualPage({
           </div>
         ) : (
           <>
+            {/* La ricerca: con centinaia di collezioni scorrere non è un modo di
+                trovarle. I valori vivono nell'indirizzo, così una ricerca si
+                può mandare a qualcuno o tenere fra i preferiti. */}
+            <FormFiltri>
+              <input
+                type="search"
+                name="q"
+                placeholder="Cerca una collezione per nome, negozio o tipologia…"
+                defaultValue={q}
+                style={{ minWidth: 280 }}
+              />
+              {negoziInElenco.length > 1 && (
+                <select name="negozio" defaultValue={sp.negozio ?? ""} aria-label="Negozio">
+                  <option value="">Tutti i negozi</option>
+                  {negoziInElenco.map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
+                </select>
+              )}
+              {tipologieInElenco.length > 0 && (
+                <select name="tipologia" defaultValue={sp.tipologia ?? ""} aria-label="Tipologia">
+                  <option value="">Tutte le tipologie</option>
+                  {tipologieInElenco.map(([id, nome]) => (
+                    <option key={id} value={id}>
+                      {nome}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <select name="filtro" defaultValue={filtro} aria-label="Condizione">
+                <option value="">Tutte le collezioni</option>
+                {FILTRI.map((f) => (
+                  <option key={f.chiave} value={f.chiave}>
+                    {f.nome}
+                  </option>
+                ))}
+              </select>
+              {/* L'ordinamento scelto sopravvive alla ricerca. */}
+              <input type="hidden" name="ordina" value={`${criterio}-${verso}`} />
+              <button type="submit" className="btn btn-secondario">Cerca</button>
+              {cercando && (
+                <Link className="btn btn-secondario" href="/visual">
+                  Azzera
+                </Link>
+              )}
+            </FormFiltri>
+
             <div className="kpi-riga">
               <div className="kpi">
-                <div className="kpi-valore">{righe.length}</div>
-                <div className="kpi-etichetta">Collezioni in scena</div>
-                <div className="kpi-sotto">pubblicate su {totali} importate</div>
+                <div className="kpi-valore">{filtrate.length}</div>
+                <div className="kpi-etichetta">{cercando ? "Collezioni trovate" : "Collezioni in scena"}</div>
+                <div className="kpi-sotto">
+                  {cercando ? `su ${inScena} in scena, ${totali} importate` : `pubblicate su ${totali} importate`}
+                </div>
               </div>
               <div className="kpi">
                 <div className="kpi-valore" style={{ color: inVetrina ? "var(--gold)" : "var(--text-tertiary)" }}>
                   {inVetrina}
                 </div>
                 <div className="kpi-etichetta">In vetrina</div>
-                <div className="kpi-sotto">{inVetrina === 0 ? "nessuna ancora segnata" : "segnate da noi"}</div>
+                <div className="kpi-sotto">
+                  {inVetrina === 0 ? "nessuna ancora segnata" : cercando ? "fra quelle trovate" : "segnate da noi"}
+                </div>
               </div>
               <div className="kpi">
-                <div className="kpi-valore">{euro(totaleRicavo)}</div>
+                <div className="kpi-valore">{euro(cercando ? ricavoFiltrate : totaleRicavo)}</div>
                 <div className="kpi-etichetta">Venduto 90 giorni</div>
-                <div className="kpi-sotto">tutto il venduto del periodo, a buon fine</div>
+                <div className="kpi-sotto">
+                  {cercando
+                    ? `da queste collezioni, su ${euro(totaleRicavo)} del periodo`
+                    : "tutto il venduto del periodo, a buon fine"}
+                </div>
               </div>
             </div>
 
+            {filtrate.length === 0 ? (
+              <div className="vuoto">
+                <p>
+                  Nessuna collezione risponde a questa ricerca{q ? <> per «<b>{q}</b>»</> : null}.
+                </p>
+                <p className="page-sub" style={{ marginTop: 8 }}>
+                  In scena ce ne sono {inScena}: <Link href="/visual">togli i filtri</Link> per rivederle tutte. La
+                  ricerca guarda <b>nome, negozio, tipologia, posizioni e l&apos;indirizzo sul sito</b> — non i
+                  prodotti che la collezione contiene.
+                </p>
+              </div>
+            ) : (
             <div className="scheda">
               <div className="tabella-wrap">
                 <table>
@@ -220,7 +389,7 @@ export default async function VisualPage({
                     </tr>
                   </thead>
                   <tbody>
-                    {righe.map((r) => (
+                    {filtrate.map((r) => (
                       <tr key={r.c.id} className="riga-cliccabile">
                         {/* Il bollino della vetrina si accende e si spegne da qui:
                             vederlo e non poterlo cambiare sarebbe mezza risposta. */}
@@ -296,6 +465,14 @@ export default async function VisualPage({
                   </tbody>
                 </table>
               </div>
+              {cercando && (
+                <p className="page-sub" style={{ marginTop: 12 }}>
+                  Stai guardando <b>{filtrate.length}</b> collezioni su {inScena} in scena. La ricerca guarda{" "}
+                  <b>nome, negozio, tipologia, posizioni e l&apos;indirizzo sul sito</b> (l&apos;<i>handle</i>: è per
+                  questo che «roma» trova anche «Corteggiamento», che su Flowers vive a <code>/romantico</code>), e
+                  ignora accenti, trattini e maiuscole. Non cerca <b>dentro</b> i prodotti della collezione.
+                </p>
+              )}
               <p className="page-sub" style={{ marginTop: 12 }}>
                 <b>Clicca un&apos;intestazione per ordinare</b>, riclicca per invertire. Non c&apos;è «novità»: Shopify
                 non dà una data di creazione per le collezioni, quindi si ordina per <b>ultima modifica sul negozio</b>,
@@ -307,6 +484,7 @@ export default async function VisualPage({
                 100%</b>: sommarle conterebbe più volte lo stesso incasso.
               </p>
             </div>
+            )}
           </>
         )}
       </main>
