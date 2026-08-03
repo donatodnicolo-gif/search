@@ -1,6 +1,6 @@
 # Handoff — Deluxy Marketing
 
-> Stato al **28/07/2026**. Una finestra Claude nuova deve poter riprendere da qui
+> Stato al **02/08/2026**. Una finestra Claude nuova deve poter riprendere da qui
 > senza altro contesto. Leggere prima il [README](../README.md) per cosa fa l'app;
 > questo documento dice **dove siamo** e **cosa manca**.
 
@@ -21,6 +21,89 @@ Riceve già dati veri da Google Ads (Gifts e Flowers) e ha 2.426 ordini Shopify 
   in sviluppo scrive sui dati veri. Non esiste ancora uno schema `marketing_dev`.
 
 ## FATTO
+
+### Il 02/08/2026 (questa sessione)
+
+**L'app girava dall'altra parte dell'oceano.** Home a 10,4 secondi, e la causa
+non era una query pesante: `X-Vercel-Id` diceva `fra1::iad1` — richiesta entrata
+a Francoforte, funzione eseguita a **Washington**, database a Francoforte. Ogni
+query pagava l'andata e ritorno oltre oceano, e una pagina ne fa decine. Una riga
+in `vercel.json` (`"regions": ["fra1"]`) e la home è passata a **0,64 s: −94%**.
+E la sidebar faceva **19 query su ogni pagina**: ora una sola con i conteggi come
+sotto-select più 60 s di cache (`lib/conteggi-sidebar.ts`), e se il database non
+risponde mostra zeri ma la pagina si apre.
+
+> ⚠️ **Da controllare per primo quando qualcosa è lento**: l'header
+> `X-Vercel-Id`. Se la seconda sigla non è `fra1`, la funzione sta girando
+> lontano dal database e nessuna ottimizzazione di query recupererà quel tempo.
+
+**Il risultato atteso** (`lib/risultato.ts`): vendite × 30% di margine meno la
+spesa ADV, su `/analisi-campagne` (il conto riga per riga) e in home (un KPI).
+Luglio: 98.951 € venduti, 14.030 di ADV, **risultato atteso 15.656 €**, la
+pubblicità pesa il 14,2% sul venduto. Il venduto è quello **vero di Shopify** —
+i ricavi dichiarati dalle piattaforme sono gonfiati e il margine lo sarebbe due
+volte — ed è **tutto** quello del periodo, non solo l'attribuito: la pubblicità
+si paga sul fatturato che l'azienda fa. La pagina ripete che **non è un utile**:
+sotto non ci sono personale, logistica, commissioni e resi.
+
+**Stato keyword da Google** — nuovo `AZIONE = "stati-keyword"`. Il giro `copy`
+filtra `metrics.impressions > 0`, quindi una keyword **in pausa non arrivava
+mai** (non ha impressioni per definizione) e nell'app restava "attiva" per
+sempre: i bottoni Metti in pausa / Riattiva partivano da uno stato falso. Il
+nuovo giro legge tutte le keyword senza filtro impressioni e senza finestra di
+date — lo stato non è una metrica, non ha un periodo. Le negative si saltano.
+
+> ⚠️ **Il null che azzera, di nuovo.** Il giro degli stati manda keyword SENZA
+> metriche, e `salva()` fa update con tutti i campi passati: quei null avrebbero
+> cancellato spesa e clic scritti dal giro dei numeri. I numeri ora si scrivono
+> solo se ci sono, e `metricheAl` (la data della fotografia dei NUMERI) non si
+> sposta su un giro di soli stati. Provato in produzione: 12,50 € e 9 clic
+> sopravvissuti a un update di solo `PAUSED`.
+
+**Città e provincia da Orders.** `cittaDedotta` arriva come **OGGETTO**
+(`{ citta, da, prova }`), non come stringa: passarlo intero a Prisma fermava
+l'intero import di 8.101 ordini alla prima riga utile. Si estrae `.citta`, e
+`.da` va in `cittaFonte` (tag | prodotto). Presa anche `spedizione.provincia`,
+sigla normalizzata che risolve meglio il problema per cui la città serviva: in
+MI convivono "Milano" (1.000), "Milan" (42) e "MILANO" (14) — come testo erano
+tre righe diverse. Fuori dall'Italia la provincia è spesso vuota (Francia,
+Lussemburgo), quindi la città serve ancora.
+
+> ⚠️ **Un campo NUOVO non entra negli ordini già presenti** se il controllo «è
+> cambiato?» non lo guarda **e** il `select` non lo legge. Il primo giro aveva
+> riempito la provincia su 2.068 ordini su 8.139 — solo quelli che cambiavano
+> per altri motivi. Vale per qualunque campo si aggiunga in futuro.
+
+> ⚠️ **Gli import lunghi vanno lanciati con `nohup … & disown`**: col solo `&`
+> muoiono quando la shell finisce, a metà strada e in silenzio (successo due
+> volte lo stesso giorno, a pagina 20 su 41).
+
+**Scheda gruppo e campagna**: andamento **per mese espandibile** (`<details>`
+nativi, niente JS, il browser ricorda l'apertura col tasto indietro) al posto di
+404 righe giornaliere; grafico dei **dodici mesi** che dice quando si vende, con
+lo storico degli anni precedenti sui mesi futuri — dichiarato come media di ciò
+che è successo, non previsione; **budget della campagna madre** col flag «unico
+gruppo attivo» (se lo è, quel budget è di fatto suo e si dice quanto ne consuma;
+se ce ne sono altri se lo dividono in base all'asta); keyword e parole cercate
+**in rosso** quando spendono senza rendere, con **Escludi** che mette in coda la
+negativa (diversa dalla pausa: vale anche in futuro, su tutta la campagna); e le
+due tabelle dichiarano che **non seguono il periodo scelto** — sono fotografie a
+finestra fissa, e chi chiedeva 7 giorni leggeva la spesa di un mese.
+
+**Tutte le tabelle ordinabili** con un componente solo montato nel layout
+(`TabelleOrdinabili.tsx`): ordina ciò che è già in pagina, senza toccare il
+database, e capisce i numeri all'italiana (`1.234,50 €`, `12,3×`) e le date —
+senza quello "1.000" finiva prima di "9". `data-no-ordina` esclude le tabelle
+dove l'ordine **è** l'informazione.
+
+**Il bottone Sincronizza** sembrava rotto e non lo era: la corsa dura una
+ventina di secondi e la pagina restava immobile, senza un segnale. Ora si
+disabilita, gira e dice «Sincronizzo…»; sotto, la data in due forme («2 ore fa ·
+02/08/2026, 06:08») che diventa arancione dopo tre giorni di silenzio. E quando
+non cambia niente dice «già aggiornato, 634 documenti» invece del criptico
+«nuovi 0 · aggiornati 0», che somigliava a un fallimento.
+
+
 
 ### Il budget di vendita arriva da Deluxy Budgets (01/08/2026)
 
