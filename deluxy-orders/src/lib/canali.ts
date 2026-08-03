@@ -33,6 +33,14 @@ export type RigaCanale = {
   primi: number;
   daRepeater: number;
   nonAttribuibili: number;
+  // Gli stessi tre gruppi in EURO, non in numero di ordini. Servono a rispondere
+  // alla domanda che il conteggio non regge: un canale può portare pochi clienti
+  // nuovi e sembrare comunque ottimo perché quei pochi spendono il triplo — o il
+  // contrario. Senza gli euro divisi, «60% di clienti nuovi» e «60% del venduto
+  // da clienti nuovi» sembrano la stessa frase, e non lo sono quasi mai.
+  lordoPrimi: number;
+  lordoDaRepeater: number;
+  lordoNonAttribuibili: number;
   clienti: number;
   mesi: number[]; // dodici caselle, il venduto di ogni mese
 };
@@ -55,6 +63,9 @@ export type Vendite = {
     primi: number;
     daRepeater: number;
     nonAttribuibili: number;
+    lordoPrimi: number;
+    lordoDaRepeater: number;
+    lordoNonAttribuibili: number;
     // Quanti ordini portavano un link marcato (`utm_*`). Serve a leggere i
     // confronti fra periodi: se in un periodo i link non erano marcati e
     // nell'altro sì, un canale «cresce» perché è cambiato il modo di marcare i
@@ -103,7 +114,19 @@ export async function venditePerCanale(da: Date, a: Date, brand: string | null):
 
   const [righe, campagne, sorgenti, esclusi, tracciati] = await Promise.all([
     prisma.$queryRawUnsafe<
-      { canale: string; mese: number; ordini: number; lordo: number; primi: number; daRepeater: number; nonAttribuibili: number; clienti: number }[]
+      {
+        canale: string;
+        mese: number;
+        ordini: number;
+        lordo: number;
+        primi: number;
+        daRepeater: number;
+        nonAttribuibili: number;
+        lordoPrimi: number;
+        lordoDaRepeater: number;
+        lordoNonAttribuibili: number;
+        clienti: number;
+      }[]
     >(
       `${cte(brand)}
        SELECT COALESCE(NULLIF("canaleMarketing", ''), 'sconosciuto') AS canale,
@@ -113,6 +136,11 @@ export async function venditePerCanale(da: Date, a: Date, brand: string | null):
               COUNT(*) FILTER (WHERE precedenti = 0)::int AS primi,
               COUNT(*) FILTER (WHERE precedenti > 0)::int AS "daRepeater",
               COUNT(*) FILTER (WHERE precedenti IS NULL)::int AS "nonAttribuibili",
+              -- Gli stessi tre gruppi in EURO: sono FILTER sulla stessa scansione
+              -- che la query faceva già, non una query in più.
+              COALESCE(SUM("totale") FILTER (WHERE precedenti = 0), 0)::float8 AS "lordoPrimi",
+              COALESCE(SUM("totale") FILTER (WHERE precedenti > 0), 0)::float8 AS "lordoDaRepeater",
+              COALESCE(SUM("totale") FILTER (WHERE precedenti IS NULL), 0)::float8 AS "lordoNonAttribuibili",
               COUNT(DISTINCT chiave)::int AS clienti
          FROM dentro
         GROUP BY 1, 2
@@ -166,7 +194,17 @@ export async function venditePerCanale(da: Date, a: Date, brand: string | null):
   ]);
 
   const perCanale = new Map<string, RigaCanale>();
-  const totali = { ordini: 0, lordo: 0, primi: 0, daRepeater: 0, nonAttribuibili: 0, tracciati: tracciati[0]?.tracciati ?? 0 };
+  const totali = {
+    ordini: 0,
+    lordo: 0,
+    primi: 0,
+    daRepeater: 0,
+    nonAttribuibili: 0,
+    lordoPrimi: 0,
+    lordoDaRepeater: 0,
+    lordoNonAttribuibili: 0,
+    tracciati: tracciati[0]?.tracciati ?? 0,
+  };
 
   for (const r of righe) {
     let c = perCanale.get(r.canale);
@@ -182,6 +220,9 @@ export async function venditePerCanale(da: Date, a: Date, brand: string | null):
         primi: 0,
         daRepeater: 0,
         nonAttribuibili: 0,
+        lordoPrimi: 0,
+        lordoDaRepeater: 0,
+        lordoNonAttribuibili: 0,
         clienti: 0,
         mesi: Array(12).fill(0),
       };
@@ -193,6 +234,9 @@ export async function venditePerCanale(da: Date, a: Date, brand: string | null):
     c.primi += r.primi;
     c.daRepeater += r.daRepeater;
     c.nonAttribuibili += r.nonAttribuibili;
+    c.lordoPrimi += r.lordoPrimi;
+    c.lordoDaRepeater += r.lordoDaRepeater;
+    c.lordoNonAttribuibili += r.lordoNonAttribuibili;
     // ⚠️ I clienti distinti si sommano PER MESE: chi compra a gennaio e a marzo è
     // contato due volte. Il nome della colonna lo dice, e chi ha bisogno delle
     // persone vere le chiede a /api/v1/clienti.
@@ -202,6 +246,9 @@ export async function venditePerCanale(da: Date, a: Date, brand: string | null):
     totali.primi += r.primi;
     totali.daRepeater += r.daRepeater;
     totali.nonAttribuibili += r.nonAttribuibili;
+    totali.lordoPrimi += r.lordoPrimi;
+    totali.lordoDaRepeater += r.lordoDaRepeater;
+    totali.lordoNonAttribuibili += r.lordoNonAttribuibili;
   }
 
   return {

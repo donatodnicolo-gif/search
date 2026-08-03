@@ -56,6 +56,14 @@ export async function GET(req: NextRequest) {
       daRepeater: "ordini di chi aveva già comprato prima di questo",
       nonAttribuibili:
         "ordini senza email, telefono né nome: non si può dire se il cliente sia nuovo, e non si indovina",
+      // Gli stessi tre gruppi in euro (30/07 → 03/08/2026). Il conteggio degli
+      // ordini e la quota del venduto non coincidono quasi mai: chi torna spende
+      // di più, quindi «60% di ordini da clienti nuovi» può essere il 40% dei
+      // soldi. Chi legge questa API per calcolare un costo di acquisizione deve
+      // usare `lordoPrimi`, non `lordo`.
+      lordoPrimi: "quanti EURO dei clienti nuovi (non quanti ordini)",
+      lordoDaRepeater: "quanti euro di chi aveva già comprato",
+      lordoNonAttribuibili: "euro degli ordini senza cliente riconoscibile: non spalmati sulle altre due voci",
       clientiPerMese: "somma dei clienti distinti di ogni mese: chi compra in due mesi è contato due volte",
       sorgenti:
         "lo strumento scritto nel link (utm_source), o il sito da cui è arrivata la persona: sta SOTTO il canale — «klaviyo» è un modo di fare email",

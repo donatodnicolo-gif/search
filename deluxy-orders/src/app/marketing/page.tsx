@@ -46,6 +46,10 @@ function pct(n: number, decimali = 1): string {
   return `${num(n, decimali)}%`;
 }
 
+function ordini(n: number): string {
+  return `${num(n)} ${n === 1 ? "ordine" : "ordini"}`;
+}
+
 function Delta({ ora, prima }: { ora: number; prima: number }) {
   const v = variazione(ora, prima);
   if (v === null) return <span className="delta delta-nuovo">nuovo</span>;
@@ -353,6 +357,116 @@ export default async function Marketing({
               stati spalmati sugli altri canali: sarebbe un numero comodo e falso.
             </>
           )}
+        </p>
+      </div>
+
+      {/* Gli stessi canali, ma i SOLDI divisi fra acquisizione e fedeltà.
+          La tabella sopra dice quanti ordini sono di clienti nuovi; questa dice
+          quanti EURO lo sono, che non è la stessa cosa: un canale può portare
+          pochi clienti nuovi e sembrare comunque il migliore perché quei pochi
+          spendono il triplo — o il contrario, ed è il caso più frequente. */}
+      <div className="scheda">
+        <div className="scheda-titolo">Acquisizione o fedeltà: dove vanno i soldi di ogni canale</div>
+        <p className="testo-guida" style={{ marginTop: 6 }}>
+          <strong>Nuovo</strong> è chi non aveva mai comprato prima, su tutta la storia del registro — non «nuovo del
+          periodo». Lo <strong>scontrino</strong> delle due colonne è quello che serve davvero: quasi sempre chi torna
+          spende di più, e un canale che acquista bene lo si riconosce dal fatto che regge il confronto lo stesso.
+        </p>
+        <div className="tabella-wrap" style={{ marginTop: 10 }}>
+          <table>
+            <thead>
+              <tr>
+                <th>Canale</th>
+                <th className="num">Da clienti nuovi</th>
+                <th className="num">Scontrino nuovi</th>
+                <th className="num">Da clienti di ritorno</th>
+                <th className="num">Scontrino di ritorno</th>
+                <th className="num">Quota acquisizione</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[...ora.canali]
+                .sort((x, y) => y.lordoPrimi - x.lordoPrimi)
+                .map((c) => {
+                  const p = primaPerCanale.get(c.canale);
+                  const conCliente = c.lordoPrimi + c.lordoDaRepeater;
+                  const scontrinoNuovi = c.primi ? c.lordoPrimi / c.primi : 0;
+                  const scontrinoRitorno = c.daRepeater ? c.lordoDaRepeater / c.daRepeater : 0;
+                  return (
+                    <tr key={c.canale}>
+                      <td>
+                        <span style={{ marginRight: 6 }}>{c.simbolo}</span>
+                        {c.nome}
+                        {c.pagato && <div className="cella-muta">a pagamento</div>}
+                      </td>
+                      <td className="cella-num">
+                        {euro(c.lordoPrimi)}
+                        <Delta ora={c.lordoPrimi} prima={p?.lordoPrimi ?? 0} />
+                        <div className="cella-muta">{ordini(c.primi)}</div>
+                      </td>
+                      <td className="cella-num">{c.primi ? euro(scontrinoNuovi) : "—"}</td>
+                      <td className="cella-num">
+                        {euro(c.lordoDaRepeater)}
+                        <Delta ora={c.lordoDaRepeater} prima={p?.lordoDaRepeater ?? 0} />
+                        <div className="cella-muta">{ordini(c.daRepeater)}</div>
+                      </td>
+                      <td className="cella-num">{c.daRepeater ? euro(scontrinoRitorno) : "—"}</td>
+                      <td className="cella-num">
+                        {conCliente > 0.005 ? pct((c.lordoPrimi / conCliente) * 100, 0) : "—"}
+                        {/* ⚠️ Gli ordini senza cliente riconoscibile non stanno né
+                            di qua né di là: si dichiarano, non si spalmano. */}
+                        {c.lordoNonAttribuibili > 0.005 && (
+                          <div className="cella-muta">{euro(c.lordoNonAttribuibili)} non attribuibili</div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              {ora.canali.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="cella-muta">Nessun ordine in questo periodo.</td>
+                </tr>
+              )}
+            </tbody>
+            <tfoot>
+              <tr>
+                <th>Totale</th>
+                <th className="num">
+                  {euro(ora.totali.lordoPrimi)}
+                  <div className="cella-muta">{ordini(ora.totali.primi)}</div>
+                </th>
+                <th className="num">
+                  {ora.totali.primi ? euro(ora.totali.lordoPrimi / ora.totali.primi) : "—"}
+                </th>
+                <th className="num">
+                  {euro(ora.totali.lordoDaRepeater)}
+                  <div className="cella-muta">{ordini(ora.totali.daRepeater)}</div>
+                </th>
+                <th className="num">
+                  {ora.totali.daRepeater ? euro(ora.totali.lordoDaRepeater / ora.totali.daRepeater) : "—"}
+                </th>
+                <th className="num">
+                  {ora.totali.lordoPrimi + ora.totali.lordoDaRepeater > 0.005
+                    ? pct(
+                        (ora.totali.lordoPrimi / (ora.totali.lordoPrimi + ora.totali.lordoDaRepeater)) * 100,
+                        0,
+                      )
+                    : "—"}
+                </th>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        <p className="testo-guida" style={{ marginTop: 10 }}>
+          {ora.totali.lordoNonAttribuibili > 0.005 && (
+            <>
+              <strong>{euro(ora.totali.lordoNonAttribuibili)}</strong> ({ordini(ora.totali.nonAttribuibili)}) non
+              stanno in nessuna delle due colonne: sono ordini senza email, telefono né nome, dove non si può dire se
+              chi ha comprato fosse nuovo. Non sono stati spalmati sulle due colonne — sarebbe un numero comodo e
+              falso.{" "}
+            </>
+          )}
+          Le due colonne più i non attribuibili fanno il venduto della tabella qui sopra: {euro(totale)}.
         </p>
       </div>
 

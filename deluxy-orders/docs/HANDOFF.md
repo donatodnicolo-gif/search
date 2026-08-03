@@ -394,6 +394,48 @@ la variazione sul periodo prima e il taglio nuovi/di ritorno.
 - La **spesa** non c'è: sta in deluxy-marketing. Finché non si collega, la pagina
   misura il fatturato per canale, non il ritorno (niente ROAS/MER qui).
 
+**Tabella «Acquisizione o fedeltà» (03/08/2026)** — gli stessi canali, ma i soldi
+divisi fra clienti nuovi e clienti di ritorno, con **lo scontrino delle due
+metà**. Tre `SUM(…) FILTER` in più nella query che c'era già (`lordoPrimi`,
+`lordoDaRepeater`, `lordoNonAttribuibili` in `RigaCanale` e in `totali`): nessuna
+query aggiuntiva. Escono anche da `/api/v1/marketing`, con i criteri scritti nella
+risposta. Misurato su deluxy.it 25–31/07: 6.894 € da nuovi + 5.291 € da chi torna
++ 545 € non attribuibili = 12.730 €, che è il totale della tabella sopra.
+
+- ⚠️ **I non attribuibili non si spalmano.** Gli ordini senza email, telefono né
+  nome non possono stare in nessuna delle due colonne: si dichiarano sotto la
+  tabella. Sommarli a metà per far quadrare le percentuali sarebbe un numero
+  comodo e falso — e la somma delle due colonne **non** deve fare il venduto.
+- Il taglio serve perché conteggio e denaro divergono sempre: Google Ads fa l'85%
+  di *ordini* da clienti nuovi ma con scontrino 124 €, mentre il Diretto sembra
+  il canale più grande solo perché chi torna spende 1.007 € a ordine.
+
+### ⚠️ Il nome della campagna in Orders può essere un nome MORTO (03/08/2026)
+Indagine su «6 conversioni di Fiori Milano ENG che non si vedono», 25–31/07/2026.
+Non era un buco d'importazione: **`utm_campaign` è il nome che la campagna aveva
+quando il link è stato scritto, non quello che ha oggi.**
+
+- In Google Ads la campagna si chiama `[Deluxy] - Fiori Milano ENG` (id
+  15012697091, attiva); nel registro i suoi ordini portano `[Deluxy] - Fiori
+  Milano`, senza suffisso. A giugno 2026 le è stata staccata accanto una gemella
+  ITA (id 23958449662) e la vecchia è stata rinominata: l'utm nel link è scritto a
+  mano ed è rimasto indietro.
+- **Prova**: su tutto luglio 2026 le conversioni Google Ads della ENG sono **18**
+  e gli ordini con quell'utm sono **18**. Coincidono esattamente. Sulla singola
+  settimana no (7 contro 4) perché **Google data la conversione sul giorno del
+  CLIC, noi sul giorno dell'ORDINE**, e perché Google **modella** ciò che non
+  vede (nei dati veri ci sono conversioni da 0,5).
+- **Prima di dare la colpa all'import, chiedere a Shopify.** I 6 ordini della
+  settimana senza canale (#12662 #12668 #12684 #12689 #12690 #12692) hanno
+  `customerJourneySummary.ready = true`, `momentsCount = 0`, `firstVisit` e
+  `lastVisit` null, `landingPageUrl` null: il dato **non esiste** lato Shopify,
+  non c'è niente da recuperare né dal `gclid` né dalla landing.
+- **Non è un problema della versione inglese del sito** (ipotesi provata e
+  bocciata): a luglio gli ordini dal sito senza percorso sono il **20% degli
+  inglesi e il 17% degli italiani**. È un buco strutturale (consensi cookie,
+  blocchi, browser dentro le app) stabile fra il 13% e il 21% ogni mese da
+  gennaio 2025, ~24 ordini al mese su deluxy.it.
+
 ### Margini e Controllo: i soldi degli ordini arrivano qui (30/07/2026)
 Il controllo degli ordini — **incassi** e **costi del fornitore** — che si faceva
 in Finance (`deluxy-partner/ordini`) ora vive qui, dove stanno gli ordini. In

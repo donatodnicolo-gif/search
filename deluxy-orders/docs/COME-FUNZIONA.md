@@ -292,6 +292,35 @@ Tre righe da leggere con la testa, e la pagina le spiega dov'è il caso:
 - **l'attribuzione è al primo contatto**: chi ci ha trovati con Google Ads e poi
   è tornato scrivendo l'indirizzo resta Google Ads.
 
+#### Acquisizione o fedeltà: dove vanno i soldi di ogni canale (03/08/2026)
+La tabella qui sopra dice **quanti ordini** sono di clienti nuovi. Questa dice
+**quanti euro** lo sono, che non è la stessa cosa e quasi mai lo stesso numero:
+chi torna spende di più, quindi un canale può fare l'80% di ordini da clienti
+nuovi e metà del fatturato da clienti che tornavano già.
+
+Per ogni canale: venduto da clienti nuovi, venduto da clienti di ritorno, **lo
+scontrino delle due metà** e la quota di acquisizione. Misurato su deluxy.it,
+25–31 luglio 2026:
+
+| canale | da clienti nuovi | scontrino nuovi | da clienti di ritorno | scontrino ritorno |
+| --- | --- | --- | --- | --- |
+| Diretto | 2.690 € (8 ordini) | 336 € | 4.030 € (4 ordini) | **1.007 €** |
+| Ordine creato a mano | 2.174 € (8) | 272 € | 95 € (2) | 48 € |
+| Google Ads | 1.240 € (10) | 124 € | 220 € (1) | 220 € |
+| **Totale** | **6.894 € (33)** | 209 € | **5.291 € (11)** | 481 € |
+
+È il taglio che una dashboard pubblicitaria non sa dare: Google Ads acquista
+davvero (85% del suo venduto è di clienti nuovi) ma con uno scontrino da 124 €,
+mentre il *Diretto* sembra il canale più grosso solo perché ci torna chi spende
+1.007 € a ordine.
+
+⚠️ **Le due colonne non fanno il totale del canale, e deve restare così**: gli
+ordini senza email, telefono né nome non stanno né di qua né di là (nell'esempio
+545 €). Si dichiarano sotto la tabella invece di spalmarli: chi ha comprato non
+si indovina. Le stesse tre cifre escono da `GET /api/v1/marketing` come
+`lordoPrimi`, `lordoDaRepeater`, `lordoNonAttribuibili` — chi calcola un costo di
+acquisizione deve usare `lordoPrimi`, non `lordo`.
+
 #### Da quale strumento arrivano — e dov'è Klaviyo
 Sotto il canale c'è lo **strumento**: quello che c'è scritto nel link
 (`utm_source`) o il sito da cui è arrivata la persona. **Klaviyo è visto, ma come
