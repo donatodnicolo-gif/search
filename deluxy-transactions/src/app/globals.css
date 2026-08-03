@@ -413,6 +413,33 @@ th.num { text-align: right; }
 .campo-modulo select:focus,
 .campo-modulo textarea:focus { background: var(--surface); border-color: var(--hairline-strong); }
 .azioni-modulo { display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px; }
+
+/* ---------- Tasti dentro una riga di tabella ---------- */
+/* Restano su una riga sola finché ci stanno: due tasti che vanno a capo fanno
+   crescere tutta la riga e la tabella diventa un elenco di bottoni. */
+.cella-azioni { display: flex; flex-wrap: wrap; gap: 6px; }
+.cella-azioni .btn { white-space: nowrap; }
+
+/* ---------- Finestrella (dialog nativo) ---------- */
+/* È un <dialog> vero: Esc lo chiude, il resto della pagina non si può usare
+   mentre è aperto, e non serve un finto sfondo grigio disegnato a mano. */
+dialog.finestra {
+  border: none;
+  padding: 0;
+  background: transparent;
+  width: min(560px, calc(100vw - 28px));
+  max-height: calc(100vh - 40px);
+  color: var(--text);
+}
+dialog.finestra::backdrop { background: rgba(0, 0, 0, 0.32); }
+.finestra-corpo {
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-l);
+  box-shadow: var(--shadow-card);
+  padding: 20px;
+}
+.finestra-corpo .firma-nota { margin-bottom: 14px; }
 /* I messaggi dicono cosa è andato storto con i soldi: devono leggersi, non
    stare stretti. Interlinea larga, parole lunghe (IBAN, indirizzi, messaggi
    della banca) che vanno a capo invece di sfondare il riquadro. */

@@ -52,7 +52,8 @@ qui esce la distinta SEPA che qualcuno carica in banca.
    saldo e uscite del conto e riconosce le richieste dal riferimento in causale.
 8. Non tutto passa da qui, e l'app lo ammette: una richiesta si può segnare
    **già pagata altrove** (bonifico fatto a mano dal portale della banca,
-   contanti, compensazione) oppure **annullare**, dalla sua pagina. Serve il
+   contanti, compensazione) oppure **annullare**, dalla sua pagina o
+   direttamente dalla coda. Serve il
    codice a 6 cifre e un motivo scritto; la richiesta esce dalla distinta in cui
    si trovava — è la difesa contro il doppio pagamento — e l'app che l'aveva
    chiesta viene avvisata col webhook. **Da qui non esce un euro**: si registra

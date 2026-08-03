@@ -133,7 +133,19 @@ export async function chiudiRichiesta(_stato: unknown, fd: FormData): Promise<{ 
   revalidatePath("/richieste");
   revalidatePath(`/richieste/${id}`);
   revalidatePath("/distinte");
-  return { ok: `${chiusura.messaggio} L'app che l'aveva chiesta è stata avvisata.` };
+
+  const messaggio = `${chiusura.messaggio} L'app che l'aveva chiesta è stata avvisata.`;
+
+  // Chiamata dalla coda, la riga sparisce nel momento stesso in cui l'azione
+  // riesce: un messaggio disegnato lì dentro non avrebbe più dove comparire (è
+  // successo con gli esiti della banca, vedi HANDOFF). Si torna in coda con
+  // riferimento ed esito nell'indirizzo, e la frase la compone la pagina — nel
+  // link non ci va mai il testo da mostrare, altrimenti basterebbe mandare a
+  // qualcuno un indirizzo per fargli leggere «pagamento eseguito».
+  if (testo(fd, "torna") === "/") {
+    redirect(`/?chiuso=${encodeURIComponent(chiusura.riferimento)}&esito=${esito}`);
+  }
+  return { ok: messaggio };
 }
 
 // ---------------------------------------------------------------------------

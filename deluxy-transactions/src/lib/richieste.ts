@@ -354,7 +354,7 @@ export async function decidi(
 // L'effetto collaterale che conta di più: la richiesta esce dalla distinta in
 // cui si trovava. È la difesa contro il doppio pagamento.
 
-export type EsitoChiusura = { ok: true; messaggio: string } | { ok: false; errore: string };
+export type EsitoChiusura = { ok: true; messaggio: string; riferimento: string } | { ok: false; errore: string };
 
 /** Stati da cui una richiesta si può ancora chiudere a mano. */
 const CHIUDIBILI = ["in_attesa", "sospesa", "approvata", "in_lotto"];
@@ -495,6 +495,7 @@ export async function chiudiFuoriDallApp(
     );
     return {
       ok: true,
+      riferimento: r.riferimento,
       messaggio: `${r.riferimento} segnata pagata fuori dall'app (${METODI_FUORI[metodo]}).${
         lottoLasciato ? ` Tolta dalla distinta ${lottoLasciato}: non verrà pagata una seconda volta.` : ""
       }`,
@@ -509,6 +510,7 @@ export async function chiudiFuoriDallApp(
   );
   return {
     ok: true,
+    riferimento: r.riferimento,
     messaggio: `${r.riferimento} annullata.${lottoLasciato ? ` Tolta dalla distinta ${lottoLasciato}.` : ""}`,
   };
 }

@@ -98,7 +98,8 @@ bancarie non ce ne sono ancora: il file SEPA lo carica una persona in banca.
   configurata, ordinante senza ragione sociale o IBAN, pagatore che non è un
   operatore attivo, pagatore senza PIN.
 - **Chiudere una richiesta senza pagarla da qui** (03/08/2026): dalla sua pagina
-  si può segnarla **già pagata altrove** (bonifico fatto a mano dal portale della
+  **e dalla coda** (due tasti per riga che aprono una finestrella con gli stessi
+  campi — `<dialog>` nativo, Esc lo chiude) si può segnarla **già pagata altrove** (bonifico fatto a mano dal portale della
   banca, addebito, carta, contanti, compensazione — con data e nota
   obbligatorie) oppure **annullarla** con un motivo. Serve il codice a 6 cifre,
   come per una firma. **Non è una seconda porta per far uscire denaro**: non
@@ -112,7 +113,13 @@ bancarie non ce ne sono ancora: il file SEPA lo carica una persona in banca.
   scelta è in [SICUREZZA.md](SICUREZZA.md) §0-ter. Codice:
   `chiudiFuoriDallApp()` in [src/lib/richieste.ts](../src/lib/richieste.ts),
   azione `chiudiRichiesta` in [src/app/actions.ts](../src/app/actions.ts),
-  modulo [ModuloChiusura.tsx](../src/components/ModuloChiusura.tsx).
+  moduli [ModuloChiusura.tsx](../src/components/ModuloChiusura.tsx) (dettaglio) e
+  [ChiusuraRapida.tsx](../src/components/ChiusuraRapida.tsx) (coda). Dalla coda
+  l'azione **torna in `/` con riferimento ed esito nell'indirizzo**: la riga
+  sparisce nell'istante in cui l'azione riesce, e un messaggio disegnato dentro
+  quella riga non si vedrebbe mai. Nell'indirizzo non viaggia il testo da
+  mostrare — la frase la compone la pagina, altrimenti basterebbe mandare un link
+  per far leggere «pagamento eseguito» dentro l'app.
 - **Il webhook dice anche come e perché** (03/08/2026): al corpo si sono aggiunti
   `pagatoCon` (`distinta` | `qonto` | `fuori_app`) e `motivo`. Campi aggiunti,
   non sostituiti: chi legge solo `stato` continua a funzionare. Finance li

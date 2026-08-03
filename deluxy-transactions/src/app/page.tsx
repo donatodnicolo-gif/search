@@ -5,6 +5,7 @@ import { euro } from "@/lib/denaro";
 import { formattaIban } from "@/lib/iban";
 import { motiviDa } from "@/lib/richieste";
 import { BadgeRischio, BadgeStato, Firme, quando } from "@/components/Etichette";
+import { ChiusuraRapida } from "@/components/ChiusuraRapida";
 import { leggiRegole } from "@/lib/impostazioni";
 import { cifraturaPronta } from "@/lib/crypto";
 
@@ -13,9 +14,22 @@ import { cifraturaPronta } from "@/lib/crypto";
 
 export const dynamic = "force-dynamic";
 
-export default async function Coda() {
+export default async function Coda({
+  searchParams,
+}: {
+  searchParams: Promise<{ chiuso?: string; esito?: string }>;
+}) {
   const operatore = await operatoreCorrente();
   if (!operatore) redirect("/login");
+
+  // Esito di una chiusura fatta da questa pagina. Nell'indirizzo viaggiano solo
+  // il riferimento e quale delle due strade è stata presa: la frase la scrive
+  // qui l'app, e il riferimento si mostra solo se ha la forma di un
+  // riferimento — un link non deve poter far comparire un testo qualsiasi
+  // dentro un'app che muove denaro.
+  const sp = await searchParams;
+  const chiuso = /^[A-Z0-9-]{3,30}$/.test(sp.chiuso ?? "") ? sp.chiuso! : "";
+  const esitoChiusura = sp.esito === "pagata_fuori" || sp.esito === "annullata" ? sp.esito : "";
 
   const [richieste, approvate, pagateOggi, regole] = await Promise.all([
     prisma.richiesta.findMany({
@@ -34,6 +48,7 @@ export default async function Coda() {
   ]);
 
   const totaleInAttesa = richieste.reduce((s, r) => s + r.importoCent, 0);
+  const oggi = new Date().toLocaleDateString("sv-SE"); // 2026-08-03, ora locale
 
   return (
     <main className="main">
@@ -48,6 +63,23 @@ export default async function Coda() {
           Nuova richiesta
         </a>
       </div>
+
+      {chiuso && esitoChiusura && (
+        <div className="avviso-ok">
+          {esitoChiusura === "pagata_fuori" ? (
+            <>
+              <strong>{chiuso}</strong> è segnata pagata fuori da questa app: è uscita dalla coda e l&apos;app che
+              l&apos;aveva chiesta è stata avvisata. Di questo pagamento l&apos;app non ha una prova propria — resta nel
+              registro chi l&apos;ha registrato.
+            </>
+          ) : (
+            <>
+              <strong>{chiuso}</strong> è annullata: nessun pagamento, e l&apos;app che l&apos;aveva chiesta è stata
+              avvisata (potrà richiederla di nuovo).
+            </>
+          )}
+        </div>
+      )}
 
       {!cifraturaPronta() && (
         <div className="avviso-errore">
@@ -94,6 +126,7 @@ export default async function Coda() {
                 <th>Stato</th>
                 <th>Firme</th>
                 <th>Arrivata</th>
+                {operatore.ruolo !== "osservatore" && <th>Chiudi</th>}
               </tr>
             </thead>
             <tbody>
@@ -124,6 +157,18 @@ export default async function Coda() {
                       {tuaFirma && <div className="cella-sub">hai già votato</div>}
                     </td>
                     <td className="cella-muta">{quando(r.creataIl)}</td>
+                    {operatore.ruolo !== "osservatore" && (
+                      <td>
+                        <ChiusuraRapida
+                          id={r.id}
+                          riferimento={r.riferimento}
+                          beneficiario={r.beneficiario}
+                          importo={euro(r.importoCent)}
+                          richiedeCodice={operatore.totpAttivo}
+                          oggi={oggi}
+                        />
+                      </td>
+                    )}
                   </tr>
                 );
               })}
