@@ -9,6 +9,21 @@
 import { prisma } from "./db";
 import { FILTRO_BUON_FINE } from "./vendite";
 
+/**
+ * **In scena ci va solo quello che il cliente vede.**
+ *
+ * Le collezioni del negozio contengono anche prodotti **archiviati** o in bozza
+ * su Shopify: al 03/08/2026 sono la maggioranza di quello che l'import ha
+ * portato (1.535 schede create su 2.273; su deluxy.it 1.847 prodotti archiviati
+ * su 2.932, verificato a parte). Ordinare e spingere su Shopify una fila
+ * calcolata anche su quelli vuol dire decidere l'ordine di una vetrina che non
+ * esiste: restano in archivio — non si cancella niente — ma fuori dalla scena.
+ *
+ * La fase è il nostro campo: `in_vendita` è quello che l'import scrive quando
+ * Shopify dice `ACTIVE`, ed è anche il valore dei prodotti nati dal venduto.
+ */
+export const FILTRO_IN_SCENA = { fase: "in_vendita" } as const;
+
 export type RegolaOrdinamento =
   | "manuale"
   | "best_seller"
@@ -162,7 +177,7 @@ export async function ordineSecondoRegole(
   giorni = 90
 ): Promise<string[]> {
   const membri = await prisma.prodottoInCollezioneShopify.findMany({
-    where: { collezioneId },
+    where: { collezioneId, prodotto: FILTRO_IN_SCENA },
     select: {
       prodottoId: true,
       posizione: true,

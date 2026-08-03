@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "./db";
 import { tokenDi, VERSIONE_API } from "./negozi";
-import { numeraPosizioni, applicaRegoleACollezione, regoleDaForm } from "./ordinamento-vetrina";
+import { numeraPosizioni, applicaRegoleACollezione, regoleDaForm, FILTRO_IN_SCENA } from "./ordinamento-vetrina";
 
 /** Applica una o più regole in priorità: propone l'ordine come punto di partenza. */
 export async function applicaRegolaOrdinamento(collezioneId: string, fd: FormData) {
@@ -20,8 +20,11 @@ export async function spostaInCollezione(
 ) {
   // Ordinato per posizione e, a pari posizione, per nome: lo stesso ordine che
   // la pagina mostra, così le frecce spostano rispetto a quello che si vede.
+  // **Solo i prodotti in scena**: gli archiviati stanno in mezzo nel database ma
+  // non a schermo, e senza questo filtro una freccia avrebbe scavalcato un
+  // prodotto invisibile sembrando non fare niente.
   const membri = await prisma.prodottoInCollezioneShopify.findMany({
-    where: { collezioneId },
+    where: { collezioneId, prodotto: FILTRO_IN_SCENA },
     orderBy: [{ posizione: "asc" }, { prodotto: { nome: "asc" } }],
     select: { prodottoId: true },
   });
@@ -98,13 +101,16 @@ export async function spingiOrdineSuShopifySilenzioso(collezioneId: string): Pro
     return `Il negozio «${c.negozio}» non è collegato: collega un token con write_products in Impostazioni.`;
   }
 
+  // Si manda **solo la fila in scena**: mettere in ordine anche gli archiviati
+  // vorrebbe dire decidere la posizione di prodotti che il cliente non vede, e
+  // la fila spinta non corrisponderebbe a quella mostrata qui.
   const membri = await prisma.prodottoInCollezioneShopify.findMany({
-    where: { collezioneId, prodottoShopifyId: { not: null } },
+    where: { collezioneId, prodottoShopifyId: { not: null }, prodotto: FILTRO_IN_SCENA },
     orderBy: { posizione: "asc" },
     select: { prodottoShopifyId: true },
   });
   if (membri.length === 0) {
-    return "Nessun prodotto con un id Shopify: rilancia l'import delle collezioni e riprova.";
+    return "Nessun prodotto in vendita con un id Shopify: o sono tutti archiviati sul negozio, o va rilanciato l'import delle collezioni.";
   }
 
   // 1) sortOrder = MANUAL (se non lo è già): senza, il riordino viene rifiutato.

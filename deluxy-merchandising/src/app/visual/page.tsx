@@ -6,6 +6,7 @@ import { brandCorrente, negoziDelBrand, etichettaAmbito } from "@/lib/brand";
 import { nomePosizione, posizioniDa } from "@/lib/collezioni";
 import { euro, percentuale } from "@/lib/dominio";
 import { etichettaRegola } from "@/lib/ordinamento-vetrina";
+import { FILTRO_IN_SCENA } from "@/lib/ordinamento-vetrina";
 import { normalizza } from "@/lib/riconciliazione";
 import { FILTRO_BUON_FINE, finestra } from "@/lib/vendite";
 import { etichettaFrequenza, etichettaModo } from "@/lib/rotazione";
@@ -34,7 +35,7 @@ const FILTRI = [
   { chiave: "manuale", nome: "Solo manuali (ordinabili)" },
   { chiave: "automatica", nome: "Solo automatiche" },
   { chiave: "sospesa", nome: "Sospese" },
-  { chiave: "senza-prodotti", nome: "Senza prodotti conosciuti" },
+  { chiave: "senza-prodotti", nome: "Senza prodotti in vendita" },
 ] as const;
 
 export default async function VisualPage({
@@ -63,14 +64,13 @@ export default async function VisualPage({
   const doveColl = { pubblicataShopify: true, ...filtroNegozio };
 
   const f = finestra(90);
-  const [collezioni, totali, pianiBozza, venditePerProdotto] = await Promise.all([
+  const [collezioni, totali, pianiBozza, venditePerProdotto, perCollezione] = await Promise.all([
     prisma.collezioneShopify.findMany({
       where: doveColl,
       include: {
         _count: { select: { prodotti: true } },
         tipologia: { select: { id: true, nome: true } },
         rotazione: { select: { nome: true, frequenza: true, modo: true, attiva: true } },
-        prodotti: { select: { prodottoId: true } },
       },
     }),
     prisma.collezioneShopify.count({ where: filtroNegozio }),
@@ -82,28 +82,49 @@ export default async function VisualPage({
       where: { data: { gte: f.dal, lte: f.al }, ...FILTRO_BUON_FINE, ...(brand ? { canale: brand } : {}) },
       _sum: { quantita: true, ricavo: true },
     }),
+    // **Prodotti in vendita e venduto, per collezione, in una query sola.**
+    // Prima la pagina si tirava dietro tutte le appartenenze (33.243 righe dopo
+    // l'import del 03/08) per contarle in memoria: 4,7 s. Il conto lo fa il
+    // database, che è il suo mestiere. Stessa scelta dei contatori del menu.
+    // ⚠️ Lo schema `merchandising` è nominato esplicitamente.
+    prisma.$queryRaw<{ collezioneId: string; attivi: number; ricavo: number; pezzi: number }[]>`
+      SELECT pc."collezioneId"                                              AS "collezioneId",
+             count(*) FILTER (WHERE p.fase = 'in_vendita')::int             AS "attivi",
+             COALESCE(sum(v.ricavo), 0)::float8                             AS "ricavo",
+             COALESCE(sum(v.pezzi), 0)::int                                 AS "pezzi"
+      FROM "merchandising"."ProdottoInCollezioneShopify" pc
+      JOIN "merchandising"."Prodotto" p ON p.id = pc."prodottoId"
+      LEFT JOIN (
+        SELECT "prodottoId", sum(ricavo) AS ricavo, sum(quantita) AS pezzi
+        FROM "merchandising"."Vendita"
+        WHERE data >= ${f.dal} AND data <= ${f.al}
+          AND "statoPagamento" IN ('PAID', 'PARTIALLY_PAID')
+          AND (${brand}::text IS NULL OR canale = ${brand}::text)
+        GROUP BY "prodottoId"
+      ) v ON v."prodottoId" = pc."prodottoId"
+      GROUP BY pc."collezioneId"`,
   ]);
 
-  const vp = new Map(venditePerProdotto.filter((v) => v.prodottoId).map((v) => [v.prodottoId as string, v]));
+  const perColl = new Map(perCollezione.map((r) => [r.collezioneId, r]));
 
   // Il venduto di ogni collezione e la sua **quota**: la quota si legge sul
   // totale delle collezioni in elenco, così le percentuali sommano a quello che
   // si vede e non a un totale invisibile.
   const righe = collezioni.map((c) => {
-    let ricavo = 0;
-    let pezzi = 0;
-    for (const p of c.prodotti) {
-      const v = vp.get(p.prodottoId);
-      if (v) {
-        ricavo += v._sum.ricavo ?? 0;
-        pezzi += v._sum.quantita ?? 0;
-      }
-    }
+    // Il venduto conta **tutti** i prodotti, anche gli archiviati: hanno venduto
+    // davvero, e toglierli dal fatturato sarebbe falso. Il conteggio dei
+    // prodotti invece è quello **in vendita**, perché è la fila da ordinare.
+    const agg = perColl.get(c.id);
+    const ricavo = agg?.ricavo ?? 0;
+    const pezzi = agg?.pezzi ?? 0;
+    const attivi = agg?.attivi ?? 0;
     const posizioni = posizioniDa(c.posizioni);
     return {
       c,
       ricavo,
       pezzi,
+      attivi,
+      fuoriScena: c._count.prodotti - attivi,
       posizioni,
       inVetrina: posizioni.includes("vetrina"),
       daSincronizzare:
@@ -165,7 +186,7 @@ export default async function VisualPage({
       case "sospesa":
         return r.c.stato === "sospesa";
       case "senza-prodotti":
-        return r.c._count.prodotti === 0;
+        return r.attivi === 0;
       default:
         return true;
     }
@@ -178,13 +199,31 @@ export default async function VisualPage({
   // Il venduto che passa dalle collezioni trovate. **Non è la somma delle loro
   // righe**: un prodotto sta in più collezioni e sommandole si conta più volte
   // lo stesso incasso — misurato, 2.874.458 € su un periodo che ne vale 218.637.
-  // Si sommano quindi i **prodotti distinti** che stanno in almeno una di esse.
-  // La base della quota resta il venduto totale del periodo: non cambia perché
-  // sto cercando.
-  const prodottiFiltrati = new Set<string>();
-  for (const r of filtrate) for (const p of r.c.prodotti) prodottiFiltrati.add(p.prodottoId);
+  // Si sommano quindi i **prodotti distinti** che stanno in almeno una di esse,
+  // e il conto lo fa il database (`DISTINCT`). La base della quota resta il
+  // venduto totale del periodo: non cambia perché sto cercando.
+  // La query parte **solo quando si sta cercando**: senza filtri la risposta è
+  // già `totaleRicavo`, e sarebbe un giro in più su ogni apertura di pagina.
   let ricavoFiltrate = 0;
-  for (const id of prodottiFiltrati) ricavoFiltrate += vp.get(id)?._sum.ricavo ?? 0;
+  if (cercando && filtrate.length > 0) {
+    const ids = filtrate.map((r) => r.c.id);
+    const [riga] = await prisma.$queryRaw<{ ricavo: number }[]>`
+      SELECT COALESCE(sum(v.ricavo), 0)::float8 AS "ricavo"
+      FROM (
+        SELECT DISTINCT pc."prodottoId" AS pid
+        FROM "merchandising"."ProdottoInCollezioneShopify" pc
+        WHERE pc."collezioneId" = ANY(${ids})
+      ) d
+      JOIN (
+        SELECT "prodottoId", sum(ricavo) AS ricavo
+        FROM "merchandising"."Vendita"
+        WHERE data >= ${f.dal} AND data <= ${f.al}
+          AND "statoPagamento" IN ('PAID', 'PARTIALLY_PAID')
+          AND (${brand}::text IS NULL OR canale = ${brand}::text)
+        GROUP BY "prodottoId"
+      ) v ON v."prodottoId" = d.pid`;
+    ricavoFiltrate = riga?.ricavo ?? 0;
+  }
 
   // Confronto "decrescente" per ogni colonna; il verso lo si inverte dopo, così
   // la regola sta scritta una volta sola. Il pareggio si spezza sempre col nome,
@@ -194,7 +233,7 @@ export default async function VisualPage({
       case "modifica":
         return (b.c.aggiornataShopifyIl?.getTime() ?? 0) - (a.c.aggiornataShopifyIl?.getTime() ?? 0);
       case "prodotti":
-        return b.c._count.prodotti - a.c._count.prodotti;
+        return b.attivi - a.attivi;
       case "nome":
         return b.c.titolo.localeCompare(a.c.titolo);
       case "vetrina":
@@ -380,7 +419,7 @@ export default async function VisualPage({
                       <Intestazione c="vetrina" testo="★" />
                       <Intestazione c="nome" testo="Collezione" />
                       <th>Caratteristiche</th>
-                      <Intestazione c="prodotti" testo="Prodotti" num />
+                      <Intestazione c="prodotti" testo="In vendita" num />
                       <Intestazione c="venduto" testo="Venduto 90gg" num />
                       <Intestazione c="venduto" testo="Quota" num />
                       <Intestazione c="ordine" testo="Ordine" />
@@ -432,7 +471,10 @@ export default async function VisualPage({
                             {r.daSincronizzare && <Pill testo="Da sincronizzare" colore="var(--orange)" />}
                           </div>
                         </td>
-                        <td className="num">{r.c._count.prodotti}</td>
+                        <td className="num">
+                          {r.attivi}
+                          {r.fuoriScena > 0 && <div className="cella-sub">+{r.fuoriScena} archiviati</div>}
+                        </td>
                         <td className="num">{r.ricavo > 0 ? euro(r.ricavo) : "—"}</td>
                         <td className="num">
                           {totaleRicavo > 0 && r.ricavo > 0 ? percentuale(r.ricavo / totaleRicavo) : "—"}

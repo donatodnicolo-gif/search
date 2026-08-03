@@ -145,6 +145,16 @@ porta **3120**. Design system Deluxy v1.0.
   - ⚠️ **SCOPERTA GROSSA: due prodotti su tre del negozio sono archiviati.** Delle 2.273 schede create, **1.535 sono `ARCHIVED` su Shopify** (Gifts 1.278 su 1.641, Flowers 185 su 321, Cake 72 su 311). Verificato **in modo indipendente** con l'MCP Shopify su deluxy.it: 2.932 prodotti, **1.847 archiviati**, 849 attivi, 236 bozze. Vuol dire che il «buco» delle collezioni era in buona parte fatto di **prodotti che il cliente non vede**, e che oggi le collezioni in Visual contengono un sacco di roba archiviata. **Da fare**: in `/visual/[id]` e nelle regole d'ordine distinguere (o escludere) gli archiviati — ordinare e spingere su Shopify una fila calcolata anche sui prodotti invisibili non corrisponde a quello che vede il cliente.
   - Nuova colonna `ImportCollezioni.prodottiCreati` (additiva, `db push` fatto sul Postgres condiviso); il messaggio dell'import la scrive già, quindi `/collezioni` la mostra senza modifiche di pagina.
 
+- **03/08/2026 — in Visual va in scena solo quello che il cliente vede** (chiesto dall'utente guardando `/visual/…` dopo l'import). Con 1.535 schede archiviate su Shopify entrate in catalogo, le collezioni si erano riempite di prodotti **invisibili al cliente**: ordinare e spingere quella fila vuol dire decidere l'ordine di una vetrina che non esiste. Un solo posto lo definisce — `FILTRO_IN_SCENA` (`fase: "in_vendita"`) in [ordinamento-vetrina.ts](../src/lib/ordinamento-vetrina.ts) — e vale in tutta la catena:
+  - **scheda collezione**: la sequenza mostra solo i prodotti in vendita e scrive quanti restano fuori («332 prodotti in vendita · 182 archiviati o in bozza sul negozio, fuori dalla fila»);
+  - **regole d'ordine** (`ordineSecondoRegole`) e **anteprima**: calcolano sulla sola fila in scena;
+  - **frecce su/giù**: si spostano rispetto a quello che si vede — senza il filtro una freccia avrebbe scavalcato un prodotto invisibile *sembrando non fare niente*;
+  - **push su Shopify**: manda solo la fila in scena, e se non c'è nessuno lo dice («o sono tutti archiviati sul negozio…») invece di rimandare a un import che non cambierebbe niente;
+  - **tipologie**: il filtro dei criteri era «tutto tranne gli archiviati» e lasciava passare le **bozze**, che ora sono centinaia; adesso è `in_vendita`;
+  - **elenco `/visual`**: la colonna è «In vendita» col «+N archiviati» sotto, e il filtro si chiama «Senza prodotti in vendita» (43 collezioni, contro le 24 che hanno zero legami).
+  - **Il venduto resta su tutti i prodotti, archiviati compresi**: hanno venduto davvero, toglierli dal fatturato sarebbe falso. Si filtra la *fila*, non i *soldi*.
+  - **Prestazioni**: la pagina si tirava dietro tutte le appartenenze (da 10.994 a **33.243** dopo l'import) per contarle in memoria — 4,7 s in dev. Ora prodotti in vendita e venduto per collezione escono da **una sola query SQL** (stessa scelta dei contatori del menu; lo schema `merchandising` è nominato esplicitamente), e il venduto delle collezioni filtrate si deduplica con un `DISTINCT` che parte **solo quando si sta cercando**. Controprova indipendente su 4 collezioni: identica al conto fatto con query separate («Bouquet & Cappelliere» 332 attivi e 112.769,50 €).
+
 ## COME AVVIARE
 ```
 cd deluxy-merchandising

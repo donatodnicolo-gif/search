@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
 import { euro } from "@/lib/dominio";
-import { etichettaRegola, isRegola, ordinaProdotti, type RegolaOrdinamento } from "@/lib/ordinamento-vetrina";
+import { etichettaRegola, FILTRO_IN_SCENA, isRegola, ordinaProdotti, type RegolaOrdinamento } from "@/lib/ordinamento-vetrina";
 import { SelettoreRegole } from "@/components/SelettoreRegole";
 import {
   applicaRegolaOrdinamento,
@@ -41,6 +41,7 @@ export default async function CurazioneCollezionePage({
               prezzoVendita: true,
               costoProduzione: true,
               creatoIl: true,
+              fase: true,
             },
           },
         },
@@ -75,16 +76,23 @@ export default async function CurazioneCollezionePage({
   const daSincronizzare =
     c.ordineModificatoIl != null && (c.ordineSpintoIl == null || c.ordineModificatoIl > c.ordineSpintoIl);
 
-  const righe = c.prodotti.slice(0, MAX_RIGHE);
-  const restano = c.prodotti.length - righe.length;
+  // **In scena solo quello che il cliente vede.** La collezione sul negozio
+  // contiene anche prodotti archiviati o in bozza: restano legati qui — è la
+  // verità di Shopify — ma non entrano nella fila, perché ordinare prodotti
+  // invisibili vuol dire decidere l'ordine di una vetrina che non esiste.
+  const inScena = c.prodotti.filter((vp) => vp.prodotto.fase === FILTRO_IN_SCENA.fase);
+  const fuoriScena = c.prodotti.length - inScena.length;
+
+  const righe = inScena.slice(0, MAX_RIGHE);
+  const restano = inScena.length - righe.length;
 
   // Dov'è adesso ogni prodotto: serve a dire, nell'anteprima, chi sale e chi
   // scende. Un ordine nuovo senza il confronto è solo un altro elenco.
-  const posizioneAttuale = new Map(c.prodotti.map((vp, i) => [vp.prodottoId, i]));
+  const posizioneAttuale = new Map(inScena.map((vp, i) => [vp.prodottoId, i]));
   const anteprima = inAnteprima
     ? (
         await ordinaProdotti(
-          c.prodotti.map((vp) => ({
+          inScena.map((vp) => ({
             prodottoId: vp.prodottoId,
             posizione: vp.posizione,
             nome: vp.prodotto.nome,
@@ -113,7 +121,14 @@ export default async function CurazioneCollezionePage({
             </div>
             <h1 className="page-title">{c.titolo}</h1>
             <p className="page-sub">
-              {c.prodotti.length} prodotti conosciuti · ordine attuale: <b>{etichettaRegola(c.regolaOrdinamento)}</b>
+              <b>{inScena.length}</b> prodotti in vendita
+              {fuoriScena > 0 && (
+                <>
+                  {" "}
+                  · {fuoriScena} archiviati o in bozza sul negozio, <b>fuori dalla fila</b> (il cliente non li vede)
+                </>
+              )}{" "}
+              · ordine attuale: <b>{etichettaRegola(c.regolaOrdinamento)}</b>
               {c.tipologia && (
                 <>
                   {" "}· tipologia <b>{c.tipologia.nome}</b> (regola standing {etichettaRegola(c.tipologia.regolaOrdinamento)}) ·{" "}
@@ -273,8 +288,16 @@ export default async function CurazioneCollezionePage({
 
         <div className="scheda">
           <div className="scheda-titolo">Sequenza dei prodotti</div>
-          {c.prodotti.length === 0 ? (
-            <div className="vuoto-mini">Nessun prodotto conosciuto in questa collezione. Rilancia l'import da Collezioni.</div>
+          {/* Tre stati vuoti diversi, e vanno detti diversi: nessun prodotto
+              legato, oppure prodotti legati ma tutti fuori vendita. «Nessun
+              prodotto» sul secondo caso manderebbe a rifare un import che non
+              cambierebbe niente. */}
+          {inScena.length === 0 ? (
+            <div className="vuoto-mini">
+              {c.prodotti.length === 0
+                ? "Nessun prodotto conosciuto in questa collezione. Rilancia l'import da Collezioni."
+                : `Tutti i ${c.prodotti.length} prodotti di questa collezione sono archiviati o in bozza sul negozio: il cliente non ne vede nessuno, quindi non c'è una fila da mettere in ordine.`}
+            </div>
           ) : (
             <>
               <div className="vetrina-lista">

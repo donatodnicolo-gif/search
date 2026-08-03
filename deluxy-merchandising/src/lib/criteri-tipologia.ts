@@ -14,6 +14,7 @@
 
 import { prisma } from "./db";
 import { elencoFasce, filtroPrezzo, type Fascia } from "./fasce";
+import { FILTRO_IN_SCENA } from "./ordinamento-vetrina";
 
 export type Criteri = {
   fasce?: string[]; // id di FasciaPrezzo
@@ -149,7 +150,11 @@ export async function filtroCriteri(c: Criteri): Promise<Record<string, unknown>
     e.push({ creatoIl: { gte: da } });
   }
 
-  return { fase: { not: "archiviato" }, esclusoDaAnalisi: false, AND: e };
+  // **In scena solo quello che il cliente vede**: `in_vendita`, non «tutto
+  // tranne gli archiviati». Prima passavano anche le bozze; da quando l'import
+  // crea le schede leggendo lo stato del negozio, le bozze sono centinaia e una
+  // tipologia le avrebbe portate nell'ordine di una vetrina vera.
+  return { ...FILTRO_IN_SCENA, esclusoDaAnalisi: false, AND: e };
 }
 
 /** I dizionari per mostrare e nominare i criteri in pagina. */
