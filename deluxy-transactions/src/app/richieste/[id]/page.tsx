@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { operatoreCorrente } from "@/lib/sessione";
-import { euro } from "@/lib/denaro";
+import { euro, importoDaIncollare } from "@/lib/denaro";
 import { formattaIban, ibanSepa } from "@/lib/iban";
 import { chiudibileAMano, motiviDa } from "@/lib/richieste";
 import { sigilloRichiesta } from "@/lib/audit";
@@ -40,6 +40,17 @@ export default async function Dettaglio({ params }: { params: Promise<{ id: stri
   // n'è una — non è ancora andata in banca.
   const chiudibile = chiudibileAMano(r.stato) && (!r.lotto || r.lotto.stato === "aperto");
   const oggi = new Date().toLocaleDateString("sv-SE"); // 2026-08-03, ora locale
+
+  // I quattro campi che si ribattono nel modulo della banca quando si paga a
+  // mano. Si mostrano leggibili e si copiano nella forma che i moduli
+  // accettano: IBAN senza spazi, importo senza simbolo e senza separatore di
+  // migliaia.
+  const daCopiare = [
+    { etichetta: "IBAN", mostra: formattaIban(r.iban), copia: r.iban, mono: true },
+    { etichetta: "Intestatario", mostra: r.beneficiario, copia: r.beneficiario },
+    { etichetta: "Importo", mostra: euro(r.importoCent), copia: importoDaIncollare(r.importoCent), mono: true },
+    { etichetta: "Causale", mostra: r.causale, copia: r.causale },
+  ];
 
   // Se è stata pagata fuori dall'app, il «come» sta nel registro: è lì che
   // questa app tiene i perché, non su una colonna in più.
@@ -179,6 +190,7 @@ export default async function Dettaglio({ params }: { params: Promise<{ id: stri
           importo={euro(r.importoCent)}
           distinta={r.lotto?.riferimento ?? null}
           oggi={oggi}
+          daCopiare={daCopiare}
         />
       )}
 

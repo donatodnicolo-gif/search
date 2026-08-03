@@ -326,6 +326,9 @@ td {
 tr:last-child td { border-bottom: none; }
 tbody tr { transition: background 120ms var(--ease); }
 tbody tr:hover { background: var(--fill); }
+/* La riga intera apre il dettaglio: il puntatore lo deve dire prima del clic.
+   Il link sul riferimento resta comunque, ed è quello che serve alla tastiera. */
+tr.riga-cliccabile { cursor: pointer; }
 .cella-nome { font-weight: 600; letter-spacing: -0.01em; }
 .cella-sub { font-size: 12.5px; color: var(--text-tertiary); margin-top: 2px; font-weight: 400; }
 .cella-muta { color: var(--text-secondary); }
@@ -419,6 +422,42 @@ th.num { text-align: right; }
    crescere tutta la riga e la tabella diventa un elenco di bottoni. */
 .cella-azioni { display: flex; flex-wrap: wrap; gap: 6px; }
 .cella-azioni .btn { white-space: nowrap; }
+
+/* ---------- Campi da copiare ---------- */
+/* Ogni riga è un bersaglio intero: si punta il valore, non un'iconcina da 12px
+   accanto. La scritta «copia» a destra sta ferma anche quando diventa
+   «copiato ✓», così la riga non si accorcia sotto il dito. */
+.copiabili { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+.copiabili-titolo {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin-bottom: 2px;
+}
+.copiabile {
+  display: flex; align-items: baseline; gap: 10px;
+  width: 100%;
+  font: inherit; font-size: 13.5px; text-align: left;
+  padding: 8px 12px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-m);
+  background: var(--fill);
+  color: var(--text);
+  cursor: pointer;
+  transition: background 140ms var(--ease), border-color 140ms var(--ease);
+}
+.copiabile:hover { background: var(--fill-hover); border-color: var(--hairline-strong); }
+.copiabile:active { transform: scale(0.995); }
+.copiabile-etichetta {
+  flex: 0 0 92px;
+  font-size: 11.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+.copiabile-valore { flex: 1 1 auto; overflow-wrap: anywhere; }
+.copiabile-azione {
+  flex: 0 0 68px; text-align: right;
+  font-size: 12px; font-weight: 500;
+  color: var(--text-secondary);
+}
 
 /* ---------- Finestrella (dialog nativo) ---------- */
 /* È un <dialog> vero: Esc lo chiude, il resto della pagina non si può usare

@@ -120,6 +120,25 @@ bancarie non ce ne sono ancora: il file SEPA lo carica una persona in banca.
   quella riga non si vedrebbe mai. Nell'indirizzo non viaggia il testo da
   mostrare — la frase la compone la pagina, altrimenti basterebbe mandare un link
   per far leggere «pagamento eseguito» dentro l'app.
+- **I quattro campi si copiano uno per uno** (03/08/2026): dentro «chiudere senza
+  pagarla da qui», in dettaglio e in coda, ci sono IBAN, intestatario, importo e
+  causale con un tasto «copia» ciascuno — perché chi segna una richiesta pagata
+  altrove sta per ribatterli nel modulo della banca, ed è lì che si sbaglia una
+  cifra dell'IBAN. **Si copia una forma diversa da quella che si legge**: IBAN
+  senza spazi, importo senza simbolo e senza separatore di migliaia
+  (`importoDaIncollare()` in [src/lib/denaro.ts](../src/lib/denaro.ts) — «1.234,56»
+  incollato in un campo importo viene letto 1,23). Componente
+  [CampiDaCopiare.tsx](../src/components/CampiDaCopiare.tsx), con ripiego su
+  `execCommand` dove `navigator.clipboard` non c'è.
+- **La riga intera apre il dettaglio** (03/08/2026): in coda e in archivio si
+  clicca dove capita, non solo sul riferimento
+  ([RigaCliccabile.tsx](../src/components/RigaCliccabile.tsx)). Tre cose che deve
+  non fare, ed è il motivo per cui non è un `onClick` e basta: non rubare i clic
+  ai comandi dentro la riga (compresa la finestrella di chiusura, che vive in una
+  cella e i cui clic risalirebbero fino alla riga), non navigare mentre si sta
+  **selezionando testo** (si copia un IBAN dalla riga), e lasciar funzionare
+  Ctrl/Cmd e il tasto centrale per la scheda nuova. Il link sul riferimento resta:
+  è quello che serve alla tastiera.
 - **Il webhook dice anche come e perché** (03/08/2026): al corpo si sono aggiunti
   `pagatoCon` (`distinta` | `qonto` | `fuori_app`) e `motivo`. Campi aggiunti,
   non sostituiti: chi legge solo `stato` continua a funzionare. Finance li

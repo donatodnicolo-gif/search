@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { chiudiRichiesta } from "@/app/actions";
 import { METODI_FUORI } from "@/lib/metodi-fuori";
+import { CampiDaCopiare, type CampoCopiabile } from "./CampiDaCopiare";
 
 // Chiudere una richiesta senza pagarla da qui.
 //
@@ -20,12 +21,14 @@ export function ModuloChiusura({
   importo,
   distinta,
   oggi,
+  daCopiare,
 }: {
   id: string;
   richiedeCodice: boolean;
   importo: string;
   distinta: string | null;
   oggi: string;
+  daCopiare: CampoCopiabile[];
 }) {
   const [stato, azione, inCorso] = useActionState(chiudiRichiesta, {} as { errore?: string; ok?: string });
   const [esito, setEsito] = useState<"pagata_fuori" | "annullata">("pagata_fuori");
@@ -38,6 +41,8 @@ export function ModuloChiusura({
       </div>
       {stato?.errore && <div className="avviso-errore">{stato.errore}</div>}
       {stato?.ok && <div className="avviso-ok">{stato.ok}</div>}
+
+      {pagata && <CampiDaCopiare titolo="Da incollare nel portale della banca" campi={daCopiare} />}
 
       <form action={azione}>
         <input type="hidden" name="id" value={id} />

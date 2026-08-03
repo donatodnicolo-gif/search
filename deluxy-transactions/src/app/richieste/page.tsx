@@ -5,6 +5,7 @@ import { euro } from "@/lib/denaro";
 import { formattaIban } from "@/lib/iban";
 import { ETICHETTE, STATI } from "@/lib/richieste";
 import { BadgeStato, quando } from "@/components/Etichette";
+import { RigaCliccabile } from "@/components/RigaCliccabile";
 
 // Elenco completo con filtri. È l'archivio: qui non si decide niente, si cerca.
 
@@ -93,7 +94,7 @@ export default async function Elenco({
             </thead>
             <tbody>
               {righe.map((r) => (
-                <tr key={r.id}>
+                <RigaCliccabile key={r.id} href={`/richieste/${r.id}`}>
                   <td>
                     <a href={`/richieste/${r.id}`} className="cella-nome">
                       {r.riferimento}
@@ -111,7 +112,7 @@ export default async function Elenco({
                   </td>
                   <td className="cella-muta">{quando(r.creataIl)}</td>
                   <td className="cella-muta">{quando(r.pagataIl)}</td>
-                </tr>
+                </RigaCliccabile>
               ))}
             </tbody>
           </table>

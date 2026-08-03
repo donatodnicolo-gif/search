@@ -3,6 +3,7 @@
 import { useActionState, useRef, useState } from "react";
 import { chiudiRichiesta } from "@/app/actions";
 import { METODI_FUORI } from "@/lib/metodi-fuori";
+import { CampiDaCopiare, type CampoCopiabile } from "./CampiDaCopiare";
 
 // Gli stessi due tasti della pagina di dettaglio, ma dentro la coda: da lì si
 // smaltiscono venti righe senza aprirne venti.
@@ -18,6 +19,7 @@ export function ChiusuraRapida({
   importo,
   richiedeCodice,
   oggi,
+  daCopiare,
 }: {
   id: string;
   riferimento: string;
@@ -25,6 +27,7 @@ export function ChiusuraRapida({
   importo: string;
   richiedeCodice: boolean;
   oggi: string;
+  daCopiare: CampoCopiabile[];
 }) {
   const [stato, azione, inCorso] = useActionState(chiudiRichiesta, {} as { errore?: string; ok?: string });
   const [esito, setEsito] = useState<"pagata_fuori" | "annullata">("pagata_fuori");
@@ -57,6 +60,8 @@ export function ChiusuraRapida({
           </p>
 
           {stato?.errore && <div className="avviso-errore">{stato.errore}</div>}
+
+          {pagata && <CampiDaCopiare titolo="Da incollare nel portale della banca" campi={daCopiare} />}
 
           <form action={azione}>
             <input type="hidden" name="id" value={id} />

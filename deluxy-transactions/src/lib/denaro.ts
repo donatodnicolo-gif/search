@@ -40,6 +40,16 @@ export function euroSemplice(cent: number): string {
   return (cent / 100).toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+/**
+ * Importo da **incollare** in un modulo di banca: virgola decimale, due cifre,
+ * niente simbolo e niente separatore di migliaia. Il punto delle migliaia è
+ * proprio la cosa che i moduli leggono male («1.234,56» capito come 1,23), e il
+ * simbolo € finisce nel campo e lo fa rifiutare.
+ */
+export function importoDaIncollare(cent: number): string {
+  return (cent / 100).toFixed(2).replace(".", ",");
+}
+
 /** Formato SEPA: punto decimale, due cifre, niente separatori di migliaia. */
 export function importoSepa(cent: number): string {
   return (cent / 100).toFixed(2);

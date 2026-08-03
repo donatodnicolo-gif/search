@@ -1,11 +1,12 @@
 import { prisma } from "@/lib/db";
 import { operatoreCorrente } from "@/lib/sessione";
 import { redirect } from "next/navigation";
-import { euro } from "@/lib/denaro";
+import { euro, importoDaIncollare } from "@/lib/denaro";
 import { formattaIban } from "@/lib/iban";
 import { motiviDa } from "@/lib/richieste";
 import { BadgeRischio, BadgeStato, Firme, quando } from "@/components/Etichette";
 import { ChiusuraRapida } from "@/components/ChiusuraRapida";
+import { RigaCliccabile } from "@/components/RigaCliccabile";
 import { leggiRegole } from "@/lib/impostazioni";
 import { cifraturaPronta } from "@/lib/crypto";
 
@@ -135,7 +136,7 @@ export default async function Coda({
                 const tuaFirma = r.approvazioni.some((a) => a.operatoreId === operatore.id);
                 const motivi = motiviDa(r.motiviRischio);
                 return (
-                  <tr key={r.id}>
+                  <RigaCliccabile key={r.id} href={`/richieste/${r.id}`}>
                     <td>
                       <a href={`/richieste/${r.id}`} className="cella-nome">
                         {r.riferimento}
@@ -166,10 +167,21 @@ export default async function Coda({
                           importo={euro(r.importoCent)}
                           richiedeCodice={operatore.totpAttivo}
                           oggi={oggi}
+                          daCopiare={[
+                            { etichetta: "IBAN", mostra: formattaIban(r.iban), copia: r.iban, mono: true },
+                            { etichetta: "Intestatario", mostra: r.beneficiario, copia: r.beneficiario },
+                            {
+                              etichetta: "Importo",
+                              mostra: euro(r.importoCent),
+                              copia: importoDaIncollare(r.importoCent),
+                              mono: true,
+                            },
+                            { etichetta: "Causale", mostra: r.causale, copia: r.causale },
+                          ]}
                         />
                       </td>
                     )}
-                  </tr>
+                  </RigaCliccabile>
                 );
               })}
             </tbody>
