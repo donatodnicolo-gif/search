@@ -24,12 +24,32 @@ export async function POST(req: NextRequest) {
   );
   if (!ok) return NextResponse.json({ errore: "Firma non valida." }, { status: 401 });
 
-  let dati: { riferimento?: string; riferimentoEsterno?: string; stato?: string; importoCent?: number; pagataIl?: string };
+  let dati: {
+    riferimento?: string;
+    riferimentoEsterno?: string;
+    stato?: string;
+    importoCent?: number;
+    pagataIl?: string;
+    // Come è uscito il denaro: "distinta", "qonto", oppure "fuori_app" — pagato
+    // altrove (portale della banca, contanti, compensazione) e registrato a mano
+    // dentro Transactions. Il mese si chiude comunque, ma nel registro deve
+    // restare scritto che la prova del pagamento non ce l'ha l'app.
+    pagatoCon?: string;
+    motivo?: string;
+  };
   try {
     dati = JSON.parse(corpo);
   } catch {
     return NextResponse.json({ errore: "Corpo non leggibile." }, { status: 400 });
   }
+
+  // Coda del messaggio da scrivere nel registro: il perché di un annullamento e
+  // il «pagata fuori» sono le due cose che, senza, costringono ad aprire
+  // Transactions per capire cosa è successo.
+  const fuoriApp = dati.pagatoCon === "fuori_app";
+  const contorno = [fuoriApp ? "pagata fuori dall'app" : null, dati.motivo ? `motivo: ${dati.motivo}` : null]
+    .filter(Boolean)
+    .join(" · ");
 
   // `riferimentoEsterno` è "saldo-<partnerId>-<anno>-<mese>": l'abbiamo scelto
   // noi quando abbiamo chiesto il pagamento, quindi da lì si risale al mese
@@ -53,7 +73,7 @@ export async function POST(req: NextRequest) {
       entita: "richiesta",
       entitaId: richiesta.id,
       partner: richiesta.partnerNome,
-      dettaglio: `${richiesta.beneficiario} · ${richiesta.causale}`,
+      dettaglio: [`${richiesta.beneficiario} · ${richiesta.causale}`, contorno].filter(Boolean).join(" · "),
     });
     return NextResponse.json({ ok: true });
   }
@@ -96,7 +116,13 @@ export async function POST(req: NextRequest) {
     entita: "saldo",
     entitaId: saldo.id,
     partner: partner?.nome ?? null,
-    dettaglio: pagata ? `bonifico annotato: ${importo != null ? importo.toFixed(2) : "importo non comunicato"}` : null,
+    dettaglio:
+      [
+        pagata ? `bonifico annotato: ${importo != null ? importo.toFixed(2) : "importo non comunicato"}` : null,
+        contorno,
+      ]
+        .filter(Boolean)
+        .join(" · ") || null,
   });
 
   return NextResponse.json({ ok: true });
