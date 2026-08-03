@@ -684,6 +684,21 @@ Campi nuovi: `cittaDedotta`, `cittaDedottaDa` (tag|prodotto), `cittaDedottaProva
   già in tutt'e due i campi, quindi la risposta restituiva ordini con
   `spedizione.citta` vuota **senza dire perché fossero usciti** — il filtro
   sapeva una cosa che la risposta non diceva.
+- **LIVE in produzione dal 03/08/2026**, verificato su
+  `https://deluxy-orders.vercel.app/api/v1/ordini/cms0w1n1n0iwxi6kk7p2jhkyj`
+  (#7154 → `{citta: "Firenze", da: "tag", prova: "Firenze"}`).
+- ⚠️ **Le altre app leggono la PRODUZIONE, non il locale.** Un campo nuovo nelle
+  API non arriva a nessuno finché non si fa il deploy: `deluxy-marketing` punta a
+  `https://deluxy-orders.vercel.app` per impostazione predefinita
+  (`ORDERS_URL` in `src/lib/sync-ordini.ts`). Push ≠ pubblicato.
+- ⚠️ **Esporre un campo non basta perché a valle lo usino.** In deluxy-marketing
+  l'import scrive `citta: spedizione.citta ?? undefined` e `cittaDedotta` la
+  ignora; e anche correggendo quella riga, il suo confronto «è cambiato?»
+  (`sync-ordini.ts`) guarda solo totale, stato, numero, origine e utmSource — la
+  città non c'è, quindi sull'archivio già importato non riscriverebbe niente.
+  **Da concordare con l'utente** se in Marketing la città dedotta debba fondersi
+  con quella vera o stare in una colonna sua (in quella cartella lavora un'altra
+  sessione).
 
 ## Trappole già pagate — leggere prima di toccare l'import
 
