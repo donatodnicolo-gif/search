@@ -136,6 +136,15 @@ porta **3120**. Design system Deluxy v1.0.
   - ⚠️ **Doppio conteggio, ricascato e corretto**: il KPI del venduto filtrato sommava le righe delle collezioni e dava **2.874.458 €** in un periodo che ne vale 218.637 — un prodotto sta in molte collezioni. Ora somma i **prodotti distinti** delle collezioni trovate; la base della quota resta il venduto totale del periodo (non cambia perché sto cercando). È lo stesso errore già pagato sul totale di pagina il 30/07: **qualsiasi numero per insieme di collezioni va deduplicato per prodotto.**
   - **Verificato** su dati veri (343 collezioni, 218.637 € in 90 giorni): «roma» 17 · «torte» 32 · «san valentino» 4 · «torte classiche» 1 · senza prodotti conosciuti 70 · manuali 83 · automatiche 260 · Flowers 62 · ricerca a vuoto → stato vuoto giusto. Tutti i venduti filtrati ≤ totale del periodo, e manuali+automatiche (80.387+157.387) supera il totale come deve, perché un prodotto sta in entrambe. `tsc --noEmit` exit 0, `npm run build` ok.
 
+- **03/08/2026 — le collezioni non sono più mezze vuote: l'import crea i prodotti che qui non c'erano** (era il punto aperto in cima a questo documento). L'import legava un prodotto del negozio solo per SKU → codice → titolo normalizzato, e quello che non combaciava veniva **contato e buttato**: 70 collezioni pubblicate su 343 senza nemmeno un prodotto, «Torte Classiche» 127 contro 440. Ora:
+  - **Aggancio esatto per `shopifyId`**, prima di ogni altra chiave: non è una somiglianza, è lo stesso prodotto. L'ordine è id Shopify → SKU variante → SKU usato come codice → handle → titolo normalizzato. `handleShopify` entra nell'indice dei codici. Una funzione sola (`abbina()`), usata dall'import **e** dall'anteprima: con due copie lo stesso prodotto verrebbe riconosciuto in due modi.
+  - **Quello che resta si crea** (`creaProdottiMancanti`), con **solo dati letti**: nome, handle, immagine, prezzo = minimo delle varianti (e ogni variante col suo `deltaPrezzo`, che è il modello «base + delta» dell'app), varianti con SKU, tipo, fornitore, tag, tassonomia, `gg_disp_min`, e lo **stato del negozio come fase** (ACTIVE→in vendita, DRAFT→concept, ARCHIVED→archiviato, quindi già fuori dalle classifiche). **Costo 0 e categoria «Da classificare» restano da compilare**: non si deducono. Nasce con `shopifyId`, quindi al prossimo import si riaggancia da lì e **non si ricrea**.
+  - **Niente unioni per somiglianza**: le schede nuove non vengono attaccate a quelle vecchie «perché si somigliano» — si uniscono a mano in `/prodotti/riconcilia`, che propone dicendo perché ed è reversibile. Misurato dopo l'import: sui 2.273 nuovi, **0 nomi identici** a una scheda preesistente e **54 candidati sopra l'80%** di similarità, di cui la maggior parte sono **prodotti diversi davvero** («MAXI Bouquet Lavanda e Rose Bianche» ≠ «Bouquet Lavanda e Rose Bianche»: è la taglia). Unire in automatico avrebbe spostato il venduto sul prodotto sbagliato.
+  - **Anteprima che non scrive**: `scripts/anteprima-abbinamento.ts` (`npx tsx`) dice quanti prodotti si riconoscono e quanti se ne creerebbero, con esempi. Da lanciare **prima** di un import quando si tocca l'abbinamento.
+  - **Esito reale del 03/08/2026** (`scripts/importa-tutte-collezioni.ts`, 12 minuti in tutto): Cake 47 collezioni · 3.059 appartenenze · 311 schede create; Flowers 62 · 5.335 · 321; Gifts 234 · 24.849 · 1.641. **Catalogo da 2.171 a 4.444 prodotti**, appartenenze **da 10.994 a 33.243**, `gg_disp_min` da 787 a 2.691, 2.247 prodotti con immagine. **Collezioni pubblicate senza nemmeno un prodotto: da 70 a 24.** Campione: «Torte Classiche» 127→**436 su 445**, «MATRIMONI» 2→**34 su 34**, «Roma» **184 su 370**. Ne erano previste 2.704: ne sono nate 2.273 perché Cake e Flowers girano per primi e Gifts ha riconosciuto per SKU/handle quello che avevano appena creato.
+  - ⚠️ **SCOPERTA GROSSA: due prodotti su tre del negozio sono archiviati.** Delle 2.273 schede create, **1.535 sono `ARCHIVED` su Shopify** (Gifts 1.278 su 1.641, Flowers 185 su 321, Cake 72 su 311). Verificato **in modo indipendente** con l'MCP Shopify su deluxy.it: 2.932 prodotti, **1.847 archiviati**, 849 attivi, 236 bozze. Vuol dire che il «buco» delle collezioni era in buona parte fatto di **prodotti che il cliente non vede**, e che oggi le collezioni in Visual contengono un sacco di roba archiviata. **Da fare**: in `/visual/[id]` e nelle regole d'ordine distinguere (o escludere) gli archiviati — ordinare e spingere su Shopify una fila calcolata anche sui prodotti invisibili non corrisponde a quello che vede il cliente.
+  - Nuova colonna `ImportCollezioni.prodottiCreati` (additiva, `db push` fatto sul Postgres condiviso); il messaggio dell'import la scrive già, quindi `/collezioni` la mostra senza modifiche di pagina.
+
 ## COME AVVIARE
 ```
 cd deluxy-merchandising
@@ -158,6 +167,13 @@ npm run dev   # http://localhost:3120
 > Aggiornato **28/07/2026**. In cima i tre che bloccano tutto il resto: finché
 > non ci sono i costi, tutte le pagine che parlano di margine dicono onestamente
 > «non lo sappiamo», e sono tante.
+
+**✅ RISOLTO 03/08/2026 — con la strada (b): l'import crea le schede mancanti.** Vedi la
+voce del 03/08 qui sopra: 2.273 prodotti creati, collezioni pubblicate senza prodotti da
+70 a 24, «Torte Classiche» da 127 a 436 su 445. **Resta aperto** il seguito che ne è
+emerso: 1.535 delle schede create sono **archiviate su Shopify**, quindi le collezioni in
+Visual contengono prodotti che il cliente non vede — da distinguere/escludere nell'ordine.
+Sotto, la segnalazione originale.
 
 **⚠️ SEGNALATO 30/07/2026 — nelle collezioni da ordinare si vedono pochi (o zero) prodotti.**
 La scheda `/visual/[id]` e le tipologie mostrano **solo i prodotti abbinati per SKU**

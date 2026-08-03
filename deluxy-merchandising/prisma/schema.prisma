@@ -541,6 +541,8 @@ model ImportCollezioni {
   collezioniLette Int    @default(0)
   prodottiLetti Int      @default(0)
   abbinamenti   Int      @default(0)
+  // Schede nate da questo import: prodotti che il negozio ha e qui non c'erano.
+  prodottiCreati Int     @default(0)
   prodottiIgnoti Int     @default(0)
   esito         String   @default("ok")
   messaggio     String?

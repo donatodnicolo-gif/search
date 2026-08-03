@@ -9,10 +9,19 @@
 // 2. Si scorrono i prodotti del negozio chiedendo, per ognuno, gli SKU delle
 //    varianti e le collezioni a cui appartiene. Un solo giro serve a entrambe
 //    le cose, e Shopify fa pagare ogni campo: meglio una passata sola.
-// 3. L'abbinamento con i prodotti di Merchandising è nell'ordine: **SKU della
-//    variante**, poi codice del prodotto, poi titolo normalizzato. Quello che
-//    non si abbina resta fuori e viene contato — non lo si indovina, come per
-//    le vendite.
+// 3. L'abbinamento con i prodotti di Merchandising è nell'ordine: **id Shopify**
+//    (esatto, quando la scheda qui è già collegata), poi **SKU della variante**,
+//    poi codice del prodotto, poi handle, poi titolo normalizzato.
+// 4. Quello che ancora non si abbina **si crea**: è un prodotto che esiste
+//    davvero sul negozio, e tenerlo fuori voleva dire mostrare collezioni mezze
+//    vuote (misurato: 70 collezioni pubblicate su 343 senza nemmeno un prodotto,
+//    «Torte Classiche» 127 qui contro 440 su Shopify). La scheda nasce **solo
+//    con dati letti** — titolo, handle, prezzo delle varianti, immagine, tipo,
+//    fornitore, tag, giorni di consegna — e con costo 0 e categoria «Da
+//    classificare», che restano da compilare: non si deducono.
+//    Nasce anche con `shopifyId`, quindi al prossimo import si riaggancia da lì
+//    e non si ricrea. Nessuna somiglianza indovinata: due schede che sono lo
+//    stesso prodotto si uniscono a mano in /prodotti/riconcilia.
 
 import { prisma } from "./db";
 import { VERSIONE_API } from "./negozi";
@@ -26,6 +35,7 @@ export type EsitoImportCollezioni = {
   collezioniLette: number;
   prodottiLetti: number;
   abbinamenti: number;
+  prodottiCreati: number;
   prodottiIgnoti: number;
   messaggio: string;
 };
@@ -37,6 +47,28 @@ function normalizza(s: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
+}
+
+/** Codice leggibile ricavato da un testo (handle o titolo), come fa il catalogo dal venduto. */
+function slugCodice(s: string): string {
+  const x = s
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 24);
+  return x || "ARTICOLO";
+}
+
+/**
+ * Se tutte le varianti sono numerazioni dello stesso codice (ICQLBN-1,
+ * ICQLBN-2…), quel codice è il codice del prodotto: è già la lingua del negozio,
+ * e riusarlo evita di inventarne uno nuovo.
+ */
+function codiceDaSku(skus: string[]): string | null {
+  const basi = new Set(skus.map((s) => s.replace(/-\d+$/, "").trim()).filter((s) => s.length >= 4));
+  return basi.size === 1 ? [...basi][0] : null;
 }
 
 const attendi = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -194,7 +226,11 @@ type ProdottoShopifyApi = {
   category: { id: string; name: string; fullName: string | null } | null;
   vendor: string | null;
   tags: string[];
-  variants: { nodes: { sku: string | null }[] };
+  // ACTIVE | DRAFT | ARCHIVED: è lo stato **dichiarato** dal negozio, e diventa
+  // la fase delle schede create qui. Letto, non dedotto.
+  status: string | null;
+  featuredImage: { url: string } | null;
+  variants: { nodes: { sku: string | null; title: string | null; price: string | null }[] };
   collections: { nodes: { id: string }[] };
   // Il metafield `prodotto.consegna` (mostrato come "gg_disp_min"): giorni minimi
   // per evadere. Da qui la tipologia di risposta al bisogno.
@@ -218,9 +254,10 @@ async function leggiProdotti(n: Negozio): Promise<ProdottoShopifyApi[]> {
          products(first: 25, after: $cursore) {
            pageInfo { hasNextPage endCursor }
            nodes {
-             id title handle productType vendor tags
+             id title handle productType vendor tags status
              category { id name fullName }
-             variants(first: 10) { nodes { sku } }
+             featuredImage { url }
+             variants(first: 10) { nodes { sku title price } }
              collections(first: 10) { nodes { id } }
              consegna: metafield(namespace: "prodotto", key: "consegna") { value }
            }
@@ -235,6 +272,189 @@ async function leggiProdotti(n: Negozio): Promise<ProdottoShopifyApi[]> {
   return fuori;
 }
 
+/** Gli indici con cui si riconosce un prodotto del negozio fra i nostri. */
+type Indici = {
+  perShopifyId: Map<string, string>;
+  perSku: Map<string, string>;
+  perCodice: Map<string, string>;
+  perNome: Map<string, string>;
+};
+
+async function costruisciIndici(): Promise<Indici> {
+  const [varianti, nostri] = await Promise.all([
+    prisma.variante.findMany({ where: { sku: { not: null } }, select: { sku: true, prodottoId: true } }),
+    prisma.prodotto.findMany({ select: { id: true, codice: true, nome: true, shopifyId: true, handleShopify: true } }),
+  ]);
+  const perCodice = new Map(nostri.map((p) => [p.codice.trim().toLowerCase(), p.id]));
+  // L'handle vale come un codice: è il nome del prodotto nell'indirizzo del
+  // negozio, e sulle schede create da qui è l'aggancio di riserva se un domani
+  // il gid cambiasse.
+  for (const p of nostri) if (p.handleShopify) perCodice.set(p.handleShopify.trim().toLowerCase(), p.id);
+  return {
+    perShopifyId: new Map(nostri.filter((p) => p.shopifyId).map((p) => [p.shopifyId as string, p.id])),
+    perSku: new Map(varianti.map((v) => [(v.sku as string).trim().toLowerCase(), v.prodottoId])),
+    perCodice,
+    perNome: new Map(nostri.map((p) => [normalizza(p.nome), p.id])),
+  };
+}
+
+/**
+ * Riconosce un prodotto del negozio fra i nostri, dal più esatto al più incerto.
+ * **Una funzione sola**, usata dall'import e dall'anteprima: con due copie lo
+ * stesso prodotto finirebbe per essere riconosciuto in due modi diversi.
+ */
+function abbina(p: ProdottoShopifyApi, ix: Indici): string | undefined {
+  // 1. L'id Shopify: non è una somiglianza, è lo stesso prodotto.
+  const perId = ix.perShopifyId.get(p.id);
+  if (perId) return perId;
+  // 2. Lo SKU di una variante.
+  for (const v of p.variants.nodes) {
+    const s = v.sku?.trim().toLowerCase();
+    if (s && ix.perSku.has(s)) return ix.perSku.get(s);
+  }
+  // 3. Lo SKU usato come codice del prodotto.
+  for (const v of p.variants.nodes) {
+    const s = v.sku?.trim().toLowerCase();
+    if (s && ix.perCodice.has(s)) return ix.perCodice.get(s);
+  }
+  // 4. L'handle, poi il titolo normalizzato.
+  return ix.perCodice.get(p.handle.trim().toLowerCase()) ?? ix.perNome.get(normalizza(p.title));
+}
+
+// Lo stato del negozio diventa la fase della scheda: è dichiarato da chi cura il
+// sito, non dedotto. Un prodotto archiviato su Shopify nasce archiviato anche
+// qui, e quindi resta fuori dalle classifiche — che è la cosa giusta.
+const FASE_DA_STATO: Record<string, string> = { ACTIVE: "in_vendita", DRAFT: "concept", ARCHIVED: "archiviato" };
+const SYNC_DA_STATO: Record<string, string> = { ACTIVE: "pubblicato", DRAFT: "bozza", ARCHIVED: "non_pubblicato" };
+
+/**
+ * Crea le schede dei prodotti che il negozio ha e qui non c'erano.
+ *
+ * Solo dati letti: titolo, handle, immagine, prezzo delle varianti, stato, tipo,
+ * fornitore, tag, giorni di consegna. **Costo 0 e categoria «Da classificare»**
+ * restano da compilare — dedurli dal titolo darebbe margini inventati.
+ * Il prezzo del prodotto è il **minimo delle varianti** e ogni variante porta la
+ * differenza in `deltaPrezzo`: è esattamente il modello «base + delta» dell'app,
+ * e la fascia di prezzo si legge sul prezzo d'ingresso come fa il negozio.
+ */
+async function creaProdottiMancanti(
+  orfani: ProdottoShopifyApi[],
+  negozio: string,
+  ix: Indici,
+): Promise<Map<string, string>> {
+  const oggi = new Date().toLocaleDateString("it-IT");
+  const codiciPresi = new Set(ix.perCodice.keys());
+  const skuPresi = new Set(ix.perSku.keys());
+
+  const daCreare: { gid: string; codice: string; prezzo: number; p: ProdottoShopifyApi }[] = [];
+  for (const p of orfani) {
+    const skus = p.variants.nodes.map((v) => v.sku?.trim()).filter((s): s is string => !!s);
+    const radice = (codiceDaSku(skus) ?? slugCodice(p.handle || p.title)).toUpperCase();
+    let codice = radice;
+    let k = 2;
+    while (codiciPresi.has(codice.toLowerCase())) codice = `${radice}-${k++}`;
+    codiciPresi.add(codice.toLowerCase());
+
+    const prezzi = p.variants.nodes
+      .map((v) => Number.parseFloat(v.price ?? ""))
+      .filter((x) => Number.isFinite(x) && x > 0);
+    daCreare.push({ gid: p.id, codice, prezzo: prezzi.length ? Math.min(...prezzi) : 0, p });
+  }
+
+  for (let i = 0; i < daCreare.length; i += 200) {
+    await prisma.prodotto.createMany({
+      data: daCreare.slice(i, i + 200).map(({ codice, prezzo, p }) => {
+        const ggRaw = p.consegna?.value?.trim();
+        const gg = ggRaw ? Number.parseInt(ggRaw, 10) : NaN;
+        return {
+          codice,
+          nome: p.title.slice(0, 200),
+          categoria: "DA_CLASSIFICARE",
+          fase: FASE_DA_STATO[p.status ?? ""] ?? "in_vendita",
+          costoProduzione: 0,
+          prezzoVendita: prezzo,
+          immagine: p.featuredImage?.url ?? null,
+          tipoShopify: p.productType?.trim() || null,
+          categoriaShopifyId: p.category?.id ?? null,
+          categoriaShopifyNome: p.category?.fullName || p.category?.name || null,
+          vendorShopify: p.vendor?.trim() || null,
+          tagShopify: p.tags?.length ? p.tags.join(", ").slice(0, 500) : null,
+          handleShopify: p.handle,
+          ggDispMin: Number.isFinite(gg) ? gg : null,
+          shopifyId: p.id,
+          shopifyStato: SYNC_DA_STATO[p.status ?? ""] ?? "non_pubblicato",
+          noteSviluppo: `Creato dall'import delle collezioni di ${negozio} il ${oggi}: il negozio ce l'ha, qui non c'era. Costo di produzione e categoria da compilare.`,
+        };
+      }),
+      skipDuplicates: true,
+    });
+  }
+
+  // Si rileggono per codice: `createMany` non restituisce gli id.
+  const nati = new Map(
+    (
+      await prisma.prodotto.findMany({
+        where: { codice: { in: daCreare.map((d) => d.codice) } },
+        select: { id: true, codice: true },
+      })
+    ).map((p) => [p.codice, p.id]),
+  );
+
+  const varianti: { prodottoId: string; nome: string; sku: string | null; deltaPrezzo: number }[] = [];
+  for (const { codice, prezzo, p } of daCreare) {
+    const id = nati.get(codice);
+    if (!id) continue;
+    for (const v of p.variants.nodes) {
+      const sku = v.sku?.trim() || null;
+      // Lo SKU è unico in tutta l'app: se è già di qualcun altro la variante
+      // nasce **senza** SKU invece di far fallire il blocco intero.
+      const libero = sku != null && !skuPresi.has(sku.toLowerCase());
+      if (libero) skuPresi.add(sku.toLowerCase());
+      const pv = Number.parseFloat(v.price ?? "");
+      varianti.push({
+        prodottoId: id,
+        // "Default Title" è come Shopify chiama il prodotto senza varianti: qui
+        // si chiama "Unica", che è quello che si legge in una scheda.
+        nome: (v.title && v.title !== "Default Title" ? v.title : "Unica").slice(0, 120),
+        sku: libero ? sku : null,
+        deltaPrezzo: Number.isFinite(pv) && prezzo > 0 ? Math.round((pv - prezzo) * 100) / 100 : 0,
+      });
+    }
+  }
+  for (let i = 0; i < varianti.length; i += 300) {
+    await prisma.variante.createMany({ data: varianti.slice(i, i + 300), skipDuplicates: true });
+  }
+
+  const fuori = new Map<string, string>();
+  for (const d of daCreare) {
+    const id = nati.get(d.codice);
+    if (id) fuori.set(d.gid, id);
+  }
+  return fuori;
+}
+
+/**
+ * Quanti prodotti del negozio l'app riconosce, e quanti ne creerebbe. **Non
+ * scrive niente**: serve a guardare il conto prima di toccare dati veri.
+ */
+export async function anteprimaAbbinamento(n: Negozio) {
+  const prodottiShopify = await leggiProdotti(n);
+  const ix = await costruisciIndici();
+  const orfani = prodottiShopify.filter((p) => !abbina(p, ix));
+  return {
+    negozio: n.nome,
+    letti: prodottiShopify.length,
+    riconosciuti: prodottiShopify.length - orfani.length,
+    daCreare: orfani.length,
+    esempi: orfani.slice(0, 8).map((p) => ({
+      titolo: p.title,
+      handle: p.handle,
+      sku: p.variants.nodes.map((v) => v.sku).filter(Boolean).join(", ") || "—",
+      collezioni: p.collections.nodes.length,
+    })),
+  };
+}
+
 /** Importa collezioni e appartenenze di un negozio. */
 export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollezioni> {
   const base: EsitoImportCollezioni = {
@@ -243,6 +463,7 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
     collezioniLette: 0,
     prodottiLetti: 0,
     abbinamenti: 0,
+    prodottiCreati: 0,
     prodottiIgnoti: 0,
     messaggio: "",
   };
@@ -303,39 +524,31 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
       idLocale.set(c.id, riga.id);
     }
 
-    // — Indici per abbinare i prodotti —
-    const [varianti, nostri] = await Promise.all([
-      prisma.variante.findMany({ where: { sku: { not: null } }, select: { sku: true, prodottoId: true } }),
-      prisma.prodotto.findMany({ select: { id: true, codice: true, nome: true } }),
-    ]);
-    const perSku = new Map(varianti.map((v) => [(v.sku as string).trim().toLowerCase(), v.prodottoId]));
-    const perCodice = new Map(nostri.map((p) => [p.codice.trim().toLowerCase(), p.id]));
-    const perNome = new Map(nostri.map((p) => [normalizza(p.nome), p.id]));
+    // — Chi è chi: prima si riconosce, poi si crea quello che manca —
+    // Creare **prima** di costruire le appartenenze è l'unico ordine che dà una
+    // collezione completa: prima i prodotti sconosciuti venivano contati e
+    // buttati, e la collezione risultava mezza vuota.
+    const ix = await costruisciIndici();
+    const risolto = new Map<string, string>(); // gid Shopify → id nostro
+    const orfani: ProdottoShopifyApi[] = [];
+    for (const p of prodottiShopify) {
+      const id = abbina(p, ix);
+      if (id) risolto.set(p.id, id);
+      else orfani.push(p);
+    }
+    if (orfani.length > 0) {
+      const nati = await creaProdottiMancanti(orfani, n.nome, ix);
+      for (const [gid, id] of nati) risolto.set(gid, id);
+      base.prodottiCreati = nati.size;
+    }
+    base.prodottiIgnoti = prodottiShopify.length - risolto.size;
 
     // — Le appartenenze, e quello che Shopify sa del prodotto —
     const legami: { collezioneId: string; prodottoId: string; prodottoShopifyId: string; posizione: number }[] = [];
     const daAggiornare: { id: string; tipoShopify: string | null; categoriaShopifyId: string | null; categoriaShopifyNome: string | null; vendorShopify: string | null; tagShopify: string | null; handleShopify: string; ggDispMin: number | null }[] = [];
     for (const p of prodottiShopify) {
-      let nostroId: string | undefined;
-      for (const v of p.variants.nodes) {
-        if (v.sku && perSku.has(v.sku.trim().toLowerCase())) {
-          nostroId = perSku.get(v.sku.trim().toLowerCase());
-          break;
-        }
-      }
-      if (!nostroId) {
-        for (const v of p.variants.nodes) {
-          if (v.sku && perCodice.has(v.sku.trim().toLowerCase())) {
-            nostroId = perCodice.get(v.sku.trim().toLowerCase());
-            break;
-          }
-        }
-      }
-      if (!nostroId) nostroId = perCodice.get(p.handle.trim().toLowerCase()) ?? perNome.get(normalizza(p.title));
-      if (!nostroId) {
-        base.prodottiIgnoti++;
-        continue;
-      }
+      const nostroId = risolto.get(p.id);
+      if (!nostroId) continue;
       for (const c of p.collections.nodes) {
         const collezioneId = idLocale.get(c.id);
         // La posizione curata si recupera più sotto, dopo aver riletto quella
@@ -420,6 +633,7 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
     base.ok = true;
     base.messaggio =
       `${base.collezioniLette} collezioni lette, ${base.abbinamenti} appartenenze salvate su ${base.prodottiLetti} prodotti del negozio` +
+      (base.prodottiCreati ? `; ${base.prodottiCreati} schede create per prodotti che qui non c'erano (costo e categoria da compilare)` : "") +
       (base.prodottiIgnoti ? `; ${base.prodottiIgnoti} prodotti del negozio non corrispondono a nessun prodotto qui` : "") +
       (pubblicazioneLetta
         ? "."
@@ -434,6 +648,7 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
       collezioniLette: base.collezioniLette,
       prodottiLetti: base.prodottiLetti,
       abbinamenti: base.abbinamenti,
+      prodottiCreati: base.prodottiCreati,
       prodottiIgnoti: base.prodottiIgnoti,
       esito: base.ok ? "ok" : "errore",
       messaggio: base.messaggio,
