@@ -170,7 +170,14 @@ do {
       stato: statoDa(o.shopify?.financialStatus, o.shopify?.annullato),
       cliente: o.cliente?.nome ?? undefined,
       email: o.cliente?.email ?? undefined,
-      citta: o.spedizione?.citta ?? undefined,
+      // La citta di consegna. Orders ne tiene DUE: quella scritta dal cliente
+      // (spedizione.citta, con "Rome"/"Roma" e i refusi) e quella DEDOTTA da
+      // tag e prodotto, che e la classificazione buona. Si preferisce la
+      // dedotta quando arriva; finche Orders non la espone si usa l altra.
+      citta: o.spedizione?.cittaDedotta ?? o.cittaDedotta ?? o.spedizione?.citta ?? undefined,
+      ...(o.spedizione?.cittaDedottaDa || o.cittaDedottaDa
+        ? { cittaFonte: o.spedizione?.cittaDedottaDa ?? o.cittaDedottaDa }
+        : {}),
       paese: o.spedizione?.paese ?? undefined,
       // Da dove è arrivato l'ordine secondo Shopify, attribuito al PRIMO
       // contatto del percorso. È l'altra campana rispetto alle conversioni che

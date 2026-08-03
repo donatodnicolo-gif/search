@@ -35,6 +35,7 @@ export async function TerminiRicerca({
   altriParametri,
   ord,
   verso,
+  periodoScelto,
 }: {
   campagnaId: string;
   brand: string;
@@ -45,6 +46,9 @@ export async function TerminiRicerca({
   altriParametri?: string;
   ord?: string;
   verso?: string;
+  // Il periodo scelto in cima alla pagina: serve SOLO per dire se coincide
+  // con la finestra di questi dati, che e decisa dallo script e non da qui.
+  periodoScelto?: { da: Date; a: Date; etichetta: string };
 }) {
   // ⚠️ La selezione NON cambia con l'ordinamento: si prendono sempre i 40
   // termini che costano di più, perché la domanda di questa tabella è "dove
@@ -122,9 +126,27 @@ export async function TerminiRicerca({
   const spesaTotale = termini.reduce((s, t) => s + (t.spesa ?? 0), 0);
   const senzaResa = termini.filter((t) => (t.spesa ?? 0) > 0 && !(t.conversioni ?? 0));
   const spesaSenzaResa = senzaResa.reduce((s, t) => s + (t.spesa ?? 0), 0);
-  const periodo = termini[0].dal && termini[0].al
-    ? `${termini[0].dal.toLocaleDateString("it-IT")} → ${termini[0].al.toLocaleDateString("it-IT")}`
+  const dal = termini[0].dal;
+  const al = termini[0].al;
+  const periodo = dal && al
+    ? `${dal.toLocaleDateString("it-IT")} → ${al.toLocaleDateString("it-IT")}`
     : null;
+
+  // ⚠️ Questa tabella NON segue il periodo scelto in cima, e va detto.
+  //
+  // Le parole cercate arrivano come fotografia: lo script le manda con una sua
+  // finestra (`dal`/`al`), non giorno per giorno come le metriche. Chi sceglie
+  // "ultimi 7 giorni" e qui legge la spesa di un mese sbaglia di quattro volte,
+  // e non ha modo di accorgersene — tutto il resto della pagina il periodo lo
+  // rispetta.
+  const giorno = 86_400_000;
+  const scostata =
+    periodoScelto && dal && al
+      // Tolleranza di un giorno per parte: le finestre non combaciano mai
+      // all'ora esatta, e segnalare mezz'ora di scarto sarebbe rumore.
+      ? Math.abs(dal.getTime() - periodoScelto.da.getTime()) > giorno ||
+        Math.abs(al.getTime() - periodoScelto.a.getTime()) > giorno
+      : false;
 
   return (
     <section className="scheda" id="termini">
@@ -132,6 +154,19 @@ export async function TerminiRicerca({
         Cosa ha cercato la gente ({termini.length} termini più costosi
         {periodo ? ` · ${periodo}` : ""})
       </div>
+      {scostata && periodoScelto && (
+        <div className="nota-info" style={{ borderColor: "rgba(201,52,0,.35)", background: "rgba(201,52,0,.06)" }}>
+          <span className="nota-icona" style={{ color: "var(--orange)" }}>⚠</span>
+          <span>
+            <b>Questa tabella non segue il periodo scelto.</b> In cima hai chiesto
+            {" "}<b>{periodoScelto.etichetta}</b>, ma le parole cercate arrivano come fotografia con
+            {" "}una finestra decisa dallo script — qui <b>{periodo}</b>. I numeri sotto sono di
+            {" "}quella finestra, non del periodo in alto: confrontarli con la spesa di campagna
+            {" "}qui sopra non ha senso finché le due finestre non coincidono.
+          </span>
+        </div>
+      )}
+
       {/* Domanda arrivata davvero, il 28/07/2026: "ma queste sono le
           performance delle keyword o delle parole cercate?". Se te lo devi
           chiedere, la pagina non l'ha detto. */}

@@ -73,7 +73,7 @@
 var URL_APP = "https://deluxy-marketing.vercel.app"; // senza barra finale
 var CHIAVE_API = "dmk_INCOLLA_QUI_LA_CHIAVE"; // creata con: npm run chiave -- google-ads-<brand>
 
-// Cosa fa questo script: metriche | approvazioni | copy | gruppi | asset | diagnosi | esegui | tutto
+// Cosa fa questo script: metriche | approvazioni | copy | gruppi | asset | diagnosi | stati-keyword | esegui | tutto
 var AZIONE = "metriche";
 
 // Brand dell'account. Metterlo: senza, le campagne il cui nome non dice il
@@ -132,7 +132,9 @@ var MINUTI_MASSIMI = 25; // Google ferma gli script a 30': ci fermiamo prima, co
 //   1. le letture che si guardano ogni giorno: metriche e gruppi di annunci;
 //   2. in fondo il copy, che da solo può prendersi metà del tempo (mille
 //      keyword per account a blocchi di 200) ed è la lettura meno urgente.
-var LAVORI_LETTURA = ["metriche", "gruppi", "approvazioni", "diagnosi", "asset", "copy"];
+var LAVORI_LETTURA = ["metriche", "gruppi", "approvazioni", "diagnosi", "asset", "copy", "stati-keyword"];
+
+var MAX_STATI_KEYWORD = 4000; // tetto di sicurezza: gli account veri ne hanno molte meno
 
 var ANTEPRIMA = false; // deciso da verificaConfigurazione()
 var TERMINI_INVIATI = false; // le parole cercate si mandano una volta per giro
@@ -183,6 +185,7 @@ function main() {
       else if (lavoro === "asset") mandaAsset(conto);
       else if (lavoro === "diagnosi") mandaDiagnosi(conto);
       else if (lavoro === "approvazioni") mandaApprovazioni(conto);
+      else if (lavoro === "stati-keyword") mandaStatiKeyword(conto);
       else if (lavoro === "esegui") eseguiOperazioni(conto);
       else Logger.log("AZIONE non riconosciuta: \"" + lavoro + "\". Ammesse: metriche, approvazioni, copy, gruppi, asset, diagnosi, esegui, tutto.");
     } catch (e) {
@@ -1885,4 +1888,87 @@ function elenco(nomi) {
   if (!nomi || nomi.length === 0) return null;
   if (nomi.length <= 3) return nomi.join(", ");
   return nomi.slice(0, 3).join(", ") + " (+" + (nomi.length - 3) + ")";
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   STATI KEYWORD — quali parole sono accese e quali no
+   ---------------------------------------------------------------------------
+   Il lavoro "copy" manda solo le keyword con `metrics.impressions > 0`: giusto
+   per i numeri (le altre sarebbero righe a zero), ma vuol dire che una keyword
+   IN PAUSA non arriva mai — non ha impressioni per definizione. Risultato:
+   nell'app restava "attiva" per sempre, e i bottoni Metti in pausa / Riattiva
+   partivano da uno stato che non era quello vero.
+
+   Questo giro legge TUTTE le keyword, comprese le spente, e manda solo
+   l'anagrafica: testo, corrispondenza, gruppo, campagna, id e stato. Nessuna
+   metrica — l'app sa già che i numeri non vanno toccati da qui.
+
+   È leggero (una riga per keyword, niente segmenti per giorno) e va fatto
+   girare almeno una volta per allineare tutto; poi basta ogni tanto.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+function mandaStatiKeyword(conto) {
+  var query =
+    "SELECT campaign.name, ad_group.name, " +
+    "ad_group_criterion.criterion_id, ad_group_criterion.keyword.text, " +
+    "ad_group_criterion.keyword.match_type, ad_group_criterion.status, " +
+    "ad_group_criterion.negative " +
+    "FROM keyword_view " +
+    // Niente filtro sulle impressioni e niente finestra di date: lo stato non è
+    // una metrica, non ha un periodo. Fuori solo le rimosse, che su Google non
+    // esistono più.
+    "WHERE ad_group_criterion.status != 'REMOVED'";
+
+  var righe = [];
+  var attive = 0, inPausa = 0, negative = 0;
+
+  var risultati;
+  try {
+    risultati = AdsApp.search(query);
+  } catch (e) {
+    Logger.log("Non riesco a leggere gli stati delle keyword: " + e);
+    RIEPILOGO.push("stati-keyword: query rifiutata");
+    return;
+  }
+
+  while (risultati.hasNext()) {
+    var r = risultati.next();
+    var c = r.adGroupCriterion;
+
+    // Le negative non sono keyword che comprano traffico: sono esclusioni, e
+    // mandarle qui le farebbe comparire fra le parole su cui si spende.
+    if (c.negative) {
+      negative++;
+      continue;
+    }
+
+    var stato = String(c.status);
+    if (stato === "ENABLED") attive++;
+    else inPausa++;
+
+    righe.push({
+      idEsterno: String(c.criterionId),
+      testo: c.keyword.text,
+      corrispondenza: String(c.keyword.matchType),
+      campagna: r.campaign.name,
+      gruppo: r.adGroup.name,
+      statoPiattaforma: stato,
+    });
+
+    if (righe.length >= MAX_STATI_KEYWORD) {
+      Logger.log("Tetto di " + MAX_STATI_KEYWORD + " keyword raggiunto: le altre al prossimo giro.");
+      break;
+    }
+  }
+
+  Logger.log(
+    "Keyword lette: " + righe.length +
+    " (attive " + attive + " · in pausa " + inPausa + ")" +
+    (negative > 0 ? " · " + negative + " negative saltate" : "")
+  );
+
+  var esito = inviaABlocchi("/api/v1/ingest/copy", righe, function (lotto) {
+    return corpoBase(conto, { keywords: lotto });
+  });
+  RIEPILOGO.push("stati-keyword: " + esito.inviate + " keyword allineate (" + inPausa + " in pausa)");
 }

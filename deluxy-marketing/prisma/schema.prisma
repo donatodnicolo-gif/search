@@ -595,6 +595,9 @@ model Ordine {
   cliente     String?
   email       String?
   citta       String?
+  // Come si sa la citta: "tag" o "prodotto" se arriva dalla classificazione
+  // di Orders, vuoto se e quella scritta dal cliente al checkout.
+  cittaFonte  String?
   paese       String?
   // canale di provenienza dichiarato da Shopify/UTM, quando c'è
   origine     String?

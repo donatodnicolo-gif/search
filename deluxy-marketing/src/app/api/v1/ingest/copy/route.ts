@@ -93,17 +93,29 @@ export async function POST(req: NextRequest) {
     const testo = k.corrispondenza
       ? `${k.testo} (${String(k.corrispondenza).toLowerCase()})`
       : String(k.testo);
+    // ⚠️ Stessa regola degli asset: i numeri si scrivono SOLO se ci sono.
+    //
+    // Il giro degli stati (AZIONE = "stati-keyword") manda le keyword in pausa,
+    // che per definizione non hanno metriche nel periodo. Se quei null
+    // finissero nell'update cancellerebbero spesa e clic scritti dal giro delle
+    // metriche, e una keyword che ha speso 200 € risulterebbe a zero. Lo stato
+    // si aggiorna, i numeri restano quelli buoni.
+    const numeriKw: Record<string, unknown> = {};
+    if (k.spesa != null) numeriKw.spesa = numero(k.spesa);
+    if (k.incasso != null) numeriKw.incasso = numero(k.incasso);
+    if (k.clic != null) numeriKw.clic = intero(k.clic);
+    if (k.impressioni != null) numeriKw.impressioni = intero(k.impressioni);
+    if (k.conversioni != null) numeriKw.conversioni = numero(k.conversioni);
+    if (k.punteggioQualita != null) numeriKw.punteggioQualita = intero(k.punteggioQualita);
+    // `metricheAl` data la fotografia dei NUMERI: un giro di soli stati non la
+    // sposta, o la pagina direbbe che i numeri sono freschi quando non lo sono.
+    if (Object.keys(numeriKw).length > 0) numeriKw.metricheAl = adesso;
+
     const esito = await salva("keyword", { ...k, testo }, {
       gruppo: k.gruppo ?? null,
       idEsterno: k.idEsterno ? String(k.idEsterno) : null,
-      spesa: numero(k.spesa),
-      incasso: numero(k.incasso),
-      clic: intero(k.clic),
-      impressioni: intero(k.impressioni),
-      conversioni: numero(k.conversioni),
-      punteggioQualita: intero(k.punteggioQualita),
-      statoPiattaforma: k.statoPiattaforma ?? null,
-      metricheAl: adesso,
+      ...(k.statoPiattaforma != null ? { statoPiattaforma: String(k.statoPiattaforma) } : {}),
+      ...numeriKw,
       fonte: canale,
     });
     if (esito === "nuova") nuoveKw++;

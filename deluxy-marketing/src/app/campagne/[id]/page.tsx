@@ -232,6 +232,7 @@ export default async function SchedaCampagna({
           altriParametri={parametriPeriodo(periodo)}
           ord={sp.ord}
           verso={sp.verso}
+          periodoScelto={{ da: periodo.corrente.da, a: periodo.corrente.a, etichetta: periodo.corrente.etichetta }}
         />
 
         {/* Le keyword subito dopo le parole cercate: sono i due lati della
