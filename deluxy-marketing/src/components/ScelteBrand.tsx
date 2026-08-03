@@ -1,6 +1,7 @@
 import { mer, numeriBrand, type NumeriBrand } from "@/lib/brand-dati";
 import { COLORE_BRAND, ETICHETTA_BRAND, formattaEuro } from "@/lib/dominio";
 import { breakEvenRoas } from "@/lib/guardrail";
+import { risultatoAtteso } from "@/lib/risultato";
 import type { Periodo } from "@/lib/periodo";
 
 // Le porte d'ingresso ai brand, in cima alla home: una tessera per brand con i
@@ -64,6 +65,10 @@ export async function ScelteBrand({ periodo }: { periodo: Periodo }) {
     // (Gifts) e lo si dichiara, invece di inventare una media.
     const be = o.totale ? breakEvenRoas("gifts") : breakEvenRoas(chiave);
     const vuoto = n.spesa === 0 && n.venditeTotali === 0;
+    // Quanto resta: margine di prodotto meno la pubblicita. Il MER dice se il
+    // rapporto regge, questo dice quanti soldi ci sono sotto — e sono due
+    // domande diverse: un MER alto su vendite piccole lascia briciole.
+    const res = risultatoAtteso(n.venditeTotali, n.spesa);
 
     const dentro = (
       <>
@@ -99,6 +104,19 @@ export async function ScelteBrand({ periodo }: { periodo: Periodo }) {
                 <b>{n.ordini > 0 ? formattaEuro(n.venditeTotali) : "—"}</b>
                 <i>{n.ordini > 0 ? `vendite · ${n.ordini} ordini` : "nessun ordine"}</i>
               </span>
+            </div>
+            {/* Il risultato stimato: margine di prodotto meno pubblicità.
+                Sta sotto ai due numeri di partenza perché è il loro esito, e
+                col conto scritto nel tooltip — un numero che nasce da
+                un'assunzione (il 30%) deve dire da dove viene. */}
+            <div
+              className="card-brand-risultato"
+              title={`${formattaEuro(n.venditeTotali)} di vendite × ${Math.round(res.margineUsato * 100)}% = ${formattaEuro(res.margineLordo)} di margine, meno ${formattaEuro(res.spesa)} di pubblicità`}
+            >
+              <span>Risultato stimato</span>
+              <b style={{ color: res.risultato >= 0 ? "var(--green)" : "var(--red)" }}>
+                {n.ordini > 0 ? formattaEuro(res.risultato) : "—"}
+              </b>
             </div>
           </>
         )}
@@ -137,8 +155,19 @@ export async function ScelteBrand({ periodo }: { periodo: Periodo }) {
         {tessera("totale", totale, { etichetta: "Tutti i brand", colore: "var(--text)", totale: true })}
       </div>
 
-      {(cross.spesa > 0 || cross.venditeTotali > 0) && (
+      {totale.venditeTotali > 0 && (
         <p className="cella-sub" style={{ marginTop: 12, whiteSpace: "normal" }}>
+          <b>Il risultato stimato</b> è {formattaEuro(totale.venditeTotali)} di vendite ×{" "}
+          {Math.round(risultatoAtteso(totale.venditeTotali, totale.spesa).margineUsato * 100)}% di
+          margine = {formattaEuro(risultatoAtteso(totale.venditeTotali, totale.spesa).margineLordo)},
+          meno {formattaEuro(totale.spesa)} di pubblicità.{" "}
+          <b>Non è un utile</b>: sotto non ci sono personale, logistica, commissioni di pagamento e
+          resi — e il 30% è una percentuale media dichiarata, non il costo reale di quei prodotti.
+        </p>
+      )}
+
+      {(cross.spesa > 0 || cross.venditeTotali > 0) && (
+        <p className="cella-sub" style={{ marginTop: 8, whiteSpace: "normal" }}>
           Nel totale ci sono anche {formattaEuro(cross.spesa)} di spesa
           {cross.venditeTotali > 0 ? ` e ${formattaEuro(cross.venditeTotali)} di vendite` : ""} di
           campagne <b>cross-brand</b>, che non appartengono a nessuno dei tre marchi e quindi non

@@ -281,6 +281,9 @@ export async function salvaLegameShopify(campagnaId: string, fd: FormData) {
     categoria: scelta("categoria", CATEGORIE_ORDINE),
     lingua: scelta("lingua", LINGUE_CAMPAGNA),
     negozio: scelta("negozio", NEGOZI_ORDINE),
+    // La città non ha un catalogo chiuso come le altre: si prende quella
+    // scelta. Vuoto = nessun filtro di città, che è diverso da «non deducibile».
+    citta: testo(fd, "citta") || null,
     origine: "manuale",
     motivo: "scelto a mano dalla scheda campagna",
   };

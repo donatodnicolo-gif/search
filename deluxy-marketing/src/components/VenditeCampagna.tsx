@@ -240,6 +240,19 @@ export async function VenditeCampagna({
               prodotto, italiani e stranieri insieme.
             </>
           )}
+          {v.cittaFiltrata && (
+            <>
+              {" "}<b>Solo {v.cittaFiltrata}</b>: il nome della campagna nomina quella città, e gli
+              ordini consegnati altrove non sono il suo mercato. Il confronto usa la città
+              <b> dedotta</b> da Orders, non quella scritta al checkout — «Rome» e «Roma» sono lo
+              stesso posto.
+            </>
+          )}
+          {v.cittaIgnorata && (
+            <>
+              {" "}<b>La città qui non riesce a tagliare</b>: {v.cittaIgnorata}.
+            </>
+          )}
         </p>
 
         {v.contesto == null ? (
@@ -260,7 +273,7 @@ export async function VenditeCampagna({
         )}
 
         {/* Correzione a mano: da qui in poi la deduzione non tocca più niente. */}
-        <form className="modulo" action={salvaLegameShopify.bind(null, campagna.id)} style={{ marginTop: 14, gridTemplateColumns: "1fr 1fr 1fr" }}>
+        <form className="modulo" action={salvaLegameShopify.bind(null, campagna.id)} style={{ marginTop: 14, gridTemplateColumns: "1fr 1fr 1fr 1fr" }}>
           <div className="campo-modulo">
             <label>Prodotto</label>
             <select name="categoria" defaultValue={v.legame.categoria ?? ""}>
@@ -280,6 +293,15 @@ export async function VenditeCampagna({
                 <option key={l} value={l}>
                   {ETICHETTA_LINGUA[l]}
                 </option>
+              ))}
+            </select>
+          </div>
+          <div className="campo-modulo">
+            <label>Città di consegna</label>
+            <select name="citta" defaultValue={v.legame.citta ?? ""}>
+              <option value="">— tutte le città —</option>
+              {v.cittaViste.map((c) => (
+                <option key={c} value={c}>{c}</option>
               ))}
             </select>
           </div>

@@ -91,6 +91,10 @@ export type Legame = {
   categoria: string | null;
   lingua: string | null;
   negozio: string | null;
+  // Citta di consegna dedotta dal nome ("Torte ROMA" → Roma). Si confronta con
+  // la citta DEDOTTA da Orders, non con quella scritta al checkout: quella ha
+  // "Rome", "Milan" e i refusi, e un confronto sul testo perderebbe meta ordini.
+  citta: string | null;
   motivo: string | null;
 };
 
@@ -123,6 +127,23 @@ export function deduciLegame(campagna: { nome: string; brand: string }): Legame 
     }
   }
 
+  // Le citta in cui Deluxy consegna davvero: cercarne altre nel nome non ha
+  // senso, e un falso positivo qui filtrerebbe via ordini veri.
+  const CITTA: [RegExp, string][] = [
+    [/milano|milan/, "Milano"],
+    [/roma|rome/, "Roma"],
+    [/firenze|florence/, "Firenze"],
+    [/torino|turin/, "Torino"],
+    [/napoli|naples/, "Napoli"],
+    [/venezia|venice/, "Venezia"],
+    [/bologna/, "Bologna"],
+    [/parigi|paris/, "Parigi"],
+  ];
+  let citta: string | null = null;
+  for (const [regola, nome] of CITTA) {
+    if (regola.test(t)) { citta = nome; break; }
+  }
+
   let lingua: string | null = null;
   if (/\beng\b|english|\ben\b/.test(t)) lingua = "eng";
   else if (/\bita\b|italian|italiano/.test(t)) lingua = "ita";
@@ -134,9 +155,10 @@ export function deduciLegame(campagna: { nome: string; brand: string }): Legame 
   if (categoria) pezzi.push(`prodotto da «${parola}» nel nome`);
   else pezzi.push("nessun prodotto riconosciuto nel nome");
   if (lingua) pezzi.push(`lingua ${ETICHETTA_LINGUA[lingua]}`);
+  if (citta) pezzi.push(`citta ${citta} dal nome`);
   if (negozio) pezzi.push(`negozio dal brand ${campagna.brand}`);
 
-  return { categoria, lingua, negozio, motivo: pezzi.join(" · ") };
+  return { categoria, lingua, negozio, citta, motivo: pezzi.join(" · ") };
 }
 
 // Legge il legame salvato; se non c'è, lo deduce e lo salva. Se c'è ed è
@@ -157,6 +179,7 @@ export async function legameDiCampagna(campagna: {
         categoria: salvato.categoria,
         lingua: salvato.lingua,
         negozio: salvato.negozio,
+        citta: salvato.citta,
         motivo: salvato.motivo,
       },
       origine: "manuale",
@@ -169,7 +192,8 @@ export async function legameDiCampagna(campagna: {
     salvato &&
     salvato.categoria === dedotto.categoria &&
     salvato.lingua === dedotto.lingua &&
-    salvato.negozio === dedotto.negozio;
+    salvato.negozio === dedotto.negozio &&
+    salvato.citta === dedotto.citta;
   if (!uguale) {
     await prisma.legameCampagnaShopify
       .upsert({
@@ -339,6 +363,10 @@ export type VenditeCampagna = {
   senzaPaese: number;
   // Perché la lingua non ha potuto tagliare, quando non ha potuto.
   linguaIgnorata: string | null;
+  // La citta del contesto: quale si e usata, o perche non si e potuta usare
+  cittaFiltrata: string | null;
+  cittaIgnorata: string | null;
+  cittaViste: string[];
   legame: Legame;
   origineLegame: string;
   // Da quando parte il registro ordini: "cliente nuovo" vuol dire "prima volta
@@ -445,8 +473,28 @@ export async function venditeDiCampagna(
   let contesto: BloccoVendite | null = null;
   let filtroClienti: string | null = null;
   let linguaIgnorata: string | null = null;
+  let cittaFiltrata: string | null = null;
+  let cittaIgnorata: string | null = null;
   if (legame.categoria) {
-    const conProdotto = ordini.filter((o) => o.righe.some((r) => r.categoria === legame.categoria));
+    let conProdotto = ordini.filter((o) => o.righe.some((r) => r.categoria === legame.categoria));
+
+    // La citta, quando il nome la dice: "Torte ROMA" parla ai romani, e gli
+    // ordini milanesi non sono il suo mercato. Si confronta con la citta
+    // normalizzata, cosi "Rome" e "Roma" restano lo stesso posto.
+    //
+    // Stessa prudenza del paese: se il filtro lascia quasi nulla su un numero
+    // di ordini che sarebbe stato significativo, NON si applica — vorrebbe dire
+    // che la citta la scrivono in un modo che non riconosciamo, e uno zero li
+    // si leggerebbe come "questa campagna non vende".
+    if (legame.citta) {
+      const inCitta = conProdotto.filter((o) => nomeCitta(o.citta) === legame.citta);
+      if (inCitta.length >= 3 || conProdotto.length < 10) {
+        conProdotto = inCitta;
+        cittaFiltrata = legame.citta;
+      } else {
+        cittaIgnorata = `il nome della campagna dice ${legame.citta}, ma solo ${inCitta.length} ordini su ${conProdotto.length} risultano consegnati li: il filtro non si applica, sotto ci sono tutte le citta`;
+      }
+    }
     if (paese) {
       // Un ordine senza paese non si può assegnare né agli italiani né agli
       // stranieri: resta fuori e si dice quanti sono, invece di infilarlo
@@ -489,6 +537,13 @@ export async function venditeDiCampagna(
     filtroClienti,
     senzaPaese,
     linguaIgnorata,
+    cittaFiltrata,
+    cittaIgnorata,
+    // Le citta che compaiono davvero negli ordini: sono le sole opzioni sensate
+    // da offrire, invece di un elenco fisso che invecchia.
+    cittaViste: [...new Set(ordini.map((o) => nomeCitta(o.citta)).filter((c): c is string => !!c))]
+      .sort((a, b) => a.localeCompare(b, "it"))
+      .slice(0, 40),
     legame,
     origineLegame: origine,
     primoOrdineRegistrato: primoAssoluto?.data ?? null,

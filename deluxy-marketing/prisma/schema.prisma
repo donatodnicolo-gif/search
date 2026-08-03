@@ -1011,6 +1011,10 @@ model LegameCampagnaShopify {
   lingua       String?
   // negozio di Ordine: deluxygifts | deluxyflowers | cakedesignme
   negozio      String?
+  // Citta di consegna, dedotta dal nome della campagna ("Torte ROMA" → Roma).
+  // Si confronta con la citta DEDOTTA da Orders, non con quella scritta al
+  // checkout: "Rome" e "Roma" sono la stessa consegna e come testo no.
+  citta        String?
   // dedotto | manuale — manuale vince e non viene mai sovrascritto
   origine      String   @default("dedotto")
   // Perché la deduzione ha scelto così: si mostra in pagina, così si vede

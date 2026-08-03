@@ -703,3 +703,14 @@ tbody tr:hover { background: var(--fill); }
 }
 .conto-riga.totale span { color: var(--text); }
 .conto-riga.totale b { font-size: 17px; letter-spacing: -0.02em; }
+
+/* Risultato stimato sulle tessere brand */
+.card-brand-risultato {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
+  margin-top: 9px; padding-top: 9px; border-top: 1px solid var(--hairline);
+}
+.card-brand-risultato span { font-size: 10.5px; color: var(--text-tertiary); }
+.card-brand-risultato b {
+  font-size: 14px; font-weight: 600;
+  font-variant-numeric: tabular-nums; letter-spacing: -0.01em; white-space: nowrap;
+}
