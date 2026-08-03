@@ -410,6 +410,37 @@ risposta. Misurato su deluxy.it 25–31/07: 6.894 € da nuovi + 5.291 € da ch
   di *ordini* da clienti nuovi ma con scontrino 124 €, mentre il Diretto sembra
   il canale più grande solo perché chi torna spende 1.007 € a ordine.
 
+### ⚠️ NON caricare gli ordini-bozza come conversioni offline in Google Ads (03/08/2026)
+Proposta arrivata da un'altra sessione e **bocciata sui dati**: gli ordini nati
+da bozza (assistiti dal Customer Service) ma con un percorso pubblicitario
+alle spalle sarebbero «invisibili a Google», quindi andrebbero ricaricati come
+conversioni offline. **Il fenomeno esiste, la conclusione è sbagliata: Google
+quegli ordini li conta già.** Caricarli li conterebbe due volte e lo Smart
+Bidding spenderebbe di più su campagne che sembrano rendere il doppio.
+
+- **Il fenomeno, misurato**: 203 ordini `sorgente = shopify_draft_order` con
+  `canaleMarketing` a pagamento, 39.612,50 € — di cui 201 nel 2026 e **202 su 203
+  su deluxy.it** (Flowers 1, cakedesign.me 0: non è un problema «di tutti i
+  brand»). Campagne più colpite: Fiori Milano 60, Torte MILANO 41, Torte ROMA 34.
+- **La prova che sono già contate** (campagna «[Deluxy] Torte ROMA», luglio 2026):
+  nei giorni delle bozze #12543 (11/07) e #12547 (12/07) Google dichiara 1 e 0,5
+  conversioni; il 23/07, giorno della bozza **#12638**, ne dichiara **2** — e il
+  clic di quell'ordine è delle 15:08 con l'ordine alle 15:25, stesso giorno.
+  Il 19/07, giorno di un ordine **web**, Google dichiara **0**. Confermato
+  dall'utente nell'interfaccia di Google Ads.
+- **Perché**: pagando la fattura della bozza il cliente passa da un **checkout
+  Shopify vero**, dove il tag di Google c'è. Infatti **198 dei 203** risultano
+  pagati con shopify_payments o PayPal, non segnati a mano in admin.
+- ⚠️ **La deduplica per `transactionId` non protegge**: Google deduplica solo
+  **dentro la stessa azione di conversione**, e qui le azioni sarebbero due (il
+  tag del sito e l'import offline).
+- **E comunque non si potrebbe**: Shopify **taglia la query string** dalla landing
+  page (`landingPage` torna senza `?gclid=…`, verificato su #12638 e #12682),
+  quindi il GCLID non ce l'abbiamo; e la finestra di import è ~90 giorni, dentro
+  la quale stanno solo **67 ordini** dei 203.
+- **La lezione**: prima di costruire un recupero, misurare il verso opposto —
+  *quel dato manca davvero?* Qui bastava guardare le conversioni del giorno.
+
 ### ⚠️ Il nome della campagna in Orders può essere un nome MORTO (03/08/2026)
 Indagine su «6 conversioni di Fiori Milano ENG che non si vedono», 25–31/07/2026.
 Non era un buco d'importazione: **`utm_campaign` è il nome che la campagna aveva
