@@ -140,7 +140,10 @@ do {
   if (chiavi.length > 0) {
     const trovati = await prisma.ordine.findMany({
       where: { OR: chiavi.map((x) => ({ negozio: x.mappa.negozio, idEsterno: x.idEsterno })) },
-      select: { id: true, negozio: true, idEsterno: true, totale: true, stato: true, numero: true, origine: true, utmSource: true, _count: { select: { righe: true } } },
+      // provincia e citta servono al confronto qui sotto: senza leggerle, il
+      // controllo "e cambiato?" le vedrebbe sempre diverse e riscriverebbe
+      // ogni ordine a ogni giro.
+      select: { id: true, negozio: true, idEsterno: true, totale: true, stato: true, numero: true, origine: true, utmSource: true, provincia: true, citta: true, cittaFonte: true, _count: { select: { righe: true } } },
     });
     for (const t of trovati) gia.set(`${t.negozio}|${t.idEsterno}`, t);
   }
@@ -170,14 +173,17 @@ do {
       stato: statoDa(o.shopify?.financialStatus, o.shopify?.annullato),
       cliente: o.cliente?.nome ?? undefined,
       email: o.cliente?.email ?? undefined,
-      // La citta di consegna. Orders ne tiene DUE: quella scritta dal cliente
-      // (spedizione.citta, con "Rome"/"Roma" e i refusi) e quella DEDOTTA da
-      // tag e prodotto, che e la classificazione buona. Si preferisce la
-      // dedotta quando arriva; finche Orders non la espone si usa l altra.
-      citta: o.spedizione?.cittaDedotta ?? o.cittaDedotta ?? o.spedizione?.citta ?? undefined,
-      ...(o.spedizione?.cittaDedottaDa || o.cittaDedottaDa
-        ? { cittaFonte: o.spedizione?.cittaDedottaDa ?? o.cittaDedottaDa }
-        : {}),
+      // La citta di consegna. Orders ne tiene DUE e la sua e meglio: quella
+      // scritta dal cliente ha "Rome", "Milan", i refusi e le maiuscole a caso;
+      // quella DEDOTTA arriva gia risolta, con la prova di come ci si e
+      // arrivati (tag dell ordine o prodotto acquistato).
+      //
+      // ⚠️ Arriva come OGGETTO, non come stringa: { citta, da, prova }.
+      // Passarlo intero a Prisma fa fallire l intero import con un errore di
+      // validazione — successo il 02/08/2026 su 8.101 ordini.
+      citta: o.spedizione?.cittaDedotta?.citta ?? o.cittaDedotta?.citta ?? o.spedizione?.citta ?? undefined,
+      cittaFonte: o.spedizione?.cittaDedotta?.da ?? o.cittaDedotta?.da ?? undefined,
+      provincia: o.spedizione?.provincia ?? undefined,
       paese: o.spedizione?.paese ?? undefined,
       // Da dove è arrivato l'ordine secondo Shopify, attribuito al PRIMO
       // contatto del percorso. È l'altra campana rispetto alle conversioni che
@@ -206,7 +212,14 @@ do {
         esistente.stato !== dati.stato ||
         esistente.numero !== dati.numero ||
         (dati.origine != null && esistente.origine !== dati.origine) ||
-        (dati.utmSource != null && esistente.utmSource !== dati.utmSource);
+        (dati.utmSource != null && esistente.utmSource !== dati.utmSource) ||
+        // Il luogo di consegna: senza queste due righe un campo NUOVO (la
+        // provincia, aggiunta il 02/08) non entrerebbe mai negli ordini gia
+        // presenti — e sono la quasi totalita. Si aggiorna solo se il valore
+        // arriva davvero, per non cancellare quello che c e con un null.
+        (dati.provincia != null && esistente.provincia !== dati.provincia) ||
+        (dati.citta != null && esistente.citta !== dati.citta) ||
+        (dati.cittaFonte != null && esistente.cittaFonte !== dati.cittaFonte);
       if (cambiato) await prisma.ordine.update({ where: { id: esistente.id }, data: dati });
       // Le righe si riscrivono solo se mancano: rifarle a ogni giro
       // cancellerebbe e ricreerebbe migliaia di righe per niente.
