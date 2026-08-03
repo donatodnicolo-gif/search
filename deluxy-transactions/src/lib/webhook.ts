@@ -11,7 +11,7 @@ import { decifra, hmacSha256, sha256 } from "./crypto";
 // Non blocca mai il flusso: un webhook che non risponde non deve impedire
 // un'approvazione. Chi vuole la certezza legge lo stato dall'API.
 
-export async function notificaOrigine(richiestaId: string): Promise<void> {
+export async function notificaOrigine(richiestaId: string, extra?: { motivo?: string }): Promise<void> {
   try {
     const r = await prisma.richiesta.findUnique({
       where: { id: richiestaId },
@@ -29,6 +29,14 @@ export async function notificaOrigine(richiestaId: string): Promise<void> {
       valuta: r.valuta,
       decisaIl: r.decisaIl?.toISOString() ?? null,
       pagataIl: r.pagataIl?.toISOString() ?? null,
+      // Come è uscito il denaro: "distinta", "qonto", oppure "fuori_app" —
+      // pagata altrove e registrata qui a mano. Chi riceve deve poter
+      // distinguere un pagamento provato da uno dichiarato: campo aggiunto,
+      // non sostituito, così chi legge solo `stato` continua a funzionare.
+      pagatoCon: r.pagatoCon ?? null,
+      // Il perché, quando c'è: annullamenti e chiusure a mano lo portano con sé,
+      // altrimenti dall'altra parte resta un cambio di stato senza spiegazione.
+      motivo: extra?.motivo ?? null,
     });
     const timestamp = String(Date.now());
     const segreto = decifra(r.chiaveApi.segretoHmac);

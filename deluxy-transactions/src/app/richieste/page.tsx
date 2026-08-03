@@ -107,7 +107,7 @@ export default async function Elenco({
                   <td className="cella-num importo">{euro(r.importoCent)}</td>
                   <td className="cella-muta">{r.origine}</td>
                   <td>
-                    <BadgeStato stato={r.stato} />
+                    <BadgeStato stato={r.stato} pagatoCon={r.pagatoCon} />
                   </td>
                   <td className="cella-muta">{quando(r.creataIl)}</td>
                   <td className="cella-muta">{quando(r.pagataIl)}</td>

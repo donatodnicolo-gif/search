@@ -121,6 +121,43 @@ e l'app non può creare beneficiari né renderli fidati: quello si fa in Qonto.
 Se un domani si accetteranno anche i `CLOSE_MATCH`, o si permetterà di creare
 beneficiari via API, va scritto qui — con la motivazione.
 
+## 0-ter. «Questa l'ho già pagata altrove» — perché non è una seconda porta
+
+Dal 03/08/2026 un operatore può, dalla pagina di una richiesta, dichiararla
+**già pagata fuori da questa app** (bonifico fatto a mano dal portale della
+banca, addebito, contanti, compensazione) oppure **annullarla**.
+
+Sembra un buco nel capitolo 0, e non lo è: **da lì non esce un euro**. Non
+genera file SEPA, non chiama la banca, non tocca `verificaCancello()`. È una
+*registrazione* di denaro già uscito per un'altra strada — per questo non chiede
+il PIN del pagatore, che è la chiave dell'uscita, non della contabilità.
+
+L'abuso possibile non è rubare: è **far sparire dalla coda una richiesta che
+nessuno ha pagato**, lasciando un fornitore senza soldi e Finance convinta che
+il mese sia chiuso. Contro quello:
+
+1. **secondo fattore** a ogni chiusura, come per una firma;
+2. **motivo obbligatorio** (dove, quando, numero dell'operazione): fra sei mesi
+   è l'unica traccia;
+3. evento dedicato nel registro — `richiesta.pagata_fuori`, non
+   `richiesta.pagata`: nel libro mastro le due cose non si confondono;
+4. `pagatoCon = "fuori_app"` sulla riga, ripetuto **nel webhook** e nella
+   pillola di stato («pagata fuori»): chi legge sa che di quel pagamento l'app
+   non ha una prova propria, ha la parola di una persona;
+5. il **sigillo** vale anche qui: su una riga manomessa non si scrive «pagata».
+
+Due effetti che non sono facoltativi, e vanno mantenuti se si tocca il codice:
+
+- **la richiesta esce dalla distinta** in cui si trovava (`lottoId = null`),
+  altrimenti verrebbe pagata una seconda volta dal file SEPA;
+- **se quella distinta era sbloccata, lo sblocco decade** (e i codici in corso
+  si annullano): togliere una riga cambia la distinta, e uno sblocco vale per la
+  distinta *com'era* — la stessa regola del punto 3 del capitolo 0.
+
+Non si chiude a mano una richiesta che sta in una distinta **già esportata o
+pagata**: quel file è fuori, e dire «pagata a mano» nasconderebbe che sta per
+essere pagata anche da lì. In quel caso si chiude la distinta.
+
 ## 1. Chi può chiedere un pagamento (le altre app)
 
 | Controllo | Perché |

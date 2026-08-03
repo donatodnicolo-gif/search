@@ -4,12 +4,17 @@ import { livelloRischio } from "@/lib/rischio";
 // Pillole di stato e di rischio: un posto solo, così lo stesso stato ha lo
 // stesso colore in tutte le schermate.
 
-export function BadgeStato({ stato }: { stato: string }) {
-  const tono = TONI[stato] ?? "neutro";
+// `pagatoCon` non è un dettaglio: «pagata» e «pagata fuori dall'app» sono lo
+// stesso stato ma due cose diverse — della prima esiste il file mandato in
+// banca o l'id del bonifico, della seconda solo la parola di chi l'ha
+// registrata. In un elenco di pagamenti la differenza si deve vedere.
+export function BadgeStato({ stato, pagatoCon }: { stato: string; pagatoCon?: string | null }) {
+  const fuori = stato === "pagata" && pagatoCon === "fuori_app";
+  const tono = fuori ? "neutro" : TONI[stato] ?? "neutro";
   return (
-    <span className={`badge ${tono}`}>
+    <span className={`badge ${tono}`} title={fuori ? "Pagata da un'altra parte e registrata qui a mano" : undefined}>
       <span className="dot" />
-      {ETICHETTE[stato] ?? stato}
+      {fuori ? "pagata fuori" : ETICHETTE[stato] ?? stato}
     </span>
   );
 }

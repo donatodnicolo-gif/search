@@ -110,8 +110,20 @@ x-deluxy-evento:    richiesta.stato
 ```json
 { "riferimento": "TRX-2026-000002", "riferimentoEsterno": "conversazione-8842",
   "stato": "approvata", "importoCent": 24990, "valuta": "EUR",
-  "decisaIl": "2026-07-26T12:05:11.000Z", "pagataIl": null }
+  "decisaIl": "2026-07-26T12:05:11.000Z", "pagataIl": null,
+  "pagatoCon": null, "motivo": null }
 ```
+
+- `pagatoCon` dice **come** è uscito il denaro: `"distinta"` (file SEPA),
+  `"qonto"` (bonifico partito dall'API) oppure `"fuori_app"` — pagato altrove e
+  registrato a mano da un operatore. `null` finché non è pagata.
+  **`"fuori_app"` va trattato diversamente**: di quel pagamento questa app non ha
+  una prova propria, ha la parola di chi l'ha registrato.
+- `motivo` c'è quando la richiesta è stata chiusa a mano (annullata, o segnata
+  già pagata altrove): è il testo scritto dall'operatore.
+
+I due campi sono **aggiunti**, non sostituiti: chi legge solo `stato` continua a
+funzionare com'era.
 
 **Verifica sempre la firma** prima di dare retta al contenuto. La notifica è un
 avviso, non una prova: la fonte di verità è `GET /api/v1/richieste/<rif>`.
@@ -124,6 +136,10 @@ avviso, non una prova: la fonte di verità è `GET /api/v1/richieste/<rif>`.
 | `sospesa` | un operatore ha chiesto un chiarimento |
 | `approvata` | firmata, pronta per la distinta |
 | `in_lotto` | inserita in una distinta SEPA |
-| `pagata` | la distinta è stata segnata come pagata |
+| `pagata` | la distinta è stata segnata come pagata, il bonifico è partito, **oppure** un operatore ha registrato un pagamento avvenuto altrove (`pagatoCon: "fuori_app"`) |
 | `rifiutata` | un operatore ha detto no |
-| `annullata` | ritirata dall'app di origine |
+| `annullata` | ritirata dall'app di origine, oppure annullata a mano da un operatore (arriva col `motivo`) |
+
+Una richiesta `annullata` o `rifiutata` è una partita chiusa **senza**
+pagamento: il dovuto è ancora lì e l'app che l'aveva chiesta può richiederlo di
+nuovo.

@@ -3,10 +3,11 @@ import { prisma } from "@/lib/db";
 import { operatoreCorrente } from "@/lib/sessione";
 import { euro } from "@/lib/denaro";
 import { formattaIban, ibanSepa } from "@/lib/iban";
-import { motiviDa } from "@/lib/richieste";
+import { chiudibileAMano, motiviDa } from "@/lib/richieste";
 import { sigilloRichiesta } from "@/lib/audit";
 import { BadgeRischio, BadgeStato, Firme, quando } from "@/components/Etichette";
 import { ModuloFirma } from "@/components/ModuloFirma";
+import { ModuloChiusura } from "@/components/ModuloChiusura";
 
 // Dettaglio di una richiesta: tutto quello che serve per decidere, in una
 // schermata sola, con i motivi di rischio in evidenza e la storia sotto.
@@ -35,6 +36,24 @@ export default async function Dettaglio({ params }: { params: Promise<{ id: stri
   const decidibile = r.stato === "in_attesa" || r.stato === "sospesa";
   const sigilloOk = sigilloRichiesta(r) === r.sigillo;
 
+  // Chiusura a mano: si può finché la partita è aperta e la distinta — se ce
+  // n'è una — non è ancora andata in banca.
+  const chiudibile = chiudibileAMano(r.stato) && (!r.lotto || r.lotto.stato === "aperto");
+  const oggi = new Date().toLocaleDateString("sv-SE"); // 2026-08-03, ora locale
+
+  // Se è stata pagata fuori dall'app, il «come» sta nel registro: è lì che
+  // questa app tiene i perché, non su una colonna in più.
+  const eventoFuori =
+    r.pagatoCon === "fuori_app" ? [...r.eventi].reverse().find((e) => e.tipo === "richiesta.pagata_fuori") : undefined;
+  let dettagliFuori: { metodoTesto?: string; motivo?: string; uscitaDaDistinta?: string | null } = {};
+  if (eventoFuori) {
+    try {
+      dettagliFuori = JSON.parse(eventoFuori.dettagli);
+    } catch {
+      dettagliFuori = {};
+    }
+  }
+
   // Altri IBAN già visti per lo stesso beneficiario: è il confronto che fa
   // vedere a occhio un cambio di coordinate.
   const altriIban = await prisma.beneficiario.findMany({
@@ -55,7 +74,7 @@ export default async function Dettaglio({ params }: { params: Promise<{ id: stri
           </p>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <BadgeStato stato={r.stato} />
+          <BadgeStato stato={r.stato} pagatoCon={r.pagatoCon} />
           <Firme raccolte={firme} necessarie={necessarie} />
         </div>
       </div>
@@ -150,6 +169,44 @@ export default async function Dettaglio({ params }: { params: Promise<{ id: stri
       {decidibile && giaVotato && (
         <div className="avviso-ok">
           Hai già espresso la tua decisione su questa richiesta. Serve un altro operatore per completare la doppia firma.
+        </div>
+      )}
+
+      {chiudibile && sigilloOk && operatore.ruolo !== "osservatore" && (
+        <ModuloChiusura
+          id={r.id}
+          richiedeCodice={operatore.totpAttivo}
+          importo={euro(r.importoCent)}
+          distinta={r.lotto?.riferimento ?? null}
+          oggi={oggi}
+        />
+      )}
+
+      {r.pagatoCon === "fuori_app" && (
+        <div className="scheda">
+          <div className="scheda-titolo">Pagata fuori da questa app</div>
+          <p className="testo-guida" style={{ marginTop: 0 }}>
+            Di questo pagamento l&apos;app non ha una prova propria — nessun file SEPA, nessun bonifico partito da qui:
+            ha la parola di chi l&apos;ha registrato.
+          </p>
+          <div className="griglia-campi" style={{ marginTop: 14 }}>
+            <div className="campo">
+              <dt>Come</dt>
+              <dd>{dettagliFuori.metodoTesto ?? "non indicato"}</dd>
+            </div>
+            <div className="campo">
+              <dt>Quando</dt>
+              <dd>{quando(r.pagataIl)}</dd>
+            </div>
+            <div className="campo">
+              <dt>Registrata da</dt>
+              <dd>{eventoFuori?.attore ?? "—"}</dd>
+            </div>
+            <div className="campo campo-largo">
+              <dt>Dove e da chi</dt>
+              <dd>{dettagliFuori.motivo ?? "—"}</dd>
+            </div>
+          </div>
         </div>
       )}
 

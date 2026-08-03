@@ -1,6 +1,6 @@
 # Handoff — Deluxy Transactions
 
-Aggiornato: **31 luglio 2026**
+Aggiornato: **3 agosto 2026**
 
 > ⚠️ **Leggi prima questo (aggiornato la sera del 31/07/2026).** L'app è
 > **configurata e in produzione**, e la catena è stata percorsa fino in fondo su
@@ -97,6 +97,28 @@ bancarie non ce ne sono ancora: il file SEPA lo carica una persona in banca.
   e in cima avvisa quando manca qualcosa che impedisce di pagare: posta non
   configurata, ordinante senza ragione sociale o IBAN, pagatore che non è un
   operatore attivo, pagatore senza PIN.
+- **Chiudere una richiesta senza pagarla da qui** (03/08/2026): dalla sua pagina
+  si può segnarla **già pagata altrove** (bonifico fatto a mano dal portale della
+  banca, addebito, carta, contanti, compensazione — con data e nota
+  obbligatorie) oppure **annullarla** con un motivo. Serve il codice a 6 cifre,
+  come per una firma. **Non è una seconda porta per far uscire denaro**: non
+  genera niente e non chiama la banca, quindi non passa dal PIN del pagatore —
+  registra denaro già uscito. Tre effetti che contano: la richiesta **esce dalla
+  distinta** in cui si trovava (altrimenti la pagherebbe di nuovo il file SEPA),
+  se quella distinta era **sbloccata lo sblocco decade**, e l'app di origine
+  viene **avvisata col webhook**. Nel registro l'evento è
+  `richiesta.pagata_fuori`, distinto da `richiesta.pagata`; sulla riga resta
+  `pagatoCon = "fuori_app"` e la pillola dice «pagata fuori». Il perché di ogni
+  scelta è in [SICUREZZA.md](SICUREZZA.md) §0-ter. Codice:
+  `chiudiFuoriDallApp()` in [src/lib/richieste.ts](../src/lib/richieste.ts),
+  azione `chiudiRichiesta` in [src/app/actions.ts](../src/app/actions.ts),
+  modulo [ModuloChiusura.tsx](../src/components/ModuloChiusura.tsx).
+- **Il webhook dice anche come e perché** (03/08/2026): al corpo si sono aggiunti
+  `pagatoCon` (`distinta` | `qonto` | `fuori_app`) e `motivo`. Campi aggiunti,
+  non sostituiti: chi legge solo `stato` continua a funzionare. Finance li
+  scrive nel proprio registro (`deluxy-partner`,
+  `src/app/api/pagamenti/notifica/route.ts`), così «pagata fuori dall'app» e il
+  motivo di un annullamento si leggono senza aprire Transactions.
 - **Rubrica beneficiari** con verifica manuale e rilevamento del cambio IBAN.
 - **UI completa**: coda, richieste + dettaglio, nuova richiesta manuale,
   distinte, beneficiari, registro, chiavi, operatori, impostazioni, accesso.
@@ -325,6 +347,10 @@ detta a chi le usa.
   Ora l'intestazione mostra **l'email**, la distinta dice con quale account sei
   entrato, e la pagina PIN avvisa in cima se non sei il pagatore. Regola: dove
   l'identità decide chi può far uscire denaro, si scrive l'email, mai il nome.
+- **Un elenco condiviso fra browser e server non sta in `lib/richieste.ts`.** Le
+  voci del menu «come è stata pagata» servono al modulo client e al controllo sul
+  server: importarle da lì avrebbe trascinato **Prisma dentro il bundle del
+  browser**. Stanno da sole in [src/lib/metodi-fuori.ts](../src/lib/metodi-fuori.ts).
 - Gli script `scripts/*.mjs` ripetono la cifratura invece di importarla da
   `src/lib/crypto.ts`: se cambia l'algoritmo là, vanno allineati anche loro.
 
@@ -352,7 +378,11 @@ codice qui.
    l'IBAN cambiato.
 3. **Il primo bonifico vero non è mai partito.** `pagate: 0` è l'unico esito mai
    ottenuto. Il giro va chiuso con la cifra piccola che è già in coda (5,79 €)
-   prima di considerare la strada affidabile.
+   prima di considerare la strada affidabile. Dal 03/08/2026 c'è anche l'uscita
+   di servizio: se quei 5,79 € vengono pagati a mano dal portale della banca,
+   `TRX-2026-000003` si segna **pagata fuori dall'app** e Finance lo viene a
+   sapere — ma resta vero che il percorso VoP → bonifico non è mai stato
+   completato, e segnarla pagata **non lo dimostra**.
 4. **Soglia di rischio a 10**: rende la doppia firma quasi sempre obbligatoria.
    Da confermare con l'utente o riportare a ~50.
 5. **Link «vai a pagare»**: compilare in Impostazioni l'indirizzo della pagina

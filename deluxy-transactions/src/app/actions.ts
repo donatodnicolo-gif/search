@@ -6,7 +6,7 @@ import { prisma } from "@/lib/db";
 import { cifra, sha256, tokenCasuale, hashPassword } from "@/lib/crypto";
 import { generaSegretoTotp } from "@/lib/totp";
 import { registra } from "@/lib/audit";
-import { creaRichiesta, decidi } from "@/lib/richieste";
+import { chiudiFuoriDallApp, creaRichiesta, decidi } from "@/lib/richieste";
 import {
   accedi,
   confermaSecondoFattore,
@@ -93,6 +93,47 @@ export async function decidiRichiesta(_stato: unknown, fd: FormData): Promise<{ 
   revalidatePath("/richieste");
   revalidatePath(`/richieste/${id}`);
   return { ok: esito.messaggio };
+}
+
+// ---------------------------------------------------------------------------
+// Chiudere una richiesta senza pagarla da qui
+// ---------------------------------------------------------------------------
+
+// «Questa l'ho già pagata dal portale della banca» / «annullala, non si paga
+// più». Non è una porta da cui esce denaro — non tocca il cancello del pagatore
+// e non chiede il PIN — ma chiude una partita e lo dice a chi l'aveva aperta,
+// quindi vuole il secondo fattore e un motivo scritto.
+export async function chiudiRichiesta(_stato: unknown, fd: FormData): Promise<{ errore?: string; ok?: string }> {
+  const operatore = await esigiOperatore();
+  const id = testo(fd, "id");
+  const esito = testo(fd, "esito");
+  if (esito !== "pagata_fuori" && esito !== "annullata") return { errore: "Azione sconosciuta." };
+
+  if (operatore.totpAttivo) {
+    if (!(await confermaSecondoFattore(operatore.id, testo(fd, "codice")))) {
+      return { errore: "Codice a 6 cifre errato o scaduto: non è stato cambiato niente." };
+    }
+  }
+
+  const motivo = testo(fd, "motivo");
+  const chiusura = await chiudiFuoriDallApp(
+    id,
+    { id: operatore.id, email: operatore.email, ruolo: operatore.ruolo },
+    { esito, metodo: testo(fd, "metodo"), motivo, dataPagamento: testo(fd, "dataPagamento") },
+    await ipRichiesta(),
+  );
+  if (!chiusura.ok) return { errore: chiusura.errore };
+
+  // L'app che ha chiesto il pagamento va avvisata: per Finance «pagata fuori»
+  // chiude il mese, «annullata» rimette il dovuto in coda. Se il webhook non
+  // parte, la chiusura resta comunque valida qui — è un avviso, non la verità.
+  notificaOrigine(id, { motivo }).catch(() => {});
+
+  revalidatePath("/");
+  revalidatePath("/richieste");
+  revalidatePath(`/richieste/${id}`);
+  revalidatePath("/distinte");
+  return { ok: `${chiusura.messaggio} L'app che l'aveva chiesta è stata avvisata.` };
 }
 
 // ---------------------------------------------------------------------------

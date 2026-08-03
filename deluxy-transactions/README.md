@@ -50,7 +50,14 @@ qui esce la distinta SEPA che qualcuno carica in banca.
    **bonifici da Qonto** (`POST /v2/sepa/transfers`, con controllo
    dell'intestatario e idempotenza per richiesta). La pagina **Banca** mostra
    saldo e uscite del conto e riconosce le richieste dal riferimento in causale.
-8. Ogni passaggio finisce in un **registro a catena di hash**: modificare la
+8. Non tutto passa da qui, e l'app lo ammette: una richiesta si può segnare
+   **già pagata altrove** (bonifico fatto a mano dal portale della banca,
+   contanti, compensazione) oppure **annullare**, dalla sua pagina. Serve il
+   codice a 6 cifre e un motivo scritto; la richiesta esce dalla distinta in cui
+   si trovava — è la difesa contro il doppio pagamento — e l'app che l'aveva
+   chiesta viene avvisata col webhook. **Da qui non esce un euro**: si registra
+   denaro già uscito, e infatti non si passa dal PIN del pagatore.
+9. Ogni passaggio finisce in un **registro a catena di hash**: modificare la
    storia si vede.
 
 ## Avvio

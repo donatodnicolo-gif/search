@@ -4,6 +4,7 @@ import { ibanValido, normalizzaIban, normalizzaNome, bicValido } from "./iban";
 import { aCentesimi } from "./denaro";
 import { valutaRischio } from "./rischio";
 import { leggiRegole, type Regole } from "./impostazioni";
+import { METODI_FUORI } from "./metodi-fuori";
 
 // Creazione e cambi di stato delle richieste di pagamento.
 //
@@ -12,6 +13,12 @@ import { leggiRegole, type Regole } from "./impostazioni";
 //       │  ╰──rifiuta──▶ rifiutata
 //       │  ╰──sospendi─▶ sospesa ──riprendi──▶ in_attesa
 //       ╰──annulla (dall'app di origine)──▶ annullata
+//
+// E una scorciatoia che viene da fuori, non da qui: da qualunque stato ancora
+// aperto un operatore può dire «questa l'ho già pagata da un'altra parte»
+// (▶ pagata, `pagatoCon = "fuori_app"`) oppure «annullala». Vedi
+// `chiudiFuoriDallApp` più sotto: è registrazione di denaro già uscito, non una
+// seconda porta da cui farlo uscire.
 //
 // Regole non negoziabili:
 //   • una richiesta non si modifica dopo l'approvazione (importo e IBAN sono
@@ -324,6 +331,186 @@ export async function decidi(
   await prisma.richiesta.update({ where: { id: r.id }, data: { stato: "approvata", decisaIl: new Date() } });
   await registra("richiesta.approvata", operatore.email, { riferimento: r.riferimento, parziale: false, approvazioni }, { richiestaId: r.id, ip });
   return { ok: true, stato: "approvata", messaggio: "Richiesta approvata: pronta per la distinta." };
+}
+
+// ---------------------------------------------------------------------------
+// Chiusura fuori dall'app: «l'ho già pagata da un'altra parte» / «annullala»
+// ---------------------------------------------------------------------------
+
+// Perché serve: il mondo non passa sempre da qui. Un bonifico può essere partito
+// dal portale della banca, un fornitore può essere stato pagato in contanti, una
+// fattura può essere stata compensata con un credito. Senza questa strada la
+// richiesta resterebbe in coda per sempre, e — peggio — verrebbe pagata una
+// seconda volta il giorno che qualcuno la mette in distinta.
+//
+// ATTENZIONE, e va detto chiaro: da qui NON esce un euro. Non è un secondo
+// cancello accanto a quello del pagatore (codice via email + PIN): è una
+// *registrazione* di denaro già uscito altrove. Per questo non chiede il PIN.
+// Chiede però il secondo fattore (in actions.ts), un motivo scritto, e lascia
+// il suo evento nel registro: l'abuso possibile non è rubare — è far sparire
+// dalla coda una richiesta che nessuno ha pagato davvero, e contro quello serve
+// che si veda chi l'ha detto e quando.
+//
+// L'effetto collaterale che conta di più: la richiesta esce dalla distinta in
+// cui si trovava. È la difesa contro il doppio pagamento.
+
+export type EsitoChiusura = { ok: true; messaggio: string } | { ok: false; errore: string };
+
+/** Stati da cui una richiesta si può ancora chiudere a mano. */
+const CHIUDIBILI = ["in_attesa", "sospesa", "approvata", "in_lotto"];
+
+/** Lo stesso elenco, per la pagina che decide se disegnare il modulo. */
+export function chiudibileAMano(stato: string): boolean {
+  return CHIUDIBILI.includes(stato);
+}
+
+export async function chiudiFuoriDallApp(
+  richiestaId: string,
+  operatore: { id: string; email: string; ruolo: string },
+  dati: { esito: "pagata_fuori" | "annullata"; metodo?: string; motivo: string; dataPagamento?: string },
+  ip?: string | null,
+): Promise<EsitoChiusura> {
+  if (operatore.ruolo === "osservatore") return { ok: false, errore: "Il ruolo osservatore non può chiudere richieste." };
+
+  const r = await prisma.richiesta.findUnique({ where: { id: richiestaId }, include: { lotto: true } });
+  if (!r) return { ok: false, errore: "Richiesta inesistente." };
+
+  if (!CHIUDIBILI.includes(r.stato)) {
+    return {
+      ok: false,
+      errore:
+        r.stato === "pagata"
+          ? "Questa richiesta risulta già pagata: non si chiude una seconda volta."
+          : `La richiesta è «${ETICHETTE[r.stato] ?? r.stato}»: è già una partita chiusa.`,
+    };
+  }
+
+  // Il sigillo vale qui come sull'approvazione: se importo o IBAN sono stati
+  // toccati fuori dall'app, non si scrive «pagata» su niente.
+  if (sigilloRichiesta(r) !== r.sigillo) {
+    await registra(
+      "sicurezza.allarme",
+      operatore.email,
+      { messaggio: "sigillo non corrispondente in chiusura manuale", riferimento: r.riferimento },
+      { richiestaId: r.id, ip },
+    );
+    return { ok: false, errore: "I dati della richiesta non corrispondono al sigillo: bloccata per sicurezza." };
+  }
+
+  const motivo = testo(dati.motivo);
+  if (motivo.length < 3) {
+    return {
+      ok: false,
+      errore:
+        dati.esito === "pagata_fuori"
+          ? "Scrivi dove e quando è stata pagata (numero dell'operazione, conto, chi l'ha fatta): fra sei mesi è l'unica traccia."
+          : "Scrivi perché la annulli: resta nel registro al posto del pagamento.",
+    };
+  }
+
+  // Una richiesta dentro una distinta già consegnata alla banca non si chiude da
+  // qui: il file è fuori, e dire «pagata a mano» nasconderebbe che sta per
+  // essere pagata anche da lì.
+  if (r.lotto && r.lotto.stato !== "aperto") {
+    return {
+      ok: false,
+      errore: `Questa richiesta è nella distinta ${r.lotto.riferimento}, che è già «${r.lotto.stato}». Chiudi prima la distinta: se il bonifico è partito da lì, si segna pagata la distinta.`,
+    };
+  }
+
+  let quandoPagata: Date | null = null;
+  let metodo = "";
+  if (dati.esito === "pagata_fuori") {
+    metodo = testo(dati.metodo);
+    if (!METODI_FUORI[metodo]) return { ok: false, errore: "Scegli come è stata pagata." };
+
+    const giorno = testo(dati.dataPagamento);
+    if (giorno) {
+      // Mezzogiorno, non mezzanotte: una data scritta a mano non deve scivolare
+      // al giorno prima per via del fuso.
+      const d = new Date(`${giorno}T12:00:00`);
+      if (Number.isNaN(d.getTime())) return { ok: false, errore: "La data del pagamento non è valida." };
+      const oggi = new Date();
+      const stessoGiorno = d.toDateString() === oggi.toDateString();
+      if (d.getTime() > oggi.getTime() && !stessoGiorno) {
+        return { ok: false, errore: "La data del pagamento è nel futuro: si registra quello che è già uscito, non quello che uscirà." };
+      }
+      quandoPagata = stessoGiorno ? oggi : d;
+    } else {
+      quandoPagata = new Date();
+    }
+  }
+
+  const adesso = new Date();
+  const lottoLasciato = r.lotto?.riferimento ?? null;
+
+  await prisma.$transaction(async (tx) => {
+    await tx.richiesta.update({
+      where: { id: r.id },
+      data:
+        dati.esito === "pagata_fuori"
+          ? {
+              stato: "pagata",
+              // «fuori_app» non è un dettaglio estetico: è ciò che distingue un
+              // pagamento di cui questa app ha la prova (id del bonifico, file
+              // SEPA) da uno di cui ha solo il racconto di una persona.
+              pagatoCon: "fuori_app",
+              pagataIl: quandoPagata,
+              decisaIl: r.decisaIl ?? adesso,
+              lottoId: null,
+            }
+          : { stato: "annullata", decisaIl: adesso, lottoId: null },
+    });
+
+    // Togliere una riga cambia la distinta, e uno sblocco vale per la distinta
+    // *com'era*: se ce n'è uno aperto va spento, altrimenti si firmerebbe un
+    // totale e se ne pagherebbe un altro.
+    if (r.lottoId) {
+      await tx.lotto.updateMany({
+        where: { id: r.lottoId, sbloccoScadeIl: { gt: adesso } },
+        data: { sbloccatoDa: null, sbloccatoIl: null, sbloccoScadeIl: null },
+      });
+      await tx.sbloccoPagamento.updateMany({
+        where: { lottoId: r.lottoId, usatoIl: null, annullatoIl: null },
+        data: { annullatoIl: adesso },
+      });
+    }
+  });
+
+  if (dati.esito === "pagata_fuori") {
+    await registra(
+      "richiesta.pagata_fuori",
+      operatore.email,
+      {
+        riferimento: r.riferimento,
+        importoCent: r.importoCent,
+        beneficiario: r.beneficiario,
+        metodo,
+        metodoTesto: METODI_FUORI[metodo],
+        motivo,
+        pagataIl: quandoPagata?.toISOString() ?? null,
+        uscitaDaDistinta: lottoLasciato,
+      },
+      { richiestaId: r.id, ip },
+    );
+    return {
+      ok: true,
+      messaggio: `${r.riferimento} segnata pagata fuori dall'app (${METODI_FUORI[metodo]}).${
+        lottoLasciato ? ` Tolta dalla distinta ${lottoLasciato}: non verrà pagata una seconda volta.` : ""
+      }`,
+    };
+  }
+
+  await registra(
+    "richiesta.annullata",
+    operatore.email,
+    { riferimento: r.riferimento, importoCent: r.importoCent, motivo, aMano: true, uscitaDaDistinta: lottoLasciato },
+    { richiestaId: r.id, ip },
+  );
+  return {
+    ok: true,
+    messaggio: `${r.riferimento} annullata.${lottoLasciato ? ` Tolta dalla distinta ${lottoLasciato}.` : ""}`,
+  };
 }
 
 /** Annullamento chiesto dall'app di origine (solo se non è ancora approvata). */
