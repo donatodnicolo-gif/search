@@ -1150,6 +1150,28 @@ Le altre app leggono con una chiave di sola lettura (`GET /api/v1/ordini`,
 `/api/v1/marketing`). Chi ha una chiave di scrittura può anche riclassificare
 (`PATCH /api/v1/ordini/:id`). Dettaglio in `README.md`.
 
+### La città dedotta esce a parte (`cittaDedotta`, 03/08/2026)
+`spedizione.citta` è la città dell'**indirizzo**: quella vera. Accanto, quando
+l'indirizzo non la dice, c'è la città **ricavata dai tag dell'ordine o dal nome
+del prodotto** — 894 ordini al 03/08/2026, 571 dai tag e 323 dal prodotto, tutti
+senza città vera:
+
+```json
+"spedizione": { "citta": null, "provincia": null, "paese": "IT" },
+"cittaDedotta": { "citta": "Milano", "da": "tag", "prova": "milano-centro" }
+```
+
+- **Non si scrive mai dentro `spedizione.citta`**: una deduzione e un indirizzo
+  non sono la stessa cosa, e chi legge deve poter scegliere se fidarsi.
+- `da` vale `tag` o `prodotto`, `prova` è **il testo su cui è stata decisa**: una
+  deduzione che chi la riceve non può controllare non è un dato, è un'opinione.
+- ⚠️ **Serve soprattutto a chi filtra.** `?citta=Milano` cerca in tutt'e due i
+  campi (e in tutte le grafie: «Milan» compresa). Prima di questo blocco la
+  risposta conteneva ordini con `spedizione.citta` vuota e niente che spiegasse
+  perché fossero usciti: il filtro sapeva una cosa che la risposta non diceva.
+- La deduzione ha una **controprova** che ne ha bocciate parecchie (Venezia,
+  Capri, Dubai…): vedi la riconciliazione più su.
+
 ### Quanto vale ogni canale (`/api/v1/marketing`)
 L'app Marketing sa quanto ha **speso** per canale; qui trova quanto ha
 **incassato** — e soprattutto il taglio che nessuna dashboard pubblicitaria sa
@@ -1160,7 +1182,9 @@ sta rifatturando la fedeltà.
 Per ogni canale: ordini, lordo, i dodici mesi, e lo split `primi` (clienti mai
 visti prima) / `daRepeater` / `nonAttribuibili`. In più le **campagne per nome**
 («[Deluxy] - Fiori Milano»), che è la riga con cui si riconcilia la spesa
-pubblicitaria col venduto.
+pubblicitaria col venduto. ⚠️ Quel nome è quello che la campagna aveva **quando
+il link è stato scritto**: se in Google Ads è stata rinominata, qui resta il nome
+vecchio — vedi la trappola nell'handoff.
 
 Sul 2026 (3.419 ordini, 602.160 €): **Google Ads** 792 ordini e 144.499 € di cui
 **701 da clienti nuovi**; la ricerca non pagata 838 ordini e 121.683 €; il

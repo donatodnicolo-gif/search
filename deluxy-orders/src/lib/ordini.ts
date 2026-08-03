@@ -318,6 +318,23 @@ export function serializzaOrdine(
       provincia: o.provincia,
       paese: o.paese,
     },
+    // La città che NON viene dall'indirizzo: ricavata dai tag dell'ordine o dal
+    // nome del prodotto quando l'indirizzo non la dice (894 ordini al 03/08/2026
+    // — 571 dai tag, 323 dal prodotto). Sta in un blocco suo e non dentro
+    // `spedizione.citta`, che resta il dato vero: la deduzione non ci si scrive
+    // mai sopra.
+    //
+    // ⚠️ Questo blocco esiste soprattutto per chi FILTRA: `?citta=` cerca in
+    // tutt'e due i campi, quindi senza di lui tornavano ordini con
+    // `spedizione.citta` vuota e niente che spiegasse perché fossero usciti — il
+    // filtro sapeva una cosa che la risposta non diceva.
+    //
+    // `da` vale "tag" | "prodotto" e `prova` è il testo su cui è stata decisa:
+    // una deduzione che chi la riceve non può controllare non è un dato, è
+    // un'opinione. `null` quando l'indirizzo la città ce l'ha.
+    cittaDedotta: o.cittaDedotta
+      ? { citta: o.cittaDedotta, da: o.cittaDedottaDa, prova: o.cittaDedottaProva }
+      : null,
     // Chi manda: nei regali non è la stessa persona né lo stesso posto di chi
     // riceve. `daLontano` è vero quando il paese di partenza e quello di arrivo
     // sono diversi — è la riga che spiega metà delle domande al Customer

@@ -676,6 +676,14 @@ Campi nuovi: `cittaDedotta`, `cittaDedottaDa` (tag|prodotto), `cittaDedottaProva
   senza; «non classificato» da 2.525 a **607**.
 - ⚠️ 200 `update` in parallelo esauriscono il pool (limite 5): scrivere in
   blocco con `UPDATE … FROM (VALUES …)`. Terza volta che succede.
+- **Esposta alle altre app dal 03/08/2026**: blocco `cittaDedotta { citta, da,
+  prova }` in `serializzaOrdine`, quindi sia in `GET /api/v1/ordini` sia nel
+  dettaglio. **Fuori da `spedizione.citta`**, che resta l'indirizzo vero. Numeri
+  al 03/08: 894 ordini, 571 dai tag e 323 dal prodotto, **tutti senza città
+  vera**. Il motivo per cui andava esposta non è la completezza: `?citta=` cerca
+  già in tutt'e due i campi, quindi la risposta restituiva ordini con
+  `spedizione.citta` vuota **senza dire perché fossero usciti** — il filtro
+  sapeva una cosa che la risposta non diceva.
 
 ## Trappole già pagate — leggere prima di toccare l'import
 
