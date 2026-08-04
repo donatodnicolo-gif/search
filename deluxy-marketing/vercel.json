@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/cron/ordini",
-      "schedule": "20 3 * * *"
+      "schedule": "20 */3 * * *"
     }
   ],
   "regions": [

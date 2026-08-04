@@ -22,6 +22,19 @@ Riceve già dati veri da Google Ads (Gifts e Flowers) e ha 2.426 ordini Shopify 
 
 ## FATTO
 
+### Gli ordini si aggiornano ogni 3 ore (04/08/2026)
+
+`/api/cron/ordini` passa da `20 3 * * *` a **`20 */3 * * *`**: otto corse al
+giorno invece di una. Era un punto aperto dal 01/08 e si vedeva nei numeri —
+con la spesa di Google e Meta aggiornata a oggi e gli ordini fermi alla notte,
+ROS, MER e costo di acquisizione risultavano **peggiori del vero** fino al
+mattino dopo, senza dichiararlo. Misurato prima del cambio: ultimo ordine
+03/08 21:34 con la spesa già al 04/08.
+
+La finestra resta di **7 giorni** (un ordine cambia stato dopo essere nato) e
+la corsa si ferma da sola a 45 s dei 60 di `maxDuration` dicendo dov'è
+arrivata: otto corse corte costano meno di una lunga che rischia il timeout.
+
 ### «Metti in coda» sembrava non fare niente (04/08/2026)
 
 Segnalato dall'utente: si sceglievano le campagne, si premeva **Metti in coda**
@@ -821,11 +834,7 @@ analisi importate); seconda corsa 0 scritture.
   stesso DB lo saturano. **In produzione regge oggi perché il traffico è basso**,
   ma è il primo punto che cede. Candidato n.1 da alzare.
 
-- **Cron ordini una volta a notte (03:20): l'utente ha chiesto ogni 3 ore, NON
-  fatto.** Oggi gli ordini restano indietro di un giorno rispetto a spesa Google/
-  Meta che sono a oggi → i KPI di giornata (ROS, MER, costo acq.) risultano
-  peggiori del vero fino al mattino dopo. Basta cambiare lo schedule in
-  `vercel.json` (finestra 7 gg già a posto).
+- ~~**Cron ordini una volta a notte**~~ — **fatto il 04/08/2026**: `20 */3 * * *`.
 
 - **TikTok completamente scollegato** (0 account, 0 token, 0 consegne). Il
   connettore `lib/tiktok.ts` c'è e funziona, ma serve access token + advertiser id
