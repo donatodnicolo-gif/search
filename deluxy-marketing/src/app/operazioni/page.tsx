@@ -1,5 +1,6 @@
+import { SelettoreStato } from "@/components/SelettoreStato";
 import { Sidebar } from "@/components/Sidebar";
-import { annullaOperazione, approvaOperazione, riapriOperazione } from "@/lib/azioni";
+import { annullaOperazione, approvaOperazione, cambiaCorrispondenzaOperazione, riapriOperazione } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
 import { ETICHETTA_LIVELLO, formattaDataOra } from "@/lib/dominio";
 
@@ -71,6 +72,8 @@ export default async function PaginaOperazioni() {
     const p = o.parametri ? (JSON.parse(o.parametri) as Record<string, unknown>) : {};
     const parola = typeof p.testo === "string" && p.testo ? p.testo : null;
     const match = typeof p.corrispondenza === "string" ? String(p.corrispondenza).toLowerCase() : null;
+    // Finché non è partita si può ancora ritoccare; dopo è storia.
+    const modificabile = o.stato === "in_attesa" || o.stato === "approvata";
     const dettagli = [
       o.prima ? `prima: ${o.prima}` : null,
       o.motivo || null,
@@ -84,12 +87,31 @@ export default async function PaginaOperazioni() {
             <b>{ETICHETTA_TIPO[o.tipo] ?? o.tipo}</b>
             {parola && <span className="op-parola">«{parola}»</span>}
             {parola && match && (
-              <span
-                className={`op-match${match === "broad" || match === "generica" ? " larga" : ""}`}
-                title={SPIEGA_MATCH[match] ?? ""}
-              >
-                {ETICHETTA_MATCH[match] ?? match}
-              </span>
+              modificabile ? (
+                /* Si cambia qui, finché lo script non è passato: la
+                   corrispondenza è l'unica cosa che ha senso ritoccare senza
+                   rifare l'operazione — il resto È la decisione. */
+                <form action={cambiaCorrispondenzaOperazione} style={{ display: "inline-flex" }}>
+                  <input type="hidden" name="id" value={o.id} />
+                  <SelettoreStato
+                    nome="corrispondenza"
+                    valore={match === "esatta" ? "exact" : match === "frase" ? "phrase" : match === "generica" ? "broad" : match}
+                    colore={match === "broad" || match === "generica" ? "var(--orange)" : undefined}
+                    opzioni={[
+                      { valore: "exact", etichetta: "esatta" },
+                      { valore: "phrase", etichetta: "a frase" },
+                      { valore: "broad", etichetta: "generica ⚠" },
+                    ]}
+                  />
+                </form>
+              ) : (
+                <span
+                  className={`op-match${match === "broad" || match === "generica" ? " larga" : ""}`}
+                  title={SPIEGA_MATCH[match] ?? ""}
+                >
+                  {ETICHETTA_MATCH[match] ?? match}
+                </span>
+              )
             )}
             {p.budget != null && <span className="op-parola">{String(p.budget)} €/g</span>}
           </div>
@@ -171,6 +193,10 @@ export default async function PaginaOperazioni() {
               Le modifiche decise qui non partono da sole: restano in attesa finché non le approvi,
               poi è lo script di Google Ads a eseguirle e a riferire com&apos;è andata. Quando
               un&apos;operazione va a buon fine parte il blackout di 72 ore e nascono le verifiche.
+              {" "}Sulle parole, la <b>corrispondenza</b> si cambia da qui finché l&apos;operazione non
+              è partita: <b>esatta</b> blocca solo quella ricerca, <b>a frase</b> la sequenza di
+              parole, <b>generica</b> ogni ricerca che le contenga in qualsiasi ordine — ed è quella
+              che può spegnere una campagna per sbaglio.
             </p>
           </div>
         </div>

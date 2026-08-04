@@ -2383,3 +2383,48 @@ export async function applicaKeywordAdAltreCampagne(fd: FormData) {
 
   redirect("/operazioni");
 }
+
+// ---------- Cambiare la corrispondenza di un'operazione in coda ----------
+// Si guarda la coda, si vede una negativa GENERICA in rosso e si vuole
+// stringerla: senza questo bisognava annullare e rifare, perdendo il motivo
+// e la posizione. La corrispondenza è l'unica cosa che ha senso ritoccare
+// prima dell'esecuzione — il resto (quale parola, su quale campagna) è la
+// decisione stessa, e cambiarla vorrebbe dire un'altra operazione.
+export async function cambiaCorrispondenzaOperazione(fd: FormData) {
+  const id = testo(fd, "id");
+  const corrispondenza = testo(fd, "corrispondenza");
+  if (!id || !corrispondenza) return;
+  if (!["exact", "phrase", "broad"].includes(corrispondenza)) return;
+
+  const op = await prisma.operazioneAdv.findUnique({ where: { id } });
+  if (!op) return;
+  // Una volta eseguita è storia: si cambia su Google, non qui.
+  if (op.stato !== "in_attesa" && op.stato !== "approvata") return;
+
+  let p: Record<string, unknown> = {};
+  try {
+    p = JSON.parse(op.parametri ?? "{}");
+  } catch {
+    p = {};
+  }
+  const prima = String(p.corrispondenza ?? "—");
+  p.corrispondenza = corrispondenza;
+
+  await prisma.operazioneAdv.update({
+    where: { id },
+    data: { parametri: JSON.stringify(p) },
+  });
+
+  await registra({
+    autore: "utente",
+    tipo: "stato",
+    entita: "operazione",
+    entitaId: id,
+    titolo: `Corrispondenza di «${String(p.testo ?? op.bersaglio)}»: ${prima} → ${corrispondenza}`,
+    dettaglio:
+      corrispondenza === "broad"
+        ? "Attenzione: la generica blocca ogni ricerca che contenga queste parole in qualsiasi ordine"
+        : null,
+  });
+  revalidatePath("/operazioni");
+}
