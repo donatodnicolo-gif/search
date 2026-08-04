@@ -10,6 +10,7 @@ import { cambiaStatoGruppo, cambiaStatoKeyword, creaOperazioneGruppo, creaOperaz
 import { prisma } from "@/lib/db";
 import { periodoApp } from "@/lib/periodo-condiviso";
 import { giudizioKeyword } from "@/lib/salute";
+import { ETICHETTA_LINGUA } from "@/lib/vendite-campagna";
 import {
   COLORE_BRAND,
   ETICHETTA_BRAND,
@@ -145,6 +146,28 @@ export default async function SchedaGruppo({
     null
   );
   const testi = copy.filter((c) => c.tipo === "titolo" || c.tipo === "descrizione");
+
+  // La lingua a cui parla il gruppo: prima il suo nome, poi quello della
+  // campagna. Un gruppo "Fiori Milano ENG" parla inglese anche se sta in una
+  // campagna senza lingua nel nome.
+  const linguaDa = (testo: string): string | null => {
+    const t = testo.toLowerCase();
+    // I confini di parola non sono un dettaglio: senza di loro "en" aggancia
+    // dentro "Consegna" e un gruppo italiano risulterebbe inglese.
+    if (/\beng\b|\benglish\b|\ben\b/.test(t)) return "eng";
+    if (/\bita\b|\bitalian\b|\bitaliano\b/.test(t)) return "ita";
+    if (/\bfra?\b|\bfrench\b|\bfrancia\b|\bfrance\b/.test(t)) return "fra";
+    if (/\besp?\b|\bspanish\b|\bspagnolo\b/.test(t)) return "spa";
+    if (/\bde\b|\bger\b|\bgerman\b|\btedesco\b/.test(t)) return "ted";
+    return null;
+  };
+  const codiceGruppo = linguaDa(gruppo.nome);
+  const codiceCampagna = linguaDa(gruppo.campagna.nome);
+  const lingua = codiceGruppo
+    ? { codice: codiceGruppo, da: "dal nome del gruppo" }
+    : codiceCampagna
+      ? { codice: codiceCampagna, da: "ereditata dalla campagna" }
+      : null;
 
   const operazioneAperta = gruppo.operazioni.find((o) => o.stato === "in_attesa" || o.stato === "approvata");
 
@@ -648,6 +671,26 @@ export default async function SchedaGruppo({
                 <dl className="campo">
                   <dt>Id sulla piattaforma</dt>
                   <dd style={{ overflowWrap: "anywhere" }}>{gruppo.idEsterno ?? "—"}</dd>
+                </dl>
+                {/* La lingua a cui parla: dedotta dal nome del gruppo, e se il
+                    gruppo non la dice si eredita dalla campagna. Nel gifting
+                    conta piu di quanto sembri — chi compra e il MITTENTE, spesso
+                    fuori dal paese di consegna, e la lingua degli annunci e la
+                    sua, non quella della destinazione (ISTRUZIONI di progetto). */}
+                <dl className="campo">
+                  <dt>Lingua obiettivo</dt>
+                  <dd>
+                    {lingua ? (
+                      <>
+                        {ETICHETTA_LINGUA[lingua.codice] ?? lingua.codice}
+                        <span className="cella-sub"> · {lingua.da}</span>
+                      </>
+                    ) : (
+                      <span className="cella-muta">
+                        non dichiarata nel nome — gli annunci vanno a chiunque
+                      </span>
+                    )}
+                  </dd>
                 </dl>
                 <dl className="campo">
                   <dt>Ultimo giorno con dati</dt>

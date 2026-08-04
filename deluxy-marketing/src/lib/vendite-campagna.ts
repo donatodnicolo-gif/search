@@ -51,6 +51,8 @@ export const ETICHETTA_LINGUA: Record<string, string> = {
   ita: "Italiano — clienti italiani",
   eng: "Inglese — clienti stranieri",
   fra: "Francese — clienti in Francia",
+  spa: "Spagnolo — clienti di lingua spagnola",
+  ted: "Tedesco — clienti di lingua tedesca",
 };
 
 // Come si traduce la lingua in un filtro sul paese dell'ordine.
