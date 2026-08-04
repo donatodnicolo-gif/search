@@ -228,6 +228,10 @@ export type BloccoVendite = {
   // Le citta di CONSEGNA: su campagne geolocalizzate (Fiori Milano, Torte ROMA)
   // dicono se gli ordini arrivano dove la campagna punta davvero.
   citta: { citta: string; ordini: number; vendite: number }[];
+  // Le province di consegna. Più affidabili delle città come raggruppamento:
+  // la sigla la scrive Orders, la città la scrive il cliente — e in provincia
+  // di Milano convivono "Milano", "Milan" e "MILANO", che sono la stessa cosa.
+  province: { provincia: string; ordini: number; vendite: number }[];
 };
 
 type OrdineLetto = {
@@ -237,6 +241,7 @@ type OrdineLetto = {
   email: string | null;
   paese: string | null;
   citta: string | null;
+  provincia: string | null;
   utmCampagna: string | null;
   righe: { titolo: string; categoria: string | null; quantita: number; totale: number | null; prezzo: number | null }[];
 };
@@ -251,6 +256,7 @@ const BLOCCO_VUOTO: BloccoVendite = {
   perCategoria: [],
   paesi: [],
   citta: [],
+  province: [],
 };
 
 // Le citta arrivano scritte a mano dai clienti: "Roma" e "Rome", "Milano" e
@@ -262,6 +268,20 @@ const CITTA_ALTRE_LINGUE: Record<string, string> = {
   turin: "Torino", naples: "Napoli", venice: "Venezia", genoa: "Genova",
   "reggio calabria": "Reggio Calabria",
 };
+
+// I capoluoghi dove Deluxy consegna: serve quando Orders manda la città ma non
+// la sigla. Non è un elenco di tutte le province italiane — solo quelle che
+// contano qui, perché una mappa incompleta usata come se fosse completa fa più
+// danni di una mappa assente.
+const PROVINCIA_DI_CITTA: Record<string, string> = {
+  Milano: "MI", Roma: "RM", Firenze: "FI", Torino: "TO", Napoli: "NA",
+  Venezia: "VE", Bologna: "BO", Genova: "GE", Palermo: "PA", Bari: "BA",
+  Verona: "VR", Padova: "PD", Brescia: "BS", Como: "CO", Monza: "MB",
+};
+
+export function provinciaDaCitta(citta: string | null): string | null {
+  return citta ? PROVINCIA_DI_CITTA[citta] ?? null : null;
+}
 
 export function nomeCitta(grezza: string | null): string | null {
   const t = grezza?.trim();
@@ -282,6 +302,7 @@ function aggrega(ordini: OrdineLetto[], primoOrdineDi: Map<string, number>): Blo
   const perCategoria = new Map<string, RigaCategoria>();
   const perPaese = new Map<string, number>();
   const perCitta = new Map<string, { ordini: number; vendite: number }>();
+  const perProvincia = new Map<string, { ordini: number; vendite: number }>();
   let vendite = 0;
   let clientiNuovi = 0;
   let clientiRitorno = 0;
@@ -301,6 +322,17 @@ function aggrega(ordini: OrdineLetto[], primoOrdineDi: Map<string, number>): Blo
       c.ordini += 1;
       c.vendite += o.totale ?? 0;
       perCitta.set(citta, c);
+    }
+
+    // La provincia: quella di Orders quando c'è, altrimenti dedotta dalla città
+    // per i capoluoghi in cui Deluxy consegna davvero. Fuori dall'Italia la
+    // sigla non arriva quasi mai, e inventarla non avrebbe senso.
+    const prov = o.provincia?.trim().toUpperCase() || provinciaDaCitta(citta);
+    if (prov) {
+      const pv = perProvincia.get(prov) ?? { ordini: 0, vendite: 0 };
+      pv.ordini += 1;
+      pv.vendite += o.totale ?? 0;
+      perProvincia.set(prov, pv);
     }
 
     // Nuovo o di ritorno: si guarda se questo è il PRIMO ordine mai registrato
@@ -332,6 +364,10 @@ function aggrega(ordini: OrdineLetto[], primoOrdineDi: Map<string, number>): Blo
     clientiRitorno,
     senzaEmail,
     perCategoria: [...perCategoria.values()].sort((a, b) => b.valore - a.valore),
+    province: [...perProvincia.entries()]
+      .map(([provincia, v]) => ({ provincia, ordini: v.ordini, vendite: v.vendite }))
+      .sort((a, b) => b.ordini - a.ordini)
+      .slice(0, 12),
     citta: [...perCitta.entries()]
       .map(([citta, v]) => ({ citta, ordini: v.ordini, vendite: v.vendite }))
       .sort((a, b) => b.ordini - a.ordini)
@@ -408,6 +444,7 @@ export async function venditeDiCampagna(
         email: true,
         paese: true,
         citta: true,
+        provincia: true,
         utmCampagna: true,
         righe: { select: { titolo: true, categoria: true, quantita: true, totale: true, prezzo: true } },
       },

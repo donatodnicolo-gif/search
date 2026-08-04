@@ -1142,7 +1142,14 @@ export async function creaOperazioneKeyword(fd: FormData) {
         // ordine: escludere «fiori milano» spegnerebbe anche «consegna fiori a
         // milano centro», cioè il traffico buono. Per le keyword da AGGIUNGERE
         // resta broad, che lì è il default giusto.
-        corrispondenza: testo(fd, "corrispondenza") ?? (tipo === "negativa" ? "exact" : "broad"),
+        // Per le NEGATIVE si eredita la corrispondenza con cui la parola è
+        // stata intercettata: escludere in esatta una ricerca entrata in frase
+        // lascia passare tutte le varianti, ed escludere in generica una entrata
+        // in esatta spegne molto più del voluto. Se non si sa, esatta: è quella
+        // che sbaglia meno. Per le keyword da AGGIUNGERE il default resta broad.
+        corrispondenza:
+          testo(fd, "corrispondenza") ??
+          (tipo === "negativa" ? testo(fd, "corrispondenzaOrigine") ?? "exact" : "broad"),
         gruppo: testo(fd, "gruppo"),
       }),
       motivo: testo(fd, "motivo"),
@@ -2262,4 +2269,32 @@ export async function annullaOperazioneParola(fd: FormData) {
   revalidatePath(ritorno.split("?")[0]);
   revalidatePath("/operazioni");
   redirect(ritorno);
+}
+
+// ---------- Riportare in attesa un'operazione già approvata ----------
+// Diverso da annullare: annullare la scarta, questo la rimette in coda da
+// decidere. Serve quando si approva in fretta e poi si vuole ripensarci senza
+// perdere l'operazione — il testo, il motivo e il livello restano quelli.
+// Vale solo finché lo script non l'ha eseguita: dopo, l'unica strada è
+// l'operazione opposta.
+export async function riapriOperazione(fd: FormData) {
+  const id = testo(fd, "id");
+  if (!id) return;
+  const op = await prisma.operazioneAdv.findUnique({ where: { id } });
+  if (!op) return;
+  if (op.stato !== "approvata") return; // eseguite e annullate non si riaprono
+
+  await prisma.operazioneAdv.update({
+    where: { id },
+    data: { stato: "in_attesa", approvataDa: null, approvataIl: null },
+  });
+  await registra({
+    autore: "utente",
+    tipo: "stato",
+    entita: "operazione",
+    entitaId: id,
+    titolo: `Approvazione ritirata: ${op.tipo} su ${op.bersaglio}`,
+    dettaglio: "Torna fra quelle da decidere. Su Google non era ancora arrivata.",
+  });
+  revalidatePath("/operazioni");
 }

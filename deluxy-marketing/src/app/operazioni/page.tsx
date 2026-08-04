@@ -1,5 +1,5 @@
 import { Sidebar } from "@/components/Sidebar";
-import { annullaOperazione, approvaOperazione } from "@/lib/azioni";
+import { annullaOperazione, approvaOperazione, riapriOperazione } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
 import { ETICHETTA_LIVELLO, formattaDataOra } from "@/lib/dominio";
 
@@ -67,50 +67,68 @@ export default async function PaginaOperazioni() {
   const approvate = operazioni.filter((o) => o.stato === "approvata");
   const concluse = operazioni.filter((o) => ["eseguita", "fallita", "annullata"].includes(o.stato));
 
-  const riga = (o: (typeof operazioni)[number], conAzioni: boolean) => {
+  const riga = (o: (typeof operazioni)[number]) => {
     const p = o.parametri ? (JSON.parse(o.parametri) as Record<string, unknown>) : {};
+    const parola = typeof p.testo === "string" && p.testo ? p.testo : null;
+    const match = typeof p.corrispondenza === "string" ? String(p.corrispondenza).toLowerCase() : null;
+    const dettagli = [
+      o.prima ? `prima: ${o.prima}` : null,
+      o.motivo || null,
+      o.esito ? `esito: ${o.esito}` : null,
+    ].filter(Boolean);
+
     return (
-      <li key={o.id}>
-        <span className="storia-data">{formattaDataOra(o.creataIl)}</span>
-        <span className="storia-testo">
-          <b>{ETICHETTA_TIPO[o.tipo] ?? o.tipo}</b>
-          {/* La parola su cui si opera: per le keyword il bersaglio è la
-              campagna, e senza questo non si sapeva CHE COSA si stava
-              escludendo o mettendo in pausa. */}
-          {typeof p.testo === "string" && p.testo ? (
-            <>
-              {" "}<b>«{p.testo}»</b>
-              {typeof p.corrispondenza === "string" && (
-                <span
-                  className="tag-neutro"
-                  style={{ marginLeft: 6 }}
-                  title={SPIEGA_MATCH[String(p.corrispondenza).toLowerCase()] ?? ""}
-                >
-                  {ETICHETTA_MATCH[String(p.corrispondenza).toLowerCase()] ?? String(p.corrispondenza)}
-                </span>
-              )}
-              <span className="cella-muta"> in {o.bersaglio}</span>
-            </>
-          ) : (
-            <> — {o.bersaglio}</>
-          )}
-          {p.budget != null && <> → <b>{String(p.budget)} €/g</b></>}
-          <span className="cella-sub" style={{ whiteSpace: "normal" }}>
-            {o.prima ? `Prima: ${o.prima}. ` : ""}
-            {o.motivo ?? ""}
-            {o.esito ? ` · Esito: ${o.esito}` : ""}
-          </span>
+      <li className="op-riga" key={o.id}>
+        <div className="op-corpo">
+          <div className="op-titolo">
+            <b>{ETICHETTA_TIPO[o.tipo] ?? o.tipo}</b>
+            {parola && <span className="op-parola">«{parola}»</span>}
+            {parola && match && (
+              <span
+                className={`op-match${match === "broad" || match === "generica" ? " larga" : ""}`}
+                title={SPIEGA_MATCH[match] ?? ""}
+              >
+                {ETICHETTA_MATCH[match] ?? match}
+              </span>
+            )}
+            {p.budget != null && <span className="op-parola">{String(p.budget)} €/g</span>}
+          </div>
+
+          <div className="op-dove">
+            {parola ? "in " : ""}
+            {o.campagnaId ? (
+              <a href={`/campagne/${o.campagnaId}`}>{o.bersaglio}</a>
+            ) : (
+              o.bersaglio
+            )}
+            {" · "}
+            {formattaDataOra(o.creataIl)}
+          </div>
+
+          {dettagli.length > 0 && <div className="op-dettagli">{dettagli.join(" · ")}</div>}
+
           {/* Finché lo script non è passato si può sempre tornare indietro:
-              annullare qui non cambia niente su Google, perché l'operazione
-              non è mai arrivata là. Dopo l'esecuzione il bottone sparisce —
-              per disfare serve l'operazione opposta. */}
+              annullare non cambia niente su Google, perché l'operazione non è
+              mai arrivata là. Dopo l'esecuzione sparisce — per disfare serve
+              l'operazione opposta. */}
           {(o.stato === "in_attesa" || o.stato === "approvata") && (
-            <form className="pill-scelta" style={{ marginTop: 8 }}>
+            <form className="pill-scelta op-comandi">
               <input type="hidden" name="id" value={o.id} />
               {o.stato === "in_attesa" && (
                 <button className="pill-opt" formAction={approvaOperazione} style={{ color: "var(--green)" }}>
                   <span className="dot" />
                   <span style={{ color: "var(--text)" }}>Approva</span>
+                </button>
+              )}
+              {o.stato === "approvata" && (
+                <button
+                  className="pill-opt"
+                  formAction={riapriOperazione}
+                  style={{ color: "var(--gold-strong)" }}
+                  title="Ritira l approvazione: torna fra quelle da decidere, senza perdere l operazione"
+                >
+                  <span className="dot" />
+                  <span style={{ color: "var(--text)" }}>Ritira approvazione</span>
                 </button>
               )}
               <button
@@ -128,17 +146,19 @@ export default async function PaginaOperazioni() {
               </button>
             </form>
           )}
-        </span>
-        <span className="storia-autore">
+        </div>
+
+        <div className="op-stato">
           <span className="tag-salute" style={{ color: COLORE_STATO[o.stato] }}>
             <span className="dot" />
             {ETICHETTA_STATO[o.stato] ?? o.stato}
           </span>
-          <div className="cella-sub">{ETICHETTA_LIVELLO[o.livello] ?? o.livello}</div>
-        </span>
+          <span className="op-livello">{ETICHETTA_LIVELLO[o.livello] ?? o.livello}</span>
+        </div>
       </li>
     );
   };
+
 
   return (
     <div className="layout">
@@ -172,21 +192,21 @@ export default async function PaginaOperazioni() {
           {daApprovare.length === 0 ? (
             <div className="vuoto-mini">Niente in attesa.</div>
           ) : (
-            <ul className="storia">{daApprovare.map((o) => riga(o, true))}</ul>
+            <ul className="storia">{daApprovare.map((o) => riga(o))}</ul>
           )}
         </section>
 
         {approvate.length > 0 && (
           <section className="scheda">
             <div className="scheda-titolo">Approvate, in attesa dello script ({approvate.length})</div>
-            <ul className="storia">{approvate.map((o) => riga(o, true))}</ul>
+            <ul className="storia">{approvate.map((o) => riga(o))}</ul>
           </section>
         )}
 
         {concluse.length > 0 && (
           <section className="scheda">
             <div className="scheda-titolo">Storico</div>
-            <ul className="storia">{concluse.map((o) => riga(o, false))}</ul>
+            <ul className="storia">{concluse.map((o) => riga(o))}</ul>
           </section>
         )}
       </main>

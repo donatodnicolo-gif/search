@@ -162,6 +162,24 @@ export default async function SchedaGruppo({
     if (/\bde\b|\bger\b|\bgerman\b|\btedesco\b/.test(t)) return "ted";
     return null;
   };
+  // La corrispondenza sta scritta nel testo della keyword, fra parentesi:
+  // "fiori milano (phrase)". È così che l'import la conserva, perché il
+  // Monitoraggio e Google la scrivono in modi diversi e il testo le riconcilia.
+  const matchDi = (testo: string): string | null => {
+    const m = testo.match(/\((exact|phrase|broad|esatta|frase|generica)\)\s*$/i);
+    if (!m) return null;
+    const v = m[1].toLowerCase();
+    if (v === "esatta") return "exact";
+    if (v === "frase") return "phrase";
+    if (v === "generica") return "broad";
+    return v;
+  };
+  const ETICHETTA_MATCH_KW: Record<string, string> = {
+    exact: "esatta",
+    phrase: "a frase",
+    broad: "generica",
+  };
+
   const codiceGruppo = linguaDa(gruppo.nome);
   const codiceCampagna = linguaDa(gruppo.campagna.nome);
   const lingua = codiceGruppo
@@ -628,7 +646,12 @@ export default async function SchedaGruppo({
                                     <input type="hidden" name="testo" value={k.testo} />
                                     <input type="hidden" name="ritorno" value={`/gruppi/${gruppo.id}?kw=${filtroKw}`} />
                                     <input type="hidden" name="tipo" value="negativa" />
-                                    <button className="btn small btn-secondario" type="submit" title="Aggiunge la parola come negativa: non farà più scattare gli annunci di questa campagna">
+                                    {/* La corrispondenza con cui questa parola è
+                                        stata comprata: la negativa la eredita,
+                                        così esclude esattamente quello che la
+                                        keyword stava intercettando. */}
+                                    <input type="hidden" name="corrispondenzaOrigine" value={matchDi(k.testo) ?? "exact"} />
+                                    <button className="btn small btn-secondario" type="submit" title={`Esclude come negativa ${ETICHETTA_MATCH_KW[matchDi(k.testo) ?? "exact"]}: non farà più scattare gli annunci di questa campagna`}>
                                       Escludi
                                     </button>
                                   </form>
@@ -714,6 +737,11 @@ export default async function SchedaGruppo({
                                 <input type="hidden" name="testo" value={t.testo} />
                                 <input type="hidden" name="ritorno" value={`/gruppi/${gruppo.id}`} />
                                 <input type="hidden" name="tipo" value="negativa" />
+                                {/* Eredita la corrispondenza della keyword che
+                                    ha intercettato questa ricerca: escluderla
+                                    in esatta quando era entrata in frase
+                                    lascerebbe passare tutte le varianti. */}
+                                <input type="hidden" name="corrispondenzaOrigine" value={(t.corrispondenza ?? "exact").toLowerCase()} />
                                 <input type="hidden" name="motivo" value={`Parola cercata: ${(t.spesa ?? 0).toFixed(0)} EUR, ${t.clic ?? 0} clic, ${t.conversioni ?? 0} conversioni`} />
                                 <button className="btn small btn-secondario" type="submit" title="Mette in coda la negativa: la parola non fara piu scattare gli annunci">
                                   Escludi
