@@ -296,7 +296,8 @@ export default async function VisualPage({
             </p>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
-            <Link className="btn btn-secondario" href="/visual/tipologie">Tipologie & regole</Link>
+            <Link className="btn btn-secondario" href="/visual/regole">Regole d&apos;ordine</Link>
+            <Link className="btn btn-secondario" href="/visual/tipologie">Tipologie</Link>
             <Link className="btn btn-secondario" href="/visual/rotazioni">Rotazioni</Link>
             <Link className="btn btn-secondario" href="/riordini">
               Ipotesi di ordinativo{pianiBozza > 0 ? ` · ${pianiBozza} in bozza` : ""}

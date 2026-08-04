@@ -7,6 +7,7 @@
 // è stabile, si può correggere a mano e si può mandare al negozio uguale.
 
 import { prisma } from "./db";
+import { corrisponde, parsePassi, type Passo } from "./regole-ordine";
 import { FILTRO_BUON_FINE } from "./vendite";
 
 /**
@@ -99,6 +100,15 @@ export type ProdottoOrdinabile = {
   costoProduzione: number;
   creatoIl: Date;
   posizione?: number; // l'ordine curato a mano, dove esiste
+  // Gli attributi servono ai passi delle **regole salvate** («prima la categoria
+  // Fiori», «prima chi sta sopra i 200 €»). Sono opzionali: chi ordina solo con
+  // le metriche non ha bisogno di leggerli.
+  categoria?: string | null;
+  tipoShopify?: string | null;
+  vendorShopify?: string | null;
+  lineaId?: string | null;
+  tagShopify?: string | null;
+  ggDispMin?: number | null;
 };
 
 /**
@@ -115,13 +125,36 @@ export async function ordinaProdotti<T extends ProdottoOrdinabile>(
   regole: RegolaOrdinamento[],
   giorni = 90
 ): Promise<T[]> {
-  const effettive = regole.filter((r) => r !== "manuale");
+  return ordinaPerPassi(
+    items,
+    regole.filter((r) => r !== "manuale").map((m) => ({ t: "metrica" as const, m })),
+    giorni,
+  );
+}
+
+/**
+ * Ordina secondo i **passi di una regola salvata**: metriche e attributi
+ * mescolati, in priorità. È la funzione vera; `ordinaProdotti` è il caso
+ * particolare in cui i passi sono tutti metriche — **una sola implementazione**,
+ * così una regola salvata e una regola rapida non ordinano in due modi diversi.
+ *
+ * Un passo di attributo vale 1 se il prodotto corrisponde e 0 se no, e si ordina
+ * decrescente come tutto il resto: **chi corrisponde sale, gli altri restano
+ * sotto**, nessuno esce dalla fila.
+ */
+export async function ordinaPerPassi<T extends ProdottoOrdinabile>(
+  items: T[],
+  passi: Passo[],
+  giorni = 90
+): Promise<T[]> {
+  const effettive = passi.filter((p) => p.t !== "metrica" || p.m !== "manuale");
   if (effettive.length === 0) {
     return [...items].sort((a, b) => (a.posizione ?? 0) - (b.posizione ?? 0) || a.nome.localeCompare(b.nome));
   }
+  const metriche = effettive.filter((p): p is { t: "metrica"; m: RegolaOrdinamento } => p.t === "metrica").map((p) => p.m);
 
   let venduto = new Map<string, { pezzi: number; ricavo: number }>();
-  if (effettive.some((r) => r === "best_seller" || r === "ricavo")) {
+  if (metriche.some((r) => r === "best_seller" || r === "ricavo")) {
     const da = new Date();
     da.setDate(da.getDate() - giorni);
     // Si raggruppa tutto il venduto della finestra invece di elencare gli id:
@@ -164,9 +197,14 @@ export async function ordinaProdotti<T extends ProdottoOrdinabile>(
     }
   };
 
+  // Il valore di un passo qualunque: la metrica come sopra, l'attributo come
+  // 1/0. Sempre «più alto = più in cima», così la lista si ordina in un modo solo.
+  const valorePasso = (m: T, passo: Passo): number =>
+    passo.t === "metrica" ? valore(m, passo.m) : corrisponde(m, passo) ? 1 : 0;
+
   return [...items].sort((a, b) => {
-    for (const r of effettive) {
-      const d = valore(b, r) - valore(a, r);
+    for (const p of effettive) {
+      const d = valorePasso(b, p) - valorePasso(a, p);
       if (d !== 0) return d;
     }
     return a.nome.localeCompare(b.nome);
@@ -183,23 +221,39 @@ export async function ordineSecondoRegole(
   regole: RegolaOrdinamento[],
   giorni = 90
 ): Promise<string[]> {
+  return ordineSecondoPassi(
+    collezioneId,
+    regole.filter((r) => r !== "manuale").map((m) => ({ t: "metrica" as const, m })),
+    giorni,
+  );
+}
+
+/** Gli attributi che servono ai passi delle regole salvate, letti una volta sola. */
+const SELECT_ORDINABILE = {
+  nome: true,
+  prezzoVendita: true,
+  costoProduzione: true,
+  creatoIl: true,
+  categoria: true,
+  tipoShopify: true,
+  vendorShopify: true,
+  lineaId: true,
+  tagShopify: true,
+  ggDispMin: true,
+} as const;
+
+/** Come sopra, ma coi **passi** di una regola salvata (metriche + attributi). */
+export async function ordineSecondoPassi(
+  collezioneId: string,
+  passi: Passo[],
+  giorni = 90
+): Promise<string[]> {
   const membri = await prisma.prodottoInCollezioneShopify.findMany({
     where: { collezioneId, prodotto: FILTRO_IN_SCENA },
-    select: {
-      prodottoId: true,
-      posizione: true,
-      prodotto: { select: { nome: true, prezzoVendita: true, costoProduzione: true, creatoIl: true } },
-    },
+    select: { prodottoId: true, posizione: true, prodotto: { select: SELECT_ORDINABILE } },
   });
-  const items = membri.map((m) => ({
-    prodottoId: m.prodottoId,
-    posizione: m.posizione,
-    nome: m.prodotto.nome,
-    prezzoVendita: m.prodotto.prezzoVendita,
-    costoProduzione: m.prodotto.costoProduzione,
-    creatoIl: m.prodotto.creatoIl,
-  }));
-  return (await ordinaProdotti(items, regole, giorni)).map((m) => m.prodottoId);
+  const items = membri.map((m) => ({ prodottoId: m.prodottoId, posizione: m.posizione, ...m.prodotto }));
+  return (await ordinaPerPassi(items, passi, giorni)).map((m) => m.prodottoId);
 }
 
 /**
@@ -220,7 +274,29 @@ export async function applicaRegoleACollezione(
   }
   await prisma.collezioneShopify.update({
     where: { id: collezioneId },
-    data: { regolaOrdinamento: serializeRegole(regole), ordineModificatoIl: new Date() },
+    // Scegliendo una regola rapida si stacca l'eventuale regola salvata: due
+    // ordini impostati insieme sulla stessa collezione non si saprebbe quale
+    // legge la pagina.
+    data: { regolaOrdinamento: serializeRegole(regole), regolaOrdineId: null, ordineModificatoIl: new Date() },
+  });
+}
+
+/**
+ * Applica una **regola salvata** a una collezione: stessa cosa di sopra, ma i
+ * passi arrivano dalla regola e sulla collezione resta scritto **quale** regola
+ * è (non una copia dei suoi passi). Così cambiando la regola cambia l'ordine di
+ * tutte le collezioni che la usano, che è il motivo per cui si salva.
+ */
+export async function applicaRegolaSalvata(collezioneId: string, regolaOrdineId: string): Promise<void> {
+  const r = await prisma.regolaOrdine.findUnique({ where: { id: regolaOrdineId }, select: { passi: true } });
+  const passi = parsePassi(r?.passi);
+  if (passi.length > 0) {
+    const ordine = await ordineSecondoPassi(collezioneId, passi);
+    await numeraPosizioni(collezioneId, ordine);
+  }
+  await prisma.collezioneShopify.update({
+    where: { id: collezioneId },
+    data: { regolaOrdineId, regolaOrdinamento: null, ordineModificatoIl: new Date() },
   });
 }
 
@@ -233,11 +309,25 @@ export async function applicaRegoleACollezione(
  */
 export async function riapplicaStandingPerNegozio(negozio: string): Promise<number> {
   const colls = await prisma.collezioneShopify.findMany({
-    where: { negozio, tipologia: { is: { regolaOrdinamento: { not: null } } } },
-    select: { id: true, tipologia: { select: { regolaOrdinamento: true } } },
+    where: {
+      negozio,
+      tipologia: { is: { OR: [{ regolaOrdinamento: { not: null } }, { regolaOrdineId: { not: null } }] } },
+    },
+    select: {
+      id: true,
+      tipologia: { select: { regolaOrdinamento: true, regolaOrdine: { select: { id: true, passi: true } } } },
+    },
   });
   let fatte = 0;
   for (const c of colls) {
+    // La **regola salvata vince** su quella rapida, come in pagina: se una
+    // tipologia ne ha una, è quella che l'utente ha scritto e riusa.
+    const salvata = c.tipologia?.regolaOrdine;
+    if (salvata && parsePassi(salvata.passi).length > 0) {
+      await applicaRegolaSalvata(c.id, salvata.id);
+      fatte++;
+      continue;
+    }
     const rs = parseRegole(c.tipologia?.regolaOrdinamento);
     if (rs.length > 0) {
       await applicaRegoleACollezione(c.id, rs);

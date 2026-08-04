@@ -4,6 +4,9 @@ import { prisma } from "@/lib/db";
 import { euro } from "@/lib/dominio";
 import { etichettaRegola, FILTRO_IN_SCENA, isRegola, ordinaProdotti, type RegolaOrdinamento } from "@/lib/ordinamento-vetrina";
 import { SelettoreRegole } from "@/components/SelettoreRegole";
+import { REGOLE } from "@/lib/ordinamento-vetrina";
+import { etichettaPassi, parsePassi } from "@/lib/regole-ordine";
+import { applicaRegolaSalvataAzione } from "@/lib/azioni-regole-ordine";
 import {
   applicaRegolaOrdinamento,
   spostaInCollezione,
@@ -13,6 +16,7 @@ import {
 export const dynamic = "force-dynamic";
 
 const MAX_RIGHE = 300;
+const NOMI_METRICHE = Object.fromEntries(REGOLE.map((r) => [r.chiave, r.nome]));
 const MAX_ANTEPRIMA = 60;
 
 export default async function CurazioneCollezionePage({
@@ -29,6 +33,7 @@ export default async function CurazioneCollezionePage({
     where: { id },
     include: {
       tipologia: { select: { nome: true, regolaOrdinamento: true } },
+      regolaOrdine: { select: { id: true, nome: true, passi: true } },
       prodotti: {
         orderBy: [{ posizione: "asc" }, { prodotto: { nome: "asc" } }],
         include: {
@@ -54,10 +59,13 @@ export default async function CurazioneCollezionePage({
   // Il push funziona solo se il negozio ha un token con write_products: lo si
   // legge dalla verifica salvata in Impostazioni, senza chiamare Shopify qui.
   // Il dominio serve per il link alla collezione **sul sito**.
-  const negozio = await prisma.negozioShopify.findFirst({
-    where: { nome: c.negozio },
-    select: { permessi: true, attivo: true, dominio: true },
-  });
+  const [negozio, regoleSalvate] = await Promise.all([
+    prisma.negozioShopify.findFirst({
+      where: { nome: c.negozio },
+      select: { permessi: true, attivo: true, dominio: true },
+    }),
+    prisma.regolaOrdine.findMany({ orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
+  ]);
 
   // L'indirizzo della collezione sul negozio online. Si passa dal dominio
   // myshopify: è quello che conosciamo sempre, e Shopify manda da solo al
@@ -168,6 +176,47 @@ export default async function CurazioneCollezionePage({
           <p className="page-sub" style={{ marginTop: 10, marginBottom: 0 }}>
             Guardare non cambia niente: l&apos;ordine si scrive solo quando confermi.
           </p>
+        </div>
+
+        {/* **Regola salvata**: quella scritta una volta e riusata, che sa
+            ragionare anche per categoria, prezzo, tag e risposta al bisogno.
+            Sta in un riquadro suo perché è una scelta diversa dalle metriche
+            rapide qui sopra — e sceglierne una **stacca** l'altra, altrimenti
+            due ordini impostati insieme non si saprebbe quale vince. */}
+        <div className="scheda">
+          <div className="scheda-titolo">Regola salvata</div>
+          {regoleSalvate.length === 0 ? (
+            <div className="vuoto-mini">
+              Nessuna regola salvata. Si scrivono in <a href="/visual/regole">Regole d&apos;ordine</a>: una regola è una
+              sequenza di passi (categoria, prezzo, tag, risposta al bisogno, metriche) che si riusa su più collezioni.
+            </div>
+          ) : (
+            <>
+              <form
+                action={applicaRegolaSalvataAzione.bind(null, id)}
+                style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}
+              >
+                <select name="regolaOrdineId" defaultValue={c.regolaOrdineId ?? ""} aria-label="Regola salvata">
+                  <option value="" disabled>Scegli una regola…</option>
+                  {regoleSalvate.map((x) => (
+                    <option key={x.id} value={x.id}>{x.nome}</option>
+                  ))}
+                </select>
+                <button type="submit" className="btn btn-primario">Applica</button>
+                <a className="btn btn-secondario" href="/visual/regole">Gestisci le regole</a>
+              </form>
+              <p className="page-sub" style={{ marginTop: 10, marginBottom: 0 }}>
+                {c.regolaOrdine ? (
+                  <>
+                    In uso: <b>{c.regolaOrdine.nome}</b> — {etichettaPassi(parsePassi(c.regolaOrdine.passi), NOMI_METRICHE)}.
+                    Correggendo la regola si rifanno <b>tutte</b> le collezioni che la usano: è il motivo per cui si salva.
+                  </>
+                ) : (
+                  <>Applicare una regola salvata scrive subito l&apos;ordine, come «applica quest&apos;ordine».</>
+                )}
+              </p>
+            </>
+          )}
         </div>
 
         {/* L'anteprima: l'ordine ipotizzato, con chi sale e chi scende. */}

@@ -392,6 +392,11 @@ model CollezioneShopify {
   // seller, novità, margine, prezzo…), da src/lib/ordinamento-vetrina.ts. È
   // solo il punto di partenza: dopo si ritocca a mano. "manuale" = nessuna regola.
   regolaOrdinamento String?
+  // La **regola d'ordine salvata** scelta per questa collezione. Quando c'è,
+  // vince su `regolaOrdinamento`: quella resta per le regole rapide scelte al
+  // volo, questa è la regola scritta una volta e riusata.
+  regolaOrdineId String?
+  regolaOrdine   RegolaOrdine? @relation(fields: [regolaOrdineId], references: [id], onDelete: SetNull)
   // La **tipologia** editoriale a cui appartiene la collezione (Bouquet, Torte,
   // Occasioni…), decisa da noi. Se la tipologia ha una regola, quella è
   // "standing": si riapplica da sola a ogni import, così i prodotti nuovi si
@@ -458,6 +463,27 @@ model RegolaRotazione {
   aggiornataIl DateTime @updatedAt
 }
 
+// Una **regola d'ordine salvata**: si scrive una volta, ha un nome e si riusa.
+//
+// Prima l'ordine si poteva esprimere solo con le sei metriche fisse
+// (best_seller, ricavo, novita, margine, prezzo_*), da riscegliere ogni volta
+// collezione per collezione. Qui una regola è una **sequenza di passi in
+// priorità**: il primo decide, i successivi spezzano i pareggi. Un passo può
+// essere una metrica oppure un **attributo del prodotto** (categoria, tipo del
+// negozio, fornitore, linea, tag, risposta al bisogno, prezzo), e in quel caso
+// **porta in cima chi corrisponde** senza togliere nessuno dalla fila.
+// I passi stanno in JSON, vedi src/lib/regole-ordine.ts.
+model RegolaOrdine {
+  id           String   @id @default(cuid())
+  nome         String   @unique
+  descrizione  String?
+  passi        String   @default("[]")
+  collezioni   CollezioneShopify[]
+  tipologie    TipologiaCollezione[]
+  creataIl     DateTime @default(now())
+  aggiornataIl DateTime @updatedAt
+}
+
 // Una **tipologia di collezione**: un'etichetta editoriale nostra (Bouquet,
 // Torte, Occasioni…) che raggruppa collezioni di negozi diversi e porta una
 // **regola d'ordine standing**. Si imposta la regola una volta sola sulla
@@ -478,6 +504,9 @@ model TipologiaCollezione {
   // (best_seller, ricavo, novita, margine, prezzo_*, manuale). null/"manuale" =
   // nessuna regola automatica, l'ordine si cura a mano collezione per collezione.
   regolaOrdinamento String?
+  // La regola salvata, se la tipologia ne usa una: vince su `regolaOrdinamento`.
+  regolaOrdineId String?
+  regolaOrdine   RegolaOrdine? @relation(fields: [regolaOrdineId], references: [id], onDelete: SetNull)
   collezioni   CollezioneShopify[]
   creataIl     DateTime @default(now())
   aggiornataIl DateTime @updatedAt
