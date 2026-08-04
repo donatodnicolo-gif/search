@@ -29,6 +29,10 @@
   --green: #248a3d;
   --orange: #c93400;
   --red: #d70015;
+  /* Grigio-blu per le cose FERME (in pausa, sospese). Serviva un colore che
+     non fosse un allarme: --orange (#c93400) e --red (#d70015) su una pillola
+     piccola sono lo stesso rosso-mattone, e "in pausa" sembrava "critica". */
+  --ardesia: #5b6478;
   --purple: #6d3fc4;
 
   /* Forma ed elevazione */

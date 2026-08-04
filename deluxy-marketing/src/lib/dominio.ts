@@ -168,7 +168,8 @@ export const COLORE_STATO_CAMPAGNA: Record<string, string> = {
   in_lancio: "var(--blue)",
   in_apprendimento: "var(--gold-strong)",
   attiva: "var(--green)",
-  in_pausa: "var(--orange)",
+  // Ferma per scelta, non in allarme: distinta dal rosso di "critica"
+  in_pausa: "var(--ardesia)",
   conclusa: "var(--text-secondary)",
   defunta: "var(--text-tertiary)",
 };
@@ -372,7 +373,7 @@ export const COLORE_STATO_KEYWORD: Record<string, string> = {
   attivo: "var(--blue)",
   vincente: "var(--green)",
   da_valutare: "var(--gold-strong)",
-  in_pausa: "var(--orange)",
+  in_pausa: "var(--ardesia)",
   esclusa: "var(--red)",
 };
 

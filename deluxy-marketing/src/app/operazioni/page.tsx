@@ -58,14 +58,29 @@ export default async function PaginaOperazioni() {
             {o.motivo ?? ""}
             {o.esito ? ` · Esito: ${o.esito}` : ""}
           </span>
-          {conAzioni && (
+          {/* Finché lo script non è passato si può sempre tornare indietro:
+              annullare qui non cambia niente su Google, perché l'operazione
+              non è mai arrivata là. Dopo l'esecuzione il bottone sparisce —
+              per disfare serve l'operazione opposta. */}
+          {(o.stato === "in_attesa" || o.stato === "approvata") && (
             <form className="pill-scelta" style={{ marginTop: 8 }}>
               <input type="hidden" name="id" value={o.id} />
-              <button className="pill-opt" formAction={approvaOperazione} style={{ color: "var(--green)" }}>
-                <span className="dot" />
-                <span style={{ color: "var(--text)" }}>Approva</span>
-              </button>
-              <button className="pill-opt" formAction={annullaOperazione} style={{ color: "var(--text-tertiary)" }}>
+              {o.stato === "in_attesa" && (
+                <button className="pill-opt" formAction={approvaOperazione} style={{ color: "var(--green)" }}>
+                  <span className="dot" />
+                  <span style={{ color: "var(--text)" }}>Approva</span>
+                </button>
+              )}
+              <button
+                className="pill-opt"
+                formAction={annullaOperazione}
+                style={{ color: "var(--text-tertiary)" }}
+                title={
+                  o.stato === "approvata"
+                    ? "Toglie l'operazione dalla coda prima che lo script la esegua: su Google non cambia niente"
+                    : "Scarta l'operazione senza eseguirla"
+                }
+              >
                 <span className="dot" />
                 <span style={{ color: "var(--text)" }}>Annulla</span>
               </button>
@@ -122,7 +137,7 @@ export default async function PaginaOperazioni() {
         {approvate.length > 0 && (
           <section className="scheda">
             <div className="scheda-titolo">Approvate, in attesa dello script ({approvate.length})</div>
-            <ul className="storia">{approvate.map((o) => riga(o, false))}</ul>
+            <ul className="storia">{approvate.map((o) => riga(o, true))}</ul>
           </section>
         )}
 

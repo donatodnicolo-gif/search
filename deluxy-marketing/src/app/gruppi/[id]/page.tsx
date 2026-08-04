@@ -6,7 +6,7 @@ import { SceltaPeriodo } from "@/components/SceltaPeriodo";
 import { SelettoreStato } from "@/components/SelettoreStato";
 import { Stagionalita } from "@/components/Stagionalita";
 import { Sidebar } from "@/components/Sidebar";
-import { cambiaStatoGruppo, cambiaStatoKeyword, creaOperazioneGruppo, creaOperazioneKeyword, escludiParoleSelezionate, rinominaGruppo } from "@/lib/azioni";
+import { cambiaStatoGruppo, cambiaStatoKeyword, creaOperazioneGruppo, creaOperazioneKeyword, annullaOperazioneParola, escludiParoleSelezionate, rinominaGruppo } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
 import { periodoApp } from "@/lib/periodo-condiviso";
 import { giudizioKeyword } from "@/lib/salute";
@@ -575,34 +575,53 @@ export default async function SchedaGruppo({
                             <td>
                               {/* Questo invece cambia Google davvero, quindi
                                   passa dalla coda: mette in attesa, non esegue. */}
-                              <form action={creaOperazioneKeyword} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                <input type="hidden" name="campagnaId" value={gruppo.campagna.id} />
-                                <input type="hidden" name="testo" value={k.testo} />
-                                <input type="hidden" name="gruppo" value={gruppo.nome} />
-                                <input type="hidden" name="idEsternoKeyword" value={k.idEsterno ?? ""} />
-                                <input type="hidden" name="ritorno" value={`/gruppi/${gruppo.id}`} />
-                                <input type="hidden" name="tipo" value={inPausaGoogle ? "attiva_keyword" : "pausa_keyword"} />
-                                <span className="tag-salute" style={{ color: inPausaGoogle ? "var(--text-tertiary)" : "var(--green)" }}>
-                                  <span className="dot" />
-                                  {inPausaGoogle ? "in pausa" : "attiva"}
-                                </span>
-                                <button className="btn small btn-secondario" type="submit">
-                                  {inPausaGoogle ? "Riattiva" : "Metti in pausa"}
-                                </button>
-                              </form>
-                              {/* Escludere e diverso da mettere in pausa: la
-                                  negativa impedisce alla parola di far scattare
-                                  gli annunci anche in futuro, e vale su tutta la
-                                  campagna. Livello L0, il piu leggero. */}
-                              <form action={creaOperazioneKeyword} style={{ marginTop: 6 }}>
-                                <input type="hidden" name="campagnaId" value={gruppo.campagna.id} />
-                                <input type="hidden" name="testo" value={k.testo} />
-                                <input type="hidden" name="ritorno" value={`/gruppi/${gruppo.id}`} />
-                                <input type="hidden" name="tipo" value="negativa" />
-                                <button className="btn small btn-secondario" type="submit" title="Aggiunge la parola come negativa: non fara piu scattare gli annunci di questa campagna">
-                                  Escludi
-                                </button>
-                              </form>
+                              {/* Se su questa parola c'è già un'operazione
+                                  APERTA, l'unica cosa sensata è annullarla:
+                                  riproporre lo stesso bottone creava doppioni
+                                  in coda. Una volta eseguita non si annulla
+                                  più — si fa l'operazione opposta. */}
+                              {az && (az.stato === "in_attesa" || az.stato === "approvata") ? (
+                                <form action={annullaOperazioneParola} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                  <input type="hidden" name="campagnaId" value={gruppo.campagna.id} />
+                                  <input type="hidden" name="testo" value={k.testo} />
+                                  <input type="hidden" name="ritorno" value={`/gruppi/${gruppo.id}?kw=${filtroKw}`} />
+                                  <span className="tag-salute" style={{ color: "var(--ardesia)" }}>
+                                    <span className="dot" />
+                                    {ETICHETTA_OPERAZIONE[az.tipo] ?? az.tipo}
+                                    {az.stato === "in_attesa" ? " · da approvare" : " · approvata"}
+                                  </span>
+                                  <button className="btn small btn-secondario" type="submit" title="Toglie l'operazione dalla coda: su Google non cambia niente perché non è ancora stata eseguita">
+                                    Annulla
+                                  </button>
+                                </form>
+                              ) : (
+                                <>
+                                  <form action={creaOperazioneKeyword} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                    <input type="hidden" name="campagnaId" value={gruppo.campagna.id} />
+                                    <input type="hidden" name="testo" value={k.testo} />
+                                    <input type="hidden" name="gruppo" value={gruppo.nome} />
+                                    <input type="hidden" name="idEsternoKeyword" value={k.idEsterno ?? ""} />
+                                    <input type="hidden" name="ritorno" value={`/gruppi/${gruppo.id}?kw=${filtroKw}`} />
+                                    <input type="hidden" name="tipo" value={inPausaGoogle ? "attiva_keyword" : "pausa_keyword"} />
+                                    <span className="tag-salute" style={{ color: inPausaGoogle ? "var(--ardesia)" : "var(--green)" }}>
+                                      <span className="dot" />
+                                      {inPausaGoogle ? "in pausa" : "attiva"}
+                                    </span>
+                                    <button className="btn small btn-secondario" type="submit">
+                                      {inPausaGoogle ? "Riattiva" : "Metti in pausa"}
+                                    </button>
+                                  </form>
+                                  <form action={creaOperazioneKeyword} style={{ marginTop: 6 }}>
+                                    <input type="hidden" name="campagnaId" value={gruppo.campagna.id} />
+                                    <input type="hidden" name="testo" value={k.testo} />
+                                    <input type="hidden" name="ritorno" value={`/gruppi/${gruppo.id}?kw=${filtroKw}`} />
+                                    <input type="hidden" name="tipo" value="negativa" />
+                                    <button className="btn small btn-secondario" type="submit" title="Aggiunge la parola come negativa: non farà più scattare gli annunci di questa campagna">
+                                      Escludi
+                                    </button>
+                                  </form>
+                                </>
+                              )}
                             </td>
                           </tr>
                         );

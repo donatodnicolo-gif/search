@@ -2201,3 +2201,59 @@ export async function escludiParoleSelezionate(fd: FormData) {
 
   redirect("/operazioni");
 }
+
+// ---------- Annullare l'operazione decisa su una parola ----------
+// Dalla tabella delle keyword: se su quella parola c'è già una decisione in
+// coda, l'unica cosa sensata da offrire è tornare indietro. Finché lo script
+// non è passato, annullare non cambia niente su Google — l'operazione non è
+// mai arrivata là.
+export async function annullaOperazioneParola(fd: FormData) {
+  const campagnaId = testo(fd, "campagnaId");
+  const parola = testo(fd, "testo");
+  const ritorno = testo(fd, "ritorno") ?? "/operazioni";
+  if (!campagnaId || !parola) return;
+
+  // La stessa normalizzazione con cui la tabella riconosce le decisioni: il
+  // testo porta la corrispondenza fra parentesi ("fiori milano (phrase)") e
+  // l'operazione in coda no.
+  const pulito = testoKeywordPulito(parola).toLowerCase();
+
+  const aperte = await prisma.operazioneAdv.findMany({
+    where: {
+      campagnaId,
+      tipo: { in: ["negativa", "pausa_keyword", "attiva_keyword", "nuova_keyword"] },
+      stato: { in: ["in_attesa", "approvata"] },
+    },
+  });
+
+  const mie = aperte.filter((o) => {
+    let t = "";
+    try {
+      t = String(JSON.parse(o.parametri ?? "{}").testo ?? "");
+    } catch {
+      t = "";
+    }
+    return testoKeywordPulito(t || o.bersaglio).toLowerCase() === pulito;
+  });
+
+  for (const o of mie) {
+    await prisma.operazioneAdv.update({
+      where: { id: o.id },
+      data: { stato: "annullata", esito: "Annullata a mano prima dell'esecuzione" },
+    });
+  }
+
+  if (mie.length > 0) {
+    await registra({
+      autore: "utente",
+      tipo: "stato",
+      entita: "operazione",
+      titolo: `Annullate ${mie.length} operazioni su «${parola}»`,
+      dettaglio: mie.map((o) => o.tipo).join(", "),
+    });
+  }
+
+  revalidatePath(ritorno.split("?")[0]);
+  revalidatePath("/operazioni");
+  redirect(ritorno);
+}
