@@ -1739,6 +1739,69 @@ async function spedisci(account: Account, m: DaInviare): Promise<{ raw: Buffer; 
   return { raw, messageId }
 }
 
+/** Tetto complessivo degli allegati ripresi dal server per un inoltro. Non è
+ *  una regola di Vercel (i file non passano dalla richiesta): è il limite dei
+ *  server di posta — sopra i ~25 MB la mail viene rifiutata all'invio, e una
+ *  funzione che muore mentre costruisce 200 MB in memoria è peggio ancora. */
+const MAX_INOLTRO = 20 * 1024 * 1024
+
+/**
+ * Gli allegati che partono con un INOLTRO: quelli aggiunti a mano più quelli
+ * del messaggio originale, ripresi dalla casella IMAP.
+ *
+ * ⚠️ Si riprendono dal SERVER, non dal browser: sono già in casella, e farli
+ * passare per la richiesta li fermerebbe al tetto di 4,5 MB di Vercel.
+ * ⚠️ Se il recupero non riesce, l'inoltro parte lo stesso **col testo** e chi
+ * ha premuto invia se lo sente dire: una mail partita monca senza avviso è
+ * peggio di una mail non partita.
+ */
+async function allegatiInoltrati(
+  originale: { uid: number; allegati: number; direzione: string },
+  account: Account,
+  aggiuntiAMano: AllegatoInvio[]
+): Promise<{ avviso: string | null; tutti: AllegatoInvio[]; ripresi: number }> {
+  if (originale.allegati <= 0 || originale.uid <= 0)
+    return { avviso: null, tutti: aggiuntiAMano, ripresi: 0 }
+
+  const cartella =
+    originale.direzione === 'uscita' ? account.cartellaInviata || undefined : account.cartella
+  let dalServer: { nome: string; tipo: string; contenuto: Buffer }[]
+  try {
+    const { leggiTuttiAllegati } = await import('./imap')
+    dalServer = await leggiTuttiAllegati(account, originale.uid, cartella)
+  } catch {
+    return {
+      avviso: '⚠️ Gli allegati dell’originale NON sono partiti: la casella non ha risposto.',
+      tutti: aggiuntiAMano,
+      ripresi: 0,
+    }
+  }
+
+  // Un file già riallegato a mano non parte due volte (stesso nome e stessa
+  // dimensione: è lo stesso file).
+  const giaCi = new Set(aggiuntiAMano.map((x) => `${x.filename} ${x.content.length}`))
+  const tutti = [...aggiuntiAMano]
+  let peso = aggiuntiAMano.reduce((s, x) => s + x.content.length, 0)
+  let saltati = 0
+  for (const a of dalServer) {
+    if (giaCi.has(`${a.nome} ${a.contenuto.length}`)) continue
+    if (peso + a.contenuto.length > MAX_INOLTRO) {
+      saltati++
+      continue
+    }
+    peso += a.contenuto.length
+    tutti.push({ filename: a.nome, content: a.contenuto, contentType: a.tipo })
+  }
+
+  return {
+    avviso: saltati
+      ? `⚠️ ${saltati} allegat${saltati === 1 ? 'o' : 'i'} troppo pesant${saltati === 1 ? 'e' : 'i'}: non ${saltati === 1 ? 'è partito' : 'sono partiti'} (limite ${Math.round(MAX_INOLTRO / 1024 / 1024)} MB).`
+      : null,
+    tutti,
+    ripresi: tutti.length - aggiuntiAMano.length,
+  }
+}
+
 async function registraInviato(
   utenteId: string,
   account: Account,
@@ -1844,6 +1907,9 @@ export async function preparaComposizione(
   contatti?: { email: string; nome: string | null }[]
   sequenze?: { id: string; nome: string }[]
   tradurreIn?: string | null
+  /** Quanti allegati ha l'originale: inoltrando partono da soli, ma va detto
+   *  PRIMA di premere invia (se no si riallegano a mano, in doppio). */
+  allegatiOriginale?: number
 }> {
   const utenteId = await uid()
   const u = await db.utente.findUnique({ where: { id: utenteId } })
@@ -1892,6 +1958,7 @@ export async function preparaComposizione(
     contatti,
     sequenze,
     tradurreIn,
+    allegatiOriginale: messaggio.allegati,
   }
 }
 
@@ -1932,13 +1999,24 @@ export async function inviaMessaggio(form: FormData): Promise<{ ok: boolean; mes
       }
     }
 
+    // ⚠️ INOLTRARE VUOL DIRE MANDARE ANCHE I FILE. Fino al 4/08/2026 partiva
+    // solo il testo: gli allegati erano quelli aggiunti a mano nel form
+    // (`leggiAllegati(form)`), e quelli dell'originale non li andava a prendere
+    // nessuno — un inoltro senza la fattura in allegato sembra partito bene.
+    // I file NON passano dal browser (il tetto Vercel di 4,5 MB per richiesta
+    // li fermerebbe): si riprendono dalla casella IMAP qui sul server, come già
+    // fanno il download e lo zip.
+    const { avviso: avvisoAllegati, tutti: allegatiFinali, ripresi } = inoltro
+      ? await allegatiInoltrati(originale, account, allegati)
+      : { avviso: null as string | null, tutti: allegati, ripresi: 0 }
+
     const daInviare: DaInviare = {
       a,
       cc,
       oggetto,
       corpo: corpoTesto,
       corpoHtml,
-      allegati,
+      allegati: allegatiFinali,
       inRispostaA: inoltro ? null : originale.messageId,
     }
 
@@ -2000,9 +2078,15 @@ export async function inviaMessaggio(form: FormData): Promise<{ ok: boolean; mes
 
     revalidatePath('/', 'layout')
     const nota = tradottoIn ? ` Tradotto in ${tradottoIn} prima dell’invio.` : ''
+    // Quanti allegati sono partiti si DICE: è l'unico modo per accorgersi
+    // subito se ne manca uno, invece di scoprirlo dalla risposta seccata di chi
+    // l'ha ricevuta.
+    const notaAllegati = ripresi
+      ? ` Con ${ripresi} allegat${ripresi === 1 ? 'o' : 'i'} dell’originale.`
+      : ''
     return {
       ok: true,
-      messaggio: `Messaggio inviato a ${a}.${nota}${avviso ? ` ${avviso}` : ''}${notaSequenza ? ` ${notaSequenza}` : ''}`,
+      messaggio: `Messaggio inviato a ${a}.${nota}${notaAllegati}${avvisoAllegati ? ` ${avvisoAllegati}` : ''}${avviso ? ` ${avviso}` : ''}${notaSequenza ? ` ${notaSequenza}` : ''}`,
     }
   } catch (e) {
     return { ok: false, messaggio: `Invio non riuscito: ${e instanceof Error ? e.message : 'errore'}` }

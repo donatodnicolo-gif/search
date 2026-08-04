@@ -13,6 +13,7 @@ type Dati = {
   contatti: { email: string; nome: string | null }[]
   sequenze: { id: string; nome: string }[]
   tradurreIn: string | null
+  allegatiOriginale: number
 }
 
 const APRI = 'aimail:scrivi'
@@ -86,6 +87,7 @@ export function FinestraScrivi() {
           contatti: r.contatti ?? [],
           sequenze: r.sequenze ?? [],
           tradurreIn: r.tradurreIn ?? null,
+          allegatiOriginale: r.allegatiOriginale ?? 0,
         })
       })
     }
@@ -130,6 +132,16 @@ export function FinestraScrivi() {
           {errore && <div style={{ padding: 18, fontSize: 13.5, color: 'var(--red)' }}>{errore}</div>}
           {dati && (
             <>
+              {/* Inoltrando, gli allegati dell'originale partono da soli: si
+                  dice qui, o si finisce per riallegarli a mano in doppio. */}
+              {dati.modo === 'inoltra' && dati.allegatiOriginale > 0 && (
+                <div className="nota-sottile" style={{ marginBottom: 10 }}>
+                  📎 {dati.allegatiOriginale === 1
+                    ? 'L’allegato dell’originale parte'
+                    : `I ${dati.allegatiOriginale} allegati dell’originale partono`}{' '}
+                  con l’inoltro: non serve riallegarli.
+                </div>
+              )}
               {dati.tradurreIn && (
                 <div className="ai-box" style={{ marginBottom: 12 }}>
                   <div className="ai-box-text">

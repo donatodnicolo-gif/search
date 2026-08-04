@@ -9,6 +9,11 @@ import { elencoContatti } from '@/lib/contatti'
 import { htmlDiMessaggio } from '@/lib/htmlServer'
 
 export const dynamic = 'force-dynamic'
+// L'invio gira qui dentro: inoltrando, gli allegati si riprendono dalla casella
+// IMAP prima di spedire, e con file pesanti dieci secondi non bastano. ⚠️ Le
+// Server Action NON ereditano il `maxDuration` del layout: va messo sulla
+// pagina da cui partono.
+export const maxDuration = 60
 
 type Props = {
   params: Promise<{ id: string }>
@@ -83,9 +88,28 @@ export default async function Scrivi({ params, searchParams }: Props) {
             {TITOLI[modo]}
           </h1>
           <p className="page-caption">
-            {modo === 'inoltra'
-              ? 'Il messaggio originale è riportato sotto: scegli a chi mandarlo.'
-              : `In risposta a “${messaggio.oggetto}”.`}
+            {modo === 'inoltra' ? (
+              <>
+                Il messaggio originale è riportato sotto: scegli a chi mandarlo.
+                {/* Gli allegati partono da soli, ma bisogna VEDERLO prima di
+                    premere invia: senza, o li si riallega a mano (doppioni) o
+                    si resta col dubbio. */}
+                {messaggio.allegati > 0 && (
+                  <>
+                    {' '}
+                    <strong>
+                      📎 {messaggio.allegati === 1
+                        ? 'L’allegato dell’originale parte'
+                        : `I ${messaggio.allegati} allegati dell’originale partono`}{' '}
+                      con l’inoltro
+                    </strong>
+                    : non serve riallegarli.
+                  </>
+                )}
+              </>
+            ) : (
+              `In risposta a “${messaggio.oggetto}”.`
+            )}
           </p>
         </div>
       </div>

@@ -401,6 +401,15 @@ sei**: stessa cartella o sezione, stessa casella se ne stai guardando una sola, 
 negli Archiviati o nel Cestino ci si muove lì dentro. In cima o in fondo all'elenco il
 tasto resta al suo posto, spento.
 
+**Inoltrare porta con sé gli allegati.** Non serve riscaricarli e riallegarli: i file
+dell'originale partono con l'inoltro, e la schermata te lo dice prima («📎 I 3 allegati
+dell'originale partono con l'inoltro»). L'app se li riprende **dalla casella**, non dal
+tuo computer. A invio fatto l'esito dice **quanti** ne sono partiti: se il conto non
+torna, te ne accorgi subito e non dalla risposta di chi li aspettava. Due limiti dichiarati:
+oltre **20 MB** complessivi i file in eccesso non partono (i server di posta li
+rifiuterebbero comunque) e l'avviso lo dice; e se la casella non risponde, l'inoltro parte
+**col solo testo** — scritto nell'esito, non in silenzio.
+
 **Rispondere e inoltrare segnano letta la conversazione.** Se l'hai risposta o inoltrata,
 l'hai gestita: il pallino blu si spegne su **tutte** le mail di quel thread, non solo su
 quella che hai toccato — una riga in elenco è un thread, e lasciarne indietro una lo
