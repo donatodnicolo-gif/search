@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "./db";
 import { applicaRegolaSalvata } from "./ordinamento-vetrina";
 import { isRegola, regoleDaForm } from "./ordinamento-vetrina";
-import { CAMPI, parsePassi, serializePassi, type Campo } from "./regole-ordine";
+import { CAMPI, parsePassi, serializePassi, type Campo, type Passo } from "./regole-ordine";
 
 /** Crea una regola vuota e porta dritti a scriverla: un nome da solo non serve a niente. */
 export async function creaRegolaOrdine(fd: FormData) {
@@ -69,12 +69,11 @@ export async function aggiungiPasso(id: string, fd: FormData) {
       passi.push({ t: "attr", campo, valori });
     }
   }
-  await prisma.regolaOrdine.update({ where: { id }, data: { passi: serializePassi(passi) } });
-  revalidatePath(`/visual/regole/${id}`);
+  await salvaPassi(id, passi, fd);
 }
 
 /** Toglie un passo, o lo sposta su/giù: la priorità si cambia senza riscrivere tutto. */
-export async function muoviPasso(id: string, indice: number, dove: "su" | "giu" | "via") {
+export async function muoviPasso(id: string, indice: number, dove: "su" | "giu" | "via", fd?: FormData) {
   const r = await prisma.regolaOrdine.findUnique({ where: { id }, select: { passi: true } });
   const passi = parsePassi(r?.passi);
   if (indice < 0 || indice >= passi.length) return;
@@ -85,7 +84,27 @@ export async function muoviPasso(id: string, indice: number, dove: "su" | "giu" 
     if (j < 0 || j >= passi.length) return;
     [passi[indice], passi[j]] = [passi[j], passi[indice]];
   }
+  await salvaPassi(id, passi, fd);
+}
+
+/**
+ * Salva i passi e decide **dove si torna**.
+ *
+ * Se si stava lavorando dalla scheda di una collezione (`tornaA`), la regola le
+ * viene **riapplicata subito** e si torna lì: altrimenti si aggiunge una
+ * condizione e a schermo non si muove niente, che si legge come «non ha
+ * funzionato». Le *altre* collezioni che usano la regola restano com'erano
+ * finché non si preme «Riapplica ovunque»: rifarle tutte di nascosto sarebbe
+ * rimescolare vetrine che nessuno stava guardando.
+ */
+async function salvaPassi(id: string, passi: Passo[], fd?: FormData) {
   await prisma.regolaOrdine.update({ where: { id }, data: { passi: serializePassi(passi) } });
+  const tornaA = fd ? String(fd.get("tornaA") ?? "") : "";
+  if (tornaA) {
+    if (passi.length > 0) await applicaRegolaSalvata(tornaA, id);
+    revalidatePath(`/visual/${tornaA}`);
+    redirect(`/visual/${tornaA}#regola`);
+  }
   revalidatePath(`/visual/regole/${id}`);
 }
 
@@ -95,9 +114,10 @@ export async function muoviPasso(id: string, indice: number, dove: "su" | "giu" 
  * finché la fila convince, e a quel punto la si vuole tenere e riusare — non
  * ricominciare da una pagina vuota.
  *
- * La regola nasce coi passi che erano scelti, viene **assegnata e applicata**
- * alla collezione, e si finisce sulla sua scheda: da lì si aggiungono i passi
- * per attributo (categoria, prezzo, tag) che qui non si possono esprimere.
+ * La regola nasce coi passi che erano scelti e viene **assegnata e applicata**
+ * alla collezione; le condizioni (categoria, prezzo, tag, risposta al bisogno)
+ * si aggiungono **restando qui**, con lo stesso costruttore della pagina della
+ * regola.
  */
 export async function creaRegolaDaCollezione(collezioneId: string, fd: FormData) {
   const nome = String(fd.get("nome") ?? "").trim();
@@ -121,7 +141,11 @@ export async function creaRegolaDaCollezione(collezioneId: string, fd: FormData)
   // prodotti», è una regola da finire, e non deve rimescolare una fila curata.
   if (metriche.length > 0) await applicaRegolaSalvata(collezioneId, r.id);
   else await prisma.collezioneShopify.update({ where: { id: collezioneId }, data: { regolaOrdineId: r.id } });
-  redirect(`/visual/regole/${r.id}`);
+  // Si resta **sulla collezione**: le condizioni si scrivono da qui, davanti
+  // alla fila che devono cambiare. Sbalzare su un'altra pagina vorrebbe dire
+  // scriverle alla cieca.
+  revalidatePath(`/visual/${collezioneId}`);
+  redirect(`/visual/${collezioneId}#regola`);
 }
 
 /** Applica una regola salvata a una collezione (dalla scheda della collezione). */

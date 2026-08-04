@@ -4,6 +4,8 @@ import { prisma } from "@/lib/db";
 import { euro } from "@/lib/dominio";
 import { etichettaRegola, FILTRO_IN_SCENA, isRegola, ordinaProdotti, parseRegole, type RegolaOrdinamento } from "@/lib/ordinamento-vetrina";
 import { SelettoreRegole } from "@/components/SelettoreRegole";
+import { CostruttorePassi } from "@/components/CostruttorePassi";
+import { vociPassi } from "@/lib/voci-passi";
 import { REGOLE } from "@/lib/ordinamento-vetrina";
 import { etichettaPassi, parsePassi } from "@/lib/regole-ordine";
 import { applicaRegolaSalvataAzione, creaRegolaDaCollezione } from "@/lib/azioni-regole-ordine";
@@ -67,6 +69,9 @@ export default async function CurazioneCollezionePage({
     }),
     prisma.regolaOrdine.findMany({ orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
   ]);
+  // I valori per le condizioni si leggono **solo se serve**: senza una regola
+  // salvata assegnata il costruttore non si mostra, e sarebbero query a vuoto.
+  const voci = c.regolaOrdineId ? await vociPassi() : null;
 
   // L'indirizzo della collezione sul negozio online. Si passa dal dominio
   // myshopify: è quello che conosciamo sempre, e Shopify manda da solo al
@@ -184,7 +189,7 @@ export default async function CurazioneCollezionePage({
             Sta in un riquadro suo perché è una scelta diversa dalle metriche
             rapide qui sopra — e sceglierne una **stacca** l'altra, altrimenti
             due ordini impostati insieme non si saprebbe quale vince. */}
-        <div className="scheda">
+        <div className="scheda" id="regola">
           <div className="scheda-titolo">Regola salvata</div>
           {regoleSalvate.length === 0 ? (
             <p className="page-sub" style={{ marginTop: 0 }}>
@@ -223,8 +228,32 @@ export default async function CurazioneCollezionePage({
               con le metriche rapide finché convince, e a quel punto le si dà un
               nome. Ricominciare da una pagina vuota vorrebbe dire rifare da capo
               il ragionamento appena fatto. */}
-          <CreaRegolaDaQui id={id} regole={inAnteprima ? regoleAnteprima : parseRegole(c.regolaOrdinamento)} />
+          {!c.regolaOrdine && (
+            <CreaRegolaDaQui id={id} regole={inAnteprima ? regoleAnteprima : parseRegole(c.regolaOrdinamento)} />
+          )}
         </div>
+
+        {/* **Le condizioni si scrivono davanti alla fila che devono cambiare.**
+            È lo stesso costruttore della pagina della regola — non una copia —
+            e ogni modifica riapplica subito la regola a *questa* collezione, così
+            si vede l'effetto invece di doverlo immaginare. */}
+        {c.regolaOrdine && voci && (
+          <div className="scheda">
+            <div className="scheda-titolo">Condizioni di «{c.regolaOrdine.nome}»</div>
+            <p className="page-sub" style={{ marginTop: -4 }}>
+              Il primo passo decide l&apos;ordine, i successivi spezzano i pareggi. Una condizione{" "}
+              <b>porta in cima chi corrisponde</b> senza togliere nessuno dalla fila. Ogni modifica si applica subito
+              qui; le <b>altre</b> collezioni che usano questa regola si rifanno con «Riapplica» dalla{" "}
+              <a href={`/visual/regole/${c.regolaOrdine.id}`}>scheda della regola</a>.
+            </p>
+            <CostruttorePassi
+              regolaId={c.regolaOrdine.id}
+              passi={parsePassi(c.regolaOrdine.passi)}
+              voci={voci}
+              tornaA={id}
+            />
+          </div>
+        )}
 
         {/* L'anteprima: l'ordine ipotizzato, con chi sale e chi scende. */}
         {inAnteprima && (
@@ -361,7 +390,10 @@ export default async function CurazioneCollezionePage({
             <>
               <div className="vetrina-lista">
                 {righe.map((vp, i) => (
-                  <div className="vetrina-riga" key={vp.id}>
+                  // L'ancora serve al × e all'annulla: sono link, quindi la
+                  // pagina si ricarica, e senza ancora si riparte dall'alto —
+                  // con 300 righe si perde il punto in cui si stava lavorando.
+                  <div className="vetrina-riga" key={vp.id} id={`p-${vp.prodottoId}`}>
                     <span className="vetrina-pos">{i + 1}</span>
                     <span className="vetrina-mini">
                       {vp.prodotto.immagine ? <img src={vp.prodotto.immagine} alt="" /> : "❀"}
@@ -386,7 +418,7 @@ export default async function CurazioneCollezionePage({
                               Sì, togli
                             </button>
                           </form>
-                          <a className="icon-btn" href={`/visual/${id}`} title="Annulla">↩</a>
+                          <a className="icon-btn" href={`/visual/${id}#p-${vp.prodottoId}`} title="Annulla">↩</a>
                         </>
                       ) : (
                         <>
@@ -399,7 +431,7 @@ export default async function CurazioneCollezionePage({
                           {manuale && (
                             <a
                               className="icon-btn"
-                              href={`/visual/${id}?rimuovi=${vp.prodottoId}`}
+                              href={`/visual/${id}?rimuovi=${vp.prodottoId}#p-${vp.prodottoId}`}
                               title="Togli dalla collezione (sul negozio)"
                             >
                               ×
