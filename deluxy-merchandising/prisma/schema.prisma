@@ -397,6 +397,10 @@ model CollezioneShopify {
   // volo, questa è la regola scritta una volta e riusata.
   regolaOrdineId String?
   regolaOrdine   RegolaOrdine? @relation(fields: [regolaOrdineId], references: [id], onDelete: SetNull)
+  // I **temi** a cui è stata assegnata: raggruppamenti liberi decisi da una
+  // persona (Natale, San Valentino…). Più di uno: una collezione può stare in
+  // più temi insieme.
+  temi         TemaCollezioni[]
   // La **tipologia** editoriale a cui appartiene la collezione (Bouquet, Torte,
   // Occasioni…), decisa da noi. Se la tipologia ha una regola, quella è
   // "standing": si riapplica da sola a ogni import, così i prodotti nuovi si
@@ -461,6 +465,25 @@ model RegolaRotazione {
   collezioni  CollezioneShopify[]
   creataIl     DateTime @default(now())
   aggiornataIl DateTime @updatedAt
+}
+
+// Un **tema**: un raggruppamento libero di collezioni, deciso da una persona.
+//
+// «Natale», «San Valentino», «Matrimoni»: un nome a cui si assegnano le
+// collezioni che si vogliono, anche di negozi diversi. **Nessun criterio
+// automatico** — a differenza delle tipologie, che si definiscono per criteri
+// sui prodotti, qui la scelta è tutta umana: serve a ritrovare le collezioni
+// che vanno insieme e a lavorarci sopra in blocco.
+//
+// Una collezione può stare in **più temi** (Natale *e* Regali per lei), quindi
+// la relazione è molti-a-molti: è la differenza con la tipologia, che è una sola.
+model TemaCollezioni {
+  id           String   @id @default(cuid())
+  nome         String   @unique
+  descrizione  String?
+  collezioni   CollezioneShopify[]
+  creatoIl     DateTime @default(now())
+  aggiornatoIl DateTime @updatedAt
 }
 
 // Una **regola d'ordine salvata**: si scrive una volta, ha un nome e si riusa.

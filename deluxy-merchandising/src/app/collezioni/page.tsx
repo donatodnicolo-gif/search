@@ -72,7 +72,11 @@ export default async function CollezioniPage({
     prisma.collezioneShopify.findMany({
       where: negoziDellAmbito.length > 0 ? { negozio: { in: negoziDellAmbito } } : {},
       orderBy: [{ negozio: "asc" }, { titolo: "asc" }],
-      include: { _count: { select: { prodotti: true } }, prodotti: { select: { prodottoId: true } } },
+      include: {
+        _count: { select: { prodotti: true } },
+        prodotti: { select: { prodottoId: true } },
+        temi: { select: { id: true, nome: true } },
+      },
     }),
     ultimiImportCollezioni(),
   ]);
@@ -182,6 +186,7 @@ export default async function CollezioniPage({
             </p>
           </div>
           <div className="riga-azione">
+            <a className="btn btn-secondario" href="/collezioni/temi">Temi</a>
             <a className="btn btn-secondario" href="/collezioni/nuova">Nuova collezione</a>
             {/* Un bottone per negozio: l'import di tutti insieme non arrivava
                 in fondo col negozio più grande. */}
@@ -279,6 +284,18 @@ export default async function CollezioniPage({
                           {c.titolo}
                         </Link>
                         <div className="cella-sub">/{c.handle}</div>
+                        {/* I temi a cui è assegnata: raggruppamenti decisi da
+                            una persona, non dedotti. Si vedono qui perché è
+                            l'elenco da cui si cerca una collezione. */}
+                        {c.temi.length > 0 && (
+                          <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginTop: 4, position: "relative", zIndex: 1 }}>
+                            {c.temi.map((t) => (
+                              <Link key={t.id} href={`/collezioni/temi/${t.id}`} className="pill-tema">
+                                {t.nome}
+                              </Link>
+                            ))}
+                          </div>
+                        )}
                       </td>
                       <td className="cella-muta">{c.negozio}</td>
                       <td className="cella-muta">{ETICHETTA_TIPO_COLLEZIONE[c.tipo] ?? c.tipo}</td>

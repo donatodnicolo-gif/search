@@ -191,6 +191,14 @@ porta **3120**. Design system Deluxy v1.0.
   - **Eliminare una regola non rimescola le vetrine**: le collezioni tornano «solo a mano» (`onDelete: SetNull`) e **l'ordine già scritto resta**.
   - **Verificato su dati veri** (Home-Page-Last-Minute, 64 prodotti in scena): regola «prima sopra 200 € → prezzo alto» applicata end-to-end → in cima Cento Rose Rosse 1.200 €, MAXI Bouquet Rose Dolce Metà 600 €, Dom Pérignon Rosé 550 €; `regolaOrdineId` scritto e `regolaOrdinamento` azzerato come previsto. Posizioni e stato **ripristinati** a fine prova, regola di prova rimossa.
 
+- **03/08/2026 — temi: raggruppamenti liberi di collezioni** (`/collezioni/temi`, chiesti dall'utente). Modello `TemaCollezioni`, **molti-a-molti** con `CollezioneShopify`. Un tema è un nome — «Natale», «San Valentino», «Matrimoni» — a cui si assegnano le collezioni che si vogliono, **anche di negozi diversi**. Serve a tenere insieme quello che va insieme e a ritrovarlo senza cercarlo fra 343 righe.
+  - **Nessun criterio automatico, ed è tutta la differenza con le tipologie**: quelle si definiscono per criteri sui *prodotti* e sono **una sola** per collezione; il tema lo decide una persona e una collezione può stare in **più temi** insieme (Natale *e* Regali per lei). Due concetti separati apposta, scritto in pagina in tutti e due i posti.
+  - **Prodotti e venduto del tema si contano sui prodotti distinti**, non sommando le collezioni: la stessa scheda in due collezioni del tema si conterebbe due volte. Misurato sulla prova: 5 collezioni «Natale» = **405 prodotti distinti** contro 494 sommandole.
+  - **Assegnare aggiunge, non sostituisce**: riaprire la pagina e salvare senza scegliere niente non svuota il tema. La scelta ha una **ricerca** davanti, perché un menu con 343 voci non è un menu.
+  - **Eliminare un tema non tocca le collezioni**: sparisce l'etichetta, restano ordine, tipologia e prodotti. Un tema è un modo di guardarle, non qualcosa che le possiede.
+  - In `/collezioni` ogni riga mostra le **pillole dei temi** (oro, come le scelte editoriali nostre) e in testata c'è il bottone **Temi**.
+  - **Verificato su dati veri**: tema di prova con 5 collezioni «Natale» di **Cake, Flowers e Gifts**, una collezione messa in due temi, poi temi rimossi e le 5 collezioni ancora tutte lì.
+
 ## COME AVVIARE
 ```
 cd deluxy-merchandising
