@@ -22,6 +22,32 @@ Riceve già dati veri da Google Ads (Gifts e Flowers) e ha 2.426 ordini Shopify 
 
 ## FATTO
 
+### Vendite Shopify in due righe, e il blocco dove si è cliccato (04/08/2026)
+
+Il blocco «Vendite su Shopify» occupava **1.700 px**: due tabelle, tre file di
+KPI, quattro paragrafi e un modulo. Ora sono **due righe espandibili** da 46 px
+(`.vend-riga`): fuori i numeri che si guardano — venduto, ordini, scontrino,
+ROS col break-even, costo per cliente nuovo e per ordine — dentro tutto il
+resto. Misurato a 1280 px: **1.700 → 172 px**.
+
+> **Niente è stato tolto**: tabelle per categoria, città di consegna, blocco
+> «Stima», spiegazioni e modulo di correzione del legame sono tutti dentro,
+> uno scatto più in là. Stringere la cornice, non ridurre il contenuto.
+
+Il blocco «Stima» sta dentro la riga **Attribuzione**, non da solo: è la
+versione stimata degli stessi KPI, e come riga a sé faceva sembrare che
+fossero tre misure diverse.
+
+**E il change control diceva «no» a due schermate di distanza.** Segnalato:
+«clicco metti in pausa e non succede nulla». L'operazione *era* stata bloccata
+e il motivo *era* in pagina — ma sotto il selettore del periodo, mentre chi
+aveva premuto guardava il bottone in cima. Ora:
+
+- l'avviso rosso sta **subito sotto la testata**, dove si è fatta l'azione;
+- accanto al bottone compare **prima** «blackout fino al …» quando la campagna
+  è in blackout: mettere in coda qualcosa che il guardrail rifiuterà di sicuro
+  è un giro a vuoto. Le L0 non contano, come nel guardrail.
+
 ### Dove mandano gli annunci (04/08/2026)
 
 Blocco **«Dove mandano gli annunci»** sulla scheda campagna

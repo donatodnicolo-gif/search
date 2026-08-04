@@ -3,6 +3,7 @@ import { AndamentoMensile } from "@/components/AndamentoMensile";
 import { AzioneGruppo } from "@/components/AzioneGruppo";
 import { Badge } from "@/components/Badge";
 import { RinominaInline } from "@/components/RinominaInline";
+import { giudicabilita, LIVELLI_CHE_PESANO } from "@/lib/guardrail";
 import { GraficoSpesa } from "@/components/GraficoSpesa";
 import { SceltaPeriodo } from "@/components/SceltaPeriodo";
 import { SelettoreStato } from "@/components/SelettoreStato";
@@ -233,6 +234,16 @@ export default async function SchedaGruppo({
 
   const operazioneAperta = gruppo.operazioni.find((o) => o.stato === "in_attesa" || o.stato === "approvata");
 
+  // Il blackout si sa PRIMA di premere: mettere in coda un'operazione che il
+  // guardrail rifiuterà di sicuro è un giro a vuoto, e chi lo fa lo scopre da
+  // un messaggio dopo il redirect. Le L0 non contano (vedi MODIFICHE_CHE_PESANO).
+  const ultimaChePesa = await prisma.modifica.findFirst({
+    where: { campagnaId: gruppo.campagnaId, livello: { in: LIVELLI_CHE_PESANO } },
+    orderBy: { eseguitaIl: "desc" },
+    select: { eseguitaIl: true, descrizione: true },
+  });
+  const giud = giudicabilita(ultimaChePesa?.eseguitaIl ?? null);
+
   return (
     <div className="layout">
       <Sidebar attiva="gruppi" brandAttivo={gruppo.brand} />
@@ -322,18 +333,34 @@ export default async function SchedaGruppo({
                   : "Già in coda, da approvare"}
               </a>
             ) : (
-              <AzioneGruppo gruppoId={gruppo.id} inPausa={inPausa} azione={creaOperazioneGruppo} />
+              <>
+                <AzioneGruppo gruppoId={gruppo.id} inPausa={inPausa} azione={creaOperazioneGruppo} />
+                {giud.stato === "blackout" && giud.fino && (
+                  <span
+                    className="tag-neutro"
+                    style={{ color: "var(--orange)", whiteSpace: "normal" }}
+                    title={ultimaChePesa?.descrizione ?? undefined}
+                  >
+                    blackout fino al {formattaDataOra(giud.fino)}
+                  </span>
+                )}
+              </>
             )}
           </div>
         </div>
 
-        <SceltaPeriodo periodo={periodo} da={sp.da} a={sp.a} azione={`/gruppi/${gruppo.id}`} />
-
+        {/* ⚠️ L'avviso stava SOTTO il selettore del periodo. Chi premeva il
+            bottone in cima leggeva «non è successo niente»: l'operazione era
+            stata bloccata e il motivo compariva a due schermate di distanza
+            da dove aveva cliccato. Il messaggio di un'azione va dove si è
+            fatta l'azione. */}
         {bloccata && (
           <div className="avviso-errore">
             <strong>Bloccata dal change control:</strong> {bloccata}
           </div>
         )}
+
+        <SceltaPeriodo periodo={periodo} da={sp.da} a={sp.a} azione={`/gruppi/${gruppo.id}`} />
 
         {/* Zero speso in un periodo non vuol dire zero speso mai. Senza questa
             riga la scheda di un gruppo fermo è indistinguibile da quella di un

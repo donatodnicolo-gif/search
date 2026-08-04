@@ -824,6 +824,28 @@ tbody tr:hover { background: var(--fill); }
   background: rgba(36,138,61,.1); color: var(--green);
 }
 
+/* Vendite Shopify: due righe chiuse coi numeri, tutto il resto dentro.
+   Non è stato tolto niente — è stata stretta la cornice. */
+.vend-riga { border-top: 1px solid var(--hairline); }
+.vend-riga:first-of-type { border-top: 0; }
+.vend-riga > summary {
+  list-style: none; cursor: pointer;
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 11px 0;
+}
+.vend-riga > summary::-webkit-details-marker { display: none; }
+.vend-riga > summary::before {
+  content: "›"; font-size: 15px; color: var(--text-tertiary);
+  transition: transform 160ms var(--ease); flex: 0 0 auto;
+}
+.vend-riga[open] > summary::before { transform: rotate(90deg); }
+.vend-riga > summary:hover { color: var(--text); }
+.vend-cifre { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: baseline; }
+.vend-cifra { font-size: 12.5px; color: var(--text-secondary); }
+.vend-cifra b { font-size: 14px; color: var(--text); font-weight: 600; }
+.vend-vuota { font-size: 12.5px; color: var(--text-tertiary); }
+.vend-riga[open] { padding-bottom: 16px; }
+
 /* Dove mandano gli annunci: una riga per URL, con sotto chi la usa */
 .dest-elenco { list-style: none; display: flex; flex-direction: column; gap: 10px; }
 .dest-elenco li {

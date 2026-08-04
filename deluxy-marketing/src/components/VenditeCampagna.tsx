@@ -35,6 +35,15 @@ export async function VenditeCampagna({
   const stima = kpiStimati(v.spesa, v.conversioniDichiarate, base);
   const be = breakEvenRoas(campagna.brand);
 
+  // Le due righe chiuse dicono i numeri; tutto il resto — tabelle, città,
+  // stime, spiegazioni, modulo di correzione — sta dentro. Niente è stato
+  // tolto: è stata stretta la cornice, non ridotto il contenuto.
+  const cifra = (valore: string, cosa: string, colore?: string) => (
+    <span className="vend-cifra">
+      <b style={colore ? { color: colore } : undefined}>{valore}</b> {cosa}
+    </span>
+  );
+
   return (
     <section className="scheda">
       <div className="scheda-titolo">
@@ -42,12 +51,29 @@ export async function VenditeCampagna({
       </div>
 
       {/* ——— 1. Attribuzione vera: l'ordine porta scritto l'UTM ——— */}
-      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 10 }}>
-        <Badge testo="Attribuzione" colore="var(--green)" />
-        <span className="cella-sub" style={{ whiteSpace: "normal" }}>
-          ordini che portano scritto l&apos;UTM di questa campagna: lo dice Shopify, non lo deduce l&apos;app.
-        </span>
-      </div>
+      <details className="vend-riga">
+        <summary>
+          <Badge testo="Attribuzione" colore="var(--green)" />
+          {v.attribuite.ordini === 0 ? (
+            <span className="vend-cifre vend-vuota">nessun ordine con l&apos;UTM di questa campagna</span>
+          ) : (
+            <span className="vend-cifre">
+              {cifra(formattaEuro(v.attribuite.vendite), "venduto")}
+              {cifra(formattaNumero(v.attribuite.ordini), "ordini")}
+              {v.attribuite.scontrinoMedio != null &&
+                cifra(formattaEuro(v.attribuite.scontrinoMedio), "scontrino")}
+              {kpi.ros != null &&
+                cifra(`${kpi.ros.toFixed(2)}×`, `ROS (be ${be.toFixed(2)}×)`, kpi.ros >= be ? "var(--green)" : "var(--red)")}
+              {kpi.costoCliente != null && cifra(formattaEuro(kpi.costoCliente), "per cliente nuovo")}
+              {kpi.costoConversione != null && cifra(formattaEuro(kpi.costoConversione), "per ordine")}
+            </span>
+          )}
+        </summary>
+
+      <p className="cella-sub" style={{ whiteSpace: "normal", margin: "10px 0" }}>
+        Ordini che portano scritto l&apos;UTM di questa campagna: lo dice Shopify, non lo deduce
+        l&apos;app.
+      </p>
 
       {v.attribuite.ordini === 0 ? (
         <div className="vuoto-mini">
@@ -197,15 +223,34 @@ export async function VenditeCampagna({
         )}
       </div>
 
+      </details>
+
       {/* ——— 2. Contesto dedotto dal nome: NON è attribuzione ——— */}
-      <div style={{ borderTop: "1px solid var(--hairline)", marginTop: 20, paddingTop: 16 }}>
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 10 }}>
+      <details className="vend-riga">
+        <summary>
           <Badge testo="Contesto — non è attribuzione" colore="var(--orange)" />
-          <span className="cella-sub" style={{ whiteSpace: "normal" }}>
-            dedotto dal <b>nome</b> della campagna. Dice cosa vendeva il negozio mentre la campagna girava:
-            <b> non</b> dice che quelle vendite arrivino da qui. Nessun KPI ci si appoggia.
-          </span>
-        </div>
+          {v.contesto == null ? (
+            <span className="vend-cifre vend-vuota">
+              il nome non nomina un prodotto: nessun contesto
+            </span>
+          ) : (
+            <span className="vend-cifre">
+              {cifra(formattaEuro(v.contesto.vendite), "venduto")}
+              {cifra(formattaNumero(v.contesto.ordini), "ordini")}
+              {v.contesto.scontrinoMedio != null &&
+                cifra(formattaEuro(v.contesto.scontrinoMedio), "scontrino")}
+              {v.legame.categoria &&
+                cifra(ETICHETTA_CATEGORIA_ORDINE[v.legame.categoria] ?? v.legame.categoria, "")}
+              {v.legame.lingua && cifra(ETICHETTA_LINGUA[v.legame.lingua], "")}
+              {v.cittaFiltrata && cifra(v.cittaFiltrata, "")}
+            </span>
+          )}
+        </summary>
+
+        <p className="cella-sub" style={{ whiteSpace: "normal", margin: "10px 0" }}>
+          Dedotto dal <b>nome</b> della campagna. Dice cosa vendeva il negozio mentre la campagna
+          girava: <b>non</b> dice che quelle vendite arrivino da qui. Nessun KPI ci si appoggia.
+        </p>
 
         <p className="cella-sub" style={{ whiteSpace: "normal", marginBottom: 12 }}>
           Legame {v.origineLegame === "manuale" ? <b>scelto a mano</b> : "dedotto"}:{" "}
@@ -336,7 +381,7 @@ export async function VenditeCampagna({
             </span>
           </div>
         </form>
-      </div>
+      </details>
     </section>
   );
 }
