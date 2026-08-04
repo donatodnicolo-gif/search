@@ -488,6 +488,10 @@ function statoCampagna(stato) {
 function mandaCopy(conto) {
   var keywords = leggiKeywords(conto);
   var annunci = leggiAnnunci();
+  // Dove mandano gli annunci. In coda agli altri e in un giro suo: se Google
+  // rifiuta la query, i titoli e le descrizioni partono lo stesso.
+  var destinazioni = leggiDestinazioni();
+  for (var d = 0; d < destinazioni.length; d++) annunci.push(destinazioni[d]);
 
   Logger.log("Keyword (accorpate per campagna): " + keywords.length + " · testi di annuncio: " + annunci.length);
   if (keywords.length > 0) Logger.log("Esempio keyword: " + JSON.stringify(keywords[0]));
@@ -641,6 +645,73 @@ function leggiAnnunci() {
       statoPiattaforma: x.attivo ? "ENABLED" : "PAUSED",
     });
   }
+  return righe;
+}
+
+/**
+ * Dove mandano gli annunci: la URL finale di ogni annuncio, accorpata per
+ * (campagna, gruppo, url) con quanti annunci la usano.
+ *
+ * Sta in una query SUA e non dentro leggiAnnunci() apposta: quella gira su
+ * ad_group_ad_asset_view, e infilarci un campo che la vista non regge farebbe
+ * fallire tutto il giro dei titoli, che oggi funziona. Se questa viene
+ * rifiutata si torna a mani vuote DICENDOLO nel log, invece di far credere
+ * che gli annunci non abbiano destinazione.
+ *
+ * Niente segments.date e niente metriche: una destinazione non e un numero,
+ * non ha un periodo.
+ */
+function leggiDestinazioni() {
+  var query =
+    "SELECT campaign.name, ad_group.name, ad_group_ad.ad.id, " +
+    "ad_group_ad.ad.final_urls, ad_group_ad.status " +
+    "FROM ad_group_ad " +
+    "WHERE ad_group_ad.status IN ('ENABLED', 'PAUSED')";
+
+  var perChiave = {};
+  var letti = 0;
+  try {
+    var risultati = AdsApp.search(query);
+    while (risultati.hasNext()) {
+      var r = risultati.next();
+      var urls = r.adGroupAd && r.adGroupAd.ad ? r.adGroupAd.ad.finalUrls : null;
+      if (!urls || !urls.length) continue;
+      letti++;
+      for (var i = 0; i < urls.length; i++) {
+        var url = urls[i];
+        if (!url) continue;
+        var chiave = r.campaign.name + "|" + r.adGroup.name + "|" + url;
+        var v = perChiave[chiave];
+        if (!v) {
+          v = perChiave[chiave] = {
+            url: url, campagna: r.campaign.name, gruppo: r.adGroup.name,
+            usi: 0, attivo: false,
+          };
+        }
+        v.usi++;
+        if (r.adGroupAd.status === "ENABLED") v.attivo = true;
+      }
+    }
+  } catch (e) {
+    Logger.log("destinazioni: query rifiutata da Google (" + e + ") - gli annunci partono senza URL");
+    return [];
+  }
+
+  var righe = [];
+  for (var k in perChiave) {
+    if (!Object.prototype.hasOwnProperty.call(perChiave, k)) continue;
+    var x = perChiave[k];
+    righe.push({
+      tipo: "destinazione",
+      testo: x.url,
+      finalUrl: x.url,
+      campagna: x.campagna,
+      gruppo: x.gruppo,
+      note: "usata da " + x.usi + " annunc" + (x.usi === 1 ? "io" : "i"),
+      statoPiattaforma: x.attivo ? "ENABLED" : "PAUSED",
+    });
+  }
+  Logger.log("destinazioni: " + righe.length + " URL distinti da " + letti + " annunci");
   return righe;
 }
 

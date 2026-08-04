@@ -824,6 +824,19 @@ tbody tr:hover { background: var(--fill); }
   background: rgba(36,138,61,.1); color: var(--green);
 }
 
+/* Dove mandano gli annunci: una riga per URL, con sotto chi la usa */
+.dest-elenco { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.dest-elenco li {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px;
+  padding-bottom: 10px; border-bottom: 1px solid var(--hairline);
+}
+.dest-elenco li:last-child { border-bottom: 0; padding-bottom: 0; }
+.dest-url {
+  color: var(--blue); font-size: 13.5px; overflow-wrap: anywhere; flex: 1 1 340px;
+}
+.dest-url:hover { text-decoration: underline; }
+.dest-note { font-size: 12px; color: var(--text-tertiary); }
+
 /* Matita accanto a un titolo: c'è ma non compete col titolo */
 .matita {
   display: inline-flex; align-items: center; justify-content: center;

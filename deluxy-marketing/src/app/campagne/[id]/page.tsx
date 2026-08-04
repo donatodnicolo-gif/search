@@ -8,6 +8,7 @@ import { Badge } from "@/components/Badge";
 import { GraficoSpesa } from "@/components/GraficoSpesa";
 import { AggiornaAdesso } from "@/components/AggiornaAdesso";
 import { CoperturaCampagna } from "@/components/CoperturaCampagna";
+import { DestinazioniCampagna } from "@/components/DestinazioniCampagna";
 import { EstensioniCampagna } from "@/components/EstensioniCampagna";
 import { OggiCampagna } from "@/components/OggiCampagna";
 import { SegmentiCampagna } from "@/components/SegmentiCampagna";
@@ -280,6 +281,7 @@ export default async function SchedaCampagna({
 
         <SegmentiCampagna campagnaId={campagna.id} brand={campagna.brand} />
 
+        <DestinazioniCampagna nomeCampagna={campagna.nome} />
         <EstensioniCampagna campagnaId={campagna.id} nomeCampagna={campagna.nome} />
 
         {!defunta && <GuardrailCampagna campagnaId={campagna.id} bloccata={bloccata} salvata={salvata} />}

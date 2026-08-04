@@ -22,6 +22,37 @@ Riceve già dati veri da Google Ads (Gifts e Flowers) e ha 2.426 ordini Shopify 
 
 ## FATTO
 
+### Dove mandano gli annunci (04/08/2026)
+
+Blocco **«Dove mandano gli annunci»** sulla scheda campagna
+(`DestinazioniCampagna.tsx`): gli URL di destinazione, aperti in una finestra
+nuova, con il gruppo che li usa e — se l'URL combacia con una landing censita —
+il link alla sua scheda con la scorecard.
+
+> ⚠️ **La destinazione dell'annuncio non era MAI stata importata.** Misurato:
+> `finalUrl` popolato su **429 righe su 18.223**, e tutte e 429 sono
+> **sitelink**. Zero sui 9.764 titoli e sui 3.036 descrizioni, perché nessuna
+> query dello script chiedeva `ad_group_ad.ad.final_urls`. Chi guardava un URL
+> in app stava guardando dove manda un *sitelink*, non dove manda l'annuncio:
+> sono due pagine diverse, e il blocco le tiene **separate** dicendolo.
+
+- Nello script: **`leggiDestinazioni()`**, query propria su `ad_group_ad` con
+  `final_urls`, accorpata per (campagna, gruppo, url). ⚠️ **In una query a
+  parte e dentro un `try`**, non dentro `leggiAnnunci()`: quella gira su
+  `ad_group_ad_asset_view`, e infilarci un campo che la vista non regge farebbe
+  fallire **tutto** il giro dei titoli, che oggi funziona. Se Google la rifiuta,
+  si torna a mani vuote **scrivendolo nel log**.
+- Le righe arrivano come `tipo: "destinazione"`: l'ingest accetta già tipi
+  nuovi e scrive `finalUrl`, nessuna modifica lì.
+- Finché il giro `copy` aggiornato non passa, il blocco **dichiara** che il
+  dato non c'è invece di spacciare i sitelink per la destinazione.
+
+> 👉 **Serve reincollare `copy.js` (o `tutto.js`) nei tre account**: le copie
+> rigenerate sono in `C:\Users\nicol\Downloads\deluxy-google-ads\`.
+
+⚠️ Lo script è stato modificato **in latin1** (vedi in fondo). Verificato dopo
+la modifica: **5.842 byte non-ascii identici** a prima e `node --check` pulito.
+
 ### La matita accanto al titolo, e i due stati vicini (04/08/2026)
 
 Il nome si cambia **dove lo si legge**: matita accanto al titolo
