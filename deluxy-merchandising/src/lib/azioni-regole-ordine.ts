@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "./db";
 import { applicaRegolaSalvata } from "./ordinamento-vetrina";
-import { isRegola } from "./ordinamento-vetrina";
+import { isRegola, regoleDaForm } from "./ordinamento-vetrina";
 import { CAMPI, parsePassi, serializePassi, type Campo } from "./regole-ordine";
 
 /** Crea una regola vuota e porta dritti a scriverla: un nome da solo non serve a niente. */
@@ -87,6 +87,41 @@ export async function muoviPasso(id: string, indice: number, dove: "su" | "giu" 
   }
   await prisma.regolaOrdine.update({ where: { id }, data: { passi: serializePassi(passi) } });
   revalidatePath(`/visual/regole/${id}`);
+}
+
+/**
+ * **Salva l'ordine che si sta guardando come regola**, dalla scheda della
+ * collezione. È lì che nasce una regola vera: si prova con le metriche rapide
+ * finché la fila convince, e a quel punto la si vuole tenere e riusare — non
+ * ricominciare da una pagina vuota.
+ *
+ * La regola nasce coi passi che erano scelti, viene **assegnata e applicata**
+ * alla collezione, e si finisce sulla sua scheda: da lì si aggiungono i passi
+ * per attributo (categoria, prezzo, tag) che qui non si possono esprimere.
+ */
+export async function creaRegolaDaCollezione(collezioneId: string, fd: FormData) {
+  const nome = String(fd.get("nome") ?? "").trim();
+  const torna = (m: string) =>
+    redirect(`/visual/${collezioneId}?esito=errore&messaggio=${encodeURIComponent(m)}`);
+  if (!nome) torna("Il nome serve: è come si ritrova la regola.");
+  if (await prisma.regolaOrdine.findUnique({ where: { nome }, select: { id: true } })) {
+    torna(`Esiste già una regola «${nome}». Scegli un altro nome o applicala dall'elenco.`);
+  }
+
+  const metriche = regoleDaForm(fd);
+  const r = await prisma.regolaOrdine.create({
+    data: {
+      nome,
+      descrizione: `Nata dall'ordine della collezione, il ${new Date().toLocaleDateString("it-IT")}.`,
+      passi: serializePassi(metriche.map((m) => ({ t: "metrica", m }))),
+    },
+  });
+  // Se non c'era nessuna metrica la regola nasce vuota: si assegna comunque,
+  // ma **non si riscrive l'ordine** — una regola senza passi non è «tutti i
+  // prodotti», è una regola da finire, e non deve rimescolare una fila curata.
+  if (metriche.length > 0) await applicaRegolaSalvata(collezioneId, r.id);
+  else await prisma.collezioneShopify.update({ where: { id: collezioneId }, data: { regolaOrdineId: r.id } });
+  redirect(`/visual/regole/${r.id}`);
 }
 
 /** Applica una regola salvata a una collezione (dalla scheda della collezione). */

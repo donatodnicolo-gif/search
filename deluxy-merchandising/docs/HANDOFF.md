@@ -199,6 +199,13 @@ porta **3120**. Design system Deluxy v1.0.
   - In `/collezioni` ogni riga mostra le **pillole dei temi** (oro, come le scelte editoriali nostre) e in testata c'è il bottone **Temi**.
   - **Verificato su dati veri**: tema di prova con 5 collezioni «Natale» di **Cake, Flowers e Gifts**, una collezione messa in due temi, poi temi rimossi e le 5 collezioni ancora tutte lì.
 
+- **03/08/2026 — togliere un prodotto dalla collezione, e salvare una regola dalla scheda** (`/visual/[id]`, chiesti dall'utente).
+  - **Togliere scrive sul negozio vero** (`collectionRemoveProducts`): toglierlo solo qui sarebbe una bugia che dura fino al prossimo import, perché le appartenenze si rileggono da Shopify e il prodotto tornerebbe. La riga locale si cancella **solo se il negozio conferma**; se Shopify dice no, l'app non racconta una collezione diversa da quella vera.
+  - **Il × non esegue: porta a una conferma** (`?rimuovi=<id>` nell'indirizzo, poi «Sì, togli»). Stessa idea dell'anteprima dell'ordine — finché non confermi, non succede niente. Il pulsante compare **solo sulle collezioni manuali**: in una smart collection chi ci sta dentro lo decide la regola di Shopify, e un prodotto tolto a mano tornerebbe alla prima rivalutazione. Detto in pagina, non nascosto.
+  - **Il prodotto non viene cancellato né archiviato**: esce da quella collezione e basta, resta a catalogo, nelle altre collezioni e nelle vendite.
+  - **«Salva quest'ordine come regola»**: la regola nasce dove si sta guardando la fila, non da una pagina vuota — si prova con le metriche rapide finché convince e le si dà un nome. Prende le metriche in anteprima (o quelle già applicate), crea la `RegolaOrdine`, la assegna e la applica, e porta sulla sua scheda per aggiungere i passi per attributo. Le metriche viaggiano in campi nascosti `regola`, **stessa convenzione** del selettore rapido, così lato server si legge con l'unica `regoleDaForm()`. Senza metriche scelte la regola nasce vuota e **non tocca l'ordine di adesso** (una regola senza passi non è «tutti i prodotti»).
+  - ⚠️ **Non ancora provato contro Shopify**: la rimozione è verificata fino ai controlli (collezione automatica, token mancante, prodotto senza gid) e nel rendering, ma **nessun prodotto è stato tolto davvero da una collezione del negozio** — è una scrittura sullo storefront, da fare con conferma esplicita dell'utente.
+
 ## COME AVVIARE
 ```
 cd deluxy-merchandising

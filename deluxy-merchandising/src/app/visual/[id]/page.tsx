@@ -2,15 +2,16 @@ import { notFound } from "next/navigation";
 import { Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
 import { euro } from "@/lib/dominio";
-import { etichettaRegola, FILTRO_IN_SCENA, isRegola, ordinaProdotti, type RegolaOrdinamento } from "@/lib/ordinamento-vetrina";
+import { etichettaRegola, FILTRO_IN_SCENA, isRegola, ordinaProdotti, parseRegole, type RegolaOrdinamento } from "@/lib/ordinamento-vetrina";
 import { SelettoreRegole } from "@/components/SelettoreRegole";
 import { REGOLE } from "@/lib/ordinamento-vetrina";
 import { etichettaPassi, parsePassi } from "@/lib/regole-ordine";
-import { applicaRegolaSalvataAzione } from "@/lib/azioni-regole-ordine";
+import { applicaRegolaSalvataAzione, creaRegolaDaCollezione } from "@/lib/azioni-regole-ordine";
 import {
   applicaRegolaOrdinamento,
   spostaInCollezione,
   spingiOrdineSuShopify,
+  rimuoviProdottoDaCollezione,
 } from "@/lib/azioni-vetrina-shopify";
 
 export const dynamic = "force-dynamic";
@@ -24,7 +25,7 @@ export default async function CurazioneCollezionePage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ esito?: string; messaggio?: string; regola?: string | string[] }>;
+  searchParams: Promise<{ esito?: string; messaggio?: string; regola?: string | string[]; rimuovi?: string }>;
 }) {
   const { id } = await params;
   const sp = await searchParams;
@@ -186,10 +187,10 @@ export default async function CurazioneCollezionePage({
         <div className="scheda">
           <div className="scheda-titolo">Regola salvata</div>
           {regoleSalvate.length === 0 ? (
-            <div className="vuoto-mini">
-              Nessuna regola salvata. Si scrivono in <a href="/visual/regole">Regole d&apos;ordine</a>: una regola è una
-              sequenza di passi (categoria, prezzo, tag, risposta al bisogno, metriche) che si riusa su più collezioni.
-            </div>
+            <p className="page-sub" style={{ marginTop: 0 }}>
+              Nessuna regola salvata ancora. La prima si scrive da qui: dai un nome all&apos;ordine che hai davanti e
+              diventa una regola riusabile su altre collezioni.
+            </p>
           ) : (
             <>
               <form
@@ -205,7 +206,7 @@ export default async function CurazioneCollezionePage({
                 <button type="submit" className="btn btn-primario">Applica</button>
                 <a className="btn btn-secondario" href="/visual/regole">Gestisci le regole</a>
               </form>
-              <p className="page-sub" style={{ marginTop: 10, marginBottom: 0 }}>
+              <p className="page-sub" style={{ marginTop: 10 }}>
                 {c.regolaOrdine ? (
                   <>
                     In uso: <b>{c.regolaOrdine.nome}</b> — {etichettaPassi(parsePassi(c.regolaOrdine.passi), NOMI_METRICHE)}.
@@ -217,6 +218,12 @@ export default async function CurazioneCollezionePage({
               </p>
             </>
           )}
+
+          {/* **La regola nasce qui.** È dove si sta guardando la fila: si prova
+              con le metriche rapide finché convince, e a quel punto le si dà un
+              nome. Ricominciare da una pagina vuota vorrebbe dire rifare da capo
+              il ragionamento appena fatto. */}
+          <CreaRegolaDaQui id={id} regole={inAnteprima ? regoleAnteprima : parseRegole(c.regolaOrdinamento)} />
         </div>
 
         {/* L'anteprima: l'ordine ipotizzato, con chi sale e chi scende. */}
@@ -368,12 +375,38 @@ export default async function CurazioneCollezionePage({
                       </div>
                     </span>
                     <span className="vetrina-azioni">
-                      <form action={spostaInCollezione.bind(null, id, vp.prodottoId, "su")}>
-                        <button className="icon-btn" title="Sposta su" type="submit" disabled={i === 0}>↑</button>
-                      </form>
-                      <form action={spostaInCollezione.bind(null, id, vp.prodottoId, "giu")}>
-                        <button className="icon-btn" title="Sposta giù" type="submit" disabled={i === righe.length - 1}>↓</button>
-                      </form>
+                      {/* **Togliere scrive sul negozio vero**, quindi si conferma
+                          prima: il × porta a uno stato di conferma nell'indirizzo,
+                          non esegue. Stessa idea dell'anteprima dell'ordine —
+                          finché non confermi, non succede niente. */}
+                      {sp.rimuovi === vp.prodottoId ? (
+                        <>
+                          <form action={rimuoviProdottoDaCollezione.bind(null, id, vp.prodottoId)}>
+                            <button className="btn btn-secondario" type="submit" style={{ fontSize: 12, padding: "3px 10px" }}>
+                              Sì, togli
+                            </button>
+                          </form>
+                          <a className="icon-btn" href={`/visual/${id}`} title="Annulla">↩</a>
+                        </>
+                      ) : (
+                        <>
+                          <form action={spostaInCollezione.bind(null, id, vp.prodottoId, "su")}>
+                            <button className="icon-btn" title="Sposta su" type="submit" disabled={i === 0}>↑</button>
+                          </form>
+                          <form action={spostaInCollezione.bind(null, id, vp.prodottoId, "giu")}>
+                            <button className="icon-btn" title="Sposta giù" type="submit" disabled={i === righe.length - 1}>↓</button>
+                          </form>
+                          {manuale && (
+                            <a
+                              className="icon-btn"
+                              href={`/visual/${id}?rimuovi=${vp.prodottoId}`}
+                              title="Togli dalla collezione (sul negozio)"
+                            >
+                              ×
+                            </a>
+                          )}
+                        </>
+                      )}
                     </span>
                   </div>
                 ))}
@@ -464,5 +497,36 @@ function StatoNegozio({ stato }: { stato: string | null }) {
     >
       {testo}
     </span>
+  );
+}
+
+/**
+ * «Salva questo ordine come regola»: prende le metriche che si stanno guardando
+ * — quelle in anteprima, o quelle già applicate alla collezione — e le porta
+ * dentro una regola nuova, che poi si finisce di scrivere sulla sua scheda
+ * (dove ci sono i passi per attributo: categoria, prezzo, tag…).
+ *
+ * Le metriche viaggiano in campi nascosti `regola`, la **stessa convenzione**
+ * del selettore rapido: così la lettura lato server è una sola (`regoleDaForm`).
+ */
+function CreaRegolaDaQui({ id, regole }: { id: string; regole: RegolaOrdinamento[] }) {
+  return (
+    <form
+      action={creaRegolaDaCollezione.bind(null, id)}
+      style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginTop: 12 }}
+    >
+      {regole.map((r) => (
+        <input key={r} type="hidden" name="regola" value={r} />
+      ))}
+      <input name="nome" placeholder="Nome della regola (es. Vetrina di Natale)" required style={{ minWidth: 280 }} />
+      <button type="submit" className="btn btn-secondario">Salva quest&apos;ordine come regola</button>
+      <span className="page-sub" style={{ margin: 0 }}>
+        {regole.length > 0 ? (
+          <>Parte da <b>{etichettaRegola(regole.join(","))}</b>, poi ci aggiungi i passi per categoria, prezzo o tag.</>
+        ) : (
+          <>Nessuna metrica scelta: la regola nasce vuota e <b>non tocca l&apos;ordine di adesso</b>.</>
+        )}
+      </span>
+    </form>
   );
 }

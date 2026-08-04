@@ -58,6 +58,78 @@ async function graphqlNegozio(dominio: string, token: string, query: string, var
 }
 
 /**
+ * **Toglie un prodotto dalla collezione, sul negozio vero.**
+ *
+ * Toglierlo solo qui sarebbe una bugia che dura fino al prossimo import: le
+ * appartenenze si rileggono da Shopify, e il prodotto tornerebbe. Quindi si
+ * chiama `collectionRemoveProducts` e **solo se il negozio conferma** si toglie
+ * anche la riga locale.
+ *
+ * Gli stessi paletti del riordino, per lo stesso motivo:
+ * - **solo collezioni manuali** — in una smart collection chi ci sta dentro lo
+ *   decide la regola di Shopify: togliere un prodotto a mano non è previsto, e
+ *   alla prima rivalutazione tornerebbe comunque;
+ * - serve un **token con `write_products`**.
+ *
+ * Il prodotto **non viene cancellato né archiviato**: esce da questa collezione
+ * e basta. Resta a catalogo, nelle altre collezioni e nelle vendite.
+ */
+export async function rimuoviProdottoDaCollezione(collezioneId: string, prodottoId: string) {
+  const errore = (m: string) =>
+    redirect(`/visual/${collezioneId}?esito=errore&messaggio=${encodeURIComponent(m)}`);
+
+  const c = await prisma.collezioneShopify.findUnique({ where: { id: collezioneId } });
+  if (!c) errore("Collezione non trovata.");
+  if (c!.tipo !== "manuale") {
+    errore(
+      "È una collezione automatica: chi ci sta dentro lo decide la regola di Shopify. Per togliere questo prodotto va cambiata la regola sul negozio.",
+    );
+  }
+
+  const riga = await prisma.prodottoInCollezioneShopify.findFirst({
+    where: { collezioneId, prodottoId },
+    select: { id: true, prodottoShopifyId: true, prodotto: { select: { nome: true } } },
+  });
+  if (!riga) errore("Questo prodotto non risulta in questa collezione.");
+  if (!riga!.prodottoShopifyId) {
+    errore("Di questo prodotto non conosciamo l'id su Shopify: rilancia l'import delle collezioni e riprova.");
+  }
+
+  const negozio = await prisma.negozioShopify.findFirst({ where: { nome: c!.negozio }, select: { id: true } });
+  const accesso = negozio ? await tokenDi(negozio.id) : null;
+  if (!accesso) errore(`Il negozio «${c!.negozio}» non è collegato: serve un token con write_products in Impostazioni.`);
+
+  const { corpo } = await graphqlNegozio(
+    accesso!.dominio,
+    accesso!.token,
+    `mutation($id: ID!, $productIds: [ID!]!) {
+       collectionRemoveProducts(id: $id, productIds: $productIds) {
+         job { id done }
+         userErrors { field message }
+       }
+     }`,
+    { id: c!.shopifyId, productIds: [riga!.prodottoShopifyId] },
+  );
+  const err = [
+    ...(corpo.errors ?? []).map((e) => e.message),
+    ...((corpo.data?.collectionRemoveProducts?.userErrors as { message: string }[] | undefined) ?? []).map(
+      (e) => e.message,
+    ),
+  ];
+  if (err.length) errore(`Shopify ha rifiutato: ${err.join(" · ")}`);
+
+  // Solo adesso si toglie la riga qui: se il negozio avesse detto no, l'app
+  // avrebbe mostrato una collezione diversa da quella vera.
+  await prisma.prodottoInCollezioneShopify.delete({ where: { id: riga!.id } });
+  revalidatePath(`/visual/${collezioneId}`);
+  redirect(
+    `/visual/${collezioneId}?esito=ok&messaggio=${encodeURIComponent(
+      `«${riga!.prodotto.nome}» tolto dalla collezione su Shopify. Il prodotto resta a catalogo e nelle altre collezioni.`,
+    )}`,
+  );
+}
+
+/**
  * Spinge su Shopify l'ordine curato qui, con `collectionReorderProducts`.
  *
  * Tre paletti, tutti dichiarati all'utente e mai aggirati:
