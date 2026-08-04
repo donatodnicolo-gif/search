@@ -1,6 +1,6 @@
 # Handoff — Deluxy Marketing
 
-> Stato al **02/08/2026**. Una finestra Claude nuova deve poter riprendere da qui
+> Stato al **04/08/2026**. Una finestra Claude nuova deve poter riprendere da qui
 > senza altro contesto. Leggere prima il [README](../README.md) per cosa fa l'app;
 > questo documento dice **dove siamo** e **cosa manca**.
 
@@ -21,6 +21,62 @@ Riceve già dati veri da Google Ads (Gifts e Flowers) e ha 2.426 ordini Shopify 
   in sviluppo scrive sui dati veri. Non esiste ancora uno schema `marketing_dev`.
 
 ## FATTO
+
+### Il menu su telefono, e la scelta delle campagne leggibile (04/08/2026)
+
+**Su telefono l'app non aveva navigazione.** Sotto gli 800px il CSS diceva
+`.sidebar { display: none }` e basta: il menu spariva, e l'hamburger della
+topbar non poteva riportarlo indietro perché toglieva/metteva
+`data-sidebar-chiusa`, che `display: none` copriva comunque. Si arrivava alla
+pagina aperta e da lì non si andava più da nessuna parte. Ora la sidebar
+diventa un **cassetto** sopra la pagina, con velo che chiude al tocco, Esc, e
+chiusura automatica appena si sceglie una voce.
+
+> ⚠️ **Lo stesso bottone fa due cose opposte, ed è voluto.** Su schermo grande
+> la sidebar parte APERTA e il bottone la chiude (preferenza in
+> `localStorage`); su telefono parte CHIUSA e il bottone la apre. Sono due
+> stati iniziali diversi, non due bottoni: `ToggleSidebar` guarda
+> `matchMedia("(max-width: 800px)")` e decide. Lo stato del telefono **non si
+> salva**: un cassetto che copre il contenuto non deve ritrovarsi aperto alla
+> riapertura dell'app.
+
+> ⚠️ **La preferenza salvata dal desktop non deve tenere chiuso il cassetto.**
+> Chi ha chiuso la sidebar dal computer si porta dietro `data-sidebar-chiusa`
+> anche sul telefono. `[data-sidebar-mobile] .sidebar` ha la **stessa
+> specificità** di `[data-sidebar-chiusa] .sidebar`: vince perché è dichiarata
+> dopo. Spostare quel blocco più in alto nel file rimetterebbe il bug.
+
+**«Porta su altre campagne» era illeggibile**: si apriva come `<details>`
+*dentro la cella* della tabella, quindi ereditava la larghezza della colonna
+keyword — con nomi come `[Cakedesign.me] | LeadGen | ITA` si leggevano tre
+parole per riga in una colonnina da 180px, e scegliere la campagna giusta era
+indovinare. Ora è un **dialogo** (`<dialog>` nel top layer, 560px, o
+schermo−32px sul telefono) con **casella di ricerca**, conteggio delle
+selezionate, «Prendi le trovate» / «Togli tutte» e invio disabilitato finché
+non se ne sceglie almeno una.
+
+> ⚠️ **Uno solo per pagina, non uno per riga** — e qui c'era un difetto grosso,
+> più vecchio di questa modifica: il `<details>` stampava l'elenco **completo**
+> delle campagne dentro **ogni** riga. Misurato su `/keywords?tema=fiori`:
+> 1.531 righe × 121 campagne = **185.480 checkbox e 68,6 MB di HTML** per una
+> lista che è sempre la stessa. Ora il dialogo è montato una volta in fondo
+> alla pagina e le righe portano quattro `data-*` a testa, con un ascoltatore
+> delegato che legge dal bottone su quale keyword sta lavorando:
+> **68,6 MB → 11,5 MB (−83%)**, 122 checkbox.
+
+> ⚠️ **Un helper condiviso fra server e client non può stare in un modulo
+> `"use client"`.** `attributiPortaKeyword` era esportato da
+> `components/PortaKeyword.tsx`: `npx tsc --noEmit` passa pulito e la pagina
+> esplode a runtime con «Attempted to call attributiPortaKeyword() from the
+> server but attributiPortaKeyword is on the client». Sta in
+> `src/lib/porta-keyword.ts`. **Il typecheck non vede questo errore: si trova
+> solo aprendo la pagina.**
+
+> ⚠️ **Misurare una transizione CSS con la scheda del browser nascosta dà
+> numeri falsi.** Le transizioni non avanzano e `getComputedStyle` restituisce
+> i valori di partenza: a cassetto chiuso il margine risultava `0` invece di
+> `-280px`, cioè "bug" dove non c'era. Si neutralizza con
+> `elemento.style.transition = "none"` prima di leggere.
 
 ### Lo script esegue davvero (04/08/2026)
 

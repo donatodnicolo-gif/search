@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
 import { Icona } from "@/components/Icona";
+import { PortaKeyword } from "@/components/PortaKeyword";
+import { attributiPortaKeyword } from "@/lib/porta-keyword";
 import { SelettoreStato } from "@/components/SelettoreStato";
 import { Sidebar } from "@/components/Sidebar";
 import { VisteSalvate } from "@/components/VisteSalvate";
@@ -435,42 +437,23 @@ export default async function PaginaKeywords({
                               );
                             }
                             if (altre.length === 0) return null;
+                            // Bottone leggero: apre l'unico dialogo della
+                            // pagina (vedi <PortaKeyword> in fondo), che
+                            // legge da qui su cosa sta lavorando.
                             return (
-                              <details className="kw-porta">
-                                <summary>
-                                  Porta su altre campagne
-                                  {cl === "ideal" && <span className="kw-ideale">ideale</span>}
-                                </summary>
-                                <form action={applicaKeywordAdAltreCampagne} className="kw-porta-form">
-                                  <input type="hidden" name="testo" value={k.testo} />
-                                  <input type="hidden" name="ritorno" value="/keywords" />
-                                  <label className="cella-sub" style={{ display: "block", marginBottom: 6 }}>
-                                    come{" "}
-                                    <select name="corrispondenza" defaultValue={matchDiTesto(k.testo) ?? "broad"}>
-                                      <option value="broad">generica</option>
-                                      <option value="phrase">a frase</option>
-                                      <option value="exact">esatta</option>
-                                    </select>
-                                  </label>
-                                  <div className="kw-porta-elenco">
-                                    {altre.map((c) => (
-                                      <label key={c.id} className="kw-porta-riga">
-                                        <input type="checkbox" name="campagne" value={c.id} />
-                                        <span>{c.nome}{c.classe === "traino" ? " · TRAINO" : ""}</span>
-                                      </label>
-                                    ))}
-                                  </div>
-                                  <button className="btn small btn-secondario" type="submit" style={{ marginTop: 8 }}>
-                                    Metti in coda
-                                  </button>
-                                  {cl == null && (
-                                    <div className="cella-sub" style={{ marginTop: 6, whiteSpace: "normal" }}>
-                                      L&apos;AI non l&apos;ha ancora classificata: controlla che descriva
-                                      cosa vendiamo e non un concorrente o la nostra insegna.
-                                    </div>
-                                  )}
-                                </form>
-                              </details>
+                              <button
+                                type="button"
+                                className="kw-porta-apri"
+                                {...attributiPortaKeyword({
+                                  testo: k.testo,
+                                  corrispondenza: matchDiTesto(k.testo) ?? "broad",
+                                  giaSu: k.campagne,
+                                  classificata: cl != null,
+                                })}
+                              >
+                                Porta su altre campagne
+                                {cl === "ideal" && <span className="kw-ideale">ideale</span>}
+                              </button>
                             );
                           })()}
                         </td>
@@ -526,6 +509,13 @@ export default async function PaginaKeywords({
             </section>
           );
         })}
+        {/* Uno solo per tutta la pagina: l'elenco delle campagne è lo stesso
+            per ogni riga, e ripeterlo 1.531 volte costava 68 MB di HTML. */}
+        <PortaKeyword
+          campagne={campagneCensite}
+          ritorno="/keywords"
+          azione={applicaKeywordAdAltreCampagne}
+        />
       </main>
     </div>
   );
