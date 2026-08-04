@@ -989,6 +989,43 @@ export async function cestinaMessaggio(id: string) {
  * riga è un thread: marcare solo il messaggio più recente lascerebbe acceso il
  * pallino, che è il contrario di quello che si è chiesto.
  */
+/**
+ * L'hai GESTITA: rispondendo o inoltrando, la conversazione si segna letta —
+ * tutta, non solo la mail toccata.
+ *
+ * ⚠️ Segnalazione del 4/08/2026: «le mail inoltrate o risposte a volte rimangono
+ * da leggere». Erano due cose. **L'inoltro non segnava letto niente** (la riga
+ * `if (!inoltro)` in `inviaMessaggio`). E la risposta segnava letta **una sola
+ * mail**: ma in posta in arrivo una riga È un thread (`nonLetti: g.some(…)` in
+ * ListaPosta), quindi bastava un'altra mail non letta nella stessa
+ * conversazione perché il pallino restasse acceso — «a volte», cioè quando il
+ * thread ne aveva più di una. È la stessa regola già scritta qui sotto per il
+ * tasto «✓ Letto» della riga: marcare solo l'ultima non spegne niente.
+ *
+ * `serveRisposta` invece lo spegne **solo una risposta vera**: inoltrare a un
+ * collega non risponde a chi ha scritto, e quella mail una risposta la aspetta
+ * ancora.
+ */
+async function segnaConversazioneGestita(
+  utenteId: string,
+  messaggioId: string,
+  rispostaVera: boolean
+): Promise<void> {
+  const ids = [...(await idsThread(utenteId, messaggioId))]
+  await db.messaggio.updateMany({
+    // Il ripiego sulla sola mail non è teorico: `idsThread` lavora su una
+    // finestra di candidati e per una mail molto vecchia può tornare vuoto.
+    where: { id: { in: ids.length ? ids : [messaggioId] }, utenteId },
+    data: { letto: true },
+  })
+  if (rispostaVera) {
+    await db.messaggio.updateMany({
+      where: { id: messaggioId, utenteId },
+      data: { serveRisposta: false },
+    })
+  }
+}
+
 export async function segnaLettoThread(
   messaggioId: string,
   letto: boolean
@@ -1640,10 +1677,9 @@ export async function inviaBozza(id: string, form?: FormData): Promise<{ ok: boo
     )
 
     await db.bozza.update({ where: { id }, data: { inviata: true, inviataIl: new Date() } })
-    await db.messaggio.update({
-      where: { id: bozza.messaggio.id },
-      data: { letto: true, serveRisposta: false },
-    })
+    // Come per la risposta scritta a mano: letta TUTTA la conversazione, non
+    // solo la mail a cui si è risposto.
+    await segnaConversazioneGestita(utenteId, bozza.messaggio.id, true)
 
     revalidatePath('/', 'layout')
     const nota = tradottoIn ? ` Tradotto in ${tradottoIn} prima dell’invio.` : ''
@@ -1953,9 +1989,10 @@ export async function inviaMessaggio(form: FormData): Promise<{ ok: boolean; mes
       }
     }
 
-    if (!inoltro) {
-      await db.messaggio.update({ where: { id: messaggioId }, data: { letto: true, serveRisposta: false } })
-    }
+    // Anche l'INOLTRO segna letta la conversazione: prima non segnava niente,
+    // e la mail inoltrata restava fra le da leggere. Vedi
+    // `segnaConversazioneGestita`.
+    await segnaConversazioneGestita(utenteId, messaggioId, !inoltro)
 
     const bozzaId = testo(form, 'bozzaId')
     if (bozzaId) await db.bozza.deleteMany({ where: { id: bozzaId, utenteId } })
@@ -2969,6 +3006,9 @@ export async function rispondiInvito(
   try {
     const { raw, messageId } = await spedisci(m.account, daInviare)
     await registraInviato(utenteId, m.account, daInviare, raw, messageId, m.thread || m.messageId)
+    // Accettare o rifiutare un invito È rispondere: l'invito non resta lì da
+    // leggere. Stessa regola di risposte e inoltri.
+    await segnaConversazioneGestita(utenteId, m.id, true)
   } catch (e) {
     revalidatePath('/', 'layout')
     return {

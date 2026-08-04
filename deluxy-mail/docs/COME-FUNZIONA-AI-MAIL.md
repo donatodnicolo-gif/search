@@ -392,6 +392,13 @@ In più: un pallino blu sulle non lette, la riga **«da qui non hai letto»** ch
 riprendere, la graffetta di chi ha allegati, e «Apri tutte / Chiudi tutte». L'ultimo
 messaggio è già aperto, perché è quasi sempre quello che serve.
 
+**Rispondere e inoltrare segnano letta la conversazione.** Se l'hai risposta o inoltrata,
+l'hai gestita: il pallino blu si spegne su **tutte** le mail di quel thread, non solo su
+quella che hai toccato — una riga in elenco è un thread, e lasciarne indietro una lo
+teneva acceso. Vale anche per l'**Accetta/Rifiuta** di un invito di calendario.
+Differenza: solo una **risposta vera** toglie il «serve risposta», perché inoltrare a un
+collega non risponde a chi ti ha scritto.
+
 **Segna come letto.** In **posta in arrivo**, fra le azioni della riga c'è **«✓ Letto»**:
 spegne il pallino blu senza aprire la mail, e vale per **tutta la conversazione** (una
 riga in elenco è un thread: marcare solo l'ultima lascerebbe il pallino acceso). Su una

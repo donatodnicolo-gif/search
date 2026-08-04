@@ -1,6 +1,6 @@
 # AI Mail 2.0 (deluxy-mail) — Handoff tecnico
 
-> Documento di ripartenza. Aggiornato: **3 agosto 2026**.
+> Documento di ripartenza. Aggiornato: **4 agosto 2026**.
 > Leggi anche `CLAUDE.md` alla radice del repo e il design system in `deluxy-design-system/`.
 
 ---
@@ -16,7 +16,7 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB:** Supabase Postgres, progetto **`feleldlsreurqpdhstla`** («cs@deluxy.it's», piano Pro, eu-west-1), **schema `mail`** — dal 28/07/2026, migrato con `scripts/sposta-database.mjs` (17.484 messaggi, tutte le 31 tabelle verificate riga per riga). ⚠️ Lo stesso database ospita in `public` la piattaforma consegne: lo schema dedicato è ciò che tiene le due app separate — `?schema=mail` va SEMPRE nelle stringhe di connessione (`DATABASE_URL` col pooler 6543 + `&pgbouncer=true`; `DIRECT_URL` col pooler 5432). Il progetto vecchio `sxovckndpmdbqfrfkxhl` (Free, 500 MB, finito in sola lettura a 1,57 GB) resta intatto come rete di sicurezza: **si spegne solo dopo qualche giorno di esercizio sereno del nuovo**, poi si valuta la disdetta di eventuali abbonamenti doppi.
 - **Porta locale:** 3070.
 
-### Dove siamo (3 agosto 2026)
+### Dove siamo (4 agosto 2026)
 
 Tutto committato e **pushato** su `origin/scout-ui`, e verificato **sul
 contenuto** (non sullo SHA: su questo branch altre sessioni riscrivono la
@@ -28,7 +28,9 @@ produzione abbia l'ultimo lavoro.
 
 **Cronologia dei lavori:** le voci di §7 sono della sessione del 23 luglio (dalla
 più recente); i lavori dal **26 luglio al 3 agosto** stanno in §9, con la data
-fra parentesi. L'ultimo (3 ago): le **scorciatoie si vedono** — la lettera è
+fra parentesi. L'ultimo (4 ago): **rispondere e inoltrare segnano letta tutta
+la conversazione** — l'inoltro non segnava letto niente e la risposta una mail
+sola, e in elenco una riga è un thread. Prima (3 ago): le **scorciatoie si vedono** — la lettera è
 stampata sul bottone (`Rispondi R`, `Inoltra I`) e `i`/`t` funzionano come
 `f`/`a`, perché le iniziali erano quelle di Gmail e non quelle italiane; e
 **`Ctrl+Invio` manda la mail** (in due colpi: conferma, poi invio).
@@ -73,6 +75,10 @@ l'apertura di una mail resa veloce (vedi punto 1 qui sotto).
    `E`, `Canc`), che `i` inoltri e `t` risponda a tutti davvero, e che
    **`Ctrl+Invio`** mandi la mail in due colpi (conferma, poi invio) sia in
    risposta/inoltro sia in `/scrivi` — quest'ultimo con una mail vera.
+   Dal 4 ago: che dopo una **risposta** e dopo un **inoltro** il pallino blu si
+   spenga su TUTTA la conversazione, anche quando il thread aveva più mail non
+   lette. (Le mail già inoltrate PRIMA di oggi restano da leggere: la correzione
+   vale da qui in avanti, per quelle vecchie c'è «✓ Letto» sulla riga.)
 9. **Le altre pagine non dicono le loro scorciatoie**: le lettere sono stampate
    sui bottoni della **mail aperta**, ma in posta in arrivo `c` (scrivi) e `u`
    (torna) restano invisibili, e il tasto «⌨ Scorciatoie» sta solo lì. Se
@@ -392,6 +398,7 @@ Cron: **`/api/sync`** (route, autenticata con `CRON_SECRET`) — su Vercel Hobby
 
 ## 9. Problemi noti / gotchas
 
+- **«Le mail inoltrate o risposte a volte rimangono da leggere» (4 ago)** — segnalazione dell'utente, ed erano **due** difetti diversi che davano lo stesso sintomo. (1) **L'inoltro non segnava letto niente**: in `inviaMessaggio` la riga era `if (!inoltro) { … letto: true … }`, quindi inoltrare lasciava la mail fra le da leggere — sempre, non «a volte». (2) **La risposta segnava letta una mail sola**, ma in posta in arrivo **una riga È un thread** (`nonLetti: g.some((x) => !x.letto)` in `ListaPosta`): bastava un'altra mail non letta nella stessa conversazione e il pallino restava acceso — ecco «a volte». È la stessa regola già scritta per il tasto «✓ Letto» della riga (`segnaLettoThread`), solo non applicata qui. Ora c'è `segnaConversazioneGestita(utenteId, messaggioId, rispostaVera)` in `lib/actions.ts`, chiamata da `inviaMessaggio` (risposta **e** inoltro), da `inviaBozza` (la risposta scritta da Renè) e da `rispondiInvito` (Accetta/Rifiuta di un invito **è** rispondere). ⚠️ `serveRisposta` lo spegne **solo la risposta vera**: inoltrare a un collega non risponde a chi ha scritto, e quella mail una risposta la aspetta ancora. ⚠️ `idsThread` lavora su una finestra di 400 candidati e per una mail molto vecchia può tornare **vuoto**: c'è il ripiego sul solo `messaggioId`, altrimenti il caso raro sarebbe «non segna letto proprio niente», cioè il difetto di partenza. **Lezione**: quando l'elenco mostra i **gruppi**, ogni azione che cambia uno stato mostrato deve agire sul gruppo — se no la si vede «non funzionare» pur avendo funzionato.
 - **Mandare la mail da tastiera: `Ctrl+Invio` (3 ago)** — mancava, ed era la domanda successiva dell'utente («tasto rapido per invio mail qual è?»). Sta in `components/useInvioRapido.ts`, usato sia da `Composizione` (rispondi/inoltra) sia da `ComposizioneNuova` (`/scrivi`); la scritta `Ctrl+Invio` è sul bottone. ⚠️ **È l'unica scorciatoia col modificatore, e non contraddice la regola «lettere singole, mai Ctrl»**: quella nasce dal fatto che `Ctrl+R`/`Ctrl+F`/`Ctrl+S` sono del browser — `Ctrl+Invio` non è di nessuno (è quello di Gmail e Outlook), e qui una lettera singola sarebbe impossibile perché si sta scrivendo. ⚠️ **Non salta la conferma**: primo `Ctrl+Invio` arma «Confermi l'invio a…?», secondo spedisce — esattamente i due clic. Su un'azione irreversibile la tastiera non può essere una scorciatoia *anche* per i controlli. ⚠️ Il riquadro «Chiedi a Renè» è marcato `data-senza-invio-rapido`: lì `Invio` chiede già a Renè di scrivere, e `Ctrl+Invio` avrebbe spedito proprio ciò che si stava per far riscrivere.
 - **Le scorciatoie c'erano ma nessuno le vedeva — ora sono STAMPATE sui bottoni (3 ago)** — segnalazione dell'utente sulla pagina di un messaggio: «non vedo opzioni per pulsanti rapidi… R per rispondere, I per inoltrare». Due cose sbagliate, non una. (1) **Scoperta**: le scorciatoie esistevano dal 31 luglio ma stavano SOLO nell'elenco che si apre col `?`, e un elenco dietro un tasto lo trova soltanto chi già sa che c'è — cioè chi non ne ha bisogno. Ora la lettera è scritta sul bottone stesso (`Rispondi R`, `Rispondi a tutti T`, `Inoltra I`, `Archivia E`, `Cestina Canc`, classe `.btn kbd.tasto`) più un tasto **«⌨ Scorciatoie»** che apre l'elenco senza indovinare il `?` (`apriScorciatoie()` in `components/Scorciatoie.tsx`, evento `aimail:scorciatoie`). Su schermo ≤900px lettere e tasto **spariscono**: senza tastiera sono rumore. (2) **La lettera giusta**: `inoltra` era solo `f` e `rispondi a tutti` solo `a` — le iniziali **di Gmail**, non quelle italiane. Ora `i` e `t` fanno la stessa cosa, `f` e `a` restano per chi arriva da Gmail. ⚠️ Attenzione ad aggiungerne altre: `i` e `t` erano libere, ma le lettere singole si esauriscono in fretta e un doppione muto (due handler sullo stesso tasto) è già costato caro con `r` — vedi §7, `fuocoConversazione.ts`. **Lezione**: una funzione che si scopre solo leggendo la documentazione, per l'utente non esiste; e le scorciatoie si scelgono nella lingua di chi le preme, non in quella del client da cui abbiamo copiato.
 - **Il database era a 1,5 GB: i corpi HTML ora abitano sul server (28 lug)** — a disco pieno Supabase mette il progetto in SOLA LETTURA e l'app «si inchioda» (vedi sotto): la causa era la tabella `Messaggio` (1471 MB su 1485 totali, righe morte trascurabili → non era gonfiore, erano dati veri, e il grosso erano i **corpi HTML**: 5-10 volte il testo, usati solo per rimostrare la mail impaginata). Soluzione in `lib/htmlServer.ts`, stessa filosofia di allegati e inviti: **la casella IMAP è la fonte di verità, l'HTML si riprende da lì quando serve**. In pratica: (1) l'HTML resta nel DB solo per la posta degli ultimi `GIORNI_HTML_CALDO` (30) giorni — quella si apre di continuo e resta istantanea; (2) `pulisciHtmlVecchio()` nel cron toglie l'HTML alle mail più vecchie con `uid > 0`, mille a giro (graduale APPOSTA: un UPDATE unico su decine di migliaia di TEXT terrebbe il DB occupato per minuti); (3) all'apertura, `CorpoMessaggio` mostra subito il testo e `leggiHtmlMessaggio` riprende l'impaginato dal server (`htmlDalServer`: BODYSTRUCTURE → sola parte `text/html` senza nome file → decodifica col charset dichiarato) — **senza risalvarlo**; (4) risposta/inoltro citano formattato lo stesso: `htmlDiMessaggio` riempie il buco prima di `preparaRisposta`; (5) lo storico scaricato non salva più HTML per mail fuori finestra (`htmlCaldo` in `salvaMessaggi`/`salvaInviati`). Copie solo-locali (`uid ≤ 0`) tengono l'HTML: per loro il DB è l'unico posto dove esiste. ⚠️ Lo spazio liberato diventa riusabile con l'autovacuum (il DB smette di crescere); il **numero** riportato da Supabase scende solo con un `VACUUM FULL` una tantum (libera-spazio.sql). ⚠️ Mail cancellata dal server = impaginato perso per sempre, resta il testo.
