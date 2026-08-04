@@ -2298,3 +2298,88 @@ export async function riapriOperazione(fd: FormData) {
   });
   revalidatePath("/operazioni");
 }
+
+// ---------- Portare una keyword su altre campagne ----------
+// È il gesto che fa crescere un account: una parola che rende dove sta la si
+// prova dove ancora non c'è. Ma vale solo per le parole IDEALI — quelle che
+// descrivono cosa vendiamo. Una parola «specifica» (un concorrente, la nostra
+// insegna, una storpiatura) su un'altra campagna non ha senso: intercetta
+// gente che cercava un'altra cosa, e il danno si propaga a tutte le campagne
+// dove la si copia (regola dei Definitivi, lib/proposte-ai.ts).
+//
+// Come sempre: nasce in coda, una operazione per campagna, e parte solo dopo
+// l'approvazione. Livello L1 — aggiungere una keyword è leggero, ma non è L0.
+export async function applicaKeywordAdAltreCampagne(fd: FormData) {
+  const parola = testo(fd, "testo");
+  const ritorno = testo(fd, "ritorno") ?? "/keywords";
+  const corrispondenza = testo(fd, "corrispondenza") ?? "broad";
+  const destinazioni = fd
+    .getAll("campagne")
+    .map((v) => String(v))
+    .filter(Boolean);
+
+  if (!parola || destinazioni.length === 0) {
+    redirect(
+      `${ritorno}${ritorno.includes("?") ? "&" : "?"}bloccata=${encodeURIComponent(
+        "Serve la parola e almeno una campagna di destinazione"
+      )}`
+    );
+  }
+
+  const pulito = testoKeywordPulito(parola);
+  const campagne = await prisma.campagna.findMany({
+    where: { id: { in: destinazioni } },
+    include: { incidenti: { where: { stato: "aperto" }, select: { codice: true } } },
+  });
+
+  const fatte: string[] = [];
+  const saltate: string[] = [];
+
+  for (const c of campagne) {
+    // Il freeze da incidente vale anche qui: su una campagna congelata non
+    // entra in coda nemmeno un'aggiunta.
+    if (c.incidenti.length > 0) {
+      saltate.push(`${c.nome} (freeze ${c.incidenti[0].codice})`);
+      continue;
+    }
+
+    // Se la parola c'è già in quella campagna non si riaccoda: succede
+    // spuntando una campagna che la aveva già, e in coda comparirebbe
+    // un'aggiunta che Google rifiuterebbe come duplicata.
+    const gia = await prisma.copyAnnuncio.findFirst({
+      where: { tipo: "keyword", campagna: c.nome, testo: { contains: pulito } },
+      select: { id: true },
+    });
+    if (gia) {
+      saltate.push(`${c.nome} (ce l'ha già)`);
+      continue;
+    }
+
+    await prisma.operazioneAdv.create({
+      data: {
+        tipo: "nuova_keyword",
+        canale: c.canale,
+        bersaglio: c.nome,
+        idEsterno: c.idEsterno,
+        parametri: JSON.stringify({ testo: pulito, corrispondenza }),
+        motivo: `Portata da un'altra campagna: funzionava lì`,
+        livello: "L1",
+        prima: "assente",
+        campagnaId: c.id,
+      },
+    });
+    fatte.push(c.nome);
+  }
+
+  await registra({
+    autore: "utente",
+    tipo: "creazione",
+    entita: "operazione",
+    titolo: `«${pulito}» in coda su ${fatte.length} campagne`,
+    dettaglio:
+      (fatte.length > 0 ? fatte.join(" · ") : "nessuna") +
+      (saltate.length > 0 ? ` · saltate: ${saltate.join(", ")}` : ""),
+  });
+
+  redirect("/operazioni");
+}

@@ -771,3 +771,32 @@ tbody tr:hover { background: var(--fill); }
   .op-riga { flex-direction: column; gap: 8px; }
   .op-stato { align-items: flex-start; text-align: left; flex-direction: row; gap: 10px; }
 }
+
+/* ---------- "Porta su altre campagne" nella riga di una keyword ---------- */
+.kw-porta { margin-top: 5px; }
+.kw-porta > summary {
+  cursor: pointer; list-style: none; font-size: 11.5px;
+  color: var(--blue); display: inline-flex; align-items: center; gap: 6px;
+}
+.kw-porta > summary::-webkit-details-marker { display: none; }
+.kw-porta > summary::before { content: "＋"; font-size: 12px; }
+.kw-porta[open] > summary::before { content: "−"; }
+.kw-ideale {
+  font-size: 9.5px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase;
+  padding: 1px 6px; border-radius: var(--radius-pill);
+  background: rgba(36,138,61,.1); color: var(--green);
+}
+.kw-porta-form {
+  margin-top: 8px; padding: 10px; border: 1px solid var(--hairline);
+  border-radius: 12px; background: var(--surface);
+}
+.kw-porta-form select {
+  font: inherit; font-size: 12px; padding: 3px 7px;
+  border-radius: 7px; border: 1px solid var(--hairline-strong);
+}
+/* Con molte campagne l'elenco scorre invece di allungare la riga all'infinito */
+.kw-porta-elenco { max-height: 190px; overflow-y: auto; display: flex; flex-direction: column; gap: 3px; }
+.kw-porta-riga {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 12px; padding: 2px 0; cursor: pointer; white-space: normal;
+}

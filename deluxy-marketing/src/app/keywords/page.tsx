@@ -4,7 +4,7 @@ import { SelettoreStato } from "@/components/SelettoreStato";
 import { Sidebar } from "@/components/Sidebar";
 import { VisteSalvate } from "@/components/VisteSalvate";
 import { destinazionePredefinita } from "@/lib/viste";
-import { cambiaStatoKeyword, creaOperazioneKeyword } from "@/lib/azioni";
+import { applicaKeywordAdAltreCampagne, cambiaStatoKeyword, creaOperazioneKeyword } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
 import {
   COLORE_STATO_KEYWORD,
@@ -12,6 +12,7 @@ import {
   formattaEuro,
   formattaNumero,
   STATI_KEYWORD,
+  STATI_CAMPAGNA_VIVE,
 } from "@/lib/dominio";
 import { giudizioKeyword } from "@/lib/salute";
 
@@ -66,7 +67,7 @@ type KwAggregata = {
 export default async function PaginaKeywords({
   searchParams,
 }: {
-  searchParams: Promise<{ ordina?: string; q?: string; campagna?: string; tema?: string; stato?: string; bloccata?: string; vista?: string }>;
+  searchParams: Promise<{ ordina?: string; q?: string; campagna?: string; tema?: string; stato?: string; bloccata?: string; vista?: string; resa?: string; match?: string }>;
 }) {
   const p = await searchParams;
   const destinazione = await destinazionePredefinita("keywords", "/keywords", p);
@@ -86,11 +87,45 @@ export default async function PaginaKeywords({
     orderBy: { nome: "asc" },
     select: { id: true, nome: true, classe: true },
   });
-  const campagneDisponibili = await prisma.copyAnnuncio.groupBy({
-    by: ["campagna"],
-    where: { tipo: "keyword" },
-    orderBy: { campagna: "asc" },
-  });
+  // ⚠️ Le campagne del selettore sono solo quelle VIVE. L'elenco nasceva dalle
+  // keyword, e le keyword sopravvivono alla campagna: si finiva per scegliere
+  // una campagna spenta nel 2025 e guardare parole che non comprano più niente.
+  // Il confronto è sui nomi, perché CopyAnnuncio tiene il nome, non l'id.
+  const nomiVivi = new Set(
+    (
+      await prisma.campagna.findMany({
+        where: { stato: { in: [...STATI_CAMPAGNA_VIVE] } },
+        select: { nome: true },
+      })
+    ).map((c) => c.nome)
+  );
+  const campagneDisponibili = (
+    await prisma.copyAnnuncio.groupBy({
+      by: ["campagna"],
+      where: { tipo: "keyword" },
+      orderBy: { campagna: "asc" },
+    })
+  ).filter((c) => nomiVivi.has(c.campagna));
+
+  // Come l'AI ha classificato ogni parola: ideale (descrive cosa vendiamo,
+  // vale anche altrove) o specifica (vale solo dov'è). Serve a decidere se la
+  // si può proporre su altre campagne — e nel dubbio non si propone.
+  // La corrispondenza sta nel testo, come la scrive l'import
+  const matchDiTesto = (testo: string): string | null => {
+    const m = testo.match(/\((exact|phrase|broad)\)\s*$/i);
+    return m ? m[1].toLowerCase() : null;
+  };
+
+  const classiParola = new Map<string, string>();
+  for (const pr of await prisma.propostaAi.findMany({
+    where: { classe: { not: null } },
+    select: { testo: true, classe: true },
+  })) {
+    const chiave = pr.testo.toLowerCase().replace(/\s*\((exact|phrase|broad)\)\s*$/i, "").trim();
+    if (pr.classe) classiParola.set(chiave, pr.classe);
+  }
+  const classeDi = (testo: string) =>
+    classiParola.get(testo.toLowerCase().replace(/\s*\((exact|phrase|broad)\)\s*$/i, "").trim()) ?? null;
 
   // stessa keyword in più campagne → una riga aggregata
   const perTesto = new Map<string, KwAggregata>();
@@ -126,6 +161,22 @@ export default async function PaginaKeywords({
   }));
   if (p.stato) tutte = tutte.filter((k) => k.stato === p.stato);
 
+  // Rendimento: le fasce sono quelle su cui si agisce davvero.
+  if (p.resa === "rendono") tutte = tutte.filter((k) => k.incasso > 0 && k.resa != null && k.resa >= 1);
+  else if (p.resa === "a_vuoto") tutte = tutte.filter((k) => k.spesa >= 20 && k.incasso === 0);
+  else if (p.resa === "sotto") tutte = tutte.filter((k) => k.spesa >= 20 && k.resa != null && k.resa > 0 && k.resa < 1);
+  else if (p.resa === "poca_storia") tutte = tutte.filter((k) => k.spesa < 20);
+  else if (p.resa === "spendono") tutte = tutte.filter((k) => k.spesa > 0);
+
+  // Corrispondenza: sta scritta nel testo fra parentesi, come la conserva
+  // l'import ("fiori milano (phrase)").
+  if (p.match) {
+    tutte = tutte.filter((k) => {
+      const m = k.testo.match(/\((exact|phrase|broad)\)\s*$/i);
+      return (m?.[1]?.toLowerCase() ?? "") === p.match;
+    });
+  }
+
   const confronta = (a: KwAggregata, b: KwAggregata) => {
     if (ordina === "keyword") return a.testo.localeCompare(b.testo);
     if (ordina === "spesa") return b.spesa - a.spesa;
@@ -141,6 +192,7 @@ export default async function PaginaKeywords({
     const q = new URLSearchParams();
     const base: Record<string, string | undefined> = {
       q: p.q, campagna: p.campagna, ordina: p.ordina, tema: p.tema, stato: p.stato,
+      resa: p.resa, match: p.match,
     };
     for (const [k, v] of Object.entries({ ...base, ...cambi })) {
       if (v) q.set(k, v);
@@ -265,6 +317,24 @@ export default async function PaginaKeywords({
               <option key={s} value={s}>{ETICHETTA_STATO_KEYWORD[s]}</option>
             ))}
           </select>
+          {/* Il rendimento in fasce su cui si può decidere qualcosa. «Poca
+              storia» esiste apposta: sotto i 20 € non c'è statistica, e
+              chiamare perdente una parola con 4 € di spesa è una condanna
+              senza prove. */}
+          <select name="resa" defaultValue={p.resa ?? ""}>
+            <option value="">Qualsiasi rendimento</option>
+            <option value="rendono">Rendono (incasso ≥ spesa)</option>
+            <option value="sotto">Sotto il costo (rendono, ma poco)</option>
+            <option value="a_vuoto">Spendono a vuoto (≥20 €, zero incasso)</option>
+            <option value="spendono">Che spendono (qualsiasi cifra)</option>
+            <option value="poca_storia">Poca storia (meno di 20 €)</option>
+          </select>
+          <select name="match" defaultValue={p.match ?? ""}>
+            <option value="">Ogni corrispondenza</option>
+            <option value="exact">Esatta</option>
+            <option value="phrase">A frase</option>
+            <option value="broad">Generica</option>
+          </select>
           <select name="ordina" defaultValue={ordina}>
             {Object.entries(ORDINAMENTI).map(([v, e]) => (
               <option key={v} value={v}>Ordina per {e}</option>
@@ -349,7 +419,61 @@ export default async function PaginaKeywords({
                       const g = giudizioKeyword(k.incasso, k.spesa);
                       return (
                       <tr key={k.testo}>
-                        <td className="cella-nome">{k.testo}</td>
+                        <td style={{ maxWidth: 340 }}>
+                          <div className="cella-nome">{k.testo}</div>
+                          {/* Portarla dove ancora non c'è: è il gesto che fa
+                              crescere un account. Ma solo se è una parola
+                              IDEALE — le specifiche valgono solo dove stanno. */}
+                          {(() => {
+                            const cl = classeDi(k.testo);
+                            const altre = campagneCensite.filter((c) => !k.campagne.includes(c.nome));
+                            if (cl === "specific") {
+                              return (
+                                <div className="cella-sub">
+                                  parola specifica: vale solo dove sta
+                                </div>
+                              );
+                            }
+                            if (altre.length === 0) return null;
+                            return (
+                              <details className="kw-porta">
+                                <summary>
+                                  Porta su altre campagne
+                                  {cl === "ideal" && <span className="kw-ideale">ideale</span>}
+                                </summary>
+                                <form action={applicaKeywordAdAltreCampagne} className="kw-porta-form">
+                                  <input type="hidden" name="testo" value={k.testo} />
+                                  <input type="hidden" name="ritorno" value="/keywords" />
+                                  <label className="cella-sub" style={{ display: "block", marginBottom: 6 }}>
+                                    come{" "}
+                                    <select name="corrispondenza" defaultValue={matchDiTesto(k.testo) ?? "broad"}>
+                                      <option value="broad">generica</option>
+                                      <option value="phrase">a frase</option>
+                                      <option value="exact">esatta</option>
+                                    </select>
+                                  </label>
+                                  <div className="kw-porta-elenco">
+                                    {altre.map((c) => (
+                                      <label key={c.id} className="kw-porta-riga">
+                                        <input type="checkbox" name="campagne" value={c.id} />
+                                        <span>{c.nome}{c.classe === "traino" ? " · TRAINO" : ""}</span>
+                                      </label>
+                                    ))}
+                                  </div>
+                                  <button className="btn small btn-secondario" type="submit" style={{ marginTop: 8 }}>
+                                    Metti in coda
+                                  </button>
+                                  {cl == null && (
+                                    <div className="cella-sub" style={{ marginTop: 6, whiteSpace: "normal" }}>
+                                      L&apos;AI non l&apos;ha ancora classificata: controlla che descriva
+                                      cosa vendiamo e non un concorrente o la nostra insegna.
+                                    </div>
+                                  )}
+                                </form>
+                              </details>
+                            );
+                          })()}
+                        </td>
                         <td>
                           <span className="tag-salute" style={{ color: g.colore }} title={g.spiega}>
                             <span className="dot" />
