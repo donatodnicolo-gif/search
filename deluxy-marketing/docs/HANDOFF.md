@@ -22,6 +22,44 @@ Riceve già dati veri da Google Ads (Gifts e Flowers) e ha 2.426 ordini Shopify 
 
 ## FATTO
 
+### Una negativa congelava la campagna per tre giorni (04/08/2026)
+
+**Il change control bloccava cose che non doveva.** `escludiParoleSelezionate`
+dichiara nel suo commento che una negativa è **L0**, «la modifica più leggera
+che esista», e che **non fa scattare il blackout**. Ma `validaModifica` riceveva
+`campagna.modifiche[0]`, cioè l'ultima modifica **di qualunque livello**: ogni
+negativa congelava la campagna per 72 ore. Misurato su `[Deluxy] - Fiori Milano
+ENG`: negativa `flowers milan` alle 09:09, e da lì in poi tutto bloccato.
+
+- `LIVELLI_CHE_PESANO` (L1/L2/L3) e `MODIFICHE_CHE_PESANO` in `guardrail.ts`,
+  usati in tutti e sei i punti che leggono l'ultima modifica (4 in `azioni.ts`,
+  `api/v1/operazioni`, `ProssimeAzioni`).
+- Verificato sul database: prima sceglieva la L0 delle 09:09, ora la **L2 delle
+  07:09**. ⚠️ **Il blocco resta**, perché quella L2 è vera: si sblocca il
+  07/08 alle 07:09. Il fix raddrizza la regola, non toglie il divieto.
+
+> ⚠️ **Filtrare dopo la query non funziona.** Con `take: 1` la riga vera è già
+> stata scartata: il filtro va nella `where`. Per lo stesso motivo in
+> `GuardrailCampagna` c'è una **query in più**: lì l'elenco delle modifiche
+> serve anche a *mostrare* lo storico, negative comprese, e le due domande
+> vogliono due risposte diverse.
+
+> ⚠️ **Il messaggio diceva «stesso oggetto», il conto è per CAMPAGNA.** Fermare
+> una keyword *diversa* della stessa campagna risultava «secondo intervento
+> sullo stesso oggetto» e non si capiva quale fosse il primo. Ora il testo dice
+> la campagna e che le L0 non contano.
+
+### Il comando per fermare un gruppo è salito in cima (04/08/2026)
+
+Era in fondo alla colonna destra, dopo dodici riquadri di numeri. Ora è un
+bottone **accanto al titolo** (`AzioneGruppo.tsx`) che apre il modulo in un
+dialogo — motivo e piano di rollback restano, non sono decorazione: il rollback
+è obbligatorio sulle L2 di una traino. Quando non si può agire, al posto del
+bottone c'è il motivo (PMax, o operazione già in coda): un bottone che non
+funziona è peggio di nessun bottone. La vecchia sezione «Agire su Google» è
+stata **tolta**, non duplicata — due moduli che mandano la stessa operazione,
+prima o poi, mandano due operazioni.
+
 ### Il menu su telefono, e la scelta delle campagne leggibile (04/08/2026)
 
 **Su telefono l'app non aveva navigazione.** Sotto gli 800px il CSS diceva
@@ -54,6 +92,12 @@ indovinare. Ora è un **dialogo** (`<dialog>` nel top layer, 560px, o
 schermo−32px sul telefono) con **casella di ricerca**, conteggio delle
 selezionate, «Prendi le trovate» / «Togli tutte» e invio disabilitato finché
 non se ne sceglie almeno una.
+
+> ⚠️ Nel dialogo ci sono **solo le campagne che erogano** (`stato = "attiva"`, che è
+il fatto scritto dall'import: `attiva` = ENABLED su Google): portare una parola
+su una campagna ferma non serve a niente. Da 121 a 19, e l'elenco **dichiara**
+di essere filtrato — una lista filtrata che non lo dice si legge come «queste
+sono tutte».
 
 > ⚠️ **Uno solo per pagina, non uno per riga** — e qui c'era un difetto grosso,
 > più vecchio di questa modifica: il `<details>` stampava l'elenco **completo**

@@ -17,6 +17,10 @@ import { redirect } from "next/navigation";
 import { prisma } from "./db";
 import { STATI_AZIONE, STATI_AZIONE_APERTI, STATI_CAMPAGNA, testoKeywordPulito } from "./dominio";
 import { CHIAVE_APIKEY, CHIAVE_CARTELLA, idCartellaDrive, sincronizzaDrive } from "./drive";
+// Statico e non `await import()` come il resto di guardrail: serve dentro le
+// query, non dentro il corpo delle funzioni. `guardrail.ts` non importa nulla,
+// nessun rischio di ciclo.
+import { MODIFICHE_CHE_PESANO } from "./guardrail";
 import { registra } from "./registro";
 import { CATEGORIE_ORDINE, LINGUE_CAMPAGNA, NEGOZI_ORDINE } from "./vendite-campagna";
 import { PAGINE_VISTA } from "./viste";
@@ -649,7 +653,7 @@ export async function registraModifica(fd: FormData) {
   if (!campagnaId || !descrizione) return;
   const campagna = await prisma.campagna.findUnique({
     where: { id: campagnaId },
-    include: { modifiche: { orderBy: { eseguitaIl: "desc" }, take: 1 } },
+    include: { modifiche: MODIFICHE_CHE_PESANO },
   });
   if (!campagna) return;
 
@@ -1015,7 +1019,7 @@ export async function creaOperazione(fd: FormData) {
   const campagna = await prisma.campagna.findUnique({
     where: { id: campagnaId },
     include: {
-      modifiche: { orderBy: { eseguitaIl: "desc" }, take: 1 },
+      modifiche: MODIFICHE_CHE_PESANO,
       incidenti: { where: { stato: "aperto" }, select: { codice: true } },
     },
   });
@@ -1097,7 +1101,8 @@ export async function creaOperazioneKeyword(fd: FormData) {
   const campagna = await prisma.campagna.findUnique({
     where: { id: campagnaId },
     include: {
-      modifiche: { orderBy: { eseguitaIl: "desc" }, take: 5 },
+      // take 5 perché qui serve anche contare le L2/L3 della settimana
+      modifiche: { ...MODIFICHE_CHE_PESANO, take: 5 },
       incidenti: { where: { stato: "aperto" }, select: { codice: true } },
     },
   });
@@ -1433,7 +1438,7 @@ export async function creaOperazioneGruppo(fd: FormData) {
     include: {
       campagna: {
         include: {
-          modifiche: { orderBy: { eseguitaIl: "desc" }, take: 1 },
+          modifiche: MODIFICHE_CHE_PESANO,
           incidenti: { where: { stato: "aperto" }, select: { codice: true } },
         },
       },

@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { AndamentoMensile } from "@/components/AndamentoMensile";
+import { AzioneGruppo } from "@/components/AzioneGruppo";
 import { Badge } from "@/components/Badge";
 import { GraficoSpesa } from "@/components/GraficoSpesa";
 import { SceltaPeriodo } from "@/components/SceltaPeriodo";
@@ -274,6 +275,26 @@ export default async function SchedaGruppo({
                 }
               />
             </p>
+          </div>
+          {/* Fermare il gruppo è la cosa che si viene a fare qui: sta accanto
+              al titolo, non in fondo alla colonna destra. Quando non si può,
+              al posto del bottone c'è il motivo — un bottone che non funziona
+              è peggio di nessun bottone. */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            {pmax ? (
+              <span className="cella-sub" style={{ maxWidth: 260, whiteSpace: "normal" }}>
+                I gruppi di asset delle Performance Max non si fermano da script: si gestiscono
+                in Google Ads.
+              </span>
+            ) : operazioneAperta ? (
+              <a className="btn small btn-secondario" href="/operazioni">
+                {operazioneAperta.stato === "approvata"
+                  ? "Già in coda, approvata"
+                  : "Già in coda, da approvare"}
+              </a>
+            ) : (
+              <AzioneGruppo gruppoId={gruppo.id} inPausa={inPausa} azione={creaOperazioneGruppo} />
+            )}
           </div>
         </div>
 
@@ -819,43 +840,9 @@ export default async function SchedaGruppo({
               </p>
             </section>
 
-            <section className="scheda">
-              <div className="scheda-titolo">Agire su Google</div>
-              {pmax ? (
-                <div className="vuoto-mini">
-                  I gruppi di asset delle Performance Max non si fermano da script: si gestiscono
-                  nell&apos;interfaccia di Google Ads.
-                </div>
-              ) : operazioneAperta ? (
-                <div className="vuoto-mini">
-                  C&apos;è già un&apos;operazione in coda su questo gruppo (
-                  {operazioneAperta.stato === "approvata" ? "approvata, in attesa dello script" : "da approvare"}):{" "}
-                  <a href="/operazioni">vai alle operazioni</a>.
-                </div>
-              ) : (
-                <form className="modulo" action={creaOperazioneGruppo}>
-                  <input type="hidden" name="gruppoId" value={gruppo.id} />
-                  <input type="hidden" name="tipo" value={inPausa ? "attiva_gruppo" : "pausa_gruppo"} />
-                  <div className="campo-modulo largo">
-                    <label>Perché</label>
-                    <input name="motivo" placeholder={inPausa ? "Perché riaccenderlo" : "Perché fermarlo"} />
-                  </div>
-                  <div className="campo-modulo largo">
-                    <label>Come si torna indietro (richiesto sulle L2)</label>
-                    <input name="rollbackPiano" placeholder="Es. si riattiva il gruppo e si rimette il budget di prima" />
-                  </div>
-                  <div className="azioni-modulo" style={{ gridColumn: "1 / -1" }}>
-                    <button className="btn small" type="submit">
-                      {inPausa ? "Metti in coda: riattiva il gruppo" : "Metti in coda: metti in pausa il gruppo"}
-                    </button>
-                  </div>
-                </form>
-              )}
-              <p className="cella-sub" style={{ marginTop: 8 }}>
-                Niente parte da qui: l&apos;operazione entra in coda, la approvi tu in{" "}
-                <a href="/operazioni">Operazioni</a>, e la esegue lo script alla passata dopo.
-              </p>
-            </section>
+            {/* «Agire su Google» stava qui: il comando è salito accanto al
+                titolo. Duplicarlo in due punti vorrebbe dire due moduli che
+                mandano la stessa operazione, e prima o poi due operazioni. */}
 
             <section className="scheda">
               <div className="scheda-titolo">Dettagli</div>

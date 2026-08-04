@@ -182,6 +182,25 @@ export function regoleSeAllora(
 // ---------- Giudicabilità e change control (doc 10 §1.4, doc 11 §3) ----------
 export const ORE_BLACKOUT = 72;
 
+// ⚠️ Il blackout lo fa scattare una modifica che PESA — L1 e sopra. Una
+// negativa puntuale è L0, "la modifica più leggera che esista", e non deve
+// congelare la campagna per tre giorni: stava scritto nel commento di
+// `escludiParoleSelezionate` ma nessuno lo diceva alla query, che pescava
+// l'ultima modifica **di qualunque livello**. Risultato misurato il
+// 04/08/2026 su "[Deluxy] - Fiori Milano ENG": una negativa delle 09:09
+// bloccava ogni operazione successiva, cioè l'esatto contrario
+// dell'intenzione dichiarata.
+export const LIVELLI_CHE_PESANO = ["L1", "L2", "L3"];
+
+// Da usare come `include: { modifiche: MODIFICHE_CHE_PESANO }`: tiene fuori le
+// L0 alla fonte. Filtrarle DOPO non funzionerebbe — con `take: 1` la query ha
+// già scartato la modifica vera che sta sotto la negativa.
+export const MODIFICHE_CHE_PESANO = {
+  where: { livello: { in: LIVELLI_CHE_PESANO } },
+  orderBy: { eseguitaIl: "desc" as const },
+  take: 1,
+};
+
 export function giudicabilita(ultimaModifica: Date | null): {
   stato: "giudicabile" | "blackout";
   fino: Date | null;
@@ -215,7 +234,12 @@ export function validaModifica(opts: {
   if (opts.ultimaModifica) {
     const ore = (adesso.getTime() - opts.ultimaModifica.getTime()) / 3600_000;
     if (ore < ORE_BLACKOUT) {
-      blocchi.push(`Secondo intervento sullo stesso oggetto entro 72h (ultima modifica ${Math.round(ore)}h fa): vietato dal doc 11 §3.4.`);
+      // "Stesso oggetto" era fuorviante: il conto è per CAMPAGNA, quindi
+      // fermare una keyword diversa della stessa campagna risultava "secondo
+      // intervento sullo stesso oggetto" e non si capiva cosa fosse il primo.
+      blocchi.push(
+        `Secondo intervento sulla stessa campagna entro 72h (l'ultima modifica che pesa è di ${Math.round(ore)}h fa, le negative L0 non contano): vietato dal doc 11 §3.4.`
+      );
     }
   }
   if (traino) {

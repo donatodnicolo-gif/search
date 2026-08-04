@@ -1,7 +1,7 @@
 import { creaAzioneDaOpportunita } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
 import { STATI_AZIONE_APERTI } from "@/lib/dominio";
-import { giudicabilita } from "@/lib/guardrail";
+import { giudicabilita, MODIFICHE_CHE_PESANO } from "@/lib/guardrail";
 import { gruppiConNumeri } from "@/lib/gruppi";
 import { opportunitaCampagna } from "@/lib/opportunita";
 
@@ -21,7 +21,8 @@ export async function ProssimeAzioni({ campagnaId }: { campagnaId: string }) {
     include: {
       // I 90 giorni più recenti, poi rimessi in ordine di tempo
       metriche: { orderBy: { data: "desc" }, take: 90 },
-      modifiche: { orderBy: { eseguitaIl: "desc" }, take: 1 },
+      // Serve solo al blackout: le negative L0 non lo fanno scattare
+      modifiche: MODIFICHE_CHE_PESANO,
       alert: { where: { stato: "aperto" }, orderBy: { creatoIl: "desc" }, take: 10 },
       azioni: { where: { stato: { in: STATI_AZIONE_APERTI } }, orderBy: { creataIl: "desc" } },
     },

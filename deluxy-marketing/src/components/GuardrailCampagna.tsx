@@ -15,6 +15,7 @@ import {
   candidataTraino,
   gateBidding,
   giudicabilita,
+  LIVELLI_CHE_PESANO,
   pacing,
   regoleSeAllora,
   roasRealeStimato,
@@ -104,7 +105,16 @@ export async function GuardrailCampagna({
     (m) => (m.livello === "L2" || m.livello === "L3") && m.eseguitaIl >= inizioSettimana
   ).length;
 
-  const ultimaModifica = campagna.modifiche[0]?.eseguitaIl ?? null;
+  // Query a parte, e non `campagna.modifiche[0]`: l'elenco qui sopra serve a
+  // MOSTRARE lo storico e quindi comprende le negative L0, che però non fanno
+  // scattare il blackout. Filtrarle dalle cinque già prese non basterebbe —
+  // cinque negative di fila nasconderebbero la modifica vera che sta sotto.
+  const ultimaChePesa = await prisma.modifica.findFirst({
+    where: { campagnaId, livello: { in: LIVELLI_CHE_PESANO } },
+    orderBy: { eseguitaIl: "desc" },
+    select: { eseguitaIl: true },
+  });
+  const ultimaModifica = ultimaChePesa?.eseguitaIl ?? null;
   const giud = giudicabilita(ultimaModifica);
   const metriche7 = metriche.slice(-7);
   const pace = pacing(metriche7, campagna.budgetGiornaliero);

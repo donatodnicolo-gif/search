@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { autentica, erroreApi } from "@/lib/api-auth";
 import { prisma } from "@/lib/db";
 import { registra } from "@/lib/registro";
-import { validaModifica } from "@/lib/guardrail";
+import { MODIFICHE_CHE_PESANO, validaModifica } from "@/lib/guardrail";
 
 // GET /api/v1/operazioni?canale=google_ads&account=825-518-1560
 // Restituisce SOLO le operazioni già approvate a mano: è quello che lo script
@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
     const campagna = await prisma.campagna.findUnique({
       where: { id: String(body.campagnaId) },
       include: {
-        modifiche: { orderBy: { eseguitaIl: "desc" }, take: 1 },
+        modifiche: MODIFICHE_CHE_PESANO,
         incidenti: { where: { stato: "aperto" }, select: { codice: true } },
       },
     });
