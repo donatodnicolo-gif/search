@@ -59,7 +59,17 @@ const ETICHETTA_STATO: Record<string, string> = {
 // Coda delle operazioni verso Google Ads. L'app non scrive mai in diretta:
 // ogni modifica nasce qui "da approvare", e solo dopo l'approvazione lo
 // script la può prendere ed eseguire.
-export default async function PaginaOperazioni() {
+export default async function PaginaOperazioni({
+  searchParams,
+}: {
+  // ⚠️ Questa pagina non leggeva NESSUN parametro: chi ci arrivava dopo aver
+  // messo qualcosa in coda non riceveva nessuna conferma, e se tutte le
+  // campagne scelte erano state saltate (parola già presente, freeze) non
+  // compariva nemmeno una riga nuova. Dal di fuori è indistinguibile da un
+  // bottone che non fa niente — ed è esattamente come è stato segnalato.
+  searchParams: Promise<{ esito?: string; saltate?: string }>;
+}) {
+  const sp = await searchParams;
   const operazioni = await prisma.operazioneAdv.findMany({
     orderBy: { creataIl: "desc" },
     take: 100,
@@ -200,6 +210,19 @@ export default async function PaginaOperazioni() {
             </p>
           </div>
         </div>
+
+        {sp.esito && (
+          <div className="avviso-ok">
+            <strong>{sp.esito}</strong>
+          </div>
+        )}
+        {/* Le saltate NON sono un dettaglio: sono il motivo per cui uno guarda
+            la coda e non trova quello che si aspettava. */}
+        {sp.saltate && (
+          <div className="avviso-errore">
+            <strong>Saltate:</strong> {sp.saltate}
+          </div>
+        )}
 
         <div className="nota-info">
           <span className="nota-icona">◈</span>

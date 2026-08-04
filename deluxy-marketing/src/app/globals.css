@@ -210,6 +210,12 @@ tbody tr:hover { background: var(--fill); }
   background: rgba(215, 0, 21, 0.07); color: var(--red);
   border-radius: var(--radius-m); font-size: 13.5px;
 }
+/* Il gemello verde: «è andata così», dopo un'azione che ha funzionato */
+.avviso-ok {
+  padding: 10px 14px; margin-bottom: 14px;
+  background: rgba(36, 138, 61, 0.08); color: var(--green);
+  border-radius: var(--radius-m); font-size: 13.5px;
+}
 @media (max-width: 800px) { .modulo { grid-template-columns: 1fr; } }
 
 /* ---------- Scheda ---------- */
@@ -419,6 +425,11 @@ tbody tr:hover { background: var(--fill); }
 }
 .tag-salute .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .tag-neutro { color: var(--text-secondary); font-weight: 500; }
+/* Tag che è anche un collegamento: la freccia dice che si apre altrove, così
+   non si scopre solo dopo aver perso il posto nell'elenco. */
+.tag-link { cursor: pointer; transition: background 120ms var(--ease), color 120ms var(--ease); }
+.tag-link:hover { background: var(--fill-hover); color: var(--text); }
+.tag-link-freccia { margin-left: 4px; font-size: 9px; opacity: .55; }
 .card-campagna-obiettivo, .card-campagna-landing {
   font-size: 12px; color: var(--text-secondary); margin-top: 6px; line-height: 1.4;
   overflow-wrap: anywhere;

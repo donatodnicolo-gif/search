@@ -115,6 +115,14 @@ export default async function PaginaKeywords({
     })
   ).filter((c) => nomiVivi.has(c.campagna));
 
+  // Nome → id, per rendere cliccabili i tag delle campagne su ogni riga.
+  // TUTTE le campagne, non solo le vive: una keyword sopravvive alla campagna
+  // e il tag va aperto lo stesso. Le campagne che non stanno qui restano
+  // etichette mute — meglio nessun link che un link che porta a un 404.
+  const idPerNomeCampagna = new Map(
+    (await prisma.campagna.findMany({ select: { id: true, nome: true } })).map((c) => [c.nome, c.id])
+  );
+
   // Come l'AI ha classificato ogni parola: ideale (descrive cosa vendiamo,
   // vale anche altrove) o specifica (vale solo dov'è). Serve a decidere se la
   // si può proporre su altre campagne — e nel dubbio non si propone.
@@ -480,10 +488,30 @@ export default async function PaginaKeywords({
                           </form>
                         </td>
                         <td>
+                          {/* Il tag apre la campagna in una finestra nuova: si
+                              sta leggendo un elenco di parole e si vuole
+                              sbirciare la campagna senza perdere il posto —
+                              tornare indietro qui vuol dire ricaricare 1.500
+                              righe e riaprire il tema. */}
                           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                            {k.campagne.map((c) => (
-                              <span className="tag-neutro" key={c}>{c}</span>
-                            ))}
+                            {k.campagne.map((c) => {
+                              const idCampagna = idPerNomeCampagna.get(c);
+                              return idCampagna ? (
+                                <a
+                                  className="tag-neutro tag-link"
+                                  key={c}
+                                  href={`/campagne/${idCampagna}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  title={`Apri «${c}» in una finestra nuova`}
+                                >
+                                  {c}
+                                  <span aria-hidden="true" className="tag-link-freccia">↗</span>
+                                </a>
+                              ) : (
+                                <span className="tag-neutro" key={c}>{c}</span>
+                              );
+                            })}
                           </div>
                         </td>
                         <td className="num" style={{ color: k.incasso > 0 ? "var(--green)" : "var(--text-tertiary)", fontWeight: k.incasso > 0 ? 600 : 400 }}>

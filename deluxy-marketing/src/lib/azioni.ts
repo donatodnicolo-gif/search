@@ -2386,7 +2386,18 @@ export async function applicaKeywordAdAltreCampagne(fd: FormData) {
       (saltate.length > 0 ? ` · saltate: ${saltate.join(", ")}` : ""),
   });
 
-  redirect("/operazioni");
+  // ⚠️ Prima qui c'era `redirect("/operazioni")` e basta. Se tutte le campagne
+  // scelte venivano saltate — la parola c'era già, o la campagna è congelata —
+  // l'utente atterrava su una pagina dove non era comparso niente di nuovo e
+  // nessuno gli diceva perché: dal di fuori è un bottone che non funziona.
+  // Le saltate finivano solo nello storico, che non è dove uno guarda.
+  const messaggio =
+    fatte.length > 0
+      ? `«${pulito}» messa in coda su ${fatte.length} campagn${fatte.length === 1 ? "a" : "e"}: ${fatte.join(" · ")}`
+      : `«${pulito}» non è entrata in coda su nessuna campagna`;
+  const qs = new URLSearchParams({ esito: messaggio });
+  if (saltate.length > 0) qs.set("saltate", saltate.join(" · "));
+  redirect(`/operazioni?${qs.toString()}`);
 }
 
 // ---------- Cambiare la corrispondenza di un'operazione in coda ----------

@@ -22,6 +22,31 @@ Riceve già dati veri da Google Ads (Gifts e Flowers) e ha 2.426 ordini Shopify 
 
 ## FATTO
 
+### «Metti in coda» sembrava non fare niente (04/08/2026)
+
+Segnalato dall'utente: si sceglievano le campagne, si premeva **Metti in coda**
+e «non succede nulla». Il meccanismo funzionava — provato in sviluppo: il form
+parte, l'operazione si crea, si atterra su `/operazioni`. Il difetto era che
+**nessuno diceva com'era andata**: `/operazioni` non leggeva **nessun**
+parametro, e l'azione ci mandava l'utente muta. Quando tutte le campagne scelte
+venivano **saltate** — la parola c'era già, o la campagna è congelata da un
+incidente — non compariva nemmeno una riga nuova: dal di fuori è
+indistinguibile da un bottone rotto.
+
+- `applicaKeywordAdAltreCampagne` ora redirige con `?esito=` e `?saltate=`;
+- `/operazioni` mostra i due avvisi (`.avviso-ok` nuovo, verde, gemello di
+  `.avviso-errore`).
+
+> ⚠️ **Le saltate non sono un dettaglio: sono il motivo per cui uno guarda la
+> coda e non trova quello che si aspettava.** Finivano solo in `registra()`,
+> cioè nello storico — che non è dove uno guarda.
+
+I **tag delle campagne** sulle righe delle keyword sono ora collegamenti che
+aprono la campagna in una **finestra nuova** (freccia ↗ e `rel="noopener"`):
+tornare indietro da lì significherebbe ricaricare 1.500 righe e riaprire il
+tema. Le campagne di cui non si trova l'id restano etichette mute — meglio
+nessun link che un link a un 404.
+
 ### Una negativa congelava la campagna per tre giorni (04/08/2026)
 
 **Il change control bloccava cose che non doveva.** `escludiParoleSelezionate`
