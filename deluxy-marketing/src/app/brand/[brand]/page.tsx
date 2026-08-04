@@ -26,6 +26,7 @@ import {
   formattaEuro,
   roas,
   STATI_AZIONE_APERTI,
+  STATI_CAMPAGNA_VIVE,
 } from "@/lib/dominio";
 import { breakEvenRoas } from "@/lib/guardrail";
 import { PRESET_PERIODO, variazione } from "@/lib/periodo";
@@ -80,7 +81,11 @@ export default async function PaginaBrand({
       prisma.azione.count({ where: { brand, stato: { in: STATI_AZIONE_APERTI }, scadenza: { lt: oggi } } }),
       prisma.analisi.findMany({ where: { brand }, orderBy: { dataAnalisi: "desc" }, take: 6 }),
       prisma.campagna.findMany({
-        where: { brand },
+        // Solo quelle che girano: una scheda brand serve a decidere su oggi, e
+        // un elenco pieno di campagne spente del 2025 nasconde le tre che
+        // stanno spendendo adesso. Le altre stanno in /campagne, nella sezione
+        // "Campagne non attive", con la loro spesa storica.
+        where: { brand, stato: { in: [...STATI_CAMPAGNA_VIVE] } },
         orderBy: [{ stato: "asc" }, { creataIl: "desc" }],
         include: { metriche: { where: { data: { gte: periodo.corrente.da, lt: periodo.corrente.a } } } },
       }),
@@ -228,10 +233,17 @@ export default async function PaginaBrand({
                     {canali.map((c) => (
                       <tr key={c.canale}>
                         <td>
-                          <Badge
-                            testo={ETICHETTA_CANALE[c.canale] ?? c.canale}
-                            colore={COLORE_CANALE[c.canale] ?? "var(--text-secondary)"}
-                          />
+                          {/* Cliccabile: da qui si entra nelle campagne di QUEL
+                              canale per QUESTO brand, col periodo già scelto. */}
+                          <a
+                            href={`/campagne?brand=${brand}&canale=${c.canale}&preset=${periodo.preset}`}
+                            title={`Vedi le campagne ${ETICHETTA_CANALE[c.canale] ?? c.canale} di ${ETICHETTA_BRAND[brand] ?? brand}`}
+                          >
+                            <Badge
+                              testo={ETICHETTA_CANALE[c.canale] ?? c.canale}
+                              colore={COLORE_CANALE[c.canale] ?? "var(--text-secondary)"}
+                            />
+                          </a>
                         </td>
                         <td className="num">{formattaEuro(c.spesa)}</td>
                         <td className="num cella-muta">{Math.round(c.quotaSpesa * 100)}%</td>

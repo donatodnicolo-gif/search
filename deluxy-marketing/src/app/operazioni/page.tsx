@@ -18,6 +18,28 @@ const ETICHETTA_TIPO: Record<string, string> = {
   attiva_gruppo: "Riattiva il gruppo di annunci",
 };
 
+
+// Come Google chiama le corrispondenze, e cosa fanno DAVVERO su una negativa.
+// La differenza non è cosmetica: la generica è quella che può spegnere una
+// campagna per sbaglio, ed è il motivo per cui il default qui è «esatta».
+const ETICHETTA_MATCH: Record<string, string> = {
+  exact: "esatta",
+  esatta: "esatta",
+  phrase: "a frase",
+  frase: "a frase",
+  broad: "generica",
+  generica: "generica",
+};
+
+const SPIEGA_MATCH: Record<string, string> = {
+  exact: "Blocca SOLO questa ricerca esatta. È la più prudente: non tocca le varianti.",
+  esatta: "Blocca SOLO questa ricerca esatta. È la più prudente: non tocca le varianti.",
+  phrase: "Blocca le ricerche che contengono questa sequenza di parole nell'ordine dato.",
+  frase: "Blocca le ricerche che contengono questa sequenza di parole nell'ordine dato.",
+  broad: "⚠️ Blocca OGNI ricerca che contenga tutte queste parole, in qualsiasi ordine: «fiori milano» spegne anche «consegna fiori a milano centro».",
+  generica: "⚠️ Blocca OGNI ricerca che contenga tutte queste parole, in qualsiasi ordine.",
+};
+
 const COLORE_STATO: Record<string, string> = {
   in_attesa: "var(--orange)",
   approvata: "var(--blue)",
@@ -51,7 +73,27 @@ export default async function PaginaOperazioni() {
       <li key={o.id}>
         <span className="storia-data">{formattaDataOra(o.creataIl)}</span>
         <span className="storia-testo">
-          <b>{ETICHETTA_TIPO[o.tipo] ?? o.tipo}</b> — {o.bersaglio}
+          <b>{ETICHETTA_TIPO[o.tipo] ?? o.tipo}</b>
+          {/* La parola su cui si opera: per le keyword il bersaglio è la
+              campagna, e senza questo non si sapeva CHE COSA si stava
+              escludendo o mettendo in pausa. */}
+          {typeof p.testo === "string" && p.testo ? (
+            <>
+              {" "}<b>«{p.testo}»</b>
+              {typeof p.corrispondenza === "string" && (
+                <span
+                  className="tag-neutro"
+                  style={{ marginLeft: 6 }}
+                  title={SPIEGA_MATCH[String(p.corrispondenza).toLowerCase()] ?? ""}
+                >
+                  {ETICHETTA_MATCH[String(p.corrispondenza).toLowerCase()] ?? String(p.corrispondenza)}
+                </span>
+              )}
+              <span className="cella-muta"> in {o.bersaglio}</span>
+            </>
+          ) : (
+            <> — {o.bersaglio}</>
+          )}
           {p.budget != null && <> → <b>{String(p.budget)} €/g</b></>}
           <span className="cella-sub" style={{ whiteSpace: "normal" }}>
             {o.prima ? `Prima: ${o.prima}. ` : ""}

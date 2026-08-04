@@ -1488,7 +1488,11 @@ function applica(op, mira, conto) {
   }
 
   if (t === "negativa") {
-    var negativa = op.parametri.testo;
+    // La corrispondenza decide QUANTO blocca: senza segni Google la tratta come
+    // GENERICA, che ferma ogni ricerca contenente quelle parole in qualsiasi
+    // ordine  escludere "fiori milano" cosi spegne anche "consegna fiori a
+    // milano centro". Si formatta come le keyword: [esatta], "frase", generica.
+    var negativa = formattaMatch(op.parametri.testo, op.parametri.corrispondenza);
     if (!negativa) throw new Error("Testo della negativa mancante");
     if (typeof mira.campagna.createNegativeKeyword !== "function") {
       throw new Error("Questo tipo di campagna (PMax/Shopping/Video) non accetta negative da script: usare le liste di esclusione a livello account.");

@@ -21,7 +21,7 @@ export function saluteCampagna(
     };
   }
   if (stato === "in_pausa") {
-    return { etichetta: "In pausa", colore: "var(--orange)", spiega: "Non sta spendendo" };
+    return { etichetta: "In pausa", colore: "var(--ardesia)", spiega: "Non sta spendendo: ferma per scelta, non in allarme" };
   }
   if (stato === "conclusa") {
     return { etichetta: "Conclusa", colore: "var(--text-secondary)", spiega: "Campagna chiusa" };

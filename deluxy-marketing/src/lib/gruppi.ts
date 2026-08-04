@@ -188,7 +188,7 @@ export const ETICHETTA_STATO_GRUPPO: Record<string, string> = {
 export const COLORE_STATO_GRUPPO: Record<string, string> = {
   attivo: "var(--green)",
   vincente: "var(--gold-strong)",
-  da_valutare: "var(--orange)",
+  da_valutare: "var(--gold-strong)",
   in_pausa: "var(--text-secondary)",
   escluso: "var(--red)",
 };
@@ -211,7 +211,7 @@ export const COLORE_STATO_GRUPPO: Record<string, string> = {
 // vuole sapere se **sta girando**, non che giudizio gli avevamo dato.
 // Ora comanda il fatto, e il giudizio scende sotto.
 const NON_STA_GIRANDO: Record<string, { testo: string; colore: string }> = {
-  PAUSED: { testo: "In pausa su Google", colore: "var(--orange)" },
+  PAUSED: { testo: "In pausa su Google", colore: "var(--ardesia)" },
   REMOVED: { testo: "Rimosso su Google", colore: "var(--red)" },
   DISABLED: { testo: "Disattivato su Google", colore: "var(--text-secondary)" },
 };

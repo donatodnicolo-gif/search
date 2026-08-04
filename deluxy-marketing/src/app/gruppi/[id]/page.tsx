@@ -495,6 +495,18 @@ export default async function SchedaGruppo({
                 <span className="cella-sub">
                   Spunta le parole che non c&apos;entrano e mettile in coda tutte insieme:
                 </span>
+                {/* La corrispondenza decide QUANTO blocca la negativa, ed è la
+                    differenza fra togliere una ricerca e spegnere una campagna.
+                    Default esatta: si esclude quella ricerca, non tutto ciò che
+                    le somiglia. */}
+                <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12 }}>
+                  come
+                  <select name="corrispondenza" defaultValue="exact" style={{ font: "inherit", padding: "4px 8px", borderRadius: 8, border: "1px solid var(--hairline-strong)" }}>
+                    <option value="exact">esatta — solo questa ricerca</option>
+                    <option value="phrase">a frase — questa sequenza di parole</option>
+                    <option value="broad">generica — ogni ricerca con queste parole</option>
+                  </select>
+                </label>
                 <button className="btn small btn-secondario" type="submit">
                   Escludi le selezionate
                 </button>

@@ -1137,7 +1137,12 @@ export async function creaOperazioneKeyword(fd: FormData) {
       idEsterno: tipo === "pausa_keyword" || tipo === "attiva_keyword" ? testo(fd, "idEsternoKeyword") : campagna.idEsterno,
       parametri: JSON.stringify({
         testo: kwTesto,
-        corrispondenza: testo(fd, "corrispondenza") ?? "broad",
+        // ⚠️ Per le NEGATIVE il default è «esatta», non generica. Una negativa
+        // generica blocca ogni ricerca che contenga quelle parole in qualsiasi
+        // ordine: escludere «fiori milano» spegnerebbe anche «consegna fiori a
+        // milano centro», cioè il traffico buono. Per le keyword da AGGIUNGERE
+        // resta broad, che lì è il default giusto.
+        corrispondenza: testo(fd, "corrispondenza") ?? (tipo === "negativa" ? "exact" : "broad"),
         gruppo: testo(fd, "gruppo"),
       }),
       motivo: testo(fd, "motivo"),
@@ -2179,7 +2184,8 @@ export async function escludiParoleSelezionate(fd: FormData) {
         canale: campagna.canale,
         bersaglio: campagna.nome,
         idEsterno: campagna.idEsterno,
-        parametri: JSON.stringify({ testo: pulito }),
+        // Esatta: si esclude QUELLA ricerca, non tutto cio che le somiglia
+      parametri: JSON.stringify({ testo: pulito, corrispondenza: testo(fd, "corrispondenza") || "exact" }),
         motivo: `Esclusa insieme ad altre ${nuove.length - 1 > 0 ? `${nuove.length - 1} parole` : ""}`.trim(),
         livello: "L0",
         prima: "assente",

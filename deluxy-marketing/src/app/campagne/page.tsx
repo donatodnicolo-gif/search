@@ -14,6 +14,9 @@ import {
   roas,
   STATI_CAMPAGNA,
   STATI_CAMPAGNA_IGNORATE,
+  STATI_CAMPAGNA_VIVE,
+  COLORE_STATO_CAMPAGNA,
+  formattaData,
 } from "@/lib/dominio";
 import { categoriaCampagna, iconaCanale, saluteCampagna } from "@/lib/salute";
 import { COLORE_CLASSE, ETICHETTA_CLASSE } from "@/lib/dominio";
@@ -50,6 +53,26 @@ export default async function PaginaCampagne({
       landing: { select: { id: true, url: true, stato: true } },
       _count: { select: { azioni: true } },
     },
+  });
+
+  // Le campagne che NON stanno girando, defunte comprese: è l'unico posto
+  // dell'app dove le defunte compaiono senza doverle chiedere col filtro,
+  // perché è la sezione fatta apposta per guardare indietro.
+  //
+  // La spesa storica resta la loro: "mai più" vale per l'operativo, non per la
+  // contabilità — una campagna morta ha comunque speso soldi veri.
+  const spente = await prisma.campagna.findMany({
+    where: {
+      stato: { notIn: [...STATI_CAMPAGNA_VIVE] },
+      ...(canale ? { canale } : {}),
+      ...(brand ? { brand } : {}),
+      ...(q ? { nome: { contains: q } } : {}),
+    },
+    include: {
+      metriche: { select: { spesa: true, ricavi: true, data: true } },
+      _count: { select: { azioni: true } },
+    },
+    orderBy: [{ stato: "asc" }, { nome: "asc" }],
   });
 
   const brands = ORDINE_BRAND.filter((b) => campagne.some((c) => c.brand === b));
@@ -215,6 +238,81 @@ export default async function PaginaCampagne({
             })}
           </div>
         )}
+
+        {/* ——— L'archivio: tutto quello che non sta girando ———
+            Chiuso di default: è materiale da consultare, non da guardare ogni
+            giorno. Ma deve esistere un posto dove trovarlo, altrimenti una
+            campagna messa in pausa sei mesi fa non la ritrova più nessuno — e
+            con lei la sua spesa, che nei conti c'è ancora. */}
+        {spente.length > 0 && (
+          <details className="scheda" style={{ marginTop: 4 }}>
+            <summary style={{ cursor: "pointer", listStyle: "none", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <span className="scheda-titolo" style={{ margin: 0 }}>
+                Campagne non attive ({spente.length})
+              </span>
+              <span className="cella-sub">
+                in pausa, concluse, mai partite e defunte · spesa storica{" "}
+                {formattaEuro(spente.reduce((t, c) => t + c.metriche.reduce((s2, m) => s2 + (m.spesa ?? 0), 0), 0))}
+              </span>
+            </summary>
+
+            <p className="cella-sub" style={{ marginTop: 12, marginBottom: 12, whiteSpace: "normal" }}>
+              Qui dentro ci sono anche le <b>defunte</b>, che altrove non compaiono mai. La loro
+              spesa resta nei totali dell&apos;azienda: «mai più» vale per l&apos;operativo, non per la
+              contabilità. Il ROAS è calcolato su <b>tutta</b> la loro vita, non sugli ultimi 30
+              giorni — su una campagna spenta quella finestra è vuota per definizione.
+            </p>
+
+            <div style={{ overflowX: "auto" }}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Campagna</th>
+                    <th>Stato</th>
+                    <th>Brand</th>
+                    <th className="num">Spesa storica</th>
+                    <th className="num">Incasso</th>
+                    <th className="num">ROAS</th>
+                    <th>Ultimo giorno</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {spente.map((c) => {
+                    const sp = c.metriche.reduce((t, m) => t + (m.spesa ?? 0), 0);
+                    const ri = c.metriche.reduce((t, m) => t + (m.ricavi ?? 0), 0);
+                    const r = roas(ri, sp);
+                    const ultimo = c.metriche.reduce<Date | null>(
+                      (max, m) => (!max || m.data > max ? m.data : max),
+                      null
+                    );
+                    return (
+                      <tr key={c.id}>
+                        <td style={{ maxWidth: 320 }}>
+                          <a className="cella-nome" href={`/campagne/${c.id}`}>{c.nome}</a>
+                          {c._count.azioni > 0 && (
+                            <div className="cella-sub">{c._count.azioni} azioni collegate</div>
+                          )}
+                        </td>
+                        <td>
+                          <span className="tag-salute" style={{ color: COLORE_STATO_CAMPAGNA[c.stato] }}>
+                            <span className="dot" />
+                            {ETICHETTA_STATO_CAMPAGNA[c.stato] ?? c.stato}
+                          </span>
+                        </td>
+                        <td className="cella-muta">{ETICHETTA_BRAND[c.brand] ?? c.brand}</td>
+                        <td className="num">{sp > 0 ? formattaEuro(sp) : "—"}</td>
+                        <td className="num">{ri > 0 ? formattaEuro(ri) : "—"}</td>
+                        <td className="num">{r != null ? `${r.toFixed(1)}×` : "—"}</td>
+                        <td className="cella-muta">{ultimo ? formattaData(ultimo) : "mai partita"}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </details>
+        )}
+
       </main>
     </div>
   );
