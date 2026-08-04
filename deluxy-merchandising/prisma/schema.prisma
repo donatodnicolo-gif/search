@@ -108,6 +108,12 @@ model Prodotto {
   // bisogno** (0 = urgenze, 1 = da domani, 2-3 = pianificato, 4-10 = su misura),
   // in src/lib/risposta-bisogno.ts. Null = non dichiarato: non si deduce.
   ggDispMin      Int?
+  // Lo **stato del prodotto sul negozio**: ACTIVE | DRAFT | ARCHIVED, letto a
+  // ogni import. Sta qui e non nella `fase` perché la fase è la leva **umana**
+  // (è così che si archiviano a mano le righe di servizio) e un import non deve
+  // sovrascriverla. È questo campo a dire chi va in vetrina: un prodotto
+  // archiviato sul negozio il cliente non lo vede, per quanto qui sia «in vendita».
+  statoShopify   String?
   // — Sincronizzazione Shopify (canale di vendita a valle) —
   shopifyStato   String  @default("non_pubblicato") // non_pubblicato | bozza | pubblicato
   shopifyId      String? // id prodotto su Shopify una volta pubblicato

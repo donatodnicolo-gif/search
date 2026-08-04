@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { FormFiltri } from "@/components/FormFiltri";
+import { Miniatura } from "@/components/Miniatura";
 import { Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
 import { brandCorrente, negoziDelBrand, etichettaAmbito } from "@/lib/brand";
 import { nomePosizione, posizioniDa } from "@/lib/collezioni";
 import { euro, percentuale } from "@/lib/dominio";
-import { etichettaRegola } from "@/lib/ordinamento-vetrina";
-import { FILTRO_IN_SCENA } from "@/lib/ordinamento-vetrina";
+import { etichettaRegola, FILTRO_IN_SCENA } from "@/lib/ordinamento-vetrina";
 import { normalizza } from "@/lib/riconciliazione";
 import { FILTRO_BUON_FINE, finestra } from "@/lib/vendite";
 import { etichettaFrequenza, etichettaModo } from "@/lib/rotazione";
@@ -89,7 +89,8 @@ export default async function VisualPage({
     // ⚠️ Lo schema `merchandising` è nominato esplicitamente.
     prisma.$queryRaw<{ collezioneId: string; attivi: number; ricavo: number; pezzi: number }[]>`
       SELECT pc."collezioneId"                                              AS "collezioneId",
-             count(*) FILTER (WHERE p.fase = 'in_vendita')::int             AS "attivi",
+             count(*) FILTER (WHERE p."statoShopify" = 'ACTIVE'
+                                AND p.fase <> 'archiviato')::int            AS "attivi",
              COALESCE(sum(v.ricavo), 0)::float8                             AS "ricavo",
              COALESCE(sum(v.pezzi), 0)::int                                 AS "pezzi"
       FROM "merchandising"."ProdottoInCollezioneShopify" pc
@@ -445,10 +446,18 @@ export default async function VisualPage({
                           </form>
                         </td>
                         <td>
-                          <Link href={`/visual/${r.c.id}`} className="cella-nome link-riga">
-                            {r.c.titolo}
-                          </Link>
-                          <div className="cella-sub">{r.c.negozio}</div>
+                          {/* La foto è quella **della collezione** su Shopify,
+                              non di un suo prodotto: è l'immagine che il
+                              cliente vede in cima alla pagina del sito. */}
+                          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                            <Miniatura url={r.c.immagine} />
+                            <span>
+                              <Link href={`/visual/${r.c.id}`} className="cella-nome link-riga">
+                                {r.c.titolo}
+                              </Link>
+                              <div className="cella-sub">{r.c.negozio}</div>
+                            </span>
+                          </div>
                         </td>
                         <td>
                           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>

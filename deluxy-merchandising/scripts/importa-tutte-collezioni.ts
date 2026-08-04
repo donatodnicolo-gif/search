@@ -23,8 +23,13 @@ async function main() {
   const { negoziAttivi } = await import("../src/lib/negozi");
   const { importaCollezioniDa } = await import("../src/lib/shopify-collezioni");
 
-  const negozi = await negoziAttivi();
-  console.log("Negozi attivi:", negozi.map((n) => n.nome).join(", ") || "(nessuno)");
+  const tutti = await negoziAttivi();
+  // Un negozio solo, passandone il nome: serve per provare sul più piccolo prima
+  // di lanciare il giro completo su dati veri.
+  //   npx tsx scripts/importa-tutte-collezioni.ts Cake
+  const scelti = process.argv.slice(2).map((s) => s.toLowerCase());
+  const negozi = scelti.length ? tutti.filter((n) => scelti.includes(n.nome.toLowerCase())) : tutti;
+  console.log("Negozi da importare:", negozi.map((n) => n.nome).join(", ") || "(nessuno)");
 
   for (const n of negozi) {
     console.log(`\n=== Import ${n.nome} (${n.dominio}) ===`);

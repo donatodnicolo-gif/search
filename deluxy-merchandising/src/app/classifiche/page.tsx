@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { FormFiltri } from "@/components/FormFiltri";
 import { BarraQuota } from "@/components/Grafico";
+import { Miniatura } from "@/components/Miniatura";
 import { Sidebar } from "@/components/Sidebar";
 import { brandCorrente } from "@/lib/brand";
 import { euro, percentuale } from "@/lib/dominio";
@@ -172,16 +173,21 @@ export default async function ClassifichePage({
                         <tr key={v.chiave} className={v.prodottoId ? "riga-cliccabile" : undefined}>
                           <td className="num cella-muta">{v.posValore}</td>
                           <td>
-                            {v.prodottoId ? (
-                              <Link href={`/prodotti/${v.prodottoId}`} className="cella-nome link-riga">
-                                {v.nome}
-                              </Link>
-                            ) : (
-                              <span className="cella-nome">{v.nome}</span>
-                            )}
-                            <div className="cella-sub">
-                              {v.dettaglio}
-                              {!c.canale && v.canali.length > 0 ? ` · ${v.canali.join(", ")}` : ""}
+                            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                              <Miniatura url={v.immagine} />
+                              <span>
+                                {v.prodottoId ? (
+                                  <Link href={`/prodotti/${v.prodottoId}`} className="cella-nome link-riga">
+                                    {v.nome}
+                                  </Link>
+                                ) : (
+                                  <span className="cella-nome">{v.nome}</span>
+                                )}
+                                <div className="cella-sub">
+                                  {v.dettaglio}
+                                  {!c.canale && v.canali.length > 0 ? ` · ${v.canali.join(", ")}` : ""}
+                                </div>
+                              </span>
                             </div>
                           </td>
                           <td className="num">{v.pezzi}</td>

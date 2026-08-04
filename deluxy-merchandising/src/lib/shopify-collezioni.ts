@@ -229,9 +229,9 @@ type ProdottoShopifyApi = {
   // ACTIVE | DRAFT | ARCHIVED: è lo stato **dichiarato** dal negozio, e diventa
   // la fase delle schede create qui. Letto, non dedotto.
   status: string | null;
+  descriptionHtml: string | null;
   featuredImage: { url: string } | null;
   variants: { nodes: { sku: string | null; title: string | null; price: string | null }[] };
-  collections: { nodes: { id: string }[] };
   // Il metafield `prodotto.consegna` (mostrato come "gg_disp_min"): giorni minimi
   // per evadere. Da qui la tipologia di risposta al bisogno.
   consegna: { value: string } | null;
@@ -254,11 +254,10 @@ async function leggiProdotti(n: Negozio): Promise<ProdottoShopifyApi[]> {
          products(first: 25, after: $cursore) {
            pageInfo { hasNextPage endCursor }
            nodes {
-             id title handle productType vendor tags status
+             id title handle productType vendor tags status descriptionHtml
              category { id name fullName }
              featuredImage { url }
              variants(first: 10) { nodes { sku title price } }
-             collections(first: 10) { nodes { id } }
              consegna: metafield(namespace: "prodotto", key: "consegna") { value }
            }
          }
@@ -270,6 +269,67 @@ async function leggiProdotti(n: Negozio): Promise<ProdottoShopifyApi[]> {
     cursore = dati.products.pageInfo.endCursor;
   }
   return fuori;
+}
+
+/**
+ * I prodotti di **una** collezione, **nell'ordine in cui stanno sul negozio**.
+ *
+ * Si legge dal lato collezione e non dal lato prodotto, per due motivi che
+ * prima costavano cari:
+ * 1. **L'ordine esiste solo qui.** `collection.products` li restituisce nella
+ *    fila vera (per le manuali è l'ordine deciso a mano nell'admin). Dal lato
+ *    prodotto quell'informazione non c'è: infatti tutte le posizioni erano 0 e
+ *    la sequenza mostrata in app non aveva niente a che vedere col sito.
+ * 2. **Niente appartenenze perse.** Prima si chiedeva `collections(first: 10)`
+ *    sul prodotto: chi stava in più di dieci collezioni perdeva le altre in
+ *    silenzio. «Home-Page-Last-Minute» risultava di 52 prodotti contro i 73
+ *    veri, «Roma» 184 contro 370.
+ */
+async function leggiProdottiDiCollezione(n: Negozio, gidCollezione: string): Promise<string[]> {
+  const fuori: string[] = [];
+  let cursore: string | null = null;
+  for (let pagina = 0; pagina < 40; pagina++) {
+    const dati: {
+      collection: { products: { pageInfo: { hasNextPage: boolean; endCursor: string }; nodes: { id: string }[] } } | null;
+    } = await graphql(
+      n,
+      `query($id: ID!, $cursore: String) {
+         collection(id: $id) {
+           products(first: 250, after: $cursore) {
+             pageInfo { hasNextPage endCursor }
+             nodes { id }
+           }
+         }
+       }`,
+      { id: gidCollezione, cursore }
+    );
+    const pag = dati.collection?.products;
+    if (!pag) break;
+    fuori.push(...pag.nodes.map((x) => x.id));
+    if (!pag.pageInfo.hasNextPage) break;
+    cursore = pag.pageInfo.endCursor;
+  }
+  return fuori;
+}
+
+/**
+ * Il prezzo del prodotto = il **minimo delle sue varianti**, e ogni variante
+ * porta la differenza in `deltaPrezzo`: è il modello «base + delta» dell'app, e
+ * la fascia di prezzo si legge sul prezzo d'ingresso come fa il negozio.
+ * `null` se il negozio non dà nessun prezzo: meglio lasciare quello che c'è che
+ * scrivere uno zero, che si legge come «gratis».
+ */
+function prezzoDa(p: ProdottoShopifyApi): number | null {
+  const prezzi = p.variants.nodes
+    .map((v) => Number.parseFloat(v.price ?? ""))
+    .filter((x) => Number.isFinite(x) && x > 0);
+  return prezzi.length ? Math.min(...prezzi) : null;
+}
+
+/** La descrizione del negozio, ripulita dall'HTML. `undefined` se non dice niente. */
+function descrizioneDa(html: string | null): string | undefined {
+  const t = html?.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  return t ? t.slice(0, 4000) : undefined;
 }
 
 /** Gli indici con cui si riconosce un prodotto del negozio fra i nostri. */
@@ -299,26 +359,35 @@ async function costruisciIndici(): Promise<Indici> {
 }
 
 /**
- * Riconosce un prodotto del negozio fra i nostri, dal più esatto al più incerto.
+ * Riconosce un prodotto del negozio fra i nostri, dal più esatto al più incerto,
+ * e dice **con quanta forza**: la forza serve a decidere chi si prende una
+ * scheda quando due prodotti del negozio puntano alla stessa.
  * **Una funzione sola**, usata dall'import e dall'anteprima: con due copie lo
  * stesso prodotto finirebbe per essere riconosciuto in due modi diversi.
  */
-function abbina(p: ProdottoShopifyApi, ix: Indici): string | undefined {
-  // 1. L'id Shopify: non è una somiglianza, è lo stesso prodotto.
+function abbina(p: ProdottoShopifyApi, ix: Indici): { id: string; forza: number } | undefined {
+  // 5. L'id Shopify: non è una somiglianza, è lo stesso prodotto.
   const perId = ix.perShopifyId.get(p.id);
-  if (perId) return perId;
-  // 2. Lo SKU di una variante.
+  if (perId) return { id: perId, forza: 5 };
+  // 4. Lo SKU di una variante.
   for (const v of p.variants.nodes) {
     const s = v.sku?.trim().toLowerCase();
-    if (s && ix.perSku.has(s)) return ix.perSku.get(s);
+    const id = s ? ix.perSku.get(s) : undefined;
+    if (id) return { id, forza: 4 };
   }
   // 3. Lo SKU usato come codice del prodotto.
   for (const v of p.variants.nodes) {
     const s = v.sku?.trim().toLowerCase();
-    if (s && ix.perCodice.has(s)) return ix.perCodice.get(s);
+    const id = s ? ix.perCodice.get(s) : undefined;
+    if (id) return { id, forza: 3 };
   }
-  // 4. L'handle, poi il titolo normalizzato.
-  return ix.perCodice.get(p.handle.trim().toLowerCase()) ?? ix.perNome.get(normalizza(p.title));
+  // 2. L'handle.
+  const perHandle = ix.perCodice.get(p.handle.trim().toLowerCase());
+  if (perHandle) return { id: perHandle, forza: 2 };
+  // 1. Il titolo normalizzato: la più debole, ed è quella che faceva più danni
+  // (otto prodotti diversi del negozio si chiamano «Sacher»).
+  const perNome = ix.perNome.get(normalizza(p.title));
+  return perNome ? { id: perNome, forza: 1 } : undefined;
 }
 
 // Lo stato del negozio diventa la fase della scheda: è dichiarato da chi cura il
@@ -355,10 +424,7 @@ async function creaProdottiMancanti(
     while (codiciPresi.has(codice.toLowerCase())) codice = `${radice}-${k++}`;
     codiciPresi.add(codice.toLowerCase());
 
-    const prezzi = p.variants.nodes
-      .map((v) => Number.parseFloat(v.price ?? ""))
-      .filter((x) => Number.isFinite(x) && x > 0);
-    daCreare.push({ gid: p.id, codice, prezzo: prezzi.length ? Math.min(...prezzi) : 0, p });
+    daCreare.push({ gid: p.id, codice, prezzo: prezzoDa(p) ?? 0, p });
   }
 
   for (let i = 0; i < daCreare.length; i += 200) {
@@ -374,6 +440,7 @@ async function creaProdottiMancanti(
           costoProduzione: 0,
           prezzoVendita: prezzo,
           immagine: p.featuredImage?.url ?? null,
+          descrizione: descrizioneDa(p.descriptionHtml) ?? null,
           tipoShopify: p.productType?.trim() || null,
           categoriaShopifyId: p.category?.id ?? null,
           categoriaShopifyNome: p.category?.fullName || p.category?.name || null,
@@ -382,6 +449,7 @@ async function creaProdottiMancanti(
           handleShopify: p.handle,
           ggDispMin: Number.isFinite(gg) ? gg : null,
           shopifyId: p.id,
+          statoShopify: p.status ?? null,
           shopifyStato: SYNC_DA_STATO[p.status ?? ""] ?? "non_pubblicato",
           noteSviluppo: `Creato dall'import delle collezioni di ${negozio} il ${oggi}: il negozio ce l'ha, qui non c'era. Costo di produzione e categoria da compilare.`,
         };
@@ -450,9 +518,72 @@ export async function anteprimaAbbinamento(n: Negozio) {
       titolo: p.title,
       handle: p.handle,
       sku: p.variants.nodes.map((v) => v.sku).filter(Boolean).join(", ") || "—",
-      collezioni: p.collections.nodes.length,
     })),
   };
+}
+
+/**
+ * **Riallinea le schede ai prodotti del negozio**, senza toccare le collezioni.
+ *
+ * Fa la stessa cosa che l'import fa dentro il suo giro — riconosce i prodotti e
+ * ne riscrive i campi letti dal negozio — ma **salta la lettura delle
+ * collezioni**, che è la parte lenta. Serve quando si vuole solo riportare a
+ * casa nome, foto, descrizione, listino e stato: appartenenze e posizioni
+ * restano quelle che sono.
+ */
+export async function allineaProdottiAlNegozio(
+  n: Negozio,
+): Promise<{ negozio: string; letti: number; aggiornati: number; senzaScheda: number }> {
+  const prodottiShopify = await leggiProdotti(n);
+  const ix = await costruisciIndici();
+  // Stesso vincolo dell'import: **un prodotto del negozio ↔ una scheda**, e la
+  // chiave più forte vince. Senza, gli otto «Sacher» si riscriverebbero a
+  // vicenda il nome sulla stessa scheda.
+  const candidati = prodottiShopify
+    .map((p) => ({ p, m: abbina(p, ix) }))
+    .sort((a, b) => (b.m?.forza ?? 0) - (a.m?.forza ?? 0));
+  const presi = new Set<string>();
+  const blocco: { id: string; p: ProdottoShopifyApi }[] = [];
+  let senzaScheda = 0;
+  for (const { p, m } of candidati) {
+    if (!m || presi.has(m.id)) {
+      senzaScheda++;
+      continue;
+    }
+    presi.add(m.id);
+    blocco.push({ id: m.id, p });
+  }
+  let aggiornati = 0;
+  for (let i = 0; i < blocco.length; i += 25) {
+    const parte = blocco.slice(i, i + 25);
+    await Promise.all(
+      parte.map(({ id, p }) => {
+        const ggRaw = p.consegna?.value?.trim();
+        const gg = ggRaw ? Number.parseInt(ggRaw, 10) : NaN;
+        return prisma.prodotto.update({
+          where: { id },
+          data: {
+            nome: p.title.slice(0, 200),
+            tipoShopify: p.productType?.trim() || null,
+            categoriaShopifyId: p.category?.id ?? null,
+            categoriaShopifyNome: p.category?.fullName || p.category?.name || null,
+            vendorShopify: p.vendor?.trim() || null,
+            tagShopify: p.tags?.length ? p.tags.join(", ").slice(0, 500) : null,
+            handleShopify: p.handle,
+            ggDispMin: Number.isFinite(gg) ? gg : null,
+            statoShopify: p.status ?? null,
+            shopifyId: p.id,
+            // undefined = non toccare il campo; null vorrebbe dire cancellarlo.
+            immagine: p.featuredImage?.url ?? undefined,
+            descrizione: descrizioneDa(p.descriptionHtml),
+            prezzoVendita: prezzoDa(p) ?? undefined,
+          },
+        });
+      }),
+    );
+    aggiornati += parte.length;
+  }
+  return { negozio: n.nome, letti: prodottiShopify.length, aggiornati, senzaScheda };
 }
 
 /** Importa collezioni e appartenenze di un negozio. */
@@ -529,12 +660,27 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
     // collezione completa: prima i prodotti sconosciuti venivano contati e
     // buttati, e la collezione risultava mezza vuota.
     const ix = await costruisciIndici();
+    // **Un prodotto del negozio ↔ una scheda.** Senza questo vincolo otto
+    // prodotti Shopify diversi che si chiamano «Sacher» finivano tutti sulla
+    // stessa scheda: l'ordine mostrava il nome sbagliato e il venduto di uno
+    // veniva attribuito all'altro. Misurato prima della correzione: 111 schede
+    // rappresentavano più prodotti dello **stesso** negozio (89 su Gifts).
+    // Chi ha la chiave più forte si prende la scheda; agli altri se ne crea una.
+    // Il vincolo è **per negozio** — lo stesso prodotto venduto su Flowers e su
+    // Gifts è davvero la stessa scheda, e quello resta giusto.
     const risolto = new Map<string, string>(); // gid Shopify → id nostro
     const orfani: ProdottoShopifyApi[] = [];
-    for (const p of prodottiShopify) {
-      const id = abbina(p, ix);
-      if (id) risolto.set(p.id, id);
-      else orfani.push(p);
+    const candidati = prodottiShopify
+      .map((p) => ({ p, m: abbina(p, ix) }))
+      .sort((a, b) => (b.m?.forza ?? 0) - (a.m?.forza ?? 0));
+    const presi = new Set<string>();
+    for (const { p, m } of candidati) {
+      if (m && !presi.has(m.id)) {
+        presi.add(m.id);
+        risolto.set(p.id, m.id);
+      } else {
+        orfani.push(p);
+      }
     }
     if (orfani.length > 0) {
       const nati = await creaProdottiMancanti(orfani, n.nome, ix);
@@ -543,19 +689,11 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
     }
     base.prodottiIgnoti = prodottiShopify.length - risolto.size;
 
-    // — Le appartenenze, e quello che Shopify sa del prodotto —
-    const legami: { collezioneId: string; prodottoId: string; prodottoShopifyId: string; posizione: number }[] = [];
-    const daAggiornare: { id: string; tipoShopify: string | null; categoriaShopifyId: string | null; categoriaShopifyNome: string | null; vendorShopify: string | null; tagShopify: string | null; handleShopify: string; ggDispMin: number | null }[] = [];
+    // — Quello che Shopify sa del prodotto —
+    const daAggiornare: { id: string; tipoShopify: string | null; categoriaShopifyId: string | null; categoriaShopifyNome: string | null; vendorShopify: string | null; tagShopify: string | null; handleShopify: string; ggDispMin: number | null; statoShopify: string | null; shopifyId: string; nome: string; immagine: string | undefined; descrizione: string | undefined; prezzoVendita: number | undefined }[] = [];
     for (const p of prodottiShopify) {
       const nostroId = risolto.get(p.id);
       if (!nostroId) continue;
-      for (const c of p.collections.nodes) {
-        const collezioneId = idLocale.get(c.id);
-        // La posizione curata si recupera più sotto, dopo aver riletto quella
-        // esistente: qui si mette 0 come segnaposto.
-        if (collezioneId) legami.push({ collezioneId, prodottoId: nostroId, prodottoShopifyId: p.id, posizione: 0 });
-      }
-
       // Il tipo prodotto lo scrive chi cura il negozio: è un dato, non una
       // deduzione dal titolo. Si salva accanto alla categoria interna senza
       // sovrascriverla — una si legge da Shopify, l'altra la decide una persona.
@@ -570,22 +708,90 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
         tagShopify: p.tags?.length ? p.tags.join(", ").slice(0, 500) : null,
         handleShopify: p.handle,
         ggDispMin: Number.isFinite(gg) ? gg : null,
+        // Lo **stato sul negozio**, per tutti i prodotti abbinati e non solo per
+        // quelli creati: è quello che decide chi va in vetrina. Sta in un campo
+        // suo e non nella `fase`, perché la fase è la leva **umana** (è così che
+        // si archiviano a mano le righe di servizio) e un import non la
+        // sovrascrive.
+        statoShopify: p.status ?? null,
+        // **L'id Shopify anche sulle schede già esistenti**, non solo su quelle
+        // create: è la chiave esatta, e senza scriverla il prossimo import
+        // doveva ricominciare da SKU e nomi — cioè dalle chiavi che sbagliano.
+        shopifyId: p.id,
+        // — Quello che prima si scriveva **solo alla creazione** —
+        // Il negozio è la fonte di verità del prodotto: se una scheda è
+        // abbinata a un prodotto vero, nome, foto, descrizione e listino sono
+        // quelli del negozio. Prima restavano fermi a quello che si era dedotto
+        // dal venduto: 834 prodotti che sul sito hanno una foto qui non ne
+        // avevano nessuna, e la descrizione era vuota su tutti e 4.490.
+        nome: p.title.slice(0, 200),
+        // Le tre sotto si scrivono **solo se il negozio ha qualcosa da dire**:
+        // un `null` da Shopify non deve cancellare quello che c'è già qui.
+        immagine: p.featuredImage?.url ?? undefined,
+        descrizione: descrizioneDa(p.descriptionHtml),
+        prezzoVendita: prezzoDa(p) ?? undefined,
       });
+    }
+
+    // — Le appartenenze, **lette dal lato collezione**: è l'unico posto dove
+    //   l'ordine esiste, ed è l'unico modo di non perdere le appartenenze di chi
+    //   sta in più di dieci collezioni. La posizione è l'indice nella fila vera.
+    const legami: { collezioneId: string; prodottoId: string; prodottoShopifyId: string; posizione: number }[] = [];
+    const ordineDaShopify = new Map<string, string[]>(); // id collezione nostro → gid prodotti in ordine
+    for (const c of collezioni) {
+      const collezioneId = idLocale.get(c.id);
+      if (!collezioneId) continue;
+      const gids = await leggiProdottiDiCollezione(n, c.id);
+      ordineDaShopify.set(collezioneId, gids);
+      let posizione = 0;
+      for (const gid of gids) {
+        const prodottoId = risolto.get(gid);
+        // Un prodotto che non siamo riusciti a risolvere non entra: sarebbe una
+        // riga senza scheda. La posizione avanza lo stesso, così l'ordine dei
+        // rimanenti resta quello del negozio.
+        if (prodottoId) legami.push({ collezioneId, prodottoId, prodottoShopifyId: gid, posizione });
+        posizione++;
+      }
     }
 
     // Si riscrive l'appartenenza di questo negozio: un prodotto tolto da una
     // collezione su Shopify deve sparire anche qui, altrimenti l'app racconta
-    // una vetrina che non esiste più. Ma **l'ordine curato non si perde**: prima
-    // di cancellare si legge la posizione già decisa (collezione+prodotto) e la
-    // si riporta sui legami che restano; i prodotti nuovi entrano a 0.
+    // una vetrina che non esiste più.
+    //
+    // **Chi vince sull'ordine.** Ora la fila arriva dal negozio, quindi di
+    // norma è lui la verità e la si riscrive. L'eccezione è la collezione con
+    // una **curatela non ancora spinta** (`ordineModificatoIl` più recente di
+    // `ordineSpintoIl`, quella con il badge «da sincronizzare»): lì il lavoro
+    // fatto qui e non ancora mandato non si butta, si tengono le posizioni
+    // nostre. Senza questa distinzione o si perdeva la curatela a ogni import,
+    // o non si vedeva mai l'ordine vero del sito.
     const idCollezioniNegozio = [...idLocale.values()];
     if (idCollezioniNegozio.length > 0) {
-      const esistenti = await prisma.prodottoInCollezioneShopify.findMany({
-        where: { collezioneId: { in: idCollezioniNegozio } },
-        select: { collezioneId: true, prodottoId: true, posizione: true },
+      const stato = await prisma.collezioneShopify.findMany({
+        where: { id: { in: idCollezioniNegozio }, ordineModificatoIl: { not: null } },
+        select: { id: true, ordineModificatoIl: true, ordineSpintoIl: true },
       });
-      const posizionePrec = new Map(esistenti.map((e) => [`${e.collezioneId}|${e.prodottoId}`, e.posizione]));
-      for (const l of legami) l.posizione = posizionePrec.get(`${l.collezioneId}|${l.prodottoId}`) ?? 0;
+      // Il confronto fra le due date si fa qui e non nella query: mettere a
+      // confronto due colonne fra loro è la cosa che, sbagliata, non dà errore
+      // ma risultati vuoti.
+      const daNonToccare = new Set(
+        stato
+          .filter((c) => c.ordineSpintoIl == null || c.ordineModificatoIl! > c.ordineSpintoIl)
+          .map((c) => c.id),
+      );
+      if (daNonToccare.size > 0) {
+        const esistenti = await prisma.prodottoInCollezioneShopify.findMany({
+          where: { collezioneId: { in: [...daNonToccare] } },
+          select: { collezioneId: true, prodottoId: true, posizione: true },
+        });
+        const posizionePrec = new Map(esistenti.map((e) => [`${e.collezioneId}|${e.prodottoId}`, e.posizione]));
+        for (const l of legami) {
+          if (!daNonToccare.has(l.collezioneId)) continue;
+          // I prodotti nuovi di una collezione curata entrano in fondo, non in
+          // cima: in cima scavalcherebbero una scelta già fatta.
+          l.posizione = posizionePrec.get(`${l.collezioneId}|${l.prodottoId}`) ?? 9999;
+        }
+      }
       await prisma.prodottoInCollezioneShopify.deleteMany({
         where: { collezioneId: { in: idCollezioniNegozio } },
       });
@@ -613,6 +819,14 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
               tagShopify: d.tagShopify,
               handleShopify: d.handleShopify,
               ggDispMin: d.ggDispMin,
+              statoShopify: d.statoShopify,
+              shopifyId: d.shopifyId,
+              nome: d.nome,
+              // `undefined` = non toccare il campo (Prisma lo salta), che è
+              // diverso da `null` = cancellalo. Qui serve il primo.
+              immagine: d.immagine,
+              descrizione: d.descrizione,
+              prezzoVendita: d.prezzoVendita,
             },
           })
         )

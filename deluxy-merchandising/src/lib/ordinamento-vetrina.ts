@@ -19,10 +19,17 @@ import { FILTRO_BUON_FINE } from "./vendite";
  * calcolata anche su quelli vuol dire decidere l'ordine di una vetrina che non
  * esiste: restano in archivio — non si cancella niente — ma fuori dalla scena.
  *
- * La fase è il nostro campo: `in_vendita` è quello che l'import scrive quando
- * Shopify dice `ACTIVE`, ed è anche il valore dei prodotti nati dal venduto.
+ * **Due condizioni, e servono tutte e due.** `statoShopify` è lo stato letto dal
+ * negozio a ogni import ed è quello che decide se il cliente lo vede; `fase` è
+ * la leva **umana** (è così che si tolgono di mezzo le righe di servizio tipo
+ * `_Additional Price`). Guardare solo la fase non bastava: i 2.171 prodotti nati
+ * dal venduto hanno `fase = in_vendita` per default, anche quando sul negozio
+ * sono archiviati — sarebbero rimasti in vetrina.
+ *
+ * `statoShopify` nullo = prodotto mai visto su un negozio: non sta in nessuna
+ * collezione, quindi in vetrina non ci arriva comunque.
  */
-export const FILTRO_IN_SCENA = { fase: "in_vendita" } as const;
+export const FILTRO_IN_SCENA = { statoShopify: "ACTIVE", fase: { not: "archiviato" } } as const;
 
 export type RegolaOrdinamento =
   | "manuale"

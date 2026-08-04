@@ -859,6 +859,7 @@ export type VoceClassifica = {
   nome: string;
   dettaglio: string | null; // codice, variante
   prodottoId: string | null;
+  immagine: string | null;
   pezzi: number;
   ricavo: number;
   righe: number; // quante volte è finito in un ordine
@@ -925,7 +926,7 @@ export async function classifiche(opzioni: {
         quantita: true,
         ricavo: true,
         statoPagamento: true,
-        prodotto: { select: { nome: true, codice: true } },
+        prodotto: { select: { nome: true, codice: true, immagine: true } },
         variante: { select: { nome: true } },
       },
     }),
@@ -959,6 +960,7 @@ export async function classifiche(opzioni: {
         nome,
         dettaglio,
         prodottoId: r.prodottoId,
+        immagine: r.prodotto?.immagine ?? null,
         pezzi: 0,
         ricavo: 0,
         righe: 0,

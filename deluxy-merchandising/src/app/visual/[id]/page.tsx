@@ -42,6 +42,7 @@ export default async function CurazioneCollezionePage({
               costoProduzione: true,
               creatoIl: true,
               fase: true,
+              statoShopify: true,
             },
           },
         },
@@ -80,7 +81,9 @@ export default async function CurazioneCollezionePage({
   // contiene anche prodotti archiviati o in bozza: restano legati qui — è la
   // verità di Shopify — ma non entrano nella fila, perché ordinare prodotti
   // invisibili vuol dire decidere l'ordine di una vetrina che non esiste.
-  const inScena = c.prodotti.filter((vp) => vp.prodotto.fase === FILTRO_IN_SCENA.fase);
+  const inScena = c.prodotti.filter(
+    (vp) => vp.prodotto.statoShopify === "ACTIVE" && vp.prodotto.fase !== "archiviato",
+  );
   const fuoriScena = c.prodotti.length - inScena.length;
 
   const righe = inScena.slice(0, MAX_RIGHE);
@@ -310,7 +313,8 @@ export default async function CurazioneCollezionePage({
                     <span className="vetrina-info">
                       <a href={`/prodotti/${vp.prodottoId}`} className="cella-nome">{vp.prodotto.nome}</a>
                       <div className="cella-sub">
-                        {vp.prodotto.codice}
+                        <StatoNegozio stato={vp.prodotto.statoShopify} />
+                        {" "}{vp.prodotto.codice}
                         {vp.prodotto.prezzoVendita > 0 ? ` · ${euro(vp.prodotto.prezzoVendita)}` : ""}
                       </div>
                     </span>
@@ -334,7 +338,82 @@ export default async function CurazioneCollezionePage({
             </>
           )}
         </div>
+
+        {/* **I fuori scena si vedono, non si nascondono.** Sapere che una
+            collezione si porta dietro 182 prodotti archiviati è
+            un'informazione: nascondendoli sembrerebbe che non ci siano, e non
+            si capirebbe perché il negozio ne dichiara molti di più. Stanno
+            fuori dalla fila, non fuori dalla vista. */}
+        {fuoriScena > 0 && (
+          <div className="scheda">
+            <div className="scheda-titolo">Non in vendita sul negozio ({fuoriScena})</div>
+            <p className="page-sub" style={{ marginTop: -4, marginBottom: 12 }}>
+              Sono nella collezione su Shopify ma il cliente non li vede: <b>non entrano nell&apos;ordine</b> e non
+              vengono mandati al negozio. Per rimetterli in vetrina si riattivano <b>su Shopify</b>, non da qui.
+            </p>
+            <div className="vetrina-lista">
+              {c.prodotti
+                .filter((vp) => !inScena.includes(vp))
+                .slice(0, 40)
+                .map((vp) => (
+                  <div className="vetrina-riga" key={vp.id} style={{ opacity: 0.65 }}>
+                    <span className="vetrina-pos">—</span>
+                    <span className="vetrina-mini">
+                      {vp.prodotto.immagine ? <img src={vp.prodotto.immagine} alt="" /> : "❀"}
+                    </span>
+                    <span className="vetrina-info">
+                      <a href={`/prodotti/${vp.prodottoId}`} className="cella-nome">{vp.prodotto.nome}</a>
+                      <div className="cella-sub">
+                        <StatoNegozio stato={vp.prodotto.statoShopify} />
+                        {" "}{vp.prodotto.codice}
+                      </div>
+                    </span>
+                  </div>
+                ))}
+            </div>
+            {fuoriScena > 40 && (
+              <p className="page-sub" style={{ marginTop: 12 }}>
+                Mostrati i primi 40 di {fuoriScena}.
+              </p>
+            )}
+          </div>
+        )}
       </main>
     </div>
+  );
+}
+
+/**
+ * Lo stato del prodotto **sul negozio**, letto a ogni import. Si scrive accanto
+ * al codice perché è la prima cosa da sapere guardando una fila: un prodotto
+ * archiviato in vetrina non ci va, per quanto qui risulti «in vendita».
+ * `null` = non lo sappiamo (mai visto su un negozio), e si dice invece di
+ * inventare «attivo».
+ */
+function StatoNegozio({ stato }: { stato: string | null }) {
+  const m: Record<string, { testo: string; colore: string }> = {
+    ACTIVE: { testo: "Attivo", colore: "var(--green)" },
+    DRAFT: { testo: "Bozza", colore: "var(--orange)" },
+    ARCHIVED: { testo: "Archiviato", colore: "var(--text-tertiary)" },
+  };
+  const v = stato ? m[stato] : null;
+  const testo = v?.testo ?? "Stato ignoto";
+  const colore = v?.colore ?? "var(--text-tertiary)";
+  return (
+    <span
+      style={{
+        fontSize: 10,
+        fontWeight: 700,
+        letterSpacing: 0.2,
+        textTransform: "uppercase",
+        color: colore,
+        background: `color-mix(in srgb, ${colore} 12%, transparent)`,
+        padding: "1px 6px",
+        borderRadius: 999,
+        whiteSpace: "nowrap",
+      }}
+    >
+      {testo}
+    </span>
   );
 }

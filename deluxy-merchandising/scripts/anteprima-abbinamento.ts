@@ -35,7 +35,7 @@ async function main() {
       const quota = a.letti ? Math.round((a.riconosciuti / a.letti) * 100) : 0;
       console.log(`letti ${a.letti} · riconosciuti ${a.riconosciuti} (${quota}%) · da creare ${a.daCreare}`);
       for (const e of a.esempi) {
-        console.log(`   · ${e.titolo.slice(0, 50).padEnd(52)} handle=${e.handle.slice(0, 28).padEnd(30)} sku=${e.sku.slice(0, 24).padEnd(26)} coll=${e.collezioni}`);
+        console.log(`   · ${e.titolo.slice(0, 50).padEnd(52)} handle=${e.handle.slice(0, 28).padEnd(30)} sku=${e.sku.slice(0, 24)}`);
       }
     } catch (e) {
       console.log("ERRORE -", e instanceof Error ? e.message : String(e));

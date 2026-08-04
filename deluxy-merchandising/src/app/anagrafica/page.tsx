@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Badge } from "@/components/Badge";
 import { FormFiltri } from "@/components/FormFiltri";
+import { Miniatura } from "@/components/Miniatura";
 import { Sidebar } from "@/components/Sidebar";
 import { classificaProdottoAzione, escludiProdottoAzione } from "@/lib/azioni-classificazione";
 import { brandCorrente, filtroProdotti } from "@/lib/brand";
@@ -308,10 +309,15 @@ export default async function AnagraficaPage({
                   return (
                     <tr key={p.id} className="riga-cliccabile">
                       <td>
-                        <Link href={`/prodotti/${p.id}`} className="cella-nome link-riga">
-                          {p.nome}
-                        </Link>
-                        <div className="cella-sub">{p.codice}</div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <Miniatura url={p.immagine ?? null} />
+                          <span>
+                            <Link href={`/prodotti/${p.id}`} className="cella-nome link-riga">
+                              {p.nome}
+                            </Link>
+                            <div className="cella-sub">{p.codice}</div>
+                          </span>
+                        </div>
                       </td>
                       {/* Fornitore = «Venditore» di Shopify, e categoria = «Tipo»:
                           i due campi che sul negozio stanno nel riquadro

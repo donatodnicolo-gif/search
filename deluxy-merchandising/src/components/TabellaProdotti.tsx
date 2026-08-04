@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Miniatura } from "./Miniatura";
 import { Badge } from "./Badge";
 import { BarraMargine } from "./BarraMargine";
 import {
@@ -20,6 +21,7 @@ export type RigaProdotto = {
   prezzoVendita: number;
   costoProduzione: number;
   shopifyStato: string;
+  immagine?: string | null;
   collezione: { nome: string; margineTarget: number | null } | null;
 };
 
@@ -47,8 +49,13 @@ export function TabellaProdotti({ prodotti, mostraCollezione = true }: { prodott
             return (
               <tr key={p.id} className="riga-cliccabile">
                 <td>
-                  <Link href={`/prodotti/${p.id}`} className="cella-nome link-riga">{p.nome}</Link>
-                  <div className="cella-sub">{p.codice}</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <Miniatura url={p.immagine ?? null} />
+                    <span>
+                      <Link href={`/prodotti/${p.id}`} className="cella-nome link-riga">{p.nome}</Link>
+                      <div className="cella-sub">{p.codice}</div>
+                    </span>
+                  </div>
                 </td>
                 {mostraCollezione && <td className="cella-muta">{p.collezione?.nome ?? "—"}</td>}
                 <td className="cella-muta">{etichettaCategoria(p.categoria)}</td>
