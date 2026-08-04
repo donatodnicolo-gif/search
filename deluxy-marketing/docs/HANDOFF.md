@@ -22,6 +22,30 @@ Riceve già dati veri da Google Ads (Gifts e Flowers) e ha 2.426 ordini Shopify 
 
 ## FATTO
 
+### Lo script esegue davvero (04/08/2026)
+
+`AZIONE = "tutto"` è schedulato **ogni giorno** sugli account, e comprende
+`esegui` — che gira per primo, prima delle letture. Alle 07:09 del 04/08 ha
+applicato le prime sei operazioni approvate: cinque keyword in pausa e una
+negativa. La coda si svuota da sola.
+
+> ⚠️ **Una coda ferma non vuol dire "script non schedulato".** L'errore l'ho
+> fatto: ho letto sette operazioni in stato `approvata` e concluso che il
+> lavoro `esegui` non girasse, mentre stava semplicemente per passare. Le due
+> cose da guardare PRIMA di quella conclusione sono `/ricezione` (chi ha
+> consegnato e quando) e la data di `eseguitaIl` sulle operazioni.
+
+> ⚠️ **Un'operazione eseguita NON si annulla dall'app.** Annullarla cambierebbe
+> solo l'etichetta: la keyword resta in pausa su Google, e l'app comincia a
+> mentire. Per disfare serve l'operazione opposta (riattiva), e per una
+> negativa la rimozione a mano — lo script non la toglie.
+
+Le copie configurate per ogni lavoro si rigenerano in
+`C:\Users\nicol\Downloads\deluxy-google-ads\` con lo snippet in fondo a
+questo file: legge e scrive in **latin1**, perché `google-ads-script.js` ha
+byte non-UTF8 e latin1 è l'unico encoding byte-preserving 1:1.
+
+
 ### Il 02/08/2026 (questa sessione)
 
 **L'app girava dall'altra parte dell'oceano.** Home a 10,4 secondi, e la causa
@@ -973,3 +997,24 @@ npx tsc --noEmit     # prima di ogni commit
 
 Prima di fermarsi: aggiornare **questo file** e la memoria di progetto
 (`progetto-deluxy-marketing.md`), come dice la regola 1 del repo.
+
+## Rigenerare le copie dello script per ogni lavoro
+
+Una copia per `AZIONE`, pronta da incollare in Google Ads. Da lanciare dopo
+ogni modifica a `scripts/google-ads-script.js`:
+
+```bash
+cd deluxy-marketing && node -e "
+const fs=require('fs');
+const base=fs.readFileSync('scripts/google-ads-script.js','latin1');
+const azioni=['metriche','copy','gruppi','asset','diagnosi','approvazioni','stati-keyword','esegui','tutto'];
+const dir='C:/Users/nicol/Downloads/deluxy-google-ads';
+fs.mkdirSync(dir,{recursive:true});
+for(const a of azioni) fs.writeFileSync(dir+'/'+a+'.js', base.replace('var AZIONE = \"metriche\";','var AZIONE = \"'+a+'\";'), 'latin1');
+console.log('scritte',azioni.length,'copie in',dir);
+"
+```
+
+⚠️ **latin1, non UTF-8**: `google-ads-script.js` ha byte non-UTF8 (box-drawing
+e accenti in encoding misto) e latin1 è l'unico encoding byte-preserving 1:1.
+Leggerlo o scriverlo come UTF-8 corrompe i caratteri.
