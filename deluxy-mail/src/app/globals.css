@@ -126,6 +126,13 @@ a { color: inherit; text-decoration: none; }
   border: 1px solid currentColor; background: transparent; white-space: nowrap;
 }
 .tasti-aiuto { font-size: 12.5px; }
+
+/* «← Posta in arrivo» + Precedente/Successiva: una fila sola che va a capo. */
+.naviga-testa { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.naviga-messaggi { display: inline-flex; align-items: center; gap: 6px; }
+/* Spento ma VISIBILE: in cima o in fondo all'elenco il tasto non sparisce,
+   altrimenti si smette di cercarlo dov'era. */
+.btn.disabilitato { opacity: 0.4; cursor: default; pointer-events: none; }
 @media (max-width: 900px) {
   .btn kbd.tasto, .tasti-aiuto { display: none; }
 }

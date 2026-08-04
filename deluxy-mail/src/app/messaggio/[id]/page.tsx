@@ -6,6 +6,8 @@ import { anteprimaPulita } from '@/lib/citato'
 import { ConversazioneStack } from '@/components/ConversazioneStack'
 import { BozzaEditor } from '@/components/BozzaEditor'
 import { AzioniMessaggio } from '@/components/AzioniMessaggio'
+import { NavigaMessaggi } from '@/components/NavigaMessaggi'
+import { mailVicine } from '@/lib/vicine'
 import { PrioritaButtons } from '@/components/PrioritaButtons'
 import { Rianalizza } from '@/components/Rianalizza'
 import { CorpoMessaggio } from '@/components/CorpoMessaggio'
@@ -80,7 +82,7 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
     link: string | null
     creatoIl: Date
   }
-  const [sezioni, conversazione, conversazioneStretta, contattoAI, inviiApp, chiaviApp] = await Promise.all([
+  const [sezioni, conversazione, conversazioneStretta, contattoAI, inviiApp, chiaviApp, vicine] = await Promise.all([
     db.sezione.findMany({ where: { utenteId: u.id }, orderBy: { ordine: 'asc' } }),
     // La conversazione a cui appartiene questo messaggio, in forma LEGGERA:
     // la pila mostra mittente, anteprima e data, e il corpo di un messaggio se
@@ -103,6 +105,9 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
     // Quali APP DELUXY sono collegate: decide cosa si può richiamare da qui.
     // (In cache 5 minuti: non è una fetch a ogni apertura di mail.)
     leggiChiaviApp(),
+    // Le mail confinanti, per «Precedente / Successiva»: due findFirst con
+    // indice, dentro l'ondata parallela — non aggiungono un'attesa in fila.
+    mailVicine(u.id, messaggio),
   ])
 
   const azioniApp = descriviAzioni(chiaviApp)
@@ -153,10 +158,12 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
   return (
     <>
       <div className="page-head">
-        <div>
+        <div className="naviga-testa">
           <Link href="/" className="btn secondary small">
             ← Posta in arrivo
           </Link>
+          {/* Scorrere la posta senza tornare in elenco a ogni mail. */}
+          <NavigaMessaggi precedente={vicine.precedente} successivo={vicine.successivo} />
         </div>
         <AzioniMessaggio
           id={messaggio.id}

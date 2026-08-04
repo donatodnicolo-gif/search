@@ -141,6 +141,7 @@ export function Scorciatoie() {
             ['e', 'Archivia e apri la successiva'],
             ['# o Canc', 'Cestina e apri la successiva (si recupera)'],
             ['s', 'Segna da leggere'],
+            ['p / n', 'Mail precedente / successiva, senza tornare in elenco'],
             ['j / k', 'Muoviti fra i messaggi della conversazione'],
             ['Invio', 'Apri o chiudi il messaggio a fuoco'],
             ['Ctrl+Invio', 'Mentre scrivi: manda la mail (chiede conferma, poi spedisce)'],

@@ -367,6 +367,7 @@ scritta solo dentro un elenco la trova soltanto chi già sa che esiste. Le princ
 | `#` o `Canc` | cestina **e apri la successiva** (si recupera) |
 | `s` | segna da leggere |
 | `j` / `k` · `Invio` | muoviti nella conversazione · apri il messaggio |
+| `p` / `n` | mail precedente / successiva, senza tornare in elenco |
 | `Ctrl+Invio` | **mentre scrivi una mail**: manda (una volta per chiedere conferma, una per spedire) |
 
 **Smaltire una mail apre la successiva.** Con `Canc` (o col tasto «Cestina») non torni
@@ -391,6 +392,14 @@ risponde **a quel messaggio** — a quello che stai guardando, non a quello in c
 In più: un pallino blu sulle non lette, la riga **«da qui non hai letto»** che dice dove
 riprendere, la graffetta di chi ha allegati, e «Apri tutte / Chiudi tutte». L'ultimo
 messaggio è già aperto, perché è quasi sempre quello che serve.
+
+**Precedente e Successiva.** In cima alla mail aperta, accanto a «← Posta in arrivo», ci
+sono **↑ Precedente** e **↓ Successiva** (tasti `p` e `n`): si scorre la posta senza
+tornare ogni volta nell'elenco. *Precedente* è la mail più recente di quella che stai
+leggendo, *Successiva* la più vecchia — l'ordine dell'elenco. **Si resta nella lista in cui
+sei**: stessa cartella o sezione, stessa casella se ne stai guardando una sola, e se sei
+negli Archiviati o nel Cestino ci si muove lì dentro. In cima o in fondo all'elenco il
+tasto resta al suo posto, spento.
 
 **Rispondere e inoltrare segnano letta la conversazione.** Se l'hai risposta o inoltrata,
 l'hai gestita: il pallino blu si spegne su **tutte** le mail di quel thread, non solo su
