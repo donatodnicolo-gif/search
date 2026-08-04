@@ -120,8 +120,10 @@ export function PortaKeyword({
             alla volta), ma va DETTO: per questo il conteggio è sempre in
             vista, col modo per svuotarlo. */}
         <div className="modale-conteggio">
+          {/* «attive» va detto: l'elenco è filtrato, e una lista filtrata che
+              non lo dichiara si legge come "queste sono tutte le campagne". */}
           <span>
-            {filtrate.length} campagn{filtrate.length === 1 ? "a" : "e"}
+            {filtrate.length} campagn{filtrate.length === 1 ? "a attiva" : "e attive"}
             {q !== "" && ` su ${disponibili.length}`} · <strong>{scelte.length} selezionate</strong>
           </span>
           <span className="modale-scorciatoie">
@@ -161,8 +163,8 @@ export function PortaKeyword({
           {filtrate.length === 0 && (
             <div className="modale-vuoto">
               {disponibili.length === 0
-                ? "Questa parola è già su tutte le campagne."
-                : `Nessuna campagna con «${cerca}».`}
+                ? "Questa parola è già su tutte le campagne attive."
+                : `Nessuna campagna attiva con «${cerca}».`}
             </div>
           )}
         </div>

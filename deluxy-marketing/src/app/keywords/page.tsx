@@ -87,8 +87,14 @@ export default async function PaginaKeywords({
   const campagneCensite = await prisma.campagna.findMany({
     where: { canale: "google_ads", stato: { in: ["attiva", "in_pausa"] } },
     orderBy: { nome: "asc" },
-    select: { id: true, nome: true, classe: true },
+    select: { id: true, nome: true, classe: true, stato: true },
   });
+  // Portare una keyword su una campagna FERMA non serve a niente: resterebbe
+  // lì a non comparire finché qualcuno non riaccende la campagna. Nel dialogo
+  // vanno solo quelle che stanno erogando.
+  // `stato` qui è il fatto, non un giudizio: lo scrive l'import da Google
+  // ("attiva" = ENABLED, vedi `statoCampagna()` nello script).
+  const campagneAttive = campagneCensite.filter((c) => c.stato === "attiva");
   // ⚠️ Le campagne del selettore sono solo quelle VIVE. L'elenco nasceva dalle
   // keyword, e le keyword sopravvivono alla campagna: si finiva per scegliere
   // una campagna spenta nel 2025 e guardare parole che non comprano più niente.
@@ -428,7 +434,7 @@ export default async function PaginaKeywords({
                               IDEALE — le specifiche valgono solo dove stanno. */}
                           {(() => {
                             const cl = classeDi(k.testo);
-                            const altre = campagneCensite.filter((c) => !k.campagne.includes(c.nome));
+                            const altre = campagneAttive.filter((c) => !k.campagne.includes(c.nome));
                             if (cl === "specific") {
                               return (
                                 <div className="cella-sub">
@@ -512,7 +518,7 @@ export default async function PaginaKeywords({
         {/* Uno solo per tutta la pagina: l'elenco delle campagne è lo stesso
             per ogni riga, e ripeterlo 1.531 volte costava 68 MB di HTML. */}
         <PortaKeyword
-          campagne={campagneCensite}
+          campagne={campagneAttive}
           ritorno="/keywords"
           azione={applicaKeywordAdAltreCampagne}
         />
