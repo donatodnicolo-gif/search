@@ -119,6 +119,13 @@ model EventoAzione {
 model Campagna {
   id                String            @id @default(cuid())
   nome              String
+  // Il nome che le diamo NOI, per leggerla. "[Deluxy] - Fiori Milano ENG" è
+  // la chiave con cui l'import la ritrova e non si tocca mai: qui ci si può
+  // scrivere "Fiori Milano — inglese". Se c'è comanda a schermo, e il nome di
+  // Google resta accanto, perché è quello che si cerca in interfaccia.
+  // Gemello di `Gruppo.nomeVisibile`, stessa idea di `stato` contro
+  // `statoPiattaforma`: la nostra parola e il fatto non si sovrascrivono.
+  nomeVisibile      String?
   brand             String            @default("flowers")
   canale            String            @default("google_ads")
   // bozza | in_apprendimento | attiva | in_pausa | conclusa

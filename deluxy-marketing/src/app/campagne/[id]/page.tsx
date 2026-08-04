@@ -20,9 +20,10 @@ import { Sidebar } from "@/components/Sidebar";
 import { parametriPeriodo, periodoApp } from "@/lib/periodo-condiviso";
 import { TabellaGruppi } from "@/components/TabellaGruppi";
 import { VenditeCampagna } from "@/components/VenditeCampagna";
-import { aggiungiMetrica, cambiaStatoCampagna } from "@/lib/azioni";
+import { RinominaInline } from "@/components/RinominaInline";
+import { aggiungiMetrica, cambiaStatoCampagna, rinominaCampagna } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
-import { GIORNI_LETTURA, gruppiConNumeri } from "@/lib/gruppi";
+import { GIORNI_LETTURA, gruppiConNumeri, nomeCampagna } from "@/lib/gruppi";
 import {
   COLORE_BRAND,
   COLORE_STATO_AZIONE,
@@ -113,8 +114,27 @@ export default async function SchedaCampagna({
         <a className="ritorno" href="/campagne">← Campagne</a>
         <div className="page-head">
           <div>
-            <h1 className="page-title">{campagna.nome}</h1>
+            {/* La matita sta FUORI dall'<h1>: si porta dietro il suo <dialog>,
+                e un dialog dentro un titolo è HTML non valido. */}
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <h1 className="page-title">{nomeCampagna(campagna)}</h1>
+              <RinominaInline
+                id={campagna.id}
+                nomeVisibile={campagna.nomeVisibile}
+                nomeDiPiattaforma={campagna.nome}
+                cosa="la campagna"
+                azione={rinominaCampagna}
+              />
+            </div>
             <p className="page-sub" style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+              {/* Quando il nome è nostro, quello di Google resta a vista: è
+                  quello da cercare nell'interfaccia di Google Ads, e senza si
+                  perderebbe l'unico modo di ritrovare la campagna di là. */}
+              {campagna.nomeVisibile && (
+                <span className="tag-neutro" title="Il nome che ha su Google Ads">
+                  su Google: {campagna.nome}
+                </span>
+              )}
               <Badge testo={ETICHETTA_BRAND[campagna.brand] ?? campagna.brand} colore={COLORE_BRAND[campagna.brand] ?? "var(--text-tertiary)"} />
               <Badge testo={ETICHETTA_CANALE[campagna.canale] ?? campagna.canale} colore="var(--text-secondary)" />
               {campagna.obiettivo && <span>{campagna.obiettivo}</span>}

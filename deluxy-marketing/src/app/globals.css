@@ -824,6 +824,25 @@ tbody tr:hover { background: var(--fill); }
   background: rgba(36,138,61,.1); color: var(--green);
 }
 
+/* Matita accanto a un titolo: c'è ma non compete col titolo */
+.matita {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; flex: 0 0 auto;
+  border: 0; border-radius: var(--radius-s);
+  background: var(--fill); color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 120ms var(--ease), color 120ms var(--ease);
+}
+.matita:hover { background: var(--fill-hover); color: var(--text); }
+
+/* Il giudizio dell'app accanto al fatto della piattaforma, in testa alla
+   pagina: due stati vicini, con l'etichetta che dice quale è quale. */
+.stato-app-inline { display: inline-flex; align-items: center; gap: 6px; }
+.stato-app-etichetta {
+  font-size: 11px; font-weight: 600; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--text-tertiary);
+}
+
 /* ---------- Dialogo modale (condiviso) ---------- */
 .modale {
   padding: 0; border: 0; background: none;

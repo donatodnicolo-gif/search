@@ -22,6 +22,37 @@ Riceve già dati veri da Google Ads (Gifts e Flowers) e ha 2.426 ordini Shopify 
 
 ## FATTO
 
+### La matita accanto al titolo, e i due stati vicini (04/08/2026)
+
+Il nome si cambia **dove lo si legge**: matita accanto al titolo
+(`RinominaInline.tsx`, un componente per entrambi) su **gruppo** e **campagna**.
+Le vecchie sezioni «Come si chiama qui» e «Stato nell'app» in fondo alla colonna
+destra sono state **tolte**, non duplicate.
+
+- **`Campagna.nomeVisibile` è nuovo** (colonna aggiunta il 04/08 sul Postgres di
+  produzione). ⚠️ Applicata con un `ALTER TABLE … ADD COLUMN` mirato e **non**
+  con `prisma db push`: il database è **condiviso** con le altre app Deluxy e un
+  push confronta l'intero schema — se ha derivato altrove proporrebbe di
+  allineare anche quello. Verificato dopo: colonna `text` nullable, 230
+  campagne intatte.
+- `nomeCampagna()` in `lib/gruppi.ts`, gemello di `nomeGruppo()`. Vale **solo a
+  schermo**: ogni confronto e aggancio continua a usare `nome`, che è la chiave
+  dell'import — e le keyword del Monitoraggio ci si agganciano per nome.
+  Usato su scheda campagna e su `/campagne` (schede e tabella).
+- Lo **stato nell'app** del gruppo è salito accanto allo stato di Google: sono
+  il giudizio e il fatto, e si leggono solo uno di fianco all'altro. Al posto
+  della vecchia sezione resta la spiegazione della differenza.
+
+> ⚠️ **Un `<dialog>` non va dentro un `<h1>`.** Prima versione: matita dentro il
+> titolo, e siccome il componente si porta dietro il suo dialogo, il `<h1>`
+> "conteneva" tutto il testo del modulo — quello che legge uno screen reader
+> diventava «Flowers DeliveryCome si chiama quiFlowers Delivery✕Nome da
+> usare…». La matita sta in un `<div>` flex **accanto** all'`<h1>`.
+
+Provato in produzione: rinominata una campagna («PROVA rinomina»), verificato
+titolo nostro + tag «su Google: [Deluxy] - Fiori Milano ENG», poi **rimessa
+com'era** (casella svuotata → torna il nome di Google).
+
 ### Gli ordini si aggiornano ogni 3 ore (04/08/2026)
 
 `/api/cron/ordini` passa da `20 3 * * *` a **`20 */3 * * *`**: otto corse al

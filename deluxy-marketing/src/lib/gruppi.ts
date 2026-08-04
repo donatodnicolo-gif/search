@@ -46,6 +46,15 @@ export function nomeGruppo(g: { nome: string; nomeVisibile?: string | null }): s
   return nostro && nostro.length > 0 ? nostro : g.nome;
 }
 
+// Stessa regola per le campagne. Vale a schermo e basta: ogni confronto,
+// aggancio e query continua a usare `nome`, che è la chiave dell'import — le
+// keyword del Monitoraggio ci si agganciano per nome, e rinominare davvero
+// una campagna scollegherebbe la sua storia.
+export function nomeCampagna(c: { nome: string; nomeVisibile?: string | null }): string {
+  const nostro = c.nomeVisibile?.trim();
+  return nostro && nostro.length > 0 ? nostro : c.nome;
+}
+
 export const GIORNI_LETTURA = 30; // finestra standard dei Definitivi
 
 export function daGiorni(giorni: number): Date {

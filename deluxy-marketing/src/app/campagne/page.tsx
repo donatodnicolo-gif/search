@@ -18,6 +18,7 @@ import {
   COLORE_STATO_CAMPAGNA,
   formattaData,
 } from "@/lib/dominio";
+import { nomeCampagna } from "@/lib/gruppi";
 import { categoriaCampagna, iconaCanale, saluteCampagna } from "@/lib/salute";
 import { COLORE_CLASSE, ETICHETTA_CLASSE } from "@/lib/dominio";
 
@@ -180,7 +181,12 @@ export default async function PaginaCampagne({
                             <span className="card-campagna-icona" title={categoria.nome}>
                               <Icona nome={categoria.icona} />
                             </span>
-                            <span className="card-campagna-nome">{c.nome}</span>
+                            {/* Il nome nostro comanda a schermo; quello di
+                                Google resta il titolo al passaggio del mouse,
+                                perché è quello che si cerca in interfaccia. */}
+                            <span className="card-campagna-nome" title={c.nomeVisibile ? c.nome : undefined}>
+                              {nomeCampagna(c)}
+                            </span>
                           </div>
                           <div className="card-campagna-tag">
                             <span className="tag-salute" style={{ color: salute.colore }} title={salute.spiega}>
@@ -288,7 +294,9 @@ export default async function PaginaCampagne({
                     return (
                       <tr key={c.id}>
                         <td style={{ maxWidth: 320 }}>
-                          <a className="cella-nome" href={`/campagne/${c.id}`}>{c.nome}</a>
+                          <a className="cella-nome" href={`/campagne/${c.id}`} title={c.nomeVisibile ? c.nome : undefined}>
+                            {nomeCampagna(c)}
+                          </a>
                           {c._count.azioni > 0 && (
                             <div className="cella-sub">{c._count.azioni} azioni collegate</div>
                           )}

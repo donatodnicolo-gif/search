@@ -1403,6 +1403,30 @@ export async function rinominaGruppo(fd: FormData) {
   revalidatePath("/gruppi");
 }
 
+// Gemella di `rinominaGruppo`: il nome che diamo NOI alla campagna. Quello di
+// Google non si tocca — è la chiave con cui l'import la ritrova, e le keyword
+// del Monitoraggio ci si agganciano per nome.
+export async function rinominaCampagna(fd: FormData) {
+  const id = testo(fd, "id");
+  if (!id) return;
+  const nuovo = (testo(fd, "nomeVisibile") ?? "").trim();
+  const campagna = await prisma.campagna.update({
+    where: { id },
+    data: { nomeVisibile: nuovo.length > 0 ? nuovo : null },
+  });
+  await registra({
+    autore: "utente",
+    tipo: "modifica",
+    entita: "campagna",
+    entitaId: campagna.id,
+    titolo: nuovo
+      ? `Campagna "${campagna.nome}" si chiama "${nuovo}"`
+      : `Campagna "${campagna.nome}": tolto il nome scelto, torna quello di Google`,
+  });
+  revalidatePath(`/campagne/${id}`);
+  revalidatePath("/campagne");
+}
+
 export async function cambiaStatoGruppo(fd: FormData) {
   const id = testo(fd, "id");
   const stato = testo(fd, "stato");

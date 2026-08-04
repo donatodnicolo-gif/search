@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { AndamentoMensile } from "@/components/AndamentoMensile";
 import { AzioneGruppo } from "@/components/AzioneGruppo";
 import { Badge } from "@/components/Badge";
+import { RinominaInline } from "@/components/RinominaInline";
 import { GraficoSpesa } from "@/components/GraficoSpesa";
 import { SceltaPeriodo } from "@/components/SceltaPeriodo";
 import { SelettoreStato } from "@/components/SelettoreStato";
@@ -245,7 +246,20 @@ export default async function SchedaGruppo({
         </div>
         <div className="page-head">
           <div>
-            <h1 className="page-title">{nomeGruppo(gruppo)}</h1>
+            {/* La matita è FUORI dall'<h1>, non dentro: il componente si porta
+                dietro il suo <dialog>, e un dialog dentro un titolo è HTML
+                non valido — il titolo finiva per "contenere" tutto il testo
+                del modulo, compreso quello che legge uno screen reader. */}
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <h1 className="page-title">{nomeGruppo(gruppo)}</h1>
+              <RinominaInline
+                id={gruppo.id}
+                nomeVisibile={gruppo.nomeVisibile}
+                nomeDiPiattaforma={gruppo.nome}
+                cosa="il gruppo"
+                azione={rinominaGruppo}
+              />
+            </div>
             <p className="page-sub" style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
               {/* Quando il nome è nostro, quello di Google resta a vista: è
                   quello da cercare nell'interfaccia di Google Ads, e senza si
@@ -274,6 +288,21 @@ export default async function SchedaGruppo({
                       : "var(--text-tertiary)"
                 }
               />
+              {/* Il giudizio dell'app accanto al fatto di Google: sono due
+                  cose diverse e si leggono bene solo una di fianco all'altra.
+                  Prima il fatto stava qui in cima e il giudizio in fondo alla
+                  colonna destra, e per confrontarli si scorreva la pagina. */}
+              <span className="stato-app-inline">
+                <span className="stato-app-etichetta">nell&apos;app</span>
+                <form action={cambiaStatoGruppo}>
+                  <input type="hidden" name="id" value={gruppo.id} />
+                  <SelettoreStato
+                    valore={gruppo.stato}
+                    colore={COLORE_STATO_GRUPPO[gruppo.stato]}
+                    opzioni={STATI_GRUPPO.map((s) => ({ valore: s, etichetta: ETICHETTA_STATO_GRUPPO[s] }))}
+                  />
+                </form>
+              </span>
             </p>
           </div>
           {/* Fermare il gruppo è la cosa che si viene a fare qui: sta accanto
@@ -801,42 +830,21 @@ export default async function SchedaGruppo({
           </div>
 
           <div>
-            <section className="scheda">
-              <div className="scheda-titolo">Come si chiama qui</div>
-              <form className="modulo" action={rinominaGruppo}>
-                <input type="hidden" name="id" value={gruppo.id} />
-                <div className="campo-modulo largo">
-                  <input
-                    name="nomeVisibile"
-                    defaultValue={gruppo.nomeVisibile ?? ""}
-                    placeholder={gruppo.nome}
-                    maxLength={120}
-                  />
-                </div>
-                <div className="azioni-modulo">
-                  <button className="btn small" type="submit">Salva nome</button>
-                </div>
-              </form>
-              <p className="cella-sub">
-                Vale <b>solo dentro l&apos;app</b>: su Google Ads il gruppo continua a chiamarsi
-                «{gruppo.nome}», ed è giusto così — quel nome è la chiave con cui l&apos;import lo
-                ritrova. Svuota la casella per tornare a mostrare quello di Google.
-              </p>
-            </section>
+            {/* «Come si chiama qui» stava qui: ora è la matita accanto al
+                titolo. La spiegazione di cosa vale quel nome è dentro il
+                dialogo, non serve ripeterla in pagina. */}
 
+            {/* «Stato nell'app» stava qui: è salito accanto allo stato di
+                Google, che è l'unico posto dove i due si leggono insieme. La
+                spiegazione di cosa siano resta, perché la distinzione è il
+                punto: il giudizio è tuo e l'import non lo tocca mai. */}
             <section className="scheda">
-              <div className="scheda-titolo">Stato nell&apos;app</div>
-              <form action={cambiaStatoGruppo}>
-                <input type="hidden" name="id" value={gruppo.id} />
-                <SelettoreStato
-                  valore={gruppo.stato}
-                  colore={COLORE_STATO_GRUPPO[gruppo.stato]}
-                  opzioni={STATI_GRUPPO.map((s) => ({ valore: s, etichetta: ETICHETTA_STATO_GRUPPO[s] }))}
-                />
-              </form>
-              <p className="cella-sub" style={{ marginTop: 8 }}>
-                È il giudizio tuo e non viene mai sovrascritto dall&apos;import: lo stato vero di
-                Google resta a parte ({gruppo.statoPiattaforma ?? "non ancora letto"}).
+              <div className="scheda-titolo">Il giudizio e il fatto</div>
+              <p className="cella-sub">
+                In cima ci sono due stati e non è un doppione. <b>Su Google</b> è il fatto
+                ({gruppo.statoPiattaforma ?? "non ancora letto"}), lo scrive l&apos;import.{" "}
+                <b>Nell&apos;app</b> è il tuo giudizio, e l&apos;import non lo sovrascrive mai: un
+                gruppo può essere acceso su Google e «da valutare» per te.
               </p>
             </section>
 
