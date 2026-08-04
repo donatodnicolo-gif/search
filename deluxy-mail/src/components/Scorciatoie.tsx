@@ -128,7 +128,8 @@ export function Scorciatoie() {
         <div className="modal-title">Scorciatoie da tastiera</div>
         <p className="muted" style={{ fontSize: 12.5, marginBottom: 12 }}>
           Lettere singole, senza Ctrl: <kbd>Ctrl+R</kbd> e compagni restano al browser. Non
-          scattano mentre scrivi.
+          scattano mentre scrivi — l’unica che vale anche lì è <kbd>Ctrl+Invio</kbd>, che manda
+          la mail (e prima chiede conferma).
         </p>
         <dl className="scorciatoie">
           {[
@@ -142,6 +143,7 @@ export function Scorciatoie() {
             ['s', 'Segna da leggere'],
             ['j / k', 'Muoviti fra i messaggi della conversazione'],
             ['Invio', 'Apri o chiudi il messaggio a fuoco'],
+            ['Ctrl+Invio', 'Mentre scrivi: manda la mail (chiede conferma, poi spedisce)'],
             ['?', 'Questo elenco'],
           ].map(([tasto, cosa]) => (
             <div key={tasto}>

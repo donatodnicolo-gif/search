@@ -367,11 +367,17 @@ scritta solo dentro un elenco la trova soltanto chi già sa che esiste. Le princ
 | `#` o `Canc` | cestina **e apri la successiva** (si recupera) |
 | `s` | segna da leggere |
 | `j` / `k` · `Invio` | muoviti nella conversazione · apri il messaggio |
+| `Ctrl+Invio` | **mentre scrivi una mail**: manda (una volta per chiedere conferma, una per spedire) |
 
 **Smaltire una mail apre la successiva.** Con `Canc` (o col tasto «Cestina») non torni
 nell'elenco a cercare dov'eri: si apre subito la mail dopo — quella che in elenco sta
 sotto — e resti dove sei: se stai leggendo una sezione, la prossima è di quella sezione;
 se guardi una sola casella, di quella casella. Finite le mail, torni all'elenco.
+
+**Per mandare la mail: `Ctrl+Invio`** (`Cmd+Invio` sul Mac) — l'unica scorciatoia con un
+tasto in più, perché mentre scrivi ogni lettera è testo. **Non spedisce da sola**: la prima
+volta chiede «Confermi l'invio a…?» esattamente come il clic su *Invia*, la seconda manda.
+La conferma non si salta per aver usato la tastiera: una mail partita non torna indietro.
 
 **Inoltra ha due lettere apposta**: `f` è quella di Gmail (chi ci arriva da lì ce l'ha
 nelle dita), `i` è l'iniziale italiana — ed è quella che uno prova per prima qui dentro.

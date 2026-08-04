@@ -10,6 +10,7 @@ import { AgganciaCompose, type ScelraAggancio } from './AgganciaCompose'
 import { TestiPronti } from './TestiPronti'
 import { mettiFlash } from './Flash'
 import { useBozzaAuto } from './useBozzaAuto'
+import { useInvioRapido } from './useInvioRapido'
 import { caricaAllegatiGrandi, servonoAPezzi, caricaCorpoGrande, corpoTroppoGrande } from './caricaAllegati'
 import { PRIORITA } from '@/lib/format'
 
@@ -122,6 +123,15 @@ export function ComposizioneNuova({ da, iniziale, bozzaId, contatti = [], sequen
     },
   })
 
+  // `Ctrl+Invio` = clic su «Invia»: chiede conferma, e alla seconda spedisce.
+  useInvioRapido({
+    attivo: !inCorso && !inviato,
+    pronto: Boolean(a.trim()),
+    conferma,
+    chiediConferma: () => setConferma(true),
+    invia: () => invia(),
+  })
+
   function invia() {
     setStato(null)
     startTransition(async () => {
@@ -208,6 +218,7 @@ export function ComposizioneNuova({ da, iniziale, bozzaId, contatti = [], sequen
           </button>
           <button className="btn primary" onClick={invia} disabled={inCorso} type="button">
             {inCorso ? 'Invio…' : `Confermi l’invio a ${a || '…'}?`}
+            {!inCorso && <kbd className="tasto">Ctrl+Invio</kbd>}
           </button>
         </>
       ) : (
@@ -216,8 +227,9 @@ export function ComposizioneNuova({ da, iniziale, bozzaId, contatti = [], sequen
           onClick={() => setConferma(true)}
           disabled={inCorso || !a.trim()}
           type="button"
+          title="Invia (Ctrl+Invio, poi Ctrl+Invio per confermare)"
         >
-          Invia
+          Invia <kbd className="tasto">Ctrl+Invio</kbd>
         </button>
       )}
     </>
