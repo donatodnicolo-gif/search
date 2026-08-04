@@ -6,7 +6,7 @@ import { SceltaPeriodo } from "@/components/SceltaPeriodo";
 import { SelettoreStato } from "@/components/SelettoreStato";
 import { Stagionalita } from "@/components/Stagionalita";
 import { Sidebar } from "@/components/Sidebar";
-import { cambiaStatoGruppo, cambiaStatoKeyword, creaOperazioneGruppo, creaOperazioneKeyword, rinominaGruppo } from "@/lib/azioni";
+import { cambiaStatoGruppo, cambiaStatoKeyword, creaOperazioneGruppo, creaOperazioneKeyword, escludiParoleSelezionate, rinominaGruppo } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
 import { periodoApp } from "@/lib/periodo-condiviso";
 import { giudizioKeyword } from "@/lib/salute";
@@ -21,6 +21,7 @@ import {
   roas as calcolaRoas,
   STATI_KEYWORD,
   ETICHETTA_STATO_KEYWORD,
+  ETICHETTA_OPERAZIONE,
 } from "@/lib/dominio";
 import {
   COLORE_STATO_GRUPPO,
@@ -43,7 +44,7 @@ export default async function SchedaGruppo({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ bloccata?: string; preset?: string; da?: string; a?: string }>;
+  searchParams: Promise<{ bloccata?: string; preset?: string; da?: string; a?: string; kw?: string }>;
 }) {
   const { id } = await params;
   const sp = await searchParams;
@@ -169,6 +170,47 @@ export default async function SchedaGruppo({
       ? { codice: codiceCampagna, da: "ereditata dalla campagna" }
       : null;
 
+  // Le operazioni già decise su questa campagna, indicizzate per parola: la
+  // tabella deve poter dire «su questa hai già deciso», altrimenti la si
+  // riaccoda una seconda volta senza accorgersene.
+  const opCampagna = await prisma.operazioneAdv.findMany({
+    where: {
+      campagnaId: gruppo.campagnaId,
+      tipo: { in: ["negativa", "pausa_keyword", "attiva_keyword", "nuova_keyword"] },
+    },
+    orderBy: { creataIl: "desc" },
+    take: 300,
+  });
+  const azioniPerParola = new Map<string, { tipo: string; stato: string; creataIl: Date }>();
+  for (const o of opCampagna) {
+    let parola = "";
+    try {
+      parola = String(JSON.parse(o.parametri ?? "{}").testo ?? "");
+    } catch {
+      parola = "";
+    }
+    const chiave = (parola || o.bersaglio).toLowerCase().replace(/\s*\((exact|phrase|broad)\)\s*$/i, "").trim();
+    // La più recente vince: è quella che descrive lo stato attuale della coda
+    if (chiave && !azioniPerParola.has(chiave)) {
+      azioniPerParola.set(chiave, { tipo: o.tipo, stato: o.stato, creataIl: o.creataIl });
+    }
+  }
+  const azioneDi = (testo: string) =>
+    azioniPerParola.get(testo.toLowerCase().replace(/\s*\((exact|phrase|broad)\)\s*$/i, "").trim()) ?? null;
+
+  // Filtro delle keyword per stato: su gruppi con centinaia di parole,
+  // guardarle tutte insieme non serve a niente. "attive" è il caso comune.
+  const filtroKw = sp.kw ?? "tutte";
+  const keywordMostrate = keyword.filter((k) => {
+    if (filtroKw === "tutte") return true;
+    if (filtroKw === "attive") return k.statoPiattaforma !== "PAUSED";
+    if (filtroKw === "in_pausa") return k.statoPiattaforma === "PAUSED";
+    if (filtroKw === "spendono") return (k.spesa ?? 0) > 0;
+    if (filtroKw === "a_vuoto") return (k.spesa ?? 0) >= 20 && (k.incasso ?? 0) === 0;
+    if (filtroKw === "decise") return azioneDi(k.testo) != null;
+    return true;
+  });
+
   const operazioneAperta = gruppo.operazioni.find((o) => o.stato === "in_attesa" || o.stato === "approvata");
 
   return (
@@ -242,6 +284,35 @@ export default async function SchedaGruppo({
                 </>
               ) : (
                 <>Non risulta spesa in nessun giorno: questo gruppo non ha mai erogato.</>
+              )}
+            </span>
+          </div>
+        )}
+
+
+        {/* Lo stato nell'app dice "in pausa" ma su Google gira ancora: è la
+            situazione che genera la domanda «e adesso come lo fermo davvero?».
+            L'avviso la anticipa e porta dritto al posto giusto. */}
+        {gruppo.stato === "in_pausa" && !inPausa && !operazioneAperta && (
+          <div className="nota-info" style={{ borderColor: "rgba(201,52,0,.35)", background: "rgba(201,52,0,.06)" }}>
+            <span className="nota-icona" style={{ color: "var(--orange)" }}>⚠</span>
+            <span>
+              <b>Nell&apos;app è in pausa, su Google sta ancora girando</b> — e continua a spendere.
+              Lo stato qui è il tuo giudizio di lavoro: non tocca Google, apposta. Per fermarlo
+              davvero usa <b>Agire su Google</b> qui sotto: mette l&apos;operazione in coda, tu la
+              approvi in <a href="/operazioni" style={{ color: "var(--blue)" }}>Operazioni</a> e la
+              esegue lo script alla corsa successiva.
+            </span>
+          </div>
+        )}
+        {gruppo.stato === "in_pausa" && !inPausa && operazioneAperta && (
+          <div className="nota-info">
+            <span className="nota-icona">◈</span>
+            <span>
+              <b>La pausa è già in coda</b> ({operazioneAperta.stato === "in_attesa" ? "da approvare" : "approvata, aspetta lo script"}).
+              Su Google il gruppo gira ancora finché lo script non passa.
+              {operazioneAperta.stato === "in_attesa" && (
+                <> Vai a <a href="/operazioni" style={{ color: "var(--blue)" }}>Operazioni</a> per approvarla.</>
               )}
             </span>
           </div>
@@ -387,27 +458,80 @@ export default async function SchedaGruppo({
                   </span>
                 </div>
 
+
+              {/* Il filtro: su gruppi con centinaia di parole guardarle tutte
+                  insieme non serve. Sta nell'indirizzo, quindi il filtro scelto
+                  sopravvive al salvataggio di un'operazione e al tasto indietro. */}
+              <div className="pill-scelta" style={{ marginBottom: 12 }}>
+                {[
+                  ["tutte", `Tutte (${keyword.length})`],
+                  ["attive", "Solo attive"],
+                  ["in_pausa", "In pausa"],
+                  ["spendono", "Che spendono"],
+                  ["a_vuoto", "Spendono a vuoto"],
+                  ["decise", "Con azione decisa"],
+                ].map(([chiave, etichetta]) => (
+                  <a
+                    key={chiave}
+                    className={`pill-opt${filtroKw === chiave ? " attuale" : ""}`}
+                    href={`/gruppi/${gruppo.id}?kw=${chiave}`}
+                  >
+                    {etichetta}
+                  </a>
+                ))}
+              </div>
+
+              {/* Il form vive FUORI dalla tabella: le caselle dentro le righe lo
+                  raggiungono con l'attributo form=. Nidificare un form dentro le
+                  celle — dove ci sono già quelli di pausa e riattiva — non si può,
+                  e il browser scarterebbe silenziosamente l'uno o l'altro. */}
+              <form
+                id="escludi-kw"
+                action={escludiParoleSelezionate}
+                className="barra-multipla"
+              >
+                <input type="hidden" name="campagnaId" value={gruppo.campagna.id} />
+                <input type="hidden" name="ritorno" value={`/gruppi/${gruppo.id}`} />
+                <span className="cella-sub">
+                  Spunta le parole che non c&apos;entrano e mettile in coda tutte insieme:
+                </span>
+                <button className="btn small btn-secondario" type="submit">
+                  Escludi le selezionate
+                </button>
+              </form>
                 <div style={{ overflowX: "auto" }}>
                   <table>
                     <thead>
                       <tr>
+                        <th data-no-ordina></th>
                         <th>Keyword</th>
                         <th>Stato</th>
                         <th className="num">Spesa</th>
                         <th className="num">Incasso</th>
                         <th className="num">QS</th>
+                        <th>Azione decisa</th>
                         <th>Su Google</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {keyword.map((k) => {
+                      {keywordMostrate.map((k) => {
                         const inPausaGoogle = k.statoPiattaforma === "PAUSED";
                         // Il giudizio e lo stesso della pagina Keywords: una
                         // parola che spende senza rendere si vede in rosso da
                         // qui, senza doverla cercare altrove.
                         const g = giudizioKeyword(k.incasso ?? 0, k.spesa ?? 0);
+                        const az = azioneDi(k.testo);
                         return (
                           <tr key={k.id}>
+                            <td>
+                              <input
+                                type="checkbox"
+                                name="scelte"
+                                value={k.testo}
+                                form="escludi-kw"
+                                aria-label={`Seleziona ${k.testo}`}
+                              />
+                            </td>
                             <td>
                               <div className="cella-nome" style={g.colore === "var(--red)" ? { color: "var(--red)" } : undefined} title={g.spiega}>
                                 {g.colore === "var(--red)" && <span aria-hidden="true">● </span>}
@@ -433,6 +557,21 @@ export default async function SchedaGruppo({
                             <td className="num">{formattaEuro(k.spesa)}</td>
                             <td className="num">{formattaEuro(k.incasso)}</td>
                             <td className="num cella-muta">{k.punteggioQualita ?? "—"}</td>
+                            <td>
+                              {az ? (
+                                <span
+                                  className="tag-salute"
+                                  style={{ color: az.stato === "eseguita" ? "var(--green)" : az.stato === "in_attesa" ? "var(--orange)" : "var(--text-tertiary)" }}
+                                  title={`${ETICHETTA_OPERAZIONE[az.tipo] ?? az.tipo} · ${formattaDataOra(az.creataIl)}`}
+                                >
+                                  <span className="dot" />
+                                  {ETICHETTA_OPERAZIONE[az.tipo] ?? az.tipo}
+                                  {az.stato === "in_attesa" ? " (da approvare)" : ""}
+                                </span>
+                              ) : (
+                                <span className="cella-muta">—</span>
+                              )}
+                            </td>
                             <td>
                               {/* Questo invece cambia Google davvero, quindi
                                   passa dalla coda: mette in attesa, non esegue. */}

@@ -714,3 +714,12 @@ tbody tr:hover { background: var(--fill); }
   font-size: 14px; font-weight: 600;
   font-variant-numeric: tabular-nums; letter-spacing: -0.01em; white-space: nowrap;
 }
+
+/* Barra della selezione multipla sopra le tabelle */
+.barra-multipla {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 9px 12px; margin-bottom: 10px;
+  background: var(--fill); border: 1px solid var(--hairline);
+  border-radius: var(--radius-l);
+}
+.barra-multipla .cella-sub { margin: 0; }

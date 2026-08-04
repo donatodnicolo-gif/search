@@ -2112,3 +2112,92 @@ export async function salvaOauthDrive(formData: FormData) {
   revalidatePath("/impostazioni");
   redirect(id || segreto ? "/impostazioni?salvato=drive-oauth-salvato" : "/impostazioni?salvato=drive-invariato");
 }
+
+// ---------- Escludere più parole in un colpo solo ----------
+// Le negative si aggiungono a mazzi: si guarda l'elenco delle ricerche, si
+// spuntano quelle che non c'entrano niente e si escludono tutte insieme. Farlo
+// una alla volta significa ricaricare la pagina venti volte, e alla decima si
+// smette di guardare.
+//
+// Resta comunque una coda: nessuna di queste tocca Google finché non la si
+// approva. Il livello è L0 — una negativa puntuale è la modifica più leggera
+// che esista (doc 11), e non fa scattare il blackout.
+export async function escludiParoleSelezionate(fd: FormData) {
+  const campagnaId = testo(fd, "campagnaId");
+  const ritorno = testo(fd, "ritorno") ?? "/keywords";
+  // getAll: le checkbox spuntate arrivano tutte con lo stesso nome
+  const scelte = fd
+    .getAll("scelte")
+    .map((v) => String(v).trim())
+    .filter(Boolean);
+
+  if (!campagnaId || scelte.length === 0) {
+    redirect(`${ritorno}${ritorno.includes("?") ? "&" : "?"}bloccata=${encodeURIComponent("Nessuna parola selezionata")}`);
+  }
+
+  const campagna = await prisma.campagna.findUnique({
+    where: { id: campagnaId },
+    include: { incidenti: { where: { stato: "aperto" }, select: { codice: true } } },
+  });
+  if (!campagna) return;
+
+  // Il freeze da incidente vale su tutto: se la campagna è congelata non
+  // entra in coda nemmeno una negativa.
+  if (campagna.incidenti.length > 0) {
+    redirect(
+      `${ritorno}${ritorno.includes("?") ? "&" : "?"}bloccata=${encodeURIComponent(
+        `Freeze ${campagna.incidenti[0].codice}: incidente aperto su ${campagna.nome}`
+      )}`
+    );
+  }
+
+  // Le parole già in coda non si riaccodano: succede a chi torna sulla pagina
+  // e rispunta le stesse, e la coda si riempirebbe di doppioni da approvare.
+  const giaInCoda = await prisma.operazioneAdv.findMany({
+    where: { campagnaId, tipo: "negativa", stato: { in: ["in_attesa", "approvata"] } },
+    select: { parametri: true },
+  });
+  const gia = new Set(
+    giaInCoda
+      .map((o) => {
+        try {
+          return String(JSON.parse(o.parametri ?? "{}").testo ?? "").toLowerCase();
+        } catch {
+          return "";
+        }
+      })
+      .filter(Boolean)
+  );
+
+  const nuove = scelte.filter((t) => !gia.has(testoKeywordPulito(t).toLowerCase()));
+
+  for (const t of nuove) {
+    const pulito = testoKeywordPulito(t);
+    await prisma.operazioneAdv.create({
+      data: {
+        tipo: "negativa",
+        canale: campagna.canale,
+        bersaglio: campagna.nome,
+        idEsterno: campagna.idEsterno,
+        parametri: JSON.stringify({ testo: pulito }),
+        motivo: `Esclusa insieme ad altre ${nuove.length - 1 > 0 ? `${nuove.length - 1} parole` : ""}`.trim(),
+        livello: "L0",
+        prima: "assente",
+        campagnaId,
+      },
+    });
+  }
+
+  await registra({
+    autore: "utente",
+    tipo: "creazione",
+    entita: "operazione",
+    titolo: `In coda: ${nuove.length} negative su ${campagna.nome}`,
+    dettaglio:
+      nuove.map((t) => `«${t}»`).slice(0, 8).join(" · ") +
+      (nuove.length > 8 ? ` e altre ${nuove.length - 8}` : "") +
+      (scelte.length > nuove.length ? ` · ${scelte.length - nuove.length} erano già in coda` : ""),
+  });
+
+  redirect("/operazioni");
+}

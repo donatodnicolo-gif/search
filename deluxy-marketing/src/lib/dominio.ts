@@ -511,3 +511,19 @@ export const COLORE_STATO_CREATIVO: Record<string, string> = {
   sostituito: "var(--text-tertiary)",
   bocciato: "var(--red)",
 };
+
+// Le operazioni verso le piattaforme, in parole. Sta qui e non nella pagina
+// Operazioni perche la stessa etichetta serve nelle tabelle di keyword e
+// termini, dove si mostra cosa e gia stato deciso su quella parola.
+export const ETICHETTA_OPERAZIONE: Record<string, string> = {
+  pausa_campagna: "Pausa campagna",
+  attiva_campagna: "Riattiva campagna",
+  budget: "Cambio budget",
+  pausa_keyword: "In pausa",
+  attiva_keyword: "Riattivata",
+  negativa: "Esclusa",
+  nuova_keyword: "Aggiunta",
+  nuova_campagna: "Campagna nuova",
+  pausa_gruppo: "Pausa gruppo",
+  attiva_gruppo: "Riattiva gruppo",
+};
