@@ -335,13 +335,15 @@ export default async function SchedaGruppo({
             ) : (
               <>
                 <AzioneGruppo gruppoId={gruppo.id} inPausa={inPausa} azione={creaOperazioneGruppo} />
+                {/* Non è più un divieto: è un'informazione. Si può fare, e si
+                    fa sapendo che i risultati saranno difficili da leggere. */}
                 {giud.stato === "blackout" && giud.fino && (
                   <span
                     className="tag-neutro"
                     style={{ color: "var(--orange)", whiteSpace: "normal" }}
                     title={ultimaChePesa?.descrizione ?? undefined}
                   >
-                    blackout fino al {formattaDataOra(giud.fino)}
+                    già toccata di recente · giudicabile dal {formattaDataOra(giud.fino)}
                   </span>
                 )}
               </>

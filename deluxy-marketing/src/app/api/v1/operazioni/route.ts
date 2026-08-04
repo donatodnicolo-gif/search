@@ -51,7 +51,9 @@ export async function POST(req: NextRequest) {
     return erroreApi(400, "Campi obbligatori: tipo, bersaglio");
   }
 
-  // Se l'operazione tocca una campagna nota, valgono i guardrail del doc 11.
+  // Se l'operazione tocca una campagna nota, valgono i guardrail del doc 11 —
+  // che dal 04/08/2026 avvisano invece di rifiutare.
+  const avvisi: string[] = [];
   if (body.campagnaId) {
     const campagna = await prisma.campagna.findUnique({
       where: { id: String(body.campagnaId) },
@@ -61,12 +63,6 @@ export async function POST(req: NextRequest) {
       },
     });
     if (!campagna) return erroreApi(404, "Campagna non trovata");
-    if (campagna.incidenti.length > 0) {
-      return erroreApi(
-        409,
-        `Freeze attivo: la campagna è coperta dall'incidente ${campagna.incidenti[0].codice} (voce APERTA nello storico errori).`
-      );
-    }
     const esito = validaModifica({
       classe: campagna.classe,
       livello: body.livello ?? "L1",
@@ -74,8 +70,13 @@ export async function POST(req: NextRequest) {
       rollbackPiano: body.rollbackPiano ?? null,
       ultimaModifica: campagna.modifiche[0]?.eseguitaIl ?? null,
     });
-    if (esito.blocchi.length > 0) {
-      return NextResponse.json({ errore: "Bloccata dal change control", blocchi: esito.blocchi }, { status: 409 });
+    // Niente più 409: il change control avvisa e l'avviso viaggia con
+    // l'operazione fino a chi approva. Vale anche per l'incidente aperto.
+    avvisi.push(...esito.avvisi);
+    if (campagna.incidenti.length > 0) {
+      avvisi.push(
+        `Incidente ${campagna.incidenti[0].codice} APERTO su questa campagna: finché non è chiuso, quello che si misura è sporcato dal guasto.`
+      );
     }
   }
 
@@ -88,6 +89,7 @@ export async function POST(req: NextRequest) {
       idEsterno: body.idEsterno ? String(body.idEsterno) : null,
       parametri: body.parametri ? JSON.stringify(body.parametri) : null,
       motivo: body.motivo ?? null,
+      avvisi: avvisi.length > 0 ? avvisi.join(" · ") : null,
       livello: body.livello ?? "L1",
       prima: body.prima ?? null,
       campagnaId: body.campagnaId ?? null,

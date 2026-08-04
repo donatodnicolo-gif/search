@@ -67,7 +67,7 @@ export default async function PaginaOperazioni({
   // campagne scelte erano state saltate (parola già presente, freeze) non
   // compariva nemmeno una riga nuova. Dal di fuori è indistinguibile da un
   // bottone che non fa niente — ed è esattamente come è stato segnalato.
-  searchParams: Promise<{ esito?: string; saltate?: string }>;
+  searchParams: Promise<{ esito?: string; saltate?: string; avvisi?: string }>;
 }) {
   const sp = await searchParams;
   const operazioni = await prisma.operazioneAdv.findMany({
@@ -138,6 +138,16 @@ export default async function PaginaOperazioni({
           </div>
 
           {dettagli.length > 0 && <div className="op-dettagli">{dettagli.join(" · ")}</div>}
+
+          {/* Quello che il change control avrebbe rifiutato, e che dal
+              04/08/2026 dice invece di rifiutare. Sta sulla riga e non in un
+              messaggio di passaggio, perché chi approva può essere un'altra
+              persona un altro giorno: è QUI che l'avviso serve. */}
+          {o.avvisi && (
+            <div className="op-avvisi">
+              <span aria-hidden="true">⚠</span> {o.avvisi}
+            </div>
+          )}
 
           {/* Finché lo script non è passato si può sempre tornare indietro:
               annullare non cambia niente su Google, perché l'operazione non è
@@ -221,6 +231,15 @@ export default async function PaginaOperazioni({
         {sp.saltate && (
           <div className="avviso-errore">
             <strong>Saltate:</strong> {sp.saltate}
+          </div>
+        )}
+        {/* Il change control non rifiuta più: dice l'impatto. L'avviso compare
+            qui per chi ha appena messo in coda, e resta sulla riga
+            dell'operazione per chi approverà — che può essere un'altra
+            persona un altro giorno. */}
+        {sp.avvisi && (
+          <div className="avviso-attenzione">
+            <strong>Da sapere prima di approvare:</strong> {sp.avvisi}
           </div>
         )}
 

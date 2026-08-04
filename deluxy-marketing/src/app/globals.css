@@ -216,6 +216,18 @@ tbody tr:hover { background: var(--fill); }
   background: rgba(36, 138, 61, 0.08); color: var(--green);
   border-radius: var(--radius-m); font-size: 13.5px;
 }
+/* Arancione: «si può fare, ma sappi che». Non è un errore e non è un via
+   libera — dal 04/08/2026 il change control parla così. */
+.avviso-attenzione {
+  padding: 10px 14px; margin-bottom: 14px;
+  background: rgba(201, 52, 0, 0.08); color: var(--orange);
+  border-radius: var(--radius-m); font-size: 13.5px; line-height: 1.5;
+}
+.op-avvisi {
+  margin-top: 6px; padding: 7px 10px;
+  background: rgba(201, 52, 0, 0.08); color: var(--orange);
+  border-radius: var(--radius-s); font-size: 12.5px; line-height: 1.45;
+}
 @media (max-width: 800px) { .modulo { grid-template-columns: 1fr; } }
 
 /* ---------- Scheda ---------- */

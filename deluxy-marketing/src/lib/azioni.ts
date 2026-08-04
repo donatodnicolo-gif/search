@@ -21,6 +21,16 @@ import { CHIAVE_APIKEY, CHIAVE_CARTELLA, idCartellaDrive, sincronizzaDrive } fro
 // query, non dentro il corpo delle funzioni. `guardrail.ts` non importa nulla,
 // nessun rischio di ciclo.
 import { MODIFICHE_CHE_PESANO } from "./guardrail";
+
+// Dove mandare dopo aver messo qualcosa in coda, con l'esito scritto.
+// Gli avvisi viaggiano DUE volte apposta: qui, per chi ha appena premuto, e
+// sulla riga dell'operazione, per chi approverà — che può essere un'altra
+// persona un altro giorno, e quel messaggio nell'URL non lo vedrà mai.
+function esitoInCoda(cosa: string, avvisi: string[]) {
+  const qs = new URLSearchParams({ esito: `In coda, da approvare: ${cosa}` });
+  if (avvisi.length > 0) qs.set("avvisi", avvisi.join(" · "));
+  return `/operazioni?${qs.toString()}`;
+}
 import { registra } from "./registro";
 import { CATEGORIE_ORDINE, LINGUE_CAMPAGNA, NEGOZI_ORDINE } from "./vendite-campagna";
 import { PAGINE_VISTA } from "./viste";
@@ -668,14 +678,15 @@ export async function registraModifica(fd: FormData) {
     rollbackPiano,
     ultimaModifica: campagna.modifiche[0]?.eseguitaIl ?? null,
   });
-  if (esito.blocchi.length > 0) {
-    // Bloccata: si registra il tentativo nello storico e si torna con l'errore.
+  // Il change control non rifiuta più (04/08/2026): quello che avrebbe detto
+  // resta scritto nello storico accanto alla modifica, così fra un mese si sa
+  // che era stata fatta *sapendo* l'impatto — e non per distrazione.
+  if (esito.avvisi.length > 0) {
     await registra({
       autore: "utente", tipo: "modifica", entita: "campagna", entitaId: campagnaId,
-      titolo: `Modifica BLOCCATA dal change control su "${campagna.nome}"`,
-      dettaglio: esito.blocchi.join(" · "),
+      titolo: `Modifica con avvisi del change control su "${campagna.nome}"`,
+      dettaglio: esito.avvisi.join(" · "),
     });
-    redirect(`/campagne/${campagnaId}?bloccata=${encodeURIComponent(esito.blocchi[0])}`);
   }
 
   await prisma.modifica.create({
@@ -1032,9 +1043,6 @@ export async function creaOperazione(fd: FormData) {
       : null;
   const livello = testo(fd, "livello") ?? (tipo === "budget" ? "L2" : "L1");
 
-  if (campagna.incidenti.length > 0) {
-    redirect(`/campagne/${campagnaId}?bloccata=${encodeURIComponent(`Freeze ${campagna.incidenti[0].codice}: incidente aperto su questa campagna`)}`);
-  }
   const { validaModifica, addBeforePause } = await import("./guardrail");
   const esito = validaModifica({
     classe: campagna.classe,
@@ -1052,9 +1060,14 @@ export async function creaOperazione(fd: FormData) {
     sostitutoApprovatoIl: dataDa(fd, "sostitutoApprovatoIl"),
     sostitutoGiorniDati: numeroDa(fd, "sostitutoGiorniDati"),
   });
-  if (abp) esito.blocchi.push(abp);
-  if (esito.blocchi.length > 0) {
-    redirect(`/campagne/${campagnaId}?bloccata=${encodeURIComponent(esito.blocchi[0])}`);
+  if (abp) esito.avvisi.push(abp);
+  // Il freeze da incidente non ferma più: avvisa. Resta l'informazione che
+  // conta — su questa campagna c'è un guasto aperto — e la decisione è di chi
+  // approva, non del codice.
+  if (campagna.incidenti.length > 0) {
+    esito.avvisi.push(
+      `Incidente ${campagna.incidenti[0].codice} APERTO su questa campagna: finché non è chiuso, quello che si misura qui è sporcato dal guasto.`
+    );
   }
 
   const op = await prisma.operazioneAdv.create({
@@ -1065,6 +1078,7 @@ export async function creaOperazione(fd: FormData) {
       idEsterno: campagna.idEsterno,
       parametri: budget != null ? JSON.stringify({ budget }) : null,
       motivo: testo(fd, "motivo"),
+      avvisi: esito.avvisi.length > 0 ? esito.avvisi.join(" · ") : null,
       livello,
       prima:
         tipo === "budget"
@@ -1076,9 +1090,9 @@ export async function creaOperazione(fd: FormData) {
   await registra({
     autore: "utente", tipo: "creazione", entita: "operazione", entitaId: op.id,
     titolo: `In coda (da approvare): ${tipo} su ${campagna.nome}`,
-    dettaglio: op.motivo,
+    dettaglio: [op.motivo, op.avvisi].filter(Boolean).join(" — "),
   });
-  redirect("/operazioni");
+  redirect(esitoInCoda(`${tipo} su ${campagna.nome}`, esito.avvisi));
 }
 
 // ---------- Operazioni keyword (nuova, negativa, pausa, attiva) ----------
@@ -1110,8 +1124,11 @@ export async function creaOperazioneKeyword(fd: FormData) {
 
   const livello = tipo === "negativa" ? "L0" : tipo === "nuova_keyword" ? "L1" : "L2";
 
+  const avvisi: string[] = [];
   if (campagna.incidenti.length > 0) {
-    redirect(`${ritorno}${ritorno.includes("?") ? "&" : "?"}bloccata=${encodeURIComponent(`Freeze ${campagna.incidenti[0].codice}: incidente aperto su ${campagna.nome}`)}`);
+    avvisi.push(
+      `Incidente ${campagna.incidenti[0].codice} APERTO su ${campagna.nome}: finché non è chiuso, quello che si misura qui è sporcato dal guasto.`
+    );
   }
   if (livello !== "L0") {
     const inizioSettimana = new Date();
@@ -1129,9 +1146,7 @@ export async function creaOperazioneKeyword(fd: FormData) {
       ultimaModifica: campagna.modifiche[0]?.eseguitaIl ?? null,
       l2Settimana,
     });
-    if (esito.blocchi.length > 0) {
-      redirect(`${ritorno}${ritorno.includes("?") ? "&" : "?"}bloccata=${encodeURIComponent(esito.blocchi[0])}`);
-    }
+    avvisi.push(...esito.avvisi);
   }
 
   const op = await prisma.operazioneAdv.create({
@@ -1158,6 +1173,7 @@ export async function creaOperazioneKeyword(fd: FormData) {
         gruppo: testo(fd, "gruppo"),
       }),
       motivo: testo(fd, "motivo"),
+      avvisi: avvisi.length > 0 ? avvisi.join(" · ") : null,
       livello,
       prima: tipo === "nuova_keyword" || tipo === "negativa" ? "assente" : "attiva",
       campagnaId,
@@ -1166,9 +1182,9 @@ export async function creaOperazioneKeyword(fd: FormData) {
   await registra({
     autore: "utente", tipo: "creazione", entita: "operazione", entitaId: op.id,
     titolo: `In coda (da approvare): ${tipo} "${kwTesto}" su ${campagna.nome}`,
-    dettaglio: op.motivo,
+    dettaglio: [op.motivo, op.avvisi].filter(Boolean).join(" — "),
   });
-  redirect("/operazioni");
+  redirect(esitoInCoda(`${tipo} «${kwTesto}» su ${campagna.nome}`, avvisi));
 }
 
 // ---------- Proposte dell'AI su keyword e parole cercate ----------
@@ -1471,14 +1487,6 @@ export async function creaOperazioneGruppo(fd: FormData) {
   if (!gruppo) return;
   const campagna = gruppo.campagna;
 
-  if (campagna.incidenti.length > 0) {
-    redirect(
-      `/gruppi/${gruppoId}?bloccata=${encodeURIComponent(
-        `Freeze ${campagna.incidenti[0].codice}: incidente aperto sulla campagna che contiene questo gruppo`
-      )}`
-    );
-  }
-
   // Quante L2/L3 sono già state fatte questa settimana sulla campagna: qui si
   // conta dal registro invece di chiederlo all'utente, come nel form campagna.
   const lunedi = new Date();
@@ -1501,8 +1509,10 @@ export async function creaOperazioneGruppo(fd: FormData) {
     ultimaModifica: campagna.modifiche[0]?.eseguitaIl ?? null,
     l2Settimana,
   });
-  if (esito.blocchi.length > 0) {
-    redirect(`/gruppi/${gruppoId}?bloccata=${encodeURIComponent(esito.blocchi[0])}`);
+  if (campagna.incidenti.length > 0) {
+    esito.avvisi.push(
+      `Incidente ${campagna.incidenti[0].codice} APERTO sulla campagna che contiene questo gruppo: finché non è chiuso, quello che si misura è sporcato dal guasto.`
+    );
   }
 
   const op = await prisma.operazioneAdv.create({
@@ -1513,6 +1523,7 @@ export async function creaOperazioneGruppo(fd: FormData) {
       idEsterno: gruppo.idEsterno,
       parametri: JSON.stringify({ gruppo: gruppo.nome, campagna: campagna.nome }),
       motivo: testo(fd, "motivo"),
+      avvisi: esito.avvisi.length > 0 ? esito.avvisi.join(" · ") : null,
       livello: "L2",
       prima: `stato su Google: ${gruppo.statoPiattaforma ?? "sconosciuto"}`,
       campagnaId: campagna.id,
@@ -1525,9 +1536,9 @@ export async function creaOperazioneGruppo(fd: FormData) {
     entita: "operazione",
     entitaId: op.id,
     titolo: `In coda (da approvare): ${tipo} su "${gruppo.nome}" (${campagna.nome})`,
-    dettaglio: op.motivo,
+    dettaglio: [op.motivo, op.avvisi].filter(Boolean).join(" — "),
   });
-  redirect("/operazioni");
+  redirect(esitoInCoda(`${tipo} su «${gruppo.nome}»`, esito.avvisi));
 }
 
 // ---------- Da opportunità ad azione ----------
@@ -1610,9 +1621,10 @@ export async function giudicaTermine(scelta: string, fd: FormData) {
   }
 
   // Escludi: la negativa passa dalla coda approvata come ogni scrittura.
-  if (termine.campagna.incidenti.length > 0) {
-    redirect(`/campagne/${termine.campagna.id}?bloccata=${encodeURIComponent(`Freeze ${termine.campagna.incidenti[0].codice}: incidente aperto su questa campagna`)}`);
-  }
+  const avvisiTermine =
+    termine.campagna.incidenti.length > 0
+      ? `Incidente ${termine.campagna.incidenti[0].codice} APERTO su questa campagna: finché non è chiuso, quello che si misura è sporcato dal guasto.`
+      : null;
   const op = await prisma.operazioneAdv.create({
     data: {
       tipo: "negativa",
@@ -1620,6 +1632,7 @@ export async function giudicaTermine(scelta: string, fd: FormData) {
       bersaglio: termine.campagna.nome,
       parametri: JSON.stringify({ testo: termine.testo }),
       motivo: `Termine di ricerca senza resa: ${(termine.spesa ?? 0).toFixed(2)} € spesi, ${termine.conversioni ?? 0} conversioni`,
+      avvisi: avvisiTermine,
       livello: "L0",
       prima: "assente",
       campagnaId: termine.campagna.id,
@@ -1633,9 +1646,9 @@ export async function giudicaTermine(scelta: string, fd: FormData) {
     entita: "operazione",
     entitaId: op.id,
     titolo: `In coda (da approvare): negativa "${termine.testo}" su ${termine.campagna.nome}`,
-    dettaglio: op.motivo,
+    dettaglio: [op.motivo, op.avvisi].filter(Boolean).join(" — "),
   });
-  redirect("/operazioni");
+  redirect(esitoInCoda(`negativa «${termine.testo}»`, avvisiTermine ? [avvisiTermine] : []));
 }
 
 // ---------- "Aggiorna adesso" ----------
@@ -2182,15 +2195,12 @@ export async function escludiParoleSelezionate(fd: FormData) {
   });
   if (!campagna) return;
 
-  // Il freeze da incidente vale su tutto: se la campagna è congelata non
-  // entra in coda nemmeno una negativa.
-  if (campagna.incidenti.length > 0) {
-    redirect(
-      `${ritorno}${ritorno.includes("?") ? "&" : "?"}bloccata=${encodeURIComponent(
-        `Freeze ${campagna.incidenti[0].codice}: incidente aperto su ${campagna.nome}`
-      )}`
-    );
-  }
+  // Il freeze da incidente non ferma più (04/08/2026): viaggia come avviso
+  // sull'operazione, e lo legge chi approva.
+  const avvisoIncidente =
+    campagna.incidenti.length > 0
+      ? `Incidente ${campagna.incidenti[0].codice} APERTO su ${campagna.nome}: finché non è chiuso, quello che si misura è sporcato dal guasto.`
+      : null;
 
   // Le parole già in coda non si riaccodano: succede a chi torna sulla pagina
   // e rispunta le stesse, e la coda si riempirebbe di doppioni da approvare.
@@ -2223,6 +2233,7 @@ export async function escludiParoleSelezionate(fd: FormData) {
         // Esatta: si esclude QUELLA ricerca, non tutto cio che le somiglia
       parametri: JSON.stringify({ testo: pulito, corrispondenza: testo(fd, "corrispondenza") || "exact" }),
         motivo: `Esclusa insieme ad altre ${nuove.length - 1 > 0 ? `${nuove.length - 1} parole` : ""}`.trim(),
+        avvisi: avvisoIncidente,
         livello: "L0",
         prima: "assente",
         campagnaId,
@@ -2241,7 +2252,9 @@ export async function escludiParoleSelezionate(fd: FormData) {
       (scelte.length > nuove.length ? ` · ${scelte.length - nuove.length} erano già in coda` : ""),
   });
 
-  redirect("/operazioni");
+  redirect(
+    esitoInCoda(`${nuove.length} negative su ${campagna.nome}`, avvisoIncidente ? [avvisoIncidente] : [])
+  );
 }
 
 // ---------- Annullare l'operazione decisa su una parola ----------
@@ -2365,12 +2378,12 @@ export async function applicaKeywordAdAltreCampagne(fd: FormData) {
   const saltate: string[] = [];
 
   for (const c of campagne) {
-    // Il freeze da incidente vale anche qui: su una campagna congelata non
-    // entra in coda nemmeno un'aggiunta.
-    if (c.incidenti.length > 0) {
-      saltate.push(`${c.nome} (freeze ${c.incidenti[0].codice})`);
-      continue;
-    }
+    // Il freeze da incidente non salta più la campagna: l'operazione entra in
+    // coda con l'avviso addosso, e chi approva decide.
+    const avvisoFreeze =
+      c.incidenti.length > 0
+        ? `Incidente ${c.incidenti[0].codice} APERTO su questa campagna: finché non è chiuso, quello che si misura è sporcato dal guasto.`
+        : null;
 
     // Se la parola c'è già in quella campagna non si riaccoda: succede
     // spuntando una campagna che la aveva già, e in coda comparirebbe
@@ -2392,6 +2405,7 @@ export async function applicaKeywordAdAltreCampagne(fd: FormData) {
         idEsterno: c.idEsterno,
         parametri: JSON.stringify({ testo: pulito, corrispondenza }),
         motivo: `Portata da un'altra campagna: funzionava lì`,
+        avvisi: avvisoFreeze,
         livello: "L1",
         prima: "assente",
         campagnaId: c.id,

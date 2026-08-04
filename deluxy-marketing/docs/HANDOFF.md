@@ -22,6 +22,46 @@ Riceve già dati veri da Google Ads (Gifts e Flowers) e ha 2.426 ordini Shopify 
 
 ## FATTO
 
+### ⭐ Il change control AVVISA, non blocca più (04/08/2026)
+
+**Decisione dell'utente**: «consenti tutte le modifiche da app, al massimo metti
+un alert che avvisa dell'impatto del cambiamento». Prima le regole del doc 11
+**rifiutavano** l'operazione e la persona non poteva farci niente: si ritrovava
+con un messaggio e nessuna via d'uscita, sulla propria campagna.
+
+Ora **ogni divieto è diventato un avviso che dice l'impatto**, e nessuno di
+questi ferma più niente:
+
+| prima bloccava | ora avvisa |
+| --- | --- |
+| 2ª modifica sulla stessa campagna entro 72h | «i risultati non diranno quale delle due li ha prodotti» |
+| budget oltre il 30% | «l'algoritmo riparte ad apprendere, per giorni la resa peggiora» |
+| TRAINO toccata ven-dom | «il weekend è quando fa fatturato e non c'è nessuno a rimediare» |
+| L2/L3 su TRAINO senza rollback | «se peggiora nessuno sa com'era prima» |
+| >1 L2/L3 a settimana su TRAINO | «oltre non si distingue l'effetto di ciascuna» |
+| **freeze da incidente aperto** (6 punti nel codice) | «quello che si misura è sporcato dal guasto» |
+
+> **La rete di sicurezza vera non era questa: è che niente parte da solo.** Ogni
+> operazione resta in coda finché una persona non la approva a mano, e lo
+> script esegue solo le approvate (AGENDA PIANI). Quella **non è stata
+> toccata** — ed è il motivo per cui togliere i divieti resta ragionevole.
+
+- Colonna nuova **`OperazioneAdv.avvisi`** (ALTER TABLE mirato, 20 operazioni
+  intatte): l'avviso viaggia **con l'operazione** e compare sulla riga in
+  `/operazioni`. ⚠️ È lì che serve, non nel messaggio dopo il redirect: **chi
+  approva può essere un'altra persona un altro giorno**, e quell'URL non lo
+  vedrà mai. Per questo l'avviso viaggia due volte.
+- `validaModifica` restituisce ancora `blocchi`, e resta **vuoto**: i chiamanti
+  lo controllano ancora, così rimettere *un* divieto — uno solo, per un motivo
+  preciso — è una riga in `guardrail.ts`.
+- Sulla scheda gruppo il tag non dice più «blackout fino al»: dice **«già
+  toccata di recente · giudicabile dal …»**, che è un'informazione, non un
+  divieto.
+
+Provato in produzione su un gruppo in blackout: l'operazione che prima veniva
+rifiutata è **entrata in coda**, con l'avviso a schermo e sulla riga da
+approvare. Riga di prova poi cancellata (solo quella, per id).
+
 ### Vendite Shopify in due righe, e il blocco dove si è cliccato (04/08/2026)
 
 Il blocco «Vendite su Shopify» occupava **1.700 px**: due tabelle, tre file di

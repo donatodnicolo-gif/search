@@ -210,7 +210,23 @@ export function giudicabilita(ultimaModifica: Date | null): {
   return fine > new Date() ? { stato: "blackout", fino: fine } : { stato: "giudicabile", fino: null };
 }
 
-// Valida una nuova modifica prima di registrarla. Restituisce blocchi e avvisi.
+// Valida una nuova modifica prima di registrarla.
+//
+// ⚠️ **Dal 04/08/2026 il change control AVVISA, non blocca più** (deciso
+// dall'utente). Prima queste stesse regole rifiutavano l'operazione e la
+// persona non poteva farci niente: si ritrovava con un messaggio e nessuna
+// via d'uscita, sulla propria campagna. Ora ogni regola violata diventa un
+// avviso che **dice l'impatto** e viaggia con l'operazione fino a chi
+// approva.
+//
+// La rete di sicurezza vera non era questa: è che **niente parte da solo**.
+// Ogni operazione resta in coda finché una persona non la approva a mano, e
+// lo script esegue solo le approvate (regola AGENDA PIANI dei Definitivi).
+// Quella non si tocca — è lì che gli avvisi vanno letti.
+//
+// `blocchi` resta nel tipo di ritorno, e resta VUOTO: i chiamanti lo
+// controllano ancora, così il giorno che si volesse rimettere un divieto —
+// uno solo, per un motivo preciso — basta rimetterlo qui.
 export function validaModifica(opts: {
   classe: string;
   livello: string;
@@ -228,35 +244,41 @@ export function validaModifica(opts: {
 
   if (opts.deltaBudgetPct != null) {
     const delta = Math.abs(opts.deltaBudgetPct);
-    if (delta > 30) blocchi.push("Variazione budget oltre il 30%: resetta l'apprendimento, va spezzata in passi da max +20-30% (doc 11 §2).");
-    else if (delta > 20) avvisi.push("Variazione budget tra 20% e 30%: è una L2, ammessa ma da monitorare a +24h e +72h.");
+    if (delta > 30) {
+      avvisi.push(
+        "Budget oltre il 30% in un colpo: l'algoritmo riparte ad apprendere e per qualche giorno la resa peggiora. I Definitivi (doc 11 §2) chiedono passi da 20-30%."
+      );
+    } else if (delta > 20) {
+      avvisi.push("Variazione budget tra 20% e 30%: è una L2, da monitorare a +24h e +72h.");
+    }
   }
   if (opts.ultimaModifica) {
     const ore = (adesso.getTime() - opts.ultimaModifica.getTime()) / 3600_000;
     if (ore < ORE_BLACKOUT) {
-      // "Stesso oggetto" era fuorviante: il conto è per CAMPAGNA, quindi
-      // fermare una keyword diversa della stessa campagna risultava "secondo
-      // intervento sullo stesso oggetto" e non si capiva cosa fosse il primo.
-      blocchi.push(
-        `Secondo intervento sulla stessa campagna entro 72h (l'ultima modifica che pesa è di ${Math.round(ore)}h fa, le negative L0 non contano): vietato dal doc 11 §3.4.`
+      avvisi.push(
+        `Seconda modifica sulla stessa campagna in ${Math.round(ore)} ore: i risultati dei prossimi giorni non diranno quale delle due li ha prodotti, e la prima non sarà più giudicabile (doc 11 §3.4 chiede 72h). Le negative L0 non contano.`
       );
     }
   }
   if (traino) {
     const giorno = adesso.getDay(); // 0 dom, 5 ven, 6 sab
     if (giorno === 0 || giorno === 5 || giorno === 6) {
-      blocchi.push("Su una campagna TRAINO gli interventi si fanno solo lunedì-mercoledì: mai venerdì-domenica (doc 11 §3.4).");
+      avvisi.push(
+        "Campagna TRAINO toccata tra venerdì e domenica: se va storto il weekend è quando fa il fatturato e non c'è nessuno a rimediare (doc 11 §3.4)."
+      );
     }
     if ((opts.livello === "L2" || opts.livello === "L3") && !opts.rollbackPiano?.trim()) {
-      blocchi.push("Modifica L2/L3 su TRAINO senza piano di rollback: obbligatorio (stato PRIMA, trigger di ripristino, azione esatta).");
+      avvisi.push(
+        "L2/L3 su TRAINO senza piano di rollback: se peggiora, nessuno sa com'era prima né quando tornare indietro. Basta scriverlo nel campo apposta."
+      );
     }
     if ((opts.livello === "L2" || opts.livello === "L3") && (opts.l2Settimana ?? 0) >= 1) {
-      blocchi.push(
-        `Su una TRAINO si fa al massimo UNA modifica L2/L3 a settimana: questa settimana ne risultano già ${opts.l2Settimana} (doc 11 §2).`
+      avvisi.push(
+        `Su questa TRAINO ci sono già ${opts.l2Settimana} modifiche L2/L3 questa settimana: i Definitivi ne prevedono una (doc 11 §2), perché oltre non si distingue più l'effetto di ciascuna.`
       );
     }
     if (opts.livello === "L3") {
-      avvisi.push("L3 su TRAINO: mai in diretta — solo esperimento 50/50 o deroga esplicita con rollback plan (doc 11 §2).");
+      avvisi.push("L3 su TRAINO: i Definitivi la vogliono in esperimento 50/50, non in diretta (doc 11 §2).");
     }
   }
   return { blocchi, avvisi };

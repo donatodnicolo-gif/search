@@ -838,6 +838,12 @@ model OperazioneAdv {
   // Parametri specifici (JSON): es. { "budget": 18.5 } o { "testo": "gratis" }
   parametri   String?
   motivo      String?
+  // Cosa ha detto il guardrail quando l'operazione è entrata in coda: una
+  // riga per avviso, separate da " · ". Dal 04/08/2026 il change control non
+  // BLOCCA più (decisione dell'utente): avvisa, e l'avviso deve arrivare fin
+  // qui — è al momento dell'approvazione che serve, non in un messaggio che
+  // sparisce col redirect.
+  avvisi      String?
   // in_attesa | approvata | eseguita | fallita | annullata
   stato       String    @default("in_attesa")
   livello     String    @default("L1")
