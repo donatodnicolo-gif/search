@@ -8,6 +8,8 @@ import { BozzaEditor } from '@/components/BozzaEditor'
 import { AzioniMessaggio } from '@/components/AzioniMessaggio'
 import { NavigaMessaggi } from '@/components/NavigaMessaggi'
 import { ChiediConversazione } from '@/components/ChiediConversazione'
+import { PropostaSpam } from '@/components/PropostaSpam'
+import { casoMarchio } from '@/lib/spam'
 import { mailVicine } from '@/lib/vicine'
 import { PrioritaButtons } from '@/components/PrioritaButtons'
 import { Rianalizza } from '@/components/Rianalizza'
@@ -156,6 +158,19 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
   // L'appuntamento che l'AI ha riconosciuto in questa mail, da accettare.
   const eventoProposto = leggiEventoProposto(messaggio.eventoProposto)
 
+  // «Questa sembra falsa»: il controllo è segnato all'arrivo (`spamCaso`), ma
+  // si rifà anche QUI, al volo, per le mail arrivate PRIMA che la regola
+  // esistesse — altrimenti varrebbe solo per il futuro e proprio quella che hai
+  // sotto gli occhi resterebbe senza avviso. È una funzione pura, non costa una
+  // query. Non si mostra su ciò che è già in SPAM o nel cestino: lì la domanda
+  // ha già una risposta.
+  const propostaSpam =
+    messaggio.direzione === 'entrata' && !messaggio.cestinato && messaggio.sezione?.nome !== 'SPAM'
+      ? (messaggio.spamCaso
+          ? messaggio.spamMotivo || 'il mittente non è chi dice di essere'
+          : casoMarchio(messaggio.mittente, messaggio.mittenteNome)?.descrizione) ?? null
+      : null
+
   return (
     <>
       <div className="page-head">
@@ -175,6 +190,11 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
           mittente={messaggio.mittente}
         />
       </div>
+
+      {/* Chi si finge un marchio noto: la proposta sta PRIMA della mail, non
+          in fondo — è l'unica cosa che va letta prima del contenuto, perché il
+          contenuto è esattamente ciò che vuole ingannarti. */}
+      {propostaSpam && <PropostaSpam messaggioId={messaggio.id} motivo={propostaSpam} />}
 
       {/* CONVERSAZIONE IN UNA RIGA. Prima qui c'erano due schede piene di
           spiegazioni e la mail partiva sotto la piega: per LEGGERLA bisognava

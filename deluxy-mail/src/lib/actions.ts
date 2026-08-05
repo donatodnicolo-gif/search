@@ -116,6 +116,8 @@ import {
   type QuadroContatto,
   type RiassuntoThreadSalvato,
 } from './sync'
+import { decidiCasoSpam } from './spamCasi'
+import { casoMarchio } from './spam'
 import { chiaveThread } from './thread'
 import { nomiPerGruppi, chiaviPerNome } from './nomiThread'
 import { ricorrenzaDaForm, dateRicorrenza, descriviRicorrenza } from './ricorrenze'
@@ -419,6 +421,79 @@ export async function chiediAllaConversazione(
   domanda: string
 ): Promise<EsitoDomanda> {
   return rispondiSuThreadOra(await uid(), messaggioId, domanda)
+}
+
+/**
+ * La risposta alla proposta «questa sembra spam»: sì o no.
+ *
+ * ⚠️ La decisione vale per la CASISTICA, non per la mail: dicendo sì, le
+ * prossime che si presentano allo stesso modo vanno in SPAM da sole (è ciò che
+ * è stato chiesto: «va in spam dopo approvazione e per le prossime lo fa in
+ * automatico»). Anche il NO si ricorda: una proposta rifiutata che ritorna a
+ * ogni mail è peggio di non averla mai fatta.
+ *
+ * ⚠️ Si applica anche alle mail dello stesso caso GIÀ arrivate e ancora in
+ * attesa: se ne sono arrivate tre prima che tu decidessi, approvare una e
+ * lasciare le altre lì sarebbe una decisione presa a metà.
+ */
+export async function decidiSpamCaso(
+  messaggioId: string,
+  decisione: 'approva' | 'rifiuta'
+): Promise<{ ok: boolean; messaggio: string }> {
+  const utenteId = await uid()
+  const m = await db.messaggio.findFirst({
+    where: { id: messaggioId, utenteId },
+    select: { id: true, spamCaso: true, mittente: true, mittenteNome: true },
+  })
+  if (!m) return { ok: false, messaggio: 'Messaggio non trovato.' }
+  // Se la mail è arrivata PRIMA della regola non ha `spamCaso` scritto: la
+  // casistica si ricalcola qui, dalle stesse regole. Così la decisione si può
+  // prendere anche sulla posta vecchia, senza ripassarla tutta.
+  const caso = m.spamCaso ?? casoMarchio(m.mittente, m.mittenteNome)?.id
+  if (!caso) return { ok: false, messaggio: 'Non c’è nessuna proposta su questa mail.' }
+
+  await decidiCasoSpam(utenteId, caso, decisione)
+
+  // Le altre mail della STESSA casistica ancora in attesa: se ne sono arrivate
+  // tre prima che tu decidessi, approvarne una e lasciare lì le altre sarebbe
+  // una decisione presa a metà. (`m.id` c'è sempre: sulla posta vecchia il
+  // campo `spamCaso` non è scritto.)
+  const inAttesa = await db.messaggio.findMany({
+    where: { utenteId, spamCaso: caso, cestinato: false },
+    select: { id: true },
+  })
+  const ids = [...new Set([m.id, ...inAttesa.map((x) => x.id)])]
+
+  if (decisione === 'approva') {
+    const spam = await db.sezione.findFirst({ where: { utenteId, nome: 'SPAM' }, select: { id: true } })
+    await db.messaggio.updateMany({
+      where: { id: { in: ids }, utenteId },
+      data: { sezioneId: spam?.id ?? null, smistatoDa: 'spam', spamCaso: null, spamMotivo: null, letto: true },
+    })
+  } else {
+    await db.messaggio.updateMany({
+      where: { id: { in: ids }, utenteId },
+      data: { spamCaso: null, spamMotivo: null },
+    })
+  }
+
+  // L'attività di approvazione ha fatto il suo lavoro: si chiude da sé, o
+  // resterebbe da spuntare una richiesta a cui hai già risposto.
+  await db.attivita.updateMany({
+    where: { utenteId, messaggioId: { in: ids }, fatta: false, titolo: { startsWith: 'Approva: è spam?' } },
+    data: { fatta: true, fattaIl: new Date() },
+  })
+
+  revalidatePath('/', 'layout')
+  const altre = ids.length - 1
+  const coda = altre > 0 ? ` Applicato anche ad altre ${altre} mail in attesa.` : ''
+  return {
+    ok: true,
+    messaggio:
+      decisione === 'approva'
+        ? `In SPAM. Le prossime uguali ci finiranno da sole.${coda}`
+        : `Va bene, non è spam: non te lo chiedo più per questa casistica.${coda}`,
+  }
 }
 
 export async function eseguiAttivita(

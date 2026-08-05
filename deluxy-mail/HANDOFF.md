@@ -1,6 +1,6 @@
 # AI Mail 2.0 (deluxy-mail) — Handoff tecnico
 
-> Documento di ripartenza. Aggiornato: **4 agosto 2026**.
+> Documento di ripartenza. Aggiornato: **5 agosto 2026**.
 > Leggi anche `CLAUDE.md` alla radice del repo e il design system in `deluxy-design-system/`.
 
 ---
@@ -16,7 +16,7 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB:** Supabase Postgres, progetto **`feleldlsreurqpdhstla`** («cs@deluxy.it's», piano Pro, eu-west-1), **schema `mail`** — dal 28/07/2026, migrato con `scripts/sposta-database.mjs` (17.484 messaggi, tutte le 31 tabelle verificate riga per riga). ⚠️ Lo stesso database ospita in `public` la piattaforma consegne: lo schema dedicato è ciò che tiene le due app separate — `?schema=mail` va SEMPRE nelle stringhe di connessione (`DATABASE_URL` col pooler 6543 + `&pgbouncer=true`; `DIRECT_URL` col pooler 5432). Il progetto vecchio `sxovckndpmdbqfrfkxhl` (Free, 500 MB, finito in sola lettura a 1,57 GB) resta intatto come rete di sicurezza: **si spegne solo dopo qualche giorno di esercizio sereno del nuovo**, poi si valuta la disdetta di eventuali abbonamenti doppi.
 - **Porta locale:** 3070.
 
-### Dove siamo (4 agosto 2026)
+### Dove siamo (5 agosto 2026)
 
 Tutto committato e **pushato** su `origin/scout-ui`, e verificato **sul
 contenuto** (non sullo SHA: su questo branch altre sessioni riscrivono la
@@ -28,7 +28,11 @@ produzione abbia l'ultimo lavoro.
 
 **Cronologia dei lavori:** le voci di §7 sono della sessione del 23 luglio (dalla
 più recente); i lavori dal **26 luglio al 3 agosto** stanno in §9, con la data
-fra parentesi. Gli ultimi (4 ago): **l'inoltro porta con sé gli allegati**
+fra parentesi. L'ultimo (5 ago): **chi si finge un marchio noto** (nome
+«Shopify», indirizzo su gmail) non viene più spostato di nascosto né lasciato
+passare — te lo si propone una volta, e da lì in poi quella casistica è
+automatica. Il 4 ago: **«Chiedi a questa conversazione»** (una domanda, con la
+mail da cui viene la risposta); **l'inoltro porta con sé gli allegati**
 dell'originale (prima partiva il solo testo, e sembrava riuscito);
 **↑ Precedente / ↓ Successiva** (tasti `p` e
 `n`) sulla mail aperta, per scorrere la posta senza tornare in elenco; e
@@ -78,6 +82,10 @@ l'apertura di una mail resa veloce (vedi punto 1 qui sotto).
    `E`, `Canc`), che `i` inoltri e `t` risponda a tutti davvero, e che
    **`Ctrl+Invio`** mandi la mail in due colpi (conferma, poi invio) sia in
    risposta/inoltro sia in `/scrivi` — quest'ultimo con una mail vera.
+   Dal 5 ago: aprire la mail `Shopify <info.shopifymail.it@gmail.com>` («Verifica
+   della conformità GDPR») e vedere il riquadro rosso; dire **«Sì, è spam»** e
+   controllare che (a) finisca in SPAM, (b) nasca/si chiuda l'attività, (c) la
+   **prossima uguale** ci vada da sola senza chiedere.
    Dal 4 ago, **col conto in mano**: inoltrare una mail con allegati e
    verificare che al destinatario arrivino **tutti** (e che il messaggio di
    esito dica «Con N allegati dell'originale»). È l'unica prova che vale: qui
@@ -408,6 +416,7 @@ Cron: **`/api/sync`** (route, autenticata con `CRON_SECRET`) — su Vercel Hobby
 
 ## 9. Problemi noti / gotchas
 
+- **Chi si finge un marchio: si approva una volta, poi è automatico (5 ago)** — regola dettata dall'utente su un caso vero (`Shopify <info.shopifymail.it@gmail.com>`, oggetto «Verifica della conformità GDPR»): *se ci si presenta come Shopify ma l'indirizzo è un altro o è gmail, è spam*. Il controllo c'era già ma **non prendeva questo caso**: `shopify` non era fra i marchi, e soprattutto il confronto era `dominio.includes(marca)` — con cui `shopifymail.it` «è» Shopify. Ora `casoMarchio()` in `lib/spam.ts` confronta il dominio **per intero o come sottodominio** contro l'elenco dei domini VERI del marchio, cerca il marchio nel nome mostrato **e nella parte prima della @** (è lì che lo nascondono), e tratta a parte i **provider gratuiti** (nessuna azienda scrive ai clienti da gmail). ⚠️ Aggiungendo un marchio a `MARCHI`, elencare TUTTI i suoi domini: uno dimenticato manda in SPAM la posta vera. ⚠️ **La casistica non dà punti al punteggio**: se li desse, la mail verrebbe spostata comunque e l'approvazione sarebbe una domanda a cose fatte. Il flusso chiesto è **la prima volta decidi tu, poi si applica da sola**: `lib/spamCasi.ts` tiene approvate/rifiutate per utente in `Impostazione['spam.casi:<utenteId>']`, la mail in attesa porta `Messaggio.spamCaso/spamMotivo` (DDL in `migrate-prod.mjs`), e la proposta viaggia su **due binari** — il riquadro rosso sopra la mail (`components/PropostaSpam.tsx`) e un'**attività** «Approva: è spam? …», cioè la «richiesta di approvazione come task». ⚠️ Anche il **no** si ricorda, come le proposte rifiutate di Renè: una proposta che ritorna a ogni mail è peggio di non averla mai fatta. ⚠️ `casoMarchio` è **pura e senza database** apposta: la pagina del messaggio la rifà al volo, così la regola vale anche per la posta arrivata PRIMA che esistesse (se no proprio la mail che hai sotto gli occhi resterebbe senza avviso), e `decidiSpamCaso` ricalcola l'id per lo stesso motivo. Decidendo, la scelta si applica a **tutte** le mail della stessa casistica ancora in attesa e chiude le attività relative.
 - **«Chiedi a questa conversazione»: una DOMANDA, non una bozza (4 ago)** — chiesto dall'utente («posso chiedere a Renè se in un thread c'è o no un'informazione?»). Non si poteva: il riassunto PLUS AI racconta lo scambio ma non risponde, e **«Delega Renè» ha due soli esiti** — `classificaDelega` torna `'risposta' | 'agenda'` — quindi a «c'è l'IBAN?» preparava *una mail che chiede l'IBAN*. Domandare e far scrivere sono due gesti diversi, e mancava il primo. Ora: `rispondiSuThread()` in `lib/ai.ts` (schema strict `trovato/risposta/msgIdx/citazione`, `temperature: 0`), `rispondiSuThreadOra()` in `lib/sync.ts`, azione `chiediAllaConversazione()`, UI `components/ChiediConversazione.tsx` in fondo alla mail (dove uno arriva dopo averla letta e si accorge che gli manca un dato). ⚠️ **La risposta esce solo con la fonte**: mail che si apre + parole esatte copiate; se l'indice del messaggio non è valido, `trovato` viene forzato a **false** lato server — una citazione che non si può aprire vale quanto un'affermazione secca, e qui si decidono soldi e consegne. ⚠️ «Non l'ho trovato» è una risposta **buona**: il prompt dice esplicitamente che *non sono sicuro* e *non c'è* sono la stessa cosa. ⚠️ I corpi restano **dato non fidato** (§8) e non si salva niente: è una domanda, non un documento — quindi nessun `revalidatePath`, o si pagherebbe un rerender per una cosa che deve sembrare una risposta.
 - **L'inoltro non inoltrava gli allegati (4 ago)** — segnalato dall'utente. `inviaMessaggio` metteva nella mail solo `leggiAllegati(form)`, cioè i file **aggiunti a mano in quella schermata**: quelli dell'originale non li andava a prendere nessuno, in nessun modo. È il difetto peggiore della famiglia, perché **sembra riuscito**: la mail parte, dice «inviato», e se ne accorge solo chi la riceve. Ora c'è `allegatiInoltrati()` in `lib/actions.ts`: riprende i file dalla casella **IMAP** con `leggiTuttiAllegati` (una connessione, un solo scarico del sorgente — la stessa di «Scarica tutti»). ⚠️ **Dal server, non dal browser**: i file sono già in casella, e farli passare per la richiesta li fermerebbe al tetto Vercel di 4,5 MB. ⚠️ Tetto `MAX_INOLTRO` 20 MB — non è Vercel, sono i server di posta (sopra ~25 MB rifiutano) e una funzione che impacchetta 200 MB in memoria muore; ciò che non entra **si dice** nell'esito, non si perde in silenzio. ⚠️ Se l'IMAP non risponde l'inoltro parte **col solo testo** e l'esito lo dichiara: una mail monca senza avviso è peggio di una mail non partita. ⚠️ Niente doppioni: un file riallegato a mano (stesso nome e stessa dimensione) non parte due volte. In più, l'esito dice **quanti** allegati sono partiti, e la schermata di inoltro (pagina **e** finestra) avvisa PRIMA: «📎 I 3 allegati dell'originale partono con l'inoltro» — se no li si riallega a mano, in doppio. `maxDuration = 60` aggiunto alla pagina `/messaggio/[id]/scrivi`: le Server Action non ereditano quello del layout, e scaricare allegati pesanti non sta in dieci secondi.
 - **Precedente / Successiva sulla mail aperta (4 ago)** — chiesto dall'utente: scorrere la posta senza tornare in elenco a ogni mail. `lib/vicine.ts` (`mailVicine`) trova le due confinanti con due `findFirst` (`data gt` / `data lt`, ordine invertito) dentro l'**ondata parallela** della pagina — non aggiunge un'attesa in fila — e l'indice `Messaggio_posta_idx` le copre. `components/NavigaMessaggi.tsx` disegna i tasti e tiene le scorciatoie **`p`** e **`n`**: stanno lì e non nelle scorciatoie generali perché solo questa pagina sa quali sono le mail confinanti. ⚠️ **Si resta nella stessa lista**: stessa direzione, stessa sezione, stessa casella attiva, e **stesso stato di archiviato/cestinato della mail aperta** — scorrere gli Archiviati e ritrovarsi nella posta in arrivo è un salto senza ritorno. ⚠️ Si cammina fra i **messaggi**, non fra le conversazioni: è la stessa regola di `smaltisciEProssimo` dopo `Canc`, e due definizioni diverse di «la prossima» sarebbero peggio di una imperfetta. ⚠️ In cima o in fondo il tasto resta **visibile e spento** (`.btn.disabilitato`), non sparisce: un comando che compare e scompare si smette di cercare.

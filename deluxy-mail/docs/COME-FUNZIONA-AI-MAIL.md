@@ -401,6 +401,23 @@ sei**: stessa cartella o sezione, stessa casella se ne stai guardando una sola, 
 negli Archiviati o nel Cestino ci si muove lì dentro. In cima o in fondo all'elenco il
 tasto resta al suo posto, spento.
 
+**Quando qualcuno si finge un'azienda.** Se una mail si presenta come *Shopify*, *PayPal*,
+*Poste*, *Amazon*… ma l'indirizzo vero non è di quell'azienda — o peggio è una casella
+gratuita tipo gmail.com — aprendola trovi un **riquadro rosso**: «questa mail sembra
+falsa», col motivo scritto per esteso. È il trucco più comune: il nome che vedi non è
+l'indirizzo da cui la mail arriva davvero.
+
+**Non viene spostata di nascosto: decidi tu, ma una volta sola.** Premi «Sì, è spam — e
+fallo sempre» e quella mail va in SPAM; da quel momento **tutte le prossime dello stesso
+tipo** ci finiscono da sole, senza chiedertelo più. Se invece dici «No, è buona», la
+casistica non ti viene più proposta. La richiesta la trovi anche fra le **attività**
+(«Approva: è spam? …»), così non devi ricordarti di riaprire quella mail — ed è lì che
+la ritrovi se decidi di pensarci dopo.
+
+> Il controllo confronta il dominio **per intero**: `shopifymail.it` contiene la parola
+> «shopify» ma non è di Shopify, ed è esattamente quello che sfruttano. La posta vera di
+> Shopify (`shopify.com`, `mail.shopify.com`) non viene toccata.
+
 **Chiedi a questa conversazione.** In fondo alla mail c'è **«AI Chiedi a questa
 conversazione»**: scrivi una domanda a parole — *«ci hanno mandato l'IBAN?»*, *«hanno
 confermato per giovedì?»*, *«che prezzo avevano fatto a marzo?»* — e la risposta arriva

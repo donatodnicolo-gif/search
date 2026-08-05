@@ -8,7 +8,18 @@
 // tuo dominio o è un contatto AI NON viene mai marcato spam.
 
 export type LivelloSpam = 'basso' | 'medio' | 'alto'
-export type EsitoSpam = { livello: LivelloSpam; punteggio: number; motivi: string[] }
+export type EsitoSpam = {
+  livello: LivelloSpam
+  punteggio: number
+  motivi: string[]
+  /**
+   * La CASISTICA riconosciuta, quando la mail si finge un marchio noto
+   * (es. `marchio:shopify:gratuito`). Non sposta niente da sola: la prima volta
+   * si chiede l'approvazione, e una volta approvata **quella casistica** le
+   * successive uguali vanno in SPAM da sole. Vedi `lib/spamCasi.ts`.
+   */
+  caso?: { id: string; descrizione: string }
+}
 
 // Frasi tipiche di spam/phishing (IT + EN). Ognuna pesa; più ne trovi, più sale.
 const FRASI: { re: RegExp; peso: number; nota: string }[] = [
@@ -32,6 +43,97 @@ function contaLink(testo: string): number {
 function dominioDa(email: string): string {
   const i = email.lastIndexOf('@')
   return i >= 0 ? email.slice(i + 1).toLowerCase() : ''
+}
+
+/** La parte prima della @ (dove le truffe nascondono il marchio). */
+function localeDa(email: string): string {
+  const i = email.lastIndexOf('@')
+  return (i >= 0 ? email.slice(0, i) : email).toLowerCase()
+}
+
+/**
+ * Caselle gratuite: un'azienda non scrive MAI ai clienti da qui. Il marchio nel
+ * nome + una di queste = truffa, senza altri indizi.
+ */
+const PROVIDER_GRATUITI = new Set([
+  'gmail.com', 'googlemail.com', 'outlook.com', 'outlook.it', 'hotmail.com', 'hotmail.it',
+  'live.com', 'live.it', 'yahoo.com', 'yahoo.it', 'icloud.com', 'me.com', 'aol.com',
+  'libero.it', 'virgilio.it', 'alice.it', 'tiscali.it', 'tin.it', 'fastwebnet.it',
+  'inwind.it', 'email.it', 'mail.com', 'gmx.com', 'gmx.net', 'proton.me', 'protonmail.com',
+  'yandex.com', 'zoho.com',
+])
+
+/**
+ * I marchi per cui vale la regola, coi loro domini VERI.
+ *
+ * ⚠️ Il confronto è sul dominio intero (o su un suo sottodominio), mai
+ * «il dominio contiene il marchio»: `shopifymail.it` contiene «shopify» ma non
+ * è di Shopify, ed era il buco del controllo precedente. Aggiungendo un marchio
+ * qui, elencare TUTTI i domini da cui scrive davvero: uno dimenticato manda in
+ * SPAM la posta vera.
+ */
+const MARCHI: { nome: string; re: RegExp; domini: string[] }[] = [
+  { nome: 'Shopify', re: /\bshopify\b/i, domini: ['shopify.com', 'shopifyemail.com', 'shopify.io'] },
+  { nome: 'PayPal', re: /\bpaypal\b/i, domini: ['paypal.com', 'paypal.it', 'mail.paypal.it'] },
+  { nome: 'Amazon', re: /\bamazon\b/i, domini: ['amazon.com', 'amazon.it', 'amazon.co.uk', 'marketplace.amazon.it'] },
+  { nome: 'Apple', re: /\bapple\b/i, domini: ['apple.com', 'icloud.com', 'email.apple.com'] },
+  { nome: 'Microsoft', re: /\bmicrosoft\b/i, domini: ['microsoft.com', 'accountprotection.microsoft.com'] },
+  { nome: 'Google', re: /\bgoogle\b/i, domini: ['google.com', 'accounts.google.com', 'youtube.com'] },
+  { nome: 'Meta', re: /\b(facebook|instagram|meta business)\b/i, domini: ['facebookmail.com', 'meta.com', 'instagram.com', 'mail.instagram.com'] },
+  { nome: 'Poste Italiane', re: /\bposte( italiane)?\b/i, domini: ['poste.it', 'postepay.it'] },
+  { nome: 'Intesa Sanpaolo', re: /\bintesa( sanpaolo)?\b/i, domini: ['intesasanpaolo.com', 'intesasanpaolo.it'] },
+  { nome: 'UniCredit', re: /\bunicredit\b/i, domini: ['unicredit.eu', 'unicredit.it'] },
+  { nome: 'Netflix', re: /\bnetflix\b/i, domini: ['netflix.com', 'mailer.netflix.com'] },
+  { nome: 'INPS', re: /\binps\b/i, domini: ['inps.it', 'postacert.inps.gov.it'] },
+  { nome: 'Agenzia delle Entrate', re: /\bagenzia (delle )?entrate\b/i, domini: ['agenziaentrate.it', 'agenziaentrate.gov.it'] },
+  { nome: 'DHL', re: /\bdhl\b/i, domini: ['dhl.com', 'dhl.it'] },
+  { nome: 'Stripe', re: /\bstripe\b/i, domini: ['stripe.com', 'e.stripe.com'] },
+  { nome: 'Qonto', re: /\bqonto\b/i, domini: ['qonto.com', 'qonto.eu'] },
+]
+
+/**
+ * SI FINGE UN MARCHIO NOTO? Il controllo che ha chiesto l'utente: «se in una
+ * mail ci si presenta come Shopify ma poi l'indirizzo è un altro o gmail,
+ * allora è sicuramente spam».
+ *
+ * È una funzione **pura** e senza database apposta: la usa il sync all'arrivo,
+ * ma anche la pagina del messaggio, per riconoscere le mail arrivate PRIMA che
+ * questo controllo esistesse (se no la regola varrebbe solo per il futuro e la
+ * mail che hai sotto gli occhi resterebbe senza avviso).
+ */
+export function casoMarchio(
+  mittente: string,
+  mittenteNome: string | null
+): { id: string; descrizione: string } | undefined {
+  const nome = (mittenteNome || '').toLowerCase()
+  const dominio = dominioDa(mittente)
+  const locale = localeDa(mittente)
+
+  for (const marca of MARCHI) {
+    // Il marchio si cerca nel nome mostrato E nella parte prima della @: le
+    // truffe ce lo mettono proprio lì («info.shopifymail.it@gmail.com») perché
+    // a colpo d'occhio si legge quello e non il dominio.
+    if (!marca.re.test(nome) && !marca.re.test(locale)) continue
+    const slug = marca.nome.toLowerCase().replace(/\s+/g, '-')
+
+    if (PROVIDER_GRATUITI.has(dominio)) {
+      return {
+        id: `marchio:${slug}:gratuito`,
+        descrizione: `si presenta come "${marca.nome}" ma scrive da una casella gratuita (${dominio})`,
+      }
+    }
+    // ⚠️ Il dominio si confronta per INTERO (o come sottodominio), non
+    // «contiene il marchio»: `shopifymail.it` contiene «shopify» e non è di
+    // Shopify — è esattamente il trucco su cui il vecchio controllo passava.
+    if (!marca.domini.some((d) => dominio === d || dominio.endsWith(`.${d}`))) {
+      return {
+        id: `marchio:${slug}:dominio`,
+        descrizione: `si presenta come "${marca.nome}" ma il dominio non è suo (${dominio || 'sconosciuto'})`,
+      }
+    }
+    return undefined // è davvero quel marchio
+  }
+  return undefined
 }
 
 export function valutaSpam(
@@ -79,22 +181,16 @@ export function valutaSpam(
     motivi.push('molti link')
   }
 
-  // Il nome mittente cita un marchio noto ma il dominio non c'entra → spoofing.
-  const nome = (m.mittenteNome || '').toLowerCase()
-  const dominio = dominioDa(m.mittente)
-  const MARCHI = ['paypal', 'amazon', 'apple', 'microsoft', 'google', 'poste', 'intesa', 'unicredit', 'netflix', 'inps', 'agenzia entrate']
-  for (const marca of MARCHI) {
-    if (nome.includes(marca) && !dominio.includes(marca.replace(/\s/g, ''))) {
-      punti += 3
-      motivi.push(`sembra "${marca}" ma il dominio è ${dominio || 'sconosciuto'}`)
-      break
-    }
-  }
+  // Si presenta come un marchio noto ma la mail non è del marchio → spoofing.
+  // ⚠️ La casistica NON dà punti: la si approva la prima volta e poi si applica
+  // da sola. Sommarla al punteggio vorrebbe dire spostare la mail comunque, e
+  // l'approvazione diventerebbe una domanda a cose fatte.
+  const caso = casoMarchio(m.mittente, m.mittenteNome)
 
   // Mittente sconosciuto: segnale debole, da solo non basta.
   punti += 1
   motivi.push('mittente mai visto prima')
 
   const livello: LivelloSpam = punti >= 5 ? 'alto' : punti >= 3 ? 'medio' : 'basso'
-  return { livello, punteggio: punti, motivi }
+  return { livello, punteggio: punti, motivi, caso }
 }

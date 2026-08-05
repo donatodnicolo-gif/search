@@ -390,6 +390,12 @@ model Messaggio {
   serveRisposta Boolean   @default(false)
   analizzatoIl  DateTime?
   erroreAI      String?
+  // La CASISTICA di spam riconosciuta all'arrivo e ancora da approvare
+  // (es. `marchio:shopify:gratuito`). Finché è valorizzata, la mail è in posta
+  // con la proposta «è spam?»: approvandola va in SPAM e da lì in poi la stessa
+  // casistica si applica da sola (vedi lib/spamCasi.ts). Si azzera decidendo.
+  spamCaso      String?
+  spamMotivo    String?
   // Quando è partita la notifica push per questa mail: evita di notificarla due
   // volte (il cron e l'eventuale giro interattivo non si pestano i piedi).
   notificatoIl  DateTime?

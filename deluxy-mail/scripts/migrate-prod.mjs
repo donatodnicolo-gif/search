@@ -371,6 +371,11 @@ const stmts = [
   `ALTER TABLE "Sezione" ADD COLUMN IF NOT EXISTS "azioneId" TEXT`,
   `ALTER TABLE "Sezione" ADD COLUMN IF NOT EXISTS "azioneModo" TEXT NOT NULL DEFAULT 'chiedi'`,
   `ALTER TABLE "Sezione" ADD COLUMN IF NOT EXISTS "azioneIstruzioni" TEXT NOT NULL DEFAULT ''`,
+
+  // La casistica di spam riconosciuta all'arrivo e in attesa della tua
+  // approvazione (es. «si presenta come Shopify da una casella gratuita»).
+  `ALTER TABLE "Messaggio" ADD COLUMN IF NOT EXISTS "spamCaso" TEXT`,
+  `ALTER TABLE "Messaggio" ADD COLUMN IF NOT EXISTS "spamMotivo" TEXT`,
 ]
 
 async function main() {

@@ -22,6 +22,7 @@ import { htmlCaldo } from './htmlServer'
 import { prefissa, inoltrato } from './rispondi'
 import { elencoContatti, contattiPerAI } from './contatti'
 import { valutaSpam } from './spam'
+import { decisioniSpam } from './spamCasi'
 import { notificaNuoveMail } from './push'
 import { rilevaLingua } from './rilevaLingua'
 
@@ -1055,6 +1056,19 @@ async function salvaMessaggi(opts: {
     )
 
     let spam = esitoSpam.livello === 'alto'
+
+    // CASISTICA riconosciuta (finge un marchio noto). La prima volta NON si
+    // sposta niente: la mail resta in posta con la proposta «è spam?» e
+    // un'attività da approvare. Approvata quella casistica, le successive
+    // uguali vanno in SPAM da sole — è la richiesta dell'utente: «va in spam
+    // dopo approvazione e per le prossime casistiche lo fa in automatico».
+    let casoDaChiedere: { id: string; descrizione: string } | null = null
+    if (esitoSpam.caso) {
+      const d = await decisioniSpam(utenteId)
+      if (d.approvate.includes(esitoSpam.caso.id)) spam = true
+      else if (!d.rifiutate.includes(esitoSpam.caso.id)) casoDaChiedere = esitoSpam.caso
+    }
+
     if (esitoSpam.livello === 'medio' && budgetAI > 0) {
       budgetAI--
       try {
@@ -1076,6 +1090,30 @@ async function salvaMessaggi(opts: {
         where: { id: messaggioId },
         data: { sezioneId: spamSezioneId, smistatoDa: 'spam' },
       })
+    } else if (casoDaChiedere) {
+      // La proposta viaggia su DUE binari: sulla mail (il riquadro con «Sì,
+      // è spam» / «No»), e come ATTIVITÀ, così la si ritrova anche senza
+      // riaprire quella mail — ed è la «richiesta di approvazione come task».
+      // Best-effort: se il salvataggio non riesce, la posta arriva lo stesso.
+      try {
+        await db.messaggio.update({
+          where: { id: messaggioId },
+          data: { spamCaso: casoDaChiedere.id, spamMotivo: casoDaChiedere.descrizione },
+        })
+        await db.attivita.create({
+          data: {
+            utenteId,
+            titolo: `Approva: è spam? ${msg.mittenteNome || msg.mittente} ${casoDaChiedere.descrizione}`,
+            dettaglio: `Oggetto: «${msg.oggetto}». Aprendo la mail trovi «Sì, è spam» e «No»: dicendo sì, le prossime uguali finiranno in SPAM da sole.`,
+            priorita: 'P2',
+            contattoEmail: mittBasso,
+            messaggioId,
+            creataDaAI: true,
+          },
+        })
+      } catch {
+        /* colonne non ancora migrate o attività non creata: la mail resta in posta */
+      }
     }
   }
 
