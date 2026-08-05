@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import { prisma } from "./db";
 import { richiediSessione, richiediAdmin } from "./sessione-server";
 import { richiediDesktop } from "./solo-desktop";
+import { emailValida, mandaEmail } from "./posta";
+import { rapportoPresenze, riepilogoMese } from "./presenze";
 import {
   MAX_CERTIFICATO_BYTE,
   giornoAData,
@@ -236,6 +238,52 @@ async function decidi(fd: FormData, decisione: "approva" | "respingi") {
   revalidatePath("/cartellino/gestione");
   revalidatePath("/cartellino");
   redirect(`/cartellino/gestione?ok=${decisione === "approva" ? "approvata" : "respinta"}`);
+}
+
+// ---------- Il riepilogo presenze via email ----------
+
+// L'admin sceglie il destinatario: può essere il commercialista, il consulente
+// del lavoro, chiunque. Non c'è una rubrica di indirizzi "fidati" perché il
+// destinatario cambia ogni volta — quello che c'è è un'anteprima esatta di ciò
+// che parte, sopra il bottone.
+export async function mandaPresenze(fd: FormData) {
+  await richiediDesktop();
+  const sessione = await richiediAdmin();
+
+  const destinatario = testo(fd, "destinatario");
+  const mese = testo(fd, "mese");
+  const nota = testo(fd, "nota").slice(0, 300);
+
+  if (!/^\d{4}-\d{2}$/.test(mese)) redirect("/cartellino/gestione?errore=mese");
+  if (!emailValida(destinatario)) {
+    redirect(`/cartellino/gestione?mese=${mese}&errore=destinatario`);
+  }
+
+  const riepilogo = await riepilogoMese(mese);
+  const rapporto = rapportoPresenze(riepilogo, { nota, daNome: sessione.nome });
+
+  let problema: string | null = null;
+  try {
+    await mandaEmail({
+      a: destinatario,
+      oggetto: rapporto.oggetto,
+      testo: rapporto.testo,
+      html: rapporto.html,
+    });
+  } catch (e) {
+    // Il motivo vero serve: "non è partita" senza spiegazione manda a indovinare.
+    // La pagina è solo per admin, e un errore SMTP non contiene segreti.
+    problema = e instanceof Error ? e.message.slice(0, 160) : "errore sconosciuto";
+  }
+
+  if (problema) {
+    redirect(
+      `/cartellino/gestione?mese=${mese}&errore=invio&dettaglio=${encodeURIComponent(problema)}`,
+    );
+  }
+  redirect(
+    `/cartellino/gestione?mese=${mese}&ok=inviata&a=${encodeURIComponent(destinatario)}`,
+  );
 }
 
 // ---------- Aiutanti ----------

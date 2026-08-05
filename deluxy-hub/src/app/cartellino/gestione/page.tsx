@@ -2,19 +2,17 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { richiediAdmin } from "@/lib/sessione-server";
 import { richiediDesktop } from "@/lib/solo-desktop";
-import { approvaAssenza, respingiAssenza } from "@/lib/cartellino-actions";
+import { approvaAssenza, mandaPresenze, respingiAssenza } from "@/lib/cartellino-actions";
+import { rapportoPresenze, riepilogoMese } from "@/lib/presenze";
+import { statoPosta } from "@/lib/posta";
 import {
   STATO_INFO,
   TIPO_INFO,
-  confiniMese,
+  dataBreve,
   formattaDurata,
-  giorniCoperti,
-  giornoAData,
-  giornoDi,
   intervalloEsteso,
   meseDi,
   meseEsteso,
-  minutiLavorati,
   oraDi,
   pesoLeggibile,
   type StatoAssenza,
@@ -26,14 +24,12 @@ import {
 // essere arrivate un minuto fa.
 export const dynamic = "force-dynamic";
 
-const MESSAGGI_OK: Record<string, string> = {
-  approvata: "Richiesta approvata.",
-  respinta: "Richiesta respinta.",
-};
-
 const MESSAGGI_ERRORE: Record<string, string> = {
   sparita: "Quella richiesta non esiste più.",
   "non-decidibile": "Una malattia registrata non si approva né si respinge.",
+  destinatario: "Indirizzo email non valido.",
+  mese: "Mese non valido.",
+  invio: "L'email non è partita.",
 };
 
 function meseSpostato(mese: string, delta: number): string {
@@ -45,84 +41,52 @@ function meseSpostato(mese: string, delta: number): string {
 export default async function GestioneCartellinoPage({
   searchParams,
 }: {
-  searchParams: Promise<{ ok?: string; errore?: string; mese?: string }>;
+  searchParams: Promise<{
+    ok?: string;
+    errore?: string;
+    dettaglio?: string;
+    a?: string;
+    mese?: string;
+  }>;
 }) {
   await richiediDesktop();
-  await richiediAdmin();
+  const sessione = await richiediAdmin();
   const sp = await searchParams;
 
   const adesso = new Date();
-  const oggi = giornoDi(adesso);
   const mese = sp.mese && /^\d{4}-\d{2}$/.test(sp.mese) ? sp.mese : meseDi(adesso);
-  const confini = confiniMese(mese)!;
-  const inizioMese = giornoAData(confini.primo)!;
-  const fineMese = giornoAData(confini.ultimo)!;
 
-  const [utenti, richieste, timbrature, assenzeMese] = await Promise.all([
-    prisma.utente.findMany({
-      where: { attivo: true },
-      select: { id: true, nome: true, email: true },
-      orderBy: { nome: "asc" },
-    }),
+  const [riepilogo, richieste, posta] = await Promise.all([
+    riepilogoMese(mese, adesso),
     prisma.assenza.findMany({
       where: { stato: "in-attesa" },
       orderBy: { creataIl: "asc" },
       include: {
         utente: { select: { nome: true } },
-        certificati: { select: { id: true, nomeFile: true, dimensione: true, protocollo: true } },
+        certificati: { select: { id: true, nomeFile: true, dimensione: true } },
       },
     }),
-    prisma.timbratura.findMany({
-      where: { giorno: { gte: confini.primo, lte: confini.ultimo } },
-      orderBy: { istante: "asc" },
-    }),
-    // Le assenze che toccano il mese: iniziate prima e finite dopo comprese.
-    prisma.assenza.findMany({
-      where: { dal: { lte: fineMese }, al: { gte: inizioMese }, stato: { not: "respinta" } },
-      include: { utente: { select: { nome: true } } },
-      orderBy: { dal: "asc" },
-    }),
+    statoPosta(),
   ]);
 
-  // Ore del mese e turni aperti, persona per persona.
-  const perUtente = new Map<string, Map<string, typeof timbrature>>();
-  for (const t of timbrature) {
-    const giorni = perUtente.get(t.utenteId) ?? new Map<string, typeof timbrature>();
-    const righe = giorni.get(t.giorno) ?? [];
-    righe.push(t);
-    giorni.set(t.giorno, righe);
-    perUtente.set(t.utenteId, giorni);
-  }
+  // L'anteprima è lo stesso testo che parte: non una descrizione di ciò che
+  // partirà, proprio quello. Così non si scopre dopo cosa è stato spedito.
+  const anteprima = rapportoPresenze(riepilogo, { daNome: sessione.nome });
+  const dentroOra = riepilogo.righe.filter((r) => r.dentroOra);
 
-  const riepilogo = utenti.map((u) => {
-    const giorni = perUtente.get(u.id) ?? new Map<string, typeof timbrature>();
-    let minuti = 0;
-    for (const [g, righe] of giorni) {
-      minuti += minutiLavorati(righe, g === oggi ? adesso : null).minuti;
-    }
-    const diOggi = giorni.get(oggi) ?? [];
-    const statoOggi = minutiLavorati(diOggi, adesso);
-
-    // Giorni di assenza che cadono dentro il mese guardato.
-    const giorniAssenza = assenzeMese
-      .filter((a) => a.utenteId === u.id)
-      .reduce((acc, a) => {
-        const dal = a.dal < inizioMese ? inizioMese : a.dal;
-        const al = a.al > fineMese ? fineMese : a.al;
-        return acc + giorniCoperti(dal, al);
-      }, 0);
-
-    return { utente: u, minuti, giorniLavorati: giorni.size, statoOggi, giorniAssenza };
-  });
-
-  const dentroOra = riepilogo.filter((r) => r.statoOggi.aperto);
+  const MESSAGGI_OK: Record<string, string> = {
+    approvata: "Richiesta approvata.",
+    respinta: "Richiesta respinta.",
+    inviata: `Presenze inviate${sp.a ? ` a ${sp.a}` : ""}.`,
+  };
 
   return (
     <main className="main">
       <div className="page-head">
         <h1 className="page-title">Gestione cartellini</h1>
         <p className="page-sub">
-          Le richieste da approvare e le ore di tutti. Il tuo cartellino è in{" "}
+          Le timbrature di tutti, le richieste da approvare e il riepilogo da mandare per email. Il
+          tuo cartellino è in{" "}
           <Link href="/cartellino" style={{ color: "var(--blue)" }}>
             Cartellino
           </Link>
@@ -132,7 +96,10 @@ export default async function GestioneCartellinoPage({
 
       {sp.ok && MESSAGGI_OK[sp.ok] && <div className="avviso ok">{MESSAGGI_OK[sp.ok]}</div>}
       {sp.errore && MESSAGGI_ERRORE[sp.errore] && (
-        <div className="avviso errore">{MESSAGGI_ERRORE[sp.errore]}</div>
+        <div className="avviso errore">
+          {MESSAGGI_ERRORE[sp.errore]}
+          {sp.dettaglio && <span className="nota-riga">{sp.dettaglio}</span>}
+        </div>
       )}
 
       <div className="section-label">
@@ -158,7 +125,7 @@ export default async function GestioneCartellinoPage({
                   <td style={{ fontWeight: 500 }}>{a.utente.nome}</td>
                   <td>
                     {intervalloEsteso(a.dal, a.al)}
-                    {a.motivo && <div className="nota-riga">{a.motivo}</div>}
+                    {a.motivo && <span className="nota-riga">{a.motivo}</span>}
                   </td>
                   <td>{TIPO_INFO[a.tipo as TipoAssenza]?.etichetta ?? a.tipo}</td>
                   <td>
@@ -208,21 +175,23 @@ export default async function GestioneCartellinoPage({
       ) : (
         <div className="marcature">
           {dentroOra.map((r) => (
-            <span key={r.utente.id} className="marca entrata">
-              {r.utente.nome} · dalle {r.statoOggi.dalle ? oraDi(r.statoOggi.dalle) : "—"} (
-              {formattaDurata(r.statoOggi.minuti)})
+            <span key={r.utenteId} className="marca entrata">
+              {r.nome} · dalle {r.dentroOra!.dalle ? oraDi(r.dentroOra!.dalle) : "—"} (
+              {formattaDurata(r.dentroOra!.minuti)})
             </span>
           ))}
         </div>
       )}
 
-      <div className="section-label">Riepilogo del mese</div>
+      <div className="section-label">Le timbrature di tutti</div>
       <div className="mese-nav">
         <Link className="btn ghost" href={`/cartellino/gestione?mese=${meseSpostato(mese, -1)}`}>
           ← Mese precedente
         </Link>
-        <strong>{meseEsteso(mese)}</strong>
-        <span className="mese-totale">{utenti.length} persone attive</span>
+        <strong>{riepilogo.etichettaMese}</strong>
+        <span className="mese-totale">
+          {riepilogo.righe.length} persone attive · totale {formattaDurata(riepilogo.totaleMinuti)}
+        </span>
         <Link className="btn ghost" href={`/cartellino/gestione?mese=${meseSpostato(mese, 1)}`}>
           Mese successivo →
         </Link>
@@ -236,61 +205,133 @@ export default async function GestioneCartellinoPage({
               <th>Ore del mese</th>
               <th>Giorni timbrati</th>
               <th>Giorni di assenza</th>
+              <th />
             </tr>
           </thead>
           <tbody>
-            {riepilogo.map((r) => (
-              <tr key={r.utente.id}>
+            {riepilogo.righe.map((r) => (
+              <tr key={r.utenteId}>
                 <td>
-                  <div style={{ fontWeight: 500 }}>{r.utente.nome}</div>
-                  <div style={{ fontSize: 12.5, color: "var(--text-tertiary)" }}>
-                    {r.utente.email}
-                  </div>
+                  <div style={{ fontWeight: 500 }}>{r.nome}</div>
+                  <div style={{ fontSize: 12.5, color: "var(--text-tertiary)" }}>{r.email}</div>
                 </td>
                 <td style={{ fontVariantNumeric: "tabular-nums" }}>
                   {formattaDurata(r.minuti)}
-                  {r.statoOggi.aperto && <span className="nota-riga">turno aperto ora</span>}
+                  {r.dentroOra && <span className="nota-riga">turno aperto ora</span>}
                 </td>
-                <td>{r.giorniLavorati || "—"}</td>
+                <td>{r.giornate.length || "—"}</td>
                 <td>{r.giorniAssenza || "—"}</td>
+                <td>
+                  {/* Il dettaglio giorno per giorno è già in memoria: si apre e si
+                      chiude senza ricaricare né interrogare di nuovo il database. */}
+                  <details>
+                    <summary
+                      className="btn ghost"
+                      style={{ listStyle: "none", display: "inline-flex" }}
+                    >
+                      Timbrature
+                    </summary>
+                    {r.giornate.length === 0 && r.assenze.length === 0 ? (
+                      <p className="nota">Nessuna timbratura e nessuna assenza in questo mese.</p>
+                    ) : (
+                      <div style={{ marginTop: 10, minWidth: 320 }}>
+                        {r.giornate.map((g) => (
+                          <div key={g.giorno} className="riga-giorno">
+                            <span className="riga-giorno-data">{dataBreve(g.data)}</span>
+                            <span>
+                              {g.turni.map((t, i) => (
+                                <span key={i} className="marca">
+                                  {oraDi(t.entrata)} → {t.uscita ? oraDi(t.uscita) : "in corso"}
+                                </span>
+                              ))}
+                              {g.conManuali && (
+                                <span className="nota-riga">righe inserite a mano</span>
+                              )}
+                            </span>
+                            <span style={{ fontVariantNumeric: "tabular-nums" }}>
+                              {formattaDurata(g.minuti)}
+                            </span>
+                          </div>
+                        ))}
+                        {r.assenze.map((a, i) => (
+                          <div key={i} className="riga-giorno">
+                            <span className="riga-giorno-data">
+                              {TIPO_INFO[a.tipo as TipoAssenza]?.etichetta ?? a.tipo}
+                            </span>
+                            <span>
+                              {intervalloEsteso(a.dal, a.al)}
+                              {a.motivo && <span className="nota-riga">{a.motivo}</span>}
+                            </span>
+                            <span className={STATO_INFO[a.stato as StatoAssenza]?.classe ?? "badge"}>
+                              <span className="dot" />
+                              {STATO_INFO[a.stato as StatoAssenza]?.etichetta ?? a.stato}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </details>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
 
-      <div className="section-label">Assenze che toccano il mese</div>
-      {assenzeMese.length === 0 ? (
-        <div className="vuoto">Nessuna assenza in questo mese.</div>
-      ) : (
-        <div className="card" style={{ padding: "20px 12px" }}>
-          <table>
-            <thead>
-              <tr>
-                <th>Chi</th>
-                <th>Periodo</th>
-                <th>Tipo</th>
-                <th>Stato</th>
-              </tr>
-            </thead>
-            <tbody>
-              {assenzeMese.map((a) => (
-                <tr key={a.id}>
-                  <td style={{ fontWeight: 500 }}>{a.utente.nome}</td>
-                  <td>{intervalloEsteso(a.dal, a.al)}</td>
-                  <td>{TIPO_INFO[a.tipo as TipoAssenza]?.etichetta ?? a.tipo}</td>
-                  <td>
-                    <span className={STATO_INFO[a.stato as StatoAssenza]?.classe ?? "badge"}>
-                      <span className="dot" />
-                      {STATO_INFO[a.stato as StatoAssenza]?.etichetta ?? a.stato}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      {/* ---------- Invio per email ---------- */}
+      <div className="section-label">Manda le presenze per email</div>
+      <div className="card">
+        {posta.pronta ? (
+          <>
+            <form action={mandaPresenze} className="griglia-form">
+              <input type="hidden" name="mese" value={mese} />
+              <label className="campo">
+                <span>Destinatario</span>
+                <input
+                  type="email"
+                  name="destinatario"
+                  required
+                  placeholder="commercialista@studio.it"
+                />
+              </label>
+              <label className="campo campo-largo">
+                <span>Nota da mettere in cima (facoltativa)</span>
+                <input name="nota" placeholder="Presenze del mese per le buste paga" />
+              </label>
+              <button type="submit" className="btn primary">
+                Manda {riepilogo.etichettaMese}
+              </button>
+            </form>
+            <p className="nota">
+              Parte da <strong>{posta.mittente}</strong> (credenziali prese{" "}
+              {posta.origine === "ambiente" ? "dalle variabili d'ambiente" : "dalla cassaforte"}) e
+              contiene le ore, i turni giorno per giorno e le assenze di tutte le persone attive nel
+              mese scelto: sono dati personali, controlla l'indirizzo prima di mandarlo.
+            </p>
+          </>
+        ) : (
+          <>
+            <p style={{ fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.55 }}>
+              <strong>Posta non configurata.</strong> Per mandare il riepilogo serve un server SMTP:
+              scrivi <code>SMTP_HOST</code>, <code>SMTP_USER</code>, <code>SMTP_PASS</code> (e se
+              serve <code>SMTP_PORT</code>, <code>SMTP_FROM</code>) nella cassaforte{" "}
+              <Link href="/chiavi" style={{ color: "var(--blue)" }}>
+                /chiavi
+              </Link>{" "}
+              sotto il progetto <strong>hub</strong>, oppure come variabili d&apos;ambiente su
+              Vercel. Le variabili d&apos;ambiente hanno la precedenza.
+            </p>
+            <p className="nota">
+              Nel frattempo il riepilogo qui sotto si può copiare e incollare in un&apos;email.
+            </p>
+          </>
+        )}
+
+        <details className="dettaglio" style={{ marginTop: 18 }}>
+          <summary>Anteprima esatta di ciò che viene mandato</summary>
+          <pre className="anteprima">{anteprima.testo}</pre>
+        </details>
+      </div>
     </main>
   );
 }

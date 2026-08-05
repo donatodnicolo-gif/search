@@ -164,8 +164,19 @@ Sezione **`/cartellino`**, in alto a destra nella barra (con il pallino verde
 quando si è dentro), per **tutti** i ruoli: timbratura entrata/uscita, ore del
 mese, giornate registrate a mano, richieste di ferie/permessi/trasferte,
 malattia con certificato. Gli admin hanno anche **`/cartellino/gestione`**:
-richieste da decidere, chi è in sede adesso, ore e giorni di assenza di tutti,
-mese per mese. Il manuale sta nel [README](README.md#il-cartellino).
+richieste da decidere, chi è in sede adesso, **le timbrature di tutti** (dettaglio
+giorno per giorno, apribile persona per persona) e il **riepilogo del mese da
+mandare per email** a un destinatario a scelta. Il manuale sta nel
+[README](README.md#il-cartellino).
+
+**La posta** (`src/lib/posta.ts`, nodemailer come Transactions e Finance): le
+credenziali arrivano dalle variabili d'ambiente `SMTP_HOST/PORT/USER/PASS/FROM`
+oppure, se mancano, dalla **cassaforte `/chiavi` progetto `hub`** con gli stessi
+nomi — così si configura la posta senza toccare Vercel e senza far passare la
+password da nessuna parte. L'ambiente vince sempre. **Al 5/08/2026 non è
+configurata né in un modo né nell'altro**: la pagina lo dice e propone di
+copiare l'anteprima. Il testo dell'email e la schermata escono dalla stessa
+funzione (`src/lib/presenze.ts`): non duplicare quel conto.
 
 **Si usa solo da computer** — una timbratura dal telefono potrebbe partire da
 ovunque. La regola è scritta in tre punti, non uno: middleware (redirect a
@@ -262,9 +273,13 @@ npm run dev            # http://localhost:3050
 - **URL pubblici**: dal 26/07 anche Calendario punta alla produzione. Restano con
   ripiego su `localhost` solo Finance (3040), Anagrafiche (3060) e AI Mail (3070),
   che in produzione prendono comunque l'`APP_URL_*` da Vercel.
-- **Cartellino**: nessuno ha ancora timbrato (le tabelle sono vuote). Da decidere
-  se serve un tetto di ferie annuo per persona: oggi il Hub conta i giorni chiesti,
-  non li scala da un monte ore.
+- **Cartellino**: da decidere se serve un tetto di ferie annuo per persona —
+  oggi il Hub conta i giorni chiesti, non li scala da un monte ore.
+- **Posta del Hub non configurata**: perché l'invio delle presenze funzioni
+  servono `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS` (più `SMTP_PORT`/`SMTP_FROM` se
+  diversi dai default) nella cassaforte `/chiavi` sotto il progetto `hub`, oppure
+  come variabili d'ambiente su Vercel. Finché mancano, la pagina lo dichiara e
+  non prova a spedire.
 - **Nessun recupero password autonomo**: lo reimposta un admin da `/utenti`.
 - **Creare gli utenti veri** del team da `/utenti` (finora esiste solo l'admin).
 

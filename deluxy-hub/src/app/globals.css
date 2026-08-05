@@ -289,6 +289,32 @@ input[type="file"] { padding: 8px; font-size: 13px; }
 .mese-nav strong { font-size: 15px; text-transform: capitalize; }
 .mese-totale { font-size: 13px; color: var(--text-tertiary); margin-right: auto; }
 
+/* Dettaglio giorno per giorno di una persona (gestione cartellini) */
+.riga-giorno {
+  display: grid;
+  grid-template-columns: 90px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 7px 0;
+  border-top: 1px solid var(--hairline);
+  font-size: 13px;
+}
+.riga-giorno-data { color: var(--text-secondary); white-space: nowrap; }
+
+.anteprima {
+  margin-top: 12px;
+  padding: 16px;
+  max-height: 340px;
+  overflow: auto;
+  background: var(--fill);
+  border-radius: var(--radius-m);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  color: var(--text-secondary);
+}
+
 /* Pallino di stato nel bottone Cartellino della barra in alto */
 .dot-stato { width: 7px; height: 7px; border-radius: 50%; background: var(--text-tertiary); }
 .dot-stato.dentro { background: var(--green); }

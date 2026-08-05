@@ -143,6 +143,37 @@ Cosa ci si fa:
   resta) e si scarica da `/cartellino/certificato/<id>`, che lo dà **solo** a chi
   l'ha caricato e agli admin: è un dato sanitario, e l'indirizzo si può digitare.
 
+#### Cosa vede e cosa manda l'amministratore
+
+In `/cartellino/gestione` l'admin ha **le timbrature di tutti**, non solo i
+totali: per ogni persona si apre il dettaglio giorno per giorno (turni, ore,
+righe inserite a mano, assenze del periodo), mese per mese. Sotto c'è **«Manda
+le presenze per email»**: si scrive un destinatario qualsiasi — il
+commercialista, il consulente del lavoro, chi serve — e parte il riepilogo del
+mese che si sta guardando, in HTML e in testo semplice. Il testo non è un
+ripiego: è quello che si legge dal telefono, dove il Cartellino non si apre.
+
+Sopra il bottone c'è l'**anteprima esatta** di ciò che parte — non una
+descrizione, proprio il testo che verrà spedito. Schermata ed email nascono
+dalla stessa funzione ([`src/lib/presenze.ts`](src/lib/presenze.ts)): se fossero
+due conti separati, prima o poi direbbero numeri diversi.
+
+Le credenziali di posta si prendono, in quest'ordine
+([`src/lib/posta.ts`](src/lib/posta.ts)):
+
+1. le **variabili d'ambiente** `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`,
+   `SMTP_PASS`, `SMTP_FROM` — come nelle altre app Deluxy;
+2. la **cassaforte `/chiavi`**, progetto `hub`, con gli stessi nomi.
+
+L'ambiente vince sempre: un'installazione già configurata su Vercel non si
+scavalca da una pagina web. Senza né l'una né l'altra la pagina lo dice e non
+finge di spedire; se il server di posta rifiuta, l'admin vede **il motivo vero**
+(«connect ECONNREFUSED …», «Invalid login …»), non un generico «non è partita».
+
+⚠️ Il riepilogo contiene dati personali di tutti (ore, turni, motivi delle
+assenze): il destinatario lo sceglie l'admin e non c'è una rubrica di indirizzi
+fidati, perché cambia ogni volta. L'avviso sotto il form lo ricorda.
+
 **Solo da computer.** Una timbratura fatta dal telefono potrebbe partire da
 qualsiasi posto, quindi la sezione si apre solo da una postazione desktop. La
 regola è applicata in tre punti: il middleware reindirizza a
