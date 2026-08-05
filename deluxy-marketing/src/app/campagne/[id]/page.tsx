@@ -8,6 +8,7 @@ import { Badge } from "@/components/Badge";
 import { GraficoSpesa } from "@/components/GraficoSpesa";
 import { AggiornaAdesso } from "@/components/AggiornaAdesso";
 import { CoperturaCampagna } from "@/components/CoperturaCampagna";
+import { CoperturaGruppi } from "@/components/CoperturaGruppi";
 import { DestinazioniCampagna } from "@/components/DestinazioniCampagna";
 import { EstensioniCampagna } from "@/components/EstensioniCampagna";
 import { OggiCampagna } from "@/components/OggiCampagna";
@@ -22,7 +23,8 @@ import { parametriPeriodo, periodoApp } from "@/lib/periodo-condiviso";
 import { TabellaGruppi } from "@/components/TabellaGruppi";
 import { VenditeCampagna } from "@/components/VenditeCampagna";
 import { RinominaInline } from "@/components/RinominaInline";
-import { aggiungiMetrica, cambiaStatoCampagna, rinominaCampagna } from "@/lib/azioni";
+import { BudgetInline } from "@/components/BudgetInline";
+import { aggiungiMetrica, cambiaStatoCampagna, creaOperazione, rinominaCampagna } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
 import { GIORNI_LETTURA, gruppiConNumeri, nomeCampagna } from "@/lib/gruppi";
 import {
@@ -191,6 +193,22 @@ export default async function SchedaCampagna({
             <div className="kpi-valore">{r != null ? `${r.toFixed(1)}×` : "—"}</div>
             <div className="kpi-etichetta">ROAS</div>
           </div>
+          {/* Il budget sta fra i numeri perché è quello che si guarda insieme
+              alla spesa: «sto spendendo 281 € su un budget di quanto?». La
+              matita mette in coda, non applica — vedi BudgetInline. */}
+          <div className="kpi">
+            <div className="kpi-valore" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              {campagna.budgetGiornaliero != null ? formattaEuro(campagna.budgetGiornaliero) : "—"}
+              {!defunta && (
+                <BudgetInline
+                  campagnaId={campagna.id}
+                  budgetAttuale={campagna.budgetGiornaliero}
+                  azione={creaOperazione}
+                />
+              )}
+            </div>
+            <div className="kpi-etichetta">Budget al giorno su Google</div>
+          </div>
         </div>
 
         {defunta && (
@@ -223,6 +241,9 @@ export default async function SchedaCampagna({
           <div className="scheda-titolo">
             Gruppi di annunci ({gruppi.length}) · ultimi {GIORNI_LETTURA} giorni
           </div>
+          {/* Prima della tabella, non dopo: il numero basso va spiegato mentre
+              lo si legge, non quando si è già conclusa la cosa sbagliata. */}
+          <CoperturaGruppi campagnaId={campagna.id} giorni={GIORNI_LETTURA} />
           <TabellaGruppi righe={gruppi} mostraCampagna={false} mostraQuota />
           {gruppi.length > 0 && (
             <p className="cella-sub" style={{ marginTop: 10 }}>

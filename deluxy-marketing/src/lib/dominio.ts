@@ -195,6 +195,21 @@ export const STATI_CAMPAGNA_VIVE = ["in_lancio", "in_apprendimento", "attiva", "
 // sparse per venti file.
 export const STATI_CAMPAGNA_IGNORATE = ["defunta"] as const;
 
+// ⚠️ Gli stati che sono NOSTRI: Google non sa cosa siano, e l'import non deve
+// sovrascriverli mai.
+//
+// È costato caro. L'import scriveva `stato` con quello che dice Google
+// (`attiva` / `in_pausa`), quindi una campagna marcata **defunta** tornava
+// `in_pausa` alla passata dopo e ricompariva in ogni elenco. Misurato sul
+// registro il 04/08/2026: **66 marcature «→ defunta» su 68 erano state
+// annullate** dall'import, e la stessa campagna era stata rimarcata fino a
+// quattro volte da chi non capiva perché tornasse.
+//
+// È la stessa distinzione del gruppo — `stato` è il giudizio nostro,
+// `statoPiattaforma` è il fatto di Google — che alla campagna non era mai
+// stata applicata.
+export const STATI_CAMPAGNA_NOSTRI = ["defunta", "in_lancio", "bozza"] as const;
+
 export const CATEGORIE_DRIVE = [
   "definitivi",
   "analisi",

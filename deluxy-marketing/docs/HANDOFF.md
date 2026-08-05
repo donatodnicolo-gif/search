@@ -22,6 +22,35 @@ Riceve già dati veri da Google Ads (Gifts e Flowers) e ha 2.426 ordini Shopify 
 
 ## FATTO
 
+### ⭐ «Defunta» non teneva: l'import la cancellava (04/08/2026)
+
+Segnalato dall'utente: «le campagne che avevo messo come defunte sono tornate
+visibili». Vero, e non era un caso isolato: **l'import scriveva `stato` con
+quello che dice Google**, quindi una campagna marcata `defunta` a mano tornava
+`in_pausa` alla passata successiva e ricompariva in ogni elenco.
+
+Misurato sul registro: **66 marcature «→ defunta» su 68 erano state annullate**.
+La stessa campagna era stata rimarcata fino a **quattro volte** — qualcuno
+continuava a rifarlo senza capire perché tornasse.
+
+> ⚠️ **È la distinzione `stato` / `statoPiattaforma` del gruppo, che alla
+> campagna non era mai stata applicata.** Il giudizio è nostro, il fatto è di
+> Google, e non si sovrascrivono. Vale per ogni campo dove l'app ha
+> un'opinione: se l'import lo tocca, l'opinione dura fino al giro dopo.
+
+- `STATI_CAMPAGNA_NOSTRI = ["defunta", "in_lancio", "bozza"]` in `dominio.ts`:
+  Google non sa cosa siano e l'import non li tocca più.
+- **`Campagna.statoPiattaforma` è nuovo** (ALTER TABLE mirato; 228 righe
+  riempite dal fatto già noto, 230 campagne intatte): il fatto di Google non si
+  perde nemmeno quando il giudizio nostro lo copre — una campagna può essere
+  «defunta» per noi e **ancora accesa su Google**, ed è proprio il caso da
+  vedere.
+- **Ripristinate 34 campagne.** Regola: si guarda l'*ultimo* cambio di stato
+  deciso a mano nel registro; se l'ultima parola dell'utente era «→ defunta» e
+  adesso la campagna dice altro, l'ha cambiata l'import. Dove dopo la defunta
+  c'era un'altra decisione a mano, **non si è toccato niente**: quella è più
+  recente.
+
 ### ⭐ Il change control AVVISA, non blocca più (04/08/2026)
 
 **Decisione dell'utente**: «consenti tutte le modifiche da app, al massimo metti

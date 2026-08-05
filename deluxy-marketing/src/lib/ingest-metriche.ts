@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { STATI_CAMPAGNA_NOSTRI } from "@/lib/dominio";
 
 // Il salvataggio delle metriche di campagna, in un posto solo.
 // Lo usano sia /api/v1/ingest (dove le manda lo script di Google Ads) sia il
@@ -289,11 +290,24 @@ export async function deduciTipoConversione(campagneIds: Iterable<string>): Prom
 export type RigaAnagrafica = {
   idCampagna: string;
   nome: string;
+  // Lo stato tradotto nel nostro vocabolario dallo script (`statoCampagna()`)
   stato?: string | null;
+  // Quello grezzo di Google, se lo script lo manda: ENABLED | PAUSED | REMOVED
+  statoPiattaforma?: string | null;
   budgetGiornaliero?: number | null;
   strategiaOfferta?: string | null;
   tipo?: string | null;
 };
+
+// Lo script manda già lo stato tradotto; da lì si risale al fatto di Google
+// senza toccare lo script. Se un giorno manderà `statoPiattaforma` diretto,
+// quello vince.
+function statoPiattaformaDa(stato?: string | null): string | undefined {
+  if (stato === "in_pausa") return "PAUSED";
+  if (stato === "conclusa") return "REMOVED";
+  if (stato === "attiva") return "ENABLED";
+  return undefined;
+}
 
 export type EsitoAnagrafica = {
   create: number;
@@ -344,8 +358,15 @@ export async function salvaAnagrafica(
       perNome.get(nome) ??
       (nNorm.length > 3 ? perNomeNormalizzato.get(nNorm) : undefined);
 
+    // ⚠️ `stato` si aggiorna SOLO se quello che c'è non è uno stato nostro.
+    // Prima si scriveva sempre, e una campagna marcata «defunta» a mano
+    // tornava «in_pausa» alla passata dopo: 66 marcature su 68 annullate
+    // così (misurato sul registro il 04/08/2026). Il fatto di Google non si
+    // perde — va in `statoPiattaforma`, che si scrive sempre.
+    const suoNostro = trovata != null && (STATI_CAMPAGNA_NOSTRI as readonly string[]).includes(trovata.stato);
     const dati = {
-      stato: r.stato ?? undefined,
+      stato: suoNostro ? undefined : r.stato ?? undefined,
+      statoPiattaforma: r.statoPiattaforma ?? statoPiattaformaDa(r.stato),
       budgetGiornaliero: r.budgetGiornaliero ?? undefined,
       strategiaOfferta: r.strategiaOfferta ? String(r.strategiaOfferta) : undefined,
       obiettivo: r.tipo ? String(r.tipo) : undefined,
@@ -359,6 +380,7 @@ export async function salvaAnagrafica(
           canale,
           brand: brandDa(nome, opzioni.brand),
           stato: r.stato ?? "in_pausa",
+          statoPiattaforma: dati.statoPiattaforma,
           budgetGiornaliero: r.budgetGiornaliero ?? null,
           strategiaOfferta: r.strategiaOfferta ? String(r.strategiaOfferta) : null,
           obiettivo: r.tipo ? String(r.tipo) : null,
@@ -376,6 +398,7 @@ export async function salvaAnagrafica(
     // rende invisibile il cambiamento vero.
     const cambia =
       (dati.stato != null && dati.stato !== trovata.stato) ||
+      (dati.statoPiattaforma != null && dati.statoPiattaforma !== trovata.statoPiattaforma) ||
       (dati.budgetGiornaliero != null && dati.budgetGiornaliero !== trovata.budgetGiornaliero) ||
       (dati.strategiaOfferta != null && dati.strategiaOfferta !== trovata.strategiaOfferta) ||
       (dati.obiettivo != null && dati.obiettivo !== trovata.obiettivo) ||
@@ -391,6 +414,7 @@ export async function salvaAnagrafica(
       where: { id: trovata.id },
       data: {
         ...(dati.stato != null ? { stato: dati.stato } : {}),
+        ...(dati.statoPiattaforma != null ? { statoPiattaforma: dati.statoPiattaforma } : {}),
         ...(dati.budgetGiornaliero != null ? { budgetGiornaliero: dati.budgetGiornaliero } : {}),
         ...(dati.strategiaOfferta != null ? { strategiaOfferta: dati.strategiaOfferta } : {}),
         ...(dati.obiettivo != null ? { obiettivo: dati.obiettivo } : {}),

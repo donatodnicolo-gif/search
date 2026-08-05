@@ -128,8 +128,16 @@ model Campagna {
   nomeVisibile      String?
   brand             String            @default("flowers")
   canale            String            @default("google_ads")
-  // bozza | in_apprendimento | attiva | in_pausa | conclusa
+  // bozza | in_apprendimento | attiva | in_pausa | conclusa | in_lancio | defunta
+  // ⚠️ È il GIUDIZIO nostro. L'import lo aggiorna solo quando NON è uno degli
+  // stati nostri (vedi STATI_CAMPAGNA_NOSTRI): «defunta» decisa a mano non
+  // deve tornare «in_pausa» al giro dopo.
   stato             String            @default("attiva")
+  // Cosa dice Google, sempre e comunque: ENABLED | PAUSED | REMOVED.
+  // Gemello di `Gruppo.statoPiattaforma`. Serve a non perdere il fatto quando
+  // il giudizio nostro lo copre — una campagna può essere «defunta» per noi e
+  // ancora accesa su Google, ed è esattamente il caso da vedere.
+  statoPiattaforma  String?
   // classe di protezione (doc 11): traino | standard | sperimentale
   classe            String            @default("standard")
   obiettivo         String?
