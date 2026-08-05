@@ -981,7 +981,14 @@ analisi importate); seconda corsa 0 scritture.
 
 ### Punti aperti al 01/08/2026 (in cima perché sono i più freschi)
 
-- **Date di FINE campagna — feature iniziata e RITIRATA, da rifare intera.**
+- ~~**Date di FINE campagna**~~ — **ESCLUSA dall'utente il 05/08/2026**
+  («data fine campagna non serve»). Verificato: 0 campagne su 230 hanno `fine`
+  valorizzata, e resta così. Il disegno qui sotto si conserva solo perché il
+  giorno che servisse non si riparta da zero. ⚠️ Conseguenza da tenere a mente:
+  una campagna con end date su Google **si spegne da sola** e nell'app resta
+  indistinguibile da un calo di spesa — `DC9 Regali B2B` scade il **31/08/2026**.
+
+- **Il disegno, se un giorno servisse:**
   L'1/8 una sessione multi-agente ha scoperto live che `DC9 Regali B2B` ha una
   **end date 31/08/2026** su Google, ignota all'app (risulta attiva e senza
   scadenza). Una campagna con end date **si spegne da sola** quel giorno, e nel-
@@ -996,7 +1003,13 @@ analisi importate); seconda corsa 0 scritture.
   era stato scritto e **poi tolto** per non lasciare codice a metà nel repo: si
   riparte da zero ma il disegno è questo.
 
-- **Tre APPEND ADV Gifts nuovi sul Drive (01/08 20:15), NON ancora indicizzati.**
+- ~~**Tre APPEND ADV Gifts non indicizzati**~~ — **rientrato**: verificato il
+  05/08/2026, l'indice ha 8 APPEND, i più recenti del **02/08** (Gifts 19:00,
+  Cake 23:50, Flowers 04:01). La sync Drive è ripartita da sola. Restano validi
+  i *contenuti* segnalati qui sotto (DC5 drift, policy Alcohol), che l'app
+  continua a non vedere.
+
+- **Il testo originale del punto, per il contenuto che resta aperto:**
   `ads/Definitivi/APPEND 00.2|00.3|00.4 ADV-Gifts 2026-08-01 2015.md`, da una
   sessione multi-agente (analisi Google live + Meta documentale + audit + 3
   verificatori ostili). La **sync Drive è fallita** (DB irraggiungibile, vedi
