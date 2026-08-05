@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { autentica, erroreApi } from "@/lib/api-auth";
 import { prisma } from "@/lib/db";
+import { testoKeywordPulito } from "@/lib/dominio";
 import { registra } from "@/lib/registro";
 
 // POST /api/v1/operazioni/:id/esito — lo script riferisce com'è andata.
@@ -47,6 +48,44 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         },
       })
       .catch(() => {});
+  }
+
+  // ⚠️ Lo stesso per le KEYWORD, che qui mancava del tutto: si aggiornavano
+  // gruppo e campagna, non la parola. Risultato a schermo: «azione decisa: in
+  // pausa», «su Google: in pausa» e nella colonna Stato ancora **Attiva** —
+  // tre caselle sulla stessa riga che si contraddicevano.
+  //
+  // Non è la piattaforma che sovrascrive il nostro giudizio: la pausa **l'ho
+  // chiesta io**, ed è stata eseguita. Registrare la nostra stessa decisione è
+  // il contrario di farsela cancellare da un import.
+  if (riuscita && (operazione.tipo === "pausa_keyword" || operazione.tipo === "attiva_keyword")) {
+    const inPausa = operazione.tipo === "pausa_keyword";
+    const dati = {
+      stato: inPausa ? "in_pausa" : "attiva",
+      statoPiattaforma: inPausa ? "PAUSED" : "ENABLED",
+    };
+    // Per id di piattaforma quando c'è: è l'unico aggancio che non sbaglia.
+    // Altrimenti per testo ripulito dentro la stessa campagna — la stessa
+    // parola può esistere con corrispondenze diverse, e vanno tutte.
+    if (operazione.idEsterno) {
+      await prisma.copyAnnuncio
+        .updateMany({ where: { tipo: "keyword", idEsterno: operazione.idEsterno }, data: dati })
+        .catch(() => {});
+    } else if (operazione.campagnaId) {
+      const c = await prisma.campagna.findUnique({
+        where: { id: operazione.campagnaId },
+        select: { nome: true },
+      });
+      const pulito = testoKeywordPulito(operazione.bersaglio);
+      if (c && pulito) {
+        await prisma.copyAnnuncio
+          .updateMany({
+            where: { tipo: "keyword", campagna: c.nome, testo: { startsWith: pulito } },
+            data: dati,
+          })
+          .catch(() => {});
+      }
+    }
   }
 
   if (riuscita && operazione.campagnaId) {

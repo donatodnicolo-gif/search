@@ -22,6 +22,42 @@ Riceve già dati veri da Google Ads (Gifts e Flowers) e ha 2.426 ordini Shopify 
 
 ## FATTO
 
+### Tre caselle che si contraddicevano, e una classifica che non c'era (05/08/2026)
+
+**«Azione decisa: in pausa» · «su Google: in pausa» · «Stato: Attiva»**, sulla
+stessa riga. Non era il solito «giudizio contro fatto»: la pausa **l'aveva
+chiesta l'utente** ed era stata eseguita. La causa: `POST /api/v1/operazioni/
+:id/esito` aggiornava **gruppo e campagna, mai la keyword** — quindi
+`CopyAnnuncio.stato` restava «attiva» per sempre.
+
+- Ora l'esito allinea anche la parola (`pausa_keyword` → `in_pausa` +
+  `PAUSED`), agganciandola per `idEsterno` quando c'è, altrimenti per testo
+  ripulito dentro la campagna.
+- **Riparate 8 keyword** già in quello stato.
+
+> ⚠️ **Nella riparazione all'indietro si è toccato SOLO `stato`, non
+> `statoPiattaforma`.** Da allora l'import può aver letto qualcosa di più
+> fresco: su `fioraio milano (phrase)` la pausa risulta eseguita ma **Google
+> lo dà ancora attivo**, e scriverci PAUSED sopra avrebbe cancellato proprio
+> il segnale che vale la pena guardare. Ora quella riga dice «In pausa» +
+> «attiva su Google», che è la verità e una domanda aperta.
+
+**«Cosa vede chi cerca» non si capiva**, ed erano tre difetti insieme:
+
+- **`31/15`** si legge come «31 su un massimo di 15», cioè un errore. Non lo
+  era: 31 sono i titoli *diversi* della campagna, 15 quanti ne mostra un
+  *singolo annuncio*, e «max 30 caratteri» era una terza cosa ancora — la
+  lunghezza. Tre numeri schiacciati in uno, ora scritti per esteso.
+- **«DAL MIGLIORE AL PEGGIORE SECONDO GOOGLE»** sopra un elenco in cui ogni
+  riga diceva `NOT_APPLICABLE`: una classifica promessa e mai mantenuta, con
+  un ordinamento che non voleva dire niente. Quando non c'è **nemmeno un**
+  giudizio vero, ora lo si dichiara e si ordina per lunghezza — l'unica cosa
+  azionabile rimasta. Il gergo (`BEST`, `LOW`) è tradotto, e
+  `NOT_APPLICABLE` non compare più riga per riga.
+- ⚠️ **`{KeyWord:...}` è inserimento dinamico**: Google ci mette la parola
+  cercata, quindi contarne i caratteri e segnarlo in rosso è un **allarme
+  falso**. Quelle righe dicono «dinamico». Misurato: da 1 falso rosso a 0.
+
 ### «Adatta», e la parola che Google ha sotto un altro nome (05/08/2026)
 
 **«Adatta»** sulle parole che rendono altrove (`portaIdealeQui`,
