@@ -220,6 +220,7 @@ porta **3120**. Design system Deluxy v1.0.
   - I contatori 60/160 sono **un avviso, non un limite**: oltre, Google taglia — scrivere più lungo non è un errore, è solo una parte che non si legge.
   - **Il nostro testo non viene ancora mandato a Shopify**, ed è scritto in pagina. La scrittura verso il negozio è il passo successivo.
   - Le API `/api/v1/collezioni` espongono **entrambe** le coppie: chi integrava leggeva il SEO del negozio e quel valore resta, sotto il nome col suffisso.
+  - ⚠️ **Trappola pagata: 25 scritture in parallelo su un pool da 5.** Il primo allineamento del SEO è morto a metà con «Timed out fetching a new connection from the connection pool (timeout 10s, limit 5)». Non era il pooler di Supabase che faceva i capricci: `Promise.all` su blocchi da **25** update mentre `connection_limit=5` mette 20 richieste in coda, e col database condiviso fra sei app i 10 secondi scadono. Ora c'è `SCRITTURE_INSIEME = 5` in [shopify-collezioni.ts](../src/lib/shopify-collezioni.ts), usata da tutti i cicli di scrittura. **Regola generale per le app Deluxy su questo cluster: non mandare insieme più scritture di quante connessioni si hanno.**
 
 ## COME AVVIARE
 ```

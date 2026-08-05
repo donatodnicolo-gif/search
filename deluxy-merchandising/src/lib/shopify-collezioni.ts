@@ -71,6 +71,15 @@ function codiceDaSku(skus: string[]): string | null {
   return basi.size === 1 ? [...basi][0] : null;
 }
 
+/**
+ * Quante scritture si mandano insieme. **Non più di quante connessioni ha il
+ * pool** (`connection_limit=5` nella DATABASE_URL): a 25 in parallelo le
+ * eccedenti restano in coda e, col database condiviso fra più app, scadono i
+ * 10 secondi di attesa e l'intero giro muore a metà.
+ * Costato una volta il 03/08/2026, con l'allineamento del SEO.
+ */
+const SCRITTURE_INSIEME = 5;
+
 const attendi = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
@@ -558,8 +567,8 @@ export async function allineaProdottiAlNegozio(
     blocco.push({ id: m.id, p });
   }
   let aggiornati = 0;
-  for (let i = 0; i < blocco.length; i += 25) {
-    const parte = blocco.slice(i, i + 25);
+  for (let i = 0; i < blocco.length; i += SCRITTURE_INSIEME) {
+    const parte = blocco.slice(i, i + SCRITTURE_INSIEME);
     await Promise.all(
       parte.map(({ id, p }) => {
         const ggRaw = p.consegna?.value?.trim();
@@ -817,9 +826,9 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
 
     // Aggiornamento in blocchi: sono migliaia di righe, una per volta ci
     // metterebbe minuti.
-    for (let i = 0; i < daAggiornare.length; i += 25) {
+    for (let i = 0; i < daAggiornare.length; i += SCRITTURE_INSIEME) {
       await Promise.all(
-        daAggiornare.slice(i, i + 25).map((d) =>
+        daAggiornare.slice(i, i + SCRITTURE_INSIEME).map((d) =>
           prisma.prodotto.update({
             where: { id: d.id },
             data: {
