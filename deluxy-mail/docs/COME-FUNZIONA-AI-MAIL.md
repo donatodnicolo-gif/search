@@ -401,6 +401,19 @@ sei**: stessa cartella o sezione, stessa casella se ne stai guardando una sola, 
 negli Archiviati o nel Cestino ci si muove lì dentro. In cima o in fondo all'elenco il
 tasto resta al suo posto, spento.
 
+**Chiedi a questa conversazione.** In fondo alla mail c'è **«AI Chiedi a questa
+conversazione»**: scrivi una domanda a parole — *«ci hanno mandato l'IBAN?»*, *«hanno
+confermato per giovedì?»*, *«che prezzo avevano fatto a marzo?»* — e la risposta arriva
+lì, non in una bozza da mandare a qualcuno. Cerca **solo dentro quello scambio** e ti dice
+sempre **da dove viene**: le parole esatte della mail e il link per aprirla e controllare.
+Se il dato non c'è scritto, risponde **«Non l'ho trovato»** invece di inventarselo — e
+«non sono sicuro» conta come non trovato: su una fattura o una data di consegna una
+risposta verosimile e sbagliata è peggio di nessuna risposta. La domanda non si salva.
+
+> Diverso da **«Delega Renè»**, che serve a *far scrivere* (prepara una mail o mette un
+> appuntamento in agenda). Se chiedi a Renè «c'è l'IBAN?», lui scrive al fornitore per
+> chiederglielo; qui invece la risposta la dai a te.
+
 **Inoltrare porta con sé gli allegati.** Non serve riscaricarli e riallegarli: i file
 dell'originale partono con l'inoltro, e la schermata te lo dice prima («📎 I 3 allegati
 dell'originale partono con l'inoltro»). L'app se li riprende **dalla casella**, non dal

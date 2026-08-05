@@ -7,6 +7,7 @@ import { ConversazioneStack } from '@/components/ConversazioneStack'
 import { BozzaEditor } from '@/components/BozzaEditor'
 import { AzioniMessaggio } from '@/components/AzioniMessaggio'
 import { NavigaMessaggi } from '@/components/NavigaMessaggi'
+import { ChiediConversazione } from '@/components/ChiediConversazione'
 import { mailVicine } from '@/lib/vicine'
 import { PrioritaButtons } from '@/components/PrioritaButtons'
 import { Rianalizza } from '@/components/Rianalizza'
@@ -364,6 +365,14 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
         {messaggio.allegati > 0 && (
           <AllegatiMessaggio messaggioId={messaggio.id} quanti={messaggio.allegati} />
         )}
+
+        {/* Una DOMANDA su questo scambio, con la risposta qui e la mail da cui
+            viene. Sta in fondo alla mail, dove uno arriva dopo averla letta e
+            si accorge che gli manca un dato. Non è «Delega Renè»: quella
+            prepara sempre una mail da mandare, non una risposta per te. */}
+        <div style={{ marginTop: 14 }}>
+          <ChiediConversazione messaggioId={messaggio.id} quante={conversazione.length} />
+        </div>
       </div>
 
       {/* IL DETTAGLIO DELLA CONVERSAZIONE sta DOPO la mail: prima si legge,

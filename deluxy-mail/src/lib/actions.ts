@@ -108,9 +108,11 @@ import {
   preparaRispostaDelegata,
   preparaEventoDelegato,
   riassumiThreadOra,
+  rispondiSuThreadOra,
   scaricaStorico,
   sincronizzaUtente,
   traduciMessaggioSeServe,
+  type EsitoDomanda,
   type QuadroContatto,
   type RiassuntoThreadSalvato,
 } from './sync'
@@ -402,6 +404,21 @@ export async function riassumiConversazione(
   const esito = await riassumiThreadOra(utenteId, messaggioId)
   revalidatePath('/', 'layout')
   return esito
+}
+
+/**
+ * Una DOMANDA su una conversazione: «ci hanno mandato l'IBAN?», «hanno
+ * confermato per giovedì?». Risponde a schermo citando la mail da cui viene.
+ *
+ * ⚠️ Niente `revalidatePath`: non cambia niente nel database (la domanda non si
+ * salva), e rifare la pagina renderebbe lenta una cosa che deve sembrare una
+ * risposta.
+ */
+export async function chiediAllaConversazione(
+  messaggioId: string,
+  domanda: string
+): Promise<EsitoDomanda> {
+  return rispondiSuThreadOra(await uid(), messaggioId, domanda)
 }
 
 export async function eseguiAttivita(

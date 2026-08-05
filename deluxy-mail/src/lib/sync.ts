@@ -11,6 +11,7 @@ import {
   estraiAppuntamento,
   rilevaETraduci,
   riassumiThread,
+  rispondiSuThread,
   giudicaSpam,
   type AnalisiThreadVista,
 } from './ai'
@@ -1870,6 +1871,79 @@ export async function riassumiThreadOra(
       ok: true,
       messaggio: `Letti ${messaggi.length} messaggi di ${partecipanti} ${partecipanti === 1 ? 'parte' : 'parti'}.`,
       riassunto: { chiave, analisi: vista, partecipanti, messaggiVisti: messaggi.length, generatoIl: salvato.generatoIl },
+    }
+  } catch (e) {
+    return { ok: false, messaggio: inItaliano(e instanceof Error ? e.message : String(e)) }
+  }
+}
+
+/** La risposta a una domanda su una conversazione, con la mail da cui viene. */
+export type EsitoDomanda = {
+  ok: boolean
+  messaggio: string
+  trovato?: boolean
+  risposta?: string
+  citazione?: string
+  /** La mail in cui sta la risposta: id per aprirla, più chi e quando. */
+  fonte?: { id: string; chi: string; data: Date; oggetto: string } | null
+  lette?: number
+}
+
+/**
+ * «Ci hanno mandato l'IBAN?», «hanno confermato per giovedì?» — una domanda su
+ * QUESTA conversazione, con la risposta a schermo.
+ *
+ * ⚠️ Perché non passa da «Delega Renè»: quella ha due soli esiti, `risposta` o
+ * `agenda` (`classificaDelega`), quindi a «c'è l'IBAN?» preparava **una mail
+ * che chiede l'IBAN**. Domandare e far scrivere sono due cose diverse.
+ *
+ * ⚠️ La risposta torna sempre con la **fonte** (mail + parole esatte): su una
+ * fattura o una data di consegna un «sì» non verificabile non è usabile. E il
+ * «non l'ho trovato» è una risposta legittima, preferita a una plausibile e
+ * falsa — la stessa regola per cui qui i dati critici non si deducono.
+ *
+ * Non si salva niente: è una domanda, non un documento.
+ */
+export async function rispondiSuThreadOra(
+  utenteId: string,
+  messaggioId: string,
+  domanda: string
+): Promise<EsitoDomanda> {
+  const pulita = domanda.trim().slice(0, 500)
+  if (!pulita) return { ok: false, messaggio: 'Scrivi la domanda.' }
+
+  const messaggi = await messaggiThread(utenteId, messaggioId)
+  if (messaggi.length === 0) return { ok: false, messaggio: 'Conversazione non trovata.' }
+
+  const ctx = await contestoAI(utenteId)
+  const conIndice = messaggi.map((m, i) => ({
+    idx: i,
+    daMe: m.direzione === 'uscita',
+    chi: m.mittenteNome || m.mittente,
+    data: m.data,
+    oggetto: m.oggetto,
+    corpo: m.corpoTradotto || m.corpoTesto, // se tradotta, l'italiano
+  }))
+
+  try {
+    const r = await rispondiSuThread({
+      domanda: pulita,
+      messaggi: conIndice,
+      contestoAzienda: ctx.contestoAzienda,
+      oggi: new Date(),
+    })
+    const i = r.msgIdx
+    const m = Number.isInteger(i) && i >= 0 && i < messaggi.length ? messaggi[i] : null
+    return {
+      ok: true,
+      messaggio: '',
+      // Senza la mail da cui viene, la risposta NON si dichiara trovata: una
+      // citazione che non si può aprire vale quanto un'affermazione secca.
+      trovato: r.trovato && m !== null,
+      risposta: r.risposta,
+      citazione: r.citazione,
+      fonte: m ? { id: m.id, chi: m.mittenteNome || m.mittente, data: m.data, oggetto: m.oggetto } : null,
+      lette: messaggi.length,
     }
   } catch (e) {
     return { ok: false, messaggio: inItaliano(e instanceof Error ? e.message : String(e)) }
