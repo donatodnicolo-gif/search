@@ -116,6 +116,11 @@ model Prodotto {
   seoDescrizioneShopify String?
   seoTitolo             String?
   seoDescrizione        String?
+  // Quando il **nostro** SEO è stato cambiato e quando è stato mandato al
+  // negozio: se il primo è più recente del secondo, c'è da sincronizzare.
+  // Stessa convenzione di ordineModificatoIl / ordineSpintoIl.
+  seoModificatoIl DateTime?
+  seoSpintoIl     DateTime?
   // Lo **stato del prodotto sul negozio**: ACTIVE | DRAFT | ARCHIVED, letto a
   // ogni import. Sta qui e non nella `fase` perché la fase è la leva **umana**
   // (è così che si archiviano a mano le righe di servizio) e un import non deve
@@ -398,6 +403,11 @@ model CollezioneShopify {
   seoDescrizioneShopify String?
   seoTitolo       String?
   seoDescrizione  String?
+  // Quando il **nostro** SEO è stato cambiato e quando è stato mandato al
+  // negozio: se il primo è più recente del secondo, c'è da sincronizzare.
+  // Stessa convenzione di ordineModificatoIl / ordineSpintoIl.
+  seoModificatoIl DateTime?
+  seoSpintoIl     DateTime?
   modelloTema     String? // templateSuffix: quale layout usa il tema
   // È pubblicata sul negozio online, cioè la vedono i clienti? Letto da Shopify
   // (publishedOnPublication sull'Online Store). Visual mostra solo queste: una

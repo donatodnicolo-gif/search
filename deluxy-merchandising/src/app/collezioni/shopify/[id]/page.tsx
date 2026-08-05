@@ -23,8 +23,15 @@ export const dynamic = "force-dynamic";
 // Scheda di una collezione **di Shopify**: chi ci sta dentro fra i prodotti che
 // l'app conosce, e come ha venduto negli ultimi 90 giorni. È la vetrina vista
 // dal lato del merchandising.
-export default async function CollezioneShopifyPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function CollezioneShopifyPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ esito?: string; messaggio?: string; seoConferma?: string }>;
+}) {
   const { id } = await params;
+  const sp = await searchParams;
 
   const collezione = await prisma.collezioneShopify.findUnique({
     where: { id },
@@ -332,6 +339,9 @@ export default async function CollezioneShopifyPage({ params }: { params: Promis
           id={id}
           daNegozio={{ titolo: collezione.seoTitoloShopify, descrizione: collezione.seoDescrizioneShopify }}
           nostro={{ titolo: collezione.seoTitolo, descrizione: collezione.seoDescrizione }}
+          sincronia={{ modificatoIl: collezione.seoModificatoIl, spintoIl: collezione.seoSpintoIl }}
+          percorso={`/collezioni/shopify/${id}`}
+          conferma={sp.seoConferma === "1"}
         />
       </main>
     </div>

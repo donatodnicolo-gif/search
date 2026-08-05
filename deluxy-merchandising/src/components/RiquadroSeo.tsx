@@ -1,4 +1,4 @@
-import { copiaSeoDalNegozio, salvaSeoCollezione, salvaSeoProdotto } from "@/lib/azioni-seo";
+import { copiaSeoDalNegozio, salvaSeoCollezione, salvaSeoProdotto, spingiSeoSuShopify } from "@/lib/azioni-seo";
 
 // Le lunghezze oltre le quali Google taglia il testo nei risultati. Non sono
 // limiti: sono un avviso, perché scrivere più lungo non è un errore — è solo
@@ -20,15 +20,25 @@ export function RiquadroSeo({
   id,
   daNegozio,
   nostro,
+  sincronia,
+  percorso,
+  conferma,
 }: {
   tipo: "prodotto" | "collezione";
   id: string;
   daNegozio: { titolo: string | null; descrizione: string | null };
   nostro: { titolo: string | null; descrizione: string | null };
+  sincronia: { modificatoIl: Date | null; spintoIl: Date | null };
+  /** L'indirizzo di questa pagina: serve al passaggio di conferma, che sta nella query. */
+  percorso: string;
+  conferma?: boolean;
 }) {
   const salva = tipo === "prodotto" ? salvaSeoProdotto : salvaSeoCollezione;
   const vuotoNostro = !nostro.titolo && !nostro.descrizione;
   const cSulNegozio = !daNegozio.titolo && !daNegozio.descrizione;
+  const daMandare =
+    !vuotoNostro && sincronia.modificatoIl != null && (sincronia.spintoIl == null || sincronia.modificatoIl > sincronia.spintoIl);
+  const sep = percorso.includes("?") ? "&" : "?";
 
   return (
     <div className="scheda">
@@ -87,9 +97,40 @@ export function RiquadroSeo({
           )}
         </div>
       </div>
-      <p className="page-sub" style={{ marginTop: 14, marginBottom: 0 }}>
-        Il testo che scrivi qui <b>non viene ancora mandato a Shopify</b>: per ora è il nostro, e un import non lo tocca.
-      </p>
+      {/* **Mandarlo al negozio cambia quello che il cliente legge su Google**,
+          quindi si conferma prima: il bottone porta a uno stato di conferma
+          nella query, non esegue. Stessa idea del × che toglie un prodotto. */}
+      <div style={{ marginTop: 16, borderTop: "1px solid var(--hairline, rgba(0,0,0,.08))", paddingTop: 14 }}>
+        {vuotoNostro ? (
+          <p className="page-sub" style={{ margin: 0 }}>
+            Quando avrai scritto il tuo testo potrai <b>mandarlo al negozio</b> da qui.
+          </p>
+        ) : conferma ? (
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            <form action={spingiSeoSuShopify.bind(null, tipo, id)}>
+              <button type="submit" className="btn btn-primario">Sì, manda al negozio</button>
+            </form>
+            <a className="btn btn-secondario" href={percorso}>Annulla</a>
+            <span className="page-sub" style={{ margin: 0 }}>
+              Sovrascrive il SEO che il negozio ha adesso. Si può rifare quando vuoi.
+            </span>
+          </div>
+        ) : (
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            <a className="btn btn-secondario" href={`${percorso}${sep}seoConferma=1`}>Manda al negozio</a>
+            <span className="page-sub" style={{ margin: 0 }}>
+              {daMandare ? (
+                <b>Il negozio ha ancora la versione precedente.</b>
+              ) : sincronia.spintoIl ? (
+                <>Già mandato il {sincronia.spintoIl.toLocaleDateString("it-IT")}.</>
+              ) : (
+                <>Non è ancora stato mandato.</>
+              )}{" "}
+              Un import <b>non</b> lo manda da solo: succede solo premendo qui.
+            </span>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

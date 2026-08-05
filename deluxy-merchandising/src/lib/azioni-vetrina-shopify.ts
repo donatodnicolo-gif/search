@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "./db";
-import { tokenDi, VERSIONE_API } from "./negozi";
+import { tokenDi } from "./negozi";
+import { graphqlNegozio } from "./shopify-scrittura";
 import { numeraPosizioni, applicaRegoleACollezione, regoleDaForm, FILTRO_IN_SCENA } from "./ordinamento-vetrina";
 
 /** Applica una o più regole in priorità: propone l'ordine come punto di partenza. */
@@ -42,20 +43,6 @@ export async function spostaInCollezione(
   revalidatePath(`/visual/${collezioneId}`);
 }
 
-async function graphqlNegozio(dominio: string, token: string, query: string, variables: Record<string, unknown>) {
-  const res = await fetch(`https://${dominio}/admin/api/${VERSIONE_API}/graphql.json`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Shopify-Access-Token": token },
-    body: JSON.stringify({ query, variables }),
-    signal: AbortSignal.timeout(30000),
-    cache: "no-store",
-  });
-  const corpo = (await res.json().catch(() => ({}))) as {
-    data?: Record<string, { userErrors?: { message: string }[] } & Record<string, unknown>>;
-    errors?: { message: string }[];
-  };
-  return { status: res.status, corpo };
-}
 
 /**
  * **Toglie un prodotto dalla collezione, sul negozio vero.**

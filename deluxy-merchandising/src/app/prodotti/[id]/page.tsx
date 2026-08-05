@@ -42,10 +42,10 @@ export default async function ProdottoPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ tab?: string; esito?: string }>;
+  searchParams: Promise<{ tab?: string; esito?: string; messaggio?: string; seoConferma?: string }>;
 }) {
   const { id } = await params;
-  const { tab: tabRaw, esito } = await searchParams;
+  const { tab: tabRaw, esito, seoConferma } = await searchParams;
   const tab = TABS.some(([t]) => t === tabRaw) ? tabRaw! : "panoramica";
 
   const [prodotto, collezioni] = await Promise.all([
@@ -539,6 +539,9 @@ export default async function ProdottoPage({
               id={id}
               daNegozio={{ titolo: prodotto.seoTitoloShopify, descrizione: prodotto.seoDescrizioneShopify }}
               nostro={{ titolo: prodotto.seoTitolo, descrizione: prodotto.seoDescrizione }}
+              sincronia={{ modificatoIl: prodotto.seoModificatoIl, spintoIl: prodotto.seoSpintoIl }}
+              percorso={`/prodotti/${id}?tab=shopify`}
+              conferma={seoConferma === "1"}
             />
             <div className="scheda">
               <div className="scheda-titolo">Stato di pubblicazione</div>
