@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SESSION_COOKIE, leggiSessione } from "@/lib/session";
+import { daMobile } from "@/lib/dispositivo";
 
 export async function middleware(req: NextRequest) {
   // La cassaforte /api/chiavi è server-to-server: si autentica col proprio token
@@ -24,6 +25,25 @@ export async function middleware(req: NextRequest) {
     req.nextUrl.pathname.startsWith("/stato");
   if (soloAdmin && sessione.ruolo !== "admin") {
     return NextResponse.redirect(new URL("/", req.url));
+  }
+
+  // Cartellino: si timbra solo da una postazione desktop. Il controllo è qui
+  // (vale per pagine, form e server action, che passano tutte da qui) e viene
+  // ripetuto lato server in richiediDesktop(). La pagina che spiega la regola
+  // deve restare raggiungibile anche dal telefono, altrimenti si gira in tondo.
+  const cartellino = req.nextUrl.pathname.startsWith("/cartellino");
+  if (
+    cartellino &&
+    !req.nextUrl.pathname.startsWith("/cartellino/solo-desktop") &&
+    daMobile(req.headers.get("user-agent"), req.headers.get("sec-ch-ua-mobile"))
+  ) {
+    return NextResponse.redirect(new URL("/cartellino/solo-desktop", req.url));
+  }
+
+  // Le richieste degli altri le decide un amministratore; il proprio cartellino
+  // resta di tutti.
+  if (req.nextUrl.pathname.startsWith("/cartellino/gestione") && sessione.ruolo !== "admin") {
+    return NextResponse.redirect(new URL("/cartellino", req.url));
   }
 
   return NextResponse.next();

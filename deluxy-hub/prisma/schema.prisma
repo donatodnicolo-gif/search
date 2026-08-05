@@ -50,6 +50,78 @@ model TokenApi {
   ultimoUso DateTime?
 }
 
+// ---------- Cartellino (timbrature, presenze, assenze) ----------
+
+// Una singola marcatura del cartellino: l'utente entra o esce. Una timbratura
+// non si modifica e non si cancella: è il registro dei fatti, come il cartellino
+// di carta. Le correzioni si aggiungono (origine "manuale"), così resta scritto
+// che quella riga è stata messa a mano e non timbrata.
+// `giorno` è la data in fuso Europe/Rome ("YYYY-MM-DD") già calcolata: il server
+// gira in UTC e senza questo campo una timbratura delle 00:30 italiane finirebbe
+// nel giorno prima. Si raggruppa e si indicizza su quello.
+model Timbratura {
+  id       String   @id @default(cuid())
+  utente   Utente   @relation(fields: [utenteId], references: [id], onDelete: Cascade)
+  utenteId String
+  verso    String // entrata | uscita
+  istante  DateTime @default(now())
+  giorno   String // "YYYY-MM-DD" in fuso Europe/Rome
+  // web = timbrata col bottone; manuale = inserita a mano (dimenticanza, trasferta)
+  origine  String   @default("web")
+  note     String   @default("")
+
+  @@index([utenteId, giorno])
+  @@index([giorno])
+}
+
+// Un'assenza dichiarata dal membro. Ferie, permessi e trasferte sono RICHIESTE
+// (le approva un admin); la malattia è un FATTO che si registra e basta — lì
+// quello che conta è il certificato allegato, non il permesso di chi gestisce.
+model Assenza {
+  id            String    @id @default(cuid())
+  utente        Utente    @relation(fields: [utenteId], references: [id], onDelete: Cascade)
+  utenteId      String
+  tipo          String // ferie | permesso | malattia | trasferta
+  dal           DateTime // mezzanotte del primo giorno (fuso Europe/Rome)
+  al            DateTime // mezzanotte dell'ultimo giorno, incluso
+  motivo        String    @default("")
+  // in-attesa | approvata | respinta (ferie, permessi, trasferte)
+  // registrata (malattia: non passa da approvazione)
+  stato         String    @default("in-attesa")
+  decisaDa      String? // id dell'admin che ha deciso
+  decisaDaNome  String    @default("")
+  decisaIl      DateTime?
+  notaDecisione String    @default("")
+  creataIl      DateTime  @default(now())
+
+  certificati Certificato[]
+
+  @@index([utenteId])
+  @@index([stato])
+}
+
+// Il certificato di malattia (o il giustificativo di un permesso). Il file sta
+// nel database e non su disco: le funzioni Vercel non hanno un disco persistente
+// e qui parliamo di pochi file l'anno. Limite 5 MB, solo PDF/JPEG/PNG. Il campo
+// `dati` non va MAI incluso in una query di elenco: si legge solo nella rotta di
+// download, che controlla prima chi sta chiedendo.
+model Certificato {
+  id         String   @id @default(cuid())
+  utente     Utente   @relation(fields: [utenteId], references: [id], onDelete: Cascade)
+  utenteId   String
+  assenza    Assenza? @relation(fields: [assenzaId], references: [id], onDelete: Cascade)
+  assenzaId  String?
+  nomeFile   String
+  tipoMime   String
+  dimensione Int // byte
+  dati       Bytes
+  protocollo String   @default("") // numero di protocollo del certificato, se c'è
+  caricatoIl DateTime @default(now())
+
+  @@index([utenteId])
+  @@index([assenzaId])
+}
+
 model Utente {
   id            String    @id @default(cuid())
   email         String    @unique
@@ -66,6 +138,11 @@ model Utente {
   attivo        Boolean   @default(true)
   creatoIl      DateTime  @default(now())
   ultimoAccesso DateTime?
+
+  // Cartellino: cancellando l'utente sparisce anche il suo cartellino (cascade).
+  timbrature  Timbratura[]
+  assenze     Assenza[]
+  certificati Certificato[]
 
   @@index([ruolo])
 }

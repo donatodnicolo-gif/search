@@ -1,7 +1,7 @@
 # Deluxy Hub — Handoff per ripartire
 
 > Documento per una nuova sessione (anche altro account Claude) che riprende il
-> lavoro sul portale. Aggiornato: **23 luglio 2026**.
+> lavoro sul portale. Aggiornato: **5 agosto 2026**.
 > Leggi anche [README.md](README.md) (dettagli completi) e la memoria del progetto.
 
 ---
@@ -16,10 +16,10 @@ app resta autonoma, il Hub la linka soltanto.
   action, Prisma, Postgres/Supabase, Deluxy Design System). Porta dev: **3050**.
 - **Produzione**: **https://deluxy-hub.vercel.app** — URL pubblico ma **non mostra
   nulla senza login**. Stato: **online e funzionante**.
-- **Git**: repo radice `C:\Users\nicol\scoutwt`, branch **`scout-ui`**. Ultimo
-  commit del Hub: `6870236`. Working tree pulito. ⚠️ **1 commit locale non ancora
-  su `origin/scout-ui`** (l'ultimo). I file sono tutti su disco: una sessione sulla
-  stessa macchina li vede subito, senza `git pull`.
+- **Git**: repo radice `C:\Users\nicol\scoutwt`, branch **`scout-ui`**. Al
+  5 agosto 2026 il working tree del Hub è pulito e tutto è su `origin/scout-ui`.
+  ⚠️ Nel repo committano **più sessioni in parallelo**: prima di pushare `git
+  fetch` e controlla il *contenuto* su origin, non solo lo SHA.
 
 ### ⚠️ Attenzione: cartella condivisa con un'altra sessione
 Un'altra sessione Claude lavora **nella stessa cartella** e ha aggiunto in
@@ -44,7 +44,7 @@ quella qui sopra, leggibile nel file `.env` locale.
 
 ---
 
-## 3. Le 15 app del portale
+## 3. Le 16 app del portale
 
 Ordine alfabetico A→Z (ordinamento fatto in `catalogoApp()`).
 
@@ -53,7 +53,7 @@ Ordine alfabetico A→Z (ordinamento fatto in `catalogoApp()`).
 | AI Mail | `APP_URL_MAIL` (dev 3070) | solo admin | |
 | Anagrafiche | `APP_URL_ANAGRAFICHE` (dev 3060) | admin, commerciale | |
 | Attività | `https://deluxy-tasks.vercel.app` | solo admin | default nel codice, override con `APP_URL_TASKS` (dev 3090), **`sso: true`** |
-| Budgets | `https://deluxy-budgets.vercel.app` | solo admin | default nel codice, override con `APP_URL_BUDGETS` |
+| Budgets | `https://deluxy-budgets.vercel.app` | admin, commerciale | default nel codice, override con `APP_URL_BUDGETS`, **`sso: true`** (i commerciali vedono solo le proposte: filtra Budgets, non il Hub) |
 | Calendario | `https://deluxy-calendario.vercel.app` | solo admin | default nel codice, override con `APP_URL_CALENDARIO` (dev 3110), **`sso: true`** |
 | Commerciale Scout | `https://deluxy-scout.vercel.app` | admin, commerciale | export web Expo |
 | Consegne | `https://deluxy-delivery.vercel.app` | solo admin | |
@@ -61,9 +61,10 @@ Ordine alfabetico A→Z (ordinamento fatto in `catalogoApp()`).
 | Maison | `https://deluxy-os.base44.app/` | tutti i ruoli | Deluxy OS su base44 |
 | Marketing | `https://deluxy-marketing.vercel.app` | solo admin | default nel codice, override con `APP_URL_MARKETING` |
 | Merchandising | `https://deluxy-merchandising.vercel.app` | admin, commerciale | default nel codice, override con `APP_URL_MERCHANDISING` |
-| Messaggi | `https://deluxy-messaging.vercel.app` | admin, commerciale | default nel codice, override con `APP_URL_MESSAGGI` |
+| Customer Service | `https://deluxy-messaging.vercel.app` | admin, commerciale | id interno = `messaggi` (era "Messaggi": è cambiato solo il `nome`), override `APP_URL_MESSAGGI` |
 | Ordini | `https://deluxy-orders.vercel.app` | solo admin | default nel codice, override con `APP_URL_ORDERS` |
 | Ricerca fornitori | `https://search-deluxy.vercel.app` | admin, commerciale | id interno = `search` |
+| Scripts | `https://deluxy-scripts.vercel.app` | solo admin | i testi pronti da mandare ai clienti, override `APP_URL_SCRIPTS`, **`sso: true`** |
 | Transactions | `https://deluxy-transactions.vercel.app` | solo admin | autorizza i pagamenti; chi firma va aggiunto dentro l'app |
 
 - Regola generale: senza `APP_URL_*` l'app **sparisce in produzione** (helper `url()`
@@ -110,6 +111,10 @@ Dato salvato: `Utente.appAbilitate String[]` (id delle app), vedi
 | [`src/lib/stato-servizi.ts`](src/lib/stato-servizi.ts) | interroga l'health di ogni app del catalogo (server + database) |
 | [`src/app/stato`](src/app/stato) | pagina **Stato servizi** (admin) |
 | [`src/app/api/health`](src/app/api/health) | health-check del Hub stesso |
+| [`src/lib/cartellino.ts`](src/lib/cartellino.ts) | regole del cartellino: fuso Europe/Rome, coppie entrata/uscita, durate (codice puro, senza database) |
+| [`src/lib/cartellino-actions.ts`](src/lib/cartellino-actions.ts) | timbra, registra giornata, chiedi assenza, carica certificato, approva/respingi |
+| [`src/lib/dispositivo.ts`](src/lib/dispositivo.ts) · [`solo-desktop.ts`](src/lib/solo-desktop.ts) | riconoscimento telefono/tablet e guardia `richiediDesktop()` |
+| [`src/app/cartellino`](src/app/cartellino) | il proprio cartellino, `gestione` (admin), `certificato/[id]` (download), `solo-desktop` (spiegazione) |
 
 ---
 
@@ -152,6 +157,46 @@ Messaggi, Orders, Transactions. **Rossa AI Mail** (database non raggiungibile).
 Scout, Ricerca fornitori, Maison.
 
 ---
+
+## 5-ter. Cartellino (5 agosto 2026)
+
+Sezione **`/cartellino`**, in alto a destra nella barra (con il pallino verde
+quando si è dentro), per **tutti** i ruoli: timbratura entrata/uscita, ore del
+mese, giornate registrate a mano, richieste di ferie/permessi/trasferte,
+malattia con certificato. Gli admin hanno anche **`/cartellino/gestione`**:
+richieste da decidere, chi è in sede adesso, ore e giorni di assenza di tutti,
+mese per mese. Il manuale sta nel [README](README.md#il-cartellino).
+
+**Si usa solo da computer** — una timbratura dal telefono potrebbe partire da
+ovunque. La regola è scritta in tre punti, non uno: middleware (redirect a
+`/cartellino/solo-desktop`), `richiediDesktop()` dentro ogni pagina e ogni server
+action, CSS che nasconde il bottone sotto i 900px. Verificato con user-agent di
+iPhone, Android e iPad: `307` verso la pagina di spiegazione, anche sulle POST.
+
+**Dati** (schema `hub`): `Timbratura`, `Assenza`, `Certificato` — create con
+`npx prisma db push` il 5/08/2026 (solo `CREATE TABLE`, nessuna tabella esistente
+toccata). Legate a `Utente` con cascata: cancellando una persona sparisce il suo
+cartellino. I certificati (PDF/JPEG/PNG, max 5 MB) stanno **nel database**: le
+funzioni Vercel non hanno un disco che resta. `Certificato.dati` non va mai letto
+in una query di elenco — solo nella rotta di download, che verifica prima chi
+chiede (proprietario o admin).
+
+**Quattro cose da non rompere:**
+
+1. **Il fuso**: il server è in UTC, si timbra in Italia. Ogni timbratura salva il
+   `giorno` già calcolato su `Europe/Rome`; senza, un turno serale finisce nel
+   giorno prima. Le conversioni stanno in `cartellino.ts`.
+2. **Il `value` di un bottone non arriva a una server action**: React costruisce
+   la FormData dal form, non dal submitter. «Approva» e «Respingi» sono due
+   `formAction` diverse sullo stesso form — non un campo `decisione`. È stato un
+   bug vero, trovato provando la pagina.
+3. **Il verso della timbratura non si accetta dal client**: si guarda l'ultima
+   riga del giorno e si fa il gesto opposto, altrimenti due click aprono due turni.
+4. **Un turno aperto di un giorno passato vale zero minuti**, non le ore fino ad
+   adesso (`minutiLavorati(..., null)`).
+
+Il limite del corpo delle server action è alzato a 6 MB in `next.config.ts`:
+il default è 1 MB e un certificato scansionato lo supera.
 
 ## 6. Deploy e ambiente (Vercel)
 
@@ -214,8 +259,12 @@ npm run dev            # http://localhost:3050
   serve lo stesso segreto nelle env di Partner + redeploy — **prima** però va
   impostata `PARTNER_APP_PASSWORD_READONLY`, altrimenti i ruoli non-admin
   entrerebbero con l'accesso pieno (vedi `deluxy-partner/src/app/api/sso/route.ts`).
-- **URL pubblici mancanti**: solo Calendario punta ancora a `localhost` (3110).
-  Quando sarà pubblicata: `APP_URL_CALENDARIO` su Vercel (o default nel codice) + redeploy.
+- **URL pubblici**: dal 26/07 anche Calendario punta alla produzione. Restano con
+  ripiego su `localhost` solo Finance (3040), Anagrafiche (3060) e AI Mail (3070),
+  che in produzione prendono comunque l'`APP_URL_*` da Vercel.
+- **Cartellino**: nessuno ha ancora timbrato (le tabelle sono vuote). Da decidere
+  se serve un tetto di ferie annuo per persona: oggi il Hub conta i giorni chiesti,
+  non li scala da un monte ore.
 - **Nessun recupero password autonomo**: lo reimposta un admin da `/utenti`.
 - **Creare gli utenti veri** del team da `/utenti` (finora esiste solo l'admin).
 

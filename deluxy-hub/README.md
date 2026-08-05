@@ -113,6 +113,53 @@ connection string Supabase con `?schema=hub` in fondo.
 | `/profilo` | tutti | proprio ruolo, app abilitate, cambio password |
 | `/utenti` | solo admin | crea, sceglie app per utente, cambia ruolo/password, attiva/disattiva, elimina |
 | `/chiavi` | solo admin | cassaforte dei segreti dei progetti: valori cifrati sul database, mascherati in lista, rivelabili uno alla volta |
+| `/stato` | solo admin | semaforo server + database di ogni app del catalogo |
+| `/cartellino` | tutti, **solo da computer** | il proprio cartellino: timbra, ore del mese, ferie/permessi/malattia, certificati |
+| `/cartellino/gestione` | solo admin, **solo da computer** | richieste da approvare, chi è in sede adesso, ore e assenze di tutti |
+
+### Il Cartellino
+
+Il registro delle presenze di chi lavora in Deluxy, dentro il portale invece che
+su un foglio: si trova **in alto a destra** nella barra, accanto al proprio nome,
+con un pallino verde quando si è dentro.
+
+Cosa ci si fa:
+
+- **Timbrare**: un bottone solo, che alterna entrata e uscita. Il verso non
+  arriva dal form ma si deduce dall'ultima timbratura della giornata, così due
+  click ravvicinati non aprono due turni.
+- **Registrare una giornata a mano** (dimenticanza, cliente in sede): resta
+  marcata `origine: "manuale"`, e nel riepilogo del mese si legge «contiene righe
+  inserite a mano». Una timbratura non si modifica e non si cancella: le
+  correzioni si aggiungono.
+- **Chiedere ferie, permessi e trasferte**: nascono `in-attesa` e le decide un
+  admin da `/cartellino/gestione`, con una nota che chi ha chiesto rivede sul
+  proprio cartellino. Finché nessuno ha risposto si possono ritirare.
+- **Registrare una malattia**: non è una richiesta, quindi nasce già
+  `registrata`. Quello che conta è il **certificato**, che si allega subito o più
+  tardi (il medico lo manda il giorno dopo: è la norma).
+- **Caricare certificati**: PDF, JPEG o PNG fino a **5 MB**, con il numero di
+  protocollo. Il file sta nel database (le funzioni Vercel non hanno un disco che
+  resta) e si scarica da `/cartellino/certificato/<id>`, che lo dà **solo** a chi
+  l'ha caricato e agli admin: è un dato sanitario, e l'indirizzo si può digitare.
+
+**Solo da computer.** Una timbratura fatta dal telefono potrebbe partire da
+qualsiasi posto, quindi la sezione si apre solo da una postazione desktop. La
+regola è applicata in tre punti: il middleware reindirizza a
+`/cartellino/solo-desktop` (pagina che spiega, raggiungibile anche dal telefono,
+altrimenti si girerebbe in tondo), ogni server action ripete il controllo con
+`richiediDesktop()` — una action è comunque un POST che si può chiamare a mano —
+e il CSS nasconde il bottone sotto i 900px. Il riconoscimento sta in
+[`src/lib/dispositivo.ts`](src/lib/dispositivo.ts): `sec-ch-ua-mobile` quando c'è,
+altrimenti l'user-agent. Non è una serratura a prova di scasso (un user-agent si
+falsifica): è la regola aziendale resa esplicita.
+
+**Fuso orario.** Il server gira in UTC, l'azienda timbra in Italia: ogni
+timbratura salva anche il `giorno` («2026-08-05») già calcolato su `Europe/Rome`,
+altrimenti un turno serale finirebbe nel giorno prima. Le conversioni ora↔istante
+stanno in [`src/lib/cartellino.ts`](src/lib/cartellino.ts), che è codice puro
+senza database. Un turno lasciato aperto in un giorno passato vale **zero minuti**
+in più, non cento ore.
 
 ### La pagina `/chiavi`
 

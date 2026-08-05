@@ -225,6 +225,82 @@ label.campo > span {
   .stato-note { align-items: flex-start; text-align: left; }
 }
 
+/* ---------- Cartellino ---------- */
+.timbra-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+  flex-wrap: wrap;
+}
+.orologio {
+  display: block;
+  font-size: 40px; font-weight: 600; letter-spacing: -0.025em;
+  font-variant-numeric: tabular-nums;
+}
+.timbra-giorno {
+  font-size: 13.5px; color: var(--text-tertiary);
+  margin-top: 2px;
+  text-transform: capitalize;
+}
+.timbra-stato {
+  margin-top: 14px;
+  font-size: 14px; color: var(--text-secondary);
+  display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
+}
+.timbra-btn { padding: 15px 30px; font-size: 15px; }
+
+.marcature { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.marca {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin: 2px 6px 2px 0;
+  padding: 5px 11px;
+  border-radius: var(--radius-pill);
+  background: var(--fill);
+  font-size: 12.5px; color: var(--text-secondary);
+  white-space: nowrap;
+}
+a.marca:hover { background: var(--fill-hover); }
+.marca em { font-style: normal; font-size: 11.5px; color: var(--text-tertiary); }
+.marca.entrata { background: rgba(36, 138, 61, 0.12); color: var(--green); }
+
+.nota { font-size: 12.5px; color: var(--text-tertiary); line-height: 1.5; margin-top: 12px; }
+.nota-riga { display: block; font-size: 12px; color: var(--text-tertiary); margin-top: 3px; }
+
+.griglia-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  align-items: end;
+}
+.griglia-form label.campo { margin-bottom: 0; }
+.griglia-form button { justify-content: center; }
+.campo-largo { grid-column: 1 / -1; }
+input[type="file"] { padding: 8px; font-size: 13px; }
+
+.dettaglio { margin-top: 16px; }
+.dettaglio summary { cursor: pointer; font-size: 14px; font-weight: 500; }
+.dettaglio[open] summary { margin-bottom: 6px; }
+
+.mese-nav {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.mese-nav strong { font-size: 15px; text-transform: capitalize; }
+.mese-totale { font-size: 13px; color: var(--text-tertiary); margin-right: auto; }
+
+/* Pallino di stato nel bottone Cartellino della barra in alto */
+.dot-stato { width: 7px; height: 7px; border-radius: 50%; background: var(--text-tertiary); }
+.dot-stato.dentro { background: var(--green); }
+.topbar-ora { font-size: 12px; color: var(--text-tertiary); font-weight: 400; }
+
+/* Il cartellino si usa solo da computer: su schermo stretto il bottone sparisce.
+   È solo il lato estetico della regola — a rifiutare le richieste dal telefono
+   sono il middleware e le server action. */
+@media (max-width: 900px) {
+  .solo-da-desktop { display: none; }
+}
+
 /* ---------- Tabella ---------- */
 table { width: 100%; border-collapse: collapse; }
 th {
