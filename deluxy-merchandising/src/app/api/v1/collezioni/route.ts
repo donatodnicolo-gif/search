@@ -77,6 +77,8 @@ export async function GET(req: NextRequest) {
           ordinamento: c.ordinamento,
           condizioni: descriviRegole(c.regole),
           condizioniDaRispettare: regoleInOEd(c.regole),
+          seoTitoloShopify: c.seoTitoloShopify,
+          seoDescrizioneShopify: c.seoDescrizioneShopify,
           seoTitolo: c.seoTitolo,
           seoDescrizione: c.seoDescrizione,
           modelloTema: c.modelloTema,

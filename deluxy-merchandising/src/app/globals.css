@@ -669,3 +669,10 @@ tr.riga-cliccabile:hover, li.riga-cliccabile:hover { background: var(--fill); cu
   white-space: nowrap;
 }
 .pill-tema:hover { background: color-mix(in srgb, var(--gold) 20%, transparent); }
+
+/* Il riquadro SEO affianca «quello che dice il negozio» e «il nostro». Sotto gli
+   800px le due colonne diventano una: affiancate sarebbero due colonne strette
+   e illeggibili proprio dove si deve scrivere del testo. */
+@media (max-width: 800px) {
+  .seo-griglia { grid-template-columns: 1fr !important; }
+}

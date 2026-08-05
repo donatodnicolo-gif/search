@@ -212,6 +212,15 @@ porta **3120**. Design system Deluxy v1.0.
   - **Verificato su dati veri**: regola con la sola metrica «più venduti» → in cima Botticelli e Rose Rosse; aggiunta la condizione «prima il tipo *Originali Deluxy*» → in cima Regina di Cuori, Red Set, Cappelliera Rose e Palloncino PINK, cioè gli Originali ordinati **fra loro** per venduto. Posizioni e stato ripristinati.
   - **Bug segnalato e corretto**: il × per togliere un prodotto è un link, quindi ricaricava la pagina e riportava **in cima**, perdendo il punto in cui si stava lavorando fra 300 righe. Ogni riga ha ora un'ancora (`#p-<id>`) e × e «annulla» ci puntano.
 
+- **03/08/2026 — SEO di prodotti e collezioni, letto dal negozio e correggibile qui** (chiesto dall'utente: «importa titolo e descrizione SEO che andremo poi a correggere e migliorare»).
+  - **Due coppie di campi, e servono tutte e due.** Col suffisso — `seoTitoloShopify`, `seoDescrizioneShopify` — c'è quello che il negozio dice oggi: riletto e **sovrascritto a ogni import**. Senza suffisso — `seoTitolo`, `seoDescrizione` — c'è **il nostro**, che nessun import tocca. Con un campo solo il primo import avrebbe cancellato il lavoro di revisione. È la convenzione che l'app già usa: `tipoShopify` (letto) accanto a `categoria` (decisa da noi).
+  - Le collezioni avevano già `seoTitolo`/`seoDescrizione` **ma erano i valori letti**: rinominati con `ALTER TABLE … RENAME COLUMN` invece di lasciar fare drop+create a `db push`, così i 166 titoli e 197 descrizioni già importati non si sono persi e non è servito un reimport da 20 minuti.
+  - I **prodotti** non avevano nessun campo SEO: aggiunti tutti e quattro, e la query dell'import legge ora `seo { title description }`.
+  - **Riquadro unico** ([RiquadroSeo.tsx](../src/components/RiquadroSeo.tsx)) in scheda prodotto e scheda collezione: a sinistra quello del negozio, a destra il nostro da scrivere. Affiancati apposta — un campo vuoto senza il testo di partenza accanto vorrebbe dire riscrivere a memoria. C'è «Parti dal testo del negozio», che **non sovrascrive** un nostro testo già presente: un bottone non deve poter buttare via una revisione fatta.
+  - I contatori 60/160 sono **un avviso, non un limite**: oltre, Google taglia — scrivere più lungo non è un errore, è solo una parte che non si legge.
+  - **Il nostro testo non viene ancora mandato a Shopify**, ed è scritto in pagina. La scrittura verso il negozio è il passo successivo.
+  - Le API `/api/v1/collezioni` espongono **entrambe** le coppie: chi integrava leggeva il SEO del negozio e quel valore resta, sotto il nome col suffisso.
+
 ## COME AVVIARE
 ```
 cd deluxy-merchandising

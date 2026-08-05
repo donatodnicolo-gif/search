@@ -108,6 +108,14 @@ model Prodotto {
   // bisogno** (0 = urgenze, 1 = da domani, 2-3 = pianificato, 4-10 = su misura),
   // in src/lib/risposta-bisogno.ts. Null = non dichiarato: non si deduce.
   ggDispMin      Int?
+  // — SEO del prodotto —
+  // Come per le collezioni: col suffisso `Shopify` c'è quello che il negozio
+  // dice oggi (riletto e sovrascritto a ogni import), senza suffisso **il
+  // nostro**, da correggere e migliorare, che nessun import tocca.
+  seoTitoloShopify      String?
+  seoDescrizioneShopify String?
+  seoTitolo             String?
+  seoDescrizione        String?
   // Lo **stato del prodotto sul negozio**: ACTIVE | DRAFT | ARCHIVED, letto a
   // ogni import. Sta qui e non nella `fase` perché la fase è la leva **umana**
   // (è così che si archiviano a mano le righe di servizio) e un import non deve
@@ -379,6 +387,15 @@ model CollezioneShopify {
   tipo            String  @default("manuale") // manuale | automatica (smart collection)
   ordinamento     String? // sortOrder: BEST_SELLING, MANUAL, PRICE_ASC…
   regole          String? // le condizioni di una collezione automatica, in chiaro
+  // — SEO —
+  // **Due coppie, e servono tutte e due.** Quelle col suffisso `Shopify` sono
+  // ciò che il negozio dice oggi: si rileggono a ogni import e si sovrascrivono.
+  // Quelle senza suffisso sono **le nostre**, da correggere e migliorare: un
+  // import non le tocca mai, altrimenti il primo giro cancellerebbe il lavoro.
+  // È la stessa convenzione di `tipoShopify` (letto) accanto a `categoria`
+  // (decisa da noi).
+  seoTitoloShopify      String?
+  seoDescrizioneShopify String?
   seoTitolo       String?
   seoDescrizione  String?
   modelloTema     String? // templateSuffix: quale layout usa il tema

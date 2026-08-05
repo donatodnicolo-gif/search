@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { RiquadroSeo } from "@/components/RiquadroSeo";
 import { Sidebar } from "@/components/Sidebar";
 import { Badge } from "@/components/Badge";
 import { tipologiaRisposta } from "@/lib/risposta-bisogno";
@@ -531,6 +532,14 @@ export default async function ProdottoPage({
                   : "Nessun negozio Shopify collegato (SHOPIFY_STORE_DOMAIN / SHOPIFY_ADMIN_TOKEN non impostati). Puoi comunque preparare e segnare lo stato: il payload è pronto, la scrittura reale sul negozio si attiva collegando le credenziali."}
               </span>
             </div>
+            {/* Il SEO sta nella scheda Shopify perché è lì che vive: è il testo
+                che il negozio mostra a Google. */}
+            <RiquadroSeo
+              tipo="prodotto"
+              id={id}
+              daNegozio={{ titolo: prodotto.seoTitoloShopify, descrizione: prodotto.seoDescrizioneShopify }}
+              nostro={{ titolo: prodotto.seoTitolo, descrizione: prodotto.seoDescrizione }}
+            />
             <div className="scheda">
               <div className="scheda-titolo">Stato di pubblicazione</div>
               <div className="pill-scelta">

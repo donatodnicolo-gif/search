@@ -65,6 +65,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       ordinamento: c.ordinamento,
       condizioni: descriviRegole(c.regole),
       condizioniDaRispettare: regoleInOEd(c.regole),
+      seoTitoloShopify: c.seoTitoloShopify,
+      seoDescrizioneShopify: c.seoDescrizioneShopify,
       seoTitolo: c.seoTitolo,
       seoDescrizione: c.seoDescrizione,
       modelloTema: c.modelloTema,

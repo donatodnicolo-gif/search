@@ -230,6 +230,7 @@ type ProdottoShopifyApi = {
   // la fase delle schede create qui. Letto, non dedotto.
   status: string | null;
   descriptionHtml: string | null;
+  seo: { title: string | null; description: string | null } | null;
   featuredImage: { url: string } | null;
   variants: { nodes: { sku: string | null; title: string | null; price: string | null }[] };
   // Il metafield `prodotto.consegna` (mostrato come "gg_disp_min"): giorni minimi
@@ -256,6 +257,7 @@ async function leggiProdotti(n: Negozio): Promise<ProdottoShopifyApi[]> {
            nodes {
              id title handle productType vendor tags status descriptionHtml
              category { id name fullName }
+             seo { title description }
              featuredImage { url }
              variants(first: 10) { nodes { sku title price } }
              consegna: metafield(namespace: "prodotto", key: "consegna") { value }
@@ -441,6 +443,8 @@ async function creaProdottiMancanti(
           prezzoVendita: prezzo,
           immagine: p.featuredImage?.url ?? null,
           descrizione: descrizioneDa(p.descriptionHtml) ?? null,
+          seoTitoloShopify: p.seo?.title ?? null,
+          seoDescrizioneShopify: p.seo?.description ?? null,
           tipoShopify: p.productType?.trim() || null,
           categoriaShopifyId: p.category?.id ?? null,
           categoriaShopifyNome: p.category?.fullName || p.category?.name || null,
@@ -577,6 +581,8 @@ export async function allineaProdottiAlNegozio(
             immagine: p.featuredImage?.url ?? undefined,
             descrizione: descrizioneDa(p.descriptionHtml),
             prezzoVendita: prezzoDa(p) ?? undefined,
+            seoTitoloShopify: p.seo?.title ?? null,
+            seoDescrizioneShopify: p.seo?.description ?? null,
           },
         });
       }),
@@ -627,8 +633,8 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
           tipo: c.ruleSet ? 'automatica' : 'manuale',
           ordinamento: c.sortOrder ?? null,
           regole: c.ruleSet ? JSON.stringify(c.ruleSet) : null,
-          seoTitolo: c.seo?.title ?? null,
-          seoDescrizione: c.seo?.description ?? null,
+          seoTitoloShopify: c.seo?.title ?? null,
+          seoDescrizioneShopify: c.seo?.description ?? null,
           modelloTema: c.templateSuffix ?? null,
           pubblicataShopify: pub,
           aggiornataShopifyIl: c.updatedAt ? new Date(c.updatedAt) : null,
@@ -642,8 +648,8 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
           tipo: c.ruleSet ? 'automatica' : 'manuale',
           ordinamento: c.sortOrder ?? null,
           regole: c.ruleSet ? JSON.stringify(c.ruleSet) : null,
-          seoTitolo: c.seo?.title ?? null,
-          seoDescrizione: c.seo?.description ?? null,
+          seoTitoloShopify: c.seo?.title ?? null,
+          seoDescrizioneShopify: c.seo?.description ?? null,
           modelloTema: c.templateSuffix ?? null,
           pubblicataShopify: pub,
           aggiornataShopifyIl: c.updatedAt ? new Date(c.updatedAt) : null,
@@ -690,7 +696,7 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
     base.prodottiIgnoti = prodottiShopify.length - risolto.size;
 
     // — Quello che Shopify sa del prodotto —
-    const daAggiornare: { id: string; tipoShopify: string | null; categoriaShopifyId: string | null; categoriaShopifyNome: string | null; vendorShopify: string | null; tagShopify: string | null; handleShopify: string; ggDispMin: number | null; statoShopify: string | null; shopifyId: string; nome: string; immagine: string | undefined; descrizione: string | undefined; prezzoVendita: number | undefined }[] = [];
+    const daAggiornare: { id: string; tipoShopify: string | null; categoriaShopifyId: string | null; categoriaShopifyNome: string | null; vendorShopify: string | null; tagShopify: string | null; handleShopify: string; ggDispMin: number | null; statoShopify: string | null; shopifyId: string; nome: string; immagine: string | undefined; descrizione: string | undefined; prezzoVendita: number | undefined; seoTitoloShopify: string | null; seoDescrizioneShopify: string | null }[] = [];
     for (const p of prodottiShopify) {
       const nostroId = risolto.get(p.id);
       if (!nostroId) continue;
@@ -730,6 +736,11 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
         immagine: p.featuredImage?.url ?? undefined,
         descrizione: descrizioneDa(p.descriptionHtml),
         prezzoVendita: prezzoDa(p) ?? undefined,
+        // Il SEO **del negozio**: si rilegge e si sovrascrive a ogni import,
+        // perche e la fotografia di com e adesso. Il nostro (seoTitolo,
+        // seoDescrizione) sta in campi separati e non si tocca mai.
+        seoTitoloShopify: p.seo?.title ?? null,
+        seoDescrizioneShopify: p.seo?.description ?? null,
       });
     }
 
@@ -827,6 +838,8 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
               immagine: d.immagine,
               descrizione: d.descrizione,
               prezzoVendita: d.prezzoVendita,
+              seoTitoloShopify: d.seoTitoloShopify,
+              seoDescrizioneShopify: d.seoDescrizioneShopify,
             },
           })
         )

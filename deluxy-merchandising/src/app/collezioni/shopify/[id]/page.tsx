@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BarraQuota } from "@/components/Grafico";
+import { RiquadroSeo } from "@/components/RiquadroSeo";
 import { Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
 import { etichettaCategoria, euro, iso, percentuale } from "@/lib/dominio";
@@ -87,7 +88,7 @@ export default async function CollezioneShopifyPage({ params }: { params: Promis
   const cheHannoVenduto = righe.filter((r) => r.pezzi > 0).length;
   const copertura = collezione.prodottiShopify > 0 ? prodotti.length / collezione.prodottiShopify : 0;
   const condizioni = descriviRegole(collezione.regole);
-  const seo = [collezione.seoTitolo, collezione.seoDescrizione].filter(Boolean).join(" — ");
+  const seo = [collezione.seoTitoloShopify, collezione.seoDescrizioneShopify].filter(Boolean).join(" — ");
 
   return (
     <div className="layout">
@@ -178,7 +179,9 @@ export default async function CollezioneShopifyPage({ params }: { params: Promis
                 <dd>{collezione.descrizione ?? "—"}</dd>
               </div>
               <div className="campo campo-largo">
-                <dt>SEO</dt>
+                <dt>SEO sul negozio</dt>
+                {/* Solo quello letto: il nostro si scrive nel riquadro sotto,
+                    dove sta accanto al testo di partenza. */}
                 <dd>{seo || "—"}</dd>
               </div>
             </dl>
@@ -323,6 +326,13 @@ export default async function CollezioneShopifyPage({ params }: { params: Promis
             </>
           )}
         </p>
+
+        <RiquadroSeo
+          tipo="collezione"
+          id={id}
+          daNegozio={{ titolo: collezione.seoTitoloShopify, descrizione: collezione.seoDescrizioneShopify }}
+          nostro={{ titolo: collezione.seoTitolo, descrizione: collezione.seoDescrizione }}
+        />
       </main>
     </div>
   );
