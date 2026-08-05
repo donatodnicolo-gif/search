@@ -1224,6 +1224,123 @@ export async function chiediProposteAi(campagnaId: string) {
 // da approvare come tutte le altre. Le proposte che non corrispondono a
 // un'operazione eseguibile (alza/abbassa: le offerte lo script non le tocca)
 // diventano un'azione del kanban, così non si perdono.
+// Porta qui una parola che funziona su un'altra campagna del brand, dalla
+// tabella «quello che rende altrove e qui manca».
+//
+// `adattaA` è la città di questa campagna quando la parola ne nomina un'altra:
+// «flower delivery milan» dentro Roma non serve a niente com'è — comprerebbe
+// ricerche di chi vuole consegne a Milano — mentre riscritta è esattamente
+// quella che manca. Se è `null` la parola si porta com'è.
+export async function portaIdealeQui(campagnaId: string, testoOriginale: string, adattaA: string | null) {
+  const campagna = await prisma.campagna.findUnique({
+    where: { id: campagnaId },
+    select: { id: true, nome: true, canale: true, idEsterno: true },
+  });
+  if (!campagna) return;
+
+  const pulito = testoKeywordPulito(testoOriginale);
+  let finale = pulito;
+  if (adattaA) {
+    const { perAltraCitta } = await import("./nuova-campagna");
+    const riscritto = perAltraCitta(pulito, adattaA);
+    if (!riscritto) return;
+    finale = riscritto;
+  }
+
+  const op = await prisma.operazioneAdv.create({
+    data: {
+      tipo: "nuova_keyword",
+      canale: campagna.canale,
+      bersaglio: campagna.nome,
+      idEsterno: campagna.idEsterno,
+      parametri: JSON.stringify({ testo: finale, corrispondenza: "broad" }),
+      motivo: adattaA
+        ? `Adattata da «${pulito}» per ${adattaA}: la parola rende su un'altra città e qui manca.`
+        : `Portata da un'altra campagna del brand: funziona lì e qui manca.`,
+      // ⚠️ La parola adattata non ha storia QUI: i numeri che l'hanno fatta
+      // proporre sono dell'altra città. Chi approva deve saperlo.
+      avvisi: adattaA
+        ? `«${finale}» è riscritta da «${pulito}»: su questa città non ha nessun dato alle spalle, la somiglianza non è una misura.`
+        : null,
+      livello: "L1",
+      prima: "assente",
+      campagnaId,
+    },
+  });
+  await registra({
+    autore: "utente",
+    tipo: "creazione",
+    entita: "operazione",
+    entitaId: op.id,
+    titolo: `In coda (da approvare): «${finale}» su ${campagna.nome}`,
+    dettaglio: adattaA ? `Adattata da «${pulito}» per ${adattaA}` : `Portata da un'altra campagna`,
+  });
+  redirect(
+    esitoInCoda(
+      `«${finale}» su ${campagna.nome}`,
+      adattaA
+        ? [`«${finale}» è riscritta da «${pulito}»: su questa città non ha ancora nessun dato.`]
+        : []
+    )
+  );
+}
+
+// ---------- «Adatta»: la parola riscritta per QUESTA campagna ----------
+// L'AI propone parole che funzionano altrove, e spesso quelle parole nominano
+// un'altra città: «flower delivery milan» dentro la campagna di Roma non serve
+// a niente — comprerebbe ricerche di gente che vuole consegne a Milano.
+//
+// Adattare vuol dire riscriverla per la città di questa campagna, traducendo
+// la lingua: «flower delivery milan» → «flower delivery rome», «fiori milano»
+// → «fiori roma». Poi entra in coda come ogni altra scrittura.
+//
+// ⚠️ La parola adattata **non ha storia**: i numeri che l'AI ha usato per
+// proporla sono di Milano, non di Roma. Il motivo dell'operazione lo dice, così
+// chi approva sa che sta scommettendo su una somiglianza, non leggendo un dato.
+export async function adattaProposta(propostaId: string) {
+  const p = await prisma.propostaAi.findUnique({
+    where: { id: propostaId },
+    include: { campagna: { select: { id: true, nome: true, canale: true, idEsterno: true } } },
+  });
+  if (!p || p.stato !== "proposta") return;
+
+  const { cittaDiNome, perAltraCitta } = await import("./nuova-campagna");
+  const citta = cittaDiNome(p.campagna.nome);
+  if (!citta) return;
+  const riscritto = perAltraCitta(testoKeywordPulito(p.testo), citta);
+  if (!riscritto) return;
+
+  const op = await prisma.operazioneAdv.create({
+    data: {
+      tipo: "nuova_keyword",
+      canale: p.campagna.canale,
+      bersaglio: p.campagna.nome,
+      idEsterno: p.campagna.idEsterno,
+      parametri: JSON.stringify({ testo: riscritto, corrispondenza: "broad" }),
+      motivo: `Adattata da «${testoKeywordPulito(p.testo)}» per ${citta}. ⚠️ I numeri su cui l'AI l'ha proposta sono dell'altra città: qui la parola non ha storia.`,
+      livello: "L1",
+      prima: "assente",
+      campagnaId: p.campagnaId,
+    },
+  });
+  await prisma.propostaAi.update({
+    where: { id: propostaId },
+    data: { stato: "accettata", decisaIl: new Date() },
+  });
+  await registra({
+    autore: "utente",
+    tipo: "creazione",
+    entita: "operazione",
+    entitaId: op.id,
+    titolo: `In coda (da approvare): «${riscritto}» su ${p.campagna.nome}`,
+    dettaglio: `Adattata da «${p.testo}» per ${citta}`,
+  });
+  revalidatePath(`/campagne/${p.campagnaId}`);
+  redirect(esitoInCoda(`«${riscritto}» su ${p.campagna.nome}`, [
+    `«${riscritto}» è stata riscritta da «${testoKeywordPulito(p.testo)}»: su questa città non ha ancora nessun dato.`,
+  ]));
+}
+
 export async function accettaProposta(propostaId: string) {
   const p = await prisma.propostaAi.findUnique({
     where: { id: propostaId },

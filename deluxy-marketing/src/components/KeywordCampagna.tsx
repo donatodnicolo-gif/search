@@ -1,6 +1,6 @@
 import { Badge } from "@/components/Badge";
 import { prisma } from "@/lib/db";
-import { COLORE_STATO_KEYWORD, ETICHETTA_STATO_KEYWORD, formattaEuro, formattaNumero } from "@/lib/dominio";
+import { COLORE_STATO_KEYWORD, ETICHETTA_STATO_KEYWORD, formattaEuro, formattaNumero, testoKeywordPulito } from "@/lib/dominio";
 import { breakEvenRoas } from "@/lib/guardrail";
 import { normalizza } from "@/lib/ingest-metriche";
 import { creaOperazioneKeyword } from "@/lib/azioni";
@@ -80,6 +80,27 @@ export async function KeywordCampagna({
         </div>
       </section>
     );
+  }
+
+  // ⚠️ «Google non l'ha ancora detto» era spesso FALSO: Google ce l'ha, ma
+  // sotto un'altra riga. Le keyword del Monitoraggio arrivano col nome vecchio
+  // della campagna e col suffisso di corrispondenza del foglio — «flower
+  // delivery in milan (broad)» — mentre la riga vera di Google è «(phrase)»,
+  // sotto il nome nuovo. Sono due righe distinte nel database e non si
+  // fondono: risultato, la colonna Stato diceva che Google non sapeva niente
+  // di una parola che invece stava erogando (misurato il 04/08/2026).
+  //
+  // Qui si cerca la gemella: stesso testo una volta tolta la corrispondenza,
+  // in una qualunque delle campagne compatibili. Non si fondono le righe — i
+  // numeri restano di chi li ha mandati — si dice solo che l'altra esiste.
+  const daGoogle = keyword.filter((k) => k.impressioni != null || k.statoPiattaforma != null);
+  const gemelle = new Map<string, (typeof keyword)[number]>();
+  for (const g of daGoogle) {
+    const chiave = testoKeywordPulito(g.testo).toLowerCase();
+    const gia = gemelle.get(chiave);
+    // Se ce n'è più d'una vince quella che ha speso di più: è la riga che
+    // descrive meglio cosa sta facendo davvero quella parola.
+    if (!gia || (g.spesa ?? 0) > (gia.spesa ?? 0)) gemelle.set(chiave, g);
   }
 
   const be = breakEvenRoas(brand);
@@ -192,6 +213,12 @@ export async function KeywordCampagna({
                 resa >= be * 1.5 ? "var(--green)" :
                 resa >= be ? "var(--blue)" : "var(--red)";
               const fermaSuGoogle = k.statoPiattaforma && k.statoPiattaforma.toUpperCase() !== "ENABLED";
+              // La riga gemella di Google, se questa non ne ha di suoi: stessa
+              // parola, corrispondenza diversa. Solo per le righe del foglio.
+              const gemella =
+                k.statoPiattaforma == null && k.impressioni == null
+                  ? gemelle.get(testoKeywordPulito(k.testo).toLowerCase())
+                  : undefined;
               return (
                 <tr key={k.id}>
                   <td style={{ maxWidth: 280 }}>
@@ -237,8 +264,23 @@ export async function KeywordCampagna({
                         ? fermaSuGoogle
                           ? "ferma su Google"
                           : "attiva su Google"
-                        : "Google non l'ha ancora detto"}
+                        : gemella
+                          ? // Google ce l'ha, sotto un'altra riga: si dice
+                            // quale, invece di dire che non la conosce.
+                            `Google ce l'ha come «${gemella.testo}»: ${
+                              gemella.statoPiattaforma && gemella.statoPiattaforma.toUpperCase() !== "ENABLED"
+                                ? "ferma"
+                                : "attiva"
+                            }`
+                          : "Google non l'ha ancora detto"}
                     </div>
+                    {gemella && (
+                      <div className="cella-sub" style={{ color: "var(--text-tertiary)" }}>
+                        {formattaEuro(gemella.spesa)} · {formattaNumero(gemella.clic)} clic
+                        {gemella.punteggioQualita != null && ` · QS ${gemella.punteggioQualita}/10`}
+                        {" "}su quella riga
+                      </div>
+                    )}
                   </td>
                   <td>
                     {/* Due cose diverse, e la differenza conta: la PAUSA ferma

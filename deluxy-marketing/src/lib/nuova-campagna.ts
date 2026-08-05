@@ -130,6 +130,23 @@ export async function localitaNote(brand?: string): Promise<LocalitaNota[]> {
   return fuori.sort((a, b) => b.spesa - a.spesa);
 }
 
+/**
+ * La città di cui parla un nome di campagna, normalizzata all'italiano.
+ * «[Deluxy] Roma (Fiori) - italian» → "roma"; «Fiori Milano ENG» → "milano".
+ *
+ * Serve a riconoscere quando una keyword parla di un'ALTRA città rispetto
+ * alla campagna in cui sta: quasi sempre è uno sbaglio da correggere, non
+ * un'occasione da cogliere.
+ */
+export function cittaDiNome(nome: string): string | null {
+  const t = nome.toLowerCase();
+  for (const citta of CITTA_NOTE) {
+    if (!t.includes(citta)) continue;
+    return EN_IT[citta] ?? citta;
+  }
+  return null;
+}
+
 /** Riscrive una keyword per un'altra città, rispettando la lingua del testo. */
 export function perAltraCitta(testo: string, cittaNuova: string): string | null {
   const t = testo.toLowerCase();

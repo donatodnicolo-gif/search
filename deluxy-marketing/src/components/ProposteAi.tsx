@@ -1,6 +1,7 @@
 import { Badge } from "@/components/Badge";
-import { accettaProposta, chiediProposteAi, scartaProposta } from "@/lib/azioni";
-import { formattaEuro } from "@/lib/dominio";
+import { accettaProposta, adattaProposta, chiediProposteAi, portaIdealeQui, scartaProposta } from "@/lib/azioni";
+import { formattaEuro, testoKeywordPulito } from "@/lib/dominio";
+import { cittaDiNome, perAltraCitta } from "@/lib/nuova-campagna";
 import {
   COLORE_AZIONE_PROPOSTA,
   ETICHETTA_AZIONE_PROPOSTA,
@@ -33,6 +34,9 @@ export async function ProposteAi({
     idealiCheMancano(campagna),
   ]);
 
+  // La città di cui parla questa campagna: se una parola proposta ne nomina
+  // un'altra, si può riscriverla per qui invece di scartarla.
+  const cittaCampagna = cittaDiNome(campagna.nome);
   const aperte = proposte.filter((p) => p.stato === "proposta");
   const daFare = aperte.filter((p) => p.azione !== "tieni" && p.azione !== "osserva");
   const ultima = proposte[0]?.creataIl ?? null;
@@ -94,6 +98,13 @@ export async function ProposteAi({
               {aperte.map((p) => {
                 const eseguibile =
                   ["escludi", "pausa", "aggiungi", "alza", "abbassa"].includes(p.azione) && p.fiducia !== "bassa";
+                // La parola nomina un'ALTRA città rispetto a questa campagna:
+                // presa così com'è comprerebbe ricerche di un'altra piazza.
+                // Riscritta, invece, è esattamente quella che serve qui.
+                const adattata =
+                  cittaCampagna && p.fiducia !== "bassa"
+                    ? perAltraCitta(testoKeywordPulito(p.testo), cittaCampagna)
+                    : null;
                 return (
                   <tr key={p.id}>
                     <td style={{ maxWidth: 260 }}>
@@ -127,11 +138,22 @@ export async function ProposteAi({
                       {p.motivo}
                     </td>
                     <td>
-                      <div style={{ display: "flex", gap: 6 }}>
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                         {eseguibile && (
                           <form action={accettaProposta.bind(null, p.id)}>
                             <button className="btn small" type="submit" title="Mette in coda l'operazione, da approvare">
                               Accetta
+                            </button>
+                          </form>
+                        )}
+                        {adattata && (
+                          <form action={adattaProposta.bind(null, p.id)}>
+                            <button
+                              className="btn small btn-secondario"
+                              type="submit"
+                              title={`Mette in coda «${adattata}» invece di «${p.testo}»: stessa parola, la città di questa campagna`}
+                            >
+                              Adatta: {adattata}
                             </button>
                           </form>
                         )}
@@ -178,10 +200,18 @@ export async function ProposteAi({
                   <th className="num">Spesa là</th>
                   <th className="num">Resa là</th>
                   <th>Perché l&apos;AI la promuove</th>
+                  <th>Portala qui</th>
                 </tr>
               </thead>
               <tbody>
-                {mancanti.map((m) => (
+                {mancanti.map((m) => {
+                  // Se la parola nomina un'altra città e questa campagna ne ha
+                  // una sua, presa com'è comprerebbe le ricerche dell'altra
+                  // piazza: si riscrive, traducendo la lingua del testo.
+                  const riscritta = cittaCampagna
+                    ? perAltraCitta(testoKeywordPulito(m.testo), cittaCampagna)
+                    : null;
+                  return (
                   <tr key={m.testo}>
                     <td className="cella-nome" style={{ maxWidth: 240 }}>{m.testo}</td>
                     <td className="cella-muta" style={{ maxWidth: 200 }}>
@@ -192,8 +222,28 @@ export async function ProposteAi({
                       {m.resa != null ? `${m.resa.toFixed(2)}×` : "—"}
                     </td>
                     <td className="cella-muta" style={{ maxWidth: 340, whiteSpace: "normal" }}>{m.motivo}</td>
+                    <td>
+                      {riscritta ? (
+                        <form action={portaIdealeQui.bind(null, campagna.id, m.testo, cittaCampagna)}>
+                          <button
+                            className="btn small"
+                            type="submit"
+                            title={`Mette in coda «${riscritta}» invece di «${testoKeywordPulito(m.testo)}»: stessa parola, la città di questa campagna`}
+                          >
+                            Adatta: {riscritta}
+                          </button>
+                        </form>
+                      ) : (
+                        <form action={portaIdealeQui.bind(null, campagna.id, m.testo, null)}>
+                          <button className="btn small btn-secondario" type="submit" title="Mette in coda la parola così com'è">
+                            Porta qui
+                          </button>
+                        </form>
+                      )}
+                    </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

@@ -22,6 +22,33 @@ Riceve già dati veri da Google Ads (Gifts e Flowers) e ha 2.426 ordini Shopify 
 
 ## FATTO
 
+### «Adatta», e la parola che Google ha sotto un altro nome (05/08/2026)
+
+**«Adatta»** sulle parole che rendono altrove (`portaIdealeQui`,
+`adattaProposta`): `flower delivery milan` dentro la campagna di Roma non serve
+a niente com'è — comprerebbe le ricerche di chi vuole consegne a Milano. Il
+bottone la riscrive per la città di *questa* campagna **traducendo la lingua**
+(`perAltraCitta`, già usato da `/campagne/crea`): `flower delivery milan` →
+`flower delivery rome`, `milano flowers` → `roma flowers`, `florists in milan
+italy` → `florists in rome italy`. Quando non c'è niente da riscrivere il
+bottone dice **«Porta qui»**.
+
+> ⚠️ **La parola adattata non ha storia QUI.** I numeri per cui l'AI la
+> propone sono dell'altra città: l'operazione parte con l'avviso addosso
+> («su questa città non ha ancora nessun dato»), che è esattamente il tipo di
+> cosa che chi approva deve sapere. La somiglianza non è una misura.
+
+**«Google non l'ha ancora detto» era spesso falso.** Le keyword del
+Monitoraggio arrivano col nome vecchio della campagna e col suffisso del foglio
+— `flower delivery in milan (broad)` — mentre la riga vera di Google è
+`(phrase)` sotto il nome nuovo: due righe distinte che non si fondono. La
+colonna Stato diceva che Google non sapeva niente di una parola che stava
+erogando. Ora si cerca la **gemella** (stesso testo tolta la corrispondenza) e
+si dice quale riga ce l'ha, se è attiva o ferma, con spesa, clic e QS.
+Misurato su `[Deluxy] - Fiori Milano ENG`: **8 righe su 60** avevano la gemella
+— e una di quelle è **ferma su Google** mentre il foglio la dava attiva.
+Le righe non si fondono: i numeri restano di chi li ha mandati.
+
 ### ⭐ «Defunta» non teneva: l'import la cancellava (04/08/2026)
 
 Segnalato dall'utente: «le campagne che avevo messo come defunte sono tornate
