@@ -501,7 +501,7 @@ attimo dopo.
 istante dopo, al posto della scritta «Carico la posta…». Prima si restava sul bianco
 finché non era pronto tutto: il lavoro è lo stesso, ma non blocca più il passaggio.
 
-### Il cestino ora lo vede anche la casella
+### Cestino e spam: ora li vede anche la casella
 
 Fino al 5 agosto 2026 cestinare era un fatto solo di AI Mail: la mail spariva da qui e
 restava **intatta nella posta in arrivo del server** — se aprivi la casella dal telefono o
@@ -511,6 +511,11 @@ Ora **cestinare sposta la mail nel Cestino della casella**, e **«Recupera» la 
 indietro** (in posta in arrivo, o fra gli inviati se era una mail partita). Quindi quello
 che fai qui lo vedi anche da telefono e webmail.
 
+**Lo stesso vale per lo SPAM**: quando una mail finisce nella posta indesiderata — perché
+l'hai segnata tu, perché hai approvato una casistica, o perché l'antispam l'ha riconosciuta
+all'arrivo — viene spostata nella **Posta indesiderata della casella**. E **«Non è spam»**
+la riporta in posta in arrivo, anche lì.
+
 Tre cose da sapere:
 
 - **si sposta, non si cancella**: è reversibile — la cancellazione vera resta solo
@@ -519,7 +524,9 @@ Tre cose da sapere:
   Se la casella non risponde, la mail resta comunque cestinata **qui** — al massimo il
   server è un po' indietro, mai il contrario;
 - **archiviare** invece resta una faccenda di AI Mail: sul server non esiste una cartella
-  «archiviati» uguale per tutti i provider, quindi lì la mail non si muove.
+  «archiviati» uguale per tutti i provider, quindi lì la mail non si muove;
+- se la casella **non ha** una cartella Cestino o Posta indesiderata riconoscibile, la mail
+  resta dov'è sul server: meglio lasciarla al suo posto che spostarla a caso.
 
 ### Svuotare il cestino: parte e va avanti da sé
 

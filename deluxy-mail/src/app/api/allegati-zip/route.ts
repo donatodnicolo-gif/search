@@ -3,7 +3,7 @@ import JSZip from 'jszip'
 import { SESSION_COOKIE, verificaSessione } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { leggiTuttiAllegati } from '@/lib/imap'
-import { cartellaDiMessaggio } from '@/lib/cestinoServer'
+import { cartellaDiMessaggio } from '@/lib/cartelleServer'
 
 // GET /api/allegati-zip?messaggio=<id>
 // Scarica TUTTI gli allegati di una mail in un unico file .zip. Come il download
@@ -33,7 +33,7 @@ export async function GET(req: Request) {
 
   const m = await db.messaggio.findFirst({
     where: { id: messaggioId, utenteId: userId },
-    include: { account: true },
+    include: { account: true, sezione: { select: { nome: true } } },
   })
   if (!m || m.uid <= 0) return new Response('Allegati non disponibili', { status: 404 })
 

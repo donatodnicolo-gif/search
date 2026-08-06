@@ -2,7 +2,7 @@ import { cookies } from 'next/headers'
 import { SESSION_COOKIE, verificaSessione } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { leggiAllegato, scaricaParteStream } from '@/lib/imap'
-import { cartellaDiMessaggio } from '@/lib/cestinoServer'
+import { cartellaDiMessaggio } from '@/lib/cartelleServer'
 
 // GET /api/allegato?messaggio=<id>&i=<indice>
 // Scarica ON-DEMAND un allegato dal server e lo serve. Autenticato dal cookie:
@@ -22,7 +22,9 @@ export async function GET(req: Request) {
 
   const m = await db.messaggio.findFirst({
     where: { id: messaggioId, utenteId: userId },
-    include: { account: true },
+    // La sezione serve a sapere dove sta la mail sulla casella: una nello SPAM
+    // è nella Posta indesiderata, non in INBOX (vedi cartelleServer.ts).
+    include: { account: true, sezione: { select: { nome: true } } },
   })
   if (!m || m.uid <= 0) return new Response('Allegato non disponibile', { status: 404 })
 

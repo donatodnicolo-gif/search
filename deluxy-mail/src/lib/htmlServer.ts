@@ -1,7 +1,7 @@
 import type { Account } from '@prisma/client'
 import { db } from './db'
 import { strutturaMessaggio, scaricaParte } from './imap'
-import { cartellaDiMessaggio } from './cestinoServer'
+import { cartellaDiMessaggio } from './cartelleServer'
 
 // Il CORPO HTML delle mail, preso dal server QUANDO SERVE invece che tenuto per
 // sempre nel database.
@@ -75,6 +75,8 @@ type ConCorpoEAccount = {
   // Una mail cestinata sta nel Cestino DELLA CASELLA, non più in INBOX: senza
   // questo, aprendola dal Cestino l'impaginato non si troverebbe più.
   cestinato?: boolean
+  // Idem per lo SPAM: sta nella Posta indesiderata della casella.
+  sezione?: { nome: string } | null
   account: Account
 }
 
@@ -87,7 +89,10 @@ type ConCorpoEAccount = {
 export async function htmlDiMessaggio(m: ConCorpoEAccount): Promise<string | null> {
   if (m.corpoHtml) return m.corpoHtml
   if (m.uid <= 0) return null
-  const cartella = cartellaDiMessaggio({ direzione: m.direzione, cestinato: m.cestinato ?? false }, m.account)
+  const cartella = cartellaDiMessaggio(
+    { direzione: m.direzione, cestinato: m.cestinato ?? false, sezione: m.sezione },
+    m.account
+  )
   try {
     return await htmlDalServer(m.account, m.uid, cartella)
   } catch {

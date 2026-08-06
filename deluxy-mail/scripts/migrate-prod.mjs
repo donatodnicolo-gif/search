@@ -206,6 +206,9 @@ const stmts = [
   // Cartella CESTINO della casella: cestinando, la mail ci viene spostata anche
   // sul server. Si scopre da sola (flag IMAP \Trash) alla prima occorrenza.
   `ALTER TABLE "Account" ADD COLUMN IF NOT EXISTS "cartellaCestino" TEXT`,
+  // Cartella della posta indesiderata (flag IMAP \Junk): stessa storia dello
+  // SPAM segnato qui dentro, che ora si sposta anche sulla casella.
+  `ALTER TABLE "Account" ADD COLUMN IF NOT EXISTS "cartellaSpam" TEXT`,
   // Iscrizioni alle notifiche push (Web Push).
   `CREATE TABLE IF NOT EXISTS "PushIscrizione" (
      "id" TEXT PRIMARY KEY,

@@ -222,6 +222,9 @@ model Account {
   // anche sulla casella (così webmail e telefono restano allineati). Si scopre
   // da sola alla prima occorrenza (flag IMAP \Trash).
   cartellaCestino String?
+  // Cartella della posta indesiderata (flag IMAP \Junk): segnando spam qui, la
+  // mail ci viene spostata anche sulla casella.
+  cartellaSpam    String?
   ultimoUid       Int     @default(0)
   primoUid        Int     @default(0)
   storicoFinito   Boolean @default(false)

@@ -198,6 +198,27 @@ export async function trovaCartellaCestino(account: Account): Promise<string | n
 }
 
 /**
+ * Trova la cartella della POSTA INDESIDERATA sul server: flag speciale
+ * `\Junk`, poi i nomi più comuni. `null` se non c'è.
+ */
+export async function trovaCartellaSpam(account: Account): Promise<string | null> {
+  const client = connessione(account)
+  await client.connect()
+  try {
+    const lista = await client.list()
+
+    const speciale = lista.find((c) => c.specialUse === '\\Junk')
+    if (speciale) return speciale.path
+
+    const nomi = ['junk', 'spam', 'junk e-mail', 'junk email', 'posta indesiderata', 'indesiderata', 'bulk mail']
+    const perNome = lista.find((c) => nomi.includes(c.name.toLowerCase()))
+    return perNome?.path ?? null
+  } finally {
+    await client.logout()
+  }
+}
+
+/**
  * SPOSTA dei messaggi da una cartella all'altra sulla casella (IMAP MOVE):
  * lo usa il cestino, per far seguire al server quello che fai qui.
  *

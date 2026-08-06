@@ -2,6 +2,7 @@ import type { Messaggio, Prisma, Regola, Sezione } from '@prisma/client'
 import { db } from './db'
 import { scaricaNuovi, scaricaVecchi, cercaSulServer, trovaCartellaInviata, dimensioniDalServer, type MessaggioScaricato } from './imap'
 import { applicaRegole } from './regole'
+import { allineaCartellaOra } from './cartelleServer'
 import { leggiSenzaTraduzione, lingueLetteDi } from './lingue'
 import {
   analizzaMessaggio,
@@ -1032,6 +1033,11 @@ async function salvaMessaggi(opts: {
   let budgetAI = 5
   let budgetTraduzioni = 5
 
+  // Le mail riconosciute come spam ALL'ARRIVO: si spostano nella Posta
+  // indesiderata della casella tutte insieme a fine giro, non una per volta
+  // (una connessione IMAP invece di una per mail).
+  const spostareInSpam: string[] = []
+
   const filtraSpam = async (msg: MessaggioScaricato, messaggioId: string) => {
     if (!spamSezioneId) return
     const mittBasso = msg.mittente.toLowerCase()
@@ -1090,6 +1096,7 @@ async function salvaMessaggi(opts: {
         where: { id: messaggioId },
         data: { sezioneId: spamSezioneId, smistatoDa: 'spam' },
       })
+      spostareInSpam.push(messaggioId)
     } else if (casoDaChiedere) {
       // La proposta viaggia su DUE binari: sulla mail (il riquadro con «Sì,
       // è spam» / «No»), e come ATTIVITÀ, così la si ritrova anche senza
@@ -1260,6 +1267,18 @@ async function salvaMessaggi(opts: {
     // Esito definitivo (salvato, esistente o scartato): il cursore avanza ORA,
     // così un eventuale timeout non butta via il lavoro fatto fin qui.
     await avanzaCursore(msg.uid)
+  }
+
+  // Lo spam riconosciuto all'arrivo se ne va dalla INBOX anche sulla casella:
+  // se restasse lì, dal telefono la posta indesiderata continuerebbe a
+  // suonare. ⚠️ Best-effort e IN FONDO: qui siamo dentro il cron, che ha già
+  // il fiato corto — se non riesce, la mail è comunque nello SPAM di AI Mail.
+  if (spostareInSpam.length) {
+    try {
+      await allineaCartellaOra(utenteId, spostareInSpam, 'normale', 'spam')
+    } catch {
+      /* il server non ha seguito: si riproverà alla prossima azione su quelle mail */
+    }
   }
 
   return { primoFallito, solaLettura }

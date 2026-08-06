@@ -95,7 +95,7 @@ function corpoDaForm(grezzo: string): { html: string | undefined; testo: string 
 import { db } from './db'
 import { cifra, decifra } from './crypto'
 import { allineaAttivitaOra } from './registroTask'
-import { allineaCestinoDopo, cartellaDiMessaggio } from './cestinoServer'
+import { allineaCartellaDopo, cartellaDiMessaggio } from './cartelleServer'
 import { allineaEventoOra } from './registroCalendario'
 import { creaScriptPronto, elencoScriptPronti, scriptProntiAttivi } from './scriptPronti'
 import type { ScriptPronto } from './scriptTesto'
@@ -239,7 +239,9 @@ export async function smaltisciEProssimo(
   const utenteId = await uid()
   const m = await db.messaggio.findFirst({
     where: { id, utenteId },
-    select: { data: true, sezioneId: true, direzione: true },
+    // Il NOME della sezione serve per sapere da quale cartella della casella
+    // parte la mail: una nello SPAM sta già nella Posta indesiderata.
+    select: { data: true, sezioneId: true, direzione: true, sezione: { select: { nome: true } } },
   })
   if (!m) return { ok: false, prossimo: null, messaggio: 'Messaggio non trovato.' }
 
@@ -277,9 +279,13 @@ export async function smaltisciEProssimo(
         : { archiviato: true, letto: true },
   })
   // Il server segue: la mail va nel Cestino anche sulla casella (in `after()`,
-  // vedi cestinoServer.ts). Archiviare invece è una faccenda di AI Mail: sul
+  // vedi cartelleServer.ts). Archiviare invece è una faccenda di AI Mail: sul
   // server non esiste una cartella «archiviati» che valga per tutti.
-  if (azione === 'cestina') allineaCestinoDopo(utenteId, [id], 'cestino')
+  // ⚠️ Da DOVE parte lo sa solo chi chiama: una mail nello SPAM sta già nella
+  // Posta indesiderata della casella, non in INBOX.
+  if (azione === 'cestina') {
+    allineaCartellaDopo(utenteId, [id], m.sezione?.nome === 'SPAM' ? 'spam' : 'normale', 'cestino')
+  }
   revalidatePath('/', 'layout')
   return {
     ok: true,
@@ -475,6 +481,9 @@ export async function decidiSpamCaso(
       where: { id: { in: ids }, utenteId },
       data: { sezioneId: spam?.id ?? null, smistatoDa: 'spam', spamCaso: null, spamMotivo: null, letto: true },
     })
+    // Approvata la casistica, le mail vanno nella Posta indesiderata anche
+    // sulla casella: è il senso di «e fallo sempre».
+    if (spam) allineaCartellaDopo(utenteId, ids, 'normale', 'spam')
   } else {
     await db.messaggio.updateMany({
       where: { id: { in: ids }, utenteId },
@@ -1077,7 +1086,7 @@ export async function cestinaMessaggio(id: string) {
     where: { id, utenteId },
     data: { cestinato: true, cestinatoIl: new Date(), letto: true },
   })
-  allineaCestinoDopo(utenteId, [id], 'cestino')
+  allineaCartellaDopo(utenteId, [id], 'normale', 'cestino')
   revalidatePath('/', 'layout')
 }
 
@@ -1145,7 +1154,7 @@ export async function cestinaThread(messaggioId: string): Promise<{ ok: boolean;
     where: { id: { in: ids }, utenteId },
     data: { cestinato: true, cestinatoIl: new Date(), letto: true },
   })
-  allineaCestinoDopo(utenteId, ids, 'cestino')
+  allineaCartellaDopo(utenteId, ids, 'normale', 'cestino')
   revalidatePath('/', 'layout')
   return { ok: true, messaggio: `${r.count} mail del thread spostate nel cestino.` }
 }
@@ -1180,6 +1189,7 @@ export async function segnalaSpamThread(messaggioId: string): Promise<{ ok: bool
     where: { id: { in: ids }, utenteId },
     data: { sezioneId: spam.id, smistatoDa: 'manuale', letto: true },
   })
+  allineaCartellaDopo(utenteId, ids, 'normale', 'spam')
   revalidatePath('/', 'layout')
   return { ok: true, messaggio: `${r.count} mail del thread nello SPAM.` }
 }
@@ -1192,7 +1202,7 @@ export async function ripristinaMessaggio(id: string) {
   })
   // Recuperare la riporta al suo posto anche sulla casella: la posta in arrivo
   // in INBOX, un inviato nella cartella «Inviata».
-  allineaCestinoDopo(utenteId, [id], 'inbox')
+  allineaCartellaDopo(utenteId, [id], 'cestino', 'normale')
   revalidatePath('/', 'layout')
 }
 
@@ -1281,7 +1291,7 @@ export async function azioneMassa(
       break
     case 'cestina':
       n = (await db.messaggio.updateMany({ where, data: { cestinato: true, cestinatoIl: new Date(), letto: true } })).count
-      allineaCestinoDopo(utenteId, puliti, 'cestino')
+      allineaCartellaDopo(utenteId, puliti, 'normale', 'cestino')
       break
     case 'letto':
       n = (await db.messaggio.updateMany({ where, data: { letto: true } })).count
@@ -1352,6 +1362,9 @@ export async function segnalaNonSpam(id: string): Promise<{ ok: boolean; messagg
     where: { id, utenteId },
     data: { sezioneId: null, smistatoDa: 'manuale', archiviato: false },
   })
+  // Torna in posta anche sulla casella: se restasse nella Posta indesiderata
+  // del server, dal telefono continueresti a non vederla.
+  allineaCartellaDopo(utenteId, [id], 'spam', 'normale')
   revalidatePath('/', 'layout')
   return { ok: true, messaggio: 'Spostata in Posta in arrivo: non è spam.' }
 }
@@ -1381,6 +1394,8 @@ export async function segnalaSpam(id: string): Promise<{ ok: boolean; messaggio:
     where: { id, utenteId },
     data: { sezioneId: spam.id, smistatoDa: 'manuale', letto: true },
   })
+  // Il server segue: nella Posta indesiderata anche sulla casella.
+  allineaCartellaDopo(utenteId, [id], 'normale', 'spam')
   revalidatePath('/', 'layout')
   return { ok: true, messaggio: 'Spostata nello SPAM.' }
 }
@@ -1394,7 +1409,7 @@ export async function elencoAllegati(
   const utenteId = await uid()
   const m = await db.messaggio.findFirst({
     where: { id: messaggioId, utenteId },
-    include: { account: true },
+    include: { account: true, sezione: { select: { nome: true } } },
   })
   if (!m || m.uid <= 0) return []
   const cartella = cartellaDiMessaggio(m, m.account)
@@ -1702,7 +1717,7 @@ export async function comandoPostaEsegui(
     // oggetto, non una lista, quindi si leggono prima di cestinare.
     const colpite = await db.messaggio.findMany({ where, select: { id: true } })
     const r = await db.messaggio.updateMany({ where, data: { cestinato: true, cestinatoIl: new Date() } })
-    allineaCestinoDopo(utenteId, colpite.map((m) => m.id), 'cestino')
+    allineaCartellaDopo(utenteId, colpite.map((m) => m.id), 'normale', 'cestino')
     revalidatePath('/', 'layout')
     return { ok: true, messaggio: `Cestinate ${r.count} mail${ambito}. Le trovi nel Cestino se ti servono.` }
   }
