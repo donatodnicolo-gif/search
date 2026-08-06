@@ -251,6 +251,7 @@ export default async function CollezioneShopifyPage({
                 collezioneId={id}
                 righe={inScena.slice(0, MAX_FILA)}
                 membriAMano={collezione.tipo === "manuale"}
+                totale={inScena.length}
               />
               {inScena.length > MAX_FILA && (
                 <p className="page-sub" style={{ marginTop: 12 }}>

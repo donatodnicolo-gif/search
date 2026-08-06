@@ -753,3 +753,25 @@ details.conferma-x[open] > summary { color: var(--orange, #C2721B); }
   padding: 10px 12px;
   font-size: 12.5px;
 }
+
+/* **Barra delle azioni in blocco.** Sta sopra e sotto l'elenco: con sessanta
+   righe, doverla cercare risalendo vanifica il motivo per cui esiste. */
+.barra-blocco {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  border: 1px solid var(--hairline, rgba(0, 0, 0, 0.08));
+  border-radius: 12px;
+  background: var(--surface-2, #F5F5F7);
+}
+.barra-blocco .btn { padding: 4px 12px; font-size: 12.5px; }
+/* La casella sta prima del numero di posizione, dove la mano la cerca. */
+.vetrina-scelta {
+  display: inline-flex;
+  align-items: center;
+  padding-right: 2px;
+  cursor: pointer;
+}
+.vetrina-scelta input { width: 16px; height: 16px; cursor: pointer; }

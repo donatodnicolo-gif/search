@@ -231,3 +231,121 @@ export async function spingiOrdineSuShopifySilenzioso(collezioneId: string): Pro
   });
   return true;
 }
+
+/** Gli id scelti con le caselle, nell'ordine in cui il form li manda. */
+const sceltiDa = (fd: FormData) => fd.getAll("scelti").map(String).filter(Boolean);
+
+/**
+ * **Sposta in blocco i prodotti scelti**: all'inizio, alla fine, o a una
+ * posizione precisa.
+ *
+ * Con 64 righe spostarne dieci con le frecce vuol dire un centinaio di clic:
+ * questa è la stessa cosa, fatta una volta.
+ *
+ * I prodotti scelti **mantengono l'ordine relativo** che avevano: chi era prima
+ * resta prima. Riordinarli anche fra loro sarebbe una seconda decisione che
+ * nessuno ha chiesto.
+ *
+ * La posizione è quella **che si legge in pagina** (1 = primo). Fuori intervallo
+ * si accosta all'estremo più vicino invece di rifiutare: chi scrive 999 sta
+ * dicendo «in fondo».
+ */
+export async function spostaSceltiInCollezione(
+  collezioneId: string,
+  dove: "inizio" | "fine" | "posizione",
+  fd: FormData,
+) {
+  const scelti = sceltiDa(fd);
+  if (scelti.length === 0) return;
+
+  // Solo la fila in scena, come le frecce: gli archiviati non si mettono in
+  // ordine perché il cliente non li vede.
+  const membri = await prisma.prodottoInCollezioneShopify.findMany({
+    where: { collezioneId, prodotto: FILTRO_IN_SCENA },
+    orderBy: [{ posizione: "asc" }, { prodotto: { nome: "asc" } }],
+    select: { prodottoId: true },
+  });
+  const ordine = membri.map((m) => m.prodottoId);
+  const insieme = new Set(scelti);
+  const spostati = ordine.filter((x) => insieme.has(x)); // nell'ordine attuale
+  const restanti = ordine.filter((x) => !insieme.has(x));
+  if (spostati.length === 0) return;
+
+  let indice: number;
+  if (dove === "inizio") indice = 0;
+  else if (dove === "fine") indice = restanti.length;
+  else {
+    const n = Number.parseInt(String(fd.get("posizione") ?? ""), 10);
+    // In pagina la prima riga è la 1; qui gli indici partono da 0.
+    indice = Number.isFinite(n) ? Math.min(Math.max(n - 1, 0), restanti.length) : restanti.length;
+  }
+
+  const nuovo = [...restanti.slice(0, indice), ...spostati, ...restanti.slice(indice)];
+  await numeraPosizioni(collezioneId, nuovo);
+  await prisma.collezioneShopify.update({
+    where: { id: collezioneId },
+    data: { ordineModificatoIl: new Date() },
+  });
+  // Nessun redirect: React riscrive la fila in posto e lo scorrimento resta.
+  revalidatePath(`/visual/${collezioneId}`);
+  revalidatePath(`/collezioni/shopify/${collezioneId}`);
+}
+
+/**
+ * **Toglie in blocco i prodotti scelti dalla collezione, sul negozio.**
+ *
+ * Una sola chiamata a `collectionRemoveProducts` con tutti gli id: Shopify la
+ * accetta, e mandarne dieci separate vorrebbe dire dieci occasioni di restare a
+ * metà. Come per il singolo, le righe locali si cancellano **solo se il negozio
+ * conferma**, e solo per i prodotti davvero mandati.
+ */
+export async function rimuoviSceltiDaCollezione(collezioneId: string, fd: FormData) {
+  const scelti = sceltiDa(fd);
+  if (scelti.length === 0) return;
+
+  const errore = (m: string) =>
+    redirect(`/visual/${collezioneId}?esito=errore&messaggio=${encodeURIComponent(m)}`);
+
+  const c = await prisma.collezioneShopify.findUnique({ where: { id: collezioneId } });
+  if (!c) errore("Collezione non trovata.");
+  if (c!.tipo !== "manuale") {
+    errore(
+      "È una collezione automatica: chi ci sta dentro lo decide la regola di Shopify. Per togliere questi prodotti va cambiata la regola sul negozio.",
+    );
+  }
+
+  const righe = await prisma.prodottoInCollezioneShopify.findMany({
+    where: { collezioneId, prodottoId: { in: scelti }, prodottoShopifyId: { not: null } },
+    select: { id: true, prodottoShopifyId: true },
+  });
+  if (righe.length === 0) {
+    errore("Di questi prodotti non conosciamo l'id su Shopify: rilancia l'import delle collezioni e riprova.");
+  }
+
+  const negozio = await prisma.negozioShopify.findFirst({ where: { nome: c!.negozio }, select: { id: true } });
+  const accesso = negozio ? await tokenDi(negozio.id) : null;
+  if (!accesso) errore(`Il negozio «${c!.negozio}» non è collegato: serve un token con write_products in Impostazioni.`);
+
+  const { corpo } = await graphqlNegozio(
+    accesso!.dominio,
+    accesso!.token,
+    `mutation($id: ID!, $productIds: [ID!]!) {
+       collectionRemoveProducts(id: $id, productIds: $productIds) {
+         job { id done }
+         userErrors { field message }
+       }
+     }`,
+    { id: c!.shopifyId, productIds: righe.map((r) => r.prodottoShopifyId as string) },
+  );
+  const err = [
+    ...(corpo.errors ?? []).map((e) => e.message),
+    ...((corpo.data?.collectionRemoveProducts?.userErrors as { message: string }[] | undefined) ?? []).map(
+      (e) => e.message,
+    ),
+  ];
+  if (err.length) errore(`Shopify ha rifiutato: ${err.join(" · ")}`);
+
+  await prisma.prodottoInCollezioneShopify.deleteMany({ where: { id: { in: righe.map((r) => r.id) } } });
+  revalidatePath(`/visual/${collezioneId}`);
+  revalidatePath(`/collezioni/shopify/${collezioneId}`);
+}

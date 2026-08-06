@@ -1,5 +1,10 @@
 import { euro } from "@/lib/dominio";
-import { rimuoviProdottoDaCollezione, spostaInCollezione } from "@/lib/azioni-vetrina-shopify";
+import {
+  rimuoviProdottoDaCollezione,
+  rimuoviSceltiDaCollezione,
+  spostaInCollezione,
+  spostaSceltiInCollezione,
+} from "@/lib/azioni-vetrina-shopify";
 
 /** Il minimo che serve per disegnare una riga della fila. */
 export type RigaFila = {
@@ -15,24 +20,32 @@ export type RigaFila = {
 };
 
 /**
- * **La fila dei prodotti di una collezione**, con le frecce per spostarli e il ×
- * per toglierli dal negozio.
+ * **La fila dei prodotti di una collezione**: si spostano uno per uno con le
+ * frecce, oppure **a gruppi** con le caselle e le azioni in blocco.
+ *
+ * Con sessanta righe spostarne dieci una alla volta vuol dire un centinaio di
+ * clic: le caselle esistono per quello. La barra sta **in cima e in fondo**
+ * all'elenco, così non si deve risalire per usarla.
  *
  * Sta in un componente perché la stessa fila si guarda da due posti — la scheda
- * di cura in Visual e la scheda della collezione — e con due copie le due
- * pagine finirebbero per comportarsi in modo diverso alla prima correzione. Le
- * azioni sono comunque le stesse: qui cambia solo dove si disegna.
+ * di cura in Visual e la scheda della collezione — e con due copie le due pagine
+ * finirebbero per comportarsi in modo diverso alla prima correzione.
  *
- * **Niente navigazione.** Frecce e conferma sono server action senza `redirect`:
- * React riscrive l'elenco in posto e lo scorrimento resta dov'era. Il × è un
- * `<details>` e non un link, perché un link ricarica la pagina e la riporta
- * altrove — problema segnalato due volte.
+ * **Un solo `<form>` per tutto.** Le frecce e il × non sono form loro (annidare
+ * form è HTML non valido): sono bottoni con la propria `formAction`. È anche
+ * l'unico modo che funziona — la FormData si costruisce dal **form**, non dal
+ * bottone che l'ha inviata, quindi due azioni diverse vogliono due `formAction`
+ * diverse e non un `value` da leggere.
+ *
+ * **Niente navigazione**: tutte le azioni sono server action senza `redirect`,
+ * quindi React riscrive l'elenco in posto e lo scorrimento resta dov'era.
  */
 export function FilaProdotti({
   collezioneId,
   righe,
   membriAMano,
   daPosizione = 0,
+  totale,
 }: {
   collezioneId: string;
   righe: RigaFila[];
@@ -40,46 +53,141 @@ export function FilaProdotti({
   membriAMano: boolean;
   /** Il numero da cui parte la numerazione mostrata, quando la fila è tagliata. */
   daPosizione?: number;
+  /** Quanti sono in tutto: serve a dire fin dove può arrivare «porta alla posizione». */
+  totale?: number;
 }) {
+  const quanti = totale ?? righe.length;
   return (
-    <div className="vetrina-lista">
-      {righe.map((vp, i) => (
-        <div className="vetrina-riga" key={vp.id} id={`p-${vp.prodottoId}`}>
-          <span className="vetrina-pos">{daPosizione + i + 1}</span>
-          <span className="vetrina-mini">
-            {vp.prodotto.immagine ? <img src={vp.prodotto.immagine} alt="" /> : "❀"}
-          </span>
-          <span className="vetrina-info">
-            <a href={`/prodotti/${vp.prodottoId}`} className="cella-nome">{vp.prodotto.nome}</a>
-            <div className="cella-sub">
-              <StatoNegozio stato={vp.prodotto.statoShopify} />
-              {" "}{vp.prodotto.codice}
-              {vp.prodotto.prezzoVendita > 0 ? ` · ${euro(vp.prodotto.prezzoVendita)}` : ""}
-            </div>
-          </span>
-          <span className="vetrina-azioni">
-            <form action={spostaInCollezione.bind(null, collezioneId, vp.prodottoId, "su")}>
-              <button className="icon-btn" title="Sposta su" type="submit" disabled={i === 0}>↑</button>
-            </form>
-            <form action={spostaInCollezione.bind(null, collezioneId, vp.prodottoId, "giu")}>
-              <button className="icon-btn" title="Sposta giù" type="submit" disabled={i === righe.length - 1}>↓</button>
-            </form>
-            {membriAMano && (
-              <details className="conferma-x">
-                <summary className="icon-btn" title="Togli dalla collezione (sul negozio)">×</summary>
-                <div className="conferma-x-corpo">
-                  <span>Togliere «{vp.prodotto.nome}» dalla collezione sul negozio?</span>
-                  <form action={rimuoviProdottoDaCollezione.bind(null, collezioneId, vp.prodottoId)}>
-                    <button type="submit" className="btn btn-secondario" style={{ fontSize: 12, padding: "3px 10px" }}>
+    <form>
+      <BarraBlocco collezioneId={collezioneId} membriAMano={membriAMano} quanti={quanti} />
+
+      <div className="vetrina-lista">
+        {righe.map((vp, i) => (
+          <div className="vetrina-riga" key={vp.id} id={`p-${vp.prodottoId}`}>
+            <label className="vetrina-scelta" title="Scegli per le azioni in blocco">
+              <input type="checkbox" name="scelti" value={vp.prodottoId} />
+            </label>
+            <span className="vetrina-pos">{daPosizione + i + 1}</span>
+            <span className="vetrina-mini">
+              {vp.prodotto.immagine ? <img src={vp.prodotto.immagine} alt="" /> : "❀"}
+            </span>
+            <span className="vetrina-info">
+              <a href={`/prodotti/${vp.prodottoId}`} className="cella-nome">{vp.prodotto.nome}</a>
+              <div className="cella-sub">
+                <StatoNegozio stato={vp.prodotto.statoShopify} />
+                {" "}{vp.prodotto.codice}
+                {vp.prodotto.prezzoVendita > 0 ? ` · ${euro(vp.prodotto.prezzoVendita)}` : ""}
+              </div>
+            </span>
+            <span className="vetrina-azioni">
+              <button
+                className="icon-btn"
+                title="Sposta su"
+                type="submit"
+                disabled={i === 0}
+                formAction={spostaInCollezione.bind(null, collezioneId, vp.prodottoId, "su")}
+              >
+                ↑
+              </button>
+              <button
+                className="icon-btn"
+                title="Sposta giù"
+                type="submit"
+                disabled={i === righe.length - 1}
+                formAction={spostaInCollezione.bind(null, collezioneId, vp.prodottoId, "giu")}
+              >
+                ↓
+              </button>
+              {membriAMano && (
+                <details className="conferma-x">
+                  <summary className="icon-btn" title="Togli dalla collezione (sul negozio)">×</summary>
+                  <div className="conferma-x-corpo">
+                    <span>Togliere «{vp.prodotto.nome}» dalla collezione sul negozio?</span>
+                    <button
+                      type="submit"
+                      className="btn btn-secondario"
+                      style={{ fontSize: 12, padding: "3px 10px" }}
+                      formAction={rimuoviProdottoDaCollezione.bind(null, collezioneId, vp.prodottoId)}
+                    >
                       Sì, togli
                     </button>
-                  </form>
-                </div>
-              </details>
-            )}
-          </span>
-        </div>
-      ))}
+                  </div>
+                </details>
+              )}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      <BarraBlocco collezioneId={collezioneId} membriAMano={membriAMano} quanti={quanti} sotto />
+    </form>
+  );
+}
+
+/**
+ * Le azioni sul gruppo scelto. **Non dice quanti sono selezionati**: contarli
+ * richiederebbe JavaScript, e un numero che non si aggiorna sarebbe peggio di
+ * nessun numero. Senza nessuna casella spuntata le azioni non fanno niente.
+ */
+function BarraBlocco({
+  collezioneId,
+  membriAMano,
+  quanti,
+  sotto,
+}: {
+  collezioneId: string;
+  membriAMano: boolean;
+  quanti: number;
+  sotto?: boolean;
+}) {
+  return (
+    <div className="barra-blocco" style={sotto ? { marginTop: 12 } : { marginBottom: 12 }}>
+      <span className="page-sub" style={{ margin: 0 }}>
+        Scegli con le caselle, poi:
+      </span>
+      <button type="submit" className="btn btn-secondario" formAction={spostaSceltiInCollezione.bind(null, collezioneId, "inizio")}>
+        ⤒ All&apos;inizio
+      </button>
+      <button type="submit" className="btn btn-secondario" formAction={spostaSceltiInCollezione.bind(null, collezioneId, "fine")}>
+        ⤓ Alla fine
+      </button>
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+        <button
+          type="submit"
+          className="btn btn-secondario"
+          formAction={spostaSceltiInCollezione.bind(null, collezioneId, "posizione")}
+        >
+          Alla posizione
+        </button>
+        <input
+          type="number"
+          name="posizione"
+          min={1}
+          max={Math.max(1, quanti)}
+          placeholder="n"
+          style={{ width: 76 }}
+          aria-label="Posizione"
+        />
+      </span>
+      {membriAMano && (
+        <details className="conferma-x">
+          <summary className="btn btn-secondario" style={{ cursor: "pointer" }}>Togli dalla collezione</summary>
+          <div className="conferma-x-corpo" style={{ maxWidth: 360, whiteSpace: "normal" }}>
+            <span>
+              Togliere i prodotti scelti dalla collezione <b>sul negozio</b>? Restano a catalogo e nelle altre
+              collezioni.
+            </span>
+            <button
+              type="submit"
+              className="btn btn-secondario"
+              style={{ fontSize: 12, padding: "3px 10px" }}
+              formAction={rimuoviSceltiDaCollezione.bind(null, collezioneId)}
+            >
+              Sì, togli
+            </button>
+          </div>
+        </details>
+      )}
     </div>
   );
 }

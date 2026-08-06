@@ -421,7 +421,7 @@ export default async function CurazioneCollezionePage({
             </div>
           ) : (
             <>
-              <FilaProdotti collezioneId={id} righe={righe} membriAMano={membriAMano} />
+              <FilaProdotti collezioneId={id} righe={righe} membriAMano={membriAMano} totale={inScena.length} />
               {restano > 0 && (
                 <p className="page-sub" style={{ marginTop: 12 }}>
                   Mostrati i primi {MAX_RIGHE}; altri {restano} prodotti non sono in elenco ma l'ordine inviato a

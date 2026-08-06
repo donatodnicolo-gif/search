@@ -237,6 +237,15 @@ porta **3120**. Design system Deluxy v1.0.
   - **La metrica sta in fondo, ed è dove va**: mette in fila *tutti* i prodotti, quindi messa davanti a una condizione la renderebbe inutile — deciderebbe già tutto lei. Nel menu c'è «— nessuna —», perché una regola può essere fatta di sole condizioni.
   - **Verificato su dati veri**: una sola compilazione (tipo *Fiori*+*Torte*, tag *Compleanno*, prezzo da 200 €, metrica più venduti) ha prodotto 4 passi nell'ordine giusto — «Prima Categoria del negozio: Fiori, Torte → Prima Tag: Compleanno → Prima Prezzo da 200 € → Più venduti in cima». Regola di prova rimossa.
 
+- **03/08/2026 — selezione multipla nella fila** (chiesto dall'utente). Con 64 righe spostarne dieci con le frecce vuol dire un centinaio di clic. Ora ogni riga ha una **casella** e sopra *e* sotto l'elenco c'è una barra con: **⤒ all'inizio**, **⤓ alla fine**, **alla posizione N**, e **togli dalla collezione** (con conferma, perché scrive sul negozio).
+  - I prodotti scelti **mantengono l'ordine relativo** che avevano: riordinarli anche fra loro sarebbe una seconda decisione che nessuno ha chiesto.
+  - La posizione è **quella che si legge in pagina** (1 = primo). Fuori intervallo si accosta all'estremo invece di rifiutare: chi scrive 999 sta dicendo «in fondo».
+  - **Un solo `<form>` per tutto**, e frecce e × sono bottoni con la propria `formAction` invece di form annidati (HTML non valido). È anche l'unico modo che funziona: **la FormData si costruisce dal form, non dal bottone che l'ha inviata**, quindi due azioni diverse vogliono due `formAction` diverse e non un `value` da leggere — [[trappola-server-action-valore-bottone]].
+  - **La rimozione in blocco è una sola chiamata** a `collectionRemoveProducts` con tutti gli id: dieci chiamate separate sarebbero dieci occasioni di restare a metà. Le righe locali si cancellano solo per i prodotti che il negozio ha accettato.
+  - La barra **non dice quanti sono selezionati**: contarli richiederebbe JavaScript, e un numero che non si aggiorna sarebbe peggio di nessun numero.
+  - **Verificato su dati veri** («Home-Page-Last-Minute», 63 prodotti in scena): 5° e 6° portati all'inizio → primi due nell'ordine giusto; poi «alla posizione 3» → finiti 3° e 4°; poi «alla fine» → ultimi due; «posizione 999» → in fondo. Ordine originale ripristinato.
+  - ⚠️ **Trappola provando le server action da script**: `revalidatePath` fuori da una richiesta Next lancia «static generation store missing» — **dopo** aver già scritto. Il primo tentativo ha lasciato la collezione riordinata e va rimessa a posto a mano; nei collaudi va avvolta in try/catch.
+
 ## COME AVVIARE
 ```
 cd deluxy-merchandising
