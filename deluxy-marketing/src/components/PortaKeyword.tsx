@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ATTR } from "@/lib/porta-keyword";
+import { testoKeywordPulito } from "@/lib/dominio";
+import { traduciKeyword } from "@/lib/traduci-keyword";
 
 export type CampagnaScelta = { id: string; nome: string; classe: string; lingua?: string | null };
 
@@ -34,6 +36,11 @@ export function PortaKeyword({
   const [escludi, setEscludi] = useState<string[]>([]);
   const [daClassificare, setDaClassificare] = useState(false);
   const [lingueDiOra, setLingueDiOra] = useState<string[]>([]);
+  // Il testo da usare per ogni lingua di destinazione: nasce dalla traduzione
+  // proposta e resta MODIFICABILE. Quello che finisce in coda è ciò che si
+  // legge nella casella, non ciò che ha scritto il glossario.
+  const [testiTradotti, setTestiTradotti] = useState<Record<string, string>>({});
+  const [toccati, setToccati] = useState<Record<string, boolean>>({});
   const [cerca, setCerca] = useState("");
   const [scelte, setScelte] = useState<string[]>([]);
 
@@ -50,6 +57,8 @@ export function PortaKeyword({
       setDaClassificare(b.getAttribute(ATTR.classificata) === "no");
       const ling = b.getAttribute(ATTR.lingue) ?? "";
       setLingueDiOra(ling === "" ? [] : ling.split(","));
+      setTestiTradotti({});
+      setToccati({});
       setCerca("");
       setScelte([]);
       dialogo.current?.showModal();
@@ -184,15 +193,57 @@ export function PortaKeyword({
             .map((id) => disponibili.find((c) => c.id === id))
             .filter((c): c is CampagnaScelta => !!c?.lingua && !lingueDiOra.includes(c.lingua));
           if (lingueDiOra.length === 0 || diverse.length === 0) return null;
+          const origine = lingueDiOra[0];
+          const pulito = testoKeywordPulito(keyword);
+          const perLingua = [...new Set(diverse.map((c) => c.lingua!))];
           return (
-            <div className="modale-avviso" style={{ background: "rgba(201,52,0,.08)", color: "var(--orange)" }}>
-              <b>Lingua diversa.</b> Questa parola gira su campagne in{" "}
-              {lingueDiOra.map((l) => NOME_LINGUA[l] ?? l).join(" e ")}, e{" "}
-              {diverse.length === 1 ? "la campagna" : `${diverse.length} campagne`} che hai scelto
-              parla{diverse.length === 1 ? "" : "no"}{" "}
-              {[...new Set(diverse.map((c) => NOME_LINGUA[c.lingua!] ?? c.lingua!))].join(" e ")}:{" "}
-              {diverse.map((c) => c.nome).join(", ")}. Il testo <b>non viene tradotto</b> — va
-              riscritto a mano nella lingua giusta, o la parola non intercetta nessuno.
+            <div className="modale-tradotto">
+              <div className="cella-sub" style={{ whiteSpace: "normal", marginBottom: 10 }}>
+                <b>Lingua diversa.</b> Questa parola gira su campagne in{" "}
+                {lingueDiOra.map((l) => NOME_LINGUA[l] ?? l).join(" e ")}. Qui sotto la proposta
+                nella lingua di ogni campagna scelta: <b>correggila</b> — in coda va quello che
+                leggi nella casella, non quello che ha scritto il glossario.
+              </div>
+              {perLingua.map((lin) => {
+                const t = traduciKeyword(pulito, origine, lin);
+                const proposta = t?.testo ?? pulito;
+                const valore = testiTradotti[lin] ?? proposta;
+                const dove = diverse.filter((c) => c.lingua === lin);
+                return (
+                  <div key={lin} style={{ marginBottom: 12 }}>
+                    <input type="hidden" name={`testo_${lin}`} value={valore} />
+                    <label className="modale-campo">
+                      {NOME_LINGUA[lin] ?? lin} — {dove.map((c) => c.nome).join(", ")}
+                      <input
+                        value={valore}
+                        onChange={(e) => {
+                          setTestiTradotti((s) => ({ ...s, [lin]: e.target.value }));
+                          setToccati((s) => ({ ...s, [lin]: true }));
+                        }}
+                      />
+                    </label>
+                    <div className="cella-sub" style={{ marginTop: 5, whiteSpace: "normal" }}>
+                      {t == null ? (
+                        <>
+                          Nessuna parola del glossario: la proposta è il testo <b>invariato</b>.
+                          Riscrivilo tu, o su quella campagna non intercetta nessuno.
+                        </>
+                      ) : (
+                        <>
+                          da «{pulito}»
+                          {t.riordinata && <> · città spostata in fondo</>}
+                          {t.nonTradotte.length > 0 && (
+                            <>
+                              {" "}· <b>non tradotte</b>: {t.nonTradotte.join(", ")}
+                            </>
+                          )}
+                          {toccati[lin] && <> · <b>corretta a mano</b></>}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           );
         })()}

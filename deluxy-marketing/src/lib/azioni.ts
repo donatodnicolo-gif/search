@@ -32,7 +32,7 @@ function esitoInCoda(cosa: string, avvisi: string[]) {
   return `/operazioni?${qs.toString()}`;
 }
 import { registra } from "./registro";
-import { CATEGORIE_ORDINE, LINGUE_CAMPAGNA, NEGOZI_ORDINE } from "./vendite-campagna";
+import { CATEGORIE_ORDINE, LINGUE_CAMPAGNA, linguaDaNome, NEGOZI_ORDINE } from "./vendite-campagna";
 import { PAGINE_VISTA } from "./viste";
 
 // Server action della UI. Le stesse operazioni esistono anche via /api/v1
@@ -2525,7 +2525,10 @@ export async function riapriOperazione(fd: FormData) {
 export async function applicaKeywordAdAltreCampagne(fd: FormData) {
   const parola = testo(fd, "testo");
   const ritorno = testo(fd, "ritorno") ?? "/keywords";
-  const corrispondenza = testo(fd, "corrispondenza") ?? "broad";
+  // ⚠️ Il ripiego è la corrispondenza più STRETTA, non la più larga: se il
+  // dialogo non manda niente, «generica» su una parola nata esatta comprerebbe
+  // molte più ricerche di quelle volute.
+  const corrispondenza = testo(fd, "corrispondenza") ?? "exact";
   const destinazioni = fd
     .getAll("campagne")
     .map((v) => String(v))
@@ -2568,12 +2571,19 @@ export async function applicaKeywordAdAltreCampagne(fd: FormData) {
     // il messaggio non diceva quale riga l'avesse bloccata, quindi l'errore
     // era invisibile. Ora `contains` fa solo da setaccio grosso e la decisione
     // la prende il confronto sul testo ripulito.
+    // Il testo per QUESTA campagna: se parla un'altra lingua e chi ha messo in
+    // coda ha rivisto la traduzione, va quella. La casella del dialogo è la
+    // fonte — il glossario propone, la persona decide.
+    const linguaC = linguaDaNome(c.nome);
+    const tradotto = linguaC ? testo(fd, `testo_${linguaC}`) : null;
+    const pulitoQui = tradotto ? testoKeywordPulito(tradotto) : pulito;
+
     const candidate = await prisma.copyAnnuncio.findMany({
-      where: { tipo: "keyword", campagna: c.nome, testo: { contains: pulito } },
+      where: { tipo: "keyword", campagna: c.nome, testo: { contains: pulitoQui } },
       select: { testo: true },
     });
     const gia = candidate.find(
-      (k) => testoKeywordPulito(k.testo).toLowerCase() === pulito.toLowerCase()
+      (k) => testoKeywordPulito(k.testo).toLowerCase() === pulitoQui.toLowerCase()
     );
     if (gia) {
       // Si dice QUALE riga l'ha bloccata: senza, «ce l'ha già» è una parola
@@ -2588,15 +2598,18 @@ export async function applicaKeywordAdAltreCampagne(fd: FormData) {
         canale: c.canale,
         bersaglio: c.nome,
         idEsterno: c.idEsterno,
-        parametri: JSON.stringify({ testo: pulito, corrispondenza }),
-        motivo: `Portata da un'altra campagna: funzionava lì`,
+        parametri: JSON.stringify({ testo: pulitoQui, corrispondenza }),
+        motivo:
+          pulitoQui.toLowerCase() !== pulito.toLowerCase()
+            ? `Portata da un'altra campagna e tradotta: «${pulito}» → «${pulitoQui}»`
+            : `Portata da un'altra campagna: funzionava lì`,
         avvisi: avvisoFreeze,
         livello: "L1",
         prima: "assente",
         campagnaId: c.id,
       },
     });
-    fatte.push(c.nome);
+    fatte.push(pulitoQui.toLowerCase() !== pulito.toLowerCase() ? `${c.nome} («${pulitoQui}»)` : c.nome);
   }
 
   await registra({

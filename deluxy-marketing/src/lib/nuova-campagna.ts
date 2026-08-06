@@ -2,6 +2,9 @@ import { prisma } from "@/lib/db";
 import { breakEvenRoas } from "@/lib/guardrail";
 
 import { testoKeywordPulito } from "@/lib/dominio";
+import { CITTA_NOTE, EN_IT, IT_EN } from "@/lib/citta";
+
+export { CITTA_NOTE };
 
 // Preparare una campagna nuova partendo da quello che GIÀ FUNZIONA, invece che
 // da un modulo vuoto.
@@ -29,23 +32,9 @@ const MIN_CLIC_SITELINK = 20;
 // con la città SBAGLIATA: provato il 29/07/2026 con «flowers delivery Como»
 // proposta per Napoli. Chi aggiunge una città alle campagne la aggiunga anche
 // qui — e vedi `scartaSeAltraCitta`, che è la rete sotto a questa.
-export const CITTA_NOTE = [
-  "milano", "roma", "napoli", "torino", "firenze", "bologna", "venezia",
-  "genova", "palermo", "verona", "bari", "catania", "como", "bergamo",
-  "brescia", "padova", "trieste", "parma", "modena", "rimini", "perugia",
-  "cagliari", "salerno", "pisa", "siena", "lecce", "trento", "bolzano",
-  "ancona", "pescara", "taormina", "sorrento", "capri", "portofino",
-  "cortina", "positano", "amalfi", "sanremo", "monza", "novara",
-  // forme inglesi
-  "milan", "rome", "florence", "venice", "naples", "turin", "genoa",
-];
 
 // Le forme inglesi vanno tradotte quando si riscrive una keyword: "flowers
 // delivery Milan" per Napoli diventa "flowers delivery Naples", non "Napoli".
-const IT_EN: Record<string, string> = {
-  milano: "milan", roma: "rome", firenze: "florence", venezia: "venice",
-  napoli: "naples", torino: "turin", genova: "genoa",
-};
 
 // La rete sotto alla lista delle città: una keyword che nomina un LUOGO che
 // non sappiamo riconoscere non va proposta per un'altra città, perché
@@ -65,7 +54,6 @@ function scartaSeAltraCitta(testo: string, cittaScelta: string): boolean {
   }
   return false;
 }
-const EN_IT: Record<string, string> = Object.fromEntries(Object.entries(IT_EN).map(([i, e]) => [e, i]));
 
 export type CategoriaDisponibile = {
   categoria: string;
