@@ -43,6 +43,36 @@ export const ETICHETTA_TIPO_COLLEZIONE: Record<string, string> = {
   automatica: "Automatica",
 };
 
+/**
+ * **Chi ci sta dentro e in che ordine sono due cose diverse**, e confonderle è
+ * costato caro: l'app chiamava «automatica» una collezione con `ruleSet` e per
+ * questo si rifiutava di riordinarla, dicendo che l'ordine lo decideva la
+ * regola. Non è così — su Shopify una smart collection può benissimo avere
+ * `sortOrder: MANUAL`, cioè i prodotti li sceglie una regola e la fila la decidi
+ * tu. Al 03/08/2026 sono **212 collezioni su 343**: il gruppo più grosso, e
+ * l'app le escludeva tutte.
+ *
+ * - `tipo` (manuale/automatica) = **chi entra** nella collezione;
+ * - `ordinamento` (sortOrder) = **in che ordine** si presentano.
+ */
+export const ETICHETTA_ORDINAMENTO_SHOPIFY: Record<string, string> = {
+  MANUAL: "a mano",
+  BEST_SELLING: "più venduti",
+  ALPHA_ASC: "alfabetico A→Z",
+  ALPHA_DESC: "alfabetico Z→A",
+  PRICE_ASC: "prezzo crescente",
+  PRICE_DESC: "prezzo decrescente",
+  CREATED: "dal più vecchio",
+  CREATED_DESC: "dal più recente",
+  MANUAL_DESC: "a mano (invertito)",
+};
+
+export const etichettaOrdinamentoShopify = (v: string | null | undefined) =>
+  v ? ETICHETTA_ORDINAMENTO_SHOPIFY[v] ?? v : "non dichiarato";
+
+/** L'ordine deciso qui vale sul negozio solo se lì il sortOrder è «a mano». */
+export const ordineAMano = (ordinamento: string | null | undefined) => ordinamento === "MANUAL";
+
 /** Le condizioni di una collezione automatica, in italiano leggibile. */
 export function descriviRegole(regoleJson: string | null): string[] {
   if (!regoleJson) return [];

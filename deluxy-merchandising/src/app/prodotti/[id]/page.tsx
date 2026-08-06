@@ -6,6 +6,8 @@ import { tipologiaRisposta } from "@/lib/risposta-bisogno";
 import { BarraMargine } from "@/components/BarraMargine";
 import { prisma } from "@/lib/db";
 import { linkAdmin, linkSito } from "@/lib/link-shopify";
+import { CampoNegozioModificabile } from "@/components/CampoNegozio";
+import { CAMPI_PRODOTTO } from "@/lib/campi-negozio";
 import { aggiornaProdotto, aggiungiVariante, cambiaFase, eliminaVariante, segnaShopify } from "@/lib/azioni";
 import { separaAzione } from "@/lib/azioni-riconciliazione";
 import { cambiaComponenteAzione } from "@/lib/azioni-composti";
@@ -43,10 +45,10 @@ export default async function ProdottoPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ tab?: string; esito?: string; messaggio?: string; seoConferma?: string }>;
+  searchParams: Promise<{ tab?: string; esito?: string; messaggio?: string; seoConferma?: string; modifica?: string }>;
 }) {
   const { id } = await params;
-  const { tab: tabRaw, esito, seoConferma } = await searchParams;
+  const { tab: tabRaw, esito, seoConferma, modifica } = await searchParams;
   const tab = TABS.some(([t]) => t === tabRaw) ? tabRaw! : "panoramica";
 
   const [prodotto, collezioni] = await Promise.all([
@@ -77,9 +79,17 @@ export default async function ProdottoPage({
   const negozioDelProdotto = suNegozio
     ? await prisma.negozioShopify.findFirst({
         where: { nome: suNegozio.collezione.negozio },
-        select: { dominio: true },
+        select: { dominio: true, permessi: true, attivo: true },
       })
     : null;
+  const puoScrivereSulNegozio =
+    !!negozioDelProdotto?.attivo && (negozioDelProdotto?.permessi ?? "").includes("write_products");
+  const valoreCampo: Record<string, string | null> = {
+    nome: prodotto.nome,
+    descrizione: prodotto.descrizione,
+    tipoShopify: prodotto.tipoShopify,
+    vendorShopify: prodotto.vendorShopify,
+  };
   const urlAdmin = linkAdmin(negozioDelProdotto?.dominio, prodotto.shopifyId, "prodotto");
   const urlSito = linkSito(negozioDelProdotto?.dominio, prodotto.handleShopify, "prodotto");
 

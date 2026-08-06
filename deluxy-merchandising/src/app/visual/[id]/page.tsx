@@ -7,6 +7,7 @@ import { SelettoreRegole } from "@/components/SelettoreRegole";
 import { CostruttorePassi } from "@/components/CostruttorePassi";
 import { vociPassi } from "@/lib/voci-passi";
 import { linkAdmin } from "@/lib/link-shopify";
+import { etichettaOrdinamentoShopify, ordineAMano } from "@/lib/collezioni";
 import { REGOLE } from "@/lib/ordinamento-vetrina";
 import { etichettaPassi, parsePassi } from "@/lib/regole-ordine";
 import { applicaRegolaSalvataAzione, creaRegolaDaCollezione } from "@/lib/azioni-regole-ordine";
@@ -88,7 +89,12 @@ export default async function CurazioneCollezionePage({
   const inAnteprima = grezze.length > 0;
   const regoleAnteprima = grezze.filter((r): r is RegolaOrdinamento => isRegola(r) && r !== "manuale");
   const puoScrivere = !!negozio?.attivo && (negozio?.permessi ?? "").includes("write_products");
-  const manuale = c.tipo === "manuale";
+  // **Due cose diverse, e per un pezzo erano una sola.** `tipo` dice **chi
+  // entra** nella collezione (a mano o per regola); `ordinamento` dice **in che
+  // ordine** si presentano sul negozio. Una smart collection con sortOrder
+  // MANUAL si riordina benissimo — sono 212 su 343, e prima le rifiutavamo tutte.
+  const membriAMano = c.tipo === "manuale";
+  const filaAMano = ordineAMano(c.ordinamento);
   const daSincronizzare =
     c.ordineModificatoIl != null && (c.ordineSpintoIl == null || c.ordineModificatoIl > c.ordineSpintoIl);
 
@@ -134,7 +140,8 @@ export default async function CurazioneCollezionePage({
         <div className="page-head">
           <div>
             <div className="prodotto-codice">
-              {c.negozio} · {c.tipo === "automatica" ? "collezione automatica" : "collezione manuale"}
+              {c.negozio} · {c.tipo === "automatica" ? "chi entra: per regola" : "chi entra: a mano"} ·{" "}
+              ordine sul negozio: {etichettaOrdinamentoShopify(c.ordinamento)}
               {c.pubblicataShopify ? " · pubblicata" : ""}
             </div>
             <h1 className="page-title">{c.titolo}</h1>
@@ -368,20 +375,21 @@ export default async function CurazioneCollezionePage({
               "L'ordine non è ancora stato inviato al negozio."
             )}
           </p>
-          {!manuale && (
+          {!filaAMano && (
             <p className="page-sub" style={{ marginTop: 0, color: "var(--orange)" }}>
-              È una collezione <b>automatica</b>: su Shopify i prodotti li ordina la regola della smart collection, non
-              si può imporre un ordine a mano. Qui puoi comunque studiarne l'ordine.
+              Sul negozio questa collezione si ordina <b>{etichettaOrdinamentoShopify(c.ordinamento)}</b>. Inviando la
+              fila curata qui, l&apos;ordine passa a <b>manuale</b>: da quel momento <b>non si risistema più da sola</b>.
+              {c.tipo === "automatica" && " Chi ci sta dentro continua a deciderlo la regola: quella non si tocca."}
             </p>
           )}
-          {manuale && !puoScrivere && (
+          {!puoScrivere && (
             <p className="page-sub" style={{ marginTop: 0, color: "var(--orange)" }}>
               Per inviare l'ordine serve un token con <b>write_products</b> collegato al negozio «{c.negozio}»: si
               imposta in <a href="/impostazioni">Negozi &amp; permessi</a>.
             </p>
           )}
           <form action={spingiOrdineSuShopify.bind(null, id)}>
-            <button type="submit" className="btn" disabled={!manuale || !puoScrivere}>
+            <button type="submit" className="btn" disabled={!puoScrivere}>
               Invia l'ordine a Shopify
             </button>
           </form>
@@ -441,7 +449,7 @@ export default async function CurazioneCollezionePage({
                           <form action={spostaInCollezione.bind(null, id, vp.prodottoId, "giu")}>
                             <button className="icon-btn" title="Sposta giù" type="submit" disabled={i === righe.length - 1}>↓</button>
                           </form>
-                          {manuale && (
+                          {membriAMano && (
                             <a
                               className="icon-btn"
                               href={`/visual/${id}?rimuovi=${vp.prodottoId}#p-${vp.prodottoId}`}

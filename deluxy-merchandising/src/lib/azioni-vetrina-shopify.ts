@@ -150,9 +150,13 @@ export async function spingiOrdineSuShopifySilenzioso(collezioneId: string): Pro
   const c = await prisma.collezioneShopify.findUnique({ where: { id: collezioneId } });
   if (!c) return "Collezione non trovata.";
 
-  if (c.tipo !== "manuale") {
-    return "È una collezione automatica: su Shopify l'ordine lo decide la regola, non si può imporre a mano.";
-  }
+  // **Nessun rifiuto per le collezioni automatiche.** Qui c'era un controllo
+  // `tipo !== "manuale"` che le escludeva, con la spiegazione «l'ordine lo decide
+  // la regola»: sbagliata. Su Shopify il `ruleSet` decide **chi entra**, il
+  // `sortOrder` decide **in che ordine** — e una smart collection può avere
+  // benissimo `sortOrder: MANUAL`. Al 03/08/2026 erano **212 collezioni su 343**,
+  // il gruppo più grosso, escluse dal riordino per un motivo che non esisteva.
+  // Se il sortOrder non è MANUAL lo si mette, come già si faceva più sotto.
 
   const negozio = await prisma.negozioShopify.findFirst({ where: { nome: c.negozio }, select: { id: true } });
   const accesso = negozio ? await tokenDi(negozio.id) : null;
@@ -187,6 +191,9 @@ export async function spingiOrdineSuShopifySilenzioso(collezioneId: string): Pro
       ...((corpo.data?.collectionUpdate?.userErrors as { message: string }[] | undefined) ?? []).map((e) => e.message),
     ];
     if (err.length) return `Shopify non ha messo l'ordine su «manuale»: ${err.join(" · ")}`;
+    // Da qui in poi la collezione **non si riordina più da sola** sul negozio:
+    // era «${c.ordinamento}», adesso è manuale. È una conseguenza vera del
+    // gesto, e va detta in pagina prima di premere, non scoperta dopo.
   }
 
   // 2) le mosse, a blocchi: si riordina tutto verso la testa nell'ordine curato.

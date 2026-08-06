@@ -5,6 +5,8 @@ import { RiquadroSeo } from "@/components/RiquadroSeo";
 import { Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
 import { linkAdmin, linkSito } from "@/lib/link-shopify";
+import { CampoNegozioModificabile } from "@/components/CampoNegozio";
+import { CAMPI_COLLEZIONE } from "@/lib/campi-negozio";
 import { etichettaCategoria, euro, iso, percentuale } from "@/lib/dominio";
 import { FILTRO_BUON_FINE, finestra } from "@/lib/vendite";
 import { Badge } from "@/components/Badge";
@@ -29,7 +31,7 @@ export default async function CollezioneShopifyPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ esito?: string; messaggio?: string; seoConferma?: string }>;
+  searchParams: Promise<{ esito?: string; messaggio?: string; seoConferma?: string; modifica?: string }>;
 }) {
   const { id } = await params;
   const sp = await searchParams;
@@ -60,8 +62,9 @@ export default async function CollezioneShopifyPage({
   // non si costruisce a mano.
   const negozio = await prisma.negozioShopify.findFirst({
     where: { nome: collezione.negozio },
-    select: { dominio: true, canaleVendite: true },
+    select: { dominio: true, canaleVendite: true, permessi: true, attivo: true },
   });
+  const puoScrivere = !!negozio?.attivo && (negozio?.permessi ?? "").includes("write_products");
   const urlAdmin = linkAdmin(negozio?.dominio, collezione.shopifyId, "collezione");
   const urlSito = linkSito(negozio?.dominio, collezione.handle, "collezione");
 
@@ -141,6 +144,31 @@ export default async function CollezioneShopifyPage({
               </a>
             )}
           </div>
+        </div>
+
+        {/* **I campi del negozio, correggibili da qui.** La matita scrive su
+            Shopify e poi aggiorna la copia locale: salvarli solo qui non
+            servirebbe, perché al primo import tornerebbe il valore del negozio. */}
+        <div className="scheda">
+          <div className="scheda-titolo">Come si presenta sul negozio</div>
+          {CAMPI_COLLEZIONE.map((campo) => (
+            <CampoNegozioModificabile
+              key={campo.chiave}
+              tipo="collezione"
+              id={id}
+              campo={campo}
+              valore={campo.colonna === "titolo" ? collezione.titolo : collezione.descrizione}
+              percorso={`/collezioni/shopify/${id}`}
+              aperto={sp.modifica === campo.chiave}
+              puoScrivere={puoScrivere}
+            />
+          ))}
+          {!puoScrivere && (
+            <p className="page-sub" style={{ marginTop: 0, marginBottom: 0 }}>
+              Il negozio «{collezione.negozio}» non ha un token con <b>write_products</b>: da qui si può solo leggere.
+              Si collega in <Link href="/impostazioni">Negozi &amp; permessi</Link>.
+            </p>
+          )}
         </div>
 
         <div className="kpi-riga">

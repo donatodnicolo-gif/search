@@ -4,7 +4,7 @@ import { Miniatura } from "@/components/Miniatura";
 import { Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
 import { brandCorrente, negoziDelBrand, etichettaAmbito } from "@/lib/brand";
-import { nomePosizione, posizioniDa } from "@/lib/collezioni";
+import { etichettaOrdinamentoShopify, nomePosizione, posizioniDa } from "@/lib/collezioni";
 import { euro, percentuale } from "@/lib/dominio";
 import { etichettaRegola, FILTRO_IN_SCENA } from "@/lib/ordinamento-vetrina";
 import { normalizza } from "@/lib/riconciliazione";
@@ -32,8 +32,10 @@ const FILTRI = [
   { chiave: "senza-ordine", nome: "Senza regola d'ordine" },
   { chiave: "senza-rotazione", nome: "Senza rotazione" },
   { chiave: "senza-tipologia", nome: "Senza tipologia" },
-  { chiave: "manuale", nome: "Solo manuali (ordinabili)" },
-  { chiave: "automatica", nome: "Solo automatiche" },
+  { chiave: "manuale", nome: "Chi entra: a mano" },
+  { chiave: "automatica", nome: "Chi entra: per regola" },
+  { chiave: "fila-a-mano", nome: "Ordine sul negozio: a mano" },
+  { chiave: "fila-automatica", nome: "Ordine sul negozio: deciso da Shopify" },
   { chiave: "sospesa", nome: "Sospese" },
   { chiave: "senza-prodotti", nome: "Senza prodotti in vendita" },
 ] as const;
@@ -191,6 +193,12 @@ export default async function VisualPage({
         return r.c.tipo !== "automatica";
       case "automatica":
         return r.c.tipo === "automatica";
+      // L'ordine e' un'altra cosa dal tipo: una collezione «per regola» puo'
+      // avere la fila decisa a mano, ed e' il caso piu' frequente (212 su 343).
+      case "fila-a-mano":
+        return r.c.ordinamento === "MANUAL";
+      case "fila-automatica":
+        return r.c.ordinamento != null && r.c.ordinamento !== "MANUAL";
       case "sospesa":
         return r.c.stato === "sospesa";
       case "senza-prodotti":
@@ -474,9 +482,15 @@ export default async function VisualPage({
                               colore={r.inVetrina ? "var(--gold)" : "var(--text-tertiary)"}
                             />
                             <Pill
-                              testo={r.c.tipo === "automatica" ? "Automatica" : "Manuale"}
+                              testo={r.c.tipo === "automatica" ? "Entra per regola" : "Entra a mano"}
                               colore={r.c.tipo === "automatica" ? "var(--blue)" : "var(--green)"}
                             />
+                            {r.c.ordinamento !== "MANUAL" && (
+                              <Pill
+                                testo={`Ordine ${etichettaOrdinamentoShopify(r.c.ordinamento)}`}
+                                colore="var(--text-tertiary)"
+                              />
+                            )}
                             {r.c.stato === "sospesa" && <Pill testo="Sospesa" colore="var(--orange)" />}
                             {r.c.tipologia && <Pill testo={r.c.tipologia.nome} colore="var(--purple, #5B4FC7)" />}
                             {r.c.inCampagne && <Pill testo="In campagne" colore="var(--blue)" />}
