@@ -424,6 +424,14 @@ model CollezioneShopify {
   // volo, questa è la regola scritta una volta e riusata.
   regolaOrdineId String?
   regolaOrdine   RegolaOrdine? @relation(fields: [regolaOrdineId], references: [id], onDelete: SetNull)
+  // **Quanti prodotti per riga** mostrare sulla pagina della collezione.
+  // Su Shopify non esiste un campo per questo: la disposizione la decide il
+  // tema. Si scrive quindi come **metafield** `custom.prodotti_per_riga`, che è
+  // l'unico posto per-collezione dove può stare — e vale solo se il tema lo
+  // legge. Qui si sceglie, con `prodottiPerRigaSpintoIl` a dire se il negozio
+  // ha già il valore o è rimasto indietro.
+  prodottiPerRiga         Int?
+  prodottiPerRigaSpintoIl DateTime?
   // I **temi** a cui è stata assegnata: raggruppamenti liberi decisi da una
   // persona (Natale, San Valentino…). Più di uno: una collezione può stare in
   // più temi insieme.

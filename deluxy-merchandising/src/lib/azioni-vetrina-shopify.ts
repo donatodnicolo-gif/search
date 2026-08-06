@@ -302,6 +302,17 @@ export async function spostaSceltiInCollezione(
 export async function rimuoviSceltiDaCollezione(collezioneId: string, fd: FormData) {
   const scelti = sceltiDa(fd);
   if (scelti.length === 0) return;
+  // **La spunta di conferma e' obbligatoria.** Senza, un clic distratto con
+  // «Tutti» attivo svuota una vetrina vera: e' successo su
+  // «Home-Page-Last-Minute», passata da 51 prodotti attivi a 5. Il pulsante da
+  // solo non basta come consenso per una scrittura in blocco sul negozio.
+  if (String(fd.get("confermoRimozione") ?? "") !== "1") {
+    redirect(
+      `/visual/${collezioneId}?esito=errore&messaggio=${encodeURIComponent(
+        "Per togliere piu' prodotti insieme serve anche la spunta «Ho controllato quali sono»: e' una scrittura sul negozio e cambia subito la vetrina.",
+      )}`,
+    );
+  }
 
   const errore = (m: string) =>
     redirect(`/visual/${collezioneId}?esito=errore&messaggio=${encodeURIComponent(m)}`);

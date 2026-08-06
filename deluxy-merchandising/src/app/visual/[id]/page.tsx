@@ -12,6 +12,7 @@ import { etichettaOrdinamentoShopify, ordineAMano } from "@/lib/collezioni";
 import { REGOLE } from "@/lib/ordinamento-vetrina";
 import { etichettaPassi, filtroSuggerimenti, parsePassi } from "@/lib/regole-ordine";
 import { applicaRegolaSalvataAzione, creaRegolaDaCollezione } from "@/lib/azioni-regole-ordine";
+import { salvaProdottiPerRiga } from "@/lib/azioni-collezioni-shopify";
 import {
   applicaRegolaOrdinamento,
   spostaInCollezione,
@@ -452,6 +453,37 @@ export default async function CurazioneCollezionePage({
           </form>
         </div>
 
+        {/* **Quanti prodotti per riga.** Su Shopify non esiste un campo per la
+            disposizione: la decide il tema. Si scrive come metafield
+            `custom.prodotti_per_riga`, che e' l'unico posto per-collezione dove
+            il valore puo' stare — e vale **solo se il tema lo legge**. Detto in
+            pagina, perche' promettere un effetto che dipende dal tema sarebbe
+            una bugia. */}
+        <div className="scheda">
+          <div className="scheda-titolo">Prodotti per riga</div>
+          <form
+            action={salvaProdottiPerRiga.bind(null, id)}
+            style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}
+          >
+            <select name="prodottiPerRiga" defaultValue={c.prodottiPerRiga?.toString() ?? ""} aria-label="Prodotti per riga">
+              <option value="">— non impostato —</option>
+              {[2, 3, 4, 5, 6].map((n) => (
+                <option key={n} value={n}>{n} per riga</option>
+              ))}
+            </select>
+            <button type="submit" className="btn btn-primario">Salva e manda al negozio</button>
+          </form>
+          <p className="page-sub" style={{ marginTop: 10, marginBottom: 0 }}>
+            Si scrive nel metafield <code>custom.prodotti_per_riga</code> della collezione.{" "}
+            {c.prodottiPerRigaSpintoIl ? (
+              <>Mandato al negozio il {c.prodottiPerRigaSpintoIl.toLocaleDateString("it-IT")}.</>
+            ) : (
+              <>Non e' ancora stato mandato.</>
+            )}{" "}
+            <b>Cambia la pagina solo se il tema legge quel metafield</b>: Shopify non ha un campo suo per la
+            disposizione, e il valore da solo non sposta niente.
+          </p>
+        </div>
         {/* **Il pannello per aggiungere prodotti.** Si sceglie guardando le
             immagini, perché è così che si costruisce una vetrina; e la prima
             cosa che propone non è il catalogo intero ma quello che **le

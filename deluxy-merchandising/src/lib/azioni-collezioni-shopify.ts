@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "./db";
+import { erroriDi, graphqlNegozio } from "./shopify-scrittura";
 import { tokenDi, VERSIONE_API } from "./negozi";
 
 function testo(fd: FormData, k: string): string {
@@ -123,4 +124,58 @@ export async function eliminaCollezioneShopify(id: string, fd: FormData) {
         : `«${c.titolo}» tolta da Merchandising. Su ${c.negozio} è ancora lì: torna al prossimo import.`
     )}`
   );
+}
+
+/**
+ * **Quanti prodotti per riga**, scelto qui e mandato al negozio.
+ *
+ * Su Shopify non esiste un campo per la disposizione: la decide il tema. L'unico
+ * posto per-collezione dove il valore puo' stare e' un **metafield**, quindi si
+ * scrive `custom.prodotti_per_riga` (number_integer). Il negozio lo conserva
+ * comunque; **cambia qualcosa sul sito solo se il tema lo legge** — ed e' detto
+ * in pagina, perche' promettere un effetto che dipende dal tema sarebbe una
+ * bugia.
+ *
+ * Prima su Shopify, poi qui: se il negozio rifiuta, l'app non racconta un
+ * valore che il negozio non ha.
+ */
+export async function salvaProdottiPerRiga(collezioneId: string, fd: FormData) {
+  const grezzo = String(fd.get('prodottiPerRiga') ?? '').trim();
+  const n = grezzo === '' ? null : Number.parseInt(grezzo, 10);
+  if (n != null && (!Number.isFinite(n) || n < 1 || n > 12)) return;
+
+  const c = await prisma.collezioneShopify.findUnique({ where: { id: collezioneId } });
+  if (!c) return;
+
+  // Svuotando il campo si toglie la scelta **solo qui**: cancellare un metafield
+  // e' un'altra azione, e non la si fa per svista lasciando una casella vuota.
+  if (n == null) {
+    await prisma.collezioneShopify.update({ where: { id: collezioneId }, data: { prodottiPerRiga: null } });
+    revalidatePath('/visual/' + collezioneId);
+    return;
+  }
+
+  const negozio = await prisma.negozioShopify.findFirst({ where: { nome: c.negozio }, select: { id: true, permessi: true } });
+  const accesso = negozio && (negozio.permessi ?? '').includes('write_products') ? await tokenDi(negozio.id) : null;
+  if (!accesso) {
+    redirect('/visual/' + collezioneId + '?esito=errore&messaggio=' + encodeURIComponent('Serve un token con write_products sul negozio «' + c.negozio + '» per scrivere il metafield.'));
+  }
+
+  const r = await graphqlNegozio(
+    accesso!.dominio,
+    accesso!.token,
+    'mutation($m: [MetafieldsSetInput!]!) { metafieldsSet(metafields: $m) { metafields { key value } userErrors { field message } } }',
+    { m: [{ ownerId: c.shopifyId, namespace: 'custom', key: 'prodotti_per_riga', type: 'number_integer', value: String(n) }] },
+  );
+  const err = erroriDi(r, 'metafieldsSet');
+  if (err.length) {
+    redirect('/visual/' + collezioneId + '?esito=errore&messaggio=' + encodeURIComponent('Shopify ha rifiutato: ' + err.join(' · ')));
+  }
+
+  await prisma.collezioneShopify.update({
+    where: { id: collezioneId },
+    data: { prodottiPerRiga: n, prodottiPerRigaSpintoIl: new Date() },
+  });
+  revalidatePath('/visual/' + collezioneId);
+  revalidatePath('/collezioni/shopify/' + collezioneId);
 }

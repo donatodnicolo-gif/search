@@ -187,10 +187,19 @@ function BarraBlocco({
       {membriAMano && (
         <details className="conferma-x">
           <summary className="btn btn-secondario" style={{ cursor: "pointer" }}>Togli dalla collezione</summary>
-          <div className="conferma-x-corpo" style={{ maxWidth: 360, whiteSpace: "normal" }}>
+          <div className="conferma-x-corpo">
+            {/* **Il paracadute.** Con «Tutti» spuntato, un clic distratto svuota
+                una vetrina vera: è già successo su «Home-Page-Last-Minute»,
+                passata da 51 prodotti attivi a 5. La spunta in più non è
+                burocrazia — è la differenza fra un gesto e un incidente, e costa
+                un secondo solo a chi lo voleva fare davvero. */}
             <span>
-              Togliere i prodotti scelti dalla collezione <b>sul negozio</b>? Restano a catalogo e nelle altre
-              collezioni.
+              Togliere <b>tutti i prodotti spuntati</b> dalla collezione <b>sul negozio</b>? Restano a catalogo e nelle
+              altre collezioni, ma la vetrina cambia subito per il cliente.
+              <label style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 8, fontWeight: 600 }}>
+                <input type="checkbox" name="confermoRimozione" value="1" />
+                Ho controllato quali sono
+              </label>
             </span>
             <button
               type="submit"
