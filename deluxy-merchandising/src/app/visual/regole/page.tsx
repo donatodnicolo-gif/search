@@ -16,7 +16,7 @@ const NOMI_METRICHE = Object.fromEntries(REGOLE.map((r) => [r.chiave, r.nome]));
 export default async function RegolePage({
   searchParams,
 }: {
-  searchParams: Promise<{ esito?: string; messaggio?: string; elimina?: string }>;
+  searchParams: Promise<{ esito?: string; messaggio?: string }>;
 }) {
   const sp = await searchParams;
   const ritardi = await ritardiPerRegola();
@@ -61,15 +61,6 @@ export default async function RegolePage({
           </p>
         </div>
 
-        {sp.elimina && (
-          <div className="nota-info nota-errore">
-            <span className="nota-icona">△</span>
-            <span>
-              Eliminando la regola, le collezioni che la usano tornano <b>«solo a mano»</b>: l&apos;ordine già scritto
-              sulle vetrine <b>non si tocca</b> e non viene rimescolato. Quello che si perde sono i passi della regola.
-            </span>
-          </div>
-        )}
 
         <div className="scheda">
           <div className="scheda-titolo">Le regole salvate ({regole.length})</div>
@@ -126,29 +117,32 @@ export default async function RegolePage({
                             «solo a mano» e **l'ordine gia' scritto resta**.
                             Cancellare una regola non e' chiedere di rimescolare
                             le vetrine. */}
+                        {/* **La conferma non naviga**, come il × che toglie un
+                            prodotto da una collezione: è un `<details>` che si
+                            apre da solo. E dice cosa succede davvero — le
+                            collezioni tornano «solo a mano» e **l'ordine già
+                            scritto sulle vetrine non si tocca**: cancellare una
+                            regola non è chiedere di rimescolarle. */}
                         <td style={{ position: "relative", zIndex: 1 }}>
-                          {sp.elimina === r.id ? (
-                            <span style={{ display: "flex", gap: 6, alignItems: "center", whiteSpace: "nowrap" }}>
+                          <details className="conferma-x">
+                            <summary className="icon-btn" title="Elimina la regola">×</summary>
+                            <div className="conferma-x-corpo" style={{ maxWidth: 340, whiteSpace: "normal" }}>
+                              <span>
+                                Eliminare «{r.nome}»?
+                                {r._count.collezioni > 0 && (
+                                  <>
+                                    {" "}Le <b>{r._count.collezioni}</b> collezioni che la usano tornano «solo a mano»;
+                                    l&apos;ordine già scritto <b>resta com&apos;è</b>.
+                                  </>
+                                )}
+                              </span>
                               <form action={eliminaRegolaOrdine.bind(null, r.id)}>
                                 <button type="submit" className="btn btn-secondario" style={{ fontSize: 12, padding: "3px 10px" }}>
                                   Sì, elimina
                                 </button>
                               </form>
-                              <Link className="icon-btn" href="/visual/regole" title="Annulla">↩</Link>
-                            </span>
-                          ) : (
-                            <Link
-                              className="icon-btn"
-                              href={`/visual/regole?elimina=${r.id}`}
-                              title={
-                                r._count.collezioni > 0
-                                  ? `Elimina: le ${r._count.collezioni} collezioni che la usano tornano «solo a mano»`
-                                  : "Elimina la regola"
-                              }
-                            >
-                              ×
-                            </Link>
-                          )}
+                            </div>
+                          </details>
                         </td>
                       </tr>
                     );

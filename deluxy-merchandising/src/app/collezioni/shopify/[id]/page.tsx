@@ -5,6 +5,7 @@ import { RiquadroSeo } from "@/components/RiquadroSeo";
 import { Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
 import { linkAdmin, linkSito } from "@/lib/link-shopify";
+import { FilaProdotti } from "@/components/FilaProdotti";
 import { CampoNegozioModificabile } from "@/components/CampoNegozio";
 import { CAMPI_COLLEZIONE } from "@/lib/campi-negozio";
 import { etichettaCategoria, euro, iso, percentuale } from "@/lib/dominio";
@@ -16,12 +17,17 @@ import {
   descriviRegole,
   ETICHETTA_STATO_COLLEZIONE_SHOPIFY,
   ETICHETTA_TIPO_COLLEZIONE,
+  etichettaOrdinamentoShopify,
   posizioniDa,
   POSIZIONI,
   regoleInOEd,
 } from "@/lib/collezioni";
 
 export const dynamic = "force-dynamic";
+
+// Quanti prodotti si mostrano qui: la cura vera sta in Visual, questa è la fila
+// vista dal lato della collezione.
+const MAX_FILA = 60;
 
 // Scheda di una collezione **di Shopify**: chi ci sta dentro fra i prodotti che
 // l'app conosce, e come ha venduto negli ultimi 90 giorni. È la vetrina vista
@@ -40,6 +46,9 @@ export default async function CollezioneShopifyPage({
     where: { id },
     include: {
       prodotti: {
+        // Ordinati come sulla vetrina: la fila qui sotto è la stessa che si cura
+        // in Visual, non un altro elenco.
+        orderBy: [{ posizione: "asc" }, { prodotto: { nome: "asc" } }],
         include: {
           prodotto: {
             select: {
@@ -50,6 +59,8 @@ export default async function CollezioneShopifyPage({
               prezzoVendita: true,
               costoProduzione: true,
               fase: true,
+              immagine: true,
+              statoShopify: true,
             },
           },
         },
@@ -69,6 +80,12 @@ export default async function CollezioneShopifyPage({
   const urlSito = linkSito(negozio?.dominio, collezione.handle, "collezione");
 
   const prodotti = collezione.prodotti.map((r) => r.prodotto);
+  // In scena solo quello che il cliente vede, come in Visual: gli archiviati e
+  // le bozze restano legati alla collezione ma non entrano nella fila.
+  const inScena = collezione.prodotti.filter(
+    (vp) => vp.prodotto.statoShopify === "ACTIVE" && vp.prodotto.fase !== "archiviato",
+  );
+  const fuoriScena = collezione.prodotti.length - inScena.length;
   const f = finestra(90);
 
   // Il negozio qui si chiama "Cake", nel venduto è "cakedesign.me": il nome
@@ -208,6 +225,42 @@ export default async function CollezioneShopifyPage({
             </span>
           </div>
         )}
+
+        {/* **La fila, qui e non solo in Visual.** È lo stesso componente e le
+            stesse azioni: cambia solo dove si disegna, così le due schermate non
+            possono comportarsi in modo diverso. In scena ci va soltanto quello
+            che il cliente vede: gli archiviati e le bozze restano legati alla
+            collezione ma fuori dalla fila. */}
+        <div className="scheda">
+          <div className="scheda-titolo">Ordine dei prodotti in vetrina</div>
+          <p className="page-sub" style={{ marginTop: -4 }}>
+            {inScena.length === 0 ? (
+              <>Nessun prodotto in vendita da mettere in fila.</>
+            ) : (
+              <>
+                <b>{inScena.length}</b> prodotti in vendita
+                {fuoriScena > 0 && <> · {fuoriScena} archiviati o in bozza, fuori dalla fila</>} · ordine sul negozio:{" "}
+                <b>{etichettaOrdinamentoShopify(collezione.ordinamento)}</b>. Le regole d&apos;ordine, l&apos;anteprima
+                e l&apos;invio a Shopify stanno in <Link href={`/visual/${id}`}>Cura l&apos;ordine</Link>.
+              </>
+            )}
+          </p>
+          {inScena.length > 0 && (
+            <>
+              <FilaProdotti
+                collezioneId={id}
+                righe={inScena.slice(0, MAX_FILA)}
+                membriAMano={collezione.tipo === "manuale"}
+              />
+              {inScena.length > MAX_FILA && (
+                <p className="page-sub" style={{ marginTop: 12 }}>
+                  Mostrati i primi {MAX_FILA} di {inScena.length}: il resto si cura in{" "}
+                  <Link href={`/visual/${id}`}>Cura l&apos;ordine</Link>.
+                </p>
+              )}
+            </>
+          )}
+        </div>
 
         {/* Quello che dice Shopify e quello che decidiamo noi, separati:
             confonderli farebbe credere di poter cambiare da qui cose che

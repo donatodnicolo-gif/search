@@ -5,6 +5,7 @@ import { euro } from "@/lib/dominio";
 import { etichettaRegola, FILTRO_IN_SCENA, isRegola, ordinaProdotti, parseRegole, type RegolaOrdinamento } from "@/lib/ordinamento-vetrina";
 import { SelettoreRegole } from "@/components/SelettoreRegole";
 import { CostruttorePassi } from "@/components/CostruttorePassi";
+import { FilaProdotti, StatoNegozio } from "@/components/FilaProdotti";
 import { vociPassi } from "@/lib/voci-passi";
 import { linkAdmin } from "@/lib/link-shopify";
 import { etichettaOrdinamentoShopify, ordineAMano } from "@/lib/collezioni";
@@ -420,61 +421,7 @@ export default async function CurazioneCollezionePage({
             </div>
           ) : (
             <>
-              <div className="vetrina-lista">
-                {righe.map((vp, i) => (
-                  // L'ancora serve al × e all'annulla: sono link, quindi la
-                  // pagina si ricarica, e senza ancora si riparte dall'alto —
-                  // con 300 righe si perde il punto in cui si stava lavorando.
-                  <div className="vetrina-riga" key={vp.id} id={`p-${vp.prodottoId}`}>
-                    <span className="vetrina-pos">{i + 1}</span>
-                    <span className="vetrina-mini">
-                      {vp.prodotto.immagine ? <img src={vp.prodotto.immagine} alt="" /> : "❀"}
-                    </span>
-                    <span className="vetrina-info">
-                      <a href={`/prodotti/${vp.prodottoId}`} className="cella-nome">{vp.prodotto.nome}</a>
-                      <div className="cella-sub">
-                        <StatoNegozio stato={vp.prodotto.statoShopify} />
-                        {" "}{vp.prodotto.codice}
-                        {vp.prodotto.prezzoVendita > 0 ? ` · ${euro(vp.prodotto.prezzoVendita)}` : ""}
-                      </div>
-                    </span>
-                    <span className="vetrina-azioni">
-                      {/* **Togliere scrive sul negozio vero**, quindi si conferma
-                          prima: il × porta a uno stato di conferma nell'indirizzo,
-                          non esegue. Stessa idea dell'anteprima dell'ordine —
-                          finché non confermi, non succede niente. */}
-                      {/* **La conferma non naviga.** Il × era un link a
-                          `?rimuovi=…`: ogni clic era una navigazione, e una
-                          navigazione riporta la pagina all'inizio — ancorarla
-                          alla riga non bastava, perché il browser porta quella
-                          riga in cima al riquadro e la vista si sposta lo
-                          stesso. Qui la conferma è un `<details>`: si apre
-                          **senza ricaricare niente**, e il pulsante è una server
-                          action senza redirect, quindi l'elenco si riscrive in
-                          posto e lo scorrimento resta dov'è. */}
-                      <form action={spostaInCollezione.bind(null, id, vp.prodottoId, "su")}>
-                        <button className="icon-btn" title="Sposta su" type="submit" disabled={i === 0}>↑</button>
-                      </form>
-                      <form action={spostaInCollezione.bind(null, id, vp.prodottoId, "giu")}>
-                        <button className="icon-btn" title="Sposta giù" type="submit" disabled={i === righe.length - 1}>↓</button>
-                      </form>
-                      {membriAMano && (
-                        <details className="conferma-x">
-                          <summary className="icon-btn" title="Togli dalla collezione (sul negozio)">×</summary>
-                          <div className="conferma-x-corpo">
-                            <span>Togliere «{vp.prodotto.nome}» dalla collezione sul negozio?</span>
-                            <form action={rimuoviProdottoDaCollezione.bind(null, id, vp.prodottoId)}>
-                              <button type="submit" className="btn btn-secondario" style={{ fontSize: 12, padding: "3px 10px" }}>
-                                Sì, togli
-                              </button>
-                            </form>
-                          </div>
-                        </details>
-                      )}
-                    </span>
-                  </div>
-                ))}
-              </div>
+              <FilaProdotti collezioneId={id} righe={righe} membriAMano={membriAMano} />
               {restano > 0 && (
                 <p className="page-sub" style={{ marginTop: 12 }}>
                   Mostrati i primi {MAX_RIGHE}; altri {restano} prodotti non sono in elenco ma l'ordine inviato a
@@ -530,45 +477,10 @@ export default async function CurazioneCollezionePage({
 }
 
 /**
- * Lo stato del prodotto **sul negozio**, letto a ogni import. Si scrive accanto
- * al codice perché è la prima cosa da sapere guardando una fila: un prodotto
- * archiviato in vetrina non ci va, per quanto qui risulti «in vendita».
- * `null` = non lo sappiamo (mai visto su un negozio), e si dice invece di
- * inventare «attivo».
- */
-function StatoNegozio({ stato }: { stato: string | null }) {
-  const m: Record<string, { testo: string; colore: string }> = {
-    ACTIVE: { testo: "Attivo", colore: "var(--green)" },
-    DRAFT: { testo: "Bozza", colore: "var(--orange)" },
-    ARCHIVED: { testo: "Archiviato", colore: "var(--text-tertiary)" },
-  };
-  const v = stato ? m[stato] : null;
-  const testo = v?.testo ?? "Stato ignoto";
-  const colore = v?.colore ?? "var(--text-tertiary)";
-  return (
-    <span
-      style={{
-        fontSize: 10,
-        fontWeight: 700,
-        letterSpacing: 0.2,
-        textTransform: "uppercase",
-        color: colore,
-        background: `color-mix(in srgb, ${colore} 12%, transparent)`,
-        padding: "1px 6px",
-        borderRadius: 999,
-        whiteSpace: "nowrap",
-      }}
-    >
-      {testo}
-    </span>
-  );
-}
-
-/**
- * «Salva questo ordine come regola»: prende le metriche che si stanno guardando
- * — quelle in anteprima, o quelle già applicate alla collezione — e le porta
- * dentro una regola nuova, che poi si finisce di scrivere sulla sua scheda
- * (dove ci sono i passi per attributo: categoria, prezzo, tag…).
+ * «Crea la regola e imposta le condizioni»: prende le metriche che si stanno
+ * guardando — quelle in anteprima, o quelle già applicate alla collezione — e le
+ * porta dentro una regola nuova, che poi si finisce di scrivere qui sotto, con
+ * le condizioni per categoria, prezzo, tag e tempi di consegna.
  *
  * Le metriche viaggiano in campi nascosti `regola`, la **stessa convenzione**
  * del selettore rapido: così la lettura lato server è una sola (`regoleDaForm`).
