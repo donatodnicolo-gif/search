@@ -1,4 +1,5 @@
 import { euro } from "@/lib/dominio";
+import { SelezionaTutti } from "./SelezionaTutti";
 import {
   rimuoviProdottoDaCollezione,
   rimuoviSceltiDaCollezione,
@@ -59,7 +60,7 @@ export function FilaProdotti({
   const quanti = totale ?? righe.length;
   return (
     <form>
-      <BarraBlocco collezioneId={collezioneId} membriAMano={membriAMano} quanti={quanti} />
+      <BarraBlocco collezioneId={collezioneId} membriAMano={membriAMano} quanti={quanti} inElenco={righe.length} />
 
       <div className="vetrina-lista">
         {righe.map((vp, i) => (
@@ -119,7 +120,7 @@ export function FilaProdotti({
         ))}
       </div>
 
-      <BarraBlocco collezioneId={collezioneId} membriAMano={membriAMano} quanti={quanti} sotto />
+      <BarraBlocco collezioneId={collezioneId} membriAMano={membriAMano} quanti={quanti} inElenco={righe.length} sotto />
     </form>
   );
 }
@@ -133,17 +134,22 @@ function BarraBlocco({
   collezioneId,
   membriAMano,
   quanti,
+  inElenco,
   sotto,
 }: {
   collezioneId: string;
   membriAMano: boolean;
+  /** Quanti sono in tutto: e' il massimo di «alla posizione». */
   quanti: number;
+  /** Quanti sono **in questa pagina**: e' quello che «tutti» spunta davvero. */
+  inElenco: number;
   sotto?: boolean;
 }) {
   return (
     <div className="barra-blocco" style={sotto ? { marginTop: 12 } : { marginBottom: 12 }}>
+      <SelezionaTutti quanti={inElenco} />
       <span className="page-sub" style={{ margin: 0 }}>
-        Scegli con le caselle, poi:
+        poi:
       </span>
       <button type="submit" className="btn btn-secondario" formAction={spostaSceltiInCollezione.bind(null, collezioneId, "inizio")}>
         ⤒ All&apos;inizio
@@ -169,6 +175,11 @@ function BarraBlocco({
           aria-label="Posizione"
         />
       </span>
+      {inElenco < quanti && (
+        <span className="page-sub" style={{ margin: 0 }}>
+          («Tutti» spunta i {inElenco} in questa pagina, non tutti i {quanti}.)
+        </span>
+      )}
       {membriAMano && (
         <details className="conferma-x">
           <summary className="btn btn-secondario" style={{ cursor: "pointer" }}>Togli dalla collezione</summary>

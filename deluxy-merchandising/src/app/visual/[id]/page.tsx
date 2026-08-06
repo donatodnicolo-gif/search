@@ -166,6 +166,13 @@ export default async function CurazioneCollezionePage({
           {/* La collezione com'è **sul sito**: serve a confrontare quello che si
               decide qui con quello che vede davvero il cliente. */}
           <div className="riga-azione">
+            {/* **Modificare dentro l'app**: titolo, descrizione e SEO si
+                correggono nella scheda della collezione, e da qui non ci si
+                arrivava. Il bottone del negozio resta per i campi che Shopify
+                possiede e che qui non si toccano. */}
+            <a className="btn btn-secondario" href={`/collezioni/shopify/${id}`}>
+              Modifica nell&apos;app
+            </a>
             {linkAdmin(negozio?.dominio, c.shopifyId, "collezione") && (
               <a
                 className="btn btn-secondario"
