@@ -373,6 +373,20 @@ export function testoKeywordPulito(testo: string): string {
   return PAROLE_CORRISPONDENZA.test(m[2].trim()) ? m[1].trim() : testo.trim();
 }
 
+// ⚠️ Il giudizio che Google dà a un asset di testo, e la sua traduzione.
+// `NOT_APPLICABLE` **non è un voto basso**: vuol dire che Google su quel tipo
+// di campagna non giudica affatto. Mostrarlo riga per riga riempiva le pagine
+// di gergo e faceva sembrare che tutti i testi rendessero male. Sta qui in un
+// punto solo perché lo usano scheda campagna e scheda gruppo, e due elenchi
+// diversi darebbero due risposte.
+export const GIUDIZI_GOOGLE = ["BEST", "GOOD", "LOW", "LEARNING"];
+export const ETICHETTA_GIUDIZIO_GOOGLE: Record<string, string> = {
+  BEST: "il migliore",
+  GOOD: "buono",
+  LOW: "rende poco",
+  LEARNING: "in prova",
+};
+
 export const STATI_KEYWORD = ["attiva", "vincente", "da_valutare", "in_pausa", "esclusa"] as const;
 export const ETICHETTA_STATO_KEYWORD: Record<string, string> = {
   attiva: "Attiva",

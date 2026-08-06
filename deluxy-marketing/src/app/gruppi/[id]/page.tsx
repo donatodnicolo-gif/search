@@ -25,6 +25,8 @@ import {
   STATI_KEYWORD,
   ETICHETTA_STATO_KEYWORD,
   ETICHETTA_OPERAZIONE,
+  ETICHETTA_GIUDIZIO_GOOGLE,
+  GIUDIZI_GOOGLE,
 } from "@/lib/dominio";
 import {
   COLORE_STATO_GRUPPO,
@@ -845,12 +847,27 @@ export default async function SchedaGruppo({
             {testi.length > 0 && (
               <section className="scheda">
                 <div className="scheda-titolo">Titoli e descrizioni usati qui ({testi.length})</div>
+                {/* ⚠️ Qui compariva `NOT_APPLICABLE` su ogni riga: gergo di
+                    Google, ripetuto cinquantuno volte, che non vuol dire
+                    «scarso» ma «Google non giudica questi asset». Lo si dice
+                    una volta sola e le righe restano pulite — stesso
+                    trattamento del blocco gemello sulla scheda campagna. */}
+                {testi.every((t) => !t.rendimento || !GIUDIZI_GOOGLE.includes(t.rendimento)) && (
+                  <p className="cella-sub" style={{ marginBottom: 8, whiteSpace: "normal" }}>
+                    Google <b>non li giudica</b>: su questa campagna risponde «non applicabile» su
+                    tutti, quindi non c&apos;è un migliore e un peggiore da mostrare.
+                  </p>
+                )}
                 <ul className="storia">
                   {testi.map((t) => (
                     <li key={t.id}>
                       <span className="storia-data">{t.tipo === "titolo" ? "H" : "D"}</span>
                       <span className="storia-testo">{t.testo}</span>
-                      <span className="storia-autore">{t.rendimento ?? "—"}</span>
+                      <span className="storia-autore">
+                        {t.rendimento && GIUDIZI_GOOGLE.includes(t.rendimento)
+                          ? ETICHETTA_GIUDIZIO_GOOGLE[t.rendimento] ?? t.rendimento
+                          : ""}
+                      </span>
                     </li>
                   ))}
                 </ul>

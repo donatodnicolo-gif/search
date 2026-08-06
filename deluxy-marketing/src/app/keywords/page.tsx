@@ -17,6 +17,7 @@ import {
   STATI_CAMPAGNA_VIVE,
 } from "@/lib/dominio";
 import { giudizioKeyword } from "@/lib/salute";
+import { ETICHETTA_LINGUA, LINGUE_CAMPAGNA, linguaDaNome } from "@/lib/vendite-campagna";
 
 export const dynamic = "force-dynamic";
 
@@ -69,7 +70,7 @@ type KwAggregata = {
 export default async function PaginaKeywords({
   searchParams,
 }: {
-  searchParams: Promise<{ ordina?: string; q?: string; campagna?: string; tema?: string; stato?: string; bloccata?: string; vista?: string; resa?: string; match?: string }>;
+  searchParams: Promise<{ ordina?: string; q?: string; campagna?: string; tema?: string; stato?: string; bloccata?: string; vista?: string; resa?: string; match?: string; lingua?: string }>;
 }) {
   const p = await searchParams;
   const destinazione = await destinazionePredefinita("keywords", "/keywords", p);
@@ -184,6 +185,30 @@ export default async function PaginaKeywords({
   else if (p.resa === "poca_storia") tutte = tutte.filter((k) => k.spesa < 20);
   else if (p.resa === "spendono") tutte = tutte.filter((k) => k.spesa > 0);
 
+  // Lingua delle campagne su cui la parola gira. La stessa parola può stare su
+  // una campagna ITA e una ENG: in quel caso compare filtrando per entrambe,
+  // perché è vero per entrambe.
+  //
+  // ⚠️ **La scelta a mano vince sul nome.** La lingua si può correggere dalla
+  // scheda campagna («Contesto» → *Clienti (lingua della campagna)* → Correggi
+  // il legame), e quella scelta è esattamente il caso in cui il nome sbaglia:
+  // ignorarla qui avrebbe fatto filtrare per la deduzione proprio dove
+  // qualcuno era già intervenuto per smentirla.
+  if (p.lingua) {
+    const legami = await prisma.legameCampagnaShopify.findMany({
+      where: { NOT: { lingua: null } },
+      select: { lingua: true, campagna: { select: { nome: true } } },
+    });
+    const linguaScelta = new Map(legami.map((l) => [l.campagna.nome, l.lingua]));
+    const linguaDi = (nomeC: string) => linguaScelta.get(nomeC) ?? linguaDaNome(nomeC);
+    tutte = tutte.filter((k) => {
+      const lingue = k.campagne.map(linguaDi);
+      return p.lingua === "ignota"
+        ? lingue.every((l) => l == null)
+        : lingue.includes(p.lingua!);
+    });
+  }
+
   // Corrispondenza: sta scritta nel testo fra parentesi, come la conserva
   // l'import ("fiori milano (phrase)").
   if (p.match) {
@@ -208,7 +233,7 @@ export default async function PaginaKeywords({
     const q = new URLSearchParams();
     const base: Record<string, string | undefined> = {
       q: p.q, campagna: p.campagna, ordina: p.ordina, tema: p.tema, stato: p.stato,
-      resa: p.resa, match: p.match,
+      resa: p.resa, match: p.match, lingua: p.lingua,
     };
     for (const [k, v] of Object.entries({ ...base, ...cambi })) {
       if (v) q.set(k, v);
@@ -350,6 +375,19 @@ export default async function PaginaKeywords({
             <option value="exact">Esatta</option>
             <option value="phrase">A frase</option>
             <option value="broad">Generica</option>
+          </select>
+          {/* ⚠️ La lingua è quella della CAMPAGNA su cui la parola gira, letta
+              dal suo nome — non la lingua in cui la parola è scritta. «flower
+              delivery milan» dentro una campagna ITA resta ITA: qui lingua
+              vuol dire *a chi parla la campagna*. Le campagne che nel nome non
+              lo dicono finiscono in «non dichiarata», che è una risposta
+              onesta e non un quarto idioma. */}
+          <select name="lingua" defaultValue={p.lingua ?? ""}>
+            <option value="">Ogni lingua</option>
+            {LINGUE_CAMPAGNA.map((l) => (
+              <option key={l} value={l}>{ETICHETTA_LINGUA[l]}</option>
+            ))}
+            <option value="ignota">Lingua non dichiarata nel nome</option>
           </select>
           <select name="ordina" defaultValue={ordina}>
             {Object.entries(ORDINAMENTI).map(([v, e]) => (

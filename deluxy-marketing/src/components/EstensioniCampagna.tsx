@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { ETICHETTA_GIUDIZIO_GOOGLE, GIUDIZI_GOOGLE } from "@/lib/dominio";
 
 // Cosa vede davvero chi incontra l'annuncio: titoli e descrizioni con
 // l'etichetta di rendimento che Google dà a ogni pezzo, e le estensioni
@@ -7,14 +8,6 @@ import { prisma } from "@/lib/db";
 // è una differenza che si vede nel CTR, non nei totali di spesa.
 
 const ORDINE_RENDIMENTO: Record<string, number> = { BEST: 0, GOOD: 1, LEARNING: 2, PENDING: 3, LOW: 4 };
-
-// Il gergo di Google tradotto: «BEST» su una riga non dice niente a chi legge.
-const ETICHETTA_RENDIMENTO: Record<string, string> = {
-  BEST: "il migliore",
-  GOOD: "buono",
-  LOW: "rende poco",
-  LEARNING: "in prova",
-};
 
 const COLORE_RENDIMENTO: Record<string, string> = {
   BEST: "var(--green)",
@@ -71,8 +64,8 @@ export async function EstensioniCampagna({
   // Quando non c'è nemmeno un giudizio vero, si dichiara che non c'è e si
   // ordina per lunghezza — che è l'unica cosa azionabile rimasta: i titoli
   // vicini al limite vengono troncati nella pagina dei risultati.
-  const GIUDIZI_VERI = ["BEST", "GOOD", "LOW", "LEARNING"];
-  const giudicati = testi.filter((t) => t.rendimento && GIUDIZI_VERI.includes(t.rendimento)).length;
+  
+  const giudicati = testi.filter((t) => t.rendimento && GIUDIZI_GOOGLE.includes(t.rendimento)).length;
   const perLunghezza = <T extends { caratteri: number | null }>(a: T, b: T) =>
     (b.caratteri ?? 0) - (a.caratteri ?? 0);
 
@@ -161,10 +154,10 @@ export async function EstensioniCampagna({
                           ripetere «NOT_APPLICABLE» su trenta righe è rumore, e
                           per giunta in gergo di Google. Che non li giudichi è
                           scritto una volta sopra. */}
-                      {t.rendimento && GIUDIZI_VERI.includes(t.rendimento) && (
+                      {t.rendimento && GIUDIZI_GOOGLE.includes(t.rendimento) && (
                         <span className="tag-salute" style={{ color: COLORE_RENDIMENTO[t.rendimento] ?? "var(--text-tertiary)" }}>
                           <span className="dot" />
-                          {ETICHETTA_RENDIMENTO[t.rendimento] ?? t.rendimento}
+                          {ETICHETTA_GIUDIZIO_GOOGLE[t.rendimento] ?? t.rendimento}
                         </span>
                       )}
                       <span

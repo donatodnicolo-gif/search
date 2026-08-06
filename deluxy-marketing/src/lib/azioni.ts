@@ -2505,12 +2505,26 @@ export async function applicaKeywordAdAltreCampagne(fd: FormData) {
     // Se la parola c'è già in quella campagna non si riaccoda: succede
     // spuntando una campagna che la aveva già, e in coda comparirebbe
     // un'aggiunta che Google rifiuterebbe come duplicata.
-    const gia = await prisma.copyAnnuncio.findFirst({
+    //
+    // ⚠️ Il confronto era `contains`, e diceva «ce l'ha già» per parole
+    // DIVERSE che contenevano quella. Misurato il 05/08/2026 su «fiori a
+    // domicilio milano» in «[Deluxy] - Fiori Milano ITA»: tre righe trovate —
+    // «mandare fiori a domicilio milano», «… e provincia», «… in giornata» —
+    // e **nessuna** era quella parola. L'aggiunta veniva rifiutata a torto, e
+    // il messaggio non diceva quale riga l'avesse bloccata, quindi l'errore
+    // era invisibile. Ora `contains` fa solo da setaccio grosso e la decisione
+    // la prende il confronto sul testo ripulito.
+    const candidate = await prisma.copyAnnuncio.findMany({
       where: { tipo: "keyword", campagna: c.nome, testo: { contains: pulito } },
-      select: { id: true },
+      select: { testo: true },
     });
+    const gia = candidate.find(
+      (k) => testoKeywordPulito(k.testo).toLowerCase() === pulito.toLowerCase()
+    );
     if (gia) {
-      saltate.push(`${c.nome} (ce l'ha già)`);
+      // Si dice QUALE riga l'ha bloccata: senza, «ce l'ha già» è una parola
+      // contro l'altra e non c'è modo di accorgersi se è sbagliata.
+      saltate.push(`${c.nome} (ce l'ha già come «${gia.testo}»)`);
       continue;
     }
 

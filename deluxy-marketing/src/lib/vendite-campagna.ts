@@ -47,6 +47,25 @@ export const ETICHETTA_CATEGORIA_ORDINE: Record<string, string> = {
 // scritta, nel paese di consegna. Quindi la lingua **filtra** il venduto di
 // contesto, non è solo un'etichetta.
 export const LINGUE_CAMPAGNA = ["ita", "eng", "fra"] as const;
+
+/**
+ * La lingua dedotta dal NOME della campagna: «[Deluxy] - Fiori Milano ENG»
+ * → "eng". Sta qui in un punto solo perché la usano la scheda campagna e il
+ * filtro delle keyword, e due deduzioni diverse darebbero due risposte.
+ *
+ * ⚠️ Deduce dal nome della **campagna**, non dal testo della keyword: «flower
+ * delivery milan» dentro una campagna ITA resta ITA. È voluto — la lingua
+ * qui vuol dire *a chi parla la campagna*, non in che lingua è scritta la
+ * parola. Se il nome non lo dice, la risposta è `null`: non si tira a
+ * indovinare dall'inglese del testo.
+ */
+export function linguaDaNome(nome: string): string | null {
+  const t = nome.toLowerCase();
+  if (/\beng\b|english|\ben\b/.test(t)) return "eng";
+  if (/\bita\b|italian|italiano/.test(t)) return "ita";
+  if (/\bfr\b|french|francia|france|\bfra\b/.test(t)) return "fra";
+  return null;
+}
 export const ETICHETTA_LINGUA: Record<string, string> = {
   ita: "Italiano — clienti italiani",
   eng: "Inglese — clienti stranieri",
@@ -146,10 +165,7 @@ export function deduciLegame(campagna: { nome: string; brand: string }): Legame 
     if (regola.test(t)) { citta = nome; break; }
   }
 
-  let lingua: string | null = null;
-  if (/\beng\b|english|\ben\b/.test(t)) lingua = "eng";
-  else if (/\bita\b|italian|italiano/.test(t)) lingua = "ita";
-  else if (/\bfr\b|french|francia|france|\bfra\b/.test(t)) lingua = "fra";
+  const lingua = linguaDaNome(campagna.nome);
 
   const negozio = NEGOZIO_DI_BRAND[campagna.brand] ?? null;
 

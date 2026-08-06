@@ -22,6 +22,41 @@ Riceve già dati veri da Google Ads (Gifts e Flowers) e ha 2.426 ordini Shopify 
 
 ## FATTO
 
+### Filtro lingua sulle keyword, e «ce l'ha già» che non era vero (05/08/2026)
+
+**Filtro per lingua** su `/keywords`: italiano, inglese, francese e **«non
+dichiarata nel nome»**. La lingua è quella della **campagna** su cui la parola
+gira, non quella in cui la parola è scritta — «flower delivery milan» dentro
+una campagna ITA resta ITA, perché qui lingua vuol dire *a chi parla la
+campagna*. `linguaDaNome()` sta ora in un punto solo (`vendite-campagna.ts`),
+usata da scheda campagna e filtro.
+
+> ⚠️ **La scelta a mano vince sul nome.** La lingua si corregge dalla scheda
+> campagna («Contesto» → *Clienti (lingua della campagna)* → **Correggi il
+> legame**), e quella scelta è esattamente il caso in cui il nome sbaglia:
+> filtrare sulla deduzione proprio dove qualcuno era già intervenuto per
+> smentirla sarebbe stato il difetto peggiore della funzione.
+
+Misurato su `?tema=fiori`: 1.532 parole → 1.111 in inglese, e **78 «non
+dichiarate»** tutte su `[DELUXY] Fiori Firenze` — una campagna con keyword
+inglesi che nel nome non lo dice.
+
+**«Ce l'ha già» era falso.** Segnalato: «fiori a domicilio milano» rifiutata su
+`[Deluxy] - Fiori Milano ITA` con «ce l'ha già». Il controllo usava
+**`contains`**, e aveva trovato tre parole **diverse** che la contengono —
+«mandare fiori a domicilio milano», «… e provincia», «… in giornata». Nessuna
+era quella parola: l'aggiunta veniva rifiutata a torto.
+
+- `contains` resta solo come setaccio grosso, la decisione la prende il
+  confronto sul **testo ripulito**.
+- Il messaggio ora dice **quale** riga ha bloccato: senza, «ce l'ha già» è una
+  parola contro l'altra e non c'è modo di accorgersi che è sbagliata.
+
+**`NOT_APPLICABLE` anche sulla scheda gruppo**: lo stesso gergo, ripetuto 51
+volte, in un secondo blocco che la correzione di prima non toccava. Le
+costanti (`GIUDIZI_GOOGLE`, `ETICHETTA_GIUDIZIO_GOOGLE`) stanno ora in
+`dominio.ts` — due elenchi diversi davano due risposte.
+
 ### Tre caselle che si contraddicevano, e una classifica che non c'era (05/08/2026)
 
 **«Azione decisa: in pausa» · «su Google: in pausa» · «Stato: Attiva»**, sulla
