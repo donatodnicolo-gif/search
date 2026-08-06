@@ -70,6 +70,7 @@ export default async function VisualPage({
       include: {
         _count: { select: { prodotti: true } },
         tipologia: { select: { id: true, nome: true } },
+        regolaOrdine: { select: { nome: true, aggiornataIl: true } },
         rotazione: { select: { nome: true, frequenza: true, modo: true, attiva: true } },
       },
     }),
@@ -128,6 +129,12 @@ export default async function VisualPage({
       fuoriScena: c._count.prodotti - attivi,
       posizioni,
       inVetrina: posizioni.includes("vetrina"),
+      // La regola salvata e' stata toccata dopo l'ultima volta che l'ordine di
+      // questa collezione e' stato scritto: sta mostrando una fila decisa da
+      // una versione che non esiste piu'.
+      regolaPiuRecente:
+        c.regolaOrdine != null &&
+        (c.ordineModificatoIl == null || c.ordineModificatoIl < c.regolaOrdine.aggiornataIl),
       daSincronizzare:
         c.ordineModificatoIl != null && (c.ordineSpintoIl == null || c.ordineModificatoIl > c.ordineSpintoIl),
     };
@@ -478,6 +485,7 @@ export default async function VisualPage({
                               .map((p) => (
                                 <Pill key={p} testo={nomePosizione(p)} colore="var(--text-tertiary)" />
                               ))}
+                            {r.regolaPiuRecente && <Pill testo="Ordine da rifare" colore="var(--orange)" />}
                             {r.daSincronizzare && <Pill testo="Da sincronizzare" colore="var(--orange)" />}
                           </div>
                         </td>

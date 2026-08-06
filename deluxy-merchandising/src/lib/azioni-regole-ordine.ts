@@ -162,6 +162,9 @@ export async function applicaRegolaSalvataAzione(collezioneId: string, fd: FormD
  */
 export async function riapplicaRegolaOvunque(id: string) {
   const colls = await prisma.collezioneShopify.findMany({ where: { regolaOrdineId: id }, select: { id: true } });
+  // Una per volta e non in parallelo: ognuna scrive le posizioni di tutti i suoi
+  // prodotti, e mandarne dieci insieme su un pool da 5 connessioni condiviso con
+  // altre cinque app le fa scadere in coda invece che andare più veloce.
   for (const c of colls) await applicaRegolaSalvata(c.id, id);
   revalidatePath(`/visual/regole/${id}`);
   revalidatePath("/visual");

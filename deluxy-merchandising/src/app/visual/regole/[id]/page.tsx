@@ -4,6 +4,7 @@ import { CostruttorePassi } from "@/components/CostruttorePassi";
 import { prisma } from "@/lib/db";
 import { parsePassi } from "@/lib/regole-ordine";
 import { vociPassi } from "@/lib/voci-passi";
+import { collezioniInRitardo } from "@/lib/regole-in-ritardo";
 import { eliminaRegolaOrdine, riapplicaRegolaOvunque, rinominaRegolaOrdine } from "@/lib/azioni-regole-ordine";
 
 export const dynamic = "force-dynamic";
@@ -25,6 +26,8 @@ export default async function RegolaPage({ params }: { params: Promise<{ id: str
     vociPassi(),
   ]);
   if (!r) notFound();
+  // Quante collezioni mostrano ancora una fila decisa dalla regola vecchia.
+  const indietro = await collezioniInRitardo(id);
   const passi = parsePassi(r.passi);
 
   return (
@@ -48,12 +51,25 @@ export default async function RegolaPage({ params }: { params: Promise<{ id: str
           </div>
           {r._count.collezioni > 0 && (
             <form action={riapplicaRegolaOvunque.bind(null, r.id)}>
-              <button type="submit" className="btn btn-primario">
-                Riapplica alle {r._count.collezioni} collezioni
+              <button type="submit" className={`btn ${indietro.length > 0 ? "btn-primario" : "btn-secondario"}`}>
+                {indietro.length > 0
+                  ? `Riapplica alle ${indietro.length} rimaste indietro`
+                  : `Riapplica alle ${r._count.collezioni} collezioni`}
               </button>
             </form>
           )}
         </div>
+
+        {indietro.length > 0 && (
+          <div className="nota-info">
+            <span className="nota-icona">◆</span>
+            <span>
+              <b>{indietro.length}</b> {indietro.length === 1 ? "collezione mostra" : "collezioni mostrano"} ancora una
+              fila decisa da una versione precedente di questa regola. Non le tocchiamo da sole: rimescolare vetrine che
+              nessuno stava guardando sarebbe peggio. Si rifanno col pulsante qui sopra.
+            </span>
+          </div>
+        )}
 
         <div className="scheda">
           <div className="scheda-titolo">Come ordina</div>
@@ -70,7 +86,12 @@ export default async function RegolaPage({ params }: { params: Promise<{ id: str
                     <tr key={c.id} className="riga-cliccabile">
                       <td>
                         <a href={`/visual/${c.id}`} className="cella-nome link-riga">{c.titolo}</a>
-                        <div className="cella-sub">{c.negozio}</div>
+                        <div className="cella-sub">
+                          {c.negozio}
+                          {indietro.includes(c.id) && (
+                            <span className="pill-ritardo" style={{ marginLeft: 8 }}>ordine da rifare</span>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}

@@ -676,3 +676,18 @@ tr.riga-cliccabile:hover, li.riga-cliccabile:hover { background: var(--fill); cu
 @media (max-width: 800px) {
   .seo-griglia { grid-template-columns: 1fr !important; }
 }
+
+/* Pillola «rimasto indietro»: la collezione mostra ancora una fila decisa da
+   una versione precedente della sua regola. Ambra come «da sincronizzare» —
+   sono la stessa idea (qui e il negozio non dicono la stessa cosa), e usare due
+   colori diversi per lo stesso concetto costringerebbe a impararli due volte. */
+.pill-ritardo {
+  display: inline-block;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--orange, #C2721B);
+  background: color-mix(in srgb, var(--orange, #C2721B) 14%, transparent);
+  padding: 1px 7px;
+  border-radius: 999px;
+  white-space: nowrap;
+}

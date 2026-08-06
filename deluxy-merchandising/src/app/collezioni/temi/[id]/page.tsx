@@ -1,9 +1,12 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Sidebar } from "@/components/Sidebar";
+import { Badge } from "@/components/Badge";
 import { Miniatura } from "@/components/Miniatura";
 import { prisma } from "@/lib/db";
+import { posizioniDa } from "@/lib/collezioni";
 import { euro } from "@/lib/dominio";
+import { etichettaRegola } from "@/lib/ordinamento-vetrina";
 import { FILTRO_BUON_FINE, finestra } from "@/lib/vendite";
 import { aggiungiCollezioniATema, eliminaTema, rinominaTema, togliCollezioneDaTema } from "@/lib/azioni-temi";
 
@@ -33,6 +36,18 @@ export default async function TemaPage({
           titolo: true,
           negozio: true,
           immagine: true,
+          // Lo **stato**: le stesse cose che si leggono in Visual, perché da qui
+          // si decide su cosa lavorare e una collezione sospesa o automatica non
+          // si tratta come una manuale in vetrina.
+          tipo: true,
+          stato: true,
+          pubblicataShopify: true,
+          posizioni: true,
+          regolaOrdinamento: true,
+          ordineModificatoIl: true,
+          ordineSpintoIl: true,
+          regolaOrdine: { select: { nome: true, aggiornataIl: true } },
+          tipologia: { select: { nome: true } },
           prodotti: { select: { prodottoId: true } },
         },
       },
@@ -134,6 +149,8 @@ export default async function TemaPage({
                 <thead>
                   <tr>
                     <th>Collezione</th>
+                    <th>Stato</th>
+                    <th>Ordine</th>
                     <th className="num">Prodotti</th>
                     <th className="num">Venduto 90gg</th>
                     <th></th>
@@ -142,6 +159,13 @@ export default async function TemaPage({
                 <tbody>
                   {t.collezioni.map((c) => {
                     const ricavo = c.prodotti.reduce((s, p) => s + (vp.get(p.prodottoId) ?? 0), 0);
+                    const posizioni = posizioniDa(c.posizioni);
+                    const daSincronizzare =
+                      c.ordineModificatoIl != null &&
+                      (c.ordineSpintoIl == null || c.ordineModificatoIl > c.ordineSpintoIl);
+                    const regolaPiuRecente =
+                      c.regolaOrdine != null &&
+                      (c.ordineModificatoIl == null || c.ordineModificatoIl < c.regolaOrdine.aggiornataIl);
                     return (
                       <tr key={c.id} className="riga-cliccabile">
                         <td>
@@ -152,6 +176,30 @@ export default async function TemaPage({
                               <div className="cella-sub">{c.negozio}</div>
                             </span>
                           </div>
+                        </td>
+                        <td>
+                          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                            <Badge
+                              testo={c.tipo === "automatica" ? "Automatica" : "Manuale"}
+                              colore={c.tipo === "automatica" ? "var(--blue)" : "var(--green)"}
+                              title={
+                                c.tipo === "automatica"
+                                  ? "Chi ci sta dentro lo decide una regola di Shopify: non si riordina a mano."
+                                  : "Si può riordinare e mandare l'ordine al negozio."
+                              }
+                            />
+                            {!c.pubblicataShopify && <Badge testo="Non pubblicata" colore="var(--text-tertiary)" />}
+                            {c.stato === "sospesa" && <Badge testo="Sospesa" colore="var(--orange)" />}
+                            {posizioni.includes("vetrina") && <Badge testo="In vetrina" colore="var(--gold)" />}
+                            {c.tipologia && <Badge testo={c.tipologia.nome} colore="var(--purple, #5B4FC7)" />}
+                            {daSincronizzare && <Badge testo="Da sincronizzare" colore="var(--orange)" />}
+                            {regolaPiuRecente && <span className="pill-ritardo">Ordine da rifare</span>}
+                          </div>
+                        </td>
+                        <td>
+                          <span className="cella-sub">
+                            {c.regolaOrdine ? c.regolaOrdine.nome : etichettaRegola(c.regolaOrdinamento)}
+                          </span>
                         </td>
                         <td className="num">{c.prodotti.length}</td>
                         <td className="num">{ricavo > 0 ? euro(ricavo) : "—"}</td>

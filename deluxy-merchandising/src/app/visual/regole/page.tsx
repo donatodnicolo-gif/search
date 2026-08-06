@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { REGOLE } from "@/lib/ordinamento-vetrina";
 import { etichettaPassi, parsePassi } from "@/lib/regole-ordine";
 import { creaRegolaOrdine } from "@/lib/azioni-regole-ordine";
+import { ritardiPerRegola } from "@/lib/regole-in-ritardo";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +19,7 @@ export default async function RegolePage({
   searchParams: Promise<{ esito?: string; messaggio?: string }>;
 }) {
   const sp = await searchParams;
+  const ritardi = await ritardiPerRegola();
   const regole = await prisma.regolaOrdine.findMany({
     orderBy: { nome: "asc" },
     include: { _count: { select: { collezioni: true, tipologie: true } } },
@@ -74,6 +76,7 @@ export default async function RegolePage({
                     <th>Regola</th>
                     <th>Come ordina</th>
                     <th className="num">Collezioni</th>
+                    <th className="num">Da rifare</th>
                     <th className="num">Tipologie</th>
                   </tr>
                 </thead>
@@ -96,6 +99,16 @@ export default async function RegolePage({
                         {/* Dove è in uso: una regola usata da nessuno è una
                             regola che qualcuno ha scritto e poi dimenticato. */}
                         <td className="num">{r._count.collezioni || "—"}</td>
+                        {/* Quante hanno ancora una fila decisa dalla versione
+                            precedente della regola: senza questo numero
+                            «Riapplica ovunque» si preme alla cieca. */}
+                        <td className="num">
+                          {ritardi.get(r.id) ? (
+                            <span className="pill-ritardo">{ritardi.get(r.id)}</span>
+                          ) : (
+                            "—"
+                          )}
+                        </td>
                         <td className="num">{r._count.tipologie || "—"}</td>
                       </tr>
                     );
