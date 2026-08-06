@@ -3,7 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { ATTR } from "@/lib/porta-keyword";
 
-export type CampagnaScelta = { id: string; nome: string; classe: string };
+export type CampagnaScelta = { id: string; nome: string; classe: string; lingua?: string | null };
+
+const NOME_LINGUA: Record<string, string> = { ita: "italiano", eng: "inglese", fra: "francese" };
 
 // "Porta su altre campagne": un dialogo a tutta pagina, non un pannello dentro
 // la cella della tabella. Prima era un <details> inline e ereditava la
@@ -31,6 +33,7 @@ export function PortaKeyword({
   const [corrispondenza, setCorrispondenza] = useState("broad");
   const [escludi, setEscludi] = useState<string[]>([]);
   const [daClassificare, setDaClassificare] = useState(false);
+  const [lingueDiOra, setLingueDiOra] = useState<string[]>([]);
   const [cerca, setCerca] = useState("");
   const [scelte, setScelte] = useState<string[]>([]);
 
@@ -45,6 +48,8 @@ export function PortaKeyword({
       setCorrispondenza(b.getAttribute(ATTR.corrispondenza) || "broad");
       setEscludi(gia === "" ? [] : gia.split("\n"));
       setDaClassificare(b.getAttribute(ATTR.classificata) === "no");
+      const ling = b.getAttribute(ATTR.lingue) ?? "";
+      setLingueDiOra(ling === "" ? [] : ling.split(","));
       setCerca("");
       setScelte([]);
       dialogo.current?.showModal();
@@ -168,6 +173,29 @@ export function PortaKeyword({
             </div>
           )}
         </div>
+
+        {/* ⚠️ Una parola che gira su campagne inglesi, portata su una italiana,
+            resta scritta in inglese: «milano flowers» dentro «Fiori Milano
+            ITA» non intercetta chi cerca in italiano. L'app non la traduce —
+            tradurre a macchina una keyword è il modo di comprare ricerche che
+            nessuno fa — ma non deve nemmeno far finta di niente. */}
+        {(() => {
+          const diverse = scelte
+            .map((id) => disponibili.find((c) => c.id === id))
+            .filter((c): c is CampagnaScelta => !!c?.lingua && !lingueDiOra.includes(c.lingua));
+          if (lingueDiOra.length === 0 || diverse.length === 0) return null;
+          return (
+            <div className="modale-avviso" style={{ background: "rgba(201,52,0,.08)", color: "var(--orange)" }}>
+              <b>Lingua diversa.</b> Questa parola gira su campagne in{" "}
+              {lingueDiOra.map((l) => NOME_LINGUA[l] ?? l).join(" e ")}, e{" "}
+              {diverse.length === 1 ? "la campagna" : `${diverse.length} campagne`} che hai scelto
+              parla{diverse.length === 1 ? "" : "no"}{" "}
+              {[...new Set(diverse.map((c) => NOME_LINGUA[c.lingua!] ?? c.lingua!))].join(" e ")}:{" "}
+              {diverse.map((c) => c.nome).join(", ")}. Il testo <b>non viene tradotto</b> — va
+              riscritto a mano nella lingua giusta, o la parola non intercetta nessuno.
+            </div>
+          );
+        })()}
 
         {daClassificare && (
           <div className="modale-avviso">

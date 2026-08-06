@@ -15,6 +15,7 @@ import {
   formattaNumero,
   STATI_KEYWORD,
   STATI_CAMPAGNA_VIVE,
+  corrispondenzaDiTesto,
 } from "@/lib/dominio";
 import { giudizioKeyword } from "@/lib/salute";
 import { ETICHETTA_LINGUA, LINGUE_CAMPAGNA, linguaDaNome } from "@/lib/vendite-campagna";
@@ -95,7 +96,11 @@ export default async function PaginaKeywords({
   // vanno solo quelle che stanno erogando.
   // `stato` qui è il fatto, non un giudizio: lo scrive l'import da Google
   // ("attiva" = ENABLED, vedi `statoCampagna()` nello script).
-  const campagneAttive = campagneCensite.filter((c) => c.stato === "attiva");
+  const campagneAttive = campagneCensite
+    .filter((c) => c.stato === "attiva")
+    // La lingua viaggia col nome della campagna: serve al dialogo per avvisare
+    // quando si porta una parola inglese su una campagna italiana.
+    .map((c) => ({ ...c, lingua: linguaDaNome(c.nome) }));
   // ⚠️ Le campagne del selettore sono solo quelle VIVE. L'elenco nasceva dalle
   // keyword, e le keyword sopravvivono alla campagna: si finiva per scegliere
   // una campagna spenta nel 2025 e guardare parole che non comprano più niente.
@@ -128,10 +133,10 @@ export default async function PaginaKeywords({
   // vale anche altrove) o specifica (vale solo dov'è). Serve a decidere se la
   // si può proporre su altre campagne — e nel dubbio non si propone.
   // La corrispondenza sta nel testo, come la scrive l'import
-  const matchDiTesto = (testo: string): string | null => {
-    const m = testo.match(/\((exact|phrase|broad)\)\s*$/i);
-    return m ? m[1].toLowerCase() : null;
-  };
+  // Una sola lettura della corrispondenza in tutta l'app: vedi
+  // `corrispondenzaDiTesto` in dominio.ts, che riconosce anche le forme del
+  // Monitoraggio («match esatto») su cui la vecchia regex qui falliva.
+  const matchDiTesto = corrispondenzaDiTesto;
 
   const classiParola = new Map<string, string>();
   for (const pr of await prisma.propostaAi.findMany({
@@ -498,8 +503,19 @@ export default async function PaginaKeywords({
                                 className="kw-porta-apri"
                                 {...attributiPortaKeyword({
                                   testo: k.testo,
-                                  corrispondenza: matchDiTesto(k.testo) ?? "broad",
+                                  // ⚠️ Quando non si sa, si va sulla PIÙ
+                                  // STRETTA, non sulla più larga. Il ripiego
+                                  // era «generica», che su una parola nata
+                                  // esatta moltiplica le ricerche comprate.
+                                  corrispondenza: matchDiTesto(k.testo) ?? "exact",
                                   giaSu: k.campagne,
+                                  // Le lingue delle campagne su cui la parola
+                                  // gira già: servono ad avvisare quando la si
+                                  // porta su una campagna che parla un'altra
+                                  // lingua, invece di accodarla e basta.
+                                  lingueDiOra: k.campagne
+                                    .map((c) => linguaDaNome(c))
+                                    .filter((l): l is string => l != null),
                                   classificata: cl != null,
                                 })}
                               >

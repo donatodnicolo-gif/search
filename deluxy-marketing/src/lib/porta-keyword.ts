@@ -11,6 +11,7 @@ export const ATTR = {
   corrispondenza: "data-porta-corrispondenza",
   escludi: "data-porta-escludi",
   classificata: "data-porta-classificata",
+  lingue: "data-porta-lingue",
 } as const;
 
 export function attributiPortaKeyword(dati: {
@@ -19,11 +20,14 @@ export function attributiPortaKeyword(dati: {
   // Campagne su cui la keyword c'è già: si tolgono dall'elenco del dialogo
   giaSu: string[];
   classificata: boolean;
+  // Le lingue delle campagne su cui gira adesso
+  lingueDiOra: string[];
 }) {
   return {
     [ATTR.keyword]: dati.testo,
     [ATTR.corrispondenza]: dati.corrispondenza,
     [ATTR.escludi]: dati.giaSu.join("\n"),
     [ATTR.classificata]: dati.classificata ? "si" : "no",
+    [ATTR.lingue]: [...new Set(dati.lingueDiOra)].join(","),
   };
 }

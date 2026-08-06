@@ -182,17 +182,49 @@ export async function AndamentoMese({ anno, mese }: { anno?: number; mese?: numb
         </div>
       )}
 
-      {q.buchi && (
-        <div className="nota-info" style={{ borderColor: "rgba(215,0,21,.35)", background: "rgba(215,0,21,.06)", marginTop: 12 }}>
-          <span className="nota-icona" style={{ color: "var(--red)" }}>⚠</span>
-          <span>
-            <b>L&apos;archivio ha buchi</b>: {q.buchi.campagne} campagne hanno dati su meno giorni delle
-            altre, per un totale di {q.buchi.giorniMancanti} giornate mancanti. La spesa qui sopra è
-            <b> più bassa del vero</b> e il budget sembra rispettato più di quanto sia. Si riempie con
-            un giro dello script a <code>GIORNI_INDIETRO = 30</code>.
-          </span>
-        </div>
-      )}
+      {/* ⚠️ L'avviso diceva «2 campagne, 4 giornate mancanti · la spesa è più
+          bassa del vero» senza dire QUALI e senza dire QUANTO: era rosso
+          uguale per due Brand Protection da pochi centesimi e per una campagna
+          da mille euro. Un allarme che si legge tre volte a vuoto smette di
+          essere letto. Ora dice i nomi e quanto pesa davvero. */}
+      {q.buchi && (() => {
+        const trascurabile = q.buchi.quotaSulMese != null && q.buchi.quotaSulMese < 0.01;
+        const colore = trascurabile ? "201,52,0" : "215,0,21";
+        return (
+          <div
+            className="nota-info"
+            style={{ borderColor: `rgba(${colore},.35)`, background: `rgba(${colore},.06)`, marginTop: 12 }}
+          >
+            <span className="nota-icona" style={{ color: trascurabile ? "var(--orange)" : "var(--red)" }}>⚠</span>
+            <span>
+              <b>{q.buchi.campagne === 1 ? "Una campagna ha" : `${q.buchi.campagne} campagne hanno`} giorni senza dati</b>
+              {" — "}
+              {q.buchi.quali.map((c, i) => (
+                <span key={c.nome}>
+                  {i > 0 && ", "}
+                  <b>{c.nome}</b> ({c.giorniMancanti} giorn{c.giorniMancanti === 1 ? "o" : "i"}
+                  {c.spesaStimata > 0 && `, ~${formattaEuro(c.spesaStimata)}`})
+                </span>
+              ))}
+              .{" "}
+              {trascurabile ? (
+                <>
+                  Varrebbero circa <b>{formattaEuro(q.buchi.spesaStimataMancante)}</b>, meno dell&apos;1%
+                  della spesa del mese: i totali qui sopra <b>non cambiano</b> in modo apprezzabile.
+                  Succede quando una campagna non eroga in un giorno — Google non manda una riga per
+                  ciò che non è successo.
+                </>
+              ) : (
+                <>
+                  Varrebbero circa <b>{formattaEuro(q.buchi.spesaStimataMancante)}</b>: la spesa qui
+                  sopra è <b>più bassa del vero</b> e il budget sembra rispettato più di quanto sia.
+                  Si riempie con un giro dello script a <code>GIORNI_INDIETRO = 30</code>.
+                </>
+              )}
+            </span>
+          </div>
+        );
+      })()}
 
       {q.canaliMuti.length > 0 && (
         <div className="nota-info" style={{ borderColor: "rgba(201,52,0,.35)", background: "rgba(201,52,0,.06)", marginTop: 12 }}>

@@ -367,6 +367,25 @@ export function formattaPercento(n: number | null | undefined): string {
 const PAROLE_CORRISPONDENZA =
   /^(match\s+)?(esatto|esatta|exact|broad|generica|generico|ampia|frase|phrase|modificata|modified|bmm)$/i;
 
+// La corrispondenza scritta nel testo, nel VOCABOLARIO COMPLETO — lo stesso
+// che riconosce `testoKeywordPulito` qui sotto.
+//
+// ⚠️ Prima la scheda keyword la leggeva con `/\((exact|phrase|broad)\)$/`, che
+// non riconosce le forme del Monitoraggio: «milano flowers (match esatto)»
+// dava `null`, e chi porta la parola su un'altra campagna la accodava con il
+// ripiego — che era **generica**. Cioè da ESATTA a GENERICA, l'allargamento
+// più pericoloso che esista, in silenzio. Misurato il 06/08/2026 su
+// «milano flowers»: 30,54 € di storia in esatta, finita in coda come broad.
+export function corrispondenzaDiTesto(testo: string): "exact" | "phrase" | "broad" | null {
+  const m = testo.match(/\(([^()]*)\)\s*$/);
+  if (!m) return null;
+  const dentro = m[1].trim().toLowerCase().replace(/^match\s+/, "");
+  if (/^(esatt[oa]|exact)$/.test(dentro)) return "exact";
+  if (/^(frase|phrase)$/.test(dentro)) return "phrase";
+  if (/^(generic[oa]|broad|ampia|modificata|modified|bmm)$/.test(dentro)) return "broad";
+  return null;
+}
+
 export function testoKeywordPulito(testo: string): string {
   const m = testo.match(/^(.*?)\s*\(([^()]*)\)\s*$/);
   if (!m) return testo.trim();

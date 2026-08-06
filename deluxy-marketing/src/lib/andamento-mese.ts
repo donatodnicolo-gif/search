@@ -54,7 +54,17 @@ export type AndamentoMese = {
   // Campagne con giorni mancanti nel mese: la spesa risulta più bassa del vero
   // e il budget sembra rispettato quando non lo è. È un buco d'archivio, non un
   // risparmio, e va detto prima che qualcuno ci prenda una decisione.
-  buchi: { campagne: number; giorniMancanti: number } | null;
+  buchi: {
+    campagne: number;
+    giorniMancanti: number;
+    // Chi sono: «2 campagne» senza nomi è un allarme su cui non si può fare
+    // niente — bisogna andarsele a cercare a mano una per una.
+    quali: { nome: string; giorniMancanti: number; spesaStimata: number }[];
+    // Quanto varrebbero quei giorni, e quanto pesano sul mese. Senza, un buco
+    // da sei centesimi sembra grave quanto uno da mille euro.
+    spesaStimataMancante: number;
+    quotaSulMese: number | null;
+  } | null;
 };
 
 const BRAND_SITO: Record<string, string> = { gifts: "gifts", flowers: "flowers", cake: "cake" };
@@ -119,14 +129,46 @@ export async function andamentoMese(anno: number, mese: number): Promise<Andamen
     by: ["campagnaId"],
     where: { data: { gte: inizio, lt: fine } },
     _count: { _all: true },
+    _sum: { spesa: true },
   });
   const attesi = Math.max(giorniConclusi, 1);
   const incomplete = giorniPerCampagna.filter((c) => c._count._all < attesi * 0.9);
+
+  // ⚠️ Un buco vale quanto la campagna che lo ha. L'avviso diceva «2 campagne,
+  // 4 giornate mancanti · la spesa è più bassa del vero» anche quando le due
+  // campagne erano due Brand Protection da **0,11 €** e **5,95 €** in tutto il
+  // mese: un allarme rosso per pochi centesimi, sopra una tabella da 13.000 €.
+  // Quel tipo di avviso, letto tre volte a vuoto, smette di essere letto.
+  // Ora si stima quanto varrebbero i giorni mancanti — media della campagna ×
+  // giorni — e si dice di CHI sono.
+  const nomiIncomplete = incomplete.length
+    ? await prisma.campagna.findMany({
+        where: { id: { in: incomplete.map((c) => c.campagnaId) } },
+        select: { id: true, nome: true },
+      })
+    : [];
+  const nomeDi = new Map(nomiIncomplete.map((c) => [c.id, c.nome]));
+  const quali = incomplete
+    .map((c) => {
+      const mancanti = attesi - c._count._all;
+      const media = c._count._all > 0 ? (c._sum.spesa ?? 0) / c._count._all : 0;
+      return {
+        nome: nomeDi.get(c.campagnaId) ?? c.campagnaId,
+        giorniMancanti: mancanti,
+        spesaStimata: media * mancanti,
+      };
+    })
+    .sort((a, b) => b.spesaStimata - a.spesaStimata);
+  const spesaStimataMancante = quali.reduce((s, c) => s + c.spesaStimata, 0);
+  const spesaMese = [...spesaBrand.values()].reduce((s, v) => s + v, 0);
   const buchi =
     incomplete.length > 0
       ? {
           campagne: incomplete.length,
           giorniMancanti: incomplete.reduce((s, c) => s + (attesi - c._count._all), 0),
+          quali,
+          spesaStimataMancante,
+          quotaSulMese: spesaMese > 0 ? spesaStimataMancante / spesaMese : null,
         }
       : null;
 

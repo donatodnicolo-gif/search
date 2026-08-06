@@ -22,6 +22,47 @@ Riceve già dati veri da Google Ads (Gifts e Flowers) e ha 2.426 ordini Shopify 
 
 ## FATTO
 
+### ⭐ Una keyword ESATTA finiva in coda come GENERICA (06/08/2026)
+
+Segnalato dall'utente: «l'ho portata su un'altra campagna e la propone
+generica, ma di là è a frase». Guardando i dati era peggio: la parola è
+**`milano flowers (match esatto)`**, con 30,54 € di storia, ed era stata
+accodata **broad**. Da esatta a generica, l'allargamento più pericoloso che
+esista, in silenzio.
+
+> ⚠️ **Due letture della corrispondenza, con vocabolari diversi.**
+> `testoKeywordPulito` riconosce le forme del Monitoraggio («match esatto») e
+> le toglie dal testo; la scheda keyword invece leggeva la corrispondenza con
+> `/\((exact|phrase|broad)\)$/`, che su «(match esatto)» dà `null`. Il testo
+> veniva ripulito bene e **la corrispondenza andava persa** — e il ripiego era
+> `broad`. Ora c'è `corrispondenzaDiTesto()` in `dominio.ts`, un vocabolario
+> solo per entrambe.
+
+> ⚠️ **E il ripiego era dalla parte sbagliata.** Quando non si sa, adesso si
+> va sulla più STRETTA (`exact`), non sulla più larga: su una parola nata
+> esatta, «generica» moltiplica le ricerche comprate. L'operazione sbagliata
+> è stata **annullata** in coda, non approvata.
+
+**Avviso di lingua nel dialogo.** Portare «milano flowers» su «Fiori Milano
+ITA» non la traduce: resta scritta in inglese e non intercetta chi cerca in
+italiano. L'app **non traduce** — tradurre a macchina una keyword è il modo di
+comprare ricerche che nessuno fa — ma ora lo dice, elencando quali campagne
+scelte parlano un'altra lingua rispetto a quelle su cui la parola gira già.
+
+### I buchi dell'archivio dicono di chi sono (06/08/2026)
+
+La nota diceva «2 campagne hanno dati su meno giorni delle altre» senza dire
+**quali** né **quanto**: un allarme rosso su cui non si può fare niente. Erano
+`[Deluxyflower] Brand protection` e `[Cakedesign] Brand Protection`, due
+giorni ciascuna, per **4,04 € stimati** sopra una tabella da 13.000 €.
+
+> ⚠️ **Un buco vale quanto la campagna che lo ha.** Lo stesso rosso per pochi
+> centesimi e per mille euro: letto tre volte a vuoto, quell'avviso smette di
+> essere letto. Ora nomina le campagne, stima quanto varrebbero i giorni
+> mancanti e, **sotto l'1% della spesa del mese**, dice che i totali non
+> cambiano — spiegando la causa vera: una campagna che non eroga in un giorno
+> non ha una riga da mandare.
+
 ### La lingua si imposta dal titolo, e l'attribuzione la legge da lì (06/08/2026)
 
 La lingua era in fondo al blocco vendite, dentro «Correggi il legame» — e dopo
