@@ -203,6 +203,9 @@ const stmts = [
   `ALTER TABLE "Account" ADD COLUMN IF NOT EXISTS "ultimoUidInviata" INTEGER NOT NULL DEFAULT 0`,
   `ALTER TABLE "Account" ADD COLUMN IF NOT EXISTS "primoUidInviata" INTEGER NOT NULL DEFAULT 0`,
   `ALTER TABLE "Account" ADD COLUMN IF NOT EXISTS "storicoInviataFinito" BOOLEAN NOT NULL DEFAULT false`,
+  // Cartella CESTINO della casella: cestinando, la mail ci viene spostata anche
+  // sul server. Si scopre da sola (flag IMAP \Trash) alla prima occorrenza.
+  `ALTER TABLE "Account" ADD COLUMN IF NOT EXISTS "cartellaCestino" TEXT`,
   // Iscrizioni alle notifiche push (Web Push).
   `CREATE TABLE IF NOT EXISTS "PushIscrizione" (
      "id" TEXT PRIMARY KEY,

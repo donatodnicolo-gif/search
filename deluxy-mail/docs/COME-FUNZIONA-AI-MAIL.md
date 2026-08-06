@@ -501,6 +501,26 @@ attimo dopo.
 istante dopo, al posto della scritta «Carico la posta…». Prima si restava sul bianco
 finché non era pronto tutto: il lavoro è lo stesso, ma non blocca più il passaggio.
 
+### Il cestino ora lo vede anche la casella
+
+Fino al 5 agosto 2026 cestinare era un fatto solo di AI Mail: la mail spariva da qui e
+restava **intatta nella posta in arrivo del server** — se aprivi la casella dal telefono o
+dalla webmail te la ritrovavi lì, e lo spazio della casella non si liberava mai.
+
+Ora **cestinare sposta la mail nel Cestino della casella**, e **«Recupera» la riporta
+indietro** (in posta in arrivo, o fra gli inviati se era una mail partita). Quindi quello
+che fai qui lo vedi anche da telefono e webmail.
+
+Tre cose da sapere:
+
+- **si sposta, non si cancella**: è reversibile — la cancellazione vera resta solo
+  «svuota cestino», qui sotto;
+- lo spostamento avviene **subito dopo** la tua azione, in sottofondo: non ti fa aspettare.
+  Se la casella non risponde, la mail resta comunque cestinata **qui** — al massimo il
+  server è un po' indietro, mai il contrario;
+- **archiviare** invece resta una faccenda di AI Mail: sul server non esiste una cartella
+  «archiviati» uguale per tutti i provider, quindi lì la mail non si muove.
+
 ### Svuotare il cestino: parte e va avanti da sé
 
 Svuotare il cestino è lungo — ogni mail va ritrovata sul server per Message-ID prima

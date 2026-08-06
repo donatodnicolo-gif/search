@@ -218,6 +218,10 @@ model Account {
   // Stato sincronizzazione
   cartella        String  @default("INBOX")
   cartellaInviata String?
+  // Cartella CESTINO del server: cestinando qui, la mail ci viene spostata
+  // anche sulla casella (così webmail e telefono restano allineati). Si scopre
+  // da sola alla prima occorrenza (flag IMAP \Trash).
+  cartellaCestino String?
   ultimoUid       Int     @default(0)
   primoUid        Int     @default(0)
   storicoFinito   Boolean @default(false)

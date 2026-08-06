@@ -95,6 +95,7 @@ function corpoDaForm(grezzo: string): { html: string | undefined; testo: string 
 import { db } from './db'
 import { cifra, decifra } from './crypto'
 import { allineaAttivitaOra } from './registroTask'
+import { allineaCestinoDopo, cartellaDiMessaggio } from './cestinoServer'
 import { allineaEventoOra } from './registroCalendario'
 import { creaScriptPronto, elencoScriptPronti, scriptProntiAttivi } from './scriptPronti'
 import type { ScriptPronto } from './scriptTesto'
@@ -275,6 +276,10 @@ export async function smaltisciEProssimo(
         ? { cestinato: true, cestinatoIl: new Date(), letto: true }
         : { archiviato: true, letto: true },
   })
+  // Il server segue: la mail va nel Cestino anche sulla casella (in `after()`,
+  // vedi cestinoServer.ts). Archiviare invece è una faccenda di AI Mail: sul
+  // server non esiste una cartella «archiviati» che valga per tutti.
+  if (azione === 'cestina') allineaCestinoDopo(utenteId, [id], 'cestino')
   revalidatePath('/', 'layout')
   return {
     ok: true,
@@ -1067,10 +1072,12 @@ export async function applicaArchiviazioni(ids: string[]): Promise<{ ok: boolean
 // ---------- Cestino ----------
 
 export async function cestinaMessaggio(id: string) {
+  const utenteId = await uid()
   await db.messaggio.updateMany({
-    where: { id, utenteId: await uid() },
+    where: { id, utenteId },
     data: { cestinato: true, cestinatoIl: new Date(), letto: true },
   })
+  allineaCestinoDopo(utenteId, [id], 'cestino')
   revalidatePath('/', 'layout')
 }
 
@@ -1138,6 +1145,7 @@ export async function cestinaThread(messaggioId: string): Promise<{ ok: boolean;
     where: { id: { in: ids }, utenteId },
     data: { cestinato: true, cestinatoIl: new Date(), letto: true },
   })
+  allineaCestinoDopo(utenteId, ids, 'cestino')
   revalidatePath('/', 'layout')
   return { ok: true, messaggio: `${r.count} mail del thread spostate nel cestino.` }
 }
@@ -1177,10 +1185,14 @@ export async function segnalaSpamThread(messaggioId: string): Promise<{ ok: bool
 }
 
 export async function ripristinaMessaggio(id: string) {
+  const utenteId = await uid()
   await db.messaggio.updateMany({
-    where: { id, utenteId: await uid() },
+    where: { id, utenteId },
     data: { cestinato: false, cestinatoIl: null, archiviato: false },
   })
+  // Recuperare la riporta al suo posto anche sulla casella: la posta in arrivo
+  // in INBOX, un inviato nella cartella «Inviata».
+  allineaCestinoDopo(utenteId, [id], 'inbox')
   revalidatePath('/', 'layout')
 }
 
@@ -1269,6 +1281,7 @@ export async function azioneMassa(
       break
     case 'cestina':
       n = (await db.messaggio.updateMany({ where, data: { cestinato: true, cestinatoIl: new Date(), letto: true } })).count
+      allineaCestinoDopo(utenteId, puliti, 'cestino')
       break
     case 'letto':
       n = (await db.messaggio.updateMany({ where, data: { letto: true } })).count
@@ -1384,7 +1397,7 @@ export async function elencoAllegati(
     include: { account: true },
   })
   if (!m || m.uid <= 0) return []
-  const cartella = m.direzione === 'uscita' ? m.account.cartellaInviata || undefined : m.account.cartella
+  const cartella = cartellaDiMessaggio(m, m.account)
   try {
     return await leggiAllegatiImap(m.account, m.uid, cartella)
   } catch {
@@ -1685,7 +1698,11 @@ export async function comandoPostaEsegui(
   const where = whereLotto(utenteId, { criterio, valore, sezioneId })
   const ambito = await etichettaAmbito(utenteId, sezioneId)
   if (azione === 'cestina') {
+    // Gli id servono per far seguire il server: qui il filtro è per mittente o
+    // oggetto, non una lista, quindi si leggono prima di cestinare.
+    const colpite = await db.messaggio.findMany({ where, select: { id: true } })
     const r = await db.messaggio.updateMany({ where, data: { cestinato: true, cestinatoIl: new Date() } })
+    allineaCestinoDopo(utenteId, colpite.map((m) => m.id), 'cestino')
     revalidatePath('/', 'layout')
     return { ok: true, messaggio: `Cestinate ${r.count} mail${ambito}. Le trovi nel Cestino se ti servono.` }
   }

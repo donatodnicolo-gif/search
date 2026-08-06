@@ -266,6 +266,19 @@ export async function svuotaCestinoDi(
     if (!account) continue
     const fase = `Cancello sulla casella ${account.email}…`
     try {
+      // ⚠️ PRIMA la cartella Cestino della casella: dal 5/08/2026 cestinare
+      // SPOSTA la mail lì (vedi cestinoServer.ts), quindi è lì che sta adesso.
+      // Le cartelle normali si guardano lo stesso subito dopo, per le mail
+      // cestinate PRIMA di quella modifica e per quelle il cui spostamento non
+      // è riuscito: una passata in più su un lavoro già lento e in sottofondo,
+      // in cambio della certezza di non lasciare mail vive sul server.
+      const tutte = [...g.inbox, ...g.inviata]
+      if (account.cartellaCestino && tutte.length) {
+        const offset = viste
+        suServer += await eliminaDalServer(account, account.cartellaCestino, tutte, (n) => {
+          void segna(`Cerco nel Cestino di ${account.email}…`, n, offset)
+        })
+      }
       if (g.inbox.length) {
         const offset = viste
         suServer += await eliminaDalServer(account, account.cartella, g.inbox, (n) => {

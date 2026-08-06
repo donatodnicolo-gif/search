@@ -175,6 +175,77 @@ export async function trovaCartellaInviata(account: Account): Promise<string | n
 }
 
 /**
+ * Trova la cartella CESTINO sul server, con la stessa regola della «Inviata»:
+ * prima il flag speciale `\Trash` dichiarato da IMAP, poi i nomi più comuni.
+ * `null` se non c'è: senza una cartella certa non si sposta niente: spostare
+ * una mail in una cartella sbagliata è come perderla.
+ */
+export async function trovaCartellaCestino(account: Account): Promise<string | null> {
+  const client = connessione(account)
+  await client.connect()
+  try {
+    const lista = await client.list()
+
+    const speciale = lista.find((c) => c.specialUse === '\\Trash')
+    if (speciale) return speciale.path
+
+    const nomi = ['trash', 'cestino', 'deleted', 'deleted items', 'deleted messages', 'posta eliminata']
+    const perNome = lista.find((c) => nomi.includes(c.name.toLowerCase()))
+    return perNome?.path ?? null
+  } finally {
+    await client.logout()
+  }
+}
+
+/**
+ * SPOSTA dei messaggi da una cartella all'altra sulla casella (IMAP MOVE):
+ * lo usa il cestino, per far seguire al server quello che fai qui.
+ *
+ * ⚠️ Le mail si cercano per **Message-ID**, come in `eliminaDalServer`, e
+ * l'UID memorizzato è solo il ripiego per quelle che non ce l'hanno: un UID
+ * vecchio può puntare a un'ALTRA mail, e qui si sposterebbe quella.
+ * ⚠️ A differenza della cancellazione questo è **reversibile** (la mail è
+ * ancora lì, in un'altra cartella): è il motivo per cui cestinare può
+ * permettersi di toccare il server, mentre svuotare il cestino chiede conferma.
+ *
+ * Torna quante mail sono state spostate davvero.
+ */
+export async function spostaSulServer(
+  account: Account,
+  cartellaDa: string,
+  cartellaA: string,
+  mail: { uid: number; messageId: string | null }[]
+): Promise<number> {
+  if (mail.length === 0 || cartellaDa === cartellaA) return 0
+  const client = connessione(account)
+  await client.connect()
+  try {
+    await client.mailboxOpen(cartellaDa, { readOnly: false })
+
+    const daSpostare: number[] = []
+    for (const m of mail) {
+      if (m.messageId) {
+        try {
+          const trovati = (await client.search({ header: { 'message-id': m.messageId } }, { uid: true })) || []
+          for (const u of trovati) daSpostare.push(u)
+          continue
+        } catch {
+          /* ricerca fallita: si ripiega sull'UID, se valido */
+        }
+      }
+      if (m.uid > 0) daSpostare.push(m.uid)
+    }
+
+    const uniti = [...new Set(daSpostare)]
+    if (uniti.length === 0) return 0
+    await client.messageMove(uniti, cartellaA, { uid: true })
+    return uniti.length
+  } finally {
+    await client.logout()
+  }
+}
+
+/**
  * Deposita una copia del messaggio inviato nella cartella "Inviata" del server.
  *
  * Senza questo, una mail spedita da AI Mail non esisterebbe da nessuna parte
