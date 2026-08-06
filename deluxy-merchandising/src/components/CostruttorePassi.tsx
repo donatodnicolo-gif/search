@@ -89,14 +89,21 @@ export function CostruttorePassi({
                     Nessun valore nei dati: questa condizione non avrebbe niente da portare in cima.
                   </span>
                 ) : (
-                  <select name={`valori:${campo.chiave}`} multiple size={5} aria-label={campo.nome}>
+                  /* **Caselle a griglia, non un menu a selezione multipla.** Un
+                     `<select multiple>` vuole il ctrl+clic per prenderne più di
+                     uno — chi non lo sa ne sceglie sempre uno solo — e mostra
+                     cinque righe alla volta di quattrocento tag. Qui i valori si
+                     vedono tutti insieme e si spuntano uno per uno, come si
+                     scelgono i prodotti. */
+                  <div className="griglia-valori" role="group" aria-label={campo.nome}>
                     {opzioni.map((x) => (
-                      <option key={x.v} value={x.v}>
-                        {x.etichetta ?? x.v}
-                        {x.n != null ? ` (${x.n})` : ""}
-                      </option>
+                      <label className="chip-valore" key={x.v}>
+                        <input type="checkbox" name={`valori:${campo.chiave}`} value={x.v} />
+                        <span>{x.etichetta ?? x.v}</span>
+                        {x.n != null && <b className="chip-conta">{x.n}</b>}
+                      </label>
                     ))}
-                  </select>
+                  </div>
                 )}
               </Riga>
             );

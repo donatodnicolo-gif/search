@@ -903,3 +903,44 @@ details.conferma-x[open] > summary { color: var(--orange, #C2721B); }
   color: var(--surface, #fff);
   border-color: var(--text, #1d1d1f);
 }
+
+/* **I valori di una condizione, a griglia.** Sostituiscono il `<select
+   multiple>`: quello vuole il ctrl+clic per prenderne più di uno — chi non lo sa
+   ne sceglie sempre uno solo — e mostra cinque righe alla volta di quattrocento
+   tag. Qui si vedono tutti e si spuntano uno per uno.
+   L'area scorre da sé quando i valori sono tanti, invece di allungare la pagina
+   di mille pixel per una condizione sola. */
+.griglia-valori {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-height: 168px;
+  overflow-y: auto;
+  padding: 8px;
+  border: 1px solid var(--hairline, rgba(0, 0, 0, 0.1));
+  border-radius: 12px;
+  background: var(--surface, #fff);
+}
+.chip-valore {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 4px 7px;
+  border: 1px solid var(--hairline, rgba(0, 0, 0, 0.12));
+  border-radius: 999px;
+  font-size: 12.5px;
+  line-height: 1.2;
+  cursor: pointer;
+  background: var(--surface, #fff);
+  transition: background 120ms var(--ease), border-color 120ms var(--ease);
+}
+.chip-valore:hover { background: var(--fill, #F5F5F7); }
+.chip-valore input { width: 14px; height: 14px; cursor: pointer; flex: 0 0 auto; }
+/* Spuntata si vede a colpo d'occhio: in una griglia da cinquanta chip, la sola
+   casella spuntata si perde. */
+.chip-valore:has(input:checked) {
+  border-color: var(--gold, #B8963E);
+  background: color-mix(in srgb, var(--gold, #B8963E) 12%, transparent);
+  font-weight: 600;
+}
+.chip-conta { font-weight: 600; color: var(--text-tertiary); font-size: 11px; }
