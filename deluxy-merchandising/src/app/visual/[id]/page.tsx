@@ -192,7 +192,12 @@ export default async function CurazioneCollezionePage({
 
         {/* Regola d'ordine: prima si **guarda** come verrebbe, poi si applica. */}
         <div className="scheda">
-          <div className="scheda-titolo">Regola d&apos;ordine</div>
+          <div className="scheda-titolo">Ordine rapido: una metrica</div>
+          <p className="page-sub" style={{ marginTop: -4 }}>
+            Mette in fila <b>tutti</b> i prodotti secondo un numero — venduto, margine, prezzo, novità. Per ragionare
+            per <b>categoria, prezzo, tag o tempi di consegna</b> serve una <b>regola con condizioni</b>, nel riquadro
+            qui sotto.
+          </p>
           <form method="get" style={{ display: "grid", gap: 10, maxWidth: 420 }}>
             <SelettoreRegole valore={inAnteprima ? regoleAnteprima.join(",") : c.regolaOrdinamento} />
             <div style={{ display: "flex", gap: 8 }}>
@@ -210,11 +215,17 @@ export default async function CurazioneCollezionePage({
             rapide qui sopra — e sceglierne una **stacca** l'altra, altrimenti
             due ordini impostati insieme non si saprebbe quale vince. */}
         <div className="scheda" id="regola">
-          <div className="scheda-titolo">Regola salvata</div>
+          <div className="scheda-titolo">Regola con condizioni</div>
+          <p className="page-sub" style={{ marginTop: -4 }}>
+            Una regola è una <b>sequenza di passi in priorità</b>: «prima la categoria <i>Fiori</i> → poi chi sta sopra
+            i 200 € → a parità il più venduto». Un passo può essere una metrica oppure una <b>condizione</b> su
+            categoria, fornitore, linea, <b>tag</b> (occasione, destinatario), <b>tempi di consegna</b> o prezzo. Le
+            condizioni <b>portano in cima chi corrisponde</b> senza togliere nessuno dalla fila.
+          </p>
           {regoleSalvate.length === 0 ? (
             <p className="page-sub" style={{ marginTop: 0 }}>
-              Nessuna regola salvata ancora. La prima si scrive da qui: dai un nome all&apos;ordine che hai davanti e
-              diventa una regola riusabile su altre collezioni.
+              <b>Non c&apos;è ancora nessuna regola.</b> Dagliene un nome qui sotto: nasce, viene applicata a questa
+              collezione, e <b>subito sotto compaiono le condizioni</b> da impostare.
             </p>
           ) : (
             <>
@@ -571,13 +582,16 @@ function CreaRegolaDaQui({ id, regole }: { id: string; regole: RegolaOrdinamento
       {regole.map((r) => (
         <input key={r} type="hidden" name="regola" value={r} />
       ))}
-      <input name="nome" placeholder="Nome della regola (es. Vetrina di Natale)" required style={{ minWidth: 280 }} />
-      <button type="submit" className="btn btn-secondario">Salva quest&apos;ordine come regola</button>
+      <input name="nome" placeholder="Nome della regola (es. Vetrina di Natale)" required style={{ minWidth: 300 }} />
+      <button type="submit" className="btn btn-primario">Crea la regola e imposta le condizioni</button>
       <span className="page-sub" style={{ margin: 0 }}>
         {regole.length > 0 ? (
-          <>Parte da <b>{etichettaRegola(regole.join(","))}</b>, poi ci aggiungi i passi per categoria, prezzo o tag.</>
+          <>
+            Parte da <b>{etichettaRegola(regole.join(","))}</b> — la metrica scelta qui sopra — e poi ci aggiungi le
+            condizioni.
+          </>
         ) : (
-          <>Nessuna metrica scelta: la regola nasce vuota e <b>non tocca l&apos;ordine di adesso</b>.</>
+          <>Nasce senza passi e <b>non tocca l&apos;ordine di adesso</b>: le condizioni si aggiungono subito dopo.</>
         )}
       </span>
     </form>
