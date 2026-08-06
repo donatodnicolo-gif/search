@@ -24,7 +24,15 @@ import { TabellaGruppi } from "@/components/TabellaGruppi";
 import { VenditeCampagna } from "@/components/VenditeCampagna";
 import { RinominaInline } from "@/components/RinominaInline";
 import { BudgetInline } from "@/components/BudgetInline";
-import { aggiungiMetrica, cambiaStatoCampagna, creaOperazione, rinominaCampagna } from "@/lib/azioni";
+import { SelettoreStato } from "@/components/SelettoreStato";
+import { ETICHETTA_LINGUA, LINGUE_CAMPAGNA, legameDiCampagna } from "@/lib/vendite-campagna";
+import {
+  aggiungiMetrica,
+  cambiaStatoCampagna,
+  creaOperazione,
+  impostaLinguaCampagna,
+  rinominaCampagna,
+} from "@/lib/azioni";
 import { prisma } from "@/lib/db";
 import { GIORNI_LETTURA, gruppiConNumeri, nomeCampagna } from "@/lib/gruppi";
 import {
@@ -92,6 +100,13 @@ export default async function SchedaCampagna({
   });
   if (!campagna) notFound();
 
+  // La lingua mostrata accanto al titolo è la STESSA che usa l'attribuzione
+  // delle vendite: si legge dal legame (manuale se c'è, altrimenti dedotta dal
+  // nome), non da un campo suo. Due fonti per la stessa cosa vorrebbero dire
+  // che il selettore in cima dice una lingua e i KPI sotto ne usano un'altra.
+  const { legame: legameLingua } = await legameDiCampagna(campagna);
+  const linguaCampagna = legameLingua.lingua;
+
   // I gruppi della campagna: la media di campagna qui sopra può nascondere un
   // gruppo che rende il doppio e uno che brucia. Vanno guardati separati.
   const giorniPeriodo = Math.max(
@@ -140,6 +155,30 @@ export default async function SchedaCampagna({
               )}
               <Badge testo={ETICHETTA_BRAND[campagna.brand] ?? campagna.brand} colore={COLORE_BRAND[campagna.brand] ?? "var(--text-tertiary)"} />
               <Badge testo={ETICHETTA_CANALE[campagna.canale] ?? campagna.canale} colore="var(--text-secondary)" />
+              {/* La lingua sta col titolo, non in fondo a un blocco richiuso:
+                  è la cosa che si corregge più spesso, ed è la stessa che
+                  l'attribuzione delle vendite usa per tagliare i clienti — non
+                  una seconda impostazione che le somiglia. */}
+              <span className="stato-app-inline">
+                <span className="stato-app-etichetta">clienti</span>
+                <form action={impostaLinguaCampagna.bind(null, campagna.id)}>
+                  {/* Si torna dove si era, periodo compreso: senza, cambiare
+                      la lingua rimandava agli ultimi 30 giorni di default. */}
+                  <input
+                    type="hidden"
+                    name="ritorno"
+                    value={`/campagne/${campagna.id}${parametriPeriodo(periodo) ? `?${parametriPeriodo(periodo)}` : ""}`}
+                  />
+                  <SelettoreStato
+                    nome="lingua"
+                    valore={linguaCampagna ?? ""}
+                    opzioni={[
+                      { valore: "", etichetta: "lingua non dichiarata" },
+                      ...LINGUE_CAMPAGNA.map((l) => ({ valore: l, etichetta: ETICHETTA_LINGUA[l] })),
+                    ]}
+                  />
+                </form>
+              </span>
               {campagna.obiettivo && <span>{campagna.obiettivo}</span>}
             </p>
             {/* Lo stato sta col titolo: è la prima cosa che si guarda e la più

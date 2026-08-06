@@ -318,6 +318,60 @@ export async function salvaLegameShopify(campagnaId: string, fd: FormData) {
   revalidatePath(`/campagne/${campagnaId}`);
 }
 
+// La lingua da sola, dal titolo della campagna: è la cosa che si corregge più
+// spesso e stava in fondo a un blocco richiuso.
+//
+// ⚠️ **Si riparte dal legame che c'è già.** Quando `origine = "manuale"` la
+// scheda prende il legame per intero e non deduce più niente: scrivere qui la
+// sola lingua cancellerebbe prodotto, città e negozio, e l'attribuzione delle
+// vendite si spegnerebbe di colpo. Si legge il legame corrente — dedotto o
+// manuale che sia — e si cambia solo la lingua.
+export async function impostaLinguaCampagna(campagnaId: string, fd: FormData) {
+  if (!campagnaId) return;
+  const scelta = testo(fd, "lingua");
+  const lingua = scelta && (LINGUE_CAMPAGNA as readonly string[]).includes(scelta) ? scelta : null;
+
+  const campagna = await prisma.campagna.findUnique({
+    where: { id: campagnaId },
+    select: { id: true, nome: true, brand: true },
+  });
+  if (!campagna) return;
+
+  const { legameDiCampagna } = await import("./vendite-campagna");
+  const { legame } = await legameDiCampagna(campagna);
+  if (legame.lingua === lingua) return;
+
+  const dati = {
+    categoria: legame.categoria,
+    negozio: legame.negozio,
+    citta: legame.citta,
+    lingua,
+    origine: "manuale",
+    motivo: "lingua scelta a mano dal titolo della campagna",
+  };
+  await prisma.legameCampagnaShopify.upsert({
+    where: { campagnaId },
+    create: { campagnaId, ...dati },
+    update: dati,
+  });
+  await registra({
+    autore: "utente",
+    tipo: "modifica",
+    entita: "campagna",
+    entitaId: campagnaId,
+    titolo: `Lingua di "${campagna.nome}": ${lingua ?? "non dichiarata"}`,
+    dettaglio: "scelta dal titolo della campagna; l'attribuzione delle vendite la legge da qui",
+  });
+  revalidatePath(`/campagne/${campagnaId}`);
+  revalidatePath("/keywords");
+  // ⚠️ `revalidatePath` da solo non basta QUI: i numeri sotto si aggiornavano
+  // (il blocco vendite li rilegge) ma il menù in testa tornava a mostrare
+  // «lingua non dichiarata» finché non si ricaricava a mano — cioè l'esatto
+  // aspetto di un salvataggio non riuscito, su un salvataggio riuscito.
+  // Il ritorno esplicito rirende la pagina intera e il menù segue il dato.
+  redirect(testo(fd, "ritorno") || `/campagne/${campagnaId}`);
+}
+
 // Torna alla deduzione dal nome: cancella la riga, il prossimo caricamento
 // della scheda la ricrea leggendo il nome della campagna.
 export async function ripristinaLegameShopify(campagnaId: string) {

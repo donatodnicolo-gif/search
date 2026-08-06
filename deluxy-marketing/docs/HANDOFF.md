@@ -22,6 +22,30 @@ Riceve già dati veri da Google Ads (Gifts e Flowers) e ha 2.426 ordini Shopify 
 
 ## FATTO
 
+### La lingua si imposta dal titolo, e l'attribuzione la legge da lì (06/08/2026)
+
+La lingua era in fondo al blocco vendite, dentro «Correggi il legame» — e dopo
+la compattazione in due righe stava sotto un espandibile. Ora è un menù
+**accanto al titolo della campagna**, e non è una seconda impostazione che le
+somiglia: scrive nello **stesso** `LegameCampagnaShopify.lingua` che
+l'attribuzione usa per tagliare i clienti, e che il filtro lingua delle
+keyword legge.
+
+> ⚠️ **Scrivere la sola lingua avrebbe cancellato il resto.** Quando
+> `origine = "manuale"` la scheda prende il legame **per intero** e non deduce
+> più niente: un upsert con la sola `lingua` avrebbe azzerato prodotto, città e
+> negozio, e l'attribuzione delle vendite si sarebbe spenta di colpo.
+> `impostaLinguaCampagna` rilegge il legame corrente — dedotto o manuale — e
+> cambia solo la lingua. Provato in produzione: da `ita` a `eng` e ritorno, con
+> `categoria: torte` e `negozio: cakedesignme` **intatti**.
+
+> ⚠️ **`revalidatePath` da solo non bastava.** I numeri sotto si aggiornavano
+> (il blocco vendite li rilegge) ma il menù in testa tornava a mostrare «lingua
+> non dichiarata» finché non si ricaricava a mano: cioè l'aspetto esatto di un
+> salvataggio fallito, su un salvataggio riuscito. Serve il ritorno esplicito
+> alla pagina — col periodo conservato, o cambiare lingua rimandava agli
+> ultimi 30 giorni.
+
 ### Filtro lingua sulle keyword, e «ce l'ha già» che non era vero (05/08/2026)
 
 **Filtro per lingua** su `/keywords`: italiano, inglese, francese e **«non
