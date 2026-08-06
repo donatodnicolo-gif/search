@@ -47,6 +47,7 @@ export function FilaProdotti({
   membriAMano,
   daPosizione = 0,
   totale,
+  vista = "elenco",
 }: {
   collezioneId: string;
   righe: RigaFila[];
@@ -56,20 +57,23 @@ export function FilaProdotti({
   daPosizione?: number;
   /** Quanti sono in tutto: serve a dire fin dove può arrivare «porta alla posizione». */
   totale?: number;
+  /** «elenco» si legge, «griglia» si guarda: il merchandising è un lavoro visivo. */
+  vista?: "elenco" | "griglia";
 }) {
   const quanti = totale ?? righe.length;
+  const aGriglia = vista === "griglia";
   return (
     <form>
       <BarraBlocco collezioneId={collezioneId} membriAMano={membriAMano} quanti={quanti} inElenco={righe.length} />
 
-      <div className="vetrina-lista">
+      <div className={aGriglia ? "vetrina-griglia" : "vetrina-lista"}>
         {righe.map((vp, i) => (
-          <div className="vetrina-riga" key={vp.id} id={`p-${vp.prodottoId}`}>
+          <div className={aGriglia ? "vetrina-card" : "vetrina-riga"} key={vp.id} id={`p-${vp.prodottoId}`}>
             <label className="vetrina-scelta" title="Scegli per le azioni in blocco">
               <input type="checkbox" name="scelti" value={vp.prodottoId} />
             </label>
             <span className="vetrina-pos">{daPosizione + i + 1}</span>
-            <span className="vetrina-mini">
+            <span className={aGriglia ? "vetrina-foto" : "vetrina-mini"}>
               {vp.prodotto.immagine ? <img src={vp.prodotto.immagine} alt="" /> : "❀"}
             </span>
             <span className="vetrina-info">

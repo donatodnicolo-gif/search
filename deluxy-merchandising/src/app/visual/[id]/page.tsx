@@ -10,13 +10,14 @@ import { vociPassi } from "@/lib/voci-passi";
 import { linkAdmin } from "@/lib/link-shopify";
 import { etichettaOrdinamentoShopify, ordineAMano } from "@/lib/collezioni";
 import { REGOLE } from "@/lib/ordinamento-vetrina";
-import { etichettaPassi, parsePassi } from "@/lib/regole-ordine";
+import { etichettaPassi, filtroSuggerimenti, parsePassi } from "@/lib/regole-ordine";
 import { applicaRegolaSalvataAzione, creaRegolaDaCollezione } from "@/lib/azioni-regole-ordine";
 import {
   applicaRegolaOrdinamento,
   spostaInCollezione,
   spingiOrdineSuShopify,
   rimuoviProdottoDaCollezione,
+  aggiungiProdottiACollezione,
 } from "@/lib/azioni-vetrina-shopify";
 
 export const dynamic = "force-dynamic";
@@ -30,7 +31,14 @@ export default async function CurazioneCollezionePage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ esito?: string; messaggio?: string; regola?: string | string[] }>;
+  searchParams: Promise<{
+    esito?: string;
+    messaggio?: string;
+    regola?: string | string[];
+    vista?: string;
+    aggiungi?: string;
+    cerca?: string;
+  }>;
 }) {
   const { id } = await params;
   const sp = await searchParams;
@@ -132,6 +140,36 @@ export default async function CurazioneCollezionePage({
       ).map((p, i) => ({ ...p, da: posizioneAttuale.get(p.prodottoId) ?? i, a: i }))
     : [];
   const quantiSiMuovono = anteprima.filter((p) => p.da !== p.a).length;
+
+  // — Prodotti da aggiungere —
+  // Il pannello si apre da un parametro, così resta aperto anche dopo una
+  // ricerca. I **suggerimenti** sono i prodotti che la regola porterebbe in cima
+  // e che in collezione non ci sono ancora: è l'unico elenco che risponde a
+  // «cosa ci manca» invece di mostrare tutto il catalogo.
+  const aGriglia = sp.vista === "griglia";
+  const pannelloAperto = sp.aggiungi === "1";
+  const cerca = (sp.cerca ?? "").trim();
+  const filtroRegola = c.regolaOrdine ? filtroSuggerimenti(parsePassi(c.regolaOrdine.passi)) : null;
+  const candidati = pannelloAperto
+    ? await prisma.prodotto.findMany({
+        where: {
+          id: { notIn: c.prodotti.map((vp) => vp.prodottoId) },
+          ...FILTRO_IN_SCENA,
+          ...(cerca
+            ? {
+                OR: [
+                  { nome: { contains: cerca, mode: "insensitive" as const } },
+                  { codice: { contains: cerca, mode: "insensitive" as const } },
+                ],
+              }
+            : (filtroRegola ?? {})),
+        },
+        orderBy: { nome: "asc" },
+        take: 60,
+        select: { id: true, nome: true, codice: true, immagine: true, prezzoVendita: true, tipoShopify: true },
+      })
+    : [];
+  const suffisso = aGriglia ? "&vista=griglia" : "";
 
   return (
     <div className="layout">
@@ -414,8 +452,95 @@ export default async function CurazioneCollezionePage({
           </form>
         </div>
 
+        {/* **Il pannello per aggiungere prodotti.** Si sceglie guardando le
+            immagini, perché è così che si costruisce una vetrina; e la prima
+            cosa che propone non è il catalogo intero ma quello che **le
+            condizioni della regola** porterebbero in cima e qui non c'è. */}
+        {pannelloAperto && (
+          <div className="scheda" style={{ borderColor: "var(--gold)" }}>
+            <div className="riga-titolo">
+              <div className="scheda-titolo" style={{ margin: 0 }}>Aggiungi prodotti alla collezione</div>
+              <a className="btn btn-secondario" href={`/visual/${id}${aGriglia ? "?vista=griglia" : ""}`}>Chiudi</a>
+            </div>
+            <p className="page-sub">
+              {cerca ? (
+                <>Risultati per «<b>{cerca}</b>».</>
+              ) : filtroRegola ? (
+                <>
+                  <b>Suggeriti dalle condizioni di «{c.regolaOrdine!.nome}»</b>: i prodotti che la regola porterebbe in
+                  cima e che qui non ci sono ancora. Le condizioni valgono <b>in alternativa</b> — basta che ne
+                  soddisfino una.
+                </>
+              ) : (
+                <>
+                  Nessun suggerimento: questa collezione non ha una regola con condizioni, quindi non c&apos;è un
+                  criterio per proporre cosa manca. Cerca per nome o codice qui sotto.
+                </>
+              )}{" "}
+              Entrano <b>in fondo</b> alla fila e vengono aggiunti <b>sul negozio</b>.
+            </p>
+            <form method="get" style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+              <input type="hidden" name="aggiungi" value="1" />
+              {aGriglia && <input type="hidden" name="vista" value="griglia" />}
+              <input type="search" name="cerca" defaultValue={cerca} placeholder="Cerca per nome o codice…" style={{ minWidth: 280 }} />
+              <button type="submit" className="btn btn-secondario">Cerca</button>
+              {cerca && (
+                <a className="btn btn-secondario" href={`/visual/${id}?aggiungi=1${suffisso}`}>Torna ai suggerimenti</a>
+              )}
+            </form>
+            {candidati.length === 0 ? (
+              <div className="vuoto-mini">
+                {cerca
+                  ? `Nessun prodotto in vendita risponde a «${cerca}» fuori da questa collezione.`
+                  : "Nessun prodotto da proporre."}
+              </div>
+            ) : (
+              <form action={aggiungiProdottiACollezione.bind(null, id)}>
+                <div className="griglia-scelta">
+                  {candidati.map((p) => (
+                    <label className="card-scelta" key={p.id}>
+                      <span className="foto">{p.immagine ? <img src={p.immagine} alt="" /> : "❀"}</span>
+                      <span style={{ display: "flex", gap: 6, alignItems: "flex-start" }}>
+                        <input type="checkbox" name="aggiungi" value={p.id} style={{ marginTop: 2 }} />
+                        <span style={{ minWidth: 0 }}>
+                          <span className="cella-nome" style={{ fontSize: 12.5 }}>{p.nome}</span>
+                          <span className="cella-sub" style={{ display: "block" }}>
+                            {p.tipoShopify ?? "—"}
+                            {p.prezzoVendita > 0 ? ` · ${euro(p.prezzoVendita)}` : ""}
+                          </span>
+                        </span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+                <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 12, flexWrap: "wrap" }}>
+                  <button type="submit" className="btn btn-primario">Aggiungi i selezionati</button>
+                  <span className="page-sub" style={{ margin: 0 }}>
+                    Mostrati i primi {candidati.length}: se non trovi quello che cerchi, restringi con la ricerca.
+                  </span>
+                </div>
+              </form>
+            )}
+          </div>
+        )}
+
         <div className="scheda">
-          <div className="scheda-titolo">Sequenza dei prodotti</div>
+          <div className="riga-titolo">
+            <div className="scheda-titolo" style={{ margin: 0 }}>Sequenza dei prodotti</div>
+            <div className="riga-azione">
+              {/* Elenco o griglia: la stessa fila, le stesse azioni. Una vetrina
+                  si giudica guardandola, non leggendo sessanta nomi in colonna. */}
+              <a className="btn btn-secondario" href={`/visual/${id}`} aria-current={aGriglia ? undefined : "true"}>
+                Elenco
+              </a>
+              <a className="btn btn-secondario" href={`/visual/${id}?vista=griglia`} aria-current={aGriglia ? "true" : undefined}>
+                Griglia
+              </a>
+              {membriAMano && (
+                <a className="btn btn-primario" href={`/visual/${id}?aggiungi=1${suffisso}`}>+ Aggiungi prodotti</a>
+              )}
+            </div>
+          </div>
           {/* Tre stati vuoti diversi, e vanno detti diversi: nessun prodotto
               legato, oppure prodotti legati ma tutti fuori vendita. «Nessun
               prodotto» sul secondo caso manderebbe a rifare un import che non
@@ -428,7 +553,7 @@ export default async function CurazioneCollezionePage({
             </div>
           ) : (
             <>
-              <FilaProdotti collezioneId={id} righe={righe} membriAMano={membriAMano} totale={inScena.length} />
+              <FilaProdotti collezioneId={id} righe={righe} membriAMano={membriAMano} totale={inScena.length} vista={aGriglia ? "griglia" : "elenco"} />
               {restano > 0 && (
                 <p className="page-sub" style={{ marginTop: 12 }}>
                   Mostrati i primi {MAX_RIGHE}; altri {restano} prodotti non sono in elenco ma l'ordine inviato a

@@ -349,3 +349,80 @@ export async function rimuoviSceltiDaCollezione(collezioneId: string, fd: FormDa
   revalidatePath(`/visual/${collezioneId}`);
   revalidatePath(`/collezioni/shopify/${collezioneId}`);
 }
+
+/**
+ * **Aggiunge i prodotti scelti alla collezione, sul negozio.**
+ *
+ * Speculare alla rimozione, con gli stessi paletti e lo stesso ordine: prima
+ * `collectionAddProducts` su Shopify, e **solo se il negozio accetta** nascono
+ * le righe qui. Al contrario si mostrerebbe una collezione che il cliente non
+ * vede, e il primo import la smentirebbe.
+ *
+ * Solo **collezioni manuali**: in una smart collection chi entra lo decide la
+ * regola di Shopify, e un prodotto messo a mano ne uscirebbe alla prima
+ * rivalutazione.
+ *
+ * I nuovi entrano **in fondo**: davanti scavalcherebbero una fila già decisa.
+ */
+export async function aggiungiProdottiACollezione(collezioneId: string, fd: FormData) {
+  const scelti = fd.getAll("aggiungi").map(String).filter(Boolean);
+  if (scelti.length === 0) return;
+
+  const errore = (m: string) =>
+    redirect(`/visual/${collezioneId}?esito=errore&messaggio=${encodeURIComponent(m)}`);
+
+  const c = await prisma.collezioneShopify.findUnique({ where: { id: collezioneId } });
+  if (!c) errore("Collezione non trovata.");
+  if (c!.tipo !== "manuale") {
+    errore(
+      "È una collezione automatica: chi ci sta dentro lo decide la regola di Shopify. Per farci entrare questi prodotti va cambiata la regola sul negozio.",
+    );
+  }
+
+  const prodotti = await prisma.prodotto.findMany({
+    where: { id: { in: scelti }, shopifyId: { not: null } },
+    select: { id: true, shopifyId: true },
+  });
+  if (prodotti.length === 0) {
+    errore("Di questi prodotti non conosciamo l'id su Shopify: rilancia l'import e riprova.");
+  }
+
+  const negozio = await prisma.negozioShopify.findFirst({ where: { nome: c!.negozio }, select: { id: true } });
+  const accesso = negozio ? await tokenDi(negozio.id) : null;
+  if (!accesso) errore(`Il negozio «${c!.negozio}» non è collegato: serve un token con write_products in Impostazioni.`);
+
+  const { corpo } = await graphqlNegozio(
+    accesso!.dominio,
+    accesso!.token,
+    `mutation($id: ID!, $productIds: [ID!]!) {
+       collectionAddProducts(id: $id, productIds: $productIds) {
+         collection { id }
+         userErrors { field message }
+       }
+     }`,
+    { id: c!.shopifyId, productIds: prodotti.map((p) => p.shopifyId as string) },
+  );
+  const err = [
+    ...(corpo.errors ?? []).map((e) => e.message),
+    ...((corpo.data?.collectionAddProducts?.userErrors as { message: string }[] | undefined) ?? []).map((e) => e.message),
+  ];
+  if (err.length) errore(`Shopify ha rifiutato: ${err.join(" · ")}`);
+
+  const ultima = await prisma.prodottoInCollezioneShopify.aggregate({
+    where: { collezioneId },
+    _max: { posizione: true },
+  });
+  let posizione = (ultima._max.posizione ?? -1) + 1;
+  await prisma.prodottoInCollezioneShopify.createMany({
+    data: prodotti.map((p) => ({
+      collezioneId,
+      prodottoId: p.id,
+      prodottoShopifyId: p.shopifyId as string,
+      posizione: posizione++,
+    })),
+    skipDuplicates: true,
+  });
+
+  revalidatePath(`/visual/${collezioneId}`);
+  revalidatePath(`/collezioni/shopify/${collezioneId}`);
+}

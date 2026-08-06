@@ -143,3 +143,59 @@ export function etichettaPassi(passi: Passo[], nomiMetriche: Record<string, stri
   if (passi.length === 0) return "Nessun passo";
   return passi.map((p) => etichettaPasso(p, nomiMetriche, nomiValori)).join(" → ");
 }
+
+/**
+ * Il filtro Prisma dei prodotti che **questa regola porterebbe in cima**: serve
+ * a proporre cosa aggiungere a una collezione, non a ordinarla.
+ *
+ * **Le condizioni valgono in alternativa**, non tutte insieme. Nell'ordinamento
+ * sono passi in priorità — «prima i Fiori, poi i Tag Compleanno» — e un prodotto
+ * che soddisfa solo il secondo è comunque uno che la regola tira su. Chiedere
+ * che li soddisfi tutti proporrebbe quasi sempre niente.
+ *
+ * `null` quando non c'è nessuna condizione: una regola fatta di sole metriche
+ * non dice **quali** prodotti, dice solo in che ordine — e proporre l'intero
+ * catalogo sarebbe una risposta finta.
+ */
+export function filtroSuggerimenti(passi: Passo[]): Record<string, unknown> | null {
+  const o: Record<string, unknown>[] = [];
+  for (const p of passi) {
+    if (p.t !== "attr") continue;
+    const valori = (p.valori ?? []).filter(Boolean);
+    switch (p.campo) {
+      case "tipo":
+        if (valori.length) o.push({ tipoShopify: { in: valori } });
+        break;
+      case "categoria":
+        if (valori.length) o.push({ categoria: { in: valori } });
+        break;
+      case "fornitore":
+        if (valori.length) o.push({ vendorShopify: { in: valori } });
+        break;
+      case "linea":
+        if (valori.length) o.push({ lineaId: { in: valori } });
+        break;
+      case "tag":
+        if (valori.length) {
+          o.push({ OR: valori.map((t) => ({ tagShopify: { contains: t, mode: "insensitive" as const } })) });
+        }
+        break;
+      case "risposta": {
+        const fasce = valori
+          .map((v) => RISPOSTE.find((r) => r.chiave === v))
+          .filter((r): r is (typeof RISPOSTE)[number] => !!r)
+          .map((r) => ({ ggDispMin: { gte: r.min, lte: r.max } }));
+        if (fasce.length) o.push({ OR: fasce });
+        break;
+      }
+      case "prezzo": {
+        const c: Record<string, number> = {};
+        if (p.da != null) c.gte = p.da;
+        if (p.a != null) c.lt = p.a;
+        if (Object.keys(c).length) o.push({ prezzoVendita: c });
+        break;
+      }
+    }
+  }
+  return o.length ? { OR: o } : null;
+}

@@ -745,14 +745,25 @@ details.conferma-x[open] > summary { color: var(--orange, #C2721B); }
   display: flex;
   align-items: center;
   gap: 10px;
-  white-space: nowrap;
+  /* **La larghezza va imposta.** Un elemento in `position: absolute` senza
+     larghezza propria si adatta allo spazio disponibile, che qui è quello del
+     bottone che lo apre (~150px): il testo andava a capo ogni due parole e il
+     riquadro diventava una colonna alta e strettissima. `max-content` lo fa
+     largo quanto il suo contenuto, e il `max-width` gli impedisce di uscire
+     dallo schermo sui telefoni. */
+  width: max-content;
+  max-width: min(400px, 86vw);
   background: var(--surface, #fff);
   border: 1px solid var(--hairline, rgba(0, 0, 0, 0.12));
   border-radius: 12px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
   padding: 10px 12px;
   font-size: 12.5px;
+  line-height: 1.4;
 }
+/* Il pulsante di conferma non si stringe mai: è l'unica cosa che si deve poter
+   premere, e schiacciato fra due righe di testo diventa un bersaglio minuscolo. */
+.conferma-x-corpo .btn { flex: 0 0 auto; white-space: nowrap; }
 
 /* **Barra delle azioni in blocco.** Sta sopra e sotto l'elenco: con sessanta
    righe, doverla cercare risalendo vanifica il motivo per cui esiste. */
@@ -775,3 +786,120 @@ details.conferma-x[open] > summary { color: var(--orange, #C2721B); }
   cursor: pointer;
 }
 .vetrina-scelta input { width: 16px; height: 16px; cursor: pointer; }
+
+/* **La fila come griglia.** Il merchandising è un lavoro visivo: una vetrina si
+   giudica guardandola, non leggendo sessanta nomi in colonna. La stessa fila,
+   le stesse azioni — cambia solo che l'immagine diventa grande e i prodotti
+   stanno uno accanto all'altro, come sul sito. */
+.vetrina-griglia {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 14px;
+}
+.vetrina-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid var(--hairline, rgba(0, 0, 0, 0.08));
+  border-radius: 14px;
+  background: var(--surface, #fff);
+}
+.vetrina-card .vetrina-foto {
+  display: block;
+  aspect-ratio: 1;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--surface-2, #F5F5F7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+  font-size: 30px;
+}
+.vetrina-card .vetrina-foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* Numero di posizione e casella stanno **sopra la foto**: in una griglia la
+   colonna dei numeri non esiste, e senza il numero non si sa dove si è. */
+.vetrina-card .vetrina-pos {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  z-index: 2;
+  background: rgba(0, 0, 0, 0.62);
+  color: #fff;
+  border-radius: 999px;
+  min-width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 0 6px;
+}
+.vetrina-card .vetrina-scelta {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 2;
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 6px;
+  padding: 2px;
+}
+.vetrina-card .vetrina-info { display: block; min-width: 0; }
+.vetrina-card .cella-nome { font-size: 13px; line-height: 1.25; display: block; }
+.vetrina-card .vetrina-azioni { display: flex; gap: 4px; justify-content: flex-end; }
+
+/* La griglia dei prodotti da aggiungere: stessa forma della vetrina, così si
+   sceglie guardando le stesse immagini che poi si vedranno in fila. */
+.griglia-scelta {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+  max-height: 460px;
+  overflow-y: auto;
+  padding: 4px;
+}
+.card-scelta {
+  display: block;
+  cursor: pointer;
+  border: 1px solid var(--hairline, rgba(0, 0, 0, 0.08));
+  border-radius: 12px;
+  padding: 8px;
+  background: var(--surface, #fff);
+}
+.card-scelta:has(input:checked) {
+  border-color: var(--gold, #B8963E);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--gold, #B8963E) 30%, transparent);
+}
+.card-scelta .foto {
+  aspect-ratio: 1;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface-2, #F5F5F7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+  margin-bottom: 6px;
+}
+.card-scelta .foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* Titolo di riquadro con le azioni a destra: si ripete in più schede, e senza
+   una classe finiva scritto a mano ogni volta con misure leggermente diverse. */
+.riga-titolo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+/* La vista attiva fra «Elenco» e «Griglia» si vede: due bottoni identici non
+   dicono su quale dei due si è. */
+.riga-azione a[aria-current="true"] {
+  background: var(--text, #1d1d1f);
+  color: var(--surface, #fff);
+  border-color: var(--text, #1d1d1f);
+}
