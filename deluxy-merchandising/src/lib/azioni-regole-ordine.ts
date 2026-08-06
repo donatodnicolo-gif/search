@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "./db";
 import { applicaRegolaSalvata } from "./ordinamento-vetrina";
 import { isRegola, regoleDaForm } from "./ordinamento-vetrina";
-import { CAMPI, parsePassi, serializePassi, type Campo, type Passo } from "./regole-ordine";
+import { CAMPI, parsePassi, serializePassi, type Campo, type Condizione, type Passo } from "./regole-ordine";
 
 /** Crea una regola vuota e porta dritti a scriverla: un nome da solo non serve a niente. */
 export async function creaRegolaOrdine(fd: FormData) {
@@ -88,13 +88,17 @@ export async function aggiungiPassiInBlocco(id: string, fd: FormData) {
   const r = await prisma.regolaOrdine.findUnique({ where: { id }, select: { passi: true } });
   const passi = parsePassi(r?.passi);
 
+  // **Una compilazione della griglia = una cella**, non tante condizioni
+  // separate. È la differenza fra «i bouquet di fiori urgenti» e «prima i fiori,
+  // poi i bouquet, poi gli urgenti»: la prima è una casella della griglia, la
+  // seconda sono tre priorità che non dicono la stessa cosa.
+  const condizioni: Condizione[] = [];
   for (const c of CAMPI) {
     if (c.chiave === "prezzo") {
       const da = Number.parseFloat(String(fd.get("prezzoDa") ?? ""));
       const a = Number.parseFloat(String(fd.get("prezzoA") ?? ""));
       if (Number.isFinite(da) || Number.isFinite(a)) {
-        passi.push({
-          t: "attr",
+        condizioni.push({
           campo: "prezzo",
           da: Number.isFinite(da) ? da : undefined,
           a: Number.isFinite(a) ? a : undefined,
@@ -103,8 +107,9 @@ export async function aggiungiPassiInBlocco(id: string, fd: FormData) {
       continue;
     }
     const valori = fd.getAll(`valori:${c.chiave}`).map(String).filter(Boolean);
-    if (valori.length > 0) passi.push({ t: "attr", campo: c.chiave, valori });
+    if (valori.length > 0) condizioni.push({ campo: c.chiave, valori });
   }
+  if (condizioni.length > 0) passi.push({ t: "cella", c: condizioni });
 
   // La metrica va **in fondo**: mette in fila tutti i prodotti, quindi messa
   // davanti a una condizione la renderebbe inutile — deciderebbe già tutto lei.

@@ -130,11 +130,12 @@ export function CostruttorePassi({
         </div>
 
         <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginTop: 14 }}>
-          <button type="submit" className="btn btn-primario">Aggiungi le condizioni scelte</button>
+          <button type="submit" className="btn btn-primario">Aggiungi come cella</button>
           <span className="page-sub" style={{ margin: 0 }}>
-            Si aggiungono <b>nell&apos;ordine in cui le vedi qui</b>, la metrica per ultima. La priorità si corregge
-            dopo con le frecce. Dentro una riga i valori valgono <b>in alternativa</b> (Fiori <i>o</i> Torte); fra righe
-            diverse contano <b>tutte</b>.
+            Quello che spunti qui diventa <b>una cella</b>: «Fiori <i>e</i> Bouquet <i>e</i> urgenti» è una casella
+            sola, non tre priorità. Dentro una riga i valori valgono <b>in alternativa</b> (Fiori <i>o</i> Torte); fra
+            righe diverse contano <b>tutte insieme</b>. Premi di nuovo per una <b>seconda cella</b>: la prima decide
+            l&apos;ordine, le successive spezzano i pareggi.
           </span>
         </div>
       </form>

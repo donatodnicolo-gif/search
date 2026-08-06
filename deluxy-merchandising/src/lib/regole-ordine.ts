@@ -34,9 +34,28 @@ export const CAMPI = [
 
 export type Campo = (typeof CAMPI)[number]["chiave"];
 
+/** Una condizione singola su un attributo. */
+export type Condizione = { campo: Campo; valori?: string[]; da?: number; a?: number };
+
+/**
+ * Un passo della regola. Tre forme, e la terza è quella che si usa:
+ *
+ * - `metrica` — mette in fila **tutti** i prodotti secondo un numero;
+ * - `attr` — una condizione sola (la forma storica, ancora letta);
+ * - `cella` — **più condizioni che valgono tutte insieme**: «Fiori *e* Bouquet
+ *   *e* urgenti». È il modo in cui si ragiona davvero davanti a una vetrina —
+ *   una casella della griglia — e con una condizione per passo non si poteva
+ *   esprimere: «prima i Fiori, poi gli urgenti» sono due priorità diverse, non
+ *   «i bouquet di fiori urgenti».
+ *
+ * Dentro una condizione i valori valgono **in alternativa** (Fiori *o* Torte);
+ * dentro una cella le condizioni valgono **tutte**; fra celle diverse vale la
+ * **priorità**: la prima decide, le successive spezzano i pareggi.
+ */
 export type Passo =
   | { t: "metrica"; m: RegolaOrdinamento }
-  | { t: "attr"; campo: Campo; valori?: string[]; da?: number; a?: number };
+  | { t: "attr"; campo: Campo; valori?: string[]; da?: number; a?: number }
+  | { t: "cella"; c: Condizione[] };
 
 /** Il minimo che serve per dire se un prodotto corrisponde a un passo. */
 export type ProdottoConAttributi = {
@@ -68,6 +87,10 @@ const norm = (s: string) => s.trim().toLowerCase();
  * resta dov'era invece di essere spinto in cima.
  */
 export function corrisponde(p: ProdottoConAttributi, passo: Passo): boolean {
+  // Una **cella** corrisponde solo se corrispondono tutte le sue condizioni:
+  // è la differenza fra «bouquet di fiori urgenti» e «fiori, oppure bouquet,
+  // oppure urgenti». Una cella vuota non corrisponde a niente — non è «tutti».
+  if (passo.t === "cella") return passo.c.length > 0 && passo.c.every((x) => corrisponde(p, { t: "attr", ...x }));
   if (passo.t !== "attr") return false;
   const valori = (passo.valori ?? []).map(norm).filter(Boolean);
   switch (passo.campo) {
@@ -112,10 +135,12 @@ export function parsePassi(json: string | null | undefined): Passo[] {
   try {
     const v = JSON.parse(json);
     if (!Array.isArray(v)) return [];
-    return v.filter(
-      (x): x is Passo =>
-        x && typeof x === "object" && (x.t === "metrica" ? typeof x.m === "string" : x.t === "attr" && typeof x.campo === "string"),
-    );
+    return v.filter((x): x is Passo => {
+      if (!x || typeof x !== "object") return false;
+      if (x.t === "metrica") return typeof x.m === "string";
+      if (x.t === "cella") return Array.isArray(x.c) && x.c.every((y: unknown) => !!y && typeof (y as Condizione).campo === "string");
+      return x.t === "attr" && typeof x.campo === "string";
+    });
   } catch {
     return [];
   }
@@ -123,19 +148,31 @@ export function parsePassi(json: string | null | undefined): Passo[] {
 
 export const serializePassi = (passi: Passo[]) => JSON.stringify(passi);
 
-/** Come si legge un passo in pagina. */
+/** Una condizione singola, letta in italiano: «Categoria del negozio: Fiori». */
+export function etichettaCondizione(c: Condizione, nomiValori?: Record<string, string>): string {
+  const campo = CAMPI.find((x) => x.chiave === c.campo)?.nome ?? c.campo;
+  if (c.campo === "prezzo") {
+    if (c.da != null && c.a != null) return `${campo} da ${c.da} a ${c.a} €`;
+    if (c.da != null) return `${campo} da ${c.da} €`;
+    if (c.a != null) return `${campo} sotto ${c.a} €`;
+    return campo;
+  }
+  const valori = (c.valori ?? []).map((v) => nomiValori?.[v] ?? v);
+  if (valori.length === 0) return `${campo} — da completare`;
+  return `${campo}: ${valori.slice(0, 3).join(", ")}${valori.length > 3 ? ` +${valori.length - 3}` : ""}`;
+}
+
+/**
+ * Come si legge un passo in pagina. Una **cella** si legge con le sue condizioni
+ * unite da «e», perché è così che vale: tutte insieme, non una qualsiasi.
+ */
 export function etichettaPasso(passo: Passo, nomiMetriche: Record<string, string>, nomiValori?: Record<string, string>): string {
   if (passo.t === "metrica") return nomiMetriche[passo.m] ?? passo.m;
-  const campo = CAMPI.find((c) => c.chiave === passo.campo)?.nome ?? passo.campo;
-  if (passo.campo === "prezzo") {
-    if (passo.da != null && passo.a != null) return `Prima ${campo} da ${passo.da} a ${passo.a} €`;
-    if (passo.da != null) return `Prima ${campo} da ${passo.da} €`;
-    if (passo.a != null) return `Prima ${campo} sotto ${passo.a} €`;
-    return `Prima ${campo}`;
+  if (passo.t === "cella") {
+    if (passo.c.length === 0) return "Cella vuota — da completare";
+    return `Prima ${passo.c.map((x) => etichettaCondizione(x, nomiValori)).join(" e ")}`;
   }
-  const valori = (passo.valori ?? []).map((v) => nomiValori?.[v] ?? v);
-  if (valori.length === 0) return `Prima ${campo} — da completare`;
-  return `Prima ${campo}: ${valori.slice(0, 3).join(", ")}${valori.length > 3 ? ` +${valori.length - 3}` : ""}`;
+  return `Prima ${etichettaCondizione(passo, nomiValori)}`;
 }
 
 /** «A → B → C», come già si leggono le regole a più criteri. */
@@ -159,8 +196,26 @@ export function etichettaPassi(passi: Passo[], nomiMetriche: Record<string, stri
  */
 export function filtroSuggerimenti(passi: Passo[]): Record<string, unknown> | null {
   const o: Record<string, unknown>[] = [];
+  // Una **cella** diventa un AND delle sue condizioni: proporre chi soddisfa
+  // solo una parte di «bouquet di fiori urgenti» vorrebbe dire proporre mezzo
+  // catalogo. Fra celle diverse resta l'alternativa.
+  for (const cella of passi) {
+    if (cella.t !== "cella") continue;
+    const dentro = cella.c.map((x) => filtroCondizione(x)).filter((x): x is Record<string, unknown> => x != null);
+    if (dentro.length) o.push(dentro.length === 1 ? dentro[0] : { AND: dentro });
+  }
   for (const p of passi) {
     if (p.t !== "attr") continue;
+    const f = filtroCondizione(p);
+    if (f) o.push(f);
+  }
+  return o.length ? { OR: o } : null;
+}
+
+/** Il filtro Prisma di **una** condizione. `null` se non seleziona niente. */
+function filtroCondizione(p: Condizione): Record<string, unknown> | null {
+  const o: Record<string, unknown>[] = [];
+  {
     const valori = (p.valori ?? []).filter(Boolean);
     switch (p.campo) {
       case "tipo":
