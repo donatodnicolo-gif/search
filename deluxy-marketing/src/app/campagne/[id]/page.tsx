@@ -209,6 +209,36 @@ export default async function SchedaCampagna({
             </div>
             <div className="kpi-etichetta">Budget al giorno su Google</div>
           </div>
+          {/* «Sta spendendo tutto il budget o no» era una domanda che si poteva
+              rispondere solo a mano: spesa del periodo diviso i giorni, diviso
+              il budget. Tre passaggi per un numero che si guarda ogni volta. */}
+          {campagna.budgetGiornaliero != null && campagna.budgetGiornaliero > 0 && campagna.metriche.length > 0 && (() => {
+            // ⚠️ Si divide per i giorni CON DATI, non per i giorni del periodo:
+            // una campagna partita da tre giorni dentro una finestra da trenta
+            // risulterebbe al 10% del budget senza aver sbagliato niente.
+            const mediaGiorno = spesa / campagna.metriche.length;
+            const quota = mediaGiorno / campagna.budgetGiornaliero;
+            return (
+              <div className="kpi">
+                <div
+                  className="kpi-valore"
+                  style={{ color: quota >= 0.85 ? "var(--green)" : quota < 0.5 ? "var(--orange)" : undefined }}
+                >
+                  {Math.round(quota * 100)}%
+                </div>
+                <div className="kpi-etichetta">
+                  {quota >= 0.85
+                    ? "Usa tutto il budget"
+                    : quota < 0.5
+                      ? "Non arriva al budget"
+                      : "Usa parte del budget"}
+                  {" — "}
+                  {formattaEuro(mediaGiorno)} al giorno su {formattaEuro(campagna.budgetGiornaliero)},
+                  media dei {campagna.metriche.length} giorni con dati
+                </div>
+              </div>
+            );
+          })()}
         </div>
 
         {defunta && (

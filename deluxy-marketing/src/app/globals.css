@@ -713,14 +713,20 @@ tbody tr:hover { background: var(--fill); }
 }
 .th-ordinabile:hover { color: var(--text); }
 .th-ordinabile:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; border-radius: 4px; }
-/* La freccia compare in grigio al passaggio e resta nera sulla colonna attiva:
-   così si capisce che è ordinabile prima ancora di cliccarla. */
+/* ⚠️ La freccia stava a `opacity: 0` e compariva SOLO al passaggio del mouse,
+   mentre il commento qui sopra prometteva «si capisce che è ordinabile prima
+   ancora di cliccarla». Non era vero: su desktop bisognava passarci sopra per
+   caso, e **su telefono il passaggio del mouse non esiste**, quindi le colonne
+   ordinabili erano invisibili. Segnalato dall'utente, che ha chiesto una
+   funzione che c'era già da settimane.
+   Ora si vede sempre, in chiaro; si scurisce al passaggio e diventa nera sulla
+   colonna con cui la tabella è ordinata. */
 .th-ordinabile::after {
   content: "↕"; position: absolute; right: 3px;
-  font-size: 10px; opacity: 0; color: var(--text-tertiary);
-  transition: opacity 120ms var(--ease);
+  font-size: 10px; opacity: .32; color: var(--text-tertiary);
+  transition: opacity 120ms var(--ease), color 120ms var(--ease);
 }
-.th-ordinabile:hover::after { opacity: .55; }
+.th-ordinabile:hover::after { opacity: .7; }
 .th-asc::after, .th-desc::after { opacity: 1; color: var(--text); font-size: 11px; }
 .th-asc::after { content: "↑"; }
 .th-desc::after { content: "↓"; }
