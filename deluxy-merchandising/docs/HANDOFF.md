@@ -231,6 +231,12 @@ porta **3120**. Design system Deluxy v1.0.
   - **Copertura reale del SEO letto** (03/08/2026): sui **3.226 prodotti presenti sui negozi** solo **454 hanno un titolo** e 296 una descrizione — **2.733 non hanno né l'uno né l'altra**; collezioni **166/343** e 197/343. E **81 titoli superano i 60 caratteri**. Il lavoro è per l'85% *scrivere*, non correggere.
   - ⚠️ **L'invio non è mai stato eseguito contro Shopify**: verificato fino ai controlli e al rendering (conferma, stati, messaggi), ma **nessuna scheda è stata scritta sul negozio**. Da collaudare su una scheda scelta dall'utente.
 
+- **03/08/2026 — le condizioni si compilano come una griglia** (segnalato dall'utente con uno screenshot: «ho bisogno di impostarle come se fosse una griglia»). Il costruttore era una **pila di form separati**, uno per attributo, ognuno col suo pulsante: per dire «prima i Fiori, poi chi costa più di 200 €, a parità il più venduto» ci volevano **tre salvataggi e tre ricariche**, e le righe — larghezze diverse, testi d'aiuto in mezzo — non si leggevano una accanto all'altra.
+  - Ora è **una griglia sola**: due colonne allineate (condizione · valori), un solo `<form>`, un solo pulsante «Aggiungi le condizioni scelte». Sotto gli 820px diventa una colonna, altrimenti i menu a selezione multipla non ci starebbero.
+  - **L'ordine è quello della griglia**, dall'alto in basso: è l'unico deducibile da un modulo senza chiedere anche la priorità riga per riga, e le frecce servono a correggerlo dopo.
+  - **La metrica sta in fondo, ed è dove va**: mette in fila *tutti* i prodotti, quindi messa davanti a una condizione la renderebbe inutile — deciderebbe già tutto lei. Nel menu c'è «— nessuna —», perché una regola può essere fatta di sole condizioni.
+  - **Verificato su dati veri**: una sola compilazione (tipo *Fiori*+*Torte*, tag *Compleanno*, prezzo da 200 €, metrica più venduti) ha prodotto 4 passi nell'ordine giusto — «Prima Categoria del negozio: Fiori, Torte → Prima Tag: Compleanno → Prima Prezzo da 200 € → Più venduti in cima». Regola di prova rimossa.
+
 ## COME AVVIARE
 ```
 cd deluxy-merchandising

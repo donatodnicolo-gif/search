@@ -72,6 +72,48 @@ export async function aggiungiPasso(id: string, fd: FormData) {
   await salvaPassi(id, passi, fd);
 }
 
+/**
+ * **Aggiunge in un colpo tutte le condizioni scelte nella griglia.**
+ *
+ * Prima ogni attributo era un form a sé con il suo pulsante: per dire «prima i
+ * Fiori, poi chi costa più di 200 €, a parità il più venduto» ci volevano tre
+ * salvataggi e tre ricariche di pagina. Qui si compila quello che serve e si
+ * preme una volta.
+ *
+ * **L'ordine è quello della griglia**, dall'alto in basso: è l'unico che si può
+ * dedurre da un modulo senza chiedere anche la priorità di ogni riga — e le
+ * frecce sono lì per correggerlo dopo.
+ */
+export async function aggiungiPassiInBlocco(id: string, fd: FormData) {
+  const r = await prisma.regolaOrdine.findUnique({ where: { id }, select: { passi: true } });
+  const passi = parsePassi(r?.passi);
+
+  for (const c of CAMPI) {
+    if (c.chiave === "prezzo") {
+      const da = Number.parseFloat(String(fd.get("prezzoDa") ?? ""));
+      const a = Number.parseFloat(String(fd.get("prezzoA") ?? ""));
+      if (Number.isFinite(da) || Number.isFinite(a)) {
+        passi.push({
+          t: "attr",
+          campo: "prezzo",
+          da: Number.isFinite(da) ? da : undefined,
+          a: Number.isFinite(a) ? a : undefined,
+        });
+      }
+      continue;
+    }
+    const valori = fd.getAll(`valori:${c.chiave}`).map(String).filter(Boolean);
+    if (valori.length > 0) passi.push({ t: "attr", campo: c.chiave, valori });
+  }
+
+  // La metrica va **in fondo**: mette in fila tutti i prodotti, quindi messa
+  // davanti a una condizione la renderebbe inutile — deciderebbe già tutto lei.
+  const m = String(fd.get("metrica") ?? "");
+  if (isRegola(m) && m !== "manuale") passi.push({ t: "metrica", m });
+
+  await salvaPassi(id, passi, fd);
+}
+
 /** Toglie un passo, o lo sposta su/giù: la priorità si cambia senza riscrivere tutto. */
 export async function muoviPasso(id: string, indice: number, dove: "su" | "giu" | "via", fd?: FormData) {
   const r = await prisma.regolaOrdine.findUnique({ where: { id }, select: { passi: true } });

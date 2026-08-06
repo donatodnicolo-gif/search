@@ -1,22 +1,26 @@
 import { REGOLE } from "@/lib/ordinamento-vetrina";
 import { CAMPI, etichettaPasso, RISPOSTE, type Passo } from "@/lib/regole-ordine";
 import type { VociPassi, VoceValore } from "@/lib/voci-passi";
-import { aggiungiPasso, muoviPasso } from "@/lib/azioni-regole-ordine";
+import { aggiungiPassiInBlocco, muoviPasso } from "@/lib/azioni-regole-ordine";
 
 const NOMI_METRICHE = Object.fromEntries(REGOLE.map((r) => [r.chiave, r.nome]));
 
 /**
- * Il costruttore di una regola: i passi in priorità e i moduli per aggiungerne.
+ * Il costruttore di una regola: i passi già scelti, in priorità, e **una griglia
+ * sola** per aggiungerne.
+ *
+ * Prima ogni attributo era un form a sé con il suo pulsante: per dire «prima i
+ * Fiori, poi chi costa più di 200 €, a parità il più venduto» ci volevano tre
+ * salvataggi e tre ricariche di pagina, e le righe — larghezze diverse, testi
+ * d'aiuto in mezzo — non si leggevano una accanto all'altra. Qui è una griglia:
+ * colonne allineate, si compila quello che serve, si preme una volta.
  *
  * **Uno solo**, usato dalla pagina della regola *e* dalla scheda della
- * collezione: le condizioni si scrivono dove si sta guardando la fila, non solo
- * in una pagina a parte. Con due copie le due schermate offrirebbero condizioni
- * diverse e finirebbero per divergere alla prima modifica.
+ * collezione: le condizioni si scrivono dove si sta guardando la fila. Con due
+ * copie le due schermate offrirebbero condizioni diverse alla prima modifica.
  *
  * `tornaA` è l'id della collezione da cui si sta lavorando: quando c'è, dopo
- * ogni modifica la regola viene **riapplicata a quella collezione** e si torna
- * lì. Senza, aggiungere una condizione non muoverebbe niente a schermo e
- * sembrerebbe che non abbia funzionato.
+ * ogni modifica la regola viene riapplicata a quella collezione e si torna lì.
  */
 export function CostruttorePassi({
   regolaId,
@@ -29,6 +33,15 @@ export function CostruttorePassi({
   voci: VociPassi;
   tornaA?: string;
 }) {
+  const valori: Record<string, VoceValore[]> = {
+    tipo: voci.tipi,
+    categoria: voci.categorie,
+    fornitore: voci.fornitori,
+    linea: voci.linee,
+    tag: voci.tag,
+    risposta: RISPOSTE.map((x) => ({ v: x.chiave, n: null, etichetta: x.nome })),
+  };
+
   return (
     <>
       {passi.length === 0 ? (
@@ -61,51 +74,78 @@ export function CostruttorePassi({
         </div>
       )}
 
-      <div style={{ display: "grid", gap: 16, marginTop: 18 }}>
-        <form action={aggiungiPasso.bind(null, regolaId)} style={riga}>
-          <input type="hidden" name="tipo" value="metrica" />
-          {tornaA && <input type="hidden" name="tornaA" value={tornaA} />}
-          <b style={etichetta}>Metrica</b>
-          <select name="metrica" aria-label="Metrica">
-            {REGOLE.filter((x) => x.chiave !== "manuale").map((x) => (
-              <option key={x.chiave} value={x.chiave}>{x.nome}</option>
-            ))}
-          </select>
-          <button type="submit" className="btn btn-secondario">Aggiungi</button>
-          <span className="page-sub" style={{ margin: 0 }}>Mette in fila tutti i prodotti.</span>
-        </form>
+      <form action={aggiungiPassiInBlocco.bind(null, regolaId)} style={{ marginTop: 18 }}>
+        {tornaA && <input type="hidden" name="tornaA" value={tornaA} />}
+        <div className="griglia-condizioni">
+          <div className="gc-testa">Condizione</div>
+          <div className="gc-testa">Valori — chi corrisponde va in cima</div>
 
-        <Attributo regolaId={regolaId} campo="tipo" valori={voci.tipi} tornaA={tornaA} />
-        <Attributo regolaId={regolaId} campo="categoria" valori={voci.categorie} tornaA={tornaA} />
-        <Attributo regolaId={regolaId} campo="fornitore" valori={voci.fornitori} tornaA={tornaA} />
-        <Attributo regolaId={regolaId} campo="linea" valori={voci.linee} tornaA={tornaA} />
-        <Attributo regolaId={regolaId} campo="tag" valori={voci.tag} tornaA={tornaA} />
-        <Attributo
-          regolaId={regolaId}
-          campo="risposta"
-          valori={RISPOSTE.map((x) => ({ v: x.chiave, n: null, etichetta: x.nome }))}
-          tornaA={tornaA}
-        />
+          {CAMPI.filter((c) => c.chiave !== "prezzo").map((campo) => {
+            const opzioni = valori[campo.chiave] ?? [];
+            return (
+              <Riga key={campo.chiave} etichetta={campo.nome} aiuto={campo.spiega}>
+                {opzioni.length === 0 ? (
+                  <span className="page-sub" style={{ margin: 0 }}>
+                    Nessun valore nei dati: questa condizione non avrebbe niente da portare in cima.
+                  </span>
+                ) : (
+                  <select name={`valori:${campo.chiave}`} multiple size={5} aria-label={campo.nome}>
+                    {opzioni.map((x) => (
+                      <option key={x.v} value={x.v}>
+                        {x.etichetta ?? x.v}
+                        {x.n != null ? ` (${x.n})` : ""}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </Riga>
+            );
+          })}
 
-        <form action={aggiungiPasso.bind(null, regolaId)} style={riga}>
-          <input type="hidden" name="tipo" value="attr" />
-          <input type="hidden" name="campo" value="prezzo" />
-          {tornaA && <input type="hidden" name="tornaA" value={tornaA} />}
-          <b style={etichetta}>Prezzo</b>
-          <input name="da" type="number" step="0.01" placeholder="da €" style={{ width: 100 }} />
-          <input name="a" type="number" step="0.01" placeholder="a €" style={{ width: 100 }} />
-          <button type="submit" className="btn btn-secondario">Aggiungi</button>
+          <Riga etichetta="Prezzo" aiuto="Il «da» è compreso, il «a» escluso: 200 € non cade in un buco fra due passi.">
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <input name="prezzoDa" type="number" step="0.01" placeholder="da €" style={{ width: 110 }} />
+              <input name="prezzoA" type="number" step="0.01" placeholder="a €" style={{ width: 110 }} />
+            </div>
+          </Riga>
+
+          {/* La metrica sta **in fondo**, ed è dove va: mette in fila tutti i
+              prodotti, quindi davanti a una condizione la renderebbe inutile —
+              deciderebbe già tutto lei. */}
+          <Riga etichetta="Metrica, a parità" aiuto="Mette in fila tutti i prodotti. Aggiunta come ultimo passo: spezza i pareggi lasciati dalle condizioni.">
+            <select name="metrica" aria-label="Metrica" defaultValue="">
+              <option value="">— nessuna —</option>
+              {REGOLE.filter((x) => x.chiave !== "manuale").map((x) => (
+                <option key={x.chiave} value={x.chiave}>{x.nome}</option>
+              ))}
+            </select>
+          </Riga>
+        </div>
+
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginTop: 14 }}>
+          <button type="submit" className="btn btn-primario">Aggiungi le condizioni scelte</button>
           <span className="page-sub" style={{ margin: 0 }}>
-            Il <b>da</b> è compreso, il <b>a</b> escluso: 200 € non cade in un buco fra due passi.
+            Si aggiungono <b>nell&apos;ordine in cui le vedi qui</b>, la metrica per ultima. La priorità si corregge
+            dopo con le frecce. Dentro una riga i valori valgono <b>in alternativa</b> (Fiori <i>o</i> Torte); fra righe
+            diverse contano <b>tutte</b>.
           </span>
-        </form>
-      </div>
+        </div>
+      </form>
     </>
   );
 }
 
-const riga: React.CSSProperties = { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-start" };
-const etichetta: React.CSSProperties = { minWidth: 96, paddingTop: 6 };
+function Riga({ etichetta, aiuto, children }: { etichetta: string; aiuto?: string; children: React.ReactNode }) {
+  return (
+    <>
+      <div className="gc-etichetta">
+        {etichetta}
+        {aiuto && <div className="cella-sub" style={{ fontWeight: 400 }}>{aiuto}</div>}
+      </div>
+      <div>{children}</div>
+    </>
+  );
+}
 
 function Muovi({
   regolaId,
@@ -128,51 +168,6 @@ function Muovi({
       <button className="icon-btn" title={titoli[dove]} type="submit" disabled={disabilitato}>
         {segni[dove]}
       </button>
-    </form>
-  );
-}
-
-/**
- * Una condizione su un attributo. I valori si scelgono da un `<select multiple>`
- * e valgono **in alternativa** dentro lo stesso passo (categoria Fiori *o*
- * Torte) — stessa convenzione dei criteri delle tipologie, non una nuova.
- */
-function Attributo({
-  regolaId,
-  campo,
-  valori,
-  tornaA,
-}: {
-  regolaId: string;
-  campo: string;
-  valori: VoceValore[];
-  tornaA?: string;
-}) {
-  const def = CAMPI.find((c) => c.chiave === campo);
-  return (
-    <form action={aggiungiPasso.bind(null, regolaId)} style={riga}>
-      <input type="hidden" name="tipo" value="attr" />
-      <input type="hidden" name="campo" value={campo} />
-      {tornaA && <input type="hidden" name="tornaA" value={tornaA} />}
-      <b style={etichetta}>{def?.nome ?? campo}</b>
-      {valori.length === 0 ? (
-        <span className="page-sub" style={{ margin: 0, paddingTop: 6 }}>
-          Nessun valore nei dati: questa condizione non avrebbe niente da portare in cima.
-        </span>
-      ) : (
-        <>
-          <select name="valori" multiple size={Math.min(6, valori.length)} style={{ minWidth: 280 }} aria-label={def?.nome}>
-            {valori.map((x) => (
-              <option key={x.v} value={x.v}>
-                {x.etichetta ?? x.v}
-                {x.n != null ? ` (${x.n})` : ""}
-              </option>
-            ))}
-          </select>
-          <button type="submit" className="btn btn-secondario" style={{ marginTop: 2 }}>Aggiungi</button>
-          <span className="page-sub" style={{ margin: 0, paddingTop: 6, maxWidth: 300 }}>{def?.spiega}</span>
-        </>
-      )}
     </form>
   );
 }
