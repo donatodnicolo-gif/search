@@ -36,3 +36,6 @@ dati-marketing*.json
 
 .vercel
 .env*
+
+# sonde usa-e-getta di sessione: non devono entrare nel repo
+scripts/_*-tmp.mjs
