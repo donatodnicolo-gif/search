@@ -3,7 +3,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
 import { REGOLE } from "@/lib/ordinamento-vetrina";
 import { etichettaPassi, parsePassi } from "@/lib/regole-ordine";
-import { creaRegolaOrdine } from "@/lib/azioni-regole-ordine";
+import { creaRegolaOrdine, eliminaRegolaOrdine } from "@/lib/azioni-regole-ordine";
 import { ritardiPerRegola } from "@/lib/regole-in-ritardo";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +16,7 @@ const NOMI_METRICHE = Object.fromEntries(REGOLE.map((r) => [r.chiave, r.nome]));
 export default async function RegolePage({
   searchParams,
 }: {
-  searchParams: Promise<{ esito?: string; messaggio?: string }>;
+  searchParams: Promise<{ esito?: string; messaggio?: string; elimina?: string }>;
 }) {
   const sp = await searchParams;
   const ritardi = await ritardiPerRegola();
@@ -61,6 +61,16 @@ export default async function RegolePage({
           </p>
         </div>
 
+        {sp.elimina && (
+          <div className="nota-info nota-errore">
+            <span className="nota-icona">△</span>
+            <span>
+              Eliminando la regola, le collezioni che la usano tornano <b>«solo a mano»</b>: l&apos;ordine già scritto
+              sulle vetrine <b>non si tocca</b> e non viene rimescolato. Quello che si perde sono i passi della regola.
+            </span>
+          </div>
+        )}
+
         <div className="scheda">
           <div className="scheda-titolo">Le regole salvate ({regole.length})</div>
           {regole.length === 0 ? (
@@ -78,6 +88,7 @@ export default async function RegolePage({
                     <th className="num">Collezioni</th>
                     <th className="num">Da rifare</th>
                     <th className="num">Tipologie</th>
+                    <th></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -110,6 +121,35 @@ export default async function RegolePage({
                           )}
                         </td>
                         <td className="num">{r._count.tipologie || "—"}</td>
+                        {/* **Cancellare chiede conferma**, e la conferma dice
+                            cosa succede alle collezioni che la usano: tornano
+                            «solo a mano» e **l'ordine gia' scritto resta**.
+                            Cancellare una regola non e' chiedere di rimescolare
+                            le vetrine. */}
+                        <td style={{ position: "relative", zIndex: 1 }}>
+                          {sp.elimina === r.id ? (
+                            <span style={{ display: "flex", gap: 6, alignItems: "center", whiteSpace: "nowrap" }}>
+                              <form action={eliminaRegolaOrdine.bind(null, r.id)}>
+                                <button type="submit" className="btn btn-secondario" style={{ fontSize: 12, padding: "3px 10px" }}>
+                                  Sì, elimina
+                                </button>
+                              </form>
+                              <Link className="icon-btn" href="/visual/regole" title="Annulla">↩</Link>
+                            </span>
+                          ) : (
+                            <Link
+                              className="icon-btn"
+                              href={`/visual/regole?elimina=${r.id}`}
+                              title={
+                                r._count.collezioni > 0
+                                  ? `Elimina: le ${r._count.collezioni} collezioni che la usano tornano «solo a mano»`
+                                  : "Elimina la regola"
+                              }
+                            >
+                              ×
+                            </Link>
+                          )}
+                        </td>
                       </tr>
                     );
                   })}
