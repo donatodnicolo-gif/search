@@ -6,6 +6,7 @@ import { etichettaRegola, FILTRO_IN_SCENA, isRegola, ordinaProdotti, parseRegole
 import { SelettoreRegole } from "@/components/SelettoreRegole";
 import { CostruttorePassi } from "@/components/CostruttorePassi";
 import { vociPassi } from "@/lib/voci-passi";
+import { linkAdmin } from "@/lib/link-shopify";
 import { REGOLE } from "@/lib/ordinamento-vetrina";
 import { etichettaPassi, parsePassi } from "@/lib/regole-ordine";
 import { applicaRegolaSalvataAzione, creaRegolaDaCollezione } from "@/lib/azioni-regole-ordine";
@@ -156,11 +157,23 @@ export default async function CurazioneCollezionePage({
           </div>
           {/* La collezione com'è **sul sito**: serve a confrontare quello che si
               decide qui con quello che vede davvero il cliente. */}
-          {linkNegozio && (
-            <a className="btn btn-secondario" href={linkNegozio} target="_blank" rel="noreferrer">
-              Apri sul sito ↗
-            </a>
-          )}
+          <div className="riga-azione">
+            {linkAdmin(negozio?.dominio, c.shopifyId, "collezione") && (
+              <a
+                className="btn btn-secondario"
+                href={linkAdmin(negozio?.dominio, c.shopifyId, "collezione")!}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Modifica su Shopify ↗
+              </a>
+            )}
+            {linkNegozio && (
+              <a className="btn btn-secondario" href={linkNegozio} target="_blank" rel="noreferrer">
+                Vedi online ↗
+              </a>
+            )}
+          </div>
         </div>
 
         {sp.messaggio && (

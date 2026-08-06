@@ -4,6 +4,7 @@ import { BarraQuota } from "@/components/Grafico";
 import { RiquadroSeo } from "@/components/RiquadroSeo";
 import { Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
+import { linkAdmin, linkSito } from "@/lib/link-shopify";
 import { etichettaCategoria, euro, iso, percentuale } from "@/lib/dominio";
 import { FILTRO_BUON_FINE, finestra } from "@/lib/vendite";
 import { Badge } from "@/components/Badge";
@@ -55,6 +56,15 @@ export default async function CollezioneShopifyPage({
   });
   if (!collezione) notFound();
 
+  // Il dominio del negozio serve ai due link: si legge dal negozio collegato,
+  // non si costruisce a mano.
+  const negozio = await prisma.negozioShopify.findFirst({
+    where: { nome: collezione.negozio },
+    select: { dominio: true, canaleVendite: true },
+  });
+  const urlAdmin = linkAdmin(negozio?.dominio, collezione.shopifyId, "collezione");
+  const urlSito = linkSito(negozio?.dominio, collezione.handle, "collezione");
+
   const prodotti = collezione.prodotti.map((r) => r.prodotto);
   const f = finestra(90);
 
@@ -62,10 +72,6 @@ export default async function CollezioneShopifyPage({
   // della scheda e il canale delle vendite non coincidono. Si usa la
   // corrispondenza impostata sul negozio; se non c'è, si contano tutti i canali
   // e lo si dice, invece di mostrare uno zero che sembra un dato.
-  const negozio = await prisma.negozioShopify.findFirst({
-    where: { nome: collezione.negozio },
-    select: { canaleVendite: true },
-  });
   const canale = negozio?.canaleVendite?.trim() || null;
 
   const vendite =
@@ -117,6 +123,23 @@ export default async function CollezioneShopifyPage({
               />
             </div>
             {collezione.descrizione && <p className="page-sub">{collezione.descrizione}</p>}
+          </div>
+          {/* I campi che il negozio possiede — titolo, descrizione, immagine,
+              handle — **si correggono su Shopify**, non qui: qui verrebbero
+              riscritti al primo import. Il bottone porta dritto sulla scheda
+              giusta invece di farla cercare fra 343 collezioni. */}
+          <div className="riga-azione">
+            <Link className="btn btn-secondario" href={`/visual/${collezione.id}`}>Cura l&apos;ordine</Link>
+            {urlAdmin && (
+              <a className="btn btn-secondario" href={urlAdmin} target="_blank" rel="noreferrer">
+                Modifica su Shopify ↗
+              </a>
+            )}
+            {urlSito && (
+              <a className="btn btn-secondario" href={urlSito} target="_blank" rel="noreferrer">
+                Vedi online ↗
+              </a>
+            )}
           </div>
         </div>
 

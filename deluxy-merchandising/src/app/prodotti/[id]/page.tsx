@@ -5,6 +5,7 @@ import { Badge } from "@/components/Badge";
 import { tipologiaRisposta } from "@/lib/risposta-bisogno";
 import { BarraMargine } from "@/components/BarraMargine";
 import { prisma } from "@/lib/db";
+import { linkAdmin, linkSito } from "@/lib/link-shopify";
 import { aggiornaProdotto, aggiungiVariante, cambiaFase, eliminaVariante, segnaShopify } from "@/lib/azioni";
 import { separaAzione } from "@/lib/azioni-riconciliazione";
 import { cambiaComponenteAzione } from "@/lib/azioni-composti";
@@ -67,6 +68,21 @@ export default async function ProdottoPage({
   ]);
   if (!prodotto) notFound();
 
+  // Su **quale** negozio vive questo prodotto: lo si sa dalle collezioni a cui
+  // appartiene — è l'unico legame che l'app ha fra un prodotto e un negozio.
+  const suNegozio = await prisma.prodottoInCollezioneShopify.findFirst({
+    where: { prodottoId: id },
+    select: { collezione: { select: { negozio: true } } },
+  });
+  const negozioDelProdotto = suNegozio
+    ? await prisma.negozioShopify.findFirst({
+        where: { nome: suNegozio.collezione.negozio },
+        select: { dominio: true },
+      })
+    : null;
+  const urlAdmin = linkAdmin(negozioDelProdotto?.dominio, prodotto.shopifyId, "prodotto");
+  const urlSito = linkSito(negozioDelProdotto?.dominio, prodotto.handleShopify, "prodotto");
+
   // Per un prodotto composto il costo non è il suo campo, è la somma dei
   // componenti: si rifà a ogni apertura, così non invecchia mai.
   const contiComposto = conti(prodotto.componenti.map((x) => riga(x.componente, x.quantita)));
@@ -103,6 +119,24 @@ export default async function ProdottoPage({
                 </a>
               )}
             </div>
+            {/* I campi del negozio — titolo, descrizione, foto, prezzo — si
+                correggono **su Shopify**: qui verrebbero riscritti al primo
+                import. Da qui ci si arriva in un clic, invece di cercare il
+                prodotto fra i 4.610. */}
+            {(urlAdmin || urlSito) && (
+              <div className="riga-azione" style={{ marginTop: 10 }}>
+                {urlAdmin && (
+                  <a className="btn btn-secondario" href={urlAdmin} target="_blank" rel="noreferrer">
+                    Modifica su Shopify ↗
+                  </a>
+                )}
+                {urlSito && (
+                  <a className="btn btn-secondario" href={urlSito} target="_blank" rel="noreferrer">
+                    Vedi online ↗
+                  </a>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
