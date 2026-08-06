@@ -1,5 +1,6 @@
 import { andamentoMese, letturaRitmo, type RigaMese } from "@/lib/andamento-mese";
 import { COLORE_BRAND, ETICHETTA_BRAND, formattaEuro, formattaNumero } from "@/lib/dominio";
+import { risultatoAtteso } from "@/lib/risultato";
 
 const MESI = [
   "gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno",
@@ -92,6 +93,26 @@ export async function AndamentoMese({ anno, mese }: { anno?: number; mese?: numb
           {r.ros != null ? `${r.ros.toFixed(1)}×` : "—"}
           {r.rosPiano != null && <div className="cella-sub">obiettivo {r.rosPiano.toFixed(1)}×</div>}
         </td>
+        {/* Il ROS dice quante VOLTE torna l'euro speso; questo dice quanti EURO
+            restano. Sono due domande diverse, e la seconda è quella che si
+            porta in riunione. Si calcola sulle stime di FINE MESE, non sul
+            fatto a oggi: questa riga parla del mese, non di stamattina. */}
+        <td className="num" style={{ fontWeight: 700 }}>
+          {(() => {
+            if (r.stimaVendite == null || r.stimaSpesa == null) return "—";
+            const res = risultatoAtteso(r.stimaVendite, r.stimaSpesa);
+            return (
+              <>
+                <span style={{ color: res.risultato >= 0 ? "var(--green)" : "var(--red)" }}>
+                  {formattaEuro(res.risultato)}
+                </span>
+                {res.incidenzaAdv != null && (
+                  <div className="cella-sub">ADV {Math.round(res.incidenzaAdv * 100)}% del venduto</div>
+                )}
+              </>
+            );
+          })()}
+        </td>
       </tr>
     );
   };
@@ -132,7 +153,7 @@ export async function AndamentoMese({ anno, mese }: { anno?: number; mese?: numb
                 <th colSpan={5} style={{ textAlign: "center", color: "var(--orange)", letterSpacing: ".04em", borderLeft: BORDO }}>
                   QUELLO CHE ESCE — PUBBLICITÀ
                 </th>
-                <th style={{ textAlign: "center", borderLeft: BORDO }}>RESA</th>
+                <th colSpan={2} style={{ textAlign: "center", borderLeft: BORDO }}>RESA</th>
               </tr>
               <tr>
                 <th>Brand</th>
@@ -147,6 +168,10 @@ export async function AndamentoMese({ anno, mese }: { anno?: number; mese?: numb
                 {intestazione("budget", "Il budget pubblicitario del mese, dal Monitoraggio")}
                 {intestazione("a che punto", "Spesa stimata rispetto al budget: sopra il 100% si sfora")}
                 {intestazione("ROS", "Venduto diviso speso. Sotto: quanto lo prevede il piano", { borderLeft: BORDO })}
+                {intestazione(
+                  "risultato stimato",
+                  "Quanto resta a fine mese: venduto stimato × 30% di margine, meno la spesa stimata. NON è un utile: sotto non ci sono personale, logistica, commissioni e resi"
+                )}
               </tr>
             </thead>
             <tbody>
