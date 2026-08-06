@@ -726,3 +726,30 @@ tr.riga-cliccabile:hover, li.riga-cliccabile:hover { background: var(--fill); cu
   .griglia-condizioni .gc-testa:nth-of-type(2) { display: none; }
   .griglia-condizioni .gc-etichetta { padding-top: 12px; }
 }
+
+/* **Conferma senza navigare.** Il × che toglie un prodotto da una collezione
+   scrive sul negozio vero, quindi va confermato — ma farlo con un link
+   (`?rimuovi=…`) significava ricaricare la pagina, e ogni ricarica riportava la
+   vista altrove. Qui è un <details>: si apre da solo, senza JavaScript e senza
+   navigazione, e il pulsante dentro è una server action che aggiorna l'elenco in
+   posto. */
+details.conferma-x { position: relative; display: inline-block; }
+details.conferma-x > summary { list-style: none; cursor: pointer; }
+details.conferma-x > summary::-webkit-details-marker { display: none; }
+details.conferma-x[open] > summary { color: var(--orange, #C2721B); }
+.conferma-x-corpo {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  white-space: nowrap;
+  background: var(--surface, #fff);
+  border: 1px solid var(--hairline, rgba(0, 0, 0, 0.12));
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  padding: 10px 12px;
+  font-size: 12.5px;
+}

@@ -105,30 +105,21 @@ export async function rimuoviProdottoDaCollezione(collezioneId: string, prodotto
   ];
   if (err.length) errore(`Shopify ha rifiutato: ${err.join(" · ")}`);
 
-  // **Dove si torna dopo.** Togliere e' un gesto che si ripete: si scorre la
-  // fila e si tolgono tre o quattro prodotti di fila. Ma la pagina si ricarica,
-  // e senza un'ancora si riparte dall'alto ogni volta — con 300 righe diventa
-  // inutilizzabile, come segnalato. Ci si ancora al prodotto che **prende il
-  // posto** di quello tolto: si riparte esattamente da li'.
-  const dopo = await prisma.prodottoInCollezioneShopify.findFirst({
-    where: {
-      collezioneId,
-      prodotto: FILTRO_IN_SCENA,
-      OR: [{ posizione: { gt: riga!.posizione } }, { posizione: riga!.posizione, id: { gt: riga!.id } }],
-    },
-    orderBy: [{ posizione: "asc" }, { id: "asc" }],
-    select: { prodottoId: true },
-  });
-
   // Solo adesso si toglie la riga qui: se il negozio avesse detto no, l'app
   // avrebbe mostrato una collezione diversa da quella vera.
   await prisma.prodottoInCollezioneShopify.delete({ where: { id: riga!.id } });
+
+  // **Niente `redirect` quando va bene, ed è il punto.** Togliere è un gesto che
+  // si ripete: si scorre la fila e se ne tolgono tre o quattro. Ogni `redirect`
+  // è una navigazione, e una navigazione riporta la pagina all'inizio; ancorarla
+  // alla riga non basta, perché il browser porta quella riga **in cima al
+  // riquadro** e la vista si sposta lo stesso — segnalato dall'utente due volte.
+  // Con la sola `revalidatePath` React riscrive l'elenco **in posto** e lo
+  // scorrimento resta dov'era, esattamente come già succedeva con le frecce.
+  // Il riscontro è la riga che sparisce: non serve un messaggio in cima.
+  // Sull'**errore** invece il redirect resta: lì un messaggio ci vuole, e capita
+  // di rado.
   revalidatePath(`/visual/${collezioneId}`);
-  redirect(
-    `/visual/${collezioneId}?esito=ok&messaggio=${encodeURIComponent(
-      `«${riga!.prodotto.nome}» tolto dalla collezione su Shopify. Il prodotto resta a catalogo e nelle altre collezioni.`,
-    )}${dopo ? `#p-${dopo.prodottoId}` : ""}`,
-  );
 }
 
 /**

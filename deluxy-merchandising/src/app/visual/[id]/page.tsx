@@ -29,7 +29,7 @@ export default async function CurazioneCollezionePage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ esito?: string; messaggio?: string; regola?: string | string[]; rimuovi?: string }>;
+  searchParams: Promise<{ esito?: string; messaggio?: string; regola?: string | string[] }>;
 }) {
   const { id } = await params;
   const sp = await searchParams;
@@ -443,33 +443,33 @@ export default async function CurazioneCollezionePage({
                           prima: il × porta a uno stato di conferma nell'indirizzo,
                           non esegue. Stessa idea dell'anteprima dell'ordine —
                           finché non confermi, non succede niente. */}
-                      {sp.rimuovi === vp.prodottoId ? (
-                        <>
-                          <form action={rimuoviProdottoDaCollezione.bind(null, id, vp.prodottoId)}>
-                            <button className="btn btn-secondario" type="submit" style={{ fontSize: 12, padding: "3px 10px" }}>
-                              Sì, togli
-                            </button>
-                          </form>
-                          <a className="icon-btn" href={`/visual/${id}#p-${vp.prodottoId}`} title="Annulla">↩</a>
-                        </>
-                      ) : (
-                        <>
-                          <form action={spostaInCollezione.bind(null, id, vp.prodottoId, "su")}>
-                            <button className="icon-btn" title="Sposta su" type="submit" disabled={i === 0}>↑</button>
-                          </form>
-                          <form action={spostaInCollezione.bind(null, id, vp.prodottoId, "giu")}>
-                            <button className="icon-btn" title="Sposta giù" type="submit" disabled={i === righe.length - 1}>↓</button>
-                          </form>
-                          {membriAMano && (
-                            <a
-                              className="icon-btn"
-                              href={`/visual/${id}?rimuovi=${vp.prodottoId}#p-${vp.prodottoId}`}
-                              title="Togli dalla collezione (sul negozio)"
-                            >
-                              ×
-                            </a>
-                          )}
-                        </>
+                      {/* **La conferma non naviga.** Il × era un link a
+                          `?rimuovi=…`: ogni clic era una navigazione, e una
+                          navigazione riporta la pagina all'inizio — ancorarla
+                          alla riga non bastava, perché il browser porta quella
+                          riga in cima al riquadro e la vista si sposta lo
+                          stesso. Qui la conferma è un `<details>`: si apre
+                          **senza ricaricare niente**, e il pulsante è una server
+                          action senza redirect, quindi l'elenco si riscrive in
+                          posto e lo scorrimento resta dov'è. */}
+                      <form action={spostaInCollezione.bind(null, id, vp.prodottoId, "su")}>
+                        <button className="icon-btn" title="Sposta su" type="submit" disabled={i === 0}>↑</button>
+                      </form>
+                      <form action={spostaInCollezione.bind(null, id, vp.prodottoId, "giu")}>
+                        <button className="icon-btn" title="Sposta giù" type="submit" disabled={i === righe.length - 1}>↓</button>
+                      </form>
+                      {membriAMano && (
+                        <details className="conferma-x">
+                          <summary className="icon-btn" title="Togli dalla collezione (sul negozio)">×</summary>
+                          <div className="conferma-x-corpo">
+                            <span>Togliere «{vp.prodotto.nome}» dalla collezione sul negozio?</span>
+                            <form action={rimuoviProdottoDaCollezione.bind(null, id, vp.prodottoId)}>
+                              <button type="submit" className="btn btn-secondario" style={{ fontSize: 12, padding: "3px 10px" }}>
+                                Sì, togli
+                              </button>
+                            </form>
+                          </div>
+                        </details>
                       )}
                     </span>
                   </div>
