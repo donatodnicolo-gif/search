@@ -63,6 +63,13 @@ export default async function CurazioneCollezionePage({
               creatoIl: true,
               fase: true,
               statoShopify: true,
+              // Servono all'anteprima della cella, che gira nel browser.
+              categoria: true,
+              tipoShopify: true,
+              vendorShopify: true,
+              lineaId: true,
+              tagShopify: true,
+              ggDispMin: true,
             },
           },
         },
@@ -329,6 +336,19 @@ export default async function CurazioneCollezionePage({
               passi={parsePassi(c.regolaOrdine.passi)}
               voci={voci}
               tornaA={id}
+              perAnteprima={inScena.map((vp) => ({
+                id: vp.prodottoId,
+                nome: vp.prodotto.nome,
+                immagine: vp.prodotto.immagine,
+                prezzoVendita: vp.prodotto.prezzoVendita,
+                categoria: vp.prodotto.categoria,
+                tipoShopify: vp.prodotto.tipoShopify,
+                vendorShopify: vp.prodotto.vendorShopify,
+                lineaId: vp.prodotto.lineaId,
+                tagShopify: vp.prodotto.tagShopify,
+                ggDispMin: vp.prodotto.ggDispMin,
+              }))}
+              suCosa="in questa collezione"
             />
           </div>
         )}

@@ -246,6 +246,11 @@ porta **3120**. Design system Deluxy v1.0.
   - **Verificato su dati veri** («Home-Page-Last-Minute», 63 prodotti in scena): 5° e 6° portati all'inizio → primi due nell'ordine giusto; poi «alla posizione 3» → finiti 3° e 4°; poi «alla fine» → ultimi due; «posizione 999» → in fondo. Ordine originale ripristinato.
   - ⚠️ **Trappola provando le server action da script**: `revalidatePath` fuori da una richiesta Next lancia «static generation store missing» — **dopo** aver già scritto. Il primo tentativo ha lasciato la collezione riordinata e va rimessa a posto a mano; nei collaudi va avvolta in try/catch.
 
+- **03/08/2026 — condizioni a celle e anteprima dal vivo** (chiesto dall'utente: «cella 1: fiori / bouquet / urgente, cella 2: fiori / prezzo >1000»). Non si poteva dire: ogni condizione era un passo a sé, quindi «Fiori» e «urgente» erano **due priorità** — prima tutti i fiori, poi tutti gli urgenti — e non «i fiori urgenti». Ora un passo può essere una **cella**: più condizioni che valgono **tutte insieme**. Dentro una condizione i valori restano in alternativa, fra celle vale la priorità. I passi vecchi restano validi: sono celle da una condizione.
+  - **Verificato su dati veri** (63 prodotti tipo «Fiori» attivi): «Fiori *e* urgenti» ne prende **54**, «Fiori *e* oltre 1.000 €» ne prende **1** (103 Luxury Roses, 1.545 €), la vecchia forma con la sola condizione «Fiori» ne prendeva **63**. È la dimostrazione del perché serviva.
+  - **L'anteprima si aggiorna mentre si spunta** ([AnteprimaCella.tsx](../src/components/AnteprimaCella.tsx)): quanti prodotti prenderebbe la cella, con le prime dodici foto. Il conto gira **nel browser** — un giro di rete a ogni casella sarebbe lento — e usa la **stessa `corrisponde()`** del server, che è una funzione pura: con due implementazioni l'anteprima direbbe una cosa e la regola ne farebbe un'altra. Sulla scheda della collezione guarda i prodotti **di quella vetrina**; sulla pagina della regola un campione del catalogo in vendita (900), **dichiarato**.
+  - «Nessuno» non è un errore ed è scritto: le condizioni di una cella valgono tutte insieme, quindi chiedendone troppe non resta nessuno.
+
 ## COME AVVIARE
 ```
 cd deluxy-merchandising

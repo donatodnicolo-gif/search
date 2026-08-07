@@ -4,10 +4,15 @@ import { CostruttorePassi } from "@/components/CostruttorePassi";
 import { prisma } from "@/lib/db";
 import { parsePassi } from "@/lib/regole-ordine";
 import { vociPassi } from "@/lib/voci-passi";
+import { FILTRO_IN_SCENA } from "@/lib/ordinamento-vetrina";
 import { collezioniInRitardo } from "@/lib/regole-in-ritardo";
 import { eliminaRegolaOrdine, riapplicaRegolaOvunque, rinominaRegolaOrdine } from "@/lib/azioni-regole-ordine";
 
 export const dynamic = "force-dynamic";
+
+// Quanti prodotti viaggiano al browser per l'anteprima dal vivo: sopra questo
+// numero il peso della pagina conta piu' della precisione del conto.
+const MAX_ANTEPRIMA = 900;
 
 // La scheda di una regola: qui si scrive la sequenza di passi. Ogni passo dice
 // **cosa conta**, e l'ordine dei passi **è** la priorità: il primo decide, gli
@@ -25,6 +30,20 @@ export default async function RegolaPage({ params }: { params: Promise<{ id: str
     }),
     vociPassi(),
   ]);
+  // I prodotti su cui si vede l'anteprima mentre si costruisce la cella. Qui non
+  // c'e' una collezione davanti, quindi si guarda il catalogo **in vendita**,
+  // tagliato: il conto viaggia al browser, e mandarne quattromila per un numero
+  // che cambia a ogni spunta non vale il peso. Il taglio e' dichiarato in pagina.
+  const perAnteprima = await prisma.prodotto.findMany({
+    where: FILTRO_IN_SCENA,
+    take: MAX_ANTEPRIMA,
+    orderBy: { nome: "asc" },
+    select: {
+      id: true, nome: true, immagine: true, prezzoVendita: true, categoria: true,
+      tipoShopify: true, vendorShopify: true, lineaId: true, tagShopify: true, ggDispMin: true,
+    },
+  });
+  const totaleInVendita = await prisma.prodotto.count({ where: FILTRO_IN_SCENA });
   if (!r) notFound();
   // Quante collezioni mostrano ancora una fila decisa dalla regola vecchia.
   const indietro = await collezioniInRitardo(id);
@@ -73,7 +92,14 @@ export default async function RegolaPage({ params }: { params: Promise<{ id: str
 
         <div className="scheda">
           <div className="scheda-titolo">Come ordina</div>
-          <CostruttorePassi regolaId={r.id} passi={passi} voci={voci} />
+          <CostruttorePassi
+            regolaId={r.id}
+            passi={passi}
+            voci={voci}
+            perAnteprima={perAnteprima}
+            suCosa={`in vendita su ${totaleInVendita}`}
+            campione={perAnteprima.length < totaleInVendita}
+          />
         </div>
 
         {r.collezioni.length > 0 && (

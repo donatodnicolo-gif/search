@@ -2,6 +2,7 @@ import { REGOLE } from "@/lib/ordinamento-vetrina";
 import { CAMPI, etichettaPasso, RISPOSTE, type Passo } from "@/lib/regole-ordine";
 import type { VociPassi, VoceValore } from "@/lib/voci-passi";
 import { aggiungiPassiInBlocco, muoviPasso } from "@/lib/azioni-regole-ordine";
+import { AnteprimaCella, type ProdottoAnteprima } from "./AnteprimaCella";
 
 const NOMI_METRICHE = Object.fromEntries(REGOLE.map((r) => [r.chiave, r.nome]));
 
@@ -27,11 +28,18 @@ export function CostruttorePassi({
   passi,
   voci,
   tornaA,
+  perAnteprima,
+  suCosa = "in vendita",
+  campione,
 }: {
   regolaId: string;
   passi: Passo[];
   voci: VociPassi;
   tornaA?: string;
+  /** I prodotti su cui si vede l'anteprima mentre si costruisce la cella. */
+  perAnteprima?: ProdottoAnteprima[];
+  suCosa?: string;
+  campione?: boolean;
 }) {
   const valori: Record<string, VoceValore[]> = {
     tipo: voci.tipi,
@@ -76,6 +84,13 @@ export function CostruttorePassi({
 
       <form action={aggiungiPassiInBlocco.bind(null, regolaId)} style={{ marginTop: 18 }}>
         {tornaA && <input type="hidden" name="tornaA" value={tornaA} />}
+        {/* **L'anteprima sta in cima e si aggiorna mentre si spunta.** Costruire
+            alla cieca e scoprire dopo cosa si e' preso e' il difetto vero: con
+            «Fiori» che sono 379, la differenza fra una cella utile e una che
+            prende mezzo catalogo non si indovina. */}
+        {perAnteprima && perAnteprima.length > 0 && (
+          <AnteprimaCella prodotti={perAnteprima} suCosa={suCosa} campione={campione} />
+        )}
         <div className="griglia-condizioni">
           <div className="gc-testa">Condizione</div>
           <div className="gc-testa">Valori — chi corrisponde va in cima</div>

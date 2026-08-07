@@ -944,3 +944,27 @@ details.conferma-x[open] > summary { color: var(--orange, #C2721B); }
   font-weight: 600;
 }
 .chip-conta { font-weight: 600; color: var(--text-tertiary); font-size: 11px; }
+
+/* **L'anteprima della cella**, sopra la griglia: cambia mentre si spunta, così
+   non si costruisce alla cieca. Sta in alto perché è la risposta alla domanda
+   che ci si fa spuntando — «e adesso quanti ne prendo?». */
+.anteprima-cella {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  border: 1px solid var(--gold, #B8963E);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--gold, #B8963E) 7%, transparent);
+}
+.anteprima-conto { font-size: 15px; }
+.anteprima-conto b { font-size: 20px; letter-spacing: -0.02em; }
+.anteprima-foto { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.anteprima-foto > span {
+  width: 42px; height: 42px; border-radius: 8px; overflow: hidden;
+  background: var(--surface-2, #F5F5F7);
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--text-tertiary); font-size: 16px; flex: 0 0 auto;
+}
+.anteprima-foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
