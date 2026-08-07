@@ -101,6 +101,7 @@ export function CostruttorePassi({
           prodotti={perAnteprima ?? []}
           suCosa={suCosa}
           campione={campione}
+          passi={passi}
           idsCollezione={idsCollezione}
           nomeCollezione={nomeCollezione}
         />

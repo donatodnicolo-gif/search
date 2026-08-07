@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { corrisponde, CAMPI, RISPOSTE, type Campo, type Condizione } from "@/lib/regole-ordine";
+import { corrisponde, CAMPI, RISPOSTE, type Campo, type Condizione, type Passo } from "@/lib/regole-ordine";
 import { REGOLE } from "@/lib/ordinamento-vetrina";
 import type { VociPassi, VoceValore } from "@/lib/voci-passi";
 import type { ProdottoAnteprima } from "./AnteprimaCella";
@@ -35,8 +35,11 @@ export function CostruttoreCella({
   campione,
   idsCollezione,
   nomeCollezione,
+  passi = [],
 }: {
   voci: VociPassi;
+  /** I passi **già salvati**: sono l'anteprima di partenza, finché non spunti niente. */
+  passi?: Passo[];
   /** **Il catalogo**, non la collezione: e' il vocabolario di quello che si puo' esprimere. */
   prodotti: ProdottoAnteprima[];
   suCosa: string;
@@ -82,7 +85,34 @@ export function CostruttoreCella({
 
   const senzaDati = prodotti.length === 0;
   const condizioni = condizioniDi();
-  const presi = filtra(condizioni);
+
+  /**
+   * **Quello che la regola porta in cima adesso**: i prodotti presi dai passi
+   * gia' salvati, nell'ordine dei passi (prima quelli della cella 1, poi i nuovi
+   * della 2…). Un prodotto che due celle prendono si conta una volta sola, dove
+   * sale per primo.
+   */
+  const daiPassi = () => {
+    const visti = new Set<string>();
+    const out: ProdottoAnteprima[] = [];
+    for (const p of passi) {
+      if (p.t === "metrica") continue; // mette in fila tutti: non seleziona nessuno
+      for (const x of prodotti) {
+        if (!visti.has(x.id) && corrisponde(x, p)) {
+          visti.add(x.id);
+          out.push(x);
+        }
+      }
+    }
+    return out;
+  };
+
+  // **Finche' non spunti niente si guarda quello che hai gia' scelto**, non il
+  // catalogo intero: le foto di 900 prodotti non dicono niente di questa regola.
+  // Appena si spunta qualcosa l'anteprima passa alla cella che si sta scrivendo —
+  // e' quella la domanda del momento.
+  const daSalvati = condizioni.length === 0 && passi.some((p) => p.t !== "metrica");
+  const presi = daSalvati ? daiPassi() : filtra(condizioni);
   // **Due numeri, due domande diverse.** Il primo dice cosa la cella prende dal
   // catalogo - e' il vocabolario di quello che si puo' esprimere - il secondo
   // quanti di quelli stanno nella vetrina che si sta curando. Contare solo sulla
@@ -117,6 +147,11 @@ export function CostruttoreCella({
               <>
                 {" "}· {condizioni.length} {condizioni.length === 1 ? "condizione" : "condizioni"} insieme
               </>
+            ) : daSalvati ? (
+              <>
+                {" "}· quello che i {passi.filter((p) => p.t !== "metrica").length} passi già scelti portano in cima ·
+                spunta qui sotto per provarne un altro
+              </>
             ) : (
               <> · nessuna condizione: spunta qui sotto per restringere</>
             )}
@@ -129,8 +164,17 @@ export function CostruttoreCella({
         </div>
         {presi.length === 0 ? (
           <span className="page-sub" style={{ margin: 0 }}>
-            <b>Nessuno.</b> Le condizioni di una cella valgono <b>tutte insieme</b>: se ne stai chiedendo troppe, la
-            cella non porterà in cima nessuno.
+            {daSalvati ? (
+              <>
+                <b>Nessuno.</b> I passi già scelti non prendono niente di quello che c&apos;è in vendita: così la regola
+                non sposta la vetrina.
+              </>
+            ) : (
+              <>
+                <b>Nessuno.</b> Le condizioni di una cella valgono <b>tutte insieme</b>: se ne stai chiedendo troppe, la
+                cella non porterà in cima nessuno.
+              </>
+            )}
           </span>
         ) : (
           <div className="anteprima-foto">
@@ -213,14 +257,17 @@ export function CostruttoreCella({
                   <input
                     type="checkbox"
                     checked={pos >= 0}
-                    onChange={(e) =>
-                      setMetriche((m) =>
-                        // **L'ordine e' quello in cui si clicca**: si accoda in
-                        // fondo, non nell'ordine dell'elenco. Riordinare da soli
-                        // vorrebbe dire decidere al posto di chi sta scegliendo.
-                        e.currentTarget.checked ? [...m, x.chiave] : m.filter((y) => y !== x.chiave),
-                      )
-                    }
+                    onChange={(e) => {
+                      // **Il valore si legge qui, non dentro l'updater**: React
+                      // azzera `currentTarget` appena l'handler finisce, e
+                      // l'updater gira dopo — leggerlo lì faceva morire la
+                      // pagina («client-side exception», visto in produzione).
+                      const acceso = e.currentTarget.checked;
+                      // **L'ordine e' quello in cui si clicca**: si accoda in
+                      // fondo, non nell'ordine dell'elenco. Riordinare da soli
+                      // vorrebbe dire decidere al posto di chi sta scegliendo.
+                      setMetriche((m) => (acceso ? [...m, x.chiave] : m.filter((y) => y !== x.chiave)));
+                    }}
                   />
                   <span>{x.nome}</span>
                   {pos >= 0 && <b className="chip-conta">{pos + 1}º</b>}

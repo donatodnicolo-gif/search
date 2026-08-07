@@ -58,21 +58,37 @@ export async function vociPassi(): Promise<VociPassi> {
     }
   }
 
-  const perConta = <T extends { _count: number }>(righe: T[]) => [...righe].sort((a, b) => b._count - a._count);
-
   return {
-    tipi: perConta(tipi).map((t) => ({ v: t.tipoShopify as string, n: t._count })),
-    categorie: perConta(categorie).map((c) => ({
-      v: c.categoria,
-      n: c._count,
-      etichetta: nomeCat.get(c.categoria) ?? c.categoria,
-    })),
-    fornitori: perConta(fornitori).map((f) => ({ v: f.vendorShopify as string, n: f._count })),
-    linee: perConta(linee).map((l) => ({
-      v: l.lineaId as string,
-      n: l._count,
-      etichetta: nomeLin.get(l.lineaId as string) ?? (l.lineaId as string),
-    })),
-    tag: [...conta.entries()].sort((a, b) => b[1] - a[1]).slice(0, MAX_VALORI).map(([v, n]) => ({ v, n })),
+    tipi: perNome(tipi.map((t) => ({ v: t.tipoShopify as string, n: t._count }))),
+    categorie: perNome(categorie.map((c) => ({ v: c.categoria, n: c._count, etichetta: nomeCat.get(c.categoria) }))),
+    fornitori: perNome(fornitori.map((f) => ({ v: f.vendorShopify as string, n: f._count }))),
+    linee: perNome(linee.map((l) => ({ v: l.lineaId as string, n: l._count, etichetta: nomeLin.get(l.lineaId as string) }))),
+    // Il taglio a 400 resta **per frequenza** — se si deve tagliare, si tengono i
+    // tag che pesano — e solo dopo la lista va in ordine alfabetico.
+    tag: perNome([...conta.entries()].sort((a, b) => b[1] - a[1]).slice(0, MAX_VALORI).map(([v, n]) => ({ v, n }))),
   };
 }
+
+/**
+ * **Solo la prima lettera maiuscola**: «CDM FunnyCake» → «Cdm funnycake».
+ *
+ * I valori arrivano dal «Tipo» e dal «Venditore» di Shopify, scritti a mano negli
+ * anni: nella stessa riga convivevano MAIUSCOLE, Maiuscole Ogni Parola e
+ * minuscole, e un elenco di ottanta chip così si legge a fatica. Si tocca **solo
+ * l'etichetta**: il valore mandato al server resta quello vero del negozio,
+ * altrimenti la condizione non troverebbe più niente.
+ */
+const titolo = (s: string) => {
+  const t = s.trim();
+  return t ? t.charAt(0).toLocaleUpperCase("it") + t.slice(1).toLocaleLowerCase("it") : t;
+};
+
+/**
+ * In **ordine alfabetico**, non per numero di prodotti. Con ottanta valori il
+ * più frequente in testa non aiuta a trovare quello che si ha in mente: si sa
+ * come si chiama, non quanti prodotti abbia. Il numero resta scritto sul chip.
+ */
+const perNome = (righe: { v: string; n: number | null; etichetta?: string | null }[]): VoceValore[] =>
+  righe
+    .map((x) => ({ v: x.v, n: x.n, etichetta: titolo(x.etichetta ?? x.v) }))
+    .sort((a, b) => a.etichetta.localeCompare(b.etichetta, "it"));
