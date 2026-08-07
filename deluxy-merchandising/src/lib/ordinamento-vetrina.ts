@@ -151,7 +151,16 @@ export async function ordinaPerPassi<T extends ProdottoOrdinabile>(
   if (effettive.length === 0) {
     return [...items].sort((a, b) => (a.posizione ?? 0) - (b.posizione ?? 0) || a.nome.localeCompare(b.nome));
   }
-  const metriche = effettive.filter((p): p is { t: "metrica"; m: RegolaOrdinamento } => p.t === "metrica").map((p) => p.m);
+  // **Una cella con metrica vale due chiavi**: la prima dice chi ci sta dentro,
+  // la seconda come si ordinano quelli dentro. Sono state scelte insieme, quindi
+  // restano insieme — spezzarle in due passi separati le faceva leggere come due
+  // decisioni scollegate (segnalato dall'utente).
+  const chiavi: Passo[] = [];
+  for (const p of effettive) {
+    chiavi.push(p);
+    if (p.t === "cella" && p.m && p.m !== "manuale") chiavi.push({ t: "metrica", m: p.m });
+  }
+  const metriche = chiavi.filter((p): p is { t: "metrica"; m: RegolaOrdinamento } => p.t === "metrica").map((p) => p.m);
 
   let venduto = new Map<string, { pezzi: number; ricavo: number }>();
   if (metriche.some((r) => r === "best_seller" || r === "ricavo")) {
@@ -203,7 +212,7 @@ export async function ordinaPerPassi<T extends ProdottoOrdinabile>(
     passo.t === "metrica" ? valore(m, passo.m) : corrisponde(m, passo) ? 1 : 0;
 
   return [...items].sort((a, b) => {
-    for (const p of effettive) {
+    for (const p of chiavi) {
       const d = valorePasso(b, p) - valorePasso(a, p);
       if (d !== 0) return d;
     }

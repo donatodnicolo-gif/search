@@ -109,12 +109,19 @@ export async function aggiungiPassiInBlocco(id: string, fd: FormData) {
     const valori = fd.getAll(`valori:${c.chiave}`).map(String).filter(Boolean);
     if (valori.length > 0) condizioni.push({ campo: c.chiave, valori });
   }
-  if (condizioni.length > 0) passi.push({ t: "cella", c: condizioni });
-
-  // La metrica va **in fondo**: mette in fila tutti i prodotti, quindi messa
-  // davanti a una condizione la renderebbe inutile — deciderebbe già tutto lei.
   const m = String(fd.get("metrica") ?? "");
-  if (isRegola(m) && m !== "manuale") passi.push({ t: "metrica", m });
+  const metrica = isRegola(m) && m !== "manuale" ? m : undefined;
+
+  if (condizioni.length > 0) {
+    // La metrica scelta **insieme** alle condizioni resta attaccata alla cella:
+    // e' stata una scelta sola, e come passo separato si leggeva come due
+    // decisioni scollegate. Dice come si ordinano i prodotti che la cella porta
+    // in cima.
+    passi.push({ t: "cella", c: condizioni, m: metrica });
+  } else if (metrica) {
+    // Senza condizioni la metrica e' un passo a se': mette in fila tutti.
+    passi.push({ t: "metrica", m: metrica });
+  }
 
   await salvaPassi(id, passi, fd);
 }

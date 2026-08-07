@@ -37,6 +37,7 @@ export default async function CurazioneCollezionePage({
     messaggio?: string;
     regola?: string | string[];
     vista?: string;
+    modo?: string;
     aggiungi?: string;
     cerca?: string;
   }>;
@@ -155,6 +156,11 @@ export default async function CurazioneCollezionePage({
   // e che in collezione non ci sono ancora: è l'unico elenco che risponde a
   // «cosa ci manca» invece di mostrare tutto il catalogo.
   const aGriglia = sp.vista === "griglia";
+  // **Un riquadro, due modi.** Di default si apre quello in uso: se la
+  // collezione ha una regola con condizioni si mostra quella, altrimenti
+  // l'opzione rapida. Erano due schede alte una sotto l'altra, e l'ordine dei
+  // prodotti finiva sotto la piega.
+  const modoCondizioni = sp.modo ? sp.modo === "condizioni" : c.regolaOrdineId != null;
   const pannelloAperto = sp.aggiungi === "1";
   const cerca = (sp.cerca ?? "").trim();
   const filtroRegola = c.regolaOrdine ? filtroSuggerimenti(parsePassi(c.regolaOrdine.passi)) : null;
@@ -244,37 +250,56 @@ export default async function CurazioneCollezionePage({
           </div>
         )}
 
-        {/* Regola d'ordine: prima si **guarda** come verrebbe, poi si applica. */}
-        <div className="scheda">
-          <div className="scheda-titolo">Ordine rapido: una metrica</div>
-          <p className="page-sub" style={{ marginTop: -4 }}>
-            Mette in fila <b>tutti</b> i prodotti secondo un numero — venduto, margine, prezzo, novità. Per ragionare
-            per <b>categoria, prezzo, tag o tempi di consegna</b> serve una <b>regola con condizioni</b>, nel riquadro
-            qui sotto.
-          </p>
-          <form method="get" style={{ display: "grid", gap: 10, maxWidth: 420 }}>
-            <SelettoreRegole valore={inAnteprima ? regoleAnteprima.join(",") : c.regolaOrdinamento} />
-            <div style={{ display: "flex", gap: 8 }}>
-              <button type="submit" className="btn btn-secondario">Vedi come verrebbe</button>
-            </div>
-          </form>
-          <p className="page-sub" style={{ marginTop: 10, marginBottom: 0 }}>
-            Guardare non cambia niente: l&apos;ordine si scrive solo quando confermi.
-          </p>
-        </div>
-
-        {/* **Regola salvata**: quella scritta una volta e riusata, che sa
-            ragionare anche per categoria, prezzo, tag e risposta al bisogno.
-            Sta in un riquadro suo perché è una scelta diversa dalle metriche
-            rapide qui sopra — e sceglierne una **stacca** l'altra, altrimenti
-            due ordini impostati insieme non si saprebbe quale vince. */}
+        {/* **Un riquadro solo, con due modi.** Erano due schede alte una sotto
+            l'altra per una scelta sola, e l'ordine dei prodotti finiva sotto la
+            piega. Sono alternative — sceglierne una **stacca** l'altra — quindi
+            si mostra quella in uso e l'altra si raggiunge con un clic. */}
         <div className="scheda" id="regola">
-          <div className="scheda-titolo">Regola con condizioni</div>
+          <div className="riga-titolo">
+            <div className="scheda-titolo" style={{ margin: 0 }}>Come si ordina questa vetrina</div>
+            <div className="riga-azione">
+              <a
+                className="btn btn-secondario"
+                href={`/visual/${id}?modo=rapido${aGriglia ? "&vista=griglia" : ""}#regola`}
+                aria-current={modoCondizioni ? undefined : "true"}
+              >
+                Opzione rapida
+              </a>
+              <a
+                className="btn btn-secondario"
+                href={`/visual/${id}?modo=condizioni${aGriglia ? "&vista=griglia" : ""}#regola`}
+                aria-current={modoCondizioni ? "true" : undefined}
+              >
+                Condizioni
+              </a>
+            </div>
+          </div>
+
+          {!modoCondizioni && (
+            <>
+              <p className="page-sub" style={{ marginTop: -4 }}>
+                Mette in fila <b>tutti</b> i prodotti secondo un numero — venduto, margine, prezzo, novità. Per
+                ragionare per <b>categoria, prezzo, tag o tempi di consegna</b> passa a <b>Condizioni</b>.
+              </p>
+              <form method="get" style={{ display: "grid", gap: 10, maxWidth: 420 }}>
+                {aGriglia && <input type="hidden" name="vista" value="griglia" />}
+                <SelettoreRegole valore={inAnteprima ? regoleAnteprima.join(",") : c.regolaOrdinamento} />
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button type="submit" className="btn btn-secondario">Vedi come verrebbe</button>
+                </div>
+              </form>
+              <p className="page-sub" style={{ marginTop: 10, marginBottom: 0 }}>
+                Guardare non cambia niente: l&apos;ordine si scrive solo quando confermi.
+              </p>
+            </>
+          )}
+
+          {modoCondizioni && (
+          <>
           <p className="page-sub" style={{ marginTop: -4 }}>
-            Una regola è una <b>sequenza di passi in priorità</b>: «prima la categoria <i>Fiori</i> → poi chi sta sopra
-            i 200 € → a parità il più venduto». Un passo può essere una metrica oppure una <b>condizione</b> su
-            categoria, fornitore, linea, <b>tag</b> (occasione, destinatario), <b>tempi di consegna</b> o prezzo. Le
-            condizioni <b>portano in cima chi corrisponde</b> senza togliere nessuno dalla fila.
+            Una regola è una <b>sequenza di passi in priorità</b>. Un passo è una <b>cella</b>: le condizioni scelte
+            insieme valgono <b>tutte</b> — «Fiori <i>e</i> urgenti» — e <b>portano in cima chi corrisponde</b> senza
+            togliere nessuno dalla fila.
           </p>
           {regoleSalvate.length === 0 ? (
             <p className="page-sub" style={{ marginTop: 0 }}>
@@ -316,20 +341,25 @@ export default async function CurazioneCollezionePage({
           {!c.regolaOrdine && (
             <CreaRegolaDaQui id={id} regole={inAnteprima ? regoleAnteprima : parseRegole(c.regolaOrdinamento)} />
           )}
+          </>
+          )}
         </div>
 
         {/* **Le condizioni si scrivono davanti alla fila che devono cambiare.**
             È lo stesso costruttore della pagina della regola — non una copia —
             e ogni modifica riapplica subito la regola a *questa* collezione, così
             si vede l'effetto invece di doverlo immaginare. */}
-        {c.regolaOrdine && voci && (
+        {modoCondizioni && c.regolaOrdine && voci && (
           <div className="scheda">
-            <div className="scheda-titolo">Condizioni di «{c.regolaOrdine.nome}»</div>
+            <div className="riga-titolo">
+              <div className="scheda-titolo" style={{ margin: 0 }}>Condizioni di «{c.regolaOrdine.nome}»</div>
+              <a className="btn btn-secondario" href={`/visual/regole/${c.regolaOrdine.id}`}>
+                Scheda della regola
+              </a>
+            </div>
             <p className="page-sub" style={{ marginTop: -4 }}>
-              Il primo passo decide l&apos;ordine, i successivi spezzano i pareggi. Una condizione{" "}
-              <b>porta in cima chi corrisponde</b> senza togliere nessuno dalla fila. Ogni modifica si applica subito
-              qui; le <b>altre</b> collezioni che usano questa regola si rifanno con «Riapplica» dalla{" "}
-              <a href={`/visual/regole/${c.regolaOrdine.id}`}>scheda della regola</a>.
+              Ogni modifica si applica <b>subito qui</b>; le <b>altre</b> collezioni che usano questa regola si rifanno
+              con «Riapplica» dalla scheda della regola.
             </p>
             <CostruttorePassi
               regolaId={c.regolaOrdine.id}

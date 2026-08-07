@@ -55,7 +55,7 @@ export type Condizione = { campo: Campo; valori?: string[]; da?: number; a?: num
 export type Passo =
   | { t: "metrica"; m: RegolaOrdinamento }
   | { t: "attr"; campo: Campo; valori?: string[]; da?: number; a?: number }
-  | { t: "cella"; c: Condizione[] };
+  | { t: "cella"; c: Condizione[]; m?: RegolaOrdinamento };
 
 /** Il minimo che serve per dire se un prodotto corrisponde a un passo. */
 export type ProdottoConAttributi = {
@@ -170,7 +170,12 @@ export function etichettaPasso(passo: Passo, nomiMetriche: Record<string, string
   if (passo.t === "metrica") return nomiMetriche[passo.m] ?? passo.m;
   if (passo.t === "cella") {
     if (passo.c.length === 0) return "Cella vuota — da completare";
-    return `Prima ${passo.c.map((x) => etichettaCondizione(x, nomiValori)).join(" e ")}`;
+    const dentro = passo.c.map((x) => etichettaCondizione(x, nomiValori)).join(" e ");
+    // La metrica scelta insieme alle condizioni **si legge dentro la cella**:
+    // era stata una scelta sola, e mostrarla come passo a parte la faceva
+    // sembrare scollegata.
+    const m = passo.m && passo.m !== "manuale" ? ` — poi per ${nomiMetriche[passo.m] ?? passo.m}` : "";
+    return `Prima ${dentro}${m}`;
   }
   return `Prima ${etichettaCondizione(passo, nomiValori)}`;
 }
