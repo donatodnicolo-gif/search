@@ -11,7 +11,7 @@ import { linkAdmin } from "@/lib/link-shopify";
 import { etichettaOrdinamentoShopify, ordineAMano } from "@/lib/collezioni";
 import { REGOLE } from "@/lib/ordinamento-vetrina";
 import { corrisponde, etichettaPassi, filtroSuggerimenti, parsePassi } from "@/lib/regole-ordine";
-import { applicaRegolaSalvataAzione, creaRegolaDaCollezione } from "@/lib/azioni-regole-ordine";
+import { applicaRegolaSalvataAzione, creaRegolaDaCollezione, estendiRegolaAllaCollezione } from "@/lib/azioni-regole-ordine";
 import { iscriviCollezioneARotazione } from "@/lib/azioni-rotazione";
 import { etichettaFrequenza, etichettaModo, prossimaVolta } from "@/lib/rotazione";
 import { salvaProdottiPerRiga } from "@/lib/azioni-collezioni-shopify";
@@ -403,13 +403,19 @@ export default async function CurazioneCollezionePage({
           <div className="scheda">
             <div className="riga-titolo">
               <div className="scheda-titolo" style={{ margin: 0 }}>Condizioni di «{c.regolaOrdine.nome}»</div>
+              <form action={estendiRegolaAllaCollezione.bind(null, id)}>
+                <button type="submit" className="btn btn-secondario" title="Riordina tutta la collezione con questa regola: chi la regola non prende va dietro, dal più venduto in giù.">
+                  Estendi alla collezione
+                </button>
+              </form>
               <a className="btn btn-secondario" href={`/visual/regole/${c.regolaOrdine.id}`}>
                 Scheda della regola
               </a>
             </div>
             <p className="page-sub" style={{ marginTop: -4 }}>
               Ogni modifica si applica <b>subito qui</b>; le <b>altre</b> collezioni che usano questa regola si rifanno
-              con «Riapplica» dalla scheda della regola.
+              con «Riapplica» dalla scheda della regola. Con <b>Estendi alla collezione</b> si riordinano anche i
+              prodotti che <b>nessun passo prende</b>: vanno dietro, <b>dal più venduto in giù</b>.
             </p>
             <CostruttorePassi
               regolaId={c.regolaOrdine.id}

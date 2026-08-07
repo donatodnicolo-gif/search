@@ -6,7 +6,7 @@ import { corrisponde, parsePassi } from "@/lib/regole-ordine";
 import { vociPassi } from "@/lib/voci-passi";
 import { FILTRO_IN_SCENA, ordinaPerPassi } from "@/lib/ordinamento-vetrina";
 import { collezioniInRitardo } from "@/lib/regole-in-ritardo";
-import { eliminaRegolaOrdine, riapplicaRegolaOvunque, rinominaRegolaOrdine } from "@/lib/azioni-regole-ordine";
+import { eliminaRegolaOrdine, impostaRotazioneRegola, riapplicaRegolaOvunque, rinominaRegolaOrdine } from "@/lib/azioni-regole-ordine";
 
 export const dynamic = "force-dynamic";
 
@@ -139,6 +139,36 @@ export default async function RegolaPage({ params }: { params: Promise<{ id: str
             )}
           </div>
         )}
+
+        {/* **A turno tocca a un altro.** Una regola a celle mette in cima sempre
+            gli stessi: la cella prende venti prodotti e il primo e' sempre
+            quello. Qui si dice ogni quanto, dentro lo stesso gruppo, passa
+            avanti un'alternativa. */}
+        <div className="scheda">
+          <div className="scheda-titolo">Ogni quanto ruota</div>
+          <p className="page-sub" style={{ marginTop: -4 }}>
+            Le <b>condizioni non cambiano</b>: cambia <b>chi</b>, fra quelli che una cella prende, sta davanti. Chi
+            nessun passo prende ruota fra sé.
+          </p>
+          <form
+            action={impostaRotazioneRegola.bind(null, r.id)}
+            style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}
+          >
+            <select name="rotazioneGiorni" defaultValue={String(r.rotazioneGiorni ?? 0)} style={{ minWidth: 220 }}>
+              <option value="0">— non ruota —</option>
+              <option value="1">ogni giorno</option>
+              <option value="7">ogni settimana</option>
+              <option value="14">ogni due settimane</option>
+              <option value="30">ogni mese</option>
+            </select>
+            <button type="submit" className="btn btn-primario">Salva</button>
+          </form>
+          <p className="page-sub" style={{ marginTop: 10, marginBottom: 0 }}>
+            Il turno si conta <b>dalla data</b>, quindi salvare qui non riscrive nessuna vetrina: la fila nuova si vede
+            <b> quando la regola si riapplica</b> — con «Riapplica ovunque», dalla scheda di una collezione, oppure da
+            sola se la collezione è iscritta a un ritmo in <a href="/visual/rotazioni">Rotazioni</a>.
+          </p>
+        </div>
 
         <div className="scheda">
           <div className="scheda-titolo">Nome e descrizione</div>

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "./db";
-import { applicaRegolaSalvata } from "./ordinamento-vetrina";
+import { applicaRegolaSalvata, numeraPosizioni, ordineSecondoPassi } from "./ordinamento-vetrina";
 import { isRegola, regoleDaForm, type RegolaOrdinamento } from "./ordinamento-vetrina";
 import { CAMPI, parsePassi, serializePassi, type Campo, type Condizione, type Passo } from "./regole-ordine";
 
@@ -36,6 +36,23 @@ export async function rinominaRegolaOrdine(id: string, fd: FormData) {
 export async function eliminaRegolaOrdine(id: string) {
   await prisma.regolaOrdine.delete({ where: { id } });
   redirect("/visual/regole");
+}
+
+/**
+ * **Ogni quanto la regola rimescola dentro i suoi gruppi.** Non cambia le
+ * condizioni: cambia chi, di quelli che una cella prende, sta davanti.
+ *
+ * Il turno si calcola dalla data, quindi impostarlo non riscrive niente da solo:
+ * la fila nuova si vede **quando la regola si riapplica** — a mano da qui o
+ * dalla scheda della collezione, da sola se la collezione e' iscritta a un ritmo
+ * in Rotazioni. E' scritto in pagina, perche' un'impostazione che sembra fare
+ * qualcosa e non lo fa e' peggio che non averla.
+ */
+export async function impostaRotazioneRegola(id: string, fd: FormData) {
+  const g = Number(fd.get("rotazioneGiorni"));
+  const giorni = Number.isFinite(g) && g > 0 ? Math.min(365, Math.round(g)) : null;
+  await prisma.regolaOrdine.update({ where: { id }, data: { rotazioneGiorni: giorni } });
+  revalidatePath(`/visual/regole/${id}`);
 }
 
 const isCampo = (v: string): v is Campo => CAMPI.some((c) => c.chiave === v);
@@ -206,6 +223,41 @@ export async function creaRegolaDaCollezione(collezioneId: string, fd: FormData)
   // scriverle alla cieca.
   revalidatePath(`/visual/${collezioneId}`);
   redirect(`/visual/${collezioneId}#regola`);
+}
+
+/**
+ * **Estende la regola a tutta la collezione.**
+ *
+ * Una regola fatta di celle decide chi va in cima; **tutti gli altri** — quelli
+ * che nessun passo prende — restano dietro nell'ordine in cui erano, che con una
+ * vetrina curata a mano nel tempo non vuol dire piu' niente. Qui si dice: chi la
+ * regola non tocca si mette `in ordine di vendita`, i piu' venduti avanti.
+ *
+ * Si ottiene **aggiungendo un ultimo passo** `best_seller` alla regola, senza
+ * salvarlo: per i prodotti presi dalle celle le chiavi di prima hanno gia'
+ * deciso e questo spezza solo i pareggi rimasti; per tutti gli altri, che su
+ * quelle chiavi sono pari, decide lui. Una funzione sola con l'ordinamento
+ * normale — con un secondo motore le due strade divergerebbero al primo ritocco.
+ *
+ * **Non tocca la regola salvata**: le altre collezioni che la usano non si
+ * muovono, e riapplicandola qui si torna al comportamento di prima.
+ */
+export async function estendiRegolaAllaCollezione(collezioneId: string) {
+  const c = await prisma.collezioneShopify.findUnique({
+    where: { id: collezioneId },
+    select: { regolaOrdineId: true },
+  });
+  if (!c?.regolaOrdineId) return;
+  const r = await prisma.regolaOrdine.findUnique({ where: { id: c.regolaOrdineId }, select: { passi: true } });
+  const passi = parsePassi(r?.passi);
+  if (passi.length === 0) return;
+  const ordine = await ordineSecondoPassi(collezioneId, [...passi, { t: "metrica", m: "best_seller" }]);
+  await numeraPosizioni(collezioneId, ordine);
+  await prisma.collezioneShopify.update({
+    where: { id: collezioneId },
+    data: { ordineModificatoIl: new Date() },
+  });
+  revalidatePath(`/visual/${collezioneId}`);
 }
 
 /** Applica una regola salvata a una collezione (dalla scheda della collezione). */

@@ -535,7 +535,12 @@ model RegolaOrdine {
   id           String   @id @default(cuid())
   nome         String   @unique
   descrizione  String?
-  passi        String   @default("[]")
+  // **Ogni quanti giorni la fila si rimescola dentro i gruppi della regola.**
+  // Le condizioni restano le stesse — cambia **chi di quel gruppo sta davanti**,
+  // perche' una vetrina in cui i primi sono sempre gli stessi smette di essere
+  // guardata. null/0 = ferma.
+  rotazioneGiorni Int?
+  passi           String   @default("[]")
   collezioni   CollezioneShopify[]
   tipologie    TipologiaCollezione[]
   creataIl     DateTime @default(now())

@@ -134,7 +134,16 @@ export function CostruttorePassi({
         </div>
       )}
 
-      <form action={aggiungiPassiInBlocco.bind(null, regolaId)} style={{ marginTop: 18 }}>
+      {/* **La griglia sta chiusa finche' non la chiedi.** Con sei righe di
+          valori aperta sempre, l'elenco dei passi e la fila che producono
+          finivano sotto la piega: si costruiva senza vedere cosa si stava
+          costruendo. `<details>` e non un parametro nell'indirizzo, cosi'
+          aprire non ricarica la pagina e non perde la posizione. */}
+      <details className="apri-condizione" style={{ marginTop: 18 }}>
+        <summary className="btn btn-primario" style={{ display: "inline-block", listStyle: "none" }}>
+          + Aggiungi condizione
+        </summary>
+      <form action={aggiungiPassiInBlocco.bind(null, regolaId)} style={{ marginTop: 14 }}>
         {tornaA && <input type="hidden" name="tornaA" value={tornaA} />}
         {/* **La griglia è un componente client**: a ogni spunta rifà i conti e
             spegne i valori che non stanno insieme a quello che hai scelto — le
@@ -161,6 +170,7 @@ export function CostruttorePassi({
           </span>
         </div>
       </form>
+      </details>
     </>
   );
 }

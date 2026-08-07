@@ -252,17 +252,64 @@ const SELECT_ORDINABILE = {
 } as const;
 
 /** Come sopra, ma coi **passi** di una regola salvata (metriche + attributi). */
+/**
+ * **Rimescola dentro i gruppi della regola, senza cambiare i gruppi.**
+ *
+ * Una regola a celle mette in cima sempre gli stessi: la cella prende venti
+ * prodotti e il primo e' sempre quello. Qui, ogni `ogniGiorni`, **tocca a un
+ * altro dello stesso gruppo** — stesse condizioni, alternativa diversa. I gruppi
+ * restano dove sono: chi era in cima ci resta come gruppo, cambia chi lo
+ * rappresenta.
+ *
+ * Il turno si calcola **dalla data**, non da un contatore salvato: due esecuzioni
+ * nello stesso periodo danno la stessa fila, e non c'e' uno stato che puo'
+ * disallinearsi. Il gruppo di un prodotto e' il **primo passo che lo prende**;
+ * chi non e' preso da nessuno forma l'ultimo gruppo, e ruota anche lui.
+ */
+export function ruotaDentroIGruppi<T extends ProdottoOrdinabile>(
+  items: T[],
+  passi: Passo[],
+  ogniGiorni: number,
+  adesso = new Date()
+): T[] {
+  if (!ogniGiorni || ogniGiorni <= 0 || items.length < 2) return items;
+  const giro = Math.floor(adesso.getTime() / (ogniGiorni * 24 * 60 * 60 * 1000));
+  const celle = passi.filter((p) => p.t !== "metrica");
+  const gruppoDi = (x: T) => {
+    const i = celle.findIndex((p) => corrisponde(x, p));
+    return i < 0 ? celle.length : i; // chi non e' preso sta nell'ultimo gruppo
+  };
+  const posizioni = new Map<number, number[]>();
+  items.forEach((x, i) => {
+    const g = gruppoDi(x);
+    if (!posizioni.has(g)) posizioni.set(g, []);
+    posizioni.get(g)!.push(i);
+  });
+  const out = [...items];
+  for (const idx of posizioni.values()) {
+    if (idx.length < 2) continue;
+    const k = giro % idx.length;
+    // Si ruotano **gli occupanti**, non le posizioni: il gruppo resta dov'era.
+    idx.forEach((posto, j) => {
+      out[posto] = items[idx[(j + k) % idx.length]];
+    });
+  }
+  return out;
+}
+
 export async function ordineSecondoPassi(
   collezioneId: string,
   passi: Passo[],
-  giorni = 90
+  giorni = 90,
+  rotazioneGiorni = 0
 ): Promise<string[]> {
   const membri = await prisma.prodottoInCollezioneShopify.findMany({
     where: { collezioneId, prodotto: FILTRO_IN_SCENA },
     select: { prodottoId: true, posizione: true, prodotto: { select: SELECT_ORDINABILE } },
   });
   const items = membri.map((m) => ({ prodottoId: m.prodottoId, posizione: m.posizione, ...m.prodotto }));
-  return (await ordinaPerPassi(items, passi, giorni)).map((m) => m.prodottoId);
+  const fila = await ordinaPerPassi(items, passi, giorni);
+  return ruotaDentroIGruppi(fila, passi, rotazioneGiorni).map((m) => m.prodottoId);
 }
 
 /**
@@ -297,10 +344,13 @@ export async function applicaRegoleACollezione(
  * tutte le collezioni che la usano, che è il motivo per cui si salva.
  */
 export async function applicaRegolaSalvata(collezioneId: string, regolaOrdineId: string): Promise<void> {
-  const r = await prisma.regolaOrdine.findUnique({ where: { id: regolaOrdineId }, select: { passi: true } });
+  const r = await prisma.regolaOrdine.findUnique({
+    where: { id: regolaOrdineId },
+    select: { passi: true, rotazioneGiorni: true },
+  });
   const passi = parsePassi(r?.passi);
   if (passi.length > 0) {
-    const ordine = await ordineSecondoPassi(collezioneId, passi);
+    const ordine = await ordineSecondoPassi(collezioneId, passi, 90, r?.rotazioneGiorni ?? 0);
     await numeraPosizioni(collezioneId, ordine);
   }
   await prisma.collezioneShopify.update({
