@@ -48,6 +48,16 @@ function ordina(tabella: HTMLTableElement, indice: number, crescente: boolean) {
   righe.sort((a, b) => {
     const va = valore(a.cells[indice] as HTMLTableCellElement);
     const vb = valore(b.cells[indice] as HTMLTableCellElement);
+    // ⚠️ Le celle vuote valgono -Infinity, e `-Infinity - (-Infinity)` fa
+    // **NaN**: un comparatore che restituisce NaN non ordina niente e lascia
+    // le righe dov'erano. Su una tabella con molte celle vuote — 337 keyword
+    // su 491 senza numeri, misurato il 07/08/2026 — ordinare per spesa in giù
+    // lasciava i trattini in cima, e sembrava che l'ordinamento fosse rotto.
+    // I vuoti vanno in fondo SEMPRE, in qualunque verso: «nessun dato» non è
+    // né il massimo né il minimo.
+    const vuotoA = va === -Infinity;
+    const vuotoB = vb === -Infinity;
+    if (vuotoA || vuotoB) return vuotoA && vuotoB ? 0 : vuotoA ? 1 : -1;
     if (typeof va === "number" && typeof vb === "number") return crescente ? va - vb : vb - va;
     return crescente
       ? String(va).localeCompare(String(vb), "it")

@@ -107,6 +107,14 @@ export default async function SchedaCampagna({
   const { legame: legameLingua } = await legameDiCampagna(campagna);
   const linguaCampagna = legameLingua.lingua;
 
+  // L'ultimo giorno CON DATI: è quello su cui si giudica il budget, perché la
+  // media del periodo appiattisce le giornate storte. Sta fra le metriche già
+  // caricate, non serve una query.
+  const ultimoGiornoPieno = campagna.metriche.reduce<{ data: Date; spesa: number | null } | null>(
+    (max, m) => (!max || m.data > max.data ? { data: m.data, spesa: m.spesa } : max),
+    null
+  );
+
   // I gruppi della campagna: la media di campagna qui sopra può nascondere un
   // gruppo che rende il doppio e uno che brucia. Vanno guardati separati.
   const giorniPeriodo = Math.max(
@@ -273,7 +281,19 @@ export default async function SchedaCampagna({
                       : "Usa parte del budget"}
                   {" — "}
                   {formattaEuro(mediaGiorno)} al giorno su {formattaEuro(campagna.budgetGiornaliero)},
-                  media dei {campagna.metriche.length} giorni con dati
+                  media dei {campagna.metriche.length} giorni con dati.
+                  {/* L'ultimo giorno pieno stava in un riquadro a parte più in
+                      basso, che ripeteva questi stessi numeri. Sta qui, dove si
+                      guarda il budget: la media nasconde le giornate storte, e
+                      «212% l'ultimo giorno» è proprio quello che si vuole
+                      vedere. */}
+                  {ultimoGiornoPieno && ultimoGiornoPieno.spesa != null && (
+                    <>
+                      {" "}Ultimo giorno pieno, {formattaData(ultimoGiornoPieno.data)}:{" "}
+                      <b>{formattaEuro(ultimoGiornoPieno.spesa)}</b>, il{" "}
+                      {Math.round((ultimoGiornoPieno.spesa / campagna.budgetGiornaliero) * 100)}%.
+                    </>
+                  )}
                 </div>
               </div>
             );

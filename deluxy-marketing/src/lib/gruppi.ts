@@ -70,6 +70,9 @@ export async function gruppiConNumeri(opzioni: {
   canale?: string;
   cerca?: string;
   giorni?: number;
+  // I gruppi DEFUNTI restano fuori da tutto, tranne quando si chiedono
+  // apposta: come per le campagne, `?defunti=inclusi`.
+  defunti?: "inclusi";
 }): Promise<GruppoConNumeri[]> {
   const da = daGiorni(opzioni.giorni ?? GIORNI_LETTURA);
   const gruppi = await prisma.gruppo.findMany({
@@ -78,6 +81,9 @@ export async function gruppiConNumeri(opzioni: {
       ...(opzioni.brand ? { brand: opzioni.brand } : {}),
       ...(opzioni.canale ? { canale: opzioni.canale } : {}),
       ...(opzioni.cerca ? { nome: { contains: opzioni.cerca, mode: "insensitive" as const } } : {}),
+      ...(opzioni.defunti === "inclusi"
+        ? {}
+        : { stato: { notIn: [...STATI_GRUPPO_IGNORATI] } }),
     },
     include: {
       campagna: { select: { id: true, nome: true } },
@@ -184,7 +190,24 @@ export const ETICHETTA_TIPO_GRUPPO: Record<string, string> = {
   shopping_product_ads: "shopping",
 };
 
-export const STATI_GRUPPO = ["attivo", "vincente", "da_valutare", "in_pausa", "escluso"] as const;
+export const STATI_GRUPPO = [
+  "attivo",
+  "vincente",
+  "da_valutare",
+  "in_pausa",
+  "escluso",
+  "defunto",
+] as const;
+
+// «Non nominarmelo più»: il gemello di `defunta` sulle campagne. Un gruppo
+// defunto esce dagli elenchi e dai contatori, ma **la sua spesa resta nei
+// totali** — quei soldi sono usciti davvero, e «mai più» vale per l'operativo,
+// non per la contabilità.
+//
+// ⚠️ Stessa regola delle campagne, decisa dall'utente il 06/08/2026: defunto
+// è chi non ha speso NULLA, non chi è fermo da un po'. Un gruppo stagionale
+// spento da mesi è fermo, non morto.
+export const STATI_GRUPPO_IGNORATI = ["defunto"] as const;
 
 export const ETICHETTA_STATO_GRUPPO: Record<string, string> = {
   attivo: "Attivo",
@@ -192,6 +215,7 @@ export const ETICHETTA_STATO_GRUPPO: Record<string, string> = {
   da_valutare: "Da valutare",
   in_pausa: "In pausa",
   escluso: "Escluso",
+  defunto: "Defunto — non mostrarlo più",
 };
 
 export const COLORE_STATO_GRUPPO: Record<string, string> = {
@@ -200,6 +224,7 @@ export const COLORE_STATO_GRUPPO: Record<string, string> = {
   da_valutare: "var(--gold-strong)",
   in_pausa: "var(--text-secondary)",
   escluso: "var(--red)",
+  defunto: "var(--text-tertiary)",
 };
 
 // Come si mostra lo stato di un gruppo, in un posto solo.

@@ -24,8 +24,16 @@ export async function DestinazioniCampagna({ nomeCampagna }: { nomeCampagna: str
     orderBy: [{ tipo: "asc" }, { testo: "asc" }],
   });
 
-  const destinazioni = righe.filter((r) => r.tipo === "destinazione");
-  const sitelink = righe.filter((r) => r.tipo === "sitelink" && r.finalUrl);
+  // ⚠️ **Solo quello che è acceso su Google.** L'elenco mostrava anche le
+  // destinazioni di annunci e sitelink in pausa: pagine dove oggi non atterra
+  // nessuno, in mezzo a quelle vive e con lo stesso aspetto. Alla domanda
+  // «dove mando il traffico» rispondeva col traffico di mesi fa.
+  const attivo = (r: (typeof righe)[number]) =>
+    (r.statoPiattaforma ?? "ENABLED").toUpperCase() === "ENABLED";
+  const destinazioni = righe.filter((r) => r.tipo === "destinazione" && attivo(r));
+  const sitelink = righe.filter((r) => r.tipo === "sitelink" && r.finalUrl && attivo(r));
+  const fermi =
+    righe.filter((r) => !attivo(r) && (r.tipo === "destinazione" || (r.tipo === "sitelink" && r.finalUrl))).length;
   if (destinazioni.length === 0 && sitelink.length === 0) return null;
 
   // Le landing censite in app: quando l'URL combacia si offre anche la scheda
@@ -57,7 +65,6 @@ export async function DestinazioniCampagna({ nomeCampagna }: { nomeCampagna: str
           {r.tipo === "sitelink" && <b>{r.testo} · </b>}
           {r.gruppo ? `${r.gruppo} · ` : ""}
           {r.note ?? ""}
-          {r.statoPiattaforma === "PAUSED" ? " · in pausa su Google" : ""}
         </span>
         {censita && (
           <a className="tag-neutro" href={`/landing/${censita.id}`}>
@@ -74,9 +81,11 @@ export async function DestinazioniCampagna({ nomeCampagna }: { nomeCampagna: str
 
       {destinazioni.length > 0 ? (
         <>
-          <p className="cella-sub" style={{ marginBottom: 10 }}>
-            Le pagine su cui atterra chi clicca l&apos;annuncio: {destinazioni.length} URL
-            distint{destinazioni.length === 1 ? "o" : "i"}.
+          <p className="cella-sub" style={{ marginBottom: 10, whiteSpace: "normal" }}>
+            <b>Link diretto dell&apos;annuncio</b> ({destinazioni.length}): la pagina che si apre
+            cliccando il <b>titolo</b>. È la landing vera della campagna — quella che deve
+            convertire.
+            {fermi > 0 && ` Solo quelle accese: ${fermi} in pausa su Google non sono in elenco.`}
           </p>
           <ul className="dest-elenco">{destinazioni.map(riga)}</ul>
         </>
@@ -93,9 +102,11 @@ export async function DestinazioniCampagna({ nomeCampagna }: { nomeCampagna: str
 
       {sitelink.length > 0 && (
         <>
-          <p className="cella-sub" style={{ margin: "14px 0 10px" }}>
-            Dove mandano i <b>sitelink</b> ({sitelink.length}) — è un&apos;altra domanda: sono i
-            collegamenti sotto l&apos;annuncio, e portano quasi sempre altrove.
+          <p className="cella-sub" style={{ margin: "16px 0 10px", whiteSpace: "normal" }}>
+            <b>Sitelink</b> ({sitelink.length}): i collegamenti in piccolo <b>sotto</b>
+            l&apos;annuncio, ognuno con la sua pagina. Sono un&apos;altra domanda — chi clicca un
+            sitelink non sta andando sulla landing della campagna, sta scegliendo un&apos;altra
+            strada. In grassetto il testo del collegamento, com&apos;è scritto nell&apos;annuncio.
           </p>
           <ul className="dest-elenco">{sitelink.map(riga)}</ul>
         </>

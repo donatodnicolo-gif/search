@@ -864,6 +864,32 @@ tbody tr:hover { background: var(--fill); }
 .vend-vuota { font-size: 12.5px; color: var(--text-tertiary); }
 .vend-riga[open] { padding-bottom: 16px; }
 
+/* ---------- Titoli e descrizioni, nella forma di Google Ads ----------
+   Una scheda per testo col conteggio caratteri sotto: è quello che si ha
+   davanti quando si scrive l'annuncio, e permette di confrontare le due
+   schermate senza tradurre a mente. */
+.ga-colonne { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 22px; }
+.ga-intestazione {
+  display: flex; align-items: baseline; gap: 7px; margin-bottom: 10px;
+  font-size: 13px; font-weight: 600; color: var(--text);
+}
+.ga-conteggio { color: var(--text-secondary); font-weight: 500; }
+.ga-su { font-size: 11.5px; font-weight: 400; color: var(--text-tertiary); }
+.ga-riga { margin-bottom: 10px; }
+.ga-casella {
+  padding: 9px 12px; border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-s); background: var(--surface);
+  font-size: 13.5px; line-height: 1.4; overflow-wrap: anywhere;
+}
+.ga-casella.oltre { border-color: rgba(215, 0, 21, 0.45); }
+.ga-sotto {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  margin-top: 3px; padding: 0 2px;
+}
+.ga-giudizio { font-size: 11.5px; color: var(--text-secondary); }
+.ga-caratteri { margin-left: auto; font-size: 11.5px; color: var(--text-tertiary); }
+.ga-caratteri.oltre { color: var(--red); font-weight: 600; }
+
 /* Le caselle della keyword tradotta: dentro il dialogo, prima del piede */
 .modale-tradotto {
   margin: 4px 18px 0; padding: 12px;

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
-import { ETICHETTA_GIUDIZIO_GOOGLE, GIUDIZI_GOOGLE } from "@/lib/dominio";
+import { GIUDIZI_GOOGLE } from "@/lib/dominio";
+import { TestiAnnuncio } from "@/components/TestiAnnuncio";
 
 // Cosa vede davvero chi incontra l'annuncio: titoli e descrizioni con
 // l'etichetta di rendimento che Google dà a ogni pezzo, e le estensioni
@@ -120,63 +121,9 @@ export async function EstensioniCampagna({
 
           {(titoli.length > 0 || descrizioni.length > 0) && (
             <div style={{ marginBottom: 14 }}>
-              <div className="cella-sub" style={{ marginBottom: 6, whiteSpace: "normal" }}>
-                {giudicati > 0 ? (
-                  <>TITOLI E DESCRIZIONI, DAL MIGLIORE AL PEGGIORE SECONDO GOOGLE</>
-                ) : (
-                  <>
-                    TITOLI E DESCRIZIONI, DAL PIÙ LUNGO AL PIÙ CORTO — <b>Google non li giudica</b>:
-                    su questa campagna risponde «non applicabile» su tutti, quindi non esiste una
-                    classifica da mostrare. In rosso quelli oltre il limite: vengono troncati.
-                  </>
-                )}
-              </div>
-              <ul className="storia">
-                {(giudicati > 0
-                  ? [...titoli].sort(ordina).concat([...descrizioni].sort(ordina))
-                  : [...titoli].sort(perLunghezza).concat([...descrizioni].sort(perLunghezza))
-                ).map((t) => {
-                  const limite = t.tipo === "titolo" ? 30 : 90;
-                  // ⚠️ `{KeyWord:...}` è inserimento dinamico: a schermo Google
-                  // ci mette la parola cercata, non quel testo. Contarne i
-                  // caratteri e segnarlo in rosso sarebbe un allarme falso —
-                  // la lunghezza vera si conosce solo al momento della ricerca.
-                  const dinamico = /\{(keyword|customizer|countdown)/i.test(t.testo);
-                  const troppoLungo = !dinamico && (t.caratteri ?? 0) > limite;
-                  return (
-                  <li key={t.id}>
-                    <span className="storia-data" style={{ flex: "0 0 90px" }}>
-                      {t.tipo === "titolo" ? "titolo" : "descrizione"}
-                    </span>
-                    <span className="storia-testo">{t.testo}</span>
-                    <span className="storia-autore" style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                      {/* Il giudizio si mostra solo quando ce n'è uno vero:
-                          ripetere «NOT_APPLICABLE» su trenta righe è rumore, e
-                          per giunta in gergo di Google. Che non li giudichi è
-                          scritto una volta sopra. */}
-                      {t.rendimento && GIUDIZI_GOOGLE.includes(t.rendimento) && (
-                        <span className="tag-salute" style={{ color: COLORE_RENDIMENTO[t.rendimento] ?? "var(--text-tertiary)" }}>
-                          <span className="dot" />
-                          {ETICHETTA_GIUDIZIO_GOOGLE[t.rendimento] ?? t.rendimento}
-                        </span>
-                      )}
-                      <span
-                        style={troppoLungo ? { color: "var(--red)", fontWeight: 600 } : dinamico ? { color: "var(--text-tertiary)" } : undefined}
-                        title={
-                          troppoLungo
-                            ? `Oltre i ${limite} caratteri: Google lo tronca`
-                            : dinamico
-                              ? "Testo dinamico: Google ci sostituisce la parola cercata, la lunghezza vera si sa solo allora"
-                              : undefined
-                        }
-                      >
-                        {dinamico ? "dinamico" : `${t.caratteri}/${limite}`}
-                      </span>
-                    </span>
-                  </li>
-                  );
-                })}
-              </ul>
+              {/* Stessa forma di Google Ads: una scheda per testo col
+                  conteggio caratteri sotto. Vedi TestiAnnuncio. */}
+              <TestiAnnuncio testi={testi} />
             </div>
           )}
 

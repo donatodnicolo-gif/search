@@ -3,6 +3,7 @@ import { AndamentoMensile } from "@/components/AndamentoMensile";
 import { AzioneGruppo } from "@/components/AzioneGruppo";
 import { Badge } from "@/components/Badge";
 import { RinominaInline } from "@/components/RinominaInline";
+import { TestiAnnuncio } from "@/components/TestiAnnuncio";
 import { giudicabilita, LIVELLI_CHE_PESANO } from "@/lib/guardrail";
 import { GraficoSpesa } from "@/components/GraficoSpesa";
 import { SceltaPeriodo } from "@/components/SceltaPeriodo";
@@ -232,7 +233,21 @@ export default async function SchedaGruppo({
     if (filtroKw === "a_vuoto") return (k.spesa ?? 0) >= 20 && (k.incasso ?? 0) === 0;
     if (filtroKw === "decise") return azioneDi(k.testo) != null;
     return true;
-  });
+  })
+    // ⚠️ Ordine di partenza: per SPESA, dalla più bassa. Le parole arrivavano
+    // nell'ordine della query (spesa in giù) ma con 337 righe senza numeri su
+    // 491 la tabella si apriva su una distesa di trattini. Partendo dal basso
+    // le parole che spendono poco o nulla stanno in cima — che è dove si
+    // guarda per tagliare — e i vuoti restano in fondo, dove non ingombrano.
+    .slice()
+    .sort((a, b) => {
+      const sa = a.spesa ?? null;
+      const sb = b.spesa ?? null;
+      if (sa == null && sb == null) return 0;
+      if (sa == null) return 1; // «nessun dato» in fondo, sempre
+      if (sb == null) return -1;
+      return sa - sb;
+    });
 
   const operazioneAperta = gruppo.operazioni.find((o) => o.stato === "in_attesa" || o.stato === "approvata");
 
@@ -619,6 +634,11 @@ export default async function SchedaGruppo({
                         <th>Stato</th>
                         <th className="num">Spesa</th>
                         <th className="num">Incasso</th>
+                        {/* Il ritorno di ogni parola: incasso ÷ spesa, letto
+                            sul break-even del brand. Spesa e incasso da soli
+                            costringono a fare la divisione a mente riga per
+                            riga, ed è la divisione che decide. */}
+                        <th className="num">Resa</th>
                         <th className="num">QS</th>
                         <th>Azione decisa</th>
                         <th>Su Google</th>
@@ -667,6 +687,15 @@ export default async function SchedaGruppo({
                             </td>
                             <td className="num">{formattaEuro(k.spesa)}</td>
                             <td className="num">{formattaEuro(k.incasso)}</td>
+                            <td
+                              className="num"
+                              style={{ color: g.colore, fontWeight: 600 }}
+                              title={g.spiega}
+                            >
+                              {(k.spesa ?? 0) > 0
+                                ? `${((k.incasso ?? 0) / (k.spesa ?? 1)).toFixed(2)}×`
+                                : "—"}
+                            </td>
                             <td className="num cella-muta">{k.punteggioQualita ?? "—"}</td>
                             <td>
                               {az ? (
@@ -847,30 +876,9 @@ export default async function SchedaGruppo({
             {testi.length > 0 && (
               <section className="scheda">
                 <div className="scheda-titolo">Titoli e descrizioni usati qui ({testi.length})</div>
-                {/* ⚠️ Qui compariva `NOT_APPLICABLE` su ogni riga: gergo di
-                    Google, ripetuto cinquantuno volte, che non vuol dire
-                    «scarso» ma «Google non giudica questi asset». Lo si dice
-                    una volta sola e le righe restano pulite — stesso
-                    trattamento del blocco gemello sulla scheda campagna. */}
-                {testi.every((t) => !t.rendimento || !GIUDIZI_GOOGLE.includes(t.rendimento)) && (
-                  <p className="cella-sub" style={{ marginBottom: 8, whiteSpace: "normal" }}>
-                    Google <b>non li giudica</b>: su questa campagna risponde «non applicabile» su
-                    tutti, quindi non c&apos;è un migliore e un peggiore da mostrare.
-                  </p>
-                )}
-                <ul className="storia">
-                  {testi.map((t) => (
-                    <li key={t.id}>
-                      <span className="storia-data">{t.tipo === "titolo" ? "H" : "D"}</span>
-                      <span className="storia-testo">{t.testo}</span>
-                      <span className="storia-autore">
-                        {t.rendimento && GIUDIZI_GOOGLE.includes(t.rendimento)
-                          ? ETICHETTA_GIUDIZIO_GOOGLE[t.rendimento] ?? t.rendimento
-                          : ""}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+                {/* Stessa forma di Google Ads del blocco gemello sulla scheda
+                    campagna: una scheda per testo col conteggio caratteri. */}
+                <TestiAnnuncio testi={testi} />
               </section>
             )}
           </div>

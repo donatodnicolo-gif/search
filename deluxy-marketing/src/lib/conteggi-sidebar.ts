@@ -60,7 +60,7 @@ const SQL = `
     (SELECT count(*) FROM "Incidente" WHERE stato = 'aperto')                               AS "nErroriAperti",
     (SELECT count(*) FROM "Incongruenza" WHERE stato = 'aperta')                            AS "nIncongruenzeAperte",
     (SELECT count(*) FROM "OperazioneAdv" WHERE stato IN ('in_attesa','approvata'))         AS "nOperazioni",
-    (SELECT count(*) FROM "Gruppo")                                                         AS "nGruppi",
+    (SELECT count(*) FROM "Gruppo" WHERE stato <> 'defunto')                                AS "nGruppi",
     (SELECT count(*) FROM "TermineRicerca" WHERE spesa > 0 AND conversioni = 0)             AS "nTermini"
 `;
 

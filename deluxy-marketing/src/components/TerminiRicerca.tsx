@@ -126,11 +126,37 @@ export async function TerminiRicerca({
   const spesaTotale = termini.reduce((s, t) => s + (t.spesa ?? 0), 0);
   const senzaResa = termini.filter((t) => (t.spesa ?? 0) > 0 && !(t.conversioni ?? 0));
   const spesaSenzaResa = senzaResa.reduce((s, t) => s + (t.spesa ?? 0), 0);
-  const dal = termini[0].dal;
-  const al = termini[0].al;
-  const periodo = dal && al
-    ? `${dal.toLocaleDateString("it-IT")} → ${al.toLocaleDateString("it-IT")}`
-    : null;
+  // ⚠️ La finestra si prendeva dalla PRIMA RIGA e si scriveva come se fosse
+  // quella di tutta la tabella. Non lo è: le righe arrivano da corse diverse e
+  // ognuna porta la sua. Misurato il 07/08/2026 su «[Deluxy] - Fiori Milano
+  // ENG»: **cinque finestre** nella stessa tabella — 129 righe su un ANNO
+  // (3.020 €) e 31 righe su 30 giorni (418 €), più tre righe rimaste indietro.
+  // L'intestazione diceva «29/07/2025 → 29/07/2026», e i totali sotto sommavano
+  // un anno di spesa con un mese come se fossero lo stesso periodo.
+  const finestre = new Map<string, { dal: Date; al: Date; righe: number; spesa: number }>();
+  for (const t of termini) {
+    if (!t.dal || !t.al) continue;
+    const k = `${t.dal.getTime()}|${t.al.getTime()}`;
+    const v = finestre.get(k) ?? { dal: t.dal, al: t.al, righe: 0, spesa: 0 };
+    v.righe++;
+    v.spesa += t.spesa ?? 0;
+    finestre.set(k, v);
+  }
+  const elencoFinestre = [...finestre.values()].sort((a, b) => b.righe - a.righe);
+  const piuFinestre = elencoFinestre.length > 1;
+  const data = (d: Date) => d.toLocaleDateString("it-IT");
+  // La finestra di riferimento è quella della maggioranza delle righe; quando
+  // ce n'è più d'una si dichiara l'intervallo complessivo e il perché.
+  const principale = elencoFinestre[0] ?? null;
+  const dal = principale?.dal ?? null;
+  const al = principale?.al ?? null;
+  const periodo = piuFinestre
+    ? `${data(new Date(Math.min(...elencoFinestre.map((f) => f.dal.getTime()))))} → ${data(
+        new Date(Math.max(...elencoFinestre.map((f) => f.al.getTime())))
+      )} · ${elencoFinestre.length} finestre diverse`
+    : dal && al
+      ? `${data(dal)} → ${data(al)}`
+      : null;
 
   // ⚠️ Questa tabella NON segue il periodo scelto in cima, e va detto.
   //
@@ -154,7 +180,29 @@ export async function TerminiRicerca({
         Cosa ha cercato la gente ({termini.length} termini più costosi
         {periodo ? ` · ${periodo}` : ""})
       </div>
-      {scostata && periodoScelto && (
+      {/* Prima di ogni altro avviso: se le righe vengono da finestre diverse,
+          i totali qui sotto sommano periodi diversi — ed è il difetto che
+          rende tutto il resto inaffidabile. */}
+      {piuFinestre && (
+        <div className="nota-info" style={{ borderColor: "rgba(215,0,21,.35)", background: "rgba(215,0,21,.06)" }}>
+          <span className="nota-icona" style={{ color: "var(--red)" }}>⚠</span>
+          <span>
+            <b>Queste righe non coprono lo stesso periodo.</b> Arrivano da corse diverse dello
+            script, ognuna con la sua finestra:{" "}
+            {elencoFinestre.map((f, i) => (
+              <span key={i}>
+                {i > 0 && " · "}
+                <b>{f.righe}</b> righe dal {data(f.dal)} al {data(f.al)} ({formattaEuro(f.spesa)})
+              </span>
+            ))}
+            . I totali qui sotto <b>le sommano</b>, quindi mettono insieme periodi lunghi e corti:
+            leggerli come «la spesa di un mese» è sbagliato. Si riallineano quando lo script rifà
+            un giro di <code>AZIONE = &quot;diagnosi&quot;</code> su tutte.
+          </span>
+        </div>
+      )}
+
+      {scostata && periodoScelto && !piuFinestre && (
         <div className="nota-info" style={{ borderColor: "rgba(201,52,0,.35)", background: "rgba(201,52,0,.06)" }}>
           <span className="nota-icona" style={{ color: "var(--orange)" }}>⚠</span>
           <span>
