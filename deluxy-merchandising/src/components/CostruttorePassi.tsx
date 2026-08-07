@@ -5,6 +5,10 @@ import { aggiungiPassiInBlocco, muoviPasso } from "@/lib/azioni-regole-ordine";
 import type { ProdottoAnteprima } from "./AnteprimaCella";
 import { CostruttoreCella } from "./CostruttoreCella";
 
+// Quante foto della fila si mostrano: piu' di cosi' non e' un'anteprima, e' un
+// altro elenco di prodotti sopra a quello che c'e' gia' in pagina.
+const MAX_FILA = 24;
+
 const NOMI_METRICHE = Object.fromEntries(REGOLE.map((r) => [r.chiave, r.nome]));
 
 /**
@@ -32,6 +36,7 @@ export function CostruttorePassi({
   perAnteprima,
   suCosa = "in vendita",
   campione,
+  fila,
   idsCollezione,
   nomeCollezione,
 }: {
@@ -43,6 +48,8 @@ export function CostruttorePassi({
   perAnteprima?: ProdottoAnteprima[];
   suCosa?: string;
   campione?: boolean;
+  /** **Come usciranno** i prodotti che i passi salvati portano in cima, gia' in ordine. */
+  fila?: ProdottoAnteprima[];
   /** Quando si lavora da una collezione: per dire anche quanti ne tocca **qui dentro**. */
   idsCollezione?: string[];
   nomeCollezione?: string;
@@ -88,6 +95,45 @@ export function CostruttorePassi({
         </div>
       )}
 
+      {/* **Come usciranno davvero.** I passi qui sopra si leggono in italiano, ma
+          una regola si giudica dalla fila che produce. Questa e' calcolata dal
+          server con la **stessa** `ordinaPerPassi` che poi scrive le posizioni —
+          quindi comprende anche le metriche (piu' venduti, novita'), che nel
+          browser non si potrebbero calcolare. Sotto, nel costruttore, c'e'
+          l'altra domanda: chi prenderebbe la cella che stai scrivendo. */}
+      {fila && passi.length > 0 && (
+        <div className="anteprima-cella" style={{ marginTop: 14 }}>
+          <div className="anteprima-conto">
+            <b>{fila.length}</b> {fila.length === 1 ? "prodotto" : "prodotti"}
+            <span className="page-sub" style={{ margin: 0 }}>
+              {" "}· come usciranno con {passi.length === 1 ? "il passo" : `i ${passi.length} passi`} qui sopra, in
+              quest&apos;ordine
+              {idsCollezione && (
+                <>
+                  {" "}· di cui <b>{fila.filter((p) => idsCollezione.includes(p.id)).length}</b> in{" "}
+                  {nomeCollezione ? "«" + nomeCollezione + "»" : "questa collezione"}
+                </>
+              )}
+            </span>
+          </div>
+          {fila.length === 0 ? (
+            <span className="page-sub" style={{ margin: 0 }}>
+              <b>Nessuno.</b> Nessun passo prende niente di quello che c&apos;è in vendita: così la regola non sposta la
+              vetrina.
+            </span>
+          ) : (
+            <div className="anteprima-foto">
+              {fila.slice(0, MAX_FILA).map((p, i) => (
+                <span key={p.id} title={`${i + 1}. ${p.nome}`}>
+                  {p.immagine ? <img src={p.immagine} alt="" /> : "❀"}
+                </span>
+              ))}
+              {fila.length > MAX_FILA && <span className="page-sub">+{fila.length - MAX_FILA}</span>}
+            </div>
+          )}
+        </div>
+      )}
+
       <form action={aggiungiPassiInBlocco.bind(null, regolaId)} style={{ marginTop: 18 }}>
         {tornaA && <input type="hidden" name="tornaA" value={tornaA} />}
         {/* **La griglia è un componente client**: a ogni spunta rifà i conti e
@@ -101,7 +147,6 @@ export function CostruttorePassi({
           prodotti={perAnteprima ?? []}
           suCosa={suCosa}
           campione={campione}
-          passi={passi}
           idsCollezione={idsCollezione}
           nomeCollezione={nomeCollezione}
         />

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { corrisponde, CAMPI, RISPOSTE, type Campo, type Condizione, type Passo } from "@/lib/regole-ordine";
+import { corrisponde, CAMPI, RISPOSTE, type Campo, type Condizione } from "@/lib/regole-ordine";
 import { REGOLE } from "@/lib/ordinamento-vetrina";
 import type { VociPassi, VoceValore } from "@/lib/voci-passi";
 import type { ProdottoAnteprima } from "./AnteprimaCella";
@@ -35,11 +35,8 @@ export function CostruttoreCella({
   campione,
   idsCollezione,
   nomeCollezione,
-  passi = [],
 }: {
   voci: VociPassi;
-  /** I passi **già salvati**: sono l'anteprima di partenza, finché non spunti niente. */
-  passi?: Passo[];
   /** **Il catalogo**, non la collezione: e' il vocabolario di quello che si puo' esprimere. */
   prodotti: ProdottoAnteprima[];
   suCosa: string;
@@ -86,33 +83,11 @@ export function CostruttoreCella({
   const senzaDati = prodotti.length === 0;
   const condizioni = condizioniDi();
 
-  /**
-   * **Quello che la regola porta in cima adesso**: i prodotti presi dai passi
-   * gia' salvati, nell'ordine dei passi (prima quelli della cella 1, poi i nuovi
-   * della 2…). Un prodotto che due celle prendono si conta una volta sola, dove
-   * sale per primo.
-   */
-  const daiPassi = () => {
-    const visti = new Set<string>();
-    const out: ProdottoAnteprima[] = [];
-    for (const p of passi) {
-      if (p.t === "metrica") continue; // mette in fila tutti: non seleziona nessuno
-      for (const x of prodotti) {
-        if (!visti.has(x.id) && corrisponde(x, p)) {
-          visti.add(x.id);
-          out.push(x);
-        }
-      }
-    }
-    return out;
-  };
-
-  // **Finche' non spunti niente si guarda quello che hai gia' scelto**, non il
-  // catalogo intero: le foto di 900 prodotti non dicono niente di questa regola.
-  // Appena si spunta qualcosa l'anteprima passa alla cella che si sta scrivendo —
-  // e' quella la domanda del momento.
-  const daSalvati = condizioni.length === 0 && passi.some((p) => p.t !== "metrica");
-  const presi = daSalvati ? daiPassi() : filtra(condizioni);
+  // **Qui si guarda solo la cella che stai scrivendo.** Quello che i passi
+  // gia' salvati portano in cima sta nel riquadro sopra, con l'ordine vero:
+  // due domande diverse, due riquadri — mescolarle voleva dire non sapere mai
+  // quale delle due si stesse guardando.
+  const presi = condizioni.length === 0 ? [] : filtra(condizioni);
   // **Due numeri, due domande diverse.** Il primo dice cosa la cella prende dal
   // catalogo - e' il vocabolario di quello che si puo' esprimere - il secondo
   // quanti di quelli stanno nella vetrina che si sta curando. Contare solo sulla
@@ -147,11 +122,6 @@ export function CostruttoreCella({
               <>
                 {" "}· {condizioni.length} {condizioni.length === 1 ? "condizione" : "condizioni"} insieme
               </>
-            ) : daSalvati ? (
-              <>
-                {" "}· quello che i {passi.filter((p) => p.t !== "metrica").length} passi già scelti portano in cima ·
-                spunta qui sotto per provarne un altro
-              </>
             ) : (
               <> · nessuna condizione: spunta qui sotto per restringere</>
             )}
@@ -164,11 +134,8 @@ export function CostruttoreCella({
         </div>
         {presi.length === 0 ? (
           <span className="page-sub" style={{ margin: 0 }}>
-            {daSalvati ? (
-              <>
-                <b>Nessuno.</b> I passi già scelti non prendono niente di quello che c&apos;è in vendita: così la regola
-                non sposta la vetrina.
-              </>
+            {condizioni.length === 0 ? (
+              <>Spunta qui sotto: qui vedi <b>chi prenderebbe</b> la cella che stai scrivendo, mentre la scrivi.</>
             ) : (
               <>
                 <b>Nessuno.</b> Le condizioni di una cella valgono <b>tutte insieme</b>: se ne stai chiedendo troppe, la

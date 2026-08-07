@@ -2,9 +2,9 @@ import { notFound } from "next/navigation";
 import { Sidebar } from "@/components/Sidebar";
 import { CostruttorePassi } from "@/components/CostruttorePassi";
 import { prisma } from "@/lib/db";
-import { parsePassi } from "@/lib/regole-ordine";
+import { corrisponde, parsePassi } from "@/lib/regole-ordine";
 import { vociPassi } from "@/lib/voci-passi";
-import { FILTRO_IN_SCENA } from "@/lib/ordinamento-vetrina";
+import { FILTRO_IN_SCENA, ordinaPerPassi } from "@/lib/ordinamento-vetrina";
 import { collezioniInRitardo } from "@/lib/regole-in-ritardo";
 import { eliminaRegolaOrdine, riapplicaRegolaOvunque, rinominaRegolaOrdine } from "@/lib/azioni-regole-ordine";
 
@@ -41,6 +41,7 @@ export default async function RegolaPage({ params }: { params: Promise<{ id: str
     select: {
       id: true, nome: true, immagine: true, prezzoVendita: true, categoria: true,
       tipoShopify: true, vendorShopify: true, lineaId: true, tagShopify: true, ggDispMin: true,
+      costoProduzione: true, creatoIl: true,
     },
   });
   const totaleInVendita = await prisma.prodotto.count({ where: FILTRO_IN_SCENA });
@@ -48,6 +49,12 @@ export default async function RegolaPage({ params }: { params: Promise<{ id: str
   // Quante collezioni mostrano ancora una fila decisa dalla regola vecchia.
   const indietro = await collezioniInRitardo(id);
   const passi = parsePassi(r.passi);
+  // La fila che la regola produrrebbe sul campione, col motore vero: e' l'unico
+  // modo di giudicare una regola senza applicarla a una vetrina.
+  const presiDaiPassi = perAnteprima.filter((p) => passi.some((x) => x.t !== "metrica" && corrisponde(p, x)));
+  const filaRegola = presiDaiPassi.length
+    ? await ordinaPerPassi(presiDaiPassi.map((p) => ({ ...p, prodottoId: p.id })), passi)
+    : [];
 
   return (
     <div className="layout">
@@ -99,6 +106,7 @@ export default async function RegolaPage({ params }: { params: Promise<{ id: str
             perAnteprima={perAnteprima}
             suCosa={`in vendita su ${totaleInVendita}`}
             campione={perAnteprima.length < totaleInVendita}
+            fila={filaRegola}
           />
         </div>
 

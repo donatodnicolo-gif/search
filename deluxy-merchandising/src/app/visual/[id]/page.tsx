@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
 import { euro } from "@/lib/dominio";
-import { etichettaRegola, FILTRO_IN_SCENA, isRegola, ordinaProdotti, parseRegole, type RegolaOrdinamento } from "@/lib/ordinamento-vetrina";
+import { etichettaRegola, FILTRO_IN_SCENA, isRegola, ordinaPerPassi, ordinaProdotti, parseRegole, type RegolaOrdinamento } from "@/lib/ordinamento-vetrina";
 import { SelettoreRegole } from "@/components/SelettoreRegole";
 import { CostruttorePassi } from "@/components/CostruttorePassi";
 import { FilaProdotti, StatoNegozio } from "@/components/FilaProdotti";
@@ -10,7 +10,7 @@ import { vociPassi } from "@/lib/voci-passi";
 import { linkAdmin } from "@/lib/link-shopify";
 import { etichettaOrdinamentoShopify, ordineAMano } from "@/lib/collezioni";
 import { REGOLE } from "@/lib/ordinamento-vetrina";
-import { etichettaPassi, filtroSuggerimenti, parsePassi } from "@/lib/regole-ordine";
+import { corrisponde, etichettaPassi, filtroSuggerimenti, parsePassi } from "@/lib/regole-ordine";
 import { applicaRegolaSalvataAzione, creaRegolaDaCollezione } from "@/lib/azioni-regole-ordine";
 import { iscriviCollezioneARotazione } from "@/lib/azioni-rotazione";
 import { etichettaFrequenza, etichettaModo, prossimaVolta } from "@/lib/rotazione";
@@ -190,11 +190,27 @@ export default async function CurazioneCollezionePage({
             select: {
               id: true, nome: true, immagine: true, prezzoVendita: true, categoria: true,
               tipoShopify: true, vendorShopify: true, lineaId: true, tagShopify: true, ggDispMin: true,
+              // Servono alle metriche della fila (margine, novita'): senza, l'ordine
+              // vero non si potrebbe calcolare.
+              costoProduzione: true, creatoIl: true,
             },
           }),
           prisma.prodotto.count({ where: FILTRO_IN_SCENA }),
         ])
       : [[], 0];
+
+  // **La fila che i passi salvati produrrebbero**, calcolata col motore vero
+  // (`ordinaPerPassi`, lo stesso che poi scrive le posizioni): comprende anche le
+  // metriche — piu' venduti, novita' — che nel browser non si potrebbero
+  // calcolare. Si mostrano solo i prodotti che **almeno un passo prende**: le
+  // metriche da sole metterebbero in fila l'intero campione, e un'anteprima di
+  // 900 prodotti non dice niente della regola.
+  const passiSalvati = c.regolaOrdine ? parsePassi(c.regolaOrdine.passi) : [];
+  const presiDaiPassi = perAnteprima.filter((p) => passiSalvati.some((x) => x.t !== "metrica" && corrisponde(p, x)));
+  const filaRegola = presiDaiPassi.length
+    ? await ordinaPerPassi(presiDaiPassi.map((p) => ({ ...p, prodottoId: p.id })), passiSalvati)
+    : [];
+
   const pannelloAperto = sp.aggiungi === "1";
   const cerca = (sp.cerca ?? "").trim();
   const filtroRegola = c.regolaOrdine ? filtroSuggerimenti(parsePassi(c.regolaOrdine.passi)) : null;
@@ -403,6 +419,7 @@ export default async function CurazioneCollezionePage({
               perAnteprima={perAnteprima}
               suCosa={`in vendita su ${totaleInVendita}`}
               campione={perAnteprima.length < totaleInVendita}
+              fila={filaRegola}
               idsCollezione={inScena.map((vp) => vp.prodottoId)}
               nomeCollezione={c.titolo}
             />
