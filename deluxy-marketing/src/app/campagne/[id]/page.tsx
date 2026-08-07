@@ -25,10 +25,12 @@ import { VenditeCampagna } from "@/components/VenditeCampagna";
 import { RinominaInline } from "@/components/RinominaInline";
 import { BudgetInline } from "@/components/BudgetInline";
 import { SelettoreStato } from "@/components/SelettoreStato";
-import { ETICHETTA_LINGUA, LINGUE_CAMPAGNA, legameDiCampagna } from "@/lib/vendite-campagna";
+import { ETICHETTA_LINGUA, LINGUE_CAMPAGNA, legameDiCampagna, linguaDaNome } from "@/lib/vendite-campagna";
+import { PortaKeyword } from "@/components/PortaKeyword";
 import {
   aggiungiMetrica,
   cambiaStatoCampagna,
+  applicaKeywordAdAltreCampagne,
   creaOperazione,
   impostaLinguaCampagna,
   rinominaCampagna,
@@ -114,6 +116,16 @@ export default async function SchedaCampagna({
     (max, m) => (!max || m.data > max.data ? { data: m.data, spesa: m.spesa } : max),
     null
   );
+
+  // Le campagne su cui si può portare una parola cercata: solo quelle che
+  // erogano davvero, come nel dialogo della pagina Keywords.
+  const campagneDoveportare = (
+    await prisma.campagna.findMany({
+      where: { canale: "google_ads", stato: "attiva" },
+      orderBy: { nome: "asc" },
+      select: { id: true, nome: true, classe: true },
+    })
+  ).map((c) => ({ ...c, lingua: linguaDaNome(c.nome) }));
 
   // I gruppi della campagna: la media di campagna qui sopra può nascondere un
   // gruppo che rende il doppio e uno che brucia. Vanno guardati separati.
@@ -359,6 +371,8 @@ export default async function SchedaCampagna({
         <TerminiRicerca
           campagnaId={campagna.id}
           brand={campagna.brand}
+          nomeCampagna={campagna.nome}
+          linguaCampagna={linguaCampagna}
           base={`/campagne/${campagna.id}`}
           altriParametri={parametriPeriodo(periodo)}
           ord={sp.ord}
@@ -515,6 +529,16 @@ export default async function SchedaCampagna({
             </section>
           </div>
         </div>
+
+        {/* Il dialogo di «Porta altrove», uno solo per pagina: i bottoni delle
+            righe (parole cercate) lo aprono con un ascoltatore delegato. Lo
+            stesso componente della pagina Keywords, stessa coda, stesse
+            regole — non una seconda strada che gli somiglia. */}
+        <PortaKeyword
+          campagne={campagneDoveportare}
+          ritorno={`/campagne/${campagna.id}`}
+          azione={applicaKeywordAdAltreCampagne}
+        />
       </main>
     </div>
   );

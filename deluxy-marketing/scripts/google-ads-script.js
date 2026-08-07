@@ -622,10 +622,16 @@ function leggiAnnunci() {
     if (!v) {
       v = perChiave[chiave] = {
         testo: testo, tipo: tipo, campagna: r.campaign.name,
-        gruppi: [], usi: 0, rendimento: null, attivo: false,
+        gruppi: [], annunci: [], usi: 0, rendimento: null, attivo: false,
       };
     }
     v.usi++;
+    // Quale ANNUNCIO usa questo testo. Serve a rimettere insieme gli annunci
+    // uno per uno: l'app riceve i testi accorpati (lo stesso titolo sta in
+    // piu annunci) e senza questo elenco non puo piu dire quali 15 titoli
+    // stavano insieme nello stesso annuncio.
+    var idAnnuncio = r.adGroupAd && r.adGroupAd.ad ? String(r.adGroupAd.ad.id) : null;
+    if (idAnnuncio && indiceIn(v.annunci, idAnnuncio) === -1) v.annunci.push(idAnnuncio);
     if (indiceIn(v.gruppi, r.adGroup.name) === -1) v.gruppi.push(r.adGroup.name);
     if (r.adGroupAd.status === "ENABLED") v.attivo = true;
     v.rendimento = migliorRendimento(v.rendimento, vista.performanceLabel);
@@ -642,6 +648,7 @@ function leggiAnnunci() {
       gruppo: elenco(x.gruppi),
       rendimento: x.rendimento, // BEST | GOOD | LOW | LEARNING | PENDING
       note: "usato in " + x.usi + " annunc" + (x.usi === 1 ? "io" : "i"),
+      annunci: x.annunci,
       statoPiattaforma: x.attivo ? "ENABLED" : "PAUSED",
     });
   }

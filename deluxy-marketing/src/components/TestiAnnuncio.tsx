@@ -15,6 +15,8 @@ export type TestoAnnuncio = {
   testo: string;
   caratteri: number | null;
   rendimento: string | null;
+  // Gli ID degli annunci che usano questo testo, separati da virgola.
+  annunci?: string | null;
 };
 
 const LIMITE: Record<string, number> = { titolo: 30, descrizione: 90 };
@@ -66,18 +68,75 @@ export function TestiAnnuncio({ testi }: { testi: TestoAnnuncio[] }) {
   // Senza giudizio si ordina per lunghezza: è l'unica cosa azionabile rimasta.
   const perLunghezza = (a: TestoAnnuncio, b: TestoAnnuncio) => (b.caratteri ?? 0) - (a.caratteri ?? 0);
 
+  // ⚠️ Un elenco di 39 titoli e 12 descrizioni non è quello che vede chi cerca:
+  // quello che va in asta è **un annuncio**, con i suoi 15 titoli e le sue 4
+  // descrizioni. Qui si rimettono insieme, una colonna per annuncio.
+  //
+  // Serve `annunci` (gli ID che usano ogni testo), che arriva dal giro `copy`
+  // dello script aggiornato al 07/08/2026: finché non passa, quel campo è
+  // vuoto e si mostra l'elenco unico DICENDO perché.
+  const perAnnuncio = new Map<string, TestoAnnuncio[]>();
+  for (const t of testi) {
+    for (const id of (t.annunci ?? "").split(",").filter(Boolean)) {
+      const v = perAnnuncio.get(id) ?? [];
+      v.push(t);
+      perAnnuncio.set(id, v);
+    }
+  }
+  // Gli annunci più ricchi per primi: un annuncio con 15 titoli è quello
+  // completo, uno con 3 è un residuo.
+  const annunci = [...perAnnuncio.entries()].sort((a, b) => b[1].length - a[1].length);
+
+  const nota =
+    giudicati === 0 ? (
+      <p className="cella-sub" style={{ whiteSpace: "normal", marginBottom: 10 }}>
+        Google <b>non li giudica</b>: su questa campagna risponde «non applicabile» su tutti,
+        quindi non c&apos;è un migliore e un peggiore da mostrare. Sotto ogni testo, i caratteri
+        sul limite — in rosso quelli che Google troncherebbe.
+      </p>
+    ) : null;
+
+  if (annunci.length === 0) {
+    return (
+      <>
+        {nota}
+        <p className="cella-sub" style={{ whiteSpace: "normal", marginBottom: 10 }}>
+          Questi sono <b>tutti i testi della campagna messi insieme</b>, non i singoli annunci:
+          per dividerli serve sapere quale annuncio usa quale testo, e quel dato arriva col
+          prossimo giro <code>AZIONE = &quot;copy&quot;</code> dello script.
+        </p>
+        <div className="ga-colonne">
+          <Gruppo titolo="Titoli" tipo="titolo" testi={[...titoli].sort(perLunghezza)} />
+          <Gruppo titolo="Descrizioni" tipo="descrizione" testi={[...descrizioni].sort(perLunghezza)} />
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
-      {giudicati === 0 && (
-        <p className="cella-sub" style={{ whiteSpace: "normal", marginBottom: 10 }}>
-          Google <b>non li giudica</b>: su questa campagna risponde «non applicabile» su tutti,
-          quindi non c&apos;è un migliore e un peggiore da mostrare. Sotto ogni testo, i caratteri
-          sul limite — in rosso quelli che Google troncherebbe.
-        </p>
-      )}
+      {nota}
+      <p className="cella-sub" style={{ whiteSpace: "normal", marginBottom: 12 }}>
+        Una colonna per <b>annuncio</b> ({annunci.length}): sono i testi che vanno in asta
+        insieme. Lo stesso titolo può comparire in più annunci — è normale, ed è il motivo per
+        cui la somma delle colonne è più grande del numero di testi diversi.
+      </p>
       <div className="ga-colonne">
-        <Gruppo titolo="Titoli" tipo="titolo" testi={[...titoli].sort(perLunghezza)} />
-        <Gruppo titolo="Descrizioni" tipo="descrizione" testi={[...descrizioni].sort(perLunghezza)} />
+        {annunci.map(([id, suoi], i) => (
+          <div key={id}>
+            <div className="ga-annuncio">Annuncio {i + 1}</div>
+            <Gruppo
+              titolo="Titoli"
+              tipo="titolo"
+              testi={suoi.filter((t) => t.tipo === "titolo").sort(perLunghezza)}
+            />
+            <Gruppo
+              titolo="Descrizioni"
+              tipo="descrizione"
+              testi={suoi.filter((t) => t.tipo === "descrizione").sort(perLunghezza)}
+            />
+          </div>
+        ))}
       </div>
     </>
   );

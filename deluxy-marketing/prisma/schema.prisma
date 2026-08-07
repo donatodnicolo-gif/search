@@ -410,6 +410,14 @@ model CopyAnnuncio {
   livello          String?
   // Per le immagini: URL dell'anteprima
   anteprima        String?
+  // Gli ID degli ANNUNCI che usano questo testo, separati da virgola.
+  // ⚠️ Serve a rimettere insieme gli annunci uno per uno: l'app riceve i testi
+  // ACCORPATI (lo stesso titolo sta in più annunci, e tenerne una riga per
+  // annuncio moltiplicherebbe le righe e i numeri), quindi senza questo elenco
+  // non c'è modo di sapere quali 15 titoli stavano insieme nello stesso
+  // annuncio. Si riempie dal giro `copy` dello script aggiornato al
+  // 07/08/2026: sulle righe più vecchie resta vuoto.
+  annunci          String?
   note         String?
   creataIl     DateTime @default(now())
   aggiornataIl DateTime @updatedAt

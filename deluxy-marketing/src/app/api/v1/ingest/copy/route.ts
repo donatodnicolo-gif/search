@@ -145,6 +145,12 @@ export async function POST(req: NextRequest) {
       livello: a.livello ?? null,
       anteprima: a.anteprima ?? null,
       note: a.note ?? null,
+      // Gli annunci che usano questo testo: arrivano come elenco, si tengono
+      // come stringa separata da virgole. Se lo script è vecchio e non li
+      // manda, NON si azzera quello che c'è già.
+      ...(Array.isArray(a.annunci) && a.annunci.length > 0
+        ? { annunci: a.annunci.map((x: unknown) => String(x)).join(",") }
+        : {}),
       idEsterno: a.idEsterno ? String(a.idEsterno) : null,
       rendimento: a.rendimento ?? null,
       ...numeriAsset,

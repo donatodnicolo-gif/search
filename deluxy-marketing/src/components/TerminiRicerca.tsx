@@ -1,4 +1,5 @@
 import { giudicaTermine } from "@/lib/azioni";
+import { attributiPortaKeyword } from "@/lib/porta-keyword";
 import { prisma } from "@/lib/db";
 import { formattaEuro, formattaNumero } from "@/lib/dominio";
 import { breakEvenRoas } from "@/lib/guardrail";
@@ -36,9 +37,15 @@ export async function TerminiRicerca({
   ord,
   verso,
   periodoScelto,
+  nomeCampagna,
+  linguaCampagna,
 }: {
   campagnaId: string;
   brand: string;
+  // Il nome della campagna e la sua lingua: servono al bottone «Porta
+  // altrove», che riusa il dialogo della pagina Keywords.
+  nomeCampagna?: string;
+  linguaCampagna?: string | null;
   // Dove tornare quando si clicca un'intestazione.
   base?: string;
   // I parametri da NON perdere ordinando (il periodo, sopra ogni cosa):
@@ -309,6 +316,26 @@ export async function TerminiRicerca({
                             Escludi
                           </button>
                         </form>
+                        {/* Una ricerca che rende è una keyword che non abbiamo
+                            ancora comprato: da qui la si porta dove manca,
+                            con lo stesso dialogo della pagina Keywords.
+                            ⚠️ Corrispondenza ESATTA: è quella parola precisa
+                            ad aver reso, non tutto ciò che le somiglia. */}
+                        {nomeCampagna && (
+                          <button
+                            type="button"
+                            className="btn small fantasma"
+                            {...attributiPortaKeyword({
+                              testo: t.testo,
+                              corrispondenza: "exact",
+                              giaSu: [nomeCampagna],
+                              classificata: true,
+                              lingueDiOra: linguaCampagna ? [linguaCampagna] : [],
+                            })}
+                          >
+                            Porta altrove
+                          </button>
+                        )}
                       </div>
                     ) : (
                       <span className="tag-salute" style={{ color: COLORE_STATO[t.stato] ?? "var(--text-tertiary)" }}>
