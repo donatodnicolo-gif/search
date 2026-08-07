@@ -979,3 +979,42 @@ details.conferma-x[open] > summary { color: var(--orange, #C2721B); }
   color: var(--text-tertiary); font-size: 16px; flex: 0 0 auto;
 }
 .anteprima-foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* I primi cinque della fila che una regola produce: foto grande e nome, perche'
+   di una vetrina si guardano i primi ed e' li' che la regola si giudica. */
+.fila-top { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-start; }
+.fila-top-voce { width: 96px; position: relative; display: block; }
+.fila-top-voce img,
+.fila-top-vuota {
+  width: 96px; height: 96px; border-radius: 10px; object-fit: cover; display: block;
+  background: var(--surface-2, #F5F5F7);
+}
+.fila-top-vuota { display: flex; align-items: center; justify-content: center; color: var(--text-tertiary); font-size: 22px; }
+.fila-top-pos {
+  position: absolute; top: 6px; left: 6px; z-index: 1;
+  min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px;
+  background: rgba(0,0,0,.72); color: #fff; font-size: 11px; font-weight: 600;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.fila-top-nome {
+  display: block; margin-top: 5px; font-size: 11px; line-height: 1.25;
+  color: var(--text-secondary, #6E6E73);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+
+/* «Prodotto manuale»: sta qui perche' l'ha deciso una persona, non la regola. */
+.tag-manuale {
+  display: inline-block; margin-left: 8px; padding: 1px 7px; border-radius: 999px;
+  border: 1px solid var(--border, #E5E5EA); background: var(--surface-2, #F5F5F7);
+  color: var(--text-secondary, #6E6E73); font-size: 10px; font-weight: 600;
+  vertical-align: middle; white-space: nowrap;
+}
+
+/* L'interruttore dell'aggiunta automatica dentro il riquadro della regola. */
+.interruttore-regola {
+  display: flex; gap: 12px; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; margin: 12px 0 4px; padding: 12px 14px;
+  border: 1px solid var(--border, #E5E5EA); border-radius: 12px;
+  background: var(--surface-2, #F5F5F7);
+}
+.interruttore-regola > span { flex: 1 1 320px; }

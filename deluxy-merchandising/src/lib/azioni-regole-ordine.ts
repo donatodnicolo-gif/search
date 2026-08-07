@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "./db";
+import { aggiungiDaRegola } from "./aggiunta-da-regola";
 import { applicaRegolaSalvata, numeraPosizioni, ordineSecondoPassi } from "./ordinamento-vetrina";
 import { isRegola, regoleDaForm, type RegolaOrdinamento } from "./ordinamento-vetrina";
 import { CAMPI, parsePassi, serializePassi, type Campo, type Condizione, type Passo } from "./regole-ordine";
@@ -178,7 +179,10 @@ async function salvaPassi(id: string, passi: Passo[], fd?: FormData) {
   await prisma.regolaOrdine.update({ where: { id }, data: { passi: serializePassi(passi) } });
   const tornaA = fd ? String(fd.get("tornaA") ?? "") : "";
   if (tornaA) {
-    if (passi.length > 0) await applicaRegolaSalvata(tornaA, id);
+    if (passi.length > 0) {
+      await aggiungiDaRegola(tornaA);
+      await applicaRegolaSalvata(tornaA, id);
+    }
     revalidatePath(`/visual/${tornaA}`);
     redirect(`/visual/${tornaA}#regola`);
   }
@@ -251,6 +255,7 @@ export async function estendiRegolaAllaCollezione(collezioneId: string) {
   const r = await prisma.regolaOrdine.findUnique({ where: { id: c.regolaOrdineId }, select: { passi: true } });
   const passi = parsePassi(r?.passi);
   if (passi.length === 0) return;
+  await aggiungiDaRegola(collezioneId);
   const ordine = await ordineSecondoPassi(collezioneId, [...passi, { t: "metrica", m: "best_seller" }]);
   await numeraPosizioni(collezioneId, ordine);
   await prisma.collezioneShopify.update({
@@ -260,10 +265,39 @@ export async function estendiRegolaAllaCollezione(collezioneId: string) {
   revalidatePath(`/visual/${collezioneId}`);
 }
 
+/**
+ * **Accende o spegne l'aggiunta automatica**, e se si accende fa subito il primo
+ * giro: un interruttore che dice «da ora entrano da soli» e non fa entrare
+ * nessuno finche' non tocchi qualcos'altro si legge come rotto.
+ *
+ * Spegnendolo **non esce nessuno**: i prodotti gia' entrati restano dove sono.
+ * Togliere da una vetrina e' un'altra decisione, e non e' questa.
+ */
+export async function impostaAggiuntaAutomatica(collezioneId: string, fd: FormData) {
+  const acceso = String(fd.get("aggiuntaAutomatica") ?? "") === "1";
+  await prisma.collezioneShopify.update({ where: { id: collezioneId }, data: { aggiuntaAutomatica: acceso } });
+  let messaggio = acceso ? "Aggiunta automatica accesa." : "Aggiunta automatica spenta: i prodotti già entrati restano.";
+  if (acceso) {
+    const e = await aggiungiDaRegola(collezioneId);
+    if (e.errore) messaggio = e.errore;
+    else if (e.aggiunti > 0) {
+      const c = await prisma.collezioneShopify.findUnique({ where: { id: collezioneId }, select: { regolaOrdineId: true } });
+      if (c?.regolaOrdineId) await applicaRegolaSalvata(collezioneId, c.regolaOrdineId);
+      messaggio = `${e.aggiunti} prodotti entrati dalla regola${e.restano ? ` · altri ${e.restano} al prossimo giro` : ""}.`;
+    } else messaggio = "Aggiunta automatica accesa: non c'era niente da far entrare.";
+  }
+  revalidatePath(`/visual/${collezioneId}`);
+  redirect(`/visual/${collezioneId}?esito=ok&messaggio=${encodeURIComponent(messaggio)}#regola`);
+}
+
 /** Applica una regola salvata a una collezione (dalla scheda della collezione). */
 export async function applicaRegolaSalvataAzione(collezioneId: string, fd: FormData) {
   const regolaId = String(fd.get("regolaOrdineId") ?? "");
   if (!regolaId) return;
+  // Prima si fa entrare chi la regola porta dentro, poi si ordina: al contrario
+  // i nuovi arrivati resterebbero in fondo fino al giro successivo.
+  await prisma.collezioneShopify.update({ where: { id: collezioneId }, data: { regolaOrdineId: regolaId } });
+  await aggiungiDaRegola(collezioneId);
   await applicaRegolaSalvata(collezioneId, regolaId);
   revalidatePath(`/visual/${collezioneId}`);
 }

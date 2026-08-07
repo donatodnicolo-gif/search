@@ -33,3 +33,8 @@ npm-debug.log*
 
 # artefatto di build del typecheck: cambia a ogni "npx tsc", non e uno stato del progetto
 tsconfig.tsbuildinfo
+
+# il "ritorno indietro" delle correzioni di massa su Tipo/Venditore: i valori
+# vecchi dei prodotti toccati, per rimettere a posto se una scelta si rivela
+# sbagliata. Restano in locale — sono dati del negozio, non codice.
+ripristino-*.json

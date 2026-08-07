@@ -12,7 +12,7 @@
 //   npx tsx scripts/unisci-tipi-prodotto.ts --dry     ← solo il conto
 //   npx tsx scripts/unisci-tipi-prodotto.ts           ← scrive davvero
 
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 
 /**
  * Da → a. **Deciso da una persona**, non dedotto: quale sia la forma buona non
@@ -23,7 +23,14 @@ import { readFileSync } from "node:fs";
  * stesso disordine — testo libero riempito a mano negli anni — e si curano nello
  * stesso modo: prima sul negozio, poi qui.
  */
-type Unione = { campo: "tipo" | "fornitore"; da: string[]; a: string };
+type Unione =
+  | { campo: "tipo" | "fornitore"; da: string[]; a: string }
+  // **Non un'unione ma un'assegnazione**: si sceglie per *Tipo* e si scrive il
+  // *Venditore* («tutti i vini sono di Deluxy»). Vale la pena tenerla qui e non
+  // in uno script a parte: è la stessa disciplina — prima Shopify, poi il
+  // locale, con i tentativi — e due script che scrivono gli stessi campi
+  // finirebbero per farlo in due modi diversi.
+  | { campo: "fornitore"; seTipo: string[]; a: string };
 
 const UNIONI: Unione[] = [
   // — Tipi —
@@ -53,6 +60,23 @@ const UNIONI: Unione[] = [
   { campo: "fornitore", da: ["142 RESTAURANT"], a: "142 Restaurant" },
   { campo: "fornitore", da: ["DEODATO"], a: "Deodato" },
   { campo: "fornitore", da: ["MARYFLOR"], a: "Maryflor" },
+  // — 07/08/2026, chiesti dall'utente —
+  // «CDM» è Cake Design Milano, spezzato in tredici tipi per occasione (Adulti,
+  // Bambini, Matrimoni, Laurea…). Accorpandoli **si perde quella distinzione**
+  // dal negozio: resta nei tag, non più nel Tipo. È una scelta di merchandising
+  // presa dall'utente, scritta qui perché non si deduca dopo.
+  {
+    campo: "tipo",
+    da: [
+      "CDM Adulti", "CDM FunnyCake", "CDM Bambini", "CDM Domani", "CDM Torte", "CDM Matrimoni",
+      "CDM Cream Tart", "CDM Romantiche", "CDM Laurea", "CDM Nascite e Battesimi", "CDM Brand",
+      "CDM Natale", "CDM Pasqua",
+    ],
+    a: "Cake Design",
+  },
+  // Tutti i vini passano a Deluxy: **il fornitore vero sparisce dal negozio**
+  // (erano CANTINA FRANCO 89 e 142 Restaurant 41). Chiesto esplicitamente.
+  { campo: "fornitore", seTipo: ["Vini"], a: "Deluxy" },
 ];
 
 async function main() {
@@ -76,7 +100,9 @@ async function main() {
     const colonna = u.campo === "tipo" ? "tipoShopify" : "vendorShopify";
     const campoShopify = u.campo === "tipo" ? "productType" : "vendor";
     const prodotti = await prisma.prodotto.findMany({
-      where: { [colonna]: { in: u.da } },
+      // O si sceglie per **valore da correggere**, o per **Tipo** quando si sta
+      // assegnando il venditore a una famiglia di prodotti.
+      where: "seTipo" in u ? { tipoShopify: { in: u.seTipo } } : { [colonna]: { in: u.da } },
       select: {
         id: true,
         nome: true,
@@ -86,9 +112,36 @@ async function main() {
         collezioniShopify: { select: { collezione: { select: { negozio: true } } }, take: 1 },
       },
     });
-    const conGid = prodotti.filter((p) => p.shopifyId);
-    console.log(`\n«${u.da.join("», «")}» → «${u.a}»: ${prodotti.length} prodotti (${conGid.length} con id Shopify)`);
+    // Chi ha già il valore giusto non si tocca: sarebbe una chiamata a Shopify
+    // per non cambiare niente (dei 140 vini, 10 erano già di Deluxy).
+    const conGid = prodotti.filter(
+      (p) => p.shopifyId && (u.campo === "tipo" ? p.tipoShopify : p.vendorShopify) !== u.a,
+    );
+    const partenza = "seTipo" in u ? `Tipo «${u.seTipo.join("», «")}»` : `«${u.da.join("», «")}»`;
+    console.log(`\n${partenza} → ${u.campo} «${u.a}»: ${prodotti.length} prodotti (${conGid.length} da cambiare)`);
     if (secco) continue;
+    // **Il ritorno indietro, prima di partire.** Dopo la scrittura il valore
+    // vecchio non esiste più né qui né sul negozio: senza questo file l'unione
+    // sarebbe irreversibile, e un'operazione irreversibile su dati veri non si
+    // fa senza una via d'uscita.
+    if (conGid.length > 0) {
+      const nome = `ripristino-${u.campo}-${u.a.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.json`;
+      writeFileSync(
+        nome,
+        JSON.stringify(
+          conGid.map((p) => ({
+            id: p.id,
+            shopifyId: p.shopifyId,
+            nome: p.nome,
+            tipo: p.tipoShopify,
+            fornitore: p.vendorShopify,
+          })),
+          null,
+          2,
+        ),
+      );
+      console.log(`  ritorno indietro salvato in ${nome}`);
+    }
 
     let fatti = 0;
     let falliti = 0;
@@ -144,7 +197,7 @@ async function main() {
   const gv = await prisma.prodotto.groupBy({ by: ["vendorShopify"], where: { vendorShopify: { not: null } }, _count: true });
   for (const u of UNIONI) {
     const g = (u.campo === "tipo" ? gt.map((x) => ({ v: x.tipoShopify, n: x._count })) : gv.map((x) => ({ v: x.vendorShopify, n: x._count })));
-    const resta = g.filter((x) => u.da.includes(x.v as string));
+    const resta = "seTipo" in u ? [] : g.filter((x) => u.da.includes(x.v as string));
     const arrivo = g.find((x) => x.v === u.a);
     console.log(`  [${u.campo}] «${u.a}»: ${arrivo?.n ?? 0}${resta.length ? ` · restano ${resta.map((x) => `«${x.v}» ${x.n}`).join(", ")}` : " · nessun residuo"}`);
   }

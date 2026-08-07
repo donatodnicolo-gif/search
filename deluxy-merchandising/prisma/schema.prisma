@@ -444,6 +444,12 @@ model CollezioneShopify {
   tipologia    TipologiaCollezione? @relation(fields: [tipologiaId], references: [id], onDelete: SetNull)
   // La **rotazione periodica** a cui è iscritta questa collezione: ogni quanto
   // l'ordine si rifà da solo, perché una vetrina ferma smette di essere vista.
+  // **La regola porta dentro i prodotti, non solo li ordina.** Con questo acceso,
+  // ogni volta che la regola si applica i prodotti che le condizioni prendono e
+  // che qui non ci sono ancora **entrano nella collezione**, su Shopify e qui.
+  // Spento di default: far entrare prodotti in una vetrina e' una decisione, non
+  // un effetto collaterale dell'ordinamento.
+  aggiuntaAutomatica Boolean @default(false)
   rotazioneId  String?
   rotazione    RegolaRotazione? @relation(fields: [rotazioneId], references: [id], onDelete: SetNull)
   // Quando l'ordine curato qui è stato cambiato l'ultima volta e quando è stato
@@ -583,7 +589,13 @@ model ProdottoInCollezioneShopify {
   prodotto     Prodotto          @relation(fields: [prodottoId], references: [id], onDelete: Cascade)
   // L'ordine curato del prodotto dentro questa collezione: è quello che si
   // spinge su Shopify (collectionReorderProducts). 0 finché non lo si ordina.
-  posizione    Int               @default(0)
+  // Chi ha messo qui questo prodotto: "regola" se ce l'ha portato l'aggiunta
+  // automatica, "manuale" per tutti gli altri — quelli arrivati dall'import di
+  // Shopify e quelli aggiunti a mano da una persona. Serve a **distinguere a
+  // vista** cosa e' una scelta di qualcuno da cosa e' conseguenza della regola:
+  // senza, riapplicando la regola non si sa piu' cosa si sta per sovrascrivere.
+  origine   String @default("manuale")
+  posizione Int               @default(0)
   // Il GID Shopify del prodotto su questo negozio (gid://shopify/Product/…):
   // serve per riordinare su Shopify, che ragiona per id suoi. Salvato all'import.
   prodottoShopifyId String?

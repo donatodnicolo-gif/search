@@ -293,6 +293,21 @@ porta **3120**. Design system Deluxy v1.0.
   - ⚠️ **Salvarlo non riscrive nessuna vetrina**: la fila nuova si vede quando la regola **si riapplica** (a mano, o da sola se la collezione è iscritta a un ritmo in Rotazioni). È scritto in pagina — un'impostazione che sembra fare qualcosa e non lo fa è peggio che non averla.
   - **Verificato su 300 prodotti veri**: i gruppi restano al loro posto (impronta identica), stesso giorno = stessa fila, giorno dopo = fila diversa, nessun prodotto perso o doppio, e con «non ruota» la fila non si muove. Primo dei Fiori oggi «Bouquet Orange Elegance», domani «Bouquet Pink Grace».
 
+- **07/08/2026 — l'anteprima mostra i primi cinque, col nome** (chiesto dall'utente: «qui però devono uscire i top 5 dell'anteprima»). Ventiquattro miniature senza nome erano un altro elenco di prodotti sopra a quello che c'è già in pagina, e non si capiva **chi** fosse davvero in cima. Ora: cinque foto grandi, numerate, col nome sotto, e «e altri N dietro».
+
+- **07/08/2026 — la regola può far entrare i prodotti, non solo ordinarli** (chiesto dall'utente: «metti opzione Aggiungi automaticamente prodotti alla collezione… se l'utente aggiunge a mano un prodotto metti nel segnaposto Prodotto Manuale»). Nuovi campi `CollezioneShopify.aggiuntaAutomatica` e `ProdottoInCollezioneShopify.origine` (`regola` | `manuale`).
+  - **Interruttore nel riquadro della regola**, spento di default: far entrare prodotti in una vetrina è una decisione, non un effetto collaterale dell'ordinamento. Accendendolo **fa subito il primo giro** — un interruttore che dice «da ora entrano da soli» e non fa entrare nessuno finché non tocchi altro si legge come rotto.
+  - **Scrive prima su Shopify** (`collectionAddProducts`) e solo dopo qui: l'appartenenza vive sul negozio e si rilegge a ogni import, quindi segnarla solo in locale sarebbe una bugia che dura fino al prossimo giro. Massimo **250 per giro** (il limite della mutation), e quanti restano fuori è scritto: un'aggiunta troncata in silenzio si legge come «erano solo questi».
+  - **Non toglie mai niente**: se un prodotto smette di corrispondere resta dov'è, e spegnendo l'interruttore non esce nessuno. Togliere da una vetrina è un'altra decisione.
+  - **Sulle collezioni automatiche di Shopify non si applica**: lì chi entra lo decide il negozio. L'app lo dice invece di provarci.
+  - **«Prodotto manuale»** compare accanto ai prodotti con `origine ≠ regola` **solo quando l'aggiunta automatica è accesa**: altrimenti sarebbe su ogni riga e non distinguerebbe niente. Il segnaposto sta **sul prodotto, non sulla posizione**, quindi spostando la riga si sposta con lei.
+  - **L'ordine viene dopo l'ingresso**: nelle azioni che applicano la regola (assegna, «Estendi alla collezione», salvataggio di un passo dalla collezione) prima si fa entrare chi la regola porta dentro, poi si ordina — al contrario i nuovi arrivati resterebbero in fondo fino al giro dopo.
+
+- **07/08/2026 — CDM accorpato e i vini passati a Deluxy, sul negozio** (chiesti dall'utente). **347 prodotti** dai 13 tipi `CDM *` (Adulti 79, FunnyCake 56, Bambini 50, Domani 47, Torte 32, Matrimoni 24, Cream Tart 18, Romantiche 15, Laurea 12, Nascite e Battesimi 7, Brand 4, Natale 2, Pasqua 1) → **«Cake Design»**, che passa da 68 a **415**; e **130 vini** → Venditore **«Deluxy»** (da 823 a 953; CANTINA FRANCO 100 → 11, 142 Restaurant 66 → 25). Zero residui, 347/347 e 130/130 riusciti.
+  - ⚠️ **Cosa si è perso**: la distinzione dei CDM per occasione non è più nel Tipo (resta nei tag), e i vini non dicono più chi li fornisce. Erano scelte esplicite dell'utente — scritte qui perché non si deducano dopo.
+  - **Ritorno indietro**: lo script ora salva i valori vecchi in `ripristino-<campo>-<valore>.json` **prima** di scrivere (in `.gitignore`: sono dati del negozio). Senza, l'unione sarebbe irreversibile.
+  - Lo script accetta ora anche la forma **`seTipo`** — si sceglie per Tipo e si scrive il Venditore («tutti i vini sono di Deluxy») — invece di limitarsi a unire valori doppi. Chi ha già il valore giusto non viene toccato (10 vini erano già Deluxy).
+
 ## COME AVVIARE
 ```
 cd deluxy-merchandising

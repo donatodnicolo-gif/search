@@ -5,9 +5,11 @@ import { aggiungiPassiInBlocco, muoviPasso } from "@/lib/azioni-regole-ordine";
 import type { ProdottoAnteprima } from "./AnteprimaCella";
 import { CostruttoreCella } from "./CostruttoreCella";
 
-// Quante foto della fila si mostrano: piu' di cosi' non e' un'anteprima, e' un
-// altro elenco di prodotti sopra a quello che c'e' gia' in pagina.
-const MAX_FILA = 24;
+// **I primi cinque, e col nome.** Di una vetrina si guardano i primi: e' li' che
+// la regola si giudica. Ventiquattro miniature senza nome erano un altro elenco
+// di prodotti sopra a quello che c'e' gia' in pagina, e non si capiva **chi**
+// fosse davvero in cima.
+const MAX_FILA = 5;
 
 const NOMI_METRICHE = Object.fromEntries(REGOLE.map((r) => [r.chiave, r.nome]));
 
@@ -122,13 +124,19 @@ export function CostruttorePassi({
               vetrina.
             </span>
           ) : (
-            <div className="anteprima-foto">
+            <div className="fila-top">
               {fila.slice(0, MAX_FILA).map((p, i) => (
-                <span key={p.id} title={`${i + 1}. ${p.nome}`}>
-                  {p.immagine ? <img src={p.immagine} alt="" /> : "❀"}
+                <span className="fila-top-voce" key={p.id} title={p.nome}>
+                  <b className="fila-top-pos">{i + 1}</b>
+                  {p.immagine ? <img src={p.immagine} alt="" /> : <i className="fila-top-vuota">❀</i>}
+                  <span className="fila-top-nome">{p.nome}</span>
                 </span>
               ))}
-              {fila.length > MAX_FILA && <span className="page-sub">+{fila.length - MAX_FILA}</span>}
+              {fila.length > MAX_FILA && (
+                <span className="page-sub" style={{ alignSelf: "center", margin: 0 }}>
+                  e altri {fila.length - MAX_FILA} dietro
+                </span>
+              )}
             </div>
           )}
         </div>

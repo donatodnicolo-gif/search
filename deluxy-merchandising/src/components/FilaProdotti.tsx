@@ -11,6 +11,8 @@ import {
 export type RigaFila = {
   id: string;
   prodottoId: string;
+  /** "regola" se ce l'ha portato l'aggiunta automatica, "manuale" negli altri casi. */
+  origine?: string;
   prodotto: {
     nome: string;
     codice: string;
@@ -44,6 +46,7 @@ export type RigaFila = {
 export function FilaProdotti({
   collezioneId,
   righe,
+  segnaManuali,
   membriAMano,
   daPosizione = 0,
   totale,
@@ -51,6 +54,8 @@ export function FilaProdotti({
 }: {
   collezioneId: string;
   righe: RigaFila[];
+  /** Quando l'aggiunta automatica e' accesa si segna chi sta qui **per scelta di una persona**. */
+  segnaManuali?: boolean;
   /** Il × compare solo dove i membri si scelgono a mano: in una smart collection il prodotto rientrerebbe da solo. */
   membriAMano: boolean;
   /** Il numero da cui parte la numerazione mostrata, quando la fila è tagliata. */
@@ -78,6 +83,13 @@ export function FilaProdotti({
             </span>
             <span className="vetrina-info">
               <a href={`/prodotti/${vp.prodottoId}`} className="cella-nome">{vp.prodotto.nome}</a>
+              {/* **Il segnaposto sta sul prodotto, non sulla posizione**: cosi'
+                  spostando la riga si sposta con lei, senza doverlo rifare. */}
+              {segnaManuali && vp.origine !== "regola" && (
+                <span className="tag-manuale" title="Non l'ha portato la regola: ce l'ha messo una persona. Riapplicando la regola resta.">
+                  Prodotto manuale
+                </span>
+              )}
               <div className="cella-sub">
                 <StatoNegozio stato={vp.prodotto.statoShopify} />
                 {" "}{vp.prodotto.codice}

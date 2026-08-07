@@ -11,7 +11,12 @@ import { linkAdmin } from "@/lib/link-shopify";
 import { etichettaOrdinamentoShopify, ordineAMano } from "@/lib/collezioni";
 import { REGOLE } from "@/lib/ordinamento-vetrina";
 import { corrisponde, etichettaPassi, filtroSuggerimenti, parsePassi } from "@/lib/regole-ordine";
-import { applicaRegolaSalvataAzione, creaRegolaDaCollezione, estendiRegolaAllaCollezione } from "@/lib/azioni-regole-ordine";
+import {
+  applicaRegolaSalvataAzione,
+  creaRegolaDaCollezione,
+  estendiRegolaAllaCollezione,
+  impostaAggiuntaAutomatica,
+} from "@/lib/azioni-regole-ordine";
 import { iscriviCollezioneARotazione } from "@/lib/azioni-rotazione";
 import { etichettaFrequenza, etichettaModo, prossimaVolta } from "@/lib/rotazione";
 import { salvaProdottiPerRiga } from "@/lib/azioni-collezioni-shopify";
@@ -417,6 +422,33 @@ export default async function CurazioneCollezionePage({
               con «Riapplica» dalla scheda della regola. Con <b>Estendi alla collezione</b> si riordinano anche i
               prodotti che <b>nessun passo prende</b>: vanno dietro, <b>dal più venduto in giù</b>.
             </p>
+            {/* **La regola porta dentro i prodotti, non solo li ordina.** Spento di
+                default: far entrare prodotti in una vetrina e' una decisione, non
+                un effetto collaterale dell'ordinamento. */}
+            <form action={impostaAggiuntaAutomatica.bind(null, id)} className="interruttore-regola">
+              <input type="hidden" name="aggiuntaAutomatica" value={c.aggiuntaAutomatica ? "0" : "1"} />
+              <span>
+                <b>Aggiungi automaticamente prodotti alla collezione</b>
+                <div className="cella-sub">
+                  {c.aggiuntaAutomatica ? (
+                    <>
+                      Acceso: i prodotti che le condizioni prendono <b>entrano</b> nella collezione — su Shopify e qui —
+                      ogni volta che la regola si applica. Quelli messi da una persona restano, segnati{" "}
+                      <b>«Prodotto manuale»</b>. Nessuno esce mai da solo.
+                    </>
+                  ) : (
+                    <>
+                      Spento: la regola <b>ordina soltanto</b> chi è già dentro. Accendendolo, i prodotti che le
+                      condizioni prendono entrano anche nella collezione.
+                    </>
+                  )}
+                </div>
+              </span>
+              <button type="submit" className={c.aggiuntaAutomatica ? "btn btn-secondario" : "btn btn-primario"}>
+                {c.aggiuntaAutomatica ? "Spegni" : "Accendi"}
+              </button>
+            </form>
+
             <CostruttorePassi
               regolaId={c.regolaOrdine.id}
               passi={parsePassi(c.regolaOrdine.passi)}
@@ -744,7 +776,7 @@ export default async function CurazioneCollezionePage({
             </div>
           ) : (
             <>
-              <FilaProdotti collezioneId={id} righe={righe} membriAMano={membriAMano} totale={inScena.length} vista={aGriglia ? "griglia" : "elenco"} />
+              <FilaProdotti collezioneId={id} righe={righe} segnaManuali={c.aggiuntaAutomatica} membriAMano={membriAMano} totale={inScena.length} vista={aGriglia ? "griglia" : "elenco"} />
               {restano > 0 && (
                 <p className="page-sub" style={{ marginTop: 12 }}>
                   Mostrati i primi {MAX_RIGHE}; altri {restano} prodotti non sono in elenco ma l'ordine inviato a
