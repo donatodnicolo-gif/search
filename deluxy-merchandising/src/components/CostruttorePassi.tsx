@@ -2,7 +2,8 @@ import { REGOLE } from "@/lib/ordinamento-vetrina";
 import { CAMPI, etichettaPasso, RISPOSTE, type Passo } from "@/lib/regole-ordine";
 import type { VociPassi, VoceValore } from "@/lib/voci-passi";
 import { aggiungiPassiInBlocco, muoviPasso } from "@/lib/azioni-regole-ordine";
-import { AnteprimaCella, type ProdottoAnteprima } from "./AnteprimaCella";
+import type { ProdottoAnteprima } from "./AnteprimaCella";
+import { CostruttoreCella } from "./CostruttoreCella";
 
 const NOMI_METRICHE = Object.fromEntries(REGOLE.map((r) => [r.chiave, r.nome]));
 
@@ -84,57 +85,16 @@ export function CostruttorePassi({
 
       <form action={aggiungiPassiInBlocco.bind(null, regolaId)} style={{ marginTop: 18 }}>
         {tornaA && <input type="hidden" name="tornaA" value={tornaA} />}
-        {/* **L'anteprima sta in cima e si aggiorna mentre si spunta.** Costruire
-            alla cieca e scoprire dopo cosa si e' preso e' il difetto vero: con
-            «Fiori» che sono 379, la differenza fra una cella utile e una che
-            prende mezzo catalogo non si indovina. */}
-        {perAnteprima && perAnteprima.length > 0 && (
-          <AnteprimaCella prodotti={perAnteprima} suCosa={suCosa} campione={campione} />
-        )}
-        <div className="griglia-condizioni">
-          <div className="gc-testa">Condizione</div>
-          <div className="gc-testa">Valori — chi corrisponde va in cima</div>
+        {/* **La griglia è un componente client**: a ogni spunta rifà i conti e
+            spegne i valori che non stanno insieme a quello che hai scelto — le
+            condizioni di una cella valgono tutte insieme, quindi non sono
+            indipendenti. Dentro c'è anche l'anteprima, perché condivide la stessa
+            selezione: tenerle separate avrebbe voluto dire due stati da tenere
+            allineati. */}
+        <CostruttoreCella voci={voci} prodotti={perAnteprima ?? []} suCosa={suCosa} campione={campione} />
 
-          {CAMPI.filter((c) => c.chiave !== "prezzo").map((campo) => {
-            const opzioni = valori[campo.chiave] ?? [];
-            return (
-              <Riga key={campo.chiave} etichetta={campo.nome} aiuto={campo.spiega}>
-                {opzioni.length === 0 ? (
-                  <span className="page-sub" style={{ margin: 0 }}>
-                    Nessun valore nei dati: questa condizione non avrebbe niente da portare in cima.
-                  </span>
-                ) : (
-                  /* **Caselle a griglia, non un menu a selezione multipla.** Un
-                     `<select multiple>` vuole il ctrl+clic per prenderne più di
-                     uno — chi non lo sa ne sceglie sempre uno solo — e mostra
-                     cinque righe alla volta di quattrocento tag. Qui i valori si
-                     vedono tutti insieme e si spuntano uno per uno, come si
-                     scelgono i prodotti. */
-                  <div className="griglia-valori" role="group" aria-label={campo.nome}>
-                    {opzioni.map((x) => (
-                      <label className="chip-valore" key={x.v}>
-                        <input type="checkbox" name={`valori:${campo.chiave}`} value={x.v} />
-                        <span>{x.etichetta ?? x.v}</span>
-                        {x.n != null && <b className="chip-conta">{x.n}</b>}
-                      </label>
-                    ))}
-                  </div>
-                )}
-              </Riga>
-            );
-          })}
-
-          <Riga etichetta="Prezzo" aiuto="Il «da» è compreso, il «a» escluso: 200 € non cade in un buco fra due passi.">
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <input name="prezzoDa" type="number" step="0.01" placeholder="da €" style={{ width: 110 }} />
-              <input name="prezzoA" type="number" step="0.01" placeholder="a €" style={{ width: 110 }} />
-            </div>
-          </Riga>
-
-          {/* La metrica sta **in fondo**, ed è dove va: mette in fila tutti i
-              prodotti, quindi davanti a una condizione la renderebbe inutile —
-              deciderebbe già tutto lei. */}
-          <Riga etichetta="Metrica, a parità" aiuto="Mette in fila tutti i prodotti. Aggiunta come ultimo passo: spezza i pareggi lasciati dalle condizioni.">
+        <div className="griglia-condizioni" style={{ marginTop: 14 }}>
+          <Riga etichetta="Poi ordina per" aiuto="Come si mettono in fila i prodotti che la cella porta in cima. Senza condizioni, mette in fila tutti.">
             <select name="metrica" aria-label="Metrica" defaultValue="">
               <option value="">— nessuna —</option>
               {REGOLE.filter((x) => x.chiave !== "manuale").map((x) => (
@@ -148,9 +108,9 @@ export function CostruttorePassi({
           <button type="submit" className="btn btn-primario">Aggiungi come cella</button>
           <span className="page-sub" style={{ margin: 0 }}>
             Quello che spunti qui diventa <b>una cella</b>: «Fiori <i>e</i> Bouquet <i>e</i> urgenti» è una casella
-            sola, non tre priorità. Dentro una riga i valori valgono <b>in alternativa</b> (Fiori <i>o</i> Torte); fra
-            righe diverse contano <b>tutte insieme</b>. Premi di nuovo per una <b>seconda cella</b>: la prima decide
-            l&apos;ordine, le successive spezzano i pareggi.
+            sola, non tre priorità. Dentro una riga i valori valgono <b>in alternativa</b>; fra righe diverse contano{" "}
+            <b>tutte insieme</b>, ed è per questo che spuntando qualcosa gli altri valori si restringono. Premi di
+            nuovo per una <b>seconda cella</b>: la prima decide l&apos;ordine, le successive spezzano i pareggi.
           </span>
         </div>
       </form>
