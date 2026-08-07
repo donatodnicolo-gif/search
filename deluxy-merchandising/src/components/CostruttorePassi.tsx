@@ -32,6 +32,8 @@ export function CostruttorePassi({
   perAnteprima,
   suCosa = "in vendita",
   campione,
+  idsCollezione,
+  nomeCollezione,
 }: {
   regolaId: string;
   passi: Passo[];
@@ -41,6 +43,9 @@ export function CostruttorePassi({
   perAnteprima?: ProdottoAnteprima[];
   suCosa?: string;
   campione?: boolean;
+  /** Quando si lavora da una collezione: per dire anche quanti ne tocca **qui dentro**. */
+  idsCollezione?: string[];
+  nomeCollezione?: string;
 }) {
   const valori: Record<string, VoceValore[]> = {
     tipo: voci.tipi,
@@ -91,18 +96,14 @@ export function CostruttorePassi({
             indipendenti. Dentro c'è anche l'anteprima, perché condivide la stessa
             selezione: tenerle separate avrebbe voluto dire due stati da tenere
             allineati. */}
-        <CostruttoreCella voci={voci} prodotti={perAnteprima ?? []} suCosa={suCosa} campione={campione} />
-
-        <div className="griglia-condizioni" style={{ marginTop: 14 }}>
-          <Riga etichetta="Poi ordina per" aiuto="Come si mettono in fila i prodotti che la cella porta in cima. Senza condizioni, mette in fila tutti.">
-            <select name="metrica" aria-label="Metrica" defaultValue="">
-              <option value="">— nessuna —</option>
-              {REGOLE.filter((x) => x.chiave !== "manuale").map((x) => (
-                <option key={x.chiave} value={x.chiave}>{x.nome}</option>
-              ))}
-            </select>
-          </Riga>
-        </div>
+        <CostruttoreCella
+          voci={voci}
+          prodotti={perAnteprima ?? []}
+          suCosa={suCosa}
+          campione={campione}
+          idsCollezione={idsCollezione}
+          nomeCollezione={nomeCollezione}
+        />
 
         <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginTop: 14 }}>
           <button type="submit" className="btn btn-primario">Aggiungi come cella</button>

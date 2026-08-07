@@ -26,6 +26,10 @@ export const dynamic = "force-dynamic";
 const MAX_RIGHE = 300;
 const NOMI_METRICHE = Object.fromEntries(REGOLE.map((r) => [r.chiave, r.nome]));
 const MAX_ANTEPRIMA = 60;
+// Il campione di catalogo su cui il costruttore delle condizioni fa i conti nel
+// browser: mandarne quattromila per un numero che cambia a ogni spunta non vale
+// il peso della pagina. Il taglio e' dichiarato a schermo.
+const MAX_CATALOGO = 900;
 
 export default async function CurazioneCollezionePage({
   params,
@@ -161,6 +165,27 @@ export default async function CurazioneCollezionePage({
   // l'opzione rapida. Erano due schede alte una sotto l'altra, e l'ordine dei
   // prodotti finiva sotto la piega.
   const modoCondizioni = sp.modo ? sp.modo === "condizioni" : c.regolaOrdineId != null;
+  // **Le condizioni si scrivono sul catalogo, non sulla collezione.** Il
+  // costruttore mostra i valori disponibili e quanti prodotti prenderebbero: se
+  // il conto lo si fa sui prodotti già dentro, con una collezione da cinque si
+  // vedono cinque tag e sembra che non ci sia niente da scegliere — segnalato
+  // dall'utente («ma io non ho ancora scelto nulla»). Il catalogo è il
+  // vocabolario; quanti ne tocca *qui dentro* è il secondo numero, accanto.
+  const [perAnteprima, totaleInVendita] =
+    modoCondizioni && c.regolaOrdine
+      ? await Promise.all([
+          prisma.prodotto.findMany({
+            where: FILTRO_IN_SCENA,
+            take: MAX_CATALOGO,
+            orderBy: { nome: "asc" },
+            select: {
+              id: true, nome: true, immagine: true, prezzoVendita: true, categoria: true,
+              tipoShopify: true, vendorShopify: true, lineaId: true, tagShopify: true, ggDispMin: true,
+            },
+          }),
+          prisma.prodotto.count({ where: FILTRO_IN_SCENA }),
+        ])
+      : [[], 0];
   const pannelloAperto = sp.aggiungi === "1";
   const cerca = (sp.cerca ?? "").trim();
   const filtroRegola = c.regolaOrdine ? filtroSuggerimenti(parsePassi(c.regolaOrdine.passi)) : null;
@@ -366,19 +391,11 @@ export default async function CurazioneCollezionePage({
               passi={parsePassi(c.regolaOrdine.passi)}
               voci={voci}
               tornaA={id}
-              perAnteprima={inScena.map((vp) => ({
-                id: vp.prodottoId,
-                nome: vp.prodotto.nome,
-                immagine: vp.prodotto.immagine,
-                prezzoVendita: vp.prodotto.prezzoVendita,
-                categoria: vp.prodotto.categoria,
-                tipoShopify: vp.prodotto.tipoShopify,
-                vendorShopify: vp.prodotto.vendorShopify,
-                lineaId: vp.prodotto.lineaId,
-                tagShopify: vp.prodotto.tagShopify,
-                ggDispMin: vp.prodotto.ggDispMin,
-              }))}
-              suCosa="in questa collezione"
+              perAnteprima={perAnteprima}
+              suCosa={`in vendita su ${totaleInVendita}`}
+              campione={perAnteprima.length < totaleInVendita}
+              idsCollezione={inScena.map((vp) => vp.prodottoId)}
+              nomeCollezione={c.titolo}
             />
           </div>
         )}

@@ -259,6 +259,15 @@ porta **3120**. Design system Deluxy v1.0.
   - **Le liste dei valori delle condizioni contano solo i prodotti attivi**: «Fiori 379» comprendeva archiviati e bozze, e spuntandolo l'anteprima ne mostrava molti meno. I valori che nessun prodotto attivo porta **non compaiono più**: sceglierli non sposterebbe niente.
   - **L'anteprima della cella resta appesa** in cima mentre si scorre la griglia (`position: sticky`): con 121 tipi e 400 tag, spuntare un tag in fondo senza più vedere il numero era tornare a costruire alla cieca.
 
+- **07/08/2026 — la cella può ordinare con più metriche, in ordine di scelta** (chiesto dall'utente: «permetti più scelte con l'ordine da ordine di selezione»). «Poi ordina per» era un menu a scelta singola: per dire «i più venduti, e a parità il margine più alto» non c'era modo. Ora è una fila di chip: si cliccano e **si accodano nell'ordine in cui li premi**, col numero d'ordine scritto nel chip (1º, 2º…).
+  - **L'ordine è quello del clic, non quello dell'elenco**: riordinarli da soli vorrebbe dire decidere al posto di chi sta scegliendo. Il 1º decide, gli altri **spezzano i pareggi** — e l'ultimo pareggio lo spezza il nome, come già faceva `ordinaPerPassi`.
+  - `Passo` cella: `m?: RegolaOrdinamento` è diventato `m?: RegolaOrdinamento[]`. **Le regole salvate prima continuano a funzionare**: `parsePassi` converte al volo la metrica singola in lista da uno — una migrazione dei dati per un campo dentro un JSON sarebbe stata più rischiosa della conversione in lettura. L'etichetta le mostra con la freccia: «Prima Fiori e Bouquet — poi per Più venduti → Margine più alto».
+  - Senza condizioni le metriche restano **passi separati**, uno per metrica: lì non c'è una cella a cui attaccarle, e in fila valgono come priorità successive — che è la stessa cosa.
+
+- **07/08/2026 — le condizioni si scrivono sul catalogo, non sulla collezione** (segnalato dall'utente: «ma io non ho ancora scelto nulla», con la griglia che diceva «41 nascosti: non stanno insieme a quello che hai scelto»). Sulla scheda di una collezione il costruttore contava sui prodotti **già dentro**: con cinque prodotti attivi si vedevano cinque tag e la griglia sembrava vuota prima ancora di toccarla.
+  - Ora i conti si fanno sul **campione del catalogo in vendita** (900, dichiarato a schermo) — è il vocabolario di quello che si può esprimere — e accanto compare il secondo numero: «di cui **N** in «questa collezione»». **Due numeri perché sono due domande diverse**: cosa prenderebbe la cella, e quanti di quelli stanno nella vetrina che si sta curando.
+  - Il messaggio dei valori spenti distingue i due casi: senza condizioni «senza prodotti in vendita: non porterebbero niente in cima», con condizioni «non stanno insieme a quello che hai scelto». Prima diceva sempre la seconda, cioè accusava una scelta che non era stata fatta.
+
 ## COME AVVIARE
 ```
 cd deluxy-merchandising

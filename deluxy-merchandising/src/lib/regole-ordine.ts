@@ -55,7 +55,7 @@ export type Condizione = { campo: Campo; valori?: string[]; da?: number; a?: num
 export type Passo =
   | { t: "metrica"; m: RegolaOrdinamento }
   | { t: "attr"; campo: Campo; valori?: string[]; da?: number; a?: number }
-  | { t: "cella"; c: Condizione[]; m?: RegolaOrdinamento };
+  | { t: "cella"; c: Condizione[]; m?: RegolaOrdinamento[] };
 
 /** Il minimo che serve per dire se un prodotto corrisponde a un passo. */
 export type ProdottoConAttributi = {
@@ -138,7 +138,12 @@ export function parsePassi(json: string | null | undefined): Passo[] {
     return v.filter((x): x is Passo => {
       if (!x || typeof x !== "object") return false;
       if (x.t === "metrica") return typeof x.m === "string";
-      if (x.t === "cella") return Array.isArray(x.c) && x.c.every((y: unknown) => !!y && typeof (y as Condizione).campo === "string");
+      if (x.t === "cella") {
+        if (!Array.isArray(x.c) || !x.c.every((y: unknown) => !!y && typeof (y as Condizione).campo === "string")) return false;
+        // Retro-compatibile: le celle salvate prima avevano **una** metrica.
+        if (typeof x.m === "string") x.m = [x.m];
+        return true;
+      }
       return x.t === "attr" && typeof x.campo === "string";
     });
   } catch {
@@ -174,7 +179,11 @@ export function etichettaPasso(passo: Passo, nomiMetriche: Record<string, string
     // La metrica scelta insieme alle condizioni **si legge dentro la cella**:
     // era stata una scelta sola, e mostrarla come passo a parte la faceva
     // sembrare scollegata.
-    const m = passo.m && passo.m !== "manuale" ? ` — poi per ${nomiMetriche[passo.m] ?? passo.m}` : "";
+    // Le metriche sono **in ordine di scelta**: la prima decide fra i prodotti
+    // della cella, le altre spezzano i pareggi. Si leggono con la freccia, come
+    // le regole rapide a piu' criteri.
+    const ms = (passo.m ?? []).filter((x) => x !== "manuale");
+    const m = ms.length ? ` — poi per ${ms.map((x) => nomiMetriche[x] ?? x).join(" → ")}` : "";
     return `Prima ${dentro}${m}`;
   }
   return `Prima ${etichettaCondizione(passo, nomiValori)}`;

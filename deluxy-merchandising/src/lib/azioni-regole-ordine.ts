@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "./db";
 import { applicaRegolaSalvata } from "./ordinamento-vetrina";
-import { isRegola, regoleDaForm } from "./ordinamento-vetrina";
+import { isRegola, regoleDaForm, type RegolaOrdinamento } from "./ordinamento-vetrina";
 import { CAMPI, parsePassi, serializePassi, type Campo, type Condizione, type Passo } from "./regole-ordine";
 
 /** Crea una regola vuota e porta dritti a scriverla: un nome da solo non serve a niente. */
@@ -109,18 +109,24 @@ export async function aggiungiPassiInBlocco(id: string, fd: FormData) {
     const valori = fd.getAll(`valori:${c.chiave}`).map(String).filter(Boolean);
     if (valori.length > 0) condizioni.push({ campo: c.chiave, valori });
   }
-  const m = String(fd.get("metrica") ?? "");
-  const metrica = isRegola(m) && m !== "manuale" ? m : undefined;
+  // **In ordine di scelta**: la prima decide, le successive spezzano i pareggi.
+  // I doppioni si scartano tenendo la prima posizione — sceglierla due volte non
+  // vuol dire contarla due volte.
+  const metriche: RegolaOrdinamento[] = [];
+  for (const raw of fd.getAll("metrica")) {
+    const v = String(raw);
+    if (isRegola(v) && v !== "manuale" && !metriche.includes(v)) metriche.push(v);
+  }
 
   if (condizioni.length > 0) {
     // La metrica scelta **insieme** alle condizioni resta attaccata alla cella:
     // e' stata una scelta sola, e come passo separato si leggeva come due
     // decisioni scollegate. Dice come si ordinano i prodotti che la cella porta
     // in cima.
-    passi.push({ t: "cella", c: condizioni, m: metrica });
-  } else if (metrica) {
-    // Senza condizioni la metrica e' un passo a se': mette in fila tutti.
-    passi.push({ t: "metrica", m: metrica });
+    passi.push({ t: "cella", c: condizioni, m: metriche.length ? metriche : undefined });
+  } else {
+    // Senza condizioni ogni metrica e' un passo a se': mettono in fila tutti.
+    for (const m of metriche) passi.push({ t: "metrica", m });
   }
 
   await salvaPassi(id, passi, fd);

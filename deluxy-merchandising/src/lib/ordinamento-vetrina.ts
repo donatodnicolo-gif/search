@@ -158,7 +158,7 @@ export async function ordinaPerPassi<T extends ProdottoOrdinabile>(
   const chiavi: Passo[] = [];
   for (const p of effettive) {
     chiavi.push(p);
-    if (p.t === "cella" && p.m && p.m !== "manuale") chiavi.push({ t: "metrica", m: p.m });
+    if (p.t === "cella") for (const m of p.m ?? []) if (m !== "manuale") chiavi.push({ t: "metrica", m });
   }
   const metriche = chiavi.filter((p): p is { t: "metrica"; m: RegolaOrdinamento } => p.t === "metrica").map((p) => p.m);
 

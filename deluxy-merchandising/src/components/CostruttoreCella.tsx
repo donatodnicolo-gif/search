@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import { corrisponde, CAMPI, RISPOSTE, type Campo, type Condizione } from "@/lib/regole-ordine";
+import { REGOLE } from "@/lib/ordinamento-vetrina";
 import type { VociPassi, VoceValore } from "@/lib/voci-passi";
 import type { ProdottoAnteprima } from "./AnteprimaCella";
 
 const CAMPI_VALORI: Campo[] = ["tipo", "categoria", "fornitore", "linea", "tag", "risposta"];
-const MAX_FOTO = 12;
+const MAX_FOTO = 18;
 
 /**
  * **La griglia delle condizioni di una cella, che si restringe mentre scegli.**
@@ -32,13 +33,20 @@ export function CostruttoreCella({
   prodotti,
   suCosa,
   campione,
+  idsCollezione,
+  nomeCollezione,
 }: {
   voci: VociPassi;
+  /** **Il catalogo**, non la collezione: e' il vocabolario di quello che si puo' esprimere. */
   prodotti: ProdottoAnteprima[];
   suCosa: string;
   campione?: boolean;
+  /** Gli id dei prodotti della collezione da cui si lavora: solo per il secondo numero. */
+  idsCollezione?: string[];
+  nomeCollezione?: string;
 }) {
   const [scelti, setScelti] = useState<Record<string, string[]>>({});
+  const [metriche, setMetriche] = useState<string[]>([]);
   const [da, setDa] = useState("");
   const [a, setA] = useState("");
 
@@ -74,7 +82,14 @@ export function CostruttoreCella({
 
   const senzaDati = prodotti.length === 0;
   const condizioni = condizioniDi();
-  const presi = condizioni.length === 0 ? [] : filtra(condizioni);
+  const presi = filtra(condizioni);
+  // **Due numeri, due domande diverse.** Il primo dice cosa la cella prende dal
+  // catalogo - e' il vocabolario di quello che si puo' esprimere - il secondo
+  // quanti di quelli stanno nella vetrina che si sta curando. Contare solo sulla
+  // collezione faceva sparire quasi tutti i valori quando la collezione e'
+  // piccola: con cinque prodotti dentro si vedevano cinque tag.
+  const dentro = idsCollezione ? new Set(idsCollezione) : null;
+  const quiDentro = dentro ? presi.filter((p) => dentro.has(p.id)).length : null;
 
   const cambia = (campo: string, valore: string, spuntato: boolean) =>
     setScelti((s) => {
@@ -86,38 +101,46 @@ export function CostruttoreCella({
 
   return (
     <>
+      {/* **L'anteprima mostra sempre le foto.** Senza condizioni fa vedere i
+          prodotti su cui si sta lavorando — la vetrina di partenza — e a ogni
+          spunta si restringe: si vede *cosa si sta togliendo*, non solo un
+          numero che cala. Con un riquadro vuoto finche' non spunti qualcosa si
+          perdeva proprio il momento in cui serve guardare. */}
       <div className="anteprima-cella">
-        {condizioni.length === 0 ? (
+        <div className="anteprima-conto">
+          <b>{presi.length}</b> {presi.length === 1 ? "prodotto" : "prodotti"}
           <span className="page-sub" style={{ margin: 0 }}>
-            Spunta qualcosa qui sotto: qui compare <b>chi prenderebbe la cella</b>, mentre la costruisci.
+            {" "}
+            su {prodotti.length} {suCosa}
+            {campione ? " (campione)" : ""}
+            {condizioni.length > 0 ? (
+              <>
+                {" "}· {condizioni.length} {condizioni.length === 1 ? "condizione" : "condizioni"} insieme
+              </>
+            ) : (
+              <> · nessuna condizione: spunta qui sotto per restringere</>
+            )}
+            {quiDentro != null && (
+              <>
+                {" "}· di cui <b>{quiDentro}</b> in {nomeCollezione ? "«" + nomeCollezione + "»" : "questa collezione"}
+              </>
+            )}
+          </span>
+        </div>
+        {presi.length === 0 ? (
+          <span className="page-sub" style={{ margin: 0 }}>
+            <b>Nessuno.</b> Le condizioni di una cella valgono <b>tutte insieme</b>: se ne stai chiedendo troppe, la
+            cella non porterà in cima nessuno.
           </span>
         ) : (
-          <>
-            <div className="anteprima-conto">
-              <b>{presi.length}</b> {presi.length === 1 ? "prodotto" : "prodotti"}
-              <span className="page-sub" style={{ margin: 0 }}>
-                {" "}
-                su {prodotti.length} {suCosa}
-                {campione ? " (campione)" : ""} · {condizioni.length}{" "}
-                {condizioni.length === 1 ? "condizione" : "condizioni"} insieme
+          <div className="anteprima-foto">
+            {presi.slice(0, MAX_FOTO).map((p) => (
+              <span key={p.id} title={p.nome}>
+                {p.immagine ? <img src={p.immagine} alt="" /> : "❀"}
               </span>
-            </div>
-            {presi.length === 0 ? (
-              <span className="page-sub" style={{ margin: 0 }}>
-                <b>Nessuno.</b> Le condizioni di una cella valgono <b>tutte insieme</b>: se ne stai chiedendo troppe, la
-                cella non porterà in cima nessuno.
-              </span>
-            ) : (
-              <div className="anteprima-foto">
-                {presi.slice(0, MAX_FOTO).map((p) => (
-                  <span key={p.id} title={p.nome}>
-                    {p.immagine ? <img src={p.immagine} alt="" /> : "❀"}
-                  </span>
-                ))}
-                {presi.length > MAX_FOTO && <span className="page-sub">+{presi.length - MAX_FOTO}</span>}
-              </div>
-            )}
-          </>
+            ))}
+            {presi.length > MAX_FOTO && <span className="page-sub">+{presi.length - MAX_FOTO}</span>}
+          </div>
         )}
       </div>
 
@@ -148,7 +171,9 @@ export function CostruttoreCella({
                 </span>
               ) : vive.length === 0 ? (
                 <span className="page-sub" style={{ margin: 0 }}>
-                  Nessun valore sta insieme a quello che hai già scelto.
+                  {condizioni.length === 0
+                    ? "Nessun valore ha prodotti in vendita."
+                    : "Nessun valore sta insieme a quello che hai gia' scelto."}
                 </span>
               ) : (
                 <div className="griglia-valori" role="group" aria-label={def.nome}>
@@ -167,7 +192,10 @@ export function CostruttoreCella({
                   ))}
                   {lista.length > vive.length && (
                     <span className="page-sub" style={{ margin: 0, alignSelf: "center" }}>
-                      {lista.length - vive.length} nascosti: non stanno insieme a quello che hai scelto
+                      {lista.length - vive.length}{" "}
+                      {condizioni.length === 0
+                        ? "senza prodotti in vendita: non porterebbero niente in cima"
+                        : "nascosti: non stanno insieme a quello che hai scelto"}
                     </span>
                   )}
                 </div>
@@ -175,6 +203,35 @@ export function CostruttoreCella({
             </Riga>
           );
         })}
+
+        <Riga etichetta="Poi ordina per" aiuto="Come si mettono in fila i prodotti che la cella porta in cima. Si scelgono in ordine: il 1º decide, gli altri spezzano i pareggi.">
+          <div className="griglia-valori" role="group" aria-label="Ordina per">
+            {REGOLE.filter((x) => x.chiave !== "manuale").map((x) => {
+              const pos = metriche.indexOf(x.chiave);
+              return (
+                <label className="chip-valore" key={x.chiave} title={x.spiega}>
+                  <input
+                    type="checkbox"
+                    checked={pos >= 0}
+                    onChange={(e) =>
+                      setMetriche((m) =>
+                        // **L'ordine e' quello in cui si clicca**: si accoda in
+                        // fondo, non nell'ordine dell'elenco. Riordinare da soli
+                        // vorrebbe dire decidere al posto di chi sta scegliendo.
+                        e.currentTarget.checked ? [...m, x.chiave] : m.filter((y) => y !== x.chiave),
+                      )
+                    }
+                  />
+                  <span>{x.nome}</span>
+                  {pos >= 0 && <b className="chip-conta">{pos + 1}º</b>}
+                </label>
+              );
+            })}
+          </div>
+          {metriche.map((m) => (
+            <input key={m} type="hidden" name="metrica" value={m} />
+          ))}
+        </Riga>
 
         <Riga etichetta="Prezzo" aiuto="Il «da» è compreso, il «a» escluso: 200 € non cade in un buco fra due passi.">
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
