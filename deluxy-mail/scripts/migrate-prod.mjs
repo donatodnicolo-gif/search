@@ -209,6 +209,9 @@ const stmts = [
   // Cartella della posta indesiderata (flag IMAP \Junk): stessa storia dello
   // SPAM segnato qui dentro, che ora si sposta anche sulla casella.
   `ALTER TABLE "Account" ADD COLUMN IF NOT EXISTS "cartellaSpam" TEXT`,
+  // Risposta data a un invito di calendario: resta scritta sulla mail.
+  `ALTER TABLE "Messaggio" ADD COLUMN IF NOT EXISTS "invitoRisposta" TEXT`,
+  `ALTER TABLE "Messaggio" ADD COLUMN IF NOT EXISTS "invitoRispostoIl" TIMESTAMP(3)`,
   // Iscrizioni alle notifiche push (Web Push).
   `CREATE TABLE IF NOT EXISTS "PushIscrizione" (
      "id" TEXT PRIMARY KEY,

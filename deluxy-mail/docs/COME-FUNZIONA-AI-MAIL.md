@@ -292,6 +292,11 @@ Outlook, Google e Apple), in cima al messaggio compare il riquadro con
 nel tuo calendario e all'organizzatore parte la risposta che gli aggiorna lo stato del
 partecipante nel *suo* calendario. Con «Rifiuta» non viene aggiunto.
 
+**La risposta resta scritta sulla mail.** Riaprendola fra una settimana trovi
+«**Hai accettato** · 7 ago 16:52» e il tasto che hai scelto acceso: non devi ricordartelo
+tu né andare a controllare in calendario. I tre tasti restano premibili — cambiare idea è
+normale, e l'organizzatore riceve la risposta nuova.
+
 Il riquadro compare se e solo se l'invito c'è davvero: l'app lo capisce guardando **com'è
 fatta la mail**, non le parole che contiene. Se l'invito c'è ma non si riesce a leggerlo
 (server irraggiungibile, formato strano), il riquadro te lo dice invece di sparire.

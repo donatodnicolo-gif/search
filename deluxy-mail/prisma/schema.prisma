@@ -403,6 +403,11 @@ model Messaggio {
   // casistica si applica da sola (vedi lib/spamCasi.ts). Si azzera decidendo.
   spamCaso      String?
   spamMotivo    String?
+  // La risposta data a un INVITO di calendario (ACCEPTED/TENTATIVE/DECLINED).
+  // Sta sulla mail perché è di quella mail che si parla: senza, riaprendola i
+  // tre tasti tornavano come se non avessi mai risposto.
+  invitoRisposta   String?
+  invitoRispostoIl DateTime?
   // Quando è partita la notifica push per questa mail: evita di notificarla due
   // volte (il cron e l'eventuale giro interattivo non si pestano i piedi).
   notificatoIl  DateTime?

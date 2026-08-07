@@ -2942,6 +2942,15 @@ export type InvitoInMail = {
   metodo: string
   /** True se quell'appuntamento è già nel calendario. */
   giaInAgenda: boolean
+  /**
+   * COSA HAI RISPOSTO, se hai risposto: resta scritto sulla mail.
+   * ⚠️ Prima la risposta viveva solo nello stato del componente: accettavi,
+   * comparivano due righe di esito, e alla riapertura della mail i tre tasti
+   * erano di nuovo lì come se non avessi mai risposto. Segnalato il 7/08/2026
+   * («si è aggiunta al calendario ma la mail è rimasta uguale»).
+   */
+  risposta: 'ACCEPTED' | 'TENTATIVE' | 'DECLINED' | null
+  rispostoIl: string | null
 }
 
 /**
@@ -3071,6 +3080,16 @@ export async function leggiInvito(messaggioId: string): Promise<EsitoInvito> {
       organizzatore: invito.organizzatoreNome || invito.organizzatoreEmail,
       metodo: invito.metodo,
       giaInAgenda,
+      risposta: (m.invitoRisposta as InvitoInMail['risposta']) ?? null,
+      rispostoIl: m.invitoRispostoIl
+        ? m.invitoRispostoIl.toLocaleString('it-IT', {
+            timeZone: FUSO,
+            day: 'numeric',
+            month: 'short',
+            hour: '2-digit',
+            minute: '2-digit',
+          })
+        : null,
     },
   }
 }
@@ -3160,6 +3179,14 @@ export async function rispondiInvito(
 
   const invito = leggiIcs(ical.testo)
   if (!invito) return { ok: false, messaggio: 'Questa mail non contiene un invito leggibile.' }
+
+  // 0) La risposta si SCRIVE SULLA MAIL, subito: è quello che fa restare la
+  //    scelta anche riaprendo la mail domani. Prima viveva solo nello stato del
+  //    componente e all'apertura successiva i tre tasti tornavano vergini.
+  await db.messaggio.updateMany({
+    where: { id: m.id, utenteId },
+    data: { invitoRisposta: stato, invitoRispostoIl: new Date() },
+  })
 
   // 1) In agenda, se si partecipa. "Forse" ci va lo stesso: serve a non
   //    dimenticarlo, e il titolo lo dice.

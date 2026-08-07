@@ -17,6 +17,14 @@ import { mostraFlash } from './Flash'
  * non va, lo dice: prima spariva in silenzio e non si capiva perché mancassero
  * i tasti.
  */
+const RISPOSTE = {
+  ACCEPTED: 'Hai accettato',
+  TENTATIVE: 'Hai risposto «forse»',
+  DECLINED: 'Hai rifiutato',
+} as const
+
+const RISPOSTE_TASTO = { ACCEPTED: 'Accetta', TENTATIVE: 'Forse', DECLINED: 'Rifiuta' } as const
+
 export function InvitoCalendario({ messaggioId }: { messaggioId: string }) {
   const [ricerca, setRicerca] = useState<EsitoInvito | null>(null)
   const [esito, setEsito] = useState<string | null>(null)
@@ -60,6 +68,12 @@ export function InvitoCalendario({ messaggioId }: { messaggioId: string }) {
       setEsito(r.messaggio)
       if (r.ok) {
         mostraFlash(r.messaggio)
+        // ⚠️ Il riquadro si RILEGGE dal server: `router.refresh()` da solo
+        // rifà i Server Component, ma questo è un componente client e i suoi
+        // dati arrivano da `leggiInvito`, che gira una volta sola al
+        // montaggio. Senza questa riletura, dopo «Accetta» restavano i tre
+        // tasti identici e nessun segno della risposta — la segnalazione.
+        leggiInvito(messaggioId).then(setRicerca).catch(() => {})
         router.refresh()
       }
     })
@@ -78,6 +92,17 @@ export function InvitoCalendario({ messaggioId }: { messaggioId: string }) {
             Organizza: {invito.organizzatore}
           </div>
         )}
+        {/* COSA HAI RISPOSTO, in cima a tutto: è la prima cosa che si cerca
+            riaprendo la mail una settimana dopo. */}
+        {invito.risposta && (
+          <div style={{ marginTop: 8 }}>
+            <span className={`badge ${invito.risposta === 'DECLINED' ? 'red' : invito.risposta === 'TENTATIVE' ? 'neutral' : 'green'}`}>
+              <span className="dot" />
+              {RISPOSTE[invito.risposta]}
+              {invito.rispostoIl ? ` · ${invito.rispostoIl}` : ''}
+            </span>
+          </div>
+        )}
         {invito.giaInAgenda && (
           <div style={{ marginTop: 6 }}>
             <span className="badge green">
@@ -88,23 +113,37 @@ export function InvitoCalendario({ messaggioId }: { messaggioId: string }) {
         )}
 
         {!annullato && (
-          <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
-            <button className="btn primary small" type="button" disabled={inCorso} onClick={() => rispondi('ACCEPTED')}>
-              {inCorso ? '…' : 'Accetta'}
-            </button>
-            <button className="btn secondary small" type="button" disabled={inCorso} onClick={() => rispondi('TENTATIVE')}>
-              Forse
-            </button>
-            <button className="btn secondary small" type="button" disabled={inCorso} onClick={() => rispondi('DECLINED')}>
-              Rifiuta
-            </button>
-          </div>
+          <>
+            <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+              {/* Il tasto della risposta data resta ACCESO: si vede a colpo
+                  d'occhio cosa hai scelto, e gli altri due restano lì perché
+                  cambiare idea è normale (l'organizzatore riceve la nuova
+                  risposta, come in Outlook). */}
+              {(['ACCEPTED', 'TENTATIVE', 'DECLINED'] as const).map((s) => (
+                <button
+                  key={s}
+                  className={`btn ${invito.risposta === s ? 'primary' : 'secondary'} small`}
+                  type="button"
+                  disabled={inCorso}
+                  onClick={() => rispondi(s)}
+                >
+                  {inCorso ? '…' : RISPOSTE_TASTO[s]}
+                </button>
+              ))}
+            </div>
+            {invito.risposta && (
+              <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>
+                Hai già risposto: premendo un altro tasto cambi la risposta e l’organizzatore
+                ne riceve una nuova.
+              </div>
+            )}
+          </>
         )}
 
         {esito && (
           <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', marginTop: 8 }}>{esito}</div>
         )}
-        {!annullato && (
+        {!annullato && !invito.risposta && (
           <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>
             Rispondendo, all’organizzatore arriva la conferma e l’appuntamento entra nel tuo
             calendario (con «Rifiuta» non viene aggiunto).
