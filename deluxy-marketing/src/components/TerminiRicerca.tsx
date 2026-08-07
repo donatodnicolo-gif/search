@@ -1,7 +1,7 @@
 import { giudicaTermine } from "@/lib/azioni";
 import { attributiPortaKeyword } from "@/lib/porta-keyword";
 import { prisma } from "@/lib/db";
-import { formattaEuro, formattaNumero } from "@/lib/dominio";
+import { formattaEuro, formattaNumero, testoKeywordPulito } from "@/lib/dominio";
 import { breakEvenRoas } from "@/lib/guardrail";
 
 // Quello che la gente ha digitato per davvero. È il posto dove si vede la
@@ -81,6 +81,29 @@ export async function TerminiRicerca({
   }
 
   const be = breakEvenRoas(brand);
+
+  // ⚠️ Chi ce l'ha GIÀ, saputo prima di premere. Senza questo, si sceglievano
+  // cinque campagne, si metteva in coda e solo allora l'app rispondeva «ce
+  // l'ha già»: il lavoro si scopriva inutile dopo averlo fatto.
+  //
+  // Una query sola per tutte e 40 le righe (testo + campagna, due colonne), e
+  // il confronto sul testo RIPULITO — «consegna fiori milano (phrase)» e
+  // «consegna fiori milano (match esatto)» sono la stessa parola scritta da
+  // due import diversi.
+  const tutteLeKeyword = await prisma.copyAnnuncio.findMany({
+    where: { tipo: "keyword" },
+    select: { testo: true, campagna: true },
+  });
+  const campagneDiParola = new Map<string, Set<string>>();
+  for (const k of tutteLeKeyword) {
+    const chiave = testoKeywordPulito(k.testo).toLowerCase();
+    const v = campagneDiParola.get(chiave) ?? new Set<string>();
+    v.add(k.campagna);
+    campagneDiParola.set(chiave, v);
+  }
+  const giaSuDi = (testo: string) => [
+    ...(campagneDiParola.get(testoKeywordPulito(testo).toLowerCase()) ?? new Set<string>()),
+  ];
 
   // ——— Ordinamento (in memoria, sui 40 già scelti) ———
   const colonna: Colonna = (ord && ord in COLONNE ? ord : "spesa") as Colonna;
@@ -328,7 +351,7 @@ export async function TerminiRicerca({
                             {...attributiPortaKeyword({
                               testo: t.testo,
                               corrispondenza: "exact",
-                              giaSu: [nomeCampagna],
+                              giaSu: giaSuDi(t.testo),
                               classificata: true,
                               lingueDiOra: linguaCampagna ? [linguaCampagna] : [],
                             })}

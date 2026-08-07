@@ -140,6 +140,15 @@ export function PortaKeyword({
             {filtrate.length} campagn{filtrate.length === 1 ? "a attiva" : "e attive"}
             {q !== "" && ` su ${disponibili.length}`} · <strong>{scelte.length} selezionate</strong>
           </span>
+          {/* ⚠️ Chi ce l'ha GIÀ, detto PRIMA di premere. Queste campagne non
+              sono nell'elenco perché la parola c'è già: senza dirlo, l'utente
+              le cerca, non le trova e non capisce se manca la campagna o la
+              parola. Prima lo si scopriva solo dopo, dal messaggio «saltate». */}
+          {escludi.length > 0 && (
+            <span className="cella-sub" style={{ flexBasis: "100%", whiteSpace: "normal", order: 3 }}>
+              Fuori elenco perché <b>ce l&apos;hanno già</b>: {escludi.join(", ")}.
+            </span>
+          )}
           <span className="modale-scorciatoie">
             <button
               type="button"
