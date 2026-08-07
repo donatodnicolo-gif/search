@@ -22,6 +22,56 @@ Riceve già dati veri da Google Ads (Gifts e Flowers) e ha 2.426 ordini Shopify 
 
 ## FATTO
 
+### ⭐ Il motore di scrittura su Meta, spento (07/08/2026)
+
+`lib/meta-scrittura.ts` + `POST /api/v1/esegui/meta`: l'esecuzione delle
+operazioni Meta **già approvate a mano**. È il gemello di `eseguiOperazioni`
+dello script Google, ma **dentro l'app** — Meta non ha gli Scripts, quindi è
+l'app a dover chiamare la Graph API.
+
+**Non parte finché non ci sono DUE cose**, e sono separate apposta:
+
+1. **`ads_management`** sul token. Va chiesto su due fronti che non si
+   sostituiscono: lo **scope del token** (rigenerarlo chiedendo
+   `ads_management`) **e** il permesso sull'**asset** in Business Manager (i
+   tre account assegnati all'utente di sistema con «Gestisci campagne», non
+   «Visualizza prestazioni»). ⚠️ È la stessa distinzione di `#200` contro
+   `190`, e farne una sola non basta.
+2. **`META_SCRITTURA=attiva`** fra le variabili d'ambiente: un interruttore in
+   più, perché il permesso da solo non deve bastare ad accendere la spesa.
+
+`GET /api/v1/esegui/meta` **dice se si può scrivere e perché no, senza toccare
+niente**: il permesso si chiede a `/me/permissions`, non si deduce provando a
+scrivere — «provare» qui vorrebbe dire fare la modifica.
+
+> ⚠️ **La differenza con Google è di natura.** Là l'esecuzione gira *dentro*
+> Google Ads e il segreto non esce mai dall'account. Qui un token con
+> `ads_management` — cioè col potere di far uscire denaro — vive come
+> variabile d'ambiente su Vercel. È il motivo per cui coda → approvazione a
+> mano → esito non è una formalità.
+
+> ⚠️ **Niente cron, ed è voluto.** Finché non avrà fatto qualche giro vero
+> sotto gli occhi di qualcuno, la scrittura non deve poter partire da sola di
+> notte. Il cron si aggiunge dopo.
+
+**Tre trappole già scritte nel codice:**
+
+- **`daily_budget` va in CENTESIMI**, non in euro: `25` vuol dire 0,25 €.
+  La conversione sta in un punto solo.
+- Il budget può stare sulla **campagna (CBO)** o sull'**ad set**: scriverlo sul
+  livello sbagliato non fa niente, o ne aggiunge un secondo che convive col
+  primo. Chi chiama deve dire il livello — qui non si indovina.
+- **Metà delle operazioni su Meta non esistono**: niente keyword, niente
+  negative. `OPERAZIONI_META` sono cinque — pausa/attiva campagna, pausa/attiva
+  ad set, budget — e le altre si segnano fallite col motivo invece di provarle.
+
+L'esito crea la **`Modifica`**: senza, un'operazione eseguita su Meta sarebbe
+invisibile al change control e la campagna risulterebbe «mai toccata» il giorno
+dopo. E se l'esito non si riesce a registrare **ci si ferma**, come nello
+script Google: rifarla al giro dopo sarebbe una seconda modifica sulla stessa
+campagna.
+
+
 ### «Defunta» vale solo per chi non ha speso NULLA (06/08/2026)
 
 Una pulizia in blocco aveva marcato defunte **159 campagne** col criterio
