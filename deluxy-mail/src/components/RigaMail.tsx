@@ -1,6 +1,6 @@
 'use client'
 
-import { memo, useState } from 'react'
+import { memo, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { dataBreve } from '@/lib/format'
 import { ripulisciAnteprima } from '@/lib/citato'
@@ -101,7 +101,13 @@ export const RigaMail = memo(function RigaMail({
   // il server si riallinea al refresh successivo.
   const [nascosto, setNascosto] = useState(false)
   // Il pallino «non letta» si spegne al clic su «Letto», non al giro dopo.
+  // ⚠️ Ma resta ALLINEATO al server: `useState` da solo tiene il valore del
+  // primo render per sempre, e tornando in elenco dopo aver aperto la mail il
+  // pallino restava blu anche se il server diceva ormai il contrario — mentre
+  // il contatore lassù, che stato locale non ha, calava. I due si
+  // contraddicevano a schermo, ed è così che è stato segnalato.
   const [nonLetti, setNonLetti] = useState(r.nonLetti)
+  useEffect(() => setNonLetti(r.nonLetti), [r.nonLetti])
   if (nascosto) return null
   return (
     <MailDrag id={r.id} className={`mail-row ${nonLetti ? 'non-letto' : ''} ${selezionato ? 'selezionato' : ''}`}>

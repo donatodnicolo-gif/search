@@ -558,8 +558,13 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
         </div>
       )}
 
-      {/* Aprire una mail la segna letta (prima toccava farlo a mano). */}
-      <SegnaLettaAllApertura id={messaggio.id} letto={messaggio.letto} />
+      {/* Aprire una mail la segna letta (prima toccava farlo a mano) — e con
+          lei tutta la conversazione: in elenco una riga È un thread, quindi
+          lasciarne indietro una terrebbe acceso il pallino blu. */}
+      <SegnaLettaAllApertura
+        id={messaggio.id}
+        daSegnare={!messaggio.letto || conversazione.some((c) => !c.letto)}
+      />
 
       {/* Il dialogo di conferma delle app ora sta nel LAYOUT: risponde
           all'evento `aimail:app` da qualunque pagina (montato qui e in posta
