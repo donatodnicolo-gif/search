@@ -447,6 +447,12 @@ teneva acceso. Vale anche per l'**Accetta/Rifiuta** di un invito di calendario.
 Differenza: solo una **risposta vera** toglie il «serve risposta», perché inoltrare a un
 collega non risponde a chi ti ha scritto.
 
+**Aprire una mail la segna letta.** Come in qualunque programma di posta: apri, il pallino
+blu si spegne. Vale per la mail che apri a tutta pagina; dentro una conversazione, i
+messaggi si segnano letti quando li apri nella pila. Se vuoi rimetterla fra le da leggere
+c'è sempre **«Segna non letto»** (o il tasto `s`), e quella scelta **non viene disfatta**:
+resta non letta finché non la riapri.
+
 **Segna come letto.** In **posta in arrivo**, fra le azioni della riga c'è **«✓ Letto»**:
 spegne il pallino blu senza aprire la mail, e vale per **tutta la conversazione** (una
 riga in elenco è un thread: marcare solo l'ultima lascerebbe il pallino acceso). Su una

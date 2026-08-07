@@ -7,6 +7,7 @@ import { ConversazioneStack } from '@/components/ConversazioneStack'
 import { BozzaEditor } from '@/components/BozzaEditor'
 import { AzioniMessaggio } from '@/components/AzioniMessaggio'
 import { NavigaMessaggi } from '@/components/NavigaMessaggi'
+import { SegnaLettaAllApertura } from '@/components/SegnaLettaAllApertura'
 import { ChiediConversazione } from '@/components/ChiediConversazione'
 import { PropostaSpam } from '@/components/PropostaSpam'
 import { casoMarchio } from '@/lib/spam'
@@ -556,6 +557,9 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
           })}
         </div>
       )}
+
+      {/* Aprire una mail la segna letta (prima toccava farlo a mano). */}
+      <SegnaLettaAllApertura id={messaggio.id} letto={messaggio.letto} />
 
       {/* Il dialogo di conferma delle app ora sta nel LAYOUT: risponde
           all'evento `aimail:app` da qualunque pagina (montato qui e in posta

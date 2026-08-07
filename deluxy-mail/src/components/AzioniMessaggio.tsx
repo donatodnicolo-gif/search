@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
@@ -13,6 +13,7 @@ import {
 } from '@/lib/actions'
 import { DelegaReneBottone, DelegaReneDialog } from './DelegaRene'
 import { apriScorciatoie } from './Scorciatoie'
+import { EVENTO_LETTA } from './SegnaLettaAllApertura'
 import { AgganciaDialog } from './AgganciaRiga'
 import { dopoSpostamento } from './dopoSpostamento'
 
@@ -33,6 +34,21 @@ export function AzioniMessaggio({
   sezioni,
   mittente,
 }: Props) {
+  // Lo stato «letta» si tiene anche qui: aprendo la mail viene segnata letta
+  // subito dopo il render (SegnaLettaAllApertura), e senza questo il bottone
+  // continuerebbe a dire «Segna letto» su una mail già letta. Si aggiorna con
+  // un evento invece che con un `router.refresh()`, che rifarebbe l'intera
+  // pagina per cambiare una parola.
+  const [eLetta, setELetta] = useState(letto)
+  useEffect(() => setELetta(letto), [letto])
+  useEffect(() => {
+    const su = (e: Event) => {
+      if ((e as CustomEvent).detail?.id === id) setELetta(true)
+    }
+    window.addEventListener(EVENTO_LETTA, su)
+    return () => window.removeEventListener(EVENTO_LETTA, su)
+  }, [id])
+
   // Dopo "Archivia": si chiede se rendere l'archiviazione permanente (regola).
   const [chiediSempre, setChiediSempre] = useState(false)
   const [stato, setStato] = useState<string | null>(null)
@@ -133,9 +149,14 @@ export function AzioniMessaggio({
         <button
           className="btn secondary small"
           disabled={inCorso}
-          onClick={() => esegui(() => segnaLetto(id, !letto))}
+          onClick={() =>
+            esegui(async () => {
+              setELetta(!eLetta)
+              await segnaLetto(id, !eLetta)
+            })
+          }
         >
-          {letto ? 'Segna non letto' : 'Segna letto'}
+          {eLetta ? 'Segna non letto' : 'Segna letto'}
         </button>
 
         {!archiviato && !chiediSempre && (
