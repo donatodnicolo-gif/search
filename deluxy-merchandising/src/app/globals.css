@@ -949,6 +949,14 @@ details.conferma-x[open] > summary { color: var(--orange, #C2721B); }
    non si costruisce alla cieca. Sta in alto perché è la risposta alla domanda
    che ci si fa spuntando — «e adesso quanti ne prendo?». */
 .anteprima-cella {
+  /* **Resta appesa mentre si scorre.** Le liste dei valori sono lunghe — 121
+     tipi, 400 tag — e con l'anteprima ferma in cima si spunta un tag in fondo
+     senza vedere piu' il numero che si stava guardando: cioe' di nuovo alla
+     cieca, che e' il problema che doveva risolvere. Il 71px e' l'altezza della
+     barra superiore, che e' anch'essa appiccicata. */
+  position: sticky;
+  top: 71px;
+  z-index: 4;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -956,7 +964,10 @@ details.conferma-x[open] > summary { color: var(--orange, #C2721B); }
   margin-bottom: 16px;
   border: 1px solid var(--gold, #B8963E);
   border-radius: 12px;
-  background: color-mix(in srgb, var(--gold, #B8963E) 7%, transparent);
+  /* Fondo **pieno**, non trasparente: appesa sopra il contenuto, una tinta
+     translucida lascerebbe leggere le caselle che le scorrono sotto. */
+  background: color-mix(in srgb, var(--gold, #B8963E) 7%, var(--surface, #fff));
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.07);
 }
 .anteprima-conto { font-size: 15px; }
 .anteprima-conto b { font-size: 20px; letter-spacing: -0.02em; }
