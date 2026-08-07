@@ -68,6 +68,25 @@ export async function assegnaCollezioniARotazione(fd: FormData) {
   revalidatePath("/visual");
 }
 
+/**
+ * **Iscrive questa collezione a una rotazione, o la toglie**, dalla sua scheda.
+ *
+ * Serve un'azione a sé: `assegnaCollezioniARotazione` **riscrive l'iscrizione di
+ * tutta la regola** — è il modulo «vale per più collezioni», dove la selezione è
+ * l'elenco completo — e usarla da qui vorrebbe dire disiscrivere tutte le altre
+ * collezioni per iscrivere questa. Qui si tocca una riga sola.
+ *
+ * Non fa scattare niente adesso: dice **da quando in poi** l'ordine si rifà da
+ * solo. Rimescolare la vetrina nel momento in cui la si sta curando sarebbe
+ * l'esatto contrario di quello che si sta facendo.
+ */
+export async function iscriviCollezioneARotazione(collezioneId: string, fd: FormData) {
+  const rotazioneId = testo(fd, "rotazioneId") || null;
+  await prisma.collezioneShopify.update({ where: { id: collezioneId }, data: { rotazioneId } });
+  revalidatePath(`/visual/${collezioneId}`);
+  revalidatePath("/visual/rotazioni");
+}
+
 /** Esegue la regola adesso, senza aspettare il turno (bottone «prova adesso»). */
 export async function eseguiRotazioneAdesso(id: string) {
   const esito = await eseguiRegola(id);

@@ -12,6 +12,8 @@ import { etichettaOrdinamentoShopify, ordineAMano } from "@/lib/collezioni";
 import { REGOLE } from "@/lib/ordinamento-vetrina";
 import { etichettaPassi, filtroSuggerimenti, parsePassi } from "@/lib/regole-ordine";
 import { applicaRegolaSalvataAzione, creaRegolaDaCollezione } from "@/lib/azioni-regole-ordine";
+import { iscriviCollezioneARotazione } from "@/lib/azioni-rotazione";
+import { etichettaFrequenza, etichettaModo, prossimaVolta } from "@/lib/rotazione";
 import { salvaProdottiPerRiga } from "@/lib/azioni-collezioni-shopify";
 import {
   applicaRegolaOrdinamento,
@@ -54,6 +56,9 @@ export default async function CurazioneCollezionePage({
     include: {
       tipologia: { select: { nome: true, regolaOrdinamento: true } },
       regolaOrdine: { select: { id: true, nome: true, passi: true } },
+      rotazione: {
+        select: { id: true, nome: true, frequenza: true, modo: true, passo: true, attiva: true, spingiSuShopify: true, ultimaEsecuzioneIl: true },
+      },
       prodotti: {
         orderBy: [{ posizione: "asc" }, { prodotto: { nome: "asc" } }],
         include: {
@@ -86,12 +91,16 @@ export default async function CurazioneCollezionePage({
   // Il push funziona solo se il negozio ha un token con write_products: lo si
   // legge dalla verifica salvata in Impostazioni, senza chiamare Shopify qui.
   // Il dominio serve per il link alla collezione **sul sito**.
-  const [negozio, regoleSalvate] = await Promise.all([
+  const [negozio, regoleSalvate, rotazioni] = await Promise.all([
     prisma.negozioShopify.findFirst({
       where: { nome: c.negozio },
       select: { permessi: true, attivo: true, dominio: true },
     }),
     prisma.regolaOrdine.findMany({ orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
+    prisma.regolaRotazione.findMany({
+      orderBy: { nome: "asc" },
+      select: { id: true, nome: true, frequenza: true, modo: true, attiva: true },
+    }),
   ]);
   // I valori per le condizioni si leggono **solo se serve**: senza una regola
   // salvata assegnata il costruttore non si mostra, e sarebbero query a vuoto.
@@ -399,6 +408,66 @@ export default async function CurazioneCollezionePage({
             />
           </div>
         )}
+
+        {/* **Si rinfresca da sola.** Una vetrina ferma smette di essere guardata:
+            qui si dice ogni quanto l'ordine si rifà senza che nessuno lo chieda.
+            Il ritmo si decide una volta in /visual/rotazioni e vale per tutte le
+            collezioni iscritte — qui si sceglie solo se questa è fra quelle. */}
+        <div className="scheda">
+          <div className="riga-titolo">
+            <div className="scheda-titolo" style={{ margin: 0 }}>Si rinfresca da sola</div>
+            <a className="btn btn-secondario" href="/visual/rotazioni">Ritmi e storico</a>
+          </div>
+          {rotazioni.length === 0 ? (
+            <p className="page-sub" style={{ marginTop: -4, marginBottom: 0 }}>
+              Nessun ritmo impostato. Si crea in <a href="/visual/rotazioni">Rotazioni</a>: si sceglie ogni quanto
+              (giorno, settimana, mese) e cosa fa — <b>rinfrescare</b> l&apos;ordine coi dati aggiornati, o{" "}
+              <b>ruotare</b> i primi in fondo perché tocchi a tutti.
+            </p>
+          ) : (
+            <>
+              <p className="page-sub" style={{ marginTop: -4 }}>
+                Una vetrina ferma smette di essere guardata. Iscrivendola, l&apos;ordine si rifà da solo al ritmo
+                scelto — <b>adesso non cambia niente</b>: vale da qui in avanti.
+              </p>
+              <form
+                action={iscriviCollezioneARotazione.bind(null, id)}
+                style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}
+              >
+                <select name="rotazioneId" defaultValue={c.rotazioneId ?? ""} style={{ minWidth: 260 }}>
+                  <option value="">— non si rinfresca da sola —</option>
+                  {rotazioni.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.nome} · {etichettaFrequenza(r.frequenza)} · {etichettaModo(r.modo)}
+                      {r.attiva ? "" : " (in pausa)"}
+                    </option>
+                  ))}
+                </select>
+                <button type="submit" className="btn btn-primario">Salva il ritmo</button>
+              </form>
+              {c.rotazione && (
+                <p className="page-sub" style={{ marginTop: 10, marginBottom: 0 }}>
+                  Adesso segue <b>{c.rotazione.nome}</b>: {etichettaFrequenza(c.rotazione.frequenza).toLowerCase()},{" "}
+                  {etichettaModo(c.rotazione.modo).toLowerCase()}
+                  {c.rotazione.modo === "ruota" ? ` di ${c.rotazione.passo}` : ""}.{" "}
+                  {c.rotazione.attiva ? (
+                    <>
+                      Prossimo giro{" "}
+                      <b>{(prossimaVolta(c.rotazione)?.toLocaleDateString("it-IT") ?? "—")}</b>.
+                    </>
+                  ) : (
+                    <b>La regola è in pausa: non scatterà.</b>
+                  )}{" "}
+                  {c.rotazione.spingiSuShopify ? (
+                    <>L&apos;ordine rifatto viene <b>mandato anche a Shopify</b>.</>
+                  ) : (
+                    <>L&apos;ordine si rifà <b>solo qui</b>: su Shopify ci va quando lo mandi tu.</>
+                  )}
+                </p>
+              )}
+            </>
+          )}
+        </div>
 
         {/* L'anteprima: l'ordine ipotizzato, con chi sale e chi scende. */}
         {inAnteprima && (

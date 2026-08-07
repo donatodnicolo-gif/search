@@ -274,6 +274,13 @@ porta **3120**. Design system Deluxy v1.0.
 
 - **07/08/2026 — i valori delle condizioni in ordine alfabetico, con la sola iniziale maiuscola** (chiesto dall'utente). Erano ordinati per numero di prodotti: con ottanta chip il più frequente in testa non serve, perché di un valore si sa **come si chiama**, non quanti prodotti abbia — il numero resta scritto sul chip. E la maiuscolatura arrivava da Shopify come capitava (`CDM FunnyCake`, `CANTINA FRANCO`, `fiori`), quindi la stessa riga mescolava tre stili: ora si mostra `Cdm funnycake`. **Si tocca solo l'etichetta**: il valore mandato al server resta quello vero del negozio, altrimenti la condizione non troverebbe più niente. Per i tag il taglio a 400 resta **per frequenza** (se si deve tagliare si tengono quelli che pesano) e l'alfabetico viene dopo.
 
+- **07/08/2026 — il rinfresco periodico si sceglie dalla scheda della collezione** (chiuso il «consenti anche refresh automatico periodico»). Le rotazioni esistevano già — modello, cron giornaliero `/api/cron/rotazioni`, pagina `/visual/rotazioni` — ma si potevano assegnare **solo** dal modulo «vale per più collezioni». Ora c'è il riquadro «Si rinfresca da sola» sulla scheda: si sceglie il ritmo, si vede il prossimo giro e se l'ordine rifatto va **anche su Shopify**.
+  - **Azione a sé, e non è un dettaglio**: `assegnaCollezioniARotazione` **riscrive l'iscrizione di tutta la regola** (la selezione è l'elenco completo), quindi usarla da una singola scheda avrebbe disiscritto tutte le altre collezioni. La nuova `iscriviCollezioneARotazione` tocca una riga sola.
+  - **Iscrivere non fa scattare niente adesso**: dice da quando in poi l'ordine si rifà. Rimescolare la vetrina proprio mentre la si sta curando sarebbe il contrario di quello che si sta facendo.
+  - Al 07/08/2026 **nessun ritmo è ancora stato creato** (0 regole, 0 collezioni iscritte): il riquadro mostra lo stato vuoto e manda a `/visual/rotazioni`. Il ritmo lo decide una persona — è un automatismo che riscrive vetrine.
+
+- **Verificato su dati veri l'ordine a più metriche** (campione di 400 prodotti in vendita): serializza→rilegge senza perdere l'ordine; una cella vecchia con `"m": "best_seller"` si rilegge come lista da uno; i 36 Fiori vanno **tutti in testa**; dentro, prezzo decrescente con **28 pareggi di prezzo tutti risolti dalla seconda metrica**; e invertendo le due metriche **la fila cambia** — cioè l'ordine di scelta conta davvero.
+
 ## COME AVVIARE
 ```
 cd deluxy-merchandising
