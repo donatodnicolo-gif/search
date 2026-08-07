@@ -22,6 +22,52 @@ Riceve già dati veri da Google Ads (Gifts e Flowers) e ha 2.426 ordini Shopify 
 
 ## FATTO
 
+### «Defunta» vale solo per chi non ha speso NULLA (06/08/2026)
+
+Una pulizia in blocco aveva marcato defunte **159 campagne** col criterio
+«ferma e senza spesa negli ultimi 30 giorni». L'utente ha corretto la regola:
+**defunta è solo chi non ha speso nulla, mai**. Le due cose non si somigliano
+nemmeno — fra le 159 c'erano `Deluxy - Awareness` con **2.817 €** di storia,
+`Vendite (COLLECTION + CAROSELLO)` con 1.362 €, `Red Rose Sales-Search` con
+543 €.
+
+- **77 rimesse com'erano** (tutte `in_pausa`): avevano speso davvero.
+- **82 restano defunte**: zero spesa in tutta la loro storia — Panettoni,
+  Christmas Gift, Anniversario Rome/Florence/Milan, mai partite.
+- Stato finale: **107 vive, 123 defunte** (le 123 comprendono le 41 già decise
+  a mano prima).
+
+> ⚠️ **Il criterio giusto è la spesa DI SEMPRE, non quella del periodo.** Una
+> campagna stagionale ferma da mesi non è morta: è ferma. Ogni ripristino è
+> tracciato nello storico con «rimessa viva: defunta vale solo per chi non ha
+> speso NULLA».
+
+> ⚠️ **Il Postgres condiviso ha rifiutato la connessione due volte** durante la
+> correzione (la prima senza scrivere niente). Per questo lo script scriveva
+> **una campagna alla volta** e ripartiva da dove si era fermato, saltando le
+> già fatte: su una scrittura in blocco a 159 righe, con `connection_limit=5`,
+> l'alternativa è non sapere dove ci si è interrotti.
+
+### Il riquadro «quanto stiamo spendendo oggi» diceva il falso (06/08/2026)
+
+Diceva «lo script manda la giornata la sera (fascia 23:00-24:00)». Era vero
+quando fu scritto, ma le corse misurate oggi sono alle **02:37-02:47**: chi
+leggeva aspettava per la sera dei dati che non sarebbero arrivati. E quando
+oggi non c'era, il riquadro diceva **soltanto** che non c'era — sopra un
+paragrafo che spiega che comunque i numeri di oggi non si usano per decidere.
+Due frasi per non dire niente, in una scheda intera.
+
+- L'orario si legge da **`RicezioneDati`**, non dal codice: resta vero anche il
+  giorno che qualcuno cambia la schedulazione dentro Google Ads, dove l'app non
+  può vedere. Se le ultime cinque corse hanno orari sparsi, lo dice.
+- Senza i dati di oggi mostra **l'ultima giornata piena** — con la sua data, non
+  «ieri»: la corsa delle 2 di notte copre fino all'altro ieri, e «ieri» usciva
+  vuoto proprio nel numero principale, come se la campagna non avesse speso.
+- Accanto: media dei 7 giorni e **quanto di budget ha usato quel giorno**.
+  Su `[Deluxy] - Fiori Milano ENG` il 05/08 fa **55,06 € su 26 € di budget, il
+  212%**.
+
+
 ### ⭐ Una keyword ESATTA finiva in coda come GENERICA (06/08/2026)
 
 Segnalato dall'utente: «l'ho portata su un'altra campagna e la propone
