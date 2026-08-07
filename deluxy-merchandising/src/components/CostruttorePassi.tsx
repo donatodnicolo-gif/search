@@ -39,6 +39,8 @@ export function CostruttorePassi({
   suCosa = "in vendita",
   campione,
   fila,
+  quantiEntrano = 0,
+  suChe,
   idsCollezione,
   nomeCollezione,
 }: {
@@ -50,8 +52,12 @@ export function CostruttorePassi({
   perAnteprima?: ProdottoAnteprima[];
   suCosa?: string;
   campione?: boolean;
-  /** **Come usciranno** i prodotti che i passi salvati portano in cima, gia' in ordine. */
+  /** **Come usciranno** i prodotti, gia' in ordine. */
   fila?: ProdottoAnteprima[];
+  /** Quanti di quelli in fila **non sono ancora dentro** e ci entrerebbero da soli. */
+  quantiEntrano?: number;
+  /** Di cosa e' la fila: ««Fast Delivery»» sulla collezione, il campione sulla pagina della regola. */
+  suChe?: string;
   /** Quando si lavora da una collezione: per dire anche quanti ne tocca **qui dentro**. */
   idsCollezione?: string[];
   nomeCollezione?: string;
@@ -108,12 +114,11 @@ export function CostruttorePassi({
           <div className="anteprima-conto">
             <b>{fila.length}</b> {fila.length === 1 ? "prodotto" : "prodotti"}
             <span className="page-sub" style={{ margin: 0 }}>
-              {" "}· come usciranno con {passi.length === 1 ? "il passo" : `i ${passi.length} passi`} qui sopra, in
-              quest&apos;ordine
-              {idsCollezione && (
+              {" "}· come usciranno{suChe ? ` in ${suChe}` : ""} con{" "}
+              {passi.length === 1 ? "il passo" : `i ${passi.length} passi`} qui sopra, in quest&apos;ordine
+              {quantiEntrano > 0 && (
                 <>
-                  {" "}· di cui <b>{fila.filter((p) => idsCollezione.includes(p.id)).length}</b> in{" "}
-                  {nomeCollezione ? "«" + nomeCollezione + "»" : "questa collezione"}
+                  {" "}· di cui <b>{quantiEntrano}</b> entrerebbero dalla regola
                 </>
               )}
             </span>

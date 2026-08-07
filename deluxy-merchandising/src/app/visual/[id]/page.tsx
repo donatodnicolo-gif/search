@@ -204,17 +204,32 @@ export default async function CurazioneCollezionePage({
         ])
       : [[], 0];
 
-  // **La fila che i passi salvati produrrebbero**, calcolata col motore vero
-  // (`ordinaPerPassi`, lo stesso che poi scrive le posizioni): comprende anche le
-  // metriche — piu' venduti, novita' — che nel browser non si potrebbero
-  // calcolare. Si mostrano solo i prodotti che **almeno un passo prende**: le
-  // metriche da sole metterebbero in fila l'intero campione, e un'anteprima di
-  // 900 prodotti non dice niente della regola.
+  // **L'anteprima e' della collezione, non del catalogo.** Qui la domanda e'
+  // «come uscira' *questa* vetrina», e la risposta si legge sui prodotti che ci
+  // sono davvero: la fila calcolata sul campione del catalogo rispondeva a
+  // un'altra domanda — cosa prenderebbe la regola in giro per il negozio — utile
+  // per l'aggiunta automatica, non per guardare la vetrina.
+  //
+  // Con l'aggiunta automatica accesa si contano anche **quelli che entrerebbero**:
+  // fra un attimo saranno dentro, mostrarla senza di loro vorrebbe dire far
+  // vedere una vetrina che non esistera' mai.
   const passiSalvati = c.regolaOrdine ? parsePassi(c.regolaOrdine.passi) : [];
-  const presiDaiPassi = perAnteprima.filter((p) => passiSalvati.some((x) => x.t !== "metrica" && corrisponde(p, x)));
-  const filaRegola = presiDaiPassi.length
-    ? await ordinaPerPassi(presiDaiPassi.map((p) => ({ ...p, prodottoId: p.id })), passiSalvati)
-    : [];
+  const idsDentro = new Set(inScena.map((vp) => vp.prodottoId));
+  const entranti =
+    c.aggiuntaAutomatica && passiSalvati.length > 0
+      ? perAnteprima.filter((p) => !idsDentro.has(p.id) && passiSalvati.some((x) => x.t !== "metrica" && corrisponde(p, x)))
+      : [];
+  const filaRegola =
+    passiSalvati.length > 0
+      ? await ordinaPerPassi(
+          [
+            ...inScena.map((vp) => ({ ...vp.prodotto, id: vp.prodottoId, prodottoId: vp.prodottoId, posizione: vp.posizione })),
+            ...entranti.map((p) => ({ ...p, prodottoId: p.id, costoProduzione: 0, creatoIl: new Date() })),
+          ],
+          passiSalvati,
+        )
+      : [];
+
 
   const pannelloAperto = sp.aggiungi === "1";
   const cerca = (sp.cerca ?? "").trim();
@@ -458,6 +473,8 @@ export default async function CurazioneCollezionePage({
               suCosa={`in vendita su ${totaleInVendita}`}
               campione={perAnteprima.length < totaleInVendita}
               fila={filaRegola}
+              quantiEntrano={entranti.length}
+              suChe={`«${c.titolo}»`}
               idsCollezione={inScena.map((vp) => vp.prodottoId)}
               nomeCollezione={c.titolo}
             />

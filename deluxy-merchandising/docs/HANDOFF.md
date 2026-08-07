@@ -308,6 +308,8 @@ porta **3120**. Design system Deluxy v1.0.
   - **Ritorno indietro**: lo script ora salva i valori vecchi in `ripristino-<campo>-<valore>.json` **prima** di scrivere (in `.gitignore`: sono dati del negozio). Senza, l'unione sarebbe irreversibile.
   - Lo script accetta ora anche la forma **`seTipo`** — si sceglie per Tipo e si scrive il Venditore («tutti i vini sono di Deluxy») — invece di limitarsi a unire valori doppi. Chi ha già il valore giusto non viene toccato (10 vini erano già Deluxy).
 
+- **07/08/2026 — sulla scheda della collezione l'anteprima è della collezione** (chiesto dall'utente: «qui ho bisogno di vedere l'anteprima della collezione»). Il riquadro calcolava la fila sul **campione del catalogo**: rispondeva a «cosa prenderebbe la regola in giro per il negozio» — utile per l'aggiunta automatica, non per guardare la vetrina. Ora sono i prodotti **che ci sono davvero**, in scena, ordinati dai passi. Con l'aggiunta automatica accesa si contano anche **quelli che entrerebbero** («di cui N entrerebbero dalla regola»): fra un attimo sono dentro, mostrare la fila senza di loro vorrebbe dire far vedere una vetrina che non esisterà mai. Sulla **pagina della regola** resta il campione del catalogo — lì una collezione non c'è. Verificato online: «Home-Page-Last-Minute» → 5 prodotti, in cima il MAXI Bouquet che il passo 1 prende.
+
 ## COME AVVIARE
 ```
 cd deluxy-merchandising
