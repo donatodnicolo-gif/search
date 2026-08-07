@@ -1,4 +1,5 @@
-import { giudicaTermine } from "@/lib/azioni";
+import { escludiParoleSelezionate, giudicaTermine } from "@/lib/azioni";
+import { PortaSelezionate } from "@/components/PortaSelezionate";
 import { attributiPortaKeyword } from "@/lib/porta-keyword";
 import { prisma } from "@/lib/db";
 import { formattaEuro, formattaNumero, testoKeywordPulito } from "@/lib/dominio";
@@ -267,10 +268,36 @@ export async function TerminiRicerca({
         </div>
       )}
 
+      {/* Le due azioni di massa. Il modulo sta fuori dalla tabella: le caselle
+          delle righe lo raggiungono con `form=`, perché dentro le celle ci
+          sono già i moduli di «Va bene» e «Escludi» e i form non si annidano. */}
+      {nomeCampagna && (
+        <form id="scelte-termini" action={escludiParoleSelezionate} className="barra-multipla">
+          <input type="hidden" name="campagnaId" value={campagnaId} />
+          <input type="hidden" name="ritorno" value={base ?? `/campagne/${campagnaId}`} />
+          <span className="cella-sub">Spunta più parole e agisci su tutte insieme:</span>
+          {/* ⚠️ Esatta di default: si esclude QUELLA ricerca, non tutto ciò
+              che le somiglia. La generica può spegnere una campagna. */}
+          <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12 }}>
+            come
+            <select name="corrispondenza" defaultValue="exact" style={{ font: "inherit", padding: "4px 8px", borderRadius: 8, border: "1px solid var(--hairline-strong)" }}>
+              <option value="exact">esatta — solo questa ricerca</option>
+              <option value="phrase">a frase — questa sequenza di parole</option>
+              <option value="broad">generica — ogni ricerca con queste parole</option>
+            </select>
+          </label>
+          <button className="btn small btn-secondario" type="submit">
+            Escludi le selezionate
+          </button>
+          <PortaSelezionate lingue={linguaCampagna ? [linguaCampagna] : []} />
+        </form>
+      )}
+
       <div style={{ overflowX: "auto" }}>
         <table>
           <thead>
             <tr>
+              <th data-no-ordina></th>
               {intestazione("testo")}
               {intestazione("keyword")}
               {intestazione("spesa", true)}
@@ -292,6 +319,18 @@ export async function TerminiRicerca({
                 resa >= be ? "var(--blue)" : "var(--red)";
               return (
                 <tr key={t.id}>
+                  {/* La casella vive FUORI dalla tabella e la raggiunge con
+                      `form=`: dentro le celle ci sono già i moduli di «Va
+                      bene» e «Escludi», e i form non si annidano. */}
+                  <td>
+                    <input
+                      type="checkbox"
+                      form="scelte-termini"
+                      name="scelte"
+                      value={t.testo}
+                      aria-label={`Seleziona «${t.testo}»`}
+                    />
+                  </td>
                   <td style={{ maxWidth: 280 }}>
                     <div className="cella-nome">{t.testo}</div>
                     {t.gruppo && <div className="cella-sub">{t.gruppo}</div>}

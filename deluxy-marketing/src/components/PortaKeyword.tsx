@@ -31,7 +31,10 @@ export function PortaKeyword({
   azione: (fd: FormData) => void | Promise<void>;
 }) {
   const dialogo = useRef<HTMLDialogElement>(null);
-  const [keyword, setKeyword] = useState("");
+  // Le parole da portare: una (dalla riga) o molte (dalla selezione multipla).
+  const [parole, setParole] = useState<string[]>([]);
+  const keyword = parole[0] ?? "";
+  const piuParole = parole.length > 1;
   const [corrispondenza, setCorrispondenza] = useState("broad");
   const [escludi, setEscludi] = useState<string[]>([]);
   const [daClassificare, setDaClassificare] = useState(false);
@@ -51,7 +54,14 @@ export function PortaKeyword({
       const b = (e.target as HTMLElement | null)?.closest<HTMLElement>(`[${ATTR.keyword}]`);
       if (!b) return;
       const gia = b.getAttribute(ATTR.escludi) ?? "";
-      setKeyword(b.getAttribute(ATTR.keyword) ?? "");
+      // Un bottone può portare una parola o un elenco separato da "\n": il
+      // dialogo è lo stesso, cambia solo quante ne mette in coda.
+      setParole(
+        (b.getAttribute(ATTR.keyword) ?? "")
+          .split("\n")
+          .map((x) => x.trim())
+          .filter(Boolean)
+      );
       setCorrispondenza(b.getAttribute(ATTR.corrispondenza) || "broad");
       setEscludi(gia === "" ? [] : gia.split("\n"));
       setDaClassificare(b.getAttribute(ATTR.classificata) === "no");
@@ -85,13 +95,23 @@ export function PortaKeyword({
       }}
     >
       <form action={azione} className="modale-corpo">
-        <input type="hidden" name="testo" value={keyword} />
+        {parole.map((p) => (
+          <input key={p} type="hidden" name="testo" value={p} />
+        ))}
         <input type="hidden" name="ritorno" value={ritorno} />
 
         <div className="modale-testa">
           <div>
             <div className="modale-occhiello">Porta la keyword su altre campagne</div>
-            <div className="modale-titolo">{keyword}</div>
+            <div className="modale-titolo">
+              {piuParole ? `${parole.length} parole selezionate` : keyword}
+            </div>
+            {piuParole && (
+              <div className="cella-sub" style={{ marginTop: 4, whiteSpace: "normal" }}>
+                {parole.slice(0, 6).join(" · ")}
+                {parole.length > 6 && ` e altre ${parole.length - 6}`}
+              </div>
+            )}
           </div>
           <button
             type="button"
@@ -198,6 +218,10 @@ export function PortaKeyword({
             tradurre a macchina una keyword è il modo di comprare ricerche che
             nessuno fa — ma non deve nemmeno far finta di niente. */}
         {(() => {
+          // ⚠️ Con più parole la traduzione NON si propone: una casella sola
+          // non può correggerne dieci, e mostrarne dieci non verificate
+          // sarebbe il modo di farle approvare senza guardarle.
+          if (piuParole) return null;
           const diverse = scelte
             .map((id) => disponibili.find((c) => c.id === id))
             .filter((c): c is CampagnaScelta => !!c?.lingua && !lingueDiOra.includes(c.lingua));

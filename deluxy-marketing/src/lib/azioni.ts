@@ -2523,7 +2523,17 @@ export async function riapriOperazione(fd: FormData) {
 // Come sempre: nasce in coda, una operazione per campagna, e parte solo dopo
 // l'approvazione. Livello L1 — aggiungere una keyword è leggero, ma non è L0.
 export async function applicaKeywordAdAltreCampagne(fd: FormData) {
-  const parola = testo(fd, "testo");
+  // ⚠️ Più parole in un colpo solo. Il dialogo può arrivare con una parola
+  // (dalla riga) o con dieci (dalla selezione multipla): `getAll` le prende
+  // tutte, e il resto del lavoro è lo stesso per ognuna. Con più parole la
+  // traduzione NON si applica — una casella sola non può correggerne dieci, e
+  // proporre dieci traduzioni non verificate è peggio che non tradurle.
+  const parole = fd
+    .getAll("testo")
+    .map((v) => String(v).trim())
+    .filter(Boolean);
+  const piuParole = parole.length > 1;
+  const parola = parole[0];
   const ritorno = testo(fd, "ritorno") ?? "/keywords";
   // ⚠️ Il ripiego è la corrispondenza più STRETTA, non la più larga: se il
   // dialogo non manda niente, «generica» su una parola nata esatta comprerebbe
@@ -2542,7 +2552,6 @@ export async function applicaKeywordAdAltreCampagne(fd: FormData) {
     );
   }
 
-  const pulito = testoKeywordPulito(parola);
   const campagne = await prisma.campagna.findMany({
     where: { id: { in: destinazioni } },
     include: { incidenti: { where: { stato: "aperto" }, select: { codice: true } } },
@@ -2551,6 +2560,8 @@ export async function applicaKeywordAdAltreCampagne(fd: FormData) {
   const fatte: string[] = [];
   const saltate: string[] = [];
 
+  for (const parolaOra of parole) {
+  const pulito = testoKeywordPulito(parolaOra);
   for (const c of campagne) {
     // Il freeze da incidente non salta più la campagna: l'operazione entra in
     // coda con l'avviso addosso, e chi approva decide.
@@ -2575,7 +2586,7 @@ export async function applicaKeywordAdAltreCampagne(fd: FormData) {
     // coda ha rivisto la traduzione, va quella. La casella del dialogo è la
     // fonte — il glossario propone, la persona decide.
     const linguaC = linguaDaNome(c.nome);
-    const tradotto = linguaC ? testo(fd, `testo_${linguaC}`) : null;
+    const tradotto = piuParole || !linguaC ? null : testo(fd, `testo_${linguaC}`);
     const pulitoQui = tradotto ? testoKeywordPulito(tradotto) : pulito;
 
     const candidate = await prisma.copyAnnuncio.findMany({
@@ -2609,14 +2620,23 @@ export async function applicaKeywordAdAltreCampagne(fd: FormData) {
         campagnaId: c.id,
       },
     });
-    fatte.push(pulitoQui.toLowerCase() !== pulito.toLowerCase() ? `${c.nome} («${pulitoQui}»)` : c.nome);
+    fatte.push(
+      piuParole
+        ? `«${pulitoQui}» su ${c.nome}`
+        : pulitoQui.toLowerCase() !== pulito.toLowerCase()
+          ? `${c.nome} («${pulitoQui}»)`
+          : c.nome
+    );
+  }
   }
 
   await registra({
     autore: "utente",
     tipo: "creazione",
     entita: "operazione",
-    titolo: `«${pulito}» in coda su ${fatte.length} campagne`,
+    titolo: piuParole
+      ? `${parole.length} parole in coda: ${fatte.length} operazioni`
+      : `«${testoKeywordPulito(parola)}» in coda su ${fatte.length} campagne`,
     dettaglio:
       (fatte.length > 0 ? fatte.join(" · ") : "nessuna") +
       (saltate.length > 0 ? ` · saltate: ${saltate.join(", ")}` : ""),
@@ -2627,10 +2647,11 @@ export async function applicaKeywordAdAltreCampagne(fd: FormData) {
   // l'utente atterrava su una pagina dove non era comparso niente di nuovo e
   // nessuno gli diceva perché: dal di fuori è un bottone che non funziona.
   // Le saltate finivano solo nello storico, che non è dove uno guarda.
+  const comeSiChiama = piuParole ? `${parole.length} parole` : `«${testoKeywordPulito(parola)}»`;
   const messaggio =
     fatte.length > 0
-      ? `«${pulito}» messa in coda su ${fatte.length} campagn${fatte.length === 1 ? "a" : "e"}: ${fatte.join(" · ")}`
-      : `«${pulito}» non è entrata in coda su nessuna campagna`;
+      ? `${comeSiChiama} in coda: ${fatte.length} operazion${fatte.length === 1 ? "e" : "i"} — ${fatte.join(" · ")}`
+      : `${comeSiChiama}: niente è entrato in coda`;
   const qs = new URLSearchParams({ esito: messaggio });
   if (saltate.length > 0) qs.set("saltate", saltate.join(" · "));
   redirect(`/operazioni?${qs.toString()}`);
