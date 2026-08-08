@@ -958,10 +958,25 @@ mark.ricerca-hit {
   width: 100%; max-width: 560px;
   max-height: 80vh; overflow-y: auto;
 }
+/* Titolo + ✕: la riga resta APPICCICATA in cima mentre il dialogo scorre.
+   In un dialogo lungo (la ricerca delle mail da agganciare) il tasto «Chiudi»
+   in fondo sta sotto la piega, e la finestra sembra senza uscita. */
 .modal-title {
+  position: sticky; top: -20px; z-index: 1;
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+  background: var(--surface);
   font-size: 17px; font-weight: 600; letter-spacing: -0.017em;
-  margin-bottom: 12px;
+  margin: -20px -22px 12px; padding: 20px 22px 10px;
 }
+.modal-chiudi {
+  flex: 0 0 auto;
+  border: none; background: var(--fill); color: var(--text-secondary);
+  width: 28px; height: 28px; border-radius: 999px;
+  font-size: 13px; line-height: 1; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: background 150ms var(--ease), color 150ms var(--ease);
+}
+.modal-chiudi:hover { background: var(--hairline-strong); color: var(--text); }
 
 /* La domanda (e la proposta) dell'AI nel dialogo: stesso oro dell'ai-box. */
 .ai-domanda {

@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { proponiPerApp, eseguiInvioApp, cercaPartnerAnagrafiche, type PropostaApp } from '@/lib/actions'
 import type { AzioneDescritta, CampoAzione } from '@/lib/appDeluxy'
+import { ChiudiModale, useChiudiConEsc } from './ChiudiModale'
 
 type AziendaTrovata = { id: string; nome: string; citta: string | null; categoria: string | null; stato: string | null }
 
@@ -229,13 +230,16 @@ export function InvioAppDialog({ azioni }: { azioni: AzioneDescritta[] }) {
     setEsito(null)
   }
 
+  useChiudiConEsc(Boolean(messaggioId), chiudi)
+
   if (!messaggioId) return null
 
   return (
     <div className="modal-scrim" onClick={chiudi}>
       <div className="modal" role="dialog" aria-label="APP Deluxy" onClick={(e) => e.stopPropagation()}>
         <div className="modal-title">
-          {proposta?.azione ? `${proposta.azione.app} — ${proposta.azione.nome}` : 'APP Deluxy'}
+          <span>{proposta?.azione ? `${proposta.azione.app} — ${proposta.azione.nome}` : 'APP Deluxy'}</span>
+          <ChiudiModale onChiudi={chiudi} />
         </div>
 
         {/* Sto preparando */}

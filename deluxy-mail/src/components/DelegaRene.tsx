@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { delegaReneAuto } from '@/lib/actions'
 import { mostraFlash } from './Flash'
+import { ChiudiModale, useChiudiConEsc } from './ChiudiModale'
 
 /**
  * Il pulsante "Delega Renè" nella riga o nella pagina messaggio: NON tiene
@@ -49,6 +50,8 @@ export function DelegaReneDialog() {
     return () => window.removeEventListener('aimail:delega', su)
   }, [])
 
+  useChiudiConEsc(Boolean(messaggioId), () => setMessaggioId(null))
+
   if (!messaggioId) return null
 
   // Un solo ingresso: Renè legge l'istruzione e decide da solo se preparare una
@@ -75,7 +78,10 @@ export function DelegaReneDialog() {
     <div className="modal-scrim" onClick={() => setMessaggioId(null)}>
       <div className="modal" role="dialog" aria-label="Delega Renè" onClick={(e) => e.stopPropagation()}>
         <div className="modal-title">
-          <span className="ai-toggle-mark">AI</span> Delega Renè
+          <span>
+            <span className="ai-toggle-mark">AI</span> Delega Renè
+          </span>
+          <ChiudiModale onChiudi={() => setMessaggioId(null)} />
         </div>
         <div className="ai-domanda">
           <span className="ai-mark">AI</span>

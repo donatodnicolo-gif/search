@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useState, useTransition } from 'react'
+import { useCallback, useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { salvaNomeThread } from '@/lib/actions'
 import { mostraFlash } from './Flash'
+import { ChiudiModale, useChiudiConEsc } from './ChiudiModale'
 
 const APRI = 'aimail:nome-thread'
 
@@ -49,8 +50,10 @@ export function NomeThreadDialog() {
     return () => window.removeEventListener(APRI, su)
   }, [])
 
+  const chiudi = useCallback(() => setMessaggioId(null), [])
+  useChiudiConEsc(Boolean(messaggioId), chiudi)
+
   if (!messaggioId) return null
-  const chiudi = () => setMessaggioId(null)
 
   const salva = (testo: string) =>
     start(async () => {
@@ -67,7 +70,10 @@ export function NomeThreadDialog() {
   return (
     <div className="modal-scrim" onClick={chiudi}>
       <div className="modal" role="dialog" aria-label="Nome della conversazione" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-title">Nome della conversazione</div>
+        <div className="modal-title">
+          <span>Nome della conversazione</span>
+          <ChiudiModale onChiudi={chiudi} />
+        </div>
         <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 10 }}>
           Un nome tuo (es. «Trasferte LimoLane»): compare nelle liste al posto dell’oggetto e lo
           puoi cercare nella pagina Thread.

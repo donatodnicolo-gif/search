@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect, useState, useTransition } from 'react'
+import { useCallback, useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { creaEvento, creaAttivitaManuale } from '@/lib/actions'
 import { ComandoRene } from './ComandoRene'
 import { mostraFlash } from './Flash'
+import { ChiudiModale, useChiudiConEsc } from './ChiudiModale'
 
 export type TipoAzione = 'evento' | 'attivita' | 'rene'
 const APRI = 'aimail:azione-rapida'
@@ -40,8 +41,10 @@ export function AzioneRapida() {
     return () => window.removeEventListener(APRI, su)
   }, [])
 
+  const chiudi = useCallback(() => setTipo(null), [])
+  useChiudiConEsc(tipo !== null, chiudi)
+
   if (!tipo) return null
-  const chiudi = () => setTipo(null)
 
   const salvaEvento = (form: FormData) =>
     start(async () => {
@@ -68,7 +71,10 @@ export function AzioneRapida() {
   return (
     <div className="modal-scrim" onClick={chiudi}>
       <div className="modal" role="dialog" aria-label={TITOLI[tipo]} onClick={(e) => e.stopPropagation()}>
-        <div className="modal-title">{TITOLI[tipo]}</div>
+        <div className="modal-title">
+          <span>{TITOLI[tipo]}</span>
+          <ChiudiModale onChiudi={chiudi} />
+        </div>
 
         {tipo === 'evento' && (
           <form action={salvaEvento}>

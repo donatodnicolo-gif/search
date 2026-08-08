@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { eliminaEvento, modificaEvento } from '@/lib/actions'
 import { Ricorrenza } from './Ricorrenza'
 import { mostraFlash } from './Flash'
+import { ChiudiModale, useChiudiConEsc } from './ChiudiModale'
 
 /** I dati dell'appuntamento che la scheda mostra e modifica. Giorno e ore
  *  arrivano già in ora italiana dal server: qui non si fanno conti sui fusi. */
@@ -90,6 +91,8 @@ export function EventoDettaglio() {
     return () => window.removeEventListener(EVENTO_APERTO, su)
   }, [])
 
+  useChiudiConEsc(Boolean(dati), () => setDati(null))
+
   if (!dati) return null
   const inSerie = Boolean(dati.serieId)
   const chiudi = () => setDati(null)
@@ -150,7 +153,10 @@ export function EventoDettaglio() {
       <div className="modal" role="dialog" aria-label="Appuntamento" onClick={(e) => e.stopPropagation()}>
         {!modifica ? (
           <>
-            <div className="modal-title">{dati.titolo}</div>
+            <div className="modal-title">
+              <span>{dati.titolo}</span>
+              <ChiudiModale onChiudi={chiudi} />
+            </div>
 
             <div style={{ fontSize: 13.5, lineHeight: 1.7, marginBottom: 12 }}>
               <div>
@@ -224,7 +230,10 @@ export function EventoDettaglio() {
           </>
         ) : (
           <form action={salva}>
-            <div className="modal-title">Modifica appuntamento</div>
+            <div className="modal-title">
+              <span>Modifica appuntamento</span>
+              <ChiudiModale onChiudi={chiudi} />
+            </div>
             <div className="form-grid">
               <div className="full">
                 <label className="field-label">

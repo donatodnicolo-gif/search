@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { segnaLetto, smaltisciEProssimo } from '@/lib/actions'
 import { mostraFlash } from './Flash'
 import { fuocoConversazione } from './fuocoConversazione'
+import { ChiudiModale } from './ChiudiModale'
 
 /**
  * LE SCORCIATOIE DA TASTIERA.
@@ -125,7 +126,10 @@ export function Scorciatoie() {
   return (
     <div className="modal-scrim" onClick={() => setAiuto(false)}>
       <div className="modal" role="dialog" aria-label="Scorciatoie" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-title">Scorciatoie da tastiera</div>
+        <div className="modal-title">
+          <span>Scorciatoie da tastiera</span>
+          <ChiudiModale onChiudi={() => setAiuto(false)} />
+        </div>
         <p className="muted" style={{ fontSize: 12.5, marginBottom: 12 }}>
           Lettere singole, senza Ctrl: <kbd>Ctrl+R</kbd> e compagni restano al browser. Non
           scattano mentre scrivi — l’unica che vale anche lì è <kbd>Ctrl+Invio</kbd>, che manda
@@ -145,6 +149,7 @@ export function Scorciatoie() {
             ['j / k', 'Muoviti fra i messaggi della conversazione'],
             ['Invio', 'Apri o chiudi il messaggio a fuoco'],
             ['Ctrl+Invio', 'Mentre scrivi: manda la mail (chiede conferma, poi spedisce)'],
+            ['Esc', 'Chiude il dialogo aperto (c’è anche la ✕ in alto a destra)'],
             ['?', 'Questo elenco'],
           ].map(([tasto, cosa]) => (
             <div key={tasto}>

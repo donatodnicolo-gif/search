@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { creaAttivitaConProposta, eseguiAttivita, type EsitoNuovaAttivita } from '@/lib/actions'
+import { ChiudiModale, useChiudiConEsc } from './ChiudiModale'
 
 /**
  * I due tasti in testa alla posta: "Nuova mail" (si scrive da zero) e
@@ -25,6 +26,10 @@ export function NuoveAzioni() {
     setTesto('')
     setEsito(null)
   }
+
+  // `Esc` chiude quello che è aperto: prima la scelta, poi il dialogo.
+  useChiudiConEsc(scelta, () => setScelta(false))
+  useChiudiConEsc(aperto && !scelta, chiudi)
 
   const chiedi = () =>
     start(async () => {
@@ -77,7 +82,10 @@ export function NuoveAzioni() {
             aria-label="Cosa vuoi creare?"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="modal-title">Cosa vuoi creare?</div>
+            <div className="modal-title">
+              <span>Cosa vuoi creare?</span>
+              <ChiudiModale onChiudi={() => setScelta(false)} />
+            </div>
             <div className="scelta-nuova">
               <button
                 type="button"
@@ -120,7 +128,10 @@ export function NuoveAzioni() {
             aria-label="Nuova attività"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="modal-title">Nuova attività</div>
+            <div className="modal-title">
+              <span>Nuova attività</span>
+              <ChiudiModale onChiudi={chiudi} />
+            </div>
 
             {/* Il dialogo: l'AI chiede quale attività bisogna seguire. */}
             <div className="ai-domanda">

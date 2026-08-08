@@ -373,6 +373,7 @@ scritta solo dentro un elenco la trova soltanto chi già sa che esiste. Le princ
 | `s` | segna da leggere |
 | `j` / `k` · `Invio` | muoviti nella conversazione · apri il messaggio |
 | `p` / `n` | mail precedente / successiva, senza tornare in elenco |
+| `Esc` | chiude il dialogo aperto (c'è anche la ✕ in alto a destra) |
 | `Ctrl+Invio` | **mentre scrivi una mail**: manda (una volta per chiedere conferma, una per spedire) |
 
 **Smaltire una mail apre la successiva.** Con `Canc` (o col tasto «Cestina») non torni

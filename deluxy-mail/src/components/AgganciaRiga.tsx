@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useState, useTransition } from 'react'
+import { useCallback, useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { agganciaAlThread, cercaDaAgganciare, type CandidatoAggancio } from '@/lib/actions'
 import { dataBreve } from '@/lib/format'
+import { ChiudiModale, useChiudiConEsc } from './ChiudiModale'
 
 /** Pulsante leggero: lancia l'evento, il modale è uno solo (AgganciaDialog). */
 export function AgganciaBottone({ id }: { id: string }) {
@@ -43,6 +44,9 @@ export function AgganciaDialog() {
     return () => window.removeEventListener('aimail:aggancia', su)
   }, [])
 
+  const chiudi = useCallback(() => setMessaggioId(null), [])
+  useChiudiConEsc(Boolean(messaggioId), chiudi)
+
   if (!messaggioId) return null
 
   const cerca = () =>
@@ -64,9 +68,12 @@ export function AgganciaDialog() {
     })
 
   return (
-    <div className="modal-scrim" onClick={() => setMessaggioId(null)}>
+    <div className="modal-scrim" onClick={chiudi}>
       <div className="modal" role="dialog" aria-label="Aggancia una mail" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-title">Aggancia una mail a questa conversazione</div>
+        <div className="modal-title">
+          <span>Aggancia una mail a questa conversazione</span>
+          <ChiudiModale onChiudi={chiudi} />
+        </div>
         <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 10 }}>
           Cerca la mail da unire (per oggetto o mittente): serve quando parlano della stessa cosa
           ma non sono collegate. L’AI le leggerà insieme.
