@@ -1,7 +1,8 @@
 'use client'
 
 import { useTransition } from 'react'
-import { segnaLettoThread } from '@/lib/actions'
+import { useRouter } from 'next/navigation'
+import { azioneMassa } from '@/lib/actions'
 
 /**
  * «Letto» / «Non letto» direttamente dalla riga della posta, senza aprire la
@@ -20,16 +21,18 @@ import { segnaLettoThread } from '@/lib/actions'
  * aprirebbe la mail.
  */
 export function SegnaLettoRiga({
-  id,
+  ids,
   nonLetto,
   onCambio,
 }: {
-  id: string
+  /** TUTTE le mail che la riga rappresenta: si agisce su quelle e basta. */
+  ids: string[]
   nonLetto: boolean
   /** Cambia lo stato nella riga che ci sta intorno: è lì che vive. */
   onCambio: (letto: boolean) => void
 }) {
   const [inCorso, start] = useTransition()
+  const router = useRouter()
 
   const cambia = (e: React.MouseEvent) => {
     e.preventDefault()
@@ -37,8 +40,19 @@ export function SegnaLettoRiga({
     const nuovo = nonLetto // se era da leggere, ora diventa letta
     onCambio(nuovo)
     start(async () => {
-      const r = await segnaLettoThread(id, nuovo)
-      if (!r.ok) onCambio(!nuovo)
+      const r = await azioneMassa(ids, nuovo ? 'letto' : 'nonletto')
+      if (!r.ok) {
+        onCambio(!nuovo)
+        return
+      }
+      // ⚠️ Qui il refresh CI VUOLE, ed è un'eccezione alla regola «niente
+      // refresh dopo un'azione di riga» (§9): quella regola vale dove la riga
+      // SPARISCE — archivia, cestina — e allora a schermo non resta niente di
+      // sbagliato. Qui la riga resta, e i contatori della colonna di sinistra
+      // continuerebbero a contare come non letta una mail che hai appena
+      // segnato letta: due numeri diversi per la stessa cosa. Segnalato il
+      // 7/08/2026.
+      router.refresh()
     })
   }
 

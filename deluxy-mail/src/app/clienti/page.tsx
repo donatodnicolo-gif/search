@@ -122,6 +122,8 @@ export default async function Clienti({ searchParams }: Props) {
       nel: g.length,
       parti: new Set(g.map((x) => (x.direzione === 'uscita' ? 'me' : x.mittente.toLowerCase()))).size,
       nonLetti: g.some((x) => !x.letto),
+      // Come in posta: «✓ Letto» agisce sulle mail che la riga mostra.
+      ids: g.map((x) => x.id),
       contattoAI: setAI.has(m.mittente.toLowerCase()),
       risposto: threadRisposti.has(m.thread || m.messageId || ''),
       inviata: false,

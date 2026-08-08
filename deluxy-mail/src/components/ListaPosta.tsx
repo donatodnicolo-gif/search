@@ -324,6 +324,9 @@ export async function ListaPosta({
       nel: g.length,
       parti: new Set(g.map((x) => (x.direzione === 'uscita' ? 'me' : x.mittente.toLowerCase()))).size,
       nonLetti: g.some((x) => !x.letto),
+      // Gli id del gruppo: «✓ Letto» deve agire su quello che la riga MOSTRA,
+      // non su una conversazione ricalcolata a parte (vedi RigaData.ids).
+      ids: g.map((x) => x.id),
       contattoAI: setAI.has(m.mittente.toLowerCase()),
       risposto: threadRisposti.has(m.thread || m.messageId || ''),
       inoltrato:

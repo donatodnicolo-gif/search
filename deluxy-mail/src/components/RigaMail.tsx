@@ -41,6 +41,17 @@ export type RigaData = {
   nel: number
   parti: number
   nonLetti: boolean
+  /**
+   * Gli id di TUTTE le mail che questa riga rappresenta.
+   * ⚠️ Servono perché «✓ Letto» agisca esattamente su quello che la riga
+   * mostra. Prima si passava il solo id di testa a `segnaLettoThread`, che la
+   * conversazione se la ricalcola per conto suo (finestra di 400 candidati,
+   * radice della catena, oggetto): quando i due raggruppamenti non coincidono
+   * resta indietro una mail non letta, e la riga **torna blu** — segnalato il
+   * 7/08/2026. La riga sa già quali mail sono sue: non c'è motivo di indovinarlo
+   * una seconda volta.
+   */
+  ids: string[]
   contattoAI: boolean
   /** True se a questa conversazione abbiamo già risposto (c'è una mail in uscita). */
   risposto?: boolean
@@ -255,7 +266,11 @@ export const RigaMail = memo(function RigaMail({
           />
           {/* «Letto» sulla riga: la richiesta più semplice e più usata —
               togliere il pallino senza aprire la mail. */}
-          <SegnaLettoRiga id={r.id} nonLetto={nonLetti} onCambio={(letto) => setNonLetti(!letto)} />
+          <SegnaLettoRiga
+            ids={r.ids?.length ? r.ids : [r.id]}
+            nonLetto={nonLetti}
+            onCambio={(letto) => setNonLetti(!letto)}
+          />
           <DelegaReneBottone id={r.id} />
           <AgganciaBottone id={r.id} />
           {/* Dai (o cambi) il nome alla conversazione senza aprirla. */}
