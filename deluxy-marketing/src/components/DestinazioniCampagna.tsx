@@ -46,6 +46,24 @@ export async function DestinazioniCampagna({ nomeCampagna }: { nomeCampagna: str
     )
   );
 
+  // ⚠️ **I gruppi ACCESI che non dichiarano nessuna destinazione.** Il blocco
+  // mostrava solo quello che c'era, e il silenzio sembrava completezza:
+  // misurato l'08/08/2026 su «[Deluxy] - Fiori Milano ENG», delle nove
+  // destinazioni nessuna era di **Flowers Delivery** — l'unico gruppo acceso,
+  // cioè l'unico che sta spendendo. Alla domanda «dove mando il traffico» la
+  // pagina rispondeva elencando le pagine dei gruppi fermi.
+  //
+  // Succede quando l'annuncio non ha una URL finale sua: le **Dynamic Search
+  // Ads** non ce l'hanno per definizione — la pagina la sceglie Google dal
+  // sito — e lo stesso vale per le PMax. Non è un buco dell'import: è una cosa
+  // che quell'annuncio non dichiara, e va detta invece di lasciare il vuoto.
+  const gruppiAccesi = await prisma.gruppo.findMany({
+    where: { campagna: { nome: nomeCampagna }, statoPiattaforma: "ENABLED" },
+    select: { nome: true, nomeVisibile: true },
+  });
+  const conDestinazione = new Set(destinazioni.map((d) => d.gruppo).filter(Boolean));
+  const senzaDestinazione = gruppiAccesi.filter((g) => !conDestinazione.has(g.nome));
+
   const riga = (r: (typeof righe)[number]) => {
     const url = r.finalUrl ?? r.testo;
     const censita = landing.get(pulisci(url));
@@ -88,6 +106,20 @@ export async function DestinazioniCampagna({ nomeCampagna }: { nomeCampagna: str
             {fermi > 0 && ` Solo quelle accese: ${fermi} in pausa su Google non sono in elenco.`}
           </p>
           <ul className="dest-elenco">{destinazioni.map(riga)}</ul>
+          {senzaDestinazione.length > 0 && (
+            <div className="nota-info" style={{ marginTop: 12, borderColor: "rgba(201,52,0,.35)", background: "rgba(201,52,0,.06)" }}>
+              <span className="nota-icona" style={{ color: "var(--orange)" }}>⚠</span>
+              <span>
+                {senzaDestinazione.length === 1 ? "Un gruppo acceso non ha" : `${senzaDestinazione.length} gruppi accesi non hanno`}{" "}
+                <b>nessuna destinazione qui sopra</b>:{" "}
+                {senzaDestinazione.map((g) => g.nomeVisibile ?? g.nome).join(", ")}. Sono quelli che
+                stanno spendendo <b>adesso</b>, quindi l&apos;elenco non risponde alla domanda per
+                la parte che conta di più. Succede quando l&apos;annuncio non dichiara una URL
+                propria — le <b>Dynamic Search Ads</b> e le PMax non ce l&apos;hanno, perché la
+                pagina la sceglie Google. In quel caso la landing si guarda in Google Ads.
+              </span>
+            </div>
+          )}
         </>
       ) : (
         <div className="nota-info">
