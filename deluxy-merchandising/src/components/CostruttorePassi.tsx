@@ -39,6 +39,7 @@ export function CostruttorePassi({
   suCosa = "in vendita",
   campione,
   fila,
+  conti,
   quantiEntrano = 0,
   quantiDietro = 0,
   suChe,
@@ -57,6 +58,13 @@ export function CostruttorePassi({
   campione?: boolean;
   /** **Come usciranno** i prodotti, gia' in ordine. */
   fila?: ProdottoAnteprima[];
+  /**
+   * Per ogni passo: a quanti prodotti **corrisponde** e quanti gliene **restano**
+   * dopo che i passi sopra hanno preso i loro. Sono due numeri diversi e la
+   * differenza è tutto: un passo può corrispondere a centosessantanove prodotti
+   * e non portarne nessuno.
+   */
+  conti?: { corrisponde: number; suoi: number }[];
   /** Quanti di quelli in fila **non sono ancora dentro** e ci entrerebbero da soli. */
   quantiEntrano?: number;
   /** Quanti stanno nella vetrina ma **nessun passo prende**: restano dietro. */
@@ -128,11 +136,27 @@ export function CostruttorePassi({
                       ognuno apre la vetrina, uno per posizione, e poi si
                       ricomincia. Scritto qui perche' prima diceva «spezza i
                       pareggi», che descriveva il comportamento vecchio. */}
-                  {p.t === "metrica"
-                    ? REGOLE.find((x) => x.chiave === p.m)?.spiega
-                    : i === 0
-                      ? "Apre la vetrina: il suo primo prodotto sta in posizione 1."
-                      : `Il suo primo prodotto sta in posizione ${i + 1}, poi si va a turno con gli altri passi.`}
+                  {p.t === "metrica" ? (
+                    REGOLE.find((x) => x.chiave === p.m)?.spiega
+                  ) : conti?.[i] && conti[i].suoi === 0 ? (
+                    // **Un passo che non porta niente va detto.** Con la stessa
+                    // condizione di un passo sopra, il secondo resta a mani vuote
+                    // e non compare mai in vetrina: senza scriverlo si continua a
+                    // cercarlo nella fila (segnalato dall'utente: «non capisco
+                    // perché non si vede il 6»).
+                    <b style={{ color: "var(--orange)" }}>
+                      {conti[i].corrisponde === 0
+                        ? "Non porta niente: qui dentro non corrisponde nessun prodotto."
+                        : `Non porta niente: i suoi ${conti[i].corrisponde} prodotti li mettono già in fila gli altri passi.`}
+                    </b>
+                  ) : (
+                    <>
+                      {conti?.[i] ? `Porta ${conti[i].suoi} prodotti. ` : ""}
+                      {i === 0
+                        ? "Apre la vetrina: il suo primo sta in posizione 1."
+                        : `Il suo primo sta in posizione ${i + 1}, poi si va a turno con gli altri passi.`}
+                    </>
+                  )}
                 </div>
               </span>
               <span className="vetrina-azioni">

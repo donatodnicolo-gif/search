@@ -242,49 +242,86 @@ export async function ordinaPerPassi<T extends ProdottoOrdinabile>(
     return [...items].sort((a, b) => perMetriche(a, b, globali) || a.nome.localeCompare(b.nome));
   }
 
-  // **Ogni condizione è un gruppo, e un prodotto sta nel primo che lo prende**:
-  // senza questa regola un fiore d'arte urgente comparirebbe due volte in
-  // vetrina.
-  const gruppi: T[][] = celle.map(() => []);
-  const fuori: T[] = [];
-  for (const x of items) {
-    const i = celle.findIndex((p) => corrisponde(x, p));
-    if (i < 0) fuori.push(x);
-    else gruppi[i].push(x);
-  }
-
-  // **La metrica di una cella ordina solo i prodotti di quella cella.** Prima
-  // diventava una chiave globale e finiva per decidere anche l'ordine dei
-  // gruppi successivi: nel passo «Fornitore Enrico Rizzi — poi per Novità» il
-  // primo non era il più recente ma il più venduto, perché a decidere era la
-  // metrica di un'altra cella (segnalato dall'utente: «ma non dovrebbe essere il
-  // gelato il 5°?»). «Prima X — poi per Y» vuol dire: fra le X, ordinale per Y.
-  celle.forEach((c, i) => {
+  // **Ogni condizione pesca dal suo insieme, anche se è lo stesso di un'altra.**
+  //
+  // Prima un prodotto apparteneva al *primo* passo che lo prendeva, e due passi
+  // con la stessa condizione erano uno di troppo: il secondo restava a mani
+  // vuote. Ma due passi possono avere la stessa condizione e **metriche
+  // diverse** — «i fiori più nuovi e cari» e «i fiori più economici» — e non
+  // sono la stessa cosa: in vetrina si alternano (segnalato dall'utente: «sono
+  // condizioni differenti»).
+  //
+  // Quindi ogni passo ordina **tutti** i prodotti che gli corrispondono, con le
+  // sue metriche; poi si va a turno e ognuno mette il suo prossimo prodotto
+  // **non ancora piazzato**. Nessun doppione, e nessun passo resta muto solo
+  // perché un altro guarda lo stesso scaffale.
+  const gruppi: T[][] = celle.map((c) => {
     const sue = c.t === "cella" ? c.m ?? [] : [];
     const ms = [...sue, ...globali];
-    gruppi[i].sort((a, b) => perMetriche(a, b, ms) || a.nome.localeCompare(b.nome));
+    return items.filter((x) => corrisponde(x, c)).sort((a, b) => perMetriche(a, b, ms) || a.nome.localeCompare(b.nome));
   });
-  fuori.sort((a, b) => perMetriche(a, b, globali) || a.nome.localeCompare(b.nome));
+  const fuori = items
+    .filter((x) => !celle.some((c) => corrisponde(x, c)))
+    .sort((a, b) => perMetriche(a, b, globali) || a.nome.localeCompare(b.nome));
 
   // **A turno, uno per condizione.** Con le condizioni come sole priorità la fila
   // usciva a blocchi — tutti i fiori sopra i 300 €, poi tutte le torte — e in
   // cima si vedevano settantatré bouquet di fila, mentre le condizioni 2, 3 e 4
   // non comparivano finché non finiva la prima: cioè mai, per chi guarda la
   // prima riga della vetrina. Ogni condizione è **una cosa che deve esserci**,
-  // non una fetta da esaurire. Chi ha finito i suoi prodotti viene saltato; chi
-  // nessuna condizione prende resta in fondo, com'era.
+  // non una fetta da esaurire. Chi non ha più prodotti da mettere viene saltato;
+  // chi nessuna condizione prende resta in fondo, com'era.
   const out: T[] = [];
-  for (let giro = 0; ; giro++) {
+  const piazzati = new Set<string>();
+  const prossimo = celle.map(() => 0);
+  for (;;) {
     let messo = false;
-    for (const g of gruppi) {
-      if (giro < g.length) {
-        out.push(g[giro]);
+    for (let i = 0; i < gruppi.length; i++) {
+      while (prossimo[i] < gruppi[i].length && piazzati.has(gruppi[i][prossimo[i]].prodottoId)) prossimo[i]++;
+      if (prossimo[i] < gruppi[i].length) {
+        const x = gruppi[i][prossimo[i]++];
+        piazzati.add(x.prodottoId);
+        out.push(x);
         messo = true;
       }
     }
     if (!messo) break;
   }
   return [...out, ...fuori];
+}
+
+/**
+ * **Quanti prodotti mette in fila ogni condizione**, con le stesse regole di
+ * `ordinaPerPassi`: serve a dire in pagina «questo passo porta N prodotti» e a
+ * riconoscere quello che non ne porta nessuno. Rifà il giro invece di dedurlo
+ * dalla fila finita, perché dedurlo vorrebbe dire riscrivere la stessa logica
+ * una seconda volta — ed è così che due parti dell'app cominciano a raccontare
+ * cose diverse.
+ */
+export function quantiPerPasso<T extends ProdottoOrdinabile>(items: T[], passi: Passo[]): number[] {
+  const celle = passi.filter((p) => p.t !== "metrica");
+  if (celle.length === 0) return passi.map(() => 0);
+  const gruppi = celle.map((c) => items.filter((x) => corrisponde(x, c)).map((x) => x.prodottoId));
+  const quanti = celle.map(() => 0);
+  const piazzati = new Set<string>();
+  const prossimo = celle.map(() => 0);
+  for (;;) {
+    let messo = false;
+    for (let i = 0; i < gruppi.length; i++) {
+      while (prossimo[i] < gruppi[i].length && piazzati.has(gruppi[i][prossimo[i]])) prossimo[i]++;
+      if (prossimo[i] < gruppi[i].length) {
+        piazzati.add(gruppi[i][prossimo[i]++]);
+        quanti[i]++;
+        messo = true;
+      }
+    }
+    if (!messo) break;
+  }
+  // Rimesso nell'ordine dei passi originali (le metriche a sé valgono 0).
+  const out: number[] = [];
+  let k = 0;
+  for (const p of passi) out.push(p.t === "metrica" ? 0 : quanti[k++]);
+  return out;
 }
 
 

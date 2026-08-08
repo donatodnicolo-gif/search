@@ -115,6 +115,43 @@ async function main() {
   }
   console.log(`\nclassificati ${fatti} prodotti (solo in app, su Shopify non è cambiato niente).`);
 
+  // — Seconda passata: **gli Originali Deluxy che sono fiori** —
+  //
+  // «Originali Deluxy» e' il Tipo che il negozio da' alle **composizioni**: fiori
+  // piu' qualcos'altro (Rose Rosse e Praline, Cappelliera Rose e Palloncino,
+  // Monet - Bouquet e Palloncini). Tenendoli tutti in una famiglia a se',
+  // cercando i fiori se ne perdevano quarantotto — segnalato dall'utente, che ha
+  // deciso: **vanno sotto Fiori comunque**.
+  //
+  // Il criterio non e' «indovina dal nome»: si guarda un **tag floreale** o il
+  // **negozio Flowers**, che sono dati scritti su Shopify. Il nome entra solo
+  // come terzo segnale e su parole inequivocabili (ortensie, bouquet, peonie),
+  // per non lasciare fuori casi come «Ortensie Balloon» che di floreale non
+  // hanno ne' tag ne' negozio. Qui si **sovrascrive** una categoria gia'
+  // assegnata, ed e' voluto: e' l'unico punto dello script che lo fa.
+  const composizioni = await prisma.prodotto.findMany({
+    where: { categoria: "ORIGINALI_DELUXY" },
+    select: {
+      id: true,
+      nome: true,
+      tagShopify: true,
+      collezioniShopify: { select: { collezione: { select: { negozio: true } } }, take: 1 },
+    },
+  });
+  const FLOREALE = /fior|rose|rosa|bouquet|orchid|ortensi|tulipan|peon/i;
+  const NOME_FLOREALE = /fior|rose|bouquet|orchid|ortensi|tulipan|peon|cappellier/i;
+  const daSpostare = composizioni.filter(
+    (p) =>
+      FLOREALE.test(p.tagShopify ?? "") ||
+      p.collezioniShopify[0]?.collezione.negozio === "Flowers" ||
+      NOME_FLOREALE.test(p.nome),
+  );
+  if (daSpostare.length > 0) {
+    await prisma.prodotto.updateMany({ where: { id: { in: daSpostare.map((p) => p.id) } }, data: { categoria: "FIORI" } });
+  }
+  console.log(`
+Originali Deluxy che sono composizioni floreali → Fiori: ${daSpostare.length}`);
+
   const dopo = await prisma.prodotto.groupBy({ by: ["categoria"], where: { statoShopify: "ACTIVE" }, _count: true });
   console.log("— attivi per categoria interna —");
   for (const c of dopo.sort((a, b) => b._count - a._count)) console.log(`  ${c.categoria.padEnd(20)} ${c._count}`);

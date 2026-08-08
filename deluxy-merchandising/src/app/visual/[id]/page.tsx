@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
 import { euro } from "@/lib/dominio";
-import { etichettaRegola, FILTRO_IN_SCENA, isRegola, ordinaPerPassi, ordinaProdotti, parseRegole, type RegolaOrdinamento } from "@/lib/ordinamento-vetrina";
+import { etichettaRegola, FILTRO_IN_SCENA, isRegola, ordinaPerPassi, ordinaProdotti, parseRegole, quantiPerPasso, type RegolaOrdinamento } from "@/lib/ordinamento-vetrina";
 import { SelettoreRegole } from "@/components/SelettoreRegole";
 import { CostruttorePassi } from "@/components/CostruttorePassi";
 import { FilaProdotti, StatoNegozio } from "@/components/FilaProdotti";
@@ -249,6 +249,15 @@ export default async function CurazioneCollezionePage({
   // gelati e champagne che nessuna condizione nomina (segnalato dall'utente).
   // Restano contati, dietro, perche' nella vetrina ci sono.
   const filaRegola = filaCompleta.filter((p) => passiSalvati.some((x) => x.t !== "metrica" && corrisponde(p, x)));
+  // **Quanto porta ogni passo, in questa vetrina.** Due numeri: a quanti
+  // corrisponde, e quanti gliene restano dopo che i passi sopra hanno preso i
+  // loro. Un passo con la stessa condizione di uno sopra corrisponde a tanti e
+  // non porta nessuno — e senza scriverlo lo si cerca invano nella fila.
+  const conti = quantiPerPasso(filaCompleta, passiSalvati).map((suoi, i) => ({
+    suoi,
+    corrisponde: passiSalvati[i].t === "metrica" ? 0 : filaCompleta.filter((x) => corrisponde(x, passiSalvati[i])).length,
+  }));
+
   const quantiDietro = filaCompleta.length - filaRegola.length;
 
 
@@ -496,6 +505,7 @@ export default async function CurazioneCollezionePage({
               suCosa={`in vendita su ${totaleInVendita}`}
               campione={perAnteprima.length < totaleInVendita}
               fila={filaRegola}
+              conti={conti}
               quantiEntrano={entranti.length}
               quantiDietro={quantiDietro}
               suChe={`«${c.titolo}»`}

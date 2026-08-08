@@ -6,6 +6,8 @@ import { REGOLE } from "@/lib/ordinamento-vetrina";
 import type { VociPassi, VoceValore } from "@/lib/voci-passi";
 import type { ProdottoAnteprima } from "./AnteprimaCella";
 
+const nomeMetrica = (m: string) => REGOLE.find((x) => x.chiave === m)?.nome ?? m;
+
 const CAMPI_VALORI: Campo[] = ["tipo", "categoria", "fornitore", "linea", "tag", "risposta", "zona", "citta", "occasione", "classificazione", "tipologiaMeta", "dataConsegna", "orario", "bestseller"];
 const MAX_FOTO = 18;
 
@@ -100,7 +102,50 @@ export function CostruttoreCella({
   // gia' salvati portano in cima sta nel riquadro sopra, con l'ordine vero:
   // due domande diverse, due riquadri — mescolarle voleva dire non sapere mai
   // quale delle due si stesse guardando.
-  const presi = condizioni.length === 0 ? [] : filtra(condizioni);
+  /**
+   * **L'anteprima si mette in fila con le metriche scelte.**
+   *
+   * Mostrare *chi* la cella prende senza *in che ordine* non basta: scegliendo
+   * «Prezzo basso in cima» ci si aspetta di vedere i piu' economici davanti
+   * (segnalato dall'utente). Qui si ordina con quello che il browser puo'
+   * calcolare da solo — prezzo, novita', margine; **venduto e fatturato no**,
+   * quelli stanno nel database e li applica il server quando la regola gira. Se
+   * la prima metrica e' una di quelle, l'ordine resta quello di partenza e in
+   * pagina c'e' scritto perche': una fila che finge di essere ordinata sarebbe
+   * peggio di una dichiaratamente non ordinata.
+   */
+  const DA_SERVER: string[] = ["best_seller", "ricavo"];
+  const quando = (v: Date | string | null | undefined) => (v ? new Date(v).getTime() : Number.NEGATIVE_INFINITY);
+  const valore = (p: ProdottoAnteprima, m: string): number | null => {
+    const prezzo = p.prezzoVendita || 0;
+    const costo = p.costoProduzione || 0;
+    switch (m) {
+      case "prezzo_desc":
+        return prezzo;
+      case "prezzo_asc":
+        return -prezzo;
+      case "novita":
+        return quando(p.pubblicatoIlShopify) === Number.NEGATIVE_INFINITY ? quando(p.creatoIlShopify) : quando(p.pubblicatoIlShopify);
+      case "margine":
+        return prezzo > 0 && costo > 0 ? (prezzo - costo) / prezzo : Number.NEGATIVE_INFINITY;
+      default:
+        return null; // venduto e fatturato: non si sanno qui
+    }
+  };
+  const qui = metriche.filter((m) => !DA_SERVER.includes(m));
+  const soloServer = metriche.length > 0 && qui.length === 0;
+  const presi =
+    condizioni.length === 0
+      ? []
+      : qui.length === 0
+        ? filtra(condizioni)
+        : [...filtra(condizioni)].sort((a, b) => {
+            for (const m of qui) {
+              const d = (valore(b, m) ?? 0) - (valore(a, m) ?? 0);
+              if (d !== 0) return d;
+            }
+            return a.nome.localeCompare(b.nome);
+          });
   // **Due numeri, due domande diverse.** Il primo dice cosa la cella prende dal
   // catalogo - e' il vocabolario di quello che si puo' esprimere - il secondo
   // quanti di quelli stanno nella vetrina che si sta curando. Contare solo sulla
@@ -164,6 +209,27 @@ export function CostruttoreCella({
               </span>
             ))}
             {presi.length > MAX_FOTO && <span className="page-sub">+{presi.length - MAX_FOTO}</span>}
+          </div>
+        )}
+        {metriche.length > 0 && presi.length > 0 && (
+          <div className="page-sub" style={{ marginTop: 6, marginBottom: 0 }}>
+            {soloServer ? (
+              <>
+                In fila per <b>{metriche.map((m) => nomeMetrica(m)).join(" → ")}</b>: il venduto sta nel database, qui
+                vedi <b>chi</b> prende la cella, non in che ordine.
+              </>
+            ) : (
+              <>
+                In fila per <b>{qui.map((m) => nomeMetrica(m)).join(" → ")}</b>
+                {qui.length < metriche.length && (
+                  <>
+                    {" "}
+                    · {metriche.filter((m) => DA_SERVER.includes(m)).map((m) => nomeMetrica(m)).join(" e ")} si {metriche.filter((m) => DA_SERVER.includes(m)).length === 1 ? "applica" : "applicano"} quando la regola gira
+                  </>
+                )}
+                .
+              </>
+            )}
           </div>
         )}
       </div>

@@ -23,6 +23,10 @@ export type ProdottoAnteprima = {
   dataShopify?: string | null;
   orarioShopify?: string | null;
   bestSellerShopify?: boolean | null;
+  /** Servono a ordinare l'anteprima con le metriche calcolabili qui. */
+  costoProduzione?: number | null;
+  pubblicatoIlShopify?: Date | string | null;
+  creatoIlShopify?: Date | string | null;
 };
 
 const CAMPI_A_VALORI: Campo[] = ["tipo", "categoria", "fornitore", "linea", "tag", "risposta"];

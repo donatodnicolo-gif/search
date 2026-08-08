@@ -355,6 +355,16 @@ porta **3120**. Design system Deluxy v1.0.
 
 - **08/08/2026 — la rotazione si sceglie a numero + unità** (chiesto dall utente: «permetti di scegliere anche il numero di giorni, settimane o mesi»). Nuovo campo `RegolaRotazione.ogniQuanti` (1-52): «ogni 2 settimane», «ogni 10 giorni». Le tre frequenze fisse non bastavano — il ritmo di una vetrina non è sempre uno dei tre. E il campo «Passo» non spiegava sé stesso («non capisco il numero a cosa serve»): ora si chiama **«Quanti ne manda in fondo»**, con sotto scritto che vale a ogni giro e **solo per «Ruota le posizioni»**.
 
+- **08/08/2026 — ⭐ due condizioni uguali con metriche diverse sono due condizioni** (segnalato dall utente: «no come vedi sono condizioni differenti»). Prima un prodotto apparteneva al **primo** passo che lo prendeva, quindi «Categoria interna FIORI — poi per Novità» e «Categoria interna FIORI — poi per Prezzo basso» erano una di troppo: la seconda restava a mani vuote e non compariva mai («non capisco perché non si vede il 6»). Ma sono due cose diverse — in vetrina si alternano il fiore nuovo e caro e quello economico.
+  - Ora **ogni passo ordina tutti i prodotti che gli corrispondono, con le sue metriche**, e a turno ognuno mette il suo prossimo **non ancora piazzato**. Nessun doppione, e nessun passo resta muto perché un altro guarda lo stesso scaffale. Verificato: sulla collezione «Fiori» i due passi su FIORI portano **84 e 83** prodotti invece di 169 e 0.
+  - **** rifà lo stesso giro per dire in pagina quanti ne porta ciascuno: dedurlo dalla fila finita avrebbe voluto dire riscrivere la stessa logica una seconda volta, ed è così che due parti dell app cominciano a raccontare cose diverse.
+
+- **08/08/2026 — sotto ogni condizione c è scritto quanto porta.** «Porta N prodotti», e quando sono zero il motivo: nessuna corrispondenza qui dentro, oppure i suoi prodotti li mettono già in fila gli altri passi. Senza, un passo che non contribuisce si continua a cercarlo nella fila.
+
+- **08/08/2026 — l anteprima della cella si mette in fila con le metriche scelte** (segnalato dall utente: «dovrebbero apparire prima i prodotti a prezzo più basso»). Ordina con quello che il browser può calcolare — prezzo, novità, margine — e **dichiara** che venduto e fatturato no: quelli stanno nel database e li applica il server quando la regola gira. Una fila che finge di essere ordinata è peggio di una dichiaratamente non ordinata.
+
+- **08/08/2026 — le composizioni floreali sono passate a Fiori** (chiesto dall utente: «metti in categoria interna comunque fiori»). «Originali Deluxy» è il Tipo delle **composizioni** (Rose Rosse e Praline, Cappelliera Rose e Palloncino): tenendole a parte, cercando i fiori se ne perdevano 48. Spostati **177 prodotti (67 attivi)**: Fiori passa da **180 a 247 attivi**, Originali Deluxy scende a 47 (palloncini, Torta e Bollicine, caviale, telegrammi). Criterio **verificabile**: tag floreale, o negozio Flowers, o una parola inequivocabile nel nome — non «indovina dal nome». È l unico punto di  che **sovrascrive** una categoria già assegnata, ed è dichiarato nel file.
+
 ## COME AVVIARE
 ```
 cd deluxy-merchandising
