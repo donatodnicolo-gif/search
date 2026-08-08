@@ -1773,6 +1773,36 @@ export async function segnaAttivita(id: string, fatta: boolean) {
   revalidatePath('/', 'layout')
 }
 
+/**
+ * Chiude (o riapre) TUTTE le attività di un gruppo in un colpo.
+ *
+ * ⚠️ Serve davvero: la stessa conversazione produce spesso più volte la stessa
+ * cosa da fare — cinque «Fissare un incontro con Martina Calia» nate da cinque
+ * messaggi dello stesso scambio — e spuntarle una per una è lavoro inventato.
+ * Segnalato il 7/08/2026.
+ * ⚠️ L'allineamento col registro Attività gira in `after()`, **uno per
+ * attività**: sono chiamate di rete a un'altra app, e aspettarle qui vorrebbe
+ * dire tenere fermo chi ha appena premuto un tasto (§9, la lezione della
+ * spunta lenta).
+ */
+export async function segnaAttivitaTutte(
+  ids: string[],
+  fatta: boolean
+): Promise<{ ok: boolean; quante: number }> {
+  const utenteId = await uid()
+  const puliti = [...new Set(ids)].filter(Boolean)
+  if (puliti.length === 0) return { ok: false, quante: 0 }
+  const r = await db.attivita.updateMany({
+    where: { id: { in: puliti }, utenteId },
+    data: { fatta, fattaIl: fatta ? new Date() : null },
+  })
+  after(async () => {
+    for (const id of puliti) await allineaAttivitaOra(id).catch(() => {})
+  })
+  revalidatePath('/', 'layout')
+  return { ok: true, quante: r.count }
+}
+
 export async function eliminaAttivita(id: string) {
   await db.attivita.deleteMany({ where: { id, utenteId: await uid() } })
   // Cancellata qui = archiviata anche nel registro (altrimenti resterebbe

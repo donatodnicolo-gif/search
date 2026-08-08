@@ -142,6 +142,15 @@ sono cinque compiti; le stesse cinque sotto «Preparazione Meeting Malavenda» s
 cosa sola, e si sbrigano insieme. Il raggruppamento è per conversazione e non per singola
 mail: due richieste arrivate in due messaggi dello stesso scambio restano insieme.
 
+**Si chiudono anche tutte insieme.** Sull'intestazione del gruppo c'è **«✓ Fatte tutte
+(5)»**: la stessa conversazione genera spesso più volte la stessa cosa da fare, e
+spuntarle una per una è lavoro inventato. Chiede conferma una volta («Sicuro? Chiudi le
+5»), perché chiuderne cinque con un clic distratto è facile.
+
+**Si riaprono.** In «Fatte di recente» ogni riga ha **«↩ Riapri»** e torna su, fra le cose
+da fare — si poteva già fare togliendo la spunta, ma una casella barrata in un elenco di
+cose finite non sembra un comando.
+
 **Si torna sempre alla mail.** In fondo all'intestazione del gruppo c'è **«Apri la
 conversazione (3) →»**; sotto ogni cosa da fare è scritto **da quale mail** nasce, ed è un
 link; e accanto a «Esegui» c'è **«✉ Mail»**, perché prima di eseguire di solito si vuole

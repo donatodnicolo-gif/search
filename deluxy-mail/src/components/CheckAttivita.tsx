@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { segnaAttivita } from '@/lib/actions'
 
 /**
@@ -21,9 +22,22 @@ import { segnaAttivita } from '@/lib/actions'
  * Se il salvataggio non riesce la spunta torna indietro: meglio vedersela
  * tornare da fare che crederla salvata.
  */
-export function CheckAttivita({ id, fatta }: { id: string; fatta: boolean }) {
+export function CheckAttivita({
+  id,
+  fatta,
+  riallinea = false,
+}: {
+  id: string
+  fatta: boolean
+  /** Ricarica dopo il salvataggio. Serve dove l'attività deve CAMBIARE POSTO:
+   *  riaprendone una da «Fatte di recente» la riga resterebbe lì, non barrata,
+   *  in mezzo alle fatte — e sembrerebbe non aver funzionato. Spuntandone una
+   *  da fare, invece, va bene che resti dov'è (vedi la nota qui sopra). */
+  riallinea?: boolean
+}) {
   const [segnata, setSegnata] = useState(fatta)
   const [, start] = useTransition()
+  const router = useRouter()
 
   // Se il server cambia idea (ricarico, modifica da un'altra scheda, o la task
   // chiusa dentro Deluxy Tasks), la casella si riallinea.
@@ -41,6 +55,7 @@ export function CheckAttivita({ id, fatta }: { id: string; fatta: boolean }) {
         start(async () => {
           try {
             await segnaAttivita(id, nuovo)
+            if (riallinea) router.refresh()
           } catch {
             setSegnata(!nuovo) // non salvata: la casella torna com'era
           }

@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import { db } from '@/lib/db'
 import { CheckAttivita } from '@/components/CheckAttivita'
+import { RiapriAttivita } from '@/components/RiapriAttivita'
+import { ChiudiTutteAttivita } from '@/components/ChiudiTutteAttivita'
 import { BottoneEsegui } from '@/components/BottoneEsegui'
 import { NuovaAttivita } from '@/components/NuovaAttivita'
 import { coloreDiPriorita, priorita as livello, FUSO } from '@/lib/format'
@@ -187,15 +189,21 @@ export default async function Attivita() {
                   freccia: da fuori è testo, e infatti «manca la possibilità di
                   riprendere la mail da cui parte l'attività». Il modo per
                   tornare alla mail va DETTO, non lasciato indovinare. */}
-              {b.href && (
-                <Link href={b.href} className="azione-riga" style={{ marginLeft: 'auto' }}>
-                  {b.tipo === 'contatto'
-                    ? 'Apri il contatto →'
-                    : b.messaggi && b.messaggi > 1
-                      ? `Apri la conversazione (${b.messaggi}) →`
-                      : 'Apri la mail →'}
-                </Link>
-              )}
+              {/* Chiudere in blocco: la stessa conversazione produce spesso
+                  cinque volte la stessa cosa da fare, e spuntarle una per una
+                  è lavoro inventato. */}
+              <span style={{ marginLeft: 'auto', display: 'inline-flex', gap: 12, alignItems: 'center' }}>
+                <ChiudiTutteAttivita ids={b.righe.map((a) => a.id)} />
+                {b.href && (
+                  <Link href={b.href} className="azione-riga">
+                    {b.tipo === 'contatto'
+                      ? 'Apri il contatto →'
+                      : b.messaggi && b.messaggi > 1
+                        ? `Apri la conversazione (${b.messaggi}) →`
+                        : 'Apri la mail →'}
+                  </Link>
+                )}
+              </span>
             </div>
 
             <div className="card tight">
@@ -262,14 +270,27 @@ export default async function Attivita() {
           <div className="card tight">
             {fatte.map((a) => (
               <div key={a.id} className="task-row fatta">
-                <CheckAttivita id={a.id} fatta={a.fatta} />
-                <div>
+                {/* `riallinea`: togliendo la spunta l'attività deve tornare
+                    SU, fra le cose da fare, non restare qui non barrata. */}
+                <CheckAttivita id={a.id} fatta={a.fatta} riallinea />
+                <div style={{ minWidth: 0 }}>
                   <div className="task-titolo">{a.titolo}</div>
                   {a.fattaIl && (
                     <div className="task-sub">
                       completata il {a.fattaIl.toLocaleDateString('it-IT', { timeZone: FUSO })}
                     </div>
                   )}
+                  {a.messaggio && (
+                    <div className="task-sub">
+                      da{' '}
+                      <Link href={`/messaggio/${a.messaggio.id}`} style={{ textDecoration: 'underline' }}>
+                        {a.messaggio.oggetto || '(senza oggetto)'}
+                      </Link>
+                    </div>
+                  )}
+                </div>
+                <div className="task-side">
+                  <RiapriAttivita id={a.id} />
                 </div>
               </div>
             ))}
