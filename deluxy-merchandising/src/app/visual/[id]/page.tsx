@@ -63,7 +63,7 @@ export default async function CurazioneCollezionePage({
       tipologia: { select: { nome: true, regolaOrdinamento: true } },
       regolaOrdine: { select: { id: true, nome: true, passi: true } },
       rotazione: {
-        select: { id: true, nome: true, frequenza: true, modo: true, passo: true, attiva: true, spingiSuShopify: true, ultimaEsecuzioneIl: true },
+        select: { id: true, nome: true, frequenza: true, ogniQuanti: true, modo: true, passo: true, attiva: true, spingiSuShopify: true, ultimaEsecuzioneIl: true },
       },
       prodotti: {
         orderBy: [{ posizione: "asc" }, { prodotto: { nome: "asc" } }],
@@ -109,7 +109,7 @@ export default async function CurazioneCollezionePage({
     prisma.regolaOrdine.findMany({ orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
     prisma.regolaRotazione.findMany({
       orderBy: { nome: "asc" },
-      select: { id: true, nome: true, frequenza: true, modo: true, attiva: true },
+      select: { id: true, nome: true, frequenza: true, ogniQuanti: true, modo: true, attiva: true },
     }),
   ]);
   // I valori per le condizioni si leggono **solo se serve**: senza una regola
@@ -534,7 +534,7 @@ export default async function CurazioneCollezionePage({
                   <option value="">— non si rinfresca da sola —</option>
                   {rotazioni.map((r) => (
                     <option key={r.id} value={r.id}>
-                      {r.nome} · {etichettaFrequenza(r.frequenza)} · {etichettaModo(r.modo)}
+                      {r.nome} · {etichettaFrequenza(r.frequenza, r.ogniQuanti)} · {etichettaModo(r.modo)}
                       {r.attiva ? "" : " (in pausa)"}
                     </option>
                   ))}
@@ -543,7 +543,7 @@ export default async function CurazioneCollezionePage({
               </form>
               {c.rotazione && (
                 <p className="page-sub" style={{ marginTop: 10, marginBottom: 0 }}>
-                  Adesso segue <b>{c.rotazione.nome}</b>: {etichettaFrequenza(c.rotazione.frequenza).toLowerCase()},{" "}
+                  Adesso segue <b>{c.rotazione.nome}</b>: {etichettaFrequenza(c.rotazione.frequenza, c.rotazione.ogniQuanti).toLowerCase()},{" "}
                   {etichettaModo(c.rotazione.modo).toLowerCase()}
                   {c.rotazione.modo === "ruota" ? ` di ${c.rotazione.passo}` : ""}.{" "}
                   {c.rotazione.attiva ? (
@@ -656,13 +656,37 @@ export default async function CurazioneCollezionePage({
         {/* Push su Shopify: guardato per collezione manuale + token con write_products. */}
         <div className="scheda">
           <div className="scheda-titolo">Ordine su Shopify</div>
+          {/* **Che cosa fa il bottone, detto prima di premerlo.** «Invia
+              l'ordine» non spiega da solo che la fila curata qui **vive solo
+              qui** finché non la si manda, e che mandarla riscrive quello che i
+              clienti vedono sul sito. Senza questo, il bottone si preme al buio
+              o non si preme affatto (segnalato dall'utente). */}
+          <p className="page-sub" style={{ marginTop: 0 }}>
+            La fila che stai curando <b>vive solo in quest&apos;app</b>. Inviandola, <b>riscrive l&apos;ordine dei
+            prodotti di questa collezione sul sito</b>: è quello che vedono i clienti su{" "}
+            {linkNegozio ? (
+              <a href={linkNegozio} target="_blank" rel="noreferrer">/collections/{c.handle}</a>
+            ) : (
+              <>/collections/{c.handle}</>
+            )}
+            . <b>Non aggiunge e non toglie nessun prodotto</b>: cambia solo l&apos;ordine di quelli che ci sono già.
+          </p>
           <p className="page-sub" style={{ marginTop: 0 }}>
             {daSincronizzare ? (
-              <b>C'è un ordine curato non ancora inviato al negozio.</b>
+              <>
+                <b>Adesso il sito mostra un ordine diverso da questo.</b> Curato qui il{" "}
+                {c.ordineModificatoIl?.toLocaleString("it-IT", { dateStyle: "short", timeStyle: "short" })}
+                {c.ordineSpintoIl
+                  ? `, inviato l'ultima volta il ${c.ordineSpintoIl.toLocaleString("it-IT", { dateStyle: "short", timeStyle: "short" })}.`
+                  : " e mai inviato al negozio."}
+              </>
             ) : c.ordineSpintoIl ? (
-              "L'ordine curato qui è già stato inviato al negozio."
+              <>
+                Il sito mostra <b>questa</b> fila: inviata il{" "}
+                {c.ordineSpintoIl.toLocaleString("it-IT", { dateStyle: "short", timeStyle: "short" })}.
+              </>
             ) : (
-              "L'ordine non è ancora stato inviato al negozio."
+              <>Qui non c&apos;è ancora un ordine curato da inviare.</>
             )}
           </p>
           {!filaAMano && (
@@ -679,8 +703,8 @@ export default async function CurazioneCollezionePage({
             </p>
           )}
           <form action={spingiOrdineSuShopify.bind(null, id)}>
-            <button type="submit" className="btn" disabled={!puoScrivere}>
-              Invia l'ordine a Shopify
+            <button type="submit" className={daSincronizzare ? "btn btn-primario" : "btn"} disabled={!puoScrivere}>
+              Riscrivi l&apos;ordine sul sito ({inScena.length} prodotti)
             </button>
           </form>
         </div>

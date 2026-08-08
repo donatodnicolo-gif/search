@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
-import { FREQUENZE, MODI, etichettaFrequenza, etichettaModo, eScaduta, prossimaVolta } from "@/lib/rotazione";
+import { FREQUENZE, MAX_OGNI_QUANTI, MODI, etichettaFrequenza, etichettaModo, eScaduta, prossimaVolta } from "@/lib/rotazione";
 import {
   aggiornaRotazione,
   assegnaCollezioniARotazione,
@@ -76,13 +76,19 @@ export default async function RotazioniPage({
               <label>Nome <span className="obbligatorio">*</span></label>
               <input name="nome" required placeholder="Vetrine settimanali" />
             </div>
+            {/* **Ogni quante unità.** Con le sole tre frequenze fisse non si
+                poteva dire «ogni dieci giorni», e il ritmo di una vetrina non è
+                sempre uno dei tre (chiesto dall'utente). */}
             <div className="campo-modulo">
               <label>Ogni quanto</label>
-              <select name="frequenza" defaultValue="settimanale">
-                {FREQUENZE.map((f) => (
-                  <option key={f.chiave} value={f.chiave}>{f.nome}</option>
-                ))}
-              </select>
+              <div style={{ display: "flex", gap: 6 }}>
+                <input name="ogniQuanti" type="number" min={1} max={MAX_OGNI_QUANTI} step={1} defaultValue={1} style={{ width: 72 }} />
+                <select name="frequenza" defaultValue="settimanale" style={{ flex: 1 }}>
+                  {FREQUENZE.map((f) => (
+                    <option key={f.chiave} value={f.chiave}>{f.tanti}</option>
+                  ))}
+                </select>
+              </div>
             </div>
             <div className="campo-modulo">
               <label>Cosa fa</label>
@@ -92,9 +98,13 @@ export default async function RotazioniPage({
                 ))}
               </select>
             </div>
+            {/* **Il numero non spiegava sé stesso** (segnalato dall'utente:
+                «non capisco il numero a cosa serve»): dice quanti prodotti
+                passano in fondo a ogni giro, e serve solo al modo «Ruota». */}
             <div className="campo-modulo">
-              <label>Passo (solo «ruota»)</label>
+              <label>Quanti ne manda in fondo</label>
               <input name="passo" type="number" min={1} step={1} defaultValue={1} />
+              <div className="cella-sub">A ogni giro, solo per «Ruota le posizioni». Con 1 scala di uno per volta.</div>
             </div>
             <div className="azioni-modulo" style={{ gridColumn: "1 / -1" }}>
               <button type="submit" className="btn">Crea rotazione</button>
@@ -116,8 +126,8 @@ export default async function RotazioniPage({
               >
                 <span>{r.nome}</span>
                 <span className="page-sub" style={{ margin: 0 }}>
-                  {etichettaFrequenza(r.frequenza)} · {etichettaModo(r.modo)}
-                  {r.modo === "ruota" ? ` (${r.passo} per volta)` : ""} · {r.collezioni.length} collezioni
+                  {etichettaFrequenza(r.frequenza, r.ogniQuanti)} · {etichettaModo(r.modo)}
+                  {r.modo === "ruota" ? ` (${r.passo} in fondo per volta)` : ""} · {r.collezioni.length} collezioni
                 </span>
               </div>
 
@@ -139,11 +149,14 @@ export default async function RotazioniPage({
                 </div>
                 <div className="campo-modulo">
                   <label>Ogni quanto</label>
-                  <select name="frequenza" defaultValue={r.frequenza}>
-                    {FREQUENZE.map((f) => (
-                      <option key={f.chiave} value={f.chiave}>{f.nome}</option>
-                    ))}
-                  </select>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <input name="ogniQuanti" type="number" min={1} max={MAX_OGNI_QUANTI} step={1} defaultValue={r.ogniQuanti} style={{ width: 72 }} />
+                    <select name="frequenza" defaultValue={r.frequenza} style={{ flex: 1 }}>
+                      {FREQUENZE.map((f) => (
+                        <option key={f.chiave} value={f.chiave}>{f.tanti}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
                 <div className="campo-modulo">
                   <label>Cosa fa</label>
@@ -154,8 +167,9 @@ export default async function RotazioniPage({
                   </select>
                 </div>
                 <div className="campo-modulo">
-                  <label>Passo</label>
+                  <label>Quanti ne manda in fondo</label>
                   <input name="passo" type="number" min={1} step={1} defaultValue={r.passo} />
+                  <div className="cella-sub">A ogni giro, solo per «Ruota le posizioni».</div>
                 </div>
                 <div className="campo-modulo" style={{ gridColumn: "1 / -1" }}>
                   <label style={{ display: "flex", gap: 8, alignItems: "center" }}>

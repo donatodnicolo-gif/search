@@ -5,6 +5,12 @@ import { redirect } from "next/navigation";
 import { prisma } from "./db";
 import { eseguiRegola, isFrequenza, isModo } from "./rotazione";
 
+/** Quante unità: almeno 1, al massimo 52. Quello che non è un numero vale 1. */
+function quanti(fd: FormData): number {
+  const v = Number.parseInt(String(fd.get("ogniQuanti") ?? ""), 10);
+  return Number.isFinite(v) ? Math.min(52, Math.max(1, v)) : 1;
+}
+
 function testo(fd: FormData, k: string): string {
   const v = fd.get(k);
   return typeof v === "string" ? v.trim() : "";
@@ -21,6 +27,7 @@ export async function creaRotazione(fd: FormData) {
     data: {
       nome,
       frequenza: isFrequenza(frequenza) ? frequenza : "settimanale",
+      ogniQuanti: quanti(fd),
       modo: isModo(modo) ? modo : "rinfresca",
       passo: Number.isFinite(passo) && passo > 0 ? Math.floor(passo) : 1,
       // Di proposito non si può accendere l'invio automatico a Shopify qui: si
@@ -43,6 +50,7 @@ export async function aggiornaRotazione(id: string, fd: FormData) {
     data: {
       ...(nome ? { nome } : {}),
       frequenza: isFrequenza(frequenza) ? frequenza : undefined,
+      ogniQuanti: quanti(fd),
       modo: isModo(modo) ? modo : undefined,
       passo: Number.isFinite(passo) && passo > 0 ? Math.floor(passo) : undefined,
       attiva: fd.get("attiva") != null,

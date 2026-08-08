@@ -15,10 +15,13 @@ import {
 } from "./ordinamento-vetrina";
 
 export const FREQUENZE = [
-  { chiave: "giornaliera", nome: "Ogni giorno", giorni: 1 },
-  { chiave: "settimanale", nome: "Ogni settimana", giorni: 7 },
-  { chiave: "mensile", nome: "Ogni mese", giorni: 30 },
+  { chiave: "giornaliera", nome: "Ogni giorno", uno: "giorno", tanti: "giorni", giorni: 1 },
+  { chiave: "settimanale", nome: "Ogni settimana", uno: "settimana", tanti: "settimane", giorni: 7 },
+  { chiave: "mensile", nome: "Ogni mese", uno: "mese", tanti: "mesi", giorni: 30 },
 ] as const;
+
+/** Quante unità al massimo: oltre non è più un ritmo, è «mai». */
+export const MAX_OGNI_QUANTI = 52;
 
 export type Frequenza = (typeof FREQUENZE)[number]["chiave"];
 
@@ -37,8 +40,15 @@ export const MODI = [
 
 export type Modo = (typeof MODI)[number]["chiave"];
 
-export function etichettaFrequenza(chiave: string | null | undefined): string {
-  return FREQUENZE.find((f) => f.chiave === chiave)?.nome ?? "—";
+/**
+ * «Ogni due settimane», «Ogni giorno». Il numero fa parte del ritmo: senza, due
+ * rotazioni diverse si leggevano uguali in elenco.
+ */
+export function etichettaFrequenza(chiave: string | null | undefined, ogniQuanti = 1): string {
+  const f = FREQUENZE.find((x) => x.chiave === chiave);
+  if (!f) return "—";
+  const q = Math.max(1, Math.round(ogniQuanti || 1));
+  return q === 1 ? f.nome : `Ogni ${q} ${f.tanti}`;
 }
 
 export function etichettaModo(chiave: string | null | undefined): string {
@@ -53,7 +63,8 @@ export function isModo(v: unknown): v is Modo {
   return typeof v === "string" && MODI.some((m) => m.chiave === v);
 }
 
-const giorniDi = (f: string): number => FREQUENZE.find((x) => x.chiave === f)?.giorni ?? 7;
+const giorniDi = (f: string, ogniQuanti = 1): number =>
+  (FREQUENZE.find((x) => x.chiave === f)?.giorni ?? 7) * Math.max(1, Math.round(ogniQuanti || 1));
 
 /**
  * È ora di far scattare questa regola?
@@ -64,25 +75,25 @@ const giorniDi = (f: string): number => FREQUENZE.find((x) => x.chiave === f)?.g
  * un cron che gira alle 5:00 e il giorno dopo alle 5:01 non salta il turno.
  */
 export function eScaduta(
-  regola: { frequenza: string; attiva: boolean; ultimaEsecuzioneIl: Date | null },
+  regola: { frequenza: string; ogniQuanti?: number; attiva: boolean; ultimaEsecuzioneIl: Date | null },
   adesso = new Date()
 ): boolean {
   if (!regola.attiva) return false;
   if (!regola.ultimaEsecuzioneIl) return true;
   const giorno = 24 * 60 * 60 * 1000;
   const passati = Math.floor((adesso.getTime() - regola.ultimaEsecuzioneIl.getTime()) / giorno);
-  return passati >= giorniDi(regola.frequenza);
+  return passati >= giorniDi(regola.frequenza, regola.ogniQuanti);
 }
 
 /** Quando toccherà la prossima volta (per dirlo in pagina). */
 export function prossimaVolta(
-  regola: { frequenza: string; attiva: boolean; ultimaEsecuzioneIl: Date | null },
+  regola: { frequenza: string; ogniQuanti?: number; attiva: boolean; ultimaEsecuzioneIl: Date | null },
   adesso = new Date()
 ): Date | null {
   if (!regola.attiva) return null;
   if (!regola.ultimaEsecuzioneIl) return adesso;
   const d = new Date(regola.ultimaEsecuzioneIl);
-  d.setDate(d.getDate() + giorniDi(regola.frequenza));
+  d.setDate(d.getDate() + giorniDi(regola.frequenza, regola.ogniQuanti));
   return d;
 }
 

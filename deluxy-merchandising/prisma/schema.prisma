@@ -514,6 +514,10 @@ model CollezioneShopify {
 model RegolaRotazione {
   id        String @id @default(cuid())
   nome      String @unique
+  // **Ogni quante unità**, con l'unità qui sotto: 2 + settimanale = ogni due
+  // settimane. Con le sole tre frequenze fisse non si poteva dire «ogni dieci
+  // giorni», e il ritmo di una vetrina non è sempre uno dei tre.
+  ogniQuanti Int @default(1)
   // giornaliera | settimanale | mensile
   frequenza String @default("settimanale")
   // Che cosa fa quando scatta:

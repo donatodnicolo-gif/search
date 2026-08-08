@@ -351,6 +351,10 @@ porta **3120**. Design system Deluxy v1.0.
 
 - ⚠️ **07/08/2026 — trappola: la metrica non trova il campo perché il `select` della pagina non lo chiede** (segnalato dall utente: «il gelato continua a non apparire»). La metrica «Novità» leggeva `pubblicatoIlShopify`, aggiunto a `SELECT_ORDINABILE` — ma la scheda della collezione costruisce la fila **con un suo select**, dove quel campo non c era: il valore arrivava `undefined` per tutti, la metrica non decideva niente e restava il pareggio finale, cioè **l ordine alfabetico** (Cofanetto prima di Gelato). Il calcolo era giusto, mancava il dato. **Quando si aggiunge un campo a una metrica, va aggiunto a tutti i punti che costruiscono una fila**: `SELECT_ORDINABILE` non è l unico. Nella stessa passata: i prodotti che *entrerebbero* con l aggiunta automatica avevano `creatoIl: new Date()` come riempitivo, che li faceva sembrare le novità più fresche del negozio — ora `new Date(0)`.
 
+- **08/08/2026 — «Invia l ordine a Shopify» adesso dice cosa fa** (segnalato dall utente: «non si capisce cosa significhi»). Il riquadro spiega prima di premere: la fila curata **vive solo in app**, inviarla **riscrive l ordine dei prodotti sul sito** (col link alla collezione online), e **non aggiunge né toglie nessun prodotto**. Sotto, lo stato in chiaro: «Adesso il sito mostra un ordine diverso da questo», curato il … e mai inviato / inviato il …. Il bottone dice «Riscrivi l ordine sul sito (N prodotti)».
+
+- **08/08/2026 — la rotazione si sceglie a numero + unità** (chiesto dall utente: «permetti di scegliere anche il numero di giorni, settimane o mesi»). Nuovo campo `RegolaRotazione.ogniQuanti` (1-52): «ogni 2 settimane», «ogni 10 giorni». Le tre frequenze fisse non bastavano — il ritmo di una vetrina non è sempre uno dei tre. E il campo «Passo» non spiegava sé stesso («non capisco il numero a cosa serve»): ora si chiama **«Quanti ne manda in fondo»**, con sotto scritto che vale a ogni giro e **solo per «Ruota le posizioni»**.
+
 ## COME AVVIARE
 ```
 cd deluxy-merchandising
