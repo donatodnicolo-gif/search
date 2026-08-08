@@ -95,8 +95,11 @@ async function main() {
       const citta = cittaDa(nodo.citta?.value);
       if (zone) conZone++;
       if (citta) conCitta++;
-      // Tre tentativi: su un giro lungo il pooler Supabase chiude la connessione
-      // (P1017), ed è già successo due volte su script di questa lunghezza.
+      // **Sei tentativi, con attesa crescente.** Su un giro lungo il pooler
+      // Supabase chiude la connessione (P1017) o sparisce del tutto (P1001,
+      // «can't reach database server»): è successo tre volte su script di questa
+      // lunghezza, l'ultima dopo 584 prodotti su 3.235. Tre tentativi in 4,5
+      // secondi non bastano a superare un buco di rete: qui si arriva a ~40s.
       for (let tentativo = 1; ; tentativo++) {
         try {
           await prisma.prodotto.updateMany({
@@ -117,8 +120,8 @@ async function main() {
           });
           break;
         } catch (e) {
-          if (tentativo >= 3) throw e;
-          await new Promise((r) => setTimeout(r, 1500 * tentativo));
+          if (tentativo >= 6) throw e;
+          await new Promise((r) => setTimeout(r, 2500 * tentativo));
         }
       }
     }
