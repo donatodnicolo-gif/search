@@ -109,6 +109,14 @@ export type ProdottoOrdinabile = {
   lineaId?: string | null;
   tagShopify?: string | null;
   ggDispMin?: number | null;
+  zoneConsegna?: string | null;
+  cittaShopify?: string | null;
+  occasioniShopify?: string | null;
+  tipologiaShopify?: string | null;
+  classificazioneShopify?: string | null;
+  dataShopify?: string | null;
+  orarioShopify?: string | null;
+  bestSellerShopify?: boolean | null;
 };
 
 /**
@@ -297,6 +305,14 @@ const SELECT_ORDINABILE = {
   lineaId: true,
   tagShopify: true,
   ggDispMin: true,
+  zoneConsegna: true,
+  cittaShopify: true,
+  occasioniShopify: true,
+  tipologiaShopify: true,
+  classificazioneShopify: true,
+  dataShopify: true,
+  orarioShopify: true,
+  bestSellerShopify: true,
 } as const;
 
 /** Come sopra, ma coi **passi** di una regola salvata (metriche + attributi). */

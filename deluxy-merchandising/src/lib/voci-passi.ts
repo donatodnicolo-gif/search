@@ -10,6 +10,14 @@ export type VociPassi = {
   fornitori: VoceValore[];
   linee: VoceValore[];
   tag: VoceValore[];
+  zone: VoceValore[];
+  citta: VoceValore[];
+  occasioni: VoceValore[];
+  classificazioni: VoceValore[];
+  tipologieMeta: VoceValore[];
+  date: VoceValore[];
+  orari: VoceValore[];
+  bestseller: VoceValore[];
 };
 
 /**
@@ -30,12 +38,26 @@ export type VociPassi = {
  * per offrire elenchi diversi.
  */
 export async function vociPassi(): Promise<VociPassi> {
-  const [categorie, linee, tipi, fornitori, tagGrezzi] = await Promise.all([
+  const [categorie, linee, tipi, fornitori, tagGrezzi, zoneGrezze] = await Promise.all([
     prisma.prodotto.groupBy({ by: ["categoria"], where: FILTRO_IN_SCENA, _count: true }),
     prisma.prodotto.groupBy({ by: ["lineaId"], where: { ...FILTRO_IN_SCENA, lineaId: { not: null } }, _count: true }),
     prisma.prodotto.groupBy({ by: ["tipoShopify"], where: { ...FILTRO_IN_SCENA, tipoShopify: { not: null } }, _count: true }),
     prisma.prodotto.groupBy({ by: ["vendorShopify"], where: { ...FILTRO_IN_SCENA, vendorShopify: { not: null } }, _count: true }),
     prisma.prodotto.findMany({ where: { ...FILTRO_IN_SCENA, tagShopify: { not: null } }, select: { tagShopify: true } }),
+    prisma.prodotto.findMany({
+      where: {
+        ...FILTRO_IN_SCENA,
+        OR: [
+          { zoneConsegna: { not: null } }, { cittaShopify: { not: null } }, { occasioniShopify: { not: null } },
+          { classificazioneShopify: { not: null } }, { tipologiaShopify: { not: null } },
+          { dataShopify: { not: null } }, { orarioShopify: { not: null } }, { bestSellerShopify: { not: null } },
+        ],
+      },
+      select: {
+        zoneConsegna: true, cittaShopify: true, occasioniShopify: true, classificazioneShopify: true,
+        tipologiaShopify: true, dataShopify: true, orarioShopify: true, bestSellerShopify: true,
+      },
+    }),
   ]);
 
   // I nomi leggibili: la chiave salvata su `Prodotto.categoria` e l'id della
@@ -66,7 +88,50 @@ export async function vociPassi(): Promise<VociPassi> {
     // Il taglio a 400 resta **per frequenza** — se si deve tagliare, si tengono i
     // tag che pesano — e solo dopo la lista va in ordine alfabetico.
     tag: perNome([...conta.entries()].sort((a, b) => b[1] - a[1]).slice(0, MAX_VALORI).map(([v, n]) => ({ v, n }))),
+    zone: perZona(contaElenco(zoneGrezze.map((x) => x.zoneConsegna))),
+    citta: daElenco(zoneGrezze.map((x) => x.cittaShopify)),
+    occasioni: daElenco(zoneGrezze.map((x) => x.occasioniShopify)),
+    classificazioni: daElenco(zoneGrezze.map((x) => x.classificazioneShopify)),
+    tipologieMeta: daElenco(zoneGrezze.map((x) => x.tipologiaShopify)),
+    date: daElenco(zoneGrezze.map((x) => x.dataShopify)),
+    orari: daElenco(zoneGrezze.map((x) => x.orarioShopify)),
+    // Sì/No, coi conti veri: chi non ce l'ha segnato non sta in nessuno dei due,
+    // perché «non lo sappiamo» non è «no».
+    bestseller: [
+      { v: "si", n: zoneGrezze.filter((x) => x.bestSellerShopify === true).length, etichetta: "Sì" },
+      { v: "no", n: zoneGrezze.filter((x) => x.bestSellerShopify === false).length, etichetta: "No" },
+    ],
   };
+}
+
+/** Le voci di un campo salvato come "a, b, c", in ordine alfabetico. */
+const daElenco = (righe: (string | null)[]): VoceValore[] =>
+  perNome([...contaElenco(righe).entries()].map(([v, n]) => ({ v, n })));
+
+/** Conta i valori di elenchi salvati come "a, b, c". */
+function contaElenco(righe: (string | null)[]): Map<string, number> {
+  const c = new Map<string, number>();
+  for (const r of righe) {
+    for (const x of (r ?? "").split(",")) {
+      const k = x.trim();
+      if (k) c.set(k, (c.get(k) ?? 0) + 1);
+    }
+  }
+  return c;
+}
+
+/**
+ * Le zone si leggono in italiano: «ITALY-MONZA AND BRIANZA(MB)» diventa «Monza
+ * and Brianza (MB)». Il **valore resta quello vero** del metafield: e' con
+ * quello che la condizione confronta.
+ */
+function perZona(conta: Map<string, number>): VoceValore[] {
+  return [...conta.entries()]
+    .map(([v, n]) => {
+      const m = v.match(/^[A-Z]+-(.+)\(([A-Z]{2})\)$/);
+      return { v, n, etichetta: m ? `${titolo(m[1])} (${m[2]})` : titolo(v) };
+    })
+    .sort((a, b) => a.etichetta.localeCompare(b.etichetta, "it"));
 }
 
 /**

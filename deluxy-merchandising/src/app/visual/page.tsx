@@ -19,6 +19,10 @@ export const dynamic = "force-dynamic";
 // collezioni, e la nostra `creataIl` è il momento dell'import — ordinarci sopra
 // darebbe una classifica che sembra vera e non lo è. «Ultima modifica» invece è
 // il `updatedAt` vero del negozio.
+/** La più recente fra la modifica sul negozio e quella fatta qui. */
+const ultimaModifica = (c: { aggiornataShopifyIl: Date | null; ordineModificatoIl: Date | null }) =>
+  Math.max(c.aggiornataShopifyIl?.getTime() ?? 0, c.ordineModificatoIl?.getTime() ?? 0);
+
 const CRITERI = ["venduto", "modifica", "prodotti", "nome", "vetrina", "ordine", "rotazione"] as const;
 type Criterio = (typeof CRITERI)[number];
 
@@ -247,7 +251,13 @@ export default async function VisualPage({
   const confronta = (a: (typeof righe)[number], b: (typeof righe)[number]): number => {
     switch (criterio) {
       case "modifica":
-        return (b.c.aggiornataShopifyIl?.getTime() ?? 0) - (a.c.aggiornataShopifyIl?.getTime() ?? 0);
+        // **L'ultima modifica è la più recente delle due.** `aggiornataShopifyIl`
+        // è l'`updatedAt` del negozio, fermo all'ultimo import: curando una
+        // vetrina qui — regola applicata, prodotti spostati — quella data non si
+        // muove finché l'ordine non si spinge su Shopify, e la collezione appena
+        // toccata finiva in fondo all'elenco «ultima modifica» (segnalato
+        // dall'utente). Ora conta anche il lavoro fatto qui.
+        return ultimaModifica(b.c) - ultimaModifica(a.c);
       case "prodotti":
         return b.attivi - a.attivi;
       case "nome":
@@ -532,7 +542,19 @@ export default async function VisualPage({
                           )}
                         </td>
                         <td>
-                          <span className="cella-sub">{dataIt(r.c.aggiornataShopifyIl)}</span>
+                          {/* Si mostra la più recente, **dicendo quale**: «qui» è
+                              l'ordine curato in app e non ancora spinto, e senza
+                              scriverlo sembrerebbe una data del negozio sbagliata. */}
+                          {(r.c.ordineModificatoIl?.getTime() ?? 0) > (r.c.aggiornataShopifyIl?.getTime() ?? 0) ? (
+                            <span className="cella-sub">
+                              {dataIt(r.c.ordineModificatoIl)}
+                              <div style={{ fontSize: 11 }}>
+                                qui{r.c.ordineSpintoIl == null || r.c.ordineModificatoIl! > r.c.ordineSpintoIl ? ", da mandare al negozio" : ""}
+                              </div>
+                            </span>
+                          ) : (
+                            <span className="cella-sub">{dataIt(r.c.aggiornataShopifyIl)}</span>
+                          )}
                         </td>
                       </tr>
                     ))}

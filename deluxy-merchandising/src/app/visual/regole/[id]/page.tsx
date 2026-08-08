@@ -40,7 +40,9 @@ export default async function RegolaPage({ params }: { params: Promise<{ id: str
     orderBy: { nome: "asc" },
     select: {
       id: true, nome: true, immagine: true, prezzoVendita: true, categoria: true,
-      tipoShopify: true, vendorShopify: true, lineaId: true, tagShopify: true, ggDispMin: true,
+      tipoShopify: true, vendorShopify: true, lineaId: true, tagShopify: true,
+              zoneConsegna: true,
+              cittaShopify: true, occasioniShopify: true, tipologiaShopify: true, classificazioneShopify: true, dataShopify: true, orarioShopify: true, bestSellerShopify: true, ggDispMin: true,
       costoProduzione: true, creatoIl: true,
     },
   });

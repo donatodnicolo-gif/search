@@ -101,6 +101,28 @@ model Prodotto {
   categoriaShopifyId   String?
   categoriaShopifyNome String? // nome completo, col percorso
   vendorShopify  String?
+  // **Dove si consegna**, dal metafield `custom.nations_availability` di Shopify:
+  // le province, come "ITALY-MILAN(MI), ITALY-MONZA AND BRIANZA(MB)". E' il posto
+  // dove la disponibilita' per citta' vive davvero — i tag sono testo libero e
+  // mescolano citta', fornitori e occasioni.
+  zoneConsegna String?
+  // Il metafield `custom.citta`: la citta' dichiarata del prodotto.
+  cittaShopify String?
+  // **L'anagrafica vera del prodotto**, dai metafield `custom.*` di Shopify.
+  // Sono liste scelte da un elenco chiuso — non testo libero come i tag — quindi
+  // una condizione costruita qui sopra non sbaglia per una maiuscola o un
+  // sinonimo. Si salvano separate da virgola, come i tag.
+  occasioniShopify      String?  // custom.occasioni      — Sorprese Romantiche, Ringraziamenti…
+  tipologiaShopify      String?  // custom.tipologia      — Raccomandato…
+  classificazioneShopify String? // custom.classificazione — Pret-a-Porter…
+  dataShopify           String?  // custom.data           — Domani…
+  orarioShopify         String?  // custom.orario_consegna — In Mattinata…
+  bestSellerShopify     Boolean? // custom.best_seller
+  // `custom.minimo_orario` (= 7 sul prodotto di prova). **Importato ma non ancora
+  // usato come condizione**: non e' chiaro se sia l'ora limite dell'ordine o le
+  // ore di preavviso, e una condizione costruita sul significato sbagliato
+  // sceglierebbe i prodotti sbagliati in silenzio.
+  minimoOrario          Int?
   tagShopify     String? // separati da virgola, come li dà Shopify
   handleShopify  String?
   // Giorni minimi per evadere il prodotto: il metafield Shopify `prodotto.consegna`

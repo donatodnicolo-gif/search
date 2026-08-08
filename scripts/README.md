@@ -479,6 +479,32 @@ cd deluxy-merchandising && npm run prodotti:da-vendite -- --min 5
 - **Serve**: `DATABASE_URL` (+ `DIRECT_URL`) nell'`.env` dell'app e vendite già importate (quindi `ORDERS_API_KEY`)
 - **Nota**: prezzo = media davvero incassata; **costo 0**, categoria `DA_CLASSIFICARE` e giacenza 0 restano da compilare a mano — non si deducono dal titolo, e finché il costo manca il margine resta 0 invece di essere inventato.
 
+### importa-zone-consegna.ts — deluxy-merchandising
+Riempie **l'anagrafica del prodotto dai metafield di Shopify**, sui prodotti che hanno già un id Shopify: `custom.nations_availability` (le province dove si consegna, «ITALY-MILAN(MI) ITALY-PAVIA(PV)…»), `custom.citta`, `custom.occasioni`, `custom.classificazione`, `custom.tipologia`, `custom.data`, `custom.orario_consegna`, `custom.best_seller`, `custom.minimo_orario`. Serve perché queste informazioni vivono lì e **non nei tag**: nei tag convivono città, fornitori e occasioni — «Martesana Milano» è il nome di una pasticceria — e una condizione costruita sui tag dà risultati sbagliati. L'import delle collezioni li legge già; questo fa solo i metafield, senza rifare il giro lungo.
+
+```bash
+# dalla radice del repo — solo il conto
+cd deluxy-merchandising && npx tsx scripts/importa-zone-consegna.ts --dry
+# scrive
+cd deluxy-merchandising && npx tsx scripts/importa-zone-consegna.ts
+```
+
+- **Serve**: `DATABASE_URL` (+ `DIRECT_URL`) nell'`.env` dell'app e i negozi collegati in Impostazioni con un token che legge i prodotti
+- **Nota**: ripetibile (riscrive gli stessi valori); legge 50 prodotti per chiamata e prova i negozi in ordine, perché un id Shopify appartiene a un negozio solo
+
+### unisci-tipi-prodotto.ts — deluxy-merchandising
+Corregge in blocco il **«Tipo» e il «Venditore»** dei prodotti **sul negozio Shopify** e poi qui: unisce i valori doppi («Torta»/«Torte», «CLIVATI 1969»/«Clivati 1969») e, con la forma `seTipo`, assegna un venditore a una famiglia di prodotti («tutti i Vini sono di Deluxy»). Le coppie sono **scritte nel file, decise da una persona**: mettere insieme «Crostata» e «Torte» è una scelta di merchandising, non un calcolo su una stringa.
+
+```bash
+# dalla radice del repo — solo il conto
+cd deluxy-merchandising && npx tsx scripts/unisci-tipi-prodotto.ts --dry
+# scrive su Shopify e poi in locale
+cd deluxy-merchandising && npx tsx scripts/unisci-tipi-prodotto.ts
+```
+
+- **Serve**: `DATABASE_URL` (+ `DIRECT_URL`) e negozi collegati con token **`write_products`**
+- **Nota**: prima di scrivere salva i valori vecchi in `ripristino-<campo>-<valore>.json` (in `.gitignore`) — senza, l'unione sarebbe irreversibile. Scrive **prima su Shopify**: se il negozio rifiuta, in locale non cambia niente
+
 ### google-ads-script.js — deluxy-marketing (v2)
 NON si lancia da terminale: si **incolla in Google Ads** (Strumenti → Azioni collettive → Script), una copia per account **e per lavoro**. Google Ads esegue sempre `main()`: il lavoro si sceglie con la costante `AZIONE` in testa al file — `metriche` (giornaliere, ogni giorno 23-24) · `approvazioni` (stati di review, alert A4, ogni giorno) · `copy` (keyword+annunci, ogni settimana) · `gruppi` (gruppi di annunci, una riga per giorno, e gruppi di asset per le PMax) · `asset` (sitelink/callout/snippet/immagini, ogni settimana) · `esegui` (esegue le operazioni **approvate** in /operazioni: pausa, budget, keyword, negative, campagne nuove in pausa via bulk upload) · `tutto`.
 
@@ -783,3 +809,16 @@ Una riga per app; il `cd` parte dalla radice del repo.
 | Chiave Google Geocoding | Google Cloud Console → API e servizi → Credenziali (in Scout è nel `.env` come `EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_KEY`) |
 
 **Mai incollare i valori di queste credenziali in un file del repo.**
+
+### classifica-da-tipo.ts — deluxy-merchandising
+Riempie la **categoria interna** dei prodotti partendo dal «Tipo» di Shopify, raggruppando in **macro famiglie** (Fiori, Torte e dolci, Vini e spirits, Gastronomia, Originali Deluxy, Regali e accessori, Arte, Casa e decoro, Animali, Servizi). Scrive **solo in app**: sul negozio non tocca niente. Serve perché il «Tipo» è la vetrina — trentaquattro voci per i clienti — mentre per ragionare da merchandising servono poche famiglie grandi.
+
+```bash
+# dalla radice del repo — solo il conto, dice anche quali tipi restano fuori
+cd deluxy-merchandising && npx tsx scripts/classifica-da-tipo.ts --dry
+# scrive
+cd deluxy-merchandising && npx tsx scripts/classifica-da-tipo.ts
+```
+
+- **Serve**: `DATABASE_URL` (+ `DIRECT_URL`) nell'`.env` dell'app
+- **Nota**: le famiglie sono **scritte nel file, decise da una persona** — spostare un tipo è cambiare una parola e rilanciare. Non sovrascrive chi è già stato classificato a mano, e i tipi senza famiglia vengono elencati invece di restare indietro in silenzio

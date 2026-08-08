@@ -245,7 +245,58 @@ type ProdottoShopifyApi = {
   // Il metafield `prodotto.consegna` (mostrato come "gg_disp_min"): giorni minimi
   // per evadere. Da qui la tipologia di risposta al bisogno.
   consegna: { value: string } | null;
+  // `custom.nations_availability`: le province in cui il prodotto si consegna,
+  // scritte di fila come "ITALY-MILAN(MI) ITALY-PAVIA(PV)". E `custom.citta`,
+  // una lista JSON di nomi.
+  zone: { value: string } | null;
+  citta: { value: string } | null;
+  occasioni: { value: string } | null;
+  tipologiaMeta: { value: string } | null;
+  classificazione: { value: string } | null;
+  dataMeta: { value: string } | null;
+  orario: { value: string } | null;
+  bestSeller: { value: string } | null;
+  minimoOrario: { value: string } | null;
 };
+
+/**
+ * Le zone di consegna dal metafield, **una per una**.
+ *
+ * Il valore e' un testo unico in cui le province stanno attaccate — «ITALY-MONZA
+ * AND BRIANZA(MB)» ha gli spazi dentro il nome — quindi non si puo' spezzare
+ * sugli spazi: si riconosce la forma `ITALY-<nome>(<sigla>)`. Si salvano
+ * separate da virgola, come i tag, cosi' una condizione confronta **la zona
+ * intera** e non un pezzo di parola.
+ */
+export function zoneDa(valore: string | null | undefined): string | null {
+  if (!valore) return null;
+  const trovate = valore.match(/[A-Z]+-[^()]+\([A-Z]{2}\)/g);
+  if (!trovate?.length) return null;
+  return [...new Set(trovate.map((z) => z.trim()))].join(", ").slice(0, 900);
+}
+
+/** Un metafield booleano: "true"/"false". Sconosciuto = null, non false. */
+export function siNoDa(valore: string | null | undefined): boolean | null {
+  if (valore == null) return null;
+  const v = valore.trim().toLowerCase();
+  return v === "true" ? true : v === "false" ? false : null;
+}
+
+/** Un metafield intero. Quello che non e' un numero vale «non lo sappiamo». */
+export function interoDa(valore: string | null | undefined): number | null {
+  const n = Number.parseInt(String(valore ?? "").trim(), 10);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** `custom.citta` arriva come lista JSON: ["Milano"]. **Vale per tutte le liste**. */
+export function cittaDa(valore: string | null | undefined): string | null {
+  if (!valore) return null;
+  try {
+    const v = JSON.parse(valore);
+    if (Array.isArray(v)) return v.map(String).join(", ").slice(0, 200) || null;
+  } catch {}
+  return valore.trim().slice(0, 200) || null;
+}
 
 /**
  * I prodotti del negozio con SKU e collezioni di appartenenza.
@@ -270,6 +321,15 @@ async function leggiProdotti(n: Negozio): Promise<ProdottoShopifyApi[]> {
              featuredImage { url }
              variants(first: 10) { nodes { sku title price } }
              consegna: metafield(namespace: "prodotto", key: "consegna") { value }
+             zone: metafield(namespace: "custom", key: "nations_availability") { value }
+             citta: metafield(namespace: "custom", key: "citta") { value }
+             occasioni: metafield(namespace: "custom", key: "occasioni") { value }
+             tipologiaMeta: metafield(namespace: "custom", key: "tipologia") { value }
+             classificazione: metafield(namespace: "custom", key: "classificazione") { value }
+             dataMeta: metafield(namespace: "custom", key: "data") { value }
+             orario: metafield(namespace: "custom", key: "orario_consegna") { value }
+             bestSeller: metafield(namespace: "custom", key: "best_seller") { value }
+             minimoOrario: metafield(namespace: "custom", key: "minimo_orario") { value }
            }
          }
        }`,
@@ -459,6 +519,15 @@ async function creaProdottiMancanti(
           categoriaShopifyNome: p.category?.fullName || p.category?.name || null,
           vendorShopify: p.vendor?.trim() || null,
           tagShopify: p.tags?.length ? p.tags.join(", ").slice(0, 500) : null,
+          zoneConsegna: zoneDa(p.zone?.value),
+          cittaShopify: cittaDa(p.citta?.value),
+          occasioniShopify: cittaDa(p.occasioni?.value),
+          tipologiaShopify: cittaDa(p.tipologiaMeta?.value),
+          classificazioneShopify: cittaDa(p.classificazione?.value),
+          dataShopify: cittaDa(p.dataMeta?.value),
+          orarioShopify: cittaDa(p.orario?.value),
+          bestSellerShopify: siNoDa(p.bestSeller?.value),
+          minimoOrario: interoDa(p.minimoOrario?.value),
           handleShopify: p.handle,
           ggDispMin: Number.isFinite(gg) ? gg : null,
           shopifyId: p.id,
@@ -582,6 +651,15 @@ export async function allineaProdottiAlNegozio(
             categoriaShopifyNome: p.category?.fullName || p.category?.name || null,
             vendorShopify: p.vendor?.trim() || null,
             tagShopify: p.tags?.length ? p.tags.join(", ").slice(0, 500) : null,
+          zoneConsegna: zoneDa(p.zone?.value),
+          cittaShopify: cittaDa(p.citta?.value),
+          occasioniShopify: cittaDa(p.occasioni?.value),
+          tipologiaShopify: cittaDa(p.tipologiaMeta?.value),
+          classificazioneShopify: cittaDa(p.classificazione?.value),
+          dataShopify: cittaDa(p.dataMeta?.value),
+          orarioShopify: cittaDa(p.orario?.value),
+          bestSellerShopify: siNoDa(p.bestSeller?.value),
+          minimoOrario: interoDa(p.minimoOrario?.value),
             handleShopify: p.handle,
             ggDispMin: Number.isFinite(gg) ? gg : null,
             statoShopify: p.status ?? null,
@@ -705,7 +783,7 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
     base.prodottiIgnoti = prodottiShopify.length - risolto.size;
 
     // — Quello che Shopify sa del prodotto —
-    const daAggiornare: { id: string; tipoShopify: string | null; categoriaShopifyId: string | null; categoriaShopifyNome: string | null; vendorShopify: string | null; tagShopify: string | null; handleShopify: string; ggDispMin: number | null; statoShopify: string | null; shopifyId: string; nome: string; immagine: string | undefined; descrizione: string | undefined; prezzoVendita: number | undefined; seoTitoloShopify: string | null; seoDescrizioneShopify: string | null }[] = [];
+    const daAggiornare: { id: string; tipoShopify: string | null; categoriaShopifyId: string | null; categoriaShopifyNome: string | null; vendorShopify: string | null; tagShopify: string | null; zoneConsegna: string | null; cittaShopify: string | null; occasioniShopify: string | null; tipologiaShopify: string | null; classificazioneShopify: string | null; dataShopify: string | null; orarioShopify: string | null; bestSellerShopify: boolean | null; minimoOrario: number | null; handleShopify: string; ggDispMin: number | null; statoShopify: string | null; shopifyId: string; nome: string; immagine: string | undefined; descrizione: string | undefined; prezzoVendita: number | undefined; seoTitoloShopify: string | null; seoDescrizioneShopify: string | null }[] = [];
     for (const p of prodottiShopify) {
       const nostroId = risolto.get(p.id);
       if (!nostroId) continue;
@@ -721,6 +799,15 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
         categoriaShopifyNome: p.category?.fullName || p.category?.name || null,
         vendorShopify: p.vendor?.trim() || null,
         tagShopify: p.tags?.length ? p.tags.join(", ").slice(0, 500) : null,
+          zoneConsegna: zoneDa(p.zone?.value),
+          cittaShopify: cittaDa(p.citta?.value),
+          occasioniShopify: cittaDa(p.occasioni?.value),
+          tipologiaShopify: cittaDa(p.tipologiaMeta?.value),
+          classificazioneShopify: cittaDa(p.classificazione?.value),
+          dataShopify: cittaDa(p.dataMeta?.value),
+          orarioShopify: cittaDa(p.orario?.value),
+          bestSellerShopify: siNoDa(p.bestSeller?.value),
+          minimoOrario: interoDa(p.minimoOrario?.value),
         handleShopify: p.handle,
         ggDispMin: Number.isFinite(gg) ? gg : null,
         // Lo **stato sul negozio**, per tutti i prodotti abbinati e non solo per

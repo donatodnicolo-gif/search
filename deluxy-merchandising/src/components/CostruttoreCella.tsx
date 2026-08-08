@@ -6,7 +6,7 @@ import { REGOLE } from "@/lib/ordinamento-vetrina";
 import type { VociPassi, VoceValore } from "@/lib/voci-passi";
 import type { ProdottoAnteprima } from "./AnteprimaCella";
 
-const CAMPI_VALORI: Campo[] = ["tipo", "categoria", "fornitore", "linea", "tag", "risposta"];
+const CAMPI_VALORI: Campo[] = ["tipo", "categoria", "fornitore", "linea", "tag", "risposta", "zona", "citta", "occasione", "classificazione", "tipologiaMeta", "dataConsegna", "orario", "bestseller"];
 const MAX_FOTO = 18;
 
 /**
@@ -56,6 +56,14 @@ export function CostruttoreCella({
     fornitore: voci.fornitori,
     linea: voci.linee,
     tag: voci.tag,
+    zona: voci.zone,
+    citta: voci.citta,
+    occasione: voci.occasioni,
+    classificazione: voci.classificazioni,
+    tipologiaMeta: voci.tipologieMeta,
+    dataConsegna: voci.date,
+    orario: voci.orari,
+    bestseller: voci.bestseller,
     risposta: RISPOSTE.map((x) => ({ v: x.chiave, n: null, etichetta: x.nome })),
   };
 

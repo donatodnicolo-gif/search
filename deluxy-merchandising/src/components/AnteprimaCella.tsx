@@ -15,6 +15,14 @@ export type ProdottoAnteprima = {
   lineaId: string | null;
   tagShopify: string | null;
   ggDispMin: number | null;
+  zoneConsegna?: string | null;
+  cittaShopify?: string | null;
+  occasioniShopify?: string | null;
+  tipologiaShopify?: string | null;
+  classificazioneShopify?: string | null;
+  dataShopify?: string | null;
+  orarioShopify?: string | null;
+  bestSellerShopify?: boolean | null;
 };
 
 const CAMPI_A_VALORI: Campo[] = ["tipo", "categoria", "fornitore", "linea", "tag", "risposta"];

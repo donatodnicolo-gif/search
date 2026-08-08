@@ -29,6 +29,20 @@ export const CAMPI = [
   { chiave: "linea", nome: "Linea", spiega: "La linea di prodotto, decisa da noi." },
   { chiave: "tag", nome: "Tag (occasione, destinatario)", spiega: "Compleanno, matrimonio, per lei… nei dati vivono qui." },
   { chiave: "risposta", nome: "Risposta al bisogno", spiega: "Quanto in fretta si consegna, dai giorni minimi di evasione." },
+  // **Dove si consegna, dal metafield di Shopify** (`custom.nations_availability`),
+  // non dai tag: i tag sono testo libero e mescolano citta', fornitori e
+  // occasioni — «Martesana Milano» e' un fornitore, non una citta'.
+  { chiave: "zona", nome: "Zona di consegna", spiega: "Le province dal metafield del prodotto: dove si consegna davvero." },
+  { chiave: "citta", nome: "Città", spiega: "Il metafield «Città» del prodotto." },
+  // **L'anagrafica vera del prodotto**, dai metafield di Shopify: liste scelte da
+  // un elenco chiuso, non testo libero come i tag — quindi una condizione qui
+  // sopra non sbaglia per una maiuscola o un sinonimo.
+  { chiave: "occasione", nome: "Occasione", spiega: "Il metafield «Occasioni»: Sorprese Romantiche, Ringraziamenti…" },
+  { chiave: "classificazione", nome: "Classificazione", spiega: "Il metafield «Classificazione»: Prêt-à-Porter…" },
+  { chiave: "tipologiaMeta", nome: "Tipologia del prodotto", spiega: "Il metafield «Tipologia»: Raccomandato…" },
+  { chiave: "dataConsegna", nome: "Data di consegna", spiega: "Il metafield «Data»: Domani, Oggi…" },
+  { chiave: "orario", nome: "Orario di consegna", spiega: "Il metafield «Orario Consegna»: In Mattinata…" },
+  { chiave: "bestseller", nome: "Best seller su Shopify", spiega: "Il metafield «Best Seller» segnato sul negozio." },
   { chiave: "prezzo", nome: "Prezzo", spiega: "Da / a, in euro. Il «da» è compreso, il «a» escluso." },
 ] as const;
 
@@ -66,6 +80,14 @@ export type ProdottoConAttributi = {
   lineaId?: string | null;
   tagShopify?: string | null;
   ggDispMin?: number | null;
+  zoneConsegna?: string | null;
+  cittaShopify?: string | null;
+  occasioniShopify?: string | null;
+  tipologiaShopify?: string | null;
+  classificazioneShopify?: string | null;
+  dataShopify?: string | null;
+  orarioShopify?: string | null;
+  bestSellerShopify?: boolean | null;
 };
 
 /** Le fasce di «risposta al bisogno», dai giorni minimi di evasione. */
@@ -77,6 +99,10 @@ export const RISPOSTE = [
 ] as const;
 
 const norm = (s: string) => s.trim().toLowerCase();
+
+/** Un elenco salvato come "a, b, c" contiene uno dei valori chiesti? */
+const elencoContiene = (campo: string | null | undefined, valori: string[]) =>
+  !!campo && campo.split(",").map(norm).some((x) => valori.includes(x));
 
 /**
  * Il prodotto corrisponde al passo?
@@ -108,6 +134,26 @@ export function corrisponde(p: ProdottoConAttributi, passo: Passo): boolean {
       const suoi = p.tagShopify.split(",").map(norm);
       return valori.some((v) => suoi.includes(v));
     }
+    // Zona e citta' si confrontano **intere**, come i tag: «ITALY-MILAN(MI)» e'
+    // un valore, non una parola dentro un testo.
+    case "zona":
+      return elencoContiene(p.zoneConsegna, valori);
+    case "citta":
+      return elencoContiene(p.cittaShopify, valori);
+    case "occasione":
+      return elencoContiene(p.occasioniShopify, valori);
+    case "classificazione":
+      return elencoContiene(p.classificazioneShopify, valori);
+    case "tipologiaMeta":
+      return elencoContiene(p.tipologiaShopify, valori);
+    case "dataConsegna":
+      return elencoContiene(p.dataShopify, valori);
+    case "orario":
+      return elencoContiene(p.orarioShopify, valori);
+    // Non segnato sul negozio = **non lo sappiamo**, e non corrisponde: come per
+    // i tag e i giorni di consegna, quello che manca non si inventa.
+    case "bestseller":
+      return p.bestSellerShopify == null ? false : valori.includes(p.bestSellerShopify ? "si" : "no");
     case "risposta": {
       if (p.ggDispMin == null) return false;
       return valori.some((v) => {
@@ -248,6 +294,33 @@ function filtroCondizione(p: Condizione): Record<string, unknown> | null {
         if (valori.length) {
           o.push({ OR: valori.map((t) => ({ tagShopify: { contains: t, mode: "insensitive" as const } })) });
         }
+        break;
+      // Rete larga come per i tag: SQL non sa confrontare un elemento di una
+      // lista scritta in una stringa, e chi usa questo filtro ripassa da
+      // `corrisponde()` (vedi aggiunta-da-regola.ts).
+      case "zona":
+        if (valori.length) o.push({ OR: valori.map((z) => ({ zoneConsegna: { contains: z, mode: "insensitive" as const } })) });
+        break;
+      case "citta":
+        if (valori.length) o.push({ OR: valori.map((z) => ({ cittaShopify: { contains: z, mode: "insensitive" as const } })) });
+        break;
+      case "occasione":
+        if (valori.length) o.push({ OR: valori.map((z) => ({ occasioniShopify: { contains: z, mode: "insensitive" as const } })) });
+        break;
+      case "classificazione":
+        if (valori.length) o.push({ OR: valori.map((z) => ({ classificazioneShopify: { contains: z, mode: "insensitive" as const } })) });
+        break;
+      case "tipologiaMeta":
+        if (valori.length) o.push({ OR: valori.map((z) => ({ tipologiaShopify: { contains: z, mode: "insensitive" as const } })) });
+        break;
+      case "dataConsegna":
+        if (valori.length) o.push({ OR: valori.map((z) => ({ dataShopify: { contains: z, mode: "insensitive" as const } })) });
+        break;
+      case "orario":
+        if (valori.length) o.push({ OR: valori.map((z) => ({ orarioShopify: { contains: z, mode: "insensitive" as const } })) });
+        break;
+      case "bestseller":
+        if (valori.length === 1) o.push({ bestSellerShopify: valori[0] === "si" });
         break;
       case "risposta": {
         const fasce = valori
