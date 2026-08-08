@@ -134,7 +134,13 @@ var MINUTI_MASSIMI = 25; // Google ferma gli script a 30': ci fermiamo prima, co
 //      keyword per account a blocchi di 200) ed è la lettura meno urgente.
 var LAVORI_LETTURA = ["metriche", "gruppi", "approvazioni", "diagnosi", "asset", "copy", "stati-keyword"];
 
-var MAX_STATI_KEYWORD = 4000; // tetto di sicurezza: gli account veri ne hanno molte meno
+var MAX_STATI_KEYWORD = 20000; // tetto di sicurezza (vedi nota sotto)
+// ATTENZIONE: Era 4000, e su Gifts non bastava: l archivio ne ha 4.623. Il ciclo si
+// ferma al tetto SENZA ricordare dove era arrivato, quindi il giro dopo
+// ripartiva da capo e la coda della lista non sarebbe MAI stata letta - le
+// keyword oltre la 4000esima restavano invisibili per sempre. La query e
+// leggera (niente metriche, niente segmenti per giorno), quindi il tetto
+// serve solo da paracadute.
 
 var ANTEPRIMA = false; // deciso da verificaConfigurazione()
 var TERMINI_INVIATI = false; // le parole cercate si mandano una volta per giro
@@ -2030,7 +2036,7 @@ function elenco(nomi) {
 
 function mandaStatiKeyword(conto) {
   var query =
-    "SELECT campaign.name, ad_group.name, " +
+    "SELECT campaign.name, ad_group.id, ad_group.name, " +
     "ad_group_criterion.criterion_id, ad_group_criterion.keyword.text, " +
     "ad_group_criterion.keyword.match_type, ad_group_criterion.status, " +
     "ad_group_criterion.negative " +
@@ -2068,7 +2074,7 @@ function mandaStatiKeyword(conto) {
     else inPausa++;
 
     righe.push({
-      idEsterno: String(c.criterionId),
+      idEsterno: conto.id + ":" + r.adGroup.id + ":" + c.criterionId,
       testo: c.keyword.text,
       corrispondenza: String(c.keyword.matchType),
       campagna: r.campaign.name,

@@ -22,6 +22,57 @@ Riceve già dati veri da Google Ads (Gifts e Flowers) e ha 2.426 ordini Shopify 
 
 ## FATTO
 
+### ⭐⭐ Il 60% degli id delle keyword era sbagliato, e a rifarlo era un nostro lavoro (08/08/2026)
+
+Non erano dati vecchi ereditati: **`stati-keyword` riscriveva l'id sbagliato a
+ogni giro**.
+
+| lavoro | id mandato all'app | quando gira |
+| --- | --- | --- |
+| `copy` | `account:gruppo:criterio` (giusto) | penultimo in `LAVORI_LETTURA` |
+| `stati-keyword` | `String(criterionId)` — **il numero nudo** | **ultimo**, subito dopo |
+
+E l'ingest scrive `idEsterno` senza condizioni. Quindi a ogni `tutto`: `copy`
+scriveva l'id buono, e `stati-keyword` **glielo cancellava** trenta secondi
+dopo.
+
+Misura al momento della scoperta:
+
+| brand | id nuovo | id vecchio | senza id | totale |
+| --- | --- | --- | --- | --- |
+| gifts | 1.225 | **3.116** | 282 | 4.623 |
+| flowers | 974 | 1.011 | 137 | 2.122 |
+| cake | 645 | 681 | 0 | 1.326 |
+
+> ⚠️ **Da qui nasceva tutto il resto.** Con l'id completo `trovaKeyword` prende
+> la scorciatoia `withIds` e non sbaglia mai; col numero nudo cade nella ricerca
+> per testo — quella che non aveva **mai** funzionato. Cioè: il difetto che
+> teneva ferma la coda era un *sintomo*, la causa era qui.
+
+> ⚠️ **Ed è la collisione che la v2 aveva risolto apposta.** Senza l'account nel
+> prefisso, tre account che hanno lo stesso numero di criterio si sovrascrivono
+> a vicenda nell'archivio.
+
+Corretto: la query di `mandaStatiKeyword` ora chiede anche `ad_group.id` (senza,
+l'id completo non si può comporre) e manda lo stesso formato di `copy`.
+
+> ⚠️ **`MAX_STATI_KEYWORD` alzato da 4.000 a 20.000.** Il ciclo si fermava al
+> tetto **senza ricordare dove era arrivato**: il giro dopo ripartiva da capo, e
+> le keyword oltre la 4.000esima non sarebbero state lette **mai**. Su Gifts
+> l'archivio ne ha 4.623, cioè il tetto mordeva davvero. La query è leggera
+> (niente metriche, niente segmenti per giorno).
+
+**La ricarica non cancella niente.** L'ingest cerca prima per `idEsterno` (non
+lo trova, le righe hanno ancora quello vecchio) e poi ripiega su
+`(tipo, testo, campagna)`: trova la riga esistente e le **riscrive l'id giusto**.
+Le righe si curano da sole al primo giro, senza `deleteMany` — che sul Postgres
+condiviso non si fanno comunque.
+
+⚠️ Restano indietro le righe nate sotto un **nome di campagna vecchio**
+(`FIORI MILANO ENG` contro `[Deluxy] - Fiori Milano ENG`): il ripiego confronta
+anche la campagna, quindi non le riconosce. Sono le righe importate dal
+Monitoraggio, non quelle di Google.
+
 ### ⭐⭐ La coda si bloccava in silenzio: l'account non lo scriveva nessuno (08/08/2026)
 
 Partito da «un'operazione approvata dal 07/08 e mai eseguita». La causa non era
