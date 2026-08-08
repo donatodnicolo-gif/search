@@ -162,7 +162,10 @@ function BarraBlocco({
   sotto?: boolean;
 }) {
   return (
-    <div className="barra-blocco" style={sotto ? { marginTop: 12 } : { marginBottom: 12 }}>
+    // **Quella in cima resta appesa mentre si scorre.** Con duecento righe si
+    // sceglie un prodotto a meta' elenco e poi si deve risalire fino in cima per
+    // dire cosa farne: la barra serve li', dove sta la mano (chiesto dall utente).
+    <div className={sotto ? "barra-blocco" : "barra-blocco barra-appesa"} style={sotto ? { marginTop: 12 } : { marginBottom: 12 }}>
       <SelezionaTutti quanti={inElenco} />
       <span className="page-sub" style={{ margin: 0 }}>
         poi:

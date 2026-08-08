@@ -1018,3 +1018,15 @@ details.conferma-x[open] > summary { color: var(--orange, #C2721B); }
   background: var(--surface-2, #F5F5F7);
 }
 .interruttore-regola > span { flex: 1 1 320px; }
+
+/* La barra delle azioni in blocco resta **appesa in cima** mentre si scorre:
+   con duecento righe, scegliere a metà elenco e poi risalire per dire cosa
+   farne vanifica il motivo per cui la barra esiste. Sfondo pieno e non
+   traslucido, altrimenti le righe che le passano sotto si leggono attraverso. */
+.barra-appesa {
+  position: sticky;
+  top: 8px;
+  z-index: 5;
+  background: var(--surface, #FFF);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, .06);
+}
