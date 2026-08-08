@@ -1473,25 +1473,64 @@ function trovaKeyword(op, conto) {
     return it.hasNext() ? { esito: "trovato", keyword: it.next() } : { esito: "non-trovato" };
   }
 
+  // --- Ripiego per le righe con l'id VECCHIO (solo il numero del criterio) ---
+  //
+  // Non e' un caso raro: all'08/08/2026 il 60% delle keyword in archivio
+  // (4.808 su 8.071) ha ancora quell'id. E questo ramo, misurato lo stesso
+  // giorno, non aveva mai funzionato nemmeno una volta: TUTTE le operazioni
+  // riuscite erano passate dalla scorciatoia per id qui sopra.
   var testo = op.parametri.testo || op.bersaglio;
   var pulito = String(testo).replace(/\s*\((broad|phrase|exact|esatta|frase)\)\s*$/i, "");
-  var trovate = [];
-  var iter = AdsApp.keywords()
-    .withCondition("ad_group_criterion.keyword.text = '" + apici(pulito) + "'")
-    .withCondition("ad_group_criterion.status != 'REMOVED'")
-    .get();
-  while (iter.hasNext()) {
-    var kw = iter.next();
-    if (BRAND && brandDa(kw.getCampaign().getName()) !== BRAND) continue;
-    trovate.push(kw);
+
+  // Si cerca dove l'app dice che sta, non in tutto l'account: prima campagna +
+  // gruppo (esatto e mai ambiguo), poi solo campagna, e solo come ultima
+  // spiaggia il testo su tutto l'account. Ogni passo e' piu' largo del
+  // precedente e ci si ferma al primo che trova qualcosa.
+  function cerca(conCampagna, conGruppo) {
+    var sel = AdsApp.keywords()
+      .withCondition("ad_group_criterion.keyword.text = '" + apici(pulito) + "'")
+      .withCondition("ad_group_criterion.status != 'REMOVED'");
+    if (conCampagna && op.campagna) sel = sel.withCondition("campaign.name = '" + apici(op.campagna) + "'");
+    if (conGruppo && op.parametri.gruppo) sel = sel.withCondition("ad_group.name = '" + apici(op.parametri.gruppo) + "'");
+    var fuori = [];
+    var iter = sel.get();
+    while (iter.hasNext()) fuori.push(iter.next());
+    return fuori;
   }
+
+  var trovate = [];
+  var come = "";
+  if (op.campagna && op.parametri.gruppo) {
+    trovate = cerca(true, true);
+    come = "campagna + gruppo";
+  }
+  if (trovate.length === 0 && op.campagna) {
+    trovate = cerca(true, false);
+    come = "campagna";
+  }
+  if (trovate.length === 0) {
+    // Qui, e SOLO qui, torna il filtro sul brand: senza campagna si guarda
+    // tutto l'account e serve un modo di scartare la roba di un altro marchio.
+    // Non si usa prima perche' indovina il brand dal NOME della campagna
+    // dentro un account che quel brand ce l'ha gia': quando sbaglia a
+    // indovinare butta via l'unico risultato buono, e chi chiama legge
+    // "non e' in questo account", che e' la bugia perfetta.
+    var larghe = cerca(false, false);
+    for (var k = 0; k < larghe.length; k++) {
+      if (BRAND && brandDa(larghe[k].getCampaign().getName()) !== BRAND) continue;
+      trovate.push(larghe[k]);
+    }
+    come = "solo testo, in tutto l'account";
+  }
+
   if (trovate.length === 0) return { esito: "non-trovato" };
   if (trovate.length > 1) {
     throw new Error(
-      "\"" + pulito + "\" esiste in " + trovate.length + " gruppi: non tocco niente. " +
-      "Rilancia lo script \"copy\" per aggiornare gli id, poi riaccoda l'operazione."
+      "\"" + pulito + "\" esiste in " + trovate.length + " gruppi (cercata per " + come + "): " +
+      "non tocco niente. Rilancia lo script \"copy\" per aggiornare gli id, poi riaccoda l'operazione."
     );
   }
+  Logger.log("Trovata \"" + pulito + "\" cercandola per " + come + ".");
   return { esito: "trovato", keyword: trovate[0] };
 }
 

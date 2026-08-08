@@ -75,8 +75,50 @@ eseguire nel posto sbagliato.
 
 > ⚠️ **Vale per le operazioni NUOVE.** Quella ferma dal 07/08 ha ancora
 > `account` vuoto: va riempita a mano sul database, **oppure** — più semplice —
-> annullata in coda e rifatta dall'app, che ora la scrive. Finché ha l'account
-> vuoto continuerà a essere saltata da tutti e tre gli account.
+> annullata in coda e rifatta dall'app, che ora la scrive.
+
+#### La seconda metà: l'API non mandava l'account, e la ricerca per testo non ha mai funzionato
+
+> ⚠️ **Riempire il campo nel database non serviva a niente da solo**:
+> `GET /api/v1/operazioni` **non restituiva `account`**. Lo script leggeva
+> sempre `op.account === undefined`, quindi tutta la logica che aveva già per
+> distinguere «non è roba mia» da «è roba mia e non la trovo» restava spenta.
+> Due metà di una correzione, e ognuna senza l'altra è inerte.
+
+Ora la GET manda anche **`account`** e **`campagna`** (il nome della campagna:
+`OperazioneAdv` non ha la relazione, solo `campagnaId`, quindi i nomi si
+prendono in **una query sola** per tutte le righe — una per riga sarebbero
+cinquanta andate e ritorno).
+
+E `trovaKeyword` in `scripts/google-ads-script.js` **cerca dove l'app dice che
+sta**, invece che a tentoni in tutto l'account:
+
+1. `campagna + gruppo` — esatto, non può essere ambiguo;
+2. solo `campagna`;
+3. ultima spiaggia: solo il testo su tutto l'account, e **lì** torna il filtro
+   sul brand.
+
+> ⚠️ **Il filtro sul brand era il sospettato numero uno e ora sta solo dove
+> serve.** `brandDa(nome della campagna) !== BRAND` indovina il brand dal
+> **nome** dentro un account che quel brand ce l'ha già: quando sbaglia a
+> indovinare butta via l'unico risultato buono, e chi chiama legge «non è in
+> questo account» — cioè la bugia perfetta, indistinguibile dalla verità.
+
+Verificato il payload sui dati veri: l'operazione ferma riceverà
+`campagna: "[Deluxy] - Fiori Milano ENG"` e `parametri.gruppo: "Flowers
+Delivery"`, cioè abbastanza per la ricerca esatta **anche senza l'account**.
+
+> ⚠️ **`tutto.js` va reincollato nei tre account** (rigenerati tutti e nove i
+> file in `C:\Users\nicol\Downloads\deluxy-google-ads\`, **CHIAVE_API e BRAND
+> restano da rimettere a mano**). Finché non si reincolla, gli account girano
+> ancora la versione vecchia della ricerca.
+
+> ⚠️ **Il file dello script è latin1 e va toccato solo con node, mai con
+> l'editor.** Successo oggi: i trattini lunghi di un commento nuovo (`—`,
+> U+2014) non esistono in latin1 e sono finiti nel file come **byte di
+> controllo `0x14`**. Ora lo script di patch rifiuta di scrivere se il testo da
+> inserire non è ASCII puro, e si controllano i byte non-ASCII prima/dopo:
+> devono essere **identici** (5.842).
 
 ### ⭐ Un `<form>` dentro un `<p>` rompeva l'idratazione — e con lei l'ordinamento delle tabelle (08/08/2026)
 

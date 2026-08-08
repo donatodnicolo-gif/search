@@ -22,10 +22,38 @@ export async function GET(req: NextRequest) {
     orderBy: { approvataIl: "asc" },
     take: 50,
   });
+
+  // Il nome della campagna serve allo script per cercare il bersaglio nel posto
+  // giusto invece che in tutto l'account. `OperazioneAdv` non ha la relazione,
+  // solo `campagnaId`: si prendono in **una query sola** per tutte le righe —
+  // una per riga qui sarebbe cinquanta andate e ritorno su Postgres remoto.
+  const idCampagne = [...new Set(operazioni.map((o) => o.campagnaId).filter((x): x is string => !!x))];
+  const nomeCampagna = new Map(
+    idCampagne.length > 0
+      ? (
+          await prisma.campagna.findMany({
+            where: { id: { in: idCampagne } },
+            select: { id: true, nome: true },
+          })
+        ).map((c) => [c.id, c.nome])
+      : []
+  );
+
   return NextResponse.json({
     operazioni: operazioni.map((o) => ({
       id: o.id,
       tipo: o.tipo,
+      // ⚠️ `account` NON veniva mandato, e senza di lui tutta la logica che lo
+      // script ha già per distinguere «non è roba mia» da «è roba mia e non la
+      // trovo» restava spenta: `op.account` era sempre undefined, quindi ogni
+      // bersaglio non trovato finiva fra le **saltate** e non tornava nessun
+      // esito. È la seconda metà della correzione dell'08/08/2026 — riempire
+      // il campo nel database senza mandarlo qui non serviva a niente.
+      account: o.account,
+      // La campagna a cui l'operazione appartiene: permette una ricerca esatta
+      // (campagna + gruppo + testo) invece di una per solo testo su tutto
+      // l'account, che è quella che non ha mai funzionato.
+      campagna: o.campagnaId ? nomeCampagna.get(o.campagnaId) ?? null : null,
       bersaglio: o.bersaglio,
       idEsterno: o.idEsterno,
       parametri: o.parametri ? JSON.parse(o.parametri) : {},
