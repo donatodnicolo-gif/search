@@ -345,7 +345,9 @@ porta **3120**. Design system Deluxy v1.0.
   - **Svuotare la griglia e salvare non cancella il passo**: per toglierlo c'è la ×. Far sparire una condizione perché si è deselezionato tutto sarebbe una cancellazione non chiesta.
   - Si passa da `?modifica=<indice>`, quindi il link è condivisibile e il `<details>` si apre da solo. Verificato online: `modifica=1` apre con **Fiori d'Arte** e **urgenze** già spuntati.
 
-- ⚠️ **07/08/2026 — «Novità prima» non sa quando il prodotto è nato** (domanda dell'utente: «le novità da che campo vengono prese?»). La metrica legge `Prodotto.creatoIl`, che è **quando la scheda è stata creata qui**, non su Shopify: fra i 1.024 attivi ci sono **tre sole date** (26/07 → 445, 03/08 → 538, 04/08 → 41), cioè le tornate di import. Oggi «Novità prima» ordina per lotto di importazione, non per novità vera. **Da fare**: importare `createdAt`/`publishedAt` di Shopify come si è fatto coi metafield, e farci puntare la metrica.
+- **07/08/2026 — «Novità prima» è la data di pubblicazione sul negozio** (nato da una domanda dell'utente — «le novità da che campo vengono prese?» — e deciso da lui: «per noi conta in ordine di data di pubblicazione»). La metrica leggeva `Prodotto.creatoIl`, cioè **quando la scheda è stata creata qui**: fra i 1.024 attivi c'erano **tre sole date** (26/07 → 445, 03/08 → 538, 04/08 → 41), le tornate di import. Ordinava per lotto di importazione, cioè non ordinava.
+  - Nuovi campi `pubblicatoIlShopify` e `creatoIlShopify`, letti dall'import delle collezioni (`createdAt publishedAt` nella query) e riempiti da [scripts/importa-zone-consegna.ts](../scripts/importa-zone-consegna.ts).
+  - La metrica ora legge `pubblicatoIlShopify ?? creatoIlShopify ?? creatoIl`: **la pubblicazione è il momento in cui il cliente ha potuto vederlo**, la nostra data resta solo come ultimo ripiego per le schede che su Shopify non ci sono.
 
 ## COME AVVIARE
 ```

@@ -108,6 +108,13 @@ model Prodotto {
   zoneConsegna String?
   // Il metafield `custom.citta`: la citta' dichiarata del prodotto.
   cittaShopify String?
+  // **Quando il negozio l'ha pubblicato e quando l'ha creato.** `creatoIl` qui
+  // sopra e' la data della **nostra** scheda — cioe' quando l'import l'ha vista
+  // per la prima volta — e non dice niente sulla novita': fra i 1.024 prodotti
+  // attivi c'erano tre sole date, le tornate di import. La novita' vera e' la
+  // **pubblicazione**: e' il momento in cui il cliente ha potuto vederlo.
+  pubblicatoIlShopify DateTime?
+  creatoIlShopify     DateTime?
   // **L'anagrafica vera del prodotto**, dai metafield `custom.*` di Shopify.
   // Sono liste scelte da un elenco chiuso — non testo libero come i tag — quindi
   // una condizione costruita qui sopra non sbaglia per una maiuscola o un

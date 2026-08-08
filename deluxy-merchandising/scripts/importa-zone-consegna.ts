@@ -30,7 +30,7 @@ async function main() {
   const { prisma } = await import("../src/lib/db");
   const { negoziAttivi } = await import("../src/lib/negozi");
   const { graphqlNegozio } = await import("../src/lib/shopify-scrittura");
-  const { zoneDa, cittaDa, siNoDa, interoDa } = await import("../src/lib/shopify-collezioni");
+  const { zoneDa, cittaDa, siNoDa, interoDa, dataDa } = await import("../src/lib/shopify-collezioni");
 
   const negozi = await negoziAttivi();
   console.log("Negozi collegati:", negozi.map((n) => n.nome).join(", "));
@@ -55,7 +55,8 @@ async function main() {
     const gruppo = prodotti.slice(i, i + A_GRUPPI);
     type Meta = { value: string } | null;
     let nodi: {
-      id: string; zone?: Meta; citta?: Meta; occasioni?: Meta; tipologiaMeta?: Meta;
+      id: string; createdAt?: string | null; publishedAt?: string | null;
+      zone?: Meta; citta?: Meta; occasioni?: Meta; tipologiaMeta?: Meta;
       classificazione?: Meta; dataMeta?: Meta; orario?: Meta; bestSeller?: Meta; minimoOrario?: Meta;
     }[] = [];
     for (const n of negozi) {
@@ -66,6 +67,8 @@ async function main() {
            nodes(ids: $ids) {
              ... on Product {
                id
+               createdAt
+               publishedAt
                zone: metafield(namespace: "custom", key: "nations_availability") { value }
                citta: metafield(namespace: "custom", key: "citta") { value }
                occasioni: metafield(namespace: "custom", key: "occasioni") { value }
@@ -108,6 +111,8 @@ async function main() {
               orarioShopify: cittaDa(nodo.orario?.value),
               bestSellerShopify: siNoDa(nodo.bestSeller?.value),
               minimoOrario: interoDa(nodo.minimoOrario?.value),
+              pubblicatoIlShopify: dataDa(nodo.publishedAt),
+              creatoIlShopify: dataDa(nodo.createdAt),
             },
           });
           break;

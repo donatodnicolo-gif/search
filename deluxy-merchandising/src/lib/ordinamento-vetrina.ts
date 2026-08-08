@@ -44,7 +44,7 @@ export type RegolaOrdinamento =
 export const REGOLE: { chiave: RegolaOrdinamento; nome: string; spiega: string }[] = [
   { chiave: "best_seller", nome: "Più venduti in cima", spiega: "Chi ha venduto più pezzi (a buon fine) negli ultimi 90 giorni." },
   { chiave: "ricavo", nome: "Più fatturato in cima", spiega: "Chi ha incassato di più negli ultimi 90 giorni." },
-  { chiave: "novita", nome: "Novità prima", spiega: "I prodotti aggiunti più di recente al catalogo." },
+  { chiave: "novita", nome: "Novità prima", spiega: "I prodotti **pubblicati** più di recente sul negozio." },
   { chiave: "margine", nome: "Margine più alto in cima", spiega: "Dove il costo è inserito; i prodotti senza costo restano in fondo." },
   { chiave: "prezzo_desc", nome: "Prezzo alto in cima", spiega: "Dal listino più caro al più economico." },
   { chiave: "prezzo_asc", nome: "Prezzo basso in cima", spiega: "Dal listino più economico al più caro." },
@@ -99,6 +99,9 @@ export type ProdottoOrdinabile = {
   prezzoVendita: number;
   costoProduzione: number;
   creatoIl: Date;
+  /** Quando il negozio l'ha pubblicato: è **questa** la novità. */
+  pubblicatoIlShopify?: Date | null;
+  creatoIlShopify?: Date | null;
   posizione?: number; // l'ordine curato a mano, dove esiste
   // Gli attributi servono ai passi delle **regole salvate** («prima la categoria
   // Fiori», «prima chi sta sopra i 200 €»). Sono opzionali: chi ordina solo con
@@ -200,7 +203,12 @@ export async function ordinaPerPassi<T extends ProdottoOrdinabile>(
       case "ricavo":
         return v?.ricavo ?? 0;
       case "novita":
-        return m.creatoIl.getTime();
+        // **Novità = quando il negozio l'ha pubblicato**, scelta dell'utente:
+        // è il momento in cui il cliente ha potuto vederlo. `creatoIl` è la data
+        // della *nostra* scheda e vale solo come ultimo ripiego — su di essa la
+        // metrica ordinava per tornata di import (tre sole date su 1.024
+        // prodotti attivi), cioè non ordinava affatto.
+        return (m.pubblicatoIlShopify ?? m.creatoIlShopify ?? m.creatoIl).getTime();
       case "margine":
         // Senza costo il margine non si sa: va in fondo, non a zero (stessa
         // regola del resto dell'app: un dato mancante si esclude, non vale 0).
@@ -307,6 +315,8 @@ const SELECT_ORDINABILE = {
   ggDispMin: true,
   zoneConsegna: true,
   cittaShopify: true,
+  pubblicatoIlShopify: true,
+  creatoIlShopify: true,
   occasioniShopify: true,
   tipologiaShopify: true,
   classificazioneShopify: true,

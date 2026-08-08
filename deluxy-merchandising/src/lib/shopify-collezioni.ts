@@ -248,6 +248,8 @@ type ProdottoShopifyApi = {
   // `custom.nations_availability`: le province in cui il prodotto si consegna,
   // scritte di fila come "ITALY-MILAN(MI) ITALY-PAVIA(PV)". E `custom.citta`,
   // una lista JSON di nomi.
+  createdAt: string | null;
+  publishedAt: string | null;
   zone: { value: string } | null;
   citta: { value: string } | null;
   occasioni: { value: string } | null;
@@ -273,6 +275,13 @@ export function zoneDa(valore: string | null | undefined): string | null {
   const trovate = valore.match(/[A-Z]+-[^()]+\([A-Z]{2}\)/g);
   if (!trovate?.length) return null;
   return [...new Set(trovate.map((z) => z.trim()))].join(", ").slice(0, 900);
+}
+
+/** Una data ISO di Shopify. Quello che non e' una data vale «non lo sappiamo». */
+export function dataDa(valore: string | null | undefined): Date | null {
+  if (!valore) return null;
+  const d = new Date(valore);
+  return Number.isNaN(d.getTime()) ? null : d;
 }
 
 /** Un metafield booleano: "true"/"false". Sconosciuto = null, non false. */
@@ -315,7 +324,7 @@ async function leggiProdotti(n: Negozio): Promise<ProdottoShopifyApi[]> {
          products(first: 25, after: $cursore) {
            pageInfo { hasNextPage endCursor }
            nodes {
-             id title handle productType vendor tags status descriptionHtml
+             id title handle productType vendor tags status descriptionHtml createdAt publishedAt
              category { id name fullName }
              seo { title description }
              featuredImage { url }
@@ -521,6 +530,8 @@ async function creaProdottiMancanti(
           tagShopify: p.tags?.length ? p.tags.join(", ").slice(0, 500) : null,
           zoneConsegna: zoneDa(p.zone?.value),
           cittaShopify: cittaDa(p.citta?.value),
+          pubblicatoIlShopify: dataDa(p.publishedAt),
+          creatoIlShopify: dataDa(p.createdAt),
           occasioniShopify: cittaDa(p.occasioni?.value),
           tipologiaShopify: cittaDa(p.tipologiaMeta?.value),
           classificazioneShopify: cittaDa(p.classificazione?.value),
@@ -653,6 +664,8 @@ export async function allineaProdottiAlNegozio(
             tagShopify: p.tags?.length ? p.tags.join(", ").slice(0, 500) : null,
           zoneConsegna: zoneDa(p.zone?.value),
           cittaShopify: cittaDa(p.citta?.value),
+          pubblicatoIlShopify: dataDa(p.publishedAt),
+          creatoIlShopify: dataDa(p.createdAt),
           occasioniShopify: cittaDa(p.occasioni?.value),
           tipologiaShopify: cittaDa(p.tipologiaMeta?.value),
           classificazioneShopify: cittaDa(p.classificazione?.value),
@@ -783,7 +796,7 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
     base.prodottiIgnoti = prodottiShopify.length - risolto.size;
 
     // — Quello che Shopify sa del prodotto —
-    const daAggiornare: { id: string; tipoShopify: string | null; categoriaShopifyId: string | null; categoriaShopifyNome: string | null; vendorShopify: string | null; tagShopify: string | null; zoneConsegna: string | null; cittaShopify: string | null; occasioniShopify: string | null; tipologiaShopify: string | null; classificazioneShopify: string | null; dataShopify: string | null; orarioShopify: string | null; bestSellerShopify: boolean | null; minimoOrario: number | null; handleShopify: string; ggDispMin: number | null; statoShopify: string | null; shopifyId: string; nome: string; immagine: string | undefined; descrizione: string | undefined; prezzoVendita: number | undefined; seoTitoloShopify: string | null; seoDescrizioneShopify: string | null }[] = [];
+    const daAggiornare: { id: string; tipoShopify: string | null; categoriaShopifyId: string | null; categoriaShopifyNome: string | null; vendorShopify: string | null; tagShopify: string | null; zoneConsegna: string | null; cittaShopify: string | null; pubblicatoIlShopify: Date | null; creatoIlShopify: Date | null; occasioniShopify: string | null; tipologiaShopify: string | null; classificazioneShopify: string | null; dataShopify: string | null; orarioShopify: string | null; bestSellerShopify: boolean | null; minimoOrario: number | null; handleShopify: string; ggDispMin: number | null; statoShopify: string | null; shopifyId: string; nome: string; immagine: string | undefined; descrizione: string | undefined; prezzoVendita: number | undefined; seoTitoloShopify: string | null; seoDescrizioneShopify: string | null }[] = [];
     for (const p of prodottiShopify) {
       const nostroId = risolto.get(p.id);
       if (!nostroId) continue;
@@ -801,6 +814,8 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
         tagShopify: p.tags?.length ? p.tags.join(", ").slice(0, 500) : null,
           zoneConsegna: zoneDa(p.zone?.value),
           cittaShopify: cittaDa(p.citta?.value),
+          pubblicatoIlShopify: dataDa(p.publishedAt),
+          creatoIlShopify: dataDa(p.createdAt),
           occasioniShopify: cittaDa(p.occasioni?.value),
           tipologiaShopify: cittaDa(p.tipologiaMeta?.value),
           classificazioneShopify: cittaDa(p.classificazione?.value),
