@@ -22,6 +22,58 @@ Riceve già dati veri da Google Ads (Gifts e Flowers) e ha 2.426 ordini Shopify 
 
 ## FATTO
 
+### La finestra dei numeri viaggia col numero, e le negative si rileggono (08/08/2026)
+
+Due difetti della stessa famiglia — **una cosa che non si può sapere guardando
+il dato** — chiusi insieme.
+
+**1. `CopyAnnuncio.metricheGiorni`.** L'app teneva i numeri di keyword e asset
+senza dire **su quanti giorni** fossero calcolati: c'era `metricheAl` (quando
+sono stati scritti) ma non a cosa si riferivano. E il riquadro sulla scheda
+gruppo aveva **«30 giorni» scritto a mano nel codice** — vero finché
+`GIORNI_COPY` resta 30, falso al primo caricamento storico.
+
+- Lo script manda `giorniMetriche` insieme ai numeri: `GIORNI_COPY` per keyword
+  e testi RSA, **`GIORNI_ASSET` per gli asset** (finestra loro, non quella del
+  copy). ⚠️ `stati-keyword` **non** lo manda ed è giusto: non porta numeri, e
+  scrivere una finestra senza numeri direbbe che i vecchi si riferiscono a un
+  periodo che non è il loro.
+- L'ingest lo scrive **solo insieme ai numeri**, stessa regola già in uso.
+- Il riquadro legge il dato. Se le righe **non concordano** lo dice — «ce ne
+  sono di 30, 365 giorni: i numeri di righe diverse non si possono confrontare
+  fra loro» — invece di mostrare un numero solo che sarebbe falso per metà.
+- Colonna aggiunta con **ALTER TABLE mirato** (`scripts/aggiungi-metriche-giorni.mjs`),
+  non con `prisma db push`: il Postgres è condiviso fra sei app.
+
+Da qui in poi un caricamento storico su qualunque finestra è **legittimo**:
+l'app dirà su cosa sta guardando invece di raccontare una cosa per un'altra.
+
+**2. Le negative si rileggono, prima e dopo.**
+
+> ⚠️ **`createNegativeKeyword()` non restituisce NIENTE**: è l'unica scrittura
+> dello script che non può dire se è andata. `creaKeyword` usa un builder e
+> controlla `isSuccessful()`; qui non c'era niente da controllare, e l'app
+> registrava «negativa aggiunta» **per fede**. Se Google la rifiutava
+> (doppione, limite, formato) nessuno lo sapeva.
+
+`negativaPresente(campagna, testo)` risponde `uguale` / `altra-corrispondenza` /
+`no` / `null` (non leggibile, che **non** è un no) e serve due volte:
+
+- **prima**: se c'è già identica non se ne crea una seconda, e lo si dice;
+- **dopo**: si conferma che sia arrivata.
+
+> ⚠️ **Il dubbio si dichiara, non diventa un errore.** Dentro la stessa
+> esecuzione i selettori di Google possono ancora vedere lo stato di partenza:
+> trasformare quel dubbio in un fallimento marcherebbe come falliti dei lavori
+> riusciti — il difetto opposto e altrettanto brutto. L'esito dice
+> «confermata rileggendola» oppure «rileggendo non risulta ancora: può essere
+> il ritardo di Google o un rifiuto muto, ricontrollare al prossimo giro».
+
+Il confronto guarda sia il testo coi segni (`[esatta]`, `"frase"`) sia quello
+nudo, così funziona comunque `getText()` li riporti. Se la parola c'era con
+un'**altra** corrispondenza la nuova si crea lo stesso — è una cosa diversa —
+ma l'esito avverte che «adesso ce ne sono due, e la più larga comanda».
+
 ### ⭐⭐ Il 60% degli id delle keyword era sbagliato, e a rifarlo era un nostro lavoro (08/08/2026)
 
 Non erano dati vecchi ereditati: **`stati-keyword` riscriveva l'id sbagliato a

@@ -405,6 +405,15 @@ model CopyAnnuncio {
   // Id del criterio/asset su Google: riconosce la stessa riga nel tempo
   idEsterno        String?
   metricheAl       DateTime?
+  // Su QUANTI GIORNI sono calcolati i numeri qui sopra.
+  //
+  // ⚠️ Senza, l'app non poteva dire su che finestra stava guardando: il
+  // riquadro delle keyword aveva «30 giorni» scritto a mano nel codice, e
+  // sarebbe diventato una bugia al primo giro con un `GIORNI_COPY` diverso —
+  // cioè esattamente quello che fa un caricamento storico. `metricheAl` dice
+  // QUANDO sono stati scritti, questo dice A COSA si riferiscono: due domande
+  // diverse. (`TermineRicerca` aveva già `dal`/`al`; qui mancava.)
+  metricheGiorni   Int?
   fonte            String?
   // Livello a cui l'asset è agganciato: account | campagna | gruppo
   livello          String?

@@ -152,6 +152,16 @@ export default async function SchedaGruppo({
     (max, k) => (k.metricheAl && (!max || k.metricheAl > max) ? k.metricheAl : max),
     null
   );
+  // Su quanti giorni sono i numeri: lo dice il dato, non una costante.
+  //
+  // ⚠️ Qui c'era «30 giorni» scritto a mano, e sarebbe diventato falso al primo
+  // giro con un `GIORNI_COPY` diverso — cioè al primo caricamento storico.
+  // Se le righe non concordano si mostrano tutte le finestre presenti: un
+  // archivio misto è un'informazione, non un dettaglio da nascondere dietro
+  // un numero solo.
+  const finestreKeyword = [
+    ...new Set(keyword.map((k) => k.metricheGiorni).filter((g): g is number => g != null)),
+  ].sort((a, b) => a - b);
   const testi = copy.filter((c) => c.tipo === "titolo" || c.tipo === "descrizione");
 
   // La lingua a cui parla il gruppo: prima il suo nome, poi quello della
@@ -578,7 +588,18 @@ export default async function SchedaGruppo({
                   <span>
                     <b>Questi numeri non seguono il periodo scelto.</b> Le keyword non hanno una
                     storia giorno per giorno: l&apos;app conserva l&apos;ultima fotografia mandata dallo
-                    script, che copre la <b>finestra fissa dello script</b> (30 giorni)
+                    script, che copre una <b>finestra fissa</b>
+                    {finestreKeyword.length === 1 ? (
+                      <> di <b>{finestreKeyword[0]} giorni</b></>
+                    ) : finestreKeyword.length > 1 ? (
+                      <>
+                        {" "}che qui <b>non è la stessa per tutte le righe</b> — ce ne sono di{" "}
+                        <b>{finestreKeyword.join(", ")} giorni</b>: i numeri di righe diverse non
+                        si possono confrontare fra loro
+                      </>
+                    ) : (
+                      <> che lo script non ha dichiarato</>
+                    )}
                     {ultimaLetturaKeyword && <> ed è aggiornata al <b>{formattaData(ultimaLetturaKeyword)}</b></>}.
                     Le metriche di gruppo qui sopra, invece, sono giornaliere e seguono il periodo.
                   </span>

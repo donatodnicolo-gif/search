@@ -38,6 +38,16 @@ export async function POST(req: NextRequest) {
 
   const canale = body.canale ?? "google_ads";
   const adesso = new Date();
+  // Su quanti giorni sono calcolati i numeri di questa consegna: lo dice lo
+  // script (`GIORNI_COPY` per keyword e testi, `GIORNI_ASSET` per gli asset).
+  //
+  // ⚠️ Si scrive SOLO insieme ai numeri, mai da solo: un giro di soli stati non
+  // porta numeri, e scrivergli sopra una finestra farebbe credere che quelli
+  // vecchi si riferiscano a un periodo che non è il loro.
+  const giorniMetriche =
+    body.giorniMetriche != null && Number(body.giorniMetriche) > 0
+      ? Math.round(Number(body.giorniMetriche))
+      : null;
   const numero = (v: unknown) => (v == null || v === "" ? null : Number(v));
   const intero = (v: unknown) => (numero(v) != null ? Math.round(numero(v)!) : null);
 
@@ -109,7 +119,10 @@ export async function POST(req: NextRequest) {
     if (k.punteggioQualita != null) numeriKw.punteggioQualita = intero(k.punteggioQualita);
     // `metricheAl` data la fotografia dei NUMERI: un giro di soli stati non la
     // sposta, o la pagina direbbe che i numeri sono freschi quando non lo sono.
-    if (Object.keys(numeriKw).length > 0) numeriKw.metricheAl = adesso;
+    if (Object.keys(numeriKw).length > 0) {
+      numeriKw.metricheAl = adesso;
+      if (giorniMetriche != null) numeriKw.metricheGiorni = giorniMetriche;
+    }
 
     const esito = await salva("keyword", { ...k, testo }, {
       gruppo: k.gruppo ?? null,
@@ -154,6 +167,9 @@ export async function POST(req: NextRequest) {
       idEsterno: a.idEsterno ? String(a.idEsterno) : null,
       rendimento: a.rendimento ?? null,
       ...numeriAsset,
+      ...(Object.keys(numeriAsset).length > 0 && giorniMetriche != null
+        ? { metricheGiorni: giorniMetriche }
+        : {}),
       statoPiattaforma: a.statoPiattaforma ?? null,
       caratteri: String(a.testo).length,
       metricheAl: adesso,

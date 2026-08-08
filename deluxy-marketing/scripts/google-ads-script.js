@@ -504,10 +504,10 @@ function mandaCopy(conto) {
   if (annunci.length > 0) Logger.log("Esempio annuncio: " + JSON.stringify(annunci[0]));
 
   var e1 = inviaABlocchi("/api/v1/ingest/copy", keywords, function (lotto) {
-    return corpoBase(conto, { keywords: lotto });
+    return corpoBase(conto, { keywords: lotto, giorniMetriche: GIORNI_COPY });
   });
   var e2 = inviaABlocchi("/api/v1/ingest/copy", annunci, function (lotto) {
-    return corpoBase(conto, { annunci: lotto });
+    return corpoBase(conto, { annunci: lotto, giorniMetriche: GIORNI_COPY });
   });
   RIEPILOGO.push("copy: " + e1.inviate + " keyword e " + e2.inviate + " testi inviati");
 }
@@ -1081,7 +1081,7 @@ function mandaAsset(conto) {
   if (righe.length > 0) Logger.log("Esempio: " + JSON.stringify(righe[0]));
 
   var esito = inviaABlocchi("/api/v1/ingest/copy", righe, function (lotto) {
-    return corpoBase(conto, { annunci: lotto });
+    return corpoBase(conto, { annunci: lotto, giorniMetriche: GIORNI_ASSET });
   });
   var quantiNumeri = 0, spesaTot = 0, piuCaro = null;
   for (var n = 0; n < righe.length; n++) {
@@ -1652,15 +1652,45 @@ function applica(op, mira, conto) {
   if (t === "negativa") {
     // La corrispondenza decide QUANTO blocca: senza segni Google la tratta come
     // GENERICA, che ferma ogni ricerca contenente quelle parole in qualsiasi
-    // ordine  escludere "fiori milano" cosi spegne anche "consegna fiori a
+    // ordine - escludere "fiori milano" cosi' spegne anche "consegna fiori a
     // milano centro". Si formatta come le keyword: [esatta], "frase", generica.
     var negativa = formattaMatch(op.parametri.testo, op.parametri.corrispondenza);
     if (!negativa) throw new Error("Testo della negativa mancante");
     if (typeof mira.campagna.createNegativeKeyword !== "function") {
       throw new Error("Questo tipo di campagna (PMax/Shopping/Video) non accetta negative da script: usare le liste di esclusione a livello account.");
     }
+
+    // ATTENZIONE: createNegativeKeyword() non restituisce NIENTE. E' l'unica
+    // scrittura di questo script che non puo' dire se e' andata: creaKeyword
+    // usa un builder e controlla isSuccessful(), qui non c'e' niente da
+    // controllare. Senza rileggere, l'app registra "negativa aggiunta" per
+    // fede - e se Google la rifiuta (doppione, limite, formato) nessuno lo sa.
+    var giaC = negativaPresente(mira.campagna, negativa);
+    if (giaC === "uguale") {
+      return {
+        dettaglio: "negativa gia' presente, non ne aggiungo una seconda: " + negativa,
+        prima: negativa,
+        dopo: negativa,
+      };
+    }
+
     mira.campagna.createNegativeKeyword(negativa);
-    return { dettaglio: "negativa aggiunta: " + negativa, prima: "assente", dopo: negativa };
+
+    var conferma = negativaPresente(mira.campagna, negativa);
+    var nota =
+      conferma === "uguale" ? " (confermata rileggendola)"
+      : conferma === null ? " (non ho potuto rileggere le negative per confermarla)"
+      : " - ATTENZIONE: rileggendo la campagna non risulta ancora. Puo' essere il"
+        + " ritardo di Google dentro la stessa esecuzione, oppure un rifiuto muto:"
+        + " ricontrollare al prossimo giro.";
+    // Il dubbio si DICHIARA, non diventa un errore: dentro la stessa esecuzione
+    // i selettori possono ancora vedere lo stato di partenza, e segnare fallito
+    // un lavoro riuscito e' il difetto opposto, altrettanto brutto.
+    if (giaC === "altra-corrispondenza") {
+      nota = nota + " La stessa parola era gia' esclusa con un'ALTRA corrispondenza:"
+        + " adesso ce ne sono due, e la piu' larga comanda.";
+    }
+    return { dettaglio: "negativa aggiunta: " + negativa + nota, prima: "assente", dopo: negativa };
   }
 
   if (t === "pausa_keyword") {
@@ -1699,6 +1729,37 @@ function applica(op, mira, conto) {
   if (t === "nuova_campagna") return creaCampagna(op, conto);
 
   throw new Error("Tipo di operazione non gestito: " + t);
+}
+
+/**
+ * C'e' gia' questa negativa sulla campagna?
+ *   "uguale"               -> stessa parola E stessa corrispondenza
+ *   "altra-corrispondenza" -> stessa parola, corrispondenza diversa
+ *   "no"                   -> non c'e'
+ *   null                   -> non si e' potuto leggere (che NON e' un no)
+ *
+ * Serve due volte nel ramo "negativa": prima per non creare un doppione che
+ * Google scarterebbe in silenzio, dopo per confermare che la scrittura sia
+ * arrivata. Il confronto guarda sia il testo coi segni ([esatta], "frase") sia
+ * quello nudo, cosi' funziona comunque getText() li riporti.
+ */
+function negativaPresente(campagna, testo) {
+  var cercato = String(testo);
+  var nudo = cercato.replace(/^[\[\"]+|[\]\"]+$/g, "");
+  try {
+    if (typeof campagna.negativeKeywords !== "function") return null;
+    var it = campagna.negativeKeywords().get();
+    var perTesto = false;
+    while (it.hasNext()) {
+      var t = String(it.next().getText());
+      if (t === cercato) return "uguale";
+      if (t.replace(/^[\[\"]+|[\]\"]+$/g, "") === nudo) perTesto = true;
+    }
+    return perTesto ? "altra-corrispondenza" : "no";
+  } catch (e) {
+    Logger.log("   (non sono riuscito a rileggere le negative della campagna: " + e + ")");
+    return null;
+  }
 }
 
 /** Un budget condiviso vale per più campagne: cambiarlo da qui sarebbe un danno. */
