@@ -1471,6 +1471,18 @@ function aggiungiSelettore(lista, fabbrica) {
  * hanno solo il numero del criterio: lì si cerca per testo, e se il risultato è
  * ambiguo non si tocca niente.
  */
+/**
+ * La corrispondenza chiesta dall'app, nel vocabolario di Google.
+ * null quando l'app non l'ha detta: in quel caso non si usa per niente.
+ */
+function matchAtteso(c) {
+  var m = String(c || "").toUpperCase();
+  if (m === "EXACT" || m === "ESATTA") return "EXACT";
+  if (m === "PHRASE" || m === "FRASE") return "PHRASE";
+  if (m === "BROAD" || m === "GENERICA") return "BROAD";
+  return null;
+}
+
 function trovaKeyword(op, conto) {
   var parti = String(op.idEsterno || "").split(":");
   if (parti.length === 3) {
@@ -1481,17 +1493,13 @@ function trovaKeyword(op, conto) {
 
   // --- Ripiego per le righe con l'id VECCHIO (solo il numero del criterio) ---
   //
-  // Non e' un caso raro: all'08/08/2026 il 60% delle keyword in archivio
-  // (4.808 su 8.071) ha ancora quell'id. E questo ramo, misurato lo stesso
-  // giorno, non aveva mai funzionato nemmeno una volta: TUTTE le operazioni
+  // All'08/08/2026 il 60% delle keyword in archivio aveva quell'id, e questo
+  // ramo non aveva mai funzionato nemmeno una volta: tutte le operazioni
   // riuscite erano passate dalla scorciatoia per id qui sopra.
   var testo = op.parametri.testo || op.bersaglio;
   var pulito = String(testo).replace(/\s*\((broad|phrase|exact|esatta|frase)\)\s*$/i, "");
+  var atteso = matchAtteso(op.parametri.corrispondenza);
 
-  // Si cerca dove l'app dice che sta, non in tutto l'account: prima campagna +
-  // gruppo (esatto e mai ambiguo), poi solo campagna, e solo come ultima
-  // spiaggia il testo su tutto l'account. Ogni passo e' piu' largo del
-  // precedente e ci si ferma al primo che trova qualcosa.
   function cerca(conCampagna, conGruppo) {
     var sel = AdsApp.keywords()
       .withCondition("ad_group_criterion.keyword.text = '" + apici(pulito) + "'")
@@ -1506,21 +1514,30 @@ function trovaKeyword(op, conto) {
 
   var trovate = [];
   var come = "";
-  if (op.campagna && op.parametri.gruppo) {
-    trovate = cerca(true, true);
-    come = "campagna + gruppo";
-  }
-  if (trovate.length === 0 && op.campagna) {
-    trovate = cerca(true, false);
-    come = "campagna";
-  }
-  if (trovate.length === 0) {
-    // Qui, e SOLO qui, torna il filtro sul brand: senza campagna si guarda
-    // tutto l'account e serve un modo di scartare la roba di un altro marchio.
-    // Non si usa prima perche' indovina il brand dal NOME della campagna
-    // dentro un account che quel brand ce l'ha gia': quando sbaglia a
-    // indovinare butta via l'unico risultato buono, e chi chiama legge
-    // "non e' in questo account", che e' la bugia perfetta.
+
+  if (op.campagna) {
+    // Si cerca dove l'app dice che sta: prima campagna + gruppo, poi la sola
+    // campagna se il gruppo e' stato rinominato.
+    if (op.parametri.gruppo) {
+      trovate = cerca(true, true);
+      come = "campagna + gruppo";
+    }
+    if (trovate.length === 0) {
+      trovate = cerca(true, false);
+      come = "campagna";
+    }
+    // ATTENZIONE: qui NON si allarga oltre la campagna, ed e' voluto. La stessa
+    // parola vive in piu' campagne dello stesso account (misurati 531 testi su
+    // Gifts, 241 su Cake, 180 su Flowers): allargando si finirebbe a fermare o
+    // riaccendere la keyword di UN'ALTRA campagna riferendo "fatto". Meglio un
+    // errore che dice "non l'ho trovata" - che con l'account scritto torna
+    // indietro nell'app - di una modifica giusta nel posto sbagliato.
+  } else {
+    // Senza campagna non c'e' scelta: si guarda tutto l'account e si scarta
+    // quello che non e' del brand. Il filtro sta solo qui perche' indovina il
+    // brand dal NOME della campagna dentro un account che quel brand ce l'ha
+    // gia': quando sbaglia butta via l'unico risultato buono, e chi chiama
+    // legge "non e' in questo account", che e' la bugia perfetta.
     var larghe = cerca(false, false);
     for (var k = 0; k < larghe.length; k++) {
       if (BRAND && brandDa(larghe[k].getCampaign().getName()) !== BRAND) continue;
@@ -1529,11 +1546,33 @@ function trovaKeyword(op, conto) {
     come = "solo testo, in tutto l'account";
   }
 
+  // Spareggio sulla CORRISPONDENZA, e serve piu' di quanto sembri: la stessa
+  // parola convive come esatta e a frase nello stesso gruppo (542 casi misurati
+  // l'08/08/2026), e su Google le due hanno lo STESSO keyword.text. Senza
+  // questo passaggio la ricerca precisa restituiva due risultati e falliva
+  // proprio sul caso che doveva risolvere.
+  //
+  // E' uno spareggio, non un filtro: non si applica quando c'e' un solo
+  // risultato, cosi' una corrispondenza sbagliata nell'archivio non fa perdere
+  // la keyword giusta.
+  if (trovate.length > 1 && atteso) {
+    var stretta = [];
+    for (var m = 0; m < trovate.length; m++) {
+      if (String(trovate[m].getMatchType()).toUpperCase() === atteso) stretta.push(trovate[m]);
+    }
+    if (stretta.length === 1) {
+      trovate = stretta;
+      come = come + " + corrispondenza " + atteso;
+    }
+  }
+
   if (trovate.length === 0) return { esito: "non-trovato" };
   if (trovate.length > 1) {
     throw new Error(
-      "\"" + pulito + "\" esiste in " + trovate.length + " gruppi (cercata per " + come + "): " +
-      "non tocco niente. Rilancia lo script \"copy\" per aggiornare gli id, poi riaccoda l'operazione."
+      trovate.length + " keyword combaciano con \"" + pulito + "\" (cercata per " + come + ")" +
+      (atteso ? "" : " e l'app non ha detto la corrispondenza") +
+      ": non tocco niente. Rilancia lo script \"stati-keyword\" per aggiornare gli id, " +
+      "poi riaccoda l'operazione."
     );
   }
   Logger.log("Trovata \"" + pulito + "\" cercandola per " + come + ".");

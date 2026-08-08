@@ -144,10 +144,28 @@ cinquanta andate e ritorno).
 E `trovaKeyword` in `scripts/google-ads-script.js` **cerca dove l'app dice che
 sta**, invece che a tentoni in tutto l'account:
 
-1. `campagna + gruppo` — esatto, non può essere ambiguo;
-2. solo `campagna`;
-3. ultima spiaggia: solo il testo su tutto l'account, e **lì** torna il filtro
-   sul brand.
+1. `campagna + gruppo` — esatto;
+2. solo `campagna`, se il gruppo è stato rinominato;
+3. **se l'app ha detto la campagna, non si allarga oltre**. Senza campagna
+   (solo allora) si guarda tutto l'account col filtro sul brand.
+
+> ⚠️ **Due errori trovati rileggendo la prima versione di questa correzione, e
+> corretti lo stesso giorno.** La prima stesura allargava sempre fino
+> all'account, e sbagliava lo spareggio:
+>
+> 1. **Allargare oltre la campagna può agire sulla campagna sbagliata.** La
+>    stessa parola vive in più campagne dello stesso account — misurati **531
+>    testi su Gifts**, 241 su Cake, 180 su Flowers. Fermare o riaccendere la
+>    keyword di un'altra campagna **riferendo «fatto»** è peggio di non fare
+>    niente: adesso, con l'account scritto, il «non trovata» torna indietro
+>    nell'app come errore leggibile.
+> 2. **Serve lo spareggio sulla corrispondenza.** La stessa parola convive come
+>    esatta *e* a frase nello stesso gruppo (**542 casi misurati**) e su Google
+>    le due hanno lo **stesso** `keyword.text`: la ricerca precisa restituiva
+>    due risultati e falliva proprio sul caso che doveva risolvere. Ora
+>    `matchAtteso()` fa da spareggio — **spareggio, non filtro**: non si applica
+>    con un solo risultato, così una corrispondenza sbagliata in archivio non
+>    fa perdere la keyword giusta.
 
 > ⚠️ **Il filtro sul brand era il sospettato numero uno e ora sta solo dove
 > serve.** `brandDa(nome della campagna) !== BRAND` indovina il brand dal
