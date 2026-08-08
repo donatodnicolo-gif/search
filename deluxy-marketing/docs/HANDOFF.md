@@ -22,6 +22,26 @@ Riceve già dati veri da Google Ads (Gifts e Flowers) e ha 2.426 ordini Shopify 
 
 ## FATTO
 
+### La corrispondenza «tornava indietro da sola» — e invece salvava (08/08/2026)
+
+Segnalato: «cambio in *a frase* ma torna in *esatta* automaticamente». Il
+salvataggio **funzionava**: verificato in pagina, il valore sul database era
+già `phrase`. A tornare indietro era **solo il menù**, finché non si ricaricava
+a mano.
+
+> ⚠️ **`revalidatePath` non basta a far seguire il dato a un `<select>`
+> controllato, ed è la SECONDA volta.** La prima era `impostaLinguaCampagna`
+> (06/08). Il sintomo è sempre lo stesso e sempre il peggiore possibile: la
+> modifica è andata, ma chi guarda vede il valore vecchio tornare — e conclude
+> che l'app non salva. Serve il **ritorno esplicito** alla pagina.
+>
+> **Regola per il futuro**: ogni volta che una server action cambia un valore
+> mostrato da un `SelettoreStato`, non fermarsi a `revalidatePath` —
+> verificare in pagina che il menù segua, o mettere il redirect.
+
+Provato: da `phrase` a `broad` e ritorno, col menù che resta su quello scelto.
+
+
 ### ⭐ Il motore di scrittura su Meta, spento (07/08/2026)
 
 `lib/meta-scrittura.ts` + `POST /api/v1/esegui/meta`: l'esecuzione delle

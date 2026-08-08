@@ -2700,4 +2700,11 @@ export async function cambiaCorrispondenzaOperazione(fd: FormData) {
         : null,
   });
   revalidatePath("/operazioni");
+  // ⚠️ `revalidatePath` da solo non basta, ed è la seconda volta: il dato sul
+  // database cambia, ma il menù torna a mostrare il valore di prima finché non
+  // si ricarica a mano. Chi lo usa vede «a frase» diventare di nuovo «esatta»
+  // da solo e conclude che il salvataggio non funziona — mentre ha funzionato.
+  // Il ritorno esplicito rirende la pagina e il menù segue il dato.
+  // (Stessa cosa su `impostaLinguaCampagna`, 06/08/2026.)
+  redirect("/operazioni");
 }
