@@ -94,7 +94,19 @@ export function TabelleOrdinabili() {
             const numerica = primaCella ? typeof valore(primaCella as HTMLTableCellElement) === "number" : false;
             const crescente = prima ? prima === "desc" : !numerica;
 
+            // ⚠️ Riordinare sposta OGNI riga della tabella, e il browser perde
+            // l'ancoraggio dello scroll: su una tabella lunga si finiva a inizio
+            // pagina, cioè lontano dalla colonna appena cliccata. Si tiene
+            // l'intestazione ferma dov'era: prima e dopo il riordino si misura
+            // dove sta rispetto alla finestra e si recupera la differenza.
+            const primaY = cella.getBoundingClientRect().top;
             ordina(tabella, i, crescente);
+            const dopoY = cella.getBoundingClientRect().top;
+            if (dopoY !== primaY) window.scrollBy(0, dopoY - primaY);
+            // E il focus torna sulla colonna: chi ordina da tastiera altrimenti
+            // ripartirebbe da capo nella pagina a ogni click.
+            cella.focus({ preventScroll: true });
+
             for (const c of testa.cells) {
               delete c.dataset.verso;
               c.classList.remove("th-asc", "th-desc");
@@ -117,6 +129,26 @@ export function TabelleOrdinabili() {
             cella.removeEventListener("keydown", tasto);
           });
         });
+
+        // Una tabella che il server ha già ordinato lo dichiara con
+        // `data-ordinata-per` (il testo dell'intestazione) e
+        // `data-ordinata-verso`. Qui si accende solo la freccia: le righe sono
+        // già nell'ordine giusto e riordinarle sarebbe lavoro per niente.
+        //
+        // ⚠️ Serve soprattutto al PRIMO click: senza questo `verso`, la colonna
+        // risultava "mai ordinata" e il click rifaceva lo stesso ordine — la
+        // tabella non cambiava e sembrava che l'ordinamento non funzionasse.
+        const ordinataPer = tabella.dataset.ordinataPer?.trim().toLowerCase();
+        if (ordinataPer) {
+          const verso = tabella.dataset.ordinataVerso === "desc" ? "desc" : "asc";
+          const cella = [...testa.cells].find(
+            (c) => !c.hasAttribute("data-no-ordina") && (c.textContent ?? "").trim().toLowerCase() === ordinataPer
+          );
+          if (cella) {
+            cella.dataset.verso = verso;
+            cella.classList.add(verso === "asc" ? "th-asc" : "th-desc");
+          }
+        }
       }
     };
 

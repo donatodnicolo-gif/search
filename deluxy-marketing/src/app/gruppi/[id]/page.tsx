@@ -288,7 +288,13 @@ export default async function SchedaGruppo({
                 azione={rinominaGruppo}
               />
             </div>
-            <p className="page-sub" style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            {/* ⚠️ <div>, non <p>: più sotto c'è un <form> (il selettore di
+                stato), e un form dentro un paragrafo è HTML non valido — il
+                browser chiude il <p> da solo e React fallisce l'idratazione,
+                ririsegnando la pagina. Qui si vedeva sulla tabella delle
+                keyword: gli ascoltatori dell'ordinamento restavano agganciati
+                a nodi buttati via e cliccare l'intestazione non faceva niente. */}
+            <div className="page-sub" style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
               {/* Quando il nome è nostro, quello di Google resta a vista: è
                   quello da cercare nell'interfaccia di Google Ads, e senza si
                   perderebbe l'unico modo di ritrovare il gruppo di là. */}
@@ -331,7 +337,7 @@ export default async function SchedaGruppo({
                   />
                 </form>
               </span>
-            </p>
+            </div>
           </div>
           {/* Fermare il gruppo è la cosa che si viene a fare qui: sta accanto
               al titolo, non in fondo alla colonna destra. Quando non si può,
@@ -626,7 +632,13 @@ export default async function SchedaGruppo({
                 </button>
               </form>
                 <div style={{ overflowX: "auto" }}>
-                  <table>
+                  {/* La tabella arriva già ordinata per spesa crescente (vedi
+                      `keywordMostrate`), ma finché non lo DICEVA sembrava non
+                      ordinata: la colonna non aveva la freccia, e il primo
+                      click su Spesa rifaceva lo stesso ordine invece di
+                      rovesciarlo. Qui si dichiara com'è ordinata; il resto lo
+                      fa TabelleOrdinabili, senza riordinare di nuovo. */}
+                  <table data-ordinata-per="Spesa" data-ordinata-verso="asc">
                     <thead>
                       <tr>
                         <th data-no-ordina></th>

@@ -25,7 +25,13 @@ import { VenditeCampagna } from "@/components/VenditeCampagna";
 import { RinominaInline } from "@/components/RinominaInline";
 import { BudgetInline } from "@/components/BudgetInline";
 import { SelettoreStato } from "@/components/SelettoreStato";
-import { ETICHETTA_LINGUA, LINGUE_CAMPAGNA, legameDiCampagna, linguaDaNome } from "@/lib/vendite-campagna";
+import {
+  ETICHETTA_LINGUA,
+  LINGUE_CAMPAGNA,
+  legameDiCampagna,
+  linguaDaNome,
+  ordiniAttribuiti,
+} from "@/lib/vendite-campagna";
 import { PortaKeyword } from "@/components/PortaKeyword";
 import {
   aggiungiMetrica,
@@ -109,6 +115,12 @@ export default async function SchedaCampagna({
   const { legame: legameLingua } = await legameDiCampagna(campagna);
   const linguaCampagna = legameLingua.lingua;
 
+  // Le conversioni contate in cassa, da mettere ACCANTO a quelle dichiarate
+  // dalla piattaforma. Stesso periodo delle metriche qui sopra — se coprissero
+  // due finestre diverse sarebbero due numeri non confrontabili messi vicini,
+  // che è peggio di non metterli.
+  const inCassa = await ordiniAttribuiti(campagna, periodo.corrente, legameLingua.negozio);
+
   // L'ultimo giorno CON DATI: è quello su cui si giudica il budget, perché la
   // media del periodo appiattisce le giornate storte. Sta fra le metriche già
   // caricate, non serve una query.
@@ -164,7 +176,15 @@ export default async function SchedaCampagna({
                 azione={rinominaCampagna}
               />
             </div>
-            <p className="page-sub" style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            {/* ⚠️ <div>, non <p>: qui dentro c'è un <form> (il selettore dei
+                clienti), e un form dentro un paragrafo è HTML non valido — il
+                browser chiude il <p> da solo, l'albero che riceve non è quello
+                mandato dal server e React **fallisce l'idratazione** e ririsegna
+                tutta la pagina. Effetto collaterale misurato: gli ascoltatori
+                agganciati a mano alle tabelle (ordinamento) restavano su nodi
+                buttati via e i click non facevano niente. Stessa famiglia del
+                <dialog> dentro l'<h1>. */}
+            <div className="page-sub" style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
               {/* Quando il nome è nostro, quello di Google resta a vista: è
                   quello da cercare nell'interfaccia di Google Ads, e senza si
                   perderebbe l'unico modo di ritrovare la campagna di là. */}
@@ -200,7 +220,7 @@ export default async function SchedaCampagna({
                 </form>
               </span>
               {campagna.obiettivo && <span>{campagna.obiettivo}</span>}
-            </p>
+            </div>
             {/* Lo stato sta col titolo: è la prima cosa che si guarda e la più
                 frequente da cambiare, non merita di stare sotto a una scheda. */}
             <form className="pill-scelta" style={{ marginTop: 10 }}>
@@ -240,9 +260,45 @@ export default async function SchedaCampagna({
             <div className="kpi-valore">{ricavi > 0 ? formattaEuro(ricavi) : "—"}</div>
             <div className="kpi-etichetta">Ricavi attribuiti</div>
           </div>
+          {/* Le conversioni dichiarate dalla piattaforma e gli ordini veri con
+              l'UTM, AFFIANCATI e mai sommati: sommarli conterebbe due volte lo
+              stesso acquisto. Contano cose diverse — la piattaforma include
+              view-through e finestre lunghe, gli ordini sono cassa entrata —
+              quindi il primo è quasi sempre più alto, e la distanza fra i due
+              è essa stessa un'informazione. */}
           <div className="kpi">
-            <div className="kpi-valore">{conv > 0 ? formattaNumero(conv) : "—"}</div>
-            <div className="kpi-etichetta">Conversioni</div>
+            <div className="kpi-valore" style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+              <span>{conv > 0 ? formattaNumero(conv) : "—"}</span>
+              <span style={{ color: "var(--text-tertiary)", fontWeight: 400 }}>·</span>
+              <span
+                style={{ color: inCassa.ordini > 0 ? "var(--green)" : "var(--text-tertiary)" }}
+                title="Ordini Shopify del periodo che portano scritto l'UTM di questa campagna"
+              >
+                {formattaNumero(inCassa.ordini)}
+              </span>
+            </div>
+            <div className="kpi-etichetta">
+              Conversioni dichiarate da {ETICHETTA_CANALE[campagna.canale] ?? campagna.canale} ·{" "}
+              <b>{inCassa.ordini === 1 ? "1 ordine vero" : `${formattaNumero(inCassa.ordini)} ordini veri`}</b>{" "}
+              con l&apos;UTM
+              {inCassa.vendite > 0 && <> ({formattaEuro(inCassa.vendite)})</>}.
+              {" "}Non si sommano: contano la stessa cosa in due modi.
+              {/* Uno zero qui si legge come «questa campagna non vende», e quasi
+                  sempre non è così: è l'UTM che porta un nome vecchio. */}
+              {inCassa.ordini === 0 && inCassa.utmSimili.length > 0 && (
+                <>
+                  {" "}Ci sono {formattaNumero(inCassa.utmSimili.reduce((s, u) => s + u.ordini, 0))} ordini con
+                  un UTM che somiglia al nome ({inCassa.utmSimili.map((u) => `«${u.valore}»`).join(", ")}):
+                  nomi precedenti o campagne poi divise, non attribuibili.
+                </>
+              )}
+              {inCassa.ordini === 0 && inCassa.utmSimili.length === 0 && conv > 0 && (
+                <>
+                  {" "}Nessun ordine porta l&apos;UTM: la piattaforma dichiara conversioni che in cassa
+                  non si ritrovano — di solito è il tracciamento, non la campagna.
+                </>
+              )}
+            </div>
           </div>
           <div className="kpi">
             <div className="kpi-valore">{click > 0 ? formattaNumero(click) : "—"}</div>

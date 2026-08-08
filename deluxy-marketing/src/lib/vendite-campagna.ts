@@ -428,6 +428,92 @@ export type VenditeCampagna = {
   primoOrdineRegistrato: Date | null;
 };
 
+/**
+ * Il metro con cui un UTM scritto sull'ordine si riconosce come questa
+ * campagna. Sta qui in un punto solo perché lo usano l'attribuzione del blocco
+ * Vendite e il confronto delle conversioni in cima alla scheda: due copie della
+ * stessa regola vorrebbero dire due numeri diversi per la stessa domanda, e
+ * chi legge non avrebbe modo di sapere quale dei due guardare.
+ *
+ * `combacia` è l'attribuzione vera. `somiglia` è il caso da dichiarare e NON
+ * attribuire: nomi vecchi o campagne poi divise in ENG/ITA, dove non si può
+ * dire a quale delle campagne di oggi appartenga l'ordine.
+ */
+export function metroUtm(campagna: { nome: string; idEsterno: string | null }) {
+  const nomeNorm = normalizza(campagna.nome);
+  const idEsterno = campagna.idEsterno?.trim();
+  return {
+    combacia(utm: string): boolean {
+      const u = utm.trim();
+      if (!u) return false;
+      if (idEsterno && u === idEsterno) return true;
+      return normalizza(u) === nomeNorm;
+    },
+    somiglia(utm: string): boolean {
+      const un = normalizza(utm.trim());
+      return un.length >= 6 && (un.startsWith(nomeNorm) || nomeNorm.startsWith(un));
+    },
+  };
+}
+
+// Le conversioni contate in cassa: quanti ordini VERI portano l'UTM di questa
+// campagna nel periodo. Serve accanto alle conversioni dichiarate dalla
+// piattaforma, che sono un'altra cosa e non si sommano.
+export type OrdiniAttribuiti = {
+  ordini: number;
+  vendite: number;
+  // UTM che somigliano al nome ma non combaciano: non attribuiti, ma detti.
+  utmSimili: { valore: string; ordini: number }[];
+};
+
+/**
+ * Gli ordini con l'UTM di questa campagna in un periodo qualunque.
+ *
+ * Volutamente NON rilegge gli ordini riga per riga come `venditeDiCampagna`:
+ * qui serve solo il conteggio, e una `groupBy` sull'UTM restituisce poche
+ * decine di righe invece di migliaia di ordini con dentro le loro righe
+ * d'ordine. Il periodo lo passa chi chiama, così il numero copre **la stessa
+ * finestra** delle conversioni dichiarate a cui viene messo accanto.
+ */
+export async function ordiniAttribuiti(
+  campagna: { nome: string; brand: string; idEsterno: string | null },
+  periodo: { da: Date; a: Date },
+  negozio?: string | null
+): Promise<OrdiniAttribuiti> {
+  const perUtm = await prisma.ordine.groupBy({
+    by: ["utmCampagna"],
+    where: {
+      data: { gte: periodo.da, lt: periodo.a },
+      stato: { notIn: STATI_NON_VENDUTI },
+      utmCampagna: { not: null },
+      ...(negozio ? { negozio } : { brand: campagna.brand }),
+    },
+    _count: { _all: true },
+    _sum: { totale: true },
+  });
+
+  const metro = metroUtm(campagna);
+  let ordini = 0;
+  let vendite = 0;
+  const simili: { valore: string; ordini: number }[] = [];
+  for (const riga of perUtm) {
+    const utm = riga.utmCampagna?.trim();
+    if (!utm) continue;
+    if (metro.combacia(utm)) {
+      ordini += riga._count._all;
+      vendite += riga._sum.totale ?? 0;
+    } else if (metro.somiglia(utm)) {
+      simili.push({ valore: utm, ordini: riga._count._all });
+    }
+  }
+
+  return {
+    ordini,
+    vendite,
+    utmSimili: simili.sort((x, y) => y.ordini - x.ordini).slice(0, 4),
+  };
+}
+
 export async function venditeDiCampagna(
   campagna: { id: string; nome: string; brand: string; idEsterno: string | null },
   giorni = 30
@@ -489,31 +575,24 @@ export async function venditeDiCampagna(
   }
 
   // ——— Legame 1: attribuzione via UTM ———
-  // Confronto sui nomi normalizzati (stesso metro dell'import) più l'id della
+  // Il metro è `metroUtm`, lo stesso che usa il confronto delle conversioni in
+  // cima alla scheda: nomi normalizzati (come l'import) più l'id di
   // piattaforma, che alcune campagne Meta scrivono al posto del nome.
-  const nomeNorm = normalizza(campagna.nome);
-  const idEsterno = campagna.idEsterno?.trim();
-  const combacia = (utm: string) => {
-    const u = utm.trim();
-    if (!u) return false;
-    if (idEsterno && u === idEsterno) return true;
-    return normalizza(u) === nomeNorm;
-  };
+  const metro = metroUtm(campagna);
 
   const attribuiti: OrdineLetto[] = [];
   const simili = new Map<string, number>();
   for (const o of ordini) {
     const utm = o.utmCampagna?.trim();
     if (!utm) continue;
-    if (combacia(utm)) {
+    if (metro.combacia(utm)) {
       attribuiti.push(o);
       continue;
     }
     // "Somiglia" = uno dei due nomi normalizzati contiene l'altro. È il caso
     // delle campagne rinominate o divise in ENG/ITA: l'ordine porta il nome
     // vecchio e non si può dire a quale delle due nuove appartenga.
-    const un = normalizza(utm);
-    if (un.length >= 6 && (un.startsWith(nomeNorm) || nomeNorm.startsWith(un))) {
+    if (metro.somiglia(utm)) {
       simili.set(utm, (simili.get(utm) ?? 0) + 1);
     }
   }

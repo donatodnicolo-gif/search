@@ -22,6 +22,85 @@ Riceve già dati veri da Google Ads (Gifts e Flowers) e ha 2.426 ordini Shopify 
 
 ## FATTO
 
+### ⭐ Un `<form>` dentro un `<p>` rompeva l'idratazione — e con lei l'ordinamento delle tabelle (08/08/2026)
+
+Segnalato come «riordinando la colonna perde il focus e torna a inizio pagina».
+La causa non era l'ordinamento: era **HTML non valido** in cima a due pagine.
+
+`<p className="page-sub">` conteneva un `<form>` (il selettore dei clienti sulla
+scheda campagna, quello di stato sulla scheda gruppo). Un form non può stare
+dentro un paragrafo: il browser **chiude il `<p>` da solo**, l'albero che
+riceve non è quello mandato dal server, e React **fallisce l'idratazione** e
+ririsegna l'intera pagina.
+
+> ⚠️ **Un errore di idratazione non si vede come un errore: si vede come una
+> funzione che non funziona.** `TabelleOrdinabili` aggancia gli ascoltatori ai
+> `<th>` a mano, in un `useEffect`. Quando React butta via l'albero del server e
+> lo rifà, quegli ascoltatori restano su nodi che non sono più in pagina:
+> cliccare l'intestazione **non faceva niente**, e sembrava un bug
+> dell'ordinamento. Misurato in console: `Hydration failed` su
+> `/campagne/[id]` e `/gruppi/[id]`, sparito passando a `<div>`.
+
+> ⚠️ **È la stessa famiglia del `<dialog>` dentro l'`<h1>`** (04/08). Regola:
+> prima di mettere un elemento interattivo dentro un contenitore di testo,
+> chiedersi se quel contenitore lo può contenere — `<p>` può contenere solo
+> testo e roba in linea.
+
+**Cercare gli altri**: la spia è `<form>`, `<div>`, `<dialog>` o `<table>`
+dentro `<p>`. Il modo veloce di accorgersene è la console del browser, non gli
+occhi: `tsc` passa e la pagina si vede benissimo.
+
+### Le conversioni vere accanto a quelle dichiarate (08/08/2026)
+
+Sulla scheda campagna, nella riga dei numeri in cima: **`9 · 10`** — 9
+conversioni dichiarate da Google, 10 ordini Shopify veri che portano l'UTM di
+quella campagna, con il venduto a fianco.
+
+> ⚠️ **Affiancate, MAI sommate.** Sono due modi di contare lo stesso acquisto:
+> la piattaforma include view-through e finestre lunghe, gli ordini sono cassa
+> entrata. Sommarle conterebbe due volte la stessa vendita. La distanza fra i
+> due numeri **è essa stessa l'informazione** — quando si allontanano molto il
+> problema è il tracciamento, non la campagna.
+
+- Lo stesso metro dell'attribuzione del blocco Vendite: `metroUtm()` in
+  `lib/vendite-campagna.ts`, un punto solo. Prima la regola («nomi normalizzati
+  + id di piattaforma») viveva dentro `venditeDiCampagna` come costanti locali:
+  copiarla avrebbe voluto dire due numeri diversi per la stessa domanda.
+- **Stesso periodo** delle conversioni dichiarate (`periodo.corrente`), non i 30
+  giorni fissi del blocco Vendite: due finestre diverse messe una accanto
+  all'altra sembrano confrontabili e non lo sono.
+- `ordiniAttribuiti()` non rilegge gli ordini uno per uno come
+  `venditeDiCampagna`: fa una **`groupBy` sull'UTM**, poche decine di righe
+  invece di migliaia di ordini con dentro le loro righe.
+- **Uno zero non resta muto.** Su `[Deluxy] - Fiori Milano ENG`: `13 · 0` con
+  849 € di spesa — e sotto la riga dice che ci sono **13 ordini con UTM
+  `[Deluxy] - Fiori Milano`**, il nome di prima che la campagna fosse divisa in
+  ENG/ITA. Senza quella frase, «0» si legge come «questa campagna non vende».
+
+Verificato in pagina: su `[Deluxy] Torte MILANO` la riga in cima dice **9 · 10
+(775 €)** e il blocco Vendite più sotto, che ci arriva per un'altra strada di
+codice, dice **775 € · 10 ordini**. Stessa cifra da due parti.
+
+### La colonna dice com'è ordinata, e riordinando non si torna in cima (08/08/2026)
+
+Due cose sulla tabella delle keyword di un gruppo, segnalate insieme.
+
+- La tabella **era già** ordinata per spesa crescente (scelta del 07/08), ma non
+  lo diceva: nessuna freccia sulla colonna. Peggio, per l'ordinatore quella
+  colonna risultava «mai ordinata», quindi il **primo click rifaceva lo stesso
+  ordine** — la tabella non cambiava e sembrava rotta. Ora la tabella dichiara
+  l'ordine che il server ha già fatto (`data-ordinata-per` /
+  `data-ordinata-verso`); `TabelleOrdinabili` accende solo la freccia, **non
+  riordina** (le righe sono già a posto), e il primo click rovescia.
+- Riordinare sposta ogni riga, e il browser perde l'ancoraggio dello scroll: su
+  una tabella lunga si finiva a inizio pagina. Ora si misura dove sta
+  l'intestazione prima e dopo e si recupera la differenza, più
+  `focus({preventScroll:true})` per chi ordina da tastiera.
+
+Misurato dopo la correzione, su una tabella da 60 righe con le righe che si
+spostano davvero: spostamento della pagina **0 px**, intestazione ferma, focus
+sulla colonna.
+
 ### La corrispondenza «tornava indietro da sola» — e invece salvava (08/08/2026)
 
 Segnalato: «cambio in *a frase* ma torna in *esatta* automaticamente». Il
@@ -1231,15 +1310,8 @@ analisi importate); seconda corsa 0 scritture.
 
 ## Da riprendere subito (08/08/2026, fine sessione)
 
-Tre cose chieste dall'utente e **non iniziate**, in ordine di come le
-riprenderei:
-
-1. **Conversioni da Orders accanto a quelle di Google**, sulla scheda campagna.
-   ⚠️ **Non si sommano**: le conversioni di Google contano view-through e
-   finestre lunghe, gli ordini di Orders sono cassa vera attribuita per UTM —
-   sommarle conta due volte lo stesso acquisto. Vanno **affiancate**, come già
-   fa il blocco Vendite: «2 dichiarate da Google · N ordini veri con l'UTM».
-   L'utente ha detto ok a questa impostazione.
+1. ~~**Conversioni da Orders accanto a quelle di Google**~~ — **fatto
+   l'08/08/2026**, vedi la sezione in FATTO.
 2. **Selezione multipla** per «Escludi» e «Porta altrove» sulle parole cercate.
    Metà è già fatta: `applicaKeywordAdAltreCampagne` accetta **più parole**
    (`fd.getAll("testo")`, con la traduzione disattivata quando sono più d'una).
@@ -1250,6 +1322,32 @@ riprenderei:
    keyword e negative — **che su Meta non esistono**. E la coda su Meta non può
    ancora eseguire (vedi il motore spento qui sopra). Il bottone deve dire cosa
    succede davvero, non promettere.
+
+4. ⭐ **Un'operazione approvata è ferma in coda dal 07/08 e nessuno lo dice**
+   (trovato l'08/08/2026, **aperto**). `attiva_keyword` su
+   «flowers delivery milan», campagna `[Deluxy] - Fiori Milano ENG` (Gifts,
+   account `248-656-1148`), approvata il **07/08 alle 02:51**. Da allora sia
+   Gifts sia Cake hanno fatto giri completi — su Gifts altre operazioni sono
+   state **eseguite** (5 `nuova_keyword` alle 04:49 dell'08/08) — e questa è
+   ancora `approvata`.
+
+   Il log di Cake dice: `Salto attiva_keyword su "flowers delivery milan": non
+   è in questo account.` Su **Cake è la risposta giusta**, la keyword è di
+   Gifts. Il problema è che **anche il giro di Gifts non l'ha eseguita**.
+
+   > ⚠️ **Il difetto vero è che l'app non se ne accorge.** In
+   > `eseguiOperazioni` un bersaglio non trovato con `op.account` vuoto viene
+   > contato fra le **saltate**, non fra le fallite: non torna nessun esito,
+   > l'operazione resta `approvata` per sempre e il motivo esiste **solo nel
+   > log dentro Google Ads**, dove nessuno guarda. Una coda che si blocca in
+   > silenzio è indistinguibile da una coda vuota.
+
+   Due cose da fare, in quest'ordine: (a) leggere le righe sotto `───── ESEGUI
+   ─────` del log di **Gifts** per sapere perché non la trova — l'operazione ha
+   `idEsterno` nel **formato vecchio** (`381244836363`, non
+   `account:gruppo:criterio`), quindi `trovaKeyword` la cerca **per testo**, ed
+   è lì che si perde; (b) far dire all'app che un'operazione approvata è stata
+   saltata, da quanto e da quali account — oggi `/operazioni` non lo mostra.
 
 Da fare fuori dall'app: **reincollare `tutto.js`** nei tre account
 (`C:\Users\nicol\Downloads\deluxy-google-ads\`, chiave e BRAND da rimettere a
