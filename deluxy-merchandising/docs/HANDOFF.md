@@ -319,6 +319,11 @@ porta **3120**. Design system Deluxy v1.0.
   - **L'etichetta dei passi è stata riscritta**: diceva «Spezza i pareggi rimasti dai passi sopra», che descriveva il comportamento vecchio. Ora «Apre la vetrina: il suo primo prodotto sta in posizione 1» / «Il suo primo prodotto sta in posizione N, poi si va a turno con gli altri passi».
   - **Verificato su «Home-Page-Last-Minute»** (78 prodotti, dopo l'aggiunta automatica): i passi dei primi dieci escono `1 3 4 5 1 3 4 5 1 3`, nessun prodotto perso o doppio. Il passo **2 non compare perché in quella collezione non prende niente**: le torte che ci sono non hanno il tag Milano.
 
+- **07/08/2026 — un tag si confronta intero, e adesso lo fanno tutti e due** (nato da una domanda dell'utente: perché il passo «Torte e Tag: Milano e urgenze» non prende niente). Le due torte della collezione hanno il tag **«Martesana Milano»**, non «Milano»: `corrisponde()` confronta il **tag intero** — un tag è un valore, non una parola — quindi non le prende. È il comportamento giusto, ma non era l'unico in giro.
+  - ⚠️ **Le due letture non coincidevano**: `filtroSuggerimenti()` traduce il tag in `contains` su `tagShopify` (che è la stringa di tutti i tag separati da virgola), quindi per **SQL** «Milano» pescava anche «Martesana Milano». L'aggiunta automatica usava quel filtro: faceva **entrare** prodotti che poi nessun passo prendeva — e in anteprima finivano nel gruppo «nessun passo li prende». La stessa condizione voleva dire due cose diverse a seconda di chi la leggeva.
+  - Ora `aggiungiDaRegola()` usa il filtro SQL solo come **rete larga** (con `take` ×4) e poi passa i candidati per `corrisponde()`: entra solo chi un passo prende davvero. La rete larga resta perché SQL non sa confrontare un elemento di una lista scritta in una stringa.
+  - Nel catalogo attivo il tag esiste in due forme: **«Milano» su 22 prodotti** e **«Martesana Milano» su 5**. Per far lavorare il passo 2 va spuntata anche la seconda — sono due tag diversi, e unirli è una decisione di merchandising, non un calcolo su una stringa (come per i Tipi doppi del 03/08).
+
 ## COME AVVIARE
 ```
 cd deluxy-merchandising

@@ -14,7 +14,7 @@ import { prisma } from "./db";
 import { tokenDi } from "./negozi";
 import { graphqlNegozio } from "./shopify-scrittura";
 import { FILTRO_IN_SCENA } from "./ordinamento-vetrina";
-import { filtroSuggerimenti, parsePassi } from "./regole-ordine";
+import { corrisponde, filtroSuggerimenti, parsePassi } from "./regole-ordine";
 
 /**
  * Quanti prodotti al massimo entrano in un giro. `collectionAddProducts` di
@@ -62,16 +62,27 @@ export async function aggiungiDaRegola(collezioneId: string): Promise<EsitoAggiu
   // ordine: farne entrare qualcuno sarebbe inventarsi un criterio.
   if (!filtro) return { aggiunti: 0, restano: 0 };
 
-  const candidati = await prisma.prodotto.findMany({
+  // **Il filtro SQL è largo, la verità è `corrisponde()`.** Sui tag il filtro
+  // Prisma può solo cercare il testo dentro la stringa dei tag, quindi «Milano»
+  // pesca anche «Martesana Milano»; `corrisponde()` confronta il **tag intero**,
+  // com'è giusto — un tag è un valore, non una parola. Senza questo secondo
+  // passaggio entravano prodotti che poi nessun passo prendeva: la stessa
+  // condizione avrebbe voluto dire due cose diverse a seconda di chi la legge.
+  const larghi = await prisma.prodotto.findMany({
     where: {
       ...FILTRO_IN_SCENA,
       ...filtro,
       shopifyId: { not: null },
       collezioniShopify: { none: { collezioneId } },
     },
-    select: { id: true, shopifyId: true },
-    take: MAX_PER_GIRO + 1,
+    select: {
+      id: true, shopifyId: true, prezzoVendita: true, categoria: true, tipoShopify: true,
+      vendorShopify: true, lineaId: true, tagShopify: true, ggDispMin: true,
+    },
+    take: (MAX_PER_GIRO + 1) * 4,
   });
+  const passi = parsePassi(c.regolaOrdine.passi).filter((p) => p.t !== "metrica");
+  const candidati = larghi.filter((p) => passi.some((x) => corrisponde(p, x))).slice(0, MAX_PER_GIRO + 1);
   if (candidati.length === 0) return { aggiunti: 0, restano: 0 };
   const giro = candidati.slice(0, MAX_PER_GIRO);
   const restano = candidati.length - giro.length;
