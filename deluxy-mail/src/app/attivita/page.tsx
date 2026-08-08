@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { CheckAttivita } from '@/components/CheckAttivita'
 import { RiapriAttivita } from '@/components/RiapriAttivita'
 import { ChiudiTutteAttivita } from '@/components/ChiudiTutteAttivita'
+import { DecidiSpamRiga } from '@/components/DecidiSpamRiga'
 import { BottoneEsegui } from '@/components/BottoneEsegui'
 import { NuovaAttivita } from '@/components/NuovaAttivita'
 import { coloreDiPriorita, priorita as livello, FUSO } from '@/lib/format'
@@ -38,6 +39,9 @@ export default async function Attivita() {
     thread: true,
     threadManuale: true,
     scollegato: true,
+    // In attesa di decisione «è spam?»: quelle attività non si «eseguono»,
+    // si decidono (vedi DecidiSpamRiga).
+    spamCaso: true,
   } as const
 
   const [daFare, fatte] = await Promise.all([
@@ -254,7 +258,14 @@ export default async function Attivita() {
                           ✉ Mail
                         </Link>
                       )}
-                      {(a.messaggio || a.contattoEmail) && <BottoneEsegui id={a.id} />}
+                      {/* ⚠️ Richiesta di approvazione «è spam?»: qui NON va
+                          «Esegui» (l'AI scriverebbe una risposta — e una volta
+                          l'ha scritta a una mail di phishing). Si decide. */}
+                      {a.messaggio?.spamCaso ? (
+                        <DecidiSpamRiga messaggioId={a.messaggio.id} />
+                      ) : (
+                        (a.messaggio || a.contattoEmail) && <BottoneEsegui id={a.id} />
+                      )}
                     </div>
                   </div>
                 )

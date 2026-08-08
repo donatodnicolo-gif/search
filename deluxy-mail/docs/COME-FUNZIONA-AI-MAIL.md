@@ -142,6 +142,12 @@ sono cinque compiti; le stesse cinque sotto «Preparazione Meeting Malavenda» s
 cosa sola, e si sbrigano insieme. Il raggruppamento è per conversazione e non per singola
 mail: due richieste arrivate in due messaggi dello stesso scambio restano insieme.
 
+**Le richieste di approvazione non si «eseguono»: si decidono.** Sull'attività «Approva: è
+spam? …» al posto di «Esegui» ci sono **«Sì, è spam»** e **«No, è buona»** — e il sì manda
+in SPAM **tutta la casistica** in attesa, non solo quella mail. «Esegui» vuol dire «l'AI
+scrive la mail che chiude il compito», che qui sarebbe una risposta a una mail di phishing:
+se lo premi altrove, l'app te lo dice e non scrive niente.
+
 **Si chiudono anche tutte insieme.** Sull'intestazione del gruppo c'è **«✓ Fatte tutte
 (5)»**: la stessa conversazione genera spesso più volte la stessa cosa da fare, e
 spuntarle una per una è lavoro inventato. Chiede conferma una volta («Sicuro? Chiudi le

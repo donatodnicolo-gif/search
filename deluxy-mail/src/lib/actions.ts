@@ -542,7 +542,26 @@ export async function decidiSpamCaso(
 export async function eseguiAttivita(
   id: string
 ): Promise<{ ok: boolean; messaggio: string; vaiA?: string }> {
-  const esito = await preparaEsecuzione(id, await uid())
+  const utenteId = await uid()
+
+  // ⚠️ «Esegui» vuol dire UNA cosa sola: l'AI scrive la mail che porta a termine
+  // il compito. Su una richiesta di APPROVAZIONE («è spam?») è la cosa
+  // sbagliata, e non innocua: il 7/08/2026 ha aperto una bozza di risposta a
+  // una mail di phishing. Quelle attività si eseguono decidendo, non
+  // rispondendo — e la decisione vale per tutta la casistica.
+  const att = await db.attivita.findFirst({
+    where: { id, utenteId },
+    select: { messaggio: { select: { spamCaso: true } } },
+  })
+  if (att?.messaggio?.spamCaso) {
+    return {
+      ok: false,
+      messaggio:
+        'Questa è una richiesta di approvazione, non una mail da scrivere: rispondi con «Sì, è spam» o «No, è buona».',
+    }
+  }
+
+  const esito = await preparaEsecuzione(id, utenteId)
   revalidatePath('/', 'layout')
   return esito
 }
