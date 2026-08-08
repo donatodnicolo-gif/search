@@ -44,7 +44,7 @@ export type RegolaOrdinamento =
 export const REGOLE: { chiave: RegolaOrdinamento; nome: string; spiega: string }[] = [
   { chiave: "best_seller", nome: "Più venduti in cima", spiega: "Chi ha venduto più pezzi (a buon fine) negli ultimi 90 giorni." },
   { chiave: "ricavo", nome: "Più fatturato in cima", spiega: "Chi ha incassato di più negli ultimi 90 giorni." },
-  { chiave: "novita", nome: "Novità prima", spiega: "I prodotti **pubblicati** più di recente sul negozio." },
+  { chiave: "novita", nome: "Novità prima", spiega: "I prodotti pubblicati più di recente sul negozio; senza data di pubblicazione restano in fondo." },
   { chiave: "margine", nome: "Margine più alto in cima", spiega: "Dove il costo è inserito; i prodotti senza costo restano in fondo." },
   { chiave: "prezzo_desc", nome: "Prezzo alto in cima", spiega: "Dal listino più caro al più economico." },
   { chiave: "prezzo_asc", nome: "Prezzo basso in cima", spiega: "Dal listino più economico al più caro." },
@@ -162,16 +162,14 @@ export async function ordinaPerPassi<T extends ProdottoOrdinabile>(
   if (effettive.length === 0) {
     return [...items].sort((a, b) => (a.posizione ?? 0) - (b.posizione ?? 0) || a.nome.localeCompare(b.nome));
   }
-  // **Una cella con metrica vale due chiavi**: la prima dice chi ci sta dentro,
-  // la seconda come si ordinano quelli dentro. Sono state scelte insieme, quindi
-  // restano insieme — spezzarle in due passi separati le faceva leggere come due
-  // decisioni scollegate (segnalato dall'utente).
-  const chiavi: Passo[] = [];
-  for (const p of effettive) {
-    chiavi.push(p);
-    if (p.t === "cella") for (const m of p.m ?? []) if (m !== "manuale") chiavi.push({ t: "metrica", m });
-  }
-  const metriche = chiavi.filter((p): p is { t: "metrica"; m: RegolaOrdinamento } => p.t === "metrica").map((p) => p.m);
+  // **Le condizioni sono i gruppi, le metriche dicono come si ordina dentro.**
+  const celle = effettive.filter((p) => p.t !== "metrica");
+  // Le metriche scelte **da sole**, come passo a sé: valgono per tutti, perché
+  // non hanno una cella a cui appartenere.
+  const globali = effettive
+    .filter((p): p is { t: "metrica"; m: RegolaOrdinamento } => p.t === "metrica")
+    .map((p) => p.m);
+  const metriche = [...globali, ...celle.flatMap((c) => (c.t === "cella" ? c.m ?? [] : []))];
 
   let venduto = new Map<string, { pezzi: number; ricavo: number }>();
   if (metriche.some((r) => r === "best_seller" || r === "ricavo")) {
@@ -204,11 +202,17 @@ export async function ordinaPerPassi<T extends ProdottoOrdinabile>(
         return v?.ricavo ?? 0;
       case "novita":
         // **Novità = quando il negozio l'ha pubblicato**, scelta dell'utente:
-        // è il momento in cui il cliente ha potuto vederlo. `creatoIl` è la data
-        // della *nostra* scheda e vale solo come ultimo ripiego — su di essa la
-        // metrica ordinava per tornata di import (tre sole date su 1.024
-        // prodotti attivi), cioè non ordinava affatto.
-        return (m.pubblicatoIlShopify ?? m.creatoIlShopify ?? m.creatoIl).getTime();
+        // è il momento in cui il cliente ha potuto vederlo.
+        //
+        // **Senza quella data il prodotto va in fondo, non in cima.** Il ripiego
+        // su `creatoIl` — la data della *nostra* scheda, luglio/agosto 2026 per
+        // tutto il catalogo — era più recente di **qualunque** pubblicazione
+        // vera: chi non aveva ancora la data risultava la novità più fresca del
+        // negozio. È successo davvero: «Pregiate Praline» (senza data) scavalcava
+        // «Gelato Premium», pubblicato il 07/05/2026 — segnalato dall'utente.
+        // Vale la regola del resto dell'app, la stessa del margine senza costo:
+        // un dato che manca si esclude, non vale zero e non vale «oggi».
+        return (m.pubblicatoIlShopify ?? m.creatoIlShopify)?.getTime() ?? -Infinity;
       case "margine":
         // Senza costo il margine non si sa: va in fondo, non a zero (stessa
         // regola del resto dell'app: un dato mancante si esclude, non vale 0).
@@ -222,56 +226,55 @@ export async function ordinaPerPassi<T extends ProdottoOrdinabile>(
     }
   };
 
-  // Il valore di un passo qualunque: la metrica come sopra, l'attributo come
-  // 1/0. Sempre «più alto = più in cima», così la lista si ordina in un modo solo.
-  const valorePasso = (m: T, passo: Passo): number =>
-    passo.t === "metrica" ? valore(m, passo.m) : corrisponde(m, passo) ? 1 : 0;
-
-  const fila = [...items].sort((a, b) => {
-    for (const p of chiavi) {
-      const d = valorePasso(b, p) - valorePasso(a, p);
+  /** Confronta due prodotti su una lista di metriche in priorità. */
+  const perMetriche = (a: T, b: T, ms: RegolaOrdinamento[]): number => {
+    for (const m of ms) {
+      if (m === "manuale") continue;
+      const d = valore(b, m) - valore(a, m);
       if (d !== 0) return d;
     }
-    return a.nome.localeCompare(b.nome);
-  });
-  return alternaFraLeCelle(fila, passi);
-}
+    return 0;
+  };
 
-/**
- * **A turno, uno per passo.**
- *
- * Con le condizioni come sole priorità la fila usciva a blocchi: prima *tutti* i
- * fiori sopra i 300 €, poi *tutte* le torte, poi tutti i champagne. In cima si
- * vedevano settantatré bouquet di fila, e i passi 2, 3 e 4 non comparivano
- * finché non finiva il primo — cioè mai, per chi guarda la prima riga della
- * vetrina. Non è quello che una regola a più condizioni vuol dire: ogni passo è
- * **una cosa che deve esserci**, non una fetta da esaurire.
- *
- * Quindi si alterna: il primo del passo 1, il primo del passo 2, … e poi da
- * capo. Chi ha finito i suoi prodotti viene saltato. **Dentro ogni passo l'ordine
- * resta quello deciso dalle sue metriche** — cambia solo come i passi si
- * intrecciano. Chi non è preso da nessun passo resta in fondo, com'era.
- *
- * Un prodotto appartiene al **primo** passo che lo prende: senza questa regola
- * un fiore d'arte urgente comparirebbe due volte in vetrina.
- */
-export function alternaFraLeCelle<T extends ProdottoOrdinabile>(fila: T[], passi: Passo[]): T[] {
-  const celle = passi.filter((p) => p.t !== "metrica");
-  // Con una condizione sola non c'è niente da alternare, e con nessuna la fila è
-  // già quella giusta: si restituisce com'è invece di rifare lo stesso lavoro.
-  if (celle.length < 2) return fila;
+  // Senza condizioni non ci sono gruppi: è il caso delle regole rapide, dove le
+  // metriche mettono in fila tutti.
+  if (celle.length === 0) {
+    return [...items].sort((a, b) => perMetriche(a, b, globali) || a.nome.localeCompare(b.nome));
+  }
 
+  // **Ogni condizione è un gruppo, e un prodotto sta nel primo che lo prende**:
+  // senza questa regola un fiore d'arte urgente comparirebbe due volte in
+  // vetrina.
   const gruppi: T[][] = celle.map(() => []);
   const fuori: T[] = [];
-  for (const x of fila) {
+  for (const x of items) {
     const i = celle.findIndex((p) => corrisponde(x, p));
     if (i < 0) fuori.push(x);
     else gruppi[i].push(x);
   }
 
+  // **La metrica di una cella ordina solo i prodotti di quella cella.** Prima
+  // diventava una chiave globale e finiva per decidere anche l'ordine dei
+  // gruppi successivi: nel passo «Fornitore Enrico Rizzi — poi per Novità» il
+  // primo non era il più recente ma il più venduto, perché a decidere era la
+  // metrica di un'altra cella (segnalato dall'utente: «ma non dovrebbe essere il
+  // gelato il 5°?»). «Prima X — poi per Y» vuol dire: fra le X, ordinale per Y.
+  celle.forEach((c, i) => {
+    const sue = c.t === "cella" ? c.m ?? [] : [];
+    const ms = [...sue, ...globali];
+    gruppi[i].sort((a, b) => perMetriche(a, b, ms) || a.nome.localeCompare(b.nome));
+  });
+  fuori.sort((a, b) => perMetriche(a, b, globali) || a.nome.localeCompare(b.nome));
+
+  // **A turno, uno per condizione.** Con le condizioni come sole priorità la fila
+  // usciva a blocchi — tutti i fiori sopra i 300 €, poi tutte le torte — e in
+  // cima si vedevano settantatré bouquet di fila, mentre le condizioni 2, 3 e 4
+  // non comparivano finché non finiva la prima: cioè mai, per chi guarda la
+  // prima riga della vetrina. Ogni condizione è **una cosa che deve esserci**,
+  // non una fetta da esaurire. Chi ha finito i suoi prodotti viene saltato; chi
+  // nessuna condizione prende resta in fondo, com'era.
   const out: T[] = [];
-  const quanti = fila.length - fuori.length;
-  for (let giro = 0; out.length < quanti; giro++) {
+  for (let giro = 0; ; giro++) {
     let messo = false;
     for (const g of gruppi) {
       if (giro < g.length) {
@@ -279,10 +282,11 @@ export function alternaFraLeCelle<T extends ProdottoOrdinabile>(fila: T[], passi
         messo = true;
       }
     }
-    if (!messo) break; // finiti tutti: non si gira a vuoto
+    if (!messo) break;
   }
   return [...out, ...fuori];
 }
+
 
 /**
  * L'ordine dei prodotti di una collezione secondo una o più regole. Ritorna gli
