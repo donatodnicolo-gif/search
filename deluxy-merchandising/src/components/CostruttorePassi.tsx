@@ -5,11 +5,16 @@ import { aggiungiPassiInBlocco, muoviPasso, sostituisciPasso } from "@/lib/azion
 import type { ProdottoAnteprima } from "./AnteprimaCella";
 import { CostruttoreCella } from "./CostruttoreCella";
 
-// **I primi cinque, e col nome.** Di una vetrina si guardano i primi: e' li' che
-// la regola si giudica. Ventiquattro miniature senza nome erano un altro elenco
-// di prodotti sopra a quello che c'e' gia' in pagina, e non si capiva **chi**
+// **I primi, col nome.** Di una vetrina si guardano i primi: e' li' che la
+// regola si giudica. Ventiquattro miniature senza nome erano un altro elenco di
+// prodotti sopra a quello che c'e' gia' in pagina, e non si capiva **chi**
 // fosse davvero in cima.
-const MAX_FILA = 5;
+//
+// Cinque e' il minimo, ma se le condizioni sono di piu' si allunga fino a
+// coprirle tutte: ogni riga dice «il suo primo sta in posizione N», e con sei
+// condizioni e cinque foto la sesta non si vedeva mai (segnalato dall'utente:
+// «il 6 non me lo fa ancora vedere»).
+const MIN_FILA = 5;
 
 const NOMI_METRICHE = Object.fromEntries(REGOLE.map((r) => [r.chiave, r.nome]));
 
@@ -82,6 +87,7 @@ export function CostruttorePassi({
   // **Che cosa c'era dentro il passo che si sta modificando**, tradotto nella
   // forma che la griglia sa mostrare. Un passo di sola metrica non ha condizioni:
   // la griglia si apre vuota, con le sue metriche già scelte.
+  const quanteFoto = Math.max(MIN_FILA, passi.filter((p) => p.t !== "metrica").length);
   const inModifica = modifica != null && modifica >= 0 && modifica < passi.length;
   const iniziali = (() => {
     if (!inModifica) return undefined;
@@ -207,16 +213,16 @@ export function CostruttorePassi({
             </span>
           ) : (
             <div className="fila-top">
-              {fila.slice(0, MAX_FILA).map((p, i) => (
+              {fila.slice(0, quanteFoto).map((p, i) => (
                 <span className="fila-top-voce" key={p.id} title={p.nome}>
                   <b className="fila-top-pos">{i + 1}</b>
                   {p.immagine ? <img src={p.immagine} alt="" /> : <i className="fila-top-vuota">❀</i>}
                   <span className="fila-top-nome">{p.nome}</span>
                 </span>
               ))}
-              {fila.length > MAX_FILA && (
+              {fila.length > quanteFoto && (
                 <span className="page-sub" style={{ alignSelf: "center", margin: 0 }}>
-                  e altri {fila.length - MAX_FILA} presi, a seguire
+                  e altri {fila.length - quanteFoto} presi, a seguire
                 </span>
               )}
             </div>
