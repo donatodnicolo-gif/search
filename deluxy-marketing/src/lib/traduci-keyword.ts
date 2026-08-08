@@ -1,4 +1,4 @@
-import { eCittaNota } from "@/lib/citta";
+import { cittaDaTesto, cittaInLingua, eCittaNota } from "@/lib/citta";
 
 // Tradurre una keyword da una lingua all'altra, per portarla su una campagna
 // che parla a clienti diversi.
@@ -134,4 +134,76 @@ export function traduciKeyword(testo: string, da: string, a: string): Traduzione
   }
 
   return { testo: fuori.join(" "), nonTradotte, riordinata };
+}
+
+export type Adattamento = {
+  testo: string;
+  // Cosa è stato cambiato, in parole: si mostra sotto la casella.
+  cambiamenti: string[];
+  nonTradotte: string[];
+  // La parola arriva su una campagna che nomina una città DIVERSA da quella
+  // che la parola dice, e la città non si è potuta scambiare.
+  cittaSbagliata: string | null;
+};
+
+/**
+ * La keyword riscritta per la campagna d'arrivo: lingua **e** città.
+ *
+ * ⚠️ **La città era il buco.** Fino all'08/08/2026 la casella di correzione
+ * compariva solo quando cambiava la LINGUA. Portare «rome flower delivery
+ * service» su «[Deluxy] - Fiori Milano ENG» è invece lo stesso inglese con la
+ * città sbagliata: non compariva niente, e in coda finiva una parola su Roma
+ * dentro una campagna su Milano. Sbagliare città costa come sbagliare lingua.
+ *
+ * Restituisce sempre un risultato, anche quando non cambia niente: la casella
+ * dev'essere lì comunque, perché la si possa correggere a mano.
+ */
+export function adattaKeyword(
+  testo: string,
+  opzioni: { daLingua?: string | null; aLingua?: string | null; aCitta?: string | null }
+): Adattamento {
+  const { daLingua, aLingua, aCitta } = opzioni;
+  const cambiamenti: string[] = [];
+  let corrente = testo.trim();
+  let nonTradotte: string[] = [];
+
+  // 1. La lingua, col glossario che c'era già.
+  if (daLingua && aLingua && daLingua !== aLingua) {
+    const t = traduciKeyword(corrente, daLingua, aLingua);
+    if (t) {
+      corrente = t.testo;
+      nonTradotte = t.nonTradotte;
+      cambiamenti.push(`tradotta in ${aLingua}`);
+      if (t.riordinata) cambiamenti.push("città spostata in fondo");
+    }
+  }
+
+  // 2. La città: quella della parola diventa quella della campagna d'arrivo,
+  //    scritta nella lingua giusta.
+  const cittaOra = cittaDaTesto(corrente);
+  let cittaSbagliata: string | null = null;
+  if (aCitta) {
+    const bersaglio = cittaInLingua(aCitta, aLingua ?? null);
+    if (cittaOra && cittaOra !== bersaglio) {
+      corrente = corrente
+        .split(/\s+/)
+        .map((p) => {
+          const nuda = p.toLowerCase().replace(/[^\p{L}\p{N}'-]/gu, "");
+          return nuda === cittaOra ? p.replace(new RegExp(nuda, "i"), bersaglio) : p;
+        })
+        .join(" ");
+        cambiamenti.push(`città ${cittaOra} → ${bersaglio}`);
+    } else if (!cittaOra) {
+      // Nessuna città nel testo: non se ne aggiunge una. «fiori a domicilio»
+      // su una campagna di Milano resta generica, ed è una scelta legittima —
+      // appiccicarci «milano» cambierebbe cosa si compra senza chiederlo.
+      cittaSbagliata = null;
+    }
+  } else if (cittaOra) {
+    // La campagna d'arrivo non nomina una città e la parola sì: non si tocca,
+    // ma va detto — potrebbe essere giusto o essere l'errore.
+    cittaSbagliata = cittaOra;
+  }
+
+  return { testo: corrente, cambiamenti, nonTradotte, cittaSbagliata };
 }

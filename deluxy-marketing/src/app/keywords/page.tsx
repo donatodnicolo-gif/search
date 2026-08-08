@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { cittaDaTesto } from "@/lib/citta";
 import { Icona } from "@/components/Icona";
 import { PortaKeyword } from "@/components/PortaKeyword";
 import { attributiPortaKeyword } from "@/lib/porta-keyword";
@@ -100,7 +101,7 @@ export default async function PaginaKeywords({
     .filter((c) => c.stato === "attiva")
     // La lingua viaggia col nome della campagna: serve al dialogo per avvisare
     // quando si porta una parola inglese su una campagna italiana.
-    .map((c) => ({ ...c, lingua: linguaDaNome(c.nome) }));
+    .map((c) => ({ ...c, lingua: linguaDaNome(c.nome), citta: cittaDaTesto(c.nome) }));
   // ⚠️ Le campagne del selettore sono solo quelle VIVE. L'elenco nasceva dalle
   // keyword, e le keyword sopravvivono alla campagna: si finiva per scegliere
   // una campagna spenta nel 2025 e guardare parole che non comprano più niente.

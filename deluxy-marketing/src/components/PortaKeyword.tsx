@@ -3,9 +3,17 @@
 import { useEffect, useRef, useState } from "react";
 import { ATTR } from "@/lib/porta-keyword";
 import { testoKeywordPulito } from "@/lib/dominio";
-import { traduciKeyword } from "@/lib/traduci-keyword";
+import { adattaKeyword } from "@/lib/traduci-keyword";
 
-export type CampagnaScelta = { id: string; nome: string; classe: string; lingua?: string | null };
+export type CampagnaScelta = {
+  id: string;
+  nome: string;
+  classe: string;
+  lingua?: string | null;
+  // La citta nominata dal NOME della campagna: serve ad adattare la keyword.
+  // Si calcola sul server e viaggia con la campagna, come la lingua.
+  citta?: string | null;
+};
 
 const NOME_LINGUA: Record<string, string> = { ita: "italiano", eng: "inglese", fra: "francese" };
 
@@ -212,65 +220,70 @@ export function PortaKeyword({
           )}
         </div>
 
-        {/* ⚠️ Una parola che gira su campagne inglesi, portata su una italiana,
-            resta scritta in inglese: «milano flowers» dentro «Fiori Milano
-            ITA» non intercetta chi cerca in italiano. L'app non la traduce —
-            tradurre a macchina una keyword è il modo di comprare ricerche che
-            nessuno fa — ma non deve nemmeno far finta di niente. */}
+        {/* ——— Il testo che finirà in coda, UNA CASELLA PER CAMPAGNA ———
+            ⚠️ Prima la casella compariva solo quando cambiava la LINGUA, e per
+            lingua invece che per campagna. Così «rome flower delivery service»
+            portata su «[Deluxy] - Fiori Milano ENG» non mostrava niente — stesso
+            inglese — e in coda finiva una parola su ROMA dentro una campagna su
+            MILANO. Sbagliare città costa come sbagliare lingua, e due campagne
+            della stessa lingua ma di città diverse vogliono due testi diversi:
+            per questo la chiave è la campagna, non la lingua.
+            Adesso la casella c'è SEMPRE, con la proposta già adattata, e quello
+            che va in coda è ciò che si legge — non ciò che ha scritto l'app. */}
         {(() => {
-          // ⚠️ Con più parole la traduzione NON si propone: una casella sola
-          // non può correggerne dieci, e mostrarne dieci non verificate
-          // sarebbe il modo di farle approvare senza guardarle.
-          if (piuParole) return null;
-          const diverse = scelte
-            .map((id) => disponibili.find((c) => c.id === id))
-            .filter((c): c is CampagnaScelta => !!c?.lingua && !lingueDiOra.includes(c.lingua));
-          if (lingueDiOra.length === 0 || diverse.length === 0) return null;
-          const origine = lingueDiOra[0];
+          // ⚠️ Con più parole non si propone niente: una casella sola non può
+          // correggerne dieci, e mostrarne dieci non verificate sarebbe il modo
+          // di farle approvare senza guardarle.
+          if (piuParole || scelte.length === 0) return null;
+          const origine = lingueDiOra[0] ?? null;
           const pulito = testoKeywordPulito(keyword);
-          const perLingua = [...new Set(diverse.map((c) => c.lingua!))];
+          const dove = scelte
+            .map((id) => disponibili.find((c) => c.id === id))
+            .filter((c): c is CampagnaScelta => !!c);
           return (
             <div className="modale-tradotto">
               <div className="cella-sub" style={{ whiteSpace: "normal", marginBottom: 10 }}>
-                <b>Lingua diversa.</b> Questa parola gira su campagne in{" "}
-                {lingueDiOra.map((l) => NOME_LINGUA[l] ?? l).join(" e ")}. Qui sotto la proposta
-                nella lingua di ogni campagna scelta: <b>correggila</b> — in coda va quello che
-                leggi nella casella, non quello che ha scritto il glossario.
+                <b>Come entra in ogni campagna.</b> La proposta è già adattata alla lingua e alla
+                città di destinazione: <b>correggila liberamente</b> — in coda va quello che leggi
+                nella casella, non quello che ha scritto l&apos;app.
               </div>
-              {perLingua.map((lin) => {
-                const t = traduciKeyword(pulito, origine, lin);
-                const proposta = t?.testo ?? pulito;
-                const valore = testiTradotti[lin] ?? proposta;
-                const dove = diverse.filter((c) => c.lingua === lin);
+              {dove.map((c) => {
+                const a = adattaKeyword(pulito, {
+                  daLingua: origine,
+                  aLingua: c.lingua ?? null,
+                  aCitta: c.citta ?? null,
+                });
+                const valore = testiTradotti[c.id] ?? a.testo;
+                const cambiata = valore.toLowerCase() !== pulito.toLowerCase();
                 return (
-                  <div key={lin} style={{ marginBottom: 12 }}>
-                    <input type="hidden" name={`testo_${lin}`} value={valore} />
+                  <div key={c.id} style={{ marginBottom: 12 }}>
+                    <input type="hidden" name={`testo_${c.id}`} value={valore} />
                     <label className="modale-campo">
-                      {NOME_LINGUA[lin] ?? lin} — {dove.map((c) => c.nome).join(", ")}
+                      {c.nome}
+                      {c.lingua && <> · {NOME_LINGUA[c.lingua] ?? c.lingua}</>}
+                      {c.citta && <> · {c.citta}</>}
                       <input
                         value={valore}
                         onChange={(e) => {
-                          setTestiTradotti((s) => ({ ...s, [lin]: e.target.value }));
-                          setToccati((s) => ({ ...s, [lin]: true }));
+                          setTestiTradotti((s) => ({ ...s, [c.id]: e.target.value }));
+                          setToccati((s) => ({ ...s, [c.id]: true }));
                         }}
                       />
                     </label>
                     <div className="cella-sub" style={{ marginTop: 5, whiteSpace: "normal" }}>
-                      {t == null ? (
+                      {cambiata ? <>da «{pulito}»</> : <>invariata</>}
+                      {a.cambiamenti.length > 0 && <> · {a.cambiamenti.join(" · ")}</>}
+                      {a.nonTradotte.length > 0 && (
+                        <> · <b>non tradotte</b>: {a.nonTradotte.join(", ")}</>
+                      )}
+                      {toccati[c.id] && <> · <b>corretta a mano</b></>}
+                      {/* Il caso che non si può adattare da soli: la parola
+                          nomina una città e la campagna d'arrivo no. Può essere
+                          giusto (una campagna nazionale) o essere l'errore. */}
+                      {a.cittaSbagliata && (
                         <>
-                          Nessuna parola del glossario: la proposta è il testo <b>invariato</b>.
-                          Riscrivilo tu, o su quella campagna non intercetta nessuno.
-                        </>
-                      ) : (
-                        <>
-                          da «{pulito}»
-                          {t.riordinata && <> · città spostata in fondo</>}
-                          {t.nonTradotte.length > 0 && (
-                            <>
-                              {" "}· <b>non tradotte</b>: {t.nonTradotte.join(", ")}
-                            </>
-                          )}
-                          {toccati[lin] && <> · <b>corretta a mano</b></>}
+                          {" "}· ⚠️ la parola dice <b>{a.cittaSbagliata}</b> e questa campagna non
+                          nomina una città: controlla che sia quello che vuoi
                         </>
                       )}
                     </div>

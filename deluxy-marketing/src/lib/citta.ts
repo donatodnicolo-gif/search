@@ -35,3 +35,23 @@ export const EN_IT: Record<string, string> = Object.fromEntries(
 export function eCittaNota(parola: string): boolean {
   return CITTA_NOTE.includes(parola.toLowerCase());
 }
+
+/** La città nominata dentro un testo (nome di campagna o keyword), o null. */
+export function cittaDaTesto(testo: string): string | null {
+  for (const p of String(testo || "").toLowerCase().split(/[^\p{L}]+/u)) {
+    if (p && CITTA_NOTE.includes(p)) return p;
+  }
+  return null;
+}
+
+/**
+ * La stessa città nella lingua richiesta: `rome` verso italiano è `roma`,
+ * `milano` verso inglese è `milan`. Se la forma inglese non esiste (Bergamo,
+ * Como…) resta com'è — inventarla comprerebbe ricerche che nessuno fa.
+ */
+export function cittaInLingua(citta: string, lingua: string | null): string {
+  const c = citta.toLowerCase();
+  if (lingua === "eng") return IT_EN[c] ?? c;
+  if (lingua === "ita" || lingua === "fra") return EN_IT[c] ?? c;
+  return c;
+}

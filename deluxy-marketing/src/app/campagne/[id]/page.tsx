@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { cittaDaTesto } from "@/lib/citta";
 import { AndamentoMensile } from "@/components/AndamentoMensile";
 import { FreschezzaDati } from "@/components/FreschezzaDati";
 import { GuardrailCampagna } from "@/components/GuardrailCampagna";
@@ -137,7 +138,7 @@ export default async function SchedaCampagna({
       orderBy: { nome: "asc" },
       select: { id: true, nome: true, classe: true },
     })
-  ).map((c) => ({ ...c, lingua: linguaDaNome(c.nome) }));
+  ).map((c) => ({ ...c, lingua: linguaDaNome(c.nome), citta: cittaDaTesto(c.nome) }));
 
   // I gruppi della campagna: la media di campagna qui sopra può nascondere un
   // gruppo che rende il doppio e uno che brucia. Vanno guardati separati.

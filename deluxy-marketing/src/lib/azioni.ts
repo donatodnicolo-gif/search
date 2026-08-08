@@ -2583,12 +2583,15 @@ export async function applicaKeywordAdAltreCampagne(fd: FormData) {
     // il messaggio non diceva quale riga l'avesse bloccata, quindi l'errore
     // era invisibile. Ora `contains` fa solo da setaccio grosso e la decisione
     // la prende il confronto sul testo ripulito.
-    // Il testo per QUESTA campagna: se parla un'altra lingua e chi ha messo in
-    // coda ha rivisto la traduzione, va quella. La casella del dialogo è la
-    // fonte — il glossario propone, la persona decide.
-    const linguaC = linguaDaNome(c.nome);
-    const tradotto = piuParole || !linguaC ? null : testo(fd, `testo_${linguaC}`);
-    const pulitoQui = tradotto ? testoKeywordPulito(tradotto) : pulito;
+    // Il testo per QUESTA campagna. La casella del dialogo è la fonte —
+    // l'app propone, la persona decide.
+    //
+    // ⚠️ La chiave è la CAMPAGNA, non la lingua. Prima era `testo_${lingua}`, e
+    // due campagne della stessa lingua ma di città diverse ricevevano per forza
+    // lo stesso testo: «rome flower delivery service» finiva identica su Roma e
+    // su Milano. Sbagliare città costa come sbagliare lingua.
+    const riscritto = piuParole ? null : testo(fd, `testo_${c.id}`);
+    const pulitoQui = riscritto ? testoKeywordPulito(riscritto) : pulito;
 
     const candidate = await prisma.copyAnnuncio.findMany({
       where: { tipo: "keyword", campagna: c.nome, testo: { contains: pulitoQui } },
@@ -2613,7 +2616,7 @@ export async function applicaKeywordAdAltreCampagne(fd: FormData) {
         parametri: JSON.stringify({ testo: pulitoQui, corrispondenza }),
         motivo:
           pulitoQui.toLowerCase() !== pulito.toLowerCase()
-            ? `Portata da un'altra campagna e tradotta: «${pulito}» → «${pulitoQui}»`
+            ? `Portata da un'altra campagna e riscritta per questa: «${pulito}» → «${pulitoQui}»`
             : `Portata da un'altra campagna: funzionava lì`,
         avvisi: avvisoFreeze,
         livello: "L1",
