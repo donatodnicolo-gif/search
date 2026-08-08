@@ -51,6 +51,8 @@ export default async function RegolaPage({
               zoneConsegna: true,
               cittaShopify: true, occasioniShopify: true, tipologiaShopify: true, classificazioneShopify: true, dataShopify: true, orarioShopify: true, bestSellerShopify: true, ggDispMin: true,
       costoProduzione: true, creatoIl: true,
+              pubblicatoIlShopify: true,
+              creatoIlShopify: true,
     },
   });
   const totaleInVendita = await prisma.prodotto.count({ where: FILTRO_IN_SCENA });

@@ -349,6 +349,8 @@ porta **3120**. Design system Deluxy v1.0.
   - Nuovi campi `pubblicatoIlShopify` e `creatoIlShopify`, letti dall'import delle collezioni (`createdAt publishedAt` nella query) e riempiti da [scripts/importa-zone-consegna.ts](../scripts/importa-zone-consegna.ts).
   - La metrica ora legge `pubblicatoIlShopify ?? creatoIlShopify ?? creatoIl`: **la pubblicazione è il momento in cui il cliente ha potuto vederlo**, la nostra data resta solo come ultimo ripiego per le schede che su Shopify non ci sono.
 
+- ⚠️ **07/08/2026 — trappola: la metrica non trova il campo perché il `select` della pagina non lo chiede** (segnalato dall utente: «il gelato continua a non apparire»). La metrica «Novità» leggeva `pubblicatoIlShopify`, aggiunto a `SELECT_ORDINABILE` — ma la scheda della collezione costruisce la fila **con un suo select**, dove quel campo non c era: il valore arrivava `undefined` per tutti, la metrica non decideva niente e restava il pareggio finale, cioè **l ordine alfabetico** (Cofanetto prima di Gelato). Il calcolo era giusto, mancava il dato. **Quando si aggiunge un campo a una metrica, va aggiunto a tutti i punti che costruiscono una fila**: `SELECT_ORDINABILE` non è l unico. Nella stessa passata: i prodotti che *entrerebbero* con l aggiunta automatica avevano `creatoIl: new Date()` come riempitivo, che li faceva sembrare le novità più fresche del negozio — ora `new Date(0)`.
+
 ## COME AVVIARE
 ```
 cd deluxy-merchandising

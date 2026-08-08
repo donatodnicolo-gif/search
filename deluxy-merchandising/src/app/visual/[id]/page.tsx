@@ -77,6 +77,8 @@ export default async function CurazioneCollezionePage({
               prezzoVendita: true,
               costoProduzione: true,
               creatoIl: true,
+              pubblicatoIlShopify: true,
+              creatoIlShopify: true,
               fase: true,
               statoShopify: true,
               // Servono all'anteprima della cella, che gira nel browser.
@@ -203,6 +205,8 @@ export default async function CurazioneCollezionePage({
               // Servono alle metriche della fila (margine, novita'): senza, l'ordine
               // vero non si potrebbe calcolare.
               costoProduzione: true, creatoIl: true,
+              pubblicatoIlShopify: true,
+              creatoIlShopify: true,
             },
           }),
           prisma.prodotto.count({ where: FILTRO_IN_SCENA }),
@@ -229,7 +233,11 @@ export default async function CurazioneCollezionePage({
       ? await ordinaPerPassi(
           [
             ...inScena.map((vp) => ({ ...vp.prodotto, id: vp.prodottoId, prodottoId: vp.prodottoId, posizione: vp.posizione })),
-            ...entranti.map((p) => ({ ...p, prodottoId: p.id, costoProduzione: 0, creatoIl: new Date() })),
+            // `creatoIl` è solo un riempitivo per il tipo: la novità la decide
+            // `pubblicatoIlShopify`, che arriva col prodotto. Con «adesso»
+            // sembrerebbero le ultime novità del negozio solo perché non sono
+            // ancora dentro la collezione.
+            ...entranti.map((p) => ({ ...p, prodottoId: p.id, costoProduzione: 0, creatoIl: new Date(0) })),
           ],
           passiSalvati,
         )
