@@ -102,7 +102,7 @@ export default async function ProdottoPage({
 
   return (
     <div className="layout">
-      <Sidebar attiva="prodotti" collezioneAttiva={prodotto.collezioneId ?? undefined} />
+      <Sidebar attiva="prodotti" />
       <main className="main">
         <a className="ritorno" href="/prodotti">← Prodotti</a>
 

@@ -2,14 +2,31 @@
 
 import { useEffect, useState } from "react";
 
-// Sezione della sidebar apribile/chiudibile dal click sull'etichetta.
-export function SbSezione({ titolo, children }: { titolo: string; children: React.ReactNode }) {
+/**
+ * Sezione della sidebar apribile/chiudibile dal click sull'etichetta.
+ *
+ * `chiusa` è lo stato di **partenza**: le sezioni secondarie (le lenti sul
+ * catalogo) nascono ripiegate, così il menu di default mostra solo il lavoro
+ * di tutti i giorni. La scelta dell'utente, una volta fatta, vince sempre:
+ * si ricorda in localStorage per titolo.
+ */
+export function SbSezione({
+  titolo,
+  chiusa = false,
+  children,
+}: {
+  titolo: string;
+  chiusa?: boolean;
+  children: React.ReactNode;
+}) {
   const chiave = `merchandising-sezione-${titolo}`;
-  const [aperta, setAperta] = useState(true);
+  const [aperta, setAperta] = useState(!chiusa);
 
   useEffect(() => {
     try {
-      if (localStorage.getItem(chiave) === "chiusa") setAperta(false);
+      const salvata = localStorage.getItem(chiave);
+      if (salvata === "chiusa") setAperta(false);
+      if (salvata === "aperta") setAperta(true);
     } catch {}
   }, [chiave]);
 

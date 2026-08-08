@@ -519,11 +519,19 @@ export default async function CurazioneCollezionePage({
             qui si dice ogni quanto l'ordine si rifà senza che nessuno lo chieda.
             Il ritmo si decide una volta in /visual/rotazioni e vale per tutte le
             collezioni iscritte — qui si sceglie solo se questa è fra quelle. */}
-        <div className="scheda">
-          <div className="riga-titolo">
-            <div className="scheda-titolo" style={{ margin: 0 }}>Si rinfresca da sola</div>
+        {/* Ripiegata: è una decisione che si prende una volta ogni tanto, e
+            aperta sempre seppelliva la fila dei prodotti. Lo stato — segue un
+            ritmo o no — resta scritto nel titolo, leggibile da chiusa. */}
+        <details className="scheda">
+          <summary className="scheda-titolo">
+            Si rinfresca da sola
+            <span className="scheda-stato">
+              {c.rotazione ? `segue «${c.rotazione.nome}»` : "nessun ritmo"}
+            </span>
+          </summary>
+          <p style={{ marginBottom: 10 }}>
             <a className="btn btn-secondario" href="/visual/rotazioni">Ritmi e storico</a>
-          </div>
+          </p>
           {rotazioni.length === 0 ? (
             <p className="page-sub" style={{ marginTop: -4, marginBottom: 0 }}>
               Nessun ritmo impostato. Si crea in <a href="/visual/rotazioni">Rotazioni</a>: si sceglie ogni quanto
@@ -573,7 +581,7 @@ export default async function CurazioneCollezionePage({
               )}
             </>
           )}
-        </div>
+        </details>
 
         {/* L'anteprima: l'ordine ipotizzato, con chi sale e chi scende. */}
         {inAnteprima && (
@@ -664,8 +672,16 @@ export default async function CurazioneCollezionePage({
         )}
 
         {/* Push su Shopify: guardato per collezione manuale + token con write_products. */}
-        <div className="scheda">
-          <div className="scheda-titolo">Ordine su Shopify</div>
+        {/* Aperta da sola solo quando il sito mostra un ordine diverso da
+            questo: è il momento in cui serve. Negli altri giorni basta il
+            titolo con lo stato. */}
+        <details className="scheda" open={daSincronizzare}>
+          <summary className="scheda-titolo">
+            Ordine su Shopify
+            <span className="scheda-stato">
+              {daSincronizzare ? "da mandare al negozio" : c.ordineSpintoIl ? "allineato col sito" : "mai inviato"}
+            </span>
+          </summary>
           {/* **Che cosa fa il bottone, detto prima di premerlo.** «Invia
               l'ordine» non spiega da solo che la fila curata qui **vive solo
               qui** finché non la si manda, e che mandarla riscrive quello che i
@@ -717,7 +733,7 @@ export default async function CurazioneCollezionePage({
               Riscrivi l&apos;ordine sul sito ({inScena.length} prodotti)
             </button>
           </form>
-        </div>
+        </details>
 
         {/* **Quanti prodotti per riga.** Su Shopify non esiste un campo per la
             disposizione: la decide il tema. Si scrive come metafield
@@ -725,8 +741,11 @@ export default async function CurazioneCollezionePage({
             il valore puo' stare — e vale **solo se il tema lo legge**. Detto in
             pagina, perche' promettere un effetto che dipende dal tema sarebbe
             una bugia. */}
-        <div className="scheda">
-          <div className="scheda-titolo">Prodotti per riga</div>
+        <details className="scheda">
+          <summary className="scheda-titolo">
+            Prodotti per riga
+            <span className="scheda-stato">{c.prodottiPerRiga ? `${c.prodottiPerRiga} per riga` : "non impostato"}</span>
+          </summary>
           <form
             action={salvaProdottiPerRiga.bind(null, id)}
             style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}
@@ -749,7 +768,7 @@ export default async function CurazioneCollezionePage({
             <b>Cambia la pagina solo se il tema legge quel metafield</b>: Shopify non ha un campo suo per la
             disposizione, e il valore da solo non sposta niente.
           </p>
-        </div>
+        </details>
         {/* **Il pannello per aggiungere prodotti.** Si sceglie guardando le
             immagini, perché è così che si costruisce una vetrina; e la prima
             cosa che propone non è il catalogo intero ma quello che **le

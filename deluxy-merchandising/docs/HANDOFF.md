@@ -365,6 +365,12 @@ porta **3120**. Design system Deluxy v1.0.
 
 - **08/08/2026 — le composizioni floreali sono passate a Fiori** (chiesto dall utente: «metti in categoria interna comunque fiori»). «Originali Deluxy» è il Tipo delle **composizioni** (Rose Rosse e Praline, Cappelliera Rose e Palloncino): tenendole a parte, cercando i fiori se ne perdevano 48. Spostati **177 prodotti (67 attivi)**: Fiori passa da **180 a 247 attivi**, Originali Deluxy scende a 47 (palloncini, Torta e Bollicine, caviale, telegrammi). Criterio **verificabile**: tag floreale, o negozio Flowers, o una parola inequivocabile nel nome — non «indovina dal nome». È l unico punto di  che **sovrascrive** una categoria già assegnata, ed è dichiarato nel file.
 
+- **09/08/2026 — menu e layout semplificati** (chiesto dall utente: «rivedi layout di tutta l app e miglioralo e semplificalo al massimo compresi i menù»).
+  - **Sidebar rifatta**: da sette sezioni con ~20 voci + l elenco di ogni collezione maison, a **Cruscotto + 5 gruppi** (Vendite, Catalogo, Lenti sul catalogo, Vetrina, Negozio). Le **Lenti** (fornitore, categoria, linea, fascia, griglie, classificazione) nascono **ripiegate**: tutte le pagine restano raggiungibili, ma il menu di default mostra solo il lavoro quotidiano. La scelta di aprire/chiudere si ricorda per sezione (localStorage).
+  - **Via l elenco delle collezioni dal menu**: era una copia di /collezioni dentro la sidebar, ricalcolata a ogni pagina. Via anche i **contatori decorativi** (prodotti, fornitori, tipi, linee, fasce): un numero che dice quanti prodotti esistono è arredamento. Restano solo quelli che chiedono un azione: Sviluppo e da pubblicare su Shopify. La sidebar passa da 3 query (di cui una findMany su tutte le collezioni) a **una sola** con due contatori: si paga su ogni pagina.
+  - **Scala tipografica compattata** in un giro solo: titoli 30→25px, sottotitoli 15→13.5, main 40→30px di padding, schede 24→20px, sidebar 250→232px con voci da 13px. Stessi token del design system, solo più aria e meno corpo.
+  - **Schede ripiegabili** (, con  a destra): sulla scheda della collezione «Si rinfresca da sola», «Ordine su Shopify» e «Prodotti per riga» nascono **chiuse col loro stato nel titolo** («segue Bisettimana», «allineato col sito», «5 per riga»). «Ordine su Shopify» si apre **da sola quando c è un ordine da mandare**: è il momento in cui serve. Sono decisioni che si prendono una volta ogni tanto: aperte sempre, seppellivano la fila dei prodotti.
+
 ## COME AVVIARE
 ```
 cd deluxy-merchandising

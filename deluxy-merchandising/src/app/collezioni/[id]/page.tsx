@@ -44,7 +44,7 @@ export default async function CollezionePage({ params }: { params: Promise<{ id:
 
   return (
     <div className="layout">
-      <Sidebar attiva="collezioni" collezioneAttiva={id} />
+      <Sidebar attiva="collezioni" />
       <main className="main">
         <a className="ritorno" href="/collezioni">← Collezioni</a>
         <div className="page-head">
