@@ -142,6 +142,11 @@ sono cinque compiti; le stesse cinque sotto «Preparazione Meeting Malavenda» s
 cosa sola, e si sbrigano insieme. Il raggruppamento è per conversazione e non per singola
 mail: due richieste arrivate in due messaggi dello stesso scambio restano insieme.
 
+**Si torna sempre alla mail.** In fondo all'intestazione del gruppo c'è **«Apri la
+conversazione (3) →»**; sotto ogni cosa da fare è scritto **da quale mail** nasce, ed è un
+link; e accanto a «Esegui» c'è **«✉ Mail»**, perché prima di eseguire di solito si vuole
+rileggere. Nessuna attività resta senza la sua origine a portata di clic.
+
 ### Le attività vivono anche in Deluxy Tasks
 
 Le cose da fare di una persona non devono stare in dieci elenchi diversi, uno per app.

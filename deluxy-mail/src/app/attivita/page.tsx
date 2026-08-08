@@ -78,6 +78,8 @@ export default async function Attivita() {
     sottotitolo?: string
     /** Etichetta della provenienza, per capire a colpo d'occhio da dove viene. */
     tipo: 'thread' | 'contatto' | 'mano'
+    /** Quante mail ha la conversazione da cui nasce: lo dice il tasto «Apri». */
+    messaggi?: number
     righe: Riga[]
   }
 
@@ -98,6 +100,7 @@ export default async function Attivita() {
             ? `${volto.mittenteNome || volto.mittente} · conversazione di ${gruppo.length} messaggi`
             : volto.mittenteNome || volto.mittente,
         tipo: 'thread',
+        messaggi: gruppo.length,
         righe: [],
       }
     } else if (a.contattoEmail) {
@@ -180,6 +183,19 @@ export default async function Attivita() {
               <span className="muted" style={{ fontSize: 12 }}>
                 {b.righe.length} {b.righe.length === 1 ? 'cosa da fare' : 'cose da fare'}
               </span>
+              {/* ⚠️ Il titolo era già un link, ma senza sottolineatura né
+                  freccia: da fuori è testo, e infatti «manca la possibilità di
+                  riprendere la mail da cui parte l'attività». Il modo per
+                  tornare alla mail va DETTO, non lasciato indovinare. */}
+              {b.href && (
+                <Link href={b.href} className="azione-riga" style={{ marginLeft: 'auto' }}>
+                  {b.tipo === 'contatto'
+                    ? 'Apri il contatto →'
+                    : b.messaggi && b.messaggi > 1
+                      ? `Apri la conversazione (${b.messaggi}) →`
+                      : 'Apri la mail →'}
+                </Link>
+              )}
             </div>
 
             <div className="card tight">
@@ -191,14 +207,15 @@ export default async function Attivita() {
                     <div style={{ minWidth: 0 }}>
                       <div className="task-titolo">{a.titolo}</div>
                       {a.dettaglio && <div className="task-sub">{a.dettaglio}</div>}
-                      {/* La provenienza sta nell'intestazione del blocco: qui si
-                          ripete solo la mail precisa, quando il gruppo ne ha più
-                          d'una e sapere QUALE cambia qualcosa. */}
-                      {a.messaggio && b.righe.some((x) => x.messaggio?.id !== a.messaggio?.id) && (
+                      {/* LA MAIL ESATTA da cui nasce QUESTA cosa da fare,
+                          sempre: l'intestazione porta alla conversazione, ma
+                          dentro una conversazione lunga «da quale mail viene»
+                          è la domanda che ci si fa davvero. */}
+                      {a.messaggio && (
                         <div className="task-sub">
                           da{' '}
                           <Link href={`/messaggio/${a.messaggio.id}`} style={{ textDecoration: 'underline' }}>
-                            {a.messaggio.oggetto}
+                            {a.messaggio.oggetto || '(senza oggetto)'}
                           </Link>
                         </div>
                       )}
@@ -222,6 +239,13 @@ export default async function Attivita() {
                       </span>
                       {/* Esegui solo se c'è una mail a cui rispondere: un'attività
                           scritta a mano senza origine non ha nulla da eseguire. */}
+                      {/* Un tasto per tornare alla mail, accanto a «Esegui»:
+                          spesso prima di eseguire si vuole rileggere. */}
+                      {a.messaggio && (
+                        <Link href={`/messaggio/${a.messaggio.id}`} className="azione-riga" title="Apri la mail da cui nasce">
+                          ✉ Mail
+                        </Link>
+                      )}
                       {(a.messaggio || a.contattoEmail) && <BottoneEsegui id={a.id} />}
                     </div>
                   </div>
