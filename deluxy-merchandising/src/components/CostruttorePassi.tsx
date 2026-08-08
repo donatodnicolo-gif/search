@@ -40,6 +40,7 @@ export function CostruttorePassi({
   campione,
   fila,
   quantiEntrano = 0,
+  quantiDietro = 0,
   suChe,
   idsCollezione,
   nomeCollezione,
@@ -56,6 +57,8 @@ export function CostruttorePassi({
   fila?: ProdottoAnteprima[];
   /** Quanti di quelli in fila **non sono ancora dentro** e ci entrerebbero da soli. */
   quantiEntrano?: number;
+  /** Quanti stanno nella vetrina ma **nessun passo prende**: restano dietro. */
+  quantiDietro?: number;
   /** Di cosa e' la fila: ««Fast Delivery»» sulla collezione, il campione sulla pagina della regola. */
   suChe?: string;
   /** Quando si lavora da una collezione: per dire anche quanti ne tocca **qui dentro**. */
@@ -114,8 +117,8 @@ export function CostruttorePassi({
           <div className="anteprima-conto">
             <b>{fila.length}</b> {fila.length === 1 ? "prodotto" : "prodotti"}
             <span className="page-sub" style={{ margin: 0 }}>
-              {" "}· come usciranno{suChe ? ` in ${suChe}` : ""} con{" "}
-              {passi.length === 1 ? "il passo" : `i ${passi.length} passi`} qui sopra, in quest&apos;ordine
+              {" "}· <b>presi</b> {passi.length === 1 ? "dal passo" : `dai ${passi.length} passi`} qui sopra
+              {suChe ? ` in ${suChe}` : ""}, in quest&apos;ordine
               {quantiEntrano > 0 && (
                 <>
                   {" "}· di cui <b>{quantiEntrano}</b> entrerebbero dalla regola
@@ -125,8 +128,8 @@ export function CostruttorePassi({
           </div>
           {fila.length === 0 ? (
             <span className="page-sub" style={{ margin: 0 }}>
-              <b>Nessuno.</b> Nessun passo prende niente di quello che c&apos;è in vendita: così la regola non sposta la
-              vetrina.
+              <b>Nessuno.</b> Nessun passo prende niente di quello che c&apos;è qui dentro: la regola non sposta questa
+              vetrina{quantiDietro > 0 ? `, e i suoi ${quantiDietro} prodotti restano come sono` : ""}.
             </span>
           ) : (
             <div className="fila-top">
@@ -139,9 +142,15 @@ export function CostruttorePassi({
               ))}
               {fila.length > MAX_FILA && (
                 <span className="page-sub" style={{ alignSelf: "center", margin: 0 }}>
-                  e altri {fila.length - MAX_FILA} dietro
+                  e altri {fila.length - MAX_FILA} presi, a seguire
                 </span>
               )}
+            </div>
+          )}
+          {quantiDietro > 0 && (
+            <div className="page-sub" style={{ marginTop: 8, marginBottom: 0 }}>
+              Altri <b>{quantiDietro}</b> stanno nella vetrina ma <b>nessun passo li prende</b>: restano dietro,
+              nell&apos;ordine in cui erano. Con <b>Estendi alla collezione</b> vanno dal più venduto in giù.
             </div>
           )}
         </div>

@@ -219,7 +219,7 @@ export default async function CurazioneCollezionePage({
     c.aggiuntaAutomatica && passiSalvati.length > 0
       ? perAnteprima.filter((p) => !idsDentro.has(p.id) && passiSalvati.some((x) => x.t !== "metrica" && corrisponde(p, x)))
       : [];
-  const filaRegola =
+  const filaCompleta =
     passiSalvati.length > 0
       ? await ordinaPerPassi(
           [
@@ -229,6 +229,14 @@ export default async function CurazioneCollezionePage({
           passiSalvati,
         )
       : [];
+  // **In anteprima ci vanno quelli che i passi prendono davvero.** Nella fila
+  // completa restano anche i prodotti che nessuna cella tocca — l'ordinamento
+  // non toglie nessuno dalla collezione — ma mostrarli sotto «come usciranno coi
+  // 5 passi» faceva sembrare che li avesse scelti la regola: qui dentro c'erano
+  // gelati e champagne che nessuna condizione nomina (segnalato dall'utente).
+  // Restano contati, dietro, perche' nella vetrina ci sono.
+  const filaRegola = filaCompleta.filter((p) => passiSalvati.some((x) => x.t !== "metrica" && corrisponde(p, x)));
+  const quantiDietro = filaCompleta.length - filaRegola.length;
 
 
   const pannelloAperto = sp.aggiungi === "1";
@@ -474,6 +482,7 @@ export default async function CurazioneCollezionePage({
               campione={perAnteprima.length < totaleInVendita}
               fila={filaRegola}
               quantiEntrano={entranti.length}
+              quantiDietro={quantiDietro}
               suChe={`«${c.titolo}»`}
               idsCollezione={inScena.map((vp) => vp.prodottoId)}
               nomeCollezione={c.titolo}

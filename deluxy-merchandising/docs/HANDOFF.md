@@ -310,6 +310,8 @@ porta **3120**. Design system Deluxy v1.0.
 
 - **07/08/2026 — sulla scheda della collezione l'anteprima è della collezione** (chiesto dall'utente: «qui ho bisogno di vedere l'anteprima della collezione»). Il riquadro calcolava la fila sul **campione del catalogo**: rispondeva a «cosa prenderebbe la regola in giro per il negozio» — utile per l'aggiunta automatica, non per guardare la vetrina. Ora sono i prodotti **che ci sono davvero**, in scena, ordinati dai passi. Con l'aggiunta automatica accesa si contano anche **quelli che entrerebbero** («di cui N entrerebbero dalla regola»): fra un attimo sono dentro, mostrare la fila senza di loro vorrebbe dire far vedere una vetrina che non esisterà mai. Sulla **pagina della regola** resta il campione del catalogo — lì una collezione non c'è. Verificato online: «Home-Page-Last-Minute» → 5 prodotti, in cima il MAXI Bouquet che il passo 1 prende.
 
+- **07/08/2026 — nell'anteprima ci vanno solo i prodotti che i passi prendono davvero** (segnalato dall'utente: «dovrebbe mostrare solo i prodotti realmente selezionati»). Il riquadro mostrava **tutta** la collezione ordinata: `ordinaPerPassi` non toglie nessuno dalla fila — chi non corrisponde resta sotto — e così sotto il titolo «come usciranno coi 5 passi» finivano gelati e champagne che **nessuna condizione nomina**, come se li avesse scelti la regola. Ora in anteprima c'è solo chi almeno un passo prende, e gli altri sono **contati a parte**: «Altri N stanno nella vetrina ma nessun passo li prende: restano dietro, nell'ordine in cui erano». Verificato online su «Home-Page-Last-Minute» dopo che l'utente aveva acceso l'aggiunta automatica: **73 presi dai 5 passi, altri 5 dietro**.
+
 ## COME AVVIARE
 ```
 cd deluxy-merchandising
