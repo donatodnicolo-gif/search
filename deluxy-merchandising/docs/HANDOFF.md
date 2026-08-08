@@ -312,6 +312,13 @@ porta **3120**. Design system Deluxy v1.0.
 
 - **07/08/2026 — nell'anteprima ci vanno solo i prodotti che i passi prendono davvero** (segnalato dall'utente: «dovrebbe mostrare solo i prodotti realmente selezionati»). Il riquadro mostrava **tutta** la collezione ordinata: `ordinaPerPassi` non toglie nessuno dalla fila — chi non corrisponde resta sotto — e così sotto il titolo «come usciranno coi 5 passi» finivano gelati e champagne che **nessuna condizione nomina**, come se li avesse scelti la regola. Ora in anteprima c'è solo chi almeno un passo prende, e gli altri sono **contati a parte**: «Altri N stanno nella vetrina ma nessun passo li prende: restano dietro, nell'ordine in cui erano». Verificato online su «Home-Page-Last-Minute» dopo che l'utente aveva acceso l'aggiunta automatica: **73 presi dai 5 passi, altri 5 dietro**.
 
+- **07/08/2026 — ⭐ i passi si alternano, non si esauriscono** (chiesto dall'utente: «deve apparire un solo prodotto per il numero 1 (fiore sopra i 300 €), uno solo per il numero 2 (torta a Milano) ecc»). **È un cambio di significato della regola, non una correzione grafica.** Prima le condizioni erano solo priorità di ordinamento: la fila usciva a blocchi — *tutti* i fiori sopra i 300 €, poi *tutte* le torte, poi tutti i champagne — e in cima si vedevano settantatré bouquet di fila, mentre i passi 2, 3 e 4 non comparivano finché non finiva il primo (cioè mai, per chi guarda la prima riga della vetrina).
+  - Ora `alternaFraLeCelle()` intreccia: **il primo del passo 1, il primo del passo 2, …, poi da capo**. Chi ha finito i suoi prodotti viene saltato — un passo che nella collezione non prende niente semplicemente non compare. **Dentro ogni passo l'ordine resta quello deciso dalle sue metriche**: cambia solo come i passi si intrecciano.
+  - Un prodotto appartiene al **primo** passo che lo prende: senza, un fiore d'arte urgente comparirebbe due volte in vetrina.
+  - Chi non è preso da nessun passo resta **in fondo**, com'era. Con una condizione sola (o nessuna) non c'è niente da alternare e la fila resta identica a prima — le regole di sole metriche non cambiano.
+  - **L'etichetta dei passi è stata riscritta**: diceva «Spezza i pareggi rimasti dai passi sopra», che descriveva il comportamento vecchio. Ora «Apre la vetrina: il suo primo prodotto sta in posizione 1» / «Il suo primo prodotto sta in posizione N, poi si va a turno con gli altri passi».
+  - **Verificato su «Home-Page-Last-Minute»** (78 prodotti, dopo l'aggiunta automatica): i passi dei primi dieci escono `1 3 4 5 1 3 4 5 1 3`, nessun prodotto perso o doppio. Il passo **2 non compare perché in quella collezione non prende niente**: le torte che ci sono non hanno il tag Milano.
+
 ## COME AVVIARE
 ```
 cd deluxy-merchandising

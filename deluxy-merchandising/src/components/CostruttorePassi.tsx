@@ -89,11 +89,15 @@ export function CostruttorePassi({
               <span className="vetrina-info">
                 <span className="cella-nome">{etichettaPasso(p, NOMI_METRICHE)}</span>
                 <div className="cella-sub">
+                  {/* **I passi si alternano**, non si esauriscono: il primo di
+                      ognuno apre la vetrina, uno per posizione, e poi si
+                      ricomincia. Scritto qui perche' prima diceva «spezza i
+                      pareggi», che descriveva il comportamento vecchio. */}
                   {p.t === "metrica"
                     ? REGOLE.find((x) => x.chiave === p.m)?.spiega
                     : i === 0
-                      ? "Decide l'ordine: chi corrisponde va in cima."
-                      : "Spezza i pareggi rimasti dai passi sopra."}
+                      ? "Apre la vetrina: il suo primo prodotto sta in posizione 1."
+                      : `Il suo primo prodotto sta in posizione ${i + 1}, poi si va a turno con gli altri passi.`}
                 </div>
               </span>
               <span className="vetrina-azioni">

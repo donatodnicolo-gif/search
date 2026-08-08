@@ -211,13 +211,61 @@ export async function ordinaPerPassi<T extends ProdottoOrdinabile>(
   const valorePasso = (m: T, passo: Passo): number =>
     passo.t === "metrica" ? valore(m, passo.m) : corrisponde(m, passo) ? 1 : 0;
 
-  return [...items].sort((a, b) => {
+  const fila = [...items].sort((a, b) => {
     for (const p of chiavi) {
       const d = valorePasso(b, p) - valorePasso(a, p);
       if (d !== 0) return d;
     }
     return a.nome.localeCompare(b.nome);
   });
+  return alternaFraLeCelle(fila, passi);
+}
+
+/**
+ * **A turno, uno per passo.**
+ *
+ * Con le condizioni come sole priorità la fila usciva a blocchi: prima *tutti* i
+ * fiori sopra i 300 €, poi *tutte* le torte, poi tutti i champagne. In cima si
+ * vedevano settantatré bouquet di fila, e i passi 2, 3 e 4 non comparivano
+ * finché non finiva il primo — cioè mai, per chi guarda la prima riga della
+ * vetrina. Non è quello che una regola a più condizioni vuol dire: ogni passo è
+ * **una cosa che deve esserci**, non una fetta da esaurire.
+ *
+ * Quindi si alterna: il primo del passo 1, il primo del passo 2, … e poi da
+ * capo. Chi ha finito i suoi prodotti viene saltato. **Dentro ogni passo l'ordine
+ * resta quello deciso dalle sue metriche** — cambia solo come i passi si
+ * intrecciano. Chi non è preso da nessun passo resta in fondo, com'era.
+ *
+ * Un prodotto appartiene al **primo** passo che lo prende: senza questa regola
+ * un fiore d'arte urgente comparirebbe due volte in vetrina.
+ */
+export function alternaFraLeCelle<T extends ProdottoOrdinabile>(fila: T[], passi: Passo[]): T[] {
+  const celle = passi.filter((p) => p.t !== "metrica");
+  // Con una condizione sola non c'è niente da alternare, e con nessuna la fila è
+  // già quella giusta: si restituisce com'è invece di rifare lo stesso lavoro.
+  if (celle.length < 2) return fila;
+
+  const gruppi: T[][] = celle.map(() => []);
+  const fuori: T[] = [];
+  for (const x of fila) {
+    const i = celle.findIndex((p) => corrisponde(x, p));
+    if (i < 0) fuori.push(x);
+    else gruppi[i].push(x);
+  }
+
+  const out: T[] = [];
+  const quanti = fila.length - fuori.length;
+  for (let giro = 0; out.length < quanti; giro++) {
+    let messo = false;
+    for (const g of gruppi) {
+      if (giro < g.length) {
+        out.push(g[giro]);
+        messo = true;
+      }
+    }
+    if (!messo) break; // finiti tutti: non si gira a vuoto
+  }
+  return [...out, ...fuori];
 }
 
 /**
