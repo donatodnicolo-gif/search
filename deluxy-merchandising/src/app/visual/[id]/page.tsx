@@ -50,6 +50,7 @@ export default async function CurazioneCollezionePage({
     vista?: string;
     modo?: string;
     aggiungi?: string;
+    modifica?: string;
     cerca?: string;
   }>;
 }) {
@@ -481,6 +482,8 @@ export default async function CurazioneCollezionePage({
               passi={parsePassi(c.regolaOrdine.passi)}
               voci={voci}
               tornaA={id}
+              modifica={Number.isFinite(Number(sp.modifica)) && sp.modifica ? Number(sp.modifica) : undefined}
+              indirizzoBase={`/visual/${id}?modo=condizioni${aGriglia ? "&vista=griglia" : ""}`}
               perAnteprima={perAnteprima}
               suCosa={`in vendita su ${totaleInVendita}`}
               campione={perAnteprima.length < totaleInVendita}

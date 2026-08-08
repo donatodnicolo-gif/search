@@ -1,7 +1,7 @@
 import { REGOLE } from "@/lib/ordinamento-vetrina";
 import { CAMPI, etichettaPasso, RISPOSTE, type Passo } from "@/lib/regole-ordine";
 import type { VociPassi, VoceValore } from "@/lib/voci-passi";
-import { aggiungiPassiInBlocco, muoviPasso } from "@/lib/azioni-regole-ordine";
+import { aggiungiPassiInBlocco, muoviPasso, sostituisciPasso } from "@/lib/azioni-regole-ordine";
 import type { ProdottoAnteprima } from "./AnteprimaCella";
 import { CostruttoreCella } from "./CostruttoreCella";
 
@@ -44,6 +44,8 @@ export function CostruttorePassi({
   suChe,
   idsCollezione,
   nomeCollezione,
+  modifica,
+  indirizzoBase = "",
 }: {
   regolaId: string;
   passi: Passo[];
@@ -61,10 +63,35 @@ export function CostruttorePassi({
   quantiDietro?: number;
   /** Di cosa e' la fila: ««Fast Delivery»» sulla collezione, il campione sulla pagina della regola. */
   suChe?: string;
+  /** L'indice del passo che si sta **modificando**: la griglia si apre già compilata. */
+  modifica?: number;
+  /** Da dove ripartono i link della matita (la pagina che sta mostrando i passi). */
+  indirizzoBase?: string;
   /** Quando si lavora da una collezione: per dire anche quanti ne tocca **qui dentro**. */
   idsCollezione?: string[];
   nomeCollezione?: string;
 }) {
+  // **Che cosa c'era dentro il passo che si sta modificando**, tradotto nella
+  // forma che la griglia sa mostrare. Un passo di sola metrica non ha condizioni:
+  // la griglia si apre vuota, con le sue metriche già scelte.
+  const inModifica = modifica != null && modifica >= 0 && modifica < passi.length;
+  const iniziali = (() => {
+    if (!inModifica) return undefined;
+    const p = passi[modifica as number];
+    if (p.t === "metrica") return { metriche: [p.m] };
+    const cs = p.t === "cella" ? p.c : [{ campo: p.campo, valori: p.valori, da: p.da, a: p.a }];
+    const scelti: Record<string, string[]> = {};
+    let da = "";
+    let a = "";
+    for (const c of cs) {
+      if (c.campo === "prezzo") {
+        da = c.da != null ? String(c.da) : "";
+        a = c.a != null ? String(c.a) : "";
+      } else if (c.valori?.length) scelti[c.campo] = [...c.valori];
+    }
+    return { scelti, da, a, metriche: p.t === "cella" ? [...(p.m ?? [])] : [] };
+  })();
+
   const valori: Record<string, VoceValore[]> = {
     tipo: voci.tipi,
     categoria: voci.categorie,
@@ -109,6 +136,17 @@ export function CostruttorePassi({
                 </div>
               </span>
               <span className="vetrina-azioni">
+                {/* **Modificare invece di rifare.** Per cambiare una spunta su una
+                    cella da cinque condizioni si ricominciava da capo, e nel
+                    frattempo la vetrina restava ordinata da una regola a metà. */}
+                <a
+                  className="icon-btn"
+                  href={`${indirizzoBase}${indirizzoBase.includes("?") ? "&" : "?"}modifica=${i}#regola`}
+                  title="Modifica questa condizione"
+                  aria-current={modifica === i ? "true" : undefined}
+                >
+                  ✎
+                </a>
                 <Muovi regolaId={regolaId} i={i} dove="su" tornaA={tornaA} disabilitato={i === 0} />
                 <Muovi regolaId={regolaId} i={i} dove="giu" tornaA={tornaA} disabilitato={i === passi.length - 1} />
                 <Muovi regolaId={regolaId} i={i} dove="via" tornaA={tornaA} />
@@ -173,11 +211,18 @@ export function CostruttorePassi({
           finivano sotto la piega: si costruiva senza vedere cosa si stava
           costruendo. `<details>` e non un parametro nell'indirizzo, cosi'
           aprire non ricarica la pagina e non perde la posizione. */}
-      <details className="apri-condizione" style={{ marginTop: 18 }}>
+      <details className="apri-condizione" style={{ marginTop: 18 }} open={inModifica}>
         <summary className="btn btn-primario" style={{ display: "inline-block", listStyle: "none" }}>
-          + Aggiungi condizione
+          {inModifica ? `Stai modificando la condizione ${(modifica as number) + 1}` : "+ Aggiungi condizione"}
         </summary>
-      <form action={aggiungiPassiInBlocco.bind(null, regolaId)} style={{ marginTop: 14 }}>
+      <form
+        action={
+          inModifica
+            ? sostituisciPasso.bind(null, regolaId, modifica as number)
+            : aggiungiPassiInBlocco.bind(null, regolaId)
+        }
+        style={{ marginTop: 14 }}
+      >
         {tornaA && <input type="hidden" name="tornaA" value={tornaA} />}
         {/* **La griglia è un componente client**: a ogni spunta rifà i conti e
             spegne i valori che non stanno insieme a quello che hai scelto — le
@@ -186,6 +231,7 @@ export function CostruttorePassi({
             selezione: tenerle separate avrebbe voluto dire due stati da tenere
             allineati. */}
         <CostruttoreCella
+          iniziali={iniziali}
           voci={voci}
           prodotti={perAnteprima ?? []}
           suCosa={suCosa}
@@ -195,7 +241,14 @@ export function CostruttorePassi({
         />
 
         <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginTop: 14 }}>
-          <button type="submit" className="btn btn-primario">Aggiungi come cella</button>
+          <button type="submit" className="btn btn-primario">
+            {inModifica ? "Salva la condizione" : "Aggiungi come cella"}
+          </button>
+          {inModifica && (
+            <a className="btn btn-secondario" href={`${indirizzoBase}#regola`}>
+              Annulla
+            </a>
+          )}
           <span className="page-sub" style={{ margin: 0 }}>
             Quello che spunti qui diventa <b>una cella</b>: «Fiori <i>e</i> Bouquet <i>e</i> urgenti» è una casella
             sola, non tre priorità. Dentro una riga i valori valgono <b>in alternativa</b>; fra righe diverse contano{" "}

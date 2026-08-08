@@ -340,6 +340,13 @@ porta **3120**. Design system Deluxy v1.0.
   - **Le famiglie le decide una persona**, e sono scritte nel file. Tre scelte da rivedere se serve: **Cappelliere sta nei fiori** (una cappelliera Deluxy è una scatola di rose — nessuna somiglianza fra stringhe ci arrivava); **Originali Deluxy resta da sola** perché è una linea nostra, non una famiglia di prodotto; **Animali** è separata da Regali, perché una cuccia non è un regalo.
   - **Non sovrascrive chi è già classificato a mano** (`categoria: "DA_CLASSIFICARE"` nel where): rilanciarlo non disfa lavoro di nessuno. E i tipi che nessuna famiglia prende **vengono elencati**, invece di restare indietro in silenzio.
 
+- **07/08/2026 — una condizione salvata si modifica, non si rifà** (chiesto dall'utente). Prima si poteva solo togliere e riscrivere da capo: per cambiare **una** spunta su una cella da cinque condizioni si ricominciava, e nel frattempo la vetrina restava ordinata da una regola a metà. Ora ogni passo ha la **matita**: la griglia si apre già compilata con le sue condizioni e le sue metriche, e salvando il passo **resta al suo posto** — la priorità non cambia, cambia il contenuto.
+  - Il parsing della griglia sta ora in **una funzione sola** (`passiDaForm`) usata da «aggiungi» e da «modifica»: con due copie, il giorno che si aggiunge un campo una delle due lo ignorerebbe.
+  - **Svuotare la griglia e salvare non cancella il passo**: per toglierlo c'è la ×. Far sparire una condizione perché si è deselezionato tutto sarebbe una cancellazione non chiesta.
+  - Si passa da `?modifica=<indice>`, quindi il link è condivisibile e il `<details>` si apre da solo. Verificato online: `modifica=1` apre con **Fiori d'Arte** e **urgenze** già spuntati.
+
+- ⚠️ **07/08/2026 — «Novità prima» non sa quando il prodotto è nato** (domanda dell'utente: «le novità da che campo vengono prese?»). La metrica legge `Prodotto.creatoIl`, che è **quando la scheda è stata creata qui**, non su Shopify: fra i 1.024 attivi ci sono **tre sole date** (26/07 → 445, 03/08 → 538, 04/08 → 41), cioè le tornate di import. Oggi «Novità prima» ordina per lotto di importazione, non per novità vera. **Da fare**: importare `createdAt`/`publishedAt` di Shopify come si è fatto coi metafield, e farci puntare la metrica.
+
 ## COME AVVIARE
 ```
 cd deluxy-merchandising

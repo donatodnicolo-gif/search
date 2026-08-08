@@ -18,8 +18,15 @@ const MAX_ANTEPRIMA = 900;
 // **cosa conta**, e l'ordine dei passi **è** la priorità: il primo decide, gli
 // altri spezzano i pareggi. Lo stesso costruttore sta anche dentro la scheda di
 // una collezione, così le condizioni si possono scrivere davanti alla fila.
-export default async function RegolaPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function RegolaPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ modifica?: string }>;
+}) {
   const { id } = await params;
+  const sp = await searchParams;
   const [r, voci] = await Promise.all([
     prisma.regolaOrdine.findUnique({
       where: { id },
@@ -109,6 +116,8 @@ export default async function RegolaPage({ params }: { params: Promise<{ id: str
             suCosa={`in vendita su ${totaleInVendita}`}
             campione={perAnteprima.length < totaleInVendita}
             fila={filaRegola}
+            modifica={Number.isFinite(Number(sp.modifica)) && sp.modifica ? Number(sp.modifica) : undefined}
+            indirizzoBase={`/visual/regole/${id}`}
           />
         </div>
 

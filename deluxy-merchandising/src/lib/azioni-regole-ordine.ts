@@ -105,11 +105,40 @@ export async function aggiungiPasso(id: string, fd: FormData) {
 export async function aggiungiPassiInBlocco(id: string, fd: FormData) {
   const r = await prisma.regolaOrdine.findUnique({ where: { id }, select: { passi: true } });
   const passi = parsePassi(r?.passi);
+  passi.push(...passiDaForm(fd));
+  await salvaPassi(id, passi, fd);
+}
 
-  // **Una compilazione della griglia = una cella**, non tante condizioni
-  // separate. È la differenza fra «i bouquet di fiori urgenti» e «prima i fiori,
-  // poi i bouquet, poi gli urgenti»: la prima è una casella della griglia, la
-  // seconda sono tre priorità che non dicono la stessa cosa.
+/**
+ * **Riscrive un passo già salvato** con quello che c'è nella griglia.
+ *
+ * Prima una condizione si poteva solo togliere e rifare da capo: per cambiare
+ * una sola spunta su una cella da cinque condizioni si ricominciava, e nel
+ * frattempo la vetrina restava ordinata da una regola incompleta. Qui il passo
+ * resta **al suo posto** — la priorità non cambia, cambia il contenuto.
+ */
+export async function sostituisciPasso(id: string, indice: number, fd: FormData) {
+  const r = await prisma.regolaOrdine.findUnique({ where: { id }, select: { passi: true } });
+  const passi = parsePassi(r?.passi);
+  if (indice < 0 || indice >= passi.length) return;
+  const nuovi = passiDaForm(fd);
+  // Svuotare la griglia e salvare **non cancella il passo**: per toglierlo c'è
+  // la ×, e far sparire una condizione perché si è deselezionato tutto sarebbe
+  // una cancellazione non chiesta.
+  if (nuovi.length === 0) return;
+  passi.splice(indice, 1, ...nuovi);
+  await salvaPassi(id, passi, fd);
+}
+
+/**
+ * Legge la griglia e ne ricava i passi. **Una compilazione = una cella**, non
+ * tante condizioni separate: è la differenza fra «i bouquet di fiori urgenti» e
+ * «prima i fiori, poi i bouquet, poi gli urgenti».
+ *
+ * Sta in una funzione sola perché la usano sia «aggiungi» sia «modifica»: con
+ * due copie, il giorno che si aggiunge un campo una delle due lo ignorerebbe.
+ */
+function passiDaForm(fd: FormData): Passo[] {
   const condizioni: Condizione[] = [];
   for (const c of CAMPI) {
     if (c.chiave === "prezzo") {
@@ -128,26 +157,17 @@ export async function aggiungiPassiInBlocco(id: string, fd: FormData) {
     if (valori.length > 0) condizioni.push({ campo: c.chiave, valori });
   }
   // **In ordine di scelta**: la prima decide, le successive spezzano i pareggi.
-  // I doppioni si scartano tenendo la prima posizione — sceglierla due volte non
-  // vuol dire contarla due volte.
+  // I doppioni si scartano tenendo la prima posizione.
   const metriche: RegolaOrdinamento[] = [];
   for (const raw of fd.getAll("metrica")) {
     const v = String(raw);
     if (isRegola(v) && v !== "manuale" && !metriche.includes(v)) metriche.push(v);
   }
-
-  if (condizioni.length > 0) {
-    // La metrica scelta **insieme** alle condizioni resta attaccata alla cella:
-    // e' stata una scelta sola, e come passo separato si leggeva come due
-    // decisioni scollegate. Dice come si ordinano i prodotti che la cella porta
-    // in cima.
-    passi.push({ t: "cella", c: condizioni, m: metriche.length ? metriche : undefined });
-  } else {
-    // Senza condizioni ogni metrica e' un passo a se': mettono in fila tutti.
-    for (const m of metriche) passi.push({ t: "metrica", m });
-  }
-
-  await salvaPassi(id, passi, fd);
+  // La metrica scelta **insieme** alle condizioni resta attaccata alla cella:
+  // dice come si ordinano i prodotti che la cella porta in cima. Senza
+  // condizioni ogni metrica è un passo a sé: mettono in fila tutti.
+  if (condizioni.length > 0) return [{ t: "cella", c: condizioni, m: metriche.length ? metriche : undefined }];
+  return metriche.map((m) => ({ t: "metrica", m }));
 }
 
 /** Toglie un passo, o lo sposta su/giù: la priorità si cambia senza riscrivere tutto. */

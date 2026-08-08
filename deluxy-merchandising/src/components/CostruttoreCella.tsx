@@ -35,20 +35,25 @@ export function CostruttoreCella({
   campione,
   idsCollezione,
   nomeCollezione,
+  iniziali,
 }: {
   voci: VociPassi;
   /** **Il catalogo**, non la collezione: e' il vocabolario di quello che si puo' esprimere. */
   prodotti: ProdottoAnteprima[];
   suCosa: string;
   campione?: boolean;
+  /** Con cosa parte la griglia, quando si sta **modificando** un passo già salvato. */
+  iniziali?: { scelti?: Record<string, string[]>; da?: string; a?: string; metriche?: string[] };
   /** Gli id dei prodotti della collezione da cui si lavora: solo per il secondo numero. */
   idsCollezione?: string[];
   nomeCollezione?: string;
 }) {
-  const [scelti, setScelti] = useState<Record<string, string[]>>({});
-  const [metriche, setMetriche] = useState<string[]>([]);
-  const [da, setDa] = useState("");
-  const [a, setA] = useState("");
+  // Modificando un passo la griglia parte **da com'era**: ricominciare da vuoto
+  // vorrebbe dire riscrivere a memoria quello che si sta correggendo.
+  const [scelti, setScelti] = useState<Record<string, string[]>>(iniziali?.scelti ?? {});
+  const [metriche, setMetriche] = useState<string[]>(iniziali?.metriche ?? []);
+  const [da, setDa] = useState(iniziali?.da ?? "");
+  const [a, setA] = useState(iniziali?.a ?? "");
 
   const opzioni: Record<string, VoceValore[]> = {
     tipo: voci.tipi,
