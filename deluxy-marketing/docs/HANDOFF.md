@@ -22,6 +22,62 @@ Riceve già dati veri da Google Ads (Gifts e Flowers) e ha 2.426 ordini Shopify 
 
 ## FATTO
 
+### ⭐⭐ La coda si bloccava in silenzio: l'account non lo scriveva nessuno (08/08/2026)
+
+Partito da «un'operazione approvata dal 07/08 e mai eseguita». La causa non era
+quella singola riga.
+
+**Misurato: `OperazioneAdv.account` era vuoto su 32 operazioni su 32.** Il campo
+c'è da sempre e non lo riempiva **nessuno** degli undici punti che creano
+operazioni.
+
+Con l'account vuoto, in `eseguiOperazioni` succede questo: lo script di *ogni*
+account guarda l'operazione, cerca il bersaglio in casa propria, non lo trova e
+la conta fra le **saltate** — non fra le fallite. Le saltate **non riferiscono
+niente all'app**.
+
+> ⚠️ **Una coda che si blocca in silenzio è indistinguibile da una coda vuota.**
+> L'operazione resta `approvata` per sempre e il motivo esiste **solo nel log
+> dentro Google Ads**, dove nessuno guarda. Il log di Cake diceva
+> `Salto attiva_keyword su "flowers delivery milan": non è in questo account.`
+> — su Cake è la risposta **giusta** (la keyword è di Gifts), ma **anche Gifts
+> ha stampato la stessa riga**, e le due cose sono indistinguibili.
+
+**Perché non era mai saltato fuori prima.** Guardando tutte le 18 operazioni
+sulle keyword mai create: quelle che hanno funzionato avevano **tutte**
+l'`idEsterno` nel formato `account:gruppo:criterio` e prendevano la **scorciatoia
+per id** in `trovaKeyword`. Questa è **la prima e unica** che ha esercitato la
+ricerca **per testo**, ed è fallita. Cioè: quel ramo non ha mai funzionato, e
+non si vedeva perché non ci passava mai nessuno.
+
+**Quanto è grande davvero**: nell'archivio delle keyword **4.808 righe su 8.071
+(60%) hanno ancora l'id nel formato vecchio** (solo il numero del criterio) e
+419 non ce l'hanno affatto. Cioè per **circa due keyword su tre** mettere in
+coda una pausa o una riattivazione produceva un'operazione che lo script
+scartava senza dirlo.
+
+**La correzione**: `lib/operazioni.ts` con `accodaOperazione()`, **punto unico**
+da cui passano tutte e undici le creazioni (dieci in `azioni.ts`, una nella
+route API). Riempie `account` ricavandolo dal brand della campagna o del gruppo.
+Non ripara la ricerca per testo: **toglie il silenzio**, che era il difetto
+vero. Con l'account scritto, la macchina che c'è già cambia in due punti:
+
+1. gli account estranei scartano l'operazione **subito**, senza cercare;
+2. sull'account giusto un bersaglio non trovato smette di essere una «saltata» e
+   diventa un **errore che torna indietro** con la sua causa
+   (`if (op.account)` → `fallite++` → `riferisci(...)`).
+
+Verificata a secco la risoluzione su tutti e sei gli incroci brand × canale:
+gifts→`248-656-1148`/`2802316249885506`, flowers→`825-518-1560`/`965988141913909`,
+cake→`846-090-5423`/`1040175814157216`. Un brand `cross` resta **null** apposta:
+«non lo so» è meglio di un account a caso, che manderebbe l'operazione a farsi
+eseguire nel posto sbagliato.
+
+> ⚠️ **Vale per le operazioni NUOVE.** Quella ferma dal 07/08 ha ancora
+> `account` vuoto: va riempita a mano sul database, **oppure** — più semplice —
+> annullata in coda e rifatta dall'app, che ora la scrive. Finché ha l'account
+> vuoto continuerà a essere saltata da tutti e tre gli account.
+
 ### ⭐ Un `<form>` dentro un `<p>` rompeva l'idratazione — e con lei l'ordinamento delle tabelle (08/08/2026)
 
 Segnalato come «riordinando la colonna perde il focus e torna a inizio pagina».
@@ -1323,8 +1379,13 @@ analisi importate); seconda corsa 0 scritture.
    ancora eseguire (vedi il motore spento qui sopra). Il bottone deve dire cosa
    succede davvero, non promettere.
 
-4. ⭐ **Un'operazione approvata è ferma in coda dal 07/08 e nessuno lo dice**
-   (trovato l'08/08/2026, **aperto**). `attiva_keyword` su
+4. **Un'operazione approvata ferma in coda dal 07/08** — la **causa di fondo è
+   stata corretta** (vedi «La coda si bloccava in silenzio» in FATTO: l'account
+   ora si scrive). Resta da fare **solo** questa riga, che è nata prima della
+   correzione: annullarla in coda e rifarla dall'app, oppure riempirle `account`
+   a mano con `248-656-1148`. Sotto, il quadro com'era quando è stata trovata.
+
+   `attiva_keyword` su
    «flowers delivery milan», campagna `[Deluxy] - Fiori Milano ENG` (Gifts,
    account `248-656-1148`), approvata il **07/08 alle 02:51**. Da allora sia
    Gifts sia Cake hanno fatto giri completi — su Gifts altre operazioni sono

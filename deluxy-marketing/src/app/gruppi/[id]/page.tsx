@@ -234,11 +234,17 @@ export default async function SchedaGruppo({
     if (filtroKw === "decise") return azioneDi(k.testo) != null;
     return true;
   })
-    // ⚠️ Ordine di partenza: per SPESA, dalla più bassa. Le parole arrivavano
-    // nell'ordine della query (spesa in giù) ma con 337 righe senza numeri su
-    // 491 la tabella si apriva su una distesa di trattini. Partendo dal basso
-    // le parole che spendono poco o nulla stanno in cima — che è dove si
-    // guarda per tagliare — e i vuoti restano in fondo, dove non ingombrano.
+    // ⚠️ Ordine di partenza: per SPESA, dalla più ALTA (deciso dall'utente
+    // l'08/08/2026). Per un giorno era stato il contrario — le parole che
+    // spendono poco in cima, perché è lì che si taglia — ma la tabella si apre
+    // su quello che costa: i soldi che escono si guardano prima di quelli che
+    // non escono, e le parole da tagliare si trovano col filtro «spendono a
+    // vuoto», che esiste apposta.
+    //
+    // I vuoti restano in fondo in ogni caso: «nessun dato» non è né il massimo
+    // né il minimo, e in cima riempirebbe lo schermo di trattini (337 righe su
+    // 491 senza numeri, misurato il 07/08). È la stessa regola del riordino a
+    // click in TabelleOrdinabili.
     .slice()
     .sort((a, b) => {
       const sa = a.spesa ?? null;
@@ -246,7 +252,7 @@ export default async function SchedaGruppo({
       if (sa == null && sb == null) return 0;
       if (sa == null) return 1; // «nessun dato» in fondo, sempre
       if (sb == null) return -1;
-      return sa - sb;
+      return sb - sa;
     });
 
   const operazioneAperta = gruppo.operazioni.find((o) => o.stato === "in_attesa" || o.stato === "approvata");
@@ -632,13 +638,16 @@ export default async function SchedaGruppo({
                 </button>
               </form>
                 <div style={{ overflowX: "auto" }}>
-                  {/* La tabella arriva già ordinata per spesa crescente (vedi
+                  {/* La tabella arriva già ordinata per spesa decrescente (vedi
                       `keywordMostrate`), ma finché non lo DICEVA sembrava non
                       ordinata: la colonna non aveva la freccia, e il primo
                       click su Spesa rifaceva lo stesso ordine invece di
                       rovesciarlo. Qui si dichiara com'è ordinata; il resto lo
-                      fa TabelleOrdinabili, senza riordinare di nuovo. */}
-                  <table data-ordinata-per="Spesa" data-ordinata-verso="asc">
+                      fa TabelleOrdinabili, senza riordinare di nuovo.
+                      ⚠️ Questo `verso` deve seguire il `.sort()` di sopra: se
+                      dicesse il contrario, il primo click non rovescerebbe
+                      niente e la tabella sembrerebbe di nuovo rotta. */}
+                  <table data-ordinata-per="Spesa" data-ordinata-verso="desc">
                     <thead>
                       <tr>
                         <th data-no-ordina></th>

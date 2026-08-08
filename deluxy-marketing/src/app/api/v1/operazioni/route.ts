@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { autentica, erroreApi } from "@/lib/api-auth";
 import { prisma } from "@/lib/db";
+import { accodaOperazione } from "@/lib/operazioni";
 import { registra } from "@/lib/registro";
 import { MODIFICHE_CHE_PESANO, validaModifica } from "@/lib/guardrail";
 
@@ -80,7 +81,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const operazione = await prisma.operazioneAdv.create({
+  const operazione = await accodaOperazione({
     data: {
       tipo: String(body.tipo),
       canale: body.canale ?? "google_ads",

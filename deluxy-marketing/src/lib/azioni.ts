@@ -15,6 +15,7 @@ import { IMP_TOKEN_TIKTOK } from "@/lib/tiktok";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "./db";
+import { accodaOperazione } from "./operazioni";
 import { STATI_AZIONE, STATI_AZIONE_APERTI, STATI_CAMPAGNA, testoKeywordPulito } from "./dominio";
 import { CHIAVE_APIKEY, CHIAVE_CARTELLA, idCartellaDrive, sincronizzaDrive } from "./drive";
 // Statico e non `await import()` come il resto di guardrail: serve dentro le
@@ -1124,7 +1125,7 @@ export async function creaOperazione(fd: FormData) {
     );
   }
 
-  const op = await prisma.operazioneAdv.create({
+  const op = await accodaOperazione({
     data: {
       tipo,
       canale: campagna.canale,
@@ -1203,7 +1204,7 @@ export async function creaOperazioneKeyword(fd: FormData) {
     avvisi.push(...esito.avvisi);
   }
 
-  const op = await prisma.operazioneAdv.create({
+  const op = await accodaOperazione({
     data: {
       tipo,
       canale: campagna.canale,
@@ -1301,7 +1302,7 @@ export async function portaIdealeQui(campagnaId: string, testoOriginale: string,
     finale = riscritto;
   }
 
-  const op = await prisma.operazioneAdv.create({
+  const op = await accodaOperazione({
     data: {
       tipo: "nuova_keyword",
       canale: campagna.canale,
@@ -1364,7 +1365,7 @@ export async function adattaProposta(propostaId: string) {
   const riscritto = perAltraCitta(testoKeywordPulito(p.testo), citta);
   if (!riscritto) return;
 
-  const op = await prisma.operazioneAdv.create({
+  const op = await accodaOperazione({
     data: {
       tipo: "nuova_keyword",
       canale: p.campagna.canale,
@@ -1409,7 +1410,7 @@ export async function accettaProposta(propostaId: string) {
     // Stessa pulizia dei bottoni a mano: su Google la keyword non si chiama
     // «flower milan (match esatto)».
     const pulito = testoKeywordPulito(p.testo);
-    const op = await prisma.operazioneAdv.create({
+    const op = await accodaOperazione({
       data: {
         tipo: tipoOperazione,
         canale: p.campagna.canale,
@@ -1525,7 +1526,7 @@ export async function lanciaCampagna(fd: FormData) {
     },
   });
 
-  const op = await prisma.operazioneAdv.create({
+  const op = await accodaOperazione({
     data: {
       tipo: "nuova_campagna",
       canale: "google_ads",
@@ -1686,7 +1687,7 @@ export async function creaOperazioneGruppo(fd: FormData) {
     );
   }
 
-  const op = await prisma.operazioneAdv.create({
+  const op = await accodaOperazione({
     data: {
       tipo,
       canale: gruppo.canale,
@@ -1796,7 +1797,7 @@ export async function giudicaTermine(scelta: string, fd: FormData) {
     termine.campagna.incidenti.length > 0
       ? `Incidente ${termine.campagna.incidenti[0].codice} APERTO su questa campagna: finché non è chiuso, quello che si misura è sporcato dal guasto.`
       : null;
-  const op = await prisma.operazioneAdv.create({
+  const op = await accodaOperazione({
     data: {
       tipo: "negativa",
       canale: termine.campagna.canale,
@@ -2395,7 +2396,7 @@ export async function escludiParoleSelezionate(fd: FormData) {
 
   for (const t of nuove) {
     const pulito = testoKeywordPulito(t);
-    await prisma.operazioneAdv.create({
+    await accodaOperazione({
       data: {
         tipo: "negativa",
         canale: campagna.canale,
@@ -2603,7 +2604,7 @@ export async function applicaKeywordAdAltreCampagne(fd: FormData) {
       continue;
     }
 
-    await prisma.operazioneAdv.create({
+    await accodaOperazione({
       data: {
         tipo: "nuova_keyword",
         canale: c.canale,
