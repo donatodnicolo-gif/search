@@ -1229,6 +1229,33 @@ Numeri veri del 28/07: corsa completa **594 documenti in 24,7 s** (7 nuovi, 6
 aggiornati, **101 spariti** che l'indice si portava dietro dalle sync morte, 25
 analisi importate); seconda corsa 0 scritture.
 
+## Da riprendere subito (08/08/2026, fine sessione)
+
+Tre cose chieste dall'utente e **non iniziate**, in ordine di come le
+riprenderei:
+
+1. **Conversioni da Orders accanto a quelle di Google**, sulla scheda campagna.
+   ⚠️ **Non si sommano**: le conversioni di Google contano view-through e
+   finestre lunghe, gli ordini di Orders sono cassa vera attribuita per UTM —
+   sommarle conta due volte lo stesso acquisto. Vanno **affiancate**, come già
+   fa il blocco Vendite: «2 dichiarate da Google · N ordini veri con l'UTM».
+   L'utente ha detto ok a questa impostazione.
+2. **Selezione multipla** per «Escludi» e «Porta altrove» sulle parole cercate.
+   Metà è già fatta: `applicaKeywordAdAltreCampagne` accetta **più parole**
+   (`fd.getAll("testo")`, con la traduzione disattivata quando sono più d'una).
+   Manca la barra con le caselle nella tabella — il modello è la barra
+   «Escludi le selezionate» della scheda gruppo.
+3. **Bottone «Lancia su Meta Ads»** quando si filtra per `canale=meta_ads`.
+   ⚠️ Non è solo un'etichetta: oggi porta al modulo di Google, che offre
+   keyword e negative — **che su Meta non esistono**. E la coda su Meta non può
+   ancora eseguire (vedi il motore spento qui sopra). Il bottone deve dire cosa
+   succede davvero, non promettere.
+
+Da fare fuori dall'app: **reincollare `tutto.js`** nei tre account
+(`C:\Users\nicol\Downloads\deluxy-google-ads\`, chiave e BRAND da rimettere a
+mano), e verificare in Business Manager se `ads_management` si ottiene senza
+App Review.
+
 ## MANCA
 
 ### Punti aperti al 01/08/2026 (in cima perché sono i più freschi)
