@@ -252,7 +252,18 @@ export async function analizzaMessaggioOra(
   // promemoria. 'auto' = lettura in sottofondo dei contatti/thread AI+: legge
   // e riassume, ma crea un'attività SOLO se l'AI ne trova davvero una (niente
   // task-tappabuchi «Gestire: …» per ogni mail).
-  origine: 'priorita' | 'auto' = 'priorita'
+  origine: 'priorita' | 'auto' = 'priorita',
+  /**
+   * Se scrivere anche la BOZZA DI RISPOSTA.
+   *
+   * ⚠️ Dal 7/08/2026 dare una priorità **non** prepara più una risposta: era
+   * una cosa che partiva da sola su un gesto che voleva dire un'altra cosa
+   * («questa è urgente», non «rispondile»). La bozza si chiede col tasto
+   * **R+** accanto alle priorità. Qui resta il parametro perché la lettura in
+   * sottofondo (AI+) continua a proporla: lì la proposta è il senso stesso
+   * della funzione.
+   */
+  conBozza = true
 ): Promise<{ ok: boolean; messaggio: string }> {
   const m = await db.messaggio.findFirst({ where: { id: messaggioId, utenteId } })
   if (!m) return { ok: false, messaggio: 'Messaggio non trovato.' }
@@ -371,7 +382,8 @@ export async function analizzaMessaggioOra(
       })
     }
 
-    if (analisi.serveRisposta && analisi.bozza) {
+    const bozzaScritta = conBozza && analisi.serveRisposta && Boolean(analisi.bozza)
+    if (bozzaScritta && analisi.bozza) {
       await db.bozza.create({
         data: {
           utenteId,
@@ -383,10 +395,10 @@ export async function analizzaMessaggioOra(
       })
     }
 
-    const conBozza = analisi.serveRisposta && analisi.bozza ? ' e una bozza di risposta' : ''
+    const notaBozza = bozzaScritta ? ' e una bozza di risposta' : ''
     return {
       ok: true,
-      messaggio: `${attivita.length === 1 ? 'Attività creata' : `${attivita.length} attività create`}${conBozza}.`,
+      messaggio: `${attivita.length === 1 ? 'Attività creata' : `${attivita.length} attività create`}${notaBozza}.`,
     }
   } catch (e) {
     const errore = e instanceof Error ? e.message : String(e)

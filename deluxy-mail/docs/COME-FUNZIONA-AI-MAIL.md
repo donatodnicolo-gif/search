@@ -170,8 +170,15 @@ un'intera serie arrivano al giro di sincronizzazione successivo, non all'istante
 
 ## 6. Bozze
 
-La bozza si genera quando l'AI valuta che serve una risposta (`serveRisposta`) oppure
-quando una regola ha `creaBozza`.
+**La chiedi tu, col tasto «R+»** accanto alle priorità (in elenco e sulla mail aperta):
+Renè legge tutta la conversazione e prepara la risposta, poi si apre la schermata di
+scrittura dove la correggi prima di mandarla. ⚠️ Dal 7 agosto 2026 **dare una priorità
+non prepara più una risposta**: un P0 vuol dire «questa è urgente», non «rispondile» — e
+chi stava solo mettendo in ordine la posta si ritrovava bozze mai chieste. La priorità fa
+ancora leggere la mail all'AI (riassunto e attività).
+
+La bozza si genera anche da sola quando la lettura in sottofondo (AI+) valuta che serve
+una risposta (`serveRisposta`), o quando una regola ha `creaBozza`.
 
 Regole di scrittura imposte al modello: italiano, tono professionale e asciutto, e
 **mai dati inventati**. Se manca un dato (un prezzo, una data, una disponibilità), il

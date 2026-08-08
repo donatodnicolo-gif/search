@@ -588,6 +588,18 @@ mark.ricerca-hit {
 .prio-btn:hover { background: var(--fill-hover); }
 .prio-btn:active { transform: scale(0.96); }
 
+/* R+ : chiede la bozza di risposta. Sta con le priorità perché è lo stesso
+   momento, ma è un gesto diverso — quindi si stacca dal gruppo con un filo di
+   spazio e prende l'oro, il colore che in quest'app vuol dire «AI». */
+.prio-btn.risposta-ai {
+  margin-left: 6px;
+  color: var(--gold, #b8963e);
+  border-color: color-mix(in srgb, var(--gold, #b8963e) 45%, transparent);
+}
+.prio-btn.risposta-ai:hover {
+  background: color-mix(in srgb, var(--gold, #b8963e) 10%, var(--surface));
+}
+
 /* Spento il livello si vede appena; acceso prende il colore del suo stato. */
 .prio-btn.attivo { color: #fff; border-color: transparent; }
 .prio-btn.red.attivo { background: var(--red); }

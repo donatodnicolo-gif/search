@@ -380,7 +380,10 @@ export async function impostaPriorita(
   // (OpenAI, database, timeout) il client deve ricevere un messaggio, non un
   // errore silenzioso — altrimenti "cliccando la priorità non succede nulla".
   try {
-    const esito = await analizzaMessaggioOra(id, utenteId)
+    // ⚠️ SENZA bozza di risposta: dare una priorità vuol dire «questa è
+    // urgente», non «rispondile». La risposta si chiede col tasto **R+**
+    // accanto alle priorità (`preparaRispostaAI`).
+    const esito = await analizzaMessaggioOra(id, utenteId, 'priorita', false)
     revalidatePath('/', 'layout')
     return esito
   } catch (e) {
@@ -390,6 +393,32 @@ export async function impostaPriorita(
       messaggio: e instanceof Error ? e.message : 'Analisi non riuscita: riprova.',
     }
   }
+}
+
+/**
+ * **R+**: fa scrivere a Renè la bozza di risposta a questa mail.
+ *
+ * ⚠️ Nasce staccando la bozza dalla PRIORITÀ (7/08/2026): prima bastava dare
+ * un P0 e partiva una risposta preparata, cioè un gesto ne faceva due — e chi
+ * classificava la posta si ritrovava bozze che non aveva chiesto. Ora la
+ * priorità dice solo quanto è urgente; la risposta si chiede qui.
+ *
+ * Sotto c'è la stessa strada di «Delega Renè» (`preparaRispostaDelegata`), che
+ * legge **tutta la conversazione** e la rubrica: scrive meglio della bozza che
+ * usciva dall'analisi, che vedeva la sola mail. Senza istruzioni particolari:
+ * per quelle c'è «Delega Renè», dove le scrivi a parole.
+ */
+export async function preparaRispostaAI(
+  messaggioId: string
+): Promise<{ ok: boolean; messaggio: string; vaiA?: string }> {
+  const utenteId = await uid()
+  const esito = await preparaRispostaDelegata(
+    messaggioId,
+    'Rispondi tu a questo messaggio come serve: riprendi ciò che è rimasto in sospeso e chiudi i punti aperti.',
+    utenteId
+  )
+  revalidatePath('/', 'layout')
+  return esito
 }
 
 export async function analizzaContatto(

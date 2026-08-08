@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { impostaPriorita } from '@/lib/actions'
 import { PRIORITA } from '@/lib/format'
+import { BottoneRispostaAI } from './BottoneRispostaAI'
 
 type Props = {
   id: string
@@ -38,8 +39,9 @@ export function PrioritaButtons({ id, priorita, prioritaDa, analizzato }: Props)
     })
   }
 
-  // L'AI parte solo dando la priorità: senza dirlo, il ritardo del primo click
-  // sembrerebbe un impuntamento dell'app.
+  // L'AI legge la mail dando la priorità (riassunto e attività, NON più la
+  // bozza di risposta: quella si chiede con R+). Senza dirlo, il ritardo del
+  // primo click sembrerebbe un impuntamento dell'app.
   const nota = inCorso
     ? 'L’AI sta leggendo il messaggio…'
     : stato
@@ -72,6 +74,11 @@ export function PrioritaButtons({ id, priorita, prioritaDa, analizzato }: Props)
           </button>
         )
       })}
+
+      {/* R+ : la risposta si CHIEDE, non arriva perché hai dato una priorità.
+          Sta qui accanto perché è lo stesso momento — stai decidendo cosa fare
+          di questa mail — ma è un gesto diverso e va premuto apposta. */}
+      <BottoneRispostaAI id={id} />
 
       {nota && (
         <span
