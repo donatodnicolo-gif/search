@@ -147,6 +147,16 @@ export function ListaMail({
     setSelezione((s) => (s.size >= righe.length ? new Set() : new Set(righe.map((r) => r.id))))
   const azzera = () => setSelezione(new Set())
 
+  // Le sole NON LETTE, in un colpo: è la selezione che si fa più spesso —
+  // segnarle lette tutte, archiviarle, mandarle via. Ripremendo si torna a
+  // zero, come fa «Seleziona tutti».
+  const nonLette = righe.filter((r) => r.nonLetti)
+  const soloNonLette = () =>
+    setSelezione((s) => {
+      const giaEsatte = nonLette.length > 0 && s.size === nonLette.length && nonLette.every((r) => s.has(r.id))
+      return giaEsatte ? new Set() : new Set(nonLette.map((r) => r.id))
+    })
+
   const esegui = (azione: AzioneMassa, sezioneId?: string | null) => {
     const ids = [...selezione]
     if (ids.length === 0) return
@@ -179,6 +189,19 @@ export function ListaMail({
             {selezione.size > 0 ? `${selezione.size} selezionate` : `Seleziona tutti (${righe.length})`}
           </span>
         </label>
+
+        {/* La scorciatoia più usata: spuntare le sole da leggere per poi
+            smaltirle in blocco. Compare solo se ce n'è davvero qualcuna. */}
+        {nonLette.length > 0 && (
+          <button
+            type="button"
+            className="azione-riga"
+            onClick={soloNonLette}
+            title="Spunta solo le conversazioni con mail da leggere"
+          >
+            Solo le non lette ({nonLette.length})
+          </button>
+        )}
 
         {selezione.size > 0 && (
           <div className="mail-select-azioni">

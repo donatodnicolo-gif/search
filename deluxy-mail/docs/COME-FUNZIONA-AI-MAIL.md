@@ -426,6 +426,11 @@ In più: un pallino blu sulle non lette, la riga **«da qui non hai letto»** ch
 riprendere, la graffetta di chi ha allegati, e «Apri tutte / Chiudi tutte». L'ultimo
 messaggio è già aperto, perché è quasi sempre quello che serve.
 
+**Selezionare in fretta le non lette.** Nella barra della selezione, accanto a «Seleziona
+tutti», c'è **«Solo le non lette (12)»**: spunta in un colpo le conversazioni con qualcosa
+da leggere, e da lì le smaltisci insieme — «Letta», «Archivia», «Cestina», «Sposta in…».
+Ripremendolo la selezione si azzera. Compare solo se ce n'è davvero qualcuna.
+
 **Precedente e Successiva.** In cima alla mail aperta, accanto a «← Posta in arrivo», ci
 sono **↑ Precedente** e **↓ Successiva** (tasti `p` e `n`): si scorre la posta senza
 tornare ogni volta nell'elenco. *Precedente* è la mail più recente di quella che stai
