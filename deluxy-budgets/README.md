@@ -120,6 +120,22 @@ pubblicato), *sfidante* e *irraggiungibile*.
   davvero dal conto per stipendi nello stesso periodo — non sommato, che sarebbe contare due volte le
   stesse persone, ma affiancato, che è l'unico modo per accorgersi se pianificato e pagato si stanno
   allontanando. Motore in `src/lib/consuntivo-dettaglio.ts`, stessa UI del conto economico.
+- ⭐ **IN `/maison` I MESI PASSATI PORTANO IL LORO CONSUNTIVO** (09/08/2026, richiesta dell'utente:
+  «maison metti consuntivo per i mesi passati»). La tabella «mese per mese, brand per brand» era tutta
+  budget: dodici mesi di promesse, anche su mesi già finiti di cui si sa com'è andata. Ora, per ogni
+  brand che ha un negozio, sotto la riga **D2C** c'è la riga **venduto reale** in blu — mese per mese,
+  solo i **mesi chiusi** — e sotto le righe del brand la riga **Attuale**: mesi chiusi per quello che è
+  successo, mesi che restano per quello che è a budget. Le stesse due righe in fondo, per l'azienda.
+  Misurato oggi: Deluxy.it budget 525.500 € → **attuale 908.441 €**, Flowers 293.024 → **316.957**,
+  CakeDesign 98.259 → **99.853**, azienda 1.164.282 → **1.544.851** (venduto dei mesi chiusi 614.351 €).
+  Sono gli stessi numeri della scheda del singolo brand: il conto è uno solo.
+  > ⚠️ Tre limiti dichiarati sotto la tabella. Il **mese in corso resta fuori** (mezzo mese di vendite
+  > contro un mese intero di budget farebbe sembrare in ritardo un brand che non lo è: per quello c'è
+  > `/venduto`, che è al giorno). Nei mesi chiusi **solo il D2C è misurato**, quindi dentro «Attuale»
+  > Eventi e B2B sono ancora budget — per un brand un loro consuntivo non esiste, il fatturato di
+  > Finance è per tipologia di servizio e non si ripartisce per maison. E i brand **senza negozio**
+  > (Business, Experience) non hanno nessuna riga blu: una riga di zeri sembrerebbe un crollo invece di
+  > un dato che non c'è.
 - ⭐ **SI ENTRA NEL SINGOLO MESE** (`/consuntivo/mese/[m]`, 09/08/2026, richiesta dell'utente:
   «consentimi di entrare nel dettaglio di ogni mese»). Lo **split mensile** dava dodici colonne di
   numeri veri e nessun modo di chiedere *perché*, mentre la domanda che nasce lì è quasi sempre su un

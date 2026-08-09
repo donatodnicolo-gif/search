@@ -46,12 +46,36 @@ export default async function MaisonIndex({
       mesiChiusi
     );
     const vendutoReale = vend?.ok ? sommaMesi(vend.perMaison.get(m.slug), mesiChiusi) : null;
-    return { m, t, mesi, perCanale, budgetD2C, vendutoReale };
+    // Il venduto vero, **mese per mese**, per la riga blu sotto il D2C. `null`
+    // dove il brand un negozio non ce l'ha: una riga di zeri sembrerebbe un
+    // crollo, e Business ed Experience non vendono online.
+    const vendutoMesi = vend?.ok ? vend.perMaison.get(m.slug) ?? null : null;
+    return { m, t, mesi, perCanale, budgetD2C, vendutoReale, vendutoMesi };
   });
 
   const totMesi = Array(12).fill(0) as number[];
   for (const r of righe) r.mesi.forEach((v, i) => { totMesi[i] += v; });
   const totAnno = totMesi.reduce((s, v) => s + v, 0);
+
+  // Il venduto vero d'azienda, mese per mese: la riga sotto il totale. Somma
+  // solo i brand che un negozio ce l'hanno — gli altri non sono a zero, non
+  // sono misurati, ed è la stessa distinzione che fa la riga per brand.
+  const totVendutoMesi = Array(12).fill(0) as number[];
+  let qualcunoMisurato = false;
+  for (const r of righe) {
+    if (!r.vendutoMesi) continue;
+    qualcunoMisurato = true;
+    r.vendutoMesi.forEach((v, i) => { totVendutoMesi[i] += v; });
+  }
+  // Un mese si mostra solo se è **chiuso**: il mese in corso è mezzo mese di
+  // vendite contro un mese intero di budget, e affiancarli farebbe sembrare in
+  // ritardo un brand che non lo è. Vale per la riga del brand e per il totale.
+  const chiuso = (i: number) => mesiChiusi.includes(i + 1);
+  // «Attuale»: i mesi chiusi per quello che è successo davvero, quelli che
+  // restano per quello che è a budget. È la riga che risponde a «dove si
+  // chiude», ed è la stessa che c'è già dentro la scheda di ogni maison.
+  const attuale = (budgetMesi: number[], vendutoMesi: number[] | null) =>
+    budgetMesi.reduce((s, b, i) => s + (chiuso(i) && vendutoMesi ? vendutoMesi[i] ?? 0 : b), 0);
   const conEcommerce = righe.filter((r) => r.vendutoReale !== null && (r.vendutoReale > 0 || r.budgetD2C > 0));
 
   return (
@@ -123,19 +147,66 @@ export default async function MaisonIndex({
                   {r.perCanale
                     .filter((c) => c.totale > 0)
                     .map((c) => (
-                      <tr key={`${r.m.id}-${c.tip.slug}`}>
-                        <td style={{ paddingLeft: 26, fontSize: 12.5 }}>
-                          <span className="muted" style={{ marginRight: 6 }}>↳</span>
-                          {c.tip.nome}
-                        </td>
-                        {c.mesi.map((v, i) => (
-                          <td className={`num ${v === 0 ? "muted" : ""}`} key={i} style={{ fontSize: 12.5 }}>
-                            {v === 0 ? "—" : eur(v)}
+                      <Fragment key={`${r.m.id}-${c.tip.slug}`}>
+                        <tr>
+                          <td style={{ paddingLeft: 26, fontSize: 12.5 }}>
+                            <span className="muted" style={{ marginRight: 6 }}>↳</span>
+                            {c.tip.nome}
                           </td>
-                        ))}
-                        <td className="num muted" style={{ fontSize: 12.5 }}>{eur(c.totale)}</td>
-                      </tr>
+                          {c.mesi.map((v, i) => (
+                            <td className={`num ${v === 0 ? "muted" : ""}`} key={i} style={{ fontSize: 12.5 }}>
+                              {v === 0 ? "—" : eur(v)}
+                            </td>
+                          ))}
+                          <td className="num muted" style={{ fontSize: 12.5 }}>{eur(c.totale)}</td>
+                        </tr>
+                        {/* **Il consuntivo dei mesi passati**, sotto la riga a
+                            cui appartiene. Sta solo sotto il D2C perché per una
+                            maison l'unico consuntivo che esiste è il venduto dei
+                            negozi: il fatturato di Finance è per tipologia di
+                            servizio e ripartirlo per brand vorrebbe dire
+                            inventare una chiave di riparto. In blu, perché un
+                            numero già successo e uno promesso non devono
+                            somigliarsi. */}
+                        {c.tip.slug === "D2C" && r.vendutoMesi && (
+                          <tr>
+                            <td style={{ paddingLeft: 26, fontSize: 12.5, color: "var(--blue)" }}>
+                              <span className="muted" style={{ marginRight: 6 }}>↳</span>
+                              venduto reale
+                            </td>
+                            {Array.from({ length: 12 }, (_, i) => (
+                              <td
+                                className={`num ${chiuso(i) ? "" : "muted"}`}
+                                key={i}
+                                style={{ fontSize: 12.5, color: chiuso(i) ? "var(--blue)" : undefined }}
+                              >
+                                {chiuso(i) ? eur(r.vendutoMesi![i] ?? 0) : "—"}
+                              </td>
+                            ))}
+                            <td className="num" style={{ fontSize: 12.5, color: "var(--blue)" }}>
+                              {eur(r.vendutoReale ?? 0)}
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
                     ))}
+                  {/* Dove si chiude: mesi chiusi per quello che è successo,
+                      mesi che restano per quello che è a budget. */}
+                  {r.vendutoMesi && mesiChiusi.length > 0 && (
+                    <tr>
+                      <td style={{ paddingLeft: 26, fontSize: 12.5 }} className="muted">
+                        Attuale — consuntivo + budget
+                      </td>
+                      {r.mesi.map((v, i) => (
+                        <td className="num muted" key={i} style={{ fontSize: 12.5 }}>
+                          {chiuso(i) ? eur(r.vendutoMesi![i] ?? 0) : v === 0 ? "—" : eur(v)}
+                        </td>
+                      ))}
+                      <td className="num" style={{ fontSize: 12.5, fontWeight: 600 }}>
+                        {eur(attuale(r.mesi, r.vendutoMesi))}
+                      </td>
+                    </tr>
+                  )}
                 </Fragment>
               ))}
               <tr className="tot">
@@ -143,6 +214,32 @@ export default async function MaisonIndex({
                 {totMesi.map((v, i) => (<td className="num" key={i}>{eur(v)}</td>))}
                 <td className="num">{eur(totAnno)}</td>
               </tr>
+              {qualcunoMisurato && mesiChiusi.length > 0 && (
+                <>
+                  <tr>
+                    <td style={{ color: "var(--blue)" }}>Venduto reale (solo ecommerce)</td>
+                    {Array.from({ length: 12 }, (_, i) => (
+                      <td
+                        className={`num ${chiuso(i) ? "" : "muted"}`}
+                        key={i}
+                        style={{ color: chiuso(i) ? "var(--blue)" : undefined }}
+                      >
+                        {chiuso(i) ? eur(totVendutoMesi[i] ?? 0) : "—"}
+                      </td>
+                    ))}
+                    <td className="num" style={{ color: "var(--blue)" }}>
+                      {eur(mesiChiusi.reduce((s, m) => s + (totVendutoMesi[m - 1] ?? 0), 0))}
+                    </td>
+                  </tr>
+                  <tr className="tot">
+                    <td>Attuale — consuntivo + budget</td>
+                    {totMesi.map((v, i) => (
+                      <td className="num" key={i}>{chiuso(i) ? eur(totVendutoMesi[i] ?? 0) : eur(v)}</td>
+                    ))}
+                    <td className="num">{eur(attuale(totMesi, totVendutoMesi))}</td>
+                  </tr>
+                </>
+              )}
             </tbody>
           </table>
         </div>
@@ -153,6 +250,24 @@ export default async function MaisonIndex({
         ce l&apos;hanno su tutti e dodici i mesi: è un dato che viene dal foglio di origine e vale la pena
         guardarlo prima di leggere gli scostamenti.
       </p>
+      {mesiChiusi.length > 0 && (
+        <p className="page-caption" style={{ marginTop: 8 }}>
+          Le righe in <strong style={{ color: "var(--blue)" }}>blu</strong> sono <strong>quello che è già
+          successo</strong>: il venduto vero dei negozi nei <strong>mesi chiusi</strong> ({MESI[0]}–
+          {MESI[mesiChiusi.length - 1]}), sulla stessa base del budget D2C — prezzo pieno pagato dal cliente,
+          IVA e spedizione incluse — quindi il confronto è omogeneo. Il <strong>mese in corso resta fuori</strong>:
+          mezzo mese di vendite contro un mese intero di budget farebbe sembrare in ritardo un brand che non lo è
+          (per quello c&apos;è <Link href="/venduto" style={{ color: "var(--blue)" }}>Venduto</Link>, che è al
+          giorno). La riga <strong>Attuale</strong> mette insieme le due cose — mesi chiusi per quello che è
+          successo, mesi che restano per quello che è a budget — ed è la risposta a «dove si chiude».
+          <br />
+          ⚠️ Due limiti, scritti invece che nascosti: nei mesi chiusi <strong>solo il D2C è misurato</strong>{" "}
+          (Eventi e B2B restano a budget anche dentro «Attuale», perché per un brand un loro consuntivo non
+          esiste — il fatturato di Finance è per tipologia di servizio e non si ripartisce per maison); e i brand
+          <strong> senza negozio</strong> (Business, Experience) non hanno nessuna riga blu, perché una riga di
+          zeri sembrerebbe un crollo invece di un dato che non c&apos;è.
+        </p>
+      )}
 
       {mesiChiusi.length > 0 && (
         <>
