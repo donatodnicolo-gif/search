@@ -2712,3 +2712,142 @@ export async function cambiaCorrispondenzaOperazione(fd: FormData) {
   // (Stessa cosa su `impostaLinguaCampagna`, 06/08/2026.)
   redirect("/operazioni");
 }
+
+// ---------- Liste esclusioni: le regole con cui una ricerca finisce negativa ----------
+
+/** Accende o spegne le regole e aggiorna l'elenco dei concorrenti. */
+export async function salvaRegoleEsclusione(fd: FormData) {
+  const { CHIAVE_REGOLE, CHIAVE_CONCORRENTI } = await import("./esclusioni");
+  const attive = fd.getAll("regola").map((v) => String(v)).join(",");
+  const concorrenti = testo(fd, "concorrenti") ?? "";
+
+  // ⚠️ Si scrive sempre, anche la stringa vuota: "nessuna regola accesa" è una
+  // scelta, e trattarla come "non ho ricevuto niente" renderebbe impossibile
+  // spegnere l'ultima regola.
+  for (const [chiave, valore] of [
+    [CHIAVE_REGOLE, attive],
+    [CHIAVE_CONCORRENTI, concorrenti],
+  ] as const) {
+    await prisma.impostazione.upsert({
+      where: { chiave },
+      create: { chiave, valore },
+      update: { valore },
+    });
+  }
+  redirect("/esclusioni?salvato=1");
+}
+
+/**
+ * Passa in rassegna le parole cercate e mette in coda una negativa per ognuna
+ * che una regola accesa colpisce.
+ *
+ * ⚠️ **Non esclude niente da sé.** Ogni riga diventa un'operazione `in_attesa`
+ * con scritto DA DOVE viene: le regole propongono, una persona approva. Una
+ * regola che spegne traffico senza che nessuno la guardi è il modo di perdere
+ * ricerche buone e accorgersene dal fatturato.
+ */
+export async function applicaRegoleEsclusione(fd: FormData) {
+  const { CHIAVE_REGOLE, CHIAVE_CONCORRENTI, concorrentiDa, regoleAttiveDa, valutaRicerca } =
+    await import("./esclusioni");
+  const { linguaDaNome } = await import("./vendite-campagna");
+
+  const soloCampagna = testo(fd, "campagnaId");
+
+  const [impRegole, impConcorrenti] = await Promise.all([
+    prisma.impostazione.findUnique({ where: { chiave: CHIAVE_REGOLE } }),
+    prisma.impostazione.findUnique({ where: { chiave: CHIAVE_CONCORRENTI } }),
+  ]);
+  const attive = regoleAttiveDa(impRegole?.valore);
+  const concorrenti = concorrentiDa(impConcorrenti?.valore);
+
+  if (attive.length === 0) {
+    redirect(`/esclusioni?bloccata=${encodeURIComponent("Nessuna regola accesa: non c'è niente da applicare.")}`);
+  }
+
+  // Una lettura sola: termini + campagne. Una query per termine su Postgres
+  // remoto vorrebbe dire centinaia di andate e ritorno.
+  const termini = await prisma.termineRicerca.findMany({
+    where: soloCampagna ? { campagnaId: soloCampagna } : {},
+    select: { id: true, testo: true, campagnaId: true, spesa: true, clic: true, conversioni: true },
+  });
+  const idCampagne = [...new Set(termini.map((t) => t.campagnaId))];
+  const campagne = await prisma.campagna.findMany({
+    where: { id: { in: idCampagne }, stato: { notIn: ["defunta", "conclusa"] } },
+    select: { id: true, nome: true, canale: true, idEsterno: true },
+  });
+  const perId = new Map(campagne.map((c) => [c.id, c]));
+
+  // Le negative già in coda o già eseguite: non se ne accodano due uguali.
+  const gia = await prisma.operazioneAdv.findMany({
+    where: { tipo: "negativa", stato: { in: ["in_attesa", "approvata", "eseguita"] } },
+    select: { campagnaId: true, parametri: true },
+  });
+  const giaFatte = new Set(
+    gia.map((o) => {
+      let t = "";
+      try {
+        t = String((JSON.parse(o.parametri ?? "{}") as { testo?: string }).testo ?? "");
+      } catch {
+        t = "";
+      }
+      return `${o.campagnaId ?? ""}|${t.toLowerCase()}`;
+    })
+  );
+
+  const messe: string[] = [];
+  const perRegola: Record<string, number> = {};
+
+  for (const t of termini) {
+    const c = perId.get(t.campagnaId);
+    if (!c) continue;
+    const v = valutaRicerca(t.testo, {
+      linguaCampagna: linguaDaNome(c.nome),
+      attive,
+      concorrenti,
+    });
+    if (!v) continue;
+    if (giaFatte.has(`${c.id}|${t.testo.toLowerCase()}`)) continue;
+    giaFatte.add(`${c.id}|${t.testo.toLowerCase()}`);
+
+    await accodaOperazione({
+      data: {
+        tipo: "negativa",
+        canale: c.canale,
+        bersaglio: c.nome,
+        idEsterno: c.idEsterno,
+        // ⚠️ Esatta, non generica: si esclude QUESTA ricerca, non ogni ricerca
+        // che contenga quelle parole. Una negativa generica nata da una regola
+        // automatica spegnerebbe molto più del voluto.
+        parametri: JSON.stringify({ testo: t.testo, corrispondenza: "exact" }),
+        motivo: `Regola «${v.regola}»: ${v.motivo}`,
+        livello: "L0",
+        prima: "assente",
+        campagnaId: c.id,
+        // Da dove viene: in approvazione si legge che NON l'ha chiesta una persona.
+        richiestaDa: "regole-ai",
+      },
+    });
+    perRegola[v.regola] = (perRegola[v.regola] ?? 0) + 1;
+    messe.push(`«${t.testo}» su ${c.nome}`);
+  }
+
+  await registra({
+    autore: "regole-ai",
+    tipo: "creazione",
+    entita: "operazione",
+    titolo: `Liste esclusioni: ${messe.length} negative proposte`,
+    dettaglio:
+      Object.entries(perRegola)
+        .map(([r, n]) => `${r}: ${n}`)
+        .join(" · ") || "nessuna",
+  });
+
+  const riepilogo =
+    messe.length === 0
+      ? "Nessuna ricerca colpita dalle regole accese: niente da approvare."
+      : `${messe.length} negative in coda da approvare — ` +
+        Object.entries(perRegola)
+          .map(([r, n]) => `${r}: ${n}`)
+          .join(" · ");
+  redirect(`/operazioni?esito=${encodeURIComponent(riepilogo)}`);
+}

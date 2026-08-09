@@ -149,6 +149,19 @@ export default async function PaginaOperazioni({
             </div>
           )}
 
+          {/* ⚠️ DA DOVE VIENE, detto a chi approva. Un'esclusione proposta da
+              una regola automatica non è la stessa cosa di una chiesta da una
+              persona che guardava quel numero: chi approva deve saperlo PRIMA
+              di premere, e la riga è l'unico posto dove lo legge davvero. */}
+          {o.richiestaDa === "regole-ai" && o.stato === "in_attesa" && (
+            <div className="op-avvisi">
+              <span aria-hidden="true">◈</span> <b>Proposta dalle regole automatiche, non da una
+              persona.</b> Nessuno ha guardato questa ricerca una per una: prima di approvare
+              controlla che escluderla sia davvero quello che vuoi — la regola che l'ha scelta è
+              scritta qui sopra, nel motivo.
+            </div>
+          )}
+
           {/* Finché lo script non è passato si può sempre tornare indietro:
               annullare non cambia niente su Google, perché l'operazione non è
               mai arrivata là. Dopo l'esecuzione sparisce — per disfare serve

@@ -22,6 +22,49 @@ Riceve già dati veri da Google Ads (Gifts e Flowers) e ha 2.426 ordini Shopify 
 
 ## FATTO
 
+### ⭐ Liste esclusioni: le regole si vedono PRIMA di accenderle (09/08/2026)
+
+Pagina **`/esclusioni`** + `lib/esclusioni.ts`. Tre regole con cui una parola
+cercata diventa una negativa, ognuna con l'**anteprima sui dati veri**: quante
+ricerche colpirebbe adesso, quanta spesa spegnerebbe e — il numero che conta —
+**quanto incasso hanno prodotto**.
+
+> ⚠️ **Deterministico dove è un fatto, AI dove è un giudizio.** Che
+> «купить цветы в милане» non sia inglese si legge dall'alfabeto: chiedere un
+> parere a un modello su una cosa certa aggiunge costo e incertezza a zero
+> informazione. Il giudizio serve per i concorrenti, che sono un'insegna solo
+> se sai che esiste.
+
+> ⚠️ **Nessuna regola esclude da sola.** Ogni ricerca colpita diventa
+> un'operazione `in_attesa` con `richiestaDa = "regole-ai"`, e in `/operazioni`
+> la riga lo **dichiara**: «Proposta dalle regole automatiche, non da una
+> persona. Nessuno ha guardato questa ricerca una per una». Le negative nascono
+> **esatte**: spengono quella ricerca, non tutte quelle che le somigliano.
+
+**⛔ E l'anteprima ha subito detto di NON accendere la regola sulla lingua.**
+Misurato al primo caricamento:
+
+| regola | ricerche | spesa | incasso prodotto |
+| --- | --- | --- | --- |
+| alfabeto estraneo | 7 | 37,70 € | **0 €** → sicura |
+| lingua diversa | **206** | 2.388 € | **13.180 €** e 835 conversioni |
+| concorrenti | 0 (elenco vuoto) | — | — |
+
+Le prime della lista sono `fiori a domicilio milano` (463 € → **3.557 €**,
+ROS 7,7×), `consegna fiori milano` (227 € → 1.198 €), `consegna fiori a
+domicilio milano` (127 € → 1.121 €), tutte su `[Deluxy] - Fiori Milano ENG`.
+
+> ⚠️ **La regola non sbaglia: sbaglia il presupposto.** Quelle ricerche *sono*
+> italiane su una campagna che si chiama ENG — ma sono il traffico migliore che
+> quella campagna abbia. «ENG» dice a chi parla l'annuncio, non chi lo cerca.
+> Accendere la regola avrebbe spento 13.180 € di incasso per risparmiare 2.388 €
+> di spesa. È esattamente il motivo per cui l'anteprima viene prima
+> dell'interruttore.
+
+La regola **concorrenti nasce spenta**, e resta spegnibile: escludere chi cerca
+un concorrente toglie traffico che molti comprano apposta, e quella è una scelta
+commerciale, non una regola tecnica.
+
 ### La finestra dei numeri viaggia col numero, e le negative si rileggono (08/08/2026)
 
 Due difetti della stessa famiglia — **una cosa che non si può sapere guardando
