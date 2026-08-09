@@ -25,6 +25,21 @@ import { COLORE_CLASSE, ETICHETTA_CLASSE } from "@/lib/dominio";
 export const dynamic = "force-dynamic";
 
 const ORDINE_BRAND = ["flowers", "gifts", "cake", "cross"];
+
+// Come si ordinano le card dentro la colonna del brand.
+//
+// ⚠️ «predefinito» non è «nessun ordine»: raggruppa per canale e poi mette il
+// budget più alto in cima. Le altre scelte ROMPONO il raggruppamento per
+// canale — è voluto, ma va detto in pagina, o una lista che mescola Google e
+// Meta sembra sbagliata invece che ordinata come si è chiesto.
+const ORDINAMENTI: Record<string, string> = {
+  predefinito: "Canale, poi budget",
+  spesa: "Spesa 30 giorni",
+  roas: "ROAS",
+  budget: "Budget al giorno",
+  nome: "Nome (A-Z)",
+  stato: "Stato",
+};
 const ORDINE_CANALE = ["google_ads", "meta_ads", "tiktok", "email", "sito", "seo", "crm", "social", "altro"];
 
 // Esplora campagne: una colonna per brand, una card per campagna con icona di
@@ -32,13 +47,20 @@ const ORDINE_CANALE = ["google_ads", "meta_ads", "tiktok", "email", "sito", "seo
 export default async function PaginaCampagne({
   searchParams,
 }: {
-  searchParams: Promise<{ stato?: string; canale?: string; brand?: string; q?: string; vista?: string }>;
+  searchParams: Promise<{ stato?: string; canale?: string; brand?: string; q?: string; vista?: string; ord?: string }>;
 }) {
   const p = await searchParams;
   // Pagina aperta nuda e c'è una vista predefinita: si va lì.
   const dove = await destinazionePredefinita("campagne", "/campagne", p);
   if (dove) redirect(dove);
   const { stato, canale, brand, q } = p;
+  const ordina = Object.keys(ORDINAMENTI).includes(p.ord ?? "") ? p.ord! : "predefinito";
+  // I filtri di adesso, da portarsi dietro fino alla scheda campagna: il link
+  // «← Campagne» li rimette. Senza, riportava sempre all'elenco intero e la
+  // ricerca appena fatta andava rifatta da capo.
+  const filtriOra = new URLSearchParams(
+    Object.entries(p).filter(([, v]) => v != null && v !== "") as [string, string][]
+  ).toString();
   const giorni30 = new Date(Date.now() - 30 * 86_400_000);
   const campagne = await prisma.campagna.findMany({
     where: {
@@ -114,6 +136,11 @@ export default async function PaginaCampagne({
             <option value="meta_ads">Meta Ads</option>
             <option value="tiktok">TikTok</option>
           </select>
+          <select name="ord" defaultValue={ordina}>
+            {Object.entries(ORDINAMENTI).map(([k, v]) => (
+              <option key={k} value={k}>Ordina: {v}</option>
+            ))}
+          </select>
           <select name="stato" defaultValue={stato ?? ""}>
             <option value="">Tutti gli stati (tranne le defunte)</option>
             {STATI_CAMPAGNA.map((s) => (
@@ -138,16 +165,45 @@ export default async function PaginaCampagne({
         ) : (
           <div className="colonne-brand">
             {brands.map((brand) => {
+              const numeri = (c: (typeof campagne)[number]) => {
+                const sp = c.metriche.reduce((s, m) => s + (m.spesa ?? 0), 0);
+                const ri = c.metriche.reduce((s, m) => s + (m.ricavi ?? 0), 0);
+                return { sp, r: roas(ri, sp) };
+              };
               const del = campagne
                 .filter((c) => c.brand === brand)
-                .sort(
-                  (a, b) =>
+                .sort((a, b) => {
+                  // ⚠️ Ogni ordinamento diverso da «predefinito» ROMPE il
+                  // raggruppamento per canale: è voluto (si vuole la classifica,
+                  // non le colonne), ma la pagina lo dice — una lista che mescola
+                  // Google e Meta sembra sbagliata invece che ordinata come si
+                  // è chiesto.
+                  if (ordina === "spesa") return numeri(b).sp - numeri(a).sp;
+                  if (ordina === "budget") return (b.budgetGiornaliero ?? 0) - (a.budgetGiornaliero ?? 0);
+                  if (ordina === "nome") return nomeCampagna(a).localeCompare(nomeCampagna(b), "it");
+                  if (ordina === "stato") return a.stato.localeCompare(b.stato, "it") || nomeCampagna(a).localeCompare(nomeCampagna(b), "it");
+                  if (ordina === "roas") {
+                    // I senza-ROAS in fondo comunque: «nessun dato» non è «il peggiore».
+                    const ra = numeri(a).r;
+                    const rb = numeri(b).r;
+                    if (ra == null && rb == null) return 0;
+                    if (ra == null) return 1;
+                    if (rb == null) return -1;
+                    return rb - ra;
+                  }
+                  return (
                     ORDINE_CANALE.indexOf(a.canale) - ORDINE_CANALE.indexOf(b.canale) ||
                     (b.budgetGiornaliero ?? 0) - (a.budgetGiornaliero ?? 0)
-                );
-              const budgetGiorno = del
-                .filter((c) => c.stato === "attiva" || c.stato === "in_apprendimento")
-                .reduce((s, c) => s + (c.budgetGiornaliero ?? 0), 0);
+                  );
+                });
+              // ⚠️ Il budget somma SOLO chi eroga (`attiva`, `in_apprendimento`),
+              // ma il conteggio accanto contava tutto: «8 · 58,50 €/g» su Cake
+              // veniva da 6 campagne, non da 8, e una bozza da 20 €/g stava
+              // dentro il primo numero e fuori dal secondo. Due numeri accanto
+              // che contano insiemi diversi si leggono come se contassero lo
+              // stesso: adesso lo dicono.
+              const cheSpendono = del.filter((c) => c.stato === "attiva" || c.stato === "in_apprendimento");
+              const budgetGiorno = cheSpendono.reduce((s, c) => s + (c.budgetGiornaliero ?? 0), 0);
               let canalePrec = "";
               return (
                 <div className="colonna-brand" key={brand}>
@@ -157,7 +213,14 @@ export default async function PaginaCampagne({
                       {ETICHETTA_BRAND[brand]}
                     </span>
                     <span className="board-conta">
-                      {del.length} · {formattaEuro(budgetGiorno)}/g
+                      {del.length}
+                      {cheSpendono.length !== del.length && (
+                        <span title="Il budget somma solo le campagne che erogano: bozze, in pausa e concluse restano fuori">
+                          {" "}({cheSpendono.length} che spendono)
+                        </span>
+                      )}
+                      {" · "}
+                      {formattaEuro(budgetGiorno)}/g
                     </span>
                   </div>
                   {del.map((c) => {
@@ -176,7 +239,14 @@ export default async function PaginaCampagne({
                             {ETICHETTA_CANALE[c.canale] ?? c.canale}
                           </div>
                         )}
-                        <a className="card-campagna" href={`/campagne/${c.id}`}>
+                        {/* I filtri di adesso viaggiano con il link: la scheda
+                            li rimette nel «← Campagne». Senza, si tornava
+                            sempre all'elenco intero e la ricerca appena fatta
+                            andava rifatta da capo. */}
+                        <a
+                          className="card-campagna"
+                          href={`/campagne/${c.id}${filtriOra ? `?dalElenco=${encodeURIComponent(filtriOra)}` : ""}`}
+                        >
                           <div className="card-campagna-alto">
                             <span className="card-campagna-icona" title={categoria.nome}>
                               <Icona nome={categoria.icona} />

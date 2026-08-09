@@ -71,6 +71,8 @@ export default async function SchedaCampagna({
   params: Promise<{ id: string }>;
   searchParams: Promise<{
     bloccata?: string;
+    // I filtri con cui si stava guardando l elenco, per il link di ritorno
+    dalElenco?: string;
     salvata?: string;
     aggiornamento?: string;
     preset?: string;
@@ -185,7 +187,15 @@ export default async function SchedaCampagna({
     <div className="layout">
       <Sidebar attiva="campagne" />
       <main className="main">
-        <a className="ritorno" href="/campagne">← Campagne</a>
+        {/* Si torna DOVE si era: i filtri dell elenco viaggiano nel link
+            delle card e si rimettono qui. Senza, «← Campagne» riportava
+            sempre a tutte le campagne e la ricerca andava rifatta. */}
+        <a
+          className="ritorno"
+          href={sp.dalElenco ? `/campagne?${decodeURIComponent(sp.dalElenco)}` : "/campagne"}
+        >
+          ← Campagne{sp.dalElenco ? " (con i filtri di prima)" : ""}
+        </a>
         <div className="page-head">
           <div>
             {/* La matita sta FUORI dall'<h1>: si porta dietro il suo <dialog>,
