@@ -221,6 +221,9 @@ export type RigaCategoria = {
 // regola nuova qui, il conto economico **non cambia** finché quella fotografia
 // non viene rifatta. Prima era il contrario, e il contrario è quello che faceva
 // divergere le due app.
+// Sotto mezzo euro è arrotondamento, non una spesa da classificare.
+const SOGLIA_SCOPERTO = 0.5;
+
 export function ricostruisci(controparti: SpesaControparte[], categorie: Categoria[]): RigaCategoria[] {
   const perCat = new Map<string, RigaCategoria>();
   const chiave = (c: Categoria | null) => c?.id ?? "__none__";
@@ -268,11 +271,10 @@ export function ricostruisci(controparti: SpesaControparte[], categorie: Categor
       continue;
     }
 
-    // Con gli importi per categoria la controparte si divide; senza (Finance
-    // non ancora aggiornato) si attribuisce tutto alla prima, che è quello che
-    // succedeva comunque prima.
+    // Senza gli importi per categoria (Finance non ancora aggiornato) si
+    // attribuisce tutto alla prima: è quello che succedeva comunque prima.
     const conImporti = daFinance.every((x) => typeof x.uscite === "number");
-    if (!conImporti || daFinance.length === 1) {
+    if (!conImporti) {
       aggiungi(daFinance[0].cat, true, {
         controparte: s.controparte,
         uscite: s.uscite,
@@ -281,14 +283,57 @@ export function ricostruisci(controparti: SpesaControparte[], categorie: Categor
       });
       continue;
     }
+
+    // ⚠️ **Una categoria non vuol dire tutti i movimenti** (09/08/2026). Finance
+    // classifica **movimento per movimento**, quindi una controparte può averne
+    // alcuni riconosciuti e altri no — succede quando il nome grezzo del
+    // movimento è scritto in un altro modo (uno spazio davanti, un `SUMUP *`) e
+    // la regola non scatta su quella riga. Qui, finché c'era **una sola**
+    // categoria, si attribuiva a quella l'intero totale della controparte: i
+    // movimenti che nessuna regola aveva riconosciuto entravano nel conto
+    // economico come se fossero classificati. Misurato sul 2026 (835.379 € di
+    // uscite): **27.260 € assorbiti così** — 20.000 in «Banca e giroconti»,
+    // 8.404 fra i partner, 1.652 negli stipendi — e altri **919 €** (PayPal, tre
+    // categorie) che sparivano del tutto, perché nel caso a più categorie si
+    // sommavano solo i pezzi noti. Il residuo dichiarato era 4.107 € contro
+    // 36.272 € di uscite senza classificazione: la copertura al 99,5% era vera
+    // solo per le controparti *interamente* scoperte.
+    const scopertoPerMese = [...s.perMese];
+    let coperto = 0;
     for (const x of daFinance) {
-      aggiungi(x.cat, true, {
+      coperto += x.uscite ?? 0;
+      const m = x.perMese ?? [];
+      for (let i = 0; i < 12; i++) scopertoPerMese[i] -= m[i] ?? 0;
+    }
+    const scoperto = s.uscite - coperto;
+
+    // Sul pezzo scoperto valgono le regole di Budgets, come per una controparte
+    // che Finance non ha mai visto: è esattamente quello che succederà alla
+    // prossima passata di «Riclassifica tutto». Se la regola non c'è, resta
+    // residuo e si vede.
+    const perPezzo = scoperto > SOGLIA_SCOPERTO ? abbina(s.controparte, categorie) : null;
+
+    // I pezzi si fondono per (categoria, da regola o no): senza, una controparte
+    // comparirebbe due volte nella stessa riga del dettaglio.
+    const pezzi: { cat: Categoria | null; daRegola: boolean; uscite: number; perMese: number[] }[] = [];
+    const unisci = (cat: Categoria | null, daRegola: boolean, uscite: number, perMese: number[]) => {
+      const esiste = pezzi.find((p) => (p.cat?.id ?? null) === (cat?.id ?? null) && p.daRegola === daRegola);
+      const dest = esiste ?? { cat, daRegola, uscite: 0, perMese: Array(12).fill(0) as number[] };
+      dest.uscite += uscite;
+      for (let i = 0; i < 12; i++) dest.perMese[i] += perMese[i] ?? 0;
+      if (!esiste) pezzi.push(dest);
+    };
+    for (const x of daFinance) unisci(x.cat, true, x.uscite ?? 0, x.perMese ?? []);
+    if (perPezzo) unisci(perPezzo.categoria, perPezzo.daRegola, scoperto, scopertoPerMese);
+
+    for (const p of pezzi) {
+      aggiungi(p.cat, p.daRegola, {
         controparte: s.controparte,
-        uscite: x.uscite ?? 0,
+        uscite: p.uscite,
         // I movimenti non si sanno per categoria: si contano una volta sola,
-        // sulla prima, invece di moltiplicarli per il numero di voci.
-        movimenti: x === daFinance[0] ? s.movimenti : 0,
-        perMese: x.perMese ?? Array(12).fill(0),
+        // sul primo pezzo, invece di moltiplicarli per il numero di voci.
+        movimenti: p === pezzi[0] ? s.movimenti : 0,
+        perMese: p.perMese,
       });
     }
   }

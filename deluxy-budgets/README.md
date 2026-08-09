@@ -813,7 +813,30 @@ Tre precisazioni che sono servite per non sbagliare, e che valgono anche la pros
 > movimenti, il criterio è questo — e varrebbe la pena farlo diventare una regola vera sulla
 > causale, invece di ripetere l'esercizio a mano.
 
-## Punti aperti (29/07/2026)
+## Punti aperti (29/07/2026, rimisurati il 09/08/2026)
+
+**Fotografia del 09/08/2026** (interrogando Finance, Orders e Marketing come fa il consuntivo):
+
+| | |
+| --- | --- |
+| Venduto ecommerce 2026 al 09/08 (Orders) | **631.789 €** su 3.593 ordini, contro **406.324 €** nello stesso periodo 2025 (**+55%**) |
+| Fatturato Finance gen–ago 2026 (imponibile) | **208.522 €** — di cui Consegne 146.059, Food Supplier 24.544, Eventi 21.975 |
+| Uscite di banca 2026 | **835.379 €**, dodici mesi ma agosto ancora parziale (27k) |
+| Girato ai partner | **440.374 €** → quota Deluxy misurata **30,3%** sul venduto |
+| ADV: banca vs Marketing | **97.929 €** usciti contro **73.577 €** di campagne → Marketing ne spiega il **75%** (era il 46% il 28/07: lo storico Meta è entrato, copertura 221 giorni su 221) |
+| Uscite senza classificazione | **36.272 €** — vedi «Una categoria non vuol dire tutti i movimenti» |
+| Vendite vendor di luglio | **caricate**: 34.921 € (il 31/07 erano 137 € e il mese restava fuori dai totali). Agosto è a 3.026 €, ancora sotto soglia perché il mese è a un terzo |
+
+Chiusi rispetto al 29/07: il **buco Meta in Marketing** (punto «storico Meta assente») e **luglio dei
+vendor**. Restano aperti tutti i punti qui sotto, più i due nuovi: i **movimenti che Finance non ha
+ancora riclassificato** e le **variabili d'ambiente mancanti su Vercel** (in produzione ci sono solo
+`DATABASE_URL`, `DIRECT_URL`, `HUB_URL`, `BUDGETS_APP_PASSWORD`, `BUDGETS_API_KEY`, `FINANCE_API_KEY`,
+`ORDERS_URL`, `ORDERS_API_KEY`; nella cassaforte dell'app c'è **solo `OPENAI_API_KEY`**). In
+particolare **`MARKETING_API_KEY` non c'era né nell'ambiente né in cassaforte**: in produzione la
+riga «di questi ADV, Marketing ne spiega X%» del consuntivo non si vedeva affatto e il P&L ripiegava
+in silenzio sulle sole uscite di banca. **Da aggiungere** all'ambiente di produzione (`vercel env add
+MARKETING_API_KEY production --value "…" --sensitive`, col valore che sta nel `.env` locale — mai da
+stdin, che ci infila un a-capo) **oppure** da incollare in `/impostazioni/chiavi`.
 
 1. ⚠️ **La quota Deluxy misurata è scesa al 25,9% su Gen–Giu 2026** (382.801 € girati ai partner su
    516.517 € di venduto) — era 39,1% prima delle classificazioni del 29/07/2026. **Ogni fiorista che
@@ -1078,6 +1101,43 @@ corrieri)» e che il conto economico **non vedeva**: adesso lo vede. Tutto il re
 perché le due app usavano già le stesse regole.
 
 Confrontate voce per voce sul 2026 (1.663 controparti): **1.476 uguali, zero in disaccordo**.
+
+### Una categoria non vuol dire tutti i movimenti (09/08/2026)
+
+Finance classifica **movimento per movimento**, non controparte per controparte: la stessa
+controparte può avere alcuni movimenti riconosciuti e altri no, perché il nome grezzo della riga è
+scritto in un altro modo (uno spazio davanti, un `SUMUP *` incollato prima). `ricostruisci()` invece,
+finché la controparte aveva **una sola** categoria, attribuiva a quella l'**intero** totale della
+controparte — e nel caso a più categorie sommava solo i pezzi noti, buttando via il resto.
+
+Misurato sul 2026 (835.379 € di uscite):
+
+| | |
+| --- | --- |
+| controparti **senza nessuna** categoria (il residuo che la pagina dichiarava) | **8.093 €** |
+| movimenti scoperti **assorbiti** nell'unica categoria della controparte | **27.260 €** — 20.000 in «Banca e giroconti», 8.404 fra i partner, 1.652 negli stipendi |
+| movimenti scoperti **spariti** (controparte con più categorie: PayPal) | **919 €** |
+| uscite 2026 **senza classificazione**, in tutto | **36.272 €**, non 8.093 |
+
+Cioè: la copertura al 99,5% era vera solo per le controparti *interamente* scoperte, ed è lo stesso
+errore già corretto il 29/07/2026 sulla categoria che «raccoglie il residuo» — un totale che
+sembra classificato perché nessuno ha misurato la parte che non lo è.
+
+Ora gli importi per categoria si usano **sempre** (non solo quando le categorie sono più d'una) e la
+parte scoperta passa dalle **regole di Budgets**, esattamente come una controparte che Finance non ha
+mai visto: è quello che succederà comunque alla prossima passata di «Riclassifica tutto». Se nessuna
+regola la riconosce, resta residuo **e si vede**.
+
+**Effetto misurato, ed è la parte tranquillizzante**: il conto economico **non si muove** — 2026
+residuo 4.107 → **4.113 €**, struttura −6 €, tutto il resto identico — perché quei 27.260 € una
+regola di Budgets ce l'avevano già e finivano nella categoria giusta *per caso*. Quello che cambia è
+che il totale ricostruito torna a **quadrare con la banca** (834.460 → **835.379 €**: i 919 € di
+PayPal non spariscono più) e che il rischio non è più invisibile. Sul 2025: totale 1.113.632 €,
+residuo 23.548 €.
+
+> ⚠️ Il rimedio vero non è qui: sono **movimenti che Finance non ha ancora classificato**. Si chiude
+> premendo **«↻ Riclassifica tutto»** in `/spese` di Finance, che è già nella lista delle cose da
+> fare da quando le regole a match esatto sono state normalizzate.
 
 ### 67 regole erano morte per uno spazio che non è uno spazio
 
