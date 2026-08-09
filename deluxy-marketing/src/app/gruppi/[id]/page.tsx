@@ -10,7 +10,7 @@ import { SceltaPeriodo } from "@/components/SceltaPeriodo";
 import { SelettoreStato } from "@/components/SelettoreStato";
 import { Stagionalita } from "@/components/Stagionalita";
 import { Sidebar } from "@/components/Sidebar";
-import { cambiaStatoGruppo, cambiaStatoKeyword, creaOperazioneGruppo, creaOperazioneKeyword, annullaOperazioneParola, escludiParoleSelezionate, rinominaGruppo } from "@/lib/azioni";
+import { cambiaStatoGruppo, cambiaStatoKeyword, creaOperazioneGruppo, creaOperazioneKeyword, annullaOperazioneParola, escludiParoleSelezionate, rinominaGruppo, vaiAlGruppo } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
 import { periodoApp } from "@/lib/periodo-condiviso";
 import { giudizioKeyword } from "@/lib/salute";
@@ -110,9 +110,13 @@ export default async function SchedaGruppo({
   // e nessuno sa quanto ne prende ciascuno. Se invece questo è l'UNICO attivo,
   // quel budget è di fatto suo — e allora la domanda «sto spendendo tutto
   // quello che potrei?» ha una risposta.
+  // ⚠️ Serve a DUE cose, e per questo porta anche nome e stato: contare gli
+  // attivi (per leggere il budget, qui sotto) e riempire la tendina in cima con
+  // cui si salta da un gruppo all'altro senza risalire alla campagna.
   const fratelli = await prisma.gruppo.findMany({
     where: { campagnaId: gruppo.campagnaId },
-    select: { id: true, nome: true, nomeVisibile: true, statoPiattaforma: true },
+    orderBy: { nome: "asc" },
+    select: { id: true, nome: true, nomeVisibile: true, statoPiattaforma: true, stato: true },
   });
   const attivi = fratelli.filter((g) => g.statoPiattaforma !== "PAUSED" && g.statoPiattaforma !== "REMOVED");
   const unicoAttivo = attivi.length === 1 && attivi[0].id === gruppo.id;
@@ -287,6 +291,21 @@ export default async function SchedaGruppo({
         <div style={{ display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
           <a className="ritorno" href={`/campagne/${gruppo.campagnaId}`}>← {gruppo.campagna.nome}</a>
           <a className="ritorno" href="/gruppi" style={{ opacity: .7 }}>Tutti i gruppi</a>
+          {/* Passare da un gruppo all'altro della STESSA campagna senza
+              risalire alla campagna e ridiscendere: su una campagna con
+              quattro gruppi è il giro che si fa più volte al giorno. */}
+          {fratelli.length > 1 && (
+            <form action={vaiAlGruppo} style={{ marginLeft: "auto" }}>
+              <SelettoreStato
+                nome="id"
+                valore={gruppo.id}
+                opzioni={fratelli.map((f) => ({
+                  valore: f.id,
+                  etichetta: nomeGruppo(f) + (f.stato === "defunto" ? " (defunto)" : ""),
+                }))}
+              />
+            </form>
+          )}
         </div>
         <div className="page-head">
           <div>

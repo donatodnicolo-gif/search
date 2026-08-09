@@ -14,12 +14,17 @@ const PERIODI = [7, 30, 90];
 export default async function PaginaGruppi({
   searchParams,
 }: {
-  searchParams: Promise<{ brand?: string; campagna?: string; q?: string; giorni?: string }>;
+  searchParams: Promise<{ brand?: string; campagna?: string; q?: string; giorni?: string; canale?: string }>;
 }) {
   const p = await searchParams;
   const giorni = PERIODI.includes(Number(p.giorni)) ? Number(p.giorni) : GIORNI_LETTURA;
 
+  // ⚠️ Il canale filtra davvero: dal menu si arriva qui da due voci diverse
+  // (Gruppi di annunci sotto Google, Ad set sotto Meta) e se il filtro non
+  // arrivasse le due voci mostrerebbero la stessa identica lista, che e il
+  // modo piu veloce di far perdere fiducia in un menu.
   const righe = await gruppiConNumeri({
+    canale: p.canale || undefined,
     brand: p.brand || undefined,
     campagnaId: p.campagna || undefined,
     cerca: p.q || undefined,

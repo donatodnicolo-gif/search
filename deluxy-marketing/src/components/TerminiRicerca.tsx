@@ -20,6 +20,10 @@ const COLORE_STATO: Record<string, string> = {
 // quello dei termini più costosi — vedi sotto.
 const COLONNE = {
   testo: { etichetta: "Ha cercato", verso: "asc" as const },
+  // ⚠️ Il gruppo c'era già ma come sottoriga grigia sotto la ricerca: non si
+  // poteva ordinare né leggere in colonna. Su una campagna con quattro gruppi
+  // è la prima cosa che si vuole raggruppare — non quanta spesa, ma DOVE.
+  gruppo: { etichetta: "Gruppo", verso: "asc" as const },
   keyword: { etichetta: "Fatta scattare da", verso: "asc" as const },
   spesa: { etichetta: "Spesa", verso: "desc" as const },
   clic: { etichetta: "Clic", verso: "desc" as const },
@@ -112,7 +116,7 @@ export async function TerminiRicerca({
   const resaDi = (t: (typeof termini)[number]) =>
     (t.spesa ?? 0) > 0 ? (t.ricavi ?? 0) / (t.spesa ?? 1) : null;
   const ordinati = [...termini].sort((a, b) => {
-    if (colonna === "testo" || colonna === "keyword" || colonna === "stato") {
+    if (colonna === "testo" || colonna === "gruppo" || colonna === "keyword" || colonna === "stato") {
       const va = String(a[colonna] ?? "");
       const vb = String(b[colonna] ?? "");
       return va.localeCompare(vb, "it") * giu;
@@ -299,6 +303,7 @@ export async function TerminiRicerca({
             <tr>
               <th data-no-ordina></th>
               {intestazione("testo")}
+              {intestazione("gruppo")}
               {intestazione("keyword")}
               {intestazione("spesa", true)}
               {intestazione("clic", true)}
@@ -333,7 +338,9 @@ export async function TerminiRicerca({
                   </td>
                   <td style={{ maxWidth: 280 }}>
                     <div className="cella-nome">{t.testo}</div>
-                    {t.gruppo && <div className="cella-sub">{t.gruppo}</div>}
+                  </td>
+                  <td className="cella-muta" style={{ maxWidth: 190 }}>
+                    {t.gruppo ?? "—"}
                   </td>
                   <td className="cella-muta" style={{ maxWidth: 200 }}>
                     {t.keyword ?? "—"}

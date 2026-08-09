@@ -73,7 +73,7 @@ type KwAggregata = {
 export default async function PaginaKeywords({
   searchParams,
 }: {
-  searchParams: Promise<{ ordina?: string; q?: string; campagna?: string; tema?: string; stato?: string; bloccata?: string; vista?: string; resa?: string; match?: string; lingua?: string }>;
+  searchParams: Promise<{ ordina?: string; q?: string; campagna?: string; tema?: string; stato?: string; bloccata?: string; esito?: string; saltate?: string; vista?: string; resa?: string; match?: string; lingua?: string }>;
 }) {
   const p = await searchParams;
   const destinazione = await destinazionePredefinita("keywords", "/keywords", p);
@@ -149,6 +149,10 @@ export default async function PaginaKeywords({
   // TUTTE le campagne, non solo le vive: una keyword sopravvive alla campagna
   // e il tag va aperto lo stesso. Le campagne che non stanno qui restano
   // etichette mute — meglio nessun link che un link che porta a un 404.
+  // ⚠️ Le campagne DEFUNTE restano nei tag, ma spente. Nasconderle
+  // farebbe dire alla riga "su 2 campagne" quando in archivio ne ha 3: una
+  // parola sopravvive alla campagna, e togliere il terzo tag non cancella il
+  // fatto, cancella solo la possibilita di accorgersene.
   const idPerNomeCampagna = new Map(
     (await prisma.campagna.findMany({ select: { id: true, nome: true } })).map((c) => [c.nome, c.id])
   );
@@ -284,6 +288,25 @@ export default async function PaginaKeywords({
             </p>
           </div>
         </div>
+
+        {/* L'esito di «metti in coda» arriva QUI, non su /operazioni: si resta
+            dove si stava lavorando. Il link alla coda c'è, ma lo si segue
+            quando si vuole — non si viene portati via a ogni parola. */}
+        {p.esito && (
+          <div className="nota-info">
+            <span className="nota-icona">◈</span>
+            <span>
+              {p.esito}
+              {p.saltate && (
+                <>
+                  {" "}· <b>saltate</b>: {p.saltate}
+                </>
+              )}
+              {" — "}
+              <a href="/operazioni">vai alla coda per approvare</a>
+            </span>
+          </div>
+        )}
 
         {p.bloccata && (
           <div className="nota-info" style={{ borderColor: "rgba(215,0,21,.35)", background: "rgba(215,0,21,.06)" }}>
@@ -574,6 +597,19 @@ export default async function PaginaKeywords({
                           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                             {k.campagne.map((c) => {
                               const idCampagna = idPerNomeCampagna.get(c);
+                              const viva = nomiVivi.has(c);
+                              if (!viva) {
+                                return (
+                                  <span
+                                    className="tag-neutro"
+                                    key={c}
+                                    style={{ opacity: 0.5, textDecoration: "line-through" }}
+                                    title={`«${c}» e defunta: la parola resta in archivio ma quella campagna non gira piu`}
+                                  >
+                                    {c}
+                                  </span>
+                                );
+                              }
                               return idCampagna ? (
                                 <a
                                   className="tag-neutro tag-link"

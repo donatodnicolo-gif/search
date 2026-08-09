@@ -71,6 +71,9 @@ export default async function SchedaCampagna({
   params: Promise<{ id: string }>;
   searchParams: Promise<{
     bloccata?: string;
+    // L esito di «metti in coda»: si atterra qui, non su /operazioni
+    esito?: string;
+    saltate?: string;
     // I filtri con cui si stava guardando l elenco, per il link di ritorno
     dalElenco?: string;
     salvata?: string;
@@ -280,6 +283,20 @@ export default async function SchedaCampagna({
           </div>
           <a className="btn" href={`/azioni/nuova?campagna=${campagna.id}&brand=${campagna.brand}`}>Nuova azione sulla campagna</a>
         </div>
+
+        {/* L esito di «metti in coda» arriva qui: si resta sulla scheda
+            invece di essere portati in coda a ogni parola. */}
+        {sp.esito && (
+          <div className="nota-info">
+            <span className="nota-icona">◈</span>
+            <span>
+              {sp.esito}
+              {sp.saltate && (<> · <b>saltate</b>: {sp.saltate}</>)}
+              {" — "}
+              <a href="/operazioni">vai alla coda per approvare</a>
+            </span>
+          </div>
+        )}
 
         <SceltaPeriodo periodo={periodo} da={sp.da} a={sp.a} azione={`/campagne/${campagna.id}`} />
 

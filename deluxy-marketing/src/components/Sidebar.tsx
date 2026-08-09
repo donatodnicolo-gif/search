@@ -72,16 +72,32 @@ export async function Sidebar({
           {voce("errori", "/errori", "audit", "Incidenti aperti", nErroriAperti)}
         </SbSezione>
 
+        {/* ⚠️ Google e Meta separati, non mescolati in un elenco solo.
+            Le due piattaforme non hanno le stesse cose — su Meta non esistono
+            keyword né parole cercate, su Google non esistono i pubblici — e
+            tenerle in una lista unica faceva cercare voci che su quel canale
+            non ci sono. Quello che vale per entrambe resta qui in cima. */}
         <SbSezione titolo="Campagne">
           {voce("campagne", "/campagne", "campagne", "Tutte le campagne", nCampagneVive)}
-          {voceCanale("campagne", "google_ads", "/campagne?canale=google_ads", "campagne", "Solo Google", conta(campagneCanale, "google_ads"))}
-          {voceCanale("campagne", "meta_ads", "/campagne?canale=meta_ads", "campagne", "Solo Meta", conta(campagneCanale, "meta_ads"))}
-          {voce("gruppi", "/gruppi", "metriche", "Gruppi di annunci", nGruppi)}
+          {voce("landing", "/landing", "landing", "Landing page", nLanding)}
+        </SbSezione>
+
+        <SbSezione titolo="Google Ads">
+          {voceCanale("campagne", "google_ads", "/campagne?canale=google_ads", "campagne", "Campagne Google", conta(campagneCanale, "google_ads"))}
+          {voce("gruppi", "/gruppi?canale=google_ads", "metriche", "Gruppi di annunci")}
           {voce("keywords", "/keywords", "analisi", "Keywords")}
           {voce("termini", "/termini", "analisi", "Parole cercate", nTermini)}
           {voce("esclusioni", "/esclusioni", "analisi", "Liste esclusioni")}
           {voce("copy", "/copy", "copy", "Copy & annunci")}
-          {voce("landing", "/landing", "landing", "Landing page", nLanding)}
+        </SbSezione>
+
+        <SbSezione titolo="Meta">
+          {voceCanale("campagne", "meta_ads", "/campagne?canale=meta_ads", "campagne", "Campagne Meta", conta(campagneCanale, "meta_ads"))}
+          {/* ⚠️ Niente voce «Ad set»: gli ad set di Meta NON vengono importati
+              (misurato 09/08/2026: 117 gruppi in archivio, tutti Google). Una
+              voce che porta a una pagina vuota è peggio di una voce assente —
+              fa cercare un dato che non c'è e sembra un guasto. Torna il
+              giorno che la sync Meta li porterà. */}
           {voce("pubblici", "/pubblici", "pubblici", "Pubblici", nPubblici)}
           {voce("meta", "/meta", "meta", "Test & AIDA", nTestAperti)}
         </SbSezione>

@@ -871,8 +871,13 @@ export async function cambiaClasseCampagna(fd: FormData) {
   if (!id || !classe) return;
   const campagna = await prisma.campagna.update({ where: { id }, data: { classe } });
   await registra({ autore: "utente", tipo: "stato", entita: "campagna", entitaId: id, titolo: `Campagna "${campagna.nome}" → classe ${classe}` });
-  revalidatePath(`/campagne/${id}`);
-  revalidatePath("/campagne");
+  // ⚠️ `revalidatePath` NON basta, ed è la TERZA volta che costa un giro a
+  // vuoto (lingua campagna 06/08, corrispondenza operazione 08/08, rinomina
+  // e stato gruppo 09/08). Il salvataggio funziona, ma chi guarda non vede
+  // cambiare niente — il <dialog> resta aperto sopra la pagina, o il <select>
+  // controllato torna al valore di prima — e conclude che il bottone non
+  // faccia nulla. Serve il ritorno esplicito, che ricarica davvero.
+  redirect(`/campagne/${id}`);
 }
 
 // ---------- Storico errori ERR-* (00.5) ----------
@@ -1677,8 +1682,13 @@ export async function rinominaGruppo(fd: FormData) {
       : `Gruppo "${gruppo.nome}": tolto il nome scelto, torna quello di Google`,
     dettaglio: gruppo.campagna.nome,
   });
-  revalidatePath(`/gruppi/${id}`);
-  revalidatePath("/gruppi");
+  // ⚠️ `revalidatePath` NON basta, ed è la TERZA volta che costa un giro a
+  // vuoto (lingua campagna 06/08, corrispondenza operazione 08/08, rinomina
+  // e stato gruppo 09/08). Il salvataggio funziona, ma chi guarda non vede
+  // cambiare niente — il <dialog> resta aperto sopra la pagina, o il <select>
+  // controllato torna al valore di prima — e conclude che il bottone non
+  // faccia nulla. Serve il ritorno esplicito, che ricarica davvero.
+  redirect(`/gruppi/${id}`);
 }
 
 // Gemella di `rinominaGruppo`: il nome che diamo NOI alla campagna. Quello di
@@ -1701,8 +1711,13 @@ export async function rinominaCampagna(fd: FormData) {
       ? `Campagna "${campagna.nome}" si chiama "${nuovo}"`
       : `Campagna "${campagna.nome}": tolto il nome scelto, torna quello di Google`,
   });
-  revalidatePath(`/campagne/${id}`);
-  revalidatePath("/campagne");
+  // ⚠️ `revalidatePath` NON basta, ed è la TERZA volta che costa un giro a
+  // vuoto (lingua campagna 06/08, corrispondenza operazione 08/08, rinomina
+  // e stato gruppo 09/08). Il salvataggio funziona, ma chi guarda non vede
+  // cambiare niente — il <dialog> resta aperto sopra la pagina, o il <select>
+  // controllato torna al valore di prima — e conclude che il bottone non
+  // faccia nulla. Serve il ritorno esplicito, che ricarica davvero.
+  redirect(`/campagne/${id}`);
 }
 
 export async function cambiaStatoGruppo(fd: FormData) {
@@ -1722,8 +1737,13 @@ export async function cambiaStatoGruppo(fd: FormData) {
     titolo: `Gruppo "${gruppo.nome}" → ${stato}`,
     dettaglio: gruppo.campagna.nome,
   });
-  revalidatePath(`/gruppi/${id}`);
-  revalidatePath("/gruppi");
+  // ⚠️ `revalidatePath` NON basta, ed è la TERZA volta che costa un giro a
+  // vuoto (lingua campagna 06/08, corrispondenza operazione 08/08, rinomina
+  // e stato gruppo 09/08). Il salvataggio funziona, ma chi guarda non vede
+  // cambiare niente — il <dialog> resta aperto sopra la pagina, o il <select>
+  // controllato torna al valore di prima — e conclude che il bottone non
+  // faccia nulla. Serve il ritorno esplicito, che ricarica davvero.
+  redirect(`/gruppi/${id}`);
 }
 
 // Pausa/riattivazione di un gruppo SULLA PIATTAFORMA: come per le campagne
@@ -2754,9 +2774,17 @@ export async function applicaKeywordAdAltreCampagne(fd: FormData) {
     fatte.length > 0
       ? `${comeSiChiama} in coda: ${fatte.length} operazion${fatte.length === 1 ? "e" : "i"} — ${fatte.join(" · ")}`
       : `${comeSiChiama}: niente è entrato in coda`;
+  // ⚠️ Si torna DOVE si era, non sempre in coda. Chi mette in coda dieci
+  // parole di fila veniva sbalzato su /operazioni ogni volta e doveva rifare
+  // tutto il percorso: filtro, tema, riga, dialogo. Il `ritorno` il dialogo lo
+  // manda già — veniva solo buttato via qui in fondo.
+  //
+  // L'esito viaggia col ritorno: si vede cos'è successo senza che la pagina
+  // cambi sotto i piedi, e alla coda ci si va quando si vuole.
   const qs = new URLSearchParams({ esito: messaggio });
   if (saltate.length > 0) qs.set("saltate", saltate.join(" · "));
-  redirect(`/operazioni?${qs.toString()}`);
+  const separatore = ritorno.includes("?") ? "&" : "?";
+  redirect(`${ritorno}${separatore}${qs.toString()}`);
 }
 
 // ---------- Cambiare la corrispondenza di un'operazione in coda ----------
@@ -3009,4 +3037,12 @@ export async function cambiaTestoOperazione(fd: FormData) {
   // sui menù controllati. Si torna alla pagina, così quello che si legge è
   // quello che c'è sul database.
   redirect(`/operazioni?esito=${encodeURIComponent(`Testo corretto: «${prima}» → «${pulito}»`)}`);
+}
+
+
+/** Il menù «vai a un altro gruppo» in cima alla scheda gruppo. */
+export async function vaiAlGruppo(fd: FormData) {
+  const id = testo(fd, "id");
+  if (!id) return;
+  redirect(`/gruppi/${id}`);
 }
