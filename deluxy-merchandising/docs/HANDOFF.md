@@ -371,6 +371,8 @@ porta **3120**. Design system Deluxy v1.0.
   - **Scala tipografica compattata** in un giro solo: titoli 30→25px, sottotitoli 15→13.5, main 40→30px di padding, schede 24→20px, sidebar 250→232px con voci da 13px. Stessi token del design system, solo più aria e meno corpo.
   - **Schede ripiegabili** (`details.scheda` con `summary.scheda-titolo`, e `.scheda-stato` a destra): sulla scheda della collezione «Si rinfresca da sola», «Ordine su Shopify» e «Prodotti per riga» nascono **chiuse col loro stato nel titolo** («segue Bisettimana», «allineato col sito», «5 per riga»). «Ordine su Shopify» si apre **da sola quando c è un ordine da mandare**: è il momento in cui serve. Sono decisioni che si prendono una volta ogni tanto: aperte sempre, seppellivano la fila dei prodotti.
 
+- **09/08/2026 — la Vetrina è quattro schede, non quattro viaggi.** Regole, Rotazioni e Tipologie si raggiungevano da tre bottoni in testa a /visual e si tornava col «←»: per passare da Regole a Rotazioni si faceva scalo. Ora le quattro pagine condividono la stessa riga di schede ([TabsVetrina.tsx](../src/components/TabsVetrina.tsx)) — Collezioni · Regole d'ordine · Rotazioni · Tipologie — con l'attiva sottolineata in oro (la classe è `.tab.attivo`, la stessa della scheda prodotto). Il titolo di /visual è diventato «Vetrina», come la voce di menu.
+
 ## COME AVVIARE
 ```
 cd deluxy-merchandising

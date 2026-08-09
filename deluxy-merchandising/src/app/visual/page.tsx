@@ -11,6 +11,7 @@ import { normalizza } from "@/lib/riconciliazione";
 import { FILTRO_BUON_FINE, finestra } from "@/lib/vendite";
 import { etichettaFrequenza, etichettaModo } from "@/lib/rotazione";
 import { cambiaVetrina } from "@/lib/azioni-collezioni-shopify";
+import { TabsVetrina } from "@/components/TabsVetrina";
 
 export const dynamic = "force-dynamic";
 
@@ -311,9 +312,10 @@ export default async function VisualPage({
     <div className="layout">
       <Sidebar attiva="visual" />
       <main className="main">
+        <TabsVetrina attiva="visual" />
         <div className="page-head">
           <div>
-            <h1 className="page-title">Visual merchandising{brand ? ` — ${etichettaAmbito(brand)}` : ""}</h1>
+            <h1 className="page-title">Vetrina{brand ? ` — ${etichettaAmbito(brand)}` : ""}</h1>
             <p className="page-sub">
               Le collezioni <b>pubblicate sul negozio</b>{brand ? <> del brand <b>{etichettaAmbito(brand)}</b></> : ""}: cosa
               sono, quanto vendono e in che ordine si presentano. Da ognuna scegli la regola d&apos;ordine e la mandi a
@@ -321,9 +323,6 @@ export default async function VisualPage({
             </p>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
-            <Link className="btn btn-secondario" href="/visual/regole">Regole d&apos;ordine</Link>
-            <Link className="btn btn-secondario" href="/visual/tipologie">Tipologie</Link>
-            <Link className="btn btn-secondario" href="/visual/rotazioni">Rotazioni</Link>
             <Link className="btn btn-secondario" href="/riordini">
               Ipotesi di ordinativo{pianiBozza > 0 ? ` · ${pianiBozza} in bozza` : ""}
             </Link>

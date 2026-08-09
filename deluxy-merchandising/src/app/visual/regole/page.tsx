@@ -5,6 +5,7 @@ import { REGOLE } from "@/lib/ordinamento-vetrina";
 import { etichettaPassi, parsePassi } from "@/lib/regole-ordine";
 import { creaRegolaOrdine, eliminaRegolaOrdine } from "@/lib/azioni-regole-ordine";
 import { ritardiPerRegola } from "@/lib/regole-in-ritardo";
+import { TabsVetrina } from "@/components/TabsVetrina";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +30,7 @@ export default async function RegolePage({
     <div className="layout">
       <Sidebar attiva="visual" />
       <main className="main" style={{ maxWidth: 980 }}>
-        <a className="ritorno" href="/visual">← Visual merchandising</a>
+        <TabsVetrina attiva="regole" />
         <div className="page-head">
           <div>
             <h1 className="page-title">Regole d&apos;ordine</h1>

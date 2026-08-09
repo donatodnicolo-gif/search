@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Sidebar } from "@/components/Sidebar";
 import { SelettoreCriteri } from "@/components/SelettoreCriteri";
 import { prisma } from "@/lib/db";
+import { TabsVetrina } from "@/components/TabsVetrina";
 import {
   descriviCriteri,
   filtroCriteri,
@@ -40,7 +41,7 @@ export default async function TipologiePage() {
     <div className="layout">
       <Sidebar attiva="visual" />
       <main className="main" style={{ maxWidth: 1000 }}>
-        <a className="ritorno" href="/visual">← Visual merchandising</a>
+        <TabsVetrina attiva="tipologie" />
         <div className="page-head">
           <div>
             <h1 className="page-title">Tipologie</h1>

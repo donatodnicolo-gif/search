@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
 import { FREQUENZE, MAX_OGNI_QUANTI, MODI, etichettaFrequenza, etichettaModo, eScaduta, prossimaVolta } from "@/lib/rotazione";
+import { TabsVetrina } from "@/components/TabsVetrina";
 import {
   aggiornaRotazione,
   assegnaCollezioniARotazione,
@@ -40,7 +41,7 @@ export default async function RotazioniPage({
     <div className="layout">
       <Sidebar attiva="visual" />
       <main className="main" style={{ maxWidth: 1000 }}>
-        <a className="ritorno" href="/visual">← Visual merchandising</a>
+        <TabsVetrina attiva="rotazioni" />
         <div className="page-head">
           <div>
             <h1 className="page-title">Rotazioni periodiche</h1>
