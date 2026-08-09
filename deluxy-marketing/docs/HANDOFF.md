@@ -22,6 +22,56 @@ Riceve già dati veri da Google Ads (Gifts e Flowers) e ha 2.426 ordini Shopify 
 
 ## FATTO
 
+### ⭐⭐ «In pausa» nell'app non fermava Google — un bottone che annotava (09/08/2026)
+
+Segnalato come domanda: «mettere in pausa sull'app mette in pausa anche su
+Google?». No, e la prova era su una campagna viva.
+
+`[Deluxy] Catering Milan B2B`: nell'app **`in_pausa`**, su Google
+**`ENABLED`** — cioè ancora accesa e a spendere — e **zero** operazioni
+`pausa_campagna` in coda. Il click aveva prodotto un'**Azione**, cioè un
+promemoria in stato `todo` che nessuno esegue.
+
+> ⚠️ **E la pausa non restava nemmeno nell'app.** `in_pausa` non è fra gli
+> `STATI_CAMPAGNA_NOSTRI` (`defunta`, `in_lancio`, `bozza`), gli unici che
+> l'import non tocca: al primo giro successivo Google avrebbe riscritto
+> «attiva». Non fermava Google **e** si cancellava da sola.
+
+Ora le pillole fanno due cose diverse, perché sono due cose diverse:
+
+| stato | cosa fa adesso |
+| --- | --- |
+| `in_pausa` · `attiva` | **mette in coda** `pausa_campagna`/`attiva_campagna` (L2, con gli avvisi del guardrail), approvazione a mano, esegue lo script |
+| `bozza` · `in_lancio` · `defunta` | restano scelte **nostre**: si scrivono e basta, l'import non le tocca |
+| `conclusa` | resta il promemoria — **eliminare una campagna non è fra le operazioni dello script**, e fingere il contrario sarebbe lo stesso difetto |
+
+> ⚠️ **Lo stato dell'app NON si scrive più per `in_pausa`/`attiva`.** Quello è
+> un fatto di Google: scriverlo prima che accada sarebbe di nuovo raccontare
+> una cosa per un'altra. Il messaggio di ritorno lo dice esplicitamente —
+> «sarà messa in pausa dopo l'approvazione, fino ad allora su Google resta
+> ENABLED». Se c'è già un'operazione dello stesso tipo in volo non se ne
+> accoda una seconda.
+
+### La matita sul testo di una parola in coda (09/08/2026)
+
+`components/ModificaTestoOperazione.tsx` + `cambiaTestoOperazione`: accanto
+alla parola di un'operazione in coda c'è la matita, e il testo si corregge
+prima che diventi vera. Nasce dal caso «rome flower delivery service» accodata
+su `[Deluxy] - Fiori Milano ENG`.
+
+> ⚠️ **Solo finché è `in_attesa`.** La corrispondenza si ritocca anche su
+> un'operazione approvata, il testo no: chi ha approvato ha approvato *quella*
+> parola, e cambiargliela sotto vorrebbe dire eseguire una cosa che nessuno ha
+> guardato. Per correggerla si ritira prima l'approvazione.
+
+> ⚠️ **Non è `RinominaInline`, è il suo contrario.** Là il nome vale solo
+> dentro l'app e su Google l'oggetto continua a chiamarsi come si chiama; qui
+> il testo **è** quello che finirà in asta. Due componenti diversi apposta: uno
+> solo che dicesse entrambe le cose sarebbe un componente che mente a metà.
+
+La correzione resta scritta nel `motivo` dell'operazione — chi approva domani
+deve vedere che la parola non è più quella proposta — e nel registro.
+
 ### ⭐ Liste esclusioni: le regole si vedono PRIMA di accenderle (09/08/2026)
 
 Pagina **`/esclusioni`** + `lib/esclusioni.ts`. Tre regole con cui una parola

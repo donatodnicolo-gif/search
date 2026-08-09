@@ -1,6 +1,9 @@
 import { SelettoreStato } from "@/components/SelettoreStato";
+import { ModificaTestoOperazione } from "@/components/ModificaTestoOperazione";
 import { Sidebar } from "@/components/Sidebar";
-import { annullaOperazione, approvaOperazione, cambiaCorrispondenzaOperazione, riapriOperazione } from "@/lib/azioni";
+import { annullaOperazione, approvaOperazione, cambiaCorrispondenzaOperazione, riapriOperazione,
+  cambiaTestoOperazione,
+} from "@/lib/azioni";
 import { prisma } from "@/lib/db";
 import { ETICHETTA_LIVELLO, formattaDataOra } from "@/lib/dominio";
 
@@ -96,6 +99,19 @@ export default async function PaginaOperazioni({
           <div className="op-titolo">
             <b>{ETICHETTA_TIPO[o.tipo] ?? o.tipo}</b>
             {parola && <span className="op-parola">«{parola}»</span>}
+            {/* La matita: si corregge il testo PRIMA che diventi una parola
+                vera in asta. Solo finché è da approvare — chi ha approvato ha
+                approvato quella parola, e cambiargliela sotto vorrebbe dire
+                eseguire una cosa che nessuno ha guardato. */}
+            {parola && o.stato === "in_attesa" && (o.tipo === "nuova_keyword" || o.tipo === "negativa") && (
+              <ModificaTestoOperazione
+                id={o.id}
+                testo={parola}
+                tipo={o.tipo}
+                campagna={o.bersaglio}
+                azione={cambiaTestoOperazione}
+              />
+            )}
             {parola && match && (
               modificabile ? (
                 /* Si cambia qui, finché lo script non è passato: la

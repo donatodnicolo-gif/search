@@ -165,26 +165,115 @@ export async function creaCampagna(fd: FormData) {
   redirect(`/campagne/${campagna.id}`);
 }
 
+// Le due strade opposte del cambio di stato, e perché non sono la stessa cosa.
+//
+// ⚠️ **Un bottone che sembra agire e invece annota.** Fino al 09/08/2026
+// portare una campagna a «in pausa» scriveva `Campagna.stato` e generava un
+// PROMEMORIA che nessuno eseguiva: su Google la campagna restava accesa e
+// continuava a spendere. Misurato su `[Deluxy] Catering Milan B2B`: nell'app
+// `in_pausa`, su Google `ENABLED`, zero operazioni in coda.
+//
+// E c'era un secondo giro di vite: `in_pausa` non è fra gli
+// `STATI_CAMPAGNA_NOSTRI`, quindi al primo import successivo Google riscriveva
+// «attiva». La pausa non fermava Google **e non restava nemmeno nell'app**.
+//
+// Adesso:
+//   · `in_pausa` / `attiva`  → MESSA IN CODA (`pausa_campagna`/`attiva_campagna`),
+//     approvazione a mano, e la esegue lo script. Lo stato dell'app NON si
+//     tocca: quello è un fatto di Google, e scriverlo prima che accada sarebbe
+//     di nuovo raccontare una cosa per un'altra.
+//   · `bozza` / `in_lancio` / `defunta` → restano scelte NOSTRE, si scrivono e
+//     basta: l'import non le tocca (sono `STATI_CAMPAGNA_NOSTRI`).
+//   · `conclusa` → resta il promemoria: eliminare una campagna non è fra le
+//     operazioni che lo script sa fare, e fingere il contrario sarebbe lo
+//     stesso difetto di prima.
+const STATI_DA_ESEGUIRE: Record<string, "pausa_campagna" | "attiva_campagna"> = {
+  in_pausa: "pausa_campagna",
+  attiva: "attiva_campagna",
+};
+
 export async function cambiaStatoCampagna(stato: string, fd: FormData) {
   const id = testo(fd, "id");
   if (!id || !stato || !(STATI_CAMPAGNA as readonly string[]).includes(stato)) return;
   const prima = await prisma.campagna.findUnique({ where: { id } });
-  if (!prima || prima.stato === stato) return;
+  if (!prima) return;
+
+  const daEseguire = STATI_DA_ESEGUIRE[stato];
+
+  // ——— Gli stati che vivono su Google: si passa dalla coda ———
+  if (daEseguire) {
+    // Una sola in volo per volta: due pause della stessa campagna in coda
+    // sarebbero la seconda un doppione che lo script rifà a vuoto.
+    const inVolo = await prisma.operazioneAdv.findFirst({
+      where: { campagnaId: id, tipo: daEseguire, stato: { in: ["in_attesa", "approvata"] } },
+    });
+    if (inVolo) {
+      redirect(
+        `/campagne/${id}?bloccata=${encodeURIComponent(
+          `C'è già un'operazione «${daEseguire}» in coda per questa campagna: approvala in Operazioni invece di rifarla.`
+        )}`
+      );
+    }
+
+    const { validaModifica } = await import("./guardrail");
+    const esito = validaModifica({
+      classe: prima.classe,
+      livello: "L2",
+      deltaBudgetPct: null,
+      rollbackPiano: null,
+      ultimaModifica: null,
+      l2Settimana: 0,
+    });
+
+    const op = await accodaOperazione({
+      data: {
+        tipo: daEseguire,
+        canale: prima.canale,
+        bersaglio: prima.nome,
+        idEsterno: prima.idEsterno,
+        motivo: "Deciso dalle pillole di stato sulla scheda campagna",
+        avvisi: esito.avvisi.length > 0 ? esito.avvisi.join(" · ") : null,
+        livello: "L2",
+        prima: `su Google: ${prima.statoPiattaforma ?? "non ancora letto"}`,
+        campagnaId: id,
+      },
+    });
+    await registra({
+      autore: "utente",
+      tipo: "creazione",
+      entita: "operazione",
+      entitaId: op.id,
+      titolo: `In coda (da approvare): ${daEseguire} su "${prima.nome}"`,
+      dettaglio: esito.avvisi.join(" — "),
+    });
+    // ⚠️ Si dice CHIARAMENTE che finché non si approva su Google non cambia
+    // niente: è tutta la differenza fra questo bottone e quello di prima.
+    const verbo = stato === "in_pausa" ? "messa in pausa" : "riattivata";
+    redirect(
+      `/operazioni?esito=${encodeURIComponent(
+        `«${prima.nome}» sarà ${verbo} su Google dopo l'approvazione. Fino ad allora su Google resta ${
+          prima.statoPiattaforma ?? "com'era"
+        }.`
+      )}`
+    );
+  }
+
+  // ——— Gli stati che sono solo nostri: si scrivono e basta ———
+  if (prima.stato === stato) return;
   const campagna = await prisma.campagna.update({ where: { id }, data: { stato } });
-  await registra({ autore: "utente", tipo: "stato", entita: "campagna", entitaId: id, titolo: `Campagna "${campagna.nome}" → ${stato}` });
-  // Il cambio deciso nell'app va eseguito davvero sulla piattaforma: si mette
-  // in coda un'azione owner AI. Basta dire a una sessione Claude "esegui le
-  // azioni in coda dell'app marketing" (GET /api/v1/azioni?aperte=1).
-  //
-  // `in_lancio` è una cosa da fare *nostra* (preparare e far partire), non un
-  // comando da eseguire sulla piattaforma: l'azione dice quello.
-  // `defunta` non genera niente: è una decisione di archivio, non un cambio
-  // sulla piattaforma. Se la campagna gira ancora, prima la si mette in pausa.
+  await registra({
+    autore: "utente",
+    tipo: "stato",
+    entita: "campagna",
+    entitaId: id,
+    titolo: `Campagna "${campagna.nome}" → ${stato}`,
+  });
+
   if (stato === "in_lancio") {
     await prisma.azione.create({
       data: {
         titolo: `Far partire "${campagna.nome}"`,
-        descrizione: `Segnata "in lancio" nell'app Marketing il ${new Date().toLocaleDateString("it-IT")}: la campagna è decisa ma non è ancora partita. Prima di accenderla, checklist 4.1 dei Definitivi (budget, offerte, copy, landing, tracciamento). Chiudere questa azione quando è davvero attiva su ${campagna.canale === "meta_ads" ? "Meta" : "Google Ads"}.`,
+        descrizione: `Deciso dall'app Marketing il ${new Date().toLocaleDateString("it-IT")}: la campagna è pronta e va fatta partire.`,
         brand: campagna.brand,
         canale: campagna.canale,
         priorita: "alta",
@@ -193,16 +282,17 @@ export async function cambiaStatoCampagna(stato: string, fd: FormData) {
         eventi: { create: { tipo: "creazione", autore: "sistema", testo: "Generata dal passaggio a «in lancio»" } },
       },
     });
-  } else if (["in_pausa", "attiva", "conclusa"].includes(stato)) {
-    const verbo = stato === "in_pausa" ? "mettere in pausa" : stato === "attiva" ? "riattivare" : "concludere";
+  } else if (stato === "conclusa") {
+    // Eliminare una campagna non è fra le operazioni dello script: resta un
+    // lavoro da fare a mano, e lo si dice invece di far finta.
     await prisma.azione.create({
       data: {
-        titolo: `Eseguire su ${campagna.canale === "meta_ads" ? "Meta" : "Google Ads"}: ${verbo} "${campagna.nome}"`,
-        descrizione: `Deciso dall'app Marketing il ${new Date().toLocaleDateString("it-IT")}: portare la campagna "${campagna.nome}" (${campagna.brand}) allo stato "${stato}" sulla piattaforma. Al termine chiudere questa azione come fatta con l'esito reale e aggiornare la Mappa 00.4 secondo protocollo.`,
+        titolo: `Eseguire su ${campagna.canale === "meta_ads" ? "Meta" : "Google Ads"}: concludere "${campagna.nome}"`,
+        descrizione: `Deciso dall'app Marketing il ${new Date().toLocaleDateString("it-IT")}. ⚠️ Concludere una campagna NON è fra le operazioni che lo script sa eseguire: va fatto in interfaccia. Al termine chiudere questa azione con l'esito reale.`,
         brand: campagna.brand,
         canale: campagna.canale,
         priorita: "alta",
-        owner: "ai",
+        owner: "utente",
         campagnaId: campagna.id,
         eventi: { create: { tipo: "creazione", autore: "sistema", testo: "Generata dal cambio stato campagna nell'app" } },
       },
@@ -2850,4 +2940,65 @@ export async function applicaRegoleEsclusione(fd: FormData) {
           .map(([r, n]) => `${r}: ${n}`)
           .join(" · ");
   redirect(`/operazioni?esito=${encodeURIComponent(riepilogo)}`);
+}
+
+/**
+ * Corregge il testo di una parola in coda, prima che diventi vera.
+ *
+ * ⚠️ **Solo finché è `in_attesa`.** La corrispondenza si può ritoccare anche
+ * su un'operazione già approvata, il testo no: chi ha approvato ha approvato
+ * *quella* parola, e cambiargliela sotto vorrebbe dire eseguire una cosa che
+ * nessuno ha guardato. Se serve, si ritira l'approvazione e poi si corregge.
+ */
+export async function cambiaTestoOperazione(fd: FormData) {
+  const id = testo(fd, "id");
+  const nuovo = testo(fd, "testo");
+  if (!id || !nuovo) return;
+
+  const op = await prisma.operazioneAdv.findUnique({ where: { id } });
+  if (!op) return;
+  if (op.stato !== "in_attesa") {
+    redirect(
+      `/operazioni?bloccata=${encodeURIComponent(
+        "Il testo si corregge solo finché l'operazione è da approvare: ritira l'approvazione e riprova."
+      )}`
+    );
+  }
+
+  let p: Record<string, unknown> = {};
+  try {
+    p = JSON.parse(op.parametri ?? "{}");
+  } catch {
+    p = {};
+  }
+  const prima = String(p.testo ?? op.bersaglio);
+  const pulito = testoKeywordPulito(nuovo);
+  if (pulito === "" || pulito.toLowerCase() === prima.toLowerCase()) {
+    redirect("/operazioni");
+  }
+  p.testo = pulito;
+
+  await prisma.operazioneAdv.update({
+    where: { id },
+    data: {
+      parametri: JSON.stringify(p),
+      // Il motivo porta la correzione con sé: chi approva domani deve poter
+      // vedere che la parola non è più quella che era stata proposta.
+      motivo: `${op.motivo ? `${op.motivo} · ` : ""}Testo corretto a mano: «${prima}» → «${pulito}»`,
+    },
+  });
+
+  await registra({
+    autore: "utente",
+    tipo: "stato",
+    entita: "operazione",
+    entitaId: id,
+    titolo: `Testo dell'operazione: «${prima}» → «${pulito}»`,
+    dettaglio: `${op.tipo} su ${op.bersaglio}`,
+  });
+
+  // ⚠️ Non basta `revalidatePath`: è la stessa trappola già pagata due volte
+  // sui menù controllati. Si torna alla pagina, così quello che si legge è
+  // quello che c'è sul database.
+  redirect(`/operazioni?esito=${encodeURIComponent(`Testo corretto: «${prima}» → «${pulito}»`)}`);
 }
