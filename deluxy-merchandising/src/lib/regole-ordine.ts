@@ -43,6 +43,11 @@ export const CAMPI = [
   { chiave: "dataConsegna", nome: "Data di consegna", spiega: "Il metafield «Data»: Domani, Oggi…" },
   { chiave: "orario", nome: "Orario di consegna", spiega: "Il metafield «Orario Consegna»: In Mattinata…" },
   { chiave: "bestseller", nome: "Best seller su Shopify", spiega: "Il metafield «Best Seller» segnato sul negozio." },
+  // Il metafield «Minimo Orario» è **l'ora del giorno da cui si può consegnare**
+  // (7 = dalle 7:00) — chiarito dall'utente, che aveva escluso le altre due
+  // letture possibili (ora limite dell'ordine, ore di preavviso). Sette valori
+  // distinti nel catalogo: si sceglie a chip, non con un da/a.
+  { chiave: "consegnaDalle", nome: "Consegna dalle", spiega: "L'ora del giorno da cui si può consegnare, dal metafield «Minimo Orario»." },
   { chiave: "prezzo", nome: "Prezzo", spiega: "Da / a, in euro. Il «da» è compreso, il «a» escluso." },
 ] as const;
 
@@ -88,6 +93,7 @@ export type ProdottoConAttributi = {
   dataShopify?: string | null;
   orarioShopify?: string | null;
   bestSellerShopify?: boolean | null;
+  minimoOrario?: number | null;
 };
 
 /** Le fasce di «risposta al bisogno», dai giorni minimi di evasione. */
@@ -150,6 +156,8 @@ export function corrisponde(p: ProdottoConAttributi, passo: Passo): boolean {
       return elencoContiene(p.dataShopify, valori);
     case "orario":
       return elencoContiene(p.orarioShopify, valori);
+    case "consegnaDalle":
+      return p.minimoOrario != null && valori.includes(String(p.minimoOrario));
     // Non segnato sul negozio = **non lo sappiamo**, e non corrisponde: come per
     // i tag e i giorni di consegna, quello che manca non si inventa.
     case "bestseller":
@@ -322,6 +330,11 @@ function filtroCondizione(p: Condizione): Record<string, unknown> | null {
       case "bestseller":
         if (valori.length === 1) o.push({ bestSellerShopify: valori[0] === "si" });
         break;
+      case "consegnaDalle": {
+        const ore = valori.map(Number).filter(Number.isFinite);
+        if (ore.length) o.push({ minimoOrario: { in: ore } });
+        break;
+      }
       case "risposta": {
         const fasce = valori
           .map((v) => RISPOSTE.find((r) => r.chiave === v))

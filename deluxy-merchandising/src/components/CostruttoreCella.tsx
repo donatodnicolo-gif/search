@@ -8,7 +8,7 @@ import type { ProdottoAnteprima } from "./AnteprimaCella";
 
 const nomeMetrica = (m: string) => REGOLE.find((x) => x.chiave === m)?.nome ?? m;
 
-const CAMPI_VALORI: Campo[] = ["tipo", "categoria", "fornitore", "linea", "tag", "risposta", "zona", "citta", "occasione", "classificazione", "tipologiaMeta", "dataConsegna", "orario", "bestseller"];
+const CAMPI_VALORI: Campo[] = ["tipo", "categoria", "fornitore", "linea", "tag", "risposta", "zona", "citta", "occasione", "classificazione", "tipologiaMeta", "dataConsegna", "orario", "consegnaDalle", "bestseller"];
 const MAX_FOTO = 18;
 
 /**
@@ -70,6 +70,7 @@ export function CostruttoreCella({
     tipologiaMeta: voci.tipologieMeta,
     dataConsegna: voci.date,
     orario: voci.orari,
+    consegnaDalle: voci.consegnaDalle,
     bestseller: voci.bestseller,
     risposta: RISPOSTE.map((x) => ({ v: x.chiave, n: null, etichetta: x.nome })),
   };

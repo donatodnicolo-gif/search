@@ -373,6 +373,8 @@ porta **3120**. Design system Deluxy v1.0.
 
 - **09/08/2026 — la Vetrina è quattro schede, non quattro viaggi.** Regole, Rotazioni e Tipologie si raggiungevano da tre bottoni in testa a /visual e si tornava col «←»: per passare da Regole a Rotazioni si faceva scalo. Ora le quattro pagine condividono la stessa riga di schede ([TabsVetrina.tsx](../src/components/TabsVetrina.tsx)) — Collezioni · Regole d'ordine · Rotazioni · Tipologie — con l'attiva sottolineata in oro (la classe è `.tab.attivo`, la stessa della scheda prodotto). Il titolo di /visual è diventato «Vetrina», come la voce di menu.
 
+- **09/08/2026 — «Consegna dalle» è una condizione** (sbloccata dall'utente: `minimo_orario` = **l'ora del giorno da cui si può consegnare**, «7 significa che si può consegnare dalle 7» — era l'unico metafield importato ma non esposto, perché con tre letture possibili una condizione costruita sul significato sbagliato avrebbe scelto i prodotti sbagliati in silenzio). Sette valori distinti sugli attivi (7, 8, 9, 10, 11, 14, 19): niente da/a, è una riga di **chip** come le altre — «Dalle 7:00 · 286» — in ordine di **ora e non alfabetico** («Dalle 10» prima delle «Dalle 7» sarebbe l'ordine delle lettere, non della giornata). Campo `consegnaDalle` in `CAMPI`, `corrisponde()`, `filtroCondizione()`, voci, griglia, e nei `select` di pagine/aggiunta automatica/`SELECT_ORDINABILE` — la trappola del campo dimenticato in un select è già stata pagata con «Novità».
+
 ## COME AVVIARE
 ```
 cd deluxy-merchandising

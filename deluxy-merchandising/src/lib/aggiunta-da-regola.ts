@@ -77,7 +77,7 @@ export async function aggiungiDaRegola(collezioneId: string): Promise<EsitoAggiu
     },
     select: {
       id: true, shopifyId: true, prezzoVendita: true, categoria: true, tipoShopify: true,
-      vendorShopify: true, lineaId: true, tagShopify: true, ggDispMin: true,
+      vendorShopify: true, lineaId: true, tagShopify: true, ggDispMin: true, minimoOrario: true,
     },
     take: (MAX_PER_GIRO + 1) * 4,
   });

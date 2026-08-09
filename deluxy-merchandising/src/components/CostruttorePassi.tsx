@@ -119,6 +119,7 @@ export function CostruttorePassi({
     tipologiaMeta: voci.tipologieMeta,
     dataConsegna: voci.date,
     orario: voci.orari,
+    consegnaDalle: voci.consegnaDalle,
     bestseller: voci.bestseller,
     risposta: RISPOSTE.map((x) => ({ v: x.chiave, n: null, etichetta: x.nome })),
   };

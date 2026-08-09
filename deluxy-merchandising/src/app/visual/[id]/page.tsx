@@ -89,7 +89,7 @@ export default async function CurazioneCollezionePage({
               tagShopify: true,
               zoneConsegna: true,
               cittaShopify: true, occasioniShopify: true, tipologiaShopify: true, classificazioneShopify: true, dataShopify: true, orarioShopify: true, bestSellerShopify: true,
-              ggDispMin: true,
+              ggDispMin: true, minimoOrario: true,
             },
           },
         },
@@ -201,7 +201,7 @@ export default async function CurazioneCollezionePage({
               id: true, nome: true, immagine: true, prezzoVendita: true, categoria: true,
               tipoShopify: true, vendorShopify: true, lineaId: true, tagShopify: true,
               zoneConsegna: true,
-              cittaShopify: true, occasioniShopify: true, tipologiaShopify: true, classificazioneShopify: true, dataShopify: true, orarioShopify: true, bestSellerShopify: true, ggDispMin: true,
+              cittaShopify: true, occasioniShopify: true, tipologiaShopify: true, classificazioneShopify: true, dataShopify: true, orarioShopify: true, bestSellerShopify: true, ggDispMin: true, minimoOrario: true,
               // Servono alle metriche della fila (margine, novita'): senza, l'ordine
               // vero non si potrebbe calcolare.
               costoProduzione: true, creatoIl: true,

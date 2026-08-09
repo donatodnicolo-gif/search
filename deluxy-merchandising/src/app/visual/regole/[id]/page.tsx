@@ -49,7 +49,7 @@ export default async function RegolaPage({
       id: true, nome: true, immagine: true, prezzoVendita: true, categoria: true,
       tipoShopify: true, vendorShopify: true, lineaId: true, tagShopify: true,
               zoneConsegna: true,
-              cittaShopify: true, occasioniShopify: true, tipologiaShopify: true, classificazioneShopify: true, dataShopify: true, orarioShopify: true, bestSellerShopify: true, ggDispMin: true,
+              cittaShopify: true, occasioniShopify: true, tipologiaShopify: true, classificazioneShopify: true, dataShopify: true, orarioShopify: true, bestSellerShopify: true, ggDispMin: true, minimoOrario: true,
       costoProduzione: true, creatoIl: true,
               pubblicatoIlShopify: true,
               creatoIlShopify: true,

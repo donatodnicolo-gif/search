@@ -18,6 +18,7 @@ export type VociPassi = {
   date: VoceValore[];
   orari: VoceValore[];
   bestseller: VoceValore[];
+  consegnaDalle: VoceValore[];
 };
 
 /**
@@ -38,11 +39,12 @@ export type VociPassi = {
  * per offrire elenchi diversi.
  */
 export async function vociPassi(): Promise<VociPassi> {
-  const [categorie, linee, tipi, fornitori, tagGrezzi, zoneGrezze] = await Promise.all([
+  const [categorie, linee, tipi, fornitori, oreConsegna, tagGrezzi, zoneGrezze] = await Promise.all([
     prisma.prodotto.groupBy({ by: ["categoria"], where: FILTRO_IN_SCENA, _count: true }),
     prisma.prodotto.groupBy({ by: ["lineaId"], where: { ...FILTRO_IN_SCENA, lineaId: { not: null } }, _count: true }),
     prisma.prodotto.groupBy({ by: ["tipoShopify"], where: { ...FILTRO_IN_SCENA, tipoShopify: { not: null } }, _count: true }),
     prisma.prodotto.groupBy({ by: ["vendorShopify"], where: { ...FILTRO_IN_SCENA, vendorShopify: { not: null } }, _count: true }),
+    prisma.prodotto.groupBy({ by: ["minimoOrario"], where: { ...FILTRO_IN_SCENA, minimoOrario: { not: null } }, _count: true }),
     prisma.prodotto.findMany({ where: { ...FILTRO_IN_SCENA, tagShopify: { not: null } }, select: { tagShopify: true } }),
     prisma.prodotto.findMany({
       where: {
@@ -97,6 +99,11 @@ export async function vociPassi(): Promise<VociPassi> {
     orari: daElenco(zoneGrezze.map((x) => x.orarioShopify)),
     // Sì/No, coi conti veri: chi non ce l'ha segnato non sta in nessuno dei due,
     // perché «non lo sappiamo» non è «no».
+    // In ordine di **ora**, non alfabetico: «Dalle 10» prima delle «Dalle 7»
+    // sarebbe l'ordine delle lettere, non della giornata.
+    consegnaDalle: oreConsegna
+      .sort((a, b) => (a.minimoOrario ?? 0) - (b.minimoOrario ?? 0))
+      .map((x) => ({ v: String(x.minimoOrario), n: x._count, etichetta: `Dalle ${x.minimoOrario}:00` })),
     bestseller: [
       { v: "si", n: zoneGrezze.filter((x) => x.bestSellerShopify === true).length, etichetta: "Sì" },
       { v: "no", n: zoneGrezze.filter((x) => x.bestSellerShopify === false).length, etichetta: "No" },

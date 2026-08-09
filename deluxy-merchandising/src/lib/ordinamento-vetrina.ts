@@ -120,6 +120,7 @@ export type ProdottoOrdinabile = {
   dataShopify?: string | null;
   orarioShopify?: string | null;
   bestSellerShopify?: boolean | null;
+  minimoOrario?: number | null;
 };
 
 /**
@@ -364,6 +365,7 @@ const SELECT_ORDINABILE = {
   dataShopify: true,
   orarioShopify: true,
   bestSellerShopify: true,
+  minimoOrario: true,
 } as const;
 
 /** Come sopra, ma coi **passi** di una regola salvata (metriche + attributi). */

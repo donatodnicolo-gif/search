@@ -23,6 +23,7 @@ export type ProdottoAnteprima = {
   dataShopify?: string | null;
   orarioShopify?: string | null;
   bestSellerShopify?: boolean | null;
+  minimoOrario?: number | null;
   /** Servono a ordinare l'anteprima con le metriche calcolabili qui. */
   costoProduzione?: number | null;
   pubblicatoIlShopify?: Date | string | null;
