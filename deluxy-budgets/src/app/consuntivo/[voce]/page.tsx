@@ -13,7 +13,7 @@ export default async function VoceConsuntivoPage({
   searchParams,
 }: {
   params: Promise<{ voce: string }>;
-  searchParams: Promise<{ anno?: string; periodo?: string; stato?: string }>;
+  searchParams: Promise<{ anno?: string; periodo?: string; stato?: string; mese?: string }>;
 }) {
   const { voce: grezza } = await params;
   const voce = decodeURIComponent(grezza).toLowerCase();
@@ -22,8 +22,10 @@ export default async function VoceConsuntivoPage({
   const sp = await searchParams;
   // Lo stesso risolutore della pagina che si sta aprendo: se «YTD» significasse
   // due cose diverse nelle due schermate, il dettaglio non sommerebbe al totale
-  // da cui si è arrivati — ed è il modo più veloce per non farsi credere.
-  const { anno, periodo, mesiPeriodo, dal, al } = risolviPeriodo(sp);
+  // da cui si è arrivati — ed è il modo più veloce per non farsi credere. Vale
+  // anche per `?mese=`: arrivando da una casella dello split mensile, qui si
+  // vede **quel mese soltanto**.
+  const { anno, periodo, mesiPeriodo, dal, al, unMese } = risolviPeriodo(sp);
   const etichetta = mesiPeriodo.length > 0 ? etichettaMesi(dal, al) : periodo.label;
   const stato = sp.stato ?? "tutte";
 
@@ -41,19 +43,41 @@ export default async function VoceConsuntivoPage({
           <p className="page-caption" style={{ margin: 0 }}>
             <Link href={indietro} style={{ color: "var(--blue)" }}>← Consuntivo {etichetta} {anno}</Link>
           </p>
-          <h1 className="page-title">{d.nome}</h1>
+          <h1 className="page-title">
+            {d.nome}
+            {unMese && <span style={{ color: "var(--muted)", fontWeight: 400 }}> · {etichetta} {anno}</span>}
+          </h1>
           <p className="page-caption">
-            Di cosa è fatta questa riga, e dove cambiarne la composizione. Gli importi sono quelli dei
-            <strong> mesi del periodo</strong>, gli stessi che sommano al totale da cui sei arrivato.
+            Di cosa è fatta questa riga, e dove cambiarne la composizione. Gli importi sono quelli{" "}
+            {unMese ? (
+              <>
+                del <strong>solo mese di {etichetta}</strong>, gli stessi della casella da cui sei arrivato:
+                per vedere tutto il periodo togli il mese qui accanto.
+              </>
+            ) : (
+              <>
+                dei <strong>mesi del periodo</strong>, gli stessi che sommano al totale da cui sei arrivato.
+              </>
+            )}
           </p>
         </div>
         <div className="page-actions">
+          {/* Il mese si toglie con un gesto solo. I periodi lo tolgono da sé:
+              un mese di un trimestre non sta in un altro, e portarselo dietro
+              vorrebbe dire mostrare un periodo con dentro il mese sbagliato. */}
+          {unMese && (
+            <div className="seg">
+              <Link href={`/consuntivo/${voce}?periodo=${periodo.key}&stato=${stato}&anno=${anno}`}>
+                {etichetta} ✕
+              </Link>
+            </div>
+          )}
           <div className="seg">
             {["ytd", "s1", "s2", "anno"].map((k) => (
               <Link
                 key={k}
                 href={`/consuntivo/${voce}?periodo=${k}&stato=${stato}&anno=${anno}`}
-                className={k === periodo.key ? "on" : ""}
+                className={k === periodo.key && !unMese ? "on" : ""}
               >
                 {k === "ytd" ? "YTD" : k === "s1" ? "1° sem" : k === "s2" ? "2° sem" : "Anno"}
               </Link>

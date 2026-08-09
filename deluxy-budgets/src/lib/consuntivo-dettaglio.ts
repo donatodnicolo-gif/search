@@ -21,7 +21,9 @@ import { fetchConsuntivo, fetchSpeseBanca } from "./finance";
 import { fetchRicaviD2C } from "./orders";
 import { raggruppa, fatturatoDaVenduto } from "./venduto";
 import { misuraQuota } from "./quota";
+import { ricavoD2C, ricavoDeiMesi } from "./ricavo-d2c";
 import { caricaAnno, costoPersonaAnno, costoPersonaMese, type DatiAnno } from "./calc";
+import { normalizzaNome } from "./scout";
 import type { DettaglioVoce, CategoriaVoce, RigaFonte } from "./bilancio-dettaglio";
 
 // Le righe del consuntivo che si possono aprire. La chiave sta nell'URL, quindi
@@ -187,15 +189,36 @@ export async function dettaglioConsuntivo(
     ]);
     const righe: RigaFonte[] = [];
     const avvisi: string[] = [];
+    // Le stesse voci di Finance che il consuntivo conta: una tipologia che non
+    // è mappata su nessuna voce di budget **non entra nei ricavi della pagina**,
+    // e sommarla qui faceva divergere il dettaglio dal totale che lo ha aperto
+    // (luglio 2026: «Altro» 2.278 €, la differenza esatta). Non sparisce — è
+    // scritta sotto, con quanto vale e dove si aggancia.
+    const nomiMappati = new Set<string>();
+    for (const t of dati.tipologie) {
+      for (const n of t.vociFinance.length ? t.vociFinance : [t.nome]) nomiMappati.add(normalizzaNome(n));
+    }
+    const nonMappate: { nome: string; importo: number }[] = [];
     if (fatt.ok) {
       for (const t of fatt.dati.tipologie) {
         if (t.imponibile <= 0) continue;
+        if (!nomiMappati.has(normalizzaNome(t.tipologia))) {
+          nonMappate.push({ nome: t.tipologia, importo: t.imponibile });
+          continue;
+        }
         righe.push({
           nome: t.tipologia,
           importo: t.imponibile,
           fonte: `fatturato in Finance — ${t.fatture} fatture, imponibile`,
           fatture: t.tipologia,
         });
+      }
+      if (nonMappate.length > 0) {
+        avvisi.push(
+          `**Fuori da questo totale**: ${nonMappate
+            .map((t) => `«${t.nome}» ${Math.round(t.importo).toLocaleString("it-IT")} €`)
+            .join(", ")} — sono tipologie fatturate in Finance che non sono mappate su nessuna voce di budget, quindi non entrano nei ricavi di nessuno. Si agganciano in **Margini**, campo «Voci in Finance».`
+        );
       }
     } else {
       avvisi.push(`Il fatturato di Finance non è disponibile: ${fatt.errore}`);
@@ -204,6 +227,24 @@ export async function dettaglioConsuntivo(
     const venduto = mesi.reduce((s, m) => s + (vend.mese[m - 1] ?? 0), 0);
     if (venduto > 0) {
       const quota = await misuraQuota(anno, mesi, vend.mese);
+      // ⚠️ **Lo stesso conto del totale da cui si è cliccato** (09/08/2026).
+      // Qui il ricavo dell'ecommerce si calcolava sempre come venduto × quota,
+      // mentre il consuntivo — da quando esistono le fee vere dei vendor — usa
+      // `ricavoD2C`: fee misurata partner per partner più il margine sugli
+      // ordini comprati dai fornitori. Le due strade danno numeri diversi (su
+      // luglio 2026: 36.688 € contro i 34.693 € della pagina), quindi il
+      // dettaglio **non sommava** al numero che lo aveva aperto — che è
+      // esattamente la promessa scritta in cima a questo file. Ora la strada è
+      // una sola, e la riga dice quale.
+      const d2c = await ricavoD2C(anno, vend.mese);
+      const d2cPeriodo = d2c.ok ? ricavoDeiMesi(d2c, mesi) : null;
+      const daVendor = Boolean(d2cPeriodo && d2cPeriodo.fee > 0);
+      const ricavoEcommerce = daVendor ? d2cPeriodo!.ricavo : fatturatoDaVenduto(venduto, quota);
+      // Il ricavo per negozio è una **ripartizione**, non una misura: le fee
+      // dei vendor si conoscono per partner e per mese, non per negozio. Si
+      // spartisce in proporzione al venduto di ciascuno — e la riga lo scrive,
+      // invece di far sembrare misurato un riparto.
+      const ricavoDelNegozio = (v: number) => (venduto > 0 ? (v / venduto) * ricavoEcommerce : 0);
       // Una riga per **negozio**, non una sola per «ecommerce»: il totale non
       // dice se sta tirando Deluxy.it o Flowers, ed è la prima cosa che si
       // vuole sapere aprendo i ricavi.
@@ -221,10 +262,20 @@ export async function dettaglioConsuntivo(
         if (v <= 0) continue;
         righe.push({
           nome: `Ecommerce · ${b.nome}`,
-          importo: fatturatoDaVenduto(v, quota),
-          fonte: `venduto ${Math.round(v).toLocaleString("it-IT")} € × ${quota.percentuale}% che resta a Deluxy (${quota.misurata ? "misurato" : "stimato"})`,
+          importo: ricavoDelNegozio(v),
+          fonte: daVendor
+            ? `venduto ${Math.round(v).toLocaleString("it-IT")} € — quota del ricavo ecommerce misurato sulle fee dei vendor, ripartita sul venduto`
+            : `venduto ${Math.round(v).toLocaleString("it-IT")} € × ${quota.percentuale}% che resta a Deluxy (${quota.misurata ? "misurato" : "stimato"})`,
           dove: "/venduto",
         });
+      }
+      if (daVendor) {
+        avvisi.push(
+          `Il ricavo dell'ecommerce è **misurato**: ${Math.round(d2cPeriodo!.fee).toLocaleString("it-IT")} € di fee fatturate ai partner vendor, più il margine sugli ordini comprati dai fornitori. La divisione **per negozio** invece è una ripartizione sul venduto: le fee si conoscono per partner e per mese, non per negozio.` +
+            (d2cPeriodo!.nonCaricati.length > 0
+              ? ` Mesi con le vendite dei partner non ancora caricate in Finance, quindi fuori dalla misura: ${d2cPeriodo!.nonCaricati.join(", ")}.`
+              : "")
+        );
       }
       // La domanda che si fanno tutti guardando questa riga, con la risposta
       // presa dal registro invece che a memoria.

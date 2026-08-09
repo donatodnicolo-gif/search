@@ -421,16 +421,29 @@ export default async function ConsuntivoPage({
   const costoM = (tp: keyof typeof costi, m: number) => costiMese[tp][m - 1] ?? 0;
   const margineM = (m: number) => ricaviM(m) - costoM("COGS", m);
   const ebitdaM = (m: number) => margineM(m) - costoM("ADV", m) - personaleMese(m) - costoM("STRUTTURA", m);
-  const righeMens: { label: string; costo?: boolean; forte?: boolean; dettaglio?: boolean; get: (m: number) => number }[] = [
-    { label: "Ricavi", get: ricaviM },
+  // `voce` è la riga del dettaglio che risponde a quella casella. Le righe
+  // **derivate** (margine lordo, EBITDA) non ce l'hanno di proposito: non sono
+  // fatte di movimenti, sono una sottrazione fra le altre — un link che apre
+  // "di cosa è fatto" su una differenza prometterebbe una risposta che non c'è.
+  const righeMens: {
+    label: string;
+    costo?: boolean;
+    forte?: boolean;
+    dettaglio?: boolean;
+    voce?: string;
+    get: (m: number) => number;
+  }[] = [
+    { label: "Ricavi", voce: "ricavi", get: ricaviM },
     // Quanto di quei ricavi è ecommerce, mese per mese: è la riga che dice se
     // l'andamento dei negozi sta reggendo, e da sola nel totale non si vede.
-    ...(d2c.ok ? [{ label: `di cui ecommerce (${pctD2C}%)`, dettaglio: true, get: (m: number) => d2cMese[m - 1] ?? 0 }] : []),
-    { label: "Costo per servizi", costo: true, get: (m) => costoM("COGS", m) },
+    ...(d2c.ok
+      ? [{ label: `di cui ecommerce (${pctD2C}%)`, dettaglio: true, voce: "ricavi", get: (m: number) => d2cMese[m - 1] ?? 0 }]
+      : []),
+    { label: "Costo per servizi", costo: true, voce: "cogs", get: (m) => costoM("COGS", m) },
     { label: "Margine lordo", forte: true, get: margineM },
-    { label: "ADV", costo: true, get: (m) => costoM("ADV", m) },
-    { label: "Personale", costo: true, get: personaleMese },
-    { label: "Struttura", costo: true, get: (m) => costoM("STRUTTURA", m) },
+    { label: "ADV", costo: true, voce: "adv", get: (m) => costoM("ADV", m) },
+    { label: "Personale", costo: true, voce: "personale", get: personaleMese },
+    { label: "Struttura", costo: true, voce: "struttura", get: (m) => costoM("STRUTTURA", m) },
   ];
 
   const link = (p: { periodo?: string; stato?: string; anno?: number }) =>
@@ -673,7 +686,15 @@ export default async function ConsuntivoPage({
                 <thead>
                   <tr>
                     <th>Voce</th>
-                    {mesiPeriodo.map((m) => (<th className="num" key={m}>{MESI[m - 1]}</th>))}
+                    {/* Il nome del mese apre il mese: la colonna intera, con i
+                        suoi limiti dichiarati e ogni riga già apribile. */}
+                    {mesiPeriodo.map((m) => (
+                      <th className="num" key={m}>
+                        <Link href={`/consuntivo/mese/${m}?stato=${stato}&anno=${anno}`} style={{ color: "var(--blue)" }}>
+                          {MESI[m - 1]}
+                        </Link>
+                      </th>
+                    ))}
                     <th className="num">Periodo</th>
                   </tr>
                 </thead>
@@ -686,8 +707,25 @@ export default async function ConsuntivoPage({
                       >
                         {r.label}
                       </td>
+                      {/* Ogni casella si apre su **quella voce in quel mese**:
+                          la domanda che nasce guardando questa tabella è quasi
+                          sempre «perché proprio a marzo?», e la risposta sono le
+                          categorie e le controparti di marzo, non del periodo. */}
                       {mesiPeriodo.map((m) => (
-                        <td className="num" key={m}>{r.costo ? `− ${eur(r.get(m))}` : eur(r.get(m))}</td>
+                        <td className="num" key={m}>
+                          {r.voce ? (
+                            <Link
+                              href={`/consuntivo/${r.voce}?periodo=${periodo.key}&stato=${stato}&anno=${anno}&mese=${m}`}
+                              style={{ color: "inherit", textDecoration: "none", borderBottom: "1px dotted var(--border)" }}
+                            >
+                              {r.costo ? `− ${eur(r.get(m))}` : eur(r.get(m))}
+                            </Link>
+                          ) : r.costo ? (
+                            `− ${eur(r.get(m))}`
+                          ) : (
+                            eur(r.get(m))
+                          )}
+                        </td>
                       ))}
                       <td className="num" style={{ fontWeight: 600 }}>
                         {r.costo ? `− ${eur(mesiPeriodo.reduce((s, m) => s + r.get(m), 0))}` : eur(mesiPeriodo.reduce((s, m) => s + r.get(m), 0))}
@@ -696,14 +734,30 @@ export default async function ConsuntivoPage({
                   ))}
                   <tr className="tot">
                     <td>EBITDA</td>
+                    {/* L'EBITDA non ha un dettaglio suo — è una sottrazione —
+                        quindi la casella porta al **mese**, dove ci sono tutte
+                        le righe da cui esce. */}
                     {mesiPeriodo.map((m) => (
-                      <td className={`num ${ebitdaM(m) >= 0 ? "pos" : "neg"}`} key={m}>{eur(ebitdaM(m))}</td>
+                      <td className={`num ${ebitdaM(m) >= 0 ? "pos" : "neg"}`} key={m}>
+                        <Link
+                          href={`/consuntivo/mese/${m}?stato=${stato}&anno=${anno}`}
+                          style={{ color: "inherit", textDecoration: "none", borderBottom: "1px dotted var(--border)" }}
+                        >
+                          {eur(ebitdaM(m))}
+                        </Link>
+                      </td>
                     ))}
                     <td className={`num ${ebitdaCons >= 0 ? "pos" : "neg"}`}>{eur(mesiPeriodo.reduce((s, m) => s + ebitdaM(m), 0))}</td>
                   </tr>
                 </tbody>
               </table>
             </div>
+            <p className="page-caption" style={{ margin: "10px 14px 4px" }}>
+              <strong>Ogni casella si apre.</strong> Un numero porta a <em>quella voce in quel mese</em> — le
+              categorie di banca e le controparti di quel mese soltanto — e il <strong>nome del mese</strong>{" "}
+              apre il mese intero, con tutte le righe e i limiti di quel periodo. Margine lordo ed EBITDA non
+              si aprono per voce: sono differenze fra le altre righe, non movimenti, quindi portano al mese.
+            </p>
           </div>
 
           <p className="page-caption" style={{ marginTop: 14 }}>

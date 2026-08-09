@@ -24,7 +24,7 @@ export const PERIODI = [
 export const etichettaMesi = (a: number, b: number) =>
   a === b ? MESI[a - 1] : `${MESI[a - 1]}–${MESI[b - 1]}`;
 
-export function risolviPeriodo(sp: { periodo?: string; anno?: string }) {
+export function risolviPeriodo(sp: { periodo?: string; anno?: string; mese?: string }) {
   const periodo = PERIODI.find((p) => p.key === sp.periodo) ?? PERIODI[0];
 
   // Il consuntivo arriva **a oggi**: il mese in corso ci sta dentro, parziale.
@@ -46,8 +46,23 @@ export function risolviPeriodo(sp: { periodo?: string; anno?: string }) {
   // Ultimo mese disponibile per l'anno scelto: anni passati = 12, anno in corso
   // = quello attuale (parziale), anni futuri = 0.
   const meseLimite = anno < annoInCorso ? 12 : anno > annoInCorso ? 0 : meseInCorso;
-  const dal = periodo.dal;
-  const al = Math.min(periodo.al, meseLimite);
+
+  // **Un mese solo**, quando si arriva da una casella dello split mensile
+  // (`?mese=7`). Sta qui e non nelle pagine per la stessa ragione dei periodi:
+  // se «luglio» significasse una cosa nel consuntivo e un'altra nel suo
+  // dettaglio, il dettaglio non sommerebbe al numero da cui si è cliccato. Un
+  // mese fuori dal periodo o non ancora cominciato si ignora: si torna al
+  // periodo intero invece di mostrare una pagina vuota.
+  const meseChiesto = Number(sp.mese);
+  const unMese =
+    Number.isInteger(meseChiesto) &&
+    meseChiesto >= periodo.dal &&
+    meseChiesto <= Math.min(periodo.al, meseLimite)
+      ? meseChiesto
+      : null;
+
+  const dal = unMese ?? periodo.dal;
+  const al = unMese ?? Math.min(periodo.al, meseLimite);
   const mesiPeriodo: number[] = [];
   for (let m = dal; m <= al; m++) mesiPeriodo.push(m);
   const vuoto = mesiPeriodo.length === 0;
@@ -73,6 +88,10 @@ export function risolviPeriodo(sp: { periodo?: string; anno?: string }) {
 
   return {
     periodo,
+    // Il mese singolo su cui si è ristretto, `null` se si guarda tutto il
+    // periodo: le pagine lo dicono in chiaro, altrimenti un totale piccolo
+    // sembra un crollo invece che un mese.
+    unMese,
     anno,
     annoPrec,
     ANNI,

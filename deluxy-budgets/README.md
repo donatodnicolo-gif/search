@@ -120,6 +120,33 @@ pubblicato), *sfidante* e *irraggiungibile*.
   davvero dal conto per stipendi nello stesso periodo — non sommato, che sarebbe contare due volte le
   stesse persone, ma affiancato, che è l'unico modo per accorgersi se pianificato e pagato si stanno
   allontanando. Motore in `src/lib/consuntivo-dettaglio.ts`, stessa UI del conto economico.
+- ⭐ **SI ENTRA NEL SINGOLO MESE** (`/consuntivo/mese/[m]`, 09/08/2026, richiesta dell'utente:
+  «consentimi di entrare nel dettaglio di ogni mese»). Lo **split mensile** dava dodici colonne di
+  numeri veri e nessun modo di chiedere *perché*, mentre la domanda che nasce lì è quasi sempre su un
+  mese solo — «perché gennaio è in perdita e maggio no?». Adesso:
+  - **ogni casella si apre** su *quella voce in quel mese* (`/consuntivo/[voce]?mese=7`): le categorie
+    di banca e le controparti di **luglio soltanto**, non del periodo;
+  - il **nome del mese** apre il mese intero: conto economico del mese con ogni riga apribile, lo
+    **stesso mese dell'anno prima** accanto con la variazione, da dove viene il fatturato per voce di
+    budget, e in fondo **cosa sapere su quel mese** (mese in corso, vendite vendor non caricate, uscite
+    ancora senza categoria, quanta pubblicità Marketing spiega);
+  - **margine lordo ed EBITDA non si aprono per voce** ma portano al mese: sono differenze fra le
+    altre righe, non movimenti, e un link «di cosa è fatto» su una sottrazione prometterebbe una
+    risposta che non esiste.
+  Il mese singolo si risolve in **`risolviPeriodo()`** (`?mese=`), non nelle pagine, per la stessa
+  ragione dei periodi: se «luglio» significasse due cose in due schermate, il dettaglio non sommerebbe
+  al numero da cui si è cliccato. Un mese fuori dal periodo, o non ancora cominciato, si **ignora** e
+  si torna al periodo intero. I numeri del mese vengono da `caricaConsuntivo(dati, [m])` — lo stesso
+  motore della pagina da cui si è arrivati, non un secondo conto.
+  > ⚠️ **Due divergenze trovate proprio aprendo i mesi, e corrette**: il dettaglio dei ricavi
+  > calcolava l'ecommerce come *venduto × quota* mentre la pagina usa ormai le **fee vere dei vendor**
+  > (`ricavoD2C`) — su luglio 2026 36.688 € contro 34.693 € — e sommava anche le **tipologie di
+  > Finance non mappate** su nessuna voce di budget («Altro», 2.278 €), che nei ricavi della pagina non
+  > entrano. Ora la strada è una sola e le non mappate sono scritte **fuori dal totale**, con quanto
+  > valgono e dove si agganciano. Verificato voce per voce: su luglio, marzo e YTD gen–ago il dettaglio
+  > somma **all'euro** al totale che lo ha aperto. La divisione del ricavo ecommerce **per negozio**
+  > resta una ripartizione sul venduto, e la riga lo dice: le fee si conoscono per partner e per mese,
+  > non per negozio.
 - **Ogni controparte si apre sui suoi movimenti — data e causale** (29/07/2026): cliccando una
   controparte, nel dettaglio di una voce o nell'elenco delle senza-categoria, si vedono i suoi
   movimenti uno per uno con **data**, importo e **causale**. Serviva per due motivi diversi e
