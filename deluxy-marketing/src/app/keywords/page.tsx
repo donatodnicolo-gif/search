@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { STATI_GRUPPO_IGNORATI } from "@/lib/gruppi";
 import { cittaDaTesto } from "@/lib/citta";
 import { Icona } from "@/components/Icona";
 import { PortaKeyword } from "@/components/PortaKeyword";
@@ -97,11 +98,33 @@ export default async function PaginaKeywords({
   // vanno solo quelle che stanno erogando.
   // `stato` qui è il fatto, non un giudizio: lo scrive l'import da Google
   // ("attiva" = ENABLED, vedi `statoCampagna()` nello script).
-  const campagneAttive = campagneCensite
-    .filter((c) => c.stato === "attiva")
-    // La lingua viaggia col nome della campagna: serve al dialogo per avvisare
-    // quando si porta una parola inglese su una campagna italiana.
-    .map((c) => ({ ...c, lingua: linguaDaNome(c.nome), citta: cittaDaTesto(c.nome) }));
+  const campagneVive = campagneCensite.filter((c) => c.stato === "attiva");
+  // I gruppi di annunci di quelle campagne, in UNA query sola: servono al
+  // dialogo per far scegliere DOVE finisce la keyword. Senza, lo script la
+  // infila nel primo gruppo attivo che incontra — una scelta presa dal caso,
+  // su una parola che comincia a comprare ricerche vere.
+  const gruppiDelle = await prisma.gruppo.findMany({
+    where: {
+      campagnaId: { in: campagneVive.map((c) => c.id) },
+      stato: { notIn: [...STATI_GRUPPO_IGNORATI] },
+    },
+    orderBy: { nome: "asc" },
+    select: { campagnaId: true, nome: true },
+  });
+  const gruppiPerCampagna = new Map<string, string[]>();
+  for (const g of gruppiDelle) {
+    const lista = gruppiPerCampagna.get(g.campagnaId) ?? [];
+    lista.push(g.nome);
+    gruppiPerCampagna.set(g.campagnaId, lista);
+  }
+  // La lingua viaggia col nome della campagna: serve al dialogo per avvisare
+  // quando si porta una parola inglese su una campagna italiana.
+  const campagneAttive = campagneVive.map((c) => ({
+    ...c,
+    lingua: linguaDaNome(c.nome),
+    citta: cittaDaTesto(c.nome),
+    gruppi: gruppiPerCampagna.get(c.id) ?? [],
+  }));
   // ⚠️ Le campagne del selettore sono solo quelle VIVE. L'elenco nasceva dalle
   // keyword, e le keyword sopravvivono alla campagna: si finiva per scegliere
   // una campagna spenta nel 2025 e guardare parole che non comprano più niente.

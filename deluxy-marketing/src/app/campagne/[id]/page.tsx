@@ -43,7 +43,7 @@ import {
   rinominaCampagna,
 } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
-import { GIORNI_LETTURA, gruppiConNumeri, nomeCampagna } from "@/lib/gruppi";
+import { GIORNI_LETTURA, STATI_GRUPPO_IGNORATI, gruppiConNumeri, nomeCampagna } from "@/lib/gruppi";
 import {
   COLORE_BRAND,
   COLORE_STATO_AZIONE,
@@ -132,13 +132,36 @@ export default async function SchedaCampagna({
 
   // Le campagne su cui si può portare una parola cercata: solo quelle che
   // erogano davvero, come nel dialogo della pagina Keywords.
-  const campagneDoveportare = (
+  const campagneGrezze = (
     await prisma.campagna.findMany({
       where: { canale: "google_ads", stato: "attiva" },
       orderBy: { nome: "asc" },
       select: { id: true, nome: true, classe: true },
     })
-  ).map((c) => ({ ...c, lingua: linguaDaNome(c.nome), citta: cittaDaTesto(c.nome) }));
+  );
+  // I gruppi di annunci di quelle campagne: una query sola, non una per
+  // campagna. Servono a far scegliere DOVE finisce la keyword invece di
+  // lasciarla al primo gruppo attivo che lo script incontra.
+  const gruppiDelle = await prisma.gruppo.findMany({
+    where: {
+      campagnaId: { in: campagneGrezze.map((c) => c.id) },
+      stato: { notIn: [...STATI_GRUPPO_IGNORATI] },
+    },
+    orderBy: { nome: "asc" },
+    select: { campagnaId: true, nome: true },
+  });
+  const gruppiPerCampagna = new Map<string, string[]>();
+  for (const g of gruppiDelle) {
+    const lista = gruppiPerCampagna.get(g.campagnaId) ?? [];
+    lista.push(g.nome);
+    gruppiPerCampagna.set(g.campagnaId, lista);
+  }
+  const campagneDoveportare = campagneGrezze.map((c) => ({
+    ...c,
+    lingua: linguaDaNome(c.nome),
+    citta: cittaDaTesto(c.nome),
+    gruppi: gruppiPerCampagna.get(c.id) ?? [],
+  }));
 
   // I gruppi della campagna: la media di campagna qui sopra può nascondere un
   // gruppo che rende il doppio e uno che brucia. Vanno guardati separati.

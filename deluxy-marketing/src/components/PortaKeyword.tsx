@@ -13,6 +13,10 @@ export type CampagnaScelta = {
   // La citta nominata dal NOME della campagna: serve ad adattare la keyword.
   // Si calcola sul server e viaggia con la campagna, come la lingua.
   citta?: string | null;
+  // I gruppi di annunci della campagna. Senza, lo script infila la keyword nel
+  // primo gruppo attivo che incontra: una scelta presa dal caso su una parola
+  // che comincia a comprare ricerche vere.
+  gruppi?: string[];
 };
 
 const NOME_LINGUA: Record<string, string> = { ita: "italiano", eng: "inglese", fra: "francese" };
@@ -270,6 +274,31 @@ export function PortaKeyword({
                         }}
                       />
                     </label>
+                    {/* ⚠️ DOVE finisce, non solo COME entra. Senza questa
+                        scelta lo script la mette nel primo gruppo attivo che
+                        incontra: una parola su «Consegna Rose» invece che su
+                        «Flowers Delivery» compra le stesse ricerche ma con gli
+                        annunci sbagliati, e non se ne accorge nessuno. */}
+                    {(c.gruppi?.length ?? 0) > 0 ? (
+                      <label className="modale-campo" style={{ marginTop: 8 }}>
+                        In quale gruppo di annunci
+                        <select
+                          name={`gruppo_${c.id}`}
+                          defaultValue={c.gruppi![0]}
+                        >
+                          {c.gruppi!.map((g) => (
+                            <option key={g} value={g}>{g}</option>
+                          ))}
+                        </select>
+                      </label>
+                    ) : (
+                      <div className="cella-sub" style={{ marginTop: 8, whiteSpace: "normal" }}>
+                        Di questa campagna l&apos;app non conosce i gruppi: la sceglierà lo script,
+                        e finirà nel <b>primo gruppo attivo</b>. Per poterlo scegliere serve un giro
+                        di <b>gruppi</b> dello script su quell&apos;account.
+                      </div>
+                    )}
+
                     <div className="cella-sub" style={{ marginTop: 5, whiteSpace: "normal" }}>
                       {cambiata ? <>da «{pulito}»</> : <>invariata</>}
                       {a.cambiamenti.length > 0 && <> · {a.cambiamenti.join(" · ")}</>}

@@ -2682,6 +2682,10 @@ export async function applicaKeywordAdAltreCampagne(fd: FormData) {
     // su Milano. Sbagliare città costa come sbagliare lingua.
     const riscritto = piuParole ? null : testo(fd, `testo_${c.id}`);
     const pulitoQui = riscritto ? testoKeywordPulito(riscritto) : pulito;
+    // ⚠️ In quale GRUPPO finisce. Senza, `creaKeyword` nello script prende il
+    // primo gruppo attivo della campagna: la parola compra le ricerche giuste
+    // con gli annunci sbagliati, e non lo dice nessuno.
+    const gruppoScelto = testo(fd, `gruppo_${c.id}`);
 
     const candidate = await prisma.copyAnnuncio.findMany({
       where: { tipo: "keyword", campagna: c.nome, testo: { contains: pulitoQui } },
@@ -2703,7 +2707,11 @@ export async function applicaKeywordAdAltreCampagne(fd: FormData) {
         canale: c.canale,
         bersaglio: c.nome,
         idEsterno: c.idEsterno,
-        parametri: JSON.stringify({ testo: pulitoQui, corrispondenza }),
+        parametri: JSON.stringify({
+          testo: pulitoQui,
+          corrispondenza,
+          ...(gruppoScelto ? { gruppo: gruppoScelto } : {}),
+        }),
         motivo:
           pulitoQui.toLowerCase() !== pulito.toLowerCase()
             ? `Portata da un'altra campagna e riscritta per questa: «${pulito}» → «${pulitoQui}»`
