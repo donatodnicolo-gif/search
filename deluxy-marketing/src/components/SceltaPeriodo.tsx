@@ -24,6 +24,21 @@ export function SceltaPeriodo({
   const link = (preset: string) => `${azione}?preset=${preset}`;
   const libero = periodo.preset === "libero";
 
+  // ⚠️ Le caselle mostrano SEMPRE le date che si stanno guardando, anche quando
+  // il periodo arriva da una pillola. Prima restavano vuote («gg/mm/aaaa»):
+  // «Ultimi 30 giorni» non diceva da quando a quando, e per saperlo bisognava
+  // contarli sul calendario. Peggio, chi voleva spostare solo la fine doveva
+  // riscrivere anche l'inizio — l'altra casella era vuota e il modulo la
+  // mandava vuota.
+  //
+  // `periodo.corrente.a` è ESCLUSIVO (le query usano `lt`), ma la casella deve
+  // mostrare l'ultimo giorno COMPRESO: si toglie un giorno, o «ultimi 7»
+  // sembrerebbe finire domani.
+  const iso = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const daMostrare = da ?? iso(periodo.corrente.da);
+  const aMostrare = a ?? iso(new Date(periodo.corrente.a.getTime() - 86_400_000));
+
   return (
     <section className="scheda" style={{ paddingBottom: 14 }}>
       <div className="scheda-titolo">Periodo</div>
@@ -42,8 +57,8 @@ export function SceltaPeriodo({
         {libero && <span className="pill-opt attuale">Personalizzato</span>}
       </div>
       <form className="filtri" method="get" action={azione} style={{ marginBottom: 0 }}>
-        <input type="date" name="da" defaultValue={da ?? ""} title="Dal (compreso)" />
-        <input type="date" name="a" defaultValue={a ?? ""} title="Al (compreso)" />
+        <input type="date" name="da" defaultValue={daMostrare} title="Dal (compreso)" />
+        <input type="date" name="a" defaultValue={aMostrare} title="Al (compreso)" />
         <button className="btn small" type="submit">Vai</button>
         <span className="cella-sub" style={{ alignSelf: "center" }}>
           Stai guardando: <b>{periodo.corrente.etichetta}</b> — {giorni}{" "}

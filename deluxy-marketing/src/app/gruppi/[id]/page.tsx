@@ -290,22 +290,9 @@ export default async function SchedaGruppo({
             ritorno naturale, l elenco resta a fianco. */}
         <div style={{ display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
           <a className="ritorno" href={`/campagne/${gruppo.campagnaId}`}>← {gruppo.campagna.nome}</a>
-          <a className="ritorno" href="/gruppi" style={{ opacity: .7 }}>Tutti i gruppi</a>
-          {/* Passare da un gruppo all'altro della STESSA campagna senza
-              risalire alla campagna e ridiscendere: su una campagna con
-              quattro gruppi è il giro che si fa più volte al giorno. */}
-          {fratelli.length > 1 && (
-            <form action={vaiAlGruppo} style={{ marginLeft: "auto" }}>
-              <SelettoreStato
-                nome="id"
-                valore={gruppo.id}
-                opzioni={fratelli.map((f) => ({
-                  valore: f.id,
-                  etichetta: nomeGruppo(f) + (f.stato === "defunto" ? " (defunto)" : ""),
-                }))}
-              />
-            </form>
-          )}
+          <a className="ritorno" href="/gruppi" style={{ opacity: .7, marginLeft: "auto" }}>
+            Tutti i gruppi
+          </a>
         </div>
         <div className="page-head">
           <div>
@@ -313,8 +300,33 @@ export default async function SchedaGruppo({
                 dietro il suo <dialog>, e un dialog dentro un titolo è HTML
                 non valido — il titolo finiva per "contenere" tutto il testo
                 del modulo, compreso quello che legge uno screen reader. */}
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
               <h1 className="page-title">{nomeGruppo(gruppo)}</h1>
+              {/* Saltare da un gruppo all'altro della stessa campagna senza
+                  risalire e ridiscendere. Sta accanto al titolo perché è quello
+                  che si sta cambiando: il titolo È il gruppo.
+                  Il colore è quello dello stato SU GOOGLE, non del giudizio
+                  dell'app: nella tendina si sceglie dove andare, e sapere quali
+                  girano e quali no è metà della scelta. */}
+              {fratelli.length > 1 && (
+                <form action={vaiAlGruppo}>
+                  <SelettoreStato
+                    nome="id"
+                    valore={gruppo.id}
+                    colore={inPausa ? "var(--orange)" : "var(--green)"}
+                    opzioni={fratelli.map((f) => ({
+                      valore: f.id,
+                      etichetta:
+                        nomeGruppo(f) +
+                        (f.stato === "defunto"
+                          ? " · defunto"
+                          : f.statoPiattaforma === "PAUSED"
+                            ? " · in pausa"
+                            : ""),
+                    }))}
+                  />
+                </form>
+              )}
               <RinominaInline
                 id={gruppo.id}
                 nomeVisibile={gruppo.nomeVisibile}
@@ -378,7 +390,12 @@ export default async function SchedaGruppo({
               al titolo, non in fondo alla colonna destra. Quando non si può,
               al posto del bottone c'è il motivo — un bottone che non funziona
               è peggio di nessun bottone. */}
-          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          {/* In COLONNA: la nota del blackout sta sotto il bottone, non di
+              fianco. Di fianco allargava la testata e spingeva il bottone
+              verso il centro, e la nota si leggeva come un'etichetta del
+              bottone invece che come quello che è — un avviso su quando i
+              risultati torneranno leggibili. */}
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
             {pmax ? (
               <span className="cella-sub" style={{ maxWidth: 260, whiteSpace: "normal" }}>
                 I gruppi di asset delle Performance Max non si fermano da script: si gestiscono
