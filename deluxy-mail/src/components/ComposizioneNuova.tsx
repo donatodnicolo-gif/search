@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { inviaNuovaMail, salvaMinuta } from '@/lib/actions'
+import { inviaNuovaMail, salvaMinuta, chiediAReneMailNuova } from '@/lib/actions'
 import { EditorRicco } from './EditorRicco'
 import { Allegati } from './Allegati'
 import { CampoDestinatari, type ContattoRubrica } from './CampoDestinatari'
@@ -53,6 +53,10 @@ export function ComposizioneNuova({ da, iniziale, bozzaId, contatti = [], sequen
   // Salvando due volte non si devono creare due bozze: dal primo salvataggio
   // in poi si aggiorna quella.
   const [idBozza, setIdBozza] = useState(bozzaId)
+  // Il brief per Renè (mail scritta da zero): vedi il riquadro più sotto.
+  const [reneAperto, setReneAperto] = useState(false)
+  const [briefRene, setBriefRene] = useState('')
+  const [esitoRene, setEsitoRene] = useState<string | null>(null)
   // Inviata: da qui in poi niente più salvataggi automatici.
   const [inviato, setInviato] = useState(false)
   // Avanzamento del caricamento degli allegati pesanti.
@@ -122,6 +126,30 @@ export function ComposizioneNuova({ da, iniziale, bozzaId, contatti = [], sequen
       return esito.id ?? (esito.ok ? (idBozza ?? null) : null)
     },
   })
+
+  function chiediRene() {
+    setEsitoRene(null)
+    startTransition(async () => {
+      try {
+        const r = await chiediAReneMailNuova(briefRene, { a, oggetto, corpo })
+        if (r.ok && r.mail) {
+          if (r.mail.a) setA(r.mail.a)
+          if (r.mail.cc) setCc(r.mail.cc)
+          if (r.mail.oggetto) setOggetto(r.mail.oggetto)
+          setCorpo(r.mail.corpo)
+          // L'editor prende il contenuto una volta sola: per sostituirlo va
+          // rimontato (stessa ragione dei testi pronti, qui sotto).
+          setVersioneCorpo((n) => n + 1)
+          setEsitoRene(r.messaggio)
+          setBriefRene('')
+        } else {
+          setEsitoRene(r.messaggio)
+        }
+      } catch (e) {
+        setEsitoRene(`Non riuscito: ${e instanceof Error ? e.message.slice(0, 120) : 'errore'}`)
+      }
+    })
+  }
 
   // `Ctrl+Invio` = clic su «Invia»: chiede conferma, e alla seconda spedisce.
   useInvioRapido({
@@ -282,6 +310,57 @@ export function ComposizioneNuova({ da, iniziale, bozzaId, contatti = [], sequen
         {/* Una mail da zero apre una conversazione nuova: da qui la si può
             invece far finire dentro uno scambio già esistente. */}
         <AgganciaCompose scelta={aggancio} onScelta={setAggancio} />
+
+        {/* IL BRIEF: si buttano giù i punti e Renè scrive la mail. Sta prima
+            dei testi pronti perché è l'altra faccia della stessa domanda —
+            «devo scrivere una mail»: o c'è già il copione, o la si detta. */}
+        <div className="full">
+          {!reneAperto ? (
+            <button type="button" className="azione-riga" onClick={() => setReneAperto(true)}>
+              <span className="ai-toggle-mark">AI</span> Detta il brief a Renè
+            </button>
+          ) : (
+            <div className="ai-box" style={{ marginBottom: 4 }} data-senza-invio-rapido>
+              <div className="ai-box-title">Il brief per Renè</div>
+              <p style={{ fontSize: 12.5, color: 'var(--text-secondary)', margin: '0 0 8px' }}>
+                Buttagli giù i punti — anche a elenco: a chi scrivere, cosa proporre, prezzi,
+                date, cosa chiedere. Compila destinatario, oggetto e testo. Quello che hai già
+                scritto non si perde: lo riscrive tenendone conto.
+              </p>
+              <textarea
+                value={briefRene}
+                onChange={(e) => setBriefRene(e.target.value)}
+                placeholder={
+                  'Es.\n- scrivi a Martina Calia\n- proponiamo le composizioni per il Boutique Roma\n- consegna dal 14, prezzo 380 € + iva\n- chiedi conferma entro venerdì'
+                }
+                rows={5}
+                style={{ width: '100%', minHeight: 110, lineHeight: 1.55, resize: 'vertical' }}
+                autoFocus
+              />
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+                <button
+                  type="button"
+                  className="btn primary small"
+                  onClick={chiediRene}
+                  disabled={inCorso || !briefRene.trim()}
+                >
+                  {inCorso ? 'Scrivo…' : 'Scrivi la mail'}
+                </button>
+                <button
+                  type="button"
+                  className="btn secondary small"
+                  onClick={() => setReneAperto(false)}
+                  disabled={inCorso}
+                >
+                  Chiudi
+                </button>
+              </div>
+              {esitoRene && (
+                <div style={{ fontSize: 12.5, marginTop: 8, color: 'var(--text-secondary)' }}>{esitoRene}</div>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* I copioni aziendali di Deluxy Scripts: si sceglie e finisce qui
             sotto, già composto con firma e recapiti della posta. */}

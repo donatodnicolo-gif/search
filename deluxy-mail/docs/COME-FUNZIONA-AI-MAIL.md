@@ -190,6 +190,13 @@ un'intera serie arrivano al giro di sincronizzazione successivo, non all'istante
 
 ## 6. Bozze
 
+**Il brief.** Mentre scrivi — sia rispondendo sia in una mail da zero — c'è **«Detta il
+brief a Renè»**: un riquadro dove butti giù i punti, anche a elenco e anche sgrammaticati
+(prezzi, date, cosa concedere e cosa no). Renè scrive la mail col tuo stile e la tua firma;
+rispondendo legge tutta la conversazione, e in una mail nuova compila anche **destinatario
+e oggetto** cercando il nome in rubrica. Quello che hai già scritto non si perde: lo
+riscrive tenendone conto. Poi correggi tu — non parte niente.
+
 **La chiedi tu, col tasto «R+»** accanto alle priorità (in elenco e sulla mail aperta):
 Renè legge tutta la conversazione e prepara la risposta, poi si apre la schermata di
 scrittura dove la correggi prima di mandarla. ⚠️ Dal 7 agosto 2026 **dare una priorità

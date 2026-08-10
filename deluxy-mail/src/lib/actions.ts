@@ -2475,6 +2475,16 @@ export async function eliminaBozza(id: string) {
  * nell'editor già aperto. Non crea bozze e non sposta di pagina (a differenza
  * di «Delega Renè», che prepara una bozza e ti ci porta).
  */
+/** Il brief per una mail NUOVA: Renè compila destinatario, oggetto e testo. */
+export async function chiediAReneMailNuova(
+  brief: string,
+  gia: { a?: string; oggetto?: string; corpo?: string }
+): Promise<{ ok: boolean; messaggio: string; mail?: { a: string; cc: string; oggetto: string; corpo: string } }> {
+  const utenteId = await uid()
+  const { scriviMailDaBrief } = await import('./sync')
+  return scriviMailDaBrief(utenteId, brief, gia)
+}
+
 export async function chiediARene(
   messaggioId: string,
   istruzione: string,

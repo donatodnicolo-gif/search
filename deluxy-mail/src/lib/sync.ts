@@ -528,6 +528,61 @@ export async function preparaEsecuzione(
  * Differenza da `preparaRispostaDelegata`: quella prepara una bozza e ti porta
  * altrove; qui torna il corpo e basta, così finisce nell'editor aperto.
  */
+/**
+ * Il BRIEF per una mail NUOVA: si buttano giù i punti, Renè scrive.
+ *
+ * Non salva niente e non manda niente: torna destinatario, oggetto e testo, che
+ * finiscono nei campi della schermata di scrittura. Da lì si correggono come
+ * qualunque bozza scritta a mano — è il motivo per cui non passa da `Bozza`.
+ *
+ * ⚠️ Quello che hai già scritto NON si butta: se nei campi c'è del testo, Renè
+ * lo riceve e lo riscrive di conseguenza. Chiedere aiuto a metà lavoro non deve
+ * costare il lavoro fatto.
+ */
+export async function scriviMailDaBrief(
+  utenteId: string,
+  brief: string,
+  gia: { a?: string; oggetto?: string; corpo?: string }
+): Promise<{ ok: boolean; messaggio: string; mail?: { a: string; cc: string; oggetto: string; corpo: string } }> {
+  const compito = brief.trim()
+  if (!compito) return { ok: false, messaggio: 'Scrivi il brief: cosa deve dire la mail.' }
+
+  const ctx = await contestoAI(utenteId)
+  const rubrica = await elencoContatti(utenteId)
+
+  const indicazioni: string[] = []
+  if (gia.a?.trim()) indicazioni.push(`Il destinatario è già scelto: ${gia.a.trim()}. Non cambiarlo.`)
+  if (gia.oggetto?.trim()) indicazioni.push(`Oggetto già scritto (tienilo, o miglioralo appena): ${gia.oggetto.trim()}`)
+
+  try {
+    const testo = await scriviMailNuova({
+      compito,
+      dettaglio: gia.corpo?.trim()
+        ? `C'è già del testo scritto: tienine conto e riscrivilo secondo il brief.\n--- TESTO IN CORSO ---\n${gia.corpo.slice(0, 4000)}\n--- FINE ---`
+        : null,
+      contatti: contattiPerAI(rubrica),
+      contestoAzienda: ctx.contestoAzienda,
+      stileScrittura: ctx.stileScrittura,
+      istruzioni: indicazioni.length ? indicazioni : undefined,
+      firma: ctx.firma,
+      oggi: new Date(),
+    })
+    return {
+      ok: true,
+      messaggio: 'Renè ha scritto: controlla e correggi pure prima di inviare.',
+      mail: {
+        // Il destinatario scelto da te vince su quello dedotto dall'AI.
+        a: gia.a?.trim() || testo.a,
+        cc: testo.cc,
+        oggetto: gia.oggetto?.trim() || testo.oggetto,
+        corpo: testo.corpo,
+      },
+    }
+  } catch (e) {
+    return { ok: false, messaggio: inItaliano(e instanceof Error ? e.message : String(e)) }
+  }
+}
+
 export async function testoRispostaRene(
   messaggioId: string,
   istruzione: string,
