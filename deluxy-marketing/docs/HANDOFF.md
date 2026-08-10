@@ -107,6 +107,17 @@ Tre aggiunte a valle del primo giro reale su Cake:
   `stati-keyword` non aggiornava le righe giuste. Su `[Cakedesign] | Sales
   | ITA` Google dice davvero 104 keyword in pausa su 147; la spesa in
   tabella è storica (fino al 27/07), non di oggi.
+- **Stato «Defunta» per le keyword** (notte, chiesto dall'utente): come per
+  campagne e gruppi — sparisce da /keywords, scheda campagna e scheda
+  gruppo (pillola «Defunte (N)» solo se ce ne sono); si ritrova dal filtro
+  di stato di /keywords. È un giudizio: l'import non lo tocca, e marcare
+  defunta agisce su tutte le campagne dove la parola sta.
+- **Card «Ricerche» sulla destra del gruppo** (notte): come il widget
+  Searches di Google (chips per comparse) ma coi numeri veri — spesa, clic,
+  conversioni; verde converte, rosso spende a vuoto. ⚠️ KPI reali per
+  costruzione: entrano SOLO le righe dell'ultima finestra della diagnosi,
+  con la finestra nel titolo. Verificato: combacia col report Search terms
+  di Google a parità di finestra (103 termini freschi 11/07→10/08 su Cake).
 - ⭐ **LA STORIA GIORNO PER GIORNO DELLE KEYWORD** (notte, chiesta
   dall'utente: «la spesa non si aggiorna con il cambio di date»). Nuovo
   lavoro **`keyword-giorni`** (dentro `tutto`, finestra `GIORNI_INDIETRO`),
