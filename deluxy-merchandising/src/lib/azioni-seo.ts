@@ -37,6 +37,14 @@ export async function salvaSeoCollezione(id: string, fd: FormData) {
     },
   });
   revalidatePath(`/collezioni/shopify/${id}`);
+  // **Il salvataggio si vede**: salvava e taceva, e un bottone muto sembra
+  // rotto (segnalato dall'utente). Il banner in cima dice cosa è successo e
+  // cosa NON è successo — il negozio non cambia finché non si preme «Manda».
+  redirect(
+    `/collezioni/shopify/${id}?esito=ok&messaggio=${encodeURIComponent(
+      "Bozza SEO salvata. Il negozio non cambia finché non premi «Manda al negozio».",
+    )}`,
+  );
 }
 
 /**

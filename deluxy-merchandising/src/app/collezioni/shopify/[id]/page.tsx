@@ -11,6 +11,7 @@ import { CAMPI_COLLEZIONE } from "@/lib/campi-negozio";
 import { euro, iso, percentuale } from "@/lib/dominio";
 import { FILTRO_BUON_FINE, finestra } from "@/lib/vendite";
 import { Badge } from "@/components/Badge";
+import { etichettaFrequenza, etichettaModo, prossimaVolta } from "@/lib/rotazione";
 import { eliminaCollezioneShopify, salvaProprietaCollezione } from "@/lib/azioni-collezioni-shopify";
 import {
   COLORE_STATO_COLLEZIONE_SHOPIFY,
@@ -45,6 +46,8 @@ export default async function CollezioneShopifyPage({
   const collezione = await prisma.collezioneShopify.findUnique({
     where: { id },
     include: {
+      regolaOrdine: { select: { nome: true } },
+      rotazione: { select: { nome: true, frequenza: true, ogniQuanti: true, modo: true, attiva: true, ultimaEsecuzioneIl: true } },
       prodotti: {
         // Ordinati come sulla vetrina: la fila qui sotto è la stessa che si cura
         // in Visual, non un altro elenco.
@@ -232,6 +235,47 @@ export default async function CollezioneShopifyPage({
                 <div className="campo">
                   <dt>Ordinamento dei prodotti</dt>
                   <dd>{etichettaOrdinamentoShopify(collezione.ordinamento)}</dd>
+                </div>
+                <div className="campo">
+                  {/* **Chi decide l'ordine qui da noi** (chiesto dall'utente):
+                      l'ordinamento di Shopify sopra dice come il negozio
+                      presenta la fila, questo dice con che regola la
+                      costruiamo. */}
+                  <dt>Ordine curato da</dt>
+                  <dd>
+                    {collezione.regolaOrdine ? (
+                      <>
+                        regola «{collezione.regolaOrdine.nome}» —{" "}
+                        <Link href={`/visual/${id}`}>cura l&apos;ordine</Link>
+                      </>
+                    ) : (
+                      <>a mano, nessuna regola — <Link href={`/visual/${id}`}>imposta</Link></>
+                    )}
+                  </dd>
+                </div>
+                <div className="campo">
+                  <dt>Prossimo rinfresco automatico</dt>
+                  <dd>
+                    {collezione.rotazione == null ? (
+                      <>non previsto: non è iscritta a un ritmo</>
+                    ) : !collezione.rotazione.attiva ? (
+                      <>«{collezione.rotazione.nome}» è in pausa: non scatterà</>
+                    ) : (
+                      <>
+                        {(() => {
+                          const q = prossimaVolta(collezione.rotazione);
+                          const scaduta = q != null && q.getTime() <= Date.now();
+                          return (
+                            <>
+                              {scaduta ? "al prossimo giro del cron" : (q?.toLocaleDateString("it-IT") ?? "—")} ·{" "}
+                              {etichettaFrequenza(collezione.rotazione.frequenza, collezione.rotazione.ogniQuanti).toLowerCase()},{" "}
+                              {etichettaModo(collezione.rotazione.modo).toLowerCase()}
+                            </>
+                          );
+                        })()}
+                      </>
+                    )}
+                  </dd>
                 </div>
                 <div className="campo">
                   <dt>Modello del tema</dt>

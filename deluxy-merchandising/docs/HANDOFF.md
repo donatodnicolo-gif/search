@@ -390,6 +390,8 @@ porta **3120**. Design system Deluxy v1.0.
 
 - **09/08/2026 — il contatore SEO conta mentre si scrive** (chiesto dall'utente). Nuovo componente client [CampiSeo](../src/components/CampiSeo.tsx): titolo e descrizione con `N/60` e `N/160` aggiornati a ogni tasto, in arancione oltre il limite. Prima il numero era fermo all'ultimo salvataggio: per sapere se si era lunghi bisognava salvare, cioè scoprirlo dopo. Solo i campi sono client — form, Salva e azioni restano server, e i `name` non cambiano.
 
+- **09/08/2026 — tre ritocchi chiesti guardando la pagina.** In /collezioni la colonna **«Dove è usata»** (le posizioni dichiarate a pillole, «campagne» in oro, ordinabile per quanti posti la usano): era un grigino sotto lo stato e non si vedeva. Nella scheda della collezione la dl dice anche **«Ordine curato da»** (la regola nostra, con link a cura l'ordine) e **«Prossimo rinfresco automatico»** (data da `prossimaVolta`, «al prossimo giro del cron» se scaduta, «in pausa» se ferma, «non previsto» se non iscritta). E il **Salva del SEO ora risponde**: salvava e taceva — un bottone muto sembra rotto — ora il banner dice «Bozza SEO salvata. Il negozio non cambia finché non premi Manda».
+
 ## COME AVVIARE
 ```
 cd deluxy-merchandising

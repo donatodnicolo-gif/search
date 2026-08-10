@@ -134,6 +134,13 @@ export default async function CollezioniPage({
         case "stato":
           d = testo(a.c.stato, b.c.stato) || testo(a.c.titolo, b.c.titolo);
           break;
+        case "uso": {
+          // Quante cose la usano: posizioni dichiarate + campagne. Chi non è
+          // usata da niente sta in fondo — è la domanda «cosa è appeso a cosa».
+          const usoDi = (x: typeof a) => posizioniDa(x.c.posizioni).length + (x.c.inCampagne ? 1 : 0);
+          d = usoDi(a) - usoDi(b);
+          break;
+        }
         default:
           d = a.ricavo - b.ricavo;
       }
@@ -327,7 +334,8 @@ export default async function CollezioniPage({
                     <th className="num"><Link href={linkOrdine("prodotti")} className="th-ordina">Prodotti{freccia("prodotti")}</Link></th>
                     <th className="num"><Link href={linkOrdine("venduto")} className="th-ordina">Venduto 90gg{freccia("venduto")}</Link></th>
                     <th><Link href={linkOrdine("pezzi")} className="th-ordina">Pezzi e quota{freccia("pezzi")}</Link></th>
-                    <th><Link href={linkOrdine("stato")} className="th-ordina">Stato e uso{freccia("stato")}</Link></th>
+                    <th><Link href={linkOrdine("stato")} className="th-ordina">Stato{freccia("stato")}</Link></th>
+                    <th><Link href={linkOrdine("uso")} className="th-ordina">Dove è usata{freccia("uso")}</Link></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -383,10 +391,25 @@ export default async function CollezioniPage({
                           testo={ETICHETTA_STATO_COLLEZIONE_SHOPIFY[c.stato] ?? c.stato}
                           colore={COLORE_STATO_COLLEZIONE_SHOPIFY[c.stato] ?? "var(--text-tertiary)"}
                         />
-                        <div className="cella-sub">
-                          {posizioniDa(c.posizioni).map(nomePosizione).join(" · ") || "nessuna posizione"}
-                          {c.inCampagne ? " · in campagne" : ""}
-                        </div>
+                      </td>
+                      <td>
+                        {/* **Dove è usata, a pillole** (chiesto dall'utente: era
+                            un grigino sotto lo stato e non si vedeva). Sono le
+                            posizioni dichiarate sulla scheda — vetrina, home,
+                            menu… — più le campagne: quello che si romperebbe
+                            toccando la collezione. */}
+                        {posizioniDa(c.posizioni).length === 0 && !c.inCampagne ? (
+                          <span className="cella-sub" title="Si dichiara nella scheda della collezione, riquadro «come la usiamo noi».">
+                            —
+                          </span>
+                        ) : (
+                          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                            {posizioniDa(c.posizioni).map((p) => (
+                              <span key={p} className="pill-uso">{nomePosizione(p)}</span>
+                            ))}
+                            {c.inCampagne && <span className="pill-uso pill-uso-oro">campagne</span>}
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))}
