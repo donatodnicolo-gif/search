@@ -22,6 +22,30 @@ Riceve già dati veri da Google Ads (Gifts e Flowers) e ha 2.426 ordini Shopify 
 
 ## FATTO
 
+### Il primo giro vero (Cake, 10/08 pomeriggio): due trappole di Google trovate e chiuse
+
+L'utente ha reincollato e lanciato `tutto` su Cake: giro completo in ~2
+minuti, **39 località su 14 campagne**, **346 agganci titolo→annuncio
+staccati** dalla pulizia. E due cose che solo il giro vero poteva dire:
+
+> ⚠️ **`campaign_criterion.display_name` arriva VUOTO dagli Scripts**: tutte
+> le località cadevano sul ripiego «geo 2380». Il nome vero (Italy, Milan…)
+> si prende da `geo_target_constant.name`, nella stessa query che già
+> arricchiva il livello. Le righe già scritte si correggono da sole al giro
+> dopo (l'ingest aggiorna il nome sulla stessa chiave).
+>
+> ⚠️ **`ad_group_ad_asset_view` tiene anche i link TOLTI dall'annuncio**
+> (`enabled = false`): la query di struttura senza filtro li prendeva tutti,
+> e un RSA arrivava con **44 titoli «attuali»** su un massimo di 15 — righe
+> fresche di consegna, non archivio sporco. Ora filtra `enabled = TRUE`; se
+> il filtro non piacesse, scatta il ripiego e il giro non muore.
+
+Dopo le due correzioni le copie in Downloads sono la **versione definitiva**:
+su Cake va reincollato il solo «giornaliero» (era stato incollato prima delle
+correzioni); «esegui» non usa quelle query e va bene com'è. «Estendi con AI»
+è anche **sulla singola riga** dei termini (bottone accanto a «Porta
+altrove», seme = quella parola, stesso dialogo).
+
 ### ⭐ Le località di targeting si importano, e la scheda le mostra (10/08/2026)
 
 Richiesto dall'utente («lo script per importare le località»). Il modello
