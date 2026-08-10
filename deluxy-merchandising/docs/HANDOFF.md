@@ -384,6 +384,12 @@ porta **3120**. Design system Deluxy v1.0.
   - **Revisione multi-agente prima del deploy** (19 agenti, 16 segnalazioni, 12 confermate): tra i difetti veri trovati — la pagina **buttava via** `?esito=&messaggio=` (gli errori dell'AI erano invisibili: ora c'è il banner), lo stile inline sulle classifiche **scavalcava la media query** (su tablet restavano schiacciate fianco a fianco: ora `.due-colonne-pari`), `findMany` **non conserva l'ordine dell'IN** (i «più venduti» arrivavano al modello mescolati), e la nota sotto le classifiche contava con un metro diverso da quello delle classifiche stesse.
   - ⚠️ Trappola pagata due volte oggi: **ristrutturare una pagina a colpi di regex/splice**. Un regex pigro su `<RiquadroSeo` è partito dal primo che ha trovato e ha mangiato mezza pagina; gli splice hanno mangiato la prima riga di due commenti. Se capita di nuovo: leggere il file, tagliare per numeri di riga CON guardie sul contenuto atteso, e mai backtick dentro `node -e` fra doppi apici.
 
+- **09/08/2026 — «Elimina» in testata, rosso, con la conferma a popover** (chiesto dall'utente). Il bottone sta con le altre azioni della scheda collezione ma **premere apre, non esegue**: nel popover restano la spiegazione, la spunta «anche su Shopify» e il «Sì, elimina» — cancellare qui e cancellare sul negozio sono due gesti diversi. Nuova classe `.btn-pericolo`: il rosso è **solo** per il distruttivo, il primario resta nero perché il rosso deve restare raro per voler dire qualcosa.
+
+- **09/08/2026 — /collezioni: stelline, ricerca e filtri** (chiesti dall'utente). Nuovo campo `CollezioneShopify.preferita` — vive **solo qui**, è una scorciatoia personale, non una proprietà del negozio. La stellina si accende dall'elenco **senza redirect** (lo scroll resta dov'era). Ricerca su **titolo, handle e temi** — i tre nomi con cui una collezione si conosce — più filtro per negozio e «★ Solo preferite», in un form GET: il filtro sta nell'indirizzo e si condivide, e l'ordinamento scelto sopravvive.
+
+- **09/08/2026 — il contatore SEO conta mentre si scrive** (chiesto dall'utente). Nuovo componente client [CampiSeo](../src/components/CampiSeo.tsx): titolo e descrizione con `N/60` e `N/160` aggiornati a ogni tasto, in arancione oltre il limite. Prima il numero era fermo all'ultimo salvataggio: per sapere se si era lunghi bisognava salvare, cioè scoprirlo dopo. Solo i campi sono client — form, Salva e azioni restano server, e i `name` non cambiano.
+
 ## COME AVVIARE
 ```
 cd deluxy-merchandising

@@ -161,6 +161,28 @@ export default async function CollezioneShopifyPage({
                 Vedi online ↗
               </a>
             )}
+            {/* **Rosso e in testata** (chiesto dall'utente), ma il click apre la
+                conferma, non esegue: cancellare qui e cancellare sul negozio
+                sono due gesti diversi e vanno scelti. */}
+            <details className="conferma-x">
+              <summary className="btn btn-pericolo">Elimina</summary>
+              <div className="conferma-x-corpo" style={{ flexDirection: "column", alignItems: "stretch", gap: 8 }}>
+                <form action={eliminaCollezioneShopify.bind(null, collezione.id)} style={{ display: "grid", gap: 8 }}>
+                  <span>
+                    Senza spunta la collezione sparisce <b>solo da qui</b>: su {collezione.negozio} resta, e torna al
+                    prossimo import. Con la spunta viene cancellata <b>anche su Shopify</b> — i clienti smettono di
+                    vederla, ed è irreversibile. I prodotti non si toccano mai.
+                  </span>
+                  <label style={{ display: "flex", gap: 6, alignItems: "center", color: "var(--red)", cursor: "pointer" }}>
+                    <input type="checkbox" name="ancheSuShopify" />
+                    Cancella anche sul negozio Shopify
+                  </label>
+                  <button className="btn btn-pericolo" type="submit" style={{ justifySelf: "start" }}>
+                    Sì, elimina
+                  </button>
+                </form>
+              </div>
+            </details>
           </div>
         </div>
 
@@ -403,28 +425,6 @@ export default async function CollezioneShopifyPage({
 
         {/* Cancellare qui e cancellare sul negozio sono due gesti diversi:
             vanno scelti, non confusi in un bottone solo. */}
-        {/* Ripiegata: è un gesto raro e distruttivo, e aperta sempre era la
-            prima cosa che si vedeva sotto le classifiche. */}
-        <details className="scheda" style={{ marginTop: 18 }}>
-          <summary className="scheda-titolo">Elimina questa collezione</summary>
-          <form action={eliminaCollezioneShopify.bind(null, collezione.id)}>
-            <p className="page-sub" style={{ marginBottom: 12 }}>
-              Senza spunta la collezione sparisce <b>solo da qui</b>: su {collezione.negozio} resta, e torna al
-              prossimo import. Con la spunta viene cancellata <b>anche su Shopify</b> — i clienti smettono di
-              vederla, ed è irreversibile. In nessuno dei due casi si toccano i prodotti.
-            </p>
-            <div className="pill-scelta" style={{ marginBottom: 12 }}>
-              <label className="pill-opt" style={{ cursor: "pointer", color: "var(--red)" }}>
-                <input type="checkbox" name="ancheSuShopify" />
-                Cancella anche sul negozio Shopify
-              </label>
-            </div>
-            <button className="btn btn-secondario" type="submit">
-              Elimina
-            </button>
-          </form>
-        </details>
-
         <p className="page-sub" style={{ marginTop: 14 }}>
           Aggiornata il {iso(collezione.aggiornataIl)}. Il venduto conta solo le vendite andate a buon fine
           {canale ? (

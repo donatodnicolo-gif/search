@@ -1,3 +1,4 @@
+import { CampiSeo } from "./CampiSeo";
 import {
   copiaSeoDalNegozio,
   salvaSeoCollezione,
@@ -74,18 +75,11 @@ export function RiquadroSeo({
         <div>
           <div className="cella-sub" style={{ marginBottom: 6, fontWeight: 600 }}>Il nostro, da migliorare</div>
           <form action={salva.bind(null, id)} style={{ display: "grid", gap: 8 }}>
-            <input
-              name="seoTitolo"
-              defaultValue={nostro.titolo ?? ""}
-              placeholder={`Titolo (consigliati max ${LIMITE_TITOLO} caratteri)`}
-              maxLength={200}
-            />
-            <textarea
-              name="seoDescrizione"
-              defaultValue={nostro.descrizione ?? ""}
-              placeholder={`Descrizione (consigliati max ${LIMITE_DESCRIZIONE} caratteri)`}
-              rows={4}
-              maxLength={600}
+            <CampiSeo
+              titolo={nostro.titolo}
+              descrizione={nostro.descrizione}
+              limiteTitolo={LIMITE_TITOLO}
+              limiteDescrizione={LIMITE_DESCRIZIONE}
             />
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <button type="submit" className="btn btn-primario">Salva</button>
@@ -109,14 +103,6 @@ export function RiquadroSeo({
               </form>
             )}
           </div>
-          {!vuotoNostro && (
-            <p className="page-sub" style={{ marginTop: 8, marginBottom: 0 }}>
-              Titolo {lung(nostro.titolo)}/{LIMITE_TITOLO} · descrizione {lung(nostro.descrizione)}/{LIMITE_DESCRIZIONE}
-              {(lung(nostro.titolo) > LIMITE_TITOLO || lung(nostro.descrizione) > LIMITE_DESCRIZIONE) && (
-                <> — oltre il limite Google taglia, non è un errore ma quella parte non si legge.</>
-              )}
-            </p>
-          )}
         </div>
       </div>
       {/* **Mandarlo al negozio cambia quello che il cliente legge su Google**,
@@ -156,8 +142,6 @@ export function RiquadroSeo({
     </div>
   );
 }
-
-const lung = (s: string | null) => (s ?? "").length;
 
 function Testo({ etichetta, valore, limite }: { etichetta: string; valore: string | null; limite: number }) {
   return (

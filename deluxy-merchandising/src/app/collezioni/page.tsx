@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { cambiaPreferitaCollezione } from "@/lib/azioni-collezioni-shopify";
 import { Badge } from "@/components/Badge";
 import { BarraQuota } from "@/components/Grafico";
 import { Sidebar } from "@/components/Sidebar";
@@ -39,6 +40,9 @@ export default async function CollezioniPage({
     errore?: string;
     ordina?: string;
     dir?: string;
+    cerca?: string;
+    negozio?: string;
+    solo?: string;
   }>;
 }) {
   const sp = await searchParams;
@@ -137,6 +141,23 @@ export default async function CollezioniPage({
       if (d === 0) d = testo(a.c.titolo, b.c.titolo);
       return discendente ? -d : d;
     });
+
+  // **Prima si ordina, poi si restringe**: ricerca e filtri non cambiano
+  // l'ordine scelto, tolgono solo le righe che non c'entrano. La ricerca guarda
+  // titolo, handle e temi — i tre nomi con cui una collezione si conosce.
+  const cerca = (sp.cerca ?? "").trim().toLowerCase();
+  const soloPreferite = sp.solo === "preferite";
+  const filtroNegozio = (sp.negozio ?? "").trim();
+  const visibili = conVenduto.filter(({ c }) => {
+    if (soloPreferite && !c.preferita) return false;
+    if (filtroNegozio && c.negozio !== filtroNegozio) return false;
+    if (cerca) {
+      const dentro = `${c.titolo} ${c.handle} ${c.temi.map((t) => t.nome).join(" ")}`.toLowerCase();
+      if (!dentro.includes(cerca)) return false;
+    }
+    return true;
+  });
+  const negoziInElenco = [...new Set(collezioniShopify.map(({ negozio }) => negozio))].sort();
 
   // Link di intestazione: cliccando si ordina, ricliccando si inverte.
   //
@@ -257,6 +278,38 @@ export default async function CollezioniPage({
               </span>
             </div>
           )}
+          {/* **Ricerca e filtri** (chiesti dall'utente): un form GET, così il
+              filtro sta nell'indirizzo e si condivide. L'ordinamento scelto
+              sopravvive perché viaggia negli stessi parametri. */}
+          {collezioniShopify.length > 0 && (
+            <form method="get" className="filtri" style={{ marginBottom: 14 }}>
+              {sp.ordina && <input type="hidden" name="ordina" value={sp.ordina} />}
+              {sp.dir && <input type="hidden" name="dir" value={sp.dir} />}
+              <input
+                type="search"
+                name="cerca"
+                defaultValue={sp.cerca ?? ""}
+                placeholder="Cerca per titolo, handle o tema…"
+                aria-label="Cerca una collezione"
+              />
+              <select name="negozio" defaultValue={filtroNegozio} aria-label="Negozio">
+                <option value="">Tutti i negozi</option>
+                {negoziInElenco.map((x) => (
+                  <option key={x} value={x}>{x}</option>
+                ))}
+              </select>
+              <select name="solo" defaultValue={sp.solo ?? ""} aria-label="Solo preferite">
+                <option value="">Tutte</option>
+                <option value="preferite">★ Solo preferite</option>
+              </select>
+              <button type="submit" className="btn btn-secondario">Filtra</button>
+              {(cerca || filtroNegozio || soloPreferite) && (
+                <span className="page-sub" style={{ margin: 0, alignSelf: "center" }}>
+                  {visibili.length} su {conVenduto.length} · <Link href="/collezioni">azzera</Link>
+                </span>
+              )}
+            </form>
+          )}
           {collezioniShopify.length === 0 ? (
             <p className="page-sub">
               Nessuna collezione importata. Il bottone <b>Importa da Shopify</b> le legge dai negozi collegati
@@ -267,6 +320,7 @@ export default async function CollezioniPage({
               <table>
                 <thead>
                   <tr>
+                    <th style={{ width: 34 }} title="Preferite">★</th>
                     <th><Link href={linkOrdine("titolo")} className="th-ordina">Collezione{freccia("titolo")}</Link></th>
                     <th><Link href={linkOrdine("negozio")} className="th-ordina">Negozio{freccia("negozio")}</Link></th>
                     <th><Link href={linkOrdine("tipo")} className="th-ordina">Tipo{freccia("tipo")}</Link></th>
@@ -277,8 +331,22 @@ export default async function CollezioniPage({
                   </tr>
                 </thead>
                 <tbody>
-                  {conVenduto.map(({ c, ricavo, pezzi }) => (
+                  {visibili.map(({ c, ricavo, pezzi }) => (
                     <tr key={c.id} className="riga-cliccabile">
+                      <td style={{ width: 34 }}>
+                        {/* La stellina e' un form suo: la riga intera e' un link
+                            e il bottone deve vincere sul click della riga. */}
+                        <form action={cambiaPreferitaCollezione.bind(null, c.id)} style={{ position: "relative", zIndex: 1 }}>
+                          <button
+                            type="submit"
+                            className="icon-btn"
+                            title={c.preferita ? "Togli dalle preferite" : "Metti fra le preferite"}
+                            style={{ color: c.preferita ? "var(--gold)" : "var(--text-tertiary)", fontSize: 16 }}
+                          >
+                            {c.preferita ? "★" : "☆"}
+                          </button>
+                        </form>
+                      </td>
                       <td>
                         <Link href={`/collezioni/shopify/${c.id}`} className="cella-nome link-riga">
                           {c.titolo}

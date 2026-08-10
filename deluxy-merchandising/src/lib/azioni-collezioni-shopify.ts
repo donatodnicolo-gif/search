@@ -1,5 +1,6 @@
 "use server";
 
+
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "./db";
@@ -178,4 +179,16 @@ export async function salvaProdottiPerRiga(collezioneId: string, fd: FormData) {
   });
   revalidatePath('/visual/' + collezioneId);
   revalidatePath('/collezioni/shopify/' + collezioneId);
+}
+
+/**
+ * La stellina di una collezione: acceso/spento e basta, **senza redirect** —
+ * si preme dall'elenco e l'elenco deve restare dov'era.
+ */
+export async function cambiaPreferitaCollezione(id: string) {
+  const c = await prisma.collezioneShopify.findUnique({ where: { id }, select: { preferita: true } });
+  if (!c) return;
+  await prisma.collezioneShopify.update({ where: { id }, data: { preferita: !c.preferita } });
+  revalidatePath("/collezioni");
+  revalidatePath("/visual");
 }

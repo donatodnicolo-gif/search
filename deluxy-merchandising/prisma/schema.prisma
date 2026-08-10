@@ -485,6 +485,9 @@ model CollezioneShopify {
   // Spento di default: far entrare prodotti in una vetrina e' una decisione, non
   // un effetto collaterale dell'ordinamento.
   aggiuntaAutomatica Boolean @default(false)
+  // **La stellina**: le collezioni su cui si sta lavorando. Vive solo qui —
+  // e' una scorciatoia personale, non una proprieta' del negozio.
+  preferita Boolean @default(false)
   rotazioneId  String?
   rotazione    RegolaRotazione? @relation(fields: [rotazioneId], references: [id], onDelete: SetNull)
   // Quando l'ordine curato qui è stato cambiato l'ultima volta e quando è stato

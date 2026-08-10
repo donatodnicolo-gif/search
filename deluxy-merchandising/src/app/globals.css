@@ -1079,3 +1079,9 @@ details.mostra-tutti[open] > summary::before { content: "▾ "; }
 details.mostra-tutti > summary .mt-aperto { display: none; }
 details.mostra-tutti[open] > summary .mt-aperto { display: inline; }
 details.mostra-tutti[open] > summary .mt-chiuso { display: none; }
+
+/* Il bottone del distruttivo: rosso pieno, usato solo dove si cancella.
+   Il primario resta nero — il rosso deve restare raro per voler dire qualcosa. */
+.btn-pericolo { background: var(--red, #D70015); color: #fff; }
+.btn-pericolo:hover { background: #b30012; }
+details.conferma-x[open] > summary.btn-pericolo { color: #fff; opacity: .85; }
