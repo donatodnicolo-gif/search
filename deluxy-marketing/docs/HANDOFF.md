@@ -88,6 +88,18 @@ Tre aggiunte a valle del primo giro reale su Cake:
 - **«Estendi con AI» anche sulla riga** della parola cercata
   (`data-estendi-seme`): stesso dialogo della barra, col seme di quella
   parola, senza spuntarla prima.
+- **Tre livelli di estensione** (chiesti dall'utente), che sono ISTRUZIONI
+  diverse per l'AI, non un numero: **prossima** (stessa domanda, altro
+  luogo: torte milano → torte roma), **media** (aggiunge un concetto →
+  torta personalizzata milano), **alta** (ricerche affini → cake design
+  torino). Sulle proposte: ricerca con «prendi le trovate»/«togli tutte»,
+  col conteggio delle selezionate sempre in vista (le spuntate nascoste
+  dal filtro partono comunque). Gruppo e corrispondenza di default sono
+  **quelli della parola che si estende** (viaggiano col bottone di riga).
+- ⚠️ **Un `<form>` di mezzo rompeva lo scroll del dialogo**:
+  `.modale-elenco` scrolla solo da figlio DIRETTO del flex `.modale-corpo`
+  — con 20 proposte il piede col «Metti in coda» finiva fuori schermo,
+  irraggiungibile. Il form ora È il corpo, come in PortaKeyword.
 - **Dal giro vero di Cake, tre difetti trovati e chiusi in giornata**:
   (1) il `display_name` dei criteri località arriva **vuoto** dagli Scripts
   → i nomi si prendono da `geo_target_constant.name` (prima uscivano
