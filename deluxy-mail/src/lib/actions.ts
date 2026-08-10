@@ -440,10 +440,11 @@ export async function analizzaContatto(
  * un riassunto e non si chiede di rifarlo, si restituisce quello salvato.
  */
 export async function riassumiConversazione(
-  messaggioId: string
+  messaggioId: string,
+  livello: 'veloce' | 'medio' | 'profondo' = 'medio'
 ): Promise<{ ok: boolean; messaggio: string; riassunto?: RiassuntoThreadSalvato }> {
   const utenteId = await uid()
-  const esito = await riassumiThreadOra(utenteId, messaggioId)
+  const esito = await riassumiThreadOra(utenteId, messaggioId, livello)
   revalidatePath('/', 'layout')
   return esito
 }

@@ -15,6 +15,7 @@ import {
   rispondiSuThread,
   giudicaSpam,
   type AnalisiThreadVista,
+  type LivelloRiassunto,
 } from './ai'
 import { CHIAVI, leggiImpostazioni, STILE_DEFAULT } from './impostazioni'
 import { CODICI_PRIORITA } from './format'
@@ -1909,7 +1910,8 @@ function riassuntoInTesto(v: AnalisiThreadVista): string {
 
 export async function riassumiThreadOra(
   utenteId: string,
-  messaggioId: string
+  messaggioId: string,
+  livello: LivelloRiassunto = 'medio'
 ): Promise<{ ok: boolean; messaggio: string; riassunto?: RiassuntoThreadSalvato }> {
   const messaggi = await messaggiThread(utenteId, messaggioId)
   if (messaggi.length === 0) return { ok: false, messaggio: 'Conversazione non trovata.' }
@@ -1926,9 +1928,14 @@ export async function riassumiThreadOra(
   // Riassunto incrementale: se ne esiste già uno fatto su MENO messaggi di ora,
   // si dà all'AI quel riassunto + SOLO le mail nuove, invece di rimacinare tutto
   // il thread. Su una conversazione lunga è molta meno roba da leggere per l'AI.
+  // ⚠️ L'incrementale vale solo per il livello MEDIO. Chiedendo «profondo» si
+  // vuole che l'AI rilegga tutto: aggiornare un riassunto veloce con due mail
+  // nuove darebbe un finto approfondimento, con la parte vecchia rimasta
+  // corta. Chi preme quel tasto vuole il lavoro fatto, non il ritocco.
   let precedente: string | undefined
   let daIndice = 0
   try {
+    if (livello !== 'medio') throw new Error('incrementale non applicabile')
     const vecchio = await db.riassuntoThread.findUnique({
       where: { utenteId_chiave: { utenteId, chiave } },
       select: { riassunto: true, messaggiVisti: true },
@@ -1962,6 +1969,7 @@ export async function riassumiThreadOra(
       precedente,
       contestoAzienda: ctx.contestoAzienda,
       istruzioni: mirate,
+      livello,
       oggi: new Date(),
     })
 
@@ -1972,6 +1980,9 @@ export async function riassumiThreadOra(
       sintesi: analisi.sintesi,
       parti: analisi.parti.map((p) => ({ chi: p.chi, punto: p.punto, msgId: idDa(p.msgIdx) })),
       inSospeso: analisi.inSospeso.map((s) => ({ cosa: s.cosa, chi: s.chi, msgId: idDa(s.msgIdx) })),
+      // Il livello resta scritto: riaprendo si sa se quello che si sta
+      // guardando è la sintesi in due righe o il quadro completo.
+      livello,
     }
 
     const salvato = await db.riassuntoThread.upsert({

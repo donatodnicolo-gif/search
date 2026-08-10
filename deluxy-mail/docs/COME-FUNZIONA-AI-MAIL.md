@@ -190,6 +190,20 @@ un'intera serie arrivano al giro di sincronizzazione successivo, non all'istante
 
 ## 6. Bozze
 
+**Il riassunto ha tre profondità.** Sopra la conversazione ci sono **Veloce**, **Medio** e
+**Profondo**:
+
+- **Veloce** — due righe: a che punto siamo e chi aspetta cosa. Per capire al volo se una
+  conversazione ti riguarda ancora.
+- **Medio** — il quadro per punti di vista, con tutte le questioni aperte. È quello di prima.
+- **Profondo** — tutta la vicenda: com'è nata, cosa è stato deciso e quando, cifre e date,
+  e ogni cosa rimasta in sospeso, comprese le domande a cui nessuno ha risposto. Serve a chi
+  deve entrare in una pratica senza averla seguita — prima di una riunione, o passando il
+  cliente a un collega. **Ci mette di più**, e rilegge tutto da capo.
+
+In fondo al riassunto è scritto con quale livello è stato fatto, così due righe non
+sembrano un riassunto povero quando erano una lettura veloce.
+
 **Le mail precedenti, mentre scrivi.** Sopra il modulo di risposta c'è **«Le mail
 precedenti (4)»**: si apre, si clicca su un messaggio e se ne legge il testo lì, senza
 lasciare quello che stai scrivendo. I testi si caricano uno alla volta, quando apri quel

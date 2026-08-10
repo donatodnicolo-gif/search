@@ -12,7 +12,24 @@ type Analisi = {
   sintesi: string
   parti: Parte[]
   inSospeso: Sospeso[]
+  livello?: Livello
 }
+
+/** Quanto a fondo leggere la conversazione. */
+type Livello = 'veloce' | 'medio' | 'profondo'
+
+/** ⚠️ Le etichette dicono cosa ottieni, non «quanto è potente»: chi sceglie sta
+ *  decidendo quanto tempo dare a una lettura, non che modello usare. */
+const LIVELLI: { codice: Livello; etichetta: string; titolo: string }[] = [
+  { codice: 'veloce', etichetta: 'Veloce', titolo: 'Due righe: a che punto siamo e chi aspetta cosa' },
+  { codice: 'medio', etichetta: 'Medio', titolo: 'Il quadro per punti di vista, con le questioni aperte' },
+  {
+    codice: 'profondo',
+    etichetta: 'Profondo',
+    titolo:
+      'Tutta la vicenda: come è nata, cosa è stato deciso, cifre e date, e ogni cosa rimasta in sospeso. Ci mette di più',
+  },
+]
 
 /** Il link "→ apri" al messaggio dove sta il passaggio (se lo conosciamo). */
 function ApriMsg({ msgId }: { msgId?: string | null }) {
@@ -51,14 +68,18 @@ export function RiassuntoConversazione({
   autoAggiorna?: boolean
 }) {
   const [dati, setDati] = useState<Salvato | null>(iniziale)
+  // Quale livello si sta generando adesso: serve a far capire QUALE dei tre
+  // tasti sta lavorando — su «profondo» l'attesa è reale.
+  const [ultimo, setUltimo] = useState<Livello | null>(null)
   const [errore, setErrore] = useState<string | null>(null)
   const [autoInCorso, setAutoInCorso] = useState(false)
   const [inCorso, start] = useTransition()
 
-  const genera = () =>
+  const genera = (livello: Livello) =>
     start(async () => {
       setErrore(null)
-      const esito = await riassumiConversazione(messaggioId)
+      setUltimo(livello)
+      const esito = await riassumiConversazione(messaggioId, livello)
       if (esito.ok && esito.riassunto) setDati(esito.riassunto)
       else setErrore(esito.messaggio)
     })
@@ -90,9 +111,23 @@ export function RiassuntoConversazione({
     <div className="ai-box">
       <div className="ai-box-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
         <span>Punti di vista della conversazione</span>
-        <button className="btn secondary small" disabled={lavora} onClick={genera}>
-          {lavora ? 'Leggo…' : dati ? 'Rigenera' : 'Riassumi la conversazione'}
-        </button>
+        {/* TRE livelli invece di un tasto solo: una conversazione di tre mail
+            si legge in dieci secondi e un riassunto lungo è tempo perso; una
+            da trenta, prima di una riunione, va sviscerata. */}
+        <span style={{ display: 'inline-flex', gap: 6, flexWrap: 'wrap' }}>
+          {LIVELLI.map((l) => (
+            <button
+              key={l.codice}
+              type="button"
+              className={`btn ${dati?.analisi.livello === l.codice ? 'primary' : 'secondary'} small`}
+              disabled={lavora}
+              title={l.titolo}
+              onClick={() => genera(l.codice)}
+            >
+              {lavora && ultimo === l.codice ? 'Leggo…' : l.etichetta}
+            </button>
+          ))}
+        </span>
       </div>
 
       {autoInCorso && (
@@ -106,7 +141,9 @@ export function RiassuntoConversazione({
       {!dati && !errore && (
         <div className="ai-box-text" style={{ color: 'var(--text-secondary)' }}>
           Più persone in questo scambio. Fai leggere all’AI tutta la conversazione: ti dice
-          cosa chiede ogni parte e cosa resta in sospeso.
+          cosa chiede ogni parte e cosa resta in sospeso. <strong>Veloce</strong> sono due
+          righe, <strong>Medio</strong> il quadro completo, <strong>Profondo</strong> tutta
+          la vicenda con cifre e date — ci mette di più.
         </div>
       )}
 
@@ -153,6 +190,9 @@ export function RiassuntoConversazione({
           <div className="muted" style={{ marginTop: 12, fontSize: 12 }}>
             Su {dati.messaggiVisti} messaggi · {dati.partecipanti}{' '}
             {dati.partecipanti === 1 ? 'parte' : 'parti'}
+            {/* Quale livello si sta guardando: se no, riaprendo la pagina, due
+                righe possono sembrare un riassunto povero invece che veloce. */}
+            {dati.analisi.livello && ` · lettura ${dati.analisi.livello}`}
           </div>
         </div>
       )}
