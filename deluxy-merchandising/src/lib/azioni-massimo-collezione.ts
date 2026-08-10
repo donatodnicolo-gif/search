@@ -6,6 +6,7 @@ import { prisma } from "./db";
 import { tokenDi } from "./negozi";
 import { FILTRO_IN_SCENA } from "./ordinamento-vetrina";
 import { erroriDi, graphqlNegozio } from "./shopify-scrittura";
+import { leggiProdottiDiCollezione } from "./shopify-collezioni";
 
 // **Quanti prodotti al massimo può avere una vetrina, e come si tolgono quelli
 // di troppo.**
@@ -166,6 +167,109 @@ export async function potaCollezione(id: string) {
   redirect(
     `/visual/${id}?esito=ok&messaggio=${encodeURIComponent(
       `${tolti} prodotti tolti dalla collezione, qui e sul sito. Shopify li rimuove con un lavoro in coda: se li vedi ancora online, ricarica fra qualche secondo.`,
+    )}`,
+  );
+}
+
+/**
+ * **Rilegge dal negozio chi sta davvero in questa collezione**, senza rifare
+ * l'import di tutte le 234 collezioni (venti minuti per una domanda su una).
+ *
+ * Serve perché le due parti possono disallinearsi: se una scrittura verso
+ * Shopify riesce e la richiesta muore prima di aggiornare il database — è quello
+ * che è successo il 10/08/2026 con un taglio da 597 prodotti — l'app resta
+ * convinta di avere prodotti che sul sito non ci sono più, e da lì in poi ogni
+ * numero che mostra è sbagliato: il conteggio, il tetto, quanti ne sono di
+ * troppo. Rileggere è l'unico modo per tornare alla verità del negozio.
+ *
+ * **Scrive solo qui**: su Shopify non tocca niente, né appartenenze né ordine.
+ * Le **posizioni curate si conservano** (stessa regola dell'import): chi resta
+ * mantiene la sua, chi è nuovo entra in fondo. I prodotti che sul negozio ci
+ * sono ma qui non hanno una scheda restano fuori e vengono **contati**: crearli
+ * è un'altra cosa, e la fa l'import.
+ */
+export async function rileggiCollezioneDalNegozio(id: string) {
+  const c = await prisma.collezioneShopify.findUnique({
+    where: { id },
+    select: { shopifyId: true, negozio: true, titolo: true },
+  });
+  if (!c) redirect("/visual");
+
+  const negozio = await prisma.negozioShopify.findFirst({
+    where: { nome: c.negozio },
+    select: { id: true, nome: true },
+  });
+  const accesso = negozio ? await tokenDi(negozio.id) : null;
+  if (!negozio || !accesso) {
+    redirect(
+      `/visual/${id}?esito=errore&messaggio=${encodeURIComponent(
+        `Il negozio «${c.negozio}» non è collegato: non c'è da dove rileggere.`,
+      )}`,
+    );
+  }
+
+  let gidSulNegozio: string[];
+  try {
+    gidSulNegozio = await leggiProdottiDiCollezione(
+      { id: negozio.id, nome: negozio.nome, dominio: accesso.dominio, token: accesso.token },
+      c.shopifyId,
+    );
+  } catch (e) {
+    redirect(
+      `/visual/${id}?esito=errore&messaggio=${encodeURIComponent(
+        `Il negozio non ha risposto: ${e instanceof Error ? e.message : "errore sconosciuto"}. Niente è stato cambiato.`,
+      )}`,
+    );
+  }
+
+  const primaAvevamo = await prisma.prodottoInCollezioneShopify.count({ where: { collezioneId: id } });
+
+  // Le posizioni curate si rileggono **prima** di cancellare: è l'unico posto in
+  // cui vivono, e un riallineamento che le azzerasse butterebbe via la curatela
+  // per rimettere a posto un conteggio.
+  const esistenti = await prisma.prodottoInCollezioneShopify.findMany({
+    where: { collezioneId: id },
+    select: { prodottoShopifyId: true, posizione: true, origine: true },
+  });
+  const posizioneDi = new Map(esistenti.filter((e) => e.prodottoShopifyId).map((e) => [e.prodottoShopifyId!, e.posizione]));
+  const origineDi = new Map(esistenti.filter((e) => e.prodottoShopifyId).map((e) => [e.prodottoShopifyId!, e.origine]));
+
+  // Solo i prodotti che qui hanno una scheda: gli altri si contano e si dicono.
+  const schede = await prisma.prodotto.findMany({
+    where: { shopifyId: { in: gidSulNegozio } },
+    select: { id: true, shopifyId: true },
+  });
+  const schedaDi = new Map(schede.map((p) => [p.shopifyId as string, p.id]));
+  const senzaScheda = gidSulNegozio.length - schede.length;
+
+  await prisma.prodottoInCollezioneShopify.deleteMany({ where: { collezioneId: id } });
+  let posizione = 0;
+  const righe = gidSulNegozio
+    .filter((gid) => schedaDi.has(gid))
+    .map((gid) => ({
+      collezioneId: id,
+      prodottoId: schedaDi.get(gid) as string,
+      prodottoShopifyId: gid,
+      // L'ordine del negozio è la verità appena riletta; la posizione curata si
+      // riprende solo per chi c'era già, così una curatela non ancora spinta non
+      // si perde per aver rimesso a posto un conteggio.
+      posizione: posizioneDi.get(gid) ?? posizione++,
+      origine: origineDi.get(gid) ?? "manuale",
+    }));
+  for (let i = 0; i < righe.length; i += 500) {
+    await prisma.prodottoInCollezioneShopify.createMany({ data: righe.slice(i, i + 500), skipDuplicates: true });
+  }
+
+  revalidatePath(`/visual/${id}`);
+  revalidatePath("/visual");
+  const differenza = primaAvevamo - righe.length;
+  redirect(
+    `/visual/${id}?esito=ok&messaggio=${encodeURIComponent(
+      `Riletta dal negozio: «${c.titolo}» ha ${gidSulNegozio.length} prodotti su Shopify, ${righe.length} con una scheda qui` +
+        (senzaScheda > 0 ? ` (${senzaScheda} sul negozio non ce l'hanno: li crea l'import da Collezioni)` : "") +
+        (differenza !== 0
+          ? `. Qui ne risultavano ${primaAvevamo}: ${differenza > 0 ? `${differenza} non c'erano più sul sito` : `${-differenza} mancavano`}.`
+          : ". Il conto qui era già giusto."),
     )}`,
   );
 }

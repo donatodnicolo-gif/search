@@ -19,7 +19,7 @@ import {
   impostaAggiuntaAutomatica,
 } from "@/lib/azioni-regole-ordine";
 import { iscriviCollezioneARotazione } from "@/lib/azioni-rotazione";
-import { potaCollezione, salvaMassimoProdotti } from "@/lib/azioni-massimo-collezione";
+import { potaCollezione, rileggiCollezioneDalNegozio, salvaMassimoProdotti } from "@/lib/azioni-massimo-collezione";
 import { etichettaFrequenza, etichettaModo, prossimaVolta } from "@/lib/rotazione";
 import { salvaProdottiPerRiga } from "@/lib/azioni-collezioni-shopify";
 import {
@@ -894,21 +894,31 @@ export default async function CurazioneCollezionePage({
             niente da sé — nemmeno il giro notturno delle rotazioni lo fa.
           </p>
 
-          <form action={salvaMassimoProdotti.bind(null, id)} className="riga-azione" style={{ marginTop: 10 }}>
-            <label className="campo-inline">
-              <span>Massimo prodotti in vetrina</span>
-              <input
-                type="number"
-                name="massimoProdotti"
-                min={1}
-                defaultValue={c.massimoProdotti ?? ""}
-                placeholder="nessun tetto"
-                aria-label="Massimo prodotti in vetrina"
-                style={{ width: 110 }}
-              />
-            </label>
-            <button className="btn btn-primario" type="submit">Salva il massimo</button>
-          </form>
+          <div className="riga-azione" style={{ marginTop: 10, flexWrap: "wrap" }}>
+            <form action={salvaMassimoProdotti.bind(null, id)} className="riga-azione">
+              <label className="campo-inline">
+                <span>Massimo prodotti in vetrina</span>
+                <input
+                  type="number"
+                  name="massimoProdotti"
+                  min={1}
+                  defaultValue={c.massimoProdotti ?? ""}
+                  placeholder="nessun tetto"
+                  aria-label="Massimo prodotti in vetrina"
+                  style={{ width: 110 }}
+                />
+              </label>
+              <button className="btn btn-primario" type="submit">Salva il massimo</button>
+            </form>
+            {/* **Se i due conti non tornano, si rilegge.** Il numero qui sopra è
+                quello che l'app crede; l'unico modo per sapere chi c'è davvero
+                nella collezione è chiederlo al negozio. */}
+            <form action={rileggiCollezioneDalNegozio.bind(null, id)}>
+              <button className="btn btn-secondario" type="submit">
+                Rileggi dal negozio
+              </button>
+            </form>
+          </div>
           <p className="page-sub" style={{ marginTop: 6 }}>
             Lascia il campo <b>vuoto</b> per togliere il tetto. Vale <b>solo per questa collezione</b>:
             la regola d&apos;ordine resta condivisibile, una vetrina di punta ne vuole venti e una

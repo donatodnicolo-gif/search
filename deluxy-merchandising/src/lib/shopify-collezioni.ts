@@ -27,7 +27,7 @@ import { prisma } from "./db";
 import { VERSIONE_API } from "./negozi";
 import { riapplicaStandingPerNegozio } from "./ordinamento-vetrina";
 
-type Negozio = { id: string; nome: string; dominio: string; token: string };
+export type Negozio = { id: string; nome: string; dominio: string; token: string };
 
 export type EsitoImportCollezioni = {
   ok: boolean;
@@ -365,7 +365,7 @@ async function leggiProdotti(n: Negozio): Promise<ProdottoShopifyApi[]> {
  *    silenzio. «Home-Page-Last-Minute» risultava di 52 prodotti contro i 73
  *    veri, «Roma» 184 contro 370.
  */
-async function leggiProdottiDiCollezione(n: Negozio, gidCollezione: string): Promise<string[]> {
+export async function leggiProdottiDiCollezione(n: Negozio, gidCollezione: string): Promise<string[]> {
   const fuori: string[] = [];
   let cursore: string | null = null;
   for (let pagina = 0; pagina < 40; pagina++) {
