@@ -236,6 +236,32 @@ export default async function SchedaGruppo({
     ? `${formattaData(conFinestra.dal)} – ${formattaData(conFinestra.al)}`
     : null;
 
+  // La card «Ricerche» della colonna destra, come il widget di Google ma coi
+  // numeri VERI: entrano SOLO le righe dell'ultima finestra consegnata dalla
+  // diagnosi — è l'unico modo di mettere KPI reali su una card senza date per
+  // riga. Le righe d'epoca restano nella tabella grande, con la loro
+  // finestra. Ordinate per comparse, come ordina Google.
+  const ultimaFinestraTermine = await prisma.termineRicerca.aggregate({
+    where: { campagnaId: gruppo.campagnaId, gruppo: { contains: gruppo.nome } },
+    _max: { al: true },
+  });
+  const alFresco = ultimaFinestraTermine._max.al;
+  const ricercheFresche = alFresco
+    ? await prisma.termineRicerca.findMany({
+        where: {
+          campagnaId: gruppo.campagnaId,
+          gruppo: { contains: gruppo.nome },
+          al: { gte: new Date(alFresco.getTime() - 2 * 86_400_000) },
+        },
+        orderBy: { impressioni: "desc" },
+        take: 24,
+      })
+    : [];
+  const dalFresco = ricercheFresche.reduce<Date | null>(
+    (min, t) => (t.dal && (!min || t.dal < min) ? t.dal : min),
+    null
+  );
+
   // Quando è stata scattata la fotografia delle keyword: serve a dire che NON
   // seguono il periodo scelto in cima alla pagina.
   const ultimaLetturaKeyword = keyword.reduce<Date | null>(
@@ -1258,6 +1284,48 @@ export default async function SchedaGruppo({
           </div>
 
           <div>
+            {ricercheFresche.length > 0 && (
+              <section className="scheda">
+                <div className="scheda-titolo">
+                  Ricerche{dalFresco && alFresco ? ` (${formattaData(dalFresco)} → ${formattaData(alFresco)})` : ""}
+                </div>
+                <p className="cella-sub" style={{ whiteSpace: "normal", marginBottom: 10 }}>
+                  Cosa digita la gente, ordinato per quante volte siamo comparsi — come la card di
+                  Google, ma coi numeri veri della finestra. Verde = ha convertito, rosso = spende
+                  senza convertire.
+                </p>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {ricercheFresche.map((t) => {
+                    const conv = t.conversioni ?? 0;
+                    const spesa = t.spesa ?? 0;
+                    const colore =
+                      conv > 0 ? "var(--green)" : spesa >= 10 ? "var(--red)" : "var(--text-tertiary)";
+                    return (
+                      <span
+                        key={t.id}
+                        title={`«${t.testo}» — ${t.impressioni ?? 0} comparse · ${t.clic ?? 0} clic · ${formattaEuro(spesa)} · ${conv} conversioni${(t.ricavi ?? 0) > 0 ? ` · ${formattaEuro(t.ricavi)} di incasso` : ""}`}
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "baseline",
+                          gap: 6,
+                          border: "1px solid var(--hairline-strong)",
+                          borderRadius: 999,
+                          padding: "4px 10px",
+                          fontSize: 12,
+                        }}
+                      >
+                        {t.testo}
+                        <span style={{ color: colore, fontWeight: 600, whiteSpace: "nowrap" }}>
+                          {formattaEuro(spesa)} · {t.clic ?? 0} clic
+                          {conv > 0 ? ` · ${conv} conv` : ""}
+                        </span>
+                      </span>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+
             <section className="scheda">
               <div className="scheda-titolo">Quando si vende — i dodici mesi</div>
               <p className="cella-sub" style={{ marginBottom: 14, whiteSpace: "normal" }}>
