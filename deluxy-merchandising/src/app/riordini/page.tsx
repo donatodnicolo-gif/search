@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Badge } from "@/components/Badge";
+import { FreschezzaVenduto } from "@/components/FreschezzaVenduto";
 import { Sidebar } from "@/components/Sidebar";
 import { salvaPiano } from "@/lib/azioni-vendite";
 import { brandCorrente } from "@/lib/brand";
@@ -69,6 +70,8 @@ export default async function RiordiniPage({
             </button>
           </form>
         </div>
+
+        <FreschezzaVenduto />
 
         {sp.esito === "vuoto" && (
           <div className="avviso-errore">

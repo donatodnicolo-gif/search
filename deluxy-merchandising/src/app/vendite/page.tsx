@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Badge } from "@/components/Badge";
 import { FormFiltri } from "@/components/FormFiltri";
+import { FreschezzaVenduto } from "@/components/FreschezzaVenduto";
 import { GraficoAndamento, BarraQuota, Sparkline } from "@/components/Grafico";
 import { Sidebar } from "@/components/Sidebar";
 import { importaDaOrders } from "@/lib/azioni-vendite";
@@ -98,6 +99,8 @@ export default async function VenditePage({
             </button>
           </form>
         </div>
+
+        <FreschezzaVenduto />
 
         {sp.esito && (
           <div className={sp.esito === "ok" ? "nota-info" : "avviso-errore"}>
@@ -375,10 +378,20 @@ export default async function VenditePage({
           </p>
           {ultimo && (
             <p className="page-sub" style={{ marginTop: 8 }}>
-              Ultimo import: {iso(ultimo.iniziatoIl)} — {ultimo.esito === "ok" ? "riuscito" : "fallito"}.{" "}
-              {ultimo.messaggio}
+              Ultimo aggiornamento: {iso(ultimo.iniziatoIl)} —{" "}
+              {ultimo.automatico ? "giro automatico delle 5:00" : "lanciato a mano"},{" "}
+              {ultimo.esito === "ok" ? "riuscito" : "fallito"}. {ultimo.messaggio}
             </p>
           )}
+          <p className="page-sub" style={{ marginTop: 8 }}>
+            Il venduto <b>si aggiorna da solo ogni notte alle 5:00</b> (gli ultimi 30 giorni), prima
+            che le vetrine si rinfreschino alle 5:20: così l&apos;ordine dei prodotti sul sito segue
+            il venduto di stanotte e non quello dell&apos;ultima volta che qualcuno si è ricordato di
+            premere il bottone. Il giro non aggiunge soltanto le righe nuove: <b>riallinea anche lo
+            stato</b> di quelle già in archivio, perché un ordine incassato o rimborsato dopo il primo
+            import resterebbe altrimenti com&apos;era — e sono proprio quegli stati a decidere chi
+            entra in classifica.
+          </p>
         </div>
       </main>
     </div>

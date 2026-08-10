@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { FreschezzaVenduto } from "@/components/FreschezzaVenduto";
 import { GraficoAndamento, BarraQuota } from "@/components/Grafico";
 import { Sidebar } from "@/components/Sidebar";
 import { brandCorrente, filtroProdotti } from "@/lib/brand";
@@ -61,6 +62,8 @@ export default async function CruscottoPage({
             </button>
           </form>
         </div>
+
+        <FreschezzaVenduto />
 
         {/* Il guscio (menu, titolo, periodo) esce subito; le analisi — che
             scandagliano il venduto — arrivano in streaming appena pronte.

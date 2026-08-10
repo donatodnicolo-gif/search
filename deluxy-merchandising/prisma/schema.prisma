@@ -770,6 +770,16 @@ model ImportVendite {
   righeLette    Int      @default(0)
   righeNuove    Int      @default(0)
   righeAbbinate Int      @default(0)
+  // Righe **già in archivio** a cui è cambiato lo stato dell'ordine: importate
+  // ieri come non pagate e incassate oggi, o rimborsate dopo. Contate a parte da
+  // `righeNuove` perché non sono venduto nuovo, è venduto che ha cambiato
+  // verdetto — e senza questo passaggio resterebbero per sempre com'erano al
+  // primo import, cioè `FILTRO_BUON_FINE` deciderebbe su stati fossili.
+  righeAggiornate Int    @default(0)
+  // Chi ha lanciato l'import: `false` = qualcuno ha premuto il bottone,
+  // `true` = il giro notturno. Serve a dire in pagina se il venduto si aggiorna
+  // da solo o soltanto quando qualcuno se ne ricorda.
+  automatico    Boolean  @default(false)
   esito         String   @default("ok") // ok | errore
   messaggio     String?
 

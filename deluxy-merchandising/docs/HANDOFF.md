@@ -401,6 +401,15 @@ porta **3120**. Design system Deluxy v1.0.
   - **Il campanello è `outdated`** («da rifare»): Shopify lo alza quando l'originale è cambiato **dopo** la traduzione — cioè quando il cliente straniero legge ancora il testo vecchio. Misurato su «Regali Best Seller»: inglese e russo tradotti, col titolo inglese e tre voci russe già da rifare.
   - ⚠️ **Le lingue configurate sul negozio non si possono elencare**: `shopLocales` chiede lo scope `read_locales`, che i token di oggi non hanno (risposta ACCESS_DENIED). Si chiede una lista fissa di otto lingue, **dichiarata in pagina** — meglio un elenco onesto che una lista vuota che sembra «non ci sono traduzioni».
 
+- **10/08/2026 — il venduto si aggiorna da solo, e gli stati vecchi si correggono.** Fino a oggi l'import da Deluxy Orders era **solo un bottone** in `/vendite`: se nessuno lo premeva, l'app continuava a rispondere su una fotografia vecchia **senza dirlo da nessuna parte**. Misurato all'apertura della sessione: l'ultima vendita in archivio era del **25/07**, sedici giorni di negozio che l'app non sapeva — mentre le regole d'ordine «più venduti», le classifiche, le ipotesi di ordinativo e le **rotazioni notturne delle vetrine** decidevano esattamente su quei numeri.
+  - **Cron giornaliero** `/api/cron/vendite` (`vercel.json`, **05:00**) che importa gli ultimi **30 giorni**. Gira **prima** delle rotazioni delle 05:20, non dopo: l'ordine conta, così le vetrine si rifanno sul venduto di stanotte e non su quello di ieri. Protetto da `CRON_SECRET` come le rotazioni (già impostato su Vercel dal 30/07); senza segreto risponde 503 invece di restare aperto. Il middleware lascia già passare `/api/cron/*` — trappola pagata a suo tempo e qui ereditata gratis.
+  - ⭐ **Il difetto vero era un altro, e si vedeva solo facendo girare l'import spesso**: `createMany({ skipDuplicates: true })` non riscrive **mai** una riga già presente. Un ordine entra `PENDING` e diventa `PAID` quando il bonifico arriva, o `REFUNDED` quando il cliente restituisce — ma quella riga restava congelata allo stato del primo import. Siccome `FILTRO_BUON_FINE` legge proprio quel campo, **una vendita incassata tre giorni dopo restava fuori dalle classifiche per sempre, e un rimborso restava dentro**. Nuova `riallineaStati()` in [orders.ts](../src/lib/orders.ts): legge gli stati attuali, li confronta e **scrive solo dove qualcosa è davvero cambiato**, a gruppi di stato uguale (pochi `updateMany` invece di un update per riga) e a cinque scritture per volta (`SCRITTURE_INSIEME`, il pool da 5 è condiviso con altre cinque app).
+  - **Il limite è dichiarato**: girando ogni notte su 30 giorni, ogni ordine viene ricontrollato per trenta giorni di fila; un rimborso che arrivasse più tardi resta fuori. È il prezzo per non rileggere un anno di ordini ogni notte.
+  - **Nuovo componente [FreschezzaVenduto](../src/components/FreschezzaVenduto.tsx)**, un punto solo per pagina sotto la testata, in `/`, `/vendite`, `/classifiche`, `/riordini`, `/visual` e la scheda della collezione: **riga grigia** con la data quando i numeri sono freschi, **avviso ambra** con quanti giorni e il link per aggiornare quando sono fermi da più di tre. Una classifica vecchia che si dichiara vecchia è un'informazione; la stessa classifica muta è un errore. Soglia a 3 giorni: sotto è latenza di Orders, sopra è un import che non gira.
+  - ⚠️ **La data si formatta fissando `Europe/Rome`**, non nel fuso del server. Il giorno di una vendita è salvato come mezzanotte del fuso in cui gira l'import: letto in UTC — cioè su Vercel — la stessa riga torna indietro di un giorno, e la pagina direbbe «fermi a ieri» mentre in locale dice «di oggi».
+  - `ImportVendite` ha due campi nuovi: `righeAggiornate` (contate a parte da `righeNuove` perché non sono venduto nuovo, è venduto che ha cambiato verdetto) e `automatico` (giro notturno o bottone), e `/vendite` lo scrive nell'ultima riga di esito.
+  - **Verificato su dati veri (10/08/2026)**: import reale eseguito → **235 righe nuove**, venduto dal 25/07 al **09-10/08** (+38.274 €, totale 971.318 €), e **34 righe già in archivio hanno cambiato stato** — la prova che il difetto non era teorico. `db push` + `tsc` exit 0 + `next build` ok; le cinque pagine rendono la riga di freschezza (verificate via fetch autenticato); il **ramo dell'avviso è stato visto davvero**, abbassando la soglia per un giro e ripristinandola; la rotta cron risponde 503 senza segreto e non viene dirottata al login.
+
 ## COME AVVIARE
 ```
 cd deluxy-merchandising
@@ -420,9 +429,32 @@ npm run dev   # http://localhost:3120
 
 ## MANCA / PROSSIMI PASSI
 
-> Aggiornato **28/07/2026**. In cima i tre che bloccano tutto il resto: finché
-> non ci sono i costi, tutte le pagine che parlano di margine dicono onestamente
-> «non lo sappiamo», e sono tante.
+> **Riscritta il 10/08/2026 contando sul database**, non ricopiando la lista
+> precedente: metà dei punti aperti del 28/07 erano stati risolti nel frattempo e
+> nessuno li aveva depennati, il che è peggio di non averli scritti.
+
+**Contato oggi**: 4.610 prodotti di cui **1.024 attivi su Shopify**, 343
+collezioni, 6.821 righe di venduto, 3 negozi collegati e verificati.
+
+**Già risolti** (erano scritti come aperti qui sotto):
+- ~~classificazione~~ → **2 prodotti attivi su 1.024** restano `DA_CLASSIFICARE`, e non hanno un Tipo sul negozio (`classifica-da-tipo.ts`, 07/08);
+- ~~1.377 prodotti senza fornitore~~ → **0 fra gli attivi**: erano tutte schede archiviate;
+- ~~`OPENAI_API_KEY` non configurata~~ → **c'è**, in cassaforte nella tabella `Impostazione` (non in `.env`, non su Vercel: si mette da `/impostazioni`);
+- ~~il nostro SEO non arriva al negozio~~ → `spingiSeoSuShopify` in [azioni-seo.ts](../src/lib/azioni-seo.ts);
+- ~~collezioni pubblicate senza prodotti~~ → **1 su 343** (erano 70);
+- ~~il venduto si aggiorna solo a mano~~ → cron delle 05:00, vedi la voce del 10/08.
+
+**Aperti davvero al 10/08/2026**
+1. **Costi di produzione: 1.024 prodotti attivi su 1.024 non ne hanno uno.** È l'unico punto rimasto che avvelena tutto il resto: `/costi` non ha niente da confrontare col target, le griglie non mostrano marginalità, ogni prodotto composto esce con margine non calcolabile. C'è già l'export CSV con gli stessi filtri della pagina, pensato per compilarlo in foglio di calcolo — **manca il reimport del CSV compilato**, che oggi non esiste.
+2. **Linee: 0.** È l'ultima lente *nostra* rimasta vuota (`/linee` dice 0, tutti i prodotti in «senza linea»). Prima di assegnarle serve decidere **quali linee esistono**: è una scelta commerciale, non un lavoro di codice. Gli strumenti ci sono (assegnazione dalla riga in anagrafica, `vocabolarioPerAI()`).
+3. **Scope Shopify mancanti sui tre token**: niente `read_publications` (quindi «solo pubblicate» è finto: in Vetrina entrano anche le collezioni tecniche, si sospendono a mano) e niente `read_locales` (l'elenco delle otto lingue è fisso e dichiarato in pagina). I token **hanno** `read_products`, `write_products`, `read_translations`, `write_translations`. Si aggiungono nelle app Shopify, poi si ri-verifica in `/impostazioni` e si reimporta.
+4. **Funzioni mai usate su dati veri**: 0 tipologie di collezione, 0 prodotti composti, 0 unioni di riconciliazione (la pagina trova 12 gruppi con lo stesso nome). Le pagine sono state provate, i dati no — e la prima unione la fa una persona, di proposito.
+5. **Righe e collezioni di servizio in classifica**: `Torta Tisamisu Modena` (75 pz a 1 €) è ancora prima per quantità, e «Globo basis collection - Do not delete» / «Smart Products Filter Index - Do not delete» sono indici dei temi. Si tolgono archiviando/sospendendo a mano: filtrarle dal nome sarebbe indovinare.
+6. **Giacenze**: nessuna fonte di magazzino collegata, tutte le varianti a 0, quindi le ipotesi di ordinativo partono da «scorta ignota» e propongono la copertura piena.
+7. **SSO Hub** non agganciato; **fornitori** locali, da valutare se collegarli al registro Anagrafiche; **immagini** solo via URL.
+
+<details>
+<summary>La lista com'era il 28/07/2026 (storico)</summary>
 
 **✅ RISOLTO 03/08/2026 — con la strada (b): l'import crea le schede mancanti.** Vedi la
 voce del 03/08 qui sopra: 2.273 prodotti creati, collezioni pubblicate senza prodotti da
@@ -464,6 +496,8 @@ conosciuti»: il numero non è sbagliato, è la copertura dell'abbinamento a ess
 - **SSO Hub**: non ancora agganciato (come le app senza flag `sso`).
 - **Anagrafiche/Fornitori**: i fornitori sono locali; valutare se collegarli al registro centralizzato.
 - **Immagini**: gli still-life sono via URL; nessun upload asset (placeholder ❀ se assente).
+
+</details>
 
 ## NOTE
 - Committato e pushato su `scout-ui` (search.git) il 24/07/2026; vendite/trend/riordini/AI il 26/07/2026; anagrafica, classificazione, collezioni Shopify, fornitori/categorie il 27–28/07/2026; **fasce di prezzo, riconciliazione, griglie e multi prodotto il 28/07/2026** (ultimo commit `181873cc`, tutto in produzione e verificato).

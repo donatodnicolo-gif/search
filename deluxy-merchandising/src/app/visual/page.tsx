@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { FormFiltri } from "@/components/FormFiltri";
+import { FreschezzaVenduto } from "@/components/FreschezzaVenduto";
 import { Miniatura } from "@/components/Miniatura";
 import { Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
@@ -335,6 +336,10 @@ export default async function VisualPage({
             </Link>
           </div>
         </div>
+
+        {/* Le regole d'ordine «più venduti» e «più fatturato» decidono qui:
+            se il venduto è vecchio, la fila lo è altrettanto. */}
+        <FreschezzaVenduto />
 
         {sp.messaggio && (
           <div className={`nota-info${sp.esito === "errore" ? " nota-errore" : ""}`}>

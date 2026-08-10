@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { FreschezzaVenduto } from "@/components/FreschezzaVenduto";
 import { Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
 import { euro } from "@/lib/dominio";
@@ -342,6 +343,11 @@ export default async function CurazioneCollezionePage({
             )}
           </div>
         </div>
+
+        {/* Le metriche «più venduti» e «più fatturato» ordinano questa fila:
+            se il venduto è fermo, la vetrina che sta per andare sul sito è
+            ordinata su una fotografia vecchia. */}
+        <FreschezzaVenduto />
 
         {sp.messaggio && (
           <div className={`nota-info${sp.esito === "errore" ? " nota-errore" : ""}`}>

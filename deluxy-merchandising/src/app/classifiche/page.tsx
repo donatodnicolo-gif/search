@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { FormFiltri } from "@/components/FormFiltri";
+import { FreschezzaVenduto } from "@/components/FreschezzaVenduto";
 import { BarraQuota } from "@/components/Grafico";
 import { Miniatura } from "@/components/Miniatura";
 import { Sidebar } from "@/components/Sidebar";
@@ -46,6 +47,8 @@ export default async function ClassifichePage({
             </p>
           </div>
         </div>
+
+        <FreschezzaVenduto />
 
         <FormFiltri>
           <select name="giorni" defaultValue={String(giorni)} aria-label="Periodo">

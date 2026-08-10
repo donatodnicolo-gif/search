@@ -159,6 +159,9 @@ body:not(:has(.sidebar)) .velo-menu { display: none; }
 .page-head { margin-bottom: 18px; display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .page-title { font-size: 25px; font-weight: 650; letter-spacing: -0.022em; }
 .page-sub { font-size: 13.5px; color: var(--text-secondary); margin-top: 6px; max-width: 640px; }
+/* A quando è fermo il venduto, quando è fresco: c'è, ma non ruba la scena.
+   Quando è vecchio la stessa informazione diventa `.avviso-attenzione`. */
+.riga-freschezza { font-size: 12.5px; color: var(--text-tertiary, var(--text-secondary)); margin-top: 4px; }
 
 /* ---------- Filtri ---------- */
 .filtri {
