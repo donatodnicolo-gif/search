@@ -120,35 +120,52 @@ export async function potaCollezione(id: string) {
     );
   }
 
-  const r = await graphqlNegozio(
-    accesso.dominio,
-    accesso.token,
-    `mutation($id: ID!, $productIds: [ID!]!) {
-       collectionRemoveProducts(id: $id, productIds: $productIds) {
-         job { id }
-         userErrors { field message }
-       }
-     }`,
-    { id: c.shopifyId, productIds: daTogliere.map((vp) => vp.prodottoShopifyId as string) },
-  );
-  const errori = erroriDi(r, "collectionRemoveProducts");
-  if (errori.length) {
-    redirect(
-      `/visual/${id}?esito=errore&messaggio=${encodeURIComponent(
-        `Shopify ha rifiutato: ${errori.join(" · ")}. Nessun prodotto è stato tolto.`,
-      )}`,
+  // **A blocchi di 250, che è quanti ne accetta Shopify per chiamata.** Lo stesso
+  // limite che l'aggiunta rispettava già (`MAX_PER_GIRO`) e che qui mancava: con
+  // 597 prodotti in una sola mutation il negozio rifiuta tutto, e il taglio non
+  // partiva mai proprio sulle collezioni grandi, cioè le uniche per cui un tetto
+  // serve davvero.
+  //
+  // Ogni blocco si cancella **subito dopo** che il negozio l'ha accettato, non
+  // tutti insieme alla fine: se il terzo blocco fallisce, i primi due sono usciti
+  // sul sito e devono risultare usciti anche qui. Rimandare la cancellazione
+  // lascerebbe l'app a dire che ci sono prodotti che sul sito non ci sono più.
+  const PER_CHIAMATA = 250;
+  let tolti = 0;
+  for (let i = 0; i < daTogliere.length; i += PER_CHIAMATA) {
+    const blocco = daTogliere.slice(i, i + PER_CHIAMATA);
+    const r = await graphqlNegozio(
+      accesso.dominio,
+      accesso.token,
+      `mutation($id: ID!, $productIds: [ID!]!) {
+         collectionRemoveProducts(id: $id, productIds: $productIds) {
+           job { id }
+           userErrors { field message }
+         }
+       }`,
+      { id: c.shopifyId, productIds: blocco.map((vp) => vp.prodottoShopifyId as string) },
     );
+    const errori = erroriDi(r, "collectionRemoveProducts");
+    if (errori.length) {
+      redirect(
+        `/visual/${id}?esito=errore&messaggio=${encodeURIComponent(
+          tolti === 0
+            ? `Shopify ha rifiutato: ${errori.join(" · ")}. Nessun prodotto è stato tolto.`
+            : `Shopify ha rifiutato dopo i primi ${tolti}: ${errori.join(" · ")}. Quei ${tolti} sono usciti davvero; premi di nuovo per gli altri.`,
+        )}`,
+      );
+    }
+    await prisma.prodottoInCollezioneShopify.deleteMany({
+      where: { id: { in: blocco.map((vp) => vp.id) } },
+    });
+    tolti += blocco.length;
   }
-
-  await prisma.prodottoInCollezioneShopify.deleteMany({
-    where: { id: { in: daTogliere.map((vp) => vp.id) } },
-  });
 
   revalidatePath(`/visual/${id}`);
   revalidatePath("/visual");
   redirect(
     `/visual/${id}?esito=ok&messaggio=${encodeURIComponent(
-      `${daTogliere.length} prodotti tolti dalla collezione, qui e sul sito. Shopify li rimuove in pochi secondi: se li vedi ancora online, ricarica fra poco.`,
+      `${tolti} prodotti tolti dalla collezione, qui e sul sito. Shopify li rimuove con un lavoro in coda: se li vedi ancora online, ricarica fra qualche secondo.`,
     )}`,
   );
 }

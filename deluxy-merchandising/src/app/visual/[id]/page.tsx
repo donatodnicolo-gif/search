@@ -31,6 +31,11 @@ import {
 } from "@/lib/azioni-vetrina-shopify";
 
 export const dynamic = "force-dynamic";
+// Le server action di questa pagina possono parlare col negozio più volte di
+// fila: togliere 597 prodotti sono tre chiamate a Shopify, e con il tetto di
+// default la richiesta sarebbe scaduta a metà — lasciando il sito e l'app a dire
+// due cose diverse su chi sta nella collezione.
+export const maxDuration = 120;
 
 const MAX_RIGHE = 300;
 const NOMI_METRICHE = Object.fromEntries(REGOLE.map((r) => [r.chiave, r.nome]));
