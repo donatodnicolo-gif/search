@@ -1317,7 +1317,11 @@ export default async function SchedaGruppo({
                         {t.testo}
                         <span style={{ color: colore, fontWeight: 600, whiteSpace: "nowrap" }}>
                           {formattaEuro(spesa)} · {t.clic ?? 0} clic
-                          {conv > 0 ? ` · ${conv} conv` : ""}
+                          {conv > 0 ? ` · ${Number.isInteger(conv) ? conv : conv.toFixed(1)} conv` : ""}
+                          {/* Il VALORE delle conversioni: la freccia dice che
+                              è quello che torna indietro, contro la spesa a
+                              sinistra. */}
+                          {(t.ricavi ?? 0) > 0 ? ` → ${formattaEuro(t.ricavi)}` : ""}
                         </span>
                       </span>
                     );
