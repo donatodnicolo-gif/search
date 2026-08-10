@@ -333,9 +333,10 @@ cd deluxy-marketing && npm run sync-drive
 ALTER/CREATE TABLE **mirati**, mai `prisma db push`: il Postgres è condiviso fra più app e un push confronta l'intero schema. Tutti ripetibili (`IF NOT EXISTS`).
 
 ```bash
-cd deluxy-marketing && node scripts/aggiungi-metriche-giorni.mjs    # CopyAnnuncio.metricheGiorni (08/08)
-cd deluxy-marketing && node scripts/aggiungi-account-campagna.mjs   # Campagna.account + brandManuale (09/08)
-cd deluxy-marketing && node scripts/crea-tabella-localita.mjs       # tabella LocalitaCampagna (10/08)
+cd deluxy-marketing && node scripts/aggiungi-metriche-giorni.mjs        # CopyAnnuncio.metricheGiorni (08/08)
+cd deluxy-marketing && node scripts/aggiungi-account-campagna.mjs       # Campagna.account + brandManuale (09/08)
+cd deluxy-marketing && node scripts/crea-tabella-localita.mjs           # tabella LocalitaCampagna (10/08)
+cd deluxy-marketing && node scripts/crea-tabella-metriche-keyword.mjs   # tabella MetricaKeyword, storia giornaliera keyword (10/08)
 ```
 
 - **Serve**: `DATABASE_URL` nel `.env` dell'app

@@ -107,6 +107,20 @@ Tre aggiunte a valle del primo giro reale su Cake:
   `stati-keyword` non aggiornava le righe giuste. Su `[Cakedesign] | Sales
   | ITA` Google dice davvero 104 keyword in pausa su 147; la spesa in
   tabella è storica (fino al 27/07), non di oggi.
+- ⭐ **LA STORIA GIORNO PER GIORNO DELLE KEYWORD** (notte, chiesta
+  dall'utente: «la spesa non si aggiorna con il cambio di date»). Nuovo
+  lavoro **`keyword-giorni`** (dentro `tutto`, finestra `GIORNI_INDIETRO`),
+  tabella **`MetricaKeyword`** (una riga per criterio per giorno con
+  impressioni, unique su idEsterno+data), route
+  `/api/v1/ingest/keyword-giorni` (createMany + update dove cambia, mai una
+  query per riga). Sulla scheda gruppo, quando la storia copre il periodo:
+  spesa/incasso/resa/giudizi/filtri/ordinamento **seguono il periodo**, e
+  la nota dichiara da quando parte la raccolta; coi periodi non coperti
+  resta la fotografia, **datata riga per riga** («numeri al 30/07»).
+  ⚠️ Per il passato: un giro una tantum con `GIORNI_INDIETRO = 90` (o
+  quanto serve) usando la copia `keyword-giorni.js` — ora le copie in
+  Downloads sono **10**. ⚠️ Da portare anche sulla pagina /keywords e sulla
+  scheda campagna quando servirà: per ora la legge la scheda gruppo.
 - ⭐⭐ **UNA RIGA PER CRITERIO: la stessa parola in due gruppi non si
   sovrascrive più** (sera). Caso vero su `Torte per Oggi // ITA`: 53
   keyword «tutte in pausa» nell'app mentre Google mostrava le attive che
