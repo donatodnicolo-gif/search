@@ -117,7 +117,7 @@ model EventoAzione {
 // Una campagna pubblicitaria (Google, Meta, email…): il registro vivo con
 // stato, budget e obiettivo. Le metriche giornaliere stanno in MetricaCampagna.
 model Campagna {
-  id                String            @id @default(cuid())
+  id                String                 @id @default(cuid())
   nome              String
   // Il nome che le diamo NOI, per leggerla. "[Deluxy] - Fiori Milano ENG" è
   // la chiave con cui l'import la ritrova e non si tocca mai: qui ci si può
@@ -126,11 +126,11 @@ model Campagna {
   // Gemello di `Gruppo.nomeVisibile`, stessa idea di `stato` contro
   // `statoPiattaforma`: la nostra parola e il fatto non si sovrascrivono.
   nomeVisibile      String?
-  brand             String            @default("flowers")
+  brand             String                 @default("flowers")
   // ⚠️ Il brand deciso A MANO non si tocca più, come `origine: "manuale"` sul
   // legame Shopify. Senza questo, una sync mirata su un account rimetteva il
   // brand dell'account e la correzione durava fino al giro dopo.
-  brandManuale      Boolean           @default(false)
+  brandManuale      Boolean                @default(false)
   // L'account pubblicitario su cui la campagna gira DAVVERO (248-656-1148,
   // 1040175814157216…), scritto dall'import che l'ha vista.
   //
@@ -141,19 +141,19 @@ model Campagna {
   // Cake quella campagna non esiste. L'account è un fatto, il brand è la sua
   // conseguenza: tenere solo la conseguenza rende l'errore invisibile.
   account           String?
-  canale            String            @default("google_ads")
+  canale            String                 @default("google_ads")
   // bozza | in_apprendimento | attiva | in_pausa | conclusa | in_lancio | defunta
   // ⚠️ È il GIUDIZIO nostro. L'import lo aggiorna solo quando NON è uno degli
   // stati nostri (vedi STATI_CAMPAGNA_NOSTRI): «defunta» decisa a mano non
   // deve tornare «in_pausa» al giro dopo.
-  stato             String            @default("attiva")
+  stato             String                 @default("attiva")
   // Cosa dice Google, sempre e comunque: ENABLED | PAUSED | REMOVED.
   // Gemello di `Gruppo.statoPiattaforma`. Serve a non perdere il fatto quando
   // il giudizio nostro lo copre — una campagna può essere «defunta» per noi e
   // ancora accesa su Google, ed è esattamente il caso da vedere.
   statoPiattaforma  String?
   // classe di protezione (doc 11): traino | standard | sperimentale
-  classe            String            @default("standard")
+  classe            String                 @default("standard")
   obiettivo         String?
   budgetGiornaliero Float?
   // CPA target per pacing e regole se/allora (doc 10 §7)
@@ -176,9 +176,10 @@ model Campagna {
   note              String?
   // landing principale a cui la campagna manda il traffico
   landingId         String?
-  landing           LandingPage?      @relation(fields: [landingId], references: [id], onDelete: SetNull)
+  landing           LandingPage?           @relation(fields: [landingId], references: [id], onDelete: SetNull)
   metriche          MetricaCampagna[]
   gruppi            Gruppo[]
+  localita          LocalitaCampagna[]
   termini           TermineRicerca[]
   segmenti          SegmentoCampagna[]
   azioni            Azione[]
@@ -187,8 +188,8 @@ model Campagna {
   incidenti         Incidente[]
   legameShopify     LegameCampagnaShopify?
   proposteAi        PropostaAi[]
-  creataIl          DateTime          @default(now())
-  aggiornataIl      DateTime          @updatedAt
+  creataIl          DateTime               @default(now())
+  aggiornataIl      DateTime               @updatedAt
 
   @@index([brand])
   @@index([stato])
@@ -275,22 +276,22 @@ model MetricaGruppo {
 // Snapshot giornaliero dei KPI di una campagna: alimenta le dashboard.
 // Upsert per (campagna, giorno): rimandare gli stessi dati non duplica.
 model MetricaCampagna {
-  id          String   @id @default(cuid())
-  campagnaId  String
-  campagna    Campagna @relation(fields: [campagnaId], references: [id], onDelete: Cascade)
-  data        DateTime
-  spesa       Float?
-  impression  Int?
-  click       Int?
-  conversioni Float?
-  ricavi      Float?
+  id               String   @id @default(cuid())
+  campagnaId       String
+  campagna         Campagna @relation(fields: [campagnaId], references: [id], onDelete: Cascade)
+  data             DateTime
+  spesa            Float?
+  impression       Int?
+  click            Int?
+  conversioni      Float?
+  ricavi           Float?
   // Quota impressioni (0-1): la domanda "quanto altro ci sarebbe da prendere".
   // persaBudget e persaRank dicono PERCHÉ non la si prende: soldi finiti o
   // posizione insufficiente. Sono due strade opposte, confonderle costa.
   quotaImpressioni Float?
   persaBudget      Float?
   persaRank        Float?
-  creataIl    DateTime @default(now())
+  creataIl         DateTime @default(now())
 
   @@unique([campagnaId, data])
   @@index([data])
@@ -398,26 +399,26 @@ model SettimanaMkt {
 
 // Un asset di copy: titolo/descrizione RSA, primary text Meta, keyword…
 model CopyAnnuncio {
-  id           String   @id @default(cuid())
-  brand        String
-  canale       String   @default("google_ads")
-  campagna     String
-  gruppo       String?
-  lingua       String? // it | en | fr | es
+  id               String    @id @default(cuid())
+  brand            String
+  canale           String    @default("google_ads")
+  campagna         String
+  gruppo           String?
+  lingua           String? // it | en | fr | es
   // titolo | descrizione | primary_text | headline_meta | keyword | sitelink | nota | altro
-  tipo         String
-  posizione    Int?
-  testo        String
-  caratteri    Int?
-  finalUrl     String?
+  tipo             String
+  posizione        Int?
+  testo            String
+  caratteri        Int?
+  finalUrl         String?
   // Copy: attivo | bozza | in_pausa | da_riscrivere | archiviato
   // Keyword: attiva | da_valutare | in_pausa | negativa | esclusa | vincente
-  stato        String   @default("attivo")
+  stato            String    @default("attivo")
   // Nota di lavoro sulla keyword (perché è stata messa in pausa, ecc.)
-  notaStato    String?
+  notaStato        String?
   // Resa e spesa: dal Monitoraggio o, se collegato, da Google Ads
-  incasso      Float?
-  spesa        Float?
+  incasso          Float?
+  spesa            Float?
   // Metriche vive da Google Ads (script giornaliero)
   clic             Int?
   impressioni      Int?
@@ -453,9 +454,9 @@ model CopyAnnuncio {
   // annuncio. Si riempie dal giro `copy` dello script aggiornato al
   // 07/08/2026: sulle righe più vecchie resta vuoto.
   annunci          String?
-  note         String?
-  creataIl     DateTime @default(now())
-  aggiornataIl DateTime @updatedAt
+  note             String?
+  creataIl         DateTime  @default(now())
+  aggiornataIl     DateTime  @updatedAt
 
   @@index([brand, campagna])
 }
@@ -919,23 +920,23 @@ model OperazioneAdv {
 // della piattaforma), che tipo di dati, quante righe e che periodo coprono.
 // Serve a rispondere a "cosa sto ricevendo, da chi, e da quando".
 model RicezioneDati {
-  id         String   @id @default(cuid())
-  fonte      String   @default("google_ads")
+  id         String    @id @default(cuid())
+  fonte      String    @default("google_ads")
   account    String?
   // metriche | copy | asset | approvazioni | operazioni | ordini | altro
   tipo       String
   // Nome del client della chiave API che ha consegnato
   chiave     String?
-  righe      Int      @default(0)
-  nuove      Int      @default(0)
-  aggiornate Int      @default(0)
-  scartate   Int      @default(0)
+  righe      Int       @default(0)
+  nuove      Int       @default(0)
+  aggiornate Int       @default(0)
+  scartate   Int       @default(0)
   // Periodo coperto dai dati consegnati
   dal        DateTime?
   al         DateTime?
-  campagne   Int      @default(0)
-  esito      String   @default("ok")
-  ricevutoIl DateTime @default(now())
+  campagne   Int       @default(0)
+  esito      String    @default("ok")
+  ricevutoIl DateTime  @default(now())
 
   @@index([ricevutoIl])
   @@index([fonte, tipo])
@@ -1102,11 +1103,11 @@ model LegameCampagnaShopify {
 // proposta riletta fra un mese deve poter dire su cosa era stata fatta,
 // altrimenti sembra un giudizio sui numeri di oggi.
 model PropostaAi {
-  id         String   @id @default(cuid())
+  id         String    @id @default(cuid())
   // keyword | termine
   tipo       String
   campagnaId String
-  campagna   Campagna @relation(fields: [campagnaId], references: [id], onDelete: Cascade)
+  campagna   Campagna  @relation(fields: [campagnaId], references: [id], onDelete: Cascade)
   testo      String
   // ideal | specific — vedi CLASSI_PAROLA in lib/proposte-ai.ts
   classe     String?
@@ -1115,12 +1116,12 @@ model PropostaAi {
   motivo     String
   // alta | media | bassa: quanta fiducia dichiara l'AI. Con "bassa" la
   // proposta si mostra ma non si offre il bottone per eseguirla.
-  fiducia    String   @default("media")
+  fiducia    String    @default("media")
   // I numeri del momento, congelati (JSON breve)
   numeri     String?
   // proposta | accettata | scartata
-  stato      String   @default("proposta")
-  creataIl   DateTime @default(now())
+  stato      String    @default("proposta")
+  creataIl   DateTime  @default(now())
   decisaIl   DateTime?
 
   @@unique([campagnaId, tipo, testo])
@@ -1176,4 +1177,39 @@ model SyncDrive {
   iniziataIl   DateTime  @default(now())
 
   @@index([iniziataIl])
+}
+
+// Dove una campagna eroga davvero: le località su cui è mirata, e quelle che
+// esclude.
+//
+// ⚠️ Fino al 09/08/2026 il targeting geografico NON veniva importato affatto:
+// nello script non c'era nessuna query, e nell'app nessuna tabella. Una
+// campagna che si chiama «Fiori Milano» poteva essere mirata su tutta Italia
+// e nessuno poteva accorgersene guardando l'app — si vedeva solo la spesa, e
+// la spesa non dice dove è andata.
+//
+// ⚠️ `esclusa` fa parte della CHIAVE: la stessa località può comparire una
+// volta come mirata (la regione) e una come esclusa (una città dentro), ed è
+// una configurazione normale, non un doppione.
+model LocalitaCampagna {
+  id           String   @id @default(cuid())
+  campagnaId   String
+  campagna     Campagna @relation(fields: [campagnaId], references: [id], onDelete: Cascade)
+  // L'id del "geo target constant" di Google: 1008736, 2380…
+  // È la chiave vera: i nomi cambiano lingua a seconda di chi legge.
+  idEsterno    String
+  nome         String
+  // City | Region | Country | Postal Code | Airport | Neighborhood…
+  // Lo dice Google: è il livello a cui la località è mirata.
+  tipo         String?
+  // true = località ESCLUSA, non mirata.
+  esclusa      Boolean  @default(false)
+  // Il moltiplicatore di offerta, quando c'è: +20% su Milano è una decisione,
+  // e senza vederla si legge male la spesa per città.
+  modificatore Float?
+  creataIl     DateTime @default(now())
+  aggiornataIl DateTime @updatedAt
+
+  @@unique([campagnaId, idEsterno, esclusa])
+  @@index([campagnaId])
 }

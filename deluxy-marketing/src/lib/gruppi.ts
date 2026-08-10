@@ -70,11 +70,31 @@ export async function gruppiConNumeri(opzioni: {
   canale?: string;
   cerca?: string;
   giorni?: number;
+  /**
+   * Il periodo ESATTO, quando chi chiama ne ha uno (la scheda campagna).
+   *
+   * ⚠️ Vince su `giorni`, e serve perché `giorni` è una finestra che scorre da
+   * OGGI: al periodo scelto in pagina somiglia soltanto. Due difetti misurati
+   * il 09/08/2026 su `[Deluxy] Torte MILANO`, periodo 11/07 → 09/08:
+   *
+   *   · `daGiorni(30)` parte dalla mezzanotte di (oggi − 29), cioè dal **12/07**:
+   *     il PRIMO giorno del periodo non entrava mai. La tabella diceva 504 €
+   *     dove il database ne aveva 518,89, e su «Birthday Cake» mancava una
+   *     conversione da 64 € — 59 € invece di 123 €.
+   *   · non c'era nessun limite superiore, quindi un periodo che finisce ieri
+   *     si tirava dentro anche oggi.
+   *
+   * Il risultato peggiore non era lo scarto in sé: era che la somma dei gruppi
+   * non faceva il totale della campagna, **con i due numeri nella stessa
+   * schermata**. Col periodo esplicito tornano: 1.609,37 € da entrambe le parti.
+   */
+  periodo?: { da: Date; a: Date };
   // I gruppi DEFUNTI restano fuori da tutto, tranne quando si chiedono
   // apposta: come per le campagne, `?defunti=inclusi`.
   defunti?: "inclusi";
 }): Promise<GruppoConNumeri[]> {
-  const da = daGiorni(opzioni.giorni ?? GIORNI_LETTURA);
+  const da = opzioni.periodo?.da ?? daGiorni(opzioni.giorni ?? GIORNI_LETTURA);
+  const finestra = opzioni.periodo?.a ? { gte: da, lt: opzioni.periodo.a } : { gte: da };
   const gruppi = await prisma.gruppo.findMany({
     where: {
       ...(opzioni.campagnaId ? { campagnaId: opzioni.campagnaId } : {}),
@@ -87,7 +107,7 @@ export async function gruppiConNumeri(opzioni: {
     },
     include: {
       campagna: { select: { id: true, nome: true } },
-      metriche: { where: { data: { gte: da } }, orderBy: { data: "desc" } },
+      metriche: { where: { data: finestra }, orderBy: { data: "desc" } },
     },
   });
 

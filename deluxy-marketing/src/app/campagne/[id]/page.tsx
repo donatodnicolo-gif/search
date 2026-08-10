@@ -179,7 +179,10 @@ export default async function SchedaCampagna({
     1,
     Math.round((periodo.corrente.a.getTime() - periodo.corrente.da.getTime()) / 86_400_000)
   );
-  const gruppi = await gruppiConNumeri({ campagnaId: campagna.id, giorni: giorniPeriodo });
+  // ⚠️ Il periodo ESATTO, non un numero di giorni: la finestra che scorre da
+  // oggi perdeva il primo giorno e ignorava la data di fine, e la somma dei
+  // gruppi non faceva il totale della campagna qui sopra.
+  const gruppi = await gruppiConNumeri({ campagnaId: campagna.id, periodo: periodo.corrente });
 
   const metricheCrono = [...campagna.metriche].reverse();
   const spesa = campagna.metriche.reduce((s, m) => s + (m.spesa ?? 0), 0);

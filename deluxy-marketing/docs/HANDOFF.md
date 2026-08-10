@@ -22,6 +22,64 @@ Riceve già dati veri da Google Ads (Gifts e Flowers) e ha 2.426 ordini Shopify 
 
 ## FATTO
 
+### ⭐⭐ La somma dei gruppi non faceva il totale della campagna (09/08/2026)
+
+Segnalato: «la somma non fa 1600 · manca una conversione a birthday». Vero, e
+il database non c'entrava: era **come la pagina leggeva**.
+
+Su `[Deluxy] Torte MILANO`, periodo 11/07 → 09/08:
+
+| | pagina (prima) | database | Google |
+| --- | --- | --- | --- |
+| Torte per Oggi | 504 € · 1201 € | 518,89 € · 1201,37 € | 518,91 € · 1201,37 € |
+| Crea la tua torta | 136 € · 285 € | 144,73 € · 285,00 € | 144,73 € · 285,00 € |
+| **Birthday Cake** | 56,80 € · **59 €** · 0,5 conv | 60,14 € · **123 €** · 1,5 conv | 60,13 € · **123,00 €** |
+| **somma** | 696,80 € · **1545 €** | 723,76 € · **1609,37 €** | 723,77 € · 1609,37 € |
+
+`gruppiConNumeri` prendeva un **numero di giorni**, non il periodo: `daGiorni(30)`
+parte dalla mezzanotte di (oggi − 29), cioè dal **12/07** — il primo giorno del
+periodo non entrava mai — e non aveva **nessun limite superiore**, quindi un
+periodo che finisce ieri si tirava dentro anche oggi.
+
+> ⚠️ **Il difetto peggiore non era lo scarto: era che i due numeri stavano nella
+> stessa schermata.** In cima «1609 €», sotto tre righe che ne fanno 1545, e
+> nessuna delle due diceva di guardare un periodo diverso dall'altra. Su
+> Birthday Cake lo scarto era del 108% — 59 € contro 123 — e nasceva da **una
+> sola conversione** caduta nel giorno perduto.
+
+Ora la scheda campagna passa `periodo: periodo.corrente` e i gruppi sommano
+esatti: **1.609 €**, verificato in pagina. `giorni` resta per gli altri
+chiamanti, che un periodo non ce l'hanno.
+
+### ⚠️ APERTO: i titoli per annuncio sono più di quanti Google ne ammetta
+
+Segnalato lo stesso giorno e **non ancora corretto**. Sul gruppo
+`Flowers Delivery` di `[Deluxy] - Fiori Milano ENG`:
+
+| annuncio | titoli in archivio |
+| --- | --- |
+| `671692470710` | **21** |
+| `798230342872` | **19** |
+| `687975359022` | **17** |
+| `817075006943` | 15 ✔ |
+| `816989412607` | 15 ✔ |
+
+Google ne ammette **15 per annuncio**: 21 è impossibile.
+
+La causa più probabile è che l'app **accumula e non toglie mai**. Lo script
+manda i testi che vede adesso; l'ingest aggiorna le righe esistenti e ne crea
+di nuove, ma **non rimuove** l'aggancio di un titolo che da quell'annuncio è
+stato tolto. Un RSA modificato tre volte lascia in archivio l'unione storica di
+tutti i titoli che ci sono passati, e la colonna «Annuncio 1» li mostra tutti
+come se fossero insieme in asta oggi.
+
+**Come si corregge**: l'elenco `annunci` di un testo deve essere **sostituito**,
+non arricchito, e i testi non più presenti in un annuncio vanno staccati da
+quell'annuncio. Serve che l'ingest sappia l'insieme completo dei testi per
+annuncio in quella consegna — oggi arriva accorpato per campagna, non per
+annuncio. ⚠️ Da fare con attenzione: staccare troppo cancellerebbe la storia
+dei testi, che serve a leggere il rendimento.
+
 ### ⭐ Le lingue: al plurale sulla campagna, al singolare sul gruppo (09/08/2026)
 
 Il selettore «clienti» costringeva a dichiarare **una** lingua, e una campagna
