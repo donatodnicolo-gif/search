@@ -108,7 +108,12 @@ export function EstendiConAi({
         if (e.target === dialogo.current) dialogo.current?.close();
       }}
     >
-      <div className="modale-corpo">
+      {/* ⚠️ Il form È il corpo, come in PortaKeyword: `.modale-elenco`
+          scrolla solo da figlio DIRETTO del flex `.modale-corpo` — con un
+          form di mezzo l'elenco cresceva e il piede col «Metti in coda»
+          finiva tagliato fuori dallo schermo, irraggiungibile. La textarea
+          non ha `name`, quindi non finisce nella FormData. */}
+      <form action={azioneAccoda} className="modale-corpo">
         <div className="modale-testa">
           <div>
             <div className="modale-occhiello">Estendi con AI</div>
@@ -155,7 +160,7 @@ export function EstendiConAi({
         {errore && <div className="modale-avviso">{errore}</div>}
 
         {proposte && proposte.length > 0 && (
-          <form action={azioneAccoda}>
+          <>
             <input type="hidden" name="campagne" value={campagnaId} />
             <input type="hidden" name="ritorno" value={ritorno} />
             <input type="hidden" name="motivo" value={motivo} />
@@ -219,9 +224,9 @@ export function EstendiConAi({
                 Metti in coda{scelte.length > 0 && ` (${scelte.length})`}
               </button>
             </div>
-          </form>
+          </>
         )}
-      </div>
+      </form>
     </dialog>
   );
 }
