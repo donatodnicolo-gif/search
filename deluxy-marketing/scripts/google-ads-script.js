@@ -633,8 +633,12 @@ function leggiKeywords(conto) {
     var c = r.adGroupCriterion;
     var testo = c.keyword.text;
     var match = c.keyword.matchType;
-    // Stessa chiave con cui l'app riconosce la riga: campagna + testo + corrispondenza
-    var chiave = r.campaign.name + "|" + testo + "|" + match;
+    // Una riga PER CRITERIO: campagna + gruppo + testo + corrispondenza.
+    // Prima il gruppo non c'era e la stessa parola in due gruppi collassava
+    // su una riga sola: l'ultima copia letta sovrascriveva gruppo e stato,
+    // e "torte a domicilio" ENABLED in un gruppo risultava PAUSED perche'
+    // la gemella di un altro gruppo era in pausa (misurato su Cake, 10/08).
+    var chiave = r.campaign.name + "|" + r.adGroup.id + "|" + testo + "|" + match;
     var spesa = Number(r.metrics.costMicros || 0) / 1000000;
     var impressioni = Number(r.metrics.impressions || 0);
 

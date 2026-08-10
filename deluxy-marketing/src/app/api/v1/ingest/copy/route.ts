@@ -75,6 +75,24 @@ export async function POST(req: NextRequest) {
       : null;
     if (!riga) {
       riga = await prisma.copyAnnuncio.findFirst({ where: { tipo, testo, campagna } });
+      // ⚠️ Il ripiego serve ad AGGANCIARE le righe legacy (Monitoraggio, id
+      // nel formato vecchio), NON a fondere criteri diversi: se la riga
+      // trovata ha già un id di piattaforma completo e DIVERSO da quello in
+      // arrivo, è un ALTRO criterio — la stessa parola in un altro gruppo,
+      // col suo stato. Si crea la riga di questo criterio invece di
+      // sovrascrivere: era il modo in cui «torte a domicilio» ENABLED in un
+      // gruppo si faceva marcare PAUSED dalla gemella di un altro gruppo
+      // (misurato su Cake il 10/08: 53 keyword «tutte in pausa» che su
+      // Google erano un incrocio di copie attive e ferme).
+      const idCompleto = (v: string | null | undefined) => /^[\d-]+:\d+:\d+$/.test(v ?? "");
+      if (
+        riga &&
+        idCompleto(r.idEsterno ? String(r.idEsterno) : null) &&
+        idCompleto(riga.idEsterno) &&
+        riga.idEsterno !== String(r.idEsterno)
+      ) {
+        riga = null;
+      }
     }
     if (riga) {
       await prisma.copyAnnuncio.update({ where: { id: riga.id }, data: dati });
