@@ -143,6 +143,35 @@
   .rv-head{display:flex; align-items:center; gap:6px; flex-wrap:wrap; color:var(--text)}
   .rv-time{color:var(--text-tertiary); font-size:11px}
   .rv-text{color:var(--text-secondary); margin-top:4px; line-height:1.45}
+  /* --- foto del negozio da Google Maps ---
+     Nella scheda si carica UNA SOLA foto (copertina) e con loading="lazy": ogni foto
+     scaricata è una richiesta Place Photo a pagamento, quindi le altre si caricano solo
+     se l'operatore apre la lightbox. */
+  .shopfoto{position:relative; margin-top:10px; border-radius:var(--radius-m); overflow:hidden;
+    border:1px solid var(--hairline); background:var(--fill); cursor:zoom-in; line-height:0}
+  .shopfoto img{display:block; width:100%; height:150px; object-fit:cover;
+    transition:transform .25s var(--ease)}
+  .shopfoto:hover img{transform:scale(1.03)}
+  .shopfoto .count{position:absolute; right:8px; bottom:8px; line-height:1.4;
+    background:rgba(0,0,0,.55); color:#fff; font-size:11px; font-weight:600;
+    padding:3px 9px; border-radius:var(--radius-pill); backdrop-filter:saturate(180%) blur(8px)}
+  .fotoattr{font-size:10px; color:var(--text-tertiary); margin-top:4px}
+  .fotoattr a{color:var(--text-tertiary)}
+  #lbox{position:fixed; inset:0; z-index:1200; background:rgba(0,0,0,.9); display:none;
+    flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:24px}
+  #lbox.on{display:flex}
+  #lbox img{max-width:min(1200px,94vw); max-height:76vh; object-fit:contain;
+    border-radius:var(--radius-l); background:#111}
+  #lbox .lb-bar{display:flex; align-items:center; gap:14px; color:#fff; font-size:13px}
+  #lbox button{background:rgba(255,255,255,.14); color:#fff; border:0; border-radius:var(--radius-pill);
+    padding:9px 16px; font-size:15px; font-weight:600; cursor:pointer}
+  #lbox button:hover{background:rgba(255,255,255,.26)}
+  #lbox button[disabled]{opacity:.3; cursor:default}
+  #lbox .lb-title{color:#fff; font-size:15px; font-weight:600; text-align:center; max-width:90vw}
+  #lbox .lb-attr{color:rgba(255,255,255,.55); font-size:11px; text-align:center}
+  #lbox .lb-attr a{color:rgba(255,255,255,.75)}
+  #lbox .lb-close{position:absolute; top:16px; right:16px}
+  @media(max-width:560px){ .shopfoto img{height:180px} }
   .hint{font-size:12px; color:var(--text-secondary); margin-top:8px; line-height:1.5}
   a.link{color:var(--blue)}
   .ordercard{margin-bottom:14px}
@@ -426,6 +455,12 @@
         </div>
       </div>
       <div class="hint" style="margin-top:-6px">Con cosa cercare i negozi su Google. Più parole chiave separate da <b>virgola</b> = una ricerca per ciascuna, risultati uniti (es. <code>pasticceria, torte, cake design</code>); si aggiunge sempre anche la ricerca per sola categoria. Vuoto = predefinite nella lingua della consegna.</div>
+      <div>
+        <label style="display:flex; align-items:center; gap:8px; cursor:pointer">
+          <input id="cfg_foto" type="checkbox" style="width:auto; margin:0"> Mostra le foto dei negozi (da Google Maps)
+        </label>
+        <div class="hint" style="margin-top:4px">Ogni scheda mostra una foto di copertina; cliccandola si aprono tutte le foto del negozio. <b>Ogni foto scaricata è una richiesta Google a pagamento</b>: nella lista si carica solo la copertina delle schede che l'operatore vede davvero, le altre partono solo aprendo la galleria. Togli la spunta per spegnere del tutto le foto.</div>
+      </div>
       <div class="fgrid fgrid-2">
         <div>
           <label>Registro anagrafiche — URL</label>
@@ -796,9 +831,22 @@
 </div>
 
 <footer>
-  Dati negozi &amp; contatti: Google Places · Email: scraping best-effort dai siti ufficiali · WhatsApp: link generato dal numero.<br>
+  Dati negozi &amp; contatti: Google Places · Foto: Google Maps · Email: scraping best-effort dai siti ufficiali · WhatsApp: link generato dal numero.<br>
   Nessun dato viene inviato a server esterni oltre a Google e (se attivo) al proxy che scegli tu.
 </footer>
+
+<!-- galleria a tutto schermo delle foto del negozio (Google Maps) -->
+<div id="lbox" role="dialog" aria-modal="true" aria-label="Foto del negozio">
+  <button type="button" class="lb-close" id="lbClose" aria-label="Chiudi">✕ Chiudi</button>
+  <div class="lb-title" id="lbTitle"></div>
+  <img id="lbImg" alt="Foto del negozio">
+  <div class="lb-bar">
+    <button type="button" id="lbPrev" aria-label="Foto precedente">‹</button>
+    <span id="lbCount"></span>
+    <button type="button" id="lbNext" aria-label="Foto successiva">›</button>
+  </div>
+  <div class="lb-attr" id="lbAttr"></div>
+</div>
 
 <script>
 /* ------------------ stato & util ------------------ */
@@ -979,6 +1027,7 @@ function applyConfig(){
   $('#cfg_proxy').value  = CONFIG.proxy || '';
   $('#cfg_kw_fioraio').value = CONFIG.kwFioraio || '';
   $('#cfg_kw_pasticceria').value = CONFIG.kwPasticceria || '';
+  $('#cfg_foto').checked = fotoAttive();
   $('#cfg_anag_url').value = CONFIG.anagUrl || '';
   $('#cfg_anag_key').value = '';
   $('#cfg_anag_key').placeholder = CONFIG.hasAnagKey ? '•••• salvata (vuoto = invariata)' : 'chiave di sola lettura';
@@ -1123,6 +1172,7 @@ async function saveConfig(){
   const body = { googleKey: $('#cfg_google').value.trim(), proxy: $('#cfg_proxy').value.trim(),
                  kwFioraio: $('#cfg_kw_fioraio').value.trim(),
                  kwPasticceria: $('#cfg_kw_pasticceria').value.trim(),
+                 mostraFoto: $('#cfg_foto').checked ? '1' : '0',
                  anagUrl: $('#cfg_anag_url').value.trim(), anagKey: $('#cfg_anag_key').value.trim(),
                  anagWriteKey: $('#cfg_anag_wkey').value.trim(),
                  googleOauthClientId: $('#cfg_goauth').value.trim(), utenti, stores };
@@ -1785,11 +1835,11 @@ async function annotaDistanzeRegistro(list, cards, origin){
     });
   }catch(e){ console.warn('distanze registro:', e); }
 }
-// Orari di apertura ANCHE sulle schede del registro (partner/prospect): il registro non
-// li ha, quindi si cerca il negozio su Google (findPlaceFromQuery su nome+indirizzo, bias
-// sulla zona) e si leggono gli orari con getDetails → badge «🟢 Aperto ora / 🔴 Chiuso ora».
-// Best effort e non bloccante; se Google non trova la scheda, nessun badge. Le schede del
-// registro restano SEMPRE visibili (il filtro apertura non le nasconde).
+// Orari di apertura E FOTO anche sulle schede del registro (partner/prospect): il registro
+// non li ha, quindi si cerca il negozio su Google (findPlaceFromQuery su nome+indirizzo, bias
+// sulla zona) e si legge getDetails → badge «🟢 Aperto ora / 🔴 Chiuso ora» + foto di copertina.
+// Best effort e non bloccante; se Google non trova la scheda, nessun badge e nessuna foto.
+// Le schede del registro restano SEMPRE visibili (il filtro apertura non le nasconde).
 async function annotaOrariRegistro(list, cards, service, origin){
   try{
     const bias = origin ? { center: origin, radius: 50000 } : undefined;
@@ -1801,7 +1851,7 @@ async function annotaOrariRegistro(list, cards, service, origin){
       if(bias) req.locationBias = bias;
       service.findPlaceFromQuery(req, (res,status)=>{
         if(status!==google.maps.places.PlacesServiceStatus.OK || !res || !res[0]){ resolve(); return; }
-        service.getDetails({ placeId: res[0].place_id, fields:['opening_hours','business_status'] }, (d,st)=>{
+        service.getDetails({ placeId: res[0].place_id, fields:['opening_hours','business_status','photos'] }, (d,st)=>{
           try{
             if(st===google.maps.places.PlacesServiceStatus.OK && d){
               let open; try{ open = d.opening_hours && d.opening_hours.isOpen && d.opening_hours.isOpen(); }catch(e){ open = undefined; }
@@ -1811,6 +1861,11 @@ async function annotaOrariRegistro(list, cards, service, origin){
                           : '';
               const col = card.querySelector('.head > div');
               if(badge && col && !card.querySelector('.badge-open')) col.insertAdjacentHTML('beforeend', badge);
+              // foto di copertina anche qui, sotto la riga dei dati del registro
+              const fotos = fotoDaPlace(d);
+              const meta = card.querySelector('.meta');
+              if(fotos.length && meta && !card.querySelector('.shopfoto'))
+                meta.insertAdjacentHTML('afterend', fotoCoverHtml(fotos, card.dataset.sid, p.nome));
             }
           }finally{ resolve(); }
         });
@@ -1874,12 +1929,76 @@ function details(service, placeId){
     service.getDetails({
       placeId,
       fields:['name','formatted_address','address_components','formatted_phone_number','international_phone_number',
-              'website','url','rating','user_ratings_total','reviews','opening_hours','utc_offset_minutes','geometry','business_status']
+              'website','url','rating','user_ratings_total','reviews','opening_hours','utc_offset_minutes','geometry','business_status','photos']
     }, (d,status)=>{
       resolve(status===google.maps.places.PlacesServiceStatus.OK ? d : null);
     });
   });
 }
+
+/* ------------------ foto del negozio (Google Maps) ------------------
+   `d.photos` arriva coi dettagli: sono oggetti PlacePhoto con getUrl({maxWidth}).
+   ⚠️ Costo: costruire l'URL è gratis, SCARICARE l'immagine è una richiesta Place Photo
+   a pagamento. Perciò nella scheda si mostra una sola copertina (con loading="lazy", così
+   le schede fuori schermo non scaricano nulla) e le altre foto partono solo quando
+   l'operatore apre la lightbox. Google chiede di mostrare le `html_attributions`. */
+const FOTO_MAX = 10;            // quante foto al massimo per negozio (in lightbox)
+const PLACE_FOTOS = {};         // sid (place_id o 'anag:<id>') -> [{thumb, full, attr}]
+// interruttore in ⚙️ Impostazioni (CONFIG.mostraFoto): mai salvato = acceso
+function fotoAttive(){ return String(CONFIG.mostraFoto === undefined ? '1' : CONFIG.mostraFoto) !== '0'; }
+function fotoDaPlace(d){
+  const out = [];
+  if(!fotoAttive()) return out;
+  try{
+    (d && d.photos ? d.photos : []).slice(0, FOTO_MAX).forEach(ph=>{
+      out.push({
+        thumb: ph.getUrl({ maxWidth:520, maxHeight:400 }),
+        full:  ph.getUrl({ maxWidth:1600 }),
+        attr:  (ph.html_attributions||[]).join(' ')
+      });
+    });
+  }catch(e){ console.warn('foto Places:', e); }
+  return out;
+}
+// copertina da mettere nella scheda; registra anche l'elenco completo per la lightbox
+function fotoCoverHtml(fotos, sid, nome){
+  if(!fotos || !fotos.length) return '';
+  if(sid) PLACE_FOTOS[sid] = fotos;
+  const n = fotos.length;
+  return `<div class="shopfoto" data-sid="${esc(sid||'')}" title="Apri le foto">
+      <img loading="lazy" src="${esc(fotos[0].thumb)}" alt="Foto di ${esc(nome||'negozio')}">
+      ${n>1 ? `<span class="count">📷 ${n} foto</span>` : '<span class="count">📷 Google Maps</span>'}
+    </div>`;
+}
+/* lightbox: si apre cliccando la copertina, sfoglia tutte le foto di QUEL negozio */
+let lbFotos = [], lbIdx = 0;
+function lbShow(){
+  const f = lbFotos[lbIdx]; if(!f) return;
+  $('#lbImg').src = f.full;
+  $('#lbCount').textContent = (lbIdx+1) + ' / ' + lbFotos.length;
+  $('#lbPrev').disabled = lbIdx === 0;
+  $('#lbNext').disabled = lbIdx >= lbFotos.length - 1;
+  // attribuzione richiesta da Google: è HTML (un <a> all'autore) fornito dall'API
+  $('#lbAttr').innerHTML = '📷 Foto da Google Maps' + (f.attr ? ' · ' + f.attr : '');
+}
+function apriFoto(sid, nome, i){
+  const fotos = PLACE_FOTOS[sid]; if(!fotos || !fotos.length) return;
+  lbFotos = fotos; lbIdx = i || 0;
+  $('#lbTitle').textContent = nome || '';
+  $('#lbox').classList.add('on');
+  lbShow();
+}
+function chiudiFoto(){ $('#lbox').classList.remove('on'); $('#lbImg').src = ''; lbFotos = []; }
+$('#lbClose').addEventListener('click', chiudiFoto);
+$('#lbox').addEventListener('click', e=>{ if(e.target.id === 'lbox') chiudiFoto(); });
+$('#lbPrev').addEventListener('click', ()=>{ if(lbIdx>0){ lbIdx--; lbShow(); } });
+$('#lbNext').addEventListener('click', ()=>{ if(lbIdx<lbFotos.length-1){ lbIdx++; lbShow(); } });
+document.addEventListener('keydown', e=>{
+  if(!$('#lbox').classList.contains('on')) return;
+  if(e.key === 'Escape') chiudiFoto();
+  else if(e.key === 'ArrowLeft' && lbIdx>0){ lbIdx--; lbShow(); }
+  else if(e.key === 'ArrowRight' && lbIdx<lbFotos.length-1){ lbIdx++; lbShow(); }
+});
 
 /* ------------------ helpers contatti ------------------ */
 function waLink(intlPhone){
@@ -3023,6 +3142,13 @@ resultsEl.addEventListener('click', e=>{
   if(orderLoaded && statoRicerca.stato !== 'trovato') setStatoRicerca('in corso');
   starShop(card);
 });
+// clic sulla foto di copertina: apre la galleria a tutto schermo di QUEL negozio
+resultsEl.addEventListener('click', e=>{
+  const box = e.target.closest('.shopfoto'); if(!box) return;
+  const card = e.target.closest('.shop');
+  const nome = card ? (card.querySelector('h3')||{}).textContent : '';
+  apriFoto(box.dataset.sid, (nome||'').trim(), 0);
+});
 
 /* ------------------ render ------------------ */
 function shopCard(d, cat, dist, pid){
@@ -3097,6 +3223,7 @@ function shopCard(d, cat, dist, pid){
       ${meta.label} · ${d.formatted_address||''}
       ${d.rating?'<br>'+stars(d.rating,d.user_ratings_total):''}
     </div>
+    ${fotoCoverHtml(fotoDaPlace(d), el.dataset.sid, d.name)}
     <div class="contacts">${c.join('')}</div>
     <div class="contacts email-slot" style="margin-top:8px"></div>
     ${reviewsHtml}
@@ -3333,10 +3460,12 @@ async function renderResults(found, geo, origin, service, opts){
     if(loc){
       const intlN = d.international_phone_number || '';
       const waN = intlN ? intlN.replace(/[^\d]/g,'') : '';
+      const fotoPin = (PLACE_FOTOS[f.place.place_id]||[])[0];
       mapPoints.push({ name:d.name, loc, sid:f.place.place_id, cat:f.cat,
         open: card.dataset.open, distText: (f.driveText||distanceStr(f.dist)),
         address: d.formatted_address||'', rating: d.rating||0, ratingTotal: d.user_ratings_total||0,
-        phone: d.formatted_phone_number || intlN || '', waDigits: (waN.length>=8?waN:''), url: d.url||'' });
+        phone: d.formatted_phone_number || intlN || '', waDigits: (waN.length>=8?waN:''), url: d.url||'',
+        foto: fotoPin ? fotoPin.thumb : '' });
     }
   }
 
@@ -3550,6 +3679,7 @@ function buildMap(){
       if(p.url)      links.push(`<a href="${esc(p.url)}" target="_blank" rel="noopener" ${A}>🗺️ Maps</a>`);
       mapState.info.setContent(
         `<div style="font-family:-apple-system,Segoe UI,sans-serif; max-width:250px; line-height:1.45; color:#1d1d1f">
+           ${p.foto?`<img src="${esc(p.foto)}" alt="" style="display:block; width:100%; height:104px; object-fit:cover; border-radius:10px; margin-bottom:6px">`:''}
            <div style="font-weight:600; margin-bottom:2px">${emoji} ${esc(p.name)}</div>
            ${p.address?`<div style="font-size:12px; color:#555">${esc(p.address)}</div>`:''}
            ${riga2?`<div style="font-size:12px; margin-top:3px">${riga2}</div>`:''}

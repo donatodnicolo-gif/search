@@ -37,6 +37,7 @@ Oggetto JSON in KV alla chiave **`config:v1`**:
 - I **token Shopify NON escono mai dal server**: `GET /api/config` restituisce `hasToken:true/false`, mai il token.
 - `googleKey` invece È restituita al browser (serve alla mappa; proteggila con restrizione referrer su Google Cloud).
 - `kwFioraio`/`kwPasticceria` (24/07/2026): **parole chiave Google personalizzate** per categoria, impostabili in ⚙️ Impostazioni. Più keyword separate da virgola = una `nearbySearch` per ciascuna (i risultati si uniscono, dedup per place_id); a queste si aggiunge SEMPRE la ricerca per sola categoria (`type`). Vuote = predefinite di `KEYWORDS` nella lingua della consegna.
+- `mostraFoto` (10/08/2026): `'1'` (predefinito, anche se la chiave non è mai stata salvata) = **foto dei negozi da Google Maps** accese; `'0'` = spente del tutto. Interruttore in ⚙️ Impostazioni (solo admin lo salva, tutte le utenze lo leggono). Vedi §5-bis.
 
 ## 5. Endpoint API (tutti richiedono header `x-app-password`, tranne webhook)
 | Metodo | Path | Cosa fa |
@@ -162,6 +163,29 @@ L'app è richiamabile da un bottone/link di qualsiasi altra app; i parametri si 
   che usa `wideSearch` (`service.textSearch`, stesse keyword, bias zona, raggio ~40 km). La coda
   di render è condivisa in `renderResults(found, geo, origin, service, {extended})`; `run()` salva
   `lastSearchCtx` per l'estensione.
+
+## 12-ter. Foto dei negozi da Google Maps (front-end)
+- **Da dove arrivano**: il campo `photos` chiesto in `details()` (getDetails). Sono oggetti
+  `PlacePhoto` con `getUrl({maxWidth,maxHeight})`. `fotoDaPlace(d)` ne ricava fino a
+  `FOTO_MAX` (10) voci `{thumb (520px), full (1600px), attr}` e le mette in **`PLACE_FOTOS[sid]`**
+  (sid = place_id, oppure `anag:<id>` per le schede del registro).
+- **💰 Costo — la regola che governa tutto il disegno**: chiedere il campo `photos` è gratis
+  (Basic Data), **scaricare ogni immagine è una richiesta Place Photo a pagamento**. Perciò
+  nella scheda va **una sola copertina** (`fotoCoverHtml` → `.shopfoto`, con `loading="lazy"`
+  così le schede fuori schermo e quelle nascoste dai filtri non scaricano nulla) e le altre
+  foto partono **solo** all'apertura della lightbox. Non trasformare la copertina in una
+  striscia di miniature senza rifare questo conto.
+- **Lightbox** (`#lbox`): `apriFoto(sid, nome, i)` sfoglia `PLACE_FOTOS[sid]`; frecce ‹ ›,
+  contatore, tastiera (Esc/←/→), clic sullo sfondo per chiudere. Un solo listener delegato su
+  `resultsEl` per `.shopfoto` (come star-btn/arch-btn).
+- **Attribuzione**: Google richiede di mostrare `html_attributions`; è **HTML dell'API** e va
+  inserito con `innerHTML` (`#lbAttr`), non con `esc()`, altrimenti si vede il markup.
+- **Schede del registro**: `annotaOrariRegistro` chiede ora anche `photos` (stessa
+  `findPlaceFromQuery` + `getDetails` già usata per gli orari) e infila la copertina dopo `.meta`.
+  Il nome della funzione parla solo di orari: **fa anche le foto**.
+- **Mappa**: `mapPoints[].foto` = miniatura della copertina, mostrata in cima all'InfoWindow.
+- **Interruttore**: `fotoAttive()` legge `CONFIG.mostraFoto`; se spento `fotoDaPlace` torna
+  vuoto → nessuna copertina, nessuna lightbox, nessuna richiesta Place Photo.
 
 ## 13. Ricette rapide
 - **Aggiungere un negozio**: aggiungilo alla mappa `SHOP_BRAND` in `api/oauth.js` e a `BRAND_BY_SHOP` in `api/webhook.js`; aggiungi il brand a `KNOWN_BRANDS` in `index.html` e all'`<select id="brand">`; crea il webhook su Shopify; fai `/api/oauth?shop=...&pass=...`.

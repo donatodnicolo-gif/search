@@ -1,4 +1,4 @@
-# HANDOFF — Deluxy Search/Supplier (aggiornato al 26/07/2026)
+# HANDOFF — Deluxy Search/Supplier (aggiornato al 10/08/2026)
 
 Per riprendere il lavoro su quest'app da una nuova sessione Claude. **Leggere prima
 [AI_SPEC.md](AI_SPEC.md)**: è la scheda tecnica completa e aggiornata; questo file dice
@@ -366,6 +366,28 @@ solo dove siamo e come si lavora.
      diventava l'elemento e il dedup bloccava ogni ricerca zona dopo la prima (+ `nome` evento
      rotto). Ora si legge `$('#address').value`. Inoltre «↻ Riapri ricerca» azzera il contesto
      ordine così la ripresa è una ricerca zona pulita e ri-registrata. Verificato dal vivo.
+
+38. **Foto dei negozi da Google Maps** (10/08): ogni scheda risultato mostra una **foto di
+   copertina** (150px, 180px su mobile) fra i dati e i contatti, con la pillola «📷 N foto»;
+   cliccandola si apre una **galleria a tutto schermo** (`#lbox`) con frecce, contatore,
+   tastiera (Esc/←/→) e l'attribuzione richiesta da Google. Copertina anche sulle schede del
+   **registro** (partner/prospect: le foto arrivano dalla stessa `findPlaceFromQuery` +
+   `getDetails` che già serviva per gli orari, in `annotaOrariRegistro`) e **miniatura nella
+   tendina della mappa** (`mapPoints[].foto`).
+   ⚠️ **Il punto delicato è il costo**: il campo `photos` nei dettagli è gratis, ma **ogni
+   immagine scaricata è una richiesta Place Photo a pagamento**. Per questo la scheda carica
+   **una sola** foto, con `loading="lazy"` (le schede fuori schermo o nascoste dai filtri non
+   scaricano niente) e le altre partono solo aprendo la galleria. Chi in futuro volesse una
+   striscia di miniature deve rifare questo conto: 30 risultati × 5 miniature = 150 richieste
+   a pagamento per ricerca.
+   **Interruttore** in ⚙️ Impostazioni → «Mostra le foto dei negozi» (`config:v1.mostraFoto`,
+   `'1'` predefinito anche se mai salvata, `'0'` = spente: con le foto spente non parte
+   nessuna richiesta). Salvabile solo dall'admin, letto da tutte le utenze.
+   Verificato in locale con dati finti (porta 5511): copertina + pillola conteggio, apertura
+   galleria, avanti/indietro coi limiti giusti, freccia sinistra, Esc, attribuzione resa come
+   link, interruttore acceso/spento/mai-salvato, mobile 375px senza overflow, console pulita,
+   sintassi OK. **Non collaudato su Google vero** (serve chiave + login): da guardare in
+   produzione su un ordine reale — soprattutto quanti negozi hanno davvero le foto.
 
 ## Cose in sospeso
 - **Utenze operative**: da creare in Impostazioni (finché non esistono si entra solo col

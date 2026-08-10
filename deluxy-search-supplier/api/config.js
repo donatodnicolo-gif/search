@@ -39,6 +39,8 @@ function sanitize(c) {
     anagUrl: c.anagUrl || '',
     kwFioraio: c.kwFioraio || '',
     kwPasticceria: c.kwPasticceria || '',
+    // foto dei negozi da Google Maps: '0' = spente. Mai salvata = accese (predefinito)
+    mostraFoto: c.mostraFoto === undefined ? '1' : String(c.mostraFoto),
     hasAnagKey: !!c.anagKey,
     hasAnagWriteKey: !!c.anagWriteKey,
     googleOauthClientId: c.googleOauthClientId || '',
@@ -112,6 +114,9 @@ export default async function handler(req, res) {
         // parole chiave Google per categoria (vuote = predefinite per lingua)
         kwFioraio: body.kwFioraio !== undefined ? String(body.kwFioraio).trim() : (cur.kwFioraio || ''),
         kwPasticceria: body.kwPasticceria !== undefined ? String(body.kwPasticceria).trim() : (cur.kwPasticceria || ''),
+        // foto dei negozi: '1' accese (predefinito), '0' spente
+        mostraFoto: body.mostraFoto !== undefined ? (String(body.mostraFoto) === '0' ? '0' : '1')
+                                                  : (cur.mostraFoto === undefined ? '1' : String(cur.mostraFoto)),
         // segreta: vuota = mantiene quella già salvata (le chiavi non tornano al browser)
         anagKey: (body.anagKey && String(body.anagKey).trim()) ? String(body.anagKey).trim() : (cur.anagKey || ''),
         // segreta: vuota = mantiene quella già salvata (come i token Shopify)
