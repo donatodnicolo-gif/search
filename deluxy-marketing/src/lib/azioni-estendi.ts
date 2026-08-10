@@ -34,11 +34,28 @@ const SCHEMA_PAROLE = {
   },
 } as const;
 
+// I tre livelli di estensione, deciso dall'utente il 10/08/2026: quanto ci
+// si allontana dalla parola di partenza. Sono ISTRUZIONI diverse, non un
+// parametro numerico: il modello deve sapere cosa vuol dire «vicino».
+export type LivelloEstensione = "prossima" | "media" | "alta";
+
+const ISTRUZIONE_LIVELLO: Record<LivelloEstensione, string> = {
+  prossima:
+    "LIVELLO DI ESTENSIONE: PROSSIMA. Stessa identica domanda, altro luogo o flessione minima: cambia SOLO la città/il luogo, o il singolare/plurale, senza aggiungere concetti. Esempio: da «torte milano» → «torte roma», «torte torino».",
+  media:
+    "LIVELLO DI ESTENSIONE: MEDIA. Aggiungi UN concetto alla domanda di partenza (un'occasione, un attributo del prodotto, un tipo di servizio), restando sulla stessa cosa venduta. Esempio: da «torte milano» → «torta personalizzata milano», «torta compleanno milano», «consegna torte milano».",
+  alta:
+    "LIVELLO DI ESTENSIONE: ALTA. Ricerche AFFINI: altri modi con cui la stessa persona chiederebbe quello che vendiamo, anche con parole diverse e in altre città. Esempio: da «torte milano» → «cake design torino», «pasticceria torte personalizzate». Sempre e solo cose che vendiamo: mai concorrenti o insegne.",
+};
+
 export async function estendiKeywordConAi(input: {
   campagnaId: string;
   indicazione: string;
   semi: string[];
+  livello?: LivelloEstensione;
 }): Promise<EsitoEstendi> {
+  const livello: LivelloEstensione =
+    input.livello === "media" || input.livello === "alta" ? input.livello : "prossima";
   const indicazione = (input.indicazione ?? "").trim();
   const semi = (input.semi ?? []).map((s) => testoKeywordPulito(String(s)).trim()).filter(Boolean);
   if (!indicazione && semi.length === 0) {
@@ -65,6 +82,7 @@ export async function estendiKeywordConAi(input: {
   const esito = await chiediAllAi({
     istruzioni: [
       "Proponi parole di ricerca (keyword Google Ads) CORRELATE per la campagna indicata, seguendo l'indicazione della persona.",
+      ISTRUZIONE_LIVELLO[livello],
       "Regole, tutte vincolanti:",
       "- Parole che una persona digiterebbe davvero su Google per comprare: niente frasi da titolo, niente descrizioni.",
       "- Nella STESSA LINGUA dei semi e delle keyword esistenti (se l'indicazione chiede esplicitamente un'altra lingua, vince l'indicazione).",

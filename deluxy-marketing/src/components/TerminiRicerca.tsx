@@ -441,13 +441,18 @@ export async function TerminiRicerca({
                           </button>
                         )}
                         {/* Apre lo stesso dialogo della barra, ma col seme di
-                            QUESTA parola: non serve spuntarla prima. */}
+                            QUESTA parola: non serve spuntarla prima. Gruppo e
+                            corrispondenza viaggiano col bottone e fanno da
+                            default nel dialogo: la parola estesa nasce dove
+                            stava quella vera. */}
                         {nomeCampagna && (
                           <button
                             type="button"
                             className="btn small fantasma"
                             data-estendi-ai
                             data-estendi-seme={t.testo}
+                            data-estendi-gruppo={t.gruppo ?? undefined}
+                            data-estendi-corrispondenza={t.corrispondenza ?? undefined}
                             title="L'AI propone parole correlate a questa, da mettere in coda dopo averle guardate"
                           >
                             Estendi con AI
