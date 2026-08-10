@@ -96,6 +96,17 @@ Tre aggiunte a valle del primo giro reale su Cake:
   col conteggio delle selezionate sempre in vista (le spuntate nascoste
   dal filtro partono comunque). Gruppo e corrispondenza di default sono
   **quelli della parola che si estende** (viaggiano col bottone di riga).
+- **La scheda gruppo adotta le stesse logiche** (sera): Porta altrove ed
+  Estendi con AI in barra e per riga su keyword E parole cercate del
+  gruppo, con selezione multipla sui termini; il gruppo corrente e la
+  corrispondenza della parola fanno da default (`data-estendi-gruppo`,
+  `data-estendi-form`). I controlli sugli annunci («Titoli e descrizioni
+  usati qui», colonne per annuncio) c'erano già.
+- **«Su Google tutte in pausa» NON era un bug** (verificato sui dati):
+  era la PRIMA lettura vera degli stati — con gli id rotti fino a ieri,
+  `stati-keyword` non aggiornava le righe giuste. Su `[Cakedesign] | Sales
+  | ITA` Google dice davvero 104 keyword in pausa su 147; la spesa in
+  tabella è storica (fino al 27/07), non di oggi.
 - ⚠️ **Un `<form>` di mezzo rompeva lo scroll del dialogo**:
   `.modale-elenco` scrolla solo da figlio DIRETTO del flex `.modale-corpo`
   — con 20 proposte il piede col «Metti in coda» finiva fuori schermo,
