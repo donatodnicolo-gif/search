@@ -712,7 +712,8 @@ function leggiAnnunci() {
   var colonne =
     "SELECT campaign.name, ad_group.name, ad_group_ad.ad.id, " +
     "asset.text_asset.text, ad_group_ad_asset_view.field_type, " +
-    "ad_group_ad_asset_view.performance_label, ad_group_ad.status " +
+    "ad_group_ad_asset_view.performance_label, " +
+    "ad_group_ad_asset_view.enabled, ad_group_ad.status " +
     "FROM ad_group_ad_asset_view ";
 
   var perChiave = {};
@@ -738,6 +739,11 @@ function leggiAnnunci() {
     var testo = r.asset && r.asset.textAsset ? r.asset.textAsset.text : null;
     if (!testo) continue;
     var vista = r.adGroupAdAssetView;
+    // Un link TOLTO dall'annuncio resta nella vista con enabled = false: il
+    // WHERE della query di struttura lo esclude gia', ma quella di RIPIEGO
+    // (finestra di giorni) no - e da li' un RSA arrivava con 34 titoli su 15.
+    // Scartare qui copre entrambe le strade.
+    if (vista && vista.enabled === false) continue;
     var tipo = vista.fieldType === "HEADLINE" ? "titolo" : "descrizione";
     var chiave = r.campaign.name + "|" + tipo + "|" + testo;
 
