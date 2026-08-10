@@ -81,6 +81,43 @@ export default async function PaginaOperazioni({
   const approvate = operazioni.filter((o) => o.stato === "approvata");
   const concluse = operazioni.filter((o) => ["eseguita", "fallita", "annullata"].includes(o.stato));
 
+  // ── Le approvate FERME si dichiarano ────────────────────────────────────
+  // Un'operazione approvata che lo script ha già scavalcato è indistinguibile
+  // da una che aspetta il primo giro — e una coda che si blocca in silenzio è
+  // indistinguibile da una coda vuota (successo davvero, 07/08: il motivo
+  // viveva solo nel log dentro Google Ads). La differenza sta nelle consegne
+  // dell'account DOPO l'approvazione, e va scritta sulla riga.
+  const accountDelleApprovate = [
+    ...new Set(approvate.map((o) => o.account).filter((a): a is string => Boolean(a))),
+  ];
+  const primaApprovazione = approvate.reduce<Date | null>((min, o) => {
+    const d = o.approvataIl ?? o.creataIl;
+    return !min || d < min ? d : min;
+  }, null);
+  const consegneDopo =
+    accountDelleApprovate.length > 0 && primaApprovazione
+      ? await prisma.ricezioneDati.findMany({
+          where: {
+            fonte: "google_ads",
+            account: { in: accountDelleApprovate },
+            ricevutoIl: { gt: primaApprovazione },
+          },
+          select: { account: true, ricevutoIl: true },
+        })
+      : [];
+  // Un «giro» è un giorno con almeno una consegna: la stessa corsa consegna
+  // più volte (metriche, gruppi, copy) e contare le consegne gonfierebbe.
+  // Il margine di un'ora tiene fuori il giro a cavallo dell'approvazione.
+  const giriDopo = (o: (typeof operazioni)[number]): number => {
+    if (!o.account) return 0;
+    const da = (o.approvataIl ?? o.creataIl).getTime() + 60 * 60 * 1000;
+    return new Set(
+      consegneDopo
+        .filter((c) => c.account === o.account && c.ricevutoIl.getTime() > da)
+        .map((c) => c.ricevutoIl.toISOString().slice(0, 10))
+    ).size;
+  };
+
   const riga = (o: (typeof operazioni)[number]) => {
     const p = o.parametri ? (JSON.parse(o.parametri) as Record<string, unknown>) : {};
     const parola = typeof p.testo === "string" && p.testo ? p.testo : null;
@@ -162,6 +199,28 @@ export default async function PaginaOperazioni({
           {o.avvisi && (
             <div className="op-avvisi">
               <span aria-hidden="true">⚠</span> {o.avvisi}
+            </div>
+          )}
+
+          {/* ⚠️ Un'approvata che lo script ha scavalcato non deve sembrare una
+              che aspetta il primo giro: senza questa riga, «ferma da tre
+              giorni» e «in attesa da stanotte» si leggono uguali. */}
+          {o.stato === "approvata" && o.canale === "google_ads" && giriDopo(o) > 0 && (
+            <div className="op-avvisi">
+              <span aria-hidden="true">⚠</span> <b>Ferma: lo script di questo account è passato{" "}
+              {giriDopo(o) === 1 ? "un giorno" : `${giriDopo(o)} giorni`} dopo l&apos;approvazione
+              senza eseguirla.</b> O il lavoro «esegui» non gira su quell&apos;account, o il
+              bersaglio non si trova: il motivo preciso è nel log dello script dentro Google Ads,
+              sotto «ESEGUI». Puoi ritirare l&apos;approvazione e rifarla, o annullarla.
+            </div>
+          )}
+          {(o.stato === "approvata" || o.stato === "in_attesa") && o.canale === "google_ads" && !o.account && (
+            <div className="op-avvisi">
+              <span aria-hidden="true">⚠</span> <b>Senza account: nessuno script la riconosce come
+              sua.</b> Gli account estranei la saltano e quello giusto non sa di esserlo, quindi
+              resterebbe qui per sempre. Succede alle operazioni nate prima dell&apos;8/08 o quando
+              il brand della campagna non dice l&apos;account: meglio annullarla e rimetterla in
+              coda dall&apos;app.
             </div>
           )}
 
