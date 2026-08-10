@@ -118,7 +118,37 @@ export default async function PaginaCampagne({
           <a className="btn btn-secondario" href="/campagne/nuova">Censisci esistente</a>
           <a className="btn btn-secondario" href="/campagne/lancia">Lancia su Google Ads</a>
           <a className="btn" href="/campagne/crea">Crea da ciò che funziona</a>
+          {/* ⚠️ Non un link travestito: il modulo di lancio è di Google
+              (keyword e negative, che su Meta non esistono) e creare campagne
+              non è fra le operazioni del motore Meta. Un bottone che portasse
+              al modulo Google prometterebbe una cosa e ne farebbe un'altra:
+              questo dice che non si può ancora, e la nota sotto dice come si
+              fa oggi. */}
+          {canale === "meta_ads" && (
+            <button
+              className="btn"
+              disabled
+              title="Il modulo di lancio scrive keyword e negative, che su Meta non esistono. Come si fa oggi è scritto qui sotto."
+            >
+              Lancia su Meta Ads — non ancora
+            </button>
+          )}
         </div>
+
+        {canale === "meta_ads" && (
+          <div className="nota-info">
+            <span className="nota-icona">◈</span>
+            <span>
+              <b>Su Meta le campagne non si lanciano da qui, per ora.</b> Il modulo «Lancia» è
+              fatto per Google: scrive keyword e negative, che su Meta non esistono. E creare una
+              campagna non è fra le operazioni che il motore Meta sa eseguire (pausa, riattiva,
+              budget) — motore che oggi è comunque spento, in attesa di{" "}
+              <code>ads_management</code>. Una campagna Meta si lancia da Ads Manager e qui si{" "}
+              <a href="/campagne/nuova" style={{ color: "var(--blue)" }}>censisce</a>: così entra
+              nei numeri, nel guardrail e nella coda per pausa, riattiva e budget.
+            </span>
+          </div>
+        )}
 
         <VisteSalvate pagina="campagne" base="/campagne" parametri={p} />
 
