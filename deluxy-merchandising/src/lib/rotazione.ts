@@ -8,6 +8,7 @@
 
 import { prisma } from "./db";
 import {
+  applicaRegolaSalvata,
   applicaRegoleACollezione,
   numeraPosizioni,
   parseRegole,
@@ -128,10 +129,26 @@ export type EsitoRotazione = {
 /**
  * Esegue una regola su tutte le collezioni iscritte.
  *
- * Le regole d'ordine da riapplicare sono quelle **della collezione**; se non ne
- * ha, quelle della sua tipologia. Se non ce ne sono da nessuna parte, la modalità
- * «rinfresca» non ha niente da rifare e la collezione si salta — meglio saltarla
- * che inventarle un ordine.
+ * **Quale ordine si riapplica**, nell'ordine in cui si guarda:
+ * 1. la **regola salvata** della collezione (`regolaOrdine`, quella coi passi e
+ *    le condizioni — «prima i fiori sopra i 900 €, poi le torte…»);
+ * 2. la **regola rapida** (`regolaOrdinamento`: più venduti, margine, prezzo…);
+ * 3. quella della sua **tipologia**.
+ *
+ * È la stessa precedenza della scheda della collezione, dove scegliere una
+ * regola salvata **stacca** quella rapida (`regolaOrdinamento` diventa `null`).
+ *
+ * ⚠️ **Il punto 1 mancava, e rendeva la rotazione muta proprio sulle collezioni
+ * curate meglio** (segnalato dall'utente il 10/08/2026 su «Regali Best Seller»,
+ * che segue la regola salvata «Best Seller Deluxy» a sei passi): guardando solo
+ * la regola rapida — che lì è `null` **perché** c'è quella salvata — non trovava
+ * niente da rifare e saltava la collezione. In pagina si leggeva «ogni mese,
+ * rinfresca l'ordine, l'ordine rifatto viene mandato anche a Shopify»; nei fatti
+ * non sarebbe successo niente, e l'unica traccia sarebbe stata un «0 collezioni»
+ * nell'esito che nessuno va a cercare.
+ *
+ * Se non c'è nessuna delle tre, «rinfresca» non ha niente da rifare e la
+ * collezione si salta: meglio saltarla che inventarle un ordine.
  */
 export async function eseguiRegola(regolaId: string): Promise<EsitoRotazione> {
   const r = await prisma.regolaRotazione.findUnique({
@@ -142,6 +159,7 @@ export async function eseguiRegola(regolaId: string): Promise<EsitoRotazione> {
           id: true,
           titolo: true,
           tipo: true,
+          regolaOrdineId: true,
           regolaOrdinamento: true,
           tipologia: { select: { regolaOrdinamento: true } },
         },
@@ -156,6 +174,11 @@ export async function eseguiRegola(regolaId: string): Promise<EsitoRotazione> {
     try {
       if (r.modo === "ruota") {
         await ruotaCollezione(c.id, r.passo);
+        esito.collezioni++;
+      } else if (c.regolaOrdineId) {
+        // La regola salvata coi passi: è quella che la collezione usa davvero
+        // quando c'è, ed è il motivo per cui `regolaOrdinamento` è null.
+        await applicaRegolaSalvata(c.id, c.regolaOrdineId);
         esito.collezioni++;
       } else {
         const regole: RegolaOrdinamento[] = parseRegole(c.regolaOrdinamento).length
