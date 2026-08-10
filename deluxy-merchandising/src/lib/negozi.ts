@@ -94,6 +94,8 @@ export type NegozioInElenco = {
   dominio: string;
   attivo: boolean;
   canaleVendite: string | null;
+  /** Le indicazioni per la scrittura AI del SEO di questo brand. */
+  lineeGuidaSeo: string | null;
   // "credenziali" = Client ID + Secret (l'app si conia il token da sola);
   // "token" = token statico incollato a mano.
   modo: "credenziali" | "token" | "nessuno";
@@ -117,6 +119,7 @@ export async function elencoNegozi(): Promise<NegozioInElenco[]> {
       dominio: n.dominio,
       attivo: n.attivo,
       canaleVendite: n.canaleVendite,
+      lineeGuidaSeo: n.lineeGuidaSeo,
       modo: n.clientIdCifrato && n.clientSecretCifrato ? "credenziali" : n.tokenCifrato ? "token" : "nessuno",
       tokenScadeIl: n.tokenScadeIl,
       tokenImpronta: n.tokenImpronta,

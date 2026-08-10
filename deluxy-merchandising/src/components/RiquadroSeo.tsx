@@ -1,4 +1,10 @@
-import { copiaSeoDalNegozio, salvaSeoCollezione, salvaSeoProdotto, spingiSeoSuShopify } from "@/lib/azioni-seo";
+import {
+  copiaSeoDalNegozio,
+  salvaSeoCollezione,
+  salvaSeoProdotto,
+  scriviSeoCollezioneConAI,
+  spingiSeoSuShopify,
+} from "@/lib/azioni-seo";
 
 // Le lunghezze oltre le quali Google taglia il testo nei risultati. Non sono
 // limiti: sono un avviso, perché scrivere più lungo non è un errore — è solo
@@ -23,6 +29,7 @@ export function RiquadroSeo({
   sincronia,
   percorso,
   conferma,
+  conAI,
 }: {
   tipo: "prodotto" | "collezione";
   id: string;
@@ -32,6 +39,8 @@ export function RiquadroSeo({
   /** L'indirizzo di questa pagina: serve al passaggio di conferma, che sta nella query. */
   percorso: string;
   conferma?: boolean;
+  /** Il bottone «Scrivi con AI»: per ora solo sulle collezioni, dove la bozza si costruisce sui dati veri. */
+  conAI?: boolean;
 }) {
   const salva = tipo === "prodotto" ? salvaSeoProdotto : salvaSeoCollezione;
   const vuotoNostro = !nostro.titolo && !nostro.descrizione;
@@ -82,11 +91,24 @@ export function RiquadroSeo({
               <button type="submit" className="btn btn-primario">Salva</button>
             </div>
           </form>
-          {vuotoNostro && !cSulNegozio && (
-            <form action={copiaSeoDalNegozio.bind(null, tipo, id)} style={{ marginTop: 8 }}>
-              <button type="submit" className="btn btn-secondario">Parti dal testo del negozio</button>
-            </form>
-          )}
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+            {vuotoNostro && !cSulNegozio && (
+              <form action={copiaSeoDalNegozio.bind(null, tipo, id)}>
+                <button type="submit" className="btn btn-secondario">Parti dal testo del negozio</button>
+              </form>
+            )}
+            {/* **L'AI scrive una bozza, non pubblica**: legge titolo, condizioni
+                e i più venduti della collezione e riempie i campi nostri. Su
+                Google non cambia niente finché non si preme «Manda». Il bottone
+                dice che sovrascrive la bozza attuale: è l'unica cosa che tocca. */}
+            {conAI && tipo === "collezione" && (
+              <form action={scriviSeoCollezioneConAI.bind(null, id)}>
+                <button type="submit" className="btn btn-secondario" title="Scrive una bozza sui dati veri della collezione: titolo, condizioni, prodotti più venduti. Non manda niente al negozio.">
+                  {vuotoNostro ? "Scrivi con AI" : "Riscrivi con AI (sovrascrive la bozza)"}
+                </button>
+              </form>
+            )}
+          </div>
           {!vuotoNostro && (
             <p className="page-sub" style={{ marginTop: 8, marginBottom: 0 }}>
               Titolo {lung(nostro.titolo)}/{LIMITE_TITOLO} · descrizione {lung(nostro.descrizione)}/{LIMITE_DESCRIZIONE}

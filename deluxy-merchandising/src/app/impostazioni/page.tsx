@@ -9,6 +9,7 @@ import {
   creaChiaveApiAzione,
   revocaChiaveApiAzione,
   salvaPromptCategorieAzione,
+  salvaLineeGuidaSeoAzione,
   verificaNegozioAzione,
 } from "@/lib/azioni-negozi";
 import { cifraturaConfigurata } from "@/lib/crypto";
@@ -66,6 +67,15 @@ export default async function ImpostazioniPage({
             <span>Negozio salvato e verificato subito: l&apos;esito è nella scheda qui sotto.</span>
           </div>
         )}
+        {sp.esito === "seo-brand" && (
+          <div className="nota-info">
+            <span className="nota-icona">✓</span>
+            <span>
+              Linee guida SEO salvate. Le usa <b>«Scrivi con AI»</b> sulle collezioni di quel negozio, dalla
+              prossima bozza: il SEO già scritto non si tocca.
+            </span>
+          </div>
+        )}
         {sp.esito === "aggiornato" && (
           <div className="nota-info">
             <span className="nota-icona">✓</span>
@@ -118,6 +128,7 @@ export default async function ImpostazioniPage({
           <div className="griglia-negozi">
             {negozi.map((n) => {
               const verifica = verificaNegozioAzione.bind(null, n.id);
+              const salvaLineeGuidaSeo = salvaLineeGuidaSeoAzione.bind(null, n.id);
               const attiva = attivaNegozio.bind(null, n.id, !n.attivo);
               const elimina = eliminaNegozio.bind(null, n.id);
               const ok = n.esitoVerifica === "ok";
@@ -234,6 +245,35 @@ export default async function ImpostazioniPage({
                       </div>
                       <div className="azioni-modulo">
                         <button className="btn" type="submit">Salva</button>
+                      </div>
+                    </form>
+                  </details>
+
+                  {/* **La zona SEO del brand** (chiesta dall'utente): come e cosa
+                      scrivere quando l'AI prepara titoli e descrizioni per le
+                      collezioni di questo negozio. Ripiegata: si scrive una
+                      volta e si ritocca di rado. */}
+                  <details>
+                    <summary className="dettagli-summary">
+                      Linee guida SEO del brand{n.lineeGuidaSeo ? " — scritte" : " — da scrivere"}
+                    </summary>
+                    <form action={salvaLineeGuidaSeo} className="modulo" style={{ marginTop: 10 }}>
+                      <div className="campo-modulo largo">
+                        <label htmlFor={`seoGuida-${n.id}`}>Come e cosa scrivere per {n.nome}</label>
+                        <textarea
+                          id={`seoGuida-${n.id}`}
+                          name="lineeGuidaSeo"
+                          rows={5}
+                          defaultValue={n.lineeGuidaSeo ?? ""}
+                          placeholder={"Es.: tono sobrio da maison; parla di consegna a Milano; cita sempre «cake design» per le torte; mai sconti o superlativi."}
+                        />
+                        <div className="cella-sub">
+                          Le usa «Scrivi con AI» sulle collezioni di questo negozio, con la precedenza sulle regole
+                          generiche. Non tocca il SEO già scritto: vale dalla prossima bozza.
+                        </div>
+                      </div>
+                      <div className="azioni-modulo">
+                        <button className="btn" type="submit">Salva le linee guida</button>
                       </div>
                     </form>
                   </details>

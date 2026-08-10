@@ -1053,3 +1053,29 @@ details.scheda:not([open]) > summary.scheda-titolo::after { transform: rotate(-9
 details.scheda[open] > summary.scheda-titolo { margin-bottom: 14px; }
 /* Il riassunto a destra del titolo: lo stato in una riga, visibile da chiuso. */
 .scheda-stato { font-size: 12px; color: var(--text-secondary); text-transform: none; letter-spacing: 0; font-weight: 500; }
+
+/* La foto nelle classifiche della collezione: piccola, ma c'è — un ranking di
+   soli nomi obbliga a immaginare i prodotti. */
+.rank-foto {
+  width: 40px; height: 40px; border-radius: 8px; overflow: hidden; flex: 0 0 auto;
+  background: var(--surface-2, #F5F5F7);
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--text-tertiary); font-size: 15px;
+}
+.rank-foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* Due colonne di pari peso (le classifiche): stessa media query della
+   .due-colonne — lo stile inline la scavalcava e su tablet le due tabelle
+   restavano schiacciate fianco a fianco (trovato dalla revisione). */
+.due-colonne-pari { grid-template-columns: 1fr 1fr; }
+@media (max-width: 1000px) { .due-colonne-pari { grid-template-columns: 1fr; } }
+
+/* «mostra tutti» delle classifiche: la freccia del browser stonava col design,
+   e l'etichetta ora dice anche come si richiude. */
+details.mostra-tutti > summary { list-style: none; cursor: pointer; padding: 8px 0; }
+details.mostra-tutti > summary::-webkit-details-marker { display: none; }
+details.mostra-tutti > summary::before { content: "▸ "; font-size: 10px; color: var(--text-tertiary); }
+details.mostra-tutti[open] > summary::before { content: "▾ "; }
+details.mostra-tutti > summary .mt-aperto { display: none; }
+details.mostra-tutti[open] > summary .mt-aperto { display: inline; }
+details.mostra-tutti[open] > summary .mt-chiuso { display: none; }

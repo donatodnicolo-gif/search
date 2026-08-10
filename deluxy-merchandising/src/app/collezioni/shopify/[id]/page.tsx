@@ -8,7 +8,7 @@ import { linkAdmin, linkSito } from "@/lib/link-shopify";
 import { FilaProdotti } from "@/components/FilaProdotti";
 import { CampoNegozioModificabile } from "@/components/CampoNegozio";
 import { CAMPI_COLLEZIONE } from "@/lib/campi-negozio";
-import { etichettaCategoria, euro, iso, percentuale } from "@/lib/dominio";
+import { euro, iso, percentuale } from "@/lib/dominio";
 import { FILTRO_BUON_FINE, finestra } from "@/lib/vendite";
 import { Badge } from "@/components/Badge";
 import { eliminaCollezioneShopify, salvaProprietaCollezione } from "@/lib/azioni-collezioni-shopify";
@@ -119,9 +119,11 @@ export default async function CollezioneShopifyPage({
   const ricavoTotale = righe.reduce((s, r) => s + r.ricavo, 0);
   const pezziTotali = righe.reduce((s, r) => s + r.pezzi, 0);
   const cheHannoVenduto = righe.filter((r) => r.pezzi > 0).length;
+  // Chi non sta in NESSUNA delle due classifiche: zero pezzi e zero incasso.
+  // Contare col metro di una sola (pezzi>0) faceva tornare i conti a metà.
+  const senzaVendite = righe.filter((r) => r.pezzi === 0 && r.ricavo === 0).length;
   const copertura = collezione.prodottiShopify > 0 ? prodotti.length / collezione.prodottiShopify : 0;
   const condizioni = descriviRegole(collezione.regole);
-  const seo = [collezione.seoTitoloShopify, collezione.seoDescrizioneShopify].filter(Boolean).join(" — ");
 
   return (
     <div className="layout">
@@ -142,7 +144,6 @@ export default async function CollezioneShopifyPage({
                 colore={COLORE_STATO_COLLEZIONE_SHOPIFY[collezione.stato] ?? "var(--text-tertiary)"}
               />
             </div>
-            {collezione.descrizione && <p className="page-sub">{collezione.descrizione}</p>}
           </div>
           {/* I campi che il negozio possiede — titolo, descrizione, immagine,
               handle — **si correggono su Shopify**, non qui: qui verrebbero
@@ -163,30 +164,137 @@ export default async function CollezioneShopifyPage({
           </div>
         </div>
 
-        {/* **I campi del negozio, correggibili da qui.** La matita scrive su
-            Shopify e poi aggiorna la copia locale: salvarli solo qui non
-            servirebbe, perché al primo import tornerebbe il valore del negozio. */}
+        {/* L'esito delle azioni (Scrivi con AI, Manda al negozio) arriva nella
+            query: senza questo blocco i messaggi — anche gli errori — si
+            perdevano e il bottone sembrava rotto (trovato dalla revisione). */}
+        {sp.messaggio && (
+          <div className={`nota-info${sp.esito === "errore" ? " nota-errore" : ""}`}>
+            <span className="nota-icona">{sp.esito === "errore" ? "△" : "◆"}</span>
+            <span>{sp.messaggio}</span>
+          </div>
+        )}
+
+        {/* **Una scheda sola: il negozio a sinistra, noi a destra.** Erano tre
+            riquadri sparsi per la pagina (campi con la matita, «come l'ha
+            fatta», «come la usiamo») e per capire una collezione si scorreva
+            tutto (segnalato dall'utente). La riga di sotto resta vera: a
+            sinistra si corregge il negozio — la matita scrive su Shopify — a
+            destra proprietà che vivono solo qui. */}
         <div className="scheda">
-          <div className="scheda-titolo">Come si presenta sul negozio</div>
-          {CAMPI_COLLEZIONE.map((campo) => (
-            <CampoNegozioModificabile
-              key={campo.chiave}
-              tipo="collezione"
-              id={id}
-              campo={campo}
-              valore={campo.colonna === "titolo" ? collezione.titolo : collezione.descrizione}
-              percorso={`/collezioni/shopify/${id}`}
-              aperto={sp.modifica === campo.chiave}
-              puoScrivere={puoScrivere}
-            />
-          ))}
-          {!puoScrivere && (
-            <p className="page-sub" style={{ marginTop: 0, marginBottom: 0 }}>
-              Il negozio «{collezione.negozio}» non ha un token con <b>write_products</b>: da qui si può solo leggere.
-              Si collega in <Link href="/impostazioni">Negozi &amp; permessi</Link>.
-            </p>
-          )}
+          <div className="scheda-titolo">La collezione — il negozio, e come la usiamo noi</div>
+          <div className="due-colonne" style={{ gap: 24 }}>
+            <div>
+              {CAMPI_COLLEZIONE.map((campo) => (
+                <CampoNegozioModificabile
+                  key={campo.chiave}
+                  tipo="collezione"
+                  id={id}
+                  campo={campo}
+                  valore={campo.colonna === "titolo" ? collezione.titolo : collezione.descrizione}
+                  percorso={`/collezioni/shopify/${id}`}
+                  aperto={sp.modifica === campo.chiave}
+                  puoScrivere={puoScrivere}
+                />
+              ))}
+              {!puoScrivere && (
+                <p className="page-sub" style={{ marginTop: 0 }}>
+                  Il negozio «{collezione.negozio}» non ha un token con <b>write_products</b>: da qui si può solo
+                  leggere. Si collega in <Link href="/impostazioni">Negozi &amp; permessi</Link>.
+                </p>
+              )}
+              <dl className="griglia-campi" style={{ marginTop: 14 }}>
+                <div className="campo">
+                  <dt>Tipo</dt>
+                  <dd>{ETICHETTA_TIPO_COLLEZIONE[collezione.tipo] ?? collezione.tipo}</dd>
+                </div>
+                <div className="campo">
+                  <dt>Ordinamento dei prodotti</dt>
+                  <dd>{etichettaOrdinamentoShopify(collezione.ordinamento)}</dd>
+                </div>
+                <div className="campo">
+                  <dt>Modello del tema</dt>
+                  <dd>{collezione.modelloTema ?? "predefinito"}</dd>
+                </div>
+                <div className="campo">
+                  <dt>Aggiornata su Shopify</dt>
+                  <dd>{collezione.aggiornataShopifyIl ? iso(collezione.aggiornataShopifyIl) : "—"}</dd>
+                </div>
+              </dl>
+              {condizioni.length > 0 && (
+                <div style={{ marginTop: 14 }}>
+                  <div className="cella-sub" style={{ fontWeight: 600, marginBottom: 4 }}>
+                    Condizioni — ci entra chi rispetta {regoleInOEd(collezione.regole) ?? "tutte"} le regole. Le applica
+                    Shopify: qui si leggono.
+                  </div>
+                  <ul className="lista-domande">
+                    {condizioni.map((c, i) => (
+                      <li key={i}>{c}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+
+            <div>
+              <p className="page-sub" style={{ marginTop: 0, marginBottom: 12 }}>
+                Queste proprietà vivono <b>solo qui</b> e le leggono le altre app via API: Shopify non sa dove metti
+                una collezione né se può finire in una campagna.
+              </p>
+              <form action={salvaProprietaCollezione.bind(null, collezione.id)}>
+                <div className="cella-sub" style={{ fontWeight: 600, marginBottom: 6 }}>Posizioni</div>
+                <div className="pill-scelta" style={{ marginBottom: 14 }}>
+                  {POSIZIONI.map((p) => (
+                    <label className="pill-opt" key={p.chiave} style={{ cursor: "pointer" }} title={p.cosaSignifica}>
+                      <input
+                        type="checkbox"
+                        name="posizioni"
+                        value={p.chiave}
+                        defaultChecked={posizioniDa(collezione.posizioni).includes(p.chiave)}
+                      />
+                      {p.nome}
+                    </label>
+                  ))}
+                </div>
+                <div className="pill-scelta" style={{ marginBottom: 14 }}>
+                  <label className="pill-opt" style={{ cursor: "pointer" }}>
+                    <input type="checkbox" name="inCampagne" defaultChecked={collezione.inCampagne} />
+                    Si può usare nelle campagne
+                  </label>
+                </div>
+                <div className="modulo">
+                  <div className="campo-modulo">
+                    <label htmlFor="stato">Stato</label>
+                    <select id="stato" name="stato" defaultValue={collezione.stato}>
+                      <option value="attiva">Attiva</option>
+                      <option value="sospesa">Sospesa</option>
+                    </select>
+                  </div>
+                  <div className="campo-modulo largo">
+                    <label htmlFor="note">Note</label>
+                    <textarea id="note" name="note" rows={2} defaultValue={collezione.note ?? ""} />
+                  </div>
+                  <div className="azioni-modulo">
+                    <button className="btn" type="submit">Salva</button>
+                  </div>
+                </div>
+              </form>
+            </div>
+          </div>
         </div>
+
+        {/* **Il SEO subito dopo la scheda, in un posto solo** (chiesto
+            dall'utente): quello del negozio, il nostro modificabile, la bozza
+            scritta dall'AI e l'invio — tutto qui, non più in fondo alla pagina. */}
+        <RiquadroSeo
+          tipo="collezione"
+          id={id}
+          daNegozio={{ titolo: collezione.seoTitoloShopify, descrizione: collezione.seoDescrizioneShopify }}
+          nostro={{ titolo: collezione.seoTitolo, descrizione: collezione.seoDescrizione }}
+          sincronia={{ modificatoIl: collezione.seoModificatoIl, spintoIl: collezione.seoSpintoIl }}
+          percorso={`/collezioni/shopify/${id}`}
+          conferma={sp.seoConferma === "1"}
+          conAI
+        />
 
         <div className="kpi-riga">
           <div className="kpi">
@@ -263,148 +371,42 @@ export default async function CollezioneShopifyPage({
           )}
         </div>
 
-        {/* Quello che dice Shopify e quello che decidiamo noi, separati:
-            confonderli farebbe credere di poter cambiare da qui cose che
-            stanno sul negozio. */}
-        <div className="due-colonne">
-          <div className="scheda">
-            <div className="scheda-titolo">Come l&apos;ha fatta il negozio</div>
-            <dl className="griglia-campi">
-              <div className="campo">
-                <dt>Tipo</dt>
-                <dd>{ETICHETTA_TIPO_COLLEZIONE[collezione.tipo] ?? collezione.tipo}</dd>
-              </div>
-              <div className="campo">
-                <dt>Ordinamento dei prodotti</dt>
-                <dd>{collezione.ordinamento ?? "—"}</dd>
-              </div>
-              <div className="campo">
-                <dt>Modello del tema</dt>
-                <dd>{collezione.modelloTema ?? "predefinito"}</dd>
-              </div>
-              <div className="campo">
-                <dt>Aggiornata su Shopify</dt>
-                <dd>{collezione.aggiornataShopifyIl ? iso(collezione.aggiornataShopifyIl) : "—"}</dd>
-              </div>
-              <div className="campo campo-largo">
-                <dt>Descrizione</dt>
-                <dd>{collezione.descrizione ?? "—"}</dd>
-              </div>
-              <div className="campo campo-largo">
-                <dt>SEO sul negozio</dt>
-                {/* Solo quello letto: il nostro si scrive nel riquadro sotto,
-                    dove sta accanto al testo di partenza. */}
-                <dd>{seo || "—"}</dd>
-              </div>
-            </dl>
-            {condizioni.length > 0 && (
-              <div style={{ marginTop: 16 }}>
-                <div className="scheda-titolo">
-                  Condizioni — ci entra chi rispetta {regoleInOEd(collezione.regole) ?? "tutte"} le regole
-                </div>
-                <ul className="lista-domande">
-                  {condizioni.map((c, i) => (
-                    <li key={i}>{c}</li>
-                  ))}
-                </ul>
-                <p className="cella-sub" style={{ marginTop: 8 }}>
-                  Le applica Shopify: qui si leggono, non si cambiano.
-                </p>
-              </div>
-            )}
-          </div>
-
-          <div className="scheda">
-            <div className="scheda-titolo">Come la usiamo noi</div>
-            <p className="page-sub" style={{ marginBottom: 12 }}>
-              Queste proprietà vivono <b>solo qui</b> e le leggono le altre app via API: Shopify non sa dove
-              metti una collezione né se può finire in una campagna.
-            </p>
-            <form action={salvaProprietaCollezione.bind(null, collezione.id)}>
-              <div className="scheda-titolo">Posizioni</div>
-              <div className="pill-scelta" style={{ marginBottom: 14 }}>
-                {POSIZIONI.map((p) => (
-                  <label className="pill-opt" key={p.chiave} style={{ cursor: "pointer" }} title={p.cosaSignifica}>
-                    <input
-                      type="checkbox"
-                      name="posizioni"
-                      value={p.chiave}
-                      defaultChecked={posizioniDa(collezione.posizioni).includes(p.chiave)}
-                    />
-                    {p.nome}
-                  </label>
-                ))}
-              </div>
-              <div className="pill-scelta" style={{ marginBottom: 14 }}>
-                <label className="pill-opt" style={{ cursor: "pointer" }}>
-                  <input type="checkbox" name="inCampagne" defaultChecked={collezione.inCampagne} />
-                  Si può usare nelle campagne
-                </label>
-              </div>
-              <div className="modulo">
-                <div className="campo-modulo">
-                  <label htmlFor="stato">Stato</label>
-                  <select id="stato" name="stato" defaultValue={collezione.stato}>
-                    <option value="attiva">Attiva</option>
-                    <option value="sospesa">Sospesa</option>
-                  </select>
-                </div>
-                <div className="campo-modulo largo">
-                  <label htmlFor="note">Note</label>
-                  <textarea id="note" name="note" rows={2} defaultValue={collezione.note ?? ""} />
-                </div>
-                <div className="azioni-modulo">
-                  <button className="btn" type="submit">
-                    Salva
-                  </button>
-                </div>
-              </div>
-            </form>
-          </div>
-        </div>
-
+        {/* **Due classifiche, dichiarate** (chiesto dall'utente): per valore e
+            per pezzi sono due domande diverse — un pezzo da 3.000 € vale come
+            trentacinque bouquet — e mostrarne una sola nascondeva l'altra metà
+            della storia. Solo chi ha venduto nella finestra: una classifica di
+            zeri è rumore. */}
         {righe.length === 0 ? (
           <div className="vuoto">Nessun prodotto di questa collezione è riconosciuto qui.</div>
         ) : (
-          <div className="tabella-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Prodotto</th>
-                  <th>Categoria</th>
-                  <th className="num">Prezzo</th>
-                  <th className="num">Pezzi 90gg</th>
-                  <th className="num">Venduto</th>
-                  <th>Peso in collezione</th>
-                </tr>
-              </thead>
-              <tbody>
-                {righe.map(({ p, pezzi, ricavo }) => (
-                  <tr key={p.id} className="riga-cliccabile">
-                    <td>
-                      <Link href={`/prodotti/${p.id}`} className="cella-nome link-riga">
-                        {p.nome}
-                      </Link>
-                      <div className="cella-sub">{p.codice}</div>
-                    </td>
-                    <td className="cella-muta">{etichettaCategoria(p.categoria)}</td>
-                    <td className="num">{euro(p.prezzoVendita)}</td>
-                    <td className="num">{pezzi}</td>
-                    <td className="num">{euro(ricavo)}</td>
-                    <td style={{ width: 130 }}>
-                      <BarraQuota quota={ricavoTotale > 0 ? ricavo / ricavoTotale : 0} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="due-colonne due-colonne-pari">
+            <Ranking
+              titolo="Top per valore — 90 giorni"
+              righe={righe.filter((r) => r.ricavo > 0)}
+              valore={(r) => euro(r.ricavo)}
+              quota={(r) => (ricavoTotale > 0 ? r.ricavo / ricavoTotale : 0)}
+            />
+            <Ranking
+              titolo="Top per pezzi — 90 giorni"
+              righe={[...righe].filter((r) => r.pezzi > 0).sort((a, b) => b.pezzi - a.pezzi || b.ricavo - a.ricavo)}
+              valore={(r) => `${r.pezzi} pz`}
+              quota={(r) => (pezziTotali > 0 ? r.pezzi / pezziTotali : 0)}
+            />
           </div>
+        )}
+        {righe.length > 0 && senzaVendite > 0 && (
+          <p className="page-sub" style={{ marginTop: -6 }}>
+            {senzaVendite} prodotti della collezione non compaiono in nessuna delle due: niente pezzi né incasso nella
+            finestra.
+          </p>
         )}
 
         {/* Cancellare qui e cancellare sul negozio sono due gesti diversi:
             vanno scelti, non confusi in un bottone solo. */}
-        <div className="scheda" style={{ marginTop: 18 }}>
-          <div className="scheda-titolo">Elimina questa collezione</div>
+        {/* Ripiegata: è un gesto raro e distruttivo, e aperta sempre era la
+            prima cosa che si vedeva sotto le classifiche. */}
+        <details className="scheda" style={{ marginTop: 18 }}>
+          <summary className="scheda-titolo">Elimina questa collezione</summary>
           <form action={eliminaCollezioneShopify.bind(null, collezione.id)}>
             <p className="page-sub" style={{ marginBottom: 12 }}>
               Senza spunta la collezione sparisce <b>solo da qui</b>: su {collezione.negozio} resta, e torna al
@@ -421,7 +423,7 @@ export default async function CollezioneShopifyPage({
               Elimina
             </button>
           </form>
-        </div>
+        </details>
 
         <p className="page-sub" style={{ marginTop: 14 }}>
           Aggiornata il {iso(collezione.aggiornataIl)}. Il venduto conta solo le vendite andate a buon fine
@@ -439,16 +441,85 @@ export default async function CollezioneShopifyPage({
           )}
         </p>
 
-        <RiquadroSeo
-          tipo="collezione"
-          id={id}
-          daNegozio={{ titolo: collezione.seoTitoloShopify, descrizione: collezione.seoDescrizioneShopify }}
-          nostro={{ titolo: collezione.seoTitolo, descrizione: collezione.seoDescrizione }}
-          sincronia={{ modificatoIl: collezione.seoModificatoIl, spintoIl: collezione.seoSpintoIl }}
-          percorso={`/collezioni/shopify/${id}`}
-          conferma={sp.seoConferma === "1"}
-        />
       </main>
+    </div>
+  );
+}
+// Quante righe si vedono subito: i primi 30 dicono la storia, il resto sta
+// dietro un click. Una classifica da duecento righe non è più una classifica.
+const TOP_CLASSIFICA = 30;
+
+/**
+ * Una classifica della collezione: posizione, foto, nome, valore e peso.
+ * Il **peso è sul totale della collezione** (non del catalogo), quindi le due
+ * classifiche sommano al 100% ciascuna sul proprio metro.
+ */
+function Ranking({
+  titolo,
+  righe,
+  valore,
+  quota,
+}: {
+  titolo: string;
+  righe: { p: { id: string; nome: string; codice: string; immagine: string | null }; pezzi: number; ricavo: number }[];
+  valore: (r: { pezzi: number; ricavo: number }) => string;
+  quota: (r: { pezzi: number; ricavo: number }) => number;
+}) {
+  const prime = righe.slice(0, TOP_CLASSIFICA);
+  const resto = righe.slice(TOP_CLASSIFICA);
+  const Riga = ({ r, i }: { r: (typeof righe)[number]; i: number }) => (
+    <tr key={r.p.id} className="riga-cliccabile">
+      <td className="num" style={{ width: 34, color: "var(--text-tertiary)" }}>{i + 1}</td>
+      <td>
+        <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span className="rank-foto">{r.p.immagine ? <img src={r.p.immagine} alt="" /> : "❀"}</span>
+          <span style={{ minWidth: 0 }}>
+            <Link href={`/prodotti/${r.p.id}`} className="cella-nome link-riga">{r.p.nome}</Link>
+            <div className="cella-sub">{r.p.codice}</div>
+          </span>
+        </span>
+      </td>
+      <td className="num">{valore(r)}</td>
+      <td style={{ width: 120 }}>
+        <BarraQuota quota={quota(r)} />
+      </td>
+    </tr>
+  );
+  return (
+    <div className="scheda">
+      <div className="scheda-titolo">{titolo}</div>
+      {righe.length === 0 ? (
+        <p className="page-sub" style={{ margin: 0 }}>Nessuna vendita nella finestra.</p>
+      ) : (
+        <>
+          <div className="tabella-wrap" style={{ border: 0, boxShadow: "none" }}>
+            <table>
+              <tbody>
+                {prime.map((r, i) => (
+                  <Riga r={r} i={i} key={r.p.id} />
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {resto.length > 0 && (
+            <details className="mostra-tutti">
+              <summary className="cella-sub">
+                e altri {resto.length} <span className="mt-chiuso">— mostra tutti</span>
+                <span className="mt-aperto">— nascondi</span>
+              </summary>
+              <div className="tabella-wrap" style={{ border: 0, boxShadow: "none" }}>
+                <table>
+                  <tbody>
+                    {resto.map((r, i) => (
+                      <Riga r={r} i={TOP_CLASSIFICA + i} key={r.p.id} />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </details>
+          )}
+        </>
+      )}
     </div>
   );
 }

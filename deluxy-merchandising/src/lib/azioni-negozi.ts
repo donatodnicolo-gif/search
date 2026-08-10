@@ -34,6 +34,21 @@ export async function salvaNegozioAzione(fd: FormData) {
   redirect(`/impostazioni?esito=${esito.aggiornato ? "aggiornato" : "salvato"}#negozio-${esito.id}`);
 }
 
+/**
+ * Le linee guida SEO del brand: un form loro, staccato dalle credenziali —
+ * cambiarle non deve passare dalla verifica del token né poterla rompere.
+ */
+export async function salvaLineeGuidaSeoAzione(id: string, fd: FormData) {
+  await prisma.negozioShopify.update({
+    where: { id },
+    data: { lineeGuidaSeo: testo(fd, "lineeGuidaSeo") || null },
+  });
+  revalidatePath("/impostazioni");
+  // Un esito suo: «aggiornato» racconta di credenziali sostituite e verificate,
+  // che qui non c'entrano niente (trovato dalla revisione).
+  redirect(`/impostazioni?esito=seo-brand#negozio-${id}`);
+}
+
 export async function verificaNegozioAzione(id: string) {
   await verificaNegozio(id);
   revalidatePath("/impostazioni");

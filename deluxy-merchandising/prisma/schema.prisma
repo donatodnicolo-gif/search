@@ -279,6 +279,12 @@ model NegozioShopify {
   // da Deluxy Orders (es. "cakedesign.me" per il negozio qui chiamato "Cake").
   // Senza, incrociare vendite e collezioni dà zero senza dire perché.
   canaleVendite       String?
+  // **Come si scrive il SEO di questo brand**, dettato da chi lo cura: tono,
+  // parole da usare o evitare, cosa promettere e cosa no. Lo legge la scrittura
+  // AI e ha la precedenza sulle regole generiche — stessa idea del prompt di
+  // categoria per le descrizioni: chi conosce il brand scrive una volta, l'AI
+  // parte già nella lingua giusta.
+  lineeGuidaSeo       String?
   clientIdCifrato     String?
   clientSecretCifrato String?
   tokenCifrato  String?

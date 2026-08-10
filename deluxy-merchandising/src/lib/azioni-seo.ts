@@ -40,6 +40,34 @@ export async function salvaSeoCollezione(id: string, fd: FormData) {
 }
 
 /**
+ * **La bozza SEO scritta dall'AI**, nei campi nostri: legge titolo, descrizione,
+ * condizioni e i prodotti più venduti della collezione, e propone meta title e
+ * meta description. **Non manda niente al negozio** — resta una bozza da
+ * rileggere, e su Google non cambia nulla finché non si preme «Manda».
+ *
+ * Sovrascrive la bozza attuale, ed è scritto sul bottone: è l'unico dato che
+ * questo gesto può toccare, e resta comunque una bozza.
+ */
+export async function scriviSeoCollezioneConAI(id: string) {
+  const { generaSeoCollezione } = await import("./ai-seo");
+  const dove = `/collezioni/shopify/${id}`;
+  const esito = await generaSeoCollezione(id);
+  if (!esito.ok) {
+    redirect(`${dove}?esito=errore&messaggio=${encodeURIComponent(esito.errore)}`);
+  }
+  await prisma.collezioneShopify.update({
+    where: { id },
+    data: { seoTitolo: esito.titolo, seoDescrizione: esito.descrizione, seoModificatoIl: new Date() },
+  });
+  revalidatePath(dove);
+  redirect(
+    `${dove}?esito=ok&messaggio=${encodeURIComponent(
+      `Bozza scritta da ${esito.modello} sui dati veri della collezione: rileggila, correggila e poi mandala al negozio.`,
+    )}`,
+  );
+}
+
+/**
  * Parte dal testo del negozio: si corregge quello invece di riscrivere da zero.
  * **Non sovrascrive** un nostro testo già presente — quello si cambia a mano nel
  * riquadro, e un bottone non deve poter buttare via una revisione già fatta.
