@@ -718,8 +718,13 @@ function leggiAnnunci() {
   var perChiave = {};
   var risultati;
   try {
+    // La vista tiene anche i link TOLTI dall'annuncio (enabled = false):
+    // senza questo filtro un RSA arrivava con 44 titoli "attuali" su un
+    // massimo di 15 (misurato su Cake il 10/08). Se il filtro non piacesse
+    // a Google, la query fallisce e scatta il ripiego qui sotto.
     risultati = AdsApp.search(colonne +
       "WHERE ad_group_ad.status IN ('ENABLED', 'PAUSED') " +
+      "AND ad_group_ad_asset_view.enabled = TRUE " +
       "AND ad_group_ad_asset_view.field_type IN ('HEADLINE', 'DESCRIPTION')");
     risultati.hasNext();
   } catch (e) {
