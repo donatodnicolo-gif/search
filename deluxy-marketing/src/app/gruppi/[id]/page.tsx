@@ -164,6 +164,60 @@ export default async function SchedaGruppo({
     return idCompleto ? c.idEsterno!.startsWith(prefissoGruppo) : true;
   });
 
+  // La STORIA giorno per giorno delle keyword (lavoro `keyword-giorni`, dal
+  // 10/08/2026): quando copre il periodo scelto, spesa/incasso/resa della
+  // tabella LO SEGUONO — la fotografia a finestra fissa resta il ripiego per
+  // i periodi che la storia non copre e per le righe senza id per criterio.
+  const [storiaKeyword, coperturaStoria] = await Promise.all([
+    prisma.metricaKeyword.groupBy({
+      by: ["idEsterno"],
+      where: {
+        campagna: gruppo.campagna.nome,
+        ...(prefissoGruppo ? { idEsterno: { startsWith: prefissoGruppo } } : {}),
+        data: { gte: periodo.corrente.da, lt: periodo.corrente.a },
+      },
+      _sum: { spesa: true, ricavi: true, clic: true },
+    }),
+    prisma.metricaKeyword.aggregate({
+      where: {
+        campagna: gruppo.campagna.nome,
+        ...(prefissoGruppo ? { idEsterno: { startsWith: prefissoGruppo } } : {}),
+      },
+      _min: { data: true },
+      _max: { data: true },
+    }),
+  ]);
+  const sommaPerId = new Map(storiaKeyword.map((s) => [s.idEsterno, s._sum]));
+  const inizioStoria = coperturaStoria._min.data;
+  const fineStoria = coperturaStoria._max.data;
+  // «Copre» = i due intervalli si toccano: un periodo tutto prima dell'inizio
+  // della storia non ha giorni da sommare, e fingere zeri sarebbe falso.
+  const storiaCopre =
+    inizioStoria != null &&
+    fineStoria != null &&
+    inizioStoria < periodo.corrente.a &&
+    fineStoria >= periodo.corrente.da;
+
+  // I numeri da mostrare per una riga: dal PERIODO quando si può, altrimenti
+  // la fotografia (con la sua data, dichiarata sulla riga).
+  const numeriDi = (k: (typeof keyword)[number]) => {
+    if (storiaCopre && /^[\d-]+:\d+:\d+$/.test(k.idEsterno ?? "")) {
+      const st = sommaPerId.get(k.idEsterno!);
+      return {
+        delPeriodo: true,
+        spesa: st?.spesa ?? 0,
+        incasso: st?.ricavi ?? 0,
+        ordinabile: (st?.spesa ?? 0) as number | null,
+      };
+    }
+    return {
+      delPeriodo: false,
+      spesa: k.spesa ?? 0,
+      incasso: k.incasso ?? 0,
+      ordinabile: (k.spesa ?? null) as number | null,
+    };
+  };
+
   // Le parole cercate davvero, quelle che hanno fatto scattare gli annunci.
   // Anche queste sono a finestra (dal/al scritti dallo script), non giornaliere.
   const termini = await prisma.termineRicerca.findMany({
@@ -269,8 +323,8 @@ export default async function SchedaGruppo({
     if (filtroKw === "tutte") return true;
     if (filtroKw === "attive") return k.statoPiattaforma !== "PAUSED";
     if (filtroKw === "in_pausa") return k.statoPiattaforma === "PAUSED";
-    if (filtroKw === "spendono") return (k.spesa ?? 0) > 0;
-    if (filtroKw === "a_vuoto") return (k.spesa ?? 0) >= 20 && (k.incasso ?? 0) === 0;
+    if (filtroKw === "spendono") return numeriDi(k).spesa > 0;
+    if (filtroKw === "a_vuoto") return numeriDi(k).spesa >= 20 && numeriDi(k).incasso === 0;
     if (filtroKw === "decise") return azioneDi(k.testo) != null;
     return true;
   })
@@ -287,8 +341,8 @@ export default async function SchedaGruppo({
     // click in TabelleOrdinabili.
     .slice()
     .sort((a, b) => {
-      const sa = a.spesa ?? null;
-      const sb = b.spesa ?? null;
+      const sa = numeriDi(a).ordinabile;
+      const sb = numeriDi(b).ordinabile;
       if (sa == null && sb == null) return 0;
       if (sa == null) return 1; // «nessun dato» in fondo, sempre
       if (sb == null) return -1;
@@ -676,9 +730,32 @@ export default async function SchedaGruppo({
                     spesa di 30 giorni sbaglia di un ordine di grandezza. */}
                 <div className="nota-info" style={{ marginBottom: 12 }}>
                   <span className="nota-icona">◈</span>
+                  {/* Tre verità possibili, e la nota dice quella giusta: la
+                      storia giornaliera copre il periodo (i numeri lo
+                      seguono), lo copre solo in parte (lo seguono ma mancano
+                      i giorni prima dell'inizio della raccolta), o non c'è
+                      (resta la fotografia a finestra fissa). */}
+                  {storiaCopre ? (
+                    <span>
+                      <b>Spesa, incasso e resa seguono il periodo scelto</b>: dal 10/08/2026 lo
+                      script manda la storia giorno per giorno delle keyword
+                      {inizioStoria && inizioStoria > periodo.corrente.da && (
+                        <>
+                          {" "}— ma la storia raccolta <b>parte dal {formattaData(inizioStoria)}</b>:
+                          i giorni del periodo precedenti a quella data non esistono nell&apos;archivio
+                          e non entrano nelle somme (per averli serve un giro con
+                          <code> GIORNI_INDIETRO</code> più alto, una volta sola)
+                        </>
+                      )}
+                      . QS, stati e giudizi del Monitoraggio restano l&apos;ultima fotografia; le righe
+                      senza id per criterio mostrano ancora la fotografia con la sua data.
+                    </span>
+                  ) : (
                   <span>
                     <b>Questi numeri non seguono il periodo scelto.</b> Le keyword non hanno una
-                    storia giorno per giorno: l&apos;app conserva l&apos;ultima fotografia mandata dallo
+                    storia giorno per giorno{inizioStoria ? (
+                      <> in questo periodo (la storia raccolta parte dal <b>{formattaData(inizioStoria)}</b>)</>
+                    ) : null}: l&apos;app conserva l&apos;ultima fotografia mandata dallo
                     script, che copre una <b>finestra fissa</b>
                     {finestreKeyword.length === 1 ? (
                       // Le DATE, non solo «30 giorni»: la finestra include il
@@ -715,6 +792,7 @@ export default async function SchedaGruppo({
                     )}.
                     Le metriche di gruppo qui sopra, invece, sono giornaliere e seguono il periodo.
                   </span>
+                  )}
                 </div>
 
 
@@ -813,10 +891,13 @@ export default async function SchedaGruppo({
                     <tbody>
                       {keywordMostrate.map((k) => {
                         const inPausaGoogle = k.statoPiattaforma === "PAUSED";
+                        // I numeri della riga: dal periodo quando la storia
+                        // giornaliera lo copre, altrimenti la fotografia.
+                        const n = numeriDi(k);
                         // Il giudizio e lo stesso della pagina Keywords: una
                         // parola che spende senza rendere si vede in rosso da
                         // qui, senza doverla cercare altrove.
-                        const g = giudizioKeyword(k.incasso ?? 0, k.spesa ?? 0);
+                        const g = giudizioKeyword(n.incasso, n.spesa);
                         const az = azioneDi(k.testo);
                         return (
                           <tr key={k.id}>
@@ -852,7 +933,7 @@ export default async function SchedaGruppo({
                               </form>
                             </td>
                             <td className="num">
-                              {formattaEuro(k.spesa)}
+                              {formattaEuro(n.spesa)}
                               {/* ⚠️ Numeri d'epoca accanto a uno stato fresco,
                                   senza data: così 140 € qui contro 0 € su
                                   Google sembravano un errore di sync (successo
@@ -860,8 +941,10 @@ export default async function SchedaGruppo({
                                   da prima della finestra). Una keyword in
                                   pausa non produce numeri nuovi: i suoi sono
                                   l'ultima fotografia in cui girava, e la data
-                                  va detta sulla riga. */}
-                              {k.metricheAl &&
+                                  va detta sulla riga. Quando invece i numeri
+                                  sono del periodo, la data non serve. */}
+                              {!n.delPeriodo &&
+                                k.metricheAl &&
                                 ultimaLetturaKeyword &&
                                 ultimaLetturaKeyword.getTime() - k.metricheAl.getTime() > 2 * 86_400_000 && (
                                   <div
@@ -873,15 +956,13 @@ export default async function SchedaGruppo({
                                   </div>
                                 )}
                             </td>
-                            <td className="num">{formattaEuro(k.incasso)}</td>
+                            <td className="num">{formattaEuro(n.incasso)}</td>
                             <td
                               className="num"
                               style={{ color: g.colore, fontWeight: 600 }}
                               title={g.spiega}
                             >
-                              {(k.spesa ?? 0) > 0
-                                ? `${((k.incasso ?? 0) / (k.spesa ?? 1)).toFixed(2)}×`
-                                : "—"}
+                              {n.spesa > 0 ? `${(n.incasso / n.spesa).toFixed(2)}×` : "—"}
                             </td>
                             <td className="num cella-muta">{k.punteggioQualita ?? "—"}</td>
                             <td>

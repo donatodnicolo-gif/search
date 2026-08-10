@@ -132,7 +132,7 @@ var MINUTI_MASSIMI = 25; // Google ferma gli script a 30': ci fermiamo prima, co
 //   1. le letture che si guardano ogni giorno: metriche e gruppi di annunci;
 //   2. in fondo il copy, che da solo può prendersi metà del tempo (mille
 //      keyword per account a blocchi di 200) ed è la lettura meno urgente.
-var LAVORI_LETTURA = ["metriche", "gruppi", "approvazioni", "diagnosi", "asset", "copy", "stati-keyword"];
+var LAVORI_LETTURA = ["metriche", "gruppi", "keyword-giorni", "approvazioni", "diagnosi", "asset", "copy", "stati-keyword"];
 
 var MAX_STATI_KEYWORD = 20000; // tetto di sicurezza (vedi nota sotto)
 // ATTENZIONE: Era 4000, e su Gifts non bastava: l archivio ne ha 4.623. Il ciclo si
@@ -192,6 +192,7 @@ function main() {
       else if (lavoro === "diagnosi") mandaDiagnosi(conto);
       else if (lavoro === "approvazioni") mandaApprovazioni(conto);
       else if (lavoro === "stati-keyword") mandaStatiKeyword(conto);
+      else if (lavoro === "keyword-giorni") mandaKeywordGiorni(conto);
       else if (lavoro === "esegui") eseguiOperazioni(conto);
       else Logger.log("AZIONE non riconosciuta: \"" + lavoro + "\". Ammesse: metriche, approvazioni, copy, gruppi, asset, diagnosi, esegui, tutto.");
     } catch (e) {
@@ -249,6 +250,7 @@ function serviRichieste(conto) {
         else if (lavori[j] === "asset") mandaAsset(conto);
         else if (lavori[j] === "diagnosi") mandaDiagnosi(conto);
         else if (lavori[j] === "approvazioni") mandaApprovazioni(conto);
+        else if (lavori[j] === "keyword-giorni") mandaKeywordGiorni(conto);
       }
     } catch (e) {
       errore = String(e);
@@ -2260,6 +2262,52 @@ function elenco(nomi) {
    È leggero (una riga per keyword, niente segmenti per giorno) e va fatto
    girare almeno una volta per allineare tutto; poi basta ogni tanto.
    ═══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * La STORIA giorno per giorno delle keyword: una riga per criterio per
+ * giorno con impressioni, finestra GIORNI_INDIETRO come le metriche. E'
+ * quella che permette alla tabella delle keyword nell'app di SEGUIRE il
+ * periodo scelto, invece della fotografia a finestra fissa del copy.
+ * Per il carico storico: GIORNI_INDIETRO alto (es. 90) una volta sola.
+ */
+function mandaKeywordGiorni(conto) {
+  var query =
+    "SELECT campaign.name, ad_group.id, ad_group.name, " +
+    "ad_group_criterion.criterion_id, ad_group_criterion.keyword.text, " +
+    "ad_group_criterion.keyword.match_type, segments.date, " +
+    "metrics.cost_micros, metrics.impressions, metrics.clicks, " +
+    "metrics.conversions, metrics.conversions_value " +
+    "FROM keyword_view " +
+    "WHERE segments.date BETWEEN '" + dataIso(-GIORNI_INDIETRO) + "' AND '" + dataIso(0) + "' " +
+    "AND ad_group_criterion.status != 'REMOVED' " +
+    "AND metrics.impressions > 0";
+
+  var righe = [];
+  var risultati = AdsApp.search(query);
+  while (risultati.hasNext()) {
+    var r = risultati.next();
+    var c = r.adGroupCriterion;
+    righe.push({
+      idEsterno: conto.id + ":" + r.adGroup.id + ":" + c.criterionId,
+      campagna: r.campaign.name,
+      gruppo: r.adGroup.name,
+      testo: c.keyword.text,
+      corrispondenza: String(c.keyword.matchType),
+      data: r.segments.date,
+      spesa: arrotonda(Number(r.metrics.costMicros || 0) / 1000000),
+      impressioni: Number(r.metrics.impressions || 0),
+      clic: Number(r.metrics.clicks || 0),
+      conversioni: Number(r.metrics.conversions || 0),
+      ricavi: arrotonda(Number(r.metrics.conversionsValue || 0))
+    });
+  }
+  Logger.log("Keyword per giorno: " + righe.length + " righe (" + GIORNI_INDIETRO + " giorni).");
+
+  var esito = inviaABlocchi("/api/v1/ingest/keyword-giorni", righe, function (lotto) {
+    return corpoBase(conto, { righe: lotto });
+  });
+  RIEPILOGO.push("keyword-giorni: " + esito.inviate + "/" + righe.length + " righe" + (esito.nota ? " - " + esito.nota : ""));
+}
 
 function mandaStatiKeyword(conto) {
   var query =

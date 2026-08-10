@@ -1191,6 +1191,32 @@ model SyncDrive {
 // ⚠️ `esclusa` fa parte della CHIAVE: la stessa località può comparire una
 // volta come mirata (la regione) e una come esclusa (una città dentro), ed è
 // una configurazione normale, non un doppione.
+// La STORIA giorno per giorno delle keyword: una riga per criterio per
+// giorno con impressioni, dal lavoro `keyword-giorni` dello script (10/08).
+// È quella che permette alla tabella delle keyword di SEGUIRE il periodo
+// scelto, invece della fotografia a finestra fissa di CopyAnnuncio.
+// L'aggancio a CopyAnnuncio è per `idEsterno` (account:gruppo:criterio),
+// non una FK: le righe copy possono rinascere, la storia resta.
+model MetricaKeyword {
+  id             String   @id @default(cuid())
+  idEsterno      String
+  campagna       String
+  gruppo         String?
+  testo          String
+  corrispondenza String?
+  data           DateTime
+  spesa          Float?
+  impressioni    Int?
+  clic           Int?
+  conversioni    Float?
+  ricavi         Float?
+  creataIl       DateTime @default(now())
+  aggiornataIl   DateTime @updatedAt
+
+  @@unique([idEsterno, data])
+  @@index([campagna, data])
+}
+
 model LocalitaCampagna {
   id           String   @id @default(cuid())
   campagnaId   String
