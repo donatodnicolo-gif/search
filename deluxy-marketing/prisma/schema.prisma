@@ -127,6 +127,20 @@ model Campagna {
   // `statoPiattaforma`: la nostra parola e il fatto non si sovrascrivono.
   nomeVisibile      String?
   brand             String            @default("flowers")
+  // ⚠️ Il brand deciso A MANO non si tocca più, come `origine: "manuale"` sul
+  // legame Shopify. Senza questo, una sync mirata su un account rimetteva il
+  // brand dell'account e la correzione durava fino al giro dopo.
+  brandManuale      Boolean           @default(false)
+  // L'account pubblicitario su cui la campagna gira DAVVERO (248-656-1148,
+  // 1040175814157216…), scritto dall'import che l'ha vista.
+  //
+  // ⚠️ Senza, «di chi è questa campagna» era una DEDUZIONE — dal nome o dal
+  // brand dell'ultima sync che l'aveva toccata — e quando sbagliava non c'era
+  // modo di accorgersene. Caso reale (09/08/2026): `[Palloncini] - AWARENESS`
+  // risultava di Cake con 1.137,67 € di spesa attribuiti, e sul conto Meta di
+  // Cake quella campagna non esiste. L'account è un fatto, il brand è la sua
+  // conseguenza: tenere solo la conseguenza rende l'errore invisibile.
+  account           String?
   canale            String            @default("google_ads")
   // bozza | in_apprendimento | attiva | in_pausa | conclusa | in_lancio | defunta
   // ⚠️ È il GIUDIZIO nostro. L'import lo aggiorna solo quando NON è uno degli

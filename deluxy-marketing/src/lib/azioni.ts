@@ -16,7 +16,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "./db";
 import { accodaOperazione } from "./operazioni";
-import { STATI_AZIONE, STATI_AZIONE_APERTI, STATI_CAMPAGNA, testoKeywordPulito } from "./dominio";
+import { BRANDS, STATI_AZIONE, STATI_AZIONE_APERTI, STATI_CAMPAGNA, testoKeywordPulito } from "./dominio";
 import { CHIAVE_APIKEY, CHIAVE_CARTELLA, idCartellaDrive, sincronizzaDrive } from "./drive";
 // Statico e non `await import()` come il resto di guardrail: serve dentro le
 // query, non dentro il corpo delle funzioni. `guardrail.ts` non importa nulla,
@@ -3045,4 +3045,70 @@ export async function vaiAlGruppo(fd: FormData) {
   const id = testo(fd, "id");
   if (!id) return;
   redirect(`/gruppi/${id}`);
+}
+
+/**
+ * Corregge a mano il brand di una campagna.
+ *
+ * ⚠️ **Da qui in poi nessun import lo tocca** (`brandManuale`), come per il
+ * legame Shopify scelto a mano. Senza il blocco, una sync mirata su un account
+ * rimetterebbe il brand di quell'account e la correzione durerebbe fino al
+ * giro dopo — che è il modo di far sembrare l'app rotta mentre funziona.
+ *
+ * Nasce da un caso vero (09/08/2026): `[Palloncini] - AWARENESS` risultava di
+ * Cake con **1.137,67 €** di spesa attribuiti, e sul conto Meta di Cake quella
+ * campagna non esiste. Non c'era nessun modo di correggerlo dall'app.
+ */
+export async function impostaBrandCampagna(campagnaId: string, fd: FormData) {
+  if (!campagnaId) return;
+  const scelto = testo(fd, "brand");
+  const campagna = await prisma.campagna.findUnique({
+    where: { id: campagnaId },
+    select: { id: true, nome: true, brand: true, account: true },
+  });
+  if (!campagna) return;
+
+  // Svuotare il campo vuol dire «torna a dedurlo»: si toglie il blocco e il
+  // prossimo import rimette il brand dell'account. È l'annullamento, e deve
+  // esistere — una scelta che non si può disfare è una trappola.
+  if (!scelto) {
+    await prisma.campagna.update({ where: { id: campagnaId }, data: { brandManuale: false } });
+    await registra({
+      autore: "utente",
+      tipo: "modifica",
+      entita: "campagna",
+      entitaId: campagnaId,
+      titolo: `Brand di "${campagna.nome}": torna a dedurlo dall'account`,
+    });
+    redirect(testo(fd, "ritorno") || `/campagne/${campagnaId}`);
+  }
+
+  if (!(BRANDS as readonly string[]).includes(scelto) && scelto !== "cross") return;
+  if (campagna.brand === scelto && true) {
+    // Stesso brand ma scelto a mano: si segna comunque il blocco, altrimenti
+    // «confermo che è giusto» non avrebbe modo di essere detto.
+    await prisma.campagna.update({ where: { id: campagnaId }, data: { brandManuale: true } });
+    redirect(testo(fd, "ritorno") || `/campagne/${campagnaId}`);
+  }
+
+  await prisma.campagna.update({
+    where: { id: campagnaId },
+    data: { brand: scelto, brandManuale: true },
+  });
+  await registra({
+    autore: "utente",
+    tipo: "modifica",
+    entita: "campagna",
+    entitaId: campagnaId,
+    titolo: `Brand di "${campagna.nome}": ${campagna.brand} → ${scelto}`,
+    dettaglio: `deciso a mano; nessun import lo sovrascrive più${
+      campagna.account ? ` · account letto dall'import: ${campagna.account}` : " · account non ancora noto"
+    }`,
+  });
+  revalidatePath(`/campagne/${campagnaId}`);
+  revalidatePath("/campagne");
+  // ⚠️ Ritorno esplicito, non solo `revalidatePath`: è la terza volta che un
+  // `<select>` controllato torna al valore vecchio e sembra che non abbia
+  // salvato. Vedi `impostaLinguaCampagna` e `cambiaCorrispondenzaOperazione`.
+  redirect(testo(fd, "ritorno") || `/campagne/${campagnaId}`);
 }

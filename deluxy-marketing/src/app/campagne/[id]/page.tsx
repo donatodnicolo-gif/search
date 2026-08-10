@@ -39,12 +39,14 @@ import {
   cambiaStatoCampagna,
   applicaKeywordAdAltreCampagne,
   creaOperazione,
+  impostaBrandCampagna,
   impostaLinguaCampagna,
   rinominaCampagna,
 } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
 import { GIORNI_LETTURA, STATI_GRUPPO_IGNORATI, gruppiConNumeri, nomeCampagna } from "@/lib/gruppi";
 import {
+  BRANDS,
   COLORE_BRAND,
   COLORE_STATO_AZIONE,
   COLORE_STATO_CAMPAGNA,
@@ -230,7 +232,51 @@ export default async function SchedaCampagna({
                   su Google: {campagna.nome}
                 </span>
               )}
-              <Badge testo={ETICHETTA_BRAND[campagna.brand] ?? campagna.brand} colore={COLORE_BRAND[campagna.brand] ?? "var(--text-tertiary)"} />
+              {/* Il brand si corregge da qui, e accanto c'è l'ACCOUNT che lo
+                  spiega. Senza, «di chi è questa campagna» era una deduzione:
+                  «[Palloncini] - AWARENESS» risultava di Cake con 1.137,67 €
+                  attribuiti e sul conto Meta di Cake non esiste — e non c'era
+                  modo di correggerlo. La scelta a mano vince e nessun import
+                  la sovrascrive più. */}
+              <span className="stato-app-inline">
+                <span className="stato-app-etichetta">brand</span>
+                <form action={impostaBrandCampagna.bind(null, campagna.id)}>
+                  <input
+                    type="hidden"
+                    name="ritorno"
+                    value={`/campagne/${campagna.id}${parametriPeriodo(periodo) ? `?${parametriPeriodo(periodo)}` : ""}`}
+                  />
+                  <SelettoreStato
+                    nome="brand"
+                    valore={campagna.brand}
+                    colore={COLORE_BRAND[campagna.brand] ?? "var(--text-tertiary)"}
+                    // BRANDS contiene gia "cross": aggiungerlo a parte lo
+                    // faceva comparire due volte nella tendina.
+                    opzioni={BRANDS.map((b) => ({
+                      valore: b,
+                      etichetta: b === "cross" ? "Cross-brand — non lo so" : ETICHETTA_BRAND[b] ?? b,
+                    }))}
+                  />
+                </form>
+              </span>
+              {campagna.brandManuale && (
+                <span className="tag-neutro" title="Il brand è stato scelto a mano: nessun import lo sovrascrive">
+                  brand scelto a mano
+                </span>
+              )}
+              {/* L'account su cui gira DAVVERO: è il fatto da cui il brand
+                  dovrebbe discendere, e finché non c'è va detto che non c'è. */}
+              <span
+                className="tag-neutro"
+                title={
+                  campagna.account
+                    ? "Account pubblicitario su cui l'import l'ha vista"
+                    : "Nessun import l'ha ancora vista con l'account: si saprà al prossimo giro"
+                }
+                style={campagna.account ? undefined : { opacity: 0.6 }}
+              >
+                {campagna.account ? `account ${campagna.account}` : "account non ancora letto"}
+              </span>
               <Badge testo={ETICHETTA_CANALE[campagna.canale] ?? campagna.canale} colore="var(--text-secondary)" />
               {/* La lingua sta col titolo, non in fondo a un blocco richiuso:
                   è la cosa che si corregge più spesso, ed è la stessa che

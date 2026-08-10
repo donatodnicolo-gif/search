@@ -208,9 +208,27 @@ export async function salvaMetriche(
     // e la campagna smette di essere invisibile nelle viste per brand.
     // Si promuove SOLO da cross a un brand noto: un brand già deciso — a mano
     // o da un nome che parla chiaro — non si tocca.
-    if (opzioni.brand && opzioni.brand !== "cross" && campagna.brand === "cross") {
+    if (
+      opzioni.brand &&
+      opzioni.brand !== "cross" &&
+      campagna.brand === "cross" &&
+      // ⚠️ Un brand deciso A MANO non si promuove: è una scelta, non un vuoto.
+      !campagna.brandManuale
+    ) {
       daAggiornare.set(campagna.id, { ...(daAggiornare.get(campagna.id) ?? {}), brand: opzioni.brand });
       campagna.brand = opzioni.brand; // la cache resta d'accordo col database
+    }
+
+    // ⚠️ L'ACCOUNT da cui la riga arriva: è un fatto, e va scritto sempre.
+    // Se la campagna risultava di un altro account, quello vecchio era una
+    // deduzione sbagliata — è successo a «[Palloncini] - AWARENESS», che
+    // risultava di Cake con 1.137,67 € attribuiti e su Cake non esiste.
+    if (opzioni.account && campagna.account !== opzioni.account) {
+      daAggiornare.set(campagna.id, {
+        ...(daAggiornare.get(campagna.id) ?? {}),
+        account: opzioni.account,
+      });
+      campagna.account = opzioni.account;
     }
 
     // Le righe che portano solo i conteggi di approvazione non hanno metriche
@@ -379,6 +397,7 @@ export async function salvaAnagrafica(
           idEsterno,
           canale,
           brand: brandDa(nome, opzioni.brand),
+          account: account ?? null,
           stato: r.stato ?? "in_pausa",
           statoPiattaforma: dati.statoPiattaforma,
           budgetGiornaliero: r.budgetGiornaliero ?? null,
