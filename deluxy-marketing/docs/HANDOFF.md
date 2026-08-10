@@ -107,6 +107,20 @@ Tre aggiunte a valle del primo giro reale su Cake:
   `stati-keyword` non aggiornava le righe giuste. Su `[Cakedesign] | Sales
   | ITA` Google dice davvero 104 keyword in pausa su 147; la spesa in
   tabella è storica (fino al 27/07), non di oggi.
+- ⭐⭐ **UNA RIGA PER CRITERIO: la stessa parola in due gruppi non si
+  sovrascrive più** (sera). Caso vero su `Torte per Oggi // ITA`: 53
+  keyword «tutte in pausa» nell'app mentre Google mostrava le attive che
+  spendono (`"torte a domicilio"`: 706 clic, 389 €). La stessa parola vive
+  in più gruppi con stati diversi, ma l'archivio la collassava su una riga
+  per (campagna, testo): **l'ultima copia letta sovrascriveva gruppo e
+  stato**. Due metà: `leggiKeywords` accorpa per campagna+**gruppo**+testo
+  +match (una riga per criterio, come già manda `stati-keyword`), e il
+  ripiego dell'ingest per (tipo, testo, campagna) aggancia SOLO le righe
+  legacy — se la riga trovata ha un id completo e **diverso**, è un altro
+  criterio e nasce la sua riga. Converge da solo al primo giro. ⚠️ Le
+  statistiche del gruppo sono scese **nella colonna destra** (deciso
+  dall'utente): la sinistra parte dal lavoro operativo. ⚠️ E le card di
+  `/campagne` mostrano il targeting (⌖) quando è stato letto.
 - ⚠️ **Un `<form>` di mezzo rompeva lo scroll del dialogo**:
   `.modale-elenco` scrolla solo da figlio DIRETTO del flex `.modale-corpo`
   — con 20 proposte il piede col «Metti in coda» finiva fuori schermo,
