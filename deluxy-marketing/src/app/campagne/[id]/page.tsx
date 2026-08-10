@@ -292,6 +292,52 @@ export default async function SchedaCampagna({
                 {campagna.account ? `account ${campagna.account}` : "account non ancora letto"}
               </span>
               <Badge testo={ETICHETTA_CANALE[campagna.canale] ?? campagna.canale} colore="var(--text-secondary)" />
+              {/* Il DOVE della campagna: il targeting VERO letto da Google,
+                  non la città dedotta dal nome. Sta in testata come l'account,
+                  e come per l'account l'assenza si dichiara: «mai lette» e
+                  «nessuna località» sono due cose diverse. L'elenco completo
+                  (con le escluse) resta nel blocco Dettagli e nel title. */}
+              {(() => {
+                const mirate = campagna.localita.filter((l) => !l.esclusa);
+                const escluse = campagna.localita.filter((l) => l.esclusa);
+                if (campagna.localita.length === 0) {
+                  return (
+                    <span
+                      className="tag-neutro"
+                      style={{ opacity: 0.6 }}
+                      title="Il targeting geografico arriva col giro anagrafica dello script aggiornato al 10/08: finché non gira, non si sa"
+                    >
+                      località non ancora lette
+                    </span>
+                  );
+                }
+                const nomiMirate = mirate.map((l) => l.nome);
+                return (
+                  <span
+                    className="tag-neutro"
+                    title={[
+                      nomiMirate.length > 0 ? `Mirate: ${nomiMirate.join(", ")}` : "Nessuna località mirata",
+                      escluse.length > 0 ? `Escluse: ${escluse.map((l) => l.nome).join(", ")}` : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  >
+                    {nomiMirate.length === 0
+                      ? "nessuna località mirata"
+                      : nomiMirate.length <= 4
+                        ? nomiMirate.join(" · ")
+                        : `${nomiMirate.slice(0, 3).join(" · ")} e altre ${nomiMirate.length - 3}`}
+                    {escluse.length > 0 && (
+                      <span style={{ opacity: 0.65 }}>
+                        {" — esclude "}
+                        {escluse.length <= 3
+                          ? escluse.map((l) => l.nome).join(", ")
+                          : `${escluse.length} località`}
+                      </span>
+                    )}
+                  </span>
+                );
+              })()}
               {/* La lingua sta col titolo, non in fondo a un blocco richiuso:
                   è la cosa che si corregge più spesso, ed è la stessa che
                   l'attribuzione delle vendite usa per tagliare i clienti — non
