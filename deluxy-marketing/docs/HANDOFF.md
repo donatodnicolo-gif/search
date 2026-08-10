@@ -74,6 +74,20 @@ campagna», e chi approva deve leggere da dove nascono davvero. Il dialogo
 vive fuori dal form della barra (i form non si annidano) col bottone-apri
 delegato `data-estendi-ai`, lo stesso disegno di PortaKeyword.
 
+**Provata a secco sulla catena vera** (chiave dalle Impostazioni,
+`claude-opus-5`, campagna Torte MILANO): 18 parole nuove, zero doppioni
+sulle 117 esistenti, lingua giusta. La prova ha trovato due difetti, tolti
+lo stesso giorno:
+
+> ⚠️ **L'API di Claude RIFIUTA `maxItems` negli schemi degli structured
+> outputs** (400 «For 'array' type, property 'maxItems' is not supported») —
+> e anche i vincoli di lunghezza. Vale per OGNI chiamata con `schema` via
+> `chiediAllAi`: schema minimo, i limiti si fanno nel codice dopo il parse.
+> ⚠️ **Una server action che chiama il modello ha bisogno di `maxDuration`
+> sulla pagina che la invoca** (qui 60 su `campagne/[id]`): senza, la
+> chiamata muore a metà **solo in produzione**, dove il default di Vercel è
+> più corto del tempo di risposta del modello.
+
 ### ⭐ I titoli tolti da un annuncio si staccano, invece di accumularsi (10/08/2026)
 
 Chiuso il punto APERTO del 09/08 (annunci con 21/19/17 titoli su un massimo
