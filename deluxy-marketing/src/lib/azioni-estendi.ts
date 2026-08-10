@@ -18,6 +18,10 @@ export type EsitoEstendi =
   | { ok: true; parole: string[]; scartateEsistenti: number; modello: string }
   | { ok: false; errore: string };
 
+// ⚠️ Schema MINIMO: l'API di Claude rifiuta `maxItems` (e i vincoli di
+// lunghezza) negli structured outputs — provato il 10/08/2026, errore 400
+// «For 'array' type, property 'maxItems' is not supported». I limiti (25
+// parole, 80 caratteri) stanno nel codice qui sotto, dove stavano comunque.
 const SCHEMA_PAROLE = {
   type: "object",
   additionalProperties: false,
@@ -25,8 +29,7 @@ const SCHEMA_PAROLE = {
   properties: {
     parole: {
       type: "array",
-      maxItems: 25,
-      items: { type: "string", maxLength: 80 },
+      items: { type: "string" },
     },
   },
 } as const;

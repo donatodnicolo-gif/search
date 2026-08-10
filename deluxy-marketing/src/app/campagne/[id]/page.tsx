@@ -66,6 +66,11 @@ import {
 } from "@/lib/dominio";
 
 export const dynamic = "force-dynamic";
+// «Estendi con AI» è una server action di QUESTA pagina: la chiamata al
+// modello può superare i secondi di default delle funzioni Vercel, e senza
+// questo la proposta morirebbe a metà solo in produzione. Stesso valore
+// delle route lunghe (cron ordini, esegui/meta).
+export const maxDuration = 60;
 
 export default async function SchedaCampagna({
   params,
