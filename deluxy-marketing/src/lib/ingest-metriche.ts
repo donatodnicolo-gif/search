@@ -305,9 +305,27 @@ export async function deduciTipoConversione(campagneIds: Iterable<string>): Prom
 
 // ---------- Anagrafica delle campagne (senza metriche) ----------
 
+// Una località del targeting di una campagna, come la manda lo script.
+export type LocalitaRiga = {
+  // L'id del "geo target constant" di Google (il criterion_id di un criterio
+  // LOCATION è quello): è la chiave vera, i nomi cambiano lingua.
+  idEsterno: string;
+  nome: string;
+  // City | Region | Country… — arriva dall'arricchimento, può mancare.
+  tipo?: string | null;
+  esclusa?: boolean;
+  modificatore?: number | null;
+};
+
 export type RigaAnagrafica = {
   idCampagna: string;
   nome: string;
+  // Le località del targeting, COMPLETE per la campagna: chi le manda le
+  // manda tutte, perché qui si sincronizza uno specchio (si aggiunge, si
+  // aggiorna E si toglie). Campo assente = script vecchio: non si tocca
+  // niente. Elenco vuoto = la campagna non ha criteri di località, e lo
+  // specchio si svuota.
+  localita?: LocalitaRiga[] | null;
   // Lo stato tradotto nel nostro vocabolario dallo script (`statoCampagna()`)
   stato?: string | null;
   // Quello grezzo di Google, se lo script lo manda: ENABLED | PAUSED | REMOVED
@@ -352,6 +370,9 @@ export async function salvaAnagrafica(
 ): Promise<EsitoAnagrafica> {
   const { canale, account } = opzioni;
   const esito: EsitoAnagrafica = { create: 0, aggiornate: 0, invariate: 0, scartate: 0 };
+  // Le località da sincronizzare si raccolgono durante il giro e si scrivono
+  // in fondo: una lettura sola per tutto il lotto, non una per campagna.
+  const localitaDaSincronizzare: { campagnaId: string; localita: LocalitaRiga[] }[] = [];
 
   // Una lettura sola per tutto il lotto invece di una interrogazione per
   // campagna: gli account grossi ne hanno centinaia.
@@ -409,7 +430,17 @@ export async function salvaAnagrafica(
       perId.set(idEsterno, creata);
       perNome.set(nome, creata);
       esito.create++;
+      if (Array.isArray(r.localita)) {
+        localitaDaSincronizzare.push({ campagnaId: creata.id, localita: r.localita });
+      }
       continue;
+    }
+
+    // ⚠️ PRIMA del controllo «è cambiato qualcosa»: le località possono
+    // cambiare anche quando stato e budget sono identici, e il `continue`
+    // delle invariate le salterebbe.
+    if (Array.isArray(r.localita)) {
+      localitaDaSincronizzare.push({ campagnaId: trovata.id, localita: r.localita });
     }
 
     // Si scrive solo se qualcosa è davvero cambiato: un giro di anagrafica che
@@ -447,5 +478,66 @@ export async function salvaAnagrafica(
     esito.aggiornate++;
   }
 
+  await sincronizzaLocalita(localitaDaSincronizzare);
+
   return esito;
+}
+
+// Lo specchio delle località di targeting. Qui — a differenza dei copy — la
+// consegna è COMPLETA per campagna, quindi togliere ciò che Google non ha più
+// è giusto: una località rimossa dal targeting deve sparire dallo specchio.
+// Una lettura sola per tutto il lotto; scritture solo dove qualcosa cambia.
+async function sincronizzaLocalita(
+  lotto: { campagnaId: string; localita: LocalitaRiga[] }[]
+): Promise<void> {
+  if (lotto.length === 0) return;
+
+  const esistenti = await prisma.localitaCampagna.findMany({
+    where: { campagnaId: { in: lotto.map((x) => x.campagnaId) } },
+  });
+  const chiaveDi = (x: { campagnaId: string; idEsterno: string; esclusa: boolean }) =>
+    `${x.campagnaId}|${x.idEsterno}|${x.esclusa}`;
+  const perChiave = new Map(esistenti.map((e) => [chiaveDi(e), e]));
+
+  const arrivate = new Set<string>();
+  for (const { campagnaId, localita } of lotto) {
+    for (const grezza of localita) {
+      if (!grezza?.idEsterno || !grezza?.nome) continue;
+      const voce = {
+        campagnaId,
+        idEsterno: String(grezza.idEsterno),
+        nome: String(grezza.nome),
+        tipo: grezza.tipo ? String(grezza.tipo) : null,
+        esclusa: Boolean(grezza.esclusa),
+        modificatore: grezza.modificatore == null ? null : Number(grezza.modificatore),
+      };
+      arrivate.add(chiaveDi(voce));
+      const presente = perChiave.get(chiaveDi(voce));
+      if (!presente) {
+        await prisma.localitaCampagna.create({ data: voce });
+      } else if (
+        presente.nome !== voce.nome ||
+        (voce.tipo != null && presente.tipo !== voce.tipo) ||
+        presente.modificatore !== voce.modificatore
+      ) {
+        await prisma.localitaCampagna.update({
+          where: { id: presente.id },
+          data: {
+            nome: voce.nome,
+            ...(voce.tipo != null ? { tipo: voce.tipo } : {}),
+            modificatore: voce.modificatore,
+          },
+        });
+      }
+    }
+  }
+
+  // Via quelle che Google non conferma più — SOLO delle campagne arrivate in
+  // questo lotto: delle altre la consegna non dice niente.
+  const daTogliere = esistenti.filter((e) => !arrivate.has(chiaveDi(e)));
+  if (daTogliere.length > 0) {
+    await prisma.localitaCampagna.deleteMany({
+      where: { id: { in: daTogliere.map((x) => x.id) } },
+    });
+  }
 }

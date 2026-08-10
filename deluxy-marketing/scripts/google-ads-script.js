@@ -443,6 +443,22 @@ function mandaMetriche(conto) {
 
 function mandaAnagrafica(conto) {
   var stati = INCLUDI_RIMOSSE ? "'ENABLED', 'PAUSED', 'REMOVED'" : "'ENABLED', 'PAUSED'";
+
+  // Le localita del targeting, complete per campagna: l'app le specchia
+  // (aggiunge, aggiorna e toglie). Se la lettura fallisce l'anagrafica parte
+  // SENZA il campo: non mandarlo vuol dire "non lo so", mandarlo vuoto
+  // vorrebbe dire "questa campagna non ha localita" - due cose diverse.
+  var localita = null;
+  try {
+    localita = leggiLocalita(stati);
+    var conTargeting = 0;
+    for (var kl in localita) if (Object.prototype.hasOwnProperty.call(localita, kl)) conTargeting++;
+    Logger.log("Localita: targeting letto per " + conTargeting + " campagne.");
+  } catch (eLoc) {
+    Logger.log("Localita non lette (" + eLoc + "): anagrafica senza targeting.");
+    localita = null;
+  }
+
   var query =
     "SELECT campaign.id, campaign.name, campaign.status, " +
     "campaign.advertising_channel_type, campaign.bidding_strategy_type, " +
@@ -456,14 +472,16 @@ function mandaAnagrafica(conto) {
     var r = risultati.next();
     var budget = Number((r.campaignBudget && r.campaignBudget.amountMicros) || 0) / 1000000;
     if (r.campaign.status === "PAUSED") ferme++;
-    righe.push({
+    var rigaAnagrafica = {
       idCampagna: String(r.campaign.id),
       nome: r.campaign.name,
       stato: statoCampagna(r.campaign.status),
       budgetGiornaliero: budget > 0 ? arrotonda(budget) : null,
       strategiaOfferta: r.campaign.biddingStrategyType || null,
       tipo: r.campaign.advertisingChannelType || null
-    });
+    };
+    if (localita !== null) rigaAnagrafica.localita = localita[String(r.campaign.id)] || [];
+    righe.push(rigaAnagrafica);
   }
 
   if (righe.length === 0) {
@@ -482,6 +500,75 @@ function statoCampagna(stato) {
   if (stato === "PAUSED") return "in_pausa";
   if (stato === "REMOVED") return "conclusa";
   return "attiva";
+}
+
+/**
+ * Le localita TARGETIZZATE (e quelle escluse) di ogni campagna: il targeting
+ * vero, non la citta dedotta dal nome. Il criterion_id di un criterio
+ * LOCATION e' l'id del "geo target constant" di Google: e' la chiave vera,
+ * i nomi cambiano lingua a seconda di chi legge.
+ * Restituisce una mappa idCampagna -> [{idEsterno, nome, tipo, esclusa,
+ * modificatore}]. Il LIVELLO (City, Region, Country...) sta in un'altra
+ * risorsa e si arricchisce se si puo', senza far dipendere il resto.
+ */
+function leggiLocalita(stati) {
+  var perCampagna = {};
+  var query =
+    "SELECT campaign.id, campaign_criterion.criterion_id, " +
+    "campaign_criterion.display_name, campaign_criterion.type, " +
+    "campaign_criterion.negative, campaign_criterion.bid_modifier, " +
+    "campaign_criterion.status " +
+    "FROM campaign_criterion " +
+    "WHERE campaign_criterion.type IN ('LOCATION', 'PROXIMITY') " +
+    "AND campaign_criterion.status != 'REMOVED' " +
+    "AND campaign.status IN (" + stati + ")";
+  var idGeo = {};
+  var risultati = AdsApp.search(query);
+  while (risultati.hasNext()) {
+    var r = risultati.next();
+    var cr = r.campaignCriterion;
+    if (!cr) continue;
+    var idCampagna = String(r.campaign.id);
+    var nome = String(cr.displayName || "").trim();
+    if (!nome) nome = cr.type === "PROXIMITY" ? "punto con raggio (proximity)" : ("geo " + cr.criterionId);
+    var voce = {
+      idEsterno: String(cr.criterionId),
+      nome: nome,
+      esclusa: cr.negative === true
+    };
+    if (cr.bidModifier != null && cr.bidModifier !== 0 && cr.bidModifier !== 1) {
+      voce.modificatore = cr.bidModifier;
+    }
+    if (!perCampagna[idCampagna]) perCampagna[idCampagna] = [];
+    perCampagna[idCampagna].push(voce);
+    if (cr.type === "LOCATION") idGeo[String(cr.criterionId)] = true;
+  }
+
+  try {
+    var ids = [];
+    for (var k in idGeo) if (Object.prototype.hasOwnProperty.call(idGeo, k)) ids.push(k);
+    if (ids.length > 0) {
+      var tipi = {};
+      var r2 = AdsApp.search(
+        "SELECT geo_target_constant.id, geo_target_constant.target_type " +
+        "FROM geo_target_constant WHERE geo_target_constant.id IN (" + ids.join(", ") + ")"
+      );
+      while (r2.hasNext()) {
+        var g = r2.next().geoTargetConstant;
+        if (g) tipi[String(g.id)] = g.targetType || null;
+      }
+      for (var c in perCampagna) {
+        if (!Object.prototype.hasOwnProperty.call(perCampagna, c)) continue;
+        for (var i = 0; i < perCampagna[c].length; i++) {
+          var v = perCampagna[c][i];
+          if (tipi[v.idEsterno]) v.tipo = tipi[v.idEsterno];
+        }
+      }
+    }
+  } catch (e2) {
+    Logger.log("Localita: livello non letto (" + e2 + ") - i nomi bastano.");
+  }
+  return perCampagna;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

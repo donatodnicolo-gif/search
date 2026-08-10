@@ -113,6 +113,9 @@ export default async function SchedaCampagna({
       },
       azioni: { orderBy: { creataIl: "desc" } },
       landing: true,
+      // Il targeting geografico VERO, letto da Google: prima le mirate, poi
+      // le escluse. Vuoto = mai letto, che non è «nessuna località».
+      localita: { orderBy: [{ esclusa: "asc" }, { nome: "asc" }] },
     },
   });
   if (!campagna) notFound();
@@ -659,6 +662,33 @@ export default async function SchedaCampagna({
                       </a>
                     ) : (
                       "—"
+                    )}
+                  </dd>
+                </dl>
+                <dl className="campo">
+                  <dt>Località (targeting Google)</dt>
+                  <dd style={{ overflowWrap: "anywhere" }}>
+                    {campagna.localita.length === 0 ? (
+                      /* Mai lette ≠ nessuna: senza questa frase, una campagna
+                         nazionale e una mai importata si leggerebbero uguali. */
+                      <span className="cella-muta">
+                        non ancora lette — arrivano col giro anagrafica dello script aggiornato al 10/08
+                      </span>
+                    ) : (
+                      <>
+                        {campagna.localita
+                          .filter((l) => !l.esclusa)
+                          .map(
+                            (l) =>
+                              `${l.nome}${l.modificatore != null ? ` (offerta ×${l.modificatore})` : ""}`
+                          )
+                          .join(" · ") || "nessuna mirata"}
+                        {campagna.localita.some((l) => l.esclusa) && (
+                          <div className="cella-sub" style={{ whiteSpace: "normal" }}>
+                            escluse: {campagna.localita.filter((l) => l.esclusa).map((l) => l.nome).join(" · ")}
+                          </div>
+                        )}
+                      </>
                     )}
                   </dd>
                 </dl>

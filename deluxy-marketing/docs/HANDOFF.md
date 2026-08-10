@@ -22,6 +22,58 @@ Riceve già dati veri da Google Ads (Gifts e Flowers) e ha 2.426 ordini Shopify 
 
 ## FATTO
 
+### ⭐ Le località di targeting si importano, e la scheda le mostra (10/08/2026)
+
+Richiesto dall'utente («lo script per importare le località»). Il modello
+`LocalitaCampagna` esisteva nello schema dal 09/08 ma **non era mai stato
+cablato**: nessuna tabella sul database, nessun ingest, nessuno script. Ora la
+catena è completa:
+
+- **Script** (`leggiLocalita()` dentro `mandaAnagrafica`): legge
+  `campaign_criterion` di tipo LOCATION/PROXIMITY — il `criterion_id` di un
+  criterio location **è** l'id del geo target constant — col `display_name`
+  come nome e il `bid_modifier` come modificatore d'offerta. Il **livello**
+  (City/Region/Country) si arricchisce da `geo_target_constant` in un try a
+  parte: se quella query fallisce, i nomi bastano.
+  ⚠️ **Campo assente ≠ elenco vuoto**: se la lettura fallisce l'anagrafica
+  parte **senza** il campo («non lo so»); un elenco vuoto invece dice «questa
+  campagna non ha criteri di località» e svuota lo specchio.
+- **Ingest** (`salvaAnagrafica` → `sincronizzaLocalita`): specchio con
+  aggiunta, aggiornamento **e rimozione** — qui togliere è giusto perché la
+  consegna è **completa per campagna**, al contrario dei copy dove è
+  parziale. Una lettura sola per lotto, scritture solo dove cambia.
+- **Tabella** creata con `scripts/crea-tabella-localita.mjs` (CREATE mirato,
+  mai `db push`; ha tolto anche due colonne TEXT aggiunte per sbaglio nella
+  stessa sessione — la forma giusta era la tabella).
+- **Scheda campagna**, blocco Dettagli: «Località (targeting Google)» con
+  mirate, modificatori ed escluse; finché non arriva niente dice **«non
+  ancora lette»** — mai lette e «nessuna località» sono due cose diverse.
+
+Il targeting vero smette di essere una deduzione dal nome (`cittaDaTesto`
+resta per i suggerimenti, ma il fatto ora ha la sua tabella). ⚠️ Si popola
+al primo giro dello **script reincollato**.
+
+### «Estendi con AI» sulle parole cercate della campagna (10/08/2026)
+
+Richiesto dall'utente. Nella barra della tabella termini della scheda
+campagna: si scrive un'**indicazione** («varianti con consegna a domicilio…»),
+le parole spuntate in tabella fanno da **seme**, e l'AI propone una sequenza
+di parole correlate. Solo quelle **lasciate spuntate** vanno in coda come
+`nuova_keyword`.
+
+> ⚠️ **Tre cancelli, nessuno salta gli altri**: l'AI propone
+> (`lib/azioni-estendi.ts`, schema JSON vincolante, mai riproponendo ciò che
+> la campagna ha già — filtro rifatto lato server perché uno schema
+> rispettato non è un contenuto sensato), la persona sceglie nel dialogo
+> (`components/EstendiConAi.tsx`: corrispondenza **esatta di default**,
+> gruppo di annunci scelto), la coda approva in Operazioni.
+
+L'accodamento riusa `applicaKeywordAdAltreCampagne`, che ora accetta un
+**`motivo` dichiarato**: le parole AI non sono «portate da un'altra
+campagna», e chi approva deve leggere da dove nascono davvero. Il dialogo
+vive fuori dal form della barra (i form non si annidano) col bottone-apri
+delegato `data-estendi-ai`, lo stesso disegno di PortaKeyword.
+
 ### ⭐ I titoli tolti da un annuncio si staccano, invece di accumularsi (10/08/2026)
 
 Chiuso il punto APERTO del 09/08 (annunci con 21/19/17 titoli su un massimo
@@ -1821,18 +1873,20 @@ Resta da fare **fuori dall'app**, e adesso conta doppio:
 
 1. **Reincollare `tutto.js` nei tre account** da
    `C:\Users\nicol\Downloads\deluxy-google-ads\` (copie rigenerate il
-   **10/08**: dentro ci sono la ricerca campagna+gruppo di `trovaKeyword` E la
-   nuova `leggiAnnunci` di struttura). ⚠️ Nel file generato **CHIAVE_API e
-   BRAND sono vuoti**: vanno rimessi a mano. Finché non si reincolla: la
-   pulizia dei titoli lavora sulla finestra dei 30 giorni (un titolo fermo può
-   essere staccato per errore, si riattacca appena ha traffico) e l'operazione
-   sbloccata resta eseguibile solo dalla ricerca per testo vecchia.
+   **10/08**: dentro ci sono la ricerca campagna+gruppo di `trovaKeyword`, la
+   nuova `leggiAnnunci` di struttura E `leggiLocalita` del targeting).
+   ⚠️ Nel file generato **CHIAVE_API e BRAND sono vuoti**: vanno rimessi a
+   mano. Finché non si reincolla: la pulizia dei titoli lavora sulla finestra
+   dei 30 giorni (un titolo fermo può essere staccato per errore, si
+   riattacca appena ha traffico), l'operazione sbloccata resta eseguibile
+   solo dalla ricerca per testo vecchia, e le località non arrivano.
 2. Verificare in Business Manager se `ads_management` si ottiene senza App
    Review (per accendere la scrittura Meta).
-3. Al giro dopo il reincollo, controllare su `Flowers Delivery` che gli
-   annunci siano scesi a **≤ 15 titoli** (erano 21/19/17) e che l'operazione
+3. Al giro dopo il reincollo, controllare: su `Flowers Delivery` che gli
+   annunci siano scesi a **≤ 15 titoli** (erano 21/19/17); che l'operazione
    `attiva_keyword` su «flowers delivery milan» risulti **eseguita o fallita
-   con motivo** — non più `approvata` muta.
+   con motivo** — non più `approvata` muta; e che sulle schede campagna
+   compaiano le **località** («non ancora lette» deve sparire).
 
 ## MANCA
 

@@ -329,6 +329,18 @@ cd deluxy-marketing && npm run sync-drive
 - **Serve**: `DATABASE_URL` nel `.env` dell'app; `DRIVE_ADV_DIR` se la cartella non è `G:\Il mio Drive\ADV DELUXY SRL`
 - **Nota**: idempotente; la cartella Drive **non viene mai scritta**. Stessa sync disponibile dal bottone «Sincronizza ora» nella pagina Documenti Drive dell'app (che nella versione server è anche **ripartibile**: se il tempo finisce si ferma e la passata dopo riprende da dov'era, senza cancellare l'indice).
 
+### Migrazioni mirate dello schema — deluxy-marketing
+ALTER/CREATE TABLE **mirati**, mai `prisma db push`: il Postgres è condiviso fra più app e un push confronta l'intero schema. Tutti ripetibili (`IF NOT EXISTS`).
+
+```bash
+cd deluxy-marketing && node scripts/aggiungi-metriche-giorni.mjs    # CopyAnnuncio.metricheGiorni (08/08)
+cd deluxy-marketing && node scripts/aggiungi-account-campagna.mjs   # Campagna.account + brandManuale (09/08)
+cd deluxy-marketing && node scripts/crea-tabella-localita.mjs       # tabella LocalitaCampagna (10/08)
+```
+
+- **Serve**: `DATABASE_URL` nel `.env` dell'app
+- **Nota**: già eseguiti in produzione alla data indicata; rilanciarli è innocuo.
+
 ---
 
 ### import-ordini-da-orders.mjs — deluxy-marketing
