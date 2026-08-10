@@ -549,19 +549,29 @@ function leggiLocalita(stati) {
     for (var k in idGeo) if (Object.prototype.hasOwnProperty.call(idGeo, k)) ids.push(k);
     if (ids.length > 0) {
       var tipi = {};
+      var nomi = {};
       var r2 = AdsApp.search(
-        "SELECT geo_target_constant.id, geo_target_constant.target_type " +
+        "SELECT geo_target_constant.id, geo_target_constant.name, " +
+        "geo_target_constant.canonical_name, geo_target_constant.target_type " +
         "FROM geo_target_constant WHERE geo_target_constant.id IN (" + ids.join(", ") + ")"
       );
       while (r2.hasNext()) {
         var g = r2.next().geoTargetConstant;
-        if (g) tipi[String(g.id)] = g.targetType || null;
+        if (!g) continue;
+        tipi[String(g.id)] = g.targetType || null;
+        nomi[String(g.id)] = g.name || g.canonicalName || null;
       }
       for (var c in perCampagna) {
         if (!Object.prototype.hasOwnProperty.call(perCampagna, c)) continue;
         for (var i = 0; i < perCampagna[c].length; i++) {
           var v = perCampagna[c][i];
           if (tipi[v.idEsterno]) v.tipo = tipi[v.idEsterno];
+          // Il display_name dei criteri arriva VUOTO dagli Scripts (misurato
+          // il 10/08 su Cake: tutte le voci cadevano sul ripiego "geo <id>"):
+          // il nome vero sta nella costante geografica, che si legge comunque.
+          if (nomi[v.idEsterno] && (!v.nome || v.nome === "geo " + v.idEsterno)) {
+            v.nome = nomi[v.idEsterno];
+          }
         }
       }
     }
