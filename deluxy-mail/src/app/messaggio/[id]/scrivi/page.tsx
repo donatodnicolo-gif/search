@@ -7,6 +7,9 @@ import { richiediUtente } from '@/lib/sessione'
 import { leggiSenzaTraduzione, lingueLetteDi } from '@/lib/lingue'
 import { elencoContatti } from '@/lib/contatti'
 import { htmlDiMessaggio } from '@/lib/htmlServer'
+import { righeThread } from '@/lib/sync'
+import { anteprimaPulita } from '@/lib/citato'
+import { ConversazioneMentreScrivi } from '@/components/ConversazioneMentreScrivi'
 
 export const dynamic = 'force-dynamic'
 // L'invio gira qui dentro: inoltrando, gli allegati si riprendono dalla casella
@@ -65,6 +68,19 @@ export default async function Scrivi({ params, searchParams }: Props) {
 
   const contatti = (await elencoContatti(u.id)).map((c) => ({ email: c.email, nome: c.nome }))
 
+  // Le altre mail della conversazione, in forma leggera: i testi si chiedono
+  // uno alla volta quando si apre quel messaggio (vedi il componente).
+  const precedenti = (await righeThread(u.id, messaggio.id))
+    .filter((r) => r.id !== messaggio.id)
+    .map((r) => ({
+      id: r.id,
+      mittente: r.mittente,
+      mittenteNome: r.mittenteNome,
+      direzione: r.direzione,
+      data: r.data,
+      anteprima: anteprimaPulita(r.anteprima ?? ''),
+    }))
+
   // Le sequenze di follow-up da poter agganciare all'invio.
   let sequenze: { id: string; nome: string }[] = []
   try {
@@ -122,6 +138,11 @@ export default async function Scrivi({ params, searchParams }: Props) {
           </div>
         </div>
       )}
+
+      {/* Le mail precedenti, richiudibili: rispondendo si ha bisogno di
+          ricontrollare un prezzo o una data senza abbandonare quello che si
+          sta scrivendo. */}
+      <ConversazioneMentreScrivi righe={precedenti} />
 
       <Composizione
         messaggioId={messaggio.id}

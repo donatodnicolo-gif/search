@@ -190,6 +190,11 @@ un'intera serie arrivano al giro di sincronizzazione successivo, non all'istante
 
 ## 6. Bozze
 
+**Le mail precedenti, mentre scrivi.** Sopra il modulo di risposta c'è **«Le mail
+precedenti (4)»**: si apre, si clicca su un messaggio e se ne legge il testo lì, senza
+lasciare quello che stai scrivendo. I testi si caricano uno alla volta, quando apri quel
+messaggio.
+
 **Il brief.** Mentre scrivi — sia rispondendo sia in una mail da zero — c'è **«Detta il
 brief a Renè»**: un riquadro dove butti giù i punti, anche a elenco e anche sgrammaticati
 (prezzi, date, cosa concedere e cosa no). Renè scrive la mail col tuo stile e la tua firma;

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { sembraHtml, plainAHtml } from '@/lib/htmlMail'
+import { mistoAHtml } from '@/lib/htmlMail'
 
 /**
  * Editor di testo formattato per il corpo delle mail: grassetto, corsivo,
@@ -25,14 +25,13 @@ export function EditorRicco({
   const ref = useRef<HTMLDivElement>(null)
 
   // Il contenuto si imposta UNA volta: dopo comanda il DOM (reimpostarlo a ogni
-  // render sposterebbe il cursore). Un testo semplice diventa HTML leggibile.
+  // render sposterebbe il cursore). ⚠️ `mistoAHtml` e non «o testo o HTML»:
+  // quello che scrive Renè è testo semplice CON IN FONDO la firma in HTML, e
+  // trattarlo tutto come HTML buttava via gli a-capo del testo (mail «tutte
+  // attaccate», 9/08/2026).
   useEffect(() => {
     if (!ref.current) return
-    ref.current.innerHTML = valoreIniziale
-      ? sembraHtml(valoreIniziale)
-        ? valoreIniziale
-        : plainAHtml(valoreIniziale)
-      : ''
+    ref.current.innerHTML = valoreIniziale ? mistoAHtml(valoreIniziale) : ''
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

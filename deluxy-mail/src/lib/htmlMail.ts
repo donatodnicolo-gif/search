@@ -11,6 +11,27 @@ export function sembraHtml(s: string): boolean {
   return TAG_HTML.test(s)
 }
 
+/**
+ * Testo MISTO → HTML: testo semplice davanti, blocco HTML in fondo.
+ *
+ * ⚠️ È il caso normale di quello che scrive Renè, e per un giorno intero ha
+ * prodotto mail «tutte attaccate». Il modello scrive il corpo a testo semplice
+ * e gli a-capo li mette davvero (misurato: 6 paragrafi su 6 tentativi); poi in
+ * fondo ci incolla la FIRMA, che è una `<table>` HTML. Ne esce una stringa
+ * mista, e il controllo «sembra HTML?» la dichiarava HTML — la tabella c'è —
+ * inserendola tale e quale, dove gli a-capo del testo non contano niente. A
+ * schermo: un muro di testo, con sotto una firma impaginata benissimo.
+ *
+ * Qui si taglia al primo blocco HTML: quello che sta prima è testo e va
+ * convertito, quello che segue è già HTML e si lascia stare.
+ */
+export function mistoAHtml(s: string): string {
+  const i = s.search(/<(table|div|p|blockquote|img|hr)\b/i)
+  if (i < 0) return sembraHtml(s) ? s : plainAHtml(s)
+  if (i === 0) return s
+  return plainAHtml(s.slice(0, i)) + s.slice(i)
+}
+
 /** Testo semplice → HTML sicuro: escape + a-capo come <br>. */
 export function plainAHtml(testo: string): string {
   const esc = testo
