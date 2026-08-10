@@ -9,7 +9,7 @@ import { euro, percentuale } from "@/lib/dominio";
 import { etichettaRegola, FILTRO_IN_SCENA } from "@/lib/ordinamento-vetrina";
 import { normalizza } from "@/lib/riconciliazione";
 import { FILTRO_BUON_FINE, finestra } from "@/lib/vendite";
-import { etichettaFrequenza, etichettaModo } from "@/lib/rotazione";
+import { etichettaFrequenza, etichettaModo, prossimaVolta } from "@/lib/rotazione";
 import { cambiaVetrina } from "@/lib/azioni-collezioni-shopify";
 import { TabsVetrina } from "@/components/TabsVetrina";
 
@@ -24,7 +24,7 @@ export const dynamic = "force-dynamic";
 const ultimaModifica = (c: { aggiornataShopifyIl: Date | null; ordineModificatoIl: Date | null }) =>
   Math.max(c.aggiornataShopifyIl?.getTime() ?? 0, c.ordineModificatoIl?.getTime() ?? 0);
 
-const CRITERI = ["venduto", "modifica", "prodotti", "nome", "vetrina", "ordine", "rotazione"] as const;
+const CRITERI = ["venduto", "modifica", "prodotti", "nome", "vetrina", "ordine", "rotazione", "prossimo"] as const;
 type Criterio = (typeof CRITERI)[number];
 
 // Le condizioni con cui si restringe l'elenco. Sono le domande che ci si fa
@@ -78,7 +78,7 @@ export default async function VisualPage({
         _count: { select: { prodotti: true } },
         tipologia: { select: { id: true, nome: true } },
         regolaOrdine: { select: { nome: true, aggiornataIl: true } },
-        rotazione: { select: { nome: true, frequenza: true, modo: true, attiva: true } },
+        rotazione: { select: { nome: true, frequenza: true, ogniQuanti: true, modo: true, attiva: true, ultimaEsecuzioneIl: true } },
       },
     }),
     prisma.collezioneShopify.count({ where: filtroNegozio }),
@@ -267,6 +267,13 @@ export default async function VisualPage({
         return Number(b.inVetrina) - Number(a.inVetrina) || b.ricavo - a.ricavo;
       case "ordine":
         return etichettaRegola(b.c.regolaOrdinamento).localeCompare(etichettaRegola(a.c.regolaOrdinamento));
+      case "prossimo": {
+        // Il giro più vicino in cima; chi non ruota in fondo — "non ne ha" non
+        // è una data. desc = "prima i più imminenti", che è la domanda vera.
+        const pa = a.c.rotazione ? prossimaVolta(a.c.rotazione)?.getTime() ?? Infinity : Infinity;
+        const pb = b.c.rotazione ? prossimaVolta(b.c.rotazione)?.getTime() ?? Infinity : Infinity;
+        return pa - pb;
+      }
       case "rotazione":
         // Senza rotazione si finisce in fondo: "non ne ha" non è un valore che
         // compete con le frequenze, è l'assenza.
@@ -450,6 +457,7 @@ export default async function VisualPage({
                       <Intestazione c="venduto" testo="Quota" num />
                       <Intestazione c="ordine" testo="Ordine" />
                       <Intestazione c="rotazione" testo="Rotazione" />
+                      <Intestazione c="prossimo" testo="Prossimo giro" />
                       <Intestazione c="modifica" testo="Modificata" />
                     </tr>
                   </thead>
@@ -538,6 +546,31 @@ export default async function VisualPage({
                             </>
                           ) : (
                             <span className="cella-sub">—</span>
+                          )}
+                        </td>
+                        <td>
+                          {/* **Quando tocca a questa vetrina.** Il ritmo dice
+                              ogni quanto, questa colonna dice **quando**: è la
+                              domanda che ci si fa guardando l'elenco (chiesta
+                              dall'utente). `prossimaVolta` è la stessa funzione
+                              della pagina Rotazioni: mai eseguita = "al prossimo
+                              cron", in pausa = non scatta. */}
+                          {r.c.rotazione == null ? (
+                            <span className="cella-sub">—</span>
+                          ) : !r.c.rotazione.attiva ? (
+                            <span className="cella-sub">in pausa</span>
+                          ) : (
+                            (() => {
+                              const q = prossimaVolta(r.c.rotazione);
+                              if (!q) return <span className="cella-sub">—</span>;
+                              const oggi = new Date();
+                              const scaduta = q.getTime() <= oggi.getTime();
+                              return (
+                                <span className="cella-sub" style={scaduta ? { color: "var(--gold-strong)", fontWeight: 600 } : undefined}>
+                                  {scaduta ? "al prossimo cron" : q.toLocaleDateString("it-IT", { day: "numeric", month: "short" })}
+                                </span>
+                              );
+                            })()
                           )}
                         </td>
                         <td>
