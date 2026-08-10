@@ -681,7 +681,26 @@ export default async function SchedaGruppo({
                     storia giorno per giorno: l&apos;app conserva l&apos;ultima fotografia mandata dallo
                     script, che copre una <b>finestra fissa</b>
                     {finestreKeyword.length === 1 ? (
-                      <> di <b>{finestreKeyword[0]} giorni</b></>
+                      // Le DATE, non solo «30 giorni»: la finestra include il
+                      // giorno del giro, quindi anche OGGI se lo script è
+                      // appena passato — ed è il giorno che la vista standard
+                      // di Google Ads non mostra. Senza le date, 412 € qui
+                      // contro 389 € di là sembrano un errore di sync
+                      // (successo davvero, 10/08).
+                      <>
+                        {" "}di <b>{finestreKeyword[0]} giorni</b>
+                        {ultimaLetturaKeyword && (
+                          <>
+                            {" "}— qui{" "}
+                            <b>
+                              {formattaData(new Date(ultimaLetturaKeyword.getTime() - finestreKeyword[0] * 86_400_000))}{" "}
+                              → {formattaData(ultimaLetturaKeyword)}
+                            </b>
+                            , il giorno del giro compreso: per confrontare con Google Ads porta
+                            anche là la finestra fino a quel giorno
+                          </>
+                        )}
+                      </>
                     ) : finestreKeyword.length > 1 ? (
                       <>
                         {" "}che qui <b>non è la stessa per tutte le righe</b> — ce ne sono di{" "}
@@ -691,7 +710,9 @@ export default async function SchedaGruppo({
                     ) : (
                       <> che lo script non ha dichiarato</>
                     )}
-                    {ultimaLetturaKeyword && <> ed è aggiornata al <b>{formattaData(ultimaLetturaKeyword)}</b></>}.
+                    {ultimaLetturaKeyword && finestreKeyword.length !== 1 && (
+                      <> ed è aggiornata al <b>{formattaData(ultimaLetturaKeyword)}</b></>
+                    )}.
                     Le metriche di gruppo qui sopra, invece, sono giornaliere e seguono il periodo.
                   </span>
                 </div>
