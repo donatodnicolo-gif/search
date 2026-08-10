@@ -64,7 +64,9 @@ export async function KeywordCampagna({
 
   const keyword = nomiCompatibili.length
     ? await prisma.copyAnnuncio.findMany({
-        where: { tipo: "keyword", campagna: { in: nomiCompatibili } },
+        // Le defunte non si vedono mai più (come le campagne): si ritrovano
+        // solo dal filtro di stato della pagina Keywords.
+        where: { tipo: "keyword", campagna: { in: nomiCompatibili }, stato: { not: "defunta" } },
         orderBy: { spesa: "desc" },
         take: 60,
       })

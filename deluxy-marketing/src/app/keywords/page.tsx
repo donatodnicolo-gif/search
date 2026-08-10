@@ -209,7 +209,10 @@ export default async function PaginaKeywords({
     ...k,
     resa: k.spesa > 0 ? k.incasso / k.spesa : null,
   }));
+  // Le defunte spariscono da ogni vista, come le campagne: si rivedono solo
+  // scegliendo «Defunta» nel filtro di stato.
   if (p.stato) tutte = tutte.filter((k) => k.stato === p.stato);
+  else tutte = tutte.filter((k) => k.stato !== "defunta");
 
   // Rendimento: le fasce sono quelle su cui si agisce davvero.
   if (p.resa === "rendono") tutte = tutte.filter((k) => k.incasso > 0 && k.resa != null && k.resa >= 1);

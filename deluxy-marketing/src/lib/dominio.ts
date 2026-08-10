@@ -444,13 +444,19 @@ export const ETICHETTA_GIUDIZIO_GOOGLE: Record<string, string> = {
   LEARNING: "in prova",
 };
 
-export const STATI_KEYWORD = ["attiva", "vincente", "da_valutare", "in_pausa", "esclusa"] as const;
+export const STATI_KEYWORD = ["attiva", "vincente", "da_valutare", "in_pausa", "esclusa", "defunta"] as const;
+// «Defunta» = non guardarla mai più: sparisce da ogni elenco, come per
+// campagne e gruppi (si ritrova solo chiedendola col filtro). È un GIUDIZIO
+// dell'app — su Google la keyword resta quella che è, e l'import non tocca
+// mai lo stato deciso qui. Deciso dall'utente il 10/08/2026.
+export const STATI_KEYWORD_IGNORATE = ["defunta"] as const;
 export const ETICHETTA_STATO_KEYWORD: Record<string, string> = {
   attiva: "Attiva",
   vincente: "Vincente",
   da_valutare: "Da valutare",
   in_pausa: "In pausa",
   esclusa: "Esclusa",
+  defunta: "Defunta — non si vedrà più",
   // valore ereditato dall'import, trattato come "attiva"
   attivo: "Attiva",
 };
@@ -461,6 +467,7 @@ export const COLORE_STATO_KEYWORD: Record<string, string> = {
   da_valutare: "var(--gold-strong)",
   in_pausa: "var(--ardesia)",
   esclusa: "var(--red)",
+  defunta: "var(--text-tertiary)",
 };
 
 // ---------- Pubblici (CRM & audience) ----------

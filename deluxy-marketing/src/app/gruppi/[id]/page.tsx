@@ -157,12 +157,18 @@ export default async function SchedaGruppo({
   // un altro gruppo qui non c'entra, qualunque cosa dica il suo campo
   // `gruppo`. Le righe senza id completo (legacy) restano col nome.
   const prefissoGruppo = gruppo.idEsterno ? `${gruppo.idEsterno}:` : null;
-  const keyword = copy.filter((c) => {
+  const keywordDelGruppo = copy.filter((c) => {
     if (c.tipo !== "keyword") return false;
     if (!prefissoGruppo) return true;
     const idCompleto = /^[\d-]+:\d+:\d+$/.test(c.idEsterno ?? "");
     return idCompleto ? c.idEsterno!.startsWith(prefissoGruppo) : true;
   });
+  // Le defunte non si vedono mai più, come le campagne: stanno dietro la
+  // pillola «Defunte», che compare solo se ce ne sono. Conteggi, finestra e
+  // ultima lettura si calcolano sulle vive: una riga che non si guarda più
+  // non deve nemmeno contare.
+  const keywordDefunte = keywordDelGruppo.filter((c) => c.stato === "defunta");
+  const keyword = keywordDelGruppo.filter((c) => c.stato !== "defunta");
 
   // La STORIA giorno per giorno delle keyword (lavoro `keyword-giorni`, dal
   // 10/08/2026): quando copre il periodo scelto, spesa/incasso/resa della
@@ -319,8 +325,8 @@ export default async function SchedaGruppo({
   // Filtro delle keyword per stato: su gruppi con centinaia di parole,
   // guardarle tutte insieme non serve a niente. "attive" è il caso comune.
   const filtroKw = sp.kw ?? "tutte";
-  const keywordMostrate = keyword.filter((k) => {
-    if (filtroKw === "tutte") return true;
+  const keywordMostrate = (filtroKw === "defunte" ? keywordDefunte : keyword).filter((k) => {
+    if (filtroKw === "tutte" || filtroKw === "defunte") return true;
     if (filtroKw === "attive") return k.statoPiattaforma !== "PAUSED";
     if (filtroKw === "in_pausa") return k.statoPiattaforma === "PAUSED";
     if (filtroKw === "spendono") return numeriDi(k).spesa > 0;
@@ -807,6 +813,7 @@ export default async function SchedaGruppo({
                   ["spendono", "Che spendono"],
                   ["a_vuoto", "Spendono a vuoto"],
                   ["decise", "Con azione decisa"],
+                  ...(keywordDefunte.length > 0 ? [["defunte", `Defunte (${keywordDefunte.length})`]] : []),
                 ].map(([chiave, etichetta]) => (
                   <a
                     key={chiave}
