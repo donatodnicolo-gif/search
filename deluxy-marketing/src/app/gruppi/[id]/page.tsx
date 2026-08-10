@@ -151,7 +151,18 @@ export default async function SchedaGruppo({
     orderBy: [{ tipo: "asc" }, { spesa: "desc" }],
     take: 200,
   });
-  const keyword = copy.filter((c) => c.tipo === "keyword");
+  // ⚠️ Il nome del gruppo sulla riga può essere stantio (Monitoraggio, righe
+  // separate); l'id per criterio (`account:gruppo:criterio`, dal 10/08) dice
+  // la casa VERA. Quando la riga ce l'ha, comanda lui: una riga con l'id di
+  // un altro gruppo qui non c'entra, qualunque cosa dica il suo campo
+  // `gruppo`. Le righe senza id completo (legacy) restano col nome.
+  const prefissoGruppo = gruppo.idEsterno ? `${gruppo.idEsterno}:` : null;
+  const keyword = copy.filter((c) => {
+    if (c.tipo !== "keyword") return false;
+    if (!prefissoGruppo) return true;
+    const idCompleto = /^[\d-]+:\d+:\d+$/.test(c.idEsterno ?? "");
+    return idCompleto ? c.idEsterno!.startsWith(prefissoGruppo) : true;
+  });
 
   // Le parole cercate davvero, quelle che hanno fatto scattare gli annunci.
   // Anche queste sono a finestra (dal/al scritti dallo script), non giornaliere.
