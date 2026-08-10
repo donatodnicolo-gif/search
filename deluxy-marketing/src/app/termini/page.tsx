@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { Badge } from "@/components/Badge";
 import { PortaKeyword } from "@/components/PortaKeyword";
 import { PortaSelezionate } from "@/components/PortaSelezionate";
+import { SelezionaTutte } from "@/components/SelezionaTutte";
 import { Sidebar } from "@/components/Sidebar";
 import { VisteSalvate } from "@/components/VisteSalvate";
 import { campagnePerDialogo } from "@/lib/campagne-dialogo";
@@ -197,6 +198,7 @@ export default async function PaginaTermini({
           <form id="scelte-termini" action={escludiTerminiSelezionati} className="barra-multipla">
             <input type="hidden" name="ritorno" value={link({})} />
             <span className="cella-sub">Spunta più parole e agisci su tutte insieme:</span>
+            <SelezionaTutte formId="scelte-termini" />
             {/* ⚠️ Esatta di default: si esclude QUELLA ricerca, non tutto ciò
                 che le somiglia. La generica può spegnere una campagna. */}
             <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12 }}>

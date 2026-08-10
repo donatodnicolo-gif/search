@@ -6,6 +6,7 @@ import { EstendiConAi } from "@/components/EstendiConAi";
 import { PortaKeyword } from "@/components/PortaKeyword";
 import { PortaSelezionate } from "@/components/PortaSelezionate";
 import { RinominaInline } from "@/components/RinominaInline";
+import { SelezionaTutte } from "@/components/SelezionaTutte";
 import { TestiAnnuncio } from "@/components/TestiAnnuncio";
 import { estendiKeywordConAi } from "@/lib/azioni-estendi";
 import { campagnePerDialogo } from "@/lib/campagne-dialogo";
@@ -865,6 +866,7 @@ export default async function SchedaGruppo({
                 <span className="cella-sub">
                   Spunta le parole che non c&apos;entrano e mettile in coda tutte insieme:
                 </span>
+                <SelezionaTutte formId="escludi-kw" />
                 {/* La corrispondenza decide QUANTO blocca la negativa, ed è la
                     differenza fra togliere una ricerca e spegnere una campagna.
                     Default esatta: si esclude quella ricerca, non tutto ciò che
@@ -1021,62 +1023,65 @@ export default async function SchedaGruppo({
                                   riproporre lo stesso bottone creava doppioni
                                   in coda. Una volta eseguita non si annulla
                                   più — si fa l'operazione opposta. */}
-                              {az && (az.stato === "in_attesa" || az.stato === "approvata") ? (
-                                <form action={annullaOperazioneParola} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                  <input type="hidden" name="campagnaId" value={gruppo.campagna.id} />
-                                  <input type="hidden" name="testo" value={k.testo} />
-                                  <input type="hidden" name="ritorno" value={`/gruppi/${gruppo.id}?kw=${filtroKw}`} />
-                                  <span className="tag-salute" style={{ color: "var(--ardesia)" }}>
-                                    <span className="dot" />
-                                    {ETICHETTA_OPERAZIONE[az.tipo] ?? az.tipo}
-                                    {az.stato === "in_attesa" ? " · da approvare" : " · approvata"}
-                                  </span>
-                                  <button className="btn small btn-secondario" type="submit" title="Toglie l'operazione dalla coda: su Google non cambia niente perché non è ancora stata eseguita">
-                                    Annulla
-                                  </button>
-                                </form>
-                              ) : (
-                                <>
-                                  <form action={creaOperazioneKeyword} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              {/* ⚠️ UNA riga, non una pila: quattro azioni
+                                  impilate facevano righe alte 200px (e due
+                                  bottoni usavano una classe `fantasma` che
+                                  nel CSS non esiste, quindi uscivano neri
+                                  pieni). Etichette corte + title: le azioni
+                                  restano tutte — si stringe la cornice, non
+                                  il loro numero. */}
+                              <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
+                                {az && (az.stato === "in_attesa" || az.stato === "approvata") ? (
+                                  <form action={annullaOperazioneParola} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                                     <input type="hidden" name="campagnaId" value={gruppo.campagna.id} />
                                     <input type="hidden" name="testo" value={k.testo} />
-                                    <input type="hidden" name="gruppo" value={gruppo.nome} />
-                                    <input type="hidden" name="idEsternoKeyword" value={k.idEsterno ?? ""} />
                                     <input type="hidden" name="ritorno" value={`/gruppi/${gruppo.id}?kw=${filtroKw}`} />
-                                    <input type="hidden" name="tipo" value={inPausaGoogle ? "attiva_keyword" : "pausa_keyword"} />
-                                    <span className="tag-salute" style={{ color: inPausaGoogle ? "var(--ardesia)" : "var(--green)" }}>
+                                    <span className="tag-salute" style={{ color: "var(--ardesia)" }}>
                                       <span className="dot" />
-                                      {inPausaGoogle ? "in pausa" : "attiva"}
+                                      {ETICHETTA_OPERAZIONE[az.tipo] ?? az.tipo}
+                                      {az.stato === "in_attesa" ? " · da approvare" : " · approvata"}
                                     </span>
-                                    <button className="btn small btn-secondario" type="submit">
-                                      {inPausaGoogle ? "Riattiva" : "Metti in pausa"}
+                                    <button className="btn small btn-secondario" type="submit" title="Toglie l'operazione dalla coda: su Google non cambia niente perché non è ancora stata eseguita">
+                                      Annulla
                                     </button>
                                   </form>
-                                  <form action={creaOperazioneKeyword} style={{ marginTop: 6 }}>
-                                    <input type="hidden" name="campagnaId" value={gruppo.campagna.id} />
-                                    <input type="hidden" name="testo" value={k.testo} />
-                                    <input type="hidden" name="ritorno" value={`/gruppi/${gruppo.id}?kw=${filtroKw}`} />
-                                    <input type="hidden" name="tipo" value="negativa" />
-                                    {/* La corrispondenza con cui questa parola è
-                                        stata comprata: la negativa la eredita,
-                                        così esclude esattamente quello che la
-                                        keyword stava intercettando. */}
-                                    <input type="hidden" name="corrispondenzaOrigine" value={matchDi(k.testo) ?? "exact"} />
-                                    <button className="btn small btn-secondario" type="submit" title={`Esclude come negativa ${ETICHETTA_MATCH_KW[matchDi(k.testo) ?? "exact"]}: non farà più scattare gli annunci di questa campagna`}>
-                                      Escludi
-                                    </button>
-                                  </form>
-                                </>
-                              )}
-                              {/* Le stesse logiche della scheda campagna,
-                                  parola per parola: si porta altrove (stesso
-                                  dialogo unico della pagina) o si estende con
-                                  l'AI partendo da QUESTA, col gruppo e la
-                                  corrispondenza già impostati su questa. */}
-                              <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                                ) : (
+                                  <>
+                                    <form action={creaOperazioneKeyword} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                                      <input type="hidden" name="campagnaId" value={gruppo.campagna.id} />
+                                      <input type="hidden" name="testo" value={k.testo} />
+                                      <input type="hidden" name="gruppo" value={gruppo.nome} />
+                                      <input type="hidden" name="idEsternoKeyword" value={k.idEsterno ?? ""} />
+                                      <input type="hidden" name="ritorno" value={`/gruppi/${gruppo.id}?kw=${filtroKw}`} />
+                                      <input type="hidden" name="tipo" value={inPausaGoogle ? "attiva_keyword" : "pausa_keyword"} />
+                                      <span className="tag-salute" style={{ color: inPausaGoogle ? "var(--ardesia)" : "var(--green)" }}>
+                                        <span className="dot" />
+                                        {inPausaGoogle ? "in pausa" : "attiva"}
+                                      </span>
+                                      <button className="btn small btn-secondario" type="submit" title={inPausaGoogle ? "Mette in coda la riattivazione su Google, da approvare in Operazioni" : "Mette in coda la pausa su Google, da approvare in Operazioni"}>
+                                        {inPausaGoogle ? "Riattiva" : "Pausa"}
+                                      </button>
+                                    </form>
+                                    <form action={creaOperazioneKeyword} style={{ display: "inline-flex" }}>
+                                      <input type="hidden" name="campagnaId" value={gruppo.campagna.id} />
+                                      <input type="hidden" name="testo" value={k.testo} />
+                                      <input type="hidden" name="ritorno" value={`/gruppi/${gruppo.id}?kw=${filtroKw}`} />
+                                      <input type="hidden" name="tipo" value="negativa" />
+                                      {/* La corrispondenza con cui questa parola è
+                                          stata comprata: la negativa la eredita,
+                                          così esclude esattamente quello che la
+                                          keyword stava intercettando. */}
+                                      <input type="hidden" name="corrispondenzaOrigine" value={matchDi(k.testo) ?? "exact"} />
+                                      <button className="btn small btn-secondario" type="submit" title={`Esclude come negativa ${ETICHETTA_MATCH_KW[matchDi(k.testo) ?? "exact"]}: non farà più scattare gli annunci di questa campagna`}>
+                                        Escludi
+                                      </button>
+                                    </form>
+                                  </>
+                                )}
                                 <button
                                   type="button"
-                                  className="btn small fantasma"
+                                  className="btn small btn-secondario"
+                                  title="Porta la parola su altre campagne, con lo stesso dialogo della pagina Keywords"
                                   {...attributiPortaKeyword({
                                     testo: k.testo,
                                     corrispondenza: matchDi(k.testo) ?? "exact",
@@ -1085,18 +1090,18 @@ export default async function SchedaGruppo({
                                     lingueDiOra: lingueQui,
                                   })}
                                 >
-                                  Porta altrove
+                                  Porta
                                 </button>
                                 <button
                                   type="button"
-                                  className="btn small fantasma"
+                                  className="btn small btn-secondario"
                                   data-estendi-ai
                                   data-estendi-seme={k.testo}
                                   data-estendi-gruppo={gruppo.nome}
                                   data-estendi-corrispondenza={matchDi(k.testo) ?? "exact"}
                                   title="L'AI propone parole correlate a questa, da mettere in coda dopo averle guardate"
                                 >
-                                  Estendi con AI
+                                  Estendi AI
                                 </button>
                               </div>
                             </td>
@@ -1134,6 +1139,7 @@ export default async function SchedaGruppo({
                   <input type="hidden" name="campagnaId" value={gruppo.campagna.id} />
                   <input type="hidden" name="ritorno" value={`/gruppi/${gruppo.id}`} />
                   <span className="cella-sub">Spunta più parole e agisci su tutte insieme:</span>
+                  <SelezionaTutte formId="scelte-termini" />
                   <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12 }}>
                     come
                     <select name="corrispondenza" defaultValue="exact" style={{ font: "inherit", padding: "4px 8px", borderRadius: 8, border: "1px solid var(--hairline-strong)" }}>
@@ -1194,6 +1200,17 @@ export default async function SchedaGruppo({
                             </div>
                             {t.stato !== "nuovo" && (
                               <div className="cella-sub">{t.stato.replace("_", " ")}</div>
+                            )}
+                            {/* La finestra DELLA RIGA quando non è quella
+                                fresca: «torte milano 34,19 €» era la somma di
+                                UN ANNO accanto a righe di 30 giorni, e senza
+                                data si leggeva come spesa recente (e la si
+                                cercava a vuoto nella card Ricerche, che tiene
+                                solo la finestra fresca). */}
+                            {t.dal && t.al && alFresco && alFresco.getTime() - t.al.getTime() > 2 * 86_400_000 && (
+                              <div className="cella-sub" style={{ whiteSpace: "normal" }} title="Questa ricerca non compare nella finestra recente: i numeri sono della finestra indicata">
+                                finestra {formattaData(t.dal)} → {formattaData(t.al)}
+                              </div>
                             )}
                           </td>
                           <td className="num">{formattaEuro(t.spesa)}</td>

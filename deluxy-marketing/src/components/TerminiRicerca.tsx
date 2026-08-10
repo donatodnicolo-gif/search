@@ -2,6 +2,7 @@ import { applicaKeywordAdAltreCampagne, escludiParoleSelezionate, giudicaTermine
 import { estendiKeywordConAi } from "@/lib/azioni-estendi";
 import { EstendiConAi } from "@/components/EstendiConAi";
 import { PortaSelezionate } from "@/components/PortaSelezionate";
+import { SelezionaTutte } from "@/components/SelezionaTutte";
 import { attributiPortaKeyword } from "@/lib/porta-keyword";
 import { STATI_GRUPPO_IGNORATI } from "@/lib/gruppi";
 import { prisma } from "@/lib/db";
@@ -296,6 +297,7 @@ export async function TerminiRicerca({
           <input type="hidden" name="campagnaId" value={campagnaId} />
           <input type="hidden" name="ritorno" value={base ?? `/campagne/${campagnaId}`} />
           <span className="cella-sub">Spunta più parole e agisci su tutte insieme:</span>
+          <SelezionaTutte formId="scelte-termini" />
           {/* ⚠️ Esatta di default: si esclude QUELLA ricerca, non tutto ciò
               che le somiglia. La generica può spegnere una campagna. */}
           <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12 }}>
