@@ -8,6 +8,7 @@ import { ColonnaTopThread } from '@/components/ColonnaTopThread'
 import { AnalisiAIInbox } from '@/components/AnalisiAIInbox'
 import { NuoveAzioni } from '@/components/NuoveAzioni'
 import { RicercaMail } from '@/components/RicercaMail'
+import { CondizioniRicerca } from '@/components/CondizioniRicerca'
 import { CercaServer } from '@/components/CercaServer'
 import { CarteApp } from '@/components/CarteApp'
 import { DelegaReneDialog } from '@/components/DelegaRene'
@@ -29,13 +30,40 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
 type Props = {
-  searchParams: Promise<{ sezione?: string; stato?: string; p?: string; vista?: string; q?: string }>
+  searchParams: Promise<{
+    sezione?: string
+    stato?: string
+    p?: string
+    vista?: string
+    q?: string
+    // Condizioni di ricerca: stanno nell'indirizzo apposta, così una ricerca
+    // costruita in sei mosse si ricarica, si manda a un collega e si tiene fra
+    // i preferiti.
+    da?: string
+    a?: string
+    dal?: string
+    al?: string
+    allegati?: string
+    dove?: string
+  }>
 }
 
 export default async function PostaInArrivo({ searchParams }: Props) {
-  const { sezione, stato, p, vista, q: qGrezzo } = await searchParams
+  const { sezione, stato, p, vista, q: qGrezzo, da, a, dal, al, allegati, dove } = await searchParams
   const q = (qGrezzo ?? '').trim()
-  const ricerca = q.length >= 2
+  // Le CONDIZIONI di ricerca (chi, a chi, quando, con allegati, dove cercare).
+  // ⚠️ Bastano da sole: «tutto quello che mi ha mandato Martina a settembre»
+  // è una domanda completa anche senza parole da cercare.
+  const cond = {
+    da: (da ?? '').trim(),
+    a: (a ?? '').trim(),
+    dal: (dal ?? '').trim(),
+    al: (al ?? '').trim(),
+    allegati: allegati === '1',
+    dove: (dove ?? '').trim(),
+  }
+  const conCondizioni = Boolean(cond.da || cond.a || cond.dal || cond.al || cond.allegati)
+  const ricerca = q.length >= 2 || conCondizioni
   const u = await richiediUtente()
   // Multi-account: la casella scelta (null = tutte). Filtra la posta in arrivo.
   const accountAttivo = await accountAttivoId(u.id)
@@ -176,7 +204,11 @@ export default async function PostaInArrivo({ searchParams }: Props) {
                     : 'Tutta la posta in arrivo: quella già in una sezione porta il badge della sezione. SPAM e Cestino esclusi.'}
           </p>
           <div style={{ marginTop: 12, maxWidth: 460 }}>
-            <RicercaMail iniziale={ricerca ? q : ''} />
+            <RicercaMail iniziale={q} />
+            <CondizioniRicerca
+              valori={{ q, da: cond.da, a: cond.a, dal: cond.dal, al: cond.al, allegati: allegati, dove: cond.dove, sezione }}
+              sezioni={sezioniPerSposta}
+            />
             {/* In ricerca: il server IMAP cerca anche nella posta mai scaricata
                 e importa quel che trova (la lista si aggiorna da sola). */}
             {ricerca && <CercaServer q={q} />}
@@ -279,6 +311,7 @@ export default async function PostaInArrivo({ searchParams }: Props) {
             accountAttivo={accountAttivo}
             q={q}
             ricerca={ricerca}
+            cond={cond}
             sezione={sezione}
             idsSezione={idsSezione}
             spamId={spamId}

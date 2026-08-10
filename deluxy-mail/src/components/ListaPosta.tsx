@@ -28,6 +28,10 @@ import { indiceClienti } from '@/lib/anagrafiche'
  * non nell'oggetto). Scandisce i campi nell'ordine in cui è più utile vederlo.
  */
 function snippetRicerca(campi: (string | null | undefined)[], termine: string, contorno = 90): string | null {
+  // Ricerca per sole CONDIZIONI (senza parole): non c'è niente da evidenziare,
+  // e cercare la stringa vuota darebbe l'inizio della prima mail come se fosse
+  // un risultato. Si ripiega sull'anteprima normale.
+  if (termine.trim().length < 2) return null
   const t = termine.toLowerCase()
   for (const campo of campi) {
     if (!campo) continue
@@ -61,6 +65,8 @@ type Props = {
   accountAttivo: string | null
   q: string
   ricerca: boolean
+  /** Le condizioni di ricerca (chi, a chi, periodo, allegati, dove cercare). */
+  cond?: { da: string; a: string; dal: string; al: string; allegati: boolean; dove: string }
   sezione?: string
   idsSezione: string[]
   /** L'id della sezione SPAM, se esiste: serve a escluderla senza sottoquery. */
@@ -80,6 +86,7 @@ export async function ListaPosta({
   accountAttivo,
   q,
   ricerca,
+  cond,
   sezione,
   idsSezione,
   spamId,
@@ -113,17 +120,47 @@ export async function ListaPosta({
 
   // In RICERCA la posta si guarda tutta: ricevute e inviate, in qualunque
   // sezione (tranne il cestino). I filtri sezione/vista non si applicano.
-  const whereRicerca = {
-    utenteId,
-    cestinato: false,
-    OR: [
-      { oggetto: { contains: q, mode: 'insensitive' as const } },
-      { mittente: { contains: q, mode: 'insensitive' as const } },
-      { mittenteNome: { contains: q, mode: 'insensitive' as const } },
-      { destinatari: { contains: q, mode: 'insensitive' as const } },
+  // Dove cercare le PAROLE. Di default ovunque; con «cerca in» si stringe —
+  // cercare «ordine» solo nell'oggetto è un'altra domanda che cercarlo nel
+  // testo di tutte le mail, e finora non si poteva fare.
+  const campiParole = {
+    oggetto: [{ oggetto: { contains: q, mode: 'insensitive' as const } }],
+    corpo: [
       { corpoTesto: { contains: q, mode: 'insensitive' as const } },
       { corpoTradotto: { contains: q, mode: 'insensitive' as const } },
     ],
+    persone: [
+      { mittente: { contains: q, mode: 'insensitive' as const } },
+      { mittenteNome: { contains: q, mode: 'insensitive' as const } },
+      { destinatari: { contains: q, mode: 'insensitive' as const } },
+    ],
+  }
+  const dove = cond?.dove as keyof typeof campiParole | undefined
+  const orParole = dove && campiParole[dove] ? campiParole[dove] : [...campiParole.oggetto, ...campiParole.persone, ...campiParole.corpo]
+
+  // ⚠️ Le condizioni si sommano in AND fra loro e con le parole: «da Martina»
+  // E «a settembre» E «con allegati». Ognuna può stare anche da sola — senza
+  // parole da cercare — perché «tutto quello che mi ha mandato Martina a
+  // settembre» è una domanda completa.
+  const eCondizioni = [
+    ...(q.length >= 2 ? [{ OR: orParole }] : []),
+    ...(cond?.da ? [{ OR: [
+      { mittente: { contains: cond.da, mode: 'insensitive' as const } },
+      { mittenteNome: { contains: cond.da, mode: 'insensitive' as const } },
+    ] }] : []),
+    ...(cond?.a ? [{ destinatari: { contains: cond.a, mode: 'insensitive' as const } }] : []),
+    // Il giorno indicato è COMPRESO: «al 30 settembre» include il 30, non si
+    // ferma alla mezzanotte precedente.
+    ...(cond?.dal ? [{ data: { gte: new Date(`${cond.dal}T00:00:00`) } }] : []),
+    ...(cond?.al ? [{ data: { lte: new Date(`${cond.al}T23:59:59`) } }] : []),
+    ...(cond?.allegati ? [{ allegati: { gt: 0 } }] : []),
+    ...(sezione ? [{ sezioneId: { in: idsSezione } }] : []),
+  ]
+
+  const whereRicerca = {
+    utenteId,
+    cestinato: false,
+    ...(eCondizioni.length ? { AND: eCondizioni } : {}),
   }
 
   const messaggi = await db.messaggio.findMany({

@@ -190,6 +190,22 @@ un'intera serie arrivano al giro di sincronizzazione successivo, non all'istante
 
 ## 6. Bozze
 
+### Cercare con le condizioni
+
+Sotto la barra di ricerca c'è **«+ Condizioni di ricerca»**: si aggiungono **da** (mittente),
+**a** (destinatario), **dal / al** (periodo), **solo con allegati**, la **sezione**, e
+**dove cercare le parole** — ovunque, solo nell'oggetto, solo nel testo, o solo fra le
+persone. Le condizioni si sommano fra loro e con le parole: *«ordine» nell'oggetto, da
+Martina, da settembre in poi, con allegati*.
+
+**Valgono anche da sole**, senza parole da cercare: «tutto quello che mi ha mandato Martina
+a settembre con allegati» è una domanda completa. Ogni condizione attiva è una pastiglia
+con la sua ✕, così si vede sempre perché quel risultato è quello che è.
+
+⚠️ Le condizioni stanno **nell'indirizzo** della pagina: una ricerca costruita in sei mosse
+si ricarica, si tiene fra i preferiti e si può mandare a un collega. Una ricerca che esiste
+solo finché non ricarichi è una ricerca che rifarai a mano.
+
 **Il riassunto ha tre profondità.** Sopra la conversazione ci sono **Veloce**, **Medio** e
 **Profondo**:
 
