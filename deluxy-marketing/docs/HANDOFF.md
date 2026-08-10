@@ -22,6 +22,43 @@ Riceve già dati veri da Google Ads (Gifts e Flowers) e ha 2.426 ordini Shopify 
 
 ## FATTO
 
+### ⭐ Le lingue: al plurale sulla campagna, al singolare sul gruppo (09/08/2026)
+
+Il selettore «clienti» costringeva a dichiarare **una** lingua, e una campagna
+che serve due pubblici — `[Deluxy] Gifts Milano` con dentro «Regali in
+Italiano» e «Regali Inglese» — era obbligata a dichiarare il falso.
+
+**La divisione è questa, ed è quella che rende la domanda rispondibile:**
+
+| livello | quante lingue | a cosa serve |
+| --- | --- | --- |
+| **campagna** | **più d'una** (`ita,eng`) | dichiara *a chi vende nel suo insieme*; taglia il venduto di contesto per paese |
+| **gruppo** | **una sola** | è la lingua **vera**, quella in cui gli annunci sono scritti |
+
+> ⚠️ **Con due lingue il filtro sul paese smette di tagliare, e va detto.**
+> «italiano + inglese» è IT ∪ non-IT, cioè **tutti**. È la cosa giusta — una
+> campagna che serve entrambi i pubblici non ha un paese da escludere — ma se
+> non lo si scrive, un giorno si legge un ROS diverso e non si capisce perché.
+> Per questo `filtroPaese` restituisce `copreTutto` e la descrizione lo dice a
+> parole: «insieme coprono tutti i paesi, quindi NON si taglia niente».
+
+- `lingueDa()` in `vendite-campagna.ts` legge la lista; `filtroPaese` fa
+  l'**unione** dei filtri invece di sceglierne uno.
+- `impostaLinguaCampagna` accetta `fd.getAll("lingua")` e salva ordinato, così
+  «eng,ita» e «ita,eng» non risultano due valori diversi.
+- Sulla scheda campagna: **caselle**, non tendina. Una tendina costringe a
+  sceglierne una sola, cioè a dichiarare il falso.
+- `Gruppo.lingua` (colonna nuova, **ALTER TABLE mirato**): vuota = si deduce dal
+  nome del gruppo, e se il nome tace, dalla campagna — ma **solo se la campagna
+  ne dichiara una sola**. Fra due dichiarate la deduzione tace: indovinare
+  sarebbe peggio che non dire niente.
+- Il valore dedotto si mostra **dicendo che è dedotto** («Italiano — dedotta»):
+  un valore indovinato che si presenta come deciso è peggio di un campo vuoto.
+
+Verificato in pagina: su `[Deluxy] - Fiori Milano ENG` la casella «Inglese» è
+spuntata e le altre libere; sul gruppo «Regali in Italiano» il selettore mostra
+«Italiano — dedotta».
+
 ### ⭐⭐ «In pausa» nell'app non fermava Google — un bottone che annotava (09/08/2026)
 
 Segnalato come domanda: «mettere in pausa sull'app mette in pausa anche su

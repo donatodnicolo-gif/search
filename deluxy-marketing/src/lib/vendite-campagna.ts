@@ -78,17 +78,68 @@ export const ETICHETTA_LINGUA: Record<string, string> = {
 // `eng` non è "clienti inglesi": le campagne in inglese servono tutto quello
 // che non è Italia (nei 90 giorni: FR 54, GB 13, US 6, IE, NL, AU, DE, ES, MC,
 // BE, CH…), e restringere a GB butterebbe via l'80% di quel venduto.
-export function filtroPaese(lingua: string | null): { descrizione: string; ammette: (paese: string | null) => boolean } | null {
-  if (lingua === "ita") {
-    return { descrizione: "clienti italiani (paese IT)", ammette: (p) => p === "IT" };
-  }
-  if (lingua === "eng") {
-    return { descrizione: "clienti stranieri (paese diverso da IT)", ammette: (p) => p != null && p !== "IT" };
-  }
-  if (lingua === "fra") {
-    return { descrizione: "clienti in Francia (paese FR)", ammette: (p) => p === "FR" };
-  }
-  return null;
+/**
+ * Le lingue dichiarate da una campagna. Sono **più d'una** quando la campagna
+ * serve davvero due pubblici: si salvano separate da virgola («ita,eng»).
+ *
+ * ⚠️ La lingua VERA di quello che si compra sta sul **gruppo di annunci**, non
+ * qui: una campagna può contenere un gruppo italiano e uno inglese. Qui si
+ * dichiara *a chi vende la campagna nel suo insieme*, e serve a una cosa sola —
+ * tagliare il venduto di contesto per paese di consegna.
+ */
+export function lingueDa(valore: string | null | undefined): string[] {
+  return String(valore ?? "")
+    .split(",")
+    .map((x) => x.trim())
+    .filter((x) => (LINGUE_CAMPAGNA as readonly string[]).includes(x));
+}
+
+const FILTRO_DI_LINGUA: Record<string, { descrizione: string; ammette: (p: string | null) => boolean }> = {
+  ita: { descrizione: "clienti italiani (paese IT)", ammette: (p) => p === "IT" },
+  eng: { descrizione: "clienti stranieri (paese diverso da IT)", ammette: (p) => p != null && p !== "IT" },
+  fra: { descrizione: "clienti in Francia (paese FR)", ammette: (p) => p === "FR" },
+};
+
+export type FiltroPaese = {
+  descrizione: string;
+  ammette: (paese: string | null) => boolean;
+  // ⚠️ Vero quando le lingue dichiarate coprono TUTTO: il filtro esiste ma non
+  // taglia niente. Va detto, o chi legge crede che un taglio ci sia stato.
+  copreTutto: boolean;
+};
+
+/**
+ * Come le lingue dichiarate si traducono in un filtro sul paese dell'ordine.
+ *
+ * `eng` non è «clienti inglesi»: le campagne in inglese servono tutto quello
+ * che non è Italia (nei 90 giorni: FR 54, GB 13, US 6, IE, NL, AU, DE, ES, MC,
+ * BE, CH…), e restringere a GB butterebbe via l'80% di quel venduto.
+ *
+ * ⚠️ **Con più lingue è l'UNIONE, e va detto.** Dichiarare «italiano + inglese»
+ * vuol dire IT ∪ non-IT, cioè **tutti**: il filtro smette di tagliare. È la
+ * cosa giusta — una campagna che serve entrambi i pubblici non ha un paese da
+ * escludere — ma se non lo si scrive, un giorno si legge un ROS diverso e non
+ * si capisce perché.
+ */
+export function filtroPaese(lingua: string | null): FiltroPaese | null {
+  const lingue = lingueDa(lingua);
+  if (lingue.length === 0) return null;
+
+  const filtri = lingue.map((l) => FILTRO_DI_LINGUA[l]).filter(Boolean);
+  if (filtri.length === 0) return null;
+  if (filtri.length === 1) return { ...filtri[0], copreTutto: false };
+
+  // Union: basta che UNA delle lingue ammetta il paese.
+  const ammette = (p: string | null) => filtri.some((f) => f.ammette(p));
+  // «ita + eng» copre ogni paese conosciuto: il filtro non taglia più niente.
+  const copreTutto = lingue.includes("ita") && lingue.includes("eng");
+  return {
+    descrizione: copreTutto
+      ? `${lingue.map((l) => ETICHETTA_LINGUA[l] ?? l).join(" + ")} — insieme coprono tutti i paesi, quindi NON si taglia niente`
+      : lingue.map((l) => FILTRO_DI_LINGUA[l].descrizione).join(" oppure "),
+    ammette,
+    copreTutto,
+  };
 }
 
 // I negozi come li scrive l'import degli ordini (import-ordini-da-orders.mjs).

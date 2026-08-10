@@ -219,6 +219,18 @@ model Gruppo {
   // Copiato dalla campagna: serve a filtrare e a leggere il ROAS col
   // break-even giusto senza risalire ogni volta alla campagna.
   brand            String          @default("cross")
+  // ⚠️ La lingua VERA di quello che si compra: ita | eng | fra.
+  //
+  // Sta qui e non sulla campagna perché è qui che è una cosa sola. Una campagna
+  // può servire due pubblici insieme — «Gifts Milano» con un gruppo «Regali in
+  // Italiano» e uno «Regali Inglese» — e la sua dichiarazione di lingua è al
+  // plurale apposta. Il gruppo invece parla una lingua e basta: è il livello a
+  // cui gli annunci sono scritti, e quindi quello a cui la domanda ha una
+  // risposta secca.
+  //
+  // Vuoto = si deduce dal nome del gruppo, e se il nome non lo dice, dalla
+  // campagna. Scritto = l'ha deciso una persona e nessuna deduzione lo tocca.
+  lingua           String?
   // Id sulla piattaforma, con dentro l'account perché tre account possono
   // avere gli stessi numeri: "825-518-1560:12345" (gruppo di annunci) oppure
   // "825-518-1560:ag:678" (gruppo di asset di una PMax).

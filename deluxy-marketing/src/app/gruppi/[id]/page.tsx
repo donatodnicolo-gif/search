@@ -10,11 +10,18 @@ import { SceltaPeriodo } from "@/components/SceltaPeriodo";
 import { SelettoreStato } from "@/components/SelettoreStato";
 import { Stagionalita } from "@/components/Stagionalita";
 import { Sidebar } from "@/components/Sidebar";
-import { cambiaStatoGruppo, cambiaStatoKeyword, creaOperazioneGruppo, creaOperazioneKeyword, annullaOperazioneParola, escludiParoleSelezionate, rinominaGruppo, vaiAlGruppo } from "@/lib/azioni";
+import { cambiaStatoGruppo, cambiaStatoKeyword, creaOperazioneGruppo, creaOperazioneKeyword, annullaOperazioneParola, escludiParoleSelezionate, rinominaGruppo, vaiAlGruppo,
+  impostaLinguaGruppo,
+} from "@/lib/azioni";
 import { prisma } from "@/lib/db";
 import { periodoApp } from "@/lib/periodo-condiviso";
 import { giudizioKeyword } from "@/lib/salute";
-import { ETICHETTA_LINGUA } from "@/lib/vendite-campagna";
+import {
+  ETICHETTA_LINGUA,
+  LINGUE_CAMPAGNA,
+  lingueDa,
+  linguaDaNome,
+} from "@/lib/vendite-campagna";
 import {
   COLORE_BRAND,
   ETICHETTA_BRAND,
@@ -271,6 +278,13 @@ export default async function SchedaGruppo({
 
   const operazioneAperta = gruppo.operazioni.find((o) => o.stato === "in_attesa" || o.stato === "approvata");
 
+  // Le lingue dichiarate dalla campagna: servono solo come ripiego per dedurre
+  // quella del gruppo quando il nome del gruppo non la dice.
+  const legameCampagna = await prisma.legameCampagnaShopify.findUnique({
+    where: { campagnaId: gruppo.campagnaId },
+    select: { lingua: true },
+  });
+
   // Il blackout si sa PRIMA di premere: mettere in coda un'operazione che il
   // guardrail rifiuterà di sicuro è un giro a vuoto, e chi lo fa lo scopre da
   // un messaggio dopo il redirect. Le L0 non contano (vedi MODIFICHE_CHE_PESANO).
@@ -280,6 +294,15 @@ export default async function SchedaGruppo({
     select: { eseguitaIl: true, descrizione: true },
   });
   const giud = giudicabilita(ultimaChePesa?.eseguitaIl ?? null);
+
+  // La lingua dedotta, usata solo quando nessuno l'ha scelta: prima il nome del
+  // GRUPPO («Regali Inglese»), poi quello della campagna. Se la campagna ne
+  // dichiara due la deduzione tace — indovinare fra due dichiarate è peggio che
+  // non dire niente.
+  const lingueDellaCampagna = lingueDa(legameCampagna?.lingua ?? null);
+  const linguaDedotta =
+    linguaDaNome(gruppo.nome) ??
+    (lingueDellaCampagna.length === 1 ? lingueDellaCampagna[0] : null);
 
   return (
     <div className="layout">
@@ -373,6 +396,32 @@ export default async function SchedaGruppo({
                   cose diverse e si leggono bene solo una di fianco all'altra.
                   Prima il fatto stava qui in cima e il giudizio in fondo alla
                   colonna destra, e per confrontarli si scorreva la pagina. */}
+              {/* ⚠️ La lingua VERA sta qui, non sulla campagna: è a questo
+                  livello che gli annunci sono scritti, e quindi l'unico a cui
+                  la domanda ha una risposta secca. La campagna può dichiararne
+                  due (serve due pubblici); il gruppo ne parla una.
+                  Se non è stata scelta si mostra quella DEDOTTA, dicendo che è
+                  dedotta: un valore indovinato che si presenta come deciso è
+                  peggio di un campo vuoto. */}
+              <span className="stato-app-inline">
+                <span className="stato-app-etichetta">lingua</span>
+                <form action={impostaLinguaGruppo.bind(null, gruppo.id)}>
+                  <input type="hidden" name="ritorno" value={`/gruppi/${gruppo.id}`} />
+                  <SelettoreStato
+                    nome="lingua"
+                    valore={gruppo.lingua ?? ""}
+                    opzioni={[
+                      {
+                        valore: "",
+                        etichetta: linguaDedotta
+                          ? `${ETICHETTA_LINGUA[linguaDedotta] ?? linguaDedotta} — dedotta`
+                          : "non dichiarata",
+                      },
+                      ...LINGUE_CAMPAGNA.map((l) => ({ valore: l, etichetta: ETICHETTA_LINGUA[l] })),
+                    ]}
+                  />
+                </form>
+              </span>
               <span className="stato-app-inline">
                 <span className="stato-app-etichetta">nell&apos;app</span>
                 <form action={cambiaStatoGruppo}>

@@ -419,8 +419,18 @@ export async function salvaLegameShopify(campagnaId: string, fd: FormData) {
 // manuale che sia — e si cambia solo la lingua.
 export async function impostaLinguaCampagna(campagnaId: string, fd: FormData) {
   if (!campagnaId) return;
-  const scelta = testo(fd, "lingua");
-  const lingua = scelta && (LINGUE_CAMPAGNA as readonly string[]).includes(scelta) ? scelta : null;
+  // ⚠️ PIÙ lingue: una campagna può servire davvero due pubblici. Si salvano
+  // separate da virgola, e l'ordine non conta — per questo il confronto più
+  // sotto ordina prima di decidere se è cambiato qualcosa.
+  //
+  // ⚠️ La lingua VERA di quello che si compra sta sul GRUPPO di annunci: qui
+  // si dichiara a chi vende la campagna nel suo insieme, e serve solo a
+  // tagliare il venduto di contesto per paese.
+  const scelte = fd
+    .getAll("lingua")
+    .map((v) => String(v))
+    .filter((v) => (LINGUE_CAMPAGNA as readonly string[]).includes(v));
+  const lingua = scelte.length > 0 ? [...new Set(scelte)].sort().join(",") : null;
 
   const campagna = await prisma.campagna.findUnique({
     where: { id: campagnaId },
@@ -430,7 +440,8 @@ export async function impostaLinguaCampagna(campagnaId: string, fd: FormData) {
 
   const { legameDiCampagna } = await import("./vendite-campagna");
   const { legame } = await legameDiCampagna(campagna);
-  if (legame.lingua === lingua) return;
+  const comeSta = legame.lingua ? [...new Set(legame.lingua.split(","))].sort().join(",") : null;
+  if (comeSta === lingua) return;
 
   const dati = {
     categoria: legame.categoria,
@@ -450,7 +461,7 @@ export async function impostaLinguaCampagna(campagnaId: string, fd: FormData) {
     tipo: "modifica",
     entita: "campagna",
     entitaId: campagnaId,
-    titolo: `Lingua di "${campagna.nome}": ${lingua ?? "non dichiarata"}`,
+    titolo: `Lingue di "${campagna.nome}": ${lingua ?? "non dichiarate"}`,
     dettaglio: "scelta dal titolo della campagna; l'attribuzione delle vendite la legge da qui",
   });
   revalidatePath(`/campagne/${campagnaId}`);
@@ -3111,4 +3122,46 @@ export async function impostaBrandCampagna(campagnaId: string, fd: FormData) {
   // `<select>` controllato torna al valore vecchio e sembra che non abbia
   // salvato. Vedi `impostaLinguaCampagna` e `cambiaCorrispondenzaOperazione`.
   redirect(testo(fd, "ritorno") || `/campagne/${campagnaId}`);
+}
+
+/**
+ * La lingua di un gruppo di annunci: quella VERA, quella in cui gli annunci
+ * sono scritti.
+ *
+ * ⚠️ Sta sul gruppo e non sulla campagna perché è qui che la domanda ha una
+ * risposta secca. Una campagna può servire due pubblici insieme — «Gifts
+ * Milano» con dentro «Regali in Italiano» e «Regali Inglese» — e infatti le
+ * sue lingue si dichiarano al plurale. Il gruppo parla una lingua e basta.
+ *
+ * Svuotare il campo torna alla deduzione dal nome: una scelta che non si può
+ * disfare è una trappola.
+ */
+export async function impostaLinguaGruppo(gruppoId: string, fd: FormData) {
+  if (!gruppoId) return;
+  const scelta = testo(fd, "lingua");
+  const { LINGUE_CAMPAGNA } = await import("./vendite-campagna");
+  const lingua =
+    scelta && (LINGUE_CAMPAGNA as readonly string[]).includes(scelta) ? scelta : null;
+
+  const gruppo = await prisma.gruppo.findUnique({
+    where: { id: gruppoId },
+    select: { id: true, nome: true, lingua: true },
+  });
+  if (!gruppo || gruppo.lingua === lingua) {
+    redirect(testo(fd, "ritorno") || `/gruppi/${gruppoId}`);
+  }
+
+  await prisma.gruppo.update({ where: { id: gruppoId }, data: { lingua } });
+  await registra({
+    autore: "utente",
+    tipo: "modifica",
+    entita: "gruppo",
+    entitaId: gruppoId,
+    titolo: `Lingua del gruppo "${gruppo!.nome}": ${lingua ?? "torna alla deduzione dal nome"}`,
+    dettaglio: "è la lingua in cui sono scritti gli annunci di questo gruppo",
+  });
+  revalidatePath(`/gruppi/${gruppoId}`);
+  // ⚠️ Ritorno esplicito: `revalidatePath` da solo lascia il menù sul valore
+  // vecchio, ed è la quarta volta che questa trappola si presenta.
+  redirect(testo(fd, "ritorno") || `/gruppi/${gruppoId}`);
 }

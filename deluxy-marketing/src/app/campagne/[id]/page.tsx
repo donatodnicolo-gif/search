@@ -30,6 +30,7 @@ import {
   ETICHETTA_LINGUA,
   LINGUE_CAMPAGNA,
   legameDiCampagna,
+  lingueDa,
   linguaDaNome,
   ordiniAttribuiti,
 } from "@/lib/vendite-campagna";
@@ -122,6 +123,8 @@ export default async function SchedaCampagna({
   // che il selettore in cima dice una lingua e i KPI sotto ne usano un'altra.
   const { legame: legameLingua } = await legameDiCampagna(campagna);
   const linguaCampagna = legameLingua.lingua;
+  // Le lingue dichiarate, come elenco: la campagna può servirne più d'una.
+  const lingueCampagna = lingueDa(legameLingua.lingua);
 
   // Le conversioni contate in cassa, da mettere ACCANTO a quelle dichiarate
   // dalla piattaforma. Stesso periodo delle metriche qui sopra — se coprissero
@@ -292,14 +295,23 @@ export default async function SchedaCampagna({
                     name="ritorno"
                     value={`/campagne/${campagna.id}${parametriPeriodo(periodo) ? `?${parametriPeriodo(periodo)}` : ""}`}
                   />
-                  <SelettoreStato
-                    nome="lingua"
-                    valore={linguaCampagna ?? ""}
-                    opzioni={[
-                      { valore: "", etichetta: "lingua non dichiarata" },
-                      ...LINGUE_CAMPAGNA.map((l) => ({ valore: l, etichetta: ETICHETTA_LINGUA[l] })),
-                    ]}
-                  />
+                  {/* ⚠️ Caselle, non tendina: una campagna può servire DUE
+                      pubblici (italiani e stranieri), e una tendina costringe a
+                      sceglierne uno solo — cioè a dichiarare il falso.
+                      Con due lingue il filtro sul paese non taglia più niente,
+                      ed è scritto qui sotto invece di essere una sorpresa. */}
+                  {LINGUE_CAMPAGNA.map((l) => (
+                    <label key={l} className="pill-opt" style={{ cursor: "pointer", gap: 6 }}>
+                      <input
+                        type="checkbox"
+                        name="lingua"
+                        value={l}
+                        defaultChecked={lingueCampagna.includes(l)}
+                      />
+                      {ETICHETTA_LINGUA[l]}
+                    </label>
+                  ))}
+                  <button className="btn small" type="submit">Salva</button>
                 </form>
               </span>
               {campagna.obiettivo && <span>{campagna.obiettivo}</span>}
