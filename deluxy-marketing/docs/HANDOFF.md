@@ -77,6 +77,26 @@ Il targeting vero smette di essere una deduzione dal nome (`cittaDaTesto`
 resta per i suggerimenti, ma il fatto ora ha la sua tabella). ⚠️ Si popola
 al primo giro dello **script reincollato**.
 
+### Località in testata, «Estendi con AI» per riga, e il primo giro vero (10/08/2026, pomeriggio)
+
+Tre aggiunte a valle del primo giro reale su Cake:
+
+- **Le località si leggono in testata** della scheda campagna, accanto ad
+  account e canale: mirate per esteso, escluse per nome se poche o contate
+  se tante («Milan — esclude 24 località»), elenco completo nel title e nei
+  Dettagli. L'assenza si dichiara, come per l'account.
+- **«Estendi con AI» anche sulla riga** della parola cercata
+  (`data-estendi-seme`): stesso dialogo della barra, col seme di quella
+  parola, senza spuntarla prima.
+- **Dal giro vero di Cake, tre difetti trovati e chiusi in giornata**:
+  (1) il `display_name` dei criteri località arriva **vuoto** dagli Scripts
+  → i nomi si prendono da `geo_target_constant.name` (prima uscivano
+  «geo 2380»); (2) la vista degli asset tiene anche i **link tolti**
+  (`enabled = false`) → un RSA arrivava con 44 titoli «attuali»: filtro
+  `enabled = TRUE` nel WHERE **e** scarto in JS (vale anche per la query di
+  ripiego); (3) due giri ravvicinati (<2h) non si puliscono a vicenda — è
+  la finestra anti-blocchi, voluta: i residui si staccano al giro dopo.
+
 ### «Estendi con AI» sulle parole cercate della campagna (10/08/2026)
 
 Richiesto dall'utente. Nella barra della tabella termini della scheda
