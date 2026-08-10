@@ -46,14 +46,19 @@ export function EstendiConAi({
     const apri = (e: MouseEvent) => {
       const b = (e.target as HTMLElement | null)?.closest("[data-estendi-ai]");
       if (!b) return;
-      // Le parole spuntate nella tabella fanno da seme, se ci sono: il testo
-      // sta in `data-testo` quando il value serve ad altro (pagina /termini).
+      // Da DOVE si parte: il bottone di una RIGA porta la sua parola in
+      // `data-estendi-seme` e il seme è quella; il bottone della barra non
+      // porta niente e i semi sono le parole spuntate (il testo sta in
+      // `data-testo` quando il value serve ad altro, come su /termini).
+      const semeDiRiga = b.getAttribute("data-estendi-seme");
       setSemi(
-        [
-          ...document.querySelectorAll<HTMLInputElement>(
-            'input[form="scelte-termini"][name="scelte"]:checked'
-          ),
-        ].map((i) => i.dataset.testo ?? i.value)
+        semeDiRiga
+          ? [semeDiRiga]
+          : [
+              ...document.querySelectorAll<HTMLInputElement>(
+                'input[form="scelte-termini"][name="scelte"]:checked'
+              ),
+            ].map((i) => i.dataset.testo ?? i.value)
       );
       setIndicazione("");
       setProposte(null);

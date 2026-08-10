@@ -440,6 +440,19 @@ export async function TerminiRicerca({
                             Porta altrove
                           </button>
                         )}
+                        {/* Apre lo stesso dialogo della barra, ma col seme di
+                            QUESTA parola: non serve spuntarla prima. */}
+                        {nomeCampagna && (
+                          <button
+                            type="button"
+                            className="btn small fantasma"
+                            data-estendi-ai
+                            data-estendi-seme={t.testo}
+                            title="L'AI propone parole correlate a questa, da mettere in coda dopo averle guardate"
+                          >
+                            Estendi con AI
+                          </button>
+                        )}
                       </div>
                     ) : (
                       <span className="tag-salute" style={{ color: COLORE_STATO[t.stato] ?? "var(--text-tertiary)" }}>
