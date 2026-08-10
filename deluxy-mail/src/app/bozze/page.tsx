@@ -2,14 +2,50 @@ import Link from 'next/link'
 import { db } from '@/lib/db'
 import { dataBreve } from '@/lib/format'
 import { EliminaBozza } from '@/components/EliminaBozza'
+import { RicercaMail } from '@/components/RicercaMail'
+import { CondizioniRicerca } from '@/components/CondizioniRicerca'
 import { richiediUtente } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
 
-export default async function Bozze() {
+type Props = {
+  searchParams: Promise<{ q?: string; a?: string; dal?: string; al?: string; dove?: string }>
+}
+
+export default async function Bozze({ searchParams }: Props) {
   const u = await richiediUtente()
+  const { q: qGrezzo, a, dal, al, dove } = await searchParams
+  const q = (qGrezzo ?? '').trim()
+  // Le condizioni che hanno senso su una bozza: a chi è indirizzata, quando
+  // l'hai toccata l'ultima volta, e dove cercare le parole. Niente «da» (sei
+  // tu), niente allegati né sezioni: una bozza non ne ha.
+  const cond = { a: (a ?? '').trim(), dal: (dal ?? '').trim(), al: (al ?? '').trim(), dove: (dove ?? '').trim() }
+  const filtri = [
+    ...(q.length >= 2
+      ? [
+          {
+            OR: [
+              ...(cond.dove === 'corpo' || cond.dove === 'persone'
+                ? []
+                : [{ oggetto: { contains: q, mode: 'insensitive' as const } }]),
+              ...(cond.dove === 'oggetto' || cond.dove === 'persone'
+                ? []
+                : [{ corpo: { contains: q, mode: 'insensitive' as const } }]),
+              ...(cond.dove === 'oggetto' || cond.dove === 'corpo'
+                ? []
+                : [{ a: { contains: q, mode: 'insensitive' as const } }]),
+            ],
+          },
+        ]
+      : []),
+    ...(cond.a ? [{ a: { contains: cond.a, mode: 'insensitive' as const } }] : []),
+    // Il periodo guarda l'ultima modifica: è la data che vedi sulla riga.
+    ...(cond.dal ? [{ aggiornataIl: { gte: new Date(`${cond.dal}T00:00:00`) } }] : []),
+    ...(cond.al ? [{ aggiornataIl: { lte: new Date(`${cond.al}T23:59:59`) } }] : []),
+  ]
+
   const bozze = await db.bozza.findMany({
-    where: { utenteId: u.id, inviata: false },
+    where: { utenteId: u.id, inviata: false, ...(filtri.length ? { AND: filtri } : {}) },
     orderBy: { aggiornataIl: 'desc' },
     include: {
       messaggio: { select: { id: true, mittente: true, mittenteNome: true } },
@@ -30,14 +66,38 @@ export default async function Bozze() {
         </div>
       </div>
 
+      <div style={{ marginBottom: 16 }}>
+        <RicercaMail
+          iniziale={q}
+          base="/bozze"
+          placeholder="Cerca nelle bozze (destinatario, oggetto, testo)…"
+        />
+        <CondizioniRicerca
+          valori={{ q, a: cond.a, dal: cond.dal, al: cond.al, dove: cond.dove }}
+          base="/bozze"
+          campi={['a', 'periodo', 'dove']}
+        />
+      </div>
+
       {bozze.length === 0 ? (
         <div className="card">
           <div className="empty">
             <div className="empty-icon">✎</div>
-            <div className="empty-title">Nessuna bozza</div>
+            {/* Cercando, «Nessuna bozza» sarebbe una bugia: le bozze ci sono,
+                non ce n'è una che risponda a QUESTA domanda. */}
+            <div className="empty-title">{filtri.length ? 'Nessuna bozza trovata' : 'Nessuna bozza'}</div>
             <p className="empty-text">
-              Quando inizi una risposta e la metti da parte, la ritrovi qui. Le bozze dell’AI
-              compaiono quando dai una priorità a una mail che chiede una risposta.
+              {filtri.length ? (
+                <>
+                  Nessuna bozza corrisponde a quello che hai chiesto. Togli qualche condizione
+                  qui sopra per allargare la ricerca.
+                </>
+              ) : (
+                <>
+                  Quando inizi una risposta e la metti da parte, la ritrovi qui. Le bozze dell’AI
+                  compaiono quando dai una priorità a una mail che chiede una risposta.
+                </>
+              )}
             </p>
           </div>
         </div>

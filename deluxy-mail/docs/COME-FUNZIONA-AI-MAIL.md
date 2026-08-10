@@ -202,6 +202,12 @@ Martina, da settembre in poi, con allegati*.
 a settembre con allegati» è una domanda completa. Ogni condizione attiva è una pastiglia
 con la sua ✕, così si vede sempre perché quel risultato è quello che è.
 
+**Valgono su tre schermate**: posta in arrivo, **Posta inviata** e **Bozze** (dove prima non
+c'era nemmeno la ricerca). I campi cambiano dove cambierebbe niente: negli inviati e nelle
+bozze non c'è «da» — il mittente sei sempre tu — e le bozze non hanno né allegati né
+sezioni. Nelle bozze il periodo guarda **l'ultima modifica**, che è la data che vedi sulla
+riga.
+
 ⚠️ Le condizioni stanno **nell'indirizzo** della pagina: una ricerca costruita in sei mosse
 si ricarica, si tiene fra i preferiti e si può mandare a un collega. Una ricerca che esiste
 solo finché non ricarichi è una ricerca che rifarai a mano.

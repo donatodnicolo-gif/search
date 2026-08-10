@@ -4,18 +4,40 @@ import { richiediUtente } from '@/lib/sessione'
 import { raggruppa } from '@/lib/thread'
 import { nomiPerGruppi, chiaviPerNome } from '@/lib/nomiThread'
 import { RicercaMail } from '@/components/RicercaMail'
+import { CondizioniRicerca } from '@/components/CondizioniRicerca'
 import { CercaServer } from '@/components/CercaServer'
 import { ListaInviati, type RigaInviata } from '@/components/ListaInviati'
 import { accountAttivoId } from '@/lib/accountAttivo'
 
 export const dynamic = 'force-dynamic'
 
-type Props = { searchParams: Promise<{ q?: string }> }
+type Props = {
+  searchParams: Promise<{
+    q?: string
+    a?: string
+    dal?: string
+    al?: string
+    allegati?: string
+    dove?: string
+    sezione?: string
+  }>
+}
 
 export default async function PostaInviata({ searchParams }: Props) {
-  const { q: qGrezzo } = await searchParams
+  const { q: qGrezzo, a, dal, al, allegati, dove, sezione } = await searchParams
   const q = (qGrezzo ?? '').trim()
-  const ricerca = q.length >= 2
+  // Le stesse condizioni della posta in arrivo, meno «da»: qui il mittente sei
+  // sempre tu, e un campo che non filtra niente è peggio che non averlo.
+  const cond = {
+    a: (a ?? '').trim(),
+    dal: (dal ?? '').trim(),
+    al: (al ?? '').trim(),
+    allegati: allegati === '1',
+    dove: (dove ?? '').trim(),
+    sezione: (sezione ?? '').trim(),
+  }
+  const conCondizioni = Boolean(cond.a || cond.dal || cond.al || cond.allegati || cond.sezione)
+  const ricerca = q.length >= 2 || conCondizioni
   const u = await richiediUtente()
   const accountAttivo = await accountAttivoId(u.id)
   // Cercando si trovano anche le conversazioni a cui hai dato un NOME: la
@@ -30,13 +52,35 @@ export default async function PostaInviata({ searchParams }: Props) {
         cestinato: false,
         // Casella attiva (multi-account): solo gli inviati da quella.
         ...(accountAttivo ? { accountId: accountAttivo } : {}),
+        // Parole e condizioni si sommano in AND: «preventivo» nell'oggetto E a
+        // Martina E di settembre. Ogni pezzo può stare anche da solo.
         ...(ricerca
           ? {
-              OR: [
-                { oggetto: { contains: q, mode: 'insensitive' as const } },
-                { destinatari: { contains: q, mode: 'insensitive' as const } },
-                { corpoTesto: { contains: q, mode: 'insensitive' as const } },
-                ...(chiaviNome.length ? [{ id: { in: chiaviNome } }] : []),
+              AND: [
+                ...(q.length >= 2
+                  ? [
+                      {
+                        OR: [
+                          ...(cond.dove === 'corpo' || cond.dove === 'persone'
+                            ? []
+                            : [{ oggetto: { contains: q, mode: 'insensitive' as const } }]),
+                          ...(cond.dove === 'oggetto' || cond.dove === 'corpo'
+                            ? []
+                            : [{ destinatari: { contains: q, mode: 'insensitive' as const } }]),
+                          ...(cond.dove === 'oggetto' || cond.dove === 'persone'
+                            ? []
+                            : [{ corpoTesto: { contains: q, mode: 'insensitive' as const } }]),
+                          ...(chiaviNome.length ? [{ id: { in: chiaviNome } }] : []),
+                        ],
+                      },
+                    ]
+                  : []),
+                ...(cond.a ? [{ destinatari: { contains: cond.a, mode: 'insensitive' as const } }] : []),
+                ...(cond.dal ? [{ data: { gte: new Date(`${cond.dal}T00:00:00`) } }] : []),
+                // Il giorno indicato è compreso.
+                ...(cond.al ? [{ data: { lte: new Date(`${cond.al}T23:59:59`) } }] : []),
+                ...(cond.allegati ? [{ allegati: { gt: 0 } }] : []),
+                ...(cond.sezione ? [{ sezioneId: cond.sezione }] : []),
               ],
             }
           : {}),
@@ -147,9 +191,15 @@ export default async function PostaInviata({ searchParams }: Props) {
       </div>
 
       <div style={{ marginBottom: 16 }}>
-        <RicercaMail iniziale={ricerca ? q : ''} base="/inviata" placeholder="Cerca negli inviati (destinatario, oggetto, testo)…" />
+        <RicercaMail iniziale={q} base="/inviata" placeholder="Cerca negli inviati (destinatario, oggetto, testo)…" />
+        <CondizioniRicerca
+          valori={{ q, a: cond.a, dal: cond.dal, al: cond.al, allegati, dove: cond.dove, sezione: cond.sezione }}
+          sezioni={sezioni}
+          base="/inviata"
+          campi={['a', 'periodo', 'allegati', 'dove', 'sezione']}
+        />
         {/* La ricerca guarda anche la posta mai scaricata, sul server. */}
-        {ricerca && <CercaServer q={q} />}
+        {q.length >= 2 && <CercaServer q={q} />}
       </div>
 
       <div className="card tight">

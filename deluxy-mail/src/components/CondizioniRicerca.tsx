@@ -36,16 +36,33 @@ const ETICHETTE: Record<string, string> = {
   dove: 'cerca in',
 }
 
-export function CondizioniRicerca({ valori, sezioni }: { valori: Condizioni; sezioni: { id: string; nome: string }[] }) {
+export type CampoCondizione = 'da' | 'a' | 'periodo' | 'allegati' | 'dove' | 'sezione'
+
+export function CondizioniRicerca({
+  valori,
+  sezioni = [],
+  /** Dove rimandare la ricerca: '/' (posta), '/inviata', '/bozze'. */
+  base = '/',
+  /** Quali condizioni ha senso mostrare QUI. Negli inviati il mittente sei
+   *  sempre tu; nelle bozze non ci sono né allegati né sezioni. Mostrare campi
+   *  che non filtrano niente è peggio che non averli. */
+  campi = ['da', 'a', 'periodo', 'allegati', 'dove', 'sezione'],
+}: {
+  valori: Condizioni
+  sezioni?: { id: string; nome: string }[]
+  base?: string
+  campi?: CampoCondizione[]
+}) {
   const router = useRouter()
   const attive = Object.entries(valori).filter(([k, v]) => k !== 'q' && v)
   const [aperto, setAperto] = useState(attive.length > 0)
   const [c, setC] = useState<Condizioni>(valori)
+  const mostra = (campo: CampoCondizione) => campi.includes(campo)
 
   const applica = (prossime: Condizioni) => {
     const p = new URLSearchParams()
     for (const [k, v] of Object.entries(prossime)) if (v) p.set(k, String(v))
-    router.push(p.toString() ? `/?${p}` : '/')
+    router.push(p.toString() ? `${base}?${p}` : base)
   }
 
   const togli = (chiave: string) => {
@@ -84,62 +101,76 @@ export function CondizioniRicerca({ valori, sezioni }: { valori: Condizioni; sez
       {aperto && (
         <div className="card tight" style={{ padding: 14, marginTop: 8 }}>
           <div className="form-grid">
-            <div>
-              <label className="field-label">Da (mittente)</label>
-              <input
-                type="text"
-                value={c.da ?? ''}
-                onChange={(e) => setC({ ...c, da: e.target.value })}
-                placeholder="nome o indirizzo"
-              />
-            </div>
-            <div>
-              <label className="field-label">A (destinatario)</label>
-              <input
-                type="text"
-                value={c.a ?? ''}
-                onChange={(e) => setC({ ...c, a: e.target.value })}
-                placeholder="nome o indirizzo"
-              />
-            </div>
-            <div>
-              <label className="field-label">Dal</label>
-              <input type="date" value={c.dal ?? ''} onChange={(e) => setC({ ...c, dal: e.target.value })} />
-            </div>
-            <div>
-              <label className="field-label">Al</label>
-              <input type="date" value={c.al ?? ''} onChange={(e) => setC({ ...c, al: e.target.value })} />
-            </div>
-            <div>
-              <label className="field-label">Cerca le parole in</label>
-              <select value={c.dove ?? ''} onChange={(e) => setC({ ...c, dove: e.target.value })}>
-                <option value="">Ovunque (oggetto, testo, persone)</option>
-                <option value="oggetto">Solo nell’oggetto</option>
-                <option value="corpo">Solo nel testo</option>
-                <option value="persone">Solo fra mittente e destinatari</option>
-              </select>
-            </div>
-            <div>
-              <label className="field-label">Sezione</label>
-              <select value={c.sezione ?? ''} onChange={(e) => setC({ ...c, sezione: e.target.value })}>
-                <option value="">Tutte</option>
-                {sezioni.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.nome}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="full">
-              <label className="checkbox-row">
+            {mostra('da') && (
+              <div>
+                <label className="field-label">Da (mittente)</label>
                 <input
-                  type="checkbox"
-                  checked={c.allegati === '1'}
-                  onChange={(e) => setC({ ...c, allegati: e.target.checked ? '1' : undefined })}
+                  type="text"
+                  value={c.da ?? ''}
+                  onChange={(e) => setC({ ...c, da: e.target.value })}
+                  placeholder="nome o indirizzo"
                 />
-                Solo mail con allegati
-              </label>
-            </div>
+              </div>
+            )}
+            {mostra('a') && (
+              <div>
+                <label className="field-label">A (destinatario)</label>
+                <input
+                  type="text"
+                  value={c.a ?? ''}
+                  onChange={(e) => setC({ ...c, a: e.target.value })}
+                  placeholder="nome o indirizzo"
+                />
+              </div>
+            )}
+            {mostra('periodo') && (
+              <>
+                <div>
+                  <label className="field-label">Dal</label>
+                  <input type="date" value={c.dal ?? ''} onChange={(e) => setC({ ...c, dal: e.target.value })} />
+                </div>
+                <div>
+                  <label className="field-label">Al</label>
+                  <input type="date" value={c.al ?? ''} onChange={(e) => setC({ ...c, al: e.target.value })} />
+                </div>
+              </>
+            )}
+            {mostra('dove') && (
+              <div>
+                <label className="field-label">Cerca le parole in</label>
+                <select value={c.dove ?? ''} onChange={(e) => setC({ ...c, dove: e.target.value })}>
+                  <option value="">Ovunque (oggetto, testo, persone)</option>
+                  <option value="oggetto">Solo nell’oggetto</option>
+                  <option value="corpo">Solo nel testo</option>
+                  <option value="persone">{mostra('da') ? 'Solo fra mittente e destinatari' : 'Solo fra i destinatari'}</option>
+                </select>
+              </div>
+            )}
+            {mostra('sezione') && (
+              <div>
+                <label className="field-label">Sezione</label>
+                <select value={c.sezione ?? ''} onChange={(e) => setC({ ...c, sezione: e.target.value })}>
+                  <option value="">Tutte</option>
+                  {sezioni.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.nome}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {mostra('allegati') && (
+              <div className="full">
+                <label className="checkbox-row">
+                  <input
+                    type="checkbox"
+                    checked={c.allegati === '1'}
+                    onChange={(e) => setC({ ...c, allegati: e.target.checked ? '1' : undefined })}
+                  />
+                  Solo mail con allegati
+                </label>
+              </div>
+            )}
           </div>
 
           <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
