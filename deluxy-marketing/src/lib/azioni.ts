@@ -615,8 +615,21 @@ export async function aggiungiMetricaLanding(fd: FormData) {
 // Lo stato si applica a tutte le righe con lo stesso testo (la stessa keyword
 // può stare su più campagne: la si governa come una cosa sola).
 export async function cambiaStatoKeyword(fd: FormData) {
-  const testoKeyword = testo(fd, "keyword");
   const stato = testo(fd, "stato");
+  const ritorno = testo(fd, "ritorno");
+  let testoKeyword = testo(fd, "keyword");
+  // ⚠️ Dalla scheda gruppo arriva l'ID della riga, non il testo: senza questo
+  // ramo l'azione usciva in silenzio e il selettore di stato del gruppo NON
+  // HA MAI SALVATO NIENTE — scoperto il 10/08 provando «defunta». Si risale
+  // al testo e si applica per PAROLA su tutte le campagne, come da /keywords:
+  // lo stato di una keyword è un giudizio sulla parola, non su una copia.
+  if (!testoKeyword) {
+    const id = testo(fd, "id");
+    if (id) {
+      const riga = await prisma.copyAnnuncio.findUnique({ where: { id }, select: { testo: true } });
+      testoKeyword = riga?.testo ?? null;
+    }
+  }
   if (!testoKeyword || !stato) return;
   const righe = await prisma.copyAnnuncio.findMany({
     where: { tipo: "keyword", testo: testoKeyword },
@@ -632,9 +645,16 @@ export async function cambiaStatoKeyword(fd: FormData) {
     tipo: "stato",
     entita: "copy",
     titolo: `Keyword "${testoKeyword}" → ${stato}`,
-    dettaglio: righe.length > 1 ? `applicato a ${righe.length} campagne` : null,
+    dettaglio: righe.length > 1 ? `applicato a ${righe.length} righe` : null,
   });
   revalidatePath("/keywords");
+  // Il redirect esplicito, non solo revalidate: un <select> controllato che
+  // non vede la pagina nuova torna al valore vecchio e sembra non salvare
+  // (trappola già pagata due volte, 06/08 e 08/08).
+  if (ritorno) {
+    revalidatePath(ritorno.split("?")[0]);
+    redirect(ritorno);
+  }
 }
 
 // ---------- Pubblici ----------
