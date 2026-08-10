@@ -657,6 +657,47 @@ export async function cambiaStatoKeyword(fd: FormData) {
   }
 }
 
+// Lo stato a PIÙ keyword in un colpo: si spuntano le caselle (le stesse di
+// «Escludi le selezionate») e si applica. Per PAROLA su tutte le campagne,
+// lo stesso metro del cambio singolo — e con «defunta» un gruppo di parole
+// morte sparisce in un gesto invece che in cinquanta.
+export async function cambiaStatoKeywordSelezionate(fd: FormData) {
+  const ritorno = testo(fd, "ritorno") ?? "/keywords";
+  const statoNuovo = testo(fd, "statoNuovo");
+  const scelte = fd
+    .getAll("scelte")
+    .map((v) => String(v).trim())
+    .filter(Boolean);
+
+  if (!statoNuovo || scelte.length === 0) {
+    redirect(
+      `${ritorno}${ritorno.includes("?") ? "&" : "?"}bloccata=${encodeURIComponent(
+        !statoNuovo
+          ? "Scegli quale stato applicare alle keyword selezionate"
+          : "Nessuna keyword selezionata"
+      )}`
+    );
+  }
+
+  const esito = await prisma.copyAnnuncio.updateMany({
+    where: { tipo: "keyword", testo: { in: scelte } },
+    data: { stato: statoNuovo! },
+  });
+  await registra({
+    autore: "utente",
+    tipo: "stato",
+    entita: "copy",
+    titolo: `${scelte.length} keyword → ${statoNuovo}`,
+    dettaglio:
+      scelte.slice(0, 8).map((t) => `«${t}»`).join(" · ") +
+      (scelte.length > 8 ? ` e altre ${scelte.length - 8}` : "") +
+      ` · ${esito.count} righe toccate`,
+  });
+  revalidatePath("/keywords");
+  revalidatePath(ritorno.split("?")[0]);
+  redirect(ritorno);
+}
+
 // ---------- Pubblici ----------
 
 export async function salvaPubblico(fd: FormData) {

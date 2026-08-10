@@ -17,7 +17,7 @@ import { SceltaPeriodo } from "@/components/SceltaPeriodo";
 import { SelettoreStato } from "@/components/SelettoreStato";
 import { Stagionalita } from "@/components/Stagionalita";
 import { Sidebar } from "@/components/Sidebar";
-import { cambiaStatoGruppo, cambiaStatoKeyword, creaOperazioneGruppo, creaOperazioneKeyword, annullaOperazioneParola, escludiParoleSelezionate, rinominaGruppo, vaiAlGruppo,
+import { cambiaStatoGruppo, cambiaStatoKeyword, cambiaStatoKeywordSelezionate, creaOperazioneGruppo, creaOperazioneKeyword, annullaOperazioneParola, escludiParoleSelezionate, rinominaGruppo, vaiAlGruppo,
   impostaLinguaGruppo, applicaKeywordAdAltreCampagne,
 } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
@@ -755,7 +755,10 @@ export default async function SchedaGruppo({
                 colonna destra (10/08, deciso dall'utente): la sinistra parte
                 dal lavoro operativo — keyword, parole cercate, annunci. */}
             {keyword.length > 0 && (
-              <section className="scheda">
+              // id="keywords": i filtri e i ritorni delle azioni atterrano
+              // QUI — cambiare pillola ricarica la pagina, e senza àncora si
+              // ripartiva da cima pagina perdendo il segno.
+              <section className="scheda" id="keywords">
                 <div className="scheda-titolo">Keyword del gruppo ({keyword.length})</div>
 
                 {/* Questi numeri NON seguono il periodo scelto in cima, e va
@@ -845,7 +848,7 @@ export default async function SchedaGruppo({
                   <a
                     key={chiave}
                     className={`pill-opt${filtroKw === chiave ? " attuale" : ""}`}
-                    href={`/gruppi/${gruppo.id}?kw=${chiave}`}
+                    href={`/gruppi/${gruppo.id}?kw=${chiave}#keywords`}
                   >
                     {etichetta}
                   </a>
@@ -862,7 +865,7 @@ export default async function SchedaGruppo({
                 className="barra-multipla"
               >
                 <input type="hidden" name="campagnaId" value={gruppo.campagna.id} />
-                <input type="hidden" name="ritorno" value={`/gruppi/${gruppo.id}`} />
+                <input type="hidden" name="ritorno" value={`/gruppi/${gruppo.id}?kw=${filtroKw}#keywords`} />
                 <span className="cella-sub">
                   Spunta le parole che non c&apos;entrano e mettile in coda tutte insieme:
                 </span>
@@ -881,6 +884,24 @@ export default async function SchedaGruppo({
                 </label>
                 <button className="btn small btn-secondario" type="submit">
                   Escludi le selezionate
+                </button>
+                {/* Lo STATO in blocco: stesso form, stesse caselle, altra
+                    formAction. Il primo valore è vuoto apposta: applicare uno
+                    stato a 48 parole dev'essere una scelta, non un default. */}
+                <span className="cella-sub">oppure stato</span>
+                <select name="statoNuovo" defaultValue="" style={{ font: "inherit", padding: "4px 8px", borderRadius: 8, border: "1px solid var(--hairline-strong)" }}>
+                  <option value="">— scegli —</option>
+                  {STATI_KEYWORD.map((s) => (
+                    <option key={s} value={s}>{ETICHETTA_STATO_KEYWORD[s] ?? s}</option>
+                  ))}
+                </select>
+                <button
+                  className="btn small btn-secondario"
+                  type="submit"
+                  formAction={cambiaStatoKeywordSelezionate}
+                  title="Applica lo stato scelto a tutte le keyword spuntate (per parola, su tutte le campagne dove stanno)"
+                >
+                  Applica alle selezionate
                 </button>
                 <PortaSelezionate formId="escludi-kw" lingue={lingueQui} />
                 {/* Apre il dialogo AI leggendo le spuntate di QUESTO form; il
@@ -1035,7 +1056,7 @@ export default async function SchedaGruppo({
                                   <form action={annullaOperazioneParola} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                                     <input type="hidden" name="campagnaId" value={gruppo.campagna.id} />
                                     <input type="hidden" name="testo" value={k.testo} />
-                                    <input type="hidden" name="ritorno" value={`/gruppi/${gruppo.id}?kw=${filtroKw}`} />
+                                    <input type="hidden" name="ritorno" value={`/gruppi/${gruppo.id}?kw=${filtroKw}#keywords`} />
                                     <span className="tag-salute" style={{ color: "var(--ardesia)" }}>
                                       <span className="dot" />
                                       {ETICHETTA_OPERAZIONE[az.tipo] ?? az.tipo}
@@ -1052,7 +1073,7 @@ export default async function SchedaGruppo({
                                       <input type="hidden" name="testo" value={k.testo} />
                                       <input type="hidden" name="gruppo" value={gruppo.nome} />
                                       <input type="hidden" name="idEsternoKeyword" value={k.idEsterno ?? ""} />
-                                      <input type="hidden" name="ritorno" value={`/gruppi/${gruppo.id}?kw=${filtroKw}`} />
+                                      <input type="hidden" name="ritorno" value={`/gruppi/${gruppo.id}?kw=${filtroKw}#keywords`} />
                                       <input type="hidden" name="tipo" value={inPausaGoogle ? "attiva_keyword" : "pausa_keyword"} />
                                       <span className="tag-salute" style={{ color: inPausaGoogle ? "var(--ardesia)" : "var(--green)" }}>
                                         <span className="dot" />
@@ -1065,7 +1086,7 @@ export default async function SchedaGruppo({
                                     <form action={creaOperazioneKeyword} style={{ display: "inline-flex" }}>
                                       <input type="hidden" name="campagnaId" value={gruppo.campagna.id} />
                                       <input type="hidden" name="testo" value={k.testo} />
-                                      <input type="hidden" name="ritorno" value={`/gruppi/${gruppo.id}?kw=${filtroKw}`} />
+                                      <input type="hidden" name="ritorno" value={`/gruppi/${gruppo.id}?kw=${filtroKw}#keywords`} />
                                       <input type="hidden" name="tipo" value="negativa" />
                                       {/* La corrispondenza con cui questa parola è
                                           stata comprata: la negativa la eredita,
@@ -1120,7 +1141,7 @@ export default async function SchedaGruppo({
             )}
 
             {termini.length > 0 && (
-              <section className="scheda">
+              <section className="scheda" id="termini">
                 <div className="scheda-titolo">
                   Parole cercate davvero ({termini.length})
                 </div>
@@ -1137,7 +1158,7 @@ export default async function SchedaGruppo({
                     `form=`: dentro le celle c'è già il form di «Escludi». */}
                 <form id="scelte-termini" action={escludiParoleSelezionate} className="barra-multipla">
                   <input type="hidden" name="campagnaId" value={gruppo.campagna.id} />
-                  <input type="hidden" name="ritorno" value={`/gruppi/${gruppo.id}`} />
+                  <input type="hidden" name="ritorno" value={`/gruppi/${gruppo.id}#termini`} />
                   <span className="cella-sub">Spunta più parole e agisci su tutte insieme:</span>
                   <SelezionaTutte formId="scelte-termini" />
                   <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12 }}>
