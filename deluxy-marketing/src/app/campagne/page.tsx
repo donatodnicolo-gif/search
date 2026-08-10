@@ -74,6 +74,9 @@ export default async function PaginaCampagne({
     include: {
       metriche: { where: { data: { gte: giorni30 } } },
       landing: { select: { id: true, url: true, stato: true } },
+      // Il DOVE sulla card: il targeting vero letto da Google (vedi la
+      // scheda campagna). Qui basta il nome; le escluse si contano nel title.
+      localita: { orderBy: [{ esclusa: "asc" }, { nome: "asc" }], select: { nome: true, esclusa: true } },
       _count: { select: { azioni: true } },
     },
   });
@@ -302,6 +305,29 @@ export default async function PaginaCampagne({
                             )}
                           </div>
                           {c.obiettivo && <div className="card-campagna-obiettivo">◎ {c.obiettivo}</div>}
+                          {/* Dove è localizzata: le mirate per esteso (oltre
+                              3 si compatta), le escluse contate nel title.
+                              Se il targeting non è ancora stato letto, la
+                              card tace: l'assenza si dichiara sulla scheda. */}
+                          {(() => {
+                            const mirate = c.localita.filter((l) => !l.esclusa).map((l) => l.nome);
+                            const escluse = c.localita.filter((l) => l.esclusa).length;
+                            if (c.localita.length === 0) return null;
+                            return (
+                              <div
+                                className="card-campagna-obiettivo"
+                                title={`Targeting Google: ${mirate.join(", ") || "nessuna località mirata"}${escluse > 0 ? ` · ${escluse} escluse` : ""}`}
+                              >
+                                ⌖{" "}
+                                {mirate.length === 0
+                                  ? "nessuna località mirata"
+                                  : mirate.length <= 3
+                                    ? mirate.join(" · ")
+                                    : `${mirate.slice(0, 2).join(" · ")} e altre ${mirate.length - 2}`}
+                                {escluse > 0 && ` — ${escluse} escluse`}
+                              </div>
+                            );
+                          })()}
                           {c.landing && (
                             <div
                               className="card-campagna-landing"

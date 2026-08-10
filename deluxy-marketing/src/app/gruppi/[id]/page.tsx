@@ -653,42 +653,9 @@ export default async function SchedaGruppo({
 
         <div className="due-colonne">
           <div>
-            <section className="scheda">
-              <div className="scheda-titolo">Quando si vende — i dodici mesi</div>
-              <p className="cella-sub" style={{ marginBottom: 14, whiteSpace: "normal" }}>
-                I mesi già passati sono dati veri; per quelli che restano c&apos;è la media degli anni
-                precedenti. Non è una previsione: è quello che è successo, e serve a sapere quando
-                conviene avere budget pronto.
-              </p>
-              <Stagionalita
-                punti={gruppo.metriche.map((m) => ({
-                  data: m.data,
-                  spesa: m.spesa,
-                  ricavi: m.ricavi,
-                  conversioni: m.conversioni,
-                }))}
-              />
-            </section>
-
-            <section className="scheda">
-              <div className="scheda-titolo">Andamento spesa nel periodo</div>
-              <GraficoSpesa punti={[...nelPeriodo].reverse().map((m) => ({ data: m.data, valore: m.spesa ?? 0 }))} />
-            </section>
-
-            <section className="scheda">
-              <div className="scheda-titolo">
-                Metriche per mese ({gruppo.metriche.length} giorni)
-              </div>
-              <AndamentoMensile
-                metriche={gruppo.metriche}
-                vuoto={
-                  <>
-                    Nessuna metrica: le manda lo script di Google Ads con <code>AZIONE = &quot;gruppi&quot;</code>.
-                  </>
-                }
-              />
-            </section>
-
+            {/* Stagionalità, andamento e metriche per mese sono SCESI nella
+                colonna destra (10/08, deciso dall'utente): la sinistra parte
+                dal lavoro operativo — keyword, parole cercate, annunci. */}
             {keyword.length > 0 && (
               <section className="scheda">
                 <div className="scheda-titolo">Keyword del gruppo ({keyword.length})</div>
@@ -1150,6 +1117,42 @@ export default async function SchedaGruppo({
           </div>
 
           <div>
+            <section className="scheda">
+              <div className="scheda-titolo">Quando si vende — i dodici mesi</div>
+              <p className="cella-sub" style={{ marginBottom: 14, whiteSpace: "normal" }}>
+                I mesi già passati sono dati veri; per quelli che restano c&apos;è la media degli anni
+                precedenti. Non è una previsione: è quello che è successo, e serve a sapere quando
+                conviene avere budget pronto.
+              </p>
+              <Stagionalita
+                punti={gruppo.metriche.map((m) => ({
+                  data: m.data,
+                  spesa: m.spesa,
+                  ricavi: m.ricavi,
+                  conversioni: m.conversioni,
+                }))}
+              />
+            </section>
+
+            <section className="scheda">
+              <div className="scheda-titolo">Andamento spesa nel periodo</div>
+              <GraficoSpesa punti={[...nelPeriodo].reverse().map((m) => ({ data: m.data, valore: m.spesa ?? 0 }))} />
+            </section>
+
+            <section className="scheda">
+              <div className="scheda-titolo">
+                Metriche per mese ({gruppo.metriche.length} giorni)
+              </div>
+              <AndamentoMensile
+                metriche={gruppo.metriche}
+                vuoto={
+                  <>
+                    Nessuna metrica: le manda lo script di Google Ads con <code>AZIONE = &quot;gruppi&quot;</code>.
+                  </>
+                }
+              />
+            </section>
+
             {/* «Come si chiama qui» stava qui: ora è la matita accanto al
                 titolo. La spiegazione di cosa vale quel nome è dentro il
                 dialogo, non serve ripeterla in pagina. */}
