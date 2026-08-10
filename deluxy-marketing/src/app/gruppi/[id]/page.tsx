@@ -851,7 +851,28 @@ export default async function SchedaGruppo({
                                 />
                               </form>
                             </td>
-                            <td className="num">{formattaEuro(k.spesa)}</td>
+                            <td className="num">
+                              {formattaEuro(k.spesa)}
+                              {/* ⚠️ Numeri d'epoca accanto a uno stato fresco,
+                                  senza data: così 140 € qui contro 0 € su
+                                  Google sembravano un errore di sync (successo
+                                  il 10/08 su «pasticceria a domicilio», ferma
+                                  da prima della finestra). Una keyword in
+                                  pausa non produce numeri nuovi: i suoi sono
+                                  l'ultima fotografia in cui girava, e la data
+                                  va detta sulla riga. */}
+                              {k.metricheAl &&
+                                ultimaLetturaKeyword &&
+                                ultimaLetturaKeyword.getTime() - k.metricheAl.getTime() > 2 * 86_400_000 && (
+                                  <div
+                                    className="cella-sub"
+                                    style={{ whiteSpace: "normal" }}
+                                    title="Da allora questa parola non ha più prodotto numeri (di solito perché è ferma): su Google, nella finestra recente, la vedrai a zero"
+                                  >
+                                    numeri al {formattaData(k.metricheAl)}
+                                  </div>
+                                )}
+                            </td>
                             <td className="num">{formattaEuro(k.incasso)}</td>
                             <td
                               className="num"
