@@ -19,6 +19,7 @@ import {
   impostaAggiuntaAutomatica,
 } from "@/lib/azioni-regole-ordine";
 import { iscriviCollezioneARotazione } from "@/lib/azioni-rotazione";
+import { potaCollezione, salvaMassimoProdotti } from "@/lib/azioni-massimo-collezione";
 import { etichettaFrequenza, etichettaModo, prossimaVolta } from "@/lib/rotazione";
 import { salvaProdottiPerRiga } from "@/lib/azioni-collezioni-shopify";
 import {
@@ -148,6 +149,23 @@ export default async function CurazioneCollezionePage({
     (vp) => vp.prodotto.statoShopify === "ACTIVE" && vp.prodotto.fase !== "archiviato",
   );
   const fuoriScena = c.prodotti.length - inScena.length;
+
+  // **Il massimo di prodotti della vetrina.** Si conta sui prodotti in scena —
+  // quelli che il cliente vede — e chi sarebbe di troppo sono gli **ultimi della
+  // fila di oggi**, non un ordine ricalcolato al momento: chi guarda la pagina
+  // deve poter vedere in anticipo esattamente chi uscirebbe.
+  //
+  // ⚠️ Non si risparmiano i prodotti segnati «manuale». Sembrava prudente —
+  // «una scelta di una persona non la disfa un'automazione» — ma `origine` vale
+  // `"manuale"` **anche per tutto quello che è arrivato dall'import di
+  // Shopify**, che è la quasi totalità: il taglio non avrebbe mai tolto niente,
+  // e un bottone che non compare mai è peggio di nessun bottone. Quanti ne
+  // escono di ciascun tipo è scritto nella conferma.
+  const oltreIlMassimo = c.massimoProdotti == null ? 0 : Math.max(0, inScena.length - c.massimoProdotti);
+  const daPotare =
+    c.massimoProdotti == null ? [] : inScena.slice(c.massimoProdotti).filter((vp) => vp.prodottoShopifyId);
+  // Quanti dei tagliati non li ha portati la regola: serve a chi conferma.
+  const potatiSenzaGid = oltreIlMassimo - daPotare.length;
 
   const righe = inScena.slice(0, MAX_RIGHE);
   const restano = inScena.length - righe.length;
@@ -846,6 +864,129 @@ export default async function CurazioneCollezionePage({
             )}
           </div>
         )}
+
+        {/* **Quanti prodotti al massimo.** Nasce chiusa con lo stato nel titolo,
+            come le altre decisioni che si prendono una volta ogni tanto — ma si
+            apre da sola quando la vetrina è sopra il tetto, che è il momento in
+            cui serve guardarla. */}
+        <details className="scheda" open={oltreIlMassimo > 0}>
+          <summary className="scheda-titolo">
+            Quanti prodotti al massimo
+            <span className="scheda-stato">
+              {c.massimoProdotti == null
+                ? "nessun massimo"
+                : oltreIlMassimo > 0
+                  ? `massimo ${c.massimoProdotti} · ne ha ${inScena.length}`
+                  : `massimo ${c.massimoProdotti} · ${c.massimoProdotti - inScena.length} posti liberi`}
+            </span>
+          </summary>
+
+          <p className="page-sub">
+            Il tetto si conta sui prodotti che il cliente vede davvero — oggi{" "}
+            <b>{inScena.length} in vendita</b>
+            {fuoriScena > 0 ? <> ({fuoriScena} archiviati non contano)</> : null}. Da solo{" "}
+            <b>ferma le aggiunte automatiche</b>: oltre il massimo non entra più nessuno. Non toglie
+            niente da sé — nemmeno il giro notturno delle rotazioni lo fa.
+          </p>
+
+          <form action={salvaMassimoProdotti.bind(null, id)} className="riga-azione" style={{ marginTop: 10 }}>
+            <label className="campo-inline">
+              <span>Massimo prodotti in vetrina</span>
+              <input
+                type="number"
+                name="massimoProdotti"
+                min={1}
+                defaultValue={c.massimoProdotti ?? ""}
+                placeholder="nessun tetto"
+                aria-label="Massimo prodotti in vetrina"
+                style={{ width: 110 }}
+              />
+            </label>
+            <button className="btn btn-primario" type="submit">Salva il massimo</button>
+          </form>
+          <p className="page-sub" style={{ marginTop: 6 }}>
+            Lascia il campo <b>vuoto</b> per togliere il tetto. Vale <b>solo per questa collezione</b>:
+            la regola d&apos;ordine resta condivisibile, una vetrina di punta ne vuole venti e una
+            categoria duecento.
+          </p>
+
+          {oltreIlMassimo > 0 && (
+            <div className="avviso avviso-attenzione" style={{ marginTop: 12, marginBottom: 0 }}>
+              <b>
+                La vetrina ha {inScena.length} prodotti, {oltreIlMassimo} oltre il massimo di{" "}
+                {c.massimoProdotti}.
+              </b>{" "}
+              Restano tutti finché non li togli tu: né il tetto né il giro notturno tolgono niente da
+              sé.{" "}
+              {daPotare.length === 0 ? (
+                <>
+                  I {oltreIlMassimo} in coda non hanno un riferimento al prodotto sul negozio, quindi
+                  da qui non si possono togliere: rilancia l&apos;import delle collezioni.
+                </>
+              ) : (
+                <>
+                  Togliendoli escono <b>gli ultimi {daPotare.length} della fila</b> — i primi{" "}
+                  {c.massimoProdotti} restano — <b>qui e sul sito</b>.
+                  {potatiSenzaGid > 0 && (
+                    <>
+                      {" "}
+                      Altri {potatiSenzaGid} non si possono togliere da qui: manca il loro
+                      riferimento sul negozio.
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
+          {daPotare.length > 0 && (
+            <>
+              <p className="page-sub" style={{ marginTop: 12 }}>
+                <b>Chi uscirebbe</b> (gli ultimi della fila di oggi):{" "}
+                {daPotare.slice(0, 8).map((vp) => vp.prodotto.nome).join(" · ")}
+                {daPotare.length > 8 ? ` … e altri ${daPotare.length - 8}` : ""}.
+              </p>
+              {/* Premere **apre**, non esegue: togliere prodotti dal negozio vero
+                  è distruttivo, e la conferma sta nel popover come per l'Elimina. */}
+              <details className="conferma-x" style={{ marginTop: 8 }}>
+                <summary className="btn btn-pericolo">
+                  Togli {daPotare.length} prodotti dalla collezione
+                </summary>
+                <div
+                  className="conferma-x-corpo"
+                  style={{ flexDirection: "column", alignItems: "stretch", gap: 8 }}
+                >
+                  <p>
+                    Escono da <b>«{c.titolo}»</b> {daPotare.length} prodotti, <b>anche su Shopify</b>:
+                    non saranno più in questa collezione sul sito. I prodotti <b>non</b> vengono
+                    cancellati e restano in vendita altrove; per rimetterli dentro serve riapplicare
+                    la regola con l&apos;aggiunta automatica accesa, o metterceli a mano.
+                  </p>
+                  {/* Da dove venivano: quelli segnati «manuale» comprendono sia
+                      chi ce li ha messi una persona sia tutto ciò che è arrivato
+                      dall'import di Shopify — chi conferma deve saperlo. */}
+                  <p className="page-sub">
+                    Di questi, <b>{daPotare.filter((vp) => vp.origine === "regola").length}</b> ce li ha
+                    portati la regola e <b>{daPotare.filter((vp) => vp.origine !== "regola").length}</b>{" "}
+                    sono segnati «manuale» — cioè arrivati dall&apos;import del negozio oppure messi a
+                    mano da qualcuno.
+                  </p>
+                  {!puoScrivere && (
+                    <p className="page-sub">
+                      Il negozio «{c.negozio}» non ha un token che può scrivere sui prodotti: il
+                      taglio non partirebbe.
+                    </p>
+                  )}
+                  <form action={potaCollezione.bind(null, id)}>
+                    <button className="btn btn-pericolo" type="submit" disabled={!puoScrivere}>
+                      Sì, togli {daPotare.length} prodotti
+                    </button>
+                  </form>
+                </div>
+              </details>
+            </>
+          )}
+        </details>
 
         <div className="scheda">
           <div className="riga-titolo">

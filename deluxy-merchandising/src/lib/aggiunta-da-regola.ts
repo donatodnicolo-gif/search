@@ -24,7 +24,13 @@ import { corrisponde, filtroSuggerimenti, parsePassi } from "./regole-ordine";
  */
 const MAX_PER_GIRO = 250;
 
-export type EsitoAggiunta = { aggiunti: number; restano: number; errore?: string };
+export type EsitoAggiunta = {
+  aggiunti: number;
+  restano: number;
+  errore?: string;
+  /** Quanti sono rimasti fuori perché la collezione ha raggiunto il suo massimo. */
+  fermatiDalMassimo?: number;
+};
 
 /**
  * Fa entrare nella collezione i prodotti che **le condizioni della sua regola
@@ -47,6 +53,7 @@ export async function aggiungiDaRegola(collezioneId: string): Promise<EsitoAggiu
       negozio: true,
       tipo: true,
       aggiuntaAutomatica: true,
+      massimoProdotti: true,
       regolaOrdine: { select: { passi: true } },
     },
   });
@@ -84,8 +91,28 @@ export async function aggiungiDaRegola(collezioneId: string): Promise<EsitoAggiu
   const passi = parsePassi(c.regolaOrdine.passi).filter((p) => p.t !== "metrica");
   const candidati = larghi.filter((p) => passi.some((x) => corrisponde(p, x))).slice(0, MAX_PER_GIRO + 1);
   if (candidati.length === 0) return { aggiunti: 0, restano: 0 };
-  const giro = candidati.slice(0, MAX_PER_GIRO);
+
+  // **Il massimo della collezione ferma le aggiunte prima di farle.** Si conta
+  // su chi il cliente vede — i prodotti in scena — perché è quello il numero che
+  // il tetto vuole limitare: contare anche gli archiviati direbbe «piena» una
+  // vetrina che sul sito ne mostra la metà.
+  let postiLiberi = Number.POSITIVE_INFINITY;
+  if (c.massimoProdotti != null) {
+    const inScena = await prisma.prodottoInCollezioneShopify.count({
+      where: { collezioneId, prodotto: FILTRO_IN_SCENA },
+    });
+    postiLiberi = Math.max(0, c.massimoProdotti - inScena);
+    if (postiLiberi === 0) {
+      // Si dichiara, non si tace: un'aggiunta che non aggiunge niente e non
+      // spiega perché si legge come «non c'era nessun candidato».
+      return { aggiunti: 0, restano: 0, fermatiDalMassimo: candidati.length };
+    }
+  }
+
+  const tetto = Math.min(MAX_PER_GIRO, postiLiberi);
+  const giro = candidati.slice(0, tetto);
   const restano = candidati.length - giro.length;
+  const fermatiDalMassimo = c.massimoProdotti != null && postiLiberi < candidati.length ? restano : 0;
 
   const negozio = await prisma.negozioShopify.findFirst({ where: { nome: c.negozio }, select: { id: true } });
   const accesso = negozio ? await tokenDi(negozio.id) : null;
@@ -127,5 +154,5 @@ export async function aggiungiDaRegola(collezioneId: string): Promise<EsitoAggiu
     })),
     skipDuplicates: true,
   });
-  return { aggiunti: creati.count, restano };
+  return { aggiunti: creati.count, restano, fermatiDalMassimo };
 }

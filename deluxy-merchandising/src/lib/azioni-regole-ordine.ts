@@ -304,6 +304,13 @@ export async function impostaAggiuntaAutomatica(collezioneId: string, fd: FormDa
       const c = await prisma.collezioneShopify.findUnique({ where: { id: collezioneId }, select: { regolaOrdineId: true } });
       if (c?.regolaOrdineId) await applicaRegolaSalvata(collezioneId, c.regolaOrdineId);
       messaggio = `${e.aggiunti} prodotti entrati dalla regola${e.restano ? ` · altri ${e.restano} al prossimo giro` : ""}.`;
+      // Il massimo ha fermato qualcuno: dirlo, altrimenti si cerca nella fila un
+      // prodotto che le condizioni prendono e che non c'è, senza sapere perché.
+      if (e.fermatiDalMassimo) {
+        messaggio += ` Altri ${e.fermatiDalMassimo} non sono entrati: la collezione ha raggiunto il suo massimo.`;
+      }
+    } else if (e.fermatiDalMassimo) {
+      messaggio = `Aggiunta automatica accesa, ma non è entrato nessuno: la collezione ha già raggiunto il suo massimo, e ${e.fermatiDalMassimo} prodotti che le condizioni prendono sono rimasti fuori.`;
     } else messaggio = "Aggiunta automatica accesa: non c'era niente da far entrare.";
   }
   revalidatePath(`/visual/${collezioneId}`);

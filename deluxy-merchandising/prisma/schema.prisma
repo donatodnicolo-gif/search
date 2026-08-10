@@ -485,6 +485,20 @@ model CollezioneShopify {
   // Spento di default: far entrare prodotti in una vetrina e' una decisione, non
   // un effetto collaterale dell'ordinamento.
   aggiuntaAutomatica Boolean @default(false)
+  // **Quanti prodotti al massimo può avere questa vetrina.** `null` = nessun
+  // tetto (com'era prima). Si conta su chi il cliente vede davvero — i prodotti
+  // in scena, `FILTRO_IN_SCENA` — e non su tutta l'appartenenza: due prodotti su
+  // tre del catalogo sono archiviati su Shopify e in vetrina non compaiono, un
+  // tetto che li contasse direbbe «piena» una vetrina mezza vuota.
+  //
+  // Vive sulla **singola collezione** e non sulla regola: la stessa priorità
+  // serve una vetrina di punta da venti pezzi e una categoria da duecento.
+  //
+  // Il tetto **ferma le aggiunte automatiche** da solo; togliere quelli di
+  // troppo è invece un gesto esplicito con conferma (`potaCollezione`), mai una
+  // conseguenza del cron: un automatismo che toglie prodotti dal sito vero di
+  // notte è esattamente la cosa che qui non si fa.
+  massimoProdotti Int?
   // **La stellina**: le collezioni su cui si sta lavorando. Vive solo qui —
   // e' una scorciatoia personale, non una proprieta' del negozio.
   preferita Boolean @default(false)
