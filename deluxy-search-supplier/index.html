@@ -160,7 +160,17 @@
   #lbox{position:fixed; inset:0; z-index:1200; background:rgba(0,0,0,.9); display:none;
     flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:24px}
   #lbox.on{display:flex}
-  #lbox img{max-width:min(1200px,94vw); max-height:76vh; object-fit:contain;
+  /* vista «tutte insieme»: la griglia di tutte le foto del negozio */
+  #lbox .lb-grid{display:grid; gap:10px; grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
+    width:min(1200px,94vw); max-height:76vh; overflow-y:auto; padding:2px}
+  #lbox .lb-grid img{width:100%; height:170px; object-fit:cover; border-radius:var(--radius-m);
+    background:#111; cursor:zoom-in; transition:transform .15s var(--ease)}
+  #lbox .lb-grid img:hover{transform:scale(1.02); outline:2px solid rgba(255,255,255,.7)}
+  /* vista «una sola», ingrandita: compare solo cliccando una foto della griglia */
+  #lbox .lb-one{display:none; flex-direction:column; align-items:center; gap:14px}
+  #lbox.single .lb-grid{display:none}
+  #lbox.single .lb-one{display:flex}
+  #lbox .lb-one img{max-width:min(1200px,94vw); max-height:74vh; object-fit:contain;
     border-radius:var(--radius-l); background:#111}
   #lbox .lb-bar{display:flex; align-items:center; gap:14px; color:#fff; font-size:13px}
   #lbox button{background:rgba(255,255,255,.14); color:#fff; border:0; border-radius:var(--radius-pill);
@@ -171,7 +181,12 @@
   #lbox .lb-attr{color:rgba(255,255,255,.55); font-size:11px; text-align:center}
   #lbox .lb-attr a{color:rgba(255,255,255,.75)}
   #lbox .lb-close{position:absolute; top:16px; right:16px}
-  @media(max-width:560px){ .shopfoto img{height:180px} }
+  @media(max-width:560px){
+    .shopfoto img{height:180px}
+    #lbox{padding:16px}
+    #lbox .lb-grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:8px}
+    #lbox .lb-grid img{height:130px}
+  }
   .hint{font-size:12px; color:var(--text-secondary); margin-top:8px; line-height:1.5}
   a.link{color:var(--blue)}
   .ordercard{margin-bottom:14px}
@@ -839,11 +854,17 @@
 <div id="lbox" role="dialog" aria-modal="true" aria-label="Foto del negozio">
   <button type="button" class="lb-close" id="lbClose" aria-label="Chiudi">✕ Chiudi</button>
   <div class="lb-title" id="lbTitle"></div>
-  <img id="lbImg" alt="Foto del negozio">
-  <div class="lb-bar">
-    <button type="button" id="lbPrev" aria-label="Foto precedente">‹</button>
-    <span id="lbCount"></span>
-    <button type="button" id="lbNext" aria-label="Foto successiva">›</button>
+  <!-- si apre così: tutte le foto del negozio insieme -->
+  <div class="lb-grid" id="lbGrid"></div>
+  <!-- una sola foto ingrandita: solo dopo aver cliccato una foto della griglia -->
+  <div class="lb-one" id="lbOne">
+    <img id="lbImg" alt="Foto del negozio">
+    <div class="lb-bar">
+      <button type="button" id="lbBack">↩ Tutte le foto</button>
+      <button type="button" id="lbPrev" aria-label="Foto precedente">‹</button>
+      <span id="lbCount"></span>
+      <button type="button" id="lbNext" aria-label="Foto successiva">›</button>
+    </div>
   </div>
   <div class="lb-attr" id="lbAttr"></div>
 </div>
@@ -1970,32 +1991,58 @@ function fotoCoverHtml(fotos, sid, nome){
       ${n>1 ? `<span class="count">📷 ${n} foto</span>` : '<span class="count">📷 Google Maps</span>'}
     </div>`;
 }
-/* lightbox: si apre cliccando la copertina, sfoglia tutte le foto di QUEL negozio */
+/* lightbox: cliccando la copertina si aprono SUBITO tutte le foto di quel negozio
+   (griglia); cliccandone una la si ingrandisce, con «↩ Tutte le foto» per tornare. */
 let lbFotos = [], lbIdx = 0;
+// attribuzione richiesta da Google: è HTML (un <a> all'autore) fornito dall'API,
+// va messo con innerHTML — con esc() si vedrebbe il markup
+function lbAttrTutte(){
+  const uniche = [...new Set(lbFotos.map(f=>f.attr).filter(Boolean))];
+  return '📷 ' + lbFotos.length + ' foto da Google Maps'
+       + (uniche.length ? ' · ' + uniche.join(' · ') : '');
+}
+function lbGriglia(){
+  $('#lbox').classList.remove('single');
+  $('#lbGrid').innerHTML = lbFotos.map((f,i)=>
+    `<img loading="lazy" src="${esc(f.thumb)}" data-i="${i}" alt="Foto ${i+1}">`).join('');
+  $('#lbAttr').innerHTML = lbAttrTutte();
+}
 function lbShow(){
   const f = lbFotos[lbIdx]; if(!f) return;
+  $('#lbox').classList.add('single');
   $('#lbImg').src = f.full;
   $('#lbCount').textContent = (lbIdx+1) + ' / ' + lbFotos.length;
   $('#lbPrev').disabled = lbIdx === 0;
   $('#lbNext').disabled = lbIdx >= lbFotos.length - 1;
-  // attribuzione richiesta da Google: è HTML (un <a> all'autore) fornito dall'API
   $('#lbAttr').innerHTML = '📷 Foto da Google Maps' + (f.attr ? ' · ' + f.attr : '');
 }
-function apriFoto(sid, nome, i){
+function apriFoto(sid, nome){
   const fotos = PLACE_FOTOS[sid]; if(!fotos || !fotos.length) return;
-  lbFotos = fotos; lbIdx = i || 0;
+  lbFotos = fotos; lbIdx = 0;
   $('#lbTitle').textContent = nome || '';
   $('#lbox').classList.add('on');
-  lbShow();
+  // con una foto sola la griglia non ha senso: si apre già ingrandita
+  if(lbFotos.length === 1) lbShow(); else lbGriglia();
 }
-function chiudiFoto(){ $('#lbox').classList.remove('on'); $('#lbImg').src = ''; lbFotos = []; }
+function chiudiFoto(){
+  $('#lbox').classList.remove('on','single');
+  $('#lbImg').src = ''; $('#lbGrid').innerHTML = ''; lbFotos = [];
+}
 $('#lbClose').addEventListener('click', chiudiFoto);
 $('#lbox').addEventListener('click', e=>{ if(e.target.id === 'lbox') chiudiFoto(); });
+$('#lbGrid').addEventListener('click', e=>{
+  const img = e.target.closest('img[data-i]'); if(!img) return;
+  lbIdx = Number(img.dataset.i) || 0; lbShow();
+});
+$('#lbBack').addEventListener('click', lbGriglia);
 $('#lbPrev').addEventListener('click', ()=>{ if(lbIdx>0){ lbIdx--; lbShow(); } });
 $('#lbNext').addEventListener('click', ()=>{ if(lbIdx<lbFotos.length-1){ lbIdx++; lbShow(); } });
 document.addEventListener('keydown', e=>{
-  if(!$('#lbox').classList.contains('on')) return;
-  if(e.key === 'Escape') chiudiFoto();
+  const lb = $('#lbox'); if(!lb.classList.contains('on')) return;
+  const singola = lb.classList.contains('single');
+  // Esc: da una foto ingrandita si torna alla griglia, dalla griglia si chiude
+  if(e.key === 'Escape'){ if(singola && lbFotos.length>1) lbGriglia(); else chiudiFoto(); }
+  else if(!singola) return;
   else if(e.key === 'ArrowLeft' && lbIdx>0){ lbIdx--; lbShow(); }
   else if(e.key === 'ArrowRight' && lbIdx<lbFotos.length-1){ lbIdx++; lbShow(); }
 });
@@ -3147,7 +3194,7 @@ resultsEl.addEventListener('click', e=>{
   const box = e.target.closest('.shopfoto'); if(!box) return;
   const card = e.target.closest('.shop');
   const nome = card ? (card.querySelector('h3')||{}).textContent : '';
-  apriFoto(box.dataset.sid, (nome||'').trim(), 0);
+  apriFoto(box.dataset.sid, (nome||'').trim());
 });
 
 /* ------------------ render ------------------ */

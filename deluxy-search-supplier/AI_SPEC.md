@@ -175,9 +175,13 @@ L'app è richiamabile da un bottone/link di qualsiasi altra app; i parametri si 
   così le schede fuori schermo e quelle nascoste dai filtri non scaricano nulla) e le altre
   foto partono **solo** all'apertura della lightbox. Non trasformare la copertina in una
   striscia di miniature senza rifare questo conto.
-- **Lightbox** (`#lbox`): `apriFoto(sid, nome, i)` sfoglia `PLACE_FOTOS[sid]`; frecce ‹ ›,
-  contatore, tastiera (Esc/←/→), clic sullo sfondo per chiudere. Un solo listener delegato su
-  `resultsEl` per `.shopfoto` (come star-btn/arch-btn).
+- **Galleria** (`#lbox`, due viste nello stesso overlay): `apriFoto(sid, nome)` apre **subito la
+  griglia con TUTTE le foto** del negozio (`lbGriglia`, `#lbGrid`, miniature `thumb`); cliccandone
+  una si passa alla vista ingrandita (`lbShow`, `#lbOne`, immagine `full`) con ‹ ›, contatore e
+  «↩ Tutte le foto». La vista si sceglie con la classe `#lbox.single`. Con **una sola foto** si
+  apre già ingrandita (una griglia da una cella non ha senso). Tastiera: ← → nella vista
+  ingrandita; **Esc torna alla griglia** e solo dalla griglia chiude; clic sullo sfondo chiude.
+  Un solo listener delegato su `resultsEl` per `.shopfoto` (come star-btn/arch-btn).
 - **Attribuzione**: Google richiede di mostrare `html_attributions`; è **HTML dell'API** e va
   inserito con `innerHTML` (`#lbAttr`), non con `esc()`, altrimenti si vede il markup.
 - **Schede del registro**: `annotaOrariRegistro` chiede ora anche `photos` (stessa

@@ -369,8 +369,11 @@ solo dove siamo e come si lavora.
 
 38. **Foto dei negozi da Google Maps** (10/08): ogni scheda risultato mostra una **foto di
    copertina** (150px, 180px su mobile) fra i dati e i contatti, con la pillola «📷 N foto»;
-   cliccandola si apre una **galleria a tutto schermo** (`#lbox`) con frecce, contatore,
-   tastiera (Esc/←/→) e l'attribuzione richiesta da Google. Copertina anche sulle schede del
+   cliccandola si apre a tutto schermo (`#lbox`) la **griglia con tutte le foto insieme**
+   (5 colonne su desktop, 2 su mobile) e cliccandone una la si **ingrandisce**, con ‹ ›,
+   contatore e «↩ Tutte le foto». Esc torna alla griglia, un secondo Esc chiude; con una foto
+   sola si apre già ingrandita. L'attribuzione richiesta da Google è sempre in fondo.
+   Copertina anche sulle schede del
    **registro** (partner/prospect: le foto arrivano dalla stessa `findPlaceFromQuery` +
    `getDetails` che già serviva per gli orari, in `annotaOrariRegistro`) e **miniatura nella
    tendina della mappa** (`mapPoints[].foto`).
@@ -384,9 +387,10 @@ solo dove siamo e come si lavora.
    `'1'` predefinito anche se mai salvata, `'0'` = spente: con le foto spente non parte
    nessuna richiesta). Salvabile solo dall'admin, letto da tutte le utenze.
    Verificato in locale con dati finti (porta 5511): copertina + pillola conteggio, apertura
-   galleria, avanti/indietro coi limiti giusti, freccia sinistra, Esc, attribuzione resa come
-   link, interruttore acceso/spento/mai-salvato, mobile 375px senza overflow, console pulita,
-   sintassi OK. **Non collaudato su Google vero** (serve chiave + login): da guardare in
+   sulla griglia con tutte e 6 le foto finte, clic sulla terza → ingrandita «3 / 6», frecce coi
+   limiti giusti, Esc→griglia→Esc→chiusa, caso «una foto sola» che si apre ingrandita, griglia
+   svuotata alla chiusura, attribuzione resa come link, interruttore acceso/spento/mai-salvato,
+   desktop 5 colonne e mobile 375px 2 colonne senza overflow, console pulita, sintassi OK. **Non collaudato su Google vero** (serve chiave + login): da guardare in
    produzione su un ordine reale — soprattutto quanti negozi hanno davvero le foto.
 
 ## Cose in sospeso
