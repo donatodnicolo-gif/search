@@ -96,6 +96,11 @@ export async function POST(req: NextRequest) {
 
   let nuoveKw = 0, aggiornateKw = 0, nuoviAnn = 0, aggiornatiAnn = 0;
 
+  // Gli ANNUNCI citati in questa consegna, con le campagne in cui stanno:
+  // servono in fondo per staccare gli agganci che Google non conferma più.
+  const annunciVisti = new Set<string>();
+  const campagneConAnnunci = new Set<string>();
+
   for (const k of keywords) {
     if (!k?.testo || !k?.campagna) continue;
     // Il testo porta con sé la corrispondenza, come nel Monitoraggio:
@@ -137,6 +142,10 @@ export async function POST(req: NextRequest) {
 
   for (const a of annunci) {
     if (!a?.testo || !a?.campagna || !a?.tipo) continue;
+    if (Array.isArray(a.annunci) && a.annunci.length > 0) {
+      for (const x of a.annunci) annunciVisti.add(String(x));
+      campagneConAnnunci.add(String(a.campagna));
+    }
     // I numeri di un asset (sitelink, callout, snippet, immagine) arrivano solo
     // se la vista di Google li ha retti: lo script prova con le metriche e, se
     // la query viene rifiutata, ripiega sulla sola anagrafica.
@@ -179,6 +188,48 @@ export async function POST(req: NextRequest) {
     else aggiornatiAnn++;
   }
 
+  // ── Gli agganci annuncio→testo si SOSTITUISCONO, non si accumulano ────────
+  // L'elenco `annunci` di una riga che arriva viene già riscritto per intero
+  // qui sopra. Il problema sono le righe che NON arrivano più: un titolo tolto
+  // da un RSA restava in archivio col vecchio aggancio, e un annuncio arrivava
+  // a mostrare 21 titoli su un massimo di 15. Per ogni annuncio citato in
+  // questa consegna, l'aggancio si stacca dalle righe che la consegna non ha
+  // confermato. Si stacca l'AGGANCIO, non la riga: la storia del testo (spesa,
+  // rendimento, stato) resta.
+  //
+  // ⚠️ La consegna arriva a blocchi che possono spezzare un annuncio a metà:
+  // le righe consegnate da poco (stessa corsa, `metricheAl` fresco) non si
+  // toccano — il loro elenco è appena stato riscritto ed è quello vero. Si
+  // guarda `metricheAl` e non `aggiornataIl` perché questo stesso stacco
+  // aggiorna `aggiornataIl`: usarla come spia farebbe saltare la pulizia dei
+  // blocchi successivi.
+  // ⚠️ Un annuncio MAI citato nella consegna non dice niente: le sue righe non
+  // si toccano. Sostituire dove la consegna parla, tacere dove tace.
+  let agganciStaccati = 0;
+  if (annunciVisti.size > 0) {
+    const stessaCorsa = new Date(adesso.getTime() - 2 * 60 * 60 * 1000);
+    const righeNonArrivate = await prisma.copyAnnuncio.findMany({
+      where: {
+        canale,
+        campagna: { in: [...campagneConAnnunci] },
+        tipo: { in: ["titolo", "descrizione"] },
+        annunci: { not: null },
+        OR: [{ metricheAl: null }, { metricheAl: { lt: stessaCorsa } }],
+      },
+      select: { id: true, annunci: true },
+    });
+    for (const r of righeNonArrivate) {
+      const agganci = (r.annunci ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+      const rimasti = agganci.filter((id) => !annunciVisti.has(id));
+      if (rimasti.length === agganci.length) continue;
+      await prisma.copyAnnuncio.update({
+        where: { id: r.id },
+        data: { annunci: rimasti.length > 0 ? rimasti.join(",") : null },
+      });
+      agganciStaccati++;
+    }
+  }
+
   await prisma.ricezioneDati.create({
     data: {
       fonte: canale,
@@ -197,13 +248,13 @@ export async function POST(req: NextRequest) {
     tipo: "import",
     entita: "copy",
     titolo: `Import copy da ${canale}${body.account ? ` (account ${body.account})` : ""}`,
-    dettaglio: `keyword: ${nuoveKw} nuove, ${aggiornateKw} aggiornate · annunci: ${nuoviAnn} nuovi, ${aggiornatiAnn} aggiornati`,
+    dettaglio: `keyword: ${nuoveKw} nuove, ${aggiornateKw} aggiornate · annunci: ${nuoviAnn} nuovi, ${aggiornatiAnn} aggiornati${agganciStaccati > 0 ? ` · ${agganciStaccati} testi staccati da annunci che non li usano più` : ""}`,
   });
 
   return NextResponse.json(
     {
       keywords: { nuove: nuoveKw, aggiornate: aggiornateKw },
-      annunci: { nuovi: nuoviAnn, aggiornati: aggiornatiAnn },
+      annunci: { nuovi: nuoviAnn, aggiornati: aggiornatiAnn, agganciStaccati },
     },
     { status: 201 }
   );

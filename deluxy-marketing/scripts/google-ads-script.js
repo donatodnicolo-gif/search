@@ -606,16 +606,31 @@ function leggiKeywords(conto) {
  * l'etichetta migliore vista e, nelle note, quante volte è usato.
  */
 function leggiAnnunci() {
-  var query =
+  // Senza filtro di data: la vista elenca cio' che sta DENTRO gli annunci
+  // adesso, e l'app puo' sostituire gli agganci annuncio-testo invece di
+  // accumularli. Col filtro data un titolo senza traffico non arrivava piu',
+  // il suo aggancio restava scritto per sempre, e un annuncio arrivava a
+  // mostrare 21 titoli su un massimo di 15. Se Google rifiuta la query di
+  // struttura si ripiega sulla finestra di GIORNI_COPY giorni, come prima.
+  var colonne =
     "SELECT campaign.name, ad_group.name, ad_group_ad.ad.id, " +
     "asset.text_asset.text, ad_group_ad_asset_view.field_type, " +
     "ad_group_ad_asset_view.performance_label, ad_group_ad.status " +
-    "FROM ad_group_ad_asset_view " +
-    "WHERE segments.date BETWEEN '" + dataIso(-GIORNI_COPY) + "' AND '" + dataIso(0) + "' " +
-    "AND ad_group_ad_asset_view.field_type IN ('HEADLINE', 'DESCRIPTION')";
+    "FROM ad_group_ad_asset_view ";
 
   var perChiave = {};
-  var risultati = AdsApp.search(query);
+  var risultati;
+  try {
+    risultati = AdsApp.search(colonne +
+      "WHERE ad_group_ad.status IN ('ENABLED', 'PAUSED') " +
+      "AND ad_group_ad_asset_view.field_type IN ('HEADLINE', 'DESCRIPTION')");
+    risultati.hasNext();
+  } catch (e) {
+    Logger.log("annunci: query di struttura rifiutata (" + e + ") - ripiego sulla finestra di " + GIORNI_COPY + " giorni");
+    risultati = AdsApp.search(colonne +
+      "WHERE segments.date BETWEEN '" + dataIso(-GIORNI_COPY) + "' AND '" + dataIso(0) + "' " +
+      "AND ad_group_ad_asset_view.field_type IN ('HEADLINE', 'DESCRIPTION')");
+  }
   while (risultati.hasNext()) {
     var r = risultati.next();
     var testo = r.asset && r.asset.textAsset ? r.asset.textAsset.text : null;
