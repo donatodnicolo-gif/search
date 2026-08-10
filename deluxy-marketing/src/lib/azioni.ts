@@ -2739,6 +2739,10 @@ export async function applicaKeywordAdAltreCampagne(fd: FormData) {
   // dialogo non manda niente, «generica» su una parola nata esatta comprerebbe
   // molte più ricerche di quelle volute.
   const corrispondenza = testo(fd, "corrispondenza") ?? "exact";
+  // Il motivo, se chi chiama ne ha uno più vero di quello standard: le parole
+  // proposte dall'AI non sono «portate da un'altra campagna», e scriverlo
+  // sarebbe falso. Chi approva deve leggere da dove nasce davvero la parola.
+  const motivoDichiarato = testo(fd, "motivo");
   const destinazioni = fd
     .getAll("campagne")
     .map((v) => String(v))
@@ -2822,9 +2826,10 @@ export async function applicaKeywordAdAltreCampagne(fd: FormData) {
           ...(gruppoScelto ? { gruppo: gruppoScelto } : {}),
         }),
         motivo:
-          pulitoQui.toLowerCase() !== pulito.toLowerCase()
+          motivoDichiarato ??
+          (pulitoQui.toLowerCase() !== pulito.toLowerCase()
             ? `Portata da un'altra campagna e riscritta per questa: «${pulito}» → «${pulitoQui}»`
-            : `Portata da un'altra campagna: funzionava lì`,
+            : `Portata da un'altra campagna: funzionava lì`),
         avvisi: avvisoFreeze,
         livello: "L1",
         prima: "assente",

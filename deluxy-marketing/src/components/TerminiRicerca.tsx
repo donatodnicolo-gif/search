@@ -1,6 +1,9 @@
-import { escludiParoleSelezionate, giudicaTermine } from "@/lib/azioni";
+import { applicaKeywordAdAltreCampagne, escludiParoleSelezionate, giudicaTermine } from "@/lib/azioni";
+import { estendiKeywordConAi } from "@/lib/azioni-estendi";
+import { EstendiConAi } from "@/components/EstendiConAi";
 import { PortaSelezionate } from "@/components/PortaSelezionate";
 import { attributiPortaKeyword } from "@/lib/porta-keyword";
+import { STATI_GRUPPO_IGNORATI } from "@/lib/gruppi";
 import { prisma } from "@/lib/db";
 import { formattaEuro, formattaNumero, testoKeywordGoogle, testoKeywordPulito } from "@/lib/dominio";
 import { breakEvenRoas } from "@/lib/guardrail";
@@ -109,6 +112,19 @@ export async function TerminiRicerca({
   const giaSuDi = (testo: string) => [
     ...(campagneDiParola.get(testoKeywordPulito(testo).toLowerCase()) ?? new Set<string>()),
   ];
+
+  // I gruppi di annunci di QUESTA campagna: servono a «Estendi con AI» per
+  // far scegliere dove finiscono le parole nuove — senza, lo script le infila
+  // nel primo gruppo attivo che incontra.
+  const gruppiCampagna = nomeCampagna
+    ? (
+        await prisma.gruppo.findMany({
+          where: { campagnaId, stato: { notIn: [...STATI_GRUPPO_IGNORATI] } },
+          orderBy: { nome: "asc" },
+          select: { nome: true },
+        })
+      ).map((g) => g.nome)
+    : [];
 
   // ——— Ordinamento (in memoria, sui 40 già scelti) ———
   const colonna: Colonna = (ord && ord in COLONNE ? ord : "spesa") as Colonna;
@@ -294,7 +310,23 @@ export async function TerminiRicerca({
             Escludi le selezionate
           </button>
           <PortaSelezionate lingue={linguaCampagna ? [linguaCampagna] : []} />
+          {/* Apre il dialogo qui sotto (ascoltatore delegato): il dialogo non
+              può stare dentro questo form — ne contiene un altro. */}
+          <button type="button" className="btn small fantasma" data-estendi-ai>
+            Estendi con AI
+          </button>
         </form>
+      )}
+
+      {nomeCampagna && (
+        <EstendiConAi
+          campagnaId={campagnaId}
+          nomeCampagna={nomeCampagna}
+          gruppi={gruppiCampagna}
+          ritorno={base ?? `/campagne/${campagnaId}`}
+          azioneAi={estendiKeywordConAi}
+          azioneAccoda={applicaKeywordAdAltreCampagne}
+        />
       )}
 
       <div style={{ overflowX: "auto" }}>
