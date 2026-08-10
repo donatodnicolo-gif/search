@@ -1,6 +1,6 @@
 # Handoff — Deluxy Marketing
 
-> Stato al **04/08/2026**. Una finestra Claude nuova deve poter riprendere da qui
+> Stato al **10/08/2026**. Una finestra Claude nuova deve poter riprendere da qui
 > senza altro contesto. Leggere prima il [README](../README.md) per cosa fa l'app;
 > questo documento dice **dove siamo** e **cosa manca**.
 
@@ -21,6 +21,99 @@ Riceve già dati veri da Google Ads (Gifts e Flowers) e ha 2.426 ordini Shopify 
   in sviluppo scrive sui dati veri. Non esiste ancora uno schema `marketing_dev`.
 
 ## FATTO
+
+### ⭐ I titoli tolti da un annuncio si staccano, invece di accumularsi (10/08/2026)
+
+Chiuso il punto APERTO del 09/08 (annunci con 21/19/17 titoli su un massimo
+di 15). Il difetto non era il merge dell'elenco — l'ingest **già sostituiva**
+`annunci` sulle righe che arrivano — ma le **righe che non arrivano più**: un
+titolo tolto da un RSA restava in archivio col vecchio aggancio, per sempre.
+
+Due gambe, e la prima agisce da sola al prossimo giro:
+
+1. **Ingest** (`/api/v1/ingest/copy`): per ogni annuncio citato nella
+   consegna, l'aggancio si stacca dalle righe che la consegna non ha
+   confermato. Si guarda **`metricheAl`** («l'ultima volta che questa riga è
+   arrivata»), **non** `aggiornataIl`: lo stacco stesso tocca `aggiornataIl`,
+   e usarla come spia farebbe saltare la pulizia dei blocchi successivi.
+   Margine di 2 ore per i blocchi della stessa corsa (possono spezzare un
+   annuncio a metà). ⚠️ **Si stacca l'aggancio, non la riga**: la storia del
+   testo (spesa, rendimento, stato) resta. ⚠️ Un annuncio **mai citato** nella
+   consegna non dice niente: le sue righe non si toccano.
+2. **Script** (`leggiAnnunci()`): la query legge la **struttura attuale**
+   (niente `segments.date`, `status IN ENABLED/PAUSED`) con **ripiego sulla
+   finestra `GIORNI_COPY`** se Google la rifiuta. Col filtro data un titolo
+   senza traffico non arrivava, e la pulizia dell'ingest l'avrebbe staccato
+   per errore; senza filtro, «non arriva» = «non è più nell'annuncio», e la
+   sostituzione diventa esatta. Patch fatta con node in ASCII puro, byte
+   non-ASCII invariati (5.842); copie rigenerate in Downloads.
+
+L'esito della consegna ora dice anche «N testi staccati da annunci che non li
+usano più» (in `/registro` e nella risposta dell'API).
+
+### Le approvate ferme si dichiarano, e la riga del 07/08 è sbloccata (10/08/2026)
+
+Chiusi i punti 4a e 4b del «Da riprendere». In `/operazioni`:
+
+- Un'operazione **approvata** che l'account ha scavalcato (consegne nei
+  giorni successivi all'approvazione, con margine di 1 ora) ora lo dice
+  sulla riga: quanti giri l'hanno lasciata indietro e dove sta il motivo
+  (log dello script, sezione ESEGUI). Prima era indistinguibile da una che
+  aspetta il primo giro.
+- Un'operazione **senza account** (canale Google) dichiara che nessuno
+  script la riconosce come sua — nata prima dell'8/08, o campagna col brand
+  non deciso — e che conviene rifarla.
+
+E l'unica riga viva in quello stato — `attiva_keyword` su «flowers delivery
+milan», approvata il 07/08 — ha ricevuto **`account = 248-656-1148`** scritto
+a mano sul database, col motivo annotato sull'operazione. Con lo script
+attuale il «non trovata» diventa un errore visibile; con `tutto.js`
+reincollato, la ricerca campagna+gruppo la trova e la esegue.
+
+### Selezione multipla anche sulle parole cercate globali (10/08/2026)
+
+Chiuso il punto 2 del «Da riprendere» (la scheda campagna l'aveva già dal
+09/08): su **`/termini`** si spuntano più parole e si agisce su tutte insieme
+— «Escludi le selezionate» e «Porta altrove le selezionate».
+
+> ⚠️ **Qui le righe sono di campagne DIVERSE**, ed è il motivo per cui le
+> caselle portano l'**id del termine**, non il testo: ogni parola diventa una
+> negativa **sulla campagna in cui è stata cercata**. Il testo per il dialogo
+> «Porta altrove» viaggia in `data-testo` (`PortaSelezionate` legge quello,
+> quando c'è). Il giudizio segue («da escludere»), come nell'Escludi di riga.
+
+Il cuore dell'esclusione — anti-doppioni, avviso incidente, coda, registro —
+sta ora in **`accodaNegativeSuCampagna`** (`lib/azioni.ts`), condiviso fra la
+barra della scheda e la pagina globale: due strade che accodassero in modo
+diverso darebbero due code diverse. L'elenco campagne del dialogo (vive, con
+lingua/città/gruppi) sta in **`lib/campagne-dialogo.ts`**, la stessa pipeline
+della pagina Keywords.
+
+### Col filtro Meta il lancio dice la verità (10/08/2026)
+
+Chiuso il punto 3 del «Da riprendere». Su `/campagne?canale=meta_ads` compare
+**«Lancia su Meta Ads — non ancora»**, spento, con la nota che spiega: il
+modulo di lancio è di Google (keyword e negative, che su Meta non esistono),
+**creare campagne non è fra le operazioni del motore Meta** (pausa, riattiva,
+budget), e il motore è comunque spento. Una campagna Meta si lancia da Ads
+Manager e qui si **censisce**. I bottoni di Google restano tutti: nessuna
+azione tolta, solo una promessa falsa in meno.
+
+### ⭐ Il brand di una campagna si corregge, e l'account è un fatto (09/08/2026)
+
+`[Palloncini] - AWARENESS` risultava di Cake con 1.137,67 € attribuiti, e sul
+conto Meta di Cake **non esiste**: gliel'aveva agganciata una sync mirata, e
+la regola «cross → brand noto» l'aveva promossa al primo account che l'aveva
+toccata. Il difetto vero: l'app teneva la **conseguenza** (il brand) e non il
+**fatto** (l'account).
+
+- **`Campagna.account`** scritto dall'import (ALTER TABLE mirato,
+  `scripts/aggiungi-account-campagna.mjs`), mostrato sulla scheda; finché non
+  si sa, la scheda dice «account non ancora letto».
+- **`Campagna.brandManuale`**: il brand scelto a mano **blocca ogni import**,
+  come `origine: manuale` sul legame Shopify.
+- ⚠️ La correzione **non è retroattiva**: il brand sbagliato va corretto a
+  mano una volta, poi resta.
 
 ### ⭐⭐ La somma dei gruppi non faceva il totale della campagna (09/08/2026)
 
@@ -51,9 +144,12 @@ Ora la scheda campagna passa `periodo: periodo.corrente` e i gruppi sommano
 esatti: **1.609 €**, verificato in pagina. `giorni` resta per gli altri
 chiamanti, che un periodo non ce l'hanno.
 
-### ⚠️ APERTO: i titoli per annuncio sono più di quanti Google ne ammetta
+### ~~APERTO~~ CHIUSO il 10/08: i titoli per annuncio erano più di quanti Google ne ammetta
 
-Segnalato lo stesso giorno e **non ancora corretto**. Sul gruppo
+> ✅ **Corretto il 10/08/2026** — vedi «I titoli tolti da un annuncio si
+> staccano» in cima al FATTO. Il testo sotto resta come diagnosi originale.
+
+Segnalato il 09/08. Sul gruppo
 `Flowers Delivery` di `[Deluxy] - Fiori Milano ENG`:
 
 | annuncio | titoli in archivio |
@@ -1715,56 +1811,28 @@ Numeri veri del 28/07: corsa completa **594 documenti in 24,7 s** (7 nuovi, 6
 aggiornati, **101 spariti** che l'indice si portava dietro dalle sync morte, 25
 analisi importate); seconda corsa 0 scritture.
 
-## Da riprendere subito (08/08/2026, fine sessione)
+## Da riprendere subito (10/08/2026, fine sessione)
 
-1. ~~**Conversioni da Orders accanto a quelle di Google**~~ — **fatto
-   l'08/08/2026**, vedi la sezione in FATTO.
-2. **Selezione multipla** per «Escludi» e «Porta altrove» sulle parole cercate.
-   Metà è già fatta: `applicaKeywordAdAltreCampagne` accetta **più parole**
-   (`fd.getAll("testo")`, con la traduzione disattivata quando sono più d'una).
-   Manca la barra con le caselle nella tabella — il modello è la barra
-   «Escludi le selezionate» della scheda gruppo.
-3. **Bottone «Lancia su Meta Ads»** quando si filtra per `canale=meta_ads`.
-   ⚠️ Non è solo un'etichetta: oggi porta al modulo di Google, che offre
-   keyword e negative — **che su Meta non esistono**. E la coda su Meta non può
-   ancora eseguire (vedi il motore spento qui sopra). Il bottone deve dire cosa
-   succede davvero, non promettere.
+I quattro punti della sessione dell'08/08 sono **tutti chiusi** (conversioni
+da Orders l'08/08; selezione multipla, bottone Meta e operazione ferma il
+10/08 — vedi il FATTO in cima).
 
-4. **Un'operazione approvata ferma in coda dal 07/08** — la **causa di fondo è
-   stata corretta** (vedi «La coda si bloccava in silenzio» in FATTO: l'account
-   ora si scrive). Resta da fare **solo** questa riga, che è nata prima della
-   correzione: annullarla in coda e rifarla dall'app, oppure riempirle `account`
-   a mano con `248-656-1148`. Sotto, il quadro com'era quando è stata trovata.
+Resta da fare **fuori dall'app**, e adesso conta doppio:
 
-   `attiva_keyword` su
-   «flowers delivery milan», campagna `[Deluxy] - Fiori Milano ENG` (Gifts,
-   account `248-656-1148`), approvata il **07/08 alle 02:51**. Da allora sia
-   Gifts sia Cake hanno fatto giri completi — su Gifts altre operazioni sono
-   state **eseguite** (5 `nuova_keyword` alle 04:49 dell'08/08) — e questa è
-   ancora `approvata`.
-
-   Il log di Cake dice: `Salto attiva_keyword su "flowers delivery milan": non
-   è in questo account.` Su **Cake è la risposta giusta**, la keyword è di
-   Gifts. Il problema è che **anche il giro di Gifts non l'ha eseguita**.
-
-   > ⚠️ **Il difetto vero è che l'app non se ne accorge.** In
-   > `eseguiOperazioni` un bersaglio non trovato con `op.account` vuoto viene
-   > contato fra le **saltate**, non fra le fallite: non torna nessun esito,
-   > l'operazione resta `approvata` per sempre e il motivo esiste **solo nel
-   > log dentro Google Ads**, dove nessuno guarda. Una coda che si blocca in
-   > silenzio è indistinguibile da una coda vuota.
-
-   Due cose da fare, in quest'ordine: (a) leggere le righe sotto `───── ESEGUI
-   ─────` del log di **Gifts** per sapere perché non la trova — l'operazione ha
-   `idEsterno` nel **formato vecchio** (`381244836363`, non
-   `account:gruppo:criterio`), quindi `trovaKeyword` la cerca **per testo**, ed
-   è lì che si perde; (b) far dire all'app che un'operazione approvata è stata
-   saltata, da quanto e da quali account — oggi `/operazioni` non lo mostra.
-
-Da fare fuori dall'app: **reincollare `tutto.js`** nei tre account
-(`C:\Users\nicol\Downloads\deluxy-google-ads\`, chiave e BRAND da rimettere a
-mano), e verificare in Business Manager se `ads_management` si ottiene senza
-App Review.
+1. **Reincollare `tutto.js` nei tre account** da
+   `C:\Users\nicol\Downloads\deluxy-google-ads\` (copie rigenerate il
+   **10/08**: dentro ci sono la ricerca campagna+gruppo di `trovaKeyword` E la
+   nuova `leggiAnnunci` di struttura). ⚠️ Nel file generato **CHIAVE_API e
+   BRAND sono vuoti**: vanno rimessi a mano. Finché non si reincolla: la
+   pulizia dei titoli lavora sulla finestra dei 30 giorni (un titolo fermo può
+   essere staccato per errore, si riattacca appena ha traffico) e l'operazione
+   sbloccata resta eseguibile solo dalla ricerca per testo vecchia.
+2. Verificare in Business Manager se `ads_management` si ottiene senza App
+   Review (per accendere la scrittura Meta).
+3. Al giro dopo il reincollo, controllare su `Flowers Delivery` che gli
+   annunci siano scesi a **≤ 15 titoli** (erano 21/19/17) e che l'operazione
+   `attiva_keyword` su «flowers delivery milan» risulti **eseguita o fallita
+   con motivo** — non più `approvata` muta.
 
 ## MANCA
 
