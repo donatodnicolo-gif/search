@@ -1,6 +1,6 @@
 import { Badge } from "@/components/Badge";
 import { prisma } from "@/lib/db";
-import { COLORE_STATO_KEYWORD, ETICHETTA_STATO_KEYWORD, formattaEuro, formattaNumero, testoKeywordPulito } from "@/lib/dominio";
+import { COLORE_STATO_KEYWORD, ETICHETTA_STATO_KEYWORD, formattaEuro, formattaNumero, testoKeywordGoogle, testoKeywordPulito } from "@/lib/dominio";
 import { breakEvenRoas } from "@/lib/guardrail";
 import { normalizza } from "@/lib/ingest-metriche";
 import { creaOperazioneKeyword } from "@/lib/azioni";
@@ -222,7 +222,12 @@ export async function KeywordCampagna({
               return (
                 <tr key={k.id}>
                   <td style={{ maxWidth: 280 }}>
-                    <a className="cella-nome" href={`/keywords?q=${encodeURIComponent(k.testo)}`}>{k.testo}</a>
+                    {/* Scritta come su Google Ads: [esatta] · "a frase" ·
+                        generica nuda. Chi lavora in interfaccia riconosce la
+                        corrispondenza dalla forma, senza cercarla altrove. */}
+                    <a className="cella-nome" href={`/keywords?q=${encodeURIComponent(testoKeywordPulito(k.testo))}`}>
+                      {testoKeywordGoogle(k.testo)}
+                    </a>
                   </td>
                   <td className="cella-muta" style={{ maxWidth: 180 }}>
                     {k.gruppo ?? "—"}

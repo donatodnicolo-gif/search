@@ -392,6 +392,44 @@ export function testoKeywordPulito(testo: string): string {
   return PAROLE_CORRISPONDENZA.test(m[2].trim()) ? m[1].trim() : testo.trim();
 }
 
+/**
+ * La keyword scritta **come la scrive Google Ads**:
+ *
+ *   esatta   → `[fiori milano]`
+ *   a frase  → `"fiori milano"`
+ *   generica → `fiori milano`
+ *
+ * ⚠️ È la notazione che si legge nell'interfaccia di Google, ed è il motivo per
+ * cui esiste: chi lavora là dentro riconosce la corrispondenza dalla FORMA,
+ * senza cercarla in un'altra colonna. Scritta «fiori milano (phrase)»
+ * costringeva a tradurre a mente due volte — una dal gergo dell'import, una
+ * verso quello di Google.
+ *
+ * ⚠️ E non è cosmetica: la generica compra ogni ricerca che contenga quelle
+ * parole in qualsiasi ordine. Vederla **nuda** accanto a una esatta fra
+ * parentesi quadre è ciò che fa notare il problema in mezzo secondo.
+ *
+ * La corrispondenza si prende dal parametro se c'è, altrimenti si legge dal
+ * testo (l'import la scrive in coda). Se non si sa, torna il testo pulito:
+ * inventare una forma vorrebbe dire dichiarare una corrispondenza che nessuno
+ * ha detto.
+ */
+export function testoKeywordGoogle(testo: string, corrispondenza?: string | null): string {
+  const pulito = testoKeywordPulito(testo);
+  const m = String(corrispondenza ?? "").trim().toLowerCase();
+  const quale =
+    m === "exact" || m === "esatta"
+      ? "exact"
+      : m === "phrase" || m === "frase"
+        ? "phrase"
+        : m === "broad" || m === "generica"
+          ? "broad"
+          : corrispondenzaDiTesto(testo);
+  if (quale === "exact") return `[${pulito}]`;
+  if (quale === "phrase") return `"${pulito}"`;
+  return pulito;
+}
+
 // ⚠️ Il giudizio che Google dà a un asset di testo, e la sua traduzione.
 // `NOT_APPLICABLE` **non è un voto basso**: vuol dire che Google su quel tipo
 // di campagna non giudica affatto. Mostrarlo riga per riga riempiva le pagine

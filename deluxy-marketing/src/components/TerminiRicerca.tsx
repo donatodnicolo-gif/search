@@ -2,7 +2,7 @@ import { escludiParoleSelezionate, giudicaTermine } from "@/lib/azioni";
 import { PortaSelezionate } from "@/components/PortaSelezionate";
 import { attributiPortaKeyword } from "@/lib/porta-keyword";
 import { prisma } from "@/lib/db";
-import { formattaEuro, formattaNumero, testoKeywordPulito } from "@/lib/dominio";
+import { formattaEuro, formattaNumero, testoKeywordGoogle, testoKeywordPulito } from "@/lib/dominio";
 import { breakEvenRoas } from "@/lib/guardrail";
 
 // Quello che la gente ha digitato per davvero. È il posto dove si vede la
@@ -343,9 +343,12 @@ export async function TerminiRicerca({
                     {t.gruppo ?? "—"}
                   </td>
                   <td className="cella-muta" style={{ maxWidth: 200 }}>
-                    {t.keyword ?? "—"}
+                    {/* La keyword come la scrive Google: [esatta], "a frase",
+                        generica nuda. La corrispondenza non è più una parola in
+                        un'altra riga: è la forma stessa della parola. */}
+                    {t.keyword ? testoKeywordGoogle(t.keyword, t.corrispondenza) : "—"}
                     <div className="cella-sub">
-                      {t.corrispondenza ? t.corrispondenza.toLowerCase() : ""}
+                      {""}
                       {/* Se la ricerca è stata intercettata da più keyword, i
                           numeri della riga sono la somma di tutte: dirlo evita
                           di attribuire quella spesa alla sola keyword scritta. */}

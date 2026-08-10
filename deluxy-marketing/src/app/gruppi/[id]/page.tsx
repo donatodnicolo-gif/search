@@ -29,6 +29,7 @@ import {
   formattaDataOra,
   formattaEuro,
   formattaNumero,
+  testoKeywordGoogle,
   roas as calcolaRoas,
   STATI_KEYWORD,
   ETICHETTA_STATO_KEYWORD,
@@ -793,7 +794,7 @@ export default async function SchedaGruppo({
                             <td>
                               <div className="cella-nome" style={g.colore === "var(--red)" ? { color: "var(--red)" } : undefined} title={g.spiega}>
                                 {g.colore === "var(--red)" && <span aria-hidden="true">● </span>}
-                                {k.testo}
+                                {testoKeywordGoogle(k.testo)}
                               </div>
                               <div className="cella-sub" style={{ color: g.colore }}>{g.etichetta}</div>
                               {k.gruppo && k.gruppo !== gruppo.nome && (
