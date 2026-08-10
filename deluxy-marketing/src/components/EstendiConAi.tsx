@@ -79,12 +79,16 @@ export function EstendiConAi({
       // barra non porta niente e i semi sono le parole spuntate (il testo
       // sta in `data-testo` quando il value serve ad altro, come /termini).
       const semeDiRiga = b.getAttribute("data-estendi-seme");
+      // Da quale FORM leggere le spuntate: la barra può dichiararlo con
+      // `data-estendi-form` (sulla scheda gruppo la tabella keyword ha il
+      // suo form, quella dei termini il default).
+      const formId = b.getAttribute("data-estendi-form") ?? "scelte-termini";
       setSemi(
         semeDiRiga
           ? [semeDiRiga]
           : [
               ...document.querySelectorAll<HTMLInputElement>(
-                'input[form="scelte-termini"][name="scelte"]:checked'
+                `input[form="${formId}"][name="scelte"]:checked`
               ),
             ].map((i) => i.dataset.testo ?? i.value)
       );

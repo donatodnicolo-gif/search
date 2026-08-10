@@ -10,14 +10,22 @@ import { ATTR } from "@/lib/porta-keyword";
 // coda e l'approvazione sono quelle: qui si scrivono soltanto le parole
 // scelte dentro l'attributo che il dialogo già sa leggere, separate da
 // «\n» — così una parola o dieci passano dalla stessa porta.
-export function PortaSelezionate({ lingue }: { lingue: string[] }) {
+export function PortaSelezionate({
+  lingue,
+  formId = "scelte-termini",
+}: {
+  lingue: string[];
+  // Il form da cui leggere le caselle: sulla scheda gruppo la tabella delle
+  // keyword ha il suo («escludi-kw») e quella dei termini il default.
+  formId?: string;
+}) {
   const [quante, setQuante] = useState(0);
 
   // Il conteggio serve a non aprire un dialogo vuoto e a dire quante sono
   // PRIMA di aprirlo. Si rilegge a ogni click sul modulo, che è dove le
   // caselle vivono.
   const conta = () =>
-    document.querySelectorAll<HTMLInputElement>('input[form="scelte-termini"][name="scelte"]:checked')
+    document.querySelectorAll<HTMLInputElement>(`input[form="${formId}"][name="scelte"]:checked`)
       .length;
 
   return (
@@ -32,7 +40,7 @@ export function PortaSelezionate({ lingue }: { lingue: string[] }) {
         // termine, perché l'esclusione deve sapere la campagna di ognuna).
         const scelte = [
           ...document.querySelectorAll<HTMLInputElement>(
-            'input[form="scelte-termini"][name="scelte"]:checked'
+            `input[form="${formId}"][name="scelte"]:checked`
           ),
         ].map((i) => i.dataset.testo ?? i.value);
         setQuante(scelte.length);

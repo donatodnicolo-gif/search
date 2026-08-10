@@ -2,8 +2,14 @@ import { notFound } from "next/navigation";
 import { AndamentoMensile } from "@/components/AndamentoMensile";
 import { AzioneGruppo } from "@/components/AzioneGruppo";
 import { Badge } from "@/components/Badge";
+import { EstendiConAi } from "@/components/EstendiConAi";
+import { PortaKeyword } from "@/components/PortaKeyword";
+import { PortaSelezionate } from "@/components/PortaSelezionate";
 import { RinominaInline } from "@/components/RinominaInline";
 import { TestiAnnuncio } from "@/components/TestiAnnuncio";
+import { estendiKeywordConAi } from "@/lib/azioni-estendi";
+import { campagnePerDialogo } from "@/lib/campagne-dialogo";
+import { attributiPortaKeyword } from "@/lib/porta-keyword";
 import { giudicabilita, LIVELLI_CHE_PESANO } from "@/lib/guardrail";
 import { GraficoSpesa } from "@/components/GraficoSpesa";
 import { SceltaPeriodo } from "@/components/SceltaPeriodo";
@@ -11,7 +17,7 @@ import { SelettoreStato } from "@/components/SelettoreStato";
 import { Stagionalita } from "@/components/Stagionalita";
 import { Sidebar } from "@/components/Sidebar";
 import { cambiaStatoGruppo, cambiaStatoKeyword, creaOperazioneGruppo, creaOperazioneKeyword, annullaOperazioneParola, escludiParoleSelezionate, rinominaGruppo, vaiAlGruppo,
-  impostaLinguaGruppo,
+  impostaLinguaGruppo, applicaKeywordAdAltreCampagne,
 } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
 import { periodoApp } from "@/lib/periodo-condiviso";
@@ -30,6 +36,7 @@ import {
   formattaEuro,
   formattaNumero,
   testoKeywordGoogle,
+  testoKeywordPulito,
   roas as calcolaRoas,
   STATI_KEYWORD,
   ETICHETTA_STATO_KEYWORD,
@@ -304,6 +311,26 @@ export default async function SchedaGruppo({
   const linguaDedotta =
     linguaDaNome(gruppo.nome) ??
     (lingueDellaCampagna.length === 1 ? lingueDellaCampagna[0] : null);
+
+  // «Porta altrove» ed «Estendi con AI», le stesse logiche della scheda
+  // campagna: le campagne di destinazione per il dialogo, chi ha GIÀ ogni
+  // parola (saputo prima di premere), e le lingue per l'avviso di lingua.
+  const campagneDialogo = await campagnePerDialogo();
+  const tutteLeKeyword = await prisma.copyAnnuncio.findMany({
+    where: { tipo: "keyword" },
+    select: { testo: true, campagna: true },
+  });
+  const campagneDiParola = new Map<string, Set<string>>();
+  for (const k of tutteLeKeyword) {
+    const chiave = testoKeywordPulito(k.testo).toLowerCase();
+    const v = campagneDiParola.get(chiave) ?? new Set<string>();
+    v.add(k.campagna);
+    campagneDiParola.set(chiave, v);
+  }
+  const giaSuDi = (testo: string) => [
+    ...(campagneDiParola.get(testoKeywordPulito(testo).toLowerCase()) ?? new Set<string>()),
+  ];
+  const lingueQui = linguaDedotta ? [linguaDedotta] : lingueDellaCampagna;
 
   return (
     <div className="layout">
@@ -743,6 +770,18 @@ export default async function SchedaGruppo({
                 <button className="btn small btn-secondario" type="submit">
                   Escludi le selezionate
                 </button>
+                <PortaSelezionate formId="escludi-kw" lingue={lingueQui} />
+                {/* Apre il dialogo AI leggendo le spuntate di QUESTO form; il
+                    gruppo di default è questo. */}
+                <button
+                  type="button"
+                  className="btn small fantasma"
+                  data-estendi-ai
+                  data-estendi-form="escludi-kw"
+                  data-estendi-gruppo={gruppo.nome}
+                >
+                  Estendi con AI
+                </button>
               </form>
                 <div style={{ overflowX: "auto" }}>
                   {/* La tabella arriva già ordinata per spesa decrescente (vedi
@@ -895,6 +934,37 @@ export default async function SchedaGruppo({
                                   </form>
                                 </>
                               )}
+                              {/* Le stesse logiche della scheda campagna,
+                                  parola per parola: si porta altrove (stesso
+                                  dialogo unico della pagina) o si estende con
+                                  l'AI partendo da QUESTA, col gruppo e la
+                                  corrispondenza già impostati su questa. */}
+                              <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                                <button
+                                  type="button"
+                                  className="btn small fantasma"
+                                  {...attributiPortaKeyword({
+                                    testo: k.testo,
+                                    corrispondenza: matchDi(k.testo) ?? "exact",
+                                    giaSu: giaSuDi(k.testo),
+                                    classificata: true,
+                                    lingueDiOra: lingueQui,
+                                  })}
+                                >
+                                  Porta altrove
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn small fantasma"
+                                  data-estendi-ai
+                                  data-estendi-seme={k.testo}
+                                  data-estendi-gruppo={gruppo.nome}
+                                  data-estendi-corrispondenza={matchDi(k.testo) ?? "exact"}
+                                  title="L'AI propone parole correlate a questa, da mettere in coda dopo averle guardate"
+                                >
+                                  Estendi con AI
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         );
@@ -923,10 +993,39 @@ export default async function SchedaGruppo({
                     <> Finestra: <b>{finestraTermini}</b>.</>
                   )}
                 </p>
+                {/* Le azioni di massa, come sulla scheda campagna. Il form
+                    vive fuori dalla tabella e le caselle lo raggiungono con
+                    `form=`: dentro le celle c'è già il form di «Escludi». */}
+                <form id="scelte-termini" action={escludiParoleSelezionate} className="barra-multipla">
+                  <input type="hidden" name="campagnaId" value={gruppo.campagna.id} />
+                  <input type="hidden" name="ritorno" value={`/gruppi/${gruppo.id}`} />
+                  <span className="cella-sub">Spunta più parole e agisci su tutte insieme:</span>
+                  <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12 }}>
+                    come
+                    <select name="corrispondenza" defaultValue="exact" style={{ font: "inherit", padding: "4px 8px", borderRadius: 8, border: "1px solid var(--hairline-strong)" }}>
+                      <option value="exact">esatta — solo questa ricerca</option>
+                      <option value="phrase">a frase — questa sequenza di parole</option>
+                      <option value="broad">generica — ogni ricerca con queste parole</option>
+                    </select>
+                  </label>
+                  <button className="btn small btn-secondario" type="submit">
+                    Escludi le selezionate
+                  </button>
+                  <PortaSelezionate lingue={lingueQui} />
+                  <button
+                    type="button"
+                    className="btn small fantasma"
+                    data-estendi-ai
+                    data-estendi-gruppo={gruppo.nome}
+                  >
+                    Estendi con AI
+                  </button>
+                </form>
                 <div style={{ overflowX: "auto" }}>
                   <table>
                     <thead>
                       <tr>
+                        <th data-no-ordina></th>
                         <th>Parola cercata</th>
                         <th className="num">Spesa</th>
                         <th className="num">Clic</th>
@@ -945,6 +1044,15 @@ export default async function SchedaGruppo({
                         const gia = t.stato === "escluso" || t.stato === "da_escludere";
                         return (
                         <tr key={t.id}>
+                          <td>
+                            <input
+                              type="checkbox"
+                              form="scelte-termini"
+                              name="scelte"
+                              value={t.testo}
+                              aria-label={`Seleziona «${t.testo}»`}
+                            />
+                          </td>
                           <td style={{ maxWidth: 260 }}>
                             <div className="cella-nome" style={brucia ? { color: "var(--red)" } : undefined} title={brucia ? `${(t.spesa ?? 0).toFixed(0)} EUR spesi e nessuna conversione` : undefined}>
                               {brucia && <span aria-hidden="true">● </span>}
@@ -986,6 +1094,36 @@ export default async function SchedaGruppo({
                                 </button>
                               </form>
                             )}
+                            {/* Una ricerca che rende è una keyword non ancora
+                                comprata: da qui si porta dove manca o si
+                                estende con l'AI — gruppo e corrispondenza
+                                partono da questa riga. */}
+                            <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                              <button
+                                type="button"
+                                className="btn small fantasma"
+                                {...attributiPortaKeyword({
+                                  testo: t.testo,
+                                  corrispondenza: "exact",
+                                  giaSu: giaSuDi(t.testo),
+                                  classificata: true,
+                                  lingueDiOra: lingueQui,
+                                })}
+                              >
+                                Porta altrove
+                              </button>
+                              <button
+                                type="button"
+                                className="btn small fantasma"
+                                data-estendi-ai
+                                data-estendi-seme={t.testo}
+                                data-estendi-gruppo={gruppo.nome}
+                                data-estendi-corrispondenza={(t.corrispondenza ?? "exact").toLowerCase()}
+                                title="L'AI propone parole correlate a questa, da mettere in coda dopo averle guardate"
+                              >
+                                Estendi con AI
+                              </button>
+                            </div>
                           </td>
                         </tr>
                         );
@@ -1103,6 +1241,24 @@ export default async function SchedaGruppo({
             )}
           </div>
         </div>
+
+        {/* Uno per pagina, come su Keywords e sulla scheda campagna: i
+            bottoni delle righe e delle barre li aprono via ascoltatore
+            delegato. Il gruppo di default di «Estendi» è QUESTO gruppo
+            (viaggia sui bottoni con data-estendi-gruppo). */}
+        <PortaKeyword
+          campagne={campagneDialogo}
+          ritorno={`/gruppi/${gruppo.id}`}
+          azione={applicaKeywordAdAltreCampagne}
+        />
+        <EstendiConAi
+          campagnaId={gruppo.campagna.id}
+          nomeCampagna={gruppo.campagna.nome}
+          gruppi={fratelli.map((f) => f.nome)}
+          ritorno={`/gruppi/${gruppo.id}`}
+          azioneAi={estendiKeywordConAi}
+          azioneAccoda={applicaKeywordAdAltreCampagne}
+        />
       </main>
     </div>
   );
