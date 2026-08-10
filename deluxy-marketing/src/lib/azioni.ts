@@ -2469,24 +2469,20 @@ export async function salvaOauthDrive(formData: FormData) {
 // Resta comunque una coda: nessuna di queste tocca Google finché non la si
 // approva. Il livello è L0 — una negativa puntuale è la modifica più leggera
 // che esista (doc 11), e non fa scattare il blackout.
-export async function escludiParoleSelezionate(fd: FormData) {
-  const campagnaId = testo(fd, "campagnaId");
-  const ritorno = testo(fd, "ritorno") ?? "/keywords";
-  // getAll: le checkbox spuntate arrivano tutte con lo stesso nome
-  const scelte = fd
-    .getAll("scelte")
-    .map((v) => String(v).trim())
-    .filter(Boolean);
-
-  if (!campagnaId || scelte.length === 0) {
-    redirect(`${ritorno}${ritorno.includes("?") ? "&" : "?"}bloccata=${encodeURIComponent("Nessuna parola selezionata")}`);
-  }
-
+// Il lavoro su UNA campagna: avviso incidente, anti-doppioni, coda, registro.
+// È il cuore condiviso fra la barra della scheda campagna/gruppo (una campagna
+// sola) e la pagina globale delle parole cercate (una campagna per parola):
+// due strade che accodassero in modo diverso darebbero due code diverse.
+async function accodaNegativeSuCampagna(
+  campagnaId: string,
+  scelte: string[],
+  corrispondenza: string
+): Promise<{ nome: string; accodate: number; giaInCoda: number; avviso: string | null } | null> {
   const campagna = await prisma.campagna.findUnique({
     where: { id: campagnaId },
     include: { incidenti: { where: { stato: "aperto" }, select: { codice: true } } },
   });
-  if (!campagna) return;
+  if (!campagna) return null;
 
   // Il freeze da incidente non ferma più (04/08/2026): viaggia come avviso
   // sull'operazione, e lo legge chi approva.
@@ -2497,12 +2493,12 @@ export async function escludiParoleSelezionate(fd: FormData) {
 
   // Le parole già in coda non si riaccodano: succede a chi torna sulla pagina
   // e rispunta le stesse, e la coda si riempirebbe di doppioni da approvare.
-  const giaInCoda = await prisma.operazioneAdv.findMany({
+  const inCoda = await prisma.operazioneAdv.findMany({
     where: { campagnaId, tipo: "negativa", stato: { in: ["in_attesa", "approvata"] } },
     select: { parametri: true },
   });
   const gia = new Set(
-    giaInCoda
+    inCoda
       .map((o) => {
         try {
           return String(JSON.parse(o.parametri ?? "{}").testo ?? "").toLowerCase();
@@ -2524,7 +2520,7 @@ export async function escludiParoleSelezionate(fd: FormData) {
         bersaglio: campagna.nome,
         idEsterno: campagna.idEsterno,
         // Esatta: si esclude QUELLA ricerca, non tutto cio che le somiglia
-      parametri: JSON.stringify({ testo: pulito, corrispondenza: testo(fd, "corrispondenza") || "exact" }),
+        parametri: JSON.stringify({ testo: pulito, corrispondenza }),
         motivo: `Esclusa insieme ad altre ${nuove.length - 1 > 0 ? `${nuove.length - 1} parole` : ""}`.trim(),
         avvisi: avvisoIncidente,
         livello: "L0",
@@ -2534,19 +2530,101 @@ export async function escludiParoleSelezionate(fd: FormData) {
     });
   }
 
-  await registra({
-    autore: "utente",
-    tipo: "creazione",
-    entita: "operazione",
-    titolo: `In coda: ${nuove.length} negative su ${campagna.nome}`,
-    dettaglio:
-      nuove.map((t) => `«${t}»`).slice(0, 8).join(" · ") +
-      (nuove.length > 8 ? ` e altre ${nuove.length - 8}` : "") +
-      (scelte.length > nuove.length ? ` · ${scelte.length - nuove.length} erano già in coda` : ""),
-  });
+  if (nuove.length > 0) {
+    await registra({
+      autore: "utente",
+      tipo: "creazione",
+      entita: "operazione",
+      titolo: `In coda: ${nuove.length} negative su ${campagna.nome}`,
+      dettaglio:
+        nuove.map((t) => `«${t}»`).slice(0, 8).join(" · ") +
+        (nuove.length > 8 ? ` e altre ${nuove.length - 8}` : "") +
+        (scelte.length > nuove.length ? ` · ${scelte.length - nuove.length} erano già in coda` : ""),
+    });
+  }
+
+  return {
+    nome: campagna.nome,
+    accodate: nuove.length,
+    giaInCoda: scelte.length - nuove.length,
+    avviso: avvisoIncidente,
+  };
+}
+
+export async function escludiParoleSelezionate(fd: FormData) {
+  const campagnaId = testo(fd, "campagnaId");
+  const ritorno = testo(fd, "ritorno") ?? "/keywords";
+  // getAll: le checkbox spuntate arrivano tutte con lo stesso nome
+  const scelte = fd
+    .getAll("scelte")
+    .map((v) => String(v).trim())
+    .filter(Boolean);
+
+  if (!campagnaId || scelte.length === 0) {
+    redirect(`${ritorno}${ritorno.includes("?") ? "&" : "?"}bloccata=${encodeURIComponent("Nessuna parola selezionata")}`);
+  }
+
+  const esito = await accodaNegativeSuCampagna(campagnaId!, scelte, testo(fd, "corrispondenza") || "exact");
+  if (!esito) return;
 
   redirect(
-    esitoInCoda(`${nuove.length} negative su ${campagna.nome}`, avvisoIncidente ? [avvisoIncidente] : [])
+    esitoInCoda(`${esito.accodate} negative su ${esito.nome}`, esito.avviso ? [esito.avviso] : [])
+  );
+}
+
+// Dalla pagina globale delle parole cercate: le righe appartengono a campagne
+// DIVERSE, quindi le caselle portano l'id del termine — non il testo — e ogni
+// parola diventa una negativa sulla campagna in cui è stata cercata. Il testo
+// da solo non basterebbe: la stessa parola cercata su due campagne è due righe,
+// e la negativa va messa dove la ricerca è avvenuta.
+export async function escludiTerminiSelezionati(fd: FormData) {
+  const ritorno = testo(fd, "ritorno") ?? "/termini";
+  const ids = fd
+    .getAll("scelte")
+    .map((v) => String(v).trim())
+    .filter(Boolean);
+
+  if (ids.length === 0) {
+    redirect(`${ritorno}${ritorno.includes("?") ? "&" : "?"}bloccata=${encodeURIComponent("Nessuna parola selezionata")}`);
+  }
+
+  const corrispondenza = testo(fd, "corrispondenza") || "exact";
+  const termini = await prisma.termineRicerca.findMany({
+    where: { id: { in: ids } },
+    select: { id: true, testo: true, campagnaId: true },
+  });
+
+  const perCampagna = new Map<string, string[]>();
+  for (const t of termini) {
+    const lista = perCampagna.get(t.campagnaId) ?? [];
+    lista.push(t.testo);
+    perCampagna.set(t.campagnaId, lista);
+  }
+
+  let accodate = 0;
+  const campagne: string[] = [];
+  const avvisi: string[] = [];
+  for (const [campagnaId, testi] of perCampagna) {
+    const esito = await accodaNegativeSuCampagna(campagnaId, testi, corrispondenza);
+    if (!esito) continue;
+    accodate += esito.accodate;
+    if (esito.accodate > 0) campagne.push(esito.nome);
+    if (esito.avviso) avvisi.push(esito.avviso);
+  }
+
+  // Il giudizio segue, come nell'«Escludi» di riga: la parola resta segnata
+  // «da escludere» anche qui, o la tabella la riproporrebbe come mai guardata.
+  await prisma.termineRicerca.updateMany({
+    where: { id: { in: termini.map((t) => t.id) } },
+    data: { stato: "da_escludere" },
+  });
+  revalidatePath("/termini");
+
+  redirect(
+    esitoInCoda(
+      `${accodate} negative su ${campagne.length} campagn${campagne.length === 1 ? "a" : "e"}`,
+      avvisi
+    )
   );
 }
 

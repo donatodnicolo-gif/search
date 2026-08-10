@@ -1,9 +1,12 @@
 import { redirect } from "next/navigation";
 import { Badge } from "@/components/Badge";
+import { PortaKeyword } from "@/components/PortaKeyword";
+import { PortaSelezionate } from "@/components/PortaSelezionate";
 import { Sidebar } from "@/components/Sidebar";
 import { VisteSalvate } from "@/components/VisteSalvate";
+import { campagnePerDialogo } from "@/lib/campagne-dialogo";
 import { destinazionePredefinita } from "@/lib/viste";
-import { giudicaTermine } from "@/lib/azioni";
+import { applicaKeywordAdAltreCampagne, escludiTerminiSelezionati, giudicaTermine } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
 import {
   BRANDS,
@@ -37,7 +40,7 @@ const STATI: { chiave: string; nome: string; colore: string }[] = [
 export default async function PaginaTermini({
   searchParams,
 }: {
-  searchParams: Promise<{ brand?: string; stato?: string; ordina?: string; cerca?: string; solo?: string; vista?: string }>;
+  searchParams: Promise<{ brand?: string; stato?: string; ordina?: string; cerca?: string; solo?: string; vista?: string; bloccata?: string }>;
 }) {
   const p = await searchParams;
   const destinazione = await destinazionePredefinita("termini", "/termini", p);
@@ -85,6 +88,11 @@ export default async function PaginaTermini({
     for (const [k, v] of Object.entries(nuovo)) if (v) q.set(k, v);
     return `/termini?${q.toString()}`;
   };
+
+  // Le campagne per il dialogo «Porta altrove»: DOPO il Promise.all qui sopra,
+  // non dentro — il Postgres condiviso ha connection_limit=5 e quattro query
+  // parallele più queste due lo saturerebbero.
+  const campagneDialogo = termini.length > 0 ? await campagnePerDialogo() : [];
 
   const spesaTot = totali._sum.spesa ?? 0;
   const ricaviTot = totali._sum.ricavi ?? 0;
@@ -173,6 +181,39 @@ export default async function PaginaTermini({
           </form>
         </section>
 
+        {p.bloccata && (
+          <div className="avviso-errore">
+            <strong>{p.bloccata}</strong>
+          </div>
+        )}
+
+        {/* Le due azioni di massa: spunta più parole e agisci su tutte insieme.
+            Il form vive FUORI dalla tabella e le caselle lo raggiungono con
+            `form=`: dentro le celle ci sono già i moduli del giudizio, e i
+            form non si annidano. ⚠️ Qui le righe sono di campagne DIVERSE: le
+            caselle portano l'ID del termine, e ogni parola diventa una
+            negativa sulla campagna in cui è stata cercata. */}
+        {termini.length > 0 && (
+          <form id="scelte-termini" action={escludiTerminiSelezionati} className="barra-multipla">
+            <input type="hidden" name="ritorno" value={link({})} />
+            <span className="cella-sub">Spunta più parole e agisci su tutte insieme:</span>
+            {/* ⚠️ Esatta di default: si esclude QUELLA ricerca, non tutto ciò
+                che le somiglia. La generica può spegnere una campagna. */}
+            <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12 }}>
+              come
+              <select name="corrispondenza" defaultValue="exact" style={{ font: "inherit", padding: "4px 8px", borderRadius: 8, border: "1px solid var(--hairline-strong)" }}>
+                <option value="exact">esatta — solo questa ricerca</option>
+                <option value="phrase">a frase — questa sequenza di parole</option>
+                <option value="broad">generica — ogni ricerca con queste parole</option>
+              </select>
+            </label>
+            <button className="btn small btn-secondario" type="submit">
+              Escludi le selezionate
+            </button>
+            <PortaSelezionate lingue={[]} />
+          </form>
+        )}
+
         {termini.length === 0 ? (
           <div className="vuoto">
             Nessuna parola cercata con questi filtri.
@@ -191,6 +232,7 @@ export default async function PaginaTermini({
               <table>
                 <thead>
                   <tr>
+                    <th></th>
                     <th>Ha cercato</th>
                     <th>Presa dalla keyword</th>
                     <th>Campagna</th>
@@ -219,6 +261,19 @@ export default async function PaginaTermini({
                     const brucia = spesa > 0 && conv === 0;
                     return (
                       <tr key={t.id} style={brucia ? { background: "rgba(200,40,40,.04)" } : undefined}>
+                        {/* value = ID del termine (l'esclusione deve sapere la
+                            campagna di ognuna), data-testo = la parola (la
+                            legge «Porta altrove le selezionate»). */}
+                        <td>
+                          <input
+                            type="checkbox"
+                            form="scelte-termini"
+                            name="scelte"
+                            value={t.id}
+                            data-testo={t.testo}
+                            aria-label={`Seleziona «${t.testo}»`}
+                          />
+                        </td>
                         <td>
                           <div className="cella-nome">{t.testo}</div>
                           {t.gruppo && <div className="cella-sub">{t.gruppo}</div>}
@@ -281,12 +336,25 @@ export default async function PaginaTermini({
           <br />
           Il giudizio che dai qui resta salvato e non viene sovrascritto dai giri successivi dello
           script. <b>Segnare «da escludere» non esclude niente su Google</b>: serve a ricordare cosa
-          hai deciso — la negativa va aggiunta in Google Ads, o messa in coda dalla scheda campagna.
+          hai deciso. Per escludere davvero, spunta le caselle e premi <b>«Escludi le
+          selezionate»</b>: ogni parola va in coda come negativa <b>sulla campagna in cui è stata
+          cercata</b>, da approvare in Operazioni.
           <br />
           Le <b>Performance Max non espongono i termini di ricerca</b>: per quelle campagne questo
           elenco resta vuoto anche a script perfettamente funzionante. Non è un dato mancante, è un
           dato che Google non dà.
         </p>
+
+        {/* Uno solo per tutta la pagina, come su Keywords: l'elenco delle
+            campagne è lo stesso per ogni parola, e le caselle gli passano i
+            testi via «Porta altrove le selezionate». */}
+        {termini.length > 0 && (
+          <PortaKeyword
+            campagne={campagneDialogo}
+            ritorno="/termini"
+            azione={applicaKeywordAdAltreCampagne}
+          />
+        )}
       </main>
     </div>
   );

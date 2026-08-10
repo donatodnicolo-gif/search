@@ -27,11 +27,14 @@ export function PortaSelezionate({ lingue }: { lingue: string[] }) {
       onMouseEnter={() => setQuante(conta())}
       onFocus={() => setQuante(conta())}
       onClick={(e) => {
+        // Il testo della parola: nel value, oppure in `data-testo` quando il
+        // value serve ad altro (su /termini le caselle portano l'ID del
+        // termine, perché l'esclusione deve sapere la campagna di ognuna).
         const scelte = [
           ...document.querySelectorAll<HTMLInputElement>(
             'input[form="scelte-termini"][name="scelte"]:checked'
           ),
-        ].map((i) => i.value);
+        ].map((i) => i.dataset.testo ?? i.value);
         setQuante(scelte.length);
         if (scelte.length === 0) return;
         // Si scrivono gli attributi sul bottone stesso e si rilancia il click:
