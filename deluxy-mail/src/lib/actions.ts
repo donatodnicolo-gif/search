@@ -1879,6 +1879,11 @@ export async function inviaBozza(id: string, form?: FormData): Promise<{ ok: boo
     )
 
     await db.bozza.update({ where: { id }, data: { inviata: true, inviataIl: new Date() } })
+    // Le ALTRE bozze rimaste su quella mail se ne vanno: hai risposto, non sono
+    // più «pronte» — sono avanzi. (Stessa ragione di `inviaMessaggio`.)
+    await db.bozza.deleteMany({
+      where: { messaggioId: bozza.messaggio.id, utenteId, inviata: false, id: { not: id } },
+    })
     // Come per la risposta scritta a mano: letta TUTTA la conversazione, non
     // solo la mail a cui si è risposto.
     await segnaConversazioneGestita(utenteId, bozza.messaggio.id, true)
@@ -2274,8 +2279,18 @@ export async function inviaMessaggio(form: FormData): Promise<{ ok: boolean; mes
     // `segnaConversazioneGestita`.
     await segnaConversazioneGestita(utenteId, messaggioId, !inoltro)
 
+    // ⚠️ RISPOSTO = niente più bozze in sospeso su quella mail. Prima si
+    // cancellava solo quella da cui eri partito (`bozzaId`), e l'altra —
+    // tipicamente la bozza scritta dall'AI, che è una riga diversa — restava:
+    // in elenco la mail continuava a dire «Bozza pronta» a mail già inviata
+    // (segnalato il 9/08/2026). Un inoltro invece NON le tocca: girare la mail
+    // a un collega non risponde a chi ha scritto, e quella bozza serve ancora.
     const bozzaId = testo(form, 'bozzaId')
-    if (bozzaId) await db.bozza.deleteMany({ where: { id: bozzaId, utenteId } })
+    if (inoltro) {
+      if (bozzaId) await db.bozza.deleteMany({ where: { id: bozzaId, utenteId } })
+    } else {
+      await db.bozza.deleteMany({ where: { messaggioId, utenteId, inviata: false } })
+    }
     await ripulisciAllegatiGrandi(form, utenteId)
 
     revalidatePath('/', 'layout')
