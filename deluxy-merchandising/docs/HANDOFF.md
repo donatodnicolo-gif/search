@@ -392,6 +392,15 @@ porta **3120**. Design system Deluxy v1.0.
 
 - **09/08/2026 — tre ritocchi chiesti guardando la pagina.** In /collezioni la colonna **«Dove è usata»** (le posizioni dichiarate a pillole, «campagne» in oro, ordinabile per quanti posti la usano): era un grigino sotto lo stato e non si vedeva. Nella scheda della collezione la dl dice anche **«Ordine curato da»** (la regola nostra, con link a cura l'ordine) e **«Prossimo rinfresco automatico»** (data da `prossimaVolta`, «al prossimo giro del cron» se scaduta, «in pausa» se ferma, «non previsto» se non iscritta). E il **Salva del SEO ora risponde**: salvava e taceva — un bottone muto sembra rotto — ora il banner dice «Bozza SEO salvata. Il negozio non cambia finché non premi Manda».
 
+- **09/08/2026 — il SEO si apre con la matita** (chiesto dall'utente). Il riquadro nasce **in lettura** — titolo e descrizione nostri come testo, coi conteggi — e la ✎ mette `?seoModifica=1`: solo allora compaiono i campi, il Salva, «Scrivi con AI» e «Chiudi». È la stessa matita dei campi del negozio qui sopra. Prima la scheda sembrava un modulo da compilare anche quando si passava solo a guardare.
+
+- ⚠️ **09/08/2026 — due «Salva» che salvavano in silenzio** (segnalati dall'utente due volte, su form diversi): il SEO e le proprietà della collezione scrivevano davvero ma non dicevano niente, e un bottone muto sembra rotto. Ora entrambi fanno redirect col banner: «Bozza SEO salvata. Il negozio non cambia finché non premi Manda» e «Salvato. Sono proprietà nostre: le leggono le altre app via API, su Shopify non cambia niente». **Regola**: un'azione che scrive e non dice niente è un'azione che l'utente rifarà.
+
+- **09/08/2026 — «Le altre lingue» sulla scheda della collezione** (chiesto dall'utente: «c'è la traduzione?»). [src/lib/traduzioni-shopify.ts](../src/lib/traduzioni-shopify.ts) legge `translations` di Shopify per titolo, descrizione e SEO, **otto lingue in una chiamata sola** (alias GraphQL invece di otto viaggi) e **solo su richiesta** (`?lingue=1`): è una chiamata viva al negozio, farla a ogni apertura sarebbe latenza pagata da chi guarda altro.
+  - **Si leggono e basta**: si scrivono nell'admin del negozio. Riscriverle da qui vorrebbe dire fare danni in una lingua che qui nessuno rilegge.
+  - **Il campanello è `outdated`** («da rifare»): Shopify lo alza quando l'originale è cambiato **dopo** la traduzione — cioè quando il cliente straniero legge ancora il testo vecchio. Misurato su «Regali Best Seller»: inglese e russo tradotti, col titolo inglese e tre voci russe già da rifare.
+  - ⚠️ **Le lingue configurate sul negozio non si possono elencare**: `shopLocales` chiede lo scope `read_locales`, che i token di oggi non hanno (risposta ACCESS_DENIED). Si chiede una lista fissa di otto lingue, **dichiarata in pagina** — meglio un elenco onesto che una lista vuota che sembra «non ci sono traduzioni».
+
 ## COME AVVIARE
 ```
 cd deluxy-merchandising

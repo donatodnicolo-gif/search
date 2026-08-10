@@ -12,6 +12,8 @@ import { euro, iso, percentuale } from "@/lib/dominio";
 import { FILTRO_BUON_FINE, finestra } from "@/lib/vendite";
 import { Badge } from "@/components/Badge";
 import { etichettaFrequenza, etichettaModo, prossimaVolta } from "@/lib/rotazione";
+import { traduzioniCollezione } from "@/lib/traduzioni-shopify";
+import { tokenDi } from "@/lib/negozi";
 import { eliminaCollezioneShopify, salvaProprietaCollezione } from "@/lib/azioni-collezioni-shopify";
 import {
   COLORE_STATO_COLLEZIONE_SHOPIFY,
@@ -38,7 +40,7 @@ export default async function CollezioneShopifyPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ esito?: string; messaggio?: string; seoConferma?: string; modifica?: string }>;
+  searchParams: Promise<{ esito?: string; messaggio?: string; seoConferma?: string; modifica?: string; seoModifica?: string; lingue?: string }>;
 }) {
   const { id } = await params;
   const sp = await searchParams;
@@ -127,6 +129,19 @@ export default async function CollezioneShopifyPage({
   const senzaVendite = righe.filter((r) => r.pezzi === 0 && r.ricavo === 0).length;
   const copertura = collezione.prodottiShopify > 0 ? prodotti.length / collezione.prodottiShopify : 0;
   const condizioni = descriviRegole(collezione.regole);
+
+  // **Le lingue si chiedono solo quando le chiedi**: è una chiamata viva al
+  // negozio, e farla a ogni apertura della scheda vorrebbe dire pagare un
+  // viaggio di rete anche a chi sta guardando tutt'altro.
+  const vuoleLingue = sp.lingue === "1";
+  const negozioRiga = vuoleLingue
+    ? await prisma.negozioShopify.findFirst({ where: { nome: collezione.negozio }, select: { id: true } })
+    : null;
+  const accesso = negozioRiga ? await tokenDi(negozioRiga.id) : null;
+  const traduzioni =
+    vuoleLingue && accesso
+      ? await traduzioniCollezione(accesso.dominio, accesso.token, collezione.shopifyId)
+      : null;
 
   return (
     <div className="layout">
@@ -359,8 +374,71 @@ export default async function CollezioneShopifyPage({
           sincronia={{ modificatoIl: collezione.seoModificatoIl, spintoIl: collezione.seoSpintoIl }}
           percorso={`/collezioni/shopify/${id}`}
           conferma={sp.seoConferma === "1"}
+          inModifica={sp.seoModifica === "1"}
           conAI
         />
+
+        {/* **Le altre lingue** (chiesto dall'utente: «c'è la traduzione?»). Si
+            leggono e basta: si scrivono nell'admin del negozio, e riscriverle
+            di nascosto vorrebbe dire fare danni in una lingua che qui nessuno
+            rilegge. Il campanello è «da rifare»: Shopify lo alza quando
+            l'originale è cambiato dopo la traduzione — cioè quando il cliente
+            straniero legge ancora il testo vecchio. */}
+        <div className="scheda">
+          <div className="riga-titolo">
+            <div className="scheda-titolo" style={{ margin: 0 }}>Le altre lingue</div>
+            {!vuoleLingue && (
+              <a className="btn btn-secondario" href={`/collezioni/shopify/${id}?lingue=1`}>Guarda le traduzioni</a>
+            )}
+          </div>
+          {!vuoleLingue ? (
+            <p className="page-sub" style={{ margin: 0 }}>
+              Titolo, descrizione e SEO tradotti sul negozio. Si chiedono a Shopify sul momento, quindi solo su
+              richiesta.
+            </p>
+          ) : !accesso ? (
+            <p className="page-sub" style={{ margin: 0 }}>
+              Il negozio «{collezione.negozio}» non è collegato: le traduzioni si leggono da lì.
+            </p>
+          ) : traduzioni?.errore ? (
+            <p className="page-sub" style={{ margin: 0 }}>Shopify ha risposto: {traduzioni.errore}</p>
+          ) : traduzioni && traduzioni.lingue.length === 0 ? (
+            <p className="page-sub" style={{ margin: 0 }}>
+              Nessuna traduzione fra le lingue che sappiamo chiedere (inglese, francese, tedesco, spagnolo, russo,
+              cinese, arabo, giapponese). Le lingue davvero configurate sul negozio non si possono elencare: servirebbe
+              il permesso <code>read_locales</code>, che i token di oggi non hanno.
+            </p>
+          ) : (
+            <div style={{ display: "grid", gap: 12 }}>
+              {traduzioni?.lingue.map((l) => (
+                <div key={l.codice}>
+                  <div className="cella-sub" style={{ fontWeight: 600, marginBottom: 4 }}>
+                    {l.nome}
+                    {l.voci.some((v) => v.daRifare) && (
+                      <span className="pill-uso pill-uso-oro" style={{ marginLeft: 8 }}>
+                        da rifare: l&apos;originale è cambiato dopo
+                      </span>
+                    )}
+                  </div>
+                  <dl className="griglia-campi">
+                    {l.voci.map((v) => (
+                      <div className="campo" key={v.chiave}>
+                        <dt>
+                          {v.nome}
+                          {v.daRifare ? " · da rifare" : ""}
+                        </dt>
+                        <dd style={{ maxHeight: 120, overflow: "auto" }}>{v.valore.replace(/<[^>]+>/g, " ").trim()}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </div>
+              ))}
+              <p className="page-sub" style={{ margin: 0 }}>
+                Si correggono nell&apos;admin del negozio (Impostazioni → Lingue): da qui si leggono soltanto.
+              </p>
+            </div>
+          )}
+        </div>
 
         <div className="kpi-riga">
           <div className="kpi">

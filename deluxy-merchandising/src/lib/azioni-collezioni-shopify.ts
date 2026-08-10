@@ -26,6 +26,13 @@ export async function salvaProprietaCollezione(id: string, fd: FormData) {
   });
   revalidatePath(`/collezioni/shopify/${id}`);
   revalidatePath("/collezioni");
+  // **Salvare in silenzio sembra non salvare** (segnalato dall utente, due volte
+  // su due form diversi): il banner in cima dice cosa e cambiato e dove vale.
+  redirect(
+    `/collezioni/shopify/${id}?esito=ok&messaggio=${encodeURIComponent(
+      "Salvato. Sono proprieta nostre: le leggono le altre app via API, su Shopify non cambia niente.",
+    )}`,
+  );
 }
 
 /**

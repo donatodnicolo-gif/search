@@ -31,6 +31,7 @@ export function RiquadroSeo({
   percorso,
   conferma,
   conAI,
+  inModifica,
 }: {
   tipo: "prodotto" | "collezione";
   id: string;
@@ -42,6 +43,8 @@ export function RiquadroSeo({
   conferma?: boolean;
   /** Il bottone «Scrivi con AI»: per ora solo sulle collezioni, dove la bozza si costruisce sui dati veri. */
   conAI?: boolean;
+  /** Aperto in scrittura: la matita mette `?seoModifica=1` nell'indirizzo. */
+  inModifica?: boolean;
 }) {
   const salva = tipo === "prodotto" ? salvaSeoProdotto : salvaSeoCollezione;
   const vuotoNostro = !nostro.titolo && !nostro.descrizione;
@@ -73,7 +76,34 @@ export function RiquadroSeo({
         </div>
 
         <div>
-          <div className="cella-sub" style={{ marginBottom: 6, fontWeight: 600 }}>Il nostro, da migliorare</div>
+          {/* **In lettura finché non chiedi di scrivere** (chiesto dall'utente):
+              i campi, il Salva e il bottone AI comparivano sempre e la scheda
+              sembrava un modulo da compilare anche quando si passava solo a
+              guardare. La matita è la stessa dei campi del negozio qui sopra. */}
+          <div className="cella-sub" style={{ marginBottom: 6, fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
+            Il nostro, da migliorare
+            {!inModifica && (
+              <a href={`${percorso}${sep}seoModifica=1`} title="Modifica il SEO" style={{ textDecoration: "none", fontSize: 12, opacity: 0.75 }}>
+                ✎
+              </a>
+            )}
+          </div>
+          {!inModifica ? (
+            <>
+              {vuotoNostro ? (
+                <p className="page-sub" style={{ marginTop: 0 }}>
+                  Non c&apos;è ancora un testo nostro. Con la <b>✎</b> lo si scrive — o lo si fa scrivere all&apos;AI
+                  sui dati veri della collezione.
+                </p>
+              ) : (
+                <>
+                  <Testo etichetta="Titolo" valore={nostro.titolo} limite={LIMITE_TITOLO} />
+                  <Testo etichetta="Descrizione" valore={nostro.descrizione} limite={LIMITE_DESCRIZIONE} />
+                </>
+              )}
+            </>
+          ) : (
+          <>
           <form action={salva.bind(null, id)} style={{ display: "grid", gap: 8 }}>
             <CampiSeo
               titolo={nostro.titolo}
@@ -102,7 +132,10 @@ export function RiquadroSeo({
                 </button>
               </form>
             )}
+            <a className="btn btn-secondario" href={percorso}>Chiudi</a>
           </div>
+          </>
+          )}
         </div>
       </div>
       {/* **Mandarlo al negozio cambia quello che il cliente legge su Google**,
