@@ -239,6 +239,29 @@ export function TestiAnnuncio({
           </a>
         </div>
       )}
+      {/* Le destinazioni del GRUPPO, quando i singoli annunci non hanno
+          ancora la loro: dette come quello che sono — le pagine dove manda
+          questo gruppo — invece di essere attribuite a caso a una colonna.
+          Il legame annuncio → URL arriva col giro copy dello script
+          aggiornato all'11/08. */}
+      {destinazioni.length > 0 && annunci.some(([id]) => !landingAnnuncio.has(id)) && (
+        <div className="cella-sub" style={{ whiteSpace: "normal", marginBottom: 10 }}>
+          <b>Dove manda questo gruppo:</b>{" "}
+          {destinazioni.map((d, i) => {
+            const url = d.finalUrl ?? d.testo;
+            return (
+              <span key={d.id}>
+                {i > 0 && " · "}
+                <a href={url} target="_blank" rel="noreferrer" style={{ color: "var(--blue)" }}>
+                  {url.replace(/^https?:\/\//, "")}
+                </a>
+              </span>
+            );
+          })}
+          . Quale di queste usi ogni singolo annuncio l&apos;app non lo sa ancora: quel legame
+          arriva col prossimo giro <code>copy</code> dello script aggiornato.
+        </div>
+      )}
       {soloAttivi && !soloAttiviPossibile && (
         <div className="cella-sub" style={{ whiteSpace: "normal", marginBottom: 10 }}>
           Di nessuno di questi annunci si sa ancora se è attivo, quindi sono mostrati tutti: lo
