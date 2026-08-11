@@ -324,6 +324,15 @@ export function TestiAnnuncio({
                 >
                   <span><b>{formattaEuro(spesa)}</b> spesi</span>
                   <span>{k.clic ?? 0} clic</span>
+                  {/* Il CTR subito, non solo nel tooltip: fra due annunci
+                      dello stesso gruppo è il primo numero che dice quale
+                      testo funziona — la spesa dipende dall'asta, il CTR dal
+                      testo. */}
+                  {(k.impressioni ?? 0) > 0 && (
+                    <span title={`${k.impressioni} comparse`}>
+                      CTR {((((k.clic ?? 0) / (k.impressioni ?? 1)) * 100)).toFixed(1)}%
+                    </span>
+                  )}
                   {(k.conversioni ?? 0) > 0 && (
                     <span>
                       {Number.isInteger(k.conversioni) ? k.conversioni : (k.conversioni ?? 0).toFixed(1)} conv

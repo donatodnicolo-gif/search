@@ -861,6 +861,12 @@ export default async function SchedaGruppo({
           </div>
         ) : null}
 
+        {/* ⚠️ FUORI dalle due colonne, in cima: nella colonna destra finiva
+            in mezzo alle statistiche e non si vedeva. È la prima domanda che
+            si fa aprendo un gruppo — «va meglio o peggio di prima» — e va
+            dove cade l'occhio. */}
+        <PerformancePeriodi gruppoId={gruppo.id} />
+
         <div className="due-colonne">
           <div>
             {/* Stagionalità, andamento e metriche per mese sono SCESI nella
@@ -1562,10 +1568,6 @@ export default async function SchedaGruppo({
                 </div>
               </section>
             )}
-
-            {/* Le stesse finestre della scheda campagna, un piano più sotto:
-                è al livello del gruppo che si decide davvero. */}
-            <PerformancePeriodi gruppoId={gruppo.id} />
 
             <section className="scheda">
               <div className="scheda-titolo">Quando si vende — i dodici mesi</div>
