@@ -595,7 +595,7 @@ function mandaCopy(conto) {
   var annunci = leggiAnnunci();
   // Dove mandano gli annunci. In coda agli altri e in un giro suo: se Google
   // rifiuta la query, i titoli e le descrizioni partono lo stesso.
-  var destinazioni = leggiDestinazioni();
+  var destinazioni = leggiDestinazioni(conto);
   for (var d = 0; d < destinazioni.length; d++) annunci.push(destinazioni[d]);
   // I numeri di OGNI annuncio: senza, le colonne della scheda gruppo dicono
   // cosa e' scritto ma non cosa rende. In un giro suo, come le destinazioni.
@@ -817,7 +817,7 @@ function leggiAnnunci() {
  * Niente segments.date e niente metriche: una destinazione non e un numero,
  * non ha un periodo.
  */
-function leggiDestinazioni() {
+function leggiDestinazioni(conto) {
   var query =
     "SELECT campaign.name, ad_group.name, ad_group_ad.ad.id, " +
     "ad_group_ad.ad.final_urls, ad_group_ad.status " +
