@@ -887,6 +887,10 @@ export default async function SchedaGruppo({
                 className="barra-multipla"
               >
                 <input type="hidden" name="campagnaId" value={gruppo.campagna.id} />
+                {/* Il contesto: il cambio di stato in blocco agisce SOLO
+                    sulle righe di questa campagna e di questo gruppo. */}
+                <input type="hidden" name="campagnaNome" value={gruppo.campagna.nome} />
+                <input type="hidden" name="gruppoNome" value={gruppo.nome} />
                 <input type="hidden" name="ritorno" value={`/gruppi/${gruppo.id}?kw=${filtroKw}#keywords`} />
                 <span className="cella-sub">
                   Spunta le parole che non c&apos;entrano e mettile in coda tutte insieme:

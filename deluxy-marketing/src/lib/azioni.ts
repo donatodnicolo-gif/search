@@ -679,15 +679,29 @@ export async function cambiaStatoKeywordSelezionate(fd: FormData) {
     );
   }
 
+  // ⚠️ SOLO le righe che si stanno guardando, quando il form dichiara il
+  // contesto (campagna e gruppo). Il cambio SINGOLO vale per parola su tutte
+  // le campagne — è un giudizio sulla parola — ma in blocco su cinquanta
+  // parole quella regola diventa una falciata invisibile: l'11/08 «defunta»
+  // sulle sole in pausa di un gruppo ha marcato 168 righe, di cui 53 ATTIVE
+  // su Google e sparse su nove campagne. Chi spunta cinquanta caselle si
+  // aspetta di agire su quelle cinquanta.
+  const nomeCampagna = testo(fd, "campagnaNome");
+  const nomeGruppo = testo(fd, "gruppoNome");
   const esito = await prisma.copyAnnuncio.updateMany({
-    where: { tipo: "keyword", testo: { in: scelte } },
+    where: {
+      tipo: "keyword",
+      testo: { in: scelte },
+      ...(nomeCampagna ? { campagna: nomeCampagna } : {}),
+      ...(nomeGruppo ? { gruppo: { contains: nomeGruppo } } : {}),
+    },
     data: { stato: statoNuovo! },
   });
   await registra({
     autore: "utente",
     tipo: "stato",
     entita: "copy",
-    titolo: `${scelte.length} keyword → ${statoNuovo}`,
+    titolo: `${scelte.length} keyword → ${statoNuovo}${nomeGruppo ? ` (gruppo ${nomeGruppo})` : ""}`,
     dettaglio:
       scelte.slice(0, 8).map((t) => `«${t}»`).join(" · ") +
       (scelte.length > 8 ? ` e altre ${scelte.length - 8}` : "") +
