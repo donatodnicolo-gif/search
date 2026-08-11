@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { AncoraggioHash } from "@/components/AncoraggioHash";
 import { AndamentoMensile } from "@/components/AndamentoMensile";
 import { CreaAnnuncioAi } from "@/components/CreaAnnuncioAi";
+import { NuovaKeyword } from "@/components/NuovaKeyword";
 import { creaAnnuncioConAi } from "@/lib/azioni-annuncio";
 import { AzioneGruppo } from "@/components/AzioneGruppo";
 import { Badge } from "@/components/Badge";
@@ -834,7 +835,17 @@ export default async function SchedaGruppo({
               // QUI — cambiare pillola ricarica la pagina, e senza àncora si
               // ripartiva da cima pagina perdendo il segno.
               <section className="scheda" id="keywords">
-                <div className="scheda-titolo">Keyword del gruppo ({keyword.length})</div>
+                <div className="scheda-titolo" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                  <span>Keyword del gruppo ({keyword.length})</span>
+                  {/* Scriverne di nuove a mano: stessa coda, stessa
+                      approvazione delle parole portate da altrove. */}
+                  <NuovaKeyword
+                    campagnaId={gruppo.campagna.id}
+                    nomeGruppo={gruppo.nome}
+                    ritorno={`/gruppi/${gruppo.id}?kw=${filtroKw}#keywords`}
+                    azione={applicaKeywordAdAltreCampagne}
+                  />
+                </div>
                 {keyword.length === 0 && filtroKw !== "defunte" && (
                   <div className="nota-info" style={{ marginBottom: 12 }}>
                     <span className="nota-icona">◈</span>

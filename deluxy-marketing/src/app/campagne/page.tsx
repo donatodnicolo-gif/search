@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { AncoraggioHash } from "@/components/AncoraggioHash";
 import { Icona } from "@/components/Icona";
 import { SceltaPeriodo } from "@/components/SceltaPeriodo";
 import { Sidebar } from "@/components/Sidebar";
@@ -113,6 +114,7 @@ export default async function PaginaCampagne({
 
   return (
     <div className="layout">
+      <AncoraggioHash />
       <Sidebar attiva="campagne" canaleAttivo={canale} brandAttivo={brand} />
       <main className="main" style={{ maxWidth: 1700 }}>
         <div className="page-head">
@@ -207,7 +209,9 @@ export default async function PaginaCampagne({
               <a
                 key={k}
                 className={`pill-opt${ordina === k ? " attuale" : ""}`}
-                href={`/campagne?${q2.toString()}`}
+                // #elenco: riordinare ricarica la pagina, e senza àncora si
+                // riparte da cima perdendo il segno.
+                href={`/campagne?${q2.toString()}#elenco`}
               >
                 {v}
               </a>
@@ -228,7 +232,7 @@ export default async function PaginaCampagne({
         {campagne.length === 0 ? (
           <div className="vuoto">Nessuna campagna con questi filtri.</div>
         ) : (
-          <div className="colonne-brand">
+          <div className="colonne-brand" id="elenco">
             {brands.map((brand) => {
               const numeri = (c: (typeof campagne)[number]) => {
                 const sp = c.metriche.reduce((s, m) => s + (m.spesa ?? 0), 0);
@@ -377,7 +381,9 @@ export default async function PaginaCampagne({
                             </span>
                             <span>
                               <b>{spesa > 0 ? formattaEuro(spesa) : "—"}</b>
-                              <i>spesa 30g</i>
+                              {/* L'etichetta segue il periodo scelto: diceva
+                                  «30g» anche guardando l'anno. */}
+                              <i>spesa {periodo.corrente.etichetta.toLowerCase()}</i>
                             </span>
                             <span>
                               <b style={r != null ? { color: salute.colore } : undefined}>

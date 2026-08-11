@@ -482,11 +482,19 @@ export default async function PaginaKeywords({
           })}
         </div>
 
-        {!temaAperto && (
-          <div className="vuoto">Scegli un tema qui sopra per vedere le sue keyword.</div>
+        {/* ⚠️ Senza tema scelto la pagina diceva «scegli un tema» e nascondeva
+            TUTTO: chi arriva da una ricerca («porto cervo») trovava i totali
+            in cima — 6 keyword, 1.260 € — e sotto il vuoto, come se la
+            ricerca non avesse prodotto niente. I temi restano un modo di
+            raggruppare, non un cancello: senza sceglierne uno si vede
+            l'elenco intero. */}
+        {!temaAperto && CATEGORIE.every((c) => tutte.filter((k) => k.categoria === c.chiave).length === 0) && (
+          <div className="vuoto">Nessuna keyword con questi filtri.</div>
         )}
 
-        {CATEGORIE.filter((c) => c.chiave === temaAperto).map((cat) => {
+        {(temaAperto ? CATEGORIE.filter((c) => c.chiave === temaAperto) : CATEGORIE)
+          .filter((c) => temaAperto != null || tutte.some((k) => k.categoria === c.chiave))
+          .map((cat) => {
           const del = tutte.filter((k) => k.categoria === cat.chiave).sort(confronta);
           const incassoCat = del.reduce((s, k) => s + k.incasso, 0);
           const spesaCat = del.reduce((s, k) => s + k.spesa, 0);
