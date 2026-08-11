@@ -1,8 +1,10 @@
 import { redirect } from "next/navigation";
 import { Icona } from "@/components/Icona";
+import { SceltaPeriodo } from "@/components/SceltaPeriodo";
 import { Sidebar } from "@/components/Sidebar";
 import { VisteSalvate } from "@/components/VisteSalvate";
 import { prisma } from "@/lib/db";
+import { periodoApp } from "@/lib/periodo-condiviso";
 import { destinazionePredefinita } from "@/lib/viste";
 import {
   BRANDS,
@@ -34,7 +36,7 @@ const ORDINE_BRAND = ["flowers", "gifts", "cake", "cross"];
 // Meta sembra sbagliata invece che ordinata come si è chiesto.
 const ORDINAMENTI: Record<string, string> = {
   predefinito: "Canale, poi budget",
-  spesa: "Spesa 30 giorni",
+  spesa: "Spesa nel periodo",
   roas: "ROAS",
   budget: "Budget al giorno",
   nome: "Nome (A-Z)",
@@ -47,7 +49,7 @@ const ORDINE_CANALE = ["google_ads", "meta_ads", "tiktok", "email", "sito", "seo
 export default async function PaginaCampagne({
   searchParams,
 }: {
-  searchParams: Promise<{ stato?: string; canale?: string; brand?: string; q?: string; vista?: string; ord?: string }>;
+  searchParams: Promise<{ stato?: string; canale?: string; brand?: string; q?: string; vista?: string; ord?: string; preset?: string; da?: string; a?: string }>;
 }) {
   const p = await searchParams;
   // Pagina aperta nuda e c'è una vista predefinita: si va lì.
@@ -61,7 +63,13 @@ export default async function PaginaCampagne({
   const filtriOra = new URLSearchParams(
     Object.entries(p).filter(([, v]) => v != null && v !== "") as [string, string][]
   ).toString();
-  const giorni30 = new Date(Date.now() - 30 * 86_400_000);
+  // Il periodo dell'app, come su dashboard e schede: le card seguono la
+  // scelta invece di raccontare sempre gli ultimi 30 giorni. La scelta è
+  // condivisa, quindi arrivando da una scheda si continua a guardare lo
+  // stesso arco di tempo.
+  const periodo = await periodoApp(p);
+  const giorni30 = periodo.corrente.da;
+  const finePeriodo = periodo.corrente.a;
   const campagne = await prisma.campagna.findMany({
     where: {
       // "Defunta" vuol dire non considerarla mai più: sparisce dall'elenco a
@@ -72,7 +80,7 @@ export default async function PaginaCampagne({
       ...(q ? { nome: { contains: q } } : {}),
     },
     include: {
-      metriche: { where: { data: { gte: giorni30 } } },
+      metriche: { where: { data: { gte: giorni30, lt: finePeriodo } } },
       landing: { select: { id: true, url: true, stato: true } },
       // Il DOVE sulla card: il targeting vero letto da Google (vedi la
       // scheda campagna). Qui basta il nome; le escluse si contano nel title.
@@ -153,6 +161,10 @@ export default async function PaginaCampagne({
           </div>
         )}
 
+        {/* Il periodo dell'app: le card e i totali lo seguono, e la
+            scelta resta la stessa passando alle schede. */}
+        <SceltaPeriodo periodo={periodo} da={p.da} a={p.a} azione="/campagne" />
+
         <VisteSalvate pagina="campagne" base="/campagne" parametri={p} />
 
         <form className="filtri" method="get">
@@ -182,6 +194,26 @@ export default async function PaginaCampagne({
           </select>
           <button className="btn small" type="submit">Filtra</button>
         </form>
+
+        {/* L'ordinamento a portata di click: nel menù dei filtri c'era
+            già, ma richiedeva di premere «Filtra» e non si vedeva quale
+            fosse attivo. */}
+        <div className="pill-scelta pill-ordina" style={{ marginBottom: 12 }}>
+          <span className="cella-sub" style={{ marginRight: 4 }}>Ordina per</span>
+          {Object.entries(ORDINAMENTI).map(([k, v]) => {
+            const q2 = new URLSearchParams(filtriOra);
+            q2.set("ord", k);
+            return (
+              <a
+                key={k}
+                className={`pill-opt${ordina === k ? " attuale" : ""}`}
+                href={`/campagne?${q2.toString()}`}
+              >
+                {v}
+              </a>
+            );
+          })}
+        </div>
 
         {stato === "defunta" && (
           <div className="nota-info">

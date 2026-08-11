@@ -65,6 +65,9 @@ export function TestiAnnuncio({
   testi,
   destinazioni = [],
   destinazioniAltriGruppi = [],
+  soloAttivi = false,
+  linkTutti,
+  linkAttivi,
 }: {
   testi: TestoAnnuncio[];
   // Le righe `tipo: "destinazione"` del gruppo: portano l'elenco degli
@@ -73,6 +76,13 @@ export function TestiAnnuncio({
   // Le destinazioni degli ALTRI gruppi della campagna: servono a togliere
   // gli annunci che sono di casa altrove (vedi il recinto qui sotto).
   destinazioniAltriGruppi?: TestoAnnuncio[];
+  // Mostrare solo gli annunci in asta: la scelta vive nell'URL della pagina
+  // (`?ann=attivi`), così sopravvive a un salvataggio e al tasto indietro.
+  soloAttivi?: boolean;
+  // I due link del filtro, quando la pagina ne ha uno: qui non si conosce
+  // l'indirizzo, lo passa chi ci monta il blocco.
+  linkTutti?: string;
+  linkAttivi?: string;
 }) {
   const titoli = testi.filter((t) => t.tipo === "titolo");
   const descrizioni = testi.filter((t) => t.tipo === "descrizione");
@@ -132,6 +142,11 @@ export function TestiAnnuncio({
   // tolgono quelli, e restano gli annunci del gruppo. (Un annuncio assegnato
   // qui dalle nostre destinazioni non si toglie mai, anche se una riga
   // stantia lo cita altrove: la casa dichiarata dal gruppo vince.)
+  // La destinazione del gruppo, per gli annunci di cui non si conosce la URL
+  // propria: quella più usata fra le sue.
+  const landingDelGruppo =
+    destinazioni.map((d) => d.finalUrl ?? d.testo).filter(Boolean)[0] ?? null;
+
   const annunciDiAltri = new Set<string>();
   for (const d of destinazioniAltriGruppi) {
     for (const voce of (d.annunci ?? "").split(",").filter(Boolean)) {
@@ -144,13 +159,19 @@ export function TestiAnnuncio({
 
   // Prima gli annunci IN ASTA (è quello che si guarda per primo), poi i più
   // ricchi: un annuncio con 15 titoli è quello completo, uno con 3 un residuo.
-  const annunci = [...perAnnuncio.entries()]
+  const tuttiGliAnnunci = [...perAnnuncio.entries()]
     .filter(([id]) => !annunciDiAltri.has(id))
     .sort((a, b) => {
       const pesoA = statoAnnuncio.get(a[0]) === "ENABLED" ? 0 : 1;
       const pesoB = statoAnnuncio.get(b[0]) === "ENABLED" ? 0 : 1;
       return pesoA - pesoB || b[1].length - a[1].length;
     });
+  const attivi = tuttiGliAnnunci.filter(([id]) => statoAnnuncio.get(id) === "ENABLED");
+  // Il filtro non nasconde MAI tutto: se degli attivi non si sa niente
+  // (script vecchio), «solo attivi» darebbe una pagina vuota che sembra un
+  // guasto. In quel caso si mostrano tutti e la nota lo dice.
+  const soloAttiviPossibile = attivi.length > 0;
+  const annunci = soloAttivi && soloAttiviPossibile ? attivi : tuttiGliAnnunci;
 
   const nota =
     giudicati === 0 ? (
@@ -181,11 +202,31 @@ export function TestiAnnuncio({
   return (
     <>
       {nota}
-      <p className="cella-sub" style={{ whiteSpace: "normal", marginBottom: 12 }}>
+      <p className="cella-sub" style={{ whiteSpace: "normal", marginBottom: 10 }}>
         Una colonna per <b>annuncio</b> ({annunci.length}): sono i testi che vanno in asta
         insieme. Lo stesso titolo può comparire in più annunci — è normale, ed è il motivo per
         cui la somma delle colonne è più grande del numero di testi diversi.
       </p>
+      {linkTutti && linkAttivi && (
+        <div className="pill-scelta" style={{ marginBottom: 12 }}>
+          <a className={`pill-opt${soloAttivi && soloAttiviPossibile ? "" : " attuale"}`} href={linkTutti}>
+            Tutti ({tuttiGliAnnunci.length})
+          </a>
+          <a
+            className={`pill-opt${soloAttivi && soloAttiviPossibile ? " attuale" : ""}`}
+            href={linkAttivi}
+            title={soloAttiviPossibile ? "Solo gli annunci in asta adesso" : "Nessun annuncio risulta attivo: lo stato arriva col giro copy dello script aggiornato"}
+          >
+            Solo attivi ({attivi.length})
+          </a>
+        </div>
+      )}
+      {soloAttivi && !soloAttiviPossibile && (
+        <div className="cella-sub" style={{ whiteSpace: "normal", marginBottom: 10 }}>
+          Di nessuno di questi annunci si sa ancora se è attivo, quindi sono mostrati tutti: lo
+          stato per annuncio arriva col giro <code>copy</code> dello script aggiornato all&apos;11/08.
+        </div>
+      )}
       <div className="ga-colonne">
         {annunci.map(([id, suoi], i) => {
           const stato = statoAnnuncio.get(id);
@@ -211,22 +252,31 @@ export function TestiAnnuncio({
                 </span>
               )}
             </div>
-            {/* DOVE MANDA questo annuncio: la landing vera, cliccabile. Se i
-                dati sono di prima dell'11/08 il legame non c'è, e si tace. */}
-            {landingAnnuncio.has(id) && (
-              <div className="cella-sub" style={{ marginBottom: 8, overflowWrap: "anywhere" }}>
-                ↳{" "}
-                <a
-                  href={landingAnnuncio.get(id)}
-                  target="_blank"
-                  rel="noreferrer"
-                  style={{ color: "var(--blue)" }}
-                  title="La final URL dell'annuncio, come sta su Google"
-                >
-                  {landingAnnuncio.get(id)!.replace(/^https?:\/\//, "")}
-                </a>
-              </div>
-            )}
+            {/* DOVE MANDA questo annuncio. Il legame preciso arriva dalle
+                destinazioni; quando manca (l'annuncio condivide la URL con un
+                altro e la riga è una sola) si mostra quella del GRUPPO,
+                dichiarando che è del gruppo e non dell'annuncio: una landing
+                probabile detta per quello che è vale più di un vuoto. */}
+            {(() => {
+              const url = landingAnnuncio.get(id) ?? landingDelGruppo;
+              if (!url) return null;
+              const propria = landingAnnuncio.has(id);
+              return (
+                <div className="cella-sub" style={{ marginBottom: 8, overflowWrap: "anywhere" }}>
+                  ↳{" "}
+                  <a
+                    href={url}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ color: "var(--blue)" }}
+                    title={propria ? "La final URL di questo annuncio, come sta su Google" : "La destinazione di questo gruppo: per questo annuncio l'app non ha ancora la URL propria"}
+                  >
+                    {url.replace(/^https?:\/\//, "")}
+                  </a>
+                  {!propria && <> · <span title="Non è detto che questo annuncio mandi qui">del gruppo</span></>}
+                </div>
+              );
+            })()}
             <Gruppo
               titolo="Titoli"
               tipo="titolo"

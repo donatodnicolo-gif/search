@@ -38,7 +38,7 @@ export async function ProssimeAzioni({ campagnaId }: { campagnaId: string }) {
     prisma.termineRicerca.findMany({
       where: { campagnaId },
       select: { testo: true, spesa: true, conversioni: true, stato: true },
-      orderBy: { spesa: "desc" },
+      orderBy: { spesa: { sort: "desc", nulls: "last" } },
       take: 50,
     }),
     prisma.segmentoCampagna.findMany({

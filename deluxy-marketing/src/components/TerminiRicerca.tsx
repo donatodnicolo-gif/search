@@ -73,7 +73,7 @@ export async function TerminiRicerca({
   // brucia il budget senza cliccare, che è esattamente quello da trovare.
   const termini = await prisma.termineRicerca.findMany({
     where: { campagnaId },
-    orderBy: { spesa: "desc" },
+    orderBy: { spesa: { sort: "desc", nulls: "last" } },
     take: 40,
   });
 

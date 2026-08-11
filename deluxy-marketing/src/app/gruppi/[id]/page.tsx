@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import { AncoraggioHash } from "@/components/AncoraggioHash";
 import { AndamentoMensile } from "@/components/AndamentoMensile";
+import { CreaAnnuncioAi } from "@/components/CreaAnnuncioAi";
+import { creaAnnuncioConAi } from "@/lib/azioni-annuncio";
 import { AzioneGruppo } from "@/components/AzioneGruppo";
 import { Badge } from "@/components/Badge";
 import { EstendiConAi } from "@/components/EstendiConAi";
@@ -67,7 +69,7 @@ export default async function SchedaGruppo({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ bloccata?: string; preset?: string; da?: string; a?: string; kw?: string }>;
+  searchParams: Promise<{ bloccata?: string; preset?: string; da?: string; a?: string; kw?: string; ann?: string }>;
 }) {
   const { id } = await params;
   const sp = await searchParams;
@@ -150,7 +152,7 @@ export default async function SchedaGruppo({
   // cerca per contenuto.
   const copy = await prisma.copyAnnuncio.findMany({
     where: { campagna: gruppo.campagna.nome, gruppo: { contains: gruppo.nome } },
-    orderBy: [{ tipo: "asc" }, { spesa: "desc" }],
+    orderBy: [{ tipo: "asc" }, { spesa: { sort: "desc", nulls: "last" } }],
     // 300, non 200: con le destinazioni separate per gruppo (11/08) le righe
     // crescono, e i titoli — ultimi nell'ordine alfabetico dei tipi —
     // sarebbero i primi a cadere fuori dal taglio.
@@ -246,7 +248,7 @@ export default async function SchedaGruppo({
   // Anche queste sono a finestra (dal/al scritti dallo script), non giornaliere.
   const termini = await prisma.termineRicerca.findMany({
     where: { campagnaId: gruppo.campagnaId, gruppo: { contains: gruppo.nome } },
-    orderBy: [{ spesa: "desc" }, { clic: "desc" }],
+    orderBy: [{ spesa: { sort: "desc", nulls: "last" } }, { clic: "desc" }],
     take: 60,
   });
   const conFinestra = termini.find((t) => t.dal && t.al);
@@ -1373,14 +1375,22 @@ export default async function SchedaGruppo({
             )}
 
             {testi.length > 0 && (
-              <section className="scheda">
-                <div className="scheda-titolo">Titoli e descrizioni usati qui ({testi.length})</div>
+              <section className="scheda" id="annunci">
+                <div className="scheda-titolo" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                  <span>Titoli e descrizioni usati qui ({testi.length})</span>
+                  {/* Un annuncio NUOVO scritto sui numeri di questo gruppo:
+                      propone soltanto, i testi si copiano in Google Ads. */}
+                  <CreaAnnuncioAi gruppoId={gruppo.id} nomeGruppo={nomeGruppo(gruppo)} azione={creaAnnuncioConAi} />
+                </div>
                 {/* Stessa forma di Google Ads del blocco gemello sulla scheda
                     campagna: una scheda per testo col conteggio caratteri. */}
                 <TestiAnnuncio
                   testi={testi}
                   destinazioni={copy.filter((c) => c.tipo === "destinazione")}
                   destinazioniAltriGruppi={destinazioniAltrove}
+                  soloAttivi={sp.ann === "attivi"}
+                  linkTutti={`/gruppi/${gruppo.id}?kw=${filtroKw}#annunci`}
+                  linkAttivi={`/gruppi/${gruppo.id}?kw=${filtroKw}&ann=attivi#annunci`}
                 />
               </section>
             )}

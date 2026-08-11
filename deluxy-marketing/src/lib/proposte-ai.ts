@@ -161,7 +161,7 @@ export async function righeDaGiudicare(campagna: {
   nome: string;
 }): Promise<{ da: RigaDaGiudicare[]; senzaDati: RigaDaGiudicare[] }> {
   const [termini, nomiKeyword] = await Promise.all([
-    prisma.termineRicerca.findMany({ where: { campagnaId: campagna.id }, orderBy: { spesa: "desc" }, take: 60 }),
+    prisma.termineRicerca.findMany({ where: { campagnaId: campagna.id }, orderBy: { spesa: { sort: "desc", nulls: "last" } }, take: 60 }),
     prisma.copyAnnuncio.groupBy({ by: ["campagna"], where: { tipo: "keyword" } }),
   ]);
   const bersaglio = normalizza(campagna.nome);
@@ -169,7 +169,7 @@ export async function righeDaGiudicare(campagna: {
   const keyword = compatibili.length
     ? await prisma.copyAnnuncio.findMany({
         where: { tipo: "keyword", campagna: { in: compatibili } },
-        orderBy: { spesa: "desc" },
+        orderBy: { spesa: { sort: "desc", nulls: "last" } },
         take: 60,
       })
     : [];

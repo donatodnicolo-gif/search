@@ -41,7 +41,7 @@ export async function EstensioniCampagna({
         { livello: "account" },
       ],
     },
-    orderBy: [{ tipo: "asc" }, { spesa: "desc" }],
+    orderBy: [{ tipo: "asc" }, { spesa: { sort: "desc", nulls: "last" } }],
   });
 
   const testi = righe.filter((r) => (r.tipo === "titolo" || r.tipo === "descrizione") && r.campagna === nomeCampagna);

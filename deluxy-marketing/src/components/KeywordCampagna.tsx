@@ -67,7 +67,7 @@ export async function KeywordCampagna({
         // Le defunte non si vedono mai più (come le campagne): si ritrovano
         // solo dal filtro di stato della pagina Keywords.
         where: { tipo: "keyword", campagna: { in: nomiCompatibili }, stato: { not: "defunta" } },
-        orderBy: { spesa: "desc" },
+        orderBy: { spesa: { sort: "desc", nulls: "last" } },
         take: 60,
       })
     : [];
