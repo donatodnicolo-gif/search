@@ -443,7 +443,25 @@ export default async function PaginaBrand({
                                 />
                               </td>
                               <td>
-                                <Badge testo={ETICHETTA_STATO_CAMPAGNA[c.stato] ?? c.stato} colore={COLORE_STATO_CAMPAGNA[c.stato] ?? "var(--text-tertiary)"} />
+                                {/* ⚠️ Il FATTO prima del giudizio, come sui
+                                    gruppi. Questa colonna mostrava solo lo
+                                    stato dell'app: «Retargeting -
+                                    Microacquisti» risultava «In pausa» mentre
+                                    su Meta era accesa e stava spendendo, e
+                                    sembrava un errore dei numeri (11/08).
+                                    Quando i due non concordano si vedono
+                                    entrambi: comanda quello che dice la
+                                    piattaforma. */}
+                                {c.statoPiattaforma && c.statoPiattaforma !== "PAUSED" && c.stato === "in_pausa" ? (
+                                  <>
+                                    <Badge testo="Attiva sulla piattaforma" colore="var(--green)" />
+                                    <div className="cella-sub" title="Lo stato deciso nell'app non coincide con quello della piattaforma: comanda la piattaforma">
+                                      nell&apos;app: in pausa
+                                    </div>
+                                  </>
+                                ) : (
+                                  <Badge testo={ETICHETTA_STATO_CAMPAGNA[c.stato] ?? c.stato} colore={COLORE_STATO_CAMPAGNA[c.stato] ?? "var(--text-tertiary)"} />
+                                )}
                               </td>
                               <td className="num">{spesa > 0 ? formattaEuro(spesa) : "—"}</td>
                               <td className="num">{conv > 0 ? Math.round(conv) : "—"}</td>

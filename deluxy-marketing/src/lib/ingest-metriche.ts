@@ -206,13 +206,19 @@ export async function salvaMetriche(
     // ⚠️ "cross" non vuol dire «di tutti i marchi»: vuol dire «non lo so».
     // Se l'import sa da quale account arriva la riga, quel dubbio si scioglie
     // e la campagna smette di essere invisibile nelle viste per brand.
-    // Si promuove SOLO da cross a un brand noto: un brand già deciso — a mano
-    // o da un nome che parla chiaro — non si tocca.
+    //
+    // ⚠️⚠️ E vale anche CONTRO un brand già scritto, se quello è una
+    // DEDUZIONE DAL NOME e l'account dice altro. Caso vero (11/08):
+    // «Retargeting - Microacquisti» gira sul conto Cake, ha speso 291 € fino
+    // a oggi ed è attiva su Meta — ma l'app la dava a Flowers, quindi sulla
+    // scheda di Cake non compariva e sembrava che il retargeting fosse
+    // fermo. L'account è un fatto, il brand è la sua conseguenza: solo la
+    // scelta A MANO (`brandManuale`) vince sul fatto.
     if (
       opzioni.brand &&
       opzioni.brand !== "cross" &&
-      campagna.brand === "cross" &&
-      // ⚠️ Un brand deciso A MANO non si promuove: è una scelta, non un vuoto.
+      campagna.brand !== opzioni.brand &&
+      // ⚠️ Un brand deciso A MANO non si tocca: è una scelta, non un vuoto.
       !campagna.brandManuale
     ) {
       daAggiornare.set(campagna.id, { ...(daAggiornare.get(campagna.id) ?? {}), brand: opzioni.brand });
