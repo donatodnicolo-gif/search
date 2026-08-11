@@ -100,25 +100,36 @@ export function TestiAnnuncio({
       perAnnuncio.set(id, v);
     }
   }
-  // DOVE MANDA ogni annuncio: dalla riga-destinazione che lo cita. Se una
-  // destinazione non cita annunci (dati di prima dell'11/08), non si sa.
+  // Dalle DESTINAZIONI (che sono per gruppo, non condivise): dove manda ogni
+  // annuncio, il suo stato, e — quando ci sono — il RECINTO del gruppo.
+  //
+  // ⚠️ I testi sono CONDIVISI fra gruppi: le loro voci citano anche annunci
+  // di ALTRI gruppi, e sulla scheda comparivano colonne e «attivi» che su
+  // Google stanno altrove — misurato l'11/08: 4 attivi nell'app contro 1
+  // Eligible su Google. Gli annunci delle destinazioni sono del gruppo:
+  // quando l'elenco c'è, le colonne si limitano a quelli.
   const landingAnnuncio = new Map<string, string>();
+  const annunciDelGruppo = new Set<string>();
   for (const d of destinazioni) {
     const url = d.finalUrl ?? d.testo;
-    if (!url) continue;
     for (const voce of (d.annunci ?? "").split(",").filter(Boolean)) {
-      const id = voce.split(":")[0];
-      if (id && !landingAnnuncio.has(id)) landingAnnuncio.set(id, url);
+      const [id, stato] = voce.split(":");
+      if (!id) continue;
+      annunciDelGruppo.add(id);
+      if (stato && !statoAnnuncio.has(id)) statoAnnuncio.set(id, stato);
+      if (url && !landingAnnuncio.has(id)) landingAnnuncio.set(id, url);
     }
   }
 
   // Prima gli annunci IN ASTA (è quello che si guarda per primo), poi i più
   // ricchi: un annuncio con 15 titoli è quello completo, uno con 3 un residuo.
-  const annunci = [...perAnnuncio.entries()].sort((a, b) => {
-    const pesoA = statoAnnuncio.get(a[0]) === "ENABLED" ? 0 : 1;
-    const pesoB = statoAnnuncio.get(b[0]) === "ENABLED" ? 0 : 1;
-    return pesoA - pesoB || b[1].length - a[1].length;
-  });
+  const annunci = [...perAnnuncio.entries()]
+    .filter(([id]) => annunciDelGruppo.size === 0 || annunciDelGruppo.has(id))
+    .sort((a, b) => {
+      const pesoA = statoAnnuncio.get(a[0]) === "ENABLED" ? 0 : 1;
+      const pesoB = statoAnnuncio.get(b[0]) === "ENABLED" ? 0 : 1;
+      return pesoA - pesoB || b[1].length - a[1].length;
+    });
 
   const nota =
     giudicati === 0 ? (

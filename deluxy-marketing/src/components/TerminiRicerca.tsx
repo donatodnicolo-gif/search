@@ -1,4 +1,4 @@
-import { applicaKeywordAdAltreCampagne, escludiParoleSelezionate, giudicaTermine } from "@/lib/azioni";
+import { applicaKeywordAdAltreCampagne, creaOperazioneKeyword, escludiParoleSelezionate, giudicaTermine } from "@/lib/azioni";
 import { estendiKeywordConAi } from "@/lib/azioni-estendi";
 import { EstendiConAi } from "@/components/EstendiConAi";
 import { PortaSelezionate } from "@/components/PortaSelezionate";
@@ -314,7 +314,7 @@ export async function TerminiRicerca({
           <PortaSelezionate lingue={linguaCampagna ? [linguaCampagna] : []} />
           {/* Apre il dialogo qui sotto (ascoltatore delegato): il dialogo non
               può stare dentro questo form — ne contiene un altro. */}
-          <button type="button" className="btn small fantasma" data-estendi-ai>
+          <button type="button" className="btn small btn-secondario" data-estendi-ai>
             Estendi con AI
           </button>
         </form>
@@ -403,25 +403,43 @@ export async function TerminiRicerca({
                   </td>
                   <td>
                     {t.stato === "nuovo" ? (
-                      <div style={{ display: "flex", gap: 6 }}>
-                        <form>
+                      <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
+                        <form style={{ display: "inline-flex", gap: 6 }}>
                           <input type="hidden" name="id" value={t.id} />
                           <button
-                            className="btn small fantasma"
+                            className="btn small btn-secondario"
                             type="submit"
                             formAction={giudicaTermine.bind(null, "pertinente")}
+                            title="Segna la ricerca come pertinente: resta, e non la si rivaluta ogni volta"
                           >
                             Va bene
                           </button>
                           <button
-                            className="btn small"
+                            className="btn small btn-secondario"
                             type="submit"
                             formAction={giudicaTermine.bind(null, "escludi")}
-                            style={{ marginLeft: 6 }}
+                            title="Mette in coda la negativa: la parola non farà più scattare gli annunci"
                           >
                             Escludi
                           </button>
                         </form>
+                        {/* AGGIUNGI: la ricerca diventa keyword ESATTA della
+                            campagna — è quella precisa ad aver reso. Non
+                            compare se la campagna ce l'ha già. */}
+                        {nomeCampagna && !giaSuDi(t.testo).includes(nomeCampagna) && (
+                          <form action={creaOperazioneKeyword} style={{ display: "inline-flex" }}>
+                            <input type="hidden" name="campagnaId" value={campagnaId} />
+                            <input type="hidden" name="testo" value={t.testo} />
+                            {t.gruppo && <input type="hidden" name="gruppo" value={t.gruppo} />}
+                            <input type="hidden" name="ritorno" value={base ?? `/campagne/${campagnaId}`} />
+                            <input type="hidden" name="tipo" value="nuova_keyword" />
+                            <input type="hidden" name="corrispondenzaOrigine" value="exact" />
+                            <input type="hidden" name="motivo" value={`Ricerca che ha reso: ${(t.spesa ?? 0).toFixed(0)} EUR, ${t.clic ?? 0} clic, ${t.conversioni ?? 0} conversioni`} />
+                            <button className="btn small btn-secondario" type="submit" title={`Mette in coda l'aggiunta di «${t.testo}» come keyword ESATTA${t.gruppo ? ` nel gruppo ${t.gruppo}` : ""}, da approvare in Operazioni`}>
+                              Aggiungi
+                            </button>
+                          </form>
+                        )}
                         {/* Una ricerca che rende è una keyword che non abbiamo
                             ancora comprato: da qui la si porta dove manca,
                             con lo stesso dialogo della pagina Keywords.
@@ -430,7 +448,8 @@ export async function TerminiRicerca({
                         {nomeCampagna && (
                           <button
                             type="button"
-                            className="btn small fantasma"
+                            className="btn small btn-secondario"
+                            title="Porta questa ricerca come keyword su ALTRE campagne"
                             {...attributiPortaKeyword({
                               testo: t.testo,
                               corrispondenza: "exact",
@@ -439,7 +458,7 @@ export async function TerminiRicerca({
                               lingueDiOra: linguaCampagna ? [linguaCampagna] : [],
                             })}
                           >
-                            Porta altrove
+                            Porta
                           </button>
                         )}
                         {/* Apre lo stesso dialogo della barra, ma col seme di
@@ -450,14 +469,14 @@ export async function TerminiRicerca({
                         {nomeCampagna && (
                           <button
                             type="button"
-                            className="btn small fantasma"
+                            className="btn small btn-secondario"
                             data-estendi-ai
                             data-estendi-seme={t.testo}
                             data-estendi-gruppo={t.gruppo ?? undefined}
                             data-estendi-corrispondenza={t.corrispondenza ?? undefined}
                             title="L'AI propone parole correlate a questa, da mettere in coda dopo averle guardate"
                           >
-                            Estendi con AI
+                            Estendi AI
                           </button>
                         )}
                       </div>

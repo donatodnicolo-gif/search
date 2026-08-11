@@ -151,7 +151,10 @@ export default async function SchedaGruppo({
   const copy = await prisma.copyAnnuncio.findMany({
     where: { campagna: gruppo.campagna.nome, gruppo: { contains: gruppo.nome } },
     orderBy: [{ tipo: "asc" }, { spesa: "desc" }],
-    take: 200,
+    // 300, non 200: con le destinazioni separate per gruppo (11/08) le righe
+    // crescono, e i titoli — ultimi nell'ordine alfabetico dei tipi —
+    // sarebbero i primi a cadere fuori dal taglio.
+    take: 300,
   });
   // ⚠️ Il nome del gruppo sulla riga può essere stantio (Monitoraggio, righe
   // separate); l'id per criterio (`account:gruppo:criterio`, dal 10/08) dice
@@ -910,7 +913,7 @@ export default async function SchedaGruppo({
                     gruppo di default è questo. */}
                 <button
                   type="button"
-                  className="btn small fantasma"
+                  className="btn small btn-secondario"
                   data-estendi-ai
                   data-estendi-form="escludi-kw"
                   data-estendi-gruppo={gruppo.nome}
@@ -1177,7 +1180,7 @@ export default async function SchedaGruppo({
                   <PortaSelezionate lingue={lingueQui} />
                   <button
                     type="button"
-                    className="btn small fantasma"
+                    className="btn small btn-secondario"
                     data-estendi-ai
                     data-estendi-gruppo={gruppo.nome}
                   >
@@ -1249,13 +1252,38 @@ export default async function SchedaGruppo({
                             )}
                           </td>
                           <td>
+                            {/* Una riga sola, come nella tabella keyword:
+                                etichette corte e title esteso — le azioni
+                                restano tutte, si stringe la cornice. */}
+                            <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
                             {gia ? (
                               <span className="cella-sub">già segnata</span>
                             ) : (
-                              <form action={creaOperazioneKeyword}>
+                              <>
+                              {/* AGGIUNGI: la ricerca diventa una keyword di
+                                  QUESTO gruppo, in corrispondenza esatta — è
+                                  quella precisa ad aver reso. Passa dalla coda
+                                  come ogni scrittura. Non compare se la
+                                  campagna ce l'ha già: sarebbe un duplicato
+                                  che Google rifiuta. */}
+                              {!giaSuDi(t.testo).includes(gruppo.campagna.nome) && (
+                                <form action={creaOperazioneKeyword} style={{ display: "inline-flex" }}>
+                                  <input type="hidden" name="campagnaId" value={gruppo.campagna.id} />
+                                  <input type="hidden" name="testo" value={t.testo} />
+                                  <input type="hidden" name="gruppo" value={gruppo.nome} />
+                                  <input type="hidden" name="ritorno" value={`/gruppi/${gruppo.id}#termini`} />
+                                  <input type="hidden" name="tipo" value="nuova_keyword" />
+                                  <input type="hidden" name="corrispondenzaOrigine" value="exact" />
+                                  <input type="hidden" name="motivo" value={`Ricerca che ha reso: ${(t.spesa ?? 0).toFixed(0)} EUR, ${t.clic ?? 0} clic, ${t.conversioni ?? 0} conversioni, ${(t.ricavi ?? 0).toFixed(0)} EUR di incasso`} />
+                                  <button className="btn small btn-secondario" type="submit" title={`Mette in coda l'aggiunta di «${t.testo}» come keyword ESATTA in ${gruppo.nome}, da approvare in Operazioni`}>
+                                    Aggiungi
+                                  </button>
+                                </form>
+                              )}
+                              <form action={creaOperazioneKeyword} style={{ display: "inline-flex" }}>
                                 <input type="hidden" name="campagnaId" value={gruppo.campagna.id} />
                                 <input type="hidden" name="testo" value={t.testo} />
-                                <input type="hidden" name="ritorno" value={`/gruppi/${gruppo.id}`} />
+                                <input type="hidden" name="ritorno" value={`/gruppi/${gruppo.id}#termini`} />
                                 <input type="hidden" name="tipo" value="negativa" />
                                 {/* Eredita la corrispondenza della keyword che
                                     ha intercettato questa ricerca: escluderla
@@ -1267,15 +1295,12 @@ export default async function SchedaGruppo({
                                   Escludi
                                 </button>
                               </form>
+                              </>
                             )}
-                            {/* Una ricerca che rende è una keyword non ancora
-                                comprata: da qui si porta dove manca o si
-                                estende con l'AI — gruppo e corrispondenza
-                                partono da questa riga. */}
-                            <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
                               <button
                                 type="button"
-                                className="btn small fantasma"
+                                className="btn small btn-secondario"
+                                title="Porta questa ricerca come keyword su ALTRE campagne, con lo stesso dialogo della pagina Keywords"
                                 {...attributiPortaKeyword({
                                   testo: t.testo,
                                   corrispondenza: "exact",
@@ -1284,18 +1309,18 @@ export default async function SchedaGruppo({
                                   lingueDiOra: lingueQui,
                                 })}
                               >
-                                Porta altrove
+                                Porta
                               </button>
                               <button
                                 type="button"
-                                className="btn small fantasma"
+                                className="btn small btn-secondario"
                                 data-estendi-ai
                                 data-estendi-seme={t.testo}
                                 data-estendi-gruppo={gruppo.nome}
                                 data-estendi-corrispondenza={(t.corrispondenza ?? "exact").toLowerCase()}
                                 title="L'AI propone parole correlate a questa, da mettere in coda dopo averle guardate"
                               >
-                                Estendi con AI
+                                Estendi AI
                               </button>
                             </div>
                           </td>

@@ -84,7 +84,10 @@ export async function POST(req: NextRequest) {
       // gruppo si faceva marcare PAUSED dalla gemella di un altro gruppo
       // (misurato su Cake il 10/08: 53 keyword «tutte in pausa» che su
       // Google erano un incrocio di copie attive e ferme).
-      const idCompleto = (v: string | null | undefined) => /^[\d-]+:\d+:\d+$/.test(v ?? "");
+      // La terza parte può essere un numero (criterio keyword) o una URL
+      // (destinazione, dall'11/08): conta che l'id sia nel formato
+      // account:gruppo:qualcosa — due id completi diversi = due cose diverse.
+      const idCompleto = (v: string | null | undefined) => /^[\d-]+:\d+:.+$/.test(v ?? "");
       if (
         riga &&
         idCompleto(r.idEsterno ? String(r.idEsterno) : null) &&

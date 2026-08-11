@@ -837,6 +837,7 @@ function leggiDestinazioni() {
         if (!v) {
           v = perChiave[chiave] = {
             url: url, campagna: r.campaign.name, gruppo: r.adGroup.name,
+            gruppoId: String(r.adGroup.id),
             usi: 0, attivo: false, annunci: [],
           };
         }
@@ -865,6 +866,11 @@ function leggiDestinazioni() {
     var x = perChiave[k];
     righe.push({
       tipo: "destinazione",
+      // Una riga per (account, gruppo, url): senza id, la stessa url usata
+      // da due gruppi collassava su una riga sola nell'app e l'ultimo
+      // gruppo letto sovrascriveva l'altro (misurato l'11/08: l'annuncio
+      // attivo di Torte per Oggi risultava del gruppo sbagliato).
+      idEsterno: conto.id + ":" + x.gruppoId + ":" + x.url,
       testo: x.url,
       finalUrl: x.url,
       campagna: x.campagna,
