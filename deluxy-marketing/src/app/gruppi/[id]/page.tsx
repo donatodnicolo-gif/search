@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { AncoraggioHash } from "@/components/AncoraggioHash";
 import { AndamentoMensile } from "@/components/AndamentoMensile";
 import { AzioneGruppo } from "@/components/AzioneGruppo";
 import { Badge } from "@/components/Badge";
@@ -432,6 +433,7 @@ export default async function SchedaGruppo({
 
   return (
     <div className="layout">
+      <AncoraggioHash />
       <Sidebar attiva="gruppi" brandAttivo={gruppo.brand} />
       <main className="main">
         {/* Si arriva quasi sempre da una campagna, non dall elenco: tornare
@@ -1316,7 +1318,7 @@ export default async function SchedaGruppo({
                 <div className="scheda-titolo">Titoli e descrizioni usati qui ({testi.length})</div>
                 {/* Stessa forma di Google Ads del blocco gemello sulla scheda
                     campagna: una scheda per testo col conteggio caratteri. */}
-                <TestiAnnuncio testi={testi} />
+                <TestiAnnuncio testi={testi} destinazioni={copy.filter((c) => c.tipo === "destinazione")} />
               </section>
             )}
           </div>

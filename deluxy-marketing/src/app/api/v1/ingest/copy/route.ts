@@ -161,7 +161,9 @@ export async function POST(req: NextRequest) {
   for (const a of annunci) {
     if (!a?.testo || !a?.campagna || !a?.tipo) continue;
     if (Array.isArray(a.annunci) && a.annunci.length > 0) {
-      for (const x of a.annunci) annunciVisti.add(String(x));
+      // Dal 11/08 la voce può portare lo stato attaccato ("id:ENABLED"):
+      // l'insieme dei visti tiene il solo id, il campo salvato tiene tutto.
+      for (const x of a.annunci) annunciVisti.add(String(x).split(":")[0]);
       campagneConAnnunci.add(String(a.campagna));
     }
     // I numeri di un asset (sitelink, callout, snippet, immagine) arrivano solo
@@ -238,7 +240,8 @@ export async function POST(req: NextRequest) {
     });
     for (const r of righeNonArrivate) {
       const agganci = (r.annunci ?? "").split(",").map((s) => s.trim()).filter(Boolean);
-      const rimasti = agganci.filter((id) => !annunciVisti.has(id));
+      // La voce può essere "id" (vecchia) o "id:STATO": il confronto è sull'id.
+      const rimasti = agganci.filter((voce) => !annunciVisti.has(voce.split(":")[0]));
       if (rimasti.length === agganci.length) continue;
       await prisma.copyAnnuncio.update({
         where: { id: r.id },

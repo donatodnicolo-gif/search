@@ -15,8 +15,10 @@ export type TestoAnnuncio = {
   testo: string;
   caratteri: number | null;
   rendimento: string | null;
-  // Gli ID degli annunci che usano questo testo, separati da virgola.
+  // Gli ID degli annunci che usano questo testo, separati da virgola; ogni
+  // voce può portare lo stato attaccato ("id:ENABLED", dall'11/08).
   annunci?: string | null;
+  finalUrl?: string | null;
 };
 
 const LIMITE: Record<string, number> = { titolo: 30, descrizione: 90 };
@@ -59,7 +61,15 @@ function Gruppo({ titolo, tipo, testi }: { titolo: string; tipo: string; testi: 
   );
 }
 
-export function TestiAnnuncio({ testi }: { testi: TestoAnnuncio[] }) {
+export function TestiAnnuncio({
+  testi,
+  destinazioni = [],
+}: {
+  testi: TestoAnnuncio[];
+  // Le righe `tipo: "destinazione"` del gruppo: portano l'elenco degli
+  // annunci che le usano, e da lì si scrive la landing sotto ogni colonna.
+  destinazioni?: TestoAnnuncio[];
+}) {
   const titoli = testi.filter((t) => t.tipo === "titolo");
   const descrizioni = testi.filter((t) => t.tipo === "descrizione");
   if (titoli.length === 0 && descrizioni.length === 0) return null;
@@ -76,16 +86,39 @@ export function TestiAnnuncio({ testi }: { testi: TestoAnnuncio[] }) {
   // dello script aggiornato al 07/08/2026: finché non passa, quel campo è
   // vuoto e si mostra l'elenco unico DICENDO perché.
   const perAnnuncio = new Map<string, TestoAnnuncio[]>();
+  // Lo STATO di ogni annuncio, quando la voce lo porta ("id:ENABLED", dallo
+  // script aggiornato l'11/08): senza, le colonne non dicevano quale annuncio
+  // è in asta e quale è fermo. Le voci vecchie (solo id) restano leggibili.
+  const statoAnnuncio = new Map<string, string>();
   for (const t of testi) {
-    for (const id of (t.annunci ?? "").split(",").filter(Boolean)) {
+    for (const voce of (t.annunci ?? "").split(",").filter(Boolean)) {
+      const [id, stato] = voce.split(":");
+      if (!id) continue;
+      if (stato && !statoAnnuncio.has(id)) statoAnnuncio.set(id, stato);
       const v = perAnnuncio.get(id) ?? [];
       v.push(t);
       perAnnuncio.set(id, v);
     }
   }
-  // Gli annunci più ricchi per primi: un annuncio con 15 titoli è quello
-  // completo, uno con 3 è un residuo.
-  const annunci = [...perAnnuncio.entries()].sort((a, b) => b[1].length - a[1].length);
+  // DOVE MANDA ogni annuncio: dalla riga-destinazione che lo cita. Se una
+  // destinazione non cita annunci (dati di prima dell'11/08), non si sa.
+  const landingAnnuncio = new Map<string, string>();
+  for (const d of destinazioni) {
+    const url = d.finalUrl ?? d.testo;
+    if (!url) continue;
+    for (const voce of (d.annunci ?? "").split(",").filter(Boolean)) {
+      const id = voce.split(":")[0];
+      if (id && !landingAnnuncio.has(id)) landingAnnuncio.set(id, url);
+    }
+  }
+
+  // Prima gli annunci IN ASTA (è quello che si guarda per primo), poi i più
+  // ricchi: un annuncio con 15 titoli è quello completo, uno con 3 un residuo.
+  const annunci = [...perAnnuncio.entries()].sort((a, b) => {
+    const pesoA = statoAnnuncio.get(a[0]) === "ENABLED" ? 0 : 1;
+    const pesoB = statoAnnuncio.get(b[0]) === "ENABLED" ? 0 : 1;
+    return pesoA - pesoB || b[1].length - a[1].length;
+  });
 
   const nota =
     giudicati === 0 ? (
@@ -122,9 +155,46 @@ export function TestiAnnuncio({ testi }: { testi: TestoAnnuncio[] }) {
         cui la somma delle colonne è più grande del numero di testi diversi.
       </p>
       <div className="ga-colonne">
-        {annunci.map(([id, suoi], i) => (
+        {annunci.map(([id, suoi], i) => {
+          const stato = statoAnnuncio.get(id);
+          return (
           <div key={id}>
-            <div className="ga-annuncio">Annuncio {i + 1}</div>
+            <div className="ga-annuncio" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              Annuncio {i + 1}
+              {/* Il fatto di Google, per annuncio: attivo = in asta adesso. */}
+              {stato === "ENABLED" ? (
+                <span className="tag-salute" style={{ color: "var(--green)" }}>
+                  <span className="dot" />attivo
+                </span>
+              ) : stato === "PAUSED" ? (
+                <span className="tag-salute" style={{ color: "var(--ardesia)" }}>
+                  <span className="dot" />in pausa
+                </span>
+              ) : (
+                <span
+                  className="cella-sub"
+                  title="Lo stato per annuncio arriva col giro copy dello script aggiornato all'11/08: finché non passa, non si sa"
+                >
+                  stato non ancora letto
+                </span>
+              )}
+            </div>
+            {/* DOVE MANDA questo annuncio: la landing vera, cliccabile. Se i
+                dati sono di prima dell'11/08 il legame non c'è, e si tace. */}
+            {landingAnnuncio.has(id) && (
+              <div className="cella-sub" style={{ marginBottom: 8, overflowWrap: "anywhere" }}>
+                ↳{" "}
+                <a
+                  href={landingAnnuncio.get(id)}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ color: "var(--blue)" }}
+                  title="La final URL dell'annuncio, come sta su Google"
+                >
+                  {landingAnnuncio.get(id)!.replace(/^https?:\/\//, "")}
+                </a>
+              </div>
+            )}
             <Gruppo
               titolo="Titoli"
               tipo="titolo"
@@ -136,7 +206,8 @@ export function TestiAnnuncio({ testi }: { testi: TestoAnnuncio[] }) {
               testi={suoi.filter((t) => t.tipo === "descrizione").sort(perLunghezza)}
             />
           </div>
-        ))}
+          );
+        })}
       </div>
     </>
   );

@@ -766,7 +766,17 @@ function leggiAnnunci() {
     // piu annunci) e senza questo elenco non puo piu dire quali 15 titoli
     // stavano insieme nello stesso annuncio.
     var idAnnuncio = r.adGroupAd && r.adGroupAd.ad ? String(r.adGroupAd.ad.id) : null;
-    if (idAnnuncio && indiceIn(v.annunci, idAnnuncio) === -1) v.annunci.push(idAnnuncio);
+    if (idAnnuncio) {
+      // La voce porta anche lo STATO dell'annuncio ("id:ENABLED"): l'app
+      // ricompone le colonne per annuncio, e senza stato non si distingue
+      // quello in asta da quello fermo. Le voci vecchie (solo id) restano
+      // leggibili: chi legge spezza su ":" e usa quel che trova.
+      var giaPresente = false;
+      for (var ai = 0; ai < v.annunci.length; ai++) {
+        if (String(v.annunci[ai]).split(":")[0] === idAnnuncio) { giaPresente = true; break; }
+      }
+      if (!giaPresente) v.annunci.push(idAnnuncio + ":" + String(r.adGroupAd.status || ""));
+    }
     if (indiceIn(v.gruppi, r.adGroup.name) === -1) v.gruppi.push(r.adGroup.name);
     if (r.adGroupAd.status === "ENABLED") v.attivo = true;
     v.rendimento = migliorRendimento(v.rendimento, vista.performanceLabel);
@@ -827,11 +837,21 @@ function leggiDestinazioni() {
         if (!v) {
           v = perChiave[chiave] = {
             url: url, campagna: r.campaign.name, gruppo: r.adGroup.name,
-            usi: 0, attivo: false,
+            usi: 0, attivo: false, annunci: [],
           };
         }
         v.usi++;
         if (r.adGroupAd.status === "ENABLED") v.attivo = true;
+        // Quali ANNUNCI mandano qui: serve all'app per scrivere la landing
+        // sotto ogni colonna-annuncio. Voce "id:STATO" come per i testi.
+        var idAnn = r.adGroupAd.ad ? String(r.adGroupAd.ad.id) : null;
+        if (idAnn) {
+          var cePresente = false;
+          for (var di = 0; di < v.annunci.length; di++) {
+            if (String(v.annunci[di]).split(":")[0] === idAnn) { cePresente = true; break; }
+          }
+          if (!cePresente) v.annunci.push(idAnn + ":" + String(r.adGroupAd.status || ""));
+        }
       }
     }
   } catch (e) {
@@ -850,6 +870,7 @@ function leggiDestinazioni() {
       campagna: x.campagna,
       gruppo: x.gruppo,
       note: "usata da " + x.usi + " annunc" + (x.usi === 1 ? "io" : "i"),
+      annunci: x.annunci,
       statoPiattaforma: x.attivo ? "ENABLED" : "PAUSED",
     });
   }
