@@ -1,4 +1,4 @@
-import { ETICHETTA_GIUDIZIO_GOOGLE, GIUDIZI_GOOGLE } from "@/lib/dominio";
+import { ETICHETTA_GIUDIZIO_GOOGLE, formattaEuro, GIUDIZI_GOOGLE } from "@/lib/dominio";
 
 // Titoli e descrizioni come si vedono in Google Ads: una scheda per testo, con
 // sotto il conteggio dei caratteri sul limite (21 / 30). È la stessa forma che
@@ -19,6 +19,18 @@ export type TestoAnnuncio = {
   // voce può portare lo stato attaccato ("id:ENABLED", dall'11/08).
   annunci?: string | null;
   finalUrl?: string | null;
+};
+
+// I numeri di un annuncio, dalla riga `tipo: "annuncio"` (idEsterno
+// account:gruppo:idAnnuncio).
+export type RigaMetricaAnnuncio = {
+  idEsterno: string | null;
+  spesa: number | null;
+  clic: number | null;
+  impressioni: number | null;
+  conversioni: number | null;
+  incasso: number | null;
+  metricheGiorni?: number | null;
 };
 
 const LIMITE: Record<string, number> = { titolo: 30, descrizione: 90 };
@@ -68,6 +80,7 @@ export function TestiAnnuncio({
   soloAttivi = false,
   linkTutti,
   linkAttivi,
+  metricheAnnunci = [],
 }: {
   testi: TestoAnnuncio[];
   // Le righe `tipo: "destinazione"` del gruppo: portano l'elenco degli
@@ -83,6 +96,9 @@ export function TestiAnnuncio({
   // l'indirizzo, lo passa chi ci monta il blocco.
   linkTutti?: string;
   linkAttivi?: string;
+  // Le righe `tipo: "annuncio"`: i numeri di ogni annuncio nella finestra
+  // del giro copy. Senza, le colonne dicono cosa è scritto ma non cosa rende.
+  metricheAnnunci?: RigaMetricaAnnuncio[];
 }) {
   const titoli = testi.filter((t) => t.tipo === "titolo");
   const descrizioni = testi.filter((t) => t.tipo === "descrizione");
@@ -142,10 +158,12 @@ export function TestiAnnuncio({
   // tolgono quelli, e restano gli annunci del gruppo. (Un annuncio assegnato
   // qui dalle nostre destinazioni non si toglie mai, anche se una riga
   // stantia lo cita altrove: la casa dichiarata dal gruppo vince.)
-  // La destinazione del gruppo, per gli annunci di cui non si conosce la URL
-  // propria: quella più usata fra le sue.
-  const landingDelGruppo =
-    destinazioni.map((d) => d.finalUrl ?? d.testo).filter(Boolean)[0] ?? null;
+  // I numeri per annuncio, presi dall'id in coda (account:gruppo:idAnnuncio).
+  const kpiAnnuncio = new Map<string, RigaMetricaAnnuncio>();
+  for (const m of metricheAnnunci) {
+    const id = (m.idEsterno ?? "").split(":").pop();
+    if (id) kpiAnnuncio.set(id, m);
+  }
 
   const annunciDiAltri = new Set<string>();
   for (const d of destinazioniAltriGruppi) {
@@ -252,15 +270,60 @@ export function TestiAnnuncio({
                 </span>
               )}
             </div>
+            {/* I numeri di QUESTO annuncio: quanto spende e cosa torna
+                indietro. Senza, le colonne dicono cosa è scritto ma non cosa
+                rende — e fra due annunci si sceglieva a occhio. */}
+            {(() => {
+              const k = kpiAnnuncio.get(id);
+              if (!k) return null;
+              const spesa = k.spesa ?? 0;
+              const incasso = k.incasso ?? 0;
+              const resa = spesa > 0 ? incasso / spesa : null;
+              return (
+                <div
+                  className="cella-sub"
+                  style={{ marginBottom: 6, display: "flex", flexWrap: "wrap", gap: 8 }}
+                  title={`Numeri di questo annuncio${k.metricheGiorni ? ` negli ultimi ${k.metricheGiorni} giorni` : ""}: ${k.impressioni ?? 0} comparse, ${k.clic ?? 0} clic, ${k.conversioni ?? 0} conversioni`}
+                >
+                  <span><b>{formattaEuro(spesa)}</b> spesi</span>
+                  <span>{k.clic ?? 0} clic</span>
+                  {(k.conversioni ?? 0) > 0 && (
+                    <span>
+                      {Number.isInteger(k.conversioni) ? k.conversioni : (k.conversioni ?? 0).toFixed(1)} conv
+                    </span>
+                  )}
+                  {incasso > 0 && (
+                    <span style={{ color: "var(--green)", fontWeight: 600 }}>
+                      → {formattaEuro(incasso)}
+                      {resa != null && ` · ${resa.toFixed(1)}×`}
+                    </span>
+                  )}
+                </div>
+              );
+            })()}
             {/* DOVE MANDA questo annuncio. Il legame preciso arriva dalle
                 destinazioni; quando manca (l'annuncio condivide la URL con un
                 altro e la riga è una sola) si mostra quella del GRUPPO,
                 dichiarando che è del gruppo e non dell'annuncio: una landing
                 probabile detta per quello che è vale più di un vuoto. */}
             {(() => {
-              const url = landingAnnuncio.get(id) ?? landingDelGruppo;
-              if (!url) return null;
-              const propria = landingAnnuncio.has(id);
+              // ⚠️ SOLO la URL di QUESTO annuncio. C'era un ripiego sulla
+              // destinazione del gruppo, ed era peggio del vuoto: sul primo
+              // annuncio di Torte per Oggi mostrava «festa-della-mamma», che
+              // è la landing di un altro annuncio (11/08). Una destinazione
+              // probabile è indistinguibile da una vera, e qui si clicca.
+              const url = landingAnnuncio.get(id);
+              if (!url) {
+                return (
+                  <div
+                    className="cella-sub"
+                    style={{ marginBottom: 8 }}
+                    title="Ogni annuncio ne ha una su Google: l'app la lega al singolo annuncio dal giro copy dello script aggiornato all'11/08"
+                  >
+                    destinazione non ancora letta per questo annuncio
+                  </div>
+                );
+              }
               return (
                 <div className="cella-sub" style={{ marginBottom: 8, overflowWrap: "anywhere" }}>
                   ↳{" "}
@@ -269,11 +332,10 @@ export function TestiAnnuncio({
                     target="_blank"
                     rel="noreferrer"
                     style={{ color: "var(--blue)" }}
-                    title={propria ? "La final URL di questo annuncio, come sta su Google" : "La destinazione di questo gruppo: per questo annuncio l'app non ha ancora la URL propria"}
+                    title="La final URL di questo annuncio, come sta su Google"
                   >
                     {url.replace(/^https?:\/\//, "")}
                   </a>
-                  {!propria && <> · <span title="Non è detto che questo annuncio mandi qui">del gruppo</span></>}
                 </div>
               );
             })()}

@@ -258,7 +258,15 @@ export async function POST(req: NextRequest) {
     data: {
       fonte: canale,
       account: body.account ? String(body.account) : null,
-      tipo: keywords.length >= annunci.length ? "copy" : "asset",
+      // Il giro che ha consegnato. `stati-keyword` è l'unico che censisce
+      // TUTTE le keyword non rimosse di un account: solo da quello si può
+      // dedurre che una riga non confermata non è più su Google.
+      tipo:
+        body.lavoro === "stati-keyword"
+          ? "stati-keyword"
+          : keywords.length >= annunci.length
+            ? "copy"
+            : "asset",
       chiave: cliente.nome,
       righe: keywords.length + annunci.length,
       nuove: nuoveKw + nuoviAnn,

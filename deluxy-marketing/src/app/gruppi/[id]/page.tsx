@@ -177,6 +177,32 @@ export default async function SchedaGruppo({
   const keywordDefunte = keywordDelGruppo.filter((c) => c.stato === "defunta");
   const keyword = keywordDelGruppo.filter((c) => c.stato !== "defunta");
 
+  // L'ultimo CENSIMENTO completo delle keyword di questo account (il giro
+  // `stati-keyword`, che manda tutte quelle non rimosse). Serve a dire la
+  // verità su una riga che non arriva più: una keyword tolta da Google
+  // restava «attiva» nell'app per sempre — misurato l'11/08: 881 righe su
+  // Flowers e 304 su Cake, fra cui parole su concorrenti tolte da mesi.
+  //
+  // ⚠️ Solo le consegne di tipo `stati-keyword`: il giro `copy` manda solo
+  // chi ha avuto impressioni, e dedurne l'assenza sarebbe un falso allarme
+  // su ogni parola senza traffico. Finché lo script aggiornato non gira,
+  // qui non c'è niente e la colonna resta com'era.
+  const accountDelGruppo = gruppo.idEsterno?.split(":")[0] ?? null;
+  const ultimoCensimento = accountDelGruppo
+    ? (
+        await prisma.ricezioneDati.findFirst({
+          where: { fonte: "google_ads", account: accountDelGruppo, tipo: "stati-keyword" },
+          orderBy: { ricevutoIl: "desc" },
+          select: { ricevutoIl: true },
+        })
+      )?.ricevutoIl ?? null
+    : null;
+  // Un margine di un'ora: la consegna arriva a blocchi e le prime righe sono
+  // scritte prima dell'ultimo blocco.
+  const sogliaCensimento = ultimoCensimento
+    ? new Date(ultimoCensimento.getTime() - 60 * 60 * 1000)
+    : null;
+
   // Le destinazioni degli ALTRI gruppi della campagna: dicono quali annunci
   // sono di casa altrove, e servono a togliere dalle colonne quelli che i
   // testi condivisi si portano dietro (vedi il recinto in TestiAnnuncio).
@@ -1116,10 +1142,26 @@ export default async function SchedaGruppo({
                                       <input type="hidden" name="idEsternoKeyword" value={k.idEsterno ?? ""} />
                                       <input type="hidden" name="ritorno" value={`/gruppi/${gruppo.id}?kw=${filtroKw}#keywords`} />
                                       <input type="hidden" name="tipo" value={inPausaGoogle ? "attiva_keyword" : "pausa_keyword"} />
-                                      <span className="tag-salute" style={{ color: inPausaGoogle ? "var(--ardesia)" : "var(--green)" }}>
-                                        <span className="dot" />
-                                        {inPausaGoogle ? "in pausa" : "attiva"}
-                                      </span>
+                                      {/* Il fatto di Google — ma solo se
+                                          l'ultimo censimento l'ha confermato:
+                                          una keyword tolta da Google non
+                                          arriva più, e senza questo controllo
+                                          restava «attiva» per sempre. */}
+                                      {sogliaCensimento && k.aggiornataIl < sogliaCensimento ? (
+                                        <span
+                                          className="tag-salute"
+                                          style={{ color: "var(--red)" }}
+                                          title={`L'ultimo censimento delle keyword di questo account (${formattaDataOra(ultimoCensimento!)}) non l'ha più trovata: su Google è stata rimossa. I numeri restano, sono la sua storia.`}
+                                        >
+                                          <span className="dot" />
+                                          non più su Google
+                                        </span>
+                                      ) : (
+                                        <span className="tag-salute" style={{ color: inPausaGoogle ? "var(--ardesia)" : "var(--green)" }}>
+                                          <span className="dot" />
+                                          {inPausaGoogle ? "in pausa" : "attiva"}
+                                        </span>
+                                      )}
                                       <button className="btn small btn-secondario" type="submit" title={inPausaGoogle ? "Mette in coda la riattivazione su Google, da approvare in Operazioni" : "Mette in coda la pausa su Google, da approvare in Operazioni"}>
                                         {inPausaGoogle ? "Riattiva" : "Pausa"}
                                       </button>
@@ -1391,6 +1433,7 @@ export default async function SchedaGruppo({
                   soloAttivi={sp.ann === "attivi"}
                   linkTutti={`/gruppi/${gruppo.id}?kw=${filtroKw}#annunci`}
                   linkAttivi={`/gruppi/${gruppo.id}?kw=${filtroKw}&ann=attivi#annunci`}
+                  metricheAnnunci={copy.filter((c) => c.tipo === "annuncio")}
                 />
               </section>
             )}

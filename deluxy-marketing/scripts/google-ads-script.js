@@ -597,6 +597,10 @@ function mandaCopy(conto) {
   // rifiuta la query, i titoli e le descrizioni partono lo stesso.
   var destinazioni = leggiDestinazioni();
   for (var d = 0; d < destinazioni.length; d++) annunci.push(destinazioni[d]);
+  // I numeri di OGNI annuncio: senza, le colonne della scheda gruppo dicono
+  // cosa e' scritto ma non cosa rende. In un giro suo, come le destinazioni.
+  var kpiAnnunci = leggiMetricheAnnunci(conto);
+  for (var m = 0; m < kpiAnnunci.length; m++) annunci.push(kpiAnnunci[m]);
 
   Logger.log("Keyword (accorpate per campagna): " + keywords.length + " · testi di annuncio: " + annunci.length);
   if (keywords.length > 0) Logger.log("Esempio keyword: " + JSON.stringify(keywords[0]));
@@ -881,6 +885,74 @@ function leggiDestinazioni() {
     });
   }
   Logger.log("destinazioni: " + righe.length + " URL distinti da " + letti + " annunci");
+  return righe;
+}
+
+/**
+ * Le metriche di ogni ANNUNCIO nella finestra GIORNI_COPY: spesa, clic,
+ * impressioni, conversioni e incasso. Una riga per annuncio, tipo
+ * "annuncio", con idEsterno account:gruppo:idAnnuncio.
+ * In un try suo: se la query non passa, i testi partono lo stesso.
+ */
+function leggiMetricheAnnunci(conto) {
+  var query =
+    "SELECT campaign.name, ad_group.id, ad_group.name, ad_group_ad.ad.id, " +
+    "ad_group_ad.status, metrics.cost_micros, metrics.impressions, " +
+    "metrics.clicks, metrics.conversions, metrics.conversions_value " +
+    "FROM ad_group_ad " +
+    "WHERE segments.date BETWEEN '" + dataIso(-GIORNI_COPY) + "' AND '" + dataIso(0) + "' " +
+    "AND ad_group_ad.status IN ('ENABLED', 'PAUSED')";
+
+  var perChiave = {};
+  try {
+    var risultati = AdsApp.search(query);
+    while (risultati.hasNext()) {
+      var r = risultati.next();
+      if (!r.adGroupAd || !r.adGroupAd.ad) continue;
+      var idAnn = String(r.adGroupAd.ad.id);
+      var chiave = r.adGroup.id + ":" + idAnn;
+      var v = perChiave[chiave];
+      if (!v) {
+        v = perChiave[chiave] = {
+          idEsterno: conto.id + ":" + r.adGroup.id + ":" + idAnn,
+          campagna: r.campaign.name,
+          gruppo: r.adGroup.name,
+          stato: String(r.adGroupAd.status || ""),
+          spesa: 0, impressioni: 0, clic: 0, conversioni: 0, incasso: 0
+        };
+      }
+      v.spesa += Number(r.metrics.costMicros || 0) / 1000000;
+      v.impressioni += Number(r.metrics.impressions || 0);
+      v.clic += Number(r.metrics.clicks || 0);
+      v.conversioni += Number(r.metrics.conversions || 0);
+      v.incasso += Number(r.metrics.conversionsValue || 0);
+    }
+  } catch (e) {
+    Logger.log("metriche per annuncio: query rifiutata (" + e + ") - le colonne restano senza numeri");
+    return [];
+  }
+
+  var righe = [];
+  for (var k in perChiave) {
+    if (!Object.prototype.hasOwnProperty.call(perChiave, k)) continue;
+    var x = perChiave[k];
+    righe.push({
+      tipo: "annuncio",
+      idEsterno: x.idEsterno,
+      // Il testo e' l'id: la riga non e' un testo d'annuncio, e' la sua
+      // riga dei numeri. L'app la riconosce dal tipo.
+      testo: x.idEsterno,
+      campagna: x.campagna,
+      gruppo: x.gruppo,
+      spesa: arrotonda(x.spesa),
+      impressioni: x.impressioni,
+      clic: x.clic,
+      conversioni: x.conversioni,
+      incasso: arrotonda(x.incasso),
+      statoPiattaforma: x.stato
+    });
+  }
+  Logger.log("metriche per annuncio: " + righe.length + " annunci.");
   return righe;
 }
 
@@ -2397,7 +2469,11 @@ function mandaStatiKeyword(conto) {
   );
 
   var esito = inviaABlocchi("/api/v1/ingest/copy", righe, function (lotto) {
-    return corpoBase(conto, { keywords: lotto });
+    // "lavoro" dice all'app CHE GIRO e' questo: stati-keyword censisce TUTTE
+    // le keyword non rimosse dell'account, quindi da qui l'app sa che una
+    // riga non confermata non e' piu' su Google (il giro "copy" manda solo
+    // chi ha avuto impressioni, e non permette la stessa conclusione).
+    return corpoBase(conto, { keywords: lotto, lavoro: "stati-keyword" });
   });
   RIEPILOGO.push("stati-keyword: " + esito.inviate + " keyword allineate (" + inPausa + " in pausa)");
 }
