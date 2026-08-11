@@ -1405,16 +1405,32 @@ export async function azioneMassa(
  * Da qui in poi il mittente è un contatto "noto" (ha un messaggio in archivio),
  * quindi le sue prossime mail non finiranno più in spam automaticamente.
  */
+/**
+ * «Non è spam»: riporta in posta la mail — e TUTTA la sua conversazione.
+ *
+ * ⚠️ Prima toglieva dallo SPAM **una mail sola**, mentre `segnalaSpamThread` ce
+ * le mandava tutte: due gesti opposti che lavoravano su quantità diverse.
+ * Risultato visto il 9/08/2026: «ho tolto questo thread da spam ma alcune mail
+ * continuano ad esserci». Vale la stessa regola del pallino blu e di «✓ Letto»:
+ * in elenco una riga È un thread, quindi l'azione della riga è del thread.
+ */
 export async function segnalaNonSpam(id: string): Promise<{ ok: boolean; messaggio: string }> {
   const utenteId = await uid()
-  await db.messaggio.updateMany({
-    where: { id, utenteId },
+  const ids = [...(await idsThread(utenteId, id))]
+  const tutti = ids.length ? ids : [id]
+  const r = await db.messaggio.updateMany({
+    // Solo quelle davvero nello SPAM: se la conversazione ne ha altre già in
+    // posta, non c'è motivo di toccarle (e di azzerarne la sezione).
+    where: { id: { in: tutti }, utenteId, sezione: { nome: 'SPAM' } },
     data: { sezioneId: null, smistatoDa: 'manuale', archiviato: false },
   })
-  // Torna in posta anche sulla casella: se restasse nella Posta indesiderata
-  // del server, dal telefono continueresti a non vederla.
-  allineaCartellaDopo(utenteId, [id], 'spam', 'normale')
+  // Tornano in posta anche sulla casella: se restassero nella Posta
+  // indesiderata del server, dal telefono continueresti a non vederle.
+  allineaCartellaDopo(utenteId, tutti, 'spam', 'normale')
   revalidatePath('/', 'layout')
+  if (r.count > 1) {
+    return { ok: true, messaggio: `${r.count} mail della conversazione rimesse in Posta in arrivo.` }
+  }
   return { ok: true, messaggio: 'Spostata in Posta in arrivo: non è spam.' }
 }
 

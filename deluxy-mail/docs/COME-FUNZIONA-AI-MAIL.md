@@ -493,6 +493,11 @@ gratuita tipo gmail.com — aprendola trovi un **riquadro rosso**: «questa mail
 falsa», col motivo scritto per esteso. È il trucco più comune: il nome che vedi non è
 l'indirizzo da cui la mail arriva davvero.
 
+**«Non è spam» vale per tutta la conversazione**, come «Spam»: se una riga finisce nella
+posta indesiderata ci finisce tutto lo scambio, e riportandola in posta torna tutto lo
+scambio — non la sola mail che stavi guardando. Le mail della conversazione che erano già
+in posta restano dove sono.
+
 **Non viene spostata di nascosto: decidi tu, ma una volta sola.** Premi «Sì, è spam — e
 fallo sempre» e quella mail va in SPAM; da quel momento **tutte le prossime dello stesso
 tipo** ci finiscono da sole, senza chiedertelo più. Se invece dici «No, è buona», la
