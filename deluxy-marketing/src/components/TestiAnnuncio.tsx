@@ -19,6 +19,9 @@ export type TestoAnnuncio = {
   // voce può portare lo stato attaccato ("id:ENABLED", dall'11/08).
   annunci?: string | null;
   finalUrl?: string | null;
+  // Sulle righe `destinazione`: account:gruppo:idAnnuncio — il legame
+  // diretto con l'annuncio, perché la final URL è sua.
+  idEsterno?: string | null;
 };
 
 // I numeri di un annuncio, dalla riga `tipo: "annuncio"` (idEsterno
@@ -142,6 +145,17 @@ export function TestiAnnuncio({
   const annunciDelGruppo = new Set<string>();
   for (const d of destinazioni) {
     const url = d.finalUrl ?? d.testo;
+    // ⚠️ Dal 11/08 la riga destinazione è UNA PER ANNUNCIO e l'id lo dice in
+    // coda (account:gruppo:idAnnuncio): è il legame diretto, perché su Google
+    // la final URL è dell'annuncio. L'elenco `annunci` resta letto per le
+    // righe vecchie, accorpate per (gruppo, url).
+    const idDaEsterno = /^[\d-]+:\d+:\d+$/.test(d.idEsterno ?? "")
+      ? d.idEsterno!.split(":").pop()!
+      : null;
+    if (idDaEsterno) {
+      annunciDelGruppo.add(idDaEsterno);
+      if (url) landingAnnuncio.set(idDaEsterno, url);
+    }
     for (const voce of (d.annunci ?? "").split(",").filter(Boolean)) {
       const [id, stato] = voce.split(":");
       if (!id) continue;

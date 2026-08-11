@@ -819,72 +819,47 @@ function leggiAnnunci() {
  */
 function leggiDestinazioni(conto) {
   var query =
-    "SELECT campaign.name, ad_group.name, ad_group_ad.ad.id, " +
+    "SELECT campaign.name, ad_group.id, ad_group.name, ad_group_ad.ad.id, " +
     "ad_group_ad.ad.final_urls, ad_group_ad.status " +
     "FROM ad_group_ad " +
     "WHERE ad_group_ad.status IN ('ENABLED', 'PAUSED')";
 
-  var perChiave = {};
-  var letti = 0;
+  var righe = [];
+  var senzaUrl = 0;
   try {
     var risultati = AdsApp.search(query);
     while (risultati.hasNext()) {
       var r = risultati.next();
-      var urls = r.adGroupAd && r.adGroupAd.ad ? r.adGroupAd.ad.finalUrls : null;
-      if (!urls || !urls.length) continue;
-      letti++;
-      for (var i = 0; i < urls.length; i++) {
-        var url = urls[i];
-        if (!url) continue;
-        var chiave = r.campaign.name + "|" + r.adGroup.name + "|" + url;
-        var v = perChiave[chiave];
-        if (!v) {
-          v = perChiave[chiave] = {
-            url: url, campagna: r.campaign.name, gruppo: r.adGroup.name,
-            gruppoId: String(r.adGroup.id),
-            usi: 0, attivo: false, annunci: [],
-          };
-        }
-        v.usi++;
-        if (r.adGroupAd.status === "ENABLED") v.attivo = true;
-        // Quali ANNUNCI mandano qui: serve all'app per scrivere la landing
-        // sotto ogni colonna-annuncio. Voce "id:STATO" come per i testi.
-        var idAnn = r.adGroupAd.ad ? String(r.adGroupAd.ad.id) : null;
-        if (idAnn) {
-          var cePresente = false;
-          for (var di = 0; di < v.annunci.length; di++) {
-            if (String(v.annunci[di]).split(":")[0] === idAnn) { cePresente = true; break; }
-          }
-          if (!cePresente) v.annunci.push(idAnn + ":" + String(r.adGroupAd.status || ""));
-        }
-      }
+      if (!r.adGroupAd || !r.adGroupAd.ad) continue;
+      var urls = r.adGroupAd.ad.finalUrls;
+      var idAnn = String(r.adGroupAd.ad.id);
+      var stato = String(r.adGroupAd.status || "");
+      if (!urls || !urls.length) { senzaUrl++; continue; }
+
+      // UNA RIGA PER ANNUNCIO: su Google la final URL e' dell'annuncio, non
+      // del gruppo. Accorpando per (gruppo, url) due annunci che mandano
+      // alla stessa pagina finivano su una riga sola, e l'app non poteva
+      // piu' dire dove manda ciascuno (11/08/2026).
+      // Se un annuncio ha piu' URL si tiene la prima e si dice quante sono:
+      // e' quella che Google usa se non intervengono regole.
+      righe.push({
+        tipo: "destinazione",
+        idEsterno: conto.id + ":" + r.adGroup.id + ":" + idAnn,
+        testo: urls[0],
+        finalUrl: urls[0],
+        campagna: r.campaign.name,
+        gruppo: r.adGroup.name,
+        note: urls.length > 1 ? ("l'annuncio ne ha " + urls.length + ": " + urls.join(" | ")) : null,
+        annunci: [idAnn + ":" + stato],
+        statoPiattaforma: stato
+      });
     }
   } catch (e) {
     Logger.log("destinazioni: query rifiutata da Google (" + e + ") - gli annunci partono senza URL");
     return [];
   }
 
-  var righe = [];
-  for (var k in perChiave) {
-    if (!Object.prototype.hasOwnProperty.call(perChiave, k)) continue;
-    var x = perChiave[k];
-    righe.push({
-      tipo: "destinazione",
-      // Una riga per (account, gruppo, url): senza id, la stessa url usata
-      // da due gruppi collassava su una riga sola nell'app e l'ultimo
-      // gruppo letto sovrascriveva l'altro (misurato l'11/08: l'annuncio
-      // attivo di Torte per Oggi risultava del gruppo sbagliato).
-      idEsterno: conto.id + ":" + x.gruppoId + ":" + x.url,
-      testo: x.url,
-      finalUrl: x.url,
-      campagna: x.campagna,
-      gruppo: x.gruppo,
-      note: "usata da " + x.usi + " annunc" + (x.usi === 1 ? "io" : "i"),
-      annunci: x.annunci,
-      statoPiattaforma: x.attivo ? "ENABLED" : "PAUSED",
-    });
-  }
-  Logger.log("destinazioni: " + righe.length + " URL distinti da " + letti + " annunci");
+  Logger.log("destinazioni: " + righe.length + " annunci con URL" + (senzaUrl > 0 ? " (" + senzaUrl + " senza)" : ""));
   return righe;
 }
 

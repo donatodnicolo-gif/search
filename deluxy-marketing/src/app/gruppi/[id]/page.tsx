@@ -230,7 +230,7 @@ export default async function SchedaGruppo({
       annunci: { not: null },
       NOT: { gruppo: { contains: gruppo.nome } },
     },
-    select: { id: true, tipo: true, testo: true, caratteri: true, rendimento: true, annunci: true, finalUrl: true },
+    select: { id: true, tipo: true, testo: true, caratteri: true, rendimento: true, annunci: true, finalUrl: true, idEsterno: true },
   });
 
   // La STORIA giorno per giorno delle keyword (lavoro `keyword-giorni`, dal
