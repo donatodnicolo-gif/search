@@ -9,6 +9,7 @@ import { Badge } from "@/components/Badge";
 import { EstendiConAi } from "@/components/EstendiConAi";
 import { PortaKeyword } from "@/components/PortaKeyword";
 import { PortaSelezionate } from "@/components/PortaSelezionate";
+import { PerformancePeriodi } from "@/components/PerformancePeriodi";
 import { RinominaInline } from "@/components/RinominaInline";
 import { SelezionaTutte } from "@/components/SelezionaTutte";
 import { TestiAnnuncio } from "@/components/TestiAnnuncio";
@@ -1561,6 +1562,10 @@ export default async function SchedaGruppo({
                 </div>
               </section>
             )}
+
+            {/* Le stesse finestre della scheda campagna, un piano più sotto:
+                è al livello del gruppo che si decide davvero. */}
+            <PerformancePeriodi gruppoId={gruppo.id} />
 
             <section className="scheda">
               <div className="scheda-titolo">Quando si vende — i dodici mesi</div>

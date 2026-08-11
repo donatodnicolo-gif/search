@@ -578,13 +578,9 @@ export default async function SchedaCampagna({
           />
         )}
 
-        {/* Sotto «oggi», che è parziale per costruzione: le finestre su cui si
-            decide davvero, con il grafico della spesa. */}
-        <PerformancePeriodi
-          campagnaId={campagna.id}
-          base={`/campagne/${campagna.id}`}
-          scelta={sp.perf}
-        />
+        {/* Sotto «oggi», che è parziale per costruzione: le finestre su cui
+            si decide davvero, tutte a confronto. */}
+        <PerformancePeriodi campagnaId={campagna.id} />
 
         {/* ——— Valutazione: prima si capisce, poi si decide, infine si agisce.
             I gruppi stanno qui in cima perché sono il primo taglio che spiega

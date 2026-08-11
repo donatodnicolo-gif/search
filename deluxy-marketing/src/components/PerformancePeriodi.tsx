@@ -1,14 +1,16 @@
-import { GraficoSpesa } from "@/components/GraficoSpesa";
 import { prisma } from "@/lib/db";
 import { formattaEuro, formattaNumero, roas } from "@/lib/dominio";
 
 // Come sta andando, per finestre: 7 giorni · mese corrente · 30 giorni ·
-// trimestre · anno, con il grafico della spesa sotto.
+// trimestre · anno, tutte insieme in tabella.
 //
-// ⚠️ Non tocca il periodo dell'app: è una lente a parte, che si sceglie con
-// `?perf=` e vive nell'URL. Il periodo condiviso governa il resto della
-// pagina, e sovrascriverlo da qui vorrebbe dire cambiare i numeri di tutte
-// le altre sezioni con un click che sembrava innocuo.
+// ⚠️ Tutte insieme, non una alla volta: la domanda è «va meglio o peggio di
+// prima», e con le tab bisognava cliccarne cinque tenendo i numeri a mente.
+// L'andamento giorno per giorno lo racconta il grafico che sta già sulla
+// pagina: qui servono i totali, confrontabili.
+//
+// ⚠️ Non tocca il periodo condiviso dell'app: sono finestre fisse, e il
+// periodo scelto in cima governa il resto della pagina.
 const FINESTRE: { chiave: string; nome: string; giorni: number | "mese" | "anno" }[] = [
   { chiave: "7g", nome: "7 giorni", giorni: 7 },
   { chiave: "mese", nome: "Mese corrente", giorni: "mese" },
@@ -17,7 +19,7 @@ const FINESTRE: { chiave: string; nome: string; giorni: number | "mese" | "anno"
   { chiave: "anno", nome: "Anno", giorni: "anno" },
 ];
 
-function estremi(chiave: string): { da: Date; a: Date; nome: string } {
+function estremi(chiave: string): { da: Date; a: Date } {
   const f = FINESTRE.find((x) => x.chiave === chiave) ?? FINESTRE[2];
   const a = new Date();
   a.setHours(23, 59, 59, 999);
@@ -30,67 +32,60 @@ function estremi(chiave: string): { da: Date; a: Date; nome: string } {
     da.setDate(da.getDate() - (f.giorni - 1));
   }
   da.setHours(0, 0, 0, 0);
-  return { da, a, nome: f.nome };
+  return { da, a };
 }
 
 export async function PerformancePeriodi({
   campagnaId,
-  base,
-  scelta,
+  gruppoId,
 }: {
-  campagnaId: string;
-  base: string;
-  scelta?: string;
+  // Uno dei due: la campagna intera o un singolo gruppo di annunci. Le
+  // metriche stanno in due tabelle diverse ma rispondono alla stessa
+  // domanda, e la tabella che ne esce è la stessa.
+  campagnaId?: string;
+  gruppoId?: string;
 }) {
-  const attiva = FINESTRE.some((f) => f.chiave === scelta) ? scelta! : "30g";
-  const { da, a, nome } = estremi(attiva);
-
-  // ⚠️ Una lettura sola per TUTTE le finestre: si prende il periodo più
-  // lungo (l'anno) e le altre si ritagliano in memoria. Cinque query sullo
-  // stesso Postgres condiviso per cinque somme è il modo di far aspettare
-  // una pagina per niente.
   const inizioAnno = estremi("anno").da;
-  const primoInizio = da < inizioAnno ? da : inizioAnno;
-  const tutte = await prisma.metricaCampagna.findMany({
-    where: { campagnaId, data: { gte: primoInizio, lte: a } },
-    orderBy: { data: "asc" },
-    select: { data: true, spesa: true, ricavi: true, click: true, conversioni: true, impression: true },
-  });
-  const metriche = tutte.filter((m) => m.data >= da && m.data <= a);
+  const fine = estremi("7g").a;
 
-  // Il confronto a colpo d'occhio: le stesse cinque finestre, una riga per
-  // ognuna. La tab qui sopra decide solo quale si vede nel grafico.
+  // ⚠️ Una lettura sola per tutte e cinque le finestre: si prende il periodo
+  // più lungo e le altre si ritagliano in memoria. Cinque query sullo stesso
+  // Postgres condiviso per cinque somme è il modo di far aspettare una
+  // pagina per niente.
+  const tutte = gruppoId
+    ? await prisma.metricaGruppo.findMany({
+        where: { gruppoId, data: { gte: inizioAnno, lte: fine } },
+        orderBy: { data: "asc" },
+        select: { data: true, spesa: true, ricavi: true, click: true, conversioni: true },
+      })
+    : await prisma.metricaCampagna.findMany({
+        where: { campagnaId, data: { gte: inizioAnno, lte: fine } },
+        orderBy: { data: "asc" },
+        select: { data: true, spesa: true, ricavi: true, click: true, conversioni: true },
+      });
+
+  if (tutte.length === 0) return null;
+
   const confronto = FINESTRE.map((f) => {
     const e = estremi(f.chiave);
     const righe = tutte.filter((m) => m.data >= e.da && m.data <= e.a);
     const sp = righe.reduce((s, m) => s + (m.spesa ?? 0), 0);
     const ri = righe.reduce((s, m) => s + (m.ricavi ?? 0), 0);
-    const cv = righe.reduce((s, m) => s + (m.conversioni ?? 0), 0);
-    const cl = righe.reduce((s, m) => s + (m.click ?? 0), 0);
     return {
       chiave: f.chiave,
       nome: f.nome,
       giorni: righe.length,
       spesa: sp,
       ricavi: ri,
-      conversioni: cv,
-      click: cl,
+      conversioni: righe.reduce((s, m) => s + (m.conversioni ?? 0), 0),
+      click: righe.reduce((s, m) => s + (m.click ?? 0), 0),
       resa: roas(ri, sp),
-      // La media al giorno è l'unico modo di confrontare finestre di
-      // lunghezza diversa senza farsi ingannare: 223 € in 7 giorni e
-      // 900 € in 30 non si leggono uno accanto all'altro.
+      // ⚠️ La media al giorno è l'unica colonna confrontabile fra finestre di
+      // lunghezza diversa: 223 € in 7 giorni e 900 € in 30 non si leggono uno
+      // accanto all'altro, la media sì.
       spesaGiorno: righe.length > 0 ? sp / righe.length : null,
     };
   });
-
-  const somma = (f: (m: (typeof metriche)[number]) => number | null) =>
-    metriche.reduce((s, m) => s + (f(m) ?? 0), 0);
-  const spesa = somma((m) => m.spesa);
-  const ricavi = somma((m) => m.ricavi);
-  const click = somma((m) => m.click);
-  const conv = somma((m) => m.conversioni);
-  const r = roas(ricavi, spesa);
-  const giorni = metriche.length;
 
   return (
     <section className="scheda" id="andamento">
@@ -98,27 +93,9 @@ export async function PerformancePeriodi({
       <p className="cella-sub" style={{ whiteSpace: "normal", marginBottom: 10 }}>
         Le finestre a confronto, tutte insieme. La colonna <b>al giorno</b> è quella da leggere per
         capire se sta andando meglio o peggio: la spesa totale di sette giorni e quella di un anno
-        non si confrontano. Il grafico sotto segue la finestra scelta.
+        non si confrontano fra loro.
       </p>
-      <div className="pill-scelta" style={{ marginBottom: 12 }}>
-        {FINESTRE.map((f) => (
-          <a
-            key={f.chiave}
-            className={`pill-opt${attiva === f.chiave ? " attuale" : ""}`}
-            // #andamento: cambiare finestra ricarica la pagina, e senza
-            // àncora si tornerebbe in cima perdendo il segno.
-            href={`${base}${base.includes("?") ? "&" : "?"}perf=${f.chiave}#andamento`}
-          >
-            {f.nome}
-          </a>
-        ))}
-      </div>
-
-      {/* IL CONFRONTO, subito: le cinque finestre una sotto l'altra. Senza,
-          per rispondere a «va meglio o peggio di prima» bisognava cliccare
-          cinque tab e tenere i numeri a mente. La media al giorno è la
-          colonna che rende confrontabili finestre di lunghezza diversa. */}
-      <div style={{ overflowX: "auto", marginBottom: 16 }}>
+      <div style={{ overflowX: "auto" }}>
         <table>
           <thead>
             <tr>
@@ -135,11 +112,9 @@ export async function PerformancePeriodi({
           </thead>
           <tbody>
             {confronto.map((c) => (
-              <tr key={c.chiave} style={c.chiave === attiva ? { background: "var(--fill)" } : undefined}>
+              <tr key={c.chiave}>
                 <td>
-                  <a href={`${base}${base.includes("?") ? "&" : "?"}perf=${c.chiave}#andamento`} style={{ color: "inherit", textDecoration: "none" }}>
-                    <b>{c.nome}</b>
-                  </a>
+                  <b>{c.nome}</b>
                   <div className="cella-sub">
                     {c.giorni === 0 ? "nessun dato" : `${c.giorni} giorn${c.giorni === 1 ? "o" : "i"} con dati`}
                   </div>
@@ -160,50 +135,6 @@ export async function PerformancePeriodi({
           </tbody>
         </table>
       </div>
-
-      {giorni === 0 ? (
-        <div className="vuoto-mini">
-          Nessun dato in questa finestra ({nome.toLowerCase()}): la campagna non ha erogato, oppure
-          lo script non ha ancora mandato quei giorni.
-        </div>
-      ) : (
-        <>
-          <div className="kpi-riga" style={{ marginBottom: 14 }}>
-            <div className="kpi">
-              <div className="kpi-valore">{formattaEuro(spesa)}</div>
-              <div className="kpi-etichetta">
-                Spesa · {giorni} giorn{giorni === 1 ? "o" : "i"} con dati
-              </div>
-            </div>
-            <div className="kpi">
-              <div className="kpi-valore">{ricavi > 0 ? formattaEuro(ricavi) : "—"}</div>
-              <div className="kpi-etichetta">Ricavi attribuiti</div>
-            </div>
-            <div className="kpi">
-              <div className="kpi-valore">{conv > 0 ? formattaNumero(conv) : "—"}</div>
-              <div className="kpi-etichetta">
-                Conversioni{conv > 0 && spesa > 0 ? ` · ${formattaEuro(spesa / conv)} l'una` : ""}
-              </div>
-            </div>
-            <div className="kpi">
-              <div className="kpi-valore">{formattaNumero(click)}</div>
-              <div className="kpi-etichetta">
-                Click{click > 0 && spesa > 0 ? ` · ${formattaEuro(spesa / click)} di CPC` : ""}
-              </div>
-            </div>
-            <div className="kpi">
-              <div
-                className="kpi-valore"
-                style={{ color: r == null ? undefined : r >= 3 ? "var(--green)" : r < 1 ? "var(--red)" : undefined }}
-              >
-                {r != null ? `${r.toFixed(1)}×` : "—"}
-              </div>
-              <div className="kpi-etichetta">ROAS dichiarato</div>
-            </div>
-          </div>
-          <GraficoSpesa punti={metriche.map((m) => ({ data: m.data, valore: m.spesa ?? 0 }))} />
-        </>
-      )}
     </section>
   );
 }
