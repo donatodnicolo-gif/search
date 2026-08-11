@@ -759,12 +759,29 @@ export default async function SchedaGruppo({
             {/* Stagionalità, andamento e metriche per mese sono SCESI nella
                 colonna destra (10/08, deciso dall'utente): la sinistra parte
                 dal lavoro operativo — keyword, parole cercate, annunci. */}
-            {keyword.length > 0 && (
+            {/* ⚠️ La condizione guarda TUTTE le keyword, defunte comprese:
+                marcandole tutte defunte spariva la sezione intera — e con
+                lei la pillola «Defunte», cioè l'unico modo di tornare
+                indietro (successo davvero l'11/08 su Torte per Oggi: 79 su
+                79 defunte e nessuna via d'uscita dalla scheda). */}
+            {keywordDelGruppo.length > 0 && (
               // id="keywords": i filtri e i ritorni delle azioni atterrano
               // QUI — cambiare pillola ricarica la pagina, e senza àncora si
               // ripartiva da cima pagina perdendo il segno.
               <section className="scheda" id="keywords">
                 <div className="scheda-titolo">Keyword del gruppo ({keyword.length})</div>
+                {keyword.length === 0 && filtroKw !== "defunte" && (
+                  <div className="nota-info" style={{ marginBottom: 12 }}>
+                    <span className="nota-icona">◈</span>
+                    <span>
+                      <b>Tutte le {keywordDefunte.length} keyword di questo gruppo sono marcate
+                      «defunta»</b>, quindi non si vedono più. Su Google restano come sono: «defunta»
+                      è un giudizio dell&apos;app. Per rivederle — o per rimetterne in vita qualcuna —
+                      apri la pillola <b>Defunte</b> qui sotto, spunta quelle che vuoi e applica lo
+                      stato <b>Attiva</b>.
+                    </span>
+                  </div>
+                )}
 
                 {/* Questi numeri NON seguono il periodo scelto in cima, e va
                     detto prima della tabella: chi guarda "anno" e legge una
