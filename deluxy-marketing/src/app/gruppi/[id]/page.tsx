@@ -188,7 +188,7 @@ export default async function SchedaGruppo({
   // su ogni parola senza traffico. Finché lo script aggiornato non gira,
   // qui non c'è niente e la colonna resta com'era.
   const accountDelGruppo = gruppo.idEsterno?.split(":")[0] ?? null;
-  const ultimoCensimento = accountDelGruppo
+  const censimentoDichiarato = accountDelGruppo
     ? (
         await prisma.ricezioneDati.findFirst({
           where: { fonte: "google_ads", account: accountDelGruppo, tipo: "stati-keyword" },
@@ -197,10 +197,26 @@ export default async function SchedaGruppo({
         })
       )?.ricevutoIl ?? null
     : null;
-  // Un margine di un'ora: la consegna arriva a blocchi e le prime righe sono
-  // scritte prima dell'ultimo blocco.
+  // ⚠️ Ripiego quando il censimento non è ancora dichiarato (script vecchio):
+  // l'ultima volta che una keyword di questo account è stata toccata. Il giro
+  // `stati-keyword` fa parte del giro completo da sempre, quindi ogni notte
+  // TUTTE le keyword vive vengono riscritte: una ferma molto più indietro non
+  // c'è più. Il margine è di 48 ore, non un'ora, proprio perché questa è una
+  // deduzione e non una dichiarazione — meglio tacere su qualche riga morta
+  // che accusarne una viva.
+  const ultimaScritturaKeyword = accountDelGruppo
+    ? (
+        await prisma.copyAnnuncio.findFirst({
+          where: { tipo: "keyword", idEsterno: { startsWith: `${accountDelGruppo}:` } },
+          orderBy: { aggiornataIl: "desc" },
+          select: { aggiornataIl: true },
+        })
+      )?.aggiornataIl ?? null
+    : null;
+  const ultimoCensimento = censimentoDichiarato ?? ultimaScritturaKeyword;
+  const censimentoDedotto = censimentoDichiarato == null && ultimaScritturaKeyword != null;
   const sogliaCensimento = ultimoCensimento
-    ? new Date(ultimoCensimento.getTime() - 60 * 60 * 1000)
+    ? new Date(ultimoCensimento.getTime() - (censimentoDedotto ? 48 : 1) * 60 * 60 * 1000)
     : null;
 
   // Le destinazioni degli ALTRI gruppi della campagna: dicono quali annunci
@@ -397,10 +413,18 @@ export default async function SchedaGruppo({
   // Filtro delle keyword per stato: su gruppi con centinaia di parole,
   // guardarle tutte insieme non serve a niente. "attive" è il caso comune.
   const filtroKw = sp.kw ?? "tutte";
+  // Quante non sono più su Google: serve alla pillola del filtro.
+  const spariteDaGoogle = sogliaCensimento
+    ? keyword.filter((k) => k.aggiornataIl < sogliaCensimento).length
+    : 0;
+
   const keywordMostrate = (filtroKw === "defunte" ? keywordDefunte : keyword).filter((k) => {
     if (filtroKw === "tutte" || filtroKw === "defunte") return true;
     if (filtroKw === "attive") return k.statoPiattaforma !== "PAUSED";
     if (filtroKw === "in_pausa") return k.statoPiattaforma === "PAUSED";
+    // Quelle che Google non conferma più: si isolano per poterle marcare
+    // defunte in blocco senza andarle a cercare una per una.
+    if (filtroKw === "sparite") return sogliaCensimento != null && k.aggiornataIl < sogliaCensimento;
     if (filtroKw === "spendono") return numeriDi(k).spesa > 0;
     if (filtroKw === "a_vuoto") return numeriDi(k).spesa >= 20 && numeriDi(k).incasso === 0;
     if (filtroKw === "decise") return azioneDi(k.testo) != null;
@@ -906,6 +930,7 @@ export default async function SchedaGruppo({
                   ["spendono", "Che spendono"],
                   ["a_vuoto", "Spendono a vuoto"],
                   ["decise", "Con azione decisa"],
+                  ...(spariteDaGoogle > 0 ? [["sparite", `Non più su Google (${spariteDaGoogle})`]] : []),
                   ...(keywordDefunte.length > 0 ? [["defunte", `Defunte (${keywordDefunte.length})`]] : []),
                 ].map(([chiave, etichetta]) => (
                   <a
@@ -1151,7 +1176,7 @@ export default async function SchedaGruppo({
                                         <span
                                           className="tag-salute"
                                           style={{ color: "var(--red)" }}
-                                          title={`L'ultimo censimento delle keyword di questo account (${formattaDataOra(ultimoCensimento!)}) non l'ha più trovata: su Google è stata rimossa. I numeri restano, sono la sua storia.`}
+                                          title={`${censimentoDedotto ? "L'ultimo giro dello script su questo account" : "L'ultimo censimento delle keyword di questo account"} (${formattaDataOra(ultimoCensimento!)}) non l'ha più trovata: su Google è stata rimossa. I numeri restano, sono la sua storia.`}
                                         >
                                           <span className="dot" />
                                           non più su Google
