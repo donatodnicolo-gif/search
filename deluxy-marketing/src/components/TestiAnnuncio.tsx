@@ -64,11 +64,15 @@ function Gruppo({ titolo, tipo, testi }: { titolo: string; tipo: string; testi: 
 export function TestiAnnuncio({
   testi,
   destinazioni = [],
+  destinazioniAltriGruppi = [],
 }: {
   testi: TestoAnnuncio[];
   // Le righe `tipo: "destinazione"` del gruppo: portano l'elenco degli
   // annunci che le usano, e da lì si scrive la landing sotto ogni colonna.
   destinazioni?: TestoAnnuncio[];
+  // Le destinazioni degli ALTRI gruppi della campagna: servono a togliere
+  // gli annunci che sono di casa altrove (vedi il recinto qui sotto).
+  destinazioniAltriGruppi?: TestoAnnuncio[];
 }) {
   const titoli = testi.filter((t) => t.tipo === "titolo");
   const descrizioni = testi.filter((t) => t.tipo === "descrizione");
@@ -121,10 +125,27 @@ export function TestiAnnuncio({
     }
   }
 
+  // ⚠️ Il recinto si fa per ESCLUSIONE, non per inclusione. Le destinazioni
+  // del gruppo conoscono solo gli annunci che hanno una URL propria — su
+  // Torte per Oggi erano 2 su 6, e l'unico attivo restava fuori. Quelle
+  // degli ALTRI gruppi invece dicono con certezza chi è di casa altrove: si
+  // tolgono quelli, e restano gli annunci del gruppo. (Un annuncio assegnato
+  // qui dalle nostre destinazioni non si toglie mai, anche se una riga
+  // stantia lo cita altrove: la casa dichiarata dal gruppo vince.)
+  const annunciDiAltri = new Set<string>();
+  for (const d of destinazioniAltriGruppi) {
+    for (const voce of (d.annunci ?? "").split(",").filter(Boolean)) {
+      const [id, stato] = voce.split(":");
+      if (!id || annunciDelGruppo.has(id)) continue;
+      annunciDiAltri.add(id);
+      if (stato && !statoAnnuncio.has(id)) statoAnnuncio.set(id, stato);
+    }
+  }
+
   // Prima gli annunci IN ASTA (è quello che si guarda per primo), poi i più
   // ricchi: un annuncio con 15 titoli è quello completo, uno con 3 un residuo.
   const annunci = [...perAnnuncio.entries()]
-    .filter(([id]) => annunciDelGruppo.size === 0 || annunciDelGruppo.has(id))
+    .filter(([id]) => !annunciDiAltri.has(id))
     .sort((a, b) => {
       const pesoA = statoAnnuncio.get(a[0]) === "ENABLED" ? 0 : 1;
       const pesoB = statoAnnuncio.get(b[0]) === "ENABLED" ? 0 : 1;

@@ -175,6 +175,19 @@ export default async function SchedaGruppo({
   const keywordDefunte = keywordDelGruppo.filter((c) => c.stato === "defunta");
   const keyword = keywordDelGruppo.filter((c) => c.stato !== "defunta");
 
+  // Le destinazioni degli ALTRI gruppi della campagna: dicono quali annunci
+  // sono di casa altrove, e servono a togliere dalle colonne quelli che i
+  // testi condivisi si portano dietro (vedi il recinto in TestiAnnuncio).
+  const destinazioniAltrove = await prisma.copyAnnuncio.findMany({
+    where: {
+      campagna: gruppo.campagna.nome,
+      tipo: "destinazione",
+      annunci: { not: null },
+      NOT: { gruppo: { contains: gruppo.nome } },
+    },
+    select: { id: true, tipo: true, testo: true, caratteri: true, rendimento: true, annunci: true, finalUrl: true },
+  });
+
   // La STORIA giorno per giorno delle keyword (lavoro `keyword-giorni`, dal
   // 10/08/2026): quando copre il periodo scelto, spesa/incasso/resa della
   // tabella LO SEGUONO — la fotografia a finestra fissa resta il ripiego per
@@ -1364,7 +1377,11 @@ export default async function SchedaGruppo({
                 <div className="scheda-titolo">Titoli e descrizioni usati qui ({testi.length})</div>
                 {/* Stessa forma di Google Ads del blocco gemello sulla scheda
                     campagna: una scheda per testo col conteggio caratteri. */}
-                <TestiAnnuncio testi={testi} destinazioni={copy.filter((c) => c.tipo === "destinazione")} />
+                <TestiAnnuncio
+                  testi={testi}
+                  destinazioni={copy.filter((c) => c.tipo === "destinazione")}
+                  destinazioniAltriGruppi={destinazioniAltrove}
+                />
               </section>
             )}
           </div>
