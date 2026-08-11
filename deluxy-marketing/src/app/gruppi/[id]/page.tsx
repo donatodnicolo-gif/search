@@ -309,17 +309,41 @@ export default async function SchedaGruppo({
     _max: { al: true },
   });
   const alFresco = ultimaFinestraTermine._max.al;
-  const ricercheFresche = alFresco
-    ? await prisma.termineRicerca.findMany({
-        where: {
-          campagnaId: gruppo.campagnaId,
-          gruppo: { contains: gruppo.nome },
-          al: { gte: new Date(alFresco.getTime() - 2 * 86_400_000) },
-        },
-        orderBy: { impressioni: "desc" },
-        take: 24,
-      })
-    : [];
+  // ⚠️ Le prime 24 per comparse — MA quelle che hanno convertito ci sono
+  // sempre. Ordinando solo per impressioni, una ricerca da 1 conversione e
+  // 138 € di incasso restava fuori dalla card perché aveva poche comparse:
+  // la card mostrava solo spesa e clic, cioè solo i soldi che escono
+  // (segnalato l'11/08). Prima le convertenti, poi le più viste.
+  const finestraFresca = alFresco
+    ? { gte: new Date(alFresco.getTime() - 2 * 86_400_000) }
+    : undefined;
+  const [ricercheConResa, ricerchePiuViste] = alFresco
+    ? await Promise.all([
+        prisma.termineRicerca.findMany({
+          where: {
+            campagnaId: gruppo.campagnaId,
+            gruppo: { contains: gruppo.nome },
+            al: finestraFresca,
+            conversioni: { gt: 0 },
+          },
+          orderBy: { ricavi: { sort: "desc", nulls: "last" } },
+          take: 12,
+        }),
+        prisma.termineRicerca.findMany({
+          where: {
+            campagnaId: gruppo.campagnaId,
+            gruppo: { contains: gruppo.nome },
+            al: finestraFresca,
+          },
+          orderBy: { impressioni: { sort: "desc", nulls: "last" } },
+          take: 24,
+        }),
+      ])
+    : [[], []];
+  const ricercheFresche = [
+    ...ricercheConResa,
+    ...ricerchePiuViste.filter((t) => !ricercheConResa.some((c) => c.id === t.id)),
+  ].slice(0, 30);
   const dalFresco = ricercheFresche.reduce<Date | null>(
     (min, t) => (t.dal && (!min || t.dal < min) ? t.dal : min),
     null

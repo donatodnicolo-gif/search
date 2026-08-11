@@ -13,6 +13,7 @@ import { CoperturaGruppi } from "@/components/CoperturaGruppi";
 import { DestinazioniCampagna } from "@/components/DestinazioniCampagna";
 import { EstensioniCampagna } from "@/components/EstensioniCampagna";
 import { OggiCampagna } from "@/components/OggiCampagna";
+import { PerformancePeriodi } from "@/components/PerformancePeriodi";
 import { SegmentiCampagna } from "@/components/SegmentiCampagna";
 import { TerminiRicerca } from "@/components/TerminiRicerca";
 import { ProssimeAzioni } from "@/components/ProssimeAzioni";
@@ -91,6 +92,9 @@ export default async function SchedaCampagna({
     a?: string;
     ord?: string;
     verso?: string;
+    // La finestra del blocco «Come sta andando»: è una lente a parte e non
+    // tocca il periodo condiviso del resto della pagina.
+    perf?: string;
     // L'ordinamento delle keyword ha i suoi parametri: due tabelle ordinabili
     // nella stessa pagina, se condividessero `ord` si riordinerebbero insieme.
     ordk?: string;
@@ -443,26 +447,32 @@ export default async function SchedaCampagna({
                 {formattaNumero(inCassa.ordini)}
               </span>
             </div>
-            <div className="kpi-etichetta">
-              Conversioni dichiarate da {ETICHETTA_CANALE[campagna.canale] ?? campagna.canale} ·{" "}
-              <b>{inCassa.ordini === 1 ? "1 ordine vero" : `${formattaNumero(inCassa.ordini)} ordini veri`}</b>{" "}
-              con l&apos;UTM
-              {inCassa.vendite > 0 && <> ({formattaEuro(inCassa.vendite)})</>}.
-              {" "}Non si sommano: contano la stessa cosa in due modi.
-              {/* Uno zero qui si legge come «questa campagna non vende», e quasi
-                  sempre non è così: è l'UTM che porta un nome vecchio. */}
-              {inCassa.ordini === 0 && inCassa.utmSimili.length > 0 && (
-                <>
-                  {" "}Ci sono {formattaNumero(inCassa.utmSimili.reduce((s, u) => s + u.ordini, 0))} ordini con
-                  un UTM che somiglia al nome ({inCassa.utmSimili.map((u) => `«${u.valore}»`).join(", ")}):
-                  nomi precedenti o campagne poi divise, non attribuibili.
-                </>
-              )}
-              {inCassa.ordini === 0 && inCassa.utmSimili.length === 0 && conv > 0 && (
-                <>
-                  {" "}Nessun ordine porta l&apos;UTM: la piattaforma dichiara conversioni che in cassa
-                  non si ritrovano — di solito è il tracciamento, non la campagna.
-                </>
+            {/* ⚠️ Una riga sola, il resto nel title: la spiegazione lunga
+                faceva una colonna di testo alta il triplo delle altre e
+                sbilanciava la fila dei numeri. Quello che serve a colpo
+                d'occhio è «dichiarate · vere», il perché si legge passandoci
+                sopra. */}
+            <div
+              className="kpi-etichetta"
+              title={[
+                `Conversioni dichiarate da ${ETICHETTA_CANALE[campagna.canale] ?? campagna.canale} accanto agli ordini Shopify che portano l'UTM di questa campagna.`,
+                "Non si sommano: contano la stessa cosa in due modi (la piattaforma include view-through e finestre lunghe, gli ordini sono cassa entrata).",
+                inCassa.ordini === 0 && inCassa.utmSimili.length > 0
+                  ? `Ci sono ${formattaNumero(inCassa.utmSimili.reduce((s, u) => s + u.ordini, 0))} ordini con un UTM che somiglia al nome (${inCassa.utmSimili.map((u) => `«${u.valore}»`).join(", ")}): nomi precedenti o campagne poi divise, non attribuibili.`
+                  : null,
+                inCassa.ordini === 0 && inCassa.utmSimili.length === 0 && conv > 0
+                  ? "Nessun ordine porta l'UTM: la piattaforma dichiara conversioni che in cassa non si ritrovano — di solito è il tracciamento, non la campagna."
+                  : null,
+              ]
+                .filter(Boolean)
+                .join(" ")}
+            >
+              Conversioni dichiarate · <b>ordini veri</b>
+              {inCassa.vendite > 0 && <> ({formattaEuro(inCassa.vendite)})</>}
+              {inCassa.ordini === 0 && conv > 0 && (
+                <span style={{ color: "var(--orange)" }}>
+                  {" "}· nessun ordine con l&apos;UTM
+                </span>
               )}
             </div>
           </div>
@@ -477,55 +487,60 @@ export default async function SchedaCampagna({
           {/* Il budget sta fra i numeri perché è quello che si guarda insieme
               alla spesa: «sto spendendo 281 € su un budget di quanto?». La
               matita mette in coda, non applica — vedi BudgetInline. */}
-          <div className="kpi">
-            <div className="kpi-valore" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              {campagna.budgetGiornaliero != null ? formattaEuro(campagna.budgetGiornaliero) : "—"}
-              {!defunta && (
-                <BudgetInline
-                  campagnaId={campagna.id}
-                  budgetAttuale={campagna.budgetGiornaliero}
-                  azione={creaOperazione}
-                />
-              )}
-            </div>
-            <div className="kpi-etichetta">Budget al giorno su Google</div>
-          </div>
-          {/* «Sta spendendo tutto il budget o no» era una domanda che si poteva
-              rispondere solo a mano: spesa del periodo diviso i giorni, diviso
-              il budget. Tre passaggi per un numero che si guarda ogni volta. */}
-          {campagna.budgetGiornaliero != null && campagna.budgetGiornaliero > 0 && campagna.metriche.length > 0 && (() => {
-            // ⚠️ Si divide per i giorni CON DATI, non per i giorni del periodo:
-            // una campagna partita da tre giorni dentro una finestra da trenta
-            // risulterebbe al 10% del budget senza aver sbagliato niente.
-            const mediaGiorno = spesa / campagna.metriche.length;
-            const quota = mediaGiorno / campagna.budgetGiornaliero;
+          {/* ⚠️ Budget e «quanto ne usa» in UNA tessera sola: erano due, e la
+              seconda ripeteva il budget nella sua frase. Sono la stessa
+              domanda — «quanto posso spendere, e quanto ne sto usando». */}
+          {(() => {
+            const mediaGiorno =
+              campagna.metriche.length > 0 ? spesa / campagna.metriche.length : null;
+            // ⚠️ Si divide per i giorni CON DATI, non per i giorni del
+            // periodo: una campagna partita da tre giorni dentro una finestra
+            // da trenta risulterebbe al 10% del budget senza sbagliare niente.
+            const quota =
+              campagna.budgetGiornaliero && campagna.budgetGiornaliero > 0 && mediaGiorno != null
+                ? mediaGiorno / campagna.budgetGiornaliero
+                : null;
             return (
               <div className="kpi">
-                <div
-                  className="kpi-valore"
-                  style={{ color: quota >= 0.85 ? "var(--green)" : quota < 0.5 ? "var(--orange)" : undefined }}
-                >
-                  {Math.round(quota * 100)}%
+                <div className="kpi-valore" style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  {campagna.budgetGiornaliero != null ? formattaEuro(campagna.budgetGiornaliero) : "—"}
+                  {quota != null && (
+                    <span
+                      style={{
+                        fontSize: "0.62em",
+                        fontWeight: 600,
+                        color: quota >= 0.85 ? "var(--green)" : quota < 0.5 ? "var(--orange)" : "var(--text-secondary)",
+                      }}
+                      title={`${formattaEuro(mediaGiorno!)} al giorno di media sui ${campagna.metriche.length} giorni con dati`}
+                    >
+                      {Math.round(quota * 100)}% usato
+                    </span>
+                  )}
+                  {!defunta && (
+                    <BudgetInline
+                      campagnaId={campagna.id}
+                      budgetAttuale={campagna.budgetGiornaliero}
+                      azione={creaOperazione}
+                    />
+                  )}
                 </div>
                 <div className="kpi-etichetta">
-                  {quota >= 0.85
-                    ? "Usa tutto il budget"
-                    : quota < 0.5
-                      ? "Non arriva al budget"
-                      : "Usa parte del budget"}
-                  {" — "}
-                  {formattaEuro(mediaGiorno)} al giorno su {formattaEuro(campagna.budgetGiornaliero)},
-                  media dei {campagna.metriche.length} giorni con dati.
-                  {/* L'ultimo giorno pieno stava in un riquadro a parte più in
-                      basso, che ripeteva questi stessi numeri. Sta qui, dove si
-                      guarda il budget: la media nasconde le giornate storte, e
-                      «212% l'ultimo giorno» è proprio quello che si vuole
-                      vedere. */}
-                  {ultimoGiornoPieno && ultimoGiornoPieno.spesa != null && (
+                  Budget al giorno su Google
+                  {quota != null && (
                     <>
-                      {" "}Ultimo giorno pieno, {formattaData(ultimoGiornoPieno.data)}:{" "}
-                      <b>{formattaEuro(ultimoGiornoPieno.spesa)}</b>, il{" "}
-                      {Math.round((ultimoGiornoPieno.spesa / campagna.budgetGiornaliero) * 100)}%.
+                      {" — "}
+                      {quota >= 0.85 ? "lo usa tutto" : quota < 0.5 ? "non ci arriva" : "ne usa parte"},{" "}
+                      {formattaEuro(mediaGiorno!)}/g di media
+                      {/* L'ultimo giorno pieno: la media nasconde le giornate
+                          storte, e «212% ieri» è proprio quello che si vuole
+                          vedere. */}
+                      {ultimoGiornoPieno && ultimoGiornoPieno.spesa != null && campagna.budgetGiornaliero && (
+                        <>
+                          {" · "}
+                          {formattaData(ultimoGiornoPieno.data)}: <b>{formattaEuro(ultimoGiornoPieno.spesa)}</b> (
+                          {Math.round((ultimoGiornoPieno.spesa / campagna.budgetGiornaliero) * 100)}%)
+                        </>
+                      )}
                     </>
                   )}
                 </div>
@@ -556,6 +571,14 @@ export default async function SchedaCampagna({
             budgetGiornaliero={campagna.budgetGiornaliero}
           />
         )}
+
+        {/* Sotto «oggi», che è parziale per costruzione: le finestre su cui si
+            decide davvero, con il grafico della spesa. */}
+        <PerformancePeriodi
+          campagnaId={campagna.id}
+          base={`/campagne/${campagna.id}`}
+          scelta={sp.perf}
+        />
 
         {/* ——— Valutazione: prima si capisce, poi si decide, infine si agisce.
             I gruppi stanno qui in cima perché sono il primo taglio che spiega
