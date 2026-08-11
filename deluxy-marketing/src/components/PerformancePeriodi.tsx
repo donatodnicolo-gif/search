@@ -45,10 +45,42 @@ export async function PerformancePeriodi({
   const attiva = FINESTRE.some((f) => f.chiave === scelta) ? scelta! : "30g";
   const { da, a, nome } = estremi(attiva);
 
-  const metriche = await prisma.metricaCampagna.findMany({
-    where: { campagnaId, data: { gte: da, lte: a } },
+  // ⚠️ Una lettura sola per TUTTE le finestre: si prende il periodo più
+  // lungo (l'anno) e le altre si ritagliano in memoria. Cinque query sullo
+  // stesso Postgres condiviso per cinque somme è il modo di far aspettare
+  // una pagina per niente.
+  const inizioAnno = estremi("anno").da;
+  const primoInizio = da < inizioAnno ? da : inizioAnno;
+  const tutte = await prisma.metricaCampagna.findMany({
+    where: { campagnaId, data: { gte: primoInizio, lte: a } },
     orderBy: { data: "asc" },
     select: { data: true, spesa: true, ricavi: true, click: true, conversioni: true, impression: true },
+  });
+  const metriche = tutte.filter((m) => m.data >= da && m.data <= a);
+
+  // Il confronto a colpo d'occhio: le stesse cinque finestre, una riga per
+  // ognuna. La tab qui sopra decide solo quale si vede nel grafico.
+  const confronto = FINESTRE.map((f) => {
+    const e = estremi(f.chiave);
+    const righe = tutte.filter((m) => m.data >= e.da && m.data <= e.a);
+    const sp = righe.reduce((s, m) => s + (m.spesa ?? 0), 0);
+    const ri = righe.reduce((s, m) => s + (m.ricavi ?? 0), 0);
+    const cv = righe.reduce((s, m) => s + (m.conversioni ?? 0), 0);
+    const cl = righe.reduce((s, m) => s + (m.click ?? 0), 0);
+    return {
+      chiave: f.chiave,
+      nome: f.nome,
+      giorni: righe.length,
+      spesa: sp,
+      ricavi: ri,
+      conversioni: cv,
+      click: cl,
+      resa: roas(ri, sp),
+      // La media al giorno è l'unico modo di confrontare finestre di
+      // lunghezza diversa senza farsi ingannare: 223 € in 7 giorni e
+      // 900 € in 30 non si leggono uno accanto all'altro.
+      spesaGiorno: righe.length > 0 ? sp / righe.length : null,
+    };
   });
 
   const somma = (f: (m: (typeof metriche)[number]) => number | null) =>
@@ -63,6 +95,11 @@ export async function PerformancePeriodi({
   return (
     <section className="scheda" id="andamento">
       <div className="scheda-titolo">Come sta andando</div>
+      <p className="cella-sub" style={{ whiteSpace: "normal", marginBottom: 10 }}>
+        Le finestre a confronto, tutte insieme. La colonna <b>al giorno</b> è quella da leggere per
+        capire se sta andando meglio o peggio: la spesa totale di sette giorni e quella di un anno
+        non si confrontano. Il grafico sotto segue la finestra scelta.
+      </p>
       <div className="pill-scelta" style={{ marginBottom: 12 }}>
         {FINESTRE.map((f) => (
           <a
@@ -75,6 +112,53 @@ export async function PerformancePeriodi({
             {f.nome}
           </a>
         ))}
+      </div>
+
+      {/* IL CONFRONTO, subito: le cinque finestre una sotto l'altra. Senza,
+          per rispondere a «va meglio o peggio di prima» bisognava cliccare
+          cinque tab e tenere i numeri a mente. La media al giorno è la
+          colonna che rende confrontabili finestre di lunghezza diversa. */}
+      <div style={{ overflowX: "auto", marginBottom: 16 }}>
+        <table>
+          <thead>
+            <tr>
+              <th>Finestra</th>
+              <th className="num">Spesa</th>
+              <th className="num" title="Spesa ÷ giorni con dati: l'unico modo di confrontare finestre di lunghezza diversa">
+                Al giorno
+              </th>
+              <th className="num">Ricavi</th>
+              <th className="num">Conv.</th>
+              <th className="num">Click</th>
+              <th className="num">ROAS</th>
+            </tr>
+          </thead>
+          <tbody>
+            {confronto.map((c) => (
+              <tr key={c.chiave} style={c.chiave === attiva ? { background: "var(--fill)" } : undefined}>
+                <td>
+                  <a href={`${base}${base.includes("?") ? "&" : "?"}perf=${c.chiave}#andamento`} style={{ color: "inherit", textDecoration: "none" }}>
+                    <b>{c.nome}</b>
+                  </a>
+                  <div className="cella-sub">
+                    {c.giorni === 0 ? "nessun dato" : `${c.giorni} giorn${c.giorni === 1 ? "o" : "i"} con dati`}
+                  </div>
+                </td>
+                <td className="num">{c.spesa > 0 ? formattaEuro(c.spesa) : "—"}</td>
+                <td className="num">{c.spesaGiorno != null ? formattaEuro(c.spesaGiorno) : "—"}</td>
+                <td className="num">{c.ricavi > 0 ? formattaEuro(c.ricavi) : "—"}</td>
+                <td className="num">{c.conversioni > 0 ? formattaNumero(c.conversioni) : "—"}</td>
+                <td className="num cella-muta">{c.click > 0 ? formattaNumero(c.click) : "—"}</td>
+                <td
+                  className="num"
+                  style={{ fontWeight: 600, color: c.resa == null ? undefined : c.resa >= 3 ? "var(--green)" : c.resa < 1 ? "var(--red)" : undefined }}
+                >
+                  {c.resa != null ? `${c.resa.toFixed(1)}×` : "—"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
       {giorni === 0 ? (

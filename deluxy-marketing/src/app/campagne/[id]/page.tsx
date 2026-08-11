@@ -502,8 +502,21 @@ export default async function SchedaCampagna({
                 : null;
             return (
               <div className="kpi">
+                {/* ⚠️ La matita accanto AL BUDGET, non in coda alla riga: è
+                    quel numero che modifica. Andando a capo con la
+                    percentuale finiva accanto al «40% usato», e sembrava
+                    servisse a cambiare quello. */}
                 <div className="kpi-valore" style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                  {campagna.budgetGiornaliero != null ? formattaEuro(campagna.budgetGiornaliero) : "—"}
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                    {campagna.budgetGiornaliero != null ? formattaEuro(campagna.budgetGiornaliero) : "—"}
+                    {!defunta && (
+                      <BudgetInline
+                        campagnaId={campagna.id}
+                        budgetAttuale={campagna.budgetGiornaliero}
+                        azione={creaOperazione}
+                      />
+                    )}
+                  </span>
                   {quota != null && (
                     <span
                       style={{
@@ -515,13 +528,6 @@ export default async function SchedaCampagna({
                     >
                       {Math.round(quota * 100)}% usato
                     </span>
-                  )}
-                  {!defunta && (
-                    <BudgetInline
-                      campagnaId={campagna.id}
-                      budgetAttuale={campagna.budgetGiornaliero}
-                      azione={creaOperazione}
-                    />
                   )}
                 </div>
                 <div className="kpi-etichetta">

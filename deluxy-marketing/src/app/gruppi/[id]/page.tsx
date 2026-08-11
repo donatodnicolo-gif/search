@@ -151,14 +151,30 @@ export default async function SchedaGruppo({
   // Le keyword e i testi che vivono in questo gruppo: il campo `gruppo` di
   // CopyAnnuncio può elencarne più d'uno ("Gruppo A, Gruppo B"), quindi si
   // cerca per contenuto.
-  const copy = await prisma.copyAnnuncio.findMany({
-    where: { campagna: gruppo.campagna.nome, gruppo: { contains: gruppo.nome } },
-    orderBy: [{ tipo: "asc" }, { spesa: { sort: "desc", nulls: "last" } }],
-    // 300, non 200: con le destinazioni separate per gruppo (11/08) le righe
-    // crescono, e i titoli — ultimi nell'ordine alfabetico dei tipi —
-    // sarebbero i primi a cadere fuori dal taglio.
-    take: 300,
-  });
+  // ⚠️ DUE query, non una con un tetto solo. Una `findMany` ordinata per
+  // tipo con `take` taglia in ordine ALFABETICO: `keyword` viene prima di
+  // `titolo`, quindi su un gruppo con mille keyword i titoli non entravano
+  // MAI nel taglio e il blocco annunci mostrava solo le descrizioni
+  // (misurato l'11/08 sul gruppo English: 1.038 keyword, zero titoli
+  // visibili). Alzare il tetto non è una cura: è la stessa trappola più in
+  // là. Le due famiglie hanno tetti loro.
+  const [copyKeyword, copyTesti] = await Promise.all([
+    prisma.copyAnnuncio.findMany({
+      where: { campagna: gruppo.campagna.nome, gruppo: { contains: gruppo.nome }, tipo: "keyword" },
+      orderBy: { spesa: { sort: "desc", nulls: "last" } },
+      take: 400,
+    }),
+    prisma.copyAnnuncio.findMany({
+      where: {
+        campagna: gruppo.campagna.nome,
+        gruppo: { contains: gruppo.nome },
+        tipo: { not: "keyword" },
+      },
+      orderBy: [{ tipo: "asc" }, { spesa: { sort: "desc", nulls: "last" } }],
+      take: 400,
+    }),
+  ]);
+  const copy = [...copyKeyword, ...copyTesti];
   // ⚠️ Il nome del gruppo sulla riga può essere stantio (Monitoraggio, righe
   // separate); l'id per criterio (`account:gruppo:criterio`, dal 10/08) dice
   // la casa VERA. Quando la riga ce l'ha, comanda lui: una riga con l'id di
