@@ -2195,9 +2195,23 @@ export async function manutenzioneRetention(): Promise<{ archivioInCestino: numb
 export async function sincronizzaUtente(utenteId: string): Promise<EsitoSync[]> {
   const account = await db.account.findMany({ where: { utenteId, attivo: true } })
   const esiti: EsitoSync[] = []
-  // Solo la posta in ARRIVO nel giro frequente: veloce (una connessione IMAP) e
-  // senza toccare la cartella Inviata. Gli inviati si scaricano nel drain di
-  // background (impostazione "Scarica tutta la posta di sempre").
-  for (const a of account) esiti.push(await sincronizzaAccount(a.id, 25, false))
+  for (const a of account) {
+    esiti.push(await sincronizzaAccount(a.id, 25, false))
+    // ⚠️ ANCHE GLI INVIATI, a ogni giro. Prima no: la cartella «Inviata» la
+    // guardava solo lo scarico dello storico, in background e su richiesta.
+    // Conseguenza vista il 9/08/2026 («mancano alcune mail inviate»): tutto
+    // quello che mandi da un ALTRO programma — webmail, telefono — restava
+    // fuori da AI Mail, anche per giorni. Le mail scritte da qui si salvano da
+    // sole all'invio, ed è per questo che il buco non si notava.
+    // Il giro è corto per costruzione (`esaurisci = false`): solo gli uid oltre
+    // il cursore, al massimo 25, una connessione. Lo storico vecchio resta al
+    // drain di background, che ha il suo budget.
+    try {
+      esiti.push(await sincronizzaInviata(a.id, false))
+    } catch {
+      /* la posta in arrivo è già stata letta: un inciampo sugli inviati non
+         deve far sembrare fallito tutto il giro */
+    }
+  }
   return esiti
 }

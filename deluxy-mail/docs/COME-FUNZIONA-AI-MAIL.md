@@ -202,6 +202,12 @@ Martina, da settembre in poi, con allegati*.
 a settembre con allegati» è una domanda completa. Ogni condizione attiva è una pastiglia
 con la sua ✕, così si vede sempre perché quel risultato è quello che è.
 
+> **Posta inviata: entra anche quello che mandi da altrove.** Dal 9 agosto 2026 ogni giro di
+> aggiornamento guarda anche la cartella «Inviata» della casella, quindi le mail scritte da
+> webmail o dal telefono compaiono qui insieme alle altre. Prima ci arrivavano solo con lo
+> scarico dello storico, e nel frattempo sembravano sparite. Le mail **vecchie** mai
+> scaricate restano da recuperare con «Scarica tutta la posta di sempre», in Impostazioni.
+
 **Valgono su tre schermate**: posta in arrivo, **Posta inviata** e **Bozze** (dove prima non
 c'era nemmeno la ricerca). I campi cambiano dove cambierebbe niente: negli inviati e nelle
 bozze non c'è «da» — il mittente sei sempre tu — e le bozze non hanno né allegati né
