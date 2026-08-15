@@ -378,7 +378,7 @@ input:focus, select:focus, textarea:focus {
   padding: 8px 10px;
   border-radius: 8px;
   font-size: 13.5px;
-  color: var(--text-primary);
+  color: var(--text);
   cursor: pointer;
 }
 .rubrica-voce:hover,
@@ -484,7 +484,7 @@ mark.ricerca-hit {
   padding: 6px 16px; border-radius: 999px; font-size: 13px; font-weight: 500;
   color: var(--text-secondary); text-decoration: none;
 }
-.vista-tab.attivo { background: var(--surface); color: var(--text-primary);
+.vista-tab.attivo { background: var(--surface); color: var(--text);
   box-shadow: 0 1px 2px rgba(0,0,0,0.08); font-weight: 600; }
 .vista-tab .ai-toggle-mark { background: var(--gold-soft); color: var(--gold-strong); }
 /* La pastiglia "AI" accanto al mittente di un contatto col PLUS AI. */
@@ -699,7 +699,7 @@ mark.ricerca-hit {
   border-radius: 12px;
   background: var(--surface);
   text-decoration: none;
-  color: var(--text-primary);
+  color: var(--text);
 }
 .allegato-voce:hover { background: var(--fill); }
 .allegato-nome { font-size: 13.5px; font-weight: 500; word-break: break-word; min-width: 0; }
@@ -1096,7 +1096,7 @@ mark.ricerca-hit {
   opacity: 0; transition: opacity 0.15s ease;
 }
 .conv-riga:hover .conv-segna, .conv-riga.fuoco .conv-segna, .conv-segna:focus-visible { opacity: 1; }
-.conv-segna:hover { background: var(--fill, rgba(0,0,0,0.05)); color: var(--text-primary); }
+.conv-segna:hover { background: var(--fill, rgba(0,0,0,0.05)); color: var(--text); }
 /* Su schermo tattile non esiste il passaggio del mouse: sempre visibile. */
 @media (hover: none) { .conv-segna { opacity: 1; } }
 
@@ -1180,7 +1180,7 @@ mark.ricerca-hit {
 }
 .dati-inviati dl > div { display: contents; }
 .dati-inviati dt { color: var(--text-tertiary); }
-.dati-inviati dd { margin: 0; color: var(--text-primary); word-break: break-word; }
+.dati-inviati dd { margin: 0; color: var(--text); word-break: break-word; }
 .dati-inviati pre {
   margin: 8px 0 0; padding: 10px 12px; overflow-x: auto;
   background: var(--surface-2, #f5f5f7); border-radius: var(--radius-sm, 10px);
@@ -1217,7 +1217,7 @@ mark.ricerca-hit {
 .app-stato-testa { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .app-stato-funzioni { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.55; color: var(--text-secondary); }
 .app-stato-funzioni li { margin-bottom: 4px; }
-.app-stato-funzioni strong { color: var(--text-primary); }
+.app-stato-funzioni strong { color: var(--text); }
 .app-stato-chiave { border-top: 1px solid var(--hairline); padding-top: 10px; }
 .app-var {
   background: var(--fill); padding: 2px 7px; border-radius: var(--radius-s);
@@ -1248,7 +1248,7 @@ mark.ricerca-hit {
   border: none; background: none; cursor: pointer;
   color: var(--text-tertiary); font-size: 14px; padding: 2px 4px; flex: 0 0 auto;
 }
-.ricerca-pulisci:hover { color: var(--text-primary); }
+.ricerca-pulisci:hover { color: var(--text); }
 
 /* ---------- Avviso "verde" (es. messaggio inviato) ---------- */
 .flash {
@@ -1377,7 +1377,7 @@ mark.ricerca-hit {
   background: none; border: none; cursor: pointer; font-size: 12px;
   color: var(--text-secondary); padding: 4px 8px; border-radius: var(--radius-s);
 }
-.finestra-icona:hover { background: var(--hairline); color: var(--text-primary); }
+.finestra-icona:hover { background: var(--hairline); color: var(--text); }
 /* Il corpo scorre da solo: la finestra non cresce oltre lo schermo. */
 .finestra-corpo { overflow-y: auto; padding: 14px; }
 /* Dentro la finestra la Composizione non deve sembrare una scheda dentro una scheda. */
@@ -1553,7 +1553,7 @@ mark.ricerca-hit {
   }
   .hamburger span {
     display: block; height: 2px; width: 100%; border-radius: 2px;
-    background: var(--text-primary);
+    background: var(--text);
   }
 
   /* La sidebar diventa un cassetto fuori schermo che scivola dentro. */

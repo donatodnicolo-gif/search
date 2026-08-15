@@ -158,7 +158,13 @@ export function ListaMail({
     })
 
   const esegui = (azione: AzioneMassa, sezioneId?: string | null) => {
-    const ids = [...selezione]
+    if (selezione.size === 0) return
+    // ⚠️ In elenco una riga È un thread: la selezione tiene l'id di TESTA, ma
+    // l'azione deve toccare TUTTE le mail della conversazione — se no,
+    // archiviando/cestinando, le altre restano e la riga ricompare col
+    // messaggio precedente; segnando lette, il pallino resta acceso. Ogni riga
+    // porta già i suoi `ids` (li usa «✓ Letto»): li si espande qui.
+    const ids = righe.filter((r) => selezione.has(r.id)).flatMap((r) => (r.ids?.length ? r.ids : [r.id]))
     if (ids.length === 0) return
     start(async () => {
       await azioneMassa(ids, azione, sezioneId)

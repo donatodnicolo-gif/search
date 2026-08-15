@@ -12,8 +12,10 @@ export default async function Statistiche() {
     where: { utenteId: u.id, prioritaDa: { not: null }, direzione: 'entrata' },
     orderBy: { data: 'desc' },
     take: 2000,
-    // Qui si contano solo gli esiti: i corpi (2000 mail!) non servono.
-    omit: { corpoTesto: true, corpoHtml: true },
+    // Qui si contano solo gli esiti: i corpi (2000 mail!) non servono —
+    // «tutto tranne due» lasciava dentro corpoTradotto, che è TEXT e per 2000
+    // righe pesa quanto gli altri due. Si toglie anche quello.
+    omit: { corpoTesto: true, corpoHtml: true, corpoTradotto: true },
     include: { attivita: { select: { fatta: true } }, bozze: { select: { inviata: true } } },
   })
 

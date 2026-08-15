@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { mistoAHtml } from '@/lib/htmlMail'
+import { sanitizzaHtml } from '@/lib/sanitizzaHtml'
 
 /**
  * Editor di testo formattato per il corpo delle mail: grassetto, corsivo,
@@ -31,7 +32,13 @@ export function EditorRicco({
   // attaccate», 9/08/2026).
   useEffect(() => {
     if (!ref.current) return
-    ref.current.innerHTML = valoreIniziale ? mistoAHtml(valoreIniziale) : ''
+    // ⚠️ SANIFICARE anche qui, non solo alla fonte. Questo è un innerHTML del
+    // documento PRINCIPALE (non l'iframe in sandbox della vista): un gestore
+    // `onerror` che sfuggisse eseguirebbe con la sessione dell'utente. La
+    // citazione dell'originale nasce sanificata (rispondi.ts), ma una bozza
+    // salvata PRIMA della correzione del filtro potrebbe averlo dentro: si
+    // ripulisce di nuovo al montaggio. (Revisione 14/08/2026.)
+    ref.current.innerHTML = valoreIniziale ? sanitizzaHtml(mistoAHtml(valoreIniziale)) : ''
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

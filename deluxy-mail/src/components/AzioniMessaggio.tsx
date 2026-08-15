@@ -5,9 +5,9 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   archiviaDefinitivo,
-  archiviaSenzaAggiornare,
+  archiviaThreadSenzaAggiornare,
   segnaLetto,
-  segnalaSpam,
+  segnalaSpamThread,
   smaltisciEProssimo,
   spostaInSezione,
 } from '@/lib/actions'
@@ -167,8 +167,11 @@ export function AzioniMessaggio({
             onClick={() =>
               // Archivia subito (SENZA refresh, così la domanda resta), poi
               // chiedi se per sempre restando qui.
+              // Archivia TUTTA la conversazione: la pagina mostra il thread,
+              // e in elenco una riga è un thread — archiviarne una sola la
+              // farebbe ricomparire col messaggio precedente.
               startTransition(async () => {
-                await archiviaSenzaAggiornare(id)
+                await archiviaThreadSenzaAggiornare(id)
                 setChiediSempre(true)
               })
             }
@@ -200,7 +203,7 @@ export function AzioniMessaggio({
             title="Sposta nello SPAM (posta indesiderata)"
             onClick={() =>
               esegui(async () => {
-                await segnalaSpam(id)
+                await segnalaSpamThread(id)
                 router.push('/')
               })
             }

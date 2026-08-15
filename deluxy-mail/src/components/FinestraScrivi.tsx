@@ -27,7 +27,10 @@ export function finestraDisponibile(): boolean {
   return (
     typeof window !== 'undefined' &&
     Boolean((window as { __aimailFinestra?: boolean }).__aimailFinestra) &&
-    window.innerWidth >= LARGHEZZA_MINIMA
+    // ⚠️ Strettamente MAGGIORE, non «>=»: il CSS nasconde la finestra a
+    // `max-width: 900px` (cioè fino a 900 COMPRESO), quindi a 900 esatti
+    // «>=» apriva una finestra `display:none` — la risposta spariva.
+    window.innerWidth > LARGHEZZA_MINIMA
   )
 }
 

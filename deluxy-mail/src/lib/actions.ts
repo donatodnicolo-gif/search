@@ -245,6 +245,12 @@ export async function smaltisciEProssimo(
   })
   if (!m) return { ok: false, prossimo: null, messaggio: 'Messaggio non trovato.' }
 
+  // ⚠️ In elenco una riga È un thread: smaltire dev'essere del thread, o le
+  // altre mail restano e la riga ricompare col messaggio precedente (stessa
+  // classe già corretta 3 volte). Si espande agli id della conversazione.
+  const idsThreadSet = [...(await idsThread(utenteId, id))]
+  const tutti = idsThreadSet.length ? idsThreadSet : [id]
+
   const attivo = await accountAttivoId(utenteId)
   const spam = m.sezioneId
     ? null
@@ -256,7 +262,9 @@ export async function smaltisciEProssimo(
       direzione: m.direzione,
       cestinato: false,
       archiviato: false,
-      id: { not: id },
+      // La «successiva» non può essere una mail dello stesso thread appena
+      // smaltito: si escludono TUTTI i suoi membri, non solo la mail aperta.
+      id: { notIn: tutti },
       // La successiva è quella SOTTO nell'elenco, che è ordinato per data
       // decrescente: la più recente fra le più vecchie di questa.
       data: { lt: m.data },
@@ -272,19 +280,19 @@ export async function smaltisciEProssimo(
   })
 
   await db.messaggio.updateMany({
-    where: { id, utenteId },
+    where: { id: { in: tutti }, utenteId },
     data:
       azione === 'cestina'
         ? { cestinato: true, cestinatoIl: new Date(), letto: true }
         : { archiviato: true, letto: true },
   })
-  // Il server segue: la mail va nel Cestino anche sulla casella (in `after()`,
-  // vedi cartelleServer.ts). Archiviare invece è una faccenda di AI Mail: sul
-  // server non esiste una cartella «archiviati» che valga per tutti.
+  // Il server segue: le mail vanno nel Cestino anche sulla casella (in
+  // `after()`, vedi cartelleServer.ts). Archiviare invece è una faccenda di AI
+  // Mail: sul server non esiste una cartella «archiviati» che valga per tutti.
   // ⚠️ Da DOVE parte lo sa solo chi chiama: una mail nello SPAM sta già nella
   // Posta indesiderata della casella, non in INBOX.
   if (azione === 'cestina') {
-    allineaCartellaDopo(utenteId, [id], m.sezione?.nome === 'SPAM' ? 'spam' : 'normale', 'cestino')
+    allineaCartellaDopo(utenteId, tutti, m.sezione?.nome === 'SPAM' ? 'spam' : 'normale', 'cestino')
   }
   revalidatePath('/', 'layout')
   return {
@@ -1870,6 +1878,18 @@ export async function inviaBozza(id: string, form?: FormData): Promise<{ ok: boo
     if (bozza.inviata) return { ok: false, messaggio: 'Questa bozza è già stata inviata.' }
     if (!bozza.messaggio) return { ok: false, messaggio: 'Bozza senza messaggio d’origine.' }
 
+    // ⚠️ LOCK ATOMICO prima di spedire. Il controllo `bozza.inviata` qui sopra
+    // è check-then-act: fra la lettura e la scrittura di `inviata:true` (che
+    // avviene solo DOPO l'invio SMTP) passano secondi. Doppio clic, due schede
+    // aperte sulla stessa bozza o un ricaricamento a invio in corso facevano
+    // partire la mail DUE volte. Qui si prende il flag in un colpo solo: solo
+    // chi lo alza (count===1) prosegue. Se poi l'SMTP fallisce, si rilascia.
+    const preso = await db.bozza.updateMany({
+      where: { id, utenteId, inviata: false },
+      data: { inviata: true, inviataIl: new Date() },
+    })
+    if (preso.count !== 1) return { ok: false, messaggio: 'Questa bozza è già stata inviata.' }
+
     const account = bozza.messaggio.account
     const { html, testo: testoPiano } = corpoDaForm(bozza.corpo)
     const allegati = form ? await leggiAllegati(form, utenteId) : []
@@ -1886,7 +1906,16 @@ export async function inviaBozza(id: string, form?: FormData): Promise<{ ok: boo
       inRispostaA: bozza.messaggio.messageId,
     }
 
-    const { raw, messageId } = await spedisci(account, daInviare)
+    let raw: Buffer
+    let messageId: string
+    try {
+      ;({ raw, messageId } = await spedisci(account, daInviare))
+    } catch (e) {
+      // L'SMTP non ha spedito: si RILASCIA il lock, o la bozza resterebbe
+      // «inviata» senza esserlo davvero e non si potrebbe più mandare.
+      await db.bozza.updateMany({ where: { id, utenteId }, data: { inviata: false, inviataIl: null } })
+      throw e
+    }
     const threadRadice = bozza.messaggio.thread || bozza.messaggio.messageId
     // La risposta si aggancia SEMPRE alla mail d'origine (ultimo parametro):
     // così la conversazione si forma anche quando gli header o l'oggetto non
@@ -1895,9 +1924,9 @@ export async function inviaBozza(id: string, form?: FormData): Promise<{ ok: boo
       utenteId, account, daInviare, raw, messageId, threadRadice, null, null, bozza.messaggio.id, 'rispondi'
     )
 
-    await db.bozza.update({ where: { id }, data: { inviata: true, inviataIl: new Date() } })
-    // Le ALTRE bozze rimaste su quella mail se ne vanno: hai risposto, non sono
-    // più «pronte» — sono avanzi. (Stessa ragione di `inviaMessaggio`.)
+    // `inviata` è già a true (lock preso sopra): resta solo da togliere gli
+    // avanzi. Le ALTRE bozze rimaste su quella mail se ne vanno: hai risposto,
+    // non sono più «pronte». (Stessa ragione di `inviaMessaggio`.)
     await db.bozza.deleteMany({
       where: { messaggioId: bozza.messaggio.id, utenteId, inviata: false, id: { not: id } },
     })
@@ -2476,6 +2505,16 @@ export async function salvaMinuta(
 
     if (!dati.corpo && !dati.a) return { ok: false, messaggio: 'Non c’è ancora niente da salvare.' }
 
+    // ⚠️ Il messaggioId arriva dalla FORM: va verificato che sia dell'utente,
+    // o una bozza finirebbe agganciata alla mail di un altro — e all'invio si
+    // spedirebbe dalla SUA casella (inviaBozza legge `bozza.messaggio.account`).
+    // Se non è tuo, si salva la bozza slegata: il testo non si perde.
+    let messaggioValido: string | null = null
+    if (messaggioId) {
+      const suo = await db.messaggio.findFirst({ where: { id: messaggioId, utenteId }, select: { id: true } })
+      messaggioValido = suo ? messaggioId : null
+    }
+
     let bozza
     if (bozzaId) {
       const mia = await db.bozza.findFirst({ where: { id: bozzaId, utenteId } })
@@ -2483,7 +2522,7 @@ export async function salvaMinuta(
       bozza = await db.bozza.update({ where: { id: bozzaId }, data: { ...dati, modificata: true } })
     } else {
       bozza = await db.bozza.create({
-        data: { ...dati, utenteId, messaggioId: messaggioId || null, corpoAI: '' },
+        data: { ...dati, utenteId, messaggioId: messaggioValido, corpoAI: '' },
       })
     }
 

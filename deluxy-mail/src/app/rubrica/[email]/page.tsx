@@ -29,6 +29,10 @@ export default async function Contatto({ params }: Props) {
     where: { utenteId: u.id, mittente: email },
     orderBy: { data: 'desc' },
     take: 200,
+    // ⚠️ La scheda mostra solo l'anteprima (riga ~202): i corpi interi —
+    // testo, HTML e traduzione — non servono, e per 200 mail sono megabyte
+    // trasportati dal database per niente.
+    omit: { corpoTesto: true, corpoHtml: true, corpoTradotto: true },
     include: {
       sezione: true,
       bozze: { where: { inviata: false }, select: { id: true } },

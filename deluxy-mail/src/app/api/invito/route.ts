@@ -7,14 +7,21 @@ import { db } from '@/lib/db'
 // e mostra una paginetta di conferma.
 export const dynamic = 'force-dynamic'
 
+// ⚠️ Il titolo dell'evento nasce da una mail (dato NON fidato) e finisce in
+// questa pagina PUBBLICA: senza escape, un titolo come «</title><script>…»
+// eseguirebbe nel browser di chi apre il link. (Revisione 14/08/2026.)
+function esc(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
 function pagina(titolo: string, testo: string, colore = '#111'): NextResponse {
   return new NextResponse(
-    `<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${titolo}</title></head>
+    `<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(titolo)}</title></head>
 <body style="margin:0;background:#f5f5f7;font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh">
 <div style="background:#fff;border:1px solid #e5e5ea;border-radius:18px;padding:36px 40px;max-width:420px;text-align:center;box-shadow:0 8px 30px rgba(0,0,0,.06)">
 <div style="font-size:34px;margin-bottom:10px">${colore === '#b00' ? '✕' : '✓'}</div>
-<h1 style="font-size:19px;margin:0 0 8px;color:${colore}">${titolo}</h1>
-<p style="font-size:14.5px;color:#555;margin:0;line-height:1.5">${testo}</p>
+<h1 style="font-size:19px;margin:0 0 8px;color:${colore}">${esc(titolo)}</h1>
+<p style="font-size:14.5px;color:#555;margin:0;line-height:1.5">${esc(testo)}</p>
 </div></body></html>`,
     { headers: { 'Content-Type': 'text/html; charset=utf-8' } }
   )

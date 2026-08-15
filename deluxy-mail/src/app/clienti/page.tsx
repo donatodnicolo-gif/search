@@ -106,7 +106,10 @@ export default async function Clienti({ searchParams }: Props) {
       data: m.data,
       riassunto: m.riassunto,
       anteprima: m.anteprima,
-      corpoTradotto: m.corpoTradotto,
+      // ⚠️ Solo l'inizio: la riga ne mostra al massimo 400 caratteri
+      // (RigaMail), ma qui finiva INTERO al browser per fino a 2000 righe —
+      // traduzioni complete di mail lunghe, megabyte inutili.
+      corpoTradotto: m.corpoTradotto ? m.corpoTradotto.replace(/\s+/g, ' ').slice(0, 400) : null,
       lingua: m.lingua,
       sezione: m.sezione ? { nome: m.sezione.nome, colore: m.sezione.colore } : null,
       sezioneId: m.sezioneId,

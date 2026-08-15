@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { impostaPriorita } from '@/lib/actions'
 import { PRIORITA } from '@/lib/format'
@@ -15,6 +15,11 @@ type Props = {
 
 export function PrioritaButtons({ id, priorita, prioritaDa, analizzato }: Props) {
   const [scelta, setScelta] = useState(priorita)
+  // ⚠️ Se il server cambia la priorità (ricarico, un'altra scheda, la regola
+  // AI): i bottoni si riallineano. Senza, `useState` teneva il valore del
+  // PRIMO render e i P0-P3 mostravano la scelta vecchia — la stessa trappola
+  // «stato locale mai riallineato» già pagata su pallino e «letto».
+  useEffect(() => setScelta(priorita), [priorita])
   const [stato, setStato] = useState<{ ok: boolean; testo: string } | null>(null)
   const [inCorso, startTransition] = useTransition()
   const router = useRouter()
