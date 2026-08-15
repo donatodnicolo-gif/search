@@ -72,6 +72,80 @@ async function ordiniPerUrgenza(dove: Prisma.OrdineWhereInput, tetto: number) {
   return out
 }
 
+/**
+ * ORDINAMENTO SCELTO DA CHI GUARDA (le intestazioni cliccabili della tabella).
+ *
+ * ⚠️ Si ordina QUI per la stessa ragione dell'urgenza: la lista è tagliata a
+ * 200 su un totale che può essere molto più grande. Ordinando nel browser si
+ * riordinerebbero i 200 che il server ha già scelto — «il totale più alto»
+ * sarebbe il più alto *fra quelli mostrati*, che è una risposta sbagliata data
+ * con la faccia di una giusta.
+ *
+ * ⚠️ Le date di consegna mancanti stanno IN FONDO in tutt'e due i versi
+ * (`nulls: 'last'`): «non indicata» non è una data, né la più vicina né la più
+ * lontana, e in cima occuperebbe lo schermo con i 367 ordini che non ce l'hanno.
+ *
+ * Il numero d'ordine non è fra le colonne ordinabili di proposito: è testo, e i
+ * tre negozi numerano con lunghezze diverse (#1623, #12121) — come testo
+ * «#12121» verrebbe prima di «#1623». Per l'ordine cronologico c'è Data.
+ */
+const ORDINAMENTI: Record<
+  string,
+  {
+    orderBy: (v: 'asc' | 'desc') => Prisma.OrdineOrderByWithRelationInput[]
+    /**
+     * La colonna di testo che può essere VUOTA. Il vuoto va in fondo in tutt'e
+     * due i versi, come le date di consegna mancanti: sono 40 ordini senza nome
+     * e 160 senza telefono su 1.216, e crescente aprivano l'elenco con
+     * quaranta righe bianche — cioè non rispondevano alla domanda per cui uno
+     * ha appena cliccato «Cliente».
+     */
+    campoVuoto?: 'negozioNome' | 'clienteNome' | 'clienteTipo' | 'telefono' | 'gestione'
+  }
+> = {
+  negozio: { orderBy: (v) => [{ negozioNome: v }, { data: 'desc' }], campoVuoto: 'negozioNome' },
+  data: { orderBy: (v) => [{ data: v }] },
+  consegna: {
+    orderBy: (v) => [{ dataConsegna: { sort: v, nulls: 'last' } }, { fasciaConsegna: 'asc' }],
+  },
+  cliente: { orderBy: (v) => [{ clienteNome: v }, { data: 'desc' }], campoVuoto: 'clienteNome' },
+  tipo: { orderBy: (v) => [{ clienteTipo: v }, { data: 'desc' }], campoVuoto: 'clienteTipo' },
+  telefono: { orderBy: (v) => [{ telefono: v }, { data: 'desc' }], campoVuoto: 'telefono' },
+  totale: { orderBy: (v) => [{ totale: v }] },
+  lavorazione: { orderBy: (v) => [{ gestione: v }, { data: 'desc' }] },
+}
+
+/** Gli ordini nell'ordine chiesto, col vuoto in coda. */
+async function ordiniOrdinati(
+  dove: Prisma.OrdineWhereInput,
+  ordina: string,
+  verso: 'asc' | 'desc',
+  tetto: number
+) {
+  const scelta = ORDINAMENTI[ordina]
+  if (!scelta) return ordiniPerUrgenza(dove, tetto)
+
+  const orderBy = scelta.orderBy(verso)
+  const campo = scelta.campoVuoto
+  if (!campo) return db.ordine.findMany({ where: dove, orderBy, take: tetto })
+
+  const vuoto = { [campo]: '' } as Prisma.OrdineWhereInput
+  const pieni = await db.ordine.findMany({
+    where: { AND: [dove, { NOT: vuoto }] },
+    orderBy,
+    take: tetto,
+  })
+  if (pieni.length >= tetto) return pieni
+  // Chi il dato non ce l'ha viene dopo, ma viene: sparire dall'elenco perché
+  // manca un campo è il modo di perdere un ordine senza accorgersene.
+  const vuoti = await db.ordine.findMany({
+    where: { AND: [dove, vuoto] },
+    orderBy: [{ data: 'desc' }],
+    take: tetto - pieni.length,
+  })
+  return [...pieni, ...vuoti]
+}
+
 // Lista ordini per la pagina Ordini, con ricerca e filtri:
 //   q        testo su numero, cliente, telefono, email, indirizzo
 //   negozio  id del negozio
@@ -87,6 +161,10 @@ export async function GET(req: NextRequest) {
   const gestione = (p.get('gestione') ?? '').trim()
   const tipoCliente = (p.get('tipoCliente') ?? '').trim()
   const rimborsi = (p.get('rimborsi') ?? '').trim()
+  // Colonna su cui ordinare. Vuota (o sconosciuta) = l'ordine per urgenza, che
+  // resta il modo giusto di guardare la lista di lavoro.
+  const ordina = (p.get('ordina') ?? '').trim()
+  const verso: 'asc' | 'desc' = (p.get('verso') ?? '') === 'desc' ? 'desc' : 'asc'
 
   const dove: Prisma.OrdineWhereInput = {}
   if (negozio) dove.negozioId = negozio
@@ -151,7 +229,7 @@ export async function GET(req: NextRequest) {
     consegneDomani,
     scaduteRecenti,
   ] = await Promise.all([
-    ordiniPerUrgenza(dove, 200),
+    ordiniOrdinati(dove, ordina, verso, 200),
     db.ordine.count({ where: dove }),
     googleAccessToken().catch(() => null),
     db.negozioShopify.findMany({ orderBy: { nome: 'asc' } }),

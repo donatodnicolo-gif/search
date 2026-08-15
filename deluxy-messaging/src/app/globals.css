@@ -1676,6 +1676,41 @@ td .azioni-ordine {
   background: var(--fill);
 }
 
+/* ---- Intestazioni che ordinano ----
+ *
+ * Il bottone deve SEMBRARE l'intestazione, non un bottone appoggiato dentro la
+ * cella: eredita font, colore e maiuscoletto dal `th` e mette solo la freccia.
+ * La freccia c'è sempre (smorzata finché la colonna non è quella scelta): un
+ * comando che compare solo al passaggio del mouse non esiste per chi lavora da
+ * telefono, e nessuno prova a cliccare un'intestazione che sembra scritta.
+ */
+.tabella th .ordina-col {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+.tabella th .ordina-col:hover,
+.tabella th .ordina-col.attiva {
+  color: var(--text-primary);
+}
+.tabella th .freccia-ordine {
+  font-size: 11px;
+  opacity: 0.35;
+}
+.tabella th .ordina-col.attiva .freccia-ordine {
+  opacity: 1;
+  color: var(--gold);
+}
+
 /* ---- Widget (pagina dentro l'iframe) ----
  *
  * Il widget vive sui siti degli altri, non qui dentro: Deluxy Flowers, Cake

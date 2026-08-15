@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, type CSSProperties } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { GESTIONI, coloreGestione, nomeGestione } from '@/lib/gestione'
 import {
@@ -391,6 +391,9 @@ type NegozioDto = {
 
 type OrdineArchivio = {
   id: string
+  // Il gid Shopify: apre il dettaglio senza ambiguità, perché lo stesso numero
+  // esiste su più negozi («#1733» è sia di Cake sia di Deluxy).
+  orderId: string
   brand: string
   brandRicerca: string
   numero: string
@@ -401,6 +404,30 @@ type OrdineArchivio = {
   telefono: string
   email: string
   citta: string
+}
+
+/**
+ * Le colonne della tabella su cui si può ordinare, col verso del PRIMO clic.
+ *
+ * Il verso di partenza non è sempre crescente: su una data o su un totale la
+ * domanda è quasi sempre «i più recenti» e «i più alti», e far cliccare due
+ * volte per la risposta ovvia è un attrito che si paga a ogni ricerca. Sulla
+ * consegna invece si parte dalla più vicina, che è quella da lavorare.
+ *
+ * `Ordine` non c'è di proposito: il numero è testo e i tre negozi numerano con
+ * lunghezze diverse (#1623, #12121), quindi come testo «#12121» finirebbe prima
+ * di «#1623». Un ordinamento che sembra giusto ed è sbagliato è peggio di uno
+ * che non c'è. Per l'ordine cronologico si usa Data.
+ */
+const COLONNE_ORDINABILI: Record<string, { nome: string; primo: 'asc' | 'desc' }> = {
+  negozio: { nome: 'Negozio', primo: 'asc' },
+  data: { nome: 'Data', primo: 'desc' },
+  consegna: { nome: 'Consegna', primo: 'asc' },
+  cliente: { nome: 'Cliente', primo: 'asc' },
+  tipo: { nome: 'Tipo cliente', primo: 'asc' },
+  telefono: { nome: 'Telefono', primo: 'asc' },
+  totale: { nome: 'Totale', primo: 'desc' },
+  lavorazione: { nome: 'Lavorazione', primo: 'asc' },
 }
 
 /** Link semplice all'app Ricerca fornitori (ripiego, senza accesso automatico). */
@@ -543,6 +570,13 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
   // chi lavora il compito di ricercare la riga che aveva appena letto.
   const parametri = useSearchParams()
   const [dettaglio, setDettaglio] = useState(parametri.get('apri') ?? '')
+  // L'ordine dell'ARCHIVIO aperto nel pannello (null = nessuno). Sta a parte
+  // dal precedente perché lì la chiave è il nostro id, qui non c'è: l'ordine si
+  // chiede a Orders per numero + gid Shopify.
+  const [dettaglioArchivio, setDettaglioArchivio] = useState<{
+    numero: string
+    orderId: string
+  } | null>(null)
   // La bozza aperta nel pop-up di posta (null = chiuso). Il pop-up sostituisce
   // il vecchio `mailto:`, che apriva il programma di posta del computer.
   const [mail, setMail] = useState<BozzaMail | null>(null)
@@ -561,6 +595,13 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
   // Vista di lavoro: di default si mostrano solo gli ordini non ancora gestiti.
   const [filtroGestione, setFiltroGestione] = useState(globale ? '' : 'aperti')
 
+  // Ordinamento della tabella. Vuoto = per URGENZA, che è il modo giusto di
+  // guardare la lista di lavoro (vedi src/lib/urgenza.ts) e resta il default.
+  // Lo esegue il SERVER: la lista è tagliata a 200 su un totale più grande, e
+  // riordinare qui riordinerebbe solo quei 200.
+  const [ordina, setOrdina] = useState('')
+  const [verso, setVerso] = useState<'asc' | 'desc'>('asc')
+
   const carica = useCallback(async () => {
     try {
       const p = new URLSearchParams()
@@ -569,6 +610,10 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
       if (filtroContatto) p.set('contatto', filtroContatto)
       if (filtroGestione) p.set('gestione', filtroGestione)
       if (filtroTipo) p.set('tipoCliente', filtroTipo)
+      if (ordina) {
+        p.set('ordina', ordina)
+        p.set('verso', verso)
+      }
       // Gli ordini con un rimborso vivo escono solo dalla lista di lavoro.
       if (!globale) p.set('rimborsi', 'nascondi')
       const res = await fetch('/api/ordini?' + p.toString())
@@ -599,7 +644,61 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
     } finally {
       setCaricato(true)
     }
-  }, [qCercata, negozio, filtroContatto, filtroGestione, filtroTipo, globale])
+  }, [qCercata, negozio, filtroContatto, filtroGestione, filtroTipo, globale, ordina, verso])
+
+  /**
+   * Clic su un'intestazione: primo clic il verso utile, secondo lo rovescia,
+   * terzo si torna all'ordine per urgenza.
+   *
+   * Il terzo passo esiste perché l'urgenza non è «nessun ordinamento», è
+   * l'ordinamento che serve a lavorare: senza una via di ritorno bisognerebbe
+   * ricaricare la pagina per riaverlo.
+   */
+  function cambiaOrdine(colonna: string) {
+    const c = COLONNE_ORDINABILI[colonna]
+    if (!c) return
+    if (ordina !== colonna) {
+      setOrdina(colonna)
+      setVerso(c.primo)
+      return
+    }
+    if (verso === c.primo) {
+      setVerso(c.primo === 'asc' ? 'desc' : 'asc')
+      return
+    }
+    setOrdina('')
+    setVerso('asc')
+  }
+
+  /** Un'intestazione di colonna cliccabile, con la freccia del verso in corso. */
+  function intestazione(colonna: string, stile?: CSSProperties) {
+    const c = COLONNE_ORDINABILI[colonna]
+    const attiva = ordina === colonna
+    return (
+      <th
+        style={stile}
+        aria-sort={attiva ? (verso === 'asc' ? 'ascending' : 'descending') : 'none'}
+      >
+        <button
+          type="button"
+          className={`ordina-col${attiva ? ' attiva' : ''}`}
+          onClick={() => cambiaOrdine(colonna)}
+          title={
+            attiva
+              ? verso === c.primo
+                ? `Ordinato per ${c.nome.toLowerCase()}: clicca per rovesciare`
+                : `Ordinato per ${c.nome.toLowerCase()}: clicca per tornare all'ordine per urgenza`
+              : `Ordina per ${c.nome.toLowerCase()}`
+          }
+        >
+          {c.nome}
+          <span aria-hidden="true" className="freccia-ordine">
+            {attiva ? (verso === 'asc' ? '↑' : '↓') : '↕'}
+          </span>
+        </button>
+      </th>
+    )
+  }
 
   /**
    * Cambia lo stato di lavorazione. `poi` è l'azione da fare dopo (aprire
@@ -953,7 +1052,34 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
           {totale === 0
             ? 'Nessun ordine corrisponde alla ricerca.'
             : `${totale} ${totale === 1 ? 'ordine trovato' : 'ordini trovati'}` +
-              (totale > ordini.length ? ` — mostrati i ${ordini.length} più recenti` : '')}
+              // ⚠️ NON «i più recenti»: i 200 sono i primi secondo l'ordine in
+              // corso — per urgenza, o per la colonna scelta. Dirlo storto fa
+              // credere che manchino gli ordini vecchi, quando invece manca la
+              // coda di QUELL'ordinamento.
+              (totale > ordini.length
+                ? ` — mostrati i primi ${ordini.length} per ${
+                    ordina ? COLONNE_ORDINABILI[ordina].nome.toLowerCase() : 'urgenza'
+                  }`
+                : '')}
+        </p>
+      ) : null}
+
+      {/* L'ordinamento scelto si vede (e si toglie) anche dalla vista a
+          colonne, dove le intestazioni della tabella non ci sono. */}
+      {ordina ? (
+        <p style={{ color: 'var(--text-secondary)', fontSize: 13, margin: '0 0 12px' }}>
+          Ordinati per <strong>{COLONNE_ORDINABILI[ordina].nome.toLowerCase()}</strong>{' '}
+          {verso === 'asc' ? '↑' : '↓'}{' '}
+          <button
+            type="button"
+            className="come-link"
+            onClick={() => {
+              setOrdina('')
+              setVerso('asc')
+            }}
+          >
+            torna all&apos;ordine per urgenza
+          </button>
         </p>
       ) : null}
 
@@ -1250,16 +1376,20 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
         <div className="card" style={{ padding: 0, overflowX: 'auto' }}>
           <table className="tabella">
             <thead>
+              {/* Le intestazioni ordinano: l'ordinamento lo fa il server, così
+                  vale su TUTTI gli ordini del filtro e non sui 200 in pagina. */}
               <tr>
-                <th>Ordine</th>
-                <th>Negozio</th>
-                <th>Data</th>
-                <th>Consegna</th>
-                <th>Cliente</th>
-                <th>Tipo cliente</th>
-                <th>Telefono</th>
-                <th style={{ textAlign: 'right' }}>Totale</th>
-                <th>Lavorazione</th>
+                <th title="Il numero non si ordina: è testo, e i tre negozi numerano con lunghezze diverse (#1623 e #12121). Per l'ordine cronologico usa Data.">
+                  Ordine
+                </th>
+                {intestazione('negozio')}
+                {intestazione('data')}
+                {intestazione('consegna')}
+                {intestazione('cliente')}
+                {intestazione('tipo')}
+                {intestazione('telefono')}
+                {intestazione('totale', { textAlign: 'right' })}
+                {intestazione('lavorazione')}
                 <th>Azioni</th>
                 <th>Fornitore</th>
               </tr>
@@ -1463,7 +1593,15 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
                 </thead>
                 <tbody>
                   {archivio.map((o) => (
-                    <tr key={o.id}>
+                    // Anche qui la riga apre il dettaglio: da «Ordini globali»
+                    // si cerca un ordine vecchio proprio per guardarlo, e una
+                    // riga che non si apre è una ricerca che finisce a metà.
+                    <tr
+                      key={o.id}
+                      className="riga-cliccabile"
+                      onClick={() => setDettaglioArchivio({ numero: o.numero, orderId: o.orderId })}
+                      title="Apri il dettaglio dell'ordine"
+                    >
                       <td>{o.numero}</td>
                       <td style={{ whiteSpace: 'nowrap' }}>{o.brand}</td>
                       <td style={{ whiteSpace: 'nowrap' }}>{dataBreve(o.data)}</td>
@@ -1475,7 +1613,9 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
                       <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                         {soldi(o.totale, o.valuta)}
                       </td>
-                      <td>
+                      {/* La colonna delle azioni ferma il clic: cercare il
+                          fornitore non deve aprire anche il pannello. */}
+                      <td onClick={(e) => e.stopPropagation()}>
                         <button
                           className="bottone secondario mini"
                           onClick={() => apriFornitore(o.brandRicerca || o.brand, o.numero, setErrore)}
@@ -1503,6 +1643,17 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
             setDettaglio('')
             carica()
           }}
+          onScriviMail={(b) => setMail(b)}
+        />
+      ) : null}
+
+      {/* Lo stesso pannello per un ordine dell'archivio storico. Non si rilegge
+          l'elenco alla chiusura: quell'ordine non è in questa tabella, quindi
+          non ci sarebbe niente di nuovo da vedere. */}
+      {dettaglioArchivio ? (
+        <DettaglioOrdine
+          archivio={dettaglioArchivio}
+          onChiudi={() => setDettaglioArchivio(null)}
           onScriviMail={(b) => setMail(b)}
         />
       ) : null}

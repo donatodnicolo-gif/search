@@ -329,11 +329,67 @@ export type SpedizioneOrdine = {
   paese: string
 }
 
-export async function righeOrdineDaOrders(
+/**
+ * Un ordine come lo manda Orders, con i soli campi che ci servono. Il registro
+ * ne espone molti di più (marketing, margini, classificazioni): qui si legge il
+ * minimo, così una loro aggiunta non ci obbliga a toccare niente.
+ */
+export type OrdineOrdersRaw = {
+  numero?: string
+  brand?: string
+  orderId?: string
+  data?: string
+  totale?: number
+  valuta?: string
+  biglietto?: string | null
+  // ⚠️ LA NOTA È IL CAMPO GIUSTO. Misurato su 800 ordini: `note` ha contenuto su
+  // 680 (85%), `biglietto` su 71 — e dei 70 che hanno entrambi, 67 sono lo
+  // stesso testo. Il biglietto lo scrive il cliente nelle NOTE dell'ordine;
+  // `biglietto` è un attributo che si riempie di rado. Leggere solo quello
+  // lasciava senza testo 9 ordini su 10.
+  shopify?: { note?: string | null; financialStatus?: string | null } | null
+  cliente?: {
+    nome?: string | null
+    email?: string | null
+    telefono?: string | null
+    tipo?: string | null
+    tipoDa?: string | null
+  } | null
+  consegna?: { data?: string | null; fascia?: string | null } | null
+  classificazione?: { stato?: { chiave?: string; nome?: string } | null } | null
+  spedizione?: {
+    nome?: string | null
+    indirizzo?: string | null
+    citta?: string | null
+    cap?: string | null
+    provincia?: string | null
+    paese?: string | null
+  } | null
+  righe?: {
+    titolo?: string
+    variante?: string | null
+    sku?: string | null
+    quantita?: number
+    prezzo?: number
+    proprieta?: string[]
+    immagine?: string | null
+  }[]
+}
+
+/**
+ * UN ordine preciso, chiesto a Orders per numero.
+ *
+ * Sta a parte perché lo usano in due: il dettaglio di un ordine che abbiamo in
+ * casa (a cui servono solo i prodotti) e il dettaglio di un ordine che esiste
+ * **solo** nell'archivio (a cui serve tutto). Erano la stessa chiamata scritta
+ * due volte, e due copie della regola con cui si sceglie l'ordine giusto sono
+ * il modo migliore per farle divergere.
+ */
+export async function ordineDaOrders(
   numero: string,
   shopifyId = ''
 ): Promise<
-  | { stato: 'ok'; righe: RigaOrdine[]; spedizione: SpedizioneOrdine | null; biglietto: string }
+  | { stato: 'ok'; ordine: OrdineOrdersRaw }
   | { stato: 'non-configurato' }
   | { stato: 'errore'; messaggio: string }
 > {
@@ -356,37 +412,7 @@ export async function righeOrdineDaOrders(
       }
       return { stato: 'errore', messaggio: `L'app Ordini ha risposto ${res.status}.` }
     }
-    const corpo = (await res.json().catch(() => ({}))) as {
-      ordini?: {
-        numero?: string
-        brand?: string
-        orderId?: string
-        biglietto?: string | null
-        // ⚠️ LA NOTA È IL CAMPO GIUSTO. Misurato su 800 ordini: `note` ha
-        // contenuto su 680 (85%), `biglietto` su 71 — e dei 70 che hanno
-        // entrambi, 67 sono lo stesso testo. Il biglietto lo scrive il cliente
-        // nelle NOTE dell'ordine; `biglietto` è un attributo che si riempie di
-        // rado. Leggere solo quello lasciava senza testo 9 ordini su 10.
-        shopify?: { note?: string | null } | null
-        spedizione?: {
-          nome?: string | null
-          indirizzo?: string | null
-          citta?: string | null
-          cap?: string | null
-          provincia?: string | null
-          paese?: string | null
-        } | null
-        righe?: {
-          titolo?: string
-          variante?: string | null
-          sku?: string | null
-          quantita?: number
-          prezzo?: number
-          proprieta?: string[]
-          immagine?: string | null
-        }[]
-      }[]
-    }
+    const corpo = (await res.json().catch(() => ({}))) as { ordini?: OrdineOrdersRaw[] }
 
     const candidati = corpo.ordini ?? []
     const perNumero = candidati.filter((o) => (o.numero ?? '').replace(/^#/, '') === nudo)
@@ -406,30 +432,7 @@ export async function righeOrdineDaOrders(
       }
     }
 
-    const sp = scelto.spedizione
-    return {
-      stato: 'ok',
-      spedizione: sp
-        ? {
-            nome: sp.nome ?? '',
-            indirizzo: sp.indirizzo ?? '',
-            citta: sp.citta ?? '',
-            cap: sp.cap ?? '',
-            provincia: sp.provincia ?? '',
-            paese: sp.paese ?? '',
-          }
-        : null,
-      biglietto: testoBiglietto(scelto.shopify?.note, scelto.biglietto),
-      righe: (scelto.righe ?? []).map((r) => ({
-        titolo: r.titolo ?? '',
-        variante: r.variante ?? '',
-        sku: r.sku ?? '',
-        quantita: r.quantita ?? 1,
-        prezzo: r.prezzo ?? 0,
-        proprieta: r.proprieta ?? [],
-        immagine: r.immagine ?? '',
-      })),
-    }
+    return { stato: 'ok', ordine: scelto }
   } catch (e) {
     const err = e as Error
     return {
@@ -439,6 +442,50 @@ export async function righeOrdineDaOrders(
           ? "L'app Ordini non ha risposto in tempo."
           : `App Ordini non raggiungibile: ${err.message}`,
     }
+  }
+}
+
+export async function righeOrdineDaOrders(
+  numero: string,
+  shopifyId = ''
+): Promise<
+  | { stato: 'ok'; righe: RigaOrdine[]; spedizione: SpedizioneOrdine | null; biglietto: string }
+  | { stato: 'non-configurato' }
+  | { stato: 'errore'; messaggio: string }
+> {
+  const esito = await ordineDaOrders(numero, shopifyId)
+  if (esito.stato !== 'ok') return esito
+  return { stato: 'ok', ...pezziOrdine(esito.ordine) }
+}
+
+/** Prodotti, destinatario e biglietto di un ordine grezzo di Orders. */
+export function pezziOrdine(o: OrdineOrdersRaw): {
+  righe: RigaOrdine[]
+  spedizione: SpedizioneOrdine | null
+  biglietto: string
+} {
+  const sp = o.spedizione
+  return {
+    spedizione: sp
+      ? {
+          nome: sp.nome ?? '',
+          indirizzo: sp.indirizzo ?? '',
+          citta: sp.citta ?? '',
+          cap: sp.cap ?? '',
+          provincia: sp.provincia ?? '',
+          paese: sp.paese ?? '',
+        }
+      : null,
+    biglietto: testoBiglietto(o.shopify?.note, o.biglietto),
+    righe: (o.righe ?? []).map((r) => ({
+      titolo: r.titolo ?? '',
+      variante: r.variante ?? '',
+      sku: r.sku ?? '',
+      quantita: r.quantita ?? 1,
+      prezzo: r.prezzo ?? 0,
+      proprieta: r.proprieta ?? [],
+      immagine: r.immagine ?? '',
+    })),
   }
 }
 

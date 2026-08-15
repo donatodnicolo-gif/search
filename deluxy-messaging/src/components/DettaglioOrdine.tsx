@@ -176,11 +176,19 @@ type Spedizione = {
 }
 
 export function DettaglioOrdine({
-  ordineId,
+  ordineId = '',
+  archivio,
   onChiudi,
   onScriviMail,
 }: {
-  ordineId: string
+  /** L'ordine che abbiamo in casa. */
+  ordineId?: string
+  /**
+   * L'ordine dell'ARCHIVIO STORICO (più vecchio dei 60 giorni scaricati): si
+   * chiede a Orders per numero + gid Shopify. Se poi risulta che ce l'abbiamo
+   * anche in casa, il server torna la versione locale — completa di azioni.
+   */
+  archivio?: { numero: string; orderId: string }
   onChiudi: () => void
   /** Apre il pop-up di posta con la bozza già scritta (niente `mailto:`). */
   onScriviMail?: (bozza: BozzaMail) => void
@@ -201,9 +209,18 @@ export function DettaglioOrdine({
   // bottone deve dire che sta lavorando.
   const [copiando, setCopiando] = useState('')
 
+  // I due campi dell'archivio si tengono sciolti: se la dipendenza fosse
+  // l'oggetto, un genitore che lo ricrea a ogni disegno rifarebbe la chiamata
+  // all'infinito.
+  const archNumero = archivio?.numero ?? ''
+  const archOrderId = archivio?.orderId ?? ''
+
   const carica = useCallback(async () => {
     try {
-      const res = await fetch(`/api/ordini/${ordineId}/dettaglio`)
+      const indirizzo = archNumero
+        ? `/api/ordini/archivio/dettaglio?numero=${encodeURIComponent(archNumero)}&orderId=${encodeURIComponent(archOrderId)}`
+        : `/api/ordini/${ordineId}/dettaglio`
+      const res = await fetch(indirizzo)
       const d = (await res.json().catch(() => ({}))) as {
         ordine?: OrdineDettaglio
         righe?: Riga[]
@@ -226,7 +243,7 @@ export function DettaglioOrdine({
     } finally {
       setCaricato(true)
     }
-  }, [ordineId])
+  }, [ordineId, archNumero, archOrderId])
 
   useEffect(() => {
     carica()
@@ -243,11 +260,12 @@ export function DettaglioOrdine({
 
   /** Segna l'ordine gestito (o lo riapre) senza chiudere il pannello. */
   async function cambiaGestione(gestione: string) {
+    if (!ordine?.id) return
     setErrore('')
     // Il pallino cambia subito, poi si conferma col server.
     setOrdine((prec) => (prec ? { ...prec, gestione } : prec))
     try {
-      const res = await fetch(`/api/ordini/${ordineId}/gestione`, {
+      const res = await fetch(`/api/ordini/${ordine.id}/gestione`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ gestione }),
@@ -271,6 +289,13 @@ export function DettaglioOrdine({
       setErrore('Copia non riuscita: seleziona il testo e copialo a mano.')
     }
   }
+
+  // L'ordine c'è ma non è nella nostra tabella: viene dall'archivio di Orders.
+  // Si legge tutto — prodotti, foto, biglietto, destinatario — ma le azioni che
+  // scriverebbero su una riga inesistente non si offrono. È il dato caricato a
+  // dirlo, non il parametro con cui è stato aperto: l'archivio pesca anche
+  // ordini recenti, che in casa ci sono e vanno aperti per intero.
+  const soloArchivio = Boolean(ordine && !ordine.id)
 
   const msg = ordine ? messaggioFornitore(ordine.dataConsegna, ordine.fasciaConsegna) : null
   const ritiro = ordine ? fasciaRitiro(ordine.fasciaConsegna) : null
@@ -304,6 +329,9 @@ export function DettaglioOrdine({
             <h2 style={{ margin: 0, fontSize: 20 }}>{ordine?.numero || 'Ordine'}</h2>
             <div className="cella-sub">
               {ordine ? `${ordine.negozioNome} · ordine ${dataBreve(ordine.data)}` : ''}
+              {/* Perché mancano alcune azioni: detto qui, non scoperto dopo il
+                  clic su un bottone che non c'è. */}
+              {soloArchivio ? ' · archivio storico (sola lettura)' : ''}
             </div>
           </div>
           <button className="btn btn-secondario small" onClick={onChiudi}>
@@ -508,7 +536,7 @@ export function DettaglioOrdine({
             {/* Cosa si sono detti: mail e chat collegate a questo ordine, con la
                 risposta a portata di mano. Uscire, cercare la conversazione in
                 Inbox e tornare indietro è il modo migliore per non rispondere. */}
-            <MessaggiOrdine ordineId={ordine.id} />
+            {ordine.id ? <MessaggiOrdine ordineId={ordine.id} /> : null}
 
             {/* I dati dell'ordine. */}
             <div className="card">
@@ -608,9 +636,18 @@ export function DettaglioOrdine({
                 </dd>
                 <dt>Lavorazione</dt>
                 <dd>
-                  <span className="badge" style={{ color: coloreGestione(ordine.gestione) }}>
-                    {nomeGestione(ordine.gestione)}
-                  </span>
+                  {/* Lo stato di lavorazione è NOSTRO e vale sugli ordini che
+                      lavoriamo: su uno dell'archivio non esiste, e mostrargli
+                      «Da gestire» lo metterebbe in coda dopo mesi. */}
+                  {soloArchivio ? (
+                    <span className="cella-sub">
+                      Ordine dell&apos;archivio: qui non si lavora.
+                    </span>
+                  ) : (
+                    <span className="badge" style={{ color: coloreGestione(ordine.gestione) }}>
+                      {nomeGestione(ordine.gestione)}
+                    </span>
+                  )}
                   {ordine.statoNome ? (
                     <span className="badge" style={{ marginLeft: 6 }}>
                       {ordine.statoNome}
@@ -726,12 +763,16 @@ export function DettaglioOrdine({
                       )
                     })()
                   : null}
-                <button
-                  className="btn btn-secondario small"
-                  onClick={() => cambiaGestione(ordine.gestione === 'gestito' ? 'da_gestire' : 'gestito')}
-                >
-                  {ordine.gestione === 'gestito' ? 'Riapri' : 'Gestito ✓'}
-                </button>
+                {/* Solo sugli ordini che abbiamo in casa: senza una riga da
+                    aggiornare il bottone fallirebbe dopo il clic. */}
+                {soloArchivio ? null : (
+                  <button
+                    className="btn btn-secondario small"
+                    onClick={() => cambiaGestione(ordine.gestione === 'gestito' ? 'da_gestire' : 'gestito')}
+                  >
+                    {ordine.gestione === 'gestito' ? 'Riapri' : 'Gestito ✓'}
+                  </button>
+                )}
               </div>
             </div>
           </div>
