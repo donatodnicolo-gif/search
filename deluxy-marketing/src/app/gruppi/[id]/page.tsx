@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { AncoraggioHash } from "@/components/AncoraggioHash";
 import { AndamentoMensile } from "@/components/AndamentoMensile";
+import { DettaglioKeyword } from "@/components/DettaglioKeyword";
 import { CreaAnnuncioAi } from "@/components/CreaAnnuncioAi";
 import { NuovaKeyword } from "@/components/NuovaKeyword";
 import { creaAnnuncioConAi } from "@/lib/azioni-annuncio";
@@ -13,6 +14,7 @@ import { PerformancePeriodi } from "@/components/PerformancePeriodi";
 import { RinominaInline } from "@/components/RinominaInline";
 import { SelezionaTutte } from "@/components/SelezionaTutte";
 import { TestiAnnuncio } from "@/components/TestiAnnuncio";
+import { finestrePerKeyword } from "@/lib/finestre-keyword";
 import { estendiKeywordConAi } from "@/lib/azioni-estendi";
 import { campagnePerDialogo } from "@/lib/campagne-dialogo";
 import { attributiPortaKeyword } from "@/lib/porta-keyword";
@@ -492,6 +494,12 @@ export default async function SchedaGruppo({
       if (sb == null) return -1;
       return sb - sa;
     });
+
+  // Le finestre di OGNI parola mostrata, in una lettura sola: servono al
+  // pannello che si apre cliccando la parola.
+  const finestreKw = await finestrePerKeyword(
+    keywordMostrate.map((k) => k.idEsterno ?? "").filter(Boolean)
+  );
 
   const operazioneAperta = gruppo.operazioni.find((o) => o.stato === "in_attesa" || o.stato === "approvata");
 
@@ -1117,10 +1125,30 @@ export default async function SchedaGruppo({
                               />
                             </td>
                             <td>
-                              <div className="cella-nome" style={g.colore === "var(--red)" ? { color: "var(--red)" } : undefined} title={g.spiega}>
+                              {/* La parola si clicca e si apre come va per
+                                  finestra (7g, mese, 30g, anno): il numero in
+                                  riga è una finestra sola, e per sapere se sta
+                                  peggiorando bisognava andare altrove. */}
+                              <button
+                                type="button"
+                                className="cella-nome"
+                                data-kw-dettaglio
+                                data-kw-id={k.idEsterno ?? ""}
+                                data-kw-testo={testoKeywordGoogle(k.testo)}
+                                title="Apri le performance di questa parola per finestra"
+                                style={{
+                                  background: "none",
+                                  border: 0,
+                                  padding: 0,
+                                  font: "inherit",
+                                  textAlign: "left",
+                                  cursor: "pointer",
+                                  color: g.colore === "var(--red)" ? "var(--red)" : undefined,
+                                }}
+                              >
                                 {g.colore === "var(--red)" && <span aria-hidden="true">● </span>}
                                 {testoKeywordGoogle(k.testo)}
-                              </div>
+                              </button>
                               <div className="cella-sub" style={{ color: g.colore }}>{g.etichetta}</div>
                               {k.gruppo && k.gruppo !== gruppo.nome && (
                                 <div className="cella-sub">anche in: {k.gruppo}</div>
@@ -1701,6 +1729,7 @@ export default async function SchedaGruppo({
             bottoni delle righe e delle barre li aprono via ascoltatore
             delegato. Il gruppo di default di «Estendi» è QUESTO gruppo
             (viaggia sui bottoni con data-estendi-gruppo). */}
+        <DettaglioKeyword dati={finestreKw} />
         <PortaKeyword
           campagne={campagneDialogo}
           ritorno={`/gruppi/${gruppo.id}`}
