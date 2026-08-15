@@ -27,9 +27,13 @@ import { MODIFICHE_CHE_PESANO } from "./guardrail";
 // Gli avvisi viaggiano DUE volte apposta: qui, per chi ha appena premuto, e
 // sulla riga dell'operazione, per chi approverà — che può essere un'altra
 // persona un altro giorno, e quel messaggio nell'URL non lo vedrà mai.
-function esitoInCoda(cosa: string, avvisi: string[]) {
+function esitoInCoda(cosa: string, avvisi: string[], torna?: string | null) {
   const qs = new URLSearchParams({ esito: `In coda, da approvare: ${cosa}` });
   if (avvisi.length > 0) qs.set("avvisi", avvisi.join(" · "));
+  // ⚠️ DA DOVE si veniva. Senza, dopo aver approvato si restava su
+  // /operazioni e la strada indietro andava rifatta a memoria — campagna,
+  // gruppo, filtro. Il ritorno viaggia con l'esito e diventa un bottone.
+  if (torna) qs.set("torna", torna);
   return `/operazioni?${qs.toString()}`;
 }
 import { registra } from "./registro";
@@ -1234,6 +1238,9 @@ export async function salvaScorecardLanding(fd: FormData) {
 // ---------- Coda operazioni verso le piattaforme ----------
 
 export async function approvaOperazione(fd: FormData) {
+  // Da dove si veniva: si conserva nel redirect, cosi il bottone «torna
+  // dove eri» resta anche dopo il click che lo rendeva utile.
+  const torna = testo(fd, "torna");
   const id = testo(fd, "id");
   if (!id) return;
   const op = await prisma.operazioneAdv.update({
@@ -1246,9 +1253,13 @@ export async function approvaOperazione(fd: FormData) {
     dettaglio: "Lo script la eseguirà alla prossima passata",
   });
   revalidatePath("/operazioni");
+  if (torna) redirect(`/operazioni?torna=${encodeURIComponent(torna)}`);
 }
 
 export async function annullaOperazione(fd: FormData) {
+  // Da dove si veniva: si conserva nel redirect, cosi il bottone «torna
+  // dove eri» resta anche dopo il click che lo rendeva utile.
+  const torna = testo(fd, "torna");
   const id = testo(fd, "id");
   if (!id) return;
   const op = await prisma.operazioneAdv.update({ where: { id }, data: { stato: "annullata" } });
@@ -1257,9 +1268,13 @@ export async function annullaOperazione(fd: FormData) {
     titolo: `Annullata: ${op.tipo} su ${op.bersaglio}`,
   });
   revalidatePath("/operazioni");
+  if (torna) redirect(`/operazioni?torna=${encodeURIComponent(torna)}`);
 }
 
 export async function creaOperazione(fd: FormData) {
+  // Da dove si veniva: torna con l esito e diventa il bottone «torna indietro» su /operazioni.
+  const ritorno = testo(fd, "ritorno");
+
   const tipo = testo(fd, "tipo");
   const campagnaId = testo(fd, "campagnaId");
   if (!tipo || !campagnaId) return;
@@ -1328,7 +1343,7 @@ export async function creaOperazione(fd: FormData) {
     titolo: `In coda (da approvare): ${tipo} su ${campagna.nome}`,
     dettaglio: [op.motivo, op.avvisi].filter(Boolean).join(" — "),
   });
-  redirect(esitoInCoda(`${tipo} su ${campagna.nome}`, esito.avvisi));
+  redirect(esitoInCoda(`${tipo} su ${campagna.nome}`, esito.avvisi, ritorno));
 }
 
 // ---------- Operazioni keyword (nuova, negativa, pausa, attiva) ----------
@@ -1420,7 +1435,7 @@ export async function creaOperazioneKeyword(fd: FormData) {
     titolo: `In coda (da approvare): ${tipo} "${kwTesto}" su ${campagna.nome}`,
     dettaglio: [op.motivo, op.avvisi].filter(Boolean).join(" — "),
   });
-  redirect(esitoInCoda(`${tipo} «${kwTesto}» su ${campagna.nome}`, avvisi));
+  redirect(esitoInCoda(`${tipo} «${kwTesto}» su ${campagna.nome}`, avvisi, ritorno));
 }
 
 // ---------- Proposte dell'AI su keyword e parole cercate ----------
@@ -1836,6 +1851,9 @@ export async function cambiaStatoGruppo(fd: FormData) {
 // passa dalla coda approvata a mano, con gli stessi guardrail della campagna
 // che lo contiene (freeze incidenti, blackout 72h, max 1 L2/L3 a settimana).
 export async function creaOperazioneGruppo(fd: FormData) {
+  // Da dove si veniva: torna con l esito e diventa il bottone «torna indietro» su /operazioni.
+  const ritorno = testo(fd, "ritorno");
+
   const tipo = testo(fd, "tipo");
   const gruppoId = testo(fd, "gruppoId");
   if (!tipo || !gruppoId) return;
@@ -1906,7 +1924,7 @@ export async function creaOperazioneGruppo(fd: FormData) {
     titolo: `In coda (da approvare): ${tipo} su "${gruppo.nome}" (${campagna.nome})`,
     dettaglio: [op.motivo, op.avvisi].filter(Boolean).join(" — "),
   });
-  redirect(esitoInCoda(`${tipo} su «${gruppo.nome}»`, esito.avvisi));
+  redirect(esitoInCoda(`${tipo} su «${gruppo.nome}»`, esito.avvisi, ritorno));
 }
 
 // ---------- Da opportunità ad azione ----------
@@ -1967,6 +1985,9 @@ export async function creaAzioneDaOpportunita(fd: FormData) {
 // "Pertinente" resta una nota nell'app; "escludi" mette in coda una negativa
 // vera sulla campagna — che, come tutto il resto, va approvata a mano.
 export async function giudicaTermine(scelta: string, fd: FormData) {
+  // Da dove si veniva: torna con l esito e diventa il bottone «torna indietro» su /operazioni.
+  const ritorno = testo(fd, "ritorno");
+
   const id = testo(fd, "id");
   if (!id || !scelta) return;
   const termine = await prisma.termineRicerca.findUnique({
@@ -2016,7 +2037,7 @@ export async function giudicaTermine(scelta: string, fd: FormData) {
     titolo: `In coda (da approvare): negativa "${termine.testo}" su ${termine.campagna.nome}`,
     dettaglio: [op.motivo, op.avvisi].filter(Boolean).join(" — "),
   });
-  redirect(esitoInCoda(`negativa «${termine.testo}»`, avvisiTermine ? [avvisiTermine] : []));
+  redirect(esitoInCoda(`negativa «${termine.testo}»`, avvisiTermine ? [avvisiTermine] : [], ritorno));
 }
 
 // ---------- "Aggiorna adesso" ----------
@@ -2643,8 +2664,7 @@ export async function escludiParoleSelezionate(fd: FormData) {
   if (!esito) return;
 
   redirect(
-    esitoInCoda(`${esito.accodate} negative su ${esito.nome}`, esito.avviso ? [esito.avviso] : [])
-  );
+    esitoInCoda(`${esito.accodate} negative su ${esito.nome}`, esito.avviso ? [esito.avviso] : [], ritorno));
 }
 
 // Dalla pagina globale delle parole cercate: le righe appartengono a campagne
@@ -2699,8 +2719,7 @@ export async function escludiTerminiSelezionati(fd: FormData) {
     esitoInCoda(
       `${accodate} negative su ${campagne.length} campagn${campagne.length === 1 ? "a" : "e"}`,
       avvisi
-    )
-  );
+    , ritorno));
 }
 
 // ---------- Annullare l'operazione decisa su una parola ----------
@@ -2766,6 +2785,9 @@ export async function annullaOperazioneParola(fd: FormData) {
 // Vale solo finché lo script non l'ha eseguita: dopo, l'unica strada è
 // l'operazione opposta.
 export async function riapriOperazione(fd: FormData) {
+  // Da dove si veniva: si conserva nel redirect, cosi il bottone «torna
+  // dove eri» resta anche dopo il click che lo rendeva utile.
+  const torna = testo(fd, "torna");
   const id = testo(fd, "id");
   if (!id) return;
   const op = await prisma.operazioneAdv.findUnique({ where: { id } });
@@ -2785,6 +2807,7 @@ export async function riapriOperazione(fd: FormData) {
     dettaglio: "Torna fra quelle da decidere. Su Google non era ancora arrivata.",
   });
   revalidatePath("/operazioni");
+  if (torna) redirect(`/operazioni?torna=${encodeURIComponent(torna)}`);
 }
 
 // ---------- Portare una keyword su altre campagne ----------

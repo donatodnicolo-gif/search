@@ -70,7 +70,9 @@ export default async function PaginaOperazioni({
   // campagne scelte erano state saltate (parola già presente, freeze) non
   // compariva nemmeno una riga nuova. Dal di fuori è indistinguibile da un
   // bottone che non fa niente — ed è esattamente come è stato segnalato.
-  searchParams: Promise<{ esito?: string; saltate?: string; avvisi?: string }>;
+  // `torna`: da dove si veniva quando si è messo qualcosa in coda. Diventa
+  // il bottone «torna indietro», e resta nell'URL anche dopo l'approvazione.
+  searchParams: Promise<{ esito?: string; saltate?: string; avvisi?: string; torna?: string }>;
 }) {
   const sp = await searchParams;
   const operazioni = await prisma.operazioneAdv.findMany({
@@ -244,6 +246,10 @@ export default async function PaginaOperazioni({
           {(o.stato === "in_attesa" || o.stato === "approvata") && (
             <form className="pill-scelta op-comandi">
               <input type="hidden" name="id" value={o.id} />
+              {/* Il ritorno sopravvive all approvazione: senza, il bottone
+                  «torna dove eri» spariva proprio dopo il click che lo
+                  rendeva utile. */}
+              {sp.torna && <input type="hidden" name="torna" value={sp.torna} />}
               {o.stato === "in_attesa" && (
                 <button className="pill-opt" formAction={approvaOperazione} style={{ color: "var(--green)" }}>
                   <span className="dot" />
@@ -308,6 +314,18 @@ export default async function PaginaOperazioni({
             </p>
           </div>
         </div>
+
+        {/* ⚠️ La via del ritorno. Chi mette in coda arriva qui da una scheda
+            campagna o gruppo, e dopo aver approvato doveva rifare la strada a
+            memoria: campagna, gruppo, filtro. Il link sta in cima e resta
+            anche dopo l'approvazione, perché è lì che serve. */}
+        {sp.torna && (
+          <div style={{ marginBottom: 12 }}>
+            <a className="btn small btn-secondario" href={sp.torna}>
+              ← Torna dove eri
+            </a>
+          </div>
+        )}
 
         {sp.esito && (
           <div className="avviso-ok">
