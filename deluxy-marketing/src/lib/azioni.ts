@@ -1256,6 +1256,63 @@ export async function approvaOperazione(fd: FormData) {
   if (torna) redirect(`/operazioni?torna=${encodeURIComponent(torna)}`);
 }
 
+// Approvare PIÙ operazioni insieme: si spuntano e si approva in un colpo.
+//
+// ⚠️ Restano intatte le tre cose che sono la rete vera: si approva solo ciò
+// che è GIÀ in coda (nessuna operazione nasce qui), solo quelle spuntate a
+// mano, e lo script le esegue comunque una per una riferendo l'esito di
+// ognuna. Sparisce il click ripetuto trenta volte, non il controllo.
+export async function approvaOperazioniSelezionate(fd: FormData) {
+  const torna = testo(fd, "torna");
+  const scelte = fd
+    .getAll("scelte")
+    .map((v) => String(v).trim())
+    .filter(Boolean);
+  const coda = (extra: Record<string, string>) => {
+    const qs = new URLSearchParams(extra);
+    if (torna) qs.set("torna", torna);
+    return `/operazioni?${qs.toString()}`;
+  };
+  if (scelte.length === 0) {
+    redirect(coda({ bloccata: "Nessuna operazione selezionata" }));
+  }
+
+  // ⚠️ Solo quelle ANCORA in attesa: fra il caricamento della pagina e il
+  // click qualcuno può averne approvata o annullata una, e riapprovare
+  // un'annullata la resusciterebbe senza che nessuno l'abbia chiesto.
+  const aperte = await prisma.operazioneAdv.findMany({
+    where: { id: { in: scelte }, stato: "in_attesa" },
+    select: { id: true, tipo: true, bersaglio: true },
+  });
+  if (aperte.length === 0) {
+    redirect(coda({ bloccata: "Nessuna di quelle scelte era ancora da approvare" }));
+  }
+
+  await prisma.operazioneAdv.updateMany({
+    where: { id: { in: aperte.map((o) => o.id) } },
+    data: { stato: "approvata", approvataIl: new Date(), approvataDa: "utente" },
+  });
+  await registra({
+    autore: "utente",
+    tipo: "stato",
+    entita: "operazione",
+    titolo: `Approvate insieme: ${aperte.length} operazioni`,
+    dettaglio:
+      aperte.slice(0, 8).map((o) => `${o.tipo} su ${o.bersaglio}`).join(" · ") +
+      (aperte.length > 8 ? ` e altre ${aperte.length - 8}` : "") +
+      (scelte.length > aperte.length
+        ? ` · ${scelte.length - aperte.length} non erano più da approvare`
+        : ""),
+  });
+
+  revalidatePath("/operazioni");
+  redirect(
+    coda({
+      esito: `${aperte.length} ${aperte.length === 1 ? "operazione approvata" : "operazioni approvate"}: lo script le eseguirà alla prossima passata`,
+    })
+  );
+}
+
 export async function annullaOperazione(fd: FormData) {
   // Da dove si veniva: si conserva nel redirect, cosi il bottone «torna
   // dove eri» resta anche dopo il click che lo rendeva utile.

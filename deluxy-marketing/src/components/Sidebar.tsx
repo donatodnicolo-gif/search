@@ -2,6 +2,7 @@ import { conteggiSidebar } from "@/lib/conteggi-sidebar";
 import { BRANDS, COLORE_BRAND, ETICHETTA_BRAND, STATI_AZIONE_APERTI, STATI_CAMPAGNA_VIVE } from "@/lib/dominio";
 import { Icona } from "./Icona";
 import { SbSezione } from "./SbSezione";
+import { TornaIndietro } from "./TornaIndietro";
 
 export type VoceSidebar =
   | "home" | "analisi" | "audit" | "azioni" | "campagne" | "gruppi" | "landing" | "copy" | "keywords"
@@ -59,6 +60,13 @@ export async function Sidebar({
 
   return (
     <aside className="sidebar">
+      {/* «Indietro» su OGNI pagina, non solo dove qualcuno si è ricordato di
+          metterlo: si naviga in profondità — campagna, gruppo, coda — e la
+          via del ritorno serve dappertutto. Usa la cronologia del browser,
+          quindi vale anche per un link incollato. */}
+      <div style={{ padding: "0 14px 10px" }}>
+        <TornaIndietro />
+      </div>
       <nav>
         {/* L'ordine è quello del lavoro, non quello dei canali: prima cosa
             devo fare adesso, poi su cosa lo faccio, poi com'è andata.

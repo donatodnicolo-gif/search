@@ -1,7 +1,10 @@
 import { SelettoreStato } from "@/components/SelettoreStato";
 import { ModificaTestoOperazione } from "@/components/ModificaTestoOperazione";
+import { SelezionaTutte } from "@/components/SelezionaTutte";
 import { Sidebar } from "@/components/Sidebar";
-import { annullaOperazione, approvaOperazione, cambiaCorrispondenzaOperazione, riapriOperazione,
+import { TornaIndietro } from "@/components/TornaIndietro";
+import { annullaOperazione, approvaOperazione, approvaOperazioniSelezionate,
+  cambiaCorrispondenzaOperazione, riapriOperazione,
   cambiaTestoOperazione,
 } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
@@ -120,7 +123,7 @@ export default async function PaginaOperazioni({
     ).size;
   };
 
-  const riga = (o: (typeof operazioni)[number]) => {
+  const riga = (o: (typeof operazioni)[number], selezionabile = false) => {
     const p = o.parametri ? (JSON.parse(o.parametri) as Record<string, unknown>) : {};
     const parola = typeof p.testo === "string" && p.testo ? p.testo : null;
     const match = typeof p.corrispondenza === "string" ? String(p.corrispondenza).toLowerCase() : null;
@@ -134,6 +137,19 @@ export default async function PaginaOperazioni({
 
     return (
       <li className="op-riga" key={o.id}>
+        {/* La casella raggiunge il form della barra con form=: dentro la riga
+            ci sono gia i moduli di approva e annulla, e i form non si
+            annidano. */}
+        {selezionabile && (
+          <input
+            type="checkbox"
+            form="scelte-op"
+            name="scelte"
+            value={o.id}
+            aria-label={`Seleziona: ${ETICHETTA_TIPO[o.tipo] ?? o.tipo} su ${o.bersaglio}`}
+            style={{ marginRight: 10, marginTop: 4 }}
+          />
+        )}
         <div className="op-corpo">
           <div className="op-titolo">
             <b>{ETICHETTA_TIPO[o.tipo] ?? o.tipo}</b>
@@ -319,13 +335,18 @@ export default async function PaginaOperazioni({
             campagna o gruppo, e dopo aver approvato doveva rifare la strada a
             memoria: campagna, gruppo, filtro. Il link sta in cima e resta
             anche dopo l'approvazione, perché è lì che serve. */}
-        {sp.torna && (
-          <div style={{ marginBottom: 12 }}>
+        <div style={{ marginBottom: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {/* Due vie d'uscita, e servono entrambe: il link esplicito quando si
+              sa da dove si veniva (ci si torna anche dopo il redirect
+              dell'approvazione, che azzera la cronologia utile), e la
+              cronologia per chi è entrato dal menù. */}
+          {sp.torna && (
             <a className="btn small btn-secondario" href={sp.torna}>
               ← Torna dove eri
             </a>
-          </div>
-        )}
+          )}
+          <TornaIndietro />
+        </div>
 
         {sp.esito && (
           <div className="avviso-ok">
@@ -366,7 +387,28 @@ export default async function PaginaOperazioni({
           {daApprovare.length === 0 ? (
             <div className="vuoto-mini">Niente in attesa.</div>
           ) : (
-            <ul className="storia">{daApprovare.map((o) => riga(o))}</ul>
+            <>
+              {/* Approvare in blocco. ⚠️ Non salta nessuna rete: si approva
+                  solo ciò che è già in coda, solo le righe spuntate, e lo
+                  script le esegue una per una riferendo l'esito di ognuna.
+                  Sparisce il click ripetuto quindici volte, non il
+                  controllo. Il form sta FUORI dalla lista: dentro le righe
+                  ci sono già i moduli di approva e annulla. */}
+              <form id="scelte-op" action={approvaOperazioniSelezionate} className="barra-multipla">
+                {sp.torna && <input type="hidden" name="torna" value={sp.torna} />}
+                <span className="cella-sub">
+                  Spunta le operazioni e approvale tutte insieme:
+                </span>
+                <SelezionaTutte formId="scelte-op" />
+                <button className="btn small" type="submit">
+                  Approva le selezionate
+                </button>
+                <span className="cella-sub">
+                  Restano in coda finché lo script non passa: nessuna parte adesso.
+                </span>
+              </form>
+              <ul className="storia">{daApprovare.map((o) => riga(o, true))}</ul>
+            </>
           )}
         </section>
 
