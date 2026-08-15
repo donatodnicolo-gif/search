@@ -8,6 +8,7 @@ import { creaAnnuncioConAi } from "@/lib/azioni-annuncio";
 import { AzioneGruppo } from "@/components/AzioneGruppo";
 import { Badge } from "@/components/Badge";
 import { EstendiConAi } from "@/components/EstendiConAi";
+import { RecapAnnunci } from "@/components/RecapAnnunci";
 import { PortaKeyword } from "@/components/PortaKeyword";
 import { PortaSelezionate } from "@/components/PortaSelezionate";
 import { PerformancePeriodi } from "@/components/PerformancePeriodi";
@@ -874,6 +875,10 @@ export default async function SchedaGruppo({
             si fa aprendo un gruppo — «va meglio o peggio di prima» — e va
             dove cade l'occhio. */}
         <PerformancePeriodi gruppoId={gruppo.id} />
+
+        {/* Il riassunto degli annunci in cima: chi e in asta, dove manda,
+            come va. I testi completi restano in fondo. */}
+        <RecapAnnunci righe={copy} />
 
         <div className="due-colonne">
           <div>
