@@ -280,6 +280,25 @@ La lista degli ordini è due pagine con la stessa tabella:
   rimborsati compresi, con la ricerca su numero, cliente, telefono, email e
   indirizzo. Parte dalla vista a tabella, perché qui si cerca e non si lavora.
 
+**Cliccando una riga si apre il dettaglio dell'ordine** — prodotti con le foto,
+biglietto, destinatario, recapiti e le azioni. Vale anche per le righe
+dell'**Archivio storico**, cioè per gli ordini più vecchi dei 60 giorni che
+teniamo in casa: quelli si aprono in **sola lettura** (lo dice la testata del
+pannello), perché non c'è una riga nostra da aggiornare — niente stato di
+lavorazione né messaggi collegati. Se invece quell'ordine ce l'abbiamo anche in
+casa, si apre per intero: lo stesso ordine non cambia faccia a seconda della
+tabella da cui lo si apre.
+
+**Le intestazioni della tabella ordinano**: negozio, data, consegna, cliente,
+tipo cliente, telefono, totale, lavorazione. Primo clic il verso utile (i più
+recenti, i totali più alti, la consegna più vicina), secondo lo rovescia, terzo
+si torna all'ordine per **urgenza**, che è quello di lavoro. Ordina il server, su
+tutti gli ordini del filtro e non solo sui 200 mostrati; **le righe senza il dato
+— 40 senza nome, 160 senza telefono — stanno in fondo in tutt'e due i versi**.
+Il **numero d'ordine non si ordina** di proposito: è testo, e i tre negozi
+numerano con lunghezze diverse (`#12121` verrebbe prima di `#1623`). Per l'ordine
+cronologico c'è *Data*.
+
 ## Rimborsi
 
 Da ogni ordine il pulsante **Rimborso** apre la richiesta già compilata: ordine, cliente,

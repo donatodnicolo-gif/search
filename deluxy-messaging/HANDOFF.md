@@ -56,6 +56,51 @@ locale, altrimenti nulla si decifra.
 
 ## FATTO
 
+- **L'ORDINE DELL'ARCHIVIO SI APRE, E LA TABELLA SI ORDINA** (15/08/2026, LIVE).
+  In «Ordini globali» le righe dell'**Archivio storico** — gli ordini più vecchi
+  dei 60 giorni che teniamo in casa — non facevano niente al clic: si cercava un
+  ordine vecchio e la ricerca finiva lì.
+  - Ora aprono lo **stesso pannello** degli altri, costruito in una sola chiamata
+    a Orders: prodotti con le foto, biglietto, destinatario, recapiti, lingua del
+    cliente. Rotta `GET /api/ordini/archivio/dettaglio?numero=&orderId=`,
+    costruzione in **`src/lib/dettaglio-ordine.ts`** (che ora serve anche la
+    rotta locale: era la stessa forma scritta due volte).
+  - ⚠️ **Se quell'ordine è ANCHE in casa, si apre la versione locale.** La
+    ricerca dell'archivio pesca pure i recenti: senza questo controllo (per gid
+    Shopify) lo stesso ordine avrebbe mostrato metà azioni a seconda della
+    tabella da cui lo si apriva.
+  - ⚠️ **Le azioni che scrivono non si offrono** su un ordine che non abbiamo
+    (Gestito, messaggi del cliente): un bottone che fallisce dopo il clic è
+    peggio di un bottone assente. Il pannello dice **perché**: «archivio storico
+    (sola lettura)». Reclamo e rimborso invece restano — `Reclamo.ordineId` e
+    `Rimborso.ordineId` nascono già col vuoto ammesso proprio per questo caso.
+  - ⚠️ Il gid Shopify non è un vezzo: **`#1894` esiste su due negozi**, e nella
+    verifica i candidati col numero erano due. Si sceglie per gid.
+  - **Verificato sui dati veri** (ordine #1894 del 31/12/2025, fuori dalla copia
+    locale): tornano cliente, telefono, tipo, fascia di consegna `12-16`, stato
+    «Nuovo», **destinatario diverso dal mittente** (Almarri → Alfarraj), 1
+    prodotto **con foto** e 93 caratteri di biglietto.
+  - **Le intestazioni della tabella ORDINANO** (negozio, data, consegna, cliente,
+    tipo, telefono, totale, lavorazione): primo clic il verso utile, secondo lo
+    rovescia, terzo si torna all'ordine per **urgenza** — che non è «nessun
+    ordinamento», è quello di lavoro, e senza una via di ritorno servirebbe
+    ricaricare la pagina.
+  - ⚠️ **Ordina il SERVER** (`ordiniOrdinati` in `/api/ordini`), per la stessa
+    ragione dell'urgenza: la lista è tagliata a **200 su 1.216**, e ordinare nel
+    browser avrebbe riordinato i 200 che il server aveva già scelto — «il totale
+    più alto» sarebbe stato il più alto *fra quelli mostrati*.
+  - ⚠️ **Il vuoto va in fondo in tutt'e due i versi**: 40 ordini senza nome e 160
+    senza telefono aprivano l'elenco crescente con righe bianche. Le date di
+    consegna mancanti con `nulls: 'last'`, i campi di testo con due query (i
+    pieni, poi i vuoti) — verificato: 0 righe vuote fra le prime 200 di
+    «Cliente ↑».
+  - ⚠️ **Il numero d'ordine NON è ordinabile**, e l'intestazione lo spiega: è
+    testo e i tre negozi numerano con lunghezze diverse, quindi «#12121»
+    finirebbe prima di «#1623». Un ordinamento che sembra giusto ed è sbagliato
+    è peggio di uno che non c'è; per il cronologico c'è *Data*.
+  - Corretta anche la riga «mostrati i N **più recenti**», che era falsa: sono i
+    primi N *dell'ordine in corso*.
+
 - **SI LEGGE IN ITALIANO E SI RISPONDE NELLA LINGUA DEL CLIENTE** (31/07/2026).
   Come su AI Mail, ma qui vale su tutti i canali (WhatsApp, Messenger,
   Instagram, widget, email).
