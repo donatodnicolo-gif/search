@@ -1,6 +1,7 @@
 # Handoff — Deluxy Customer Service
 
-Ultimo aggiornamento: **26/07/2026**
+Ultimo aggiornamento: **15/08/2026** (sezione MANCA riverificata sul database di
+produzione; l'ultimo lavoro sul codice è del 31/07/2026 ed è pubblicato)
 
 > ⚠️ **L'app si chiama Deluxy Customer Service** (prima "Deluxy Messaggi"). Sono
 > cambiati i nomi visibili (topbar, login, titolo della pagina, tessera del Hub),
@@ -2029,42 +2030,62 @@ locale, altrimenti nulla si decifra.
 
 ## MANCA
 
-Stato reale delle chiavi **al 28/07/2026**, letto dalla tabella `Impostazione` (solo
-pieno/vuoto, mai i valori). **Configurate**: `metaVerifyToken`, `metaAppSecret`,
-`waToken`, `waPhoneNumberId`, `searchApiKey`, `openaiApiKey`, `ordersApiKey`,
-`anagraficheApiKey`, `googleRefreshToken`. **Mancanti**, con la conseguenza concreta:
+> ⚠️ **Questa sezione era ferma al 28/07 e diceva il falso su quasi tutto.** Riverificata
+> il **15/08/2026** contando sul database di produzione (solo pieno/vuoto, mai i valori).
+> Nel frattempo i canali sono stati collegati **dall'utente, non da una sessione**: prima
+> di scrivere «manca X» in questa sezione, **ricontarlo**.
+
+**Cosa è cambiato in meglio dal 28/07** (verificato oggi):
+
+- **WhatsApp riceve e risponde**: **3 numeri** in `/numeri-whatsapp`, tutti con token e
+  tutti legati a un marchio (Flowers, Cake, Deluxy). **77 conversazioni**, l'ultima di
+  oggi. Cade la nota «un solo numero, `DISCONNECTED`, verifica `EXPIRED`».
+- **Instagram riceve e risponde**: **3 account** in `/account-meta` (Deluxy,
+  DeluxyFlowers, CakeDesignMe), tutti con token e marchio. **11 conversazioni**, l'ultima
+  del 14/08. Cade la nota «0 pagine collegate».
+- **Email nei due versi**: **2 caselle attive, entrambe con la password salvata** e con
+  marchio — `cs@deluxy.it` (predefinita, marchio Deluxy) e `info@cakedesignme.it` (Cake).
+  **337 conversazioni**, l'ultima di oggi. Cade la nota «`emailPassword` vuota, la posta
+  non parte»: quindi **non serve più passare da AI Mail per mandare una mail**.
+- **Script veri caricati**: **31 script**, **18 istruzioni AI**, **1 documento**. Cade la
+  nota «in tabella ci sono 3 script di prova».
+- **Non c'è più un solo utente**: 4 account, di cui due operatori veri
+  (federica.zicchinella@, riccardo.cuccurullo@).
+
+**Cosa manca davvero al 15/08/2026:**
 
 | Cosa manca | Cosa non funziona finché manca |
 |---|---|
-| `fbPageToken` / `igToken`, e **nessuna riga in `/account-meta`** (0 pagine collegate) | Messenger e Instagram non ricevono e non rispondono. L'impianto multi-account c'è: mancano id e token. Con più pagine il token va messo **per pagina** — quello generale non basta. |
-| Il numero WhatsApp collegato è **1**, ma va **ri-verificato lato Meta** | Il numero risultava `DISCONNECTED` con verifica `EXPIRED`: finché non si rifà `Fatti chiamare` → codice → PIN (o si fa da WhatsApp Manager), non arriva né parte niente. |
-| `partnerApiKey` (chiave verifiche di deluxy-partner) | Le richieste di pagamento si salvano qui ma non arrivano a Partner (si rimandano poi con *Invia*). |
-| `emailPassword` | Ora è **vuota** in tabella: la casella non manda finché non si reinserisce (la cifratura è a posto — verificato a parte). |
-| `widgetTitolo` / `widgetMessaggio` | Il widget mostra i valori di riserva («Deluxy», «Ciao! Come possiamo aiutarti?»). Non è un guasto, ma sui siti dei singoli marchi conviene scriverli. |
+| **Messenger**: `fbPageToken` è in Impostazioni ma in `PaginaMeta` **non c'è nessuna riga `facebook`** (le 3 righe sono tutte Instagram) | È l'unico canale ancora spento: zero conversazioni Messenger. Il token generale non basta — ogni Pagina vuole il **suo** Page Access Token, messo in `/account-meta`. |
+| `partnerApiKey` e `partnerUrl` (entrambi vuoti) | Le richieste di pagamento si salvano qui ma non arrivano a **FINANCE** (`deluxy-partner`). Oggi la tabella è comunque a 0 richieste. |
+| `widgetTitolo` / `widgetMessaggio` | Il widget generale mostra i valori di riserva («Deluxy», «Ciao! Come possiamo aiutarti?»). I 3 siti configurati hanno i propri testi, quindi non è un guasto. |
+| `waBusinessAccountId` | Serve alla diagnosi di `/numeri-whatsapp` per interrogare il WABA; i messaggi passano lo stesso. |
 
 Da fare, in ordine di utilità:
 
-- **App Meta reale**: webhook registrato, token permanenti, pagina FB e account IG
-  professionale collegati. Fuori dalla finestra di 24h Meta rifiuta i messaggi liberi:
-  serviranno i **template WhatsApp**, non ancora gestiti.
-  Costi (listino Meta 1/7/2026, per messaggio, Italia): Marketing €0,0658,
-  Utility/Authentication €0,0248, Service (risposte entro 24h) **gratis**.
-- **Script veri**: in tabella ce ne sono 3, creati solo per provare l'AI (ritardo
-  consegna, fattura, cambio indirizzo). Vanno sostituiti con le risposte reali.
-- **Rubrica Google**: restano ~594 clienti da salvare, 40 per giro orario → circa 15 ore
-  per smaltirli da soli. Il redirect URI del progetto Google Cloud va messo fra gli "URI
-  di reindirizzamento autorizzati" (non fra le origini JavaScript).
-- Media in entrata (oggi mostrati come `[tipo]`) e allegati in uscita.
+- **367 ordini senza data di consegna** (su 1.216 in tabella, 474 ancora «da gestire»):
+  sono quelli che `chiudi-consegne-passate.mjs` non tocca di proposito. È un problema di
+  **dati di Orders**, non di questa app, e va risolto lì.
+- **2 rimborsi in stato «richiesto»** fermi in attesa di una decisione, e **1 reclamo
+  aperto**: non è debito tecnico, è lavoro che aspetta una persona.
+- **Template WhatsApp**: fuori dalla finestra di 24h Meta rifiuta i messaggi liberi, e
+  «Nuovo messaggio» in Inbox oggi funziona **solo per la posta**. Costi (listino Meta
+  1/7/2026, per messaggio, Italia): Marketing €0,0658, Utility/Authentication €0,0248,
+  Service (risposte entro 24h) **gratis**.
+- **Promemoria da spingere su Deluxy Tasks** (porta 3090, API a chiave): oggi le
+  `Attivita` della dashboard restano qui, e sono un secondo registro.
+- Allegati su **email, Messenger, Instagram** (su WhatsApp ci sono, nei due versi).
 - **Assegnazione** delle conversazioni a una persona e notifiche push: chi ha fatto cosa
-  ora *resta scritto* (ordini e messaggi in uscita), ma nessuno *prende in carico* una
-  conversazione — due operatori possono ancora rispondere allo stesso cliente insieme.
+  *resta scritto*, ma nessuno *prende in carico* — due operatori possono ancora rispondere
+  allo stesso cliente insieme. Ora che gli operatori sono tre, non è più teorico.
 - **Il widget non sa chi sta scrivendo**: nessun campo nome/email prima del primo
-  messaggio, quindi le conversazioni dei siti non si agganciano né al cliente né
-  all'ordine. È il pezzo che manca perché la scheda cliente le veda.
-- Account `diagnostica@deluxy.local` (operatore, non creato in queste sessioni): da
-  tenere o togliere — sono 3 utenti in tutto.
-- Collegare un ordine alla conversazione WhatsApp dello stesso cliente (oggi sono due
-  mondi separati: si contatta dall'ordine, ma la risposta non si aggancia all'ordine).
+  messaggio, quindi le 14 conversazioni dei siti non si agganciano né al cliente né
+  all'ordine.
+- **Rubrica Google**: il cron ne salva 40 per giro orario, restano clienti da smaltire.
+  Il redirect URI del progetto Google Cloud va fra gli "URI di reindirizzamento
+  autorizzati", non fra le origini JavaScript.
+- Account **`diagnostica@deluxy.local`** (operatore): è lì da luglio, non l'ha creato
+  nessuna sessione nota. Da tenere o togliere — decisione dell'utente.
 
 ## Come riprendere
 
