@@ -117,15 +117,18 @@ export async function TerminiRicerca({
   // I gruppi di annunci di QUESTA campagna: servono a «Estendi con AI» per
   // far scegliere dove finiscono le parole nuove — senza, lo script le infila
   // nel primo gruppo attivo che incontra.
-  const gruppiCampagna = nomeCampagna
-    ? (
-        await prisma.gruppo.findMany({
-          where: { campagnaId, stato: { notIn: [...STATI_GRUPPO_IGNORATI] } },
-          orderBy: { nome: "asc" },
-          select: { nome: true },
-        })
-      ).map((g) => g.nome)
+  // ⚠️ Anche l'id, non solo il nome: serve a rendere cliccabile la colonna
+  // «Gruppo» della tabella. Una lettura sola per le due cose — questa query
+  // c'era già.
+  const gruppiDellaCampagna = nomeCampagna
+    ? await prisma.gruppo.findMany({
+        where: { campagnaId, stato: { notIn: [...STATI_GRUPPO_IGNORATI] } },
+        orderBy: { nome: "asc" },
+        select: { id: true, nome: true },
+      })
     : [];
+  const gruppiCampagna = gruppiDellaCampagna.map((g) => g.nome);
+  const idGruppo = new Map(gruppiDellaCampagna.map((g) => [g.nome, g.id]));
 
   // ——— Ordinamento (in memoria, sui 40 già scelti) ———
   const colonna: Colonna = (ord && ord in COLONNE ? ord : "spesa") as Colonna;
@@ -374,7 +377,16 @@ export async function TerminiRicerca({
                     <div className="cella-nome">{t.testo}</div>
                   </td>
                   <td className="cella-muta" style={{ maxWidth: 190 }}>
-                    {t.gruppo ?? "—"}
+                    {/* Il gruppo si clicca e ci si entra: era il nome scritto
+                        e basta, e per aprirlo bisognava risalire alla
+                        campagna e ritrovarlo nell'elenco. */}
+                    {t.gruppo && idGruppo.get(t.gruppo) ? (
+                      <a href={`/gruppi/${idGruppo.get(t.gruppo)}`} style={{ color: "var(--blue)" }}>
+                        {t.gruppo}
+                      </a>
+                    ) : (
+                      t.gruppo ?? "—"
+                    )}
                   </td>
                   <td className="cella-muta" style={{ maxWidth: 200 }}>
                     {/* La keyword come la scrive Google: [esatta], "a frase",
