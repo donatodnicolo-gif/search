@@ -15,6 +15,7 @@ import { PerformancePeriodi } from "@/components/PerformancePeriodi";
 import { RinominaInline } from "@/components/RinominaInline";
 import { SelezionaTutte } from "@/components/SelezionaTutte";
 import { TestiAnnuncio } from "@/components/TestiAnnuncio";
+import { finestrePerAnnuncio } from "@/lib/finestre-annuncio";
 import { finestrePerKeyword } from "@/lib/finestre-keyword";
 import { estendiKeywordConAi } from "@/lib/azioni-estendi";
 import { campagnePerDialogo } from "@/lib/campagne-dialogo";
@@ -500,6 +501,12 @@ export default async function SchedaGruppo({
   // pannello che si apre cliccando la parola.
   const finestreKw = await finestrePerKeyword(
     keywordMostrate.map((k) => k.idEsterno ?? "").filter(Boolean)
+  );
+
+  // Le finestre di ogni ANNUNCIO del gruppo: stessa regola delle keyword,
+  // una lettura sola per tutti.
+  const finestreAnn = await finestrePerAnnuncio(
+    copy.filter((c) => c.tipo === "destinazione").map((c) => c.idEsterno ?? "").filter(Boolean)
   );
 
   const operazioneAperta = gruppo.operazioni.find((o) => o.stato === "in_attesa" || o.stato === "approvata");
@@ -1735,6 +1742,12 @@ export default async function SchedaGruppo({
             delegato. Il gruppo di default di «Estendi» è QUESTO gruppo
             (viaggia sui bottoni con data-estendi-gruppo). */}
         <DettaglioKeyword dati={finestreKw} />
+        <DettaglioKeyword
+          dati={finestreAnn}
+          attributo="data-ann-dettaglio"
+          occhiello="Come va questo annuncio"
+          cosa="annuncio"
+        />
         <PortaKeyword
           campagne={campagneDialogo}
           ritorno={`/gruppi/${gruppo.id}`}

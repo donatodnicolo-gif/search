@@ -32,13 +32,13 @@ export function RecapAnnunci({ righe }: { righe: Riga[] }) {
     if (id) kpi.set(id, r);
   }
 
-  const annunci = new Map<string, { url: string | null; stato: string | null }>();
+  const annunci = new Map<string, { url: string | null; stato: string | null; completo: string | null }>();
   for (const r of righe) {
     if (r.tipo !== "destinazione") continue;
     const id = idDa(r.idEsterno);
     if (!id) continue;
     const stato = (r.annunci ?? "").split(",")[0]?.split(":")[1] ?? null;
-    annunci.set(id, { url: r.finalUrl ?? r.testo ?? null, stato });
+    annunci.set(id, { url: r.finalUrl ?? r.testo ?? null, stato, completo: r.idEsterno ?? null });
   }
   if (annunci.size === 0) return null;
 
@@ -87,7 +87,18 @@ export function RecapAnnunci({ righe }: { righe: Riga[] }) {
               return (
                 <tr key={a.id}>
                   <td>
-                    <b>Annuncio {i + 1}</b>
+                    {/* Si clicca e si apre come va per finestra (7g, mese,
+                        30g, anno): il numero in riga è una finestra sola. */}
+                    <button
+                      type="button"
+                      data-ann-dettaglio
+                      data-kw-id={a.completo ?? ""}
+                      data-kw-testo={`Annuncio ${i + 1}`}
+                      title="Apri le prestazioni di questo annuncio per finestra"
+                      style={{ background: "none", border: 0, padding: 0, font: "inherit", fontWeight: 700, cursor: "pointer", textAlign: "left" }}
+                    >
+                      Annuncio {i + 1}
+                    </button>
                     <div className="cella-sub" style={{ color: a.stato === "ENABLED" ? "var(--green)" : undefined }}>
                       {a.stato === "ENABLED" ? "attivo" : a.stato === "PAUSED" ? "in pausa" : "stato non letto"}
                     </div>

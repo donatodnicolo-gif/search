@@ -1197,6 +1197,28 @@ model SyncDrive {
 // scelto, invece della fotografia a finestra fissa di CopyAnnuncio.
 // L'aggancio a CopyAnnuncio è per `idEsterno` (account:gruppo:criterio),
 // non una FK: le righe copy possono rinascere, la storia resta.
+// La storia giorno per giorno di ogni ANNUNCIO: gemella di MetricaKeyword,
+// dal lavoro keyword-giorni dello script (15/08/2026). Serve a mostrare le
+// prestazioni di un annuncio per finestra invece della sola fotografia a 30
+// giorni del giro copy.
+model MetricaAnnuncio {
+  id           String   @id @default(cuid())
+  idEsterno    String
+  campagna     String
+  gruppo       String?
+  data         DateTime
+  spesa        Float?
+  impressioni  Int?
+  clic         Int?
+  conversioni  Float?
+  ricavi       Float?
+  creataIl     DateTime @default(now())
+  aggiornataIl DateTime @updatedAt
+
+  @@unique([idEsterno, data])
+  @@index([campagna, data])
+}
+
 model MetricaKeyword {
   id             String   @id @default(cuid())
   idEsterno      String

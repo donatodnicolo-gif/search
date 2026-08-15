@@ -9,7 +9,19 @@ import { formattaEuro, formattaNumero } from "@/lib/dominio";
 // ⚠️ Se la storia non c'è, il pannello lo DICE invece di mostrare zeri: una
 // keyword senza righe giornaliere non è una keyword che non ha speso — è una
 // di cui non sappiamo, e le due cose portano a decisioni opposte.
-export function DettaglioKeyword({ dati }: { dati: FinestrePerKeyword }) {
+export function DettaglioKeyword({
+  dati,
+  attributo = "data-kw-dettaglio",
+  occhiello = "Come va questa parola",
+  cosa = "parola",
+}: {
+  dati: FinestrePerKeyword;
+  // Lo stesso pannello serve keyword e annunci: cambia solo l attributo che
+  // lo apre e come si chiama la cosa che si sta guardando.
+  attributo?: string;
+  occhiello?: string;
+  cosa?: string;
+}) {
   const dialogo = useRef<HTMLDialogElement>(null);
   const [testo, setTesto] = useState("");
   const [id, setId] = useState<string | null>(null);
@@ -17,7 +29,7 @@ export function DettaglioKeyword({ dati }: { dati: FinestrePerKeyword }) {
 
   useEffect(() => {
     const apri = (e: MouseEvent) => {
-      const b = (e.target as HTMLElement | null)?.closest<HTMLElement>("[data-kw-dettaglio]");
+      const b = (e.target as HTMLElement | null)?.closest<HTMLElement>(`[${attributo}]`);
       if (!b) return;
       const idKw = b.getAttribute("data-kw-id") ?? "";
       setTesto(b.getAttribute("data-kw-testo") ?? "");
@@ -34,7 +46,7 @@ export function DettaglioKeyword({ dati }: { dati: FinestrePerKeyword }) {
     };
     document.addEventListener("click", apri);
     return () => document.removeEventListener("click", apri);
-  }, [dati]);
+  }, [dati, attributo]);
 
   const righe = id ? dati[id] : undefined;
 
@@ -49,7 +61,7 @@ export function DettaglioKeyword({ dati }: { dati: FinestrePerKeyword }) {
       <div className="modale-corpo">
         <div className="modale-testa">
           <div>
-            <div className="modale-occhiello">Come va questa parola</div>
+            <div className="modale-occhiello">{occhiello}</div>
             <div className="modale-titolo">{testo}</div>
           </div>
           <button type="button" className="modale-chiudi" aria-label="Chiudi" onClick={() => dialogo.current?.close()}>
@@ -108,15 +120,15 @@ export function DettaglioKeyword({ dati }: { dati: FinestrePerKeyword }) {
             <div className="modale-avviso">
               {motivo === "vecchio" ? (
                 <>
-                  <b>Di questa parola non c&apos;è la storia giornaliera.</b> La sua riga porta un
-                  identificativo vecchio, precedente all&apos;08/08/2026, quindi lo script non riesce
+                  <b>Di questa {cosa} non c&apos;è la storia giornaliera.</b> La sua riga porta un
+                  identificativo vecchio, quindi lo script non riesce
                   ad agganciarla ai giorni. Si sistema da sé al prossimo giro completo su questo
                   account; i numeri della tabella restano validi, ma sono la fotografia a finestra
                   fissa, non il periodo.
                 </>
               ) : (
                 <>
-                  <b>Nessun giorno con dati per questa parola.</b> O non ha avuto impressioni
+                  <b>Nessun giorno con dati per questa {cosa}.</b> O non ha avuto impressioni
                   nell&apos;ultimo anno — lo script manda solo i giorni in cui è comparsa — oppure il
                   carico storico non è ancora passato su questo account. Non vuol dire che abbia
                   speso zero: vuol dire che non lo sappiamo.

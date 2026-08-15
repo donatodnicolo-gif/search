@@ -2381,6 +2381,56 @@ function mandaKeywordGiorni(conto) {
     return corpoBase(conto, { righe: lotto });
   });
   RIEPILOGO.push("keyword-giorni: " + esito.inviate + "/" + righe.length + " righe" + (esito.nota ? " - " + esito.nota : ""));
+
+  // Gli ANNUNCI per giorno, nello stesso lavoro: rispondono alla stessa
+  // domanda delle keyword ("come va per finestra") e mandarli qui evita un
+  // altro script da schedulare e un altro reincollo.
+  mandaAnnunciGiorni(conto);
+}
+
+/**
+ * La storia giorno per giorno di ogni annuncio: una riga per annuncio per
+ * giorno con impressioni, finestra GIORNI_INDIETRO come le keyword.
+ * In un try suo: se la query non passa, le keyword sono gia' partite.
+ */
+function mandaAnnunciGiorni(conto) {
+  var query =
+    "SELECT campaign.name, ad_group.id, ad_group.name, ad_group_ad.ad.id, " +
+    "segments.date, metrics.cost_micros, metrics.impressions, metrics.clicks, " +
+    "metrics.conversions, metrics.conversions_value " +
+    "FROM ad_group_ad " +
+    "WHERE segments.date BETWEEN '" + dataIso(-GIORNI_INDIETRO) + "' AND '" + dataIso(0) + "' " +
+    "AND ad_group_ad.status IN ('ENABLED', 'PAUSED') " +
+    "AND metrics.impressions > 0";
+
+  var righe = [];
+  try {
+    var risultati = AdsApp.search(query);
+    while (risultati.hasNext()) {
+      var r = risultati.next();
+      if (!r.adGroupAd || !r.adGroupAd.ad) continue;
+      righe.push({
+        idEsterno: conto.id + ":" + r.adGroup.id + ":" + r.adGroupAd.ad.id,
+        campagna: r.campaign.name,
+        gruppo: r.adGroup.name,
+        data: r.segments.date,
+        spesa: arrotonda(Number(r.metrics.costMicros || 0) / 1000000),
+        impressioni: Number(r.metrics.impressions || 0),
+        clic: Number(r.metrics.clicks || 0),
+        conversioni: Number(r.metrics.conversions || 0),
+        ricavi: arrotonda(Number(r.metrics.conversionsValue || 0))
+      });
+    }
+  } catch (e) {
+    Logger.log("annunci per giorno: query rifiutata (" + e + ") - le keyword sono gia' partite");
+    return;
+  }
+
+  Logger.log("Annunci per giorno: " + righe.length + " righe (" + GIORNI_INDIETRO + " giorni).");
+  var esitoAnn = inviaABlocchi("/api/v1/ingest/annuncio-giorni", righe, function (lotto) {
+    return corpoBase(conto, { righe: lotto });
+  });
+  RIEPILOGO.push("annuncio-giorni: " + esitoAnn.inviate + "/" + righe.length + " righe" + (esitoAnn.nota ? " - " + esitoAnn.nota : ""));
 }
 
 function mandaStatiKeyword(conto) {
