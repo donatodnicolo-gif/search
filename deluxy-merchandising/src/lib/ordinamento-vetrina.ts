@@ -159,9 +159,38 @@ export async function ordinaPerPassi<T extends ProdottoOrdinabile>(
   passi: Passo[],
   giorni = 90
 ): Promise<T[]> {
+  return (await ordinaPerPassiConConti(items, passi, giorni)).fila;
+}
+
+/**
+ * La fila **e** quanti prodotti ha messo ciascun passo, dallo **stesso giro**.
+ *
+ * ⚠️ Prima erano due funzioni: questa metteva in fila, e una `quantiPerPasso`
+ * sincrona rifaceva il giro per contare. Il commento diceva che rifare il giro
+ * era meglio che dedurre i conti dalla fila, «perché è così che due parti
+ * dell'app cominciano a raccontare cose diverse» — ed è successo esattamente
+ * questo, per un dettaglio: **la copia non ordinava i gruppi**. Non poteva:
+ * era sincrona, e il venduto («più venduti», «più fatturato») si legge dal
+ * database. Ma l'assegnazione va **a turno**, quindi chi si aggiudica un
+ * prodotto che sta in due condizioni dipende da **dove sta nella sua fila**: con
+ * i gruppi non ordinati i conteggi mostrati non erano quelli veri.
+ *
+ * Ora il conto esce dallo stesso giro che produce la fila. Due implementazioni
+ * della stessa cosa divergono sempre, prima o poi: l'unico modo per non farle
+ * divergere è non averne due.
+ */
+export async function ordinaPerPassiConConti<T extends ProdottoOrdinabile>(
+  items: T[],
+  passi: Passo[],
+  giorni = 90
+): Promise<{ fila: T[]; quanti: number[] }> {
   const effettive = passi.filter((p) => p.t !== "metrica" || p.m !== "manuale");
+  const zero = passi.map(() => 0);
   if (effettive.length === 0) {
-    return [...items].sort((a, b) => (a.posizione ?? 0) - (b.posizione ?? 0) || a.nome.localeCompare(b.nome));
+    return {
+      fila: [...items].sort((a, b) => (a.posizione ?? 0) - (b.posizione ?? 0) || a.nome.localeCompare(b.nome)),
+      quanti: zero,
+    };
   }
   // **Le condizioni sono i gruppi, le metriche dicono come si ordina dentro.**
   const celle = effettive.filter((p) => p.t !== "metrica");
@@ -240,7 +269,10 @@ export async function ordinaPerPassi<T extends ProdottoOrdinabile>(
   // Senza condizioni non ci sono gruppi: è il caso delle regole rapide, dove le
   // metriche mettono in fila tutti.
   if (celle.length === 0) {
-    return [...items].sort((a, b) => perMetriche(a, b, globali) || a.nome.localeCompare(b.nome));
+    return {
+      fila: [...items].sort((a, b) => perMetriche(a, b, globali) || a.nome.localeCompare(b.nome)),
+      quanti: zero,
+    };
   }
 
   // **Ogni condizione pesca dal suo insieme, anche se è lo stesso di un'altra.**
@@ -275,6 +307,9 @@ export async function ordinaPerPassi<T extends ProdottoOrdinabile>(
   const out: T[] = [];
   const piazzati = new Set<string>();
   const prossimo = celle.map(() => 0);
+  // Quanti ne mette ciascuna cella: si conta **mentre** si costruisce la fila,
+  // che è l'unico modo per cui i due numeri non possano discordare.
+  const messiDa = celle.map(() => 0);
   for (;;) {
     let messo = false;
     for (let i = 0; i < gruppi.length; i++) {
@@ -283,47 +318,27 @@ export async function ordinaPerPassi<T extends ProdottoOrdinabile>(
         const x = gruppi[i][prossimo[i]++];
         piazzati.add(x.prodottoId);
         out.push(x);
+        messiDa[i]++;
         messo = true;
       }
     }
     if (!messo) break;
   }
-  return [...out, ...fuori];
+
+  // Rimesso nell'ordine dei passi originali: i passi di sola metrica non hanno
+  // un gruppo, quindi non mettono nessuno e valgono 0.
+  const quanti: number[] = [];
+  let k = 0;
+  for (const p of passi) {
+    const attiva = p.t !== "metrica" || p.m !== "manuale";
+    quanti.push(attiva && p.t !== "metrica" ? messiDa[k++] : 0);
+  }
+  return { fila: [...out, ...fuori], quanti };
 }
 
-/**
- * **Quanti prodotti mette in fila ogni condizione**, con le stesse regole di
- * `ordinaPerPassi`: serve a dire in pagina «questo passo porta N prodotti» e a
- * riconoscere quello che non ne porta nessuno. Rifà il giro invece di dedurlo
- * dalla fila finita, perché dedurlo vorrebbe dire riscrivere la stessa logica
- * una seconda volta — ed è così che due parti dell'app cominciano a raccontare
- * cose diverse.
- */
-export function quantiPerPasso<T extends ProdottoOrdinabile>(items: T[], passi: Passo[]): number[] {
-  const celle = passi.filter((p) => p.t !== "metrica");
-  if (celle.length === 0) return passi.map(() => 0);
-  const gruppi = celle.map((c) => items.filter((x) => corrisponde(x, c)).map((x) => x.prodottoId));
-  const quanti = celle.map(() => 0);
-  const piazzati = new Set<string>();
-  const prossimo = celle.map(() => 0);
-  for (;;) {
-    let messo = false;
-    for (let i = 0; i < gruppi.length; i++) {
-      while (prossimo[i] < gruppi[i].length && piazzati.has(gruppi[i][prossimo[i]])) prossimo[i]++;
-      if (prossimo[i] < gruppi[i].length) {
-        piazzati.add(gruppi[i][prossimo[i]++]);
-        quanti[i]++;
-        messo = true;
-      }
-    }
-    if (!messo) break;
-  }
-  // Rimesso nell'ordine dei passi originali (le metriche a sé valgono 0).
-  const out: number[] = [];
-  let k = 0;
-  for (const p of passi) out.push(p.t === "metrica" ? 0 : quanti[k++]);
-  return out;
-}
+// `quantiPerPasso` stava qui: contava rifacendo il giro per conto suo. Tolta il
+// 10/08/2026 — i conti escono da `ordinaPerPassiConConti`, cioè dallo stesso
+// giro che produce la fila. Vedi il commento lì sopra per il motivo.
 
 
 /**

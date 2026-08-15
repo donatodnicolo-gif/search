@@ -430,6 +430,18 @@ porta **3120**. Design system Deluxy v1.0.
   - **Verificato**: scombinando la fila (primo prodotto mandato in fondo) e lanciando quello che farà il cron, l'ordine **torna identico** a quello vero — prima la collezione non veniva nemmeno toccata. La data di modifica è stata riportata al valore di prima, per non lasciare la collezione segnata «da mandare al negozio» con un ordine identico.
   - **Nota su cosa il cron NON fa**, ed è voluto: non fa **entrare** prodotti nuovi (`aggiungiDaRegola` non è chiamata dal giro notturno) e non **toglie** quelli oltre il massimo. Rimescola l'ordine di chi c'è già; l'appartenenza si cambia solo con un gesto.
 
+- ⭐ **10/08/2026 — i «Porta N prodotti» sotto le condizioni erano contati su un campione, e per giunta alfabetico** (chiesto dall'utente: «sei sicuro i risultati siano giusti? motiva con una tabella»). Il costruttore delle condizioni legge il catalogo con `take: MAX_CATALOGO` e `orderBy: nome asc`: **900 contro 1.014 prodotti in vendita**. Non un campione, quindi, ma sistematicamente i prodotti col nome nella prima parte dell'alfabeto — e i conti sotto ogni passo uscivano **sempre per difetto**, che è il modo peggiore di sbagliare qui: una condizione sembra portare meno di quanto porta, e si finisce per aggiungerne un'altra che non serviva. Misurato sulla collezione «Torte»:
+
+  | # | Condizione | Diceva | Vero | |
+  |---|---|---|---|---|
+  | 1 | TORTE_DOLCI + prezzo da 100 € | 83 | **99** | +16 |
+  | 2 | TORTE_DOLCI + zona ITALY-MILAN(MI) | 104 | **105** | +1 |
+  | 3 | TORTE_DOLCI + urgenze + città Milano | 22 | **23** | +1 |
+  | 4 | Cake Design + TORTE_DOLCI | 111 | **131** | +20 |
+
+  Su «Regali Best Seller» lo scarto era anche maggiore (passo 2: 150 → 182; passo 6: 150 → 181), mentre su «Fiori» era **zero**: lì i prodotti che le condizioni prendono stavano tutti dentro i primi 900 nomi. Ecco perché il difetto non si vedeva guardando una collezione a caso. `MAX_CATALOGO` portato a **5000**: resta un tetto (e la pagina dichiara già `campione` se lo superasse), ma sta **sopra** il catalogo vero invece che dentro.
+- **10/08/2026 — una sola implementazione per fila e conteggi** (`ordinaPerPassiConConti`). Cercando il difetto qui sopra ne è saltato fuori un altro, latente: `quantiPerPasso` era una **seconda** implementazione del giro a turno, e i suoi gruppi **non erano ordinati** — non potevano esserlo, era sincrona mentre il venduto («più venduti», «più fatturato») si legge dal database. Siccome l'assegnazione va a turno, chi si aggiudica un prodotto che sta in due condizioni dipende da **dove sta nella sua fila**: con gruppi non ordinati i conteggi potevano non essere quelli veri. Sui dati di oggi i due davano gli stessi numeri (la pagina passava già una lista pre-ordinata), quindi **non è questo che l'utente vedeva** — ma era una divergenza in attesa di succedere. Ora il conto esce dallo stesso giro che costruisce la fila e `quantiPerPasso` è stata tolta. Ironia registrata: il commento di quella funzione diceva di rifare il giro «perché è così che due parti dell'app cominciano a raccontare cose diverse».
+
 ## COME AVVIARE
 ```
 cd deluxy-merchandising

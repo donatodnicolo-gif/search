@@ -3,7 +3,7 @@ import { FreschezzaVenduto } from "@/components/FreschezzaVenduto";
 import { Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
 import { euro } from "@/lib/dominio";
-import { etichettaRegola, FILTRO_IN_SCENA, isRegola, ordinaPerPassi, ordinaProdotti, parseRegole, quantiPerPasso, type RegolaOrdinamento } from "@/lib/ordinamento-vetrina";
+import { etichettaRegola, FILTRO_IN_SCENA, isRegola, ordinaPerPassiConConti, ordinaProdotti, parseRegole, type RegolaOrdinamento } from "@/lib/ordinamento-vetrina";
 import { SelettoreRegole } from "@/components/SelettoreRegole";
 import { CostruttorePassi } from "@/components/CostruttorePassi";
 import { FilaProdotti, StatoNegozio } from "@/components/FilaProdotti";
@@ -40,10 +40,25 @@ export const maxDuration = 120;
 const MAX_RIGHE = 300;
 const NOMI_METRICHE = Object.fromEntries(REGOLE.map((r) => [r.chiave, r.nome]));
 const MAX_ANTEPRIMA = 60;
-// Il campione di catalogo su cui il costruttore delle condizioni fa i conti nel
-// browser: mandarne quattromila per un numero che cambia a ogni spunta non vale
-// il peso della pagina. Il taglio e' dichiarato a schermo.
-const MAX_CATALOGO = 900;
+// Il catalogo su cui il costruttore delle condizioni fa i conti nel browser. Il
+// tetto serve a non mandare alla pagina tutte e 4.600 le schede del catalogo per
+// un numero che cambia a ogni spunta — ma **quelle in vendita vanno prese
+// tutte**, perché sono loro l'universo su cui le condizioni scelgono.
+//
+// ⚠️ Era **900** contro **1.014 prodotti in vendita**, con `orderBy: nome asc`:
+// i «Porta N prodotti» sotto ogni condizione erano calcolati su un campione, e
+// per giunta tagliato **in ordine alfabetico** — quindi non un campione, ma
+// sistematicamente i prodotti col nome nella prima parte dell'alfabeto.
+// Misurato sulla collezione «Torte» il 10/08/2026 (segnalato dall'utente, «sei
+// sicuro i risultati siano giusti?»): i passi dichiaravano 83 · 104 · 22 · 111
+// mentre i veri erano 99 · 105 · 23 · 131. Sempre **per difetto**, il che è il
+// modo peggiore di sbagliare qui: una condizione sembra portare meno di quanto
+// porta, e si finisce per aggiungerne un'altra che non serviva.
+//
+// Il numero resta un tetto — se un giorno i prodotti in vendita lo superassero,
+// la pagina lo dichiara già a schermo (`campione`) — ma sta sopra il catalogo
+// vero, non dentro.
+const MAX_CATALOGO = 5000;
 
 export default async function CurazioneCollezionePage({
   params,
@@ -252,9 +267,12 @@ export default async function CurazioneCollezionePage({
     c.aggiuntaAutomatica && passiSalvati.length > 0
       ? perAnteprima.filter((p) => !idsDentro.has(p.id) && passiSalvati.some((x) => x.t !== "metrica" && corrisponde(p, x)))
       : [];
-  const filaCompleta =
+  // La fila **e** quanti ne mette ogni passo escono dalla stessa chiamata: erano
+  // due funzioni, e la seconda contava su gruppi non ordinati — quindi diceva
+  // numeri che nella fila non si ritrovavano.
+  const esitoFila =
     passiSalvati.length > 0
-      ? await ordinaPerPassi(
+      ? await ordinaPerPassiConConti(
           [
             ...inScena.map((vp) => ({ ...vp.prodotto, id: vp.prodottoId, prodottoId: vp.prodottoId, posizione: vp.posizione })),
             // `creatoIl` è solo un riempitivo per il tipo: la novità la decide
@@ -265,7 +283,8 @@ export default async function CurazioneCollezionePage({
           ],
           passiSalvati,
         )
-      : [];
+      : { fila: [], quanti: [] as number[] };
+  const filaCompleta = esitoFila.fila;
   // **In anteprima ci vanno quelli che i passi prendono davvero.** Nella fila
   // completa restano anche i prodotti che nessuna cella tocca — l'ordinamento
   // non toglie nessuno dalla collezione — ma mostrarli sotto «come usciranno coi
@@ -277,7 +296,7 @@ export default async function CurazioneCollezionePage({
   // corrisponde, e quanti gliene restano dopo che i passi sopra hanno preso i
   // loro. Un passo con la stessa condizione di uno sopra corrisponde a tanti e
   // non porta nessuno — e senza scriverlo lo si cerca invano nella fila.
-  const conti = quantiPerPasso(filaCompleta, passiSalvati).map((suoi, i) => ({
+  const conti = esitoFila.quanti.map((suoi, i) => ({
     suoi,
     corrisponde: passiSalvati[i].t === "metrica" ? 0 : filaCompleta.filter((x) => corrisponde(x, passiSalvati[i])).length,
   }));
