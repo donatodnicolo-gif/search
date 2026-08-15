@@ -12,6 +12,7 @@ import { CoperturaCampagna } from "@/components/CoperturaCampagna";
 import { CoperturaGruppi } from "@/components/CoperturaGruppi";
 import { DestinazioniCampagna } from "@/components/DestinazioniCampagna";
 import { EstensioniCampagna } from "@/components/EstensioniCampagna";
+import { CodaCampagna } from "@/components/CodaCampagna";
 import { OggiCampagna } from "@/components/OggiCampagna";
 import { PerformancePeriodi } from "@/components/PerformancePeriodi";
 import { SegmentiCampagna } from "@/components/SegmentiCampagna";
@@ -566,6 +567,12 @@ export default async function SchedaCampagna({
               Per rimetterla in giro basta cambiarle stato qui sopra.
             </span>
           </div>
+        )}
+
+        {/* Cosa sta per succedere su Google: in evidenza, non in fondo
+            mescolato allo storico. */}
+        {!defunta && (
+          <CodaCampagna campagnaId={campagna.id} ritorno={`/campagne/${campagna.id}`} />
         )}
 
         {!defunta && <FreschezzaDati brand={campagna.brand} canale={campagna.canale} />}
