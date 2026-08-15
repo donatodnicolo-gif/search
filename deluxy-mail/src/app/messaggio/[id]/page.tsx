@@ -24,6 +24,7 @@ import { richiediUtente } from '@/lib/sessione'
 import { messaggiThread, membriThread, righeThread, leggiRiassuntoThread } from '@/lib/sync'
 import { TraduzioneAllApertura } from '@/components/TraduzioneAllApertura'
 import { AllegatiMessaggio } from '@/components/AllegatiMessaggio'
+import { AllegatiInTesta } from '@/components/AllegatiInTesta'
 import { chiaveThread } from '@/lib/thread'
 import { nomeDiThread } from '@/lib/nomiThread'
 import { NomeThreadBottone, NomeThreadDialog } from '@/components/NomeThreadRiga'
@@ -292,10 +293,10 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
                     : 'te'}
               </span>
             )}
+            {/* La graffetta si APRE e mostra i file: prima diceva solo quanti
+                erano, e per prenderli bisognava scorrere sotto tutta la mail. */}
             {messaggio.allegati > 0 && (
-              <span className="badge neutral">
-                📎 {messaggio.allegati}
-              </span>
+              <AllegatiInTesta messaggioId={messaggio.id} quanti={messaggio.allegati} />
             )}
 
             <PrioritaButtons

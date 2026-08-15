@@ -437,6 +437,9 @@ Tre cose che rendono la pila leggibile:
 - **Si gira con la tastiera**: `j` e `k` per muoversi fra i messaggi, `Invio` per
   aprire e chiudere, `r` per rispondere a quello su cui sei. (Non mentre scrivi: dentro
   un campo di testo le lettere restano lettere.)
+- **La graffetta in cima alla mail si apre**: `📎 5` non è più solo un'etichetta — cliccala
+  e l'elenco dei file compare lì, in testa, senza scorrere fino in fondo alla mail. Su una
+  catena di risposte citate era un bel po' di rotella.
 - **Gli allegati si aprono dentro la pila**: la graffetta sulla riga dice che ci sono, e
   aprendo quel messaggio compare l'elenco con i file da scaricare. In una conversazione il
   file che cerchi — la planimetria, il preventivo — sta quasi sempre in un messaggio di
