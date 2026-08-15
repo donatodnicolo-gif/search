@@ -6,6 +6,7 @@ import { azioneMassa, corpoDiMessaggio, segnaLetto } from '@/lib/actions'
 import { CorpoMessaggio } from './CorpoMessaggio'
 import { RispostaAzioni } from './RispostaAzioni'
 import { StaccaRiga } from './StaccaRiga'
+import { AllegatiMessaggio } from './AllegatiMessaggio'
 import { BottoneApp } from './BottoneApp'
 import { DelegaReneBottone } from './DelegaRene'
 import { dichiaraFuocoConversazione } from './fuocoConversazione'
@@ -246,6 +247,13 @@ export function ConversazioneStack({ righe, correnteId, oggetto }: Props) {
               {aperta && !corrente && (
                 <div className="conv-corpo">
                   <CorpoDellaRiga id={r.id} />
+                  {/* ⚠️ Gli ALLEGATI anche qui dentro. La graffetta sulla riga
+                      diceva che c'erano, ma per aprirli bisognava andare sulla
+                      mail a tutta pagina — e in una conversazione il file che
+                      cerchi (la planimetria, il preventivo) sta quasi sempre in
+                      un messaggio di MEZZO. Segnalato il 9/08/2026. L'elenco si
+                      chiede al server solo quando apri quel messaggio. */}
+                  {r.allegati > 0 && <AllegatiMessaggio messaggioId={r.id} quanti={r.allegati} />}
                   <div className="conv-azioni">
                     <RispostaAzioni id={r.id} />
                     {!eLetta(r) && r.direzione === 'entrata' && (

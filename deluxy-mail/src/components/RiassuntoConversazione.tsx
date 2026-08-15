@@ -59,10 +59,14 @@ type Salvato = {
 export function RiassuntoConversazione({
   messaggioId,
   iniziale,
+  messaggiOra,
   autoAggiorna = false,
 }: {
   messaggioId: string
   iniziale: Salvato | null
+  /** Quanti messaggi ha ORA la conversazione: se sono più di quelli su cui il
+   *  riassunto è stato fatto, quel riassunto è vecchio e va detto. */
+  messaggiOra?: number
   /** True se il thread è AI+ e il riassunto è vecchio: lo rigenera da solo
    *  all'apertura, SOLO per questa conversazione (niente conteggi globali). */
   autoAggiorna?: boolean
@@ -115,18 +119,24 @@ export function RiassuntoConversazione({
             si legge in dieci secondi e un riassunto lungo è tempo perso; una
             da trenta, prima di una riunione, va sviscerata. */}
         <span style={{ display: 'inline-flex', gap: 6, flexWrap: 'wrap' }}>
-          {LIVELLI.map((l) => (
-            <button
-              key={l.codice}
-              type="button"
-              className={`btn ${dati?.analisi.livello === l.codice ? 'primary' : 'secondary'} small`}
-              disabled={lavora}
-              title={l.titolo}
-              onClick={() => genera(l.codice)}
-            >
-              {lavora && ultimo === l.codice ? 'Leggo…' : l.etichetta}
-            </button>
-          ))}
+          {LIVELLI.map((l) => {
+            // ⚠️ Il tasto del livello ATTIVO deve dire che si può ripremere:
+            // acceso e basta sembra uno stato, non un comando — e infatti è
+            // stato chiesto «come posso rilanciare il riassunto?» (9/08/2026).
+            const corrente = Boolean(dati) && dati?.analisi.livello === l.codice
+            return (
+              <button
+                key={l.codice}
+                type="button"
+                className={`btn ${corrente ? 'primary' : 'secondary'} small`}
+                disabled={lavora}
+                title={corrente ? `Rifai la lettura ${l.etichetta.toLowerCase()} da capo` : l.titolo}
+                onClick={() => genera(l.codice)}
+              >
+                {lavora && ultimo === l.codice ? 'Leggo…' : corrente ? `↻ ${l.etichetta}` : l.etichetta}
+              </button>
+            )
+          })}
         </span>
       </div>
 
@@ -184,6 +194,20 @@ export function RiassuntoConversazione({
                   )
                 })}
               </ul>
+            </div>
+          )}
+
+          {/* ⚠️ VECCHIO si dice, non si lascia indovinare: un riassunto fatto
+              su 10 messaggi quando ora sono 17 non è sbagliato, è indietro — e
+              chi lo legge deve saperlo prima di fidarsene. */}
+          {typeof messaggiOra === 'number' && messaggiOra > dati.messaggiVisti && (
+            <div style={{ marginTop: 12, fontSize: 12.5 }}>
+              <span className="badge neutral">
+                <span className="dot" />
+                Da aggiornare
+              </span>{' '}
+              Questa lettura è stata fatta su {dati.messaggiVisti} messaggi, adesso la
+              conversazione ne ha {messaggiOra}. Ripremi un livello qui sopra per rifarla.
             </div>
           )}
 

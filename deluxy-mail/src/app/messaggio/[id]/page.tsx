@@ -434,6 +434,9 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
 
           <RiassuntoConversazione
             messaggioId={messaggio.id}
+            // Quanti messaggi ha ORA: serve a dire in chiaro quando il
+            // riassunto è vecchio (fatto su 10, adesso sono 17).
+            messaggiOra={conversazione.length}
             // Riassunto VECCHIO = generato quando la conversazione aveva meno
             // messaggi di adesso (o mai generato). Se il thread è AI+ e il
             // riassunto è vecchio, il componente lo rigenera da solo — SOLO per

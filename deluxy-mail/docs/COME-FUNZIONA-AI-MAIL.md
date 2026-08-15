@@ -232,6 +232,11 @@ solo finché non ricarichi è una ricerca che rifarai a mano.
 In fondo al riassunto è scritto con quale livello è stato fatto, così due righe non
 sembrano un riassunto povero quando erano una lettura veloce.
 
+**Per rifarlo** basta ripremere un livello: quello attivo diventa **«↻ Profondo»**. E se
+nel frattempo sono arrivate altre mail, sopra compare **«Da aggiornare»** con il conto —
+«fatta su 10 messaggi, adesso sono 17» — perché un riassunto vecchio non è sbagliato, è
+indietro, e chi lo legge deve saperlo prima di fidarsene.
+
 **Le mail precedenti, mentre scrivi.** Sopra il modulo di risposta c'è **«Le mail
 precedenti (4)»**: si apre, si clicca su un messaggio e se ne legge il testo lì, senza
 lasciare quello che stai scrivendo. I testi si caricano uno alla volta, quando apri quel
@@ -432,6 +437,10 @@ Tre cose che rendono la pila leggibile:
 - **Si gira con la tastiera**: `j` e `k` per muoversi fra i messaggi, `Invio` per
   aprire e chiudere, `r` per rispondere a quello su cui sei. (Non mentre scrivi: dentro
   un campo di testo le lettere restano lettere.)
+- **Gli allegati si aprono dentro la pila**: la graffetta sulla riga dice che ci sono, e
+  aprendo quel messaggio compare l'elenco con i file da scaricare. In una conversazione il
+  file che cerchi — la planimetria, il preventivo — sta quasi sempre in un messaggio di
+  mezzo, e prima bisognava aprirlo a tutta pagina.
 - **Ogni messaggio è azionabile dov'è**: Rispondi, A tutti, Inoltra, «✓ Segna come
   letto», **→ App** (manda i dati a un'app Deluxy) e **Delega Renè** stanno su ogni
   mail della pila, non solo sulla prima. In un thread la mail che interessa al registro
