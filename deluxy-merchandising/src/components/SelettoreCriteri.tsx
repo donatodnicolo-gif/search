@@ -50,7 +50,10 @@ export function SelettoreCriteri({ criteri, voci }: { criteri: Criteri; voci: Vo
         sceglierne più d'uno; lascia vuoto un riquadro per non usarlo.
       </p>
 
-      <div className="modulo" style={{ gridTemplateColumns: "1fr 1fr" }}>
+      {/* Classe e non stile inline: lo stile inline vince sempre sulla media
+          query che sotto gli 800px porta .modulo a una colonna — la trappola
+          già pagata con le classifiche su tablet. */}
+      <div className="modulo modulo-due">
         <Riquadro titolo="Fascia di prezzo" nota={`${voci.fasce.length} fasce · è quella in cui cade il prezzo`}>
           <select name="crit_fasce" multiple defaultValue={criteri.fasce ?? []} size={righe(voci.fasce.length)} style={STILE}>
             {voci.fasce.map((f) => (

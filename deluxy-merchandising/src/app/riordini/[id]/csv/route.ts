@@ -12,7 +12,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   if (!piano) return new Response("Ipotesi non trovata", { status: 404 });
 
   const esc = (v: string | number | null | undefined) => {
-    const s = String(v ?? "");
+    let s = String(v ?? "");
+    // Neutralizza i prefissi-formula (=, +, -, @): Excel italiano apre il file
+    // senza chiedere niente, e un nome prodotto scritto sul negozio da un'app
+    // terza non deve poter eseguire nulla. I numeri veri restano numeri.
+    if (/^[=+\-@\t\r]/.test(s) && !/^-?\d+([.,]\d+)?$/.test(s)) s = `'${s}`;
     return /[";\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
   const num = (n: number) => n.toFixed(2).replace(".", ",");

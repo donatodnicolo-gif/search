@@ -314,7 +314,7 @@ export default async function VisualPage({
   );
 
   const dataIt = (d: Date | null) =>
-    d ? d.toLocaleDateString("it-IT", { day: "2-digit", month: "short", year: "numeric" }) : "—";
+    d ? d.toLocaleDateString("it-IT", { day: "2-digit", month: "short", year: "numeric", timeZone: "Europe/Rome" }) : "—";
 
   return (
     <div className="layout">
@@ -572,7 +572,7 @@ export default async function VisualPage({
                               const scaduta = q.getTime() <= oggi.getTime();
                               return (
                                 <span className="cella-sub" style={scaduta ? { color: "var(--gold-strong)", fontWeight: 600 } : undefined}>
-                                  {scaduta ? "al prossimo cron" : q.toLocaleDateString("it-IT", { day: "numeric", month: "short" })}
+                                  {scaduta ? "al prossimo cron" : q.toLocaleDateString("it-IT", { day: "numeric", month: "short", timeZone: "Europe/Rome" })}
                                 </span>
                               );
                             })()

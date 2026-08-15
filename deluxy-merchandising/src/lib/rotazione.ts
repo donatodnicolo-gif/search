@@ -101,17 +101,28 @@ export function prossimaVolta(
 /**
  * Ruota le posizioni di una collezione: i primi `passo` prodotti passano in
  * fondo. Non tocca *quali* prodotti ci sono, solo il loro turno in cima.
+ *
+ * Si ruotano **solo i prodotti in scena** (`FILTRO_IN_SCENA`): due schede su
+ * tre delle collezioni importate sono archiviate su Shopify, e ruotare gli
+ * invisibili vorrebbe dire spostare in fondo prodotti che il cliente non vede —
+ * la vetrina vera resterebbe identica mentre l'esito direbbe «ruotata». Gli
+ * altri membri restano in coda, com'è nella fila mostrata in pagina.
  */
 async function ruotaCollezione(collezioneId: string, passo: number): Promise<void> {
   const membri = await prisma.prodottoInCollezioneShopify.findMany({
     where: { collezioneId },
     orderBy: [{ posizione: "asc" }, { prodotto: { nome: "asc" } }],
-    select: { prodottoId: true },
+    select: { prodottoId: true, prodotto: { select: { statoShopify: true, fase: true } } },
   });
-  if (membri.length < 2) return; // con un prodotto solo ruotare non vuol dire niente
-  const n = Math.max(1, Math.min(passo, membri.length - 1));
-  const ids = membri.map((m) => m.prodottoId);
-  const ordine = [...ids.slice(n), ...ids.slice(0, n)];
+  const inScena = membri.filter(
+    (m) => m.prodotto.statoShopify === "ACTIVE" && m.prodotto.fase !== "archiviato",
+  );
+  if (inScena.length < 2) return; // con un prodotto visibile solo, ruotare non vuol dire niente
+  const n = Math.max(1, Math.min(passo, inScena.length - 1));
+  const ids = inScena.map((m) => m.prodottoId);
+  const idInScena = new Set(ids);
+  const fuoriScena = membri.map((m) => m.prodottoId).filter((id) => !idInScena.has(id));
+  const ordine = [...ids.slice(n), ...ids.slice(0, n), ...fuoriScena];
   await numeraPosizioni(collezioneId, ordine);
   await prisma.collezioneShopify.update({
     where: { id: collezioneId },

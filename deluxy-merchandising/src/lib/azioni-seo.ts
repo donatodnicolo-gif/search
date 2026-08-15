@@ -25,6 +25,14 @@ export async function salvaSeoProdotto(id: string, fd: FormData) {
     },
   });
   revalidatePath(`/prodotti/${id}`);
+  // Come la gemella sulla collezione, e per lo stesso motivo (segnalato due
+  // volte dall'utente su form diversi): salvare e tacere sembra non salvare.
+  // Il redirect toglie anche `seoModifica` dalla query, chiudendo la matita.
+  redirect(
+    `/prodotti/${id}?tab=shopify&esito=ok&messaggio=${encodeURIComponent(
+      "Bozza SEO salvata. Il negozio non cambia finché non premi «Manda al negozio».",
+    )}`,
+  );
 }
 
 export async function salvaSeoCollezione(id: string, fd: FormData) {
@@ -177,21 +185,28 @@ export async function spingiSeoSuShopify(tipo: "prodotto" | "collezione", id: st
       ? `mutation($input: ProductInput!) { productUpdate(input: $input) { product { id seo { title description } } userErrors { field message } } }`
       : `mutation($input: CollectionInput!) { collectionUpdate(input: $input) { collection { id seo { title description } } userErrors { field message } } }`;
 
+  // **Si manda solo quello che è stato scritto.** Su SEOInput un campo omesso
+  // resta com'è sul negozio, ma "" esplicito lo CANCELLA: con solo il titolo
+  // compilato, la vecchia `description: ""` azzerava la meta description che il
+  // negozio aveva — e siccome dopo l'invio lo specchio locale si riallineava,
+  // la cancellazione spariva pure dal confronto a due colonne. Cancellare non è
+  // quello che si sta chiedendo: il campo lasciato vuoto non si tocca.
+  const seo: { title?: string; description?: string } = {};
+  if (scheda!.seoTitolo) seo.title = scheda!.seoTitolo;
+  if (scheda!.seoDescrizione) seo.description = scheda!.seoDescrizione;
+
   const r = await graphqlNegozio(accesso!.dominio, accesso!.token, mutazione, {
-    input: {
-      id: scheda!.shopifyId,
-      seo: { title: scheda!.seoTitolo ?? "", description: scheda!.seoDescrizione ?? "" },
-    },
+    input: { id: scheda!.shopifyId, seo },
   });
   const err = erroriDi(r, campo);
   if (err.length) errore(`Shopify ha rifiutato: ${err.join(" · ")}`);
 
+  // Lo specchio locale si riallinea **solo per i campi mandati**: azzerare
+  // anche l'altro nasconderebbe il testo che il negozio ha ancora.
   const adesso = new Date();
-  const dati = {
-    seoSpintoIl: adesso,
-    seoTitoloShopify: scheda!.seoTitolo,
-    seoDescrizioneShopify: scheda!.seoDescrizione,
-  };
+  const dati: Record<string, unknown> = { seoSpintoIl: adesso };
+  if (scheda!.seoTitolo) dati.seoTitoloShopify = scheda!.seoTitolo;
+  if (scheda!.seoDescrizione) dati.seoDescrizioneShopify = scheda!.seoDescrizione;
   if (tipo === "prodotto") await prisma.prodotto.update({ where: { id }, data: dati });
   else await prisma.collezioneShopify.update({ where: { id }, data: dati });
 

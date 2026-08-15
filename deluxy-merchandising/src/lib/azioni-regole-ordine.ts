@@ -25,7 +25,19 @@ export async function creaRegolaOrdine(fd: FormData) {
 export async function rinominaRegolaOrdine(id: string, fd: FormData) {
   const nome = String(fd.get("nome") ?? "").trim();
   const descrizione = String(fd.get("descrizione") ?? "").trim() || null;
-  if (nome) await prisma.regolaOrdine.update({ where: { id }, data: { nome, descrizione } });
+  // Il nome è @unique: senza questo controllo, rinominare col nome di un'altra
+  // regola faceva esplodere l'azione con la pagina d'errore generica di Next
+  // (P2002 non gestito) — e col nome vuoto salvava niente senza dirlo.
+  if (!nome) {
+    redirect(`/visual/regole/${id}?esito=errore&messaggio=${encodeURIComponent("Il nome serve: è come si ritrova la regola.")}`);
+  }
+  const doppione = await prisma.regolaOrdine.findUnique({ where: { nome }, select: { id: true } });
+  if (doppione && doppione.id !== id) {
+    redirect(
+      `/visual/regole/${id}?esito=errore&messaggio=${encodeURIComponent(`Esiste già una regola che si chiama «${nome}».`)}`,
+    );
+  }
+  await prisma.regolaOrdine.update({ where: { id }, data: { nome, descrizione } });
   revalidatePath(`/visual/regole/${id}`);
 }
 
@@ -200,8 +212,25 @@ async function salvaPassi(id: string, passi: Passo[], fd?: FormData) {
   const tornaA = fd ? String(fd.get("tornaA") ?? "") : "";
   if (tornaA) {
     if (passi.length > 0) {
-      await aggiungiDaRegola(tornaA);
+      // L'esito NON si scarta: un token scaduto qui faceva fallire l'ingresso
+      // dei prodotti su Shopify, ma la pagina si ricaricava con l'ordine
+      // riapplicato come se fosse andato tutto bene — e sul sito non era
+      // entrato nessuno, senza traccia del perché.
+      const e = await aggiungiDaRegola(tornaA);
       await applicaRegolaSalvata(tornaA, id);
+      if (e.errore) {
+        revalidatePath(`/visual/${tornaA}`);
+        redirect(`/visual/${tornaA}?esito=errore&messaggio=${encodeURIComponent(e.errore)}#regola`);
+      }
+      if (e.aggiunti > 0 || e.fermatiDalMassimo) {
+        const parti = [
+          e.aggiunti > 0 ? `${e.aggiunti} prodotti entrati dalla regola.` : "",
+          e.fermatiDalMassimo ? `${e.fermatiDalMassimo} fermati dal massimo della collezione.` : "",
+          e.restano ? `Altri ${e.restano} al prossimo giro.` : "",
+        ].filter(Boolean);
+        revalidatePath(`/visual/${tornaA}`);
+        redirect(`/visual/${tornaA}?esito=ok&messaggio=${encodeURIComponent(parti.join(" "))}#regola`);
+      }
     }
     revalidatePath(`/visual/${tornaA}`);
     redirect(`/visual/${tornaA}#regola`);
@@ -275,7 +304,7 @@ export async function estendiRegolaAllaCollezione(collezioneId: string) {
   const r = await prisma.regolaOrdine.findUnique({ where: { id: c.regolaOrdineId }, select: { passi: true } });
   const passi = parsePassi(r?.passi);
   if (passi.length === 0) return;
-  await aggiungiDaRegola(collezioneId);
+  const e = await aggiungiDaRegola(collezioneId);
   const ordine = await ordineSecondoPassi(collezioneId, [...passi, { t: "metrica", m: "best_seller" }]);
   await numeraPosizioni(collezioneId, ordine);
   await prisma.collezioneShopify.update({
@@ -283,6 +312,11 @@ export async function estendiRegolaAllaCollezione(collezioneId: string) {
     data: { ordineModificatoIl: new Date() },
   });
   revalidatePath(`/visual/${collezioneId}`);
+  // Un errore di Shopify non si inghiotte: senza banner l'utente crede che i
+  // prodotti della regola siano entrati, e sul sito non è entrato nessuno.
+  if (e.errore) {
+    redirect(`/visual/${collezioneId}?esito=errore&messaggio=${encodeURIComponent(e.errore)}#regola`);
+  }
 }
 
 /**
@@ -324,9 +358,21 @@ export async function applicaRegolaSalvataAzione(collezioneId: string, fd: FormD
   // Prima si fa entrare chi la regola porta dentro, poi si ordina: al contrario
   // i nuovi arrivati resterebbero in fondo fino al giro successivo.
   await prisma.collezioneShopify.update({ where: { id: collezioneId }, data: { regolaOrdineId: regolaId } });
-  await aggiungiDaRegola(collezioneId);
+  const e = await aggiungiDaRegola(collezioneId);
   await applicaRegolaSalvata(collezioneId, regolaId);
   revalidatePath(`/visual/${collezioneId}`);
+  // L'esito si dice, non si scarta — errore compreso.
+  if (e.errore) {
+    redirect(`/visual/${collezioneId}?esito=errore&messaggio=${encodeURIComponent(e.errore)}#regola`);
+  }
+  if (e.aggiunti > 0 || e.fermatiDalMassimo) {
+    const parti = [
+      e.aggiunti > 0 ? `${e.aggiunti} prodotti entrati dalla regola.` : "",
+      e.fermatiDalMassimo ? `${e.fermatiDalMassimo} fermati dal massimo della collezione.` : "",
+      e.restano ? `Altri ${e.restano} al prossimo giro.` : "",
+    ].filter(Boolean);
+    redirect(`/visual/${collezioneId}?esito=ok&messaggio=${encodeURIComponent(parti.join(" "))}#regola`);
+  }
 }
 
 /**

@@ -61,7 +61,17 @@ export function TabellaProdotti({ prodotti, mostraCollezione = true }: { prodott
                 <td className="cella-muta">{etichettaCategoria(p.categoria)}</td>
                 <td><Badge testo={ETICHETTA_FASE[p.fase] ?? p.fase} colore={COLORE_FASE[p.fase] ?? "var(--text-tertiary)"} /></td>
                 <td className="num">{euro(p.prezzoVendita)}</td>
-                <td><BarraMargine marginePct={m.marginePct} target={p.collezione?.margineTarget} /></td>
+                {/* Costo mancante ≠ costo zero: con costo 0 calcolaMargine dice
+                    100%, che qui diventava una barra piena e verde su 1.024
+                    prodotti senza costo. Regola della casa: il dato che manca
+                    si esclude, non si inventa — come in /vendite e /anagrafica. */}
+                <td>
+                  {p.costoProduzione > 0 ? (
+                    <BarraMargine marginePct={m.marginePct} target={p.collezione?.margineTarget} />
+                  ) : (
+                    <span className="cella-muta" title="Costo di produzione non inserito">n.d.</span>
+                  )}
+                </td>
                 <td><Badge testo={ETICHETTA_SHOPIFY[p.shopifyStato] ?? p.shopifyStato} colore={COLORE_SHOPIFY[p.shopifyStato] ?? "var(--text-tertiary)"} /></td>
               </tr>
             );

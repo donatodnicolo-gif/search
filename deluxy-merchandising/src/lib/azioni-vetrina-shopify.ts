@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "./db";
 import { tokenDi } from "./negozi";
-import { graphqlNegozio } from "./shopify-scrittura";
+import { erroriDi, graphqlNegozio } from "./shopify-scrittura";
 import { numeraPosizioni, applicaRegoleACollezione, regoleDaForm, FILTRO_IN_SCENA } from "./ordinamento-vetrina";
 
 /** Applica una o più regole in priorità: propone l'ordine come punto di partenza. */
@@ -86,7 +86,7 @@ export async function rimuoviProdottoDaCollezione(collezioneId: string, prodotto
   const accesso = negozio ? await tokenDi(negozio.id) : null;
   if (!accesso) errore(`Il negozio «${c!.negozio}» non è collegato: serve un token con write_products in Impostazioni.`);
 
-  const { corpo } = await graphqlNegozio(
+  const r = await graphqlNegozio(
     accesso!.dominio,
     accesso!.token,
     `mutation($id: ID!, $productIds: [ID!]!) {
@@ -97,12 +97,9 @@ export async function rimuoviProdottoDaCollezione(collezioneId: string, prodotto
      }`,
     { id: c!.shopifyId, productIds: [riga!.prodottoShopifyId] },
   );
-  const err = [
-    ...(corpo.errors ?? []).map((e) => e.message),
-    ...((corpo.data?.collectionRemoveProducts?.userErrors as { message: string }[] | undefined) ?? []).map(
-      (e) => e.message,
-    ),
-  ];
+  // erroriDi e non l'estrazione a mano: conta anche lo status HTTP, così un 502
+  // senza corpo non passa per un successo.
+  const err = erroriDi(r, "collectionRemoveProducts");
   if (err.length) errore(`Shopify ha rifiutato: ${err.join(" · ")}`);
 
   // Solo adesso si toglie la riga qui: se il negozio avesse detto no, l'app
@@ -184,7 +181,7 @@ export async function spingiOrdineSuShopifySilenzioso(collezioneId: string): Pro
 
   // 1) sortOrder = MANUAL (se non lo è già): senza, il riordino viene rifiutato.
   if (c.ordinamento !== "MANUAL") {
-    const { corpo } = await graphqlNegozio(
+    const r1 = await graphqlNegozio(
       accesso.dominio,
       accesso.token,
       `mutation($input: CollectionInput!) {
@@ -192,10 +189,7 @@ export async function spingiOrdineSuShopifySilenzioso(collezioneId: string): Pro
        }`,
       { input: { id: c.shopifyId, sortOrder: "MANUAL" } }
     );
-    const err = [
-      ...(corpo.errors ?? []).map((e) => e.message),
-      ...((corpo.data?.collectionUpdate?.userErrors as { message: string }[] | undefined) ?? []).map((e) => e.message),
-    ];
+    const err = erroriDi(r1, "collectionUpdate");
     if (err.length) return `Shopify non ha messo l'ordine su «manuale»: ${err.join(" · ")}`;
     // Da qui in poi la collezione **non si riordina più da sola** sul negozio:
     // era «${c.ordinamento}», adesso è manuale. È una conseguenza vera del
@@ -205,7 +199,7 @@ export async function spingiOrdineSuShopifySilenzioso(collezioneId: string): Pro
   // 2) le mosse, a blocchi: si riordina tutto verso la testa nell'ordine curato.
   const moves = membri.map((m, i) => ({ id: m.prodottoShopifyId as string, newPosition: String(i) }));
   for (let i = 0; i < moves.length; i += 200) {
-    const { corpo } = await graphqlNegozio(
+    const r2 = await graphqlNegozio(
       accesso.dominio,
       accesso.token,
       `mutation($id: ID!, $moves: [MoveInput!]!) {
@@ -216,12 +210,7 @@ export async function spingiOrdineSuShopifySilenzioso(collezioneId: string): Pro
        }`,
       { id: c.shopifyId, moves: moves.slice(i, i + 200) }
     );
-    const err = [
-      ...(corpo.errors ?? []).map((e) => e.message),
-      ...((corpo.data?.collectionReorderProducts?.userErrors as { message: string }[] | undefined) ?? []).map(
-        (e) => e.message
-      ),
-    ];
+    const err = erroriDi(r2, "collectionReorderProducts");
     if (err.length) return `Shopify ha rifiutato il riordino: ${err.join(" · ")}`;
   }
 
@@ -294,10 +283,12 @@ export async function spostaSceltiInCollezione(
 /**
  * **Toglie in blocco i prodotti scelti dalla collezione, sul negozio.**
  *
- * Una sola chiamata a `collectionRemoveProducts` con tutti gli id: Shopify la
- * accetta, e mandarne dieci separate vorrebbe dire dieci occasioni di restare a
- * metà. Come per il singolo, le righe locali si cancellano **solo se il negozio
- * conferma**, e solo per i prodotti davvero mandati.
+ * A blocchi di **250**, che è quanti ne accetta `collectionRemoveProducts` per
+ * chiamata (il commento diceva «Shopify la accetta» — vero solo fino a 250, e
+ * con «Tutti» la pagina ne spunta fino a 300). Ogni blocco cancella le sue
+ * righe locali **subito dopo** la conferma del negozio, non tutte alla fine:
+ * se il secondo blocco fallisce, il primo è uscito sul sito e deve risultare
+ * uscito anche qui — stessa lezione di `potaCollezione`.
  */
 export async function rimuoviSceltiDaCollezione(collezioneId: string, fd: FormData) {
   const scelti = sceltiDa(fd);
@@ -337,26 +328,32 @@ export async function rimuoviSceltiDaCollezione(collezioneId: string, fd: FormDa
   const accesso = negozio ? await tokenDi(negozio.id) : null;
   if (!accesso) errore(`Il negozio «${c!.negozio}» non è collegato: serve un token con write_products in Impostazioni.`);
 
-  const { corpo } = await graphqlNegozio(
-    accesso!.dominio,
-    accesso!.token,
-    `mutation($id: ID!, $productIds: [ID!]!) {
-       collectionRemoveProducts(id: $id, productIds: $productIds) {
-         job { id done }
-         userErrors { field message }
-       }
-     }`,
-    { id: c!.shopifyId, productIds: righe.map((r) => r.prodottoShopifyId as string) },
-  );
-  const err = [
-    ...(corpo.errors ?? []).map((e) => e.message),
-    ...((corpo.data?.collectionRemoveProducts?.userErrors as { message: string }[] | undefined) ?? []).map(
-      (e) => e.message,
-    ),
-  ];
-  if (err.length) errore(`Shopify ha rifiutato: ${err.join(" · ")}`);
-
-  await prisma.prodottoInCollezioneShopify.deleteMany({ where: { id: { in: righe.map((r) => r.id) } } });
+  const PER_CHIAMATA = 250;
+  let tolti = 0;
+  for (let i = 0; i < righe.length; i += PER_CHIAMATA) {
+    const blocco = righe.slice(i, i + PER_CHIAMATA);
+    const r = await graphqlNegozio(
+      accesso!.dominio,
+      accesso!.token,
+      `mutation($id: ID!, $productIds: [ID!]!) {
+         collectionRemoveProducts(id: $id, productIds: $productIds) {
+           job { id done }
+           userErrors { field message }
+         }
+       }`,
+      { id: c!.shopifyId, productIds: blocco.map((x) => x.prodottoShopifyId as string) },
+    );
+    const err = erroriDi(r, "collectionRemoveProducts");
+    if (err.length) {
+      errore(
+        tolti === 0
+          ? `Shopify ha rifiutato: ${err.join(" · ")}`
+          : `Shopify ha rifiutato dopo i primi ${tolti}: ${err.join(" · ")}. Quei ${tolti} sono usciti davvero; ripremi per gli altri.`,
+      );
+    }
+    await prisma.prodottoInCollezioneShopify.deleteMany({ where: { id: { in: blocco.map((x) => x.id) } } });
+    tolti += blocco.length;
+  }
   revalidatePath(`/visual/${collezioneId}`);
   revalidatePath(`/collezioni/shopify/${collezioneId}`);
 }
@@ -402,7 +399,7 @@ export async function aggiungiProdottiACollezione(collezioneId: string, fd: Form
   const accesso = negozio ? await tokenDi(negozio.id) : null;
   if (!accesso) errore(`Il negozio «${c!.negozio}» non è collegato: serve un token con write_products in Impostazioni.`);
 
-  const { corpo } = await graphqlNegozio(
+  const rAgg = await graphqlNegozio(
     accesso!.dominio,
     accesso!.token,
     `mutation($id: ID!, $productIds: [ID!]!) {
@@ -413,10 +410,7 @@ export async function aggiungiProdottiACollezione(collezioneId: string, fd: Form
      }`,
     { id: c!.shopifyId, productIds: prodotti.map((p) => p.shopifyId as string) },
   );
-  const err = [
-    ...(corpo.errors ?? []).map((e) => e.message),
-    ...((corpo.data?.collectionAddProducts?.userErrors as { message: string }[] | undefined) ?? []).map((e) => e.message),
-  ];
+  const err = erroriDi(rAgg, "collectionAddProducts");
   if (err.length) errore(`Shopify ha rifiutato: ${err.join(" · ")}`);
 
   const ultima = await prisma.prodottoInCollezioneShopify.aggregate({

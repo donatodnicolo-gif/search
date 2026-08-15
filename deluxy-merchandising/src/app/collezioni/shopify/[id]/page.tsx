@@ -4,6 +4,7 @@ import { BarraQuota } from "@/components/Grafico";
 import { RiquadroSeo } from "@/components/RiquadroSeo";
 import { Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
+import { dataIt } from "@/lib/fuso";
 import { linkAdmin, linkSito } from "@/lib/link-shopify";
 import { FilaProdotti } from "@/components/FilaProdotti";
 import { CampoNegozioModificabile } from "@/components/CampoNegozio";
@@ -282,7 +283,7 @@ export default async function CollezioneShopifyPage({
                           const scaduta = q != null && q.getTime() <= Date.now();
                           return (
                             <>
-                              {scaduta ? "al prossimo giro del cron" : (q?.toLocaleDateString("it-IT") ?? "—")} ·{" "}
+                              {scaduta ? "al prossimo giro del cron" : (q ? dataIt(q) : "—")} ·{" "}
                               {etichettaFrequenza(collezione.rotazione.frequenza, collezione.rotazione.ogniQuanti).toLowerCase()},{" "}
                               {etichettaModo(collezione.rotazione.modo).toLowerCase()}
                             </>

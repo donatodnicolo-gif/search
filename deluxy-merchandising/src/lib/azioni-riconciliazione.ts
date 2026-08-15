@@ -44,10 +44,45 @@ export async function unisciAzione(masterId: string, fd: FormData) {
         encodeURIComponent(`«${gia[0].nome}» è già unito a un'altra scheda: separalo prima.`),
     );
 
+  // Il controllo qui sopra guarda gli assorbiti; questi due guardano gli altri
+  // due versi della stessa catena, che erano rimasti scoperti:
+  // - un assorbito che ha a sua volta **assorbito altri** (un master) passava il
+  //   controllo perché il suo `unitoAId` è null — e l'updateMany più sotto
+  //   avrebbe sovrascritto la provenienza delle righe dei suoi assorbiti,
+  //   rendendo il loro «separa» un bottone che non rimette niente;
+  // - il **masterId stesso** poteva essere una scheda già assorbita (quindi
+  //   esclusa dalle analisi): il venduto sarebbe finito su una scheda che non
+  //   si vede da nessuna parte.
+  const assorbitiCheHannoAssorbito = await prisma.prodotto.findMany({
+    where: { unitoAId: { in: assorbiti } },
+    select: { unitoA: { select: { nome: true } } },
+  });
+  if (assorbitiCheHannoAssorbito.length > 0)
+    redirect(
+      `/prodotti/${masterId}/riconcilia?errore=` +
+        encodeURIComponent(
+          `«${assorbitiCheHannoAssorbito[0].unitoA?.nome}» ha già assorbito altre schede: separale prima, poi unisci.`,
+        ),
+    );
+  const masterAssorbito = await prisma.prodotto.findFirst({
+    where: { id: masterId, unitoAId: { not: null } },
+    select: { id: true },
+  });
+  if (masterAssorbito)
+    redirect(
+      `/prodotti/${masterId}/riconcilia?errore=` +
+        encodeURIComponent("Questa scheda è a sua volta unita a un'altra: separala prima di farle assorbire qualcosa."),
+    );
+
   let righe = 0;
   for (const id of assorbiti) {
+    // `prodottoOriginaleId` si scrive **solo dove è ancora null**: è la
+    // provenienza della riga, e sovrascriverla renderebbe il «separa» di
+    // qualcun altro un'operazione che non rimette niente. Coi guardrail qui
+    // sopra non dovrebbe più succedere; il where è la cintura oltre alle
+    // bretelle, perché qui si toccano dati storici veri.
     const spostate = await prisma.vendita.updateMany({
-      where: { prodottoId: id },
+      where: { prodottoId: id, prodottoOriginaleId: null },
       data: { prodottoId: masterId, prodottoOriginaleId: id },
     });
     righe += spostate.count;

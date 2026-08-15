@@ -48,7 +48,7 @@ export default async function ProdottoPage({
   searchParams: Promise<{ tab?: string; esito?: string; messaggio?: string; seoConferma?: string; modifica?: string; seoModifica?: string }>;
 }) {
   const { id } = await params;
-  const { tab: tabRaw, esito, seoConferma, modifica, seoModifica } = await searchParams;
+  const { tab: tabRaw, esito, messaggio, seoConferma, modifica, seoModifica } = await searchParams;
   const tab = TABS.some(([t]) => t === tabRaw) ? tabRaw! : "panoramica";
 
   const [prodotto, collezioni] = await Promise.all([
@@ -150,7 +150,13 @@ export default async function ProdottoPage({
           </div>
         </div>
 
-        {esito && <div className="avviso avviso-ok">{esito}</div>}
+        {/* Il banner mostra il MESSAGGIO, col tono dell'esito: prima stampava
+            la parola «ok» e gli errori arrivavano vestiti di verde. */}
+        {(messaggio || esito) && (
+          <div className={esito === "errore" ? "avviso avviso-errore" : "avviso avviso-ok"}>
+            {messaggio || esito}
+          </div>
+        )}
 
         {/* ---------- Riconciliazione ----------
             Due schede che sono lo stesso prodotto: qui si dice quali, e il

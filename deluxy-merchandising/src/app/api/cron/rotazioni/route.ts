@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eseguiRotazioniDovute } from "@/lib/rotazione";
+import { stessoSegreto } from "@/lib/segreto-cron";
 
 // Le **rotazioni periodiche** delle collezioni (vedi vercel.json).
 //
@@ -24,7 +25,8 @@ export async function GET(req: NextRequest) {
       { status: 503 }
     );
   }
-  if (req.headers.get("authorization") !== `Bearer ${segreto}`) {
+  // Confronto constant-time: questa rotta scrive sul negozio vero.
+  if (!stessoSegreto(req.headers.get("authorization") ?? "", `Bearer ${segreto}`)) {
     return NextResponse.json({ errore: "Non autorizzato." }, { status: 401 });
   }
 

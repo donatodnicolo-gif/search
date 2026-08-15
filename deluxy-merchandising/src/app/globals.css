@@ -284,7 +284,10 @@ tr.riga-cliccabile:hover, li.riga-cliccabile:hover { background: var(--fill); cu
 }
 .avviso-ok { background: rgba(28, 145, 74, 0.08); color: var(--green); }
 .avviso-attenzione { background: rgba(184, 150, 62, 0.12); color: var(--gold-strong); }
-@media (max-width: 800px) { .modulo { grid-template-columns: 1fr; } }
+/* Due colonne via classe, MAI via stile inline: l'inline vince sulla media
+   query e su telefono le due colonne da 160px restavano — trappola già pagata. */
+.modulo-due { grid-template-columns: 1fr 1fr; }
+@media (max-width: 800px) { .modulo, .modulo.modulo-due { grid-template-columns: 1fr; } }
 
 /* ---------- Scheda ---------- */
 .scheda {
@@ -436,12 +439,21 @@ tr.riga-cliccabile:hover, li.riga-cliccabile:hover { background: var(--fill); cu
   padding: 16px; overflow-x: auto; font-size: 12.5px; line-height: 1.55;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
+/* L'errore si veste da errore. Sei pagine componevano `nota-info nota-errore`
+   ma questa classe non esisteva: un push su Shopify rifiutato arrivava color
+   oro, identico a una conferma, e cambiava solo il glifo. Rosso = solo errori
+   e distruttivo, come da design system. */
 .nota-info {
   display: flex; gap: 10px; padding: 12px 14px; margin-bottom: 18px;
   background: var(--gold-soft); border: 1px solid rgba(184,150,62,.28);
   border-radius: var(--radius-m); font-size: 13.5px; color: var(--text); line-height: 1.5;
 }
 .nota-info .nota-icona { color: var(--gold-strong); flex: 0 0 auto; }
+/* Dopo .nota-info, così a pari specificità vince: sei pagine componevano
+   `nota-info nota-errore` ma la classe non esisteva, e un push rifiutato da
+   Shopify arrivava color oro, identico a una conferma. */
+.nota-info.nota-errore { background: rgba(215, 0, 21, 0.07); border-color: rgba(215, 0, 21, 0.28); color: var(--red); }
+.nota-info.nota-errore .nota-icona { color: var(--red); }
 
 /* ---------- Timeline tappe ---------- */
 .storia { list-style: none; display: flex; flex-direction: column; }
@@ -666,7 +678,10 @@ tr.riga-cliccabile:hover, li.riga-cliccabile:hover { background: var(--fill); cu
 .pill-tema {
   font-size: 10.5px;
   font-weight: 600;
-  color: var(--gold);
+  /* Il testo usa il passo scuro dell'oro: --gold puro su fondo chiaro fa ~2.8:1
+     di contrasto a 10.5px, quasi illeggibile. L'oro resta su fondo e hover —
+     l'accento c'è, ma si legge (stessa scelta di .pill-uso-oro). */
+  color: var(--gold-strong, #8a6f2e);
   background: color-mix(in srgb, var(--gold) 12%, transparent);
   padding: 1px 7px;
   border-radius: 999px;

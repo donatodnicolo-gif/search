@@ -33,10 +33,11 @@ export default async function RiconciliaPage({
   });
   if (!prodotto) notFound();
 
-  const [proposte, venduto] = await Promise.all([
+  const [{ lista: proposte, corrispondenti }, venduto] = await Promise.all([
     candidati(id, sp.cerca),
     prisma.vendita.aggregate({ where: { prodottoId: id }, _sum: { quantita: true, ricavo: true } }),
   ]);
+  const fuoriElenco = corrispondenti - proposte.length;
 
   return (
     <div className="layout">
@@ -140,6 +141,12 @@ export default async function RiconciliaPage({
                 </tbody>
               </table>
             </div>
+            {fuoriElenco > 0 && (
+              <p className="page-sub" style={{ marginTop: 10 }}>
+                Mostrate le {proposte.length} corrispondenze più forti; altre {fuoriElenco} più deboli
+                restano fuori — restringi la ricerca per vederle. Nessun taglio silenzioso.
+              </p>
+            )}
             <div style={{ marginTop: 14, display: "flex", gap: 12, alignItems: "center" }}>
               <button className="btn" type="submit">
                 Unisci le schede scelte a questa

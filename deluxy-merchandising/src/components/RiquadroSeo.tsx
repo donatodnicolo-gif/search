@@ -1,3 +1,4 @@
+import { dataIt } from "@/lib/fuso";
 import { CampiSeo } from "./CampiSeo";
 import {
   copiaSeoDalNegozio,
@@ -163,7 +164,7 @@ export function RiquadroSeo({
               {daMandare ? (
                 <b>Il negozio ha ancora la versione precedente.</b>
               ) : sincronia.spintoIl ? (
-                <>Già mandato il {sincronia.spintoIl.toLocaleDateString("it-IT")}.</>
+                <>Già mandato il {dataIt(sincronia.spintoIl)}.</>
               ) : (
                 <>Non è ancora stato mandato.</>
               )}{" "}

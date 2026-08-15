@@ -6,11 +6,19 @@ async function login(fd: FormData) {
   "use server";
   const password = process.env.MERCHANDISING_APP_PASSWORD;
   const tentativo = String(fd.get("password") ?? "");
-  if (!password || tentativo !== password) {
+  // Confronto sugli hash, non sulle stringhe: il confronto JS termina al primo
+  // byte diverso e in teoria racconta la password un byte alla volta a chi
+  // misura i tempi. Passare dagli hash pareggia lunghezze e contenuto.
+  const ok =
+    Boolean(password) && (await sessionToken(tentativo)) === (await sessionToken(password as string));
+  if (!ok) {
+    // Un solo tentativo al secondo: non è un lockout, ma contro una password
+    // umana provata dalla rete la differenza fra 1.000 e 1 tentativo/s è tutto.
+    await new Promise((r) => setTimeout(r, 1000));
     redirect("/login?errore=1");
   }
   const jar = await cookies();
-  jar.set(SESSION_COOKIE, await sessionToken(password), {
+  jar.set(SESSION_COOKIE, await sessionToken(password as string), {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",

@@ -36,11 +36,25 @@ export async function graphqlNegozio(
  * Gli errori di una mutation, sia quelli di GraphQL sia gli `userErrors` che
  * Shopify mette **dentro** una risposta con HTTP 200. Guardare solo i primi è il
  * modo classico di credere che sia andata bene quando non è andata.
+ *
+ * E il terzo modo, il più subdolo: un 429/502 col corpo non-JSON arriva come
+ * `corpo = {}` — niente errors, niente userErrors — e la mutation sembrava
+ * riuscita. Così `aggiungiDaRegola` segnava in locale 250 prodotti mai entrati
+ * sul sito (irrecuperabili al giro dopo: risultano già dentro) e la potatura
+ * cancellava righe locali di prodotti ancora sul negozio. Una risposta senza
+ * esito leggibile È un errore.
  */
 export function erroriDi(r: RispostaShopify, campo: string): string[] {
   const dati = r.corpo.data?.[campo];
-  return [
+  const errori = [
     ...(r.corpo.errors ?? []).map((e) => e.message),
     ...((dati?.userErrors as { message: string }[] | undefined) ?? []).map((e) => e.message),
   ];
+  if (errori.length === 0 && (r.status < 200 || r.status >= 300)) {
+    errori.push(`Il negozio ha risposto HTTP ${r.status} senza un esito leggibile.`);
+  }
+  if (errori.length === 0 && dati === undefined) {
+    errori.push("Risposta del negozio senza esito per questa operazione: non data per buona.");
+  }
+  return errori;
 }

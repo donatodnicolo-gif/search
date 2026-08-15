@@ -48,7 +48,10 @@ type Riga = {
 function statistiche(ids: string[]) {
   return prisma.vendita.groupBy({
     by: ["prodottoId"],
-    where: { prodottoId: { in: ids } },
+    // Solo il venduto a buon fine, come ogni altro numero dell'app: qui questi
+    // numeri decidono quale scheda tenere, e fra due gemelle quella coi resi
+    // mostrava il ricavo più alto.
+    where: { prodottoId: { in: ids }, statoPagamento: { in: ["PAID", "PARTIALLY_PAID"] } },
     _sum: { quantita: true, ricavo: true },
   });
 }
@@ -58,12 +61,15 @@ function statistiche(ids: string[]) {
  * più forte al più debole: lo stesso SKU, lo stesso handle Shopify, lo stesso
  * nome ridotto all'osso. Chi è già stato unito a qualcuno non si ripropone.
  */
-export async function candidati(id: string, cerca?: string): Promise<Candidato[]> {
+export async function candidati(
+  id: string,
+  cerca?: string
+): Promise<{ lista: Candidato[]; corrispondenti: number }> {
   const base = await prisma.prodotto.findUnique({
     where: { id },
     select: { id: true, nome: true, handleShopify: true, varianti: { select: { sku: true } } },
   });
-  if (!base) return [];
+  if (!base) return { lista: [], corrispondenti: 0 };
 
   const sku = base.varianti.map((v) => v.sku).filter((s): s is string => Boolean(s));
   const chiave = normalizza(base.nome);
@@ -90,21 +96,24 @@ export async function candidati(id: string, cerca?: string): Promise<Candidato[]
     },
   })) as Riga[];
 
-  const trovati = tutti
-    .filter((t) => {
-      if (t.varianti.some((v) => v.sku && sku.includes(v.sku))) return true;
-      if (base.handleShopify && t.handleShopify === base.handleShopify) return true;
-      const k = normalizza(t.nome);
-      if (k === chiave) return true;
-      if (prime.length >= 4 && (k.startsWith(prime) || chiave.startsWith(k.split(" ").slice(0, 2).join(" ")))) return true;
-      if (cercato.length >= 2 && (k.includes(cercato) || normalizza(t.codice).includes(cercato))) return true;
-      return false;
-    })
-    .slice(0, 60);
+  // **Prima si valuta il motivo di TUTTI i corrispondenti, poi si taglia.**
+  // Il taglio a 60 stava qui, sull'ordine arbitrario del database: con una
+  // ricerca larga («ro» su 2.000 schede) il doppione con lo STESSO SKU poteva
+  // stare oltre la posizione 60 e sparire, mentre restavano sessanta «nome
+  // simile» deboli — l'esatto contrario dello scopo della pagina.
+  const trovati = tutti.filter((t) => {
+    if (t.varianti.some((v) => v.sku && sku.includes(v.sku))) return true;
+    if (base.handleShopify && t.handleShopify === base.handleShopify) return true;
+    const k = normalizza(t.nome);
+    if (k === chiave) return true;
+    if (prime.length >= 4 && (k.startsWith(prime) || chiave.startsWith(k.split(" ").slice(0, 2).join(" ")))) return true;
+    if (cercato.length >= 2 && (k.includes(cercato) || normalizza(t.codice).includes(cercato))) return true;
+    return false;
+  });
 
   const vendite = await statistiche(trovati.map((t) => t.id));
   const perProdotto = new Map(vendite.map((v) => [v.prodottoId as string, v._sum]));
-  return trovati
+  const lista = trovati
     .map((t) => {
       const skuComuni = t.varianti.map((v) => v.sku).filter((s) => s && sku.includes(s));
       const motivo =
@@ -130,7 +139,11 @@ export async function candidati(id: string, cerca?: string): Promise<Candidato[]
         motivo,
       };
     })
-    .sort((a, b) => forza(b.motivo) - forza(a.motivo) || b.ricavo - a.ricavo);
+    .sort((a, b) => forza(b.motivo) - forza(a.motivo) || b.ricavo - a.ricavo)
+    // Il taglio arriva DOPO l'ordinamento per forza: escono i match più deboli,
+    // mai un candidato con lo stesso SKU. La pagina dichiara quanti restano fuori.
+    .slice(0, 60);
+  return { lista, corrispondenti: trovati.length };
 }
 
 function forza(motivo: string): number {

@@ -12,7 +12,7 @@
 
 import { prisma } from "./db";
 import { tokenDi } from "./negozi";
-import { graphqlNegozio } from "./shopify-scrittura";
+import { erroriDi, graphqlNegozio } from "./shopify-scrittura";
 import { FILTRO_IN_SCENA } from "./ordinamento-vetrina";
 import { corrisponde, filtroSuggerimenti, parsePassi } from "./regole-ordine";
 
@@ -87,6 +87,11 @@ export async function aggiungiDaRegola(collezioneId: string): Promise<EsitoAggiu
       vendorShopify: true, lineaId: true, tagShopify: true, ggDispMin: true, minimoOrario: true,
     },
     take: (MAX_PER_GIRO + 1) * 4,
+    // Senza orderBy il taglio del take è indeterminato: due giri potevano
+    // leggere 1004 righe diverse, e i candidati oltre il taglio non venivano
+    // MAI valutati. Con un ordine stabile e il filtro `none` sulla collezione,
+    // ogni giro riparte da dove il precedente ha lasciato.
+    orderBy: { id: "asc" },
   });
   const passi = parsePassi(c.regolaOrdine.passi).filter((p) => p.t !== "metrica");
   const candidati = larghi.filter((p) => passi.some((x) => corrisponde(p, x))).slice(0, MAX_PER_GIRO + 1);
@@ -120,7 +125,7 @@ export async function aggiungiDaRegola(collezioneId: string): Promise<EsitoAggiu
     return { aggiunti: 0, restano, errore: `Il negozio «${c.negozio}» non è collegato: serve un token con write_products.` };
   }
 
-  const { corpo } = await graphqlNegozio(
+  const r = await graphqlNegozio(
     accesso.dominio,
     accesso.token,
     `mutation($id: ID!, $productIds: [ID!]!) {
@@ -131,10 +136,10 @@ export async function aggiungiDaRegola(collezioneId: string): Promise<EsitoAggiu
      }`,
     { id: c.shopifyId, productIds: giro.map((p) => p.shopifyId as string) },
   );
-  const err = [
-    ...(corpo.errors ?? []).map((e) => e.message),
-    ...((corpo.data?.collectionAddProducts?.userErrors as { message: string }[] | undefined) ?? []).map((e) => e.message),
-  ];
+  // erroriDi guarda anche lo status HTTP: un 502 col corpo vuoto qui creava 250
+  // righe locali di prodotti mai entrati sul sito — e il filtro `none` li
+  // escludeva per sempre dai giri successivi, quindi né entrati né ritentabili.
+  const err = erroriDi(r, "collectionAddProducts");
   if (err.length) return { aggiunti: 0, restano, errore: `Shopify ha rifiutato: ${err.join(" · ")}` };
 
   // In fondo: l'ordine lo decide subito dopo la regola, e metterli in mezzo

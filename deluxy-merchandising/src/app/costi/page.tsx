@@ -14,9 +14,19 @@ const LIMITE = 100;
 
 export default async function CostiPage() {
   const brand = await brandCorrente();
+  // `select`, non `include`: con l'include arrivavano anche descrizioni, brief
+  // e campi SEO — colonne di testo larghe — per migliaia di prodotti di cui la
+  // pagina usa cinque numeri. È la trappola «omit invece di select» delle liste.
   const prodotti = await prisma.prodotto.findMany({
     where: { ...filtroProdotti(brand), fase: { not: "archiviato" }, prezzoVendita: { gt: 0 } },
-    include: { collezione: { select: { nome: true, margineTarget: true } } },
+    select: {
+      id: true,
+      nome: true,
+      codice: true,
+      costoProduzione: true,
+      prezzoVendita: true,
+      collezione: { select: { nome: true, margineTarget: true } },
+    },
   });
 
   // Costo 0 = costo non ancora inserito, non prodotto a costo zero: mostrarlo

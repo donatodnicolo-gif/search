@@ -41,7 +41,18 @@ async function graphql<T>(
   if (corpo.errors?.length) {
     return { dati: null, errori: corpo.errors.map((e) => ({ campo: null, messaggio: e.message })) };
   }
-  return { dati: (corpo.data ?? null) as T | null, errori: [] };
+  // Un 429/500/502 con corpo non-JSON arrivava qui come `{}`: dati null, errori
+  // vuoti — indistinguibile da un successo. Nei passi 2 e 3 della creazione
+  // prodotto voleva dire scrivere «varianti create con prezzi e SKU» su un
+  // prodotto rimasto a 0,00 € e già pubblicato: esattamente il caso che il
+  // commento in testa al file dichiara «peggio di un errore netto».
+  if (!res.ok) {
+    return { dati: null, errori: [{ campo: null, messaggio: `Il negozio ha risposto HTTP ${res.status} senza un esito leggibile.` }] };
+  }
+  if (!corpo.data) {
+    return { dati: null, errori: [{ campo: null, messaggio: "Risposta del negozio senza dati: esito sconosciuto, non dato per buono." }] };
+  }
+  return { dati: corpo.data as T, errori: [] };
 }
 
 export type VarianteNuova = {

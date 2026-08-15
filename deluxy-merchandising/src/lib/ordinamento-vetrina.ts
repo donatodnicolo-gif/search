@@ -532,16 +532,27 @@ export async function riapplicaStandingPerNegozio(negozio: string): Promise<numb
  * Scrive `posizione = 0..n-1` seguendo l'ordine dato. A blocchi e non in una
  * transazione unica: una collezione grande può avere migliaia di prodotti e una
  * transazione così lunga andrebbe in timeout.
+ *
+ * A blocchi di **5**, non di 50: la connection string ha `connection_limit=5`
+ * sul Postgres condiviso con altre cinque app — è la stessa costante e lo
+ * stesso motivo di `SCRITTURE_INSIEME` in orders.ts e shopify-collezioni.ts,
+ * dove 25 scritture in parallelo hanno già fatto morire un giro a metà
+ * (03/08/2026). Qui 50 update insieme mettevano 45 query nella coda interna del
+ * pool: sotto contesa scattava il timeout dei 10 secondi a metà rinumerazione,
+ * e la vetrina restava con posizioni mezze vecchie e mezze nuove — un ordine
+ * ibrido che poi si spingeva su Shopify.
  */
+const SCRITTURE_INSIEME = 5;
+
 export async function numeraPosizioni(collezioneId: string, ordineProdottoId: string[]): Promise<void> {
   const membri = await prisma.prodottoInCollezioneShopify.findMany({
     where: { collezioneId },
     select: { id: true, prodottoId: true },
   });
   const idPerProdotto = new Map(membri.map((m) => [m.prodottoId, m.id]));
-  for (let i = 0; i < ordineProdottoId.length; i += 50) {
+  for (let i = 0; i < ordineProdottoId.length; i += SCRITTURE_INSIEME) {
     await Promise.all(
-      ordineProdottoId.slice(i, i + 50).map((pid, k) => {
+      ordineProdottoId.slice(i, i + SCRITTURE_INSIEME).map((pid, k) => {
         const rigaId = idPerProdotto.get(pid);
         return rigaId
           ? prisma.prodottoInCollezioneShopify.update({ where: { id: rigaId }, data: { posizione: i + k } })

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { importaVendite, ordersConfigurato } from "@/lib/orders";
+import { stessoSegreto } from "@/lib/segreto-cron";
 
 // Il **venduto si aggiorna da solo** (vedi vercel.json).
 //
@@ -38,7 +39,7 @@ export async function GET(req: NextRequest) {
       { status: 503 }
     );
   }
-  if (req.headers.get("authorization") !== `Bearer ${segreto}`) {
+  if (!stessoSegreto(req.headers.get("authorization") ?? "", `Bearer ${segreto}`)) {
     return NextResponse.json({ errore: "Non autorizzato." }, { status: 401 });
   }
   if (!ordersConfigurato()) {

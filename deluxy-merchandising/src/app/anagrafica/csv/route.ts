@@ -58,7 +58,12 @@ export async function GET(req: NextRequest) {
   const venduto = new Map(vendite.map((v) => [v.prodottoId as string, v]));
 
   const esc = (v: unknown) => {
-    const s = String(v ?? "");
+    let s = String(v ?? "");
+    // Un valore che inizia con = + - @ diventa una FORMULA quando Excel apre il
+    // file — e qui dentro passano nomi e tag scritti sul negozio anche da app
+    // terze. L'apostrofo davanti lo fa leggere come testo; i numeri veri (es.
+    // «-5») restano numeri.
+    if (/^[=+\-@\t\r]/.test(s) && !/^-?\d+([.,]\d+)?$/.test(s)) s = `'${s}`;
     return /[";\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
   const num = (n: number) => (n || 0).toFixed(2).replace(".", ",");

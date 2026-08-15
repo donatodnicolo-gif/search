@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { FreschezzaVenduto } from "@/components/FreschezzaVenduto";
 import { Sidebar } from "@/components/Sidebar";
 import { prisma } from "@/lib/db";
+import { dataIt, dataOraIt } from "@/lib/fuso";
 import { euro } from "@/lib/dominio";
 import { etichettaRegola, FILTRO_IN_SCENA, isRegola, ordinaPerPassiConConti, ordinaProdotti, parseRegole, type RegolaOrdinamento } from "@/lib/ordinamento-vetrina";
 import { SelettoreRegole } from "@/components/SelettoreRegole";
@@ -615,7 +616,7 @@ export default async function CurazioneCollezionePage({
                   {c.rotazione.attiva ? (
                     <>
                       Prossimo giro{" "}
-                      <b>{(prossimaVolta(c.rotazione)?.toLocaleDateString("it-IT") ?? "—")}</b>.
+                      <b>{(() => { const q = prossimaVolta(c.rotazione!); return q ? dataIt(q) : "—"; })()}</b>.
                     </>
                   ) : (
                     <b>La regola è in pausa: non scatterà.</b>
@@ -749,15 +750,15 @@ export default async function CurazioneCollezionePage({
             {daSincronizzare ? (
               <>
                 <b>Adesso il sito mostra un ordine diverso da questo.</b> Curato qui il{" "}
-                {c.ordineModificatoIl?.toLocaleString("it-IT", { dateStyle: "short", timeStyle: "short" })}
+                {(c.ordineModificatoIl ? dataOraIt(c.ordineModificatoIl) : undefined)}
                 {c.ordineSpintoIl
-                  ? `, inviato l'ultima volta il ${c.ordineSpintoIl.toLocaleString("it-IT", { dateStyle: "short", timeStyle: "short" })}.`
+                  ? `, inviato l'ultima volta il ${dataOraIt(c.ordineSpintoIl)}.`
                   : " e mai inviato al negozio."}
               </>
             ) : c.ordineSpintoIl ? (
               <>
                 Il sito mostra <b>questa</b> fila: inviata il{" "}
-                {c.ordineSpintoIl.toLocaleString("it-IT", { dateStyle: "short", timeStyle: "short" })}.
+                {dataOraIt(c.ordineSpintoIl)}.
               </>
             ) : (
               <>Qui non c&apos;è ancora un ordine curato da inviare.</>
@@ -809,7 +810,7 @@ export default async function CurazioneCollezionePage({
           <p className="page-sub" style={{ marginTop: 10, marginBottom: 0 }}>
             Si scrive nel metafield <code>custom.prodotti_per_riga</code> della collezione.{" "}
             {c.prodottiPerRigaSpintoIl ? (
-              <>Mandato al negozio il {c.prodottiPerRigaSpintoIl.toLocaleDateString("it-IT")}.</>
+              <>Mandato al negozio il {dataIt(c.prodottiPerRigaSpintoIl)}.</>
             ) : (
               <>Non e' ancora stato mandato.</>
             )}{" "}

@@ -64,6 +64,13 @@ export type EsitoImport = {
 // motivo, di `shopify-collezioni.ts`.
 const SCRITTURE_INSIEME = 5;
 
+// **Il giorno di una vendita è il giorno italiano**, ovunque giri il codice.
+// `setHours(0,0,0,0)` tronca nel fuso del server: su Vercel (UTC) un ordine
+// delle 00:30 di Roma finiva nel giorno prima, e lo stesso ordine riceveva date
+// diverse a seconda che l'import girasse dal PC (Roma) o dal cron (UTC) — con
+// `skipDuplicates` la prima data resta per sempre. Deluxy vende in Italia.
+import { giornoRoma } from "./fuso";
+
 /** Normalizza un titolo per il confronto: niente accenti, niente punteggiatura. */
 function normalizza(s: string): string {
   return s
@@ -153,7 +160,13 @@ export async function importaVendite(
   }[] = [];
 
   try {
-    for (let page = 1; page <= 40; page++) {
+    // Il tetto di pagine è un paracadute, non un limite di progetto: se la
+    // finestra ne avesse di più, il taglio va DICHIARATO nell'esito — un import
+    // troncato che dice «ok» è la trappola del take sotto l'universo dei dati,
+    // già pagata due volte in quest'app.
+    const MAX_PAGINE = 40;
+    let pagineTotali = 1;
+    for (let page = 1; page <= MAX_PAGINE; page++) {
       const q = new URLSearchParams({
         da: dal.toISOString().slice(0, 10),
         page: String(page),
@@ -203,8 +216,7 @@ export async function importaVendite(
           }
           if (prodottoId) righeAbbinate++;
 
-          const data = new Date(o.data);
-          data.setHours(0, 0, 0, 0);
+          const data = giornoRoma(new Date(o.data));
           daInserire.push({
             data,
             prodottoId,
@@ -222,8 +234,10 @@ export async function importaVendite(
           });
         }
       }
-      if (ordini.length === 0 || page >= (corpo.pagine ?? 1)) break;
+      pagineTotali = corpo.pagine ?? 1;
+      if (ordini.length === 0 || page >= pagineTotali) break;
     }
+    const troncato = pagineTotali > MAX_PAGINE ? ` ⚠ Letta solo una parte della finestra: ${MAX_PAGINE} pagine su ${pagineTotali} — gli ordini più vecchi non sono entrati, restringi i giorni o rilancia.` : "";
 
     // createMany + skipDuplicates: il riferimento è unico, quindi rilanciare
     // l'import non crea doppioni e aggiunge solo ciò che manca.
@@ -250,7 +264,7 @@ export async function importaVendite(
               : "",
           ]
             .filter(Boolean)
-            .join(" ");
+            .join(" ") + troncato;
 
     await prisma.importVendite.create({
       data: {
@@ -263,7 +277,7 @@ export async function importaVendite(
         righeAggiornate,
         automatico: opzioni.automatico === true,
         esito: "ok",
-        messaggio: `${righeNuove} righe nuove e ${righeAggiornate} riallineate su ${righeLette} lette`,
+        messaggio: `${righeNuove} righe nuove e ${righeAggiornate} riallineate su ${righeLette} lette${troncato}`,
       },
     });
 

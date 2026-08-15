@@ -242,8 +242,13 @@ export async function rileggiCollezioneDalNegozio(id: string) {
   const schedaDi = new Map(schede.map((p) => [p.shopifyId as string, p.id]));
   const senzaScheda = gidSulNegozio.length - schede.length;
 
-  await prisma.prodottoInCollezioneShopify.deleteMany({ where: { collezioneId: id } });
-  let posizione = 0;
+  // I **nuovi entrano in fondo**, dopo il massimo delle posizioni curate: il
+  // contatore partiva da 0 e i nuovi prendevano le posizioni 0,1,2… — le stesse
+  // della testa curata — infilandosi in cima alla vetrina, il contrario di
+  // quanto la docstring promette e di come fa l'import (`?? 9999`). Con la
+  // potatura che taglia gli ultimi, i nuovi in testa avrebbero pure spinto
+  // prodotti curati oltre il tetto, facendo togliere dal sito i pezzi sbagliati.
+  let posizione = Math.max(-1, ...esistenti.map((e) => e.posizione)) + 1;
   const righe = gidSulNegozio
     .filter((gid) => schedaDi.has(gid))
     .map((gid) => ({
@@ -256,9 +261,15 @@ export async function rileggiCollezioneDalNegozio(id: string) {
       posizione: posizioneDi.get(gid) ?? posizione++,
       origine: origineDi.get(gid) ?? "manuale",
     }));
-  for (let i = 0; i < righe.length; i += 500) {
-    await prisma.prodottoInCollezioneShopify.createMany({ data: righe.slice(i, i + 500), skipDuplicates: true });
-  }
+  // Cancellazione e ricostruzione **nella stessa transazione**: le posizioni
+  // curate vivono solo in queste righe, e un crash fra la deleteMany e la
+  // createMany le avrebbe perse per sempre lasciando la collezione vuota.
+  await prisma.$transaction(async (tx) => {
+    await tx.prodottoInCollezioneShopify.deleteMany({ where: { collezioneId: id } });
+    for (let i = 0; i < righe.length; i += 500) {
+      await tx.prodottoInCollezioneShopify.createMany({ data: righe.slice(i, i + 500), skipDuplicates: true });
+    }
+  });
 
   revalidatePath(`/visual/${id}`);
   revalidatePath("/visual");

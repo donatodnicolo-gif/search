@@ -28,6 +28,17 @@ export async function middleware(req: NextRequest) {
   if (pathname.startsWith("/api/cron/")) return NextResponse.next();
 
   const password = process.env.MERCHANDISING_APP_PASSWORD;
+  // **In produzione, senza password si chiude, non si apre.** Il fail-open
+  // serve allo sviluppo locale, ma girava identico su Vercel: un rename o un
+  // typo della variabile e il deploy successivo metteva online costi, margini,
+  // Impostazioni e le azioni che scrivono su Shopify — senza che nessuno se ne
+  // accorgesse, perché l'app «funziona». Un 503 invece si vede subito.
+  if (!password && process.env.VERCEL) {
+    return new NextResponse(
+      "App non configurata: manca MERCHANDISING_APP_PASSWORD. Per prudenza l'accesso resta chiuso.",
+      { status: 503 },
+    );
+  }
   if (!password || pathname === "/login") return NextResponse.next();
 
   const cookie = req.cookies.get(SESSION_COOKIE)?.value;

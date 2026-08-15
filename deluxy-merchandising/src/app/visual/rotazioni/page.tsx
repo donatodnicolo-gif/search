@@ -35,7 +35,7 @@ export default async function RotazioniPage({
   ]);
 
   const dataIt = (d: Date | null) =>
-    d ? d.toLocaleDateString("it-IT", { day: "2-digit", month: "short", year: "numeric" }) : "mai";
+    d ? d.toLocaleDateString("it-IT", { day: "2-digit", month: "short", year: "numeric", timeZone: "Europe/Rome" }) : "mai";
 
   return (
     <div className="layout">

@@ -10,9 +10,11 @@ import { eliminaRegolaOrdine, impostaRotazioneRegola, riapplicaRegolaOvunque, ri
 
 export const dynamic = "force-dynamic";
 
-// Quanti prodotti viaggiano al browser per l'anteprima dal vivo: sopra questo
-// numero il peso della pagina conta piu' della precisione del conto.
-const MAX_ANTEPRIMA = 900;
+// Quanti prodotti viaggiano al browser per l'anteprima dal vivo. Il tetto deve
+// stare SOPRA i prodotti in vendita (oggi ~1.014): a 900 con orderBy sul nome
+// non era un campione ma un taglio alfabetico, e i conteggi uscivano sempre per
+// difetto — lo stesso difetto già misurato sulla scheda della collezione.
+const MAX_ANTEPRIMA = 5000;
 
 // La scheda di una regola: qui si scrive la sequenza di passi. Ogni passo dice
 // **cosa conta**, e l'ordine dei passi **è** la priorità: il primo decide, gli
@@ -23,7 +25,7 @@ export default async function RegolaPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ modifica?: string }>;
+  searchParams: Promise<{ modifica?: string; esito?: string; messaggio?: string }>;
 }) {
   const { id } = await params;
   const sp = await searchParams;
@@ -96,6 +98,13 @@ export default async function RegolaPage({
             </form>
           )}
         </div>
+
+        {sp.messaggio && (
+          <div className={`nota-info${sp.esito === "errore" ? " nota-errore" : ""}`}>
+            <span className="nota-icona">{sp.esito === "errore" ? "△" : "◆"}</span>
+            <span>{sp.messaggio}</span>
+          </div>
+        )}
 
         {indietro.length > 0 && (
           <div className="nota-info">

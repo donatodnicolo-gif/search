@@ -11,6 +11,7 @@
 
 import { prisma } from "./db";
 import { calcolaMargine } from "./dominio";
+import { giornoMeseRoma, giornoRoma, sommaGiorniRoma } from "./fuso";
 
 // ---------- Finestre temporali ----------
 
@@ -24,16 +25,15 @@ export const ETICHETTA_FINESTRA: Record<number, string> = {
   365: "Ultimo anno",
 };
 
+// I confini dei giorni sono quelli **di Roma**, non del server: su Vercel (UTC)
+// «ultimi 28 giorni» partiva e finiva alle 2 di notte italiane, e le righe sul
+// confine cadevano nel periodo sbagliato. Stessa regola dell'import (orders.ts).
 export function inizioGiorno(d: Date): Date {
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  return x;
+  return giornoRoma(d);
 }
 
 export function fineGiorno(d: Date): Date {
-  const x = new Date(d);
-  x.setHours(23, 59, 59, 999);
-  return x;
+  return new Date(sommaGiorniRoma(d, 1).getTime() - 1);
 }
 
 export type Finestra = {
@@ -48,11 +48,9 @@ export type Finestra = {
 
 export function finestra(giorni: number): Finestra {
   const al = fineGiorno(new Date());
-  const dal = inizioGiorno(new Date(al));
-  dal.setDate(dal.getDate() - (giorni - 1));
+  const dal = sommaGiorniRoma(new Date(), -(giorni - 1));
   const alPrec = new Date(dal.getTime() - 1);
-  const dalPrec = inizioGiorno(new Date(alPrec));
-  dalPrec.setDate(dalPrec.getDate() - (giorni - 1));
+  const dalPrec = sommaGiorniRoma(alPrec, -(giorni - 1));
   return { giorni, dal, al, dalPrec, alPrec };
 }
 
@@ -240,7 +238,10 @@ function classificaTendenza(pezzi: number, pezziPrec: number): Tendenza {
 const MESI = ["gen", "feb", "mar", "apr", "mag", "giu", "lug", "ago", "set", "ott", "nov", "dic"];
 
 function etichettaGiorno(d: Date): string {
-  return `${d.getDate()} ${MESI[d.getMonth()]}`;
+  // Il giorno di Roma, non del server: `getDate()` su Vercel (UTC) etichettava
+  // «14 ago» un punto che rappresenta la mezzanotte italiana del 15.
+  const { giorno, mese } = giornoMeseRoma(d);
+  return `${giorno} ${MESI[mese - 1]}`;
 }
 
 /**
@@ -264,6 +265,17 @@ export async function analizzaVendite(
       data: { gte: f.dalPrec, lte: f.al },
       ...(filtraProdotto ? { prodotto: whereProdotto } : {}),
       ...(filtro?.canale ? { canale: filtro.canale } : {}),
+      // Qui dentro passa TUTTO il venduto, rimborsi e non incassati compresi:
+      // /vendite è il registro di quello che è successo, e lo dichiara in
+      // pagina. Ma i prodotti **esclusi dalle analisi** e gli **archiviati**
+      // restano fuori anche da qui: «Escludi dalle analisi» promette che il
+      // prodotto sparisce da classifiche, andamento, assortimento e ipotesi —
+      // e questa funzione è l'andamento. Le righe non abbinate (prodotto null)
+      // restano: non si butta venduto vero perché nessuno l'ha riconosciuto.
+      OR: [
+        { prodottoId: null },
+        { prodotto: { esclusoDaAnalisi: false, fase: { not: "archiviato" } } },
+      ],
     },
     select: SELECT_VENDITA,
     orderBy: { data: "asc" },
@@ -276,9 +288,13 @@ export async function analizzaVendite(
   const passo: "giorno" | "settimana" = giorni <= 56 ? "giorno" : "settimana";
   const serie: PuntoSerie[] = [];
   const indiceSerie = new Map<string, PuntoSerie>();
-  const passoMs = 24 * 60 * 60 * 1000;
-  for (let t = f.dal.getTime(); t <= f.al.getTime(); t += passo === "giorno" ? passoMs : 7 * passoMs) {
-    const inizio = new Date(t);
+  // I punti si generano coi giorni **di Roma** (sommaGiorniRoma), non sommando
+  // 24h secche: nei giorni del cambio d'ora le mezzanotti italiane distano 23 o
+  // 25 ore e il passo fisso finiva fuori allineamento coi giorni delle righe.
+  const passoGiorni = passo === "giorno" ? 1 : 7;
+  for (let k = 0; ; k += passoGiorni) {
+    const inizio = sommaGiorniRoma(f.dal, k);
+    if (inizio.getTime() > f.al.getTime()) break;
     const punto: PuntoSerie = {
       inizio,
       etichetta: passo === "giorno" ? etichettaGiorno(inizio) : `${etichettaGiorno(inizio)}`,
@@ -328,7 +344,8 @@ export async function analizzaVendite(
   // — Per prodotto —
   const perProdotto = new Map<string, RigaProdotto>();
   const settimaneSparkline = 8;
-  const inizioSpark = new Date(f.al.getTime() - settimaneSparkline * 7 * passoMs);
+  const msGiorno = 24 * 60 * 60 * 1000;
+  const inizioSpark = new Date(f.al.getTime() - settimaneSparkline * 7 * msGiorno);
   for (const r of correnti) {
     if (!r.prodotto) continue;
     const p = r.prodotto;
@@ -364,7 +381,7 @@ export async function analizzaVendite(
     if (r.data >= inizioSpark) {
       const i = Math.min(
         settimaneSparkline - 1,
-        Math.floor((r.data.getTime() - inizioSpark.getTime()) / (7 * passoMs))
+        Math.floor((r.data.getTime() - inizioSpark.getTime()) / (7 * msGiorno))
       );
       riga.serie[i] += r.quantita;
     }
@@ -375,6 +392,16 @@ export async function analizzaVendite(
     if (!riga) continue; // venduto prima e non ora: compare tra i "fermi" più sotto
     riga.pezziPrec += r.quantita;
     riga.ricavoPrec += r.ricavo;
+    // Lo sparkline copre 8 settimane fisse: con finestre più corte le prime
+    // settimane cadono nel periodo «precedente», che è già qui in memoria.
+    // Ignorarlo disegnava un «partito da zero» falso su prodotti stabili.
+    if (r.data >= inizioSpark) {
+      const i = Math.min(
+        settimaneSparkline - 1,
+        Math.floor((r.data.getTime() - inizioSpark.getTime()) / (7 * msGiorno))
+      );
+      riga.serie[i] += r.quantita;
+    }
   }
   // Prodotti che vendevano prima e ora non vendono più: vanno visti, non nascosti.
   for (const r of precedenti) {
@@ -467,7 +494,10 @@ export async function analizzaVendite(
 }
 
 function chiaveSerie(d: Date, dal: Date, passo: "giorno" | "settimana"): string {
-  const giorno = Math.floor((inizioGiorno(d).getTime() - dal.getTime()) / (24 * 60 * 60 * 1000));
+  // `round`, non `floor`: fra due mezzanotti di Roma passano n×24h ± 1h nei
+  // giorni del cambio d'ora, e col floor l'ora mancante faceva scivolare la
+  // riga nel giorno prima.
+  const giorno = Math.round((inizioGiorno(d).getTime() - dal.getTime()) / (24 * 60 * 60 * 1000));
   return passo === "giorno" ? `g${giorno}` : `g${Math.floor(giorno / 7) * 7}`;
 }
 
