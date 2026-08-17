@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { TIPI_PL, VOCI_CE } from "@/lib/cfo";
 import { eur, MESI, pct } from "@/lib/format";
@@ -107,6 +107,18 @@ export function CfoBoard({
 }) {
   const router = useRouter();
   const [espansa, setEspansa] = useState<string | null>(null);
+  // Il pannello si apre sotto la riga, ma su una riga alta il suo bordo può
+  // cadere appena sotto il margine dello schermo — e mezzo passo fuori campo si
+  // legge come «non è successo niente» esattamente come tre schermate. `nearest`
+  // sposta la pagina solo se serve davvero.
+  // ⚠️ Niente `behavior: "smooth"`: misurato qui dentro, lo scorrimento animato
+  // **non parte affatto** (la pagina resta a 0 mentre con il comportamento
+  // predefinito va a 907) — cioè il rimedio a «non succede niente» sarebbe stato
+  // a sua volta un non-succede-niente.
+  const pannello = useRef<HTMLTableRowElement | null>(null);
+  useEffect(() => {
+    if (espansa) pannello.current?.scrollIntoView({ block: "nearest" });
+  }, [espansa]);
   const [nuova, setNuova] = useState<{ nome: string; tipoPL: string } | null>(null);
   const [assegna, setAssegna] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
@@ -447,7 +459,8 @@ export function CfoBoard({
             </thead>
             <tbody>
               {righe.filter((r) => r.categoriaId).map((r) => (
-                <tr key={r.categoriaId}>
+                <Fragment key={r.categoriaId}>
+                <tr style={espansa === r.categoriaId ? { background: "var(--fill)" } : undefined}>
                   <td>
                     <span className={`badge ${r.colore ?? tipoBadge(r.tipoPL)}`} style={{ marginRight: 6 }}>
                       <span className="dot" />
@@ -545,6 +558,60 @@ export function CfoBoard({
                     </button>
                   </td>
                 </tr>
+                {/* Le controparti si aprono **sotto la riga che le ha chiamate**.
+                    Prima erano una scheda in fondo alla pagina: con diciotto
+                    categorie, chi premeva la freccia su una riga in alto non
+                    vedeva succedere niente — la risposta c'era, ma tre schermate
+                    più giù. Una cosa che si apre lontano da dove l'hai chiesta
+                    non si è aperta. */}
+                {espansa === r.categoriaId && (
+                  <tr ref={pannello}>
+                    <td colSpan={8} style={{ background: "var(--fill)", paddingTop: 12, paddingBottom: 14 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>
+                        {r.controparti.length} controparti in «{r.categoriaNome}» —{" "}
+                        <span className="muted" style={{ fontWeight: 400 }}>
+                          clicca una controparte per decidere l&apos;anno di competenza di quell&apos;uscita
+                        </span>
+                      </div>
+                      <div className="chips">
+                        {r.controparti.map((c) => (
+                          // Cliccabile: anche una controparte già categorizzata può avere
+                          // un'uscita che è di competenza di un altro esercizio.
+                          <button
+                            className={`chip${compPer === c.controparte ? " on" : ""}`}
+                            key={c.controparte}
+                            onClick={() => setCompPer(compPer === c.controparte ? null : c.controparte)}
+                            title="Decidi l'anno di competenza di questa uscita"
+                          >
+                            {c.controparte} · {eur(c.uscite)}
+                          </button>
+                        ))}
+                      </div>
+                      {(() => {
+                        const c = r.controparti.find((x) => x.controparte === compPer);
+                        if (!c) return null;
+                        return (
+                          <table style={{ marginTop: 10 }}>
+                            <tbody>
+                              <RigaCompetenza
+                                controparte={c.controparte}
+                                perMese={c.perMese}
+                                colonne={1}
+                                anno={anno}
+                                comp={comp}
+                                setComp={setComp}
+                                busy={busy}
+                                onSposta={spostaCompetenza}
+                                onAnnulla={() => setCompPer(null)}
+                              />
+                            </tbody>
+                          </table>
+                        );
+                      })()}
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
               ))}
               <tr className="tot">
                 <td>Totale categorizzato</td>
@@ -560,39 +627,6 @@ export function CfoBoard({
           </table>
         </div>
       </div>
-
-      {espansa && (
-        <div className="card">
-          <h3 className="section-title" style={{ marginTop: 0 }}>
-            Controparti in “{righe.find((r) => r.categoriaId === espansa)?.categoriaNome}”
-          </h3>
-          <div className="chips">
-            {righe.find((r) => r.categoriaId === espansa)?.controparti.map((c) => (
-              // Cliccabile: anche una controparte già categorizzata può avere
-              // un'uscita che è di competenza di un altro esercizio.
-              <button
-                className="chip"
-                key={c.controparte}
-                onClick={() => setCompPer(compPer === c.controparte ? null : c.controparte)}
-                title="Decidi l'anno di competenza di questa uscita"
-              >
-                {c.controparte} · {eur(c.uscite)}
-              </button>
-            ))}
-          </div>
-          {(() => {
-            const c = righe.find((r) => r.categoriaId === espansa)?.controparti.find((x) => x.controparte === compPer);
-            if (!c) return null;
-            return (
-              <table style={{ marginTop: 10 }}>
-                <tbody>
-                  <RigaCompetenza controparte={c.controparte} perMese={c.perMese} colonne={1} anno={anno} comp={comp} setComp={setComp} busy={busy} onSposta={spostaCompetenza} onAnnulla={() => setCompPer(null)} />
-                </tbody>
-              </table>
-            );
-          })()}
-        </div>
-      )}
 
       {nonCategorizzate && nonCategorizzate.controparti.length > 0 && (
         <>

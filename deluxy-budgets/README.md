@@ -32,6 +32,13 @@ pubblicato), *sfidante* e *irraggiungibile*.
   una regola permanente). Ogni categoria è agganciata a una voce di P&L (COGS/ADV/Personale/
   Struttura/Esclusa). Le controparti da categorizzare sono mostrate per importo (le prime 100),
   con nota su quante restano. Richiede `FINANCE_API_KEY` e l'API `/api/spese` di Finance (live).
+  Le **controparti di una categoria si aprono sotto la sua riga** (17/08/2026): prima erano una
+  scheda in fondo alla pagina e, con diciotto categorie, premere la freccia su una riga in alto
+  sembrava non fare niente — la risposta c'era, tre schermate più giù. Ora la riga si evidenzia, il
+  pannello compare subito sotto e la pagina ci si sposta se serve. ⚠️ **`behavior: "smooth"` in
+  `scrollIntoView` non fa nulla** (misurato: con l'animazione la pagina resta ferma, col
+  comportamento predefinito scorre) — il rimedio a «non succede niente» stava per essere a sua volta
+  un non-succede-niente.
   Categorie e regole si aggiungono, si rimuovono e **si modificano**: nome e voce di P&L si cambiano dalla riga della categoria, senza cancellarla e perdere le regole che le erano state insegnate — è il modo per spostare, per esempio, i pagamenti ai partner fuori dai costi. **Proposte con AI**: un bottone chiede a OpenAI
   di ipotizzare la categoria di ogni controparte non classificata (con confidenza e motivo); le
   proposte pre-compilano le tendine e si confermano una a una o in blocco (solo le alte
