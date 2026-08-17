@@ -42,7 +42,13 @@ export function RitornoChatPubblica({ dominio }: { dominio: string }) {
     }
 
     function torna() {
-      if (window.history.length <= 1) {
+      // Scheda «nuova»: una voce sola, oppure due senza referrer — cioè
+      // about:blank + questa pagina, come quando la scheda l'ha aperta uno
+      // script (window.open) o un lettore di QR. Lì l'indietro porterebbe su
+      // una pagina bianca: si va dritti sul sito.
+      const schedaNuova =
+        window.history.length <= 1 || (!document.referrer && window.history.length <= 2)
+      if (schedaNuova) {
         versoIlSito()
         return
       }
