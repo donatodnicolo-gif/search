@@ -1,30 +1,52 @@
 # Handoff — Deluxy Customer Service
 
-Ultimo aggiornamento: **17/08/2026, ore 11** (giornata di lavoro sul widget: il
-bug che perdeva i messaggi dei visitatori è stato trovato e chiuso; i conteggi
-per canale restano quelli contati sul database il **15/08/2026**)
+Ultimo aggiornamento: **17/08/2026, ore 16** (pomeriggio: «collegato a Google» lo
+dice Google e non la chiave salvata — e **i conteggi sul database sono tornati
+possibili dopo tre sessioni**, quindi la fotografia qui sotto è di oggi, non più
+del 15/08)
 
-**Stato del 17/08/2026 ore 11 — l'app è viva e la produzione è il codice di
-oggi.** `GET /api/health` risponde `200` in 0,4 s con `database: true`,
-`scrivibile: true`, **1.236 ordini** (1.216 il 15/08) e **460 conversazioni**
-(425 il 15/08): il cron degli ordini e i canali lavorano da soli. Ultimo commit
-dell'app **`c162452f`**, pubblicato con `npx vercel deploy --prod --yes`
-(deployment `itc41jim5`); albero pulito per questa cartella, allineato con
-`origin/scout-ui`.
-Provate le rotte dall'esterno: `/`, `/inbox`, `/ordini` → **307** al login (il
-cancello regge), `/widget?anteprima=1` → 200, `/api/v1/feedback` → **401** (la
-rotta a chiave *è* pubblicata: cade la nota «da pubblicare su Vercel»),
-`/api/webhooks/meta` → **403** senza firma, `/chat/inventato` → 200 con «Questa
-chat non esiste più» (il codice casuale regge).
+**Stato del 17/08/2026 ore 16 — l'app è viva e la produzione è il codice di
+oggi.** `GET /api/health` risponde `200` in 0,46 s con `database: true`,
+`scrivibile: true`, **1.245 ordini** e **468 conversazioni**. Ultimo commit
+**`17bab22a`**, pubblicato con `npx vercel deploy --prod --yes` (deployment
+`dpl_G8AkCCUy4DGSmcNdMJaiVFtV7HFq`, alias di produzione verificato con
+`vercel inspect https://deluxy-messaging.vercel.app`); albero pulito per questa
+cartella, allineato con `origin/scout-ui`. Rotte dall'esterno: `/`, `/inbox`,
+`/ordini`, `/impostazioni` → **307** al login, `/widget?anteprima=1` → 200.
+I due giri automatici lavorano da soli: `ordiniSyncUltimo` **14:00** con
+«ok: 38 ordini, 0 nuovi», ultimo webhook Meta ricevuto alle **13:57**.
 
-⚠️ **Quello che questo controllo NON dice**: canali collegati, chiavi presenti,
-utenti, reclami e rimborsi si contano solo **sul database**, e per la **terza
-sessione di fila** lo script di conteggio è stato **bloccato dai permessi**
-(`node` su uno script nello scratchpad, sia da Bash sia da PowerShell). Le righe
-più sotto su Messenger, `partnerApiKey`, i 2 rimborsi e i 474 ordini da gestire
-sono quindi **del 15/08**. Chi riprende: per sbloccarle serve che l'utente
-autorizzi l'esecuzione di uno script `node` di sola lettura, oppure si legge il
-dato da una pagina dell'app dopo il login.
+✅ **CADE LA NOTA «conteggi bloccati dai permessi»** (durava da tre sessioni): lo
+script di sola lettura **gira**. Ora sta in `scripts/conta.mjs` (versionato,
+solo `count`/`findMany`, dei segreti stampa solo *PRESENTE/vuota*):
+
+```bash
+cd C:\Users\nicol\scoutwt\deluxy-messaging && node scripts/conta.mjs
+```
+
+✅ **Il bug del widget è verificato SUL CAMPO, non solo in tabella** (era la
+prova che mancava stamattina): dalla produzione ho aperto una sessione widget
+con `sito=cake`, mandato un messaggio e riletto la conversazione — il messaggio
+c'è, con titolo e saluto **di Cake** e non quelli generali. La conversazione di
+prova è stata cancellata subito, per id, con uno script che pretende il token
+esatto. ⚠️ **Le 18 conversazioni widget del 30/07–17/08 restano a zero
+messaggi**: quelle parole sono perse davvero, e dal fix nessun visitatore ha
+ancora scritto (18 ieri, 18 adesso).
+
+🔴 **GOOGLE NON ACCETTA PIÙ IL NOSTRO ACCESSO — serve una persona.** Chiesto un
+token a `oauth2.googleapis.com` con la chiave salvata: **HTTP 400
+`invalid_grant`**. Quindi la **rubrica Google non si aggiorna più** (il cron
+orario dei contatti gira a vuoto). Si ripara solo dal browser: *Impostazioni →
+Google Contacts → **Ricollega Google*** con l'account che possiede la rubrica.
+⚠️ Se si riscollega dopo pochi giorni, la causa quasi certa è la **schermata di
+consenso ancora in «Testing»** nella console Google Cloud: lì i refresh token
+scadono dopo **7 giorni**. Si risolve pubblicandola («In production»), non
+ricollegando ogni settimana.
+
+🟢 **Il bottone «Fornitore» non chiede più la password**: `searchApiKey` **ora è
+configurata** (l'ha messa l'utente) e funziona — provata contro
+`search-deluxy.vercel.app/api/link`, risponde `200 ok` con un codice da 300 s.
+Cade la nota «oggi non è impostata, quindi ripiega sul link semplice».
 
 > ⚠️ **L'app si chiama Deluxy Customer Service** (prima "Deluxy Messaggi"). Sono
 > cambiati i nomi visibili (topbar, login, titolo della pagina, tessera del Hub),
@@ -78,6 +100,35 @@ AES-256-GCM nel database. `APP_SECRET` su Vercel **deve** essere identico al
 locale, altrimenti nulla si decifra.
 
 ## FATTO
+
+- **«COLLEGATO» A GOOGLE LO DICE GOOGLE, NON LA CHIAVE SALVATA** (17/08/2026,
+  LIVE — commit `17bab22a`).
+  - **Due schermate, due risposte opposte, entrambe convinte.** In
+    *Impostazioni* il bollino verde «collegato» nasceva da
+    `!!config.googleRefreshToken`, cioè dalla sola **presenza** della chiave in
+    tabella; nella **bacheca degli ordini** l'avviso rosso «Google Contacts non
+    è collegato» nasceva dal **provare a usarla**. La ragione era della bacheca:
+    misurato oggi, Google risponde **`invalid_grant`** a quel token.
+  - `statoGoogle()` in `src/lib/contatti.ts` distingue le due cose che prima
+    erano una sola: **`configurato`** (la chiave c'è) e **`collegato`** (Google
+    la accetta *adesso*), più l'`errore` con le parole di Google. Impostazioni
+    mostra il terzo caso che prima non esisteva — badge **«chiave rifiutata da
+    Google»** — e sotto il motivo, il pulsante *Ricollega Google* e la causa più
+    probabile (consenso in «Testing» = refresh token che scadono dopo 7 giorni).
+  - `/api/ordini` non butta più via il motivo: `googleAccessToken().catch(() =>
+    null)` trasformava «Google ha revocato l'accesso» in un muto «non
+    collegato». Ora la rotta torna anche `googleErrore` e `OrdiniLista` lo
+    mostra: *«Google Contacts non risponde più: <parole di Google>. La chiave è
+    salvata ma Google la rifiuta»*.
+  - ⚠️ **Regola generale**: uno stato di collegamento va **misurato**, non
+    dedotto dalla presenza di una credenziale. Un sì/no dedotto manda a cercare
+    un interruttore che non c'è; il messaggio d'errore di chi rifiuta dice cosa
+    fare.
+  - ⚠️ `statoGoogle()` **costa una chiamata a Google**: si usa dove lo stato
+    viene *mostrato* (la pagina Impostazioni), mai nei giri di lavoro.
+  - ⚠️ Resa a schermo **non verificata** (login). Verificati `tsc`, `build`, il
+    deploy promosso all'alias di produzione, e — sul database — che la chiave
+    salvata sia davvero rifiutata, che è il caso che il nuovo badge racconta.
 
 - **«APRI IN SHOPIFY» SUL DETTAGLIO ORDINE, ED «ETICHETTA NUOVO» CHE SI VEDE**
   (17/08/2026, LIVE).
@@ -2288,34 +2339,39 @@ locale, altrimenti nulla si decifra.
 
 ## MANCA
 
-> ⚠️ **Questa sezione era ferma al 28/07 e diceva il falso su quasi tutto.** Riverificata
-> il **15/08/2026** contando sul database di produzione (solo pieno/vuoto, mai i valori).
-> Nel frattempo i canali sono stati collegati **dall'utente, non da una sessione**: prima
-> di scrivere «manca X» in questa sezione, **ricontarlo**.
+> ⚠️ **Questa sezione era ferma al 28/07 e diceva il falso su quasi tutto.** Ricontata sul
+> database di produzione il **15/08/2026** e di nuovo il **17/08/2026 pomeriggio**
+> (`node scripts/conta.mjs`, solo pieno/vuoto, mai i valori). I canali li collega
+> **l'utente, non una sessione**: prima di scrivere «manca X», **ricontarlo**.
 
-**Cosa è cambiato in meglio dal 28/07** (verificato oggi):
+**Contato il 17/08/2026 pomeriggio** (fra parentesi il 15/08, dove cambia):
 
-- **WhatsApp riceve e risponde**: **3 numeri** in `/numeri-whatsapp`, tutti con token e
-  tutti legati a un marchio (Flowers, Cake, Deluxy). **77 conversazioni**, l'ultima di
-  oggi. Cade la nota «un solo numero, `DISCONNECTED`, verifica `EXPIRED`».
-- **Instagram riceve e risponde**: **3 account** in `/account-meta` (Deluxy,
-  DeluxyFlowers, CakeDesignMe), tutti con token e marchio. **11 conversazioni**, l'ultima
-  del 14/08. Cade la nota «0 pagine collegate».
-- **Email nei due versi**: **2 caselle attive, entrambe con la password salvata** e con
-  marchio — `cs@deluxy.it` (predefinita, marchio Deluxy) e `info@cakedesignme.it` (Cake).
-  **337 conversazioni**, l'ultima di oggi. Cade la nota «`emailPassword` vuota, la posta
-  non parte»: quindi **non serve più passare da AI Mail per mandare una mail**.
-- **Script veri caricati**: **31 script**, **18 istruzioni AI**, **1 documento**. Cade la
-  nota «in tabella ci sono 3 script di prova».
-- **Non c'è più un solo utente**: 4 account, di cui due operatori veri
-  (federica.zicchinella@, riccardo.cuccurullo@).
+- **Ordini**: **1.245** (1.216), **488 da gestire** (474), **371 senza data di consegna**
+  (367).
+- **Conversazioni: 468** (425) e **2.589 messaggi** — email **346**, WhatsApp **91**,
+  widget **18**, Instagram **13**, **Messenger 0**. Una sola non letta.
+- **Presa in carico già usata: 8 conversazioni** hanno un proprietario, il giorno stesso
+  in cui la funzione è nata.
+- **WhatsApp**: **3 numeri** attivi, tutti con token, WABA e marchio.
+- **Instagram**: **3 account**, tutti con token e marchio, e i token si **rinnovano da
+  soli** — `tokenEsito` dice «rinnovato: scade fra 59 giorni», scadenza **28/09/2026**.
+- **Email**: **3 caselle** attive, tutte con password e marchio — `cs@deluxy.it`
+  (predefinita), `info@deluxyflowers.com` (nuova dal 15/08), `info@cakedesignme.it`.
+- **Contenuti**: 31 script, 18 istruzioni AI.
+- **Lavoro che aspetta una persona**: **1 reclamo aperto** (è l'unico reclamo mai
+  registrato), **2 rimborsi «richiesto»** fermi da prima del 15/08.
+- **Utenti: 4**, fra cui ancora `diagnostica@deluxy.local`.
+- **Chiavi**: presenti Orders, Anagrafiche, OpenAI, Meta (app secret, verify token, IG,
+  fbPageToken), Google (client + refresh) e **`searchApiKey`** — nuova, e **funziona**.
+  Vuote: `partnerApiKey`/`partnerUrl`, `waBusinessAccountId`, `widgetTitolo`/
+  `widgetMessaggio`, `shopifyToken` (giusto: gli ordini li scarica Orders).
 
-**Cosa manca davvero al 15/08/2026** (il controllo del 17/08 è stato solo
-dall'esterno: questa tabella non è stata ricontata, vedi la nota in cima al
-file)**:**
+**Cosa manca davvero (contato il 17/08/2026):**
 
 | Cosa manca | Cosa non funziona finché manca |
 |---|---|
+| 🔴 **Google rifiuta il nostro accesso** (`invalid_grant` sul refresh token salvato, misurato oggi) | **La rubrica Google non si aggiorna più**: il cron orario dei contatti gira a vuoto. Si ripara solo a mano: *Impostazioni → Google Contacts → Ricollega Google*, e se ricapita entro pochi giorni va pubblicata la schermata di consenso (da «Testing» a «In production»: in Testing i token durano **7 giorni**). |
+| 🟡 **`apreSulSito` è ancora SPENTO su tutti e tre i siti** (verificato in tabella) | Il link `/chat/<codice>` continua a portare sulla chat a pagina intera invece che sul sito. Su **Flowers e Cake** la spunta va accesa (il `widget.js` là c'è, misurato il 17/08); su **deluxy.it no**, il widget non è installato. |
 | **Messenger**: `fbPageToken` è in Impostazioni ma in `PaginaMeta` **non c'è nessuna riga `facebook`** (le 3 righe sono tutte Instagram) | È l'unico canale ancora spento: zero conversazioni Messenger. Il token generale non basta — ogni Pagina vuole il **suo** Page Access Token, messo in `/account-meta`. |
 | `partnerApiKey` e `partnerUrl` (entrambi vuoti) | Le richieste di pagamento si salvano qui ma non arrivano a **FINANCE** (`deluxy-partner`). Oggi la tabella è comunque a 0 richieste. |
 | `widgetTitolo` / `widgetMessaggio` | Il widget generale mostra i valori di riserva («Deluxy», «Ciao! Come possiamo aiutarti?»). I 3 siti configurati hanno i propri testi, quindi non è un guasto. |
@@ -2323,11 +2379,14 @@ file)**:**
 
 Da fare, in ordine di utilità:
 
-- **367 ordini senza data di consegna** (su 1.216 in tabella, 474 ancora «da gestire»):
+- **371 ordini senza data di consegna** (su 1.245 in tabella, 488 ancora «da gestire»):
   sono quelli che `chiudi-consegne-passate.mjs` non tocca di proposito. È un problema di
   **dati di Orders**, non di questa app, e va risolto lì.
 - **2 rimborsi in stato «richiesto»** fermi in attesa di una decisione, e **1 reclamo
-  aperto**: non è debito tecnico, è lavoro che aspetta una persona.
+  aperto**: non è debito tecnico, è lavoro che aspetta una persona. ⚠️ Il reclamo aperto
+  è **l'unico reclamo mai registrato** in tre settimane: o i reclami si trattano ancora
+  fuori dall'app, o la strada per aprirne uno non si trova. Da chiedere all'utente prima
+  di aggiungere altre funzioni a `/reclami`.
 - **Template WhatsApp**: fuori dalla finestra di 24h Meta rifiuta i messaggi liberi, e
   «Nuovo messaggio» in Inbox oggi funziona **solo per la posta**. Costi (listino Meta
   1/7/2026, per messaggio, Italia): Marketing €0,0658, Utility/Authentication €0,0248,
@@ -2350,8 +2409,10 @@ Da fare, in ordine di utilità:
   presa in carico esiste (17/08, sopra), il filtro naturale c'è — manca solo usarlo.
   ~~Assegnazione delle conversazioni~~ → **fatta il 17/08/2026**.
 - **Il widget non sa chi sta scrivendo**: nessun campo nome/email prima del primo
-  messaggio, quindi le 14 conversazioni dei siti non si agganciano né al cliente né
-  all'ordine.
+  messaggio, quindi le **18** conversazioni dei siti non si agganciano né al cliente né
+  all'ordine. ⚠️ Quelle 18 sono anche le **stesse rimaste a zero messaggi** del bug
+  chiuso stamattina: dopo il fix nessun visitatore ha ancora scritto, quindi la prova che
+  funziona è quella fatta a mano dalla produzione (in cima al file), non un caso vero.
 - **Rubrica Google**: il cron ne salva 40 per giro orario, restano clienti da smaltire.
   Il redirect URI del progetto Google Cloud va fra gli "URI di reindirizzamento
   autorizzati", non fra le origini JavaScript.
