@@ -431,6 +431,25 @@ seconda riceve un avviso, non un sorpasso silenzioso.
 rischiano di non ricevere risposta da **nessuno**, che è il guaio opposto alle risposte
 doppie.
 
+**Allegati.** Su WhatsApp funzionano nei due versi. Su **Instagram e Messenger si
+ricevono** (dal 17/08/2026): Meta non manda un id da richiedere dopo, manda un indirizzo
+già firmato, e quello si salva in `Messaggio.mediaUrl`. ⚠️ Quell'indirizzo **scade**, e
+non ne teniamo copia: passata la finestra la foto non c'è più, e `/api/media/[id]` lo dice
+invece di mostrare un'immagine rotta. Le foto arrivate **prima del 17/08 sono perse** — si
+vedono solo nell'app di Instagram o Messenger, e la chat lo scrive.
+
+**Spam.** Sulle mail in arrivo c'è il bottone col divieto: il mittente entra fra quelli
+ignorati (`/caselle`) e la conversazione va in **archivio**. ⚠️ Si salva l'**indirizzo
+esatto, mai il dominio**: da uno spam `@gmail.com` si farebbe sparire in silenzio ogni
+cliente che scrive da Gmail. Non si cancella niente, e si toglie dalla pagina Caselle.
+Solo sulla posta: sugli altri canali quell'elenco non viene nemmeno letto.
+
+**Il link pubblico della chat.** Con la spunta «Il link della chat porta sul sito»,
+`/chat/<codice>` rimanda a `https://<dominio>/#chat` e il widget si apre da solo: il
+cliente vede il negozio e la **×** *nasconde* la chat lasciando il bottone per riaprirla.
+⚠️ Accenderla **solo dove `widget.js` è davvero installato** — altrimenti si atterra su una
+vetrina senza chat. Al 17/08/2026: deluxyflowers.com sì, cakedesign.me sì, deluxy.it no.
+
 **Widget.** Snippet da incollare nel sito (mostrato in Impostazioni):
 `<script src="https://TUA-APP/widget.js" defer></script>`. Lo script crea il bottone
 flottante e apre un iframe su `/widget`; la sessione del visitatore è un token casuale

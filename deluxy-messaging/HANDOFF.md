@@ -79,6 +79,31 @@ locale, altrimenti nulla si decifra.
 
 ## FATTO
 
+- **IL LINK DELLA CHAT PORTA SUL SITO, E LA × LA NASCONDE** (17/08/2026, LIVE).
+  `/chat/<codice>` era una chat a pagina intera su sfondo vuoto: chi arriva
+  dalla bio di Instagram o da un QR non vedeva il negozio, e premendo la ×
+  veniva portato via da una pagina che non aveva nient'altro. Ora, se il sito ha
+  il widget, il link rimanda a `https://<dominio>/#chat` e `widget.js` si apre
+  da solo: la × torna a fare quello che fa ovunque — **nasconde** la chat e
+  lascia il bottone per riaprirla, col negozio sotto.
+  - ⚠️ Si usa il **frammento**, non un parametro di query: non arriva al server,
+    non finisce nei log né nelle statistiche del sito, e non sporca gli `utm` da
+    cui l'inbox ricava la provenienza del visitatore. Dopo l'apertura si toglie
+    dall'indirizzo con `replaceState` — senza, un aggiornamento della pagina o il
+    tasto indietro riaprirebbero la chat addosso a chi l'aveva appena chiusa.
+  - ⚠️⚠️ **Nuova spunta `WidgetSito.apreSulSito`, DI PARTENZA SPENTA, e non
+    basta che il dominio sia compilato.** Se su quel sito `widget.js` non c'è, il
+    cliente atterra su una vetrina senza nessuna chat e il link diventa un
+    **vicolo cieco** — peggio di prima. Controllato il 17/08/2026 scaricando le
+    home: **deluxyflowers.com sì, cakedesign.me sì, deluxy.it NO.** Per questo la
+    decisione sta in una spunta che accende una persona (pagina «Widget dei
+    siti»), non in una deduzione del codice.
+  - **VERIFICATO END-TO-END sul `widget.js` pubblicato**, da una pagina di prova
+    che lo carica come farebbe un sito vero: con `#chat` la chat si apre da sola
+    (`eAperta() === true`), il frammento sparisce dall'indirizzo mentre la query
+    resta, la × la chiude **senza cambiare pagina**, il bottone flottante resta e
+    la chat si riapre. File di prova rimosso.
+
 - **LE CONVERSAZIONI SI PRENDONO IN CARICO** (17/08/2026, LIVE). Gli operatori
   sono tre e l'inbox è una sola: *chi aveva fatto cosa* restava scritto
   (`Messaggio.utenteNome`), ma nessuno *prendeva in carico*. Due persone
@@ -2243,7 +2268,17 @@ Da fare, in ordine di utilità:
   Service (risposte entro 24h) **gratis**.
 - **Promemoria da spingere su Deluxy Tasks** (porta 3090, API a chiave): oggi le
   `Attivita` della dashboard restano qui, e sono un secondo registro.
-- Allegati su **email, Messenger, Instagram** (su WhatsApp ci sono, nei due versi).
+- Allegati su **email** (su WhatsApp ci sono nei due versi; su Instagram e Messenger dal
+  17/08/2026 si **ricevono**, non si inviano). ⚠️ Di quelli Instagram/Messenger teniamo
+  solo l'indirizzo firmato di Meta, **che scade**: per conservarli davvero serve uno
+  storage nostro, e lo scaricamento non può stare nel webhook (un webhook lento perde
+  messaggi). Le foto arrivate **prima del 17/08 sono perse**: l'indirizzo veniva buttato.
+- **Accendere `apreSulSito`** su Flowers e Cake dalla pagina «Widget dei siti»: il codice
+  c'è ed è verificato, ma la spunta va accesa da una persona che sa se il widget è
+  installato. Su deluxy.it **non va accesa** finché il sito non ha `widget.js`.
+- **Segnalare spam sui canali chat**: oggi funziona solo sulla posta, perché l'elenco dei
+  mittenti ignorati lo leggono solo le rotte email. Su WhatsApp e Instagram il blocco si
+  fa da Meta.
 - **Notifiche push** quando arriva un messaggio su una conversazione **mia**: l'avviso del
   browser oggi suona per tutto quello che entra, uguale per i tre operatori. Ora che la
   presa in carico esiste (17/08, sopra), il filtro naturale c'è — manca solo usarlo.
