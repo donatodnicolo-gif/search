@@ -337,10 +337,23 @@ cd deluxy-marketing && node scripts/aggiungi-metriche-giorni.mjs        # CopyAn
 cd deluxy-marketing && node scripts/aggiungi-account-campagna.mjs       # Campagna.account + brandManuale (09/08)
 cd deluxy-marketing && node scripts/crea-tabella-localita.mjs           # tabella LocalitaCampagna (10/08)
 cd deluxy-marketing && node scripts/crea-tabella-metriche-keyword.mjs   # tabella MetricaKeyword, storia giornaliera keyword (10/08)
+cd deluxy-marketing && node scripts/crea-tabella-metriche-annuncio.mjs  # tabella MetricaAnnuncio, storia giornaliera annunci (15/08)
 ```
 
 - **Serve**: `DATABASE_URL` nel `.env` dell'app
 - **Nota**: già eseguiti in produzione alla data indicata; rilanciarli è innocuo.
+
+---
+
+### prova-script-google.mjs — deluxy-marketing
+Prova **a secco** dello script di Google Ads (`scripts/google-ads-script.js`): lo esegue con un `AdsApp` finto, lavoro per lavoro (9 lavori), e prende gli errori di codice — ReferenceError, funzioni senza parametro, query malformate — **prima** del reincollo negli account. Nato l'11/08/2026 dopo che `leggiDestinazioni()` è finita in produzione usando una variabile mai ricevuta e il giro `copy` moriva scoperto solo dal log dentro Google Ads, un giorno dopo.
+
+```bash
+cd deluxy-marketing && node scripts/prova-script-google.mjs   # deve finire con «lavori rotti: 0»
+```
+
+- **Serve**: niente (nessuna rete, nessun database)
+- **Nota**: ogni query finta restituisce **una** riga completa, non zero — con le query vuote il codice non entra nei cicli e la prova «passa» anche sul bug che l'ha fatta nascere. Da lanciare prima di rigenerare le copie in `Downloads\deluxy-google-ads`.
 
 ---
 

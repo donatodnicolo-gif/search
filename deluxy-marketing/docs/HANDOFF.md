@@ -1,6 +1,6 @@
 # Handoff — Deluxy Marketing
 
-> Stato al **10/08/2026**. Una finestra Claude nuova deve poter riprendere da qui
+> Stato al **17/08/2026**. Una finestra Claude nuova deve poter riprendere da qui
 > senza altro contesto. Leggere prima il [README](../README.md) per cosa fa l'app;
 > questo documento dice **dove siamo** e **cosa manca**.
 
@@ -8,7 +8,9 @@
 
 App **live** su https://deluxy-marketing.vercel.app (password `MARKETING_APP_PASSWORD`,
 al primo deploy `seta-rose-4728`). Postgres condiviso Deluxy, schema `marketing`.
-Riceve già dati veri da Google Ads (Gifts e Flowers) e ha 2.426 ordini Shopify 2026.
+Riceve ogni notte i dati veri da Google Ads (**tutti e tre gli account**), ogni
+ora da Meta (tre account, in sola lettura), ogni 3 ore gli ordini da Deluxy
+Orders (8.342 ordini dei tre brand dal 01/01/2025).
 
 ## Cartella di lavoro e deploy
 
@@ -20,7 +22,290 @@ Riceve già dati veri da Google Ads (Gifts e Flowers) e ha 2.426 ordini Shopify 
   ⚠️ Il `.env` locale punta al **Postgres di produzione**: quello che si modifica
   in sviluppo scrive sui dati veri. Non esiste ancora uno schema `marketing_dev`.
 
+## Fotografia del 17/08/2026 (verificata su produzione, sola lettura)
+
+Controllo fatto la mattina del 17/08 con `/api/health`, `vercel ls/inspect` e
+query dirette sul database (nessuna scrittura). **Prima di lavorare, rileggere
+questi numeri: dicono cosa gira e cosa è fermo.**
+
+- **Produzione = codice.** Ultimo deploy di produzione alle **15/08 09:18:29**
+  (`deluxy-marketing-42iwaw2it`), stesso minuto dell'ultimo commit
+  `caa38322` (15/08 09:18): non c'è niente di committato e non pubblicato.
+  Health `200` in 0,65 s, `X-Vercel-Id: fra1::fra1` (le funzioni girano già
+  a Francoforte accanto al database — `"regions": ["fra1"]` in `vercel.json`).
+  `npx tsc --noEmit` pulito, `node scripts/prova-script-google.mjs` = 9
+  lavori su 9 ok, 0 rotti.
+- **Google Ads consegna da tutti e tre gli account, ogni notte**: Cake
+  (846-090-5423) alle 02:38, Gifts (248-656-1148) alle 03:47, Flowers
+  (825-518-1560) alle 05:14 del 17/08 — anagrafica, metriche, gruppi,
+  keyword-giorni, diagnosi, asset, copy, stati-keyword, tutte con esito ok,
+  **zero consegne non-ok negli ultimi 10 giorni**. Le tre chiavi per account
+  (`google-ads-gifts/-cake/-flowers`) non si usano più: gli script usano la
+  chiave `google-ads` (ultimo uso 17/08 08:09).
+- **La versione dello script nei tre account è quella dell'11/08**, non
+  quella del 15/08: arrivano gli `annuncio` (KPI per annuncio, 820 Gifts ·
+  168 Flowers · 75 Cake) e le `destinazione` con l'id a tre parti
+  (1.056/1.056), ma **`MetricaAnnuncio` ha 0 righe e `annuncio-giorni` non è
+  mai stato ricevuto** → la storia giornaliera degli annunci (commit
+  `caa38322`) aspetta il **reincollo delle copie del 15/08** da
+  `C:\Users\nicol\Downloads\deluxy-google-ads\` (10 file, 15/08 09:18).
+  Basta reincollare `tutto.js` (il lavoro `keyword-giorni` dentro `tutto`
+  manda entrambe le tabelle). ⚠️ CHIAVE_API e BRAND vanno rimessi a mano.
+- **Storia giornaliera delle keyword: c'è, e c'è anche il passato**:
+  `MetricaKeyword` parte dal **12-13/04/2026** su tutti e tre gli account
+  (Gifts 15.955 righe/426 criteri, Flowers 5.554/152, Cake 2.462/85) — il
+  giro una tantum con `GIORNI_INDIETRO = 90` è stato fatto.
+- **Località lette**: 255 righe di `LocalitaCampagna` su 158 campagne (le
+  «non ancora lette» dovrebbero essere sparite dalle vive).
+- **Id delle keyword**: restano **419 righe col numero nudo** su 22.110
+  (1,9%, era il 60% l'08/08) — sono le righe che nessun giro conferma più.
+- **Metriche giornaliere di campagna**: Google fino al 16/08 (Cake, Gifts) e
+  17/08 (Flowers); Meta fino al 17/08 su tutti e tre i brand, cron ogni ora
+  vivo (ultima corsa 08:07). Spesa 30 giorni: Google Gifts 3.743 € · Flowers
+  3.649 € · Cake 1.008 €; Meta Gifts 1.694 € · Flowers 1.176 € · Cake 822 €.
+- **Coda operazioni**: 47 eseguite · 15 in attesa · 5 annullate · **0
+  approvate ferme · 0 fallite**. Le 15 in attesa sono le `nuova_keyword`
+  «torte roma / torino / napoli…» (frase) messe in coda il 15/08 06:35 su
+  `[Cakedesign] | Sales | ITA` da «Estendi con AI» — aspettano una persona.
+  Ultime eseguite: 4 cambi budget il 15/08 (Torte MILANO, Fiori Milano ITA,
+  Lead Generico → 10 €/g), 2 keyword nuove su Cake l'11/08, la riattivazione
+  di «flowers delivery milan» (la riga ferma dal 07/08) e la pausa del gruppo
+  ROSE l'11/08. **La catena coda → approvazione → script → esito funziona.**
+- **Campagne**: Google 19 attive · 1 in pausa · 1 bozza · 140 defunte; Meta
+  6 attive · 59 in pausa · 4 defunte. `Campagna.account` è scritto su tutte
+  le vive Google (19/19); manca solo sulle defunte e su gran parte delle Meta
+  in pausa (non consegnano metriche → l'import non le tocca: normale).
+- **Ordini da Deluxy Orders**: cron ogni 3 ore vivo (06:20 del 17/08),
+  8.342 ordini (Gifts 6.097 · Flowers 1.514 · Cake 731) dal 01/01/2025,
+  ultimo ordine 17/08 05:05.
+- ⚠️ **Sync Drive ferma dal 04/08 16:41** (642 documenti): non ha un cron
+  Vercel (in `vercel.json` ci sono solo `meta` e `ordini`) e l'attività
+  programmata di Claude gira solo con l'app desktop aperta. Se servono le
+  analisi nuove: `npm run sync-drive` o «Sincronizza ora».
+- **Meta resta in sola lettura**: `META_SCRITTURA` spenta, il motore
+  `lib/meta-scrittura.ts` c'è ma non ha `ads_management`. TikTok scollegato.
+
 ## FATTO
+
+### La storia giornaliera anche per gli annunci, il recap in cima, la coda vista dalla campagna (15/08/2026)
+
+Sette commit in un'ora, tutti pubblicati (deploy 09:18). In ordine:
+
+- **Cliccando una keyword si aprono le sue finestre** (`c1460317`,
+  `components/DettaglioKeyword.tsx` + `lib/finestre-keyword.ts`): sulla
+  tabella del gruppo la parola è cliccabile e mostra come va a **7 giorni,
+  mese corrente, 30 giorni e anno**, dalla storia giornaliera
+  `MetricaKeyword`. Una lettura sola per tutte le parole mostrate (mai una
+  query per riga), il periodo più lungo ritagliato in memoria.
+  ⚠️ **Quando i numeri non ci sono il pannello dice PERCHÉ**, invece di
+  mostrare zeri: id di criterio vecchio (si aggancia al prossimo giro
+  completo) oppure nessun giorno con dati (la parola non è comparsa, o il
+  carico storico non è passato su quell'account). Una keyword senza storia
+  non è una keyword che ha speso zero: portano a decisioni opposte.
+- **Dopo aver approvato si torna dove si era** (`bea39352`): chi mette in
+  coda da una scheda campagna/gruppo arriva su `/operazioni` col punto di
+  partenza in `?torna=`; in cima «← Torna dove eri», e il parametro
+  **sopravvive ad approva, annulla e ritira** — senza quel passaggio il
+  bottone spariva proprio dopo il click che lo rendeva utile.
+- **Dalla parola cercata si entra nel gruppo con un click** (`bef2931e`):
+  la colonna «Gruppo» dei termini è un link alla scheda del gruppo, preso
+  dalla query dei gruppi che la tabella faceva già (id accanto al nome).
+- **Si approva in blocco, e «← Indietro» c'è su ogni pagina** (`449e6f93`):
+  in coda si spuntano le operazioni (o «Tutte / nessuna») e si approvano in
+  un colpo. ⚠️ **Le tre reti restano**: si approva solo ciò che è GIÀ in
+  coda, solo le righe spuntate, e lo script esegue una per una riferendo
+  l'esito di ognuna — sparisce il click ripetuto quindici volte, non il
+  controllo. **Gli stati si rileggono prima di scrivere**: fra il
+  caricamento della pagina e il click una può essere stata annullata, e
+  riapprovarla la resusciterebbe senza che nessuno l'abbia chiesto.
+  «← Indietro» sale nella **Sidebar** (`components/TornaIndietro.tsx`),
+  quindi vale ovunque; su Operazioni resta anche «torna dove eri» perché il
+  redirect dell'approvazione azzera la cronologia utile.
+- **Le attività in coda su Google si vedono dalla scheda campagna**
+  (`1c48a71b`, `components/CodaCampagna.tsx`): un blocco in cima con le sole
+  operazioni **vive** (da approvare o approvate), quante ne mancano, gli
+  avvisi del guardrail sulla riga e «Approva (N)» che porta in coda sapendo
+  da dove si veniva. Prima stavano solo mescolate allo storico «Ultime
+  modifiche» in fondo, insieme a vecchie e annullate.
+- **Il recap degli annunci in cima, i testi in fondo** (`0775ca10`,
+  `components/RecapAnnunci.tsx`): per ogni annuncio se è in asta, dove
+  manda, spesa, clic, CTR, conversioni e resa — si vede subito quale
+  funziona senza scorrere quindici titoli per colonna. Nessuna query in più:
+  lavora sulle righe già caricate dalla scheda; i testi completi restano in
+  fondo col link che ci porta.
+- ⭐ **Cliccando un annuncio si aprono le sue finestre** (`caa38322`): come
+  per le keyword. Serviva la storia giorno per giorno anche per gli annunci:
+  tabella **`MetricaAnnuncio`** (CREATE mirato con
+  `scripts/crea-tabella-metriche-annuncio.mjs`, già eseguito in
+  produzione), route `POST /api/v1/ingest/annuncio-giorni` senza query per
+  riga, `lib/finestre-annuncio.ts`, e la **lettura dentro il lavoro
+  `keyword-giorni` che già esiste**: stesso lavoro, un solo reincollo invece
+  di un altro script da schedulare. Il pannello è lo stesso componente delle
+  keyword, parametrizzato: quando la storia manca lo DICE.
+  ⚠️ **Al 17/08 nessun account ha ancora consegnato `annuncio-giorni`**
+  (`MetricaAnnuncio` = 0 righe): serve il reincollo delle copie del 15/08.
+
+### Diciotto commit dell'11/08/2026: annunci per colonna, keyword sparite, il ReferenceError, «Come sta andando»
+
+Sessione lunga sulla **scheda gruppo** e sui dati degli annunci. Le cose che
+contano, nell'ordine in cui sono arrivate:
+
+- **Ogni annuncio dice il suo stato e dove manda** (`3b17bdf4`): le voci
+  dell'elenco annunci portano lo stato attaccato (`id:ENABLED`), la testata
+  mostra attivo/in pausa (attivi per primi) con «stato non ancora letto»
+  finché lo script nuovo non gira; le destinazioni portano gli id degli
+  annunci che le usano, sotto ogni colonna la landing vera cliccabile.
+  Parsing tollerante: le voci vecchie (solo id) restano leggibili. E
+  **l'ancora `#keywords` scatta anche sulle pagine lente**
+  (`components/AncoraggioHash.tsx`): il browser saltava PRIMA che la sezione
+  esistesse nel DOM e si restava in cima — riprova a pagina montata.
+- **Le colonne annuncio sono quelle del gruppo** (`59819d9a` + `e88eda31`):
+  i testi sono CONDIVISI fra gruppi, quindi le loro voci citavano anche
+  annunci di altri gruppi (4 «attivi» contro 1 Eligible su Google). Prima
+  recinto per INCLUSIONE (solo gli annunci con URL propria: su Torte per
+  Oggi 2 su 6, e l'unico attivo restava fuori), poi per **ESCLUSIONE**: le
+  destinazioni degli ALTRI gruppi dicono chi è di casa altrove, si tolgono
+  quelli e restano gli annunci del gruppo. Misurato: 6 colonne con 1
+  attivo, come Google Ads. Un annuncio assegnato qui dalle nostre
+  destinazioni non si toglie mai. E sulle parole cercate un bottone
+  «Aggiungi»: la ricerca diventa keyword ESATTA del gruppo, dalla coda.
+- **Marcare defunte TUTTE le keyword non nasconde più la via d'uscita**
+  (`1b75913f`): con 79 defunte su 79 la sezione spariva, e con lei la
+  pillola «Defunte». Ora compare se ci sono keyword, defunte comprese, e a
+  zero vive un avviso spiega come tornare indietro.
+- ⚠️ **Il cambio di stato in blocco agisce sulle righe guardate, non su
+  tutto l'archivio** (`0ce0e461`): il cambio singolo vale per parola su
+  tutte le campagne (lo stato è un giudizio sulla parola), ma in blocco
+  quella regola era una falciata invisibile — «defunta» sulle sole in pausa
+  di un gruppo ha marcato **168 righe, di cui 53 ATTIVE su Google**, sparse
+  su nove campagne. Ora il form dichiara campagna e gruppo e l'update si
+  limita a quelle; il registro lo scrive nel titolo. Le 53 rimesse attive.
+- ⭐ **In Postgres `ORDER BY spesa DESC` mette i NULL PRIMI** (`75a751f7`):
+  ogni `take` pescava le righe SENZA numeri e le keyword che spendono non
+  entravano mai — sulla scheda campagna 60 righe tutte a trattino, e le
+  proposte AI ragionavano sulle parole senza dati. Corretto con
+  `nulls: "last"` in **tutti gli 8 punti**. Stesso commit: filtro annunci
+  Tutti / Solo attivi (che non nasconde mai tutto: se gli stati non sono
+  arrivati mostra tutti e lo dice), e **«Crea con AI»** sugli annunci
+  (`components/CreaAnnuncioAi.tsx` + `lib/azioni-annuncio.ts`): 15 titoli e
+  4 descrizioni scritti su keyword, ricerche che convertono e testi in
+  asta, coi limiti di Google verificati lato nostro. **Propone e basta**:
+  creare un annuncio non è fra le operazioni dello script, i testi si
+  copiano. Su `/campagne`: selettore di periodo (le card seguono la scelta)
+  e pillole di ordinamento che applicano subito.
+- ⭐ **Le keyword sparite da Google lo dicono** (`14efa577` + `acc4460b`):
+  una keyword rimossa su Google restava «attiva» nell'app per sempre —
+  misurato **881 righe su Flowers e 304 su Cake**, comprese parole su
+  concorrenti. Due strade: la consegna di `stati-keyword` **dichiara il
+  lavoro** (l'app sa qual è l'ultimo censimento completo dell'account, e una
+  riga non confermata si legge «non più su Google»); e finché lo script
+  nuovo non gira, la **deduzione**: il giro completo riscrive ogni notte
+  TUTTE le keyword vive, quindi una ferma molto più indietro non c'è più —
+  ripiego sull'ultima scrittura dell'account con margine **48 ore, largo
+  apposta** (meglio tacere su qualche riga morta che accusarne una viva).
+  Sul gruppo English di Flowers 242 keyword (gotham flowers, eden flowers…)
+  ora dicono «non più su Google», e la pillola del filtro le isola per
+  marcarle defunte in blocco. I numeri restano: sono la loro storia. Stesso
+  commit: **KPI per annuncio** (spesa, clic, conversioni, incasso, resa) da
+  righe nuove `tipo: "annuncio"` lette da `ad_group_ad`, e via il ripiego
+  che mostrava la destinazione del GRUPPO sul singolo annuncio (dava link
+  sbagliati: festa della mamma su un annuncio di consegna in giornata) — o
+  è la URL di quell'annuncio o «non ancora letta» (`e74eb7b2`: in testa le
+  pagine dove manda il gruppo, dichiarando che quale usi ogni annuncio
+  l'app non lo sa ancora).
+- **Keyword nuove a mano** (`950a164d`, `components/NuovaKeyword.tsx`):
+  «Aggiungi keyword» sulla scheda gruppo, una per riga, esatta di default,
+  dalla coda. E su `/keywords` **senza tema scelto la pagina nascondeva
+  TUTTO**: chi cercava «porto cervo» leggeva i totali in cima e sotto il
+  vuoto — i temi sono un raggruppamento, non un cancello.
+- ⭐ **L'account comanda sul brand dedotto** (`c04b71ad`): segnalato
+  dall'utente («Cake aveva una campagna attiva di retargeting»). Aveva
+  ragione: «Retargeting - Microacquisti» gira sul conto Cake, 143 € spesi e
+  149 incassati in 30 giorni, accesa su Meta — ma l'app la dava a FLOWERS
+  perché il brand era dedotto dal nome. Ora l'import corregge il brand
+  quando l'account lo smentisce (solo `brandManuale` vince sul fatto). E la
+  colonna Stato della scheda brand mostrava solo il giudizio dell'app
+  («In pausa» mentre su Meta erogava): quando i due non concordano si
+  vedono entrambi, comanda la piattaforma.
+- ⭐⭐ **Il ReferenceError che uccideva il giro copy** (`e57a7a88`):
+  `leggiDestinazioni` usava `conto` senza riceverlo fra i parametri → il
+  lavoro copy moriva con «ReferenceError: conto is not defined» e su Flowers
+  non arrivavano più annunci, destinazioni né KPI. Trovato nel log di
+  Google, **il posto sbagliato dove trovarlo** — quindi ora c'è
+  **`scripts/prova-script-google.mjs`**: esegue tutti e nove i lavori con
+  `AdsApp` finto e prende gli errori di codice prima del reincollo.
+  ⚠️ **La prima versione della prova diceva «tutto ok» sullo stesso bug**:
+  le query finte restituivano ZERO righe, il codice non entrava nei cicli e
+  non toccava mai le variabili di dentro. Ora ogni query rende UNA riga
+  completa — verificato reintroducendo il bug: la prova lo segnala. **Da
+  lanciare prima di ogni rigenerazione delle copie.**
+- ⭐ **La destinazione è dell'ANNUNCIO, una riga per annuncio**
+  (`fbe76873`, segnalato dall'utente — la radice del pasticcio): su Google
+  la final URL è una proprietà dell'annuncio, non del gruppo.
+  `leggiDestinazioni` accorpava per (campagna, gruppo, url), quindi due
+  annunci verso la stessa pagina finivano su una riga sola e il legame col
+  singolo annuncio si perdeva — da lì le landing sbagliate, poi il ripiego
+  «del gruppo», poi «non ancora letta». Ora **una riga per annuncio**,
+  `idEsterno = account:gruppo:idAnnuncio`, URL multiple dichiarate nelle
+  note; l'app legge il legame dall'id (e l'elenco per le righe vecchie).
+  Verificato il 17/08: **1.056 destinazioni su 1.056 con l'id a tre parti**.
+- **«Come sta andando» a finestre** (`779b26be` → `2f0f47cb`,
+  `components/PerformancePeriodi.tsx` + `OggiCampagna.tsx`): sotto «quanto
+  stiamo spendendo oggi» — parziale per costruzione — le finestre su cui si
+  decide: **7 giorni, mese corrente, 30 giorni, trimestre, anno**, tutte
+  insieme in tabella con la colonna **«al giorno»**, l'unica confrontabile
+  fra periodi di lunghezza diversa. È una lente a parte (`?perf=`), non
+  tocca il periodo condiviso; una lettura sola per tutte e cinque,
+  ritagliata in memoria. Lo stesso blocco sta **anche sulla scheda gruppo**,
+  in cima sopra le due colonne (è la prima domanda che ci si fa). Nel
+  riquadro «oggi» il budget non si ripete più: al suo posto il **passo
+  rispetto ai 7 giorni prima, rapportato alle ore già passate** — a
+  mezzogiorno una campagna in linea ha speso metà della sua media e dire
+  «−50%» sarebbe un falso allarme quotidiano. Budget e «quanto ne usa» in
+  una tessera sola («80,00 EUR · 40% usato»); nella card Ricerche le
+  convertenti vengono **prima** e ci sono sempre (prima entravano solo le
+  prime 24 per comparse, e una ricerca da 1 conversione e 138 € restava
+  fuori). E il **CTR di ogni annuncio** sulla riga dei numeri: fra due
+  annunci dello stesso gruppo è il primo numero che dice quale TESTO
+  funziona — la spesa dipende dall'asta, il CTR dal testo.
+- ⭐ **I titoli degli annunci mancavano per un taglio in ordine ALFABETICO**
+  (`90a5673d`): la query del gruppo prendeva 300 righe con `orderBy tipo
+  asc`, e «keyword» viene prima di «titolo» — su un gruppo con 1.038
+  keyword i titoli non entravano MAI, e il blocco annunci mostrava solo le
+  descrizioni. Ora **due query con tetti loro** (keyword e testi), non un
+  tetto solo più alto: alzarlo sarebbe stata la stessa trappola più in là.
+  Verificato: da 17 testi a 100.
+
+### Notte del 10/08/2026: lo stato a più keyword, «Tutte / nessuna», le chip con l'incasso
+
+Quattro commit dopo l'ultimo aggiornamento di questo file (23:10):
+
+- **Il selettore di stato delle keyword sulla scheda gruppo non aveva mai
+  salvato** (`95fac2e3`): il form mandava l'ID della riga, l'azione si
+  aspettava il TESTO (come da `/keywords`), non trovandolo usciva in
+  silenzio — scoperto provando «defunta». Ora con l'id si risale al testo e
+  si applica per parola su tutte le campagne; al salvataggio **redirect
+  esplicito** alla scheda, non solo revalidate (la trappola del `<select>`
+  controllato, pagata per la terza volta).
+- **Le chip delle Ricerche portano anche il valore delle conversioni**
+  (`88b1253b`): «→ 95 EUR» dopo spesa, clic e conversioni.
+- **La riga delle keyword si stringe, «Tutte / nessuna», le finestre si
+  dichiarano** (`12739239`): le quattro azioni della tabella keyword erano
+  IMPILATE (righe da 200 px) e due bottoni usavano una classe fantasma che
+  nel CSS non esiste (nero pieno) — ora una riga flex con etichette corte
+  (Pausa, Escludi, Porta, Estendi AI) e title estesi: **le azioni restano
+  tutte, si stringe la cornice** (`components/SelezionaTutte.tsx` su ogni
+  barra multipla: keyword e parole cercate, gruppo, scheda campagna,
+  `/termini`). Nelle parole cercate del gruppo le righe con finestra diversa
+  da quella fresca la **dichiarano sulla riga**: «torte milano 34,19» era la
+  somma di UN ANNO accanto a righe di 30 giorni.
+- **Lo stato a più keyword in un colpo** (`5b05f1f5`): caselle + menù di
+  stato + «Applica alle selezionate» — per parola, su tutte le campagne,
+  come il cambio singolo; il primo valore del menù è vuoto apposta (uno
+  stato su 48 parole dev'essere una scelta). Le pillole dei filtri
+  atterrano su `#keywords`, così non si riparte da cima. ⚠️ È questa la
+  «falciata» corretta l'11/08 (`0ce0e461`): in blocco agisce **solo sulle
+  righe di campagna+gruppo guardate**.
 
 ### Il primo giro vero (Cake, 10/08 pomeriggio): due trappole di Google trovate e chiuse
 
@@ -1983,30 +2268,39 @@ Numeri veri del 28/07: corsa completa **594 documenti in 24,7 s** (7 nuovi, 6
 aggiornati, **101 spariti** che l'indice si portava dietro dalle sync morte, 25
 analisi importate); seconda corsa 0 scritture.
 
-## Da riprendere subito (10/08/2026, fine sessione)
+## Da riprendere subito (17/08/2026)
 
-I quattro punti della sessione dell'08/08 sono **tutti chiusi** (conversioni
-da Orders l'08/08; selezione multipla, bottone Meta e operazione ferma il
-10/08 — vedi il FATTO in cima).
+I tre controlli lasciati il 10/08 sono **fatti** (verificati sul database il
+17/08): le località arrivano (255 righe su 158 campagne), l'operazione
+`attiva_keyword` su «flowers delivery milan» è **eseguita** l'11/08 05:40, e
+gli script reincollati girano su tutti e tre gli account (versione
+dell'11/08, con la prova a secco a 9/9).
 
-Resta da fare **fuori dall'app**, e adesso conta doppio:
+Resta da fare, **fuori dall'app**:
 
 1. **Reincollare `tutto.js` nei tre account** da
-   `C:\Users\nicol\Downloads\deluxy-google-ads\` (copie rigenerate il
-   **10/08**: dentro ci sono la ricerca campagna+gruppo di `trovaKeyword`, la
-   nuova `leggiAnnunci` di struttura E `leggiLocalita` del targeting).
+   `C:\Users\nicol\Downloads\deluxy-google-ads\` (copie del **15/08 09:18**,
+   10 file): è l'unica cosa che manca perché la **storia giornaliera degli
+   annunci** (`MetricaAnnuncio`, il pannello «finestre» sull'annuncio)
+   cominci a riempirsi — al 17/08 la tabella ha **0 righe** e nessun account
+   ha mai consegnato `annuncio-giorni`. Il lavoro `keyword-giorni` dentro
+   `tutto` manda entrambe le tabelle, quindi basta `tutto.js`; chi ha
+   schedulato anche i lavori singoli reincolli anche `keyword-giorni.js`.
    ⚠️ Nel file generato **CHIAVE_API e BRAND sono vuoti**: vanno rimessi a
-   mano. Finché non si reincolla: la pulizia dei titoli lavora sulla finestra
-   dei 30 giorni (un titolo fermo può essere staccato per errore, si
-   riattacca appena ha traffico), l'operazione sbloccata resta eseguibile
-   solo dalla ricerca per testo vecchia, e le località non arrivano.
-2. Verificare in Business Manager se `ads_management` si ottiene senza App
-   Review (per accendere la scrittura Meta).
-3. Al giro dopo il reincollo, controllare: su `Flowers Delivery` che gli
-   annunci siano scesi a **≤ 15 titoli** (erano 21/19/17); che l'operazione
-   `attiva_keyword` su «flowers delivery milan» risulti **eseguita o fallita
-   con motivo** — non più `approvata` muta; e che sulle schede campagna
-   compaiano le **località** («non ancora lette» deve sparire).
+   mano. Prima di rigenerare le copie: `node scripts/prova-script-google.mjs`.
+2. **Le 15 `nuova_keyword` in attesa su `[Cakedesign] | Sales | ITA`**
+   («torte roma / torino / napoli…», frase, da «Estendi con AI» del 15/08):
+   sono in coda dal 15/08 06:35 e aspettano una persona che le approvi (o
+   le annulli) da `/operazioni` — ora si può fare in blocco.
+3. **Sync Drive ferma dal 04/08**: `npm run sync-drive` (o «Sincronizza
+   ora») se servono documenti e analisi nuove; valutare un cron Vercel
+   come per Meta e ordini se deve andare da sola.
+4. Verificare in Business Manager se `ads_management` si ottiene senza App
+   Review (per accendere la scrittura Meta) — invariato dal 07/08.
+5. Al primo giro dopo il reincollo del 15/08: aprire una scheda gruppo,
+   cliccare un annuncio e controllare che le finestre 7g/mese/30g/anno
+   abbiano numeri (e non «storia non ancora raccolta»); su `/ricezione`
+   deve comparire il tipo `annuncio-giorni` per i tre account.
 
 ## MANCA
 
@@ -2348,6 +2642,18 @@ funzione.
 - **Un redirect del middleware su un endpoint di servizio è un 307**, e per chi
   lo chiama (cron Vercel, pagina Stato del Hub) un 307 sembra "andato bene".
   `/api/health` e `/api/cron/` sono esentati apposta.
+- **In Postgres `ORDER BY colonna DESC` mette i NULL per primi**: un `take`
+  su una colonna con buchi pesca le righe senza numeri. Sempre
+  `orderBy: { spesa: { sort: "desc", nulls: "last" } }` (11/08, 8 punti).
+- **Un `take` su righe di tipi diversi ordinate per tipo taglia in ordine
+  alfabetico**: «keyword» viene prima di «titolo», e con 1.038 keyword i
+  titoli non entravano mai. Un tetto per tipo, non un tetto solo più alto.
+- **Le azioni in blocco applicano la regola del singolo a tutto l'archivio**
+  se non si passa il recinto (campagna+gruppo): 168 righe marcate, 53 attive
+  su Google. Il form dichiara su cosa agisce e l'update si limita a quello.
+- **Il log dentro Google Ads è il posto sbagliato dove scoprire un
+  ReferenceError**: `node scripts/prova-script-google.mjs` prima di ogni
+  rigenerazione delle copie — e una prova con query VUOTE non prova niente.
 
 ## Come riprendere
 
@@ -2363,13 +2669,14 @@ Prima di fermarsi: aggiornare **questo file** e la memoria di progetto
 ## Rigenerare le copie dello script per ogni lavoro
 
 Una copia per `AZIONE`, pronta da incollare in Google Ads. Da lanciare dopo
-ogni modifica a `scripts/google-ads-script.js`:
+ogni modifica a `scripts/google-ads-script.js` — **prima**, la prova a secco
+`node scripts/prova-script-google.mjs` (deve dire «lavori rotti: 0»):
 
 ```bash
 cd deluxy-marketing && node -e "
 const fs=require('fs');
 const base=fs.readFileSync('scripts/google-ads-script.js','latin1');
-const azioni=['metriche','copy','gruppi','asset','diagnosi','approvazioni','stati-keyword','esegui','tutto'];
+const azioni=['metriche','copy','gruppi','asset','diagnosi','approvazioni','stati-keyword','keyword-giorni','esegui','tutto'];
 const dir='C:/Users/nicol/Downloads/deluxy-google-ads';
 fs.mkdirSync(dir,{recursive:true});
 for(const a of azioni) fs.writeFileSync(dir+'/'+a+'.js', base.replace('var AZIONE = \"metriche\";','var AZIONE = \"'+a+'\";'), 'latin1');
