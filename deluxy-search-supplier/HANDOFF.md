@@ -1,4 +1,4 @@
-# HANDOFF — Deluxy Search/Supplier (aggiornato al 10/08/2026)
+# HANDOFF — Deluxy Search/Supplier (aggiornato al 17/08/2026)
 
 Per riprendere il lavoro su quest'app da una nuova sessione Claude. **Leggere prima
 [AI_SPEC.md](AI_SPEC.md)**: è la scheda tecnica completa e aggiornata; questo file dice
@@ -393,7 +393,38 @@ solo dove siamo e come si lavora.
    desktop 5 colonne e mobile 375px 2 colonne senza overflow, console pulita, sintassi OK. **Non collaudato su Google vero** (serve chiave + login): da guardare in
    produzione su un ordine reale — soprattutto quanti negozi hanno davvero le foto.
 
+39. **Messaggio al fornitore: tipologia + «come da foto»** (17/08): su richiesta dell'utente, nel
+   testo WhatsApp/email non va più il nome commerciale del prodotto ma **«un Bouquet» / «una
+   Cappelliera» / «una Torta» + variante + «come da foto»** («Buongiorno, è possibile un Bouquet
+   Grande come da foto x1 da spedire con consegna a …?»), nelle 5 lingue. La tipologia viene dal
+   `productType` di Shopify (campo nuovo `items[].type` in `api/order.js` e `api/webhook.js`) o, se
+   vuoto, dal titolo (`tipoProdotto`). Senza foto resta il nome del prodotto come prima; tipologia
+   non riconosciuta o righe miste → nome prodotto + «come da foto». Il riepilogo a schermo mostra
+   sempre il nome vero. Verificato in locale (5511) su 7 casi + rigenerazione al cambio foto;
+   `node --check` OK; console pulita. Dettagli in AI_SPEC §9.
+   ⚠️ Gli ordini già in KV (salvati dal webhook prima di oggi) non hanno `type`: per loro decide il
+   titolo. Il `productType` dei prodotti su Shopify va **compilato** (Bouquet/Cappelliera) perché il
+   riconoscimento sia certo: dal titolo è un'euristica.
+
 ## Cose in sospeso
+- **«La Mimosa» non esce nei risultati dell'ordine deluxyflowers #2734** (segnalato 17/08, NON
+  diagnosticato: in sessione non si entra nell'app e l'indirizzo dell'ordine non è noto). Come
+  funziona la ricerca e quindi dove può perdersi un negozio che su Google c'è: (1) ogni categoria fa
+  N nearbySearch **tutte con `type: florist`** (keyword + solo tipo, `nearby()`), **senza
+  paginazione**: Google dà max **20 risultati per chiamata**, i più vicini in linea d'aria — in città
+  dense i 20 fioristi più vicini possono stare tutti entro 1–2 km e chi è oltre non entra mai, con
+  qualunque «Numero risultati»; (2) se su Google la scheda **non è di tipo `florist`** (es. «Garden
+  center», «Vivaio», «Negozio di regali», «Fioraio» solo nel nome) non esce da nessuna delle
+  chiamate; (3) `renderResults` taglia a «Numero risultati» (6…30) dopo l'ordinamento; (4) i filtri
+  WhatsApp/Apertura/⭐4+ nascondono le schede; (5) la scheda può essere **archiviata** (sezione
+  Archiviati) o Google la dà `CLOSED_PERMANENTLY`. Checklist per l'operatore: Numero risultati → 30,
+  filtri → Tutti, guardare Archiviati, «+10 km». Se ancora manca è il caso (1) o (2). Rimedi
+  possibili (da scegliere): **a)** aggiungere una nearbySearch **solo keyword senza `type`** (+1
+  chiamata per keyword, prende chi Google non classifica florist); **b)** paginare con
+  `next_page_token` fino a 60 (ogni pagina è una chiamata a pagamento); **c)** un campo «Aggiungi
+  negozio per nome» (textSearch del nome con bias sulla consegna → scheda normale con distanza/
+  telefono/WhatsApp), che risolve il caso singolo a costo minimo e mostra i `types` Google per capire
+  perché era escluso.
 - **Utenze operative**: da creare in Impostazioni (finché non esistono si entra solo col
   pass code amministratore + un'email qualsiasi). Le email degli operatori vanno anche
   aggiunte come **test user** dell'app OAuth (vedi sotto).

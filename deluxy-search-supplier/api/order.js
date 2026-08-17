@@ -30,7 +30,7 @@ query getOrder($q: String!) {
         title quantity variantTitle
         customAttributes { key value }
         image { url }
-        product { featuredImage { url } }
+        product { featuredImage { url } productType }
       } } }
     } }
   }
@@ -131,6 +131,7 @@ function normalize(brand, o) {
     const n = e.node;
     return {
       title: n.title,
+      type: n.product?.productType || '',   // tipologia Shopify (Bouquet/Cappelliera…) per il messaggio al fornitore
       variant: (n.variantTitle && n.variantTitle !== 'Default Title') ? n.variantTitle : '',
       quantity: n.quantity,
       image: n.image?.url || n.product?.featuredImage?.url || '',
@@ -228,6 +229,7 @@ export default async function handler(req, res) {
                 (data.items || []).forEach(it => {
                   const m = (full.items || []).find(x => x.title === it.title);
                   if (m && m.image) it.image = m.image;
+                  if (m && m.type && !it.type) it.type = m.type;
                 });
                 await kvSet(`order:${brand}:${numNoHash}`, JSON.stringify(data), 60 * 60 * 24 * 60);
               } else {

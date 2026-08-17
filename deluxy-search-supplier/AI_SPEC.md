@@ -81,6 +81,18 @@ Dopo aver aggiunto/cambiato una env → **Redeploy**.
 - **Lingua** = paese del **negozio** (fiorario/pasticceria), non della consegna. Rilevata da `address_components` (country) di Google → mappa `COUNTRY_LANG` → it/en/fr/de/es. Il pulsante d'invio porta `data-lang`.
 - **oggi/domani**: `dateLabel()` confronta la data ordine con oggi/domani (usa `new Date()` del browser — OK nel browser, VIETATO nelle funzioni serverless/script).
 - **Foto**: NON nel testo. Per WhatsApp viene **copiata negli appunti** e l'operatore invia il testo e poi fa **Ctrl+V** per allegarla (vedi §9-bis). Per Email va come **link** (mailto non allega file).
+- **{prodotto} = tipologia + «come da foto»** (17/08/2026): quando l'ordine ha la foto, al posto del nome
+  commerciale («Bouquet Rose Rosse Passion», che al fiorista non dice nulla) va **«un Bouquet» /
+  «una Cappelliera» / «una Torta» + variante + «come da foto»** (localizzati: `TIPO_PRODOTTO`,
+  `ASPHOTOWORD`), es. «è possibile un Bouquet Grande come da foto x1 da spedire…». La tipologia la
+  decide `tipoProdotto(item)`: prima il **`productType` di Shopify** (campo nuovo `items[].type`
+  da `api/order.js` — `product { productType }` nella query — e `li.product_type` nel webhook),
+  poi il **titolo** (regex cappelliera/hat box/flower box/scatola/box → cappelliera; bouquet/mazzo →
+  bouquet; torta/cake → torta). Le righe dell'ordine stanno in `orderItems` (globale, riempita da
+  `populateOrder`, azzerata da «Compila ordine» e «Azzera»; in manuale si legge il testo di
+  `#ord_items`). **Senza foto** o con tipologia non riconosciuta / righe di tipo diverso resta il
+  nome del prodotto (con «come da foto» se la foto c'è). `#ord_photo` è fra i campi che rigenerano
+  il messaggio. Il riepilogo a schermo continua a mostrare il nome vero del prodotto.
 
 ## 9-bis. Riepilogo «foto + prezzi» e appunti
 Sezione `.deal` in cima al riquadro ordine: miniatura, pulsante **⬇️ Scarica foto**, e tre prezzi (pagato dal cliente · da proporre al fiorario · margine).
