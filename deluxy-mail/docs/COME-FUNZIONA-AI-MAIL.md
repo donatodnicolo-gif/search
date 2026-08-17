@@ -669,6 +669,29 @@ non è mai automatico: anche se un attacco passasse, si fermerebbe alla bozza.
 
 **Chiave OpenAI.** Solo lato server, mai spedita ai client desktop o Android.
 
+## 6e. La rubrica e la scheda di un contatto
+
+**Rubrica** (`/rubrica`) si compila da sola dalla posta: c'è chi ti ha scritto e
+anche **chi hai scritto tu** (i destinatari delle mail inviate). Nessun
+salvataggio a mano: mandare una mail registra già il contatto.
+
+Aprendo un contatto (`/rubrica/<email>`) si vede **tutto lo scambio con lui, nei
+due versi** — le sue mail e le tue risposte, con `↙` e `↗` a dire chi ha
+scritto. In cima: quanti messaggi (ricevute e inviate), quante aspettano
+risposta secondo l'AI, quante attività aperte sono nate dalle sue mail; se il
+contatto è un'azienda del registro Anagrafiche, la sua scheda; e il tasto **AI**,
+che legge le ultime mail e ti dice a che punto siete proponendo cosa fare.
+
+Sull'elenco si può **selezionare più mail insieme** (checkbox, o «Seleziona
+tutti») e agire in blocco: **Cestina**, **Archivia**, **Segna lette** e
+**⛓ Unisci in una conversazione** — quest'ultima prende le mail scelte (da due in
+su) e le fa diventare un unico thread, così l'AI le legge insieme; ognuna
+trascina con sé la conversazione a cui apparteneva.
+
+Si arriva alla scheda da tre punti: dalla rubrica, dal **mittente** di una mail
+aperta e — dal 17 agosto 2026 — da **ogni indirizzo nella riga «a …»**, che ora è
+un link. Su una mail inviata è lì che sta la controparte.
+
 ## 7-bis. L'associazione mail ↔ cliente (e chi la usa)
 
 La posta non viene spostata per cliente: l'associazione è **dinamica** e vive in

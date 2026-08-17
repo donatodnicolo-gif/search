@@ -25,6 +25,7 @@ import { messaggiThread, membriThread, righeThread, leggiRiassuntoThread } from 
 import { TraduzioneAllApertura } from '@/components/TraduzioneAllApertura'
 import { AllegatiMessaggio } from '@/components/AllegatiMessaggio'
 import { AllegatiInTesta } from '@/components/AllegatiInTesta'
+import { IndirizziCliccabili } from '@/components/IndirizziCliccabili'
 import { chiaveThread } from '@/lib/thread'
 import { nomeDiThread } from '@/lib/nomiThread'
 import { NomeThreadBottone, NomeThreadDialog } from '@/components/NomeThreadRiga'
@@ -258,7 +259,9 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
               &lt;{messaggio.mittente}&gt;
             </Link>
             {' · a '}
-            {messaggio.destinatari}
+            {/* Anche i destinatari portano alla loro scheda: su una mail
+                INVIATA la controparte è qui, non nel mittente. */}
+            <IndirizziCliccabili testo={messaggio.destinatari} />
             {' · '}
             {dataLunga(messaggio.data)}
           </div>

@@ -3,7 +3,7 @@ import { ripulisciAnteprima } from '@/lib/citato'
 import { notFound } from 'next/navigation'
 import { db } from '@/lib/db'
 import { coloreDiPriorita, dataBreve, FUSO } from '@/lib/format'
-import { iniziali } from '@/lib/contatti'
+import { iniziali, indirizziIn, nomeNeiDestinatari } from '@/lib/contatti'
 import { MessaggiContatto } from '@/components/MessaggiContatto'
 import { BottoneAI } from '@/components/BottoneAI'
 import { BottoneContattoAI } from '@/components/BottoneContattoAI'
@@ -24,8 +24,21 @@ export default async function Contatto({ params }: Props) {
   const email = decodeURIComponent(grezza)
   const u = await richiediUtente()
 
+  // ⚠️ Lo SCAMBIO, non la sola posta ricevuta. Fino al 17/08/2026 qui c'era
+  // `mittente: email` e basta: per un contatto a cui abbiamo solo SCRITTO la
+  // pagina dava 404 — pur essendo linkato dalla rubrica, che i destinatari li
+  // conta da sempre (`elencoContatti`) — e per gli altri mancavano le nostre
+  // risposte, cioè metà della conversazione.
   const messaggi = await db.messaggio.findMany({
-    where: { utenteId: u.id, mittente: email },
+    where: {
+      utenteId: u.id,
+      OR: [
+        { mittente: { equals: email, mode: 'insensitive' } },
+        // `contains` è largo per forza (il campo è testo libero): la precisione
+        // la mette il filtro qui sotto, che confronta gli indirizzi estratti.
+        { direzione: 'uscita', destinatari: { contains: email, mode: 'insensitive' } },
+      ],
+    },
     orderBy: { data: 'desc' },
     take: 200,
     // ⚠️ La scheda mostra solo l'anteprima (riga ~202): i corpi interi —
@@ -38,10 +51,26 @@ export default async function Contatto({ params }: Props) {
       _count: { select: { attivita: true } },
     },
   })
-  if (messaggi.length === 0) notFound()
+  // ⚠️ `contains` prenderebbe anche un indirizzo che CONTIENE il nostro
+  // (`altrolinn_mp@hotmail.com` contiene `linn_mp@hotmail.com`): sui destinatari
+  // si tiene solo chi combacia per intero.
+  const scambio = messaggi.filter(
+    (m) =>
+      m.mittente.toLowerCase() === email.toLowerCase() ||
+      indirizziIn(m.destinatari).includes(email.toLowerCase())
+  )
+  if (scambio.length === 0) notFound()
 
-  const nome = messaggi.find((m) => m.mittenteNome)?.mittenteNome ?? null
-  const daRispondere = messaggi.filter((m) => m.serveRisposta && !m.archiviato).length
+  const ricevute = scambio.filter((m) => m.mittente.toLowerCase() === email.toLowerCase()).length
+  const inviate = scambio.length - ricevute
+
+  // Il nome: da chi ci ha scritto, o — per chi non ci ha mai scritto — da come
+  // l'abbiamo indirizzato noi (`Linn Persson <linn_mp@hotmail.com>`).
+  const nome =
+    scambio.find((m) => m.mittente.toLowerCase() === email.toLowerCase() && m.mittenteNome)?.mittenteNome ??
+    scambio.map((m) => nomeNeiDestinatari(m.destinatari, email)).find(Boolean) ??
+    null
+  const daRispondere = scambio.filter((m) => m.serveRisposta && !m.archiviato).length
   const attivitaAperte = await db.attivita.count({
     where: {
       utenteId: u.id,
@@ -106,8 +135,10 @@ export default async function Contatto({ params }: Props) {
       <div className="kpi-grid">
         <div className="kpi">
           <div className="kpi-label">Messaggi</div>
-          <div className="kpi-value">{messaggi.length}</div>
-          <div className="kpi-sub">l’ultimo {dataBreve(messaggi[0].data)}</div>
+          <div className="kpi-value">{scambio.length}</div>
+          <div className="kpi-sub">
+            {ricevute} ricevute · {inviate} inviate · l’ultimo {dataBreve(scambio[0].data)}
+          </div>
         </div>
         <div className="kpi">
           <div className="kpi-label">Da rispondere</div>
@@ -183,10 +214,13 @@ export default async function Contatto({ params }: Props) {
         </div>
       )}
 
-      <h2 className="section-title">Tutti i messaggi</h2>
+      <h2 className="section-title">Tutti i messaggi · ricevuti e inviati</h2>
       <MessaggiContatto
-        messaggi={messaggi.map((m) => ({
+        messaggi={scambio.map((m) => ({
           id: m.id,
+          // Chi ha scritto: senza questo, in un elenco che ora contiene tutti e
+          // due i versi, la propria mail e quella del contatto sono identiche.
+          inviata: m.direzione === 'uscita',
           oggetto: m.oggetto,
           letto: m.letto,
           riassunto: m.riassunto,

@@ -10,6 +10,33 @@ export type Contatto = {
   daRispondere: number
 }
 
+/**
+ * Gli indirizzi contenuti in un campo «destinatari» (`A`, `Cc`: una stringa
+ * libera, con o senza nome davanti, separata da virgole o punto e virgola).
+ * ⚠️ Una sola definizione per tutta l'app: la rubrica, la scheda contatto e la
+ * testata della mail devono considerare destinatario lo stesso insieme di
+ * indirizzi, o si finisce con un link che porta a una pagina vuota.
+ */
+export function indirizziIn(testo: string | null | undefined): string[] {
+  if (!testo) return []
+  return (testo.match(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/gi) ?? []).map((e) => e.toLowerCase())
+}
+
+/**
+ * Il nome scritto davanti a un indirizzo dentro un campo destinatari
+ * (`Linn Persson <linn_mp@hotmail.com>` → `Linn Persson`), o null.
+ * Serve per dare un nome a un contatto a cui abbiamo solo SCRITTO: lui non è
+ * mai stato mittente, quindi `mittenteNome` per lui non esiste.
+ */
+export function nomeNeiDestinatari(testo: string | null | undefined, email: string): string | null {
+  if (!testo) return null
+  const e = email.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const m = testo.match(new RegExp(`([^,;<]*)<\\s*${e}\\s*>`, 'i'))
+  const nome = m?.[1]?.trim().replace(/^["']|["']$/g, '').trim()
+  // Un nome uguale all'indirizzo non aggiunge niente (e va scartato).
+  return nome && nome.toLowerCase() !== email.toLowerCase() ? nome : null
+}
+
 /** La mappa email→alias dell'utente (email minuscola). Difensiva: senza tabella
  *  migrata torna vuota. */
 export async function aliasContatti(utenteId: string): Promise<Map<string, string>> {
@@ -98,11 +125,10 @@ export async function elencoContatti(utenteId: string, cerca?: string): Promise<
     orderBy: { data: 'desc' },
     take: 500,
   })
-  const reEmail = /[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/gi
   const filtroTesto = testo?.toLowerCase()
   const rec = new Map<string, { email: string; messaggi: number; ultimo: Date }>()
   for (const m of inviate) {
-    for (const raw of m.destinatari.match(reEmail) ?? []) {
+    for (const raw of indirizziIn(m.destinatari)) {
       const email = raw.toLowerCase()
       if (mieEmail.has(email) || giaPresenti.has(email)) continue
       if (filtroTesto && !email.includes(filtroTesto)) continue
