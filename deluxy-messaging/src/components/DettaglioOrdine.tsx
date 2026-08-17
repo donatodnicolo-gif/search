@@ -180,6 +180,7 @@ export function DettaglioOrdine({
   archivio,
   onChiudi,
   onScriviMail,
+  linkShopify = '',
 }: {
   /** L'ordine che abbiamo in casa. */
   ordineId?: string
@@ -192,6 +193,12 @@ export function DettaglioOrdine({
   onChiudi: () => void
   /** Apre il pop-up di posta con la bozza già scritta (niente `mailto:`). */
   onScriviMail?: (bozza: BozzaMail) => void
+  /**
+   * L'indirizzo della scheda dentro Shopify. Vuoto = non si può costruire
+   * (manca il gid o il dominio del negozio), e allora **il bottone non si
+   * mostra**: uno che porta a una pagina d'errore è peggio di uno assente.
+   */
+  linkShopify?: string
 }) {
   const [ordine, setOrdine] = useState<OrdineDettaglio | null>(null)
   const [righe, setRighe] = useState<Riga[]>([])
@@ -334,9 +341,32 @@ export function DettaglioOrdine({
               {soloArchivio ? ' · archivio storico (sola lettura)' : ''}
             </div>
           </div>
-          <button className="btn btn-secondario small" onClick={onChiudi}>
-            Chiudi
-          </button>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            {/* ── Apri in Shopify ──
+                Una parte del lavoro non si fa da qui e non deve farsi da qui:
+                rimborsi veri, modifica delle righe, rispedizione della
+                conferma, pagamenti. Prima chi doveva aprire l'ordine vero
+                andava su Shopify a mano, sceglieva il negozio giusto fra tre e
+                cercava il numero — e `#1733` esiste su più negozi, quindi ogni
+                tanto si finiva sull'ordine di un altro marchio. Qui il
+                collegamento nasce dal gid, che quell'ambiguità non ce l'ha.
+                ⚠️ Se il link non si può costruire il bottone NON c'è: uno che
+                porta a una pagina d'errore è peggio di uno assente. */}
+            {linkShopify ? (
+              <a
+                className="btn btn-secondario small"
+                href={linkShopify}
+                target="_blank"
+                rel="noreferrer noopener"
+                title="Apre la scheda di questo ordine nell'amministrazione di Shopify, in una scheda nuova"
+              >
+                Apri in Shopify ↗
+              </a>
+            ) : null}
+            <button className="btn btn-secondario small" onClick={onChiudi}>
+              Chiudi
+            </button>
+          </div>
         </div>
 
         {errore ? <div className="avviso-errore">{errore}</div> : null}

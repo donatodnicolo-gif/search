@@ -124,3 +124,49 @@ export function arrivatoAdesso(creatoIl: string | Date | null | undefined, inizi
   const t = new Date(creatoIl).getTime()
   return Number.isFinite(t) && t > inizio
 }
+
+/**
+ * Da quante ore un ordine conta ancora come «appena arrivato».
+ *
+ * Dodici e non ventiquattro: la giornata del servizio clienti è quella, e un
+ * ordine entrato ieri sera alle nove non è una novità per chi si siede alla
+ * scrivania stamattina — è lavoro di ieri che nessuno ha ancora preso. Il sync
+ * gira ogni 15 minuti, quindi la finestra è larghissima rispetto al ritmo con
+ * cui gli ordini entrano davvero.
+ */
+export const ORE_APPENA_ARRIVATO = 12
+
+/**
+ * L'ordine è entrato da noi da poco?
+ *
+ * ⚠️⚠️ QUESTA È LA DOMANDA GIUSTA, `arrivatoAdesso` rispondeva a un'altra.
+ * Quella confronta con l'istante in cui hai aperto la scheda: perfetta per far
+ * lampeggiare ciò che compare **mentre guardi**, inutile per chi apre la
+ * bacheca la mattina — a scheda appena aperta nessun ordine è più recente
+ * dell'apertura, quindi l'etichetta NUOVO non si vedeva **mai**. Le due
+ * convivono: questa dice «è roba di stamattina», quella «è appena comparso
+ * sotto i tuoi occhi».
+ *
+ * ⚠️ `adesso` si passa da fuori e non si legge qui con `Date.now()`: durante il
+ * primo disegno server e browser darebbero due risposte diverse e React
+ * segnalerebbe una discordanza di idratazione. Chi chiama lo tiene in uno stato
+ * riempito in un effetto; con `0` questa torna sempre falso, che è il
+ * comportamento giusto prima di sapere che ore sono.
+ *
+ * ⚠️ Si guarda `creatoIl` (quando l'ordine è comparso DA NOI), non la data
+ * dell'ordine: al primo scarico di un negozio nuovo entrano insieme due mesi di
+ * ordini vecchi, e sono tutti «appena arrivati» per noi — il che è vero, ed è
+ * il motivo per cui questa etichetta non va usata come «ordine recente».
+ */
+export function appenaArrivato(
+  creatoIl: string | Date | null | undefined,
+  adesso: number
+): boolean {
+  if (!creatoIl || !adesso) return false
+  const t = new Date(creatoIl).getTime()
+  if (!Number.isFinite(t)) return false
+  const eta = adesso - t
+  // Un `creatoIl` nel futuro (orologi storti fra macchine) non deve accendere
+  // un'etichetta che poi non si spegne: si accetta solo il passato recente.
+  return eta >= 0 && eta <= ORE_APPENA_ARRIVATO * 3600 * 1000
+}

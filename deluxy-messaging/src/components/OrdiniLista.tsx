@@ -10,7 +10,14 @@ import {
   origineTipoCliente,
 } from '@/lib/clienti-tipo'
 import { linguaCliente, messaggioCliente, nomeLingua, oggettoCliente } from '@/lib/lingua'
-import { profiloCliente, inizioSessione, arrivatoAdesso } from '@/lib/cliente-valore'
+import {
+  profiloCliente,
+  inizioSessione,
+  arrivatoAdesso,
+  appenaArrivato,
+  ORE_APPENA_ARRIVATO,
+} from '@/lib/cliente-valore'
+import { linkOrdineShopify } from '@/lib/link-shopify'
 import { DettaglioOrdine } from './DettaglioOrdine'
 import { ComponiMail, type BozzaMail } from './ComponiMail'
 
@@ -18,6 +25,13 @@ type OrdineDto = {
   id: string
   negozioId: string
   negozioNome: string
+  /**
+   * Il gid Shopify (`gid://shopify/Order/…`): con `NegozioDto.dominio` fa il
+   * link alla scheda dell'ordine dentro Shopify. ⚠️ Si passa da qui e non dal
+   * numero: `#1733` esiste su più negozi, e cercarlo a mano ogni tanto portava
+   * sull'ordine di un altro marchio.
+   */
+  shopifyId: string
   numero: string
   data: string
   totale: number
@@ -237,11 +251,23 @@ function BollinoProblema() {
 }
 
 /** L'ordine è arrivato mentre eri qui: non deve passare inosservato. */
-function BollinoNuovo() {
+/**
+ * «NUOVO»: l'ordine è entrato da poco.
+ *
+ * Due gradi, e la differenza si vede: `sottoITuoiOcchi` è quello comparso da
+ * quando hai aperto la scheda — vale la pena farlo notare, perché è arrivato
+ * mentre guardavi. Gli altri sono di stamattina. Il colore è lo stesso, cambia
+ * la spiegazione: due bollini diversi per la stessa cosa sarebbero un rebus.
+ */
+function BollinoNuovo({ sottoITuoiOcchi = false }: { sottoITuoiOcchi?: boolean }) {
   return (
     <span
       className="badge badge-nuovo"
-      title="Questo ordine è comparso dopo che hai aperto l’app. Sparisce alla prossima sessione."
+      title={
+        sottoITuoiOcchi
+          ? 'Arrivato adesso, da quando hai aperto la pagina.'
+          : `Arrivato nelle ultime ${ORE_APPENA_ARRIVATO} ore.`
+      }
     >
       NUOVO
     </span>
@@ -384,6 +410,8 @@ function linkReclamo(o: OrdineDto): string {
 type NegozioDto = {
   id: string
   nome: string
+  /** `xxx.myshopify.com`: da qui nasce il link alla scheda dentro Shopify. */
+  dominio: string
   brandRicerca: string
   conteggio: number
   valore: number
@@ -542,8 +570,46 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
   const [sessioneDa, setSessioneDa] = useState(0)
   useEffect(() => setSessioneDa(inizioSessione()), [])
 
+  // ── Che ore sono, per l'etichetta «NUOVO» ──
+  //
+  // ⚠️ `sessioneDa` da solo non bastava: confronta con l'istante in cui hai
+  // aperto la scheda, quindi **aprendo la bacheca la mattina nessun ordine
+  // risultava nuovo** — l'etichetta esisteva e non si vedeva mai. Serve anche
+  // sapere che ora è adesso, per marcare quelli entrati nelle ultime ore.
+  //
+  // ⚠️ Anche questo in un effetto e non nel render: `Date.now()` sul server e
+  // nel browser dà due valori diversi e React segnala l'idratazione. Finché
+  // resta 0, `appenaArrivato` torna falso — nessuna etichetta, che è il ripiego
+  // giusto. Si aggiorna ogni cinque minuti, altrimenti su una scheda lasciata
+  // aperta tutto il giorno l'etichetta non si spegnerebbe mai.
+  const [adesso, setAdesso] = useState(0)
+  useEffect(() => {
+    setAdesso(Date.now())
+    const t = setInterval(() => setAdesso(Date.now()), 5 * 60 * 1000)
+    return () => clearInterval(t)
+  }, [])
+
+
   const [ordini, setOrdini] = useState<OrdineDto[]>([])
   const [negozi, setNegozi] = useState<NegozioDto[]>([])
+
+  /**
+   * Il link alla scheda dentro Shopify per un ordine che abbiamo in casa.
+   *
+   * ⚠️ Il dominio si prende dal NEGOZIO DI QUELL'ORDINE, non da uno qualsiasi:
+   * la holding ne ha tre e lo stesso numero esiste su più negozi. Se il negozio
+   * non è fra quelli caricati — o manca il gid — torna vuoto, e il bottone
+   * semplicemente non compare.
+   */
+  const linkShopifyDi = useCallback(
+    (idOrdine: string): string => {
+      const o = ordini.find((x) => x.id === idOrdine)
+      if (!o) return ''
+      const n = negozi.find((x) => x.id === o.negozioId)
+      return linkOrdineShopify(n?.dominio, o.shopifyId)
+    },
+    [ordini, negozi]
+  )
   // Vista: colonne per brand (come Deluxy Orders) o elenco in tabella.
     // Negli ordini globali si cerca, quindi si parte dalla tabella; in quelli
   // aperti si lavora, e le colonne per brand dicono di più a colpo d'occhio.
@@ -1222,6 +1288,8 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
                           {haProblemaConsegna(o) ? (
                             <BollinoProblema />
                           ) : arrivatoAdesso(o.creatoIl, sessioneDa) ? (
+                            <BollinoNuovo sottoITuoiOcchi />
+                          ) : appenaArrivato(o.creatoIl, adesso) ? (
                             <BollinoNuovo />
                           ) : null}
                           {o.haBiglietto ? <SegnoBiglietto /> : null}
@@ -1448,6 +1516,11 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
                     ) : arrivatoAdesso(o.creatoIl, sessioneDa) ? (
                       <>
                         {' '}
+                        <BollinoNuovo sottoITuoiOcchi />
+                      </>
+                    ) : appenaArrivato(o.creatoIl, adesso) ? (
+                      <>
+                        {' '}
                         <BollinoNuovo />
                       </>
                     ) : null}
@@ -1644,6 +1717,7 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
             carica()
           }}
           onScriviMail={(b) => setMail(b)}
+          linkShopify={linkShopifyDi(dettaglio)}
         />
       ) : null}
 

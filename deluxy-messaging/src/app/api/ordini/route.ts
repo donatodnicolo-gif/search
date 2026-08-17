@@ -275,6 +275,11 @@ export async function GET(req: NextRequest) {
   const negozi = negoziDb.map((n) => ({
     id: n.id,
     nome: n.nome,
+    // Il dominio `xxx.myshopify.com` serve al collegamento verso la scheda
+    // dell'ordine dentro Shopify: da lì si ricava la maniglia del negozio. Non
+    // è un segreto — sta nello snippet di ogni sito — e senza, il bottone
+    // «Apri in Shopify» dovrebbe indovinare su quale dei tre negozi cercare.
+    dominio: n.dominio,
     // il brand serve al bottone "Fornitore" (deep link verso Ricerca fornitori)
     brandRicerca: brandRicercaDaNegozio(n.nome, n.dominio, n.brandRicerca),
     conteggio: statistiche[n.id]?.conteggio ?? 0,
