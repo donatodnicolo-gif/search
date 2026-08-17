@@ -7,6 +7,7 @@ import { annullaOperazione, approvaOperazione, approvaOperazioniSelezionate,
   cambiaCorrispondenzaOperazione, riapriOperazione,
   cambiaTestoOperazione,
 } from "@/lib/azioni";
+import { campagneNonConfermate, letturaNonConfermata } from "@/lib/campagne-non-confermate";
 import { prisma } from "@/lib/db";
 import { ETICHETTA_LIVELLO, formattaDataOra } from "@/lib/dominio";
 
@@ -78,10 +79,12 @@ export default async function PaginaOperazioni({
   searchParams: Promise<{ esito?: string; saltate?: string; avvisi?: string; torna?: string }>;
 }) {
   const sp = await searchParams;
-  const operazioni = await prisma.operazioneAdv.findMany({
-    orderBy: { creataIl: "desc" },
-    take: 100,
-  });
+  const [operazioni, nonConfermate] = await Promise.all([
+    prisma.operazioneAdv.findMany({ orderBy: { creataIl: "desc" }, take: 100 }),
+    // «Eseguita» su una campagna nuova vuol dire INVIATA: il bulk upload non
+    // risponde. Qui si incrociano i giri di anagrafica arrivati dopo.
+    campagneNonConfermate(),
+  ]);
   const daApprovare = operazioni.filter((o) => o.stato === "in_attesa");
   const approvate = operazioni.filter((o) => o.stato === "approvata");
   const concluse = operazioni.filter((o) => ["eseguita", "fallita", "annullata"].includes(o.stato));
@@ -330,6 +333,43 @@ export default async function PaginaOperazioni({
             </p>
           </div>
         </div>
+
+        {/* ⚠️ «Eseguita» su una campagna nuova vuol dire INVIATA, non CREATA.
+            Il bulk upload di Google non risponde e viene lavorato dopo: se lo
+            rifiuta, l'errore resta nel registro dei caricamenti dentro Google
+            Ads e non torna mai indietro. Qui si dichiara, incrociando i giri di
+            anagrafica arrivati dopo il lancio — l'unica prova che l'app ha. */}
+        {nonConfermate.length > 0 && (
+          <div
+            className="nota-info"
+            style={{ borderColor: "rgba(201,52,0,.35)", background: "rgba(201,52,0,.06)" }}
+          >
+            <span className="nota-icona" style={{ color: "var(--orange)" }}>⚠</span>
+            <span>
+              <b>
+                {nonConfermate.length} campagn{nonConfermate.length === 1 ? "a lanciata" : "e lanciate"} che
+                Google non ha ancora confermato
+              </b>
+              . «Eseguita» qui vuol dire che il <b>caricamento è stato inviato</b>, non che la
+              campagna esista: il bulk upload non risponde all&apos;app.
+              <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>
+                {nonConfermate.map((c) => {
+                  const l = letturaNonConfermata(c);
+                  return (
+                    <li key={c.id} style={{ marginBottom: 4 }}>
+                      <a href={`/campagne/${c.id}`} style={{ color: "var(--blue)" }}>{c.nome}</a>{" "}
+                      <span className="cella-sub">
+                        — lanciata il {formattaDataOra(c.lanciataIl)}
+                        {c.account ? ` sull'account ${c.account}` : ""}.{" "}
+                        {l.grave ? <b>{l.frase.replace(/\*\*/g, "")}</b> : l.frase}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </span>
+          </div>
+        )}
 
         {/* ⚠️ La via del ritorno. Chi mette in coda arriva qui da una scheda
             campagna o gruppo, e dopo aver approvato doveva rifare la strada a
