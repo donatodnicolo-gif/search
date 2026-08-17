@@ -1,9 +1,15 @@
+import { BriefCampagnaAi } from "@/components/BriefCampagnaAi";
 import { Icona } from "@/components/Icona";
 import { Sidebar } from "@/components/Sidebar";
 import { lanciaCampagna } from "@/lib/azioni";
+import { proponiBriefCampagna } from "@/lib/azioni-brief";
 import { BRANDS, ETICHETTA_BRAND } from "@/lib/dominio";
 
 export const dynamic = "force-dynamic";
+// ⚠️ Una server action che chiama il modello vuole `maxDuration` sulla pagina
+// che la invoca, o in produzione muore a metà mentre in locale sembra a posto
+// (trappola già pagata su campagne/[id] con «Estendi con AI»).
+export const maxDuration = 60;
 
 // Gli obiettivi di Google Ads, detti come li direbbe chi vende — non come li
 // chiama Google. «Vendite» e «Contatti» non sono due nomi per la stessa cosa:
@@ -72,6 +78,11 @@ export default async function CreaCampagna({
             <span><b>Non accodata:</b> {sp.errore}</span>
           </div>
         )}
+
+        {/* Il pannello sta FUORI dal <form>: un <form> dentro un altro non è
+            HTML valido, e il bottone «Compila con l'AI» finirebbe per essere
+            un submit del modulo grande. Scrive nei campi per nome. */}
+        <BriefCampagnaAi brand={brand} azione={proponiBriefCampagna} />
 
         <form className="modulo-creazione" action={lanciaCampagna}>
           {/* Il brand viaggia anche negli errori: un redirect che lo perdesse

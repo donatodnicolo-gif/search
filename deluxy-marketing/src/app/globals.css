@@ -289,6 +289,15 @@ tbody tr:hover { background: var(--fill); }
 }
 .chip-check:focus-visible + .chip-etichetta { outline: 2px solid var(--blue); outline-offset: 2px; }
 
+/* Il pannello dell'AI si distingue dal modulo: è un AIUTO per compilarlo, non
+   una sua sezione. Se sembrasse un passaggio del modulo, chi lo salta penserebbe
+   di aver saltato qualcosa di obbligatorio. */
+.scheda-ai {
+  border-color: var(--gold-strong);
+  background: linear-gradient(0deg, rgba(184, 150, 62, 0.04), rgba(184, 150, 62, 0.04)), var(--surface);
+}
+.scheda-ai .titolo-icona { font-size: 15px; }
+
 /* L'unità accanto al numero: si legge «15 € / giorno», non «15» e basta. */
 .campo-unita { display: flex; align-items: center; gap: 8px; }
 .campo-unita input { flex: 1; min-width: 0; }

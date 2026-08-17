@@ -45,6 +45,20 @@ const REGOLE: Regola[] = [
   { pattern: /\bspedizione\b/i, brands: ["gifts"], tipo: "tossica", motivo: "deluxy.it non 'spedisce': consegna con i guanti bianchi (7.2)", sostituzione: "consegna" },
 ];
 
+/**
+ * Le regole che valgono per un brand, in parole.
+ *
+ * Serve a darle a chi SCRIVE il copy — l'AI del brief — invece di lasciargliele
+ * scoprire dal rifiuto: `lanciaCampagna` blocca l'accodamento sulle violazioni
+ * "vietato", quindi un titolo con «gratis» su Flowers arriverebbe in fondo al
+ * modulo per essere respinto lì. Meglio dire prima cosa non si può dire.
+ */
+export function regoleDiBrand(brand: string): string[] {
+  return REGOLE.filter((r) => r.brands.includes(brand)).map(
+    (r) => `${r.tipo === "vietato" ? "VIETATO" : "da evitare"}: ${r.motivo}${r.sostituzione ? ` — si dice invece: ${r.sostituzione}` : ""}`
+  );
+}
+
 export function lintCopy(testo: string, brand: string): Violazione[] {
   const violazioni: Violazione[] = [];
   for (const r of REGOLE) {
