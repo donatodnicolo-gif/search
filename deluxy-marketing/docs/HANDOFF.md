@@ -1,8 +1,14 @@
 # Handoff — Deluxy Marketing
 
-> Stato al **17/08/2026**. Una finestra Claude nuova deve poter riprendere da qui
+> Stato al **17/08/2026, ore 16:00**. Una finestra Claude nuova deve poter riprendere da qui
 > senza altro contesto. Leggere prima il [README](../README.md) per cosa fa l'app;
 > questo documento dice **dove siamo** e **cosa manca**.
+>
+> 🔴 **Il punto aperto di oggi**: la creazione di una campagna nuova dall'app
+> viene **rifiutata da Google** («Missing value in EU political ads») mentre
+> l'app la dava per eseguita. Codice corretto e in produzione, **copie dello
+> script da reincollare** e la campagna da rimettere in coda — vedi «Da
+> riprendere subito», punto 0.
 
 ## In una riga
 
@@ -27,6 +33,40 @@ Orders (8.342 ordini dei tre brand dal 01/01/2025).
 Controllo fatto la mattina del 17/08 con `/api/health`, `vercel ls/inspect` e
 query dirette sul database (nessuna scrittura). **Prima di lavorare, rileggere
 questi numeri: dicono cosa gira e cosa è fermo.**
+
+> **Aggiornamento delle 15:55 del 17/08** (stesse query, sola lettura). Cosa è
+> cambiato rispetto alla mattina:
+> - **Produzione = codice**: deploy `deluxy-marketing-1l5ocf6q8` delle 15:56 =
+>   commit **`ea919a4c`** (EU political ads + «Rimetti in coda», vedi FATTO in
+>   cima). Health `200`, `fra1::fra1`, `database: true`.
+> - **Coda vuota**: 0 in attesa · 0 approvate · **63 eseguite** · 5 annullate.
+>   Le 15 `nuova_keyword` «torte roma/torino/…» sono state **approvate alle
+>   14:01 ed eseguite alle 14:04** su Cake (846-090-5423), tutte ok.
+> - 🔴 **PUNTO APERTO — la campagna nuova**: `[Deluxyflowers] - WORLD - ENG`
+>   (35 €/g, 15 keyword + 1 RSA) messa in coda alle **14:01**, approvata alle
+>   14:01, **«eseguita» alle 14:08** su Flowers (825-518-1560) — e **su Google
+>   non esiste**: nell'app è senza `idEsterno`, senza `statoPiattaforma`, senza
+>   `account`, e l'anagrafica di Flowers arrivata **alle 14:08:12** (35
+>   campagne) non la nomina. Il registro caricamenti di Google Ads dice il
+>   perché: **17 righe rifiutate, «Missing value in EU political ads»** sulla
+>   riga della campagna, e le altre 16 cadono di conseguenza. Correzione in
+>   `ea919a4c` (colonna `"EU political ads": "no"` in `creaCampagna`), **copie
+>   dello script rigenerate alle 15:57** in `Downloads\deluxy-google-ads` — **da
+>   reincollare**, poi «Rimetti in coda» su `/operazioni` → approvare → Esegui.
+>   ⚠️ Il valore `"no"` non è ancora stato provato su un nostro account (le
+>   fonti si contraddicono, vedi FATTO): se il registro risponde «Invalid value
+>   in EU political ads» l'alternativa è il booleano `false`.
+> - **`annuncio-giorni` arriva** da tutti e tre gli account (29 consegne),
+>   `MetricaAnnuncio` **5.157** righe: lo script del 15/08 è nei tre account
+>   (reincollato dall'utente, vedi «carico storico a 90 giorni»).
+> - Ultime consegne Google: Gifts 12:20 · Cake 13:56 · Flowers 14:13 (un giro
+>   completo dopo il lancio); Meta 15:07 (ogni ora); ordini 14:20 (**8.350**).
+>   **0 consegne non-ok** in 10 giorni. `MetricaKeyword` 24.070,
+>   `MetricaCampagna` 9.056.
+> - Campagne Google: 19 attive · **4 in pausa** (fra cui la WORLD-ENG, che
+>   nell'app esiste e su Google no) · 1 bozza · 138 defunte; Meta 6 · 59 · 4.
+>   `LandingPage` ancora **27** (il censimento non è stato usato per
+>   registrarne). Sync Drive: ultima 08:31, completata, 644 documenti.
 
 - **Produzione = codice.** Ultimo deploy di produzione alle **15/08 09:18:29**
   (`deluxy-marketing-42iwaw2it`), stesso minuto dell'ultimo commit
@@ -99,6 +139,94 @@ questi numeri: dicono cosa gira e cosa è fermo.**
   `lib/meta-scrittura.ts` c'è ma non ha `ads_management`. TikTok scollegato.
 
 ## FATTO
+
+### 🔴 «Eseguita» su una campagna nuova voleva dire INVIATA, non creata — e Google la rifiutava per «EU political ads» (17/08/2026)
+
+Due commit, `db6d992f` (15:31) e `ea919a4c` (15:54), entrambi in produzione.
+
+**Il fatto.** L'utente ha lanciato `[Deluxyflowers] - WORLD - ENG` da «Crea
+campagna» (brief AI, 35 €/g, 15 keyword, 1 RSA): alle 14:08 l'operazione
+risulta **eseguita** nell'app e **dentro Google Ads non c'è niente**.
+
+**Perché l'app diceva «eseguita».** `creaCampagna` nello script chiama
+`upload.apply()` e basta. Il bulk upload di Google **non restituisce niente**
+e viene lavorato **in modo asincrono**: se una riga è sbagliata l'errore resta
+nel registro dei caricamenti dentro Google Ads (Strumenti e impostazioni →
+Azioni collettive → Caricamenti) e **non torna mai indietro**. Lo script
+riferiva «bulk upload inviato … campagna creata IN PAUSA», l'app registrava
+`eseguita`, e chi legge capisce «creata». È la stessa famiglia di
+`createNegativeKeyword()` (corretta l'08/08 con `negativaPresente()` che
+rilegge prima e dopo): qui il dubbio non era mai stato dichiarato.
+
+**La prova che l'app aveva già in mano** (`lib/campagne-non-confermate.ts`):
+il giro `anagrafica` manda **tutte** le campagne dell'account, comprese le
+ferme. Su Flowers ne è arrivato uno **alle 14:08:12, subito dopo il lancio: 35
+campagne, 0 nuove**, e la campagna nell'app non ha né `idEsterno` né
+`statoPiattaforma` — Google non l'ha mai nominata. Ora `/operazioni` lo
+dichiara in cima, incrociando i giri di anagrafica **di quell'account**
+arrivati **dopo quel lancio**: con **zero** giri dice che è presto (il
+caricamento è asincrono, si saprà al prossimo giro); con **uno o più** dice che
+**è stata rifiutata** e manda al registro dei caricamenti, l'unico posto dove
+il motivo esiste. Senza account non conclude niente. ⚠️ Una query sola per
+tutti i lanci sospesi, non una per riga: con `take: 30` sarebbero fino a 30
+andate e ritorno per un avviso, e su questo Postgres (`connection_limit 5`)
+saturano il pool e **fanno cadere l'intera pagina**, non solo l'avviso.
+
+**La causa vera, letta nel registro caricamenti di Google Ads (Flowers):
+17 righe rifiutate, una sola causa.** La riga della campagna manca del valore
+**«EU political ads»** — obbligatorio dal regolamento UE sulla pubblicità
+politica (`Missing value in "EU political ads"`); gruppo, keyword e annuncio
+cadono di conseguenza con `The entity does not exist for Campaign`, errori che
+**sembrano la causa e sono solo l'effetto**. Correzione nello script
+(`ea919a4c`): colonna `"EU political ads"` nella riga campagna di
+`creaCampagna`, valore **`"no"`** (= NON contiene pubblicità politica UE — il
+valore giusto per Deluxy; ⚠️ **non mettere «yes» per prudenza**: una campagna
+che dichiara di contenerne **smette di erogare nella UE**).
+
+⚠️⚠️ **Il formato del valore NON è ancora provato su un nostro account, e le
+fonti si contraddicono.** Nell'unico thread pubblico sul tema (forum Google
+Ads Scripts, 29/08/2025) il Forum Advisor di Google suggerisce il **booleano
+`false`** («boolean values without hyphens»), ma nello stesso thread chi l'ha
+provato riferisce che **`false` non passa e `no` sì**; i modelli di
+caricamento di Google Ads e i bulksheet di Search Ads 360 usano **yes/no**. Ho
+scelto `"no"` (minuscolo, testo). **Se il registro caricamenti risponde
+«Invalid value in EU political ads»**, l'alternativa documentata è `false`:
+è un cambio di una parola in `creaCampagna` + rigenerare le copie. La sessione
+precedente aveva messo `false` citando l'Advisor: la scelta è stata rovesciata
+qui, a ragion veduta, e chi legge deve sapere che è una scelta e non un fatto.
+
+**Cosa cambia ancora.**
+- Il **dettaglio dell'esito** dello script ora dice «bulk upload **INVIATO** …
+  IN PAUSA **se Google accetta le righe** … l'esito vero sta nel registro
+  caricamenti e l'app lo verifica col primo giro di anagrafica» — non più
+  «creata». Era esattamente la parola che faceva leggere eseguita come nata.
+- **«Rimetti in coda»** sull'avviso di `/operazioni`
+  (`rilanciaCampagnaRifiutata` in `lib/azioni.ts`): riporta l'operazione fra
+  quelle da approvare **con gli stessi parametri**, senza rifare il modulo.
+  ⚠️ Compare **solo quando il rifiuto è provato** (almeno un'anagrafica
+  dell'account dopo il lancio, campagna senza `idEsterno` né
+  `statoPiattaforma`, account noto) e **i tre controlli sono ripetuti nella
+  server action** — un bottone nascosto non è una rete. `riapriOperazione`
+  continua a **escludere le eseguite**, ed è giusto: rifare un'operazione
+  riuscita vorrebbe dire una seconda campagna, una seconda negativa. Terza
+  rete: lo script stesso rifiuta di creare una campagna se ne esiste già una
+  con quel nome (`trovaCampagna` in `creaCampagna`).
+- **Non serve reincollare lo script per l'avviso** (tutto lato app); **serve
+  reincollarlo per la colonna** — copie rigenerate il 17/08 alle 15:57.
+
+**Verificato**: `tsc` pulito, prova a secco 9/9, byte non-ASCII dello script
+identici prima e dopo (5.842 — file latin1 toccato solo con node, testo
+inserito ASCII puro), `/operazioni` in locale mostra l'avviso con «Rimetti in
+coda» e zero errori in console; deploy in produzione, health 200 a `fra1`.
+
+**La sequenza per chiudere il punto** (fuori dall'app, in ordine): (1)
+reincollare `tutto.js` — o `esegui.js`, se i lavori singoli sono schedulati a
+parte — almeno nell'account Flowers, rimettendo CHIAVE_API e BRAND; (2) su
+`/operazioni` premere «Rimetti in coda» sulla WORLD-ENG; (3) approvarla; (4)
+lanciare Esegui in Google Ads o aspettare il giro; (5) guardare **il registro
+caricamenti** e, al giro di anagrafica successivo, l'avviso deve sparire e la
+campagna avere `idEsterno`. Se invece compare «Invalid value», passare a
+`false` (sopra).
 
 ### Il carico storico a 90 giorni, fatto su tutti e tre gli account (17/08/2026)
 
@@ -2494,30 +2622,42 @@ Numeri veri del 28/07: corsa completa **594 documenti in 24,7 s** (7 nuovi, 6
 aggiornati, **101 spariti** che l'indice si portava dietro dalle sync morte, 25
 analisi importate); seconda corsa 0 scritture.
 
-## Da riprendere subito (17/08/2026)
+## Da riprendere subito (17/08/2026, aggiornato alle 16:00)
 
 I tre controlli lasciati il 10/08 sono **fatti** (verificati sul database il
 17/08): le località arrivano (255 righe su 158 campagne), l'operazione
 `attiva_keyword` su «flowers delivery milan» è **eseguita** l'11/08 05:40, e
-gli script reincollati girano su tutti e tre gli account (versione
-dell'11/08, con la prova a secco a 9/9).
+gli script reincollati girano su tutti e tre gli account.
 
 Resta da fare, **fuori dall'app**:
 
-1. **Reincollare `tutto.js` nei tre account** da
-   `C:\Users\nicol\Downloads\deluxy-google-ads\` (copie del **15/08 09:18**,
-   10 file): è l'unica cosa che manca perché la **storia giornaliera degli
-   annunci** (`MetricaAnnuncio`, il pannello «finestre» sull'annuncio)
-   cominci a riempirsi — al 17/08 la tabella ha **0 righe** e nessun account
-   ha mai consegnato `annuncio-giorni`. Il lavoro `keyword-giorni` dentro
-   `tutto` manda entrambe le tabelle, quindi basta `tutto.js`; chi ha
-   schedulato anche i lavori singoli reincolli anche `keyword-giorni.js`.
-   ⚠️ Nel file generato **CHIAVE_API e BRAND sono vuoti**: vanno rimessi a
-   mano. Prima di rigenerare le copie: `node scripts/prova-script-google.mjs`.
-2. **Le 15 `nuova_keyword` in attesa su `[Cakedesign] | Sales | ITA`**
-   («torte roma / torino / napoli…», frase, da «Estendi con AI» del 15/08):
-   sono in coda dal 15/08 06:35 e aspettano una persona che le approvi (o
-   le annulli) da `/operazioni` — ora si può fare in blocco.
+0. 🔴 **LA CAMPAGNA NUOVA RIFIUTATA DA GOOGLE** (`[Deluxyflowers] - WORLD -
+   ENG`, lanciata il 17/08 alle 14:01, «eseguita» alle 14:08, **inesistente su
+   Google** per «Missing value in EU political ads» — vedi la prima sezione
+   di FATTO). La correzione è nel codice e in produzione, **manca la parte
+   fuori dall'app**: (1) **reincollare le copie del 17/08 15:57** da
+   `C:\Users\nicol\Downloads\deluxy-google-ads\` (`tutto.js`, o `esegui.js`
+   se i lavori singoli sono schedulati a parte) **almeno su Flowers** —
+   CHIAVE_API e BRAND da rimettere a mano; (2) su `/operazioni` premere
+   **«Rimetti in coda»** sull'avviso della WORLD-ENG; (3) approvarla; (4)
+   Esegui in Google Ads (o aspettare il giro notturno); (5) controllare il
+   **registro caricamenti** e, al giro di anagrafica dopo, che l'avviso
+   sparisca e la campagna abbia `idEsterno`. ⚠️ **Se il registro dice
+   «Invalid value in EU political ads»**, il formato è l'altro: cambiare
+   `"no"` in `false` in `creaCampagna`, prova a secco, rigenerare le copie,
+   reincollare. Finché non si è chiuso questo giro, **ogni «Crea campagna»
+   che passa dallo script vecchio verrà rifiutata allo stesso modo** — e l'app
+   ora lo dice, ma solo dopo il primo giro di anagrafica.
+1. ~~**Reincollare `tutto.js` del 15/08 nei tre account**~~ — **fatto
+   dall'utente il 17/08** (`MetricaAnnuncio` 5.157 righe, `annuncio-giorni`
+   arriva da tutti e tre). ⚠️ Superato dal punto 0: le copie buone adesso
+   sono quelle delle **15:57**, che contengono anche la colonna EU.
+   Promemoria che resta: nel file generato **CHIAVE_API e BRAND sono vuoti**;
+   prima di rigenerare le copie, `node scripts/prova-script-google.mjs`.
+2. ~~**Le 15 `nuova_keyword` in attesa su `[Cakedesign] | Sales | ITA`**~~ —
+   **approvate alle 14:01 ed eseguite alle 14:04 del 17/08** su Cake, tutte
+   ok («torte messina», «torte cagliari», «torte genova», «torte brescia»…
+   in «Torte per Oggi // ITA»). La coda è vuota.
 3. ~~**Sync Drive ferma dal 04/08**~~ — **fatta il 17/08 08:31** (644 doc,
    3 nuovi, 0 analisi: il Drive è fermo al 07/08, vedi fotografia). Resta
    aperta la scelta se darle un **cron Vercel** come `meta` e `ordini`: oggi
@@ -2549,10 +2689,11 @@ Resta da fare, **fuori dall'app**:
    meglio, lo script dovrebbe chiamare `driveDir()`.
 4. Verificare in Business Manager se `ads_management` si ottiene senza App
    Review (per accendere la scrittura Meta) — invariato dal 07/08.
-5. Al primo giro dopo il reincollo del 15/08: aprire una scheda gruppo,
-   cliccare un annuncio e controllare che le finestre 7g/mese/30g/anno
-   abbiano numeri (e non «storia non ancora raccolta»); su `/ricezione`
-   deve comparire il tipo `annuncio-giorni` per i tre account.
+5. ~~Su `/ricezione` deve comparire il tipo `annuncio-giorni` per i tre
+   account~~ — **c'è** (29 consegne al 17/08 pomeriggio, `MetricaAnnuncio`
+   5.157 righe dal 19/05). Resta da fare **a occhio**: aprire una scheda
+   gruppo, cliccare un annuncio e controllare che le finestre 7g/mese/30g/anno
+   abbiano numeri (e non «storia non ancora raccolta»).
 
 ## MANCA
 
@@ -2906,6 +3047,15 @@ funzione.
 - **Il log dentro Google Ads è il posto sbagliato dove scoprire un
   ReferenceError**: `node scripts/prova-script-google.mjs` prima di ogni
   rigenerazione delle copie — e una prova con query VUOTE non prova niente.
+- **Il bulk upload di Google Ads non risponde**: `upload.apply()` non
+  restituisce niente e lavora in modo asincrono; se rifiuta, l'errore vive
+  solo nel registro caricamenti dentro Google Ads. Un esito «eseguita» su una
+  `nuova_campagna` vuol dire **inviata**, non creata: la prova è
+  l'anagrafica dell'account arrivata dopo (17/08, `/operazioni` lo dichiara).
+- **Una campagna nuova senza «EU political ads» viene rifiutata**, e con lei
+  gruppo, keyword e annuncio con `The entity does not exist for Campaign` —
+  errori che sembrano la causa e sono l'effetto. La colonna c'è dal 17/08
+  (`"no"`); se Google risponde «Invalid value», l'altra forma è `false`.
 
 ## Come riprendere
 
