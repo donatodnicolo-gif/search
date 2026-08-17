@@ -5,7 +5,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { TornaIndietro } from "@/components/TornaIndietro";
 import { annullaOperazione, approvaOperazione, approvaOperazioniSelezionate,
   cambiaCorrispondenzaOperazione, riapriOperazione,
-  cambiaTestoOperazione,
+  cambiaTestoOperazione, rilanciaCampagnaRifiutata,
 } from "@/lib/azioni";
 import { campagneNonConfermate, letturaNonConfermata } from "@/lib/campagne-non-confermate";
 import { prisma } from "@/lib/db";
@@ -363,6 +363,23 @@ export default async function PaginaOperazioni({
                         {c.account ? ` sull'account ${c.account}` : ""}.{" "}
                         {l.grave ? <b>{l.frase.replace(/\*\*/g, "")}</b> : l.frase}
                       </span>
+                      {/* Il rilancio compare SOLO quando il rifiuto è provato:
+                          rimettere in coda una campagna davvero creata ne farebbe
+                          nascere una seconda. Il controllo è ripetuto anche nella
+                          server action — un bottone nascosto non è una rete. */}
+                      {l.grave && (
+                        <form action={rilanciaCampagnaRifiutata} style={{ display: "inline" }}>
+                          <input type="hidden" name="id" value={c.operazioneId} />
+                          <button
+                            className="btn small btn-secondario"
+                            type="submit"
+                            style={{ marginLeft: 8 }}
+                            title="Rimette l'operazione fra quelle da approvare, con gli stessi parametri: non serve rifare il modulo. Prima però va reincollato lo script corretto, o verrà rifiutata di nuovo."
+                          >
+                            Rimetti in coda
+                          </button>
+                        </form>
+                      )}
                     </li>
                   );
                 })}

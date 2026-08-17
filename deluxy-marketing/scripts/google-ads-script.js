@@ -2021,7 +2021,7 @@ function creaCampagna(op, conto) {
   }
 
   var colonne = [
-    "Campaign", "Budget", "Campaign type", "Campaign state",
+    "Campaign", "Budget", "Campaign type", "Campaign state", "EU political ads",
     "Ad group", "Keyword", "Criterion type",
     "Ad type", "Final URL",
     "Headline 1", "Headline 2", "Headline 3", "Headline 4", "Headline 5",
@@ -2039,6 +2039,23 @@ function creaCampagna(op, conto) {
     "Budget": Number(par.budget),
     "Campaign type": "Search",
     "Campaign state": "paused",
+    // OBBLIGATORIA dal regolamento UE sulla pubblicita politica: senza
+    // questa colonna Google RIFIUTA la riga della campagna con "Missing
+    // value in EU political ads", e con lei cadono gruppo, keyword e
+    // annuncio con "The entity does not exist for Campaign" - errori che
+    // sembrano la causa e sono solo la conseguenza. Misurato il 17/08/2026
+    // su Flowers: 17 righe rifiutate, una sola causa vera.
+    // ATTENZIONE: "no" = NON contiene pubblicita politica UE, ed e' il
+    // valore giusto per Deluxy. Non mettere "yes" "per prudenza": una
+    // campagna che dichiara di contenerne SMETTE di erogare nella UE.
+    // VALORE: "no" (testo, minuscolo). Le fonti si contraddicono: il Forum
+    // Advisor di Google (29/08/2025) suggerisce il booleano false, ma nello
+    // stesso thread chi l'ha provato riferisce che false NON passa e "no"
+    // si'; i modelli di caricamento di Google Ads e i bulksheet SA360 usano
+    // yes/no. NON ancora provato su un nostro account: se il registro
+    // caricamenti risponde "Invalid value in EU political ads", provare
+    // false (booleano) - e' l'unica altra forma documentata.
+    "EU political ads": "no",
   });
 
   // Keyword: [{testo, corrispondenza}]
@@ -2070,11 +2087,13 @@ function creaCampagna(op, conto) {
   upload.apply();
   return {
     dettaglio:
-      "bulk upload inviato all'account " + conto.id + ": campagna \"" + par.nome + "\" creata IN PAUSA con " +
+      "bulk upload INVIATO all'account " + conto.id + ": campagna \"" + par.nome + "\" con " +
       kws.length + " keyword" + (titoli.length ? " e 1 annuncio RSA" : "") +
-      ". Passare la checklist 4.1 in interfaccia prima di attivarla.",
+      ", IN PAUSA se Google accetta le righe. ATTENZIONE: il caricamento e' asincrono e non risponde" +
+      " allo script: l'esito vero sta nel registro caricamenti di Google Ads (Azioni collettive > Caricamenti)" +
+      " e l'app lo verifica col primo giro di anagrafica. Passare la checklist 4.1 prima di attivarla.",
     prima: "assente",
-    dopo: "creata in pausa (" + Number(par.budget) + " €/g)",
+    dopo: "inviata, nasce in pausa se accettata (" + Number(par.budget) + " €/g)",
   };
 }
 

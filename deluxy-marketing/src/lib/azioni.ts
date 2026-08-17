@@ -551,6 +551,62 @@ export async function cambiaStatoTestMeta(stato: string, fd: FormData) {
   revalidatePath("/meta");
 }
 
+/**
+ * Rimette in coda una campagna «eseguita» che Google ha in realtà RIFIUTATO.
+ *
+ * ⚠️ `riapriOperazione` esclude apposta le eseguite, ed è giusto: rifare
+ * un'operazione andata a buon fine vorrebbe dire una seconda campagna, una
+ * seconda negativa, una seconda keyword. Qui l'eccezione è ammessa **solo
+ * perché si può dimostrare che la campagna non esiste**, e i controlli sono gli
+ * stessi che disegnano l'avviso:
+ *   1. è una `nuova_campagna` eseguita;
+ *   2. la campagna nell'app non ha né `idEsterno` né `statoPiattaforma`, cioè
+ *      Google non l'ha mai nominata;
+ *   3. dopo il lancio è arrivata almeno un'ANAGRAFICA di quell'account — il
+ *      giro che manda TUTTE le campagne, comprese le ferme — e lei non c'era.
+ * Se anche uno solo dei tre non regge, non si tocca niente: il dubbio non
+ * autorizza a riscrivere su un account pubblicitario vero.
+ */
+export async function rilanciaCampagnaRifiutata(fd: FormData) {
+  const id = testo(fd, "id");
+  if (!id) return;
+  const op = await prisma.operazioneAdv.findUnique({ where: { id } });
+  if (!op || op.tipo !== "nuova_campagna" || op.stato !== "eseguita" || !op.campagnaId || !op.account) return;
+
+  const campagna = await prisma.campagna.findUnique({
+    where: { id: op.campagnaId },
+    select: { idEsterno: true, statoPiattaforma: true, nome: true },
+  });
+  if (!campagna || campagna.idEsterno || campagna.statoPiattaforma) return;
+
+  const anagrafiche = await prisma.ricezioneDati.count({
+    where: {
+      fonte: "google_ads",
+      account: op.account,
+      tipo: "anagrafica",
+      ricevutoIl: { gt: op.eseguitaIl ?? op.creataIl },
+    },
+  });
+  if (anagrafiche === 0) return; // troppo presto: il caricamento è asincrono
+
+  await prisma.operazioneAdv.update({
+    where: { id },
+    data: { stato: "in_attesa", approvataDa: null, approvataIl: null, eseguitaIl: null, esito: null },
+  });
+  await registra({
+    autore: "utente",
+    tipo: "stato",
+    entita: "operazione",
+    entitaId: id,
+    titolo: `Rimessa in coda: campagna "${campagna.nome}" rifiutata da Google`,
+    dettaglio:
+      `Il caricamento risultava eseguito ma l'account ${op.account} ha rimandato l'elenco delle campagne ` +
+      `${anagrafiche} volte senza nominarla. Torna fra quelle da approvare.`,
+  });
+  revalidatePath("/operazioni");
+  redirect("/operazioni");
+}
+
 // ---------- Landing ----------
 
 /**

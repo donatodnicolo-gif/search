@@ -22,6 +22,8 @@ import { prisma } from "@/lib/db";
 
 export type CampagnaNonConfermata = {
   id: string;
+  /** L'operazione che l'ha lanciata: serve per rimetterla in coda. */
+  operazioneId: string;
   nome: string;
   brand: string;
   account: string | null;
@@ -37,7 +39,7 @@ export async function campagneNonConfermate(): Promise<CampagnaNonConfermata[]> 
     where: { tipo: "nuova_campagna", stato: "eseguita", campagnaId: { not: null } },
     orderBy: { eseguitaIl: "desc" },
     take: 30,
-    select: { campagnaId: true, account: true, eseguitaIl: true, esito: true, creataIl: true },
+    select: { id: true, campagnaId: true, account: true, eseguitaIl: true, esito: true, creataIl: true },
   });
   if (lanci.length === 0) return [];
 
@@ -91,6 +93,7 @@ export async function campagneNonConfermate(): Promise<CampagnaNonConfermata[]> 
 
     fuori.push({
       id: c.id,
+      operazioneId: l.id,
       nome: c.nome,
       brand: c.brand,
       account: l.account,
