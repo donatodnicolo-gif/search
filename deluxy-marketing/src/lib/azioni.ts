@@ -1721,12 +1721,41 @@ export async function scartaProposta(propostaId: string) {
 // bulk upload dello script, dopo l'approvazione): la checklist 4.1 va passata
 // in interfaccia prima di accenderla. Il copy passa dal lint 7.2/7.3: le
 // parole vietate per il brand bloccano l'accodamento.
+// L'obiettivo scelto a schermo, tradotto nei due campi che l'app usa davvero.
+//
+// ⚠️ `tipoConversione` non è una decorazione: decide se il ROAS è una domanda
+// sensata. Su una campagna a contatti il valore conversione è simbolico
+// (1,00 €), quindi il ROAS risulterebbe una perdita netta e chi guarda la
+// spegnerebbe. «Traffico» e «notorietà» non hanno NESSUNO dei due tipi: si
+// lascia `null`, che vuol dire «non giudicarla con quel metro», invece di
+// infilarle a forza in «vendite» — un valore inventato si propaga in ogni
+// classifica che quel campo tocca.
+const CONVERSIONE_DI_OBIETTIVO: Record<string, string | null> = {
+  vendite: "vendite",
+  contatti: "lead",
+  traffico: null,
+  notorieta: null,
+};
+
+const ETICHETTA_OBIETTIVO: Record<string, string> = {
+  vendite: "Vendite",
+  contatti: "Contatti (lead)",
+  traffico: "Traffico al sito",
+  notorieta: "Notorietà",
+};
+
 export async function lanciaCampagna(fd: FormData) {
   const nome = testo(fd, "nome");
   const brand = testo(fd, "brand") ?? "gifts";
   const budget = numeroDa(fd, "budget");
+  // Il brand di partenza torna indietro con l'errore: senza, un modulo
+  // respinto ricompariva su «gifts» anche a chi stava lavorando su Flowers, e
+  // la seconda volta la campagna nasceva sul marchio sbagliato.
+  const tornaBrand = testo(fd, "tornaBrand");
+  const indietro = (messaggio: string) =>
+    `/campagne/lancia?errore=${encodeURIComponent(messaggio)}${tornaBrand ? `&brand=${encodeURIComponent(tornaBrand)}` : ""}`;
   if (!nome || !budget || budget <= 0) {
-    redirect(`/campagne/lancia?errore=${encodeURIComponent("Servono almeno nome e budget giornaliero")}`);
+    redirect(indietro("Servono almeno nome e budget giornaliero"));
   }
 
   const titoli = (testo(fd, "titoli") ?? "").split(/\r?\n/).map((r) => r.trim()).filter(Boolean);
@@ -1744,17 +1773,17 @@ export async function lanciaCampagna(fd: FormData) {
     }
   }
   if (problemi.length > 0) {
-    redirect(`/campagne/lancia?errore=${encodeURIComponent(`Copy bloccato dal lint 7.2/7.3 — ${problemi[0]}${problemi.length > 1 ? ` (e altre ${problemi.length - 1})` : ""}`)}`);
+    redirect(indietro(`Copy bloccato dal lint 7.2/7.3 — ${problemi[0]}${problemi.length > 1 ? ` (e altre ${problemi.length - 1})` : ""}`));
   }
   if (titoli.length > 0 && titoli.length < 3) {
-    redirect(`/campagne/lancia?errore=${encodeURIComponent("Un annuncio RSA vuole almeno 3 titoli (meglio 8-10)")}`);
+    redirect(indietro("Un annuncio RSA vuole almeno 3 titoli (meglio 8-10)"));
   }
   if (titoli.length >= 3 && (descrizioni.length < 2 || !finalUrl)) {
-    redirect(`/campagne/lancia?errore=${encodeURIComponent("Con i titoli servono almeno 2 descrizioni e la URL finale")}`);
+    redirect(indietro("Con i titoli servono almeno 2 descrizioni e la URL finale"));
   }
   const troppoLunghi = titoli.filter((t) => t.length > 30).length + descrizioni.filter((d) => d.length > 90).length;
   if (troppoLunghi > 0) {
-    redirect(`/campagne/lancia?errore=${encodeURIComponent("Limiti Google: titoli max 30 caratteri, descrizioni max 90")}`);
+    redirect(indietro("Limiti Google: titoli max 30 caratteri, descrizioni max 90"));
   }
 
   // Keyword: una per riga, "testo | corrispondenza" (broad se omessa)
@@ -1767,6 +1796,38 @@ export async function lanciaCampagna(fd: FormData) {
       return { testo: t, corrispondenza: (m || "broad").toLowerCase() };
     });
 
+  // ——— Quello che il bulk upload NON sa portare su Google ———
+  //
+  // Le colonne del CSV degli Scripts sono quelle di Google Ads Editor:
+  // campagna, budget, tipo, stato, gruppo, keyword, annuncio. Obiettivo,
+  // località, lingua, strategia di offerta e negative NON ci stanno.
+  //
+  // ⚠️ Raccoglierle e buttarle via sarebbe il difetto peggiore: il modulo le
+  // chiede, quindi chi le scrive crede di averle impostate, e la campagna
+  // verrebbe accesa convinti che il targeting ci sia. Restano scritte in tre
+  // posti — sui campi della campagna dove esistono, nelle note e nei parametri
+  // dell'operazione — e la pagina dichiara che vanno messe a mano. La checklist
+  // 4.1 è comunque un passaggio manuale prima dell'accensione: è lì che si fa.
+  const obiettivoTipo = testo(fd, "obiettivoTipo") ?? "vendite";
+  const lingua = testo(fd, "lingua");
+  const strategia = testo(fd, "strategia");
+  const localita = [
+    ...fd.getAll("localita").map((v) => String(v).trim()),
+    ...(testo(fd, "localitaAltre") ?? "").split(",").map((v) => v.trim()),
+  ].filter(Boolean);
+  const negative = (testo(fd, "negative") ?? "")
+    .split(/\r?\n/)
+    .map((r) => r.trim())
+    .filter(Boolean);
+
+  const daMano = [
+    `obiettivo ${ETICHETTA_OBIETTIVO[obiettivoTipo] ?? obiettivoTipo}`,
+    localita.length > 0 ? `località ${localita.join(", ")}` : null,
+    lingua ? `lingua ${lingua}` : null,
+    strategia ? `strategia ${strategia}` : null,
+    negative.length > 0 ? `${negative.length} parole da escludere` : null,
+  ].filter(Boolean);
+
   const campagna = await prisma.campagna.create({
     data: {
       nome,
@@ -1774,8 +1835,13 @@ export async function lanciaCampagna(fd: FormData) {
       canale: "google_ads",
       stato: "bozza",
       budgetGiornaliero: budget,
-      obiettivo: testo(fd, "obiettivo"),
-      note: "Creata dall'app: in coda per il lancio su Google Ads (nasce in pausa).",
+      obiettivo: ETICHETTA_OBIETTIVO[obiettivoTipo] ?? obiettivoTipo,
+      // Su «traffico» e «notorietà» resta null: vedi CONVERSIONE_DI_OBIETTIVO.
+      tipoConversione: CONVERSIONE_DI_OBIETTIVO[obiettivoTipo] ?? null,
+      note:
+        "Creata dall'app: in coda per il lancio su Google Ads (nasce in pausa). " +
+        `DA IMPOSTARE A MANO in Google Ads prima di accenderla — ${daMano.join(" · ")}: ` +
+        "non sono fra le colonne del bulk upload, quindi lo script non può portarle.",
     },
   });
 
@@ -1792,7 +1858,13 @@ export async function lanciaCampagna(fd: FormData) {
         titoli,
         descrizioni,
         finalUrl,
-        strategia: testo(fd, "strategia"),
+        // Da qui in giù: registrate per il paper trail, NON applicate dallo
+        // script. Chi legge l'operazione vede cosa era stato chiesto.
+        obiettivoTipo,
+        localita,
+        lingua,
+        strategia,
+        negative,
       }),
       motivo: testo(fd, "motivo"),
       livello: "L2",
@@ -1803,7 +1875,9 @@ export async function lanciaCampagna(fd: FormData) {
   await registra({
     autore: "utente", tipo: "creazione", entita: "operazione", entitaId: op.id,
     titolo: `In coda (da approvare): nuova campagna "${nome}"`,
-    dettaglio: `${keywords.length} keyword · ${titoli.length} titoli · ${descrizioni.length} descrizioni · ${budget} €/g`,
+    dettaglio:
+      `${keywords.length} keyword · ${titoli.length} titoli · ${descrizioni.length} descrizioni · ${budget} €/g` +
+      ` — da impostare a mano: ${daMano.join(" · ")}`,
   });
   redirect("/operazioni");
 }

@@ -21,6 +21,7 @@ import {
   COLORE_STATO_CAMPAGNA,
   formattaData,
 } from "@/lib/dominio";
+import { formattaQuota, letturaBudget, usoBudget } from "@/lib/budget-usato";
 import { nomeCampagna } from "@/lib/gruppi";
 import { categoriaCampagna, iconaCanale, saluteCampagna } from "@/lib/salute";
 import { COLORE_CLASSE, ETICHETTA_CLASSE } from "@/lib/dominio";
@@ -129,7 +130,14 @@ export default async function PaginaCampagne({
             </p>
           </div>
           <a className="btn btn-secondario" href="/campagne/nuova">Censisci esistente</a>
-          <a className="btn btn-secondario" href="/campagne/lancia">Lancia su Google Ads</a>
+          {/* ⚠️ Il brand che si sta guardando viaggia col link: chi arriva qui
+              filtrando Flowers si aspetta di creare una campagna Flowers, e il
+              modulo ripartiva sempre da «gifts». Un valore predefinito
+              sbagliato che nessuno rilegge è un errore che si scopre quando la
+              campagna è già su Google. */}
+          <a className="btn btn-secondario" href={`/campagne/lancia${brand ? `?brand=${brand}` : ""}`}>
+            Crea campagna
+          </a>
           <a className="btn" href="/campagne/crea">Crea da ciò che funziona</a>
           {/* ⚠️ Non un link travestito: il modulo di lancio è di Google
               (keyword e negative, che su Meta non esistono) e creare campagne
@@ -296,6 +304,8 @@ export default async function PaginaCampagne({
                     const spesa = c.metriche.reduce((s, m) => s + (m.spesa ?? 0), 0);
                     const ricavi = c.metriche.reduce((s, m) => s + (m.ricavi ?? 0), 0);
                     const r = roas(ricavi, spesa);
+                    const uso = usoBudget(c.metriche, c.budgetGiornaliero);
+                    const lettura = uso ? letturaBudget(uso) : null;
                     const salute = saluteCampagna(c.stato, r, spesa, c.brand);
                     const categoria = categoriaCampagna(`${c.nome} ${c.landing?.url ?? ""} ${c.obiettivo ?? ""}`);
                     const nuovoCanale = c.canale !== canalePrec;
@@ -378,6 +388,18 @@ export default async function PaginaCampagne({
                             <span>
                               <b>{c.budgetGiornaliero != null ? `${formattaEuro(c.budgetGiornaliero)}/g` : "—"}</b>
                               <i>budget</i>
+                            </span>
+                            {/* Quanto di quel budget usa davvero: dice se il
+                                freno sono i soldi (al tetto → alzarli porta
+                                volume) o qualcos'altro (molto sotto → alzarli
+                                non cambierebbe niente). Il conto e le sue tre
+                                scelte stanno in lib/budget-usato.ts; qui si
+                                mostra e basta. */}
+                            <span title={uso ? `${uso.spiega}. ${lettura!.nota}` : "Serve un budget giornaliero per poterlo dire. Su Meta può stare sull'ad set (CBO) invece che sulla campagna."}>
+                              <b style={lettura?.colore ? { color: lettura.colore } : undefined}>
+                                {uso ? formattaQuota(uso) : "—"}
+                              </b>
+                              <i>{uso ? `budget usato · ${lettura!.etichetta}` : "budget usato"}</i>
                             </span>
                             <span>
                               <b>{spesa > 0 ? formattaEuro(spesa) : "—"}</b>

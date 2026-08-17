@@ -230,6 +230,70 @@ tbody tr:hover { background: var(--fill); }
 }
 @media (max-width: 800px) { .modulo { grid-template-columns: 1fr; } }
 
+/* ---------- Modulo di creazione: scelte a icona, chip, aiuti ----------
+   Il modulo lungo diventa una sequenza di schede, una domanda per scheda.
+   Tutto funziona SENZA JavaScript: le scelte sono radio e checkbox veri,
+   nascosti alla vista ma non alla tastiera, e la carta è la loro <label>.
+   Un finto selettore fatto di <div> perderebbe tastiera, lettori di schermo
+   e l'invio del form — cioè tutto quello per cui esiste un modulo. */
+.modulo-creazione .scheda { margin-bottom: 14px; }
+.titolo-icona {
+  display: inline-flex; align-items: center; margin-right: 8px;
+  color: var(--gold-strong); vertical-align: -3px;
+}
+.titolo-brand { color: var(--text-tertiary); font-weight: 500; }
+.campo-aiuto {
+  font-size: 11.5px; color: var(--text-tertiary);
+  line-height: 1.45; margin-top: 2px;
+}
+
+.scelte-icona {
+  display: grid; gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+/* Nascosto alla vista, NON alla tastiera: niente display:none, o la scelta
+   diventa irraggiungibile senza mouse. */
+.scelta-radio {
+  position: absolute; width: 1px; height: 1px;
+  opacity: 0; pointer-events: none;
+}
+.scelta-carta {
+  display: flex; flex-direction: column; gap: 5px; height: 100%;
+  padding: 14px; cursor: pointer;
+  background: var(--fill); border: 1px solid transparent;
+  border-radius: var(--radius-m);
+  transition: background 160ms var(--ease), border-color 160ms var(--ease);
+}
+.scelta-carta:hover { background: var(--surface); border-color: var(--hairline); }
+.scelta-icona { color: var(--text-tertiary); display: flex; }
+.scelta-nome { font-size: 14px; font-weight: 600; letter-spacing: -0.01em; }
+.scelta-nota { font-size: 11.5px; color: var(--text-tertiary); line-height: 1.45; }
+.scelta-radio:checked + .scelta-carta {
+  background: var(--surface); border-color: var(--gold-strong);
+  box-shadow: var(--shadow-card);
+}
+.scelta-radio:checked + .scelta-carta .scelta-icona { color: var(--gold-strong); }
+.scelta-radio:focus-visible + .scelta-carta { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+.chip-scelte { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip-check { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.chip-etichetta {
+  display: inline-block; padding: 7px 14px; cursor: pointer;
+  font-size: 13px; background: var(--fill);
+  border: 1px solid transparent; border-radius: 999px;
+  transition: background 160ms var(--ease), border-color 160ms var(--ease);
+}
+.chip-etichetta:hover { border-color: var(--hairline-strong); }
+.chip-check:checked + .chip-etichetta {
+  background: var(--surface); border-color: var(--gold-strong); font-weight: 600;
+}
+.chip-check:focus-visible + .chip-etichetta { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+/* L'unità accanto al numero: si legge «15 € / giorno», non «15» e basta. */
+.campo-unita { display: flex; align-items: center; gap: 8px; }
+.campo-unita input { flex: 1; min-width: 0; }
+.campo-unita .unita { font-size: 12.5px; color: var(--text-tertiary); white-space: nowrap; }
+
 /* ---------- Scheda ---------- */
 .scheda {
   background: var(--surface); border: 1px solid var(--hairline);
