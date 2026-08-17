@@ -100,6 +100,50 @@ questi numeri: dicono cosa gira e cosa è fermo.**
 
 ## FATTO
 
+### Il brief della campagna lo scrive l'AI, e i campi si riempiono (17/08/2026)
+
+Commit `0f1c6ae2`, in produzione. `lib/azioni-brief.ts` + `components/BriefCampagnaAi.tsx`.
+
+In cima a «Crea campagna» un pannello: si descrive la campagna a parole e l'AI
+compila **nome, obiettivo, budget, lingua, località, URL, gruppo, keyword con
+corrispondenza, negative, titoli, descrizioni e motivo**.
+
+- ⚠️ **RIEMPIE I CAMPI, NON MANDA NIENTE.** Dopo il riempimento il modulo è
+  esattamente come se lo avessi scritto a mano: si rilegge, si corregge, e resta
+  tutta la strada di prima — lint 7.2/7.3, limiti di Google, coda, approvazione.
+  **I tre cancelli restano tutti**: l'AI propone, la persona sceglie, la coda
+  approva.
+- **Le regole di tono arrivano all'AI PRIMA che scriva** (`regoleDiBrand()`
+  nuovo in `copy-lint.ts`): senza, il modello produceva un titolo con «gratis»
+  su Flowers e il lint lo respingeva in fondo al modulo, dopo tutto il lavoro.
+- ⚠️ **I limiti di Google si impongono nel CODICE, non nello schema**: l'API di
+  Claude **rifiuta `maxItems` e i vincoli di lunghezza** negli structured
+  outputs (400 alla prima chiamata — trappola già nota da «Estendi con AI»).
+  E **quello che viene scartato si DICE in pagina**: un titolo di 31 caratteri
+  tolto in silenzio diventa «me ne ha dati 7 invece di 10» e si dà la colpa al
+  modello.
+- Il pannello sta **fuori** dal `<form>`: un form dentro un form non è HTML
+  valido e il bottone diventerebbe un submit del modulo grande. Scrive nei campi
+  per nome, che sono **non controllati** — è il modo che non litiga con React e
+  che lascia il resto della pagina un server component.
+
+⭐⭐ **DUE DIFETTI TROVATI PROVANDOLO DAVVERO, NON A TAVOLINO.** La query delle
+keyword di esempio aveva un **filtro fantasma** (`campagna: { contains: "" }`,
+un no-op rimasto lì) **e non era filtrata per brand**: scorreva tutte e **21.052**
+le righe dell'archivio e passava all'AI **le parole di Gifts mentre scriveva una
+campagna Flowers** — esempi del marchio sbagliato spacciati per «quello che
+funziona da noi». Corretta filtrando sui nomi delle campagne del brand (a
+`CopyAnnuncio` il brand non c'è: si aggancia alla campagna per nome), più
+`massimoToken: 4000`. **Misurato: la chiamata è passata da 59 s a 31 s**, e i 59
+erano sul filo dei **60 di `maxDuration`** — cioè in produzione sarebbe morta a
+metà, ma solo qualche volta e senza una ragione visibile. ⚠️ **60 è il tetto
+usato ovunque nell'app**: se un domani il brief rallenta, è il primo numero da
+guardare.
+
+Provato end-to-end su Flowers: nome `[Deluxyflowers] - Napoli - ITA`, 9 keyword
+a frase, 14 titoli (il più lungo 28 caratteri), 4 descrizioni (79), «Napoli»
+spuntata fra le località, negative sensate fra cui «gratis».
+
 ### Quanto budget usa ogni campagna, e «Crea campagna» segue il brand (17/08/2026)
 
 Commit `37f3b551`, in produzione (deploy 17/08, health 200).
