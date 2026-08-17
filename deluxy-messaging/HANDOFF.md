@@ -79,6 +79,41 @@ locale, altrimenti nulla si decifra.
 
 ## FATTO
 
+- **«APRI IN SHOPIFY» SUL DETTAGLIO ORDINE, ED «ETICHETTA NUOVO» CHE SI VEDE**
+  (17/08/2026, LIVE).
+  - **Link a Shopify.** Una parte del lavoro non si fa da qui e non deve farsi
+    da qui: rimborsi veri, modifica delle righe, rispedizione della conferma,
+    pagamenti. Prima si apriva Shopify a mano, si sceglieva il negozio giusto
+    fra tre e si cercava il numero — e **`#1733` esiste su più negozi**, quindi
+    ogni tanto si finiva sull'ordine di un altro marchio. Il link nasce dal
+    **gid**, che quell'ambiguità non ce l'ha, più il dominio del negozio *di
+    quell'ordine* (campo `dominio` aggiunto alla risposta di `/api/ordini`).
+  - `src/lib/link-shopify.ts`: da `xxx.myshopify.com` si ricava la maniglia per
+    `admin.shopify.com/store/<maniglia>/orders/<id>`; con un dominio pubblico si
+    ripiega su `<dominio>/admin/orders/<id>`, che Shopify redirige da sé.
+    ⚠️ Se il link non si può costruire **il bottone non c'è**: uno che porta a
+    una pagina d'errore è peggio di uno assente.
+  - **⚠️⚠️ L'etichetta NUOVO c'era già e non si vedeva MAI.** Confrontava
+    `creatoIl` con l'istante in cui avevi **aperto la scheda**: aprendo la
+    bacheca la mattina nessun ordine è più recente dell'apertura, quindi zero
+    etichette. Ora `appenaArrivato()` marca quelli entrati nelle ultime
+    **12 ore** (`ORE_APPENA_ARRIVATO`) — la giornata del servizio clienti, non
+    24 ore: un ordine di ieri sera non è una novità per chi si siede stamattina.
+    Resta il grado più forte per quelli comparsi *sotto i tuoi occhi*: cambia la
+    spiegazione, non il bollino — due bollini per la stessa cosa sarebbero un
+    rebus.
+  - ⚠️ `adesso` sta in uno **stato riempito in un effetto**, non `Date.now()` nel
+    render: server e browser darebbero valori diversi (idratazione). Si aggiorna
+    ogni 5 minuti, altrimenti su una scheda lasciata aperta tutto il giorno
+    l'etichetta non si spegnerebbe mai. Con `0` non marca niente, che è il
+    ripiego giusto prima di sapere che ore sono.
+  - ⚠️ **`creatoIl` è quando l'ordine è comparso DA NOI**, non la data
+    dell'ordine: al primo scarico di un negozio nuovo entrano insieme due mesi
+    di ordini e sono tutti «appena arrivati». È vero, ed è il motivo per cui
+    questa etichetta non va usata come «ordine recente».
+  - ⚠️ Resa a schermo **non verificata** (login). Verificati `tsc`, `build`, e
+    che `/api/ordini` mandi `shopifyId` — nessun `select` che lo tagli fuori.
+
 - **DALLA SCHERMATA «OGGI» SI ARRIVA SULL'ELEMENTO, NON SULL'ELENCO**
   (17/08/2026, LIVE). Due difetti diversi con lo stesso effetto: si clicca e non
   si arriva dove si voleva.

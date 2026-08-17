@@ -431,6 +431,17 @@ seconda riceve un avviso, non un sorpasso silenzioso.
 rischiano di non ricevere risposta da **nessuno**, che è il guaio opposto alle risposte
 doppie.
 
+**Il dettaglio di un ordine** ha «**Apri in Shopify ↗**»: porta alla scheda vera, dove si
+fanno le cose che qui non si fanno (rimborsi, modifica delle righe, rispedizione della
+conferma). Il collegamento nasce dal **gid** e dal dominio del negozio di quell'ordine —
+mai dal numero: `#1733` esiste su più negozi. Se non si può costruire, il bottone non
+compare.
+
+**«NUOVO»** marca gli ordini entrati da noi nelle ultime **12 ore**; quelli comparsi
+mentre stai guardando la pagina hanno la stessa etichetta con una spiegazione diversa.
+⚠️ Conta quando l'ordine è comparso **da noi**, non la data dell'ordine: al primo scarico
+di un negozio nuovo entrano insieme due mesi di ordini, e per noi sono tutti nuovi davvero.
+
 **La schermata «Oggi» (`/`).** Chi aspetta una risposta, gli ordini da lavorare, i reclami
 aperti, i promemoria. **Ogni riga è un collegamento all'elemento**, non all'elenco:
 `/inbox?c=<id>` apre quella conversazione, `/ordini?apri=<id>` quell'ordine col pannello
