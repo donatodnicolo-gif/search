@@ -78,10 +78,23 @@ questi numeri: dicono cosa gira e cosa è fermo.**
 - **Ordini da Deluxy Orders**: cron ogni 3 ore vivo (06:20 del 17/08),
   8.342 ordini (Gifts 6.097 · Flowers 1.514 · Cake 731) dal 01/01/2025,
   ultimo ordine 17/08 05:05.
-- ⚠️ **Sync Drive ferma dal 04/08 16:41** (642 documenti): non ha un cron
-  Vercel (in `vercel.json` ci sono solo `meta` e `ordini`) e l'attività
-  programmata di Claude gira solo con l'app desktop aperta. Se servono le
-  analisi nuove: `npm run sync-drive` o «Sincronizza ora».
+- ✅ **Sync Drive: rifatta il 17/08 alle 08:31** (era ferma dal 04/08 16:41).
+  **644 documenti** trovati, 3 nuovi, 334 aggiornati, 1 rimosso,
+  **0 analisi importate**. Non ha un cron Vercel (in `vercel.json` ci sono
+  solo `meta` e `ordini`) e l'attività programmata di Claude gira solo con
+  l'app desktop aperta: va lanciata a mano con `npm run sync-drive` o
+  «Sincronizza ora».
+  ⚠️ **Lo zero delle analisi non è un guasto: è il Drive che è fermo.** Il
+  documento più recente della cartella è del **07/08** (`APPEND 00.2
+  ADV-Gifts 2026-08-07 1100.md` e il `BRIEFING App Gifts 2026-08-07`), e
+  l'ultima *Analisi* in archivio è del 04/08. Dopo 13 giorni di sync mancata
+  ci si aspetta un raccolto: non essercene vuol dire che **da due settimane
+  non viene prodotta analisi nuova su Drive**, non che l'import non funzioni.
+  Sono due diagnosi opposte e portano ad azioni opposte — prima di cercare
+  un bug nell'import, guardare la data del file più recente nella cartella.
+  Archivio a oggi: 644 documenti (278 definitivi · 94 archivio · 83 analisi ·
+  75 pubblici · 44 piani · 37 audit · 24 altro · 7 creatività · 2 seo) e
+  **86 Analisi**.
 - **Meta resta in sola lettura**: `META_SCRITTURA` spenta, il motore
   `lib/meta-scrittura.ts` c'è ma non ha `ads_management`. TikTok scollegato.
 
@@ -2292,9 +2305,35 @@ Resta da fare, **fuori dall'app**:
    («torte roma / torino / napoli…», frase, da «Estendi con AI» del 15/08):
    sono in coda dal 15/08 06:35 e aspettano una persona che le approvi (o
    le annulli) da `/operazioni` — ora si può fare in blocco.
-3. **Sync Drive ferma dal 04/08**: `npm run sync-drive` (o «Sincronizza
-   ora») se servono documenti e analisi nuove; valutare un cron Vercel
-   come per Meta e ordini se deve andare da sola.
+3. ~~**Sync Drive ferma dal 04/08**~~ — **fatta il 17/08 08:31** (644 doc,
+   3 nuovi, 0 analisi: il Drive è fermo al 07/08, vedi fotografia). Resta
+   aperta la scelta se darle un **cron Vercel** come `meta` e `ordini`: oggi
+   dipende da una persona che se ne ricordi, e la staleness è silenziosa —
+   l'app non distingue «nessun documento nuovo» da «nessuno ha sincronizzato
+   da due settimane». **Un cron Vercel è fattibile**: `drive.cartella` è un
+   **link a cartella Google Drive** e `drive.apikey` è presente, quindi
+   `sincronizzaDrive()` prende il ramo `sincronizzaDriveApi()` e legge via
+   API — non serve nessun disco locale. Servirebbe una route
+   `/api/cron/drive` (esente dal middleware come le altre) e una riga in
+   `vercel.json`. ⚠️ Attenzione al **budget di 45 s** (`DRIVE_SYNC_BUDGET_MS`):
+   la sync è ripartibile apposta, il cron va scritto sapendo che una passata
+   può finire «interrotta» e riprendere al giro dopo.
+
+   ⚠️⚠️ **`npm run sync-drive` E il bottone «Sincronizza ora» NON LEGGONO LA
+   STESSA COSA.** `scripts/sync-drive.mjs` è una copia standalone che dichiara
+   di replicare `src/lib/drive.ts`, ma **ignora l'impostazione
+   `drive.cartella`**: prende `process.env.DRIVE_ADV_DIR` o il default
+   `G:\Il mio Drive\ADV DELUXY SRL`, sempre. L'app invece parte da
+   `driveDir()`, che legge **prima l'impostazione** — oggi il link online. Le
+   due strade combaciano solo finché la cartella montata da Google Drive per
+   Desktop è davvero quella dell'impostazione: il giorno che divergono, la
+   sync da riga di comando riscrive l'indice con il contenuto **di un'altra
+   cartella**, e nessuno se ne accorge perché l'esito è «completata». La sync
+   del 17/08 è passata dal **locale** (`Sync completata da: G:\…`), non
+   dall'API. Il commento «tenere le due versioni allineate» in cima allo
+   script è esattamente il debito che si sta pagando: la prossima modifica a
+   `drive.ts` che tocchi la scelta della radice va riportata anche lì, o
+   meglio, lo script dovrebbe chiamare `driveDir()`.
 4. Verificare in Business Manager se `ads_management` si ottiene senza App
    Review (per accendere la scrittura Meta) — invariato dal 07/08.
 5. Al primo giro dopo il reincollo del 15/08: aprire una scheda gruppo,
