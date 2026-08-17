@@ -2722,11 +2722,17 @@ Resta da fare, **fuori dall'app**:
    alle 12:04 su Cake, budget alle 07:08 su Gifts: nessuna anagrafica nei 2
    minuti dopo, quindi non è il giro `tutto`). Se `esegui.js` resta vecchio,
    sarà lui a riprendere la campagna e a farla rifiutare di nuovo.
-   Quindi: (1) **reincollare `esegui.js`** delle **15:57** da
-   `C:\Users\nicol\Downloads\deluxy-google-ads\` (CHIAVE_API e BRAND a mano);
-   (2) approvare la WORLD-ENG in `/operazioni`; (3) Esegui in Google Ads o
-   aspettare il giro; (4) controllare il **registro caricamenti** e, al giro di
-   anagrafica dopo, che la riga dica **«Creata davvero»** invece di «Rifiutata».
+   **Alle 16:21 l'utente ha reincollato `tutto.js` E `esegui.js` su Flowers**:
+   sul database si vede un giro `tutto` completo di Flowers dalle **16:17 alle
+   16:21** (anagrafica, metriche, gruppi, keyword-giorni, annuncio-giorni,
+   asset, copy, stati-keyword, tutte ok). ⚠️ **Si vede che è girato, non quale
+   versione è**: lo script non dichiara la sua versione e la colonna EU si vede
+   solo quando crea una campagna — la prova arriva col primo tentativo.
+   Quindi resta: (1) **approvare la WORLD-ENG** in `/operazioni` — è tornata
+   *da approvare* e finché è lì `esegui` non ha niente da fare; (2) aspettare il
+   giro `esegui` (ogni ora, ~:09) o premere Esegui in Google Ads; (3)
+   controllare il **registro caricamenti** e che la riga dica **«Creata
+   davvero»** invece di «Rifiutata».
    ⚠️ **Se il registro dice «Invalid value in EU political ads»**, il formato è
    l'altro: cambiare `"no"` in `false` in `creaCampagna`, prova a secco,
    rigenerare le copie, reincollare.
