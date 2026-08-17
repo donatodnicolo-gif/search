@@ -98,6 +98,7 @@ export const RigaMail = memo(function RigaMail({
   selezionato = false,
   onSelezione,
   mostraPeso = false,
+  idsDaTrascinare,
 }: {
   r: RigaData
   sezioni?: { id: string; nome: string }[]
@@ -107,6 +108,8 @@ export const RigaMail = memo(function RigaMail({
   onSelezione?: (id: string, valore: boolean) => void
   /** Ordinando per dimensione si mostra il peso: così si vede il criterio. */
   mostraPeso?: boolean
+  /** Gli id da trascinare: con la riga selezionata è l'intera selezione. */
+  idsDaTrascinare?: string[]
 }) {
   // Rimozione ottimistica: appena archivi/cestini la riga sparisce all'istante,
   // il server si riallinea al refresh successivo.
@@ -120,8 +123,15 @@ export const RigaMail = memo(function RigaMail({
   const [nonLetti, setNonLetti] = useState(r.nonLetti)
   useEffect(() => setNonLetti(r.nonLetti), [r.nonLetti])
   if (nascosto) return null
+  // Si trascina la CONVERSAZIONE (`r.ids`), non la mail di testa: in elenco una
+  // riga è un thread. Se la riga fa parte di una selezione, si trascina tutta
+  // la selezione (`idsDaTrascinare`, passati dalla lista).
   return (
-    <MailDrag id={r.id} className={`mail-row ${nonLetti ? 'non-letto' : ''} ${selezionato ? 'selezionato' : ''}`}>
+    <MailDrag
+      id={r.id}
+      ids={idsDaTrascinare?.length ? idsDaTrascinare : r.ids?.length ? r.ids : [r.id]}
+      className={`mail-row ${nonLetti ? 'non-letto' : ''} ${selezionato ? 'selezionato' : ''}`}
+    >
       <div className="mail-row-head">
         {onSelezione && (
           <label

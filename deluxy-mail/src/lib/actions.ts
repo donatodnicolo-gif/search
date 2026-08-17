@@ -316,6 +316,50 @@ export async function archiviaMessaggio(id: string) {
 }
 
 /**
+ * RIMETTE IN POSTA IN ARRIVO un gruppo di mail, da qualunque stato: toglie
+ * dall'archivio, dal cestino e dallo SPAM in un colpo. La usa il
+ * TRASCINAMENTO sulla voce «Posta in arrivo» del menu.
+ *
+ * ⚠️ Ogni provenienza va allineata sulla CASELLA con la sua sorgente: una mail
+ * che torna dal cestino va ripresa dal Cestino del server, una che torna dallo
+ * spam dalla Posta indesiderata. Con una sola chiamata «da normale» il server
+ * resterebbe indietro e dal telefono la mail sembrerebbe ancora cestinata.
+ */
+export async function rimettiInPostaMassa(ids: string[]): Promise<{ ok: boolean; messaggio: string }> {
+  const utenteId = await uid()
+  const puliti = [...new Set(ids)].filter(Boolean)
+  if (puliti.length === 0) return { ok: false, messaggio: 'Nessuna mail da spostare.' }
+
+  const mail = await db.messaggio.findMany({
+    where: { id: { in: puliti }, utenteId },
+    select: { id: true, cestinato: true, archiviato: true, sezione: { select: { nome: true } } },
+  })
+  if (mail.length === 0) return { ok: false, messaggio: 'Mail non trovate.' }
+
+  const daCestino = mail.filter((m) => m.cestinato).map((m) => m.id)
+  const daSpam = mail.filter((m) => !m.cestinato && m.sezione?.nome === 'SPAM').map((m) => m.id)
+
+  await db.messaggio.updateMany({
+    where: { id: { in: mail.map((m) => m.id) }, utenteId },
+    data: { archiviato: false, cestinato: false, cestinatoIl: null },
+  })
+  // Fuori dallo SPAM anche come sezione: se no la mail «in posta» resterebbe
+  // dentro la cartella Spam del menu.
+  if (daSpam.length) {
+    await db.messaggio.updateMany({
+      where: { id: { in: daSpam }, utenteId },
+      data: { sezioneId: null, smistatoDa: 'manuale' },
+    })
+  }
+  if (daCestino.length) allineaCartellaDopo(utenteId, daCestino, 'cestino', 'normale')
+  if (daSpam.length) allineaCartellaDopo(utenteId, daSpam, 'spam', 'normale')
+
+  revalidatePath('/', 'layout')
+  const n = mail.length
+  return { ok: true, messaggio: n === 1 ? 'Rimessa in Posta in arrivo.' : `${n} mail rimesse in Posta in arrivo.` }
+}
+
+/**
  * TOGLIE dall'archivio: la conversazione torna in Posta in arrivo.
  *
  * ⚠️ Mancava del tutto fino al 17/08/2026 — segnalato dall'utente: «questa mail

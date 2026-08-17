@@ -172,6 +172,12 @@ export function ListaMail({
       return giaEsatte ? new Set() : new Set(nonLette.map((r) => r.id))
     })
 
+  // Gli id di TUTTE le mail selezionate (le righe sono thread): serve sia alle
+  // azioni in massa sia al trascinamento.
+  const idsSelezionati = righe
+    .filter((r) => selezione.has(r.id))
+    .flatMap((r) => (r.ids?.length ? r.ids : [r.id]))
+
   const esegui = (azione: AzioneMassa, sezioneId?: string | null) => {
     if (selezione.size === 0) return
     // ⚠️ In elenco una riga È un thread: la selezione tiene l'id di TESTA, ma
@@ -275,6 +281,10 @@ export function ListaMail({
           selezionato={selezione.has(r.id)}
           onSelezione={toggle}
           mostraPeso={ordine.campo === 'dimensione'}
+          // Trascinando una riga SELEZIONATA si trascina tutta la selezione:
+          // se no, con dieci mail spuntate, il trascinamento ne sposterebbe una
+          // e sembrerebbe che la selezione non conti niente.
+          idsDaTrascinare={selezione.has(r.id) ? idsSelezionati : undefined}
         />
       ))}
 

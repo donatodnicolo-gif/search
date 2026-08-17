@@ -8,6 +8,18 @@
 // — cioè tutto ciò che serve a far apparire la mail come l'ha pensata chi l'ha
 // scritta.
 
+/**
+ * Vero solo per un `src="data:image/<raster>;base64,…"`: l'unica forma di
+ * `data:` che si lascia passare.
+ * ⚠️ Solo `src` (mai `href`/`action`: lì un data: è una navigazione), solo
+ * formati **raster**, e solo `;base64,` — la forma canonica. `image/svg+xml`
+ * resta fuori: un SVG è un documento e può portare script.
+ */
+function immagineInLineaSicura(attr: string, schema: string, resto: string): boolean {
+  if (schema.toLowerCase() !== 'data' || attr.toLowerCase() !== 'src') return false
+  return /^\s*image\/(png|jpe?g|gif|webp|bmp|avif|x-icon)\s*;\s*base64\s*,/i.test(resto)
+}
+
 export function sanitizzaHtml(html: string): string {
   return html
     .replace(/<script[\s\S]*?<\/script>/gi, '')
@@ -34,9 +46,28 @@ export function sanitizzaHtml(html: string): string {
     .replace(/([\s"'`/])on\w+\s*=\s*"[^"]*"/gi, '$1')
     .replace(/([\s"'`/])on\w+\s*=\s*'[^']*'/gi, '$1')
     .replace(/([\s"'`/])on\w+\s*=\s*[^\s>]+/gi, '$1')
+    // Immagini che NON potranno mai caricarsi: `cid:` (parte MIME interna alla
+    // mail) e `x-msg://` (riferimento interno di Apple Mail). Il browser ci
+    // disegnerebbe l'icona di immagine rotta col nome del file come didascalia
+    // — segnalato il 17/08/2026: «perché si vede così?», con quattro icone
+    // rotte in fila. Si toglie il tag: le immagini vere stanno fra gli allegati.
+    .replace(/<img\b[^>]*\bsrc\s*=\s*["']?\s*(?:cid:|x-msg:)[^>]*>/gi, '')
     // href/src/action che aprirebbero javascript: o data:text/html (esegue).
-    .replace(/(href|src|action|formaction|xlink:href)\s*=\s*"\s*(javascript|data):[^"]*"/gi, '$1="#"')
-    .replace(/(href|src|action|formaction|xlink:href)\s*=\s*'\s*(javascript|data):[^']*'/gi, "$1='#'")
+    // ⚠️ Le immagini in linea `data:image/...;base64` vanno TENUTE: sono il modo
+    // normale in cui i client incorporano firme e screenshot, non possono
+    // eseguire niente, e togliendole si vedono quattro icone rotte al posto
+    // della mail (è quello che era succeso con la correzione XSS del 14/08).
+    // ⚠️ `image/svg+xml` NO: un SVG può contenere script — resta bloccato.
+    .replace(
+      /(href|src|action|formaction|xlink:href)\s*=\s*"\s*(javascript|data):([^"]*)"/gi,
+      (tutto, attr: string, schema: string, resto: string) =>
+        immagineInLineaSicura(attr, schema, resto) ? tutto : `${attr}="#"`
+    )
+    .replace(
+      /(href|src|action|formaction|xlink:href)\s*=\s*'\s*(javascript|data):([^']*)'/gi,
+      (tutto, attr: string, schema: string, resto: string) =>
+        immagineInLineaSicura(attr, schema, resto) ? tutto : `${attr}='#'`
+    )
     // @import remoti dentro i blocchi <style>
     .replace(/@import[^;]+;/gi, '')
 }

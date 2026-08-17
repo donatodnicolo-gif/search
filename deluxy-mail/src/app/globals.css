@@ -68,6 +68,19 @@ a { color: inherit; text-decoration: none; }
 /* Riga di menu con il «+» dell'azione rapida accanto alla voce. */
 .nav-item-riga { display: flex; align-items: center; gap: 2px; }
 .nav-item-riga .nav-item { flex: 1; }
+
+/* Trascinamento delle mail sul menu: la voce sotto il cursore si accende, così
+   si vede DOVE si sta lasciando la mail (una cornice tratteggiata, non un
+   colore pieno: la voce resta leggibile). `.nav-drop` è il contenitore delle
+   sezioni, che non hanno la riga con il «+». */
+.nav-drop { display: block; }
+.drop-sopra > .nav-item {
+  background: var(--fill);
+  outline: 2px dashed var(--gold);
+  outline-offset: -2px;
+  border-radius: 8px;
+}
+.drop-incorso > .nav-item { opacity: 0.6; }
 .nav-piu {
   flex: 0 0 auto; width: 26px; height: 26px; border-radius: var(--radius-m);
   border: none; background: transparent; color: var(--text-tertiary);

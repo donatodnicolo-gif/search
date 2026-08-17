@@ -9,11 +9,14 @@ import { PiuAzione } from './PiuAzione'
 import type { TipoAzione } from './AzioneRapida'
 import { SelettoreAccount } from './SelettoreAccount'
 import { accountAttivoId, caselleUtente } from '@/lib/accountAttivo'
+import { VoceMenu, DropMail, type Bersaglio } from './VoceMenu'
 
 type Voce = {
   href: string
   label: string
   badge?: number
+  /** Se presente, si possono TRASCINARE qui le mail per spostarle. */
+  bersaglio?: Bersaglio
   /** Se presente, accanto alla voce compare un «+» che apre l'azione rapida in
    *  un popup (desktop), senza cambiare pagina. */
   azione?: TipoAzione
@@ -28,13 +31,9 @@ function Gruppo({ titolo, voci }: { titolo: string; voci: Voce[] }) {
     <nav className="nav-section">
       <div className="nav-label">{titolo}</div>
       {voci.map((v) => (
-        <div key={v.href} className="nav-item-riga">
-          <Link href={v.href} className="nav-item">
-            <span style={{ flex: 1 }}>{v.label}</span>
-            {v.badge ? <span className="badge neutral">{v.badge}</span> : null}
-          </Link>
+        <VoceMenu key={v.href} href={v.href} label={v.label} badge={v.badge} bersaglio={v.bersaglio}>
           {v.azione && <PiuAzione tipo={v.azione} titolo={v.azioneTitolo || `Nuovo — ${v.label}`} />}
-        </div>
+        </VoceMenu>
       ))}
     </nav>
   )
@@ -111,15 +110,26 @@ export async function Sidebar() {
   // sezioni per non averlo due volte.
   const spam = sezioni.find((s) => s.nome === 'SPAM')
 
+  // ⚠️ `bersaglio` = si possono TRASCINARE qui le mail. Bozze e Posta inviata
+  // non ce l'hanno: non sono stati in cui si può mettere una mail ricevuta.
   const posta: Voce[] = [
-    { href: '/', label: 'Posta in arrivo', badge: nonLette },
+    { href: '/', label: 'Posta in arrivo', badge: nonLette, bersaglio: { tipo: 'posta' } },
     { href: '/bozze', label: 'Bozze', badge: bozze },
     { href: '/inviata', label: 'Posta inviata' },
     // Archiviata = messa via ma tenuta (non è nel Cestino). È il filtro
     // "Archiviati" della posta in arrivo, qui come voce a sé per ritrovarla.
-    { href: '/?stato=archiviati', label: 'Archivio' },
-    ...(spam ? [{ href: `/?sezione=${spam.id}`, label: 'Spam', badge: spam._count.messaggi }] : []),
-    { href: '/cestino', label: 'Cestino', badge: cestinati },
+    { href: '/?stato=archiviati', label: 'Archivio', bersaglio: { tipo: 'archivio' } },
+    ...(spam
+      ? [
+          {
+            href: `/?sezione=${spam.id}`,
+            label: 'Spam',
+            badge: spam._count.messaggi,
+            bersaglio: { tipo: 'spam' } as const,
+          },
+        ]
+      : []),
+    { href: '/cestino', label: 'Cestino', badge: cestinati, bersaglio: { tipo: 'cestino' } },
   ]
 
   const strumenti: Voce[] = [
@@ -187,20 +197,26 @@ export async function Sidebar() {
             .filter((s) => !s.genitoreId)
             .flatMap((s) => [s, ...sezioni.filter((f) => f.genitoreId === s.id)])
             .map((s) => (
-              <Link
+              // Anche le sezioni accettano le mail trascinate: è il caso più
+              // usato («spostale in Commerciale»), ed è lo stesso gesto del
+              // menu «Sposta in…» sulla riga.
+              <DropMail
                 key={s.id}
-                href={`/?sezione=${s.id}`}
-                className={`nav-item ${s.genitoreId ? 'sotto' : ''}`}
+                bersaglio={{ tipo: 'sezione', sezioneId: s.id }}
+                label={s.nome}
+                className="nav-drop"
               >
-                <span style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1 }}>
-                  <span
-                    className="dot"
-                    style={{ width: 7, height: 7, borderRadius: '50%', background: `var(--${s.colore})`, flex: '0 0 7px' }}
-                  />
-                  {s.nome}
-                </span>
-                {s._count.messaggi ? <span className="badge neutral">{s._count.messaggi}</span> : null}
-              </Link>
+                <Link href={`/?sezione=${s.id}`} className={`nav-item ${s.genitoreId ? 'sotto' : ''}`}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1 }}>
+                    <span
+                      className="dot"
+                      style={{ width: 7, height: 7, borderRadius: '50%', background: `var(--${s.colore})`, flex: '0 0 7px' }}
+                    />
+                    {s.nome}
+                  </span>
+                  {s._count.messaggi ? <span className="badge neutral">{s._count.messaggi}</span> : null}
+                </Link>
+              </DropMail>
             ))}
         </nav>
       )}

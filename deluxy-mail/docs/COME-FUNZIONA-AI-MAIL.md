@@ -635,6 +635,14 @@ Ora **cestinare sposta la mail nel Cestino della casella**, e **«Recupera» la 
 indietro** (in posta in arrivo, o fra gli inviati se era una mail partita). Quindi quello
 che fai qui lo vedi anche da telefono e webmail.
 
+**Si può anche TRASCINARE.** Dalla posta in arrivo prendi una riga col mouse e la lasci
+cadere su una voce del menu a sinistra: una **sezione**, **Archivio**, **Spam**, **Cestino**
+o **Posta in arrivo** (per rimetterla a posto, anche se stava nel cestino o nello spam). La
+voce sotto il cursore si illumina, così vedi dove la stai mettendo. Si sposta tutta la
+**conversazione**, e se avevi selezionato più mail con le caselle, trascinandone una si
+spostano tutte quelle scelte. Sul telefono il trascinamento non c'è: restano il menu
+«Sposta in…» sulla riga e i pulsanti.
+
 **Archiviare invece resta un fatto di AI Mail** (la mail non si muove sul server) ed è
 sempre reversibile: sulla mail aperta, al posto di «Archivia», compare **«Togli
 dall'archivio»**, e in elenco la riga ha **«Disarchivia»**. Vale per tutta la
