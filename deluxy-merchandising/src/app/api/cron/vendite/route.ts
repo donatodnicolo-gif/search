@@ -19,7 +19,7 @@ import { stessoSegreto } from "@/lib/segreto-cron";
 //   Prima il giro era solo notturno e un ordine delle 9 del mattino si vedeva
 //   qui il giorno dopo — misurato il 17/08: Orders aveva un ordine di undici
 //   minuti prima, l'app non lo sapeva.
-// - **una volta al giorno, ultimi 30 giorni** (alle 06:30, dopo il giro
+// - **una volta al giorno, ultimi 30 giorni** (alle 06:37, dopo il giro
 //   completo di Orders delle 06:00): serve a **riallineare gli stati** più
 //   indietro nel tempo — un ordine incassato o rimborsato giorni dopo. Il giro
 //   corto non ci arriverebbe mai. Il primo giro reale (10/08/2026) ha trovato
@@ -31,6 +31,14 @@ import { stessoSegreto } from "@/lib/segreto-cron";
 //
 // Le rotazioni delle vetrine girano alle 05:20: con l'aggiornamento ogni quarto
 // d'ora trovano sempre venduto fresco, senza bisogno di incastri di orari.
+//
+// **Il :37 non è un capriccio**: a un minuto tondo il giro lungo scatterebbe
+// nello stesso istante di quello dei quarti d'ora. Non si corromperebbe niente
+// (le righe si scrivono con `skipDuplicates` su un `riferimento` unico e il
+// riallineo riscrive gli stessi valori), ma un import da 30 giorni e uno da 2
+// si contenderebbero le **5 connessioni** di un pool condiviso con altre cinque
+// app — è esattamente lo scenario che in quest'app ha già prodotto dei P2024.
+// Sette minuti di sfasamento costano nulla e li tengono separati.
 //
 // Protezione: header "Authorization: Bearer <CRON_SECRET>", che Vercel invia da
 // solo quando la variabile è impostata sul progetto. Senza segreto la rotta
