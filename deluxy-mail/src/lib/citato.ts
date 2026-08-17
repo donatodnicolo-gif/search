@@ -59,6 +59,29 @@ export function dividiCitato(testo: string): TestoDiviso {
 }
 
 /**
+ * Toglie i SEGNAPOSTO delle immagini/allegati in linea, cioè i nomi di file fra
+ * parentesi angolari — `<firma5.png>`, `<Screenshot 2026-07-18 alle 23.53.46.png>`
+ * — che i client Apple mettono nel testo semplice al posto delle immagini
+ * incorporate. Non è testo: è rumore che riempie il corpo (segnalato il
+ * 17/08/2026). Le immagini vere restano nella «versione formattata» e fra gli
+ * allegati.
+ *
+ * ⚠️ NON tocca gli indirizzi fra parentesi angolari — `<martina.calia@deluxy.it>`
+ * — perché il segnaposto non ha la «@»: si accettano solo nomi di file che
+ * finiscono con un'estensione nota, senza «@» né «/» dentro.
+ */
+export function senzaSegnapostoFile(testo: string): string {
+  return testo
+    .replace(
+      /<[^<>@/\n]{1,120}\.(png|jpe?g|gif|heic|heif|webp|bmp|tiff?|svg|pdf|docx?|xlsx?|pptx?|zip)>/gi,
+      ''
+    )
+    // Restano spesso spazi doppi o righe di soli spazi dove stavano in fila.
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/^[ \t]+$/gm, '')
+}
+
+/**
  * L'anteprima leggibile di una mail.
  *
  * ⚠️ Il testo di una mail HTML (newsletter, notifiche) non è testo: è la
@@ -104,7 +127,7 @@ function sicuroDaCodice(n: number): string {
 }
 
 export function ripulisciAnteprima(testo: string): string {
-  let t = decodificaEntita(testo)
+  let t = senzaSegnapostoFile(decodificaEntita(testo))
     // Caratteri invisibili che i mittenti infilano per spezzare le parole:
     // soft-hyphen, giuntore di grafemi, zero-width, word-joiner, BOM. Via, o
     // restano fra le lettere. Gli spazi \u00ABlarghi\u00BB li collassa lo `\s+` pi\u00F9 sotto.

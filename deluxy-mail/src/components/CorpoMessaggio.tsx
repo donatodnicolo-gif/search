@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { leggiHtmlMessaggio } from '@/lib/actions'
-import { dividiCitato } from '@/lib/citato'
+import { dividiCitato, senzaSegnapostoFile } from '@/lib/citato'
 
 type Props = {
   /** HTML già sanitizzato lato server, o null se la mail è di solo testo. */
@@ -167,11 +167,15 @@ export function CorpoMessaggio({ html: htmlIniziale, testo, tradotto, lingua, ht
  */
 function TestoConCitazione({ testo }: { testo: string }) {
   const [apri, setApri] = useState(false)
-  const { testo: nuovo, citato } = dividiCitato(testo)
-  if (!citato) return <div className="mail-body">{testo}</div>
+  // Via i segnaposto `<firma5.png>` / `<Screenshot ….png>` delle immagini in
+  // linea: sono nomi di file, non testo. Le immagini vere stanno nella
+  // «versione formattata» e fra gli allegati.
+  const pulito = senzaSegnapostoFile(testo)
+  const { testo: nuovo, citato } = dividiCitato(pulito)
+  if (!citato) return <div className="mail-body">{pulito.trim()}</div>
   return (
     <div className="mail-body">
-      {nuovo}
+      {nuovo.trim()}
       {'\n'}
       <button
         type="button"
