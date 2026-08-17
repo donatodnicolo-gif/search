@@ -1,25 +1,30 @@
 # Handoff — Deluxy Customer Service
 
-Ultimo aggiornamento: **17/08/2026** (controllo della produzione dall'esterno; i
-conteggi per canale restano quelli contati sul database il **15/08/2026**;
-l'ultimo lavoro sul codice è del 31/07/2026 ed è pubblicato)
+Ultimo aggiornamento: **17/08/2026, ore 11** (giornata di lavoro sul widget: il
+bug che perdeva i messaggi dei visitatori è stato trovato e chiuso; i conteggi
+per canale restano quelli contati sul database il **15/08/2026**)
 
-**Controllo del 17/08/2026 — l'app è viva e pubblicata.** `GET /api/health`
-risponde `200` con `database: true`, `scrivibile: true`, **1.235 ordini** (erano
-1.216 il 15/08) e **459 conversazioni** (erano 425): il cron degli ordini e i
-canali continuano a lavorare da soli, nessuno ha toccato il codice. Codice
-allineato con `origin/scout-ui`, albero pulito, ultimo commit dell'app
-`7a74baad` del 15/08.
+**Stato del 17/08/2026 ore 11 — l'app è viva e la produzione è il codice di
+oggi.** `GET /api/health` risponde `200` in 0,4 s con `database: true`,
+`scrivibile: true`, **1.236 ordini** (1.216 il 15/08) e **460 conversazioni**
+(425 il 15/08): il cron degli ordini e i canali lavorano da soli. Ultimo commit
+dell'app **`c162452f`**, pubblicato con `npx vercel deploy --prod --yes`
+(deployment `itc41jim5`); albero pulito per questa cartella, allineato con
+`origin/scout-ui`.
 Provate le rotte dall'esterno: `/`, `/inbox`, `/ordini` → **307** al login (il
 cancello regge), `/widget?anteprima=1` → 200, `/api/v1/feedback` → **401** (la
 rotta a chiave *è* pubblicata: cade la nota «da pubblicare su Vercel»),
 `/api/webhooks/meta` → **403** senza firma, `/chat/inventato` → 200 con «Questa
 chat non esiste più» (il codice casuale regge).
+
 ⚠️ **Quello che questo controllo NON dice**: canali collegati, chiavi presenti,
-utenti, reclami e rimborsi si contano solo **sul database**, e in questa
-sessione lo script di conteggio è stato **bloccato dai permessi**. Le righe qui
-sotto su Messenger, `partnerApiKey`, i 2 rimborsi e i 474 ordini da gestire sono
-quindi **del 15/08, non riverificate oggi**.
+utenti, reclami e rimborsi si contano solo **sul database**, e per la **terza
+sessione di fila** lo script di conteggio è stato **bloccato dai permessi**
+(`node` su uno script nello scratchpad, sia da Bash sia da PowerShell). Le righe
+più sotto su Messenger, `partnerApiKey`, i 2 rimborsi e i 474 ordini da gestire
+sono quindi **del 15/08**. Chi riprende: per sbloccarle serve che l'utente
+autorizzi l'esecuzione di uno script `node` di sola lettura, oppure si legge il
+dato da una pagina dell'app dopo il login.
 
 > ⚠️ **L'app si chiama Deluxy Customer Service** (prima "Deluxy Messaggi"). Sono
 > cambiati i nomi visibili (topbar, login, titolo della pagina, tessera del Hub),
@@ -73,6 +78,46 @@ AES-256-GCM nel database. `APP_SECRET` su Vercel **deve** essere identico al
 locale, altrimenti nulla si decifra.
 
 ## FATTO
+
+- **⚠️⚠️ LA CHAT DEI SITI BUTTAVA VIA OGNI MESSAGGIO DEI VISITATORI** (17/08/2026,
+  LIVE). Dal **30/07 al 17/08** chi scriveva dal widget di un sito non è mai
+  stato letto da nessuno: **18 conversazioni, tutte con zero messaggi**.
+  - **Perché.** Da quando i siti passano `data-sito`, `/api/widget/sessione`
+    scrive lo **slug del sito** (`cake`, `flowers`, `deluxy`) in
+    `Conversazione.numeroId`; ma `/api/widget/messaggi` cercava la riga con la
+    chiave unica a tre campi e `numeroId: ''`. Con lo slug valorizzato la
+    `findUnique` non trovava **mai** la conversazione: GET e POST rispondevano
+    404. Ora si cerca per **canale + token** con `findFirst` — il token è 24 byte
+    casuali, identifica da solo.
+  - ⚠️ **Il difetto non si vedeva perché il widget FINGEVA**: la bolla del
+    messaggio compariva a schermo (eco locale) anche quando il server aveva
+    rifiutato, e il visitatore restava ad aspettare una risposta che non poteva
+    arrivare. Ora se il server rifiuta **la bolla sparisce**, il testo torna nel
+    campo e compare «Messaggio non inviato»; su 404 si dimentica il token, così
+    l'invio successivo riapre la sessione.
+    **REGOLA: un'interfaccia ottimistica deve saper tornare indietro.** Una che
+    mostra sempre «inviato» non è ottimista, è muta — e nasconde il guasto
+    proprio a chi lo sta subendo.
+  - Trovato da una revisione multi-agente e **confermato contando in tabella**,
+    non dedotto dal codice.
+
+- **IL TITOLO DEL WIDGET NON TORNA PIÙ «DELUXY» SOTTO GLI OCCHI DI CHI SCRIVE**
+  (17/08/2026, LIVE). Coda del punto sopra: il **polling** di
+  `/api/widget/messaggi` non passava `sito`, e il server senza quel parametro
+  risponde con titolo e saluto **generali**. Effetto: chi apriva la chat su
+  cakedesign.me leggeva «CakedesignMe», poi al primo giro dopo l'invio
+  l'intestazione diventava **«Deluxy»**, cioè il nome di un altro marchio.
+  - **Misurato in produzione, non supposto**:
+    `/api/widget/messaggi?sito=cake` → «CakedesignMe», senza parametro →
+    «Deluxy». Ora `sito` viaggia in **tutte e tre** le chiamate (ripresa con
+    token, ripresa senza token, polling) ed è fra le dipendenze di `aggiorna`.
+  - **Verificato sul bundle pubblicato**, non solo sul deploy riuscito: nel
+    chunk live di `/widget` compaiono tutte e tre le concatenazioni
+    (`?sito=` una volta, `&sito=` due).
+  - Nella stessa passata: l'hover/attivo delle intestazioni ordinabili usava
+    `var(--text-primary)`, **token che non esiste** (in `tokens.css` è `--text`)
+    e che non compare più da nessuna parte nel repo — era una regola morta, il
+    colore non cambiava mai.
 
 - **LA × DELLA CHAT PUBBLICA RIPORTA IL CLIENTE DA DOVE ERA VENUTO** (15/08/2026,
   LIVE). Su `/chat/<codice>` la × dentro l'iframe mandava `deluxy-widget:chiudi`

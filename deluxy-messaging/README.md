@@ -421,6 +421,21 @@ Token. Il widget non ha invio esterno: il visitatore riceve col polling.
 flottante e apre un iframe su `/widget`; la sessione del visitatore è un token casuale
 salvato nel suo browser, la conversazione appare in inbox come canale "Sito".
 
+La conversazione del widget si ritrova **dal token** (canale + `idEsterno`), non dalla
+chiave unica a tre campi: `numeroId` porta lo **slug del sito** (`cake`, `flowers`,
+`deluxy`), non è vuoto. ⚠️ Cercare con `numeroId: ''` è il difetto che dal 30/07 al
+17/08/2026 ha fatto rispondere 404 a ogni invio e ha perso i messaggi di 18 visitatori.
+
+Se un invio viene rifiutato **il widget lo dice**: la bolla sparisce, il testo torna nel
+campo e compare «Messaggio non inviato». Non deve mai mostrare come inviato un messaggio
+che il server non ha accettato.
+
+Ogni chiamata a `/api/widget/messaggi` passa **`?sito=<slug>`**, anche quando ha già il
+token: senza, il server risponde con titolo e saluto **generali** delle Impostazioni e
+l'intestazione del marchio si trasforma in «Deluxy» mentre il visitatore sta scrivendo.
+I testi per sito si impostano in **Widget dei siti** (`/aspetto-widget`); quelli generali
+restano il ripiego per gli snippet vecchi, incollati senza `data-sito`.
+
 **Email (register.it), più caselle.** Le caselle si gestiscono in `/caselle` (tabella
 `CasellaEmail`): se ne collegano quante servono, con una **predefinita** per le mail
 nuove. *Scarica posta* in inbox legge la posta in arrivo di **tutte** le caselle attive
