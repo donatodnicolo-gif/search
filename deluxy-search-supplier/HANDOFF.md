@@ -22,6 +22,13 @@ solo dove siamo e come si lavora.
   `deluxy-platform-next/.claude/`. In locale le `/api/*` puntano alla produzione
   (`API_BASE` in index.html); la lock screen si aggira da console nascondendo `#lockScreen`.
 - Verifica sempre su https://search-deluxy.vercel.app dopo il push (`curl | grep <marker>`).
+- ⚠️ **«Push su main = deploy» non è garantito: controllalo** (visto il 17/08 sera). Due push su
+  `main` (81f0a9a1, 87894b39) **non hanno generato alcun deployment**: l'ultima Production
+  restava quella di e0d56ea8, mentre i push di altre sessioni su `scout-ui` continuavano a
+  produrre Preview regolarmente (quindi GitHub→Vercel funzionava). Come si controlla:
+  `npx vercel list search-deluxy --scope deluxy` → guarda la riga **Production** e la sua età;
+  `npx vercel inspect <url> --scope deluxy` dice `target` e il branch (dagli alias). Non fidarsi
+  del `Last-Modified` di `/index.html`: su una MISS è l'ora della cache, non quella del deploy.
 - ⚠️ **Per sapere se «live == main» confronta l'HTML, non gli SHA**: `main` è anche il branch di
   altre app del repo, quindi ci sono deploy di produzione nuovi anche senza modifiche qui.
   Su Windows/PowerShell 5.1 **non usare `Get-Content -Raw`** per il confronto: legge l'UTF-8
