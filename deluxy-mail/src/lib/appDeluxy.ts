@@ -42,6 +42,17 @@ export type ContestoAzione = {
   controparte?: string | null
 }
 
+/**
+ * I NEGOZI di cui l'app Fornitori sa gli ordini.
+ * ⚠️ Copia di servizio: il padrone è `BRANDS` in
+ * `deluxy-search-supplier/api/order.js` (`deluxy.it`, `deluxyflowers.com`,
+ * `cakedesign.me`). Serve a due cose: dire al modello fra quali valori scegliere
+ * (enum nello schema) e SCARTARE nel codice quello che si inventa — un negozio
+ * inesistente produce solo un «ordine non trovato» che non spiega niente.
+ * Aggiungendo un negozio là, aggiungerlo anche qui.
+ */
+export const NEGOZI_FORNITORI = ['deluxy.it', 'deluxyflowers.com', 'cakedesign.me'] as const
+
 /** Il dominio di un indirizzo, minuscolo ('Mario <m@Chanel.com>' → 'chanel.com'). */
 export function dominioDi(indirizzo: string | null | undefined): string {
   const m = String(indirizzo ?? '').match(/@([^\s>,;]+)/)
@@ -215,6 +226,19 @@ export type AzioneApp = {
    * controparte, che è calcolato, non dedotto).
    */
   normalizza?: (dati: Record<string, unknown>, ctx: ContestoAzione) => Record<string, unknown>
+  /**
+   * Correzione fatta SUBITO DOPO l'estrazione, leggendo la mail.
+   *
+   * ⚠️ Sta qui e non in `normalizza` perché `normalizza` gira **all'invio**,
+   * quando nei dati c'è anche ciò che l'utente ha corretto a mano nel dialogo:
+   * lì una correzione automatica cancellerebbe la sua. Questa invece agisce
+   * prima che il dialogo si apra, quindi l'utente vede — e può cambiare — il
+   * valore già corretto.
+   */
+  daMail?: (
+    dati: Record<string, unknown>,
+    mail: { mittente: string; destinatari?: string; oggetto: string; corpoTesto: string }
+  ) => Record<string, unknown>
   /**
    * Controllo PRIMA di partire: torna il motivo per cui NON si deve mandare,
    * oppure null se si può. Esiste perché certe cose non si possono affidare al
@@ -630,20 +654,69 @@ const AZIONI: AzioneApp[] = [
     descrizione: 'Trova i fioristi/pasticcerie più vicini alla consegna di un ordine.',
     colore: 'purple',
     guida:
-      'La mail è una notifica d’ordine di un negozio Shopify. brand = il dominio del negozio (es. "deluxyflowers.com", "cakedesign.me"): prendilo dal mittente o dal testo. number = il numero d’ordine (solo le cifre, senza "#" o "Ordine"). Se uno dei due manca, lascialo vuoto: senza non si può cercare.',
+      'La mail è una notifica d’ordine di un negozio Shopify. brand = QUALE DEI TRE NEGOZI ha fatto l’ordine, e va scelto fra i valori ammessi: "deluxy.it", "deluxyflowers.com", "cakedesign.me". Si riconosce dall’indirizzo del NEGOZIO che ha mandato la notifica (es. "Deluxy Flowers <info@deluxyflowers.com>" → deluxyflowers.com), non dai link nel piè di pagina, che possono puntare a un altro sito. number = il numero d’ordine (solo le cifre, senza "#" o "Ordine"). Se uno dei due manca, lascialo vuoto: senza non si può cercare.',
     schema: {
       type: 'object',
       additionalProperties: false,
       required: ['brand', 'number'],
       properties: {
-        brand: { type: 'string', description: 'Dominio del negozio, es. deluxyflowers.com.' },
+        // ⚠️ ENUM, non testo libero: il modello non deve poter inventare un
+        // negozio. Il 17/08/2026 aveva scritto «deluxy.it» per un ordine di
+        // Deluxy Flowers e l'unica risposta possibile era «Ordine non trovato»,
+        // senza dire perché. I tre valori sono quelli di `BRANDS` in
+        // `deluxy-search-supplier/api/order.js`: se là si aggiunge un negozio,
+        // va aggiunto anche qui.
+        brand: { type: 'string', enum: [...NEGOZI_FORNITORI], description: 'Il negozio dell’ordine.' },
         number: { type: 'string', description: 'Numero dell’ordine, solo cifre.' },
       },
+    },
+    /**
+     * IL NEGOZIO LO DECIDE LA MAIL, non il modello.
+     *
+     * ⚠️ Misurato il 17/08/2026 su un caso vero: la mail dell'ordine 2725
+     * nomina **solo** `deluxyflowers.com` (mai `deluxy.it`), eppure la proposta
+     * arrivata a schermo diceva `deluxy.it` — e Fornitori rispondeva «ordine non
+     * trovato», perché i numeri d'ordine sono per negozio. Riprodotto il prompt
+     * di produzione con 4 chiamate vere: il modello risponde `deluxyflowers.com`
+     * 4 volte su 4, quindi il valore sbagliato **non** si spiega col modello e
+     * non si può correggere nel prompt: quando la mail nomina UN SOLO negozio
+     * dei tre, quello è il negozio, e lo si scrive nel codice.
+     * ⚠️ Se la mail ne nomina zero o più di uno non si tocca niente: si
+     * lascia la scelta del modello e, se sbaglia, l'errore ora dice cosa ha
+     * provato e come correggerlo a mano.
+     */
+    daMail(dati, mail) {
+      const testo = `${mail.mittente} ${mail.destinatari ?? ''} ${mail.oggetto} ${mail.corpoTesto}`.toLowerCase()
+      // Il confronto è sul dominio INTERO: `deluxy.it` non deve «combaciare»
+      // dentro `deluxyflowers.com` (è la stessa trappola del `includes` che il
+      // 5/08 faceva passare per Shopify il dominio `shopifymail.it`).
+      const citati = NEGOZI_FORNITORI.filter((n) =>
+        new RegExp(`(^|[^a-z0-9.-])${n.replace(/\./g, '\\.')}([^a-z0-9.-]|$)`).test(testo)
+      )
+      if (citati.length !== 1 || dati.brand === citati[0]) return dati
+      return { ...dati, brand: citati[0] }
+    },
+    // Il modello può sbagliare NEGOZIO fra i tre: normalizzare almeno la forma
+    // (maiuscole, https://, www., barra finale) evita di cercare «Deluxy.it/».
+    normalizza(dati) {
+      const grezzo = String(dati.brand ?? '')
+        .trim()
+        .toLowerCase()
+        .replace(/^https?:\/\//, '')
+        .replace(/^www\./, '')
+        .replace(/\/.*$/, '')
+      return { ...dati, brand: grezzo }
     },
     async esegui(dati, ctx) {
       const brand = String(dati.brand ?? '').trim()
       const number = String(dati.number ?? '').replace(/[^\d]/g, '')
       if (!brand || !number) return { ok: false, messaggio: 'Servono il negozio e il numero d’ordine.' }
+      if (!NEGOZI_FORNITORI.includes(brand as (typeof NEGOZI_FORNITORI)[number])) {
+        return {
+          ok: false,
+          messaggio: `«${brand}» non è uno dei negozi di Fornitori. Sono: ${NEGOZI_FORNITORI.join(', ')}. Correggi il campo «brand» qui sopra e riprova.`,
+        }
+      }
 
       return chiama(
         `${FORNITORI_URL}/api/fornitori?brand=${encodeURIComponent(brand)}&number=${encodeURIComponent(number)}`,
@@ -695,7 +768,23 @@ const AZIONI: AzioneApp[] = [
               messaggio:
                 'Password Fornitori rifiutata. Deve essere la password AMMINISTRATORE dell’app Fornitori (search-deluxy) — non il tuo codice utente del sito. Reimpostala in Impostazioni App.',
             }
-          if (status === 404) return { ok: false, messaggio: 'Ordine non trovato in Fornitori.' }
+          if (status === 404) {
+            // ⚠️ Un «non trovato» che non dice DOVE ha cercato non è
+            // diagnosticabile: il caso normale è il negozio sbagliato fra i tre
+            // (i numeri d'ordine sono per negozio). Si dice il negozio, gli
+            // altri possibili, e — se l'app li manda — gli ultimi ordini veri di
+            // quel negozio, che smentiscono subito l'ipotesi.
+            const r = (risposta ?? {}) as { recentOrderNames?: unknown }
+            const recenti = Array.isArray(r.recentOrderNames) ? r.recentOrderNames.slice(0, 5).join(', ') : ''
+            const altri = NEGOZI_FORNITORI.filter((n) => n !== brand).join(' o ')
+            return {
+              ok: false,
+              messaggio:
+                `Ordine ${number} non trovato su ${brand}.` +
+                (recenti ? ` Gli ultimi ordini di quel negozio sono: ${recenti}.` : '') +
+                ` Se l’ordine è di ${altri}, correggi «brand» qui sopra e riprova.`,
+            }
+          }
           if (status === 422) return { ok: false, messaggio: testoErrore(risposta, 'Ordine senza indirizzo o non geocodificabile.') }
           return { ok: false, messaggio: testoErrore(risposta, `Fornitori ha risposto ${status}.`) }
         }

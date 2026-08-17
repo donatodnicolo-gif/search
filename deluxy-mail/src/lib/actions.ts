@@ -4029,7 +4029,7 @@ export async function proponiPerApp(
     // scartando i nostri domini) e si passa già risolta: su una mail che
     // abbiamo mandato noi, il mittente siamo noi.
     const nostri = await nostriDomini(utenteId)
-    const dati = await estraiDatiAzione({
+    const estratti = await estraiDatiAzione({
       messaggio: m,
       controparte: controparteDi(m, nostri),
       nostriDomini: nostri,
@@ -4039,6 +4039,10 @@ export async function proponiPerApp(
       istruzioni: istruzioniRegola,
       contestoAzienda: imp[CHIAVI.contestoAzienda],
     })
+    // Correzione da ciò che la mail dice con certezza, PRIMA di mostrarla: così
+    // l'utente vede il valore giusto e resta libero di cambiarlo (all'invio
+    // `normalizza` non tocca più quello che ha scritto lui).
+    const dati = azione.daMail?.(estratti, m) ?? estratti
     const { id, app, nome, descrizione, colore, campi, cercaAzienda } = azione
     return {
       ok: true,

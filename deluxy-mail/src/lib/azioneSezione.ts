@@ -181,6 +181,10 @@ export async function eseguiAzioneSezioneOra(opts: {
     })
   }
 
+  // Ciò che si LEGGE dalla mail con certezza vince su quel che ha scritto il
+  // modello, e va applicato subito: qui non c'è nessuno a controllare a schermo.
+  dati = azione.daMail?.(dati, m) ?? dati
+
   const ctx = { utenteEmail, chiave, nostriDomini: nostri, controparte }
 
   // Prima la correzione (quel che il codice SA vince su quel che il modello ha
