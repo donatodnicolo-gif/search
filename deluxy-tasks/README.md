@@ -166,6 +166,18 @@ del Deluxy Hub e autentica contro `hub."Utente"` (email + password del portale).
   segreto non è impostato (sviluppo locale) l'accesso è aperto e la vista è da admin.
 - Le API `/api/v1` **non** usano la sessione: usano le chiavi API (`x-api-key`).
 
+## Creare un'attività a mano (dalla UI)
+
+In cima alla dashboard c'è **«＋ Nuova attività»**: titolo (obbligatorio),
+descrizione, **per chi**, priorità, scadenza e link. Le persone proposte sono gli
+utenti del Deluxy Hub più chi ha già delle task; un **admin** può assegnare anche
+a un'email fuori elenco, un **non admin** solo a sé o alla propria squadra.
+
+Le task nate qui hanno `sistema = "tasks"` (nell'elenco si leggono come
+**«Inserita a mano»**) e **nessun `idEsterno`**: non appartengono a un'altra app,
+quindi nessuna sincronizzazione le sovrascrive. Entrano comunque nel feed
+`changes` e nelle API come tutte le altre.
+
 ## Sviluppo locale
 
 ```bash

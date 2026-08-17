@@ -1,9 +1,11 @@
 import type { Prisma, Task, TaskLivello } from "@prisma/client";
 import { cookies } from "next/headers";
 import { Filtri } from "@/components/Filtri";
+import { NuovaTask, type PersonaUI } from "@/components/NuovaTask";
 import { RigaTask, type TaskUI } from "@/components/RigaTask";
 import { leggiSessione, SESSION_COOKIE } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { elencaPersone } from "@/lib/persone";
 import { whereRicerca } from "@/lib/ricerca";
 import { isAdmin } from "@/lib/ruoli";
 import { STATI_CHIUSI } from "@/lib/stati";
@@ -63,9 +65,10 @@ export default async function Home({
 
   let task: TaskConLivelli[] = [];
   let sistemiPresenti: string[] = [];
+  let persone: PersonaUI[] = [];
   let erroreDb: string | null = null;
   try {
-    [task, sistemiPresenti] = await Promise.all([
+    [task, sistemiPresenti, persone] = await Promise.all([
       prisma.task.findMany({
         where,
         include: { livelli: true },
@@ -75,6 +78,8 @@ export default async function Home({
       prisma.task
         .groupBy({ by: ["sistema"], where: { attiva: true } })
         .then((g) => g.map((x) => x.sistema).sort()),
+      // A chi si può assegnare una nuova attività (per il form «Nuova attività»).
+      elencaPersone({ admin, emailSessione: sessione?.email ?? null }),
     ]);
   } catch {
     erroreDb =
@@ -99,7 +104,8 @@ export default async function Home({
 
   return (
     <main className="wrap">
-      <div>
+      {/* Titolo a sinistra, bottone «Nuova attività» a destra; sotto, se aperto, il form. */}
+      <NuovaTask persone={persone} me={sessione?.email ?? null} admin={admin}>
         <h1 className="page-title">Attività</h1>
         <p className="page-sub">{sub}</p>
         {sessione && (
@@ -108,7 +114,7 @@ export default async function Home({
             <span className="utente-ruolo">{admin ? "Admin · tutti" : "La mia squadra"}</span>
           </div>
         )}
-      </div>
+      </NuovaTask>
 
       <Filtri sistemi={sistemiPresenti} />
 

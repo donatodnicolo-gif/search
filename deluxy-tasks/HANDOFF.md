@@ -31,7 +31,19 @@ Postgres condiviso (schema `tasks`). Cartella: `C:\Users\nicol\app\deluxy-tasks`
   (`X-Vercel-Id: fra1::iad1`) → aggiunto `vercel.json` con `"regions": ["fra1"]`;
   aggiunto **`GET /api/health`** standard (`{ ok, app, database }` con `SELECT 1`,
   `no-store`) così la pagina /stato del Hub non segna più Tasks «non verificato».
-  `/api/v1/health` resta com'era.
+  `/api/v1/health` resta com'era. **Verificato il 17/08 nel pomeriggio**:
+  `/api/health` → `{"ok":true,"database":true}` in **0,55 s** con
+  `X-Vercel-Id: fra1::fra1` (prima `fra1::iad1`), `/` → `/login`.
+- **Attenzione (17/08)**: il commit con quelle due correzioni era **solo in
+  locale** (branch `piattaforma-ricerca-insensitive`, mai su `origin`) mentre la
+  produzione era già aggiornata da un deploy CLI: il primo push su `main` di
+  un'altra sessione l'avrebbe cancellata dalla produzione. Ora è **su `main`**
+  insieme a «Nuova attività». Regola: su Tasks si finisce **sempre** con
+  `git push origin <branch>:main`.
+- **Task di prova rimossa**: la task `sistema=tasks` «Prova nuova attività (test
+  Claude, da cancellare)», creata dal collaudo del form, è stata cancellata (era
+  l'unica del sistema `tasks`, nessun dato reale toccato). Restano invece le
+  **5 task demo del seed** (`idEsterno` che inizia per `demo-`).
 
 ## FATTO
 
@@ -74,6 +86,18 @@ Postgres condiviso (schema `tasks`). Cartella: `C:\Users\nicol\app\deluxy-tasks`
   (`src/components/Filtri.tsx`), card task con spunta "completa", "archivia" e i
   chip dei livelli di priorità cliccabili (`src/components/RigaTask.tsx`), via
   endpoint interno `/api/interno/tasks/:id`. Barra utente con ruolo.
+- **Attività create a mano dalla UI** (17/08/2026): bottone **«＋ Nuova attività»**
+  in cima alla dashboard (`src/components/NuovaTask.tsx`) con titolo, descrizione,
+  **per chi**, priorità, scadenza e link. Salva con la server action
+  `src/lib/task-actions.ts` (`creaTaskAction`), che rifà i controlli lato server:
+  titolo obbligatorio (max 200), email valida, priorità dell'elenco, data
+  `YYYY-MM-DD` (salvata a mezzogiorno UTC, così in Italia resta il giorno giusto),
+  link solo `http(s)://`, e **un non-admin può assegnare solo a sé o alla propria
+  squadra**. L'elenco delle persone (`src/lib/persone.ts`) unisce gli utenti del
+  Hub (`hub."Utente"`) e chi ha già delle task; un admin può anche digitare
+  un'email fuori elenco. Le task nate qui hanno `sistema = "tasks"` (`SISTEMA_UI`,
+  etichetta **«Inserita a mano»**) e `idEsterno` nullo: nessuna app le sovrascrive
+  e non parte nessun callback.
 - **Chiavi dall'app** (26/07/2026): pagina **`/chiavi`** (solo admin,
   `src/app/chiavi/page.tsx` + `src/components/Chiavi.tsx` +
   `src/lib/chiavi-actions.ts`). Si sceglie nome dell'app e se può scrivere; la
@@ -115,7 +139,8 @@ Postgres condiviso (schema `tasks`). Cartella: `C:\Users\nicol\app\deluxy-tasks`
   - ⚠️ **Mai `vercel redeploy`**: non applica solo le variabili nuove, rimette in
     produzione il **codice** di quel vecchio deploy. Il 26/07 ha riportato online
     una versione senza `/api/sso`, e dal Hub si finiva su una pagina 404.
-- **Verifica**: `npx tsc --noEmit` OK, `next build` OK, DB collegato (schema
+- **Verifica**: `npx tsc --noEmit` OK, `next build` OK (rifatti il 17/08 con
+  «Nuova attività»), DB collegato (schema
   isolato `tasks` nel cluster condiviso) con 4 task demo. Testato end-to-end:
   upsert idempotente, freschezza (`ignorata_obsoleta`), callback firmato HMAC
   verso un webhook di prova (1 callback per azione, nessun loop), changes feed
@@ -151,12 +176,19 @@ Postgres condiviso (schema `tasks`). Cartella: `C:\Users\nicol\app\deluxy-tasks`
      Service (le azioni sui reclami), Acquisti (le richieste da approvare).
 5. **Pulizia**: 5 task demo del seed (`idEsterno` che inizia per `demo-`) sono
    ancora nel database di produzione — archiviarle o cancellarle (solo quelle).
+   (La task di prova del form «Nuova attività» è già stata tolta il 17/08.)
 6. **Punti aperti**: registrare i progetti (`npm run progetto`) se si vuole il
    callback verso le app quando il team chiude una task dalla UI (oggi nessuno
    registrato: si va solo in pull); **23 task aperte già scadute** (la UI le segna
    in rosso «Scaduta …», ma nessuno le chiude): 14 di AI Mail (13 Nicolò, 1
    Eleonora) e **9 di Finance per Renato** — quelle di Finance sono 14 aperte su
    15 e Finance non le aggiorna dal 03/08, quindi possono essere già fatte di là.
+   Le più vecchie sono del **22/07** («Ripianificare l'appuntamento con Stefano
+   Corona»), quindi scadute da quasi un mese.
+7. **Il Calendario legge ma nessuno scrive dalla parte sua**: la sync di
+   `deluxy-calendario` gira ogni 15' con chiave di sola lettura (ultimo giro
+   17/08 08:15). Se si vuole che una task creata a mano finisca anche a
+   calendario, basta darle una **scadenza**.
 
 ## Note
 

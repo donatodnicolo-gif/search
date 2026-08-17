@@ -12,8 +12,12 @@ export const SISTEMI: Record<string, { nome: string; colore: string }> = {
   suppliers: { nome: "Fornitori", colore: "var(--blue)" },
   search: { nome: "Ricerca", colore: "var(--blue)" },
   hub: { nome: "Hub", colore: "var(--ink)" },
-  tasks: { nome: "Tasks", colore: "var(--gold)" },
+  tasks: { nome: "Inserita a mano", colore: "var(--gold)" },
 };
+
+// Sistema riservato alle attività create dalla UI di Tasks (bottone «Nuova
+// attività»): non appartengono a un'altra app, non hanno `idEsterno`.
+export const SISTEMA_UI = "tasks";
 
 export function etichettaSistema(sistema: string): string {
   return SISTEMI[sistema]?.nome ?? sistema;
