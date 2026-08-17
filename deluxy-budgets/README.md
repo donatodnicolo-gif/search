@@ -771,8 +771,9 @@ npm run dev               # http://localhost:3080
 - **Le funzioni girano a Francoforte** (`vercel.json`, `"regions": ["fra1"]`, aggiunto il
   17/08/2026): il Postgres condiviso è in `eu-central-1` e senza quel file Vercel esegue a Washington
   (`iad1`), facendo attraversare l'Atlantico a ogni query. Si riconosce dall'header della risposta:
-  `X-Vercel-Id: fra1::iad1::…` è sbagliato, `fra1::fra1::…` è giusto. Misurato prima della
-  correzione: `/api/health` (una query) al minimo **696 ms**, `/login` **739 ms** su quattro giri.
+  `X-Vercel-Id: fra1::iad1::…` è sbagliato, `fra1::fra1::…` è giusto. Misurato (minimo su più
+  giri, perché un giro solo misura il cold start): `/api/health` (una query) **696 → 166 ms**,
+  `/login` **739 → 183 ms** — tre quarti del tempo era la distanza, non l'app.
 - **Variabili d'ambiente in produzione al 17/08/2026** (nove): `DATABASE_URL`, `DIRECT_URL`,
   `HUB_URL`, `BUDGETS_APP_PASSWORD`, `BUDGETS_API_KEY`, `FINANCE_API_KEY`, `ORDERS_URL`,
   `ORDERS_API_KEY`, `MARKETING_API_KEY` (quest'ultima dal 09/08). Nella cassaforte dell'app c'è
