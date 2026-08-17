@@ -779,6 +779,12 @@ npm run dev               # http://localhost:3080
 
 ### Produzione: come si pubblica e dove gira
 
+- **Ultima pubblicazione**: 17/08/2026, commit `f04e37f0` (costi ricorrenti + `senzaRegola`).
+  Verificato dopo il deploy: `/api/health` → `{"ok":true,"database":true}`, header `fra1::fra1`, e la
+  rotta `/ricorrenti` compare nel build di Vercel. ⚠️ Dal fuori non si distingue una pagina che non
+  esiste da una che esiste: il middleware manda **tutto** a `/login` con un 307, quindi «307 → /login»
+  non è la prova che una rotta nuova sia andata su. La prova è il log di build
+  (`npx vercel inspect <url-del-deploy> --logs`, sezione «Route (app)»).
 - **Il push su GitHub NON pubblica**: il progetto Vercel `deluxy-budgets` non è collegato al branch
   (verificato il 09/08/2026: dopo il push la produzione era ferma a otto giorni prima). Si pubblica
   **dalla cartella dell'app**: `cd deluxy-budgets; npx vercel deploy --prod --yes` (~40 s), poi
