@@ -54,7 +54,10 @@ export function RitornoChatPubblica({ dominio }: { dominio: string }) {
       window.history.back()
       window.setTimeout(() => {
         window.removeEventListener('pagehide', segnaAndato)
-        if (!andato && !document.hidden) versoIlSito()
+        // Ancora qui dopo mezzo secondo: l'indietro non ha portato da nessuna
+        // parte, si va sul sito. (Non si guarda `document.hidden`: una scheda
+        // in secondo piano è ancora questa pagina.)
+        if (!andato) versoIlSito()
       }, 500)
     }
 
