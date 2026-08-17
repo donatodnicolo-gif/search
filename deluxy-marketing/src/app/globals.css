@@ -228,6 +228,16 @@ tbody tr:hover { background: var(--fill); }
   background: rgba(201, 52, 0, 0.08); color: var(--orange);
   border-radius: var(--radius-s); font-size: 12.5px; line-height: 1.45;
 }
+/* Cosa dice GOOGLE su un'operazione eseguita. Non è un avviso: è un fatto, e
+   arriva anche quando è una buona notizia. Sfondo neutro e colore dal testo
+   (verde confermata · blu da confermare · grigio non verificabile), così
+   l'arancione resta riservato a quello che non va. */
+.op-conferma {
+  margin-top: 6px; padding: 7px 10px;
+  background: var(--fill);
+  border-radius: var(--radius-s); font-size: 12.5px; line-height: 1.45;
+}
+.op-conferma b { color: inherit; }
 @media (max-width: 800px) { .modulo { grid-template-columns: 1fr; } }
 
 /* ---------- Modulo di creazione: scelte a icona, chip, aiuti ----------

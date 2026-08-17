@@ -8,6 +8,7 @@ import { annullaOperazione, approvaOperazione, approvaOperazioniSelezionate,
   cambiaTestoOperazione, rilanciaCampagnaRifiutata,
 } from "@/lib/azioni";
 import { campagneNonConfermate, letturaNonConfermata } from "@/lib/campagne-non-confermate";
+import { COLORE_CONFERMA, confermeOperazioni, type Conferma } from "@/lib/conferme-operazioni";
 import { prisma } from "@/lib/db";
 import { ETICHETTA_LIVELLO, formattaDataOra } from "@/lib/dominio";
 
@@ -89,6 +90,16 @@ export default async function PaginaOperazioni({
   const approvate = operazioni.filter((o) => o.stato === "approvata");
   const concluse = operazioni.filter((o) => ["eseguita", "fallita", "annullata"].includes(o.stato));
 
+  // ⚠️ «Eseguita» è la parola dello SCRIPT: dice che ha chiamato Google e
+  // Google non ha protestato. Qui si va a prendere la CONFERMA INDIPENDENTE —
+  // cosa ha rimandato Google dopo, nei giri di lettura che arrivano comunque.
+  // Vale per ogni tipo di operazione, non solo per le campagne nuove.
+  const conferme = await confermeOperazioni(operazioni);
+  const smentite = concluse.filter((o) => {
+    const c = conferme.get(o.id);
+    return c && (c.stato === "smentita" || c.stato === "rifiutata");
+  });
+
   // ── Le approvate FERME si dichiarano ────────────────────────────────────
   // Un'operazione approvata che lo script ha già scavalcato è indistinguibile
   // da una che aspetta il primo giro — e una coda che si blocca in silenzio è
@@ -127,6 +138,7 @@ export default async function PaginaOperazioni({
   };
 
   const riga = (o: (typeof operazioni)[number], selezionabile = false) => {
+    const conferma: Conferma | undefined = conferme.get(o.id);
     const p = o.parametri ? (JSON.parse(o.parametri) as Record<string, unknown>) : {};
     const parola = typeof p.testo === "string" && p.testo ? p.testo : null;
     const match = typeof p.corrispondenza === "string" ? String(p.corrispondenza).toLowerCase() : null;
@@ -223,6 +235,39 @@ export default async function PaginaOperazioni({
             </div>
           )}
 
+          {/* Cosa dice GOOGLE, per esteso. La pillola a destra dà il verdetto
+              in due parole; qui c'è il perché — quale consegna fa fede, quando
+              è arrivata e cosa fare se non torna. ⚠️ Non è un avviso solo
+              quando qualcosa non va: anche «confermata» va scritta, perché è
+              il caso in cui uno smette di dubitare, e un'assenza di segnale
+              non è un segnale di conferma. */}
+          {conferma && (
+            <div
+              className={
+                conferma.stato === "smentita" || conferma.stato === "rifiutata"
+                  ? "op-avvisi"
+                  : "op-conferma"
+              }
+              style={
+                conferma.stato === "smentita" || conferma.stato === "rifiutata"
+                  ? undefined
+                  : { color: COLORE_CONFERMA[conferma.stato] }
+              }
+            >
+              <span aria-hidden="true">
+                {conferma.stato === "confermata"
+                  ? "✓"
+                  : conferma.stato === "in_attesa"
+                  ? "◷"
+                  : conferma.stato === "non_verificabile" || conferma.stato === "superata"
+                  ? "◇"
+                  : "⚠"}
+              </span>{" "}
+              <b>Google: </b>
+              {conferma.frase}
+            </div>
+          )}
+
           {/* ⚠️ Un'approvata che lo script ha scavalcato non deve sembrare una
               che aspetta il primo giro: senza questa riga, «ferma da tre
               giorni» e «in attesa da stanotte» si leggono uguali. */}
@@ -308,6 +353,22 @@ export default async function PaginaOperazioni({
             <span className="dot" />
             {ETICHETTA_STATO[o.stato] ?? o.stato}
           </span>
+          {/* ⚠️ DUE COSE DIVERSE, UNA SOPRA L'ALTRA. Sopra c'è quello che ha
+              detto lo script; sotto quello che dice GOOGLE quando ha
+              rimandato il dato. Sono affiancate e non fuse apposta: fonderle
+              vorrebbe dire scegliere una delle due e nascondere l'altra —
+              ed è la fusione che aveva fatto leggere «eseguita» come «creata»
+              su una campagna che Google aveva rifiutato. */}
+          {conferma && (
+            <span
+              className="tag-salute"
+              style={{ color: COLORE_CONFERMA[conferma.stato] }}
+              title={conferma.frase}
+            >
+              <span className="dot" />
+              {conferma.etichetta}
+            </span>
+          )}
           <span className="op-livello">{ETICHETTA_LIVELLO[o.livello] ?? o.livello}</span>
         </div>
       </li>
@@ -383,6 +444,46 @@ export default async function PaginaOperazioni({
                     </li>
                   );
                 })}
+              </ul>
+            </span>
+          </div>
+        )}
+
+        {/* ⚠️ Le operazioni che Google SMENTISCE, in cima. Una riga «eseguita»
+            in fondo allo storico non la guarda nessuno: se il dato che Google
+            ha rimandato dopo dice il contrario, va detto dove si entra. Le
+            campagne nuove hanno già il loro avviso qui sopra, con il rilancio:
+            qui restano budget, stati e keyword. */}
+        {smentite.filter((o) => o.tipo !== "nuova_campagna").length > 0 && (
+          <div
+            className="nota-info"
+            style={{ borderColor: "rgba(201,52,0,.35)", background: "rgba(201,52,0,.06)" }}
+          >
+            <span className="nota-icona" style={{ color: "var(--orange)" }}>⚠</span>
+            <span>
+              <b>
+                {smentite.filter((o) => o.tipo !== "nuova_campagna").length} operazion
+                {smentite.filter((o) => o.tipo !== "nuova_campagna").length === 1 ? "e risulta eseguita" : "i risultano eseguite"} ma
+                Google dice il contrario
+              </b>
+              . «Eseguita» è quello che ha riferito lo script; questo è quello che l&apos;account ha
+              rimandato <b>dopo</b>, nei giri di lettura. Le trovi qui sotto nello storico, con la
+              spiegazione sulla riga:
+              <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>
+                {smentite
+                  .filter((o) => o.tipo !== "nuova_campagna")
+                  .map((o) => (
+                    <li key={o.id} style={{ marginBottom: 4 }}>
+                      <b>{ETICHETTA_TIPO[o.tipo] ?? o.tipo}</b>
+                      {" su "}
+                      {o.campagnaId ? (
+                        <a href={`/campagne/${o.campagnaId}`} style={{ color: "var(--blue)" }}>{o.bersaglio}</a>
+                      ) : (
+                        o.bersaglio
+                      )}{" "}
+                      <span className="cella-sub">— {conferme.get(o.id)?.frase}</span>
+                    </li>
+                  ))}
               </ul>
             </span>
           </div>
