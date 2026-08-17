@@ -18,19 +18,25 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 
 ### Dove siamo (17 agosto 2026)
 
-**Fotografia verificata oggi, 17 agosto 2026, ore 10:25:**
+**Fotografia verificata oggi, 17 agosto 2026, ore 16:20** (la precedente era
+delle 10:25, prima dei lavori del pomeriggio):
 
-- **Codice**: niente in sospeso in `deluxy-mail/` (`git status` pulito), tutto
-  **pushato** su `origin/scout-ui` — verificato **sul contenuto** (non sullo
-  SHA: su questo branch altre sessioni riscrivono la storia, quindi si controlla
-  che i file ci siano su `origin`, non che il numero del commit combaci). Ultimo
-  commit: `87effd36` «selezione multipla e azioni sulla scheda contatto».
+- **Codice**: niente in sospeso in `deluxy-mail/` (`git status -- deluxy-mail`
+  pulito), tutto **pushato** su `origin/scout-ui` — verificato **sul contenuto**
+  (non sullo SHA: su questo branch altre sessioni riscrivono la storia, quindi si
+  controlla che i file ci siano su `origin`, non che il numero del commit combaci;
+  ricontrollati oggi `daMail` in `azioneSezione.ts`, `NEGOZI_FORNITORI` in
+  `appDeluxy.ts`, `components/VoceMenu.tsx` e le 611 righe di questo file). Ultimo
+  commit di AI Mail: `cc1d3ab9` «il negozio dell'ordine lo decide la mail, non il
+  modello» (14:16). ⚠️ `git log` senza `-- deluxy-mail` mostra i commit delle
+  **altre app** del repo condiviso: qui l'ultimo commit del branch non è il nostro.
 - **Produzione allineata**: l'alias `deluxy-mail.vercel.app` punta al deploy
-  `dpl_C9rXf4dEgvtJpfRzs7MWAyhaxf71` del **17/08 alle 10:15**, cioè al codice di
-  oggi. Quattro deploy in produzione nell'ultima ora, tutti `Ready`.
+  `dpl_54fic7aroS4Aeug1z3Y5iBciu31q` delle **14:17**, un minuto dopo `cc1d3ab9`:
+  la produzione ha **tutto** il lavoro del pomeriggio.
 - **Salute**: `GET /api/health` → `{"ok":true,"database":true,"scrivibile":true}`
-  in **0,4 s**, e `X-Vercel-Id: fra1::dub1::…` — le funzioni girano davvero a
-  **dub1 (Dublino)**, accanto al database in eu-west-1. Il punto aperto «verificare
+  in **0,85 s**, e `X-Vercel-Id: fra1::dub1::…` — le funzioni girano davvero a
+  **dub1 (Dublino)**, accanto al database in eu-west-1 (confermato anche dal
+  `vercel inspect`: ogni lambda è marcata `[dub1]`). Il punto aperto «verificare
   la velocità dopo lo spostamento a dub1» è quindi **chiuso sulla configurazione**
   (resta da giudicare a mano se aprire una mail è veloce a sufficienza).
 - ⚠️ **Il push non pubblica**: il deploy è manuale —
@@ -40,7 +46,17 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 
 **Cronologia dei lavori:** le voci di §7 sono della sessione del 23 luglio (dalla
 più recente); i lavori dal **26 luglio a oggi** stanno in §9, con la data fra
-parentesi. Gli ultimi tre (17 ago), tutti LIVE: **selezione multipla sulla scheda
+parentesi. Del **17 ago pomeriggio**, tutti LIVE (dal più recente): **il negozio
+dell'ordine lo decide la mail** (`daMail` + `brand` come enum: «Trova fornitore»
+cercava l'ordine 2725 su `deluxy.it` invece che su Deluxy Flowers); **«→ App» in
+testa** alla mail; **mail trascinabili sul menu** (sezioni, Posta, Archivio, Spam,
+Cestino) e 🔒 **le immagini in linea tornate visibili** (la correzione XSS del 14/08
+azzerava anche i `data:image` veri); **si esce dall'archivio** (`disarchiviaThread`)
+e 🔴 la **dedup delle migrazioni** che cancellava per utente e non per casella;
+**lo SPAM deciso da un admin vale per tutti**, i tasti Sì/No anche fuori da
+`/attivita`, e **Renè crea attività ripetute**; **il destinatario è cliccabile** e
+la sua scheda mostra tutto lo scambio (prima 404 per chi non era mai stato
+mittente). Del mattino: **selezione multipla sulla scheda
 contatto** (`/rubrica/[email]`: checkbox per riga, Cestina · Archivia · Segna
 lette · **⛓ Unisci in una conversazione**, `uniciInThread`); **via i segnaposto
 `<firma5.png>`** delle immagini in linea dal corpo delle mail Apple; e
