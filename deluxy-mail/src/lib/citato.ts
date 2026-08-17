@@ -71,8 +71,44 @@ export function dividiCitato(testo: string): TestoDiviso {
  * parole. Se di parole non ne resta nessuna si torna stringa vuota: meglio una
  * riga vuota che una riga di indirizzi — l'oggetto la mail la racconta già.
  */
+/**
+ * ⚠️ Entità HTML nell'anteprima. Alcune mail (specie promozionali) infilano il
+ * testo pieno di entità numeriche — `Op til 40% p&#229; udvalgte buketter`
+ * (å = &#229;) — e, fra una parola e l'altra, sequenze come `&#8199;&#847;`:
+ * uno spazio-cifra (invisibile) più un giuntore di grafemi (invisibile), messi
+ * apposta per spezzare le parole e ingannare i filtri antispam. Non decodificate
+ * si leggevano come `&#8199;&#847;` a schermo (segnalato il 17/08/2026). Qui si
+ * decodificano e poi si tolgono i caratteri invisibili, così resta la frase.
+ */
+function decodificaEntita(s: string): string {
+  return (
+    s
+      // Entità numeriche: decimali (&#229;) ed esadecimali (&#xE5;).
+      .replace(/&#(\d{1,7});/g, (_, n) => sicuroDaCodice(parseInt(n, 10)))
+      .replace(/&#x([0-9a-f]{1,6});/gi, (_, n) => sicuroDaCodice(parseInt(n, 16)))
+      // Le entità con nome più comuni (non si decodificano `&lt;`/`&gt;`: un «<»
+      // riportato in vita potrebbe far ricomparire residui di tag).
+      .replace(/&nbsp;/gi, ' ')
+      .replace(/&amp;/gi, '&')
+      .replace(/&quot;/gi, '"')
+      .replace(/&apos;/gi, "'")
+  )
+}
+function sicuroDaCodice(n: number): string {
+  if (!Number.isFinite(n) || n <= 0 || n > 0x10ffff) return ' '
+  try {
+    return String.fromCodePoint(n)
+  } catch {
+    return ' '
+  }
+}
+
 export function ripulisciAnteprima(testo: string): string {
-  let t = testo
+  let t = decodificaEntita(testo)
+    // Caratteri invisibili che i mittenti infilano per spezzare le parole:
+    // soft-hyphen, giuntore di grafemi, zero-width, word-joiner, BOM. Via, o
+    // restano fra le lettere. Gli spazi \u00ABlarghi\u00BB li collassa lo `\s+` pi\u00F9 sotto.
+    .replace(/[\u00AD\u034F\u200B-\u200F\u2028\u2029\u2060\uFEFF]/g, '')
     // ⚠️ CSS finito nel testo: le mail di Outlook portano un blocco <style> e
     // certi client, convertendo in testo semplice, ne lasciano il CONTENUTO —
     // «P {margin-top:0;margin-bottom:0;} Gentile Nicolò…». Si toglie solo se
