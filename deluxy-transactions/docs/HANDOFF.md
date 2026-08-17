@@ -1,6 +1,70 @@
 # Handoff — Deluxy Transactions
 
-Aggiornato: **3 agosto 2026**
+Aggiornato: **17 agosto 2026**
+
+## Fotografia del 17/08/2026 (letta dal database e dall'API di Qonto)
+
+Nessun commit sull'app dal 3 agosto, e **nessuno ha più aperto l'app dal 3
+agosto alle 17:01** (ultimo evento nel registro). Il codice è quello di allora e
+la produzione risponde: `GET /api/v1/health` →
+`{"ok":true,"database":true,"cifratura":true}`.
+
+**Quello che è cambiato è la coda: si sta riempiendo e nessuno la lavora.**
+
+| | |
+|---|---|
+| Richieste | **10** — 7 `in_attesa`, 1 `in_lotto` (i 5,79 €), 2 annullate |
+| Fermo in attesa | **6.656,17 €** su 7 richieste, la più vecchia dal 31/07 |
+| Pagamenti usciti | **zero**, come il 31/07 |
+| Saldo Qonto | 99.129,54 € sul «Conto principale» (è l'IBAN dell'ordinante) |
+| Beneficiari fidati su Qonto | **0 su 1131** — invariato dal 31/07 |
+
+Le sette in attesa: `TRX-2026-000004` CHIARAKUL ILARIA 249,28 € · `-000005`
+TASTE 2.0 S.R.L. 484,00 € · `-000006` LA BOTTEGA DI CIOCCOLATO 9,83 € (ha già
+**una firma su due** dall'1/08, si è fermata lì) · `-000007` LOPS ANGELA
+2.336,59 € · `-000008/9/10` MUCIACCIA PAOLO 942,42 + 686,31 + 1.947,74 €, tutte
+e tre arrivate da Finance il 3/08.
+
+**Il muro non è più uno solo, sono due.** Confrontando gli IBAN delle richieste
+aperte con la rubrica di Qonto:
+
+| Richiesta | Nome dalla richiesta | Come lo vede Qonto |
+|---|---|---|
+| `-000003` | 142 RESTAURANT | «BEYOND 142 SRL», `validated`, non fidato |
+| `-000004` | CHIARAKUL ILARIA | **IBAN assente dalla rubrica** |
+| `-000005` | TASTE 2.0 S.R.L. | «TASTE 2 0 S R L», `pending`, non fidato |
+| `-000006` | LA BOTTEGA DI CIOCCOLATO … SEMPLIFICATA | «La bottega di cioccolato srls», `pending` |
+| `-000007` | LOPS ANGELA | «Angela Lops», `pending`, non fidato |
+| `-000008/9/10` | MUCIACCIA PAOLO | **IBAN assente dalla rubrica** |
+
+Quindi: per **quattro** richieste su otto il beneficiario in Qonto non esiste
+proprio — prima di poterlo rendere fidato va creato. Per le altre esiste ma non
+è fidato, e due sono ancora `pending`. Il nome che manda Finance non coincide
+mai con quello di Qonto: non è solo il caso «142 RESTAURANT».
+
+⚠️ **Attenzione a cosa dimostra la tabella qui sopra.** Il quinto controllo non
+confronta il nome della richiesta con la rubrica di Qonto: chiama la banca
+(`POST /sepa/verify_payee`) e accetta **solo `MATCH`** — `CLOSE_MATCH` viene
+rifiutato, vedi `pagamento-banca.ts:134`. La rubrica è solo l'indizio che i nomi
+arrivano in una forma diversa; l'esito vero del VoP **non è mai stato misurato
+su queste richieste**. Farlo è una POST verso Qonto che non muove un euro (e il
+proof token vale 23 ore): è il modo più economico di sapere in anticipo quali
+passerebbero, prima di bruciare uno sblocco.
+
+**Perché la doppia firma scatta sempre** (rischio 40-65 su tutte): in rubrica
+locale ci sono 8 beneficiari e **zero verificati**, mentre
+`soloBeneficiariVerificati` è acceso. Quel controllo **non blocca niente**, è un
+segnale di rischio da **+25 punti** (`rischio.ts:43`), a cui si somma «primo
+pagamento a questo beneficiario» +15. Da soli fanno 40, e la soglia di rischio è
+a 10. Chi volesse alleggerire la coda verifichi i beneficiari in rubrica, non
+alzi la soglia.
+
+**Le chiavi API sono quattro, non tre.** Alle tre del 26/07 (`trx_p8610J6y`,
+`trx_CLl3bYu_`, `trx_CJn3ErNv`, tutte con `ultimoUso` **mai**) se ne è aggiunta
+una quarta, di nuovo intestata a `deluxy-partner`: **`trx_ozWW4edK`**, usata
+l'ultima volta il 3/08 alle 15:14. È quella con cui Finance sta davvero
+scrivendo — le tre vecchie sono attive ma inerti, e andrebbero revocate per non
+lasciare in giro chiavi valide che nessuno usa.
 
 > ⚠️ **Leggi prima questo (aggiornato la sera del 31/07/2026).** L'app è
 > **configurata e in produzione**, e la catena è stata percorsa fino in fondo su
@@ -379,6 +443,32 @@ detta a chi le usa.
   browser**. Stanno da sole in [src/lib/metodi-fuori.ts](../src/lib/metodi-fuori.ts).
 - Gli script `scripts/*.mjs` ripetono la cifratura invece di importarla da
   `src/lib/crypto.ts`: se cambia l'algoritmo là, vanno allineati anche loro.
+
+## Punti aperti al 17/08/2026
+
+Riverificati sui dati veri (vedi «Fotografia del 17/08/2026» in cima). L'ordine
+è quello che sblocca il primo euro con meno lavoro:
+
+1. **Misurare il VoP prima di bruciare uno sblocco.** Chiamare
+   `POST /sepa/verify_payee` per gli otto IBAN aperti e vedere quali rispondono
+   `MATCH`: costa niente, non muove denaro, e dice in anticipo quali richieste
+   passerebbero il quinto controllo e quali no. Oggi non lo sa nessuno.
+2. **Creare in Qonto i beneficiari che non ci sono** (`CHIARAKUL ILARIA` e i tre
+   `MUCIACCIA PAOLO`): finché l'IBAN non è in rubrica, «rendere fidato» non è
+   nemmeno un'operazione possibile.
+3. **Rendere fidati i beneficiari** — invariato: 0 su 1131, con conferma sul
+   telefono. È il quarto controllo, e ferma tutto.
+4. **Verificare gli 8 beneficiari nella rubrica dell'app**: toglie 25 punti di
+   rischio a testa e smette di far scattare la doppia firma su ogni richiesta.
+   È l'alternativa giusta ad alzare la soglia di rischio.
+5. **Revocare le tre chiavi API mai usate** (`trx_p8610J6y`, `trx_CLl3bYu_`,
+   `trx_CJn3ErNv`): Finance usa `trx_ozWW4edK`, le altre sono attive e inerti.
+6. **Decidere cosa fare della coda ferma**: 6.656,17 € in attesa dal 31/07, con
+   `TRX-2026-000006` piantata a una firma su due. Se sono state pagate a mano
+   dal portale, vanno chiuse come «pagate fuori dall'app» — altrimenti Finance
+   continua a crederle in lavorazione.
+
+Il resto dei punti aperti (dal 31/07/2026) resta valido:
 
 ## Punti aperti al 31/07/2026
 
