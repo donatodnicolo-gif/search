@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { db } from '@/lib/db'
 import { CheckAttivita } from './CheckAttivita'
 import { BottoneEsegui } from './BottoneEsegui'
+import { DecidiSpamRiga } from './DecidiSpamRiga'
 import { coloreDiPriorita, priorita as livello, FUSO } from '@/lib/format'
 
 /**
@@ -15,7 +16,9 @@ export async function ColonnaAttivita({ utenteId }: { utenteId: string }) {
     // Le più recenti in cima: ordine per data di creazione, discendente.
     orderBy: { creataIl: 'desc' },
     take: 15,
-    include: { messaggio: { select: { id: true } } },
+    // `spamCaso`: le approvazioni («Approva: è spam?») non si eseguono, si
+    // DECIDONO — serve a sapere quali tasti mostrare (vedi sotto).
+    include: { messaggio: { select: { id: true, spamCaso: true } } },
   })
 
   const totale = await db.attivita.count({ where: { utenteId, fatta: false } })
@@ -76,12 +79,23 @@ export async function ColonnaAttivita({ utenteId }: { utenteId: string }) {
                       {a.creataIl.toLocaleDateString('it-IT', { timeZone: FUSO, day: 'numeric', month: 'short' })}
                     </span>
                   </div>
-                  {/* Esegui: l'AI scrive la mail che chiude l'attività. Solo se
-                      c'è una mail o un contatto a cui rispondere. */}
-                  {(a.messaggio || a.contattoEmail) && (
+                  {/* ⚠️ Su una richiesta di APPROVAZIONE «Esegui» non va
+                      corretto, va TOLTO: l'AI scriverebbe una risposta alla mail
+                      falsa. La server action lo rifiuta già, ma un tasto che
+                      esiste solo per dare un errore è un tasto sbagliato — qui
+                      si decide, come in /attivita. (Segnalato il 17/08: i tasti
+                      di decisione c'erano solo nella pagina Attività, e questa
+                      colonna mostrava «Esegui» col messaggio rosso.) */}
+                  {a.messaggio?.spamCaso ? (
                     <div style={{ marginTop: 8 }}>
-                      <BottoneEsegui id={a.id} />
+                      <DecidiSpamRiga messaggioId={a.messaggio.id} />
                     </div>
+                  ) : (
+                    (a.messaggio || a.contattoEmail) && (
+                      <div style={{ marginTop: 8 }}>
+                        <BottoneEsegui id={a.id} />
+                      </div>
+                    )
                   )}
                 </div>
               </div>

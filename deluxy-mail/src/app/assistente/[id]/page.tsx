@@ -4,6 +4,7 @@ import { db } from '@/lib/db'
 import { coloreDiPriorita, dataBreve, FUSO } from '@/lib/format'
 import { CheckAttivita } from '@/components/CheckAttivita'
 import { BottoneEsegui } from '@/components/BottoneEsegui'
+import { DecidiSpamRiga } from '@/components/DecidiSpamRiga'
 import { ChecklistArchivio } from '@/components/ChecklistArchivio'
 import { richiediUtente } from '@/lib/sessione'
 
@@ -92,7 +93,16 @@ export default async function Rapporto({ params }: Props) {
               </div>
               <div className="task-side">
                 <span className={`badge ${coloreDiPriorita(a.priorita)}`}>{a.priorita}</span>
-                {a.messaggio && !a.fatta && <BottoneEsegui id={a.id} />}
+                {/* Come in /attivita e nella colonna «Da fare»: una richiesta di
+                    approvazione si decide, non si esegue (o l'AI risponderebbe
+                    alla mail falsa). */}
+                {a.messaggio &&
+                  !a.fatta &&
+                  (a.messaggio.spamCaso ? (
+                    <DecidiSpamRiga messaggioId={a.messaggio.id} />
+                  ) : (
+                    <BottoneEsegui id={a.id} />
+                  ))}
               </div>
             </div>
           ))

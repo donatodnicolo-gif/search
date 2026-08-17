@@ -87,8 +87,9 @@ export function DelegaReneDialog() {
           <span className="ai-mark">AI</span>
           <span>
             Scrivi a parole cosa vuoi: <strong>rispondere</strong>, <strong>riassumere</strong>,{' '}
-            <strong>fare un recap a</strong> qualcuno, <strong>inoltrare</strong> o{' '}
-            <strong>mettere in agenda</strong>. A capire cosa fare ci penso io.
+            <strong>fare un recap a</strong> qualcuno, <strong>inoltrare</strong>,{' '}
+            <strong>mettere in agenda</strong> o <strong>creare attività</strong> — anche ripetute
+            («il 15 di ogni mese»). A capire cosa fare ci penso io.
           </span>
         </div>
         <textarea

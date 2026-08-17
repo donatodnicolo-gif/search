@@ -277,6 +277,15 @@ a ciò che è ancora in sospeso. E capisce se gli stai chiedendo una **risposta*
 originale citata sotto, destinatario scelto fra i contatti se lo riconosce) invece di una
 risposta al mittente. Non invia mai da solo: la controlli e la mandi tu.
 
+Oltre a scrivere, Renè capisce altre due richieste. **Metti in agenda** («appuntamento con
+il fiorista domani alle 10») crea l'evento in calendario. E **crea attività** («crea una
+task per il 15 di ogni mese di pagare le tasse 2024»): nascono **collegate a quella mail**,
+così da Attività ci si torna, e se dici che la cosa si ripete — «ogni settimana», «ogni
+mese», «ogni anno» — le crea tutte, una per data. Le date le calcola il programma, non
+l'AI: «il 31 di ogni mese» a febbraio cade il 28, non il 3 marzo. Di default arriva a un
+anno (12 volte al mese, 12 settimane, 3 anni) e **mai oltre 24**; se dici quante volte
+(«per 6 mesi»), fa quelle.
+
 **Le altre app possono aprirti la mail già scritta.** Da Partner, Orders o Customer
 Service un tasto «Scrivi a…» può aprire la finestra di AI Mail **già compilata** —
 destinatario, oggetto e testo — con l'indicazione di chi l'ha preparata («Preparata da
@@ -630,6 +639,12 @@ che fai qui lo vedi anche da telefono e webmail.
 l'hai segnata tu, perché hai approvato una casistica, o perché l'antispam l'ha riconosciuta
 all'arrivo — viene spostata nella **Posta indesiderata della casella**. E **«Non è spam»**
 la riporta in posta in arrivo, anche lì.
+
+**Le casistiche approvate da un amministratore valgono per tutta l'azienda** (dal 17 agosto
+2026): se un admin risponde «sì, è spam» a una proposta, quella casistica va in spam per
+**ogni** utente — anche per le mail già arrivate e in attesa di decisione — e ai colleghi
+non viene più chiesta. Chi non è amministratore decide solo per la propria posta. Anche il
+«no» dell'admin vale per tutti: quella proposta non ricompare a nessuno.
 
 Tre cose da sapere:
 

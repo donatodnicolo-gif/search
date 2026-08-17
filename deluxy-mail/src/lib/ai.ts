@@ -231,7 +231,16 @@ ${corpo}
 
 // ---------- Attività da un comando in linguaggio naturale ----------
 
-export type AttivitaPianificata = { titolo: string; dettaglio: string; scadenza: string | null; priorita: string }
+export type AttivitaPianificata = {
+  titolo: string
+  dettaglio: string
+  scadenza: string | null
+  priorita: string
+  /** Se l'attività si ripete: il modello dice OGNI QUANTO, mai le date. */
+  ripeti?: 'settimanale' | 'mensile' | 'annuale' | ''
+  /** Quante volte in tutto (0 = decide il codice). */
+  quante?: number
+}
 
 const SCHEMA_PIANO = {
   type: 'object',
@@ -244,12 +253,30 @@ const SCHEMA_PIANO = {
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['titolo', 'dettaglio', 'scadenza', 'priorita'],
+        required: ['titolo', 'dettaglio', 'scadenza', 'priorita', 'ripeti', 'quante'],
         properties: {
           titolo: { type: 'string', description: 'Azione concreta, all’infinito.' },
           dettaglio: { type: 'string', description: 'Cosa fare, in pratica. Può essere breve.' },
-          scadenza: { type: ['string', 'null'], description: 'Data ISO YYYY-MM-DD o null.' },
+          scadenza: {
+            type: ['string', 'null'],
+            description:
+              'Data ISO YYYY-MM-DD o null. Se l’attività si RIPETE, qui va solo la PRIMA scadenza (es. «il 15 di ogni mese» → il prossimo giorno 15).',
+          },
           priorita: { type: 'string', enum: [...CODICI_PRIORITA] },
+          // ⚠️ Il modello dice OGNI QUANTO, non quali date: le date le calcola il
+          // codice. Una lista di date scritta dal modello sbaglia i mesi corti,
+          // gli anni e i giorni che non esistono.
+          ripeti: {
+            type: 'string',
+            enum: ['', 'settimanale', 'mensile', 'annuale'],
+            description:
+              'Ogni quanto si ripete l’attività: «ogni settimana» → settimanale, «ogni mese»/«il 15 di ogni mese» → mensile, «ogni anno» → annuale. Stringa vuota se è una cosa da fare una volta sola.',
+          },
+          quante: {
+            type: 'integer',
+            description:
+              'Quante volte in tutto, se l’utente lo dice («per 6 mesi» → 6). 0 se non lo dice o se non si ripete.',
+          },
         },
       },
     },
@@ -263,7 +290,9 @@ REGOLE:
 - Poche attività ben fatte (di norma 1-4). Se la richiesta è una sola cosa, una sola attività.
 - Titolo all'infinito e concreto; dettaglio pratico.
 - Priorità prudente (P2 di default); P0 solo per urgenze vere.
-- Scadenza solo se dedotta dalla richiesta, altrimenti null.`
+- Scadenza solo se dedotta dalla richiesta, altrimenti null.
+- Se la richiesta dice che la cosa si RIPETE («ogni mese», «il 15 di ogni mese», «ogni settimana», «ogni anno»), NON creare una attività per ogni volta: creane UNA con \`ripeti\` compilato e in \`scadenza\` la PRIMA data. Le altre le genera il programma.
+- \`quante\` solo se il numero di volte è detto («per 6 mesi» → 6), altrimenti 0.`
 
 export async function pianificaAttivita(opts: {
   comando: string
@@ -1403,15 +1432,22 @@ const SCHEMA_INTENTO_DELEGA = {
   properties: {
     azione: {
       type: 'string',
-      enum: ['risposta', 'agenda'],
+      enum: ['risposta', 'agenda', 'attivita'],
       description:
-        "'agenda' SOLO se l'utente chiede di mettere in calendario/agenda un appuntamento (es. «metti in agenda», «appuntamento», «calendario», «call/riunione giovedì alle 15», una data/ora da fissare). 'risposta' per TUTTO il resto: rispondere, riassumere, fare un recap, inoltrare, scrivere una mail.",
+        "'agenda' SOLO se l'utente chiede di mettere in calendario/agenda un APPUNTAMENTO con un orario (es. «metti in agenda», «appuntamento», «call/riunione giovedì alle 15»). 'attivita' se chiede di creare una TASK / attività / promemoria / cosa da fare — anche RIPETUTA nel tempo (es. «crea una task», «ricordami di», «promemoria ogni mese», «il 15 di ogni mese paga le tasse»): è una cosa da fare, non un incontro a un'ora precisa. 'risposta' per TUTTO il resto: rispondere, riassumere, fare un recap, inoltrare, scrivere una mail.",
     },
   },
 } as const
 
-/** Legge l'istruzione data a Renè e decide se preparare una MAIL o un EVENTO. */
-export async function classificaDelega(istruzione: string): Promise<'risposta' | 'agenda'> {
+/**
+ * Legge l'istruzione data a Renè e decide se preparare una MAIL, un EVENTO in
+ * agenda o delle ATTIVITÀ.
+ * ⚠️ Il terzo esito è nato il 17/08/2026 da «crea una task per il 15 di ogni mese
+ * di pagare le tasse 2024»: con due soli esiti finiva in 'agenda' e rispondeva
+ * «Manca la data specifica per l'appuntamento» — una task ripetuta non è un
+ * appuntamento, e l'unico modo di crearla era un'altra schermata.
+ */
+export async function classificaDelega(istruzione: string): Promise<'risposta' | 'agenda' | 'attivita'> {
   const istr = istruzione.trim()
   if (!istr) return 'risposta'
   try {
@@ -1429,7 +1465,7 @@ export async function classificaDelega(istruzione: string): Promise<'risposta' |
     })
     const json = risposta.choices[0]?.message?.content
     if (!json) return 'risposta'
-    return (JSON.parse(json) as { azione: 'risposta' | 'agenda' }).azione
+    return (JSON.parse(json) as { azione: 'risposta' | 'agenda' | 'attivita' }).azione
   } catch {
     return 'risposta' // nel dubbio, prepara una mail
   }
