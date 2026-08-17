@@ -84,6 +84,11 @@ export default function PaginaWidget() {
   const [bozza, setBozza] = useState('')
   const [pronto, setPronto] = useState(false)
   const [anteprima, setAnteprima] = useState(false)
+  // Un invio rifiutato dal server: si dice, e il testo torna nel campo per
+  // riprovare. Prima la bolla restava a schermo come «inviato» e il messaggio
+  // non esisteva da nessuna parte — il visitatore aspettava una risposta che
+  // non poteva arrivare.
+  const [erroreInvio, setErroreInvio] = useState('')
   const fondoRef = useRef<HTMLDivElement>(null)
 
   // L'aspetto arriva nell'URL dell'iframe, scritto dallo script sul sito
@@ -238,11 +243,21 @@ export default function PaginaWidget() {
     }
     if (!testo) return
     setBozza('')
+    setErroreInvio('')
     // eco locale immediata, poi il polling riallinea
+    const idLocale = `locale-${Date.now()}`
     setMessaggi((prec) => [
       ...prec,
-      { id: `locale-${Date.now()}`, direzione: 'in', testo, creatoIl: new Date().toISOString() },
+      { id: idLocale, direzione: 'in', testo, creatoIl: new Date().toISOString() },
     ])
+    // Se il server non ha preso il messaggio, la bolla se ne va e il testo
+    // torna nel campo: un messaggio che sembra partito e non è partito è il
+    // peggio che può succedere in una chat.
+    const nonInviato = () => {
+      setMessaggi((prec) => prec.filter((m) => m.id !== idLocale))
+      setBozza((b) => b || testo)
+      setErroreInvio('Messaggio non inviato: riprova fra un attimo.')
+    }
     try {
       // La conversazione nasce adesso, col primo messaggio: è il momento in cui
       // c'è davvero qualcuno dall'altra parte da far vedere in Inbox.
@@ -255,18 +270,31 @@ export default function PaginaWidget() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ sito, provenienza: leggiProvenienza() }),
         })
-        const dati = (await res.json()) as { token: string }
+        const dati = (await res.json().catch(() => ({}))) as { token?: string }
+        if (!res.ok || !dati.token) {
+          nonInviato()
+          return
+        }
         miaSessione = dati.token
         window.localStorage.setItem(CHIAVE_TOKEN, miaSessione)
         setToken(miaSessione)
       }
-      await fetch('/api/widget/messaggi', {
+      const res = await fetch('/api/widget/messaggi', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token: miaSessione, testo }),
       })
+      if (res.status === 404) {
+        // Sessione che il server non riconosce più (cancellata dall'Inbox):
+        // si dimentica il token, così il prossimo invio ne apre una nuova.
+        window.localStorage.removeItem(CHIAVE_TOKEN)
+        setToken(null)
+        nonInviato()
+        return
+      }
+      if (!res.ok) nonInviato()
     } catch {
-      // il polling mostrerà lo stato reale
+      nonInviato()
     }
   }
 
@@ -326,6 +354,11 @@ export default function PaginaWidget() {
         <div ref={fondoRef} />
       </div>
 
+      {erroreInvio ? (
+        <div className="widget-avviso" role="alert">
+          {erroreInvio}
+        </div>
+      ) : null}
       <div className="widget-composer">
         <input
           placeholder="Scrivi un messaggio…"

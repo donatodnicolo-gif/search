@@ -7,10 +7,24 @@ export const dynamic = 'force-dynamic'
 
 // API pubbliche del widget: autenticate dal token di sessione del visitatore.
 
+/**
+ * La conversazione di un token: si cerca per canale + token, **senza**
+ * vincolare `numeroId`.
+ *
+ * ⚠️⚠️ BUG PAGATO CARO (30/07 → 17/08/2026): `/api/widget/sessione` scrive in
+ * `numeroId` lo slug del sito (cake, flowers, deluxy) da quando i siti passano
+ * `data-sito`, ma qui si cercava con la chiave unica a tre campi e
+ * `numeroId: ''`. Con lo slug valorizzato la `findUnique` non trovava mai la
+ * riga: GET e POST rispondevano 404, il widget mostrava l'eco locale del
+ * messaggio e lo buttava. Contato in tabella: 18 conversazioni widget, tutte
+ * con lo slug, tutte con ZERO messaggi — diciotto clienti che hanno scritto e
+ * non sono mai stati letti. Il token è 24 byte casuali: da solo identifica.
+ */
 async function conversazioneDaToken(token: string | null) {
   if (!token || token.length < 20) return null
-  return db.conversazione.findUnique({
-    where: { canale_idEsterno_numeroId: { canale: 'widget', idEsterno: token, numeroId: '' } },
+  return db.conversazione.findFirst({
+    where: { canale: 'widget', idEsterno: token },
+    orderBy: { creatoIl: 'desc' },
   })
 }
 
