@@ -145,7 +145,9 @@ export default function PaginaWidget() {
         if (!annullato) setPronto(true)
         return
       }
-      const res = await fetch(`/api/widget/messaggi?token=${encodeURIComponent(salvato)}`)
+      const res = await fetch(
+        `/api/widget/messaggi?token=${encodeURIComponent(salvato)}${sito ? `&sito=${sito}` : ''}`
+      )
       if (annullato) return
       if (res.ok) setToken(salvato)
       else {
@@ -166,7 +168,12 @@ export default function PaginaWidget() {
   const aggiorna = useCallback(async () => {
     if (!token) return
     try {
-      const res = await fetch(`/api/widget/messaggi?token=${encodeURIComponent(token)}`)
+      // ⚠️ `sito` viaggia anche col token: senza, il server risponde col titolo
+      // e il saluto GENERALI e dopo il primo messaggio «CakedesignMe» tornava
+      // «Deluxy» sotto gli occhi del visitatore.
+      const res = await fetch(
+        `/api/widget/messaggi?token=${encodeURIComponent(token)}${sito ? `&sito=${sito}` : ''}`
+      )
       if (!res.ok) return
       const dati = (await res.json()) as {
         titolo: string
@@ -180,7 +187,7 @@ export default function PaginaWidget() {
     } catch {
       // rete assente: si ritenta al giro dopo
     }
-  }, [token])
+  }, [token, sito])
 
   useEffect(() => {
     if (!token) return

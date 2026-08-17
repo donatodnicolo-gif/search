@@ -1700,7 +1700,7 @@ td .azioni-ordine {
 }
 .tabella th .ordina-col:hover,
 .tabella th .ordina-col.attiva {
-  color: var(--text-primary);
+  color: var(--text);
 }
 .tabella th .freccia-ordine {
   font-size: 11px;
