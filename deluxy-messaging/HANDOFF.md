@@ -38,8 +38,26 @@ token a `oauth2.googleapis.com` con la chiave salvata: **HTTP 400
 `invalid_grant`**. Quindi la **rubrica Google non si aggiorna più** (il cron
 orario dei contatti gira a vuoto). Si ripara solo dal browser: *Impostazioni →
 Google Contacts → **Ricollega Google*** con l'account che possiede la rubrica.
-⚠️ Se si riscollega dopo pochi giorni, la causa quasi certa è la **schermata di
-consenso ancora in «Testing»** nella console Google Cloud: lì i refresh token
+
+🔴 **E «Ricollega Google» oggi non arriva in fondo: `Errore 400
+redirect_uri_mismatch`** (provato dall'utente il 17/08). Non è un guasto
+dell'app: nella console Google Cloud, sul client OAuth
+`813248887384-kdksp8lq8p8pg4tou6b2q4i7r0avchjt.apps.googleusercontent.com`
+(quello configurato in Impostazioni), **manca fra gli «URI di reindirizzamento
+autorizzati»** l'indirizzo che l'app manda:
+
+```
+https://deluxy-messaging.vercel.app/api/google/callback
+http://localhost:3140/api/google/callback
+```
+
+⚠️ Vanno messi negli **URI di reindirizzamento autorizzati**, **non** fra le
+«Origini JavaScript autorizzate» — è l'errore classico, e da lì non si torna
+indietro con un messaggio chiaro. L'indirizzo lo costruisce `redirectUri()` in
+`src/lib/google.ts` da `APP_URL` (in produzione) o dall'host della richiesta:
+deve **combaciare carattere per carattere**, barra finale compresa.
+⚠️ Se dopo il riaggancio si scollega di nuovo in pochi giorni, la causa quasi
+certa è la **schermata di consenso ancora in «Testing»**: lì i refresh token
 scadono dopo **7 giorni**. Si risolve pubblicandola («In production»), non
 ricollegando ogni settimana.
 
@@ -100,6 +118,25 @@ AES-256-GCM nel database. `APP_SECRET` su Vercel **deve** essere identico al
 locale, altrimenti nulla si decifra.
 
 ## FATTO
+
+- **IL BOTTONE «SHOPIFY ↗» ANCHE FRA LE AZIONI RAPIDE** (17/08/2026, LIVE).
+  Stava solo dentro il pannello del dettaglio: rimborsare davvero, cambiare le
+  righe o guardare un pagamento però si decide **scorrendo l'elenco**, e aprire
+  il pannello per prendere un link era un clic in più su ogni ordine. Ora il
+  bottone sta accanto agli altri nei **tre** posti dove si lavora: schede a
+  colonne, righe della tabella, **archivio storico**.
+  - ⚠️ Nell'**archivio** serve più che altrove: di quegli ordini non abbiamo la
+    copia in casa, quindi le azioni che scrivono non ci sono e l'unica cosa da
+    fare sul serio si fa là. Lì il negozio si trova **per brand** (le righe
+    dell'archivio non portano il `negozioId`); la colonna «Fornitore» è
+    diventata «Azioni», perché ora ne contiene due.
+  - ⚠️ Il link nasce sempre da **gid + dominio del negozio di quell'ordine**,
+    mai dal numero, e se non si può costruire **il bottone non c'è**. Contato
+    sul database: **0 ordini su 1.245 senza gid**, quindi in pratica compare
+    sempre; verificato anche che le tre maniglie sono quelle vere
+    (`deluxygifts`, `cakedesign-5921`, `fb72b1-2`).
+  - ⚠️ Resa a schermo **non verificata**: la bacheca sta dietro il login.
+    Verificati `tsc`, `build` e il deploy promosso all'alias di produzione.
 
 - **«COLLEGATO» A GOOGLE LO DICE GOOGLE, NON LA CHIAVE SALVATA** (17/08/2026,
   LIVE — commit `17bab22a`).
