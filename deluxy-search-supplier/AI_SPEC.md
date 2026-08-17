@@ -38,6 +38,7 @@ Oggetto JSON in KV alla chiave **`config:v1`**:
 - `googleKey` invece È restituita al browser (serve alla mappa; proteggila con restrizione referrer su Google Cloud).
 - `kwFioraio`/`kwPasticceria` (24/07/2026): **parole chiave Google personalizzate** per categoria, impostabili in ⚙️ Impostazioni. Più keyword separate da virgola = una `nearbySearch` per ciascuna (i risultati si uniscono, dedup per place_id); a queste si aggiunge SEMPRE la ricerca per sola categoria (`type`). Vuote = predefinite di `KEYWORDS` nella lingua della consegna.
 - `mostraFoto` (10/08/2026): `'1'` (predefinito, anche se la chiave non è mai stata salvata) = **foto dei negozi da Google Maps** accese; `'0'` = spente del tutto. Interruttore in ⚙️ Impostazioni (solo admin lo salva, tutte le utenze lo leggono). Vedi §5-bis.
+- `pagineRicerca` (17/08/2026): **quante pagine di risultati chiedere a Google per ogni `nearbySearch`** — `'1'` = solo i primi 20 (comportamento fino al 17/08), `'2'` = 40, `'3'` = 60 (**predefinito**, anche se mai salvata). Google dà max 20 risultati per chiamata: le pagine dopo si prendono con `pagination.nextPage()`. Sanificata sul server (`pagine()` in `api/config.js`: intero 1..3, qualunque altra cosa = `'3'`) e sul client (`paginePerRicerca()`). ⚠️ **Ogni pagina è una chiamata Places a pagamento**, moltiplicata per il numero di keyword e per le categorie cercate. Vedi §12-quater.
 
 ## 5. Endpoint API (tutti richiedono header `x-app-password`, tranne webhook)
 | Metodo | Path | Cosa fa |
@@ -202,6 +203,29 @@ L'app è richiamabile da un bottone/link di qualsiasi altra app; i parametri si 
 - **Mappa**: `mapPoints[].foto` = miniatura della copertina, mostrata in cima all'InfoWindow.
 - **Interruttore**: `fotoAttive()` legge `CONFIG.mostraFoto`; se spento `fotoDaPlace` torna
   vuoto → nessuna copertina, nessuna lightbox, nessuna richiesta Place Photo.
+
+## 12-quater. Paginazione dei risultati Google (front-end, 17/08/2026)
+- **Il limite di Google**: una `nearbySearch` restituisce al massimo **20 risultati per
+  chiamata**, i più vicini in linea d'aria. In una città densa i 20 fioristi più vicini possono
+  stare tutti entro un chilometro: chi è poco oltre **non entra mai** nella lista, con qualunque
+  valore di «Numero risultati» (che taglia *dopo*, in `renderResults`). È il caso segnalato di
+  «La Mimosa» sull'ordine deluxyflowers #2734.
+- **Cosa fa ora `nearbyOne`**: dopo la prima pagina, se `pagination.hasNextPage` chiama
+  `pagination.nextPage()` — che **richiama la stessa callback** con la pagina successiva — fino
+  a `paginePerRicerca()` pagine (max 3 = 60, limite di Google). Vale per tutte le chiamate della
+  categoria (una per keyword + quella per solo `type`).
+- **Tre dettagli che sembrano inutili e non lo sono**:
+  1. `PAGINA_ATTESA_MS` (1200 ms) prima di `nextPage()`: il `next_page_token` diventa valido
+     dopo un istante, chiamarlo subito può fallire.
+  2. `try/catch` intorno a `nextPage()`: se lancia si tiene quello che si è già raccolto.
+  3. **Rete di sicurezza** (`PAGINA_TIMEOUT_MS`): se la pagina non arriva mai, la Promise si
+     risolve comunque con i risultati parziali. Senza questa, `run()` resterebbe appeso per
+     sempre su `Promise.all` e la ricerca non finirebbe più. `fine()` è idempotente (`chiuso`).
+- **💰 Costo**: ogni pagina è una chiamata Places **a pagamento**, moltiplicata per keyword e
+  categorie. Con 2 categorie e 1 keyword ciascuna si passa da 4 a 12 chiamate per ricerca.
+  L'impostazione `pagineRicerca` (§4) permette di tornare a «solo i primi 20».
+- **NON è paginato** `textSearchOne` (usato da «Estendi la ricerca»): lì il raggio cresce a
+  scatti di 10 km, che è già il modo di allargare la copertura.
 
 ## 13. Ricette rapide
 - **Aggiungere un negozio**: aggiungilo alla mappa `SHOP_BRAND` in `api/oauth.js` e a `BRAND_BY_SHOP` in `api/webhook.js`; aggiungi il brand a `KNOWN_BRANDS` in `index.html` e all'`<select id="brand">`; crea il webhook su Shopify; fai `/api/oauth?shop=...&pass=...`.

@@ -471,6 +471,15 @@
       </div>
       <div class="hint" style="margin-top:-6px">Con cosa cercare i negozi su Google. Più parole chiave separate da <b>virgola</b> = una ricerca per ciascuna, risultati uniti (es. <code>pasticceria, torte, cake design</code>); si aggiunge sempre anche la ricerca per sola categoria. Vuoto = predefinite nella lingua della consegna.</div>
       <div>
+        <label>Quanti negozi chiedere a Google per ogni ricerca</label>
+        <select id="cfg_pagine">
+          <option value="3">Fino a 60 (3 pagine) — predefinito</option>
+          <option value="2">Fino a 40 (2 pagine)</option>
+          <option value="1">Solo i primi 20 (1 pagina)</option>
+        </select>
+        <div class="hint" style="margin-top:4px">Google risponde con <b>20 negozi per volta</b>, i più vicini in linea d'aria: in una città densa i 20 più vicini possono stare tutti entro un chilometro e un fioraio poco più lontano non compare mai, nemmeno alzando «Numero risultati». Con 2 o 3 pagine l'app chiede anche i successivi. <b>Ogni pagina è una richiesta Google a pagamento</b> (per ogni parola chiave e per ogni categoria cercata): «Solo i primi 20» è il comportamento di prima. Quanti negozi si vedono poi in elenco lo decide «Numero risultati» nella ricerca.</div>
+      </div>
+      <div>
         <label style="display:flex; align-items:center; gap:8px; cursor:pointer">
           <input id="cfg_foto" type="checkbox" style="width:auto; margin:0"> Mostra le foto dei negozi (da Google Maps)
         </label>
@@ -1082,6 +1091,7 @@ function applyConfig(){
   $('#cfg_kw_fioraio').value = CONFIG.kwFioraio || '';
   $('#cfg_kw_pasticceria').value = CONFIG.kwPasticceria || '';
   $('#cfg_foto').checked = fotoAttive();
+  $('#cfg_pagine').value = String(paginePerRicerca());
   $('#cfg_anag_url').value = CONFIG.anagUrl || '';
   $('#cfg_anag_key').value = '';
   $('#cfg_anag_key').placeholder = CONFIG.hasAnagKey ? '•••• salvata (vuoto = invariata)' : 'chiave di sola lettura';
@@ -1227,6 +1237,7 @@ async function saveConfig(){
                  kwFioraio: $('#cfg_kw_fioraio').value.trim(),
                  kwPasticceria: $('#cfg_kw_pasticceria').value.trim(),
                  mostraFoto: $('#cfg_foto').checked ? '1' : '0',
+                 pagineRicerca: $('#cfg_pagine').value,
                  anagUrl: $('#cfg_anag_url').value.trim(), anagKey: $('#cfg_anag_key').value.trim(),
                  anagWriteKey: $('#cfg_anag_wkey').value.trim(),
                  googleOauthClientId: $('#cfg_goauth').value.trim(), utenti, stores };
@@ -1930,13 +1941,41 @@ async function annotaOrariRegistro(list, cards, service, origin){
 
 /* ------------------ nearby search per categoria ------------------ */
 let lastPlacesStatus = null;
+// Google dà al massimo 20 risultati per chiamata: in una città densa i 20 fioristi più
+// vicini possono stare tutti entro un chilometro e chi è oltre non entra MAI nella lista,
+// con qualunque «Numero risultati» (caso reale: «La Mimosa», ordine deluxyflowers #2734).
+// Per questo si chiedono le pagine successive con pagination.nextPage(), fino a 60 risultati.
+// ⚠️ Ogni pagina è una chiamata Places A PAGAMENTO: il numero di pagine è un'impostazione
+// (⚙️ Impostazioni → CONFIG.pagineRicerca, predefinito 3 = fino a 60).
+const PAGINE_MAX = 3;              // limite di Google: 3 pagine × 20 = 60 risultati
+const PAGINA_ATTESA_MS = 1200;     // il next_page_token diventa valido dopo un attimo
+const PAGINA_TIMEOUT_MS = 8000;    // se la pagina non arriva, si tiene quello che c'è
+function paginePerRicerca(){
+  const v = parseInt(String(CONFIG.pagineRicerca === undefined ? '' : CONFIG.pagineRicerca).trim(), 10);
+  if(!Number.isFinite(v)) return PAGINE_MAX;             // mai salvata = tutte le pagine
+  return Math.min(PAGINE_MAX, Math.max(1, v));
+}
 function nearbyOne(service, opts, cat){
+  const maxPagine = paginePerRicerca();
   return new Promise(resolve=>{
-    service.nearbySearch(opts, (results,status)=>{
+    const out = [];
+    let pagine = 0, chiuso = false, sveglia = null;
+    const fine = ()=>{ if(chiuso) return; chiuso = true; clearTimeout(sveglia); resolve(out); };
+    // nextPage() richiama QUESTA stessa callback con la pagina dopo
+    service.nearbySearch(opts, (results,status,pagination)=>{
+      if(chiuso) return;
+      clearTimeout(sveglia);
       lastPlacesStatus = status;
-      if(status===google.maps.places.PlacesServiceStatus.OK && results){
-        resolve(results.map(r=>({place:r, cat})));
-      } else resolve([]);
+      pagine++;
+      const ok = status===google.maps.places.PlacesServiceStatus.OK && results;
+      if(ok) for(const r of results) out.push({place:r, cat});
+      if(!(ok && pagine < maxPagine && pagination && pagination.hasNextPage)) return fine();
+      sveglia = setTimeout(fine, PAGINA_ATTESA_MS + PAGINA_TIMEOUT_MS);   // rete di sicurezza
+      setTimeout(()=>{
+        if(chiuso) return;
+        try{ pagination.nextPage(); }
+        catch(e){ console.warn('paginazione Places:', e); fine(); }
+      }, PAGINA_ATTESA_MS);
     });
   });
 }

@@ -1,4 +1,4 @@
-# HANDOFF — Deluxy Search/Supplier (aggiornato al 17/08/2026)
+# HANDOFF — Deluxy Search/Supplier (aggiornato al 17/08/2026, sera)
 
 Per riprendere il lavoro su quest'app da una nuova sessione Claude. **Leggere prima
 [AI_SPEC.md](AI_SPEC.md)**: è la scheda tecnica completa e aggiornata; questo file dice
@@ -424,25 +424,50 @@ non si vedono dati reali né si può diagnosticare «La Mimosa»).
    titolo. Il `productType` dei prodotti su Shopify va **compilato** (Bouquet/Cappelliera) perché il
    riconoscimento sia certo: dal titolo è un'euristica.
 
+40. **Paginazione dei risultati Google: fino a 60 negozi per ricerca** (17/08, rimedio scelto
+   dall'utente per «La Mimosa»): una `nearbySearch` dà **max 20 risultati per chiamata**, i più
+   vicini in linea d'aria — in città densa i 20 più vicini stanno entro un chilometro e chi è
+   poco oltre non entra mai, con qualunque «Numero risultati» (che taglia dopo). Ora `nearbyOne`
+   segue `pagination.nextPage()` fino a **3 pagine (60)**, su tutte le chiamate della categoria
+   (una per keyword + quella per solo `type`). Nuova impostazione admin **«Quanti negozi chiedere
+   a Google per ogni ricerca»** (`#cfg_pagine` → `config:v1.pagineRicerca`: 1 = i primi 20 come
+   prima, 2 = 40, 3 = 60 **predefinito** anche se mai salvata; sanificata sia in `api/config.js`
+   con `pagine()` sia nel client con `paginePerRicerca()`).
+   ⚠️ **Costo**: ogni pagina è una chiamata Places a pagamento × keyword × categorie — con 2
+   categorie e 1 keyword si passa da 4 a 12 chiamate per ricerca. `textSearchOne` («Estendi la
+   ricerca») **non** è paginato: là si allarga il raggio di 10 km alla volta.
+   Tre reti di sicurezza da non togliere: attesa di 1,2 s prima di `nextPage()` (il
+   `next_page_token` non è valido subito), `try/catch` attorno a `nextPage()`, e un **timeout che
+   risolve comunque la Promise** — senza quello una pagina che non arriva lascia `run()` appeso
+   per sempre su `Promise.all` e la ricerca non finisce più. Dettagli in AI_SPEC §12-quater.
+   Verificato: `node --check` su `api/config.js` OK, sintassi dello script inline OK, **17
+   controlli automatici** su `nearbyOne` con un PlacesService finto (3 pagine piene → 60 negozi
+   in 3 chiamate; Google che finisce alla 2ª → 27 e nessuna 3ª chiamata; impostazione 1 → una
+   sola chiamata; impostazione 2 → si ferma a 40; ZERO_RESULTS → lista vuota; `nextPage()` che
+   lancia → si tiene la 1ª pagina; `nextPage()` muto → la rete di sicurezza sblocca), select
+   dell'impostazione letto/scritto correttamente per tutti i valori (compresi vuoto e testo
+   spazzatura → 3), pagina caricata sulla 5511 senza errori in console.
+   **Non collaudato su Google vero** (serve chiave + login): da guardare in produzione
+   sull'ordine deluxyflowers #2734 se «La Mimosa» ora compare.
+
 ## Cose in sospeso
-- **«La Mimosa» non esce nei risultati dell'ordine deluxyflowers #2734** (segnalato 17/08, NON
-  diagnosticato: in sessione non si entra nell'app e l'indirizzo dell'ordine non è noto). Come
-  funziona la ricerca e quindi dove può perdersi un negozio che su Google c'è: (1) ogni categoria fa
-  N nearbySearch **tutte con `type: florist`** (keyword + solo tipo, `nearby()`), **senza
-  paginazione**: Google dà max **20 risultati per chiamata**, i più vicini in linea d'aria — in città
-  dense i 20 fioristi più vicini possono stare tutti entro 1–2 km e chi è oltre non entra mai, con
-  qualunque «Numero risultati»; (2) se su Google la scheda **non è di tipo `florist`** (es. «Garden
-  center», «Vivaio», «Negozio di regali», «Fioraio» solo nel nome) non esce da nessuna delle
-  chiamate; (3) `renderResults` taglia a «Numero risultati» (6…30) dopo l'ordinamento; (4) i filtri
-  WhatsApp/Apertura/⭐4+ nascondono le schede; (5) la scheda può essere **archiviata** (sezione
-  Archiviati) o Google la dà `CLOSED_PERMANENTLY`. Checklist per l'operatore: Numero risultati → 30,
-  filtri → Tutti, guardare Archiviati, «+10 km». Se ancora manca è il caso (1) o (2). Rimedi
-  possibili (da scegliere): **a)** aggiungere una nearbySearch **solo keyword senza `type`** (+1
-  chiamata per keyword, prende chi Google non classifica florist); **b)** paginare con
-  `next_page_token` fino a 60 (ogni pagina è una chiamata a pagamento); **c)** un campo «Aggiungi
-  negozio per nome» (textSearch del nome con bias sulla consegna → scheda normale con distanza/
-  telefono/WhatsApp), che risolve il caso singolo a costo minimo e mostra i `types` Google per capire
-  perché era escluso.
+- **«La Mimosa» non esce nei risultati dell'ordine deluxyflowers #2734** — 17/08: implementata la
+  **paginazione fino a 60** (punto 40), il rimedio scelto dall'utente fra i tre proposti; **resta
+  da confermare in produzione su quell'ordine**. Se ancora non compare, la causa è l'altra: tutte
+  le chiamate hanno `type: florist` e una scheda che Google non classifica florist (garden center,
+  vivaio, negozio di regali) non esce da nessuna — rimedi rimasti: **a)** una `nearbySearch` solo
+  keyword **senza `type`**, **c)** un campo «Aggiungi negozio per nome» (textSearch del nome con
+  bias sulla consegna, che mostra anche i `types` Google per capire l'esclusione).
+  Non è mai stato diagnosticato dal vivo (in sessione non si entra nell'app e l'indirizzo
+  dell'ordine non è noto): la scelta è stata fatta sulla lettura del codice. Dove può perdersi un
+  negozio che su Google c'è: **(1)** il tetto di 20 risultati per chiamata — **risolto dal punto
+  40** (ora fino a 60); **(2)** la scheda non è di tipo `florist` (Garden center, Vivaio, Negozio
+  di regali, «Fioraio» solo nel nome) → non esce da nessuna chiamata, perché tutte passano
+  `type: florist`; **(3)** `renderResults` taglia a «Numero risultati» (6…30) dopo l'ordinamento;
+  **(4)** i filtri WhatsApp/Apertura/⭐4+ nascondono le schede; **(5)** la scheda è **archiviata**
+  (sezione Archiviati) o Google la dà `CLOSED_PERMANENTLY`. Checklist per l'operatore: Numero
+  risultati → 30, filtri → Tutti, guardare Archiviati, «+10 km». Se con la paginazione attiva
+  manca ancora, è il caso (2).
 - **Utenze operative**: da creare in Impostazioni (finché non esistono si entra solo col
   pass code amministratore + un'email qualsiasi). Le email degli operatori vanno anche
   aggiunte come **test user** dell'app OAuth (vedi sotto).

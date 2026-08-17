@@ -29,6 +29,13 @@ async function readConfig() {
   try { return JSON.parse(raw); } catch (e) { return { googleKey: '', proxy: '', stores: [] }; }
 }
 
+// pagine di risultati per ricerca: intero 1..3, tutto il resto (vuoto, testo, mai salvata) = 3
+function pagine(v) {
+  const n = parseInt(String(v === undefined || v === null ? '' : v).trim(), 10);
+  if (!Number.isFinite(n)) return '3';
+  return String(Math.min(3, Math.max(1, n)));
+}
+
 // versione "pubblica": include la chiave Google e quella (sola lettura) del registro
 // anagrafiche — servono al browser — ma NON i token Shopify né la chiave di
 // SCRITTURA del registro (usata solo dal server in /api/segnala)
@@ -41,6 +48,9 @@ function sanitize(c) {
     kwPasticceria: c.kwPasticceria || '',
     // foto dei negozi da Google Maps: '0' = spente. Mai salvata = accese (predefinito)
     mostraFoto: c.mostraFoto === undefined ? '1' : String(c.mostraFoto),
+    // pagine di risultati per ogni nearbySearch (1..3, 20 negozi a pagina).
+    // Mai salvata = 3 (fino a 60): ogni pagina è una chiamata Places a pagamento.
+    pagineRicerca: pagine(c.pagineRicerca),
     hasAnagKey: !!c.anagKey,
     hasAnagWriteKey: !!c.anagWriteKey,
     googleOauthClientId: c.googleOauthClientId || '',
@@ -117,6 +127,8 @@ export default async function handler(req, res) {
         // foto dei negozi: '1' accese (predefinito), '0' spente
         mostraFoto: body.mostraFoto !== undefined ? (String(body.mostraFoto) === '0' ? '0' : '1')
                                                   : (cur.mostraFoto === undefined ? '1' : String(cur.mostraFoto)),
+        // pagine di risultati per ricerca (1..3): mai salvata = 3
+        pagineRicerca: pagine(body.pagineRicerca !== undefined ? body.pagineRicerca : cur.pagineRicerca),
         // segreta: vuota = mantiene quella già salvata (le chiavi non tornano al browser)
         anagKey: (body.anagKey && String(body.anagKey).trim()) ? String(body.anagKey).trim() : (cur.anagKey || ''),
         // segreta: vuota = mantiene quella già salvata (come i token Shopify)
