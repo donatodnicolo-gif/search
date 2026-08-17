@@ -74,6 +74,24 @@ locale, altrimenti nulla si decifra.
 
 ## FATTO
 
+- **LA × DELLA CHAT PUBBLICA RIPORTA IL CLIENTE DA DOVE ERA VENUTO** (15/08/2026,
+  LIVE). Su `/chat/<codice>` la × dentro l'iframe mandava `deluxy-widget:chiudi`
+  alla pagina ospite, come sui siti — ma qui la pagina ospite siamo noi e non la
+  ascoltava nessuno: il cliente premeva e non succedeva niente.
+  `src/components/RitornoChatPubblica.tsx` (montato dalla pagina) ascolta il
+  messaggio (solo dalla nostra origine) e torna: **indietro nella storia** se
+  c'è una pagina prima; **sul sito del marchio** (`WidgetSito.dominio`) se la
+  scheda è nuova; altrimenti prova `window.close()`.
+  - ⚠️ «Scheda nuova» = una voce di storia, **oppure due senza referrer**:
+    about:blank + la chat, come quando la apre uno script o un lettore di QR.
+    Trovato provando: con `history.length` 2 l'indietro portava su una pagina
+    bianca.
+  - ⚠️ `history.back()` non promette di navigare: dopo averlo chiesto si aspetta
+    500 ms e, se non è arrivato `pagehide`, si va sul sito. Non si guarda
+    `document.hidden`: una scheda in secondo piano è ancora questa pagina.
+  - Verificato in produzione: da una scheda che veniva da `/login` la × torna
+    su `/login`; da una scheda nuova va su `deluxy.it`.
+
 - **L'ORDINE DELL'ARCHIVIO SI APRE, E LA TABELLA SI ORDINA** (15/08/2026, LIVE).
   In «Ordini globali» le righe dell'**Archivio storico** — gli ordini più vecchi
   dei 60 giorni che teniamo in casa — non facevano niente al clic: si cercava un
