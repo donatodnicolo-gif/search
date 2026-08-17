@@ -1,8 +1,94 @@
 # Handoff — Deluxy Orders
 
-Stato al **30/07/2026**. Aggiornare a ogni tappa (regole di lavoro Deluxy).
+Stato al **17/08/2026** (fotografia qui sotto; il corpo del documento è del
+30/07). Aggiornare a ogni tappa (regole di lavoro Deluxy).
 Serve a far ripartire una finestra nuova senza contesto: prima lo stato, poi le
 **trappole già pagate** — quelle valgono più dell'elenco delle funzioni.
+
+## FOTOGRAFIA AL 17/08/2026 — contata sul database, non ricordata
+
+**L'app è viva e la catena Shopify → Orders gira da sola.** `GET /api/v1/health`
+in produzione risponde `ok:true` in **0,33 s** da `fra1` con `ultimoImport`
+**17/08 09:15 UTC**; tutti e tre i negozi hanno `ultimaSync` in quello stesso
+minuto, quindi il cron dei 15 minuti lavora su tutti, non solo sul primo.
+Ultimo ordine entrato: **oggi alle 09:08**. **17 ordini nelle ultime 24 ore,
+112 negli ultimi 7 giorni.**
+
+**Il codice è fermo dal 03/08/2026** (`fad9b933`, verificato presente su
+`origin/scout-ui`): niente di non pushato, e in 14 giorni nessuno ha toccato
+Orders. Quindi **produzione = ultimo commit**, e tutti i punti aperti qui sotto
+sono ancora aperti.
+
+### I numeri (al 17/08, contro quelli del 30/07)
+
+| | 30/07 | 17/08 |
+| --- | --- | --- |
+| Ordini | 14.027 | **14.284** (deluxy.it 11.766 · Flowers 1.732 · cake 786) |
+| di cui annullati | — | 388 |
+| Ordini con costo fornitore | 371 (3%) | **371 (2,6%)** — fermo, mentre il totale cresce |
+| `TagCliente` (tipologie confermate a mano) | 0 | **0** |
+| Riepiloghi AI dei clienti | 3 | **3** |
+| Occasioni «da precisare» | — | **9.145 su 9.178 (99,6%)** |
+| Ordini senza città | 2.421 | 2.463 |
+| Ordini senza categoria | 607 | 611 |
+
+Venduto per mese (annullati e rimborsati esclusi, lordo Shopify): maggio
+**90.445 €** su 552 ordini · giugno **78.038 €** su 416 · luglio **97.731 €** su
+453 · agosto al 17 **42.033 €** su 231.
+
+### Cosa è cambiato davvero dal 30/07: le altre app hanno cominciato a leggere
+
+Sette chiavi API, cinque attive e **usate tutte stamattina**: `deluxy-marketing`
+(09:20), `deluxy-merchandising` (09:16), `deluxy-messaggi` (09:15),
+`deluxy-budgets` (08:43), `deluxy-partner-import` (05:30). Al 30/07 i lettori
+dichiarati erano tre: **Orders è diventato la fonte di verità di mezzo
+ecosistema**, e questo cambia il peso di ogni modifica alle API.
+
+Due chiavi da guardare, non da usare:
+- **`deluxy-anagrafiche` è attiva ma l'ultimo uso è il 01/08**: qualcosa che
+  leggeva ha smesso 16 giorni fa, e nessuno se n'è accorto.
+- **`commerciale` è attiva e non è mai stata usata** (`ultimoUso` null): una
+  chiave viva che non serve a niente è solo una porta in più.
+
+### Tre cose che il documento diceva e che oggi non sono più vere
+
+1. **La coda di riconciliazione non è 240, è 3.366.** Più sotto si legge che
+   `normalizzaControllo()` fa scendere la coda «vera» a 240; contati oggi, gli
+   ordini con `gestioneIncasso = 'riconciliazione'` sono **3.366** (2026: 2.151 ·
+   2025: 1.031 · 2024: 184). E **non è l'accumulo dei nuovi**: solo **168** sono
+   ordini successivi al 30/07, gli altri **3.198** sono più vecchi della
+   normalizzazione stessa. Cioè la normalizzazione ha coperto meno di quanto il
+   documento lasci credere. **Da ricontare prima di fidarsi del «240».**
+2. **L'estratto conto NON parte dal 01/01/2025.** Il punto aperto 3 giustifica la
+   copertura del 3% sui costi dicendo che sul più vecchio non c'è niente da
+   trovare. La tabella `MovimentoBanca` qui dentro ha **22.081 movimenti dal
+   23/11/2020 al 15/08/2026** (2020: 105 · 2021: 1.402 · 2022: 1.773 · 2023:
+   2.355 · 2024: 5.411 · 2025: 6.965 · 2026: 4.070). **Il vincolo dichiarato non
+   c'è più**: si può provare ad abbinare anche lo storico — resta da verificare
+   se quelle causali contengano numeri d'ordine, che è cosa diversa.
+3. **Il registro dei feedback non è più vuoto, ma quasi**: **1** feedback
+   importato dal Customer Service in tutto (era 0 al 26/07). La catena è
+   collegata, il contenuto no.
+
+### Costruito e mai usato (zero righe, non «poche»)
+
+`Script` 0 · `Automazione` 0 · `MessaggioAutomazione` 0 · `PrivacyCliente` 0 ·
+`LinkIncasso` 0 · `TagCliente` 0. Le sezioni Script, Automazioni, Privacy e
+«Fatti pagare» esistono, sono provate, e **nessuno le ha mai adoperate** — in
+parte per il permesso Shopify mancante (punto 1), in parte perché non sono
+entrate nel lavoro di nessuno.
+
+Stessa cosa sulla coda dei problemi: **90 rimborsi parziali, 0 gestiti**. La
+coda «da verificare» in cima agli Ordini non è mai stata lavorata.
+
+### L'AI: accesa, quasi mai usata
+
+Le occasioni lette dall'AI sono **41 su 9.178** (15 ricorrenza · 14 compleanno ·
+8 rimaste «da precisare» · 2 anniversario · 1 condoglianze · 1 nascita). I
+riepiloghi dei clienti sono **3**. Il motore funziona, il costo per chiamata è
+il motivo per cui si sceglie quanti farne: **è una decisione dell'utente, non un
+guasto**, ma finché resta così la dimensione «occasione» in Analisi non dice
+niente (99,6% «da precisare»).
 
 ## Cos'è
 Registro centralizzato degli ordini Shopify di tutti i brand Deluxy: la fonte di
