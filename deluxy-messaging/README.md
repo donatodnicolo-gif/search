@@ -416,6 +416,21 @@ aggiunge un `Messaggio` con dedup sull'id Meta. Gli aggiornamenti di stato Whats
 (`/{phoneNumberId}/messages`), Messenger e Instagram via `/me/messages` col Page Access
 Token. Il widget non ha invio esterno: il visitatore riceve col polling.
 
+**Chi se ne occupa.** Ogni conversazione può essere **presa in carico**: bottone «Me ne
+occupo io» nella testata, bollino sulla riga dell'elenco (oro se è di un collega, grigio
+se è tua) e linguette **Tutte / Mie / Libere**. Rispondere prende in carico da solo,
+**se la conversazione è libera**. Si libera solo la propria.
+
+⚠️ **Non è un lucchetto**: segnala, non blocca. Chi apre una conversazione presa da un
+collega vede un avviso sopra il riquadro di risposta e può rispondere lo stesso — in un
+servizio clienti un blocco vero si ritorce sul cliente, perché chi l'ha presa può essere
+a pranzo mentre il cliente aspetta. Se due persone la prendono nello stesso momento la
+seconda riceve un avviso, non un sorpasso silenzioso.
+
+⚠️ «**Libere**» è la linguetta che conta più di «Mie»: è dove stanno i clienti che
+rischiano di non ricevere risposta da **nessuno**, che è il guaio opposto alle risposte
+doppie.
+
 **Widget.** Snippet da incollare nel sito (mostrato in Impostazioni):
 `<script src="https://TUA-APP/widget.js" defer></script>`. Lo script crea il bottone
 flottante e apre un iframe su `/widget`; la sessione del visitatore è un token casuale

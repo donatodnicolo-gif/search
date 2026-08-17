@@ -79,6 +79,47 @@ locale, altrimenti nulla si decifra.
 
 ## FATTO
 
+- **LE CONVERSAZIONI SI PRENDONO IN CARICO** (17/08/2026, LIVE). Gli operatori
+  sono tre e l'inbox è una sola: *chi aveva fatto cosa* restava scritto
+  (`Messaggio.utenteNome`), ma nessuno *prendeva in carico*. Due persone
+  potevano rispondere allo stesso cliente nello stesso momento, e il cliente
+  riceveva **due risposte diverse dalla stessa azienda**.
+  - Campi `Conversazione.presaDaId` / `presaDaNome` / `presaIl`. Nel client:
+    bollino sulla riga (**oro** se è di un collega, **grigio** se è mia),
+    bottone «Me ne occupo io» nella testata del thread, linguette
+    **Tutte / Mie / Libere** coi conteggi.
+  - ⚠️⚠️ **NON È UN LUCCHETTO, ed è una scelta.** Prendere in carico **segnala,
+    non blocca**: in un servizio clienti un blocco vero si ritorce sul cliente
+    — chi ha preso la conversazione va a pranzo, il cliente aspetta, e chi
+    potrebbe rispondere trova la porta chiusa. **Il pezzo che serve davvero non
+    è il badge: è l'avviso fra chi scrive e il campo di risposta** («Se ne sta
+    occupando Federica — controlla prima che non l'abbia già fatto»). Il badge
+    nell'elenco lo leggi solo se lo guardi; l'avviso sta nell'unico punto in cui
+    è impossibile non vederlo.
+  - ⚠️⚠️ **L'aggiornamento è CONDIZIONATO** (`updateMany` con
+    `presaDaId: { in: ['', io] }`). Con un `update` secco due operatori che
+    premono nello stesso secondo leggerebbero **entrambi il proprio nome** e
+    risponderebbero insieme: esattamente il guaio che la funzione esiste per
+    evitare. Il secondo riceve **409** e la conferma «se ne sta già occupando
+    X, vuoi prenderla comunque tu?».
+  - ⚠️ **Rispondere prende in carico da solo, ma solo se è libera.** Chiedere un
+    secondo clic vuol dire che nove volte su dieci non lo si fa. Ma se ce l'ha
+    già un altro **non gliela si porta via di soppiatto**: sparirebbe dal suo
+    elenco «Mie» un cliente che pensa di seguire.
+  - ⚠️ **Si libera solo la propria**: liberare quella di un collega con un clic
+    è togliergli il cliente da sotto le mani senza che se ne accorga. Per
+    prenderla davvero c'è la conferma, che almeno è un gesto dichiarato.
+  - ⚠️ Il **ritorno indietro** dell'aggiornamento ottimistico è obbligatorio,
+    per la regola imparata poche ore prima col widget (qui sotto): un'interfaccia
+    che non sa disfare mostrerebbe il proprio nome su una conversazione che il
+    server ha assegnato a un altro.
+  - ⚠️ **RESA A SCHERMO NON VERIFICATA da chi ha scritto il codice**: servono le
+    credenziali di un account, e su questo database **condiviso** non se ne
+    creano di prova (la regola vale ancora, vedi in fondo). Verificati
+    `npx tsc --noEmit`, `npm run build` e che `prisma db push` sia **additivo**
+    (nessun `--accept-data-loss`). Chi riprende: la prima cosa da guardare è
+    l'inbox con due account diversi aperti insieme.
+
 - **⚠️⚠️ LA CHAT DEI SITI BUTTAVA VIA OGNI MESSAGGIO DEI VISITATORI** (17/08/2026,
   LIVE). Dal **30/07 al 17/08** chi scriveva dal widget di un sito non è mai
   stato letto da nessuno: **18 conversazioni, tutte con zero messaggi**.
@@ -2203,9 +2244,10 @@ Da fare, in ordine di utilità:
 - **Promemoria da spingere su Deluxy Tasks** (porta 3090, API a chiave): oggi le
   `Attivita` della dashboard restano qui, e sono un secondo registro.
 - Allegati su **email, Messenger, Instagram** (su WhatsApp ci sono, nei due versi).
-- **Assegnazione** delle conversazioni a una persona e notifiche push: chi ha fatto cosa
-  *resta scritto*, ma nessuno *prende in carico* — due operatori possono ancora rispondere
-  allo stesso cliente insieme. Ora che gli operatori sono tre, non è più teorico.
+- **Notifiche push** quando arriva un messaggio su una conversazione **mia**: l'avviso del
+  browser oggi suona per tutto quello che entra, uguale per i tre operatori. Ora che la
+  presa in carico esiste (17/08, sopra), il filtro naturale c'è — manca solo usarlo.
+  ~~Assegnazione delle conversazioni~~ → **fatta il 17/08/2026**.
 - **Il widget non sa chi sta scrivendo**: nessun campo nome/email prima del primo
   messaggio, quindi le 14 conversazioni dei siti non si agganciano né al cliente né
   all'ordine.
