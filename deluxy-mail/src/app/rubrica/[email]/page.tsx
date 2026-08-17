@@ -4,8 +4,7 @@ import { notFound } from 'next/navigation'
 import { db } from '@/lib/db'
 import { coloreDiPriorita, dataBreve, FUSO } from '@/lib/format'
 import { iniziali } from '@/lib/contatti'
-import { PrioritaButtons } from '@/components/PrioritaButtons'
-import { RispostaAzioni } from '@/components/RispostaAzioni'
+import { MessaggiContatto } from '@/components/MessaggiContatto'
 import { BottoneAI } from '@/components/BottoneAI'
 import { BottoneContattoAI } from '@/components/BottoneContattoAI'
 import { CheckAttivita } from '@/components/CheckAttivita'
@@ -185,63 +184,24 @@ export default async function Contatto({ params }: Props) {
       )}
 
       <h2 className="section-title">Tutti i messaggi</h2>
-      <div className="card tight">
-        <div className="mail-list">
-          {messaggi.map((m) => (
-            <div key={m.id} className={`mail-row ${m.letto ? '' : 'non-letto'}`}>
-              <div className="mail-row-head">
-                <Link href={`/messaggio/${m.id}`} className="mail-row-link">
-                <div className="mail-top">
-                  <span className={m.letto ? 'dot-spacer' : 'dot-unread'} />
-                  <span className="mail-mittente">{m.oggetto}</span>
-                </div>
-
-                <div className="mail-riassunto" style={{ paddingLeft: 17 }}>
-                  {m.riassunto ? (
-                    <>
-                      <span className="ai-mark">AI</span>
-                      <span>{m.riassunto}</span>
-                    </>
-                  ) : (
-                    <span className="muted">{ripulisciAnteprima(m.anteprima)}</span>
-                  )}
-                </div>
-
-                {(m.sezione || m.archiviato || m._count.attivita > 0 || m.bozze.length > 0) && (
-                  <div className="mail-tags" style={{ paddingLeft: 17 }}>
-                    {m.sezione && (
-                      <span className={`badge ${m.sezione.colore}`}>
-                        <span className="dot" />
-                        {m.sezione.nome}
-                      </span>
-                    )}
-                    {m.archiviato && <span className="badge neutral">archiviato</span>}
-                    {m._count.attivita > 0 && (
-                      <span className="badge neutral">{m._count.attivita} attività</span>
-                    )}
-                    {m.bozze.length > 0 && <span className="badge gold">Bozza pronta</span>}
-                  </div>
-                )}
-                </Link>
-
-                <div className="mail-row-side">
-                  <span className="mail-data">{dataBreve(m.data)}</span>
-                  <RispostaAzioni id={m.id} />
-                </div>
-              </div>
-
-              <div style={{ paddingLeft: 17 }}>
-                <PrioritaButtons
-                  id={m.id}
-                  priorita={m.priorita}
-                  prioritaDa={m.prioritaDa}
-                  analizzato={m.analizzatoIl !== null}
-                />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+      <MessaggiContatto
+        messaggi={messaggi.map((m) => ({
+          id: m.id,
+          oggetto: m.oggetto,
+          letto: m.letto,
+          riassunto: m.riassunto,
+          anteprima: ripulisciAnteprima(m.anteprima),
+          data: m.data.toISOString(),
+          dataBreve: dataBreve(m.data),
+          sezione: m.sezione ? { nome: m.sezione.nome, colore: m.sezione.colore } : null,
+          archiviato: m.archiviato,
+          attivita: m._count.attivita,
+          bozze: m.bozze.length,
+          priorita: m.priorita,
+          prioritaDa: m.prioritaDa,
+          analizzato: m.analizzatoIl !== null,
+        }))}
+      />
     </>
   )
 }

@@ -2725,6 +2725,39 @@ export async function agganciaAlThread(
 }
 
 /**
+ * Unisce PIÙ mail (selezione multipla) in un'unica conversazione: si dà a
+ * tutte lo stesso `threadManuale`, così l'AI le legge insieme e in elenco
+ * compaiono come un solo thread. Ogni mail scelta trascina la sua
+ * conversazione (unire una mail = unire il suo scambio). Se qualcuna è già in
+ * un thread manuale, si riusa quel codice invece di crearne uno nuovo.
+ */
+export async function uniciInThread(ids: string[]): Promise<{ ok: boolean; messaggio: string }> {
+  const utenteId = await uid()
+  const puliti = [...new Set(ids)].filter(Boolean)
+  if (puliti.length < 2) return { ok: false, messaggio: 'Scegli almeno due mail da unire.' }
+
+  // Ogni mail scelta porta con sé la sua conversazione.
+  const espansi = new Set<string>(puliti)
+  for (const id of puliti) for (const x of await idsThread(utenteId, id)) espansi.add(x)
+  const tutti = [...espansi]
+
+  // Riusa un codice già esistente fra le scelte, o ne crea uno nuovo.
+  const conCodice = await db.messaggio.findFirst({
+    where: { utenteId, id: { in: tutti }, threadManuale: { not: null } },
+    select: { threadManuale: true },
+  })
+  const codice = conCodice?.threadManuale || randomBytes(12).toString('base64url')
+
+  const r = await db.messaggio.updateMany({
+    where: { utenteId, id: { in: tutti } },
+    // Unendo si annulla anche un eventuale «scollegato» precedente (scelta opposta).
+    data: { threadManuale: codice, scollegato: false },
+  })
+  revalidatePath('/', 'layout')
+  return { ok: true, messaggio: `${r.count} mail unite in una conversazione: ora l’AI le legge insieme.` }
+}
+
+/**
  * Sgancia UNA mail dalla conversazione. La isola davvero: toglie l'aggancio
  * manuale E la marca come "scollegata", così non si riunisce nemmeno per la
  * catena di risposte o l'oggetto in comune (che l'avevano trascinata nel thread
