@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { sitoDaCodice } from '@/lib/widget-siti'
+import { RitornoChatPubblica } from '@/components/RitornoChatPubblica'
 
 export const dynamic = 'force-dynamic'
 
@@ -63,6 +64,10 @@ export default async function PaginaChatPubblica({ params }: Props) {
 
   return (
     <main className="chat-piena">
+      {/* La × dentro la chat manda «chiudi» alla pagina ospite: sui siti la
+          ascolta widget.js, qui la ascoltiamo noi e riportiamo il cliente da
+          dove era venuto (indietro nella storia, o sul sito del marchio). */}
+      <RitornoChatPubblica dominio={sito.dominio || ''} />
       <div className="chat-piena-cornice">
         <iframe
           src={`/widget?${parametri.toString()}`}
