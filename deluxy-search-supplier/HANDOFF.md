@@ -22,13 +22,22 @@ solo dove siamo e come si lavora.
   `deluxy-platform-next/.claude/`. In locale le `/api/*` puntano alla produzione
   (`API_BASE` in index.html); la lock screen si aggira da console nascondendo `#lockScreen`.
 - Verifica sempre su https://search-deluxy.vercel.app dopo il push (`curl | grep <marker>`).
-- ⚠️ **«Push su main = deploy» non è garantito: controllalo** (visto il 17/08 sera). Due push su
-  `main` (81f0a9a1, 87894b39) **non hanno generato alcun deployment**: l'ultima Production
-  restava quella di e0d56ea8, mentre i push di altre sessioni su `scout-ui` continuavano a
-  produrre Preview regolarmente (quindi GitHub→Vercel funzionava). Come si controlla:
-  `npx vercel list search-deluxy --scope deluxy` → guarda la riga **Production** e la sua età;
-  `npx vercel inspect <url> --scope deluxy` dice `target` e il branch (dagli alias). Non fidarsi
-  del `Last-Modified` di `/index.html`: su una MISS è l'ora della cache, non quella del deploy.
+- ⚠️ **«Deploy in ~1 minuto» non è garantito: il 17/08 sera la coda ha messo ~30 minuti.**
+  Il push delle 16:07 è diventato Production alle 16:31, quello delle 16:14 alle 16:48. Per
+  mezz'ora sembrava che il deploy non fosse partito affatto (nessun deployment in elenco per
+  `main`, mentre i push di altre sessioni su `scout-ui` producevano Preview regolarmente).
+  **Non concludere «il deploy non parte» dopo pochi minuti**: aspetta e ricontrolla.
+  Come si controlla davvero: `npx vercel list search-deluxy --scope deluxy` → riga **Production**
+  e la sua età; `npx vercel inspect <url> --scope deluxy` dice `target` e, dagli alias, il branch
+  (`…-git-main-…` = main). Due cose che NON sono prove: il `Last-Modified` di `/index.html` (su
+  una MISS è l'ora della cache) e il contenuto dell'URL del deployment (le URL di deployment
+  hanno la protezione Vercel e rispondono con la pagina di login, ~480 KB, non con l'app).
+  Se serve pubblicare a mano: `vercel link --project search-deluxy --scope deluxy` **dalla radice
+  del worktree** (non dalla cartella dell'app: la Root Directory del progetto è già
+  `deluxy-search-supplier` e verrebbe applicata due volte) → `vercel deploy` per una Preview da
+  verificare → `vercel promote <url>`. Il link crea `.vercel/` e `.env.local` (ignorati da git):
+  cancellali dopo. Il 17/08 il deploy CLI è rimasto appeso ~20 minuti senza output e non è
+  servito: ha fatto prima la coda del webhook.
 - ⚠️ **Per sapere se «live == main» confronta l'HTML, non gli SHA**: `main` è anche il branch di
   altre app del repo, quindi ci sono deploy di produzione nuovi anche senza modifiche qui.
   Su Windows/PowerShell 5.1 **non usare `Get-Content -Raw`** per il confronto: legge l'UTF-8
@@ -454,7 +463,9 @@ non si vedono dati reali né si può diagnosticare «La Mimosa»).
    lancia → si tiene la 1ª pagina; `nextPage()` muto → la rete di sicurezza sblocca), select
    dell'impostazione letto/scritto correttamente per tutti i valori (compresi vuoto e testo
    spazzatura → 3), pagina caricata sulla 5511 senza errori in console.
-   **Non collaudato su Google vero** (serve chiave + login): da guardare in produzione
+   **In produzione dalle 16:48 del 17/08** (HTML live identico a `index.html` di main, marker
+   `cfg_pagine`/`pagineRicerca`/`PAGINA_ATTESA_MS`/`hasNextPage` presenti, API ancora 401 senza
+   chiave). **Non collaudato su Google vero** (serve chiave + login): da guardare in produzione
    sull'ordine deluxyflowers #2734 se «La Mimosa» ora compare.
 
 ## Cose in sospeso
