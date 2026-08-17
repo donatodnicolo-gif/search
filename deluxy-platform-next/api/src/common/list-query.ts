@@ -75,9 +75,9 @@ export function paginate(query: ListQueryDto): { skip: number; take: number; pag
  * Supporta i campi annidati con la notazione "relazione.campo"
  * (es. "partner.insegna" -> { partner: { insegna: { contains } } }).
  *
- * NOTA SQLite (dev): `contains` diventa LIKE, che e' gia' case-insensitive
- * sull'ASCII. Su PostgreSQL (produzione) LIKE e' case-sensitive: la',
- * per lo stesso comportamento, serve `mode: 'insensitive'`.
+ * Il DB e' PostgreSQL (dev e produzione) e li' LIKE e' case-sensitive:
+ * serve quindi `mode: 'insensitive'` su ogni foglia, altrimenti cercare
+ * "rossi" non trova "Rossi".
  */
 export function textSearch(q: string | undefined, fields: string[]): Record<string, unknown> | undefined {
   const term = (q ?? '').trim();
@@ -86,7 +86,7 @@ export function textSearch(q: string | undefined, fields: string[]): Record<stri
     OR: fields.map((field) => {
       const parts = field.split('.');
       // Costruisce l'oggetto annidato partendo dalla foglia
-      let node: Record<string, unknown> = { contains: term };
+      let node: Record<string, unknown> = { contains: term, mode: 'insensitive' };
       for (let i = parts.length - 1; i >= 0; i--) {
         node = { [parts[i]]: node };
       }

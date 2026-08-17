@@ -3,9 +3,60 @@
 > Documento vivo per riprendere il lavoro da una finestra nuova **senza contesto pregresso**.
 > Va aggiornato a ogni tappa e prima di fermarsi (vedi [REGOLE-DI-LAVORO.md](REGOLE-DI-LAVORO.md)).
 
-**Ultimo aggiornamento:** 18 luglio 2026
-**Branch:** `deluxy-scout` · **Remote:** `origin` = https://github.com/donatodnicolo-gif/search.git
+**Ultimo aggiornamento:** 17 agosto 2026
+**Branch di produzione:** `main` · **Remote:** `origin` = https://github.com/donatodnicolo-gif/search.git
 **Working dir:** `C:\Users\nicol\app\deluxy-platform-next`
+
+## 🔴 STATO PRODUZIONE — 17/08/2026: l'app è GIÙ (dal 26/07)
+
+`https://deluxy-delivery.vercel.app` — il **frontend si apre** (root 200, si vede la pagina di login),
+ma **ogni chiamata `/api/v1/*` risponde 500 `FUNCTION_INVOCATION_FAILED`**: login, `/settings/public`,
+`/provinces`… l'app è quindi **inutilizzabile**.
+
+Causa accertata sui log runtime di Vercel (`vercel logs https://deluxy-delivery.vercel.app`):
+
+```
+PrismaClientInitializationError: Authentication failed against database server,
+the provided database credentials for `postgres` are not valid.   (errorCode: P1000)
+  at Proxy.onModuleInit (api/src/prisma/prisma.service.js)
+```
+
+Nest muore all'avvio del modulo Prisma → la funzione serverless crolla su **qualsiasi** rotta.
+
+- Su Vercel (progetto **`delivery`**, team `deluxy`) `DATABASE_URL` risale a **26 giorni fa (22/07)** e
+  non è più stata toccata: è la password vecchia. L'utente ha cambiato le credenziali del database il
+  26/07 senza riportarle qui (vedi cluster Postgres condiviso: la stessa password serve a tutte le app).
+- **Non basta il redeploy**: l'ultimo deploy di produzione è di **7 giorni fa (10/08), status Ready**, e
+  crolla lo stesso. La env è proprio sbagliata, non solo "non ancora applicata".
+- Il messaggio dice utente **`postgres`** (non `postgres.<ref>`) → la stringa salvata è la **diretta 5432**,
+  non il **pooler 6543**: sul runtime serverless va usato il pooler.
+- Mancano anche `DIRECT_URL` (serve a `prisma migrate deploy`) e `ANAGRAFICHE_API_KEY`
+  (import/sync partner restano quindi a vuoto). Presenti solo: `DATABASE_URL`, `JWT_SECRET`,
+  `JWT_EXPIRES_IN`, `VAPID_*`.
+
+**Rimedio (palla all'utente — richiede il segreto, non ricavabile dalla sessione):**
+
+```bash
+npx vercel env rm DATABASE_URL production --scope deluxy --project delivery --yes
+npx vercel env add DATABASE_URL production --scope deluxy --project delivery --value "postgresql://postgres.<ref>:<password>@aws-0-eu-central-1.pooler.supabase.com:6543/postgres?pgbouncer=true"
+npx vercel deploy --prod --yes
+```
+
+⚠️ Usare `--value` e **non** lo stdin: da stdin Vercel ci infila un a-capo e il segreto smette di combaciare.
+Aggiungere nello stesso giro `DIRECT_URL` (porta 5432) e `ANAGRAFICHE_API_KEY`.
+
+⚠️ Nota di sicurezza tuttora aperta: la produzione è stata popolata col **seed**, quindi le credenziali
+demo di `api/prisma/seed.ts` (`admin@deluxy.it / Deluxy2026!`) funzionano davvero appena il DB torna su:
+**vanno cambiate** appena l'app si riaccende.
+
+### 17/08/2026 — Ricerca globale di nuovo case-insensitive (era il punto 10)
+
+- `api/src/common/list-query.ts`, `textSearch()`: ogni foglia `contains` ora ha **`mode: 'insensitive'`**.
+  Da quando il DB è PostgreSQL (20/07) `LIKE` è case-sensitive → cercare `rossi` non trovava `Rossi`
+  in **nessuna** lista (consegne, prodotti, clienti). Unico punto in cui il repo costruisce `contains`.
+- ⚠️ **Verificato solo con `npm run build` pulito**: in questa sessione non c'è un DB (il `DATABASE_URL`
+  locale non è nemmeno un URL Postgres → `prisma migrate status` dà P1012) e la produzione è giù.
+  **Da riprovare a runtime** appena il database torna raggiungibile.
 
 > ℹ️ **17/07: `platform-delivery-slots` è stato fuso in `deluxy-scout`** (questa cartella). Il worktree `.claude/worktrees/platform-slots` (porte 3000/4200) era l'ambiente isolato di quel lavoro: se la sessione lì è ancora attiva, deve ripartire da `deluxy-scout` aggiornato per non divergere di nuovo.
 
@@ -302,8 +353,11 @@ Feedback "in app.deluxy.it ci sono cose che non hai considerato". Confrontata la
    - **Manca**: eseguirlo contro la **produzione** (dipende dal punto 0), più province e tipi di
      servizio, che esistono **solo** nel legacy app.deluxy.it (punto 1).
 
-0. **[IN CORSO — 20/07] Deploy su Vercel** (branch `worktree-vercel-deploy`). **Fatto:** provider Prisma `sqlite` → `postgresql` con `binaryTargets` per il runtime Vercel; le 32 migrazioni SQLite sostituite da **una baseline** `00000000000000_init_postgres` (41 tabelle, 24 indici, 54 FK) generata con `prisma migrate diff`; handler serverless `api/src/vercel.ts` (bootstrap Nest cachato, niente `listen`/CORS/static); `vercel.json` (progetto unico: web su `/`, API su `/api/*` → **niente CORS**); `environment.prod.ts` + `fileReplacements`; `.env.example` e docker-compose allineati. Build API e web verdi, bundle prod senza `localhost`.
-   **[BLOCCATO — palla all'utente]** (a) creare il progetto **Supabase** e passare `DATABASE_URL` (pooler 6543 per il runtime, diretta 5432 per `migrate deploy`); (b) collegare il repo a **Vercel** (Root Directory = `deluxy-platform-next`) e impostare le env. Senza (a) non si puo' ne' migrare ne' seedare il DB remoto.
+0. **[FATTO il 23/07, ma 🔴 IN AVARIA dal 26/07 — vedi «STATO PRODUZIONE» in cima] Deploy su Vercel.**
+   L'app **è** in produzione su `https://deluxy-delivery.vercel.app` (progetto Vercel `delivery`,
+   Root Directory `deluxy-platform-next`, branch **`main`**), ma le API sono giù per credenziali DB
+   scadute. Storia originale del lavoro di deploy (branch `worktree-vercel-deploy`). **Fatto:** provider Prisma `sqlite` → `postgresql` con `binaryTargets` per il runtime Vercel; le 32 migrazioni SQLite sostituite da **una baseline** `00000000000000_init_postgres` (41 tabelle, 24 indici, 54 FK) generata con `prisma migrate diff`; handler serverless `api/src/vercel.ts` (bootstrap Nest cachato, niente `listen`/CORS/static); `vercel.json` (progetto unico: web su `/`, API su `/api/*` → **niente CORS**); `environment.prod.ts` + `fileReplacements`; `.env.example` e docker-compose allineati. Build API e web verdi, bundle prod senza `localhost`.
+   ~~**[BLOCCATO]** creare il progetto Supabase, collegare il repo a Vercel~~ → **fatto il 23/07**: il DB è sul cluster Supabase condiviso con le altre app Deluxy, il progetto Vercel è `delivery`. Resta aperto solo il **rinnovo delle credenziali** (in cima).
    ⚠️ **Non ancora risolto — le ricevute si rompono su serverless**: `api/src/receipts/receipts.module.ts` salva con `diskStorage` in `uploads/receipts/` e `main.ts` le serve da `/uploads`. Su Vercel il filesystem e' **effimero**: i file caricati spariscono al primo redeploy. Vanno spostati su **Supabase Storage** prima di considerare il deploy completo. L'handler `vercel.ts` non monta `useStaticAssets` proprio per non dare l'illusione che funzioni.
    ⚠️ **Cold start**: NestJS + Prisma su serverless paga ~1-3s a funzione fredda. Accettabile per staging; se questa diventa produzione, valutare un host container (Railway/Render) per l'API tenendo il web su Vercel.
 
@@ -322,7 +376,7 @@ Feedback "in app.deluxy.it ci sono cose che non hai considerato". Confrontata la
    - **Client-side** (`web/src/app/core/client-table.ts`): **Partner, Valet, Categorie, Servizi, Operatori** — liste piccole (≤243) usate soprattutto come tendine nei form: la conversione server-side avrebbe rotto ~14 punti di chiamata senza dare valore. Queste API restano array.
    - ⚠️ **Regola per il futuro**: se una lista cresce, spostarla su server-side e aggiornare **tutti** i consumatori (leggere `.items`, passare `pageSize=500` per le tendine).
 9-bis. **Tendina "Cliente esistente" nel form consegna**: carica `pageSize=500`, ma in produzione i clienti sono **4.092** → la tendina è **parziale**. Va sostituita con una **ricerca mentre si scrive** (usa `GET /customers?q=`). Stesso discorso, meno urgente, per i prodotti nel form consegna (8.503, `pageSize=500`).
-10. **🔴 ATTIVO dal 20/07 — Ricerca case-insensitive su PostgreSQL**: non è più un rischio futuro, il DB **è** Postgres anche in dev. `LIKE` su Postgres è case-sensitive → aggiungere `mode: 'insensitive'` in `textSearch()` (`api/src/common/list-query.ts`), altrimenti **la ricerca globale è già oggi rotta** rispetto a com'era su SQLite.
+10. ~~**Ricerca case-insensitive su PostgreSQL**~~ → **FATTO il 17/08**: `mode: 'insensitive'` aggiunto in `textSearch()` (`api/src/common/list-query.ts`). Build pulita, **runtime da riverificare** (nessun DB in sessione).
 11. **Image manager Shopify e descrizione per piattaforma**: la parte dati/form c'è (URL multipli + descrizione per piattaforma); manca l'**upload/sincronizzazione reale su Shopify** (stub).
 12. **`trackingToken` senza vincolo unique** — **ora è banale da fare** (20/07): l'ostacolo era il rebuild tabella di SQLite, che non esiste più. Basta `@unique` nello schema + una migrazione. Non l'ho fatto nel lavoro Vercel per non allargarne il perimetro: è un cambio di schema a sé.
 7. **Rifiniture**: nel form valet rendere Telefono/Indirizzo obbligatori e CF sempre richiesto (come app reale).
@@ -333,10 +387,11 @@ Feedback "in app.deluxy.it ci sono cose che non hai considerato". Confrontata la
 
 - ⚠️ **Una sola sessione Claude per questa cartella** (regola 4): due sessioni sulla stessa working dir si sovrascrivono branch e lavoro non committato. Se serve lavorare in parallelo, usare un **git worktree** isolato (cartella + branch dedicati).
 - **Porte alternative per sessioni parallele**: se 3000/4200 sono occupate da un'altra sessione, avviare l'API con `PORT=3010` e `CORS_ORIGINS=http://localhost:4200,http://localhost:4210`, e il web con `npx ng serve --port 4210`. `environment.ts` capisce da solo la porta: web su 4210 → API su 3010.
-- **Push pre-autorizzato** (utente, 15/07: "si sempre"): dopo ogni commit, pushare su `origin/deluxy-scout` **senza chiedere conferma ogni volta** (menzionarlo soltanto). Restano da confermare: deploy, invii, cancellazioni.
+- **Push e deploy pre-autorizzati** (utente, 15/07 "si sempre"; poi anche il deploy): dopo ogni commit pushare **senza chiedere conferma** (menzionarlo soltanto). Il deploy di produzione si fa con `npx vercel deploy --prod --yes`. Restano da confermare: invii e cancellazioni.
 - **Regola d'oro UI**: ogni form/schermata va **verificato campo-per-campo contro l'app reale** app.deluxy.it (sessione admin) prima di dirlo finito; integrare le scoperte nel manuale; se un campo ha semantica dubbia, **chiedere all'utente**.
 - Token demo a scadenza breve: durante i test la sessione web può saltare — rifare login.
 - Le migrazioni Prisma vanno create con l'API server **fermo** (lock del query engine su Windows): `preview_stop` o chiudere `npm run dev:api`, poi `npx prisma migrate dev --name ...`.
 - Dopo ogni modifica al `.md`: `npm run doc:word` per rigenerare il Word, e committarlo.
-- Tutto il lavoro piattaforma è di nuovo consolidato su **`deluxy-scout`** (merge di `platform-delivery-slots` il 17/07). Consolidamento finale su `main` via PR quando deciso.
-- ⚠️ **Push in sospeso**: i commit del 17/07 su `deluxy-scout` (`0ea2d28`, `e8c7896`, merge `1000ded`, `8859a35`, merge `eb627c6` + doc) sono solo locali — pushare `deluxy-scout` appena possibile (il push automatico era bloccato dai permessi della sessione). Entrambe le fusioni includono anche i 4 commit del worktree **mai pushati** su `origin/platform-delivery-slots` (ricerca globale consegne, filtri tutte le liste, archivio+viste rapide prodotti, partner di provenienza clienti).
+- ⚠️ **La produzione nasce da `main`** (non più da `deluxy-scout`): Vercel builda il branch `main` del repo `C:\Users\nicol\app`. Ogni modifica alla piattaforma va portata **lì**, altrimenti non va mai online. Ultimo commit della cartella su `main`: `36681f8f` (22/07).
+- ⚠️ **Non ripescare copie vecchie**: `C:\Users\nicol\scoutwt\deluxy-platform-next` è un repo diverso e obsoleto (fermo al 19/07, senza `vercel.json`). La versione buona è quella su `main`.
+- I push di branch di lavoro creano **deploy Preview** anche sul progetto `delivery` (il repo è collegato a tutti i progetti Vercel Deluxy): le Preview in stato *Error* sono attese e non toccano la produzione.
