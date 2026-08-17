@@ -18,6 +18,7 @@ import {
 } from "@/lib/transazioni-actions";
 import { qontoConfigurato } from "@/lib/qonto";
 import { BottoneSincronizzaQonto } from "@/components/BottoneSincronizzaQonto";
+import { AzioneTransazione } from "@/components/AzioneTransazione";
 
 export const dynamic = "force-dynamic";
 
@@ -358,26 +359,33 @@ export default async function TransazioniPage({
                           </>
                         )}
                       </td>
-                      <td style={{ whiteSpace: "nowrap" }}>
-                        <span style={{ display: "inline-flex", gap: 6 }}>
+                      <td>
+                        <span style={{ display: "inline-flex", gap: 6, alignItems: "flex-start" }}>
                           {sugg.tipo === "fattura" && (
-                            <form action={registraTransazioneFattura.bind(null, tx.id, sugg.fattura.id)}>
-                              <button className="btn small primary" type="submit">Salda fattura</button>
-                            </form>
+                            <AzioneTransazione
+                              azione={registraTransazioneFattura.bind(null, tx.id, sugg.fattura.id)}
+                              etichetta="Salda fattura"
+                              title={`Segna incassata la fattura ${sugg.fattura.numero ?? "s.n."} con la data del movimento`}
+                            />
                           )}
                           {sugg.tipo === "incasso_partner" && (
-                            <form action={registraTransazionePagamento.bind(null, tx.id, sugg.partner.id, null)}>
-                              <button className="btn small primary" type="submit">Registra incasso</button>
-                            </form>
+                            <AzioneTransazione
+                              azione={registraTransazionePagamento.bind(null, tx.id, sugg.partner.id, null)}
+                              etichetta="Registra incasso"
+                            />
                           )}
                           {sugg.tipo === "bonifico_partner" && (
-                            <form action={registraTransazionePagamento.bind(null, tx.id, sugg.partner.id, sugg.mesePagamento)}>
-                              <button className="btn small primary" type="submit">Registra bonifico</button>
-                            </form>
+                            <AzioneTransazione
+                              azione={registraTransazionePagamento.bind(null, tx.id, sugg.partner.id, sugg.mesePagamento)}
+                              etichetta="Registra bonifico"
+                            />
                           )}
-                          <form action={ignoraTransazione.bind(null, tx.id)}>
-                            <button className="btn small secondary" type="submit">Ignora</button>
-                          </form>
+                          <AzioneTransazione
+                            azione={ignoraTransazione.bind(null, tx.id)}
+                            etichetta="Ignora"
+                            inCorso="…"
+                            variante="secondary"
+                          />
                         </span>
                       </td>
                     </tr>
@@ -410,18 +418,22 @@ export default async function TransazioniPage({
                           </>
                         )}
                       </td>
-                      <td style={{ whiteSpace: "nowrap" }}>
-                        <span style={{ display: "inline-flex", gap: 6 }}>
+                      <td>
+                        <span style={{ display: "inline-flex", gap: 6, alignItems: "flex-start" }}>
                           {sugg.tipo === "discrepanza" && (
                             <>
-                              <form action={registraTransazionePagamento.bind(null, tx.id, sugg.partner.id, null)}>
-                                <button className="btn small secondary" type="submit" title="Registra comunque il movimento sul partner, sul mese della transazione">
-                                  Registra comunque
-                                </button>
-                              </form>
-                              <form action={ignoraTransazione.bind(null, tx.id)}>
-                                <button className="btn small secondary" type="submit">Ignora</button>
-                              </form>
+                              <AzioneTransazione
+                                azione={registraTransazionePagamento.bind(null, tx.id, sugg.partner.id, null)}
+                                etichetta="Registra comunque"
+                                variante="secondary"
+                                title="Registra comunque il movimento sul partner, sul mese della transazione"
+                              />
+                              <AzioneTransazione
+                                azione={ignoraTransazione.bind(null, tx.id)}
+                                etichetta="Ignora"
+                                inCorso="…"
+                                variante="secondary"
+                              />
                             </>
                           )}
                         </span>
@@ -466,10 +478,13 @@ export default async function TransazioniPage({
                           </button>
                         </form>
                       </td>
-                      <td style={{ whiteSpace: "nowrap" }}>
-                        <form action={ignoraTransazione.bind(null, tx.id)}>
-                          <button className="btn small secondary" type="submit">Ignora</button>
-                        </form>
+                      <td>
+                        <AzioneTransazione
+                          azione={ignoraTransazione.bind(null, tx.id)}
+                          etichetta="Ignora"
+                          inCorso="…"
+                          variante="secondary"
+                        />
                       </td>
                     </tr>
                   ))}

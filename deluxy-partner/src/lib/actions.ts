@@ -289,9 +289,25 @@ async function stornaIncassoAuto(f: { partnerId: string; anno: number; mese: num
 // cache delle pagine). Ogni altra funzione che deve segnare pagata una fattura
 // (riconciliazione bancaria, modifica dalla scheda) DEVE chiamare questa, non
 // scrivere il flag a mano: è così che nascono le sezioni disallineate.
-export async function segnaFatturaPagata(id: string, pagata: boolean, dataPagamento?: string | Date) {
+// Versione usata dai `<form action={…}>`: una server action passata a un form
+// deve tornare `void`. È un involucro di una riga sopra la funzione vera qui
+// sotto — il punto unico di verità resta uno solo.
+export async function segnaFatturaPagata(id: string, pagata: boolean, dataPagamento?: string | Date): Promise<void> {
+  await segnaFatturaPagataConEsito(id, pagata, dataPagamento);
+}
+
+// Ritorna com'è andato l'allineamento a Fatture in Cloud: `true` allineata,
+// `false` NON allineata (FIC lento, scollegato o numero non trovato), `null` se
+// non c'era niente da allineare. Prima l'informazione si perdeva: la fattura
+// risultava saldata qui e «da incassare» su FIC senza che nessuno lo sapesse.
+// Chi chiama (oggi la riconciliazione bancaria) può dirlo a schermo.
+export async function segnaFatturaPagataConEsito(
+  id: string,
+  pagata: boolean,
+  dataPagamento?: string | Date
+): Promise<{ ficAllineata: boolean | null }> {
   const prima = await prisma.fatturaServizio.findUnique({ where: { id }, include: { partner: true } });
-  if (!prima) return;
+  if (!prima) return { ficAllineata: null };
   // storna un eventuale incasso auto precedente (cambio stato pulito)
   await stornaIncassoAuto(prima);
 
@@ -339,13 +355,16 @@ export async function segnaFatturaPagata(id: string, pagata: boolean, dataPagame
   } else {
     await rimuoviPagamento("fattura_servizi", f.id);
   }
-  // stesso stato anche su Fatture in Cloud (se la fattura è stata emessa lì)
-  await ficAllineaStatoFattura(f.numero, pagata, { anno: f.anno, data: dp });
+  // stesso stato anche su Fatture in Cloud (se la fattura è stata emessa lì).
+  // Ha un tetto di tempo: qui dentro c'è già tutto il lavoro contabile, e non
+  // deve essere una chiamata di rete a farlo scadere.
+  const ficAllineata = f.numero ? await ficAllineaStatoFattura(f.numero, pagata, { anno: f.anno, data: dp }) : null;
   await registra({
     azione: `Fattura ${f.numero ?? "s.n."} ${pagata ? "segnata saldata" : "riaperta (da incassare)"}${pagata ? ` (${euro(ivato(f))})` : ""}`,
     categoria: "fatture", entita: "fattura", entitaId: f.id, partner: f.partner.nome,
   });
   revalidateAll();
+  return { ficAllineata };
 }
 
 // «Compensata» = quell'importo NON arriva in banca: resta un credito verso il

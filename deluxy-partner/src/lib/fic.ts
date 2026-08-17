@@ -901,6 +901,15 @@ export async function ficIntestatarioDaNumero(
 // Non deve MAI far fallire l'azione locale: gli errori si ignorano (FIC non
 // collegato, numero non trovato, API giù) — al massimo lo stato resta da
 // allineare a mano dal pulsante «Segna saldata» dell'elenco fatture.
+// Tetto di tempo per l'allineamento a FIC. Serve perché questa funzione sta
+// DENTRO `segnaFatturaPagata`, cioè dentro l'azione che l'operatore aspetta:
+// ficIdDaNumero + lettura documento + PUT sono 3 chiamate, ognuna con 12 s di
+// timeout e fino a 3 ritentativi su 429 (FIC risponde 429 quando lo si incalza)
+// — nel caso peggiore si superano i 60 s di una funzione Vercel e l'azione muore
+// a metà, senza dire niente a chi ha premuto. Meglio: la fattura si salda qui e
+// FIC lo si allinea dopo, dal pulsante in /registrazioni/fatture.
+const MS_ALLINEA_FIC = 15000;
+
 export async function ficAllineaStatoFattura(
   numero: string | null | undefined,
   pagata: boolean,
@@ -908,14 +917,24 @@ export async function ficAllineaStatoFattura(
 ): Promise<boolean> {
   if (!numero) return false;
   try {
-    const stato = await ficStato();
-    if (!stato.collegato) return false;
-    const id = await ficIdDaNumero(numero, opts?.anno);
-    if (!id) return false;
-    await ficSegnaFatturaPagata(id, pagata, opts?.data ?? undefined);
-    return true;
+    const lavoro = (async () => {
+      const stato = await ficStato();
+      if (!stato.collegato) return false;
+      const id = await ficIdDaNumero(numero, opts?.anno);
+      if (!id) return false;
+      await ficSegnaFatturaPagata(id, pagata, opts?.data ?? undefined);
+      return true;
+    })();
+    // La corsa non annulla le fetch già partite: se FIC risponde in ritardo il
+    // documento verrà comunque aggiornato. Qui interessa solo non far aspettare
+    // oltre il tetto chi sta guardando lo schermo.
+    return await Promise.race([
+      lavoro,
+      new Promise<boolean>((res) => setTimeout(() => res(false), MS_ALLINEA_FIC)),
+    ]);
   } catch (e) {
-    // silenzioso per l'utente, ma tracciato nei log (Vercel) per capire perché
+    // tracciato nei log (Vercel); all'utente arriva come `false`, e chi chiama
+    // ora lo dice a schermo invece di ingoiarlo
     console.warn(`[fic] stato incasso non allineato per la fattura ${numero}:`, (e as Error).message);
     return false;
   }

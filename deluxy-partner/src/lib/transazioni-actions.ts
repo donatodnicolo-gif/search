@@ -6,11 +6,22 @@ import { prisma } from "./db";
 import { parseEstratto, hashMovimento } from "./estratto";
 import { chiaveControparte } from "./riconciliazione";
 import { qontoOrganizzazione, qontoTransazioni } from "./qonto";
-import { segnaFatturaPagata } from "./actions";
+import { segnaFatturaPagataConEsito } from "./actions";
 import { registra } from "./registro";
 
 function revalidate() {
   for (const p of ["/", "/transazioni", "/fatture", "/scadenzario", "/saldi", "/partner"]) {
+    revalidatePath(p, "layout");
+  }
+}
+
+// Come `revalidate()`, ma SENZA /transazioni. Serve alle azioni di riga: quella
+// pagina è `force-dynamic` (si ricostruisce a ogni visita, quindi non resta mai
+// indietro), mentre rivalidarla qui farebbe sparire la riga nello stesso istante
+// in cui compare l'esito — e chi ha premuto resterebbe di nuovo senza risposta.
+// Il rinfresco lo chiede il client dopo un paio di secondi, letto il messaggio.
+function revalidateTranneLista() {
+  for (const p of ["/", "/fatture", "/scadenzario", "/saldi", "/partner"]) {
     revalidatePath(p, "layout");
   }
 }
@@ -150,31 +161,72 @@ export async function sincronizzaQonto() {
   redirect(`/transazioni?qonto=ok&nuove=${esito.nuove}&conti=${esito.conti}&totali=${esito.totali}`);
 }
 
+// Esito di un'azione di riga in /transazioni, mostrato ACCANTO al bottone.
+// Prima queste azioni non tornavano niente: se andavano a buon fine la riga
+// spariva, se fallivano non compariva nulla — e «non fa niente» è esattamente
+// ciò che si è visto (movimento CONLESTELLE del 04/08 rimasto «nuova»).
+export type EsitoRiga = { ok: boolean; testo: string } | null;
+
+// Gli errori con `digest` NEXT_* sono il modo in cui Next implementa redirect e
+// notFound: intercettarli li spegnerebbe. Vanno sempre rilanciati.
+function eDiNext(e: unknown): boolean {
+  return typeof (e as { digest?: unknown })?.digest === "string" && (e as { digest: string }).digest.startsWith("NEXT_");
+}
+
+function messaggioErrore(e: unknown): string {
+  const m = (e as Error)?.message ?? String(e);
+  // I due errori che l'operatore può risolvere da sé, detti in italiano.
+  if (/timeout|timed out|aborted/i.test(m)) return "Il salvataggio ha impiegato troppo e si è interrotto. Riprova: se il movimento è già registrato lo trovi in fondo.";
+  if (/Server Action|Failed to find/i.test(m)) return "La pagina è rimasta aperta da prima di un aggiornamento dell'app: ricaricala (F5) e ripremi.";
+  return m.slice(0, 300);
+}
+
 // La transazione salda una fattura: fattura → pagata con la data del movimento
-export async function registraTransazioneFattura(txId: string, fatturaId: string) {
-  const [tx, fattura] = await Promise.all([
-    prisma.transazioneBancaria.findUnique({ where: { id: txId } }),
-    prisma.fatturaServizio.findUnique({ where: { id: fatturaId }, include: { partner: true } }),
-  ]);
-  if (!tx || !fattura) return;
-  // Passa dalla funzione unica: segna pagata + data, registra l'incasso sul saldo
-  // del mese (partner in compensazione), aggiorna il registro Pagamenti e allinea
-  // Fatture in Cloud. Prima qui si scriveva solo il flag e le altre sezioni
-  // restavano indietro (fattura «Da incassare» su FIC).
-  await segnaFatturaPagata(fatturaId, true, tx.data);
-  await prisma.transazioneBancaria.update({
-    where: { id: txId },
-    data: {
-      stato: "registrata",
-      partnerId: fattura.partnerId,
-      esito: `Fattura ${fattura.numero ?? "s.n."} di ${fattura.partner.nome} segnata saldata`,
-    },
-  });
-  await registra({
-    azione: `Movimento bancario riconciliato con la fattura ${fattura.numero ?? "s.n."}`,
-    categoria: "transazioni", entita: "fattura", entitaId: fattura.id, partner: fattura.partner.nome,
-  });
-  revalidate();
+export async function registraTransazioneFattura(txId: string, fatturaId: string): Promise<EsitoRiga> {
+  try {
+    const [tx, fattura] = await Promise.all([
+      prisma.transazioneBancaria.findUnique({ where: { id: txId } }),
+      prisma.fatturaServizio.findUnique({ where: { id: fatturaId }, include: { partner: true } }),
+    ]);
+    // Non è più un `return` muto: se uno dei due non c'è, chi ha premuto deve
+    // sapere perché non è successo niente.
+    if (!tx) return { ok: false, testo: "Il movimento non esiste più (forse è stato eliminato da un'altra scheda). Ricarica la pagina." };
+    if (!fattura) return { ok: false, testo: "La fattura non esiste più. Ricarica la pagina." };
+    if (tx.stato === "registrata") return { ok: false, testo: `Questo movimento risulta già registrato${tx.esito ? `: ${tx.esito}` : ""}.` };
+
+    // Passa dalla funzione unica: segna pagata + data, registra l'incasso sul saldo
+    // del mese (partner in compensazione), aggiorna il registro Pagamenti e allinea
+    // Fatture in Cloud. Prima qui si scriveva solo il flag e le altre sezioni
+    // restavano indietro (fattura «Da incassare» su FIC).
+    const { ficAllineata } = await segnaFatturaPagataConEsito(fatturaId, true, tx.data);
+
+    // L'avviso su FIC va scritto SUL MOVIMENTO, non solo restituito: appena la
+    // riga viene registrata sparisce da «Match trovati» e un messaggio a video
+    // se ne andrebbe con lei. Nello storico invece resta leggibile.
+    const numero = fattura.numero ?? "s.n.";
+    const avvisoFic = ficAllineata === false ? " · su Fatture in Cloud NON allineata (allineala da Registrazioni → Fatture)" : "";
+    await prisma.transazioneBancaria.update({
+      where: { id: txId },
+      data: {
+        stato: "registrata",
+        partnerId: fattura.partnerId,
+        esito: `Fattura ${numero} di ${fattura.partner.nome} segnata saldata${avvisoFic}`,
+      },
+    });
+    await registra({
+      azione: `Movimento bancario riconciliato con la fattura ${numero}`,
+      categoria: "transazioni", entita: "fattura", entitaId: fattura.id, partner: fattura.partner.nome,
+    });
+    revalidateTranneLista();
+    return {
+      ok: true,
+      testo: `Fattura ${numero} saldata${ficAllineata === false ? " — ma su Fatture in Cloud resta «da incassare»: allineala da Registrazioni → Fatture" : ""}`,
+    };
+  } catch (e) {
+    if (eDiNext(e)) throw e;
+    console.error("[transazioni] registraTransazioneFattura non riuscita:", e);
+    return { ok: false, testo: messaggioErrore(e) };
+  }
 }
 
 // La transazione è un pagamento partner: registra il bonifico (+ inviato / − ricevuto)
@@ -183,10 +235,13 @@ export async function registraTransazionePagamento(
   txId: string,
   partnerId: string,
   mese: number | null
-) {
+): Promise<EsitoRiga> {
+  try {
   const tx = await prisma.transazioneBancaria.findUnique({ where: { id: txId } });
   const partner = await prisma.partner.findUnique({ where: { id: partnerId } });
-  if (!tx || !partner) return;
+  if (!tx) return { ok: false, testo: "Il movimento non esiste più. Ricarica la pagina." };
+  if (!partner) return { ok: false, testo: "Il partner non esiste più. Ricarica la pagina." };
+  if (tx.stato === "registrata") return { ok: false, testo: `Questo movimento risulta già registrato${tx.esito ? `: ${tx.esito}` : ""}.` };
   const anno = tx.data.getUTCFullYear();
   const meseEff = mese ?? tx.data.getUTCMonth() + 1;
   // convenzione interna: bonifico > 0 inviato al partner, < 0 ricevuto.
@@ -216,12 +271,28 @@ export async function registraTransazionePagamento(
     azione: `Movimento bancario registrato come ${importoFirmato > 0 ? "bonifico al partner" : "incasso dal partner"} (${nomeMeseIt(meseEff)} ${anno})`,
     categoria: "transazioni", entita: "partner", entitaId: partnerId, partner: partner.nome,
   });
-  revalidate();
+  revalidateTranneLista();
+  return {
+    ok: true,
+    testo: `${importoFirmato > 0 ? "Bonifico a" : "Incasso da"} ${partner.nome} registrato su ${nomeMeseIt(meseEff)} ${anno}`,
+  };
+  } catch (e) {
+    if (eDiNext(e)) throw e;
+    console.error("[transazioni] registraTransazionePagamento non riuscita:", e);
+    return { ok: false, testo: messaggioErrore(e) };
+  }
 }
 
-export async function ignoraTransazione(txId: string) {
-  await prisma.transazioneBancaria.update({ where: { id: txId }, data: { stato: "ignorata" } });
-  revalidate();
+export async function ignoraTransazione(txId: string): Promise<EsitoRiga> {
+  try {
+    await prisma.transazioneBancaria.update({ where: { id: txId }, data: { stato: "ignorata" } });
+    revalidateTranneLista();
+    return { ok: true, testo: "Movimento messo fra gli ignorati (si ripristina dallo storico)" };
+  } catch (e) {
+    if (eDiNext(e)) throw e;
+    console.error("[transazioni] ignoraTransazione non riuscita:", e);
+    return { ok: false, testo: messaggioErrore(e) };
+  }
 }
 
 // Associa a mano un partner a un movimento non riconosciuto: registra il
