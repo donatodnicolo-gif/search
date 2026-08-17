@@ -554,6 +554,22 @@ model WidgetSito {
   // Il bottone flottante si puo' togliere: se la chat si apre dal menu, due
   // punti d'ingresso sono uno di troppo.
   mostraBottone Boolean @default(true)
+  // ── Il link /chat/<codice> porta SUL SITO, con la chat già aperta ──
+  //
+  // Senza questo, il link è una chat a pagina intera su sfondo vuoto e la ×
+  // porta via: chi arriva dalla bio di Instagram o da un QR non vede il
+  // negozio, e chiudendo la chat non gli resta niente. Acceso, il link rimanda
+  // al sito con `#chat` e il widget si apre da solo: la × torna a fare quello
+  // che fa sui siti — **nasconde** la chat e lascia il bottone per riaprirla,
+  // col negozio sotto.
+  //
+  // ⚠️⚠️ DEFAULT SPENTO, ED È IL PUNTO. Funziona solo se su quel dominio
+  // `widget.js` c'è davvero: se non c'è, il cliente atterra sul sito senza
+  // nessuna chat e il link diventa un vicolo cieco — peggio di adesso.
+  // Verificato il 17/08/2026: **deluxyflowers.com sì, cakedesign.me sì,
+  // deluxy.it NO**. Chi accende la spunta deve averlo controllato, e per questo
+  // è una spunta e non una deduzione dal fatto che il dominio sia compilato.
+  apreSulSito   Boolean @default(false)
   // I LINK RAPIDI sotto il saluto: «Regali per oggi», «Torte nuziali»…
   //
   // Sono la risposta alla domanda del saluto («Come ti aiutiamo?»): il

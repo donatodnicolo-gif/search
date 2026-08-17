@@ -64,6 +64,12 @@ export type SitoWidget = AspettoSito & {
   negozioId: string | null
   /** Il marchio a cui appartiene, per l'inbox a colonne. */
   brand: string
+  /**
+   * Il link `/chat/<codice>` porta sul sito con la chat già aperta, invece di
+   * essere una chat a pagina intera. ⚠️ Si accende solo se su quel dominio
+   * `widget.js` c'è davvero, altrimenti il link diventa un vicolo cieco.
+   */
+  apreSulSito: boolean
   /** true = non è ancora stato salvato: è la nostra proposta. */
   proposto: boolean
 }
@@ -192,6 +198,7 @@ export async function sitiWidget(): Promise<SitoWidget[]> {
         saluto: s.saluto,
         selettoreApri: s.selettoreApri,
         mostraBottone: s.mostraBottone,
+        apreSulSito: s.apreSulSito,
         linkRapidi: leggiLinkRapidi(s.linkRapidi),
         proposto: false,
       })
@@ -211,6 +218,9 @@ export async function sitiWidget(): Promise<SitoWidget[]> {
         saluto: p.saluto,
         selettoreApri: p.selettoreApri,
         mostraBottone: p.mostraBottone,
+        // Una proposta non è ancora stata guardata da nessuno: non si può
+        // sapere se su quel dominio `widget.js` c'è davvero.
+        apreSulSito: false,
         linkRapidi: p.linkRapidi,
         proposto: true,
       })
@@ -235,6 +245,7 @@ export async function sitiWidget(): Promise<SitoWidget[]> {
       saluto: s.saluto,
       selettoreApri: s.selettoreApri,
       mostraBottone: s.mostraBottone,
+      apreSulSito: s.apreSulSito,
       linkRapidi: leggiLinkRapidi(s.linkRapidi),
       proposto: false,
     })
@@ -314,6 +325,7 @@ export async function sitoDaCodice(codice: string): Promise<(SitoWidget & { codi
     saluto: s.saluto,
     selettoreApri: s.selettoreApri,
     mostraBottone: s.mostraBottone,
+    apreSulSito: s.apreSulSito,
     linkRapidi: leggiLinkRapidi(s.linkRapidi),
     proposto: false,
   }
@@ -361,6 +373,7 @@ export async function salvaSitoWidget(dati: {
   saluto: string
   selettoreApri: string
   mostraBottone: boolean
+  apreSulSito: boolean
   linkRapidi: { testo: string; url: string }[]
 }): Promise<void> {
   const slug = normalizzaSlug(dati.slug)
@@ -381,6 +394,10 @@ export async function salvaSitoWidget(dati: {
     // doppie lo spezzerebbero a metà.
     selettoreApri: dati.selettoreApri.trim().replace(/"/g, '').slice(0, 120),
     mostraBottone: dati.mostraBottone !== false,
+    // ⚠️ Qui `=== true` e non `!== false`: il rimando al sito si accende solo se
+    // qualcuno l'ha chiesto per davvero. Un dato mancante non deve mandare i
+    // clienti su un dominio dove `widget.js` potrebbe non esserci.
+    apreSulSito: dati.apreSulSito === true,
     // Si salva quello che si e' capito, non quello che e' arrivato: cosi' un
     // JSON storto non finisce in tabella e da li' nel widget dei clienti.
     linkRapidi: JSON.stringify(leggiLinkRapidi(JSON.stringify(dati.linkRapidi ?? []))),

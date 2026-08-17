@@ -22,6 +22,10 @@ export async function salvaAspettoSito(formData: FormData) {
     saluto: String(formData.get('saluto') ?? ''),
     selettoreApri: String(formData.get('selettoreApri') ?? ''),
     mostraBottone: String(formData.get('mostraBottone') ?? '1') !== '0',
+    // ⚠️ Il default qui è '0', al contrario di `mostraBottone`: un salvataggio
+    // che non manda il campo non deve accendere un rimando verso un sito dove
+    // il widget potrebbe non esserci.
+    apreSulSito: String(formData.get('apreSulSito') ?? '0') === '1',
     // I link rapidi arrivano come JSON dal campo nascosto: se è storto,
     // `salvaSitoWidget` li ripulisce e quello che non si capisce non entra.
     linkRapidi: (() => {

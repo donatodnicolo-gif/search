@@ -63,6 +63,9 @@ export function AspettoWidget({
   const [saluto, setSaluto] = useState(sito?.saluto ?? '')
   const [selettoreApri, setSelettoreApri] = useState(sito?.selettoreApri ?? '')
   const [mostraBottone, setMostraBottone] = useState(sito?.mostraBottone ?? true)
+  // ⚠️ Di partenza SPENTO anche per un sito nuovo: acceso manda il cliente su un
+  // dominio dove il widget potrebbe non esserci, e nessuno se ne accorgerebbe.
+  const [apreSulSito, setApreSulSito] = useState(sito?.apreSulSito ?? false)
   const [linkRapidi, setLinkRapidi] = useState<{ testo: string; url: string }[]>(
     sito?.linkRapidi ?? []
   )
@@ -83,6 +86,7 @@ export function AspettoWidget({
     setSaluto(s.saluto)
     setSelettoreApri(s.selettoreApri)
     setMostraBottone(s.mostraBottone)
+    setApreSulSito(s.apreSulSito)
     setLinkRapidi(s.linkRapidi)
     // L'URL segue la scelta senza ricaricare la pagina: se si ricarica — o se il
     // salvataggio la rimonta — si riparte da questo sito e non dal primo.
@@ -177,6 +181,7 @@ export function AspettoWidget({
         <input type="hidden" name="posizione" value={posizione} />
         <input type="hidden" name="etichetta" value={etichetta} />
         <input type="hidden" name="mostraBottone" value={mostraBottone ? '1' : '0'} />
+        <input type="hidden" name="apreSulSito" value={apreSulSito ? '1' : '0'} />
         <input type="hidden" name="linkRapidi" value={JSON.stringify(linkRapidi)} />
 
         <div className="card" style={{ marginBottom: 14 }}>
@@ -373,6 +378,27 @@ export function AspettoWidget({
             Se la chat si apre dal menu, il bottone tondo si può togliere: in basso a destra c&apos;è
             spesso già il carrello o il banner dei cookie. Da codice la chat si apre anche con{' '}
             <code>window.DeluxyChat.apri()</code>.
+          </p>
+          <label
+            style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13, marginTop: 12 }}
+          >
+            <input
+              type="checkbox"
+              checked={apreSulSito}
+              onChange={(e) => setApreSulSito(e.target.checked)}
+            />
+            Il link della chat porta sul sito, con la chat già aperta
+          </label>
+          <p className="cella-sub" style={{ marginBottom: 0, marginTop: 6 }}>
+            Chi apre il link <code>/chat/…</code> (bio di Instagram, QR, firma delle mail) atterra
+            sul sito con la chat aperta, e la <strong>×</strong> la <strong>nasconde</strong>{' '}
+            lasciando il bottone per riaprirla — invece di portarlo via da una pagina vuota.{' '}
+            <strong>
+              Accendila solo se su {sito?.dominio || 'questo dominio'} il widget è davvero
+              installato
+            </strong>
+            : se non c&apos;è, il cliente arriva sul sito senza nessuna chat e il link non serve più
+            a niente.
           </p>
         </div>
 

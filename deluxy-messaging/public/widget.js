@@ -310,6 +310,30 @@
   function monta() {
     document.body.appendChild(ospite);
     if (dato('apri-subito', '') === 'si') apri(true);
+    // ── Arrivo dal link pubblico: la chat si apre da sola ──
+    //
+    // `/chat/<codice>` manda qui con `#chat`. Chi arriva dalla bio di
+    // Instagram o da un QR trova il negozio con la chat gia' aperta, e la ×
+    // torna a fare quello che fa su ogni sito: la NASCONDE, lasciando il
+    // bottone per riaprirla. Prima il link era una chat a pagina intera su
+    // sfondo vuoto, e chiudendola non restava niente.
+    //
+    // Si usa il FRAMMENTO e non un parametro di query: non viene mandato al
+    // server, non finisce nei log ne' nelle statistiche del sito, e non sporca
+    // gli utm da cui l'inbox ricava la provenienza del visitatore.
+    try {
+      if ((window.location.hash || '').toLowerCase() === '#chat') {
+        apri(true);
+        // Si toglie subito dall'indirizzo: senza, basta un aggiornamento della
+        // pagina — o il tasto indietro — perche' la chat si riapra addosso a
+        // chi l'aveva appena chiusa.
+        if (window.history && window.history.replaceState) {
+          window.history.replaceState(null, '', window.location.pathname + window.location.search);
+        }
+      }
+    } catch (e) {
+      // Un browser che non vuole toccare la storia non deve impedire l'apertura.
+    }
   }
   if (document.body) monta();
   else document.addEventListener('DOMContentLoaded', monta);

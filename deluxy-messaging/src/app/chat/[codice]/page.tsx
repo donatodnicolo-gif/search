@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { redirect } from 'next/navigation'
 import { sitoDaCodice } from '@/lib/widget-siti'
 import { RitornoChatPubblica } from '@/components/RitornoChatPubblica'
 
@@ -49,6 +50,22 @@ export default async function PaginaChatPubblica({ params }: Props) {
         </div>
       </main>
     )
+  }
+
+  // ── Se il sito ha il widget, il link porta LÌ ──
+  //
+  // Chi apre questo link dalla bio di Instagram o da un QR non vuole una chat
+  // sospesa nel vuoto: vuole il negozio, con la chat sopra. E la × deve fare
+  // quello che fa su ogni sito — **nascondere** la chat lasciando il bottone
+  // per riaprirla — invece di portare via da una pagina che non ha nient'altro.
+  // Il `#chat` lo raccoglie `widget.js`, che si apre da solo e poi lo pulisce.
+  //
+  // ⚠️ Solo con la spunta accesa, e non basta che il dominio sia compilato:
+  // se su quel sito `widget.js` non c'è, il cliente atterra su una vetrina
+  // senza nessuna chat e il link diventa un vicolo cieco. Verificato il
+  // 17/08/2026: deluxyflowers.com sì, cakedesign.me sì, **deluxy.it no**.
+  if (sito.apreSulSito && sito.dominio) {
+    redirect(`https://${sito.dominio}/#chat`)
   }
 
   // Gli stessi parametri che `widget.js` passa all'iframe sui siti: da qui in
