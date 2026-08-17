@@ -8,6 +8,7 @@ import {
   archiviaDefinitivo,
   cestinaMessaggio,
   cestinaThread,
+  disarchiviaThread,
   ripristinaMessaggio,
   segnalaSpam,
   segnalaSpamThread,
@@ -148,6 +149,19 @@ export function AzioniRiga({
           }}
         >
           Archivia
+        </button>
+      )}
+      {/* Il ritorno dall'archivio: senza, negli Archiviati non c'era modo di
+          rimettere una mail in posta (segnalato il 17/08/2026). */}
+      {archiviato && (
+        <button
+          type="button"
+          className="azione-riga"
+          disabled={inCorso}
+          title="Rimetti in Posta in arrivo"
+          onClick={(e) => eseguiEsci(e, () => disarchiviaThread(id))}
+        >
+          Disarchivia
         </button>
       )}
       <button

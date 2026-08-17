@@ -635,6 +635,11 @@ Ora **cestinare sposta la mail nel Cestino della casella**, e **«Recupera» la 
 indietro** (in posta in arrivo, o fra gli inviati se era una mail partita). Quindi quello
 che fai qui lo vedi anche da telefono e webmail.
 
+**Archiviare invece resta un fatto di AI Mail** (la mail non si muove sul server) ed è
+sempre reversibile: sulla mail aperta, al posto di «Archivia», compare **«Togli
+dall'archivio»**, e in elenco la riga ha **«Disarchivia»**. Vale per tutta la
+conversazione, come l'archiviazione.
+
 **Lo stesso vale per lo SPAM**: quando una mail finisce nella posta indesiderata — perché
 l'hai segnata tu, perché hai approvato una casistica, o perché l'antispam l'ha riconosciuta
 all'arrivo — viene spostata nella **Posta indesiderata della casella**. E **«Non è spam»**

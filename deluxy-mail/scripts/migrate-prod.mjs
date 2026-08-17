@@ -91,11 +91,19 @@ const stmts = [
   // uid diversi: alias/inoltri). Si tiene la copia con uid più basso; le
   // attività/bozze delle copie cadono in cascata (erano duplicate anche loro).
   // Idempotente: al secondo giro non trova più niente da cancellare.
+  // ⚠️ SCOPED PER CASELLA (`accountId`), non per utente: chi ha DUE caselle
+  // riceve legittimamente la stessa mail in entrambe (alias aziendali, mail in
+  // copia), e sono due mail vere — una per casella, ognuna col suo stato di
+  // letto/archiviato e la sua posizione sul server IMAP. Col confronto sul solo
+  // `utenteId` una delle due sarebbe stata **cancellata a ogni deploy**: al
+  // 17/08/2026 le righe colpite erano 0 (contate in produzione), ma due utenti
+  // hanno già due caselle, quindi era una bomba a orologeria.
   `DELETE FROM "Messaggio" m
      USING "Messaggio" k
      WHERE m."direzione" = 'entrata' AND k."direzione" = 'entrata'
        AND m."messageId" IS NOT NULL
        AND m."utenteId" = k."utenteId" AND m."messageId" = k."messageId"
+       AND m."accountId" = k."accountId"
        AND (k."uid" < m."uid" OR (k."uid" = m."uid" AND k."id" < m."id"))`,
   // Sottosezioni + riassunti AI per sezione.
   `ALTER TABLE "Sezione" ADD COLUMN IF NOT EXISTS "genitoreId" TEXT`,
@@ -403,7 +411,16 @@ async function main() {
     console.log('[migrate-prod] DATABASE_URL assente: salto (build locale?).')
     return
   }
-  const db = new PrismaClient()
+  // ⚠️ Si preferisce DIRECT_URL (pooler in modalità SESSION, porta 5432): la
+  // 6543 è il transaction pooler di pgbouncer, dove le prepared statement
+  // collidono fra loro (`prepared statement "s0" already exists`) e degli
+  // statement falliscono **a caso**. Visto il 17/08/2026: un deploy ha riportato
+  // «87/98 applicati» con 11 errori che sulla stessa DDL, il deploy prima, non
+  // c'erano — le migrazioni erano a posto, era il pooler. Con la 6543 si resta
+  // comunque (meglio applicarne 87 che nessuna), ma la 5432 le applica tutte.
+  const url = process.env.DIRECT_URL || process.env.DATABASE_URL
+  const db = new PrismaClient({ datasources: { db: { url } } })
+  if (process.env.DIRECT_URL) console.log('[migrate-prod] uso DIRECT_URL (session pooler).')
   try {
     let ok = 0
     for (const s of stmts) {

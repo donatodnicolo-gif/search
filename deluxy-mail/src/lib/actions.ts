@@ -316,6 +316,37 @@ export async function archiviaMessaggio(id: string) {
 }
 
 /**
+ * TOGLIE dall'archivio: la conversazione torna in Posta in arrivo.
+ *
+ * ⚠️ Mancava del tutto fino al 17/08/2026 — segnalato dall'utente: «questa mail
+ * dice che è in archivio ma non trovo il modo di togliere da archivio».
+ * Archiviare era una porta a senso unico: il tasto «Archivia» spariva e non
+ * compariva niente al suo posto, né sulla mail aperta né sulla riga in elenco.
+ * ⚠️ Agisce su TUTTO il thread, come `archiviaThreadSenzaAggiornare`: se
+ * archiviare prende la conversazione, disarchiviare deve prendere la stessa
+ * cosa, o restano mail archiviate che la riportano fuori dalla posta.
+ * ⚠️ Non tocca la casella: archiviare qui non sposta niente sul server (è uno
+ * stato di AI Mail), quindi non c'è nulla da riportare indietro.
+ */
+export async function disarchiviaThread(id: string): Promise<{ ok: boolean; messaggio: string }> {
+  const utenteId = await uid()
+  const ids = [...(await idsThread(utenteId, id))]
+  const tutti = ids.length ? ids : [id]
+  const r = await db.messaggio.updateMany({
+    where: { id: { in: tutti }, utenteId, archiviato: true },
+    data: { archiviato: false },
+  })
+  revalidatePath('/', 'layout')
+  return {
+    ok: true,
+    messaggio:
+      r.count > 1
+        ? `${r.count} mail della conversazione rimesse in Posta in arrivo.`
+        : 'Rimessa in Posta in arrivo.',
+  }
+}
+
+/**
  * Archivia SENZA rinfrescare la pagina. Serve al flusso "Archivia → Sempre?":
  * se rivalidassimo subito, la lista si aggiornerebbe e la riga (con la domanda)
  * sparirebbe prima che l'utente possa rispondere. Il refresh lo fa il chiamante

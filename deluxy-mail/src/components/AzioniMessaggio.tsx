@@ -6,11 +6,13 @@ import { useRouter } from 'next/navigation'
 import {
   archiviaDefinitivo,
   archiviaThreadSenzaAggiornare,
+  disarchiviaThread,
   segnaLetto,
   segnalaSpamThread,
   smaltisciEProssimo,
   spostaInSezione,
 } from '@/lib/actions'
+import { mostraFlash } from './Flash'
 import { DelegaReneBottone, DelegaReneDialog } from './DelegaRene'
 import { apriScorciatoie } from './Scorciatoie'
 import { EVENTO_LETTA } from './SegnaLettaAllApertura'
@@ -177,6 +179,27 @@ export function AzioniMessaggio({
             }
           >
             Archivia <kbd className="tasto">E</kbd>
+          </button>
+        )}
+
+        {/* ⚠️ L'archivio non è una porta a senso unico: archiviata la mail, al
+            posto di «Archivia» compare il modo di tornare indietro. Prima
+            spariva e basta (segnalato: «dice che è in archivio ma non trovo il
+            modo di togliere da archivio»). */}
+        {archiviato && (
+          <button
+            className="btn secondary small"
+            disabled={inCorso}
+            title="Rimetti questa conversazione in Posta in arrivo"
+            onClick={() =>
+              esegui(async () => {
+                const r = await disarchiviaThread(id)
+                mostraFlash(r.messaggio)
+                router.refresh()
+              })
+            }
+          >
+            Togli dall’archivio
           </button>
         )}
 
