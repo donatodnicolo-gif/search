@@ -23,5 +23,8 @@ export default async function PaginaReclami({
     telefono: uno('telefono'),
     email: uno('email'),
   }
-  return <ReclamiLista prefill={prefill} />
+  // `?apri=<id>`: si arriva dalla schermata «Oggi» su un reclamo preciso. Come
+  // il resto, si legge qui e si passa come prop — niente `useSearchParams`, che
+  // vorrebbe un Suspense attorno a tutta la lista.
+  return <ReclamiLista prefill={prefill} apri={uno('apri')} />
 }

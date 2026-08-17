@@ -178,27 +178,28 @@ export function Dashboard({ dati }: { dati: DatiDashboard }) {
             <ul className="elenco-reclami">
               {dati.reclami.map((r) => (
                 <li key={r.id}>
-                  <span className={`gravita g${r.gravita}`} title={NOMI_GRAVITA[r.gravita]}>
-                    {NOMI_GRAVITA[r.gravita] ?? '—'}
-                  </span>
-                  {/* Porta all'elenco reclami: aprire QUEL reclamo servirebbe un
-                      parametro che quella pagina non legge, e un link che
-                      promette di aprire una cosa e non la apre è peggio di uno
-                      che porta all'elenco. */}
-                  <Link href="/reclami" className="ordine">
-                    {r.ordineNumero || '—'}
-                  </Link>
-                  {r.brand ? <span className="badge">{r.brand}</span> : null}
-                  <span className="di-cosa">
-                    {r.casistica || 'senza casistica'}
-                    {r.azioni ? <span className="azione"> · {r.azioni}</span> : null}
-                  </span>
-                  {r.colpa ? <span className="colpa">{r.colpa}</span> : null}
+                  {/* Porta a QUEL reclamo, e tutta la riga è il bersaglio:
+                      `/reclami` legge `?apri=` ed evidenzia la riga. Se nel
+                      frattempo è stato chiuso, la pagina allarga il filtro
+                      invece di mostrare un elenco in cui la cosa promessa non
+                      c'è. */}
+                  <Link href={`/reclami?apri=${r.id}`} className="riga-collegamento">
+                    <span className={`gravita g${r.gravita}`} title={NOMI_GRAVITA[r.gravita]}>
+                      {NOMI_GRAVITA[r.gravita] ?? '—'}
+                    </span>
+                    <span className="ordine">{r.ordineNumero || '—'}</span>
+                    {r.brand ? <span className="badge">{r.brand}</span> : null}
+                    <span className="di-cosa">
+                      {r.casistica || 'senza casistica'}
+                      {r.azioni ? <span className="azione"> · {r.azioni}</span> : null}
+                    </span>
+                    {r.colpa ? <span className="colpa">{r.colpa}</span> : null}
                   {/* Da quanti giorni è aperto: un reclamo che invecchia è il
                       modo in cui un problema piccolo diventa una recensione. */}
-                  <span className={`eta${r.giorniAperto >= 3 ? ' vecchio' : ''}`}>
-                    {r.giorniAperto === 0 ? 'oggi' : `${r.giorniAperto} g`}
-                  </span>
+                    <span className={`eta${r.giorniAperto >= 3 ? ' vecchio' : ''}`}>
+                      {r.giorniAperto === 0 ? 'oggi' : `${r.giorniAperto} g`}
+                    </span>
+                  </Link>
                 </li>
               ))}
             </ul>
@@ -341,28 +342,34 @@ function Numero({
 function RigaAttesa({ a }: { a: AttesaDto }) {
   return (
     <li className={a.finestraCritica ? 'critica' : undefined}>
-      {/* Porta sulla conversazione precisa, non «in inbox»: chi ha appena letto
-          questa riga non deve ritrovarla in un elenco di 113. */}
-      <Link href={`/inbox?c=${a.id}`} className="chi">
-        {a.chi}
-      </Link>
-      <span className="badge">{NOMI_CANALE[a.canale] ?? a.canale}</span>
-      {a.brand ? <span className="badge">{a.brand}</span> : null}
-      <span className="testo">{a.ultimoTesto}</span>
-      <span className="attesa" title={`Aspetta da ${attesa(a.attesaMinuti)}`}>
-        {attesa(a.attesaMinuti)}
-      </span>
+      {/* ⚠️ IL COLLEGAMENTO PRENDE TUTTA LA RIGA, non il solo nome. Su una riga
+          che si legge per intero — nome, canale, testo, da quanto aspetta — il
+          bersaglio cliccabile erano poche decine di pixel sul nome: si mirava
+          al testo del messaggio, non succedeva niente, e sembrava rotta. Da
+          telefono era peggio. Dentro non ci sono altri comandi, quindi un
+          collegamento che avvolge tutto non annida nulla di interattivo. */}
+      <Link href={`/inbox?c=${a.id}`} className="riga-collegamento">
+        {/* Porta sulla conversazione precisa, non «in inbox»: chi ha appena
+            letto questa riga non deve ritrovarla in un elenco di 113. */}
+        <span className="chi">{a.chi}</span>
+        <span className="badge">{NOMI_CANALE[a.canale] ?? a.canale}</span>
+        {a.brand ? <span className="badge">{a.brand}</span> : null}
+        <span className="testo">{a.ultimoTesto}</span>
+        <span className="attesa" title={`Aspetta da ${attesa(a.attesaMinuti)}`}>
+          {attesa(a.attesaMinuti)}
+        </span>
       {/* ⚠️ La finestra di WhatsApp: passate 24 ore dal messaggio del cliente,
           Meta non lascia più rispondere in testo libero — serve un modello
           approvato. Saperlo DOPO vuol dire non poter più rispondere. */}
-      {a.oreFinestra !== null ? (
-        <span
-          className={`finestra${a.finestraCritica ? ' critica' : ''}`}
-          title="Ore che restano per rispondere in testo libero su WhatsApp"
-        >
-          {a.oreFinestra <= 0 ? 'finestra chiusa' : `${a.oreFinestra} h`}
-        </span>
-      ) : null}
+        {a.oreFinestra !== null ? (
+          <span
+            className={`finestra${a.finestraCritica ? ' critica' : ''}`}
+            title="Ore che restano per rispondere in testo libero su WhatsApp"
+          >
+            {a.oreFinestra <= 0 ? 'finestra chiusa' : `${a.oreFinestra} h`}
+          </span>
+        ) : null}
+      </Link>
     </li>
   )
 }
@@ -370,19 +377,20 @@ function RigaAttesa({ a }: { a: AttesaDto }) {
 function RigaOrdine({ o }: { o: OrdineUrgenteDto }) {
   return (
     <li>
-      <Link href={`/ordini?apri=${o.id}`} className="numero-ordine">
-        {o.numero || '—'}
+      {/* Tutta la riga porta all'ordine, col suo pannello già aperto. */}
+      <Link href={`/ordini?apri=${o.id}`} className="riga-collegamento">
+        <span className="numero-ordine">{o.numero || '—'}</span>
+        <span className="badge">{o.brand}</span>
+        <span className={`fascia f-${o.fascia}`}>{NOMI_FASCIA[o.fascia] ?? o.fascia}</span>
+        <span className="cliente">
+          {o.cliente || 'senza nome'}
+          {o.citta ? ` · ${o.citta}` : ''}
+        </span>
+        <span className="quando">
+          {dataBreve(o.dataConsegna)}
+          {o.fasciaOraria ? ` · ${o.fasciaOraria}` : ''}
+        </span>
       </Link>
-      <span className="badge">{o.brand}</span>
-      <span className={`fascia f-${o.fascia}`}>{NOMI_FASCIA[o.fascia] ?? o.fascia}</span>
-      <span className="cliente">
-        {o.cliente || 'senza nome'}
-        {o.citta ? ` · ${o.citta}` : ''}
-      </span>
-      <span className="quando">
-        {dataBreve(o.dataConsegna)}
-        {o.fasciaOraria ? ` · ${o.fasciaOraria}` : ''}
-      </span>
     </li>
   )
 }

@@ -2614,6 +2614,28 @@ td .azioni-ordine {
   border-bottom: 0;
 }
 
+/* ── La riga intera è il collegamento ──
+   Il bersaglio cliccabile erano poche decine di pixel sul nome o sul numero:
+   si mirava al testo e non succedeva niente. Il collegamento prende tutta la
+   riga e ne eredita la disposizione, così l'aspetto non cambia. */
+.riga-collegamento {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Da telefono la riga deve essere alta abbastanza per un dito: sotto i 44px si
+   manca il bersaglio, e mancarlo qui vuol dire «non succede niente». */
+@media (max-width: 800px) {
+  .riga-collegamento {
+    min-height: 40px;
+  }
+}
+
 .elenco-attese .chi,
 .elenco-ordini-urgenti .numero-ordine {
   font-weight: 600;
@@ -2791,6 +2813,13 @@ td .azioni-ordine {
 
 .elenco-reclami li:last-child {
   border-bottom: 0;
+}
+
+/* La riga trovata da «Oggi»: si accende un attimo e poi si spegne da sola —
+   serve a farsi trovare, non a restare accesa mentre si lavora. */
+.riga-evidenziata > td {
+  background: var(--oro-tenue, rgba(184, 150, 62, 0.14));
+  transition: background 600ms ease;
 }
 
 /* La gravità è una parola, non un colore da interpretare: «grave» si legge

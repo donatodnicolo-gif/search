@@ -78,7 +78,7 @@ function dataBreve(iso: string): string {
   return new Date(iso).toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-export function ReclamiLista({ prefill }: { prefill?: PrefillReclamo }) {
+export function ReclamiLista({ prefill, apri }: { prefill?: PrefillReclamo; apri?: string }) {
   const [reclami, setReclami] = useState<Reclamo[]>([])
   const [perStato, setPerStato] = useState<Record<string, number>>({})
   const [caricato, setCaricato] = useState(false)
@@ -126,6 +126,51 @@ export function ReclamiLista({ prefill }: { prefill?: PrefillReclamo }) {
   useEffect(() => {
     carica()
   }, [carica])
+
+  // ── `?apri=<id>`: si arriva dalla schermata «Oggi» su UN reclamo preciso ──
+  //
+  // Prima il clic portava all'elenco e basta: con dodici reclami aperti si
+  // ricominciava a cercare a occhio quello che si era appena letto — e la riga
+  // di partenza spariva, perché nell'elenco l'ordine è un altro.
+  const [evidenziato, setEvidenziato] = useState('')
+  // ⚠️ Il filtro si allarga UNA VOLTA SOLA. `carica()` rigira a ogni cambio di
+  // filtro: senza questa guardia, un id che non esiste più (reclamo cancellato)
+  // farebbe rimbalzare i filtri all'infinito.
+  const [allargato, setAllargato] = useState(false)
+
+  useEffect(() => {
+    if (!apri || !caricato) return
+    if (reclami.some((r) => r.id === apri)) {
+      setEvidenziato(apri)
+      return
+    }
+    // ⚠️ Non c'è nell'elenco perché il filtro di partenza è «aperti» e quel
+    // reclamo nel frattempo è stato chiuso. Un link che porta a una pagina dove
+    // la cosa promessa non si vede è peggio di nessun link: si allarga il
+    // filtro e lo si mostra comunque.
+    if (!allargato && filtroStato !== 'tutti') {
+      setAllargato(true)
+      setFiltroStato('tutti')
+    }
+  }, [apri, caricato, reclami, allargato, filtroStato])
+
+  // Portare la riga sotto gli occhi. Si aspetta il disegno (`requestAnimationFrame`),
+  // altrimenti si cerca un elemento che non c'è ancora.
+  useEffect(() => {
+    if (!evidenziato) return
+    const t = requestAnimationFrame(() => {
+      document
+        .getElementById(`reclamo-${evidenziato}`)
+        ?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    })
+    // L'evidenziazione si spegne da sola: serve a farsi trovare, non a restare
+    // accesa mentre si lavora.
+    const spegni = setTimeout(() => setEvidenziato(''), 4000)
+    return () => {
+      cancelAnimationFrame(t)
+      clearTimeout(spegni)
+    }
+  }, [evidenziato])
 
   // Casistiche e valet: si caricano una volta (servono al form).
   useEffect(() => {
@@ -611,7 +656,11 @@ export function ReclamiLista({ prefill }: { prefill?: PrefillReclamo }) {
             </thead>
             <tbody>
               {reclami.map((r) => (
-                <tr key={r.id}>
+                <tr
+                  key={r.id}
+                  id={`reclamo-${r.id}`}
+                  className={r.id === evidenziato ? 'riga-evidenziata' : undefined}
+                >
                   <td>
                     <div className="cella-nome">{r.ordineNumero || '—'}</div>
                     <div className="cella-sub">
