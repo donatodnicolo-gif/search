@@ -100,6 +100,88 @@ questi numeri: dicono cosa gira e cosa è fermo.**
 
 ## FATTO
 
+### Il carico storico a 90 giorni, fatto su tutti e tre gli account (17/08/2026)
+
+L'utente ha reincollato lo script del 15/08 sui tre account, li ha lanciati con
+`GIORNI_INDIETRO = 90` e poi ha rimesso 7. Verificato sul database:
+
+- **`MetricaAnnuncio`: da 0 a 5.157 righe**, dal **19/05** al 17/08 su tutti e tre
+  (Gifts 3.454 · Flowers 998 · Cake 705). Il pannello «finestre» sull'annuncio
+  ha finalmente 90 giorni sotto, quindi mese / 30 giorni / anno dicono qualcosa.
+- `MetricaKeyword` a 24.070 (cresciuta poco: lo storico keyword c'era già dal 12/04).
+- **Zero consegne non-ok**, e `annuncio-giorni` arriva ora da tutti e tre.
+
+⭐ **IL RISCHIO CHE AVEVO SEGNALATO NON SI È VERIFICATO, e si può dimostrare.**
+Il pericolo era un **censimento `stati-keyword` troncato** dal limite dei 25
+minuti: l'app avrebbe visto una consegna fresca, calcolato la soglia da lì, e
+dichiarato «non più su Google» migliaia di keyword vive. Il conto torna su
+tutti e tre — **i blocchi spediti coprono esattamente le keyword confermate**:
+
+| | righe in archivio | dichiarate assenti | confermate | blocchi × 200 |
+| --- | --- | --- | --- | --- |
+| Gifts | 15.308 | 713 (4,7%) | **14.595** | 73 per giro (146 = 2 giri) ✓ |
+| Cake | 1.335 | 304 (22,8%) | **1.031** | 6 ✓ |
+| Flowers | 3.990 | 0 | **3.990** | 21 ✓ |
+
+E c'è una conferma indipendente: le **304 di Cake sono esattamente** il numero
+misurato l'11/08 come keyword davvero sparite da Google. Non è un artefatto del
+carico lungo, sono rimozioni vere.
+
+⚠️ **Resta però la regola**: il controllo da fare dopo ogni giro lungo è questo —
+contare le righe con `aggiornataIl` più vecchio della soglia del censimento e
+verificare che (totali − assenti) combaci con `blocchi × 200`. Se non combacia,
+il censimento è stato tagliato e le schede gruppo stanno accusando keyword vive.
+
+### Il censimento delle landing dalle destinazioni degli annunci (17/08/2026)
+
+Commit `1d15c582`, in produzione. `lib/censimento-landing.ts` +
+`/landing/censimento`.
+
+**La domanda che l'ha fatto nascere: «sei sicuro ci siano tutte le landing?».**
+No. `/landing` mostra `LandingPage`, che si riempie **solo a mano** dal bottone
+«Registra landing» — ho controllato chi ci scrive: l'azione del modulo e una
+route API a chiave mai usata, **nessun import**. Misurato: **27 registrate
+contro 329 URL** su cui gli annunci mandano traffico davvero, cioè **312
+mancanti**, di cui **181 con almeno una campagna che eroga adesso**. Solo 22
+campagne vive su 86 avevano una landing agganciata.
+
+Il dato per riempirla c'era già: dal 04/08 lo script porta la **destinazione di
+ogni annuncio** (1.056 righe) e la **URL di ogni sitelink** (436), e su quelle
+righe c'è il **nome della campagna**. La pagina nuova elenca le URL non ancora
+registrate con **chi ci manda, se quella campagna gira adesso, e quanto hanno
+speso gli annunci che ci puntano**, e le registra in blocco.
+
+- ⚠️ **Non è un import cieco, ed è una scelta.** Fra quelle 329 ci sono
+  collezioni Shopify normali: registrarle tutte riempirebbe `/landing` di rumore
+  e la renderebbe inutile quanto lo era vuota — al contrario.
+- ⚠️ **Lo stato della campagna è quello di GOOGLE**, non il giudizio dell'app:
+  una campagna può essere «in pausa» qui e `ENABLED` là, e in quel caso sta
+  ancora spendendo (successo davvero con Catering Milan B2B).
+- ⚠️ **La spesa è quella degli ANNUNCI (30 giorni) e non comprende i sitelink**,
+  che portano una finestra loro di 365: sommare due finestre diverse darebbe un
+  numero che non vuol dire niente. Si ottiene unendo le righe `destinazione` a
+  quelle `annuncio` per `idEsterno` — la stessa chiave, quindi senza chiedere
+  niente in più a Google.
+- ⚠️ Le landing nascono **`da_verificare`**, non `attiva`: che ci arrivi un
+  annuncio dice che la pagina è **in uso**, non che sia **quella giusta**.
+- Il **brand viene dalle campagne** che ci mandano (un fatto); solo in mancanza
+  si deduce dal dominio, e la pagina scrive «dedotto dal dominio».
+
+⚠️ **Trovato provandolo**: 15 URL avevano come campagna il segnaposto
+**`(account 248-656-1148)`** che lo script mette sugli asset di **livello
+account** (`leggiAsset`). Comparivano come finte campagne **«ferme»** — il
+contrario del vero, perché un sitelink di account vale per *tutte* le campagne
+di quell'account. Ora si chiamano «asset di account» e non risultano fermi
+(verificato: 45 occorrenze in pagina, zero segnaposti grezzi).
+
+⚠️ **Sbagliato e corretto durante l'analisi**: il primo conteggio dava 333
+mancanti perché confrontavo `https://deluxyflowers.com/…` con
+`deluxyflowers.com/…` — `LandingPage.url` si salva **senza protocollo**.
+`normalizzaUrl()` ora toglie protocollo, `www.`, query string e barra finale, ed
+è **la funzione che decide anche cosa si scrive nel database**: se le due
+normalizzazioni divergessero, il censimento riproporrebbe per sempre pagine già
+registrate.
+
 ### Il brief della campagna lo scrive l'AI, e i campi si riempiono (17/08/2026)
 
 Commit `0f1c6ae2`, in produzione. `lib/azioni-brief.ts` + `components/BriefCampagnaAi.tsx`.
