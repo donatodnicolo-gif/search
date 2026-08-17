@@ -8,6 +8,23 @@
 
 **Controllo del 17/08/2026**: produzione **= ultimo commit** (`bbba72cb` del 03/08, deploy `● Ready` di 14 giorni, health 200 con `database:true`, `<title>Finance</title>` sul login). Niente di non committato, niente lavoro nuovo dal 3 agosto. Il commit del 03/08 — posteriore al punto di ripresa qui sotto — riguarda il webhook `POST /api/pagamenti/notifica`: la notifica di Transactions porta anche `pagatoCon` e `motivo`, e se `pagatoCon === "fuori_app"` nel registro modifiche resta scritto «pagata fuori dall'app» col perché di un eventuale annullamento (il mese si chiude come prima). **`FINANCE_API_KEY` manca ancora** in Anagrafiche (né `.env` né Vercel produzione, verificato con `vercel env ls production`): il punto 1 qui sotto è aperto da 17 giorni.
 
+**Ferma il codice, non l'app** (contato sul database di produzione il 17/08, in sola lettura): health in **0,44 s** con `X-Vercel-Id: fra1::fra1` (funzioni e Postgres nella stessa area, come vuole §6); **i due cron notturni girano** — Qonto alle **05:01** (22.081 movimenti, l'ultimo datato 15/08) e Ordini alle **05:31** su tutti e tre i negozi; ultimo accesso riuscito alle **08:15** e ultima modifica alle **08:16** («Movimento bancario riconciliato con la fattura 364/2026»). Utenti attivi: **1**.
+
+> ⚠️ **L'ora dell'ultima sync ordini non sta in `Impostazione`**, sta su **`NegozioShopify.ultimaSync`**, una per negozio (`ordini-sync.ts`). Cercarla fra le impostazioni restituisce `null` e fa concludere che il cron sia morto quando invece ha appena girato.
+
+| Contato il 17/08/2026 | |
+|---|---|
+| Partner | **106**, di cui **69 collegati** al registro Anagrafiche |
+| Fatture aperte | **283**: **130 del 2026** (12 compensate) + **153 del 2025** |
+| Senza scadenza | **233 su 283** — 80 del 2026 (33.702 € di imponibile) e **tutte e 153** quelle del 2025 (16.693 €) |
+| Ordini | **1.798**: 1.039 «partner» + 759 riconciliazione; **1.641 `incassato_gateway`**, **157 `da_riconciliare`**, zero `riconciliato`; **262 col costo fornitore** |
+| Movimenti bancari | **22.081**, l'ultimo del 15/08 |
+| `RichiestaVerifica` | **2.541** righe (1.363 il 28/07 → ~40 al giorno, punto 10 dei pregressi) |
+
+> ⚠️ **Il «83 su 125» del punto 5 qui sotto era il solo 2026**, e va detto perché altrimenti il 233 su 283 di oggi sembra un tracollo: **le 153 fatture 2025 non hanno la scadenza per costruzione**, vengono dal foglio Excel storico che quella colonna non ce l'aveva, e nessuna deduzione da `ggPagamento` le riguarda. Sul 2026 il numero è **stabile, anzi in calo**: 83 → 80 fatture, 40.685 € → 33.702 € di imponibile. Separare i due anni prima di annunciare un peggioramento.
+>
+> ⚠️ **Nessun ordine è mai arrivato allo stato `riconciliato`**: i 1.641 incassati lo sono tutti per via `incassato_gateway` (carta pagata su Shopify). L'abbinamento 1:1 con un movimento bancario, in pratica, non ha ancora prodotto un solo ordine — coerente con la nota di §6 sugli accrediti Vivid, che sono payout aggregati senza numero d'ordine in causale.
+
 **Tutto committato e pushato** su `scout-ui` (repo condiviso: i commit di questa sessione stanno in mezzo a quelli di Scout e Anagrafiche). Ultimo deploy in produzione `● Ready`, health 200.
 
 ### Cosa aspetta una decisione o un gesto tuo
