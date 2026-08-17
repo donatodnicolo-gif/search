@@ -93,6 +93,21 @@ export function dataIt(d: Date): string {
   return d.toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: FUSO });
 }
 
+/**
+ * Un intervallo di date in una riga sola.
+ *
+ * L'anno si scrive **una volta** quando i due estremi cadono nello stesso anno
+ * («20/05 → 17/08/2026») e su **entrambi** quando cambia («18/08/2025 →
+ * 17/08/2026»). Non è vezzo tipografico: il periodo «ultimo anno» scavalca il
+ * capodanno, e lì l'anno è proprio l'informazione che distingue le due date —
+ * mentre dentro lo stesso anno ripeterlo raddoppia la riga senza dire niente.
+ */
+export function intervalloIt(dal: Date, al: Date): string {
+  if (giornoMeseRoma(dal).anno !== giornoMeseRoma(al).anno) return `${dataIt(dal)} → ${dataIt(al)}`;
+  const senzaAnno = dal.toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", timeZone: FUSO });
+  return `${senzaAnno} → ${dataIt(al)}`;
+}
+
 export function dataOraIt(d: Date): string {
   return d.toLocaleString("it-IT", {
     day: "2-digit",

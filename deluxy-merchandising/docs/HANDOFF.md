@@ -472,6 +472,15 @@ porta **3120**. Design system Deluxy v1.0.
   - ⚠️ Fra il deploy e il primo scatto del `*/15` la riga resta ambra: è corretta, non è un difetto.
   - ✅ **Confermato in produzione il 17/08/2026**: il primo scatto è arrivato alle **10:45:43**, `esito=ok`, `automatico=true`, finestra 15/08 → 17/08, **2 righe nuove su 29 lette** — cioè due vendite che con l'import notturno si sarebbero viste domani. Subito dopo le tre pagine dicono «**Venduto aggiornato adesso** — si aggiorna da solo ogni quarto d'ora». **Visti entrambi i rami** del componente: ambra prima del deploy (giro fermo da 3 ore), grigio dopo.
 
+- **17/08/2026 — le date nelle analisi del cruscotto** (chiesto dall'utente: «mettimi le date anche nelle analisi all'apertura dell'app»). Il selettore diceva «ultimi 3 mesi», che è un'**etichetta**: le date sono il dato, e non c'erano da nessuna parte.
+  - **In testata** una riga sola: «Ultimi 3 mesi: **dal 20/05/2026 al 17/08/2026** · confronto con 19/02/2026 – 19/05/2026». Il **periodo di confronto** è la metà che mancava davvero: ogni «+12% sul periodo precedente» dei KPI si misura contro quello, e nessuno sapeva dove cominciasse.
+  - Le date escono **col guscio**, prima delle analisi: `finestra()` è un calcolo puro sul calendario di Roma, senza database, quindi si può fare fuori dal `<Suspense>`. Chi apre la pagina sa su cosa sta guardando mentre i numeri si contano ancora.
+  - **In ogni scheda** la riga `.scheda-periodo` sotto il titolo (Andamento, I brand uno per uno, Top categorie, Top tipi, Primi 5 per valore): una scheda letta da sola — o messa in uno screenshot — non è più ambigua.
+  - ⭐ **Le date hanno scoperto un riquadro su un altro orologio**: «Da riordinare per primi» **non segue il periodo della pagina**, gira sempre sui `giorniStorico` dei parametri di riordino (56), anche scegliendo «ultimo anno». È giusto così — un'ipotesi di ordinativo si fa sul passo recente — ma affiancato agli altri sembrava parlare degli stessi giorni. Ora dichiara la sua finestra e il perché. La finestra si legge da `ipotesi.parametri.giorniStorico`, non da una costante ricopiata: se il default cambia, la data in pagina cambia con lui.
+  - `intervalloIt(dal, al)` in [fuso.ts](../src/lib/fuso.ts): l'anno si scrive una volta sola dentro lo stesso anno («20/05 → 17/08/2026») e su entrambi gli estremi quando cambia («18/08/2025 → 17/08/2026») — «ultimo anno» scavalca il capodanno, e lì l'anno è l'informazione che distingue le due date.
+  - **Verificato**: `tsc` exit 0, `next build` ok; HTML letto in dev sui dati veri per **28 / 90 / 365 giorni** — testata e sei schede con le date giuste in ordine di documento, il riordino sempre a 56 giorni (23/06 → 17/08) mentre le altre seguono il periodo, e l'anno che compare su entrambi gli estremi solo su «ultimo anno».
+  - ⚠️ **Non verificato a occhio**: col pannello del browser non a schermo la pagina non fa layout e `getBoundingClientRect` torna zeri (stessa famiglia della trappola «tab in background»). Spaziature e resa su telefono restano **da guardare**.
+
 ## COME AVVIARE
 ```
 cd deluxy-merchandising

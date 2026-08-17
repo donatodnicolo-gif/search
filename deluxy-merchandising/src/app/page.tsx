@@ -13,10 +13,12 @@ import {
   coloreDelta,
   delta,
   ETICHETTA_FINESTRA,
+  finestra,
   FINESTRE,
   panoramicaBrand,
   type RigaAssortimento,
 } from "@/lib/vendite";
+import { dataIt, intervalloIt } from "@/lib/fuso";
 import { Suspense } from "react";
 
 export const dynamic = "force-dynamic";
@@ -35,6 +37,11 @@ export default async function CruscottoPage({
     ? Number(sp.giorni)
     : 90;
   const brand = await brandCorrente();
+  // `finestra` è un calcolo puro sul calendario di Roma, senza database: le date
+  // possono quindi uscire **col guscio**, prima che le analisi arrivino in
+  // streaming. Chi apre la pagina sa su cosa sta guardando già mentre i numeri
+  // si stanno ancora contando.
+  const f = finestra(giorni);
 
   return (
     <div className="layout">
@@ -63,13 +70,25 @@ export default async function CruscottoPage({
           </form>
         </div>
 
+        {/* Su quali giorni è calcolato tutto quello che segue, scritto una volta
+            in chiaro. Il selettore qui sopra dice «ultimi 3 mesi», che è
+            un'etichetta: le date sono il dato. E accanto va il **periodo di
+            confronto**, perché ogni «+12% sul periodo precedente» della pagina
+            si misura contro quello e nessuno saprebbe dire dove comincia. */}
+        <p className="riga-periodo">
+          {ETICHETTA_FINESTRA[giorni]}: <strong>dal {dataIt(f.dal)} al {dataIt(f.al)}</strong>
+          <span className="riga-periodo-conf">
+            confronto con {dataIt(f.dalPrec)} – {dataIt(f.alPrec)}
+          </span>
+        </p>
+
         <FreschezzaVenduto />
 
         {/* Il guscio (menu, titolo, periodo) esce subito; le analisi — che
             scandagliano il venduto — arrivano in streaming appena pronte.
             Prima la pagina restava bianca finche' non era pronta la piu' lenta. */}
         <Suspense fallback={<ScheletroCruscotto />}>
-          <ContenutoCruscotto giorni={giorni} brand={brand} />
+          <ContenutoCruscotto giorni={giorni} brand={brand} periodo={intervalloIt(f.dal, f.al)} />
         </Suspense>
       </main>
     </div>
@@ -90,7 +109,15 @@ function ScheletroCruscotto() {
   );
 }
 
-async function ContenutoCruscotto({ giorni, brand }: { giorni: number; brand: string | null }) {
+async function ContenutoCruscotto({
+  giorni,
+  brand,
+  periodo,
+}: {
+  giorni: number;
+  brand: string | null;
+  periodo: string;
+}) {
   const [analisi, cls, ipotesi, catalogo, panoramica, assortimento] = await Promise.all([
     analizzaVendite(giorni, { canale: brand }),
     classifiche({ giorni, canale: brand, limite: 5 }),
@@ -99,6 +126,11 @@ async function ContenutoCruscotto({ giorni, brand }: { giorni: number; brand: st
     brand ? null : panoramicaBrand(giorni),
     analizzaAssortimento(giorni, brand),
   ]);
+
+  // La finestra del riordino è **un'altra**: si legge dai parametri con cui
+  // l'ipotesi è stata davvero calcolata, non da una costante ricopiata qui —
+  // se un domani il default cambia, la data in pagina cambia con lui.
+  const fRiordino = finestra(ipotesi.parametri.giorniStorico);
 
   return (
     <>
@@ -136,18 +168,20 @@ async function ContenutoCruscotto({ giorni, brand }: { giorni: number; brand: st
         </div>
 
         <div className="scheda">
-          <div className="scheda-titolo">
+          <div className="scheda-titolo con-periodo">
             Andamento — {ETICHETTA_FINESTRA[giorni].toLowerCase()}
             {brand ? ` · ${brand}` : " · tutti i brand"}
           </div>
+          <div className="scheda-periodo">{periodo}</div>
           <GraficoAndamento serie={analisi.serie} passo={analisi.passo} altezza={190} />
         </div>
 
         {panoramica && panoramica.brand.length > 0 && (
           <>
-            <div className="scheda-titolo" style={{ margin: "26px 0 12px" }}>
+            <div className="scheda-titolo" style={{ margin: "26px 0 3px" }}>
               I brand, uno per uno
             </div>
+            <div className="scheda-periodo">{periodo}</div>
             <div className="griglia-brand">
               {panoramica.brand.map((b) => (
                 <div className="scheda card-brand" key={b.brand}>
@@ -199,6 +233,7 @@ async function ContenutoCruscotto({ giorni, brand }: { giorni: number; brand: st
         <div className="due-colonne" style={{ marginTop: 18 }}>
           <BloccoCategorie
             titolo="Top categorie"
+            periodo={periodo}
             righe={assortimento.categorie.filter((c) => c.ricavo > 0).slice(0, 6)}
             etichetta={(c) => etichettaCategoria(c.chiave)}
             vuoto="Nessuna vendita nel periodo."
@@ -206,6 +241,7 @@ async function ContenutoCruscotto({ giorni, brand }: { giorni: number; brand: st
           />
           <BloccoCategorie
             titolo="Top tipi dal negozio"
+            periodo={periodo}
             righe={assortimento.tipi.filter((c) => c.ricavo > 0 && c.chiave !== "(senza tipo)").slice(0, 6)}
             etichetta={(c) => c.nome}
             vuoto="Nessun tipo letto da Shopify: lancia l'import delle collezioni."
@@ -215,7 +251,8 @@ async function ContenutoCruscotto({ giorni, brand }: { giorni: number; brand: st
 
         <div className="due-colonne" style={{ marginTop: 18 }}>
           <div className="scheda">
-            <div className="scheda-titolo">Primi 5 per valore</div>
+            <div className="scheda-titolo con-periodo">Primi 5 per valore</div>
+            <div className="scheda-periodo">{periodo}</div>
             {cls.perValore.length === 0 ? (
               <div className="vuoto-mini">Nessuna vendita nel periodo.</div>
             ) : (
@@ -246,8 +283,20 @@ async function ContenutoCruscotto({ giorni, brand }: { giorni: number; brand: st
             </p>
           </div>
 
+          {/* ⚠️ Questo riquadro **non segue il periodo della pagina**: il ritmo
+              di vendita si calcola sempre sui `giorniStorico` dei parametri di
+              riordino (56 di default), anche se in alto si sceglie «ultimo
+              anno». È voluto — un'ipotesi di ordinativo si fa sul passo
+              recente, non su una finestra scelta per guardare l'andamento — ma
+              finché le date non c'erano non lo diceva nessuno, e due riquadri
+              affiancati sembravano parlare degli stessi giorni. */}
           <div className="scheda">
-            <div className="scheda-titolo">Da riordinare per primi</div>
+            <div className="scheda-titolo con-periodo">Da riordinare per primi</div>
+            <div className="scheda-periodo">
+              {intervalloIt(fRiordino.dal, fRiordino.al)} — il ritmo si legge
+              sempre sugli ultimi {ipotesi.parametri.giorniStorico} giorni, non sul periodo scelto
+              in alto
+            </div>
             {ipotesi.righe.filter((r) => r.quantitaSuggerita > 0).length === 0 ? (
               <div className="vuoto-mini">Niente da riordinare con i parametri di default.</div>
             ) : (
@@ -283,12 +332,14 @@ async function ContenutoCruscotto({ giorni, brand }: { giorni: number; brand: st
 // a colpo d'occhio.
 function BloccoCategorie({
   titolo,
+  periodo,
   righe,
   etichetta,
   vuoto,
   link,
 }: {
   titolo: string;
+  periodo: string;
   righe: RigaAssortimento[];
   etichetta: (r: RigaAssortimento) => string;
   vuoto: string;
@@ -296,7 +347,8 @@ function BloccoCategorie({
 }) {
   return (
     <div className="scheda">
-      <div className="scheda-titolo">{titolo}</div>
+      <div className="scheda-titolo con-periodo">{titolo}</div>
+      <div className="scheda-periodo">{periodo}</div>
       {righe.length === 0 ? (
         <div className="vuoto-mini">{vuoto}</div>
       ) : (
