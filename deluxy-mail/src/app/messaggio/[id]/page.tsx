@@ -43,6 +43,7 @@ import { azioneDi, descriviAzioni } from '@/lib/appDeluxy'
 import { DatiInviati } from '@/components/DatiInviati'
 import { leggiChiaviApp } from '@/lib/chiaviApp'
 import { AppSuMessaggio } from '@/components/AppSuMessaggio'
+import { BottoneApp } from '@/components/BottoneApp'
 import { leggiEventoProposto } from '@/lib/eventoProposto'
 import { PropostaEvento } from '@/components/PropostaEvento'
 
@@ -315,6 +316,14 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
             {!eventoProposto && messaggio.direzione === 'entrata' && (
               <CercaAppuntamento messaggioId={messaggio.id} />
             )}
+
+            {/* ⚠️ «→ App» anche IN TESTA. La scheda «Manda a un'app Deluxy»
+                c'è da sempre, ma sta in fondo alla pagina — sotto il corpo e
+                sotto la conversazione — quindi su una catena di risposte non la
+                si trova (segnalato il 17/08/2026: «Come richiamo una app da
+                qui?»). È lo stesso rimedio della graffetta degli allegati: il
+                comando dove si guarda, la scheda resta dov'era per chi la usa. */}
+            <BottoneApp id={messaggio.id} />
           </div>
         </div>
 
