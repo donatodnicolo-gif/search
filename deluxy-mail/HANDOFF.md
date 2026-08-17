@@ -1,6 +1,6 @@
 # AI Mail 2.0 (deluxy-mail) — Handoff tecnico
 
-> Documento di ripartenza. Aggiornato: **7 agosto 2026**.
+> Documento di ripartenza. Aggiornato: **17 agosto 2026**.
 > Leggi anche `CLAUDE.md` alla radice del repo e il design system in `deluxy-design-system/`.
 
 ---
@@ -16,19 +16,41 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB:** Supabase Postgres, progetto **`feleldlsreurqpdhstla`** («cs@deluxy.it's», piano Pro, eu-west-1), **schema `mail`** — dal 28/07/2026, migrato con `scripts/sposta-database.mjs` (17.484 messaggi, tutte le 31 tabelle verificate riga per riga). ⚠️ Lo stesso database ospita in `public` la piattaforma consegne: lo schema dedicato è ciò che tiene le due app separate — `?schema=mail` va SEMPRE nelle stringhe di connessione (`DATABASE_URL` col pooler 6543 + `&pgbouncer=true`; `DIRECT_URL` col pooler 5432). Il progetto vecchio `sxovckndpmdbqfrfkxhl` (Free, 500 MB, finito in sola lettura a 1,57 GB) resta intatto come rete di sicurezza: **si spegne solo dopo qualche giorno di esercizio sereno del nuovo**, poi si valuta la disdetta di eventuali abbonamenti doppi.
 - **Porta locale:** 3070.
 
-### Dove siamo (7 agosto 2026)
+### Dove siamo (17 agosto 2026)
 
-Tutto committato e **pushato** su `origin/scout-ui`, e verificato **sul
-contenuto** (non sullo SHA: su questo branch altre sessioni riscrivono la
-storia, quindi si controlla che i file ci siano su `origin`, non che il numero
-del commit combaci). ⚠️ **Il push non pubblica**: il deploy è manuale —
-`npx vercel --prod --cwd C:/Users/nicol/scoutwt/deluxy-mail`, da lanciare come
-comando **semplice** — quindi prima di dire «è online» si verifica che la
-produzione abbia l'ultimo lavoro.
+**Fotografia verificata oggi, 17 agosto 2026, ore 10:25:**
+
+- **Codice**: niente in sospeso in `deluxy-mail/` (`git status` pulito), tutto
+  **pushato** su `origin/scout-ui` — verificato **sul contenuto** (non sullo
+  SHA: su questo branch altre sessioni riscrivono la storia, quindi si controlla
+  che i file ci siano su `origin`, non che il numero del commit combaci). Ultimo
+  commit: `87effd36` «selezione multipla e azioni sulla scheda contatto».
+- **Produzione allineata**: l'alias `deluxy-mail.vercel.app` punta al deploy
+  `dpl_C9rXf4dEgvtJpfRzs7MWAyhaxf71` del **17/08 alle 10:15**, cioè al codice di
+  oggi. Quattro deploy in produzione nell'ultima ora, tutti `Ready`.
+- **Salute**: `GET /api/health` → `{"ok":true,"database":true,"scrivibile":true}`
+  in **0,4 s**, e `X-Vercel-Id: fra1::dub1::…` — le funzioni girano davvero a
+  **dub1 (Dublino)**, accanto al database in eu-west-1. Il punto aperto «verificare
+  la velocità dopo lo spostamento a dub1» è quindi **chiuso sulla configurazione**
+  (resta da giudicare a mano se aprire una mail è veloce a sufficienza).
+- ⚠️ **Il push non pubblica**: il deploy è manuale —
+  `npx vercel --prod --cwd C:/Users/nicol/scoutwt/deluxy-mail`, da lanciare come
+  comando **semplice** — quindi prima di dire «è online» si verifica che la
+  produzione abbia l'ultimo lavoro (`npx vercel inspect https://deluxy-mail.vercel.app`).
 
 **Cronologia dei lavori:** le voci di §7 sono della sessione del 23 luglio (dalla
-più recente); i lavori dal **26 luglio al 3 agosto** stanno in §9, con la data
-fra parentesi. Gli ultimi (7 ago): la **✕ in tutti i dialoghi** (più `Esc`), e
+più recente); i lavori dal **26 luglio a oggi** stanno in §9, con la data fra
+parentesi. Gli ultimi tre (17 ago), tutti LIVE: **selezione multipla sulla scheda
+contatto** (`/rubrica/[email]`: checkbox per riga, Cestina · Archivia · Segna
+lette · **⛓ Unisci in una conversazione**, `uniciInThread`); **via i segnaposto
+`<firma5.png>`** delle immagini in linea dal corpo delle mail Apple; e
+**l'anteprima decodifica le entità HTML** (`p&#229;` → «på») e toglie i caratteri
+invisibili con cui gli spammer spezzano le parole. Il 15-17 ago: la **revisione
+multi-agente** in due lotti (XSS nell'editor, cross-tenant in `salvaMinuta`,
+azioni-riga sul thread, doppio invio, collisione UID INBOX/Inviata, retention che
+non girava mai, azioni app Deluxy che scrivono senza conferma — dettaglio in §9), la
+**graffetta in testa** per gli allegati e il **riassunto che si rilancia**.
+Prima (7 ago): la **✕ in tutti i dialoghi** (più `Esc`), e
 **la risposta a un invito resta scritta sulla mail** («Hai accettato», col tasto scelto acceso). Il 5 ago: **aprire una mail
 la segna letta** (prima no,
 e si è visto). Prima: **anche lo SPAM segue il server** (Posta
@@ -58,9 +80,16 @@ l'apertura di una mail resa veloce (vedi punto 1 qui sotto).
 
 1. **Verificare la velocità** dopo lo spostamento delle funzioni a **dub1**
    (Dublino, accanto al database): era la causa principale della lentezza
-   — le funzioni giravano a Washington. Se aprire una mail è ancora lento, il
-   prossimo indiziato sono le **due ondate di query** della pagina del
-   messaggio: la seconda aspetta la prima e ora si possono fondere.
+   — le funzioni giravano a Washington. La **configurazione è confermata**
+   (17/08: `X-Vercel-Id: fra1::dub1::…`, health in 0,4 s), resta il giudizio a
+   mano sull'apertura di una mail. Se è ancora lenta, il prossimo indiziato sono
+   le **due ondate di query** della pagina del messaggio: la seconda aspetta la
+   prima e ora si possono fondere.
+1-bis. ⚠️ **Migrazione del vincolo UID verificata solo nella LOGICA** (17/08): la
+   connessione Postgres dalla sandbox non passa. Se emergono doppioni o
+   inserimenti bloccati, controllare che in produzione esista
+   `Messaggio_accountId_direzione_uid_key` e **non** il vecchio
+   `Messaggio_accountId_uid_key`.
 2. **Ruotare i segreti finiti in chat il 28/07**: chiave OpenAI e password del
    database (è la stessa su vecchio e nuovo). Rigenerare, aggiornare Vercel e
    `.env`. **`APP_SECRET` no**: cambiarlo scollegherebbe le caselle.
