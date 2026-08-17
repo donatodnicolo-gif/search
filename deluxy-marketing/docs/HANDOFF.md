@@ -100,6 +100,71 @@ questi numeri: dicono cosa gira e cosa è fermo.**
 
 ## FATTO
 
+### Quanto budget usa ogni campagna, e «Crea campagna» segue il brand (17/08/2026)
+
+Commit `37f3b551`, in produzione (deploy 17/08, health 200).
+
+- ⭐ **«Budget usato» sulle card di `/campagne`** (`lib/budget-usato.ts`): quanto
+  del budget giornaliero la campagna sta davvero spendendo, con l'etichetta che
+  dice cosa farne — **al tetto** (≥95%: è il budget a limitarla, alzarlo porta
+  volume), **molto sotto** (<50%: il freno non sono i soldi, alzarlo non
+  cambierebbe niente), **nella norma** in mezzo. Il colore si accende solo sui
+  due estremi: colorare tutto equivale a non colorare niente.
+
+  ⚠️ **Tre scelte che cambiano il numero, tutte dichiarate nel `title` della
+  cella.** (1) **Oggi non conta**: il giorno in corso è mezzo giorno, e
+  includerlo abbasserebbe ogni percentuale ogni mattina — a mezzogiorno «48%»
+  sarebbe l'ora, non un problema (stessa ragione per cui `OggiCampagna` tiene il
+  giorno in corso separato). (2) **Si divide per i giorni in cui ha davvero
+  erogato**, non per i giorni del periodo: una campagna accesa 3 giorni su 7 che
+  in quei 3 ha finito il budget ha usato il 100% di quello che poteva, non il
+  43% — e il 43% porterebbe alla conclusione opposta a quella giusta.
+  (3) **Senza budget si scrive un trattino, non uno zero**: su Meta il budget può
+  stare sull'ad set (CBO) e non sulla campagna, e lì non è «zero», è «non lo so».
+
+  Misurato in pagina su Flowers 7 giorni: 58% «nella norma», 103% e 105% «al
+  tetto» (oltre 100% è normale — Google può spendere fino al doppio in un
+  giorno e recuperare nel mese).
+
+- **«Lancia su Google Ads» → «Crea campagna», e porta con sé il brand**
+  (`?brand=`): il modulo ripartiva **sempre da «gifts»**, quindi chi stava
+  filtrando Flowers rischiava di creare la campagna sul marchio sbagliato — un
+  errore che si scopre quando è già su Google. Ora il brand arriva dall'elenco,
+  il titolo lo dichiara («Crea campagna · Flowers») e sopravvive anche ai
+  redirect d'errore (`tornaBrand`).
+
+- **Il modulo è rifatto a sezioni**, una domanda per scheda, con le icone del set
+  esistente: obiettivo, nome e marchio, budget, località, URL, keyword e
+  negative, annuncio. **Tutto senza JavaScript** — radio e checkbox veri,
+  nascosti alla vista ma **non alla tastiera** (`position:absolute` + opacity, mai
+  `display:none`), con la carta come `<label>` e `:checked + .carta` per lo stato.
+
+- ⭐ **L'obiettivo scrive `tipoConversione`**, che decide se il ROAS è una domanda
+  sensata: su «contatti» il valore conversione è simbolico (1,00 €) e col ROAS la
+  campagna sembrerebbe una perdita netta. ⚠️ Su **traffico** e **notorietà** resta
+  **`null`** invece di essere forzato a «vendite»: un valore inventato si propaga
+  in ogni classifica che quel campo tocca.
+
+- ⚠️⚠️ **IL MODULO DICE COSA LO SCRIPT PORTA DAVVERO SU GOOGLE E COSA NO.** Il
+  bulk upload degli Scripts ha le colonne di Google Ads Editor: **nome, budget,
+  tipo Ricerca, stato, gruppo, keyword, annuncio RSA** — e basta. **Obiettivo,
+  località, lingua, strategia di offerta e negative NON sono colonne del bulk
+  upload.** Restano scritte in tre posti (campi della campagna dove esistono,
+  `note`, parametri dell'operazione) e la pagina dichiara che vanno impostate a
+  mano prima di accendere — che è comunque il momento della checklist 4.1.
+  **Chiederle e buttarle via sarebbe stato il difetto peggiore**: chi le scrive
+  crede di averle impostate, e qualcuno accende la campagna convinto che il
+  targeting ci sia. Appena impostate, il giro dopo dello script le rilegge
+  (`leggiLocalita`) e l'app le mostra da sola.
+
+- ⚠️ **Trappola ripagata in verifica**: `getComputedStyle` sul bordo delle carte
+  dava il valore VECCHIO dopo il click — `border-color` è in transizione e con la
+  scheda del browser nascosta le transizioni non avanzano. Sembrava che la
+  selezione non funzionasse. Si controlla con `.matches(':checked')` (che non
+  dipende dal tempo) o rileggendo dopo aver iniettato `transition: none`.
+  Vedi anche la nota sul dev server: `P2024 connection pool timeout` a raffica
+  con due dev server sullo stesso Postgres di produzione.
+
 ### La storia giornaliera anche per gli annunci, il recap in cima, la coda vista dalla campagna (15/08/2026)
 
 Sette commit in un'ora, tutti pubblicati (deploy 09:18). In ordine:
