@@ -22,6 +22,24 @@ solo dove siamo e come si lavora.
   `deluxy-platform-next/.claude/`. In locale le `/api/*` puntano alla produzione
   (`API_BASE` in index.html); la lock screen si aggira da console nascondendo `#lockScreen`.
 - Verifica sempre su https://search-deluxy.vercel.app dopo il push (`curl | grep <marker>`).
+- ⚠️ **Per sapere se «live == main» confronta l'HTML, non gli SHA**: `main` è anche il branch di
+  altre app del repo, quindi ci sono deploy di produzione nuovi anche senza modifiche qui.
+  Su Windows/PowerShell 5.1 **non usare `Get-Content -Raw`** per il confronto: legge l'UTF-8
+  senza BOM come ANSI, gli accenti e le «» diventano 2 caratteri e il diff mostra decine di
+  righe finte diverse. Ricetta giusta: leggere i due file con
+  `[System.IO.File]::ReadAllText($p,(New-Object System.Text.UTF8Encoding($false)))`,
+  normalizzare `\r\n`→`\n` e togliere il BOM (`TrimStart([char]0xFEFF)`) dalla copia salvata
+  con `Out-File -Encoding utf8`.
+
+## Verifica del 17/08/2026 (sera) — nessuna modifica al codice
+`origin/main` = HEAD del worktree = **e0d56ea8**, worktree pulito. Produzione: HTTP 200 in
+0,6 s, 217 KB, `X-Vercel-Id: fra1::…`, `Last-Modified` 17/08 13:38 GMT (deploy di e0d56ea8) e
+HTML live **identico** a `index.html` di main (a meno del CRLF) → **live == main**. Marker
+presenti: `TIPO_PRODOTTO`, `ASPHOTOWORD`, `prodottoPerMessaggio`, `tipoProdotto`, `orderItems`,
+`lbox`, `mostraFoto`, `PLACE_FOTOS`, `extendMore`, `navArchiviati`, `lockScreen`. Tutte le API
+senza chiave rispondono **401** (`/api/config`, `/api/stato`, `/api/storico`,
+`/api/anagrafiche`, `/api/contatti`): muro d'autenticazione integro (per questo dalla sessione
+non si vedono dati reali né si può diagnosticare «La Mimosa»).
 
 ## Stato attuale (tutto live e verificato)
 1. **Login con utenze**: **email + password** (19/07). `APP_PASSWORD` (env Vercel) = amministratore,
