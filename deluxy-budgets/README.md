@@ -761,6 +761,25 @@ npm run db:seed
 npm run dev               # http://localhost:3080
 ```
 
+### Produzione: come si pubblica e dove gira
+
+- **Il push su GitHub NON pubblica**: il progetto Vercel `deluxy-budgets` non è collegato al branch
+  (verificato il 09/08/2026: dopo il push la produzione era ferma a otto giorni prima). Si pubblica
+  **dalla cartella dell'app**: `cd deluxy-budgets; npx vercel deploy --prod --yes` (~40 s), poi
+  `npx vercel inspect https://deluxy-budgets.vercel.app` deve mostrare l'URL del deploy appena fatto.
+  Sintomo tipico se ci si dimentica: «il codice è su GitHub ma la funzione non si vede».
+- **Le funzioni girano a Francoforte** (`vercel.json`, `"regions": ["fra1"]`, aggiunto il
+  17/08/2026): il Postgres condiviso è in `eu-central-1` e senza quel file Vercel esegue a Washington
+  (`iad1`), facendo attraversare l'Atlantico a ogni query. Si riconosce dall'header della risposta:
+  `X-Vercel-Id: fra1::iad1::…` è sbagliato, `fra1::fra1::…` è giusto. Misurato prima della
+  correzione: `/api/health` (una query) al minimo **696 ms**, `/login` **739 ms** su quattro giri.
+- **Variabili d'ambiente in produzione al 17/08/2026** (nove): `DATABASE_URL`, `DIRECT_URL`,
+  `HUB_URL`, `BUDGETS_APP_PASSWORD`, `BUDGETS_API_KEY`, `FINANCE_API_KEY`, `ORDERS_URL`,
+  `ORDERS_API_KEY`, `MARKETING_API_KEY` (quest'ultima dal 09/08). Nella cassaforte dell'app c'è
+  `OPENAI_API_KEY`. **Mancano ancora `HUB_SSO_SECRET` e `APP_SECRET`**: finché manca il primo,
+  l'accesso dal Hub non funziona e l'app chiede la password di team. Aggiungerle con
+  `vercel env add NOME production --value "…" --sensitive`, mai da stdin (ci infila un a-capo).
+
 ## Le categorie di spesa dicono cosa sono (riassetto del 29/07/2026)
 
 Le categorie avevano solo un nome, e il nome non basta: «Fornitori / COGS» non dice niente a chi
@@ -877,9 +896,9 @@ ancora riclassificato** e le **variabili d'ambiente mancanti su Vercel** (in pro
 `ORDERS_URL`, `ORDERS_API_KEY`; nella cassaforte dell'app c'è **solo `OPENAI_API_KEY`**). In
 particolare **`MARKETING_API_KEY` non c'era né nell'ambiente né in cassaforte**: in produzione la
 riga «di questi ADV, Marketing ne spiega X%» del consuntivo non si vedeva affatto e il P&L ripiegava
-in silenzio sulle sole uscite di banca. **Da aggiungere** all'ambiente di produzione (`vercel env add
-MARKETING_API_KEY production --value "…" --sensitive`, col valore che sta nel `.env` locale — mai da
-stdin, che ci infila un a-capo) **oppure** da incollare in `/impostazioni/chiavi`.
+in silenzio sulle sole uscite di banca. ✅ **Aggiunta il 09/08/2026** all'ambiente di produzione
+(`vercel env add MARKETING_API_KEY production --value "…" --sensitive` — mai da stdin, che ci infila
+un a-capo); ricontrollato il 17/08/2026: c'è. Restano fuori `HUB_SSO_SECRET` e `APP_SECRET` (punto 9).
 
 1. ⚠️ **La quota Deluxy misurata è scesa al 25,9% su Gen–Giu 2026** (382.801 € girati ai partner su
    516.517 € di venduto) — era 39,1% prima delle classificazioni del 29/07/2026. **Ogni fiorista che
