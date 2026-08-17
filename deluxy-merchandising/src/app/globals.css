@@ -1112,3 +1112,54 @@ details.conferma-x[open] > summary.btn-pericolo { color: #fff; opacity: .85; }
   font-size: 11px; font-weight: 500; color: var(--text-secondary); white-space: nowrap;
 }
 .pill-uso-oro { border-color: color-mix(in srgb, var(--gold) 45%, transparent); color: var(--gold-strong, #8a6f2e); background: color-mix(in srgb, var(--gold) 10%, transparent); }
+
+/* ---------- I più venduti per sito ---------- */
+/* Le colonne dei siti: tre affiancate su desktop, una sotto l'altra quando lo
+   schermo non le regge. `auto-fit` con un minimo largo abbastanza da tenere
+   foto, nome e numeri sulla stessa riga: sotto quella soglia la colonna si
+   spezza da sola invece di comprimere il nome del prodotto a due lettere. */
+.griglia-siti {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 14px;
+  align-items: start;
+}
+
+.classifica-foto { list-style: none; margin: 10px 0 0; padding: 0; }
+.classifica-foto li {
+  display: flex; align-items: center; gap: 12px;
+  padding: 9px 4px; border-bottom: 1px solid var(--hairline);
+  position: relative;
+}
+.classifica-foto li:last-child { border-bottom: none; }
+/* Il numero di posizione: cifre tabellari, così l'incolonnamento non balla fra
+   il 9 e il 10 — in una classifica la colonna dei posti si legge di scorcio. */
+.classifica-foto .posto {
+  flex: 0 0 22px; text-align: right;
+  font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+}
+/* I primi tre in oro: l'accento serve dove dice qualcosa, e qui dice «questi». */
+.classifica-foto li:nth-child(-n+3) .posto { color: var(--gold-strong, #8a6f2e); }
+.classifica-foto .chi { flex: 1 1 auto; min-width: 0; display: block; }
+/* Il nome non manda a capo tre volte: una riga sola, e il resto con l'ellissi.
+   Su una classifica conta riconoscere il prodotto, non leggerne il titolo per
+   intero — quello sta nella scheda, a un clic. */
+.classifica-foto .chi .cella-nome,
+.classifica-foto .chi .cella-sub {
+  display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.classifica-foto .quanto {
+  flex: 0 0 auto; text-align: right; font-variant-numeric: tabular-nums;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.classifica-foto .quanto b { font-size: 14px; }
+@media (max-width: 520px) {
+  /* Su telefono la riga **resta una riga**: mandare i numeri a capo faceva
+     salire ogni riga da 62 a 151px, e una classifica di dieci diventava un
+     rotolo. Si stringe invece quello che si può — foto più piccola, meno gap —
+     e il nome usa l'ellissi, che è già la sua regola. */
+  .classifica-foto li { gap: 9px; }
+  .classifica-foto .posto { flex-basis: 16px; font-size: 12px; }
+  .classifica-foto .quanto b { font-size: 13px; }
+}

@@ -60,6 +60,32 @@ export function sommaGiorniRoma(d: Date, n: number): Date {
   return giornoRoma(versoIlBersaglio);
 }
 
+/**
+ * La mezzanotte di Roma di un giorno dato in forma «YYYY-MM-DD».
+ *
+ * Serve ai periodi di calendario (il primo del mese, il primo dell'anno), che
+ * non si ricavano contando giorni all'indietro. Si prova l'offset e si verifica
+ * col calendario, come in `giornoRoma`: nessuna libreria, nessuna assunzione su
+ * quale sia l'ora legale in quel mese.
+ */
+function mezzanotteRomaDi(giorno: string): Date {
+  for (const offset of ["+02:00", "+01:00"]) {
+    const candidata = new Date(`${giorno}T00:00:00${offset}`);
+    if (isoRoma(candidata) === giorno) return candidata;
+  }
+  return new Date(`${giorno}T00:00:00Z`);
+}
+
+/** La mezzanotte di Roma del **primo giorno del mese** in cui cade `d`. */
+export function primoDelMeseRoma(d: Date): Date {
+  return mezzanotteRomaDi(`${isoRoma(d).slice(0, 7)}-01`);
+}
+
+/** La mezzanotte di Roma del **primo giorno dell'anno** in cui cade `d`. */
+export function primoDellAnnoRoma(d: Date): Date {
+  return mezzanotteRomaDi(`${isoRoma(d).slice(0, 4)}-01-01`);
+}
+
 // I formattatori delle pagine: SEMPRE col fuso dichiarato. Un
 // `toLocaleDateString("it-IT")` senza timeZone su Vercel mostra il giorno UTC:
 // una vetrina curata alle 00:30 risultava «modificata ieri».

@@ -33,6 +33,7 @@ export async function Sidebar({
     | "sviluppo"
     | "costi"
     | "vendite"
+    | "best-seller"
     | "classifiche"
     | "assortimento"
     | "riordini"
@@ -81,6 +82,8 @@ export async function Sidebar({
         {voce("cruscotto", "/", "home", "Cruscotto")}
 
         <SbSezione titolo="Vendite">
+          {/* In testa: è la domanda che ci si fa più spesso, "cosa vende adesso". */}
+          {voce("best-seller", "/best-seller", "classifiche", "I più venduti")}
           {voce("vendite", "/vendite", "vendite", "Andamento & trend")}
           {voce("classifiche", "/classifiche", "classifiche", "Classifiche")}
           {voce("assortimento", "/assortimento", "collezioni", "Assortimento")}

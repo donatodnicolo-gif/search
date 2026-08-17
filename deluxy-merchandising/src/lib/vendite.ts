@@ -11,7 +11,7 @@
 
 import { prisma } from "./db";
 import { calcolaMargine } from "./dominio";
-import { giornoMeseRoma, giornoRoma, sommaGiorniRoma } from "./fuso";
+import { giornoMeseRoma, giornoRoma, primoDelMeseRoma, sommaGiorniRoma } from "./fuso";
 
 // ---------- Finestre temporali ----------
 
@@ -52,6 +52,42 @@ export function finestra(giorni: number): Finestra {
   const alPrec = new Date(dal.getTime() - 1);
   const dalPrec = sommaGiorniRoma(alPrec, -(giorni - 1));
   return { giorni, dal, al, dalPrec, alPrec };
+}
+
+// ---------- Periodi scelti dall'utente ----------
+//
+// Sei periodi, e **non sono tutti la stessa cosa**: «ultimi 30 giorni» è una
+// finestra che scorre, «mese corrente» è un pezzo di calendario che riparte il
+// primo del mese. Tenerli insieme in un solo elenco, ma calcolarli in due modi,
+// evita l'errore classico di chiamare «mese» gli ultimi 30 giorni: il 3 del
+// mese sono due cose molto diverse, e chi guarda il fatturato del mese lo sa.
+
+export const PERIODI = [
+  { chiave: "oggi", nome: "Oggi", giorni: 1 },
+  { chiave: "7g", nome: "Ultimi 7 giorni", giorni: 7 },
+  { chiave: "mese", nome: "Mese corrente", calendario: "mese" as const },
+  { chiave: "30g", nome: "Ultimi 30 giorni", giorni: 30 },
+  { chiave: "trimestre", nome: "Ultimi 3 mesi", giorni: 90 },
+  { chiave: "anno", nome: "Ultimo anno", giorni: 365 },
+] as const;
+
+export type ChiavePeriodo = (typeof PERIODI)[number]["chiave"];
+
+export function isPeriodo(v: unknown): v is ChiavePeriodo {
+  return typeof v === "string" && PERIODI.some((p) => p.chiave === v);
+}
+
+export type Periodo = { chiave: ChiavePeriodo; nome: string; dal: Date; al: Date };
+
+/** Il periodo scelto, in date vere. Sempre nel calendario di Roma. */
+export function periodoDa(chiave: ChiavePeriodo): Periodo {
+  const voce = PERIODI.find((p) => p.chiave === chiave) ?? PERIODI[3];
+  const al = fineGiorno(new Date());
+  const dal =
+    "calendario" in voce
+      ? primoDelMeseRoma(new Date())
+      : sommaGiorniRoma(new Date(), -(voce.giorni - 1));
+  return { chiave: voce.chiave, nome: voce.nome, dal, al };
 }
 
 // ---------- Vendite andate a buon fine ----------
@@ -1081,4 +1117,158 @@ export function coloreDelta(v: number | null): string {
   if (v > 0.02) return "var(--green)";
   if (v < -0.02) return "var(--red)";
   return "var(--text-secondary)";
+}
+
+// ---------- Best seller per sito ----------
+
+export type VoceBestSeller = {
+  posizione: number;
+  chiave: string;
+  nome: string;
+  dettaglio: string | null;
+  prodottoId: string | null;
+  immagine: string | null;
+  pezzi: number;
+  ricavo: number;
+  ordini: number;
+  prezzoMedio: number;
+  /** Quanto pesa sul venduto del suo sito, non su quello di tutti. */
+  quota: number;
+};
+
+export type SitoBestSeller = {
+  canale: string;
+  voci: VoceBestSeller[];
+  totale: { pezzi: number; ricavo: number; articoli: number };
+  /** Quanti articoli restano fuori dalla top: si dichiara, non si tace. */
+  fuoriClassifica: number;
+};
+
+export type BestSeller = {
+  periodo: Periodo;
+  vista: "pezzi" | "valore";
+  siti: SitoBestSeller[];
+  /** Il venduto complessivo del periodo, per dire quanto pesa ogni sito. */
+  totale: { pezzi: number; ricavo: number };
+};
+
+/**
+ * **I più venduti di ogni sito, affiancati.**
+ *
+ * Affiancati e non sommati, come il Cruscotto: deluxy.it, Flowers e
+ * cakedesign.me vendono cose diverse a persone diverse, e una classifica unica
+ * nasconderebbe il best seller del negozio più piccolo dietro i volumi del più
+ * grande. La quota di ogni riga è sul venduto **del suo sito**, per la stessa
+ * ragione.
+ *
+ * Conta solo le **vendite andate a buon fine** (`FILTRO_BUON_FINE`) e lascia
+ * fuori archiviati ed esclusi dalle analisi: un best seller rimborsato non è un
+ * best seller, e le righe di servizio dei negozi non sono prodotti.
+ *
+ * Una sola query per tutti i siti: raggruppare in memoria costa niente e tiene
+ * il pool (5 connessioni condivise) libero per il resto della pagina.
+ */
+export async function bestSellerPerSito(opzioni: {
+  periodo: ChiavePeriodo;
+  vista?: "pezzi" | "valore";
+  canale?: string | null;
+  quanti?: number;
+}): Promise<BestSeller> {
+  const vista = opzioni.vista ?? "pezzi";
+  const quanti = opzioni.quanti ?? 10;
+  const p = periodoDa(opzioni.periodo);
+
+  const righe = await prisma.vendita.findMany({
+    where: {
+      data: { gte: p.dal, lte: p.al },
+      ...FILTRO_BUON_FINE,
+      ...(opzioni.canale ? { canale: opzioni.canale } : {}),
+      OR: [{ prodottoId: null }, { prodotto: { fase: { not: "archiviato" }, esclusoDaAnalisi: false } }],
+    },
+    select: {
+      prodottoId: true,
+      titolo: true,
+      canale: true,
+      quantita: true,
+      ricavo: true,
+      prodotto: { select: { nome: true, codice: true, immagine: true } },
+    },
+  });
+
+  // Raggruppo per sito e, dentro, per prodotto. Le righe che nessuna scheda ha
+  // riconosciuto si raggruppano per titolo: sono venduto vero, e toglierle
+  // dalla classifica falserebbe le quote — semplicemente non hanno una foto.
+  const perSito = new Map<string, Map<string, VoceBestSeller & { ordini: number }>>();
+  const totaliSito = new Map<string, { pezzi: number; ricavo: number }>();
+  let pezziTotali = 0;
+  let ricavoTotale = 0;
+
+  for (const r of righe) {
+    const chiave = r.prodottoId ?? `titolo:${r.titolo.trim().toLowerCase()}`;
+    const dentro = perSito.get(r.canale) ?? new Map();
+    const v =
+      dentro.get(chiave) ??
+      ({
+        posizione: 0,
+        chiave,
+        nome: r.prodotto?.nome ?? r.titolo,
+        dettaglio: r.prodotto?.codice ?? "non a catalogo",
+        prodottoId: r.prodottoId,
+        immagine: r.prodotto?.immagine ?? null,
+        pezzi: 0,
+        ricavo: 0,
+        ordini: 0,
+        prezzoMedio: 0,
+        quota: 0,
+      } as VoceBestSeller & { ordini: number });
+    v.pezzi += r.quantita;
+    v.ricavo += r.ricavo;
+    v.ordini += 1;
+    dentro.set(chiave, v);
+    perSito.set(r.canale, dentro);
+
+    const t = totaliSito.get(r.canale) ?? { pezzi: 0, ricavo: 0 };
+    t.pezzi += r.quantita;
+    t.ricavo += r.ricavo;
+    totaliSito.set(r.canale, t);
+    pezziTotali += r.quantita;
+    ricavoTotale += r.ricavo;
+  }
+
+  const siti: SitoBestSeller[] = [...perSito.entries()]
+    .map(([canale, dentro]) => {
+      const totale = totaliSito.get(canale) ?? { pezzi: 0, ricavo: 0 };
+      const tutte = [...dentro.values()]
+        // A parità si guarda l'altra grandezza: così l'ordine è stabile e non
+        // dipende da come sono usciti i record dal database.
+        .sort((a, b) =>
+          vista === "pezzi" ? b.pezzi - a.pezzi || b.ricavo - a.ricavo : b.ricavo - a.ricavo || b.pezzi - a.pezzi,
+        );
+      const voci = tutte.slice(0, quanti).map((v, i) => ({
+        ...v,
+        posizione: i + 1,
+        prezzoMedio: v.pezzi > 0 ? v.ricavo / v.pezzi : 0,
+        // La quota è sul venduto del **suo** sito: è la domanda vera («quanto
+        // pesa questo prodotto qui dentro»), e su un totale globale il negozio
+        // piccolo mostrerebbe solo percentuali vicine allo zero.
+        quota:
+          vista === "pezzi"
+            ? totale.pezzi > 0
+              ? v.pezzi / totale.pezzi
+              : 0
+            : totale.ricavo > 0
+              ? v.ricavo / totale.ricavo
+              : 0,
+      }));
+      return {
+        canale,
+        voci,
+        totale: { ...totale, articoli: tutte.length },
+        fuoriClassifica: Math.max(0, tutte.length - voci.length),
+      };
+    })
+    // I siti in ordine di quanto vendono: chi guarda parte dal più grosso.
+    .sort((a, b) => b.totale.ricavo - a.totale.ricavo);
+
+  return { periodo: p, vista, siti, totale: { pezzi: pezziTotali, ricavo: ricavoTotale } };
 }
