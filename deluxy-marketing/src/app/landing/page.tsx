@@ -66,6 +66,7 @@ export default async function PaginaLanding({
               arancione. Config canonica: Mappa 00.4 su Drive.
             </p>
           </div>
+          <a className="btn btn-secondario" href="/landing/censimento">Censisci dalle destinazioni</a>
           <a className="btn" href="/landing/nuova">Registra landing</a>
         </div>
 

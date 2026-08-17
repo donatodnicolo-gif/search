@@ -553,6 +553,63 @@ export async function cambiaStatoTestMeta(stato: string, fd: FormData) {
 
 // ---------- Landing ----------
 
+/**
+ * Registra in blocco le landing scelte dal censimento (`/landing/censimento`).
+ *
+ * Le URL arrivano già normalizzate dal censimento; brand e lingua viaggiano
+ * accanto perché il censimento li ha ricavati dalle CAMPAGNE che ci mandano —
+ * un fatto — e ricavarli di nuovo qui dal solo testo della URL vorrebbe dire
+ * buttare via l'informazione migliore per usarne una peggiore.
+ *
+ * ⚠️ `upsert` e non `create`: fra il caricamento della pagina e il click una
+ * URL può essere stata registrata da un'altra parte, e far fallire l'intero
+ * blocco per una riga già presente sarebbe il comportamento peggiore. Chi
+ * c'era già non viene toccato — un `update` sovrascriverebbe scopo, stato e
+ * scorecard messi a mano con dei valori dedotti.
+ */
+export async function registraLandingDalCensimento(fd: FormData) {
+  const scelte = fd.getAll("scelte").map((v) => String(v)).filter(Boolean);
+  if (scelte.length === 0) redirect("/landing/censimento?esito=nessuna");
+
+  const meta = new Map<string, { brand: string; lingua: string | null }>();
+  for (const s of scelte) {
+    meta.set(s, {
+      brand: String(fd.get(`brand:${s}`) ?? "cross"),
+      lingua: (fd.get(`lingua:${s}`) ? String(fd.get(`lingua:${s}`)) : null) || null,
+    });
+  }
+
+  let create = 0;
+  for (const url of scelte) {
+    const m = meta.get(url)!;
+    const prima = await prisma.landingPage.findUnique({ where: { url }, select: { id: true } });
+    if (prima) continue;
+    await prisma.landingPage.create({
+      data: {
+        url,
+        brand: m.brand,
+        lingua: m.lingua,
+        // ⚠️ «da_verificare», non «attiva»: che ci arrivi un annuncio dice che
+        // la pagina è in uso, non che sia giusta. Lo stato «attiva» è un
+        // giudizio che qualcuno deve dare guardandola.
+        stato: "da_verificare",
+        note: "Censita dalle destinazioni degli annunci letti da Google.",
+      },
+    });
+    create++;
+  }
+
+  await registra({
+    autore: "utente",
+    tipo: "creazione",
+    entita: "landing",
+    titolo: `Censite ${create} landing dalle destinazioni degli annunci`,
+    dettaglio: `${scelte.length} selezionate · ${create} nuove · ${scelte.length - create} già presenti`,
+  });
+  revalidatePath("/landing");
+  redirect(`/landing/censimento?esito=${create}`);
+}
+
 export async function creaLanding(fd: FormData) {
   const url = testo(fd, "url");
   if (!url) return;
