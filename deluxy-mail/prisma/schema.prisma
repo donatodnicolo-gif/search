@@ -429,7 +429,13 @@ model Messaggio {
 
   creatoIl DateTime @default(now())
 
-  @@unique([accountId, uid])
+  // ⚠️ Gli UID IMAP sono PER-CARTELLA: la INBOX e la cartella Inviata hanno
+  // numerazioni indipendenti, quindi lo stesso uid può appartenere a una mail
+  // in entrata E a una inviata. Il vincolo per solo `accountId+uid` le
+  // confondeva: una in arrivo con lo stesso uid di un inviato risultava «già
+  // presente» e veniva scavalcata per sempre dal cursore (trovato in revisione
+  // il 14/08/2026). La `direzione` separa i due spazi di numerazione.
+  @@unique([accountId, direzione, uid])
   @@index([utenteId, data])
   @@index([utenteId, sezioneId, data])
   @@index([utenteId, threadManuale])

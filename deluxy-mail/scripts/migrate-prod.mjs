@@ -385,6 +385,17 @@ const stmts = [
   // approvazione (es. «si presenta come Shopify da una casella gratuita»).
   `ALTER TABLE "Messaggio" ADD COLUMN IF NOT EXISTS "spamCaso" TEXT`,
   `ALTER TABLE "Messaggio" ADD COLUMN IF NOT EXISTS "spamMotivo" TEXT`,
+
+  // Gli UID IMAP sono per-cartella: INBOX e Inviata hanno numerazioni separate,
+  // quindi lo stesso uid può appartenere a una mail in arrivo E a una inviata.
+  // Il vecchio vincolo (accountId, uid) le confondeva e faceva scavalcare
+  // mail; il nuovo aggiunge `direzione`. Si toglie il vecchio e si mette il
+  // nuovo (allargare un vincolo unico non può violare dati esistenti).
+  // Il vecchio vincolo può essere un constraint o un semplice indice, a seconda
+  // di come è stato creato: si tolgono entrambe le forme (IF EXISTS, innocuo).
+  `ALTER TABLE "Messaggio" DROP CONSTRAINT IF EXISTS "Messaggio_accountId_uid_key"`,
+  `DROP INDEX IF EXISTS "Messaggio_accountId_uid_key"`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS "Messaggio_accountId_direzione_uid_key" ON "Messaggio"("accountId", "direzione", "uid")`,
 ]
 
 async function main() {

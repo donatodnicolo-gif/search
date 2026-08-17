@@ -968,8 +968,10 @@ export async function sincronizzaAccount(
   // Quali di questi uid sono già salvati: scaricaNuovi li scavalca senza
   // rifetcharne il corpo (è anche la riparazione di un cursore rimasto indietro).
   const giaPresenti = async (uids: number[]) => {
+    // ⚠️ SOLO gli uid di ENTRATA: gli UID sono per-cartella, un inviato con lo
+    // stesso uid NON è questa mail (vedi il vincolo unico in schema.prisma).
     const presenti = await db.messaggio.findMany({
-      where: { accountId, uid: { in: uids } },
+      where: { accountId, direzione: 'entrata', uid: { in: uids } },
       select: { uid: true },
     })
     return new Set(presenti.map((m) => m.uid))
@@ -1218,8 +1220,11 @@ async function salvaMessaggi(opts: {
     let salvato = false
     for (let tentativo = 0; tentativo < 2 && !salvato; tentativo++) {
       try {
-        const esistente = await db.messaggio.findUnique({
-          where: { accountId_uid: { accountId, uid: msg.uid } },
+        // Solo fra la posta in ARRIVO: il vincolo unico ora è per
+        // (accountId, direzione, uid), e questo salvataggio è di sola entrata.
+        const esistente = await db.messaggio.findFirst({
+          where: { accountId, uid: msg.uid, direzione: 'entrata' },
+          select: { id: true },
         })
         if (esistente) {
           salvato = true
@@ -1358,8 +1363,17 @@ async function salvaMessaggi(opts: {
  * stesso messageId ma uid negativo — a quelle si aggiorna l'uid a quello reale
  * (così diventano cancellabili dal server). Niente regole/spam/analisi.
  */
-async function salvaInviati(utenteId: string, accountId: string, messaggi: MessaggioScaricato[]): Promise<number> {
+async function salvaInviati(
+  utenteId: string,
+  accountId: string,
+  messaggi: MessaggioScaricato[]
+): Promise<{ salvati: number; primoFallito: number | null }> {
   let salvati = 0
+  // ⚠️ Il PIÙ PICCOLO uid che ha fallito per un errore TRANSITORIO (DB giù,
+  // connessione persa): oltre quello il cursore NON deve avanzare, o quella
+  // mail spedita da webmail/telefono non verrebbe mai più riletta — e in
+  // silenzio, perché prima l'errore veniva inghiottito (revisione 14/08/2026).
+  let primoFallito: number | null = null
   for (const m of messaggi) {
     try {
       // SOLO fra gli inviati (direzione 'uscita'): non deve mai toccare una mail
@@ -1406,11 +1420,16 @@ async function salvaInviati(utenteId: string, accountId: string, messaggi: Messa
         },
       })
       salvati++
-    } catch {
-      /* conflitto uid unico o riga concorrente: si salta */
+    } catch (e) {
+      // Errore TRANSITORIO: si segna l'uid perché il cursore non lo scavalchi
+      // (si ritenta al prossimo giro). Errore PERMANENTE (riga guasta,
+      // conflitto stabile): si salta, o ci si incaglierebbe per sempre.
+      if (transitorio(e) && m.uid > 0) {
+        primoFallito = primoFallito === null ? m.uid : Math.min(primoFallito, m.uid)
+      }
     }
   }
-  return salvati
+  return { salvati, primoFallito }
 }
 
 /**
@@ -1437,18 +1456,28 @@ export async function sincronizzaInviata(accountId: string, esaurisci = false): 
   if (!cartella) return { ...esito, finito: true }
 
   const giaPresenti = async (uids: number[]) => {
-    const presenti = await db.messaggio.findMany({ where: { accountId, uid: { in: uids } }, select: { uid: true } })
+    // ⚠️ SOLO gli uid di USCITA: cartella Inviata, numerazione a sé (vedi il
+    // vincolo unico in schema.prisma). Un uid uguale in INBOX non è questo.
+    const presenti = await db.messaggio.findMany({
+      where: { accountId, direzione: 'uscita', uid: { in: uids } },
+      select: { uid: true },
+    })
     return new Set(presenti.map((m) => m.uid))
   }
 
   // Inviati NUOVI (uid oltre il cursore della cartella Inviata).
   try {
     const nuovi = await scaricaNuovi(account, 25, giaPresenti, { cartella, ultimoUid: account.ultimoUidInviata })
-    esito.scaricati += await salvaInviati(account.utenteId, accountId, nuovi.messaggi)
-    if (nuovi.ultimoUid > account.ultimoUidInviata) {
+    const salv = await salvaInviati(account.utenteId, accountId, nuovi.messaggi)
+    esito.scaricati += salv.salvati
+    // ⚠️ Il cursore non scavalca una mail il cui salvataggio è fallito per un
+    // errore transitorio: ci si ferma appena PRIMA, così al prossimo giro la si
+    // rilegge. Senza, la mail si perdeva in silenzio.
+    const tetto = salv.primoFallito !== null ? Math.min(nuovi.ultimoUid, salv.primoFallito - 1) : nuovi.ultimoUid
+    if (tetto > account.ultimoUidInviata) {
       await db.account.updateMany({
-        where: { id: accountId, ultimoUidInviata: { lt: nuovi.ultimoUid } },
-        data: { ultimoUidInviata: nuovi.ultimoUid },
+        where: { id: accountId, ultimoUidInviata: { lt: tetto } },
+        data: { ultimoUidInviata: tetto },
       })
     }
     if (account.primoUidInviata === 0 && nuovi.primoUid > 0) {
@@ -1464,7 +1493,7 @@ export async function sincronizzaInviata(accountId: string, esaurisci = false): 
     for (let giro = 0; giro < 10 && Date.now() - partenza < BUDGET_MS; giro++) {
       try {
         const vecchi = await scaricaVecchi(account, 40, { cartella, primoUid: account.primoUidInviata })
-        esito.scaricati += await salvaInviati(account.utenteId, accountId, vecchi.messaggi)
+        esito.scaricati += (await salvaInviati(account.utenteId, accountId, vecchi.messaggi)).salvati
         await db.account.update({
           where: { id: accountId },
           data: { primoUidInviata: vecchi.primoUid, storicoInviataFinito: vecchi.finito },
@@ -1501,9 +1530,12 @@ export async function cercaEImporta(utenteId: string, query: string): Promise<{ 
 
   let importati = 0
   for (const account of accounts) {
-    const giaPresenti = async (uids: number[]) => {
+    // ⚠️ DUE controlli distinti: INBOX e Inviata hanno UID indipendenti, e con
+    // un solo `giaPresenti` per account un uid uguale nelle due cartelle si
+    // annullava a vicenda (una delle due mail non entrava mai).
+    const giaPresentiDir = (direzione: 'entrata' | 'uscita') => async (uids: number[]) => {
       const presenti = await db.messaggio.findMany({
-        where: { accountId: account.id, uid: { in: uids } },
+        where: { accountId: account.id, direzione, uid: { in: uids } },
         select: { uid: true },
       })
       return new Set(presenti.map((m) => m.uid))
@@ -1511,7 +1543,7 @@ export async function cercaEImporta(utenteId: string, query: string): Promise<{ 
 
     // Posta in arrivo (INBOX).
     try {
-      const trovate = await cercaSulServer(account, q, giaPresenti)
+      const trovate = await cercaSulServer(account, q, giaPresentiDir('entrata'))
       if (trovate.length > 0) {
         const esito: EsitoSync = { tipo: 'scarico', account: account.email, scaricati: 0, nonSalvati: 0, scartati: 0 }
         // NIENTE avanzaUltimoUid: gli UID della ricerca sono sparsi, il cursore
@@ -1534,8 +1566,8 @@ export async function cercaEImporta(utenteId: string, query: string): Promise<{ 
     // Cartella "Inviata" (se nota).
     if (account.cartellaInviata) {
       try {
-        const trovate = await cercaSulServer(account, q, giaPresenti, { cartella: account.cartellaInviata })
-        if (trovate.length > 0) importati += await salvaInviati(utenteId, account.id, trovate)
+        const trovate = await cercaSulServer(account, q, giaPresentiDir('uscita'), { cartella: account.cartellaInviata })
+        if (trovate.length > 0) importati += (await salvaInviati(utenteId, account.id, trovate)).salvati
       } catch {
         /* idem */
       }
@@ -2116,6 +2148,25 @@ export async function leggiRiassuntoThread(
 
 /** Tutte le caselle attive di tutti gli utenti — per il cron. */
 export async function sincronizzaTutti(): Promise<EsitoSync[]> {
+  // ⚠️ Manutenzione e sequenze IN TESTA, non in coda. Il giro per-account può
+  // saturare da solo i 300s del cron (la rotta stessa lo documenta), e in coda
+  // non venivano MAI eseguite: i follow-up non partivano e la retention non
+  // girava, in silenzio (revisione 14/08/2026). Sono lavori brevi e vanno
+  // fatti prima che la lettura posta si mangi tutto il tempo. ⚠️ Costo: le
+  // sequenze girano su uno stato posta di un giro fa (una risposta arrivata
+  // proprio ora la ferma al giro dopo) — accettabile rispetto a «mai».
+  try {
+    await manutenzioneRetention()
+  } catch {
+    /* best-effort */
+  }
+  try {
+    const { processaSequenze } = await import('./sequenze')
+    await processaSequenze()
+  } catch {
+    /* best-effort */
+  }
+
   const account = await db.account.findMany({ where: { attivo: true } })
   const esiti: EsitoSync[] = []
   for (const a of account) {
@@ -2131,22 +2182,6 @@ export async function sincronizzaTutti(): Promise<EsitoSync[]> {
         /* le notifiche non devono far fallire la sincronizzazione */
       }
     }
-  }
-  // Manutenzione periodica (una volta per giro): archivio vecchio → cestino,
-  // SPAM molto vecchio → cancellato. Non deve far fallire la sincronizzazione.
-  try {
-    await manutenzioneRetention()
-  } catch {
-    /* la manutenzione è best-effort */
-  }
-  // Sequenze di follow-up: manda i passi in scadenza (stop se hanno risposto).
-  // Va DOPO la sincronizzazione: così le risposte appena arrivate fermano le
-  // sequenze prima che parta il follow-up.
-  try {
-    const { processaSequenze } = await import('./sequenze')
-    await processaSequenze()
-  } catch {
-    /* best-effort */
   }
   return esiti
 }
@@ -2171,14 +2206,46 @@ export async function manutenzioneRetention(): Promise<{ archivioInCestino: numb
   const ora = Date.now()
   const soglia = (giorni: number) => new Date(ora - giorni * 24 * 60 * 60 * 1000)
 
-  const arch = await db.messaggio.updateMany({
+  // ⚠️ A BLOCCHI e con gli ID in mano, NON un updateMany cieco. Marcare
+  // `cestinato` senza spostare la mail nel Cestino della CASELLA la lasciava in
+  // INBOX sul server, mentre `cartellaDiMessaggio` la cercava ormai nel Trash:
+  // aprendola, impaginato e allegati «spariti» (o, peggio, quelli di un'altra
+  // mail con lo stesso uid nel Trash). Trovato in revisione il 14/08/2026.
+  // Il tetto tiene corto il giro del cron; l'operazione è idempotente, quindi
+  // un arretrato grande si smaltisce in più giri.
+  const TETTO = 100
+  const daCestinare = await db.messaggio.findMany({
     where: {
       archiviato: true,
       cestinato: false,
       data: { lt: soglia(RETENZIONE.archivioInCestinoGiorni) },
     },
-    data: { cestinato: true, cestinatoIl: new Date() },
+    select: { id: true, utenteId: true },
+    take: TETTO,
   })
+
+  if (daCestinare.length > 0) {
+    await db.messaggio.updateMany({
+      where: { id: { in: daCestinare.map((m) => m.id) } },
+      data: { cestinato: true, cestinatoIl: new Date() },
+    })
+    // Il server segue: si spostano nel Cestino della casella (partenza 'auto',
+    // perché una potrebbe essere in SPAM). Raggruppate per utente. Best-effort:
+    // se il server non risponde, in AI Mail sono comunque a posto.
+    const perUtente = new Map<string, string[]>()
+    for (const m of daCestinare) {
+      const g = perUtente.get(m.utenteId) ?? []
+      g.push(m.id)
+      perUtente.set(m.utenteId, g)
+    }
+    for (const [utenteId, ids] of perUtente) {
+      try {
+        await allineaCartellaOra(utenteId, ids, 'auto', 'cestino')
+      } catch {
+        /* il server non ha seguito: si riproverà */
+      }
+    }
+  }
 
   const spam = await db.messaggio.deleteMany({
     where: {
@@ -2187,7 +2254,7 @@ export async function manutenzioneRetention(): Promise<{ archivioInCestino: numb
     },
   })
 
-  return { archivioInCestino: arch.count, spamCancellati: spam.count }
+  return { archivioInCestino: daCestinare.length, spamCancellati: spam.count }
 }
 
 /** Solo le caselle di un utente — per il pulsante "Aggiorna posta".

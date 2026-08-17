@@ -44,6 +44,21 @@ export function ListaMail({
     [righe, ordine]
   )
 
+  // ⚠️ La selezione NON deve sopravvivere al cambio di vista. I filtri sono
+  // searchParams sulla stessa route (/?stato=archiviati, /?sezione=…): il
+  // componente non si rimonta, quindi senza questo la barra diceva ancora «10
+  // selezionate» dopo essere passati in Archivio, e «Cestina» agiva su 10 mail
+  // non più a schermo. Si tiene solo ciò che è ancora fra le righe correnti.
+  // (Revisione 14/08/2026.)
+  useEffect(() => {
+    setSelezione((s) => {
+      if (s.size === 0) return s
+      const vivi = new Set(righe.map((r) => r.id))
+      const rimasti = [...s].filter((id) => vivi.has(id))
+      return rimasti.length === s.size ? s : new Set(rimasti)
+    })
+  }, [righe])
+
   // Ordinando per DIMENSIONE serve il peso vero (allegati compresi), che sta
   // sul server: se qualche riga non ce l'ha, lo si chiede in sottofondo — una
   // sola volta, e solo quando quel dato serve davvero.

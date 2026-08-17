@@ -198,6 +198,15 @@ export type AzioneApp = {
   /** true se l'azione permette di agganciare i dati a un'azienda già presente
    *  in Anagrafiche (il dialogo mostra la ricerca dell'azienda). */
   cercaAzienda?: boolean
+  /**
+   * ⚠️ true se l'azione SCRIVE in un'app aziendale (crea anagrafiche,
+   * proforma, trattative…). Queste NON si eseguono mai in automatico su dati
+   * che l'AI ha estratto dal corpo di una mail (dato non fidato: una mail
+   * confezionata potrebbe pilotare i campi): anche con la sezione in modo
+   * «automatico», si chiede sempre conferma mostrando i dati. Le azioni di sola
+   * lettura (verifica/trova) restano automatiche. (Revisione 14/08/2026.)
+   */
+  scrive?: boolean
   /** Guida per l'AI su come compilare i dati. */
   guida: string
   /**
@@ -261,6 +270,7 @@ const AZIONI: AzioneApp[] = [
     id: 'anagrafiche.partner',
     app: 'Anagrafiche',
     nome: 'Registra contatto',
+    scrive: true,
     descrizione: 'Crea o aggiorna il partner/prospect nel registro centralizzato.',
     colore: 'blue',
     guida:
@@ -510,6 +520,7 @@ const AZIONI: AzioneApp[] = [
     id: 'finance.proforma',
     app: 'Finance',
     nome: 'Crea proforma',
+    scrive: true,
     descrizione: 'Prepara una proforma per il partner in Deluxy Finance.',
     colore: 'gold',
     guida:
@@ -695,6 +706,7 @@ const AZIONI: AzioneApp[] = [
     id: 'commerciale.trattativa',
     app: 'Commerciale',
     nome: 'Apri trattativa',
+    scrive: true,
     descrizione: 'Apre una nuova trattativa nel CRM commerciale per il negozio.',
     colore: 'green',
     guida:

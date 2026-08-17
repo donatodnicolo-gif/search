@@ -289,10 +289,11 @@ export async function smaltisciEProssimo(
   // Il server segue: le mail vanno nel Cestino anche sulla casella (in
   // `after()`, vedi cartelleServer.ts). Archiviare invece è una faccenda di AI
   // Mail: sul server non esiste una cartella «archiviati» che valga per tutti.
-  // ⚠️ Da DOVE parte lo sa solo chi chiama: una mail nello SPAM sta già nella
-  // Posta indesiderata della casella, non in INBOX.
+  // ⚠️ `'auto'`: il thread può essere MISTO — alcune mail in SPAM (nel Junk
+  // della casella), altre in INBOX. La partenza si decide per singola mail
+  // dalla sua sezione, o quelle già in SPAM resterebbero vive sul server.
   if (azione === 'cestina') {
-    allineaCartellaDopo(utenteId, tutti, m.sezione?.nome === 'SPAM' ? 'spam' : 'normale', 'cestino')
+    allineaCartellaDopo(utenteId, tutti, 'auto', 'cestino')
   }
   revalidatePath('/', 'layout')
   return {
@@ -1143,7 +1144,8 @@ export async function cestinaMessaggio(id: string) {
     where: { id, utenteId },
     data: { cestinato: true, cestinatoIl: new Date(), letto: true },
   })
-  allineaCartellaDopo(utenteId, [id], 'normale', 'cestino')
+  // 'auto': la mail potrebbe essere nello SPAM (già nel Junk della casella).
+  allineaCartellaDopo(utenteId, [id], 'auto', 'cestino')
   revalidatePath('/', 'layout')
 }
 
@@ -1211,7 +1213,9 @@ export async function cestinaThread(messaggioId: string): Promise<{ ok: boolean;
     where: { id: { in: ids }, utenteId },
     data: { cestinato: true, cestinatoIl: new Date(), letto: true },
   })
-  allineaCartellaDopo(utenteId, ids, 'normale', 'cestino')
+  // 'auto': un thread può avere mail nello SPAM (nel Junk) e altre in INBOX;
+  // la partenza si decide per singola mail, o le prime restano vive sul server.
+  allineaCartellaDopo(utenteId, ids, 'auto', 'cestino')
   revalidatePath('/', 'layout')
   return { ok: true, messaggio: `${r.count} mail del thread spostate nel cestino.` }
 }
@@ -1295,8 +1299,14 @@ export async function spostaInSezione(
     const mia = await db.sezione.findFirst({ where: { id: sezioneId, utenteId } })
     if (!mia) return {}
   }
+  // ⚠️ In elenco una riga È un thread: si sposta TUTTA la conversazione, o le
+  // mail più vecchie restano senza sezione e il thread si divide in due posti
+  // (una in sezione, il resto ancora in «da smistare»). Stessa regola di
+  // archivia/cestina/spam e di «Non è spam».
+  const idsSposta = [...(await idsThread(utenteId, id))]
+  const tutti = idsSposta.length ? idsSposta : [id]
   await db.messaggio.updateMany({
-    where: { id, utenteId },
+    where: { id: { in: tutti }, utenteId },
     data: { sezioneId, smistatoDa: sezioneId ? 'manuale' : null },
   })
   revalidatePath('/', 'layout')
@@ -1306,7 +1316,15 @@ export async function spostaInSezione(
   // scrivono `sezioneId` altrove e non passano di qui — è voluto.
   const azione = await azioneDiSezione(utenteId, sezioneId)
   if (!azione) return {}
-  if (azione.modo === 'chiedi')
+
+  // ⚠️ Un'azione che SCRIVE in un'app aziendale (crea anagrafiche, proforma,
+  // trattative) non si esegue MAI in automatico: i suoi dati li estrae l'AI dal
+  // corpo della mail, che è NON FIDATO — una mail confezionata potrebbe pilotare
+  // i campi e provocare scritture reali. Anche con la sezione in «automatico»,
+  // si chiede sempre conferma mostrando i dati. Le azioni di sola lettura
+  // (verifica partner, trova fornitore) restano automatiche. (Revisione 14/08.)
+  const scrive = azioneDi(azione.azioneId)?.scrive ?? false
+  if (azione.modo === 'chiedi' || scrive)
     return { chiedi: { azioneId: azione.azioneId, app: azione.app, nome: azione.nome } }
 
   // Automatica: DOPO che la risposta è partita, altrimenti spostare una riga
@@ -1348,7 +1366,8 @@ export async function azioneMassa(
       break
     case 'cestina':
       n = (await db.messaggio.updateMany({ where, data: { cestinato: true, cestinatoIl: new Date(), letto: true } })).count
-      allineaCartellaDopo(utenteId, puliti, 'normale', 'cestino')
+      // 'auto': fra le selezionate possono esserci mail in SPAM (nel Junk).
+      allineaCartellaDopo(utenteId, puliti, 'auto', 'cestino')
       break
     case 'letto':
       n = (await db.messaggio.updateMany({ where, data: { letto: true } })).count
@@ -1370,8 +1389,12 @@ export async function azioneMassa(
       // Anche in massa la sezione può chiamare l'app, ma solo se l'azione è
       // AUTOMATICA: «chiedi» vorrebbe dire aprire un dialogo per ogni mail, e
       // qui le mail sono tante — lo si dice e basta.
+      // ⚠️ Le azioni che SCRIVONO in un'app aziendale non partono mai da sole,
+      // men che meno in massa (dati estratti dall'AI da mail non fidata): si
+      // conferma mail per mail. Vedi `spostaInSezione`.
       const azione = await azioneDiSezione(utenteId, sezioneId ?? null)
-      if (azione?.modo === 'automatico') {
+      const azioneScrive = azione ? azioneDi(azione.azioneId)?.scrive ?? false : false
+      if (azione?.modo === 'automatico' && !azioneScrive) {
         const u = await utenteCorrente()
         if (u) {
           // In coda, dopo la risposta, una per volta: sono N chiamate AI + N
@@ -1790,7 +1813,7 @@ export async function comandoPostaEsegui(
     // oggetto, non una lista, quindi si leggono prima di cestinare.
     const colpite = await db.messaggio.findMany({ where, select: { id: true } })
     const r = await db.messaggio.updateMany({ where, data: { cestinato: true, cestinatoIl: new Date() } })
-    allineaCartellaDopo(utenteId, colpite.map((m) => m.id), 'normale', 'cestino')
+    allineaCartellaDopo(utenteId, colpite.map((m) => m.id), 'auto', 'cestino')
     revalidatePath('/', 'layout')
     return { ok: true, messaggio: `Cestinate ${r.count} mail${ambito}. Le trovi nel Cestino se ti servono.` }
   }
@@ -2089,42 +2112,55 @@ async function registraInviato(
     avviso = 'Copia non salvata nella cartella “Inviata” del server.'
   }
 
-  const ultimo = await db.messaggio.findFirst({
-    where: { accountId: account.id, direzione: 'uscita' },
-    orderBy: { uid: 'asc' },
-    select: { uid: true },
-  })
-  const uidMsg = Math.min(-1, (ultimo?.uid ?? 0) - 1)
+  const datiInviato = {
+    utenteId,
+    accountId: account.id,
+    direzione: 'uscita',
+    messageId,
+    // Radice della conversazione dell'originale: così la risposta si
+    // raggruppa nello stesso thread anche se cambia l'oggetto.
+    thread: threadRadice,
+    mittente: account.email,
+    mittenteNome: account.nome,
+    destinatari: [m.a, m.cc].filter(Boolean).join(', '),
+    oggetto: m.oggetto,
+    data: new Date(),
+    anteprima: m.corpo.replace(/\s+/g, ' ').slice(0, 200),
+    corpoTesto: m.corpo,
+    corpoHtml: m.corpoHtml ?? null,
+    allegati: m.allegati?.length ?? 0,
+    dimensione: raw.length, // byte reali della mail spedita
+    letto: true,
+    sezioneId,
+    smistatoDa: sezioneId ? 'manuale' : null,
+    priorita,
+    prioritaDa: priorita ? 'manuale' : null,
+    modoInvio,
+  }
 
-  const inviato = await db.messaggio.create({
-    select: { id: true },
-    data: {
-      utenteId,
-      accountId: account.id,
-      uid: uidMsg,
-      direzione: 'uscita',
-      messageId,
-      // Radice della conversazione dell'originale: così la risposta si
-      // raggruppa nello stesso thread anche se cambia l'oggetto.
-      thread: threadRadice,
-      mittente: account.email,
-      mittenteNome: account.nome,
-      destinatari: [m.a, m.cc].filter(Boolean).join(', '),
-      oggetto: m.oggetto,
-      data: new Date(),
-      anteprima: m.corpo.replace(/\s+/g, ' ').slice(0, 200),
-      corpoTesto: m.corpo,
-      corpoHtml: m.corpoHtml ?? null,
-      allegati: m.allegati?.length ?? 0,
-      dimensione: raw.length, // byte reali della mail spedita
-      letto: true,
-      sezioneId,
-      smistatoDa: sezioneId ? 'manuale' : null,
-      priorita,
-      prioritaDa: priorita ? 'manuale' : null,
-      modoInvio,
-    },
-  })
+  // ⚠️ L'uid sintetico (negativo) si calcola da una SELECT non atomica: due
+  // invii quasi simultanei sullo stesso account leggono lo stesso minimo e
+  // calcolano lo STESSO uid → il secondo `create` viola il vincolo unico e
+  // l'invio, GIÀ partito via SMTP, risulterebbe «non riuscito» (e chi rimanda
+  // fa un doppione). Si ritenta ricalcolando l'uid sulla collisione (P2002).
+  // Trovato in revisione il 14/08/2026.
+  let inviato: { id: string } | null = null
+  for (let tentativo = 0; tentativo < 5 && !inviato; tentativo++) {
+    const ultimo = await db.messaggio.findFirst({
+      where: { accountId: account.id, direzione: 'uscita' },
+      orderBy: { uid: 'asc' },
+      select: { uid: true },
+    })
+    const uidMsg = Math.min(-1, (ultimo?.uid ?? 0) - 1 - tentativo)
+    try {
+      inviato = await db.messaggio.create({ select: { id: true }, data: { ...datiInviato, uid: uidMsg } })
+    } catch (e) {
+      const codice = (e as { code?: string }).code
+      if (codice !== 'P2002' || tentativo === 4) throw e
+      // collisione sull'uid: si riprova con un uid più in basso.
+    }
+  }
+  if (!inviato) throw new Error('Registrazione dell’inviata non riuscita.')
 
   // La mail appena spedita entra nella conversazione indicata (stesso
   // meccanismo del pulsante «Aggancia» sulle righe): per una RISPOSTA è sempre
