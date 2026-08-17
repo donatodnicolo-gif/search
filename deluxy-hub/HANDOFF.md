@@ -1,8 +1,13 @@
 # Deluxy Hub — Handoff per ripartire
 
 > Documento per una nuova sessione (anche altro account Claude) che riprende il
-> lavoro sul portale. Aggiornato: **5 agosto 2026**.
+> lavoro sul portale. Aggiornato: **17 agosto 2026**.
 > Leggi anche [README.md](README.md) (dettagli completi) e la memoria del progetto.
+
+> ⚠️ **La cartella di lavoro è `C:\Users\nicol\scoutwt\deluxy-hub` (branch
+> `scout-ui`)**. Nel repo `C:\Users\nicol\app` esiste una copia `deluxy-hub/`
+> **ferma al 26/07/2026**, con un handoff che sembra buono ma è vecchio: non
+> lavorarci e non ripescarne file.
 
 ---
 
@@ -213,6 +218,8 @@ il default è 1 MB e un certificato scansionato lo supera.
 
 - Progetto: **`deluxy/deluxy-hub`** (CLI già autenticata come `donatodnicolo-gif`).
 - Deploy produzione: dalla cartella `deluxy-hub`, `npx vercel deploy --prod`.
+- **[`vercel.json`](vercel.json): `"regions": ["fra1"]`** — le funzioni devono
+  girare a Francoforte, accanto al database (vedi trappola 6 in §7). Non togliere.
   (Il classificatore di permessi può bloccarlo: se succede, chiedi conferma
   all'utente o fallo lanciare a lui.)
 - **Env di produzione già impostate** (10): `DATABASE_URL`, `DIRECT_URL`,
@@ -246,6 +253,15 @@ in `.env` finiscono con `?schema=hub`. Verificato che le 7 tabelle di Partner in
 5. **Verifica**: in questa macchina lo **screenshot del pannello browser va in
    timeout** (viewport 0x0). Ho verificato tutto con `javascript_tool` contro il
    sito pubblicato (leggere `.app-card`, compilare form, ecc.). Usa quel metodo.
+6. **Funzioni lontane dal database** (trovato il 17/08/2026): senza `vercel.json`
+   Vercel piazza le funzioni a **Washington (`iad1`)** mentre il Postgres Supabase
+   è a **Francoforte**, e ogni query si paga un andata-e-ritorno oceanico. Si
+   riconosce dall'header `X-Vercel-Id: fra1::iad1` (il primo è il punto d'ingresso,
+   il **secondo** è dove gira la funzione: devono coincidere). Corretto con
+   `{"regions":["fra1"]}`: `/api/health` (login + `SELECT 1`) è passato da
+   **~0,92-1,08 s a ~0,33-0,47 s** a caldo, misurato sul sito pubblicato prima e
+   dopo il deploy. Attenzione: un `vercel.json` nuovo vale solo dal deployment
+   successivo, e i tempi a freddo (~1,0-1,5 s) sono cold start, non region.
 
 ---
 
@@ -282,6 +298,14 @@ npm run dev            # http://localhost:3050
   non prova a spedire.
 - **Nessun recupero password autonomo**: lo reimposta un admin da `/utenti`.
 - **Creare gli utenti veri** del team da `/utenti` (finora esiste solo l'admin).
+- **`deluxy-acquisti` non è nel catalogo**: l'app esiste nel repo (porta 3100) ma
+  non ha una tessera in `apps.ts` né un `APP_URL_ACQUISTI`, quindi dal portale non
+  si raggiunge. Da aggiungere quando avrà un URL pubblico.
+- **Il cookie non viene ricontrollato sul database**: il middleware valida solo la
+  firma, non che l'utente esista ancora e sia `attivo`. Chi viene eliminato o
+  disattivato continua a entrare col cookie che ha già, fino alla scadenza (30
+  giorni). L'unica espulsione immediata oggi è cambiare `HUB_SESSION_SECRET`, che
+  però butta fuori tutti. Non ancora affrontato.
 
 ---
 
@@ -315,8 +339,10 @@ npm run dev            # http://localhost:3050
 
 ## 10. Verifiche già fatte sul sito pubblicato
 
-- Login admin → vede tutte e 7 le app, ordine A→Z, URL di produzione, nessun
-  `localhost` tranne Consegne (segnaposto).
+- Login admin → vede tutte le app del catalogo, ordine A→Z, URL di produzione
+  (verifica fatta quando le app erano 7: allora l'unico `localhost` era Consegne,
+  oggi Consegne è pubblica e il ripiego locale resta solo su Finance, Anagrafiche
+  e AI Mail — vedi §3).
 - Permessi per-app: creato utente commerciale con **solo Finance** spuntata → al
   login vedeva **solo Finance**, niente link `/utenti`, `/utenti` bloccato con
   redirect. Utente di prova poi eliminato (sul db resta solo l'admin).
@@ -334,7 +360,9 @@ npm run dev            # http://localhost:3050
 
 ### 11.1 Modello dati (Prisma — `prisma/schema.prisma`)
 
-Un'unica tabella nello schema `hub`:
+**Sei tabelle** nello schema `hub`: `Utente`, `Chiave` e `TokenApi` (cassaforte,
+§9-bis) più `Timbratura`, `Assenza` e `Certificato` (cartellino, §5-ter). Quella
+centrale è `Utente`, a cui le altre sono legate con cascata:
 
 ```
 model Utente {
@@ -433,12 +461,18 @@ descrizione}`; `isRuolo(x)` type-guard. Elenco chiuso: aggiungere un ruolo qui.
 | `DATABASE_URL` | Postgres pooler **6543**, `?pgbouncer=true&connection_limit=1&schema=hub` |
 | `DIRECT_URL` | Postgres diretta **5432**, `?schema=hub` (per `db push`/migrazioni) |
 | `HUB_SESSION_SECRET` | firma il cookie; cambiarlo disconnette tutti |
-| `APP_URL_SEARCH` `_PARTNER` `_ANAGRAFICHE` `_MAISON` `_SCOUT` `_MAIL` `_CONSEGNE` | dove puntano le icone (assente in prod = app nascosta) |
+| `HUB_CHIAVI_SECRET` | cifra i segreti della cassaforte `/chiavi` (ripiego su `HUB_SESSION_SECRET`) |
+| `HUB_SSO_SECRET` | cifra il token SSO Hub→app; **stesso valore** nell'app di destinazione, min 32 caratteri. Assente = l'app chiede il suo login |
+| `HUB_KEYS_TOKEN` | token con cui il Hub legge la *propria* cassaforte via API |
+| `SMTP_HOST` `_PORT` `_USER` `_PASS` `_FROM` | invio del riepilogo presenze; in alternativa nella cassaforte `/chiavi`, progetto `hub` (l'ambiente vince) |
+| `APP_URL_SEARCH` `_PARTNER` `_ANAGRAFICHE` `_MAISON` `_SCOUT` `_MAIL` `_CONSEGNE` `_TASKS` `_CALENDARIO` `_BUDGETS` `_MARKETING` `_MERCHANDISING` `_MESSAGGI` `_ORDERS` `_TRANSACTIONS` `_SCRIPTS` | dove puntano le icone (assente in prod = app nascosta, tranne le eccezioni con ripiego `localhost` in §3) |
 | `SEED_ADMIN_EMAIL` `SEED_ADMIN_PASSWORD` | primo admin creato da `db:seed` (solo primo avvio) |
 
 ### 11.10 Stato prodotto in una riga
 
-Portale **live e completo** con 7 app catalogate (6 pubbliche + Consegne
-segnaposto), login a database, permessi app-per-utente immediati, gestione utenti
-admin. Manca: cambio password admin di default, URL pubblico per Consegne,
-recupero password autonomo, popolamento degli utenti reali.
+Portale **live** con **16 app** catalogate (§3), login a database, permessi
+app-per-utente immediati, gestione utenti admin, cassaforte dei segreti con API a
+token, pagina Stato servizi, cartellino presenze/ferie/malattia (solo da computer).
+Manca: cambio password admin di default, SSO su Finance, posta SMTP non
+configurata, recupero password autonomo, popolamento degli utenti reali, l'app **Acquisti**
+non ancora nel catalogo (vedi §9).
