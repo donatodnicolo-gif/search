@@ -49,7 +49,12 @@ export async function GET(_req: NextRequest, { params }: Params) {
 
   return NextResponse.json({
     conversazione,
-    messaggi,
+    // ⚠️ `mediaUrl` NON esce di qui. È l'indirizzo firmato che Meta ci dà per la
+    // foto di un cliente: chi ce l'ha se la guarda senza passare dall'app, e
+    // basta una schermata inoltrata perché esca dall'azienda. Al browser serve
+    // sapere solo che un allegato c'è — il file glielo dà `/api/media/[id]`,
+    // che sta dietro la sessione.
+    messaggi: messaggi.map(({ mediaUrl, ...m }) => ({ ...m, haAllegato: Boolean(mediaUrl) })),
     traduzioneAuto: conf.traduzioneAuto === 'si',
     daTradurre: cEDaTradurre,
     linguaCliente,

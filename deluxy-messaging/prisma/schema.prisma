@@ -478,6 +478,23 @@ model Messaggio {
   // ⚠️ In arrivo l'id resta valido finché Meta tiene il file (circa 30 giorni);
   // in uscita è quello che abbiamo caricato noi.
   mediaId         String   @default("")
+  // ── Allegati (Instagram e Messenger) ──
+  //
+  // ⚠️ QUI META NON DÀ UN ID, DÀ UN INDIRIZZO. Su WhatsApp arriva `image.id` e
+  // il file si richiede col token; su Instagram e Messenger arriva solo
+  // `attachments[].payload.url`, un indirizzo già firmato. Sono due mondi
+  // diversi e per questo servono due campi: chiedere a Meta l'id di un
+  // messaggio Instagram non porta a niente.
+  //
+  // ⚠️⚠️ **QUESTO INDIRIZZO SCADE.** È firmato a tempo: passata la finestra, la
+  // foto non si recupera più da nessuna parte, perché una copia nostra non
+  // esiste. Il difetto che questo campo chiude era peggio (l'indirizzo veniva
+  // buttato via subito e nella chat restava la scritta «[image]»: il 17/08/2026
+  // una cliente ha mandato la foto della torta che voleva e l'operatore ha
+  // dovuto chiedergliela di nuovo), ma la durata resta un limite dichiarato:
+  // per tenerle davvero servirebbe uno storage nostro, e il download NON può
+  // stare dentro il webhook — un webhook lento fa perdere messaggi.
+  mediaUrl        String   @default("") @db.Text
   mimeType        String   @default("")
   nomeFile        String   @default("") // solo documenti: come si chiamava
   // ── Lingua e traduzione ──

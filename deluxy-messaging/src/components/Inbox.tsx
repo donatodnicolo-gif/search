@@ -60,6 +60,12 @@ type MessaggioDto = {
   oggetto?: string
   /** C'è un file allegato (WhatsApp): si scarica da /api/media/[id]. */
   mediaId?: string
+  /**
+   * C'è un allegato Instagram/Messenger. È un **sì/no**, non l'indirizzo:
+   * l'indirizzo che manda Meta è una chiave d'accesso alla foto di un cliente e
+   * non ha motivo di arrivare nel browser — il file passa dalla nostra rotta.
+   */
+  haAllegato?: boolean
   mimeType?: string
   nomeFile?: string
   /** Chi ha scritto, solo in uscita. Vuoto sui messaggi vecchi: parte da ora. */
@@ -151,12 +157,27 @@ function Bolla({ m, canale }: { m: MessaggioDto; canale: string }) {
   // L'allegato viene prima del testo: quando c'è una foto, il testo è la sua
   // didascalia. Il file non è nostro — lo tiene Meta — e `/api/media/[id]` fa
   // da ponte col token giusto.
-  const allegato = m.mediaId ? `/api/media/${m.id}` : ''
+  // ⚠️ Due sorgenti, una sola rotta: su WhatsApp l'allegato è un `mediaId` da
+  // chiedere a Meta, su Instagram e Messenger un indirizzo già firmato
+  // (`haAllegato`). Il browser non deve conoscere la differenza — passa sempre
+  // da `/api/media/[id]`, che sceglie la strada giusta.
+  const allegato = m.mediaId || m.haAllegato ? `/api/media/${m.id}` : ''
   const eFoto = (m.mimeType ?? '').startsWith('image/')
   // Col file davanti, un testo tipo «[image]» o il nome del file è rumore: è
   // già scritto sopra. Una didascalia vera invece si mostra.
+  // ⚠️ Restano anche le etichette italiane che scriviamo noi quando il cliente
+  // manda solo una foto («Foto», «Video»): col file a schermo, ripeterle sotto
+  // è dire due volte la stessa cosa.
+  const ETICHETTE_NOSTRE = ['foto', 'video', 'messaggio vocale', 'file', 'allegato', 'reel']
   const testoInutile =
-    Boolean(allegato) && (/^\[[^\]]+\]$/.test(m.testo.trim()) || m.testo.trim() === m.nomeFile)
+    Boolean(allegato) &&
+    (/^\[[^\]]+\]$/.test(m.testo.trim()) ||
+      m.testo.trim() === m.nomeFile ||
+      ETICHETTE_NOSTRE.includes(m.testo.trim().toLowerCase()))
+  // Senza allegato, «[image]» da solo non è un testo del cliente: è il segnaposto
+  // che lasciava il vecchio webhook, e al suo posto va l'avviso qui sotto.
+  const soloSegnaposto =
+    !allegato && /^\[(image|video|audio|file|sticker)\]$/i.test(m.testo.trim())
 
   return (
     <div className={`bolla ${m.direzione === 'out' ? 'out' : 'in'}`}>
@@ -178,7 +199,18 @@ function Bolla({ m, canale }: { m: MessaggioDto; canale: string }) {
           </a>
         )
       ) : null}
-      {testoInutile ? null : pezzi ? (
+      {/* ⚠️ Il buco dichiarato: fino al 17/08/2026 il webhook di Instagram e
+          Messenger buttava via l'indirizzo dell'allegato e scriveva «[image]».
+          Quelle foto non si recuperano — non ne esiste una copia. Dirlo per
+          quello che è evita che chi legge pensi che l'app non le mostri e
+          continui a cercare un bottone che non c'è. */}
+      {soloSegnaposto ? (
+        <span className="allegato-perso">
+          Allegato non salvato — arrivato prima del 17/08/2026. Si vede solo nell’app di
+          Instagram o Messenger.
+        </span>
+      ) : null}
+      {testoInutile || soloSegnaposto ? null : pezzi ? (
         pezzi.map((p, i) =>
           p.tipo === 'link' ? (
             <a
@@ -261,6 +293,16 @@ function IconaArchivia() {
       <rect x="2" y="3" width="12" height="3" rx="1" />
       <path d="M3 6.5v6a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-6" />
       <path d="M6.5 9h3" />
+    </svg>
+  )
+}
+
+/** Spam: il segnale di divieto, che si legge senza doverci pensare. */
+function IconaSpam() {
+  return (
+    <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
+      <circle cx="8" cy="8" r="5.5" />
+      <path d="M4.1 4.1l7.8 7.8" />
     </svg>
   )
 }
@@ -858,6 +900,56 @@ export function Inbox({
     }
   }
 
+  // ── Segnala come spam ──
+  //
+  // Un clic al posto del giro «apri /caselle → copia l'indirizzo → incolla →
+  // salva → torna in inbox → archivia». Il meccanismo dei mittenti ignorati
+  // c'era già: mancava il modo di usarlo nel momento in cui si vede la mail,
+  // che è l'unico in cui uno lo farebbe davvero.
+  async function segnalaSpam(id: string) {
+    const c = conversazioni.find((x) => x.id === id)
+    if (!c) return
+    if (c.canale !== 'email') {
+      setErroreInvio(
+        'Lo spam si segnala sulla posta: su WhatsApp o Instagram il blocco si fa da lì. Qui puoi archiviare.'
+      )
+      return
+    }
+    // ⚠️ La conferma dice l'INDIRIZZO ESATTO che sta per essere bloccato, non
+    // «questo mittente»: è l'unico momento in cui si può accorgersi che è
+    // l'indirizzo di un cliente vero. E dice dove si torna indietro — un blocco
+    // senza una via d'uscita visibile non lo usa nessuno.
+    if (
+      !window.confirm(
+        `Le prossime mail da ${c.idEsterno} entreranno già archiviate, e questa va in archivio adesso.\n\n` +
+          'Non si cancella niente e si può togliere dalla pagina Caselle. Procedo?'
+      )
+    ) {
+      return
+    }
+    if (inCorsoTogli) return
+    setInCorsoTogli(true)
+    try {
+      const res = await fetch(`/api/conversazioni/${id}/spam`, { method: 'POST' })
+      const dati = (await res.json().catch(() => ({}))) as { errore?: string; giaCera?: boolean }
+      if (!res.ok) {
+        setErroreInvio(dati.errore || 'Segnalazione non riuscita.')
+        return
+      }
+      togliDallElenco(id)
+      setQuanteArchiviate((n) => n + 1)
+      setErroreInvio(
+        dati.giaCera
+          ? `${c.idEsterno} era già fra i mittenti ignorati: la conversazione è archiviata.`
+          : `${c.idEsterno} non arriverà più in posta in arrivo.`
+      )
+    } catch {
+      setErroreInvio('Segnalazione non riuscita: problema di rete.')
+    } finally {
+      setInCorsoTogli(false)
+    }
+  }
+
   // ── Prendere in carico ──
   //
   // ⚠️ Non è un lucchetto: segnala, non blocca. Chi prende una conversazione non
@@ -1176,6 +1268,23 @@ export function Inbox({
               <IconaArchivia />
             </button>
           )}
+          {/* Spam: solo sulla posta in arrivo e solo sulle mail. Sugli altri
+              canali l'elenco dei mittenti ignorati non viene nemmeno letto, e
+              un bottone che non fa quello che promette è peggio di nessun
+              bottone — chi lo preme smette di controllare. */}
+          {!archivio && !cestino && c.canale === 'email' ? (
+            <button
+              aria-label="Segnala come spam"
+              title={`Segnala come spam: le prossime mail da ${c.idEsterno} entreranno già archiviate`}
+              onClick={(e) => {
+                e.stopPropagation()
+                segnalaSpam(c.id)
+              }}
+              disabled={inCorsoTogli}
+            >
+              <IconaSpam />
+            </button>
+          ) : null}
           <button
             className="pericolo"
             aria-label={cestino ? 'Cancella per sempre' : 'Sposta nel cestino'}

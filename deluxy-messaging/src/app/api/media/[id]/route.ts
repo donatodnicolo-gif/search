@@ -23,11 +23,52 @@ export async function GET(_req: NextRequest, { params }: Params) {
   const { id } = await params
   const messaggio = await db.messaggio.findUnique({
     where: { id },
-    select: { mediaId: true, mimeType: true, nomeFile: true, conversazione: { select: { numeroId: true, canale: true } } },
+    select: {
+      mediaId: true,
+      mediaUrl: true,
+      mimeType: true,
+      nomeFile: true,
+      conversazione: { select: { numeroId: true, canale: true } },
+    },
   })
-  if (!messaggio?.mediaId) {
+  if (!messaggio?.mediaId && !messaggio?.mediaUrl) {
     return NextResponse.json({ errore: 'Nessun file per questo messaggio' }, { status: 404 })
   }
+
+  // ── Instagram e Messenger: l'indirizzo ce l'abbiamo già ──
+  //
+  // Lì Meta non dà un id da richiedere: manda un indirizzo firmato, e quello è
+  // tutto. Si scarica **dal server** e non si mette come `src` di una `<img>`
+  // per due motivi: l'indirizzo è una chiave d'accesso alla foto di un cliente e
+  // non deve uscire dall'app, e il browser dell'operatore non deve andare a
+  // bussare a un dominio di Meta per ogni messaggio.
+  if (messaggio.mediaUrl) {
+    const file = await fetch(messaggio.mediaUrl)
+    if (!file.ok || !file.body) {
+      // ⚠️ Questo indirizzo SCADE, e quando scade il file non c'è più da nessuna
+      // parte: non ne teniamo copia. Dirlo per quello che è vale più di
+      // un'immagine rotta, che chi guarda leggerebbe come un guasto dell'app.
+      return NextResponse.json(
+        {
+          errore:
+            file.status === 404 || file.status === 403 || file.status === 410
+              ? 'Meta non tiene più questo file: l’indirizzo che ci aveva dato è scaduto.'
+              : `Scaricamento non riuscito (${file.status}).`,
+        },
+        { status: 502 }
+      )
+    }
+    return new NextResponse(file.body, {
+      headers: {
+        // Il tipo vero lo dice il server di Meta; il nostro è solo una stima
+        // fatta dal tipo dell'allegato, quindi cede il passo.
+        'Content-Type':
+          file.headers.get('content-type') || messaggio.mimeType || 'application/octet-stream',
+        'Cache-Control': 'private, max-age=3600',
+      },
+    })
+  }
+
   if (messaggio.conversazione.canale !== 'whatsapp') {
     return NextResponse.json({ errore: 'Canale senza allegati' }, { status: 400 })
   }

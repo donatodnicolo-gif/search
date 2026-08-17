@@ -154,7 +154,16 @@ type MetaWebhook = {
       // profili Instagram è l'unico modo per sapere a quale marchio si sta
       // rispondendo — e da quale token far uscire la risposta.
       recipient?: { id?: string }
-      message?: { mid?: string; text?: string; is_echo?: boolean; attachments?: { type?: string }[] }
+      message?: {
+        mid?: string
+        text?: string
+        is_echo?: boolean
+        // ⚠️ `payload.url` è l'UNICA copia dell'allegato che Meta ci dà su
+        // Instagram e Messenger: qui non c'è nessun id da richiedere dopo, come
+        // invece succede su WhatsApp. Buttarlo via — com'era fino al 17/08/2026
+        // — vuol dire perdere la foto per sempre e lasciare in chat «[image]».
+        attachments?: { type?: string; payload?: { url?: string } }[]
+      }
     }[]
   }[]
 }
@@ -175,8 +184,11 @@ async function registraInArrivo(opz: {
   numeroId?: string
   /** Lo stesso, in forma leggibile, per mostrarlo in inbox (solo WhatsApp). */
   numeroNostro?: string
-  /** L'allegato, se c'è: l'id del file da Meta, il tipo e il nome originale. */
+  /** L'allegato WhatsApp: l'id del file da Meta, il tipo e il nome originale. */
   media?: { id: string; mimeType: string; nomeFile: string }
+  /** L'allegato Instagram/Messenger: l'indirizzo firmato, che lì è tutto ciò che c'è. */
+  mediaUrl?: string
+  mimeType?: string
 }) {
   // Dedup: Meta può consegnare lo stesso evento più volte.
   if (opz.idMessaggio) {
@@ -222,7 +234,8 @@ async function registraInArrivo(opz: {
       tipo: opz.tipo ?? 'testo',
       idEsterno: opz.idMessaggio,
       mediaId: opz.media?.id ?? '',
-      mimeType: opz.media?.mimeType ?? '',
+      mediaUrl: opz.mediaUrl ?? '',
+      mimeType: opz.media?.mimeType || opz.mimeType || '',
       nomeFile: opz.media?.nomeFile ?? '',
     },
   })
@@ -302,6 +315,35 @@ async function gestisciWhatsApp(corpo: MetaWebhook) {
   }
 }
 
+/** Come si chiama un allegato in italiano, per l'anteprima nell'elenco. */
+function nomeAllegato(tipo?: string): string {
+  const nomi: Record<string, string> = {
+    image: 'Foto',
+    video: 'Video',
+    audio: 'Messaggio vocale',
+    file: 'File',
+    share: 'Post condiviso',
+    story_mention: 'Menzione in una storia',
+    ig_reel: 'Reel',
+  }
+  return nomi[tipo ?? ''] ?? 'Allegato'
+}
+
+/**
+ * Il tipo del file, dedotto dal tipo dell'allegato.
+ *
+ * ⚠️ È un'APPROSSIMAZIONE dichiarata: Meta qui dice «image», non «image/jpeg».
+ * Serve solo a far capire al browser che sta ricevendo una foto; il tipo vero
+ * lo manda il server di Meta quando si scarica il file, e in `/api/media/[id]`
+ * quello ha la precedenza su questo.
+ */
+function mimeDaTipo(tipo?: string): string {
+  if (tipo === 'image') return 'image/jpeg'
+  if (tipo === 'video') return 'video/mp4'
+  if (tipo === 'audio') return 'audio/mpeg'
+  return ''
+}
+
 /** Messenger e Instagram condividono la stessa forma di webhook (entry[].messaging[]). */
 async function gestisciMessaging(canale: 'messenger' | 'instagram', corpo: MetaWebhook) {
   for (const entry of corpo.entry ?? []) {
@@ -309,8 +351,16 @@ async function gestisciMessaging(canale: 'messenger' | 'instagram', corpo: MetaW
       const mittente = ev.sender?.id
       const msg = ev.message
       if (!mittente || !msg || msg.is_echo) continue // is_echo = inviato da noi
-      const testo =
-        msg.text || (msg.attachments?.length ? `[${msg.attachments[0]?.type ?? 'allegato'}]` : '')
+      // L'allegato: su questi canali Meta manda un indirizzo già firmato, non
+      // un id. Si prende il primo — con più file nello stesso messaggio gli
+      // altri restano fuori, ed è un limite noto, non una svista.
+      const primo = msg.attachments?.[0]
+      const urlAllegato = primo?.payload?.url ?? ''
+      // ⚠️ Il testo dell'elenco NON è più «[image]». Nell'inbox si legge
+      // l'anteprima dell'ultimo messaggio: «[image]» è gergo del protocollo di
+      // Meta e non dice niente a chi lavora. Se il cliente ha scritto qualcosa
+      // insieme alla foto, vince il suo testo — è quello che conta.
+      const testo = msg.text || (primo ? nomeAllegato(primo.type) : '')
       if (!testo) continue
       // Il NOSTRO account che ha ricevuto: `recipient.id` quando c'è, altrimenti
       // `entry.id`. Va nello stesso campo del numero WhatsApp perché fa lo
@@ -321,9 +371,11 @@ async function gestisciMessaging(canale: 'messenger' | 'instagram', corpo: MetaW
         canale,
         idEsterno: mittente,
         testo,
-        tipo: msg.text ? 'testo' : 'media',
+        tipo: msg.text && !primo ? 'testo' : primo ? 'media' : 'testo',
         idMessaggio: msg.mid ?? '',
         numeroId: nostroId,
+        mediaUrl: urlAllegato,
+        mimeType: mimeDaTipo(primo?.type),
       })
     }
   }

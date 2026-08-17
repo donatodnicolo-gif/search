@@ -494,6 +494,16 @@ button {
   display: none;
 }
 
+/* Un allegato che non abbiamo: si dice, in corsivo e in grigio, perché non è
+   un messaggio del cliente ma una nota dell'app su un dato mancante. */
+.allegato-perso {
+  display: block;
+  font-size: 12px;
+  font-style: italic;
+  color: var(--text-tertiary);
+  line-height: 1.4;
+}
+
 /* ── Chi se ne sta occupando ──
    Il bollino di una conversazione presa in carico. Due letture diverse a colpo
    d'occhio: quella di un COLLEGA è oro pieno (è l'informazione nuova, quella
