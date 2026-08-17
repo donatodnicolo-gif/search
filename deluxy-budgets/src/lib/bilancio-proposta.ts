@@ -151,6 +151,15 @@ export async function proponiDaApp(dati: DatiAnno): Promise<{ proposte: Proposta
     );
   }
 
+  // Rischio diverso dal precedente, e per un bilancio è quello che conta: questi
+  // euro nel totale ci sono, ma la voce in cui stanno nessuno l'ha scelta —
+  // sono caduti nella categoria di default. Un bilancio si difende voce per voce.
+  if (cons.senzaRegola > 0) {
+    avvisi.push(
+      `${Math.round(cons.senzaRegola).toLocaleString("it-IT")} € di uscite non sono riconosciute da nessuna regola: entrano nei totali, ma nella voce in cui sono cadute per difetto. Il conto quadra, la sua ripartizione no.`
+    );
+  }
+
   if (!annoPrec) {
     avvisi.push(
       "Non c'è nessun bilancio di un anno precedente da cui prendere le misure: caricane uno (anche solo le voci principali) e queste proposte avranno un metro di paragone."

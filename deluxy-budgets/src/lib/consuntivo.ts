@@ -55,6 +55,11 @@ export type ConsuntivoPeriodo = {
   margineLordo: number;
   ebitda: number;
   nonCategorizzato: number;
+  // Uscite che **nessuna regola** riconosce, dovunque siano finite: oggi quasi
+  // tutte dentro la categoria «Da classificare», quindi già contate nei costi.
+  // `nonCategorizzato` dice «non entrano nel conto economico», questo dice
+  // «entrano, ma non si sa in quale voce»: due rischi diversi, due numeri.
+  senzaRegola: number;
   // La riga `adv` sono le uscite di banca. Qui accanto, quanto è costato fare
   // le campagne **collegate** a Marketing: serve a misurare la copertura, non a
   // sostituire il totale. `null` se Marketing non risponde.
@@ -90,7 +95,7 @@ export async function caricaConsuntivo(
 ): Promise<ConsuntivoPeriodo> {
   const vuoto: ConsuntivoPeriodo = {
     ok: false, mancanti: [], mesi, ricavi: 0, ricaviPerTipologia: {}, vendutoEcommerce: 0,
-    cogs: 0, adv: 0, struttura: 0, personale: 0, margineLordo: 0, ebitda: 0, nonCategorizzato: 0,
+    cogs: 0, adv: 0, struttura: 0, personale: 0, margineLordo: 0, ebitda: 0, nonCategorizzato: 0, senzaRegola: 0,
     advMarketing: null, advCopertura: null, advCompetenza: { dentro: 0, fuori: 0 },
     quota: QUOTA_STIMATA, pagatoAiPartner: 0, d2c: null,
     competenza: null,
@@ -176,12 +181,20 @@ export async function caricaConsuntivo(
   let ricavi = Object.values(ricaviPerTipologia).reduce((s, v) => s + v, 0);
 
   // ---- Costi di banca, riclassificati ----
-  let cogs = 0, adv = 0, struttura = 0, nonCategorizzato = 0;
+  let cogs = 0, adv = 0, struttura = 0, nonCategorizzato = 0, senzaRegola = 0;
   const cogsMese = Array(12).fill(0) as number[];
   const advMese = Array(12).fill(0) as number[];
   const strutturaMese = Array(12).fill(0) as number[];
   if (spese.ok) {
     for (const r of ricostruito) {
+      // Quanto, dentro questa riga, nessuna regola ha davvero riconosciuto.
+      // `nonCategorizzato` da solo non basta più: da quando Finance mette il
+      // non riconosciuto nella categoria «Da classificare», quel numero è
+      // **zero** e il conto economico sembrava classificato al 100% — lo stesso
+      // inganno della categoria che «raccoglie il residuo» (29/07/2026), tornato
+      // da un'altra porta. Questi euro un costo lo fanno lo stesso: sono dentro
+      // i totali, ma nella casella sbagliata.
+      senzaRegola += r.residuo ?? 0;
       const tp = r.categoria?.tipoPL;
       if (!tp) { nonCategorizzato += r.uscite; continue; }
       if (tp === "COGS") { cogs += r.uscite; for (let i = 0; i < 12; i++) cogsMese[i] += r.perMese[i] ?? 0; }
@@ -319,6 +332,7 @@ export async function caricaConsuntivo(
     margineLordo,
     ebitda,
     nonCategorizzato,
+    senzaRegola,
     advMarketing,
     advCopertura,
     advCompetenza: { dentro: advDentro, fuori: advFuori },

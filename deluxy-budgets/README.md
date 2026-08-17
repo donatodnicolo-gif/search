@@ -38,6 +38,22 @@ pubblicato), *sfidante* e *irraggiungibile*.
   confidenze). L'AI propone, l'utente conferma: nulla è applicato in automatico. Richiede
   `OPENAI_API_KEY` (segreto, come le altre app Deluxy); senza chiave il resto del CFO funziona
   e il bottone spiega come attivarla.
+- **Costi ricorrenti** (`/ricorrenti`, 17/08/2026): le controparti che tornano **mese dopo mese**,
+  in fila per **regolarità** e non per importo. Nasce da un limite del CFO: fra 1.672 controparti
+  l'occhio va alle più grosse, e le più grosse sono partner e stipendi — mentre i risparmi stanno nel
+  canone da 60 € che nessuno ricorda di aver sottoscritto, nel software pagato due volte, nel
+  noleggio finito che addebita ancora. Sono **le stesse uscite del CFO** (categoria decisa da
+  Finance), ma una controparte divisa fra più categorie si **ricompone in una riga sola**: qui la
+  domanda è «chi paghiamo ogni mese», non «in quale casella». Per ognuna: andamento a dodici mesi,
+  **ritmo** (fisso / regolare / variabile, dallo scarto fra i mesi), mesi attivi, media, min–max,
+  speso nel periodo e **quanto costa in un anno a questo ritmo** — 60 € al mese sembrano niente,
+  720 € l'anno no. Filtri: canoni fissi, sotto 500 €/mese, **forse cessati** (niente da 2 mesi
+  chiusi né nel mese in corso: può voler dire disdetto, o pagato con un altro mezzo — in entrambi i
+  casi è una cosa da sapere). Il **mese in corso non conta né a favore né contro**: a metà agosto un
+  canone «assente» è solo un canone non ancora passato. Soglie dichiarate in pagina
+  (`SOGLIE` in `src/lib/ricorrenti.ts`), perché chi legge sappia cosa *non* vede. ⚠️ Limite vero: la
+  banca dice **a chi** hai pagato, non **cosa** hai comprato — chi incassa con nomi diversi ogni
+  volta non compare, e non è che non ci sia.
 - **Venduto** (`/venduto`): quanto è passato dalla cassa dei negozi Shopify — il **prezzo pieno
   pagato dal cliente**, IVA e spedizione incluse — per maison e per mese, dal registro ordini
   (Orders `/api/v1/ricavi`), con confronto anno precedente e budget D2C. **Venduto ≠ fatturato**:
@@ -876,22 +892,37 @@ Tre precisazioni che sono servite per non sbagliare, e che valgono anche la pros
 > movimenti, il criterio è questo — e varrebbe la pena farlo diventare una regola vera sulla
 > causale, invece di ripetere l'esercizio a mano.
 
-## Punti aperti (29/07/2026, rimisurati il 09/08/2026)
+## Punti aperti (29/07/2026, rimisurati il 17/08/2026)
 
-**Fotografia del 09/08/2026** (interrogando Finance, Orders e Marketing come fa il consuntivo):
+**Fotografia del 17/08/2026** (rimisurata interrogando Finance, Orders e Marketing come fa il
+consuntivo; fra parentesi il valore dell'08/2026 precedente, del 09/08):
 
 | | |
 | --- | --- |
-| Venduto ecommerce 2026 al 09/08 (Orders) | **631.789 €** su 3.593 ordini, contro **406.324 €** nello stesso periodo 2025 (**+55%**) |
-| Fatturato Finance gen–ago 2026 (imponibile) | **208.522 €** — di cui Consegne 146.059, Food Supplier 24.544, Eventi 21.975 |
-| Uscite di banca 2026 | **835.379 €**, dodici mesi ma agosto ancora parziale (27k) |
-| Girato ai partner | **440.374 €** → quota Deluxy misurata **30,3%** sul venduto |
-| ADV: banca vs Marketing | **97.929 €** usciti contro **73.577 €** di campagne → Marketing ne spiega il **75%** (era il 46% il 28/07: lo storico Meta è entrato, copertura 221 giorni su 221) |
-| Uscite senza classificazione | **36.272 €** — vedi «Una categoria non vuol dire tutti i movimenti» |
-| Vendite vendor di luglio | **caricate**: 34.921 € (il 31/07 erano 137 € e il mese restava fuori dai totali). Agosto è a 3.026 €, ancora sotto soglia perché il mese è a un terzo |
+| Venduto ecommerce 2026 (Orders, gen–ago) | **655.411 €** (era 631.789 il 09/08) |
+| Ricavi a consuntivo gen–ago | **425.442 €** — D2C 219.197 (fee vendor 126.319 + margine fornitori 92.878), B2B 184.270, Eventi 21.975 |
+| Uscite di banca 2026 | **838.560 €** su 1.672 controparti; **agosto 30.630 €**, di cui 20.000 un giroconto a «deluxy srl» |
+| Girato ai partner | **449.068 €** → quota Deluxy misurata **31,5%** (era 30,3%) |
+| ADV: banca vs Marketing | **97.929 €** usciti — *identici* al 09/08 — contro **76.541 €** di campagne → Marketing ne spiega il **78%** |
+| Uscite che nessuna regola riconosce | **4.903 €** su 146 controparti (2026) e **23.548 €** su 545 (2025) |
+| EBITDA a consuntivo gen–ago | **+64.930 €**, 15,3% sui ricavi |
+| Vendite vendor | luglio caricato (34.921 €); **agosto no**, quindi ad agosto il ricavo D2C è ≈ 0 |
+
+⚠️ **Come leggere agosto, prima di leggere qualsiasi altra cosa.** Il mese in corso entra nel YTD
+ma le sue due metà non arrivano insieme: le **vendite** ci sono (Orders è al giorno), i
+**pagamenti ai partner** quasi no (19 controparti in tutto ad agosto, i fioristi si pagano dopo) e
+le **vendite vendor** non sono ancora caricate in Finance (sotto la soglia del 15% → fuori dai
+totali, quindi ricavo D2C di agosto ≈ 0). Effetto misurato: la **quota Deluxy sale al 31,5%** —
+non perché sia migliorato il business, ma perché il denominatore ha un mese in più del numeratore.
+La freschezza dei dati è stata verificata (ultimo movimento di banca visto: **15/08/2026**): non è
+una sync ferma, è il ritardo naturale fra vendita e pagamento. Per un confronto onesto guardare
+**gen–lug**.
 
 Chiusi rispetto al 29/07: il **buco Meta in Marketing** (punto «storico Meta assente») e **luglio dei
-vendor**. Restano aperti tutti i punti qui sotto, più i due nuovi: i **movimenti che Finance non ha
+vendor**. Resta però una coda dello stesso problema, che la copertura al 78% nasconde: **un account
+Meta (`flowers/meta_ads`) ha dati su 103 giorni su 229** — nei mesi scoperti quella spesa in
+Marketing manca del tutto, e il consuntivo lo scrive fra le avvertenze della copertura ADV.
+Restano aperti tutti i punti qui sotto, più i due nuovi: i **movimenti che Finance non ha
 ancora riclassificato** e le **variabili d'ambiente mancanti su Vercel** (in produzione ci sono solo
 `DATABASE_URL`, `DIRECT_URL`, `HUB_URL`, `BUDGETS_APP_PASSWORD`, `BUDGETS_API_KEY`, `FINANCE_API_KEY`,
 `ORDERS_URL`, `ORDERS_API_KEY`; nella cassaforte dell'app c'è **solo `OPENAI_API_KEY`**). In
@@ -901,7 +932,11 @@ in silenzio sulle sole uscite di banca. ✅ **Aggiunta il 09/08/2026** all'ambie
 (`vercel env add MARKETING_API_KEY production --value "…" --sensitive` — mai da stdin, che ci infila
 un a-capo); ricontrollato il 17/08/2026: c'è. Restano fuori `HUB_SSO_SECRET` e `APP_SECRET` (punto 9).
 
-1. ⚠️ **La quota Deluxy misurata è scesa al 25,9% su Gen–Giu 2026** (382.801 € girati ai partner su
+1. ⚠️ **La quota Deluxy misurata**, al 17/08/2026, è **31,5%** sull'anno (449.068 € girati su
+   655.411 € di venduto) — ma è **gonfiata dal mese in corso**, che porta le vendite di agosto senza
+   i pagamenti ai partner di agosto: vedi l'avvertenza qui sopra. Sotto, la storia della misura, che
+   spiega perché il numero si muove tanto. ⤵
+   ⚠️ **La quota Deluxy misurata è scesa al 25,9% su Gen–Giu 2026** (382.801 € girati ai partner su
    516.517 € di venduto) — era 39,1% prima delle classificazioni del 29/07/2026. **Ogni fiorista che
    si riconosce abbassa la quota**, e siccome la quota moltiplica il venduto per fare i ricavi
    ecommerce del consuntivo, l'effetto sul P&L è grosso: sui mesi chiusi i ricavi ecommerce valgono
@@ -916,7 +951,13 @@ un a-capo); ricontrollato il 17/08/2026: c'è. Restano fuori `HUB_SSO_SECRET` e 
 2. **I margini per tipologia a budget** (D2C 35%, Eventi 20%, B2B 20%) restano scritti sul venduto
    lordo: applicati a ricavi ormai netti danno un EBITDA a budget negativo e «12 mesi in perdita»,
    che è un artefatto. Rifarli **cambia i premi**.
-3. **4.117 € ancora senza categoria** nel 2026 (140 controparti, copertura **99,5%**) e 4.015 € sul
+3. **4.903 € che nessuna regola riconosce** nel 2026 (146 controparti) e **23.548 €** sul 2025
+   (545 controparti) — rimisurati il 17/08/2026. ⚠️ Attenzione a *dove* stanno: non sono fuori dal
+   conto economico, sono dentro la categoria **«Da classificare»** (tipo di P&L: COGS), quindi il
+   totale quadra ma la sua ripartizione per voce no. Vedi «Il residuo era tornato invisibile»
+   più sotto. Il 2025 è dieci volte peggio del 2026 perché le 2.187 regole sono state scritte
+   guardando l'elenco del 2026. Numeri del 29/07/2026, quando il residuo si misurava senza
+   passare da Finance: **4.117 €** nel 2026 (140 controparti, copertura **99,5%**) e 4.015 € sul
    2025 (99,4%). Erano 23.705 € in 412 controparti la mattina del 29/07/2026: **2.187 regole** in
    tutto, scritte guardando l'elenco insieme all'utente. L'ultima passata ha sistemato LinkedIn
    (pubblicità), il software a canone (Tauros, Tavus, Apollo, Miro, Iubenda, WATI, Gloobo, OpenAI,
@@ -961,8 +1002,16 @@ un a-capo); ricontrollato il 17/08/2026: c'è. Restano fuori `HUB_SSO_SECRET` e 
    **Non si aggiusta qui**: la sync Qonto vive in Finance (`deluxy-partner`), ed è lì che va alzato
    il limite di pagine.
 8. **Google Ads `956-137-8913`** non è censito in Marketing (1.305 € nel 2026).
-9. **`HUB_SSO_SECRET` e `APP_SECRET` mancano su Vercel**: senza il primo l'accesso dal Hub non
-   funziona e l'app chiede la password di team.
+9. **`HUB_SSO_SECRET` e `APP_SECRET` mancano su Vercel** (ricontrollato con `vercel env ls
+   production` il 17/08/2026: le variabili sono nove, quelle due non ci sono): senza il primo
+   l'accesso dal Hub non funziona e l'app chiede la password di team. Due cose da sapere prima di
+   aggiungerle. (a) `HUB_SSO_SECRET`: in **locale** il valore di Budgets e quello del Hub
+   **coincidono** (confrontate le impronte SHA-256 dei due `.env`, senza stamparli), ma quello che
+   conta è il valore in **produzione del Hub**, che da questa sessione non si è potuto leggere —
+   copiarci sopra il valore locale senza quel confronto rischia di lasciare l'SSO rotto lo stesso,
+   solo in un altro modo. (b) `APP_SECRET`: aggiungerlo **cambia il segreto che cifra la cassaforte**
+   (oggi in produzione vince `BUDGETS_APP_PASSWORD`) → la `OPENAI_API_KEY` salvata lì diventa
+   illeggibile e va reincollata subito dopo, altrimenti l'AI del CFO smette di funzionare in silenzio.
 10. **Lo scontrino del partner**: il modello C regge solo se il fioraio lo emette davvero. Non è
     codice — è una verifica coi partner, ed è l'unico punto che può invalidare il resto.
 
@@ -974,7 +1023,8 @@ con mesi di competenza), dettaglio maison D2C/Eventi/B2B, team commerciale per l
 clienti, invio e lista proposte, spese ADV con % per mese personalizzabili, impostazioni
 scenari/premi/costi, **consuntivo D2C dal registro ordini** (Orders `/api/v1/ricavi`: venduto per
 maison e per mese, IVA inclusa come il budget), catalogo Hub aggiornato (id `budgets`, `APP_URL_BUDGETS`),
-**pubblicata su Vercel** ([deluxy-budgets.vercel.app](https://deluxy-budgets.vercel.app), Postgres/Supabase + password).
+**pubblicata su Vercel** ([deluxy-budgets.vercel.app](https://deluxy-budgets.vercel.app), Postgres/Supabase + password),
+**costi ricorrenti** (`/ricorrenti`: canoni, abbonamenti e noleggi in fila per regolarità, con proiezione annua e «forse cessati»).
 
 **MANCA**:
 - **Anno unico 2026**: nessun selettore d'anno; il pluriennale 2027-30 (già nei file pubblicati) non è caricato.
@@ -986,10 +1036,10 @@ maison e per mese, IVA inclusa come il budget), catalogo Hub aggiornato (id `bud
   per intero (l'importo reso non esiste nel registro ordini).
 - **Piattaforme ADV**: split **globale** d'azienda, non per singola maison; il confronto col reale
   esiste solo nel P&L (totale), non piattaforma per piattaforma.
-- **Storico Meta assente in Marketing**: al 28/07/2026 gli account Meta hanno dati solo dagli ultimi
-  giorni di giugno, quindi l'ADV a consuntivo di gennaio–giugno è di fatto **solo Google** (39.005 €
-  contro 82.264 € usciti dal conto). L'app lo dichiara, ma il buco si chiude in **Marketing**,
-  ricaricando lo storico Meta: non è una cosa che si aggiusta qui.
+- ✅ **Storico Meta in Marketing: caricato** (verificato il 09/08 e di nuovo il 17/08/2026 — copertura
+  229 giorni su 229, Marketing spiega il **78%** delle uscite ADV contro il 46% del 28/07). Resta una
+  coda: l'account **`flowers/meta_ads` ha dati su 103 giorni su 229**, quindi nei mesi scoperti quella
+  spesa manca del tutto. Il consuntivo lo scrive fra le avvertenze; si chiude in **Marketing**, non qui.
 - **Costo del lavoro**: tredicesima/quattordicesima e TFR non sono voci distinte; nessun consuntivo del personale.
 - **P&L**: per singola **linea commerciale** non c'è (le linee hanno solo il budget vendite, non un conto economico).
 
@@ -1201,6 +1251,30 @@ residuo 23.548 €.
 > ⚠️ Il rimedio vero non è qui: sono **movimenti che Finance non ha ancora classificato**. Si chiude
 > premendo **«↻ Riclassifica tutto»** in `/spese` di Finance, che è già nella lista delle cose da
 > fare da quando le regole a match esatto sono state normalizzate.
+
+### Il residuo era tornato invisibile, da un'altra porta (17/08/2026)
+
+Terza volta che lo stesso inganno si ripresenta, e vale la pena riconoscerne la **forma**: *un
+totale che sembra classificato perché il non classificato è finito da qualche parte*.
+
+Nel consuntivo, `nonCategorizzato` conta solo le righe **senza nessuna categoria**. Ma da quando è
+Finance a classificare, quello che nessuna regola riconosce non resta senza categoria: cade nella
+categoria **«Da classificare»**, che è una categoria vera, con un tipo di P&L (COGS). Risultato: il
+numero era **0 €** e la pagina scriveva «0 € ancora da categorizzare» mentre **4.903 €** (2026,
+146 controparti) stavano dentro i costi senza che nessuno avesse scelto in quale voce.
+
+Non è lo stesso rischio di prima, ed è per questo che ora sono **due numeri**:
+
+| | |
+| --- | --- |
+| `nonCategorizzato` | uscite che **non entrano** nel conto economico → i costi sono **sottostimati** |
+| `senzaRegola` (nuovo) | uscite che **entrano**, ma nella casella in cui sono cadute per difetto → il **totale quadra, la ripartizione no** |
+
+`senzaRegola` è la somma del `residuo` che `ricostruisci()` porta già su ogni riga (esiste dal
+29/07/2026, semplicemente nessuno lo sommava a livello di consuntivo). Si vede nel KPI dei costi, nel
+paragrafo che spiega da dove vengono i numeri, e come **avviso nella proposta di conto economico** —
+perché un bilancio si difende voce per voce, non a totale. Il rimedio resta lo stesso: le regole si
+scrivono nel CFO e la fotografia si rifà con **«↻ Riclassifica tutto»** in `/spese` di Finance.
 
 ### 67 regole erano morte per uno spazio che non è uno spazio
 

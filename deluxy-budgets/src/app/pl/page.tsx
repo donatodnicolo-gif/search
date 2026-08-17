@@ -96,6 +96,7 @@ export default async function ContoEconomico({
           margineLordo: somma("margineLordo"),
           ebitda: somma("ebitda"),
           nonCategorizzato: 0,
+          senzaRegola: 0,
           // Campi che descrivono le fonti del consuntivo: qui dentro c'è il
           // budget, che di fonti non ne ha.
           advMarketing: null,

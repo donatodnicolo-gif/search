@@ -68,6 +68,13 @@ const icons = {
       <path d="M8 13h8M8 16.5h5" />
     </svg>
   ),
+  ricorrenti: (
+    <svg viewBox="0 0 24 24" {...stroke}>
+      <path d="M20 12a8 8 0 1 1-2.3-5.6" />
+      <path d="M20 3.5V7h-3.5" />
+      <path d="M12 8v4.3l2.8 1.7" />
+    </svg>
+  ),
   dipendenti: (
     <svg viewBox="0 0 24 24" {...stroke}>
       <circle cx="9" cy="7.5" r="3.2" />
@@ -163,6 +170,7 @@ const nav: AreaNav[] = [
           { href: "/venduto", label: "Venduto (ecommerce)", icon: icons.spese },
           { href: "/consuntivo", label: "Fatturato reale", icon: icons.consuntivo },
           { href: "/cfo", label: "Costi reali (CFO)", icon: icons.cfo },
+          { href: "/ricorrenti", label: "Costi ricorrenti", icon: icons.ricorrenti },
           { href: "/competenza", label: "Competenza", icon: icons.impostazioni },
           { href: "/conto-economico", label: "Conto economico", icon: icons.pl },
           { href: "/tasse", label: "Tasse", icon: icons.impostazioni },

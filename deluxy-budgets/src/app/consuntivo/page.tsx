@@ -246,6 +246,11 @@ export default async function ConsuntivoPage({
     COGS: Array(12).fill(0), ADV: Array(12).fill(0), PERSONALE: Array(12).fill(0), STRUTTURA: Array(12).fill(0),
   };
   let nonCategorizzato = 0;
+  // Le uscite che nessuna regola riconosce. Non è lo stesso numero di sopra:
+  // da quando il non riconosciuto finisce nella categoria «Da classificare»,
+  // `nonCategorizzato` è zero e la pagina scriveva «0 € da categorizzare»
+  // mentre migliaia di euro erano dentro i costi senza sapere in quale voce.
+  let senzaRegola = 0;
   let esclusi = 0;
   // Da quali categorie di banca è fatto il «costo per servizi». Si mostra per
   // nome e importo, perché è lì che si annida il doppio conteggio: la quota dei
@@ -255,6 +260,7 @@ export default async function ConsuntivoPage({
   const serviziPerCategoria = new Map<string, number>();
   if (spese.ok) {
     for (const r of ricostruisci(spese.dati.controparti, categorie)) {
+      senzaRegola += r.residuo ?? 0;
       const tp = r.categoria?.tipoPL;
       if (!tp) { nonCategorizzato += r.uscite; continue; }
       if (tp === "ESCLUSA") { esclusi += r.uscite; continue; }
@@ -550,7 +556,13 @@ export default async function ConsuntivoPage({
               <div className="kpi-value">{eur(costi.COGS + costi.ADV + personaleCons + costi.STRUTTURA)}</div>
               <div className="kpi-sub">
                 personale {eur(personaleCons)} da roster ·{" "}
-                {spese.ok ? `${eur(nonCategorizzato)} banca da categorizzare` : "spese banca n/d"}
+                {!spese.ok
+                  ? "spese banca n/d"
+                  : nonCategorizzato > 0
+                    ? `${eur(nonCategorizzato)} banca fuori dal conto`
+                    : senzaRegola > 0
+                      ? `${eur(senzaRegola)} banca senza regola`
+                      : "banca tutta classificata"}
               </div>
             </div>
           </div>
@@ -770,8 +782,18 @@ export default async function ConsuntivoPage({
             <Link href="/dipendenti" style={{ color: "var(--blue)" }}>Dipendenti</Link> (payroll, mese per
             mese), non dalla banca. Gli <strong>altri costi</strong> (servizi, ADV, struttura) sono le uscite di
             banca categorizzate nel <Link href="/cfo" style={{ color: "var(--blue)" }}>CFO</Link>
-            {spese.ok ? ` (${eur(nonCategorizzato)} ancora da categorizzare` : " (spese banca non disponibili"}
+            {spese.ok ? ` (${eur(nonCategorizzato)} fuori dal conto perché senza categoria` : " (spese banca non disponibili"}
             {esclusi > 0 ? `, ${eur(esclusi)} esclusi` : ""}): finché non li classifichi restano sottostimati.{" "}
+            {spese.ok && senzaRegola > 0 && (
+              <>
+                Attenzione a un secondo rischio, diverso: <strong>{eur(senzaRegola)}</strong> di uscite{" "}
+                <strong>nessuna regola le riconosce</strong> — non sono fuori dai costi, ci sono dentro, ma nella
+                casella in cui sono cadute per difetto (oggi «Da classificare»). Il totale è giusto, la sua
+                divisione per voce no: si sistemano dal{" "}
+                <Link href="/cfo" style={{ color: "var(--blue)" }}>CFO</Link>, e la fotografia si rifà quando
+                Finance ripassa le regole.{" "}
+              </>
+            )}
             <strong>Sul «costo per servizi» attenzione al doppio conteggio</strong>: la quota che va ai partner è già
             tolta dai ricavi (venduto → fatturato), quindi lì dentro devono starci i <strong>servizi</strong> — quanto
             si paga ai <strong>valet</strong> per la consegna — e <em>non</em> i pagamenti ai partner. Oggi quella voce
