@@ -408,6 +408,28 @@ model Conversazione {
   ultimoTesto       String   @default("") @db.Text
   ultimoMessaggioIl DateTime @default(now())
   nonLetti          Int      @default(0) // messaggi in arrivo non ancora letti dall'operatore
+  // ── CHI SE NE STA OCCUPANDO ──
+  //
+  // Gli operatori sono tre e l'inbox è una sola: finora chi ha fatto cosa
+  // *restava scritto* (`Messaggio.utenteNome`), ma nessuno *prendeva in carico*
+  // — due persone potevano rispondere allo stesso cliente nello stesso momento,
+  // e il cliente riceveva due risposte diverse dalla stessa azienda.
+  //
+  // ⚠️ NON È UN LUCCHETTO, ed è una scelta. Prendere in carico **non impedisce**
+  // a nessun altro di rispondere: segnala. Un blocco vero, in un servizio
+  // clienti, si ritorce contro il cliente — chi ha preso la conversazione va a
+  // pranzo, il cliente aspetta, e chi potrebbe rispondere trova la porta
+  // chiusa. Chi apre una conversazione presa da un altro vede l'avviso sopra il
+  // riquadro di risposta e decide da persona.
+  //
+  // ⚠️ Il nome è **copiato, non collegato** (stessa scelta di
+  // `Ordine.gestioneDaNome` e `Messaggio.utenteNome`): se l'account viene
+  // tolto resta scritto chi se ne stava occupando, invece di un id orfano.
+  // Vuoto = nessuno l'ha presa, che è diverso da «presa da qualcuno che non
+  // c'è più».
+  presaDaId         String   @default("")
+  presaDaNome       String   @default("")
+  presaIl           DateTime?
   archiviata        Boolean  @default(false)
   // CESTINO: quando è stata buttata. `null` = non è nel cestino.
   //

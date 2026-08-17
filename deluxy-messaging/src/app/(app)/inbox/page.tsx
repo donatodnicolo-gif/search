@@ -1,10 +1,12 @@
 import { db } from '@/lib/db'
 import { Inbox, type ConversazioneDto } from '@/components/Inbox'
 import { risolutoreMarchio } from '@/lib/marchio-conversazione'
+import { utenteCorrente } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
 
 export default async function PaginaInbox() {
+  const io = await utenteCorrente()
   const [conversazioni, marchi, negozi] = await Promise.all([
     db.conversazione.findMany({
       where: { archiviata: false, eliminataIl: null },
@@ -37,6 +39,8 @@ export default async function PaginaInbox() {
     ultimoMessaggioIl: c.ultimoMessaggioIl.toISOString(),
     nonLetti: c.nonLetti,
     numeroNostro: c.numeroNostro,
+    presaDaId: c.presaDaId,
+    presaDaNome: c.presaDaNome,
     brand: marchi.marchioDi(c),
     etichettaAccount: marchi.etichettaDi(c),
   }))
@@ -45,5 +49,15 @@ export default async function PaginaInbox() {
     a.localeCompare(b, 'it')
   )
 
-  return <Inbox conversazioniIniziali={iniziali} brandNoti={brandNoti} />
+  // Chi sono io serve al client per distinguere «me ne occupo io» da «se ne sta
+  // occupando Federica»: senza, l'unica cosa che si potrebbe mostrare è un nome,
+  // e il filtro «Mie» non esisterebbe.
+  return (
+    <Inbox
+      conversazioniIniziali={iniziali}
+      brandNoti={brandNoti}
+      ioId={io?.id ?? ''}
+      ioNome={io?.nome ?? ''}
+    />
+  )
 }

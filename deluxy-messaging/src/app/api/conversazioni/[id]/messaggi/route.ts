@@ -185,6 +185,24 @@ export async function POST(req: NextRequest, { params }: Params) {
     data: { ultimoTesto: pulito, ultimoMessaggioIl: new Date() },
   })
 
+  // ── Rispondere è prendere in carico ──
+  //
+  // Chi scrive al cliente se ne sta occupando: chiederglielo con un secondo
+  // clic vuol dire che nove volte su dieci non lo farà, e il segnale che
+  // dovrebbe evitare le risposte doppie non arriverà mai a chi guarda l'inbox.
+  //
+  // ⚠️ SOLO SE È LIBERA. Se ce l'ha già un altro non gliela si porta via di
+  // soppiatto: chi risponde comunque ha visto l'avviso sopra il riquadro e ha
+  // deciso, e la conversazione resta in capo a chi l'aveva presa. Rubarla in
+  // silenzio farebbe sparire dal suo elenco «Mie» un cliente che pensa di
+  // seguire.
+  if (chiScrive) {
+    await db.conversazione.updateMany({
+      where: { id, presaDaId: '' },
+      data: { presaDaId: chiScrive.id, presaDaNome: chiScrive.nome, presaIl: new Date() },
+    })
+  }
+
   if (!esito.ok) return NextResponse.json({ errore: esito.errore, messaggio }, { status: 502 })
   return NextResponse.json({ messaggio })
 }

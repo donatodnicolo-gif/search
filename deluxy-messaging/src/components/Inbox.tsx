@@ -35,6 +35,13 @@ export type ConversazioneDto = {
   paginaIngresso?: string
   /** Il numero dell'ordine di cui parla la conversazione, se lo sappiamo. */
   ordineNumero?: string
+  /**
+   * Chi se ne sta occupando. Vuoto = libera, e chiunque può prenderla.
+   * ⚠️ `presaDaNome` è una **copia**: se l'account viene tolto resta scritto chi
+   * ci stava lavorando invece di un id che non dice niente.
+   */
+  presaDaId?: string
+  presaDaNome?: string
   /** Il marchio di quell'account, se è collegato a un negozio. Decide la colonna. */
   brand?: string
   /**
@@ -94,6 +101,21 @@ function oraBreve(iso: string): string {
   const stessoGiorno = d.toDateString() === oggi.toDateString()
   if (stessoGiorno) return d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })
   return d.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })
+}
+
+/**
+ * Il nome di battesimo di chi ha preso in carico, per il bollino sulla riga.
+ *
+ * ⚠️ Sulla riga c'è spazio per una parola: «Federica» si legge, «Federica
+ * Zicchinella» spinge fuori l'anteprima del messaggio, che è quello che si sta
+ * leggendo davvero. Il nome intero resta nel `title` e nella testata del thread.
+ * Se l'account fosse stato registrato con la sola email, si mostra la parte
+ * prima della chiocciola invece di un indirizzo lungo.
+ */
+function primoNome(nome?: string): string {
+  const pulito = (nome ?? '').trim()
+  if (!pulito) return 'Preso'
+  return (pulito.includes('@') ? pulito.split('@')[0] : pulito).split(/\s+/)[0]
 }
 
 /** Oltre questa lunghezza la bolla si chiude: una mail intera è un muro. */
@@ -267,12 +289,17 @@ function IconaElimina() {
 export function Inbox({
   conversazioniIniziali,
   brandNoti = [],
+  ioId = '',
+  ioNome = '',
 }: {
   conversazioniIniziali: ConversazioneDto[]
   /** I marchi che POSSONO ricevere (numeri WhatsApp e account Meta collegati):
    *  la loro colonna si vede anche vuota, altrimenti «zero messaggi oggi»
    *  sembrerebbe «marchio non configurato». */
   brandNoti?: string[]
+  /** Chi sta guardando l'inbox: serve a dire «io» invece di ripetere il suo nome. */
+  ioId?: string
+  ioNome?: string
 }) {
   const [conversazioni, setConversazioni] = useState(conversazioniIniziali)
   // `?c=<id>`: la schermata «Oggi» manda qui su una conversazione precisa. Senza,
@@ -686,15 +713,40 @@ export function Inbox({
   const [soloOrdini, setSoloOrdini] = useState(false)
   const CANALI_PERSONA = ['whatsapp', 'messenger', 'instagram', 'widget']
 
+  // ── «Mie» e «Libere» ──
+  //
+  // Le due domande vere di chi si siede all'inbox in tre: *cosa sto seguendo io*
+  // e *cosa non sta seguendo nessuno*. La seconda è la più importante — è lì che
+  // stanno i clienti che rischiano di non ricevere risposta da nessuno, che è il
+  // guaio opposto a quello delle risposte doppie.
+  const [filtroPresa, setFiltroPresa] = useState<'tutte' | 'mie' | 'libere'>('tutte')
+
   const visibili = useMemo(() => {
-    if (!soloOrdini) return conversazioni
-    return conversazioni.filter(
-      (c) =>
-        CANALI_PERSONA.includes(c.canale) ||
-        Boolean(c.ordineNumero) ||
-        /#\d{3,7}\b/.test(c.ultimoTesto)
-    )
-  }, [conversazioni, soloOrdini])
+    let righe = conversazioni
+    if (soloOrdini) {
+      righe = righe.filter(
+        (c) =>
+          CANALI_PERSONA.includes(c.canale) ||
+          Boolean(c.ordineNumero) ||
+          /#\d{3,7}\b/.test(c.ultimoTesto)
+      )
+    }
+    if (filtroPresa === 'mie') righe = righe.filter((c) => c.presaDaId && c.presaDaId === ioId)
+    if (filtroPresa === 'libere') righe = righe.filter((c) => !c.presaDaId)
+    return righe
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversazioni, soloOrdini, filtroPresa, ioId])
+
+  // I numeri sulle linguette: «Libere 7» dice se vale la pena guardarci prima
+  // ancora di cliccare. Si contano sull'elenco intero, non su quello filtrato.
+  const quanteMie = useMemo(
+    () => conversazioni.filter((c) => c.presaDaId && c.presaDaId === ioId).length,
+    [conversazioni, ioId]
+  )
+  const quanteLibere = useMemo(
+    () => conversazioni.filter((c) => !c.presaDaId).length,
+    [conversazioni]
+  )
 
   // Le colonne: prima i marchi collegati (anche se oggi non hanno scritto),
   // poi quelli che compaiono solo nelle conversazioni, e per ultimo il
@@ -803,6 +855,74 @@ export function Inbox({
       setErroreInvio('Ripristino non riuscito: problema di rete.')
     } finally {
       setInCorsoTogli(false)
+    }
+  }
+
+  // ── Prendere in carico ──
+  //
+  // ⚠️ Non è un lucchetto: segnala, non blocca. Chi prende una conversazione non
+  // impedisce a nessuno di rispondere — in un servizio clienti un blocco vero si
+  // ritorce sul cliente (chi l'ha presa va a pranzo e nessun altro può
+  // risponderle). Quello che serve è che si SAPPIA, e si sa da qui.
+  const [inCorsoPresa, setInCorsoPresa] = useState('')
+
+  async function prendiInCarico(id: string, presa: 'io' | 'nessuno', forza = false) {
+    if (inCorsoPresa) return
+    setInCorsoPresa(id)
+    // Ottimistico: il badge cambia subito, perché è un gesto che si fa mentre si
+    // legge e aspettare mezzo secondo lo fa sembrare rotto.
+    const prima = conversazioni.find((c) => c.id === id)
+    const dopo =
+      presa === 'io' ? { presaDaId: ioId, presaDaNome: ioNome } : { presaDaId: '', presaDaNome: '' }
+    setConversazioni((elenco) => elenco.map((c) => (c.id === id ? { ...c, ...dopo } : c)))
+    try {
+      const res = await fetch(`/api/conversazioni/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ presa, forza }),
+      })
+      if (!res.ok) {
+        // ⚠️ IL RITORNO INDIETRO È OBBLIGATORIO. Un'interfaccia ottimistica che
+        // non sa disfare mostra il proprio nome su una conversazione che il
+        // server ha assegnato a un altro: due operatori convinti di averla presa
+        // sono peggio di nessuno dei due.
+        if (prima) {
+          setConversazioni((elenco) =>
+            elenco.map((c) =>
+              c.id === id
+                ? { ...c, presaDaId: prima.presaDaId ?? '', presaDaNome: prima.presaDaNome ?? '' }
+                : c
+            )
+          )
+        }
+        const dati = (await res.json().catch(() => ({}))) as { errore?: string; occupata?: boolean }
+        if (dati.occupata) {
+          // Se l'ha presa un altro mentre stavamo leggendo, non si insiste da
+          // soli: si chiede. Prenderla comunque resta possibile — capita che chi
+          // l'aveva presa sia proprio la persona che ti ha chiesto di occupartene.
+          if (window.confirm(`${dati.errore} Vuoi prenderla comunque tu?`)) {
+            setInCorsoPresa('')
+            await prendiInCarico(id, 'io', true)
+            return
+          }
+        } else {
+          setErroreInvio(dati.errore || 'Non è riuscito a cambiare chi se ne occupa.')
+        }
+        return
+      }
+    } catch {
+      if (prima) {
+        setConversazioni((elenco) =>
+          elenco.map((c) =>
+            c.id === id
+              ? { ...c, presaDaId: prima.presaDaId ?? '', presaDaNome: prima.presaDaNome ?? '' }
+              : c
+          )
+        )
+      }
+      setErroreInvio('Non è riuscito a cambiare chi se ne occupa: problema di rete.')
+    } finally {
+      setInCorsoPresa('')
     }
   }
 
@@ -996,6 +1116,21 @@ export function Inbox({
               {c.brand || c.etichettaAccount || c.numeroNostro}
             </span>
           ) : null}
+          {/* Chi se ne sta occupando. Si mostra SOLO quando qualcuno l'ha
+              presa: un bollino «libera» su ogni riga sarebbe rumore su rumore,
+              e l'informazione qui è che una riga è già di qualcuno. */}
+          {c.presaDaId ? (
+            <span
+              className={`badge badge-presa${c.presaDaId === ioId ? ' mia' : ''}`}
+              title={
+                c.presaDaId === ioId
+                  ? 'Te ne stai occupando tu'
+                  : `Se ne sta occupando ${c.presaDaNome || 'un altro operatore'}`
+              }
+            >
+              {c.presaDaId === ioId ? 'Io' : primoNome(c.presaDaNome)}
+            </span>
+          ) : null}
           <span className="testo">{c.ultimoTesto}</span>
           {c.nonLetti > 0 ? <span className="pill-nonletti">{c.nonLetti}</span> : null}
         </span>
@@ -1104,12 +1239,37 @@ export function Inbox({
           {scaricoPosta && scaricoPosta !== '…' ? (
             <span className="esito">{scaricoPosta}</span>
           ) : null}
+          {/* «Mie» e «Libere»: in tre sulla stessa inbox, sono le due domande
+              che ci si fa sedendosi. «Libere» conta più di «Mie» — è dove stanno
+              i clienti che rischiano di non ricevere risposta da nessuno. */}
+          <span className="linguette" style={{ marginLeft: 'auto' }}>
+            <button
+              className={filtroPresa === 'tutte' ? 'attiva' : ''}
+              onClick={() => setFiltroPresa('tutte')}
+              title="Tutte le conversazioni, prese e non"
+            >
+              Tutte
+            </button>
+            <button
+              className={filtroPresa === 'mie' ? 'attiva' : ''}
+              onClick={() => setFiltroPresa('mie')}
+              title="Quelle di cui ti stai occupando tu"
+            >
+              Mie{quanteMie ? ` ${quanteMie}` : ''}
+            </button>
+            <button
+              className={filtroPresa === 'libere' ? 'attiva' : ''}
+              onClick={() => setFiltroPresa('libere')}
+              title="Quelle che non sta seguendo nessuno: è qui che si rischia di lasciare un cliente senza risposta"
+            >
+              Libere{quanteLibere ? ` ${quanteLibere}` : ''}
+            </button>
+          </span>
           {/* «Solo ordini»: mostra le conversazioni che parlano di un ordine e le
               chat delle persone. Non è un antispam — non indovina se una mail è
               pubblicità — ma è quello che serve per lavorare. */}
           <button
             className={`bottone ${soloOrdini ? '' : 'secondario '}mini`}
-            style={{ marginLeft: 'auto' }}
             onClick={() => setSoloOrdini(!soloOrdini)}
             title={
               soloOrdini
@@ -1277,6 +1437,33 @@ export function Inbox({
               <span className={`badge canale-${selezionata.canale}`}>
                 {etichettaCanale(selezionata.canale)}
               </span>
+              {/* ── Chi se ne occupa, e il bottone per cambiarlo ──
+                  Sta nella testata e non fra le azioni in fondo: è la cosa da
+                  sapere PRIMA di cominciare a scrivere, non dopo. */}
+              {selezionata.presaDaId && selezionata.presaDaId !== ioId ? (
+                <span className="badge badge-presa" title="Se ne sta già occupando un collega">
+                  {selezionata.presaDaNome || 'Un altro operatore'}
+                </span>
+              ) : null}
+              <button
+                className={`bottone ${selezionata.presaDaId === ioId ? 'secondario ' : ''}mini`}
+                disabled={inCorsoPresa === selezionata.id}
+                onClick={() =>
+                  prendiInCarico(
+                    selezionata.id,
+                    selezionata.presaDaId === ioId ? 'nessuno' : 'io'
+                  )
+                }
+                title={
+                  selezionata.presaDaId === ioId
+                    ? 'La lasci libera: sparisce da «Mie» e chiunque può prenderla'
+                    : selezionata.presaDaId
+                      ? 'Prendila tu: te lo chiede una conferma, perché ce l’ha già un collega'
+                      : 'Segnala ai colleghi che te ne stai occupando tu'
+                }
+              >
+                {selezionata.presaDaId === ioId ? 'Lascia' : 'Me ne occupo io'}
+              </button>
               {/* ⚠️ CHI SCRIVE, in chiaro. Su WhatsApp `idEsterno` è il numero
                   vero del cliente (Meta lo manda senza «+»), ed è il dato che
                   serve per chiamarlo, cercarlo negli ordini o salvarlo in
@@ -1497,6 +1684,30 @@ export function Inbox({
                     ))
                   })()}
                 </div>
+              </div>
+            ) : null}
+
+            {/* ⚠️⚠️ L'AVVISO È IL CUORE DELLA FUNZIONE, non il badge.
+                Il badge nell'elenco lo si legge solo se lo si guarda; questo sta
+                fra chi scrive e il campo dove scriverà, cioè nell'unico punto in
+                cui è impossibile non vederlo. Serve a fermare la risposta doppia
+                — due operatori che rispondono insieme e il cliente che riceve
+                due versioni diverse dalla stessa azienda.
+                ⚠️ Avvisa e basta: il campo resta scrivibile e il bottone attivo.
+                Chi ha davanti il cliente al telefono deve poter rispondere subito
+                anche se la conversazione risulta di un collega. */}
+            {selezionata.presaDaId && selezionata.presaDaId !== ioId ? (
+              <div className="avviso-presa">
+                <strong>Se ne sta occupando {selezionata.presaDaNome || 'un collega'}.</strong>{' '}
+                Puoi rispondere lo stesso — controlla prima che non l’abbia già fatto, così il
+                cliente non riceve due risposte diverse.
+                <button
+                  className="bottone secondario mini"
+                  disabled={inCorsoPresa === selezionata.id}
+                  onClick={() => prendiInCarico(selezionata.id, 'io')}
+                >
+                  Passala a me
+                </button>
               </div>
             ) : null}
 

@@ -494,6 +494,53 @@ button {
   display: none;
 }
 
+/* ── Chi se ne sta occupando ──
+   Il bollino di una conversazione presa in carico. Due letture diverse a colpo
+   d'occhio: quella di un COLLEGA è oro pieno (è l'informazione nuova, quella
+   che deve fermarti prima di rispondere sopra di lui); quella MIA è grigia e
+   scarica, perché «me ne sto occupando io» è la conferma di una cosa che sai
+   già, e un elenco tutto oro non distinguerebbe più niente. */
+.badge-presa {
+  background: var(--gold-soft);
+  color: var(--gold-strong);
+  border-color: transparent;
+  flex: 0 0 auto;
+}
+.badge-presa.mia {
+  background: var(--fill);
+  color: var(--text-secondary);
+}
+
+/* L'avviso fra chi scrive e il campo di risposta. Non è un errore — nessuno ha
+   sbagliato niente — quindi non è rosso: è un richiamo, ed è oro come il
+   bollino da cui nasce, così si riconosce che parlano della stessa cosa. */
+.avviso-presa {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  /* Allineato al riquadro di risposta che sta subito sotto (.thread .composer
+     ha padding 12px 16px): un avviso che parte da un'altra colonna sembrerebbe
+     appartenere a un altro pezzo della schermata. Le distanze qui sono in px
+     come nel resto del file — questo design system ha token per colori, raggi e
+     ombre, non per lo spazio. */
+  margin: 0 16px 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--gold-soft);
+  border-left: 3px solid var(--gold);
+  border-radius: var(--radius-m);
+  background: var(--gold-soft);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.avviso-presa strong {
+  font-weight: 600;
+}
+.avviso-presa .bottone {
+  margin-left: auto;
+}
+
 /* La conversazione aperta dalle colonne: una finestra, non una colonna in
    più. Riusa .velo e .pannello del dettaglio ordine — stesso gesto, stesso
    aspetto — ma dentro ci va una chat, che ha bisogno di un'altezza propria e
