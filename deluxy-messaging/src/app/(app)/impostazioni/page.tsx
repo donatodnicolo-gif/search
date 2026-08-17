@@ -3,6 +3,7 @@ import { headers } from 'next/headers'
 import { leggiImpostazioni } from '@/lib/impostazioni'
 
 import { redirectUri } from '@/lib/google'
+import { statoGoogle } from '@/lib/contatti'
 import { lingueLette } from '@/lib/lingua-testo'
 import { salvaImpostazioni } from './actions'
 import { DiagnosiWhatsApp } from '@/components/DiagnosiWhatsApp'
@@ -55,7 +56,12 @@ export default async function PaginaImpostazioni({
   const snippetWidget = `<script src="${base}/widget.js" defer></script>`
   const uriRedirect = redirectUri(base)
 
-  const googleCollegato = !!config.googleRefreshToken
+  // ⚠️ SI CHIEDE A GOOGLE, non si guarda se la chiave è scritta in tabella.
+  // Prima qui bastava `!!config.googleRefreshToken` e la pagina diceva
+  // «collegato» anche quando Google quel token lo rifiutava: la bacheca degli
+  // ordini, che lo usa davvero, diceva «scollegato» — due schermate con due
+  // risposte opposte, e la ragione dalla parte della bacheca.
+  const google = await statoGoogle()
   const googleCredenziali = !!config.googleClientId && !!config.googleClientSecret
 
   return (
@@ -175,8 +181,13 @@ export default async function PaginaImpostazioni({
             </label>
             <CampoSegreto nome="googleClientSecret" etichetta="Client Secret" valore={config.googleClientSecret} />
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
-              {googleCollegato ? (
+              {google.collegato ? (
                 <span className="badge verde">collegato</span>
+              ) : google.configurato ? (
+                /* Il caso che prima non esisteva: la chiave c'è ma Google la
+                   rifiuta. Dirlo «non collegato» e basta mandava a cercare una
+                   spunta da riattivare che non c'era. */
+                <span className="badge rosso">chiave rifiutata da Google</span>
               ) : (
                 <span className="badge rosso">non collegato</span>
               )}
@@ -189,9 +200,24 @@ export default async function PaginaImpostazioni({
                   googleCredenziali ? undefined : { pointerEvents: 'none', opacity: 0.4 }
                 }
               >
-                {googleCollegato ? 'Ricollega Google' : 'Collega Google'}
+                {google.configurato ? 'Ricollega Google' : 'Collega Google'}
               </a>
             </div>
+            {/* Il motivo con le parole di Google, più la causa che spiega quasi
+                tutti questi casi. Senza, «non collegato» è un vicolo cieco: non
+                si sa se rifare il collegamento serva a qualcosa. */}
+            {google.configurato && !google.collegato ? (
+              <div className="avviso-errore" style={{ marginTop: 8 }}>
+                <strong>Il token salvato non funziona più.</strong> Google risponde:{' '}
+                <em>{google.errore || 'nessun dettaglio'}</em>.
+                <br />
+                Premi <strong>Ricollega Google</strong>. Se succede di nuovo dopo pochi giorni,
+                la causa quasi certa è che nella console Google Cloud la schermata di consenso
+                è ancora in <strong>«Testing»</strong>: lì i permessi scadono dopo{' '}
+                <strong>7 giorni</strong>. Si risolve pubblicandola («In production»), non
+                ricollegando ogni settimana.
+              </div>
+            ) : null}
             {!googleCredenziali ? (
               <p className="descrizione" style={{ marginTop: 8, marginBottom: 0 }}>
                 Salva prima Client ID e Client Secret, poi il pulsante si attiva.

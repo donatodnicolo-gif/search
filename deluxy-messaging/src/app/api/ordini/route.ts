@@ -215,6 +215,8 @@ export async function GET(req: NextRequest) {
     if (cifre.length >= 4) dove.OR.push({ telefono: { contains: cifre } })
   }
 
+  // Riempito dal `catch` qui sotto: il perché Google rifiuta la nostra chiave.
+  let erroreGoogle = ''
   const [
     ordini,
     totale,
@@ -231,7 +233,12 @@ export async function GET(req: NextRequest) {
   ] = await Promise.all([
     ordiniOrdinati(dove, ordina, verso, 200),
     db.ordine.count({ where: dove }),
-    googleAccessToken().catch(() => null),
+    // Il motivo del rifiuto si tiene da parte invece di buttarlo: senza, la
+    // pagina può solo dire «non collegato», che è un vicolo cieco.
+    googleAccessToken().catch((e: Error) => {
+      erroreGoogle = e.message
+      return null
+    }),
     db.negozioShopify.findMany({ orderBy: { nome: 'asc' } }),
     // Conteggio e valore per negozio sull'INTERO filtro: sono le intestazioni
     // delle colonne, non devono fermarsi ai 200 mostrati.
@@ -299,6 +306,11 @@ export async function GET(req: NextRequest) {
     totale, // quanti corrispondono in tutto (la lista è tagliata a 200)
     negozi,
     googleCollegato: !!token,
+    // ⚠️ Il MOTIVO, non solo il sì/no. `googleAccessToken().catch(() => null)`
+    // trasformava «Google ha revocato l'accesso» in un muto «non collegato», e
+    // chi lo leggeva andava in Impostazioni — dove per giunta c'era scritto
+    // «collegato», perché lì si guardava solo se la chiave era salvata.
+    googleErrore: erroreGoogle,
     ultimaSync: ultimaSync?.valore ?? '',
     // Esito dell'ultimo giro ("ok: 31 ordini…" oppure il messaggio d'errore):
     // un aggiornamento fallito deve vedersi, non nascondersi dietro un orario.

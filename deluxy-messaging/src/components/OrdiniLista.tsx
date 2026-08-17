@@ -616,6 +616,8 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
   const [vista, setVista] = useState<'colonne' | 'elenco'>(globale ? 'elenco' : 'colonne')
   const [totale, setTotale] = useState(0)
   const [googleCollegato, setGoogleCollegato] = useState(false)
+  /** Perché Google rifiuta la chiave. Vuoto = non è mai stata collegata. */
+  const [googleErrore, setGoogleErrore] = useState('')
   const [caricato, setCaricato] = useState(false)
   const [occupato, setOccupato] = useState('') // 'sync' | 'tutti' | id ordine
   // Quando ha girato l'ultima volta l'aggiornamento automatico (ogni 15 minuti),
@@ -689,6 +691,7 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
         totale: number
         negozi: NegozioDto[]
         googleCollegato: boolean
+        googleErrore?: string
         ultimaSync?: string
         esitoSync?: string
         ultimoImportOrders?: string
@@ -699,6 +702,7 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
       setTotale(dati.totale)
       setNegozi(dati.negozi)
       setGoogleCollegato(dati.googleCollegato)
+      setGoogleErrore(dati.googleErrore ?? '')
       setUltimaSync(dati.ultimaSync ?? '')
       setEsitoSync(dati.esitoSync ?? '')
       setImportOrders(dati.ultimoImportOrders ?? '')
@@ -1192,7 +1196,22 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
 
       {!googleCollegato && caricato ? (
         <div className="avviso-errore">
-          Google Contacts non è collegato: vai in Impostazioni → Google Contacts per collegarlo.
+          {googleErrore ? (
+            <>
+              {/* ⚠️ Il caso che mandava fuori strada: la chiave c'è, e in
+                  Impostazioni si leggeva «collegato» — ma Google la rifiuta. Si
+                  dice quello che risponde Google, così si capisce che serve
+                  RIcollegare e non cercare un interruttore. */}
+              <strong>Google Contacts non risponde più:</strong> <em>{googleErrore}</em>. La
+              chiave è salvata ma Google la rifiuta — vai in{' '}
+              <strong>Impostazioni → Google Contacts</strong> e premi «Ricollega Google».
+            </>
+          ) : (
+            <>
+              Google Contacts non è collegato: vai in Impostazioni → Google Contacts per
+              collegarlo.
+            </>
+          )}
         </div>
       ) : null}
       {avviso ? <div className="avviso-ok">{avviso}</div> : null}

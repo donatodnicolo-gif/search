@@ -20,6 +20,49 @@ export async function googleAccessToken(): Promise<string | null> {
   return accessTokenDaRefresh(c.googleClientId, c.googleClientSecret, c.googleRefreshToken)
 }
 
+export type StatoGoogle = {
+  /** Ci sono Client ID, Secret e il token salvato? È solo «c'è la chiave». */
+  configurato: boolean
+  /** Google accetta quella chiave ADESSO. È l'unica cosa che conta davvero. */
+  collegato: boolean
+  /** Perché Google la rifiuta, con parole sue. Vuoto se va tutto bene. */
+  errore: string
+}
+
+/**
+ * Google Contacts è collegato *davvero*?
+ *
+ * ⚠️⚠️ NON BASTA GUARDARE SE IL TOKEN È SALVATO IN TABELLA, ed è il difetto che
+ * questa funzione ripara: la pagina Impostazioni diceva «collegato» sulla sola
+ * presenza di `googleRefreshToken`, mentre la bacheca degli ordini provava a
+ * usarlo per davvero e diceva «scollegato». Due schermate, due risposte
+ * opposte, ed entrambe convinte — con la ragione dalla parte della bacheca.
+ *
+ * Un token salvato può essere rifiutato da Google per motivi che qui non si
+ * vedono: l'accesso revocato dall'account, il Client Secret rigenerato, sei
+ * mesi senza usarlo — e soprattutto **la schermata di consenso ancora in
+ * "Testing" nella console Google Cloud, dove i refresh token scadono dopo 7
+ * giorni**. È il caso più comune, e da fuori sembra che l'app si scolleghi da
+ * sola ogni settimana.
+ *
+ * Costa una chiamata a Google, quindi si usa dove lo stato viene *mostrato*,
+ * non nei giri di lavoro.
+ */
+export async function statoGoogle(): Promise<StatoGoogle> {
+  const c = await leggiImpostazioni(['googleClientId', 'googleClientSecret', 'googleRefreshToken'])
+  const configurato = !!(c.googleClientId && c.googleClientSecret && c.googleRefreshToken)
+  if (!configurato) return { configurato: false, collegato: false, errore: '' }
+  try {
+    await accessTokenDaRefresh(c.googleClientId, c.googleClientSecret, c.googleRefreshToken)
+    return { configurato: true, collegato: true, errore: '' }
+  } catch (e) {
+    // Il motivo si tiene e si mostra. `catch(() => null)` in giro per l'app
+    // trasformava «Google ha revocato l'accesso» in un silenzioso «non
+    // collegato», e chi lo leggeva andava a cercare una spunta da riattivare.
+    return { configurato: true, collegato: false, errore: (e as Error).message }
+  }
+}
+
 /** "FL Mario Rossi #1042" — sigla, nome, numero dell'ordine più recente. */
 export function nomeContatto(prefisso: string, nome: string, numeroOrdine: string): string {
   const numero = numeroOrdine.trim()
