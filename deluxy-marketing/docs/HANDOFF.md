@@ -158,6 +158,28 @@ Sette commit in un'ora, tutti pubblicati (deploy 09:18). In ordine:
   ⚠️ **Al 17/08 nessun account ha ancora consegnato `annuncio-giorni`**
   (`MetricaAnnuncio` = 0 righe): serve il reincollo delle copie del 15/08.
 
+  ⚠️⚠️ **«Non è mai arrivato» è una SPIA di script vecchio, non una prova**
+  (precisato il 17/08). L'assenza di consegne è compatibile con **tre** cause
+  che dal database sono indistinguibili: (1) lo script nell'account è vecchio
+  e quel codice non ce l'ha; (2) è nuovo ma la query è stata **rifiutata** —
+  `mandaAnnunciGiorni` sta in un `try` che al `catch` fa `return`, quindi
+  scrive solo nel log dentro Google Ads; (3) è nuovo ma ha trovato **zero
+  righe** — `inviaABlocchi` esce con `if (righe.length === 0) return`
+  **senza fare la chiamata HTTP**, quindi non nasce nessuna `RicezioneDati`.
+
+  **Il controllo che li separa**: il `RIEPILOGO` dello script torna all'app
+  **solo per le richieste su domanda** (`POST /api/v1/aggiornamenti/{id}/esito`),
+  mai per i giri schedulati. Quindi si mette in coda un «Rifai tutto»
+  dall'app e si preme **Esegui** in Google Ads: l'esito che torna contiene la
+  stringa `annuncio-giorni: N/M righe` **se e solo se** quel codice è
+  nell'account, anche con N = 0. Riga presente = versione nuova; riga assente
+  = versione vecchia. È l'unico modo di distinguere «non ce l'ha» da «ce l'ha
+  ma non ha trovato niente» senza aprire il log di Google Ads.
+
+  ⚠️ E la regola ovvia che è facile dimenticare: **un giro precedente al
+  reincollo non dice niente su cosa c'è nell'account adesso.** Dopo aver
+  reincollato, l'unica prova è un giro nuovo.
+
 ### Diciotto commit dell'11/08/2026: annunci per colonna, keyword sparite, il ReferenceError, «Come sta andando»
 
 Sessione lunga sulla **scheda gruppo** e sui dati degli annunci. Le cose che
