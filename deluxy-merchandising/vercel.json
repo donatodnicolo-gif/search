@@ -3,8 +3,12 @@
   "regions": ["fra1"],
   "crons": [
     {
+      "path": "/api/cron/vendite?giorni=2",
+      "schedule": "*/15 * * * *"
+    },
+    {
       "path": "/api/cron/vendite",
-      "schedule": "0 5 * * *"
+      "schedule": "30 6 * * *"
     },
     {
       "path": "/api/cron/rotazioni",

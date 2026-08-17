@@ -388,12 +388,24 @@ export type Freschezza = {
   ultimoGiorno: Date | null;
   /** Quanti giorni fa. */
   giorni: number | null;
-  /** Quando è finito l'ultimo import riuscito, e se l'ha fatto il giro notturno. */
+  /** Quando è finito l'ultimo import riuscito, e se l'ha fatto un giro automatico. */
   ultimoImportRiuscito: Date | null;
   automatico: boolean;
-  /** Oltre questa soglia i numeri non si possono più chiamare "di oggi". */
+  /**
+   * Da quanti minuti l'app non va a chiedere il venduto a Orders. È **questo**
+   * il numero che dice se i dati sono vivi: `ultimoGiorno` dice l'ultima
+   * vendita, che in una giornata fiacca può essere di ieri anche con l'import
+   * appena passato.
+   */
+  minutiDallUltimoGiro: number | null;
+  /** Oltre questa soglia i numeri non si possono più chiamare "di adesso". */
   vecchio: boolean;
 };
+
+// Il giro automatico passa ogni 15 minuti (vercel.json). Si concede il doppio
+// più un margine prima di dire che qualcosa non gira: un cron può slittare, e
+// un allarme che scatta a ogni ritardo di un minuto smette di essere letto.
+const MINUTI_ATTESI = 40;
 
 /**
  * Da quanto sono fermi i numeri del venduto.
@@ -411,13 +423,20 @@ export const freschezzaVenduto = cache(async function freschezzaVenduto(): Promi
   const giorni = ultimoGiorno
     ? Math.max(0, Math.floor((Date.now() - ultimoGiorno.getTime()) / 86_400_000))
     : null;
+  const minutiDallUltimoGiro = ultimoOk
+    ? Math.max(0, Math.floor((Date.now() - ultimoOk.iniziatoIl.getTime()) / 60_000))
+    : null;
   return {
     ultimoGiorno,
     giorni,
     ultimoImportRiuscito: ultimoOk?.iniziatoIl ?? null,
     automatico: ultimoOk?.automatico === true,
-    // Tre giorni: un ordine di oggi può ancora non essere in Orders, ma sopra i
-    // tre giorni non è più latenza, è un import che non gira.
-    vecchio: giorni != null && giorni > 3,
+    minutiDallUltimoGiro,
+    // **L'allarme sta sul giro, non sull'ultima vendita.** Finché l'import era
+    // notturno le due cose si confondevano; ora che passa ogni quarto d'ora, una
+    // giornata senza ordini è una notizia sul negozio — non un guasto dell'app —
+    // mentre un giro che non passa lo è eccome. Se non è mai passato un import
+    // riuscito, si dichiara vecchio: non sapere è peggio che sapere di sì.
+    vecchio: minutiDallUltimoGiro == null || minutiDallUltimoGiro > MINUTI_ATTESI,
   };
 });
