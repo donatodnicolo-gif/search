@@ -1451,6 +1451,26 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
                               Fornitore ↗
                             </button>
                           ) : null}
+                          {/* Shopify fra le azioni rapide, non solo dentro il
+                              dettaglio: rimborsare davvero, cambiare le righe o
+                              guardare il pagamento è lavoro che si decide
+                              scorrendo l'elenco, e passare dal pannello per un
+                              link è un clic in più su ogni ordine.
+                              ⚠️ Il dominio è quello del NEGOZIO DI QUESTA
+                              COLONNA e l'indirizzo nasce dal gid: `#1733`
+                              esiste su più negozi. Se il link non si può
+                              costruire il bottone non c'è. */}
+                          {linkOrdineShopify(n.dominio, o.shopifyId) ? (
+                            <a
+                              className="bottone secondario mini"
+                              href={linkOrdineShopify(n.dominio, o.shopifyId)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="Apri questo ordine nell'amministrazione di Shopify (rimborsi, righe, pagamenti), in una scheda nuova"
+                            >
+                              Shopify ↗
+                            </a>
+                          ) : null}
                         </div>
                       </div>
                     ))
@@ -1633,6 +1653,20 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
                           Gestito ✓
                         </button>
                       )}
+                      {/* Stesso bottone delle schede: il link nasce dal gid e
+                          dal dominio del negozio di QUESTO ordine, mai dal
+                          numero (`#1733` esiste su più negozi). */}
+                      {linkShopifyDi(o.id) ? (
+                        <a
+                          className="bottone secondario mini"
+                          href={linkShopifyDi(o.id)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title="Apri questo ordine nell'amministrazione di Shopify (rimborsi, righe, pagamenti), in una scheda nuova"
+                        >
+                          Shopify ↗
+                        </a>
+                      ) : null}
                     </span>
                   </td>
                   <td onClick={(e) => e.stopPropagation()}>
@@ -1680,7 +1714,9 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
                     <th>Cliente</th>
                     <th>Telefono</th>
                     <th style={{ textAlign: 'right' }}>Totale</th>
-                    <th>Fornitore</th>
+                    {/* Non più solo «Fornitore»: nella stessa cella c'è anche
+                        il link alla scheda dentro Shopify. */}
+                    <th>Azioni</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1708,13 +1744,40 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
                       {/* La colonna delle azioni ferma il clic: cercare il
                           fornitore non deve aprire anche il pannello. */}
                       <td onClick={(e) => e.stopPropagation()}>
-                        <button
-                          className="bottone secondario mini"
-                          onClick={() => apriFornitore(o.brandRicerca || o.brand, o.numero, setErrore)}
-                          title={`Cerca il fornitore per ${o.numero}`}
-                        >
-                          Cerca ↗
-                        </button>
+                        <span className="azioni-ordine">
+                          <button
+                            className="bottone secondario mini"
+                            onClick={() => apriFornitore(o.brandRicerca || o.brand, o.numero, setErrore)}
+                            title={`Cerca il fornitore per ${o.numero}`}
+                          >
+                            Cerca ↗
+                          </button>
+                          {/* ⚠️ Qui il bottone Shopify serve PIÙ che altrove: di
+                              questi ordini non abbiamo la copia in casa, quindi
+                              le azioni che scrivono non ci sono e l'unica cosa
+                              da fare sul serio si fa là. Il negozio si trova
+                              per brand — l'archivio non porta il `negozioId` —
+                              e senza corrispondenza il bottone non compare. */}
+                          {(() => {
+                            const n = negozi.find(
+                              (x) =>
+                                (o.brandRicerca && x.brandRicerca === o.brandRicerca) ||
+                                x.nome.toLowerCase() === (o.brand ?? '').toLowerCase()
+                            )
+                            const url = linkOrdineShopify(n?.dominio, o.orderId)
+                            return url ? (
+                              <a
+                                className="bottone secondario mini"
+                                href={url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title="Apri questo ordine nell'amministrazione di Shopify, in una scheda nuova"
+                              >
+                                Shopify ↗
+                              </a>
+                            ) : null
+                          })()}
+                        </span>
                       </td>
                     </tr>
                   ))}
