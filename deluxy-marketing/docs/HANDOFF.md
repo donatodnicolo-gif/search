@@ -4,11 +4,12 @@
 > senza altro contesto. Leggere prima il [README](../README.md) per cosa fa l'app;
 > questo documento dice **dove siamo** e **cosa manca**.
 >
-> 🔴 **Il punto aperto di oggi**: la creazione di una campagna nuova dall'app
-> viene **rifiutata da Google** («Missing value in EU political ads») mentre
-> l'app la dava per eseguita. Codice corretto e in produzione, **copie dello
-> script da reincollare** e la campagna da rimettere in coda — vedi «Da
-> riprendere subito», punto 0.
+> 🔴 **I due punti aperti di oggi**: (1) la creazione di una campagna nuova
+> dall'app viene **rifiutata da Google** («Missing value in EU political ads»)
+> mentre l'app la dava per eseguita — codice corretto e in produzione, **manca
+> il reincollo di `esegui.js`** (punto 0 di «Da riprendere subito»); (2)
+> **quattro keyword in pausa nell'app dal 04/08 che su Google sono ancora
+> attive** (punto 4bis), trovate dalla conferma per operazione appena aggiunta.
 
 ## In una riga
 
@@ -139,6 +140,85 @@ questi numeri: dicono cosa gira e cosa è fermo.**
   `lib/meta-scrittura.ts` c'è ma non ha `ads_management`. TikTok scollegato.
 
 ## FATTO
+
+### ⭐ Ogni operazione dice se Google l'ha confermata, non solo le campagne nuove (17/08/2026)
+
+Commit `82fc0b46`, in produzione. `lib/conferme-operazioni.ts` + `/operazioni`.
+
+Chiesto dall'utente: *«in operazioni puoi dare sempre il feedback se è stato
+portato a termine o meno?»*. **«Eseguita» è la parola dello SCRIPT**: dice che
+ha chiamato Google e Google non ha protestato. Accanto ora c'è la **conferma
+indipendente** — cosa ha rimandato Google **dopo**, nei giri di lettura che
+arrivano comunque: `anagrafica` per esistenza/stato/budget delle campagne,
+`gruppi` per i gruppi, `stati-keyword` per le parole (il censimento completo;
+`copy` no, porta solo le keyword con numeri nel periodo e una parola appena
+messa in pausa può non comparirci).
+
+Sei stati: **confermata · da confermare · Google dice il contrario · rifiutata ·
+superata da un'altra · non verificabile**. Pillola a destra, frase per esteso
+sulla riga, e un **avviso in cima per le smentite** — una riga «eseguita» in
+fondo allo storico non la guarda nessuno. ⚠️ Le due pillole restano
+**affiancate e non fuse**: fonderle vorrebbe dire sceglierne una e nascondere
+l'altra, ed è la fusione che aveva fatto leggere «eseguita» come «creata».
+
+**Tre cautele, tutte pagate altrove:**
+1. L'app **scrive da sola il valore atteso** quando lo script riferisce l'esito
+   (`/api/v1/operazioni/[id]/esito` aggiorna budget, stato gruppo, stato
+   keyword): quindi «il dato attuale combacia» **non prova niente** finché
+   Google non ha rimandato quel dato. La conferma vale solo con una consegna
+   del tipo giusto, dell'account giusto, **dopo** l'esecuzione.
+2. Una consegna **dello stesso giro** (entro 30 minuti) basta a **confermare**,
+   ma **non a smentire**: dentro `tutto` l'esegui gira per primo e l'anagrafica
+   due secondi dopo, e per il bulk upload — asincrono — due secondi non bastano
+   di sicuro. Segnare fallito un lavoro riuscito è il difetto opposto.
+3. **Una query per tipo di dato, mai una per riga** (`connection_limit 5`).
+
+⭐⭐ **TRE FALSI POSITIVI TROVATI PROVANDOLA, tutti della stessa famiglia**: il
+confronto è col valore di **oggi**, e la domanda giusta è *chi ha toccato quel
+campo dopo*.
+1. **Solo l'ULTIMA operazione su un bersaglio può essere giudicata.** Le prime
+   9 «smentite» erano quattro budget cambiati più volte sulla stessa campagna e
+   cinque keyword rimesse attive. Ora le precedenti dicono «superata da
+   un'altra» — un verdetto in meno, non un'accusa falsa.
+2. **`OperazioneAdv.idEsterno` su una `nuova_keyword` porta l'id della
+   CAMPAGNA** (tutte e 15 le «torte roma/torino/…» avevano `22499642385`, cioè
+   `[Cakedesign] | Sales | ITA`): ovvio col senno di poi — la keyword non
+   esiste ancora quando l'operazione nasce. Fidandosene, quindici parole
+   diverse diventavano **un bersaglio solo** e quattordici risultavano superate.
+3. **La stessa keyword porta l'id COMPLETO su un'operazione e il numero NUDO su
+   un'altra** (`…:154305705033:381244836363` la pausa del 04/08,
+   `381244836363` la riattivazione dell'11/08 — l'eredità del difetto degli id
+   chiuso l'08/08): due chiavi per lo stesso criterio, e la pausa risultava
+   «smentita da Google» quando era stata **disfatta da noi**.
+   Rimedio: chiave **grossolana, campagna + testo**, senza id e senza gruppo
+   (un campo presente solo a volte spacca la chiave come un id in due formati).
+   Il prezzo è dichiarato: la stessa parola in due gruppi della stessa campagna
+   diventa un bersaglio solo. **Si perde un verdetto, non si accusa a torto.**
+
+⚠️ **E la data che si cita è quella dell'ULTIMA consegna, non della prima.**
+L'archivio tiene lo stato di **adesso**: scrivere «il censimento dell'11/08
+riporta la keyword attiva» mentre il valore letto è quello riscritto stamattina
+fa credere di aver visto quel dato quel giorno — e sposta la colpa sul giorno
+sbagliato. La prima consegna serve solo a decidere *se* Google ha parlato.
+
+**Misurato in pagina su 68 operazioni**: 18 confermate · 15 da confermare · 11
+su Google (keyword nuove) · 7 superate · 7 senza dato indipendente · **4
+smentite**. Le negative sono fra i «senza dato indipendente» **per una ragione
+vera**: l'app non importa le keyword negative, quindi fa fede la rilettura che
+lo script fa prima e dopo (`negativaPresente`, 08/08) — e se lo script ha
+dichiarato un dubbio, la riga dice di andare a guardare a mano.
+
+🔴 **LE 4 SMENTITE SONO VERE, ed è un punto aperto**: `fioraio milano`
+(`[Deluxy] - Fiori Milano ITA`, gruppo «Fiori a Domicilio + località
+d'interesse»), `send flowers in milan`, `milan flower delivery` e
+`flowers milan` (`[Deluxy] - Fiori Milano ENG`, gruppo «Flowers Delivery»)
+risultano **in pausa nell'app dal 04/08** e Google le riporta **`ENABLED`
+ancora oggi** (righe riscritte dal censimento del 17/08). Cioè: sono state
+messe in pausa dall'app, l'app le dà ferme, e **stanno ancora andando in
+asta**. Da guardare in Google Ads: o l'esecuzione del 04/08 ha toccato un
+criterio diverso (era il periodo del difetto degli id, chiuso l'08/08), o
+qualcuno le ha riattivate a mano. ⚠️ Nota: il 04/08 quelle operazioni avevano
+`account` vuoto — il difetto chiuso l'08/08 con `accodaOperazione`.
 
 ### 🔴 «Eseguita» su una campagna nuova voleva dire INVIATA, non creata — e Google la rifiutava per «EU political ads» (17/08/2026)
 
@@ -2633,21 +2713,23 @@ Resta da fare, **fuori dall'app**:
 
 0. 🔴 **LA CAMPAGNA NUOVA RIFIUTATA DA GOOGLE** (`[Deluxyflowers] - WORLD -
    ENG`, lanciata il 17/08 alle 14:01, «eseguita» alle 14:08, **inesistente su
-   Google** per «Missing value in EU political ads» — vedi la prima sezione
-   di FATTO). La correzione è nel codice e in produzione, **manca la parte
-   fuori dall'app**: (1) **reincollare le copie del 17/08 15:57** da
-   `C:\Users\nicol\Downloads\deluxy-google-ads\` (`tutto.js`, o `esegui.js`
-   se i lavori singoli sono schedulati a parte) **almeno su Flowers** —
-   CHIAVE_API e BRAND da rimettere a mano; (2) su `/operazioni` premere
-   **«Rimetti in coda»** sull'avviso della WORLD-ENG; (3) approvarla; (4)
-   Esegui in Google Ads (o aspettare il giro notturno); (5) controllare il
-   **registro caricamenti** e, al giro di anagrafica dopo, che l'avviso
-   sparisca e la campagna abbia `idEsterno`. ⚠️ **Se il registro dice
-   «Invalid value in EU political ads»**, il formato è l'altro: cambiare
-   `"no"` in `false` in `creaCampagna`, prova a secco, rigenerare le copie,
-   reincollare. Finché non si è chiuso questo giro, **ogni «Crea campagna»
-   che passa dallo script vecchio verrà rifiutata allo stesso modo** — e l'app
-   ora lo dice, ma solo dopo il primo giro di anagrafica.
+   Google** per «Missing value in EU political ads» — vedi la sezione di FATTO).
+   La correzione è nel codice e in produzione. Stato alle 16:20: l'utente ha
+   **premuto «Rimetti in coda»** (l'operazione è tornata *da approvare*) e ha
+   **reincollato `tutto.js`**. ⚠️ **Manca `esegui.js`, e serve**: verificato sul
+   database che le operazioni vengono applicate da un lavoro **`esegui`
+   schedulato a parte, ogni ora attorno al minuto :09** (15 keyword eseguite
+   alle 12:04 su Cake, budget alle 07:08 su Gifts: nessuna anagrafica nei 2
+   minuti dopo, quindi non è il giro `tutto`). Se `esegui.js` resta vecchio,
+   sarà lui a riprendere la campagna e a farla rifiutare di nuovo.
+   Quindi: (1) **reincollare `esegui.js`** delle **15:57** da
+   `C:\Users\nicol\Downloads\deluxy-google-ads\` (CHIAVE_API e BRAND a mano);
+   (2) approvare la WORLD-ENG in `/operazioni`; (3) Esegui in Google Ads o
+   aspettare il giro; (4) controllare il **registro caricamenti** e, al giro di
+   anagrafica dopo, che la riga dica **«Creata davvero»** invece di «Rifiutata».
+   ⚠️ **Se il registro dice «Invalid value in EU political ads»**, il formato è
+   l'altro: cambiare `"no"` in `false` in `creaCampagna`, prova a secco,
+   rigenerare le copie, reincollare.
 1. ~~**Reincollare `tutto.js` del 15/08 nei tre account**~~ — **fatto
    dall'utente il 17/08** (`MetricaAnnuncio` 5.157 righe, `annuncio-giorni`
    arriva da tutti e tre). ⚠️ Superato dal punto 0: le copie buone adesso
@@ -2689,6 +2771,17 @@ Resta da fare, **fuori dall'app**:
    meglio, lo script dovrebbe chiamare `driveDir()`.
 4. Verificare in Business Manager se `ads_management` si ottiene senza App
    Review (per accendere la scrittura Meta) — invariato dal 07/08.
+4bis. 🔴 **QUATTRO KEYWORD IN PAUSA NELL'APP CHE SU GOOGLE SONO ATTIVE** (nuovo
+   il 17/08, trovato dalla conferma per operazione): `fioraio milano`
+   (`[Deluxy] - Fiori Milano ITA`), `send flowers in milan`,
+   `milan flower delivery`, `flowers milan` (`[Deluxy] - Fiori Milano ENG`,
+   gruppo «Flowers Delivery»). Messe in pausa dall'app il **04/08**, esito
+   «keyword in pausa», e il censimento del **17/08** le riporta `ENABLED`:
+   stanno ancora andando in asta mentre l'app le dà ferme. Da guardare in
+   Google Ads — o l'esecuzione del 04/08 ha toccato un criterio diverso (era il
+   periodo del difetto degli id, chiuso l'08/08: quelle operazioni hanno anche
+   `account` vuoto), o le ha riattivate una persona. Se vanno davvero fermate,
+   basta rimetterle in pausa dall'app: ora la riga dirà se ha tenuto.
 5. ~~Su `/ricezione` deve comparire il tipo `annuncio-giorni` per i tre
    account~~ — **c'è** (29 consegne al 17/08 pomeriggio, `MetricaAnnuncio`
    5.157 righe dal 19/05). Resta da fare **a occhio**: aprire una scheda
@@ -3056,6 +3149,19 @@ funzione.
   gruppo, keyword e annuncio con `The entity does not exist for Campaign` —
   errori che sembrano la causa e sono l'effetto. La colonna c'è dal 17/08
   (`"no"`); se Google risponde «Invalid value», l'altra forma è `false`.
+- **Confrontare col valore di OGGI risponde a una domanda diversa da quella che
+  si è fatta**: prima di dire «Google smentisce questa operazione», guardare
+  **chi ha toccato quel campo dopo** — quasi sempre un'altra operazione nostra.
+  E citare la data dell'**ultima** consegna, non della prima: l'archivio tiene
+  lo stato di adesso, non la storia del campo (17/08, § conferme).
+- **`OperazioneAdv.idEsterno` NON identifica la keyword**: su una
+  `nuova_keyword` è l'id della **campagna** (la keyword non esiste ancora), e
+  sulle altre può essere il numero nudo o `account:gruppo:criterio`. Per
+  riconoscere una parola si usa **campagna + testo**.
+- **Un lavoro `esegui` schedulato a parte** (ogni ora, minuto :09) esegue le
+  operazioni: **reincollare `tutto.js` non basta**, va reincollato anche
+  `esegui.js`. Si riconosce dal fatto che dopo un'esecuzione non arriva nessuna
+  anagrafica entro un paio di minuti.
 
 ## Come riprendere
 
