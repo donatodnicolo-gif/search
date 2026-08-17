@@ -1,7 +1,25 @@
 # Handoff — Deluxy Customer Service
 
-Ultimo aggiornamento: **15/08/2026** (sezione MANCA riverificata sul database di
-produzione; l'ultimo lavoro sul codice è del 31/07/2026 ed è pubblicato)
+Ultimo aggiornamento: **17/08/2026** (controllo della produzione dall'esterno; i
+conteggi per canale restano quelli contati sul database il **15/08/2026**;
+l'ultimo lavoro sul codice è del 31/07/2026 ed è pubblicato)
+
+**Controllo del 17/08/2026 — l'app è viva e pubblicata.** `GET /api/health`
+risponde `200` con `database: true`, `scrivibile: true`, **1.235 ordini** (erano
+1.216 il 15/08) e **459 conversazioni** (erano 425): il cron degli ordini e i
+canali continuano a lavorare da soli, nessuno ha toccato il codice. Codice
+allineato con `origin/scout-ui`, albero pulito, ultimo commit dell'app
+`7a74baad` del 15/08.
+Provate le rotte dall'esterno: `/`, `/inbox`, `/ordini` → **307** al login (il
+cancello regge), `/widget?anteprima=1` → 200, `/api/v1/feedback` → **401** (la
+rotta a chiave *è* pubblicata: cade la nota «da pubblicare su Vercel»),
+`/api/webhooks/meta` → **403** senza firma, `/chat/inventato` → 200 con «Questa
+chat non esiste più» (il codice casuale regge).
+⚠️ **Quello che questo controllo NON dice**: canali collegati, chiavi presenti,
+utenti, reclami e rimborsi si contano solo **sul database**, e in questa
+sessione lo script di conteggio è stato **bloccato dai permessi**. Le righe qui
+sotto su Messenger, `partnerApiKey`, i 2 rimborsi e i 474 ordini da gestire sono
+quindi **del 15/08, non riverificate oggi**.
 
 > ⚠️ **L'app si chiama Deluxy Customer Service** (prima "Deluxy Messaggi"). Sono
 > cambiati i nomi visibili (topbar, login, titolo della pagina, tessera del Hub),
@@ -2097,7 +2115,9 @@ locale, altrimenti nulla si decifra.
 - **Non c'è più un solo utente**: 4 account, di cui due operatori veri
   (federica.zicchinella@, riccardo.cuccurullo@).
 
-**Cosa manca davvero al 15/08/2026:**
+**Cosa manca davvero al 15/08/2026** (il controllo del 17/08 è stato solo
+dall'esterno: questa tabella non è stata ricontata, vedi la nota in cima al
+file)**:**
 
 | Cosa manca | Cosa non funziona finché manca |
 |---|---|
