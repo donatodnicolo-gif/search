@@ -470,6 +470,7 @@ porta **3120**. Design system Deluxy v1.0.
   - `FreschezzaVenduto` dice ora «Venduto aggiornato **12 minuti fa**, ultima vendita del …» invece della sola data, e nell'avviso «non passa da 3 ore». La durata si compone **senza** il «fa» dentro (`durata()`): la stessa stringa entra in due frasi e incollandocelo dentro se ne sgrammatica una — «non passa da 3 ore fa» era il primo tentativo.
   - **Verificato**: `tsc` exit 0 e `next build` ok; le tre pagine con la riga (`/`, `/vendite`, `/best-seller`) lette in dev sui dati veri col cookie di sessione — avviso ambra corretto («non passa da 3 ore», ultimo giro alle 07:00), stessa riga in tutte e tre. Contato sul database: **6.930 righe di venduto**, ultimi 8 import tutti `ok` e `automatico`, ultima vendita del 17/08.
   - ⚠️ Fra il deploy e il primo scatto del `*/15` la riga resta ambra: è corretta, non è un difetto.
+  - ✅ **Confermato in produzione il 17/08/2026**: il primo scatto è arrivato alle **10:45:43**, `esito=ok`, `automatico=true`, finestra 15/08 → 17/08, **2 righe nuove su 29 lette** — cioè due vendite che con l'import notturno si sarebbero viste domani. Subito dopo le tre pagine dicono «**Venduto aggiornato adesso** — si aggiorna da solo ogni quarto d'ora». **Visti entrambi i rami** del componente: ambra prima del deploy (giro fermo da 3 ore), grigio dopo.
 
 ## COME AVVIARE
 ```
