@@ -4,6 +4,35 @@ App nuova (21/07/2026): registro centralizzato delle attività di un utente,
 condiviso fra tutte le app Deluxy. Porta **3090**. Stack Next.js 15 + Prisma +
 Postgres condiviso (schema `tasks`). Cartella: `C:\Users\nicol\app\deluxy-tasks`.
 
+## Fotografia del 17/08/2026 (controllo reale su produzione + database)
+
+- **Live e sana**: `https://deluxy-tasks.vercel.app` risponde (health 200,
+  `/` → `/login`, `/api/sso` presente, API a chiave 401 senza chiave). Il codice
+  online è quello di `main` (= `hub-registra-tasks` = questa cartella): l'ultimo
+  commit funzionale è del 26/07, gli ultimi deploy (10/08) sono ridistribuzioni
+  automatiche dovute a push su `main` di altre app. Env in produzione (4):
+  `DATABASE_URL`, `DIRECT_URL`, `HUB_SSO_SECRET`, `TASKS_SESSION_SECRET`.
+- **Database vivo e usato davvero** (schema `tasks`, cluster Supabase Francoforte):
+  **214 task** (203 attive) — `mail` 195, `deluxy-finance` 15, e 5 task **demo**
+  del seed (`partner` 2, `platform` 1, `scout` 1, `mail` 1: le uniche di
+  scout/platform/partner sono finte). Stati: 51 aperte (**23 già scadute**),
+  152 completate. Persone: `nicolo.donato@deluxy.it` 182, `renato.cassoli@deluxy.it`
+  15, `donatod.nicolo@gmail.com` 3, `gaia@deluxy.it` 2, `eleonora.mannini@deluxy.it` 1.
+  Revisione massima 44; 1 task con livelli multipli (3 livelli).
+- **Chi scrive/legge (dalle chiavi, `ultimoUso`)**: `mail` (scrittura, ultimo uso
+  17/08 07:55 → il cron di AI Mail è vivo e manda le attività ogni giorno);
+  `calendario` (lettura, 17/08 07:45 → la sync del Calendario ogni 15' funziona);
+  `deluxy-finance` (scrittura, **fermo dal 03/08** — Finance non manda niente da
+  allora); `commerciale` (scrittura, creata il 31/07, **mai usata**).
+- **Squadre: nessuna. Progetti registrati (callback): nessuno** → nessun webhook
+  verso le app; chi sincronizza lo fa in pull (`changes`). I non-admin vedono solo
+  le proprie task.
+- **Corretto oggi**: le funzioni giravano a Washington col DB a Francoforte
+  (`X-Vercel-Id: fra1::iad1`) → aggiunto `vercel.json` con `"regions": ["fra1"]`;
+  aggiunto **`GET /api/health`** standard (`{ ok, app, database }` con `SELECT 1`,
+  `no-store`) così la pagina /stato del Hub non segna più Tasks «non verificato».
+  `/api/v1/health` resta com'era.
+
 ## FATTO
 
 - **Schema Prisma** (`prisma/schema.prisma`): modello `Task` (identità
@@ -94,20 +123,18 @@ Postgres condiviso (schema `tasks`). Cartella: `C:\Users\nicol\app\deluxy-tasks`
 
 ## MANCA (serve l'utente / passi con segreti)
 
-1. **Collegare il DB**: `npm run db:condiviso -- <env-di-un-altra-app>` poi
-   `npm run db:push`. Serve una stringa Postgres del cluster condiviso (segreta).
-2. **Creare le chiavi API** per le app che manderanno task — ora si fa
-   **dall'app, in `/chiavi`** (o `npm run chiave -- <app> --scrittura`) e si
-   mettono nei `.env` di quelle app
-   (es. `TASKS_API_KEY`). **AI Mail è già pronta lato codice** (26/07/2026): manca
-   solo `npm run chiave -- mail --scrittura` e incollare la chiave in AI Mail →
-   Impostazioni App → «Registro Attività» (o nella cassaforte del Hub, progetto
-   `deluxy-mail`, nome `TASKS_API_KEY`).
+1. ~~**Collegare il DB**~~ **FATTO** (locale e produzione, vedi punto 3).
+2. **Chiavi API**: si creano **dall'app, in `/chiavi`** (o `npm run chiave --
+   <app> --scrittura`) e si mettono nei `.env` di quelle app (es. `TASKS_API_KEY`).
+   Al 17/08/2026 esistono `mail` (scrittura, in uso), `calendario` (lettura, in
+   uso), `deluxy-finance` (scrittura, ferma dal 03/08), `commerciale` (scrittura,
+   mai usata: da capire per quale app era stata fatta — Scout? — e installarla).
 3. ~~**DB in produzione**~~ **FATTO il 26/07/2026**: `DATABASE_URL` e `DIRECT_URL`
    sono nelle variabili di produzione (messe con `npm run vercel:env`, che le copia
    dal `.env` locale senza stamparle e poi ripubblica dalla radice del repo).
-   L'app online interroga il database. Restano da creare le squadre
-   (`npm run squadra`).
+   L'app online interroga il database. **Restano da creare le squadre**
+   (`npm run squadra`): al 17/08 non ce n'è nessuna, quindi i non-admin (Renato,
+   Gaia, Eleonora) vedono solo le proprie task.
 4. **Far mandare le task alle app**: integrare `POST /api/v1/tasks` dove ogni app
    già crea "cose da fare".
    - **FATTO — AI Mail** (26/07/2026, repo `scoutwt`, branch `scout-ui`):
@@ -115,9 +142,21 @@ Postgres condiviso (schema `tasks`). Cartella: `C:\Users\nicol\app\deluxy-tasks`
      della posta (`GET /api/sync`, `?forzaRegistro=1` per rimandare tutto), solo
      quelle cambiate, con `asOf` che impedisce di riaprire ciò che è stato chiuso
      qui. Chiave incollabile in AI Mail → Impostazioni App → «Registro Attività».
-   - **DA FARE**: Scout (le visite), Consegne (le attività operative), Finance
-     (i bonifici da fare), Customer Service (le azioni sui reclami), Acquisti
-     (le richieste da approvare).
+     **Vivo al 17/08** (195 task, ultimo invio alle 07:55).
+   - **FATTO — Finance** (`deluxy-partner/src/lib/tasks-sync.ts`, nei due versi,
+     `sistema=deluxy-finance`): 15 task per Renato, **ma ferma dal 03/08** (nessun
+     invio da allora — controllare dal lato Finance se il cron/la sync sono spenti).
+   - **FATTO — Calendario** legge in pull con la chiave `calendario` (cron ogni 15').
+   - **DA FARE**: Scout (le visite), Consegne (le attività operative), Customer
+     Service (le azioni sui reclami), Acquisti (le richieste da approvare).
+5. **Pulizia**: 5 task demo del seed (`idEsterno` che inizia per `demo-`) sono
+   ancora nel database di produzione — archiviarle o cancellarle (solo quelle).
+6. **Punti aperti**: registrare i progetti (`npm run progetto`) se si vuole il
+   callback verso le app quando il team chiude una task dalla UI (oggi nessuno
+   registrato: si va solo in pull); **23 task aperte già scadute** (la UI le segna
+   in rosso «Scaduta …», ma nessuno le chiude): 14 di AI Mail (13 Nicolò, 1
+   Eleonora) e **9 di Finance per Renato** — quelle di Finance sono 14 aperte su
+   15 e Finance non le aggiorna dal 03/08, quindi possono essere già fatte di là.
 
 ## Note
 

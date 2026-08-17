@@ -28,7 +28,10 @@ sempre un tuo `idEsterno` stabile: è così che la aggiorni senza creare doppion
 - Autenticazione: header `x-api-key: <chiave-della-tua-app>` (variabile
   d'ambiente **lato server**, es. `TASKS_API_KEY` — mai nel codice del browser).
 - Le letture (GET) hanno il CORS aperto; le scritture vanno fatte server-to-server.
-- Salute: `GET /api/v1/health` → `{ ok: true, servizio: "deluxy-tasks" }`.
+- Salute: `GET /api/health` → `{ ok: true, app: "deluxy-tasks", database: true|false }`
+  (standard Deluxy, letto dalla pagina /stato del Hub: `database` è un `SELECT 1`
+  vero). Resta anche `GET /api/v1/health` → `{ ok: true, servizio: "deluxy-tasks" }`
+  (solo «il server risponde»).
 
 ### Se leggi (tutte le app)
 
