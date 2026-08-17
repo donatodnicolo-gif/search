@@ -34,6 +34,7 @@ function normalizza(body: Record<string, unknown>) {
     mesi: JSON.stringify(mesi),
     maisonId: body.maisonId ? String(body.maisonId) : null,
     teamId: body.teamId ? String(body.teamId) : null,
+    budget: body.budget === true,
     note: body.note ? String(body.note).trim() : null,
   };
 }

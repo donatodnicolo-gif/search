@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   costoPersonaAnno, costoPersonaMese, lordoAnnuo, nettoBusta,
@@ -28,6 +28,7 @@ const VUOTO = {
   mesi: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
   maisonId: "",
   teamId: "",
+  budget: false,
   note: "",
 };
 
@@ -55,12 +56,31 @@ export function DipendentiEditor({
   const [salvo, setSalvo] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
 
+  // «Modifica» apriva il modulo **in fondo alla pagina**: con venti persone in
+  // tabella il bottone sembrava non fare niente. Ora la pagina porta il modulo
+  // sotto gli occhi e mette il **cursore nel primo campo**, così si comincia a
+  // scrivere senza cercare dove. ⚠️ Niente `behavior: "smooth"`: misurato, lo
+  // scorrimento animato non parte affatto (stessa trappola del CFO).
+  const scheda = useRef<HTMLDivElement | null>(null);
+  const primoCampo = useRef<HTMLInputElement | null>(null);
+  // Cambia quando si apre un'altra persona (o il modulo nuovo), non a ogni
+  // tasto premuto: altrimenti il cursore tornerebbe sul nome mentre si scrive.
+  const aperto = form ? form.id || "nuovo" : null;
+  useEffect(() => {
+    if (!aperto) return;
+    scheda.current?.scrollIntoView({ block: "start" });
+    // Solo il fuoco, **senza selezionare il testo**: su una modifica il nome è
+    // quasi sempre giusto e il primo tasto premuto lo cancellerebbe.
+    primoCampo.current?.focus();
+  }, [aperto]);
+
   const totaleAnno = persone.reduce((s, p) => s + costoPersonaAnno(p), 0);
   const perTipo = TIPI_PERSONA.map((t) => ({
     ...t,
     persone: persone.filter((p) => p.tipo === t.key),
     costo: persone.filter((p) => p.tipo === t.key).reduce((s, p) => s + costoPersonaAnno(p), 0),
   }));
+  const conBudget = persone.filter((p) => p.budget);
   const nomeMaison = (id: string | null) => maisons.find((m) => m.id === id)?.nome ?? "Struttura";
   const teamDi = (id: string | null) => team.find((t) => t.id === id);
 
@@ -87,6 +107,7 @@ export function DipendentiEditor({
       mesi: p.mesi,
       maisonId: p.maisonId ?? "",
       teamId: p.teamId ?? "",
+      budget: p.budget,
       note: p.note ?? "",
     });
   }
@@ -148,6 +169,7 @@ export function DipendentiEditor({
         mesi: form.mesi,
         maisonId: null,
         teamId: null,
+        budget: false,
         note: null,
       }
     : null;
@@ -161,7 +183,10 @@ export function DipendentiEditor({
         <div className="kpi">
           <div className="kpi-label">Costo del personale {year}</div>
           <div className="kpi-value">{eur(totaleAnno)}</div>
-          <div className="kpi-sub">{persone.length} persone a budget</div>
+          <div className="kpi-sub">
+            {persone.length} persone a budget
+            {conBudget.length > 0 && ` · ${conBudget.length} con un budget proprio`}
+          </div>
         </div>
         {perTipo.map((t) => (
           <div className="kpi" key={t.key}>
@@ -213,9 +238,17 @@ export function DipendentiEditor({
                 {persone.map((p) => {
                   const t = TIPI_PERSONA.find((x) => x.key === p.tipo);
                   return (
-                    <tr key={p.id}>
+                    <tr key={p.id} style={form?.id === p.id ? { background: "var(--fill)" } : undefined}>
                       <td>
-                        <div style={{ fontWeight: 600 }}>{p.nome}</div>
+                        <div style={{ fontWeight: 600 }}>
+                          {p.nome}{" "}
+                          {p.budget && (
+                            <span className="badge gold" title="Avrà un suo budget: risponde di un numero e lo propone">
+                              <span className="dot" />
+                              Budget
+                            </span>
+                          )}
+                        </div>
                         {p.ruolo && <div className="muted" style={{ fontSize: 12 }}>{p.ruolo}</div>}
                       </td>
                       <td>
@@ -302,15 +335,16 @@ export function DipendentiEditor({
       )}
 
       {form && (
-        <div className="card" style={{ marginTop: 16 }}>
+        <div className="card" style={{ marginTop: 16, scrollMarginTop: 16 }} ref={scheda}>
           <h2 className="section-title" style={{ marginTop: 0 }}>
-            {form.id ? "Modifica persona" : "Nuova persona"}
+            {form.id ? `Modifica — ${form.nome || "persona"}` : "Nuova persona"}
           </h2>
           <div className="form-grid">
             <div>
               <label className="field-label">Nome</label>
               <input
                 type="text"
+                ref={primoCampo}
                 value={form.nome}
                 onChange={(e) => setForm({ ...form, nome: e.target.value })}
                 placeholder="Nome e cognome"
@@ -476,6 +510,29 @@ export function DipendentiEditor({
                   <option key={m.id} value={m.id}>{m.nome}</option>
                 ))}
               </select>
+            </div>
+            {/* Chi risponde di un numero. Non tocca il costo del personale di un
+                euro: serve a sapere da chi aspettarsi una proposta di budget e a
+                chi il budget si può intestare. */}
+            <div>
+              <label className="field-label">Budget</label>
+              <label
+                style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 13.5, padding: "8px 0" }}
+              >
+                <input
+                  type="checkbox"
+                  checked={form.budget}
+                  onChange={(e) => setForm({ ...form, budget: e.target.checked })}
+                  style={{ width: "auto", marginTop: 2 }}
+                />
+                <span>
+                  Avrà un suo budget
+                  <span className="muted" style={{ display: "block", fontSize: 11.5 }}>
+                    risponde di un numero e lo propone da{" "}
+                    <Link href="/proposte" style={{ color: "var(--blue)" }}>Proposte budget</Link>
+                  </span>
+                </span>
+              </label>
             </div>
             <div className="full">
               <label className="field-label">Mesi in cui il costo è a carico</label>

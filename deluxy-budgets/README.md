@@ -25,6 +25,14 @@ pubblicato), *sfidante* e *irraggiungibile*.
   addizionali e cuneo fiscale). È una stima di pianificazione con **parametri fiscali 2025**:
   non sostituisce il cedolino e va riverificata con la legge di bilancio dell'anno di budget
   (motore in `src/lib/calc.ts`, funzioni `irpefLorda`, `detrazioneLavoro`, `cuneoFiscale`).
+  **Flag «Budget»** (17/08/2026, campo `Dipendente.budget`): segna chi **avrà un suo budget** — chi
+  risponde di un numero e lo proporrà da `/proposte`. **Non cambia il costo del personale di un
+  euro**: serve a sapere da chi aspettarsi una proposta e a chi il budget si può intestare. Si vede
+  come pastiglia oro accanto al nome e nel riepilogo in cima («N con un budget proprio»).
+  **«Modifica» porta il cursore nei dati** (17/08/2026): il modulo sta in fondo alla pagina e con
+  undici persone il bottone sembrava non fare niente — ora la pagina ci si sposta, il titolo dice
+  *chi* stai modificando, la riga si evidenzia e il fuoco va nel primo campo (senza selezionarne il
+  testo: il primo tasto premuto cancellerebbe il nome).
 - **CFO** (`/cfo`): scarica gli **addebiti bancari** dall'app Finance (`/api/spese`, uscite per
   controparte e per mese) e li **riclassifica in categorie di costo** tramite regole
   (controparte → categoria, il match più specifico vince). Ricostruisce la struttura dei costi,

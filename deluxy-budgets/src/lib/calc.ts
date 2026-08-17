@@ -60,6 +60,8 @@ export type Persona = {
   mesi: number[];
   maisonId: string | null;
   teamId: string | null;
+  // Persona con un budget proprio: risponde di un numero e lo propone.
+  budget: boolean;
   note: string | null;
 };
 
@@ -221,6 +223,7 @@ export async function caricaAnno(year = ANNO_CORRENTE): Promise<DatiAnno> {
       mesi: leggiMesi(d.mesi),
       maisonId: d.maisonId,
       teamId: d.teamId,
+      budget: d.budget,
       note: d.note,
     })),
     team: team.map((t) => ({
