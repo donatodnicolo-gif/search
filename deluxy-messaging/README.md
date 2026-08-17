@@ -431,6 +431,15 @@ seconda riceve un avviso, non un sorpasso silenzioso.
 rischiano di non ricevere risposta da **nessuno**, che è il guaio opposto alle risposte
 doppie.
 
+**La schermata «Oggi» (`/`).** Chi aspetta una risposta, gli ordini da lavorare, i reclami
+aperti, i promemoria. **Ogni riga è un collegamento all'elemento**, non all'elenco:
+`/inbox?c=<id>` apre quella conversazione, `/ordini?apri=<id>` quell'ordine col pannello
+già aperto, `/reclami?apri=<id>` quel reclamo con la riga evidenziata. Il bersaglio è
+**tutta la riga**, non il solo nome. ⚠️ Se un reclamo è stato chiuso nel frattempo la
+pagina allarga il filtro da «aperti» a «tutti»: non deve mai capitare di arrivare su un
+elenco in cui la cosa promessa non c'è. Le tessere dei numeri in cima portano invece
+all'elenco intero, perché lì l'«elemento» è un conteggio.
+
 **Allegati.** Su WhatsApp funzionano nei due versi. Su **Instagram e Messenger si
 ricevono** (dal 17/08/2026): Meta non manda un id da richiedere dopo, manda un indirizzo
 già firmato, e quello si salva in `Messaggio.mediaUrl`. ⚠️ Quell'indirizzo **scade**, e

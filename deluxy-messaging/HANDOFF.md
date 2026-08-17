@@ -79,6 +79,37 @@ locale, altrimenti nulla si decifra.
 
 ## FATTO
 
+- **DALLA SCHERMATA «OGGI» SI ARRIVA SULL'ELEMENTO, NON SULL'ELENCO**
+  (17/08/2026, LIVE). Due difetti diversi con lo stesso effetto: si clicca e non
+  si arriva dove si voleva.
+  - **I reclami portavano a `/reclami` e basta.** C'era perfino un commento che
+    lo dichiarava («servirebbe un parametro che quella pagina non legge»). Ora la
+    pagina lo legge: `/reclami?apri=<id>` **evidenzia la riga** e la porta sotto
+    gli occhi. Il parametro si legge lato server e si passa come prop, come già
+    fa il `prefill` — niente `useSearchParams`, che vorrebbe un `<Suspense>`
+    attorno a tutta la lista.
+  - ⚠️ **Se nel frattempo il reclamo è stato chiuso non sparisce**: il filtro di
+    partenza è «aperti», e la pagina lo allarga a «tutti». Un link che porta a un
+    elenco dove la cosa promessa non c'è è peggio di nessun link. ⚠️
+    L'allargamento scatta **una volta sola** (`allargato`): senza la guardia, un
+    id che non esiste più farebbe rimbalzare i filtri all'infinito, perché
+    `carica()` rigira a ogni cambio di filtro.
+  - **Il bersaglio cliccabile era il solo nome.** Su righe che si leggono per
+    intero — nome, canale, testo, da quanto aspetta — il collegamento erano poche
+    decine di pixel: si mirava al testo del messaggio e **non succedeva niente**,
+    da telefono peggio ancora. Ora **l'intera riga è il collegamento**, in tutti
+    e tre gli elenchi (chi aspetta, ordini, reclami). Dentro quelle righe non ci
+    sono altri comandi, quindi un link che avvolge tutto non annida niente di
+    interattivo, e `.riga-collegamento` eredita il `flex` della riga: l'aspetto
+    non cambia. Stessa lezione dei bersagli da 24px di luglio.
+  - ⚠️ **Le tessere dei numeri in cima restano collegamenti all'elenco** (consegne
+    di oggi, reclami aperti, rimborsi da decidere): lì l'«elemento» è un conteggio,
+    non una riga. Per farle atterrare su un elenco già filtrato servirebbero
+    filtri via URL che quelle pagine oggi non leggono.
+  - ⚠️ **Resa a schermo NON verificata**: la dashboard sta dietro il login e in
+    questa sessione non c'è un account. Verificati `tsc`, `build` e che le rotte
+    col parametro rispondano in produzione (307 al login, come tutte).
+
 - **IL LINK DELLA CHAT PORTA SUL SITO, E LA × LA NASCONDE** (17/08/2026, LIVE).
   `/chat/<codice>` era una chat a pagina intera su sfondo vuoto: chi arriva
   dalla bio di Instagram o da un QR non vedeva il negozio, e premendo la ×
