@@ -845,15 +845,25 @@ export async function analizzaContattoOra(
     where: {
       utenteId,
       cestinato: false,
-      OR: [{ mittente: email }, { direzione: 'uscita', destinatari: { contains: email } }],
+      // ⚠️ Il destinatario si cerca in TUTTE le direzioni: `direzione` è la
+      // cartella in cui la mail è stata trovata, non chi l'ha scritta — una mail
+      // partita da un collega con la casella in copia è «entrata». Col vecchio
+      // `direzione: 'uscita'` questo quadro rispondeva «Nessun messaggio con
+      // questo contatto» a chi ne aveva.
+      OR: [{ mittente: email }, { destinatari: { contains: email } }],
     },
     orderBy: { data: 'desc' },
     take: 10,
-    select: { data: true, oggetto: true, corpoTesto: true, direzione: true, mittenteNome: true },
+    select: { data: true, oggetto: true, corpoTesto: true, direzione: true, mittente: true, mittenteNome: true },
   })
   if (messaggi.length === 0) return { ok: false, messaggio: 'Nessun messaggio con questo contatto.' }
 
-  const nome = messaggi.find((m) => m.direzione === 'entrata')?.mittenteNome ?? null
+  // ⚠️ Il nome è quello di CHI STIAMO GUARDANDO: si prende dalle mail in cui è
+  // lui il mittente. Prendendolo dalla prima «entrata» si finiva col nome del
+  // collega che gli ha scritto (misurato: Linn sarebbe diventata «Martina Calia»
+  // per l'AI, che poi le si rivolge così).
+  const suo = (m: { mittente: string }) => m.mittente.toLowerCase() === email.toLowerCase()
+  const nome = messaggi.find((m) => suo(m) && m.mittenteNome)?.mittenteNome ?? null
   const ctx = await contestoAI(utenteId)
   const mirate = await istruzioniMirate(utenteId, { mittente: email })
 
@@ -862,7 +872,9 @@ export async function analizzaContattoOra(
       contatto: email,
       nome,
       messaggi: [...messaggi].reverse().map((m) => ({
-        daMe: m.direzione === 'uscita',
+        // «daMe» = non l'ha scritta il contatto: dal mittente, non dalla
+        // cartella, o il modello attribuisce a lui parole nostre (e viceversa).
+        daMe: !suo(m),
         data: m.data,
         oggetto: m.oggetto,
         corpo: m.corpoTesto,

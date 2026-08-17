@@ -29,6 +29,13 @@ export default async function Contatto({ params }: Props) {
   // pagina dava 404 — pur essendo linkato dalla rubrica, che i destinatari li
   // conta da sempre (`elencoContatti`) — e per gli altri mancavano le nostre
   // risposte, cioè metà della conversazione.
+  //
+  // ⚠️⚠️ E il destinatario si cerca in TUTTE le direzioni, non solo in uscita:
+  // `direzione` dice in quale CARTELLA è stata trovata la mail (INBOX o
+  // Inviata), NON chi l'ha scritta. Una mail partita da un indirizzo Deluxy con
+  // la casella in copia è marcata `entrata` — misurato sul database: le due mail
+  // per `linn_mp@hotmail.com` sono `entrata` da `martina.calia@deluxy.it`, e col
+  // filtro `direzione: 'uscita'` la scheda restava un 404.
   const messaggi = await db.messaggio.findMany({
     where: {
       utenteId: u.id,
@@ -36,7 +43,7 @@ export default async function Contatto({ params }: Props) {
         { mittente: { equals: email, mode: 'insensitive' } },
         // `contains` è largo per forza (il campo è testo libero): la precisione
         // la mette il filtro qui sotto, che confronta gli indirizzi estratti.
-        { direzione: 'uscita', destinatari: { contains: email, mode: 'insensitive' } },
+        { destinatari: { contains: email, mode: 'insensitive' } },
       ],
     },
     orderBy: { data: 'desc' },
@@ -61,8 +68,12 @@ export default async function Contatto({ params }: Props) {
   )
   if (scambio.length === 0) notFound()
 
-  const ricevute = scambio.filter((m) => m.mittente.toLowerCase() === email.toLowerCase()).length
-  const inviate = scambio.length - ricevute
+  // ⚠️ Il verso si legge dal MITTENTE, non da `direzione` (che è la cartella):
+  // «da lei» = l'ha scritta lei, «a lei» = era indirizzata a lei, chiunque
+  // dell'azienda l'abbia mandata. Per questo le etichette non dicono «inviate
+  // da te»: non è sempre vero.
+  const daLei = scambio.filter((m) => m.mittente.toLowerCase() === email.toLowerCase()).length
+  const aLei = scambio.length - daLei
 
   // Il nome: da chi ci ha scritto, o — per chi non ci ha mai scritto — da come
   // l'abbiamo indirizzato noi (`Linn Persson <linn_mp@hotmail.com>`).
@@ -137,7 +148,7 @@ export default async function Contatto({ params }: Props) {
           <div className="kpi-label">Messaggi</div>
           <div className="kpi-value">{scambio.length}</div>
           <div className="kpi-sub">
-            {ricevute} ricevute · {inviate} inviate · l’ultimo {dataBreve(scambio[0].data)}
+            {daLei} da lui/lei · {aLei} a lui/lei · l’ultimo {dataBreve(scambio[0].data)}
           </div>
         </div>
         <div className="kpi">
@@ -220,7 +231,8 @@ export default async function Contatto({ params }: Props) {
           id: m.id,
           // Chi ha scritto: senza questo, in un elenco che ora contiene tutti e
           // due i versi, la propria mail e quella del contatto sono identiche.
-          inviata: m.direzione === 'uscita',
+          // ⚠️ Dal mittente, non da `direzione`: vedi il commento sopra.
+          alContatto: m.mittente.toLowerCase() !== email.toLowerCase(),
           oggetto: m.oggetto,
           letto: m.letto,
           riassunto: m.riassunto,

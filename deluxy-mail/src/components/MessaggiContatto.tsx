@@ -10,8 +10,13 @@ import { mostraFlash } from './Flash'
 
 export type RigaContatto = {
   id: string
-  /** L'abbiamo scritta noi a lui (mail in uscita), non lui a noi. */
-  inviata: boolean
+  /**
+   * La mail era indirizzata AL contatto (non l'ha scritta lui).
+   * ⚠️ Si decide dal mittente, non da `direzione`: quella dice in quale cartella
+   * la mail è stata trovata, e una mail partita da un collega con la casella in
+   * copia risulta «entrata» pur essendo stata mandata al contatto.
+   */
+  alContatto: boolean
   oggetto: string
   letto: boolean
   riassunto: string | null
@@ -134,11 +139,15 @@ export function MessaggiContatto({ messaggi }: { messaggi: RigaContatto[] }) {
               <Link href={`/messaggio/${m.id}`} className="mail-row-link">
                 <div className="mail-top">
                   <span className={m.letto ? 'dot-spacer' : 'dot-unread'} />
-                  {/* La freccia dice il verso: ↗ l'hai scritta tu, ↙ te l'ha
-                      scritta lui. Con un elenco a due versi, senza di essa due
-                      righe uguali sono due cose opposte. */}
-                  <span className="muted" style={{ fontSize: 12.5 }} title={m.inviata ? 'Inviata da te' : 'Ricevuta'}>
-                    {m.inviata ? '↗' : '↙'}
+                  {/* La freccia dice il verso: ↗ mandata a lui, ↙ scritta da
+                      lui. Con un elenco a due versi, senza di essa due righe
+                      uguali sono due cose opposte. */}
+                  <span
+                    className="muted"
+                    style={{ fontSize: 12.5 }}
+                    title={m.alContatto ? 'Mandata a questo contatto' : 'Scritta da questo contatto'}
+                  >
+                    {m.alContatto ? '↗' : '↙'}
                   </span>
                   <span className="mail-mittente">{m.oggetto}</span>
                 </div>
