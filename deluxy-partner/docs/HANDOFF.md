@@ -2,7 +2,11 @@
 
 > ⚠️ **L'app si chiama FINANCE.** Dal 01/08/2026 è così che si presenta a schermo (titolo, sidebar, accesso). **Cartella, database, URL `deluxy-partner.vercel.app`, cookie `dp_session` e il `sistema: "deluxy-partner"` con cui il registro Anagrafiche riconosce chi scrive NON sono stati rinominati**: cambiarli scollegherebbe le altre app.
 
-## ⏱️ PUNTO DI RIPRESA — 01/08/2026, fine sessione
+## ⏱️ PUNTO DI RIPRESA — 01/08/2026, fine sessione (ricontrollato il 17/08/2026)
+
+> ⚠️ **Questa è la copia viva: `C:\Users\nicol\scoutwt\deluxy-partner`, branch `scout-ui`.** Nel repo `C:\Users\nicol\app` esiste una `deluxy-partner/` **ferma al 20/07/2026** (commit `1706b970`) con un handoff che descrive un'app senza Orders, senza Anagrafiche nei due versi e con la password unica di team: sembra buono e non dice di essere vecchio. Non lavorarci e non copiarne file qui.
+
+**Controllo del 17/08/2026**: produzione **= ultimo commit** (`bbba72cb` del 03/08, deploy `● Ready` di 14 giorni, health 200 con `database:true`, `<title>Finance</title>` sul login). Niente di non committato, niente lavoro nuovo dal 3 agosto. Il commit del 03/08 — posteriore al punto di ripresa qui sotto — riguarda il webhook `POST /api/pagamenti/notifica`: la notifica di Transactions porta anche `pagatoCon` e `motivo`, e se `pagatoCon === "fuori_app"` nel registro modifiche resta scritto «pagata fuori dall'app» col perché di un eventuale annullamento (il mese si chiude come prima). **`FINANCE_API_KEY` manca ancora** in Anagrafiche (né `.env` né Vercel produzione, verificato con `vercel env ls production`): il punto 1 qui sotto è aperto da 17 giorni.
 
 **Tutto committato e pushato** su `scout-ui` (repo condiviso: i commit di questa sessione stanno in mezzo a quelli di Scout e Anagrafiche). Ultimo deploy in produzione `● Ready`, health 200.
 
