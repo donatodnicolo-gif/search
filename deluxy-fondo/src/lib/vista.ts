@@ -7,10 +7,18 @@
 
 import { leggiSerie, leggiFondamentali, leggiNotizie, leggiIstantanea } from "./archivio";
 import { leggiBilanci, type Bilanci } from "./bilanci";
-import { calcolaIndicatori, giorniEstremi, tratto, type Indicatori, type Tratto } from "./indicatori";
+import {
+  calcolaIndicatori,
+  calcolaMandato,
+  giorniEstremi,
+  tratto,
+  type Indicatori,
+  type Mandato,
+  type Tratto,
+} from "./indicatori";
 import { calcolaPunteggio } from "./punteggio";
 import { eventStudy } from "./statistica";
-import { BENCHMARK_MERCATO, EVENTI, TITOLI, eventiDi, mandatoInCorso, type Titolo } from "./universo";
+import { BENCHMARK_MERCATO, BENCHMARK_TOTALE, EVENTI, TITOLI, eventiDi, mandatoInCorso, type Titolo } from "./universo";
 import type { EventStudy, EventoManagement, Istantanea, Punteggio, SerieStorica } from "./tipi";
 import type { Notizia } from "./fonti";
 
@@ -117,6 +125,77 @@ export async function studiaEventi(simbolo: string): Promise<VistaEvento[]> {
 
 /** Tutti gli eventi dell'universo, ordinati dal più recente. */
 export const eventiRecenti = () => [...EVENTI].sort((a, b) => b.dataAnnuncio.localeCompare(a.dataAnnuncio));
+
+/**
+ * La successione dei mandati di un titolo: un tratto per ogni amministratore delegato,
+ * dalla nomina alla nomina del successore (o a oggi).
+ *
+ * È il monitoraggio stabile della tesi: si guarda quanto ha reso il titolo sotto ciascuna
+ * gestione, rispetto al mercato, invece di guardare finestre temporali arbitrarie.
+ *
+ * Contano solo le **nomine**: le uscite non aprono un mandato, e i piani industriali sono
+ * lavoro di chi è già in carica. Gli eventi di controllo e di perimetro restano fuori — se
+ * li si contasse, un'offerta pubblica aprirebbe un «mandato» che nessuno ha guidato.
+ */
+export function mandatiDi(simbolo: string, serie: SerieStorica, benchmark: SerieStorica | null): Mandato[] {
+  const oggi = new Date().toISOString().slice(0, 10);
+  const nomine = EVENTI.filter(
+    (e) =>
+      e.simbolo === simbolo &&
+      e.categoria === "management" &&
+      e.dataAnnuncio <= oggi &&
+      !e.id.endsWith("-out") &&
+      !e.id.includes("piano")
+  ).sort((a, b) => a.dataAnnuncio.localeCompare(b.dataAnnuncio));
+
+  return nomine
+    .map((e, i) => {
+      const successiva = nomine[i + 1];
+      return calcolaMandato(
+        {
+          eventoId: e.id,
+          chi: e.titolo,
+          tier: e.tier,
+          forzato: e.forzato,
+          successoreEsterno: e.successoreEsterno,
+          dataInizio: e.dataAnnuncio,
+          dataFine: successiva ? successiva.dataAnnuncio : null,
+        },
+        serie,
+        benchmark
+      );
+    })
+    .filter((m): m is Mandato => m !== null);
+}
+
+/**
+ * Tutti i mandati dell'universo, per il monitoraggio complessivo.
+ *
+ * Il confronto usa il benchmark **a dividendi reinvestiti**: le serie dei titoli li
+ * includono, quindi misurarli contro un indice di prezzo regalerebbe loro 3-4 punti l'anno.
+ * Se quella serie manca, si ripiega sull'indice di prezzo e il chiamante lo dichiara.
+ */
+export async function tuttiIMandati(): Promise<{ mandati: Mandato[]; benchmarkUsato: string; totalReturn: boolean }> {
+  const totale = await leggiSerie(BENCHMARK_TOTALE);
+  const benchmark = totale ?? (await leggiSerie(BENCHMARK_MERCATO));
+  const fuori: Mandato[] = [];
+  for (const t of TITOLI) {
+    const serie = await leggiSerie(t.simbolo);
+    if (!serie) continue;
+    fuori.push(...mandatiDi(t.simbolo, serie, benchmark));
+  }
+  // I mandati in corso per primi, poi i più recenti: è l'ordine in cui si guardano.
+  fuori.sort((a, b) => {
+    if (a.inCorso !== b.inCorso) return a.inCorso ? -1 : 1;
+    return b.dataInizio.localeCompare(a.dataInizio);
+  });
+
+  return {
+    mandati: fuori,
+    benchmarkUsato: benchmark?.nome ?? "nessuno",
+    totalReturn: totale !== null,
+  };
+}
 
 export async function dettaglioTitolo(simbolo: string) {
   const serie = await leggiSerie(simbolo);

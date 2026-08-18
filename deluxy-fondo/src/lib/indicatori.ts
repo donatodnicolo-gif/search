@@ -259,6 +259,114 @@ export function tratto(
   };
 }
 
+export type Mandato = {
+  eventoId: string;
+  simbolo: string;
+  nomeTitolo: string;
+  /** Chi guida, cioè il titolo dell'evento di nomina. */
+  chi: string;
+  dataInizio: string;
+  /** Fine del mandato: `null` se ancora in corso. */
+  dataFine: string | null;
+  inCorso: boolean;
+  tier: string;
+  forzato: boolean | null;
+  successoreEsterno: boolean | null;
+
+  /** Prima e ultima chiusura del mandato. */
+  prezzoIniziale: number | null;
+  prezzoFinale: number | null;
+
+  rendimento: number | null;
+  rendimentoBenchmark: number | null;
+  /** Quanto ha fatto meglio (o peggio) dell'indice, in frazione. */
+  eccesso: number | null;
+  cagr: number | null;
+  cagrBenchmark: number | null;
+
+  volatilita: number | null;
+  drawdown: { valore: number; da: string; a: string } | null;
+  massimo: number | null;
+  minimo: number | null;
+  anni: number;
+  sedute: number;
+};
+
+/**
+ * Indicatori di un mandato: dal giorno dell'annuncio della nomina fino alla nomina
+ * successiva (o a oggi, se il mandato è in corso).
+ *
+ * È la misura che una tesi sul cambio di management deve guardare per prima: non «quanto ha
+ * fatto il titolo negli ultimi 12 mesi», ma «quanto ha fatto da quando comanda questa
+ * persona, rispetto al mercato».
+ *
+ * Il confronto con il benchmark è allineato sulle stesse sedute del titolo. Se il titolo non
+ * ha abbastanza storia nel periodo, i campi restano `null` invece di essere approssimati.
+ */
+export function calcolaMandato(
+  opzioni: {
+    eventoId: string;
+    chi: string;
+    tier: string;
+    forzato: boolean | null;
+    successoreEsterno: boolean | null;
+    dataInizio: string;
+    dataFine: string | null;
+  },
+  serie: SerieStorica,
+  benchmark: SerieStorica | null
+): Mandato | null {
+  const { dataInizio, dataFine } = opzioni;
+  const barre = serie.barre.filter((b) => b.data >= dataInizio && (!dataFine || b.data <= dataFine));
+  if (barre.length < 2) return null;
+
+  const primo = barre[0];
+  const ultimo = barre[barre.length - 1];
+  const rendimento = variazione(primo.chiusura, ultimo.chiusura);
+
+  let rBench: number | null = null;
+  if (benchmark) {
+    const mappa = new Map(benchmark.barre.map((b) => [b.data, b.chiusura]));
+    const inizio = barre.find((b) => mappa.has(b.data));
+    const fine = [...barre].reverse().find((b) => mappa.has(b.data));
+    if (inizio && fine && inizio.data !== fine.data) {
+      rBench = variazione(mappa.get(inizio.data)!, mappa.get(fine.data)!);
+    }
+  }
+
+  const anni = (Date.parse(ultimo.data) - Date.parse(primo.data)) / (365.25 * 86_400_000);
+  // Il rendimento annuo composto su meno di sei mesi è un'estrapolazione fuorviante.
+  const annualizza = (r: number | null) => (r === null || anni < 0.5 ? null : Math.pow(1 + r, 1 / anni) - 1);
+
+  const chiusure = barre.map((b) => b.chiusura);
+
+  return {
+    eventoId: opzioni.eventoId,
+    simbolo: serie.simbolo,
+    nomeTitolo: serie.nome,
+    chi: opzioni.chi,
+    dataInizio: primo.data,
+    dataFine: dataFine ? ultimo.data : null,
+    inCorso: !dataFine,
+    tier: opzioni.tier,
+    forzato: opzioni.forzato,
+    successoreEsterno: opzioni.successoreEsterno,
+    prezzoIniziale: primo.chiusura,
+    prezzoFinale: ultimo.chiusura,
+    rendimento,
+    rendimentoBenchmark: rBench,
+    eccesso: rendimento !== null && rBench !== null ? rendimento - rBench : null,
+    cagr: annualizza(rendimento),
+    cagrBenchmark: annualizza(rBench),
+    volatilita: volatilitaAnnua(barre),
+    drawdown: drawdownMassimo(barre),
+    massimo: chiusure.length ? Math.max(...chiusure) : null,
+    minimo: chiusure.length ? Math.min(...chiusure) : null,
+    anni,
+    sedute: barre.length,
+  };
+}
+
 /** Le sedute migliori e peggiori del periodo: mostrano se il guadagno è concentrato. */
 export function giorniEstremi(serie: SerieStorica, quanti = 8) {
   const righe = serie.barre

@@ -26,6 +26,19 @@ export type Titolo = {
 
 export const BENCHMARK_MERCATO = "FTSEMIB.MI";
 
+/**
+ * Benchmark a dividendi reinvestiti (Xtrackers FTSE MIB ad accumulazione).
+ *
+ * Serve perché il FTSE MIB è un indice di **prezzo**: esclude i dividendi. Le serie dei
+ * titoli invece sono rettificate e li includono. Confrontare le due cose regala al titolo
+ * 3-4 punti l'anno, e su un mandato lungo diventano decine di punti — abbastanza da far
+ * sembrare vincente una gestione che ha perso contro il mercato.
+ *
+ * Verificato: 2.540 sedute dal 2016, +348,4% su dieci anni contro il +219% dell'indice di
+ * prezzo. La differenza fra i due numeri è esattamente ciò che un confronto sbagliato regala.
+ */
+export const BENCHMARK_TOTALE = "XMIB.MI";
+
 export const TITOLI: Titolo[] = [
   {
     simbolo: "TIT.MI",

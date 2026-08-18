@@ -3,7 +3,7 @@
   "nome": "TIM (Telecom Italia)",
   "valuta": "EUR",
   "fonte": "Yahoo chart v8 (adjclose)",
-  "scaricataIl": "2026-08-18T14:10:00.398Z",
+  "scaricataIl": "2026-08-18T15:04:35.703Z",
   "barre": [
     {
       "data": "2016-08-18",
@@ -20314,8 +20314,8 @@
       "apertura": 7.659999847412109,
       "massimo": 7.71999979019165,
       "minimo": 7.644000053405762,
-      "chiusura": 7.697999954223633,
-      "volume": 1665300
+      "chiusura": 7.705999851226807,
+      "volume": 1919965
     }
   ]
 }

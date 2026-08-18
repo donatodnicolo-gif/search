@@ -14,7 +14,7 @@
 
 import { scaricaSerie, scaricaFondamentali, scaricaNotizie, trovaDiscontinuita } from "../src/lib/fonti.ts";
 import { scriviSerie, scriviFondamentali, scriviNotizie, scriviIstantanea } from "../src/lib/archivio.ts";
-import { TITOLI, BENCHMARK_MERCATO } from "../src/lib/universo.ts";
+import { TITOLI, BENCHMARK_MERCATO, BENCHMARK_TOTALE } from "../src/lib/universo.ts";
 
 const breve = process.argv.includes("--breve");
 const intervallo = breve ? "1y" : "10y";
@@ -31,6 +31,7 @@ riga("");
 const simboli = [
   ...TITOLI.map((t) => ({ simbolo: t.simbolo, nome: t.nome })),
   { simbolo: BENCHMARK_MERCATO, nome: "FTSE MIB" },
+  { simbolo: BENCHMARK_TOTALE, nome: "FTSE MIB a dividendi reinvestiti" },
 ];
 
 for (const { simbolo, nome } of simboli) {
