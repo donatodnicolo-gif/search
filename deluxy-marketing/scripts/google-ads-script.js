@@ -2135,6 +2135,34 @@ function creaKeyword(op, mira) {
   };
 }
 
+/**
+ * La strategia di offerta dell'app nel vocabolario del bulk upload.
+ *
+ * ATTENZIONE al ripiego: quando l'app non dice la strategia si mette
+ * "Maximize clicks" e NON "Manual CPC", che sarebbe la scelta apparentemente
+ * piu' prudente. Il CPC manuale pretende un'offerta massima (colonna "Max
+ * CPC" su gruppo o keyword) che qui non mandiamo: si tornerebbe a un
+ * caricamento rifiutato per un valore mancante, cioe' esattamente il guasto
+ * che questa colonna chiude. Massimizza clic non chiede altre colonne e non
+ * ha bisogno di storico conversioni.
+ *
+ * La campagna nasce comunque IN PAUSA e la checklist 4.1 e' un passaggio a
+ * mano: se la strategia dedotta non e' quella voluta, si cambia prima di
+ * accenderla.
+ */
+function strategiaBulk(strategia) {
+  switch (String(strategia || "").toLowerCase()) {
+    case "max_conversioni": return "Maximize conversions";
+    case "max_valore":
+    case "max_valore_conversioni": return "Maximize conversion value";
+    case "target_roas": return "Target ROAS";
+    case "target_cpa": return "Target CPA";
+    case "max_clic": return "Maximize clicks";
+    case "cpc_manuale": return "Manual CPC";
+    default: return "Maximize clicks";
+  }
+}
+
 function creaCampagna(op, conto) {
   var par = op.parametri;
   if (!par.nome || !par.budget) throw new Error("Servono nome e budget");
@@ -2146,7 +2174,7 @@ function creaCampagna(op, conto) {
   }
 
   var colonne = [
-    "Campaign", "Budget", "Campaign type", "Campaign state", "EU political ads",
+    "Campaign", "Budget", "Campaign type", "Campaign state", "EU political ads", "Bid strategy type",
     "Ad group", "Keyword", "Criterion type",
     "Ad type", "Final URL",
     "Headline 1", "Headline 2", "Headline 3", "Headline 4", "Headline 5",
@@ -2174,6 +2202,19 @@ function creaCampagna(op, conto) {
     // forme documentate si contraddicono e finche' non c'e' la prova deve
     // bastare una riga per passare all'altra.
     "EU political ads": EU_POLITICAL_ADS,
+    // OBBLIGATORIA anche questa: senza, Google rifiuta la riga campagna con
+    // "Missing value in either \"Bid strategy type\" or \"Bid strategy\"" e
+    // gruppo, keyword e annuncio cadono dietro con "The entity does not exist
+    // for Campaign" - errori che sembrano la causa e sono la conseguenza.
+    // Letto nel registro caricamenti di Flowers il 18/08/2026: 17 righe
+    // rifiutate, una sola causa vera. (Nello stesso caricamento la colonna
+    // "EU political ads" col valore "no" e' stata ACCETTATA senza obiezioni:
+    // quel formato adesso e' provato sul campo, non piu' solo documentato.)
+    //
+    // La strategia NON e' un segnaposto: l'operazione la porta gia' da quando
+    // si compila il modulo (par.strategia), e finora l'app la registrava solo
+    // come promemoria perche' si credeva non ci fosse una colonna. C'e'.
+    "Bid strategy type": strategiaBulk(par.strategia),
   });
 
   // Keyword: [{testo, corrispondenza}]
@@ -2207,6 +2248,7 @@ function creaCampagna(op, conto) {
     dettaglio:
       "bulk upload INVIATO all'account " + conto.id + ": campagna \"" + par.nome + "\" con " +
       kws.length + " keyword" + (titoli.length ? " e 1 annuncio RSA" : "") +
+      " e strategia " + strategiaBulk(par.strategia) +
       ", IN PAUSA se Google accetta le righe. ATTENZIONE: il caricamento e' asincrono e non risponde" +
       " allo script: l'esito vero sta nel registro caricamenti di Google Ads (Azioni collettive > Caricamenti)" +
       " e l'app lo verifica col primo giro di anagrafica. Passare la checklist 4.1 prima di attivarla.",

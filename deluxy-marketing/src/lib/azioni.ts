@@ -1933,11 +1933,17 @@ export async function lanciaCampagna(fd: FormData) {
     .map((r) => r.trim())
     .filter(Boolean);
 
+  // ⚠️ LA STRATEGIA NON STA PIÙ QUI DENTRO. Dal 18/08/2026 il bulk upload la
+  // porta davvero, nella colonna «Bid strategy type» — che Google PRETENDE:
+  // senza, rifiuta la riga della campagna e con lei cadono gruppo, keyword e
+  // annuncio. Prima stava fra le cose «da impostare a mano» perché si credeva
+  // non ci fosse una colonna; continuare a dirlo farebbe rimettere a mano una
+  // cosa già impostata — il difetto opposto e altrettanto brutto, perché chi
+  // legge non sa più a quale delle due frasi credere.
   const daMano = [
     `obiettivo ${ETICHETTA_OBIETTIVO[obiettivoTipo] ?? obiettivoTipo}`,
     localita.length > 0 ? `località ${localita.join(", ")}` : null,
     lingua ? `lingua ${lingua}` : null,
-    strategia ? `strategia ${strategia}` : null,
     negative.length > 0 ? `${negative.length} parole da escludere` : null,
   ].filter(Boolean);
 
@@ -1953,6 +1959,7 @@ export async function lanciaCampagna(fd: FormData) {
       tipoConversione: CONVERSIONE_DI_OBIETTIVO[obiettivoTipo] ?? null,
       note:
         "Creata dall'app: in coda per il lancio su Google Ads (nasce in pausa). " +
+        (strategia ? `Strategia di offerta ${strategia}: questa il bulk upload la porta. ` : "") +
         `DA IMPOSTARE A MANO in Google Ads prima di accenderla — ${daMano.join(" · ")}: ` +
         "non sono fra le colonne del bulk upload, quindi lo script non può portarle.",
     },

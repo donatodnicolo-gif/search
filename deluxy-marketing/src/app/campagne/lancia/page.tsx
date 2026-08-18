@@ -314,8 +314,8 @@ export default async function CreaCampagna({
           <span className="nota-icona">◈</span>
           <span>
             <b>Che cosa crea davvero lo script, e che cosa no.</b> Via bulk upload arrivano su
-            Google <b>nome, budget, tipo Ricerca, gruppo, keyword e un annuncio RSA</b>, e la
-            campagna nasce <b>in pausa</b>. <b>Obiettivo, località, lingua, strategia di offerta e
+            Google <b>nome, budget, tipo Ricerca, strategia di offerta, gruppo, keyword e un
+            annuncio RSA</b>, e la campagna nasce <b>in pausa</b>. <b>Obiettivo, località, lingua e
             parole da escludere non sono fra le colonne del bulk upload</b>: li registriamo qui,
             viaggiano con l&apos;operazione e restano scritti sulla campagna come promemoria, ma
             vanno impostati a mano in Google Ads <b>prima di accenderla</b> — che è comunque il
