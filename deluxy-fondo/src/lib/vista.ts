@@ -34,6 +34,12 @@ export type VistaTitolo = {
   ultimoEvento: EventoManagement | null;
   /** L'evento più recente in assoluto, di qualunque categoria: serve da contesto. */
   eventoPiuRecente: EventoManagement | null;
+  /**
+   * Il mandato in corso misurato: rendimento dall'annuncio della nomina a oggi, contro
+   * l'indice. È la misura giusta per una tesi sul cambio di management — un rendimento a
+   * 12 mesi non sa nulla di chi comanda e di quando è arrivato.
+   */
+  mandato: Mandato | null;
   eventi: EventoManagement[];
   /** Bilanci da fonte primaria, quando esistono per questo titolo. */
   bilanci: Bilanci | null;
@@ -56,6 +62,9 @@ export function notizieRilevanti(notizie: Notizia[]): Notizia[] {
 
 export async function costruisciCruscotto(): Promise<Cruscotto> {
   const benchmark = await leggiSerie(BENCHMARK_MERCATO);
+  // Per i confronti di mandato serve l'indice a dividendi reinvestiti, come in /mandati:
+  // usare quello di prezzo regalerebbe ai titoli 3-4 punti l'anno.
+  const benchmarkTotale = (await leggiSerie(BENCHMARK_TOTALE)) ?? benchmark;
   const istantanea = await leggiIstantanea();
   const notizie = (await leggiNotizie()) ?? [];
   const rilevanti = notizieRilevanti(notizie).length;
@@ -78,6 +87,7 @@ export async function costruisciCruscotto(): Promise<Cruscotto> {
         punteggio: null,
         ultimoEvento,
         eventoPiuRecente,
+        mandato: null,
         eventi,
         bilanci: null,
         problema: "Serie storica non disponibile: esegui `npm run aggiorna`.",
@@ -96,11 +106,30 @@ export async function costruisciCruscotto(): Promise<Cruscotto> {
       notizieRilevanti: t.simbolo === "TIT.MI" ? rilevanti : null,
     });
 
-    titoli.push({ titolo: t, serie, indicatori, punteggio, ultimoEvento, eventoPiuRecente, eventi, bilanci, problema: null });
+    // Il mandato in corso, misurato dall'annuncio della nomina a oggi.
+    const mandato = ultimoEvento
+      ? calcolaMandato(
+          {
+            eventoId: ultimoEvento.id,
+            chi: ultimoEvento.titolo,
+            tier: ultimoEvento.tier,
+            forzato: ultimoEvento.forzato,
+            successoreEsterno: ultimoEvento.successoreEsterno,
+            dataInizio: ultimoEvento.dataAnnuncio,
+            dataFine: null,
+          },
+          serie,
+          benchmarkTotale
+        )
+      : null;
+
+    titoli.push({ titolo: t, serie, indicatori, punteggio, ultimoEvento, eventoPiuRecente, mandato, eventi, bilanci, problema: null });
   }
 
-  // Ordine: prima chi ha il punteggio più alto, poi chi non ne ha uno mostrabile.
-  titoli.sort((a, b) => (b.punteggio?.valore ?? -1) - (a.punteggio?.valore ?? -1));
+  // Ordine: chi sta facendo meglio del mercato nel proprio mandato viene per primo. È la
+  // domanda della tesi, e ordinare per punteggio metterebbe invece in cima chi somiglia di
+  // più a un turnaround sulla carta, che è un'altra cosa.
+  titoli.sort((a, b) => (b.mandato?.eccesso ?? -Infinity) - (a.mandato?.eccesso ?? -Infinity));
 
   return { generatoIl: new Date().toISOString(), istantanea, benchmark, titoli, notizie };
 }

@@ -10,7 +10,7 @@
 import { costruisciCruscotto, notizieRilevanti } from "@/lib/vista";
 import { Avviso, Badge, BarraPunteggio, Metrica, StatoFonti } from "@/componenti/pezzi";
 import { Grafico } from "@/componenti/Grafico";
-import { data, dataBreve, percentuale, prezzo, punti, verso } from "@/lib/formato";
+import { data, dataBreve, numero, percentuale, prezzo, punti, verso } from "@/lib/formato";
 import { eta } from "@/lib/archivio";
 
 // Ricalcolo a ogni richiesta: i file in `dati/` cambiano quando gira l'aggiornamento.
@@ -20,12 +20,14 @@ const COLORE_RUOLO: Record<string, string> = {
   guida: "var(--gold)",
   "controllo-riuscito": "var(--green)",
   "controllo-fallito": "var(--red)",
+  recente: "var(--blue)",
 };
 
 const ETICHETTA_RUOLO: Record<string, string> = {
   guida: "caso guida",
   "controllo-riuscito": "controllo, riuscito",
   "controllo-fallito": "controllo, fallito",
+  recente: "cambio recente",
 };
 
 export default async function Cruscotto() {
@@ -102,7 +104,7 @@ export default async function Cruscotto() {
                 <th>Titolo</th>
                 <th>Mandato in corso</th>
                 <th className="num">Prezzo</th>
-                <th className="num">12 mesi</th>
+                <th className="num">Dall&apos;inizio del mandato</th>
                 <th className="num">contro l&apos;indice</th>
                 <th style={{ minWidth: 170 }}>Punteggio di attenzione</th>
               </tr>
@@ -150,11 +152,28 @@ export default async function Cruscotto() {
                       {t.indicatori?.ultimaData ? dataBreve(t.indicatori.ultimaData) : ""}
                     </div>
                   </td>
-                  <td className={`num ${verso(t.indicatori?.rendimenti["12m"] ?? null)}`}>
-                    {percentuale(t.indicatori?.rendimenti["12m"] ?? null)}
+                  <td className={`num ${verso(t.mandato?.rendimento ?? null)}`}>
+                    {percentuale(t.mandato?.rendimento ?? null)}
+                    {t.mandato ? (
+                      <div style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+                        in {numero(t.mandato.anni, 1)} anni
+                      </div>
+                    ) : null}
                   </td>
-                  <td className={`num ${verso(t.indicatori?.rendimentiRelativi["12m"] ?? null)}`}>
-                    {punti(t.indicatori?.rendimentiRelativi["12m"] ?? null)}
+                  <td className={`num ${verso(t.mandato?.eccesso ?? null)}`} style={{ fontWeight: 600 }}>
+                    {punti(t.mandato?.eccesso ?? null)}
+                    {t.mandato?.rendimentoBenchmark !== null && t.mandato ? (
+                      <div style={{ fontSize: 11, color: "var(--text-tertiary)", fontWeight: 400 }}>
+                        indice {percentuale(t.mandato.rendimentoBenchmark)}
+                      </div>
+                    ) : null}
+                    {/* Un titolo quotato in un'altra valuta confrontato con un indice in euro
+                        mescola rendimento e cambio: va detto, non nascosto. */}
+                    {t.mandato && t.mandato.valuta !== "EUR" ? (
+                      <div style={{ fontSize: 10.5, color: "var(--orange)", fontWeight: 400, marginTop: 3 }}>
+                        include il cambio {t.mandato.valuta}/EUR
+                      </div>
+                    ) : null}
                   </td>
                   <td>
                     <BarraPunteggio punteggio={t.punteggio} />
@@ -166,9 +185,22 @@ export default async function Cruscotto() {
         </div>
 
         <div className="fonte">
-          Il punteggio misura quanto un caso somiglia alle condizioni che la letteratura
-          associa ai turnaround riusciti. <strong>Non è un consiglio di acquisto</strong> e non
-          ha alcun potere predittivo dimostrato: serve a ordinare l&apos;attenzione.
+          Rendimenti misurati <strong>dal giorno dell&apos;annuncio della nomina</strong> di chi
+          guida oggi l&apos;azienda, non su una finestra fissa: è la domanda giusta per una tesi
+          sul cambio di management. L&apos;elenco è ordinato per quanto ciascuna gestione sta
+          facendo meglio o peggio del mercato. Il confronto usa l&apos;indice{" "}
+          <strong>a dividendi reinvestiti</strong>, perché le serie dei titoli li includono.
+          <br />
+          Il punteggio misura invece quanto un caso somiglia alle condizioni che la letteratura
+          associa ai turnaround riusciti: <strong>non è un consiglio di acquisto</strong> e non
+          ha alcun potere predittivo dimostrato. Serve a ordinare l&apos;attenzione, e infatti
+          non coincide con la colonna della differenza.
+          <br />
+          <strong>Due limiti da tenere a mente.</strong> I titoli quotati fuori dall&apos;area
+          euro sono confrontati con un indice italiano: la differenza mostrata{" "}
+          <strong>include il movimento del cambio</strong> e non è alpha pura — le righe
+          interessate lo dichiarano. E i mandati aperti da pochi mesi non sono confrontabili con
+          quelli lunghi: su orizzonti brevi conta molto più il caso che la gestione.
         </div>
       </div>
 
