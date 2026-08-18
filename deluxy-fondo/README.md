@@ -49,6 +49,7 @@ fallimento viene dichiarato a schermo: mai un dato vecchio servito come fresco.
 | Percorso | Cosa mostra |
 |---|---|
 | `/` | Cruscotto: verdetto sulla strategia, titoli monitorati con punteggio, notizie da leggere a mano, stato delle fonti |
+| `/mandati` | **Il monitoraggio**: un tratto per ogni amministratore delegato, dall'annuncio della nomina a quella del successore, con rendimento contro l'indice a dividendi reinvestiti, rendimento annuo, volatilità e massimo ribasso |
 | `/tim` | Il caso guida: offerta in corso, event study su tutti gli eventi, nove bilanci, indicatori della svolta, trappole contabili |
 | `/metodo` | Come è costruito il punteggio, il verdetto del revisore ostile, la condizione che lo cambierebbe, i vincoli di legge |
 | `/dati` | Provenienza di ogni numero, fonti in uso e fonti provate e scartate |
@@ -73,6 +74,14 @@ Non sono preferenze di stile: ognuna nasce da un errore trovato durante l'analis
    di soli casi riusciti insegna la lezione sbagliata.
 7. **Nessun linguaggio prescrittivo.** Nessun «comprare», nessun «vendere», nessun prezzo
    obiettivo: solo descrizioni di eventi e misure.
+8. **Il confronto è a dividendi reinvestiti.** Le serie dei titoli li includono; misurarle
+   contro un indice di prezzo regala loro 3-4 punti l'anno. Su dieci anni il FTSE MIB fa
+   +219% di prezzo contro **+348%** a dividendi reinvestiti: la differenza basta a far
+   sembrare vincente una gestione che ha perso contro il mercato.
+9. **La gestione si misura dal mandato**, cioè dall'annuncio della nomina di chi guida — non
+   dall'ultimo evento societario. Un'offerta pubblica o una cessione non sono un cambio di
+   management: gli eventi hanno una `categoria` (`management`, `controllo`, `perimetro`) e
+   solo la prima conta per valutare una gestione.
 
 ## Struttura
 

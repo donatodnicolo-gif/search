@@ -71,6 +71,22 @@ istruttivo dell'app:
 Su tutto il mandato il titolo **resta sotto l'indice**, e lo spartiacque fra le due fasi non
 è una decisione di gestione: è la cessione della rete.
 
+## Pagina `/mandati` — il monitoraggio
+
+Un tratto per ogni amministratore delegato, dall'annuncio della nomina a quella del
+successore, con rendimento, differenza rispetto all'indice, rendimento annuo composto,
+volatilità e massimo ribasso. È la vista da guardare per prima.
+
+**Il confronto usa `XMIB.MI`** (Xtrackers FTSE MIB ad accumulazione), cioè l'indice **a
+dividendi reinvestiti**, non il FTSE MIB puro. Motivo: le serie dei titoli sono rettificate
+e includono i dividendi; misurarle contro un indice di prezzo regala loro 3-4 punti l'anno.
+Il difetto è emerso su UniCredit, che con l'indice sbagliato risultava avanti di oltre mille
+punti percentuali. Verificato: 2.533 sedute dal 2016, +348,4% su dieci anni contro il +219%
+dell'indice di prezzo.
+
+Effetto della correzione: il mandato di Labriola passa da **−13,2 a −59,2 punti** sotto
+l'indice, e la differenza mediana dei mandati da −27,2 a **−50,0 punti**.
+
 ## MANCA / prossimi passi
 
 1. **La scadenza del 11/09/2026 va sorvegliata**: dopo quella data il regime di prezzo di
