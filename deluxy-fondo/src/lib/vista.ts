@@ -18,7 +18,7 @@ import {
 } from "./indicatori";
 import { calcolaPunteggio } from "./punteggio";
 import { eventStudy } from "./statistica";
-import { BENCHMARK_MERCATO, BENCHMARK_TOTALE, EVENTI, TITOLI, eventiDi, mandatoInCorso, type Titolo } from "./universo";
+import { BENCHMARK_MERCATO, BENCHMARK_TOTALE, EVENTI_TUTTI, TITOLI, TITOLI_TUTTI, eventiDi, mandatoInCorso, type Titolo } from "./universo";
 import type { EventStudy, EventoManagement, Istantanea, Punteggio, SerieStorica } from "./tipi";
 import type { Notizia } from "./fonti";
 
@@ -61,7 +61,7 @@ export async function costruisciCruscotto(): Promise<Cruscotto> {
   const rilevanti = notizieRilevanti(notizie).length;
 
   const titoli: VistaTitolo[] = [];
-  for (const t of TITOLI) {
+  for (const t of TITOLI_TUTTI) {
     const serie = await leggiSerie(t.simbolo);
     const eventi = eventiDi(t.simbolo);
     const oggi = new Date().toISOString().slice(0, 10);
@@ -124,7 +124,7 @@ export async function studiaEventi(simbolo: string): Promise<VistaEvento[]> {
 }
 
 /** Tutti gli eventi dell'universo, ordinati dal più recente. */
-export const eventiRecenti = () => [...EVENTI].sort((a, b) => b.dataAnnuncio.localeCompare(a.dataAnnuncio));
+export const eventiRecenti = () => [...EVENTI_TUTTI].sort((a, b) => b.dataAnnuncio.localeCompare(a.dataAnnuncio));
 
 /**
  * La successione dei mandati di un titolo: un tratto per ogni amministratore delegato,
@@ -139,7 +139,7 @@ export const eventiRecenti = () => [...EVENTI].sort((a, b) => b.dataAnnuncio.loc
  */
 export function mandatiDi(simbolo: string, serie: SerieStorica, benchmark: SerieStorica | null): Mandato[] {
   const oggi = new Date().toISOString().slice(0, 10);
-  const nomine = EVENTI.filter(
+  const nomine = EVENTI_TUTTI.filter(
     (e) =>
       e.simbolo === simbolo &&
       e.categoria === "management" &&
@@ -179,7 +179,7 @@ export async function tuttiIMandati(): Promise<{ mandati: Mandato[]; benchmarkUs
   const totale = await leggiSerie(BENCHMARK_TOTALE);
   const benchmark = totale ?? (await leggiSerie(BENCHMARK_MERCATO));
   const fuori: Mandato[] = [];
-  for (const t of TITOLI) {
+  for (const t of TITOLI_TUTTI) {
     const serie = await leggiSerie(t.simbolo);
     if (!serie) continue;
     fuori.push(...mandatiDi(t.simbolo, serie, benchmark));
@@ -234,7 +234,7 @@ function fasiDelMandato(
   mandato: EventoManagement
 ): Tratto[] {
   const oggi = new Date().toISOString().slice(0, 10);
-  const cesure = EVENTI.filter(
+  const cesure = EVENTI_TUTTI.filter(
     (e) =>
       e.simbolo === simbolo &&
       (e.categoria === "perimetro" || e.categoria === "controllo") &&

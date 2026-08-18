@@ -263,6 +263,8 @@ export type Mandato = {
   eventoId: string;
   simbolo: string;
   nomeTitolo: string;
+  /** Valuta di quotazione: senza, un prezzo in dollari finirebbe mostrato in euro. */
+  valuta: string;
   /** Chi guida, cioè il titolo dell'evento di nomina. */
   chi: string;
   dataInizio: string;
@@ -320,6 +322,13 @@ export function calcolaMandato(
   const barre = serie.barre.filter((b) => b.data >= dataInizio && (!dataFine || b.data <= dataFine));
   if (barre.length < 2) return null;
 
+  // Se la serie comincia molto dopo l'inizio del mandato, quello che si misurerebbe NON è il
+  // mandato ma un pezzo arbitrario alla sua fine. È successo davvero: un titolo scaricato
+  // male aveva 12 sedute, e senza questo controllo l'app mostrava «mandato: +1,0%» misurando
+  // due settimane al posto di un anno e mezzo. Meglio nessun mandato che un mandato finto.
+  const ritardoGiorni = (Date.parse(barre[0].data) - Date.parse(dataInizio)) / 86_400_000;
+  if (ritardoGiorni > 10) return null;
+
   const primo = barre[0];
   const ultimo = barre[barre.length - 1];
   const rendimento = variazione(primo.chiusura, ultimo.chiusura);
@@ -344,6 +353,7 @@ export function calcolaMandato(
     eventoId: opzioni.eventoId,
     simbolo: serie.simbolo,
     nomeTitolo: serie.nome,
+    valuta: serie.valuta,
     chi: opzioni.chi,
     dataInizio: primo.data,
     dataFine: dataFine ? ultimo.data : null,

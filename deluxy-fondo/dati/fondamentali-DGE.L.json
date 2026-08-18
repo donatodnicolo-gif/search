@@ -1,0 +1,210 @@
+{
+  "annualTotalDebt": [
+    {
+      "esercizio": 2022,
+      "fine": "2022-06-30",
+      "valuta": "USD",
+      "valore": 19385000000
+    },
+    {
+      "esercizio": 2023,
+      "fine": "2023-06-30",
+      "valuta": "USD",
+      "valore": 21355000000
+    },
+    {
+      "esercizio": 2024,
+      "fine": "2024-06-30",
+      "valuta": "USD",
+      "valore": 22105000000
+    },
+    {
+      "esercizio": 2025,
+      "fine": "2025-06-30",
+      "valuta": "USD",
+      "valore": 24401000000
+    }
+  ],
+  "annualCapitalExpenditure": [
+    {
+      "esercizio": 2022,
+      "fine": "2022-06-30",
+      "valuta": "USD",
+      "valore": -1457000000
+    },
+    {
+      "esercizio": 2023,
+      "fine": "2023-06-30",
+      "valuta": "USD",
+      "valore": -1417000000
+    },
+    {
+      "esercizio": 2024,
+      "fine": "2024-06-30",
+      "valuta": "USD",
+      "valore": -1510000000
+    },
+    {
+      "esercizio": 2025,
+      "fine": "2025-06-30",
+      "valuta": "USD",
+      "valore": -1612000000
+    }
+  ],
+  "annualFreeCashFlow": [
+    {
+      "esercizio": 2022,
+      "fine": "2022-06-30",
+      "valuta": "USD",
+      "valore": 3756000000
+    },
+    {
+      "esercizio": 2023,
+      "fine": "2023-06-30",
+      "valuta": "USD",
+      "valore": 2219000000
+    },
+    {
+      "esercizio": 2024,
+      "fine": "2024-06-30",
+      "valuta": "USD",
+      "valore": 2595000000
+    },
+    {
+      "esercizio": 2025,
+      "fine": "2025-06-30",
+      "valuta": "USD",
+      "valore": 2685000000
+    }
+  ],
+  "annualTotalRevenue": [
+    {
+      "esercizio": 2022,
+      "fine": "2022-06-30",
+      "valuta": "USD",
+      "valore": 20516000000
+    },
+    {
+      "esercizio": 2023,
+      "fine": "2023-06-30",
+      "valuta": "USD",
+      "valore": 20555000000
+    },
+    {
+      "esercizio": 2024,
+      "fine": "2024-06-30",
+      "valuta": "USD",
+      "valore": 20269000000
+    },
+    {
+      "esercizio": 2025,
+      "fine": "2025-06-30",
+      "valuta": "USD",
+      "valore": 20245000000
+    }
+  ],
+  "annualStockholdersEquity": [
+    {
+      "esercizio": 2022,
+      "fine": "2022-06-30",
+      "valuta": "USD",
+      "valore": 9435000000
+    },
+    {
+      "esercizio": 2023,
+      "fine": "2023-06-30",
+      "valuta": "USD",
+      "valore": 9856000000
+    },
+    {
+      "esercizio": 2024,
+      "fine": "2024-06-30",
+      "valuta": "USD",
+      "valore": 10032000000
+    },
+    {
+      "esercizio": 2025,
+      "fine": "2025-06-30",
+      "valuta": "USD",
+      "valore": 11090000000
+    }
+  ],
+  "annualCashAndCashEquivalents": [
+    {
+      "esercizio": 2022,
+      "fine": "2022-06-30",
+      "valuta": "USD",
+      "valore": 2765000000
+    },
+    {
+      "esercizio": 2023,
+      "fine": "2023-06-30",
+      "valuta": "USD",
+      "valore": 1813000000
+    },
+    {
+      "esercizio": 2024,
+      "fine": "2024-06-30",
+      "valuta": "USD",
+      "valore": 1130000000
+    },
+    {
+      "esercizio": 2025,
+      "fine": "2025-06-30",
+      "valuta": "USD",
+      "valore": 2200000000
+    }
+  ],
+  "annualEBITDA": [
+    {
+      "esercizio": 2022,
+      "fine": "2022-06-30",
+      "valuta": "USD",
+      "valore": 8089000000
+    },
+    {
+      "esercizio": 2023,
+      "fine": "2023-06-30",
+      "valuta": "USD",
+      "valore": 7890000000
+    },
+    {
+      "esercizio": 2024,
+      "fine": "2024-06-30",
+      "valuta": "USD",
+      "valore": 7087000000
+    },
+    {
+      "esercizio": 2025,
+      "fine": "2025-06-30",
+      "valuta": "USD",
+      "valore": 6359000000
+    }
+  ],
+  "annualNetIncome": [
+    {
+      "esercizio": 2022,
+      "fine": "2022-06-30",
+      "valuta": "USD",
+      "valore": 4280000000
+    },
+    {
+      "esercizio": 2023,
+      "fine": "2023-06-30",
+      "valuta": "USD",
+      "valore": 4445000000
+    },
+    {
+      "esercizio": 2024,
+      "fine": "2024-06-30",
+      "valuta": "USD",
+      "valore": 3870000000
+    },
+    {
+      "esercizio": 2025,
+      "fine": "2025-06-30",
+      "valuta": "USD",
+      "valore": 2354000000
+    }
+  ]
+}

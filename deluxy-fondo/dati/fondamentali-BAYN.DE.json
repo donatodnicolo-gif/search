@@ -103,6 +103,32 @@
       "valore": 25947000000
     }
   ],
+  "annualCapitalExpenditure": [
+    {
+      "esercizio": 2022,
+      "fine": "2022-12-31",
+      "valuta": "EUR",
+      "valore": -2949000000
+    },
+    {
+      "esercizio": 2023,
+      "fine": "2023-12-31",
+      "valuta": "EUR",
+      "valore": -2751000000
+    },
+    {
+      "esercizio": 2024,
+      "fine": "2024-12-31",
+      "valuta": "EUR",
+      "valore": -2778000000
+    },
+    {
+      "esercizio": 2025,
+      "fine": "2025-12-31",
+      "valuta": "EUR",
+      "valore": -2487000000
+    }
+  ],
   "annualTotalDebt": [
     {
       "esercizio": 2022,
@@ -127,32 +153,6 @@
       "fine": "2025-12-31",
       "valuta": "EUR",
       "valore": 36453000000
-    }
-  ],
-  "annualTotalRevenue": [
-    {
-      "esercizio": 2022,
-      "fine": "2022-12-31",
-      "valuta": "EUR",
-      "valore": 50739000000
-    },
-    {
-      "esercizio": 2023,
-      "fine": "2023-12-31",
-      "valuta": "EUR",
-      "valore": 47637000000
-    },
-    {
-      "esercizio": 2024,
-      "fine": "2024-12-31",
-      "valuta": "EUR",
-      "valore": 46606000000
-    },
-    {
-      "esercizio": 2025,
-      "fine": "2025-12-31",
-      "valuta": "EUR",
-      "valore": 45575000000
     }
   ],
   "annualCashAndCashEquivalents": [
@@ -181,30 +181,30 @@
       "valore": 6671000000
     }
   ],
-  "annualCapitalExpenditure": [
+  "annualTotalRevenue": [
     {
       "esercizio": 2022,
       "fine": "2022-12-31",
       "valuta": "EUR",
-      "valore": -2949000000
+      "valore": 50739000000
     },
     {
       "esercizio": 2023,
       "fine": "2023-12-31",
       "valuta": "EUR",
-      "valore": -2751000000
+      "valore": 47637000000
     },
     {
       "esercizio": 2024,
       "fine": "2024-12-31",
       "valuta": "EUR",
-      "valore": -2778000000
+      "valore": 46606000000
     },
     {
       "esercizio": 2025,
       "fine": "2025-12-31",
       "valuta": "EUR",
-      "valore": -2487000000
+      "valore": 45575000000
     }
   ]
 }

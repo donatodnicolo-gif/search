@@ -1,0 +1,210 @@
+{
+  "annualCapitalExpenditure": [
+    {
+      "esercizio": 2023,
+      "fine": "2023-05-31",
+      "valuta": "USD",
+      "valore": -969000000
+    },
+    {
+      "esercizio": 2024,
+      "fine": "2024-05-31",
+      "valuta": "USD",
+      "valore": -812000000
+    },
+    {
+      "esercizio": 2025,
+      "fine": "2025-05-31",
+      "valuta": "USD",
+      "valore": -430000000
+    },
+    {
+      "esercizio": 2026,
+      "fine": "2026-05-31",
+      "valuta": "USD",
+      "valore": -684000000
+    }
+  ],
+  "annualTotalDebt": [
+    {
+      "esercizio": 2023,
+      "fine": "2023-05-31",
+      "valuta": "USD",
+      "valore": 12144000000
+    },
+    {
+      "esercizio": 2024,
+      "fine": "2024-05-31",
+      "valuta": "USD",
+      "valore": 11952000000
+    },
+    {
+      "esercizio": 2025,
+      "fine": "2025-05-31",
+      "valuta": "USD",
+      "valore": 11013000000
+    },
+    {
+      "esercizio": 2026,
+      "fine": "2026-05-31",
+      "valuta": "USD",
+      "valore": 11033000000
+    }
+  ],
+  "annualFreeCashFlow": [
+    {
+      "esercizio": 2023,
+      "fine": "2023-05-31",
+      "valuta": "USD",
+      "valore": 4872000000
+    },
+    {
+      "esercizio": 2024,
+      "fine": "2024-05-31",
+      "valuta": "USD",
+      "valore": 6617000000
+    },
+    {
+      "esercizio": 2025,
+      "fine": "2025-05-31",
+      "valuta": "USD",
+      "valore": 3268000000
+    },
+    {
+      "esercizio": 2026,
+      "fine": "2026-05-31",
+      "valuta": "USD",
+      "valore": 2184000000
+    }
+  ],
+  "annualStockholdersEquity": [
+    {
+      "esercizio": 2023,
+      "fine": "2023-05-31",
+      "valuta": "USD",
+      "valore": 14004000000
+    },
+    {
+      "esercizio": 2024,
+      "fine": "2024-05-31",
+      "valuta": "USD",
+      "valore": 14430000000
+    },
+    {
+      "esercizio": 2025,
+      "fine": "2025-05-31",
+      "valuta": "USD",
+      "valore": 13213000000
+    },
+    {
+      "esercizio": 2026,
+      "fine": "2026-05-31",
+      "valuta": "USD",
+      "valore": 14865000000
+    }
+  ],
+  "annualEBITDA": [
+    {
+      "esercizio": 2023,
+      "fine": "2023-05-31",
+      "valuta": "USD",
+      "valore": 6774000000
+    },
+    {
+      "esercizio": 2024,
+      "fine": "2024-05-31",
+      "valuta": "USD",
+      "valore": 7155000000
+    },
+    {
+      "esercizio": 2025,
+      "fine": "2025-05-31",
+      "valuta": "USD",
+      "valore": 4510000000
+    },
+    {
+      "esercizio": 2026,
+      "fine": "2026-05-31",
+      "valuta": "USD",
+      "valore": 4594000000
+    }
+  ],
+  "annualNetIncome": [
+    {
+      "esercizio": 2023,
+      "fine": "2023-05-31",
+      "valuta": "USD",
+      "valore": 5070000000
+    },
+    {
+      "esercizio": 2024,
+      "fine": "2024-05-31",
+      "valuta": "USD",
+      "valore": 5700000000
+    },
+    {
+      "esercizio": 2025,
+      "fine": "2025-05-31",
+      "valuta": "USD",
+      "valore": 3219000000
+    },
+    {
+      "esercizio": 2026,
+      "fine": "2026-05-31",
+      "valuta": "USD",
+      "valore": 3108000000
+    }
+  ],
+  "annualCashAndCashEquivalents": [
+    {
+      "esercizio": 2023,
+      "fine": "2023-05-31",
+      "valuta": "USD",
+      "valore": 7441000000
+    },
+    {
+      "esercizio": 2024,
+      "fine": "2024-05-31",
+      "valuta": "USD",
+      "valore": 9860000000
+    },
+    {
+      "esercizio": 2025,
+      "fine": "2025-05-31",
+      "valuta": "USD",
+      "valore": 7464000000
+    },
+    {
+      "esercizio": 2026,
+      "fine": "2026-05-31",
+      "valuta": "USD",
+      "valore": 7563000000
+    }
+  ],
+  "annualTotalRevenue": [
+    {
+      "esercizio": 2023,
+      "fine": "2023-05-31",
+      "valuta": "USD",
+      "valore": 51217000000
+    },
+    {
+      "esercizio": 2024,
+      "fine": "2024-05-31",
+      "valuta": "USD",
+      "valore": 51362000000
+    },
+    {
+      "esercizio": 2025,
+      "fine": "2025-05-31",
+      "valuta": "USD",
+      "valore": 46309000000
+    },
+    {
+      "esercizio": 2026,
+      "fine": "2026-05-31",
+      "valuta": "USD",
+      "valore": 46398000000
+    }
+  ]
+}

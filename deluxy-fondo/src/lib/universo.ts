@@ -18,8 +18,12 @@ export type Titolo = {
   paese: string;
   settore: string;
   isin: string | null;
-  /** Il titolo è il caso-guida della tesi, oppure un controllo (successo o fallimento). */
-  ruolo: "guida" | "controllo-riuscito" | "controllo-fallito";
+  /**
+   * `guida` = il caso da cui nasce la tesi; `controllo-*` = casi storici tenuti apposta,
+   * riusciti e falliti; `recente` = cambio di vertice negli ultimi 24 mesi, cioè un mandato
+   * ancora in corso il cui esito non si conosce.
+   */
+  ruolo: "guida" | "controllo-riuscito" | "controllo-fallito" | "recente";
   benchmark: string;
   note: string | null;
 };
@@ -392,9 +396,17 @@ export const EVENTI: EventoManagement[] = [
   },
 ];
 
-export const trovaTitolo = (simbolo: string) => TITOLI.find((t) => t.simbolo === simbolo) ?? null;
+// I cambi di vertice degli ultimi 24 mesi stanno in un file generato: sono dati, non codice.
+// Importati qui in coda per evitare una dipendenza circolare (quel file importa `Titolo`).
+import { TITOLI_RECENTI, EVENTI_RECENTI } from "./universo-recenti.ts";
+
+/** Universo completo: casi storici più i cambi di vertice recenti. */
+export const TITOLI_TUTTI: Titolo[] = [...TITOLI, ...TITOLI_RECENTI];
+export const EVENTI_TUTTI: EventoManagement[] = [...EVENTI, ...EVENTI_RECENTI];
+
+export const trovaTitolo = (simbolo: string) => TITOLI_TUTTI.find((t) => t.simbolo === simbolo) ?? null;
 export const eventiDi = (simbolo: string) =>
-  EVENTI.filter((e) => e.simbolo === simbolo).sort((a, b) => b.dataAnnuncio.localeCompare(a.dataAnnuncio));
+  EVENTI_TUTTI.filter((e) => e.simbolo === simbolo).sort((a, b) => b.dataAnnuncio.localeCompare(a.dataAnnuncio));
 
 /**
  * Il mandato in corso: l'ultimo **cambio di chi guida l'azienda**, già annunciato.
@@ -409,7 +421,7 @@ export const eventiDi = (simbolo: string) =>
  */
 export function mandatoInCorso(simbolo: string, alGiorno = new Date().toISOString().slice(0, 10)) {
   return (
-    EVENTI.filter(
+    EVENTI_TUTTI.filter(
       (e) =>
         e.simbolo === simbolo &&
         e.categoria === "management" &&

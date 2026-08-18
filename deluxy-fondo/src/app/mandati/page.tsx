@@ -19,6 +19,20 @@ import { mediana } from "@/lib/statistica";
 
 export const dynamic = "force-dynamic";
 
+const ETICHETTA_RUOLO: Record<string, string> = {
+  guida: "caso guida",
+  "controllo-riuscito": "controllo, riuscito",
+  "controllo-fallito": "controllo, fallito",
+  recente: "cambio recente",
+};
+
+const COLORE_RUOLO: Record<string, string> = {
+  guida: "var(--gold)",
+  "controllo-riuscito": "var(--green)",
+  "controllo-fallito": "var(--red)",
+  recente: "var(--blue)",
+};
+
 export default async function Mandati() {
   const { mandati, benchmarkUsato, totalReturn } = await tuttiIMandati();
 
@@ -131,22 +145,7 @@ export default async function Mandati() {
                       <div style={{ fontSize: 12.5, color: "var(--text-secondary)", marginTop: 2 }}>{m.chi}</div>
                       {titolo ? (
                         <div style={{ marginTop: 5 }}>
-                          <Badge
-                            testo={
-                              titolo.ruolo === "guida"
-                                ? "caso guida"
-                                : titolo.ruolo === "controllo-riuscito"
-                                  ? "controllo, riuscito"
-                                  : "controllo, fallito"
-                            }
-                            colore={
-                              titolo.ruolo === "guida"
-                                ? "var(--gold)"
-                                : titolo.ruolo === "controllo-riuscito"
-                                  ? "var(--green)"
-                                  : "var(--red)"
-                            }
-                          />
+                          <Badge testo={ETICHETTA_RUOLO[titolo.ruolo]} colore={COLORE_RUOLO[titolo.ruolo]} />
                         </div>
                       ) : null}
                     </td>
@@ -159,7 +158,7 @@ export default async function Mandati() {
                     <td className={`num ${verso(m.rendimento)}`}>
                       {percentuale(m.rendimento)}
                       <div style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
-                        {prezzo(m.prezzoIniziale)} → {prezzo(m.prezzoFinale)}
+                        {prezzo(m.prezzoIniziale, m.valuta)} → {prezzo(m.prezzoFinale, m.valuta)}
                       </div>
                     </td>
                     <td className={`num ${verso(m.rendimentoBenchmark)}`}>{percentuale(m.rendimentoBenchmark)}</td>
