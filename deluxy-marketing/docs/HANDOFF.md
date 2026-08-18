@@ -8,8 +8,9 @@
 > dall'app viene **rifiutata da Google** («Missing value in EU political ads»)
 > mentre l'app la dava per eseguita — codice corretto e in produzione, **manca
 > il reincollo di `esegui.js`** (punto 0 di «Da riprendere subito»); (2)
-> **quattro keyword in pausa nell'app dal 04/08 che su Google sono ancora
-> attive** (punto 4bis), trovate dalla conferma per operazione appena aggiunta.
+> **quattro keyword che l'app dà in pausa dal 04/08 e su Google sono attive e
+> spendono** (punto 4bis) — non un guasto: le ha riattivate l'utente a mano, e
+> l'app non poteva saperlo. Da decidere se è voluto.
 
 ## In una riga
 
@@ -220,56 +221,60 @@ criterio diverso (era il periodo del difetto degli id, chiuso l'08/08), o
 qualcuno le ha riattivate a mano. ⚠️ Nota: il 04/08 quelle operazioni avevano
 `account` vuoto — il difetto chiuso l'08/08 con `accodaOperazione`.
 
-### ⭐⭐ «Keyword in pausa» non voleva dire fermata: lo script non rileggeva (17-18/08/2026)
+### ⭐⭐ «Google dice il contrario» non è un guasto: era una mano dentro Google Ads (18/08/2026)
 
-Commit `975df18c`. **Trovato dalla conferma per operazione aggiunta poche ore
-prima** — è il primo guasto che quel meccanismo ha scoperto da solo.
+Commit `975df18c` (la rilettura nello script) e `3d3d3f91` (la correzione del
+racconto e delle frasi). **Prima cosa che la conferma per operazione ha fatto
+vedere** — e vale la pena raccontarla per intero, perché la diagnosi giusta è
+arrivata dopo una sbagliata.
 
-**Il fatto, misurato sul registro giornaliero.** Le quattro pause del 04/08
-(`fioraio milano`, `send flowers in milan`, `milan flower delivery`,
-`flowers milan`) hanno esito «keyword in pausa» e Google le dà `ENABLED`. Non è
-un disallineamento di stato: **hanno continuato a spendere**. Dal 04/08:
-**117,72 €** e impressioni fino a oggi.
+**Quello che si vedeva.** Le quattro pause del 04/08 (`fioraio milano`,
+`send flowers in milan`, `milan flower delivery`, `flowers milan`) avevano esito
+«keyword in pausa» e Google le dava `ENABLED`. Non era un disallineamento di
+etichette: **stavano spendendo**. Dal 04/08 **117,72 €** e impressioni fino a
+oggi (fioraio milano 83,82 € e 630 impressioni · milan flower delivery 19,05 € ·
+flowers milan 10,62 € · send flowers in milan 4,23 €).
 
-| parola | spesa dal 04/08 | impressioni | ultimo giorno attivo |
-| --- | --- | --- | --- |
-| fioraio milano | 83,82 € | 630 | 18/08 |
-| milan flower delivery | 19,05 € | 21 | 18/08 |
-| flowers milan | 10,62 € | 26 | 17/08 |
-| send flowers in milan | 4,23 € | 7 | 15/08 |
+⚠️⚠️ **La diagnosi sbagliata, e perché sembrava solida.** Avevo concluso che la
+pausa non fosse mai andata, e l'argomento sembrava chiuso: `fioraio milano` non
+ha un solo giorno di buco — 44 impressioni il giorno stesso della pausa, 45 il
+giorno dopo. **Era falso: le aveva riattivate l'utente a mano in Google Ads.**
+Il dato non lo poteva dire, perché una riattivazione fatta la stessa mattina
+produce esattamente quella curva. **La lezione è sul metodo**: quando l'app e la
+piattaforma non concordano, la spiegazione di gran lunga più probabile è **una
+persona**, non un guasto del software — e prima di scriverlo nei commenti del
+codice si chiede, perché la risposta costa una domanda e l'errore resta scritto.
 
-⭐ **`fioraio milano` non si è fermata nemmeno un giorno**: 44 impressioni il
-giorno stesso della pausa, 45 il giorno dopo, e avanti senza un buco. Quella
-pausa **non è mai andata**. Le altre tre sono ferme dal 04/08 e riprendono il
-09/08, ma sono da 1-7 impressioni al giorno: il buco da solo non distingue «era
-in pausa» da «non ha avuto ricerche», e non si conclude.
+**Il guasto vero, quello sì.** Non è che la pausa non sia andata: è che **una
+modifica fatta a mano dentro Google Ads non torna indietro**, e per due
+settimane `/operazioni` ha mostrato «in pausa» quattro parole che stavano
+spendendo. L'app non aveva modo di accorgersene — ed è esattamente ciò che la
+conferma per operazione serve a far vedere.
 
-**La causa.** `applica()` chiamava `pause()` / `enable()` / `setAmount()` e
-riferiva «fatto» **senza rileggere** — il commento diceva «ogni ramo legge lo
-stato PRIMA di cambiarlo»: prima, e basta. È il **terzo membro della stessa
-famiglia**, dopo `createNegativeKeyword()` (corretta l'08/08 con
-`negativaPresente`) e `creaCampagna()` (ieri, col bulk upload che non
-risponde). Ogni volta la stessa forma: *una scrittura che non si rilegge fa
-registrare all'app un successo che non è avvenuto.*
+**Cosa è cambiato:**
+1. **La frase mette per prima la causa più probabile**: «quasi sempre vuol dire
+   che qualcuno l'ha cambiata dopo in Google Ads; se non è così, l'operazione
+   non è passata». Prima diceva «o l'operazione non è passata, o è stata
+   cambiata dopo» — la spiegazione giusta era in fondo, e si leggeva guasto dove
+   c'era una decisione. L'avviso in cima dichiara di **non essere un allarme**.
+2. **Lo script rilegge dopo aver scritto** (`975df18c`): tutti e sette i rami
+   che scrivono (`pause`/`enable`/`setAmount` su campagna, gruppo, keyword,
+   budget) rileggono da un selettore **NUOVO** — `rileggiStato` e
+   `rileggiCampagna` — e l'esito dice *confermato rileggendo* · *non ho potuto
+   rileggere* · **ATTENZIONE: risulta ancora in erogazione**. ⚠️ Il selettore
+   dev'essere nuovo: l'oggetto che si ha in mano può tenersi lo stato con cui è
+   stato letto. ⚠️ Il dubbio **si dichiara, non diventa un errore**: dentro la
+   stessa esecuzione i selettori possono ancora vedere lo stato di partenza, e
+   segnare fallito un lavoro riuscito è il difetto opposto.
+   ⚠️ **Questa rete non ripara il caso qui sopra** — quello non era un guasto.
+   È la terza della stessa famiglia (`createNegativeKeyword` 08/08,
+   `creaCampagna` 17/08) e serve al caso che nessuno vedrebbe: una pausa che
+   fallisce davvero. **Va reincollata** per avere effetto.
 
-**La correzione.** Tutti e sette i rami che scrivono ora rileggono da un
-selettore **NUOVO** (`rileggiStato` per keyword/gruppo/campagna,
-`rileggiCampagna` per il budget) e l'esito lo dice: *confermato rileggendo* ·
-*non ho potuto rileggere* · **ATTENZIONE: risulta ancora in erogazione**.
-⚠️ Il selettore dev'essere nuovo: l'oggetto che si ha in mano può tenersi lo
-stato con cui è stato letto. ⚠️ E il dubbio **si dichiara, non diventa un
-errore**: dentro la stessa esecuzione i selettori possono ancora vedere lo
-stato di partenza, e segnare fallito un lavoro riuscito è il difetto opposto.
-La rete vera resta quella dell'app, che dal 17/08 verifica col giro dopo.
-
-⚠️ **Ancore solo-ASCII per patchare questo file**: gli accenti sono in
-**mojibake** (`à` = `C3 83 C2 A0`, cioè UTF-8 ri-codificato in latin1), quindi
-un'ancora che contiene «già» **non aggancia** — e il conteggio dei byte
-non-ASCII (5.842) resta il controllo che dice se si è rotto qualcosa.
-
-**Verificato**: prova a secco 9/9, byte non-ASCII identici, 10 copie rigenerate
-(7 `notaRilettura` ciascuna). ⚠️ **Va reincollato** per avere effetto: la
-correzione vive dentro Google Ads, non nell'app.
+⚠️ **Ancore solo-ASCII per patchare `google-ads-script.js`**: gli accenti sono
+in **mojibake** (`à` = `C3 83 C2 A0`, UTF-8 ri-codificato in latin1), quindi
+un'ancora che contiene «già» **non aggancia**. Il conteggio dei byte non-ASCII
+(5.842) resta il controllo che dice se si è rotto qualcosa.
 
 ### 🔴 «Eseguita» su una campagna nuova voleva dire INVIATA, non creata — e Google la rifiutava per «EU political ads» (17/08/2026)
 
@@ -2835,13 +2840,14 @@ Resta da fare, **fuori dall'app**:
    gruppo «Flowers Delivery»). Messe in pausa dall'app il **04/08**, esito
    «keyword in pausa», e il censimento del **17/08** le riporta `ENABLED`:
    stanno ancora andando in asta mentre l'app le dà ferme. Da guardare in
-   **CAUSA TROVATA** (vedi la sezione qui sopra): lo script chiamava `pause()`
-   e riferiva «fatto» senza rileggere. `fioraio milano` non si è fermata
-   nemmeno un giorno e da sola ha speso **83,82 €** in due settimane da ferma.
-   **Cosa fare**: reincollare lo script corretto (`esegui.js` + `tutto.js`),
-   poi rimetterle in pausa dall'app — ora l'esito dirà «confermato rileggendo»
-   oppure «ATTENZIONE: risulta ancora in erogazione», e al giro dopo la riga
-   dirà se ha tenuto.
+   **RISOLTO come domanda: le ha riattivate l'utente a mano** (18/08). Non era
+   un guasto — la pausa era andata, e poi è stata disfatta in Google Ads. Resta
+   il fatto operativo: quelle parole **stanno spendendo** (117,72 € dal 04/08)
+   mentre l'app le dava ferme, e va deciso se è voluto. Se vanno fermate
+   davvero, si rimettono in pausa dall'app; se devono restare accese, la riga
+   continuerà a dire «Google dice il contrario» finché l'app pensa il
+   contrario — ⚠️ **manca un modo di dire «lo so, è voluto»**, ed è la cosa
+   naturale da aggiungere alla conferma per operazione.
 5. ~~Su `/ricezione` deve comparire il tipo `annuncio-giorni` per i tre
    account~~ — **c'è** (29 consegne al 17/08 pomeriggio, `MetricaAnnuncio`
    5.157 righe dal 19/05). Resta da fare **a occhio**: aprire una scheda
@@ -3209,11 +3215,16 @@ funzione.
   gruppo, keyword e annuncio con `The entity does not exist for Campaign` —
   errori che sembrano la causa e sono l'effetto. La colonna c'è dal 17/08
   (`"no"`); se Google risponde «Invalid value», l'altra forma è `false`.
-- **Una scrittura che non si rilegge fa registrare un successo che non è
-  avvenuto**: `createNegativeKeyword` (08/08), `creaCampagna` (17/08),
+- **Una scrittura che non si rilegge fa registrare un successo che potrebbe non
+  essere avvenuto**: `createNegativeKeyword` (08/08), `creaCampagna` (17/08),
   `pause`/`enable`/`setAmount` (18/08). Prima di scrivere «fatto», rileggere —
   **da un selettore NUOVO**, perché l'oggetto in mano tiene lo stato con cui è
   stato letto — e dichiarare il dubbio invece di trasformarlo in un errore.
+- ⚠️ **Quando l'app e la piattaforma non concordano, la spiegazione più
+  probabile è UNA PERSONA, non un guasto.** Pagata il 18/08: quattro keyword
+  «in pausa» nell'app e attive su Google le aveva riattivate l'utente, e io
+  avevo già scritto «la pausa non è mai andata» nel commento del codice, nel
+  commit e nell'handoff. Chiedere costa una domanda; l'errore resta scritto.
 - **Il file `google-ads-script.js` ha gli accenti in MOJIBAKE** (`à` = `C3 83
   C2 A0`): un'ancora di ricerca che contiene «già» non aggancia niente. Le
   patch vanno scritte con ancore **solo-ASCII**.
