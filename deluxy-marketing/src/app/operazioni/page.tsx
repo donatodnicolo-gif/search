@@ -467,8 +467,10 @@ export default async function PaginaOperazioni({
                 Google dice il contrario
               </b>
               . «Eseguita» è quello che ha riferito lo script; questo è quello che l&apos;account ha
-              rimandato <b>dopo</b>, nei giri di lettura. Le trovi qui sotto nello storico, con la
-              spiegazione sulla riga:
+              rimandato <b>dopo</b>, nei giri di lettura. ⚠️ <b>Non vuol dire che sia un guasto</b>:
+              quasi sempre è qualcuno che ha cambiato quella cosa a mano in Google Ads, e l&apos;app
+              non ha modo di saperlo — è proprio per vederlo che questo riquadro esiste. Le trovi
+              qui sotto nello storico, con la spiegazione sulla riga:
               <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>
                 {smentite
                   .filter((o) => o.tipo !== "nuova_campagna")

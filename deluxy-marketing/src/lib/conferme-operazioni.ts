@@ -485,7 +485,7 @@ function verdetto(o: OperazioneAdv, ctx: Contesto): Conferma {
       return {
         stato: "smentita",
         etichetta: "Google dice il contrario",
-        frase: `Il ${dataOra(letta!)} Google riportava ${euro(attuale)}, non ${euro(atteso)}: o l'operazione non è passata, o il budget è stato cambiato dopo da qualcun altro. Controllare in Google Ads.`,
+        frase: `Il ${dataOra(letta!)} Google riportava ${euro(attuale)}, non ${euro(atteso)}: quasi sempre vuol dire che qualcuno l'ha cambiato dopo in Google Ads; se non è così, l'operazione non è passata. Controllare in Google Ads.`,
         quando: letta,
       };
     }
@@ -596,7 +596,7 @@ function verdetto(o: OperazioneAdv, ctx: Contesto): Conferma {
     return {
       stato: "smentita",
       etichetta: "Google dice il contrario",
-      frase: `${cosa[0].toUpperCase() + cosa.slice(1)} del ${dataOra(letta!)} riporta «${testo}» ${altri.join("/")}, non ${attesoLeggibile}${righe.length > 1 ? ` (${righe.length - ok} su ${righe.length})` : ""}: o l'operazione non è passata, o è stata cambiata dopo. Controllare in Google Ads.`,
+      frase: `${cosa[0].toUpperCase() + cosa.slice(1)} del ${dataOra(letta!)} riporta «${testo}» ${altri.join("/")}, non ${attesoLeggibile}${righe.length > 1 ? ` (${righe.length - ok} su ${righe.length})` : ""}: quasi sempre vuol dire che qualcuno l'ha cambiata dopo in Google Ads; se non è così, l'operazione non è passata. Controllare in Google Ads.`,
       quando: letta,
     };
   }
@@ -624,7 +624,7 @@ function verdettoStato(
     return {
       stato: "smentita",
       etichetta: "Google dice il contrario",
-      frase: `Il ${dataOra(letta!)} Google riportava ${soggetto} ${ETICHETTA_STATO_GOOGLE[attuale] ?? attuale}, non ${attesoLeggibile}: o l'operazione non è passata, o lo stato è stato cambiato dopo. Controllare in Google Ads.`,
+      frase: `Il ${dataOra(letta!)} Google riportava ${soggetto} ${ETICHETTA_STATO_GOOGLE[attuale] ?? attuale}, non ${attesoLeggibile}: quasi sempre vuol dire che qualcuno l'ha cambiato dopo in Google Ads; se non è così, l'operazione non è passata. Controllare in Google Ads.`,
       quando: letta,
     };
   }

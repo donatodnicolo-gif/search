@@ -1819,11 +1819,18 @@ function trovaGruppo(op, conto) {
  *
  * ATTENZIONE: e' la stessa lezione di createNegativeKeyword (corretta
  * l'08/08) e di creaCampagna (17/08): una scrittura che non si rilegge fa
- * registrare all'app un successo che non e' avvenuto. Costata cara il
- * 04/08/2026: quattro keyword messe in pausa con esito "keyword in pausa",
- * e "fioraio milano" ha continuato a ricevere impressioni lo stesso giorno
- * (44), il giorno dopo (45) e ogni giorno fino al 18/08 - 630 impressioni e
- * 83,82 euro spesi da una parola che nell'app risultava ferma.
+ * registrare all'app un successo che potrebbe non essere avvenuto, e
+ * nessuno lo saprebbe mai.
+ *
+ * ONESTA' SU COME E' NATA: cercando quattro keyword che l'app dava in pausa
+ * dal 04/08 e Google dava attive, avevo concluso che la pausa non fosse mai
+ * andata. NON era cosi': le aveva RIATTIVATE l'utente a mano in Google Ads.
+ * Quindi questa rilettura non ripara un guasto misurato - e' una rete che
+ * mancava, la terza della stessa famiglia. Il guasto vero era un altro, e
+ * l'app non poteva vederlo: una modifica fatta a mano dentro Google Ads non
+ * torna indietro, e per due settimane l'app ha mostrato "in pausa" una
+ * parola che stava spendendo. Quello lo scopre la conferma per operazione
+ * (lato app, 17/08), non lo script.
  *
  * Il selettore dev'essere NUOVO: l'oggetto che si ha in mano puo' tenersi lo
  * stato con cui e' stato letto. Torna "ENABLED", "PAUSED" o null quando la
