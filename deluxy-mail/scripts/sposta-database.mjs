@@ -107,10 +107,19 @@ const CHIAVE_ORDINE = { impostazione: 'chiave' }
 
 // Lotti più piccoli per le tabelle con righe pesanti: 500 messaggi coi corpi
 // dentro sono decine di MB per chiamata, e il pooler li rifiuta o rallenta.
-const LOTTO_PER_MODELLO = { messaggio: 100 }
+// ⚠️ 18/08/2026: con lotti da 100 la sorgente ha CHIUSO la connessione a
+// meta' copia ('Server has closed the connection'). In quelle 100 righe finivano
+// mail con 20 MB di HTML l'una: la risposta era di centinaia di MB. Si regola
+// con LOTTO_MESSAGGI senza toccare il codice.
+const LOTTO_PER_MODELLO = { messaggio: Number(process.env.LOTTO_MESSAGGI) || 100 }
 
 // I 30 giorni della finestra "calda" dell'HTML (stessa regola di htmlServer.ts).
-const LIMITE_HTML = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+// ⚠️ Quanti giorni di HTML ci si porta dietro. Di norma sono i 30 della
+// finestra calda, ma un trasloco NON deve trascinarsi una cache: l'HTML delle
+// mail ancora sul server (uid > 0) l'app se lo riprende all'apertura. Con
+// GIORNI_HTML_COPIA=7 il trasloco del 18/08 e' passato da ~1 GB a ~90 MB.
+const GIORNI_HTML = Number(process.env.GIORNI_HTML_COPIA) || 30
+const LIMITE_HTML = new Date(Date.now() - GIORNI_HTML * 24 * 60 * 60 * 1000)
 
 async function copiaTabella(da, a, modello, opzioni = {}) {
   const { dove = undefined, dopoLettura = null, etichetta = modello } = opzioni

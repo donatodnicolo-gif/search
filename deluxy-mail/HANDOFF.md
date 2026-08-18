@@ -13,7 +13,8 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 
 - **URL produzione:** https://deluxy-mail.vercel.app
 - **Hosting:** Vercel (team `deluxy`, progetto `deluxy-mail`).
-- **DB:** Supabase Postgres, progetto **`feleldlsreurqpdhstla`** («cs@deluxy.it's», piano Pro, eu-west-1), **schema `mail`** — dal 28/07/2026, migrato con `scripts/sposta-database.mjs` (17.484 messaggi, tutte le 31 tabelle verificate riga per riga). ⚠️ Lo stesso database ospita in `public` la piattaforma consegne: lo schema dedicato è ciò che tiene le due app separate — `?schema=mail` va SEMPRE nelle stringhe di connessione (`DATABASE_URL` col pooler 6543 + `&pgbouncer=true`; `DIRECT_URL` col pooler 5432). Il progetto vecchio `sxovckndpmdbqfrfkxhl` (Free, 500 MB, finito in sola lettura a 1,57 GB) resta intatto come rete di sicurezza: **si spegne solo dopo qualche giorno di esercizio sereno del nuovo**, poi si valuta la disdetta di eventuali abbonamenti doppi.
+- **DB: TRASLOCO IN CORSO (18/08/2026).** Si passa al cluster condiviso **`zegbztfxisqeowngvgvh`** (eu-central-1, org **Deluxy, piano Pro**, 8 GB, backup giornalieri), **schema `mail`** — lo stesso progetto delle altre 12 app Deluxy, ognuna nel suo schema. **Stato: i dati sono copiati** (31 tabelle, 30.240 messaggi su 30.242 — le 2 di scarto sono arrivate DURANTE la copia e le raccoglie il ripasso finale), **la produzione non è ancora commutata**: mancano `DATABASE_URL` e `DIRECT_URL` su Vercel, che le incolla l'utente da `deluxy-mail/.env.nuovo` (git le ignora). Finché non sono cambiate, la produzione scrive ancora sul database vecchio. Sequenza corretta: **prima le variabili + deploy, poi si rilancia `scripts/sposta-database.mjs --scrivi`** per la coda. ⚠️ Con lo spostamento va cambiata anche la region in `vercel.json`: **`dub1` → `fra1`** (fatto), o le funzioni restano a Dublino col database a Francoforte.
+- **DB di partenza (fino al 18/08):** progetto **`feleldlsreurqpdhstla`** («cs@deluxy.it's», piano **Free**, eu-west-1), schema `mail` — dal 28/07/2026. ⚠️ Lì AI Mail **divide il progetto con la piattaforma consegne** (schema `public`) e il progetto misura **566 MB, già oltre i 500 MB del Free**: se scatta la sola lettura, le due app si fermano insieme. È la ragione del trasloco. Resta **intatto come rete di sicurezza**: si spegne solo dopo qualche giorno di esercizio sereno del nuovo. `?schema=mail` va SEMPRE nelle stringhe (`DATABASE_URL` col pooler 6543 + `&pgbouncer=true`; `DIRECT_URL` col pooler 5432). Il progetto ancora più vecchio `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB) resta anch'esso come archivio.
 - **Porta locale:** 3070.
 
 ### Dove siamo (17 agosto 2026)
@@ -483,6 +484,39 @@ Cron: **`/api/sync`** (route, autenticata con `CRON_SECRET`) — su Vercel Hobby
 ---
 
 ## 9. Problemi noti / gotchas
+
+- **TRASLOCO del database sul cluster condiviso (18 ago)** — AI Mail lascia
+  `feleldlsreurqpdhstla` (account **cs@deluxy.it**, eu-west-1, piano **Free**, dove
+  divide il progetto con la **piattaforma consegne**: misurato 566 MB, già oltre i
+  500 MB del Free, quindi le due app rischiavano di andare in sola lettura insieme) e
+  passa a **`zegbztfxisqeowngvgvh`** (eu-central-1, schema `mail`), il cluster delle
+  altre 12 app, che sta sull'org **Deluxy in piano Pro** — 8 GB, backup giornalieri.
+  ⚠️ **Il piano NON si legge dal database**: le due istanze sono identiche (Micro,
+  `max_connections=60`). Si legge dalla Management API col PAT in `deluxy-scout/.env`
+  (`GET /v1/organizations/<id>` → `"plan":"pro"`) o dai backup, che sul Free non esistono.
+  Cose imparate, tutte pagate sul campo:
+  1. **La copia a lotti da 100 ha ucciso la connessione della sorgente** («Server has
+     closed the connection» a ~300/2521). In quelle 100 righe c'erano mail con **20 MB
+     di HTML l'una**: la risposta era di centinaia di MB. Ora `LOTTO_MESSAGGI` e
+     `GIORNI_HTML_COPIA` sono variabili d'ambiente di `scripts/sposta-database.mjs`.
+  2. **Un trasloco non deve trascinarsi una cache.** L'HTML è ricaricabile dall'IMAP
+     (`htmlServer.ts`): copiato con `GIORNI_HTML_COPIA=7` invece dei 30 di norma, il
+     trasferimento è passato da ~1 GB a ~90 MB. Restano copiate **intere** le mail con
+     `uid ≤ 0` (4 righe): per quelle il database è l'unica copia al mondo.
+  3. ⚠️ **`creatoIl` è in UTC** (Vercel gira a UTC): due messaggi «salvati alle 15:45»
+     sembravano persi da ore, erano invece arrivati alle **17:45 locali**, due minuti
+     dopo l'avvio della copia. Prima di dire «mancano dei dati», convertire il fuso.
+  4. ⚠️ **Una copia da un database VIVO è vecchia appena finisce**: la posta continua ad
+     arrivare. Quindi l'ordine del passaggio è **prima si sposta la produzione sul
+     database nuovo, poi si ripassa lo script** per raccogliere la coda (è ripetibile,
+     `skipDuplicates`) — non il contrario, o la coda cresce all'infinito.
+  5. ⚠️ **La region va spostata con il database**: `vercel.json` da `["dub1"]` (Dublino,
+     accanto a eu-west-1) a **`["fra1"]`** (Francoforte, accanto a eu-central-1). Senza,
+     ogni query riattraversa mezz'Europa — è la trappola del 31/07 al contrario.
+  6. ⚠️ **I segreti su Vercel non li può cambiare Claude** (guard): `DATABASE_URL` e
+     `DIRECT_URL` di produzione le incolla l'utente dal dashboard, prendendole da
+     `deluxy-mail/.env.nuovo` (ignorato da git). Il vecchio progetto **resta intatto**
+     come rete di sicurezza finché il nuovo non ha qualche giorno di esercizio sereno.
 
 - **Revisione completa del 14/08/2026 (workflow multi-agente) — corretti**. Sei revisori + verifica avversaria su ogni bug. Corretti in un lotto (commit del 14/08):
   1. ⚠️🔒 **XSS nell'editor di risposta**: il corpo HTML di una mail (non fidato) finiva in `innerHTML` di `EditorRicco` (documento PRINCIPALE, non l'iframe sandbox della vista) cliccando **Rispondi/Inoltra**. `sanitizzaHtml` toglieva gli `on*` solo se preceduti da uno **spazio**, ma `<img src=x /onerror=…>` ha una `/` prima — il browser lo esegue lo stesso. Ora il filtro cattura il separatore (`[\s"'`/]`), toglie anche `svg`/`math`/`base` e gli URL `data:`/`javascript:`, e `EditorRicco` risanifica al montaggio (protegge le bozze già salvate col payload). Verificato con 8 payload.
