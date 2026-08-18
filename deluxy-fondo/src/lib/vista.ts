@@ -7,10 +7,10 @@
 
 import { leggiSerie, leggiFondamentali, leggiNotizie, leggiIstantanea } from "./archivio";
 import { leggiBilanci, type Bilanci } from "./bilanci";
-import { calcolaIndicatori, giorniEstremi, type Indicatori } from "./indicatori";
+import { calcolaIndicatori, giorniEstremi, tratto, type Indicatori, type Tratto } from "./indicatori";
 import { calcolaPunteggio } from "./punteggio";
 import { eventStudy } from "./statistica";
-import { BENCHMARK_MERCATO, EVENTI, TITOLI, eventiDi, type Titolo } from "./universo";
+import { BENCHMARK_MERCATO, EVENTI, TITOLI, eventiDi, mandatoInCorso, type Titolo } from "./universo";
 import type { EventStudy, EventoManagement, Istantanea, Punteggio, SerieStorica } from "./tipi";
 import type { Notizia } from "./fonti";
 
@@ -19,8 +19,13 @@ export type VistaTitolo = {
   serie: SerieStorica | null;
   indicatori: Indicatori | null;
   punteggio: Punteggio | null;
-  /** L'evento di management più recente registrato per questo titolo. */
+  /**
+   * Il mandato in corso: l'ultimo cambio di CHI GUIDA l'azienda.
+   * Non è semplicemente l'evento più recente: offerte e cessioni sono escluse.
+   */
   ultimoEvento: EventoManagement | null;
+  /** L'evento più recente in assoluto, di qualunque categoria: serve da contesto. */
+  eventoPiuRecente: EventoManagement | null;
   eventi: EventoManagement[];
   /** Bilanci da fonte primaria, quando esistono per questo titolo. */
   bilanci: Bilanci | null;
@@ -51,9 +56,11 @@ export async function costruisciCruscotto(): Promise<Cruscotto> {
   for (const t of TITOLI) {
     const serie = await leggiSerie(t.simbolo);
     const eventi = eventiDi(t.simbolo);
-    // «Ultimo evento» = il più recente già annunciato: un evento futuro non è un segnale.
     const oggi = new Date().toISOString().slice(0, 10);
-    const ultimoEvento = eventi.find((e) => e.dataAnnuncio <= oggi) ?? null;
+    // Il punteggio si basa sul MANDATO in corso, non sull'ultimo evento qualsiasi:
+    // su TIM l'evento più recente è l'offerta di Poste, ma la gestione è di Labriola.
+    const ultimoEvento = mandatoInCorso(t.simbolo, oggi);
+    const eventoPiuRecente = eventi.find((e) => e.dataAnnuncio <= oggi) ?? null;
 
     if (!serie || serie.barre.length === 0) {
       titoli.push({
@@ -62,6 +69,7 @@ export async function costruisciCruscotto(): Promise<Cruscotto> {
         indicatori: null,
         punteggio: null,
         ultimoEvento,
+        eventoPiuRecente,
         eventi,
         bilanci: null,
         problema: "Serie storica non disponibile: esegui `npm run aggiorna`.",
@@ -80,7 +88,7 @@ export async function costruisciCruscotto(): Promise<Cruscotto> {
       notizieRilevanti: t.simbolo === "TIT.MI" ? rilevanti : null,
     });
 
-    titoli.push({ titolo: t, serie, indicatori, punteggio, ultimoEvento, eventi, bilanci, problema: null });
+    titoli.push({ titolo: t, serie, indicatori, punteggio, ultimoEvento, eventoPiuRecente, eventi, bilanci, problema: null });
   }
 
   // Ordine: prima chi ha il punteggio più alto, poi chi non ne ha uno mostrabile.
@@ -116,13 +124,57 @@ export async function dettaglioTitolo(simbolo: string) {
   const fondamentali = await leggiFondamentali(simbolo);
   const notizie = (await leggiNotizie()) ?? [];
   const indicatori = serie ? calcolaIndicatori(serie, benchmark) : null;
+  const mandato = mandatoInCorso(simbolo);
+
   return {
     serie,
     benchmark,
     fondamentali,
     indicatori,
+    mandato,
+    fasiDelMandato: serie && mandato ? fasiDelMandato(simbolo, serie, benchmark, mandato) : [],
     estremi: serie ? giorniEstremi(serie) : null,
     notizie: notizieRilevanti(notizie),
     studi: await studiaEventi(simbolo),
   };
+}
+
+/**
+ * Il mandato in corso, spezzato nelle sue fasi.
+ *
+ * Un rendimento complessivo di mandato può nascondere due storie opposte. Su TIM lo fa in
+ * modo clamoroso: il mandato di Labriola vale +84% in totale, ma è la somma di un −46% nei
+ * primi due anni e mezzo e di un +241% dopo la cessione della rete. Mostrare solo il totale
+ * farebbe credere a una gestione lineare che non è mai esistita: le fasi sono separate dagli
+ * eventi di **perimetro e di controllo**, cioè da ciò che il management non ha deciso da solo.
+ */
+function fasiDelMandato(
+  simbolo: string,
+  serie: SerieStorica,
+  benchmark: SerieStorica | null,
+  mandato: EventoManagement
+): Tratto[] {
+  const oggi = new Date().toISOString().slice(0, 10);
+  const cesure = EVENTI.filter(
+    (e) =>
+      e.simbolo === simbolo &&
+      (e.categoria === "perimetro" || e.categoria === "controllo") &&
+      e.dataAnnuncio > mandato.dataAnnuncio &&
+      e.dataAnnuncio <= oggi
+  ).sort((a, b) => a.dataAnnuncio.localeCompare(b.dataAnnuncio));
+
+  const fasi: Tratto[] = [];
+  const completo = tratto(`Intero mandato`, serie, benchmark, mandato.dataAnnuncio);
+  if (completo) fasi.push(completo);
+
+  // Una sola cesura per volta sarebbe rumore: si tiene la più rilevante, cioè quella di
+  // perimetro, che è la discontinuità vera dei conti.
+  const principale = cesure.find((e) => e.categoria === "perimetro") ?? cesure[0];
+  if (principale) {
+    const prima = tratto(`Prima di «${principale.titolo}»`, serie, benchmark, mandato.dataAnnuncio, principale.dataAnnuncio);
+    const dopo = tratto(`Da «${principale.titolo}» a oggi`, serie, benchmark, principale.dataAnnuncio);
+    if (prima) fasi.push(prima);
+    if (dopo) fasi.push(dopo);
+  }
+  return fasi;
 }

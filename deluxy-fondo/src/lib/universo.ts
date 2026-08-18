@@ -91,6 +91,7 @@ export const TITOLO_GUIDA = "TIT.MI";
 export const EVENTI: EventoManagement[] = [
   {
     id: "tim-cattaneo-in",
+    categoria: "management",
     simbolo: "TIT.MI",
     dataRumor: null,
     dataAnnuncio: "2016-03-30",
@@ -107,6 +108,7 @@ export const EVENTI: EventoManagement[] = [
   },
   {
     id: "tim-cattaneo-out",
+    categoria: "management",
     simbolo: "TIT.MI",
     dataRumor: null,
     dataAnnuncio: "2017-07-28",
@@ -125,6 +127,7 @@ export const EVENTI: EventoManagement[] = [
   },
   {
     id: "tim-genish-in",
+    categoria: "management",
     simbolo: "TIT.MI",
     dataRumor: null,
     dataAnnuncio: "2017-09-28",
@@ -140,6 +143,7 @@ export const EVENTI: EventoManagement[] = [
   },
   {
     id: "tim-elliott-assemblea",
+    categoria: "controllo",
     simbolo: "TIT.MI",
     dataRumor: null,
     dataAnnuncio: "2018-05-04",
@@ -156,6 +160,7 @@ export const EVENTI: EventoManagement[] = [
   },
   {
     id: "tim-genish-out",
+    categoria: "management",
     simbolo: "TIT.MI",
     dataRumor: null,
     dataAnnuncio: "2018-11-13",
@@ -171,6 +176,7 @@ export const EVENTI: EventoManagement[] = [
   },
   {
     id: "tim-gubitosi-in",
+    categoria: "management",
     simbolo: "TIT.MI",
     dataRumor: null,
     dataAnnuncio: "2018-11-18",
@@ -186,6 +192,7 @@ export const EVENTI: EventoManagement[] = [
   },
   {
     id: "tim-gubitosi-out",
+    categoria: "management",
     simbolo: "TIT.MI",
     dataRumor: "2021-11-21",
     dataAnnuncio: "2021-11-26",
@@ -205,6 +212,7 @@ export const EVENTI: EventoManagement[] = [
   },
   {
     id: "tim-labriola-in",
+    categoria: "management",
     simbolo: "TIT.MI",
     dataRumor: "2021-11-26",
     dataAnnuncio: "2022-01-21",
@@ -221,6 +229,7 @@ export const EVENTI: EventoManagement[] = [
   },
   {
     id: "tim-piano-free-to-run",
+    categoria: "management",
     simbolo: "TIT.MI",
     dataRumor: null,
     dataAnnuncio: "2024-03-07",
@@ -237,6 +246,7 @@ export const EVENTI: EventoManagement[] = [
   },
   {
     id: "tim-netco-closing",
+    categoria: "perimetro",
     simbolo: "TIT.MI",
     dataRumor: null,
     dataAnnuncio: "2024-07-01",
@@ -253,6 +263,7 @@ export const EVENTI: EventoManagement[] = [
   },
   {
     id: "tim-poste-vivendi",
+    categoria: "controllo",
     simbolo: "TIT.MI",
     dataRumor: null,
     dataAnnuncio: "2025-03-29",
@@ -268,6 +279,7 @@ export const EVENTI: EventoManagement[] = [
   },
   {
     id: "tim-opas-poste",
+    categoria: "controllo",
     simbolo: "TIT.MI",
     dataRumor: null,
     dataAnnuncio: "2026-03-22",
@@ -286,6 +298,7 @@ export const EVENTI: EventoManagement[] = [
   // --- Controlli: cambi di management fuori da TIM -------------------------
   {
     id: "ucg-orcel-in",
+    categoria: "management",
     simbolo: "UCG.MI",
     dataRumor: null,
     dataAnnuncio: "2021-04-15",
@@ -301,6 +314,7 @@ export const EVENTI: EventoManagement[] = [
   },
   {
     id: "ldo-cingolani-in",
+    categoria: "management",
     simbolo: "LDO.MI",
     dataRumor: null,
     dataAnnuncio: "2023-05-09",
@@ -316,6 +330,7 @@ export const EVENTI: EventoManagement[] = [
   },
   {
     id: "stlam-tavares-out",
+    categoria: "management",
     simbolo: "STLAM.MI",
     dataRumor: null,
     dataAnnuncio: "2024-12-01",
@@ -331,6 +346,7 @@ export const EVENTI: EventoManagement[] = [
   },
   {
     id: "stlam-filosa-in",
+    categoria: "management",
     simbolo: "STLAM.MI",
     dataRumor: null,
     dataAnnuncio: "2025-06-23",
@@ -346,6 +362,7 @@ export const EVENTI: EventoManagement[] = [
   },
   {
     id: "bayn-anderson-in",
+    categoria: "management",
     simbolo: "BAYN.DE",
     dataRumor: null,
     dataAnnuncio: "2023-06-01",
@@ -365,3 +382,28 @@ export const EVENTI: EventoManagement[] = [
 export const trovaTitolo = (simbolo: string) => TITOLI.find((t) => t.simbolo === simbolo) ?? null;
 export const eventiDi = (simbolo: string) =>
   EVENTI.filter((e) => e.simbolo === simbolo).sort((a, b) => b.dataAnnuncio.localeCompare(a.dataAnnuncio));
+
+/**
+ * Il mandato in corso: l'ultimo **cambio di chi guida l'azienda**, già annunciato.
+ *
+ * Deliberatamente esclude gli eventi di controllo e di perimetro. Su TIM, l'evento più
+ * recente in assoluto è l'offerta pubblica di Poste (marzo 2026), ma l'amministratore
+ * delegato è Pietro Labriola dal gennaio 2022: è da lì che si misura la gestione. Prendere
+ * l'offerta come «ultimo evento di management» significherebbe attribuire alla gestione un
+ * movimento prodotto da un compratore — l'errore esatto che questa app esiste per evitare.
+ *
+ * Sono esclusi anche gli eventi di uscita (`-out`): un mandato comincia con chi arriva.
+ */
+export function mandatoInCorso(simbolo: string, alGiorno = new Date().toISOString().slice(0, 10)) {
+  return (
+    EVENTI.filter(
+      (e) =>
+        e.simbolo === simbolo &&
+        e.categoria === "management" &&
+        e.dataAnnuncio <= alGiorno &&
+        !e.id.endsWith("-out") &&
+        // Un piano industriale è lavoro del management in carica, non l'inizio di un mandato.
+        !e.id.includes("piano")
+    ).sort((a, b) => b.dataAnnuncio.localeCompare(a.dataAnnuncio))[0] ?? null
+  );
+}

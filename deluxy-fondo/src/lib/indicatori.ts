@@ -198,6 +198,67 @@ export function calcolaIndicatori(serie: SerieStorica, benchmark: SerieStorica |
   };
 }
 
+export type Tratto = {
+  etichetta: string;
+  da: string;
+  a: string;
+  /** Rendimento del titolo nel tratto. */
+  titolo: number | null;
+  /** Rendimento del benchmark nello stesso tratto. */
+  benchmark: number | null;
+  /** Differenza fra i due, in frazione (0,01 = 1 punto percentuale). */
+  eccesso: number | null;
+  anni: number;
+  /** Rendimento annuo composto del titolo nel tratto. */
+  cagr: number | null;
+};
+
+/**
+ * Rendimento del titolo e del benchmark fra due date, con l'eccesso.
+ *
+ * Serve a misurare un **mandato**: quanto ha reso il titolo da quando una certa persona
+ * guida l'azienda. È la domanda giusta da fare a una tesi sul cambio di management —
+ * più utile del rendimento a 12 mesi, che non sa nulla di chi comanda.
+ */
+export function tratto(
+  etichetta: string,
+  serie: SerieStorica,
+  benchmark: SerieStorica | null,
+  da: string,
+  a?: string
+): Tratto | null {
+  const dentro = (b: Barra) => b.data >= da && (!a || b.data <= a);
+  const barre = serie.barre.filter(dentro);
+  if (barre.length < 2) return null;
+
+  const primo = barre[0];
+  const ultimo = barre[barre.length - 1];
+  const rTitolo = variazione(primo.chiusura, ultimo.chiusura);
+
+  let rBench: number | null = null;
+  if (benchmark) {
+    const mappa = new Map(benchmark.barre.map((b) => [b.data, b.chiusura]));
+    // Si allinea sulle stesse sedute del titolo: confrontare date diverse falsa il conto.
+    const inizio = barre.find((b) => mappa.has(b.data));
+    const fine = [...barre].reverse().find((b) => mappa.has(b.data));
+    if (inizio && fine && inizio.data !== fine.data) {
+      rBench = variazione(mappa.get(inizio.data)!, mappa.get(fine.data)!);
+    }
+  }
+
+  const anni = (Date.parse(ultimo.data) - Date.parse(primo.data)) / (365.25 * 86_400_000);
+  return {
+    etichetta,
+    da: primo.data,
+    a: ultimo.data,
+    titolo: rTitolo,
+    benchmark: rBench,
+    eccesso: rTitolo !== null && rBench !== null ? rTitolo - rBench : null,
+    anni,
+    cagr: rTitolo !== null && anni > 0.5 ? Math.pow(1 + rTitolo, 1 / anni) - 1 : null,
+  };
+}
+
 /** Le sedute migliori e peggiori del periodo: mostrano se il guadagno è concentrato. */
 export function giorniEstremi(serie: SerieStorica, quanti = 8) {
   const righe = serie.barre

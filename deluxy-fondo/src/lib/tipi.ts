@@ -40,9 +40,23 @@ export const PESO_TIER: Record<TierEvento, number> = {
   T4: 0.3,
 };
 
+/**
+ * Che tipo di evento è.
+ *
+ * Distinzione non cosmetica: un'offerta pubblica o una cessione **non sono** un cambio di
+ * management, anche quando cambiano il destino dell'azienda. Confonderle è l'errore che fa
+ * attribuire alla nuova gestione un rialzo prodotto da un compratore.
+ *
+ * - `management` — cambia chi guida l'azienda (amministratore delegato, direttore generale, consiglio)
+ * - `controllo`  — cambia chi possiede l'azienda (attivista, azionista di riferimento, offerta pubblica)
+ * - `perimetro`  — cambia cosa è l'azienda (cessioni, scorpori): non è un evento di gestione
+ */
+export type CategoriaEvento = "management" | "controllo" | "perimetro";
+
 export type EventoManagement = {
   id: string;
   simbolo: string;
+  categoria: CategoriaEvento;
   /** Prima menzione credibile in stampa (ISO `YYYY-MM-DD`), se nota. */
   dataRumor: string | null;
   /** Annuncio ufficiale: è la data primaria dell'evento. */

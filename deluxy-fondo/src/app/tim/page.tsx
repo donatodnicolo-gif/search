@@ -67,6 +67,59 @@ export default async function PaginaTim() {
         </Avviso>
       </div>
 
+      {d.mandato && d.fasiDelMandato.length ? (
+        <div className="sezione">
+          <div className="sezione-titolo">Il mandato in corso: {d.mandato.titolo}</div>
+          <p className="sezione-sub">
+            È da qui che si misura la gestione — dal {dataBreve(d.mandato.dataAnnuncio)}, non
+            dall&apos;ultimo evento societario. Il totale del mandato, però, è la somma di due
+            fasi opposte: mostrarlo da solo farebbe credere a un andamento lineare che non è
+            mai esistito.
+          </p>
+          <div className="tabella-scroll">
+            <table className="tab" style={{ minWidth: 720 }}>
+              <thead>
+                <tr>
+                  <th>Fase</th>
+                  <th>Periodo</th>
+                  <th className="num">TIM</th>
+                  <th className="num">Indice</th>
+                  <th className="num">Differenza</th>
+                  <th className="num">Annuo composto</th>
+                </tr>
+              </thead>
+              <tbody>
+                {d.fasiDelMandato.map((f, i) => (
+                  <tr key={f.etichetta} style={i === 0 ? { background: "var(--fill)" } : undefined}>
+                    <td style={{ fontWeight: i === 0 ? 600 : 400 }}>{f.etichetta}</td>
+                    <td style={{ whiteSpace: "nowrap", fontSize: 12.5 }}>
+                      {dataBreve(f.da)} → {dataBreve(f.a)}
+                      <div style={{ color: "var(--text-tertiary)" }}>{numero(f.anni, 1)} anni</div>
+                    </td>
+                    <td className={`num ${verso(f.titolo)}`}>{percentuale(f.titolo)}</td>
+                    <td className={`num ${verso(f.benchmark)}`}>{percentuale(f.benchmark)}</td>
+                    <td className={`num ${verso(f.eccesso)}`} style={{ fontWeight: 600 }}>
+                      {punti(f.eccesso)}
+                    </td>
+                    <td className="num">{percentuale(f.cagr)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div style={{ marginTop: 14 }}>
+            <Avviso titolo="Come si legge." icona="=">
+              Nell&apos;intero mandato il titolo <strong>resta sotto l&apos;indice</strong>. Il
+              risultato complessivo è però la somma di una prima fase profondamente negativa e
+              di una seconda molto positiva, e lo spartiacque non è una decisione di gestione:
+              è la <strong>cessione della rete</strong>. Attribuire l&apos;intero recupero al
+              cambio di management significa attribuirgli anche i due anni e mezzo precedenti,
+              che sono nello stesso mandato.
+            </Avviso>
+          </div>
+        </div>
+      ) : null}
+
       <div className="sezione">
         <div className="sezione-titolo">Dove sta il prezzo</div>
         <div className="metriche">

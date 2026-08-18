@@ -100,7 +100,7 @@ export default async function Cruscotto() {
             <thead>
               <tr>
                 <th>Titolo</th>
-                <th>Ultimo evento di management</th>
+                <th>Mandato in corso</th>
                 <th className="num">Prezzo</th>
                 <th className="num">12 mesi</th>
                 <th className="num">contro l&apos;indice</th>
@@ -129,9 +129,16 @@ export default async function Cruscotto() {
                       <>
                         <div style={{ fontSize: 13 }}>{t.ultimoEvento.titolo}</div>
                         <div style={{ fontSize: 12, color: "var(--text-tertiary)", marginTop: 2 }}>
-                          {dataBreve(t.ultimoEvento.dataAnnuncio)} · {t.ultimoEvento.tier}
-                          {t.ultimoEvento.contaminato ? " · contaminato da altri eventi" : ""}
+                          in carica dal {dataBreve(t.ultimoEvento.dataAnnuncio)} · {t.ultimoEvento.tier}
                         </div>
+                        {/* L'evento più recente non è quasi mai un cambio di vertice: dirlo
+                            evita di attribuire alla gestione un movimento che non è suo. */}
+                        {t.eventoPiuRecente && t.eventoPiuRecente.id !== t.ultimoEvento.id ? (
+                          <div style={{ fontSize: 11.5, color: "var(--text-tertiary)", marginTop: 5, fontStyle: "italic" }}>
+                            evento più recente, non di gestione: {t.eventoPiuRecente.titolo} (
+                            {dataBreve(t.eventoPiuRecente.dataAnnuncio)})
+                          </div>
+                        ) : null}
                       </>
                     ) : (
                       <span className="neutro">nessuno registrato</span>

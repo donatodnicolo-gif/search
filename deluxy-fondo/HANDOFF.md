@@ -47,6 +47,30 @@ La tesi di partenza **non regge sui dati**, e l'app lo dice in prima pagina:
 20/07/2026, contro 0,14 con l'indice. L'offerta chiude l'**11 settembre 2026** (pagamento il
 18/09) con adesioni all'1,97% contro una soglia del 66,67% rinunciabile.
 
+## Il «mandato in corso» — correzione del 18/08
+
+Gli eventi hanno una `categoria`: **management** (chi guida), **controllo** (chi possiede:
+attivisti, offerte pubbliche), **perimetro** (cessioni, scorpori). Il punteggio e le misure
+di gestione usano solo il primo tipo.
+
+Serve perché all'inizio l'app prendeva come «ultimo evento di management» di TIM l'**OPAS di
+Poste** (marzo 2026), che è un'operazione societaria, non un cambio di vertice. Il mandato
+in corso è **Pietro Labriola dal 21/01/2022**. Correggendolo, il punteggio di TIM è sceso da
+**81 a 59** (e la copertura è salita dal 61% al 74%): era gonfiato da un evento di tier
+massimo che non c'entrava con la gestione.
+
+La pagina `/tim` mostra ora il mandato spezzato nelle sue fasi, ed è il numero più
+istruttivo dell'app:
+
+| Fase | Periodo | TIM | Indice | Differenza |
+|---|---|---|---|---|
+| **Intero mandato Labriola** | 21/01/2022 → oggi | +83,6% | +96,8% | **−13,2 pp** |
+| Prima della cessione di NetCo | 21/01/2022 → 01/07/2024 | −46,1% | +24,6% | **−70,7 pp** |
+| Dalla cessione a oggi | 01/07/2024 → oggi | +240,6% | +57,9% | **+182,7 pp** |
+
+Su tutto il mandato il titolo **resta sotto l'indice**, e lo spartiacque fra le due fasi non
+è una decisione di gestione: è la cessione della rete.
+
 ## MANCA / prossimi passi
 
 1. **La scadenza del 11/09/2026 va sorvegliata**: dopo quella data il regime di prezzo di
