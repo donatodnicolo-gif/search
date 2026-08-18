@@ -313,14 +313,16 @@ export default async function CreaCampagna({
         <div className="nota-info">
           <span className="nota-icona">◈</span>
           <span>
-            <b>Che cosa crea davvero lo script, e che cosa no.</b> Via bulk upload arrivano su
-            Google <b>nome, budget, tipo Ricerca, strategia di offerta, gruppo, keyword e un
-            annuncio RSA</b>, e la campagna nasce <b>in pausa</b>. <b>Obiettivo, località, lingua e
-            parole da escludere non sono fra le colonne del bulk upload</b>: li registriamo qui,
-            viaggiano con l&apos;operazione e restano scritti sulla campagna come promemoria, ma
-            vanno impostati a mano in Google Ads <b>prima di accenderla</b> — che è comunque il
-            momento della checklist 4.1. Appena li imposti, il giro successivo dello script li
-            rilegge e l&apos;app li mostra da sola.
+            <b>Che cosa arriva su Google, e come.</b> Il caricamento porta <b>nome, budget, tipo
+            Ricerca, strategia di offerta, lingua, località, gruppo, keyword e un annuncio
+            RSA</b>, e la campagna nasce <b>in pausa</b>. Le <b>parole da escludere</b> non
+            viaggiano lì: vanno in coda da sole <b>appena Google conferma che la campagna
+            esiste</b>, e da approvare come le altre — il caricamento non dice se le accetta, e
+            una negativa che sparisce in silenzio farebbe erogare la campagna proprio sulle
+            ricerche che volevi escludere. L&apos;<b>obiettivo</b> resta un&apos;etichetta nostra:
+            su Google è un involucro dell&apos;interfaccia, non un campo che uno script possa
+            scrivere. ⚠️ Una località che non sappiamo tradurre in un id te la diciamo, e quella
+            sola va messa a mano. Resta la <b>checklist 4.1</b> prima di accendere.
           </span>
         </div>
 

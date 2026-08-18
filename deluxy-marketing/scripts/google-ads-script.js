@@ -2163,6 +2163,22 @@ function strategiaBulk(strategia) {
   }
 }
 
+/**
+ * La lingua dell'app nel codice che usa Google. Vuota se non si sa: la
+ * colonna resta vuota e la campagna nasce senza targeting di lingua, che e'
+ * il comportamento normale di Google (tutte le lingue) e non un errore.
+ */
+function linguaBulk(lingua) {
+  switch (String(lingua || "").toLowerCase()) {
+    case "ita": case "it": case "italiano": return "it";
+    case "eng": case "en": case "inglese": return "en";
+    case "fra": case "fr": case "francese": return "fr";
+    case "esp": case "es": case "spagnolo": return "es";
+    case "deu": case "de": case "tedesco": return "de";
+    default: return "";
+  }
+}
+
 function creaCampagna(op, conto) {
   var par = op.parametri;
   if (!par.nome || !par.budget) throw new Error("Servono nome e budget");
@@ -2175,6 +2191,7 @@ function creaCampagna(op, conto) {
 
   var colonne = [
     "Campaign", "Budget", "Campaign type", "Campaign state", "EU political ads", "Bid strategy type",
+    "Language targeting", "Location ID",
     "Ad group", "Keyword", "Criterion type",
     "Ad type", "Final URL",
     "Headline 1", "Headline 2", "Headline 3", "Headline 4", "Headline 5",
@@ -2215,7 +2232,27 @@ function creaCampagna(op, conto) {
     // si compila il modulo (par.strategia), e finora l'app la registrava solo
     // come promemoria perche' si credeva non ci fosse una colonna. C'e'.
     "Bid strategy type": strategiaBulk(par.strategia),
+    // La lingua del pubblico, col codice che usa Google (it, en, fr, es).
+    // Vuota quando l'app non l'ha detta: una colonna vuota non e' un errore,
+    // una lingua indovinata sarebbe una campagna che parla a chi non capisce.
+    "Language targeting": linguaBulk(par.lingua),
   });
+
+  // LOCALITA': una riga per ognuna, con l'ID e non col nome.
+  //
+  // ATTENZIONE: i nomi hanno una lingua e gli id no. Google conosce le
+  // localita' in inglese ("Spain", "Milan"), nel modulo dell'app si scrive in
+  // italiano, e un nome che non combacia non da' errore: da' una campagna
+  // senza quella localita'. L'app traduce prima (lib/geo-target.ts) e manda
+  // solo numeri; quelle che non sa tradurre le dichiara invece di tirare a
+  // indovinare.
+  var localita = par.localitaId || [];
+  for (var g = 0; g < localita.length; g++) {
+    upload.append({
+      "Campaign": par.nome,
+      "Location ID": localita[g],
+    });
+  }
 
   // Keyword: [{testo, corrispondenza}]
   var kws = par.keywords || [];
@@ -2249,6 +2286,8 @@ function creaCampagna(op, conto) {
       "bulk upload INVIATO all'account " + conto.id + ": campagna \"" + par.nome + "\" con " +
       kws.length + " keyword" + (titoli.length ? " e 1 annuncio RSA" : "") +
       " e strategia " + strategiaBulk(par.strategia) +
+      (linguaBulk(par.lingua) ? ", lingua " + linguaBulk(par.lingua) : "") +
+      ((par.localitaId && par.localitaId.length) ? ", " + par.localitaId.length + " localita" : "") +
       ", IN PAUSA se Google accetta le righe. ATTENZIONE: il caricamento e' asincrono e non risponde" +
       " allo script: l'esito vero sta nel registro caricamenti di Google Ads (Azioni collettive > Caricamenti)" +
       " e l'app lo verifica col primo giro di anagrafica. Passare la checklist 4.1 prima di attivarla.",

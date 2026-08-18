@@ -18,6 +18,7 @@ import { prisma } from "./db";
 import { accodaOperazione } from "./operazioni";
 import { BRANDS, STATI_AZIONE, STATI_AZIONE_APERTI, STATI_CAMPAGNA, testoKeywordPulito } from "./dominio";
 import { CHIAVE_APIKEY, CHIAVE_CARTELLA, idCartellaDrive, sincronizzaDrive } from "./drive";
+import { risolviLocalita } from "./geo-target";
 // Statico e non `await import()` come il resto di guardrail: serve dentro le
 // query, non dentro il corpo delle funzioni. `guardrail.ts` non importa nulla,
 // nessun rischio di ciclo.
@@ -1933,18 +1934,31 @@ export async function lanciaCampagna(fd: FormData) {
     .map((r) => r.trim())
     .filter(Boolean);
 
-  // ⚠️ LA STRATEGIA NON STA PIÙ QUI DENTRO. Dal 18/08/2026 il bulk upload la
-  // porta davvero, nella colonna «Bid strategy type» — che Google PRETENDE:
-  // senza, rifiuta la riga della campagna e con lei cadono gruppo, keyword e
-  // annuncio. Prima stava fra le cose «da impostare a mano» perché si credeva
-  // non ci fosse una colonna; continuare a dirlo farebbe rimettere a mano una
-  // cosa già impostata — il difetto opposto e altrettanto brutto, perché chi
-  // legge non sa più a quale delle due frasi credere.
+  // ⚠️ COSA ARRIVA DAVVERO SU GOOGLE, e cosa no. Fino al 18/08/2026 qui dentro
+  // finivano strategia, località, lingua e negative, tutte dichiarate «da
+  // impostare a mano» perché si credeva che il bulk upload non avesse le
+  // colonne. Ne aveva: la prova è arrivata dal registro caricamenti, che ha
+  // rifiutato una campagna per una colonna obbligatoria che non sapevamo
+  // esistesse. Adesso:
+  //   · strategia → colonna «Bid strategy type» (obbligatoria)
+  //   · lingua    → colonna «Language targeting»
+  //   · località  → una riga per località, con l'ID (i nomi hanno una lingua,
+  //                 gli id no: vedi lib/geo-target.ts)
+  //   · negative  → NON dal caricamento: si mettono in coda come operazioni
+  //                 `negativa` quando Google conferma che la campagna esiste,
+  //                 perché lì c'è `createNegativeKeyword` che si rilegge e
+  //                 quindi sappiamo se sono entrate. Una negativa che sparisce
+  //                 in silenzio è la peggiore: la campagna eroga su ricerche
+  //                 che qualcuno aveva deciso di escludere.
+  //   · obiettivo → resta un'etichetta nostra. Su Google l'«obiettivo» è un
+  //                 involucro dell'interfaccia, non un campo che uno script
+  //                 possa scrivere: elencarlo fra le cose da mettere a mano
+  //                 farebbe cercare per sempre un interruttore che non c'è.
+  const geo = await risolviLocalita(localita);
   const daMano = [
-    `obiettivo ${ETICHETTA_OBIETTIVO[obiettivoTipo] ?? obiettivoTipo}`,
-    localita.length > 0 ? `località ${localita.join(", ")}` : null,
-    lingua ? `lingua ${lingua}` : null,
-    negative.length > 0 ? `${negative.length} parole da escludere` : null,
+    // Solo le località che non sappiamo tradurre in un id: quelle risolte
+    // partono col caricamento, e dirle «da mettere a mano» sarebbe falso.
+    geo.nonRisolte.length > 0 ? `località ${geo.nonRisolte.join(", ")} (non so l'id: mettile a mano)` : null,
   ].filter(Boolean);
 
   const campagna = await prisma.campagna.create({
@@ -1959,9 +1973,16 @@ export async function lanciaCampagna(fd: FormData) {
       tipoConversione: CONVERSIONE_DI_OBIETTIVO[obiettivoTipo] ?? null,
       note:
         "Creata dall'app: in coda per il lancio su Google Ads (nasce in pausa). " +
-        (strategia ? `Strategia di offerta ${strategia}: questa il bulk upload la porta. ` : "") +
-        `DA IMPOSTARE A MANO in Google Ads prima di accenderla — ${daMano.join(" · ")}: ` +
-        "non sono fra le colonne del bulk upload, quindi lo script non può portarle.",
+        `Il caricamento porta budget, strategia${strategia ? ` (${strategia})` : ""}` +
+        `${lingua ? `, lingua ${lingua}` : ""}` +
+        `${geo.risolte.length > 0 ? `, ${geo.risolte.length} località` : ""}` +
+        ", gruppo, keyword e annuncio. " +
+        (negative.length > 0
+          ? `Le ${negative.length} parole da escludere vanno in coda da sole appena Google conferma la campagna. `
+          : "") +
+        (daMano.length > 0
+          ? `DA IMPOSTARE A MANO in Google Ads prima di accenderla — ${daMano.join(" · ")}.`
+          : "Non resta niente da impostare a mano, ma la checklist 4.1 va fatta lo stesso prima di accenderla."),
     },
   });
 
@@ -1978,13 +1999,18 @@ export async function lanciaCampagna(fd: FormData) {
         titoli,
         descrizioni,
         finalUrl,
-        // Da qui in giù: registrate per il paper trail, NON applicate dallo
-        // script. Chi legge l'operazione vede cosa era stato chiesto.
-        obiettivoTipo,
-        localita,
-        lingua,
         strategia,
+        lingua,
+        // Le località già tradotte in id: lo script scrive righe, non indovina
+        // nomi. `localita` resta coi nomi scritti a mano, per il paper trail.
+        localitaId: geo.risolte.map((l) => l.id),
+        localita,
+        localitaNonRisolte: geo.nonRisolte,
+        // Le negative NON le porta il caricamento: aspettano che la campagna
+        // esista e diventano operazioni loro (vedi il commento sopra).
         negative,
+        // Registrato per il paper trail: su Google non è un campo scrivibile.
+        obiettivoTipo,
       }),
       motivo: testo(fd, "motivo"),
       livello: "L2",

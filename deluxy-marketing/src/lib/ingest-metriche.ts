@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { STATI_CAMPAGNA_NOSTRI } from "@/lib/dominio";
+import { accodaNegativeDiLancio } from "@/lib/negative-di-lancio";
 
 // Il salvataggio delle metriche di campagna, in un posto solo.
 // Lo usano sia /api/v1/ingest (dove le manda lo script di Google Ads) sia il
@@ -379,6 +380,8 @@ export async function salvaAnagrafica(
   // Le località da sincronizzare si raccolgono durante il giro e si scrivono
   // in fondo: una lettura sola per tutto il lotto, non una per campagna.
   const localitaDaSincronizzare: { campagnaId: string; localita: LocalitaRiga[] }[] = [];
+  // Le campagne che in QUESTO giro Google nomina per la prima volta.
+  const appenaConfermate: string[] = [];
 
   // Una lettura sola per tutto il lotto invece di una interrogazione per
   // campagna: gli account grossi ne hanno centinaia.
@@ -452,6 +455,12 @@ export async function salvaAnagrafica(
     // Si scrive solo se qualcosa è davvero cambiato: un giro di anagrafica che
     // "aggiorna" trecento campagne identiche riempie lo storico di rumore e
     // rende invisibile il cambiamento vero.
+    // ⚠️ IL MOMENTO IN CUI GOOGLE CONFERMA UNA CAMPAGNA NUOVA. La riga esiste
+    // nell'app da quando è stata messa in coda, ma senza `idEsterno`: è questo
+    // il giro in cui Google la nomina per la prima volta. Serve alle negative
+    // del lancio, che aspettano proprio questo (vedi lib/negative-di-lancio).
+    if (!trovata.idEsterno) appenaConfermate.push(trovata.id);
+
     const cambia =
       (dati.stato != null && dati.stato !== trovata.stato) ||
       (dati.statoPiattaforma != null && dati.statoPiattaforma !== trovata.statoPiattaforma) ||
@@ -485,6 +494,16 @@ export async function salvaAnagrafica(
   }
 
   await sincronizzaLocalita(localitaDaSincronizzare);
+
+  // Le negative di un lancio aspettano che Google confermi la campagna: è
+  // adesso. ⚠️ In un `try`: se questa parte si rompe, l'anagrafica — che è il
+  // dato importante e arriva da un giro che costa minuti — deve entrare lo
+  // stesso. Un'aggiunta al margine non fa fallire l'import che la ospita.
+  try {
+    await accodaNegativeDiLancio(appenaConfermate);
+  } catch (e) {
+    console.error("negative di lancio non accodate:", e);
+  }
 
   return esito;
 }
