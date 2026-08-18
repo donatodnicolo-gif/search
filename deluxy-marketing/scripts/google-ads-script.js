@@ -1814,20 +1814,98 @@ function trovaGruppo(op, conto) {
   return it.hasNext() ? { esito: "trovato", gruppo: it.next() } : { esito: "non-trovato" };
 }
 
-/** Esegue davvero. Ogni ramo legge lo stato PRIMA di cambiarlo. */
+/**
+ * Rilegge lo stato DOPO averlo cambiato, con un selettore NUOVO.
+ *
+ * ATTENZIONE: e' la stessa lezione di createNegativeKeyword (corretta
+ * l'08/08) e di creaCampagna (17/08): una scrittura che non si rilegge fa
+ * registrare all'app un successo che non e' avvenuto. Costata cara il
+ * 04/08/2026: quattro keyword messe in pausa con esito "keyword in pausa",
+ * e "fioraio milano" ha continuato a ricevere impressioni lo stesso giorno
+ * (44), il giorno dopo (45) e ogni giorno fino al 18/08 - 630 impressioni e
+ * 83,82 euro spesi da una parola che nell'app risultava ferma.
+ *
+ * Il selettore dev'essere NUOVO: l'oggetto che si ha in mano puo' tenersi lo
+ * stato con cui e' stato letto. Torna "ENABLED", "PAUSED" o null quando la
+ * rilettura non riesce - e null NON e' un errore, e' un non lo so.
+ */
+function rileggiStato(tipo, entita) {
+  try {
+    if (tipo === "keyword") {
+      var idG = entita.getAdGroup().getId();
+      var idK = entita.getId();
+      var itK = AdsApp.keywords().withIds([[Number(idG), Number(idK)]]).get();
+      if (!itK.hasNext()) return null;
+      return itK.next().isEnabled() ? "ENABLED" : "PAUSED";
+    }
+    if (tipo === "gruppo") {
+      var itG = AdsApp.adGroups().withIds([Number(entita.getId())]).get();
+      if (!itG.hasNext()) return null;
+      return itG.next().isEnabled() ? "ENABLED" : "PAUSED";
+    }
+    if (tipo === "campagna") {
+      var rilettaC = rileggiCampagna(entita);
+      if (!rilettaC) return null;
+      return rilettaC.isEnabled() ? "ENABLED" : "PAUSED";
+    }
+  } catch (e) {
+    return null;
+  }
+  return null;
+}
+
+/** La stessa campagna riletta da un selettore nuovo, qualunque sia il tipo. */
+function rileggiCampagna(campagna) {
+  var id = Number(campagna.getId());
+  var selettori = [];
+  aggiungiSelettore(selettori, function () { return AdsApp.campaigns(); });
+  aggiungiSelettore(selettori, function () { return AdsApp.performanceMaxCampaigns(); });
+  aggiungiSelettore(selettori, function () { return AdsApp.shoppingCampaigns(); });
+  aggiungiSelettore(selettori, function () { return AdsApp.videoCampaigns(); });
+  for (var i = 0; i < selettori.length; i++) {
+    try {
+      var it = selettori[i].withIds([id]).get();
+      if (it.hasNext()) return it.next();
+    } catch (e) {
+      // tipo non supportato da questo selettore
+    }
+  }
+  return null;
+}
+
+/**
+ * La nota da appendere all'esito: confermato, non riletto, o NON APPLICATO.
+ *
+ * Il dubbio si DICHIARA, non diventa un errore: dentro la stessa esecuzione i
+ * selettori possono ancora vedere lo stato di partenza, e segnare fallito un
+ * lavoro riuscito e' il difetto opposto. Ma quando la rilettura dice il
+ * contrario, l'app lo deve leggere nell'esito invece di registrare un
+ * successo - e dal 17/08 lo verifica anche da sola col giro di lettura dopo.
+ */
+function notaRilettura(letto, atteso, cosa) {
+  if (letto === null) return " (non ho potuto rileggere " + cosa + " per confermare)";
+  if (letto === atteso) return " (confermato rileggendo)";
+  return " - ATTENZIONE: rileggendo, " + cosa + " risulta ancora " +
+    (letto === "ENABLED" ? "in erogazione" : "in pausa") +
+    ". Puo' essere il ritardo di Google dentro la stessa esecuzione, oppure la modifica NON e' passata: ricontrollare al prossimo giro.";
+}
+
+/** Esegue davvero. Ogni ramo legge lo stato prima E lo rilegge DOPO. */
 function applica(op, mira, conto) {
   var t = op.tipo;
 
   if (t === "pausa_campagna") {
     var eraAttiva = mira.campagna.isEnabled();
     mira.campagna.pause();
-    return { dettaglio: "campagna messa in pausa", prima: eraAttiva ? "attiva" : "già in pausa", dopo: "in pausa" };
+    var lettaCP = rileggiStato("campagna", mira.campagna);
+    return { dettaglio: "campagna messa in pausa" + notaRilettura(lettaCP, "PAUSED", "la campagna"), prima: eraAttiva ? "attiva" : "già in pausa", dopo: "in pausa" };
   }
 
   if (t === "attiva_campagna") {
     var eraPausa = mira.campagna.isPaused();
     mira.campagna.enable();
-    return { dettaglio: "campagna riattivata", prima: eraPausa ? "in pausa" : "già attiva", dopo: "attiva" };
+    var lettaCA = rileggiStato("campagna", mira.campagna);
+    return { dettaglio: "campagna riattivata" + notaRilettura(lettaCA, "ENABLED", "la campagna"), prima: eraPausa ? "in pausa" : "già attiva", dopo: "attiva" };
   }
 
   if (t === "budget") {
@@ -1845,8 +1923,20 @@ function applica(op, mira, conto) {
       );
     }
     budget.setAmount(nuovo);
+    // Stessa regola dello stato: si rilegge da un selettore NUOVO. Se il
+    // numero non e' ancora quello, si dichiara il dubbio invece di dare per
+    // fatto - l'app non ha altro modo di saperlo fino al giro dopo.
+    var notaB = " (non ho potuto rileggere il budget per confermarlo)";
+    var rilettaB = rileggiCampagna(mira.campagna);
+    if (rilettaB) {
+      var adessoB = rilettaB.getBudget().getAmount();
+      notaB = Math.abs(adessoB - nuovo) < 0.005
+        ? " (confermato rileggendo)"
+        : " - ATTENZIONE: rileggendo, il budget risulta ancora " + adessoB +
+          " al giorno. Puo' essere il ritardo di Google dentro la stessa esecuzione, oppure la modifica NON e' passata: ricontrollare al prossimo giro.";
+    }
     return {
-      dettaglio: "budget " + vecchio + " → " + nuovo + " €/g",
+      dettaglio: "budget " + vecchio + " → " + nuovo + " €/g" + notaB,
       prima: vecchio + " €/g",
       dopo: nuovo + " €/g",
     };
@@ -1899,20 +1989,23 @@ function applica(op, mira, conto) {
   if (t === "pausa_keyword") {
     var eraAttivaKw = mira.keyword.isEnabled();
     mira.keyword.pause();
-    return { dettaglio: "keyword in pausa", prima: eraAttivaKw ? "attiva" : "già in pausa", dopo: "in pausa" };
+    var lettaKP = rileggiStato("keyword", mira.keyword);
+    return { dettaglio: "keyword in pausa" + notaRilettura(lettaKP, "PAUSED", "la keyword"), prima: eraAttivaKw ? "attiva" : "già in pausa", dopo: "in pausa" };
   }
 
   if (t === "attiva_keyword") {
     var eraPausaKw = mira.keyword.isPaused();
     mira.keyword.enable();
-    return { dettaglio: "keyword riattivata", prima: eraPausaKw ? "in pausa" : "già attiva", dopo: "attiva" };
+    var lettaKA = rileggiStato("keyword", mira.keyword);
+    return { dettaglio: "keyword riattivata" + notaRilettura(lettaKA, "ENABLED", "la keyword"), prima: eraPausaKw ? "in pausa" : "già attiva", dopo: "attiva" };
   }
 
   if (t === "pausa_gruppo") {
     var eraAttivoGr = mira.gruppo.isEnabled();
     mira.gruppo.pause();
+    var lettaGP = rileggiStato("gruppo", mira.gruppo);
     return {
-      dettaglio: "gruppo \"" + mira.gruppo.getName() + "\" messo in pausa",
+      dettaglio: "gruppo \"" + mira.gruppo.getName() + "\" messo in pausa" + notaRilettura(lettaGP, "PAUSED", "il gruppo"),
       prima: eraAttivoGr ? "attivo" : "già in pausa",
       dopo: "in pausa",
     };
@@ -1921,8 +2014,9 @@ function applica(op, mira, conto) {
   if (t === "attiva_gruppo") {
     var eraPausaGr = mira.gruppo.isPaused();
     mira.gruppo.enable();
+    var lettaGA = rileggiStato("gruppo", mira.gruppo);
     return {
-      dettaglio: "gruppo \"" + mira.gruppo.getName() + "\" riattivato",
+      dettaglio: "gruppo \"" + mira.gruppo.getName() + "\" riattivato" + notaRilettura(lettaGA, "ENABLED", "il gruppo"),
       prima: eraPausaGr ? "in pausa" : "già attivo",
       dopo: "attivo",
     };
