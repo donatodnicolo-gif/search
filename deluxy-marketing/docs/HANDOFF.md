@@ -220,6 +220,57 @@ criterio diverso (era il periodo del difetto degli id, chiuso l'08/08), o
 qualcuno le ha riattivate a mano. ⚠️ Nota: il 04/08 quelle operazioni avevano
 `account` vuoto — il difetto chiuso l'08/08 con `accodaOperazione`.
 
+### ⭐⭐ «Keyword in pausa» non voleva dire fermata: lo script non rileggeva (17-18/08/2026)
+
+Commit `975df18c`. **Trovato dalla conferma per operazione aggiunta poche ore
+prima** — è il primo guasto che quel meccanismo ha scoperto da solo.
+
+**Il fatto, misurato sul registro giornaliero.** Le quattro pause del 04/08
+(`fioraio milano`, `send flowers in milan`, `milan flower delivery`,
+`flowers milan`) hanno esito «keyword in pausa» e Google le dà `ENABLED`. Non è
+un disallineamento di stato: **hanno continuato a spendere**. Dal 04/08:
+**117,72 €** e impressioni fino a oggi.
+
+| parola | spesa dal 04/08 | impressioni | ultimo giorno attivo |
+| --- | --- | --- | --- |
+| fioraio milano | 83,82 € | 630 | 18/08 |
+| milan flower delivery | 19,05 € | 21 | 18/08 |
+| flowers milan | 10,62 € | 26 | 17/08 |
+| send flowers in milan | 4,23 € | 7 | 15/08 |
+
+⭐ **`fioraio milano` non si è fermata nemmeno un giorno**: 44 impressioni il
+giorno stesso della pausa, 45 il giorno dopo, e avanti senza un buco. Quella
+pausa **non è mai andata**. Le altre tre sono ferme dal 04/08 e riprendono il
+09/08, ma sono da 1-7 impressioni al giorno: il buco da solo non distingue «era
+in pausa» da «non ha avuto ricerche», e non si conclude.
+
+**La causa.** `applica()` chiamava `pause()` / `enable()` / `setAmount()` e
+riferiva «fatto» **senza rileggere** — il commento diceva «ogni ramo legge lo
+stato PRIMA di cambiarlo»: prima, e basta. È il **terzo membro della stessa
+famiglia**, dopo `createNegativeKeyword()` (corretta l'08/08 con
+`negativaPresente`) e `creaCampagna()` (ieri, col bulk upload che non
+risponde). Ogni volta la stessa forma: *una scrittura che non si rilegge fa
+registrare all'app un successo che non è avvenuto.*
+
+**La correzione.** Tutti e sette i rami che scrivono ora rileggono da un
+selettore **NUOVO** (`rileggiStato` per keyword/gruppo/campagna,
+`rileggiCampagna` per il budget) e l'esito lo dice: *confermato rileggendo* ·
+*non ho potuto rileggere* · **ATTENZIONE: risulta ancora in erogazione**.
+⚠️ Il selettore dev'essere nuovo: l'oggetto che si ha in mano può tenersi lo
+stato con cui è stato letto. ⚠️ E il dubbio **si dichiara, non diventa un
+errore**: dentro la stessa esecuzione i selettori possono ancora vedere lo
+stato di partenza, e segnare fallito un lavoro riuscito è il difetto opposto.
+La rete vera resta quella dell'app, che dal 17/08 verifica col giro dopo.
+
+⚠️ **Ancore solo-ASCII per patchare questo file**: gli accenti sono in
+**mojibake** (`à` = `C3 83 C2 A0`, cioè UTF-8 ri-codificato in latin1), quindi
+un'ancora che contiene «già» **non aggancia** — e il conteggio dei byte
+non-ASCII (5.842) resta il controllo che dice se si è rotto qualcosa.
+
+**Verificato**: prova a secco 9/9, byte non-ASCII identici, 10 copie rigenerate
+(7 `notaRilettura` ciascuna). ⚠️ **Va reincollato** per avere effetto: la
+correzione vive dentro Google Ads, non nell'app.
+
 ### 🔴 «Eseguita» su una campagna nuova voleva dire INVIATA, non creata — e Google la rifiutava per «EU political ads» (17/08/2026)
 
 Due commit, `db6d992f` (15:31) e `ea919a4c` (15:54), entrambi in produzione.
@@ -2784,10 +2835,13 @@ Resta da fare, **fuori dall'app**:
    gruppo «Flowers Delivery»). Messe in pausa dall'app il **04/08**, esito
    «keyword in pausa», e il censimento del **17/08** le riporta `ENABLED`:
    stanno ancora andando in asta mentre l'app le dà ferme. Da guardare in
-   Google Ads — o l'esecuzione del 04/08 ha toccato un criterio diverso (era il
-   periodo del difetto degli id, chiuso l'08/08: quelle operazioni hanno anche
-   `account` vuoto), o le ha riattivate una persona. Se vanno davvero fermate,
-   basta rimetterle in pausa dall'app: ora la riga dirà se ha tenuto.
+   **CAUSA TROVATA** (vedi la sezione qui sopra): lo script chiamava `pause()`
+   e riferiva «fatto» senza rileggere. `fioraio milano` non si è fermata
+   nemmeno un giorno e da sola ha speso **83,82 €** in due settimane da ferma.
+   **Cosa fare**: reincollare lo script corretto (`esegui.js` + `tutto.js`),
+   poi rimetterle in pausa dall'app — ora l'esito dirà «confermato rileggendo»
+   oppure «ATTENZIONE: risulta ancora in erogazione», e al giro dopo la riga
+   dirà se ha tenuto.
 5. ~~Su `/ricezione` deve comparire il tipo `annuncio-giorni` per i tre
    account~~ — **c'è** (29 consegne al 17/08 pomeriggio, `MetricaAnnuncio`
    5.157 righe dal 19/05). Resta da fare **a occhio**: aprire una scheda
@@ -3155,6 +3209,14 @@ funzione.
   gruppo, keyword e annuncio con `The entity does not exist for Campaign` —
   errori che sembrano la causa e sono l'effetto. La colonna c'è dal 17/08
   (`"no"`); se Google risponde «Invalid value», l'altra forma è `false`.
+- **Una scrittura che non si rilegge fa registrare un successo che non è
+  avvenuto**: `createNegativeKeyword` (08/08), `creaCampagna` (17/08),
+  `pause`/`enable`/`setAmount` (18/08). Prima di scrivere «fatto», rileggere —
+  **da un selettore NUOVO**, perché l'oggetto in mano tiene lo stato con cui è
+  stato letto — e dichiarare il dubbio invece di trasformarlo in un errore.
+- **Il file `google-ads-script.js` ha gli accenti in MOJIBAKE** (`à` = `C3 83
+  C2 A0`): un'ancora di ricerca che contiene «già» non aggancia niente. Le
+  patch vanno scritte con ancore **solo-ASCII**.
 - **Confrontare col valore di OGGI risponde a una domanda diversa da quella che
   si è fatta**: prima di dire «Google smentisce questa operazione», guardare
   **chi ha toccato quel campo dopo** — quasi sempre un'altra operazione nostra.
