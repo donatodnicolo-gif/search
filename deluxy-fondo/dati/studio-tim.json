@@ -1,0 +1,109 @@
+{
+  "nota": "Fotografia calcolata il 18/08/2026 da un'analisi indipendente su TIT.MI (Yahoo chart v8, 1270 sedute). L'app la mostra come STUDIO STORICO, non come dato vivo: i dati vivi vengono da dati/serie-*.json, aggiornati ogni giorno. Serve a confrontare i calcoli dell'app con una misurazione indipendente.",
+  "titolo": "TIM (Telecom Italia) ord.",
+  "ticker": "TIT.MI",
+  "data_estrazione": "2026-08-18",
+  "prezzo": 7.703,
+  "valuta": "EUR",
+  "raggruppamento_1_10": {
+    "data": "2026-06-15",
+    "serie_yahoo_gia_rettificata": true,
+    "fattore_applicato": 1
+  },
+  "rendimenti": {
+    "1m": { "tim": -0.0184, "mib": 0.0268, "telecom_eu": 0.0216, "ecc_mib": -0.0451 },
+    "3m": { "tim": 0.0631, "mib": 0.0945, "telecom_eu": -0.0825, "ecc_mib": -0.0315 },
+    "6m": { "tim": 0.1939, "mib": 0.149, "telecom_eu": -0.0044, "ecc_mib": 0.0449 },
+    "12m": { "tim": 0.6414, "mib": 0.2492, "telecom_eu": 0.1572, "ecc_mib": 0.3921 },
+    "3a": { "tim": 1.7799, "mib": 0.9188, "telecom_eu": 0.7303, "ecc_mib": 0.861 },
+    "5a": { "tim": 0.9997, "mib": 1.0211, "telecom_eu": 0.4272, "ecc_mib": -0.0214 }
+  },
+  "rischio": {
+    "vol_60g": 0.1726,
+    "vol_250g": 0.2857,
+    "vol_250g_mib": 0.1578,
+    "max_drawdown": -0.6555,
+    "max_drawdown_inizio": "2021-11-24",
+    "max_drawdown_fine": "2022-10-12",
+    "max_drawdown_recupero": "2025-10-16",
+    "beta_250g": 0.5134,
+    "correlazione_250g": 0.2835,
+    "beta_5anni": 0.9036,
+    "correlazione_5anni": 0.4104
+  },
+  "tendenza": {
+    "ma50": 7.76,
+    "ma200": 6.405,
+    "dist_ma50": -0.0073,
+    "dist_ma200": 0.2027,
+    "golden_cross": ["2023-02-02", "2023-08-23", "2024-01-18", "2024-10-24"],
+    "death_cross": ["2023-07-31", "2023-11-16", "2024-03-18"],
+    "ultimo_incrocio": "golden cross del 2024-10-24",
+    "rendimento_da_ultimo_incrocio": 2.1883,
+    "incroci_col_segno_sbagliato": 6,
+    "incroci_totali": 7
+  },
+  "momentum": {
+    "rend_6_1": 0.2162,
+    "rsi_14": 55.9,
+    "max_52w": 8.139,
+    "data_max_52w": "2026-07-01",
+    "min_52w": 4.096,
+    "data_min_52w": "2025-08-29",
+    "posizione_range_52w": 0.8922,
+    "dist_da_max_52w": -0.0536
+  },
+  "volume": {
+    "media_20g": 10779865,
+    "media_250g": 16366456,
+    "rapporto_20_su_250": 0.66,
+    "seduta_volume_massimo": "2021-11-22",
+    "volume_massimo": 172484480
+  },
+  "concentrazione": {
+    "rendimento_5anni": 1.0,
+    "senza_le_10_migliori": -0.3,
+    "senza_le_10_peggiori": 5.531,
+    "senza_entrambe": 1.287,
+    "sedute_totali": 1269
+  },
+  "giorni_estremi": {
+    "migliore": { "data": "2021-11-22", "rendimento": 0.3019, "causa": "manifestazione di interesse di KKR" },
+    "peggiore": { "data": "2024-03-07", "rendimento": -0.2384, "causa": null }
+  },
+  "strategie": {
+    "catena_cambi_ceo_totale": 0.603,
+    "catena_cambi_ceo_cagr": 0.105,
+    "buy_hold_tim_5a": 0.9997,
+    "buy_hold_tim_5a_cagr": 0.149,
+    "buy_hold_mib_5a": 1.0211,
+    "buy_hold_mib_5a_cagr": 0.151,
+    "buy_hold_telecom_eu_5a": 0.4272,
+    "buy_hold_telecom_eu_5a_cagr": 0.074,
+    "incrocio_ma50_ma200_long_only": 1.118,
+    "incrocio_ma_buy_hold_stesso_periodo": 1.664,
+    "tim_da_closing_netco": 2.408,
+    "mib_da_closing_netco": 0.58,
+    "tim_da_ingresso_poste": 1.478,
+    "mib_da_ingresso_poste": 0.4
+  },
+  "eventi": [
+    { "evento": "Offerta KKR", "data": "2021-11-22", "t1_ecc": -0.031, "t5_ecc": 0.0928, "t20_ecc": 0.0021, "t60_ecc": -0.0666, "t120_ecc": -0.2627 },
+    { "evento": "Dimissioni Gubitosi", "data": "2021-11-26", "t1_ecc": -0.0269, "t5_ecc": -0.0368, "t20_ecc": -0.1465, "t60_ecc": -0.1822, "t120_ecc": -0.3631 },
+    { "evento": "Labriola nominato AD", "data": "2022-01-21", "t1_ecc": 0.0154, "t5_ecc": -0.0112, "t20_ecc": -0.0105, "t60_ecc": -0.1802, "t120_ecc": -0.1942 },
+    { "evento": "Closing cessione NetCo", "data": "2024-07-01", "t1_ecc": 0.0291, "t5_ecc": 0.0004, "t20_ecc": 0.0129, "t60_ecc": 0.0766, "t120_ecc": 0.1938 },
+    { "evento": "Piano 2025-2027", "data": "2025-02-12", "t1_ecc": -0.0356, "t5_ecc": -0.1226, "t20_ecc": -0.1241, "t60_ecc": 0.1203, "t120_ecc": 0.2486 },
+    { "evento": "Poste compra il 15% da Vivendi", "data": "2025-03-29", "t1_ecc": 0.0147, "t5_ecc": 0.0439, "t20_ecc": 0.1314, "t60_ecc": 0.3085, "t120_ecc": 0.3108 },
+    { "evento": "Annuncio OPAS Poste", "data": "2026-03-22", "t1_ecc": -0.0078, "t5_ecc": -0.0263, "t20_ecc": -0.0056, "t60_ecc": 0.082, "t120_ecc": null },
+    { "evento": "Raggruppamento 1:10", "data": "2026-06-15", "t1_ecc": 0.0039, "t5_ecc": -0.0299, "t20_ecc": 0.0012, "t60_ecc": null, "t120_ecc": null },
+    { "evento": "Risultati H1 2026", "data": "2026-07-29", "t1_ecc": -0.0168, "t5_ecc": -0.0044, "t20_ecc": null, "t60_ecc": null, "t120_ecc": null }
+  ],
+  "avvertenze": [
+    "Campione di 8 eventi e 2 tratti di strategia: nessuna significativita statistica.",
+    "Il FTSE MIB e un indice di PREZZO, TIM e senza dividendi nel periodo: il confronto sovrastima TIM di circa 15-20 punti su 5 anni.",
+    "Beta e correlazione a 250 sedute (0,51 e 0,28) non sono misure di rischio utilizzabili: il titolo e guidato dall'OPAS, non dal mercato.",
+    "Il rendimento a 5 anni parte tre mesi prima del picco KKR: spostare l'inizio di poche settimane cambia il verdetto di decine di punti.",
+    "Rendimenti lordi: nessuna commissione, nessuno spread, nessuna imposta.",
+    "Il titolo tratta dentro il perimetro di un'offerta pubblica: nessun indicatore tecnico ha potere predittivo in quel regime."
+  ]
+}
