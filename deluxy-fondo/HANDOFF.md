@@ -92,6 +92,13 @@ La tesi di partenza **non regge sui dati**, e l'app lo dice in prima pagina:
   Italiana né download strutturati da Consob. Non riprovarli.
 - **Il FTSE MIB è un indice di prezzo**: ogni confronto mostrato favorisce il titolo di 3-4
   punti l'anno. È dichiarato in `/dati`, ma va ricordato leggendo le tabelle.
+- **Mai lanciare `next build` mentre `next dev` è in esecuzione.** La build di produzione
+  sovrascrive `.next` sotto il processo di sviluppo, che da quel momento serve HTTP 500 con
+  `Cannot find module './873.js'`. Il codice non c'entra nulla: si ferma il server, si
+  cancella `.next`, si riavvia. Per verificare la build, fermare prima il server.
+- **La console del browser conserva i messaggi delle sessioni precedenti.** Dopo un riavvio,
+  per sapere se un errore è ancora vivo si guardano i log del server, non la console: lì
+  restano visibili errori già risolti.
 
 ## Vincolo di legge
 
