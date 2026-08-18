@@ -81,6 +81,30 @@ var AZIONE = "metriche";
 //   825-518-1560 → "flowers" · 248-656-1148 → "gifts" · 846-090-5423 → "cake"
 var BRAND = "";
 
+// Cosa dichiarare nella colonna "EU political ads" quando si CREA una
+// campagna (obbligatoria dal regolamento UE sulla pubblicita' politica: senza
+// valore Google rifiuta la riga con "Missing value in EU political ads", e con
+// lei cadono gruppo, keyword e annuncio).
+//
+// ATTENZIONE: qui va "non contiene", ed e' il valore giusto per Deluxy. Una
+// campagna che dichiara di contenere pubblicita' politica UE SMETTE di erogare
+// nella UE: non mettere il valore affermativo "per prudenza".
+//
+// PERCHE' E' UN INTERRUTTORE: le fonti si contraddicono sul FORMATO e non e'
+// ancora provato su un nostro account. Il Forum Advisor di Google (thread
+// adwords-scripts del 29/08/2025) suggerisce il booleano false; nello stesso
+// thread chi l'ha provato riferisce che false non passa e "no" si'; i modelli
+// di caricamento di Google Ads e i bulksheet SA360 usano yes/no.
+//
+//   "no"    testo, minuscolo   <- prova per prima questa
+//   false   booleano           <- se il registro caricamenti dice
+//                                 "Invalid value in EU political ads"
+//
+// Il registro sta in Google Ads: Strumenti e impostazioni > Azioni collettive
+// > Caricamenti. E' l'UNICO posto dove il motivo esiste: il bulk upload non
+// risponde allo script e non torna mai indietro all'app.
+var EU_POLITICAL_ADS = "no";
+
 // Quanti giorni rimandare a ogni giro.
 // ATTENZIONE: questa e la riga sotto sono DUE impostazioni separate, non una
 // somma. Qui va un numero e basta; sotto va true o false.
@@ -2146,17 +2170,10 @@ function creaCampagna(op, conto) {
     // annuncio con "The entity does not exist for Campaign" - errori che
     // sembrano la causa e sono solo la conseguenza. Misurato il 17/08/2026
     // su Flowers: 17 righe rifiutate, una sola causa vera.
-    // ATTENZIONE: "no" = NON contiene pubblicita politica UE, ed e' il
-    // valore giusto per Deluxy. Non mettere "yes" "per prudenza": una
-    // campagna che dichiara di contenerne SMETTE di erogare nella UE.
-    // VALORE: "no" (testo, minuscolo). Le fonti si contraddicono: il Forum
-    // Advisor di Google (29/08/2025) suggerisce il booleano false, ma nello
-    // stesso thread chi l'ha provato riferisce che false NON passa e "no"
-    // si'; i modelli di caricamento di Google Ads e i bulksheet SA360 usano
-    // yes/no. NON ancora provato su un nostro account: se il registro
-    // caricamenti risponde "Invalid value in EU political ads", provare
-    // false (booleano) - e' l'unica altra forma documentata.
-    "EU political ads": "no",
+    // Il VALORE si cambia in cima al file (EU_POLITICAL_ADS), non qui: le due
+    // forme documentate si contraddicono e finche' non c'e' la prova deve
+    // bastare una riga per passare all'altra.
+    "EU political ads": EU_POLITICAL_ADS,
   });
 
   // Keyword: [{testo, corrispondenza}]
