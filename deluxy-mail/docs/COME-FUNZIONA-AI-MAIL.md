@@ -424,6 +424,12 @@ quando la apri. Ora funziona così:
 - la pulizia del pregresso è **graduale** (mille mail per giro di sincronizzazione):
   in poche ore il database si sgonfia, e da lì non ricresce più.
 
+**Dopo il trasloco del database (19/08/2026)**: nel trasferimento l'impaginato si è portato
+dietro solo gli **ultimi 7 giorni** invece di 30, perché una cache non si trasloca — si
+ricarica. In pratica, per qualche giorno le mail fra una settimana e un mese fa prendono
+l'impaginato dal server all'apertura (un attimo dopo il testo), esattamente come già fanno
+quelle più vecchie. Da lì in avanti la finestra torna a riempirsi da sola a 30 giorni.
+
 L'unico caso in cui l'impaginato non c'è più: una mail **cancellata dal server** della
 casella. Per quella resta il testo — l'HTML non esiste più da nessuna parte.
 

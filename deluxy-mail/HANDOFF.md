@@ -1,6 +1,6 @@
 # AI Mail 2.0 (deluxy-mail) — Handoff tecnico
 
-> Documento di ripartenza. Aggiornato: **17 agosto 2026**.
+> Documento di ripartenza. Aggiornato: **19 agosto 2026**.
 > Leggi anche `CLAUDE.md` alla radice del repo e il design system in `deluxy-design-system/`.
 
 ---
@@ -13,33 +13,32 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 
 - **URL produzione:** https://deluxy-mail.vercel.app
 - **Hosting:** Vercel (team `deluxy`, progetto `deluxy-mail`).
-- **DB: TRASLOCO IN CORSO (18/08/2026).** Si passa al cluster condiviso **`zegbztfxisqeowngvgvh`** (eu-central-1, org **Deluxy, piano Pro**, 8 GB, backup giornalieri), **schema `mail`** — lo stesso progetto delle altre 12 app Deluxy, ognuna nel suo schema. **Stato: i dati sono copiati** (31 tabelle, 30.240 messaggi su 30.242 — le 2 di scarto sono arrivate DURANTE la copia e le raccoglie il ripasso finale), **la produzione non è ancora commutata**: mancano `DATABASE_URL` e `DIRECT_URL` su Vercel, che le incolla l'utente da `deluxy-mail/.env.nuovo` (git le ignora). Finché non sono cambiate, la produzione scrive ancora sul database vecchio. Sequenza corretta: **prima le variabili + deploy, poi si rilancia `scripts/sposta-database.mjs --scrivi`** per la coda. ⚠️ Con lo spostamento va cambiata anche la region in `vercel.json`: **`dub1` → `fra1`** (fatto), o le funzioni restano a Dublino col database a Francoforte.
-- **DB di partenza (fino al 18/08):** progetto **`feleldlsreurqpdhstla`** («cs@deluxy.it's», piano **Free**, eu-west-1), schema `mail` — dal 28/07/2026. ⚠️ Lì AI Mail **divide il progetto con la piattaforma consegne** (schema `public`) e il progetto misura **566 MB, già oltre i 500 MB del Free**: se scatta la sola lettura, le due app si fermano insieme. È la ragione del trasloco. Resta **intatto come rete di sicurezza**: si spegne solo dopo qualche giorno di esercizio sereno del nuovo. `?schema=mail` va SEMPRE nelle stringhe (`DATABASE_URL` col pooler 6543 + `&pgbouncer=true`; `DIRECT_URL` col pooler 5432). Il progetto ancora più vecchio `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB) resta anch'esso come archivio.
+- **DB (dal 19/08/2026): cluster condiviso `zegbztfxisqeowngvgvh`** (eu-central-1, org **Deluxy, piano Pro**, 8 GB, backup giornalieri), **schema `mail`** — lo stesso progetto delle altre 12 app Deluxy, ognuna nel suo schema. Commutazione fatta alle **07:36 del 19/08** e verificata **dai fatti, non dalle impostazioni**: il database vecchio si è fermato (ultima scrittura 07:25) e il nuovo ha ripreso a crescere. **Collaudo: 31 tabelle su 31, 31.134 righe controllate, ZERO rimaste indietro** (i messaggi confrontati sulla chiave naturale, vedi §9). `?schema=mail` va SEMPRE nelle stringhe: `DATABASE_URL` col pooler **6543** + `&pgbouncer=true`, `DIRECT_URL` col pooler **5432**. Region `fra1` in `vercel.json`, verificata (`X-Vercel-Id: fra1::fra1`).
+- **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
 
-### Dove siamo (17 agosto 2026)
+### Dove siamo (19 agosto 2026)
 
-**Fotografia verificata oggi, 17 agosto 2026, ore 16:20** (la precedente era
-delle 10:25, prima dei lavori del pomeriggio):
+**Fotografia verificata oggi, 19 agosto 2026** (la giornata è stata il **trasloco
+del database**: dettaglio in §9):
 
 - **Codice**: niente in sospeso in `deluxy-mail/` (`git status -- deluxy-mail`
   pulito), tutto **pushato** su `origin/scout-ui` — verificato **sul contenuto**
   (non sullo SHA: su questo branch altre sessioni riscrivono la storia, quindi si
-  controlla che i file ci siano su `origin`, non che il numero del commit combaci;
-  ricontrollati oggi `daMail` in `azioneSezione.ts`, `NEGOZI_FORNITORI` in
-  `appDeluxy.ts`, `components/VoceMenu.tsx` e le 611 righe di questo file). Ultimo
-  commit di AI Mail: `cc1d3ab9` «il negozio dell'ordine lo decide la mail, non il
-  modello» (14:16). ⚠️ `git log` senza `-- deluxy-mail` mostra i commit delle
-  **altre app** del repo condiviso: qui l'ultimo commit del branch non è il nostro.
-- **Produzione allineata**: l'alias `deluxy-mail.vercel.app` punta al deploy
-  `dpl_54fic7aroS4Aeug1z3Y5iBciu31q` delle **14:17**, un minuto dopo `cc1d3ab9`:
-  la produzione ha **tutto** il lavoro del pomeriggio.
-- **Salute**: `GET /api/health` → `{"ok":true,"database":true,"scrivibile":true}`
-  in **0,85 s**, e `X-Vercel-Id: fra1::dub1::…` — le funzioni girano davvero a
-  **dub1 (Dublino)**, accanto al database in eu-west-1 (confermato anche dal
-  `vercel inspect`: ogni lambda è marcata `[dub1]`). Il punto aperto «verificare
-  la velocità dopo lo spostamento a dub1» è quindi **chiuso sulla configurazione**
-  (resta da giudicare a mano se aprire una mail è veloce a sufficienza).
+  controlla che i file ci siano su `origin`, non che il numero del commit combaci).
+  ⚠️ `git log` senza `-- deluxy-mail` mostra i commit delle **altre app** del repo
+  condiviso: qui l'ultimo commit del branch non è il nostro.
+- **Database NUOVO**: dal 19/08 AI Mail sta sul cluster condiviso
+  `zegbztfxisqeowngvgvh` (schema `mail`, org Deluxy in **Pro**). Commutato alle
+  **07:36**, collaudato: **31 tabelle su 31, zero righe rimaste indietro**.
+- **Produzione**: deploy `dpl_7shvLxd3A13JCAZMqqKXKpyeZwPf`, `Ready` e aliasato su
+  `deluxy-mail.vercel.app`; `migrate-prod` ha applicato **98/98** statement via
+  `DIRECT_URL`.
+- **Salute**: `GET /api/health` → `{"ok":true,"database":true,"scrivibile":true}`,
+  e `X-Vercel-Id: **fra1::fra1**` — le funzioni girano a **Francoforte**, accanto al
+  database in eu-central-1. (Fino al 18/08 era `fra1::dub1`, giusto allora: il
+  database stava in Irlanda. **La region si sposta insieme al database.**)
+
 - ⚠️ **Il push non pubblica**: il deploy è manuale —
   `npx vercel --prod --cwd C:/Users/nicol/scoutwt/deluxy-mail`, da lanciare come
   comando **semplice** — quindi prima di dire «è online» si verifica che la
@@ -112,8 +111,12 @@ l'apertura di una mail resa veloce (vedi punto 1 qui sotto).
 2. **Ruotare i segreti finiti in chat il 28/07**: chiave OpenAI e password del
    database (è la stessa su vecchio e nuovo). Rigenerare, aggiornare Vercel e
    `.env`. **`APP_SECRET` no**: cambiarlo scollegherebbe le caselle.
-3. **Spegnere il vecchio Supabase** `sxovckndpmdbqfrfkxhl` (il nuovo gira sereno
-   dal 28/07), verificando che non restino DUE abbonamenti Pro attivi.
+3. **Spegnere i DUE progetti Supabase vecchi** — `feleldlsreurqpdhstla` (che ospita
+   ancora la **piattaforma consegne**: si spegne solo quando anche quella se n e
+   andata, o si ferma lei) e `sxovckndpmdbqfrfkxhl` — dopo qualche giorno di
+   esercizio sereno del nuovo. Stanno su un **secondo account Supabase**
+   (cs@deluxy.it): chiusi i progetti, valutare se chiudere anche quell abbonamento,
+   visto che l org Deluxy paga gia il Pro che ora ospita AI Mail.
 4. **Timeout del cron `/api/sync` a 300s**: la lettura posta viene ancora uccisa
    a ogni giro quando c'è arretrato. Registri e pulizia HTML girano prima
    apposta (vedi §9), ma il problema di fondo resta aperto.
@@ -517,6 +520,22 @@ Cron: **`/api/sync`** (route, autenticata con `CRON_SECRET`) — su Vercel Hobby
      `DIRECT_URL` di produzione le incolla l'utente dal dashboard, prendendole da
      `deluxy-mail/.env.nuovo` (ignorato da git). Il vecchio progetto **resta intatto**
      come rete di sicurezza finché il nuovo non ha qualche giorno di esercizio sereno.
+  7. ✅ **Esito (19/08 ore 08:5x)**: commutato e collaudato. **31 tabelle su 31, 31.134 righe
+     del vecchio controllate, ZERO rimaste indietro.** Ma non è filato liscio, e le due code
+     valgono più del risultato: (a) dopo la commutazione la risincronizzazione IMAP ha
+     riportato 82 messaggi **da sola**, e ne restavano **13 fuori** — non rumore ma posta
+     operativa («Saldo», «ORDER TO DELIVER BY 12pm», «ORDINE 2744»): il cursore `ultimoUid`
+     riparte da dov'è, **non ricostruisce il buco**, quindi il ripasso NON è opzionale;
+     (b) **6 attività** create sul vecchio dopo la copia erano rimaste indietro (le ha prese
+     un recupero mirato, e nessuna è finita orfana perché la sua mail c'era già).
+  8. ⚠️⚠️ **Confrontare due database per `id` DÀ IL NUMERO SBAGLIATO.** L'IMAP reimporta la
+     stessa mail con un id nuovo: per id lo scarto risultava **2**, sulla chiave naturale
+     `(accountId, direzione, uid)` erano **13**. Su una tabella che una risincronizzazione può
+     riempire da sola, l'identità è la chiave naturale, non la chiave primaria.
+  9. ⚠️ **Il progetto vecchio è fragile** (Free oltre il tetto): chiude la connessione a metà
+     lettura, anche solo contando le righe. Per interrogarlo servono query strette, una
+     connessione nuova a ogni tentativo e ritentativi con attesa crescente — il ripasso in
+     blocco è morto due volte, il recupero mirato **una mail per volta** è passato al primo colpo.
 
 - **Revisione completa del 14/08/2026 (workflow multi-agente) — corretti**. Sei revisori + verifica avversaria su ogni bug. Corretti in un lotto (commit del 14/08):
   1. ⚠️🔒 **XSS nell'editor di risposta**: il corpo HTML di una mail (non fidato) finiva in `innerHTML` di `EditorRicco` (documento PRINCIPALE, non l'iframe sandbox della vista) cliccando **Rispondi/Inoltra**. `sanitizzaHtml` toglieva gli `on*` solo se preceduti da uno **spazio**, ma `<img src=x /onerror=…>` ha una `/` prima — il browser lo esegue lo stesso. Ora il filtro cattura il separatore (`[\s"'`/]`), toglie anche `svg`/`math`/`base` e gli URL `data:`/`javascript:`, e `EditorRicco` risanifica al montaggio (protegge le bozze già salvate col payload). Verificato con 8 payload.
