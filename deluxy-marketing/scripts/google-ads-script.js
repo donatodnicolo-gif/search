@@ -2276,6 +2276,53 @@ function risolviLocalitaSuGoogle(nomi) {
  *
  * E' ripetibile: gruppo e keyword gia' presenti non si rifanno.
  */
+/**
+ * Il verdetto di policy di Google, detto in italiano.
+ *
+ * ATTENZIONE: e' la differenza fra sapere e non sapere. Quando Google ha
+ * rifiutato l'annuncio della WORLD-ENG (19/08/2026), l'interfaccia di Google
+ * Ads diceva soltanto "This doesn't meet editorial guidelines" - che manda a
+ * cercare l'errore nei TESTI. L'API invece portava il topic vero,
+ * DESTINATION_NOT_WORKING: non era il copy, era la pagina di destinazione.
+ * Due diagnosi opposte, e due giorni di lavoro diverso.
+ *
+ * Il guaio e' che l'API lo dice dentro un blob JSON che nessuno legge. Qui
+ * si estrae il topic e gli si mette accanto la frase che dice cosa fare.
+ * Quando il topic non e' fra quelli noti si lascia il codice cosi' com'e':
+ * un codice sconosciuto e' comunque piu' utile di una frase inventata.
+ */
+function spiegaPolicy(errore) {
+  var testo = String(errore || "");
+  var topics = [];
+  var re = /"topic"\s*:\s*"([A-Z_]+)"/g;
+  var m;
+  while ((m = re.exec(testo))) if (topics.indexOf(m[1]) === -1) topics.push(m[1]);
+  if (topics.length === 0) return testo;
+
+  var SPIEGA = {
+    DESTINATION_NOT_WORKING:
+      "la PAGINA DI DESTINAZIONE non risponde a Google (non i testi): controllare l'URL dai paesi in cui la campagna eroga, i reindirizzamenti e i blocchi ai crawler",
+    DESTINATION_MISMATCH:
+      "l'URL visibile e quello vero non combaciano",
+    DESTINATION_CONTENT:
+      "il contenuto della pagina di destinazione non e' ammesso",
+    TRADEMARK_IN_AD_TEXT: "un marchio registrato nel testo dell'annuncio",
+    UNACCEPTABLE_COST: "prezzi o offerte non ammessi nel testo",
+    CAPITALIZATION: "maiuscole eccessive nel testo",
+    PUNCTUATION_SYMBOLS: "punteggiatura o simboli non ammessi",
+    HEALTHCARE: "contenuti sanitari soggetti a restrizioni",
+    ADULT_SEXUAL: "contenuti per adulti",
+    ALCOHOL: "alcolici, soggetti a restrizioni"
+  };
+
+  var frasi = [];
+  for (var i = 0; i < topics.length; i++) {
+    frasi.push(topics[i] + (SPIEGA[topics[i]] ? " (" + SPIEGA[topics[i]] + ")" : ""));
+  }
+  return "RIFIUTATO da Google per " + frasi.join(" e ") +
+    ". Quando l'avrai risolto, rimetti in coda l'operazione: gruppo e keyword non si rifanno.";
+}
+
 function completaCampagna(op, mira) {
   var par = op.parametri;
   var campagna = mira.campagna;
@@ -2385,7 +2432,7 @@ function completaCampagna(op, mira) {
         .withFinalUrl(par.finalUrl)
         .build();
       if (esitoA.isSuccessful()) fatto.push("annuncio RSA creato");
-      else problemi.push("annuncio: " + esitoA.getErrors().join("; "));
+      else problemi.push("annuncio: " + spiegaPolicy(esitoA.getErrors().join("; ")));
     }
   }
 
