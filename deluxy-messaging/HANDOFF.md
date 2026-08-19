@@ -153,6 +153,11 @@ locale, altrimenti nulla si decifra.
     corta. ⚠️ I mestieri hanno più etichette (FIORISTA+FIORI, PASTICCERIA+
     CIOCCOLATERIA) e il recapito può essere di un **referente**. Misurato:
     Milano → 9 pasticcerie / 6 fiorai; Firenze e Novara → nessuno, e lo dice.
+  - **FILTRO «SOLO NUOVI»** (19/08/2026, LIVE): un interruttore in alto per
+    vedere i soli ordini col bollino NUOVO (ultime 12 ore, ).
+    ⚠️ Filtra il **server**: la lista è tagliata a 200 e ordinata per urgenza,
+    quindi a valle si vedrebbero i soli nuovi fra i 200 già scelti. Misurato
+    alla nascita: 7 col bollino, 4 ancora da gestire.
   - **IL RIQUADRO FORNITORI DIVENTA UNA FASCIA SUA, COL MESTIERE A SCELTA**
     (19/08/2026, LIVE). Stava in fondo alla prima colonna: una lista di nomi con
     tre bottoni ciascuno, in una striscia stretta, è un elenco che non si

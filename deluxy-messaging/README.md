@@ -62,6 +62,16 @@ nessuna delle due, ognuna convinta che ci pensi l'altra.
 la pagherebbe il cliente. Se due premono nello stesso secondo, il secondo riceve un avviso
 con il nome di chi ce l'ha — non un silenzio con due nomi diversi sui due schermi.
 
+## «Solo nuovi»: cos'è entrato mentre non guardavi
+
+In alto, accanto agli altri filtri, un interruttore **Solo nuovi**: mostra i soli ordini col
+bollino **NUOVO**, cioè entrati nelle ultime 12 ore. È la domanda che ci si fa aprendo la
+bacheca, e si risponde con un clic — acceso si vede, così non si resta a guardare una lista
+corta chiedendosi dove sono finiti gli altri.
+
+⚠️ Il filtro lo fa il server: la lista è tagliata a 200 e ordinata per urgenza, quindi
+filtrare nel browser mostrerebbe i soli nuovi *fra i 200 già scelti*.
+
 ## L'ordine rimborsato si chiude da solo
 
 Su un ordine reso non c'è più niente da lavorare: restava «Da gestire» in mezzo al lavoro
