@@ -12,6 +12,7 @@ import { CoperturaCampagna } from "@/components/CoperturaCampagna";
 import { CoperturaGruppi } from "@/components/CoperturaGruppi";
 import { DestinazioniCampagna } from "@/components/DestinazioniCampagna";
 import { EstensioniCampagna } from "@/components/EstensioniCampagna";
+import { BriefDiLancio } from "@/components/BriefDiLancio";
 import { CodaCampagna } from "@/components/CodaCampagna";
 import { OggiCampagna } from "@/components/OggiCampagna";
 import { PerformancePeriodi } from "@/components/PerformancePeriodi";
@@ -574,6 +575,12 @@ export default async function SchedaCampagna({
         {!defunta && (
           <CodaCampagna campagnaId={campagna.id} ritorno={`/campagne/${campagna.id}`} />
         )}
+
+        {/* Il brief con cui questa campagna è nata: solo per quelle fatte da
+            noi — le altre non ne hanno uno, e il componente non mostra niente.
+            Sta subito sotto la coda perché sono le due cose che rispondono alla
+            stessa domanda: «che cosa avevamo deciso, e che fine ha fatto». */}
+        <BriefDiLancio campagnaId={campagna.id} />
 
         {!defunta && <FreschezzaDati brand={campagna.brand} canale={campagna.canale} />}
 
