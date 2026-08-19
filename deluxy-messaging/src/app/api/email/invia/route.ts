@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { utenteCorrente } from '@/lib/sessione'
 import { casellaPerId, inviaEmail } from '@/lib/email'
+import { scaricaImmagineProdotto } from '@/lib/immagine-prodotto'
 
 export const dynamic = 'force-dynamic'
 // L'SMTP di register.it può prendersi qualche secondo: meglio del taglio a 15.
@@ -28,6 +29,16 @@ export async function POST(req: NextRequest) {
     // Solo per la traccia in inbox: di che ordine si sta parlando e a chi.
     clienteNome?: string
     ordineNumero?: string
+    /**
+     * La foto del prodotto da allegare (URL del CDN Shopify).
+     *
+     * ⚠️ Si scarica QUI, dal server, con la **stessa lista bianca** di
+     * `/api/immagine`: accettare un URL qualsiasi e andarlo a prendere vuol dire
+     * offrire un proxy verso la rete interna (169.254.169.254, localhost) a
+     * chiunque sappia chiamare questa rotta.
+     */
+    allegatoUrl?: string
+    allegatoNome?: string
   }
 
   const a = (c.a ?? '').trim()
@@ -62,14 +73,28 @@ export async function POST(req: NextRequest) {
 
   const oggetto = (c.oggetto ?? '').trim()
 
+  // La foto del prodotto, se chi scrive l'ha lasciata attaccata.
+  //
+  // ⚠️ Se non si riesce a prenderla la mail parte LO STESSO, senza: una
+  // richiesta che non arriva perché il CDN era lento è un danno più grande di
+  // una richiesta senza foto. Nel corpo si dice se è allegata o no, così chi
+  // legge non promette al fornitore un'immagine che non c'è.
+  const allegato = c.allegatoUrl
+    ? await scaricaImmagineProdotto(c.allegatoUrl, c.allegatoNome || 'prodotto')
+    : null
+
   let messageId = ''
   try {
-    messageId = await inviaEmail(casella, a, oggetto, testo)
+    messageId = await inviaEmail(casella, a, oggetto, testo, allegato ? [allegato] : undefined)
   } catch (e) {
     // L'errore SMTP si riporta COM'È: "535 authentication rejected" dice cosa
     // fare, "invio non riuscito" no.
     return NextResponse.json({ errore: `Invio non riuscito: ${(e as Error).message}` }, { status: 502 })
   }
+
+  // Se la foto era chiesta e non è partita, chi ha scritto deve saperlo: la
+  // risposta lo dice, e il pop-up lo mostra.
+  const notaAllegato = c.allegatoUrl && !allegato ? 'La foto non è stata allegata.' : ''
 
   // La mail inviata finisce in inbox come le altre: una mail che parte e non
   // lascia traccia è una conversazione che il collega dopo non trova più.
@@ -115,5 +140,5 @@ export async function POST(req: NextRequest) {
     })
   }
 
-  return NextResponse.json({ ok: true, messageId, da: casella.indirizzo })
+  return NextResponse.json({ ok: true, messageId, nota: notaAllegato })
 }

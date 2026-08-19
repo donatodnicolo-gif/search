@@ -102,6 +102,26 @@ function dataBreve(iso: string): string {
   return new Date(iso).toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
+/**
+ * Data **e ora** in cui l'ordine è arrivato.
+ *
+ * ⚠️ L'ora non è un dettaglio decorativo: su una consegna per oggi dice se
+ * l'ordine è entrato stamattina o cinque minuti fa, cioè quanto tempo resta
+ * davvero per trovare il fornitore. La sola data non distingue le due cose.
+ *
+ * ⚠️ È il momento in cui il CLIENTE ha ordinato (`data`, da Shopify), non
+ * quando l'abbiamo scaricato noi: al primo scarico di un negozio entrano insieme
+ * due mesi di ordini, e quell'orario direbbe solo quando è girato il sync.
+ */
+function dataOraBreve(iso: string): string {
+  const d = new Date(iso)
+  return `${d.toLocaleDateString('it-IT', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  })} · ${d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}`
+}
+
 /** URL della nostra rotta di scarico: il CDN Shopify non si può scaricare diretto. */
 function linkScarico(immagine: string, titolo: string): string {
   const p = new URLSearchParams({ url: immagine, nome: titolo })
@@ -233,6 +253,19 @@ export function DettaglioOrdine({
   const [zonaProvincia, setZonaProvincia] = useState('')
   const [zonaNota, setZonaNota] = useState('')
   const [zonaCaricata, setZonaCaricata] = useState(false)
+  /**
+   * Che mestiere cercare: vuoto = lo decide il negozio (Cake → pasticcerie,
+   * Flowers → fiorai).
+   *
+   * ⚠️ Serve perché il negozio non sempre lo dice: sugli ordini **Deluxy** —
+   * che vende di tutto — non si può dedurre niente, e su un ordine di una torta
+   * comparivano anche i fiorai. Meglio farlo scegliere che indovinare dal nome
+   * del prodotto: «Numbers», «Millefoglie», «Bouquet» sono nomi di listino, e
+   * una parola fraintesa qui manda a chiamare il fornitore sbagliato.
+   */
+  const [mestiere, setMestiere] = useState('')
+  /** Il mestiere che il server ha davvero usato: vuoto = nessuno, cioè tutti. */
+  const [zonaMestiere, setZonaMestiere] = useState('')
   const [caricato, setCaricato] = useState(false)
   const [errore, setErrore] = useState('')
   const [copiato, setCopiato] = useState('')
@@ -338,16 +371,19 @@ export function DettaglioOrdine({
     let vivo = true
     ;(async () => {
       const p = new URLSearchParams({ provincia, negozio: ordine.negozioNome })
+      if (mestiere) p.set('mestiere', mestiere)
       const res = await fetch('/api/fornitori-zona?' + p.toString())
       const d = (await res.json().catch(() => ({}))) as {
         fornitori?: FornitoreZona[]
         provincia?: string
+        mestiere?: string
         nota?: string
         errore?: string
       }
       if (!vivo) return
       setZona(d.fornitori ?? [])
       setZonaProvincia(d.provincia ?? '')
+      setZonaMestiere(d.mestiere ?? '')
       setZonaNota(d.errore || d.nota || '')
       setZonaCaricata(true)
     })().catch(() => {
@@ -356,7 +392,7 @@ export function DettaglioOrdine({
     return () => {
       vivo = false
     }
-  }, [spedizione?.provincia, ordine])
+  }, [spedizione?.provincia, ordine, mestiere])
 
   const soloArchivio = Boolean(ordine && !ordine.id)
 
@@ -391,7 +427,7 @@ export function DettaglioOrdine({
           <div>
             <h2 style={{ margin: 0, fontSize: 20 }}>{ordine?.numero || 'Ordine'}</h2>
             <div className="cella-sub">
-              {ordine ? `${ordine.negozioNome} · ordine ${dataBreve(ordine.data)}` : ''}
+              {ordine ? `${ordine.negozioNome} · ordine ${dataOraBreve(ordine.data)}` : ''}
               {/* Perché mancano alcune azioni: detto qui, non scoperto dopo il
                   clic su un bottone che non c'è. */}
               {soloArchivio ? ' · archivio storico (sola lettura)' : ''}
@@ -598,97 +634,6 @@ export function DettaglioOrdine({
                   </a>
                 ) : null}
               </div>
-              {/* ── I FORNITORI CHE ABBIAMO GIÀ IN ZONA ──
-                  Ricerca fornitori cerca su Google chi non conosciamo; questi
-                  invece sono i partner con cui lavoriamo già, scritti nel
-                  registro Anagrafiche, e prima non venivano mai proposti.
-                  ⚠️ Il messaggio è lo STESSO testo dell'app di ricerca: due
-                  formulazioni diverse per la stessa richiesta, dalla stessa
-                  azienda, allo stesso fornitore, sono due mittenti diversi
-                  visti da fuori. */}
-              {spedizione?.provincia ? (
-                <div style={{ marginTop: 18, borderTop: '1px solid var(--bordo)', paddingTop: 12 }}>
-                  <div className="cella-nome" style={{ marginBottom: 2 }}>
-                    Fornitori in provincia di {zonaProvincia || spedizione.provincia}
-                  </div>
-                  <div className="cella-sub" style={{ marginBottom: 8 }}>
-                    Dal registro Anagrafiche, per il mestiere di questo negozio — partner e
-                    prospect, prima quelli con cui lavoriamo già.
-                  </div>
-                  {!zonaCaricata ? (
-                    <p className="descrizione">Cerco…</p>
-                  ) : zona.length === 0 ? (
-                    <p className="descrizione">
-                      {zonaNota ||
-                        `Nessun partner attivo in provincia di ${zonaProvincia || spedizione.provincia}. Usa «Cerca fornitore» qui sopra per trovarne di nuovi.`}
-                    </p>
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      {zona.map((fz) => {
-                        const richiesta = richiestaFornitore({
-                          prodotto: righe[0]?.titolo ?? '',
-                          variante: righe[0]?.variante ?? '',
-                          quantita: righe[0]?.quantita ?? 1,
-                          dataConsegna: ordine.dataConsegna,
-                          fascia: ordine.fasciaConsegna,
-                          indirizzo: [spedizione.indirizzo, spedizione.cap, spedizione.citta]
-                            .filter(Boolean)
-                            .join(' '),
-                        })
-                        const cifre = (fz.telefono || '').replace(/[^\d]/g, '')
-                        return (
-                          <div key={fz.id} className="card" style={{ padding: 10 }}>
-                            <div className="cella-nome">{fz.nome}</div>
-                            <div className="cella-sub">
-                              {[fz.categoria, fz.citta, fz.stato].filter(Boolean).join(' · ')}
-                              {/* ⚠️ Se il recapito è di una persona e non
-                                  dell'insegna, va detto: si scrive a lei. */}
-                              {fz.recapitoDa ? ` · recapito di ${fz.recapitoDa}` : ''}
-                            </div>
-                            <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
-                              {cifre.length >= 8 ? (
-                                <a
-                                  className="btn btn-secondario small"
-                                  href={`https://wa.me/${cifre}?text=${encodeURIComponent(richiesta)}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                >
-                                  WhatsApp
-                                </a>
-                              ) : null}
-                              {fz.email && onScriviMail ? (
-                                <button
-                                  className="btn btn-secondario small"
-                                  onClick={() =>
-                                    onScriviMail({
-                                      a: fz.email,
-                                      oggetto: `Richiesta disponibilità — ordine ${ordine.numero}`,
-                                      testo: richiesta,
-                                      clienteNome: fz.nome,
-                                      ordineNumero: ordine.numero,
-                                    })
-                                  }
-                                >
-                                  Email
-                                </button>
-                              ) : null}
-                              <button
-                                className="btn btn-secondario small"
-                                onClick={() => copia(richiesta, `zona-${fz.id}`)}
-                              >
-                                {copiato === `zona-${fz.id}` ? 'Copiato ✓' : 'Copia richiesta'}
-                              </button>
-                              {!cifre.length && !fz.email ? (
-                                <span className="cella-sub">nessun recapito nel registro</span>
-                              ) : null}
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )}
-                </div>
-              ) : null}
               <p className="descrizione" style={{ marginBottom: 0 }}>
                 {ritiro ? (
                   <>
@@ -952,6 +897,133 @@ export function DettaglioOrdine({
                 )}
               </div>
             </div>
+
+            {/* ── FORNITORI IN ZONA: un riquadro suo ──
+                Stava incastrato in fondo alla prima colonna, sotto il
+                messaggio: una lista di nomi con tre bottoni ciascuno, letta in
+                una striscia stretta, è un elenco che non si guarda. Qui prende
+                tutta la larghezza sotto le altre tre.
+                ⚠️ Ricerca fornitori cerca su Google chi non conosciamo; questi
+                sono i partner e i prospect già censiti in Anagrafiche, che
+                prima non venivano mai proposti. */}
+            {spedizione?.provincia ? (
+              <div className="card" style={{ gridColumn: '1 / -1' }}>
+                <h3 style={{ marginTop: 0, fontSize: 15 }}>
+                  Fornitori in provincia di {zonaProvincia || spedizione.provincia}
+                </h3>
+                <div
+                  style={{
+                    display: 'flex',
+                    gap: 8,
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    marginBottom: 10,
+                  }}
+                >
+                  <span className="cella-sub">
+                    Dal registro Anagrafiche — partner e prospect, prima quelli con cui
+                    lavoriamo già.
+                  </span>
+                  {/* ⚠️ Il mestiere si sceglie perché il negozio non sempre lo
+                      dice: su un ordine Deluxy comparivano pasticcerie e fiorai
+                      insieme, e su una torta i fiorai non servono a niente. */}
+                  <select
+                    className="bottone secondario mini"
+                    value={mestiere}
+                    onChange={(e) => {
+                      setZonaCaricata(false)
+                      setMestiere(e.target.value)
+                    }}
+                    aria-label="Che fornitori cercare"
+                  >
+                    <option value="">
+                      {zonaMestiere === 'pasticceria'
+                        ? 'Dal negozio: pasticcerie'
+                        : zonaMestiere === 'fioraio'
+                          ? 'Dal negozio: fiorai'
+                          : 'Dal negozio: tutti'}
+                    </option>
+                    <option value="pasticceria">Solo pasticcerie</option>
+                    <option value="fioraio">Solo fiorai</option>
+                  </select>
+                </div>
+                {!zonaCaricata ? (
+                  <p className="descrizione">Cerco…</p>
+                ) : zona.length === 0 ? (
+                  <p className="descrizione">
+                    {zonaNota ||
+                      `Nessun fornitore censito in provincia di ${zonaProvincia || spedizione.provincia}. Usa «Cerca fornitore» per trovarne di nuovi.`}
+                  </p>
+                ) : (
+                  <div className="griglia-fornitori">
+                    {zona.map((fz) => {
+                      const richiesta = richiestaFornitore({
+                        prodotto: righe[0]?.titolo ?? '',
+                        variante: righe[0]?.variante ?? '',
+                        quantita: righe[0]?.quantita ?? 1,
+                        dataConsegna: ordine.dataConsegna,
+                        fascia: ordine.fasciaConsegna,
+                        indirizzo: [spedizione.indirizzo, spedizione.cap, spedizione.citta]
+                          .filter(Boolean)
+                          .join(' '),
+                      })
+                      const cifre = (fz.telefono || '').replace(/[^\d]/g, '')
+                      return (
+                        <div key={fz.id} className="card" style={{ padding: 10 }}>
+                          <div className="cella-nome">{fz.nome}</div>
+                          <div className="cella-sub">
+                            {[fz.categoria, fz.citta, fz.stato].filter(Boolean).join(' · ')}
+                            {fz.recapitoDa ? ` · recapito di ${fz.recapitoDa}` : ''}
+                          </div>
+                          <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+                            {cifre.length >= 8 ? (
+                              <a
+                                className="btn btn-secondario small"
+                                href={`https://wa.me/${cifre}?text=${encodeURIComponent(richiesta)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                WhatsApp
+                              </a>
+                            ) : null}
+                            {fz.email && onScriviMail ? (
+                              <button
+                                className="btn btn-secondario small"
+                                onClick={() =>
+                                  onScriviMail({
+                                    a: fz.email,
+                                    oggetto: `Richiesta disponibilità — ordine ${ordine.numero}`,
+                                    testo: richiesta,
+                                    clienteNome: fz.nome,
+                                    ordineNumero: ordine.numero,
+                                    // La foto del prodotto viaggia con la
+                                    // richiesta: è quello che il fornitore deve
+                                    // guardare per dire sì o no.
+                                    allegatoUrl: righe[0]?.immagine ?? '',
+                                    allegatoNome: righe[0]?.titolo ?? '',
+                                  })
+                                }
+                              >
+                                Email
+                              </button>
+                            ) : null}
+                            <button
+                              className="btn btn-secondario small"
+                              onClick={() => copia(richiesta, `zona-${fz.id}`)}
+                            >
+                              {copiato === `zona-${fz.id}` ? 'Copiato ✓' : 'Copia richiesta'}
+                            </button>
+                            {!cifre.length && !fz.email ? (
+                              <span className="cella-sub">nessun recapito nel registro</span>
+                            ) : null}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            ) : null}
           </div>
         ) : null}
       </div>

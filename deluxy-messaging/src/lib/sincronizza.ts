@@ -79,6 +79,24 @@ export async function sincronizzaOrdini(
 
   const ordini = await scaricaOrdiniDaOrders(Math.min(giorniIndietro, 60))
 
+  // Com'erano PRIMA di questo giro: serve a riconoscere i **passaggi di
+  // stato**, non gli stati. Una query sola per tutto il lotto, non una per
+  // ordine.
+  const primaDiOra = new Map<
+    string,
+    { statoPagamento: string; gestione: string; gestioneDaId: string }
+  >()
+  for (const riga of await db.ordine.findMany({
+    where: { shopifyId: { in: ordini.map((o) => o.orderId).filter(Boolean) } },
+    select: { shopifyId: true, statoPagamento: true, gestione: true, gestioneDaId: true },
+  })) {
+    primaDiOra.set(riga.shopifyId, {
+      statoPagamento: riga.statoPagamento,
+      gestione: riga.gestione,
+      gestioneDaId: riga.gestioneDaId,
+    })
+  }
+
   const cache = new Map<string, Negozio>()
   const stati = await statiDaOrders() // colori della pipeline, per il calendario
   let nuovi = 0
@@ -133,6 +151,42 @@ export async function sincronizzaOrdini(
       statoPagamento: o.statoPagamento,
       rischioLivello: o.rischioLivello,
       rischioRaccomandazione: o.rischioRaccomandazione,
+      // ── L'ordine rimborsato si chiude da solo ──
+      //
+      // Su un ordine reso non c'è più niente da lavorare: restava «Da gestire»
+      // in mezzo al lavoro vero, e qualcuno prima o poi lo rilavorava.
+      //
+      // ⚠️⚠️ SI REAGISCE AL PASSAGGIO, NON ALLO STATO, e la differenza è tutta
+      // qui: chiudendo ogni volta che Shopify dice REFUNDED, un ordine che una
+      // persona ha riaperto apposta (magari per finire una pratica) verrebbe
+      // richiuso al giro dopo, e al successivo, senza che si capisca perché.
+      // Così invece si chiude **una volta sola**, quando il rimborso compare —
+      // dopo, l'ultima parola è di chi lavora.
+      //
+      // ⚠️ Solo REFUNDED (reso per intero). Un rimborso PARZIALE lascia una
+      // consegna da fare, e chiuderlo vorrebbe dire perderla.
+      ...(o.statoPagamento === 'REFUNDED' &&
+      (primaDiOra.get(o.orderId)?.gestione ?? 'da_gestire') !== 'gestito' &&
+      // ⚠️ Due strade per arrivarci, e servono tutt'e due:
+      //  · il rimborso è **appena** comparso (il passaggio di stato), oppure
+      //  · l'ordine è rimborsato da prima ma **nessuno l'ha mai toccato a mano**
+      //    (`gestioneDaId` vuoto) — sono i 9 che stavano già in mezzo al lavoro
+      //    quando questa regola è nata, e che nessun passaggio avrebbe più
+      //    ripescato.
+      // Chi RIAPRE un ordine lascia il proprio id: da quel momento comanda lui,
+      // e il sync non lo richiude più.
+      (primaDiOra.get(o.orderId)?.statoPagamento !== 'REFUNDED' ||
+        !primaDiOra.get(o.orderId)?.gestioneDaId)
+        ? {
+            gestione: 'gestito',
+            gestioneIl: new Date(),
+            gestioneDaId: '',
+            // Il nome dice CHI ha chiuso: qui non è una persona, ed è meglio
+            // scritto che lasciato in bianco — «chi è stato?» su un ordine
+            // sparito dalla lista è la prima domanda.
+            gestioneDaNome: 'rimborso su Shopify',
+          }
+        : {}),
     }
     const esito = await db.ordine.upsert({
       // il gid Shopify è la chiave stabile: gli ordini presi prima da Shopify

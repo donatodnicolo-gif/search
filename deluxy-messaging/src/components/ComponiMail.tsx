@@ -26,6 +26,15 @@ export type BozzaMail = {
   testo: string
   clienteNome?: string
   ordineNumero?: string
+  /**
+   * La foto del prodotto da allegare (URL del CDN Shopify), e come si chiama.
+   *
+   * ⚠️ Su una richiesta a un fornitore la foto **è** la richiesta: «un bouquet»
+   * non dice niente, la foto sì — ed è quello che si fa a mano su WhatsApp da
+   * sempre (Copia foto → incolla). Chi scrive può toglierla con la spunta.
+   */
+  allegatoUrl?: string
+  allegatoNome?: string
 }
 
 export function ComponiMail({
@@ -60,6 +69,8 @@ export function ComponiMail({
     if (area) cursore.current = area.selectionStart
   }
   const [inviando, setInviando] = useState(false)
+  /** La foto del prodotto parte insieme alla mail, se c'è: si può togliere. */
+  const [allega, setAllega] = useState(true)
   const [inviata, setInviata] = useState('')
   const [avviso, setAvviso] = useState('')
   const [errore, setErrore] = useState('')
@@ -149,12 +160,16 @@ export function ComponiMail({
           casellaId,
           clienteNome: bozza.clienteNome ?? '',
           ordineNumero: bozza.ordineNumero ?? '',
+          // La foto parte solo se la spunta è rimasta accesa.
+          allegatoUrl: allega ? (bozza.allegatoUrl ?? '') : '',
+          allegatoNome: bozza.allegatoNome ?? '',
         }),
       })
       const d = (await res.json().catch(() => ({}))) as {
         ok?: boolean
         da?: string
         avviso?: string
+        nota?: string
         errore?: string
       }
       if (!res.ok || !d.ok) {
@@ -162,7 +177,9 @@ export function ComponiMail({
         return
       }
       setInviata(d.da ? `Mail inviata da ${d.da}.` : 'Mail inviata.')
-      if (d.avviso) setAvviso(d.avviso)
+      // ⚠️ Se la foto non è partita va detto: chi ha scritto «come da foto»
+      // deve sapere che il fornitore quella foto non ce l'ha.
+      if (d.avviso || d.nota) setAvviso([d.avviso, d.nota].filter(Boolean).join(' '))
       onInviata?.()
     } catch {
       setErrore('Invio non riuscito: problema di rete.')
@@ -309,6 +326,43 @@ export function ComponiMail({
             onClick={ricordaCursore}
           />
         </label>
+
+        {/* ── La foto del prodotto ──
+            Su una richiesta a un fornitore la foto **è** la richiesta: «un
+            bouquet» non dice niente, la foto sì — ed è quello che si fa a mano
+            su WhatsApp da sempre (Copia foto → incolla). Parte da sola, e la
+            spunta serve a chi non la vuole.
+            ⚠️ Si vede l'anteprima di QUELLO che si sta per mandare: allegare
+            una foto senza guardarla è il modo migliore per mandare al fornitore
+            il prodotto di un altro ordine. */}
+        {bozza.allegatoUrl ? (
+          <label
+            style={{
+              display: 'flex',
+              gap: 8,
+              alignItems: 'center',
+              margin: '4px 0 10px',
+              cursor: 'pointer',
+            }}
+          >
+            <input type="checkbox" checked={allega} onChange={(e) => setAllega(e.target.checked)} />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={bozza.allegatoUrl}
+              alt=""
+              style={{
+                width: 40,
+                height: 40,
+                objectFit: 'cover',
+                borderRadius: 6,
+                opacity: allega ? 1 : 0.35,
+              }}
+            />
+            <span className="cella-sub">
+              {allega ? 'Allega la foto del prodotto' : 'Foto non allegata'}
+            </span>
+          </label>
+        ) : null}
 
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           <button

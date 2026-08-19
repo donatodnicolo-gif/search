@@ -169,13 +169,22 @@ export async function inviaEmail(
   c: Casella,
   a: string,
   oggetto: string,
-  testo: string
+  testo: string,
+  /**
+   * Allegati già in memoria (nome + byte). Li prepara chi chiama: qui non si
+   * scarica niente da internet, perché una libreria che va a prendere un URL
+   * per conto di chi la chiama è un proxy aperto con un altro nome.
+   */
+  allegati?: { nome: string; contenuto: Buffer; tipo?: string }[]
 ): Promise<string> {
   const esito = await trasporto(c).sendMail({
     from: { name: c.nomeMittente, address: c.indirizzo },
     to: a,
     subject: oggetto || '(nessun oggetto)',
     text: conFirma(testo, c.firma),
+    attachments: allegati?.length
+      ? allegati.map((x) => ({ filename: x.nome, content: x.contenuto, contentType: x.tipo }))
+      : undefined,
   })
   return esito.messageId ?? ''
 }

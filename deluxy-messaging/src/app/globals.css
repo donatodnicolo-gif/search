@@ -3530,3 +3530,12 @@ td .azioni-ordine {
     display: none;
   }
 }
+
+/* I fornitori in zona: tessere affiancate, non un elenco in colonna.
+   Una lista di nomi con tre bottoni ciascuno, in una striscia stretta, è un
+   elenco che non si guarda: con 21 pasticcerie a Milano diventa uno scroll. */
+.griglia-fornitori {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 10px;
+}

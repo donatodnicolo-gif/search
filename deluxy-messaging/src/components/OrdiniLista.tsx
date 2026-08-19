@@ -426,9 +426,12 @@ function linkReclamo(o: OrdineDto): string {
  * mano a tutti non sarebbe una presa in carico ma uno scarico di
  * responsabilità: «l'ho passato a Marco» detto da chi non coordina nessuno.
  *
- * ⚠️ Il menu torna sempre su «Assegna a…»: è un comando, non uno stato. Lo
- * stato — di chi è l'ordine — lo dice il bollino accanto al numero, che si
- * legge anche senza aprire niente.
+ * ⚠️ Il menu MOSTRA CHI CE L'HA, non torna su «Assegna a…»: pensato come
+ * comando puro, dopo la scelta non cambiava niente sotto gli occhi di chi
+ * l'aveva appena usato — il bollino «Mio» compare in cima alla scheda, lontano
+ * dal menu, e assegnare a sé un ordine già proprio non muove niente. Risultato:
+ * «non succede nulla», segnalato dall'utente. Un comando che non lascia traccia
+ * dove viene premuto è indistinguibile da un comando rotto.
  */
 function ComandoPresa({
   ordine,
@@ -464,12 +467,11 @@ function ComandoPresa({
   return (
     <select
       className="bottone secondario mini"
-      value=""
+      value={ordine.presaDaId || ''}
       onChange={(e) => {
         const v = e.target.value
-        e.currentTarget.value = ''
-        if (!v) return
-        if (v === 'nessuno') onAzione(ordine.id, 'nessuno')
+        if (v === (ordine.presaDaId || '')) return // già così: niente da fare
+        if (v === '' || v === 'nessuno') onAzione(ordine.id, 'nessuno')
         else if (v === ioId) onAzione(ordine.id, 'io')
         else onAzione(ordine.id, 'io', false, v)
       }}
@@ -480,13 +482,17 @@ function ComandoPresa({
       }
       aria-label="Assegna l'ordine"
     >
-      <option value="">Assegna a…</option>
+      <option value="">{ordine.presaDaId ? 'Lascialo libero' : 'Assegna a…'}</option>
       {operatori.map((u) => (
         <option key={u.id} value={u.id}>
           {u.id === ioId ? `Me ne occupo io (${u.nome})` : u.nome}
         </option>
       ))}
-      {ordine.presaDaId ? <option value="nessuno">Lascialo libero</option> : null}
+      {/* Chi ce l'ha ma non è più fra gli operatori (account tolto): l'opzione
+          serve perché il menu possa mostrarlo invece di sembrare vuoto. */}
+      {ordine.presaDaId && !operatori.some((u) => u.id === ordine.presaDaId) ? (
+        <option value={ordine.presaDaId}>{ordine.presaDaNome || 'assegnato'}</option>
+      ) : null}
     </select>
   )
 }
@@ -844,7 +850,11 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ presa, forza, utenteId: utenteId || undefined }),
       })
-      const dati = (await res.json().catch(() => ({}))) as { errore?: string; occupato?: boolean }
+      const dati = (await res.json().catch(() => ({}))) as {
+        errore?: string
+        occupato?: boolean
+        presaDaNome?: string
+      }
       if (res.status === 409 && dati.occupato) {
         if (window.confirm(`${dati.errore} Vuoi assegnarlo comunque?`)) {
           await prendi(id, 'io', true, utenteId)
@@ -855,9 +865,21 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
         setErrore(dati.errore || 'Operazione non riuscita.')
         return
       }
+      // ⚠️ L'esito si SCRIVE. Assegnare a sé un ordine già proprio non cambia
+      // niente a schermo, e senza una riga di conferma il comando sembra rotto —
+      // è la segnalazione che ha fatto nascere questa riga.
+      const o = ordini.find((x) => x.id === id)
+      const chi = dati.presaDaNome || ''
+      setAvviso(
+        presa === 'nessuno'
+          ? `${o?.numero ?? 'Ordine'} lasciato libero.`
+          : chi
+            ? `${o?.numero ?? 'Ordine'} assegnato a ${chi}.`
+            : `${o?.numero ?? 'Ordine'} assegnato.`
+      )
       await carica()
     },
-    [carica]
+    [carica, ordini]
   )
 
 
