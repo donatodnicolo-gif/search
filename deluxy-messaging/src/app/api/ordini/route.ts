@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { utenteCorrente } from '@/lib/sessione'
 import type { Prisma } from '@prisma/client'
 import { db } from '@/lib/db'
 import { googleAccessToken } from '@/lib/contatti'
@@ -151,6 +152,7 @@ async function ordiniOrdinati(
 //   negozio  id del negozio
 //   contatto "si" | "no" (contatto già salvato in rubrica o no)
 //   rimborsi "nascondi" = fuori gli ordini con una richiesta di rimborso viva
+//   presa    "miei" | "liberi" (chi se ne sta occupando)
 // Torna anche se Google è collegato (per abilitare i bottoni "Salva contatto").
 export async function GET(req: NextRequest) {
   const p = req.nextUrl.searchParams
@@ -161,10 +163,16 @@ export async function GET(req: NextRequest) {
   const gestione = (p.get('gestione') ?? '').trim()
   const tipoCliente = (p.get('tipoCliente') ?? '').trim()
   const rimborsi = (p.get('rimborsi') ?? '').trim()
+  const presa = (p.get('presa') ?? '').trim()
   // Colonna su cui ordinare. Vuota (o sconosciuta) = l'ordine per urgenza, che
   // resta il modo giusto di guardare la lista di lavoro.
   const ordina = (p.get('ordina') ?? '').trim()
   const verso: 'asc' | 'desc' = (p.get('verso') ?? '') === 'desc' ? 'desc' : 'asc'
+
+  // Chi sta guardando: serve al filtro «miei» e al browser, che senza non
+  // saprebbe distinguere «preso da me» da «preso da un collega».
+  const io = await utenteCorrente()
+  const idUtente = io?.id ?? ''
 
   const dove: Prisma.OrdineWhereInput = {}
   if (negozio) dove.negozioId = negozio
@@ -172,6 +180,14 @@ export async function GET(req: NextRequest) {
   // quelli senza email, telefono né nome, e vale la pena poterli isolare.
   if (tipoCliente === 'ignoto') dove.clienteTipo = ''
   else if (tipoCliente) dove.clienteTipo = tipoCliente
+  // ── Di chi è il lavoro ──
+  //
+  // «Liberi» conta più di «Miei», ed è il motivo per cui esiste il filtro: sono
+  // gli ordini che rischiano di non essere lavorati da NESSUNO, perché ognuno
+  // dà per scontato che ci pensi un altro. «Miei» è comodo, «Liberi» è il buco.
+  if (presa === 'miei') dove.presaDaId = idUtente
+  else if (presa === 'liberi') dove.presaDaId = ''
+
   if (contatto === 'si') dove.contattoSalvato = true
   if (contatto === 'no') dove.contattoSalvato = false
   // `aperti` = tutto ciò che non è ancora gestito: è la vista di lavoro.
@@ -304,6 +320,9 @@ export async function GET(req: NextRequest) {
     // Se quel cliente ci ha scritto, e se aspetta ancora una risposta.
     ordini: ordini.map((o) => ({ ...o, messaggi: messaggiPerOrdine.get(o.id) ?? null })),
     totale, // quanti corrispondono in tutto (la lista è tagliata a 200)
+    // Chi sta guardando: senza, il bollino «preso da» non saprebbe dire se
+    // quell'ordine è mio o di un collega — che è tutta la differenza.
+    ioId: idUtente,
     negozi,
     googleCollegato: !!token,
     // ⚠️ Il MOTIVO, non solo il sì/no. `googleAccessToken().catch(() => null)`

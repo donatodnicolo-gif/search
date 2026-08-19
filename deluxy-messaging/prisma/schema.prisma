@@ -327,6 +327,20 @@ model Ordine {
   // posteriori - meglio non saperlo che attribuirlo alla persona sbagliata.
   gestioneDaId   String   @default("")
   gestioneDaNome String   @default("")
+
+  // ── Chi se ne sta occupando ──
+  //
+  // Distinto da `gestioneDaId`, che dice chi ha toccato lo STATO per ultimo:
+  // quello è un fatto passato, questo è un impegno che vale adesso. Stessi campi
+  // e stesse regole della presa in carico delle conversazioni (nome COPIATO e
+  // non collegato: se l'utente viene tolto resta scritto di chi era l'ordine
+  // invece di un id orfano).
+  //
+  // ⚠️ Segnala, non blocca: chi ha preso l'ordine può andare a pranzo, e un
+  // lucchetto vero lascerebbe il cliente senza risposta.
+  presaDaId      String   @default("")
+  presaDaNome    String   @default("")
+  presaIl        DateTime?
   creatoIl       DateTime @default(now())
 
   @@unique([negozioId, shopifyId]) // dedup per-negozio: il gid è unico solo lì

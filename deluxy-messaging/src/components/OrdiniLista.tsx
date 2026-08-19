@@ -73,6 +73,13 @@ type OrdineDto = {
    * Si collega per numero d'ordine citato nella mail, per email o per telefono.
    */
   messaggi: { quanti: number; nonLetti: number } | null
+  /**
+   * Chi se ne sta occupando. ⚠️ Diverso da `gestioneDaNome`, che dice chi ha
+   * toccato lo STATO per ultimo: quello è un fatto passato, questo è un impegno
+   * che vale adesso.
+   */
+  presaDaId: string
+  presaDaNome: string
 }
 
 /**
@@ -655,6 +662,11 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
   const [qCercata, setQCercata] = useState('') // `q` ritardata, per non chiamare a ogni tasto
   const [negozio, setNegozio] = useState('')
   const [filtroContatto, setFiltroContatto] = useState('')
+  /** '' tutti · 'miei' · 'liberi'. «Liberi» è il filtro che serve davvero: sono
+   *  gli ordini che rischiano di non lavorare NESSUNO. */
+  const [filtroPresa, setFiltroPresa] = useState('')
+  /** Chi sta guardando: senza, «preso da» non distingue me da un collega. */
+  const [ioId, setIoId] = useState('')
   const [filtroTipo, setFiltroTipo] = useState('')
   const [perTipoCliente, setPerTipoCliente] = useState<Record<string, number>>({})
   // Quante consegne oggi, domani e scadute da poco: l'elenco è già ordinato per
@@ -678,6 +690,7 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
       if (filtroContatto) p.set('contatto', filtroContatto)
       if (filtroGestione) p.set('gestione', filtroGestione)
       if (filtroTipo) p.set('tipoCliente', filtroTipo)
+      if (filtroPresa) p.set('presa', filtroPresa)
       if (ordina) {
         p.set('ordina', ordina)
         p.set('verso', verso)
@@ -697,12 +710,14 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
         ultimoImportOrders?: string
         perTipoCliente?: Record<string, number>
         urgenza?: { oggi: number; domani: number; scaduteRecenti: number }
+        ioId?: string
       }
       setOrdini(dati.ordini)
       setTotale(dati.totale)
       setNegozi(dati.negozi)
       setGoogleCollegato(dati.googleCollegato)
       setGoogleErrore(dati.googleErrore ?? '')
+      setIoId(dati.ioId ?? '')
       setUltimaSync(dati.ultimaSync ?? '')
       setEsitoSync(dati.esitoSync ?? '')
       setImportOrders(dati.ultimoImportOrders ?? '')
@@ -714,7 +729,39 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
     } finally {
       setCaricato(true)
     }
-  }, [qCercata, negozio, filtroContatto, filtroGestione, filtroTipo, globale, ordina, verso])
+  }, [qCercata, negozio, filtroContatto, filtroGestione, filtroTipo, globale, ordina, verso, filtroPresa])
+
+  /**
+   * «Me ne occupo io» / «Lo lascio».
+   *
+   * ⚠️ Sul 409 non si insiste da soli: si dice CHI ce l'ha e si chiede se
+   * prenderlo comunque. Prenderlo di soppiatto vorrebbe dire farlo sparire
+   * dall'elenco «Miei» di un collega che pensa di seguirlo.
+   */
+  const prendi = useCallback(
+    async (id: string, presa: 'io' | 'nessuno', forza = false) => {
+      setErrore('')
+      const res = await fetch(`/api/ordini/${id}/presa`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ presa, forza }),
+      })
+      const dati = (await res.json().catch(() => ({}))) as { errore?: string; occupato?: boolean }
+      if (res.status === 409 && dati.occupato) {
+        if (window.confirm(`${dati.errore} Vuoi prenderlo comunque tu?`)) {
+          await prendi(id, 'io', true)
+        }
+        return
+      }
+      if (!res.ok) {
+        setErrore(dati.errore || 'Operazione non riuscita.')
+        return
+      }
+      await carica()
+    },
+    [carica]
+  )
+
 
   /**
    * Clic su un'intestazione: primo clic il verso utile, secondo lo rovescia,
@@ -894,7 +941,8 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
     negozio ||
     filtroContatto ||
     filtroTipo ||
-    filtroGestione !== 'aperti'
+    filtroGestione !== 'aperti' ||
+    filtroPresa
   )
 
   // Da che tipo di cliente arrivano gli ordini mostrati, dal più frequente.
@@ -1085,6 +1133,18 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
           ))}
           <option value="ignoto">Tipo non rilevato</option>
         </select>
+        {/* Di chi è il lavoro. «Liberi» prima di «Miei» non è un dettaglio:
+            il guaio peggiore non è che due lavorino lo stesso ordine, è che non
+            lo lavori nessuno perché ognuno crede che ci pensi un altro. */}
+        <select
+          value={filtroPresa}
+          onChange={(e) => setFiltroPresa(e.target.value)}
+          aria-label="Chi se ne occupa"
+        >
+          <option value="">Chi se ne occupa: tutti</option>
+          <option value="liberi">Liberi (nessuno ci sta lavorando)</option>
+          <option value="miei">Miei</option>
+        </select>
         <select
           value={filtroContatto}
           onChange={(e) => setFiltroContatto(e.target.value)}
@@ -1102,6 +1162,7 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
               setNegozio('')
               setFiltroContatto('')
               setFiltroTipo('')
+              setFiltroPresa('')
               setFiltroGestione('aperti')
             }}
           >
@@ -1335,6 +1396,23 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
                           >
                             {nomeGestione(o.gestione)}
                           </span>
+                          {o.presaDaId ? (
+                            <span
+                              className="badge"
+                              style={{
+                                color:
+                                  o.presaDaId === ioId ? 'var(--text-secondary)' : 'var(--oro)',
+                                background: 'var(--fill)',
+                              }}
+                              title={
+                                o.presaDaId === ioId
+                                  ? 'Te ne stai occupando tu'
+                                  : `Se ne sta occupando ${o.presaDaNome || 'un altro operatore'}`
+                              }
+                            >
+                              {o.presaDaId === ioId ? 'Mio' : o.presaDaNome || 'Preso'}
+                            </span>
+                          ) : null}
                         </div>
                         {/* TUTTE le azioni restano qui: sono il lavoro, non un
                             ornamento. Lo spazio si recupera con etichette corte
@@ -1343,6 +1421,23 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
                             Non aprono il dettaglio: chi preme "Reclamo" vuole il
                             reclamo, non il pannello. */}
                         <div className="azioni-ordine" onClick={(e) => e.stopPropagation()}>
+                          {/* Prima di tutto il resto: «di chi è» viene prima di
+                              «cosa ci faccio». */}
+                          <button
+                            className="bottone secondario mini"
+                            onClick={() =>
+                              prendi(o.id, o.presaDaId === ioId && o.presaDaId ? 'nessuno' : 'io')
+                            }
+                            title={
+                              o.presaDaId === ioId && o.presaDaId
+                                ? 'Lascialo libero: tornerà fra quelli di cui non si occupa nessuno'
+                                : o.presaDaId
+                                  ? `Se ne sta occupando ${o.presaDaNome}: te lo chiede prima di prenderlo`
+                                  : 'Dichiara che te ne occupi tu'
+                            }
+                          >
+                            {o.presaDaId === ioId && o.presaDaId ? 'Lascia' : 'Me ne occupo io'}
+                          </button>
                           <a
                             className="bottone secondario mini"
                             href={linkPagamento(o)}
@@ -1586,9 +1681,44 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
                     >
                       {nomeGestione(o.gestione)}
                     </span>
+                    {/* Di chi è il lavoro: oro = di un collega, grigio = mio.
+                        Due colori perché la domanda non è «è preso?» ma «è
+                        preso da me?». */}
+                    {o.presaDaId ? (
+                      <span
+                        className="badge"
+                        style={{
+                          marginLeft: 6,
+                          color: o.presaDaId === ioId ? 'var(--text-secondary)' : 'var(--oro)',
+                          background: 'var(--fill)',
+                        }}
+                        title={
+                          o.presaDaId === ioId
+                            ? 'Te ne stai occupando tu'
+                            : `Se ne sta occupando ${o.presaDaNome || 'un altro operatore'}`
+                        }
+                      >
+                        {o.presaDaId === ioId ? 'Mio' : o.presaDaNome || 'Preso'}
+                      </span>
+                    ) : null}
                   </td>
                   <td>
                     <span className="azioni-ordine" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        className="bottone secondario mini"
+                        onClick={() =>
+                          prendi(o.id, o.presaDaId && o.presaDaId === ioId ? 'nessuno' : 'io')
+                        }
+                        title={
+                          o.presaDaId && o.presaDaId === ioId
+                            ? 'Lascialo libero'
+                            : o.presaDaId
+                              ? `Se ne sta occupando ${o.presaDaNome}: te lo chiede prima di prenderlo`
+                              : 'Dichiara che te ne occupi tu'
+                        }
+                      >
+                        {o.presaDaId && o.presaDaId === ioId ? 'Lascia' : 'Me ne occupo io'}
+                      </button>
                       <a
                         className="bottone secondario mini"
                         href={linkPagamento(o)}
