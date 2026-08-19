@@ -84,16 +84,28 @@ export async function sincronizzaOrdini(
   // ordine.
   const primaDiOra = new Map<
     string,
-    { statoPagamento: string; gestione: string; gestioneDaId: string }
+    {
+      statoPagamento: string
+      gestione: string
+      gestioneDaId: string
+      consegnaSpostata: boolean
+    }
   >()
   for (const riga of await db.ordine.findMany({
     where: { shopifyId: { in: ordini.map((o) => o.orderId).filter(Boolean) } },
-    select: { shopifyId: true, statoPagamento: true, gestione: true, gestioneDaId: true },
+    select: {
+      shopifyId: true,
+      statoPagamento: true,
+      gestione: true,
+      gestioneDaId: true,
+      consegnaSpostata: true,
+    },
   })) {
     primaDiOra.set(riga.shopifyId, {
       statoPagamento: riga.statoPagamento,
       gestione: riga.gestione,
       gestioneDaId: riga.gestioneDaId,
+      consegnaSpostata: riga.consegnaSpostata,
     })
   }
 
@@ -118,8 +130,23 @@ export async function sincronizzaOrdini(
       citta: o.citta,
       // Serve a scegliere la lingua in cui scrivere al cliente.
       paese: o.paese,
-      dataConsegna: o.dataConsegna ? new Date(o.dataConsegna) : null,
-      fasciaConsegna: o.fasciaConsegna,
+      // ── La consegna, e la deroga per quella spostata da noi ──
+      //
+      // Di suo vince Orders: la consegna la chiede il cliente e sta su Shopify.
+      // ⚠️ MA se qualcuno l'ha spostata da qui (`consegnaSpostata`), riscriverla
+      // a ogni giro vorrebbe dire cancellare la decisione di una persona **ogni
+      // 15 minuti**, senza che nessuno capisca perché la data «torna indietro».
+      // Quello che dice Orders si tiene comunque, in `dataConsegnaOriginale`:
+      // serve a mostrare la divergenza e a spegnere la deroga quando la fonte
+      // si allinea (vedi `consegnaAllineata`).
+      ...(primaDiOra.get(o.orderId)?.consegnaSpostata
+        ? {}
+        : {
+            dataConsegna: o.dataConsegna ? new Date(o.dataConsegna) : null,
+            fasciaConsegna: o.fasciaConsegna,
+          }),
+      dataConsegnaOriginale: o.dataConsegna ? new Date(o.dataConsegna) : null,
+      fasciaConsegnaOriginale: o.fasciaConsegna,
       statoChiave: o.statoChiave,
       statoNome: o.statoNome || stati.get(o.statoChiave)?.nome || '',
       statoColore: stati.get(o.statoChiave)?.colore || '',

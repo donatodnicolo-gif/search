@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { MessaggiOrdine } from './MessaggiOrdine'
-import { coloreGestione, nomeGestione } from '@/lib/gestione'
+import { PASSI, coloreGestione, nomeGestione } from '@/lib/gestione'
 import { coloreTipoCliente, nomeTipoCliente } from '@/lib/clienti-tipo'
 import { fasciaRitiro, messaggioFornitore } from '@/lib/ritiro'
 import { richiestaFornitore } from '@/lib/messaggio-fornitore'
@@ -62,6 +62,11 @@ type OrdineDettaglio = {
   paese: string
   dataConsegna: string | null
   fasciaConsegna: string
+  /** La consegna è stata spostata da noi: allora diverge da quella di Shopify. */
+  consegnaSpostata?: boolean
+  dataConsegnaOriginale?: string | null
+  fasciaConsegnaOriginale?: string
+  consegnaSpostataDa?: string
   statoNome: string
   statoColore: string
   note: string
@@ -321,6 +326,44 @@ export function DettaglioOrdine({
     document.addEventListener('keydown', tasto)
     return () => document.removeEventListener('keydown', tasto)
   }, [onChiudi])
+
+  const [spostaAperto, setSpostaAperto] = useState(false)
+  const [spostaData, setSpostaData] = useState('')
+  const [spostaFascia, setSpostaFascia] = useState('')
+  const [spostando, setSpostando] = useState(false)
+
+  /**
+   * Sposta la consegna (o rimette quella di Shopify).
+   *
+   * ⚠️ Dopo il salvataggio si ricarica il dettaglio: la data nuova cambia anche
+   * il messaggio per il fornitore e il ritiro — mostrarne una e lasciare gli
+   * altri fermi vorrebbe dire mandare al fornitore l'orario vecchio.
+   */
+  async function spostaConsegna(ripristina = false) {
+    if (!ordine?.id || spostando) return
+    setSpostando(true)
+    setErrore('')
+    try {
+      const res = await fetch(`/api/ordini/${ordine.id}/consegna`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(
+          ripristina ? { ripristina: true } : { data: spostaData, fascia: spostaFascia }
+        ),
+      })
+      const d = (await res.json().catch(() => ({}))) as { errore?: string }
+      if (!res.ok) {
+        setErrore(d.errore || 'Consegna non spostata.')
+        return
+      }
+      setSpostaAperto(false)
+      await carica()
+    } catch {
+      setErrore('Consegna non spostata: problema di rete.')
+    } finally {
+      setSpostando(false)
+    }
+  }
 
   /** Segna l'ordine gestito (o lo riapre) senza chiudere il pannello. */
   async function cambiaGestione(gestione: string) {
@@ -714,6 +757,88 @@ export function DettaglioOrdine({
                       })
                     : 'non indicata'}
                   {ordine.fasciaConsegna ? ` · ${ordine.fasciaConsegna}` : ''}
+                  {/* ── Spostare la consegna ──
+                      Il cliente chiama e chiede un altro giorno: prima si
+                      andava su Shopify, si cambiava là e si aspettava il
+                      reimport — e intanto qui l'ordine restava in cima al
+                      lavoro di oggi. ⚠️ Solo sugli ordini che abbiamo in casa:
+                      su uno dell'archivio non c'è una riga da aggiornare. */}
+                  {soloArchivio ? null : (
+                    <>
+                      {' '}
+                      <button
+                        className="bottone secondario mini"
+                        onClick={() => {
+                          setSpostaData(
+                            ordine.dataConsegna
+                              ? new Date(ordine.dataConsegna).toISOString().slice(0, 10)
+                              : ''
+                          )
+                          setSpostaFascia(ordine.fasciaConsegna || '')
+                          setSpostaAperto(!spostaAperto)
+                        }}
+                        title="Sposta il giorno o la fascia di consegna"
+                      >
+                        {spostaAperto ? 'Chiudi' : 'Sposta'}
+                      </button>
+                    </>
+                  )}
+                  {/* ⚠️ La divergenza si DICE: finché Shopify non è allineato,
+                      chi guarda deve capire in due secondi che le due date non
+                      coincidono — è l'unico modo perché qualcuno vada a
+                      sistemarla anche alla fonte. */}
+                  {ordine.consegnaSpostata ? (
+                    <div className="cella-sub" style={{ marginTop: 4 }}>
+                      Spostata{ordine.consegnaSpostataDa ? ` da ${ordine.consegnaSpostataDa}` : ''}
+                      {ordine.dataConsegnaOriginale
+                        ? ` · su Shopify resta ${new Date(
+                            ordine.dataConsegnaOriginale
+                          ).toLocaleDateString('it-IT', { day: 'numeric', month: 'long' })}${
+                            ordine.fasciaConsegnaOriginale
+                              ? ' · ' + ordine.fasciaConsegnaOriginale
+                              : ''
+                          }`
+                        : ''}
+                    </div>
+                  ) : null}
+                  {spostaAperto ? (
+                    <div
+                      style={{
+                        display: 'flex',
+                        gap: 6,
+                        alignItems: 'center',
+                        flexWrap: 'wrap',
+                        marginTop: 6,
+                      }}
+                    >
+                      <input
+                        type="date"
+                        value={spostaData}
+                        onChange={(e) => setSpostaData(e.target.value)}
+                        aria-label="Giorno di consegna"
+                      />
+                      <input
+                        type="text"
+                        value={spostaFascia}
+                        onChange={(e) => setSpostaFascia(e.target.value)}
+                        placeholder="16-20"
+                        style={{ width: 90 }}
+                        aria-label="Fascia oraria"
+                      />
+                      <button className="bottone mini" onClick={() => spostaConsegna()}>
+                        {spostando ? 'Salvo…' : 'Salva'}
+                      </button>
+                      {ordine.consegnaSpostata ? (
+                        <button
+                          className="bottone secondario mini"
+                          onClick={() => spostaConsegna(true)}
+                          title="Torna alla data che dice Shopify"
+                        >
+                          Rimetti quella di Shopify
+                        </button>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </dd>
                 {/* Mittente e destinatario sono due persone diverse quasi
                     sempre: in un regalo chi paga non è chi riceve. Tenerli
@@ -766,9 +891,44 @@ export function DettaglioOrdine({
                       Ordine dell&apos;archivio: qui non si lavora.
                     </span>
                   ) : (
-                    <span className="badge" style={{ color: coloreGestione(ordine.gestione) }}>
-                      {nomeGestione(ordine.gestione)}
-                    </span>
+                    <>
+                      {/* ── I passi, cliccabili anche da qui ──
+                          Il pannello è dove si LAVORA l'ordine: si guarda la
+                          foto, si copia il messaggio, si cerca il fornitore. È
+                          lì che ci si accorge di essere passati al punto dopo,
+                          e chiudere il pannello per cambiare stato sulla scheda
+                          è un giro che non fa nessuno — lo stato resta indietro
+                          e la bacheca smette di dire il vero.
+                          ⚠️ Lo stato in corso è pieno: la fila dice **dove
+                          siamo**, non «cosa posso fare». */}
+                      <span className="passi-ordine">
+                        {PASSI.map((k) => (
+                          <button
+                            key={k}
+                            className={
+                              ordine.gestione === k ? 'bottone mini' : 'bottone secondario mini'
+                            }
+                            onClick={() => cambiaGestione(k)}
+                            title={`Segna che l'ordine è a questo punto: ${nomeGestione(k)}`}
+                          >
+                            {nomeGestione(k)}
+                          </button>
+                        ))}
+                      </span>
+                      {/* Gli stati che non sono passi — «Comunicazione con
+                          cliente», scritto dall'app quando scrivi al cliente, e
+                          «Gestito» — restano visibili come bollino: altrimenti
+                          un ordine in quello stato sembrerebbe non averne
+                          nessuno. */}
+                      {PASSI.includes(ordine.gestione as (typeof PASSI)[number]) ? null : (
+                        <span
+                          className="badge"
+                          style={{ color: coloreGestione(ordine.gestione), marginLeft: 6 }}
+                        >
+                          {nomeGestione(ordine.gestione)}
+                        </span>
+                      )}
+                    </>
                   )}
                   {ordine.statoNome ? (
                     <span className="badge" style={{ marginLeft: 6 }}>

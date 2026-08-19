@@ -41,6 +41,11 @@ export type OrdineDettaglioDto = {
   paese: string
   dataConsegna: string | null
   fasciaConsegna: string
+  /** La consegna è stata spostata da noi (e allora diverge da Shopify). */
+  consegnaSpostata?: boolean
+  dataConsegnaOriginale?: string | null
+  fasciaConsegnaOriginale?: string
+  consegnaSpostataDa?: string
   statoNome: string
   statoColore: string
   note: string
@@ -101,6 +106,12 @@ export async function dettaglioOrdineLocale(id: string): Promise<DettaglioOrdine
       paese: ordine.paese,
       dataConsegna: ordine.dataConsegna ? ordine.dataConsegna.toISOString() : null,
       fasciaConsegna: ordine.fasciaConsegna,
+      consegnaSpostata: ordine.consegnaSpostata,
+      dataConsegnaOriginale: ordine.dataConsegnaOriginale
+        ? ordine.dataConsegnaOriginale.toISOString()
+        : null,
+      fasciaConsegnaOriginale: ordine.fasciaConsegnaOriginale,
+      consegnaSpostataDa: ordine.consegnaSpostataDa,
       statoNome: ordine.statoNome,
       statoColore: ordine.statoColore,
       note: ordine.note,

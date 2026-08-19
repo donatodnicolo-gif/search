@@ -277,6 +277,24 @@ model Ordine {
   // Orders e reggono il Calendario ordini.
   dataConsegna   DateTime?
   fasciaConsegna String   @default("")
+
+  // ── Consegna spostata da noi ──
+  //
+  // Quando il cliente chiede un altro giorno, la consegna si sposta DA QUI: il
+  // giro da fare prima era Shopify → aspettare il reimport → sperare. Il valore
+  // nuovo si scrive dentro `dataConsegna`/`fasciaConsegna` — cioè i campi che
+  // leggono già urgenza, calendario, ordinamenti e messaggio al fornitore —
+  // e questo interruttore dice al sync di NON ripassarci sopra.
+  //
+  // ⚠️ Finché è acceso, la nostra data e quella di Shopify possono divergere:
+  // l'originale resta in `dataConsegnaOriginale` e a schermo si dice. Quando
+  // Orders porta la stessa data (perché qualcuno l'ha sistemata alla fonte),
+  // l'interruttore si spegne da solo: la deroga dura solo finché serve.
+  consegnaSpostata      Boolean   @default(false)
+  dataConsegnaOriginale DateTime?
+  fasciaConsegnaOriginale String  @default("")
+  consegnaSpostataDa    String    @default("")
+  consegnaSpostataIl    DateTime?
   statoChiave    String   @default("")
   statoNome      String   @default("")
   statoColore    String   @default("")
