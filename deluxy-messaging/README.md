@@ -62,6 +62,21 @@ nessuna delle due, ognuna convinta che ci pensi l'altra.
 la pagherebbe il cliente. Se due premono nello stesso secondo, il secondo riceve un avviso
 con il nome di chi ce l'ha — non un silenzio con due nomi diversi sui due schermi.
 
+## A che punto è un ordine
+
+Sopra i bottoni di ogni ordine c'è la fila dei passi: **Da iniziare** (dove nasce) ·
+**Ricerca fornitore** · **In pagamento** · **Attesa consegna**. Quello in corso è pieno,
+gli altri no, e si cambia con un clic.
+
+Sta prima dei bottoni perché risponde a un'altra domanda: i bottoni dicono *cosa posso
+fare*, la fila dice *dove siamo*. Un ordine fermo sulla ricerca del fornitore e uno che
+aspetta solo la consegna chiedono cose diverse a chi guarda la bacheca — e prima erano
+tutti e due «Da gestire».
+
+**Gestito ✓** resta un bottone a parte: è la fine, ed è l'unica azione che fa sparire
+l'ordine dalla lista di lavoro. **Comunicazione con cliente** non è un passo da scegliere:
+lo scrive l'app da sé quando scrivi al cliente da qui.
+
 ## «Solo nuovi»: cos'è entrato mentre non guardavi
 
 In alto, accanto agli altri filtri, un interruttore **Solo nuovi**: mostra i soli ordini col

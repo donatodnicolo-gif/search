@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState, type CSSProperties } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { GESTIONI, coloreGestione, nomeGestione } from '@/lib/gestione'
+import { GESTIONI, PASSI, coloreGestione, nomeGestione } from '@/lib/gestione'
 import {
   TIPI_CLIENTE,
   coloreTipoCliente,
@@ -1590,6 +1590,32 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
                             più compatti, non togliendo funzioni.
                             Non aprono il dettaglio: chi preme "Reclamo" vuole il
                             reclamo, non il pannello. */}
+                        {/* ── A CHE PUNTO È ──
+                            La fila dei passi sta PRIMA dei bottoni perché
+                            risponde a un'altra domanda: i bottoni dicono «cosa
+                            posso fare», questa dice «dove siamo». Un ordine in
+                            «Ricerca fornitore» e uno in «Attesa consegna»
+                            chiedono cose diverse a chi guarda la bacheca, e
+                            finora erano tutti e due «Da gestire».
+                            ⚠️ Il passo in corso è pieno, gli altri no: si legge
+                            di sfuggita, senza contare i bottoni. */}
+                        <div
+                          className="passi-ordine"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {PASSI.map((k) => (
+                            <button
+                              key={k}
+                              className={
+                                o.gestione === k ? 'bottone mini' : 'bottone secondario mini'
+                              }
+                              onClick={() => segna(o.id, k)}
+                              title={`Segna che l'ordine è a questo punto: ${nomeGestione(k)}`}
+                            >
+                              {nomeGestione(k)}
+                            </button>
+                          ))}
+                        </div>
                         <div className="azioni-ordine" onClick={(e) => e.stopPropagation()}>
                           {/* Prima di tutto il resto: «di chi è» viene prima di
                               «cosa ci faccio». */}

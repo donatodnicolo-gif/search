@@ -153,8 +153,21 @@ locale, altrimenti nulla si decifra.
     corta. ⚠️ I mestieri hanno più etichette (FIORISTA+FIORI, PASTICCERIA+
     CIOCCOLATERIA) e il recapito può essere di un **referente**. Misurato:
     Milano → 9 pasticcerie / 6 fiorai; Firenze e Novara → nessuno, e lo dice.
+  - **I PASSI DELLA LAVORAZIONE, SOPRA I BOTTONI** (19/08/2026, LIVE):
+    **Da iniziare · Ricerca fornitore · In pagamento · Attesa consegna**, il
+    passo in corso pieno e gli altri no. Stanno prima dei bottoni perché
+    rispondono a un'altra domanda: i bottoni dicono *cosa posso fare*, la fila
+    dice *dove siamo* — e un ordine fermo sul fornitore chiede una cosa diversa
+    da uno che aspetta solo la consegna, mentre finora erano tutti «Da gestire».
+    ⚠️ La chiave resta `da_gestire` anche se ora si legge «Da iniziare»: è
+    scritta su 1.274 ordini e nei filtri, e rinominarla per un'etichetta
+    vorrebbe dire migrare i dati per una parola. ⚠️ `comunicazione` resta nel
+    vocabolario pur non essendo un passo: **lo scrive l'app da sé** quando
+    scrivi al cliente, e toglierlo lascerebbe uno stato senza nome sugli ordini
+    che ce l'hanno.
   - **FILTRO «SOLO NUOVI»** (19/08/2026, LIVE): un interruttore in alto per
-    vedere i soli ordini col bollino NUOVO (ultime 12 ore, ).
+    vedere i soli ordini col bollino NUOVO (ultime 12 ore, la finestra di
+    `ORE_APPENA_ARRIVATO`).
     ⚠️ Filtra il **server**: la lista è tagliata a 200 e ordinata per urgenza,
     quindi a valle si vedrebbero i soli nuovi fra i 200 già scelti. Misurato
     alla nascita: 7 col bollino, 4 ancora da gestire.

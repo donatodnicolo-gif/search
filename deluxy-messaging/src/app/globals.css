@@ -3539,3 +3539,13 @@ td .azioni-ordine {
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 10px;
 }
+
+/* La fila dei passi di lavorazione, sopra i bottoni della scheda.
+   Un filo di spazio sotto la separa dalle azioni: sono due cose diverse — qui
+   si dice DOVE siamo, lì COSA si può fare. */
+.passi-ordine {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0 6px;
+}
