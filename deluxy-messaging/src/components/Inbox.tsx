@@ -8,6 +8,7 @@ import { urlScriviAiMail } from '@/lib/ai-mail'
 import { NuovaMail } from './NuovaMail'
 import { RiassuntoChat } from './RiassuntoChat'
 import { NOMI_ORIGINE } from '@/lib/provenienza'
+import { nuoviDaAvvisare } from '@/lib/avvisi'
 
 // L'inbox unificata: elenco conversazioni a sinistra, thread a destra.
 // Si aggiorna da sola con un polling leggero (le nuove conversazioni e i
@@ -431,7 +432,13 @@ export function Inbox({
   // si crea al primo clic, e finché non c'è il primo clic non si sente nulla.
   const [audioAcceso, setAudioAcceso] = useState(true)
   const audioRef = useRef<AudioContext | null>(null)
-  const nonLettiPrec = useRef<number | null>(null)
+  /**
+   * Quanti non letti aveva OGNI conversazione al giro precedente.
+   *
+   * `null` = primo caricamento, e allora non si suona niente. Una mappa e non
+   * una somma: vedi il commento dell'effetto più sotto.
+   */
+  const nonLettiPerConversazione = useRef<Map<string, number> | null>(null)
 
   const suona = useCallback(() => {
     if (!audioAcceso) return
@@ -501,7 +508,7 @@ export function Inbox({
   }
 
   const avvisa = useCallback(
-    (quante: number) => {
+    (quante: number, libere: boolean) => {
       if (!avvisi || typeof Notification === 'undefined') return
       if (Notification.permission !== 'granted') return
       if (typeof document !== 'undefined' && !document.hidden) return
@@ -509,7 +516,12 @@ export function Inbox({
         const n = new Notification(
           quante === 1 ? 'Nuovo messaggio' : `${quante} nuovi messaggi`,
           {
-            body: 'Deluxy Customer Service — un cliente sta aspettando una risposta.',
+            // Le due righe dicono cose diverse perché richiedono cose diverse:
+            // su una conversazione MIA la risposta la devo io, su una LIBERA il
+            // rischio è che non la dia nessuno.
+            body: libere
+              ? 'Deluxy Customer Service — nessuno se ne sta ancora occupando.'
+              : 'Deluxy Customer Service — su una conversazione di cui ti stai occupando.',
             // `tag` fa sostituire l'avviso precedente invece di impilarne dieci
             // durante una raffica.
             tag: 'deluxy-inbox',
@@ -526,21 +538,24 @@ export function Inbox({
     [avvisi]
   )
 
-  // Il totale dei non letti è il segnale più semplice e più affidabile: cresce
-  // solo quando arriva davvero qualcosa. Contare le conversazioni nuove
-  // suonerebbe anche quando una torna in cima per una nostra risposta.
+  // Chi viene avvisato e per cosa lo decide `nuoviDaAvvisare` (src/lib/avvisi.ts):
+  // mie e libere sì, quelle di un collega no. La regola sta in libreria perché
+  // si prova con dei casi, senza aprire un browser — qui resta solo il quando.
   useEffect(() => {
     if (vistaElenco !== 'arrivo') return
-    const totale = conversazioni.reduce((s, c) => s + c.nonLetti, 0)
-    const prima = nonLettiPrec.current
-    nonLettiPrec.current = totale
+    const ora = new Map(conversazioni.map((c) => [c.id, c.nonLetti]))
+    const prima = nonLettiPerConversazione.current
+    nonLettiPerConversazione.current = ora
     // Al primo caricamento non si suona: aprire l'inbox con 106 non letti non è
     // un messaggio appena arrivato.
-    if (prima !== null && totale > prima) {
+    if (!prima) return
+
+    const { quanti, daLibere } = nuoviDaAvvisare(prima, conversazioni, ioId)
+    if (quanti > 0) {
       suona()
-      avvisa(totale - prima)
+      avvisa(quanti, daLibere)
     }
-  }, [conversazioni, vistaElenco, suona, avvisa])
+  }, [conversazioni, vistaElenco, suona, avvisa, ioId])
 
   const caricaMessaggi = useCallback(async (id: string) => {
     try {
@@ -1427,8 +1442,8 @@ export function Inbox({
             onClick={chiediAvvisi}
             title={
               avvisi
-                ? 'Avvisi attivi: compaiono quando la scheda non è in primo piano'
-                : 'Chiedi al browser di mostrare un avviso quando arriva un messaggio'
+                ? 'Avvisi attivi: compaiono quando la scheda non è in primo piano, e solo per le conversazioni tue o ancora libere — non per quelle prese da un collega'
+                : 'Chiedi al browser di mostrare un avviso quando arriva un messaggio su una conversazione tua o ancora libera'
             }
           >
             {avvisi ? 'Avvisi' : 'Avvisi off'}
