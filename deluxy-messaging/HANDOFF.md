@@ -122,6 +122,46 @@ locale, altrimenti nulla si decifra.
 
 ## FATTO
 
+- **ORDINI: CHI SE NE OCCUPA, PAGAMENTO E FRODE, FORNITORI IN ZONA** (19/08/2026,
+  tutto LIVE). Una giornata sulla bacheca degli ordini, su richiesta dell'utente.
+  - **Presa in carico degli ordini**, con le stesse regole delle conversazioni
+    (`Ordine.presaDaId/presaDaNome/presaIl`, db push additivo). Bollino oro se è
+    di un collega, grigio se è mio; filtro «Chi se ne occupa: Liberi / Miei».
+    ⚠️ Update **condizionato** (`updateMany` su «libero o già mio»): con un
+    update secco due operatori che premono nello stesso secondo leggerebbero
+    entrambi il proprio nome. ⚠️ Si lascia **solo il proprio**.
+  - **L'amministratore assegna, l'operatore prende**: per l'admin il bottone
+    diventa il menu «Assegna a…» con tutti gli operatori. ⚠️ Assegnare a un
+    altro è **403 per i non-admin**: un operatore che può scaricare un ordine su
+    un collega non fa una presa in carico, fa uno scarico di responsabilità con
+    l'aria di essere una funzione. ⚠️ Anche l'admin passa dal 409 se l'ordine è
+    in mano a un terzo: toglierlo di soppiatto è il guaio di sempre.
+  - **Pagamento e rischio frode nella lista** (`rischioLivello`,
+    `rischioRaccomandazione`, e `statoPagamento` che il sync **non riempiva
+    più**: 491 ordini su 1.273 l'avevano vuoto). Il dato c'era già in Orders
+    (`shopify.financialStatus`, `shopify.rischio`, che tiene la valutazione più
+    severa fra quelle che Shopify conosce). ⚠️ LOW/NONE e pagamento sconosciuto
+    **non si mostrano**: un bollino su tutto è come nessun bollino. Misurato su
+    7 giorni di ordini veri: 3 PENDING, 2 MEDIUM/INVESTIGATE (#2749, #2714).
+    Riempito l'arretrato con un giro completo (866 ordini).
+  - **Fornitori del registro nella provincia di consegna**, nel pannello
+    dell'ordine: pasticcerie per il negozio Cake, fiorai per Flowers, con
+    WhatsApp/Email/«Copia richiesta». ⚠️ La richiesta usa **lo stesso testo
+    dell'app Ricerca fornitori**. ⚠️⚠️ `src/lib/province.ts` perché nel registro
+    la stessa provincia è scritta in due modi (**20 «MI» e 9 «MILANO»**): senza
+    normalizzare, Milano trovava 20 fornitori su 29 e la lista sembrava solo più
+    corta. ⚠️ I mestieri hanno più etichette (FIORISTA+FIORI, PASTICCERIA+
+    CIOCCOLATERIA) e il recapito può essere di un **referente**. Misurato:
+    Milano → 9 pasticcerie / 6 fiorai; Firenze e Novara → nessuno, e lo dice.
+  - 🐛 **«Fornitore» apriva una scheda vuota (about:blank)**, segnalato
+    dall'utente: la scheda si apre prima della chiamata (deve nascere dentro il
+    clic) ma era aperta con `noopener`, e **con `noopener` il browser
+    restituisce null** invece della scheda — l'indirizzo non si poteva più
+    scrivere dentro. Ora si apre senza `noopener` e il legame si toglie a mano
+    con `opener = null`.
+  - ⚠️ Resa a schermo **non verificata** (login): verificati `tsc`, `build`, i
+    dati veri dal registro e da Orders, e il deploy promosso.
+
 - **GLI AVVISI SUONANO PER LE CONVERSAZIONI TUE O LIBERE, NON PER QUELLE DI UN
   COLLEGA** (19/08/2026, LIVE). Era l'ultimo pezzo che mancava alla presa in
   carico del 17/08: la funzione esisteva, ma l'avviso continuava a suonare

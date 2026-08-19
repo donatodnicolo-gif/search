@@ -31,6 +31,60 @@ Il collegamento numero → brand si dichiara in **Negozi**, nel campo *Phone Num
 (app Meta → WhatsApp → Configurazione API). Senza, il messaggio arriva comunque e in
 Inbox si vede il numero grezzo invece del nome del marchio.
 
+## Chi si occupa di un ordine
+
+Come per le conversazioni: gli operatori sono tre e la bacheca è una sola. Senza un
+segnale, due persone chiamano lo stesso fornitore per lo stesso ordine — o (peggio)
+nessuna delle due, ognuna convinta che ci pensi l'altra.
+
+- **Operatore**: bottone «Me ne occupo io», e «Lascia» per liberarlo. Si lascia **solo il
+  proprio**: liberare l'ordine di un altro con un clic vuol dire toglierglielo da sotto le
+  mani senza che se ne accorga.
+- **Amministratore**: al posto del bottone c'è il menu **«Assegna a…»** con tutti gli
+  operatori e «Lascialo libero». Chi coordina il lavoro non lo prende: lo distribuisce.
+- Bollino accanto al numero: **oro** = di un collega, **grigio** = mio.
+- Filtro **«Chi se ne occupa: Liberi / Miei»**. ⚠️ Liberi prima di Miei: il guaio peggiore
+  non è che due lavorino lo stesso ordine, è che non lo lavori nessuno.
+
+⚠️ **Segnala, non blocca**: chi ha preso l'ordine può andare a pranzo, e una porta chiusa
+la pagherebbe il cliente. Se due premono nello stesso secondo, il secondo riceve un avviso
+con il nome di chi ce l'ha — non un silenzio con due nomi diversi sui due schermi.
+
+## Pagamento in sospeso e sospetto di frode
+
+Un ordine **non incassato** o che **Shopify considera sospetto** non deve partire. Il
+bollino sta nella lista (scheda e riga), non solo nel dettaglio: l'ordine si lavora
+scorrendo la bacheca, e un avviso dentro un pannello che si apre a richiesta lo legge solo
+chi era già andato a cercarlo.
+
+- «⚠️ Pagamento in sospeso» (Shopify non risulta aver incassato), «Pagamento stornato»,
+  «Rimborsato» / «Rimborsato in parte».
+- «⚠️ Possibile frode» / «Rischio frode alto», col consiglio di Shopify (verificare o
+  annullare). ⚠️ Un ordine fraudolento pagato con carta rubata torna indietro come storno,
+  e il prodotto è già stato consegnato.
+- ⚠️ **LOW e NONE non si mostrano** (sono il 99% degli ordini) e nemmeno il pagamento
+  sconosciuto: un bollino su tutto è come nessun bollino. Rosso solo per ciò che ferma la
+  mano.
+
+I due dati arrivano da Deluxy Orders, che li legge da Shopify: qui si copiano soltanto.
+
+## I fornitori che abbiamo già in quella provincia
+
+Nel dettaglio dell'ordine, sotto il messaggio per il fornitore, compaiono i **partner
+attivi del registro Anagrafiche che stanno nella provincia di consegna**: le pasticcerie
+se l'ordine è del negozio Cake, i fiorai se è di Flowers. Con WhatsApp, Email e «Copia
+richiesta».
+
+⚠️ La richiesta è **lo stesso testo dell'app Ricerca fornitori** («Buongiorno, per giovedì
+20 agosto è possibile Millefoglie x6 da spedire con consegna a … all'ora 12-16?»): due
+formulazioni diverse per la stessa richiesta, dalla stessa azienda, allo stesso fornitore,
+sono due mittenti diversi visti da fuori.
+
+⚠️ Nel registro la stessa provincia è scritta in due modi (20 partner «MI», 9 «MILANO»):
+si confrontano le **sigle**, altrimenti un ordine a Milano trova due terzi dei fornitori e
+la lista sembra solo più corta. Dove non c'è nessun partner lo dice, e rimanda a «Cerca
+fornitore» — che cerca su Google chi ancora non conosciamo.
+
 ## Gli avvisi suonano per quello che riguarda te
 
 Gli operatori sono tre e l'inbox è una sola. Il suono e l'avviso del browser arrivano
