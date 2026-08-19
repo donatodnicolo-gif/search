@@ -81,11 +81,53 @@ export async function accessTokenDaRefresh(
     error?: string
   }
   if (!res.ok || !j.access_token) {
-    throw new Error(
-      j.error_description || j.error || `Refresh del token Google fallito (HTTP ${res.status})`
-    )
+    throw new Error(spiegaRifiuto(j.error, j.error_description, res.status))
   }
   return j.access_token
+}
+
+/**
+ * Il rifiuto di Google, detto in modo che si capisca cosa fare.
+ *
+ * ⚠️ NASCE DA UN CASO VERO: con l'accesso revocato Google risponde
+ * `{"error":"invalid_grant","error_description":"Bad Request"}`, e a schermo
+ * finiva la sola descrizione — «Bad Request», che non dice niente a nessuno e
+ * per giunta sembra un difetto nostro. Il pezzo che serve è il **codice**
+ * (`invalid_grant`) e, soprattutto, la mossa che lo ripara.
+ *
+ * Le parole di Google restano fra parentesi: quando la causa è un'altra, è da
+ * lì che si riparte a cercare.
+ */
+export function spiegaRifiuto(
+  errore: string | undefined,
+  descrizione: string | undefined,
+  stato: number
+): string {
+  const codice = (errore ?? '').trim()
+  const dette = [codice, descrizione].filter((s) => s && s !== 'Bad Request').join(': ')
+  const parole = dette ? ` (Google dice: ${dette})` : ``
+  if (codice === 'invalid_grant') {
+    return (
+      'Google non riconosce più il permesso salvato: è stato revocato dall’account, ' +
+      'oppure è scaduto — succede quando la schermata di consenso è ancora in «Testing» ' +
+      'nella console Google Cloud, dove i permessi durano 7 giorni. Serve rifare il ' +
+      'collegamento da Impostazioni → Google Contacts' +
+      parole
+    )
+  }
+  if (codice === 'invalid_client') {
+    return (
+      'Client ID e Client Secret non combaciano con quelli della console Google: ' +
+      'controllali in Impostazioni → Google Contacts' + parole
+    )
+  }
+  if (codice === 'unauthorized_client') {
+    return (
+      'Questo client OAuth non è autorizzato a usare il permesso salvato: di solito il ' +
+      'collegamento è stato fatto con un altro client, e va rifatto' + parole
+    )
+  }
+  return descrizione || codice || `Refresh del token Google fallito (HTTP ${stato})`
 }
 
 // Marcatore nella biografia: distingue i contatti creati da noi da quelli
