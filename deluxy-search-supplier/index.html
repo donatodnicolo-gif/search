@@ -573,7 +573,7 @@
     <!-- dettagli ordine (editabili) -->
     <div class="orderbox" id="orderBox" style="display:none">
       <button class="btn-dl" id="collapseOrder" type="button" style="display:none; margin-bottom:12px">▲ Comprimi ordine (mostra solo il riepilogo)</button>
-      <div class="ordertitle"><span class="tag" id="ordTag">ordine</span><span id="ordMeta" class="sub" style="margin:0"></span></div>
+      <div class="ordertitle"><span class="tag" id="ordTag">ordine</span><span id="ordMeta" class="sub" style="margin:0"></span><a class="btn-dl" id="shopifyLink" href="#" target="_blank" rel="noopener" style="display:none; text-decoration:none; margin-left:auto">🛍️ Apri su Shopify</a></div>
 
       <!-- riepilogo: foto pronta da scaricare + prezzi -->
       <div class="deal">
@@ -1031,6 +1031,32 @@ $('#brand').addEventListener('change', e => localStorage.setItem('brand', e.targ
 
 // stato ordine corrente + regola budget
 let orderLoaded = false;
+// «🛍️ Apri su Shopify»: l'handle del negozio sta in cassaforte (config stores[].shop, es.
+// cakedesign-5921.myshopify.com) e torna al browser senza il token. Con l'id dell'ordine si va
+// dritti alla sua scheda; senza (ordini vecchi salvati dal webhook prima del 19/08, ordini
+// compilati a mano) si apre la ricerca per numero, che porta allo stesso posto in un clic.
+let orderShopifyId = '';
+function shopifyAdminUrl(brand, numero, id){
+  const st = (CONFIG.stores || []).find(s => s.brand === brand);
+  const handle = String((st && st.shop) || '').replace(/\.myshopify\.com$/i, '').trim();
+  if(!handle) return '';
+  if(id) return 'https://admin.shopify.com/store/' + handle + '/orders/' + encodeURIComponent(id);
+  const n = String(numero || '').replace(/^#/, '').trim();
+  return n ? 'https://admin.shopify.com/store/' + handle + '/orders?query=%23' + encodeURIComponent(n) : '';
+}
+function linkShopifyCorrente(){
+  // il numero dell'ordine CARICATO sta in #ordTag (lo scrive populateOrder): vince sul campo
+  // di ricerca, che l'operatore può avere già cambiato per cercarne un altro
+  const num = (($('#ordTag').textContent.match(/#(\d+)/) || [])[1] || '')
+           || String($('#orderNum').value || '').replace(/^#/, '').trim();
+  return shopifyAdminUrl($('#brand').value, num, orderShopifyId);
+}
+function aggiornaLinkShopify(){
+  const a = $('#shopifyLink');
+  if(!a) return;
+  const url = linkShopifyCorrente();
+  if(url){ a.href = url; a.style.display = ''; } else { a.style.display = 'none'; }
+}
 let orderItems = [];   // righe dell'ordine Shopify caricato ({title, type, variant, quantity}) — per la tipologia nel messaggio
 const BUDGET_TABLE = { 85: 50 };   // prezzo cliente (€) : budget fiorista (€) — da completare
 const BUDGET_RATIO = 0.59;         // fuori tabella: stima = 59% del prezzo cliente (ricavato da 85→50)
@@ -2339,6 +2365,8 @@ function populateOrder(o){
   $('#ordTag').textContent = o.brand + ' · ' + (o.orderName||'');
   const paid = o.amountPaid || 0;
   $('#ordMeta').textContent = (o.financialStatus? o.financialStatus+' · ':'') + 'pagato ' + paid + ' ' + (o.currency||'EUR');
+  orderShopifyId = o.orderId || '';   // per «🛍️ Apri su Shopify»
+  aggiornaLinkShopify();
   $('#ord_recipient').value = o.recipient || '';
   $('#ord_phone').value = o.phone || '';
   $('#ord_address').value = o.address || '';
@@ -2689,6 +2717,8 @@ $('#manualOrder').addEventListener('click', ()=>{
   $('#orderBox').style.display='block';
   const num = $('#orderNum').value.trim().replace(/^#/,'');
   $('#ordTag').textContent = $('#brand').value + ' · ' + (num ? '#'+num : 'manuale');
+  orderShopifyId = '';   // ordine compilato a mano: si ripiega sulla ricerca per numero
+  aggiornaLinkShopify();
   $('#ordMeta').textContent = 'inserimento manuale';
   $('#rawAttrsBody').innerHTML = '<div class="hint">Modalità manuale: nessun dato importato da Shopify.</div>';
   $('#budgetHint').textContent = '';
@@ -3421,6 +3451,7 @@ function shopCard(d, cat, dist, pid){
    funzionano come prima (leggono #ord_msg e i campi). */
 let resultsShown = false;   // true = per l'ordine corrente sono già comparsi dei risultati
 function renderOrderSummary(){
+  const urlShopify = linkShopifyCorrente();
   const paid = $('#ord_paid').value.trim(), budget = $('#ord_budget').value.trim();
   const paidN = parseFloat(paid.replace(',','.')), budN = parseFloat(budget.replace(',','.'));
   const margine = (isFinite(paidN) && isFinite(budN)) ? (paidN - budN) : null;
@@ -3435,7 +3466,10 @@ function renderOrderSummary(){
   $('#orderSummary').innerHTML = `
     <div class="os-head">
       <div class="os-title">📦 ${esc($('#ordTag').textContent||'Ordine')} ${statoBadge}</div>
-      <button class="btn-dl" id="editOrder" type="button">✏️ Modifica ordine</button>
+      <div style="display:flex; gap:8px; flex-wrap:wrap">
+        ${urlShopify ? `<a class="btn-dl" href="${esc(urlShopify)}" target="_blank" rel="noopener" style="text-decoration:none">🛍️ Apri su Shopify</a>` : ''}
+        <button class="btn-dl" id="editOrder" type="button">✏️ Modifica ordine</button>
+      </div>
     </div>
     <div class="os-grid">
       ${photo ? `<img class="os-photo" src="${esc(photo)}" alt="foto ordine">`
@@ -3503,6 +3537,8 @@ function resetSearch(){
   $('#orderNum').value = '';
   $('#orderBox').style.display = 'none';
   orderLoaded = false; resultsShown = false; orderItems = [];
+  $('#ordTag').textContent = 'ordine';          // l'etichetta torna neutra (la riscrive il prossimo ordine)
+  orderShopifyId = ''; aggiornaLinkShopify();   // niente ordine → niente «Apri su Shopify»
   setOrderCollapsed(false);
   setOrderStatus('');
   // pulisci eventuali parametri deep-link dall'URL (?ordine=…/?indirizzo=…)

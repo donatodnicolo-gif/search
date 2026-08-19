@@ -534,6 +534,27 @@ non si vedono dati reali né si può diagnosticare «La Mimosa»).
    «Bonjour, pour 2026-08-21 serait-il possible de préparer **un Gâteau pour 20 personnes,
    Cioccolato** comme sur la photo x1 …» e «… de préparer **un Bouquet** comme sur la photo …».
 
+44. **Bottone «🛍️ Apri su Shopify» sull'ordine** (19/08, chiesto dall'utente): apre l'ordine
+   nell'admin Shopify in una scheda nuova, sia dalla testata della scheda ordine
+   (`#shopifyLink` in `.ordertitle`, allineato a destra) sia dal **riepilogo compresso**
+   (accanto a «✏️ Modifica ordine») — che è quello che l'operatore vede quando ci sono i risultati.
+   - URL: `https://admin.shopify.com/store/<handle>/orders/<id>`. L'**handle** viene dalla
+     cassaforte (`CONFIG.stores[].shop`, es. `cakedesign-5921.myshopify.com` → `cakedesign-5921`):
+     `GET /api/config` restituisce `shop` al browser, il token no. L'**id** è nuovo:
+     `orderId` in `api/order.js` (dal `gid://shopify/Order/123` che la query già chiedeva) e in
+     `api/webhook.js` (`o.id`).
+   - **Ripiego senza id** (ordini salvati dal webhook prima di oggi, ordini compilati a mano):
+     `…/orders?query=%23<numero>`, la ricerca dell'admin per numero ordine — un clic in più, zero
+     chiamate API. Per questo non serve rileggere l'ordine da Shopify solo per avere l'id.
+   - Il bottone **non compare** se il negozio non è in cassaforte o se non c'è né id né numero;
+     `resetSearch` lo nasconde (e riporta `#ordTag` a «ordine»).
+   - Il numero si legge da `#ordTag` (l'ordine **caricato**) e non dal campo di ricerca, che
+     l'operatore può aver già cambiato per cercarne un altro.
+   Verificato nel browser: link con id, ripiego per numero, campo di ricerca cambiato (il bottone
+   resta sull'ordine caricato), manuale con e senza numero, negozio non configurato, dopo «Azzera»,
+   presenza nel riepilogo con `target="_blank" rel="noopener"`; console pulita (restano solo i 401
+   delle API in locale). `node --check` su `order.js` e `webhook.js` OK.
+
 ## Cose in sospeso
 
 - **Tipologia nel messaggio: da provare su un ordine vero** — il 19/08 il riconoscimento è passato

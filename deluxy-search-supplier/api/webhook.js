@@ -79,6 +79,8 @@ function normalize(brand, o) {
     found: true,
     brand,
     orderName: o.name || ('#' + (o.order_number || o.number || '')),
+    // id numerico dell'ordine su Shopify: serve al bottone «Apri su Shopify» del front-end
+    orderId: String(o.id || o.admin_graphql_api_id || '').split('/').pop(),
     createdAt: o.created_at,
     financialStatus: o.financial_status,
     recipient,

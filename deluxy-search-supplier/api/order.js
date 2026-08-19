@@ -160,7 +160,9 @@ function normalize(brand, o) {
     found: true,
     brand,
     orderName: o.name,
-    createdAt: o.createdAt,
+    // id numerico dell'ordine su Shopify (da gid://shopify/Order/123): serve al bottone
+    // «Apri su Shopify» del front-end. Senza, si ripiega sulla ricerca per numero ordine.
+    orderId: String(o.id || '').split('/').pop(),
     financialStatus: o.displayFinancialStatus,
     recipient,
     address,
