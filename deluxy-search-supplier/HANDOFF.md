@@ -1,4 +1,4 @@
-# HANDOFF — Deluxy Search/Supplier (aggiornato al 17/08/2026, sera)
+# HANDOFF — Deluxy Search/Supplier (aggiornato al 19/08/2026)
 
 Per riprendere il lavoro su quest'app da una nuova sessione Claude. **Leggere prima
 [AI_SPEC.md](AI_SPEC.md)**: è la scheda tecnica completa e aggiornata; questo file dice
@@ -468,7 +468,48 @@ non si vedono dati reali né si può diagnosticare «La Mimosa»).
    chiave). **Non collaudato su Google vero** (serve chiave + login): da guardare in produzione
    sull'ordine deluxyflowers #2734 se «La Mimosa» ora compare.
 
+41. **La tipologia si recupera anche quando la foto c'è già** (19/08): buco trovato guardando un
+   ordine vero (consegna 18/08 in Francia, «Monet - Giardino a Giverny Medio-Grande»). In
+   `api/order.js` l'ordine pescato dal magazzino KV veniva arricchito dall'Admin API **solo se
+   mancava la foto** (`if (!data.photoUrl)`): un ordine con la foto e senza `type` non lo
+   recuperava mai più, nemmeno compilando dopo il `productType` su Shopify. Ora la condizione è
+   **foto mancante OPPURE tipologia mancante su qualche riga** (`tipiMancanti`), il salvataggio in
+   KV avviene solo se qualcosa è davvero cambiato (`cambiato`) e le note sulla foto compaiono solo
+   quando la foto manca davvero (prima una foto già presente poteva prendersi un
+   «Foto non disponibile…» fuorviante). Costo: una chiamata Admin API in più solo sugli ordini a
+   cui manca la tipologia; zero chiamate in più quando c'è tutto.
+   Verificato con 11 controlli automatici sul blocco vero estratto dal file (foto presente + type
+   mancante → recupera e risalva; tutto presente → zero chiamate; foto mancante → foto + type +
+   immagine di riga; Shopify senza foto → nota giusta ma type preso lo stesso; negozio non
+   collegato o errore Shopify → nessuna nota fuorviante se la foto c'è; niente di nuovo → nessun
+   salvataggio inutile; titoli che non combaciano → riga invariata) + `node --check` OK.
+   ⚠️ **Ma da solo NON basta a far dire «un Bouquet»**: vedi «Cose in sospeso».
+
 ## Cose in sospeso
+
+- 🔴 **Il messaggio dice ancora il nome del prodotto invece di «un Bouquet» — il motivo vero
+  (scoperto il 19/08, guardando Shopify)**: NON è che il `productType` sia vuoto. È **compilato,
+  ma con la categoria commerciale**, non col formato fisico. Verificato sul negozio deluxy.it col
+  connettore Shopify: «Monet - Giardino a Giverny» (ACTIVE, il prodotto dello screenshot) ha
+  `productType = "Fiori d'Arte"`; altri valori reali sono `Originali Deluxy`, `Cake Design`,
+  `Dolci di Natale`. Il classificatore `tipoProdotto()` cerca `bouquet|mazzo|bunch|ramo`,
+  `cappellier|hat box|flower box|scatol|box`, `torta|cake|gâteau|kuchen|tarta`: «Fiori d'Arte»
+  non matcha, il titolo nemmeno → ripiego sul nome commerciale. **Compilare il `productType`
+  «meglio» non è quindi la strada**: quel campo serve già ad altro nel catalogo.
+  Dove sta invece l'informazione giusta: **nei tag del prodotto** — «Monet - Giardino a Giverny»
+  ha i tag `Bouquet`, `Fiori`, `solobouquet`; il prodotto Pasqua ha `cappelliera` nel titolo e i
+  cake design hanno tag `Cake Design`. Tre strade (da scegliere, tutte lato codice):
+  **a)** leggere i **tag** del prodotto dall'Admin API (`product { tags }` in `api/order.js`,
+  nuovo campo `items[].tags`) e classificare su quelli — è il segnale che il catalogo già mantiene;
+  ⚠️ i tag NON arrivano nel payload del webhook, quindi servono per forza dall'Admin API, e il
+  recupero va innescato quando manca la *tipologia riconosciuta*, non solo quando manca `type`
+  (oggi «Fiori d'Arte» conta come type presente → nessun recupero: da sistemare insieme);
+  **b)** una **tabella productType → formato** modificabile in ⚙️ Impostazioni (es. «Fiori
+  d'Arte, Originali Deluxy → Bouquet»): nessuna chiamata in più, ma «Originali Deluxy» è ambiguo
+  (contiene sia bouquet che cappelliere) e la tabella va tenuta aggiornata a mano;
+  **c)** allargare l'euristica sul titolo: sconsigliata da sola (è quella che può scambiare una
+  cappelliera per un bouquet, e l'errore lo legge il fornitore).
+  Consiglio: **a)**, con **b)** come rete quando i tag non dicono niente.
 - **«La Mimosa» non esce nei risultati dell'ordine deluxyflowers #2734** — 17/08: implementata la
   **paginazione fino a 60** (punto 40), il rimedio scelto dall'utente fra i tre proposti; **resta
   da confermare in produzione su quell'ordine**. Se ancora non compare, la causa è l'altra: tutte

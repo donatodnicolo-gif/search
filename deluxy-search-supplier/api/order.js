@@ -213,34 +213,40 @@ export default async function handler(req, res) {
     const cached = await kvGet(`order:${brand}:${numNoHash}`);
     if (cached) {
       const data = JSON.parse(cached);
-      // Il payload del webhook Shopify NON include le immagini dei prodotti: se manca la foto
-      // la recuperiamo dall'Admin API (che la sa) e ri-salviamo l'ordine arricchito in KV.
-      if (!data.photoUrl) {
+      // Il payload del webhook Shopify NON include le immagini dei prodotti, e la tipologia
+      // (product_type) arriva solo se è compilata sul prodotto. Se manca la foto OPPURE la
+      // tipologia di qualche riga, le recuperiamo dall'Admin API (che le sa) e ri-salviamo
+      // l'ordine arricchito in KV. NB: la tipologia serve al messaggio per il fornitore
+      // («un Bouquet … come da foto»); senza, il testo ripiega sul nome commerciale.
+      const tipiMancanti = (data.items || []).some(it => !it.type);
+      if (!data.photoUrl || tipiMancanti) {
         try {
           const store = await storeFor(brand);
           if (store) {
             const order = await findOrder(store.shop, store.token, numNoHash);
             if (order) {
               const full = normalize(brand, order);
-              if (full.photoUrl) {
+              let cambiato = false;
+              if (full.photoUrl && !data.photoUrl) {
                 data.photoUrl = full.photoUrl;
                 data.photoSource = 'admin';
-                // riporta anche le immagini sulle singole righe, se combaciano per titolo
-                (data.items || []).forEach(it => {
-                  const m = (full.items || []).find(x => x.title === it.title);
-                  if (m && m.image) it.image = m.image;
-                  if (m && m.type && !it.type) it.type = m.type;
-                });
-                await kvSet(`order:${brand}:${numNoHash}`, JSON.stringify(data), 60 * 60 * 24 * 60);
-              } else {
-                data.photoNote = 'Il prodotto non ha immagine su Shopify.';
+                cambiato = true;
               }
+              // riporta immagini e tipologia sulle singole righe, se combaciano per titolo
+              (data.items || []).forEach(it => {
+                const m = (full.items || []).find(x => x.title === it.title);
+                if (!m) return;
+                if (m.image && it.image !== m.image) { it.image = m.image; cambiato = true; }
+                if (m.type && !it.type) { it.type = m.type; cambiato = true; }
+              });
+              if (cambiato) await kvSet(`order:${brand}:${numNoHash}`, JSON.stringify(data), 60 * 60 * 24 * 60);
+              if (!data.photoUrl) data.photoNote = 'Il prodotto non ha immagine su Shopify.';
             }
-          } else {
+          } else if (!data.photoUrl) {
             data.photoNote = 'Foto non disponibile: il webhook non la include e manca il token Shopify di questo negozio (collegalo dalle Impostazioni).';
           }
         } catch (e) {
-          data.photoNote = 'Foto non recuperata da Shopify: ' + (e.message || String(e));
+          if (!data.photoUrl) data.photoNote = 'Foto non recuperata da Shopify: ' + (e.message || String(e));
         }
       }
       await logCheck(auth.utente, ts, brand, numNoHash, 'ordine trovato (magazzino webhook)', data.amountPaid);

@@ -95,6 +95,14 @@ Dopo aver aggiunto/cambiato una env → **Redeploy**.
   nome del prodotto (con «come da foto» se la foto c'è). `#ord_photo` è fra i campi che rigenerano
   il messaggio. Il riepilogo a schermo continua a mostrare il nome vero del prodotto.
 
+
+⚠️ **Perché in produzione si vede ancora il nome del prodotto** (19/08): `tipoProdotto()` cerca
+parole di *formato* (`bouquet`, `cappellier`, `torta`…) prima in `items[].type` (= `product_type`
+di Shopify) e poi nel titolo. Ma su Shopify il `productType` è la **categoria commerciale** —
+valori reali: `Fiori d'Arte`, `Originali Deluxy`, `Cake Design`, `Dolci di Natale` — che non
+contiene il formato. Il formato sta nei **tag** del prodotto (`Bouquet`, `Cake Design`,
+`solobouquet`), che però **non arrivano nel payload del webhook**: per averli serve l'Admin API
+(`product { tags }`). Vedi «Cose in sospeso» in HANDOFF.md per le tre strade proposte.
 ## 9-bis. Riepilogo «foto + prezzi» e appunti
 Sezione `.deal` in cima al riquadro ordine: miniatura, pulsante **⬇️ Scarica foto**, e tre prezzi (pagato dal cliente · da proporre al fiorario · margine).
 
