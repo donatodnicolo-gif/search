@@ -153,6 +153,27 @@ locale, altrimenti nulla si decifra.
     corta. ⚠️ I mestieri hanno più etichette (FIORISTA+FIORI, PASTICCERIA+
     CIOCCOLATERIA) e il recapito può essere di un **referente**. Misurato:
     Milano → 9 pasticcerie / 6 fiorai; Firenze e Novara → nessuno, e lo dice.
+  - 🐛🐛 **GLI ORDINI APPENA FATTI ARRIVAVANO SEMPRE UN GIRO DOPO** (19/08,
+    segnalato dall'utente: «ne ho ricevuti ora alcuni su Flowers che non
+    vedo»). Non era un guasto: era una **gara persa in partenza**. Anche il
+    registro Orders importa da Shopify ogni 15 minuti (`*/15`), e il nostro
+    cron girava sullo stesso `*/15` — cioè leggevamo il registro
+    sistematicamente un attimo **prima** che si aggiornasse. Misurato: nostro
+    sync **15:30:44**, import di Orders **15:31:11**, e i tre Flowers delle
+    15:19/15:20/15:29 rimasti fuori per un giro intero.
+    Ora il nostro cron è `5,20,35,50`: si legge **dopo** che il registro ha
+    finito, e il ritardo passa da 15-30 minuti a 5-20.
+    ⚠️ **Regola generale**: due cron con lo stesso passo non sono
+    «contemporanei», sono uno prima e uno dopo — e quale dei due sia lo decide
+    il caso. Chi legge deve girare **sfasato** rispetto a chi scrive.
+    ⚠️ Il ritardo residuo è quello del registro: un ordine può comparire in
+    bacheca fino a ~20 minuti dopo che il cliente l'ha fatto. Per averlo subito
+    c'è «Aggiorna da Ordini».
+  - 🐛 **IL PASSO IN CORSO ERA UNA PILLOLA VUOTA** (19/08, «il vuoto cosa
+    sarebbe?»): `.bottone.mini` forzava lo sfondo chiaro su **tutti** i mini,
+    ma il testo dei primari è bianco — bianco su bianco. Lo sfondo serviva solo
+    ai mini *secondari* (per renderli opachi sopra le righe) e ora sta lì.
+    Stesso difetto, mai notato, sul bottone «Nuovo messaggio» dell'inbox.
   - **I PASSI DELLA LAVORAZIONE, SOPRA I BOTTONI** (19/08/2026, LIVE):
     **Da iniziare · Ricerca fornitore · In pagamento · Attesa consegna**, il
     passo in corso pieno e gli altri no. Stanno prima dei bottoni perché

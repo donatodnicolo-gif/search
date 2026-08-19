@@ -62,6 +62,20 @@ nessuna delle due, ognuna convinta che ci pensi l'altra.
 la pagherebbe il cliente. Se due premono nello stesso secondo, il secondo riceve un avviso
 con il nome di chi ce l'ha — non un silenzio con due nomi diversi sui due schermi.
 
+## Quanto ci mette un ordine ad arrivare in bacheca
+
+La catena è **Shopify → Deluxy Orders → qui**, e ogni anello ha il suo giro da 15 minuti:
+il registro importa da Shopify `*/15`, noi leggiamo il registro a `5,20,35,50`. In pratica
+un ordine compare qui **entro 5-20 minuti** da quando il cliente l'ha fatto.
+
+⚠️ I due cron sono **sfasati apposta**: girando allo stesso minuto leggevamo il registro un
+attimo prima che si aggiornasse, e gli ordini appena fatti restavano fuori per un giro
+intero. Se serve subito, il bottone **«Aggiorna da Ordini»** fa il giro a mano.
+
+Per dare un'idea del ritmo: negli ultimi 30 giorni sono arrivati **~15 ordini al giorno**
+(minimo 6, massimo 26), con le punte attorno alle **11** e alle **15**, e solo l'8% fra
+mezzanotte e le 7.
+
 ## A che punto è un ordine
 
 Sopra i bottoni di ogni ordine c'è la fila dei passi: **Da iniziare** (dove nasce) ·
