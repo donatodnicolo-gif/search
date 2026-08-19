@@ -173,6 +173,13 @@ export async function GET(req: NextRequest) {
   // saprebbe distinguere «preso da me» da «preso da un collega».
   const io = await utenteCorrente()
   const idUtente = io?.id ?? ''
+  // L'elenco degli operatori serve SOLO all'amministratore, che assegna il
+  // lavoro: a un operatore non si mandano i nomi dei colleghi per un menu che
+  // non può usare.
+  const operatori =
+    io?.ruolo === 'admin'
+      ? await db.utente.findMany({ select: { id: true, nome: true }, orderBy: { nome: 'asc' } })
+      : []
 
   const dove: Prisma.OrdineWhereInput = {}
   if (negozio) dove.negozioId = negozio
@@ -323,6 +330,8 @@ export async function GET(req: NextRequest) {
     // Chi sta guardando: senza, il bollino «preso da» non saprebbe dire se
     // quell'ordine è mio o di un collega — che è tutta la differenza.
     ioId: idUtente,
+    ioRuolo: io?.ruolo ?? '',
+    operatori,
     negozi,
     googleCollegato: !!token,
     // ⚠️ Il MOTIVO, non solo il sì/no. `googleAccessToken().catch(() => null)`

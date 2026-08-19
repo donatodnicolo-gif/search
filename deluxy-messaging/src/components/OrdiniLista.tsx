@@ -418,6 +418,79 @@ function linkReclamo(o: OrdineDto): string {
   return `/reclami?${p.toString()}`
 }
 
+/**
+ * Il comando «di chi è questo ordine».
+ *
+ * ⚠️ Due forme, e non è un vezzo: **l'amministratore distribuisce il lavoro**,
+ * l'operatore può solo prendere il proprio. Un menu con i nomi dei colleghi in
+ * mano a tutti non sarebbe una presa in carico ma uno scarico di
+ * responsabilità: «l'ho passato a Marco» detto da chi non coordina nessuno.
+ *
+ * ⚠️ Il menu torna sempre su «Assegna a…»: è un comando, non uno stato. Lo
+ * stato — di chi è l'ordine — lo dice il bollino accanto al numero, che si
+ * legge anche senza aprire niente.
+ */
+function ComandoPresa({
+  ordine,
+  ioId,
+  ioRuolo,
+  operatori,
+  onAzione,
+}: {
+  ordine: OrdineDto
+  ioId: string
+  ioRuolo: string
+  operatori: { id: string; nome: string }[]
+  onAzione: (id: string, presa: 'io' | 'nessuno', forza?: boolean, utenteId?: string) => void
+}) {
+  const mio = !!ordine.presaDaId && ordine.presaDaId === ioId
+  if (ioRuolo !== 'admin' || operatori.length === 0) {
+    return (
+      <button
+        className="bottone secondario mini"
+        onClick={() => onAzione(ordine.id, mio ? 'nessuno' : 'io')}
+        title={
+          mio
+            ? 'Lascialo libero: tornerà fra quelli di cui non si occupa nessuno'
+            : ordine.presaDaId
+              ? `Se ne sta occupando ${ordine.presaDaNome}: te lo chiede prima di prenderlo`
+              : 'Dichiara che te ne occupi tu'
+        }
+      >
+        {mio ? 'Lascia' : 'Me ne occupo io'}
+      </button>
+    )
+  }
+  return (
+    <select
+      className="bottone secondario mini"
+      value=""
+      onChange={(e) => {
+        const v = e.target.value
+        e.currentTarget.value = ''
+        if (!v) return
+        if (v === 'nessuno') onAzione(ordine.id, 'nessuno')
+        else if (v === ioId) onAzione(ordine.id, 'io')
+        else onAzione(ordine.id, 'io', false, v)
+      }}
+      title={
+        ordine.presaDaId
+          ? `Se ne sta occupando ${ordine.presaDaNome}: scegli un altro nome per riassegnarlo`
+          : 'Assegna questo ordine a te o a un operatore'
+      }
+      aria-label="Assegna l'ordine"
+    >
+      <option value="">Assegna a…</option>
+      {operatori.map((u) => (
+        <option key={u.id} value={u.id}>
+          {u.id === ioId ? `Me ne occupo io (${u.nome})` : u.nome}
+        </option>
+      ))}
+      {ordine.presaDaId ? <option value="nessuno">Lascialo libero</option> : null}
+    </select>
+  )
+}
+
 type NegozioDto = {
   id: string
   nome: string
@@ -671,6 +744,10 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
   const [filtroPresa, setFiltroPresa] = useState('')
   /** Chi sta guardando: senza, «preso da» non distingue me da un collega. */
   const [ioId, setIoId] = useState('')
+  /** Il ruolo di chi guarda: l'amministratore assegna, l'operatore prende. */
+  const [ioRuolo, setIoRuolo] = useState('')
+  /** Gli operatori a cui l'amministratore può assegnare (vuoto per gli altri). */
+  const [operatori, setOperatori] = useState<{ id: string; nome: string }[]>([])
   const [filtroTipo, setFiltroTipo] = useState('')
   const [perTipoCliente, setPerTipoCliente] = useState<Record<string, number>>({})
   // Quante consegne oggi, domani e scadute da poco: l'elenco è già ordinato per
@@ -715,6 +792,8 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
         perTipoCliente?: Record<string, number>
         urgenza?: { oggi: number; domani: number; scaduteRecenti: number }
         ioId?: string
+        ioRuolo?: string
+        operatori?: { id: string; nome: string }[]
       }
       setOrdini(dati.ordini)
       setTotale(dati.totale)
@@ -722,6 +801,8 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
       setGoogleCollegato(dati.googleCollegato)
       setGoogleErrore(dati.googleErrore ?? '')
       setIoId(dati.ioId ?? '')
+      setIoRuolo(dati.ioRuolo ?? '')
+      setOperatori(dati.operatori ?? [])
       setUltimaSync(dati.ultimaSync ?? '')
       setEsitoSync(dati.esitoSync ?? '')
       setImportOrders(dati.ultimoImportOrders ?? '')
@@ -743,17 +824,17 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
    * dall'elenco «Miei» di un collega che pensa di seguirlo.
    */
   const prendi = useCallback(
-    async (id: string, presa: 'io' | 'nessuno', forza = false) => {
+    async (id: string, presa: 'io' | 'nessuno', forza = false, utenteId = '') => {
       setErrore('')
       const res = await fetch(`/api/ordini/${id}/presa`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ presa, forza }),
+        body: JSON.stringify({ presa, forza, utenteId: utenteId || undefined }),
       })
       const dati = (await res.json().catch(() => ({}))) as { errore?: string; occupato?: boolean }
       if (res.status === 409 && dati.occupato) {
-        if (window.confirm(`${dati.errore} Vuoi prenderlo comunque tu?`)) {
-          await prendi(id, 'io', true)
+        if (window.confirm(`${dati.errore} Vuoi assegnarlo comunque?`)) {
+          await prendi(id, 'io', true, utenteId)
         }
         return
       }
@@ -1449,21 +1530,13 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
                         <div className="azioni-ordine" onClick={(e) => e.stopPropagation()}>
                           {/* Prima di tutto il resto: «di chi è» viene prima di
                               «cosa ci faccio». */}
-                          <button
-                            className="bottone secondario mini"
-                            onClick={() =>
-                              prendi(o.id, o.presaDaId === ioId && o.presaDaId ? 'nessuno' : 'io')
-                            }
-                            title={
-                              o.presaDaId === ioId && o.presaDaId
-                                ? 'Lascialo libero: tornerà fra quelli di cui non si occupa nessuno'
-                                : o.presaDaId
-                                  ? `Se ne sta occupando ${o.presaDaNome}: te lo chiede prima di prenderlo`
-                                  : 'Dichiara che te ne occupi tu'
-                            }
-                          >
-                            {o.presaDaId === ioId && o.presaDaId ? 'Lascia' : 'Me ne occupo io'}
-                          </button>
+                          <ComandoPresa
+                            ordine={o}
+                            ioId={ioId}
+                            ioRuolo={ioRuolo}
+                            operatori={operatori}
+                            onAzione={prendi}
+                          />
                           <a
                             className="bottone secondario mini"
                             href={linkPagamento(o)}
@@ -1746,21 +1819,13 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
                   </td>
                   <td>
                     <span className="azioni-ordine" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        className="bottone secondario mini"
-                        onClick={() =>
-                          prendi(o.id, o.presaDaId && o.presaDaId === ioId ? 'nessuno' : 'io')
-                        }
-                        title={
-                          o.presaDaId && o.presaDaId === ioId
-                            ? 'Lascialo libero'
-                            : o.presaDaId
-                              ? `Se ne sta occupando ${o.presaDaNome}: te lo chiede prima di prenderlo`
-                              : 'Dichiara che te ne occupi tu'
-                        }
-                      >
-                        {o.presaDaId && o.presaDaId === ioId ? 'Lascia' : 'Me ne occupo io'}
-                      </button>
+                      <ComandoPresa
+                        ordine={o}
+                        ioId={ioId}
+                        ioRuolo={ioRuolo}
+                        operatori={operatori}
+                        onAzione={prendi}
+                      />
                       <a
                         className="bottone secondario mini"
                         href={linkPagamento(o)}

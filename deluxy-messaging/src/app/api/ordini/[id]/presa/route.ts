@@ -17,10 +17,17 @@ type Params = { params: Promise<{ id: string }> }
 // comunque c'è `forza`, che almeno è un gesto dichiarato.
 export async function POST(req: NextRequest, { params }: Params) {
   const { id } = await params
-  const { presa, forza } = (await req.json().catch(() => ({}))) as {
+  const { presa, forza, utenteId } = (await req.json().catch(() => ({}))) as {
     /** 'io' = me ne occupo io · 'nessuno' = lo lascio libero */
     presa?: 'io' | 'nessuno'
     forza?: boolean
+    /**
+     * Assegnare l'ordine a QUALCUN ALTRO. Lo può fare **solo un
+     * amministratore**: chi distribuisce il lavoro è chi lo coordina, e un
+     * operatore che può scaricare un ordine su un collega non è una presa in
+     * carico, è uno scarico di responsabilità con l'aria di essere una funzione.
+     */
+    utenteId?: string
   }
 
   const esiste = await db.ordine.findUnique({ where: { id }, select: { id: true } })
@@ -46,7 +53,25 @@ export async function POST(req: NextRequest, { params }: Params) {
     return NextResponse.json({ presaDaId: '', presaDaNome: '', presaIl: null })
   }
 
-  const dati = { presaDaId: io.id, presaDaNome: io.nome, presaIl: new Date() }
+  // ── Assegnazione a un altro operatore (solo admin) ──
+  let destinatario = io
+  if (utenteId && utenteId !== io.id) {
+    if (io.ruolo !== 'admin') {
+      return NextResponse.json(
+        { errore: 'Solo un amministratore può assegnare un ordine a un altro operatore.' },
+        { status: 403 }
+      )
+    }
+    const altro = await db.utente.findUnique({ where: { id: utenteId } })
+    if (!altro) return NextResponse.json({ errore: 'Operatore non trovato' }, { status: 404 })
+    destinatario = altro
+  }
+
+  const dati = {
+    presaDaId: destinatario.id,
+    presaDaNome: destinatario.nome,
+    presaIl: new Date(),
+  }
 
   // ⚠️⚠️ AGGIORNAMENTO CONDIZIONATO, ed è il punto della funzione: con un update
   // secco, due operatori che premono nello stesso secondo leggerebbero
@@ -54,6 +79,10 @@ export async function POST(req: NextRequest, { params }: Params) {
   // guaio che questa funzione esiste per evitare. Filtrando su «libero o già
   // mio», il secondo scrive zero righe e se lo sente dire.
   if (!forza) {
+    // ⚠️ La condizione guarda chi ce l'ha ADESSO, non chi lo riceve: si può
+    // scrivere sopra il vuoto o sopra sé stessi. Un admin che assegna a Marco
+    // un ordine che ha in mano Federica passa comunque dal 409 e dalla domanda,
+    // perché toglierlo a Federica in silenzio è il guaio di sempre.
     const preso = await db.ordine.updateMany({
       where: { id, presaDaId: { in: ['', io.id] } },
       data: dati,
