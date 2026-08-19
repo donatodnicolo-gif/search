@@ -5,6 +5,7 @@ import { leggiImpostazioni } from '@/lib/impostazioni'
 import { redirectUri } from '@/lib/google'
 import { statoGoogle } from '@/lib/contatti'
 import { lingueLette } from '@/lib/lingua-testo'
+import { TESTO_DI_RISERVA } from '@/lib/primo-contatto'
 import { salvaImpostazioni } from './actions'
 import { DiagnosiWhatsApp } from '@/components/DiagnosiWhatsApp'
 import { CampoSegreto } from '@/components/CampoSegreto'
@@ -42,6 +43,8 @@ export default async function PaginaImpostazioni({
     'openaiModelloRisposte',
     'lingueLette',
     'traduzioneAuto',
+    'primoContattoAttivo',
+    'primoContattoTesto',
     'partnerUrl',
     'partnerApiKey',
     'anagraficheUrl',
@@ -354,6 +357,51 @@ export default async function PaginaImpostazioni({
               la lingua riconosciuta è scritta in testa alla conversazione. Quello che scrivi tu
               invece non parte mai tradotto da solo: il bottone «Traduci in …» mette la traduzione
               nel riquadro, e la mandi tu.
+            </p>
+          </div>
+
+          <div className="card">
+            <h2>Risposta di primo contatto</h2>
+            <p className="descrizione">
+              Quando un cliente scrive per la <strong>prima volta</strong>, riceve subito questo
+              messaggio: sa che è arrivato e che qualcuno lo leggerà. Parte una sola volta per
+              conversazione — al primo messaggio in assoluto — e <strong>non</strong> porta il nome
+              di nessun operatore: nella chat è etichettato «risposta automatica».
+            </p>
+            <p className="descrizione">
+              Vale su <strong>WhatsApp, Instagram, Messenger e la chat dei siti</strong>. ⚠️{' '}
+              <strong>Non sulla posta</strong>: in una casella email arrivano newsletter, notifiche
+              e spam, e rispondere da soli lì vuol dire scrivere agli spammer — o finire in un
+              ping-pong infinito con un altro risponditore automatico.
+            </p>
+            {/* Come per le lingue: una casella non spuntata non arriva nel form,
+                quindi senza questo campo la funzione si potrebbe accendere e mai
+                più spegnere. */}
+            <input type="hidden" name="sezionePrimoContatto" value="1" />
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+              <input
+                type="checkbox"
+                name="primoContattoAttivo"
+                defaultChecked={config.primoContattoAttivo === 'si'}
+              />
+              <span>Rispondi da solo al primo messaggio</span>
+            </label>
+            <label className="campo">
+              <span>Testo</span>
+              <textarea
+                name="primoContattoTesto"
+                rows={4}
+                defaultValue={config.primoContattoTesto}
+                placeholder={TESTO_DI_RISERVA}
+              />
+            </label>
+            <p className="descrizione" style={{ marginTop: 8, marginBottom: 0 }}>
+              Lasciandolo vuoto vale il testo di riserva qui sopra. ⚠️ Non scrivere promesse che
+              non dipendono da noi («ti rispondiamo entro un&apos;ora», orari di apertura): questo
+              messaggio parte anche di notte e a Ferragosto, e a incassarlo è il cliente.
+              ⚠️ Parte <strong>in italiano per tutti</strong>: la lingua del cliente si conosce
+              solo dopo aver letto il suo messaggio, e su una frase sola il riconoscimento sbaglia
+              spesso.
             </p>
           </div>
 

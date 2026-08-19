@@ -70,6 +70,15 @@ type MessaggioDto = {
   nomeFile?: string
   /** Chi ha scritto, solo in uscita. Vuoto sui messaggi vecchi: parte da ora. */
   utenteNome?: string
+  /**
+   * `testo` | `media` | `nota` | **`auto`**.
+   *
+   * `auto` è la risposta di primo contatto, partita da sola. Va distinta a
+   * schermo: senza etichetta sembrerebbe scritta da un collega di cui non si
+   * legge il nome, e chi riprende la conversazione non saprebbe se una persona
+   * ha già detto qualcosa al cliente.
+   */
+  tipo?: string
   /** La lingua in cui è scritto ("inglese", "francese"…). Vuoto = non si sa. */
   lingua?: string
   /** La traduzione in italiano, se è arrivato in una lingua che non leggiamo. */
@@ -271,7 +280,11 @@ function Bolla({ m, canale }: { m: MessaggioDto; canale: string }) {
         {oraBreve(m.creatoIl)}
         {/* Chi ha risposto: quando la conversazione passa di mano è la
             prima cosa che si cerca. Vuoto sui messaggi vecchi. */}
-        {m.direzione === 'out' && m.utenteNome ? ` · ${m.utenteNome}` : ''}
+        {m.direzione === 'out' && m.tipo === 'auto'
+          ? ' · risposta automatica'
+          : m.direzione === 'out' && m.utenteNome
+            ? ` · ${m.utenteNome}`
+            : ''}
         {m.direzione === 'out' && m.stato
           ? ` · ${m.stato === 'errore' ? m.errore || 'errore' : m.stato}`
           : ''}

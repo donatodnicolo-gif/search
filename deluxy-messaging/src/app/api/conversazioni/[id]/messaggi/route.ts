@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { leggiImpostazioni } from '@/lib/impostazioni'
-import { inviaPagina, inviaWhatsApp } from '@/lib/meta'
-import { casellaPerId, inviaEmail } from '@/lib/email'
-import { tokenPerNumero } from '@/lib/numeri-whatsapp'
-import { tokenPerPagina } from '@/lib/pagine-meta'
+import { inviaSulCanale } from '@/lib/invio'
 import { utenteCorrente } from '@/lib/sessione'
 import { daTradurre, linguaDelTesto, lingueLette } from '@/lib/lingua-testo'
 
@@ -74,104 +71,11 @@ export async function POST(req: NextRequest, { params }: Params) {
   // Chi sta rispondendo: con più operatori, «chi ha scritto al cliente» è la
   // prima domanda quando la conversazione passa di mano.
   const chiScrive = await utenteCorrente()
-  // I token non si leggono più qui: li risolvono `tokenPerNumero` e
-  // `tokenPerPagina`, che partono dall'account che ha ricevuto e ripiegano sulle
-  // Impostazioni solo se quello non ne ha uno suo.
-  const config = await leggiImpostazioni(['waPhoneNumberId'])
 
-  let esito: { ok: true; idEsterno: string } | { ok: false; errore: string }
-  switch (conversazione.canale) {
-    case 'whatsapp': {
-      // ⚠️ SI RISPONDE DAL NUMERO CHE HA RICEVUTO, non da quello impostato.
-      //
-      // La holding ha più WhatsApp Business (Deluxy Flowers, Cake Design,
-      // Deluxy Cake Delivery…). Con un solo `waPhoneNumberId` nelle
-      // Impostazioni, a un cliente che ha scritto ai fiori avremmo risposto dal
-      // numero della pasticceria: dal suo telefono è un'altra azienda che gli
-      // scrive di punto in bianco su un ordine che non ha fatto lì.
-      // `numeroId` della conversazione è quello vero, letto dal webhook di Meta;
-      // l'impostazione resta come ripiego per le conversazioni vecchie, che il
-      // numero non l'hanno registrato.
-      const numeroDaCuiRispondere = conversazione.numeroId || config.waPhoneNumberId
-      // Ogni numero può avere il suo token (account Meta diversi); se non ce
-      // l'ha si usa quello generale delle Impostazioni.
-      const tokenDiQuelNumero = await tokenPerNumero(numeroDaCuiRispondere)
-      esito =
-        tokenDiQuelNumero && numeroDaCuiRispondere
-          ? await inviaWhatsApp(
-              tokenDiQuelNumero,
-              numeroDaCuiRispondere,
-              conversazione.idEsterno,
-              pulito
-            )
-          : {
-              ok: false,
-              errore: 'WhatsApp non configurato: token o Phone Number ID mancanti (Impostazioni).',
-            }
-      break
-    }
-    case 'messenger':
-    case 'instagram': {
-      // ⚠️ Stessa regola di WhatsApp: si risponde DALL'ACCOUNT CHE HA RICEVUTO.
-      // La holding ha più Pagine e più profili Instagram; con un token solo, a
-      // chi scrive ai fiori risponderebbe la pasticceria. `numeroId` è l'account
-      // vero, letto dal webhook di Meta; il token generale delle Impostazioni
-      // resta per le conversazioni nate prima che lo registrassimo.
-      const nostroAccount = conversazione.numeroId
-      const tokenDiQuellAccount = await tokenPerPagina(conversazione.canale, nostroAccount)
-      esito = tokenDiQuellAccount
-        ? // ⚠️ Il canale viaggia fino in fondo: Instagram con un token IGAA
-          // parla solo con `graph.instagram.com`, e senza questo i direct si
-          // ricevevano ma non si potevano mandare.
-          await inviaPagina(
-            tokenDiQuellAccount,
-            conversazione.idEsterno,
-            pulito,
-            nostroAccount,
-            conversazione.canale
-          )
-        : {
-            ok: false,
-            errore:
-              conversazione.canale === 'instagram'
-                ? 'Instagram non configurato: nessun token per questo account (pagina Facebook e Instagram).'
-                : 'Messenger non configurato: nessun Page Access Token per questa pagina (pagina Facebook e Instagram).',
-          }
-      break
-    }
-    case 'widget':
-      // Il widget non ha un invio esterno: il visitatore riceve col suo polling.
-      esito = { ok: true, idEsterno: '' }
-      break
-    case 'email': {
-      // Si risponde dalla casella che ha ricevuto; se non c'è, dalla predefinita.
-      const casella = await casellaPerId(conversazione.casellaId)
-      if (!casella) {
-        esito = { ok: false, errore: 'Nessuna casella di posta configurata (pagina Caselle).' }
-        break
-      }
-      // L'oggetto della risposta segue l'ultima mail ricevuta: "Re: …".
-      const ultima = await db.messaggio.findFirst({
-        where: { conversazioneId: id, direzione: 'in', oggetto: { not: '' } },
-        orderBy: { creatoIl: 'desc' },
-        select: { oggetto: true },
-      })
-      const oggetto = ultima?.oggetto
-        ? /^re:/i.test(ultima.oggetto)
-          ? ultima.oggetto
-          : `Re: ${ultima.oggetto}`
-        : 'Messaggio da Deluxy'
-      try {
-        const idMsg = await inviaEmail(casella, conversazione.idEsterno, oggetto, pulito)
-        esito = { ok: true, idEsterno: idMsg }
-      } catch (e) {
-        esito = { ok: false, errore: `Invio non riuscito: ${(e as Error).message}` }
-      }
-      break
-    }
-    default:
-      esito = { ok: false, errore: `Canale sconosciuto: ${conversazione.canale}` }
-  }
+  // Le regole di «da quale nostro numero/pagina esce la risposta» stanno in
+  // `src/lib/invio.ts`, non più qui: le usa anche la risposta di primo contatto
+  // e due copie divergerebbero al primo ritocco.
+  const esito = await inviaSulCanale(conversazione, pulito)
 
   const messaggio = await db.messaggio.create({
     data: {

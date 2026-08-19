@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { leggiImpostazioni } from '@/lib/impostazioni'
 import { aspettoDelSito } from '@/lib/widget-siti'
+import { rispostaDiPrimoContatto } from '@/lib/primo-contatto'
 
 export const dynamic = 'force-dynamic'
 
@@ -100,6 +101,11 @@ export async function POST(req: NextRequest) {
       eliminataIl: null,
     },
   })
+
+  // Il saluto automatico al primo messaggio. Qui non c'è nessun invio verso
+  // l'esterno: il visitatore se lo trova al giro di polling successivo, un paio
+  // di secondi dopo — che è esattamente come lo vedrebbe da una persona.
+  await rispostaDiPrimoContatto(conversazione.id)
 
   return NextResponse.json({ messaggio: { id: messaggio.id, creatoIl: messaggio.creatoIl } })
 }

@@ -77,5 +77,17 @@ export async function salvaImpostazioni(formData: FormData) {
     await salvaImpostazione('traduzioneAuto', formData.get('traduzioneAuto') ? 'si' : '')
   }
 
+  // ── Risposta di primo contatto ──
+  //
+  // Stesso motivo della sezione lingue: la casella non spuntata non arriva, e
+  // senza il segnale della sezione la funzione si accenderebbe e basta. Qui la
+  // differenza pesa più che altrove — è l'interruttore di un messaggio che
+  // parte da solo verso i clienti.
+  if (formData.get('sezionePrimoContatto') === '1') {
+    await salvaImpostazione('primoContattoAttivo', formData.get('primoContattoAttivo') ? 'si' : '')
+    const testo = formData.get('primoContattoTesto')
+    if (typeof testo === 'string') await salvaImpostazione('primoContattoTesto', testo.trim())
+  }
+
   redirect('/impostazioni?salvato=1')
 }

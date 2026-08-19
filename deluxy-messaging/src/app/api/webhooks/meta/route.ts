@@ -3,6 +3,7 @@ import crypto from 'node:crypto'
 import { db } from '@/lib/db'
 import { leggiImpostazioni } from '@/lib/impostazioni'
 import { linguaDelTesto } from '@/lib/lingua-testo'
+import { rispostaDiPrimoContatto } from '@/lib/primo-contatto'
 
 export const dynamic = 'force-dynamic'
 
@@ -239,6 +240,16 @@ async function registraInArrivo(opz: {
       nomeFile: opz.media?.nomeFile ?? '',
     },
   })
+
+  // ── Il saluto automatico al primo messaggio ──
+  //
+  // Sta QUI e non in un cron perché il senso è la prontezza: un «ti abbiamo
+  // letto» che arriva mezz'ora dopo non risponde alla domanda che si fa chi ha
+  // appena scritto. Parte solo al primissimo messaggio di una conversazione
+  // (una chiamata a Meta in più su un evento raro) e **non solleva mai**:
+  // dentro c'è un try/catch, perché un webhook che fallisce fa perdere il
+  // messaggio del cliente — che è la cosa importante, non il saluto.
+  await rispostaDiPrimoContatto(conversazione.id)
 }
 
 async function gestisciWhatsApp(corpo: MetaWebhook) {
