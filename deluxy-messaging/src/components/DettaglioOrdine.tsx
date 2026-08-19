@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { MessaggiOrdine } from './MessaggiOrdine'
-import { PASSI, coloreGestione, nomeGestione } from '@/lib/gestione'
+import { CHIUSURA, PASSI, coloreGestione, nomeGestione } from '@/lib/gestione'
 import { coloreTipoCliente, nomeTipoCliente } from '@/lib/clienti-tipo'
 import { fasciaRitiro, messaggioFornitore } from '@/lib/ritiro'
 import { richiestaFornitore } from '@/lib/messaggio-fornitore'
@@ -909,15 +909,32 @@ export function DettaglioOrdine({
                               ordine.gestione === k ? 'bottone mini' : 'bottone secondario mini'
                             }
                             onClick={() => cambiaGestione(k)}
-                            title={
-                                k === 'gestito'
-                                  ? 'Chiude l ordine: sparisce dalla lista di lavoro. Per riaprirlo, «Da iniziare».'
-                                  : `Segna che l'ordine è a questo punto: ${nomeGestione(k)}`
-                              }
+                            title={`Segna che l'ordine è a questo punto: ${nomeGestione(k)}`}
                           >
                             {nomeGestione(k)}
                           </button>
                         ))}
+                        {/* La chiusura sta accanto ai passi ma non è uno di
+                            loro: dice che abbiamo finito, non dove siamo. */}
+                        <span className="passi-chiusura">
+                          <button
+                            className={
+                              ordine.gestione === CHIUSURA
+                                ? 'bottone mini verde'
+                                : 'bottone secondario mini'
+                            }
+                            onClick={() =>
+                              cambiaGestione(ordine.gestione === CHIUSURA ? 'da_gestire' : CHIUSURA)
+                            }
+                            title={
+                              ordine.gestione === CHIUSURA
+                                ? 'Riapri: rimette l ordine fra quelli da lavorare'
+                                : 'Segna come gestito: l ordine esce dalla lista di lavoro'
+                            }
+                          >
+                            {ordine.gestione === CHIUSURA ? 'Gestito ✓ — riapri' : 'Gestito ✓'}
+                          </button>
+                        </span>
                       </span>
                       {/* Gli stati che non sono passi — «Comunicazione con
                           cliente», scritto dall'app quando scrivi al cliente, e

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState, type CSSProperties } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { GESTIONI, PASSI, coloreGestione, nomeGestione } from '@/lib/gestione'
+import { CHIUSURA, GESTIONI, PASSI, coloreGestione, nomeGestione } from '@/lib/gestione'
 import {
   TIPI_CLIENTE,
   coloreTipoCliente,
@@ -1268,18 +1268,6 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
           ))}
           <option value="ignoto">Tipo non rilevato</option>
         </select>
-        {/* ── Solo i nuovi ──
-            Un interruttore e non una voce in una tendina: è la domanda che ci
-            si fa aprendo la bacheca («cos'è entrato mentre non guardavo?»), e
-            va risposta con un clic solo. Acceso si vede, così non si resta a
-            guardare una lista corta chiedendosi dove sono finiti gli altri. */}
-        <button
-          className={soloNuovi ? 'bottone' : 'bottone secondario'}
-          onClick={() => setSoloNuovi(!soloNuovi)}
-          title={`Mostra solo gli ordini entrati nelle ultime ${ORE_APPENA_ARRIVATO} ore — quelli col bollino NUOVO`}
-        >
-          {soloNuovi ? 'Solo nuovi ✓' : 'Solo nuovi'}
-        </button>
         {/* Di chi è il lavoro. «Liberi» prima di «Miei» non è un dettaglio:
             il guaio peggiore non è che due lavorino lo stesso ordine, è che non
             lo lavori nessuno perché ognuno crede che ci pensi un altro. */}
@@ -1323,6 +1311,55 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
           title="Cambia vista"
         >
           {vista === 'colonne' ? 'Elenco' : 'Colonne'}
+        </button>
+      </div>
+
+
+      {/* ── A che punto sono: la riga dei passi ──
+          I filtri lunghi qui sopra rispondono a «quali ordini», questa riga a
+          «a che punto». Sono due domande diverse e stavano mescolate: lo stato
+          era una voce in fondo a una tendina, cioè tre gesti per una cosa che
+          si guarda venti volte al giorno.
+          ⚠️ È la STESSA impostazione della tendina «Da gestire / Solo: …», non
+          una seconda: premendo qui la tendina segue, e viceversa. Due comandi
+          che raccontano stati diversi sono il modo più rapido per non fidarsi
+          più di nessuno dei due. */}
+      <div className="filtri-passi">
+        <button
+          className={soloNuovi ? 'bottone mini' : 'bottone secondario mini'}
+          onClick={() => setSoloNuovi(!soloNuovi)}
+          title={`Solo gli ordini entrati nelle ultime ${ORE_APPENA_ARRIVATO} ore — quelli col bollino NUOVO`}
+        >
+          {soloNuovi ? 'Solo nuovi ✓' : 'Solo nuovi'}
+        </button>
+        <span className="filtri-passi-stacco" />
+        <button
+          className={filtroGestione === 'aperti' ? 'bottone mini' : 'bottone secondario mini'}
+          onClick={() => setFiltroGestione('aperti')}
+          title="Tutti quelli ancora da chiudere, in qualunque punto siano"
+        >
+          Tutti gli aperti
+        </button>
+        {PASSI.map((k) => (
+          <button
+            key={k}
+            className={filtroGestione === k ? 'bottone mini' : 'bottone secondario mini'}
+            // Ripremendo lo stesso si torna agli aperti: un filtro che si
+            // accende e non si spegne dallo stesso posto fa cercare un
+            // «azzera» che sta dall'altra parte della riga.
+            onClick={() => setFiltroGestione(filtroGestione === k ? 'aperti' : k)}
+            title={`Solo gli ordini fermi a: ${nomeGestione(k)}`}
+          >
+            {nomeGestione(k)}
+          </button>
+        ))}
+        <span className="filtri-passi-stacco" />
+        <button
+          className={filtroGestione === CHIUSURA ? 'bottone mini verde' : 'bottone secondario mini'}
+          onClick={() => setFiltroGestione(filtroGestione === CHIUSURA ? 'aperti' : CHIUSURA)}
+          title="Solo quelli già chiusi"
+        >
+          Gestiti ✓
         </button>
       </div>
 
@@ -1610,15 +1647,36 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
                                 o.gestione === k ? 'bottone mini' : 'bottone secondario mini'
                               }
                               onClick={() => segna(o.id, k)}
-                              title={
-                                k === 'gestito'
-                                  ? 'Chiude l ordine: sparisce dalla lista di lavoro. Per riaprirlo, «Da iniziare».'
-                                  : `Segna che l'ordine è a questo punto: ${nomeGestione(k)}`
-                              }
+                              title={`Segna che l'ordine è a questo punto: ${nomeGestione(k)}`}
                             >
                               {nomeGestione(k)}
                             </button>
                           ))}
+                          {/* ── La chiusura, staccata dai passi ──
+                              ⚠️ «Gestito» non è il quinto passo: gli altri
+                              dicono a che punto siamo, questo dice che abbiamo
+                              **finito** — e l'ordine esce dalla lista di
+                              lavoro. Messo in fila coi pari sembrava un passo
+                              come gli altri; qui è separato, verde e con la
+                              spunta, e quando è acceso il clic RIAPRE (che è
+                              l'altra cosa che si vuole fare da lì). */}
+                          <span className="passi-chiusura">
+                            <button
+                              className={
+                                o.gestione === CHIUSURA ? 'bottone mini verde' : 'bottone secondario mini'
+                              }
+                              onClick={() =>
+                                segna(o.id, o.gestione === CHIUSURA ? 'da_gestire' : CHIUSURA)
+                              }
+                              title={
+                                o.gestione === CHIUSURA
+                                  ? 'Riapri: rimette l ordine fra quelli da lavorare'
+                                  : 'Segna come gestito: l ordine esce dalla lista di lavoro'
+                              }
+                            >
+                              {o.gestione === CHIUSURA ? 'Gestito ✓ — riapri' : 'Gestito ✓'}
+                            </button>
+                          </span>
                         </div>
                         <div className="azioni-ordine" onClick={(e) => e.stopPropagation()}>
                           {/* Prima di tutto il resto: «di chi è» viene prima di

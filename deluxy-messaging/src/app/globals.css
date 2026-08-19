@@ -3556,3 +3556,40 @@ td .azioni-ordine {
   gap: 6px;
   margin: 8px 0 6px;
 }
+
+/* La chiusura («Gestito ✓») sta accanto ai passi ma non è uno di loro: un filo
+   di stacco e una riga verticale lo dicono senza bisogno di leggere. */
+.passi-chiusura {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+  padding-left: 8px;
+  border-left: 1px solid var(--hairline-strong);
+}
+
+/* Il verde della chiusura: è lo stesso di GESTIONI in src/lib/gestione.ts —
+   se cambia là, va cambiato qui. */
+.bottone.mini.verde {
+  background: #248a3d;
+  border-color: #248a3d;
+  color: #fff;
+}
+
+/* La riga dei filtri per punto di lavorazione: sta sotto i filtri lunghi e
+   risponde a un'altra domanda («a che punto», non «quali»). */
+.filtri-passi {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: -4px 0 12px;
+}
+
+/* Lo stacco fra i gruppi (nuovi | passi | chiusi): una riga verticale dice che
+   sono cose diverse senza scriverlo. */
+.filtri-passi-stacco {
+  width: 1px;
+  height: 18px;
+  background: var(--hairline-strong);
+  margin: 0 4px;
+}
