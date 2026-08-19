@@ -375,6 +375,96 @@ export default async function Portafoglio({ searchParams }: { searchParams: Prom
               </div>
             ) : null}
 
+            {/* Orizzonte pluriennale: la cosa che cambia tutte le regole */}
+            {p.orizzonte ? (
+              <div className="card" style={{ marginTop: 16 }}>
+                <div className="card-titolo" style={{ fontSize: 15 }}>
+                  Orizzonte dichiarato: {p.orizzonte.orizzonti.join(", ")} anni
+                </div>
+                <div className="card-sub">
+                  Su questa scala temporale contano il dividendo e i fondamentali, non i livelli
+                  di prezzo. Sotto, cosa è già accaduto su finestre della stessa lunghezza —
+                  guardare indietro non predice il futuro, ma dice quanta oscillazione va
+                  sopportata per restare dentro.
+                </div>
+
+                <div className="tabella-scroll" style={{ marginTop: 14 }}>
+                  <table className="tab" style={{ minWidth: 640 }}>
+                    <thead>
+                      <tr>
+                        <th>Finestra passata</th>
+                        <th className="num">Solo prezzo</th>
+                        <th className="num">Annuo</th>
+                        <th className="num">Annuo con dividendo</th>
+                        <th className="num">Se restasse solo la cedola</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {p.orizzonte.storico.map((s, i) => (
+                        <tr key={s.anni}>
+                          <td style={{ fontWeight: 550 }}>
+                            {s.anni} anni
+                            {s.daData ? (
+                              <div style={{ fontSize: 11, color: "var(--text-tertiary)", fontWeight: 400 }}>
+                                da {dataBreve(s.daData)}
+                              </div>
+                            ) : null}
+                          </td>
+                          <td className={`num ${verso(s.prezzo)}`}>{percentuale(s.prezzo)}</td>
+                          <td className={`num ${verso(s.annuo)}`}>{percentuale(s.annuo)}</td>
+                          <td className={`num ${verso(s.annuoConDividendi)}`} style={{ fontWeight: 600 }}>
+                            {percentuale(s.annuoConDividendi)}
+                          </td>
+                          <td className="num su">{percentuale(p.orizzonte!.soloDividendo[i]?.totale ?? null)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="fonte">
+                  «Annuo con dividendo» somma la cedola <em>di oggi</em> al rendimento passato del
+                  prezzo: è una stima grossolana, perché la cedola storica era diversa. Va letta
+                  come ordine di grandezza, non come rendimento realizzato. «Se restasse solo la
+                  cedola» è l&apos;effetto composto del dividendo attuale a prezzo invariato.
+                </div>
+
+                {/* Quanta oscillazione va sopportata */}
+                <div className="metriche" style={{ marginTop: 16 }}>
+                  <Metrica
+                    nome="Ribasso mediano in 12 mesi"
+                    valore={percentuale(p.orizzonte.tolleranza.ribassoMediano)}
+                    nota={`su ${p.orizzonte.tolleranza.finestre} finestre annuali`}
+                    colore="giu"
+                  />
+                  <Metrica
+                    nome="Ribasso peggiore"
+                    valore={percentuale(p.orizzonte.tolleranza.ribassoPeggiore)}
+                    nota="il caso più duro del periodo"
+                    colore="giu"
+                  />
+                  <Metrica
+                    nome={`Finestre oltre il ${percentuale(-(p.orizzonte.tolleranza.sogliaUsata ?? 0.2), 0)}`}
+                    valore={percentuale(p.orizzonte.tolleranza.quotaOltreSoglia, 0)}
+                    nota="quanto è ordinario un calo del genere"
+                  />
+                  <Metrica
+                    nome="Uno stop tecnico sarebbe scattato"
+                    valore={percentuale(p.orizzonte.tolleranza.probabilitaStop, 0)}
+                    nota={`delle volte, entro ${Math.min(...p.orizzonte.orizzonti)} anni`}
+                    colore="giu"
+                  />
+                </div>
+
+                {p.posizione.regole?.notaRegole ? (
+                  <div style={{ marginTop: 16 }}>
+                    <Avviso titolo="Perché stop e target sono disattivati." icona="=">
+                      {p.posizione.regole.notaRegole}
+                    </Avviso>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
             {/* Livelli operativi */}
             {p.livelli.length > 0 ? (
               <div className="tabella-scroll" style={{ marginTop: 16 }}>

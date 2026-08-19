@@ -20,9 +20,11 @@ import { CARTELLA_DATI, leggiSerie, leggiFondamentali, leggiCambi } from "./arch
 import { variazione } from "./statistica.ts";
 import { BENCHMARK_TOTALE, BENCHMARK_MERCATO } from "./universo.ts";
 import {
+  analisiOrizzonte,
   contestoTecnico,
   kpiFondamentali,
   livelliOperativi,
+  type AnalisiOrizzonte,
   type ContestoTecnico,
   type Kpi,
   type Livello,
@@ -71,6 +73,8 @@ export type Posizione = {
   simboloFondamentali?: string | null;
   /** Soglie di sorveglianza scelte da chi investe. Il programma non ne impone nessuna. */
   regole?: Regole | null;
+  /** Per quanti anni si intende tenere: cambia quali regole hanno senso. */
+  orizzonteAnni?: number[] | null;
 };
 
 export type Ipotesi = {
@@ -150,6 +154,8 @@ export type PosizioneValutata = {
   livelli: Livello[];
   /** Dove sta il prezzo: massimi, minimi, medie, volatilità. */
   tecnico: ContestoTecnico | null;
+  /** Analisi per orizzonte pluriennale: storico, oscillazione da sopportare, dividendo. */
+  orizzonte: AnalisiOrizzonte | null;
 };
 
 function seduteDa(dataISO: string | null): number | null {
@@ -192,6 +198,7 @@ export function valutaPosizione(
     kpi: [],
     livelli: [],
     tecnico: null,
+    orizzonte: null,
   };
 
   // Per valutare bastano quantità e prezzo pagato. La data serve solo al confronto con
@@ -203,6 +210,23 @@ export function valutaPosizione(
 
   const ultimo = serie?.barre.at(-1) ?? null;
   const tecnico = contestoTecnico(serie);
+
+  // Rendimento da dividendo, gia convertito nella valuta di quotazione: serve alle stime
+  // di lungo periodo, dove la cedola pesa piu del movimento del prezzo.
+  const divConvertito =
+    posizione.dividendoPerAzione != null && cambio !== null ? posizione.dividendoPerAzione * cambio : null;
+  const rendDiv =
+    divConvertito !== null && ultimo?.chiusura ? divConvertito / ultimo.chiusura : null;
+
+  const orizzonte = posizione.orizzonteAnni?.length
+    ? analisiOrizzonte(serie, {
+        orizzonti: posizione.orizzonteAnni,
+        rendimentoDividendo: rendDiv,
+        // Si testa comunque una soglia del 20 per cento, anche se lo stop e disattivato:
+        // serve a mostrare PERCHE sarebbe una cattiva idea su questo orizzonte.
+        sogliaStop: posizione.regole?.stopAssoluto ?? 0.2,
+      })
+    : null;
 
   // I KPI dipendono solo dai fondamentali e dal prezzo: si calcolano anche su una posizione
   // incompleta, perché servono a valutare la società, non l'operazione.
@@ -221,6 +245,7 @@ export function valutaPosizione(
     seduteDaUltimoDato: seduteDa(ultimo?.data ?? null),
     kpi,
     tecnico,
+    orizzonte,
   };
 
   if (!serie || !ultimo) {

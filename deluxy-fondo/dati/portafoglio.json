@@ -21,21 +21,28 @@
       "capitalizzazioneMln": 29349.14,
       "simboloFondamentali": "KHC",
       "regole": {
-        "stopAssoluto": 0.2,
-        "stopRelativo": 0.12,
-        "trailingAttivazione": 0.25,
-        "trailingRitracciamento": 0.15,
-        "target": 0.4,
-        "mesiMassimi": 24,
+        "stopAssoluto": null,
+        "stopRelativo": null,
+        "trailingAttivazione": null,
+        "trailingRitracciamento": null,
+        "target": null,
+        "mesiMassimi": 12,
+        "notaRegole": "Orizzonte dichiarato 3-5-7 anni. Stop e target di prezzo sono deliberatamente disattivati: su questo titolo un ribasso del 20 per cento dentro un anno e la NORMA (mediana -23,7 per cento su 109 finestre annuali) e partendo da un giorno qualsiasi il prezzo scivola sotto il -20 per cento entro 3 anni nel 68 per cento dei casi. Uno stop tecnico non proteggerebbe la posizione: interromperebbe il piano proprio quando la volatilita fa il suo mestiere. Su un orizzonte lungo l uscita si decide sui FATTI della societa, elencati sotto, e si verifica una volta all anno alla pubblicazione del bilancio.",
         "tesiInvalidataSe": [
-          "Il dividendo viene tagliato o sospeso: se la tesi e il rendimento da cedola, questo la chiude.",
-          "Il free cash flow annuale scende sotto il dividendo distribuito: la cedola non e piu coperta dalla cassa.",
-          "I ricavi calano per due esercizi consecutivi oltre il 3 per cento a perimetro costante.",
-          "La separazione societaria annunciata viene ritirata o rinviata a data da destinarsi.",
-          "Il debito lordo sale sopra 5 volte l EBITDA normalizzato.",
-          "Cambia l amministratore delegato di nuovo entro 12 mesi: segnalerebbe che il piano non sta funzionando."
+          "Il dividendo viene tagliato o sospeso: e la prima cosa da guardare, perche su questo titolo la cedola e la maggior parte del rendimento atteso.",
+          "Il free cash flow annuale scende sotto il dividendo distribuito per due esercizi di fila: la cedola non e piu pagata dalla cassa ma dal debito.",
+          "I ricavi calano oltre il 3 per cento per due esercizi consecutivi a perimetro costante: significa che il problema e la domanda, non la contabilita.",
+          "Il debito lordo sale sopra 5 volte l EBITDA normalizzato, o le agenzie portano il rating sotto il livello di investimento.",
+          "La separazione societaria annunciata viene ritirata: era una delle vie per far emergere valore.",
+          "Le svalutazioni di avviamento continuano anche nei prossimi esercizi: una sola e pulizia, tre di fila sono un modello di business che non regge.",
+          "Cambia di nuovo l amministratore delegato entro 12 mesi: segnalerebbe che il piano non sta funzionando."
         ]
-      }
+      },
+      "orizzonteAnni": [
+        3,
+        5,
+        7
+      ]
     }
   ],
   "ipotesi": [

@@ -244,6 +244,8 @@ export type Regole = {
   mesiMassimi: number | null;
   /** Fatti che, se accadono, invalidano la tesi: si controllano a mano, non si deducono. */
   tesiInvalidataSe: string[];
+  /** Perche le soglie sono state scelte cosi: va scritto, o fra un anno non si ricorda. */
+  notaRegole?: string;
 };
 
 export type Livello = {
@@ -389,6 +391,149 @@ export function livelliOperativi(opzioni: {
   }
 
   return out;
+}
+
+// ---------------------------------------------------------------------------
+// Orizzonte lungo: 3, 5, 7 anni
+// ---------------------------------------------------------------------------
+
+export type FinestraStorica = {
+  anni: number;
+  /** Rendimento del solo prezzo nel periodo. */
+  prezzo: number | null;
+  /** Rendimento annuo composto del prezzo. */
+  annuo: number | null;
+  /** Con i dividendi reinvestiti a rendimento costante: stima, non dato storico. */
+  annuoConDividendi: number | null;
+  daData: string | null;
+};
+
+export type Tolleranza = {
+  /** Su quante finestre mobili di 12 mesi è calcolata. */
+  finestre: number;
+  ribassoPeggiore: number | null;
+  ribassoMediano: number | null;
+  /** Quota di finestre annuali con un ribasso oltre la soglia dello stop. */
+  quotaOltreSoglia: number | null;
+  /** Quante volte, su orizzonte pari a quello dichiarato, il titolo è scivolato sotto lo stop. */
+  probabilitaStop: number | null;
+  sogliaUsata: number | null;
+};
+
+export type AnalisiOrizzonte = {
+  /** Gli orizzonti dichiarati, in anni. */
+  orizzonti: number[];
+  /** Come è andato il titolo su finestre pari a quegli orizzonti, guardando indietro. */
+  storico: FinestraStorica[];
+  /** Quanto ribasso bisogna essere disposti a sopportare, misurato sul titolo. */
+  tolleranza: Tolleranza;
+  /** Quanto renderebbe la posizione ai vari orizzonti, se il solo dividendo restasse costante. */
+  soloDividendo: { anni: number; totale: number | null }[];
+};
+
+/**
+ * Analisi per chi vuole tenere il titolo anni, non mesi.
+ *
+ * Il punto non è prevedere: è misurare **cosa è già accaduto** su finestre della stessa
+ * lunghezza dell'orizzonte dichiarato, e quanta oscillazione bisogna essere disposti a
+ * sopportare per restare dentro. È l'informazione che manca quando si fissa uno stop tecnico
+ * su un investimento pluriennale: se il titolo scende regolarmente del 20% e il piano è
+ * tenerlo sette anni, lo stop non protegge, interrompe il piano.
+ */
+export function analisiOrizzonte(
+  serie: SerieStorica | null,
+  opzioni: {
+    orizzonti?: number[];
+    /** Rendimento da dividendo annuo, per stimare il rendimento totale. */
+    rendimentoDividendo?: number | null;
+    /** Soglia di stop da testare, per dire quanto spesso sarebbe scattata. */
+    sogliaStop?: number | null;
+  } = {}
+): AnalisiOrizzonte {
+  const orizzonti = opzioni.orizzonti ?? [3, 5, 7];
+  const soglia = opzioni.sogliaStop ?? null;
+  const div = opzioni.rendimentoDividendo ?? null;
+
+  const vuoto: AnalisiOrizzonte = {
+    orizzonti,
+    storico: orizzonti.map((a) => ({ anni: a, prezzo: null, annuo: null, annuoConDividendi: null, daData: null })),
+    tolleranza: {
+      finestre: 0,
+      ribassoPeggiore: null,
+      ribassoMediano: null,
+      quotaOltreSoglia: null,
+      probabilitaStop: null,
+      sogliaUsata: soglia,
+    },
+    soloDividendo: orizzonti.map((a) => ({ anni: a, totale: div !== null ? Math.pow(1 + div, a) - 1 : null })),
+  };
+  if (!serie || serie.barre.length < 60) return vuoto;
+
+  const b = serie.barre;
+  const ultimo = b[b.length - 1];
+
+  // --- Come è andato, guardando indietro ---------------------------------
+  const storico: FinestraStorica[] = orizzonti.map((anni) => {
+    const sedute = Math.round(anni * 252);
+    if (b.length <= sedute) return { anni, prezzo: null, annuo: null, annuoConDividendi: null, daData: null };
+    const inizio = b[b.length - 1 - sedute];
+    const r = variazione(inizio.chiusura, ultimo.chiusura);
+    const annuo = r !== null ? Math.pow(1 + r, 1 / anni) - 1 : null;
+    return {
+      anni,
+      prezzo: r,
+      annuo,
+      // Somma approssimata: il dividendo di oggi applicato a tutto il periodo. È una stima
+      // grossolana, perché la cedola storica era diversa — va letta come ordine di grandezza.
+      annuoConDividendi: annuo !== null && div !== null ? annuo + div : null,
+      daData: inizio.data,
+    };
+  });
+
+  // --- Quanta oscillazione bisogna sopportare ----------------------------
+  const ribassi: number[] = [];
+  for (let i = 0; i + 252 < b.length; i += 21) {
+    const f = b.slice(i, i + 252);
+    let picco = f[0].chiusura;
+    let peggio = 0;
+    for (const x of f) {
+      if (x.chiusura > picco) picco = x.chiusura;
+      const d = x.chiusura / picco - 1;
+      if (d < peggio) peggio = d;
+    }
+    ribassi.push(peggio);
+  }
+  ribassi.sort((a, b) => a - b);
+
+  // Quante volte, su un orizzonte pari al più corto dichiarato, il prezzo è scivolato sotto
+  // la soglia di stop rispetto al punto di partenza.
+  let probabilitaStop: number | null = null;
+  if (soglia !== null && orizzonti.length) {
+    const sedute = Math.round(Math.min(...orizzonti) * 252);
+    let tocchi = 0;
+    let prove = 0;
+    for (let i = 0; i + sedute < b.length; i += 21) {
+      prove++;
+      const p0 = b[i].chiusura;
+      if (b.slice(i, i + sedute).some((x) => x.chiusura <= p0 * (1 - soglia))) tocchi++;
+    }
+    probabilitaStop = prove > 0 ? tocchi / prove : null;
+  }
+
+  return {
+    orizzonti,
+    storico,
+    tolleranza: {
+      finestre: ribassi.length,
+      ribassoPeggiore: ribassi.length ? ribassi[0] : null,
+      ribassoMediano: ribassi.length ? ribassi[Math.floor(ribassi.length / 2)] : null,
+      quotaOltreSoglia:
+        soglia !== null && ribassi.length ? ribassi.filter((x) => x <= -soglia).length / ribassi.length : null,
+      probabilitaStop,
+      sogliaUsata: soglia,
+    },
+    soloDividendo: orizzonti.map((a) => ({ anni: a, totale: div !== null ? Math.pow(1 + div, a) - 1 : null })),
+  };
 }
 
 // ---------------------------------------------------------------------------
