@@ -61,6 +61,10 @@ const GIORNI_SILENZIO = 2;
 // non la contiene non direbbe niente. `stati-keyword` le manda tutte.
 const CONSEGNA_CHE_FA_FEDE: Record<string, string> = {
   nuova_campagna: "anagrafica",
+  // Il secondo tempo si verifica dal GRUPPO: se il gruppo esiste, il
+  // caricamento e le chiamate dopo hanno funzionato - keyword e annuncio ci
+  // vivono dentro e non potrebbero esistere senza.
+  completa_campagna: "gruppi",
   budget: "anagrafica",
   pausa_campagna: "anagrafica",
   attiva_campagna: "anagrafica",

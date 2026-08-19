@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { STATI_CAMPAGNA_NOSTRI } from "@/lib/dominio";
-import { accodaNegativeDiLancio } from "@/lib/negative-di-lancio";
+import { accodaCompletamentoLancio, accodaNegativeDiLancio } from "@/lib/dopo-il-lancio";
 
 // Il salvataggio delle metriche di campagna, in un posto solo.
 // Lo usano sia /api/v1/ingest (dove le manda lo script di Google Ads) sia il
@@ -458,7 +458,7 @@ export async function salvaAnagrafica(
     // ⚠️ IL MOMENTO IN CUI GOOGLE CONFERMA UNA CAMPAGNA NUOVA. La riga esiste
     // nell'app da quando è stata messa in coda, ma senza `idEsterno`: è questo
     // il giro in cui Google la nomina per la prima volta. Serve alle negative
-    // del lancio, che aspettano proprio questo (vedi lib/negative-di-lancio).
+    // del lancio, che aspettano proprio questo (vedi lib/dopo-il-lancio).
     if (!trovata.idEsterno) appenaConfermate.push(trovata.id);
 
     const cambia =
@@ -508,6 +508,7 @@ export async function salvaAnagrafica(
   // dato importante e arriva da un giro che costa minuti — deve entrare lo
   // stesso. Un'aggiunta al margine non fa fallire l'import che la ospita.
   try {
+    await accodaCompletamentoLancio(appenaConfermate);
     await accodaNegativeDiLancio(appenaConfermate);
   } catch (e) {
     console.error("negative di lancio non accodate:", e);

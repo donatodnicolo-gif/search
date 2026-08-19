@@ -17,6 +17,7 @@ export const dynamic = "force-dynamic";
 const ETICHETTA_TIPO: Record<string, string> = {
   pausa_campagna: "Metti in pausa la campagna",
   nuova_campagna: "Crea la campagna (nasce in pausa)",
+  completa_campagna: "Completa la campagna (gruppo, keyword, annuncio, localita)",
   nuova_keyword: "Aggiungi la keyword",
   attiva_campagna: "Riattiva la campagna",
   budget: "Cambia budget giornaliero",

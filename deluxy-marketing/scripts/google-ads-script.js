@@ -2055,6 +2055,7 @@ function applica(op, mira, conto) {
 
   if (t === "nuova_keyword") return creaKeyword(op, mira);
   if (t === "nuova_campagna") return creaCampagna(op, conto);
+  if (t === "completa_campagna") return completaCampagna(op, mira);
 
   throw new Error("Tipo di operazione non gestito: " + t);
 }
@@ -2251,6 +2252,152 @@ function risolviLocalitaSuGoogle(nomi) {
   return esito;
 }
 
+/**
+ * IL SECONDO TEMPO DEL LANCIO: gruppo, keyword, annuncio e localita' su una
+ * campagna che ESISTE GIA'.
+ *
+ * PERCHE' DUE TEMPI. Il registro caricamenti del 19/08/2026 ha dato la
+ * risposta, e sono due guasti diversi nello stesso file:
+ *
+ *   - le righe di gruppo/keyword/annuncio -> "The entity does not exist for
+ *     Campaign" MENTRE LA CAMPAGNA VENIVA CREATA nello stesso caricamento.
+ *     Le righe figlie non si agganciano a un'entita' nata nello stesso giro.
+ *
+ *   - le righe di localita' (Campaign + Location ID) -> "Missing value in
+ *     Campaign type / Budget / EU political ads": Google NON le ha lette come
+ *     righe di localita', le ha lette come definizioni di campagna monche.
+ *     Quella forma di riga, in un caricamento da Scripts, non esiste.
+ *
+ * Quindi il bulk upload si usa SOLO per cio' che non ha un'API: la campagna.
+ * Tutto il resto passa da qui, dove ci sono i costruttori veri
+ * (newAdGroupBuilder, newKeywordBuilder, responsiveSearchAdBuilder,
+ * addLocation) e ogni operazione dice `isSuccessful()`. Cioe': si sa com'e'
+ * andata, invece di sperarlo.
+ *
+ * E' ripetibile: gruppo e keyword gia' presenti non si rifanno.
+ */
+function completaCampagna(op, mira) {
+  var par = op.parametri;
+  var campagna = mira.campagna;
+  var fatto = [];
+  var problemi = [];
+
+  // --- Localita' -------------------------------------------------------
+  var idsLocalita = (par.localitaId || []).slice();
+  var geo = risolviLocalitaSuGoogle(par.localitaNomi || []);
+  for (var t = 0; t < geo.trovate.length; t++) idsLocalita.push(geo.trovate[t].id);
+
+  if (idsLocalita.length > 0) {
+    // Quelle gia' presenti non si riaggiungono: la funzione puo' essere
+    // rilanciata e non deve fare danni ne' doppioni.
+    var gia = {};
+    try {
+      var itL = campagna.targeting().targetedLocations().get();
+      while (itL.hasNext()) gia[String(itL.next().getId())] = true;
+    } catch (e) {
+      // se non si riesce a leggere si prova comunque ad aggiungere: Google
+      // rifiuta i doppioni e l'esito lo dice.
+    }
+    var okL = 0, koL = 0;
+    for (var i = 0; i < idsLocalita.length; i++) {
+      var idL = Number(idsLocalita[i]);
+      if (gia[String(idL)]) continue;
+      try {
+        var esitoL = campagna.addLocation(idL);
+        if (esitoL && typeof esitoL.isSuccessful === "function" && !esitoL.isSuccessful()) {
+          koL++;
+          problemi.push("localita " + idL + ": " + esitoL.getErrors().join("; "));
+        } else {
+          okL++;
+        }
+      } catch (e2) {
+        koL++;
+        problemi.push("localita " + idL + ": " + e2);
+      }
+    }
+    fatto.push(okL + " localita aggiunte" + (koL ? " (" + koL + " no)" : ""));
+  }
+  if (geo.ambigue.length) {
+    problemi.push(
+      geo.ambigue.length + " nomi di localita ambigui, NON scelti io: " +
+      geo.ambigue.map(function (x) {
+        return x.nome + " = " + x.scelte.map(function (c) { return c.canonico + " [" + c.id + "]"; }).join(" oppure ");
+      }).join(" | ")
+    );
+  }
+  if (geo.mancanti.length) problemi.push("localita non trovate su Google: " + geo.mancanti.join(", "));
+
+  // --- Gruppo di annunci -----------------------------------------------
+  var nomeGruppo = par.gruppo || "Gruppo 1";
+  var gruppo = null;
+  var itG = campagna.adGroups().withCondition("ad_group.name = '" + apici(nomeGruppo) + "'").get();
+  if (itG.hasNext()) {
+    gruppo = itG.next();
+    fatto.push("gruppo \"" + nomeGruppo + "\" c'era gia'");
+  } else {
+    var esitoG = campagna.newAdGroupBuilder().withName(nomeGruppo).build();
+    if (!esitoG.isSuccessful()) {
+      // Senza gruppo non ha senso proseguire: keyword e annuncio ci vivono
+      // dentro, e insistere produrrebbe solo altri errori figli di questo.
+      throw new Error("Gruppo \"" + nomeGruppo + "\" rifiutato: " + esitoG.getErrors().join("; "));
+    }
+    gruppo = esitoG.getResult();
+    fatto.push("gruppo \"" + nomeGruppo + "\" creato");
+  }
+
+  // --- Keyword ---------------------------------------------------------
+  var kws = par.keywords || [];
+  if (kws.length > 0) {
+    var presenti = {};
+    var itK = gruppo.keywords().get();
+    while (itK.hasNext()) presenti[String(itK.next().getText()).toLowerCase()] = true;
+    var okK = 0, saltateK = 0;
+    for (var k = 0; k < kws.length; k++) {
+      var conMatch = formattaMatch(kws[k].testo, kws[k].corrispondenza);
+      if (!conMatch) continue;
+      if (presenti[conMatch.toLowerCase()]) { saltateK++; continue; }
+      var esitoK = gruppo.newKeywordBuilder().withText(conMatch).build();
+      if (esitoK.isSuccessful()) okK++;
+      else problemi.push("keyword " + conMatch + ": " + esitoK.getErrors().join("; "));
+    }
+    fatto.push(okK + " keyword aggiunte" + (saltateK ? " (" + saltateK + " c'erano gia')" : ""));
+  }
+
+  // --- Annuncio RSA ----------------------------------------------------
+  var titoli = par.titoli || [];
+  var descrizioni = par.descrizioni || [];
+  if (titoli.length >= 3 && descrizioni.length >= 2 && par.finalUrl) {
+    var annunciGia = 0;
+    try {
+      var itA = gruppo.ads().get();
+      while (itA.hasNext()) { itA.next(); annunciGia++; }
+    } catch (e3) {
+      annunciGia = 0;
+    }
+    if (annunciGia > 0) {
+      fatto.push("annuncio non rifatto: il gruppo ne ha gia' " + annunciGia);
+    } else {
+      // Google accetta al massimo 15 titoli e 4 descrizioni: si tagliano qui
+      // invece di farsi rifiutare l'annuncio intero per uno di troppo.
+      var esitoA = gruppo.newAd().responsiveSearchAdBuilder()
+        .withHeadlines(titoli.slice(0, 15))
+        .withDescriptions(descrizioni.slice(0, 4))
+        .withFinalUrl(par.finalUrl)
+        .build();
+      if (esitoA.isSuccessful()) fatto.push("annuncio RSA creato");
+      else problemi.push("annuncio: " + esitoA.getErrors().join("; "));
+    }
+  }
+
+  var dettaglio = fatto.join(", ");
+  if (problemi.length) dettaglio += ". ATTENZIONE: " + problemi.join(" | ");
+  return {
+    dettaglio: dettaglio || "niente da completare",
+    prima: "campagna senza gruppo",
+    dopo: fatto.join(", "),
+  };
+}
+
 function creaCampagna(op, conto) {
   var par = op.parametri;
   if (!par.nome || !par.budget) throw new Error("Servono nome e budget");
@@ -2261,18 +2408,16 @@ function creaCampagna(op, conto) {
     throw new Error("Esiste già una campagna chiamata \"" + par.nome + "\" in questo account: non ne creo un'altra.");
   }
 
-  // Le localita' si risolvono PRIMA: l'intestazione dipende da quante sono.
-  var localita = (par.localitaId || []).slice();
-  var geo = risolviLocalitaSuGoogle(par.localitaNomi || []);
-  for (var t = 0; t < geo.trovate.length; t++) localita.push(geo.trovate[t].id);
+  // Le localita' NON si risolvono qui: le fa completaCampagna() con l'API,
+  // quando la campagna esiste. Risolverle adesso vorrebbe dire pagare le
+  // query a geo_target_constant per un dato che questo caricamento non manda.
   var lingua = linguaBulk(par.lingua);
 
-  // ATTENZIONE: le due colonne facoltative entrano SOLO se c'e' qualcosa da
+  // ATTENZIONE: la colonna della lingua entra SOLO se c'e' una lingua da
   // metterci. Una colonna che Google non riconoscesse potrebbe far rifiutare
   // l'intero caricamento, e correre quel rischio per una colonna che sarebbe
-  // comunque vuota sarebbe regalato. Cosi' una campagna senza lingua e senza
-  // localita' manda esattamente le colonne che mandava prima, che sappiamo
-  // funzionare.
+  // comunque vuota sarebbe regalato: cosi' una campagna senza lingua manda
+  // esattamente le colonne che sappiamo funzionare.
   var colonne = [
     "Campaign", "Budget", "Campaign type", "Campaign state", "EU political ads", "Bid strategy type",
     "Ad group", "Keyword", "Criterion type",
@@ -2282,11 +2427,8 @@ function creaCampagna(op, conto) {
     "Description 1", "Description 2", "Description 3", "Description 4",
   ];
   if (lingua) colonne.push("Language targeting");
-  if (localita.length) colonne.push("Location ID");
   var upload = AdsApp.bulkUploads().newCsvUpload(colonne, { moneyInMicros: false });
   if (typeof upload.forCampaignManagement === "function") upload.forCampaignManagement();
-
-  var gruppoNome = par.gruppo || "Gruppo 1";
 
   // Riga campagna: nasce in pausa, sempre
   var rigaCampagna = {
@@ -2324,70 +2466,30 @@ function creaCampagna(op, conto) {
   if (lingua) rigaCampagna["Language targeting"] = lingua;
   upload.append(rigaCampagna);
 
-  // LOCALITA': una riga per ognuna, con l'ID e non col nome.
+  // ATTENZIONE: QUI FINISCE IL CARICAMENTO. Gruppo, keyword, annuncio e
+  // localita' NON si mandano piu' da qui - li fa completaCampagna() con l'API,
+  // quando la campagna esiste. Il registro caricamenti del 19/08 ha mostrato
+  // che qui non potevano funzionare, e per due ragioni diverse:
   //
-  // ATTENZIONE: i nomi hanno una lingua e gli id no. Google conosce le
-  // localita' in inglese ("Spain", "Milan"), nel modulo dell'app si scrive in
-  // italiano, e un nome che non combacia non da' errore: da' una campagna
-  // senza quella localita'. L'app traduce prima (lib/geo-target.ts) e manda
-  // solo numeri; quelle che non sa tradurre le dichiara invece di tirare a
-  // indovinare.
-  for (var g = 0; g < localita.length; g++) {
-    upload.append({
-      "Campaign": par.nome,
-      "Location ID": localita[g],
-    });
-  }
-
-  // Keyword: [{testo, corrispondenza}]
-  var kws = par.keywords || [];
-  for (var i = 0; i < kws.length; i++) {
-    upload.append({
-      "Campaign": par.nome,
-      "Ad group": gruppoNome,
-      "Keyword": kws[i].testo,
-      "Criterion type": etichettaMatch(kws[i].corrispondenza),
-    });
-  }
-
-  // Annuncio RSA: titoli[] e descrizioni[]
-  var titoli = par.titoli || [];
-  var descrizioni = par.descrizioni || [];
-  if (titoli.length >= 3 && descrizioni.length >= 2 && par.finalUrl) {
-    var rigaAnnuncio = {
-      "Campaign": par.nome,
-      "Ad group": gruppoNome,
-      "Ad type": "Responsive search ad",
-      "Final URL": par.finalUrl,
-    };
-    for (var t = 0; t < Math.min(titoli.length, 10); t++) rigaAnnuncio["Headline " + (t + 1)] = titoli[t];
-    for (var d = 0; d < Math.min(descrizioni.length, 4); d++) rigaAnnuncio["Description " + (d + 1)] = descrizioni[d];
-    upload.append(rigaAnnuncio);
-  }
-
+  //   - gruppo/keyword/annuncio: "The entity does not exist for Campaign",
+  //     MENTRE la campagna veniva creata nello stesso caricamento. Le righe
+  //     figlie non si agganciano a un'entita' nata nello stesso giro.
+  //   - localita' (Campaign + Location ID): "Missing value in Campaign type /
+  //     Budget / EU political ads". Google non le ha lette come righe di
+  //     localita' ma come definizioni di campagna monche: quella forma di riga,
+  //     in un caricamento da Scripts, non esiste.
+  //
+  // Tenerle qui non costava solo un giro a vuoto: riempiva il registro di
+  // errori figli, in mezzo ai quali l'errore vero diventava introvabile.
   upload.apply();
   return {
     dettaglio:
-      "bulk upload INVIATO all'account " + conto.id + ": campagna \"" + par.nome + "\" con " +
-      kws.length + " keyword" + (titoli.length ? " e 1 annuncio RSA" : "") +
-      " e strategia " + strategiaBulk(par.strategia) +
-      (linguaBulk(par.lingua) ? ", lingua " + linguaBulk(par.lingua) : "") +
-      (localita.length ? ", " + localita.length + " localita" : "") +
-      (geo.trovate.length
-        ? " (" + geo.trovate.length + " tradotte da Google: " +
-          geo.trovate.map(function (x) { return x.nome + " = " + x.come; }).join("; ") + ")"
-        : "") +
-      (geo.ambigue.length
-        ? ". ATTENZIONE: " + geo.ambigue.length + " nomi danno piu' risultati e NON li ho scelti io - " +
-          geo.ambigue.map(function (x) {
-            return "\"" + x.nome + "\" puo' essere " +
-              x.scelte.map(function (c) { return c.canonico + " [" + c.id + "]"; }).join(" oppure ");
-          }).join(" | ") +
-          ". Riscrivi il nome esatto o incolla l'id, e rimetti in coda."
-        : "") +
-      (geo.mancanti.length
-        ? ". Non trovate su Google: " + geo.mancanti.join(", ") + " - vanno messe a mano."
-        : "") +
+      "bulk upload INVIATO all'account " + conto.id + ": campagna \"" + par.nome + "\"" +
+      " con budget " + Number(par.budget) + ", strategia " + strategiaBulk(par.strategia) +
+      (lingua ? " e lingua " + lingua : "") +
+      ". Gruppo, keyword, annuncio e localita' arrivano DOPO, quando Google conferma la campagna" +
+      " (l'app mette in coda \"Completa la campagna\": le righe figlie non si agganciano a una" +
+      " campagna nata nello stesso caricamento)" +
       ", IN PAUSA se Google accetta le righe. ATTENZIONE: il caricamento e' asincrono e non risponde" +
       " allo script: l'esito vero sta nel registro caricamenti di Google Ads (Azioni collettive > Caricamenti)" +
       " e l'app lo verifica col primo giro di anagrafica. Passare la checklist 4.1 prima di attivarla.",
