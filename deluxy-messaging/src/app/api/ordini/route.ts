@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { ORE_APPENA_ARRIVATO } from '@/lib/cliente-valore'
 import { utenteCorrente } from '@/lib/sessione'
 import type { Prisma } from '@prisma/client'
 import { db } from '@/lib/db'
@@ -153,6 +154,7 @@ async function ordiniOrdinati(
 //   contatto "si" | "no" (contatto già salvato in rubrica o no)
 //   rimborsi "nascondi" = fuori gli ordini con una richiesta di rimborso viva
 //   presa    "miei" | "liberi" (chi se ne sta occupando)
+//   nuovi    "si" = solo quelli entrati nelle ultime ORE_APPENA_ARRIVATO ore
 // Torna anche se Google è collegato (per abilitare i bottoni "Salva contatto").
 export async function GET(req: NextRequest) {
   const p = req.nextUrl.searchParams
@@ -164,6 +166,7 @@ export async function GET(req: NextRequest) {
   const tipoCliente = (p.get('tipoCliente') ?? '').trim()
   const rimborsi = (p.get('rimborsi') ?? '').trim()
   const presa = (p.get('presa') ?? '').trim()
+  const soloNuovi = (p.get('nuovi') ?? '').trim() === 'si'
   // Colonna su cui ordinare. Vuota (o sconosciuta) = l'ordine per urgenza, che
   // resta il modo giusto di guardare la lista di lavoro.
   const ordina = (p.get('ordina') ?? '').trim()
@@ -194,6 +197,18 @@ export async function GET(req: NextRequest) {
   // dà per scontato che ci pensi un altro. «Miei» è comodo, «Liberi» è il buco.
   if (presa === 'miei') dove.presaDaId = idUtente
   else if (presa === 'liberi') dove.presaDaId = ''
+
+  // ── Solo quelli col bollino NUOVO ──
+  //
+  // ⚠️ Il filtro sta QUI e non nel browser: la lista è tagliata a 200 e
+  // ordinata per urgenza, quindi filtrando a valle si vedrebbero i soli nuovi
+  // *fra i 200 già scelti* — e mancherebbero proprio quelli che l'ordinamento
+  // ha spinto in fondo. Stessa finestra dell'etichetta (`ORE_APPENA_ARRIVATO`),
+  // e stesso campo: `creatoIl` è quando l'ordine è comparso DA NOI, non la data
+  // dell'ordine.
+  if (soloNuovi) {
+    dove.creatoIl = { gte: new Date(Date.now() - ORE_APPENA_ARRIVATO * 3600 * 1000) }
+  }
 
   if (contatto === 'si') dove.contattoSalvato = true
   if (contatto === 'no') dove.contattoSalvato = false

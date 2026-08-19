@@ -761,6 +761,8 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
   /** '' tutti · 'miei' · 'liberi'. «Liberi» è il filtro che serve davvero: sono
    *  gli ordini che rischiano di non lavorare NESSUNO. */
   const [filtroPresa, setFiltroPresa] = useState('')
+  /** Solo gli ordini col bollino NUOVO (ultime ORE_APPENA_ARRIVATO ore). */
+  const [soloNuovi, setSoloNuovi] = useState(false)
   /** Chi sta guardando: senza, «preso da» non distingue me da un collega. */
   const [ioId, setIoId] = useState('')
   /** Il ruolo di chi guarda: l'amministratore assegna, l'operatore prende. */
@@ -791,6 +793,7 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
       if (filtroGestione) p.set('gestione', filtroGestione)
       if (filtroTipo) p.set('tipoCliente', filtroTipo)
       if (filtroPresa) p.set('presa', filtroPresa)
+      if (soloNuovi) p.set('nuovi', 'si')
       if (ordina) {
         p.set('ordina', ordina)
         p.set('verso', verso)
@@ -833,7 +836,18 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
     } finally {
       setCaricato(true)
     }
-  }, [qCercata, negozio, filtroContatto, filtroGestione, filtroTipo, globale, ordina, verso, filtroPresa])
+  }, [
+    qCercata,
+    negozio,
+    filtroContatto,
+    filtroGestione,
+    filtroTipo,
+    globale,
+    ordina,
+    verso,
+    filtroPresa,
+    soloNuovi,
+  ])
 
   /**
    * «Me ne occupo io» / «Lo lascio».
@@ -1062,7 +1076,8 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
     filtroContatto ||
     filtroTipo ||
     filtroGestione !== 'aperti' ||
-    filtroPresa
+    filtroPresa ||
+    soloNuovi
   )
 
   // Da che tipo di cliente arrivano gli ordini mostrati, dal più frequente.
@@ -1253,6 +1268,18 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
           ))}
           <option value="ignoto">Tipo non rilevato</option>
         </select>
+        {/* ── Solo i nuovi ──
+            Un interruttore e non una voce in una tendina: è la domanda che ci
+            si fa aprendo la bacheca («cos'è entrato mentre non guardavo?»), e
+            va risposta con un clic solo. Acceso si vede, così non si resta a
+            guardare una lista corta chiedendosi dove sono finiti gli altri. */}
+        <button
+          className={soloNuovi ? 'bottone' : 'bottone secondario'}
+          onClick={() => setSoloNuovi(!soloNuovi)}
+          title={`Mostra solo gli ordini entrati nelle ultime ${ORE_APPENA_ARRIVATO} ore — quelli col bollino NUOVO`}
+        >
+          {soloNuovi ? 'Solo nuovi ✓' : 'Solo nuovi'}
+        </button>
         {/* Di chi è il lavoro. «Liberi» prima di «Miei» non è un dettaglio:
             il guaio peggiore non è che due lavorino lo stesso ordine, è che non
             lo lavori nessuno perché ognuno crede che ci pensi un altro. */}
@@ -1283,6 +1310,7 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
               setFiltroContatto('')
               setFiltroTipo('')
               setFiltroPresa('')
+              setSoloNuovi(false)
               setFiltroGestione('aperti')
             }}
           >
