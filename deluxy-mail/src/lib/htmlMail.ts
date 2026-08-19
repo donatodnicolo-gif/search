@@ -101,3 +101,49 @@ export function htmlAPlain(html: string): string {
       .trim()
   )
 }
+
+/**
+ * Trasforma le immagini incollate nel corpo — `<img src="data:image/…;base64,…">`
+ * — in vere parti MIME referenziate con `cid:`, e restituisce gli allegati da
+ * accodare al messaggio.
+ *
+ * ⚠️ PERCHÉ SERVE. Spedita com'è, un'immagine `data:` **non si vede**: Gmail e
+ * Outlook le bloccano per principio. La mail parte, il destinatario non trova
+ * niente — segnalato il 19/08/2026 («l'immagine non è neanche partita»), ed è
+ * il difetto peggiore della famiglia: da chi invia sembra tutto a posto.
+ *
+ * ⚠️ NON si usa l'opzione `attachDataUrls` di nodemailer: quella la applica il
+ * *transporter* (`lib/mailer/mail-message.js`), mentre qui il MIME lo costruisce
+ * `MailComposer` e poi si spedisce il `raw` già fatto — misurato il 19/08/2026,
+ * con l'opzione accesa il `data:` restava tale e quale.
+ *
+ * ⚠️ Solo `image/<raster>;base64`, la stessa forma che accetta `sanitizzaHtml`:
+ * un `data:image/svg+xml` è un documento che può portare script.
+ */
+export function immaginiInLineaComeAllegati(html: string): {
+  html: string
+  allegati: { filename: string; content: Buffer; contentType: string; cid: string; contentDisposition: 'inline' }[]
+} {
+  const allegati: { filename: string; content: Buffer; contentType: string; cid: string; contentDisposition: 'inline' }[] = []
+  const nuovo = html.replace(
+    /(<img\b[^>]*?\bsrc\s*=\s*)(["'])\s*data:image\/(png|jpe?g|gif|webp|bmp|avif)\s*;\s*base64\s*,([A-Za-z0-9+/=\s]+?)\2/gi,
+    (tutto, prima: string, virgoletta: string, tipo: string, base64: string) => {
+      const dati = Buffer.from(base64.replace(/\s+/g, ''), 'base64')
+      if (!dati.length) return tutto // base64 rotto: meglio lasciare com'era
+      const n = allegati.length + 1
+      // Il cid deve essere unico nel messaggio ma non deve dire niente di chi
+      // scrive: numero progressivo e basta.
+      const cid = `immagine${n}@deluxy`
+      const estensione = tipo.toLowerCase() === 'jpg' ? 'jpeg' : tipo.toLowerCase()
+      allegati.push({
+        filename: `immagine${n}.${estensione}`,
+        content: dati,
+        contentType: `image/${estensione}`,
+        cid,
+        contentDisposition: 'inline',
+      })
+      return `${prima}${virgoletta}cid:${cid}${virgoletta}`
+    }
+  )
+  return { html: nuovo, allegati }
+}

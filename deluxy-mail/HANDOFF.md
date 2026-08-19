@@ -488,6 +488,37 @@ Cron: **`/api/sync`** (route, autenticata con `CRON_SECRET`) — su Vercel Hobby
 
 ## 9. Problemi noti / gotchas
 
+- 🔴 **L'immagine incollata non arrivava a destinazione (19 ago)** — segnalato in due
+  battute: prima «non riesco a ridurre la dimensione della foto», poi «l'immagine poi non
+  è neanche partita». Erano **due difetti diversi**, e il secondo era il grave.
+  1. **Non si poteva ridimensionare**: `EditorRicco` è un `contenteditable` con
+     `execCommand` e non aveva **nessuna** gestione delle immagini. ⚠️ Chrome, a differenza
+     di Firefox, **non disegna le maniglie** di ridimensionamento: senza comandi espliciti
+     un'immagine incollata resta grande com'è. Ora un clic la seleziona e compare una
+     riga: Piccola/Media/Grande/Piena. ⚠️ Si scrive **sia l'attributo `width` sia lo stile
+     inline**: i client di posta sono divisi e un foglio di stile esterno non arriva mai.
+  2. 🔴 **Non partiva**: `spedisci` passava il corpo a `MailComposer` così com'era, e le
+     immagini incollate sono `<img src="data:image/…;base64,…">`. **Gmail e Outlook
+     bloccano le immagini `data:`**: la mail arrivava senza. ⚠️ **È il difetto peggiore
+     della famiglia — sembra riuscito**: nella propria copia l'immagine si vede benissimo,
+     perché lì il `data:` c'è ancora. Ora `immaginiInLineaComeAllegati` (in `htmlMail.ts`)
+     le trasforma in parti MIME vere con `cid:`, `inline`, dentro un `multipart/related`.
+  ⚠️ **Non si usa l'opzione `attachDataUrls` di nodemailer**: l'ho provata per prima ed è
+  **inefficace qui**, perché la applica il *transporter* mentre noi costruiamo il MIME con
+  `MailComposer` e spediamo il `raw` già fatto. Misurato prima di tenerla: col flag acceso
+  il `data:` restava identico. **Lezione: un'opzione che «secondo la documentazione» risolve
+  va vista funzionare, o si committa una correzione che non corregge.**
+  ⚠️ Tocca **solo ciò che parte**: `registraInviato` salva `m.corpoHtml` originale coi
+  `data:`, e deve restare così — il sanificatore toglie gli `<img src="cid:">` quando mostra
+  una mail (non potrebbero caricarsi), quindi la nostra copia resta visibile.
+  ⚠️ `image/svg+xml` **non** viene incorporato: un SVG è un documento e può portare script
+  (stessa regola di `sanitizzaHtml`). Verificato con 10 controlli sul MIME prodotto, comprese
+  le controprove «nessuna immagine → corpo intatto» e «svg → zero allegati».
+  ⚠️ Resta il tetto Vercel di **4,5 MB per richiesta**: una mail con foto grandi può non
+  partire affatto. Per questo il tasto **«Alleggerisci il file»** ridisegna davvero
+  l'immagine (canvas → JPEG 0.82) invece di limitarsi a mostrarla piccola: ridurre la
+  larghezza a schermo **non toglie un byte**, ed è così che nascono le mail da 20 MB.
+
 - **TRASLOCO del database sul cluster condiviso (18 ago)** — AI Mail lascia
   `feleldlsreurqpdhstla` (account **cs@deluxy.it**, eu-west-1, piano **Free**, dove
   divide il progetto con la **piattaforma consegne**: misurato 566 MB, già oltre i

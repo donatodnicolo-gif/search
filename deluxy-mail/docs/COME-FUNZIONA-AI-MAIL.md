@@ -433,6 +433,35 @@ quelle più vecchie. Da lì in avanti la finestra torna a riempirsi da sola a 30
 L'unico caso in cui l'impaginato non c'è più: una mail **cancellata dal server** della
 casella. Per quella resta il testo — l'HTML non esiste più da nessuna parte.
 
+## 6b-quinquies. Le immagini dentro il messaggio
+
+Un'immagine si incolla nel corpo (Ctrl+V) o si trascina dentro. Poi **toccala**:
+compare una riga di comandi sopra l'editor.
+
+- **Piccola · Media · Grande · Piena** cambiano la larghezza (240, 400, 640 pixel,
+  oppure larga quanto il messaggio). Le proporzioni si mantengono da sole.
+- **Alleggerisci il file (N MB)** è un'altra cosa e conviene conoscerla:
+  rimpicciolire un'immagine a schermo **non toglie un byte alla mail**. Una foto
+  da 4 MB resta 4 MB anche mostrata piccola. Questo tasto la ridisegna davvero
+  alla misura scelta: la mail parte leggera, si invia più in fretta e non intasa
+  la casella di chi la riceve. ⚠️ Ricomprime in JPEG, quindi le eventuali
+  trasparenze si perdono — su una foto non si nota, su un logo ritagliato sì.
+
+Perché contano le dimensioni: una richiesta verso il server non può superare i
+**4,5 MB**, quindi una mail con dentro foto grandi può non partire affatto.
+Alleggerire prima di inviare è la differenza fra una mail che parte e una che no.
+
+⚠️ **Chrome non mostra le maniglie di ridimensionamento** dentro un editor come
+questo (Firefox sì): è il motivo per cui prima non c'era modo di rimpicciolire
+un'immagine, e per cui i comandi ora sono bottoni espliciti.
+
+**Come parte l'immagine.** Nel messaggio spedito l'immagine non viaggia come
+testo dentro il corpo ma come **parte vera della mail**, richiamata dal corpo.
+È il modo standard, ed è necessario: Gmail e Outlook **bloccano** le immagini
+scritte dentro il corpo, quindi prima la mail arrivava a destinazione senza
+l'immagine — e chi l'aveva inviata non poteva accorgersene, perché nella propria
+copia si vedeva benissimo.
+
 ## 6b-quater. Leggere una conversazione
 
 Sotto la mail aperta c'è **tutta la conversazione, in pila**: ogni messaggio si apre

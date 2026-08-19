@@ -1315,6 +1315,13 @@ mark.ricerca-hit {
 .rt-area:empty::before { content: 'Scrivi il messaggio…'; color: var(--text-tertiary); }
 .rt-area a { color: var(--blue); text-decoration: underline; }
 .rt-area ul, .rt-area ol { margin: 6px 0; padding-left: 24px; }
+/* Un'immagine incollata puo' essere enorme: dentro l'editor non deve mai
+   sfondare la colonna, comunque sia larga in origine. */
+.rt-area img { max-width: 100%; height: auto; cursor: pointer; }
+.rt-area img[data-scelta] { outline: 2px solid var(--blue); outline-offset: 2px; }
+.rt-imgbar { border-top: 1px solid var(--hairline); border-bottom: 1px solid var(--hairline); }
+.rt-imglabel { font-size: 12px; color: var(--text-secondary); padding: 0 6px 0 2px; }
+.rt-nota { font-size: 12px; color: var(--text-tertiary); padding: 0 6px; }
 
 .allegati { display: flex; flex-direction: column; gap: 10px; }
 .allegati-lista { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }

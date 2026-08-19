@@ -25,7 +25,7 @@ import { leggiEventoProposto } from './eventoProposto'
 import { leggiSenzaTraduzione, lingueLetteDi } from './lingue'
 import { preparaRisposta, modoValido, type Modo } from './rispondi'
 import { elencoContatti } from './contatti'
-import { htmlAPlain, sembraHtml, plainAHtml } from './htmlMail'
+import { htmlAPlain, sembraHtml, plainAHtml, immaginiInLineaComeAllegati } from './htmlMail'
 
 const MAX_ALLEGATI_BYTE = 20 * 1024 * 1024
 
@@ -2176,14 +2176,19 @@ type DaInviare = {
 }
 
 async function spedisci(account: Account, m: DaInviare): Promise<{ raw: Buffer; messageId: string }> {
+  // Le immagini incollate nel corpo diventano parti MIME con `cid:`, o non si
+  // vedrebbero (vedi `immaginiInLineaComeAllegati`). Riguarda solo cio' che
+  // parte: `m.corpoHtml` resta com era per la copia salvata in `registraInviato`.
+  const inLinea = m.corpoHtml ? immaginiInLineaComeAllegati(m.corpoHtml) : null;
+  const allegatiTutti = [...(m.allegati ?? []), ...(inLinea?.allegati ?? [])];
   const composer = new MailComposer({
     from: `${account.nome} <${account.email}>`,
     to: m.a,
     cc: m.cc || undefined,
     subject: m.oggetto,
     text: m.corpo,
-    ...(m.corpoHtml ? { html: m.corpoHtml } : {}),
-    ...(m.allegati && m.allegati.length ? { attachments: m.allegati } : {}),
+    ...(inLinea ? { html: inLinea.html } : {}),
+    ...(allegatiTutti.length ? { attachments: allegatiTutti } : {}),
     ...(m.ics ? { icalEvent: { method: 'REQUEST', content: m.ics } } : {}),
     inReplyTo: m.inRispostaA ?? undefined,
     references: m.inRispostaA ?? undefined,
