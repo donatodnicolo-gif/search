@@ -198,10 +198,21 @@ export default async function Portafoglio({ searchParams }: { searchParams: Prom
                           </div>
                         </td>
                         <td className={`num ${verso(p.eccesso)}`} style={{ fontWeight: 600 }}>
-                          {punti(p.eccesso)}
-                          <div style={{ fontSize: 11, color: "var(--text-tertiary)", fontWeight: 400 }}>
-                            indice {percentuale(p.rendimentoIndice)}
-                          </div>
+                          {p.eccesso === null && !p.posizione.dataAcquisto ? (
+                            <>
+                              <span className="badge oro">manca la data</span>
+                              <div style={{ fontSize: 11, color: "var(--text-tertiary)", fontWeight: 400, marginTop: 4 }}>
+                                senza data di acquisto non c&apos;è periodo da confrontare
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              {punti(p.eccesso)}
+                              <div style={{ fontSize: 11, color: "var(--text-tertiary)", fontWeight: 400 }}>
+                                indice {percentuale(p.rendimentoIndice)}
+                              </div>
+                            </>
+                          )}
                         </td>
                       </>
                     ) : (

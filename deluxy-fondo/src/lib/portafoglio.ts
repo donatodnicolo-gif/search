@@ -157,10 +157,12 @@ export function valutaPosizione(
     giorniDetenzione: null,
   };
 
+  // Per valutare bastano quantità e prezzo pagato. La data serve solo al confronto con
+  // l'indice e al conteggio dei giorni: se manca, quei due campi restano vuoti e il resto
+  // si calcola comunque — meglio un utile reale senza confronto che nessun numero.
   const mancanti: string[] = [];
   if (posizione.quantita === null) mancanti.push("quantità");
   if (posizione.prezzoCarico === null) mancanti.push("prezzo di carico");
-  if (posizione.dataAcquisto === null) mancanti.push("data di acquisto");
 
   const ultimo = serie?.barre.at(-1) ?? null;
   const base = {
@@ -182,7 +184,7 @@ export function valutaPosizione(
 
   const quantita = posizione.quantita!;
   const carico = posizione.prezzoCarico!;
-  const dataAcquisto = posizione.dataAcquisto!;
+  const dataAcquisto = posizione.dataAcquisto;
   const commissioni = posizione.commissioni ?? 0;
 
   const costoTotale = quantita * carico + commissioni;
@@ -190,7 +192,8 @@ export function valutaPosizione(
   const utilePerdita = valoreAttuale - costoTotale;
 
   // Le barre dall'acquisto a oggi: servono per massimo, minimo e confronto con l'indice.
-  const dallAcquisto = serie.barre.filter((b) => b.data >= dataAcquisto);
+  // Senza data di acquisto non esiste un «da quando», quindi questi campi restano vuoti.
+  const dallAcquisto = dataAcquisto ? serie.barre.filter((b) => b.data >= dataAcquisto) : [];
   const chiusure = dallAcquisto.map((b) => b.chiusura);
 
   let rendimentoIndice: number | null = null;
@@ -210,7 +213,10 @@ export function valutaPosizione(
   return {
     ...base,
     completa: true,
-    problema: null,
+    // Non è un errore, ma una parte della valutazione resta impossibile: va dichiarata.
+    problema: dataAcquisto
+      ? null
+      : "Manca la data di acquisto: utile e perdita sono corretti, ma non si può dire se l'indice avrebbe fatto meglio nello stesso periodo.",
     costoTotale,
     valoreAttuale,
     utilePerdita,
@@ -222,7 +228,7 @@ export function valutaPosizione(
         : null,
     massimoDaAcquisto: chiusure.length ? Math.max(...chiusure) : null,
     minimoDaAcquisto: chiusure.length ? Math.min(...chiusure) : null,
-    giorniDetenzione: Math.round((Date.now() - Date.parse(dataAcquisto)) / 86_400_000),
+    giorniDetenzione: dataAcquisto ? Math.round((Date.now() - Date.parse(dataAcquisto)) / 86_400_000) : null,
   };
 }
 
