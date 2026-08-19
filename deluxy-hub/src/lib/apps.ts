@@ -8,7 +8,7 @@ export type AppDeluxy = {
   nome: string;
   sottotitolo: string;
   descrizione: string;
-  icona: "consegne" | "search" | "partner" | "scout" | "mail" | "anagrafiche" | "maison" | "budgets" | "tasks" | "calendario" | "merchandising" | "marketing" | "messaggi" | "orders" | "transactions" | "scripts";
+  icona: "consegne" | "search" | "partner" | "scout" | "mail" | "anagrafiche" | "maison" | "budgets" | "tasks" | "calendario" | "merchandising" | "marketing" | "messaggi" | "orders" | "transactions" | "scripts" | "fondo";
   url: string;
   ruoli: readonly Ruolo[];
   // true = app mobile, si apre sul dispositivo/build web di Expo
@@ -227,6 +227,17 @@ export function catalogoApp(): AppDeluxy[] {
         "Legge la posta, la smista nelle tue sezioni, estrae le attività e prepara le risposte da controllare.",
       icona: "mail",
       url: url(process.env.APP_URL_MAIL, "http://localhost:3070"),
+      ruoli: ["admin"],
+    },
+    {
+      id: "fondo",
+      nome: "Fondo",
+      sottotitolo: "Cambi di management",
+      descrizione:
+        "Misura ogni giorno quanto rende un titolo da quando è arrivato il suo amministratore delegato, confrontato con il mercato. Strumento di ricerca: non dà consigli di investimento.",
+      icona: "fondo",
+      url: url(process.env.APP_URL_FONDO, "http://localhost:3180"),
+      // Solo admin: contiene analisi finanziarie e non è materiale da distribuire.
       ruoli: ["admin"],
     },
   ];
