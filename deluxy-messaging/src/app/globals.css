@@ -1697,6 +1697,13 @@ td .azioni-ordine {
 .bottone.mini {
   padding: 3px 11px;
   font-size: 12.5px;
+}
+
+/* ⚠️ Lo sfondo chiaro vale solo per i mini SECONDARI (serve a renderli opachi
+   sopra le righe): messo su tutti i mini, un bottone PRIMARIO diventava bianco
+   con il testo bianco — cioè una pillola vuota. È successo davvero, sul passo
+   in corso della lavorazione: «il vuoto cosa sarebbe?». */
+.bottone.secondario.mini {
   background: var(--surface);
 }
 
