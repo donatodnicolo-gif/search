@@ -62,6 +62,17 @@ nessuna delle due, ognuna convinta che ci pensi l'altra.
 la pagherebbe il cliente. Se due premono nello stesso secondo, il secondo riceve un avviso
 con il nome di chi ce l'ha — non un silenzio con due nomi diversi sui due schermi.
 
+## L'ordine rimborsato si chiude da solo
+
+Su un ordine reso non c'è più niente da lavorare: restava «Da gestire» in mezzo al lavoro
+vero, e prima o poi qualcuno lo rilavorava. Quando Shopify lo dà **REFUNDED** (reso per
+intero — un rimborso *parziale* lascia una consegna da fare, e resta aperto) l'ordine passa
+a **Gestito**, con scritto «rimborso su Shopify» al posto del nome di chi l'ha chiuso.
+
+⚠️ Si reagisce al **passaggio**, non allo stato: chiudendo a ogni giro, un ordine che una
+persona ha riaperto apposta verrebbe richiuso al giro dopo, e al successivo. **Chi riapre
+comanda**: da quel momento il sync non lo tocca più.
+
 ## Pagamento in sospeso e sospetto di frode
 
 Un ordine **non incassato** o che **Shopify considera sospetto** non deve partire. Il
@@ -95,6 +106,19 @@ sono due mittenti diversi visti da fuori.
 Compaiono **partner e prospect**, prima quelli con cui lavoriamo già, e accanto al nome
 si legge quale dei due è: a un prospect non si promettono le condizioni di un partner.
 Restano fuori solo «non interessato» e «dismesso», che vogliono dire *non chiamarli*.
+
+Il riquadro ha una **sua fascia larga** sotto le tre colonne, e un menu per scegliere il
+mestiere: **pasticcerie**, **fiorai**, o quello che dice il negozio. ⚠️ La scelta serve
+perché il negozio non sempre lo dice: sugli ordini **Deluxy** — che vende di tutto — non
+si può dedurre niente, e su un ordine di una torta uscivano anche i fiorai. Non si prova a
+indovinare dal nome del prodotto: «Numbers», «Millefoglie», «Bouquet» sono nomi di
+listino, e una parola fraintesa manda a chiamare il fornitore sbagliato.
+
+Scrivendo per **email**, la **foto del prodotto parte allegata** (la spunta la toglie): su
+una richiesta a un fornitore la foto *è* la richiesta — è quello che si fa a mano su
+WhatsApp da sempre. ⚠️ Se la foto non si riesce a scaricare la mail parte lo stesso, e il
+pop-up lo dice: chi ha scritto «come da foto» deve sapere che il fornitore quella foto non
+ce l'ha.
 
 ⚠️ Nel registro la stessa provincia è scritta in due modi (20 partner «MI», 9 «MILANO»):
 si confrontano le **sigle**, altrimenti un ordine a Milano trova due terzi dei fornitori e

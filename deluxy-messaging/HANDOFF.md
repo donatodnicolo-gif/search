@@ -153,6 +153,36 @@ locale, altrimenti nulla si decifra.
     corta. ⚠️ I mestieri hanno più etichette (FIORISTA+FIORI, PASTICCERIA+
     CIOCCOLATERIA) e il recapito può essere di un **referente**. Misurato:
     Milano → 9 pasticcerie / 6 fiorai; Firenze e Novara → nessuno, e lo dice.
+  - **IL RIQUADRO FORNITORI DIVENTA UNA FASCIA SUA, COL MESTIERE A SCELTA**
+    (19/08/2026, LIVE). Stava in fondo alla prima colonna: una lista di nomi con
+    tre bottoni ciascuno, in una striscia stretta, è un elenco che non si
+    guarda. Ora è largo quanto la finestra, con le tessere affiancate. E il
+    mestiere si sceglie — pasticcerie / fiorai / quello del negozio — perché
+    sugli ordini **Deluxy** il negozio non dice niente e su una torta uscivano
+    anche i fiorai. ⚠️ Non si indovina dal nome del prodotto: «Numbers»,
+    «Millefoglie», «Bouquet» sono nomi di listino.
+  - **LA FOTO DEL PRODOTTO PARTE ALLEGATA** nella mail al fornitore (spunta per
+    toglierla, con anteprima). ⚠️ Si scarica **lato server con la stessa lista
+    bianca di `/api/immagine`** (`src/lib/immagine-prodotto.ts`, solo
+    `cdn.shopify.com`): una funzione che prende un URL da chi la chiama e va a
+    scaricarlo è un proxy verso la rete interna. ⚠️ Se non si riesce, la mail
+    parte lo stesso **e lo dice**.
+  - **L'ORDINE RIMBORSATO SI CHIUDE DA SOLO** (richiesta dell'utente). ⚠️⚠️ Si
+    reagisce al **passaggio** REFUNDED, non allo stato: chiudendo a ogni giro,
+    un ordine riaperto apposta verrebbe richiuso all'infinito — **chi riapre
+    lascia il proprio id e da lì comanda lui**. Vale anche per i rimborsati
+    «mai toccati da nessuno», che altrimenti nessun passaggio avrebbe più
+    ripescato: erano **9**, chiusi; 3 di quelli erano fuori dalla finestra dei
+    60 giorni e sono stati chiusi a mano con lo stesso filtro. Solo REFUNDED
+    pieno: un rimborso parziale lascia una consegna da fare.
+  - **ORARIO DI ARRIVO DELL'ORDINE** nel dettaglio: su una consegna per oggi
+    dice se è entrato stamattina o cinque minuti fa, cioè quanto tempo resta.
+  - 🐛 **«ASSEGNA A…»: SEMBRAVA NON FARE NIENTE** (segnalato dall'utente).
+    Faceva il suo lavoro, ma il menu tornava sempre in bianco e assegnare a sé
+    un ordine già proprio non muove niente a schermo — il bollino «Mio» è in
+    cima alla scheda, lontano. Ora il menu **mostra chi ce l'ha** e l'esito si
+    scrive in una riga. ⚠️ Un comando che non lascia traccia dove viene premuto
+    è indistinguibile da un comando rotto.
   - 🐛 **«NESSUN FORNITORE» CON IL FORNITORE IN TABELLA** (segnalato
     dall'utente: «nell'app search ne ho uno possibile»). Due difetti sovrapposti
     sullo stesso riquadro appena fatto: (1) si leggeva **una pagina da 200
