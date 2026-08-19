@@ -5,6 +5,7 @@ import { MessaggiOrdine } from './MessaggiOrdine'
 import { coloreGestione, nomeGestione } from '@/lib/gestione'
 import { coloreTipoCliente, nomeTipoCliente } from '@/lib/clienti-tipo'
 import { fasciaRitiro, messaggioFornitore } from '@/lib/ritiro'
+import { richiestaFornitore } from '@/lib/messaggio-fornitore'
 import { linguaCliente, messaggioCliente, nomeLingua, oggettoCliente } from '@/lib/lingua'
 import type { BozzaMail } from './ComponiMail'
 
@@ -15,6 +16,18 @@ import type { BozzaMail } from './ComponiMail'
 // («Per mercoledì 29 luglio possibile questo prodotto con ritiro 15-19?») è già
 // scritto e si copia — il ritiro è la fascia di consegna meno un'ora, perché il
 // valet deve avere il prodotto in mano prima di partire.
+
+type FornitoreZona = {
+  id: string
+  nome: string
+  categoria: string
+  citta: string
+  indirizzo: string
+  telefono: string
+  email: string
+  /** Se il recapito è di una persona e non dell'insegna, si dice chi. */
+  recapitoDa: string
+}
 
 type Riga = {
   titolo: string
@@ -209,6 +222,11 @@ export function DettaglioOrdine({
   // La nota che il cliente ha lasciato all'ordine. Arriva da Orders e NON si
   // tiene in copia qui, come il destinatario: la fonte è il registro.
   const [biglietto, setBiglietto] = useState('')
+  /** I partner del registro che stanno nella provincia di consegna. */
+  const [zona, setZona] = useState<FornitoreZona[]>([])
+  const [zonaProvincia, setZonaProvincia] = useState('')
+  const [zonaNota, setZonaNota] = useState('')
+  const [zonaCaricata, setZonaCaricata] = useState(false)
   const [caricato, setCaricato] = useState(false)
   const [errore, setErrore] = useState('')
   const [copiato, setCopiato] = useState('')
@@ -302,6 +320,38 @@ export function DettaglioOrdine({
   // scriverebbero su una riga inesistente non si offrono. È il dato caricato a
   // dirlo, non il parametro con cui è stato aperto: l'archivio pesca anche
   // ordini recenti, che in casa ci sono e vanno aperti per intero.
+
+  // ── I fornitori in provincia ──
+  //
+  // Si chiede solo quando si sa DOVE va l'ordine: la provincia arriva con la
+  // spedizione, che è un secondo giro verso Orders. Prima di allora non c'è
+  // niente da chiedere — e una lista «nazionale» proporrebbe fornitori a 400 km.
+  useEffect(() => {
+    const provincia = spedizione?.provincia || ''
+    if (!provincia || !ordine) return
+    let vivo = true
+    ;(async () => {
+      const p = new URLSearchParams({ provincia, negozio: ordine.negozioNome })
+      const res = await fetch('/api/fornitori-zona?' + p.toString())
+      const d = (await res.json().catch(() => ({}))) as {
+        fornitori?: FornitoreZona[]
+        provincia?: string
+        nota?: string
+        errore?: string
+      }
+      if (!vivo) return
+      setZona(d.fornitori ?? [])
+      setZonaProvincia(d.provincia ?? '')
+      setZonaNota(d.errore || d.nota || '')
+      setZonaCaricata(true)
+    })().catch(() => {
+      if (vivo) setZonaCaricata(true)
+    })
+    return () => {
+      vivo = false
+    }
+  }, [spedizione?.provincia, ordine])
+
   const soloArchivio = Boolean(ordine && !ordine.id)
 
   const msg = ordine ? messaggioFornitore(ordine.dataConsegna, ordine.fasciaConsegna) : null
@@ -542,6 +592,96 @@ export function DettaglioOrdine({
                   </a>
                 ) : null}
               </div>
+              {/* ── I FORNITORI CHE ABBIAMO GIÀ IN ZONA ──
+                  Ricerca fornitori cerca su Google chi non conosciamo; questi
+                  invece sono i partner con cui lavoriamo già, scritti nel
+                  registro Anagrafiche, e prima non venivano mai proposti.
+                  ⚠️ Il messaggio è lo STESSO testo dell'app di ricerca: due
+                  formulazioni diverse per la stessa richiesta, dalla stessa
+                  azienda, allo stesso fornitore, sono due mittenti diversi
+                  visti da fuori. */}
+              {spedizione?.provincia ? (
+                <div style={{ marginTop: 18, borderTop: '1px solid var(--bordo)', paddingTop: 12 }}>
+                  <div className="cella-nome" style={{ marginBottom: 2 }}>
+                    Fornitori in provincia di {zonaProvincia || spedizione.provincia}
+                  </div>
+                  <div className="cella-sub" style={{ marginBottom: 8 }}>
+                    Dal registro Anagrafiche, per il mestiere di questo negozio.
+                  </div>
+                  {!zonaCaricata ? (
+                    <p className="descrizione">Cerco…</p>
+                  ) : zona.length === 0 ? (
+                    <p className="descrizione">
+                      {zonaNota ||
+                        `Nessun partner attivo in provincia di ${zonaProvincia || spedizione.provincia}. Usa «Cerca fornitore» qui sopra per trovarne di nuovi.`}
+                    </p>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {zona.map((fz) => {
+                        const richiesta = richiestaFornitore({
+                          prodotto: righe[0]?.titolo ?? '',
+                          variante: righe[0]?.variante ?? '',
+                          quantita: righe[0]?.quantita ?? 1,
+                          dataConsegna: ordine.dataConsegna,
+                          fascia: ordine.fasciaConsegna,
+                          indirizzo: [spedizione.indirizzo, spedizione.cap, spedizione.citta]
+                            .filter(Boolean)
+                            .join(' '),
+                        })
+                        const cifre = (fz.telefono || '').replace(/[^\d]/g, '')
+                        return (
+                          <div key={fz.id} className="card" style={{ padding: 10 }}>
+                            <div className="cella-nome">{fz.nome}</div>
+                            <div className="cella-sub">
+                              {[fz.categoria, fz.citta].filter(Boolean).join(' · ')}
+                              {/* ⚠️ Se il recapito è di una persona e non
+                                  dell'insegna, va detto: si scrive a lei. */}
+                              {fz.recapitoDa ? ` · recapito di ${fz.recapitoDa}` : ''}
+                            </div>
+                            <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+                              {cifre.length >= 8 ? (
+                                <a
+                                  className="btn btn-secondario small"
+                                  href={`https://wa.me/${cifre}?text=${encodeURIComponent(richiesta)}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  WhatsApp
+                                </a>
+                              ) : null}
+                              {fz.email && onScriviMail ? (
+                                <button
+                                  className="btn btn-secondario small"
+                                  onClick={() =>
+                                    onScriviMail({
+                                      a: fz.email,
+                                      oggetto: `Richiesta disponibilità — ordine ${ordine.numero}`,
+                                      testo: richiesta,
+                                      clienteNome: fz.nome,
+                                      ordineNumero: ordine.numero,
+                                    })
+                                  }
+                                >
+                                  Email
+                                </button>
+                              ) : null}
+                              <button
+                                className="btn btn-secondario small"
+                                onClick={() => copia(richiesta, `zona-${fz.id}`)}
+                              >
+                                {copiato === `zona-${fz.id}` ? 'Copiato ✓' : 'Copia richiesta'}
+                              </button>
+                              {!cifre.length && !fz.email ? (
+                                <span className="cella-sub">nessun recapito nel registro</span>
+                              ) : null}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              ) : null}
               <p className="descrizione" style={{ marginBottom: 0 }}>
                 {ritiro ? (
                   <>
