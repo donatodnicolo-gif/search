@@ -6,6 +6,7 @@ import { pezziDiTesto, ripulisciTestoEmail } from '@/lib/testo-email'
 import { inserisciScript } from '@/lib/script-testo'
 import { urlScriviAiMail } from '@/lib/ai-mail'
 import { NuovaMail } from './NuovaMail'
+import { CollegaOrdine } from './CollegaOrdine'
 import { RiassuntoChat } from './RiassuntoChat'
 import { NOMI_ORIGINE } from '@/lib/provenienza'
 import { nuoviDaAvvisare } from '@/lib/avvisi'
@@ -1164,6 +1165,35 @@ export function Inbox({
   // primi fuori dalle 24 ore vuole un modello approvato da Meta, quindi è un
   // lavoro a parte e non un campo in più in questa finestra.
   const [nuovaMail, setNuovaMail] = useState(false)
+  /** Il pop-up per collegare la conversazione a un ordine. */
+  const [collegaAperto, setCollegaAperto] = useState(false)
+
+  /**
+   * Collega la conversazione a un ordine (numero vuoto = scollega).
+   *
+   * ⚠️ L'elenco si ricarica dopo: il numero d'ordine si legge anche dalla riga
+   * in inbox, e lasciarlo indietro vorrebbe dire due schermate che dicono cose
+   * diverse sulla stessa conversazione.
+   */
+  async function collegaOrdine(numero: string) {
+    if (!selezionataId) return
+    try {
+      const res = await fetch(`/api/conversazioni/${selezionataId}/ordine`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ numero }),
+      })
+      const d = (await res.json().catch(() => ({}))) as { errore?: string }
+      if (!res.ok) {
+        setErroreInvio(d.errore || 'Collegamento non riuscito.')
+        return
+      }
+      setCollegaAperto(false)
+      await aggiornaConversazioni()
+    } catch {
+      setErroreInvio('Collegamento non riuscito: problema di rete.')
+    }
+  }
   // Il pannello del riassunto: chiuso di suo. Aprirlo mostra quello gia' salvato,
   // rifarlo e' un gesto in piu' — l'AI non si scomoda da sola.
   const [riassuntoAperto, setRiassuntoAperto] = useState(false)
@@ -1502,6 +1532,16 @@ export function Inbox({
 
     {/* A colonne la conversazione si apre in una finestra sopra la bacheca:
         le colonne prendono tutta la larghezza e restano visibili sotto. */}
+    {/* Il pop-up per scegliere l'ordine: si apre col nome del cliente già
+        scritto nella ricerca, perché nove volte su dieci l'ordine è suo. */}
+    {collegaAperto && selezionata ? (
+      <CollegaOrdine
+        collegato={selezionata.ordineNumero}
+        suggerimento={selezionata.nome || selezionata.idEsterno}
+        onScegli={(numero) => void collegaOrdine(numero)}
+        onChiudi={() => setCollegaAperto(false)}
+      />
+    ) : null}
     {nuovaMail ? (
       <NuovaMail
         onChiudi={() => setNuovaMail(false)}
@@ -1571,6 +1611,26 @@ export function Inbox({
                   {selezionata.ordineNumero}
                 </span>
               ) : null}
+              {/* ── Collega a un ordine ──
+                  L'aggancio automatico prende il caso facile: il cliente cita
+                  il numero, o scrive dalla mail dell'ordine. Tutti gli altri —
+                  «buongiorno, per la consegna di domani» da un altro indirizzo
+                  — restavano senza, e chi risponde si cercava l'ordine a mano
+                  **ogni volta** che riapriva il thread.
+                  ⚠️ Il bottone c'è anche quando il collegamento esiste: serve a
+                  cambiarlo o a toglierlo, e un aggancio sbagliato fa leggere la
+                  conversazione col contesto di un altro cliente. */}
+              <button
+                className="bottone secondario mini"
+                onClick={() => setCollegaAperto(true)}
+                title={
+                  selezionata.ordineNumero
+                    ? `Collegata a ${selezionata.ordineNumero}: cambia o togli`
+                    : 'Collega questa conversazione a un ordine'
+                }
+              >
+                {selezionata.ordineNumero ? 'Cambia ordine' : 'Collega a un ordine'}
+              </button>
               <span className={`badge canale-${selezionata.canale}`}>
                 {etichettaCanale(selezionata.canale)}
               </span>
