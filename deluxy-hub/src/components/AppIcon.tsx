@@ -73,6 +73,14 @@ const GLIFI: Record<AppDeluxy["icona"], React.ReactNode> = {
       <path d="M11.5 7.2h8.5M11.5 15.7h8.5" {...TRATTO} />
     </>
   ),
+  // Andamento con il punto dell'evento: il cambio di vertice e ciò che accade dopo
+  fondo: (
+    <>
+      <path d="M3.5 19.5V4.5M3.5 19.5h17" {...TRATTO} />
+      <path d="m6.5 16 3.5-4.5 3 2.5 4.5-7" {...TRATTO} />
+      <circle cx="10" cy="11.5" r="1.6" {...TRATTO} />
+    </>
+  ),
 };
 
 export function AppIcon({ icona }: { icona: AppDeluxy["icona"] }) {
