@@ -102,16 +102,41 @@ fare*, la fila dice *dove siamo*. Un ordine fermo sulla ricerca del fornitore e 
 aspetta solo la consegna chiedono cose diverse a chi guarda la bacheca — e prima erano
 tutti e due «Da gestire».
 
-**Gestito** è l'ultimo passo della fila, non un bottone fra le azioni: non è una cosa da
-fare all'ordine (come «Rimborso» o «WhatsApp»), è il punto in cui l'ordine è arrivato.
-⚠️ È l'unico passo che fa **sparire l'ordine** dalla lista di lavoro (il filtro parte dai
-non gestiti); per riaprirlo basta ricliccare «Da iniziare».
+**Gestito ✓** sta **accanto** alla fila, staccato da una riga verticale e in verde: non è
+il quinto passo. Gli altri dicono *a che punto siamo*, questo dice che **abbiamo finito** —
+ed è l'unico che fa sparire l'ordine dalla lista di lavoro. Quando è acceso, ricliccarlo
+**riapre** l'ordine.
 
 **Comunicazione con cliente** non è un passo da scegliere: lo scrive l'app da sé quando
 scrivi al cliente da qui.
 
 Nella vista **elenco** (tabella) la fila non c'è e resta il bottone «Gestito ✓»: lì
 toglierlo avrebbe tolto l'unico modo di chiudere un ordine.
+
+## La riga dei filtri per punto
+
+Sotto i filtri lunghi c'è una riga di pillole: **Solo nuovi** | **Tutti gli aperti · Da
+iniziare · Ricerca fornitore · In pagamento · Attesa consegna** | **Gestiti**. I filtri
+lunghi rispondono a *quali ordini*, questa riga a *a che punto*: erano due domande diverse
+mescolate, e lo stato era una voce in fondo a una tendina — tre gesti per una cosa che si
+guarda venti volte al giorno.
+
+⚠️ È la **stessa** impostazione della tendina, non una seconda: premendo una pillola la
+tendina segue, e viceversa. Ripremendo la stessa si torna agli aperti.
+
+## Collegare una conversazione a un ordine
+
+Nella testata del thread, **«Collega a un ordine»** (o «Cambia ordine» se ce n'è già uno):
+si apre un pop-up che cerca per numero, cliente, telefono, email o indirizzo — e parte già
+col nome del cliente, perché nove volte su dieci l'ordine è suo.
+
+L'aggancio automatico prende il caso facile: il cliente cita il numero, o scrive dalla mail
+o dal numero dell'ordine. Tutti gli altri («buongiorno, per la consegna di domani» da un
+altro indirizzo) restavano senza, e chi rispondeva si cercava l'ordine a mano ogni volta.
+
+⚠️ Il pop-up cerca fra **tutti** gli ordini, non solo gli aperti: una mail arriva spesso
+*dopo* la consegna. ⚠️ Un aggancio sbagliato fa leggere la conversazione col contesto di un
+altro cliente: da lì si cambia e si scollega.
 
 ## «Solo nuovi»: cos'è entrato mentre non guardavi
 

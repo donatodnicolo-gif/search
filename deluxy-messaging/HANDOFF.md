@@ -153,6 +153,23 @@ locale, altrimenti nulla si decifra.
     corta. ⚠️ I mestieri hanno più etichette (FIORISTA+FIORI, PASTICCERIA+
     CIOCCOLATERIA) e il recapito può essere di un **referente**. Misurato:
     Milano → 9 pasticcerie / 6 fiorai; Firenze e Novara → nessuno, e lo dice.
+  - **COLLEGARE UNA CONVERSAZIONE A UN ORDINE, A MANO** (19/08/2026, LIVE):
+    bottone nella testata del thread + pop-up di ricerca (numero, cliente,
+    telefono, email, indirizzo) che parte già col nome del cliente.
+    ⚠️ Cerca fra **tutti** gli ordini, non i soli aperti: una mail arriva spesso
+    dopo la consegna. ⚠️ Si salva il **numero**, non l'id — è la chiave
+    dell'aggancio automatico e sopravvive all'uscita dai 60 giorni. ⚠️ Un numero
+    inventato non diventa un aggancio a niente: la rotta risponde 404.
+  - **«GESTITO» RESTA LA CHIUSURA, NON UN PASSO** (19/08/2026, LIVE). Era
+    finito in fila coi passi come se fosse il quinto: ma gli altri dicono *a che
+    punto siamo* e questo dice che *abbiamo finito*, ed è l'unico che fa uscire
+    l'ordine dalla lista. Ora sta accanto, staccato, verde, e da acceso il clic
+    riapre. ⚠️ È una distinzione da non perdere al prossimo ritocco.
+  - **RIGA DI FILTRI PER PUNTO DI LAVORAZIONE** (19/08/2026, LIVE): Solo nuovi |
+    Tutti gli aperti · i quattro passi | Gestiti, sotto i filtri lunghi.
+    ⚠️ Stessa impostazione della tendina, non una seconda: due comandi che
+    raccontano stati diversi sono il modo più rapido per non fidarsi di
+    nessuno dei due.
   - **LA CONSEGNA SI SPOSTA DAL PANNELLO, E LO STATO SI CAMBIA ANCHE LÌ**
     (19/08/2026, LIVE). Il pannello è dove si lavora l'ordine: ci si accorge lì
     di essere passati al punto dopo, e chiudere per cambiare stato sulla scheda
