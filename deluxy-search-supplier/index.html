@@ -741,7 +741,7 @@
       <!-- nessun risultato: proposta di allargare la ricerca a un'area più ampia -->
       <div id="noResults" style="display:none; margin:12px 0; padding:16px; background:var(--fill); border:1px solid var(--hairline); border-radius:var(--radius-l); text-align:center">
         <div class="hint" id="noResultsMsg" style="margin:0 0 12px">Nessun negozio trovato in zona.</div>
-        <button class="btn" id="extendBtn" style="width:auto; padding:12px 20px">🔎 Estendi la ricerca a un'area più ampia</button>
+        <button class="btn" id="extendBtn" type="button" style="width:auto; padding:12px 20px">🔎 Estendi la ricerca a un'area più ampia</button>
       </div>
 
       <!-- strumenti risultati: filtri WhatsApp/apertura + vista mappa (gemelli del form) -->
@@ -766,6 +766,11 @@
             <button class="wchip active" data-rate="tutti" type="button">Tutte</button>
             <button class="wchip" data-rate="4plus" type="button">⭐ 4+ stelle</button>
           </div>
+        </div>
+        <!-- aggiungi un negozio che la ricerca non ha fatto uscire (per nome) -->
+        <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin-top:8px">
+          <input id="addByName" type="text" placeholder="Manca un negozio? Scrivi il nome (es. Manfredini Fiori)" style="flex:1; min-width:220px; margin:0">
+          <button class="btn-dl" id="addByNameBtn" type="button">➕ Aggiungi ai risultati</button>
         </div>
         <!-- azioni mappa -->
         <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin-top:8px">
@@ -2112,14 +2117,21 @@ async function wideSearch(service, location, cat, lang, radius){
 }
 
 /* ------------------ dettagli negozio ------------------ */
+// Dettagli già chiesti a Google: si tengono in cache per place_id. Ogni getDetails è una chiamata
+// A PAGAMENTO, e la lista viene ridisegnata spesso (estendi, «Numero risultati», riordino):
+// senza cache si ripagavano ogni volta gli stessi negozi.
+const PLACE_DETAILS = {};
 function details(service, placeId){
+  if(PLACE_DETAILS[placeId]) return Promise.resolve(PLACE_DETAILS[placeId]);
   return new Promise(resolve=>{
     service.getDetails({
       placeId,
       fields:['name','formatted_address','address_components','formatted_phone_number','international_phone_number',
               'website','url','rating','user_ratings_total','reviews','opening_hours','utc_offset_minutes','geometry','business_status','photos']
     }, (d,status)=>{
-      resolve(status===google.maps.places.PlacesServiceStatus.OK ? d : null);
+      const ok = status===google.maps.places.PlacesServiceStatus.OK ? d : null;
+      if(ok) PLACE_DETAILS[placeId] = ok;
+      resolve(ok);
     });
   });
 }
@@ -2234,6 +2246,8 @@ $('#lbGrid').addEventListener('click', e=>{
 $('#ord_thumb').addEventListener('click', apriFotoOrdine);
 $('#ord_thumb').style.cursor = 'zoom-in';
 $('#ord_thumb').title = 'Clicca per ingrandire e copiare';
+$('#addByNameBtn').addEventListener('click', aggiungiPerNome);
+$('#addByName').addEventListener('keydown', e=>{ if(e.key === 'Enter'){ e.preventDefault(); aggiungiPerNome(); } });
 $('#lbCopy').addEventListener('click', copiaFotoOrdine);
 $('#lbImg').addEventListener('click', ()=>{ if(lbOrdine) copiaFotoOrdine(); });
 $('#lbBack').addEventListener('click', lbGriglia);
@@ -3725,6 +3739,7 @@ async function run(){
       return;
     }
 
+    lastSearchCtx.found = found;   // base da UNIRE quando si estende (non si sostituisce)
     await renderResults(found, geo, origin, service, {});
   }catch(err){
     console.error(err);
@@ -3740,6 +3755,11 @@ async function renderResults(found, geo, origin, service, opts){
   const extended = !!opts.extended;
   const proxy = (CONFIG.proxy||'').trim();
   const limit = parseInt($('#limit').value,10);
+  // Ricerca allargata: si mostrano anche i negozi oltre «Numero risultati», altrimenti estendere
+  // non farebbe vedere NIENTE di nuovo (i più vicini riempiono già la lista). Tetto a 60 per non
+  // far esplodere le chiamate ai dettagli, che sono a pagamento; quelli già caricati stanno in
+  // PLACE_DETAILS e non si ripagano.
+  const cap = (opts.extended || opts.mostraTutti) ? Math.min(60, Math.max(limit, found.length)) : limit;
   const sortBy = $('#sort').value;
 
   // partner/prospect già nostri in zona + Storico (per le annotazioni sulle schede)
@@ -3753,7 +3773,7 @@ async function renderResults(found, geo, origin, service, opts){
 
   // ordina (linea d'aria) e limita
   found.sort((a,b)=> sortBy==='rating' ? (b.rating-a.rating) : (a.dist-b.dist));
-  found = found.slice(0, limit);
+  found = found.slice(0, cap);
 
   // distanza STRADALE (in auto) dalla consegna: la calcolo per i selezionati e riordino
   setStatus('Calcolo le distanze stradali…');
@@ -3894,6 +3914,47 @@ async function renderResults(found, geo, origin, service, opts){
 let lastSearchCtx = null;   // { service, origin, geo } dell'ultima ricerca
 let extendRadius = 0;       // raggio corrente dell'allargamento (m); +10 km a ogni clic, max 50 km
 const EXTEND_STEP = 10000, EXTEND_MAX = 50000;
+// «➕ Aggiungi ai risultati»: cerca un negozio PER NOME e lo infila nella lista.
+// Serve quando Google non lo fa uscire dalla ricerca per categoria: succede se la scheda non è
+// classificata `florist` (garden center, vivaio, negozio di regali…) oppure se è troppo lontana
+// per entrare fra le più vicine. Il negozio aggiunto si comporta come tutti gli altri (distanza,
+// WhatsApp, invio ordine): una sola chiamata textSearch, si paga solo quando serve davvero.
+async function aggiungiPerNome(){
+  const q = ($('#addByName').value || '').trim();
+  if(!q) return;
+  if(!lastSearchCtx){ setStatus('Prima fai una ricerca: serve l\'indirizzo di consegna per calcolare le distanze.', true); return; }
+  const { service, origin, geo } = lastSearchCtx;
+  const btn = $('#addByNameBtn');
+  btn.disabled = true;
+  setStatus(`Cerco «${q}» su Google…`);
+  try{
+    const res = await textSearchOne(service, q, origin, 50000);
+    const p = res.find(x => x.geometry && x.geometry.location);
+    if(!p){ setStatus(`Google non trova «${q}» in questa zona. Prova col nome completo o aggiungi la città.`, true); return; }
+    const found = lastSearchCtx.found || [];
+    const gia = found.find(f => f.place.place_id === p.place_id);
+    if(gia){
+      setStatus(`«${p.name}» è già fra i risultati (se non lo vedi controlla i filtri o gli Archiviati).`, true);
+      const card = document.querySelector(`.shop[data-sid="${p.place_id}"]`);
+      if(card) focusCard(p.place_id);
+      return;
+    }
+    const cat = (p.types||[]).some(t=>/bakery|cafe|store/.test(t)) && cats.has('pasticceria') ? 'pasticceria' : ([...cats][0] || 'fioraio');
+    const nuovo = { place:p, cat };
+    nuovo.dist = google.maps.geometry.spherical.computeDistanceBetween(origin, p.geometry.location);
+    nuovo.rating = p.rating || 0;
+    lastSearchCtx.found = [...found, nuovo];
+    $('#noResults').style.display = 'none';
+    // i `types` di Google spiegano perché non usciva dalla ricerca per categoria
+    setStatus(`Aggiunto «${p.name}» — Google lo classifica: ${(p.types||[]).slice(0,4).join(', ') || 'nessun tipo'}.`);
+    await renderResults(lastSearchCtx.found, geo, origin, service, { mostraTutti:true });
+    $('#addByName').value = '';
+    focusCard(p.place_id);
+  }catch(err){
+    console.error(err);
+    setStatus(err.message || 'Ricerca per nome non riuscita.', true);
+  }finally{ btn.disabled = false; }
+}
 async function extendSearch(){
   if(!lastSearchCtx){ run(); return; }
   const { service, origin, geo } = lastSearchCtx;
@@ -3902,11 +3963,14 @@ async function extendSearch(){
   $('#extendBtn').disabled = true; $('#extendMoreBtn').disabled = true;
   setStatus(`Allargo la ricerca a ~${km} km dalla consegna…`);
   try{
-    let found = [];
-    for(const cat of cats){ found = found.concat(await wideSearch(service, origin, cat, currentLang, extendRadius)); }
-    // dedup per place_id, tieni solo chi ha una posizione, calcola distanza
+    let nuovi = [];
+    for(const cat of cats){ nuovi = nuovi.concat(await wideSearch(service, origin, cat, currentLang, extendRadius)); }
+    // ⚠️ I negozi già trovati NON si buttano: la ricerca allargata (textSearch) è un'altra
+    // interrogazione e non li restituisce tutti. Prima si sostituiva la lista e l'operatore
+    // vedeva sparire quello che aveva sotto gli occhi (segnalato il 19/08).
+    const uniti = [...(lastSearchCtx.found || []), ...nuovi];
     const seen = new Set();
-    found = found.filter(f=>{
+    const found = uniti.filter(f=>{
       if(!f.place || !f.place.geometry || !f.place.geometry.location) return false;
       if(seen.has(f.place.place_id)) return false; seen.add(f.place.place_id); return true;
     });
@@ -3914,11 +3978,15 @@ async function extendSearch(){
       f.dist = google.maps.geometry.spherical.computeDistanceBetween(origin, f.place.geometry.location);
       f.rating = f.place.rating || 0;
     });
-    if(found.length===0){
-      setStatus(`Ancora nessun negozio entro ~${km} km. ${extendRadius<EXTEND_MAX?'Allarga ancora o prova un altro indirizzo/categoria.':'Prova un altro indirizzo o categoria.'}`, true);
+    const prima = (lastSearchCtx.found || []).length;
+    lastSearchCtx.found = found;
+    if(found.length === prima){
+      setStatus(`Nessun negozio NUOVO entro ~${km} km. ${extendRadius<EXTEND_MAX?'Puoi allargare ancora.':'Sei già al massimo: prova un altro indirizzo o categoria.'}`, true);
+      showExtendFooter(true);
       return;
     }
     $('#noResults').style.display = 'none';
+    setStatus(`Trovati ${found.length - prima} negozi in più entro ~${km} km.`);
     await renderResults(found, geo, origin, service, { extended:true });
   }catch(err){
     console.error(err);

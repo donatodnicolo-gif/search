@@ -632,8 +632,45 @@ non si vedono dati reali né si può diagnosticare «La Mimosa»).
    **tre esiti della copia** simulando appunti che funzionano, che rifiutano e foto non pronta.
    Console pulita.
 
+49. **«Estendi» non butta più via i risultati + «Aggiungi negozio per nome» + cache dei dettagli**
+   (19/08, segnalazione dell'utente: «il pulsante estendi non funziona bene, ricarica la pagina e
+   fa un sacco di disordine» sull'ordine deluxyflowers #2756).
+   - **Il bug**: `extendSearch` passava a `renderResults` **solo** i risultati della ricerca
+     allargata (`textSearch`), e `renderResults` comincia con `resultsEl.innerHTML=''`. Siccome è
+     un'interrogazione diversa, i negozi di prima non c'erano tutti: la lista veniva **sostituita**
+     e l'operatore vedeva sparire quello che aveva sotto gli occhi (e la lista poteva persino
+     accorciarsi, perché `textSearch` dà max 20 per parola chiave). Ora si **uniscono** vecchi e
+     nuovi (`lastSearchCtx.found`, dedup per place_id) e si ridisegna l'insieme.
+   - Se l'allargamento non trova **nessun negozio nuovo**, la lista non viene nemmeno ridisegnata:
+     si scrive «Nessun negozio NUOVO entro ~N km» e si tiene tutto com'è. Altrimenti lo status dice
+     quanti se ne sono aggiunti.
+   - **Il tetto di «Numero risultati» non si applica alle ricerche allargate** (`cap` in
+     `renderResults`, opzioni `extended`/`mostraTutti`): altrimenti i più vicini riempivano la
+     lista e l'estensione non mostrava niente di nuovo. Tetto assoluto 60.
+   - **Nuovo campo «Manca un negozio? Scrivi il nome» + «➕ Aggiungi ai risultati»**
+     (`#addByName`, `aggiungiPerNome`): una `textSearch` per nome con bias sulla consegna, il
+     negozio entra nella lista come tutti gli altri (distanza, WhatsApp, invio ordine). Lo status
+     mostra i **`types` di Google**, che spiegano perché non usciva dalla ricerca per categoria
+     (tutte le nearbySearch passano `type: florist`). Se è già in lista non lo duplica: lo
+     evidenzia. Costo: **una** chiamata, solo quando serve davvero. Nato dal caso «Manfredini
+     Fiori Snc» (ordine #2756), che su Google è `florist` ma non usciva.
+   - **Cache dei dettagli** (`PLACE_DETAILS`): `details()` non richiede due volte lo stesso
+     `place_id`. Ogni `getDetails` è a pagamento e la lista si ridisegna spesso (estendi, cambio
+     «Numero risultati», riordino): prima si ripagavano ogni volta gli stessi negozi.
+   Verificato nel browser con Google finto: estensione che unisce (1 + 2 = 3 schede), estensione
+   senza novità che non ridisegna, aggiunta per nome (entra, campo svuotato, `types` mostrati),
+   doppione non riaggiunto, nome inesistente col messaggio giusto, e cache dei dettagli (4
+   richieste → 2 chiamate). Console pulita.
+
 ## Cose in sospeso
 
+- **Fornitore che Google non fa uscire** (era «La Mimosa» #2734, poi «Manfredini Fiori» #2756):
+  dal 19/08 ci sono tutti e tre i rimedi previsti — paginazione fino a 60 (punto 40), estensione
+  del raggio che ora **aggiunge** invece di sostituire (punto 49) e il campo **«Aggiungi negozio
+  per nome»** (punto 49), che risolve il caso singolo con una chiamata e mostra i `types` di
+  Google. Resta vero il limite di fondo: tutte le nearbySearch passano `type: florist`, quindi una
+  scheda classificata diversamente esce solo per nome. Se capita spesso, valutare una
+  nearbySearch **solo keyword senza `type`** (+1 chiamata a pagamento per keyword su OGNI ricerca).
 - **Tipologia nel messaggio: da provare su un ordine vero** — il 19/08 il riconoscimento è passato
   ai **tag** del prodotto (punto 42) perché il `productType` è la categoria commerciale. Prova da
   fare in produzione, loggati: riaprire l'ordine dello screenshot (consegna 18/08, «Monet -
