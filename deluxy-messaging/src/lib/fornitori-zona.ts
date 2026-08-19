@@ -10,7 +10,7 @@
 // di deluxy-anagrafiche). Un partner disattivato là sparisce subito anche di
 // qui, e non si scrive a un'insegna che non lavora più con noi.
 
-import { partnerAttivi, type Partner } from './anagrafiche'
+import { partnerAttivi, type EsitoPartner, type Partner } from './anagrafiche'
 import { siglaProvincia } from './province'
 
 /** Che mestiere serve per questo ordine. */
@@ -44,6 +44,36 @@ export function mestierePerNegozio(negozio: string): Mestiere | null {
   return null
 }
 
+/**
+ * Gli stati che NON si propongono mai.
+ *
+ * ⚠️ Tutti gli altri sì, prospect compresi — ed è la correzione di un errore
+ * vero: su un ordine a Borgomanero l'app diceva «nessun fornitore in provincia
+ * di NO» mentre in Anagrafiche c'era una pasticceria ad Arona (NOVARA),
+ * censita come *prospect*. Chi cerca qualcuno da chiamare per l'ordine di
+ * domani non cerca un partner con contratto: cerca un forno aperto lì vicino,
+ * ed è quello che mostra da sempre l'app Ricerca fornitori.
+ *
+ * Restano fuori solo i due stati che vogliono dire «non chiamarli»:
+ * chi ha detto di no e chi non lavora più con noi. Proporli sarebbe far
+ * ripartire una telefonata già chiusa.
+ */
+const STATI_DA_NON_PROPORRE = ['non_interessato', 'dismesso']
+
+/** Come si chiama uno stato, a schermo (le etichette del registro). */
+const ETICHETTA_STATO: Record<string, string> = {
+  attivo: 'Partner',
+  prospect: 'Prospect',
+  in_contatto: 'In contatto',
+  in_attesa: 'In attesa',
+  in_trattativa: 'In trattativa',
+  da_ricontattare: 'Da ricontattare',
+}
+
+export function etichettaStato(stato: string): string {
+  return ETICHETTA_STATO[(stato || '').toLowerCase()] ?? stato ?? ''
+}
+
 export type FornitoreZona = Partner & {
   /** Il numero da usare: il suo, oppure quello di un referente. */
   telefonoUtile: string
@@ -72,6 +102,58 @@ function recapiti(p: Partner): { telefono: string; email: string; da: string } {
   }
 }
 
+
+/**
+ * Tutto il registro, con una memoria di pochi minuti.
+ *
+ * ⚠️⚠️ SI LEGGONO TUTTE LE PAGINE, ed è la correzione di un errore che avevo
+ * appena fatto: una sola pagina da 200 righe su **1.040** faceva dire «nessun
+ * fornitore in provincia di NO» mentre ad Arona c'era una pasticceria censita —
+ * stava a pagina 3. È lo stesso difetto contro cui mette in guardia il commento
+ * qui sopra sulle province: **una lista tagliata non sembra sbagliata, sembra
+ * corta**, e nessuno va a controllare.
+ *
+ * Le pagine dopo la prima si chiedono INSIEME: in fila sarebbero cinque andate
+ * e ritorni prima di poter mostrare qualcosa.
+ *
+ * ⚠️ La memoria dura pochi minuti e sta nel processo: serve a non rifare sei
+ * chiamate ogni volta che si apre un ordine, non a tenere una copia del
+ * registro (la regola di Anagrafiche resta «non duplicare, rileggere»). Un
+ * partner disattivato là sparisce di qui al massimo dopo 5
+ * minuti.
+ */
+const MINUTI_MEMORIA = 5
+let memoria: { quando: number; esito: EsitoPartner } | null = null
+
+async function tuttoIlRegistro(): Promise<EsitoPartner> {
+  if (memoria && Date.now() - memoria.quando < MINUTI_MEMORIA * 60_000) return memoria.esito
+
+  const prima = await partnerAttivi({ perPagina: 200, stato: 'tutti' })
+  if (prima.stato !== 'ok') return prima
+
+  const perPagina = 200
+  const pagine = Math.ceil((prima.totale || prima.partner.length) / perPagina)
+  let partner = prima.partner
+  if (pagine > 1) {
+    const altre = await Promise.all(
+      Array.from({ length: pagine - 1 }, (_, i) =>
+        partnerAttivi({ perPagina, pagina: i + 2, stato: 'tutti' })
+      )
+    )
+    for (const a of altre) if (a.stato === 'ok') partner = partner.concat(a.partner)
+  }
+
+  const esito: EsitoPartner = {
+    stato: 'ok',
+    totale: prima.totale,
+    partner,
+    categorie: [...new Set(partner.map((p) => p.categoria).filter(Boolean))].sort(),
+    citta: [...new Set(partner.map((p) => p.citta).filter(Boolean))].sort(),
+  }
+  memoria = { quando: Date.now(), esito }
+  return esito
+}
+
 export type EsitoZona =
   | { stato: 'ok'; fornitori: FornitoreZona[]; provincia: string }
   | { stato: 'non-configurato' }
@@ -89,11 +171,14 @@ export async function fornitoriInZona(
   const sigla = siglaProvincia(provincia)
   if (!sigla) return { stato: 'ok', fornitori: [], provincia: '' }
 
-  // Il registro filtra per città, non per provincia: si prende l'elenco attivo
-  // (una cinquantina di righe) e si filtra qui. Con numeri diversi servirebbe
-  // un filtro lato registro — è scritto qui perché è il punto in cui
-  // accorgersene.
-  const esito = await partnerAttivi({ perPagina: 200 })
+  // ⚠️ SI CHIEDONO TUTTI GLI STATI, non i soli partner attivi: la provincia
+  // dove non abbiamo un partner è proprio quella in cui serve il prospect già
+  // censito. Il filtro «chi non si chiama» lo facciamo qui sotto.
+  //
+  // ⚠️ Il filtro per provincia NON si delega al registro, che pure lo accetta:
+  // là dentro la stessa provincia è scritta in due modi («MI» e «MILANO»), e un
+  // confronto esatto lato registro perderebbe metà delle righe senza dirlo.
+  const esito = await tuttoIlRegistro()
   if (esito.stato !== 'ok') return esito
 
   const categorie = mestiere
@@ -101,6 +186,7 @@ export async function fornitoriInZona(
     : [...CATEGORIE.pasticceria, ...CATEGORIE.fioraio]
 
   const fornitori = esito.partner
+    .filter((p) => !STATI_DA_NON_PROPORRE.includes((p.stato || '').toLowerCase()))
     .filter((p) => siglaProvincia(p.provincia || p.citta) === sigla)
     .filter((p) => {
       const c = (p.categoria || '').toUpperCase()
@@ -110,9 +196,14 @@ export async function fornitoriInZona(
       const r = recapiti(p)
       return { ...p, telefonoUtile: r.telefono, emailUtile: r.email, recapitoDa: r.da }
     })
-    // Prima chi si può contattare: un fornitore senza recapiti non è un
-    // candidato, è una riga da leggere e saltare.
-    .sort((a, b) => Number(!!(b.telefonoUtile || b.emailUtile)) - Number(!!(a.telefonoUtile || a.emailUtile)))
+    // L'ordine dice cosa provare prima: chi si può contattare davvero, e fra
+    // questi i partner con cui lavoriamo già — un prospect è un buon numero da
+    // fare, ma solo dopo aver visto se c'è di meglio.
+    .sort((a, b) => {
+      const raggiungibile = (x: FornitoreZona) => Number(!!(x.telefonoUtile || x.emailUtile))
+      const eAttivo = (x: FornitoreZona) => Number((x.stato || '').toLowerCase() === 'attivo')
+      return raggiungibile(b) - raggiungibile(a) || eAttivo(b) - eAttivo(a)
+    })
 
   return { stato: 'ok', fornitori, provincia: sigla }
 }

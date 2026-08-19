@@ -21,6 +21,12 @@ type FornitoreZona = {
   id: string
   nome: string
   categoria: string
+  /**
+   * «Partner» (ci lavoriamo) o «Prospect» (censito, mai usato), come lo chiama
+   * il registro. ⚠️ Va scritto: a un prospect non si promettono le condizioni
+   * di un partner, e chi telefona deve sapere con chi sta parlando.
+   */
+  stato: string
   citta: string
   indirizzo: string
   telefono: string
@@ -606,7 +612,8 @@ export function DettaglioOrdine({
                     Fornitori in provincia di {zonaProvincia || spedizione.provincia}
                   </div>
                   <div className="cella-sub" style={{ marginBottom: 8 }}>
-                    Dal registro Anagrafiche, per il mestiere di questo negozio.
+                    Dal registro Anagrafiche, per il mestiere di questo negozio — partner e
+                    prospect, prima quelli con cui lavoriamo già.
                   </div>
                   {!zonaCaricata ? (
                     <p className="descrizione">Cerco…</p>
@@ -633,7 +640,7 @@ export function DettaglioOrdine({
                           <div key={fz.id} className="card" style={{ padding: 10 }}>
                             <div className="cella-nome">{fz.nome}</div>
                             <div className="cella-sub">
-                              {[fz.categoria, fz.citta].filter(Boolean).join(' · ')}
+                              {[fz.categoria, fz.citta, fz.stato].filter(Boolean).join(' · ')}
                               {/* ⚠️ Se il recapito è di una persona e non
                                   dell'insegna, va detto: si scrive a lei. */}
                               {fz.recapitoDa ? ` · recapito di ${fz.recapitoDa}` : ''}

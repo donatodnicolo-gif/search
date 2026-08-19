@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { fornitoriInZona, mestierePerNegozio, type Mestiere } from '@/lib/fornitori-zona'
+import {
+  etichettaStato,
+  fornitoriInZona,
+  mestierePerNegozio,
+  type Mestiere,
+} from '@/lib/fornitori-zona'
 
 export const dynamic = 'force-dynamic'
 
@@ -44,6 +49,10 @@ export async function GET(req: NextRequest) {
       id: f.id,
       nome: f.nome || f.ragioneSociale,
       categoria: f.categoria,
+      // Con chi si sta parlando: «Partner» è uno con cui lavoriamo, «Prospect»
+      // uno che abbiamo censito e mai (o non ancora) usato. Chiamarli allo
+      // stesso modo farebbe promettere condizioni che non esistono.
+      stato: etichettaStato(f.stato),
       citta: f.citta,
       indirizzo: f.indirizzo,
       telefono: f.telefonoUtile,

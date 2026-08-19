@@ -1675,6 +1675,30 @@ export function Inbox({
                 >
                   {cestino ? 'Ripristina' : archivio ? 'Riporta in inbox' : 'Archivia'}
                 </button>
+                {/* ── Spam, anche da qui ──
+                    Il bottone c'era solo nella riga dell'elenco, dove è
+                    un'icona piccola: ma la spazzatura la si riconosce
+                    LEGGENDOLA, cioè con la conversazione aperta davanti. Chi
+                    l'ha appena letta doveva chiudere, ritrovare la riga e
+                    centrare l'icona — e quasi sempre non lo faceva.
+                    ⚠️ Solo sulla POSTA: l'elenco dei mittenti ignorati lo
+                    leggono soltanto le rotte email, e su WhatsApp o Instagram
+                    questo bottone prometterebbe un blocco che non esiste (là si
+                    fa da Meta). Un bottone che non fa quello che dice è peggio
+                    di un bottone che manca.
+                    ⚠️ Non nel cestino: lì la conversazione è già fuori dai
+                    piedi, e l'unico gesto che ha senso è ripristinarla o
+                    cancellarla. */}
+                {selezionata.canale === 'email' && !cestino ? (
+                  <button
+                    className="bottone secondario mini"
+                    onClick={() => segnalaSpam(selezionata.id)}
+                    disabled={inCorsoTogli}
+                    title={`Segnala come spam: ${selezionata.idEsterno} non arriverà più in posta in arrivo, e questa conversazione va in archivio`}
+                  >
+                    Spam
+                  </button>
+                ) : null}
                 <button
                   className="bottone secondario mini"
                   onClick={() => elimina(selezionata.id)}
