@@ -906,6 +906,17 @@ model OperazioneAdv {
   approvataDa String?
   approvataIl DateTime?
   eseguitaIl  DateTime?
+  // «Lo so, è voluto»: quando qualcuno dichiara che la differenza fra ciò che
+  // l'app crede e ciò che Google riporta è una SUA decisione, non un guasto.
+  //
+  // ⚠️ Serve perché la conferma per operazione (17/08/2026) mostra ogni
+  // divergenza — ed è il suo mestiere — ma senza un modo di chiuderla una
+  // divergenza voluta resta a segnalare per sempre. Un avviso che non si può
+  // chiudere si smette di leggere, e allora smette di funzionare anche per
+  // quelli veri. Non cancella niente: dice chi ha deciso, quando e perché.
+  divergenzaAccettataIl DateTime?
+  divergenzaAccettataDa String?
+  divergenzaMotivo      String?
   campagnaId  String?
   gruppoId    String?
   gruppo      Gruppo?   @relation(fields: [gruppoId], references: [id], onDelete: SetNull)

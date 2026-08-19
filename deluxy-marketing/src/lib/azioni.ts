@@ -16,7 +16,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "./db";
 import { accodaOperazione } from "./operazioni";
-import { BRANDS, STATI_AZIONE, STATI_AZIONE_APERTI, STATI_CAMPAGNA, testoKeywordPulito } from "./dominio";
+import { BRANDS, STATI_AZIONE, STATI_AZIONE_APERTI, STATI_CAMPAGNA, STATI_CAMPAGNA_NOSTRI, testoKeywordPulito } from "./dominio";
 import { CHIAVE_APIKEY, CHIAVE_CARTELLA, idCartellaDrive, sincronizzaDrive } from "./drive";
 import { risolviLocalita } from "./geo-target";
 // Statico e non `await import()` come il resto di guardrail: serve dentro le
@@ -603,6 +603,103 @@ export async function rilanciaCampagnaRifiutata(fd: FormData) {
     dettaglio:
       `Il caricamento risultava eseguito ma l'account ${op.account} ha rimandato l'elenco delle campagne ` +
       `${anagrafiche} volte senza nominarla. Torna fra quelle da approvare.`,
+  });
+  revalidatePath("/operazioni");
+  redirect("/operazioni");
+}
+
+/**
+ * «Lo so, è voluto»: chiude una divergenza fra l'app e Google **e allinea
+ * l'app**, perché lo stato su Google è un fatto e quello dell'app un giudizio.
+ *
+ * ⚠️ NON tocca Google. Non è una modifica alla piattaforma, è una dichiarazione
+ * su una modifica già fatta là da una persona: l'app smette di dire il
+ * contrario e si mette d'accordo col fatto.
+ *
+ * ⚠️ Perché ALLINEA e non si limita a zittire l'avviso. Il caso vero (18/08):
+ * quattro keyword risultavano `in_pausa` nell'app e su Google erogavano — le
+ * aveva riattivate l'utente. Chiudere solo l'avviso avrebbe lasciato l'app a
+ * dire «in pausa» di parole che spendono, cioè avrebbe scambiato un avviso
+ * fastidioso con una bugia silenziosa. Vale la stessa regola del pallino di
+ * stato sui gruppi: comanda il fatto, il giudizio gli va dietro.
+ */
+export async function accettaDivergenza(fd: FormData) {
+  const id = testo(fd, "id");
+  if (!id) return;
+  const op = await prisma.operazioneAdv.findUnique({ where: { id } });
+  if (!op || op.stato !== "eseguita" || op.divergenzaAccettataIl) return;
+
+  const motivo = testo(fd, "motivo") ?? null;
+  let allineato = "";
+
+  // Le keyword: lo stato dell'app segue quello di Google, riga per riga.
+  if (op.tipo === "pausa_keyword" || op.tipo === "attiva_keyword" || op.tipo === "nuova_keyword") {
+    const campagna = op.campagnaId
+      ? await prisma.campagna.findUnique({ where: { id: op.campagnaId }, select: { nome: true } })
+      : null;
+    const p = op.parametri ? (JSON.parse(op.parametri) as Record<string, unknown>) : {};
+    const pulito = testoKeywordPulito(String(p.testo ?? op.bersaglio ?? ""));
+    if (campagna && pulito) {
+      const righe = await prisma.copyAnnuncio.findMany({
+        where: { tipo: "keyword", campagna: campagna.nome, testo: { startsWith: pulito, mode: "insensitive" } },
+        select: { id: true, testo: true, statoPiattaforma: true, stato: true },
+      });
+      // ⚠️ Il confine di parola: «flowers milan» non deve prendersi dietro
+      // «flowers milano», che è un altro criterio con un altro stato.
+      const sue = righe.filter((r) => {
+        const t = r.testo.toLowerCase();
+        const w = pulito.toLowerCase();
+        return t === w || t.startsWith(w + " (");
+      });
+      let n = 0;
+      for (const r of sue) {
+        const nuovo = r.statoPiattaforma === "PAUSED" ? "in_pausa" : r.statoPiattaforma === "ENABLED" ? "attiva" : null;
+        if (!nuovo || nuovo === r.stato) continue;
+        await prisma.copyAnnuncio.update({ where: { id: r.id }, data: { stato: nuovo } });
+        n++;
+      }
+      if (n > 0) allineato = ` L'app è stata allineata a Google su ${n} ${n === 1 ? "criterio" : "criteri"}.`;
+    }
+  }
+
+  // Campagne e gruppi: stessa idea, il fatto comanda.
+  if ((op.tipo === "pausa_campagna" || op.tipo === "attiva_campagna") && op.campagnaId) {
+    const c = await prisma.campagna.findUnique({ where: { id: op.campagnaId }, select: { statoPiattaforma: true, stato: true } });
+    const nuovo = c?.statoPiattaforma === "PAUSED" ? "in_pausa" : c?.statoPiattaforma === "ENABLED" ? "attiva" : null;
+    // ⚠️ Gli stati NOSTRI (defunta, bozza, in_lancio) non si toccano: sono
+    // decisioni dell'app che non hanno un gemello su Google.
+    if (nuovo && c && nuovo !== c.stato && !(STATI_CAMPAGNA_NOSTRI as readonly string[]).includes(c.stato)) {
+      await prisma.campagna.update({ where: { id: op.campagnaId }, data: { stato: nuovo } });
+      allineato = " Lo stato della campagna nell'app è stato allineato a Google.";
+    }
+  }
+  if ((op.tipo === "pausa_gruppo" || op.tipo === "attiva_gruppo") && op.gruppoId) {
+    const g = await prisma.gruppo.findUnique({ where: { id: op.gruppoId }, select: { statoPiattaforma: true, stato: true } });
+    const nuovo = g?.statoPiattaforma === "PAUSED" ? "in_pausa" : g?.statoPiattaforma === "ENABLED" ? "attivo" : null;
+    if (nuovo && g && nuovo !== g.stato) {
+      await prisma.gruppo.update({ where: { id: op.gruppoId }, data: { stato: nuovo } });
+      allineato = " Lo stato del gruppo nell'app è stato allineato a Google.";
+    }
+  }
+
+  await prisma.operazioneAdv.update({
+    where: { id },
+    data: {
+      divergenzaAccettataIl: new Date(),
+      divergenzaAccettataDa: "utente",
+      divergenzaMotivo: motivo,
+    },
+  });
+  await registra({
+    autore: "utente",
+    tipo: "stato",
+    entita: "operazione",
+    entitaId: id,
+    titolo: `Divergenza dichiarata VOLUTA: ${op.tipo} su ${op.bersaglio}`,
+    dettaglio:
+      "Google riporta qualcosa di diverso da quello che diceva l'app, ed è una decisione presa in Google Ads." +
+      allineato +
+      (motivo ? ` Motivo: ${motivo}` : ""),
   });
   revalidatePath("/operazioni");
   redirect("/operazioni");

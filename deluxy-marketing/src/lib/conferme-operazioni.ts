@@ -37,6 +37,7 @@ export type StatoConferma =
   | "smentita" // un giro successivo dice il contrario
   | "rifiutata" // campagna nuova: il caricamento non ha prodotto niente
   | "superata" // un'altra operazione ha toccato dopo lo stesso bersaglio: il dato di oggi non parla di questa
+  | "accettata" // la divergenza c'è, ma qualcuno ha dichiarato che è voluta
   | "non_verificabile"; // l'app non ha un dato indipendente per questo tipo
 
 export type Conferma = {
@@ -268,6 +269,25 @@ export async function confermeOperazioni(operazioni: OperazioneAdv[]): Promise<M
 
   // ── Il verdetto, operazione per operazione ─────────────────────────────
   for (const o of eseguite) {
+    // ⚠️ «Lo so, è voluto» viene PRIMA di tutto il resto. Se una persona ha
+    // dichiarato che la differenza è una sua decisione, il verdetto non si
+    // ricalcola: continuare a dire «Google dice il contrario» a chi ha appena
+    // detto «lo so» è il modo più rapido per far smettere di leggere gli
+    // avvisi — e allora smettono di funzionare anche quelli veri.
+    if (o.divergenzaAccettataIl) {
+      esito.set(o.id, {
+        stato: "accettata",
+        etichetta: "Divergenza voluta",
+        frase:
+          `Google riporta qualcosa di diverso da quello che dice l'app, ed è VOLUTO: ` +
+          `dichiarato ${o.divergenzaAccettataDa ? `da ${o.divergenzaAccettataDa} ` : ""}` +
+          `il ${dataOra(o.divergenzaAccettataIl)}.` +
+          (o.divergenzaMotivo ? ` ${o.divergenzaMotivo}` : ""),
+        quando: o.divergenzaAccettataIl,
+      });
+      continue;
+    }
+
     const k = chiaveBersaglio(o, campagnaDi(o)?.nome);
     const ultima = k ? ultimaPerBersaglio.get(k) : undefined;
     if (ultima && ultima.id !== o.id) {
@@ -647,5 +667,6 @@ export const COLORE_CONFERMA: Record<StatoConferma, string> = {
   smentita: "var(--red)",
   rifiutata: "var(--red)",
   superata: "var(--text-tertiary)",
+  accettata: "var(--text-tertiary)",
   non_verificabile: "var(--text-tertiary)",
 };

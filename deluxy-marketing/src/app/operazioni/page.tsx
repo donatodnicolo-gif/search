@@ -5,7 +5,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { TornaIndietro } from "@/components/TornaIndietro";
 import { annullaOperazione, approvaOperazione, approvaOperazioniSelezionate,
   cambiaCorrispondenzaOperazione, riapriOperazione,
-  cambiaTestoOperazione, rilanciaCampagnaRifiutata,
+  cambiaTestoOperazione, rilanciaCampagnaRifiutata, accettaDivergenza,
 } from "@/lib/azioni";
 import { campagneNonConfermate, letturaNonConfermata } from "@/lib/campagne-non-confermate";
 import { COLORE_CONFERMA, confermeOperazioni, type Conferma } from "@/lib/conferme-operazioni";
@@ -261,10 +261,35 @@ export default async function PaginaOperazioni({
                   ? "◷"
                   : conferma.stato === "non_verificabile" || conferma.stato === "superata"
                   ? "◇"
+                  : conferma.stato === "accettata"
+                  ? /* Una divergenza dichiarata voluta non è un allarme: il ⚠ qui
+                       rimetterebbe in testa il dubbio che qualcuno ha appena
+                       tolto, ed è il motivo per cui gli avvisi si smettono di
+                       leggere. */
+                    "✋"
                   : "⚠"}
               </span>{" "}
               <b>Google: </b>
               {conferma.frase}
+              {/* «Lo so, è voluto». Compare solo quando c'è davvero una
+                  divergenza: è la via d'uscita senza la quale un avviso che
+                  non si può chiudere si smette di leggere — e allora smette di
+                  funzionare anche per quelli veri. ⚠️ Non tocca Google:
+                  dichiara una decisione già presa là, e allinea l'app al
+                  fatto. */}
+              {(conferma.stato === "smentita" || conferma.stato === "rifiutata") && (
+                <form action={accettaDivergenza} style={{ display: "inline" }}>
+                  <input type="hidden" name="id" value={o.id} />
+                  <button
+                    className="btn small btn-secondario"
+                    type="submit"
+                    style={{ marginLeft: 8 }}
+                    title="Dichiara che la differenza è una tua decisione presa in Google Ads: l'avviso si chiude e lo stato dell'app si allinea a quello di Google. Non cambia niente su Google."
+                  >
+                    È voluto
+                  </button>
+                </form>
+              )}
             </div>
           )}
 
