@@ -373,14 +373,14 @@
     {
       "nome": "Luca de Meo",
       "annoNascita": 1967,
-      "formazione": "Laurea in Economia aziendale, Università Bocconi di Milano, 1991",
+      "formazione": "Laurea in Economia aziendale, Università Bocconi di Milano, 1991, con tesi sull'etica d'impresa. Nessun master. È stato docente alla SDA Bocconi e Alumnus dell'anno nel 2017. Maturità scientifica a Pescara, origini familiari pugliesi.",
       "carriera": [
         {
           "da": "1992",
           "a": "1994",
           "azienda": "Renault Italia",
-          "ruolo": "vendite regionali",
-          "nota": "primo impiego"
+          "ruolo": "area manager vendite",
+          "nota": "primo impiego dopo la laurea"
         },
         {
           "da": "1994",
@@ -392,90 +392,155 @@
         {
           "da": "1998",
           "a": "2002",
-          "azienda": "Toyota Europe",
-          "ruolo": "ruoli vari; dal 2000 responsabile della strategia di prodotto",
-          "nota": null
+          "azienda": "Toyota Motor Europe",
+          "ruolo": "pianificazione e strategia di prodotto; coordinamento commerciale Lexus; lancio europeo della Yaris",
+          "nota": "anno di inizio incerto fra le fonti: 1997, 1998 o 2000"
         },
         {
           "da": "2002",
           "a": "2004",
           "azienda": "Lancia, Gruppo Fiat",
           "ruolo": "direttore marketing",
-          "nota": "anno di fine incerto fra le fonti (2004 o 2006)"
+          "nota": null
         },
         {
           "da": "2004",
           "a": "2007",
           "azienda": "Fiat Automobiles",
-          "ruolo": "vertice del marchio Fiat",
-          "nota": "e il periodo del lancio della Fiat 500"
+          "ruolo": "responsabile del marchio Fiat",
+          "nota": "è il periodo del lancio della nuova Fiat 500, luglio 2007"
         },
         {
           "da": "2007",
           "a": "2009",
           "azienda": "Gruppo Fiat",
-          "ruolo": "direttore marketing di gruppo; amministratore delegato di Alfa Romeo e Abarth",
+          "ruolo": "direttore marketing di gruppo; amministratore delegato di Abarth e, da dicembre 2007, di Alfa Romeo",
           "nota": "primi incarichi apicali, di marchio"
         },
         {
           "da": "2009",
           "a": "2012",
           "azienda": "Volkswagen Group",
-          "ruolo": "responsabile marketing",
-          "nota": null
+          "ruolo": "direttore marketing del marchio e del gruppo",
+          "nota": "impara il tedesco a 40 anni per questo passaggio"
         },
         {
           "da": "2012",
           "a": "2015",
           "azienda": "Audi",
-          "ruolo": "membro del consiglio di amministrazione, vendite e marketing",
-          "nota": "in parallelo, consigliere di sorveglianza di Ducati e Lamborghini"
+          "ruolo": "membro del consiglio di gestione per vendite e marketing",
+          "nota": "in parallelo, consigliere di sorveglianza di Ducati e Lamborghini e presidente di Volkswagen Group Italia"
         },
         {
           "da": "2015",
           "a": "2020",
           "azienda": "SEAT",
-          "ruolo": "amministratore delegato",
-          "nota": "circa quattro anni; sotto la sua guida nasce CUPRA nel 2018"
+          "ruolo": "presidente del comitato esecutivo, cioè amministratore delegato",
+          "nota": "quattro anni e tre mesi. Nel febbraio 2018 fonda e lancia il marchio autonomo CUPRA."
         },
         {
           "da": "2020",
           "a": "2025",
           "azienda": "Renault Group",
           "ruolo": "amministratore delegato",
-          "nota": "cinque anni esatti, dal 1 luglio 2020 al 15 luglio 2025. Arrivato dopo una perdita di circa 8 miliardi, ritorno all utile nel 2021 e margine operativo record al 7 per cento nel 2023."
+          "nota": "cinque anni esatti, dal 1 luglio 2020 al 15 luglio 2025. Arrivato dopo una perdita di circa 8 miliardi, lancia il piano Renaulution e riporta il gruppo all'utile nel 2021, con margine operativo record al 7 per cento nel 2023."
+        },
+        {
+          "da": "2023",
+          "a": "2025",
+          "azienda": "Ampere",
+          "ruolo": "amministratore delegato",
+          "nota": "la società di Renault per veicoli elettrici e software, in aggiunta al ruolo di gruppo"
+        },
+        {
+          "da": "2023",
+          "a": "2024",
+          "azienda": "ACEA",
+          "ruolo": "presidente dell'associazione dei costruttori europei",
+          "nota": "due mandati annuali, il massimo consentito"
         },
         {
           "da": "2025",
           "a": null,
           "azienda": "Kering",
           "ruolo": "amministratore delegato",
-          "nota": "dal 15 settembre 2025; nomina approvata dall assemblea del 9 settembre con il 98,97 per cento dei voti"
+          "nota": "dal 15 settembre 2025. È il primo amministratore delegato esterno alla famiglia Pinault nella storia del gruppo."
         }
       ],
       "giaAmministratoreDelegato": true,
-      "stileDichiarato": "Uomo di prodotto e marketing, che lavora sulla velocità di esecuzione. Virgolettato verificato sul rilancio di Kering: «We obviously have to try to get some mojo back with the market» (WWD, settembre 2025). Gli altri assi del metodo riportati dalla stampa — dimezzare i tempi di sviluppo del prodotto da un anno a sei mesi, ridurre la dipendenza da Gucci — sono parafrasi giornalistiche, non citazioni.",
+      "stileDichiarato": "Uomo di marchio e di prodotto, che lavora sulla velocità di esecuzione e sul posizionamento. Sul metodo personale: «Il mio trucco è stato sempre quello di diventare migliore in tutto ciò che gli altri magari non si aspettano da un italiano: più puntuale di un tedesco, più disciplinato di un giapponese». Sul cambiamento: «Più i problemi sono complicati da risolvere, più mi diverto». Sul valore contro il volume, presentando il piano Renaulution nel 2021: «The Renaulution is about moving the whole company from volumes to value». Sul mestiere: «I run a listed company, I have to take rational decisions every day»; e «Il faut créer plus d'émotion pour vendre plus cher». In Kering, al capital markets day dell'aprile 2026: «Better to be a challenger than a leader. It forces you to look ahead, to always be ready», e «un modello che ha funzionato per un decennio non è più efficace per noi». Metodo di ascolto dichiarato: raccoglie prima l'opinione esterna di investitori e analisti, poi la confronta con quella interna delle squadre e si posiziona in mezzo prima di decidere.",
       "tratti": [
         {
           "tratto": "Si porta dietro la propria squadra da un'azienda all'altra",
           "dettaglio": "Arrivato in Kering ha reclutato due ex collaboratori di Renault: Thomas Cuntz e Giovanni Perosino.",
           "fonte": "https://wwd.com/business-news/financial/luca-de-meo-kering-strategic-plan-1238425244/",
           "data": "2025-09-01"
+        },
+        {
+          "tratto": "Parla cinque lingue: italiano, inglese, francese, spagnolo e tedesco",
+          "dettaglio": "Il tedesco lo ha imparato a quarant'anni, durante il passaggio in Volkswagen.",
+          "fonte": "https://www.affaritaliani.it/economia/chi-e-luca-de-meo-il-manager-italiano-piu-puntuale-di-un-tedesco-e-piu-disciplinato-di-un-giapponese-passato-a-kering-983939.html",
+          "data": "2025-09-11"
+        },
+        {
+          "tratto": "Nomade professionale: non ha mai vissuto più di sette anni nella stessa città",
+          "dettaglio": "Milano, Torino, Berlino, Monaco, Barcellona, Parigi. L'infanzia trascorsa in parte fra Brasile, Nigeria, Tanzania e Costa d'Avorio per il lavoro della famiglia.",
+          "fonte": "https://www.tgcom24.mediaset.it/motori/luca-de-meo-una-vita-fra-quattro-ruote-e-tante-citt_14125897-202002a.shtml",
+          "data": "2020-01-29"
+        },
+        {
+          "tratto": "Racconta come origine della sua passione un giro in auto a sette anni",
+          "dettaglio": "Ad Abidjan nel 1974, su una Lancia Fulvia guidata dal pilota Arnaldo Cavallari. Da bambino disegnava automobili sui quaderni di scuola.",
+          "fonte": "https://www.milanofinanza.it/news/luca-de-meo-puo-l-uomo-dell-auto-rilanciare-la-casa-madre-di-gucci-202507020928398294",
+          "data": "2025-07-02"
+        },
+        {
+          "tratto": "Maniacale sul dettaglio di prodotto",
+          "dettaglio": "Prova personalmente le vetture e commenta tutto, dal suono della portiera alle cuciture degli interni. I collaboratori lo descrivono come intenso ed estremamente preciso.",
+          "fonte": "https://www.milanofinanza.it/news/luca-de-meo-puo-l-uomo-dell-auto-rilanciare-la-casa-madre-di-gucci-202507020928398294",
+          "data": "2025-07-02"
+        },
+        {
+          "tratto": "Usa documenti pubblici come leva manageriale",
+          "dettaglio": "Ha scritto un libro sul lancio della Fiat 500 e, da presidente dell'associazione dei costruttori europei, una «Letter to Europe» di una ventina di pagine con raccomandazioni di politica industriale.",
+          "fonte": "https://www.renaultgroup.com/en/letter-to-europe/",
+          "data": "2024-03-19"
+        },
+        {
+          "tratto": "Regole di lavoro riportate dalla stampa, senza fonte primaria",
+          "dettaglio": "Riunioni mai oltre le dodici persone e mai oltre un'ora, 65 ore di lavoro a settimana su sei giorni, messaggistica al posto della posta elettronica. ATTENZIONE: l'articolo le attribuisce a uno studio della Harvard Business School che non viene però mai citato con un riferimento verificabile. Da trattare come voce di stampa, non come fatto accertato.",
+          "fonte": "https://www.ilfattoquotidiano.it/2025/09/20/lavorare-65-ore-a-settimana-6-giorni-su-7-whatsapp-al-posto-delle-email-e-parlare-male-di-se-stessi-ma-non-dei-colleghi-le-regole-doro-del-super-manager-luca-de-meo/8133217/",
+          "data": "2025-09-20"
         }
       ],
       "fonti": [
         {
-          "titolo": "Renault, de Meo lascia la guida del gruppo — France24",
-          "url": "https://www.france24.com/en/live-news/20250615-renault-boss-luca-de-meo-to-step-down-company-says",
+          "titolo": "Renault, de Meo lascia la guida del gruppo — comunicato societario",
+          "url": "https://media.renaultgroup.com/?p=248276",
           "data": "2025-06-15"
         },
         {
-          "titolo": "L'assemblea di Kering approva la nomina di Luca de Meo — WWD",
-          "url": "https://wwd.com/business-news/financial/kering-shareholders-approve-ceo-luca-de-meo-1238126196/",
-          "data": "2025-09-09"
+          "titolo": "Kering annuncia la nomina di Luca de Meo",
+          "url": "https://www.globenewswire.com/news-release/2025/06/16/3100070/0/en/Kering-announces-the-appointment-of-Luca-de-Meo-as-Chief-Executive-Officer.html",
+          "data": "2025-06-16"
+        },
+        {
+          "titolo": "Chi è Luca de Meo — Affaritaliani",
+          "url": "https://www.affaritaliani.it/economia/chi-e-luca-de-meo-il-manager-italiano-piu-puntuale-di-un-tedesco-e-piu-disciplinato-di-un-giapponese-passato-a-kering-983939.html",
+          "data": "2025-09-11"
+        },
+        {
+          "titolo": "Può l'uomo dell'auto rilanciare la casa madre di Gucci — Milano Finanza",
+          "url": "https://www.milanofinanza.it/news/luca-de-meo-puo-l-uomo-dell-auto-rilanciare-la-casa-madre-di-gucci-202507020928398294",
+          "data": "2025-07-02"
+        },
+        {
+          "titolo": "Il piano strategico presentato al capital markets day — Milano Finanza",
+          "url": "https://www.milanofinanza.it/fashion/kering-svela-il-piano-strategico-di-luca-de-meo-obiettivo-raddoppio-del-margine-operativo-nel-medio-202604160732464900",
+          "data": "2026-04-16"
         }
       ],
-      "confidenza": "media"
+      "confidenza": "alta"
     },
     {
       "nome": "Andrea Orcel",
