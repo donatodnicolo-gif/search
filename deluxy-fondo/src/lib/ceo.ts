@@ -16,6 +16,7 @@ import { calcolaMandato, type Mandato } from "./indicatori.ts";
 import { BENCHMARK_MERCATO, BENCHMARK_TOTALE, EVENTI_TUTTI, TITOLI_TUTTI } from "./universo.ts";
 import type { EventoManagement } from "./tipi";
 import type { Notizia } from "./fonti";
+import { leggiBiografie, biografiaDi, anniDaCapoAzienda, type Biografia } from "./biografie.ts";
 import { leggiNotizie } from "./archivio.ts";
 
 export type IncaricoCeo = {
@@ -58,6 +59,10 @@ export type ProfiloCeo = {
    * lasciando ENAV — informazione che il solo elenco delle nomine non contiene.
    */
   usciteAltrove: { simbolo: string; nomeAzienda: string; data: string; contesto: string }[];
+  /** Percorso professionale e note biografiche, quando censiti. */
+  biografia: Biografia | null;
+  /** Anni gia passati a guidare un azienda prima dell incarico piu vecchio qui censito. */
+  anniDaCapo: number | null;
   /** Notizie che nominano la persona: da leggere, non da interpretare. */
   notizie: Notizia[];
 };
@@ -76,6 +81,7 @@ export async function profiliCeo(): Promise<ProfiloCeo[]> {
   const totale = await leggiSerie(BENCHMARK_TOTALE);
   const benchmark = totale ?? (await leggiSerie(BENCHMARK_MERCATO));
   const notizie = (await leggiNotizie()) ?? [];
+  const biografie = await leggiBiografie();
   const oggi = new Date().toISOString().slice(0, 10);
 
   // Le nomine, in ordine cronologico per azienda: serve a sapere quando un mandato finisce.
@@ -160,10 +166,15 @@ export async function profiliCeo(): Promise<ProfiloCeo[]> {
       contesto: e.titolo,
     }));
 
+    const bio = biografiaDi(biografie, nome);
+    const primoIncarico = [...incarichi].sort((a, b) => a.evento.dataAnnuncio.localeCompare(b.evento.dataAnnuncio))[0];
+
     profili.push({
       nome,
       incarichi,
       usciteAltrove,
+      biografia: bio,
+      anniDaCapo: anniDaCapoAzienda(bio, primoIncarico?.evento.dataAnnuncio ?? null),
       quantiIncarichi: incarichi.length,
       anniTotali: incarichi.reduce((s, i) => s + (i.mandato?.anni ?? 0), 0),
       eccessoMedio: eccessi.length ? eccessi.reduce((s, x) => s + x, 0) / eccessi.length : null,

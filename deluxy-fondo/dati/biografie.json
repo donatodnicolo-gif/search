@@ -1,0 +1,481 @@
+{
+  "nota": "Percorso professionale e note biografiche di chi guida le aziende monitorate. Raccolte da interviste e profili giornalistici pubblici: ogni voce porta la sua fonte. Il perimetro e volutamente stretto: carriera, formazione, modo di lavorare dichiarato e abitudini raccontate in pubblico. Sono escluse salute, famiglia, orientamento politico o religioso, patrimonio e compensi, perche non servono a valutare una gestione.",
+  "avvertenza": "Il PERCORSO ha un legame plausibile con il risultato: chi ha gia guidato un azienda e chi e al primo incarico non sono la stessa scommessa, e la letteratura sull esperienza pregressa, pur con esiti contrastanti, se ne occupa. I TRATTI PERSONALI no: non esiste evidenza solida che leghi abitudini, sport o carattere ai rendimenti di un titolo, e gli studi che ci hanno provato producono correlazioni che spariscono fuori campione. Stanno qui perche aiutano a capire chi e la persona, non perche misurino qualcosa. Usarli come criterio di investimento sarebbe astrologia con i dati di borsa.",
+  "persone": [
+    {
+      "nome": "Pietro Labriola",
+      "annoNascita": 1967,
+      "formazione": "Laurea in Economia e commercio, Università degli Studi di Bari; master in Gestione dell'innovazione e delle tecnologie, Tecnopolis, parco scientifico e tecnologico di Bari",
+      "carriera": [
+        {
+          "da": "1993",
+          "a": "1994",
+          "azienda": "France Telecom (Transpac)",
+          "ruolo": "assistente dell'amministratore delegato, sede di Milano",
+          "nota": null
+        },
+        {
+          "da": "1995",
+          "a": "1995",
+          "azienda": "Cable & Wireless Italia",
+          "ruolo": "responsabile marketing",
+          "nota": null
+        },
+        {
+          "da": "1996",
+          "a": "1997",
+          "azienda": "Infostrada",
+          "ruolo": "responsabile business development",
+          "nota": null
+        },
+        {
+          "da": "1997",
+          "a": "1998",
+          "azienda": "Boston Consulting Group",
+          "ruolo": "consulente",
+          "nota": "unica esperienza fuori dalle telecomunicazioni operative"
+        },
+        {
+          "da": "1998",
+          "a": "2001",
+          "azienda": "Infostrada",
+          "ruolo": "direttore marketing",
+          "nota": null
+        },
+        {
+          "da": "2001",
+          "a": "2015",
+          "azienda": "Telecom Italia / TIM",
+          "ruolo": "ruoli crescenti nel marketing fisso e mobile; direttore generale di Matrix dal 2006; responsabile Business Transformation dal 2013",
+          "nota": "entra nel gruppo a 33 anni"
+        },
+        {
+          "da": "2015",
+          "a": "2019",
+          "azienda": "TIM Brasil",
+          "ruolo": "direttore operativo",
+          "nota": "trasferimento in Brasile"
+        },
+        {
+          "da": "2019",
+          "a": "2021",
+          "azienda": "TIM Brasil",
+          "ruolo": "amministratore delegato",
+          "nota": "era gia capo azienda, in una controllata quotata a San Paolo: due anni e otto mesi, con l acquisizione di Oi e le licenze 5G. Gli succede Alberto Griselli."
+        },
+        {
+          "da": "2021",
+          "a": "2022",
+          "azienda": "Telecom Italia (TIM)",
+          "ruolo": "direttore generale",
+          "nota": "dal 26 novembre 2021, cumulando il ruolo con quello di amministratore delegato di TIM Brasil"
+        },
+        {
+          "da": "2022",
+          "a": null,
+          "azienda": "TIM",
+          "ruolo": "amministratore delegato e direttore generale",
+          "nota": "dal 21 gennaio 2022; confermato per un secondo mandato dall assemblea di aprile 2024"
+        }
+      ],
+      "giaAmministratoreDelegato": true,
+      "stileDichiarato": "Coinvolgimento esplicito della struttura nelle decisioni, e valutazione delle persone sui risultati. «Coinvolgo molto le mie strutture affinché tutti sappiano perché prendo determinate decisioni»; «accessibilità e competenza pagano sempre»; «se credete in voi stessi, avete scelto un determinato percorso e volete essere dei numeri uno, dovete essere tenaci» (Business People, 26/09/2023). Sul giudizio delle persone: «dobbiamo valutare le persone non per il loro modo di essere, ma per i risultati» (Repubblica d/Lui, 15/04/2022).",
+      "tratti": [
+        {
+          "tratto": "Pratica sport con regolarità, in particolare la corsa",
+          "dettaglio": "L'articolo si intitola «Labriola, il manager che ama correre» e riferisce che corre tre volte a settimana, affiancando palestra e nuoto; da amministratore delegato di TIM Brasil correva la domenica sull'Avenida Oceanica a Rio de Janeiro. Suo virgolettato: «nei momenti migliori facevo 10 chilometri in 46 minuti». Gli amici lo chiamavano «polmone umano» per la resistenza a calcio. Nota di verifica: il testo dell'articolo conferma la corsa e il virgolettato; la frequenza esatta di tre sedute a settimana compare nell'indicizzazione della pagina ma non e stata riletta parola per parola nel corpo del testo.",
+          "fonte": "https://www.affaritaliani.it/economia/labriola-eroe-dei-due-mondi-che-ha-stoppato-i-francesi-886431.html",
+          "data": "2023-11-13"
+        },
+        {
+          "tratto": "Rivendica la tenuta fisica come requisito del ruolo, e un temperamento agonistico",
+          "dettaglio": "«Per fare il mio lavoro 14 ore al giorno ci vuole il fisico»; «Sono un agonista e a farmi superare non ci sto».",
+          "fonte": "https://www.ilnapolista.it/2022/04/labriola-impenno-con-la-bici-sono-tatuato-mia-madre-era-centralinista-ora-sono-lad-di-tim/",
+          "data": "2022-04-15"
+        },
+        {
+          "tratto": "Va in mountain bike, e rinuncia deliberatamente alla moto",
+          "dettaglio": "«Faccio le impennate pure con la mountain bike, figuriamoci»; «La moto è meglio che non la compri, mi schianterei».",
+          "fonte": "https://www.ilnapolista.it/2022/04/labriola-impenno-con-la-bici-sono-tatuato-mia-madre-era-centralinista-ora-sono-lad-di-tim/",
+          "data": "2022-04-15"
+        },
+        {
+          "tratto": "Passione dichiarata per i tatuaggi",
+          "dettaglio": "Li definisce «opere d'arte sulla mia pelle». Fra gli ultimi una Daruma, bambola giapponese con un occhio senza pupilla, «da completare solo quando l'idolo esaudirà il mio desiderio».",
+          "fonte": "https://www.affaritaliani.it/economia/labriola-eroe-dei-due-mondi-che-ha-stoppato-i-francesi-886431.html",
+          "data": "2023-11-13"
+        },
+        {
+          "tratto": "Tifoso dell'Inter; la stampa lo profila come «anticonformista»",
+          "dettaglio": "Il profilo lo descrive come l'unico dirigente di lungo corso sopravvissuto agli avvicendamenti al vertice di TIM.",
+          "fonte": "https://www.ilsole24ore.com/art/chi-e-pietro-labriola-l-anticonformista-partito-puglia-e-arrivato-brasile-AEMJ3Yz",
+          "data": "2021-11-26"
+        }
+      ],
+      "fonti": [
+        {
+          "titolo": "Gruppo TIM — biografia ufficiale dell'amministratore delegato",
+          "url": "https://www.gruppotim.it/en/group/organization/chief-executive-officer.html",
+          "data": null
+        },
+        {
+          "titolo": "Chi è Pietro Labriola, l'anticonformista partito dalla Puglia — Il Sole 24 Ore",
+          "url": "https://www.ilsole24ore.com/art/chi-e-pietro-labriola-l-anticonformista-partito-puglia-e-arrivato-brasile-AEMJ3Yz",
+          "data": "2021-11-26"
+        },
+        {
+          "titolo": "Labriola: «Impenno con la bici, sono tatuato» — ripresa dell'intervista a Repubblica d/Lui",
+          "url": "https://www.ilnapolista.it/2022/04/labriola-impenno-con-la-bici-sono-tatuato-mia-madre-era-centralinista-ora-sono-lad-di-tim/",
+          "data": "2022-04-15"
+        },
+        {
+          "titolo": "Pietro Labriola: lo stile di leadership del top manager di TIM — Business People",
+          "url": "https://www.businesspeople.it/people/protagonisti/pietro-labriola-lo-stile-di-leadership-del-top-manager-di-tim/",
+          "data": "2023-09-26"
+        },
+        {
+          "titolo": "Labriola, il manager che ama correre e che prova a risollevare TIM — Affaritaliani",
+          "url": "https://www.affaritaliani.it/economia/labriola-eroe-dei-due-mondi-che-ha-stoppato-i-francesi-886431.html",
+          "data": "2023-11-13"
+        }
+      ],
+      "confidenza": "alta"
+    },
+    {
+      "nome": "Antonio Filosa",
+      "annoNascita": 1973,
+      "formazione": "Laurea magistrale in Ingegneria, Politecnico di Milano; Executive MBA, Fundação Dom Cabral (Brasile)",
+      "carriera": [
+        {
+          "da": "1999",
+          "a": "2000",
+          "azienda": "Fiat Group",
+          "ruolo": "ingresso come trainee; primo incarico operativo: supervisore qualita del reparto verniciatura, turno di notte, in un piccolo stabilimento in Spagna",
+          "nota": "lo racconta lui stesso: «I started 27 years ago, working in manufacturing. I was the quality supervisor at the paint shop, night shift, a very small plant in Spain»"
+        },
+        {
+          "da": "2000",
+          "a": "2005",
+          "azienda": "Fiat / CNH",
+          "ruolo": "logistica e marketing nella divisione macchine agricole e da costruzione, vicino a Chicago; poi incarichi internazionali dall India al Sud America",
+          "nota": "fonte unica, date non puntuali"
+        },
+        {
+          "da": "2016",
+          "a": "2018",
+          "azienda": "FCA",
+          "ruolo": "responsabile per l'Argentina",
+          "nota": null
+        },
+        {
+          "da": "2018",
+          "a": "2021",
+          "azienda": "FCA",
+          "ruolo": "direttore operativo per l'America Latina",
+          "nota": null
+        },
+        {
+          "da": "2021",
+          "a": "2023",
+          "azienda": "Stellantis",
+          "ruolo": "direttore operativo per il Sud America",
+          "nota": "porta Fiat alla leadership di mercato in Sud America"
+        },
+        {
+          "da": "2023",
+          "a": "2025",
+          "azienda": "Stellantis",
+          "ruolo": "amministratore delegato del marchio Jeep",
+          "nota": "primo incarico apicale, ma di marchio e non di gruppo"
+        },
+        {
+          "da": "2024",
+          "a": null,
+          "azienda": "Stellantis",
+          "ruolo": "direttore operativo per il Nord America, da dicembre 2024 per entrambe le Americhe; da gennaio 2025 anche responsabile della qualità",
+          "nota": null
+        },
+        {
+          "da": "2025",
+          "a": null,
+          "azienda": "Stellantis",
+          "ruolo": "amministratore delegato del gruppo",
+          "nota": "dal 23 giugno 2025, dopo 26 anni nel gruppo. Mantiene per sé la responsabilità diretta del Nord America invece di delegarla."
+        }
+      ],
+      "giaAmministratoreDelegato": false,
+      "stileDichiarato": "Tre regole culturali dichiarate e ripetute: azienda globale con forti radici regionali, centralita del cliente, lavorare insieme. «La prima cosa che abbiamo fatto e riconoscere che e necessario mettere al centro di tutto cio che facciamo il cliente»; «Siamo un azienda globale, ma con radici molto forti in ogni regione»; «Abbiamo ripreso il dialogo costruttivo con tutti gli stakeholder principali: sindacati, concessionari, fornitori» (Quattroruote, febbraio 2026). Ai concessionari, al salone di Detroit: «Please tell us what we are doing wrong because we want to correct it». Sul metodo: «You need to be flexible every time, right and quick, even if it s not the best decision at that moment, but the quickest». Ha ammesso pubblicamente un errore della gestione precedente: «Abbiamo tagliato i costi in modo eccessivo, per esempio licenziando molti ingegneri».",
+      "tratti": [
+        {
+          "tratto": "Pratica la pallanuoto",
+          "dettaglio": "Riportato dal factbox Reuters sulla nomina. Fonte unica ma primaria; nessun altra testata la riprende con dettagli.",
+          "fonte": "https://www.investing.com/news/stock-market-news/factboxfrom-trainee-to-ceo-antonio-filosa-the-new-boss-of-jeep-maker-stellantis-4066734",
+          "data": "2025-05-28"
+        },
+        {
+          "tratto": "Ha cominciato dalla fabbrica, di notte, e lo racconta spesso",
+          "dettaglio": "Primo incarico nel 1999: supervisore qualita in verniciatura, turno di notte, in un piccolo stabilimento spagnolo. Da amministratore delegato ha ripreso lo stesso registro con un giro di ascolto negli stabilimenti del Michigan, prima ancora di insediarsi.",
+          "fonte": "https://www.newsweek.com/from-sergio-to-stellantis-filosas-versatility-leads-disruptive-change-11958939",
+          "data": "2026-05-20"
+        },
+        {
+          "tratto": "Cita Sergio Marchionne come mentore",
+          "dettaglio": "Nel messaggio ai dipendenti del giorno della nomina chiude con il motto di Marchionne: «La mediocrita non vale il viaggio». Era stato Marchionne stesso a includerlo fra i cento migliori talenti del gruppo e a promuoverlo alla guida dell Argentina.",
+          "fonte": "https://www.nbcnews.com/business/autos/new-stellantis-ceo-faces-slew-challenges-vows-avoid-mediocrity-rcna214592",
+          "data": "2025-06-23"
+        },
+        {
+          "tratto": "I colleghi lo descrivono come uno che ascolta, ed esigente",
+          "dettaglio": "Il capo del design globale lo definisce «a people person» e «a listener»; il direttore finanziario «a relationship builder». Fonti interne lo descrivono anche come esigente, un «grindstone leader».",
+          "fonte": "https://www.cnbc.com/2025/06/23/stellantis-ceo-antonio-filosa.html",
+          "data": "2025-06-23"
+        }
+      ],
+      "fonti": [
+        {
+          "titolo": "Stellantis annuncia Antonio Filosa come nuovo amministratore delegato",
+          "url": "https://www.stellantis.com/en/news/press-releases/2025/may/stellantis-announces-antonio-filosa-25-year-veteran-of-the-company-to-be-its-new-chief-executive-officer",
+          "data": "2025-05-28"
+        },
+        {
+          "titolo": "Antonio Filosa presenta la nuova squadra di vertice — Stellantis",
+          "url": "https://www.stellantis.com/en/news/press-releases/2025/june/antonio-filosa-announces-new-stellantis-leadership-team",
+          "data": "2025-06-23"
+        },
+        {
+          "titolo": "Factbox: dal tirocinio alla guida del gruppo — Reuters",
+          "url": "https://www.investing.com/news/stock-market-news/factboxfrom-trainee-to-ceo-antonio-filosa-the-new-boss-of-jeep-maker-stellantis-4066734",
+          "data": "2025-05-28"
+        },
+        {
+          "titolo": "Il nuovo amministratore delegato promette di evitare la mediocrita — CNBC",
+          "url": "https://www.cnbc.com/2025/06/23/stellantis-ceo-antonio-filosa.html",
+          "data": "2025-06-23"
+        }
+      ],
+      "confidenza": "alta"
+    },
+    {
+      "nome": "Bill Anderson",
+      "annoNascita": 1966,
+      "formazione": "Laurea in ingegneria chimica, University of Texas at Austin; due master al MIT, in ingegneria chimica e in management, nel programma Leaders for Global Operations (classe 1995). Molte fonti secondarie parlano genericamente di MBA: e impreciso.",
+      "carriera": [
+        {
+          "da": "1989",
+          "a": "1995",
+          "azienda": "Ethyl Corporation",
+          "ruolo": "ingegnere di processo e ricerca (Paesi Bassi e Belgio)",
+          "nota": null
+        },
+        {
+          "da": "1995",
+          "a": "1997",
+          "azienda": "Raychem Corporation",
+          "ruolo": "responsabile marketing",
+          "nota": null
+        },
+        {
+          "da": "1997",
+          "a": "2006",
+          "azienda": "Biogen",
+          "ruolo": "ruoli vari fino a vicepresidente e direttore generale della divisione Neurologia (Irlanda, Stati Uniti, Regno Unito)",
+          "nota": null
+        },
+        {
+          "da": "2006",
+          "a": "2013",
+          "azienda": "Genentech",
+          "ruolo": "vicepresidente senior, unità oncologia; poi immunologia e oftalmologia",
+          "nota": null
+        },
+        {
+          "da": "2013",
+          "a": "2016",
+          "azienda": "Roche Pharmaceuticals, Basilea",
+          "ruolo": "responsabile della strategia di prodotto globale e direttore marketing",
+          "nota": null
+        },
+        {
+          "da": "2017",
+          "a": "2019",
+          "azienda": "Genentech",
+          "ruolo": "amministratore delegato",
+          "nota": "primo incarico da capo azienda, circa due anni; controllata di Roche, non capogruppo quotata"
+        },
+        {
+          "da": "2019",
+          "a": "2023",
+          "azienda": "Divisione farmaceutica di Roche",
+          "ruolo": "amministratore delegato di divisione",
+          "nota": "circa quattro anni; secondo incarico apicale prima di Bayer"
+        },
+        {
+          "da": "2023",
+          "a": null,
+          "azienda": "Bayer",
+          "ruolo": "amministratore delegato",
+          "nota": "dal 1 giugno 2023; primo incarico da capo di una capogruppo quotata. Contratto prorogato fino al 2029."
+        }
+      ],
+      "giaAmministratoreDelegato": true,
+      "stileDichiarato": "Metodo codificato e battezzato da lui stesso, il «Dynamic Shared Ownership»: smantellare la burocrazia interna e spostare le decisioni su chi fa il lavoro. Dall'editoriale a sua firma su Fortune del 21/03/2024: «Bureaucracy has put Bayer in a stranglehold. Our internal rules for employees span 1,362 pages»; «They are trapped in 12 levels of hierarchy»; «We're putting 95% of decision-making in the hands of the people actually doing the work»; «replacing hierarchical annual budgets with 90-day sprints by self-directed teams». Esiti dichiarati: posizioni manageriali circa dimezzate e circa 11.000 posizioni in meno. Sulla propria autorita, in un podcast del giugno 2024: «Non mi aspetto che i miei collaboratori facciano quello che dico». Gli esiti misurati: livelli gerarchici da 12 a circa 6, circa 5.500 posizioni manageriali eliminate e oltre 12.000 posizioni in meno in due anni. Il caso e diventato materiale didattico alla Harvard Business School.",
+      "tratti": [
+        {
+          "tratto": "Beve te alla menta, non caffe",
+          "dettaglio": "Dettaglio raccontato nell intervista al programma Leadership Next.",
+          "fonte": "https://fortune.com/2025/02/26/bayer-ceo-bill-anderson-leadership-next/",
+          "data": "2025-02-26"
+        },
+        {
+          "tratto": "Figlio di un chimico: da bambino le vacanze di famiglia includevano visite a stabilimenti industriali",
+          "dettaglio": "A undici anni tagliava i prati dei vicini per circa 6 dollari l ora, e il padre gli insegno la logica imprenditoriale facendogli noleggiare l attrezzatura.",
+          "fonte": "https://fortune.com/2025/02/26/bayer-ceo-bill-anderson-leadership-next/",
+          "data": "2025-02-26"
+        },
+        {
+          "tratto": "Segue il Bayer Leverkusen e va allo stadio il sabato",
+          "dettaglio": "La squadra e di proprieta del gruppo. NOTA: nessuna fonte affidabile documenta uno sport praticato personalmente; le ipotesi su corsa o maratona sono state cercate e scartate per mancanza di riscontro.",
+          "fonte": "https://fortune.com/2025/02/26/bayer-ceo-bill-anderson-leadership-next/",
+          "data": "2025-02-26"
+        },
+        {
+          "tratto": "Riferimento intellettuale dichiarato: il libro «Humanocracy» di Gary Hamel",
+          "dettaglio": "Lo cita spesso e ha invitato Hamel come primo relatore ospite al webinar interno di lancio del nuovo modello organizzativo.",
+          "fonte": "https://www.handelsblatt.com/unternehmen/industrie/bill-anderson-und-gary-hamel-unternehmen-arbeiten-noch-immer-wie-im-19-jahrhundert/100070210.html",
+          "data": "2024-10-10"
+        },
+        {
+          "tratto": "Gira le sedi per farsi raccontare dai team come applicano il modello",
+          "dettaglio": "Sua frase: «voglio conoscere le storie dei dipendenti». E il primo amministratore delegato non tedesco e non interno nella storia recente del gruppo.",
+          "fonte": "https://www.handelsblatt.com/unternehmen/industrie/bayer-wie-kaempft-bill-anderson-um-die-zukunft-des-konzerns/100119976.html",
+          "data": "2025-04-17"
+        }
+      ],
+      "fonti": [
+        {
+          "titolo": "Editoriale a firma di Bill Anderson sulla burocrazia aziendale — Fortune",
+          "url": "https://fortune.com/2024/03/21/bayer-ceo-bill-anderson-corporate-bureaucracy-19th-century-leadership/",
+          "data": "2024-03-21"
+        },
+        {
+          "titolo": "Bill Anderson amministratore delegato di Bayer — comunicato societario",
+          "url": "https://www.bayer.com/media/en-us/bill-anderson-to-become-ceo-of-bayer-ag/",
+          "data": null
+        },
+        {
+          "titolo": "Dynamic Shared Ownership — Bayer",
+          "url": "https://www.bayer.com/en/strategy/dynamic-shared-ownership",
+          "data": null
+        }
+      ],
+      "confidenza": "alta"
+    },
+    {
+      "nome": "Luca de Meo",
+      "annoNascita": 1967,
+      "formazione": "Laurea in Economia aziendale, Università Bocconi di Milano, 1991",
+      "carriera": [
+        {
+          "da": "1992",
+          "a": "1994",
+          "azienda": "Renault Italia",
+          "ruolo": "vendite regionali",
+          "nota": "primo impiego"
+        },
+        {
+          "da": "1994",
+          "a": "1998",
+          "azienda": "Renault, sede di Parigi",
+          "ruolo": "marketing",
+          "nota": null
+        },
+        {
+          "da": "1998",
+          "a": "2002",
+          "azienda": "Toyota Europe",
+          "ruolo": "ruoli vari; dal 2000 responsabile della strategia di prodotto",
+          "nota": null
+        },
+        {
+          "da": "2002",
+          "a": "2004",
+          "azienda": "Lancia, Gruppo Fiat",
+          "ruolo": "direttore marketing",
+          "nota": "anno di fine incerto fra le fonti (2004 o 2006)"
+        },
+        {
+          "da": "2004",
+          "a": "2007",
+          "azienda": "Fiat Automobiles",
+          "ruolo": "vertice del marchio Fiat",
+          "nota": "e il periodo del lancio della Fiat 500"
+        },
+        {
+          "da": "2007",
+          "a": "2009",
+          "azienda": "Gruppo Fiat",
+          "ruolo": "direttore marketing di gruppo; amministratore delegato di Alfa Romeo e Abarth",
+          "nota": "primi incarichi apicali, di marchio"
+        },
+        {
+          "da": "2009",
+          "a": "2012",
+          "azienda": "Volkswagen Group",
+          "ruolo": "responsabile marketing",
+          "nota": null
+        },
+        {
+          "da": "2012",
+          "a": "2015",
+          "azienda": "Audi",
+          "ruolo": "membro del consiglio di amministrazione, vendite e marketing",
+          "nota": "in parallelo, consigliere di sorveglianza di Ducati e Lamborghini"
+        },
+        {
+          "da": "2015",
+          "a": "2020",
+          "azienda": "SEAT",
+          "ruolo": "amministratore delegato",
+          "nota": "circa quattro anni; sotto la sua guida nasce CUPRA nel 2018"
+        },
+        {
+          "da": "2020",
+          "a": "2025",
+          "azienda": "Renault Group",
+          "ruolo": "amministratore delegato",
+          "nota": "cinque anni esatti, dal 1 luglio 2020 al 15 luglio 2025. Arrivato dopo una perdita di circa 8 miliardi, ritorno all utile nel 2021 e margine operativo record al 7 per cento nel 2023."
+        },
+        {
+          "da": "2025",
+          "a": null,
+          "azienda": "Kering",
+          "ruolo": "amministratore delegato",
+          "nota": "dal 15 settembre 2025; nomina approvata dall assemblea del 9 settembre con il 98,97 per cento dei voti"
+        }
+      ],
+      "giaAmministratoreDelegato": true,
+      "stileDichiarato": "Uomo di prodotto e marketing, che lavora sulla velocità di esecuzione. Virgolettato verificato sul rilancio di Kering: «We obviously have to try to get some mojo back with the market» (WWD, settembre 2025). Gli altri assi del metodo riportati dalla stampa — dimezzare i tempi di sviluppo del prodotto da un anno a sei mesi, ridurre la dipendenza da Gucci — sono parafrasi giornalistiche, non citazioni.",
+      "tratti": [
+        {
+          "tratto": "Si porta dietro la propria squadra da un'azienda all'altra",
+          "dettaglio": "Arrivato in Kering ha reclutato due ex collaboratori di Renault: Thomas Cuntz e Giovanni Perosino.",
+          "fonte": "https://wwd.com/business-news/financial/luca-de-meo-kering-strategic-plan-1238425244/",
+          "data": "2025-09-01"
+        }
+      ],
+      "fonti": [
+        {
+          "titolo": "Renault, de Meo lascia la guida del gruppo — France24",
+          "url": "https://www.france24.com/en/live-news/20250615-renault-boss-luca-de-meo-to-step-down-company-says",
+          "data": "2025-06-15"
+        },
+        {
+          "titolo": "L'assemblea di Kering approva la nomina di Luca de Meo — WWD",
+          "url": "https://wwd.com/business-news/financial/kering-shareholders-approve-ceo-luca-de-meo-1238126196/",
+          "data": "2025-09-09"
+        }
+      ],
+      "confidenza": "media"
+    }
+  ]
+}

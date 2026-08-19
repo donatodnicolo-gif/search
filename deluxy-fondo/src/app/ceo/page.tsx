@@ -46,6 +46,7 @@ export default async function Ceo({ searchParams }: { searchParams: Promise<Rice
     if (filtro === "esterni") return p.incarichi.some((i) => i.evento.successoreEsterno === true);
     if (filtro === "forzati") return p.incarichi.some((i) => i.evento.forzato === true);
     if (filtro === "catena") return p.usciteAltrove.length > 0;
+    if (filtro === "profilo") return p.biografia !== null;
     return true;
   });
 
@@ -56,6 +57,7 @@ export default async function Ceo({ searchParams }: { searchParams: Promise<Rice
     { id: "esterni", testo: `Arrivati da fuori (${tutti.filter((p) => p.incarichi.some((i) => i.evento.successoreEsterno === true)).length})` },
     { id: "forzati", testo: `Dopo un'uscita forzata (${tutti.filter((p) => p.incarichi.some((i) => i.evento.forzato === true)).length})` },
     { id: "catena", testo: `Con un posto lasciato (${tutti.filter((p) => p.usciteAltrove.length > 0).length})` },
+    { id: "profilo", testo: `Con percorso ricostruito (${tutti.filter((p) => p.biografia !== null).length})` },
   ];
 
   return (
@@ -149,6 +151,98 @@ export default async function Ceo({ searchParams }: { searchParams: Promise<Rice
                     )}
                   </div>
                 </div>
+
+                {/* Percorso professionale: la parte con un legame plausibile col risultato */}
+                {p.biografia ? (
+                  <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid var(--hairline)" }}>
+                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: 8 }}>
+                      <span style={{ fontSize: 13, fontWeight: 600 }}>Percorso</span>
+                      {p.biografia.annoNascita ? (
+                        <Badge testo={`classe ${p.biografia.annoNascita}`} />
+                      ) : null}
+                      {p.biografia.giaAmministratoreDelegato === true ? (
+                        <Badge testo="aveva già guidato un'azienda" colore="var(--gold)" forte />
+                      ) : p.biografia.giaAmministratoreDelegato === false ? (
+                        <Badge testo="primo incarico da capo azienda" colore="var(--blue)" />
+                      ) : null}
+                      {p.biografia.confidenza !== "alta" ? (
+                        <Badge testo={`confidenza ${p.biografia.confidenza}`} colore="var(--orange)" />
+                      ) : null}
+                    </div>
+
+                    {p.biografia.formazione ? (
+                      <div style={{ fontSize: 12.5, color: "var(--text-secondary)", marginBottom: 8 }}>
+                        <strong>Formazione:</strong> {p.biografia.formazione}
+                      </div>
+                    ) : null}
+
+                    {p.biografia.carriera.length > 0 ? (
+                      <div className="timeline" style={{ marginTop: 10 }}>
+                        {p.biografia.carriera.map((t, k) => (
+                          <div className="timeline-voce" key={`${t.azienda}-${k}`}>
+                            <div className="timeline-data">
+                              {t.da ?? "?"} — {t.a ?? "oggi"}
+                            </div>
+                            <div className="timeline-titolo">
+                              {t.azienda} · {t.ruolo}
+                            </div>
+                            {t.nota ? <div className="timeline-testo">{t.nota}</div> : null}
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+
+                    {p.biografia.stileDichiarato ? (
+                      <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 10, lineHeight: 1.55, maxWidth: "85ch" }}>
+                        <strong>Come dice di lavorare:</strong> {p.biografia.stileDichiarato}
+                      </p>
+                    ) : null}
+
+                    {/* I tratti: contesto, non segnale. L'avvertenza sta accanto, non in fondo. */}
+                    {p.biografia.tratti.length > 0 ? (
+                      <div style={{ marginTop: 12 }}>
+                        <div style={{ fontSize: 12.5, fontWeight: 600, marginBottom: 4 }}>
+                          Note biografiche
+                        </div>
+                        <div style={{ fontSize: 11.5, color: "var(--orange)", marginBottom: 7 }}>
+                          Contesto su chi è la persona, <strong>non indicatori</strong>: nessuno di
+                          questi elementi ha un legame dimostrato con il rendimento di un titolo.
+                        </div>
+                        <ul style={{ margin: "0 0 0 18px", fontSize: 12.5, lineHeight: 1.6 }}>
+                          {p.biografia.tratti.map((tr, k) => (
+                            <li key={k}>
+                              {tr.tratto}
+                              {tr.dettaglio ? (
+                                <span style={{ color: "var(--text-secondary)" }}> — {tr.dettaglio}</span>
+                              ) : null}
+                              {tr.fonte ? (
+                                <>
+                                  {" "}
+                                  <a href={tr.fonte} target="_blank" rel="noreferrer" style={{ color: "var(--text-tertiary)", textDecoration: "underline" }}>
+                                    fonte
+                                  </a>
+                                </>
+                              ) : null}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+
+                    {p.biografia.fonti.length > 0 ? (
+                      <div className="fonte">
+                        {p.biografia.fonti.map((f, k) => (
+                          <span key={f.url}>
+                            {k > 0 ? " · " : ""}
+                            <a href={f.url} target="_blank" rel="noreferrer">
+                              {f.titolo}
+                            </a>
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
 
                 {/* Un blocco per incarico */}
                 {p.incarichi.map((i) => (
