@@ -880,6 +880,7 @@
       <button type="button" id="lbPrev" aria-label="Foto precedente">‹</button>
       <span id="lbCount"></span>
       <button type="button" id="lbNext" aria-label="Foto successiva">›</button>
+      <button type="button" id="lbCopy" style="display:none">📋 Copia foto</button>
     </div>
   </div>
   <div class="lb-attr" id="lbAttr"></div>
@@ -2180,10 +2181,40 @@ function lbShow(){
   $('#lbCount').textContent = (lbIdx+1) + ' / ' + lbFotos.length;
   $('#lbPrev').disabled = lbIdx === 0;
   $('#lbNext').disabled = lbIdx >= lbFotos.length - 1;
-  $('#lbAttr').innerHTML = '📷 Foto da Google Maps' + (f.attr ? ' · ' + f.attr : '');
+  // foto dell'ordine: si può copiare (bottone + clic sull'immagine). Le foto dei negozi no:
+  // sono di Google e vogliono l'attribuzione, non la copia negli appunti.
+  $('#lbCopy').style.display = lbOrdine ? '' : 'none';
+  $('#lbImg').style.cursor = lbOrdine ? 'copy' : '';
+  $('#lbImg').title = lbOrdine ? 'Clicca per copiare la foto' : '';
+  $('#lbAttr').innerHTML = lbOrdine
+    ? '📋 Clicca la foto (o «Copia foto») per copiarla e incollarla con Ctrl+V'
+    : '📷 Foto da Google Maps' + (f.attr ? ' · ' + f.attr : '');
+}
+// Foto dell'ordine a tutto schermo: riusa la lightbox delle foto negozio (✕, Esc, clic fuori)
+// registrando una «scheda» finta con l'unica foto. In questa modalità compaiono il bottone
+// «📋 Copia foto» e il clic sull'immagine per copiarla: serve per incollarla in WhatsApp Web
+// con Ctrl+V dopo aver mandato il testo.
+let lbOrdine = false;
+function apriFotoOrdine(){
+  const url = ($('#ord_photo').value || '').trim();
+  if(!url) return;
+  PLACE_FOTOS['ordine'] = [{ thumb:url, full:url, attr:'' }];
+  apriFoto('ordine', 'Foto dell\'ordine — clicca la foto per copiarla');
+}
+async function copiaFotoOrdine(){
+  const dove = $('#lbAttr');
+  if(!photoPng){
+    dove.textContent = photoErr ? '⚠️ Foto non copiabile: ' + photoErr
+                                : '⏳ La foto si sta ancora preparando: riprova fra un istante.';
+    return;
+  }
+  const ok = await copyPhotoToClipboard();
+  dove.textContent = ok ? '✅ Foto copiata: incollala con Ctrl+V dove ti serve.'
+                        : '⚠️ Il browser non ha permesso la copia: usa «⬇️ Scarica foto» nella scheda ordine.';
 }
 function apriFoto(sid, nome){
   const fotos = PLACE_FOTOS[sid]; if(!fotos || !fotos.length) return;
+  lbOrdine = (sid === 'ordine');   // modalità copia solo per la foto dell'ordine
   lbFotos = fotos; lbIdx = 0;
   $('#lbTitle').textContent = nome || '';
   $('#lbox').classList.add('on');
@@ -2200,6 +2231,11 @@ $('#lbGrid').addEventListener('click', e=>{
   const img = e.target.closest('img[data-i]'); if(!img) return;
   lbIdx = Number(img.dataset.i) || 0; lbShow();
 });
+$('#ord_thumb').addEventListener('click', apriFotoOrdine);
+$('#ord_thumb').style.cursor = 'zoom-in';
+$('#ord_thumb').title = 'Clicca per ingrandire e copiare';
+$('#lbCopy').addEventListener('click', copiaFotoOrdine);
+$('#lbImg').addEventListener('click', ()=>{ if(lbOrdine) copiaFotoOrdine(); });
 $('#lbBack').addEventListener('click', lbGriglia);
 $('#lbPrev').addEventListener('click', ()=>{ if(lbIdx>0){ lbIdx--; lbShow(); } });
 $('#lbNext').addEventListener('click', ()=>{ if(lbIdx<lbFotos.length-1){ lbIdx++; lbShow(); } });
@@ -3542,7 +3578,7 @@ function renderOrderSummary(){
       </div>
     </div>
     <div class="os-grid">
-      ${photo ? `<img class="os-photo" src="${esc(photo)}" alt="foto ordine">`
+      ${photo ? `<img class="os-photo" src="${esc(photo)}" alt="foto ordine" title="Clicca per ingrandire e copiare" style="cursor:zoom-in">`
               : '<div class="os-photo" style="display:flex; align-items:center; justify-content:center; color:var(--text-tertiary); font-size:11px; text-align:center; padding:6px">nessuna foto</div>'}
       <div class="os-fields">
         ${row('Destinatario', [recipient, phone].filter(Boolean).join(' · '))}
@@ -3574,6 +3610,8 @@ function renderOrderSummary(){
       </div>
     </div>`;
   $('#editOrder').addEventListener('click', ()=> setOrderCollapsed(false));
+  const osFoto = $('#orderSummary').querySelector('img.os-photo');
+  if(osFoto) osFoto.addEventListener('click', apriFotoOrdine);
   $('#copyMsgSummary').addEventListener('click', async ()=>{
     try{ await navigator.clipboard.writeText($('#ord_msg').value); const b=$('#copyMsgSummary'); b.textContent='✅ Copiato'; setTimeout(()=>{ b.textContent='📋 Copia messaggio'; }, 2000); }catch(e){}
   });

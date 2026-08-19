@@ -613,6 +613,25 @@ non si vedono dati reali né si può diagnosticare «La Mimosa»).
    nome), bottone riabilitato, clic che apre invece di risalvare, percorso automatico che non apre
    niente. Console pulita.
 
+48. **La foto dell'ordine si apre a tutto schermo e si copia** (19/08, chiesto dall'utente): la
+   miniatura del **riepilogo compresso** (`.os-photo`) e quella della scheda ordine (`#ord_thumb`)
+   ora si cliccano (cursore `zoom-in`) e aprono la foto a tutto schermo; lì un clic
+   sull'immagine — o il bottone **«📋 Copia foto»** — la mette negli appunti, pronta da incollare
+   con Ctrl+V in WhatsApp Web.
+   - Riusa la **lightbox delle foto negozio** (`#lbox`: ✕, Esc, clic fuori) registrando una scheda
+     finta `PLACE_FOTOS['ordine']` con l'unica foto → si apre già ingrandita (`apriFotoOrdine`).
+   - `lbOrdine` (impostato in `apriFoto` da `sid === 'ordine'`) distingue le due modalità: sulla
+     foto dell'ordine compaiono bottone copia e cursore `copy`; sulle foto dei **negozi** no —
+     sono di Google e vogliono l'**attribuzione**, non la copia negli appunti.
+   - La copia usa il PNG già preparato (`photoPng`, lo stesso dell'invio WhatsApp): niente
+     download in più. Tre esiti distinti e onesti in `#lbAttr`: «✅ Foto copiata…», «⚠️ Il browser
+     non ha permesso la copia: usa «⬇️ Scarica foto»…», «⏳ La foto si sta ancora preparando…»
+     (o l'errore vero se il download della foto era fallito).
+   Verificato nel browser: apertura dal riepilogo, modalità singola, titolo, bottone e cursore,
+   attribuzione Google che torna sulle foto dei negozi (bottone copia nascosto), chiusura, e i
+   **tre esiti della copia** simulando appunti che funzionano, che rifiutano e foto non pronta.
+   Console pulita.
+
 ## Cose in sospeso
 
 - **Tipologia nel messaggio: da provare su un ordine vero** — il 19/08 il riconoscimento è passato
