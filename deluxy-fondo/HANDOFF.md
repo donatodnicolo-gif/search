@@ -89,25 +89,31 @@ l'indice, e la differenza mediana dei mandati da −27,2 a **−50,0 punti**.
 
 ## Portafoglio
 
-Pagina , dati in . Due elenchi separati e mai mescolati:
-**posizioni** (comprate davvero, con quantita e prezzo pagati) e **ipotesi** (simulazioni, che
-non entrano in nessun totale).
+Pagina `/portafoglio`, dati in `dati/portafoglio.json`. Due elenchi separati e mai mescolati:
+**posizioni** (comprate davvero, con quantità e prezzo pagati) e **ipotesi** (simulazioni, che
+non entrano in nessun totale reale).
 
 Regole del modulo:
-- quantita, prezzo di carico o data mancanti NON diventano zero: la posizione resta
-   e non viene conteggiata, invece di mostrare una perdita del 100 per cento;
-- il confronto con l indice parte dalla **data di acquisto** (avrei fatto meglio a comprare
-  l indice quel giorno?);
-- i totali si sommano solo se tutte le posizioni valutate sono nella stessa valuta, altrimenti
-  restano vuoti: sommare euro e dollari senza convertirli e sbagliato;
--  scarica anche i titoli presenti solo in portafoglio.
 
-**Prima posizione: Kraft Heinz su Xetra, ** (21,60 euro al 19/08/2026, 5 anni di
-storico). Quantita, prezzo di carico e data sono da inserire.
+- quantità, prezzo di carico o data mancanti **non diventano zero**: la posizione resta
+  «da completare» e non viene conteggiata, invece di mostrare una perdita del 100%;
+- il confronto con l'indice parte dalla **data di acquisto** — la domanda è «avrei fatto
+  meglio a comprare l'indice quel giorno?»;
+- i totali si sommano solo se tutte le posizioni valutate sono nella **stessa valuta**,
+  altrimenti restano vuoti: sommare euro e dollari senza convertirli è sbagliato;
+- `npm run aggiorna` scarica anche i titoli presenti **solo** in portafoglio, fuori
+  dall'universo monitorato.
 
-⚠️ **Trappola sul ticker**:  sembra Kraft Heinz ma e **Mondelez**. Il simbolo giusto
-sulle borse tedesche e  ( Xetra,  Francoforte, , , , ,
-tutte con 5 anni).  e la quotazione americana in dollari.
+Il simulatore è un modulo `GET` senza JavaScript nel browser: `/portafoglio?titolo=KHNZ.DE&quantita=250`
+dà l'esborso all'ultima chiusura, oppure a un prezzo indicato a mano.
+
+**Prima posizione: Kraft Heinz sulla borsa tedesca, `KHNZ.DE`** (Xetra, 21,60 € al
+19/08/2026, 5 anni di storico). Quantità, prezzo di carico e data **sono da inserire**.
+
+⚠️ **Trappola sul ticker**: `KTF.DE` sembra Kraft Heinz ma è **Mondelez** — verificato. Il
+simbolo giusto sulle borse tedesche è `KHNZ`: `.DE` Xetra, `.F` Francoforte, più `.MU`,
+`.HA`, `.HM`, `.SG`, tutte con 5 anni di storico. `KHC` è la quotazione americana in dollari,
+e `HNZ.DE` / `KHZ.DE` cadono nella trappola dei falsi simboli con exchange «YHD».
 
 ## MANCA / prossimi passi
 
