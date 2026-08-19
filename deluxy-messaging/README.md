@@ -102,9 +102,16 @@ fare*, la fila dice *dove siamo*. Un ordine fermo sulla ricerca del fornitore e 
 aspetta solo la consegna chiedono cose diverse a chi guarda la bacheca — e prima erano
 tutti e due «Da gestire».
 
-**Gestito ✓** resta un bottone a parte: è la fine, ed è l'unica azione che fa sparire
-l'ordine dalla lista di lavoro. **Comunicazione con cliente** non è un passo da scegliere:
-lo scrive l'app da sé quando scrivi al cliente da qui.
+**Gestito** è l'ultimo passo della fila, non un bottone fra le azioni: non è una cosa da
+fare all'ordine (come «Rimborso» o «WhatsApp»), è il punto in cui l'ordine è arrivato.
+⚠️ È l'unico passo che fa **sparire l'ordine** dalla lista di lavoro (il filtro parte dai
+non gestiti); per riaprirlo basta ricliccare «Da iniziare».
+
+**Comunicazione con cliente** non è un passo da scegliere: lo scrive l'app da sé quando
+scrivi al cliente da qui.
+
+Nella vista **elenco** (tabella) la fila non c'è e resta il bottone «Gestito ✓»: lì
+toglierlo avrebbe tolto l'unico modo di chiudere un ordine.
 
 ## «Solo nuovi»: cos'è entrato mentre non guardavi
 

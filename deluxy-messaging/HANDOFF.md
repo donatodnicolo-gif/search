@@ -170,9 +170,15 @@ locale, altrimenti nulla si decifra.
     - 🔴 **MANCA la nota su Shopify** (chiesta dall'utente): da qui non si
       scrive su Shopify — il client è stato tolto di proposito, e le credenziali
       dei tre negozi coniano un token ma **non dichiarano `write_orders`**
-      (provato il 19/08: `access_scopes` torna vuoto). Serve una decisione
-      dell'utente: dare il permesso di scrittura all'app CRM_DELUXY, oppure
-      incollare un token con `write_orders` in Impostazioni.
+      (provato il 19/08: `access_scopes` torna vuoto).
+      ✅ **Strada scelta dall'utente (19/08)**: darà il permesso `write_orders`
+      all'app **CRM_DELUXY** nella Dev Dashboard di Shopify e la reinstallerà
+      sui tre negozi. Appena fatto: qui si aggiunge la scrittura della nota
+      sull'ordine («Consegna spostata al … da …») usando le credenziali già in
+      `NegozioShopify` (client credentials grant, `src/lib/negozi.ts`), e si
+      valuta di aggiornare la data **alla fonte** così la divergenza non nasce.
+      ⚠️ Prima di scrivere: ricontrollare `access_scopes`, perché oggi torna
+      vuoto anche col token valido.
   - 🐛🐛 **GLI ORDINI APPENA FATTI ARRIVAVANO SEMPRE UN GIRO DOPO** (19/08,
     segnalato dall'utente: «ne ho ricevuti ora alcuni su Flowers che non
     vedo»). Non era un guasto: era una **gara persa in partenza**. Anche il
