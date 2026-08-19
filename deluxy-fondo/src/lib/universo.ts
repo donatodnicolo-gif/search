@@ -108,6 +108,8 @@ export const TITOLO_GUIDA = "TIT.MI";
 export const EVENTI: EventoManagement[] = [
   {
     id: "tim-cattaneo-in",
+    persona: "Flavio Cattaneo",
+    predecessore: "Marco Patuano",
     categoria: "management",
     simbolo: "TIT.MI",
     dataRumor: null,
@@ -125,6 +127,8 @@ export const EVENTI: EventoManagement[] = [
   },
   {
     id: "tim-cattaneo-out",
+    persona: null,
+    predecessore: "Flavio Cattaneo",
     categoria: "management",
     simbolo: "TIT.MI",
     dataRumor: null,
@@ -144,6 +148,8 @@ export const EVENTI: EventoManagement[] = [
   },
   {
     id: "tim-genish-in",
+    persona: "Amos Genish",
+    predecessore: "Flavio Cattaneo",
     categoria: "management",
     simbolo: "TIT.MI",
     dataRumor: null,
@@ -177,6 +183,8 @@ export const EVENTI: EventoManagement[] = [
   },
   {
     id: "tim-genish-out",
+    persona: null,
+    predecessore: "Amos Genish",
     categoria: "management",
     simbolo: "TIT.MI",
     dataRumor: null,
@@ -193,6 +201,8 @@ export const EVENTI: EventoManagement[] = [
   },
   {
     id: "tim-gubitosi-in",
+    persona: "Luigi Gubitosi",
+    predecessore: "Amos Genish",
     categoria: "management",
     simbolo: "TIT.MI",
     dataRumor: null,
@@ -209,6 +219,8 @@ export const EVENTI: EventoManagement[] = [
   },
   {
     id: "tim-gubitosi-out",
+    persona: null,
+    predecessore: "Luigi Gubitosi",
     categoria: "management",
     simbolo: "TIT.MI",
     dataRumor: "2021-11-21",
@@ -229,6 +241,8 @@ export const EVENTI: EventoManagement[] = [
   },
   {
     id: "tim-labriola-in",
+    persona: "Pietro Labriola",
+    predecessore: "Luigi Gubitosi",
     categoria: "management",
     simbolo: "TIT.MI",
     dataRumor: "2021-11-26",
@@ -315,6 +329,8 @@ export const EVENTI: EventoManagement[] = [
   // --- Controlli: cambi di management fuori da TIM -------------------------
   {
     id: "ucg-orcel-in",
+    persona: "Andrea Orcel",
+    predecessore: "Jean Pierre Mustier",
     categoria: "management",
     simbolo: "UCG.MI",
     dataRumor: null,
@@ -331,6 +347,8 @@ export const EVENTI: EventoManagement[] = [
   },
   {
     id: "ldo-cingolani-in",
+    persona: "Roberto Cingolani",
+    predecessore: "Alessandro Profumo",
     categoria: "management",
     simbolo: "LDO.MI",
     dataRumor: null,
@@ -347,6 +365,8 @@ export const EVENTI: EventoManagement[] = [
   },
   {
     id: "stlam-tavares-out",
+    persona: null,
+    predecessore: "Carlos Tavares",
     categoria: "management",
     simbolo: "STLAM.MI",
     dataRumor: null,
@@ -363,6 +383,8 @@ export const EVENTI: EventoManagement[] = [
   },
   {
     id: "stlam-filosa-in",
+    persona: "Antonio Filosa",
+    predecessore: "Carlos Tavares",
     categoria: "management",
     simbolo: "STLAM.MI",
     dataRumor: null,
@@ -379,6 +401,8 @@ export const EVENTI: EventoManagement[] = [
   },
   {
     id: "bayn-anderson-in",
+    persona: "Bill Anderson",
+    predecessore: "Werner Baumann",
     categoria: "management",
     simbolo: "BAYN.DE",
     dataRumor: null,

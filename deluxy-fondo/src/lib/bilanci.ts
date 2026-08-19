@@ -14,7 +14,7 @@
 
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { CARTELLA_DATI } from "./archivio";
+import { CARTELLA_DATI } from "./archivio.ts";
 import type { Confidenza } from "./tipi";
 
 export type EsercizioBilancio = {

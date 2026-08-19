@@ -66,6 +66,14 @@ export type EventoManagement = {
   tier: TierEvento;
   titolo: string;
   descrizione: string;
+  /**
+   * Chi arriva, come nome proprio e non dentro una frase.
+   * Serve per poter seguire una persona attraverso più aziende: il track record di un
+   * manager è un dato, e senza il nome strutturato non si può ricostruire.
+   */
+  persona?: string | null;
+  /** Chi lascia. */
+  predecessore?: string | null;
   /** Il predecessore è uscito in modo non programmato? `null` se non accertabile. */
   forzato: boolean | null;
   /** Il successore viene da fuori dal gruppo? `null` se non accertabile. */

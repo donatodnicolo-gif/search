@@ -14,7 +14,7 @@ import {
   variazione,
   volatilitaAnnua,
   regressione,
-} from "./statistica";
+} from "./statistica.ts";
 import type { Barra, SerieStorica } from "./tipi";
 
 export type Indicatori = {

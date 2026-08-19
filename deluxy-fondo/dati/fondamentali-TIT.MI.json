@@ -103,30 +103,30 @@
       "valore": 12219000000
     }
   ],
-  "annualNetIncome": [
+  "annualCashAndCashEquivalents": [
     {
       "esercizio": 2022,
       "fine": "2022-12-31",
       "valuta": "EUR",
-      "valore": -2925000000
+      "valore": 3555000000
     },
     {
       "esercizio": 2023,
       "fine": "2023-12-31",
       "valuta": "EUR",
-      "valore": -1441000000
+      "valore": 2912000000
     },
     {
       "esercizio": 2024,
       "fine": "2024-12-31",
       "valuta": "EUR",
-      "valore": -610000000
+      "valore": 2924000000
     },
     {
       "esercizio": 2025,
       "fine": "2025-12-31",
       "valuta": "EUR",
-      "valore": 297000000
+      "valore": 2048000000
     }
   ],
   "annualEBITDA": [
@@ -155,30 +155,30 @@
       "valore": 4602000000
     }
   ],
-  "annualCashAndCashEquivalents": [
+  "annualNetIncome": [
     {
       "esercizio": 2022,
       "fine": "2022-12-31",
       "valuta": "EUR",
-      "valore": 3555000000
+      "valore": -2925000000
     },
     {
       "esercizio": 2023,
       "fine": "2023-12-31",
       "valuta": "EUR",
-      "valore": 2912000000
+      "valore": -1441000000
     },
     {
       "esercizio": 2024,
       "fine": "2024-12-31",
       "valuta": "EUR",
-      "valore": 2924000000
+      "valore": -610000000
     },
     {
       "esercizio": 2025,
       "fine": "2025-12-31",
       "valuta": "EUR",
-      "valore": 2048000000
+      "valore": 297000000
     }
   ],
   "annualTotalRevenue": [

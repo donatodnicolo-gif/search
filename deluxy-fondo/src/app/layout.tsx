@@ -11,6 +11,7 @@ const VOCI = [
   { href: "/", testo: "Cruscotto" },
   { href: "/portafoglio", testo: "Portafoglio" },
   { href: "/mandati", testo: "Mandati" },
+  { href: "/ceo", testo: "CEO" },
   { href: "/tim", testo: "TIM" },
   { href: "/metodo", testo: "Metodo" },
   { href: "/dati", testo: "Dati" },

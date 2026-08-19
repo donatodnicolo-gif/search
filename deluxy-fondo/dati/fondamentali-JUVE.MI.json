@@ -99,26 +99,6 @@
       "valore": 279263000
     }
   ],
-  "annualEBITDA": [
-    {
-      "esercizio": 2022,
-      "fine": "2022-06-30",
-      "valuta": "EUR",
-      "valore": -31557102
-    },
-    {
-      "esercizio": 2023,
-      "fine": "2023-06-30",
-      "valuta": "EUR",
-      "valore": 74082258
-    },
-    {
-      "esercizio": 2024,
-      "fine": "2024-06-30",
-      "valuta": "EUR",
-      "valore": -19570000
-    }
-  ],
   "annualNetIncome": [
     {
       "esercizio": 2022,
@@ -137,6 +117,26 @@
       "fine": "2024-06-30",
       "valuta": "EUR",
       "valore": -199229000
+    }
+  ],
+  "annualEBITDA": [
+    {
+      "esercizio": 2022,
+      "fine": "2022-06-30",
+      "valuta": "EUR",
+      "valore": -31557102
+    },
+    {
+      "esercizio": 2023,
+      "fine": "2023-06-30",
+      "valuta": "EUR",
+      "valore": 74082258
+    },
+    {
+      "esercizio": 2024,
+      "fine": "2024-06-30",
+      "valuta": "EUR",
+      "valore": -19570000
     }
   ],
   "annualCapitalExpenditure": [

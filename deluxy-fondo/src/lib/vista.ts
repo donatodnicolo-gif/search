@@ -5,8 +5,8 @@
  * e la pagina deve dirlo: mai riempire un buco con l'ultimo valore noto senza dichiararlo.
  */
 
-import { leggiSerie, leggiFondamentali, leggiNotizie, leggiIstantanea } from "./archivio";
-import { leggiBilanci, type Bilanci } from "./bilanci";
+import { leggiSerie, leggiFondamentali, leggiNotizie, leggiIstantanea } from "./archivio.ts";
+import { leggiBilanci, type Bilanci } from "./bilanci.ts";
 import {
   calcolaIndicatori,
   calcolaMandato,
@@ -15,10 +15,10 @@ import {
   type Indicatori,
   type Mandato,
   type Tratto,
-} from "./indicatori";
-import { calcolaPunteggio } from "./punteggio";
-import { eventStudy } from "./statistica";
-import { BENCHMARK_MERCATO, BENCHMARK_TOTALE, EVENTI_TUTTI, TITOLI, TITOLI_TUTTI, eventiDi, mandatoInCorso, type Titolo } from "./universo";
+} from "./indicatori.ts";
+import { calcolaPunteggio } from "./punteggio.ts";
+import { eventStudy } from "./statistica.ts";
+import { BENCHMARK_MERCATO, BENCHMARK_TOTALE, EVENTI_TUTTI, TITOLI, TITOLI_TUTTI, eventiDi, mandatoInCorso, type Titolo } from "./universo.ts";
 import type { EventStudy, EventoManagement, Istantanea, Punteggio, SerieStorica } from "./tipi";
 import type { Notizia } from "./fonti";
 
