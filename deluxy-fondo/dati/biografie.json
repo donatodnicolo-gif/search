@@ -476,6 +476,291 @@
         }
       ],
       "confidenza": "media"
+    },
+    {
+      "nome": "Andrea Orcel",
+      "annoNascita": 1963,
+      "formazione": "Liceo francese Chateaubriand di Roma; laurea in Economia e commercio alla Sapienza, con lode, tesi sulle acquisizioni ostili; MBA all'INSEAD di Fontainebleau",
+      "carriera": [
+        {
+          "da": "1987",
+          "a": "1988",
+          "azienda": "Midland Montagu, Londra",
+          "ruolo": "reddito fisso",
+          "nota": "primo impiego"
+        },
+        {
+          "da": "1988",
+          "a": "1990",
+          "azienda": "Goldman Sachs, Londra",
+          "ruolo": "investment banking",
+          "nota": null
+        },
+        {
+          "da": "1990",
+          "a": "1992",
+          "azienda": "Boston Consulting Group, Parigi",
+          "ruolo": "consulente senior, strategia e ristrutturazioni",
+          "nota": "una fonte indica il 1989 come anno di ingresso"
+        },
+        {
+          "da": "1992",
+          "a": "2012",
+          "azienda": "Merrill Lynch, poi BofA Merrill Lynch, Londra",
+          "ruolo": "venti anni: responsabile globale istituzioni finanziarie, presidente mercati e investment banking per Europa e Medio Oriente, presidente esecutivo della banca d'affari",
+          "nota": "la parte piu lunga della carriera"
+        },
+        {
+          "da": "2012",
+          "a": "2018",
+          "azienda": "UBS",
+          "ruolo": "membro del comitato esecutivo di gruppo; amministratore delegato di UBS Limited e della filiale di Londra dal 2014; presidente della banca d'investimento",
+          "nota": "cariche apicali di entita controllate e di divisione, non di gruppo"
+        },
+        {
+          "da": "2018",
+          "a": "2019",
+          "azienda": "Banco Santander",
+          "ruolo": "designato amministratore delegato",
+          "nota": "incarico MAI assunto: l'offerta fu ritirata prima dell'insediamento"
+        },
+        {
+          "da": "2021",
+          "a": null,
+          "azienda": "UniCredit",
+          "ruolo": "amministratore delegato di gruppo; dal luglio 2022 anche responsabile per l'Italia",
+          "nota": "dal 15 aprile 2021, a 57 anni. Mandato rinnovato dall'assemblea del 12 aprile 2024 per gli esercizi 2024-2026."
+        }
+      ],
+      "giaAmministratoreDelegato": false,
+      "stileDichiarato": "Passaggio dichiarato dal comando gerarchico alla delega: «Siamo passati da un modello gerarchico, dall'alto al basso, a uno piu basato sulla fiducia nelle nostre persone, nella delega alle squadre operative»; «Cerchiamo piu qualita che quantita»; sui risultati, «Dalle nostre persone. Ogni trimestre sorprendono anche me con quello che sono capaci di fare» (Milano Finanza, 24/07/2026). Si e definito «not easy» e «demanding», precisando di non chiedere «something I'm not doing myself»: questa seconda parte viene da profili del Financial Times letti solo di seconda mano, quindi con riserva.",
+      "tratti": [
+        {
+          "tratto": "Soprannominato dalla stampa «il CR7 dei banchieri»",
+          "dettaglio": "Per disciplina e ossessione per la prestazione. Nello stesso profilo compare anche «banchiere d'acciaio».",
+          "fonte": "https://forbes.it/2021/04/16/in-unicredit-inizia-lera-di-andrea-orcel-la-storia-dellad-definito-il-cr7-dei-banchieri",
+          "data": "2021-04-16"
+        },
+        {
+          "tratto": "Parla cinque lingue",
+          "dettaglio": null,
+          "fonte": "https://forbes.it/2021/04/16/in-unicredit-inizia-lera-di-andrea-orcel-la-storia-dellad-definito-il-cr7-dei-banchieri",
+          "data": "2021-04-16"
+        },
+        {
+          "tratto": "Orari di lavoro estremi, e carattere divisivo",
+          "dettaglio": "Profili del Financial Times riferiscono che comincia a scrivere ai collaboratori verso le cinque del mattino e prosegue oltre la mezzanotte, e che alla domanda se avrebbe introdotto ferie minime per i piu giovani ha risposto di no. Un ex collega lo ha definito «Marmite», o lo odi o lo ami. ATTENZIONE: citazioni raccolte di seconda mano, l'articolo originale non e stato aperto ne datato.",
+          "fonte": "https://en.wikipedia.org/wiki/Andrea_Orcel",
+          "data": null
+        },
+        {
+          "tratto": "Indica «Grit» di Angela Duckworth come libro di riferimento",
+          "dettaglio": "«Il segreto del successo non e il talento grezzo, ma una miscela di passione e perseveranza».",
+          "fonte": "https://en.wikipedia.org/wiki/Andrea_Orcel",
+          "data": null
+        }
+      ],
+      "fonti": [
+        {
+          "titolo": "In UniCredit inizia l'era di Andrea Orcel — Forbes Italia",
+          "url": "https://forbes.it/2021/04/16/in-unicredit-inizia-lera-di-andrea-orcel-la-storia-dellad-definito-il-cr7-dei-banchieri",
+          "data": "2021-04-16"
+        },
+        {
+          "titolo": "Intervista ad Andrea Orcel — Milano Finanza",
+          "url": "https://www.milanofinanza.it/news/unicredit-intervista-ad-andrea-orcel-ora-il-nostro-obiettivo-e-l-europa-202607242134089693",
+          "data": "2026-07-24"
+        }
+      ],
+      "confidenza": "media"
+    },
+    {
+      "nome": "Roberto Cingolani",
+      "annoNascita": 1961,
+      "formazione": "Laurea in Fisica, Universita di Bari, 1985; diploma di perfezionamento in Fisica alla Scuola Normale Superiore di Pisa, 1989. Autore di oltre 1.100 articoli e titolare di oltre 100 brevetti.",
+      "carriera": [
+        {
+          "da": "1988",
+          "a": "1991",
+          "azienda": "Max Planck Institute, Stoccarda",
+          "ruolo": "ricercatore",
+          "nota": null
+        },
+        {
+          "da": "1991",
+          "a": "2006",
+          "azienda": "Universita del Salento",
+          "ruolo": "professore di fisica, ordinario di Fisica sperimentale dal 2000",
+          "nota": "nel 2001 fonda il Laboratorio nazionale di nanotecnologia a Lecce"
+        },
+        {
+          "da": "2006",
+          "a": "2019",
+          "azienda": "Istituto Italiano di Tecnologia",
+          "ruolo": "direttore scientifico e amministratore delegato",
+          "nota": "tredici anni da capo azienda: sotto di lui l'istituto cresce a 1.900 persone da 60 paesi, oltre 800 brevetti e piu di 30 imprese nate dalla ricerca"
+        },
+        {
+          "da": "2019",
+          "a": "2021",
+          "azienda": "Leonardo",
+          "ruolo": "responsabile tecnologia e innovazione",
+          "nota": "lancia i laboratori di ricerca e il supercomputer davinci-1"
+        },
+        {
+          "da": "2021",
+          "a": "2022",
+          "azienda": "Governo italiano",
+          "ruolo": "ministro della Transizione ecologica",
+          "nota": "presiede il G20 su ambiente, clima ed energia e co-presiede la COP26 di Glasgow"
+        },
+        {
+          "da": "2023",
+          "a": "2026",
+          "azienda": "Leonardo",
+          "ruolo": "amministratore delegato e direttore generale",
+          "nota": "tre anni esatti, dal 9 maggio 2023 al 7 maggio 2026. Il governo non lo ripresenta nella lista per il rinnovo del consiglio; cessazione consensuale formalizzata l'11 maggio 2026."
+        }
+      ],
+      "giaAmministratoreDelegato": true,
+      "stileDichiarato": "Ragionamento per sistemi, da scienziato applicato all'industria. Nell'intervista di commiato: «The strategy is built, capitalized and contracted. The job now is execution not strategy»; «Three years is too short because this is a mid-term or long-term strategy industry»; sul rapporto con l'azionista pubblico, «I believe that you cannot consider a defense company to be 100 percent independent of the state» e «It is not necessary that I understand. The state can do whatever is needed»; sulla non personalizzazione del comando, «a multi-national company like Leonardo cannot depend on an individual». Sull'uscita: «Sometimes good results are not enough».",
+      "tratti": [
+        {
+          "tratto": "Motociclista",
+          "dettaglio": "Alla domanda su cosa avrebbe fatto dopo Leonardo ha risposto: «I am getting on my motorbike and will travel around Europe for a while».",
+          "fonte": "https://www.defensenews.com/global/europe/2026/05/06/outgoing-leonardo-boss-touts-michelangelo-dome-cyber-tack-as-key-achievements/",
+          "data": "2026-05-06"
+        },
+        {
+          "tratto": "Ragazzo prodigio della scienza",
+          "dettaglio": "Vincitore nazionale e finalista europeo del concorso Philips per giovani scienziati e inventori nel 1978, 1979 e 1980, con certificato di distinzione alla finale di Amsterdam; Alfiere del Lavoro nel 1981.",
+          "fonte": "https://www.leonardo.com/documents/15646808/25693720/CV_ROBERTO_CINGOLANI_ITA.pdf",
+          "data": null
+        }
+      ],
+      "fonti": [
+        {
+          "titolo": "Curriculum ufficiale — Leonardo",
+          "url": "https://www.leonardo.com/documents/15646808/25693720/CV_ROBERTO_CINGOLANI_ITA.pdf",
+          "data": null
+        },
+        {
+          "titolo": "Intervista di commiato — Defense News",
+          "url": "https://www.defensenews.com/global/europe/2026/05/06/outgoing-leonardo-boss-touts-michelangelo-dome-cyber-tack-as-key-achievements/",
+          "data": "2026-05-06"
+        },
+        {
+          "titolo": "Leonardo — cessazione dell'incarico",
+          "url": "https://www.leonardo.com/en/press-release-detail/-/detail/11-05-2026-leonardo-term-of-office-of-prof-roberto-cingolani",
+          "data": "2026-05-11"
+        }
+      ],
+      "confidenza": "alta"
+    },
+    {
+      "nome": "Lorenzo Mariani",
+      "annoNascita": null,
+      "formazione": "Laurea in Ingegneria elettronica con lode, 1990; ufficiale di Marina nel 1991. L'ateneo (Sapienza di Roma) e indicato da una sola fonte e non compare nel curriculum ufficiale. Nessun master.",
+      "carriera": [
+        {
+          "da": "1991",
+          "a": "1991",
+          "azienda": "Marina Militare",
+          "ruolo": "ufficiale",
+          "nota": null
+        },
+        {
+          "da": "1992",
+          "a": "2002",
+          "azienda": "Alenia, poi Alenia Marconi Systems",
+          "ruolo": "radar e sistemi elettronici: da progettista a direttore vendite della divisione sistemi terrestri",
+          "nota": "mercati Sud America, Europa e NATO"
+        },
+        {
+          "da": "2002",
+          "a": "2005",
+          "azienda": "MBDA",
+          "ruolo": "responsabile strategia di prodotto",
+          "nota": null
+        },
+        {
+          "da": "2005",
+          "a": "2016",
+          "azienda": "Finmeccanica / Leonardo",
+          "ruolo": "ruoli di crescente responsabilita",
+          "nota": null
+        },
+        {
+          "da": "2016",
+          "a": "2017",
+          "azienda": "Leonardo",
+          "ruolo": "capo della divisione elettronica per la difesa terrestre e navale",
+          "nota": null
+        },
+        {
+          "da": "2017",
+          "a": "2020",
+          "azienda": "Leonardo",
+          "ruolo": "direttore commerciale",
+          "nota": null
+        },
+        {
+          "da": "2018",
+          "a": "2020",
+          "azienda": "Leonardo International",
+          "ruolo": "amministratore delegato",
+          "nota": "circa due anni; primo incarico apicale, di controllata"
+        },
+        {
+          "da": "2020",
+          "a": "2023",
+          "azienda": "MBDA Italia",
+          "ruolo": "amministratore delegato",
+          "nota": "circa due anni e nove mesi. ATTENZIONE: questo periodo e OMESSO dal curriculum ufficiale pubblicato da Leonardo; ricostruito incrociando Il Sole 24 Ore e Formiche, concordi fra loro."
+        },
+        {
+          "da": "2023",
+          "a": "2025",
+          "azienda": "Leonardo",
+          "ruolo": "condirettore generale e direttore business e operazioni",
+          "nota": null
+        },
+        {
+          "da": "2025",
+          "a": "2026",
+          "azienda": "MBDA",
+          "ruolo": "direttore vendite e sviluppo di gruppo, amministratore delegato di MBDA Italia",
+          "nota": null
+        },
+        {
+          "da": "2026",
+          "a": null,
+          "azienda": "Leonardo",
+          "ruolo": "amministratore delegato e direttore generale",
+          "nota": "dal 7 maggio 2026. Viene da MBDA ma e uomo di casa Leonardo dal 1992: e un rientro, non un innesto esterno."
+        }
+      ],
+      "giaAmministratoreDelegato": true,
+      "stileDichiarato": "Continuita sulla strategia, accelerazione sull'esecuzione. Al varo della nuova struttura organizzativa, prima azione da amministratore delegato: «we need to step up the pace now»; «sara essenziale accelerare la produzione e la consegna dei sistemi gia in linea, aumentando efficienza e capacita produttiva di Leonardo e dell'intera filiera». Al salone di Farnborough: «La priorita e accelerare, aumentare la capacita produttiva e consolidare lo slancio». Non risultano dichiarazioni sue sul modo di gestire le persone.",
+      "tratti": [],
+      "fonti": [
+        {
+          "titolo": "Curriculum ufficiale — Leonardo",
+          "url": "https://www.leonardo.com/en/about/management/chief-executive-officer",
+          "data": "2026-05"
+        },
+        {
+          "titolo": "Il ritorno di Mariani — Il Sole 24 Ore",
+          "url": "https://en.ilsole24ore.com/art/leonardo-mariani-return-ready-to-make-it-even-more-of-a-reference-for-italia-and-the-world-AIOBgBzC",
+          "data": "2026-05-09"
+        },
+        {
+          "titolo": "Leonardo vara la nuova organizzazione — Il Sole 24 Ore",
+          "url": "https://en.ilsole24ore.com/art/leonardo-vara-new-mariani-organisation-now-we-need-to-step-up-the-pace-AIPG63kD",
+          "data": "2026-06-18"
+        }
+      ],
+      "confidenza": "media"
     }
   ]
 }
