@@ -153,6 +153,21 @@ locale, altrimenti nulla si decifra.
     corta. ⚠️ I mestieri hanno più etichette (FIORISTA+FIORI, PASTICCERIA+
     CIOCCOLATERIA) e il recapito può essere di un **referente**. Misurato:
     Milano → 9 pasticcerie / 6 fiorai; Firenze e Novara → nessuno, e lo dice.
+  - 🐛 **«NESSUN FORNITORE» CON IL FORNITORE IN TABELLA** (segnalato
+    dall'utente: «nell'app search ne ho uno possibile»). Due difetti sovrapposti
+    sullo stesso riquadro appena fatto: (1) si leggeva **una pagina da 200
+    righe su 1.040** — la pasticceria di Arona stava a pagina 3; (2) si
+    chiedevano **solo i partner attivi**, mentre chi cerca qualcuno da chiamare
+    per domani vuole anche i **prospect** già censiti (è quello che mostra da
+    sempre Ricerca fornitori). Ora si leggono tutte le pagine (le successive
+    insieme, memoria di 5 minuti nel processo) e entrano tutti gli stati tranne
+    `non_interessato` e `dismesso`; a schermo si legge Partner o Prospect.
+    ⚠️ È lo stesso difetto delle province scritte in due modi: **una lista
+    tagliata non sembra sbagliata, sembra corta**. Misurato dopo: Novara 0 → 1,
+    Firenze 0 → 5, Milano 5 → 21.
+  - **«Spam» anche dalla conversazione aperta** (inbox), non solo dall'icona
+    nella riga: la spazzatura la si riconosce leggendola. Solo sulla posta e non
+    nel cestino.
   - 🐛 **«Fornitore» apriva una scheda vuota (about:blank)**, segnalato
     dall'utente: la scheda si apre prima della chiamata (deve nascere dentro il
     clic) ma era aperta con `noopener`, e **con `noopener` il browser

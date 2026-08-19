@@ -31,6 +31,18 @@ Il collegamento numero → brand si dichiara in **Negozi**, nel campo *Phone Num
 (app Meta → WhatsApp → Configurazione API). Senza, il messaggio arriva comunque e in
 Inbox si vede il numero grezzo invece del nome del marchio.
 
+## Segnalare spam
+
+Il bottone **Spam** sta sia nella riga dell'elenco sia **dentro la conversazione aperta**:
+la spazzatura la si riconosce leggendola, e chi doveva chiudere il thread, ritrovare la
+riga e centrare un'icona quasi sempre non lo faceva.
+
+Il mittente entra fra quelli ignorati e la conversazione va **in archivio** (non nel
+cestino: non si cancella niente). ⚠️ Si salva l'**indirizzo esatto**, mai il dominio — da
+uno spam `@gmail.com` sparirebbe in silenzio ogni cliente che scrive da Gmail. ⚠️ Solo
+sulla **posta**: l'elenco dei mittenti ignorati lo leggono soltanto le rotte email, e su
+WhatsApp o Instagram il blocco si fa da Meta.
+
 ## Chi si occupa di un ordine
 
 Come per le conversazioni: gli operatori sono tre e la bacheca è una sola. Senza un
@@ -80,10 +92,16 @@ richiesta».
 formulazioni diverse per la stessa richiesta, dalla stessa azienda, allo stesso fornitore,
 sono due mittenti diversi visti da fuori.
 
+Compaiono **partner e prospect**, prima quelli con cui lavoriamo già, e accanto al nome
+si legge quale dei due è: a un prospect non si promettono le condizioni di un partner.
+Restano fuori solo «non interessato» e «dismesso», che vogliono dire *non chiamarli*.
+
 ⚠️ Nel registro la stessa provincia è scritta in due modi (20 partner «MI», 9 «MILANO»):
 si confrontano le **sigle**, altrimenti un ordine a Milano trova due terzi dei fornitori e
-la lista sembra solo più corta. Dove non c'è nessun partner lo dice, e rimanda a «Cerca
-fornitore» — che cerca su Google chi ancora non conosciamo.
+la lista sembra solo più corta. Per lo stesso motivo si leggono **tutte** le pagine del
+registro (1.040 righe, non le prime 200): una lista tagliata non sembra sbagliata, sembra
+corta. Dove davvero non c'è nessuno lo dice, e rimanda a «Cerca fornitore» — che cerca su
+Google chi ancora non conosciamo.
 
 ## Gli avvisi suonano per quello che riguarda te
 
