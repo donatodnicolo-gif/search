@@ -3,7 +3,7 @@
   "nome": "Commerzbank",
   "valuta": "EUR",
   "fonte": "Yahoo chart v8 (adjclose)",
-  "scaricataIl": "2026-08-19T08:02:03.284Z",
+  "scaricataIl": "2026-08-19T08:26:09.381Z",
   "barre": [
     {
       "data": "2025-08-19",
@@ -2022,12 +2022,20 @@
       "volume": 1353625
     },
     {
+      "data": "2026-08-18",
+      "apertura": 39.52000045776367,
+      "massimo": 39.599998474121094,
+      "minimo": 38.79999923706055,
+      "chiusura": 39,
+      "volume": 2031513
+    },
+    {
       "data": "2026-08-19",
       "apertura": 39,
       "massimo": 39.119998931884766,
-      "minimo": 38.439998626708984,
-      "chiusura": 38.459999084472656,
-      "volume": 199321
+      "minimo": 38.279998779296875,
+      "chiusura": 38.529998779296875,
+      "volume": 264192
     }
   ]
 }

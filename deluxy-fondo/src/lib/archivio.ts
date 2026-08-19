@@ -42,6 +42,9 @@ export const scriviFondamentali = (simbolo: string, dati: Fondamentali) =>
 export const leggiNotizie = () => leggiJSON<Notizia[]>("notizie.json");
 export const scriviNotizie = (notizie: Notizia[]) => scriviJSON("notizie.json", notizie);
 
+export const leggiCambi = () => leggiJSON<import("./fonti").Cambi>("cambi.json");
+export const scriviCambi = (c: import("./fonti").Cambi) => scriviJSON("cambi.json", c);
+
 export const leggiIstantanea = () => leggiJSON<Istantanea>("istantanea.json");
 export const scriviIstantanea = (istantanea: Istantanea) => scriviJSON("istantanea.json", istantanea);
 

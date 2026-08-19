@@ -77,32 +77,6 @@
       "valore": 28989000000
     }
   ],
-  "annualNetIncome": [
-    {
-      "esercizio": 2022,
-      "fine": "2022-12-31",
-      "valuta": "DKK",
-      "valore": 55525000000
-    },
-    {
-      "esercizio": 2023,
-      "fine": "2023-12-31",
-      "valuta": "DKK",
-      "valore": 83683000000
-    },
-    {
-      "esercizio": 2024,
-      "fine": "2024-12-31",
-      "valuta": "DKK",
-      "valore": 100988000000
-    },
-    {
-      "esercizio": 2025,
-      "fine": "2025-12-31",
-      "valuta": "DKK",
-      "valore": 102434000000
-    }
-  ],
   "annualEBITDA": [
     {
       "esercizio": 2022,
@@ -127,6 +101,32 @@
       "fine": "2025-12-31",
       "valuta": "DKK",
       "valore": 156729000000
+    }
+  ],
+  "annualNetIncome": [
+    {
+      "esercizio": 2022,
+      "fine": "2022-12-31",
+      "valuta": "DKK",
+      "valore": 55525000000
+    },
+    {
+      "esercizio": 2023,
+      "fine": "2023-12-31",
+      "valuta": "DKK",
+      "valore": 83683000000
+    },
+    {
+      "esercizio": 2024,
+      "fine": "2024-12-31",
+      "valuta": "DKK",
+      "valore": 100988000000
+    },
+    {
+      "esercizio": 2025,
+      "fine": "2025-12-31",
+      "valuta": "DKK",
+      "valore": 102434000000
     }
   ],
   "annualStockholdersEquity": [

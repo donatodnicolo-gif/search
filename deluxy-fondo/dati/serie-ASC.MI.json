@@ -3,7 +3,7 @@
   "nome": "Ascopiave",
   "valuta": "EUR",
   "fonte": "Yahoo chart v8 (adjclose)",
-  "scaricataIl": "2026-08-19T08:02:00.187Z",
+  "scaricataIl": "2026-08-19T08:26:06.612Z",
   "barre": [
     {
       "data": "2025-08-19",
@@ -2011,7 +2011,7 @@
       "massimo": 2.7750000953674316,
       "minimo": 2.759999990463257,
       "chiusura": 2.759999990463257,
-      "volume": 2077
+      "volume": 102077
     }
   ]
 }

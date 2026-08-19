@@ -3,7 +3,7 @@
   "nome": "Novo Nordisk",
   "valuta": "DKK",
   "fonte": "Yahoo chart v8 (adjclose)",
-  "scaricataIl": "2026-08-19T08:02:04.207Z",
+  "scaricataIl": "2026-08-19T08:26:10.052Z",
   "barre": [
     {
       "data": "2025-08-19",
@@ -1982,12 +1982,20 @@
       "volume": 3418557
     },
     {
+      "data": "2026-08-18",
+      "apertura": 289,
+      "massimo": 297.6000061035156,
+      "minimo": 288.45001220703125,
+      "chiusura": 296.3500061035156,
+      "volume": 2967781
+    },
+    {
       "data": "2026-08-19",
       "apertura": 293.1000061035156,
       "massimo": 294.29998779296875,
-      "minimo": 292.1000061035156,
-      "chiusura": 292.25,
-      "volume": 412951
+      "minimo": 291.70001220703125,
+      "chiusura": 293.1499938964844,
+      "volume": 521414
     }
   ]
 }

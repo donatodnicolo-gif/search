@@ -15,7 +15,27 @@
       "borsa": "Equiduct, in euro",
       "fontePrezzi": "Xetra (KHNZ.DE): Equiduct non ha una serie storica pubblica su Yahoo. Le due piazze quotano lo stesso titolo nella stessa valuta e i livelli coincidono entro pochi centesimi (chiusura 18/08/2026 sul broker 21,62 euro, Xetra 21,51 il 17/08 e 21,60 il 19/08). E un riferimento adeguato per rivalutare la posizione, ma NON e il prezzo della tua sede di esecuzione: per la contabilita reale vale l eseguito del broker.",
       "note": "50 azioni a 19,331 euro: costo 966,55 euro, commissioni non ancora indicate. Manca la DATA di acquisto: utile e perdita sono corretti, ma senza la data non si puo dire se comprare l indice quel giorno avrebbe reso di piu, ed e il confronto che conta. Titolo confermato per ISIN US5007541064. Attenzione al ticker: su Yahoo il simbolo tedesco e KHNZ (KHNZ.DE Xetra, 5 anni di storico); NON usare KTF.DE, che sembra plausibile ma e Mondelez, ne HNZ.DE o KHZ.DE, che sono falsi simboli con exchange YHD. KHC e la quotazione americana in dollari. Da sapere: il titolo distribuisce un dividendo annuo di 1,60 dollari (rendimento intorno al 6,5 per cento), quindi la cedola arriva in valuta diversa da quella di quotazione e subisce il cambio.",
-      "tesi": "Da scrivere prima di completare la posizione: perche questa societa e in portafoglio, cosa dovrebbe accadere e cosa farebbe cadere la tesi. Va scritta ora e non riscritta dopo, altrimenti diventa una giustificazione a posteriori."
+      "tesi": "Da scrivere prima di completare la posizione: perche questa societa e in portafoglio, cosa dovrebbe accadere e cosa farebbe cadere la tesi. Va scritta ora e non riscritta dopo, altrimenti diventa una giustificazione a posteriori.",
+      "dividendoPerAzione": 1.6,
+      "valutaDividendo": "USD",
+      "capitalizzazioneMln": 29349.14,
+      "simboloFondamentali": "KHC",
+      "regole": {
+        "stopAssoluto": 0.2,
+        "stopRelativo": 0.12,
+        "trailingAttivazione": 0.25,
+        "trailingRitracciamento": 0.15,
+        "target": 0.4,
+        "mesiMassimi": 24,
+        "tesiInvalidataSe": [
+          "Il dividendo viene tagliato o sospeso: se la tesi e il rendimento da cedola, questo la chiude.",
+          "Il free cash flow annuale scende sotto il dividendo distribuito: la cedola non e piu coperta dalla cassa.",
+          "I ricavi calano per due esercizi consecutivi oltre il 3 per cento a perimetro costante.",
+          "La separazione societaria annunciata viene ritirata o rinviata a data da destinarsi.",
+          "Il debito lordo sale sopra 5 volte l EBITDA normalizzato.",
+          "Cambia l amministratore delegato di nuovo entro 12 mesi: segnalerebbe che il piano non sta funzionando."
+        ]
+      }
     }
   ],
   "ipotesi": [
@@ -35,5 +55,6 @@
       "prezzoIpotesi": null,
       "note": "Simulazione sul caso guida. Ricorda che il titolo tratta dentro il perimetro di un'offerta pubblica: il prezzo riflette la probabilita di esito dell'operazione, non una valutazione autonoma."
     }
-  ]
+  ],
+  "notaRegole": "Le soglie in ogni posizione sono scelte di chi investe, non del programma: l app calcola solo a quale prezzo scattano e quanto si e lontani. Modificarle qui cambia i livelli mostrati, non il giudizio - che non c e."
 }

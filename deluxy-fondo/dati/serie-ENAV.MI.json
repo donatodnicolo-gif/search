@@ -3,7 +3,7 @@
   "nome": "ENAV",
   "valuta": "EUR",
   "fonte": "Yahoo chart v8 (adjclose)",
-  "scaricataIl": "2026-08-19T08:01:56.320Z",
+  "scaricataIl": "2026-08-19T08:26:03.030Z",
   "barre": [
     {
       "data": "2025-08-19",
@@ -2011,7 +2011,7 @@
       "massimo": 5.019999980926514,
       "minimo": 4.978000164031982,
       "chiusura": 4.989999771118164,
-      "volume": 29589
+      "volume": 36014
     }
   ]
 }

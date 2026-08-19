@@ -371,6 +371,65 @@ export async function scaricaNotizie(query: string, etichetta: string): Promise<
   }
 }
 
+// ---------------------------------------------------------------------------
+// Cambi — Frankfurter (dati della Banca centrale europea)
+// ---------------------------------------------------------------------------
+
+export type Cambi = {
+  /** Data di riferimento dei tassi (ISO). */
+  data: string;
+  /** Valuta di base: quanto vale 1 unità delle altre valute in questa. */
+  base: string;
+  /** Es. `{ USD: 0.86386 }` = 1 dollaro vale 0,86386 euro. */
+  tassi: Record<string, number>;
+};
+
+/**
+ * Cambi ufficiali contro l'euro.
+ *
+ * Serve per un motivo concreto: un dividendo dichiarato in dollari su un titolo che quota in
+ * euro, diviso per il prezzo in euro, dà un rendimento più alto del vero. Su Kraft Heinz
+ * l'errore era 7,41% contro il 6,46% reale — sbagliato in favore della tesi.
+ *
+ * Attenzione: l'indirizzo `.app` risponde con un reindirizzamento verso `.dev`, quindi il
+ * `redirect: follow` è necessario e non decorativo.
+ */
+export async function scaricaCambi(valute = ["USD", "GBP", "CHF", "DKK"]): Promise<{ cambi: Cambi | null; stato: StatoFonte }> {
+  const url = `https://api.frankfurter.dev/v1/latest?base=EUR&symbols=${valute.join(",")}`;
+  const stato: StatoFonte = {
+    nome: "Frankfurter — cambi BCE",
+    descrizione: "Tassi di cambio ufficiali contro l'euro",
+    url,
+    esito: "mai-provata",
+    messaggio: null,
+    aggiornataIl: null,
+    record: null,
+  };
+
+  try {
+    const r = await prendi(url);
+    if (!r.ok) {
+      return { cambi: null, stato: { ...stato, esito: "errore", messaggio: `HTTP ${r.status}`, aggiornataIl: oggiISO() } };
+    }
+    const j = (await r.json()) as { date?: string; rates?: Record<string, number> };
+    if (!j?.rates || !j.date) {
+      return { cambi: null, stato: { ...stato, esito: "errore", messaggio: "Risposta senza tassi", aggiornataIl: oggiISO() } };
+    }
+    // La risposta dà quanto vale 1 EUR nelle altre valute: si invertono, perché serve il
+    // contrario (quanto vale 1 dollaro in euro).
+    const tassi: Record<string, number> = {};
+    for (const [valuta, v] of Object.entries(j.rates)) {
+      if (typeof v === "number" && v !== 0) tassi[valuta] = 1 / v;
+    }
+    return {
+      cambi: { data: j.date, base: "EUR", tassi },
+      stato: { ...stato, esito: "ok", messaggio: null, aggiornataIl: oggiISO(), record: Object.keys(tassi).length },
+    };
+  } catch (e) {
+    return { cambi: null, stato: { ...stato, esito: "errore", messaggio: e instanceof Error ? e.message : String(e), aggiornataIl: oggiISO() } };
+  }
+}
+
 export const FONTI_DOCUMENTATE: Fonte[] = [
   { titolo: "Yahoo Finance — chart v8 (prezzi giornalieri)", url: "https://query1.finance.yahoo.com/v8/finance/chart/TIT.MI?range=10y&interval=1d", data: null },
   { titolo: "Yahoo Finance — fundamentals timeseries", url: "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/TIT.MI", data: null },

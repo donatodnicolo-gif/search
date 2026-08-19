@@ -1,30 +1,4 @@
 {
-  "annualFreeCashFlow": [
-    {
-      "esercizio": 2022,
-      "fine": "2022-12-31",
-      "valuta": "EUR",
-      "valore": 2787000000
-    },
-    {
-      "esercizio": 2023,
-      "fine": "2023-12-31",
-      "valuta": "EUR",
-      "valore": -1931000000
-    },
-    {
-      "esercizio": 2024,
-      "fine": "2024-12-31",
-      "valuta": "EUR",
-      "valore": -1001000000
-    },
-    {
-      "esercizio": 2025,
-      "fine": "2025-12-31",
-      "valuta": "EUR",
-      "valore": -21000000
-    }
-  ],
   "annualTotalDebt": [
     {
       "esercizio": 2022,
@@ -51,30 +25,30 @@
       "valore": 19535000000
     }
   ],
-  "annualTotalRevenue": [
+  "annualFreeCashFlow": [
     {
       "esercizio": 2022,
       "fine": "2022-12-31",
       "valuta": "EUR",
-      "valore": 3496000000
+      "valore": 2787000000
     },
     {
       "esercizio": 2023,
       "fine": "2023-12-31",
       "valuta": "EUR",
-      "valore": 4244000000
+      "valore": -1931000000
     },
     {
       "esercizio": 2024,
       "fine": "2024-12-31",
       "valuta": "EUR",
-      "valore": 3548000000
+      "valore": -1001000000
     },
     {
       "esercizio": 2025,
       "fine": "2025-12-31",
       "valuta": "EUR",
-      "valore": 3852000000
+      "valore": -21000000
     }
   ],
   "annualCapitalExpenditure": [
@@ -101,6 +75,32 @@
       "fine": "2025-12-31",
       "valuta": "EUR",
       "valore": -2709000000
+    }
+  ],
+  "annualTotalRevenue": [
+    {
+      "esercizio": 2022,
+      "fine": "2022-12-31",
+      "valuta": "EUR",
+      "valore": 3496000000
+    },
+    {
+      "esercizio": 2023,
+      "fine": "2023-12-31",
+      "valuta": "EUR",
+      "valore": 4244000000
+    },
+    {
+      "esercizio": 2024,
+      "fine": "2024-12-31",
+      "valuta": "EUR",
+      "valore": 3548000000
+    },
+    {
+      "esercizio": 2025,
+      "fine": "2025-12-31",
+      "valuta": "EUR",
+      "valore": 3852000000
     }
   ],
   "annualCashAndCashEquivalents": [

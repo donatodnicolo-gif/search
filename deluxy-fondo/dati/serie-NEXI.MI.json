@@ -3,7 +3,7 @@
   "nome": "Nexi",
   "valuta": "EUR",
   "fonte": "Yahoo chart v8 (adjclose)",
-  "scaricataIl": "2026-08-19T08:01:57.347Z",
+  "scaricataIl": "2026-08-19T08:26:03.950Z",
   "barre": [
     {
       "data": "2025-08-19",
@@ -2009,9 +2009,9 @@
       "data": "2026-08-19",
       "apertura": 4.13700008392334,
       "massimo": 4.158999919891357,
-      "minimo": 4.107999801635742,
-      "chiusura": 4.113999843597412,
-      "volume": 507628
+      "minimo": 4.090000152587891,
+      "chiusura": 4.11299991607666,
+      "volume": 861430
     }
   ]
 }

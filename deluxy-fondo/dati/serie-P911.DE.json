@@ -3,7 +3,7 @@
   "nome": "Porsche AG",
   "valuta": "EUR",
   "fonte": "Yahoo chart v8 (adjclose)",
-  "scaricataIl": "2026-08-19T08:02:03.596Z",
+  "scaricataIl": "2026-08-19T08:26:09.684Z",
   "barre": [
     {
       "data": "2025-08-19",
@@ -2022,12 +2022,20 @@
       "volume": 176066
     },
     {
+      "data": "2026-08-18",
+      "apertura": 44.7400016784668,
+      "massimo": 44.900001525878906,
+      "minimo": 43.9900016784668,
+      "chiusura": 43.9900016784668,
+      "volume": 242275
+    },
+    {
       "data": "2026-08-19",
       "apertura": 43.790000915527344,
       "massimo": 44.380001068115234,
       "minimo": 43.709999084472656,
-      "chiusura": 44.209999084472656,
-      "volume": 8655
+      "chiusura": 44.25,
+      "volume": 9871
     }
   ]
 }

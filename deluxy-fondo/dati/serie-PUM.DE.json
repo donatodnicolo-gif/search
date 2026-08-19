@@ -3,7 +3,7 @@
   "nome": "Puma",
   "valuta": "EUR",
   "fonte": "Yahoo chart v8 (adjclose)",
-  "scaricataIl": "2026-08-19T08:02:02.875Z",
+  "scaricataIl": "2026-08-19T08:26:09.058Z",
   "barre": [
     {
       "data": "2025-08-19",
@@ -2010,8 +2010,8 @@
       "apertura": 25.610000610351562,
       "massimo": 25.860000610351562,
       "minimo": 25.559999465942383,
-      "chiusura": 25.709999084472656,
-      "volume": 20168
+      "chiusura": 25.719999313354492,
+      "volume": 23532
     }
   ]
 }

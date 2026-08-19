@@ -12,8 +12,8 @@
  * file mezzo scritto che sembra fresco.
  */
 
-import { scaricaSerie, scaricaFondamentali, scaricaNotizie, trovaDiscontinuita } from "../src/lib/fonti.ts";
-import { scriviSerie, scriviFondamentali, scriviNotizie, scriviIstantanea } from "../src/lib/archivio.ts";
+import { scaricaSerie, scaricaFondamentali, scaricaNotizie, trovaDiscontinuita, scaricaCambi } from "../src/lib/fonti.ts";
+import { scriviSerie, scriviFondamentali, scriviNotizie, scriviIstantanea, scriviCambi } from "../src/lib/archivio.ts";
 import { TITOLI_TUTTI as TITOLI, BENCHMARK_MERCATO, BENCHMARK_TOTALE } from "../src/lib/universo.ts";
 import { leggiPortafoglio } from "../src/lib/portafoglio.ts";
 
@@ -112,6 +112,22 @@ const uniche = tutteLeNotizie.filter((n) => {
   return true;
 });
 if (uniche.length) await scriviNotizie(uniche);
+
+// --- Cambi -----------------------------------------------------------------
+// Serve a convertire i dividendi dichiarati in valuta diversa da quella di quotazione.
+riga("");
+const esitoCambi = await scaricaCambi();
+stati.push(esitoCambi.stato);
+if (esitoCambi.cambi) {
+  await scriviCambi(esitoCambi.cambi);
+  const usd = esitoCambi.cambi.tassi.USD;
+  riga(
+    `  ✓ cambi        ${esitoCambi.stato.record} valute al ${esitoCambi.cambi.data}` +
+      (usd ? ` (1 USD = ${usd.toFixed(5)} EUR)` : "")
+  );
+} else {
+  riga(`  ✗ cambi        ${esitoCambi.stato.messaggio}`);
+}
 
 // --- Istantanea ------------------------------------------------------------
 await scriviIstantanea({ generataIl: new Date().toISOString(), fonti: stati });

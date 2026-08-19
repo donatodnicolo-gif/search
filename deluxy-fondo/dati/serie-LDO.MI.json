@@ -3,7 +3,7 @@
   "nome": "Leonardo",
   "valuta": "EUR",
   "fonte": "Yahoo chart v8 (adjclose)",
-  "scaricataIl": "2026-08-19T08:01:54.999Z",
+  "scaricataIl": "2026-08-19T08:26:01.759Z",
   "barre": [
     {
       "data": "2025-08-19",
@@ -2010,8 +2010,8 @@
       "apertura": 59.439998626708984,
       "massimo": 59.959999084472656,
       "minimo": 58.97999954223633,
-      "chiusura": 59.84000015258789,
-      "volume": 168654
+      "chiusura": 59.459999084472656,
+      "volume": 208979
     }
   ]
 }

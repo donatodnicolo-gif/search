@@ -3,7 +3,7 @@
   "nome": "Renault",
   "valuta": "EUR",
   "fonte": "Yahoo chart v8 (adjclose)",
-  "scaricataIl": "2026-08-19T08:02:01.851Z",
+  "scaricataIl": "2026-08-19T08:26:08.157Z",
   "barre": [
     {
       "data": "2025-08-19",
@@ -2026,8 +2026,8 @@
       "apertura": 28.59000015258789,
       "massimo": 29.09000015258789,
       "minimo": 28.56999969482422,
-      "chiusura": 28.940000534057617,
-      "volume": 76497
+      "chiusura": 28.959999084472656,
+      "volume": 85886
     }
   ]
 }

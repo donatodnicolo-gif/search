@@ -3,7 +3,7 @@
   "nome": "Vonovia",
   "valuta": "EUR",
   "fonte": "Yahoo chart v8 (adjclose)",
-  "scaricataIl": "2026-08-19T08:02:07.076Z",
+  "scaricataIl": "2026-08-19T08:26:12.506Z",
   "barre": [
     {
       "data": "2025-08-19",
@@ -2009,9 +2009,9 @@
       "data": "2026-08-19",
       "apertura": 20.020000457763672,
       "massimo": 20.020000457763672,
-      "minimo": 19.885000228881836,
-      "chiusura": 19.93000030517578,
-      "volume": 156661
+      "minimo": 19.864999771118164,
+      "chiusura": 19.889999389648438,
+      "volume": 246025
     }
   ]
 }

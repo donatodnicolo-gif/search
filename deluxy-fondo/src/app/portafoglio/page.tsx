@@ -13,10 +13,24 @@
 import { costruisciPortafoglio } from "@/lib/portafoglio";
 import { leggiSerie } from "@/lib/archivio";
 import { TITOLI_TUTTI } from "@/lib/universo";
-import { Avviso, Metrica } from "@/componenti/pezzi";
+import { Avviso, Badge, Metrica } from "@/componenti/pezzi";
 import { dataBreve, numero, percentuale, prezzo, punti, verso } from "@/lib/formato";
 
 export const dynamic = "force-dynamic";
+
+const ETICHETTA_STATO: Record<string, string> = {
+  lontano: "lontano",
+  vicino: "vicino, da guardare",
+  scattata: "soglia superata",
+  "non-calcolabile": "non calcolabile",
+};
+
+const COLORE_STATO: Record<string, string> = {
+  lontano: "var(--green)",
+  vicino: "var(--orange)",
+  scattata: "var(--red)",
+  "non-calcolabile": "var(--text-tertiary)",
+};
 
 /** Il simulatore riceve simbolo e quantità dalla query: nessun JavaScript nel browser. */
 type Ricerca = { titolo?: string; quantita?: string; prezzo?: string };
@@ -116,6 +130,61 @@ export default async function Portafoglio({ searchParams }: { searchParams: Prom
             </Avviso>
           </div>
         ) : null}
+
+        {/* Il confronto che conta per un portafoglio: gli stessi soldi nell'indice. */}
+        <div className="card" style={{ marginTop: 14 }}>
+          <div className="card-testa">
+            <div>
+              <div className="card-titolo">E se avessi comprato l&apos;indice?</div>
+              <div className="card-sub">
+                Ogni importo cresciuto come {v.benchmarkUsato} dalla <strong>sua</strong> data di
+                acquisto: non il rendimento dell&apos;indice nell&apos;anno, ma quello che avresti
+                ottenuto mettendo gli stessi soldi negli stessi giorni.
+              </div>
+            </div>
+          </div>
+
+          {t.valoreSeIndice !== null ? (
+            <>
+              <div className="metriche" style={{ marginTop: 12 }}>
+                <Metrica
+                  nome="Il tuo portafoglio"
+                  valore={prezzo(t.valore, t.valutaComune ?? "EUR")}
+                  nota={`da ${prezzo(t.costo, t.valutaComune ?? "EUR")} investiti`}
+                  colore={verso(t.utilePerdita)}
+                />
+                <Metrica
+                  nome="Lo stesso denaro nell'indice"
+                  valore={prezzo(t.valoreSeIndice, t.valutaComune ?? "EUR")}
+                  nota="stesse date, stessi importi"
+                />
+                <Metrica
+                  nome="Differenza"
+                  valore={prezzo(t.differenzaSuIndice, t.valutaComune ?? "EUR")}
+                  nota={`${punti(t.differenzaSuIndicePunti)} sul capitale investito`}
+                  colore={verso(t.differenzaSuIndice)}
+                />
+              </div>
+              {t.nonConfrontabili > 0 ? (
+                <div className="fonte">
+                  Attenzione: {t.nonConfrontabili}{" "}
+                  {t.nonConfrontabili === 1 ? "posizione è esclusa" : "posizioni sono escluse"} dal
+                  confronto perché senza data di acquisto. Il numero sopra riguarda solo le{" "}
+                  {t.confrontabili} confrontabili, non tutto il portafoglio.
+                </div>
+              ) : null}
+            </>
+          ) : (
+            <div style={{ marginTop: 12 }}>
+              <Avviso titolo="Non ancora calcolabile." icona="=">
+                Per dire se l&apos;indice avrebbe fatto meglio serve sapere <strong>quando</strong>{" "}
+                hai comprato: il confronto si fa sullo stesso periodo, non su una finestra
+                arbitraria. Inserendo la data di acquisto nelle posizioni, questo blocco si
+                popola da solo.
+              </Avviso>
+            </div>
+          )}
+        </div>
 
         {t.valutaComune === null && t.valutate > 1 ? (
           <div style={{ marginTop: 12 }}>
@@ -265,6 +334,154 @@ export default async function Portafoglio({ searchParams }: { searchParams: Prom
           </div>
         ) : null}
       </div>
+
+      {/* ---------------- KPI, livelli, tecnico ---------------- */}
+      {v.posizioni
+        .filter((p) => p.kpi.length > 0 || p.livelli.length > 0)
+        .map((p) => (
+          <div className="sezione" key={`analisi-${p.posizione.id}`}>
+            <div className="sezione-titolo">{p.posizione.nome} — indicatori e livelli</div>
+            <p className="sezione-sub">
+              I livelli sotto vengono dalle <strong>soglie che hai scelto tu</strong>, scritte nei
+              dati: l&apos;app calcola solo a quale prezzo scattano e quanto sei lontano. Non
+              contengono alcun giudizio su cosa convenga fare.
+            </p>
+
+            {/* Contesto tecnico */}
+            {p.tecnico ? (
+              <div className="metriche">
+                <Metrica
+                  nome="Posizione nel range annuale"
+                  valore={percentuale(p.tecnico.posizioneRange, 0)}
+                  nota={`fra ${prezzo(p.tecnico.minimo52, p.posizione.valuta)} e ${prezzo(p.tecnico.massimo52, p.posizione.valuta)}`}
+                />
+                <Metrica
+                  nome="Distanza dalla media a 200"
+                  valore={percentuale(p.tecnico.distanzaMa200)}
+                  nota={`media ${prezzo(p.tecnico.ma200, p.posizione.valuta)}`}
+                  colore={verso(p.tecnico.distanzaMa200)}
+                />
+                <Metrica
+                  nome="Volatilità annualizzata"
+                  valore={percentuale(p.tecnico.volatilita)}
+                  nota="quanto oscilla, su base annua"
+                />
+                <Metrica
+                  nome="Massimo ribasso in 12 mesi"
+                  valore={percentuale(p.tecnico.drawdown)}
+                  nota="quanto ha perso dal picco"
+                  colore="giu"
+                />
+              </div>
+            ) : null}
+
+            {/* Livelli operativi */}
+            {p.livelli.length > 0 ? (
+              <div className="tabella-scroll" style={{ marginTop: 16 }}>
+                <table className="tab" style={{ minWidth: 820 }}>
+                  <thead>
+                    <tr>
+                      <th style={{ minWidth: 190 }}>Regola</th>
+                      <th className="num">Livello</th>
+                      <th className="num">Distanza</th>
+                      <th>Stato</th>
+                      <th>Cosa dice la regola</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {p.livelli.map((l) => (
+                      <tr key={l.nome}>
+                        <td style={{ fontWeight: 550 }}>{l.nome}</td>
+                        <td className="num">
+                          {l.prezzo !== null ? prezzo(l.prezzo, p.posizione.valuta) : "—"}
+                        </td>
+                        <td className={`num ${l.stato === "scattata" ? "giu" : ""}`}>
+                          {l.distanza !== null ? percentuale(l.distanza) : "—"}
+                        </td>
+                        <td>
+                          <Badge testo={ETICHETTA_STATO[l.stato]} colore={COLORE_STATO[l.stato]} forte={l.stato !== "lontano"} />
+                        </td>
+                        <td style={{ fontSize: 12.5, color: "var(--text-secondary)", maxWidth: "44ch" }}>
+                          {l.descrizione}
+                          {l.problema ? (
+                            <div style={{ color: "var(--text-tertiary)", marginTop: 3 }}>{l.problema}</div>
+                          ) : null}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : null}
+
+            {/* KPI fondamentali */}
+            {p.kpi.length > 0 ? (
+              <div className="tabella-scroll" style={{ marginTop: 16 }}>
+                <table className="tab" style={{ minWidth: 820 }}>
+                  <thead>
+                    <tr>
+                      <th style={{ minWidth: 180 }}>Indicatore</th>
+                      <th className="num">Valore</th>
+                      <th>Cosa misura</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {p.kpi.map((k) => (
+                      <tr key={k.nome}>
+                        <td style={{ fontWeight: 550 }}>
+                          {k.nome}
+                          <div style={{ fontSize: 11, color: "var(--text-tertiary)", fontWeight: 400, marginTop: 2 }}>
+                            {k.provenienza}
+                          </div>
+                        </td>
+                        <td className="num" style={{ fontWeight: 600 }}>
+                          {k.valore === null ? (
+                            <span className="neutro" style={{ fontWeight: 400 }}>
+                              non calcolabile
+                            </span>
+                          ) : k.tipo === "percentuale" ? (
+                            <span className={verso(k.valore)}>{percentuale(k.valore, 2)}</span>
+                          ) : k.tipo === "multiplo" ? (
+                            `${numero(k.valore, 2)}x`
+                          ) : k.tipo === "valuta" ? (
+                            <span className={verso(k.valore)}>{numero(k.valore / 1e9, 2)} mld</span>
+                          ) : (
+                            numero(k.valore, 2)
+                          )}
+                        </td>
+                        <td style={{ fontSize: 12.5, color: "var(--text-secondary)", maxWidth: "50ch" }}>
+                          {k.significato}
+                          {k.problema ? (
+                            <div style={{ color: "var(--orange)", marginTop: 4 }}>{k.problema}</div>
+                          ) : null}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : null}
+
+            {/* Cosa farebbe cadere la tesi: si controlla a mano, non si deduce */}
+            {p.posizione.regole?.tesiInvalidataSe?.length ? (
+              <div className="card" style={{ marginTop: 16 }}>
+                <div className="card-titolo" style={{ fontSize: 14 }}>
+                  Cosa farebbe cadere la tesi
+                </div>
+                <div className="card-sub">
+                  Fatti da verificare a mano: l&apos;app non li deduce dai prezzi né dai titoli di
+                  giornale, perché sbaglierebbe. Sono la lista da rileggere quando arrivano i
+                  risultati o una notizia societaria.
+                </div>
+                <ul style={{ margin: "10px 0 0 18px", fontSize: 13, lineHeight: 1.65 }}>
+                  {p.posizione.regole.tesiInvalidataSe.map((r, i) => (
+                    <li key={i}>{r}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </div>
+        ))}
 
       {/* ---------------- Simulatore ---------------- */}
       <div className="sezione">

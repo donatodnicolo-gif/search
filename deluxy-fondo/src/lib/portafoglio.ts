@@ -16,10 +16,20 @@
 
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { CARTELLA_DATI, leggiSerie } from "./archivio.ts";
+import { CARTELLA_DATI, leggiSerie, leggiFondamentali, leggiCambi } from "./archivio.ts";
 import { variazione } from "./statistica.ts";
 import { BENCHMARK_TOTALE, BENCHMARK_MERCATO } from "./universo.ts";
+import {
+  contestoTecnico,
+  kpiFondamentali,
+  livelliOperativi,
+  type ContestoTecnico,
+  type Kpi,
+  type Livello,
+  type Regole,
+} from "./analisi-operativa.ts";
 import type { SerieStorica } from "./tipi";
+import type { Fondamentali } from "./fonti";
 
 export type Posizione = {
   id: string;
@@ -47,6 +57,20 @@ export type Posizione = {
   note: string | null;
   /** Perché è in portafoglio: la tesi, scritta prima e non riscritta dopo. */
   tesi: string | null;
+
+  /** Cedola annua per azione, indicata a mano: le fonti gratuite verificate non la danno. */
+  dividendoPerAzione?: number | null;
+  /** Valuta della cedola: se diversa da quella di quotazione, il rendimento passa dal cambio. */
+  valutaDividendo?: string | null;
+  /** Capitalizzazione in milioni, per i multipli di valutazione. */
+  capitalizzazioneMln?: number | null;
+  /**
+   * Simbolo da cui prendere i fondamentali, quando è diverso da quello dei prezzi.
+   * Le quotazioni secondarie europee non hanno bilanci: si usa quello primario.
+   */
+  simboloFondamentali?: string | null;
+  /** Soglie di sorveglianza scelte da chi investe. Il programma non ne impone nessuna. */
+  regole?: Regole | null;
 };
 
 export type Ipotesi = {
@@ -119,6 +143,13 @@ export type PosizioneValutata = {
   massimoDaAcquisto: number | null;
   minimoDaAcquisto: number | null;
   giorniDetenzione: number | null;
+
+  /** KPI da analista: valutazione, qualità, solidità. Vuoto se non ci sono fondamentali. */
+  kpi: Kpi[];
+  /** Livelli di prezzo a cui scattano le regole scelte. Vuoto se non sono state fissate. */
+  livelli: Livello[];
+  /** Dove sta il prezzo: massimi, minimi, medie, volatilità. */
+  tecnico: ContestoTecnico | null;
 };
 
 function seduteDa(dataISO: string | null): number | null {
@@ -137,7 +168,10 @@ function seduteDa(dataISO: string | null): number | null {
 export function valutaPosizione(
   posizione: Posizione,
   serie: SerieStorica | null,
-  benchmark: SerieStorica | null
+  benchmark: SerieStorica | null,
+  fondamentali: Fondamentali | null = null,
+  /** Quanto vale 1 unità della valuta del dividendo nella valuta di quotazione. */
+  cambio: number | null = null
 ): PosizioneValutata {
   const vuoto: PosizioneValutata = {
     posizione,
@@ -155,6 +189,9 @@ export function valutaPosizione(
     massimoDaAcquisto: null,
     minimoDaAcquisto: null,
     giorniDetenzione: null,
+    kpi: [],
+    livelli: [],
+    tecnico: null,
   };
 
   // Per valutare bastano quantità e prezzo pagato. La data serve solo al confronto con
@@ -165,11 +202,25 @@ export function valutaPosizione(
   if (posizione.prezzoCarico === null) mancanti.push("prezzo di carico");
 
   const ultimo = serie?.barre.at(-1) ?? null;
+  const tecnico = contestoTecnico(serie);
+
+  // I KPI dipendono solo dai fondamentali e dal prezzo: si calcolano anche su una posizione
+  // incompleta, perché servono a valutare la società, non l'operazione.
+  const kpi = kpiFondamentali(fondamentali, {
+    prezzo: ultimo?.chiusura ?? null,
+    capitalizzazioneMln: posizione.capitalizzazioneMln ?? null,
+    dividendoPerAzione: posizione.dividendoPerAzione ?? null,
+    valutaDividendo: posizione.valutaDividendo ?? null,
+    cambioDividendo: cambio,
+  });
+
   const base = {
     ...vuoto,
     ultimoPrezzo: ultimo?.chiusura ?? null,
     ultimaData: ultimo?.data ?? null,
     seduteDaUltimoDato: seduteDa(ultimo?.data ?? null),
+    kpi,
+    tecnico,
   };
 
   if (!serie || !ultimo) {
@@ -209,9 +260,29 @@ export function valutaPosizione(
   // Il rendimento della posizione si misura sul prezzo pagato, commissioni incluse: è quello
   // che conta per chi ha messo i soldi, non la variazione teorica del titolo.
   const utilePerditaPercentuale = costoTotale > 0 ? utilePerdita / costoTotale : null;
+  const massimoDaAcquisto = chiusure.length ? Math.max(...chiusure) : null;
+  const mesiTrascorsi = dataAcquisto ? (Date.now() - Date.parse(dataAcquisto)) / (30.44 * 86_400_000) : null;
+
+  const eccesso =
+    utilePerditaPercentuale !== null && rendimentoIndice !== null
+      ? utilePerditaPercentuale - rendimentoIndice
+      : null;
+
+  // I livelli esistono solo se qualcuno ha fissato delle regole: il programma non ne inventa.
+  const livelli = posizione.regole
+    ? livelliOperativi({
+        prezzoCarico: carico,
+        prezzoAttuale: ultimo.chiusura,
+        massimoDaAcquisto,
+        eccessoSuIndice: eccesso,
+        mesiTrascorsi,
+        regole: posizione.regole,
+      })
+    : [];
 
   return {
     ...base,
+    livelli,
     completa: true,
     // Non è un errore, ma una parte della valutazione resta impossibile: va dichiarata.
     problema: dataAcquisto
@@ -222,11 +293,8 @@ export function valutaPosizione(
     utilePerdita,
     utilePerditaPercentuale,
     rendimentoIndice,
-    eccesso:
-      utilePerditaPercentuale !== null && rendimentoIndice !== null
-        ? utilePerditaPercentuale - rendimentoIndice
-        : null,
-    massimoDaAcquisto: chiusure.length ? Math.max(...chiusure) : null,
+    eccesso,
+    massimoDaAcquisto,
     minimoDaAcquisto: chiusure.length ? Math.min(...chiusure) : null,
     giorniDetenzione: dataAcquisto ? Math.round((Date.now() - Date.parse(dataAcquisto)) / 86_400_000) : null,
   };
@@ -281,18 +349,36 @@ export type VistaPortafoglio = {
     valore: number | null;
     utilePerdita: number | null;
     utilePerditaPercentuale: number | null;
+
+    /**
+     * Il confronto che conta per un portafoglio: **con gli stessi soldi, alle stesse date,
+     * nell'indice**. Non è il rendimento dell'indice nell'anno: è quello ottenuto investendo
+     * ogni importo il giorno in cui è stato investito davvero.
+     */
+    valoreSeIndice: number | null;
+    /** Differenza in valuta fra il portafoglio e lo stesso denaro nell'indice. */
+    differenzaSuIndice: number | null;
+    /** La stessa differenza in punti percentuali sul capitale investito. */
+    differenzaSuIndicePunti: number | null;
+    /** Quante posizioni hanno la data necessaria al confronto, e quante no. */
+    confrontabili: number;
+    nonConfrontabili: number;
   };
 };
 
 export async function costruisciPortafoglio(): Promise<VistaPortafoglio> {
   const file = await leggiPortafoglio();
+  const cambi = await leggiCambi();
   const totale = await leggiSerie(BENCHMARK_TOTALE);
   const benchmark = totale ?? (await leggiSerie(BENCHMARK_MERCATO));
 
   const posizioni: PosizioneValutata[] = [];
   for (const p of file.posizioni) {
     const serie = await leggiSerie(p.simbolo);
-    posizioni.push(valutaPosizione(p, serie, benchmark));
+    // I bilanci stanno sulla quotazione primaria: una secondaria europea non ne ha.
+    const fondamentali = await leggiFondamentali(p.simboloFondamentali ?? p.simbolo);
+    const cambio = p.valutaDividendo && p.valutaDividendo !== "EUR" ? (cambi?.tassi?.[p.valutaDividendo] ?? null) : 1;
+    posizioni.push(valutaPosizione(p, serie, benchmark, fondamentali, cambio));
   }
 
   const ipotesi: IpotesiValutata[] = [];
@@ -308,6 +394,21 @@ export async function costruisciPortafoglio(): Promise<VistaPortafoglio> {
   const costo = valutaComune ? valutate.reduce((s, p) => s + (p.costoTotale ?? 0), 0) : null;
   const valore = valutaComune ? valutate.reduce((s, p) => s + (p.valoreAttuale ?? 0), 0) : null;
 
+  // «E se avessi comprato l'indice?» — ogni importo cresciuto come l'indice dalla SUA data.
+  // Le posizioni senza data restano fuori dal confronto, ma vengono contate: un confronto
+  // su metà del portafoglio presentato come totale sarebbe fuorviante.
+  const confrontabili = valutate.filter((p) => p.rendimentoIndice !== null);
+  const nonConfrontabili = valutate.length - confrontabili.length;
+
+  const costoConfrontabile = confrontabili.reduce((s, p) => s + (p.costoTotale ?? 0), 0);
+  const valoreConfrontabile = confrontabili.reduce((s, p) => s + (p.valoreAttuale ?? 0), 0);
+  const valoreSeIndice =
+    valutaComune && confrontabili.length > 0
+      ? confrontabili.reduce((s, p) => s + (p.costoTotale ?? 0) * (1 + (p.rendimentoIndice ?? 0)), 0)
+      : null;
+
+  const differenzaSuIndice = valoreSeIndice !== null ? valoreConfrontabile - valoreSeIndice : null;
+
   return {
     file,
     posizioni,
@@ -322,6 +423,12 @@ export async function costruisciPortafoglio(): Promise<VistaPortafoglio> {
       valore,
       utilePerdita: costo !== null && valore !== null ? valore - costo : null,
       utilePerditaPercentuale: costo !== null && valore !== null && costo > 0 ? (valore - costo) / costo : null,
+      valoreSeIndice,
+      differenzaSuIndice,
+      differenzaSuIndicePunti:
+        differenzaSuIndice !== null && costoConfrontabile > 0 ? differenzaSuIndice / costoConfrontabile : null,
+      confrontabili: confrontabili.length,
+      nonConfrontabili,
     },
   };
 }
