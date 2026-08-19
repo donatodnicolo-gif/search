@@ -555,6 +555,30 @@ non si vedono dati reali né si può diagnosticare «La Mimosa»).
    presenza nel riepilogo con `target="_blank" rel="noopener"`; console pulita (restano solo i 401
    delle API in locale). `node --check` su `order.js` e `webhook.js` OK.
 
+45. **Prefisso internazionale nei numeri + avviso «tipologia non riconosciuta»** (19/08):
+   - **Prefissi**: le schede Google mostrano ora `international_phone_number` («+39 0165 547485»
+     invece di «0165 547485») — è Google a sapere il paese del negozio, non si indovina niente.
+     Per i numeri del **registro** il paese non è scritto da nessuna parte: `telConPrefisso(num,
+     provincia)` aggiunge `+39` **solo** se `provItaliana(provincia)` (sigla nella tabella delle
+     107 province), e mai se il numero ha già `+`/`00`. Su un partner estero (Sainte-Maxime, Var)
+     il numero resta com'è: meglio senza prefisso che con quello sbagliato, perché lo compone una
+     persona. Applicato a schede registro, referenti, numeri del registro sulle schede Google
+     (`enrichCardWithRegistry`) e tendina della mappa.
+   - **Avviso sulla tipologia** (`#tipoHint`, `aggiornaTipoHint`): sotto il campo «Prodotto» ora
+     c'è scritto cosa finirà nel messaggio — «✅ Nel messaggio: “un Bouquet … come da foto”»
+     oppure «⚠️ Tipologia non riconosciuta (<perché>): nel messaggio va il nome del prodotto»
+     con i **tag letti**, la **categoria** e i due rimedi. I «perché» distinti: nessun tag sul
+     prodotto (o ordine salvato prima del 19/08 → riaprirlo), nessun tag utile fra quelli letti,
+     righe dell'ordine con tipologie diverse, ordine compilato a mano. Senza foto l'avviso non
+     compare (lì il nome del prodotto è voluto). Si aggiorna anche quando il testo è stato
+     modificato a mano.
+     Motivo: il 19/08 l'unico modo di accorgersi che il messaggio diceva ancora «Monet - Giardino
+     a Giverny» era leggere il testo già pronto per il fornitore. Ora lo dice la scheda, e dice
+     anche quale dato manca.
+   Verificato nel browser: numero Google col prefisso (testo e `tel:`), registro italiano con
+   `+39`, registro francese invariato, numero già con `+39` non raddoppiato; avviso nei 5 casi
+   (riconosciuto, tag inutili, ordine senza tag, righe discordi, senza foto). Console pulita.
+
 ## Cose in sospeso
 
 - **Tipologia nel messaggio: da provare su un ordine vero** — il 19/08 il riconoscimento è passato

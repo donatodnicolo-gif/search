@@ -631,7 +631,9 @@
           <div class="budget-hint" id="budgetHint"></div>
         </div>
       </div>
-      <div style="margin-top:12px"><label>Prodotto / bouquet richiesto</label><input id="ord_items" type="text"></div>
+      <div style="margin-top:12px"><label>Prodotto / bouquet richiesto</label><input id="ord_items" type="text">
+        <div class="hint" id="tipoHint" style="margin-top:4px; display:none"></div>
+      </div>
       <div class="fgrid fgrid-2" style="margin-top:12px">
         <div><label>Variante (colore, misura…)</label><input id="ord_variant" type="text"></div>
         <div><label>Quantità</label><input id="ord_qty" type="text" placeholder="es. 1"></div>
@@ -1547,20 +1549,32 @@ function renderContatti(){
     </div>`;
   }).join('');
 }
+// Prefisso internazionale nei numeri mostrati. Le schede Google hanno il numero già completo
+// (`international_phone_number`: Google sa il paese del negozio). Per i numeri del REGISTRO il
+// paese non è scritto da nessuna parte: si aggiunge +39 solo se la provincia è una delle 107
+// italiane. Su un partner estero (es. Sainte-Maxime) il numero resta com'è: meglio senza prefisso
+// che con quello sbagliato, perché quel numero lo compone una persona.
+function provItaliana(v){ const s = normProv(v); return !!s && SIGLE.has(s); }
+function telConPrefisso(numero, provincia){
+  const t = String(numero || '').trim();
+  if(!t || t.startsWith('+') || /^00\d/.test(t)) return t;
+  return provItaliana(provincia) ? '+39 ' + t : t;
+}
 function ctCard(p, opts){
   opts = opts || {};
   const partner = ctIsPartner(p);
   const digits = (p.telefono||'').replace(/[^\d]/g,'');
   const hasWa = digits.length >= 8;
   const c = [];
-  if(p.telefono) c.push(`<a class="tel" href="tel:${esc(p.telefono)}">📞 ${esc(p.telefono)}</a>`);
+  const telP = telConPrefisso(p.telefono, p.provincia);
+  if(p.telefono) c.push(`<a class="tel" href="tel:${esc(telP)}">📞 ${esc(telP)}</a>`);
   if(hasWa)      c.push(`<a class="wa" href="${waChatUrl(digits)}" target="_blank" rel="noopener">💬 ${IS_MOBILE?'WhatsApp':'WhatsApp Web'}</a>`);
   if(p.email)    c.push(`<a class="mail" href="mailto:${esc(p.email)}">✉️ ${esc(p.email)}</a>`);
   if(!c.length)  c.push('<span class="none">Nessun contatto nel registro</span>');
   const refs = (p.contatti||[]).map(ct=>{
     const chi = [ct.nome, ct.ruolo].filter(Boolean).join(' · ');
     const bits = [];
-    if(ct.telefono) bits.push(`<a class="tel" href="tel:${esc(ct.telefono)}">📞 ${esc(ct.telefono)}</a>`);
+    if(ct.telefono){ const t = telConPrefisso(ct.telefono, p.provincia); bits.push(`<a class="tel" href="tel:${esc(t)}">📞 ${esc(t)}</a>`); }
     if(ct.email) bits.push(`<a class="mail" href="mailto:${esc(ct.email)}">✉️ ${esc(ct.email)}</a>`);
     if(!chi && !bits.length) return '';
     return `<div class="ct-ref">👤 ${esc(chi||'referente')} ${bits.length?'<div class="contacts" style="margin-top:4px">'+bits.join('')+'</div>':''}</div>`;
@@ -1902,7 +1916,8 @@ function registryCard(p){
   const waDigits = digits ? (digits.length<=10 && digits[0]==='3' ? '39'+digits : digits) : '';
   const hasWa = waDigits.length >= 8;
   const c = [];
-  if(p.telefono) c.push(`<a class="tel" href="tel:${esc(p.telefono)}">📞 ${esc(p.telefono)}</a>`);
+  const telP = telConPrefisso(p.telefono, p.provincia);
+  if(p.telefono) c.push(`<a class="tel" href="tel:${esc(telP)}">📞 ${esc(telP)}</a>`);
   if(hasWa) c.push(`<a class="wa" href="${waChatUrl(waDigits)}" target="_blank" rel="noopener">💬 ${IS_MOBILE?'WhatsApp':'WhatsApp Web'}</a>`);
   if(p.email) c.push(`<a class="mail" href="mailto:${esc(p.email)}">✉️ ${esc(p.email)}</a>`);
   if(!c.length) c.push('<span class="none">Nessun contatto nel registro</span>');
@@ -1915,7 +1930,8 @@ function registryCard(p){
     const bits = [];
     const chi = [ct.nome, ct.ruolo].filter(Boolean).join(' · ');
     if(ct.telefono){
-      bits.push(`<a class="tel" href="tel:${esc(ct.telefono)}">📞 ${esc(ct.telefono)}</a>`);
+      const tRef = telConPrefisso(ct.telefono, p.provincia);
+      bits.push(`<a class="tel" href="tel:${esc(tRef)}">📞 ${esc(tRef)}</a>`);
       const d = String(ct.telefono).replace(/[^\d]/g,'');
       const wd = d ? (d.length<=10 && d[0]==='3' ? '39'+d : d) : '';
       if(wd.length>=8 && !giaTel.has(wd.slice(-9))){
@@ -2481,7 +2497,34 @@ function buildOrderMessage(lang){
 
 /* ---- textarea del messaggio: si rigenera dai campi finché l'utente non la modifica ---- */
 let msgDirty = false;   // true = l'utente ha scritto a mano: non sovrascrivere e usa il suo testo
+// Dice a schermo COSA finirà nel messaggio al posto del nome del prodotto, e se non riconosce la
+// tipologia dice perché: senza questo, l'unico modo di accorgersene è leggere il messaggio già
+// scritto al fornitore (successo il 19/08: «Monet - Giardino a Giverny» al posto di «un Bouquet»).
+function aggiornaTipoHint(){
+  const el = $('#tipoHint');
+  if(!el) return;
+  const items = (orderItems && orderItems.length) ? orderItems : [];
+  if(!orderLoaded || !$('#ord_photo').value.trim()){ el.style.display='none'; return; }   // senza foto va il nome, per scelta
+  const tipi = [...new Set(items.map(tipoProdotto))];
+  const tipo = (items.length && tipi.length===1) ? tipi[0] : '';
+  el.style.display = '';
+  if(tipo){
+    el.innerHTML = '✅ Nel messaggio: «<b>' + esc(TIPO_PRODOTTO[tipo].it) + '</b> … come da foto».';
+    return;
+  }
+  const tag = [...new Set(items.flatMap(i => Array.isArray(i.tags) ? i.tags : []))];
+  const cat = [...new Set(items.map(i => (i.type||'').trim()).filter(Boolean))];
+  const perche = !items.length ? 'ordine compilato a mano'
+    : tipi.filter(Boolean).length > 1 ? 'le righe dell\'ordine dicono tipologie diverse'
+    : !tag.length ? 'il prodotto non ha tag su Shopify (o l\'ordine è stato salvato prima del 19/08: riaprilo)'
+    : 'nessun tag Bouquet / Cappelliera / Torta';
+  el.innerHTML = '⚠️ Tipologia non riconosciuta (' + esc(perche) + '): nel messaggio va il <b>nome del prodotto</b>.'
+    + (tag.length ? ' Tag letti: ' + esc(tag.join(', ')) + '.' : '')
+    + (cat.length ? ' Categoria: ' + esc(cat.join(', ')) + '.' : '')
+    + ' Rimedi: un tag sul prodotto in Shopify, oppure una riga in ⚙️ Impostazioni → «Categorie Shopify → tipo di prodotto».';
+}
 function refreshOrderMessage(force){
+  aggiornaTipoHint();   // l'avviso sulla tipologia si aggiorna sempre, anche se il testo è stato modificato a mano
   if(msgDirty && !force) return;
   msgDirty = false;
   $('#ord_msg').value = buildOrderMessage($('#ordLang').value);
@@ -2977,7 +3020,8 @@ function enrichCardWithRegistry(card, p){
     const d = telDigits(tel);
     if(d.length < 8 || giaTel.has(d.slice(-9))) return;
     giaTel.add(d.slice(-9));
-    rows.push(`<a class="tel" href="tel:${esc(tel)}">📞 ${esc(tel)}${chi?' · '+esc(chi):''}</a>`
+    const telV = telConPrefisso(tel, p.provincia);
+    rows.push(`<a class="tel" href="tel:${esc(telV)}">📞 ${esc(telV)}${chi?' · '+esc(chi):''}</a>`
             + `<a class="wa" href="${waChatUrl(d)}" target="_blank" rel="noopener">💬 ${IS_MOBILE?'WhatsApp':'WhatsApp Web'}</a>`);
     sendRows.push(`<button class="sendorder" data-phone="${d}" data-lang="${card.dataset.lang||'it'}">📤 Invia richiesta su WhatsApp — numero del registro${chi?' ('+esc(chi)+')':''}</button>`);
   };
@@ -3389,7 +3433,7 @@ function shopCard(d, cat, dist, pid){
     </details>` : '';
 
   const c = [];
-  if(phone) c.push(`<a class="tel" href="tel:${intl||phone}">📞 ${phone}</a>`);
+  if(phone) c.push(`<a class="tel" href="tel:${intl||phone}">📞 ${intl||phone}</a>`);
   if(waChat) c.push(`<a class="wa" href="${waChat}" target="_blank" rel="noopener">💬 ${IS_MOBILE?'WhatsApp':'WhatsApp Web'}</a>`);
   if(d.website) c.push(`<a class="web" href="${d.website}" target="_blank" rel="noopener">🌐 Sito</a>`);
   if(d.url)     c.push(`<a class="map" href="${d.url}" target="_blank" rel="noopener">🗺️ Maps</a>`);
@@ -3675,7 +3719,7 @@ async function renderResults(found, geo, origin, service, opts){
       mapPoints.push({ name:d.name, loc, sid:f.place.place_id, cat:f.cat,
         open: card.dataset.open, distText: (f.driveText||distanceStr(f.dist)),
         address: d.formatted_address||'', rating: d.rating||0, ratingTotal: d.user_ratings_total||0,
-        phone: d.formatted_phone_number || intlN || '', waDigits: (waN.length>=8?waN:''), url: d.url||'',
+        phone: intlN || d.formatted_phone_number || '', waDigits: (waN.length>=8?waN:''), url: d.url||'',
         foto: fotoPin ? fotoPin.thumb : '' });
     }
   }

@@ -98,6 +98,7 @@ Dopo aver aggiunto/cambiato una env → **Redeploy**.
 
 
 
+- **Numeri di telefono** (19/08): a schermo vanno **col prefisso internazionale**. Schede Google → `international_phone_number` (Google sa il paese). Numeri del registro → `telConPrefisso(num, provincia)`: `+39` solo se la provincia è italiana (`provItaliana`, tabella delle 107 sigle), mai su numeri che hanno già `+`/`00`, mai su partner esteri.
 - **`orderId`** (19/08): id numerico dell'ordine su Shopify, restituito da `/api/order` (da `gid://shopify/Order/…`) e salvato dal webhook. Serve al bottone **«🛍️ Apri su Shopify»** del front-end, che costruisce `https://admin.shopify.com/store/<handle>/orders/<id>` con l'handle preso da `CONFIG.stores[].shop`; senza id ripiega sulla ricerca `?query=%23<numero>`.
 - **Variante** (19/08): entra nel messaggio **solo per le torte**, dove è il numero di porzioni e diventa «per 20 persone» (`PERSONEWORD`, `variantePerTorta`; `20 / Cioccolato` → «per 20 persone, Cioccolato»). Per bouquet e cappelliere la variante è la taglia commerciale Deluxy e **resta fuori** (al fornitore serve il budget, non «Medio-Grande»). Se la tipologia non si riconosce si mostra nome prodotto + variante.
 ⚠️ **Come si riconosce il formato (aggiornato 19/08)**: il `productType` di Shopify **non** dice il
