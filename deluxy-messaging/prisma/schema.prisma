@@ -338,6 +338,20 @@ model Ordine {
   //
   // ⚠️ Segnala, non blocca: chi ha preso l'ordine può andare a pranzo, e un
   // lucchetto vero lascerebbe il cliente senza risposta.
+  // ── Pagamento e rischio frode, come li vede Shopify ──
+  //
+  // Arrivano da Orders (`shopify.financialStatus` e `shopify.rischio`), che li
+  // legge da Shopify: qui si copiano soltanto. Servono a una cosa sola ma
+  // importante — **fermare la mano prima di far partire un ordine che non è
+  // stato pagato o che Shopify considera sospetto**.
+  //
+  // ⚠️ `rischioLivello` è la valutazione PIÙ SEVERA fra quelle che Shopify
+  // conosce (NONE | LOW | MEDIUM | HIGH); `rischioRaccomandazione` è cosa dice
+  // di fare (ACCEPT | INVESTIGATE | CANCEL). Vuoti = non lo sappiamo, che non
+  // vuol dire «nessun rischio».
+  rischioLivello String   @default("")
+  rischioRaccomandazione String @default("")
+
   presaDaId      String   @default("")
   presaDaNome    String   @default("")
   presaIl        DateTime?

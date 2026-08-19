@@ -50,6 +50,14 @@ export type OrdineArchivio = {
   // C'è una nota del cliente su questo ordine (dentro c'è il biglietto)?
   // Solo il sì/no: il testo resta in Orders e lo chiede il dettaglio.
   haBiglietto: boolean
+  // Come sta il PAGAMENTO secondo Shopify: PAID | PENDING | REFUNDED |
+  // PARTIALLY_REFUNDED | VOIDED… Vuoto = Orders non l'ha mandato.
+  statoPagamento: string
+  // Il rischio frode: livello (NONE | LOW | MEDIUM | HIGH) e cosa dice di fare
+  // Shopify (ACCEPT | INVESTIGATE | CANCEL). Vuoti = non lo sappiamo — che è
+  // diverso da «nessun rischio», e per questo non si mostra niente.
+  rischioLivello: string
+  rischioRaccomandazione: string
 }
 
 export type EsitoArchivio =
@@ -79,7 +87,15 @@ type OrdineOrders = {
   // Attributo «biglietto» dell'ordine: c'è di rado (71 ordini su 800). Il
   // testo vero sta quasi sempre in `shopify.note`.
   biglietto?: string | null
-  shopify?: { note?: string | null } | null
+  shopify?: {
+    note?: string | null
+    financialStatus?: string | null
+    rischio?: {
+      livello?: string | null
+      raccomandazione?: string | null
+      motivi?: string[] | null
+    } | null
+  } | null
   spedizione?: { citta?: string | null; paese?: string | null }
   consegna?: { data?: string | null; fascia?: string | null }
   classificazione?: { stato?: { chiave?: string; nome?: string } | null }
@@ -146,6 +162,9 @@ function normalizza(o: OrdineOrders): OrdineArchivio {
     // o non c'è — DENTRO al testo non si entra, perché contiene anche indirizzi
     // e telefoni e interpretarlo è la trappola già pagata.
     haBiglietto: Boolean(testoBiglietto(o.shopify?.note, o.biglietto)),
+    statoPagamento: o.shopify?.financialStatus ?? '',
+    rischioLivello: o.shopify?.rischio?.livello ?? '',
+    rischioRaccomandazione: o.shopify?.rischio?.raccomandazione ?? '',
   }
 }
 

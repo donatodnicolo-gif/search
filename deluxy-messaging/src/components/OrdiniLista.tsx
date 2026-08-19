@@ -18,6 +18,7 @@ import {
   ORE_APPENA_ARRIVATO,
 } from '@/lib/cliente-valore'
 import { linkOrdineShopify } from '@/lib/link-shopify'
+import { segnaliOrdine } from '@/lib/segnali-ordine'
 import { DettaglioOrdine } from './DettaglioOrdine'
 import { ComponiMail, type BozzaMail } from './ComponiMail'
 
@@ -80,6 +81,9 @@ type OrdineDto = {
    */
   presaDaId: string
   presaDaNome: string
+  /** Rischio frode secondo Shopify: NONE | LOW | MEDIUM | HIGH, e cosa consiglia. */
+  rischioLivello: string
+  rischioRaccomandazione: string
 }
 
 /**
@@ -1396,6 +1400,28 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
                           >
                             {nomeGestione(o.gestione)}
                           </span>
+                          {/* ⚠️ I segnali che devono fermare la mano — pagamento
+                              non incassato, sospetto di frode — stanno QUI, in
+                              lista: l'ordine si lavora scorrendo la bacheca, e
+                              un avviso dentro un pannello che si apre a
+                              richiesta lo legge solo chi era già andato a
+                              cercarlo. Rosso solo per quelli gravi: se sono
+                              rossi tutti, non è rosso nessuno. */}
+                          {segnaliOrdine(o).map((s) => (
+                            <span
+                              key={s.etichetta}
+                              className="badge"
+                              style={{
+                                color: s.grave ? 'var(--red)' : 'var(--text-secondary)',
+                                background: s.grave ? 'rgba(215, 0, 21, 0.08)' : 'var(--fill)',
+                                fontWeight: s.grave ? 600 : undefined,
+                              }}
+                              title={s.spiegazione}
+                            >
+                              {s.grave ? '⚠️ ' : ''}
+                              {s.etichetta}
+                            </span>
+                          ))}
                           {o.presaDaId ? (
                             <span
                               className="badge"
@@ -1681,6 +1707,22 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
                     >
                       {nomeGestione(o.gestione)}
                     </span>
+                    {segnaliOrdine(o).map((s) => (
+                      <span
+                        key={s.etichetta}
+                        className="badge"
+                        style={{
+                          marginLeft: 6,
+                          color: s.grave ? 'var(--red)' : 'var(--text-secondary)',
+                          background: s.grave ? 'rgba(215, 0, 21, 0.08)' : 'var(--fill)',
+                          fontWeight: s.grave ? 600 : undefined,
+                        }}
+                        title={s.spiegazione}
+                      >
+                        {s.grave ? '⚠️ ' : ''}
+                        {s.etichetta}
+                      </span>
+                    ))}
                     {/* Di chi è il lavoro: oro = di un collega, grigio = mio.
                         Due colori perché la domanda non è «è preso?» ma «è
                         preso da me?». */}

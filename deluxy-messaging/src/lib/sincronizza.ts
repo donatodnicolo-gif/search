@@ -125,6 +125,14 @@ export async function sincronizzaOrdini(
       // nota, il simbolo in lista deve spegnersi. È l'opposto degli ordinali,
       // dove un null in arrivo vuol dire «non calcolato» e non «non c'è più».
       haBiglietto: o.haBiglietto,
+      // ⚠️ Pagamento e rischio si riscrivono SEMPRE, anche a vuoto: sono lo
+      // stato di adesso, non un dato che si accumula. Un ordine rimborsato
+      // ieri e «PENDING» oggi deve smettere di dirsi pagato — e uno che Shopify
+      // ha smesso di considerare sospetto deve smettere di allarmare, altrimenti
+      // il bollino rosso diventa un'etichetta che nessuno guarda più.
+      statoPagamento: o.statoPagamento,
+      rischioLivello: o.rischioLivello,
+      rischioRaccomandazione: o.rischioRaccomandazione,
     }
     const esito = await db.ordine.upsert({
       // il gid Shopify è la chiave stabile: gli ordini presi prima da Shopify
