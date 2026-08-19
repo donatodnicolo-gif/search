@@ -221,6 +221,37 @@ criterio diverso (era il periodo del difetto degli id, chiuso l'08/08), o
 qualcuno le ha riattivate a mano. ⚠️ Nota: il 04/08 quelle operazioni avevano
 `account` vuoto — il difetto chiuso l'08/08 con `accodaOperazione`.
 
+### ⭐ «È voluto»: una divergenza si può chiudere, e chiuderla ALLINEA l'app (19/08/2026)
+
+Commit `bcb8377a`, in produzione. Era il punto lasciato aperto ieri.
+
+La conferma per operazione mostra ogni differenza fra quello che l'app crede e
+quello che Google riporta — ed è il suo mestiere. Ma **senza un modo di dire
+«lo so, è voluto» una divergenza voluta resta lì a segnalare per sempre**, e un
+avviso che non si può chiudere si smette di leggere: a quel punto smette di
+funzionare anche per quelli veri.
+
+Bottone **«È voluto»** sulla riga smentita. Tre colonne nuove su
+`OperazioneAdv` (`divergenzaAccettataIl` / `Da` / `Motivo`) con **ALTER mirato
+e ripetibile** (`scripts/aggiungi-divergenza-accettata.mjs`), non `db push`: il
+Postgres è condiviso fra dodici app.
+
+⭐ **Non si limita a zittire l'avviso: ALLINEA.** È il punto. Le quattro keyword
+risultavano `in_pausa` nell'app e su Google erogavano perché **le aveva
+riattivate l'utente**. Chiudere solo l'avviso avrebbe lasciato l'app a dire «in
+pausa» di parole che spendono — cioè avrebbe scambiato un avviso fastidioso con
+una **bugia silenziosa**. Ora lo stato dell'app segue quello di Google, come già
+fa il pallino sui gruppi: comanda il fatto, il giudizio gli va dietro.
+⚠️ Gli **stati nostri** (`defunta`, `bozza`, `in_lancio`) non si toccano: non
+hanno un gemello su Google. ⚠️ E il **confine di parola** nel confronto:
+«flowers milan» non si porta dietro «flowers milano», che è un altro criterio
+con un altro stato.
+⚠️ **Non tocca Google**: dichiara una decisione già presa là.
+
+**Applicato alle 4** che l'utente ha dichiarato volute (19/08): 5 criteri
+allineati, una riga nel registro per ognuna, banner sparito. Il punto 4bis è
+chiuso.
+
 ### ⭐⭐ La campagna nuova si imposta TUTTA dall'app (18-19/08/2026)
 
 Commit `f46a0b3b` (strategia), `03adfbfd` (lingua, località, negative),
@@ -2913,21 +2944,10 @@ Resta da fare, **fuori dall'app**:
    meglio, lo script dovrebbe chiamare `driveDir()`.
 4. Verificare in Business Manager se `ads_management` si ottiene senza App
    Review (per accendere la scrittura Meta) — invariato dal 07/08.
-4bis. 🔴 **QUATTRO KEYWORD IN PAUSA NELL'APP CHE SU GOOGLE SONO ATTIVE** (nuovo
-   il 17/08, trovato dalla conferma per operazione): `fioraio milano`
-   (`[Deluxy] - Fiori Milano ITA`), `send flowers in milan`,
-   `milan flower delivery`, `flowers milan` (`[Deluxy] - Fiori Milano ENG`,
-   gruppo «Flowers Delivery»). Messe in pausa dall'app il **04/08**, esito
-   «keyword in pausa», e il censimento del **17/08** le riporta `ENABLED`:
-   stanno ancora andando in asta mentre l'app le dà ferme. Da guardare in
-   **RISOLTO come domanda: le ha riattivate l'utente a mano** (18/08). Non era
-   un guasto — la pausa era andata, e poi è stata disfatta in Google Ads. Resta
-   il fatto operativo: quelle parole **stanno spendendo** (117,72 € dal 04/08)
-   mentre l'app le dava ferme, e va deciso se è voluto. Se vanno fermate
-   davvero, si rimettono in pausa dall'app; se devono restare accese, la riga
-   continuerà a dire «Google dice il contrario» finché l'app pensa il
-   contrario — ⚠️ **manca un modo di dire «lo so, è voluto»**, ed è la cosa
-   naturale da aggiungere alla conferma per operazione.
+4bis. ~~**Quattro keyword in pausa nell'app che su Google sono attive**~~ —
+   **CHIUSO il 19/08**: le aveva riattivate l'utente, che l'ha dichiarato, e
+   il bottone «È voluto» ha allineato l'app a Google (5 criteri). Restava
+   aperto perché mancava proprio il modo di dirlo — vedi la sezione in FATTO.
 5. ~~Su `/ricezione` deve comparire il tipo `annuncio-giorni` per i tre
    account~~ — **c'è** (29 consegne al 17/08 pomeriggio, `MetricaAnnuncio`
    5.157 righe dal 19/05). Resta da fare **a occhio**: aprire una scheda
