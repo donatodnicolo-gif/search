@@ -567,7 +567,18 @@ async function apriFornitore(
   numero: string,
   avvisa?: (nota: string) => void
 ) {
-  const scheda = window.open('about:blank', '_blank', 'noopener,noreferrer')
+  // ⚠️⚠️ NIENTE `noopener` QUI, ed è il difetto che questa riga ripara: con
+  // `noopener` il browser restituisce **null** invece della scheda, quindi
+  // l'indirizzo vero non si poteva più scrivere dentro. Restava aperta una
+  // scheda vuota — «about:blank» — e la seconda `window.open` dopo il fetch
+  // arrivava fuori dal clic, cioè quando il blocco dei popup la ferma.
+  // Il legame con questa pagina si toglie a mano subito dopo (`opener = null`),
+  // che è quello che serviva davvero.
+  //
+  // La scheda si apre PRIMA della chiamata perché deve nascere dentro il clic:
+  // aperta dopo, il browser la considera non richiesta e la blocca.
+  const scheda = window.open('about:blank', '_blank')
+  if (scheda) scheda.opener = null
   const ripiego = linkFornitoreSemplice(brandRicerca, numero)
   try {
     const p = new URLSearchParams({ brand: brandRicerca, ordine: numero })
@@ -583,6 +594,8 @@ async function apriFornitore(
       )
     }
   } catch {
+    // ⚠️ Il ripiego porta comunque all'app (senza accesso automatico): una
+    // scheda bianca lasciata lì sembrerebbe un guasto, e non direbbe niente.
     if (scheda) scheda.location.href = ripiego
     else window.open(ripiego, '_blank', 'noopener,noreferrer')
     avvisa?.('Non sono riuscito a chiedere il link di accesso: l’app chiederà la password.')
