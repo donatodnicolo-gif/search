@@ -221,6 +221,86 @@ criterio diverso (era il periodo del difetto degli id, chiuso l'08/08), o
 qualcuno le ha riattivate a mano. ⚠️ Nota: il 04/08 quelle operazioni avevano
 `account` vuoto — il difetto chiuso l'08/08 con `accodaOperazione`.
 
+### ⭐⭐ La campagna nuova si imposta TUTTA dall'app (18-19/08/2026)
+
+Commit `f46a0b3b` (strategia), `03adfbfd` (lingua, località, negative),
+`f0bd40f9` (le località sconosciute le chiede Google). Tutto in produzione.
+
+**Come è venuto fuori.** Il registro caricamenti di Flowers, letto sul CSV dei
+risultati: 18 righe, **un solo errore vero** sulla riga della campagna —
+`Missing value in either "Bid strategy type" or "Bid strategy"` — e le altre 17
+con `The entity does not exist for Campaign`, la solita cascata. ⭐ **E la
+colonna `EU political ads` col valore `"no"` è stata ACCETTATA**: quel formato
+adesso è provato sul campo, il dubbio fra `"no"` e `false` è sciolto e
+`EU_POLITICAL_ADS` resta `"no"`.
+
+⭐⭐ **La scoperta che conta: la strategia l'app ce l'aveva già** (`par.strategia`,
+«max_conversioni» su questa campagna) e la registrava solo come promemoria,
+perché nel codice era scritto che il bulk upload non avesse la colonna. Ce
+l'ha, ed è obbligatoria. Da lì la domanda dell'utente — *«no, deve essere tutto
+messo tramite l'app»* — e la verifica di tutte le altre. **Regola: «non si può
+fare» va verificato, non ereditato**; qui era scritto in un commento e nella
+pagina, e nessuna delle due cose era una prova.
+
+**Cosa arriva su Google adesso**, in un caricamento solo: nome, budget, tipo
+Ricerca, **strategia** (`Bid strategy type`), **lingua** (`Language targeting`),
+**località** (una riga per ognuna, con `Location ID`), gruppo, keyword,
+annuncio RSA. La campagna nasce sempre in pausa.
+
+⚠️ **Le località viaggiano per ID, non per nome.** I nomi hanno una lingua e gli
+id no: Google le conosce in inglese (`Spain`, `Milan`), nel modulo si scrive in
+italiano, e un nome che non combacia **non dà errore** — dà una campagna senza
+quella località. `lib/geo-target.ts` traduce con tre strade: tabella dei paesi
+(id = **2000 + codice ISO**, verificato sull'archivio: Italia 2380, Grecia 2300,
+Portogallo 2620, Svizzera 2756), nome inglese cercato fra le **78 località già
+importate** dalle campagne vive, e il nome così com'è. Un **numero** scritto nel
+campo è già un id e si prende com'è.
+
+⭐ **E quello che l'app non conosce lo chiede a GOOGLE** (`f0bd40f9`,
+`risolviLocalitaSuGoogle` nello script): una tabella scritta a mano è una
+tabella che prima o poi non contiene quello che serve, e la località finirebbe
+fra le cose «da mettere a mano», cioè quasi sempre dimenticata. Google l'elenco
+completo ce l'ha e si interroga per nome — lo dice il cookbook GAQL
+(`WHERE geo_target_constant.name = 'Mountain View'`).
+⚠️⚠️ **L'ambiguità non si risolve indovinando**: un nome può dare più risultati
+(«Como» è una città e una provincia, «Valencia» sta in Spagna e in Venezuela) e
+la documentazione di Google avverte proprio di questo. Prendere il primo
+vorrebbe dire far erogare la campagna dall'altra parte del mondo senza che
+nessuno l'abbia deciso. Quindi: **una** corrispondenza si usa, **più di una** si
+elencano nell'esito col nome canonico e l'id, e non si tocca niente.
+⚠️ `status` **non va nella WHERE** (il cookbook filtra `name`, `country_code` e
+`target_type`; su `status` non c'è garanzia, e una query rifiutata farebbe
+perdere la località invece di trovarla): si legge e si scarta in codice. Tutto
+in un `try`.
+⭐ **Effetto collaterale buono**: al primo giro di anagrafica quelle località
+entrano in `LocalitaCampagna` col nome e l'id veri, quindi **la volta dopo l'app
+le riconosce da sola**. La tabella smette di essere un collo di bottiglia.
+
+⚠️ **Le negative NON viaggiano nel caricamento, ed è voluto** (`lib/negative-di-lancio.ts`).
+Il bulk upload non risponde: per una keyword in più è un fastidio, per una
+negativa è il guasto peggiore — la campagna erogherebbe proprio sulle ricerche
+che qualcuno aveva deciso di escludere, e non se ne accorgerebbe nessuno. Lo
+script sa aggiungerle con `createNegativeKeyword` e **rileggerle**
+(`negativaPresente`, 08/08), l'unica strada su cui l'esito si può credere. Ma
+quella chiamata vuole la campagna **in mano** e il caricamento è asincrono:
+quindi aspettano il momento in cui l'anagrafica la nomina — agganciato a
+`salvaAnagrafica` sulle campagne che in quel giro ricevono per la prima volta un
+`idEsterno`. Nascono **da approvare**, non approvate: chi ha approvato il lancio
+ha approvato anche queste, ma approvarle da sole vorrebbe dire che l'app scrive
+su Google senza che una persona abbia guardato la riga. Sempre corrispondenza
+**esatta**. Il tutto in un `try`: se questa parte si rompe, l'anagrafica — che
+costa minuti di script — entra lo stesso.
+
+**L'obiettivo resta un'etichetta nostra**, e la pagina lo dice invece di
+elencarlo fra le cose da impostare: su Google l'«obiettivo» è un involucro
+dell'interfaccia, non un campo che uno script possa scrivere, ed elencarlo
+farebbe cercare per sempre un interruttore che non c'è.
+
+**Da riprendere**: reincollare `esegui.js` (copie del 19/08, ~124 KB),
+approvare la WORLD-ENG, lanciare. ⚠️ L'operazione in coda era del 17/08 col
+formato vecchio: le sono stati aggiunti gli id delle 9 località (tutte risolte)
+mentre era «da approvare», con la riga nel registro.
+
 ### ⭐⭐ «Google dice il contrario» non è un guasto: era una mano dentro Google Ads (18/08/2026)
 
 Commit `975df18c` (la rilettura nello script) e `3d3d3f91` (la correzione del
