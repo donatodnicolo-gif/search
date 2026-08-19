@@ -14,7 +14,7 @@ import { costruisciPortafoglio } from "@/lib/portafoglio";
 import { leggiSerie } from "@/lib/archivio";
 import { TITOLI_TUTTI } from "@/lib/universo";
 import { Avviso, Badge, Metrica } from "@/componenti/pezzi";
-import { dataBreve, numero, percentuale, prezzo, punti, verso } from "@/lib/formato";
+import { dataBreve, numero, percentuale, prezzo, prezzoUnitario, punti, verso } from "@/lib/formato";
 
 export const dynamic = "force-dynamic";
 
@@ -239,6 +239,7 @@ export default async function Portafoglio({ searchParams }: { searchParams: Prom
                       {p.posizione.dataAcquisto ? (
                         <div style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
                           dal {dataBreve(p.posizione.dataAcquisto)}
+                          {p.posizione.dataStimata ? " (stimata)" : ""}
                           {p.giorniDetenzione !== null ? ` · ${p.giorniDetenzione} giorni` : ""}
                         </div>
                       ) : null}
@@ -247,9 +248,9 @@ export default async function Portafoglio({ searchParams }: { searchParams: Prom
                     {p.completa ? (
                       <>
                         <td className="num">{numero(p.posizione.quantita, 0)}</td>
-                        <td className="num">{prezzo(p.posizione.prezzoCarico, p.posizione.valuta)}</td>
+                        <td className="num">{prezzoUnitario(p.posizione.prezzoCarico, p.posizione.valuta)}</td>
                         <td className="num">
-                          {prezzo(p.ultimoPrezzo, p.posizione.valuta)}
+                          {prezzoUnitario(p.ultimoPrezzo, p.posizione.valuta)}
                           <div style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
                             {dataBreve(p.ultimaData)}
                           </div>
@@ -293,7 +294,7 @@ export default async function Portafoglio({ searchParams }: { searchParams: Prom
                         {p.ultimoPrezzo !== null ? (
                           <div style={{ fontSize: 12, color: "var(--text-tertiary)", marginTop: 4 }}>
                             Il titolo però è tracciato: ultima chiusura{" "}
-                            <strong>{prezzo(p.ultimoPrezzo, p.posizione.valuta)}</strong> del{" "}
+                            <strong>{prezzoUnitario(p.ultimoPrezzo, p.posizione.valuta)}</strong> del{" "}
                             {dataBreve(p.ultimaData)}.
                           </div>
                         ) : null}
@@ -328,6 +329,11 @@ export default async function Portafoglio({ searchParams }: { searchParams: Prom
                       <strong>Da dove vengono i prezzi.</strong> {p.posizione.fontePrezzi}
                     </p>
                   ) : null}
+                  {p.posizione.notaData ? (
+                    <p style={{ fontSize: 12, marginTop: 8, color: "var(--text-tertiary)", lineHeight: 1.55 }}>
+                      <strong>Sulla data di acquisto.</strong> {p.posizione.notaData}
+                    </p>
+                  ) : null}
                 </div>
               ) : null
             )}
@@ -353,12 +359,12 @@ export default async function Portafoglio({ searchParams }: { searchParams: Prom
                 <Metrica
                   nome="Posizione nel range annuale"
                   valore={percentuale(p.tecnico.posizioneRange, 0)}
-                  nota={`fra ${prezzo(p.tecnico.minimo52, p.posizione.valuta)} e ${prezzo(p.tecnico.massimo52, p.posizione.valuta)}`}
+                  nota={`fra ${prezzoUnitario(p.tecnico.minimo52, p.posizione.valuta)} e ${prezzoUnitario(p.tecnico.massimo52, p.posizione.valuta)}`}
                 />
                 <Metrica
                   nome="Distanza dalla media a 200"
                   valore={percentuale(p.tecnico.distanzaMa200)}
-                  nota={`media ${prezzo(p.tecnico.ma200, p.posizione.valuta)}`}
+                  nota={`media ${prezzoUnitario(p.tecnico.ma200, p.posizione.valuta)}`}
                   colore={verso(p.tecnico.distanzaMa200)}
                 />
                 <Metrica
@@ -483,7 +489,7 @@ export default async function Portafoglio({ searchParams }: { searchParams: Prom
                       <tr key={l.nome}>
                         <td style={{ fontWeight: 550 }}>{l.nome}</td>
                         <td className="num">
-                          {l.prezzo !== null ? prezzo(l.prezzo, p.posizione.valuta) : "—"}
+                          {l.prezzo !== null ? prezzoUnitario(l.prezzo, p.posizione.valuta) : "—"}
                         </td>
                         <td className={`num ${l.stato === "scattata" ? "giu" : ""}`}>
                           {l.distanza !== null ? percentuale(l.distanza) : "—"}
@@ -662,7 +668,7 @@ export default async function Portafoglio({ searchParams }: { searchParams: Prom
                 <div className="metriche" style={{ marginTop: 12 }}>
                   <Metrica
                     nome="Prezzo per azione"
-                    valore={prezzo(sim.prezzo, sim.valuta)}
+                    valore={prezzoUnitario(sim.prezzo, sim.valuta)}
                     nota={
                       sim.dalMercato
                         ? `ultima chiusura del ${dataBreve(sim.data)}`
@@ -720,7 +726,7 @@ export default async function Portafoglio({ searchParams }: { searchParams: Prom
                       </td>
                       <td className="num">{numero(i.ipotesi.quantita, 0)}</td>
                       <td className="num">
-                        {prezzo(i.prezzoUsato, i.valuta)}
+                        {prezzoUnitario(i.prezzoUsato, i.valuta)}
                         <div style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
                           {i.prezzoDalMercato ? `chiusura ${dataBreve(i.ultimaData)}` : "prezzo indicato"}
                         </div>

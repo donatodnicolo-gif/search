@@ -44,6 +44,10 @@ export type Posizione = {
   valuta: string;
   /** ISO `YYYY-MM-DD`. `null` = da compilare. */
   dataAcquisto: string | null;
+  /** `true` quando la data e ricostruita e non dichiarata: cambia quanto fidarsi del confronto. */
+  dataStimata?: boolean | null;
+  /** Come e stata ricostruita la data, e quanto pesa la scelta. */
+  notaData?: string | null;
   /** Commissioni e imposte pagate all'acquisto, nella stessa valuta. */
   commissioni: number | null;
   /** Codice ISIN: identifica il titolo senza ambiguità, a differenza del ticker. */

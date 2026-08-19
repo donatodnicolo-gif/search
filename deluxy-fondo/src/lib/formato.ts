@@ -27,9 +27,32 @@ export function numero(x: number | null | undefined, decimali = 2): string {
   return x.toLocaleString("it-IT", { minimumFractionDigits: decimali, maximumFractionDigits: decimali });
 }
 
+/**
+ * Un **importo** in denaro: sempre due decimali, come su un estratto conto.
+ * Non va usata per i prezzi per azione, dove il terzo decimale è informativo.
+ */
 export function prezzo(x: number | null | undefined, valuta = "EUR"): string {
   if (x === null || x === undefined || !Number.isFinite(x)) return MANCANTE;
-  return x.toLocaleString("it-IT", { style: "currency", currency: valuta, minimumFractionDigits: 2, maximumFractionDigits: 3 });
+  return x.toLocaleString("it-IT", {
+    style: "currency",
+    currency: valuta,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+/**
+ * Un **prezzo per azione**: fino a tre decimali, perché su un titolo da 21 € il terzo
+ * decimale distingue un carico da un altro e non è rumore.
+ */
+export function prezzoUnitario(x: number | null | undefined, valuta = "EUR"): string {
+  if (x === null || x === undefined || !Number.isFinite(x)) return MANCANTE;
+  return x.toLocaleString("it-IT", {
+    style: "currency",
+    currency: valuta,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 3,
+  });
 }
 
 export function milioni(x: number | null | undefined): string {

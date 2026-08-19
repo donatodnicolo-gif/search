@@ -9,12 +9,12 @@
       "quantita": 50,
       "prezzoCarico": 19.331,
       "valuta": "EUR",
-      "dataAcquisto": null,
+      "dataAcquisto": "2026-05-12",
       "commissioni": null,
       "isin": "US5007541064",
       "borsa": "Equiduct, in euro",
       "fontePrezzi": "Xetra (KHNZ.DE): Equiduct non ha una serie storica pubblica su Yahoo. Le due piazze quotano lo stesso titolo nella stessa valuta e i livelli coincidono entro pochi centesimi (chiusura 18/08/2026 sul broker 21,62 euro, Xetra 21,51 il 17/08 e 21,60 il 19/08). E un riferimento adeguato per rivalutare la posizione, ma NON e il prezzo della tua sede di esecuzione: per la contabilita reale vale l eseguito del broker.",
-      "note": "50 azioni a 19,331 euro: costo 966,55 euro, commissioni non ancora indicate. Manca la DATA di acquisto: utile e perdita sono corretti, ma senza la data non si puo dire se comprare l indice quel giorno avrebbe reso di piu, ed e il confronto che conta. Titolo confermato per ISIN US5007541064. Attenzione al ticker: su Yahoo il simbolo tedesco e KHNZ (KHNZ.DE Xetra, 5 anni di storico); NON usare KTF.DE, che sembra plausibile ma e Mondelez, ne HNZ.DE o KHZ.DE, che sono falsi simboli con exchange YHD. KHC e la quotazione americana in dollari. Da sapere: il titolo distribuisce un dividendo annuo di 1,60 dollari (rendimento intorno al 6,5 per cento), quindi la cedola arriva in valuta diversa da quella di quotazione e subisce il cambio.",
+      "note": "50 azioni a 19,331 euro acquistate a maggio 2026: costo 966,55 euro, commissioni non ancora indicate. Titolo confermato per ISIN US5007541064. Attenzione al ticker: su Yahoo il simbolo tedesco e KHNZ (KHNZ.DE Xetra, 10 anni di storico); NON usare KTF.DE, che sembra plausibile ma e Mondelez, ne HNZ.DE o KHZ.DE, che sono falsi simboli con exchange YHD. KHC e la quotazione americana in dollari, e da lI vengono i fondamentali. Il titolo distribuisce 1,60 dollari l anno di cedola: arriva in valuta diversa da quella di quotazione e passa per il cambio, quindi il rendimento effettivo si muove anche col dollaro.",
       "tesi": "Da scrivere prima di completare la posizione: perche questa societa e in portafoglio, cosa dovrebbe accadere e cosa farebbe cadere la tesi. Va scritta ora e non riscritta dopo, altrimenti diventa una giustificazione a posteriori.",
       "dividendoPerAzione": 1.6,
       "valutaDividendo": "USD",
@@ -42,7 +42,9 @@
         3,
         5,
         7
-      ]
+      ],
+      "dataStimata": true,
+      "notaData": "Acquisto dichiarato a maggio 2026, giorno esatto non indicato. Su Xetra il prezzo di 19,331 euro e compreso nel range minimo-massimo di quattro sedute: 6, 7, 12 e 18 maggio. E stata scelta la mediana (12 maggio). La scelta sposta il confronto con l indice fra +32 e +47 euro, quindi il verdetto non cambia (la posizione batte l indice in tutti e quattro i casi) ma il numero esatto si muove: indicare il giorno reale lo rende definitivo."
     }
   ],
   "ipotesi": [
