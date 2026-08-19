@@ -1955,11 +1955,11 @@ export async function lanciaCampagna(fd: FormData) {
   //                 possa scrivere: elencarlo fra le cose da mettere a mano
   //                 farebbe cercare per sempre un interruttore che non c'è.
   const geo = await risolviLocalita(localita);
-  const daMano = [
-    // Solo le località che non sappiamo tradurre in un id: quelle risolte
-    // partono col caricamento, e dirle «da mettere a mano» sarebbe falso.
-    geo.nonRisolte.length > 0 ? `località ${geo.nonRisolte.join(", ")} (non so l'id: mettile a mano)` : null,
-  ].filter(Boolean);
+  // ⚠️ Niente resta «da mettere a mano» per default. Le località che l'app non
+  // sa tradurre le chiede a Google lo script al momento del lancio, e nell'esito
+  // dice quali ha trovato, quali erano ambigue e quali no. Scriverle qui come
+  // «da fare a mano» sarebbe un compito assegnato prima di sapere se serve.
+  const daMano: string[] = [];
 
   const campagna = await prisma.campagna.create({
     data: {
@@ -1977,12 +1977,16 @@ export async function lanciaCampagna(fd: FormData) {
         `${lingua ? `, lingua ${lingua}` : ""}` +
         `${geo.risolte.length > 0 ? `, ${geo.risolte.length} località` : ""}` +
         ", gruppo, keyword e annuncio. " +
+        (geo.nonRisolte.length > 0
+          ? `${geo.nonRisolte.join(", ")}: l'id non lo so, lo chiede a Google lo script quando lancia — ` +
+            "nell'esito dell'operazione c'è scritto se le ha trovate. "
+          : "") +
         (negative.length > 0
           ? `Le ${negative.length} parole da escludere vanno in coda da sole appena Google conferma la campagna. `
           : "") +
         (daMano.length > 0
           ? `DA IMPOSTARE A MANO in Google Ads prima di accenderla — ${daMano.join(" · ")}.`
-          : "Non resta niente da impostare a mano, ma la checklist 4.1 va fatta lo stesso prima di accenderla."),
+          : "La checklist 4.1 va fatta prima di accenderla."),
     },
   });
 
@@ -2005,7 +2009,13 @@ export async function lanciaCampagna(fd: FormData) {
         // nomi. `localita` resta coi nomi scritti a mano, per il paper trail.
         localitaId: geo.risolte.map((l) => l.id),
         localita,
-        localitaNonRisolte: geo.nonRisolte,
+        // ⚠️ Quelle che l'app non sa tradurre NON si buttano: viaggiano coi
+        // nomi e le chiede a Google lo script, che l'elenco completo ce l'ha
+        // (`risolviLocalitaSuGoogle`). Se un nome dà più risultati lo script
+        // non sceglie e li elenca nell'esito — «Como» è una città e una
+        // provincia, e indovinare vorrebbe dire far erogare la campagna in un
+        // posto che nessuno ha deciso.
+        localitaNomi: geo.nonRisolte,
         // Le negative NON le porta il caricamento: aspettano che la campagna
         // esista e diventano operazioni loro (vedi il commento sopra).
         negative,

@@ -215,8 +215,8 @@ export default async function CreaCampagna({
             </div>
             <div className="modulo" style={{ marginTop: 14 }}>
               <div className="campo-modulo largo">
-                <label>Altre località — separate da virgola</label>
-                <input name="localitaAltre" placeholder="es. Costa Smeralda, Lugano, Principato di Monaco" />
+                <label>Altre località — separate da virgola (vale anche l&apos;id di Google)</label>
+                <input name="localitaAltre" placeholder="es. Marbella, Lugano, Principato di Monaco, 2724" />
               </div>
             </div>
           </section>
@@ -321,8 +321,11 @@ export default async function CreaCampagna({
             una negativa che sparisce in silenzio farebbe erogare la campagna proprio sulle
             ricerche che volevi escludere. L&apos;<b>obiettivo</b> resta un&apos;etichetta nostra:
             su Google è un involucro dell&apos;interfaccia, non un campo che uno script possa
-            scrivere. ⚠️ Una località che non sappiamo tradurre in un id te la diciamo, e quella
-            sola va messa a mano. Resta la <b>checklist 4.1</b> prima di accendere.
+            scrivere. Una località che l&apos;app non conosce <b>la chiede a Google lo script</b>
+            quando lancia, e nell&apos;esito dell&apos;operazione trovi cosa ha trovato: ⚠️ se un
+            nome dà <b>più risultati</b> (Como è una città e una provincia) non ne sceglie nessuno
+            e te li elenca — riscrivi il nome esatto o incolla direttamente l&apos;id, che qui
+            sotto è accettato. Resta la <b>checklist 4.1</b> prima di accendere.
           </span>
         </div>
 

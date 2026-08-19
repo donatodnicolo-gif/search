@@ -2179,6 +2179,78 @@ function linguaBulk(lingua) {
   }
 }
 
+/**
+ * Le localita' che l'app non ha saputo tradurre in un id: le chiede a Google.
+ *
+ * L'app ha una tabella dei paesi e l'archivio delle localita' gia' importate
+ * (lib/geo-target.ts), e per quasi tutto basta. Ma una tabella scritta a mano
+ * e' una tabella che prima o poi non contiene quello che serve, e la localita'
+ * finirebbe fra le cose da mettere a mano - cioe' quasi sempre dimenticata.
+ * Google invece l'elenco completo ce l'ha, e si puo' interrogare per nome:
+ * lo dice il cookbook GAQL, con l'avvertenza che conta qui sotto.
+ *
+ * ATTENZIONE ALL'AMBIGUITA', che e' il motivo per cui questa funzione non
+ * sceglie mai da sola. Un nome puo' dare PIU' risultati ("Como" e' una citta'
+ * e una provincia; "Valencia" sta in Spagna e in Venezuela) e la
+ * documentazione di Google avverte proprio di questo. Prendere il primo
+ * vorrebbe dire far erogare la campagna dall'altra parte del mondo senza che
+ * nessuno l'abbia deciso. Quindi: UNA sola corrispondenza si usa, PIU' di una
+ * si elencano nell'esito e non si tocca niente - la persona sceglie e riscrive
+ * il nome esatto o incolla l'id.
+ *
+ * Chi scrive direttamente un NUMERO ha gia' dato l'id: si prende com'e'.
+ */
+function risolviLocalitaSuGoogle(nomi) {
+  var esito = { trovate: [], ambigue: [], mancanti: [] };
+  if (!nomi || !nomi.length) return esito;
+
+  for (var i = 0; i < nomi.length; i++) {
+    var nome = String(nomi[i] || "").trim();
+    if (!nome) continue;
+
+    if (/^[0-9]+$/.test(nome)) {
+      esito.trovate.push({ nome: nome, id: Number(nome), come: "id scritto a mano" });
+      continue;
+    }
+
+    try {
+      // ATTENZIONE: `status` NON va nella WHERE. Il cookbook filtra per
+      // country_code, target_type e name; su status non c'e' garanzia, e una
+      // query rifiutata qui farebbe perdere la localita' invece di trovarla.
+      // Si legge e si scarta in codice, che costa niente.
+      var q =
+        "SELECT geo_target_constant.id, geo_target_constant.name, " +
+        "geo_target_constant.canonical_name, geo_target_constant.target_type, " +
+        "geo_target_constant.status " +
+        "FROM geo_target_constant " +
+        "WHERE geo_target_constant.name = '" + apici(nome) + "'";
+      var it = AdsApp.search(q);
+      var trovati = [];
+      while (it.hasNext()) {
+        var g = it.next().geoTargetConstant;
+        if (!g) continue;
+        if (g.status && String(g.status) !== "ENABLED") continue;
+        trovati.push({
+          id: Number(g.id),
+          canonico: g.canonicalName || g.name,
+          tipo: g.targetType || null
+        });
+      }
+
+      if (trovati.length === 1) {
+        esito.trovate.push({ nome: nome, id: trovati[0].id, come: trovati[0].canonico });
+      } else if (trovati.length > 1) {
+        esito.ambigue.push({ nome: nome, scelte: trovati.slice(0, 6) });
+      } else {
+        esito.mancanti.push(nome);
+      }
+    } catch (e) {
+      esito.mancanti.push(nome + " (Google ha rifiutato la ricerca: " + e + ")");
+    }
+  }
+  return esito;
+}
+
 function creaCampagna(op, conto) {
   var par = op.parametri;
   if (!par.nome || !par.budget) throw new Error("Servono nome e budget");
@@ -2246,7 +2318,10 @@ function creaCampagna(op, conto) {
   // senza quella localita'. L'app traduce prima (lib/geo-target.ts) e manda
   // solo numeri; quelle che non sa tradurre le dichiara invece di tirare a
   // indovinare.
-  var localita = par.localitaId || [];
+  var localita = (par.localitaId || []).slice();
+  // Quelle che l'app non ha saputo tradurre: adesso le chiede a Google.
+  var geo = risolviLocalitaSuGoogle(par.localitaNomi || []);
+  for (var t = 0; t < geo.trovate.length; t++) localita.push(geo.trovate[t].id);
   for (var g = 0; g < localita.length; g++) {
     upload.append({
       "Campaign": par.nome,
@@ -2287,7 +2362,22 @@ function creaCampagna(op, conto) {
       kws.length + " keyword" + (titoli.length ? " e 1 annuncio RSA" : "") +
       " e strategia " + strategiaBulk(par.strategia) +
       (linguaBulk(par.lingua) ? ", lingua " + linguaBulk(par.lingua) : "") +
-      ((par.localitaId && par.localitaId.length) ? ", " + par.localitaId.length + " localita" : "") +
+      (localita.length ? ", " + localita.length + " localita" : "") +
+      (geo.trovate.length
+        ? " (" + geo.trovate.length + " tradotte da Google: " +
+          geo.trovate.map(function (x) { return x.nome + " = " + x.come; }).join("; ") + ")"
+        : "") +
+      (geo.ambigue.length
+        ? ". ATTENZIONE: " + geo.ambigue.length + " nomi danno piu' risultati e NON li ho scelti io - " +
+          geo.ambigue.map(function (x) {
+            return "\"" + x.nome + "\" puo' essere " +
+              x.scelte.map(function (c) { return c.canonico + " [" + c.id + "]"; }).join(" oppure ");
+          }).join(" | ") +
+          ". Riscrivi il nome esatto o incolla l'id, e rimetti in coda."
+        : "") +
+      (geo.mancanti.length
+        ? ". Non trovate su Google: " + geo.mancanti.join(", ") + " - vanno messe a mano."
+        : "") +
       ", IN PAUSA se Google accetta le righe. ATTENZIONE: il caricamento e' asincrono e non risponde" +
       " allo script: l'esito vero sta nel registro caricamenti di Google Ads (Azioni collettive > Caricamenti)" +
       " e l'app lo verifica col primo giro di anagrafica. Passare la checklist 4.1 prima di attivarla.",

@@ -157,6 +157,12 @@ export async function risolviLocalita(nomi: string[]): Promise<EsitoGeo> {
   const risolte: LocalitaRisolta[] = [];
   const nonRisolte: string[] = [];
   for (const nome of puliti) {
+    // Chi scrive un NUMERO ha già dato l'id: si prende com'è. È la via
+    // d'uscita quando un nome è ambiguo e lo script ha chiesto di scegliere.
+    if (/^\d+$/.test(nome)) {
+      risolte.push({ nome, id: Number(nome), come: "archivio" });
+      continue;
+    }
     const k = chiave(nome);
     const paese = PAESI[k];
     if (paese) {
