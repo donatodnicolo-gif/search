@@ -38,6 +38,7 @@ Oggetto JSON in KV alla chiave **`config:v1`**:
 - `googleKey` invece È restituita al browser (serve alla mappa; proteggila con restrizione referrer su Google Cloud).
 - `kwFioraio`/`kwPasticceria` (24/07/2026): **parole chiave Google personalizzate** per categoria, impostabili in ⚙️ Impostazioni. Più keyword separate da virgola = una `nearbySearch` per ciascuna (i risultati si uniscono, dedup per place_id); a queste si aggiunge SEMPRE la ricerca per sola categoria (`type`). Vuote = predefinite di `KEYWORDS` nella lingua della consegna.
 - `mostraFoto` (10/08/2026): `'1'` (predefinito, anche se la chiave non è mai stata salvata) = **foto dei negozi da Google Maps** accese; `'0'` = spente del tutto. Interruttore in ⚙️ Impostazioni (solo admin lo salva, tutte le utenze lo leggono). Vedi §5-bis.
+- `mappaTipi` (19/08/2026): tabella **«categoria Shopify → formato»** per il messaggio al fornitore, testo libero tipo `Fiori d'Arte = bouquet, Cake Design = torta` (coppie separate da virgola o a capo, max 2000 caratteri, salvata solo dall'admin). È una **riserva**: il formato si legge prima dai **tag** del prodotto (`items[].tags`), poi da questa tabella applicata al `productType`, poi dalla categoria a parole, infine dal titolo. Vedi §9.
 - `pagineRicerca` (17/08/2026): **quante pagine di risultati chiedere a Google per ogni `nearbySearch`** — `'1'` = solo i primi 20 (comportamento fino al 17/08), `'2'` = 40, `'3'` = 60 (**predefinito**, anche se mai salvata). Google dà max 20 risultati per chiamata: le pagine dopo si prendono con `pagination.nextPage()`. Sanificata sul server (`pagine()` in `api/config.js`: intero 1..3, qualunque altra cosa = `'3'`) e sul client (`paginePerRicerca()`). ⚠️ **Ogni pagina è una chiamata Places a pagamento**, moltiplicata per il numero di keyword e per le categorie cercate. Vedi §12-quater.
 
 ## 5. Endpoint API (tutti richiedono header `x-app-password`, tranne webhook)
@@ -96,13 +97,15 @@ Dopo aver aggiunto/cambiato una env → **Redeploy**.
   il messaggio. Il riepilogo a schermo continua a mostrare il nome vero del prodotto.
 
 
-⚠️ **Perché in produzione si vede ancora il nome del prodotto** (19/08): `tipoProdotto()` cerca
-parole di *formato* (`bouquet`, `cappellier`, `torta`…) prima in `items[].type` (= `product_type`
-di Shopify) e poi nel titolo. Ma su Shopify il `productType` è la **categoria commerciale** —
-valori reali: `Fiori d'Arte`, `Originali Deluxy`, `Cake Design`, `Dolci di Natale` — che non
-contiene il formato. Il formato sta nei **tag** del prodotto (`Bouquet`, `Cake Design`,
-`solobouquet`), che però **non arrivano nel payload del webhook**: per averli serve l'Admin API
-(`product { tags }`). Vedi «Cose in sospeso» in HANDOFF.md per le tre strade proposte.
+
+⚠️ **Come si riconosce il formato (aggiornato 19/08)**: il `productType` di Shopify **non** dice il
+formato — è la categoria commerciale (`Fiori d'Arte`, `Originali Deluxy`, `Cake Design`, `Dolci di
+Natale`, verificati sul catalogo). Il formato sta nei **tag** del prodotto (`Bouquet`,
+`Cappelliera`, `Cake Design`), che **non arrivano dal webhook**: `api/order.js` li chiede
+all'Admin API (`product { tags }`) e li mette in `items[].tags`. `tipoProdotto(item)` decide in
+quest'ordine: **tag → tabella `mappaTipi` sulla categoria (§4) → categoria a parole → titolo**;
+se due tag dicono formati diversi torna vuoto (meglio il nome del prodotto che un formato
+sbagliato in mano al fornitore). Il classificatore condiviso è `classificaFormato(testo)`.
 ## 9-bis. Riepilogo «foto + prezzi» e appunti
 Sezione `.deal` in cima al riquadro ordine: miniatura, pulsante **⬇️ Scarica foto**, e tre prezzi (pagato dal cliente · da proporre al fiorario · margine).
 

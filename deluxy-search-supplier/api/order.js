@@ -30,7 +30,7 @@ query getOrder($q: String!) {
         title quantity variantTitle
         customAttributes { key value }
         image { url }
-        product { featuredImage { url } productType }
+        product { featuredImage { url } productType tags }
       } } }
     } }
   }
@@ -131,7 +131,10 @@ function normalize(brand, o) {
     const n = e.node;
     return {
       title: n.title,
-      type: n.product?.productType || '',   // tipologia Shopify (Bouquet/Cappelliera…) per il messaggio al fornitore
+      type: n.product?.productType || '',   // categoria commerciale Shopify (Fiori d'Arte, Cake Design…)
+      // i tag del prodotto dicono il FORMATO (Bouquet, Cappelliera, Cake Design): il productType no.
+      // Non arrivano dal webhook, solo da qui: servono al messaggio per il fornitore.
+      tags: n.product?.tags || [],
       variant: (n.variantTitle && n.variantTitle !== 'Default Title') ? n.variantTitle : '',
       quantity: n.quantity,
       image: n.image?.url || n.product?.featuredImage?.url || '',
@@ -218,7 +221,8 @@ export default async function handler(req, res) {
       // tipologia di qualche riga, le recuperiamo dall'Admin API (che le sa) e ri-salviamo
       // l'ordine arricchito in KV. NB: la tipologia serve al messaggio per il fornitore
       // («un Bouquet … come da foto»); senza, il testo ripiega sul nome commerciale.
-      const tipiMancanti = (data.items || []).some(it => !it.type);
+      // il webhook non manda ne' la tipologia sicura ne' i tag: se manca l'una o gli altri, si chiede a Shopify
+      const tipiMancanti = (data.items || []).some(it => !it.type || !Array.isArray(it.tags));
       if (!data.photoUrl || tipiMancanti) {
         try {
           const store = await storeFor(brand);
@@ -238,6 +242,7 @@ export default async function handler(req, res) {
                 if (!m) return;
                 if (m.image && it.image !== m.image) { it.image = m.image; cambiato = true; }
                 if (m.type && !it.type) { it.type = m.type; cambiato = true; }
+                if (Array.isArray(m.tags) && !Array.isArray(it.tags)) { it.tags = m.tags; cambiato = true; }
               });
               if (cambiato) await kvSet(`order:${brand}:${numNoHash}`, JSON.stringify(data), 60 * 60 * 24 * 60);
               if (!data.photoUrl) data.photoNote = 'Il prodotto non ha immagine su Shopify.';

@@ -48,6 +48,8 @@ function sanitize(c) {
     kwPasticceria: c.kwPasticceria || '',
     // foto dei negozi da Google Maps: '0' = spente. Mai salvata = accese (predefinito)
     mostraFoto: c.mostraFoto === undefined ? '1' : String(c.mostraFoto),
+    // tabella «categoria Shopify → formato» per il messaggio al fornitore (riserva ai tag)
+    mappaTipi: String(c.mappaTipi || ''),
     // pagine di risultati per ogni nearbySearch (1..3, 20 negozi a pagina).
     // Mai salvata = 3 (fino a 60): ogni pagina è una chiamata Places a pagamento.
     pagineRicerca: pagine(c.pagineRicerca),
@@ -127,6 +129,8 @@ export default async function handler(req, res) {
         // foto dei negozi: '1' accese (predefinito), '0' spente
         mostraFoto: body.mostraFoto !== undefined ? (String(body.mostraFoto) === '0' ? '0' : '1')
                                                   : (cur.mostraFoto === undefined ? '1' : String(cur.mostraFoto)),
+        // tabella «categoria Shopify → formato» (testo libero «cat = bouquet», max 2000 caratteri)
+        mappaTipi: String(body.mappaTipi !== undefined ? body.mappaTipi : (cur.mappaTipi || '')).trim().slice(0, 2000),
         // pagine di risultati per ricerca (1..3): mai salvata = 3
         pagineRicerca: pagine(body.pagineRicerca !== undefined ? body.pagineRicerca : cur.pagineRicerca),
         // segreta: vuota = mantiene quella già salvata (le chiavi non tornano al browser)

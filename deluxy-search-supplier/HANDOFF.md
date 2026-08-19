@@ -485,48 +485,41 @@ non si vedono dati reali né si può diagnosticare «La Mimosa»).
    salvataggio inutile; titoli che non combaciano → riga invariata) + `node --check` OK.
    ⚠️ **Ma da solo NON basta a far dire «un Bouquet»**: vedi «Cose in sospeso».
 
+42. **Il formato del prodotto si legge dai TAG di Shopify (+ tabella di riserva)** (19/08): è la
+   risposta al «perché il messaggio dice ancora il nome del prodotto». Il `productType` di Shopify
+   **non è il formato**: è la categoria commerciale (`Fiori d'Arte`, `Originali Deluxy`,
+   `Cake Design`, `Dolci di Natale` — letti sul catalogo vero col connettore Shopify). Il formato
+   sta nei **tag** del prodotto (`Bouquet`, `Cappelliera`, `Cake Design`).
+   - `api/order.js`: la query GraphQL chiede `product { … tags }` e `normalize` porta
+     **`items[].tags`**; l'arricchimento dell'ordine in KV parte anche quando mancano i tag
+     (il webhook non li manda, quindi per gli ordini vecchi arrivano al primo riaprire).
+   - `index.html`: `classificaFormato(testo)` (le tre famiglie di parole, estratta dalla vecchia
+     `classifica`), `mappaTipi()` (legge la tabella dell'admin) e `tipoProdotto(item)` che decide
+     in quest'ordine: **tag → tabella sulla categoria → categoria a parole → titolo**.
+     ⚠️ Se **due tag dicono formati diversi** (es. un set con bouquet e cappelliera) NON si tira a
+     indovinare: si torna al nome del prodotto. L'errore lo leggerebbe il fornitore.
+   - Nuova impostazione admin **«Categorie Shopify → tipo di prodotto (riserva)»**
+     (`#cfg_mappa` → `config:v1.mappaTipi`, testo libero «Fiori d'Arte = bouquet, Cake Design =
+     torta», max 2000 caratteri): serve solo quando i tag non dicono niente. Il valore a destra
+     passa dallo stesso classificatore, quindi «Bouquet», «bouquet» e «mazzo» valgono uguale.
+   Verificato: 20 controlli automatici sulle funzioni vere estratte dal file — coi **prodotti veri
+   del catalogo** («Monet - Giardino a Giverny» type Fiori d'Arte + tag Bouquet → bouquet; «Mario
+   party cake» → torta; «Uovo di Pasqua Monet» → nessun formato, resta il nome), ordine vecchio
+   senza tag con e senza tabella, tabella scritta male/maiuscole/sinonimi/righe spazzatura, tag in
+   disaccordo, e i casi del 17/08 che dovevano continuare a funzionare. In più, nel browser sulla
+   5511, il messaggio vero: **«un Bouquet Medio-Grande comme sur la photo»** col tag, «una Torta 20
+   come da foto» in italiano, il nome del prodotto quando non c'è la foto. `node --check` OK.
+   **Non collaudato su un ordine vero in produzione** (serve il login): la prova è riaprire
+   l'ordine dello screenshot e guardare il messaggio.
+
 ## Cose in sospeso
 
-- 🔴 **Il messaggio dice ancora il nome del prodotto invece di «un Bouquet» — il motivo vero
-  (scoperto il 19/08, guardando Shopify)**: NON è che il `productType` sia vuoto. È **compilato,
-  ma con la categoria commerciale**, non col formato fisico. Verificato sul negozio deluxy.it col
-  connettore Shopify: «Monet - Giardino a Giverny» (ACTIVE, il prodotto dello screenshot) ha
-  `productType = "Fiori d'Arte"`; altri valori reali sono `Originali Deluxy`, `Cake Design`,
-  `Dolci di Natale`. Il classificatore `tipoProdotto()` cerca `bouquet|mazzo|bunch|ramo`,
-  `cappellier|hat box|flower box|scatol|box`, `torta|cake|gâteau|kuchen|tarta`: «Fiori d'Arte»
-  non matcha, il titolo nemmeno → ripiego sul nome commerciale. **Compilare il `productType`
-  «meglio» non è quindi la strada**: quel campo serve già ad altro nel catalogo.
-  Dove sta invece l'informazione giusta: **nei tag del prodotto** — «Monet - Giardino a Giverny»
-  ha i tag `Bouquet`, `Fiori`, `solobouquet`; il prodotto Pasqua ha `cappelliera` nel titolo e i
-  cake design hanno tag `Cake Design`. Tre strade (da scegliere, tutte lato codice):
-  **a)** leggere i **tag** del prodotto dall'Admin API (`product { tags }` in `api/order.js`,
-  nuovo campo `items[].tags`) e classificare su quelli — è il segnale che il catalogo già mantiene;
-  ⚠️ i tag NON arrivano nel payload del webhook, quindi servono per forza dall'Admin API, e il
-  recupero va innescato quando manca la *tipologia riconosciuta*, non solo quando manca `type`
-  (oggi «Fiori d'Arte» conta come type presente → nessun recupero: da sistemare insieme);
-  **b)** una **tabella productType → formato** modificabile in ⚙️ Impostazioni (es. «Fiori
-  d'Arte, Originali Deluxy → Bouquet»): nessuna chiamata in più, ma «Originali Deluxy» è ambiguo
-  (contiene sia bouquet che cappelliere) e la tabella va tenuta aggiornata a mano;
-  **c)** allargare l'euristica sul titolo: sconsigliata da sola (è quella che può scambiare una
-  cappelliera per un bouquet, e l'errore lo legge il fornitore).
-  Consiglio: **a)**, con **b)** come rete quando i tag non dicono niente.
-- **«La Mimosa» non esce nei risultati dell'ordine deluxyflowers #2734** — 17/08: implementata la
-  **paginazione fino a 60** (punto 40), il rimedio scelto dall'utente fra i tre proposti; **resta
-  da confermare in produzione su quell'ordine**. Se ancora non compare, la causa è l'altra: tutte
-  le chiamate hanno `type: florist` e una scheda che Google non classifica florist (garden center,
-  vivaio, negozio di regali) non esce da nessuna — rimedi rimasti: **a)** una `nearbySearch` solo
-  keyword **senza `type`**, **c)** un campo «Aggiungi negozio per nome» (textSearch del nome con
-  bias sulla consegna, che mostra anche i `types` Google per capire l'esclusione).
-  Non è mai stato diagnosticato dal vivo (in sessione non si entra nell'app e l'indirizzo
-  dell'ordine non è noto): la scelta è stata fatta sulla lettura del codice. Dove può perdersi un
-  negozio che su Google c'è: **(1)** il tetto di 20 risultati per chiamata — **risolto dal punto
-  40** (ora fino a 60); **(2)** la scheda non è di tipo `florist` (Garden center, Vivaio, Negozio
-  di regali, «Fioraio» solo nel nome) → non esce da nessuna chiamata, perché tutte passano
-  `type: florist`; **(3)** `renderResults` taglia a «Numero risultati» (6…30) dopo l'ordinamento;
-  **(4)** i filtri WhatsApp/Apertura/⭐4+ nascondono le schede; **(5)** la scheda è **archiviata**
-  (sezione Archiviati) o Google la dà `CLOSED_PERMANENTLY`. Checklist per l'operatore: Numero
-  risultati → 30, filtri → Tutti, guardare Archiviati, «+10 km». Se con la paginazione attiva
-  manca ancora, è il caso (2).
+- **Tipologia nel messaggio: da provare su un ordine vero** — il 19/08 il riconoscimento è passato
+  ai **tag** del prodotto (punto 42) perché il `productType` è la categoria commerciale. Prova da
+  fare in produzione, loggati: riaprire l'ordine dello screenshot (consegna 18/08, «Monet -
+  Giardino a Giverny Medio-Grande») e verificare che il messaggio dica «un Bouquet … come da
+  foto». Se un prodotto non ha tag utili, la strada è la tabella in ⚙️ Impostazioni
+  («Fiori d'Arte = bouquet»), non toccare il `productType`: serve alle categorie del catalogo.
 - **Utenze operative**: da creare in Impostazioni (finché non esistono si entra solo col
   pass code amministratore + un'email qualsiasi). Le email degli operatori vanno anche
   aggiunte come **test user** dell'app OAuth (vedi sotto).

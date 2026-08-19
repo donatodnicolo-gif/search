@@ -471,6 +471,11 @@
       </div>
       <div class="hint" style="margin-top:-6px">Con cosa cercare i negozi su Google. Più parole chiave separate da <b>virgola</b> = una ricerca per ciascuna, risultati uniti (es. <code>pasticceria, torte, cake design</code>); si aggiunge sempre anche la ricerca per sola categoria. Vuoto = predefinite nella lingua della consegna.</div>
       <div>
+        <label>Categorie Shopify → tipo di prodotto (riserva)</label>
+        <textarea id="cfg_mappa" rows="2" placeholder="Fiori d'Arte = bouquet, Cake Design = torta"></textarea>
+        <div class="hint" style="margin-top:4px">Serve al <b>messaggio per il fornitore</b>, che deve dire «un Bouquet … come da foto» invece del nome commerciale. Di norma il formato si legge dai <b>tag del prodotto</b> su Shopify (<code>Bouquet</code>, <code>Cappelliera</code>, <code>Cake Design</code>); questa tabella entra in gioco <b>solo quando i tag non dicono niente</b>, traducendo la categoria (il <code>productType</code>, es. <code>Fiori d'Arte</code>) nel formato. Una coppia per riga o separate da virgola; a destra vale <code>bouquet</code>, <code>cappelliera</code> o <code>torta</code>. Se resta vuota e neanche i tag aiutano, il messaggio porta il nome del prodotto come oggi.</div>
+      </div>
+      <div>
         <label>Quanti negozi chiedere a Google per ogni ricerca</label>
         <select id="cfg_pagine">
           <option value="3">Fino a 60 (3 pagine) — predefinito</option>
@@ -924,17 +929,43 @@ const TIPO_PRODOTTO = {
 };
 const ASPHOTOWORD = { it:'come da foto', en:'as in the photo', fr:'comme sur la photo', de:'wie auf dem Foto', es:'como en la foto' };
 // tipologia di un prodotto: prima il productType di Shopify, poi il titolo; '' se non si capisce
+// riconosce il FORMATO (bouquet/cappelliera/torta) dentro un testo qualsiasi: tag, categoria, titolo
+function classificaFormato(s){
+  s = String(s||'').toLowerCase();
+  if(!s) return '';
+  if(/cappellier|hat ?box|flower ?box|scatol|\bbox\b/.test(s)) return 'cappelliera';
+  if(/bouquet|mazzo|bunch|\bramo\b/.test(s)) return 'bouquet';
+  if(/\btort[ae]\b|cake|g[âa]teau|kuchen|tarta/.test(s)) return 'torta';
+  return '';
+}
+// tabella «categoria Shopify → formato» scritta dall'admin in ⚙️ Impostazioni
+// (CONFIG.mappaTipi, es. «Fiori d'Arte = bouquet, Cake Design = torta»): rete di riserva
+// per le categorie che i tag non chiariscono. Il valore si legge con lo stesso classificatore,
+// così «Fiori d'Arte = Bouquet», «= bouquet» e «= mazzo» valgono uguale.
+function mappaTipi(){
+  const out = {};
+  String(CONFIG.mappaTipi || '').split(/[\n;,]+/).forEach(riga=>{
+    const p = String(riga).split(/[=:]/);
+    if(p.length < 2) return;
+    const chiave = p[0].trim().toLowerCase();
+    const formato = classificaFormato(p.slice(1).join(' '));
+    if(chiave && formato) out[chiave] = formato;
+  });
+  return out;
+}
+// ⚠️ Il `productType` di Shopify NON dice il formato: è la CATEGORIA COMMERCIALE
+// («Fiori d'Arte», «Originali Deluxy», «Cake Design», «Dolci di Natale» — verificato sul
+// catalogo il 19/08). Il formato sta nei TAG del prodotto (Bouquet, Cappelliera, Cake Design),
+// che arrivano solo dall'Admin API (il webhook non li manda) come `items[].tags`.
+// Ordine: tag → tabella dell'admin sulla categoria → categoria a parole → titolo.
+// Se due tag dicono formati diversi non si tira a indovinare: resta il nome del prodotto.
 function tipoProdotto(item){
-  const classifica = (s)=>{
-    s = String(s||'').toLowerCase();
-    if(!s) return '';
-    if(/cappellier|hat ?box|flower ?box|scatol|\bbox\b/.test(s)) return 'cappelliera';
-    if(/bouquet|mazzo|bunch|\bramo\b/.test(s)) return 'bouquet';
-    if(/\btort[ae]\b|cake|g[âa]teau|kuchen|tarta/.test(s)) return 'torta';
-    return '';
-  };
-  // il productType di Shopify (se compilato) vince sul titolo commerciale
-  return classifica(item && item.type) || classifica(item && item.title);
+  const daiTag = [...new Set((item && Array.isArray(item.tags) ? item.tags : [])
+    .map(classificaFormato).filter(Boolean))];
+  if(daiTag.length === 1) return daiTag[0];
+  if(daiTag.length > 1) return '';
+  const cat = String((item && item.type) || '').trim().toLowerCase();
+  return (cat && mappaTipi()[cat]) || classificaFormato(cat) || classificaFormato(item && item.title);
 }
 // etichetta prodotto per il messaggio: «Bouquet come da foto» / «Cappelliera Grande come da foto»;
 // senza foto (o tipologia non riconosciuta) resta il nome del prodotto, come prima
@@ -1091,6 +1122,7 @@ function applyConfig(){
   $('#cfg_kw_fioraio').value = CONFIG.kwFioraio || '';
   $('#cfg_kw_pasticceria').value = CONFIG.kwPasticceria || '';
   $('#cfg_foto').checked = fotoAttive();
+  $('#cfg_mappa').value = CONFIG.mappaTipi || '';
   $('#cfg_pagine').value = String(paginePerRicerca());
   $('#cfg_anag_url').value = CONFIG.anagUrl || '';
   $('#cfg_anag_key').value = '';
@@ -1237,6 +1269,7 @@ async function saveConfig(){
                  kwFioraio: $('#cfg_kw_fioraio').value.trim(),
                  kwPasticceria: $('#cfg_kw_pasticceria').value.trim(),
                  mostraFoto: $('#cfg_foto').checked ? '1' : '0',
+                 mappaTipi: $('#cfg_mappa').value.trim(),
                  pagineRicerca: $('#cfg_pagine').value,
                  anagUrl: $('#cfg_anag_url').value.trim(), anagKey: $('#cfg_anag_key').value.trim(),
                  anagWriteKey: $('#cfg_anag_wkey').value.trim(),
