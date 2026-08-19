@@ -909,7 +909,11 @@ export function DettaglioOrdine({
                               ordine.gestione === k ? 'bottone mini' : 'bottone secondario mini'
                             }
                             onClick={() => cambiaGestione(k)}
-                            title={`Segna che l'ordine è a questo punto: ${nomeGestione(k)}`}
+                            title={
+                                k === 'gestito'
+                                  ? 'Chiude l ordine: sparisce dalla lista di lavoro. Per riaprirlo, «Da iniziare».'
+                                  : `Segna che l'ordine è a questo punto: ${nomeGestione(k)}`
+                              }
                           >
                             {nomeGestione(k)}
                           </button>
@@ -1045,16 +1049,6 @@ export function DettaglioOrdine({
                       )
                     })()
                   : null}
-                {/* Solo sugli ordini che abbiamo in casa: senza una riga da
-                    aggiornare il bottone fallirebbe dopo il clic. */}
-                {soloArchivio ? null : (
-                  <button
-                    className="btn btn-secondario small"
-                    onClick={() => cambiaGestione(ordine.gestione === 'gestito' ? 'da_gestire' : 'gestito')}
-                  >
-                    {ordine.gestione === 'gestito' ? 'Riapri' : 'Gestito ✓'}
-                  </button>
-                )}
               </div>
             </div>
 

@@ -1610,7 +1610,11 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
                                 o.gestione === k ? 'bottone mini' : 'bottone secondario mini'
                               }
                               onClick={() => segna(o.id, k)}
-                              title={`Segna che l'ordine è a questo punto: ${nomeGestione(k)}`}
+                              title={
+                                k === 'gestito'
+                                  ? 'Chiude l ordine: sparisce dalla lista di lavoro. Per riaprirlo, «Da iniziare».'
+                                  : `Segna che l'ordine è a questo punto: ${nomeGestione(k)}`
+                              }
                             >
                               {nomeGestione(k)}
                             </button>
@@ -1692,23 +1696,6 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
                           >
                             Rimborso
                           </a>
-                          {o.gestione === 'gestito' ? (
-                            <button
-                              className="bottone secondario mini"
-                              onClick={() => segna(o.id, 'da_gestire')}
-                              title="Rimetti tra quelli da gestire"
-                            >
-                              Riapri
-                            </button>
-                          ) : (
-                            <button
-                              className="bottone secondario mini"
-                              onClick={() => segna(o.id, 'gestito')}
-                              title="Segna come gestito"
-                            >
-                              Gestito ✓
-                            </button>
-                          )}
                           {!o.contattoSalvato ? (
                             <button
                               className="bottone secondario mini"

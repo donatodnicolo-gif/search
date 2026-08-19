@@ -20,13 +20,28 @@ export const GESTIONI = [
 ] as const
 
 /**
- * I passi che si scelgono a mano, in ordine di lavorazione.
+ * I passi che si scelgono a mano, in ordine di lavorazione — **`gestito`
+ * compreso**, come ultimo.
  *
- * Sono la fila di stati sopra i bottoni: dove sta l'ordine adesso. Fuori
- * restano `comunicazione` (lo mette l'app da sé) e `gestito` (è la fine, e ha
- * il suo bottone: è l'unica azione che fa sparire l'ordine dalla lista).
+ * ⚠️ Prima era un bottone a parte in mezzo alle azioni: ma «Gestito» non è una
+ * cosa da fare all'ordine (come «Rimborso» o «WhatsApp»), è il punto in cui
+ * l'ordine è arrivato — l'ultimo. Stando fra le azioni, la fila raccontava una
+ * lavorazione che non finiva mai, e la fine si cercava altrove.
+ *
+ * ⚠️ Cliccarlo fa **sparire l'ordine** dalla lista di lavoro (il filtro parte da
+ * «non gestiti»): è l'unico passo con questa conseguenza, ed è scritto nel suo
+ * titolo. Per riaprirlo basta ricliccare «Da iniziare».
+ *
+ * Fuori resta solo `comunicazione`: quello lo scrive l'app da sé quando si
+ * scrive al cliente, non lo sceglie nessuno.
  */
-export const PASSI = ['da_gestire', 'ricerca_fornitore', 'in_pagamento', 'attesa_consegna'] as const
+export const PASSI = [
+  'da_gestire',
+  'ricerca_fornitore',
+  'in_pagamento',
+  'attesa_consegna',
+  'gestito',
+] as const
 
 export type ChiaveGestione = (typeof GESTIONI)[number]['chiave']
 
