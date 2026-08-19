@@ -76,6 +76,21 @@ Per dare un'idea del ritmo: negli ultimi 30 giorni sono arrivati **~15 ordini al
 (minimo 6, massimo 26), con le punte attorno alle **11** e alle **15**, e solo l'8% fra
 mezzanotte e le 7.
 
+## Spostare la consegna
+
+Il cliente chiama e chiede un altro giorno: dal pannello dell'ordine, riga **Consegna →
+Sposta**, si cambiano giorno e fascia. La data nuova vale subito ovunque — urgenza,
+calendario, ordinamenti, messaggio al fornitore e ora di ritiro.
+
+⚠️ **La consegna resta diversa da quella su Shopify**, e l'app lo dice: «spostata da
+Nicolò · su Shopify resta 20 agosto». Va sistemata anche alla fonte, altrimenti chi guarda
+Shopify (o chiunque legga il registro) vede l'altra data. Quando Orders porta la stessa
+data, la deroga si spegne da sola.
+
+⚠️ Finché la consegna è spostata, il sync **non** riscrive più data e fascia di quell'ordine:
+senza questa regola la decisione di una persona verrebbe cancellata ogni 15 minuti, e la
+data «tornerebbe indietro» senza spiegazione. «Rimetti quella di Shopify» annulla tutto.
+
 ## A che punto è un ordine
 
 Sopra i bottoni di ogni ordine c'è la fila dei passi: **Da iniziare** (dove nasce) ·

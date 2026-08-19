@@ -153,6 +153,26 @@ locale, altrimenti nulla si decifra.
     corta. ⚠️ I mestieri hanno più etichette (FIORISTA+FIORI, PASTICCERIA+
     CIOCCOLATERIA) e il recapito può essere di un **referente**. Misurato:
     Milano → 9 pasticcerie / 6 fiorai; Firenze e Novara → nessuno, e lo dice.
+  - **LA CONSEGNA SI SPOSTA DAL PANNELLO, E LO STATO SI CAMBIA ANCHE LÌ**
+    (19/08/2026, LIVE). Il pannello è dove si lavora l'ordine: ci si accorge lì
+    di essere passati al punto dopo, e chiudere per cambiare stato sulla scheda
+    è un giro che non fa nessuno. Stessa cosa per la consegna: il cliente
+    chiede un altro giorno, e prima si andava su Shopify aspettando il reimport.
+    - ⚠️⚠️ Il valore nuovo si scrive **dentro `dataConsegna`/`fasciaConsegna`**,
+      i campi che leggono già urgenza, calendario, ordinamenti e messaggio al
+      fornitore: una data «nostra» in un campo a parte sarebbe vera solo nella
+      schermata che la mostra.
+    - ⚠️ `consegnaSpostata` dice al sync di non ripassarci sopra — senza,
+      la decisione di una persona sparirebbe entro 15 minuti — e
+      `dataConsegnaOriginale` tiene quella di Shopify per mostrarla accanto.
+    - ⚠️ **La divergenza si dichiara a schermo** («spostata da X · su Shopify
+      resta Y»): è l'unico modo perché qualcuno vada a sistemarla alla fonte.
+    - 🔴 **MANCA la nota su Shopify** (chiesta dall'utente): da qui non si
+      scrive su Shopify — il client è stato tolto di proposito, e le credenziali
+      dei tre negozi coniano un token ma **non dichiarano `write_orders`**
+      (provato il 19/08: `access_scopes` torna vuoto). Serve una decisione
+      dell'utente: dare il permesso di scrittura all'app CRM_DELUXY, oppure
+      incollare un token con `write_orders` in Impostazioni.
   - 🐛🐛 **GLI ORDINI APPENA FATTI ARRIVAVANO SEMPRE UN GIRO DOPO** (19/08,
     segnalato dall'utente: «ne ho ricevuti ora alcuni su Flowers che non
     vedo»). Non era un guasto: era una **gara persa in partenza**. Anche il
