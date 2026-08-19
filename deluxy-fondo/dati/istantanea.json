@@ -1,760 +1,751 @@
 {
-  "generataIl": "2026-08-18T15:26:58.895Z",
+  "generataIl": "2026-08-19T08:02:24.699Z",
   "fonti": [
     {
       "nome": "Yahoo chart — TIT.MI",
       "descrizione": "Prezzi giornalieri di TIM (Telecom Italia)",
-      "url": "https://query1.finance.yahoo.com/v8/finance/chart/TIT.MI?range=10y&interval=1d",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/TIT.MI?range=1y&interval=1d",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:15.721Z",
-      "record": 2539
+      "aggiornataIl": "2026-08-19T08:01:53.671Z",
+      "record": 251
     },
     {
       "nome": "Yahoo chart — UCG.MI",
       "descrizione": "Prezzi giornalieri di UniCredit",
-      "url": "https://query1.finance.yahoo.com/v8/finance/chart/UCG.MI?range=10y&interval=1d",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/UCG.MI?range=1y&interval=1d",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:16.091Z",
-      "record": 2539
+      "aggiornataIl": "2026-08-19T08:01:54.064Z",
+      "record": 251
     },
     {
       "nome": "Yahoo chart — LDO.MI",
       "descrizione": "Prezzi giornalieri di Leonardo",
-      "url": "https://query1.finance.yahoo.com/v8/finance/chart/LDO.MI?range=10y&interval=1d",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/LDO.MI?range=1y&interval=1d",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:16.638Z",
-      "record": 2539
+      "aggiornataIl": "2026-08-19T08:01:54.999Z",
+      "record": 251
     },
     {
       "nome": "Yahoo chart — STLAM.MI",
       "descrizione": "Prezzi giornalieri di Stellantis",
-      "url": "https://query1.finance.yahoo.com/v8/finance/chart/STLAM.MI?range=10y&interval=1d",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/STLAM.MI?range=1y&interval=1d",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:17.116Z",
-      "record": 2539
+      "aggiornataIl": "2026-08-19T08:01:55.300Z",
+      "record": 253
     },
     {
       "nome": "Yahoo chart — BAYN.DE",
       "descrizione": "Prezzi giornalieri di Bayer",
-      "url": "https://query1.finance.yahoo.com/v8/finance/chart/BAYN.DE?range=10y&interval=1d",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/BAYN.DE?range=1y&interval=1d",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:17.644Z",
-      "record": 2540
+      "aggiornataIl": "2026-08-19T08:01:55.612Z",
+      "record": 251
     },
     {
       "nome": "Yahoo chart — TRN.MI",
       "descrizione": "Prezzi giornalieri di Terna",
-      "url": "https://query1.finance.yahoo.com/v8/finance/chart/TRN.MI?range=10y&interval=1d",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/TRN.MI?range=1y&interval=1d",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:17.995Z",
-      "record": 2539
+      "aggiornataIl": "2026-08-19T08:01:55.955Z",
+      "record": 251
     },
     {
       "nome": "Yahoo chart — ENAV.MI",
       "descrizione": "Prezzi giornalieri di ENAV",
-      "url": "https://query1.finance.yahoo.com/v8/finance/chart/ENAV.MI?range=10y&interval=1d",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/ENAV.MI?range=1y&interval=1d",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:18.320Z",
-      "record": 2539
+      "aggiornataIl": "2026-08-19T08:01:56.320Z",
+      "record": 251
     },
     {
       "nome": "Yahoo chart — CPR.MI",
       "descrizione": "Prezzi giornalieri di Davide Campari-Milano",
-      "url": "https://query1.finance.yahoo.com/v8/finance/chart/CPR.MI?range=10y&interval=1d",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/CPR.MI?range=1y&interval=1d",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:18.677Z",
-      "record": 2539
+      "aggiornataIl": "2026-08-19T08:01:56.631Z",
+      "record": 253
     },
     {
       "nome": "Yahoo chart — MB.MI",
       "descrizione": "Prezzi giornalieri di Mediobanca",
-      "url": "https://query1.finance.yahoo.com/v8/finance/chart/MB.MI?range=10y&interval=1d",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/MB.MI?range=1y&interval=1d",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:18.984Z",
-      "record": 2539
+      "aggiornataIl": "2026-08-19T08:01:56.996Z",
+      "record": 253
     },
     {
       "nome": "Yahoo chart — NEXI.MI",
       "descrizione": "Prezzi giornalieri di Nexi",
-      "url": "https://query1.finance.yahoo.com/v8/finance/chart/NEXI.MI?range=10y&interval=1d",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/NEXI.MI?range=1y&interval=1d",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:19.416Z",
-      "record": 1861
+      "aggiornataIl": "2026-08-19T08:01:57.347Z",
+      "record": 251
     },
     {
       "nome": "Yahoo chart — MONC.MI",
       "descrizione": "Prezzi giornalieri di Moncler",
-      "url": "https://query1.finance.yahoo.com/v8/finance/chart/MONC.MI?range=10y&interval=1d",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/MONC.MI?range=1y&interval=1d",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:19.855Z",
-      "record": 2539
+      "aggiornataIl": "2026-08-19T08:01:57.961Z",
+      "record": 251
     },
     {
       "nome": "Yahoo chart — GEO.MI",
       "descrizione": "Prezzi giornalieri di Geox",
-      "url": "https://query1.finance.yahoo.com/v8/finance/chart/GEO.MI?range=10y&interval=1d",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/GEO.MI?range=1y&interval=1d",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:20.226Z",
-      "record": 2539
+      "aggiornataIl": "2026-08-19T08:01:58.267Z",
+      "record": 251
     },
     {
       "nome": "Yahoo chart — IRE.MI",
       "descrizione": "Prezzi giornalieri di Iren",
-      "url": "https://query1.finance.yahoo.com/v8/finance/chart/IRE.MI?range=10y&interval=1d",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/IRE.MI?range=1y&interval=1d",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:20.727Z",
-      "record": 2539
+      "aggiornataIl": "2026-08-19T08:01:58.575Z",
+      "record": 251
     },
     {
       "nome": "Yahoo chart — SRG.MI",
       "descrizione": "Prezzi giornalieri di Snam",
-      "url": "https://query1.finance.yahoo.com/v8/finance/chart/SRG.MI?range=10y&interval=1d",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/SRG.MI?range=1y&interval=1d",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:21.521Z",
-      "record": 2539
+      "aggiornataIl": "2026-08-19T08:01:58.885Z",
+      "record": 251
     },
     {
       "nome": "Yahoo chart — TEN.MI",
       "descrizione": "Prezzi giornalieri di Tenaris",
-      "url": "https://query1.finance.yahoo.com/v8/finance/chart/TEN.MI?range=10y&interval=1d",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/TEN.MI?range=1y&interval=1d",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:21.975Z",
-      "record": 2539
+      "aggiornataIl": "2026-08-19T08:01:59.291Z",
+      "record": 253
     },
     {
       "nome": "Yahoo chart — BFF.MI",
       "descrizione": "Prezzi giornalieri di BFF Bank",
-      "url": "https://query1.finance.yahoo.com/v8/finance/chart/BFF.MI?range=10y&interval=1d",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/BFF.MI?range=1y&interval=1d",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:22.584Z",
-      "record": 2374
+      "aggiornataIl": "2026-08-19T08:01:59.598Z",
+      "record": 253
     },
     {
       "nome": "Yahoo chart — PRT.MI",
       "descrizione": "Prezzi giornalieri di Esprinet",
-      "url": "https://query1.finance.yahoo.com/v8/finance/chart/PRT.MI?range=10y&interval=1d",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/PRT.MI?range=1y&interval=1d",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:23.168Z",
-      "record": 2539
+      "aggiornataIl": "2026-08-19T08:01:59.904Z",
+      "record": 253
     },
     {
       "nome": "Yahoo chart — ASC.MI",
       "descrizione": "Prezzi giornalieri di Ascopiave",
-      "url": "https://query1.finance.yahoo.com/v8/finance/chart/ASC.MI?range=10y&interval=1d",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/ASC.MI?range=1y&interval=1d",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:23.880Z",
-      "record": 2539
+      "aggiornataIl": "2026-08-19T08:02:00.187Z",
+      "record": 251
     },
     {
       "nome": "Yahoo chart — JUVE.MI",
       "descrizione": "Prezzi giornalieri di Juventus Football Club",
-      "url": "https://query1.finance.yahoo.com/v8/finance/chart/JUVE.MI?range=10y&interval=1d",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/JUVE.MI?range=1y&interval=1d",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:24.599Z",
-      "record": 2539
+      "aggiornataIl": "2026-08-19T08:02:00.519Z",
+      "record": 251
     },
     {
       "nome": "Yahoo chart — ELC.MI",
       "descrizione": "Prezzi giornalieri di Elica",
-      "url": "https://query1.finance.yahoo.com/v8/finance/chart/ELC.MI?range=10y&interval=1d",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/ELC.MI?range=1y&interval=1d",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:24.969Z",
-      "record": 2539
+      "aggiornataIl": "2026-08-19T08:02:00.826Z",
+      "record": 251
     },
     {
       "nome": "Yahoo chart — BSS.MI",
       "descrizione": "Prezzi giornalieri di Biesse",
-      "url": "https://query1.finance.yahoo.com/v8/finance/chart/BSS.MI?range=10y&interval=1d",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/BSS.MI?range=1y&interval=1d",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:25.466Z",
-      "record": 2539
+      "aggiornataIl": "2026-08-19T08:02:01.132Z",
+      "record": 251
     },
     {
       "nome": "Yahoo chart — KER.PA",
       "descrizione": "Prezzi giornalieri di Kering",
-      "url": "https://query1.finance.yahoo.com/v8/finance/chart/KER.PA?range=10y&interval=1d",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/KER.PA?range=1y&interval=1d",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:28.090Z",
-      "record": 2559
+      "aggiornataIl": "2026-08-19T08:02:01.454Z",
+      "record": 255
     },
     {
       "nome": "Yahoo chart — RNO.PA",
       "descrizione": "Prezzi giornalieri di Renault",
-      "url": "https://query1.finance.yahoo.com/v8/finance/chart/RNO.PA?range=10y&interval=1d",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/RNO.PA?range=1y&interval=1d",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:28.801Z",
-      "record": 2559
+      "aggiornataIl": "2026-08-19T08:02:01.851Z",
+      "record": 253
     },
     {
       "nome": "Yahoo chart — ULVR.L",
       "descrizione": "Prezzi giornalieri di Unilever",
-      "url": "https://query1.finance.yahoo.com/v8/finance/chart/ULVR.L?range=10y&interval=1d",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/ULVR.L?range=1y&interval=1d",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:29.950Z",
-      "record": 2526
+      "aggiornataIl": "2026-08-19T08:02:02.222Z",
+      "record": 253
     },
     {
       "nome": "Yahoo chart — DGE.L",
       "descrizione": "Prezzi giornalieri di Diageo",
-      "url": "https://query1.finance.yahoo.com/v8/finance/chart/DGE.L?range=10y&interval=1d",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/DGE.L?range=1y&interval=1d",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:30.562Z",
-      "record": 2525
-    },
-    {
-      "nome": "Yahoo chart — TEF.MC",
-      "descrizione": "Prezzi giornalieri di Telefónica",
-      "url": "https://query1.finance.yahoo.com/v8/finance/chart/TEF.MC?range=10y&interval=1d",
-      "esito": "ok",
-      "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:30.824Z",
-      "record": 12
+      "aggiornataIl": "2026-08-19T08:02:02.567Z",
+      "record": 253
     },
     {
       "nome": "Yahoo chart — PUM.DE",
       "descrizione": "Prezzi giornalieri di Puma",
-      "url": "https://query1.finance.yahoo.com/v8/finance/chart/PUM.DE?range=10y&interval=1d",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/PUM.DE?range=1y&interval=1d",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:31.879Z",
-      "record": 2540
+      "aggiornataIl": "2026-08-19T08:02:02.875Z",
+      "record": 251
     },
     {
       "nome": "Yahoo chart — CBK.DE",
       "descrizione": "Prezzi giornalieri di Commerzbank",
-      "url": "https://query1.finance.yahoo.com/v8/finance/chart/CBK.DE?range=10y&interval=1d",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/CBK.DE?range=1y&interval=1d",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:32.534Z",
-      "record": 2540
+      "aggiornataIl": "2026-08-19T08:02:03.284Z",
+      "record": 253
     },
     {
       "nome": "Yahoo chart — P911.DE",
       "descrizione": "Prezzi giornalieri di Porsche AG",
-      "url": "https://query1.finance.yahoo.com/v8/finance/chart/P911.DE?range=10y&interval=1d",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/P911.DE?range=1y&interval=1d",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:32.849Z",
-      "record": 986
+      "aggiornataIl": "2026-08-19T08:02:03.596Z",
+      "record": 253
     },
     {
       "nome": "Yahoo chart — NOVO-B.CO",
       "descrizione": "Prezzi giornalieri di Novo Nordisk",
-      "url": "https://query1.finance.yahoo.com/v8/finance/chart/NOVO-B.CO?range=10y&interval=1d",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/NOVO-B.CO?range=1y&interval=1d",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:33.808Z",
-      "record": 2499
+      "aggiornataIl": "2026-08-19T08:02:04.207Z",
+      "record": 248
     },
     {
       "nome": "Yahoo chart — ATO.PA",
       "descrizione": "Prezzi giornalieri di Atos",
-      "url": "https://query1.finance.yahoo.com/v8/finance/chart/ATO.PA?range=10y&interval=1d",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/ATO.PA?range=1y&interval=1d",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:34.741Z",
-      "record": 2559
+      "aggiornataIl": "2026-08-19T08:02:04.520Z",
+      "record": 253
     },
     {
       "nome": "Yahoo chart — WLN.PA",
       "descrizione": "Prezzi giornalieri di Worldline",
-      "url": "https://query1.finance.yahoo.com/v8/finance/chart/WLN.PA?range=10y&interval=1d",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/WLN.PA?range=1y&interval=1d",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:35.342Z",
-      "record": 2559
+      "aggiornataIl": "2026-08-19T08:02:04.822Z",
+      "record": 255
     },
     {
       "nome": "Yahoo chart — ALO.PA",
       "descrizione": "Prezzi giornalieri di Alstom",
-      "url": "https://query1.finance.yahoo.com/v8/finance/chart/ALO.PA?range=10y&interval=1d",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/ALO.PA?range=1y&interval=1d",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:36.332Z",
-      "record": 2559
+      "aggiornataIl": "2026-08-19T08:02:05.127Z",
+      "record": 255
     },
     {
       "nome": "Yahoo chart — BP.L",
       "descrizione": "Prezzi giornalieri di BP",
-      "url": "https://query1.finance.yahoo.com/v8/finance/chart/BP.L?range=10y&interval=1d",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/BP.L?range=1y&interval=1d",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:37.355Z",
-      "record": 2525
+      "aggiornataIl": "2026-08-19T08:02:05.745Z",
+      "record": 253
     },
     {
       "nome": "Yahoo chart — BMW.DE",
       "descrizione": "Prezzi giornalieri di BMW",
-      "url": "https://query1.finance.yahoo.com/v8/finance/chart/BMW.DE?range=10y&interval=1d",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/BMW.DE?range=1y&interval=1d",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:38.275Z",
-      "record": 2540
+      "aggiornataIl": "2026-08-19T08:02:06.354Z",
+      "record": 253
     },
     {
       "nome": "Yahoo chart — MRK.DE",
       "descrizione": "Prezzi giornalieri di Merck KGaA",
-      "url": "https://query1.finance.yahoo.com/v8/finance/chart/MRK.DE?range=10y&interval=1d",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/MRK.DE?range=1y&interval=1d",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:38.987Z",
-      "record": 2540
+      "aggiornataIl": "2026-08-19T08:02:06.758Z",
+      "record": 253
     },
     {
       "nome": "Yahoo chart — VNA.DE",
       "descrizione": "Prezzi giornalieri di Vonovia",
-      "url": "https://query1.finance.yahoo.com/v8/finance/chart/VNA.DE?range=10y&interval=1d",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/VNA.DE?range=1y&interval=1d",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:39.541Z",
-      "record": 2540
+      "aggiornataIl": "2026-08-19T08:02:07.076Z",
+      "record": 251
     },
     {
       "nome": "Yahoo chart — NESN.SW",
       "descrizione": "Prezzi giornalieri di Nestlé",
-      "url": "https://query1.finance.yahoo.com/v8/finance/chart/NESN.SW?range=10y&interval=1d",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/NESN.SW?range=1y&interval=1d",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:40.053Z",
-      "record": 2512
+      "aggiornataIl": "2026-08-19T08:02:07.382Z",
+      "record": 251
     },
     {
       "nome": "Yahoo chart — INTC",
       "descrizione": "Prezzi giornalieri di Intel",
-      "url": "https://query1.finance.yahoo.com/v8/finance/chart/INTC?range=10y&interval=1d",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/INTC?range=1y&interval=1d",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:40.450Z",
-      "record": 2512
+      "aggiornataIl": "2026-08-19T08:02:07.790Z",
+      "record": 251
     },
     {
       "nome": "Yahoo chart — NKE",
       "descrizione": "Prezzi giornalieri di Nike",
-      "url": "https://query1.finance.yahoo.com/v8/finance/chart/NKE?range=10y&interval=1d",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/NKE?range=1y&interval=1d",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:40.890Z",
-      "record": 2512
+      "aggiornataIl": "2026-08-19T08:02:08.095Z",
+      "record": 251
     },
     {
       "nome": "Yahoo chart — AAPL",
       "descrizione": "Prezzi giornalieri di Apple",
-      "url": "https://query1.finance.yahoo.com/v8/finance/chart/AAPL?range=10y&interval=1d",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/AAPL?range=1y&interval=1d",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:41.320Z",
-      "record": 2512
+      "aggiornataIl": "2026-08-19T08:02:08.374Z",
+      "record": 251
+    },
+    {
+      "nome": "Yahoo chart — KHNZ.DE",
+      "descrizione": "Prezzi giornalieri di Kraft Heinz",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/KHNZ.DE?range=1y&interval=1d",
+      "esito": "ok",
+      "messaggio": null,
+      "aggiornataIl": "2026-08-19T08:02:08.712Z",
+      "record": 251
     },
     {
       "nome": "Yahoo chart — FTSEMIB.MI",
       "descrizione": "Prezzi giornalieri di FTSE MIB",
-      "url": "https://query1.finance.yahoo.com/v8/finance/chart/FTSEMIB.MI?range=10y&interval=1d",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/FTSEMIB.MI?range=1y&interval=1d",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:41.796Z",
-      "record": 2538
+      "aggiornataIl": "2026-08-19T08:02:08.977Z",
+      "record": 254
     },
     {
       "nome": "Yahoo chart — XMIB.MI",
       "descrizione": "Prezzi giornalieri di FTSE MIB a dividendi reinvestiti",
-      "url": "https://query1.finance.yahoo.com/v8/finance/chart/XMIB.MI?range=10y&interval=1d",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/XMIB.MI?range=1y&interval=1d",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:42.262Z",
-      "record": 2533
+      "aggiornataIl": "2026-08-19T08:02:09.532Z",
+      "record": 251
     },
     {
       "nome": "Yahoo fondamentali — TIT.MI",
       "descrizione": "Ricavi, EBITDA, utile, FCF, debito annuali",
-      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/TIT.MI?symbol=TIT.MI&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787066802",
+      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/TIT.MI?symbol=TIT.MI&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787126529",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:43.167Z",
+      "aggiornataIl": "2026-08-19T08:02:10.348Z",
       "record": 32
     },
     {
       "nome": "Yahoo fondamentali — UCG.MI",
       "descrizione": "Ricavi, EBITDA, utile, FCF, debito annuali",
-      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/UCG.MI?symbol=UCG.MI&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787066803",
+      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/UCG.MI?symbol=UCG.MI&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787126530",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:43.420Z",
+      "aggiornataIl": "2026-08-19T08:02:10.654Z",
       "record": 28
     },
     {
       "nome": "Yahoo fondamentali — LDO.MI",
       "descrizione": "Ricavi, EBITDA, utile, FCF, debito annuali",
-      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/LDO.MI?symbol=LDO.MI&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787066803",
+      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/LDO.MI?symbol=LDO.MI&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787126530",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:43.979Z",
+      "aggiornataIl": "2026-08-19T08:02:11.175Z",
       "record": 32
     },
     {
       "nome": "Yahoo fondamentali — STLAM.MI",
       "descrizione": "Ricavi, EBITDA, utile, FCF, debito annuali",
-      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/STLAM.MI?symbol=STLAM.MI&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787066803",
+      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/STLAM.MI?symbol=STLAM.MI&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787126531",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:44.300Z",
+      "aggiornataIl": "2026-08-19T08:02:11.451Z",
       "record": 32
     },
     {
       "nome": "Yahoo fondamentali — BAYN.DE",
       "descrizione": "Ricavi, EBITDA, utile, FCF, debito annuali",
-      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/BAYN.DE?symbol=BAYN.DE&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787066804",
+      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/BAYN.DE?symbol=BAYN.DE&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787126531",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:44.918Z",
+      "aggiornataIl": "2026-08-19T08:02:11.781Z",
       "record": 32
     },
     {
       "nome": "Yahoo fondamentali — TRN.MI",
       "descrizione": "Ricavi, EBITDA, utile, FCF, debito annuali",
-      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/TRN.MI?symbol=TRN.MI&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787066804",
+      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/TRN.MI?symbol=TRN.MI&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787126531",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:45.346Z",
+      "aggiornataIl": "2026-08-19T08:02:12.293Z",
       "record": 32
     },
     {
       "nome": "Yahoo fondamentali — ENAV.MI",
       "descrizione": "Ricavi, EBITDA, utile, FCF, debito annuali",
-      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/ENAV.MI?symbol=ENAV.MI&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787066805",
+      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/ENAV.MI?symbol=ENAV.MI&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787126532",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:45.735Z",
+      "aggiornataIl": "2026-08-19T08:02:12.607Z",
       "record": 32
     },
     {
       "nome": "Yahoo fondamentali — CPR.MI",
       "descrizione": "Ricavi, EBITDA, utile, FCF, debito annuali",
-      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/CPR.MI?symbol=CPR.MI&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787066805",
+      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/CPR.MI?symbol=CPR.MI&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787126532",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:46.061Z",
+      "aggiornataIl": "2026-08-19T08:02:13.009Z",
       "record": 32
     },
     {
       "nome": "Yahoo fondamentali — MB.MI",
       "descrizione": "Ricavi, EBITDA, utile, FCF, debito annuali",
-      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/MB.MI?symbol=MB.MI&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787066806",
+      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/MB.MI?symbol=MB.MI&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787126533",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:46.352Z",
+      "aggiornataIl": "2026-08-19T08:02:13.311Z",
       "record": 25
     },
     {
       "nome": "Yahoo fondamentali — NEXI.MI",
       "descrizione": "Ricavi, EBITDA, utile, FCF, debito annuali",
-      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/NEXI.MI?symbol=NEXI.MI&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787066806",
+      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/NEXI.MI?symbol=NEXI.MI&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787126533",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:46.746Z",
+      "aggiornataIl": "2026-08-19T08:02:13.632Z",
       "record": 32
     },
     {
       "nome": "Yahoo fondamentali — MONC.MI",
       "descrizione": "Ricavi, EBITDA, utile, FCF, debito annuali",
-      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/MONC.MI?symbol=MONC.MI&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787066806",
+      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/MONC.MI?symbol=MONC.MI&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787126533",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:47.103Z",
+      "aggiornataIl": "2026-08-19T08:02:13.920Z",
       "record": 32
     },
     {
       "nome": "Yahoo fondamentali — GEO.MI",
       "descrizione": "Ricavi, EBITDA, utile, FCF, debito annuali",
-      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/GEO.MI?symbol=GEO.MI&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787066807",
+      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/GEO.MI?symbol=GEO.MI&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787126533",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:47.363Z",
+      "aggiornataIl": "2026-08-19T08:02:14.257Z",
       "record": 32
     },
     {
       "nome": "Yahoo fondamentali — IRE.MI",
       "descrizione": "Ricavi, EBITDA, utile, FCF, debito annuali",
-      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/IRE.MI?symbol=IRE.MI&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787066807",
+      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/IRE.MI?symbol=IRE.MI&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787126534",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:47.735Z",
+      "aggiornataIl": "2026-08-19T08:02:14.657Z",
       "record": 32
     },
     {
       "nome": "Yahoo fondamentali — SRG.MI",
       "descrizione": "Ricavi, EBITDA, utile, FCF, debito annuali",
-      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/SRG.MI?symbol=SRG.MI&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787066807",
+      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/SRG.MI?symbol=SRG.MI&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787126534",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:48.030Z",
+      "aggiornataIl": "2026-08-19T08:02:14.957Z",
       "record": 32
     },
     {
       "nome": "Yahoo fondamentali — TEN.MI",
       "descrizione": "Ricavi, EBITDA, utile, FCF, debito annuali",
-      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/TEN.MI?symbol=TEN.MI&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787066808",
+      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/TEN.MI?symbol=TEN.MI&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787126534",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:48.314Z",
+      "aggiornataIl": "2026-08-19T08:02:15.269Z",
       "record": 32
     },
     {
       "nome": "Yahoo fondamentali — BFF.MI",
       "descrizione": "Ricavi, EBITDA, utile, FCF, debito annuali",
-      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/BFF.MI?symbol=BFF.MI&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787066808",
+      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/BFF.MI?symbol=BFF.MI&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787126535",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:48.632Z",
+      "aggiornataIl": "2026-08-19T08:02:15.668Z",
       "record": 28
     },
     {
       "nome": "Yahoo fondamentali — PRT.MI",
       "descrizione": "Ricavi, EBITDA, utile, FCF, debito annuali",
-      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/PRT.MI?symbol=PRT.MI&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787066808",
+      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/PRT.MI?symbol=PRT.MI&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787126535",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:48.951Z",
+      "aggiornataIl": "2026-08-19T08:02:15.945Z",
       "record": 32
     },
     {
       "nome": "Yahoo fondamentali — ASC.MI",
       "descrizione": "Ricavi, EBITDA, utile, FCF, debito annuali",
-      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/ASC.MI?symbol=ASC.MI&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787066808",
+      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/ASC.MI?symbol=ASC.MI&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787126535",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:49.387Z",
+      "aggiornataIl": "2026-08-19T08:02:16.249Z",
       "record": 32
     },
     {
       "nome": "Yahoo fondamentali — JUVE.MI",
       "descrizione": "Ricavi, EBITDA, utile, FCF, debito annuali",
-      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/JUVE.MI?symbol=JUVE.MI&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787066809",
+      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/JUVE.MI?symbol=JUVE.MI&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787126536",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:49.938Z",
+      "aggiornataIl": "2026-08-19T08:02:16.592Z",
       "record": 24
     },
     {
       "nome": "Yahoo fondamentali — ELC.MI",
       "descrizione": "Ricavi, EBITDA, utile, FCF, debito annuali",
-      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/ELC.MI?symbol=ELC.MI&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787066809",
+      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/ELC.MI?symbol=ELC.MI&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787126536",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:50.208Z",
+      "aggiornataIl": "2026-08-19T08:02:16.864Z",
       "record": 32
     },
     {
       "nome": "Yahoo fondamentali — BSS.MI",
       "descrizione": "Ricavi, EBITDA, utile, FCF, debito annuali",
-      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/BSS.MI?symbol=BSS.MI&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787066810",
+      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/BSS.MI?symbol=BSS.MI&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787126536",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:50.471Z",
+      "aggiornataIl": "2026-08-19T08:02:17.210Z",
       "record": 32
     },
     {
       "nome": "Yahoo fondamentali — KER.PA",
       "descrizione": "Ricavi, EBITDA, utile, FCF, debito annuali",
-      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/KER.PA?symbol=KER.PA&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787066810",
+      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/KER.PA?symbol=KER.PA&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787126537",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:50.750Z",
+      "aggiornataIl": "2026-08-19T08:02:17.514Z",
       "record": 32
     },
     {
       "nome": "Yahoo fondamentali — RNO.PA",
       "descrizione": "Ricavi, EBITDA, utile, FCF, debito annuali",
-      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/RNO.PA?symbol=RNO.PA&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787066810",
+      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/RNO.PA?symbol=RNO.PA&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787126537",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:51.043Z",
+      "aggiornataIl": "2026-08-19T08:02:17.818Z",
       "record": 32
     },
     {
       "nome": "Yahoo fondamentali — ULVR.L",
       "descrizione": "Ricavi, EBITDA, utile, FCF, debito annuali",
-      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/ULVR.L?symbol=ULVR.L&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787066811",
+      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/ULVR.L?symbol=ULVR.L&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787126537",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:51.335Z",
+      "aggiornataIl": "2026-08-19T08:02:18.115Z",
       "record": 32
     },
     {
       "nome": "Yahoo fondamentali — DGE.L",
       "descrizione": "Ricavi, EBITDA, utile, FCF, debito annuali",
-      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/DGE.L?symbol=DGE.L&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787066811",
+      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/DGE.L?symbol=DGE.L&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787126538",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:51.614Z",
-      "record": 32
-    },
-    {
-      "nome": "Yahoo fondamentali — TEF.MC",
-      "descrizione": "Ricavi, EBITDA, utile, FCF, debito annuali",
-      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/TEF.MC?symbol=TEF.MC&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787066811",
-      "esito": "ok",
-      "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:51.922Z",
+      "aggiornataIl": "2026-08-19T08:02:18.435Z",
       "record": 32
     },
     {
       "nome": "Yahoo fondamentali — PUM.DE",
       "descrizione": "Ricavi, EBITDA, utile, FCF, debito annuali",
-      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/PUM.DE?symbol=PUM.DE&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787066811",
+      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/PUM.DE?symbol=PUM.DE&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787126538",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:52.254Z",
+      "aggiornataIl": "2026-08-19T08:02:18.743Z",
       "record": 32
     },
     {
       "nome": "Yahoo fondamentali — CBK.DE",
       "descrizione": "Ricavi, EBITDA, utile, FCF, debito annuali",
-      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/CBK.DE?symbol=CBK.DE&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787066812",
+      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/CBK.DE?symbol=CBK.DE&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787126538",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:52.553Z",
+      "aggiornataIl": "2026-08-19T08:02:19.051Z",
       "record": 28
     },
     {
       "nome": "Yahoo fondamentali — P911.DE",
       "descrizione": "Ricavi, EBITDA, utile, FCF, debito annuali",
-      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/P911.DE?symbol=P911.DE&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787066812",
+      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/P911.DE?symbol=P911.DE&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787126539",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:52.903Z",
+      "aggiornataIl": "2026-08-19T08:02:19.357Z",
       "record": 32
     },
     {
       "nome": "Yahoo fondamentali — NOVO-B.CO",
       "descrizione": "Ricavi, EBITDA, utile, FCF, debito annuali",
-      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/NOVO-B.CO?symbol=NOVO-B.CO&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787066812",
+      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/NOVO-B.CO?symbol=NOVO-B.CO&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787126539",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:53.233Z",
+      "aggiornataIl": "2026-08-19T08:02:19.887Z",
       "record": 32
     },
     {
       "nome": "Yahoo fondamentali — ATO.PA",
       "descrizione": "Ricavi, EBITDA, utile, FCF, debito annuali",
-      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/ATO.PA?symbol=ATO.PA&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787066813",
+      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/ATO.PA?symbol=ATO.PA&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787126539",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:53.532Z",
+      "aggiornataIl": "2026-08-19T08:02:20.157Z",
       "record": 32
     },
     {
       "nome": "Yahoo fondamentali — WLN.PA",
       "descrizione": "Ricavi, EBITDA, utile, FCF, debito annuali",
-      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/WLN.PA?symbol=WLN.PA&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787066813",
+      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/WLN.PA?symbol=WLN.PA&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787126540",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:53.892Z",
+      "aggiornataIl": "2026-08-19T08:02:20.484Z",
       "record": 32
     },
     {
       "nome": "Yahoo fondamentali — ALO.PA",
       "descrizione": "Ricavi, EBITDA, utile, FCF, debito annuali",
-      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/ALO.PA?symbol=ALO.PA&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787066813",
+      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/ALO.PA?symbol=ALO.PA&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787126540",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:54.433Z",
+      "aggiornataIl": "2026-08-19T08:02:20.798Z",
       "record": 28
     },
     {
       "nome": "Yahoo fondamentali — BP.L",
       "descrizione": "Ricavi, EBITDA, utile, FCF, debito annuali",
-      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/BP.L?symbol=BP.L&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787066814",
+      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/BP.L?symbol=BP.L&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787126540",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:54.944Z",
+      "aggiornataIl": "2026-08-19T08:02:21.107Z",
       "record": 32
     },
     {
       "nome": "Yahoo fondamentali — BMW.DE",
       "descrizione": "Ricavi, EBITDA, utile, FCF, debito annuali",
-      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/BMW.DE?symbol=BMW.DE&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787066814",
+      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/BMW.DE?symbol=BMW.DE&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787126541",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:55.233Z",
+      "aggiornataIl": "2026-08-19T08:02:21.495Z",
       "record": 32
     },
     {
       "nome": "Yahoo fondamentali — MRK.DE",
       "descrizione": "Ricavi, EBITDA, utile, FCF, debito annuali",
-      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/MRK.DE?symbol=MRK.DE&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787066815",
+      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/MRK.DE?symbol=MRK.DE&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787126541",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:55.505Z",
+      "aggiornataIl": "2026-08-19T08:02:21.816Z",
       "record": 32
     },
     {
       "nome": "Yahoo fondamentali — VNA.DE",
       "descrizione": "Ricavi, EBITDA, utile, FCF, debito annuali",
-      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/VNA.DE?symbol=VNA.DE&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787066815",
+      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/VNA.DE?symbol=VNA.DE&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787126541",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:55.803Z",
+      "aggiornataIl": "2026-08-19T08:02:22.131Z",
       "record": 28
     },
     {
       "nome": "Yahoo fondamentali — NESN.SW",
       "descrizione": "Ricavi, EBITDA, utile, FCF, debito annuali",
-      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/NESN.SW?symbol=NESN.SW&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787066815",
+      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/NESN.SW?symbol=NESN.SW&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787126542",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:56.119Z",
+      "aggiornataIl": "2026-08-19T08:02:22.431Z",
       "record": 32
     },
     {
       "nome": "Yahoo fondamentali — INTC",
       "descrizione": "Ricavi, EBITDA, utile, FCF, debito annuali",
-      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/INTC?symbol=INTC&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787066816",
+      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/INTC?symbol=INTC&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787126542",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:56.530Z",
+      "aggiornataIl": "2026-08-19T08:02:22.738Z",
       "record": 32
     },
     {
       "nome": "Yahoo fondamentali — NKE",
       "descrizione": "Ricavi, EBITDA, utile, FCF, debito annuali",
-      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/NKE?symbol=NKE&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787066816",
+      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/NKE?symbol=NKE&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787126542",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:56.837Z",
+      "aggiornataIl": "2026-08-19T08:02:23.045Z",
       "record": 32
     },
     {
       "nome": "Yahoo fondamentali — AAPL",
       "descrizione": "Ricavi, EBITDA, utile, FCF, debito annuali",
-      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/AAPL?symbol=AAPL&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787066816",
+      "url": "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/AAPL?symbol=AAPL&type=annualTotalRevenue,annualEBITDA,annualNetIncome,annualFreeCashFlow,annualTotalDebt,annualCashAndCashEquivalents,annualStockholdersEquity,annualCapitalExpenditure&period1=1400000000&period2=1787126543",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:57.536Z",
+      "aggiornataIl": "2026-08-19T08:02:23.364Z",
       "record": 32
     },
     {
@@ -763,7 +754,7 @@
       "url": "https://news.google.com/rss/search?q=%22Telecom%20Italia%22%20OR%20%22TIM%22%20(nomina%20OR%20dimissioni%20OR%20%22amministratore%20delegato%22%20OR%20consiglio%20OR%20OPAS%20OR%20Poste)&hl=it&gl=IT&ceid=IT:it",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:58.396Z",
+      "aggiornataIl": "2026-08-19T08:02:24.259Z",
       "record": 100
     },
     {
@@ -772,7 +763,7 @@
       "url": "https://news.google.com/rss/search?q=%22cambio%20al%20vertice%22%20OR%20%22nuovo%20amministratore%20delegato%22%20borsa%20italiana&hl=it&gl=IT&ceid=IT:it",
       "esito": "ok",
       "messaggio": null,
-      "aggiornataIl": "2026-08-18T15:26:58.887Z",
+      "aggiornataIl": "2026-08-19T08:02:24.692Z",
       "record": 54
     }
   ]

@@ -9,6 +9,7 @@ export const metadata: Metadata = {
 
 const VOCI = [
   { href: "/", testo: "Cruscotto" },
+  { href: "/portafoglio", testo: "Portafoglio" },
   { href: "/mandati", testo: "Mandati" },
   { href: "/tim", testo: "TIM" },
   { href: "/metodo", testo: "Metodo" },

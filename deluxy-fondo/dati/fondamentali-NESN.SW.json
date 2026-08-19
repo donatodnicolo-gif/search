@@ -1,30 +1,4 @@
 {
-  "annualEBITDA": [
-    {
-      "esercizio": 2022,
-      "fine": "2022-12-31",
-      "valuta": "CHF",
-      "valore": 16076000000
-    },
-    {
-      "esercizio": 2023,
-      "fine": "2023-12-31",
-      "valuta": "CHF",
-      "valore": 17804000000
-    },
-    {
-      "esercizio": 2024,
-      "fine": "2024-12-31",
-      "valuta": "CHF",
-      "valore": 18662000000
-    },
-    {
-      "esercizio": 2025,
-      "fine": "2025-12-31",
-      "valuta": "CHF",
-      "valore": 16207000000
-    }
-  ],
   "annualNetIncome": [
     {
       "esercizio": 2022,
@@ -49,6 +23,32 @@
       "fine": "2025-12-31",
       "valuta": "CHF",
       "valore": 9033000000
+    }
+  ],
+  "annualEBITDA": [
+    {
+      "esercizio": 2022,
+      "fine": "2022-12-31",
+      "valuta": "CHF",
+      "valore": 16076000000
+    },
+    {
+      "esercizio": 2023,
+      "fine": "2023-12-31",
+      "valuta": "CHF",
+      "valore": 17804000000
+    },
+    {
+      "esercizio": 2024,
+      "fine": "2024-12-31",
+      "valuta": "CHF",
+      "valore": 18662000000
+    },
+    {
+      "esercizio": 2025,
+      "fine": "2025-12-31",
+      "valuta": "CHF",
+      "valore": 16207000000
     }
   ],
   "annualFreeCashFlow": [

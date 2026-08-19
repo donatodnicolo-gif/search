@@ -77,32 +77,6 @@
       "valore": 2184000000
     }
   ],
-  "annualStockholdersEquity": [
-    {
-      "esercizio": 2023,
-      "fine": "2023-05-31",
-      "valuta": "USD",
-      "valore": 14004000000
-    },
-    {
-      "esercizio": 2024,
-      "fine": "2024-05-31",
-      "valuta": "USD",
-      "valore": 14430000000
-    },
-    {
-      "esercizio": 2025,
-      "fine": "2025-05-31",
-      "valuta": "USD",
-      "valore": 13213000000
-    },
-    {
-      "esercizio": 2026,
-      "fine": "2026-05-31",
-      "valuta": "USD",
-      "valore": 14865000000
-    }
-  ],
   "annualEBITDA": [
     {
       "esercizio": 2023,
@@ -153,6 +127,32 @@
       "fine": "2026-05-31",
       "valuta": "USD",
       "valore": 3108000000
+    }
+  ],
+  "annualStockholdersEquity": [
+    {
+      "esercizio": 2023,
+      "fine": "2023-05-31",
+      "valuta": "USD",
+      "valore": 14004000000
+    },
+    {
+      "esercizio": 2024,
+      "fine": "2024-05-31",
+      "valuta": "USD",
+      "valore": 14430000000
+    },
+    {
+      "esercizio": 2025,
+      "fine": "2025-05-31",
+      "valuta": "USD",
+      "valore": 13213000000
+    },
+    {
+      "esercizio": 2026,
+      "fine": "2026-05-31",
+      "valuta": "USD",
+      "valore": 14865000000
     }
   ],
   "annualCashAndCashEquivalents": [

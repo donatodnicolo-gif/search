@@ -49,6 +49,7 @@ fallimento viene dichiarato a schermo: mai un dato vecchio servito come fresco.
 | Percorso | Cosa mostra |
 |---|---|
 | `/` | Cruscotto: verdetto sulla strategia, titoli monitorati con punteggio, notizie da leggere a mano, stato delle fonti |
+| `/portafoglio` | **Le posizioni decise davvero**, rivalutate a ogni aggiornamento, con utile/perdita e confronto con l indice dalla data di acquisto; piu il simulatore `quante azioni di X` e le ipotesi salvate |
 | `/mandati` | **Il monitoraggio**: un tratto per ogni amministratore delegato, dall'annuncio della nomina a quella del successore, con rendimento contro l'indice a dividendi reinvestiti, rendimento annuo, volatilità e massimo ribasso |
 | `/tim` | Il caso guida: offerta in corso, event study su tutti gli eventi, nove bilanci, indicatori della svolta, trappole contabili |
 | `/metodo` | Come è costruito il punteggio, il verdetto del revisore ostile, la condizione che lo cambierebbe, i vincoli di legge |

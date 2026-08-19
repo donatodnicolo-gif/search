@@ -87,6 +87,28 @@ dell'indice di prezzo.
 Effetto della correzione: il mandato di Labriola passa da **−13,2 a −59,2 punti** sotto
 l'indice, e la differenza mediana dei mandati da −27,2 a **−50,0 punti**.
 
+## Portafoglio
+
+Pagina , dati in . Due elenchi separati e mai mescolati:
+**posizioni** (comprate davvero, con quantita e prezzo pagati) e **ipotesi** (simulazioni, che
+non entrano in nessun totale).
+
+Regole del modulo:
+- quantita, prezzo di carico o data mancanti NON diventano zero: la posizione resta
+   e non viene conteggiata, invece di mostrare una perdita del 100 per cento;
+- il confronto con l indice parte dalla **data di acquisto** (avrei fatto meglio a comprare
+  l indice quel giorno?);
+- i totali si sommano solo se tutte le posizioni valutate sono nella stessa valuta, altrimenti
+  restano vuoti: sommare euro e dollari senza convertirli e sbagliato;
+-  scarica anche i titoli presenti solo in portafoglio.
+
+**Prima posizione: Kraft Heinz su Xetra, ** (21,60 euro al 19/08/2026, 5 anni di
+storico). Quantita, prezzo di carico e data sono da inserire.
+
+⚠️ **Trappola sul ticker**:  sembra Kraft Heinz ma e **Mondelez**. Il simbolo giusto
+sulle borse tedesche e  ( Xetra,  Francoforte, , , , ,
+tutte con 5 anni).  e la quotazione americana in dollari.
+
 ## MANCA / prossimi passi
 
 1. **La scadenza del 11/09/2026 va sorvegliata**: dopo quella data il regime di prezzo di

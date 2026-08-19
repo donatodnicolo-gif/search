@@ -1,0 +1,37 @@
+{
+  "nota": "Registro di cio che e stato deciso davvero, tenuto a mano. Le posizioni si rivalutano a ogni giro di aggiornamento (npm run aggiorna). Le ipotesi sono simulazioni e non entrano in nessun totale reale.",
+  "valutaBase": "EUR",
+  "posizioni": [
+    {
+      "id": "khnz-2026",
+      "simbolo": "KHNZ.DE",
+      "nome": "Kraft Heinz",
+      "quantita": null,
+      "prezzoCarico": null,
+      "valuta": "EUR",
+      "dataAcquisto": null,
+      "commissioni": null,
+      "borsa": "Xetra (Germania)",
+      "note": "Quantita, prezzo medio di carico e data di acquisto sono ancora da inserire: finche mancano la posizione non viene valutata ne conteggiata, invece di mostrare numeri inventati. Attenzione al titolo: su Yahoo il simbolo tedesco di Kraft Heinz e KHNZ (Xetra KHNZ.DE, 5 anni di storico). NON usare KTF.DE, che sembra plausibile ma e Mondelez.",
+      "tesi": "Da scrivere prima di completare la posizione: perche questa societa e in portafoglio, cosa dovrebbe accadere e cosa farebbe cadere la tesi. Va scritta ora e non riscritta dopo, altrimenti diventa una giustificazione a posteriori."
+    }
+  ],
+  "ipotesi": [
+    {
+      "id": "khnz-100",
+      "simbolo": "KHNZ.DE",
+      "nome": "Kraft Heinz",
+      "quantita": 100,
+      "prezzoIpotesi": null,
+      "note": "Esempio di simulazione: 100 azioni al prezzo dell'ultima chiusura disponibile."
+    },
+    {
+      "id": "tit-1000",
+      "simbolo": "TIT.MI",
+      "nome": "TIM (Telecom Italia)",
+      "quantita": 1000,
+      "prezzoIpotesi": null,
+      "note": "Simulazione sul caso guida. Ricorda che il titolo tratta dentro il perimetro di un'offerta pubblica: il prezzo riflette la probabilita di esito dell'operazione, non una valutazione autonoma."
+    }
+  ]
+}

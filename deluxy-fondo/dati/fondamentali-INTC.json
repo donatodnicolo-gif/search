@@ -25,32 +25,6 @@
       "valore": -4949000000
     }
   ],
-  "annualNetIncome": [
-    {
-      "esercizio": 2022,
-      "fine": "2022-12-31",
-      "valuta": "USD",
-      "valore": 8014000000
-    },
-    {
-      "esercizio": 2023,
-      "fine": "2023-12-31",
-      "valuta": "USD",
-      "valore": 1689000000
-    },
-    {
-      "esercizio": 2024,
-      "fine": "2024-12-31",
-      "valuta": "USD",
-      "valore": -18756000000
-    },
-    {
-      "esercizio": 2025,
-      "fine": "2025-12-31",
-      "valuta": "USD",
-      "valore": -267000000
-    }
-  ],
   "annualEBITDA": [
     {
       "esercizio": 2022,
@@ -77,30 +51,30 @@
       "valore": 14354000000
     }
   ],
-  "annualTotalDebt": [
+  "annualNetIncome": [
     {
       "esercizio": 2022,
       "fine": "2022-12-31",
       "valuta": "USD",
-      "valore": 42007000000
+      "valore": 8014000000
     },
     {
       "esercizio": 2023,
       "fine": "2023-12-31",
       "valuta": "USD",
-      "valore": 49266000000
+      "valore": 1689000000
     },
     {
       "esercizio": 2024,
       "fine": "2024-12-31",
       "valuta": "USD",
-      "valore": 50011000000
+      "valore": -18756000000
     },
     {
       "esercizio": 2025,
       "fine": "2025-12-31",
       "valuta": "USD",
-      "valore": 46585000000
+      "valore": -267000000
     }
   ],
   "annualStockholdersEquity": [
@@ -129,30 +103,30 @@
       "valore": 114281000000
     }
   ],
-  "annualCapitalExpenditure": [
+  "annualTotalDebt": [
     {
       "esercizio": 2022,
       "fine": "2022-12-31",
       "valuta": "USD",
-      "valore": -24844000000
+      "valore": 42007000000
     },
     {
       "esercizio": 2023,
       "fine": "2023-12-31",
       "valuta": "USD",
-      "valore": -25750000000
+      "valore": 49266000000
     },
     {
       "esercizio": 2024,
       "fine": "2024-12-31",
       "valuta": "USD",
-      "valore": -23944000000
+      "valore": 50011000000
     },
     {
       "esercizio": 2025,
       "fine": "2025-12-31",
       "valuta": "USD",
-      "valore": -14646000000
+      "valore": 46585000000
     }
   ],
   "annualCashAndCashEquivalents": [
@@ -179,6 +153,32 @@
       "fine": "2025-12-31",
       "valuta": "USD",
       "valore": 14265000000
+    }
+  ],
+  "annualCapitalExpenditure": [
+    {
+      "esercizio": 2022,
+      "fine": "2022-12-31",
+      "valuta": "USD",
+      "valore": -24844000000
+    },
+    {
+      "esercizio": 2023,
+      "fine": "2023-12-31",
+      "valuta": "USD",
+      "valore": -25750000000
+    },
+    {
+      "esercizio": 2024,
+      "fine": "2024-12-31",
+      "valuta": "USD",
+      "valore": -23944000000
+    },
+    {
+      "esercizio": 2025,
+      "fine": "2025-12-31",
+      "valuta": "USD",
+      "valore": -14646000000
     }
   ],
   "annualTotalRevenue": [

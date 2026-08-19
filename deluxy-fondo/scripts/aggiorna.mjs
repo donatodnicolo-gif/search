@@ -15,6 +15,7 @@
 import { scaricaSerie, scaricaFondamentali, scaricaNotizie, trovaDiscontinuita } from "../src/lib/fonti.ts";
 import { scriviSerie, scriviFondamentali, scriviNotizie, scriviIstantanea } from "../src/lib/archivio.ts";
 import { TITOLI_TUTTI as TITOLI, BENCHMARK_MERCATO, BENCHMARK_TOTALE } from "../src/lib/universo.ts";
+import { leggiPortafoglio } from "../src/lib/portafoglio.ts";
 
 const breve = process.argv.includes("--breve");
 const intervallo = breve ? "1y" : "10y";
@@ -28,11 +29,27 @@ riga(`Deluxy Fondo — aggiornamento (${breve ? "giro breve, 1 anno" : "storico 
 riga("");
 
 // --- Prezzi ----------------------------------------------------------------
+// Il portafoglio può contenere titoli che non sono nell'universo monitorato: vanno scaricati
+// comunque, altrimenti una posizione reale resterebbe senza prezzo.
+const portafoglio = await leggiPortafoglio();
+const daPortafoglio = [
+  ...new Map(
+    [...portafoglio.posizioni, ...portafoglio.ipotesi]
+      .filter((p) => !TITOLI.some((t) => t.simbolo === p.simbolo))
+      .map((p) => [p.simbolo, { simbolo: p.simbolo, nome: p.nome }])
+  ).values(),
+];
+
 const simboli = [
   ...TITOLI.map((t) => ({ simbolo: t.simbolo, nome: t.nome })),
+  ...daPortafoglio,
   { simbolo: BENCHMARK_MERCATO, nome: "FTSE MIB" },
   { simbolo: BENCHMARK_TOTALE, nome: "FTSE MIB a dividendi reinvestiti" },
 ];
+
+if (daPortafoglio.length) {
+  riga(`  (${daPortafoglio.length} ${daPortafoglio.length === 1 ? "titolo" : "titoli"} dal portafoglio, fuori dall'universo monitorato)`);
+}
 
 for (const { simbolo, nome } of simboli) {
   const { serie, stato } = await scaricaSerie(simbolo, nome, intervallo);
