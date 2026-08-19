@@ -158,9 +158,15 @@ export default async function Portafoglio({ searchParams }: { searchParams: Prom
                     <td>
                       <div style={{ fontWeight: 550 }}>{p.posizione.nome}</div>
                       <div style={{ fontSize: 12, color: "var(--text-tertiary)", marginTop: 2 }}>
-                        {p.posizione.simbolo}
-                        {p.posizione.borsa ? ` · ${p.posizione.borsa}` : ""}
+                        {p.posizione.isin ? `${p.posizione.isin} · ` : ""}
+                        {p.posizione.borsa ?? p.posizione.simbolo}
                       </div>
+                      {/* Se i prezzi non vengono dalla sede di esecuzione, va detto qui. */}
+                      {p.posizione.fontePrezzi ? (
+                        <div style={{ fontSize: 11, color: "var(--orange)", marginTop: 3 }}>
+                          prezzi da {p.posizione.simbolo}, non dalla sede di esecuzione
+                        </div>
+                      ) : null}
                       {p.posizione.dataAcquisto ? (
                         <div style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
                           dal {dataBreve(p.posizione.dataAcquisto)}
@@ -235,6 +241,11 @@ export default async function Portafoglio({ searchParams }: { searchParams: Prom
                   {p.posizione.note ? (
                     <p style={{ fontSize: 12.5, marginTop: 8, color: "var(--text-secondary)", lineHeight: 1.55 }}>
                       {p.posizione.note}
+                    </p>
+                  ) : null}
+                  {p.posizione.fontePrezzi ? (
+                    <p style={{ fontSize: 12, marginTop: 8, color: "var(--text-tertiary)", lineHeight: 1.55 }}>
+                      <strong>Da dove vengono i prezzi.</strong> {p.posizione.fontePrezzi}
                     </p>
                   ) : null}
                 </div>

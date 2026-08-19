@@ -34,8 +34,16 @@ export type Posizione = {
   dataAcquisto: string | null;
   /** Commissioni e imposte pagate all'acquisto, nella stessa valuta. */
   commissioni: number | null;
+  /** Codice ISIN: identifica il titolo senza ambiguità, a differenza del ticker. */
+  isin?: string | null;
   /** Borsa su cui è stato eseguito l'ordine, in chiaro. */
   borsa: string | null;
+  /**
+   * Da dove vengono i prezzi mostrati, quando NON è la stessa piazza dell'esecuzione.
+   * Capita: alcune sedi (per esempio Equiduct) non hanno una serie storica pubblica, e si
+   * usa una piazza equivalente come riferimento. Va dichiarato, non nascosto.
+   */
+  fontePrezzi?: string | null;
   note: string | null;
   /** Perché è in portafoglio: la tesi, scritta prima e non riscritta dopo. */
   tesi: string | null;
