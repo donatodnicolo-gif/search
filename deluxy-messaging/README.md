@@ -31,6 +31,33 @@ Il collegamento numero → brand si dichiara in **Negozi**, nel campo *Phone Num
 (app Meta → WhatsApp → Configurazione API). Senza, il messaggio arriva comunque e in
 Inbox si vede il numero grezzo invece del nome del marchio.
 
+## La risposta di primo contatto
+
+Chi scrive per la **prima volta** riceve subito un messaggio che dice che è arrivato e
+che qualcuno lo leggerà. Fra il suo messaggio e la prima risposta di una persona può
+passare un'ora, e in quell'ora un cliente non sa nemmeno se ha scritto al posto giusto.
+
+- Parte **una sola volta per conversazione**, al primissimo messaggio in assoluto. Chi
+  scrive di nuovo il giorno dopo non se lo ritrova.
+- **Non porta il nome di nessun operatore**: nella chat è etichettato *risposta
+  automatica*. Firmarlo col nome di una persona vorrebbe dire che il cliente le
+  risponde per nome, e che nel thread non si distingue più quello che ha detto qualcuno
+  da quello che ha detto il sistema.
+- **Non fa sembrare la conversazione servita**: nell'elenco resta l'anteprima del
+  messaggio del *cliente*, i non letti non si azzerano, nessuno risulta averla presa in
+  carico, e il «da quanto aspetta» continua a contare dal messaggio del cliente.
+- Vale su **WhatsApp, Instagram, Messenger e la chat dei siti**. ⚠️ **Non sulla posta**:
+  in una casella email arrivano newsletter, notifiche e spam — rispondere da soli lì
+  vuol dire scrivere agli spammer (che così sanno che la casella è viva) o aprire un
+  ping-pong infinito con un altro risponditore automatico.
+- Interruttore e testo in **Impostazioni → Risposta di primo contatto**. Il testo parte
+  **in italiano per tutti**: la lingua del cliente si conosce solo dopo aver letto il
+  suo messaggio, e su una frase sola il riconoscimento sbaglia spesso.
+
+⚠️ Nel testo non vanno promesse che non dipendono da noi («ti rispondiamo entro
+un'ora», orari di apertura): questo messaggio parte anche di notte e a Ferragosto, e a
+incassarlo è il cliente.
+
 ## Chi può entrare: la pagina Utenti
 
 In **Utenti** (sotto Configurazione) un amministratore apre gli account dei colleghi:

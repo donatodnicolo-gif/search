@@ -1,21 +1,23 @@
 # Handoff — Deluxy Customer Service
 
-Ultimo aggiornamento: **17/08/2026, ore 16:30** (pomeriggio: «collegato a
-Google» lo dice Google e non la chiave salvata; il bottone **Shopify ↗** passa
-fra le azioni rapide; **i conteggi sul database sono tornati possibili dopo tre
-sessioni**, quindi la fotografia qui sotto è di oggi, non più del 15/08)
+Ultimo aggiornamento: **19/08/2026, ore 10:40** (la **risposta di primo
+contatto** parte da sola al primo messaggio, senza il nome di un operatore).
+Prima, il 17/08: «collegato a Google» lo dice Google e non la chiave salvata; il
+bottone **Shopify ↗** fra le azioni rapide; **i conteggi sul database sono
+tornati possibili dopo tre sessioni**.
 
-**Stato del 17/08/2026 ore 16:30 — l'app è viva e la produzione è il codice di
-oggi.** `GET /api/health` risponde `200` in 0,46 s con `database: true`,
-`scrivibile: true`, **1.245 ordini** e **468 conversazioni**. Ultimo commit
-**`107dd06c`** (codice: `6ed10cfd`), pubblicato con
-`npx vercel deploy --prod --yes` (deployment
-`dpl_BShFfAocYYT21Zw4qjv7d1ZT2JtU`, alias di produzione verificato con
-`vercel inspect https://deluxy-messaging.vercel.app`); albero pulito per questa
-cartella, allineato con `origin/scout-ui`. Rotte dall'esterno: `/`, `/inbox`,
-`/ordini`, `/impostazioni` → **307** al login, `/widget?anteprima=1` → 200.
-I due giri automatici lavorano da soli: `ordiniSyncUltimo` **14:00** con
-«ok: 38 ordini, 0 nuovi», ultimo webhook Meta ricevuto alle **13:57**.
+**Stato del 19/08/2026 ore 10:40 — l'app è viva e la produzione è il codice di
+oggi.** `GET /api/health` risponde `200` con `database: true`,
+`scrivibile: true`, **1.271 ordini** (1.245 il 17/08) e **514 conversazioni**
+(468): i giri automatici e i canali hanno lavorato da soli in questi due giorni.
+Ultimo commit **`ce95fbd6`**, pubblicato con `npx vercel deploy --prod --yes`;
+albero pulito per questa cartella, allineato con `origin/scout-ui`.
+
+✅ **IL FIX DEL WIDGET REGGE SUL CAMPO, con clienti veri** (era la prova che
+mancava il 17/08): dalle 16:23 del 17/08 a stamattina **5 conversazioni dei siti
+hanno messaggi dentro** — flowers e cake, l'ultima oggi alle 08:18 — mentre le
+18 vecchie restano a zero. Il guasto che dal 30/07 buttava via ogni parola dei
+visitatori è chiuso davvero, non solo in prova.
 
 ✅ **CADE LA NOTA «conteggi bloccati dai permessi»** (durava da tre sessioni): lo
 script di sola lettura **gira**. Ora sta in `scripts/conta.mjs` (versionato,
@@ -119,6 +121,46 @@ AES-256-GCM nel database. `APP_SECRET` su Vercel **deve** essere identico al
 locale, altrimenti nulla si decifra.
 
 ## FATTO
+
+- **LA RISPOSTA DI PRIMO CONTATTO PARTE DA SOLA** (19/08/2026, LIVE e **accesa
+  in produzione**). Chi scrive per la prima volta riceve subito «abbiamo
+  ricevuto il tuo messaggio»: fra il messaggio di un cliente e la prima risposta
+  di una persona può passare un'ora, e in quell'ora non sa nemmeno se ha scritto
+  al posto giusto.
+  - `src/lib/primo-contatto.ts`. Parte **solo se in quella conversazione c'è un
+    messaggio in tutto** — il controllo che la rende «di PRIMO contatto» e
+    insieme la protegge dal doppione, perché la risposta stessa diventa il
+    secondo messaggio e al giro dopo il conto non torna più. Nessun flag da
+    tenere allineato.
+  - ⚠️⚠️ **Nessun nome di operatore**, ed è il punto: `tipo: 'auto'`,
+    `utenteNome` vuoto, e l'inbox scrive «risposta automatica». Firmare
+    «Federica» un messaggio che Federica non ha scritto vuol dire che il cliente
+    le risponde per nome e che nel thread non si distingue più la persona dal
+    sistema.
+  - ⚠️ **La conversazione non si tocca**: `ultimoTesto` resta la frase del
+    cliente (altrimenti l'inbox mostrerebbe la stessa riga identica su ogni
+    conversazione nuova e la domanda vera sparirebbe), `ultimoMessaggioIl` resta
+    la sua ora (così «da quanto aspetta» misura la sua attesa), `nonLetti` non
+    si azzera e **nessuno risulta averla presa in carico**: un robot non ha
+    letto niente.
+  - ⚠️ **La posta è esclusa di proposito**: lì arrivano newsletter, notifiche e
+    spam, e rispondere da soli vuol dire scrivere agli spammer o aprire un
+    ping-pong fra due risponditori automatici.
+  - ⚠️ Il saluto parte **in italiano per tutti**: la lingua si riconosce solo
+    dopo aver letto il messaggio e su una frase sola sbaglia spesso. È un limite
+    dichiarato, non una svista.
+  - `src/lib/invio.ts` (nuovo): le regole di «da quale nostro numero/pagina esce
+    la risposta» stavano dentro la rotta dell'operatore; ora i chiamanti sono
+    due e stanno in un posto solo.
+  - ✅ **VERIFICATO IN PRODUZIONE, non solo compilato**: aperta una sessione
+    widget su `sito=cake`, mandato un messaggio → il saluto è tornato nella chat
+    del visitatore; mandato un **secondo** messaggio → **non** si è ripetuto; in
+    tabella il messaggio ha `tipo=auto`, `utenteNome` vuoto, la conversazione ha
+    `nonLetti=2`, `presaDaId` vuoto e `ultimoTesto` = la frase del cliente. La
+    conversazione di prova è stata cancellata per id.
+  - ⚠️ **Su WhatsApp/Instagram/Messenger non è ancora successo con un cliente
+    vero** (`tipo='auto'` a 0 in tabella al momento del deploy): il primo caso
+    reale va guardato in inbox.
 
 - **IL BOTTONE «SHOPIFY ↗» ANCHE FRA LE AZIONI RAPIDE** (17/08/2026, LIVE).
   Stava solo dentro il pannello del dettaglio: rimborsare davvero, cambiare le
@@ -2447,10 +2489,10 @@ Da fare, in ordine di utilità:
   presa in carico esiste (17/08, sopra), il filtro naturale c'è — manca solo usarlo.
   ~~Assegnazione delle conversazioni~~ → **fatta il 17/08/2026**.
 - **Il widget non sa chi sta scrivendo**: nessun campo nome/email prima del primo
-  messaggio, quindi le **18** conversazioni dei siti non si agganciano né al cliente né
-  all'ordine. ⚠️ Quelle 18 sono anche le **stesse rimaste a zero messaggi** del bug
-  chiuso stamattina: dopo il fix nessun visitatore ha ancora scritto, quindi la prova che
-  funziona è quella fatta a mano dalla produzione (in cima al file), non un caso vero.
+  messaggio, quindi le conversazioni dei siti non si agganciano né al cliente né
+  all'ordine. ⚠️ Le **18** rimaste a zero messaggi sono quelle del bug chiuso il 17/08 e
+  restano perse; dopo il fix i visitatori hanno scritto davvero (**5 conversazioni con
+  messaggi** al 19/08), quindi quella parte non è più «da provare».
 - **Rubrica Google**: il cron ne salva 40 per giro orario, restano clienti da smaltire.
   Il redirect URI del progetto Google Cloud va fra gli "URI di reindirizzamento
   autorizzati", non fra le origini JavaScript.
