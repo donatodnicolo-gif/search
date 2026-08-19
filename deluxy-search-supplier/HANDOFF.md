@@ -512,6 +512,28 @@ non si vedono dati reali né si può diagnosticare «La Mimosa»).
    **Non collaudato su un ordine vero in produzione** (serve il login): la prova è riaprire
    l'ordine dello screenshot e guardare il messaggio.
 
+43. **La variante: «per 20 persone» sulle torte, niente taglia sui fiori** (19/08, scelta
+   dell'utente): il messaggio diceva «una Torta **20** come da foto». Su Shopify le torte si
+   vendono a **porzioni** (l'opzione del prodotto si chiama `Porzioni`, valori numerici nudi:
+   6, 10, 15, 20…; su 50 prodotti «Cake Design» ~20 sono così, alcuni con una seconda opzione
+   `Interno` → variante `20 / Cioccolato`), mentre per i fiori l'opzione è `Dimensione`
+   (`Medio`, `Medio-Grande`, `Luxury`…). Quindi ora:
+   - **torte**: il numero diventa «**per 20 persone**» nella lingua della consegna
+     (`PERSONEWORD`: it/en/fr/de/es); la seconda opzione segue dopo la virgola
+     («una Torta per 20 persone, Cioccolato come da foto»); una variante non numerica resta
+     tal quale (`variantePerTorta`);
+   - **bouquet e cappelliere**: la variante **non entra più nel messaggio** — è la nostra taglia
+     commerciale, al fioraio non dice niente (al suo posto c'è il budget);
+   - **tipologia non riconosciuta**: si mostra il nome del prodotto **con** la variante, che lì
+     serve a capire cosa è stato ordinato.
+   NB: nessuna modifica al backend — il numero è già nella variante che manda il webhook, e la
+   parola «persone» non dipende dal nome dell'opzione Shopify.
+   Verificato: 15 controlli automatici sulle funzioni vere (5 lingue, due opzioni, variante non
+   numerica, bouquet/cappelliera senza taglia, tipologia ignota, tabella di riserva, percorso
+   senza foto invariato) + messaggio intero nel browser:
+   «Bonjour, pour 2026-08-21 serait-il possible de préparer **un Gâteau pour 20 personnes,
+   Cioccolato** comme sur la photo x1 …» e «… de préparer **un Bouquet** comme sur la photo …».
+
 ## Cose in sospeso
 
 - **Tipologia nel messaggio: da provare su un ordine vero** — il 19/08 il riconoscimento è passato

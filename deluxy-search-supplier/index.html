@@ -969,13 +969,32 @@ function tipoProdotto(item){
 }
 // etichetta prodotto per il messaggio: «Bouquet come da foto» / «Cappelliera Grande come da foto»;
 // senza foto (o tipologia non riconosciuta) resta il nome del prodotto, come prima
+// «per 20 persone» nella lingua della consegna
+const PERSONEWORD = {
+  it:(n)=>'per '+n+' persone', en:(n)=>'for '+n+' people', fr:(n)=>'pour '+n+' personnes',
+  de:(n)=>'für '+n+' Personen', es:(n)=>'para '+n+' personas'
+};
+// Le varianti delle TORTE sono le porzioni (opzione «Porzioni» sul catalogo Shopify): numeri nudi
+// come «20», che al pasticcere non direbbero niente → «per 20 persone». I prodotti con due opzioni
+// arrivano come «20 / Cioccolato»: il numero diventa persone, il resto resta e va dopo la virgola.
+function variantePerTorta(variant, lang){
+  const fn = PERSONEWORD[lang] || PERSONEWORD.it;
+  return String(variant||'').split('/').map(s=>s.trim()).filter(Boolean)
+    .map(p => /^\d+$/.test(p) ? fn(p) : p).join(', ');
+}
 function prodottoPerMessaggio(lang, prodText, variant, hasPhoto){
   const items = (orderItems && orderItems.length) ? orderItems : [{ title: prodText }];
   const tipi = [...new Set(items.map(tipoProdotto))];
-  const nomeTipo = (tipi.length===1 && tipi[0]) ? (TIPO_PRODOTTO[tipi[0]][lang] || TIPO_PRODOTTO[tipi[0]].it) : '';
+  const tipo = (tipi.length===1 && tipi[0]) ? tipi[0] : '';
+  const nomeTipo = tipo ? (TIPO_PRODOTTO[tipo][lang] || TIPO_PRODOTTO[tipo].it) : '';
   if(!hasPhoto) return { prod: prodText || '…', var: variant };
   const base = nomeTipo || prodText || '…';
-  return { prod: base + (variant ? ' '+variant : '') + ' ' + (ASPHOTOWORD[lang] || ASPHOTOWORD.it), var: '' };
+  // La variante entra SOLO per le torte (sono le porzioni). Per bouquet e cappelliere è la nostra
+  // taglia commerciale (Medio-Grande, Luxury…): al fioraio non dice niente — al suo posto c'è il
+  // budget — quindi resta fuori. Se la tipologia non si riconosce si mostra il nome del prodotto,
+  // e lì la variante serve a identificare cosa è stato ordinato: quella la teniamo.
+  const vari = tipo === 'torta' ? variantePerTorta(variant, lang) : (nomeTipo ? '' : variant);
+  return { prod: base + (vari ? ' '+vari : '') + ' ' + (ASPHOTOWORD[lang] || ASPHOTOWORD.it), var: '' };
 }
 // interpreta la data e restituisce "oggi"/"domani" (localizzato) o la data originale
 function parseDate(str){
