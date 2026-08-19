@@ -2261,22 +2261,35 @@ function creaCampagna(op, conto) {
     throw new Error("Esiste già una campagna chiamata \"" + par.nome + "\" in questo account: non ne creo un'altra.");
   }
 
+  // Le localita' si risolvono PRIMA: l'intestazione dipende da quante sono.
+  var localita = (par.localitaId || []).slice();
+  var geo = risolviLocalitaSuGoogle(par.localitaNomi || []);
+  for (var t = 0; t < geo.trovate.length; t++) localita.push(geo.trovate[t].id);
+  var lingua = linguaBulk(par.lingua);
+
+  // ATTENZIONE: le due colonne facoltative entrano SOLO se c'e' qualcosa da
+  // metterci. Una colonna che Google non riconoscesse potrebbe far rifiutare
+  // l'intero caricamento, e correre quel rischio per una colonna che sarebbe
+  // comunque vuota sarebbe regalato. Cosi' una campagna senza lingua e senza
+  // localita' manda esattamente le colonne che mandava prima, che sappiamo
+  // funzionare.
   var colonne = [
     "Campaign", "Budget", "Campaign type", "Campaign state", "EU political ads", "Bid strategy type",
-    "Language targeting", "Location ID",
     "Ad group", "Keyword", "Criterion type",
     "Ad type", "Final URL",
     "Headline 1", "Headline 2", "Headline 3", "Headline 4", "Headline 5",
     "Headline 6", "Headline 7", "Headline 8", "Headline 9", "Headline 10",
     "Description 1", "Description 2", "Description 3", "Description 4",
   ];
+  if (lingua) colonne.push("Language targeting");
+  if (localita.length) colonne.push("Location ID");
   var upload = AdsApp.bulkUploads().newCsvUpload(colonne, { moneyInMicros: false });
   if (typeof upload.forCampaignManagement === "function") upload.forCampaignManagement();
 
   var gruppoNome = par.gruppo || "Gruppo 1";
 
   // Riga campagna: nasce in pausa, sempre
-  upload.append({
+  var rigaCampagna = {
     "Campaign": par.nome,
     "Budget": Number(par.budget),
     "Campaign type": "Search",
@@ -2304,11 +2317,12 @@ function creaCampagna(op, conto) {
     // si compila il modulo (par.strategia), e finora l'app la registrava solo
     // come promemoria perche' si credeva non ci fosse una colonna. C'e'.
     "Bid strategy type": strategiaBulk(par.strategia),
-    // La lingua del pubblico, col codice che usa Google (it, en, fr, es).
-    // Vuota quando l'app non l'ha detta: una colonna vuota non e' un errore,
-    // una lingua indovinata sarebbe una campagna che parla a chi non capisce.
-    "Language targeting": linguaBulk(par.lingua),
-  });
+  };
+  // La lingua del pubblico, col codice che usa Google (it, en, fr, es). Si
+  // scrive solo se c'e': indovinarla vorrebbe dire una campagna che parla a
+  // chi non capisce.
+  if (lingua) rigaCampagna["Language targeting"] = lingua;
+  upload.append(rigaCampagna);
 
   // LOCALITA': una riga per ognuna, con l'ID e non col nome.
   //
@@ -2318,10 +2332,6 @@ function creaCampagna(op, conto) {
   // senza quella localita'. L'app traduce prima (lib/geo-target.ts) e manda
   // solo numeri; quelle che non sa tradurre le dichiara invece di tirare a
   // indovinare.
-  var localita = (par.localitaId || []).slice();
-  // Quelle che l'app non ha saputo tradurre: adesso le chiede a Google.
-  var geo = risolviLocalitaSuGoogle(par.localitaNomi || []);
-  for (var t = 0; t < geo.trovate.length; t++) localita.push(geo.trovate[t].id);
   for (var g = 0; g < localita.length; g++) {
     upload.append({
       "Campaign": par.nome,

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { accodaOperazione } from "@/lib/operazioni";
 import { registra } from "@/lib/registro";
+import { testoKeywordPulito } from "@/lib/dominio";
 
 // Le parole da escludere di una campagna appena nata: si mettono in coda
 // QUANDO GOOGLE CONFERMA che la campagna esiste, non prima.
@@ -78,13 +79,23 @@ export async function accodaNegativeDiLancio(campagneConfermate: string[]): Prom
     const daFare = negative.filter((n) => !gia.has(n.toLowerCase()));
     if (daFare.length === 0) continue;
 
-    for (const testo of daFare) {
+    // L'id di piattaforma della campagna: adesso c'è (è la condizione che ci
+    // ha portati qui) e allo script risparmia la ricerca per nome.
+    const campagna = await prisma.campagna.findUnique({
+      where: { id: l.campagnaId! },
+      select: { idEsterno: true, canale: true },
+    });
+
+    for (const grezzo of daFare) {
+      const testo = testoKeywordPulito(grezzo);
+      if (!testo) continue;
       await accodaOperazione({
         data: {
           tipo: "negativa",
-          canale: "google_ads",
+          canale: campagna?.canale ?? "google_ads",
           account: l.account,
           bersaglio: l.bersaglio,
+          idEsterno: campagna?.idEsterno ?? null,
           // ⚠️ Sempre ESATTA. È la corrispondenza che blocca solo quella
           // ricerca: una negativa generica può spegnere mezza campagna, e qui
           // nessuno sta guardando le singole parole una per una.
@@ -93,7 +104,12 @@ export async function accodaNegativeDiLancio(campagneConfermate: string[]): Prom
             `Parte del lancio della campagna «${l.bersaglio}»` +
             `${l.approvataDa ? `, approvato da ${l.approvataDa}` : ""}: Google ha confermato che la campagna esiste, ` +
             "quindi adesso le esclusioni si possono aggiungere davvero.",
-          livello: "L1",
+          // ⚠️ L0, come TUTTE le negative altrove nell'app, e non è cosmetico:
+          // `MODIFICHE_CHE_PESANO` sono L1/L2/L3, quindi una negativa marcata
+          // L1 farebbe scattare il blackout di 72 ore sulla campagna — sedici
+          // volte di fila. È lo stesso difetto corretto il 04/08, quando una
+          // sola negativa congelava la campagna per tre giorni.
+          livello: "L0",
           prima: "assente",
           campagnaId: l.campagnaId,
         },
