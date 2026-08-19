@@ -2914,6 +2914,7 @@ async function createGoogleContact(token, data){
     body: JSON.stringify(body)
   });
   if(!r.ok){ const j = await r.json().catch(()=>({})); throw new Error((j.error && j.error.message) || ('HTTP '+r.status)); }
+  return await r.json().catch(()=>({}));   // { resourceName: 'people/c…', … } per aprirlo in rubrica
 }
 // ripiego senza OAuth: file .vcf che si apre con la rubrica (telefono e PC)
 function downloadVcf(data){
@@ -2945,7 +2946,25 @@ function fillContactsFromCard(btn, data){
   }
   return data;
 }
-async function saveContact(btn){
+// Dopo il salvataggio (o se il contatto c'era già) il bottone diventa la scorciatoia per APRIRLO
+// nei Contatti Google e correggerlo a mano: il nome che generiamo è lungo e tutto maiuscolo, e
+// spesso c'è da sistemare qualcosa. L'id arriva dal `resourceName` della People API
+// («people/c123…» → contacts.google.com/person/c123…); se manca si ripiega sulla ricerca per nome.
+function segnaInRubrica(btn, nome, resourceName, gia){
+  const id = String(resourceName || '').replace(/^people\//, '');
+  btn.dataset.contactUrl = id ? 'https://contacts.google.com/person/' + encodeURIComponent(id)
+                              : 'https://contacts.google.com/search/' + encodeURIComponent(nome || '');
+  btn.disabled = false;
+  btn.title = 'Apri il contatto nei Contatti Google per modificarlo';
+  btn.textContent = (gia ? 'ℹ️ Già in rubrica' : '✅ In rubrica') + ': ' + nome + ' · ✏️ apri';
+}
+async function saveContact(btn, opts){
+  opts = opts || {};
+  // già salvato in questa sessione: il clic non risalva, apre il contatto nei Contatti Google
+  if(btn.dataset.contactUrl){
+    if(!opts.auto) window.open(btn.dataset.contactUrl, '_blank', 'noopener');
+    return;
+  }
   const data = CARD_DATA[btn.dataset.pid]; if(!data) return;
   fillContactsFromCard(btn, data);
   btn.disabled = true;
@@ -2956,13 +2975,13 @@ async function saveContact(btn){
       const esistente = await findContactByPhone(token, data.telefono);
       if(esistente){
         const nome = ((esistente.names||[])[0]||{}).displayName || 'contatto esistente';
-        btn.textContent = 'ℹ️ Già in rubrica: ' + nome;
+        segnaInRubrica(btn, nome, esistente.resourceName, true);
         logEvento({ tipo:'rubrica', esito:'già in rubrica', negozio:data });
         return;
       }
       btn.textContent = '⏳ Salvo in rubrica…';
-      await createGoogleContact(token, data);
-      btn.textContent = '✅ In rubrica: ' + contactName(data);
+      const creato = await createGoogleContact(token, data);
+      segnaInRubrica(btn, contactName(data), creato && creato.resourceName, false);
       logEvento({ tipo:'rubrica', esito:'salvato in rubrica Google', negozio:data });
     } else {
       downloadVcf(data);
@@ -3180,7 +3199,7 @@ async function eseguiRiconcilia(btn){
       const cd = CARD_DATA[pid], reg = j.partner || scelto;
       if(cd && !cd.telefono && reg.telefono) cd.telefono = reg.telefono;
       if(tokenRubricaP) await tokenRubricaP;   // token chiesto in-gesto: ora è in cache
-      saveContact(sc);
+      saveContact(sc, { auto:true });   // automatico: se c'è già non deve aprire finestre
     }
     // e in rubrica vanno anche i REFERENTI del registro (persone di contatto)
     salvaReferentiInRubrica(j.partner || scelto, CARD_DATA[pid] || {}).then(n=>{

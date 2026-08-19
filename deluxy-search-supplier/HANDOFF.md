@@ -593,6 +593,26 @@ non si vedono dati reali né si può diagnosticare «La Mimosa»).
    a mano. Verificato nel browser su 8 casi (screenshot, pasticceria, provincia per esteso, città
    metropolitana, Monza, estero, senza provincia, tutto minuscolo).
 
+47. **Il bottone della rubrica, dopo il salvataggio, APRE il contatto** (19/08, chiesto
+   dall'utente): finito il salvataggio il bottone non è più morto — diventa
+   «✅ In rubrica: <nome> · ✏️ apri» (o «ℹ️ Già in rubrica: …») e al clic apre il contatto nei
+   **Contatti Google** in una scheda nuova, per correggerlo a mano (il nome che generiamo è lungo
+   e tutto maiuscolo, e spesso c'è da sistemare qualcosa).
+   - L'id arriva dal `resourceName` della People API: `createGoogleContact` ora **restituisce**
+     la risposta (prima la buttava via) e `findContactByPhone` restituiva già la persona trovata.
+     URL: `https://contacts.google.com/person/<id>`; se l'id manca si ripiega sulla **ricerca per
+     nome** (`/search/<nome>`).
+   - `segnaInRubrica(btn, nome, resourceName, gia)` fa tutto: scrive il testo, riabilita il
+     bottone e mette `dataset.contactUrl`. `saveContact` in cima: se `contactUrl` c'è **non
+     risalva**, apre.
+   - ⚠️ Il salvataggio automatico dopo la **riconciliazione** chiama `saveContact(sc, {auto:true})`:
+     con `auto` non apre nessuna finestra (altrimenti la riconciliazione avrebbe aperto da sola
+     una scheda del browser addosso all'operatore).
+   - Senza OAuth resta il ripiego `.vcf`, che non ha un contatto da aprire: testo invariato.
+   Verificato nel browser: testo e URL nei tre casi (creato, già esistente, senza id → ricerca per
+   nome), bottone riabilitato, clic che apre invece di risalvare, percorso automatico che non apre
+   niente. Console pulita.
+
 ## Cose in sospeso
 
 - **Tipologia nel messaggio: da provare su un ordine vero** — il 19/08 il riconoscimento è passato
