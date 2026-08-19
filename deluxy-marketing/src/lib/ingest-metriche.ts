@@ -468,6 +468,13 @@ export async function salvaAnagrafica(
       (dati.strategiaOfferta != null && dati.strategiaOfferta !== trovata.strategiaOfferta) ||
       (dati.obiettivo != null && dati.obiettivo !== trovata.obiettivo) ||
       trovata.idEsterno !== idEsterno ||
+      // ⚠️ L'ACCOUNT si scriveva solo alla creazione, mai negli aggiornamenti:
+      // una campagna nata nell'app (dal modulo «Crea campagna») restava senza
+      // account per sempre, anche dopo che Google l'aveva confermata — ed è
+      // successo alla WORLD-ENG. L'account è un FATTO (regola del 09/08: si
+      // tiene il fatto, non solo la sua conseguenza), e serve alla coda per
+      // sapere quale script deve eseguire le operazioni su quella campagna.
+      (account != null && trovata.account !== account) ||
       trovata.nome !== nome;
 
     if (!cambia) {
@@ -484,6 +491,7 @@ export async function salvaAnagrafica(
         ...(dati.strategiaOfferta != null ? { strategiaOfferta: dati.strategiaOfferta } : {}),
         ...(dati.obiettivo != null ? { obiettivo: dati.obiettivo } : {}),
         ...(trovata.idEsterno !== idEsterno ? { idEsterno } : {}),
+        ...(account != null && trovata.account !== account ? { account } : {}),
         // Il nome vero della piattaforma vince sul codice di censimento.
         ...(trovata.nome !== nome
           ? { nome, note: `${trovata.note ? trovata.note + " · " : ""}Codice 00.4: ${trovata.nome}` }
