@@ -425,7 +425,16 @@ export default async function SchedaCampagna({
               {SPIEGA_STATO_CAMPAGNA[campagna.stato] ?? ""}
             </p>
           </div>
-          <a className="btn" href={`/azioni/nuova?campagna=${campagna.id}&brand=${campagna.brand}`}>Nuova azione sulla campagna</a>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            {/* Il brief sta in un bottone e non a pagina: è un documento che si
+                consulta quando serve — «che cosa avevamo deciso?» — mentre i
+                numeri qui sotto si guardano ogni giorno. Un dato importante ma
+                raro va raggiungibile in un click, non messo sulla strada di
+                quelli frequenti. Sulle campagne censite da Google il bottone
+                non compare proprio: un brief non ce l'hanno. */}
+            <BriefDiLancio campagnaId={campagna.id} />
+            <a className="btn" href={`/azioni/nuova?campagna=${campagna.id}&brand=${campagna.brand}`}>Nuova azione sulla campagna</a>
+          </div>
         </div>
 
         {/* L esito di «metti in coda» arriva qui: si resta sulla scheda
@@ -627,12 +636,6 @@ export default async function SchedaCampagna({
         {!defunta && (
           <CodaCampagna campagnaId={campagna.id} ritorno={`/campagne/${campagna.id}`} />
         )}
-
-        {/* Il brief con cui questa campagna è nata: solo per quelle fatte da
-            noi — le altre non ne hanno uno, e il componente non mostra niente.
-            Sta subito sotto la coda perché sono le due cose che rispondono alla
-            stessa domanda: «che cosa avevamo deciso, e che fine ha fatto». */}
-        <BriefDiLancio campagnaId={campagna.id} />
 
         {!defunta && <FreschezzaDati brand={campagna.brand} canale={campagna.canale} />}
 

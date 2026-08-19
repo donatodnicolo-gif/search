@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { formattaDataOra } from "@/lib/dominio";
+import { ApriBrief } from "@/components/ApriBrief";
 
 // COME È NATA QUESTA CAMPAGNA: il brief con cui è stata lanciata dall'app, e
 // che cosa di quel brief è arrivato davvero su Google.
@@ -120,15 +121,14 @@ export async function BriefDiLancio({ campagnaId }: { campagnaId: string }) {
     );
 
   return (
-    <section className="scheda">
-      <div className="scheda-titolo">
-        Come è nata questa campagna
-        <span className="cella-sub" style={{ fontWeight: 400, marginLeft: 8 }}>
-          il brief con cui è stata lanciata dall&apos;app, il {formattaDataOra(lancio.creataIl)}
-          {lancio.approvataDa ? ` · approvato da ${lancio.approvataDa}` : ""}
-          {lancio.approvataIl ? ` il ${formattaDataOra(lancio.approvataIl)}` : ""}
-        </span>
-      </div>
+    <ApriBrief
+      titolo={`Lanciata dall'app il ${formattaDataOra(lancio.creataIl)}`}
+      sottotitolo={
+        lancio.approvataDa
+          ? `Approvata da ${lancio.approvataDa}${lancio.approvataIl ? ` il ${formattaDataOra(lancio.approvataIl)}` : ""}`
+          : undefined
+      }
+    >
 
       {/* Il motivo è la cosa che si dimentica per prima e serve di più: è la
           frase con cui una persona ha spiegato PERCHÉ questa campagna. */}
@@ -289,6 +289,6 @@ export async function BriefDiLancio({ campagnaId }: { campagnaId: string }) {
           </div>
         )}
       </details>
-    </section>
+    </ApriBrief>
   );
 }
