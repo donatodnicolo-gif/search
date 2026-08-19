@@ -71,7 +71,8 @@ non si vedono dati reali né si può diagnosticare «La Mimosa»).
    dopo ogni ricerca lookup **sempre per provincia** (sigla/nome/nome esteso, ripiego
    città capoluogo), partner 🤝/prospect 📋 in cima ai risultati, match per nome.
 5. **💾 Salva in rubrica**: People API con dedupe per numero (ultime 9 cifre), nome contatto
-   `FORNITORE [NOME] [FIORAIO|PASTICCERE] PROV. [PR]`; ripiego .vcf senza OAuth.
+   `FORNITORE [NOME] [FIORAIO|PASTICCERE] [PROVINCIA] PROV. [PR]` (dal 19/08 c'è anche il nome
+   della provincia: «… FIORAIO AOSTA PROV. AO»); ripiego .vcf senza OAuth.
 6. **📣 Segnala al commerciale**: `/api/segnala` fa un solo POST upsert-merge al registro
    secondo le sue regole d'ingaggio (`sistema:'deluxy-suppliers'` + `idEsterno`=place_id,
    `asOf`, niente `stato`): `esito creato` = nuovo prospect, `merged` = note accodate e
@@ -578,6 +579,19 @@ non si vedono dati reali né si può diagnosticare «La Mimosa»).
    Verificato nel browser: numero Google col prefisso (testo e `tel:`), registro italiano con
    `+39`, registro francese invariato, numero già con `+39` non raddoppiato; avviso nei 5 casi
    (riconosciuto, tag inutili, ordine senza tag, righe discordi, senza foto). Console pulita.
+
+46. **Rubrica: il nome della provincia nel nome del contatto** (19/08, chiesto dall'utente):
+   `contactName` produce ora «FORNITORE L'ORCHIDEA FIORI DI ANGELA VISENTIN FIORAIO **AOSTA
+   PROV. AO**» (prima solo «PROV. AO»). Il nome esteso viene da `SIGLA2NAME` dopo `normProv`, che
+   normalizza anche «Città Metropolitana di Milano» → MI e «Monza e Brianza» → MB. Se la provincia
+   **non è italiana** o non si riconosce si tiene il valore grezzo («PROV. VAR»): non si inventa un
+   nome che non c'è. Senza provincia il nome finisce con la categoria.
+   Vale anche per il ripiego **.vcf** (usa la stessa funzione). I referenti hanno un formato loro
+   (`FORNITORE <NEGOZIO> — <NOME> (<RUOLO>)`) e restano senza provincia.
+   ⚠️ I contatti già salvati col nome vecchio **non cambiano**: il dedupe è sul numero (ultime 9
+   cifre), quindi non si creano doppioni, ma i vecchi restano «PROV. AO» finché non si rinominano
+   a mano. Verificato nel browser su 8 casi (screenshot, pasticceria, provincia per esteso, città
+   metropolitana, Monza, estero, senza provincia, tutto minuscolo).
 
 ## Cose in sospeso
 

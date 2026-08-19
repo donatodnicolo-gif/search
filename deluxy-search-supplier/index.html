@@ -2863,10 +2863,17 @@ async function getContactsToken(){
   });
 }
 // nome del contatto in rubrica: FORNITORE [NOME] [TIPO] PROV. [PROVINCIA]
+// Nome del contatto in rubrica: «FORNITORE <NEGOZIO> FIORAIO AOSTA PROV. AO».
+// C'è sia il NOME della provincia sia la sigla, così si ritrova cercando in un modo o nell'altro
+// dalla rubrica del telefono. Provincia non italiana o sconosciuta: si tiene il valore grezzo
+// («PROV. VAR»), senza inventare un nome che non c'è.
 function contactName(data){
   const tipo = data.categoria === 'PASTICCERIA' ? 'PASTICCERE' : 'FIORAIO';
-  const prov = (data.provincia || (lastGeo && lastGeo.provShort) || '').toUpperCase();
-  return 'FORNITORE ' + String(data.nome||'').toUpperCase() + ' ' + tipo + (prov ? ' PROV. ' + prov : '');
+  const provRaw = String(data.provincia || (lastGeo && lastGeo.provShort) || '').trim();
+  const sig = normProv(provRaw);
+  const coda = SIGLE.has(sig) ? String(SIGLA2NAME[sig]).toUpperCase() + ' PROV. ' + sig
+             : (provRaw ? 'PROV. ' + provRaw.toUpperCase() : '');
+  return ('FORNITORE ' + String(data.nome||'').toUpperCase() + ' ' + tipo + (coda ? ' ' + coda : '')).trim();
 }
 // cerca il numero tra i contatti esistenti (People API searchContacts, best effort)
 async function findContactByPhone(token, phone){
