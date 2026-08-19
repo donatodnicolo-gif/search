@@ -122,6 +122,29 @@ locale, altrimenti nulla si decifra.
 
 ## FATTO
 
+- **GLI AVVISI SUONANO PER LE CONVERSAZIONI TUE O LIBERE, NON PER QUELLE DI UN
+  COLLEGA** (19/08/2026, LIVE). Era l'ultimo pezzo che mancava alla presa in
+  carico del 17/08: la funzione esisteva, ma l'avviso continuava a suonare
+  **tutto a tutti**. Un avviso che nove volte su dieci riguarda il lavoro di
+  qualcun altro si impara a ignorare — e a quel punto è inutile anche quando
+  conta.
+  - **mia** → suona; **libera** → suona (è il caso in cui rischia di non
+    rispondere **nessuno**, per questo «Libere» pesa più di «Mie»); **di un
+    collega** → silenzio. Il testo dell'avviso dice quale dei due casi è.
+  - ⚠️ Si confronta il non letto **conversazione per conversazione**, non la
+    somma di prima: con la somma, un collega che *libera* una conversazione con
+    tre non letti farebbe salire il totale filtrato e suonerebbe come se fossero
+    appena arrivati. **Un cambio di proprietario non è un messaggio nuovo.**
+  - ⚠️ Con `ioId` vuoto si avvisa **solo per le libere**: senza sapere chi
+    guarda, il ripiego prudente non è «tutto mio».
+  - ✅ **Provata con 9 casi, tutti passano** (`npx tsx scripts/prova-avvisi.mts`):
+    primo caricamento muto, mia, libera, del collega, conversazione liberata,
+    conversazione nuova, mista, apertura che azzera i non letti, `ioId` vuoto.
+    La regola è in `src/lib/avvisi.ts` proprio per poterla provare senza
+    browser: **un avviso che non suona non lascia traccia da nessuna parte**.
+  - ⚠️ Resa a schermo non verificata (login): il suono e l'avviso vanno sentiti
+    da un operatore vero.
+
 - **LA RISPOSTA DI PRIMO CONTATTO PARTE DA SOLA** (19/08/2026, LIVE e **accesa
   in produzione**). Chi scrive per la prima volta riceve subito «abbiamo
   ricevuto il tuo messaggio»: fra il messaggio di un cliente e la prima risposta
@@ -2484,10 +2507,10 @@ Da fare, in ordine di utilità:
 - **Segnalare spam sui canali chat**: oggi funziona solo sulla posta, perché l'elenco dei
   mittenti ignorati lo leggono solo le rotte email. Su WhatsApp e Instagram il blocco si
   fa da Meta.
-- **Notifiche push** quando arriva un messaggio su una conversazione **mia**: l'avviso del
-  browser oggi suona per tutto quello che entra, uguale per i tre operatori. Ora che la
-  presa in carico esiste (17/08, sopra), il filtro naturale c'è — manca solo usarlo.
-  ~~Assegnazione delle conversazioni~~ → **fatta il 17/08/2026**.
+- ~~Notifiche push filtrate sulle conversazioni mie~~ → **fatto il 19/08/2026** (mie e
+  libere sì, quelle di un collega no). Resta da fare il passo successivo, se servirà:
+  l'avviso **fuori dal browser** (telefono a schermo spento), che vuole un service worker
+  e le Web Push — oggi se l'inbox è chiusa non arriva niente.
 - **Il widget non sa chi sta scrivendo**: nessun campo nome/email prima del primo
   messaggio, quindi le conversazioni dei siti non si agganciano né al cliente né
   all'ordine. ⚠️ Le **18** rimaste a zero messaggi sono quelle del bug chiuso il 17/08 e

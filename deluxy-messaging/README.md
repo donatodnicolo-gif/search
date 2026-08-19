@@ -31,6 +31,24 @@ Il collegamento numero → brand si dichiara in **Negozi**, nel campo *Phone Num
 (app Meta → WhatsApp → Configurazione API). Senza, il messaggio arriva comunque e in
 Inbox si vede il numero grezzo invece del nome del marchio.
 
+## Gli avvisi suonano per quello che riguarda te
+
+Gli operatori sono tre e l'inbox è una sola. Il suono e l'avviso del browser arrivano
+**solo** per le conversazioni:
+
+- **tue** (le hai prese in carico): la risposta la devi tu;
+- **libere**: nessuno se ne sta ancora occupando, ed è il caso peggiore — quello in cui
+  rischia di non rispondere nessuno. L'avviso lo dice a parole.
+
+Per quelle prese da un collega si tace: se ne sta occupando lui, e interrompere te non
+aiuta il cliente. ⚠️ L'avviso del browser compare **solo a scheda non in primo piano** (se
+stai guardando l'inbox lo vedi da solo) e il permesso lo deve chiedere un clic, dal
+bottone «Avvisi».
+
+⚠️ Un collega che **libera** una conversazione con tre messaggi non letti non fa suonare
+niente: un cambio di proprietario non è un messaggio nuovo. La regola sta in
+`src/lib/avvisi.ts` e si prova con `npx tsx scripts/prova-avvisi.mts`.
+
 ## La risposta di primo contatto
 
 Chi scrive per la **prima volta** riceve subito un messaggio che dice che è arrivato e
