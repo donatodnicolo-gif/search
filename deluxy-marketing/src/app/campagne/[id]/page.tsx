@@ -59,6 +59,7 @@ import {
   ETICHETTA_STATO_AZIONE,
   ETICHETTA_STATO_CAMPAGNA,
   formattaData,
+  formattaDataOra,
   formattaEuro,
   formattaNumero,
   roas,
@@ -130,6 +131,28 @@ export default async function SchedaCampagna({
     },
   });
   if (!campagna) notFound();
+
+  // ⚠️ UN CAMBIO DI BUDGET GIÀ IN CODA. Il numero grande in alto è quello che
+  // Google ha ADESSO, ed è giusto così — ma se qualcuno ha già chiesto di
+  // cambiarlo, quel numero da solo racconta metà della storia: chi guarda
+  // decide su un dato che sta per non essere più vero, e nel frattempo mette
+  // in coda un secondo cambio senza sapere del primo. Le operazioni vive sono
+  // già in `CodaCampagna`, ma in fondo alla scheda: la tessera del budget è il
+  // posto dove quella notizia serve.
+  const budgetInCoda = await prisma.operazioneAdv.findFirst({
+    where: { campagnaId: campagna.id, tipo: "budget", stato: { in: ["in_attesa", "approvata"] } },
+    orderBy: { creataIl: "desc" },
+    select: { stato: true, parametri: true, creataIl: true, approvataIl: true },
+  });
+  const budgetChiesto = (() => {
+    if (!budgetInCoda?.parametri) return null;
+    try {
+      const v = Number((JSON.parse(budgetInCoda.parametri) as { budget?: unknown }).budget);
+      return Number.isFinite(v) ? v : null;
+    } catch {
+      return null;
+    }
+  })();
 
   // La lingua mostrata accanto al titolo è la STESSA che usa l'attribuzione
   // delle vendite: si legge dal legame (manuale se c'è, altrimenti dedotta dal
@@ -516,6 +539,11 @@ export default async function SchedaCampagna({
                         campagnaId={campagna.id}
                         budgetAttuale={campagna.budgetGiornaliero}
                         azione={creaOperazione}
+                        inCoda={
+                          budgetInCoda
+                            ? { stato: budgetInCoda.stato, budget: budgetChiesto }
+                            : null
+                        }
                       />
                     )}
                   </span>
@@ -532,6 +560,30 @@ export default async function SchedaCampagna({
                     </span>
                   )}
                 </div>
+                {/* ⚠️ La riga del cambio in attesa sta SOTTO il numero, non al
+                    posto suo: il numero grande deve restare quello che Google
+                    ha adesso — è su quello che si legge la spesa. Qui si
+                    aggiunge solo che sta per cambiare, e a quanto. */}
+                {budgetInCoda && (
+                  <div
+                    className="kpi-incoda"
+                    style={{ color: budgetInCoda.stato === "approvata" ? "var(--blue)" : "var(--orange)" }}
+                  >
+                    ⏳{" "}
+                    {budgetChiesto != null ? <b>{formattaEuro(budgetChiesto)}</b> : <b>un altro valore</b>}{" "}
+                    {budgetInCoda.stato === "in_attesa" ? (
+                      <>
+                        in attesa di approvazione —{" "}
+                        <a href={`/operazioni?torna=/campagne/${campagna.id}`}>vai ad approvare</a>
+                      </>
+                    ) : (
+                      <>
+                        approvato, aspetta il prossimo giro dello script
+                        {budgetInCoda.approvataIl ? ` (dal ${formattaDataOra(budgetInCoda.approvataIl)})` : ""}
+                      </>
+                    )}
+                  </div>
+                )}
                 <div className="kpi-etichetta">
                   Budget al giorno su Google
                   {quota != null && (

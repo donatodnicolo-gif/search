@@ -1137,3 +1137,12 @@ tbody tr:hover { background: var(--fill); }
   margin: 0; padding-left: 18px; font-size: 12.5px; line-height: 1.6;
   overflow-wrap: anywhere;
 }
+
+/* La riga «cambio in attesa» sotto il budget nella tessera KPI: piccola e
+   sopra l'etichetta, perché il numero grande deve restare quello che Google ha
+   adesso — è su quello che si legge la spesa. */
+.kpi-incoda {
+  font-size: 11.5px; font-weight: 600; line-height: 1.4;
+  margin-top: 4px; overflow-wrap: anywhere;
+}
+.kpi-incoda a { text-decoration: underline; }

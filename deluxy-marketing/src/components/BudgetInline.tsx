@@ -14,12 +14,16 @@ export function BudgetInline({
   campagnaId,
   budgetAttuale,
   azione,
+  inCoda,
 }: {
   campagnaId: string;
   budgetAttuale: number | null;
   azione: (fd: FormData) => void | Promise<void>;
+  /** Un cambio di budget gia in coda, se c e. */
+  inCoda?: { stato: string; budget: number | null } | null;
 }) {
   const dialogo = useRef<HTMLDialogElement>(null);
+  const gia = inCoda ?? null;
   const [nuovo, setNuovo] = useState(budgetAttuale != null ? String(budgetAttuale) : "");
 
   const n = Number(String(nuovo).replace(",", "."));
@@ -36,7 +40,11 @@ export function BudgetInline({
       <button
         type="button"
         className="matita"
-        title="Cambia il budget giornaliero (mette in coda, non applica)"
+        title={
+          gia
+            ? `Attenzione: c'è già un cambio di budget ${gia.stato === "approvata" ? "approvato" : "in attesa di approvazione"}${gia.budget != null ? ` a ${gia.budget} €/g` : ""}. Aprendo qui ne metteresti in coda un secondo.`
+            : "Cambia il budget giornaliero (mette in coda, non applica)"
+        }
         aria-label="Cambia il budget giornaliero"
         onClick={() => dialogo.current?.showModal()}
       >
@@ -76,6 +84,22 @@ export function BudgetInline({
           </div>
 
           <div className="modale-elenco" style={{ paddingTop: 14, paddingBottom: 14 }}>
+            {/* ⚠️ Se ce n'è già uno in coda va detto QUI, prima che si scriva
+                un numero: due cambi di budget in coda sulla stessa campagna
+                fanno vincere l'ultimo che lo script esegue, e chi ha messo il
+                primo non se ne accorge mai. Non lo blocco — a volte è proprio
+                quello che si vuole — ma non deve succedere per distrazione. */}
+            {gia && (
+              <div className="op-avvisi" style={{ marginTop: 0, marginBottom: 14 }}>
+                <span aria-hidden="true">⚠</span> C&apos;è <b>già un cambio di budget</b>
+                {gia.budget != null ? <> a <b>{gia.budget} €/g</b></> : null}{" "}
+                {gia.stato === "approvata"
+                  ? "approvato, che aspetta il prossimo giro dello script"
+                  : "in attesa di approvazione"}
+                . Se ne metti un altro, su Google vince quello che lo script esegue per ultimo:
+                conviene annullare il primo in Operazioni, o cambiarlo lì.
+              </div>
+            )}
             <label className="modale-campo" style={{ marginBottom: 14 }}>
               Nuovo budget (€/giorno)
               <input
