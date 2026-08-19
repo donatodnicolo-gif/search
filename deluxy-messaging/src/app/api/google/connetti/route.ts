@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'node:crypto'
 import { leggiImpostazioni } from '@/lib/impostazioni'
-import { urlConsenso } from '@/lib/google'
+import { redirectUri, urlConsenso } from '@/lib/google'
 
 export const dynamic = 'force-dynamic'
 
@@ -24,6 +24,28 @@ export async function GET(req: NextRequest) {
 
   const state = crypto.randomBytes(16).toString('hex')
   const url = urlConsenso(base, googleClientId, state)
+
+  // ── `?mostra=1`: cosa stiamo mandando a Google, invece di andarci ──
+  //
+  // ⚠️ NASCE DA UN CASO VERO, e capitato due volte: Google risponde
+  // `redirect_uri_mismatch` e da fuori non c'è modo di sapere QUALE indirizzo
+  // abbiamo mandato — si finisce a confrontare a memoria una stringa scritta in
+  // due posti diversi (e magari in un altro progetto Google, o su un altro
+  // client OAuth). Qui l'indirizzo esatto e il client id si leggono e si
+  // copiano, e il confronto con la console diventa carattere per carattere.
+  //
+  // Non è un segreto: il client id e il redirect URI viaggiano in chiaro nella
+  // barra degli indirizzi a ogni consenso. Il client SECRET non compare.
+  if (req.nextUrl.searchParams.get('mostra') === '1') {
+    return NextResponse.json({
+      redirectUri: redirectUri(base),
+      clientId: googleClientId,
+      base,
+      urlConsenso: url,
+      istruzioni:
+        'Nella console Google Cloud → API e servizi → Credenziali, apri il client OAuth con QUESTO client id e incolla QUESTO redirectUri fra gli «URI di reindirizzamento autorizzati» (non fra le origini JavaScript). Deve combaciare carattere per carattere.',
+    })
+  }
 
   const res = NextResponse.redirect(url)
   // Lo state torna nel callback: lo confrontiamo con questo cookie (anti-CSRF).

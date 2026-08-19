@@ -173,6 +173,18 @@ export default async function PaginaImpostazioni({
               client Web, People API attiva) aggiungi questo redirect URI:
             </p>
             <code className="codice">{uriRedirect}</code>
+            {/* ⚠️ Il confronto a memoria fra due stringhe lunghe è il modo in
+                cui nasce `redirect_uri_mismatch`: qui si vede ESATTAMENTE
+                quello che l'app manda a Google, client id compreso. */}
+            <p className="descrizione" style={{ marginTop: 6 }}>
+              Google risponde <code>redirect_uri_mismatch</code>?{' '}
+              <a href="/api/google/connetti?mostra=1" target="_blank" rel="noopener noreferrer">
+                Guarda cosa mandiamo a Google
+              </a>{' '}
+              e confrontalo con la console, carattere per carattere: dev&apos;essere sul client
+              OAuth con lo stesso Client ID, fra gli «URI di reindirizzamento autorizzati» — non
+              fra le «Origini JavaScript».
+            </p>
             <label className="campo">
               <span>Client ID</span>
               <input
