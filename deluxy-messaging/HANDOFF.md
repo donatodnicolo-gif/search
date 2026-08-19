@@ -1,15 +1,16 @@
 # Handoff — Deluxy Customer Service
 
-Ultimo aggiornamento: **17/08/2026, ore 16** (pomeriggio: «collegato a Google» lo
-dice Google e non la chiave salvata — e **i conteggi sul database sono tornati
-possibili dopo tre sessioni**, quindi la fotografia qui sotto è di oggi, non più
-del 15/08)
+Ultimo aggiornamento: **17/08/2026, ore 16:30** (pomeriggio: «collegato a
+Google» lo dice Google e non la chiave salvata; il bottone **Shopify ↗** passa
+fra le azioni rapide; **i conteggi sul database sono tornati possibili dopo tre
+sessioni**, quindi la fotografia qui sotto è di oggi, non più del 15/08)
 
-**Stato del 17/08/2026 ore 16 — l'app è viva e la produzione è il codice di
+**Stato del 17/08/2026 ore 16:30 — l'app è viva e la produzione è il codice di
 oggi.** `GET /api/health` risponde `200` in 0,46 s con `database: true`,
 `scrivibile: true`, **1.245 ordini** e **468 conversazioni**. Ultimo commit
-**`17bab22a`**, pubblicato con `npx vercel deploy --prod --yes` (deployment
-`dpl_G8AkCCUy4DGSmcNdMJaiVFtV7HFq`, alias di produzione verificato con
+**`107dd06c`** (codice: `6ed10cfd`), pubblicato con
+`npx vercel deploy --prod --yes` (deployment
+`dpl_BShFfAocYYT21Zw4qjv7d1ZT2JtU`, alias di produzione verificato con
 `vercel inspect https://deluxy-messaging.vercel.app`); albero pulito per questa
 cartella, allineato con `origin/scout-ui`. Rotte dall'esterno: `/`, `/inbox`,
 `/ordini`, `/impostazioni` → **307** al login, `/widget?anteprima=1` → 200.
