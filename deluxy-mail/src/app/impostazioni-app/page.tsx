@@ -8,7 +8,7 @@ import { SincronizzaRegistro } from '@/components/SincronizzaRegistro'
 import { descriviAzioni, statoApp } from '@/lib/appDeluxy'
 import { leggiChiaviApp, statoChiaviApp } from '@/lib/chiaviApp'
 import { tokenApiConfigurato } from '@/lib/apiAuth'
-import { statoDrive, configDrive } from '@/lib/drive'
+import { statoDrive, configDrive, indirizzoRitornoDrive } from '@/lib/drive'
 import { salvaDriveAction } from '@/lib/drive-actions'
 import { richiediUtente } from '@/lib/sessione'
 import type { RegolaApp } from '@prisma/client'
@@ -42,7 +42,7 @@ export default async function ImpostazioniApp() {
     ...(statoDr ?? { configurato: false, collegato: false, email: null, errore: null }),
     idParziale: confDr?.id ?? '',
   }
-  const ritornoDrive = 'https://deluxy-mail.vercel.app/api/interno/drive/oauth'
+  const ritornoDrive = indirizzoRitornoDrive()
   const nomeAzione = (id: string) => {
     const a = azioniApp.find((x) => x.id === id)
     return a ? `${a.app} — ${a.nome}` : id

@@ -21,6 +21,26 @@ import { db } from './db'
 
 export const AMBITO_DRIVE = 'https://www.googleapis.com/auth/drive.file'
 
+/**
+ * L'indirizzo di ritorno del consenso. **Unica fonte di verita**: lo usano sia
+ * la rotta OAuth sia la pagina Impostazioni che lo mostra da incollare in Google
+ * Cloud Console.
+ *
+ * ⚠️ Prima erano DUE stringhe — una calcolata nella rotta, una scritta a mano
+ * nella pagina — ed e' esattamente cosi' che nasce un `redirect_uri_mismatch`:
+ * l'utente incolla in console quella che LEGGE, mentre l'app manda quella che
+ * CALCOLA. Google confronta la stringa intera, carattere per carattere.
+ *
+ * ⚠️ Non si usa `req.nextUrl.origin` e basta: dietro Vercel l'origine puo'
+ * essere quella del DEPLOY (`deluxy-mail-abc123-deluxy.vercel.app`) invece
+ * dell'alias, e in console e' registrato l'alias. Se c'e' `APP_URL` comanda quella.
+ */
+export function indirizzoRitornoDrive(origine?: string): string {
+  const pulita = (process.env.APP_URL || origine || 'https://deluxy-mail.vercel.app').trim()
+  const base = pulita.endsWith('/') ? pulita.slice(0, -1) : pulita
+  return `${base}/api/interno/drive/oauth`
+}
+
 export const IMP_ID = 'drive.oauth_client_id'
 export const IMP_SEGRETO = 'drive.oauth_client_secret'
 export const IMP_REFRESH = 'drive.oauth_refresh'

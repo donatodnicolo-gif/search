@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { AMBITO_DRIVE, configDrive, salvaConsensoDrive } from '@/lib/drive'
+import { AMBITO_DRIVE, configDrive, indirizzoRitornoDrive, salvaConsensoDrive } from '@/lib/drive'
 
 // Il giro del consenso per collegare Google Drive.
 //
@@ -23,7 +23,9 @@ import { AMBITO_DRIVE, configDrive, salvaConsensoDrive } from '@/lib/drive'
 export const dynamic = 'force-dynamic'
 
 function indirizzoRitorno(req: NextRequest): string {
-  return new URL('/api/interno/drive/oauth', req.nextUrl.origin).toString()
+  // ⚠️ Fonte unica: la stessa stringa che la pagina Impostazioni mostra da
+  //    incollare in Google Console. Vedi `indirizzoRitornoDrive`.
+  return indirizzoRitornoDrive(req.nextUrl.origin)
 }
 
 function torna(req: NextRequest, esito: string, perche?: string): NextResponse {
