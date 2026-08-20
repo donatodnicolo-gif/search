@@ -2200,8 +2200,25 @@ export async function sincronizzaTutti(): Promise<EsitoSync[]> {
 
 // Regole di conservazione della posta (retention). In giorni.
 const RETENZIONE = {
-  // L'archivio dopo N giorni finisce nel Cestino (resta recuperabile da lì).
-  archivioInCestinoGiorni: 30,
+  // L'archivio dopo N giorni finisce nel Cestino. **0 = SPENTO**, ed è spento.
+  //
+  // ⚠️ SPENTO IL 20/08/2026, dopo aver contato i danni. La catena era:
+  // 54 regole archiviano da sole all'arrivo → dopo 30 giorni la mail finisce
+  // nel cestino → e dal 14/08 lo spostamento segue anche sulla CASELLA. Nel
+  // cestino si erano accumulate **1.073 mail finite lì da sole** accanto a **15**
+  // buttate da una persona, indistinguibili a schermo. Siccome «Svuota cestino»
+  // cancella dal server in modo IRREVERSIBILE e cancella tutto il cestino, un
+  // solo clic avrebbe distrutto mille mail archiviate.
+  //
+  // ⚠️ La lezione, prima ancora del numero: **archiviare non è buttare**. Chi
+  // archivia sta mettendo da parte per ritrovare, e nella webmail dell'utente
+  // esistono cartelle Archivio 2023/2024/2025 — l'archivio lì è un deposito di
+  // anni. Una scadenza che trasforma «da parte» in «nel cestino», in silenzio e
+  // pure sul server, non è una pulizia: è una perdita di dati differita.
+  // Se un giorno la si riaccende, NON deve rispecchiarsi sulla casella e il
+  // cestino deve distinguere chi ci è finito da solo da chi ce l'ha messo una
+  // persona.
+  archivioInCestinoGiorni: 0,
   // Lo SPAM dopo N giorni viene cancellato dall'app (definitivo).
   spamCancellaGiorni: 90,
 }
@@ -2226,7 +2243,10 @@ export async function manutenzioneRetention(): Promise<{ archivioInCestino: numb
   // Il tetto tiene corto il giro del cron; l'operazione è idempotente, quindi
   // un arretrato grande si smaltisce in più giri.
   const TETTO = 100
-  const daCestinare = await db.messaggio.findMany({
+  // ⚠️ 0 = SPENTA, e va controllato PRIMA di calcolare la soglia: `soglia(0)`
+  // e 'adesso', quindi `data < adesso` prenderebbe TUTTO l'archivio e lo
+  // cestinerebbe al primo giro — l'esatto contrario di spegnere la regola.
+  const daCestinare = RETENZIONE.archivioInCestinoGiorni <= 0 ? [] : await db.messaggio.findMany({
     where: {
       archiviato: true,
       cestinato: false,
