@@ -1615,3 +1615,8 @@ mark.ricerca-hit {
   /* Il separatore verticale fra filtri e priorità: a capo non serve. */
   .page-actions.filters > span[style] { display: none; }
 }
+
+/* «Hai gia risposto» sulla mail aperta: verde tenue, perche e una buona
+   notizia (non c e altro da fare) e non deve gridare come un avviso. */
+.nota-risposto { color: var(--green); }
+.risposto-mark { opacity: .75; }

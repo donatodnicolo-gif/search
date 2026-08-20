@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { db } from '@/lib/db'
 import { dataBreve, dataLunga, FUSO } from '@/lib/format'
+import { statoRisposta } from '@/lib/statoRisposta'
 import { anteprimaPulita } from '@/lib/citato'
 import { ConversazioneStack } from '@/components/ConversazioneStack'
 import { BozzaEditor } from '@/components/BozzaEditor'
@@ -89,7 +90,7 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
     link: string | null
     creatoIl: Date
   }
-  const [sezioni, conversazione, conversazioneStretta, contattoAI, inviiApp, chiaviApp, vicine] = await Promise.all([
+  const [sezioni, conversazione, conversazioneStretta, contattoAI, inviiApp, chiaviApp, vicine, rispostaData] = await Promise.all([
     db.sezione.findMany({ where: { utenteId: u.id }, orderBy: { ordine: 'asc' } }),
     // La conversazione a cui appartiene questo messaggio, in forma LEGGERA:
     // la pila mostra mittente, anteprima e data, e il corpo di un messaggio se
@@ -115,6 +116,9 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
     // Le mail confinanti, per «Precedente / Successiva»: due findFirst con
     // indice, dentro l'ondata parallela — non aggiungono un'attesa in fila.
     mailVicine(u.id, messaggio),
+    // ⚠️ Dentro l ondata, non dopo: due findFirst in coda alla pagina
+    //    aggiungerebbero un giro di rete a ogni apertura di mail.
+    statoRisposta(u.id, messaggio),
   ])
 
   const azioniApp = descriviAzioni(chiaviApp)
@@ -373,6 +377,23 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
             <div style={{ marginTop: 12 }}>
               <Rianalizza id={messaggio.id} />
             </div>
+          </div>
+        )}
+
+        {/* «L'ho già risposta?» — la domanda che ci si fa aprendo una mail.
+            Compare solo quando c'è qualcosa da dire: su una mail mai toccata
+            non si scrive «non hai risposto», che sarebbe rumore su ogni riga. */}
+        {rispostaData.dopo && (
+          <div className="nota-sottile nota-risposto">
+            ↩ <strong>{rispostaData.soloInoltro ? 'Hai inoltrato' : 'Hai già risposto'}</strong>
+            {' · '}
+            {dataLunga(rispostaData.dopo)}
+          </div>
+        )}
+        {!rispostaData.dopo && rispostaData.prima && (
+          <div className="nota-sottile">
+            ↩ Hai scritto in questa conversazione, ma <strong>prima</strong> di questo messaggio:
+            resta da rispondere.
           </div>
         )}
 

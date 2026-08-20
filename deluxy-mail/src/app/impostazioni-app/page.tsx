@@ -8,6 +8,8 @@ import { SincronizzaRegistro } from '@/components/SincronizzaRegistro'
 import { descriviAzioni, statoApp } from '@/lib/appDeluxy'
 import { leggiChiaviApp, statoChiaviApp } from '@/lib/chiaviApp'
 import { tokenApiConfigurato } from '@/lib/apiAuth'
+import { statoDrive, configDrive } from '@/lib/drive'
+import { salvaDriveAction } from '@/lib/drive-actions'
 import { richiediUtente } from '@/lib/sessione'
 import type { RegolaApp } from '@prisma/client'
 
@@ -32,6 +34,15 @@ export default async function ImpostazioniApp() {
   const app = statoApp(chiavi)
   const isAdmin = u.ruolo === 'admin'
   const tokenApi = isAdmin ? await tokenApiConfigurato() : { token: '', fonte: 'nessuno' as const }
+  const statoDr = isAdmin ? await statoDrive() : null
+  const confDr = isAdmin ? await configDrive() : null
+  // ⚠️ Il segreto NON si rimanda al browser: del client id si mostra solo la
+  //    coda, quanto basta a riconoscerlo.
+  const drive = {
+    ...(statoDr ?? { configurato: false, collegato: false, email: null, errore: null }),
+    idParziale: confDr?.id ?? '',
+  }
+  const ritornoDrive = 'https://deluxy-mail.vercel.app/api/interno/drive/oauth'
   const nomeAzione = (id: string) => {
     const a = azioniApp.find((x) => x.id === id)
     return a ? `${a.app} — ${a.nome}` : id
@@ -68,6 +79,58 @@ export default async function ImpostazioniApp() {
           </p>
           <div className="card" style={{ marginBottom: 24 }}>
             <TokenApi token={tokenApi.token} fonte={tokenApi.fonte} />
+          </div>
+        </>
+      )}
+
+      {/* ---------- Archivio allegati su Google Drive ---------- */}
+      {isAdmin && (
+        <>
+          <h2 className="section-title">Archivio allegati su Google Drive</h2>
+          <p className="page-caption" style={{ marginBottom: 14 }}>
+            Dove finiscono gli allegati staccati dalle mail. Il Drive è <strong>uno solo per tutta
+            l’azienda</strong> — ogni utente che stacca un allegato scrive qui, in una sottocartella
+            col nome della sua casella. ⚠️ In AI Mail ognuno vede solo la propria posta, ma su Drive
+            chi ha accesso alla cartella vede i file di tutti.
+          </p>
+          <div className="card" style={{ marginBottom: 24 }}>
+            {drive.collegato ? (
+              <p style={{ margin: '0 0 12px' }}>
+                <span className="badge badge-ok">● Collegato</span>{' '}
+                {drive.email ? <>scrive nel Drive di <strong>{drive.email}</strong></> : null}
+              </p>
+            ) : drive.configurato ? (
+              <p style={{ margin: '0 0 12px' }}>
+                <span className="badge">○ Da collegare</span> le credenziali ci sono, manca il
+                consenso.{drive.errore ? <> — {drive.errore}</> : null}
+              </p>
+            ) : (
+              <p style={{ margin: '0 0 12px' }}>
+                <span className="badge">○ Non configurato</span> servono le credenziali del client
+                OAuth.
+              </p>
+            )}
+
+            <p className="page-caption" style={{ marginBottom: 12 }}>
+              In Google Cloud Console: crea un client OAuth di tipo «Applicazione web» e fra gli URI
+              di reindirizzamento autorizzati incolla <strong>esattamente</strong> questo:{' '}
+              <code className="app-var">{ritornoDrive}</code>. Se non combacia carattere per
+              carattere Google risponde <code className="app-var">redirect_uri_mismatch</code>.
+            </p>
+
+            <form action={salvaDriveAction} className="form-riga">
+              <input className="input" name="clientId" placeholder="Client ID" defaultValue={drive.idParziale} />
+              <input className="input" name="clientSegreto" type="password" placeholder="Client secret" />
+              <button className="btn" type="submit">Salva credenziali</button>
+            </form>
+
+            {drive.configurato && (
+              <p style={{ marginTop: 12 }}>
+                <a className="btn btn-primario" href="/api/interno/drive/oauth">
+                  {drive.collegato ? 'Ricollega Drive' : 'Collega Drive'}
+                </a>
+              </p>
+            )}
           </div>
         </>
       )}
