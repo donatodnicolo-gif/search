@@ -124,6 +124,17 @@ guarda venti volte al giorno.
 ⚠️ È la **stessa** impostazione della tendina, non una seconda: premendo una pillola la
 tendina segue, e viceversa. Ripremendo la stessa si torna agli aperti.
 
+## L'ora dei messaggi, e «/» per le risposte pronte
+
+Ogni messaggio porta **data e ora** («19 ago · 15:42»; solo l'ora se è di oggi): prima,
+fuori da oggi, si leggeva solo il giorno — e «gliel'ho scritto alle 9, ha risposto alle 14»
+è la storia di un reclamo, mentre «19 ago» non dice niente.
+
+Nel riquadro della risposta, **premere «/» apre le risposte pronte** con la ricerca per
+titolo: si scrive qualche lettera e **Invio** sceglie la prima. ⚠️ Solo a riquadro vuoto —
+dentro un testo la barra è un carattere come un altro («16/20») — e la barra non resta
+scritta: è un comando, non testo.
+
 ## Collegare una conversazione a un ordine
 
 Nella testata del thread, **«Collega a un ordine»** (o «Cambia ordine» se ce n'è già uno):
@@ -133,6 +144,13 @@ col nome del cliente, perché nove volte su dieci l'ordine è suo.
 L'aggancio automatico prende il caso facile: il cliente cita il numero, o scrive dalla mail
 o dal numero dell'ordine. Tutti gli altri («buongiorno, per la consegna di domani» da un
 altro indirizzo) restavano senza, e chi rispondeva si cercava l'ordine a mano ogni volta.
+
+Se nella conversazione un numero d'ordine è già scritto — «Ordine #2759 confermato», la
+conferma incollata dal cliente — il pop-up lo propone **in cima, con un clic**: cercarlo a
+mano quando è tre righe più su è lavoro che l'app deve togliere, non dare. ⚠️ Si
+riconoscono solo le forme che *dichiarano* un ordine («#2759», «ordine 2759»): in chat
+girano civici, CAP e importi, e proporre «20128» manderebbe a collegare la conversazione
+sbagliata.
 
 ⚠️ Il pop-up cerca fra **tutti** gli ordini, non solo gli aperti: una mail arriva spesso
 *dopo* la consegna. ⚠️ Un aggancio sbagliato fa leggere la conversazione col contesto di un
@@ -250,9 +268,14 @@ passare un'ora, e in quell'ora un cliente non sa nemmeno se ha scritto al posto 
   in una casella email arrivano newsletter, notifiche e spam — rispondere da soli lì
   vuol dire scrivere agli spammer (che così sanno che la casella è viva) o aprire un
   ping-pong infinito con un altro risponditore automatico.
-- Interruttore e testo in **Impostazioni → Risposta di primo contatto**. Il testo parte
-  **in italiano per tutti**: la lingua del cliente si conosce solo dopo aver letto il
-  suo messaggio, e su una frase sola il riconoscimento sbaglia spesso.
+- **Esce nella lingua di chi ha scritto**: italiano, inglese, francese, spagnolo,
+  tedesco. Si guarda il testo del messaggio; se non basta, i marcatori («hello», «please»,
+  «bonjour»); se non bastano nemmeno quelli, il **prefisso del telefono** (+33, +49). Nel
+  dubbio resta l'italiano.
+- Interruttore e testo in **Impostazioni → Risposta di primo contatto**. ⚠️ Il testo che
+  scrivi lì vale per l'**italiano**: le altre lingue usano le traduzioni scritte nel codice
+  (scritte a mano, non tradotte al volo — questo messaggio parte dentro il webhook, dove
+  ogni attesa in più è un messaggio che rischia di perdersi).
 
 ⚠️ Nel testo non vanno promesse che non dipendono da noi («ti rispondiamo entro
 un'ora», orari di apertura): questo messaggio parte anche di notte e a Ferragosto, e a

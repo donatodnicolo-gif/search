@@ -153,6 +153,32 @@ locale, altrimenti nulla si decifra.
     corta. ⚠️ I mestieri hanno più etichette (FIORISTA+FIORI, PASTICCERIA+
     CIOCCOLATERIA) e il recapito può essere di un **referente**. Misurato:
     Milano → 9 pasticcerie / 6 fiorai; Firenze e Novara → nessuno, e lo dice.
+  - **IL SALUTO AUTOMATICO PARLA LA LINGUA DEL CLIENTE** (19/08/2026, LIVE).
+    Un cliente ha scritto in inglese e si è visto rispondere in italiano: un
+    saluto nella lingua sbagliata dice che dall'altra parte non lo hanno nemmeno
+    letto. Ora it/en/fr/es/de.
+    ⚠️⚠️ `linguaDelTesto` **da sola non basta**, e non è un difetto: pretende 3
+    parole comuni e 2 punti di margine perché decide se *pagare* una traduzione
+    (senza margine, 13 newsletter italiane su 384 risultavano portoghesi). Su
+    «Hi I want deliver a sympathy flower in Italy address is Via Teocrito 56
+    Milano» risponde «non so»: metà delle parole sono nomi propri italiani.
+    Qui la decisione costa meno, quindi la catena è **testo → marcatori
+    («hello», «please», «bonjour») → prefisso del telefono → italiano**.
+    ✅ Provata con 10 casi: `npx tsx scripts/prova-primo-contatto.mts`.
+    ⚠️ Le traduzioni sono **scritte a mano** nel codice: il messaggio parte
+    dentro il webhook, e una chiamata a un traduttore lì dentro è un messaggio
+    che rischia di perdersi. Il testo delle Impostazioni vale per l'italiano.
+  - **ORA DI INVIO E RICEZIONE SU OGNI MESSAGGIO** e **«/» apre le risposte
+    pronte** (ricerca per titolo, Invio sceglie la prima; solo a riquadro vuoto,
+    e la barra non resta scritta).
+  - 🐛 **«COLLEGA A UN ORDINE» SEMBRAVA NON FARE NIENTE**: il pop-up nasceva
+    prima della finestra della conversazione e, **a parità di z-index, ordina il
+    DOM** — finiva dietro. Ora ha il suo livello (`velo-sopra`).
+    ⚠️ Da ricordare: nell'inbox a colonne il thread È già una finestra col suo
+    velo. Ogni nuovo pop-up aperto da lì va sopra, o non si vede.
+  - **I NUMERI D'ORDINE CITATI NELLA CONVERSAZIONE** si propongono con un clic
+    nel pop-up. ⚠️ Solo le forme che dichiarano un ordine (#2759, «ordine
+    2759»): in chat girano civici, CAP e importi.
   - **COLLEGARE UNA CONVERSAZIONE A UN ORDINE, A MANO** (19/08/2026, LIVE):
     bottone nella testata del thread + pop-up di ricerca (numero, cliente,
     telefono, email, indirizzo) che parte già col nome del cliente.
