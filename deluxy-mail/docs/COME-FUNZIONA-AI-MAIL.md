@@ -718,6 +718,25 @@ Sul cestino resta una riga che dice a che punto è («Cancello sulla casella …
 viene troncato (c'è un tetto di 5 minuti per giro), lo dice e offre **Riprendi**:
 ricomincia da ciò che è rimasto, non da capo.
 
+## 6d-bis. L'archivio non scade (e cosa c'è davvero nel cestino)
+
+**Quello che archivi resta archiviato.** Non c'è nessuna scadenza: una mail messa
+da parte oggi si ritrova fra tre anni, dove l'hai lasciata.
+
+⚠️ Non è sempre stato così. Fino al **20 agosto 2026** una regola nascosta spostava
+nel Cestino tutto ciò che stava in Archivio da più di 30 giorni — e dal 14 agosto lo
+faceva **anche sulla casella vera**, quindi il cestino della webmail si riempiva di
+mail che nessuno aveva buttato. Sommato alle regole che archiviano da sole
+all'arrivo, il risultato era che della posta veniva messa da parte
+automaticamente e un mese dopo scivolava nel cestino, in silenzio. La regola è
+**spenta**.
+
+⚠️ **Chi era già finito nel cestino ci è rimasto.** Al momento dello spegnimento
+erano **1.073** mail arrivate lì da sole, contro **15** buttate da una persona — e a
+schermo sono identiche. Siccome **«Svuota cestino» cancella dal server e non si torna
+indietro**, prima di premerlo su un cestino molto pieno vale la pena guardare cosa
+c'è dentro.
+
 ## 7. Sicurezza
 
 **Password.** Cifrate con AES-256-GCM (`src/lib/crypto.ts`), chiave derivata da

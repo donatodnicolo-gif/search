@@ -488,6 +488,35 @@ Cron: **`/api/sync`** (route, autenticata con `CRON_SECRET`) — su Vercel Hobby
 
 ## 9. Problemi noti / gotchas
 
+- 🔴 **L'archivio finiva nel cestino, e sul server (20 ago) — regola SPENTA** — l'utente,
+  guardando la webmail: «perché mi risultano tutte queste mail in cestino su server?».
+  Catena, contata sul database: **54 regole con `archivia: true`** (49 di `nicolo.donato`,
+  4 di `renato.cassoli`, 1 di `eleonora.mannini`) archiviano all'arrivo → `manutenzioneRetention`
+  spostava nel cestino tutto ciò che stava in archivio da **30 giorni** → e dal 14/08 quello
+  spostamento **seguiva sulla casella** (`allineaCartellaOra`). Risultato: **1.088 mail nel
+  cestino, di cui 1.073 finite lì da sole** e **15** buttate da una persona; 1.071 su
+  `renato.cassoli@deluxy.it`.
+  🔴 **Perché era grave**: `svuotaCestinoDi` cancella **dal server, irreversibilmente**, e
+  cancella **tutto** il cestino. Nel cestino le automatiche e le volontarie sono
+  indistinguibili, quindi un solo clic su «Svuota cestino» — gesto che chi lo fa legge come
+  «butto ciò che ho buttato» — avrebbe distrutto mille mail archiviate. Verificato che
+  l'ultimo passo **non è automatico**: nessun cron chiama `svuotaCestinoDi`, solo la rotta
+  attivata dall'utente.
+  ⚠️ **`archivioInCestinoGiorni: 0`** = spenta, con **guardia esplicita prima della soglia**:
+  `soglia(0)` è «adesso», quindi senza il controllo `<= 0` la regola «spenta» avrebbe preso
+  `data < adesso` e cestinato **l'intero archivio al primo giro**. È la trappola che stavo
+  introducendo io spegnendola.
+  ⚠️ **Le 1.073 già spostate sono rimaste nel cestino**, per scelta dell'utente («ok così come
+  ora»). Restano a un clic dalla cancellazione definitiva: se si riprende in mano la cosa, il
+  recupero va fatto distinguendo `archiviato: true` (automatiche) da chi è stato cestinato a mano.
+  ⚠️ **Lezione: archiviare non è buttare.** Chi archivia mette da parte per ritrovare — nella
+  webmail dell'utente ci sono cartelle `Archivio 2023/2024/2025`. Una scadenza che trasforma
+  «da parte» in «nel cestino», in silenzio e pure sul server, non è pulizia: è perdita di dati
+  differita. Se si riaccende, **non** deve rispecchiarsi sulla casella, e il cestino deve
+  dire quali mail ci sono finite da sole.
+  ⚠️ Nota a margine: la retention dello SPAM (90 giorni) fa `deleteMany` **solo sul database**
+  e non tocca il server — asimmetria opposta, lasciata com'è.
+
 - 🔴 **L'immagine incollata non arrivava a destinazione (19 ago)** — segnalato in due
   battute: prima «non riesco a ridurre la dimensione della foto», poi «l'immagine poi non
   è neanche partita». Erano **due difetti diversi**, e il secondo era il grave.
