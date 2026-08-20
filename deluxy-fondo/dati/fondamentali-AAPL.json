@@ -25,32 +25,6 @@
       "valore": -12715000000
     }
   ],
-  "annualTotalDebt": [
-    {
-      "esercizio": 2022,
-      "fine": "2022-09-30",
-      "valuta": "USD",
-      "valore": 132480000000
-    },
-    {
-      "esercizio": 2023,
-      "fine": "2023-09-30",
-      "valuta": "USD",
-      "valore": 111088000000
-    },
-    {
-      "esercizio": 2024,
-      "fine": "2024-09-30",
-      "valuta": "USD",
-      "valore": 106629000000
-    },
-    {
-      "esercizio": 2025,
-      "fine": "2025-09-30",
-      "valuta": "USD",
-      "valore": 98657000000
-    }
-  ],
   "annualTotalRevenue": [
     {
       "esercizio": 2022,
@@ -75,6 +49,32 @@
       "fine": "2025-09-30",
       "valuta": "USD",
       "valore": 416161000000
+    }
+  ],
+  "annualTotalDebt": [
+    {
+      "esercizio": 2022,
+      "fine": "2022-09-30",
+      "valuta": "USD",
+      "valore": 132480000000
+    },
+    {
+      "esercizio": 2023,
+      "fine": "2023-09-30",
+      "valuta": "USD",
+      "valore": 111088000000
+    },
+    {
+      "esercizio": 2024,
+      "fine": "2024-09-30",
+      "valuta": "USD",
+      "valore": 106629000000
+    },
+    {
+      "esercizio": 2025,
+      "fine": "2025-09-30",
+      "valuta": "USD",
+      "valore": 98657000000
     }
   ],
   "annualFreeCashFlow": [
@@ -129,32 +129,6 @@
       "valore": 35934000000
     }
   ],
-  "annualNetIncome": [
-    {
-      "esercizio": 2022,
-      "fine": "2022-09-30",
-      "valuta": "USD",
-      "valore": 99803000000
-    },
-    {
-      "esercizio": 2023,
-      "fine": "2023-09-30",
-      "valuta": "USD",
-      "valore": 96995000000
-    },
-    {
-      "esercizio": 2024,
-      "fine": "2024-09-30",
-      "valuta": "USD",
-      "valore": 93736000000
-    },
-    {
-      "esercizio": 2025,
-      "fine": "2025-09-30",
-      "valuta": "USD",
-      "valore": 112010000000
-    }
-  ],
   "annualEBITDA": [
     {
       "esercizio": 2022,
@@ -179,6 +153,32 @@
       "fine": "2025-09-30",
       "valuta": "USD",
       "valore": 144748000000
+    }
+  ],
+  "annualNetIncome": [
+    {
+      "esercizio": 2022,
+      "fine": "2022-09-30",
+      "valuta": "USD",
+      "valore": 99803000000
+    },
+    {
+      "esercizio": 2023,
+      "fine": "2023-09-30",
+      "valuta": "USD",
+      "valore": 96995000000
+    },
+    {
+      "esercizio": 2024,
+      "fine": "2024-09-30",
+      "valuta": "USD",
+      "valore": 93736000000
+    },
+    {
+      "esercizio": 2025,
+      "fine": "2025-09-30",
+      "valuta": "USD",
+      "valore": 112010000000
     }
   ],
   "annualStockholdersEquity": [

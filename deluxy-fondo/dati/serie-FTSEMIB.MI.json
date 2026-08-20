@@ -3,16 +3,8 @@
   "nome": "FTSE MIB",
   "valuta": "EUR",
   "fonte": "Yahoo chart v8 (adjclose)",
-  "scaricataIl": "2026-08-19T09:39:05.439Z",
+  "scaricataIl": "2026-08-20T10:22:52.180Z",
   "barre": [
-    {
-      "data": "2016-08-19",
-      "apertura": 16622,
-      "massimo": 16647,
-      "minimo": 16215,
-      "chiusura": 16310,
-      "volume": 679883200
-    },
     {
       "data": "2016-08-22",
       "apertura": 16297,
@@ -20311,10 +20303,18 @@
     },
     {
       "data": "2026-08-19",
-      "apertura": 53077.30859375,
-      "massimo": 53123.0390625,
-      "minimo": 52896.69921875,
-      "chiusura": 52982.1796875,
+      "apertura": 53077,
+      "massimo": 53152,
+      "minimo": 52618,
+      "chiusura": 52618,
+      "volume": 232368800
+    },
+    {
+      "data": "2026-08-20",
+      "apertura": 52669.671875,
+      "massimo": 52887.109375,
+      "minimo": 52640.140625,
+      "chiusura": 52727.390625,
       "volume": 0
     }
   ]

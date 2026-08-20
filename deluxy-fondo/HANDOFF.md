@@ -165,6 +165,11 @@ e `HNZ.DE` / `KHZ.DE` cadono nella trappola dei falsi simboli con exchange «YHD
   sovrascrive `.next` sotto il processo di sviluppo, che da quel momento serve HTTP 500 con
   `Cannot find module './873.js'`. Il codice non c'entra nulla: si ferma il server, si
   cancella `.next`, si riavvia. Per verificare la build, fermare prima il server.
+- **`Get-Content -Raw` + `Set-Content` in PowerShell 5.1 distrugge l'UTF-8.** `Get-Content`
+  legge un file senza BOM come ANSI, `Set-Content -Encoding utf8` lo riscrive: ogni accento
+  diventa due caratteri («perché» → «perchÃ©») e l'intero file va in doppia codifica in una
+  sola riga di comando. È successo su questo HANDOFF, recuperato con `git checkout --`. Per
+  modificare un file di testo si usano gli strumenti di edit, non le pipeline PowerShell.
 - **La console del browser conserva i messaggi delle sessioni precedenti.** Dopo un riavvio,
   per sapere se un errore è ancora vivo si guardano i log del server, non la console: lì
   restano visibili errori già risolti.
@@ -205,9 +210,10 @@ un criterio non accertabile viene **escluso** e i pesi si rinormalizzano; sotto 
 copertura il caso non entra in classifica.
 
 **Limite noto e dichiarato a schermo: il punteggio satura.** I criteri sono binari, quindi
-al primo giro **nove casi su 39 sono a 100** (BP, Diageo, Puma, Geox, Intel, Worldline,
-Campari, Atos, Porsche). L'affinità separa le *classi*, non i singoli. A parità di punteggio
-si ordina per mandato più giovane — è una convenzione, non una misura, e la pagina lo scrive.
+al 20/08 **dieci casi sono a 100** (PayPal, BP, Diageo, Puma, Sarepta, Geox, Intel,
+Worldline, Campari, Atos). L'affinità separa le *classi*, non i singoli. A parità di
+punteggio si ordina per mandato più giovane — è una convenzione, non una misura, e la pagina
+lo scrive.
 
 **2. Calcolatore del livello di ingresso (`calcolaIngresso`).** L'utente sceglie il
 riferimento (media 200, media 50, mediana 6 mesi, minimo 52 settimane, prezzo di oggi) e uno
@@ -231,3 +237,31 @@ tutte le pagine che mostrano prezzi, non solo `/tips`.
 Corretto in `src/lib/formato.ts`: `prezzoUnitario()` mostra i penny con il simbolo `p` (come
 fa la borsa), `prezzo()` riporta gli **importi** alla valuta principale dividendo per 100
 (un controvalore si legge in sterline). Stessa gestione predisposta per `ZAc` e `ILa`.
+
+### Nove casi nuovi e un mandato che non era cominciato (20/08)
+
+Ricerca sui cambi di amministratore delegato annunciati fra febbraio e agosto 2026 fuori
+dall'universo già censito. Aggiunti a `scripts/genera-universo.mjs` (ogni ticker provato
+davvero sull'API prezzi): **PayPal**, **Sarepta**, **SIG Group**, **Eurocell**, **Banco
+Sabadell**, **Ferretti** (linea di Hong Kong `9638.HK`, 1.075 sedute contro le 797 di
+`YACHT.MI`), più **Heineken**, **Ahold Delhaize** ed **Ericsson**. L'universo passa a 44
+titoli e 45 eventi; i casi cercati e scartati sono elencati con il motivo nell'intestazione
+dello script, per non ricercarli una seconda volta.
+
+**Trovato aggiungendoli: un mandato annunciato non è un mandato cominciato.** Apple era in
+universo dal giro precedente con l'annuncio del 20/04/2026 e Ternus in carica dal 01/09/2026:
+l'app misurava un «mandato» fatto di quattro mesi di gestione di Tim Cook e lo attribuiva al
+successore. Stesso caso per Heineken, Ahold ed Ericsson, con date di efficacia fra l'ottobre
+2026 e l'aprile 2027.
+
+Corretto in `calcolaMandato`, che ora accetta `dataEfficacia` e restituisce `null` quando
+cade nel futuro; passata da `vista.ts`, `ceo.ts` e `tips.ts`. Su `/tips` questi casi hanno una
+tabella propria — «Annunciati, non ancora insediati» — con la data di insediamento e i
+livelli di prezzo, ma senza rendimento: sono i più interessanti da sorvegliare e i meno
+misurabili.
+
+**Attenzione leggendo i numeri di `/mandati`**: con l'universo allargato i mandati misurati
+passano da 43 a 48, quelli sopra l'indice da 11 a 12, e la **differenza mediana da −50,0 a
+−21,7 punti**. Non è un miglioramento della tesi: i casi nuovi hanno mandati corti, e su
+pochi mesi la distanza dall'indice ha meno tempo per aprirsi. La mediana non è confrontabile
+fra due universi diversi.

@@ -1,0 +1,210 @@
+{
+  "annualFreeCashFlow": [
+    {
+      "esercizio": 2021,
+      "fine": "2021-12-31",
+      "valuta": "EUR",
+      "valore": 195313000
+    },
+    {
+      "esercizio": 2022,
+      "fine": "2022-12-31",
+      "valuta": "EUR",
+      "valore": 64244000
+    },
+    {
+      "esercizio": 2023,
+      "fine": "2023-12-31",
+      "valuta": "EUR",
+      "valore": -59283000
+    },
+    {
+      "esercizio": 2024,
+      "fine": "2024-12-31",
+      "valuta": "EUR",
+      "valore": -121734000
+    }
+  ],
+  "annualTotalDebt": [
+    {
+      "esercizio": 2021,
+      "fine": "2021-12-31",
+      "valuta": "EUR",
+      "valore": 88483000
+    },
+    {
+      "esercizio": 2022,
+      "fine": "2022-12-31",
+      "valuta": "EUR",
+      "valore": 39556000
+    },
+    {
+      "esercizio": 2023,
+      "fine": "2023-12-31",
+      "valuta": "EUR",
+      "valore": 33870000
+    },
+    {
+      "esercizio": 2024,
+      "fine": "2024-12-31",
+      "valuta": "EUR",
+      "valore": 32967000
+    }
+  ],
+  "annualStockholdersEquity": [
+    {
+      "esercizio": 2021,
+      "fine": "2021-12-31",
+      "valuta": "EUR",
+      "valore": 498278000
+    },
+    {
+      "esercizio": 2022,
+      "fine": "2022-12-31",
+      "valuta": "EUR",
+      "valore": 778008000
+    },
+    {
+      "esercizio": 2023,
+      "fine": "2023-12-31",
+      "valuta": "EUR",
+      "valore": 838840000
+    },
+    {
+      "esercizio": 2024,
+      "fine": "2024-12-31",
+      "valuta": "EUR",
+      "valore": 897156000
+    }
+  ],
+  "annualCapitalExpenditure": [
+    {
+      "esercizio": 2021,
+      "fine": "2021-12-31",
+      "valuta": "EUR",
+      "valore": -76314000
+    },
+    {
+      "esercizio": 2022,
+      "fine": "2022-12-31",
+      "valuta": "EUR",
+      "valore": -81453000
+    },
+    {
+      "esercizio": 2023,
+      "fine": "2023-12-31",
+      "valuta": "EUR",
+      "valore": -152946000
+    },
+    {
+      "esercizio": 2024,
+      "fine": "2024-12-31",
+      "valuta": "EUR",
+      "valore": -123139000
+    }
+  ],
+  "annualCashAndCashEquivalents": [
+    {
+      "esercizio": 2021,
+      "fine": "2021-12-31",
+      "valuta": "EUR",
+      "valore": 173010000
+    },
+    {
+      "esercizio": 2022,
+      "fine": "2022-12-31",
+      "valuta": "EUR",
+      "valore": 317759000
+    },
+    {
+      "esercizio": 2023,
+      "fine": "2023-12-31",
+      "valuta": "EUR",
+      "valore": 314109000
+    },
+    {
+      "esercizio": 2024,
+      "fine": "2024-12-31",
+      "valuta": "EUR",
+      "valore": 155744000
+    }
+  ],
+  "annualTotalRevenue": [
+    {
+      "esercizio": 2021,
+      "fine": "2021-12-31",
+      "valuta": "EUR",
+      "valore": 898421000
+    },
+    {
+      "esercizio": 2022,
+      "fine": "2022-12-31",
+      "valuta": "EUR",
+      "valore": 1030099000
+    },
+    {
+      "esercizio": 2023,
+      "fine": "2023-12-31",
+      "valuta": "EUR",
+      "valore": 1134484000
+    },
+    {
+      "esercizio": 2024,
+      "fine": "2024-12-31",
+      "valuta": "EUR",
+      "valore": 1240347000
+    }
+  ],
+  "annualNetIncome": [
+    {
+      "esercizio": 2021,
+      "fine": "2021-12-31",
+      "valuta": "EUR",
+      "valore": 37545000
+    },
+    {
+      "esercizio": 2022,
+      "fine": "2022-12-31",
+      "valuta": "EUR",
+      "valore": 60274000
+    },
+    {
+      "esercizio": 2023,
+      "fine": "2023-12-31",
+      "valuta": "EUR",
+      "valore": 83048000
+    },
+    {
+      "esercizio": 2024,
+      "fine": "2024-12-31",
+      "valuta": "EUR",
+      "valore": 87918000
+    }
+  ],
+  "annualEBITDA": [
+    {
+      "esercizio": 2021,
+      "fine": "2021-12-31",
+      "valuta": "EUR",
+      "valore": 93956000
+    },
+    {
+      "esercizio": 2022,
+      "fine": "2022-12-31",
+      "valuta": "EUR",
+      "valore": 125705000
+    },
+    {
+      "esercizio": 2023,
+      "fine": "2023-12-31",
+      "valuta": "EUR",
+      "valore": 169069000
+    },
+    {
+      "esercizio": 2024,
+      "fine": "2024-12-31",
+      "valuta": "EUR",
+      "valore": 194844000
+    }
+  ]
+}

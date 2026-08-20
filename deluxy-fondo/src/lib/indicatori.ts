@@ -314,11 +314,21 @@ export function calcolaMandato(
     successoreEsterno: boolean | null;
     dataInizio: string;
     dataFine: string | null;
+    /**
+     * Data in cui la nomina diventa efficace, quando dichiarata e diversa dall'annuncio.
+     * Se cade nel futuro il mandato **non è cominciato**: a comandare è ancora il
+     * predecessore. Misurarlo lo stesso attribuirebbe al successore mesi di gestione altrui —
+     * è il caso di Apple, annunciata ad aprile 2026 con Ternus in carica dal settembre
+     * successivo: senza questo controllo l'app mostrava un «mandato» fatto di quattro mesi
+     * di Tim Cook.
+     */
+    dataEfficacia?: string | null;
   },
   serie: SerieStorica,
   benchmark: SerieStorica | null
 ): Mandato | null {
   const { dataInizio, dataFine } = opzioni;
+  if (opzioni.dataEfficacia && opzioni.dataEfficacia > new Date().toISOString().slice(0, 10)) return null;
   const barre = serie.barre.filter((b) => b.data >= dataInizio && (!dataFine || b.data <= dataFine));
   if (barre.length < 2) return null;
 

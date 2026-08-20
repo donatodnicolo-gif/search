@@ -29,7 +29,7 @@ const REGOLA_VALIDA = (x: string | undefined): x is RegolaIngresso =>
 
 export default async function Tips({ searchParams }: { searchParams: Promise<Ricerca> }) {
   const q = await searchParams;
-  const { candidati, esclusi } = await screening();
+  const { candidati, attesa, esclusi } = await screening();
 
   // Il tasso storico di successo della tesi: è il contesto senza cui la classifica sotto
   // sembra una lista della spesa.
@@ -52,7 +52,8 @@ export default async function Tips({ searchParams }: { searchParams: Promise<Ric
   const serieSim = simSimbolo ? await leggiSerie(simSimbolo) : null;
   const livelliSim = calcolaLivelli(serieSim);
   const calcolo = simSimbolo && simRegola ? calcolaIngresso(serieSim, livelliSim, simRegola, sconto) : null;
-  const candidatoSim = simSimbolo ? candidati.find((c) => c.simbolo === simSimbolo) ?? null : null;
+  const tutti = [...candidati, ...attesa];
+  const candidatoSim = simSimbolo ? tutti.find((c) => c.simbolo === simSimbolo) ?? null : null;
   const esborso =
     calcolo?.prezzoIngresso != null && quantita !== null && Number.isFinite(quantita) && quantita > 0
       ? calcolo.prezzoIngresso * quantita
@@ -194,6 +195,76 @@ export default async function Tips({ searchParams }: { searchParams: Promise<Ric
       </div>
 
       {/* ------------------------------------------------------------------ */}
+      {attesa.length > 0 ? (
+        <div className="sezione">
+          <div className="sezione-titolo">Annunciati, non ancora insediati</div>
+          <p className="sezione-sub">
+            Qui il nuovo amministratore delegato è stato nominato ma non è ancora al comando.
+            Sono i casi in cui la storia che la tesi pretende di anticipare deve ancora
+            cominciare — e proprio per questo <strong>non hanno un mandato da misurare</strong>:
+            il rendimento di questi mesi è del predecessore, non suo. L&apos;app non lo attribuisce
+            a chi arriva.
+          </p>
+
+          <div className="tabella-scroll">
+            <table className="tabella">
+              <thead>
+                <tr>
+                  <th>Azienda</th>
+                  <th>Chi arriva</th>
+                  <th>Annuncio</th>
+                  <th>In carica dal</th>
+                  <th style={{ textAlign: "right" }}>Prezzo</th>
+                  <th style={{ textAlign: "right" }}>Dal massimo 52s</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {attesa.map((c) => (
+                  <tr key={c.simbolo}>
+                    <td>
+                      <div style={{ fontWeight: 550 }}>{c.nome}</div>
+                      <div style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
+                        {c.simbolo} · {c.settore} · {c.paese}
+                      </div>
+                    </td>
+                    <td>
+                      {c.persona ?? <span className="neutro">non indicato</span>}
+                      <div style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
+                        {c.evento.successoreEsterno === true
+                          ? "arriva da fuori"
+                          : c.evento.successoreEsterno === false
+                            ? "successore interno"
+                            : "provenienza non accertata"}
+                      </div>
+                    </td>
+                    <td style={{ whiteSpace: "nowrap" }}>{dataBreve(c.evento.dataAnnuncio)}</td>
+                    <td style={{ whiteSpace: "nowrap", fontWeight: 550 }}>
+                      {dataBreve(c.evento.dataEfficacia)}
+                    </td>
+                    <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+                      {prezzoUnitario(c.livelli.prezzo, c.livelli.valuta)}
+                    </td>
+                    <td
+                      style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}
+                      className={verso(c.livelli.daMassimo)}
+                    >
+                      {percentuale(c.livelli.daMassimo)}
+                    </td>
+                    <td style={{ textAlign: "right" }}>
+                      <a className="chip" href={`/tips?titolo=${encodeURIComponent(c.simbolo)}#calcolatore`}>
+                        Livelli
+                      </a>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : null}
+
+      {/* ------------------------------------------------------------------ */}
       <div className="sezione">
         <div className="sezione-titolo">Perché ciascuno è dove è</div>
         <p className="sezione-sub">
@@ -282,7 +353,7 @@ export default async function Tips({ searchParams }: { searchParams: Promise<Ric
               </label>
               <select className="campo" id="titolo" name="titolo" defaultValue={simSimbolo ?? ""}>
                 <option value="">— scegli —</option>
-                {candidati.map((c) => (
+                {tutti.map((c) => (
                   <option key={c.simbolo} value={c.simbolo}>
                     {c.nome} ({c.simbolo})
                   </option>

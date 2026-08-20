@@ -51,6 +51,46 @@
       "valore": 37914034000
     }
   ],
+  "annualCapitalExpenditure": [
+    {
+      "esercizio": 2022,
+      "fine": "2022-06-30",
+      "valuta": "EUR",
+      "valore": -58620000
+    },
+    {
+      "esercizio": 2023,
+      "fine": "2023-06-30",
+      "valuta": "EUR",
+      "valore": -76198000
+    },
+    {
+      "esercizio": 2024,
+      "fine": "2024-06-30",
+      "valuta": "EUR",
+      "valore": -87666000
+    }
+  ],
+  "annualTotalRevenue": [
+    {
+      "esercizio": 2022,
+      "fine": "2022-06-30",
+      "valuta": "EUR",
+      "valore": 2513784000
+    },
+    {
+      "esercizio": 2023,
+      "fine": "2023-06-30",
+      "valuta": "EUR",
+      "valore": 2908216000
+    },
+    {
+      "esercizio": 2024,
+      "fine": "2024-06-30",
+      "valuta": "EUR",
+      "valore": 3249642000
+    }
+  ],
   "annualCashAndCashEquivalents": [
     {
       "esercizio": 2022,
@@ -75,46 +115,6 @@
       "fine": "2025-06-30",
       "valuta": "EUR",
       "valore": 1662666000
-    }
-  ],
-  "annualTotalRevenue": [
-    {
-      "esercizio": 2022,
-      "fine": "2022-06-30",
-      "valuta": "EUR",
-      "valore": 2513784000
-    },
-    {
-      "esercizio": 2023,
-      "fine": "2023-06-30",
-      "valuta": "EUR",
-      "valore": 2908216000
-    },
-    {
-      "esercizio": 2024,
-      "fine": "2024-06-30",
-      "valuta": "EUR",
-      "valore": 3249642000
-    }
-  ],
-  "annualCapitalExpenditure": [
-    {
-      "esercizio": 2022,
-      "fine": "2022-06-30",
-      "valuta": "EUR",
-      "valore": -58620000
-    },
-    {
-      "esercizio": 2023,
-      "fine": "2023-06-30",
-      "valuta": "EUR",
-      "valore": -76198000
-    },
-    {
-      "esercizio": 2024,
-      "fine": "2024-06-30",
-      "valuta": "EUR",
-      "valore": -87666000
     }
   ],
   "annualStockholdersEquity": [

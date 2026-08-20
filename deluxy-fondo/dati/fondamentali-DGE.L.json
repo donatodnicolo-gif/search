@@ -1,28 +1,28 @@
 {
-  "annualTotalDebt": [
+  "annualCapitalExpenditure": [
     {
       "esercizio": 2023,
       "fine": "2023-06-30",
       "valuta": "USD",
-      "valore": 21355000000
+      "valore": -1417000000
     },
     {
       "esercizio": 2024,
       "fine": "2024-06-30",
       "valuta": "USD",
-      "valore": 22105000000
+      "valore": -1510000000
     },
     {
       "esercizio": 2025,
       "fine": "2025-06-30",
       "valuta": "USD",
-      "valore": 24401000000
+      "valore": -1612000000
     },
     {
       "esercizio": 2026,
       "fine": "2026-06-30",
       "valuta": "USD",
-      "valore": 22196000000
+      "valore": -1197000000
     }
   ],
   "annualFreeCashFlow": [
@@ -51,30 +51,30 @@
       "valore": 3195000000
     }
   ],
-  "annualCapitalExpenditure": [
+  "annualTotalDebt": [
     {
       "esercizio": 2023,
       "fine": "2023-06-30",
       "valuta": "USD",
-      "valore": -1417000000
+      "valore": 21355000000
     },
     {
       "esercizio": 2024,
       "fine": "2024-06-30",
       "valuta": "USD",
-      "valore": -1510000000
+      "valore": 22105000000
     },
     {
       "esercizio": 2025,
       "fine": "2025-06-30",
       "valuta": "USD",
-      "valore": -1612000000
+      "valore": 24401000000
     },
     {
       "esercizio": 2026,
       "fine": "2026-06-30",
       "valuta": "USD",
-      "valore": -1197000000
+      "valore": 22196000000
     }
   ],
   "annualTotalRevenue": [

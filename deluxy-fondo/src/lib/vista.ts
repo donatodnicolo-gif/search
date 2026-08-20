@@ -117,6 +117,7 @@ export async function costruisciCruscotto(): Promise<Cruscotto> {
             successoreEsterno: ultimoEvento.successoreEsterno,
             dataInizio: ultimoEvento.dataAnnuncio,
             dataFine: null,
+            dataEfficacia: ultimoEvento.dataEfficacia,
           },
           serie,
           benchmarkTotale
@@ -189,6 +190,7 @@ export function mandatiDi(simbolo: string, serie: SerieStorica, benchmark: Serie
           successoreEsterno: e.successoreEsterno,
           dataInizio: e.dataAnnuncio,
           dataFine: successiva ? successiva.dataAnnuncio : null,
+          dataEfficacia: e.dataEfficacia,
         },
         serie,
         benchmark

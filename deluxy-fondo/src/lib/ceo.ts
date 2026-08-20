@@ -123,6 +123,7 @@ export async function profiliCeo(): Promise<ProfiloCeo[]> {
                 successoreEsterno: e.successoreEsterno,
                 dataInizio: e.dataAnnuncio,
                 dataFine: successiva ? successiva.dataAnnuncio : null,
+                dataEfficacia: e.dataEfficacia,
               },
               serie,
               benchmark

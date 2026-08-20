@@ -68,6 +68,11 @@ export type Candidato = {
   livelli: Livelli;
   /** Mesi trascorsi dall'annuncio della nomina. */
   mesiDallEvento: number;
+  /**
+   * Se la persona è già al comando. Una nomina annunciata ma efficace fra mesi non è un
+   * mandato: a guidare è ancora il predecessore, e il titolo che si misurerebbe è il suo.
+   */
+  insediato: boolean;
 };
 
 function mediana(valori: number[]): number | null {
@@ -180,7 +185,14 @@ function valutaCriteri(
 }
 
 export type ScreeningTips = {
+  /** Casi con il nuovo amministratore delegato già al comando. */
   candidati: Candidato[];
+  /**
+   * Nomine annunciate ma non ancora efficaci. Sono i casi più interessanti per chi guarda
+   * avanti — la storia che la tesi pretende di anticipare deve ancora cominciare — e i meno
+   * misurabili, perché non c'è un solo giorno di gestione da valutare.
+   */
+  attesa: Candidato[];
   benchmarkUsato: string;
   /** Quanti casi sono stati esclusi perché senza prezzi o senza evento di gestione. */
   esclusi: number;
@@ -248,12 +260,14 @@ export async function screening(): Promise<ScreeningTips> {
           successoreEsterno: evento.successoreEsterno,
           dataInizio: evento.dataAnnuncio,
           dataFine: null,
+          dataEfficacia: evento.dataEfficacia,
         },
         serie,
         benchmark
       ),
       livelli: calcolaLivelli(serie),
       mesiDallEvento: mesi,
+      insediato: !evento.dataEfficacia || evento.dataEfficacia <= oggi,
     });
   }
 
@@ -262,7 +276,15 @@ export async function screening(): Promise<ScreeningTips> {
   // casi della stessa classe, quello annunciato da meno tempo ha ancora davanti la parte di
   // storia che la tesi pretende di anticipare — l'altro l'ha già in gran parte consumata.
   candidati.sort((a, b) => b.affinita - a.affinita || a.mesiDallEvento - b.mesiDallEvento);
-  return { candidati, benchmarkUsato: benchmark?.nome ?? "nessuno", esclusi };
+  return {
+    candidati: candidati.filter((c) => c.insediato),
+    // In attesa, i più imminenti per primi: è l'ordine in cui vanno guardati.
+    attesa: candidati
+      .filter((c) => !c.insediato)
+      .sort((a, b) => (a.evento.dataEfficacia ?? "").localeCompare(b.evento.dataEfficacia ?? "")),
+    benchmarkUsato: benchmark?.nome ?? "nessuno",
+    esclusi,
+  };
 }
 
 // ---------------------------------------------------------------------------
