@@ -3593,3 +3593,10 @@ td .azioni-ordine {
   background: var(--hairline-strong);
   margin: 0 4px;
 }
+
+/* Un velo che deve stare SOPRA un altro velo: la conversazione a colonne è già
+   una finestra, e due veli allo stesso livello li ordina il DOM — il pop-up
+   nasceva prima e finiva dietro, così il bottone sembrava non fare niente. */
+.velo.velo-sopra {
+  z-index: 70;
+}

@@ -33,6 +33,7 @@ function consegna(o: OrdineTrovato): string {
 export function CollegaOrdine({
   collegato,
   suggerimento,
+  citati = [],
   onScegli,
   onChiudi,
 }: {
@@ -45,6 +46,15 @@ export function CollegaOrdine({
    * lui, non una stringa da digitare.
    */
   suggerimento?: string
+  /**
+   * I numeri d'ordine **già scritti dentro la conversazione**.
+   *
+   * ⚠️ Quasi sempre la risposta è lì: il cliente incolla la conferma
+   * («Ordine #2759 confermato») o lo cita scrivendo. Far cercare a mano un
+   * numero che è tre righe più su è il tipo di lavoro che l'app dovrebbe
+   * togliere, non chiedere.
+   */
+  citati?: string[]
   onScegli: (numero: string) => void
   onChiudi: () => void
 }) {
@@ -98,7 +108,11 @@ export function CollegaOrdine({
   }, [onChiudi])
 
   return (
-    <div className="velo" onClick={onChiudi} role="presentation">
+    // ⚠️ `velo-sopra` e non `velo` e basta: la conversazione a colonne è
+    // anch'essa una finestra col suo velo, e due veli allo stesso livello li
+    // ordina il DOM — questo nasceva prima, quindi si apriva DIETRO. Da fuori
+    // sembrava che il bottone non facesse niente.
+    <div className="velo velo-sopra" onClick={onChiudi} role="presentation">
       <div
         className="pannello stretto"
         onClick={(e) => e.stopPropagation()}
@@ -135,6 +149,22 @@ export function CollegaOrdine({
         </div>
 
         {errore ? <div className="avviso-errore">{errore}</div> : null}
+
+        {/* I numeri citati nel thread, in cima: un clic e via. */}
+        {citati.length ? (
+          <div style={{ marginBottom: 10 }}>
+            <div className="cella-sub" style={{ marginBottom: 4 }}>
+              Scritti in questa conversazione:
+            </div>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {citati.map((n) => (
+                <button key={n} className="bottone mini" onClick={() => onScegli(n)}>
+                  {n}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
 
         {/* ⚠️ Lo scollegamento sta qui dentro e non fra le azioni del thread: un
             aggancio sbagliato fa leggere la conversazione col contesto di un

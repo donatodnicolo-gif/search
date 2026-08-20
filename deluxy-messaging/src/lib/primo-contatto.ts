@@ -16,6 +16,8 @@
 import { db } from '@/lib/db'
 import { leggiImpostazioni } from '@/lib/impostazioni'
 import { inviaSulCanale } from '@/lib/invio'
+import { linguaDelTesto } from '@/lib/lingua-testo'
+import { linguaCliente, type ChiaveLingua } from '@/lib/lingua'
 
 /**
  * Il testo di riserva, se in Impostazioni non ne è stato scritto uno.
@@ -28,6 +30,127 @@ export const TESTO_DI_RISERVA =
   'Ciao! Grazie per averci scritto: abbiamo ricevuto il tuo messaggio e ti rispondiamo ' +
   'appena possibile. Se riguarda un ordine, scrivici il numero (per esempio #1234): ' +
   'ci aiuta a risponderti più in fretta.'
+
+/**
+ * Lo stesso saluto nelle lingue che l'app sa leggere.
+ *
+ * ⚠️⚠️ NASCE DA UN CASO VERO: un cliente ha scritto in inglese («Hi, I want to
+ * deliver a sympathy flower…») e si è visto rispondere in italiano. Un saluto
+ * automatico nella lingua sbagliata è peggio del silenzio: dice al cliente che
+ * dall'altra parte non lo hanno nemmeno letto.
+ *
+ * ⚠️ Sono TRADUZIONI SCRITTE A MANO, non una chiamata a un traduttore: questo
+ * messaggio parte dentro il webhook, dove ogni attesa in più è un messaggio che
+ * rischia di perdersi — e una traduzione automatica del testo scritto
+ * dall'operatore non si può nemmeno rileggere prima che parta.
+ */
+const TESTI: Record<ChiaveLingua, string> = {
+  it: TESTO_DI_RISERVA,
+  en:
+    'Hello! Thanks for writing: we have received your message and will get back to you ' +
+    'as soon as possible. If it is about an order, send us the number (for example #1234): ' +
+    'it helps us reply faster.',
+  fr:
+    'Bonjour ! Merci de nous avoir écrit : nous avons bien reçu votre message et nous vous ' +
+    'répondrons dès que possible. S’il s’agit d’une commande, indiquez-nous le numéro ' +
+    '(par exemple #1234) : cela nous aide à répondre plus vite.',
+  es:
+    '¡Hola! Gracias por escribirnos: hemos recibido tu mensaje y te responderemos lo antes ' +
+    'posible. Si se trata de un pedido, escríbenos el número (por ejemplo #1234): nos ayuda ' +
+    'a responderte más rápido.',
+  de:
+    'Guten Tag! Danke für Ihre Nachricht: Wir haben sie erhalten und melden uns so schnell ' +
+    'wie möglich. Wenn es um eine Bestellung geht, schreiben Sie uns die Nummer ' +
+    '(zum Beispiel #1234): So können wir schneller antworten.',
+}
+
+/**
+ * In che lingua salutare chi ha appena scritto.
+ *
+ * Due segnali, in quest'ordine:
+ * 1. **le sue parole** (`linguaDelTesto`, gratis e senza chiamate) — ma serve
+ *    una frase di almeno otto parole: sotto, «ok grazie» e «ok thanks» sono
+ *    indistinguibili, e infatti la funzione risponde «non so»;
+ * 2. **il prefisso del suo numero** (+33, +49…), che è l'unico dato che dichiara
+ *    davvero un paese. È lo stesso ragionamento che l'app fa già per le mail ai
+ *    clienti (`linguaCliente`).
+ *
+ * ⚠️ Nel dubbio si resta in **italiano**: è la lingua della maggioranza dei
+ * clienti, e sbagliare verso l'italiano è meno grave che rispondere in tedesco
+ * a un milanese.
+ */
+/**
+ * Parole che da sole dicono la lingua di un primo messaggio.
+ *
+ * ⚠️⚠️ SERVONO PERCHÉ `linguaDelTesto` QUI NON BASTA, ed è giusto così: quella
+ * pretende tre parole comuni e due punti di margine perché decide se **pagare
+ * una traduzione** — e su 384 newsletter, senza quel margine, 13 italiane
+ * risultavano portoghesi. Misurato: «Hi I want deliver a sympathy flower in
+ * Italy address is — Via Teocrito 56 20128 Milano» le fa rispondere «non so»,
+ * perché metà delle parole sono nomi propri italiani.
+ *
+ * Qui la decisione è un'altra e costa molto meno: con quale saluto rispondere.
+ * Sbagliare vuol dire un saluto nella lingua sbagliata (che poi corregge la
+ * persona che risponde davvero); non decidere vuol dire rispondere in italiano
+ * a chi ha scritto in inglese — che è **la stessa cosa, ma sempre**.
+ */
+const MARCATORI: Record<ChiaveLingua, string[]> = {
+  it: ['buongiorno', 'buonasera', 'salve', 'vorrei', 'grazie', 'ordine', 'consegna', 'potete', 'avete', 'spedire'],
+  en: ['hi', 'hello', 'hey', 'please', 'thanks', 'thank', 'would', 'want', 'need', 'delivery', 'deliver', 'flowers', 'order', 'address', 'my', 'is', 'i'],
+  fr: ['bonjour', 'merci', 'voudrais', 'livraison', 'commande', 'pouvez', 'je', 'vous', 'svp'],
+  es: ['hola', 'gracias', 'quiero', 'quisiera', 'entrega', 'pedido', 'pueden', 'por favor'],
+  de: ['guten', 'hallo', 'danke', 'möchte', 'mochte', 'lieferung', 'bestellung', 'können', 'konnen', 'bitte'],
+}
+
+/** La lingua secondo i marcatori, o '' se nessuna vince da sola. */
+function linguaDaiMarcatori(testo: string): ChiaveLingua | '' {
+  const parole = new Set(
+    (testo || '')
+      .toLowerCase()
+      .replace(/[^\p{L}\s']/gu, ' ')
+      .split(/\s+/)
+      .filter(Boolean)
+  )
+  const punti = (Object.entries(MARCATORI) as [ChiaveLingua, string[]][]).map(
+    ([lingua, chiavi]) => [lingua, chiavi.filter((k) => parole.has(k)).length] as const
+  )
+  punti.sort((x, y) => y[1] - x[1])
+  const [prima, punteggio] = punti[0]
+  const secondo = punti[1]?.[1] ?? 0
+  // Vincere, e vincere di almeno un punto: un pareggio non è un'indicazione.
+  if (punteggio < 2 || punteggio === secondo) return ''
+  return prima
+}
+
+export function linguaDelPrimoContatto(testo: string, idEsterno: string, canale: string): ChiaveLingua {
+  const dalTesto = linguaDelTesto(testo)
+  const perNome: Record<string, ChiaveLingua> = {
+    italiano: 'it',
+    inglese: 'en',
+    francese: 'fr',
+    spagnolo: 'es',
+    tedesco: 'de',
+  }
+  if (dalTesto && perNome[dalTesto]) return perNome[dalTesto]
+
+  // Poi i marcatori: bastano un «hello» e un «please» per non rispondere in
+  // italiano a chi scrive in inglese.
+  const daiMarcatori = linguaDaiMarcatori(testo)
+  if (daiMarcatori) return daiMarcatori
+
+  // Su WhatsApp `idEsterno` è il numero con il prefisso internazionale, senza
+  // «+»: si rimette, altrimenti `linguaCliente` non lo riconosce come tale.
+  if (canale === 'whatsapp' && /^\d{8,}$/.test(idEsterno)) {
+    return linguaCliente('', '+' + idEsterno).lingua
+  }
+  return 'it'
+}
+
+/** Il saluto nella lingua giusta. Il testo delle Impostazioni vale per l'italiano. */
+export function testoPrimoContatto(lingua: ChiaveLingua, testoConfigurato: string): string {
+  if (lingua === 'it') return (testoConfigurato || TESTI.it).trim()
+  return TESTI[lingua] ?? TESTI.en
+}
 
 /**
  * I canali su cui la risposta parte da sola.
@@ -72,7 +195,21 @@ export async function rispostaDiPrimoContatto(conversazioneId: string): Promise<
     const quantiMessaggi = await db.messaggio.count({ where: { conversazioneId } })
     if (quantiMessaggi !== 1) return false
 
-    const testo = (conf.primoContattoTesto || TESTO_DI_RISERVA).trim()
+    // ── In che lingua ha scritto il cliente ──
+    //
+    // ⚠️ Il messaggio appena arrivato è l'ULTIMO (e qui l'unico): si legge da
+    // lì, non dalla conversazione, che a questo punto ha solo quello.
+    const primo = await db.messaggio.findFirst({
+      where: { conversazioneId },
+      orderBy: { creatoIl: 'asc' },
+      select: { testo: true },
+    })
+    const lingua = linguaDelPrimoContatto(
+      primo?.testo ?? '',
+      conversazione.idEsterno,
+      conversazione.canale
+    )
+    const testo = testoPrimoContatto(lingua, conf.primoContattoTesto ?? '')
     if (!testo) return false
 
     const esito = await inviaSulCanale(conversazione, testo)

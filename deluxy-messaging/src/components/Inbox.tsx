@@ -121,6 +121,22 @@ function oraBreve(iso: string): string {
 }
 
 /**
+ * Quando è stato mandato o ricevuto un messaggio: **sempre con l'ora**.
+ *
+ * ⚠️ Diverso da `oraBreve`, che sulla RIGA dell'elenco mostra solo il giorno
+ * quando non è oggi: lì lo spazio è quello di una parola. Dentro la
+ * conversazione l'ora è il dato che si cerca — «gliel'ho scritto alle 9, ha
+ * risposto alle 14» è la storia di un reclamo, «19 ago» non dice niente.
+ */
+function oraMessaggio(iso: string): string {
+  const d = new Date(iso)
+  const ora = d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })
+  if (d.toDateString() === new Date().toDateString()) return ora
+  const giorno = d.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })
+  return giorno + ' · ' + ora
+}
+
+/**
  * Il nome di battesimo di chi ha preso in carico, per il bollino sulla riga.
  *
  * ⚠️ Sulla riga c'è spazio per una parola: «Federica» si legge, «Federica
@@ -279,7 +295,7 @@ function Bolla({ m, canale }: { m: MessaggioDto; canale: string }) {
         </span>
       ) : null}
       <span className={`meta${m.stato === 'errore' ? ' errore' : ''}`}>
-        {oraBreve(m.creatoIl)}
+        {oraMessaggio(m.creatoIl)}
         {/* Chi ha risposto: quando la conversazione passa di mano è la
             prima cosa che si cerca. Vuoto sui messaggi vecchi. */}
         {m.direzione === 'out' && m.tipo === 'auto'
@@ -1100,8 +1116,29 @@ export function Inbox({
   }, [messaggi])
 
   const [risposteAperte, setRisposteAperte] = useState(false)
+
+
   const [risposte, setRisposte] = useState<ScriptDto[]>([])
   const [cercaRisposta, setCercaRisposta] = useState('')
+
+  /**
+   * Le risposte che corrispondono a quello che si sta cercando.
+   *
+   * Sta qui e non dentro l'elenco perché la usa anche l'Invio dalla casella di
+   * ricerca: due filtri scritti due volte diventano due elenchi diversi al
+   * primo ritocco, e l'Invio sceglierebbe una riga che non è quella in cima.
+   */
+  const risposteFiltrate = useCallback(() => {
+    const q = cercaRisposta.trim().toLowerCase()
+    return risposte.filter(
+      (s) =>
+        !q ||
+        s.titolo.toLowerCase().includes(q) ||
+        s.categoria.toLowerCase().includes(q) ||
+        s.quando.toLowerCase().includes(q) ||
+        s.testo.toLowerCase().includes(q)
+    )
+  }, [cercaRisposta, risposte])
   const bozzaRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
@@ -1167,6 +1204,30 @@ export function Inbox({
   const [nuovaMail, setNuovaMail] = useState(false)
   /** Il pop-up per collegare la conversazione a un ordine. */
   const [collegaAperto, setCollegaAperto] = useState(false)
+
+  /**
+   * I numeri d'ordine **scritti dentro la conversazione**.
+   *
+   * ⚠️ Quasi sempre la risposta è già lì: il cliente incolla la conferma
+   * («Ordine #2759 confermato») o cita il numero scrivendo. Chiedere di
+   * cercarlo a mano quando è tre righe più su è il lavoro che l'app dovrebbe
+   * togliere, non dare.
+   *
+   * ⚠️ Si prendono solo le forme che dichiarano un ordine — «#2759», «ordine
+   * 2759», «ordine n. 2759» — e non un numero qualsiasi: in una chat girano
+   * civici, CAP, orari e importi, e proporre «20128» come ordine manderebbe a
+   * collegare la conversazione sbagliata.
+   */
+  const numeriCitati = useMemo(() => {
+    const trovati = new Set<string>()
+    for (const m of messaggi) {
+      const testo = m.testo || ''
+      for (const r of [/#\s?(\d{3,6})\b/g, /\bordin[ei]\s+(?:n\.?\s*)?#?\s?(\d{3,6})\b/gi]) {
+        for (const trovato of testo.matchAll(r)) trovati.add('#' + trovato[1])
+      }
+    }
+    return [...trovati].slice(0, 6)
+  }, [messaggi])
 
   /**
    * Collega la conversazione a un ordine (numero vuoto = scollega).
@@ -1537,6 +1598,7 @@ export function Inbox({
     {collegaAperto && selezionata ? (
       <CollegaOrdine
         collegato={selezionata.ordineNumero}
+        citati={numeriCitati}
         suggerimento={selezionata.nome || selezionata.idEsterno}
         onScegli={(numero) => void collegaOrdine(numero)}
         onChiudi={() => setCollegaAperto(false)}
@@ -1852,24 +1914,28 @@ export function Inbox({
               <div className="risposte-pronte">
                 <input
                   autoFocus
-                  placeholder="Cerca fra le risposte…"
+                  placeholder="Cerca la risposta per titolo…"
                   value={cercaRisposta}
                   onChange={(e) => setCercaRisposta(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Escape') setRisposteAperte(false)
+                    if (e.key === 'Escape') {
+                      setRisposteAperte(false)
+                      bozzaRef.current?.focus()
+                      return
+                    }
+                    // ⚠️ Invio sceglie la PRIMA della lista: chi arriva qui con
+                    // «/» sta scrivendo, e tornare al mouse per il primo
+                    // risultato è il motivo per cui poi non si usa più.
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      const prima = risposteFiltrate()[0]
+                      if (prima) usaRisposta(prima)
+                    }
                   }}
                 />
                 <div className="elenco-risposte">
                   {(() => {
-                    const q = cercaRisposta.trim().toLowerCase()
-                    const trovate = risposte.filter(
-                      (s) =>
-                        !q ||
-                        s.titolo.toLowerCase().includes(q) ||
-                        s.categoria.toLowerCase().includes(q) ||
-                        s.quando.toLowerCase().includes(q) ||
-                        s.testo.toLowerCase().includes(q)
-                    )
+                    const trovate = risposteFiltrate()
                     if (!trovate.length) {
                       return (
                         <p className="colonna-vuota">
@@ -1936,9 +2002,30 @@ export function Inbox({
               <textarea
                 ref={bozzaRef}
                 rows={1}
-                placeholder={`Rispondi su ${etichettaCanale(selezionata.canale)}…`}
+                placeholder={`Rispondi su ${etichettaCanale(selezionata.canale)}…  ( / per le risposte pronte )`}
                 value={bozza}
-                onChange={(e) => setBozza(e.target.value)}
+                onChange={(e) => {
+                  const v = e.target.value
+                  // ── «/» apre le risposte pronte ──
+                  //
+                  // Il bottone «Risposte» c'è, ma sta in fondo alla riga e vuole
+                  // che la mano lasci la tastiera: chi risponde a venti
+                  // messaggi di fila non ci va, e riscrive a mano quello che era
+                  // già scritto. La barra è dove la cercano tutti, perché è così
+                  // che funziona ovunque.
+                  //
+                  // ⚠️ SOLO a riquadro VUOTO: dentro un testo la barra è un
+                  // carattere come un altro («16/20», «e/o»), e aprire un
+                  // pannello mentre si scrive una data sarebbe un dispetto.
+                  // ⚠️ La barra non resta scritta: è un comando, non testo — e
+                  // se restasse finirebbe nella risposta al cliente.
+                  if (v === '/' && !bozza) {
+                    setCercaRisposta('')
+                    setRisposteAperte(true)
+                    return
+                  }
+                  setBozza(v)
+                }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault()
