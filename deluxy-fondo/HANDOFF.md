@@ -137,7 +137,8 @@ e `HNZ.DE` / `KHZ.DE` cadono nella trappola dei falsi simboli con exchange «YHD
    track record verificabile serve salvare uno snapshot datato a ogni giro.
 7. **Cron giornaliero**: l'aggiornamento va lanciato a mano. Su Vercel servirebbe una route
    `/api/cron/aggiorna` (il filesystem lì è in sola lettura: andrebbe ripensato con un DB).
-8. **Aggiungere l'app al catalogo del Hub** (`deluxy-hub/src/lib/apps.ts`) se deve essere
+8. **Screening: criteri più fini.** L'affinità satura a 100 su nove casi. Per distinguerli servirebbero variabili continue (intensità della sottoperformance, presenza di un attivista, discontinuità del piano industriale), che oggi non sono censite negli eventi.
+9. **Aggiungere l'app al catalogo del Hub** (`deluxy-hub/src/lib/apps.ts`) se deve essere
    raggiungibile dal portale.
 
 ## Trappole trovate — non ripeterle
@@ -187,3 +188,46 @@ npm run dev
 
 Poi <http://localhost:3180>. Se la pagina dice che mancano i dati, il giro di aggiornamento
 non è mai stato eseguito in quella copia.
+
+## Pagina `/tips` — screening e livelli di ingresso (20/08)
+
+Nasce dalla richiesta «consiglia altre aziende che potrebbero essere a target e segnala a
+quanto comprare». La seconda metà della richiesta **non è stata eseguita alla lettera**:
+indicare un prezzo di acquisto a una persona è consulenza in materia di investimenti, che è
+attività riservata. La pagina fa due cose diverse, tenute separate di proposito.
+
+**1. Screening (`src/lib/tips.ts`, funzione `screening`).** Prende l'evento di gestione più
+recente di ogni titolo dell'universo e lo confronta con cinque criteri dichiarati: uscita
+forzata del predecessore (peso 30), successore esterno (25), titolo che aveva sottoperformato
+nei due anni precedenti (20), evento di primo livello (15), finestra fra 3 e 24 mesi
+dall'annuncio (10). Un evento contaminato prende uno sconto del 25%. Come ovunque nell'app,
+un criterio non accertabile viene **escluso** e i pesi si rinormalizzano; sotto il 50% di
+copertura il caso non entra in classifica.
+
+**Limite noto e dichiarato a schermo: il punteggio satura.** I criteri sono binari, quindi
+al primo giro **nove casi su 39 sono a 100** (BP, Diageo, Puma, Geox, Intel, Worldline,
+Campari, Atos, Porsche). L'affinità separa le *classi*, non i singoli. A parità di punteggio
+si ordina per mandato più giovane — è una convenzione, non una misura, e la pagina lo scrive.
+
+**2. Calcolatore del livello di ingresso (`calcolaIngresso`).** L'utente sceglie il
+riferimento (media 200, media 50, mediana 6 mesi, minimo 52 settimane, prezzo di oggi) e uno
+sconto in percentuale; l'app restituisce il prezzo, la distanza da oggi, l'esborso per N
+azioni e — il dato più utile — **quante sedute dell'ultimo anno hanno davvero chiuso a quel
+livello o sotto**. Se sono zero, lo dice: un ordine a un prezzo mai visto in dodici mesi
+rischia di non essere mai eseguito. Nessuna regola è preselezionata, perché preselezionarne
+una sarebbe già un consiglio.
+
+Verificato sul campo: BP, media 200 giorni meno 10% → 450,558 p, 88 sedute su 252 sotto quel
+livello, esborso 450,56 £ per 100 azioni.
+
+### Trappola trovata qui: le quotazioni in penny
+
+**Londra quota in `GBp` (penny), non in sterline, e `Intl.NumberFormat` ignora le
+maiuscole**: `currency: "GBp"` viene normalizzato a `GBP` e 538,50 penny finiscono a schermo
+come «538,50 £» — cento volte il valore vero. L'esborso per 100 azioni di BP risultava
+**45.055 £ invece di 450 £**. Riguardava tre titoli dell'universo (BP, Diageo, Unilever) e
+tutte le pagine che mostrano prezzi, non solo `/tips`.
+
+Corretto in `src/lib/formato.ts`: `prezzoUnitario()` mostra i penny con il simbolo `p` (come
+fa la borsa), `prezzo()` riporta gli **importi** alla valuta principale dividendo per 100
+(un controvalore si legge in sterline). Stessa gestione predisposta per `ZAc` e `ILa`.

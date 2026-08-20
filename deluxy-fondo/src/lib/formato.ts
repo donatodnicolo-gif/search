@@ -28,17 +28,42 @@ export function numero(x: number | null | undefined, decimali = 2): string {
 }
 
 /**
- * Un **importo** in denaro: sempre due decimali, come su un estratto conto.
- * Non va usata per i prezzi per azione, dove il terzo decimale è informativo.
+ * Valute espresse in **sottomultipli**: Londra quota in penny, non in sterline.
+ *
+ * `Intl` normalizza il codice ignorando le maiuscole, quindi `"GBp"` diventa `"GBP"` e 538,50
+ * penny finiscono a schermo come «538,50 £» — cento volte il valore vero. È successo davvero
+ * su BP, Diageo e Unilever: l'esborso per 100 azioni risultava 45.055 £ invece di 450 £.
+ * Queste valute si formattano quindi a mano, con il loro simbolo.
  */
-export function prezzo(x: number | null | undefined, valuta = "EUR"): string {
-  if (x === null || x === undefined || !Number.isFinite(x)) return MANCANTE;
+const SOTTOMULTIPLI: Record<string, { simbolo: string; principale: string }> = {
+  GBp: { simbolo: "p", principale: "GBP" },
+  GBX: { simbolo: "p", principale: "GBP" },
+  ZAc: { simbolo: "c", principale: "ZAR" },
+  ZAX: { simbolo: "c", principale: "ZAR" },
+  ILa: { simbolo: "agorot", principale: "ILS" },
+};
+
+function valutaBase(x: number, valuta: string, minimo: number, massimo: number): string {
   return x.toLocaleString("it-IT", {
     style: "currency",
     currency: valuta,
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
+    minimumFractionDigits: minimo,
+    maximumFractionDigits: massimo,
   });
+}
+
+/**
+ * Un **importo** in denaro: sempre due decimali, come su un estratto conto.
+ * Non va usata per i prezzi per azione, dove il terzo decimale è informativo.
+ *
+ * Sui titoli quotati in sottomultiplo l'importo viene riportato alla valuta principale: un
+ * controvalore si legge in sterline, non in 45.055 penny. La quotazione per azione resta
+ * invece in penny, come la mostra la borsa.
+ */
+export function prezzo(x: number | null | undefined, valuta = "EUR"): string {
+  if (x === null || x === undefined || !Number.isFinite(x)) return MANCANTE;
+  const minore = SOTTOMULTIPLI[valuta];
+  return minore ? valutaBase(x / 100, minore.principale, 2, 2) : valutaBase(x, valuta, 2, 2);
 }
 
 /**
@@ -47,12 +72,11 @@ export function prezzo(x: number | null | undefined, valuta = "EUR"): string {
  */
 export function prezzoUnitario(x: number | null | undefined, valuta = "EUR"): string {
   if (x === null || x === undefined || !Number.isFinite(x)) return MANCANTE;
-  return x.toLocaleString("it-IT", {
-    style: "currency",
-    currency: valuta,
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 3,
-  });
+  const minore = SOTTOMULTIPLI[valuta];
+  if (minore) {
+    return `${x.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 3 })} ${minore.simbolo}`;
+  }
+  return valutaBase(x, valuta, 2, 3);
 }
 
 export function milioni(x: number | null | undefined): string {

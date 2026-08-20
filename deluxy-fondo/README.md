@@ -51,6 +51,8 @@ fallimento viene dichiarato a schermo: mai un dato vecchio servito come fresco.
 | `/` | Cruscotto: verdetto sulla strategia, titoli monitorati con punteggio, notizie da leggere a mano, stato delle fonti |
 | `/portafoglio` | **Le posizioni decise davvero**, rivalutate a ogni aggiornamento, con utile/perdita e confronto con l indice dalla data di acquisto; piu il simulatore `quante azioni di X` e le ipotesi salvate |
 | `/mandati` | **Il monitoraggio**: un tratto per ogni amministratore delegato, dall'annuncio della nomina a quella del successore, con rendimento contro l'indice a dividendi reinvestiti, rendimento annuo, volatilità e massimo ribasso |
+| `/ceo` | **Le persone**: profilo di chi guida, percorso professionale, incarichi precedenti nell'universo con l'esito di ciascuno, note biografiche pubbliche (che sono contesto, non segnali) |
+| `/tips` | **Chi somiglia alla tesi e a quale prezzo**: screening per criteri dichiarati e ispezionabili, più un calcolatore in cui la regola di ingresso la scegli tu e l'app fa il conto — compreso quante sedute dell'ultimo anno hanno davvero chiuso a quel livello |
 | `/tim` | Il caso guida: offerta in corso, event study su tutti gli eventi, nove bilanci, indicatori della svolta, trappole contabili |
 | `/metodo` | Come è costruito il punteggio, il verdetto del revisore ostile, la condizione che lo cambierebbe, i vincoli di legge |
 | `/dati` | Provenienza di ogni numero, fonti in uso e fonti provate e scartate |
