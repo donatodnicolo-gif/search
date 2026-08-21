@@ -175,8 +175,56 @@ export type RigaGruppo = {
   quota: number; // quota sul ricavo totale della finestra
 };
 
+/**
+ * **Il periodo di confronto comincia prima dell'archivio.**
+ *
+ * Ogni «+18% sul periodo precedente» di quest'app si misura contro la finestra
+ * immediatamente precedente. Ma il venduto è stato importato solo dall'estate
+ * 2025: su «ultimo anno» il «prima» va indietro fino a due anni fa e risulta
+ * quasi vuoto, così la pagina annuncia **+2295%** — che non è una crescita, è
+ * la mancanza di dati travestita da risultato. Quando succede si dichiara.
+ */
+export type ConfrontoParziale = {
+  /** La prima vendita in archivio, con lo stesso filtro del confronto. */
+  primaVendita: Date;
+  /** Quanti giorni del periodo di confronto cadono prima dell'archivio. */
+  giorniSenzaDati: number;
+};
+
+/**
+ * Vero quando il «prima» pesca prima dell'inizio dell'archivio.
+ *
+ * `dove` è il **medesimo** filtro con cui il chiamante ha caricato le righe
+ * confrontate (buon fine o registro completo, ambito del brand, esclusi e
+ * archiviati fuori) meno l'intervallo di date: cercare l'inizio dell'archivio
+ * con un filtro diverso risponderebbe a una domanda diversa da quella che si
+ * sta facendo.
+ */
+export async function confrontoParzialeDi(
+  f: Finestra,
+  dove: Record<string, unknown>
+): Promise<ConfrontoParziale | null> {
+  const prima = await prisma.vendita.findFirst({
+    where: dove,
+    orderBy: { data: "asc" },
+    select: { data: true },
+  });
+  if (!prima || prima.data <= f.dalPrec) return null;
+  return {
+    primaVendita: prima.data,
+    // Sul calendario di Roma, non a millisecondi diviso 86.400.000: nei giorni
+    // del cambio d'ora il conto uscirebbe sfalsato di uno.
+    giorniSenzaDati: Math.max(
+      1,
+      Math.round((giornoRoma(prima.data).getTime() - giornoRoma(f.dalPrec).getTime()) / 86_400_000)
+    ),
+  };
+}
+
 export type Analisi = {
   finestra: Finestra;
+  /** Non null quando il confronto pesca prima dell'archivio: vedi sopra. */
+  confrontoParziale: ConfrontoParziale | null;
   passo: "giorno" | "settimana";
   serie: PuntoSerie[];
   totale: {
@@ -296,26 +344,35 @@ export async function analizzaVendite(
   if (filtro?.categoria) whereProdotto.categoria = filtro.categoria;
   const filtraProdotto = Object.keys(whereProdotto).length > 0;
 
+  // Lo stesso filtro serve due volte: per le righe dei due periodi e per
+  // sapere quando comincia l'archivio di questo stesso insieme.
+  const dovePassa = {
+    ...(filtraProdotto ? { prodotto: whereProdotto } : {}),
+    ...(filtro?.canale ? { canale: filtro.canale } : {}),
+    // Qui dentro passa TUTTO il venduto, rimborsi e non incassati compresi:
+    // /vendite è il registro di quello che è successo, e lo dichiara in
+    // pagina. Ma i prodotti **esclusi dalle analisi** e gli **archiviati**
+    // restano fuori anche da qui: «Escludi dalle analisi» promette che il
+    // prodotto sparisce da classifiche, andamento, assortimento e ipotesi —
+    // e questa funzione è l'andamento. Le righe non abbinate (prodotto null)
+    // restano: non si butta venduto vero perché nessuno l'ha riconosciuto.
+    OR: [
+      { prodottoId: null },
+      { prodotto: { esclusoDaAnalisi: false, fase: { not: "archiviato" } } },
+    ],
+  };
+
   const righe = (await prisma.vendita.findMany({
-    where: {
-      data: { gte: f.dalPrec, lte: f.al },
-      ...(filtraProdotto ? { prodotto: whereProdotto } : {}),
-      ...(filtro?.canale ? { canale: filtro.canale } : {}),
-      // Qui dentro passa TUTTO il venduto, rimborsi e non incassati compresi:
-      // /vendite è il registro di quello che è successo, e lo dichiara in
-      // pagina. Ma i prodotti **esclusi dalle analisi** e gli **archiviati**
-      // restano fuori anche da qui: «Escludi dalle analisi» promette che il
-      // prodotto sparisce da classifiche, andamento, assortimento e ipotesi —
-      // e questa funzione è l'andamento. Le righe non abbinate (prodotto null)
-      // restano: non si butta venduto vero perché nessuno l'ha riconosciuto.
-      OR: [
-        { prodottoId: null },
-        { prodotto: { esclusoDaAnalisi: false, fase: { not: "archiviato" } } },
-      ],
-    },
+    where: { data: { gte: f.dalPrec, lte: f.al }, ...dovePassa },
     select: SELECT_VENDITA,
     orderBy: { data: "asc" },
   })) as VenditaCaricata[];
+  // **Dopo**, non dentro un `Promise.all` con la query sopra: il cruscotto
+  // chiama questa funzione insieme a classifiche, panoramica e assortimento, e
+  // il pool ha **5 connessioni** condivise con le altre app del cluster. Messa
+  // in parallelo, la sesta query fa scadere l'attesa e la home va in P2024 —
+  // misurato, non temuto. In fila costa un giro in più su un indice, cioè nulla.
+  const parziale = await confrontoParzialeDi(f, dovePassa);
 
   const correnti = righe.filter((r) => r.data >= f.dal);
   const precedenti = righe.filter((r) => r.data < f.dal);
@@ -501,6 +558,7 @@ export async function analizzaVendite(
 
   return {
     finestra: f,
+    confrontoParziale: parziale,
     passo,
     serie,
     totale: {

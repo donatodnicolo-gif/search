@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AvvisoConfrontoParziale } from "@/components/ConfrontoParziale";
 import { FreschezzaVenduto } from "@/components/FreschezzaVenduto";
 import { GraficoAndamento, BarraQuota } from "@/components/Grafico";
 import { Sidebar } from "@/components/Sidebar";
@@ -166,6 +167,12 @@ async function ContenutoCruscotto({
             <div className="kpi-sotto">fuori da classifiche e riordini</div>
           </div>
         </div>
+
+        {/* Subito sotto la riga dei KPI, perché è lì che sta il «+2295%». */}
+        <AvvisoConfrontoParziale
+          parziale={analisi.confrontoParziale}
+          finestra={analisi.finestra}
+        />
 
         <div className="scheda">
           <div className="scheda-titolo con-periodo">

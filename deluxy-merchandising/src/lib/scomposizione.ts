@@ -44,7 +44,6 @@
 
 import { prisma } from "./db";
 import { fasciaDi } from "./fasce";
-import { giornoRoma } from "./fuso";
 import { vocabolario, type Vocabolario } from "./gruppi";
 import { etichettaRisposta } from "./risposta-bisogno";
 import { finestra, FILTRO_BUON_FINE, type Finestra } from "./vendite";
@@ -110,16 +109,11 @@ export type Scomposizione = {
   lenti: LenteScomposta[];
   /** Lenti che esistono ma oggi non hanno dati: dette, non nascoste. */
   lentiVuote: { nome: string; perche: string }[];
-  /**
-   * **Il confronto pesca prima dell'inizio dell'archivio.**
-   *
-   * Su «ultimo anno» il periodo precedente va indietro fino a due anni fa, ma il
-   * venduto è stato importato solo dal luglio 2025: il «prima» risulta quasi
-   * vuoto e la pagina annuncerebbe **+2607%**, che non è una crescita — è la
-   * mancanza di dati travestita da risultato. Quando succede si dichiara, e la
-   * differenza non va letta come un fatto commerciale.
-   */
-  confrontoParziale: { primaVendita: Date; giorniSenzaDati: number } | null;
+  // Nota: l'avviso «il confronto è parziale» **non** si calcola qui. Lo
+  // costruisce `analizzaVendite`, cioè la stessa funzione che produce il
+  // «+2295%» in cima alla pagina, e la pagina lo mostra una volta sola sotto i
+  // KPI. Ripeterlo qui darebbe due riquadri ambra identici a mezzo schermo di
+  // distanza, e il secondo insegnerebbe a saltare anche il primo.
   /**
    * Scarto fra la somma dei contributi additivi e la differenza totale. Deve
    * essere zero: se non lo è, la pagina lo dice invece di mostrare una torta
@@ -330,11 +324,7 @@ export async function scomposizioneVendite(
       { prodotto: { esclusoDaAnalisi: false, fase: { not: "archiviato" } } },
     ],
   };
-  const [righe, v, primaRiga]: [
-    RigaCaricata[],
-    Vocabolario,
-    { data: Date } | null,
-  ] = await Promise.all([
+  const [righe, v] = await Promise.all([
     prisma.vendita.findMany({
       where: { data: { gte: f.dalPrec, lte: f.al }, ...dovePassa },
       select: {
@@ -358,11 +348,6 @@ export async function scomposizioneVendite(
       },
     }) as Promise<RigaCaricata[]>,
     vocabolario(),
-    prisma.vendita.findFirst({
-      where: dovePassa,
-      orderBy: { data: "asc" },
-      select: { data: true },
-    }),
   ]);
 
   const corrente = (r: RigaCaricata) => r.data >= f.dal;
@@ -524,25 +509,6 @@ export async function scomposizioneVendite(
     });
   }
 
-  // — Il confronto pesca prima dell'inizio dell'archivio —
-  // Non è un caso di scuola: su «ultimo anno» il periodo precedente arriva fino
-  // a due anni fa, e qui il venduto comincia dall'estate 2025. Un «prima» quasi
-  // vuoto fa uscire percentuali enormi che sembrano crescita e sono un buco.
-  const primaVendita = primaRiga?.data ?? null;
-  const confrontoParziale =
-    primaVendita && primaVendita > f.dalPrec
-      ? {
-          primaVendita,
-          giorniSenzaDati: Math.max(
-            1,
-            Math.round(
-              (giornoRoma(primaVendita).getTime() - giornoRoma(f.dalPrec).getTime()) /
-                86_400_000
-            )
-          ),
-        }
-      : null;
-
   // La prova del nove: i contributi additivi devono fare la differenza totale.
   // Un euro di scarto per gli arrotondamenti è tollerato; oltre, la pagina lo dice.
   const sommaAdditiva = lenti
@@ -565,7 +531,6 @@ export async function scomposizioneVendite(
     movimento,
     lenti,
     lentiVuote,
-    confrontoParziale,
     quadra,
   };
 }

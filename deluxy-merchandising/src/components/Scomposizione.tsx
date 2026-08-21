@@ -1,5 +1,5 @@
 import { euro } from "@/lib/dominio";
-import { dataIt, intervalloIt } from "@/lib/fuso";
+import { intervalloIt } from "@/lib/fuso";
 import { scomposizioneVendite, type LenteScomposta, type VoceScomposizione } from "@/lib/scomposizione";
 
 // **Da cosa viene la differenza** — la sezione che risponde alla domanda che
@@ -135,22 +135,6 @@ export async function Scomposizione({ giorni, brand }: { giorni: number; brand: 
           divide in modo diverso, ma <strong>ognuna somma sempre a {segno(totale.delta)}</strong>.
         </div>
       </div>
-
-      {/* Il periodo di confronto comincia prima dell'archivio: la percentuale
-          qui sopra è vera come sottrazione e falsa come lettura commerciale, e
-          va detto **subito sotto** il numero, non in fondo alla pagina. */}
-      {s.confrontoParziale && (
-        <div className="avviso avviso-attenzione">
-          <strong>Il confronto è parziale.</strong> Il periodo precedente comincia il{" "}
-          {dataIt(s.finestra.dalPrec)}, ma il venduto in archivio parte dal{" "}
-          {dataIt(s.confrontoParziale.primaVendita)}: dei{" "}
-          {s.finestra.giorni} giorni del «prima» ne mancano{" "}
-          <strong>{s.confrontoParziale.giorniSenzaDati}</strong>. La differenza qui sotto
-          resta una sottrazione esatta fra i due periodi, ma <strong>non è una crescita</strong>:
-          in buona parte è archivio che non c'era. Su una finestra più corta il confronto torna
-          pieno.
-        </div>
-      )}
 
       {!s.quadra && (
         <div className="avviso avviso-attenzione">

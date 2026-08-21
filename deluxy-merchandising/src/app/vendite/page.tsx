@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Suspense } from "react";
+import { AvvisoConfrontoParziale } from "@/components/ConfrontoParziale";
 import { Badge } from "@/components/Badge";
 import { FormFiltri } from "@/components/FormFiltri";
 import { FreschezzaVenduto } from "@/components/FreschezzaVenduto";
@@ -192,6 +193,13 @@ export default async function VenditePage({
             sotto={analisi.ultimaVendita ? `ultima ${iso(analisi.ultimaVendita)}` : "nessuna vendita"}
           />
         </div>
+
+        {/* Subito sotto la riga dei KPI: il «+2295%» sta lì sopra, e un avviso
+            in fondo alla pagina arriverebbe dopo che è già stato letto. */}
+        <AvvisoConfrontoParziale
+          parziale={analisi.confrontoParziale}
+          finestra={analisi.finestra}
+        />
 
         {analisi.totaleRighe > 0 && totale.quotaConCosto < 0.999 && (
           <div className="nota-info">
