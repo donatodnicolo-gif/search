@@ -76,7 +76,7 @@ export default async function SchedaGruppo({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ bloccata?: string; preset?: string; da?: string; a?: string; kw?: string; ann?: string }>;
+  searchParams: Promise<{ bloccata?: string; preset?: string; da?: string; a?: string; kw?: string; ann?: string; correggi?: string }>;
 }) {
   const { id } = await params;
   const sp = await searchParams;
@@ -1624,6 +1624,7 @@ export default async function SchedaGruppo({
                     leggiBozza={leggiBozzaAnnuncio}
                     salvaBozza={salvaBozzaAnnuncio}
                     scartaBozza={scartaBozzaAnnuncio}
+                    apriSubito={sp.correggi === "1"}
                   />
                 </div>
                 {/* Stessa forma di Google Ads del blocco gemello sulla scheda

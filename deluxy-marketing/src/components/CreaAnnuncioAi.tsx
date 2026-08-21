@@ -28,6 +28,7 @@ export function CreaAnnuncioAi({
   leggiBozza,
   salvaBozza,
   scartaBozza,
+  apriSubito,
 }: {
   gruppoId: string;
   nomeGruppo: string;
@@ -53,6 +54,8 @@ export function CreaAnnuncioAi({
   salvaBozza?: (input: { gruppoId: string; titoli: string; descrizioni: string; finalUrl: string; indicazione: string }) => Promise<{ salvataIl: string } | { vuota: true }>;
   /** Butta la bozza: dopo la messa in coda, o su richiesta. */
   scartaBozza?: (gruppoId: string) => Promise<void>;
+  /** Apre il dialogo appena la pagina si carica: si arriva da «Correggi i testi». */
+  apriSubito?: boolean;
 }) {
   const dialogo = useRef<HTMLDialogElement>(null);
   const [indicazione, setIndicazione] = useState("");
@@ -151,34 +154,46 @@ export function CreaAnnuncioAi({
     width: "100%",
   };
 
+  // L'apertura sta in una funzione con un nome perche' la usano in due: il
+  // bottone e l'arrivo da «Correggi i testi».
+  const apri = () => {
+    setEsitoCoda(null);
+    setCopiato(false);
+    dialogo.current?.showModal();
+    // ⚠️ Si rilegge a OGNI apertura, non una volta sola: la bozza può
+    // essere stata scritta da un'altra postazione o in un altro giorno,
+    // e mostrarne una vecchia tenuta in memoria sarebbe peggio che non
+    // averla.
+    if (leggiBozza) {
+      leggiBozza(gruppoId).then((b) => {
+        setCaricata(true);
+        if (!b) return;
+        setTitoliTesto(b.titoli);
+        setDescrizioniTesto(b.descrizioni);
+        if (b.finalUrl) setUrl(b.finalUrl);
+        setIndicazione(b.indicazione);
+        setRipresaDel(b.aggiornataIl);
+        setSalvataIl(b.aggiornataIl);
+      });
+    } else {
+      setCaricata(true);
+    }
+  };
+
+  // ⚠️ Chi ha appena premuto «Correggi i testi» si aspetta di trovarsi
+  // davanti i testi, non una pagina con un bottone da cercare. Una volta
+  // sola: riaprirlo a ogni render lo renderebbe impossibile da chiudere.
+  useEffect(() => {
+    if (apriSubito) apri();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apriSubito]);
+
   return (
     <>
       <button
         type="button"
         className="btn small"
-        onClick={() => {
-          setEsitoCoda(null);
-          setCopiato(false);
-          dialogo.current?.showModal();
-          // ⚠️ Si rilegge a OGNI apertura, non una volta sola: la bozza può
-          // essere stata scritta da un'altra postazione o in un altro giorno,
-          // e mostrarne una vecchia tenuta in memoria sarebbe peggio che non
-          // averla.
-          if (leggiBozza) {
-            leggiBozza(gruppoId).then((b) => {
-              setCaricata(true);
-              if (!b) return;
-              setTitoliTesto(b.titoli);
-              setDescrizioniTesto(b.descrizioni);
-              if (b.finalUrl) setUrl(b.finalUrl);
-              setIndicazione(b.indicazione);
-              setRipresaDel(b.aggiornataIl);
-              setSalvataIl(b.aggiornataIl);
-            });
-          } else {
-            setCaricata(true);
-          }
-        }}
+        onClick={apri}
         title="Scrivi un annuncio nuovo per questo gruppo: a mano, oppure lasciandolo scrivere all'AI sui numeri veri del gruppo"
       >
         Nuovo annuncio

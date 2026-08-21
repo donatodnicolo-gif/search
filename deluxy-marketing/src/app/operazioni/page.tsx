@@ -6,6 +6,7 @@ import { TornaIndietro } from "@/components/TornaIndietro";
 import { annullaOperazione, approvaOperazione, approvaOperazioniSelezionate,
   cambiaCorrispondenzaOperazione, riapriOperazione,
   cambiaTestoOperazione, rilanciaCampagnaRifiutata, accettaDivergenza, riprovaCompletamento,
+  riprovaFallita, correggiAnnuncioFallito,
 } from "@/lib/azioni";
 import { campagneNonConfermate, letturaNonConfermata } from "@/lib/campagne-non-confermate";
 import { COLORE_CONFERMA, confermeOperazioni, type Conferma } from "@/lib/conferme-operazioni";
@@ -354,6 +355,44 @@ export default async function PaginaOperazioni({
                 </button>
               </form>
             )}
+
+          {/* ⚠️ UNA RIGA «FALLITA» SENZA BOTTONI E' UN VICOLO CIECO.
+              Lo storico diceva cosa era andato storto e finiva li': per
+              riprovare bisognava rifare tutto dal punto di partenza — per un
+              annuncio, riscrivere quindici titoli. `nuova_campagna` resta
+              fuori: ha la sua strada con le tre prove, perche' rimetterla in
+              coda alla cieca puo' creare una seconda campagna che spende. */}
+          {o.stato === "fallita" && o.tipo !== "nuova_campagna" && (
+            <div className="op-comandi" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <form action={riprovaFallita} style={{ display: "inline" }}>
+                <input type="hidden" name="id" value={o.id} />
+                {sp.torna && <input type="hidden" name="torna" value={sp.torna} />}
+                <button
+                  className="btn small btn-secondario"
+                  type="submit"
+                  title={
+                    o.tipo === "nuovo_annuncio" || o.tipo === "nuova_keyword"
+                      ? "Rimette in coda lo stesso identico contenuto: torna «da approvare». ⚠️ Prima controlla su Google che il tentativo fallito non abbia creato niente a metà, altrimenti si duplica."
+                      : "Rimette in coda l'operazione: torna «da approvare». Se la causa del fallimento non è stata sistemata, fallirà di nuovo."
+                  }
+                >
+                  Rimetti in coda
+                </button>
+              </form>
+              {o.tipo === "nuovo_annuncio" && o.gruppoId && (
+                <form action={correggiAnnuncioFallito} style={{ display: "inline" }}>
+                  <input type="hidden" name="id" value={o.id} />
+                  <button
+                    className="btn small btn-secondario"
+                    type="submit"
+                    title="Riporta titoli, descrizioni e destinazione nelle caselle del gruppo: si corregge quello che non andava e si rimette in coda, senza riscrivere il resto."
+                  >
+                    Correggi i testi
+                  </button>
+                </form>
+              )}
+            </div>
+          )}
 
           {(o.stato === "in_attesa" || o.stato === "approvata") && (
             <form className="pill-scelta op-comandi">

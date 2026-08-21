@@ -3224,6 +3224,120 @@ export async function annullaOperazioneParola(fd: FormData) {
   redirect(ritorno);
 }
 
+
+/**
+ * Rimette in coda un'operazione FALLITA.
+ *
+ * ⚠️ Perche' serviva: una riga «Fallita» nell'app non aveva NESSUN bottone.
+ * Lo storico diceva cos'era andato storto e lasciava l'utente li': l'unica
+ * strada era rifare tutto da capo dal punto di partenza — per un annuncio,
+ * riscrivere quindici titoli. Il 21/08/2026 e' successo davvero (l'annuncio
+ * della WORLD-ENG, «Bersaglio non trovato»), ed e' stata la domanda giusta:
+ * *«ma se e' fallito dovrei avere il bottone per riaprirlo»*.
+ *
+ * ⚠️ Torna «da approvare», MAI approvata. Fallita vuol dire che qualcosa non
+ * ha funzionato: la causa va sistemata prima, e l'approvazione e' il momento
+ * in cui una persona dichiara di averlo fatto. Saltarlo vorrebbe dire
+ * ritentare in automatico contro un guasto che c'e' ancora.
+ *
+ * ⚠️ `nuova_campagna` NON passa di qui: ha la sua strada
+ * (`rilanciaCampagnaRifiutata`) che pretende **tre prove** che la campagna su
+ * Google non esista. Rimettere in coda una creazione di campagna senza quelle
+ * prove significa rischiare una SECONDA campagna che spende sul serio.
+ *
+ * ⚠️ Sulle altre creazioni (annuncio, keyword) l'avvertenza resta e sta nel
+ * bottone: se lo script e' morto DOPO aver scritto su Google, riprovare
+ * duplica. Le reti dello script coprono le negative (`negativaPresente`) e il
+ * completamento (idempotente per costruzione); per l'annuncio no — un gruppo
+ * con piu' annunci e' normale e lo script non puo' distinguere il doppione
+ * dalla cosa chiesta.
+ */
+export async function riprovaFallita(fd: FormData) {
+  const torna = testo(fd, "torna");
+  const id = testo(fd, "id");
+  if (!id) return;
+  const op = await prisma.operazioneAdv.findUnique({ where: { id } });
+  if (!op || op.stato !== "fallita") return;
+  if (op.tipo === "nuova_campagna") return; // ha la sua strada, con le prove
+
+  await prisma.operazioneAdv.update({
+    where: { id },
+    data: {
+      stato: "in_attesa",
+      approvataDa: null,
+      approvataIl: null,
+      eseguitaIl: null,
+      // L'esito vecchio non si butta: e' la ragione per cui si sta
+      // riprovando. Si sposta nel motivo, e `esito` si svuota perche' il
+      // prossimo giro ne scrivera' uno nuovo.
+      esito: null,
+      motivo:
+        `${op.motivo ? op.motivo + " · " : ""}Rimessa in coda il ${new Date().toLocaleDateString("it-IT")} ` +
+        `dopo un tentativo fallito — ${(op.esito ?? "").slice(0, 400)}`,
+    },
+  });
+  await registra({
+    autore: "utente",
+    tipo: "stato",
+    entita: "operazione",
+    entitaId: id,
+    titolo: `Rimessa in coda dopo un fallimento: ${op.tipo} su ${op.bersaglio}`,
+    dettaglio:
+      `Il tentativo precedente diceva: ${(op.esito ?? "(nessun esito)").slice(0, 300)}. ` +
+      "Torna fra quelle da approvare: se la causa non e' stata sistemata fallira' di nuovo.",
+  });
+  revalidatePath("/operazioni");
+  if (torna) redirect(`/operazioni?torna=${encodeURIComponent(torna)}`);
+  redirect("/operazioni");
+}
+
+/**
+ * Riporta un annuncio fallito NELLE CASELLE in cui era stato scritto.
+ *
+ * Rimettere in coda lo stesso identico annuncio serve quando la causa era
+ * fuori (lo script, un id che non rispondeva). Ma se la causa erano i TESTI —
+ * un titolo rifiutato, la landing sbagliata — riprovarli tali e quali
+ * fallisce di nuovo. Qui l'operazione fallita torna a essere una **bozza** del
+ * gruppo: si riapre, si corregge la riga che non andava e si rimette in coda
+ * senza riscrivere gli altri quattordici titoli.
+ *
+ * ⚠️ L'operazione fallita resta fallita: non si riscrive la storia. Correggere
+ * e rimettere in coda crea un'operazione NUOVA, ed e' giusto che nel registro
+ * si veda il tentativo andato male accanto a quello buono.
+ */
+export async function correggiAnnuncioFallito(fd: FormData) {
+  const id = testo(fd, "id");
+  if (!id) return;
+  const op = await prisma.operazioneAdv.findUnique({ where: { id } });
+  if (!op || op.tipo !== "nuovo_annuncio" || op.stato !== "fallita" || !op.gruppoId) return;
+
+  let par: { titoli?: string[]; descrizioni?: string[]; finalUrl?: string } = {};
+  try {
+    par = op.parametri ? JSON.parse(op.parametri) : {};
+  } catch {
+    return; // parametri illeggibili: meglio non aprire una bozza vuota
+  }
+
+  const titoli = (par.titoli ?? []).join("\n");
+  const descrizioni = (par.descrizioni ?? []).join("\n");
+  if (!titoli && !descrizioni) return;
+
+  await prisma.bozzaAnnuncio.upsert({
+    where: { gruppoId: op.gruppoId },
+    update: { titoli, descrizioni, finalUrl: par.finalUrl ?? null },
+    create: { gruppoId: op.gruppoId, titoli, descrizioni, finalUrl: par.finalUrl ?? null },
+  });
+  await registra({
+    autore: "utente",
+    tipo: "stato",
+    entita: "operazione",
+    entitaId: id,
+    titolo: `Annuncio fallito riaperto per correzione: ${op.bersaglio}`,
+    dettaglio: "I testi tornano nella bozza del gruppo. L'operazione fallita resta nello storico.",
+  });
+  revalidatePath(`/gruppi/${op.gruppoId}`);
+  redirect(`/gruppi/${op.gruppoId}?correggi=1`);
+}
 // ---------- Riportare in attesa un'operazione già approvata ----------
 // Diverso da annullare: annullare la scarta, questo la rimette in coda da
 // decidere. Serve quando si approva in fretta e poi si vuole ripensarci senza
