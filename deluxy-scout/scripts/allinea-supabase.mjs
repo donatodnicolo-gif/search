@@ -49,6 +49,7 @@ const MIGRAZIONI = [
   '0059_coppie_duplicate_veloce.sql',
   '0060_richiamo_chiuso.sql',
   '0061_doppioni_anche_fra_schede_del_registro.sql',
+  '0062_doppioni_veloci.sql',
 ];
 // `ordini` è il proxy verso Deluxy Orders (venduto per provincia): resta inerte
 // finché in cassaforte non c'è `ORDERS_API_KEY`, ma senza deploy non esiste
