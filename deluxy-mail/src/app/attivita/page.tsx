@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { db } from '@/lib/db'
 import { CheckAttivita } from '@/components/CheckAttivita'
+import { NotaAttivita } from '@/components/NotaAttivita'
 import { RiapriAttivita } from '@/components/RiapriAttivita'
 import { ChiudiTutteAttivita } from '@/components/ChiudiTutteAttivita'
 import { DecidiSpamRiga } from '@/components/DecidiSpamRiga'
@@ -218,7 +219,7 @@ export default async function Attivita() {
                     <CheckAttivita id={a.id} fatta={a.fatta} />
                     <div style={{ minWidth: 0 }}>
                       <div className="task-titolo">{a.titolo}</div>
-                      {a.dettaglio && <div className="task-sub">{a.dettaglio}</div>}
+                      <NotaAttivita id={a.id} nota={a.dettaglio} />
                       {/* LA MAIL ESATTA da cui nasce QUESTA cosa da fare,
                           sempre: l'intestazione porta alla conversazione, ma
                           dentro una conversazione lunga «da quale mail viene»

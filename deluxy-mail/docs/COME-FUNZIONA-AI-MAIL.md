@@ -737,6 +737,17 @@ schermo sono identiche. Siccome **«Svuota cestino» cancella dal server e non s
 indietro**, prima di premerlo su un cestino molto pieno vale la pena guardare cosa
 c'è dentro.
 
+### Annotare un'attività
+
+Sotto ogni cosa da fare c'è **«+ Aggiungi una nota»**: ci si scrive a che punto
+è, cosa si aspetta, chi si è sentito. Si salva con **Ctrl+Invio**, si annulla
+con **Esc**, e la si può riaprire e correggere quando si vuole.
+
+La nota non resta chiusa in AI Mail: finisce nella **descrizione** della stessa
+attività dentro l'app Attività, quindi la leggono anche i colleghi che la vedono
+da lì. È lo stesso campo che si può riempire quando l'attività viene creata —
+prima si poteva scrivere solo in quel momento, e dopo non si poteva più toccare.
+
 ## 7. Sicurezza
 
 **Password.** Cifrate con AES-256-GCM (`src/lib/crypto.ts`), chiave derivata da

@@ -2064,6 +2064,39 @@ export async function segnaAttivitaTutte(
   return { ok: true, quante: r.count }
 }
 
+/**
+ * Le NOTE di un'attività: si scrivono nel campo `dettaglio`, quello che l'app
+ * mostra già sotto il titolo e che al momento si poteva riempire soltanto alla
+ * creazione.
+ *
+ * ⚠️ Non si aggiunge un campo «note» nuovo apposta: `dettaglio` viaggia già
+ * verso il registro condiviso come `descrizione` (vedi `registroTask.ts`),
+ * quindi scrivendo qui la nota la vedono anche le altre app. Un campo separato
+ * sarebbe rimasto chiuso dentro AI Mail, e avrebbe creato due posti dove
+ * cercare la stessa cosa.
+ *
+ * ⚠️ L'impronta con cui `registroTask` decide cosa RIMANDARE comprende il
+ * dettaglio: cambiandolo, l'attività riparte da sola al prossimo giro. Niente
+ * da fare a mano.
+ */
+export async function salvaNotaAttivita(
+  id: string,
+  nota: string
+): Promise<{ ok: boolean; messaggio: string; nota: string }> {
+  const utenteId = await uid()
+  // Un tetto c'è: è una nota, non un allegato. E il campo finisce anche in una
+  // schermata altrui, dove una parete di testo rovinerebbe l'elenco.
+  const pulita = nota.trim().slice(0, 2000)
+  const r = await db.attivita.updateMany({
+    where: { id, utenteId },
+    data: { dettaglio: pulita || null },
+  })
+  if (r.count === 0) return { ok: false, messaggio: 'Attività non trovata.', nota: '' }
+  after(() => allineaAttivitaOra(id).catch(() => {}))
+  revalidatePath('/attivita')
+  return { ok: true, messaggio: pulita ? 'Nota salvata.' : 'Nota tolta.', nota: pulita }
+}
+
 export async function eliminaAttivita(id: string) {
   await db.attivita.deleteMany({ where: { id, utenteId: await uid() } })
   // Cancellata qui = archiviata anche nel registro (altrimenti resterebbe
