@@ -1682,6 +1682,30 @@ export function Inbox({
                   ⚠️ Il bottone c'è anche quando il collegamento esiste: serve a
                   cambiarlo o a toglierlo, e un aggancio sbagliato fa leggere la
                   conversazione col contesto di un altro cliente. */}
+              {/* ── Fare l'ordine mentre si parla col cliente ──
+                  Il caso è quello di tutti i giorni: «mi mandi un bouquet per
+                  domani?». Finora si usciva dall'app, si apriva Shopify e si
+                  ricopiavano nome, telefono e indirizzo — con la conversazione
+                  chiusa alle spalle e il rischio di sbagliare una cifra.
+                  ⚠️ Si apre in una SCHEDA NUOVA: la conversazione resta aperta,
+                  perché mentre si compila l'ordine si continua a leggere quello
+                  che il cliente ha scritto (indirizzo, orari, il biglietto).
+                  ⚠️ Email e telefono si passano dal canale giusto: su una mail
+                  `idEsterno` è l'indirizzo, su WhatsApp è il numero — scambiarli
+                  vorrebbe dire un ordine con il telefono nel campo email. */}
+              <a
+                className="bottone secondario mini"
+                href={`/nuovo-ordine?${new URLSearchParams({
+                  nome: selezionata.nomeRubrica || selezionata.nome || '',
+                  email: selezionata.canale === 'email' ? selezionata.idEsterno : '',
+                  telefono: selezionata.canale === 'whatsapp' ? selezionata.idEsterno : '',
+                }).toString()}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Fai un ordine per questo cliente: si apre in una scheda nuova, con nome e recapito già compilati"
+              >
+                Nuovo ordine ↗
+              </a>
               <button
                 className="bottone secondario mini"
                 onClick={() => setCollegaAperto(true)}
