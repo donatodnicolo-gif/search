@@ -3600,3 +3600,13 @@ td .azioni-ordine {
 .velo.velo-sopra {
   z-index: 70;
 }
+
+/* Campi affiancati nei moduli lunghi (nuovo ordine): due o tre per riga se lo
+   schermo lo permette, uno solo sul telefono — un modulo in colonna unica su
+   desktop fa scorrere per niente. */
+.griglia-campi {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+  margin-bottom: 10px;
+}

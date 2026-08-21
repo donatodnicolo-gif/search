@@ -38,6 +38,9 @@ export function Sidebar() {
     {
       titolo: 'Ordini',
       voci: [
+        // Il primo della sezione: e' l'unico che CREA un ordine invece di
+        // lavorarne uno che c'e' gia'.
+        { href: '/nuovo-ordine', nome: 'Nuovo ordine', icona: iconaArchivio },
         { href: '/ordini-globali', nome: 'Ordini globali', icona: iconaArchivio },
         { href: '/clienti', nome: 'Clienti', icona: iconaClienti },
         { href: '/pagamenti', nome: 'Pagamenti', icona: iconaPagamenti },
