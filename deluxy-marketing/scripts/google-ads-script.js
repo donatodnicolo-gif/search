@@ -1660,7 +1660,7 @@ function eseguiOperazioni(conto) {
         // L'app dice che è di questo account e non c'è: è un errore vero.
         Logger.log("ERRORE " + op.tipo + ": bersaglio non trovato — " + op.bersaglio);
         fallite++;
-        if (!riferisci(op, false, "Bersaglio non trovato in questo account: " + op.bersaglio, null, null)) break;
+        if (!riferisci(op, false, "Bersaglio non trovato in questo account: " + op.bersaglio + (mira.nota ? " - " + mira.nota : ""), null, null)) break;
       } else {
         Logger.log("Salto " + op.tipo + " su \"" + op.bersaglio + "\": non è in questo account.");
         saltate++;
@@ -1880,20 +1880,101 @@ function trovaGruppo(op, conto) {
       "Va fatto nell'interfaccia di Google Ads."
     );
   }
+  // Riga vecchia senza account nell'id: si cerca solo per nome.
   if (parti.length !== 2) {
-    // Riga vecchia senza account nell'id: si cerca per nome, ma solo dentro la
-    // campagna indicata, altrimenti si rischia il gruppo omonimo di un'altra.
-    var nomeCampagna = (op.parametri && op.parametri.campagna) || null;
-    if (!nomeCampagna) return { esito: "non-trovato" };
-    var campagna = trovaCampagna({ bersaglio: nomeCampagna });
-    if (!campagna) return { esito: "non-trovato" };
-    var perNome = campagna.adGroups()
-      .withCondition("ad_group.name = '" + apici(op.bersaglio) + "'")
-      .get();
-    return perNome.hasNext() ? { esito: "trovato", gruppo: perNome.next() } : { esito: "non-trovato" };
+    var senzaId = cercaGruppoPerNome(op);
+    if (senzaId) return { esito: "trovato", gruppo: senzaId };
+    return { esito: "non-trovato", nota: diagnosiGruppi(op, "(riga vecchia, senza id)") };
   }
+
+  // 1) Per id: e' la strada normale, l'id lo manda l'app dall'anagrafica.
   var it = AdsApp.adGroups().withIds([Number(parti[1])]).get();
-  return it.hasNext() ? { esito: "trovato", gruppo: it.next() } : { esito: "non-trovato" };
+  if (it.hasNext()) return { esito: "trovato", gruppo: it.next() };
+
+  // 2) L'id non ha trovato niente: si riprova per NOME. NON e' un doppione
+  //    inutile - withIds e la ricerca per nome passano da selettori diversi, e
+  //    un gruppo appena creato in una campagna che non ha mai erogato puo'
+  //    rispondere a uno e non all'altro. Meglio due tentativi che
+  //    un'operazione persa: e' successo il 21/08 con l'annuncio della
+  //    WORLD-ENG, dove l'id era quello che Google stesso aveva mandato
+  //    nell'anagrafica la mattina.
+  var perNome = cercaGruppoPerNome(op);
+  if (perNome) return { esito: "trovato", gruppo: perNome };
+
+  // 3) Non c'e' verso: si dice all'app COSA vede Google in quella campagna,
+  //    invece del solito "non trovato" che non fa avanzare di un passo. La
+  //    diagnosi costa una query e si ripaga al primo caso come questo.
+  return { esito: "non-trovato", nota: diagnosiGruppi(op, parti[1]) };
+}
+
+/**
+ * Il gruppo cercato per NOME: prima dentro la campagna dell'operazione, dove
+ * un omonimo non puo' esserci, poi su tutto l'account.
+ *
+ * ATTENZIONE: su tutto l'account si accetta UNA sola corrispondenza. Due
+ * gruppi omonimi in campagne diverse esistono davvero, e sceglierne uno a caso
+ * vuol dire scrivere l'annuncio nel posto sbagliato senza che nessuno se ne
+ * accorga. Meglio nessun risultato che quello sbagliato.
+ */
+function cercaGruppoPerNome(op) {
+  var nome = String(op.bersaglio || "");
+  if (!nome) return null;
+
+  // L'app manda il nome della campagna in `op.campagna` (non dentro
+  // `parametri`: era scritto cosi' e non arrivava mai).
+  var nomeCampagna = op.campagna || (op.parametri && op.parametri.campagna) || null;
+  if (nomeCampagna) {
+    try {
+      var camp = trovaCampagna({ bersaglio: nomeCampagna });
+      if (camp) {
+        var dentro = camp.adGroups()
+          .withCondition("ad_group.name = '" + apici(nome) + "'")
+          .get();
+        if (dentro.hasNext()) return dentro.next();
+      }
+    } catch (e) {
+      // si prova la strada dopo
+    }
+  }
+
+  try {
+    var ovunque = AdsApp.adGroups()
+      .withCondition("ad_group.name = '" + apici(nome) + "'")
+      .get();
+    var trovati = [];
+    while (ovunque.hasNext()) trovati.push(ovunque.next());
+    if (trovati.length === 1) return trovati[0];
+  } catch (e2) {
+    // niente: si torna null e la diagnosi dira' cosa c'e'
+  }
+  return null;
+}
+
+/**
+ * Cosa vede Google DAVVERO in quella campagna. Finisce nel messaggio riferito
+ * all'app, perche' un "bersaglio non trovato" senza il confronto fra l'id
+ * cercato e i gruppi esistenti non si puo' nemmeno cominciare a capire.
+ */
+function diagnosiGruppi(op, idCercato) {
+  var nomeCampagna = op.campagna || (op.parametri && op.parametri.campagna) || null;
+  if (!nomeCampagna) return "id cercato " + idCercato + ", e l'app non ha detto la campagna";
+  try {
+    var q =
+      "SELECT ad_group.id, ad_group.name, ad_group.status FROM ad_group " +
+      "WHERE campaign.name = '" + apici(nomeCampagna) + "'";
+    var itD = AdsApp.search(q);
+    var visti = [];
+    while (itD.hasNext()) {
+      var g = itD.next().adGroup;
+      if (g) visti.push('"' + g.name + '" [' + g.id + '] ' + g.status);
+    }
+    if (!visti.length) {
+      return "id cercato " + idCercato + "; in \"" + nomeCampagna + "\" Google non riporta NESSUN gruppo";
+    }
+    return "id cercato " + idCercato + "; in \"" + nomeCampagna + "\" Google riporta: " + visti.join(" | ");
+  } catch (eD) {
+    return "id cercato " + idCercato + "; la diagnosi non e' riuscita: " + eD;
+  }
 }
 
 /**

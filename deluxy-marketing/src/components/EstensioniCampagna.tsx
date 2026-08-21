@@ -31,6 +31,24 @@ const SPIEGA_TIPO: Record<string, string> = {
   immagine: "la foto che Google può affiancare all'annuncio",
 };
 
+// ⚠️ UN ELENCO SENZA STATO SI LEGGE COME «TUTTE ATTIVE».
+//
+// Lo script legge `campaign_asset.status` e lo salva da sempre, ma questa
+// scheda non lo guardava nemmeno una volta: elencava insieme quelle che
+// escono e quelle ferme. Misurato il 21/08/2026 su «[Deluxyflowers] -
+// ITALIAN - ENG»: **17 sitelink su 30 erano in pausa**, e 4 callout su 5.
+// Chi leggeva la scheda credeva di avere trenta link sotto l'annuncio e ne
+// aveva tredici. È la stessa famiglia dello «stato dedotto invece che
+// misurato»: il dato c'era, mancava solo la voglia di mostrarlo.
+//
+// Null = attiva: le righe vecchie, arrivate prima che lo script mandasse lo
+// stato, sono quasi tutte attive e marcarle «in pausa» sarebbe un allarme
+// falso. Tutto ciò che non è ENABLED (né vuoto) invece si dichiara.
+function inPausa(e: { statoPiattaforma: string | null }): boolean {
+  const s = (e.statoPiattaforma ?? "").toUpperCase();
+  return s !== "" && s !== "ENABLED";
+}
+
 const ETICHETTA_TIPO: Record<string, string> = {
   sitelink: "Sitelink",
   callout: "Callout",
@@ -85,8 +103,15 @@ export async function EstensioniCampagna({
   const descrizioni = testi.filter((t) => t.tipo === "descrizione");
 
   const perTipo = (tipo: string) => estensioni.filter((e) => e.tipo === tipo);
-  const conteggi = ["sitelink", "callout", "snippet", "immagine"].map((t) => ({ tipo: t, n: perTipo(t).length }));
-  const mancanti = conteggi.filter((c) => c.n === 0).map((c) => ETICHETTA_TIPO[c.tipo]);
+  const conteggi = ["sitelink", "callout", "snippet", "immagine"].map((t) => ({
+    tipo: t,
+    n: perTipo(t).length,
+    attive: perTipo(t).filter((e) => !inPausa(e)).length,
+  }));
+  // ⚠️ «Manca» si decide sulle ATTIVE: un tipo che ha solo estensioni in
+  // pausa è mancante a tutti gli effetti — nella pagina dei risultati non
+  // compare niente, esattamente come se non ne avessimo mai fatte.
+  const mancanti = conteggi.filter((c) => c.attive === 0).map((c) => ETICHETTA_TIPO[c.tipo]);
 
   const ordina = <T extends { rendimento: string | null }>(a: T, b: T) =>
     (ORDINE_RENDIMENTO[a.rendimento ?? "PENDING"] ?? 9) - (ORDINE_RENDIMENTO[b.rendimento ?? "PENDING"] ?? 9);
@@ -138,8 +163,18 @@ export async function EstensioniCampagna({
             </div>
             {conteggi.map((c) => (
               <div className="kpi" key={c.tipo}>
-                <div className="kpi-valore" style={c.n === 0 ? { color: "var(--orange)" } : undefined}>{c.n}</div>
-                <div className="kpi-etichetta">{ETICHETTA_TIPO[c.tipo]}</div>
+                {/* Il numero grande è quello che ESCE: è la risposta alla
+                    domanda che uno si fa guardando la scheda. Le ferme
+                    stanno sotto, dette per nome. */}
+                <div className="kpi-valore" style={c.attive === 0 ? { color: "var(--orange)" } : undefined}>
+                  {c.attive}
+                </div>
+                <div className="kpi-etichetta">
+                  {ETICHETTA_TIPO[c.tipo]}
+                  {c.n > c.attive && (
+                    <span style={{ color: "var(--orange)" }}> · {c.n - c.attive} in pausa</span>
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -173,12 +208,19 @@ export async function EstensioniCampagna({
               Ora: un blocco per tipo, e ogni blocco mostra solo quello che quel
               tipo ha davvero. */}
           {ESTENSIONI_ORDINE.filter((t) => perTipo(t).length > 0).map((tipo) => {
-            const lista = perTipo(tipo);
+            // Prima le attive: sono quelle su cui si può ragionare. Le ferme
+            // restano in fondo, visibili — toglierle nasconderebbe il lavoro
+            // già fatto che basterebbe riaccendere.
+            const lista = perTipo(tipo)
+              .slice()
+              .sort((a, b) => Number(inPausa(a)) - Number(inPausa(b)));
             const ereditate = lista.filter((e) => e.campagna !== nomeCampagna).length;
+            const ferme = lista.filter((e) => inPausa(e)).length;
             return (
               <div className="brief-blocco" key={tipo} style={{ marginTop: 14 }}>
                 <div className="brief-sotto">
-                  {ETICHETTA_TIPO[tipo]} ({lista.length})
+                  {ETICHETTA_TIPO[tipo]} ({lista.length - ferme}
+                  {ferme > 0 ? ` attive · ${ferme} in pausa` : ""})
                   <span className="cella-sub" style={{ fontWeight: 400 }}>
                     {" — "}
                     {SPIEGA_TIPO[tipo]}
@@ -193,7 +235,7 @@ export async function EstensioniCampagna({
                   // e il nome scende a didascalia.
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
                     {lista.map((e) => (
-                      <div key={e.id} style={{ width: 104 }}>
+                      <div key={e.id} style={{ width: 104, opacity: inPausa(e) ? 0.55 : 1 }}>
                         {e.anteprima ? (
                           /* eslint-disable-next-line @next/next/no-img-element */
                           <img
@@ -207,6 +249,7 @@ export async function EstensioniCampagna({
                         )}
                         <div className="cella-sub" style={{ whiteSpace: "normal", marginTop: 4 }}>
                           {e.note ?? ""}
+                          {inPausa(e) && <div style={{ color: "var(--orange)" }}>in pausa</div>}
                           {e.campagna !== nomeCampagna && <div>ereditata</div>}
                         </div>
                       </div>
@@ -215,8 +258,11 @@ export async function EstensioniCampagna({
                 ) : (
                   <ul className="brief-elenco">
                     {lista.map((e) => (
-                      <li key={e.id}>
+                      <li key={e.id} style={inPausa(e) ? { opacity: 0.55 } : undefined}>
                         {e.testo}
+                        {inPausa(e) && (
+                          <span className="cella-sub" style={{ color: "var(--orange)" }}> · in pausa: non esce</span>
+                        )}
                         {/* La destinazione solo dove esiste: i sitelink ce
                             l'hanno, callout e snippet no. */}
                         {e.finalUrl && (
