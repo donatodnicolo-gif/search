@@ -318,15 +318,15 @@ tipo con sole estensioni in pausa è mancante a tutti gli effetti — nella pagi
 dei risultati non compare niente, esattamente come se non ne avessimo mai
 fatte.
 
-**3. Una riga «Fallita» non aveva nessun bottone** (). Lo storico
+**3. Una riga «Fallita» non aveva nessun bottone** (`c2e213aa`). Lo storico
 diceva cosa era andato storto e finiva lì: per riprovare bisognava rifare tutto
 dal punto di partenza — per un annuncio, riscrivere quindici titoli. Ora sulle
 fallite ci sono **«Rimetti in coda»** (stesso contenuto, torna **da approvare**:
 la causa va sistemata prima, e l'approvazione è il momento in cui una persona
 dichiara di averlo fatto; l'esito vecchio si sposta nel motivo) e, per gli
 annunci, **«Correggi i testi»**, che riporta titoli, descrizioni e destinazione
-nella bozza del gruppo e apre il dialogo. ⚠️  resta fuori dal
-bottone generico: ha , che pretende **tre prove** che
+nella bozza del gruppo e apre il dialogo. ⚠️ `nuova_campagna` resta fuori dal
+bottone generico: ha `rilanciaCampagnaRifiutata`, che pretende **tre prove** che
 su Google non esista — rimetterla in coda alla cieca può creare una seconda
 campagna che spende. ⚠️ E l'operazione fallita **resta fallita**: correggere ne
 crea una nuova, e nel registro si deve vedere il tentativo andato male accanto a
