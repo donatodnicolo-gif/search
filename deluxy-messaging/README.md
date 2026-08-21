@@ -91,6 +91,14 @@ scritta e chi l'ha chiusa.
 numeri sono date, importi e orari («per il 16 luglio», «45 euro»), e prenderli
 attaccherebbe la nota all'ordine sbagliato — che e' peggio che non attaccarla a nessuno.
 
+Sopra il campo ci sono gli **ordini aperti**: un clic e il numero va in testa alla riga.
+Ogni pastiglia dice quante righe ha gia' quell'ordine, e quelle **senza** sono in evidenza —
+la domanda della mattina non e' «quali ordini ci sono», e' quali sono ancora scoperti (c'e'
+anche il filtro «Solo senza note»). ⚠️ Ne compaiono ventiquattro, nell'ordine del lavoro di
+oggi: prima le consegne da qui in avanti, poi quelle senza data, in fondo le scadute. Gli
+ordini aperti sono cinquecento: una striscia con cinquecento pastiglie non la guarda
+nessuno.
+
 **Le note si vedono anche sull'ordine** (riquadro nel pannello, dove si scrive senza
 ripetere il numero) e **in home**, con le ultime dodici da fare: e' il quaderno con cui si
 apre la giornata. Se non ce ne sono, il riquadro sparisce.
