@@ -42,7 +42,40 @@ const PER_ANNUNCIO: Record<string, number> = { titolo: 15, descrizione: 4 };
 // `{KeyWord:...}` è inserimento dinamico: Google ci mette la parola cercata,
 // quindi la lunghezza scritta non è quella vera e segnarla in rosso è un
 // allarme falso.
-const dinamico = (t: string) => /\{(keyword|customizer|countdown)/i.test(t);
+// ⚠️ `location` compresa. Su «[Deluxyflowers] - ITALIAN - ENG» il titolo
+// «Fresh roses to {LOCATION(City)}» risultava **31/30 in rosso**, cioè un testo
+// da accorciare: ma la lunghezza scritta non è quella vera — Google ci mette il
+// nome della città. Un falso allarme manda a riscrivere un testo che va bene.
+const dinamico = (t: string) => /\{(keyword|customizer|countdown|location)/i.test(t);
+
+/**
+ * Che cosa vedrà davvero chi cerca, detto a parole.
+ *
+ * ⚠️ Prima qui c'era solo l'etichetta «dinamico», che non spiega niente: chi
+ * guarda legge `{KeyWord:Flower Bouquet Delivery}` fra le graffe e non ha modo
+ * di sapere che è una funzione di Google, né che il testo dopo i due punti è il
+ * ripiego. Segnalato dall'utente il 21/08/2026 con «spiega cosa è questo» —
+ * una scritta che va spiegata a voce è una scritta che manca.
+ */
+function spiegaDinamico(t: string): string | null {
+  const kw = t.match(/\{keyword\s*:\s*([^}]*)\}/i);
+  if (kw) {
+    const riserva = kw[1].trim();
+    return `Google sostituisce le graffe con la parola che ha cercato la persona${
+      riserva ? ` e, se non ci sta nei 30 caratteri, scrive «${riserva}»` : ""
+    }.`;
+  }
+  const loc = t.match(/\{location\s*\(([^)]*)\)/i);
+  if (loc) {
+    const cosa = loc[1].trim().toLowerCase();
+    const parola =
+      cosa === "city" ? "la città" : cosa === "region" ? "la regione" : cosa === "country" ? "il paese" : "la località";
+    return `Google sostituisce le graffe con ${parola} da cui arriva chi cerca.`;
+  }
+  if (/\{countdown/i.test(t)) return "Google sostituisce le graffe col tempo che manca alla data indicata.";
+  if (/\{customizer/i.test(t)) return "Google sostituisce le graffe con un valore preso dal tuo elenco di personalizzatori.";
+  return null;
+}
 
 function Gruppo({ titolo, tipo, testi }: { titolo: string; tipo: string; testi: TestoAnnuncio[] }) {
   if (testi.length === 0) return null;
@@ -66,9 +99,17 @@ function Gruppo({ titolo, tipo, testi }: { titolo: string; tipo: string; testi: 
             <div className="ga-sotto">
               {giudizio && <span className="ga-giudizio">{giudizio}</span>}
               <span className={lungo ? "ga-caratteri oltre" : "ga-caratteri"}>
-                {din ? "dinamico" : `${t.caratteri ?? "?"} / ${limite}`}
+                {din ? "testo dinamico" : `${t.caratteri ?? "?"} / ${limite}`}
               </span>
             </div>
+            {/* La spiegazione sta sotto il testo, non in un tooltip: è la
+                domanda che si fa chi lo vede per la prima volta, e un tooltip
+                lo trova solo chi sospetta già che ci sia qualcosa da sapere. */}
+            {din && spiegaDinamico(t.testo) && (
+              <div className="cella-sub" style={{ whiteSpace: "normal", marginTop: 2 }}>
+                {spiegaDinamico(t.testo)}
+              </div>
+            )}
           </div>
         );
       })}

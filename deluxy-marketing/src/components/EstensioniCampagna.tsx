@@ -18,6 +18,19 @@ const COLORE_RENDIMENTO: Record<string, string> = {
   PENDING: "var(--text-tertiary)",
 };
 
+// L ordine in cui si guardano: prima quelle che portano da qualche parte.
+const ESTENSIONI_ORDINE = ["sitelink", "callout", "snippet", "immagine"] as const;
+
+// Cosa fa ognuna, in una riga. Sono quattro cose diverse messe sotto la
+// stessa parola «estensione», e senza dirlo la tabella si legge come un
+// elenco di nomi a caso.
+const SPIEGA_TIPO: Record<string, string> = {
+  sitelink: "link in più sotto l'annuncio, ognuno con la sua pagina",
+  callout: "frasi brevi che NON si cliccano: servono a occupare spazio e a rassicurare",
+  snippet: "elenchi per categoria (es. «Servizi: consegna, biglietto, vaso»)",
+  immagine: "la foto che Google può affiancare all'annuncio",
+};
+
 const ETICHETTA_TIPO: Record<string, string> = {
   sitelink: "Sitelink",
   callout: "Callout",
@@ -32,13 +45,35 @@ export async function EstensioniCampagna({
   campagnaId: string;
   nomeCampagna: string;
 }) {
+  // ⚠️ GLI ASSET DI ACCOUNT VANNO RISTRETTI AL *NOSTRO* ACCOUNT.
+  //
+  // `livello: "account"` da solo pesca gli asset di account di TUTTI e tre i
+  // conti: su una campagna Flowers comparivano il logo di CakeDesign e i
+  // callout di Gifts. Misurato il 21/08/2026 su «[Deluxyflowers] - ITALIAN -
+  // ENG»: 15 estensioni su 76 erano di un altro brand. Non è un fastidio
+  // estetico — un asset di account vale per tutte le campagne di QUEL conto, e
+  // mostrarne uno di un altro racconta che l'annuncio potrebbe uscire col logo
+  // sbagliato, che è falso.
+  //
+  // La chiave precisa c'è già: lo script mette agli asset di account il
+  // segnaposto `(account NNN-NNN-NNNN)` nel campo campagna (vedi `leggiAsset`).
+  // Si filtra su quello; se l'account della campagna non è ancora noto si
+  // ripiega sul brand, che è meno preciso ma non mescola i marchi.
+  const campagna = await prisma.campagna.findUnique({
+    where: { id: campagnaId },
+    select: { account: true, brand: true },
+  });
+  const contenitoreAccount = campagna?.account ? `(account ${campagna.account})` : null;
+
   const righe = await prisma.copyAnnuncio.findMany({
     where: {
       OR: [
         { campagna: nomeCampagna },
         // Gli asset di account valgono anche per questa campagna, se il gruppo
-        // o la campagna non ne hanno di propri.
-        { livello: "account" },
+        // o la campagna non ne hanno di propri — ma solo quelli del suo conto.
+        contenitoreAccount
+          ? { livello: "account", campagna: contenitoreAccount }
+          : { livello: "account", brand: campagna?.brand ?? "" },
       ],
     },
     orderBy: [{ tipo: "asc" }, { spesa: { sort: "desc", nulls: "last" } }],
@@ -127,46 +162,74 @@ export async function EstensioniCampagna({
             </div>
           )}
 
-          {estensioni.length > 0 && (
-            <div style={{ overflowX: "auto" }}>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Estensione</th>
-                    <th>Tipo</th>
-                    <th>Livello</th>
-                    <th>Destinazione</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {estensioni.map((e) => (
-                    <tr key={e.id}>
-                      <td style={{ maxWidth: 320 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-                          {e.anteprima && (
-                            /* eslint-disable-next-line @next/next/no-img-element */
-                            <img src={e.anteprima} alt="" style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 8, flex: "0 0 auto" }} />
-                          )}
-                          <span style={{ minWidth: 0 }}>
-                            <div className="cella-nome">{e.testo}</div>
-                            {e.note && <div className="cella-sub" style={{ whiteSpace: "normal" }}>{e.note}</div>}
-                          </span>
+          {/* ⚠️ UNA TABELLA SOLA PER QUATTRO COSE DIVERSE NON SI LEGGE.
+              Prima erano tutte insieme, con le colonne del tipo più ricco:
+              «Destinazione» era un trattino su callout, snippet e immagini —
+              che una destinazione non ce l'hanno per definizione — e la colonna
+              «Tipo» ripeteva a ogni riga quello che l'ordinamento già
+              raggruppava. Il risultato era una griglia dove l'unica colonna
+              piena era il nome, e per le immagini il nome è il file esportato
+              da Shopify: «Immagine sito web - 2026-05-14 12:19:10.705 (4)_1.jpg».
+              Ora: un blocco per tipo, e ogni blocco mostra solo quello che quel
+              tipo ha davvero. */}
+          {ESTENSIONI_ORDINE.filter((t) => perTipo(t).length > 0).map((tipo) => {
+            const lista = perTipo(tipo);
+            const ereditate = lista.filter((e) => e.campagna !== nomeCampagna).length;
+            return (
+              <div className="brief-blocco" key={tipo} style={{ marginTop: 14 }}>
+                <div className="brief-sotto">
+                  {ETICHETTA_TIPO[tipo]} ({lista.length})
+                  <span className="cella-sub" style={{ fontWeight: 400 }}>
+                    {" — "}
+                    {SPIEGA_TIPO[tipo]}
+                    {ereditate > 0 &&
+                      ` · ${ereditate} ereditat${ereditate === 1 ? "a" : "e"} dall'account: valgono per tutte le campagne di questo conto, non solo per questa`}
+                  </span>
+                </div>
+
+                {tipo === "immagine" ? (
+                  // Le immagini si GUARDANO. Il nome del file non dice niente
+                  // (è l'esportazione di Shopify), quindi l'anteprima è grande
+                  // e il nome scende a didascalia.
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+                    {lista.map((e) => (
+                      <div key={e.id} style={{ width: 104 }}>
+                        {e.anteprima ? (
+                          /* eslint-disable-next-line @next/next/no-img-element */
+                          <img
+                            src={e.anteprima}
+                            alt={e.testo}
+                            title={e.testo}
+                            style={{ width: 104, height: 104, objectFit: "cover", borderRadius: 10, border: "1px solid var(--hairline)" }}
+                          />
+                        ) : (
+                          <div style={{ width: 104, height: 104, borderRadius: 10, background: "var(--fill)" }} />
+                        )}
+                        <div className="cella-sub" style={{ whiteSpace: "normal", marginTop: 4 }}>
+                          {e.note ?? ""}
+                          {e.campagna !== nomeCampagna && <div>ereditata</div>}
                         </div>
-                      </td>
-                      <td className="cella-muta">{ETICHETTA_TIPO[e.tipo] ?? e.tipo}</td>
-                      <td>
-                        <span className="tag-neutro">{e.livello ?? "—"}</span>
-                        {e.campagna !== nomeCampagna && <div className="cella-sub">ereditata</div>}
-                      </td>
-                      <td className="cella-muta" style={{ maxWidth: 220, overflowWrap: "anywhere" }}>
-                        {e.finalUrl ?? "—"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <ul className="brief-elenco">
+                    {lista.map((e) => (
+                      <li key={e.id}>
+                        {e.testo}
+                        {/* La destinazione solo dove esiste: i sitelink ce
+                            l'hanno, callout e snippet no. */}
+                        {e.finalUrl && (
+                          <span className="cella-sub" style={{ overflowWrap: "anywhere" }}> → {e.finalUrl}</span>
+                        )}
+                        {e.campagna !== nomeCampagna && <span className="cella-sub"> · ereditata</span>}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            );
+          })}
         </>
       )}
     </section>
