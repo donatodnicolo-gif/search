@@ -76,6 +76,29 @@ Per dare un'idea del ritmo: negli ultimi 30 giorni sono arrivati **~15 ordini al
 (minimo 6, massimo 26), con le punte attorno alle **11** e alle **15**, e solo l'8% fra
 mezzanotte e le 7.
 
+## Chargeback: le contestazioni di pagamento
+
+La banca di un cliente contesta un pagamento e i soldi tornano indietro. La pagina
+**Chargeback** le tiene tutte, ordinate per **scadenza più vicina**, e dal dettaglio si
+risponde alla banca.
+
+⚠️ **Sono soldi con una scadenza**: se le prove non partono entro la data, la contestazione
+si perde da sola. Contate il giorno in cui è nata questa pagina: **10 perse per 2.087,66 €**
+e 3 aperte per 373,28 €.
+
+- Il dettaglio dice **che cosa vuole la banca** a seconda del motivo: per «prodotto mai
+  ricevuto» la prova della consegna, per «frode» che a ordinare sia stato il titolare della
+  carta, per «non conforme» le foto e la politica di reso. Un testo generico si perde.
+- Due gesti diversi: **Salva bozza** resta qui e non parte; **Invia le prove alla banca** è
+  ⚠️ **irreversibile** — parte, e la contestazione passa in esame. La conferma mostra numero
+  d'ordine e importo.
+- ⚠️ Se qualcuno ha già risposto **dal pannello di Shopify**, quel testo vince sulla bozza:
+  riscriverci sopra cancellerebbe il lavoro di un collega.
+- In **Oggi** compaiono in cima, come primo riquadro della giornata: è l'unica cosa lì
+  dentro che scade da sola. Se non ce ne sono, il riquadro sparisce.
+- L'elenco si rilegge da Shopify **una volta all'ora** (e col bottone «Aggiorna da
+  Shopify»). Una contestazione si muove in giorni, non in minuti.
+
 ## Spostare la consegna
 
 Il cliente chiama e chiede un altro giorno: dal pannello dell'ordine, riga **Consegna →

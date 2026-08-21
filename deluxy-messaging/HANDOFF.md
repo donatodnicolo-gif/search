@@ -122,6 +122,31 @@ locale, altrimenti nulla si decifra.
 
 ## FATTO
 
+- **CHARGEBACK: SEZIONE, RISPOSTA ALLA BANCA E COMPITO DEL GIORNO** (19/08/2026,
+  LIVE). Chiesto dall'utente. Il dato viveva solo dentro Shopify: misurato lo
+  stesso giorno, **10 contestazioni perse per 2.087,66 €** e **3 aperte per
+  373,28 €**, due con le prove da mandare entro il **5 settembre**.
+  - `src/lib/chargeback.ts`: legge `shopify_payments/disputes` sui tre negozi
+    (REST) e risponde con la mutation GraphQL `disputeEvidenceUpdate`.
+  - ⚠️⚠️ **È L'UNICO PUNTO IN CUI QUEST'APP PARLA CON SHOPIFY**, ed è una deroga
+    **dichiarata** alla regola di `src/lib/negozi.ts`. Quella regola esiste per
+    non avere due verità sugli **ordini**; qui gli ordini non si toccano — le
+    contestazioni Orders non le ha, non le importa e non le espone. Il confine
+    sta nel codice: quelle funzioni sanno raggiungere solo le dispute.
+  - Pagina `/chargeback`: elenco per scadenza più vicina con «quanto manca»;
+    il dettaglio dice **che cosa vuole la banca** a seconda del motivo.
+  - ⚠️ Due gesti distinti: «Salva bozza» resta qui, «Invia le prove» è
+    **irreversibile** e chiede conferma con numero e importo davanti.
+  - ⚠️ Il testo già scritto su Shopify **vince** sulla bozza nostra: se un
+    collega ha risposto dal pannello, riscriverci sopra sarebbe cancellarlo.
+  - Dashboard: numero in cima + riquadro **primo di tutti** (è l'unica cosa che
+    scade da sola). ⚠️ Se non ce ne sono, il riquadro sparisce: uno vuoto tutti
+    i giorni si impara a saltare.
+  - Cron `25 * * * *`, più il bottone «Aggiorna da Shopify».
+  - ⚠️ Permessi: bastano quelli aggiunti il 19/08 (`read_shopify_payments_disputes`
+    + `write_orders` per le prove). **Non** serve `read_shopify_payments`: quello
+    aprirebbe `shopifyPaymentsAccount`, che non usiamo.
+
 - **ORDINI: CHI SE NE OCCUPA, PAGAMENTO E FRODE, FORNITORI IN ZONA** (19/08/2026,
   tutto LIVE). Una giornata sulla bacheca degli ordini, su richiesta dell'utente.
   - **Presa in carico degli ordini**, con le stesse regole delle conversazioni
