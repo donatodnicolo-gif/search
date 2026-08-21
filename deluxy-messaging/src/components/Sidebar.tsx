@@ -49,6 +49,10 @@ export function Sidebar() {
       voci: [
         { href: '/reclami', nome: 'Reclami', icona: iconaReclamo },
         { href: '/rimborsi', nome: 'Rimborsi', icona: iconaRimborso },
+        // I chargeback stanno coi rimborsi perché sono la stessa domanda vista
+        // dall'altra parte: qui i soldi tornano indietro per decisione di una
+        // banca, e c'è una scadenza per dire la nostra.
+        { href: '/chargeback', nome: 'Chargeback', icona: iconaRimborso },
         { href: '/reclami/casistiche', nome: 'Casistiche', icona: iconaCasistiche },
       ],
     },

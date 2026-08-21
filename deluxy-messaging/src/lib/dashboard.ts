@@ -103,7 +103,21 @@ export type DatiDashboard = {
     reclamiAperti: number
     rimborsiDaDecidere: number
     pagamentiDaInviare: number
+    /** Contestazioni di pagamento che aspettano una risposta da noi. */
+    chargebackAperti: number
+    /** Quanti soldi sono in gioco su quelle contestazioni. */
+    chargebackSoldi: number
   }
+  /** Le contestazioni di pagamento aperte, dalla scadenza più vicina. */
+  chargeback: {
+    id: string
+    ordineNumero: string
+    negozioNome: string
+    importo: number
+    valuta: string
+    stato: string
+    scadenzaProve: string | null
+  }[]
   attese: AttesaDto[]
   ordini: OrdineUrgenteDto[]
   reclami: ReclamoApertoDto[]
@@ -129,6 +143,7 @@ export async function datiDashboard(): Promise<DatiDashboard> {
     reclamiAperti,
     rimborsiDaDecidere,
     pagamentiDaInviare,
+    chargebackVivi,
     marchi,
     ordiniUrgenti,
     reclamiVivi,
@@ -159,6 +174,13 @@ export async function datiDashboard(): Promise<DatiDashboard> {
     db.reclamo.count({ where: { stato: { in: ['aperto', 'in_lavorazione'] } } }),
     db.rimborso.count({ where: { stato: 'richiesto' } }),
     db.richiestaPagamento.count({ where: { inviataIl: null } }),
+    // Le contestazioni che aspettano noi: poche righe, e sono soldi con una
+    // scadenza. Si prendono per intero perché servono importo e data, non solo
+    // il conto.
+    db.chargeback.findMany({
+      where: { stato: { in: ['needs_response', 'under_review'] } },
+      orderBy: { scadenzaProve: 'asc' },
+    }),
     risolutoreMarchio(),
     // Gli ordini da lavorare di TUTTI i marchi. Si prendono i non gestiti con
     // una finestra larga e si mettono in fascia qui sotto: le fasce non si
@@ -287,7 +309,21 @@ export async function datiDashboard(): Promise<DatiDashboard> {
       reclamiAperti,
       rimborsiDaDecidere,
       pagamentiDaInviare,
+      chargebackAperti: chargebackVivi.length,
+      chargebackSoldi: chargebackVivi.reduce((s, c) => s + c.importo, 0),
     },
+    // ⚠️ In cima alla giornata, e non in fondo a una pagina: una contestazione
+    // «da rispondere» che nessuno apre si perde per silenzio alla scadenza —
+    // dieci perse per 2.087,66 € prima che questa riga esistesse.
+    chargeback: chargebackVivi.map((c) => ({
+      id: c.id,
+      ordineNumero: c.ordineNumero,
+      negozioNome: c.negozioNome,
+      importo: c.importo,
+      valuta: c.valuta,
+      stato: c.stato,
+      scadenzaProve: c.scadenzaProve ? c.scadenzaProve.toISOString() : null,
+    })),
     attese,
     ordini,
     reclami: reclamiVivi.map((r) => ({

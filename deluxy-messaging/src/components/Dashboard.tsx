@@ -129,6 +129,56 @@ export function Dashboard({ dati }: { dati: DatiDashboard }) {
       </div>
 
       <div className="griglia-dashboard">
+        {/* ── CHARGEBACK: il primo riquadro della giornata ──
+            Sta prima di tutto perché è l'unica cosa in questa schermata che
+            **scade da sola**: gli ordini aspettano, i reclami aspettano, una
+            contestazione no — passata la data, i soldi sono persi senza che
+            nessuno abbia deciso niente (dieci perse per 2.087,66 € prima che
+            esistesse questo riquadro).
+            ⚠️ Se non ce ne sono, il riquadro NON c'è: uno vuoto tutti i giorni
+            si impara a saltare, e il giorno che si riempie non lo vede
+            nessuno. */}
+        {dati.chargeback.length ? (
+          <section className="card riquadro">
+            <div className="testa-riquadro">
+              <h2>Contestazioni di pagamento</h2>
+              <Link href="/chargeback" className="bottone secondario mini">
+                Chargeback
+              </Link>
+            </div>
+            <ul className="elenco-attese">
+              {dati.chargeback.map((c) => {
+                const giorni = c.scadenzaProve
+                  ? Math.ceil((new Date(c.scadenzaProve).getTime() - Date.now()) / 86400000)
+                  : null
+                return (
+                  <li key={c.id}>
+                    <Link href="/chargeback" className="riga-collegamento">
+                      <span className="cella-nome">
+                        {c.ordineNumero || c.negozioNome} ·{' '}
+                        {c.importo.toLocaleString('it-IT', {
+                          style: 'currency',
+                          currency: c.valuta || 'EUR',
+                        })}
+                      </span>
+                      <span className="cella-sub">
+                        {c.stato === 'needs_response' ? 'da rispondere' : 'in esame'}
+                        {giorni === null
+                          ? ''
+                          : giorni < 0
+                            ? ' · scaduta'
+                            : giorni === 0
+                              ? ' · scade OGGI'
+                              : ` · ${giorni} giorni alla scadenza`}
+                      </span>
+                    </Link>
+                  </li>
+                )
+              })}
+            </ul>
+          </section>
+        ) : null}
+
         <section className="card riquadro">
           <div className="testa-riquadro">
             <h2>Chi aspetta una risposta</h2>

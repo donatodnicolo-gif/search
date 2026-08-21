@@ -1062,3 +1062,43 @@ model ClienteUnito {
 
   @@index([principale])
 }
+
+// Le contestazioni di pagamento (chargeback) aperte dalle banche dei clienti.
+//
+// ⚠️ PERCHÉ ESISTE QUESTA TABELLA: sono soldi con una SCADENZA. Una
+// contestazione «needs_response» che nessuno guarda si perde per silenzio —
+// misurato il 19/08/2026: 10 perse per 2.087,66 €, e tre aperte per 373,28 €
+// con le prove da mandare entro il 5 settembre. Finché il dato viveva solo
+// dentro Shopify, nessuno lo apriva.
+//
+// ⚠️ È una COPIA di lavoro, non la verità: la verità sta in Shopify, e il
+// nostro giro la riscrive ogni ora. Qui si tiene per poterle mostrare in
+// bacheca, contarle e legarle agli ordini — non per deciderne lo stato.
+model Chargeback {
+  id            String    @id // l'id di Shopify, che è già unico
+  negozioId     String    @default("")
+  negozioNome   String    @default("")
+  // L'ordine contestato: l'id numerico di Shopify e, quando lo troviamo fra i
+  // nostri, il numero leggibile («#1741»).
+  ordineIdShopify String  @default("")
+  ordineNumero  String    @default("")
+  tipo          String    @default("") // chargeback | inquiry
+  importo       Float     @default(0)
+  valuta        String    @default("EUR")
+  motivo        String    @default("") // fraudulent, product_not_received…
+  codiceRete    String    @default("")
+  // needs_response | under_review | charge_refunded | accepted | won | lost
+  stato         String    @default("")
+  scadenzaProve DateTime?
+  proveInviateIl DateTime?
+  finalizzatoIl DateTime?
+  iniziatoIl    DateTime?
+  // La bozza di risposta scritta da noi, prima di mandarla a Shopify: si scrive
+  // in più momenti e la si rilegge, come si fa con una mail importante.
+  bozzaRisposta String    @default("") @db.Text
+  aggiornatoIl  DateTime  @updatedAt
+  creatoIl      DateTime  @default(now())
+
+  @@index([stato])
+  @@index([scadenzaProve])
+}
