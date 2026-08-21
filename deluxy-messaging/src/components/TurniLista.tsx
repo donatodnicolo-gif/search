@@ -1,42 +1,48 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { GIORNI, giornoIso, inMinuti, turniDelGiorno, type EsitoTurni } from '@/lib/turni'
+import {
+  GIORNI,
+  giornoIso,
+  giornoSettimana,
+  inMinuti,
+  lunediDi,
+  piuGiorni,
+  turniDelGiorno,
+  type EsitoTurni,
+} from '@/lib/turni'
 
 // I turni degli operatori, fatti come gli **orari di apertura**: una persona
 // alla volta, sette righe, aperto o chiuso.
 //
-// ⚠️ La prima versione era una griglia persone × 7 giorni con sopra una barra
-// da quattro tendine per aggiungere un turno. Funzionava e non si capiva: per
-// mettere il lunedì di Federica bisognava scegliere la persona, il giorno e due
-// ore in quattro controlli diversi, e poi cercare dove fosse finita la
-// pastiglia. Qui si apre il giorno e si scrive l'ora dov'è scritta.
+// ⚠️ Due modi di guardarli, ed è la cosa che dà senso alla pagina:
+// · **Sempre** — la regola che si ripete ogni settimana;
+// · **una settimana precisa** — quella settimana lì, e solo quella.
+// Cambiare un giorno dentro una settimana lo **stacca** dalla regola: la regola
+// resta com'è, e il giorno staccato lo dice con un'etichetta e un «torna al
+// solito». Senza questa distinzione, ogni ferie costringerebbe a riscrivere la
+// regola e poi a rimetterla a posto — e non lo farebbe nessuno, così la pagina
+// direbbe il falso in silenzio.
 //
-// ⚠️ «Adesso» si calcola con l'orologio del BROWSER. Sul server sarebbe UTC —
-// Vercel sta lì — e alle 09:30 italiane direbbe che non è entrato ancora
-// nessuno.
+// ⚠️ «Adesso» e i confini della settimana si calcolano con l'orologio del
+// BROWSER. Sul server sarebbe UTC — Vercel sta lì — e alle 09:30 italiane
+// direbbe che non è entrato ancora nessuno.
 
-/** 1 = lunedì … 7 = domenica, dal `getDay()` che invece parte dalla domenica. */
-function giornoSettimana(d: Date): number {
-  return d.getDay() === 0 ? 7 : d.getDay()
-}
-
-function nomeGiornoData(giorno: string): string {
-  const d = new Date(`${giorno}T12:00:00`)
-  const oggi = giornoIso(new Date())
-  const domani = giornoIso(new Date(Date.now() + 86400000))
-  const ieri = giornoIso(new Date(Date.now() - 86400000))
-  const testo = d.toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'short' })
-  if (giorno === oggi) return `oggi · ${testo}`
-  if (giorno === domani) return `domani · ${testo}`
-  if (giorno === ieri) return `ieri · ${testo}`
-  return testo
+/** «lun 24 – dom 30 ago», o coi due mesi quando la settimana li scavalca. */
+function nomeSettimana(lunedi: Date): string {
+  const domenica = piuGiorni(lunedi, 6)
+  const stessoMese = lunedi.getMonth() === domenica.getMonth()
+  const a = lunedi.toLocaleDateString('it-IT', stessoMese ? { day: 'numeric' } : { day: 'numeric', month: 'short' })
+  const b = domenica.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })
+  return `${a} – ${b}`
 }
 
 const VUOTO: EsitoTurni = { operatori: [], turni: [], eccezioni: [] }
 
 /** L'orario che si propone aprendo un giorno: quello che si scrive più spesso. */
 const DI_SOLITO = { dalle: '09:00', alle: '18:00' }
+
+type Fascia = { dalle: string; alle: string }
 
 export function TurniLista({ amministratore }: { amministratore: boolean }) {
   const [dati, setDati] = useState<EsitoTurni>(VUOTO)
@@ -45,15 +51,12 @@ export function TurniLista({ amministratore }: { amministratore: boolean }) {
   const [salvando, setSalvando] = useState(false)
   const [chi, setChi] = useState('')
 
-  // Il giorno speciale che si sta aggiungendo
-  const [dataSpec, setDataSpec] = useState(giornoIso(new Date()))
-  const [chiusoSpec, setChiusoSpec] = useState(true)
-  const [dalleSpec, setDalleSpec] = useState('09:00')
-  const [alleSpec, setAlleSpec] = useState('13:00')
-  const [motivoSpec, setMotivoSpec] = useState('')
+  // `null` = la regola di sempre. Altrimenti il lunedì della settimana guardata.
+  const [lunedi, setLunedi] = useState<Date | null>(null)
+  const dal = lunedi ? giornoIso(lunedi) : ''
 
   const carica = useCallback(async () => {
-    const res = await fetch('/api/turni')
+    const res = await fetch('/api/turni' + (dal ? `?dal=${dal}` : ''))
     if (!res.ok) {
       const d = (await res.json().catch(() => ({}))) as { errore?: string }
       setErrore(d.errore ?? 'Non sono riuscito a leggere i turni.')
@@ -64,20 +67,24 @@ export function TurniLista({ amministratore }: { amministratore: boolean }) {
     setDati(d)
     setCaricato(true)
     setChi((c) => c || d.operatori[0]?.id || '')
-  }, [])
+  }, [dal])
 
   useEffect(() => {
     if (amministratore) void carica()
   }, [carica, amministratore])
 
-  async function chiama(metodo: 'POST' | 'PATCH' | 'DELETE', corpo?: unknown, query = '') {
+  async function chiama(metodo: 'POST' | 'PATCH' | 'DELETE', corpo?: object, query = '') {
     setSalvando(true)
     setErrore('')
     try {
-      const res = await fetch('/api/turni' + query, {
+      const q = query ? `${query}${dal ? `&dal=${dal}` : ''}` : ''
+      const res = await fetch('/api/turni' + q, {
         method: metodo,
         ...(corpo
-          ? { headers: { 'content-type': 'application/json' }, body: JSON.stringify(corpo) }
+          ? {
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify(dal ? { ...corpo, dal } : corpo),
+            }
           : {}),
       })
       const d = (await res.json()) as EsitoTurni & { errore?: string }
@@ -116,16 +123,43 @@ export function TurniLista({ amministratore }: { amministratore: boolean }) {
     )
   }
 
-  const fasceDi = (utenteId: string, n: number) =>
+  /** Le fasce della REGOLA per un giorno della settimana. */
+  const diSempre = (n: number): Fascia[] =>
     dati.turni
-      .filter((t) => t.utenteId === utenteId && t.giorno === n)
+      .filter((t) => t.utenteId === chi && t.giorno === n)
       .sort((a, b) => inMinuti(a.dalle) - inMinuti(b.dalle))
+      .map((t) => ({ dalle: t.dalle, alle: t.alle }))
+
+  /** Le righe scritte per una data precisa, se ce ne sono. */
+  const scritteIl = (data: string) => dati.eccezioni.filter((e) => e.utenteId === chi && e.giorno === data)
 
   const giorniAperti = (utenteId: string) =>
     new Set(dati.turni.filter((t) => t.utenteId === utenteId).map((t) => t.giorno)).size
 
-  const eccezioniDi = dati.eccezioni.filter((e) => e.utenteId === chi)
   const persona = dati.operatori.find((o) => o.id === chi)
+
+  /** Scrive un giorno di una settimana per intero. Elenco vuoto = non lavora. */
+  const scriviGiorno = (data: string, fasce: Fascia[], motivo = '') =>
+    chiama('POST', { cosa: 'giorno-data', utenteId: chi, giorno: data, fasce, motivo })
+
+  // Le sette righe da mostrare: o i giorni della regola, o i giorni della
+  // settimana guardata con le loro date.
+  const righe = GIORNI.map((g) => {
+    if (!lunedi) {
+      const fasce = diSempre(g.n)
+      return { g, data: '', fasce, staccato: false, motivo: '' }
+    }
+    const data = giornoIso(piuGiorni(lunedi, g.n - 1))
+    const scritte = scritteIl(data)
+    const staccato = scritte.length > 0
+    const fasce: Fascia[] = staccato
+      ? scritte
+          .filter((e) => e.tipo === 'orario')
+          .map((e) => ({ dalle: e.dalle, alle: e.alle }))
+          .sort((a, b) => inMinuti(a.dalle) - inMinuti(b.dalle))
+      : diSempre(g.n)
+    return { g, data, fasce, staccato, motivo: scritte[0]?.motivo ?? '' }
+  })
 
   return (
     <main>
@@ -133,8 +167,9 @@ export function TurniLista({ amministratore }: { amministratore: boolean }) {
         <div>
           <h1 className="page-title">Turni</h1>
           <p className="page-sub">
-            Chi lavora e quando, come gli orari di apertura: la settimana si ripete, i{' '}
-            <strong>giorni speciali</strong> la scavalcano. Non assegnano ordini e non
+            Chi lavora e quando, come gli orari di apertura. <strong>Sempre</strong> è la
+            regola che si ripete; scegliendo una <strong>settimana</strong> si cambia solo
+            quella — ferie, permessi, un orario diverso. Non assegnano ordini e non
             impediscono a nessuno di lavorare fuori orario: servono a sapere chi c’è.
           </p>
         </div>
@@ -167,29 +202,71 @@ export function TurniLista({ amministratore }: { amministratore: boolean }) {
         ) : null}
       </div>
 
-      {/* ── CHI ── una pastiglia per persona, col numero di giorni già messi:
-          si vede a colpo d'occhio chi non ha ancora un orario. */}
-      <div className="filtri" style={{ marginTop: 18 }}>
+      {/* ── CHI ── col numero di giorni già messi: si vede a colpo d'occhio chi
+          non ha ancora un orario. */}
+      <div className="filtri" style={{ marginTop: 18, marginBottom: 10 }}>
         <span className="etichetta-ordina">Orari di</span>
-        {dati.operatori.map((o) => {
-          const quanti = giorniAperti(o.id)
-          return (
-            <button
-              key={o.id}
-              className={chi === o.id ? 'bottone mini' : 'bottone secondario mini'}
-              onClick={() => setChi(o.id)}
-            >
-              {o.nome}
-              {quanti ? ` · ${quanti}g` : ''}
-            </button>
-          )
-        })}
+        {dati.operatori.map((o) => (
+          <button
+            key={o.id}
+            className={chi === o.id ? 'bottone mini' : 'bottone secondario mini'}
+            onClick={() => setChi(o.id)}
+          >
+            {o.nome}
+            {giorniAperti(o.id) ? ` · ${giorniAperti(o.id)}g` : ''}
+          </button>
+        ))}
       </div>
 
-      {/* ── LA SETTIMANA, come gli orari di apertura ── */}
+      {/* ── QUANDO ── la regola, oppure una settimana precisa. */}
+      <div className="filtri">
+        <button
+          className={!lunedi ? 'bottone mini' : 'bottone secondario mini'}
+          onClick={() => setLunedi(null)}
+          title="La regola che vale tutte le settimane"
+        >
+          Sempre
+        </button>
+        <span className="cella-sub">oppure</span>
+        <button
+          className="bottone secondario mini"
+          onClick={() => setLunedi((l) => piuGiorni(l ?? lunediDi(new Date()), -7))}
+          aria-label="Settimana prima"
+        >
+          ‹
+        </button>
+        <button
+          className={lunedi ? 'bottone mini' : 'bottone secondario mini'}
+          onClick={() => setLunedi((l) => l ?? lunediDi(new Date()))}
+          style={{ minWidth: 132 }}
+        >
+          {lunedi ? nomeSettimana(lunedi) : nomeSettimana(lunediDi(new Date()))}
+        </button>
+        <button
+          className="bottone secondario mini"
+          onClick={() => setLunedi((l) => piuGiorni(l ?? lunediDi(new Date()), 7))}
+          aria-label="Settimana dopo"
+        >
+          ›
+        </button>
+        {lunedi && giornoIso(lunedi) !== giornoIso(lunediDi(new Date())) ? (
+          <button className="bottone secondario mini" onClick={() => setLunedi(lunediDi(new Date()))}>
+            Questa settimana
+          </button>
+        ) : null}
+      </div>
+
+      {lunedi ? (
+        <p className="descrizione" style={{ marginTop: -8 }}>
+          Stai cambiando <strong>solo questa settimana</strong>, per{' '}
+          {persona ? <strong>{persona.nome}</strong> : 'la persona scelta'}. La regola di sempre
+          resta com’è.
+        </p>
+      ) : null}
+
+      {/* ── I SETTE GIORNI ── */}
       <div className="card" style={{ padding: 0 }}>
-        {GIORNI.map((g) => {
-          const fasce = fasceDi(chi, g.n)
+        {righe.map(({ g, data, fasce, staccato, motivo }) => {
           const aperto = fasce.length > 0
           return (
             <div
@@ -203,30 +280,41 @@ export function TurniLista({ amministratore }: { amministratore: boolean }) {
                 flexWrap: 'wrap',
               }}
             >
-              <div className="cella-nome" style={{ width: 96, paddingTop: 4 }}>
-                {g.nome}
+              <div style={{ width: 104, paddingTop: 4 }}>
+                <div className="cella-nome">{g.nome}</div>
+                {data ? (
+                  <div className="cella-sub">
+                    {new Date(`${data}T12:00:00`).toLocaleDateString('it-IT', {
+                      day: 'numeric',
+                      month: 'short',
+                    })}
+                  </div>
+                ) : null}
               </div>
 
-              {/* ⚠️ Aperto/chiuso è UN bottone, non una tendina: aprire un
-                  giorno mette l'orario di sempre (9–18) e si corregge scrivendo
-                  sopra. Chiuderlo toglie tutte le fasce di quel giorno — è la
-                  stessa cosa che fa Google, e nessuno la trova sorprendente. */}
+              {/* ⚠️ Aperto/chiuso è UN bottone: aprire un giorno mette l'orario
+                  di sempre e si corregge scrivendoci sopra, chiuderlo toglie
+                  tutte le fasce. È quello che fa Google, e nessuno lo trova
+                  sorprendente. */}
               <button
                 className={aperto ? 'bottone secondario mini' : 'bottone mini'}
                 disabled={salvando || !chi}
                 style={{ width: 88 }}
                 onClick={() => {
+                  if (lunedi) {
+                    // In una settimana si scrive il giorno intero, in una
+                    // chiamata sola: aperto con le fasce di sempre (o 9–18),
+                    // chiuso con l'elenco vuoto.
+                    const nuove = aperto ? [] : diSempre(g.n).length ? diSempre(g.n) : [DI_SOLITO]
+                    void scriviGiorno(data, nuove, motivo)
+                    return
+                  }
                   if (aperto) {
                     // Una chiamata sola per tutto il giorno: mandarne una per
                     // fascia lascerebbe il giorno mezzo aperto a schermo.
                     void chiama('DELETE', undefined, `?cosa=giorno&utenteId=${chi}&giorno=${g.n}`)
                   } else {
-                    void chiama('POST', {
-                      cosa: 'settimana',
-                      utenteId: chi,
-                      giorno: g.n,
-                      ...DI_SOLITO,
-                    })
+                    void chiama('POST', { cosa: 'settimana', utenteId: chi, giorno: g.n, ...DI_SOLITO })
                   }
                 }}
               >
@@ -235,16 +323,22 @@ export function TurniLista({ amministratore }: { amministratore: boolean }) {
 
               {aperto ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {fasce.map((f) => (
-                    <div key={f.id} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  {fasce.map((f, i) => (
+                    <div key={`${data}-${i}-${f.dalle}`} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                       <input
                         type="time"
                         defaultValue={f.dalle}
                         disabled={salvando}
                         aria-label={`${g.nome}: dalle`}
-                        onBlur={(e) =>
-                          e.target.value && void chiama('PATCH', { id: f.id, dalle: e.target.value, alle: f.alle })
-                        }
+                        onBlur={(e) => {
+                          if (!e.target.value || e.target.value === f.dalle) return
+                          const nuove = fasce.map((x, j) =>
+                            j === i ? { ...x, dalle: e.target.value } : x
+                          )
+                          void (lunedi
+                            ? scriviGiorno(data, nuove, motivo)
+                            : chiamaSettimana(g.n, nuove))
+                        }}
                       />
                       <span className="cella-sub">–</span>
                       <input
@@ -252,16 +346,25 @@ export function TurniLista({ amministratore }: { amministratore: boolean }) {
                         defaultValue={f.alle}
                         disabled={salvando}
                         aria-label={`${g.nome}: alle`}
-                        onBlur={(e) =>
-                          e.target.value && void chiama('PATCH', { id: f.id, dalle: f.dalle, alle: e.target.value })
-                        }
+                        onBlur={(e) => {
+                          if (!e.target.value || e.target.value === f.alle) return
+                          const nuove = fasce.map((x, j) => (j === i ? { ...x, alle: e.target.value } : x))
+                          void (lunedi
+                            ? scriviGiorno(data, nuove, motivo)
+                            : chiamaSettimana(g.n, nuove))
+                        }}
                       />
                       {fasce.length > 1 ? (
                         <button
                           className="bottone secondario mini"
                           disabled={salvando}
                           title="Togli questa fascia"
-                          onClick={() => void chiama('DELETE', undefined, `?id=${f.id}&cosa=settimana`)}
+                          onClick={() => {
+                            const nuove = fasce.filter((_, j) => j !== i)
+                            void (lunedi
+                              ? scriviGiorno(data, nuove, motivo)
+                              : chiamaSettimana(g.n, nuove))
+                          }}
                         >
                           ×
                         </button>
@@ -273,15 +376,10 @@ export function TurniLista({ amministratore }: { amministratore: boolean }) {
                     className="bottone secondario mini"
                     disabled={salvando}
                     style={{ alignSelf: 'flex-start' }}
-                    onClick={() =>
-                      void chiama('POST', {
-                        cosa: 'settimana',
-                        utenteId: chi,
-                        giorno: g.n,
-                        dalle: '15:00',
-                        alle: '18:00',
-                      })
-                    }
+                    onClick={() => {
+                      const nuove = [...fasce, { dalle: '15:00', alle: '18:00' }]
+                      void (lunedi ? scriviGiorno(data, nuove, motivo) : chiamaSettimana(g.n, nuove))
+                    }}
                   >
                     + Aggiungi orario
                   </button>
@@ -291,125 +389,142 @@ export function TurniLista({ amministratore }: { amministratore: boolean }) {
                   non lavora
                 </span>
               )}
+
+              {/* ⚠️ Un giorno staccato dalla regola DEVE dirlo, e deve avere il
+                  modo di tornare indietro: senza, chi guarda la settimana non
+                  saprebbe se sta vedendo il solito o un'eccezione, e non
+                  saprebbe come disfarla. */}
+              {lunedi && staccato ? (
+                <div
+                  style={{
+                    display: 'flex',
+                    gap: 6,
+                    alignItems: 'center',
+                    marginLeft: 'auto',
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <span className="badge">solo questa settimana</span>
+                  <input
+                    defaultValue={motivo}
+                    disabled={salvando}
+                    placeholder="motivo"
+                    aria-label="Motivo"
+                    style={{ width: 130 }}
+                    onBlur={(e) => {
+                      if (e.target.value.trim() === motivo) return
+                      const riga = scritteIl(data)[0]
+                      if (riga) void chiama('PATCH', { id: riga.id, motivo: e.target.value })
+                    }}
+                  />
+                  <button
+                    className="bottone secondario mini"
+                    disabled={salvando}
+                    title="Questo giorno torna a seguire la regola di sempre"
+                    onClick={() =>
+                      void chiama('DELETE', undefined, `?cosa=data&utenteId=${chi}&giorno=${data}`)
+                    }
+                  >
+                    Torna al solito
+                  </button>
+                </div>
+              ) : null}
             </div>
           )
         })}
       </div>
 
-      {/* ── I GIORNI SPECIALI ── le «special hours»: ferie, permessi, orari
-          diversi per un giorno solo. ⚠️ Valgono per la persona scelta sopra:
-          un secondo elenco di persone qui sarebbe un controllo in più per
-          niente. */}
-      <h2 style={{ fontSize: 17, marginTop: 28, marginBottom: 4 }}>Giorni speciali</h2>
+      {/* ── I PROSSIMI CAMBI ── così non si va a caccia settimana per settimana. */}
+      <ProssimiCambi dati={dati} vaiAllaSettimana={(d) => setLunedi(lunediDi(new Date(`${d}T12:00:00`)))} />
+    </main>
+  )
+
+  /**
+   * Riscrive un giorno della REGOLA con l'elenco di fasce dato.
+   *
+   * ⚠️ Una chiamata sola, e dall'altra parte una transazione: «cancella e poi
+   * riscrivi» in due colpi vorrebbe dire che, se il secondo non arriva, il
+   * giorno resta **vuoto** — cioè avremmo cancellato un turno per cambiargli
+   * mezz'ora.
+   */
+  function chiamaSettimana(n: number, fasce: Fascia[]) {
+    return chiama('POST', { cosa: 'settimana-giorno', utenteId: chi, giorno: n, fasce })
+  }
+}
+
+/** L'elenco dei giorni staccati dalla regola, da qui in avanti. */
+function ProssimiCambi({
+  dati,
+  vaiAllaSettimana,
+}: {
+  dati: EsitoTurni
+  vaiAllaSettimana: (giorno: string) => void
+}) {
+  const oggi = giornoIso(new Date())
+  const prossimi = dati.eccezioni.filter((e) => e.giorno >= oggi)
+  // Un giorno con due fasce ha due righe: qui se ne mostra una sola.
+  const visti = new Set<string>()
+  const righe = prossimi.filter((e) => {
+    const k = e.utenteId + e.giorno
+    if (visti.has(k)) return false
+    visti.add(k)
+    return true
+  })
+
+  if (righe.length === 0) return null
+
+  return (
+    <>
+      <h2 style={{ fontSize: 17, marginTop: 28, marginBottom: 4 }}>Prossimi cambi</h2>
       <p className="descrizione" style={{ marginTop: 0 }}>
-        Ferie, permessi o un orario diverso, per {persona ? <strong>{persona.nome}</strong> : 'la persona scelta'}.
-        Scavalcano la settimana solo quel giorno.
+        I giorni che non seguono la regola, di tutti. Clicca per aprire la loro settimana.
       </p>
-
-      <div className="filtri">
-        <input
-          type="date"
-          value={dataSpec}
-          onChange={(e) => setDataSpec(e.target.value)}
-          aria-label="Giorno"
-        />
-        <button
-          className={chiusoSpec ? 'bottone mini' : 'bottone secondario mini'}
-          onClick={() => setChiusoSpec(true)}
-        >
-          Non lavora
-        </button>
-        <button
-          className={!chiusoSpec ? 'bottone mini' : 'bottone secondario mini'}
-          onClick={() => setChiusoSpec(false)}
-        >
-          Orario diverso
-        </button>
-        {!chiusoSpec ? (
-          <>
-            <input
-              type="time"
-              value={dalleSpec}
-              onChange={(e) => setDalleSpec(e.target.value)}
-              aria-label="Dalle"
-            />
-            <span className="cella-sub">–</span>
-            <input
-              type="time"
-              value={alleSpec}
-              onChange={(e) => setAlleSpec(e.target.value)}
-              aria-label="Alle"
-            />
-          </>
-        ) : null}
-        <input
-          value={motivoSpec}
-          onChange={(e) => setMotivoSpec(e.target.value)}
-          placeholder="motivo (ferie, visita…)"
-          aria-label="Motivo"
-          style={{ width: 170 }}
-        />
-        <button
-          className="bottone mini"
-          disabled={salvando || !chi}
-          onClick={() =>
-            void chiama('POST', {
-              cosa: 'eccezione',
-              utenteId: chi,
-              giorno: dataSpec,
-              tipo: chiusoSpec ? 'riposo' : 'orario',
-              dalle: dalleSpec,
-              alle: alleSpec,
-              motivo: motivoSpec,
-            }).then(() => setMotivoSpec(''))
-          }
-        >
-          Aggiungi
-        </button>
-      </div>
-
-      {eccezioniDi.length === 0 ? (
-        <p className="descrizione">
-          Nessun giorno speciale da ieri in poi. Quelli passati non si mostrano.
-        </p>
-      ) : (
-        <div className="card" style={{ padding: 0 }}>
-          {eccezioniDi.map((e, i) => (
-            <div
+      <div className="card" style={{ padding: 0 }}>
+        {righe.map((e, i) => {
+          const fasce = prossimi.filter(
+            (x) => x.utenteId === e.utenteId && x.giorno === e.giorno && x.tipo === 'orario'
+          )
+          return (
+            <button
               key={e.id}
+              onClick={() => vaiAllaSettimana(e.giorno)}
               style={{
                 display: 'flex',
                 gap: 12,
                 alignItems: 'center',
                 padding: '10px 16px',
-                borderBottom: i === eccezioniDi.length - 1 ? 'none' : '1px solid var(--hairline)',
+                width: '100%',
+                background: 'none',
+                border: 'none',
+                borderBottom: i === righe.length - 1 ? 'none' : '1px solid var(--hairline)',
+                font: 'inherit',
+                textAlign: 'left',
+                cursor: 'pointer',
                 flexWrap: 'wrap',
               }}
             >
-              <span className="cella-nome" style={{ minWidth: 150 }}>
-                {nomeGiornoData(e.giorno)}
+              <span className="cella-nome" style={{ minWidth: 120 }}>
+                {new Date(`${e.giorno}T12:00:00`).toLocaleDateString('it-IT', {
+                  weekday: 'short',
+                  day: 'numeric',
+                  month: 'short',
+                })}
               </span>
-              {e.tipo === 'riposo' ? (
-                <span className="badge rosso">Non lavora</span>
+              <span style={{ minWidth: 150 }}>{e.utenteNome}</span>
+              {fasce.length ? (
+                fasce.map((f) => (
+                  <span key={f.id} className="badge">
+                    {f.dalle}–{f.alle}
+                  </span>
+                ))
               ) : (
-                <span className="badge">
-                  {e.dalle}–{e.alle}
-                </span>
+                <span className="badge rosso">Non lavora</span>
               )}
-              <span className="cella-muta" style={{ flex: 1 }}>
-                {e.motivo}
-              </span>
-              <button
-                className="bottone secondario mini"
-                disabled={salvando}
-                onClick={() => void chiama('DELETE', undefined, `?id=${e.id}&cosa=eccezione`)}
-              >
-                Togli
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-    </main>
+              <span className="cella-muta">{e.motivo}</span>
+            </button>
+          )
+        })}
+      </div>
+    </>
   )
 }

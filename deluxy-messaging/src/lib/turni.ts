@@ -81,6 +81,35 @@ export function giornoValido(v: string): boolean {
   return giornoIso(d) === v
 }
 
+/**
+ * 1 = lunedì … 7 = domenica.
+ *
+ * ⚠️ `getDay()` parte dalla **domenica** e la chiama 0. Prenderlo così com'è
+ * sposta tutta la settimana di un giorno, e l'errore si vede solo di domenica —
+ * quando in ufficio non c'è nessuno a notarlo.
+ */
+export function giornoSettimana(d: Date): number {
+  return d.getDay() === 0 ? 7 : d.getDay()
+}
+
+/** Il lunedì della settimana in cui cade questa data (a mezzanotte locale). */
+export function lunediDi(d: Date): Date {
+  const x = new Date(d)
+  x.setHours(0, 0, 0, 0)
+  x.setDate(x.getDate() - (giornoSettimana(x) - 1))
+  return x
+}
+
+/** La stessa data spostata di `n` giorni, senza toccare l'ora. */
+export function piuGiorni(d: Date, n: number): Date {
+  const x = new Date(d)
+  // ⚠️ `setDate` e non «più n × 86400000»: nelle notti in cui cambia l'ora
+  // legale un giorno dura 23 o 25 ore, e la somma in millisecondi farebbe
+  // scivolare la settimana di un giorno due volte l'anno.
+  x.setDate(x.getDate() + n)
+  return x
+}
+
 export function giornoIso(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }

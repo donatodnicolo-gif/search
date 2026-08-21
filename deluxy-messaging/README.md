@@ -681,13 +681,35 @@ quel gruppo non lo vede proprio: una voce che risponde «serve un amministratore
 sembra un guasto, non una regola.
 
 È fatta come gli **orari di apertura**: si sceglie una persona e si aprono o si
-chiudono i suoi sette giorni.
+chiudono i suoi sette giorni. E si guarda in due modi — **Sempre** (la regola che
+si ripete) oppure **una settimana precisa**.
 
 **Adesso**, in cima, dice chi è in turno in questo momento e fino a che ora, e chi
 entra dopo.
 
 **Gli orari di…** — una pastiglia per persona, col numero di giorni già impostati
-(«· 4g»): si vede a colpo d'occhio chi non ha ancora un orario. Poi sette righe:
+(«· 4g»): si vede a colpo d'occhio chi non ha ancora un orario.
+
+**Sempre, oppure una settimana.** Sotto le persone c'è la riga che decide *cosa*
+stai cambiando:
+
+- **Sempre** — la regola che vale tutte le settimane. È quella che si imposta una
+  volta e non si tocca più.
+- **‹ 24 – 30 ago ›** — quella settimana lì, e solo quella. Le frecce vanno avanti
+  e indietro, «Questa settimana» riporta a oggi.
+
+Dentro una settimana, i sette giorni portano anche la **data**, e mostrano quello
+che vale davvero quel giorno. Appena ne cambi uno, quel giorno si **stacca** dalla
+regola: compare l'etichetta **«solo questa settimana»**, un campo per il **motivo**
+(ferie, visita) e un **«Torna al solito»** che lo riattacca. ⚠️ La regola non si
+tocca mai: è tutto il punto — così un permesso non ti costringe a riscrivere la
+settimana e poi a rimetterla a posto.
+
+**Prossimi cambi**, in fondo, elenca i giorni staccati dalla regola di *tutti*, da
+oggi in avanti: si clicca e si apre la loro settimana, senza andarli a cercare
+avanti e indietro.
+
+Le sette righe, in tutti e due i modi:
 
 - **Aperto / Chiuso** è un bottone solo. Aprire un giorno mette l'orario di sempre
   (9–18) e lo si corregge scrivendoci sopra; chiuderlo toglie tutte le fasce di
@@ -698,17 +720,14 @@ entra dopo.
   pranzo. La × per toglierla compare solo quando ce n'è più di una: l'ultima si
   toglie chiudendo il giorno.
 
-**Giorni speciali** sono le ferie, i permessi e i cambi di orario per un giorno
-solo, riferiti alla **persona scelta sopra**. Due tipi:
+⚠️ **Il giorno staccato vince sempre sulla regola.** Se un giorno ha un orario suo,
+vale quello; se è chiuso, quel giorno non lavora, anche se la regola dice di sì.
 
-- **Non lavora**: quel giorno spariscono **tutte** le sue fasce, non una.
-- **Orario diverso**: la fascia del giorno speciale **sostituisce** quella
-  abituale, non ci si aggiunge.
-
-⚠️ **Il giorno speciale vince sempre sulla settimana**, ed è tutto il motivo per cui
-esiste: senza, ogni permesso costringerebbe a riscrivere la regola e poi a
-rimetterla a posto — e non lo farebbe nessuno, così la griglia direbbe il falso in
-silenzio. Si vedono **da ieri in poi**: quelli passati sono archivio.
+⚠️ **Le settimane passate si possono guardare** (le frecce vanno anche indietro), e
+quello che ci si vede è quello che è stato davvero: la pagina chiede al server i
+cambi a partire dal lunedì che stai guardando. Senza, una settimana di due mesi fa
+tornerebbe vuota — cioè direbbe «era una settimana normale» invece di «non te
+l'ho caricata».
 
 ⚠️ **Le ore e i giorni sono scritti come li dice la gente**, non come istanti:
 `09:00` è un orario da parete, `2026-08-25` un giorno di calendario. Se fossero

@@ -1,6 +1,6 @@
 # Handoff — Deluxy Customer Service
 
-Ultimo aggiornamento: **21/08/2026, ore 18:00** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
+Ultimo aggiornamento: **21/08/2026, ore 19:00** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
 prima, alle 15:10, l'utente ha pubblicato la schermata di consenso Google e il
 conto alla rovescia dei 7 giorni è finito).
 Prima, il 19/08: la **risposta di primo contatto** che parte da sola al primo
@@ -193,6 +193,40 @@ locale, altrimenti nulla si decifra.
   - ⚠️ `giornoValido` controlla che il giorno **esista**: `2026-04-31`
     scivolerebbe al primo maggio senza dare errore, e l'eccezione finirebbe sul
     giorno sbagliato.
+  - **I TURNI SI IMPOSTANO ANCHE PER SETTIMANA** (chiesto subito dopo: «consenti
+    di impostare per settimane»). Sopra i sette giorni c'è **Sempre** (la regola
+    che si ripete) oppure **‹ 24 – 30 ago ›** con le frecce e «Questa
+    settimana». Dentro una settimana i giorni portano la **data**; appena se ne
+    cambia uno, quel giorno si **stacca** dalla regola — etichetta «solo questa
+    settimana», campo per il motivo, e «Torna al solito» che lo riattacca. In
+    fondo, **Prossimi cambi**: i giorni staccati di tutti, cliccabili per aprire
+    la loro settimana.
+    - ⚠️⚠️ **La regola non si tocca mai** quando si lavora dentro una settimana:
+      è tutto il punto. Le ferie del 25 agosto non devono costringere a
+      riscrivere il martedì e poi a rimetterlo a posto.
+    - ⚠️⚠️ **Un giorno si scrive INTERO, in una chiamata sola** (`cosa:
+      'settimana-giorno'` e `cosa: 'giorno-data'`, dentro una transazione).
+      Prima era «cancella il giorno, poi riscrivi le fasce» in più chiamate: se
+      la seconda non arriva, il giorno resta **vuoto** — cioè si è cancellato un
+      turno per cambiargli mezz'ora. Ora o cambia tutto o non cambia niente.
+    - ⚠️ **`GET /api/turni?dal=<lunedì>`**: senza, i cambi partono da ieri e una
+      settimana passata torna vuota — direbbe «era una settimana normale»
+      invece di «non te l'ho caricata».
+    - ⚠️ Un giorno non può essere insieme «non lavora» e «lavora dalle…»:
+      scrivere un orario toglie il riposo e viceversa, altrimenti in tabella
+      restano righe che si contraddicono.
+    - ⚠️ `lunediDi`/`giornoSettimana`/`piuGiorni` stanno nel **lib puro** e
+      hanno le loro prove: `getDay()` chiama la domenica **0** (presa così
+      sposta la settimana di un giorno, e si vedrebbe solo di domenica), e
+      `piuGiorni` usa `setDate` e non «più 7 × 86.400.000 ms» — le due notti in
+      cui cambia l'ora legale durano 23 e 25 ore.
+    - ✅ Guardata con l'anteprima temporanea: in «Sempre» si vede la regola; in
+      «17 – 23 ago» il mercoledì staccato mostra **14:00–18:00** (non il
+      09:00–18:00 della regola) col motivo «visita»; nella settimana dopo il
+      martedì 25 è «non lavora · solo questa settimana · ferie» e il mercoledì
+      26 **torna a seguire la regola**. A 375px non scorre di lato.
+    - ✅ `npx tsx scripts/prova-turni.mts`: **28 casi**, tutti passano.
+
   - 🐞⚠️⚠️ **Le `24:00` erano ammesse e sono state TOLTE — bug trovato provando
     la pagina, non leggendo il codice.** Il campo orario del browser
     (`<input type="time">`) arriva alle **23:59**: un turno salvato con le 24:00

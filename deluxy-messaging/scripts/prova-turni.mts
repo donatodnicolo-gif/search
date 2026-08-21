@@ -6,8 +6,12 @@
 // darebbe nessun errore: direbbe solo che una persona in ferie è di turno.
 import {
   controllaFascia,
+  giornoIso,
+  giornoSettimana,
   giornoValido,
+  lunediDi,
   oraValida,
+  piuGiorni,
   turniDelGiorno,
   type EsitoTurni,
 } from '../src/lib/turni'
@@ -44,6 +48,31 @@ prova('2026-08-25 esiste', giornoValido('2026-08-25'), true)
 // e l'eccezione finirebbe sul giorno sbagliato, senza dire niente a nessuno.
 prova('2026-04-31 non esiste', giornoValido('2026-04-31'), false)
 prova('25/08/2026 non è il formato', giornoValido('25/08/2026'), false)
+
+console.log('\n── Le settimane ──')
+const il = (s: string) => new Date(`${s}T12:00:00`)
+// ⚠️ La domenica è il caso che si sbaglia: `getDay()` la chiama 0, e presa così
+// com'è sposta tutta la settimana di un giorno. L'errore si vedrebbe solo di
+// domenica, quando in ufficio non c'è nessuno a notarlo.
+prova('lunedì 24 ago → giorno 1', giornoSettimana(il('2026-08-24')), 1)
+prova('domenica 30 ago → giorno 7', giornoSettimana(il('2026-08-30')), 7)
+prova('il lunedì di mercoledì 26', giornoIso(lunediDi(il('2026-08-26'))), '2026-08-24')
+prova('il lunedì di DOMENICA 30', giornoIso(lunediDi(il('2026-08-30'))), '2026-08-24')
+prova('il lunedì di lunedì 24 è sé stesso', giornoIso(lunediDi(il('2026-08-24'))), '2026-08-24')
+// ⚠️ Le due notti in cui cambia l'ora legale durano 23 e 25 ore: sommare
+// 7 × 86.400.000 millisecondi farebbe scivolare la settimana di un giorno, due
+// volte l'anno. `setDate` non ha questo problema.
+prova(
+  'la settimana dopo il 25 ottobre (ora solare)',
+  giornoIso(piuGiorni(lunediDi(il('2026-10-19')), 7)),
+  '2026-10-26'
+)
+prova(
+  'la settimana dopo il 29 marzo (ora legale)',
+  giornoIso(piuGiorni(lunediDi(il('2026-03-23')), 7)),
+  '2026-03-30'
+)
+prova('sette giorni avanti e sette indietro si torna', giornoIso(piuGiorni(piuGiorni(il('2026-10-25'), 7), -7)), '2026-10-25')
 
 console.log('\n── La regola vera: l’eccezione vince sulla settimana ──')
 const dati: EsitoTurni = {
