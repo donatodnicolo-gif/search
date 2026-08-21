@@ -2,6 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import type { EsitoAnnuncioAi } from "@/lib/azioni-annuncio";
+import { misuraTesto, oltreIlLimite } from "@/lib/funzioni-annuncio";
 
 // Un annuncio responsive NUOVO per il gruppo: scritto dall'AI sui numeri veri,
 // oppure a mano — e in ogni caso modificabile prima di partire.
@@ -66,8 +67,11 @@ export function CreaAnnuncioAi({
   // I limiti sono di Google e non si negoziano: un titolo di 34 caratteri fa
   // rifiutare l'annuncio INTERO. Contarli qui, mentre si scrive, evita di
   // scoprirlo dal registro dopo un giro di script.
-  const titoliLunghi = titoli.filter((t) => t.length > 30);
-  const descrizioniLunghe = descrizioni.filter((d) => d.length > 90);
+  // ⚠️ La lunghezza si misura con le funzioni di Google RESE, non sulla
+  // stringa scritta: «{KeyWord:Fresh Flower Delivery}» sono 21 caratteri e non
+  // 31, e contarli male qui BLOCCAVA il bottone su titoli perfetti.
+  const titoliLunghi = titoli.filter((t) => oltreIlLimite(t, 30));
+  const descrizioniLunghe = descrizioni.filter((d) => oltreIlLimite(d, 90));
   const problemi: string[] = [];
   if (titoli.length < 3) problemi.push(`servono almeno 3 titoli (ce ne sono ${titoli.length})`);
   if (descrizioni.length < 2) problemi.push(`servono almeno 2 descrizioni (ce ne sono ${descrizioni.length})`);
@@ -221,7 +225,7 @@ export function CreaAnnuncioAi({
               {titoli.length} su 15{titoli.length > 15 ? " — oltre i primi 15 non partono" : ""}
               {titoliLunghi.length > 0 && (
                 <span style={{ color: "var(--orange)" }}>
-                  {" "}· troppo lunghi: {titoliLunghi.map((t) => `«${t}» (${t.length})`).join(", ")}
+                  {" "}· troppo lunghi: {titoliLunghi.map((t) => `«${t}» (${misuraTesto(t).lunghezza})`).join(", ")}
                 </span>
               )}
             </div>
@@ -240,7 +244,7 @@ export function CreaAnnuncioAi({
               {descrizioni.length} su 4{descrizioni.length > 4 ? " — oltre le prime 4 non partono" : ""}
               {descrizioniLunghe.length > 0 && (
                 <span style={{ color: "var(--orange)" }}>
-                  {" "}· troppo lunghe: {descrizioniLunghe.map((d) => `«${d.slice(0, 30)}…» (${d.length})`).join(", ")}
+                  {" "}· troppo lunghe: {descrizioniLunghe.map((d) => `«${d.slice(0, 30)}…» (${misuraTesto(d).lunghezza})`).join(", ")}
                 </span>
               )}
             </div>

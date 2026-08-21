@@ -197,9 +197,15 @@ export async function accodaAnnuncio(input: {
   // ⚠️ I limiti di lunghezza sono di Google e non si negoziano: un titolo di 34
   // caratteri fa rifiutare l'annuncio intero, e scoprirlo dal registro dopo un
   // giro di script è tempo buttato.
+  // ⚠️ La lunghezza si misura con le funzioni di Google RESE (vedi
+  // lib/funzioni-annuncio): «{KeyWord:Fresh Flower Delivery}» sono 21
+  // caratteri, non 31. Contarli sulla stringa faceva rifiutare qui titoli che
+  // Google avrebbe accettato — e la regola deve essere LA STESSA del dialogo,
+  // o l'app dice di sì a schermo e di no un istante dopo.
+  const { misuraTesto, oltreIlLimite } = await import("./funzioni-annuncio");
   const lunghi = [
-    ...titoli.filter((t) => t.length > 30).map((t) => `titolo «${t}» (${t.length}/30)`),
-    ...descrizioni.filter((d) => d.length > 90).map((d) => `descrizione «${d.slice(0, 40)}…» (${d.length}/90)`),
+    ...titoli.filter((t) => oltreIlLimite(t, 30)).map((t) => `titolo «${t}» (${misuraTesto(t).lunghezza}/30)`),
+    ...descrizioni.filter((d) => oltreIlLimite(d, 90)).map((d) => `descrizione «${d.slice(0, 40)}…» (${misuraTesto(d).lunghezza}/90)`),
   ];
   if (lunghi.length > 0) return { ok: false, errore: `Troppo lungo: ${lunghi[0]}${lunghi.length > 1 ? ` (e altri ${lunghi.length - 1})` : ""}.` };
 

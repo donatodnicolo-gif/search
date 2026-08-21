@@ -1,4 +1,5 @@
 import { ETICHETTA_GIUDIZIO_GOOGLE, formattaEuro, GIUDIZI_GOOGLE } from "@/lib/dominio";
+import { dinamico, etichettaFunzione, misuraTesto, oltreIlLimite, REGEX_FUNZIONE, spiegaDinamico } from "@/lib/funzioni-annuncio";
 
 // Titoli e descrizioni come si vedono in Google Ads: una scheda per testo, con
 // sotto il conteggio dei caratteri sul limite (21 / 30). È la stessa forma che
@@ -39,35 +40,23 @@ export type RigaMetricaAnnuncio = {
 const LIMITE: Record<string, number> = { titolo: 30, descrizione: 90 };
 const PER_ANNUNCIO: Record<string, number> = { titolo: 15, descrizione: 4 };
 
-// `{KeyWord:...}` è inserimento dinamico: Google ci mette la parola cercata,
-// quindi la lunghezza scritta non è quella vera e segnarla in rosso è un
-// allarme falso.
-// ⚠️ `location` compresa. Su «[Deluxyflowers] - ITALIAN - ENG» il titolo
-// «Fresh roses to {LOCATION(City)}» risultava **31/30 in rosso**, cioè un testo
-// da accorciare: ma la lunghezza scritta non è quella vera — Google ci mette il
-// nome della città. Un falso allarme manda a riscrivere un testo che va bene.
-const dinamico = (t: string) => /\{(keyword|customizer|countdown|location)/i.test(t);
+// ⚠️ Le funzioni di Google fra graffe stanno in `lib/funzioni-annuncio`: la
+// stessa regola serve qui, nel dialogo del nuovo annuncio e nella validazione
+// lato server. Tenerne tre copie le ha già fatte divergere una volta — il
+// dialogo contava «{KeyWord:Fresh Flower Delivery}» come 31 caratteri e
+// bloccava il bottone su un titolo che per Google ne ha 21.
 
 /**
- * Il testo dell'annuncio con le GRAFFE che parlano.
+ * Il testo dell'annuncio con le GRAFFE che parlano: al posto del codice, una
+ * pastiglia che dice che cosa Google ci metterà.
  *
- * ⚠️ Prima la casella mostrava il codice grezzo — `Fresh roses to
- * {LOCATION(City)}` — e sotto una frase che lo spiegava. Ma un codice che ha
- * bisogno di una didascalia è un codice che nella casella non ci doveva stare:
- * lì dentro si deve leggere quello che leggerà chi cerca, non la sintassi con
- * cui lo abbiamo scritto. Ora la parte fra graffe diventa una pastiglia che
- * dice CHE COSA Google ci metterà: «parola cercata», «città», «conto alla
- * rovescia».
- *
- * ⚠️ Il testo di riserva resta a portata di mano nel titolo della pastiglia:
- * è quello che comparirà davvero quando la parola non ci sta, quindi
- * nasconderlo del tutto sarebbe passare da un eccesso all'altro.
+ * ⚠️ Il taglio si fa scorrendo l'indice e non con uno `split`: le parti di
+ * testo FRA due funzioni si perderebbero, e un titolo con due graffe è
+ * normale.
  */
 function conFunzioniParlanti(testo: string): React.ReactNode[] {
   const pezzi: React.ReactNode[] = [];
-  // Una graffa alla volta, tenendo il testo intorno: il `while` sull'indice
-  // evita di perdere le parti fra due funzioni, che con uno split sparirebbero.
-  const re = /\{(keyword|location|countdown|customizer)[^}]*\}/gi;
+  const re = new RegExp(REGEX_FUNZIONE.source, "gi");
   let ultimo = 0;
   let m: RegExpExecArray | null;
   let n = 0;
@@ -84,52 +73,6 @@ function conFunzioniParlanti(testo: string): React.ReactNode[] {
   return pezzi.length > 0 ? pezzi : [testo];
 }
 
-/** Come si chiama, in italiano, quello che Google mette al posto delle graffe. */
-function etichettaFunzione(graffa: string): string {
-  const kw = graffa.match(/\{keyword\s*:\s*([^}]*)\}/i);
-  if (kw) {
-    const riserva = kw[1].trim();
-    return riserva ? `parola cercata → ${riserva}` : "parola cercata";
-  }
-  const loc = graffa.match(/\{location\s*\(([^)]*)\)/i);
-  if (loc) {
-    const cosa = loc[1].trim().toLowerCase();
-    return cosa === "city" ? "città" : cosa === "region" ? "regione" : cosa === "country" ? "paese" : "località";
-  }
-  if (/\{countdown/i.test(graffa)) return "conto alla rovescia";
-  if (/\{customizer/i.test(graffa)) return "personalizzatore";
-  return graffa;
-}
-
-/**
- * Che cosa vedrà davvero chi cerca, detto a parole.
- *
- * ⚠️ Prima qui c'era solo l'etichetta «dinamico», che non spiega niente: chi
- * guarda legge `{KeyWord:Flower Bouquet Delivery}` fra le graffe e non ha modo
- * di sapere che è una funzione di Google, né che il testo dopo i due punti è il
- * ripiego. Segnalato dall'utente il 21/08/2026 con «spiega cosa è questo» —
- * una scritta che va spiegata a voce è una scritta che manca.
- */
-function spiegaDinamico(t: string): string | null {
-  const kw = t.match(/\{keyword\s*:\s*([^}]*)\}/i);
-  if (kw) {
-    const riserva = kw[1].trim();
-    return `Google sostituisce le graffe con la parola che ha cercato la persona${
-      riserva ? ` e, se non ci sta nei 30 caratteri, scrive «${riserva}»` : ""
-    }.`;
-  }
-  const loc = t.match(/\{location\s*\(([^)]*)\)/i);
-  if (loc) {
-    const cosa = loc[1].trim().toLowerCase();
-    const parola =
-      cosa === "city" ? "la città" : cosa === "region" ? "la regione" : cosa === "country" ? "il paese" : "la località";
-    return `Google sostituisce le graffe con ${parola} da cui arriva chi cerca.`;
-  }
-  if (/\{countdown/i.test(t)) return "Google sostituisce le graffe col tempo che manca alla data indicata.";
-  if (/\{customizer/i.test(t)) return "Google sostituisce le graffe con un valore preso dal tuo elenco di personalizzatori.";
-  return null;
-}
-
 function Gruppo({ titolo, tipo, testi }: { titolo: string; tipo: string; testi: TestoAnnuncio[] }) {
   if (testi.length === 0) return null;
   const limite = LIMITE[tipo] ?? 30;
@@ -141,7 +84,11 @@ function Gruppo({ titolo, tipo, testi }: { titolo: string; tipo: string; testi: 
       </div>
       {testi.map((t) => {
         const din = dinamico(t.testo);
-        const lungo = !din && (t.caratteri ?? 0) > limite;
+        // ⚠️ Con una funzione dentro, il conteggio vero è quello RESO: un
+        // «{KeyWord:testo di riserva}» vale quanto il testo di riserva, che è
+        // ciò che Google mostra quando la parola cercata non ci sta.
+        const misura = misuraTesto(t.testo);
+        const lungo = oltreIlLimite(t.testo, limite);
         const giudizio =
           t.rendimento && GIUDIZI_GOOGLE.includes(t.rendimento)
             ? ETICHETTA_GIUDIZIO_GOOGLE[t.rendimento] ?? t.rendimento
@@ -154,7 +101,11 @@ function Gruppo({ titolo, tipo, testi }: { titolo: string; tipo: string; testi: 
             <div className="ga-sotto">
               {giudizio && <span className="ga-giudizio">{giudizio}</span>}
               <span className={lungo ? "ga-caratteri oltre" : "ga-caratteri"}>
-                {din ? "testo dinamico" : `${t.caratteri ?? "?"} / ${limite}`}
+                {!din
+                  ? `${t.caratteri ?? "?"} / ${limite}`
+                  : misura.certa
+                  ? `${misura.lunghezza} / ${limite}`
+                  : "lunghezza variabile"}
               </span>
             </div>
             {/* La spiegazione sta sotto il testo, non in un tooltip: è la
