@@ -424,9 +424,12 @@ pubblicato), *sfidante* e *irraggiungibile*.
   >
   > Il ripristino si fa con `scripts/ripristina-budget-azzerato.mjs` (prova a vuoto senza
   > argomenti, `scrivi` per applicare); i valori vengono dal seed, che è la fonte da cui il budget
-  > era nato.
-- **Spese ADV** (`/spese`): quanto si può spendere in pubblicità per brand come **% delle
-  vendite del mese**, personalizzabile mese per mese; l'importo consentito si ricalcola. I **mesi
+  > era nato. **Ancora non eseguito al 21/08/2026** — verificato a database: su Deluxy.it le righe di
+  > gennaio–giugno ci sono e valgono `0` su tutti e tre i canali. È il motivo per cui `/spese`
+  > mostrava «100% = 0 €» su sei mesi, ed è il primo posto da guardare quando un budget «sparisce».
+- **Spese ADV** (`/spese`): quanto si può spendere in pubblicità per brand come **% di quello che il
+  mese vende** — budget sui mesi aperti, **venduto reale sui mesi chiusi** —, personalizzabile mese per
+  mese; l'importo consentito si ricalcola. I **mesi
   già passati sono in sola lettura**, il **totale dell'anno sta anche in fondo** (per brand e
   complessivo) e **mentre si scrive si vede di quanto cambia**, casella per casella. Una percentuale
   **oltre il 100% blocca il salvataggio** (sarebbe spendere più di quanto il mese vende). Ogni brand
@@ -1395,6 +1398,34 @@ slug si **numerano**. Il brand nuovo **nasce a zero** e la pagina lo dice: senza
 percentuale non ha su cosa applicarsi, e il consentito resta 0 finché il budget non si scrive in
 Maison.
 
+**4-bis. I mesi passati non valgono zero: portano il loro consuntivo.** Segnalato dall'utente
+guardando la pagina — *«i mesi precedenti perché esce 0?»*. Su Deluxy.it gennaio–giugno mostravano
+`100% = 0 €` e quindi `= 0 €` di consentito, su sei mesi in cui si è venduto eccome.
+
+La causa, verificata a database: le righe di budget di quei mesi **esistono** ma valgono **zero** su
+tutti e tre i canali (`B2B/iniziale=0, D2C/iniziale=0, EVENTI/iniziale=0`) — è il budget azzerato dal
+consolidamento del 31/07/2026, quello per cui esiste `scripts/ripristina-budget-azzerato.mjs` e che
+**non è mai stato ripristinato** (punto 10 dei punti aperti). La pagina non sbagliava il conto: stava
+misurando la pubblicità su una previsione che non c'è più.
+
+Rimedio, lo stesso già scelto in `/maison`: **per un mese chiuso il 100% è il venduto vero**, per un
+mese ancora aperto è il budget. Misurare la pubblicità di gennaio sulla previsione di gennaio — che
+gennaio ha già smentito — dà un numero che non serve a nessuno. Ogni casella dichiara quale delle due
+basi sta usando (`a budget` / `venduto reale`), e se Orders non risponde i mesi chiusi restano sul
+budget con l'avviso in chiaro.
+
+⚠️ **Due paletti, perché la stessa cura può fare il danno che cura.** (a) Il consuntivo per brand è il
+**venduto dei negozi**: copre il D2C e non eventi o B2B. Si usa **solo quando è sopra lo zero**,
+altrimenti «Deluxy Business (B2B)» — che sui negozi non vende niente — si vedrebbe azzerare un budget
+vero. Verificato: B2B ed Experience restano `a budget`, Deluxy.it passa a `venduto reale`. (b) Il
+budget ADV che usano **Piattaforme** e il **P&L** (`advConsentitoMese` in `calc.ts`) resta sulle
+vendite a budget anche per i mesi chiusi: i due numeri **possono non coincidere**, ed è scritto nella
+pagina invece di lasciarlo scoprire. Portare la stessa regola anche lì cambierebbe il conto economico
+a budget, e non è una decisione da prendere di straforo.
+
+Effetto misurato sul 2026: consentito di Deluxy.it da **71.217 €** a **121.640 €**, totale dell'anno da
+178.703 € a **234.020 €** — gennaio da `= 0 €` a `= 6.843 € su 49.948 € (venduto reale)`.
+
 **5. Una percentuale sopra il 100% è impossibile, e si dice con il metro accanto.** Spendere in
 pubblicità più di quanto il mese vende non è un budget aggressivo: è un budget che non esiste.
 `max={100}` sull'input **non lo impedisce** (frena le frecce, non la tastiera) e l'API lo **tagliava in
@@ -1405,11 +1436,15 @@ l'API **rifiuta invece di tagliare**, dichiarando quante ne ha scartate (`percen
 «impossibile» da solo non basta: senza il metro, chi legge deve andarselo a cercare. Quindi si dice
 **quanti punti** si sfora e **quanto vale il 100%** di quel mese, che è il tetto della spesa:
 
-- nella **casella**: `+37,5 punti oltre il 100%` e sotto `il 100% è 50.000 €`;
+- nella **casella**, che ora ha **tre righe fisse**: quanto fa (`= 7.500 €`), su quanto (`su 50.000 €`,
+  cioè il 100% del mese) e da dove viene quella base (`a budget` / `venduto reale`) — oppure lo
+  scostamento, se la casella è stata toccata. In errore diventano `+37,5 punti` · `oltre il 100%` ·
+  `su 50.000 €`;
 - nella **scheda del brand**: *«Ago: 137,5% — 37,5 punti oltre il 100%, e per quel mese il 100% è
   50.000 € (tetto della spesa) · a 137,5% farebbe 68.750 €»*;
-- nell'**etichetta di ogni mese**, sempre, anche quando è tutto a posto: `Ago · 100% = 50.000 €`
-  invece del vecchio `% su 50.000 €` — stesso numero, ma scritto come tetto si legge senza tradurlo.
+- l'**etichetta** invece è tornata corta (`Ago`, `Lug · chiuso`): il metro sta sotto l'input, dove lo
+  si legge insieme all'importo, e un'etichetta corta non va a capo — che è metà del problema di
+  allineamento qui sotto.
 
 Il controllo guarda **tutti** i mesi aperti, non solo quelli appena toccati: il salvataggio manda
 comunque tutto ciò che è ancora scrivibile, quindi un valore fuori scala rimasto lì da prima
@@ -1428,13 +1463,14 @@ altezze fisse** — un numero da indovinare, sbagliato al primo carattere in pi�
 flex e l'etichetta ha `flex: 1`, così si allarga fino all'altezza della riga e gli input partono tutti
 dalla stessa quota. Misurato: prima i campi della stessa riga stavano a `top` 593 e 595, poi a uno solo.
 
-⚠️ **E non bastava, perché la riga si rompe anche da sotto.** La riga sotto l'input a volte ha una sola
-riga di testo (l'importo) e a volte due (importo + scostamento, o l'avviso di sforamento): con il
-contenuto allineato in basso, la cella con due righe faceva salire il **proprio** input rispetto agli
-altri — è esattamente il difetto che si vede nella segnalazione, con agosto più in alto degli altri
-mesi. Rimedio: `.mese-cell .sub` con `line-height` esplicito e **due righe sempre riservate**
-(`min-height: 2.7em`). Verificato nei tre stati: normale, con scostamento e in errore — un solo valore
-di `top` per riga in tutti e tre.
+⚠️ **E non bastava, perché la riga si rompe anche da sotto.** La riga sotto l'input cambia altezza con
+lo stato della cella (importo; importo + scostamento; l'avviso di sforamento): con il contenuto
+allineato in basso, la cella più alta faceva salire il **proprio** input rispetto agli altri — è
+esattamente il difetto della seconda segnalazione, con agosto più in alto degli altri mesi. Rimedio in
+due mosse: la didascalia ha **sempre tre righe** (`min-height: 4.05em` con `line-height` esplicito) e
+**ogni riga resta una riga** (`white-space: nowrap`, con ellissi se proprio non ci sta). Altezza
+prevedibile, quindi input in linea in **tutti** gli stati. Verificato misurando il `top` di ogni input
+riga per riga, nei tre stati: un solo valore per riga in tutti e tre.
 
 🔎 **Come è stato verificato** (dev locale sullo stesso database di produzione): 60 caselle, **35
 disabilitate** = Gen–Lug × 5 brand; totale 178.703 € di cui 40.884 nei mesi chiusi; portando agosto di

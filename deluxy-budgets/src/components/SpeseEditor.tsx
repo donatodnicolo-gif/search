@@ -8,13 +8,20 @@ import { eur, MESI } from "@/lib/format";
 // in virgola mobile fa 13,399999999999999 e a schermo sarebbe illeggibile.
 const punti = (v: number) => v.toLocaleString("it-IT", { maximumFractionDigits: 1 });
 
-type MeseSpesa = { month: number; vendite: number; percent: number; pubblicato: number };
+type MeseSpesa = {
+  month: number;
+  vendite: number;
+  reale: number | null;
+  percent: number;
+  pubblicato: number;
+};
 type MaisonSpese = { id: string; nome: string; mesi: MeseSpesa[] };
 
 export function SpeseEditor({
   year,
   maisons,
   primoMeseAperto,
+  vendutoOk,
 }: {
   year: number;
   maisons: MaisonSpese[];
@@ -22,6 +29,9 @@ export function SpeseEditor({
   // `new Date()` darebbe un valore diverso fra render sul server e idratazione
   // nel browser proprio a cavallo della mezzanotte del primo del mese.
   primoMeseAperto: number;
+  // Se Orders ha risposto. Quando non risponde i mesi chiusi restano sul
+  // budget e la pagina lo dice, invece di far passare un budget per consuntivo.
+  vendutoOk: boolean;
 }) {
   const router = useRouter();
 
@@ -46,6 +56,24 @@ export function SpeseEditor({
   const [esitoBrand, setEsitoBrand] = useState<string | null>(null);
 
   const chiuso = (month: number) => month < primoMeseAperto;
+
+  // ---- Su cosa si applica la percentuale: il 100% di quel mese ----
+  //
+  // Per un mese **futuro** l'unica misura che esiste è il budget. Per un mese
+  // **già chiuso** il budget è la previsione di allora, mentre il venduto vero
+  // c'è: usare la previsione vorrebbe dire misurare la pubblicità di gennaio su
+  // un numero che gennaio ha già smentito. Stessa scelta di `/maison`, dove i
+  // mesi passati portano il loro consuntivo.
+  //
+  // ⚠️ **Il consuntivo per brand è il venduto dei negozi**, quindi copre il D2C
+  // e non eventi o B2B: si usa **solo quando c'è** (sopra lo zero). Altrimenti
+  // un brand B2B, che sui negozi non vende niente, si vedrebbe azzerare un
+  // budget vero — cioè il difetto che questa modifica vuole togliere, al
+  // contrario.
+  const base = (x: MeseSpesa) =>
+    chiuso(x.month) && x.reale !== null && x.reale > 0 ? x.reale : x.vendite;
+  const daConsuntivo = (x: MeseSpesa) => chiuso(x.month) && x.reale !== null && x.reale > 0;
+
   const valore = (key: string) => modifiche[key] ?? originali[key] ?? 0;
   const toccata = (key: string) => modifiche[key] !== undefined && modifiche[key] !== (originali[key] ?? 0);
 
@@ -73,7 +101,7 @@ export function SpeseEditor({
           percent: valore(`${m.id}:${x.month}`),
           // Il 100% di un mese è, per definizione, tutto quello che quel mese
           // vende: è il tetto della spesa, e va detto in euro.
-          cento: x.vendite,
+          cento: base(x),
           punti: valore(`${m.id}:${x.month}`) - 100,
         }))
     );
@@ -84,7 +112,7 @@ export function SpeseEditor({
   const consentito = (m: MaisonSpese, percentuale: (key: string) => number, mesi?: (x: MeseSpesa) => boolean) =>
     m.mesi
       .filter((x) => (mesi ? mesi(x) : true))
-      .reduce((s, x) => s + (x.vendite * percentuale(`${m.id}:${x.month}`)) / 100, 0);
+      .reduce((s, x) => s + (base(x) * percentuale(`${m.id}:${x.month}`)) / 100, 0);
 
   const righe = useMemo(
     () =>
@@ -309,17 +337,20 @@ export function SpeseEditor({
                 const key = `${m.id}:${x.month}`;
                 const percent = valore(key);
                 const bloccato = chiuso(x.month);
-                const importo = (x.vendite * percent) / 100;
-                const importoSalvato = (x.vendite * (originali[key] ?? 0)) / 100;
+                const importo = (base(x) * percent) / 100;
+                const importoSalvato = (base(x) * (originali[key] ?? 0)) / 100;
                 // Un mese chiuso non si può correggere: segnarlo in rosso
                 // additerebbe un errore che nessuno può togliere.
                 const errata = !bloccato && fuoriScala(key);
                 return (
                   <div className="mese-cell" key={x.month}>
-                    {/* «% su 50.000 €» non diceva *quanto* è il 100%: è lo stesso
-                        numero, ma scritto come tetto si legge senza tradurlo. */}
+                    {/* L'etichetta resta corta — il mese e poco altro — perché è
+                        quella che andando a capo sfalsava la riga. Il metro (su
+                        quanto si applica la percentuale, e se è budget o
+                        consuntivo) sta sotto l'input, dove lo si legge insieme
+                        all'importo. */}
                     <div className="k">
-                      {MESI[x.month - 1]} · 100% = {eur(x.vendite)}
+                      {MESI[x.month - 1]}
                       {bloccato && " · chiuso"}
                     </div>
                     <input
@@ -347,25 +378,32 @@ export function SpeseEditor({
                         }))
                       }
                     />
+                    {/* Tre righe **sempre**, ognuna su una riga sola: è quello
+                        che tiene gli input della stessa riga alla stessa quota.
+                        1) quanto fa, 2) su quanto (il 100% del mese), 3) da dove
+                        viene quel 100% — oppure, se la casella è stata toccata,
+                        di quanto si sposta. */}
                     <div className="sub">
                       {errata ? (
                         <>
-                          <span className="errore">
-                            {percent > 100 ? `+${punti(percent - 100)} punti oltre il 100%` : "sotto zero"}
-                          </span>
-                          <br />
-                          il 100% è {eur(x.vendite)}
+                          <div className="errore">
+                            {percent > 100 ? `+${punti(percent - 100)} punti` : "sotto zero"}
+                          </div>
+                          <div className="errore">{percent > 100 ? "oltre il 100%" : "impossibile"}</div>
+                          <div>su {eur(base(x))}</div>
                         </>
                       ) : (
-                        <>= {eur(importo)}</>
-                      )}
-                      {toccata(key) && !errata && (
                         <>
-                          <br />
-                          <span className={`delta ${importo >= importoSalvato ? "su" : "giu"}`}>
-                            {importo >= importoSalvato ? "+" : "−"}
-                            {eur(Math.abs(importo - importoSalvato))}
-                          </span>
+                          <div>= {eur(importo)}</div>
+                          <div>su {eur(base(x))}</div>
+                          {toccata(key) ? (
+                            <div className={`delta ${importo >= importoSalvato ? "su" : "giu"}`}>
+                              {importo >= importoSalvato ? "+" : "−"}
+                              {eur(Math.abs(importo - importoSalvato))}
+                            </div>
+                          ) : (
+                            <div className="fonte">{daConsuntivo(x) ? "venduto reale" : "a budget"}</div>
+                          )}
                         </>
                       )}
                     </div>
@@ -442,8 +480,23 @@ export function SpeseEditor({
         <p className="page-caption" style={{ margin: "10px 14px 4px" }}>
           La colonna <strong>«salvato»</strong> è quello che c&apos;è nel database adesso: finché non premi
           Salva la differenza vive solo in questa pagina, e ricaricando sparisce. Ogni brand ha il{" "}
-          <strong>suo bottone</strong> nella sua scheda; quello qui sotto salva tutti insieme. Dentro il
-          totale ci sono <strong>{eur(totaleChiusi)}</strong> di mesi chiusi
+          <strong>suo bottone</strong> nella sua scheda; quello qui sotto salva tutti insieme.
+          <br />
+          <strong>Su cosa si applica la percentuale</strong>: sui mesi ancora aperti il{" "}
+          <strong>budget</strong>, sui mesi chiusi il <strong>venduto reale</strong> dei negozi quando c&apos;è
+          — misurare la pubblicità di gennaio sulla previsione di gennaio, che gennaio ha già smentito, dà
+          un numero che non serve a nessuno. Ogni casella dice quale dei due sta usando.
+          {!vendutoOk && (
+            <>
+              {" "}
+              <strong>Adesso però Orders non risponde</strong>: i mesi chiusi stanno tutti sul budget, e dove
+              il budget è a zero il consentito risulta zero.
+            </>
+          )}{" "}
+          Il budget ADV che usano <strong>Piattaforme</strong> e il <strong>P&amp;L</strong> resta invece
+          sulle vendite a budget anche per i mesi chiusi: i due numeri possono non coincidere, ed è scritto
+          apposta finché la regola non si porta anche lì. Dentro il totale ci sono{" "}
+          <strong>{eur(totaleChiusi)}</strong> di mesi chiusi
           {primoMeseAperto > 1 ? ` (Gen–${MESI[primoMeseAperto - 2]})` : ""}, che non si possono più muovere:
           la differenza qui sopra riguarda solo {MESI[primoMeseAperto - 1]}–Dic.
         </p>
