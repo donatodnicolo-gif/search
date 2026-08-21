@@ -12,6 +12,7 @@ import { campagneNonConfermate, letturaNonConfermata } from "@/lib/campagne-non-
 import { COLORE_CONFERMA, confermeOperazioni, type Conferma } from "@/lib/conferme-operazioni";
 import { prisma } from "@/lib/db";
 import { ETICHETTA_LIVELLO, formattaDataOra } from "@/lib/dominio";
+import { spiegaErroreGoogle } from "@/lib/errori-google";
 
 export const dynamic = "force-dynamic";
 
@@ -146,9 +147,16 @@ export default async function PaginaOperazioni({
     const match = typeof p.corrispondenza === "string" ? String(p.corrispondenza).toLowerCase() : null;
     // Finché non è partita si può ancora ritoccare; dopo è storia.
     const modificabile = o.stato === "in_attesa" || o.stato === "approvata";
+    // ⚠️ L'errore di Google arriva come JSON: la riga «esito» diventava
+    // quattro righe di parentesi che nessuno legge. La traduzione si
+    // AGGIUNGE (non sostituisce): il testo originale serve a cercarlo, e su
+    // un errore sconosciuto una frase generica sarebbe peggio del JSON.
+    const spiegato = spiegaErroreGoogle(o.esito);
     const dettagli = [
       o.prima ? `prima: ${o.prima}` : null,
       o.motivo || null,
+      // La traduzione PRIMA del testo grezzo: e' quella che si legge.
+      spiegato,
       o.esito ? `esito: ${o.esito}` : null,
     ].filter(Boolean);
 

@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { formattaDataOra } from "@/lib/dominio";
 import { riprendiAnnuncioAccodato } from "@/lib/azioni";
 import { misuraTesto } from "@/lib/funzioni-annuncio";
+import { spiegaErroreGoogle } from "@/lib/errori-google";
 
 // L'annuncio che HAI GIÀ SCRITTO e non è ancora su Google: in attesa di
 // approvazione, approvato e in attesa dello script, oppure fallito.
@@ -97,8 +98,18 @@ export async function AnnunciAccodati({
             </div>
 
             {o.stato === "fallita" && o.esito && (
-              <div className="cella-sub" style={{ color: "var(--orange)", whiteSpace: "normal", marginBottom: 8 }}>
-                Google (o lo script) ha risposto: {o.esito}
+              <div style={{ marginBottom: 8 }}>
+                {/* Prima cosa è successo, in italiano; sotto, in piccolo, la
+                    risposta testuale di Google — che resta perché è quella
+                    che si cerca quando la traduzione non basta. */}
+                {spiegaErroreGoogle(o.esito) && (
+                  <div style={{ color: "var(--orange)", fontWeight: 600, whiteSpace: "normal" }}>
+                    {spiegaErroreGoogle(o.esito)}
+                  </div>
+                )}
+                <div className="cella-sub" style={{ whiteSpace: "normal", overflowWrap: "anywhere" }}>
+                  Google (o lo script) ha risposto: {o.esito}
+                </div>
               </div>
             )}
 

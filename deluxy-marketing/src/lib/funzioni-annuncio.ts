@@ -108,3 +108,31 @@ export function oltreIlLimite(testo: string, limite: number): boolean {
   const m = misuraTesto(testo);
   return m.certa && m.lunghezza > limite;
 }
+
+/**
+ * Gli indici delle righe RIPETUTE (la prima resta, le successive sono i
+ * doppioni).
+ *
+ * ⚠️ Un titolo ripetuto fa rifiutare l'annuncio INTERO. Google risponde
+ * `DUPLICATE_ASSET` — «Assets are duplicated across operations» — e non crea
+ * niente: non scarta la riga di troppo, butta tutto. Successo davvero il
+ * 21/08/2026: l'AI aveva scritto «Luxury Flower Delivery» al primo posto e di
+ * nuovo al decimo, l'app non se n'era accorta, e l'annuncio è morto nel
+ * registro caricamenti un'ora dopo con un JSON di quattro righe.
+ *
+ * ⚠️ Il confronto è a MAIUSCOLE E SPAZI IGNORATI, perché per Google
+ * «Luxury Flower Delivery» e «luxury flower  delivery» sono lo stesso asset.
+ * Le funzioni fra graffe NON si toccano: `{KeyWord:A}` e `{KeyWord:B}` sono
+ * testi diversi e restano tali.
+ */
+export function indiciDoppioni(righe: string[]): number[] {
+  const visti = new Map<string, number>();
+  const doppi: number[] = [];
+  righe.forEach((r, i) => {
+    const chiave = r.trim().toLowerCase().replace(/\s+/g, " ");
+    if (!chiave) return;
+    if (visti.has(chiave)) doppi.push(i);
+    else visti.set(chiave, i);
+  });
+  return doppi;
+}

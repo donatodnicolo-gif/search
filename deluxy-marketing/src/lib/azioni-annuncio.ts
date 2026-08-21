@@ -202,12 +202,33 @@ export async function accodaAnnuncio(input: {
   // caratteri, non 31. Contarli sulla stringa faceva rifiutare qui titoli che
   // Google avrebbe accettato — e la regola deve essere LA STESSA del dialogo,
   // o l'app dice di sì a schermo e di no un istante dopo.
-  const { misuraTesto, oltreIlLimite } = await import("./funzioni-annuncio");
+  const { misuraTesto, oltreIlLimite, indiciDoppioni } = await import("./funzioni-annuncio");
   const lunghi = [
     ...titoli.filter((t) => oltreIlLimite(t, 30)).map((t) => `titolo «${t}» (${misuraTesto(t).lunghezza}/30)`),
     ...descrizioni.filter((d) => oltreIlLimite(d, 90)).map((d) => `descrizione «${d.slice(0, 40)}…» (${misuraTesto(d).lunghezza}/90)`),
   ];
   if (lunghi.length > 0) return { ok: false, errore: `Troppo lungo: ${lunghi[0]}${lunghi.length > 1 ? ` (e altri ${lunghi.length - 1})` : ""}.` };
+
+  // ⚠️ Un testo RIPETUTO fa rifiutare l'annuncio intero (`DUPLICATE_ASSET`).
+  // Google non scarta la riga di troppo: non crea niente. Pagato il
+  // 21/08/2026 — «Luxury Flower Delivery» al posto 1 e al posto 10.
+  // ⚠️ Non si toglie il doppione da soli: chi ha scritto quindici titoli ne
+  // vuole quindici, e sostituirne uno in silenzio vorrebbe dire mandare in
+  // asta un annuncio diverso da quello che ha letto.
+  const titoliDoppi = indiciDoppioni(titoli);
+  const descrizioniDoppie = indiciDoppioni(descrizioni);
+  if (titoliDoppi.length > 0) {
+    return {
+      ok: false,
+      errore: `Titolo ripetuto: «${titoli[titoliDoppi[0]]}» compare due volte. Google rifiuta l'annuncio intero se due testi sono uguali (DUPLICATE_ASSET): cambialo o toglilo.`,
+    };
+  }
+  if (descrizioniDoppie.length > 0) {
+    return {
+      ok: false,
+      errore: `Descrizione ripetuta: «${descrizioni[descrizioniDoppie[0]].slice(0, 50)}…» compare due volte. Google rifiuta l'annuncio intero se due testi sono uguali (DUPLICATE_ASSET).`,
+    };
+  }
 
   const gruppo = await prisma.gruppo.findUnique({
     where: { id: input.gruppoId },

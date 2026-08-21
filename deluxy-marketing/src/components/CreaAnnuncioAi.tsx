@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import type { EsitoAnnuncioAi } from "@/lib/azioni-annuncio";
-import { misuraTesto, oltreIlLimite } from "@/lib/funzioni-annuncio";
+import { indiciDoppioni, misuraTesto, oltreIlLimite } from "@/lib/funzioni-annuncio";
 
 // Un annuncio responsive NUOVO per il gruppo: scritto dall'AI sui numeri veri,
 // oppure a mano — e in ogni caso modificabile prima di partire.
@@ -101,6 +101,13 @@ export function CreaAnnuncioAi({
   else if (!/^https?:\/\//i.test(url.trim())) problemi.push("la destinazione deve cominciare con http:// o https://");
   if (titoliLunghi.length) problemi.push(`${titoliLunghi.length} titoli oltre i 30 caratteri`);
   if (descrizioniLunghe.length) problemi.push(`${descrizioniLunghe.length} descrizioni oltre i 90`);
+  // ⚠️ Due testi uguali = annuncio rifiutato INTERO da Google
+  // (DUPLICATE_ASSET), non «una riga in meno». Va detto qui, mentre si
+  // scrive, non scoperto nel registro caricamenti un'ora dopo.
+  const titoliDoppi = indiciDoppioni(titoli);
+  const descrizioniDoppie = indiciDoppioni(descrizioni);
+  if (titoliDoppi.length) problemi.push(`titolo ripetuto: «${titoli[titoliDoppi[0]]}»`);
+  if (descrizioniDoppie.length) problemi.push("descrizione ripetuta");
   const pronto = problemi.length === 0;
 
   const chiedi = () => {
@@ -330,7 +337,7 @@ export function CreaAnnuncioAi({
                 <span style={{ color: "var(--orange)" }}> · {titoliLunghi.length} oltre i 30 caratteri</span>
               )}
             </div>
-            <RigheContate righe={titoli} limite={30} massimo={15} style={{ marginBottom: 14 }} />
+            <RigheContate righe={titoli} limite={30} massimo={15} doppioni={titoliDoppi} style={{ marginBottom: 14 }} />
 
             <label className="modale-campo" style={{ marginBottom: 4 }}>
               Descrizioni — una per riga, massimo 90 caratteri l&apos;una
@@ -348,7 +355,7 @@ export function CreaAnnuncioAi({
                 <span style={{ color: "var(--orange)" }}> · {descrizioniLunghe.length} oltre i 90 caratteri</span>
               )}
             </div>
-            <RigheContate righe={descrizioni} limite={90} massimo={4} />
+            <RigheContate righe={descrizioni} limite={90} massimo={4} doppioni={descrizioniDoppie} />
           </div>
 
           {/* ⚠️ Cosa succede davvero premendo: non va in asta adesso. */}
@@ -465,12 +472,15 @@ function RigheContate({
   righe,
   limite,
   massimo,
+  doppioni = [],
   style,
 }: {
   righe: string[];
   limite: number;
   /** Quante ne prende Google: le successive si mostrano spente. */
   massimo: number;
+  /** Gli indici delle righe ripetute: si segnano, perché fanno rifiutare tutto. */
+  doppioni?: number[];
   style?: React.CSSProperties;
 }) {
   if (!righe.length) return null;
@@ -480,6 +490,7 @@ function RigheContate({
         const m = misuraTesto(r);
         const oltre = m.certa && m.lunghezza > limite;
         const fuori = i >= massimo;
+        const ripetuta = doppioni.includes(i);
         return (
           <li
             key={i}
@@ -510,6 +521,15 @@ function RigheContate({
             </span>
             {fuori && (
               <span className="cella-sub" style={{ flexShrink: 0 }}>non parte</span>
+            )}
+            {ripetuta && (
+              <span
+                className="cella-sub"
+                style={{ flexShrink: 0, color: "var(--orange)", fontWeight: 600 }}
+                title="Uguale a una riga più in alto: Google rifiuta l'annuncio intero se due testi coincidono"
+              >
+                ripetuto
+              </span>
             )}
             <span
               style={{
