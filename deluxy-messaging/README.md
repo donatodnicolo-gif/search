@@ -76,6 +76,29 @@ Per dare un'idea del ritmo: negli ultimi 30 giorni sono arrivati **~15 ordini al
 (minimo 6, massimo 26), con le punte attorno alle **11** e alle **15**, e solo l'8% fra
 mezzanotte e le 7.
 
+## Fare un ordine per il cliente
+
+**Menu → Nuovo ordine**, oppure il bottone **«Nuovo ordine ↗»** dentro la conversazione:
+da lì nome, email e telefono sono già compilati e la chat resta aperta in fondo (serve a
+rileggere indirizzo, orari e biglietto mentre si compila).
+
+Si sceglie il negozio, si cerca il prodotto **nel catalogo** (con la foto, che è quella che
+poi si manda al fornitore), si mettono giorno e fascia di consegna, indirizzo e biglietto.
+Poi il **pagamento**:
+
+- **Link di pagamento** — la bozza resta bozza e paga il cliente. Se ha l'email il link
+  glielo manda Shopify; in ogni caso resta a schermo, da copiare o da mandare su WhatsApp.
+  ⚠️ Finché non paga **non compare fra gli ordini da lavorare**, ed è giusto: non c'è niente
+  da consegnare finché non è pagato.
+- **Ha già pagato** (bonifico, contanti, POS, PayPal) — l'ordine nasce **pagato**. ⚠️ Chiede
+  conferma con importo e mezzo davanti: scrive su Shopify un incasso, e se i soldi non sono
+  arrivati la contabilità legge il falso. Il mezzo resta nelle note dell'ordine.
+
+⚠️ **L'ordine nasce in Shopify**, non nella nostra tabella: torna qui dal registro come
+tutti gli altri (entro ~20 minuti). Un ordine scritto solo qui sarebbe invisibile a
+logistica, contabilità e Shopify. Giorno e fascia si scrivono negli attributi
+ e , gli unici che il registro legge.
+
 ## Chargeback: le contestazioni di pagamento
 
 La banca di un cliente contesta un pagamento e i soldi tornano indietro. La pagina
