@@ -7,9 +7,17 @@ import { canonizzaLinee } from '@/types';
 import { colors, labelFase, labelStato, radius, spacing } from '@/lib/theme';
 import { COLORE_A_RISCHIO, COLORE_PERSO, LABEL_A_RISCHIO, LABEL_LIVELLO, LABEL_PERSO, aRischio, coloreLivello, ePerso, livelloDi } from '@/lib/livelli';
 import { StatusBadge } from '@/components/ui';
-import { aggiornaNascosto, aggiornaPlace, completaTask, eliminaPlace, fetchAziendeScartate, fetchContatti, fetchContattiScartati, fetchDealPlace, fetchPlace, fetchTaskPlace, fetchVisitePlace, ignoraDuplicato, inserisciContatto, scartaAzienda, scartaContatto, sincronizzaPlaceRegistro, trovaDuplicati, unisciPlaces } from '@/lib/db';
+import { aggiornaNascosto, aggiornaPlace, completaTask, eliminaPlace, fetchAziendeScartate, fetchContatti, fetchContattiScartati, fetchDealPlace, fetchPlace, fetchTaskPlace, fetchVisitePlace, inserisciContatto, scartaAzienda, scartaContatto, sincronizzaPlaceRegistro, trovaDuplicati } from '@/lib/db';
 import { useAuth } from '@/lib/auth';
 import { avvisa, conferma } from '@/lib/dialoghi';
+import {
+  COLORE_VERDETTO,
+  fetchCoppieDuplicate,
+  ignoraCoppia,
+  unisciCoppia,
+  type CoppiaDuplicata,
+  type VerdettoDuplicato,
+} from '@/lib/riconciliazione';
 import { urlNavigazione } from '@/lib/nav';
 import { cercaContattiHubspot, dealsPerPlace, type ContattoAI, type MatchAI } from '@/lib/hubspot';
 import { env } from '@/lib/env';
@@ -54,6 +62,19 @@ function lineeDaRegistro(interessi: string[]): string[] {
 const stessaTipologia = (a: string[], b: string[]) =>
   JSON.stringify([...a].sort()) === JSON.stringify([...b].sort());
 
+/** Una segnalazione di doppione nella scheda: da dove arriva, e quale scheda resta. */
+interface Segnalazione {
+  altroId: string;
+  altroNome: string;
+  altroMeta: string;
+  tieneId: string;
+  togliId: string;
+  /** true = resta la scheda aperta; false = resta l'altra (lo decide la Riconciliazione). */
+  restaQui: boolean;
+  verdetto?: VerdettoDuplicato;
+  metri?: number | null;
+}
+
 export default function SchedaAttivita() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -77,6 +98,13 @@ export default function SchedaAttivita() {
   const [taskPlace, setTaskPlace] = useState<Task[]>([]);
   const [taskInModifica, setTaskInModifica] = useState<Task | null>(null);
   const [duplicati, setDuplicati] = useState<Place[]>([]);
+  // Le coppie che la RICONCILIAZIONE propone per questo negozio: stessa fonte
+  // della schermata /riconciliazione (`coppie_duplicate`), non una seconda
+  // regola. Due regole diverse per la stessa domanda finiscono per rispondere
+  // in modo diverso, ed è già successo: la scheda cercava per indirizzo/nome e
+  // scartava le nascoste, quindi il doppione «Amir» (dove la scheda buona era
+  // proprio quella nascosta, e cliente) non lo segnalava nessuna delle due.
+  const [coppie, setCoppie] = useState<CoppiaDuplicata[]>([]);
   const [unendo, setUnendo] = useState(false);
   const [eliminando, setEliminando] = useState(false);
   const [mailAperta, setMailAperta] = useState(false);
@@ -138,8 +166,17 @@ export default function SchedaAttivita() {
     }
     setDeal(deals);
     setLoading(false);
-    // Possibili duplicati (stesso indirizzo o nome simile), per proporre l'unione.
+    // Possibili duplicati. Due fonti che si completano: la Riconciliazione
+    // (coordinate + nome, vede anche le schede nascoste) e la ricerca locale
+    // per indirizzo/nome, che copre i negozi senza posizione.
     setDuplicati(p ? await trovaDuplicati(p).catch(() => []) : []);
+    setCoppie(
+      p
+        ? await fetchCoppieDuplicate()
+            .then((tutte) => tutte.filter((c) => c.tiene_id === p.id || c.togli_id === p.id))
+            .catch(() => [])
+        : [],
+    );
     // #2: se il negozio è già abbinato a un'azienda HubSpot, mostra subito i contatti.
     if (p?.hubspot_company_id) eseguiMatch(p, sc, az);
   }, [id]);
@@ -152,17 +189,72 @@ export default function SchedaAttivita() {
 
   // Unisci un duplicato in QUESTO target: i dati del duplicato passano qui e il
   // duplicato viene eliminato. Operazione distruttiva → chiede conferma.
-  function unisci(dup: Place) {
+  /**
+   * Le segnalazioni di questa scheda: prima le coppie della Riconciliazione
+   * (che sanno anche CHI deve restare), poi quelle trovate solo qui.
+   *
+   * ⚠️ La direzione conta. Prima il bottone era sempre «Unisci qui», cioè la
+   * scheda aperta vinceva sempre: aprendo il doppione vuoto si sarebbe
+   * cancellata la scheda buona. Ora chi resta lo dice la Riconciliazione (chi
+   * ha più lavoro addosso, e il cliente vince su tutto), e il bottone lo scrive.
+   */
+  const segnalazioni = useMemo<Segnalazione[]>(() => {
+    if (!place) return [];
+    const out: Segnalazione[] = [];
+    const visti = new Set<string>();
+    for (const c of coppie) {
+      const suo = c.tiene_id === place.id;
+      const altroId = suo ? c.togli_id : c.tiene_id;
+      visti.add(altroId);
+      out.push({
+        altroId,
+        altroNome: suo ? c.togli : c.tiene,
+        altroMeta: (suo ? c.indirizzo_togli : c.indirizzo_tiene) ?? c.citta ?? '',
+        tieneId: c.tiene_id,
+        togliId: c.togli_id,
+        restaQui: suo,
+        verdetto: c.verdetto,
+        metri: c.metri,
+      });
+    }
+    for (const d of duplicati) {
+      if (visti.has(d.id)) continue;
+      out.push({
+        altroId: d.id,
+        altroNome: d.nome,
+        altroMeta: [d.indirizzo, labelStato[d.stato]].filter(Boolean).join(' · '),
+        tieneId: place.id,
+        togliId: d.id,
+        restaQui: true,
+      });
+    }
+    return out;
+  }, [place, coppie, duplicati]);
+
+  /** Toglie la segnalazione dalle due liste: la coppia è stata chiusa. */
+  function chiudiSegnalazione(altroId: string) {
+    setCoppie((l) => l.filter((c) => c.tiene_id !== altroId && c.togli_id !== altroId));
+    setDuplicati((l) => l.filter((x) => x.id !== altroId));
+  }
+
+  function unisciSegnalazione(s: Segnalazione) {
     if (!place || unendo) return;
+    const resta = s.restaQui ? place.nome : s.altroNome;
+    const sparisce = s.restaQui ? s.altroNome : place.nome;
     conferma(
-      'Unire i target?',
-      `«${dup.nome}» verrà unito a «${place.nome}»: contatti, visite, trattative e task del duplicato passano qui e «${dup.nome}» viene eliminato. L'azione non è reversibile.`,
+      'Unire le due schede?',
+      'Resta «' + resta + '». Contatti, visite, trattative e task di «' + sparisce + '» passano lì, e «' + sparisce +
+        '» viene eliminata.' +
+        (s.restaQui ? '' : '\n\nÈ questa scheda a sparire: ti porto su quella che resta.'),
       async () => {
         setUnendo(true);
         try {
-          await unisciPlaces(dup.id, place.id);
-          setDuplicati((lista) => lista.filter((x) => x.id !== dup.id));
-          await carica();
+          await unisciCoppia(s.tieneId, s.togliId);
+          chiudiSegnalazione(s.altroId);
+          // Se è questa scheda a sparire, restarci mostrerebbe un negozio che
+          // non esiste più.
+          if (!s.restaQui) router.replace(`/(app)/attivita/${s.tieneId}`);
+          else await carica();
         } catch (e) {
           avvisa('Unione non riuscita', (e as Error)?.message ?? 'Riprova.');
         } finally {
@@ -171,6 +263,17 @@ export default function SchedaAttivita() {
       },
       { testoConferma: 'Unisci', distruttivo: true },
     );
+  }
+
+  /** «Non è un doppione»: la coppia non viene più proposta, né qui né in Riconciliazione. */
+  async function nonEDoppione(s: Segnalazione) {
+    if (!place) return;
+    chiudiSegnalazione(s.altroId);
+    try {
+      await ignoraCoppia(place.id, s.altroId);
+    } catch {
+      /* riprova al prossimo caricamento */
+    }
   }
 
   // Cambia la priorità direttamente dalla scheda (aggiornamento ottimistico).
@@ -182,17 +285,6 @@ export default function SchedaAttivita() {
       await aggiornaPlace(place.id, { priorita: p });
     } catch {
       setPlace((pl) => (pl ? { ...pl, priorita: prec } : pl));
-    }
-  }
-
-  // Ignora un suggerimento di duplicato: la coppia non verrà più proposta.
-  async function ignora(dup: Place) {
-    if (!place) return;
-    setDuplicati((lista) => lista.filter((x) => x.id !== dup.id));
-    try {
-      await ignoraDuplicato(place.id, dup.id);
-    } catch {
-      /* riprova al prossimo caricamento */
     }
   }
 
@@ -545,30 +637,54 @@ export default function SchedaAttivita() {
           <AzioneRapida icona="create-outline" label="Modifica" onPress={() => router.push(`/(app)/modifica/${place.id}`)} />
         </View>
 
-        {/* Possibili duplicati: stesso indirizzo o nome simile → proponi l'unione. */}
-        {duplicati.length ? (
+        {/* Possibili doppioni. Stessa fonte della Riconciliazione, più la
+            ricerca locale per i negozi senza posizione. Chi resta lo decide la
+            Riconciliazione, non «la scheda che stai guardando». */}
+        {segnalazioni.length ? (
           <View style={styles.dupBox}>
             <Text style={styles.dupTitolo}>
-              <Ionicons name="git-merge-outline" size={14} color={colors.attenzione} /> Possibile duplicato
+              <Ionicons name="git-merge-outline" size={14} color={colors.attenzione} />{' '}
+              {segnalazioni.length === 1 ? 'Possibile doppione' : `Possibili doppioni (${segnalazioni.length})`}
             </Text>
-            <Text style={styles.dupAiuto}>Unendoli, i dati del duplicato passano a «{place.nome}» e il duplicato viene eliminato.</Text>
-            {duplicati.map((d) => (
-              <View key={d.id} style={styles.dupRow}>
+            <Text style={styles.dupAiuto}>
+              Unendo, i dati passano alla scheda che resta e l’altra viene eliminata. Se non sono lo stesso
+              negozio, «Non è un doppione» chiude la segnalazione anche in Riconciliazione.
+            </Text>
+            {segnalazioni.map((s) => (
+              <View key={s.altroId} style={styles.dupRow}>
                 <View style={styles.dupRowTop}>
-                  <Pressable style={{ flex: 1 }} onPress={() => router.push(`/(app)/attivita/${d.id}`)}>
-                    <Text numberOfLines={3} style={styles.dupNome}>{d.nome}</Text>
-                    <Text style={styles.dupMeta} numberOfLines={1}>{[d.indirizzo, labelStato[d.stato]].filter(Boolean).join(' · ')}</Text>
+                  <Pressable style={{ flex: 1 }} onPress={() => router.push(`/(app)/attivita/${s.altroId}`)}>
+                    <Text numberOfLines={3} style={styles.dupNome}>{s.altroNome}</Text>
+                    <Text style={styles.dupMeta} numberOfLines={2}>
+                      {[s.altroMeta, s.metri != null ? `${s.metri} m` : null].filter(Boolean).join(' · ')}
+                    </Text>
+                    <Text style={styles.dupMeta} numberOfLines={1}>
+                      {s.restaQui ? 'Resta questa scheda' : `Resta «${s.altroNome}»`}
+                    </Text>
                   </Pressable>
-                  <Pressable style={[styles.btnUnisci, unendo && { opacity: 0.5 }]} onPress={() => unisci(d)} disabled={unendo}>
-                    {unendo ? <ActivityIndicator size="small" color={colors.bianco} /> : <Text style={styles.btnUnisciTxt}>Unisci qui</Text>}
-                  </Pressable>
+                  <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                    {s.verdetto ? (
+                      <StatusBadge small label={s.verdetto} colore={COLORE_VERDETTO[s.verdetto]} />
+                    ) : null}
+                    <Pressable
+                      style={[styles.btnUnisci, unendo && { opacity: 0.5 }]}
+                      onPress={() => unisciSegnalazione(s)}
+                      disabled={unendo}
+                    >
+                      {unendo ? (
+                        <ActivityIndicator size="small" color={colors.bianco} />
+                      ) : (
+                        <Text style={styles.btnUnisciTxt}>{s.restaQui ? 'Unisci qui' : 'Unisci là'}</Text>
+                      )}
+                    </Pressable>
+                  </View>
                 </View>
                 <View style={styles.dupAzioni}>
-                  <Pressable hitSlop={6} onPress={() => ignora(d)}>
-                    <Text style={styles.dupAzione}>Ignora suggerimento</Text>
+                  <Pressable hitSlop={6} onPress={() => nonEDoppione(s)}>
+                    <Text style={styles.dupAzione}>Non è un doppione</Text>
                   </Pressable>
                   <Text style={styles.dupSep}>·</Text>
-                  <Pressable hitSlop={6} onPress={() => nascondiDuplicato(d)}>
+                  <Pressable hitSlop={6} onPress={() => nascondiDuplicato({ id: s.altroId } as Place)}>
                     <Text style={styles.dupAzione}>Nascondi da target</Text>
                   </Pressable>
                 </View>
