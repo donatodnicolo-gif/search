@@ -97,7 +97,7 @@ Poi il **pagamento**:
 ⚠️ **L'ordine nasce in Shopify**, non nella nostra tabella: torna qui dal registro come
 tutti gli altri (entro ~20 minuti). Un ordine scritto solo qui sarebbe invisibile a
 logistica, contabilità e Shopify. Giorno e fascia si scrivono negli attributi
- e , gli unici che il registro legge.
+ `Data_Consegna` e `Fascia_Oraria_Consegna`, gli unici che il registro legge.
 
 ## Chargeback: le contestazioni di pagamento
 
