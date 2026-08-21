@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { DalNegozio } from "@/components/DalNegozio";
 import { RiquadroSeo } from "@/components/RiquadroSeo";
 import { Sidebar } from "@/components/Sidebar";
 import { Badge } from "@/components/Badge";
@@ -389,6 +390,26 @@ export default async function ProdottoPage({
           </form>
         )}
 
+        {/* **Il SEO sta fra le informazioni del prodotto** (chiesto dall'utente):
+            è come il prodotto si presenta su Google, non un dettaglio tecnico da
+            cercare in un'altra scheda. Sta qui e **solo** qui — lasciarlo anche
+            sotto Shopify vorrebbe dire due form che scrivono lo stesso campo. */}
+        {tab === "panoramica" && (
+          <RiquadroSeo
+            tipo="prodotto"
+            id={id}
+            daNegozio={{ titolo: prodotto.seoTitoloShopify, descrizione: prodotto.seoDescrizioneShopify }}
+            nostro={{ titolo: prodotto.seoTitolo, descrizione: prodotto.seoDescrizione }}
+            sincronia={{ modificatoIl: prodotto.seoModificatoIl, spintoIl: prodotto.seoSpintoIl }}
+            percorso={`/prodotti/${id}`}
+            conferma={seoConferma === "1"}
+            inModifica={seoModifica === "1"}
+          />
+        )}
+
+        {/* Tutto quello che il negozio dice di questo prodotto: i metafield. */}
+        {tab === "panoramica" && <DalNegozio p={prodotto} />}
+
         {/* ---------- Sviluppo (PLM) ---------- */}
         {tab === "sviluppo" && (
           <div className="due-colonne">
@@ -582,18 +603,14 @@ export default async function ProdottoPage({
                   : "Nessun negozio Shopify collegato (SHOPIFY_STORE_DOMAIN / SHOPIFY_ADMIN_TOKEN non impostati). Puoi comunque preparare e segnare lo stato: il payload è pronto, la scrittura reale sul negozio si attiva collegando le credenziali."}
               </span>
             </div>
-            {/* Il SEO sta nella scheda Shopify perché è lì che vive: è il testo
-                che il negozio mostra a Google. */}
-            <RiquadroSeo
-              tipo="prodotto"
-              id={id}
-              daNegozio={{ titolo: prodotto.seoTitoloShopify, descrizione: prodotto.seoDescrizioneShopify }}
-              nostro={{ titolo: prodotto.seoTitolo, descrizione: prodotto.seoDescrizione }}
-              sincronia={{ modificatoIl: prodotto.seoModificatoIl, spintoIl: prodotto.seoSpintoIl }}
-              percorso={`/prodotti/${id}?tab=shopify`}
-              conferma={seoConferma === "1"}
-              inModifica={seoModifica === "1"}
-            />
+            {/* Il SEO **è passato in Panoramica** (17/08/2026, chiesto
+                dall'utente): è un'informazione del prodotto, non un dettaglio
+                tecnico. Qui resta solo il rimando — due form sullo stesso campo
+                sarebbero due punti che possono dire cose diverse. */}
+            <p className="page-sub" style={{ marginTop: -6 }}>
+              Il <b>SEO</b> di questo prodotto sta fra le informazioni:{" "}
+              <a href={`/prodotti/${id}?tab=panoramica`}>aprilo in Panoramica</a>.
+            </p>
             <div className="scheda">
               <div className="scheda-titolo">Stato di pubblicazione</div>
               <div className="pill-scelta">

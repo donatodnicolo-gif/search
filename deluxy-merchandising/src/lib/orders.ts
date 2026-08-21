@@ -44,8 +44,19 @@ type OrdineOrders = {
     fulfillmentStatus?: string | null;
     annullato?: boolean;
   };
+  // Indirizzo di consegna. Si legge **solo** provincia e paese: sono il livello
+  // che serve a raggruppare il venduto per area, e l'indirizzo per esteso è un
+  // dato personale che quest'app non ha motivo di tenere. Orders espone anche
+  // `cittaDedotta`, che per come si chiama è ricavata dal testo: non si usa.
+  spedizione?: { provincia?: string | null; paese?: string | null };
   righe?: RigaOrders[];
 };
+
+/** Provincia/paese come li scrive il checkout: «ge», « GE », «Ge» sono la stessa cosa. */
+function normalizzaArea(v: string | null | undefined): string | null {
+  const s = (v ?? "").trim().toUpperCase();
+  return s === "" ? null : s;
+}
 
 export type EsitoImport = {
   ok: boolean;
@@ -156,6 +167,8 @@ export async function importaVendite(
     quantita: number;
     ricavo: number;
     origine: string;
+    provinciaSpedizione: string | null;
+    paeseSpedizione: string | null;
     riferimento: string;
   }[] = [];
 
@@ -230,6 +243,12 @@ export async function importaVendite(
             quantita: r.quantita || 0,
             ricavo: (r.prezzo || 0) * (r.quantita || 0),
             origine: "orders",
+            // Provincia in maiuscolo e paese normalizzati: arrivano dal
+            // checkout, dove «ge», «GE» e « Ge » sono la stessa provincia
+            // scritta da tre clienti diversi. Senza normalizzare, la stessa
+            // area comparirebbe tre volte nella scomposizione.
+            provinciaSpedizione: normalizzaArea(o.spedizione?.provincia),
+            paeseSpedizione: normalizzaArea(o.spedizione?.paese),
             riferimento: `${o.id}#${i}`,
           });
         }

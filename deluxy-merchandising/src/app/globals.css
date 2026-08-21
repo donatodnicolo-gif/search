@@ -318,6 +318,32 @@ tr.riga-cliccabile:hover, li.riga-cliccabile:hover { background: var(--fill); cu
   font-size: 12px; color: var(--text-tertiary); margin-bottom: 14px;
   font-variant-numeric: tabular-nums;
 }
+/* ── «Da cosa viene la differenza» ──────────────────────────────────────────
+   La barra ha lo ZERO AL CENTRO: chi ha aggiunto va a destra in verde, chi ha
+   tolto va a sinistra in rosso. Con una barra che parte da sinistra il segno
+   si leggerebbe solo dalla cifra, e il colpo d'occhio — che è tutto il punto
+   di una scomposizione — andrebbe perso. */
+.barra-contributo { position: relative; height: 8px; width: 100%; background: var(--fill-quaternary, rgba(120,120,128,0.12)); border-radius: 4px; overflow: hidden; }
+.barra-contributo-asse { position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: rgba(120,120,128,0.45); }
+.barra-contributo-riempi { position: absolute; top: 0; bottom: 0; border-radius: 3px; }
+.barra-contributo-riempi.su { background: var(--green); }
+.barra-contributo-riempi.giu { background: var(--red); }
+
+.tabella-scomposizione { width: 100%; }
+.tabella-scomposizione th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-tertiary); font-weight: 600; }
+.tabella-scomposizione td { vertical-align: middle; }
+/* La riga che raccoglie le voci oltre il taglio non è una voce come le altre:
+   si vede che è un contenitore, non un fornitore che si chiama «altre 12». */
+.tabella-scomposizione .riga-resto .cella-nome { font-style: italic; color: var(--text-secondary); font-weight: 400; }
+.nota-lente { font-size: 12.5px; color: var(--text-secondary); margin: 0 0 12px; max-width: 720px; }
+
+.scheda-sintesi { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+.sintesi-cifra { font-size: 30px; font-weight: 650; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.sintesi-testo { font-size: 13.5px; color: var(--text-secondary); flex: 1 1 320px; }
+
+/* Le tabelle larghe scorrono dentro la loro scheda, non spingono la pagina. */
+.sezione-scomposizione .scheda { overflow-x: auto; }
+
 .griglia-campi { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px 24px; }
 .campo dt { font-size: 12px; color: var(--text-tertiary); margin-bottom: 3px; }
 .campo dd { font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -1181,4 +1207,25 @@ details.conferma-x[open] > summary.btn-pericolo { color: #fff; opacity: .85; }
   .classifica-foto li { gap: 9px; }
   .classifica-foto .posto { flex-basis: 16px; font-size: 12px; }
   .classifica-foto .quanto b { font-size: 13px; }
+}
+
+/* ---------- Come lo descrive il negozio (metafield Shopify) ---------- */
+/* Due colonne su desktop: le voci sono corte e una colonna sola lascerebbe
+   mezza scheda vuota con quindici righe da leggere in verticale. */
+.dati-negozio {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 10px 24px; margin-top: 12px;
+}
+.dati-negozio > div { display: flex; flex-direction: column; gap: 3px; padding: 7px 0; border-bottom: 1px solid var(--hairline); }
+.dati-negozio dt { font-size: 12px; color: var(--text-secondary); display: flex; align-items: baseline; gap: 7px; }
+/* Il nome tecnico del metafield: serve a ritrovarlo nell'admin di Shopify, ma
+   non deve competere con l'etichetta italiana. */
+.dati-negozio .dato-da { font-size: 10.5px; color: var(--text-tertiary); font-family: var(--font-mono, ui-monospace, monospace); }
+.dati-negozio dd { font-size: 13.5px; }
+
+/* I valori a lista come pillole: «Rose, Dalie» sono due cose, non una stringa. */
+.pill-valori { display: flex; flex-wrap: wrap; gap: 5px; }
+.pill-valore {
+  display: inline-block; padding: 2px 9px; border-radius: 999px;
+  background: var(--fill); font-size: 12px; color: var(--text);
 }

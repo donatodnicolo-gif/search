@@ -1,6 +1,7 @@
 # Handoff — Deluxy Merchandising
 
-Stato al 26/07/2026. Una nuova sessione deve poter riprendere da qui senza contesto.
+Stato al 21/08/2026. Una nuova sessione deve poter riprendere da qui senza contesto.
+Le voci sono in ordine di data: **le ultime stanno in fondo a FATTO**, appena sopra «COME AVVIARE».
 
 ## Cos'è
 App per gestire il **prodotto a 360° come una maison di moda**: fonte di verità a
@@ -480,6 +481,13 @@ porta **3120**. Design system Deluxy v1.0.
   - `intervalloIt(dal, al)` in [fuso.ts](../src/lib/fuso.ts): l'anno si scrive una volta sola dentro lo stesso anno («20/05 → 17/08/2026») e su entrambi gli estremi quando cambia («18/08/2025 → 17/08/2026») — «ultimo anno» scavalca il capodanno, e lì l'anno è l'informazione che distingue le due date.
   - **Verificato**: `tsc` exit 0, `next build` ok; HTML letto in dev sui dati veri per **28 / 90 / 365 giorni** — testata e sei schede con le date giuste in ordine di documento, il riordino sempre a 56 giorni (23/06 → 17/08) mentre le altre seguono il periodo, e l'anno che compare su entrambi gli estremi solo su «ultimo anno».
   - ⚠️ **Non verificato a occhio**: col pannello del browser non a schermo la pagina non fa layout e `getBoundingClientRect` torna zeri (stessa famiglia della trappola «tab in background»). Spaziature e resa su telefono restano **da guardare**.
+
+- ⭐ **21/08/2026 — «Da cosa viene la differenza», e il confronto che pescava prima dell'archivio.** Trovata la sezione **finita al 90% e mai committata** dal 17/08 (`scomposizione.ts`, `Scomposizione.tsx`, `DalNegozio.tsx`, `riempi-aree.ts` + provincia/paese in `orders.ts` e i metafield in `shopify-collezioni.ts`): **`tsc` non passava**, quindi da quattro giorni nessuno poteva pubblicare *niente* di quest'app. Il tipo `Scomposizione` dichiarava `confrontoParziale` e la funzione non lo restituiva — **la stessa identica trappola del 17/08** (allora era `Freschezza`), due volte in due settimane: quando ci si ferma a metà in quest'app, ci si ferma esattamente qui, fra il tipo scritto e il calcolo ancora da fare.
+  - **Il pezzo mancante era il più importante della sezione**, non un dettaglio: su «ultimo anno» il periodo di confronto arriva a **due anni fa**, ma il venduto in archivio comincia il **26/07/2025**. Il «prima» risulta quasi vuoto (**336 pezzi contro 6.605**) e la pagina annunciava **+895.692 €** e voci a **+2238%** — che non è una crescita, è **archivio che non c'era travestito da risultato**. Ora un avviso ambra **subito sotto la cifra**, non in fondo: «dei 365 giorni del "prima" ne mancano **338**… la differenza resta una sottrazione esatta, ma non è una crescita».
+  - L'inizio dell'archivio si cerca **con lo stesso filtro** delle righe confrontate (buon fine, ambito del brand, esclusi e archiviati fuori): cercarlo su tutto il venduto risponderebbe a una domanda diversa da quella che si sta facendo. `giorniSenzaDati` si conta sul **calendario di Roma** (`giornoRoma`), non a millisecondi diviso 86.400.000, se no il cambio d'ora sposta il conto di un giorno.
+  - **Verificato in dev sui dati veri, entrambi i rami**: a **365 giorni** l'avviso c'è, con 22/08/2024, 26/07/2025 e 338 giorni mancanti; a **90 giorni** è **assente** (il confronto parte dal 25/02/2026, dentro l'archivio) e `quadra` è vero. `tsc` exit 0, `next build` ok.
+  - Il resto della sezione era già a posto e le colonne del database **erano già state migrate** (`provinciaSpedizione`/`paeseSpedizione` su `Vendita`, undici metafield su `Prodotto`): la lente **Area di consegna** è compilata sul **65% del venduto** e in dev mostra RM, MI, NA con «— non indicato —» dichiarato. La lente **Linea** si dichiara vuota invece di dire «100% senza linea».
+  - ⚠️ **Regola per quest'app, terza volta che serve**: prima di aggiungere qualsiasi cosa, `git status` **e** `npx tsc --noEmit`. Il working tree di `scoutwt` è condiviso fra sessioni e può contenere una feature intera ferma a un errore di tipo — che non si vede aprendo la pagina, si vede solo compilando.
 
 ## COME AVVIARE
 ```

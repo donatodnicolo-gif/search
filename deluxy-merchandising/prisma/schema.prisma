@@ -130,6 +130,32 @@ model Prodotto {
   // ore di preavviso, e una condizione costruita sul significato sbagliato
   // sceglierebbe i prodotti sbagliati in silenzio.
   minimoOrario          Int?
+  // **Gli altri metafield che il negozio riempie davvero** (censiti sul negozio
+  // il 17/08/2026 leggendo i prodotti attivi, non presi da una lista teorica).
+  // Sono l'anagrafica merceologica che finora l'app non vedeva: com'è fatto il
+  // prodotto, di che materia, chi lo produce.
+  //
+  // ⚠️ `custom.modello` e `custom.modelli` **sono due chiavi diverse per la
+  // stessa cosa** — singolare sui fiori, plurale sui dolci — e finiscono nello
+  // stesso campo: sono un errore di battitura diventato struttura, e tenerli
+  // separati vorrebbe dire due lenti mezze vuote per lo stesso concetto.
+  modelloShopify        String?  // custom.modello / custom.modelli — Bouquet, Pianta, Crostata
+  fioriShopify          String?  // custom.fiori         — Ortensie, Rose, Dalie
+  coloreFioriShopify    String?  // custom.colore_fiori  — Pink, White, Mix
+  gustiShopify          String?  // custom.gusti         — Frutta, Crema
+  dolciShopify          String?  // custom.dolci         — Macarons
+  daChiFattoShopify     String?  // custom.da_chi_fatto  — «Creato dall'Artista: », «Selezionato per te da »
+  claimShopify          String?  // custom.descrizione_cattura_vendite — «No Tempura No Party!»
+  pezzoUnicoShopify     Boolean? // custom.is_unique
+  nonFisicoShopify      Boolean? // custom.not_physical  — niente spedizione né giacenza
+  // **Chi lo produce, secondo il negozio.** È il partner della piattaforma
+  // consegne (`custom.partner_id`) col suo indirizzo. Vale doppio qui: l'app ha
+  // un buco storico di prodotti senza fornitore, e questo è il dato vero scritto
+  // sul negozio invece che dedotto. Resta **separato da `fornitoreId`**: quello
+  // è il fornitore deciso qui dentro, questo è quello che dice Shopify — e
+  // finché nessuno li ha confrontati, sovrapporli sarebbe una deduzione.
+  partnerIdShopify      String?  // custom.partner_id
+  partnerIndirizzoShopify String? // custom.partner_address
   tagShopify     String? // separati da virgola, come li dà Shopify
   handleShopify  String?
   // Giorni minimi per evadere il prodotto: il metafield Shopify `prodotto.consegna`
@@ -754,6 +780,20 @@ model Vendita {
   quantita   Int       @default(1)
   ricavo     Float     @default(0) // prezzo unitario x quantità
   origine    String    @default("orders") // orders | demo | manuale
+  // **Dove è andata a finire**: la provincia e il paese di *spedizione*
+  // dell'ordine, letti da Orders (`spedizione.provincia`, `spedizione.paese`).
+  //
+  // Tre scelte, tutte deliberate:
+  // 1. si prende la **provincia**, non la città: le città sono migliaia e ogni
+  //    riga farebbe gruppo a sé, mentre la provincia dà un centinaio di gruppi
+  //    su cui un confronto fra periodi ha senso statistico;
+  // 2. si legge `spedizione.*` e **mai `cittaDedotta`**, che in Orders è
+  //    dichiaratamente ricavata dal testo — un'area sbagliata sposterebbe
+  //    fatturato da un pezzo d'Italia a un altro senza che nessuno se ne accorga;
+  // 3. si tiene solo il livello **provincia/paese** e non l'indirizzo: qui serve
+  //    a raggruppare del venduto, e un dato personale che non serve non si copia.
+  provinciaSpedizione String?
+  paeseSpedizione     String?
   // Chiave di deduplica dell'import: "<idOrdine>#<indiceRiga>". Le righe di
   // Orders non hanno un id proprio, quindi la posizione fa da identità.
   riferimento String?  @unique
@@ -772,6 +812,9 @@ model Vendita {
   // `FILTRO_BUON_FINE` (statoPagamento in PAID/PARTIALLY_PAID) sta in quasi ogni
   // conto di vendita: classifiche, trend, riordino, assortimento.
   @@index([statoPagamento, data])
+  // La scomposizione «da cosa viene la differenza» raggruppa per area su due
+  // periodi affiancati: senza indice è una scansione piena del venduto.
+  @@index([provinciaSpedizione])
 }
 
 // Storico delle importazioni dal registro ordini: quando, quanto, com'è andata.

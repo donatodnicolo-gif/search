@@ -1,8 +1,10 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { Badge } from "@/components/Badge";
 import { FormFiltri } from "@/components/FormFiltri";
 import { FreschezzaVenduto } from "@/components/FreschezzaVenduto";
 import { GraficoAndamento, BarraQuota, Sparkline } from "@/components/Grafico";
+import { Scomposizione } from "@/components/Scomposizione";
 import { Sidebar } from "@/components/Sidebar";
 import { importaDaOrders } from "@/lib/azioni-vendite";
 import { brandCorrente } from "@/lib/brand";
@@ -21,6 +23,16 @@ import {
 } from "@/lib/vendite";
 
 export const dynamic = "force-dynamic";
+
+/** Il posto della scomposizione mentre arriva: stessa forma, non balla il layout. */
+function ScheletroScomposizione() {
+  return (
+    <div className="scheda" aria-hidden>
+      <div className="scheda-titolo">Da cosa viene la differenza</div>
+      <div className="vuoto-mini">smonto la differenza…</div>
+    </div>
+  );
+}
 
 export default async function VenditePage({
   searchParams,
@@ -197,6 +209,16 @@ export default async function VenditePage({
           <div className="scheda-titolo">Andamento del periodo</div>
           <GraficoAndamento serie={analisi.serie} passo={analisi.passo} />
         </div>
+
+        {/* Subito sotto il grafico, perché è lì che nasce la domanda: il
+            grafico mostra la differenza, questa sezione la spiega. Sta in
+            `<Suspense>` perché rilegge i due periodi interi e non deve tenere
+            ferma la pagina: il resto di /vendite si vede subito. */}
+        {analisi.totaleRighe > 0 && (
+          <Suspense fallback={<ScheletroScomposizione />}>
+            <Scomposizione giorni={giorni} brand={brand} />
+          </Suspense>
+        )}
 
         {analisi.totaleRighe === 0 ? (
           <div className="vuoto">

@@ -259,6 +259,19 @@ type ProdottoShopifyApi = {
   orario: { value: string } | null;
   bestSeller: { value: string } | null;
   minimoOrario: { value: string } | null;
+  // Gli altri metafield riempiti dal negozio (censimento del 17/08/2026).
+  modello: { value: string } | null;
+  modelli: { value: string } | null;
+  fiori: { value: string } | null;
+  coloreFiori: { value: string } | null;
+  gusti: { value: string } | null;
+  dolci: { value: string } | null;
+  daChiFatto: { value: string } | null;
+  claim: { value: string } | null;
+  pezzoUnico: { value: string } | null;
+  nonFisico: { value: string } | null;
+  partnerId: { value: string } | null;
+  partnerIndirizzo: { value: string } | null;
 };
 
 /**
@@ -297,6 +310,40 @@ export function interoDa(valore: string | null | undefined): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+/**
+ * **I metafield `custom.*` di un prodotto, tutti insieme.**
+ *
+ * Sta in una funzione sola perché i punti che scrivono un prodotto sono **tre**
+ * (le schede create dall'import, quelle aggiornate, e `allineaProdottiAlNegozio`)
+ * e con tre copie basta dimenticarne una perché lo stesso prodotto abbia dati
+ * diversi a seconda di quale strada l'ha toccato per ultima. È la trappola del
+ * «campo dimenticato in un select», già pagata due volte in quest'app.
+ */
+export function metafieldDa(p: ProdottoShopifyApi) {
+  return {
+    occasioniShopify: cittaDa(p.occasioni?.value),
+    tipologiaShopify: cittaDa(p.tipologiaMeta?.value),
+    classificazioneShopify: cittaDa(p.classificazione?.value),
+    dataShopify: cittaDa(p.dataMeta?.value),
+    orarioShopify: cittaDa(p.orario?.value),
+    bestSellerShopify: siNoDa(p.bestSeller?.value),
+    minimoOrario: interoDa(p.minimoOrario?.value),
+    // `modello` e `modelli` sono la stessa cosa scritta in due modi (singolare
+    // sui fiori, plurale sui dolci): si prende quello che c'è.
+    modelloShopify: cittaDa(p.modello?.value) ?? cittaDa(p.modelli?.value),
+    fioriShopify: cittaDa(p.fiori?.value),
+    coloreFioriShopify: cittaDa(p.coloreFiori?.value),
+    gustiShopify: cittaDa(p.gusti?.value),
+    dolciShopify: cittaDa(p.dolci?.value),
+    daChiFattoShopify: cittaDa(p.daChiFatto?.value),
+    claimShopify: p.claim?.value?.trim()?.slice(0, 500) || null,
+    pezzoUnicoShopify: siNoDa(p.pezzoUnico?.value),
+    nonFisicoShopify: siNoDa(p.nonFisico?.value),
+    partnerIdShopify: p.partnerId?.value?.trim() || null,
+    partnerIndirizzoShopify: p.partnerIndirizzo?.value?.trim()?.slice(0, 300) || null,
+  };
+}
+
 /** `custom.citta` arriva come lista JSON: ["Milano"]. **Vale per tutte le liste**. */
 export function cittaDa(valore: string | null | undefined): string | null {
   if (!valore) return null;
@@ -312,6 +359,12 @@ export function cittaDa(valore: string | null | undefined): string | null {
  * Pagine da 25: Shopify fa pagare ogni campo annidato e con pagine più grandi
  * la query supera il costo massimo consentito.
  */
+// I metafield si chiedono **uno per uno con un alias**, non con
+// `metafields(first: 40)`: Shopify fa pagare il `first` di ogni connessione, e
+// quaranta metafield su venticinque prodotti sforerebbero il tetto di 1.000
+// punti mandando in throttling proprio il negozio più grande. Un alias costa
+// quasi niente — e in più tiene la lista **dichiarata qui**, invece che
+// implicita in quello che il negozio si trova ad avere.
 async function leggiProdotti(n: Negozio): Promise<ProdottoShopifyApi[]> {
   const fuori: ProdottoShopifyApi[] = [];
   let cursore: string | null = null;
@@ -339,6 +392,18 @@ async function leggiProdotti(n: Negozio): Promise<ProdottoShopifyApi[]> {
              orario: metafield(namespace: "custom", key: "orario_consegna") { value }
              bestSeller: metafield(namespace: "custom", key: "best_seller") { value }
              minimoOrario: metafield(namespace: "custom", key: "minimo_orario") { value }
+             modello: metafield(namespace: "custom", key: "modello") { value }
+             modelli: metafield(namespace: "custom", key: "modelli") { value }
+             fiori: metafield(namespace: "custom", key: "fiori") { value }
+             coloreFiori: metafield(namespace: "custom", key: "colore_fiori") { value }
+             gusti: metafield(namespace: "custom", key: "gusti") { value }
+             dolci: metafield(namespace: "custom", key: "dolci") { value }
+             daChiFatto: metafield(namespace: "custom", key: "da_chi_fatto") { value }
+             claim: metafield(namespace: "custom", key: "descrizione_cattura_vendite") { value }
+             pezzoUnico: metafield(namespace: "custom", key: "is_unique") { value }
+             nonFisico: metafield(namespace: "custom", key: "not_physical") { value }
+             partnerId: metafield(namespace: "custom", key: "partner_id") { value }
+             partnerIndirizzo: metafield(namespace: "custom", key: "partner_address") { value }
            }
          }
        }`,
@@ -532,13 +597,7 @@ async function creaProdottiMancanti(
           cittaShopify: cittaDa(p.citta?.value),
           pubblicatoIlShopify: dataDa(p.publishedAt),
           creatoIlShopify: dataDa(p.createdAt),
-          occasioniShopify: cittaDa(p.occasioni?.value),
-          tipologiaShopify: cittaDa(p.tipologiaMeta?.value),
-          classificazioneShopify: cittaDa(p.classificazione?.value),
-          dataShopify: cittaDa(p.dataMeta?.value),
-          orarioShopify: cittaDa(p.orario?.value),
-          bestSellerShopify: siNoDa(p.bestSeller?.value),
-          minimoOrario: interoDa(p.minimoOrario?.value),
+          ...metafieldDa(p),
           handleShopify: p.handle,
           ggDispMin: Number.isFinite(gg) ? gg : null,
           shopifyId: p.id,
@@ -666,13 +725,7 @@ export async function allineaProdottiAlNegozio(
           cittaShopify: cittaDa(p.citta?.value),
           pubblicatoIlShopify: dataDa(p.publishedAt),
           creatoIlShopify: dataDa(p.createdAt),
-          occasioniShopify: cittaDa(p.occasioni?.value),
-          tipologiaShopify: cittaDa(p.tipologiaMeta?.value),
-          classificazioneShopify: cittaDa(p.classificazione?.value),
-          dataShopify: cittaDa(p.dataMeta?.value),
-          orarioShopify: cittaDa(p.orario?.value),
-          bestSellerShopify: siNoDa(p.bestSeller?.value),
-          minimoOrario: interoDa(p.minimoOrario?.value),
+          ...metafieldDa(p),
             handleShopify: p.handle,
             ggDispMin: Number.isFinite(gg) ? gg : null,
             statoShopify: p.status ?? null,
@@ -816,13 +869,7 @@ export async function importaCollezioniDa(n: Negozio): Promise<EsitoImportCollez
           cittaShopify: cittaDa(p.citta?.value),
           pubblicatoIlShopify: dataDa(p.publishedAt),
           creatoIlShopify: dataDa(p.createdAt),
-          occasioniShopify: cittaDa(p.occasioni?.value),
-          tipologiaShopify: cittaDa(p.tipologiaMeta?.value),
-          classificazioneShopify: cittaDa(p.classificazione?.value),
-          dataShopify: cittaDa(p.dataMeta?.value),
-          orarioShopify: cittaDa(p.orario?.value),
-          bestSellerShopify: siNoDa(p.bestSeller?.value),
-          minimoOrario: interoDa(p.minimoOrario?.value),
+          ...metafieldDa(p),
         handleShopify: p.handle,
         ggDispMin: Number.isFinite(gg) ? gg : null,
         // Lo **stato sul negozio**, per tutti i prodotti abbinati e non solo per
