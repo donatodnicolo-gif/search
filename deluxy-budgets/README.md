@@ -428,8 +428,10 @@ pubblicato), *sfidante* e *irraggiungibile*.
 - **Spese ADV** (`/spese`): quanto si può spendere in pubblicità per brand come **% delle
   vendite del mese**, personalizzabile mese per mese; l'importo consentito si ricalcola. I **mesi
   già passati sono in sola lettura**, il **totale dell'anno sta anche in fondo** (per brand e
-  complessivo) e **mentre si scrive si vede di quanto cambia**, casella per casella. Da qui si
-  **aggiunge un brand** nuovo. Vedi «Spese ADV: cosa si può ancora scrivere, e quanto sposta».
+  complessivo) e **mentre si scrive si vede di quanto cambia**, casella per casella. Una percentuale
+  **oltre il 100% blocca il salvataggio** (sarebbe spendere più di quanto il mese vende). Ogni brand
+  ha il **suo bottone Salva**, e da qui si **aggiunge un brand** nuovo. Vedi «Spese ADV: cosa si può
+  ancora scrivere, e quanto sposta».
 - **Impostazioni** (`/impostazioni`): moltiplicatori dei livelli sfidante/irraggiungibile,
   premi al raggiungimento, voci di costo del P&L (COGS %, costi fissi).
 
@@ -1393,11 +1395,39 @@ slug si **numerano**. Il brand nuovo **nasce a zero** e la pagina lo dice: senza
 percentuale non ha su cosa applicarsi, e il consentito resta 0 finché il budget non si scrive in
 Maison.
 
+**5. Una percentuale sopra il 100% è impossibile, e si dice.** Spendere in pubblicità più di quanto
+il mese vende non è un budget aggressivo: è un budget che non esiste. `max={100}` sull'input **non lo
+impedisce** (frena le frecce, non la tastiera) e l'API lo **tagliava in silenzio** con
+`Math.min(100, …)` — a schermo restava 150, a database finiva 100, e nessuno lo sapeva. Ora la casella
+diventa rossa con scritto «oltre il 100%: impossibile», la scheda del brand e il piede pagina lo
+spiegano, **il salvataggio è bloccato** (quello del brand e quello generale) e l'API **rifiuta invece
+di tagliare**, dichiarando quante ne ha scartate (`percentualiRifiutate`). Il controllo guarda **tutti**
+i mesi aperti, non solo quelli appena toccati: il salvataggio manda comunque tutto ciò che è ancora
+scrivibile, quindi un valore fuori scala rimasto lì da prima partirebbe insieme agli altri. I mesi
+chiusi non si segnano in rosso: additare un errore che nessuno può correggere non serve a niente.
+
+**6. Ogni brand ha il suo bottone Salva**, nella sua scheda, che manda solo i suoi mesi; quello in
+fondo salva tutti. Dodici caselle si sistemano un brand per volta, e dover scorrere fino in fondo per
+salvarne uno fa salvare anche gli altri per sbaglio. Salvando un brand si azzerano **solo le sue**
+caselle in sospeso: ripulirle tutte farebbe sparire dallo schermo le modifiche degli altri senza che
+nessuno le abbia scritte da nessuna parte.
+
+**7. L'allineamento della griglia dei mesi.** L'etichetta lunga («Lug · % su 50.000 € · chiuso») andava
+a capo e spingeva in basso *quel* campo, sfalsando la riga. Risolto **senza altezze fisse** — un numero
+da indovinare, sbagliato al primo carattere in più: la cella è una colonna flex e l'etichetta si
+allarga fino all'altezza della riga, così gli input partono tutti dalla stessa quota. Misurato: prima
+i campi della stessa riga stavano a `top` 593 e 595, ora a uno solo.
+
 🔎 **Come è stato verificato** (dev locale sullo stesso database di produzione): 60 caselle, **35
 disabilitate** = Gen–Lug × 5 brand; totale 178.703 € di cui 40.884 nei mesi chiusi; portando agosto di
 Deluxy.it da 13,4% a 20% → totale 182.003 €, `+3.300 €` sulla casella, sul brand e sul totale; salvato
-e **rimesso a 13,4** subito dopo, ricontrollando il valore a database. Il brand di prova creato per
-l'occasione è stato **cancellato**, dopo aver verificato che non avesse né budget né percentuali.
+e **rimesso a 13,4** subito dopo, ricontrollando il valore a database. A 150% la casella si è fatta
+rossa e **tutti** i bottoni si sono spenti; la `PUT` di 150% su settembre ha risposto
+`{"percentualiRifiutate":1}` lasciando 13,4 a database (non 100). Il salvataggio per brand: con due
+brand modificati, premendo «Salva CakeDesign.me» si è salvato **solo** quello e la modifica in sospeso
+di Deluxy.it è rimasta a schermo, evidenziata. Tutti i valori toccati sono stati riportati agli
+originali, e il brand di prova creato per l'occasione è stato **cancellato**, dopo aver verificato che
+non avesse né budget né percentuali.
 
 ⚠️ **Trappola di misura, non di codice**: nel pannello browser non a schermo il `borderColor`
 *calcolato* di un input già esistente resta quello vecchio anche dopo che la classe è cambiata — lo

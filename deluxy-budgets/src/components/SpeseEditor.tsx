@@ -32,7 +32,10 @@ export function SpeseEditor({
   }, [maisons]);
 
   const [modifiche, setModifiche] = useState<Record<string, number>>({});
-  const [salvo, setSalvo] = useState(false);
+  // Quale salvataggio è in corso: l'id del brand, `"*"` per tutti, `null` per
+  // nessuno. Un booleano solo metterebbe «Salvataggio…» su ogni bottone della
+  // pagina mentre ne sta lavorando uno.
+  const [salvo, setSalvo] = useState<string | null>(null);
   const [esito, setEsito] = useState<string | null>(null);
   const [nuovoBrand, setNuovoBrand] = useState("");
   const [creo, setCreo] = useState(false);
@@ -41,6 +44,23 @@ export function SpeseEditor({
   const chiuso = (month: number) => month < primoMeseAperto;
   const valore = (key: string) => modifiche[key] ?? originali[key] ?? 0;
   const toccata = (key: string) => modifiche[key] !== undefined && modifiche[key] !== (originali[key] ?? 0);
+
+  // Una percentuale sopra il 100 vuol dire spendere in pubblicità **più di
+  // quanto quel mese vende**: non è un budget aggressivo, è un budget
+  // impossibile. `max={100}` sull'input non lo impedisce (frena le frecce, non
+  // la tastiera) e l'API prima lo **tagliava in silenzio** a 100 — che è peggio
+  // di un errore, perché a schermo restava 150 e a database finiva 100.
+  const fuoriScala = (key: string) => {
+    const v = valore(key);
+    return !Number.isFinite(v) || v < 0 || v > 100;
+  };
+  // Si controllano **tutti** i mesi aperti, non solo quelli toccati: il
+  // salvataggio manda comunque tutto quello che è ancora scrivibile, quindi un
+  // valore fuori scala rimasto lì da prima partirebbe insieme agli altri.
+  const chiaviFuoriScala = (elenco: MaisonSpese[]) =>
+    elenco.flatMap((m) =>
+      m.mesi.filter((x) => !chiuso(x.month)).map((x) => `${m.id}:${x.month}`).filter(fuoriScala)
+    );
 
   // Consentito di una maison con una certa mappa di percentuali: serve due
   // volte per ogni riga (com'è adesso e com'era salvato), quindi una funzione
@@ -76,14 +96,30 @@ export function SpeseEditor({
   // euro: due modifiche opposte che si compensano lasciano il totale identico
   // e sarebbero comunque da salvare.
   const daSalvare = chiaviToccate.length > 0;
+  const erroriTotali = chiaviFuoriScala(maisons);
 
-  async function salva() {
-    setSalvo(true);
+  // Quali brand hanno qualcosa da salvare e quali sono bloccati da un valore
+  // impossibile: servono al bottone di ogni scheda e a quello finale.
+  const daSalvarePerMaison = (m: MaisonSpese) =>
+    chiaviToccate.some((k) => k.startsWith(`${m.id}:`));
+  const erroriPerMaison = (m: MaisonSpese) => chiaviFuoriScala([m]);
+
+  // `quali` vuoto = tutti. Salvare un brand per volta è il gesto naturale
+  // («sistemo Deluxy.it e lo metto via»), ma il salvataggio resta uno solo:
+  // due percorsi diversi verso la stessa PUT divergono al primo cambiamento.
+  async function salva(quali?: MaisonSpese[]) {
+    const elenco = quali ?? maisons;
+    const errori = chiaviFuoriScala(elenco);
+    if (errori.length > 0) {
+      setEsito("Ci sono percentuali oltre il 100%: correggile prima di salvare.");
+      return;
+    }
+    setSalvo(quali && quali.length === 1 ? quali[0].id : "*");
     setEsito(null);
     // Si mandano **solo i mesi aperti**: un mese chiuso qui non ha input, e
     // spedirlo lo stesso lo riscriverebbe con il valore che si vede — identico
     // oggi, ma è esattamente il modo in cui un blocco smette di bloccare.
-    const entries = maisons.flatMap((m) =>
+    const entries = elenco.flatMap((m) =>
       m.mesi
         .filter((x) => !chiuso(x.month))
         .map((x) => ({ maisonId: m.id, month: x.month, percent: valore(`${m.id}:${x.month}`) }))
@@ -94,21 +130,35 @@ export function SpeseEditor({
       body: JSON.stringify({ year, entries }),
     });
     const body = await res.json().catch(() => null);
-    setSalvo(false);
+    setSalvo(null);
     if (res.ok) {
-      setModifiche({});
+      // Si azzerano **solo le caselle appena salvate**: con un salvataggio per
+      // brand, ripulire tutto farebbe sparire le modifiche degli altri brand
+      // dallo schermo senza che nessuno le abbia scritte da nessuna parte.
+      const idSalvati = new Set(elenco.map((m) => m.id));
+      setModifiche((p) =>
+        Object.fromEntries(Object.entries(p).filter(([k]) => !idSalvati.has(k.split(":")[0])))
+      );
       // Il server rifiuta i mesi chiusi anche se il form non li manda: se ne ha
       // scartato qualcuno vuol dire che questa scheda era aperta da prima che
       // il mese si chiudesse, e dirlo evita di credere di aver salvato.
       const scartati: number[] = Array.isArray(body?.mesiChiusiIgnorati) ? body.mesiChiusiIgnorati : [];
+      const rifiutate: number = Number(body?.percentualiRifiutate ?? 0);
+      const dove = quali && quali.length === 1 ? `di ${quali[0].nome}` : "";
       setEsito(
-        scartati.length > 0
-          ? `Salvate le percentuali dei mesi aperti. ${scartati.map((m) => MESI[m - 1]).join(", ")} ${scartati.length === 1 ? "si è chiuso" : "si sono chiusi"} nel frattempo: ricarica la pagina.`
-          : "Percentuali salvate."
+        [
+          `Percentuali ${dove} salvate.`.replace("  ", " "),
+          scartati.length > 0
+            ? `${scartati.map((m) => MESI[m - 1]).join(", ")} ${scartati.length === 1 ? "si è chiuso" : "si sono chiusi"} nel frattempo: ricarica la pagina.`
+            : "",
+          rifiutate > 0 ? `${rifiutate} valori fuori dal 0–100% sono stati rifiutati.` : "",
+        ]
+          .filter(Boolean)
+          .join(" ")
       );
       router.refresh();
     } else {
-      setEsito("Salvataggio non riuscito, riprovare.");
+      setEsito(body?.error ?? "Salvataggio non riuscito, riprovare.");
     }
   }
 
@@ -170,6 +220,8 @@ export function SpeseEditor({
       {maisons.map((m) => {
         const riga = righe.find((r) => r.m.id === m.id)!;
         const totPubblicato = m.mesi.reduce((s, x) => s + x.pubblicato, 0);
+        const erroriQui = erroriPerMaison(m);
+        const modificatoQui = daSalvarePerMaison(m);
         return (
           <div className="card" key={m.id}>
             <div className="page-head" style={{ marginBottom: 14 }}>
@@ -189,7 +241,36 @@ export function SpeseEditor({
                   )}
                 </p>
               </div>
+              {/* Il salvataggio del singolo brand sta nella sua scheda: dodici
+                  caselle si sistemano un brand per volta, e dover scorrere fino
+                  in fondo per salvarne uno fa salvare anche gli altri per sbaglio. */}
+              <button
+                className="btn"
+                onClick={() => salva([m])}
+                disabled={salvo !== null || !modificatoQui || erroriQui.length > 0}
+                title={
+                  erroriQui.length > 0
+                    ? "C'è una percentuale oltre il 100%: correggila prima di salvare."
+                    : !modificatoQui
+                      ? "Niente da salvare su questo brand."
+                      : `Salva solo le percentuali di ${m.nome}.`
+                }
+              >
+                {salvo === m.id ? "Salvataggio…" : `Salva ${m.nome}`}
+              </button>
             </div>
+
+            {erroriQui.length > 0 && (
+              <div className="avviso-errore" style={{ marginBottom: 12 }}>
+                <strong>
+                  {erroriQui.length === 1 ? "Una percentuale supera" : `${erroriQui.length} percentuali superano`} il
+                  100%
+                </strong>{" "}
+                ({erroriQui.map((k) => MESI[Number(k.split(":")[1]) - 1]).join(", ")}): vorrebbe dire spendere in
+                pubblicità <strong>più di quanto il mese vende</strong>. Il salvataggio di questo brand resta
+                bloccato finché non torna dentro lo 0–100%.
+              </div>
+            )}
             <div className="mesi-grid">
               {m.mesi.map((x) => {
                 const key = `${m.id}:${x.month}`;
@@ -197,6 +278,9 @@ export function SpeseEditor({
                 const bloccato = chiuso(x.month);
                 const importo = (x.vendite * percent) / 100;
                 const importoSalvato = (x.vendite * (originali[key] ?? 0)) / 100;
+                // Un mese chiuso non si può correggere: segnarlo in rosso
+                // additerebbe un errore che nessuno può togliere.
+                const errata = !bloccato && fuoriScala(key);
                 return (
                   <div className="mese-cell" key={x.month}>
                     <div className="k">
@@ -210,11 +294,16 @@ export function SpeseEditor({
                       step={0.1}
                       value={percent}
                       disabled={bloccato}
-                      className={toccata(key) ? "toccata" : undefined}
+                      aria-invalid={errata || undefined}
+                      className={[errata ? "errata" : "", toccata(key) && !errata ? "toccata" : ""]
+                        .filter(Boolean)
+                        .join(" ") || undefined}
                       title={
                         bloccato
                           ? `${MESI[x.month - 1]} è un mese passato: il budget ADV non si riscrive dopo che è stato speso.`
-                          : undefined
+                          : errata
+                            ? "Fuori dallo 0–100%: la pubblicità di un mese non può superare quello che il mese vende."
+                            : undefined
                       }
                       onChange={(e) =>
                         setModifiche((p) => ({
@@ -224,8 +313,14 @@ export function SpeseEditor({
                       }
                     />
                     <div className="sub">
-                      = {eur(importo)}
-                      {toccata(key) && (
+                      {errata ? (
+                        <span className="errore">
+                          {percent > 100 ? "oltre il 100%" : "sotto zero"}: impossibile
+                        </span>
+                      ) : (
+                        <>= {eur(importo)}</>
+                      )}
+                      {toccata(key) && !errata && (
                         <>
                           <br />
                           <span className={`delta ${importo >= importoSalvato ? "su" : "giu"}`}>
@@ -307,17 +402,41 @@ export function SpeseEditor({
         </div>
         <p className="page-caption" style={{ margin: "10px 14px 4px" }}>
           La colonna <strong>«salvato»</strong> è quello che c&apos;è nel database adesso: finché non premi
-          «Salva percentuali» la differenza vive solo in questa pagina, e ricaricando sparisce. Dentro il
+          Salva la differenza vive solo in questa pagina, e ricaricando sparisce. Ogni brand ha il{" "}
+          <strong>suo bottone</strong> nella sua scheda; quello qui sotto salva tutti insieme. Dentro il
           totale ci sono <strong>{eur(totaleChiusi)}</strong> di mesi chiusi
           {primoMeseAperto > 1 ? ` (Gen–${MESI[primoMeseAperto - 2]})` : ""}, che non si possono più muovere:
           la differenza qui sopra riguarda solo {MESI[primoMeseAperto - 1]}–Dic.
         </p>
       </div>
 
+      {erroriTotali.length > 0 && (
+        <div className="avviso-errore" style={{ marginTop: 12 }}>
+          <strong>
+            {erroriTotali.length === 1
+              ? "Una percentuale è fuori dallo 0–100%"
+              : `${erroriTotali.length} percentuali sono fuori dallo 0–100%`}
+          </strong>
+          : una spesa pubblicitaria sopra il 100% delle vendite del mese non è un budget aggressivo, è un
+          budget <strong>impossibile</strong>. Il salvataggio è bloccato — sia quello del brand sia quello
+          generale — finché i valori non rientrano. Le caselle interessate sono in rosso.
+        </div>
+      )}
+
       <div className="form-footer">
         {esito && <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>{esito}</span>}
-        <button className="btn primary" onClick={salva} disabled={salvo || !daSalvare}>
-          {salvo ? "Salvataggio…" : !daSalvare ? "Niente da salvare" : "Salva percentuali"}
+        <button
+          className="btn primary"
+          onClick={() => salva()}
+          disabled={salvo !== null || !daSalvare || erroriTotali.length > 0}
+        >
+          {salvo === "*"
+            ? "Salvataggio…"
+            : erroriTotali.length > 0
+              ? "Correggi le percentuali impossibili"
+              : !daSalvare
+                ? "Niente da salvare"
+                : "Salva tutti i brand"}
         </button>
       </div>
     </>

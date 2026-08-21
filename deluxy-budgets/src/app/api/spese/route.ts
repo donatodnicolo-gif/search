@@ -15,12 +15,21 @@ export async function PUT(req: Request) {
   // stessa PUT partita da un'altra scheda rimasta aperta da ieri, o rigiocata
   // a mano, riscriverebbe il budget di un mese già speso.
   const rifiutati: number[] = [];
+  // Le percentuali impossibili si **rifiutano**, non si tagliano. Prima qui
+  // c'era `Math.min(100, …)`: chi scriveva 150 vedeva la sua casella a 150 e
+  // trovava scritto 100 a database, senza che niente lo dicesse — una
+  // correzione silenziosa è peggio di un errore, perché non si scopre mai.
+  let percentualiRifiutate = 0;
 
   for (const e of entries) {
     const maisonId = String(e?.maisonId ?? "");
     const month = Number(e?.month);
-    const percent = Math.min(100, Math.max(0, Number(e?.percent) || 0));
+    const percent = Number(e?.percent);
     if (!maisonId || month < 1 || month > 12) continue;
+    if (!Number.isFinite(percent) || percent < 0 || percent > 100) {
+      percentualiRifiutate++;
+      continue;
+    }
     if (meseChiuso(year, month)) {
       if (!rifiutati.includes(month)) rifiutati.push(month);
       continue;
@@ -34,5 +43,9 @@ export async function PUT(req: Request) {
 
   // Si dichiara quello che non è stato scritto: un `ok` secco su una richiesta
   // scartata a metà è il modo più veloce per credere di aver salvato.
-  return NextResponse.json({ ok: true, mesiChiusiIgnorati: rifiutati.sort((a, b) => a - b) });
+  return NextResponse.json({
+    ok: true,
+    mesiChiusiIgnorati: rifiutati.sort((a, b) => a - b),
+    percentualiRifiutate,
+  });
 }
