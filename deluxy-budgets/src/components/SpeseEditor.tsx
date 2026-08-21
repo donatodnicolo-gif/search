@@ -4,6 +4,10 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { eur, MESI } from "@/lib/format";
 
+// Punti percentuali, con al più un decimale: `150 − 100` fa 50, ma `113,4 − 100`
+// in virgola mobile fa 13,399999999999999 e a schermo sarebbe illeggibile.
+const punti = (v: number) => v.toLocaleString("it-IT", { maximumFractionDigits: 1 });
+
 type MeseSpesa = { month: number; vendite: number; percent: number; pubblicato: number };
 type MaisonSpese = { id: string; nome: string; mesi: MeseSpesa[] };
 
@@ -57,9 +61,21 @@ export function SpeseEditor({
   // Si controllano **tutti** i mesi aperti, non solo quelli toccati: il
   // salvataggio manda comunque tutto quello che è ancora scrivibile, quindi un
   // valore fuori scala rimasto lì da prima partirebbe insieme agli altri.
-  const chiaviFuoriScala = (elenco: MaisonSpese[]) =>
+  // Ogni sforamento porta con sé **di quanto** sfora e **quanto vale il 100%**
+  // di quel mese: «impossibile» senza il metro obbliga a cercarlo altrove.
+  const fuoriScalaDettagli = (elenco: MaisonSpese[]) =>
     elenco.flatMap((m) =>
-      m.mesi.filter((x) => !chiuso(x.month)).map((x) => `${m.id}:${x.month}`).filter(fuoriScala)
+      m.mesi
+        .filter((x) => !chiuso(x.month) && fuoriScala(`${m.id}:${x.month}`))
+        .map((x) => ({
+          maison: m.nome,
+          month: x.month,
+          percent: valore(`${m.id}:${x.month}`),
+          // Il 100% di un mese è, per definizione, tutto quello che quel mese
+          // vende: è il tetto della spesa, e va detto in euro.
+          cento: x.vendite,
+          punti: valore(`${m.id}:${x.month}`) - 100,
+        }))
     );
 
   // Consentito di una maison con una certa mappa di percentuali: serve due
@@ -96,20 +112,20 @@ export function SpeseEditor({
   // euro: due modifiche opposte che si compensano lasciano il totale identico
   // e sarebbero comunque da salvare.
   const daSalvare = chiaviToccate.length > 0;
-  const erroriTotali = chiaviFuoriScala(maisons);
+  const erroriTotali = fuoriScalaDettagli(maisons);
 
   // Quali brand hanno qualcosa da salvare e quali sono bloccati da un valore
   // impossibile: servono al bottone di ogni scheda e a quello finale.
   const daSalvarePerMaison = (m: MaisonSpese) =>
     chiaviToccate.some((k) => k.startsWith(`${m.id}:`));
-  const erroriPerMaison = (m: MaisonSpese) => chiaviFuoriScala([m]);
+  const erroriPerMaison = (m: MaisonSpese) => fuoriScalaDettagli([m]);
 
   // `quali` vuoto = tutti. Salvare un brand per volta è il gesto naturale
   // («sistemo Deluxy.it e lo metto via»), ma il salvataggio resta uno solo:
   // due percorsi diversi verso la stessa PUT divergono al primo cambiamento.
   async function salva(quali?: MaisonSpese[]) {
     const elenco = quali ?? maisons;
-    const errori = chiaviFuoriScala(elenco);
+    const errori = fuoriScalaDettagli(elenco);
     if (errori.length > 0) {
       setEsito("Ci sono percentuali oltre il 100%: correggile prima di salvare.");
       return;
@@ -265,10 +281,27 @@ export function SpeseEditor({
                 <strong>
                   {erroriQui.length === 1 ? "Una percentuale supera" : `${erroriQui.length} percentuali superano`} il
                   100%
-                </strong>{" "}
-                ({erroriQui.map((k) => MESI[Number(k.split(":")[1]) - 1]).join(", ")}): vorrebbe dire spendere in
-                pubblicità <strong>più di quanto il mese vende</strong>. Il salvataggio di questo brand resta
-                bloccato finché non torna dentro lo 0–100%.
+                </strong>
+                : vorrebbe dire spendere in pubblicità <strong>più di quanto il mese vende</strong>.
+                <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>
+                  {erroriQui.map((e) => (
+                    <li key={e.month}>
+                      <strong>{MESI[e.month - 1]}</strong>: {punti(e.percent)}% —{" "}
+                      {e.punti > 0 ? (
+                        <>
+                          <strong>{punti(e.punti)} punti oltre il 100%</strong>, e per quel mese il{" "}
+                          <strong>100% è {eur(e.cento)}</strong> (tetto della spesa){" "}
+                          {e.cento > 0 && <>· a {punti(e.percent)}% farebbe {eur((e.cento * e.percent) / 100)}</>}
+                        </>
+                      ) : (
+                        <strong>sotto zero</strong>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+                <div style={{ marginTop: 8 }}>
+                  Il salvataggio di questo brand resta bloccato finché non torna dentro lo 0–100%.
+                </div>
               </div>
             )}
             <div className="mesi-grid">
@@ -283,8 +316,10 @@ export function SpeseEditor({
                 const errata = !bloccato && fuoriScala(key);
                 return (
                   <div className="mese-cell" key={x.month}>
+                    {/* «% su 50.000 €» non diceva *quanto* è il 100%: è lo stesso
+                        numero, ma scritto come tetto si legge senza tradurlo. */}
                     <div className="k">
-                      {MESI[x.month - 1]} · % su {eur(x.vendite)}
+                      {MESI[x.month - 1]} · 100% = {eur(x.vendite)}
                       {bloccato && " · chiuso"}
                     </div>
                     <input
@@ -314,9 +349,13 @@ export function SpeseEditor({
                     />
                     <div className="sub">
                       {errata ? (
-                        <span className="errore">
-                          {percent > 100 ? "oltre il 100%" : "sotto zero"}: impossibile
-                        </span>
+                        <>
+                          <span className="errore">
+                            {percent > 100 ? `+${punti(percent - 100)} punti oltre il 100%` : "sotto zero"}
+                          </span>
+                          <br />
+                          il 100% è {eur(x.vendite)}
+                        </>
                       ) : (
                         <>= {eur(importo)}</>
                       )}
@@ -418,8 +457,14 @@ export function SpeseEditor({
               : `${erroriTotali.length} percentuali sono fuori dallo 0–100%`}
           </strong>
           : una spesa pubblicitaria sopra il 100% delle vendite del mese non è un budget aggressivo, è un
-          budget <strong>impossibile</strong>. Il salvataggio è bloccato — sia quello del brand sia quello
-          generale — finché i valori non rientrano. Le caselle interessate sono in rosso.
+          budget <strong>impossibile</strong> — il <strong>100%</strong> di un mese è tutto quello che quel
+          mese vende, e quello è il tetto.{" "}
+          {erroriTotali
+            .filter((e) => e.punti > 0)
+            .map((e) => `${e.maison} ${MESI[e.month - 1]}: +${punti(e.punti)} punti (100% = ${eur(e.cento)})`)
+            .join(" · ")}
+          . Il salvataggio è bloccato — sia quello del brand sia quello generale — finché i valori non
+          rientrano. Le caselle interessate sono in rosso.
         </div>
       )}
 

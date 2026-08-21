@@ -1395,16 +1395,26 @@ slug si **numerano**. Il brand nuovo **nasce a zero** e la pagina lo dice: senza
 percentuale non ha su cosa applicarsi, e il consentito resta 0 finché il budget non si scrive in
 Maison.
 
-**5. Una percentuale sopra il 100% è impossibile, e si dice.** Spendere in pubblicità più di quanto
-il mese vende non è un budget aggressivo: è un budget che non esiste. `max={100}` sull'input **non lo
-impedisce** (frena le frecce, non la tastiera) e l'API lo **tagliava in silenzio** con
-`Math.min(100, …)` — a schermo restava 150, a database finiva 100, e nessuno lo sapeva. Ora la casella
-diventa rossa con scritto «oltre il 100%: impossibile», la scheda del brand e il piede pagina lo
-spiegano, **il salvataggio è bloccato** (quello del brand e quello generale) e l'API **rifiuta invece
-di tagliare**, dichiarando quante ne ha scartate (`percentualiRifiutate`). Il controllo guarda **tutti**
-i mesi aperti, non solo quelli appena toccati: il salvataggio manda comunque tutto ciò che è ancora
-scrivibile, quindi un valore fuori scala rimasto lì da prima partirebbe insieme agli altri. I mesi
-chiusi non si segnano in rosso: additare un errore che nessuno può correggere non serve a niente.
+**5. Una percentuale sopra il 100% è impossibile, e si dice con il metro accanto.** Spendere in
+pubblicità più di quanto il mese vende non è un budget aggressivo: è un budget che non esiste.
+`max={100}` sull'input **non lo impedisce** (frena le frecce, non la tastiera) e l'API lo **tagliava in
+silenzio** con `Math.min(100, …)` — a schermo restava 150, a database finiva 100, e nessuno lo sapeva.
+
+Ora la casella diventa rossa, **il salvataggio è bloccato** (quello del brand e quello generale) e
+l'API **rifiuta invece di tagliare**, dichiarando quante ne ha scartate (`percentualiRifiutate`). Ma
+«impossibile» da solo non basta: senza il metro, chi legge deve andarselo a cercare. Quindi si dice
+**quanti punti** si sfora e **quanto vale il 100%** di quel mese, che è il tetto della spesa:
+
+- nella **casella**: `+37,5 punti oltre il 100%` e sotto `il 100% è 50.000 €`;
+- nella **scheda del brand**: *«Ago: 137,5% — 37,5 punti oltre il 100%, e per quel mese il 100% è
+  50.000 € (tetto della spesa) · a 137,5% farebbe 68.750 €»*;
+- nell'**etichetta di ogni mese**, sempre, anche quando è tutto a posto: `Ago · 100% = 50.000 €`
+  invece del vecchio `% su 50.000 €` — stesso numero, ma scritto come tetto si legge senza tradurlo.
+
+Il controllo guarda **tutti** i mesi aperti, non solo quelli appena toccati: il salvataggio manda
+comunque tutto ciò che è ancora scrivibile, quindi un valore fuori scala rimasto lì da prima
+partirebbe insieme agli altri. I mesi chiusi non si segnano in rosso: additare un errore che nessuno
+può correggere non serve a niente.
 
 **6. Ogni brand ha il suo bottone Salva**, nella sua scheda, che manda solo i suoi mesi; quello in
 fondo salva tutti. Dodici caselle si sistemano un brand per volta, e dover scorrere fino in fondo per
@@ -1412,11 +1422,19 @@ salvarne uno fa salvare anche gli altri per sbaglio. Salvando un brand si azzera
 caselle in sospeso: ripulirle tutte farebbe sparire dallo schermo le modifiche degli altri senza che
 nessuno le abbia scritte da nessuna parte.
 
-**7. L'allineamento della griglia dei mesi.** L'etichetta lunga («Lug · % su 50.000 € · chiuso») andava
-a capo e spingeva in basso *quel* campo, sfalsando la riga. Risolto **senza altezze fisse** — un numero
-da indovinare, sbagliato al primo carattere in più: la cella è una colonna flex e l'etichetta si
-allarga fino all'altezza della riga, così gli input partono tutti dalla stessa quota. Misurato: prima
-i campi della stessa riga stavano a `top` 593 e 595, ora a uno solo.
+**7. L'allineamento della griglia dei mesi, in due passaggi.** L'etichetta lunga («Lug · 100% =
+50.000 € · chiuso») va a capo e spingeva in basso *quel* campo, sfalsando la riga. Risolto **senza
+altezze fisse** — un numero da indovinare, sbagliato al primo carattere in più: la cella è una colonna
+flex e l'etichetta ha `flex: 1`, così si allarga fino all'altezza della riga e gli input partono tutti
+dalla stessa quota. Misurato: prima i campi della stessa riga stavano a `top` 593 e 595, poi a uno solo.
+
+⚠️ **E non bastava, perché la riga si rompe anche da sotto.** La riga sotto l'input a volte ha una sola
+riga di testo (l'importo) e a volte due (importo + scostamento, o l'avviso di sforamento): con il
+contenuto allineato in basso, la cella con due righe faceva salire il **proprio** input rispetto agli
+altri — è esattamente il difetto che si vede nella segnalazione, con agosto più in alto degli altri
+mesi. Rimedio: `.mese-cell .sub` con `line-height` esplicito e **due righe sempre riservate**
+(`min-height: 2.7em`). Verificato nei tre stati: normale, con scostamento e in errore — un solo valore
+di `top` per riga in tutti e tre.
 
 🔎 **Come è stato verificato** (dev locale sullo stesso database di produzione): 60 caselle, **35
 disabilitate** = Gen–Lug × 5 brand; totale 178.703 € di cui 40.884 nei mesi chiusi; portando agosto di

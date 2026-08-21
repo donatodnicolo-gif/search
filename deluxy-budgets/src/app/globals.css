@@ -216,7 +216,14 @@ input:focus, select:focus, textarea:focus {
 .mesi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px 12px; }
 .mesi-grid input { padding: 7px 10px; font-size: 13px; text-align: right; }
 .mese-cell .k { font-size: 11.5px; color: var(--text-tertiary); margin-bottom: 4px; font-weight: 500; }
-.mese-cell .sub { font-size: 11px; color: var(--text-tertiary); margin-top: 3px; text-align: right; font-variant-numeric: tabular-nums; }
+/* Due righe riservate sempre: la riga sotto l'input a volte ne ha una (l'importo)
+   e a volte due (importo + scostamento, o l'avviso di sforamento). Senza questo
+   la cella con due righe fa salire il **proprio** input rispetto agli altri della
+   stessa riga — l'allineamento si rompe da sotto, non da sopra. */
+.mese-cell .sub {
+  font-size: 11px; color: var(--text-tertiary); margin-top: 3px; text-align: right;
+  font-variant-numeric: tabular-nums; line-height: 1.35; min-height: 2.7em;
+}
 /* L'etichetta del mese va a capo quando è lunga (es. «Lug · % su 50.000 € · chiuso»)
    e senza questo la cella sfalsa in basso il proprio input, disallineando tutta
    la riga. Niente altezza fissa — che sarebbe un numero da indovinare e sbagliato
