@@ -78,7 +78,11 @@ export default function Trattative() {
 
   // Arrivo dal bottone «Nuova trattativa» di una scheda (Clienti): il form si
   // apre da solo col negozio già scelto, così non lo si ricerca di nuovo.
-  const { nuovoPer, nuovoNome } = useLocalSearchParams<{ nuovoPer?: string; nuovoNome?: string }>();
+  const { nuovoPer, nuovoNome, apri } = useLocalSearchParams<{
+    nuovoPer?: string;
+    nuovoNome?: string;
+    apri?: string;
+  }>();
   const placeDaParam = useMemo(
     () =>
       nuovoPer
@@ -89,6 +93,17 @@ export default function Trattative() {
   useEffect(() => {
     if (placeDaParam) setFormAperto(true);
   }, [placeDaParam]);
+
+  // Arrivo da fuori (le tessere della Home) su UNA trattativa: si apre la sua
+  // scheda. Si aspetta che l'elenco sia carico, se no non c'è niente da trovare.
+  // ⚠️ Poi si toglie il parametro dall'URL: se restasse, tornando su Trattative
+  // la scheda si riaprirebbe da sola — è la trappola già vista con `nuovoPer`.
+  useEffect(() => {
+    if (!apri || !deals.length) return;
+    const trovata = deals.find((d) => d.id === String(apri));
+    if (trovata) setEditDeal(trovata);
+    router.replace('/(app)/trattative');
+  }, [apri, deals, router]);
 
   const carica = useCallback(async () => {
     setLoading(true);

@@ -41,7 +41,7 @@ function isoOggi(): string {
 function isoGiorniFa(n: number): string {
   return new Date(Date.now() - n * 86400_000).toISOString();
 }
-type RigaDettaglio = { id: string; nome: string; meta: string; valore?: string; placeId?: string };
+type RigaDettaglio = { id: string; nome: string; meta: string; valore?: string; rotta?: string };
 
 /**
  * Quanti negozi ha senso proporre come giro di UNA giornata.
@@ -72,23 +72,31 @@ function dataBreve(iso: string): string {
 
 // Cosa c'è dietro ogni tessera, a parole. L'elenco vuoto deve dire PERCHÉ è
 // vuoto: «0» senza spiegazione fa pensare a un guasto dell'app.
-const DETTAGLIO_TESTI: Record<string, { titolo: string; vuoto: string }> = {
+const DETTAGLIO_TESTI: Record<string, { titolo: string; vuoto: string; cta: string; rotta: string }> = {
   visite: {
     titolo: 'Le tue visite degli ultimi 7 giorni',
     vuoto: 'Nessuna visita registrata negli ultimi 7 giorni. Si registrano dalla scheda del negozio, o dalla spunta sulla Mappa.',
+    cta: 'Apri lo Storico',
+    rotta: '/(app)/storico',
   },
   chiamate: {
     titolo: 'Le tue chiamate degli ultimi 7 giorni',
     vuoto:
       'Nessuna chiamata registrata. Attenzione: il bottone che le registra oggi sta solo in Affiliazioni — altrove il numero apre il telefono e non lascia traccia, quindi questo numero può essere 0 anche se hai telefonato.',
+    cta: 'Apri Chiamate · Affiliazioni',
+    rotta: '/(app)/affiliazioni',
   },
   trattative: {
     titolo: 'Le tue trattative aperte',
     vuoto: 'Nessuna trattativa aperta assegnata a te. Se ne apre una dalla scheda del negozio o da Trattative.',
+    cta: 'Apri le Trattative',
+    rotta: '/(app)/trattative',
   },
   pipeline: {
     titolo: 'Pipeline — trattative aperte per valore',
     vuoto: 'Nessuna trattativa aperta, quindi nessun valore in pipeline.',
+    cta: 'Apri le Trattative',
+    rotta: '/(app)/trattative',
   },
 };
 
@@ -226,7 +234,7 @@ export default function Oggi() {
           id: v.id,
           nome: nome(v.place_id),
           meta: `${LABEL_ESITO[v.esito ?? ''] ?? 'visita'} · ${dataBreve(v.data)}`,
-          placeId: v.place_id,
+          rotta: `/(app)/attivita/${v.place_id}`,
         }));
     }
     if (dettaglio === 'chiamate') {
@@ -234,7 +242,7 @@ export default function Oggi() {
         id: c.id,
         nome: nome(c.place_id),
         meta: [c.esito, dataBreve(c.created_at)].filter(Boolean).join(' · '),
-        placeId: c.place_id,
+        rotta: `/(app)/attivita/${c.place_id}`,
       }));
     }
     const deals = dettaglio === 'pipeline'
@@ -245,7 +253,9 @@ export default function Oggi() {
       nome: d.place_nome ?? d.oggetto ?? d.titolo ?? 'Trattativa',
       meta: [labelFase[d.fase] ?? d.fase, d.linea].filter(Boolean).join(' · '),
       valore: d.valore_atteso ? euro(d.valore_atteso) : 'valore non indicato',
-      placeId: d.place_id ?? undefined,
+      // La riga di una trattativa porta alla TRATTATIVA, non al negozio: la
+      // scheda si apre già aperta su quella (parametro `apri`).
+      rotta: `/(app)/trattative?apri=${d.id}`,
     }));
   }, [dettaglio, visite7g, chiamate7g, aperteMie, nomiPlace]);
 
@@ -334,9 +344,9 @@ export default function Oggi() {
         tipo={dettaglio}
         righe={righeDettaglio}
         onChiudi={() => setDettaglio(null)}
-        onApri={(placeId) => {
+        onApri={(rotta) => {
           setDettaglio(null);
-          router.push(`/(app)/attivita/${placeId}`);
+          router.push(rotta as any);
         }}
       />
 
@@ -537,7 +547,7 @@ function DettaglioKpi({
   tipo: null | 'visite' | 'chiamate' | 'trattative' | 'pipeline';
   righe: RigaDettaglio[];
   onChiudi: () => void;
-  onApri: (placeId: string) => void;
+  onApri: (rotta: string) => void;
 }) {
   if (!tipo) return null;
   const testi = DETTAGLIO_TESTI[tipo];
@@ -561,19 +571,22 @@ function DettaglioKpi({
                 <Pressable
                   key={r.id}
                   style={styles.foglioRiga}
-                  onPress={() => r.placeId && onApri(r.placeId)}
-                  disabled={!r.placeId}
+                  onPress={() => r.rotta && onApri(r.rotta)}
+                  disabled={!r.rotta}
                 >
                   <View style={styles.foglioTesto}>
                     <Text style={styles.foglioNome}>{r.nome}</Text>
                     <Text style={styles.foglioMeta} numberOfLines={2}>{r.meta}</Text>
                   </View>
                   {r.valore ? <Text style={styles.foglioValore}>{r.valore}</Text> : null}
-                  {r.placeId ? <Ionicons name="chevron-forward" size={16} color={colors.grigio} /> : null}
+                  {r.rotta ? <Ionicons name="chevron-forward" size={16} color={colors.grigio} /> : null}
                 </Pressable>
               ))
             )}
           </ScrollView>
+          <Pressable style={styles.foglioCta} onPress={() => onApri(testi.rotta)}>
+            <Text style={styles.link}>{testi.cta} ›</Text>
+          </Pressable>
         </Pressable>
       </Pressable>
     </Modal>
@@ -691,6 +704,7 @@ const styles = StyleSheet.create({
   foglioNome: { color: colors.testo, fontWeight: '700', fontSize: 14 },
   foglioMeta: { color: colors.testoSoft, fontSize: 12, marginTop: 1 },
   foglioValore: { color: colors.navy, fontWeight: '800', fontSize: 13 },
+  foglioCta: { paddingTop: spacing.sm, borderTopWidth: 1, borderTopColor: colors.hairline, marginTop: 2 },
   ritardo: { color: colors.errore, fontWeight: '800' },
   dot: { width: 8, height: 8, borderRadius: 4 },
   vuoto: { color: colors.grigio, fontStyle: 'italic', fontSize: 13 },
