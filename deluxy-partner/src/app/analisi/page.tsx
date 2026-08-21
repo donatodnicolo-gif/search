@@ -2,7 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { riepilogoTutti, ANNO_CORRENTE } from "@/lib/queries";
 import { euro, dataIt } from "@/lib/format";
-import { ivato, nomeMese } from "@/lib/calc";
+import { ivato, residuoFattura, incassatoFattura, nomeMese } from "@/lib/calc";
 import { qontoConfigurato, qontoOrganizzazione } from "@/lib/qonto";
 
 export const dynamic = "force-dynamic";
@@ -12,6 +12,18 @@ export const dynamic = "force-dynamic";
 // e da incassare; uscite = dovuti ai partner per competenza, divisi tra pagati
 // e da pagare. Il saldo proiettato parte dalla liquidità reale Qonto e somma
 // solo le partite ancora aperte.
+//
+// ⚠️ Una fattura APERTA senza scadenza NON viene collocata su un mese: la sua
+// scadenza non è un dato che abbiamo, e inventarla (prima si usava il 28 del
+// mese di competenza) faceva comparire dei «scaduto» rossi su mesi in cui non
+// era mai scaduto nulla. Finisce nella riga «Scadenza non indicata».
+// ⚠️ Le fatture segnate COMPENSATE non sono soldi da incassare: si chiudono
+// compensando il dovuto al partner, e per i partner in compensazione il loro
+// importo è già netto dentro `daBonificare`. Contarle qui era un doppio conto.
+// ⚠️ Di ogni fattura si conta il RESIDUO, non il totale: un acconto già
+// incassato sta fra gli incassi, come nello scadenzario.
+
+const CHIAVE_SENZA_SCADENZA = "9-senza-scadenza";
 
 type Voce = { chi: string; partnerId: string; rif: string; importo: number; saldata: boolean; href: string };
 type Bucket = {
@@ -54,6 +66,18 @@ export default async function AnalisiPage() {
 
   // ---- bucket per mese di scadenza ----
   const buckets = new Map<string, Bucket>();
+  const bucketSenzaScadenza = (): Bucket => {
+    if (!buckets.has(CHIAVE_SENZA_SCADENZA)) {
+      buckets.set(CHIAVE_SENZA_SCADENZA, {
+        chiave: CHIAVE_SENZA_SCADENZA,
+        etichetta: "Scadenza non indicata",
+        passato: false, // non si può dire scaduto ciò di cui non si sa la scadenza
+        entrate: [],
+        uscite: [],
+      });
+    }
+    return buckets.get(CHIAVE_SENZA_SCADENZA)!;
+  };
   const bucket = (d: Date): Bucket => {
     const inizio = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
     const precedente = inizio < inizioAnno;
@@ -74,17 +98,60 @@ export default async function AnalisiPage() {
     return buckets.get(chiave)!;
   };
 
-  // ENTRATE per scadenza (fallback: fine mese di competenza), split saldato/no
+  // Fatture compensate ancora aperte: fuori dal conto, ma dichiarate sotto.
+  const compensate = fatture.filter((f) => f.compensata && !f.pagata);
+  const compensateTot = compensate.reduce((a, f) => a + residuoFattura(f), 0);
+
+  // ENTRATE, split incassato / residuo da incassare.
+  // La parte GIÀ incassata resta sul mese di scadenza (o, se non c'è, sulla
+  // competenza: è storia chiusa, non muove né lo scaduto né la proiezione).
+  // La parte ANCORA APERTA va su un mese solo se la scadenza esiste davvero.
+  let senzaScadenzaN = 0;
+  let senzaScadenzaTot = 0;
+  let senzaScadenzaArretrateN = 0; // anni chiusi: restano nell'arretrato
   for (const f of fatture) {
-    const rifData = f.scadenza ?? new Date(Date.UTC(f.anno, f.mese - 1, 28));
-    bucket(rifData).entrate.push({
+    if (f.compensata && !f.pagata) continue;
+    const etichettaData = f.scadenza
+      ? ` · scad. ${dataIt(f.scadenza)}`
+      : ` · ${nomeMese(f.mese)} ${f.anno}`;
+    const voce = (importo: number, saldata: boolean, extra = ""): Voce => ({
       chi: f.partner.nome,
       partnerId: f.partnerId,
-      rif: `fatt. ${f.numero ?? "s.n."}${f.scadenza ? ` · scad. ${dataIt(f.scadenza)}` : ` · ${nomeMese(f.mese)} ${f.anno}`}${f.pagata && f.dataPagamento ? ` · incassata ${dataIt(f.dataPagamento)}` : ""}`,
-      importo: ivato(f),
-      saldata: f.pagata,
+      rif: `fatt. ${f.numero ?? "s.n."}${etichettaData}${extra}`,
+      importo,
+      saldata,
       href: `/fatture/${f.id}`,
     });
+
+    const incassato = f.pagata ? ivato(f) : incassatoFattura(f);
+    if (incassato >= 0.01) {
+      const extra = f.pagata
+        ? f.dataPagamento
+          ? ` · incassata ${dataIt(f.dataPagamento)}`
+          : ""
+        : " · acconto incassato";
+      bucket(f.scadenza ?? new Date(Date.UTC(f.anno, f.mese - 1, 28))).entrate.push(
+        voce(incassato, true, extra)
+      );
+    }
+
+    const residuo = residuoFattura(f);
+    if (residuo >= 0.01) {
+      const parziale = incassatoFattura(f) >= 0.01 ? " · residuo" : "";
+      if (f.scadenza) {
+        bucket(f.scadenza).entrate.push(voce(residuo, false, parziale));
+      } else if (f.anno < anno) {
+        // anno chiuso: è arretrato comunque, a prescindere dal giorno esatto
+        bucket(new Date(Date.UTC(f.anno, f.mese - 1, 28))).entrate.push(voce(residuo, false, parziale));
+        senzaScadenzaN++;
+        senzaScadenzaArretrateN++;
+        senzaScadenzaTot += residuo;
+      } else {
+        bucketSenzaScadenza().entrate.push(voce(residuo, false, parziale));
+        senzaScadenzaN++;
+        senzaScadenzaTot += residuo;
+      }
+    }
   }
 
   // USCITE per competenza, split pagato/da pagare
@@ -170,9 +237,33 @@ export default async function AnalisiPage() {
           <div className={`kpi-value ${(saldoBanca ?? 0) + totDaIncassare - totDaPagare >= 0 ? "pos" : "neg"}`}>
             {euro((saldoBanca ?? 0) + totDaIncassare - totDaPagare)}
           </div>
-          <div className="kpi-sub">incassando e pagando tutto l&apos;aperto</div>
+          <div className="kpi-sub">
+            incassando e pagando tutto l&apos;aperto
+            {senzaScadenzaTot >= 0.01 ? ` — ma ${euro(senzaScadenzaTot)} non ha una data` : ""}
+          </div>
         </div>
       </div>
+
+      {(senzaScadenzaN > 0 || compensate.length > 0) && (
+        <div className="card tight" style={{ marginBottom: 12, fontSize: 13 }}>
+          {senzaScadenzaN > 0 && (
+            <div>
+              ⚠️ <strong>{senzaScadenzaN} fatture aperte non hanno la scadenza</strong> ({euro(senzaScadenzaTot)} IVA
+              inclusa)
+              {senzaScadenzaArretrateN > 0
+                ? `: ${senzaScadenzaN - senzaScadenzaArretrateN} del ${anno} stanno nella riga «Scadenza non indicata», fuori dal calendario e senza far scattare nessuno «scaduto»; le altre ${senzaScadenzaArretrateN} sono di anni chiusi e restano nell'arretrato.`
+                : ": stanno nella riga «Scadenza non indicata», fuori dal calendario e senza far scattare nessuno «scaduto»."}{" "}
+              La scadenza si compila nella scheda della fattura — finché manca, questo piano vede solo il resto.
+            </div>
+          )}
+          {compensate.length > 0 && (
+            <div style={{ marginTop: senzaScadenzaN > 0 ? 6 : 0 }}>
+              {compensate.length} fatture segnate <strong>compensate</strong> ({euro(compensateTot)}) sono escluse dal
+              «da incassare»: non entrano in banca, si chiudono compensando il dovuto al partner.
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="card tight">
         <div className="table-wrap">
@@ -196,6 +287,7 @@ export default async function AnalisiPage() {
                 const daPagare = somma(r.uscite, false);
                 const diffAperta = daIncassare - daPagare;
                 cumulato += diffAperta;
+                const senzaData = r.chiave === CHIAVE_SENZA_SCADENZA;
                 const scaduto = r.passato && daIncassare >= 0.01;
                 const pctMese = pct(incassato + pagato, incassato + daIncassare + pagato + daPagare);
                 return (
@@ -207,10 +299,21 @@ export default async function AnalisiPage() {
                           <span className="dot" />scaduto
                         </span>
                       )}
-                      {pctMese && (
-                        <span className="muted" style={{ display: "block", fontSize: 11.5, fontWeight: 400 }}>
-                          saldato {pctMese}
+                      {senzaData && (
+                        <span className="badge" style={{ marginLeft: 8 }}>
+                          <span className="dot" />data mancante
                         </span>
+                      )}
+                      {senzaData ? (
+                        <span className="muted" style={{ display: "block", fontSize: 11.5, fontWeight: 400 }}>
+                          non si sa quando incassa: fuori dal calendario
+                        </span>
+                      ) : (
+                        pctMese && (
+                          <span className="muted" style={{ display: "block", fontSize: 11.5, fontWeight: 400 }}>
+                            saldato {pctMese}
+                          </span>
+                        )
                       )}
                       <details style={{ marginTop: 4 }}>
                         <summary className="muted" style={{ cursor: "pointer", fontSize: 12, fontWeight: 400, listStyle: "none" }}>
@@ -274,9 +377,13 @@ export default async function AnalisiPage() {
       <p className="muted" style={{ fontSize: 12.5, marginTop: 12 }}>
         Le entrate sono collocate sul mese di <strong>scadenza</strong> delle fatture (✓ = incassata,
         ○ = aperta; il badge &laquo;scaduto&raquo; segnala mesi passati con incassi ancora aperti);
-        le uscite sul mese di competenza del dovuto ai partner. Il saldo proiettato parte dalla
-        liquidità Qonto e somma solo le partite aperte. Le fatture incassate degli anni precedenti
-        sono escluse; l&apos;arretrato non saldato è nella prima riga.
+        le uscite sul mese di competenza del dovuto ai partner. <strong>Una fattura aperta senza
+        scadenza non finisce su nessun mese</strong>: sta nella riga &laquo;Scadenza non
+        indicata&raquo;, perché una data inventata farebbe comparire scaduti che non esistono. Fanno
+        eccezione le fatture degli anni chiusi, arretrate a prescindere dal giorno. Di ogni fattura
+        si conta il <strong>residuo</strong>, quindi un acconto già incassato figura fra gli incassi.
+        Il saldo proiettato parte dalla liquidità Qonto e somma solo le partite aperte. Le fatture
+        incassate degli anni precedenti sono escluse; l&apos;arretrato non saldato è nella prima riga.
       </p>
     </>
   );
