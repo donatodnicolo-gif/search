@@ -252,6 +252,7 @@ model Gruppo {
   @@unique([canale, idEsterno])
   @@index([campagnaId])
   @@index([brand])
+  bozzaAnnuncio    BozzaAnnuncio?
 }
 
 // Snapshot giornaliero di un gruppo. Gemello di MetricaCampagna: stessa forma,
@@ -1271,4 +1272,30 @@ model LocalitaCampagna {
 
   @@unique([campagnaId, idEsterno, esclusa])
   @@index([campagnaId])
+}
+
+// La bozza di un annuncio in scrittura, salvata mentre si scrive.
+//
+// ⚠️ Sul DATABASE e non nel browser, di proposito: un annuncio si scrive in più
+// momenti — «lo finisco domani» — e una bozza chiusa dentro localStorage vive
+// su quel computer e su quel browser soltanto. Qui vale la stessa scelta delle
+// viste salvate: condivisa, non per utente. Chi riapre il gruppo ritrova quello
+// che c'era, anche da un'altra postazione.
+//
+// Una sola bozza per gruppo: è la stessa casella su cui si stava scrivendo, non
+// una collezione di tentativi. Quando l'annuncio va in coda, la bozza si
+// cancella — tenerla farebbe ricomparire un lavoro già consegnato.
+model BozzaAnnuncio {
+  id           String   @id @default(cuid())
+  gruppoId     String   @unique
+  gruppo       Gruppo   @relation(fields: [gruppoId], references: [id], onDelete: Cascade)
+  // Un titolo per riga, una descrizione per riga: la stessa forma della casella
+  // in cui si scrive, così non c'è niente da tradurre nei due sensi.
+  titoli       String?
+  descrizioni  String?
+  finalUrl     String?
+  // Cosa era stato chiesto all'AI: senza, riaprendo si riscrive a memoria.
+  indicazione  String?
+  creataIl     DateTime @default(now())
+  aggiornataIl DateTime @updatedAt
 }

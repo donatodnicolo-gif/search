@@ -4,7 +4,8 @@ import { AndamentoMensile } from "@/components/AndamentoMensile";
 import { DettaglioKeyword } from "@/components/DettaglioKeyword";
 import { CreaAnnuncioAi } from "@/components/CreaAnnuncioAi";
 import { NuovaKeyword } from "@/components/NuovaKeyword";
-import { accodaAnnuncio, creaAnnuncioConAi } from "@/lib/azioni-annuncio";
+import { accodaAnnuncio, creaAnnuncioConAi, leggiBozzaAnnuncio, salvaBozzaAnnuncio, scartaBozzaAnnuncio } from "@/lib/azioni-annuncio";
+import { CodaCampagna } from "@/components/CodaCampagna";
 import { AzioneGruppo } from "@/components/AzioneGruppo";
 import { Badge } from "@/components/Badge";
 import { EstendiConAi } from "@/components/EstendiConAi";
@@ -774,6 +775,14 @@ export default async function SchedaGruppo({
             )}
           </div>
         </div>
+
+        {/* ⚠️ LA CODA DI QUESTO GRUPPO, in cima. Stesso principio dell'avviso
+            qui sotto, e stessa segnalazione: un annuncio messo in coda da
+            questa pagina lasciava la pagina identica a prima — «sembra non
+            succedere nulla». L'app diceva «va approvato in Operazioni» e poi
+            non mostrava né la riga né la strada per arrivarci: un esito che non
+            si vede dove si è agito è indistinguibile da un bottone rotto. */}
+        <CodaCampagna gruppoId={gruppo.id} ritorno={`/gruppi/${gruppo.id}`} />
 
         {/* ⚠️ L'avviso stava SOTTO il selettore del periodo. Chi premeva il
             bottone in cima leggeva «non è successo niente»: l'operazione era
@@ -1611,6 +1620,10 @@ export default async function SchedaGruppo({
                     azione={creaAnnuncioConAi}
                     accoda={accodaAnnuncio}
                     urlSuggerito={urlPerAnnuncio}
+                    ritorno={`/gruppi/${gruppo.id}`}
+                    leggiBozza={leggiBozzaAnnuncio}
+                    salvaBozza={salvaBozzaAnnuncio}
+                    scartaBozza={scartaBozzaAnnuncio}
                   />
                 </div>
                 {/* Stessa forma di Google Ads del blocco gemello sulla scheda

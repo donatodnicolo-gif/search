@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import type { EsitoAnnuncioAi } from "@/lib/azioni-annuncio";
 import { misuraTesto, oltreIlLimite } from "@/lib/funzioni-annuncio";
 
@@ -24,6 +24,10 @@ export function CreaAnnuncioAi({
   azione,
   accoda,
   urlSuggerito,
+  ritorno,
+  leggiBozza,
+  salvaBozza,
+  scartaBozza,
 }: {
   gruppoId: string;
   nomeGruppo: string;
@@ -41,6 +45,14 @@ export function CreaAnnuncioAi({
   }) => Promise<{ ok: true; operazioneId: string } | { ok: false; errore: string }>;
   /** La destinazione che il gruppo usa già: precompila il campo. */
   urlSuggerito?: string | null;
+  /** Dove tornare dopo aver approvato: finisce nel link di Operazioni. */
+  ritorno?: string;
+  /** Rilegge la bozza salvata per questo gruppo, se c'è. */
+  leggiBozza?: (gruppoId: string) => Promise<{ titoli: string; descrizioni: string; finalUrl: string; indicazione: string; aggiornataIl: string } | null>;
+  /** Salva la bozza mentre si scrive. */
+  salvaBozza?: (input: { gruppoId: string; titoli: string; descrizioni: string; finalUrl: string; indicazione: string }) => Promise<{ salvataIl: string } | { vuota: true }>;
+  /** Butta la bozza: dopo la messa in coda, o su richiesta. */
+  scartaBozza?: (gruppoId: string) => Promise<void>;
 }) {
   const dialogo = useRef<HTMLDialogElement>(null);
   const [indicazione, setIndicazione] = useState("");
@@ -59,6 +71,13 @@ export function CreaAnnuncioAi({
     { ok: true; operazioneId: string } | { ok: false; errore: string } | null
   >(null);
   const [inCoda, avviaCoda] = useTransition();
+  // La bozza: quando è stata salvata l'ultima volta, e se ne è stata ripresa
+  // una all'apertura. Sono due informazioni diverse e servono entrambe —
+  // «salvata» rassicura mentre si scrive, «ripresa» spiega perché le caselle
+  // non erano vuote.
+  const [salvataIl, setSalvataIl] = useState<string | null>(null);
+  const [ripresaDel, setRipresaDel] = useState<string | null>(null);
+  const [caricata, setCaricata] = useState(false);
 
   const righe = (t: string) => t.split("\n").map((r) => r.trim()).filter(Boolean);
   const titoli = righe(titoliTesto);
@@ -98,6 +117,29 @@ export function CreaAnnuncioAi({
     });
   };
 
+  // ⚠️ Il salvataggio è RITARDATO di un secondo dall'ultima battuta: salvare a
+  // ogni tasto vorrebbe dire una scrittura sul database per lettera, e su
+  // questo Postgres (connection_limit 5) è il modo migliore per far cadere la
+  // pagina mentre si scrive. Il timer si azzera a ogni modifica, quindi
+  // scrivendo di seguito si salva una volta sola alla fine.
+  //
+  // ⚠️ E NON prima che la bozza sia stata caricata: partire a salvare con le
+  // caselle ancora vuote cancellerebbe la bozza che si sta per leggere.
+  useEffect(() => {
+    if (!salvaBozza || !caricata || !dialogo.current?.open) return;
+    const t = setTimeout(() => {
+      salvaBozza({ gruppoId, titoli: titoliTesto, descrizioni: descrizioniTesto, finalUrl: url, indicazione })
+        .then((r) => setSalvataIl("salvataIl" in r ? r.salvataIl : null))
+        .catch(() => {
+          // Un salvataggio fallito non deve fermare la scrittura: si tace qui
+          // e lo si riprova alla battuta dopo. Quello che NON si fa è dire
+          // «salvata» quando non lo è.
+          setSalvataIl(null);
+        });
+    }, 1000);
+    return () => clearTimeout(t);
+  }, [titoliTesto, descrizioniTesto, url, indicazione, caricata, gruppoId, salvaBozza]);
+
   const testoDaCopiare = ["TITOLI", ...titoli, "", "DESCRIZIONI", ...descrizioni].join("\n");
 
   const stileArea: React.CSSProperties = {
@@ -118,6 +160,24 @@ export function CreaAnnuncioAi({
           setEsitoCoda(null);
           setCopiato(false);
           dialogo.current?.showModal();
+          // ⚠️ Si rilegge a OGNI apertura, non una volta sola: la bozza può
+          // essere stata scritta da un'altra postazione o in un altro giorno,
+          // e mostrarne una vecchia tenuta in memoria sarebbe peggio che non
+          // averla.
+          if (leggiBozza) {
+            leggiBozza(gruppoId).then((b) => {
+              setCaricata(true);
+              if (!b) return;
+              setTitoliTesto(b.titoli);
+              setDescrizioniTesto(b.descrizioni);
+              if (b.finalUrl) setUrl(b.finalUrl);
+              setIndicazione(b.indicazione);
+              setRipresaDel(b.aggiornataIl);
+              setSalvataIl(b.aggiornataIl);
+            });
+          } else {
+            setCaricata(true);
+          }
         }}
         title="Scrivi un annuncio nuovo per questo gruppo: a mano, oppure lasciandolo scrivere all'AI sui numeri veri del gruppo"
       >
@@ -150,6 +210,34 @@ export function CreaAnnuncioAi({
           </div>
 
           <div className="modale-elenco" style={{ paddingTop: 14, paddingBottom: 14 }}>
+            {/* Perché le caselle non erano vuote: senza dirlo, chi riapre
+                pensa che l'app abbia inventato qualcosa. */}
+            {ripresaDel && (
+              <div className="avviso-ok" style={{ marginBottom: 14 }}>
+                Ripresa la bozza lasciata il{" "}
+                {new Date(ripresaDel).toLocaleString("it-IT", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}.
+                {scartaBozza && (
+                  <>
+                    {" "}
+                    <button
+                      type="button"
+                      className="link-come-testo"
+                      onClick={async () => {
+                        await scartaBozza(gruppoId);
+                        setTitoliTesto("");
+                        setDescrizioniTesto("");
+                        setIndicazione("");
+                        setUrl(urlSuggerito ?? "");
+                        setRipresaDel(null);
+                        setSalvataIl(null);
+                      }}
+                    >
+                      ricomincia da capo
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
             {/* La destinazione PER PRIMA: è quella che decide cosa deve dire
                 l'annuncio, quindi va scelta prima di scriverlo. */}
             <label className="modale-campo" style={{ marginBottom: 14 }}>
@@ -268,9 +356,19 @@ export function CreaAnnuncioAi({
 
           {esitoCoda && (
             <div className={esitoCoda.ok ? "avviso-ok" : "modale-avviso"} style={{ margin: "0 18px 10px" }}>
-              {esitoCoda.ok
-                ? "Annuncio messo in coda: ora va approvato in Operazioni."
-                : esitoCoda.errore}
+              {esitoCoda.ok ? (
+                <>
+                  {/* ⚠️ Il link, non solo la frase: dire «va approvato in
+                      Operazioni» e lasciare l utente a cercarsela e'un vicolo
+                      cieco — e da fuori sembra che non sia successo niente. */}
+                  Annuncio messo in coda: ora va approvato.{" "}
+                  <a href={`/operazioni?torna=${encodeURIComponent(ritorno ?? "/operazioni")}`} style={{ textDecoration: "underline" }}>
+                    Vai ad approvarlo
+                  </a>
+                </>
+              ) : (
+                esitoCoda.errore
+              )}
             </div>
           )}
           {!pronto && (titoli.length > 0 || descrizioni.length > 0) && (
@@ -280,6 +378,16 @@ export function CreaAnnuncioAi({
           )}
 
           <div className="modale-piede">
+            {/* Lo stato della bozza sta nel piede, accanto ai bottoni: è lì
+                che si guarda prima di chiudere, che è il momento in cui uno si
+                chiede se perderà il lavoro. */}
+            <span className="cella-sub" style={{ marginRight: "auto" }}>
+              {salvataIl
+                ? `Bozza salvata alle ${new Date(salvataIl).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })} — puoi chiudere e riprendere dopo`
+                : titoli.length || descrizioni.length
+                ? ""
+                : ""}
+            </span>
             <button type="button" className="btn small btn-secondario" onClick={() => dialogo.current?.close()}>
               Chiudi
             </button>
@@ -302,9 +410,16 @@ export function CreaAnnuncioAi({
                 onClick={() => {
                   setEsitoCoda(null);
                   avviaCoda(async () => {
-                    setEsitoCoda(
-                      await accoda({ gruppoId, titoli, descrizioni, finalUrl: url.trim() })
-                    );
+                    const r = await accoda({ gruppoId, titoli, descrizioni, finalUrl: url.trim() });
+                    setEsitoCoda(r);
+                    // ⚠️ La bozza si butta SOLO se è andata in coda davvero:
+                    // buttarla su un errore vorrebbe dire perdere il lavoro
+                    // proprio nel momento in cui serve riprovare.
+                    if (r.ok && scartaBozza) {
+                      await scartaBozza(gruppoId);
+                      setSalvataIl(null);
+                      setRipresaDel(null);
+                    }
                   });
                 }}
               >

@@ -24,14 +24,24 @@ const ETICHETTA_TIPO: Record<string, string> = {
 // perché sono le uniche su cui si può ancora fare qualcosa.
 export async function CodaCampagna({
   campagnaId,
+  gruppoId,
   ritorno,
 }: {
-  campagnaId: string;
+  // Una delle due: la coda di una campagna, o quella di un singolo gruppo.
+  campagnaId?: string;
+  // ⚠️ Serve sulla scheda del GRUPPO: un annuncio nuovo o una pausa messi
+  // in coda da li lasciavano la pagina identica a prima, e l app diceva
+  // «messo in coda» senza che si vedesse niente. Un esito che non si vede
+  // dove si e agito e indistinguibile da un bottone che non ha funzionato.
+  gruppoId?: string;
   // Dove tornare dopo aver approvato: la coda lo riceve e mostra il bottone.
   ritorno: string;
 }) {
   const inCoda = await prisma.operazioneAdv.findMany({
-    where: { campagnaId, stato: { in: ["in_attesa", "approvata"] } },
+    where: {
+      ...(gruppoId ? { gruppoId } : campagnaId ? { campagnaId } : {}),
+      stato: { in: ["in_attesa", "approvata"] },
+    },
     orderBy: { creataIl: "desc" },
     take: 12,
   });

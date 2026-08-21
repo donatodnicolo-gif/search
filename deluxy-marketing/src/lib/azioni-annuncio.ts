@@ -259,3 +259,62 @@ export async function accodaAnnuncio(input: {
   });
   return { ok: true, operazioneId: op.id };
 }
+
+/** La bozza salvata per un gruppo, se c'è. */
+export async function leggiBozzaAnnuncio(gruppoId: string) {
+  const b = await prisma.bozzaAnnuncio.findUnique({ where: { gruppoId } });
+  if (!b) return null;
+  return {
+    titoli: b.titoli ?? "",
+    descrizioni: b.descrizioni ?? "",
+    finalUrl: b.finalUrl ?? "",
+    indicazione: b.indicazione ?? "",
+    aggiornataIl: b.aggiornataIl.toISOString(),
+  };
+}
+
+/**
+ * Salva la bozza mentre si scrive.
+ *
+ * ⚠️ Sul database e non nel browser: un annuncio si scrive in più momenti («lo
+ * finisco domani») e una bozza chiusa in localStorage vive su quel computer e
+ * su quel browser soltanto. Stessa scelta delle viste salvate: condivisa.
+ *
+ * ⚠️ Una bozza VUOTA non si salva, si cancella. Altrimenti chi svuota le
+ * caselle per ricominciare si ritroverebbe la bozza vuota al posto di niente, e
+ * la volta dopo l'app direbbe «ripresa una bozza» senza avere niente da
+ * riprendere.
+ */
+export async function salvaBozzaAnnuncio(input: {
+  gruppoId: string;
+  titoli: string;
+  descrizioni: string;
+  finalUrl: string;
+  indicazione: string;
+}): Promise<{ salvataIl: string } | { vuota: true }> {
+  const vuota =
+    !input.titoli.trim() && !input.descrizioni.trim() && !input.indicazione.trim();
+  if (vuota) {
+    await prisma.bozzaAnnuncio.deleteMany({ where: { gruppoId: input.gruppoId } });
+    return { vuota: true };
+  }
+  const dati = {
+    titoli: input.titoli,
+    descrizioni: input.descrizioni,
+    finalUrl: input.finalUrl,
+    indicazione: input.indicazione,
+  };
+  const b = await prisma.bozzaAnnuncio.upsert({
+    where: { gruppoId: input.gruppoId },
+    create: { gruppoId: input.gruppoId, ...dati },
+    update: dati,
+  });
+  return { salvataIl: b.aggiornataIl.toISOString() };
+}
+
+/** Butta la bozza: dopo che l'annuncio è andato in coda, o su richiesta. */
+export async function scartaBozzaAnnuncio(gruppoId: string): Promise<void> {
+  // ⚠️ `deleteMany` con il filtro sul gruppo, non un delete che esplode se non
+  // c'è: qui «non c'era niente da buttare» è un esito normale, non un errore.
+  await prisma.bozzaAnnuncio.deleteMany({ where: { gruppoId } });
+}
