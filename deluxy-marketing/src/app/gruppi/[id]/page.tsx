@@ -1561,10 +1561,22 @@ export default async function SchedaGruppo({
               </section>
             )}
 
-            {testi.length > 0 && (
+            {/* ⚠️ LA SEZIONE C'È ANCHE SENZA ANNUNCI, ed è il punto. Prima
+                esisteva solo `testi.length > 0`: il bottone per creare il
+                PRIMO annuncio viveva dentro il riquadro che compare solo
+                quando gli annunci ci sono già. Un gruppo appena creato — cioè
+                esattamente quello che ha più bisogno di un annuncio — non
+                mostrava niente, e da lì non si poteva partire.
+                E un gruppo senza annunci non è un dettaglio estetico: non può
+                erogare, e Google lo marca «Not eligible». */}
+            {(
               <section className="scheda" id="annunci">
                 <div className="scheda-titolo" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-                  <span>Titoli e descrizioni usati qui ({testi.length})</span>
+                  <span>
+                    {testi.length > 0
+                      ? `Titoli e descrizioni usati qui (${testi.length})`
+                      : "Annunci — questo gruppo non ne ha nessuno"}
+                  </span>
                   {/* Un annuncio NUOVO scritto sui numeri di questo gruppo.
                       Dal 19/08/2026 si puo anche METTERE IN CODA: lo script sa
                       crearlo (builder RSA dell API). Restano i tre cancelli —
@@ -1579,15 +1591,32 @@ export default async function SchedaGruppo({
                 </div>
                 {/* Stessa forma di Google Ads del blocco gemello sulla scheda
                     campagna: una scheda per testo col conteggio caratteri. */}
-                <TestiAnnuncio
-                  testi={testi}
-                  destinazioni={copy.filter((c) => c.tipo === "destinazione")}
-                  destinazioniAltriGruppi={destinazioniAltrove}
-                  soloAttivi={sp.ann === "attivi"}
-                  linkTutti={`/gruppi/${gruppo.id}?kw=${filtroKw}#annunci`}
-                  linkAttivi={`/gruppi/${gruppo.id}?kw=${filtroKw}&ann=attivi#annunci`}
-                  metricheAnnunci={copy.filter((c) => c.tipo === "annuncio")}
-                />
+                {testi.length > 0 ? (
+                  <TestiAnnuncio
+                    testi={testi}
+                    destinazioni={copy.filter((c) => c.tipo === "destinazione")}
+                    destinazioniAltriGruppi={destinazioniAltrove}
+                    soloAttivi={sp.ann === "attivi"}
+                    linkTutti={`/gruppi/${gruppo.id}?kw=${filtroKw}#annunci`}
+                    linkAttivi={`/gruppi/${gruppo.id}?kw=${filtroKw}&ann=attivi#annunci`}
+                    metricheAnnunci={copy.filter((c) => c.tipo === "annuncio")}
+                  />
+                ) : (
+                  // ⚠️ Il vuoto DICE la conseguenza, non si limita a essere
+                  // vuoto: un gruppo senza annunci non eroga niente, e Google
+                  // lo marca «Not eligible». Detto qui si capisce perché la
+                  // campagna non parte, invece di cercarlo altrove.
+                  <div className="nota-info" style={{ borderColor: "rgba(201,52,0,.35)", background: "rgba(201,52,0,.06)" }}>
+                    <span className="nota-icona" style={{ color: "var(--orange)" }}>⚠</span>
+                    <span>
+                      <b>Questo gruppo non ha annunci, quindi non può erogare</b> — su Google
+                      risulta «Not eligible» anche se le keyword ci sono e la campagna è accesa.
+                      Con <b>Crea con AI</b> qui sopra ne scrivi uno sui numeri del gruppo e lo
+                      metti in coda; oppure lo crei a mano in Google Ads e al giro dopo compare
+                      qui da solo.
+                    </span>
+                  </div>
+                )}
               </section>
             )}
           </div>
