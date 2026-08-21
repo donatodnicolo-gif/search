@@ -1,54 +1,20 @@
 import Link from "next/link";
-import { prisma } from "@/lib/db";
-import { riepilogoTutti, ANNO_CORRENTE } from "@/lib/queries";
-import { euro, dataIt } from "@/lib/format";
-import { ivato, residuoFattura, incassatoFattura, nomeMese } from "@/lib/calc";
+import { ANNO_CORRENTE } from "@/lib/queries";
+import { euro } from "@/lib/format";
 import { qontoConfigurato, qontoOrganizzazione } from "@/lib/qonto";
+import { costruisciAnalisi, sommaVoci, CHIAVE_SENZA_SCADENZA } from "@/lib/analisi";
 
 export const dynamic = "force-dynamic";
 
 // ANALISI FINANZIARIA — vista per SCADENZA con split saldato / da saldare.
-// Entrate = fatture servizi (IVATE) sul mese di scadenza, divise tra incassate
-// e da incassare; uscite = dovuti ai partner per competenza, divisi tra pagati
-// e da pagare. Il saldo proiettato parte dalla liquidità reale Qonto e somma
-// solo le partite ancora aperte.
-//
-// ⚠️ Una fattura APERTA senza scadenza NON viene collocata su un mese: la sua
-// scadenza non è un dato che abbiamo, e inventarla (prima si usava il 28 del
-// mese di competenza) faceva comparire dei «scaduto» rossi su mesi in cui non
-// era mai scaduto nulla. Finisce nella riga «Scadenza non indicata».
-// ⚠️ Le fatture segnate COMPENSATE non sono soldi da incassare: si chiudono
-// compensando il dovuto al partner, e per i partner in compensazione il loro
-// importo è già netto dentro `daBonificare`. Contarle qui era un doppio conto.
-// ⚠️ Di ogni fattura si conta il RESIDUO, non il totale: un acconto già
-// incassato sta fra gli incassi, come nello scadenzario.
-
-const CHIAVE_SENZA_SCADENZA = "9-senza-scadenza";
-
-type Voce = { chi: string; partnerId: string; rif: string; importo: number; saldata: boolean; href: string };
-type Bucket = {
-  chiave: string;
-  etichetta: string;
-  passato: boolean;
-  entrate: Voce[];
-  uscite: Voce[];
-};
+// Le regole del piano di cassa stanno in `src/lib/analisi.ts`, condivise con la
+// scheda del singolo periodo (/analisi/[periodo]): qui c'è solo il quadro
+// d'insieme, la liquidità Qonto e la proiezione.
 
 export default async function AnalisiPage() {
   const anno = ANNO_CORRENTE;
-  const oggi = new Date();
-  const meseCorrente = new Date(Date.UTC(oggi.getUTCFullYear(), oggi.getUTCMonth(), 1));
-  const inizioAnno = new Date(Date.UTC(anno, 0, 1));
-
-  const [fatture, tutti] = await Promise.all([
-    // tutte le fatture con importo: le saldate degli anni passati non servono,
-    // le aperte sì (sono arretrato da incassare)
-    prisma.fatturaServizio.findMany({
-      where: { imponibile: { gt: 0 }, OR: [{ anno }, { pagata: false }] },
-      include: { partner: true },
-    }),
-    riepilogoTutti(anno),
-  ]);
+  const analisi = await costruisciAnalisi(anno);
+  const { righe, totali, senzaData, compensate } = analisi;
 
   // liquidità attuale da Qonto (facoltativa)
   let saldoBanca: number | null = null;
@@ -64,133 +30,10 @@ export default async function AnalisiPage() {
     }
   }
 
-  // ---- bucket per mese di scadenza ----
-  const buckets = new Map<string, Bucket>();
-  const bucketSenzaScadenza = (): Bucket => {
-    if (!buckets.has(CHIAVE_SENZA_SCADENZA)) {
-      buckets.set(CHIAVE_SENZA_SCADENZA, {
-        chiave: CHIAVE_SENZA_SCADENZA,
-        etichetta: "Scadenza non indicata",
-        passato: false, // non si può dire scaduto ciò di cui non si sa la scadenza
-        entrate: [],
-        uscite: [],
-      });
-    }
-    return buckets.get(CHIAVE_SENZA_SCADENZA)!;
-  };
-  const bucket = (d: Date): Bucket => {
-    const inizio = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
-    const precedente = inizio < inizioAnno;
-    const chiave = precedente
-      ? "0-precedenti"
-      : `${inizio.getUTCFullYear()}-${String(inizio.getUTCMonth() + 1).padStart(2, "0")}`;
-    if (!buckets.has(chiave)) {
-      buckets.set(chiave, {
-        chiave,
-        etichetta: precedente
-          ? `${anno - 1} e precedenti`
-          : `${nomeMese(inizio.getUTCMonth() + 1)} ${inizio.getUTCFullYear()}`,
-        passato: inizio < meseCorrente,
-        entrate: [],
-        uscite: [],
-      });
-    }
-    return buckets.get(chiave)!;
-  };
-
-  // Fatture compensate ancora aperte: fuori dal conto, ma dichiarate sotto.
-  const compensate = fatture.filter((f) => f.compensata && !f.pagata);
-  const compensateTot = compensate.reduce((a, f) => a + residuoFattura(f), 0);
-
-  // ENTRATE, split incassato / residuo da incassare.
-  // La parte GIÀ incassata resta sul mese di scadenza (o, se non c'è, sulla
-  // competenza: è storia chiusa, non muove né lo scaduto né la proiezione).
-  // La parte ANCORA APERTA va su un mese solo se la scadenza esiste davvero.
-  let senzaScadenzaN = 0;
-  let senzaScadenzaTot = 0;
-  let senzaScadenzaArretrateN = 0; // anni chiusi: restano nell'arretrato
-  for (const f of fatture) {
-    if (f.compensata && !f.pagata) continue;
-    const etichettaData = f.scadenza
-      ? ` · scad. ${dataIt(f.scadenza)}`
-      : ` · ${nomeMese(f.mese)} ${f.anno}`;
-    const voce = (importo: number, saldata: boolean, extra = ""): Voce => ({
-      chi: f.partner.nome,
-      partnerId: f.partnerId,
-      rif: `fatt. ${f.numero ?? "s.n."}${etichettaData}${extra}`,
-      importo,
-      saldata,
-      href: `/fatture/${f.id}`,
-    });
-
-    const incassato = f.pagata ? ivato(f) : incassatoFattura(f);
-    if (incassato >= 0.01) {
-      const extra = f.pagata
-        ? f.dataPagamento
-          ? ` · incassata ${dataIt(f.dataPagamento)}`
-          : ""
-        : " · acconto incassato";
-      bucket(f.scadenza ?? new Date(Date.UTC(f.anno, f.mese - 1, 28))).entrate.push(
-        voce(incassato, true, extra)
-      );
-    }
-
-    const residuo = residuoFattura(f);
-    if (residuo >= 0.01) {
-      const parziale = incassatoFattura(f) >= 0.01 ? " · residuo" : "";
-      if (f.scadenza) {
-        bucket(f.scadenza).entrate.push(voce(residuo, false, parziale));
-      } else if (f.anno < anno) {
-        // anno chiuso: è arretrato comunque, a prescindere dal giorno esatto
-        bucket(new Date(Date.UTC(f.anno, f.mese - 1, 28))).entrate.push(voce(residuo, false, parziale));
-        senzaScadenzaN++;
-        senzaScadenzaArretrateN++;
-        senzaScadenzaTot += residuo;
-      } else {
-        bucketSenzaScadenza().entrate.push(voce(residuo, false, parziale));
-        senzaScadenzaN++;
-        senzaScadenzaTot += residuo;
-      }
-    }
-  }
-
-  // USCITE per competenza, split pagato/da pagare
-  for (const t of tutti) {
-    for (const m of t.mesi) {
-      const r = m.riepilogo;
-      const dataComp = new Date(Date.UTC(anno, m.mese - 1, 28));
-      const hrefMese = `/partner/${t.partner.id}#mese-${m.mese}`;
-      if (r.bonificoInviato >= 0.01) {
-        bucket(dataComp).uscite.push({
-          chi: t.partner.nome,
-          partnerId: t.partner.id,
-          rif: `dovuto ${nomeMese(m.mese)} ${anno}`,
-          importo: r.bonificoInviato,
-          saldata: true,
-          href: hrefMese,
-        });
-      }
-      if (r.daBonificare >= 0.01) {
-        bucket(dataComp).uscite.push({
-          chi: t.partner.nome,
-          partnerId: t.partner.id,
-          rif: `dovuto ${nomeMese(m.mese)} ${anno}`,
-          importo: r.daBonificare,
-          saldata: false,
-          href: hrefMese,
-        });
-      }
-    }
-  }
-
-  const righe = [...buckets.values()].sort((a, b) => a.chiave.localeCompare(b.chiave));
-  const somma = (v: Voce[], saldata: boolean) =>
-    v.filter((x) => x.saldata === saldata).reduce((a, x) => a + x.importo, 0);
-
-  const totIncassato = righe.reduce((a, r) => a + somma(r.entrate, true), 0);
-  const totDaIncassare = righe.reduce((a, r) => a + somma(r.entrate, false), 0);
-  const totPagato = righe.reduce((a, r) => a + somma(r.uscite, true), 0);
-  const totDaPagare = righe.reduce((a, r) => a + somma(r.uscite, false), 0);
+  const totIncassato = totali.incassato;
+  const totDaIncassare = totali.daIncassare;
+  const totPagato = totali.pagato;
+  const totDaPagare = totali.daPagare;
   let cumulato = saldoBanca ?? 0;
 
   const pct = (fatto: number, tot: number) =>
@@ -203,7 +46,8 @@ export default async function AnalisiPage() {
           <h1 className="page-title">Analisi finanziaria</h1>
           <p className="page-caption">
             Entrate e uscite per mese di scadenza, con lo split tra saldato e da saldare
-            {saldoBanca != null ? " — liquidità letta in tempo reale da Qonto" : ""}.
+            {saldoBanca != null ? " — liquidità letta in tempo reale da Qonto" : ""}. Apri un mese
+            per vedere fattura per fattura da dove viene il numero.
           </p>
         </div>
       </div>
@@ -239,26 +83,29 @@ export default async function AnalisiPage() {
           </div>
           <div className="kpi-sub">
             incassando e pagando tutto l&apos;aperto
-            {senzaScadenzaTot >= 0.01 ? ` — ma ${euro(senzaScadenzaTot)} non ha una data` : ""}
+            {senzaData.importo >= 0.01 ? ` — ma ${euro(senzaData.importo)} non ha una data` : ""}
           </div>
         </div>
       </div>
 
-      {(senzaScadenzaN > 0 || compensate.length > 0) && (
+      {(senzaData.fatture > 0 || compensate.fatture > 0) && (
         <div className="card tight" style={{ marginBottom: 12, fontSize: 13 }}>
-          {senzaScadenzaN > 0 && (
+          {senzaData.fatture > 0 && (
             <div>
-              ⚠️ <strong>{senzaScadenzaN} fatture aperte non hanno la scadenza</strong> ({euro(senzaScadenzaTot)} IVA
+              ⚠️ <strong>{senzaData.fatture} fatture aperte non hanno la scadenza</strong> ({euro(senzaData.importo)} IVA
               inclusa)
-              {senzaScadenzaArretrateN > 0
-                ? `: ${senzaScadenzaN - senzaScadenzaArretrateN} del ${anno} stanno nella riga «Scadenza non indicata», fuori dal calendario e senza far scattare nessuno «scaduto»; le altre ${senzaScadenzaArretrateN} sono di anni chiusi e restano nell'arretrato.`
+              {senzaData.arretrate > 0
+                ? `: ${senzaData.fatture - senzaData.arretrate} del ${anno} stanno nella riga «Scadenza non indicata», fuori dal calendario e senza far scattare nessuno «scaduto»; le altre ${senzaData.arretrate} sono di anni chiusi e restano nell'arretrato.`
                 : ": stanno nella riga «Scadenza non indicata», fuori dal calendario e senza far scattare nessuno «scaduto»."}{" "}
-              La scadenza si compila nella scheda della fattura — finché manca, questo piano vede solo il resto.
+              La scadenza si compila nella scheda della fattura — finché manca, questo piano vede solo il resto.{" "}
+              <Link href={`/analisi/${CHIAVE_SENZA_SCADENZA}`} style={{ fontWeight: 600 }}>
+                Vedile una per una →
+              </Link>
             </div>
           )}
-          {compensate.length > 0 && (
-            <div style={{ marginTop: senzaScadenzaN > 0 ? 6 : 0 }}>
-              {compensate.length} fatture segnate <strong>compensate</strong> ({euro(compensateTot)}) sono escluse dal
+          {compensate.fatture > 0 && (
+            <div style={{ marginTop: senzaData.fatture > 0 ? 6 : 0 }}>
+              {compensate.fatture} fatture segnate <strong>compensate</strong> ({euro(compensate.importo)}) sono escluse dal
               «da incassare»: non entrano in banca, si chiudono compensando il dovuto al partner.
             </div>
           )}
@@ -281,19 +128,21 @@ export default async function AnalisiPage() {
             </thead>
             <tbody>
               {righe.map((r) => {
-                const incassato = somma(r.entrate, true);
-                const daIncassare = somma(r.entrate, false);
-                const pagato = somma(r.uscite, true);
-                const daPagare = somma(r.uscite, false);
+                const incassato = sommaVoci(r.entrate, true);
+                const daIncassare = sommaVoci(r.entrate, false);
+                const pagato = sommaVoci(r.uscite, true);
+                const daPagare = sommaVoci(r.uscite, false);
                 const diffAperta = daIncassare - daPagare;
                 cumulato += diffAperta;
-                const senzaData = r.chiave === CHIAVE_SENZA_SCADENZA;
+                const senzaData = r.senzaScadenza;
                 const scaduto = r.passato && daIncassare >= 0.01;
                 const pctMese = pct(incassato + pagato, incassato + daIncassare + pagato + daPagare);
                 return (
                   <tr key={r.chiave}>
                     <td style={{ fontWeight: 600 }}>
-                      {r.etichetta}
+                      <Link href={`/analisi/${r.chiave}`} title={`Apri il dettaglio di ${r.etichetta}`}>
+                        {r.etichetta}
+                      </Link>
                       {scaduto && (
                         <span className="badge red" style={{ marginLeft: 8 }}>
                           <span className="dot" />scaduto
@@ -317,7 +166,7 @@ export default async function AnalisiPage() {
                       )}
                       <details style={{ marginTop: 4 }}>
                         <summary className="muted" style={{ cursor: "pointer", fontSize: 12, fontWeight: 400, listStyle: "none" }}>
-                          {r.entrate.length} incassi · {r.uscite.length} pagamenti — dettaglio
+                          {r.entrate.length} incassi · {r.uscite.length} pagamenti — anteprima
                         </summary>
                         <div style={{ marginTop: 8, fontSize: 12.5, fontWeight: 400, display: "grid", gap: 3 }}>
                           {[...r.entrate].sort((a, b) => Number(a.saldata) - Number(b.saldata) || b.importo - a.importo).map((v, i) => (
@@ -338,6 +187,11 @@ export default async function AnalisiPage() {
                               </Link>
                             </div>
                           ))}
+                          <div style={{ marginTop: 4 }}>
+                            <Link href={`/analisi/${r.chiave}`} className="btn small secondary">
+                              Apri il dettaglio completo →
+                            </Link>
+                          </div>
                         </div>
                       </details>
                     </td>
