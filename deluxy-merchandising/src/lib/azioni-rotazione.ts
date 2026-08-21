@@ -103,6 +103,9 @@ export async function eseguiRotazioneAdesso(id: string) {
   const messaggio =
     `«${esito.regola}»: ${esito.collezioni} collezioni rimesse in ordine` +
     (esito.spinte ? `, ${esito.spinte} mandate a Shopify` : "") +
+    (esito.saltate.length
+      ? `, ${esito.saltate.length} saltate (${esito.saltate[0].perche})`
+      : "") +
     (esito.errori.length ? ` · ${esito.errori.length} errori: ${esito.errori.slice(0, 2).join(" · ")}` : ".");
   redirect(
     `/visual/rotazioni?esito=${esito.errori.length ? "errore" : "ok"}&messaggio=${encodeURIComponent(messaggio)}`

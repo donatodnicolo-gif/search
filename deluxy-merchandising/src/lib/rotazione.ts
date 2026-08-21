@@ -134,6 +134,14 @@ export type EsitoRotazione = {
   regola: string;
   collezioni: number;
   spinte: number;
+  /**
+   * Le collezioni iscritte che il giro **non ha toccato**, col motivo.
+   *
+   * Prima erano un `continue` muto e l'esito diceva solo «0 collezioni»: un
+   * numero che non spiega niente non lo va a cercare nessuno, e una rotazione
+   * ferma sembrava una rotazione che non era mai scattata.
+   */
+  saltate: { collezione: string; perche: string }[];
   errori: string[];
 };
 
@@ -177,9 +185,11 @@ export async function eseguiRegola(regolaId: string): Promise<EsitoRotazione> {
       },
     },
   });
-  if (!r) return { regola: "(non trovata)", collezioni: 0, spinte: 0, errori: ["Regola non trovata."] };
+  if (!r) {
+    return { regola: "(non trovata)", collezioni: 0, spinte: 0, saltate: [], errori: ["Regola non trovata."] };
+  }
 
-  const esito: EsitoRotazione = { regola: r.nome, collezioni: 0, spinte: 0, errori: [] };
+  const esito: EsitoRotazione = { regola: r.nome, collezioni: 0, spinte: 0, saltate: [], errori: [] };
 
   for (const c of r.collezioni) {
     try {
@@ -195,12 +205,34 @@ export async function eseguiRegola(regolaId: string): Promise<EsitoRotazione> {
         const regole: RegolaOrdinamento[] = parseRegole(c.regolaOrdinamento).length
           ? parseRegole(c.regolaOrdinamento)
           : parseRegole(c.tipologia?.regolaOrdinamento);
-        if (regole.length === 0) continue; // niente da rinfrescare: si salta
+        if (regole.length === 0) {
+          // Nessuna delle tre: «rinfresca» non ha niente da rifare. Si salta —
+          // meglio saltarla che inventarle un ordine — ma **detto**, non zitto.
+          esito.saltate.push({
+            collezione: c.titolo,
+            perche: "nessuna regola d'ordine: né salvata, né rapida, né dalla tipologia",
+          });
+          continue;
+        }
         await applicaRegoleACollezione(c.id, regole);
         esito.collezioni++;
       }
 
-      if (r.spingiSuShopify && c.tipo === "manuale") {
+      // ⚠️ **Qui c'era `&& c.tipo === "manuale"`**, e teneva fuori dal negozio
+      // proprio le collezioni che la rotazione rimetteva in ordine ogni
+      // settimana. È la **stessa regola sbagliata** già smontata il 03/08 in
+      // `spingiOrdineSuShopifySilenzioso`: su Shopify il `ruleSet` decide **chi
+      // entra**, il `sortOrder` decide **in che ordine**, e una smart collection
+      // può avere benissimo `sortOrder: MANUAL`. Allora la correzione era stata
+      // applicata al bottone e **non a questa copia nel cron**, che ha continuato
+      // a saltare in silenzio: «Fiori», «Rose» e «Bouquet & Cappelliere» — tutte
+      // e tre `MANUAL` su Shopify, verificato — venivano rimesse in ordine qui
+      // ogni settimana e **il sito restava fermo al 08/08**. L'unica traccia era
+      // «3 collezioni, 0 mandate a Shopify» nell'esito.
+      //
+      // Lezione: quando si smonta una regola sbagliata, si cercano **tutte** le
+      // sue copie. Quella nel percorso automatico non ha nessuno che la guarda.
+      if (r.spingiSuShopify) {
         const { spingiOrdineSuShopifySilenzioso } = await import("./azioni-vetrina-shopify");
         const ok = await spingiOrdineSuShopifySilenzioso(c.id);
         if (ok === true) esito.spinte++;
@@ -218,6 +250,12 @@ export async function eseguiRegola(regolaId: string): Promise<EsitoRotazione> {
       ultimoEsito:
         `${esito.collezioni} collezioni` +
         (r.spingiSuShopify ? `, ${esito.spinte} mandate a Shopify` : "") +
+        (esito.saltate.length
+          ? ` · ${esito.saltate.length} saltate: ${esito.saltate
+              .slice(0, 2)
+              .map((s) => `${s.collezione} (${s.perche})`)
+              .join(" · ")}`
+          : "") +
         (esito.errori.length ? ` · ${esito.errori.length} errori: ${esito.errori.slice(0, 3).join(" · ")}` : ""),
     },
   });
