@@ -1344,6 +1344,14 @@ periodo e si segnala ogni mese sotto la **metà** di quella mediana. Per il mese
 **agosto: 21 controparti contro una mediana di 326**. Il rimedio resta nella **sync Qonto di
 Finance** (`deluxy-partner`), non qui — vedi anche il punto 7 dei punti aperti.
 
+**Da dove cominciare a cercare la causa, senza indovinare.** L'archivio movimenti di Finance mescola
+**due fonti**: la sync Qonto e i CSV di una seconda banca (quella su cui gira quasi tutta la
+pubblicità 2026), caricati a mano. Il primo sospetto è quindi che il CSV di agosto non sia mai stato
+importato — ma non regge da solo: fra le 21 controparti di agosto ce ne sono di stile carta
+(`Netflix.com`, `Google One`, `DELIVEROO`, `ARIELFLORI*…`), quindi non manca *una fonte intera*,
+manca **una parte di entrambe**. Si guarda in `deluxy-partner`, contando i movimenti di agosto per
+fonte; qui si può solo dichiarare che mancano.
+
 ### Una soglia attraversata non è un buco chiuso (21/08/2026)
 
 Stessa forma, altro dato. `src/lib/marketing.ts` dichiarava parziale un account pubblicitario sotto
