@@ -1,7 +1,8 @@
 # Handoff — Deluxy Customer Service
 
-Ultimo aggiornamento: **21/08/2026, ore 15:00** (sessione di sola misura: tutto
-ricontato sul database di produzione, nessuna riga di codice cambiata).
+Ultimo aggiornamento: **21/08/2026, ore 15:10** (tutto ricontato sul database di
+produzione; l'utente ha **pubblicato la schermata di consenso Google** e il
+conto alla rovescia dei 7 giorni è finito. Nessuna riga di codice cambiata).
 Prima, il 19/08: la **risposta di primo contatto** che parte da sola al primo
 messaggio; i **chargeback**; il **nuovo ordine** per il cliente al telefono.
 
@@ -50,17 +51,21 @@ contatto salvato in rubrica, 0 rimasti da salvare, 0 errori** — l'arretrato ch
 il cron smaltiva a 40 per giro **è finito**. Delle conversazioni, **122** sono
 già state cercate in rubrica e **5** hanno trovato un nome.
 
-🔴🔴 **MA GOOGLE DICE ANCHE QUANDO SI RIROMPERÀ: intorno al 27/08/2026.** Nella
-risposta `200` c'è `refresh_token_expires_in: 516791` secondi = **5,98 giorni**.
-Quel campo è la firma della **schermata di consenso ancora in «Testing»** (lì i
-refresh token durano 7 giorni): un OAuth pubblicato **non ce l'ha**.
-⚠️ **Ricollegare di nuovo NON risolve**: fa ripartire il conto alla rovescia. Si
-chiude una volta sola, nella console Google Cloud, portando la schermata di
-consenso da **«Testing» a «In production»** sul progetto del client
-`813248887384-kdksp8lq8p8pg4tou6b2q4i7r0avchjt.apps.googleusercontent.com`.
-⭐ Da riusare in tutte le app del gruppo che parlano con Google:
-`refresh_token_expires_in` dice se un OAuth è in Testing **senza aprire la
-console**.
+🟢🟢 **E ADESSO NON SCADE PIÙ — chiuso il 21/08 alle 15:10.** Alle 14:50 la stessa
+chiamata rispondeva `refresh_token_expires_in: 516791` secondi (5,98 giorni): il
+token sarebbe morto intorno al **27/08**. L'utente ha **pubblicato la schermata di
+consenso** («Testing» → «In production») e ha ricollegato: ora quel campo **non
+c'è più**, e la prova è arrivata fino in fondo — **People API `200`, 5.439
+contatti in rubrica**.
+⭐⭐ **Il campo `refresh_token_expires_in` dice se un OAuth è in «Testing» senza
+aprire la console Google**: se c'è, la schermata non è pubblicata e i token
+durano 7 giorni. Vale per ogni app del gruppo che parla con Google, ed è il modo
+di accorgersene **prima** che si scolleghi.
+⚠️ Due cose da non confondere, imparate qui: **pubblicare non allunga il token che
+hai già** (nasce con la sua scadenza dentro, quindi va **ricollegato dopo**), e la
+schermata **«Google non ha verificato questa app»** che compare al consenso non
+c'entra con la scadenza — la verifica serve solo a togliere quell'avviso e ad
+alzare il tetto dei 100 utenti.
 
 <details><summary>Se dovesse ricapitare il <code>redirect_uri_mismatch</code> (storia del 17/08)</summary>
 
@@ -2762,7 +2767,6 @@ locale, altrimenti nulla si decifra.
 
 | Cosa manca | Cosa non funziona finché manca |
 |---|---|
-| 🔴 **La schermata di consenso Google è ancora in «Testing»** (misurato il 21/08: il token funziona, ma `refresh_token_expires_in` = 5,98 giorni) | Il refresh token **muore intorno al 27/08** e la rubrica Google si ferma di nuovo. Ricollegare fa solo ripartire i 7 giorni: va **pubblicata** la schermata di consenso (da «Testing» a «In production») nella console Google Cloud. |
 | 🔴 **2 chargeback in `needs_response`, prove mai inviate** (#1741 · 103,34 € e #12726 · 99,94 €) | Scadono il **4 settembre 2026**: passata quella data la banca decide senza di noi. Si risponde da `/chargeback`. |
 | 🟡 **`apreSulSito` è ancora SPENTO su tutti e tre i siti** (verificato in tabella) | Il link `/chat/<codice>` continua a portare sulla chat a pagina intera invece che sul sito. Su **Flowers e Cake** la spunta va accesa (il `widget.js` là c'è, misurato il 17/08); su **deluxy.it no**, il widget non è installato. |
 | **Messenger**: `fbPageToken` è in Impostazioni ma in `PaginaMeta` **non c'è nessuna riga `facebook`** (le 3 righe sono tutte Instagram) | È l'unico canale ancora spento: zero conversazioni Messenger. Il token generale non basta — ogni Pagina vuole il **suo** Page Access Token, messo in `/account-meta`. |
@@ -2821,8 +2825,9 @@ Da fare, in ordine di utilità:
   restano perse; dopo il fix i visitatori hanno scritto davvero (**5 conversazioni con
   messaggi** al 19/08), quindi quella parte non è più «da provare».
 - ~~**Rubrica Google**: restano clienti da smaltire~~ → **finito**, misurato il
-  21/08: 1.143 contatti salvati, 0 rimasti, 0 errori. Resta però il conto alla
-  rovescia della schermata di consenso in «Testing» (vedi in cima).
+  21/08: 1.143 contatti salvati, 0 rimasti, 0 errori. E ~~il conto alla rovescia
+  della schermata di consenso in «Testing»~~ → **chiuso lo stesso giorno**: app
+  pubblicata, token senza scadenza, People API `200` su 5.439 contatti.
 - Account **`diagnostica@deluxy.local`** (operatore): è lì da luglio, non l'ha creato
   nessuna sessione nota. Da tenere o togliere — decisione dell'utente.
 
