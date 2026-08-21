@@ -21,7 +21,7 @@ export const maxDuration = 60;
 export default async function SpesePage({
   searchParams,
 }: {
-  searchParams: Promise<{ anno?: string; dal?: string; al?: string; cat?: string; solo?: string; errore?: string; applicate?: string; restano?: string; riclassificate?: string; svuotate?: string; ai?: string; saltate?: string }>;
+  searchParams: Promise<{ anno?: string; dal?: string; al?: string; cat?: string; tipo?: string; solo?: string; errore?: string; applicate?: string; restano?: string; riclassificate?: string; svuotate?: string; ai?: string; saltate?: string }>;
 }) {
   const sp = await searchParams;
   const anno = parseInt(sp.anno ?? "") || ANNO_CORRENTE;
@@ -29,6 +29,24 @@ export default async function SpesePage({
   const al = Math.min(12, Math.max(dal, parseInt(sp.al ?? "12") || 12));
   const inizio = new Date(Date.UTC(anno, dal - 1, 1));
   const fine = new Date(Date.UTC(anno, al, 1));
+  // Voce di P&L su cui è aperto il dettaglio. Si accetta solo un valore noto:
+  // un `tipo` inventato nell'indirizzo darebbe una lista vuota che sembra
+  // «nessuna spesa» invece di «filtro senza senso».
+  const tipo = sp.tipo && TIPI_PL[sp.tipo] ? sp.tipo : undefined;
+
+  // Indirizzo della stessa pagina con un filtro in più o in meno: il periodo
+  // scelto non si perde mai per strada.
+  const conFiltro = (cambi: Record<string, string | null>) => {
+    const p = new URLSearchParams({ anno: String(anno), dal: String(dal), al: String(al) });
+    if (sp.cat) p.set("cat", sp.cat);
+    if (tipo) p.set("tipo", tipo);
+    if (sp.solo) p.set("solo", sp.solo);
+    for (const [k, v] of Object.entries(cambi)) {
+      if (v === null) p.delete(k);
+      else p.set(k, v);
+    }
+    return `/spese?${p.toString()}`;
+  };
 
   // Le REGOLE si chiedono anche per la pagina, non solo al momento di
   // applicarle: «Finance ha le regole di Budgets?» è una domanda a cui si deve
@@ -50,9 +68,10 @@ export default async function SpesePage({
       // chiedono le non classificate, il filtro per categoria non si applica.
       ...(sp.solo === "senza"
         ? { categoriaId: null }
-        : sp.cat
-          ? { categoriaId: sp.cat }
-          : {}),
+        : {
+            ...(sp.cat ? { categoriaId: sp.cat } : {}),
+            ...(tipo ? { categoriaTipoPL: tipo } : {}),
+          }),
       ...(sp.solo === "ai" ? { categoriaDa: "ai" } : {}),
     },
     orderBy: [{ data: "desc" }],
@@ -85,12 +104,12 @@ export default async function SpesePage({
 
   const perCategoria = [...conCat.reduce((m, t) => {
     const k = t.categoriaNome ?? "—";
-    const r = m.get(k) ?? { nome: k, tipoPL: t.categoriaTipoPL ?? "STRUTTURA", importo: 0, n: 0 };
+    const r = m.get(k) ?? { nome: k, id: t.categoriaId, tipoPL: t.categoriaTipoPL ?? "STRUTTURA", importo: 0, n: 0 };
     r.importo += Math.abs(t.importo);
     r.n++;
     m.set(k, r);
     return m;
-  }, new Map<string, { nome: string; tipoPL: string; importo: number; n: number }>()).values()]
+  }, new Map<string, { nome: string; id: string | null; tipoPL: string; importo: number; n: number }>()).values()]
     // in ordine alfabetico: si cerca una categoria per nome, non per quanto pesa
     .sort((a, b) => a.nome.localeCompare(b.nome, "it", { sensitivity: "base" }));
 
@@ -266,17 +285,33 @@ export default async function SpesePage({
                   <tr><th>Voce di P&amp;L</th><th className="num">Uscite</th><th className="num">Quota</th></tr>
                 </thead>
                 <tbody>
-                  {perTipo.map(([tipo, importo]) => (
-                    <tr key={tipo}>
-                      <td>
-                        <span className={`badge ${TIPI_PL[tipo]?.badge ?? "neutral"}`}>
-                          <span className="dot" />{TIPI_PL[tipo]?.label ?? tipo}
-                        </span>
-                      </td>
-                      <td className="num">{euro(importo)}</td>
-                      <td className="num">{totaleCat > 0.005 ? pct1((importo / totaleCat) * 100) : "—"}</td>
-                    </tr>
-                  ))}
+                  {/* Ogni voce si apre: il clic filtra l'elenco dei movimenti
+                      qui sotto su quella voce di P&L, senza perdere il periodo.
+                      Ricliccando la voce già aperta si torna a tutte. */}
+                  {perTipo.map(([voce, importo]) => {
+                    const attiva = tipo === voce;
+                    return (
+                      <tr key={voce} style={attiva ? { background: "var(--fill)" } : undefined}>
+                        <td>
+                          <Link
+                            href={conFiltro({ tipo: attiva ? null : voce, solo: null })}
+                            title={attiva ? "Torna a tutte le uscite" : `Vedi i movimenti di «${TIPI_PL[voce]?.label ?? voce}»`}
+                          >
+                            <span className={`badge ${TIPI_PL[voce]?.badge ?? "neutral"}`}>
+                              <span className="dot" />{TIPI_PL[voce]?.label ?? voce}
+                            </span>
+                          </Link>
+                          {attiva && (
+                            <span className="muted" style={{ fontSize: 11.5, marginLeft: 8 }}>
+                              ◂ elenco filtrato qui sotto
+                            </span>
+                          )}
+                        </td>
+                        <td className="num">{euro(importo)}</td>
+                        <td className="num">{totaleCat > 0.005 ? pct1((importo / totaleCat) * 100) : "—"}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -325,10 +360,26 @@ export default async function SpesePage({
                     // **partita di giro**. Il nome da solo fa indovinare, e qui
                     // davanti ai movimenti è dove si assegna a mano.
                     const b = categorie.find((x) => x.nome === c.nome);
+                    const idCat = b?.id ?? c.id ?? null;
+                    const attiva = !!idCat && sp.cat === idCat;
                     return (
-                      <tr key={c.nome}>
+                      <tr key={c.nome} style={attiva ? { background: "var(--fill)" } : undefined}>
                         <td style={{ fontWeight: 500 }}>
-                          {c.nome}
+                          {idCat ? (
+                            <Link
+                              href={conFiltro({ cat: attiva ? null : idCat, solo: null })}
+                              title={attiva ? "Torna a tutte le uscite" : `Vedi i ${c.n} movimenti di «${c.nome}»`}
+                            >
+                              {c.nome}
+                            </Link>
+                          ) : (
+                            c.nome
+                          )}
+                          {attiva && (
+                            <span className="muted" style={{ fontSize: 11.5, marginLeft: 8, fontWeight: 400 }}>
+                              ◂ elenco filtrato qui sotto
+                            </span>
+                          )}
                           {b?.quotaPartner && (
                             <span className="badge gold" style={{ marginLeft: 8 }}>
                               <span className="dot" />partita di giro
@@ -373,6 +424,12 @@ export default async function SpesePage({
               .sort((a, b) => a.nome.localeCompare(b.nome, "it", { sensitivity: "base" }))
               .map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
           </select>
+          <select name="tipo" defaultValue={tipo ?? ""} aria-label="Voce di conto economico">
+            <option value="">Tutte le voci di P&amp;L</option>
+            {Object.entries(TIPI_PL).map(([k, v]) => (
+              <option key={k} value={k}>{v.label}</option>
+            ))}
+          </select>
           <select name="solo" defaultValue={sp.solo ?? ""}>
             <option value="">Tutte le uscite</option>
             <option value="senza">Solo senza categoria</option>
@@ -381,6 +438,35 @@ export default async function SpesePage({
           <button className="btn secondary small" type="submit">Filtra</button>
         </form>
       </div>
+
+      {/* Quando l'elenco è filtrato lo si dice DOVE si guarda: un totale in
+          cima calcolato su tutto il periodo, sopra una lista che mostra una
+          fetta sola, altrimenti si legge come se i due numeri parlassero della
+          stessa cosa. */}
+      {(sp.cat || tipo || sp.solo) && uscite.length > 0 && (
+        <div className="card" style={{ padding: 12, marginBottom: 12, borderLeft: "3px solid var(--blue)", fontSize: 13 }}>
+          Elenco filtrato:{" "}
+          <strong>
+            {sp.solo === "senza"
+              ? "solo le uscite senza categoria"
+              : sp.solo === "ai"
+                ? "solo le uscite assegnate dall'AI"
+                : [
+                    sp.cat ? `categoria «${categorie.find((c) => c.id === sp.cat)?.nome ?? sp.cat}»` : null,
+                    tipo ? `voce di P&L «${TIPI_PL[tipo]?.label ?? tipo}»` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+          </strong>{" "}
+          — {uscite.length} {uscite.length === 1 ? "movimento" : "movimenti"} su {tutte.length} del periodo.{" "}
+          <Link href={conFiltro({ cat: null, tipo: null, solo: null })} style={{ fontWeight: 600 }}>
+            Mostra tutte →
+          </Link>
+          <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+            I totali e le tabelle qui sopra restano calcolati su <strong>tutto</strong> il periodo, non sul filtro.
+          </div>
+        </div>
+      )}
 
       <div className="card tight">
         {uscite.length === 0 ? (
@@ -403,8 +489,13 @@ export default async function SpesePage({
                 {uscite.map((t) => (
                   <tr key={t.id}>
                     <td style={{ whiteSpace: "nowrap" }}>{dataIt(t.data)}</td>
+                    {/* La causale qui è troncata per forza: il movimento intero
+                        — causale completa, IBAN, file di provenienza, storia
+                        della controparte — sta nella sua scheda. */}
                     <td style={{ maxWidth: 380 }}>
-                      <div style={{ fontWeight: 500, fontSize: 13 }}>{t.controparte ?? "—"}</div>
+                      <Link href={`/spese/${t.id}`} style={{ fontWeight: 500, fontSize: 13 }} title="Apri il movimento">
+                        {t.controparte ?? t.descrizione.slice(0, 40) ?? "—"}
+                      </Link>
                       <div className="muted" style={{ fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {t.descrizione}
                       </div>
