@@ -1390,6 +1390,18 @@ Salva la differenza vive solo nella pagina, e ricaricando sparisce.
 > Il bottone si accende sulle **caselle toccate**, non sulla differenza in euro: due modifiche opposte
 > che si compensano lasciano il totale identico e sono comunque da salvare.
 
+**3-bis. La somma dei punti percentuali del brand** (chiesta guardando la scheda: *«qui devo vedere la
+somma dei p.p.»*). Sotto il consentito, ogni brand porta la somma delle sue dodici percentuali —
+`160,8 p.p. su 12 mesi · media 13,4%` — e, se qualcosa è stato toccato, di quanto si è spostata
+(`+1,6 p.p. rispetto ai 160,8 salvati`). L'euro dice *quanto costa*, i punti dicono *quanto stai
+tirando la leva*: due domande diverse sullo stesso gesto.
+
+> ⚠️ Si scrive **p.p.** e non **%** di proposito: sommare percentuali calcolate su basi diverse **non
+> dà una percentuale**: 160,8 non è «il 160,8% di qualcosa». È un indicatore di quanto si sta
+> distribuendo sull'anno, e accanto c'è la **media**, che invece una lettura percentuale ce l'ha.
+> Confronto fra brand al 21/08/2026: Deluxy.it 160,8 (media 13,4%), Deluxyflowers 189,1 (15,8%),
+> B2B 218,4 (18,2%), Experience 240 (20%), CakeDesign 248,6 (**20,7%**).
+
 **4. Aggiungere un brand.** Prima i brand esistevano solo nel seed: aggiungerne uno voleva dire aprire
 il database, quindi non lo faceva nessuno. Ora c'è `POST /api/maison` (nome → slug ricavato e reso
 unico, `ordine` in coda). Due nomi uguali si **rifiutano** (409, confronto senza distinzione di

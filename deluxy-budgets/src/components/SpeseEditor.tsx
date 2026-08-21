@@ -114,12 +114,22 @@ export function SpeseEditor({
       .filter((x) => (mesi ? mesi(x) : true))
       .reduce((s, x) => s + (base(x) * percentuale(`${m.id}:${x.month}`)) / 100, 0);
 
+  // La **somma dei punti percentuali** dei dodici mesi. Non è una percentuale —
+  // sommare percentuali di basi diverse non dà una percentuale — ma è il numero
+  // con cui si controlla a colpo d'occhio quanto si sta distribuendo sull'anno,
+  // e di quanto lo si è spostato. Per questo si scrive «p.p.» e non «%», e
+  // accanto c'è la media, che invece una lettura percentuale ce l'ha.
+  const puntiTotali = (m: MaisonSpese, percentuale: (key: string) => number) =>
+    m.mesi.reduce((s, x) => s + percentuale(`${m.id}:${x.month}`), 0);
+
   const righe = useMemo(
     () =>
       maisons.map((m) => {
         const ora = consentito(m, valore);
         const salvato = consentito(m, (k) => originali[k] ?? 0);
-        return { m, ora, salvato, differenza: ora - salvato };
+        const pp = puntiTotali(m, valore);
+        const ppSalvati = puntiTotali(m, (k) => originali[k] ?? 0);
+        return { m, ora, salvato, differenza: ora - salvato, pp, ppSalvati, ppDiff: pp - ppSalvati };
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [maisons, modifiche, originali]
@@ -281,6 +291,23 @@ export function SpeseEditor({
                         {eur(Math.abs(riga.differenza))}
                       </strong>{" "}
                       rispetto ai {eur(riga.salvato)} salvati
+                    </>
+                  )}
+                </p>
+                {/* La somma dei punti percentuali dei dodici mesi: quanto si sta
+                    distribuendo sull'anno, in un numero solo. Sta accanto alla
+                    media perché la somma da sola non si sa su cosa leggerla. */}
+                <p className="page-caption" style={{ marginTop: 2 }}>
+                  Somma delle percentuali: <strong>{punti(riga.pp)} p.p.</strong> su {m.mesi.length} mesi ·
+                  media {punti(riga.pp / (m.mesi.length || 1))}%
+                  {riga.ppDiff !== 0 && (
+                    <>
+                      {" · "}
+                      <strong className={`delta ${riga.ppDiff > 0 ? "su" : "giu"}`}>
+                        {riga.ppDiff > 0 ? "+" : "−"}
+                        {punti(Math.abs(riga.ppDiff))} p.p.
+                      </strong>{" "}
+                      rispetto ai {punti(riga.ppSalvati)} salvati
                     </>
                   )}
                 </p>
