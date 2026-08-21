@@ -287,6 +287,44 @@ export default async function ConsuntivoPage({
   const mesiSenzaBanca = mesiPeriodo.filter((m) => !mesiConBanca.includes(m));
   const bancaIncompleta = spese.ok && mesiSenzaBanca.length > 0 && mesiConBanca.length > 0;
 
+  // ---- …e i mesi che la banca copre solo per finta ----
+  // Il controllo qui sopra sa riconoscere **una sola** forma di mancanza: zero
+  // movimenti. Un mese con *qualche* movimento lo attraversa e sembra un mese
+  // intero. Misurato il 21/08/2026: agosto aveva **31 movimenti su 21 giorni**
+  // (21 controparti) contro i 408 di luglio e i 416 di giugno — un nono del
+  // ritmo normale, con l'ultimo movimento datato **quel giorno stesso**, quindi
+  // nemmeno la data più recente lo tradiva. Effetto: nessuna uscita
+  // pubblicitaria e nessun pagamento ai partner in tutto agosto, costi del mese
+  // sottostimati e margine più bello del vero, senza un avviso da nessuna parte.
+  //
+  // La firma di un mese rado è il numero di **controparti attive**: quante
+  // persone e aziende sono state pagate. È stabile di mese in mese (306, 315,
+  // …) molto più dell'importo, che un solo giroconto da 20.000 € basta a
+  // gonfiare. Per il mese in corso il confronto si riproporziona ai giorni
+  // trascorsi, altrimenti il 3 del mese sarebbe sempre «rado».
+  const SOGLIA_RADO = 0.5;
+  const contropartiDelMese = (m: number) =>
+    spese.ok ? spese.dati.controparti.filter((c) => (c.perMese[m - 1] ?? 0) > 0).length : 0;
+  // Quanta parte del mese è già passata: 1 per i mesi chiusi.
+  const quotaTrascorsa = (m: number) => {
+    const giorni = new Date(Date.UTC(anno, m, 0)).getUTCDate();
+    if (anno < annoInCorso || (anno === annoInCorso && m < meseInCorso)) return 1;
+    if (anno > annoInCorso || m > meseInCorso) return 0;
+    return giornoInCorso / giorni;
+  };
+  const contiBanca = mesiConBanca.map((m) => ({ mese: m, controparti: contropartiDelMese(m) }));
+  const medianaControparti =
+    contiBanca.length >= 3
+      ? [...contiBanca].map((x) => x.controparti).sort((a, b) => a - b)[Math.floor(contiBanca.length / 2)]
+      : 0;
+  const mesiRadi =
+    medianaControparti > 0
+      ? contiBanca.filter((x) => {
+          const q = quotaTrascorsa(x.mese);
+          return q > 0 && x.controparti < medianaControparti * q * SOGLIA_RADO;
+        })
+      : [];
+
   // Costi dell'anno prima. **Solo se il dato esiste**: se la banca non ha
   // movimenti per quel periodo il costo non è «zero», è *non misurato* — e uno
   // zero in colonna direbbe che l'anno scorso non si spendeva niente, che è
@@ -604,6 +642,30 @@ export default async function ConsuntivoPage({
                 Sul {anno === 2025 ? "2025" : "quell'anno"} il conto Qonto ha i movimenti dal 13/05/2024, ma
                 l&apos;import in Finance parte dal 16/07/2025: si chiude alzando il limite di pagine nella sync di
                 Finance, non qui.
+              </div>
+            </div>
+          )}
+
+          {mesiRadi.length > 0 && (
+            <div className="card" style={{ marginBottom: 12, borderColor: "var(--orange)" }}>
+              <strong>
+                In banca {mesiRadi.length === 1 ? "un mese ha" : `${mesiRadi.length} mesi hanno`} molti meno
+                movimenti degli altri:{" "}
+                {mesiRadi
+                  .map((x) => `${MESI[x.mese - 1]} ${x.controparti} controparti`)
+                  .join(", ")}
+                , contro una mediana di {medianaControparti}.
+              </strong>{" "}
+              I movimenti ci sono, quindi il controllo qui sopra non scatta — ma sono una frazione di quelli
+              che un mese normale porta, e <strong>un mese rado ha lo stesso aspetto di un mese sobrio</strong>.
+              Finché l&apos;import non è completo, costo per servizi, pubblicità e struttura di{" "}
+              {mesiRadi.map((x) => MESI[x.mese - 1]).join(", ")} sono <strong>sottostimati</strong> e il
+              margine del periodo è più bello del vero.
+              <div className="muted" style={{ marginTop: 6 }}>
+                Attenzione a come si verifica: <strong>l&apos;ultima data non basta</strong>. Il 21/08/2026 il
+                movimento più recente era di quel giorno stesso — sembrava una sync al passo — e intanto agosto
+                aveva 31 movimenti contro i 408 di luglio. Si conta quanti movimenti al giorno arrivano, non
+                quando è arrivato l&apos;ultimo; e si chiude nella sync di Finance, non qui.
               </div>
             </div>
           )}

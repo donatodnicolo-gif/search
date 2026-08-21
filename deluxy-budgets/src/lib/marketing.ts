@@ -19,6 +19,7 @@
 
 import { RIVALIDA } from "./cache";
 import { chiave } from "./chiavi";
+import { eur } from "./format";
 
 const BASE = process.env.MARKETING_URL ?? "https://deluxy-marketing.vercel.app";
 
@@ -37,6 +38,16 @@ export type CoperturaAdv = {
 // dell'anno risulta più basso del vero. Sotto questa quota di giorni coperti si
 // dichiara, invece di ereditare un `completa: true` che qui non regge.
 const QUOTA_GIORNI_MINIMA = 0.8;
+
+// …e la soglia da sola non basta. Misurato il 21/08/2026: `flowers/meta_ads`
+// era a 103 giorni su 229 (l'avvertenza si vedeva), poi il caricamento lo ha
+// portato a 191 su 233 — sopra l'80%, quindi `completa` è tornato `true` e i
+// **42 giorni ancora scoperti sono spariti da ogni pagina**. Il buco non si era
+// chiuso, aveva solo attraversato una soglia. Da qui in poi un account che non
+// copre tutto il periodo si dichiara comunque, con la stima di quanto manca —
+// salvo i pochi giorni di ritardo con cui le piattaforme consolidano l'ultimo
+// dato, che non sono un buco ma latenza.
+const GIORNI_DI_LATENZA = 7;
 
 export type SpesaAdv = {
   totale: number;
@@ -107,7 +118,7 @@ export async function fetchSpesaAdv(anno: number, dal: number, al: number): Prom
       totale?: number;
       righe?: { chiave: string; spesa: number }[];
       copertura?: Partial<CoperturaAdv> & {
-        alimentano?: { canale: string; brand: string; giorniConDati: number }[];
+        alimentano?: { canale: string; brand: string; giorniConDati: number; spesa?: number }[];
       };
     };
     if (typeof b?.totale !== "number") {
@@ -136,6 +147,32 @@ export async function fetchSpesaAdv(anno: number, dal: number, al: number): Prom
         `${parziali.length} account hanno dati solo su una parte del periodo (${parziali
           .map((a) => `${a.brand}/${a.canale}: ${a.giorniConDati} giorni su ${giorniRichiesti}`)
           .join("; ")}): nei mesi scoperti quella spesa manca del tutto.`
+      );
+    }
+
+    // Gli account che il buco ce l'hanno ma restano sopra la soglia: non
+    // rendono il totale inutilizzabile, però lo tengono più basso del vero, e
+    // finché non si scrive qui nessuna pagina lo dice. La stima è al loro
+    // stesso ritmo di spesa (spesa ÷ giorni con dati × giorni mancanti): non è
+    // il dato mancante, è l'ordine di grandezza di quanto manca.
+    const bucati = (c.alimentano ?? []).filter(
+      (a) =>
+        giorniRichiesti > 0 &&
+        !parziali.includes(a) &&
+        giorniRichiesti - a.giorniConDati > GIORNI_DI_LATENZA
+    );
+    if (bucati.length > 0) {
+      const stima = bucati.reduce((s, a) => {
+        if (!a.spesa || a.giorniConDati <= 0) return s;
+        return s + (a.spesa / a.giorniConDati) * (giorniRichiesti - a.giorniConDati);
+      }, 0);
+      avvertenze.push(
+        `${bucati.length} account coprono quasi tutto il periodo ma non tutto (${bucati
+          .map(
+            (a) =>
+              `${a.brand}/${a.canale}: mancano ${giorniRichiesti - a.giorniConDati} giorni su ${giorniRichiesti}`
+          )
+          .join("; ")}): al loro ritmo di spesa sono circa ${eur(stima)} che il totale di Marketing non conta.`
       );
     }
 

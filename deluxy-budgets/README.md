@@ -913,36 +913,43 @@ Tre precisazioni che sono servite per non sbagliare, e che valgono anche la pros
 > movimenti, il criterio è questo — e varrebbe la pena farlo diventare una regola vera sulla
 > causale, invece di ripetere l'esercizio a mano.
 
-## Punti aperti (29/07/2026, rimisurati il 17/08/2026)
+## Punti aperti (29/07/2026, rimisurati il 21/08/2026)
 
-**Fotografia del 17/08/2026** (rimisurata interrogando Finance, Orders e Marketing come fa il
-consuntivo; fra parentesi il valore dell'08/2026 precedente, del 09/08):
+**Fotografia del 21/08/2026** (rimisurata interrogando Finance, Orders e Marketing come fa il
+consuntivo; fra parentesi il valore precedente, del 17/08):
 
-| | |
-| --- | --- |
-| Venduto ecommerce 2026 (Orders, gen–ago) | **655.411 €** (era 631.789 il 09/08) |
-| Ricavi a consuntivo gen–ago | **425.442 €** — D2C 219.197 (fee vendor 126.319 + margine fornitori 92.878), B2B 184.270, Eventi 21.975 |
-| Uscite di banca 2026 | **838.560 €** su 1.672 controparti; **agosto 30.630 €**, di cui 20.000 un giroconto a «deluxy srl» |
-| Girato ai partner | **449.068 €** → quota Deluxy misurata **31,5%** (era 30,3%) |
-| ADV: banca vs Marketing | **97.929 €** usciti — *identici* al 09/08 — contro **76.541 €** di campagne → Marketing ne spiega il **78%** |
-| Uscite che nessuna regola riconosce | **4.903 €** su 146 controparti (2026) e **23.548 €** su 545 (2025) |
-| EBITDA a consuntivo gen–ago | **+64.930 €**, 15,3% sui ricavi |
-| Vendite vendor | luglio caricato (34.921 €); **agosto no**, quindi ad agosto il ricavo D2C è ≈ 0 |
+| | gen–ago (YTD) | gen–lug (mesi chiusi) |
+| --- | --- | --- |
+| Venduto ecommerce 2026 (Orders) | **667.403 €** (era 655.411) | 614.248 € |
+| Ricavi a consuntivo | **425.442 €** — *identici* al 17/08 — D2C 219.197 (fee vendor 126.319 + margine fornitori 92.878), B2B 184.270, Eventi 21.975 | 425.246 € |
+| Girato ai partner | **449.068 €** — *identici* al 17/08 → quota Deluxy **32,7%** (era 31,5%) | 443.934 € → quota **27,7%** |
+| ADV: banca vs Marketing | **97.929 €** usciti — *identici dal 09/08* — contro **83.185 €** di campagne → Marketing ne spiega l'**85%** (era 78%) | 97.929 € vs 75.147 € |
+| Uscite che nessuna regola riconosce | **4.988 €** (2026) e 23.548 € (2025) | 4.081 € |
+| EBITDA a consuntivo | **+64.844 €**, 15,2% sui ricavi | **+74.427 €** |
+| Uscite di banca 2026 (anno) | **847.690 €**, 3.375 movimenti, 1.674 controparti | — |
 
-⚠️ **Come leggere agosto, prima di leggere qualsiasi altra cosa.** Il mese in corso entra nel YTD
-ma le sue due metà non arrivano insieme: le **vendite** ci sono (Orders è al giorno), i
-**pagamenti ai partner** quasi no (19 controparti in tutto ad agosto, i fioristi si pagano dopo) e
-le **vendite vendor** non sono ancora caricate in Finance (sotto la soglia del 15% → fuori dai
-totali, quindi ricavo D2C di agosto ≈ 0). Effetto misurato: la **quota Deluxy sale al 31,5%** —
-non perché sia migliorato il business, ma perché il denominatore ha un mese in più del numeratore.
-La freschezza dei dati è stata verificata (ultimo movimento di banca visto: **15/08/2026**): non è
-una sync ferma, è il ritardo naturale fra vendita e pagamento. Per un confronto onesto guardare
-**gen–lug**.
+🔴 **Come leggere agosto: la banca di agosto è quasi tutta assente, e non si vedeva.** Misurato il
+21/08/2026 mese per mese: giugno **416 movimenti** (306 controparti), luglio **408** (315), agosto
+**31** (21) su ventun giorni — **un nono del ritmo normale**, distribuiti su tutto il mese (uno o due
+al giorno, non un intervallo mancante). Conseguenze dirette sui numeri qui sopra: in tutto agosto
+**zero uscite pubblicitarie** e **zero pagamenti ai partner**, quindi ADV, girato ai partner e ricavi
+a consuntivo sono *identici alla misura del 17/08* mentre il venduto è cresciuto di 12.000 €. La
+quota Deluxy che «sale» al 32,7% non è il business che migliora: è il denominatore che corre da solo.
+
+⚠️⚠️ **E il modo in cui il 17/08 era stato verificato non bastava.** Quel giorno la freschezza era
+stata controllata guardando l'**ultima data** (ultimo movimento: 15/08) e la conclusione era stata
+«non è una sync ferma, è il ritardo fra vendita e pagamento». Il 21/08 l'ultimo movimento è **del
+giorno stesso** — sembra ancora più in ordine — e intanto mancano nove decimi del mese. **L'ultima
+data non dice che i dati ci sono tutti**: dice solo che qualcosa è arrivato. Si conta quanti
+movimenti al giorno arrivano, confrontandoli con un mese chiuso. Il rimedio sta nella **sync Qonto di
+Finance** (`deluxy-partner`), non qui; qui il consuntivo adesso lo dichiara (sotto, «Un mese con
+qualche movimento sembra un mese intero»).
 
 Chiusi rispetto al 29/07: il **buco Meta in Marketing** (punto «storico Meta assente») e **luglio dei
-vendor**. Resta però una coda dello stesso problema, che la copertura al 78% nasconde: **un account
-Meta (`flowers/meta_ads`) ha dati su 103 giorni su 229** — nei mesi scoperti quella spesa in
-Marketing manca del tutto, e il consuntivo lo scrive fra le avvertenze della copertura ADV.
+vendor**. La coda di quel buco si è ristretta ma non è sparita: `flowers/meta_ads` è passato da 103
+giorni su 229 a **191 su 233** e `cake/meta_ads` sta a **196 su 233** — sopra la soglia dell'80%,
+quindi Marketing torna a dichiarare la copertura «completa» mentre **79 giorni restano scoperti**
+(≈ 1.280 € di spesa che il totale non conta). Vedi «Una soglia attraversata non è un buco chiuso».
 Restano aperti tutti i punti qui sotto, più i due nuovi: i **movimenti che Finance non ha
 ancora riclassificato** e le **variabili d'ambiente mancanti su Vercel** (in produzione ci sono solo
 `DATABASE_URL`, `DIRECT_URL`, `HUB_URL`, `BUDGETS_APP_PASSWORD`, `BUDGETS_API_KEY`, `FINANCE_API_KEY`,
@@ -1022,6 +1029,11 @@ un a-capo); ricontrollato il 17/08/2026: c'è. Restano fuori `HUB_SSO_SECRET` e 
    abbiamo classificato — sul 2026 sono state scritte 2.187 regole guardando l'elenco, sul 2025 no.
    **Non si aggiusta qui**: la sync Qonto vive in Finance (`deluxy-partner`), ed è lì che va alzato
    il limite di pagine.
+   🔴 **Riaperto dall'altro capo il 21/08/2026**: risolto il passato, adesso manca il **presente**.
+   Agosto 2026 ha **31 movimenti** contro i 408 di luglio, e questa volta non è un intervallo di date
+   mancante ma un mese **rado** (uno o due movimenti al giorno, l'ultimo del giorno stesso). Quanto
+   basta a togliere dal conto economico tutta la pubblicità e tutti i pagamenti ai partner del mese.
+   Si chiude in Finance come sopra; qui il consuntivo ora lo dichiara.
 8. **Google Ads `956-137-8913`** non è censito in Marketing (1.305 € nel 2026).
 9. **`HUB_SSO_SECRET` e `APP_SECRET` mancano su Vercel** (ricontrollato con `vercel env ls
    production` il 17/08/2026: le variabili sono nove, quelle due non ci sono): senza il primo
@@ -1057,10 +1069,12 @@ maison e per mese, IVA inclusa come il budget), catalogo Hub aggiornato (id `bud
   per intero (l'importo reso non esiste nel registro ordini).
 - **Piattaforme ADV**: split **globale** d'azienda, non per singola maison; il confronto col reale
   esiste solo nel P&L (totale), non piattaforma per piattaforma.
-- ✅ **Storico Meta in Marketing: caricato** (verificato il 09/08 e di nuovo il 17/08/2026 — copertura
-  229 giorni su 229, Marketing spiega il **78%** delle uscite ADV contro il 46% del 28/07). Resta una
-  coda: l'account **`flowers/meta_ads` ha dati su 103 giorni su 229**, quindi nei mesi scoperti quella
-  spesa manca del tutto. Il consuntivo lo scrive fra le avvertenze; si chiude in **Marketing**, non qui.
+- ✅ **Storico Meta in Marketing: caricato** (verificato il 09/08, il 17/08 e il 21/08/2026 — copertura
+  233 giorni su 233, Marketing spiega l'**85%** delle uscite ADV contro il 46% del 28/07). Resta una
+  coda: **`flowers/meta_ads` sta a 191 giorni su 233** e **`cake/meta_ads` a 196** — nei giorni scoperti
+  quella spesa manca del tutto (≈ **1.280 €**). Sono *sopra* la soglia dell'80% che fa scattare
+  l'avvertenza degli account parziali, quindi Marketing li dichiara «completi»: da qui in poi l'app li
+  nomina lo stesso (vedi «Una soglia attraversata non è un buco chiuso»). Si chiude in **Marketing**, non qui.
 - **Costo del lavoro**: tredicesima/quattordicesima e TFR non sono voci distinte; nessun consuntivo del personale.
 - **P&L**: per singola **linea commerciale** non c'è (le linee hanno solo il budget vendite, non un conto economico).
 
@@ -1296,6 +1310,59 @@ Non è lo stesso rischio di prima, ed è per questo che ora sono **due numeri**:
 paragrafo che spiega da dove vengono i numeri, e come **avviso nella proposta di conto economico** —
 perché un bilancio si difende voce per voce, non a totale. Il rimedio resta lo stesso: le regole si
 scrivono nel CFO e la fotografia si rifà con **«↻ Riclassifica tutto»** in `/spese` di Finance.
+
+### Un mese con qualche movimento sembra un mese intero (21/08/2026)
+
+Quarta variante della stessa famiglia, e la più cara finora. Il consuntivo sapeva già dire «in banca
+non ci sono movimenti per questi mesi» — ma sapeva riconoscere **una sola** forma di mancanza: lo
+zero. Agosto 2026 ne aveva 31, di movimenti, quindi passava il controllo come un mese qualsiasi.
+
+Misura che ha fatto emergere il problema (Finance, `/api/spese` mese per mese):
+
+| | movimenti | controparti | uscite |
+| --- | ---: | ---: | ---: |
+| Giugno | 416 | 306 | 111.283 € |
+| Luglio | 408 | 315 | 116.476 € |
+| **Agosto** (1–21) | **31** | **21** | 39.760 €, di cui 20.000 un giroconto |
+
+Un nono del ritmo, e non in un intervallo di giorni mancante: uno o due movimenti al giorno per tutto
+il mese. Dentro non c'è **nessuna** uscita pubblicitaria (negli altri mesi 11–17.000 € ciascuno) e
+**nessun** pagamento ai partner. Ecco perché ADV, girato ai partner e ricavi a consuntivo erano
+*identici* alla misura di quattro giorni prima.
+
+⚠️ **La trappola nella verifica, non nel dato.** Il 17/08 la freschezza era stata controllata
+guardando l'**ultima data** dei movimenti, ed era recente: da lì la conclusione «non è una sync
+ferma». Il 21/08 l'ultima data è **il giorno stesso** — ancora più rassicurante — con nove decimi del
+mese mancanti. *L'ultima data dice che qualcosa è arrivato, non che è arrivato tutto.* Il conteggio
+per giorno lo dice; la data no.
+
+**Cosa fa l'app adesso.** In `/consuntivo`, accanto all'avviso sui mesi senza banca, ce n'è uno sui
+mesi **radi**: si contano le **controparti attive** di ogni mese (306, 315, … — molto più stabile
+dell'importo, che un solo giroconto da 20.000 € basta a gonfiare), si prende la **mediana** del
+periodo e si segnala ogni mese sotto la **metà** di quella mediana. Per il mese in corso il confronto
+è riproporzionato ai giorni trascorsi, altrimenti il 3 del mese sarebbe sempre «rado». Oggi scatta su
+**agosto: 21 controparti contro una mediana di 326**. Il rimedio resta nella **sync Qonto di
+Finance** (`deluxy-partner`), non qui — vedi anche il punto 7 dei punti aperti.
+
+### Una soglia attraversata non è un buco chiuso (21/08/2026)
+
+Stessa forma, altro dato. `src/lib/marketing.ts` dichiarava parziale un account pubblicitario sotto
+l'**80%** dei giorni coperti, e `AdvCompetenza` mostrava le avvertenze **solo** quando la copertura
+non era completa. Il 17/08 `flowers/meta_ads` stava a 103 giorni su 229 e l'avvertenza si vedeva; il
+21/08, dopo altri caricamenti, sta a **191 su 233** — sopra la soglia — quindi `completa` è tornato
+`true` e i **42 giorni ancora scoperti sono spariti da ogni pagina**. Il buco non si era chiuso:
+aveva attraversato una soglia.
+
+Due correzioni, piccole e indipendenti:
+
+- un account che non copre tutto il periodo si dichiara **comunque**, con la stima di quanto manca al
+  suo stesso ritmo di spesa (`spesa ÷ giorni con dati × giorni mancanti`). Tolleranza di **7 giorni**,
+  perché Google e Meta consolidano l'ultimo giorno con un po' di ritardo e quella non è una mancanza.
+  Oggi: *«2 account coprono quasi tutto il periodo ma non tutto (flowers/meta_ads: mancano 42 giorni su
+  233; cake/meta_ads: mancano 37): al loro ritmo sono circa 1.280 € che il totale di Marketing non
+  conta»*;
+- le avvertenze si mostrano **anche a copertura completa**, con un attacco diverso («la copertura è
+  completa, ma non è tutto coperto»), invece di sparire proprio quando restano l'unica traccia.
 
 ### 67 regole erano morte per uno spazio che non è uno spazio
 

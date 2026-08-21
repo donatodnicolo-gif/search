@@ -129,10 +129,18 @@ export function AdvCompetenza({
           Quindi la colonna «non spiegato» <strong>non si sposta</strong> su un altro esercizio: non è
           competenza, è copertura. Il bottone qui sotto resta per i casi veri — una fattura di dicembre pagata
           a gennaio — e va usato su quelli, non sul totale.
-          {!coperturaCompleta && avvertenze.length > 0 && (
+          {/* Le avvertenze si mostrano **anche** a copertura completa: un account
+              che risale sopra la soglia degli account parziali torna «completo»
+              senza che il suo buco si sia chiuso, e legandole a
+              `!coperturaCompleta` sparivano proprio nel momento in cui restavano
+              l'unica traccia dei giorni scoperti. */}
+          {avvertenze.length > 0 && (
             <>
               {" "}
-              Marketing dichiara la copertura incompleta: {avvertenze.join(" ")}
+              {coperturaCompleta
+                ? "Marketing dichiara la copertura completa, ma non è tutto coperto:"
+                : "Marketing dichiara la copertura incompleta:"}{" "}
+              {avvertenze.join(" ")}
             </>
           )}
         </div>
