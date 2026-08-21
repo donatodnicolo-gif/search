@@ -82,6 +82,25 @@ mezzanotte e le 7.
 da lì nome, email e telefono sono già compilati e la chat resta aperta in fondo (serve a
 rileggere indirizzo, orari e biglietto mentre si compila).
 
+**Il negozio arriva dalla conversazione**: il cliente ha scritto a quel marchio, e un ordine
+Cake creato su Flowers avrebbe listino, spedizione e voce di consegna di un'altra azienda.
+
+**Il cliente si richiama**: si cerca per nome, email o telefono fra quelli gia' registrati in
+quel negozio e si riempie tutto, **indirizzo compreso**. ⚠️ La ricerca sta dentro il negozio
+scelto: le anagrafiche Shopify sono separate per marchio.
+
+**L'indirizzo si prende da Google Maps**: si scrive e si sceglie dall'elenco, e via, CAP,
+citta' e provincia arrivano gia' separati e giusti. ⚠️ Un indirizzo scelto **esiste**; uno
+digitato al telefono ha una cifra sbagliata una volta su dieci, e l'errore si scopre col
+mazzo in mano davanti alla porta sbagliata. Serve la chiave in **Impostazioni → Indirizzi**
+(API Places New); senza, la schermata lo dice e l'indirizzo si scrive a mano.
+
+**La spedizione e' quella che quel negozio usa davvero**, letta dai suoi ultimi ordini:
+Deluxy «Consegna Deluxy» (25 €) o «in Giacca, Cravatta e Guanti Bianchi» (15 €), Cake
+«Consegna Standard» (10 €), Flowers «Consegna Sempre Gratuita». ⚠️ Non si legge da una
+tabella nostra: un listino scritto oggi sarebbe falso fra un mese e nessuno se ne
+accorgerebbe.
+
 Si sceglie il negozio, si cerca il prodotto **nel catalogo** (con la foto, che è quella che
 poi si manda al fornitore), si mettono giorno e fascia di consegna, indirizzo e biglietto.
 Poi il **pagamento**:
