@@ -76,6 +76,25 @@ Per dare un'idea del ritmo: negli ultimi 30 giorni sono arrivati **~15 ordini al
 (minimo 6, massimo 26), con le punte attorno alle **11** e alle **15**, e solo l'8% fra
 mezzanotte e le 7.
 
+## Il diario di lavoro
+
+Le righe che ci si scrive per ricordare cosa c'e' da fare su un ordine — prima stavano in
+una chat interna: «12562 da fare 16 luglio», «2506 pagamento su cs, concordato cambio fiori
+con mittente». Funzionava per chi le scriveva e per nessun altro: chi apriva l'ordine non
+sapeva che esistessero.
+
+**Menu → Diario**: si scrive **in un campo solo**, come sul quaderno, e il numero d'ordine
+in testa si stacca da solo. Ogni riga si spunta quando e' fatta, e resta scritto chi l'ha
+scritta e chi l'ha chiusa.
+
+⚠️ Il numero si riconosce **solo in testa alla riga** e da 3 a 6 cifre: dentro la frase i
+numeri sono date, importi e orari («per il 16 luglio», «45 euro»), e prenderli
+attaccherebbe la nota all'ordine sbagliato — che e' peggio che non attaccarla a nessuno.
+
+**Le note si vedono anche sull'ordine** (riquadro nel pannello, dove si scrive senza
+ripetere il numero) e **in home**, con le ultime dodici da fare: e' il quaderno con cui si
+apre la giornata. Se non ce ne sono, il riquadro sparisce.
+
 ## Fare un ordine per il cliente
 
 **Menu → Nuovo ordine**, oppure il bottone **«Nuovo ordine ↗»** dentro la conversazione:
