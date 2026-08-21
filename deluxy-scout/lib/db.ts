@@ -1601,17 +1601,34 @@ export async function aggiornaStatoAffiliazione(
 }
 
 /** Quante chiamate ha fatto l'utente da una certa data (KPI settimana in Home). */
-export async function contaChiamateDal(dalISO: string): Promise<number> {
+export interface ChiamataFatta {
+  id: string;
+  place_id: string;
+  esito: string | null;
+  note: string | null;
+  created_at: string;
+}
+
+/**
+ * Le MIE chiamate registrate dalla data indicata, righe intere.
+ *
+ * Sostituisce il vecchio `contaChiamateDal`, che tornava solo il numero: la
+ * tessera «Chiamate 7g» in Home ora si apre e mostra quali sono, e un conteggio
+ * calcolato per conto suo prima o poi non torna con l'elenco che dovrebbe
+ * spiegarlo. Un solo dato, contato in un posto solo.
+ */
+export async function fetchChiamateDal(dalISO: string): Promise<ChiamataFatta[]> {
   const { data: u } = await supabase.auth.getUser();
   const uid = u.user?.id;
-  if (!uid) return 0;
-  const { count, error } = await supabase
+  if (!uid) return [];
+  const { data, error } = await supabase
     .from('chiamate')
-    .select('id', { count: 'exact', head: true })
+    .select('id, place_id, esito, note, created_at')
     .eq('owner', uid)
-    .gte('created_at', dalISO);
-  if (error) return 0;
-  return count ?? 0;
+    .gte('created_at', dalISO)
+    .order('created_at', { ascending: false });
+  if (error) return [];
+  return (data ?? []) as ChiamataFatta[];
 }
 
 /** Registra una chiamata effettuata (chi la fa lo mette l'RLS/owner di default). */

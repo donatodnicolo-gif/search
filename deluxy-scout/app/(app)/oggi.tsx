@@ -6,14 +6,15 @@
 // Sopra, i numeri personali della settimana: servono a capire se si sta
 // seminando abbastanza in ciascun canale, non a fare la pagella.
 import { useCallback, useMemo, useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import type { Place, Task } from '@/types';
-import { colors, coloreProprita, radius, spacing, contenutoCentrato } from '@/lib/theme';
+import type { Place, Task, Visit } from '@/types';
+import type { ChiamataFatta } from '@/lib/db';
+import { colors, coloreProprita, labelFase, radius, spacing, contenutoCentrato } from '@/lib/theme';
 import { useAuth } from '@/lib/auth';
 import {
-  contaChiamateDal,
+  fetchChiamateDal,
   fetchAllVisits,
   fetchLeads,
   fetchPlaces,
@@ -40,6 +41,44 @@ function isoOggi(): string {
 function isoGiorniFa(n: number): string {
   return new Date(Date.now() - n * 86400_000).toISOString();
 }
+type RigaDettaglio = { id: string; nome: string; meta: string; valore?: string; placeId?: string };
+
+const LABEL_ESITO: Record<string, string> = {
+  interessato: 'Interessato',
+  da_richiamare: 'Da richiamare',
+  non_target: 'Non è un target',
+  chiuso: 'Chiuso',
+};
+
+/** «14 ago» — la data lunga qui non serve, serve capire quanto è vecchia. */
+function dataBreve(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
+}
+
+// Cosa c'è dietro ogni tessera, a parole. L'elenco vuoto deve dire PERCHÉ è
+// vuoto: «0» senza spiegazione fa pensare a un guasto dell'app.
+const DETTAGLIO_TESTI: Record<string, { titolo: string; vuoto: string }> = {
+  visite: {
+    titolo: 'Le tue visite degli ultimi 7 giorni',
+    vuoto: 'Nessuna visita registrata negli ultimi 7 giorni. Si registrano dalla scheda del negozio, o dalla spunta sulla Mappa.',
+  },
+  chiamate: {
+    titolo: 'Le tue chiamate degli ultimi 7 giorni',
+    vuoto:
+      'Nessuna chiamata registrata. Attenzione: il bottone che le registra oggi sta solo in Affiliazioni — altrove il numero apre il telefono e non lascia traccia, quindi questo numero può essere 0 anche se hai telefonato.',
+  },
+  trattative: {
+    titolo: 'Le tue trattative aperte',
+    vuoto: 'Nessuna trattativa aperta assegnata a te. Se ne apre una dalla scheda del negozio o da Trattative.',
+  },
+  pipeline: {
+    titolo: 'Pipeline — trattative aperte per valore',
+    vuoto: 'Nessuna trattativa aperta, quindi nessun valore in pipeline.',
+  },
+};
+
 function euro(n: number): string {
   return `€ ${n.toLocaleString('it-IT')}`;
 }
@@ -53,7 +92,13 @@ export default function Oggi() {
   const [giro, setGiro] = useState<Place[]>([]);
   const [richiami, setRichiami] = useState<Richiamo[]>([]);
   const [leadNuovi, setLeadNuovi] = useState<Lead[]>([]);
-  const [kpi, setKpi] = useState({ visite: 0, chiamate: 0, aperte: 0, pipeline: 0 });
+  // Le RIGHE dietro ai numeri, non i numeri: le tessere si aprono, e un
+  // conteggio calcolato per conto suo prima o poi non torna con l'elenco che
+  // dovrebbe spiegarlo.
+  const [visite7g, setVisite7g] = useState<Visit[]>([]);
+  const [chiamate7g, setChiamate7g] = useState<ChiamataFatta[]>([]);
+  const [nomiPlace, setNomiPlace] = useState<Map<string, string>>(new Map());
+  const [dettaglio, setDettaglio] = useState<null | 'visite' | 'chiamate' | 'trattative' | 'pipeline'>(null);
   const [loading, setLoading] = useState(true);
   const [inviando, setInviando] = useState(false);
 
@@ -62,12 +107,12 @@ export default function Oggi() {
     try {
       const uid = session?.user?.id;
       const settimanaFa = isoGiorniFa(7);
-      const [t, tr, places, visits, chiamate7g, prof, tuttiLead, ultimoContatto] = await Promise.all([
+      const [t, tr, places, visits, chiamate, prof, tuttiLead, ultimoContatto] = await Promise.all([
         fetchTask(true),
         fetchTutteTrattative(),
         fetchPlaces(),
         fetchAllVisits(),
-        contaChiamateDal(settimanaFa),
+        fetchChiamateDal(settimanaFa).catch(() => []),
         uid ? fetchProfilo(uid) : Promise.resolve(null),
         fetchLeads().catch(() => []),
         fetchUltimoContattoPerPlace().catch(() => new Map<string, string>()),
@@ -83,18 +128,12 @@ export default function Oggi() {
         }),
       );
       setNome(prof?.nome?.split(' ')[0] ?? '');
+      setNomiPlace(new Map(places.map((p) => [p.id, p.nome])));
+      setChiamate7g(chiamate);
+      setVisite7g(visits.filter((v) => v.owner === uid && v.created_at >= settimanaFa));
       // Il giro di oggi = i target selezionati con la stella (⭐), ancora da visitare.
       setGiro(places.filter((p) => p.starred && p.stato === 'da_visitare' && !p.nascosto));
-      // KPI personali della settimana.
-      const aperteMie = tr.filter(
-        (d) => d.fase !== 'closedwon' && d.fase !== 'closedlost' && (!d.owner || d.owner === uid),
-      );
-      setKpi({
-        visite: visits.filter((v) => v.owner === uid && v.created_at >= settimanaFa).length,
-        chiamate: chiamate7g,
-        aperte: aperteMie.length,
-        pipeline: aperteMie.reduce((s, d) => s + (d.valore_atteso ?? 0), 0),
-      });
+      // I KPI si ricavano dalle righe qui sopra (vedi `aperteMie` più giù).
     } finally {
       setLoading(false);
     }
@@ -153,6 +192,50 @@ export default function Oggi() {
     );
   }, [richiami]);
 
+  // Trattative aperte mie (o senza proprietario): è il numero della tessera E
+  // l'elenco che ci sta dietro — lo stesso, non due calcoli separati.
+  const aperteMie = useMemo(
+    () =>
+      trattative.filter(
+        (d) => d.fase !== 'closedwon' && d.fase !== 'closedlost' && (!d.owner || d.owner === uid),
+      ),
+    [trattative, uid],
+  );
+  const pipeline = useMemo(() => aperteMie.reduce((s, d) => s + (d.valore_atteso ?? 0), 0), [aperteMie]);
+
+  const righeDettaglio = useMemo<RigaDettaglio[]>(() => {
+    const nome = (id: string | null | undefined) => (id && nomiPlace.get(id)) || 'Negozio senza nome';
+    if (dettaglio === 'visite') {
+      return visite7g
+        .slice()
+        .sort((a, b) => (a.data < b.data ? 1 : -1))
+        .map((v) => ({
+          id: v.id,
+          nome: nome(v.place_id),
+          meta: `${LABEL_ESITO[v.esito ?? ''] ?? 'visita'} · ${dataBreve(v.data)}`,
+          placeId: v.place_id,
+        }));
+    }
+    if (dettaglio === 'chiamate') {
+      return chiamate7g.map((c) => ({
+        id: c.id,
+        nome: nome(c.place_id),
+        meta: [c.esito, dataBreve(c.created_at)].filter(Boolean).join(' · '),
+        placeId: c.place_id,
+      }));
+    }
+    const deals = dettaglio === 'pipeline'
+      ? aperteMie.slice().sort((a, b) => (b.valore_atteso ?? 0) - (a.valore_atteso ?? 0))
+      : aperteMie;
+    return deals.map((d) => ({
+      id: d.id,
+      nome: d.place_nome ?? d.oggetto ?? d.titolo ?? 'Trattativa',
+      meta: [labelFase[d.fase] ?? d.fase, d.linea].filter(Boolean).join(' · '),
+      valore: d.valore_atteso ? euro(d.valore_atteso) : 'valore non indicato',
+      placeId: d.place_id ?? undefined,
+    }));
+  }, [dettaglio, visite7g, chiamate7g, aperteMie, nomiPlace]);
+
   const richiamiOrdinati = useMemo(
     () => [...richiami].sort((a, b) => Number(b.inRitardo) - Number(a.inRitardo) || b.giorni - a.giorni),
     [richiami],
@@ -204,11 +287,21 @@ export default function Oggi() {
 
       {/* I numeri della settimana: sto seminando abbastanza in ogni canale? */}
       <View style={styles.kpiRow}>
-        <Kpi label="Visite 7g" valore={String(kpi.visite)} icona="walk-outline" />
-        <Kpi label="Chiamate 7g" valore={String(kpi.chiamate)} icona="call-outline" />
-        <Kpi label="Trattative" valore={String(kpi.aperte)} icona="briefcase-outline" />
-        <Kpi label="Pipeline" valore={euro(kpi.pipeline)} icona="trending-up-outline" stretta />
+        <Kpi label="Visite 7g" valore={String(visite7g.length)} icona="walk-outline" onPress={() => setDettaglio('visite')} />
+        <Kpi label="Chiamate 7g" valore={String(chiamate7g.length)} icona="call-outline" onPress={() => setDettaglio('chiamate')} />
+        <Kpi label="Trattative" valore={String(aperteMie.length)} icona="briefcase-outline" onPress={() => setDettaglio('trattative')} />
+        <Kpi label="Pipeline" valore={euro(pipeline)} icona="trending-up-outline" stretta onPress={() => setDettaglio('pipeline')} />
       </View>
+
+      <DettaglioKpi
+        tipo={dettaglio}
+        righe={righeDettaglio}
+        onChiudi={() => setDettaglio(null)}
+        onApri={(placeId) => {
+          setDettaglio(null);
+          router.push(`/(app)/attivita/${placeId}`);
+        }}
+      />
 
       {/* 1a. TERRITORIO — il giro di oggi */}
       <Canale
@@ -365,13 +458,83 @@ export default function Oggi() {
   );
 }
 
-function Kpi({ label, valore, icona, stretta }: { label: string; valore: string; icona: any; stretta?: boolean }) {
+function Kpi({
+  label,
+  valore,
+  icona,
+  stretta,
+  onPress,
+}: {
+  label: string;
+  valore: string;
+  icona: any;
+  stretta?: boolean;
+  onPress?: () => void;
+}) {
   return (
-    <View style={[styles.kpi, stretta && { flex: 1.4 }]}>
+    <Pressable
+      style={({ pressed }) => [styles.kpi, stretta && { flex: 1.4 }, pressed && styles.kpiPremuta]}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${label}: ${valore}. Apri il dettaglio`}
+    >
       <Ionicons name={icona} size={15} color={colors.testoSoft} />
       <Text style={styles.kpiValore} numberOfLines={1}>{valore}</Text>
       <Text style={styles.kpiLabel} numberOfLines={1}>{label}</Text>
-    </View>
+    </Pressable>
+  );
+}
+
+/** Cosa c'è dietro al numero della tessera: le righe, una per una. */
+function DettaglioKpi({
+  tipo,
+  righe,
+  onChiudi,
+  onApri,
+}: {
+  tipo: null | 'visite' | 'chiamate' | 'trattative' | 'pipeline';
+  righe: RigaDettaglio[];
+  onChiudi: () => void;
+  onApri: (placeId: string) => void;
+}) {
+  if (!tipo) return null;
+  const testi = DETTAGLIO_TESTI[tipo];
+  return (
+    <Modal visible transparent animationType="fade" onRequestClose={onChiudi}>
+      <Pressable style={styles.velo} onPress={onChiudi}>
+        {/* Il foglio non si chiude toccandolo: solo il velo o la ×. */}
+        <Pressable style={styles.foglio} onPress={() => {}}>
+          <View style={styles.foglioTesta}>
+            <Text style={styles.foglioTitolo}>{testi.titolo}</Text>
+            <Pressable onPress={onChiudi} hitSlop={10} accessibilityLabel="Chiudi il dettaglio">
+              <Ionicons name="close" size={20} color={colors.grigio} />
+            </Pressable>
+          </View>
+          <Text style={styles.foglioConto}>{righe.length === 1 ? '1 riga' : `${righe.length} righe`}</Text>
+          <ScrollView style={styles.foglioLista}>
+            {righe.length === 0 ? (
+              <Text style={styles.foglioVuoto}>{testi.vuoto}</Text>
+            ) : (
+              righe.map((r) => (
+                <Pressable
+                  key={r.id}
+                  style={styles.foglioRiga}
+                  onPress={() => r.placeId && onApri(r.placeId)}
+                  disabled={!r.placeId}
+                >
+                  <View style={styles.foglioTesto}>
+                    <Text style={styles.foglioNome}>{r.nome}</Text>
+                    <Text style={styles.foglioMeta} numberOfLines={2}>{r.meta}</Text>
+                  </View>
+                  {r.valore ? <Text style={styles.foglioValore}>{r.valore}</Text> : null}
+                  {r.placeId ? <Ionicons name="chevron-forward" size={16} color={colors.grigio} /> : null}
+                </Pressable>
+              ))
+            )}
+          </ScrollView>
+        </Pressable>
+      </Pressable>
+    </Modal>
   );
 }
 
@@ -451,6 +614,34 @@ const styles = StyleSheet.create({
   rigaSotto: { color: colors.testoSoft, fontSize: 12 },
   rigaMeta: { color: colors.testoSoft, fontSize: 12, maxWidth: 150, textAlign: 'right' },
   chiudiRichiamo: { padding: 4, marginLeft: 2 },
+  kpiPremuta: { backgroundColor: colors.fill },
+  velo: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'center', padding: spacing.md },
+  foglio: {
+    backgroundColor: colors.bianco,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    maxHeight: '80%',
+    alignSelf: 'center',
+    width: '100%',
+    maxWidth: 560,
+  },
+  foglioTesta: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
+  foglioTitolo: { flex: 1, color: colors.navy, fontWeight: '800', fontSize: 16, letterSpacing: -0.3 },
+  foglioConto: { color: colors.testoSoft, fontSize: 12, marginTop: 2, marginBottom: spacing.sm },
+  foglioLista: { flexGrow: 0 },
+  foglioVuoto: { color: colors.testoSoft, fontSize: 13, lineHeight: 19, paddingVertical: spacing.sm },
+  foglioRiga: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: colors.hairline,
+  },
+  foglioTesto: { flex: 1, minWidth: 0 },
+  foglioNome: { color: colors.testo, fontWeight: '700', fontSize: 14 },
+  foglioMeta: { color: colors.testoSoft, fontSize: 12, marginTop: 1 },
+  foglioValore: { color: colors.navy, fontWeight: '800', fontSize: 13 },
   ritardo: { color: colors.errore, fontWeight: '800' },
   dot: { width: 8, height: 8, borderRadius: 4 },
   vuoto: { color: colors.grigio, fontStyle: 'italic', fontSize: 13 },
