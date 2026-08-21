@@ -338,9 +338,18 @@ export function TestiAnnuncio({
           <div key={id}>
             <div className="ga-annuncio" style={{ display: "flex", alignItems: "center", gap: 8 }}>
               Annuncio {i + 1}
-              {/* Il fatto di Google, per annuncio: attivo = in asta adesso. */}
+              {/* ⚠️ «Attivo» = `ad_group_ad.status` ENABLED, cioè NON IN PAUSA.
+                  NON vuol dire «in asta»: un annuncio rifiutato o limitato da
+                  Google resta ENABLED e non esce lo stesso — è quello che è
+                  successo alla WORLD-ENG (DESTINATION_NOT_WORKING). Il conto
+                  degli annunci limitati o in revisione arriva dal giro
+                  `approvazioni` ed è per campagna: sta nell'avviso in cima. */}
               {stato === "ENABLED" ? (
-                <span className="tag-salute" style={{ color: "var(--green)" }}>
+                <span
+                  className="tag-salute"
+                  style={{ color: "var(--green)" }}
+                  title="Non è in pausa. Se Google l'ha rifiutato o limitato può non uscire lo stesso: vedi in cima quanti sono limitati o in revisione."
+                >
                   <span className="dot" />attivo
                 </span>
               ) : stato === "PAUSED" ? (

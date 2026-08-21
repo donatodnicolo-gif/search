@@ -79,7 +79,9 @@ export async function EstensioniCampagna({
   // ripiega sul brand, che è meno preciso ma non mescola i marchi.
   const campagna = await prisma.campagna.findUnique({
     where: { id: campagnaId },
-    select: { account: true, brand: true },
+    // `annunciInReview` / `annunciTotali` arrivano dal giro `approvazioni`:
+    // sono l'unica cosa che distingue «acceso» da «esce davvero».
+    select: { account: true, brand: true, annunciInReview: true, annunciTotali: true },
   });
   const contenitoreAccount = campagna?.account ? `(account ${campagna.account})` : null;
 
@@ -178,6 +180,27 @@ export async function EstensioniCampagna({
               </div>
             ))}
           </div>
+
+          {/* ⚠️ «ATTIVO» SOTTO OGNI ANNUNCIO VUOL DIRE «NON IN PAUSA», non
+              «in asta». Un annuncio rifiutato o approvato con limitazioni
+              resta acceso e non esce (o esce meno): è quello che è successo
+              alla WORLD-ENG. Questo numero lo sappiamo — lo manda il giro
+              `approvazioni` — e finché non lo si scrive qui la pastiglia
+              verde promette più di quello che misura. */}
+          {(campagna?.annunciInReview ?? 0) > 0 && (
+            <div className="nota-info" style={{ borderColor: "rgba(201,52,0,.35)", background: "rgba(201,52,0,.06)" }}>
+              <span className="nota-icona" style={{ color: "var(--orange)" }}>◈</span>
+              <span>
+                <b>
+                  {campagna?.annunciInReview} annunci su {campagna?.annunciTotali} sono limitati da
+                  Google o ancora in revisione
+                </b>{" "}
+                — la pastiglia «attivo» qui sotto dice solo che l&apos;annuncio non è in pausa. Uno
+                rifiutato resta acceso e non esce lo stesso: il motivo sta in Google Ads, colonna
+                «Stato».
+              </span>
+            </div>
+          )}
 
           {mancanti.length > 0 && (
             <div className="nota-info" style={{ borderColor: "rgba(201,52,0,.35)", background: "rgba(201,52,0,.06)" }}>

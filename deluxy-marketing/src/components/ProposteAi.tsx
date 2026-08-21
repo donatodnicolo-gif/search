@@ -1,6 +1,7 @@
 import { Badge } from "@/components/Badge";
-import { accettaProposta, adattaProposta, chiediProposteAi, portaIdealeQui, scartaProposta } from "@/lib/azioni";
+import { accettaProposta, adattaProposta, chiediProposteAi, portaIdealeQui, portaIdealiQui, scartaProposta } from "@/lib/azioni";
 import { formattaEuro, testoKeywordPulito } from "@/lib/dominio";
+import { ContaSelezionate, SelezionaTutte } from "@/components/SelezioneRighe";
 import { cittaDiNome, perAltraCitta } from "@/lib/nuova-campagna";
 import {
   COLORE_AZIONE_PROPOSTA,
@@ -191,10 +192,17 @@ export async function ProposteAi({
             dall&apos;AI, o quello che rende là c&apos;è già anche qui.
           </div>
         ) : (
+          // ⚠️ UN FORM SOLO PER TUTTA LA TABELLA. I bottoni di riga restano
+          // (con `formAction`, che vince su quella del form): chi ne vuole una
+          // fa un clic come prima. Le spunte servono a chi le decide in blocco.
+          <form action={portaIdealiQui.bind(null, campagna.id, cittaCampagna)}>
           <div style={{ overflowX: "auto" }}>
             <table>
               <thead>
                 <tr>
+                  <th style={{ width: 34 }}>
+                    <SelezionaTutte nome="ideali" titolo="Spunta tutte le parole suggerite" />
+                  </th>
                   <th>Parola</th>
                   <th>Funziona su</th>
                   <th className="num">Spesa là</th>
@@ -213,6 +221,11 @@ export async function ProposteAi({
                     : null;
                   return (
                   <tr key={m.testo}>
+                    <td>
+                      {/* Il valore e' la parola D'ORIGINE: l'adattamento lo
+                          rifa' il server, cosi la regola vive in un posto solo. */}
+                      <input type="checkbox" name="ideali" value={m.testo} aria-label={`Scegli «${m.testo}»`} />
+                    </td>
                     <td className="cella-nome" style={{ maxWidth: 240 }}>{m.testo}</td>
                     <td className="cella-muta" style={{ maxWidth: 200 }}>
                       <a href={`/campagne/${m.daCampagnaId}`}>{m.daCampagna}</a>
@@ -224,21 +237,23 @@ export async function ProposteAi({
                     <td className="cella-muta" style={{ maxWidth: 340, whiteSpace: "normal" }}>{m.motivo}</td>
                     <td>
                       {riscritta ? (
-                        <form action={portaIdealeQui.bind(null, campagna.id, m.testo, cittaCampagna)}>
-                          <button
-                            className="btn small"
-                            type="submit"
-                            title={`Mette in coda «${riscritta}» invece di «${testoKeywordPulito(m.testo)}»: stessa parola, la città di questa campagna`}
-                          >
-                            Adatta: {riscritta}
-                          </button>
-                        </form>
+                        <button
+                          className="btn small"
+                          type="submit"
+                          formAction={portaIdealeQui.bind(null, campagna.id, m.testo, cittaCampagna)}
+                          title={`Mette in coda «${riscritta}» invece di «${testoKeywordPulito(m.testo)}»: stessa parola, la città di questa campagna`}
+                        >
+                          Adatta: {riscritta}
+                        </button>
                       ) : (
-                        <form action={portaIdealeQui.bind(null, campagna.id, m.testo, null)}>
-                          <button className="btn small btn-secondario" type="submit" title="Mette in coda la parola così com'è">
-                            Porta qui
-                          </button>
-                        </form>
+                        <button
+                          className="btn small btn-secondario"
+                          type="submit"
+                          formAction={portaIdealeQui.bind(null, campagna.id, m.testo, null)}
+                          title="Mette in coda la parola così com'è"
+                        >
+                          Porta qui
+                        </button>
                       )}
                     </td>
                   </tr>
@@ -247,6 +262,23 @@ export async function ProposteAi({
               </tbody>
             </table>
           </div>
+          {/* La barra sta SOTTO la tabella, dove finisce di leggere chi ha
+              appena spuntato le righe. Il numero è quello vero delle caselle
+              spuntate: se dicesse «porta le selezionate» senza dire quante,
+              non ci sarebbe modo di accorgersi di una spunta di troppo. */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 12, flexWrap: "wrap" }}>
+            <ContaSelezionate
+              nome="ideali"
+              etichetta={(n) =>
+                n === 0 ? "Porta qui le selezionate" : n === 1 ? "Porta qui 1 parola" : `Porta qui ${n} parole`
+              }
+            />
+            <span className="cella-sub" style={{ whiteSpace: "normal" }}>
+              Ognuna diventa un&apos;operazione sua, da approvare: puoi dire sì a cinque e no a
+              una. Dove serve, la parola viene adattata alla città di questa campagna.
+            </span>
+          </div>
+          </form>
         )}
         <p className="cella-sub" style={{ marginTop: 10, whiteSpace: "normal" }}>
           Il confronto è sulle <b>parole</b>, non sulla stringa: «flower delivery milan» e «milan

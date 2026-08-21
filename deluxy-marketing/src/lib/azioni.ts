@@ -1866,6 +1866,93 @@ export async function portaIdealeQui(campagnaId: string, testoOriginale: string,
   );
 }
 
+
+/**
+ * Le ideali che mancano, portate qui PIU' D'UNA ALLA VOLTA.
+ *
+ * ⚠️ Perche' serviva: una parola per volta significa un giro di pagina, una
+ * conferma e un ritorno per ognuna — con nove suggerimenti sono nove viaggi
+ * per un gesto che si decide in blocco («queste sei si', queste tre no»).
+ *
+ * ⚠️ Ognuna resta un'OPERAZIONE SUA, non un lotto unico. Chi approva deve
+ * poter dire si' a cinque e no a una, e se lo script ne sbaglia una le altre
+ * non devono cadere con lei. Qui si risparmiano i clic, non i controlli.
+ *
+ * ⚠️ L'adattamento si RICALCOLA qui, non si prende dalla pagina: il bottone
+ * mostra «Adatta: roma flowers», ma cio' che arriva dal browser e' solo la
+ * parola d'origine. Ricalcolare vuol dire che la regola sta in un posto solo
+ * (`perAltraCitta`) e che una pagina vecchia aperta in un'altra scheda non
+ * puo' far entrare una riscrittura che oggi non faremmo piu'.
+ */
+export async function portaIdealiQui(campagnaId: string, citta: string | null, fd: FormData) {
+  const scelte = fd.getAll("ideali").map(String).filter(Boolean);
+  if (scelte.length === 0) return;
+
+  const campagna = await prisma.campagna.findUnique({
+    where: { id: campagnaId },
+    select: { id: true, nome: true, canale: true, idEsterno: true },
+  });
+  if (!campagna) return;
+
+  const { perAltraCitta } = await import("./nuova-campagna");
+  const messe: string[] = [];
+  const avvisi: string[] = [];
+
+  for (const originale of scelte) {
+    const pulito = testoKeywordPulito(originale);
+    let finale = pulito;
+    if (citta) {
+      const riscritto = perAltraCitta(pulito, citta);
+      // Se non e' riscrivibile si porta com'e': e' il caso delle parole che
+      // non nominano nessuna citta', ed e' esattamente quello che fa il
+      // bottone «Porta qui» della riga singola.
+      if (riscritto) finale = riscritto;
+    }
+
+    const op = await accodaOperazione({
+      data: {
+        tipo: "nuova_keyword",
+        canale: campagna.canale,
+        bersaglio: campagna.nome,
+        idEsterno: campagna.idEsterno,
+        parametri: JSON.stringify({ testo: finale, corrispondenza: "broad" }),
+        motivo:
+          finale !== pulito
+            ? `Adattata da «${pulito}» per ${citta}: la parola rende su un'altra città e qui manca.`
+            : `Portata da un'altra campagna del brand: funziona lì e qui manca.`,
+        avvisi:
+          finale !== pulito
+            ? `«${finale}» è riscritta da «${pulito}»: su questa città non ha nessun dato alle spalle, la somiglianza non è una misura.`
+            : null,
+        livello: "L1",
+        prima: "assente",
+        campagnaId,
+      },
+    });
+    messe.push(finale);
+    if (finale !== pulito) avvisi.push(`«${finale}» è riscritta da «${pulito}»: qui non ha ancora nessun dato.`);
+    await registra({
+      autore: "utente",
+      tipo: "creazione",
+      entita: "operazione",
+      entitaId: op.id,
+      titolo: `In coda (da approvare): «${finale}» su ${campagna.nome}`,
+      dettaglio:
+        finale !== pulito
+          ? `Adattata da «${pulito}» per ${citta} · scelta insieme ad altre ${scelte.length - 1}`
+          : `Portata da un'altra campagna · scelta insieme ad altre ${scelte.length - 1}`,
+    });
+  }
+
+  redirect(
+    esitoInCoda(
+      messe.length === 1
+        ? `«${messe[0]}» su ${campagna.nome}`
+        : `${messe.length} parole su ${campagna.nome}: ${messe.map((m) => `«${m}»`).join(", ")}`,
+      avvisi
+    )
+  );
+}
 // ---------- «Adatta»: la parola riscritta per QUESTA campagna ----------
 // L'AI propone parole che funzionano altrove, e spesso quelle parole nominano
 // un'altra città: «flower delivery milan» dentro la campagna di Roma non serve
