@@ -43,6 +43,19 @@ function isoGiorniFa(n: number): string {
 }
 type RigaDettaglio = { id: string; nome: string; meta: string; valore?: string; placeId?: string };
 
+/**
+ * Quanti negozi ha senso proporre come giro di UNA giornata.
+ *
+ * ⚠️ Misurato il 21/08/2026: i negozi «stellati e da visitare» erano **803**, e
+ * la Home li sommava tutti nel titolo — «803 azioni per vendere oggi». Ma 801
+ * di quegli 803 arrivano dall'**import del registro Anagrafiche**, che li stella
+ * per costruzione (senza ⭐ non comparirebbero in nessuna lista): non li ha
+ * scelti nessuno, sono il magazzino. Quelli scelti da una persona erano **28**.
+ * Un giro di un giorno non è 803 negozi, e un numero che nessuno può fare non è
+ * un obiettivo: è rumore che fa smettere di guardare la Home.
+ */
+const TETTO_GIRO = 10;
+
 const LABEL_ESITO: Record<string, string> = {
   interessato: 'Interessato',
   da_richiamare: 'Da richiamare',
@@ -236,6 +249,30 @@ export default function Oggi() {
     }));
   }, [dettaglio, visite7g, chiamate7g, aperteMie, nomiPlace]);
 
+  /**
+   * Il giro di oggi, in ordine di diritto a starci:
+   *   1. chi ha una visita **pianificata** per oggi (o in ritardo): è un impegno
+   *      preso, e non si taglia mai — anche se sono più del tetto;
+   *   2. chi è stato **scelto da una persona** (`creato_da`), cioè la ⭐ messa a
+   *      mano o il negozio creato sul posto;
+   *   3. il resto per priorità, fino al tetto.
+   * Quello che resta fuori non sparisce: sta sulla Mappa, e la nota sotto al
+   * titolo dice quanti sono. Un taglio taciuto si legge come «non c'è altro».
+   */
+  const giroOggi = useMemo(() => {
+    const impegni = giro.filter((p) => p.visita_pianificata && p.visita_pianificata <= oggi);
+    const restanti = giro.filter((p) => !(p.visita_pianificata && p.visita_pianificata <= oggi));
+    const peso = (p: Place) => (p.creato_da ? 0 : 1);
+    const perPriorita = { P1: 0, P2: 1, P3: 2 } as Record<string, number>;
+    restanti.sort(
+      (a, b) =>
+        peso(a) - peso(b) ||
+        (perPriorita[a.priorita] ?? 9) - (perPriorita[b.priorita] ?? 9) ||
+        a.nome.localeCompare(b.nome),
+    );
+    return [...impegni, ...restanti.slice(0, Math.max(0, TETTO_GIRO - impegni.length))];
+  }, [giro, oggi]);
+
   const richiamiOrdinati = useMemo(
     () => [...richiami].sort((a, b) => Number(b.inRitardo) - Number(a.inRitardo) || b.giorni - a.giorni),
     [richiami],
@@ -245,7 +282,7 @@ export default function Oggi() {
 
   const d = new Date();
   const dataLunga = `${GIORNI[d.getDay()]} ${d.getDate()} ${MESI[d.getMonth()]}`;
-  const cose = giro.length + richiamiOrdinati.length + leadNuovi.length + daMuovere.length + daRiprendere.length + taskOggi.length;
+  const cose = giroOggi.length + richiamiOrdinati.length + leadNuovi.length + daMuovere.length + daRiprendere.length + taskOggi.length;
 
   async function promemoria() {
     setInviando(true);
@@ -307,12 +344,17 @@ export default function Oggi() {
       <Canale
         icona="walk-outline"
         titolo="Territorio — il giro di oggi"
-        conteggio={giro.length}
+        conteggio={giroOggi.length}
+        nota={
+          giro.length > giroOggi.length
+            ? `${giroOggi.length} di ${giro.length} selezionati — gli altri restano sulla Mappa`
+            : undefined
+        }
         cta={giro.length ? 'Apri la Mappa e parti' : 'Scopri negozi sulla Mappa'}
         onCta={() => router.push('/(app)/mappa')}
         vuoto={loading ? 'Caricamento…' : 'Nessuna tappa selezionata: scegli i negozi con la ⭐ dalla Mappa.'}
       >
-        {giro.slice(0, 5).map((p) => (
+        {giroOggi.slice(0, 5).map((p) => (
           <Pressable key={p.id} style={styles.riga} onPress={() => router.push(`/(app)/attivita/${p.id}`)}>
             <Ionicons name="storefront-outline" size={16} color={colors.navy} />
             <Text numberOfLines={3} style={styles.rigaTitolo}>{p.nome}</Text>
@@ -542,6 +584,7 @@ function Canale({
   icona,
   titolo,
   conteggio,
+  nota,
   cta,
   onCta,
   vuoto,
@@ -549,6 +592,7 @@ function Canale({
 }: {
   icona: any;
   titolo: string;
+  nota?: string;
   conteggio: number;
   cta: string;
   onCta: () => void;
@@ -562,6 +606,10 @@ function Canale({
         <Text style={styles.canaleTitolo}>{titolo}</Text>
         {conteggio ? <Text style={styles.canaleConteggio}>{conteggio}</Text> : null}
       </View>
+      {/* Il taglio si dichiara: un elenco troncato in silenzio si legge come
+          «non c'è altro», ed è il modo più veloce per far perdere fiducia a chi
+          sa che i negozi erano di più. */}
+      {nota ? <Text style={styles.canaleNota}>{nota}</Text> : null}
       {conteggio === 0 && vuoto ? <Text style={styles.vuoto}>{vuoto}</Text> : children}
       <Pressable onPress={onCta}>
         <Text style={styles.link}>{cta} ›</Text>
@@ -589,6 +637,7 @@ const styles = StyleSheet.create({
   },
   kpiValore: { color: colors.navy, fontWeight: '800', fontSize: 15 },
   kpiLabel: { color: colors.testoSoft, fontSize: 10.5, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.4 },
+  canaleNota: { color: colors.testoSoft, fontSize: 11.5, marginTop: -2, marginBottom: 2 },
   canale: {
     backgroundColor: colors.bianco,
     borderRadius: radius.md,
