@@ -87,6 +87,42 @@ export function CorpoMessaggio({ html: htmlIniziale, testo, tradotto, lingua, ht
     if (vista === 'html') misura()
   }, [vista])
 
+  /**
+   * I TASTI PREMUTI DENTRO LA MAIL ARRIVANO LO STESSO ALLA PAGINA.
+   *
+   * ⚠️ Il corpo è un iframe. Appena ci si clicca dentro — per scorrere o per
+   * selezionare una frase, cioè la cosa più normale del mondo — il fuoco passa
+   * al documento dell'iframe, e da quel momento `r`, `e`, `n`, `Canc` non
+   * arrivano più a nessuno: chi ascolta sta sulla finestra principale. È il
+   * «le scorciatoie a volte non funzionano» segnalato il 20/08/2026, e il
+   * «a volte» era proprio questo: dipende da dove hai cliccato l'ultima volta.
+   *
+   * Si può ascoltare qui perché la sandbox ha `allow-same-origin`. ⚠️ Non ha
+   * `allow-scripts`, e non deve averlo: dentro la mail non gira niente: questo
+   * ascolto lo installa la PAGINA, non il contenuto. La difesa XSS resta.
+   *
+   * ⚠️ Si rilancia un evento NUOVO invece di riusare l'originale: un evento
+   * appartiene al suo documento e non si può ridispacciare altrove.
+   * ⚠️ Coi modificatori premuti non si inoltra: `Ctrl+F` dentro la mail deve
+   * restare la ricerca del browser.
+   */
+  useEffect(() => {
+    if (vista !== 'html') return
+    const doc = ref.current?.contentDocument
+    if (!doc) return
+    const inoltra = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return
+      window.dispatchEvent(
+        new KeyboardEvent('keydown', { key: e.key, code: e.code, bubbles: true })
+      )
+    }
+    doc.addEventListener('keydown', inoltra)
+    return () => doc.removeEventListener('keydown', inoltra)
+    // `altezza` è nelle dipendenze perché l'iframe si (ri)crea col contenuto:
+    // riagganciarsi dopo il caricamento è ciò che rende l'ascolto affidabile.
+  }, [vista, altezza])
+
+
   const originale: 'html' | 'testo' = html ? 'html' : 'testo'
 
   return (

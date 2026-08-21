@@ -488,6 +488,28 @@ Cron: **`/api/sync`** (route, autenticata con `CRON_SECRET`) — su Vercel Hobby
 
 ## 9. Problemi noti / gotchas
 
+- **«I tasti rapidi a volte non funzionano» (20 ago)** — e il «a volte» era la chiave, come
+  già per il pallino blu e per le mail inoltrate. Non è casuale: **dipende da dove hai
+  cliccato l'ultima volta**. Il corpo della mail è un `<iframe>` (`CorpoMessaggio`); appena
+  ci clicchi dentro — per scorrere, o per selezionare una frase — il fuoco passa al documento
+  dell'iframe, e da quel momento `r`, `e`, `n`, `p`, `Canc` non arrivano più a nessuno,
+  perché sia `Scorciatoie` sia `NavigaMessaggi` ascoltano sulla **finestra principale**.
+  Riprendevano a funzionare cliccando fuori dalla mail, il che rende il difetto
+  irriproducibile a comando e facile da liquidare come «a volte».
+  Ora l'iframe inoltra i suoi `keydown` alla pagina. ⚠️ Si può ascoltare lì dentro perché la
+  sandbox ha `allow-same-origin`; **non ha `allow-scripts` e non deve averlo** — dentro la
+  mail non gira niente, l'ascolto lo installa la pagina. La difesa XSS resta intatta.
+  ⚠️ Si dispaccia un evento **nuovo**: un evento appartiene al suo documento e non si
+  ridispaccia altrove. ⚠️ Coi modificatori premuti non si inoltra, o `Ctrl+F` dentro la mail
+  smetterebbe di aprire la ricerca del browser.
+  ⚠️ Resta un secondo caso, **voluto**: col fuoco su un campo o sul menù a tendina delle
+  sezioni le lettere non scattano (`INPUT`/`TEXTAREA`/`SELECT`/`contentEditable`). È giusto
+  così — scrivere «e» in un campo non deve archiviare la mail — ma è l'altra metà del
+  «a volte» e va detto a chi lo segnala.
+  **Regola generale**: se una funzione è governata dalla tastiera e c'è un iframe in pagina,
+  chiedersi sempre dove va a finire il fuoco. Un ascoltatore su `window` non sente i tasti
+  premuti dentro un documento diverso.
+
 - 🔴 **L'archivio finiva nel cestino, e sul server (20 ago) — regola SPENTA** — l'utente,
   guardando la webmail: «perché mi risultano tutte queste mail in cestino su server?».
   Catena, contata sul database: **54 regole con `archivia: true`** (49 di `nicolo.donato`,
