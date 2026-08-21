@@ -214,9 +214,14 @@ locale, altrimenti nulla si decifra.
       scrive su Shopify — il client è stato tolto di proposito, e le credenziali
       dei tre negozi coniano un token ma **non dichiarano `write_orders`**
       (provato il 19/08: `access_scopes` torna vuoto).
-      ✅ **Strada scelta dall'utente (19/08)**: darà il permesso `write_orders`
-      all'app **CRM_DELUXY** nella Dev Dashboard di Shopify e la reinstallerà
-      sui tre negozi. Appena fatto: qui si aggiunge la scrittura della nota
+      ✅✅ **CORREZIONE del 19/08: `write_orders` C'È GIÀ.** Interrogata
+      l'installazione (`currentAppInstallation { accessScopes }`) su tutti e tre i
+      negozi: **read_all_orders, read_audit_events, read_channels, read_customers,
+      read_orders, write_channels, write_customers, write_orders**. La nota su
+      Shopify si può scrivere **subito**, senza toccare niente.
+      ⚠️ Da dove nasceva l'errore: `/admin/oauth/access_scopes.json` torna VUOTO
+      con i token client-credentials — non vuol dire «nessun permesso». Il modo
+      giusto di chiederlo è la query GraphQL `currentAppInstallation`. Appena fatto: qui si aggiunge la scrittura della nota
       sull'ordine («Consegna spostata al … da …») usando le credenziali già in
       `NegozioShopify` (client credentials grant, `src/lib/negozi.ts`), e si
       valuta di aggiornare la data **alla fonte** così la divergenza non nasce.
@@ -2675,14 +2680,19 @@ locale, altrimenti nulla si decifra.
 
 Da fare, in ordine di utilità:
 
-- 🔴 **CHARGEBACK APERTI: il dato non c'è ancora** (chiesto dall'utente il 19/08).
+- 🟡 **CHARGEBACK APERTI: il dato non c'è ancora, ma i permessi SÌ** (chiesto dall'utente il 19/08).
   Né questa app né Deluxy Orders leggono le contestazioni: sull'ordine di Shopify
   stanno in `disputes { id status initiatedAt }` (Shopify Payments), e la query di
   Orders (`src/lib/shopify.ts`) oggi chiede solo `risk`. Strada: **Orders le legge →
   qui si copiano** come già si fa per pagamento e rischio frode, poi bollino rosso e
-  filtro. ⚠️ Serve il permesso **`read_shopify_payments_disputes`** sull'app
-  CRM_DELUXY — da aggiungere insieme a `write_orders`. ⚠️ Vale solo per Shopify
-  Payments: una contestazione aperta su un altro gateway lì non compare.
+  filtro. ✅ **MISURATO il 19/08** interrogando Shopify: `disputes { id status }`
+  sull'ordine **risponde già** con i permessi che l'app ha (zero contestazioni
+  sugli ultimi 50 ordini di ciascun negozio), quindi per l'elenco **non serve
+  aggiungere niente**. Serve un permesso solo per il DETTAGLIO (importo, motivo,
+  scadenza delle prove), che sta su `shopifyPaymentsAccount`: Shopify chiede
+  **`read_shopify_payments`** o **`read_shopify_payments_accounts`**.
+  ⚠️ Vale solo per Shopify Payments: una contestazione su un altro gateway lì non
+  compare.
 
 - **371 ordini senza data di consegna** (su 1.245 in tabella, 488 ancora «da gestire»):
   sono quelli che `chiudi-consegne-passate.mjs` non tocca di proposito. È un problema di
