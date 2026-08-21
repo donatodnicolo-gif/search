@@ -163,7 +163,15 @@ export default async function DettaglioPeriodo({
           </div>
         </div>
         <div className="kpi">
-          <div className="kpi-label">Differenza aperta</div>
+          <div className="kpi-label">Entrate − uscite</div>
+          <div className={`kpi-value ${incassato + daIncassare - pagato - daPagare >= 0 ? "pos" : "neg"}`}>
+            {incassato + daIncassare - pagato - daPagare >= 0 ? "+" : ""}
+            {euro(incassato + daIncassare - pagato - daPagare)}
+          </div>
+          <div className="kpi-sub">netto di tutto ciò che cade nel periodo, saldato compreso</div>
+        </div>
+        <div className="kpi">
+          <div className="kpi-label">Saldi aperti</div>
           <div className={`kpi-value ${daIncassare - daPagare >= 0 ? "pos" : "neg"}`}>
             {daIncassare - daPagare >= 0 ? "+" : ""}
             {euro(daIncassare - daPagare)}

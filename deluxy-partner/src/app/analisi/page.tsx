@@ -122,7 +122,8 @@ export default async function AnalisiPage() {
                 <th className="num">Da incassare</th>
                 <th className="num">Pagato ai partner ✓</th>
                 <th className="num">Da pagare</th>
-                <th className="num">Differenza aperta</th>
+                <th className="num">Entrate − uscite</th>
+                <th className="num">Saldi aperti</th>
                 {saldoBanca != null && <th className="num">Saldo proiettato</th>}
               </tr>
             </thead>
@@ -132,7 +133,8 @@ export default async function AnalisiPage() {
                 const daIncassare = sommaVoci(r.entrate, false);
                 const pagato = sommaVoci(r.uscite, true);
                 const daPagare = sommaVoci(r.uscite, false);
-                const diffAperta = daIncassare - daPagare;
+                const diffAperta = daIncassare - daPagare; // saldi aperti: solo le partite non chiuse
+                const diffTotale = incassato + daIncassare - pagato - daPagare; // tutto ciò che cade nel periodo
                 cumulato += diffAperta;
                 const senzaData = r.senzaScadenza;
                 const scaduto = r.passato && daIncassare >= 0.01;
@@ -201,6 +203,9 @@ export default async function AnalisiPage() {
                     </td>
                     <td className="num" style={{ opacity: 0.75 }}>{euro(pagato)}</td>
                     <td className="num neg" style={{ fontWeight: daPagare >= 0.01 ? 600 : 400 }}>{euro(daPagare)}</td>
+                    <td className={`num ${diffTotale >= 0 ? "pos" : "neg"}`} style={{ fontWeight: 600 }}>
+                      {diffTotale >= 0 ? "+" : ""}{euro(diffTotale)}
+                    </td>
                     <td className={`num ${diffAperta >= 0 ? "pos" : "neg"}`} style={{ fontWeight: 600 }}>
                       {diffAperta >= 0 ? "+" : ""}{euro(diffAperta)}
                     </td>
@@ -218,6 +223,10 @@ export default async function AnalisiPage() {
                 <td className="num">{euro(totDaIncassare)}</td>
                 <td className="num">{euro(totPagato)}</td>
                 <td className="num neg">{euro(totDaPagare)}</td>
+                <td className={`num ${totIncassato + totDaIncassare - totPagato - totDaPagare >= 0 ? "pos" : "neg"}`}>
+                  {totIncassato + totDaIncassare - totPagato - totDaPagare >= 0 ? "+" : ""}
+                  {euro(totIncassato + totDaIncassare - totPagato - totDaPagare)}
+                </td>
                 <td className={`num ${totDaIncassare - totDaPagare >= 0 ? "pos" : "neg"}`}>
                   {totDaIncassare - totDaPagare >= 0 ? "+" : ""}{euro(totDaIncassare - totDaPagare)}
                 </td>
@@ -236,6 +245,9 @@ export default async function AnalisiPage() {
         indicata&raquo;, perché una data inventata farebbe comparire scaduti che non esistono. Fanno
         eccezione le fatture degli anni chiusi, arretrate a prescindere dal giorno. Di ogni fattura
         si conta il <strong>residuo</strong>, quindi un acconto già incassato figura fra gli incassi.
+        <strong> Entrate − uscite</strong> è il netto di tutto ciò che cade nel periodo, saldato
+        compreso; <strong>Saldi aperti</strong> è il netto delle sole partite ancora da chiudere —
+        ed è quest&apos;ultimo, non il primo, a muovere il saldo proiettato.
         Il saldo proiettato parte dalla liquidità Qonto e somma solo le partite aperte. Le fatture
         incassate degli anni precedenti sono escluse; l&apos;arretrato non saldato è nella prima riga.
       </p>
