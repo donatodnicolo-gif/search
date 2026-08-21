@@ -23,16 +23,20 @@ console.log('── Orari ──')
 prova('09:00 va bene', oraValida('09:00'), true)
 prova('9 non va bene', oraValida('9'), false)
 prova('25:00 non esiste', oraValida('25:00'), false)
-// ⚠️ 24:00 è la FINE della giornata: solo in coda, e solo esatta.
-prova('24:00 solo come fine', oraValida('24:00'), false)
-prova('24:00 come fine sì', oraValida('24:00', true), true)
-prova('24:30 mai', oraValida('24:30', true), false)
+// ⚠️⚠️ «24:00» NON si accetta, nemmeno come fine: il campo orario del browser
+// (`<input type="time">`) arriva alle 23:59, e un turno salvato con le 24:00
+// tornava a schermo con la casella di fine VUOTA — dato giusto nel database,
+// pagina che sembra rotta. Trovato provando la pagina, non leggendo il codice.
+prova('24:00 non esiste', oraValida('24:00'), false)
+prova('23:59 sì', oraValida('23:59'), true)
+prova('00:00 sì', oraValida('00:00'), true)
 
 console.log('\n── Fasce ──')
 prova('9→13 va bene', controllaFascia('09:00', '13:00'), '')
 prova('13→9 è rifiutata', controllaFascia('13:00', '09:00') !== '', true)
 prova('9→9 è rifiutata', controllaFascia('09:00', '09:00') !== '', true)
-prova('20→24 va bene', controllaFascia('20:00', '24:00'), '')
+prova('20→23:59 va bene', controllaFascia('20:00', '23:59'), '')
+prova('20→24:00 è rifiutata', controllaFascia('20:00', '24:00') !== '', true)
 
 console.log('\n── Giorni di calendario ──')
 prova('2026-08-25 esiste', giornoValido('2026-08-25'), true)

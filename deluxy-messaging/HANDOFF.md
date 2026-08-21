@@ -1,6 +1,6 @@
 # Handoff — Deluxy Customer Service
 
-Ultimo aggiornamento: **21/08/2026, ore 17:00** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
+Ultimo aggiornamento: **21/08/2026, ore 18:00** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
 prima, alle 15:10, l'utente ha pubblicato la schermata di consenso Google e il
 conto alla rovescia dei 7 giorni è finito).
 Prima, il 19/08: la **risposta di primo contatto** che parte da sola al primo
@@ -159,9 +159,22 @@ locale, altrimenti nulla si decifra.
   voce che risponde «serve un amministratore» sembra un guasto, non una regola.
   Per farlo, il ruolo ora arriva alla `Sidebar` dal layout (stessa cosa fatta
   anche per «Operatori»).
-  - Tre parti: **Adesso** (chi è dentro, fino a che ora, e chi entra dopo), **La
-    settimana** (griglia persone × 7 giorni, si aggiunge e si toglie), **Quando
-    la settimana non vale** (ferie, permessi, orari diversi).
+  - ⚠️ **Rifatta subito dopo la prima versione, su richiesta dell'utente
+    («semplifica: è tipo gli orari di apertura di Google»).** Prima era una
+    griglia persone × 7 giorni con sopra una barra da **quattro tendine**:
+    funzionava e non si capiva — per mettere il lunedì di Federica bisognava
+    scegliere persona, giorno e due ore in controlli diversi, e poi cercare dove
+    fosse finita la pastiglia. Ora si sceglie **una persona** e si aprono o
+    chiudono i suoi **sette giorni**, con le ore scritte dov'è scritto l'orario.
+  - Tre parti: **Adesso** (chi è dentro, fino a che ora, e chi entra dopo), **gli
+    orari della persona scelta** (7 righe Aperto/Chiuso, «+ Aggiungi orario» per
+    la seconda fascia), **Giorni speciali** (ferie, permessi, orari diversi).
+  - ⚠️ Le pastiglie delle persone dicono **quanti giorni** hanno già («· 4g»):
+    si vede chi non ha ancora un orario senza aprirlo.
+  - ⚠️ Chiudere un giorno è **una chiamata sola** (`DELETE ?cosa=giorno`): una
+    per fascia vorrebbe dire più risposte in parallelo, ognuna con lo stato
+    completo, e l'ultima che arriva vince — il giorno resterebbe mezzo aperto a
+    schermo.
   - Due tabelle e non una (`TurnoSettimanale`, `EccezioneTurno`; `db push`
     additivo): la regola che si ripete e le volte in cui non vale sono due
     domande diverse. Con una sola, ogni permesso costringerebbe a riscrivere la
@@ -180,19 +193,29 @@ locale, altrimenti nulla si decifra.
   - ⚠️ `giornoValido` controlla che il giorno **esista**: `2026-04-31`
     scivolerebbe al primo maggio senza dare errore, e l'eccezione finirebbe sul
     giorno sbagliato.
-  - ⚠️ **Niente turni di notte**: si finisce al più tardi alle `24:00` (ammessa
-    apposta in coda: `00:00` sarebbe *prima* dell'inizio e il turno verrebbe
-    rifiutato, con l'operatore convinto di aver sbagliato lui). Uno che scavalca
-    la mezzanotte va spezzato in due, e il messaggio lo dice.
+  - 🐞⚠️⚠️ **Le `24:00` erano ammesse e sono state TOLTE — bug trovato provando
+    la pagina, non leggendo il codice.** Il campo orario del browser
+    (`<input type="time">`) arriva alle **23:59**: un turno salvato con le 24:00
+    tornava a schermo **con la casella di fine vuota**. Dato giusto nel
+    database, pagina che sembra rotta — il modo peggiore di sbagliare. Ora si
+    finisce al più tardi alle **23:59**, e i turni di notte vanno spezzati in
+    due. ⚠️ Le tabelle erano vuote, quindi niente da migrare.
   - ⚠️ `src/lib/turni.ts` **non parla col database** ed è una regola da non
     rompere: lo importa anche il componente client. Le query stanno in
     `src/app/api/turni/route.ts`.
   - ⚠️ **I turni non fanno succedere niente**: non assegnano ordini, non
     smistano conversazioni, non impediscono di lavorare fuori orario. Scritto
     anche a schermo, perché è la prima cosa che si dà per scontata.
-  - ⚠️ **Non verificata a schermo da una sessione** (serve un login da
-    amministratore). Typecheck, build e prove passano; le tabelle esistono in
-    produzione e rispondono. **Da guardare con gli occhi.**
+  - ✅ **Guardata davvero**, con un trucco che vale la pena ricordare: la pagina
+    vuole un login e le password non le usa una sessione Claude, quindi si mette
+    un file **temporaneo** sotto `src/app/widget/…` — l'unico ramo fuori dal
+    cancello del middleware — che rende il componente con dati finti e la
+    `window.fetch` sostituita. Si guarda, si cancella, non si committa. È così
+    che è saltata fuori la casella vuota delle 24:00.
+  - ✅ Provata anche a **375px**: le righe dei giorni vanno a capo e la pagina
+    **non scorre di lato** (`scrollWidth === clientWidth`). La vecchia griglia a
+    7 colonne, quella, scorreva.
+  - ⚠️ `npx tsx scripts/prova-turni.mts`: 20 casi, tutti passano.
 
 - **OPERATORI: QUANTO LAVORO HA FATTO CIASCUNO** (21/08/2026). Chiesto
   dall'utente: «una sezione per giudicare gli operatori — quanti ordini

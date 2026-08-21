@@ -160,12 +160,66 @@ export async function POST(req: NextRequest) {
   return NextResponse.json(await leggiTurni())
 }
 
+/**
+ * Cambia le ore di un turno che c'è già.
+ *
+ * ⚠️ Serve perché gli orari si scrivono **dentro la riga del giorno**, come
+ * negli orari di apertura: senza, per spostare un turno di mezz'ora bisogna
+ * cancellarlo e rifarlo, che è il gesto che la pagina vuole togliere di mezzo.
+ */
+export async function PATCH(req: NextRequest) {
+  const { errore } = await admin()
+  if (errore) return errore
+
+  const c = (await req.json().catch(() => ({}))) as { id?: string; dalle?: string; alle?: string }
+  if (!c.id) return NextResponse.json({ errore: 'Manca l’id.' }, { status: 400 })
+  const male = controllaFascia(c.dalle ?? '', c.alle ?? '')
+  if (male) return NextResponse.json({ errore: male }, { status: 400 })
+
+  const esistente = await db.turnoSettimanale.findUnique({ where: { id: c.id } })
+  if (!esistente) return NextResponse.json(await leggiTurni())
+
+  // ⚠️ Se quella persona ha GIÀ una fascia identica in quel giorno, spostare
+  // questa sopra l'altra violerebbe l'unicità e la pagina direbbe un errore
+  // tecnico. La cosa giusta è che le due diventino una: si toglie il doppione.
+  const gemella = await db.turnoSettimanale.findFirst({
+    where: {
+      utenteId: esistente.utenteId,
+      giorno: esistente.giorno,
+      dalle: c.dalle!,
+      alle: c.alle!,
+      id: { not: esistente.id },
+    },
+  })
+  if (gemella) await db.turnoSettimanale.deleteMany({ where: { id: esistente.id } })
+  else await db.turnoSettimanale.update({ where: { id: c.id }, data: { dalle: c.dalle!, alle: c.alle! } })
+
+  return NextResponse.json(await leggiTurni())
+}
+
 export async function DELETE(req: NextRequest) {
   const { errore } = await admin()
   if (errore) return errore
 
-  const id = req.nextUrl.searchParams.get('id') ?? ''
-  const cosa = req.nextUrl.searchParams.get('cosa')
+  const p = req.nextUrl.searchParams
+  const cosa = p.get('cosa')
+
+  // ── Chiudere un giorno intero ──
+  // ⚠️ Una chiamata sola e non una per fascia: con due o tre richieste in
+  // parallelo, ognuna che risponde con lo stato completo, l'ultima che arriva
+  // vince — e il giorno resterebbe mezzo aperto a schermo, con la pagina che
+  // dice una cosa e il database un'altra.
+  if (cosa === 'giorno') {
+    const utenteId = p.get('utenteId') ?? ''
+    const giorno = Number(p.get('giorno'))
+    if (!utenteId || !Number.isInteger(giorno) || giorno < 1 || giorno > 7) {
+      return NextResponse.json({ errore: 'Giorno non valido.' }, { status: 400 })
+    }
+    await db.turnoSettimanale.deleteMany({ where: { utenteId, giorno } })
+    return NextResponse.json(await leggiTurni())
+  }
+
+  const id = p.get('id') ?? ''
   if (!id) return NextResponse.json({ errore: 'Manca l’id.' }, { status: 400 })
 
   // ⚠️ `deleteMany` con l'id: se la riga è già stata tolta da un altro

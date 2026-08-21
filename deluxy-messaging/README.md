@@ -680,28 +680,35 @@ promesso e non ancora uscito** e quanto è già stato reso.
 quel gruppo non lo vede proprio: una voce che risponde «serve un amministratore»
 sembra un guasto, non una regola.
 
-La pagina è fatta di tre parti.
+È fatta come gli **orari di apertura**: si sceglie una persona e si aprono o si
+chiudono i suoi sette giorni.
 
-**Adesso**, in cima, è la domanda che ci si fa aprendo la pagina: c'è qualcuno in
-questo momento? Mostra chi è dentro e fino a che ora, e chi entra dopo.
+**Adesso**, in cima, dice chi è in turno in questo momento e fino a che ora, e chi
+entra dopo.
 
-**La settimana** è la regola che si ripete: una riga per persona, sette colonne. Si
-aggiunge un turno scegliendo persona, giorno e le due ore; si toglie cliccando la
-pastiglia. Una persona può avere **due fasce nello stesso giorno** (mattina e
-pomeriggio): sono due righe, non una.
+**Gli orari di…** — una pastiglia per persona, col numero di giorni già impostati
+(«· 4g»): si vede a colpo d'occhio chi non ha ancora un orario. Poi sette righe:
 
-**Quando la settimana non vale** sono i giorni singoli — ferie, permessi, un cambio
-di orario. Due tipi:
+- **Aperto / Chiuso** è un bottone solo. Aprire un giorno mette l'orario di sempre
+  (9–18) e lo si corregge scrivendoci sopra; chiuderlo toglie tutte le fasce di
+  quel giorno. È quello che fa Google, e nessuno lo trova sorprendente.
+- Le ore si scrivono **dov'è scritto l'orario**, e si salvano quando si esce dal
+  campo. Nessun modulo da compilare a parte.
+- **+ Aggiungi orario** dà una seconda fascia allo stesso giorno, per chi stacca a
+  pranzo. La × per toglierla compare solo quando ce n'è più di una: l'ultima si
+  toglie chiudendo il giorno.
+
+**Giorni speciali** sono le ferie, i permessi e i cambi di orario per un giorno
+solo, riferiti alla **persona scelta sopra**. Due tipi:
 
 - **Non lavora**: quel giorno spariscono **tutte** le sue fasce, non una.
-- **Orario diverso**: la fascia dell'eccezione **sostituisce** quella abituale, non
-  ci si aggiunge.
+- **Orario diverso**: la fascia del giorno speciale **sostituisce** quella
+  abituale, non ci si aggiunge.
 
-⚠️ **L'eccezione vince sempre sulla settimana**, ed è tutto il motivo per cui esiste:
-senza, ogni permesso costringerebbe a riscrivere la regola e poi a rimetterla a
-posto — e non lo farebbe nessuno, così la griglia direbbe il falso in silenzio.
-Le eccezioni si vedono **da ieri in poi**: quelle passate sono archivio, e un elenco
-che cresce all'infinito smette di guardarsi.
+⚠️ **Il giorno speciale vince sempre sulla settimana**, ed è tutto il motivo per cui
+esiste: senza, ogni permesso costringerebbe a riscrivere la regola e poi a
+rimetterla a posto — e non lo farebbe nessuno, così la griglia direbbe il falso in
+silenzio. Si vedono **da ieri in poi**: quelli passati sono archivio.
 
 ⚠️ **Le ore e i giorni sono scritti come li dice la gente**, non come istanti:
 `09:00` è un orario da parete, `2026-08-25` un giorno di calendario. Se fossero
@@ -710,9 +717,11 @@ un'ora da soli. Per la stessa ragione «Adesso» si calcola con l'orologio di ch
 guarda: sul server sarebbe UTC, e alle 09:30 italiane direbbe che non è entrato
 ancora nessuno.
 
-⚠️ **I turni di notte non ci sono.** Un turno finisce al più tardi alle **24:00**;
-uno che scavalca la mezzanotte va spezzato in due, e la pagina lo dice invece di
-accettarlo e contarlo storto.
+⚠️ **Un turno finisce al più tardi alle 23:59**, e non esistono turni che scavalcano
+la mezzanotte: vanno spezzati in due. Le `24:00` erano ammesse e sono state tolte —
+il campo orario del browser arriva alle 23:59, e un turno che finiva alle 24:00
+tornava a schermo **con la casella di fine vuota**: dato giusto nel database, pagina
+che sembra rotta.
 
 ### Quello che i turni NON fanno
 

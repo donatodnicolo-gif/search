@@ -1,29 +1,20 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import {
-  GIORNI,
-  giornoIso,
-  inMinuti,
-  turniDelGiorno,
-  type EsitoTurni,
-} from '@/lib/turni'
+import { GIORNI, giornoIso, inMinuti, turniDelGiorno, type EsitoTurni } from '@/lib/turni'
 
-// I turni degli operatori: chi lavora, quando.
+// I turni degli operatori, fatti come gli **orari di apertura**: una persona
+// alla volta, sette righe, aperto o chiuso.
 //
-// ⚠️ Due cose separate, ed è il cuore della pagina: **la settimana che si
-// ripete** («Federica il lunedì dalle 9 alle 13») e **i giorni in cui quella
-// settimana non vale** («il 25 agosto è in ferie»). Se ci fosse solo la prima,
-// ogni permesso costringerebbe a riscrivere la regola e poi a rimetterla a
-// posto — e nessuno lo farebbe, così la griglia direbbe il falso in silenzio.
+// ⚠️ La prima versione era una griglia persone × 7 giorni con sopra una barra
+// da quattro tendine per aggiungere un turno. Funzionava e non si capiva: per
+// mettere il lunedì di Federica bisognava scegliere la persona, il giorno e due
+// ore in quattro controlli diversi, e poi cercare dove fosse finita la
+// pastiglia. Qui si apre il giorno e si scrive l'ora dov'è scritta.
 //
 // ⚠️ «Adesso» si calcola con l'orologio del BROWSER. Sul server sarebbe UTC —
-// Vercel sta lì — e alle 09:30 italiane direbbe che nessuno è ancora entrato.
-
-/** «di turno adesso», con l'orologio di chi guarda. */
-function oraCorrente(d: Date): number {
-  return d.getHours() * 60 + d.getMinutes()
-}
+// Vercel sta lì — e alle 09:30 italiane direbbe che non è entrato ancora
+// nessuno.
 
 /** 1 = lunedì … 7 = domenica, dal `getDay()` che invece parte dalla domenica. */
 function giornoSettimana(d: Date): number {
@@ -44,25 +35,22 @@ function nomeGiornoData(giorno: string): string {
 
 const VUOTO: EsitoTurni = { operatori: [], turni: [], eccezioni: [] }
 
+/** L'orario che si propone aprendo un giorno: quello che si scrive più spesso. */
+const DI_SOLITO = { dalle: '09:00', alle: '18:00' }
+
 export function TurniLista({ amministratore }: { amministratore: boolean }) {
   const [dati, setDati] = useState<EsitoTurni>(VUOTO)
   const [caricato, setCaricato] = useState(false)
   const [errore, setErrore] = useState('')
   const [salvando, setSalvando] = useState(false)
-
-  // Il modulo della settimana
   const [chi, setChi] = useState('')
-  const [giorno, setGiorno] = useState(1)
-  const [dalle, setDalle] = useState('09:00')
-  const [alle, setAlle] = useState('13:00')
 
-  // Il modulo delle eccezioni
-  const [chiEcc, setChiEcc] = useState('')
-  const [dataEcc, setDataEcc] = useState(giornoIso(new Date()))
-  const [tipoEcc, setTipoEcc] = useState<'riposo' | 'orario'>('riposo')
-  const [dalleEcc, setDalleEcc] = useState('09:00')
-  const [alleEcc, setAlleEcc] = useState('13:00')
-  const [motivoEcc, setMotivoEcc] = useState('')
+  // Il giorno speciale che si sta aggiungendo
+  const [dataSpec, setDataSpec] = useState(giornoIso(new Date()))
+  const [chiusoSpec, setChiusoSpec] = useState(true)
+  const [dalleSpec, setDalleSpec] = useState('09:00')
+  const [alleSpec, setAlleSpec] = useState('13:00')
+  const [motivoSpec, setMotivoSpec] = useState('')
 
   const carica = useCallback(async () => {
     const res = await fetch('/api/turni')
@@ -76,21 +64,21 @@ export function TurniLista({ amministratore }: { amministratore: boolean }) {
     setDati(d)
     setCaricato(true)
     setChi((c) => c || d.operatori[0]?.id || '')
-    setChiEcc((c) => c || d.operatori[0]?.id || '')
   }, [])
 
   useEffect(() => {
     if (amministratore) void carica()
   }, [carica, amministratore])
 
-  async function manda(corpo: Record<string, unknown>) {
+  async function chiama(metodo: 'POST' | 'PATCH' | 'DELETE', corpo?: unknown, query = '') {
     setSalvando(true)
     setErrore('')
     try {
-      const res = await fetch('/api/turni', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(corpo),
+      const res = await fetch('/api/turni' + query, {
+        method: metodo,
+        ...(corpo
+          ? { headers: { 'content-type': 'application/json' }, body: JSON.stringify(corpo) }
+          : {}),
       })
       const d = (await res.json()) as EsitoTurni & { errore?: string }
       if (!res.ok) setErrore(d.errore ?? 'Non sono riuscito a salvare.')
@@ -102,30 +90,15 @@ export function TurniLista({ amministratore }: { amministratore: boolean }) {
     }
   }
 
-  async function togli(id: string, cosa: 'settimana' | 'eccezione') {
-    setSalvando(true)
-    setErrore('')
-    try {
-      const res = await fetch(`/api/turni?id=${encodeURIComponent(id)}&cosa=${cosa}`, {
-        method: 'DELETE',
-      })
-      const d = (await res.json()) as EsitoTurni & { errore?: string }
-      if (!res.ok) setErrore(d.errore ?? 'Non sono riuscito a togliere il turno.')
-      else setDati(d)
-    } finally {
-      setSalvando(false)
-    }
-  }
-
-  // ── Chi è di turno adesso, e chi entra dopo ──
+  // ── Chi è di turno adesso ──
   const adesso = useMemo(() => {
     const ora = new Date()
     const oggi = turniDelGiorno(dati, giornoIso(ora), giornoSettimana(ora))
-    const m = oraCorrente(ora)
+    const m = ora.getHours() * 60 + ora.getMinutes()
     return {
       dentro: oggi.filter((t) => inMinuti(t.dalle) <= m && m < inMinuti(t.alle)),
       dopo: oggi.filter((t) => inMinuti(t.dalle) > m),
-      nessunTurnoOggi: oggi.length === 0,
+      nessunoOggi: oggi.length === 0,
     }
   }, [dati])
 
@@ -135,19 +108,24 @@ export function TurniLista({ amministratore }: { amministratore: boolean }) {
         <h1 className="page-title">Turni</h1>
         <div className="card" style={{ maxWidth: 640 }}>
           <p className="descrizione" style={{ marginBottom: 0 }}>
-            I turni li imposta un <strong>amministratore</strong>. Il tuo è un account
-            operatore: se il tuo orario non è quello giusto, chiedi a chi amministra di
-            correggerlo.
+            I turni li imposta un <strong>amministratore</strong>. Se il tuo orario non è
+            quello giusto, chiedi a chi amministra di correggerlo.
           </p>
         </div>
       </main>
     )
   }
 
-  const perGiorno = (utenteId: string, n: number) =>
+  const fasceDi = (utenteId: string, n: number) =>
     dati.turni
       .filter((t) => t.utenteId === utenteId && t.giorno === n)
       .sort((a, b) => inMinuti(a.dalle) - inMinuti(b.dalle))
+
+  const giorniAperti = (utenteId: string) =>
+    new Set(dati.turni.filter((t) => t.utenteId === utenteId).map((t) => t.giorno)).size
+
+  const eccezioniDi = dati.eccezioni.filter((e) => e.utenteId === chi)
+  const persona = dati.operatori.find((o) => o.id === chi)
 
   return (
     <main>
@@ -155,293 +133,283 @@ export function TurniLista({ amministratore }: { amministratore: boolean }) {
         <div>
           <h1 className="page-title">Turni</h1>
           <p className="page-sub">
-            Chi lavora e quando. La <strong>settimana</strong> è la regola che si ripete; le{' '}
-            <strong>eccezioni</strong> sono i giorni in cui quella regola non vale — ferie,
-            permessi, un cambio di orario. L’eccezione vince sempre sulla settimana.
+            Chi lavora e quando, come gli orari di apertura: la settimana si ripete, i{' '}
+            <strong>giorni speciali</strong> la scavalcano. Non assegnano ordini e non
+            impediscono a nessuno di lavorare fuori orario: servono a sapere chi c’è.
           </p>
         </div>
       </div>
 
       {errore ? <div className="avviso-errore">{errore}</div> : null}
 
-      {/* ── ADESSO ──
-          ⚠️ È il primo riquadro perché è la domanda che si fa aprendo la
-          pagina: «c'è qualcuno adesso?». La griglia serve a impostare, questo
-          a guardare. */}
-      <div className="card">
-        <h2 style={{ marginTop: 0, fontSize: 15 }}>Adesso</h2>
+      {/* ── ADESSO ── una riga: è la domanda che ci si fa aprendo la pagina. */}
+      <div className="card" style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+        <span className="etichetta-ordina" style={{ margin: 0 }}>
+          Adesso
+        </span>
         {!caricato ? (
-          <p className="descrizione" style={{ marginBottom: 0 }}>
-            Carico…
-          </p>
+          <span className="cella-sub">carico…</span>
         ) : adesso.dentro.length ? (
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            {adesso.dentro.map((t) => (
-              <span key={t.utenteId + t.dalle} className="badge verde">
-                {t.nome} · fino alle {t.alle}
-                {t.motivo ? ` · ${t.motivo}` : ''}
-              </span>
-            ))}
-          </div>
+          adesso.dentro.map((t) => (
+            <span key={t.utenteId + t.dalle} className="badge verde">
+              {t.nome} · fino alle {t.alle}
+            </span>
+          ))
         ) : (
-          <p className="descrizione" style={{ marginBottom: 0 }}>
-            {adesso.nessunTurnoOggi
-              ? 'Oggi non è di turno nessuno.'
-              : 'In questo momento non c’è nessuno in turno.'}
-          </p>
+          <span className="cella-sub">
+            {adesso.nessunoOggi ? 'oggi non c’è nessun turno' : 'nessuno in turno in questo momento'}
+          </span>
         )}
         {adesso.dopo.length ? (
-          <p className="descrizione" style={{ marginBottom: 0, marginTop: 10 }}>
-            Dopo:{' '}
-            {adesso.dopo.map((t) => `${t.nome} dalle ${t.dalle}`).join(' · ')}
-          </p>
+          <span className="cella-sub">
+            poi {adesso.dopo.map((t) => `${t.nome} dalle ${t.dalle}`).join(' · ')}
+          </span>
         ) : null}
       </div>
 
-      {/* ── LA SETTIMANA ── */}
-      <h2 style={{ fontSize: 17, marginTop: 26, marginBottom: 10 }}>La settimana</h2>
-
-      <div className="filtri">
-        <span className="etichetta-ordina">Aggiungi</span>
-        <select value={chi} onChange={(e) => setChi(e.target.value)} aria-label="Persona">
-          {dati.operatori.map((o) => (
-            <option key={o.id} value={o.id}>
+      {/* ── CHI ── una pastiglia per persona, col numero di giorni già messi:
+          si vede a colpo d'occhio chi non ha ancora un orario. */}
+      <div className="filtri" style={{ marginTop: 18 }}>
+        <span className="etichetta-ordina">Orari di</span>
+        {dati.operatori.map((o) => {
+          const quanti = giorniAperti(o.id)
+          return (
+            <button
+              key={o.id}
+              className={chi === o.id ? 'bottone mini' : 'bottone secondario mini'}
+              onClick={() => setChi(o.id)}
+            >
               {o.nome}
-            </option>
-          ))}
-        </select>
-        <select
-          value={giorno}
-          onChange={(e) => setGiorno(Number(e.target.value))}
-          aria-label="Giorno della settimana"
-        >
-          {GIORNI.map((g) => (
-            <option key={g.n} value={g.n}>
-              {g.nome}
-            </option>
-          ))}
-        </select>
-        <span className="cella-sub">dalle</span>
-        <input
-          type="time"
-          value={dalle}
-          onChange={(e) => setDalle(e.target.value)}
-          aria-label="Dalle"
-        />
-        <span className="cella-sub">alle</span>
-        <input
-          type="time"
-          value={alle}
-          onChange={(e) => setAlle(e.target.value)}
-          aria-label="Alle"
-        />
-        <button
-          className="bottone mini"
-          disabled={salvando || !chi}
-          onClick={() => void manda({ cosa: 'settimana', utenteId: chi, giorno, dalle, alle })}
-        >
-          Aggiungi il turno
-        </button>
+              {quanti ? ` · ${quanti}g` : ''}
+            </button>
+          )
+        })}
       </div>
 
-      <div className="tabella-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Persona</th>
-              {GIORNI.map((g) => (
-                <th key={g.n} title={g.nome}>
-                  {g.breve}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {dati.operatori.map((o) => (
-              <tr key={o.id}>
-                <td>
-                  <div className="cella-nome">{o.nome}</div>
-                  <div className="cella-sub">{o.ruolo === 'admin' ? 'amministratore' : 'operatore'}</div>
-                </td>
-                {GIORNI.map((g) => {
-                  const fasce = perGiorno(o.id, g.n)
-                  return (
-                    <td key={g.n} style={{ verticalAlign: 'top' }}>
-                      {fasce.length === 0 ? (
-                        <span className="cella-muta">—</span>
-                      ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                          {fasce.map((f) => (
-                            <button
-                              key={f.id}
-                              className="bottone secondario mini"
-                              disabled={salvando}
-                              title="Togli questo turno"
-                              onClick={() => void togli(f.id, 'settimana')}
-                              style={{ whiteSpace: 'nowrap' }}
-                            >
-                              {f.dalle}–{f.alle} ×
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </td>
-                  )
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      {caricato && dati.turni.length === 0 ? (
-        <p className="descrizione" style={{ marginTop: 10 }}>
-          Nessun turno impostato: finché la griglia è vuota, «Adesso» dirà sempre che non c’è
-          nessuno.
-        </p>
-      ) : null}
+      {/* ── LA SETTIMANA, come gli orari di apertura ── */}
+      <div className="card" style={{ padding: 0 }}>
+        {GIORNI.map((g) => {
+          const fasce = fasceDi(chi, g.n)
+          const aperto = fasce.length > 0
+          return (
+            <div
+              key={g.n}
+              style={{
+                display: 'flex',
+                gap: 12,
+                alignItems: 'flex-start',
+                padding: '12px 16px',
+                borderBottom: g.n === 7 ? 'none' : '1px solid var(--hairline)',
+                flexWrap: 'wrap',
+              }}
+            >
+              <div className="cella-nome" style={{ width: 96, paddingTop: 4 }}>
+                {g.nome}
+              </div>
 
-      {/* ── LE ECCEZIONI ── */}
-      <h2 style={{ fontSize: 17, marginTop: 30, marginBottom: 6 }}>
-        Quando la settimana non vale
-      </h2>
+              {/* ⚠️ Aperto/chiuso è UN bottone, non una tendina: aprire un
+                  giorno mette l'orario di sempre (9–18) e si corregge scrivendo
+                  sopra. Chiuderlo toglie tutte le fasce di quel giorno — è la
+                  stessa cosa che fa Google, e nessuno la trova sorprendente. */}
+              <button
+                className={aperto ? 'bottone secondario mini' : 'bottone mini'}
+                disabled={salvando || !chi}
+                style={{ width: 88 }}
+                onClick={() => {
+                  if (aperto) {
+                    // Una chiamata sola per tutto il giorno: mandarne una per
+                    // fascia lascerebbe il giorno mezzo aperto a schermo.
+                    void chiama('DELETE', undefined, `?cosa=giorno&utenteId=${chi}&giorno=${g.n}`)
+                  } else {
+                    void chiama('POST', {
+                      cosa: 'settimana',
+                      utenteId: chi,
+                      giorno: g.n,
+                      ...DI_SOLITO,
+                    })
+                  }
+                }}
+              >
+                {aperto ? 'Aperto' : 'Chiuso'}
+              </button>
+
+              {aperto ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {fasce.map((f) => (
+                    <div key={f.id} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                      <input
+                        type="time"
+                        defaultValue={f.dalle}
+                        disabled={salvando}
+                        aria-label={`${g.nome}: dalle`}
+                        onBlur={(e) =>
+                          e.target.value && void chiama('PATCH', { id: f.id, dalle: e.target.value, alle: f.alle })
+                        }
+                      />
+                      <span className="cella-sub">–</span>
+                      <input
+                        type="time"
+                        defaultValue={f.alle}
+                        disabled={salvando}
+                        aria-label={`${g.nome}: alle`}
+                        onBlur={(e) =>
+                          e.target.value && void chiama('PATCH', { id: f.id, dalle: f.dalle, alle: e.target.value })
+                        }
+                      />
+                      {fasce.length > 1 ? (
+                        <button
+                          className="bottone secondario mini"
+                          disabled={salvando}
+                          title="Togli questa fascia"
+                          onClick={() => void chiama('DELETE', undefined, `?id=${f.id}&cosa=settimana`)}
+                        >
+                          ×
+                        </button>
+                      ) : null}
+                    </div>
+                  ))}
+                  {/* Una seconda fascia serve a chi stacca per pranzo. */}
+                  <button
+                    className="bottone secondario mini"
+                    disabled={salvando}
+                    style={{ alignSelf: 'flex-start' }}
+                    onClick={() =>
+                      void chiama('POST', {
+                        cosa: 'settimana',
+                        utenteId: chi,
+                        giorno: g.n,
+                        dalle: '15:00',
+                        alle: '18:00',
+                      })
+                    }
+                  >
+                    + Aggiungi orario
+                  </button>
+                </div>
+              ) : (
+                <span className="cella-muta" style={{ paddingTop: 5 }}>
+                  non lavora
+                </span>
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      {/* ── I GIORNI SPECIALI ── le «special hours»: ferie, permessi, orari
+          diversi per un giorno solo. ⚠️ Valgono per la persona scelta sopra:
+          un secondo elenco di persone qui sarebbe un controllo in più per
+          niente. */}
+      <h2 style={{ fontSize: 17, marginTop: 28, marginBottom: 4 }}>Giorni speciali</h2>
       <p className="descrizione" style={{ marginTop: 0 }}>
-        Ferie, permessi, un cambio di orario per un giorno solo. ⚠️ Un{' '}
-        <strong>riposo</strong> cancella tutte le fasce di quella persona in quel giorno; un{' '}
-        <strong>orario diverso</strong> le sostituisce. La settimana resta com’è.
+        Ferie, permessi o un orario diverso, per {persona ? <strong>{persona.nome}</strong> : 'la persona scelta'}.
+        Scavalcano la settimana solo quel giorno.
       </p>
 
       <div className="filtri">
-        <span className="etichetta-ordina">Aggiungi</span>
-        <select value={chiEcc} onChange={(e) => setChiEcc(e.target.value)} aria-label="Persona">
-          {dati.operatori.map((o) => (
-            <option key={o.id} value={o.id}>
-              {o.nome}
-            </option>
-          ))}
-        </select>
         <input
           type="date"
-          value={dataEcc}
-          onChange={(e) => setDataEcc(e.target.value)}
+          value={dataSpec}
+          onChange={(e) => setDataSpec(e.target.value)}
           aria-label="Giorno"
         />
-        <select
-          value={tipoEcc}
-          onChange={(e) => setTipoEcc(e.target.value === 'orario' ? 'orario' : 'riposo')}
-          aria-label="Che cosa cambia"
+        <button
+          className={chiusoSpec ? 'bottone mini' : 'bottone secondario mini'}
+          onClick={() => setChiusoSpec(true)}
         >
-          <option value="riposo">Non lavora</option>
-          <option value="orario">Orario diverso</option>
-        </select>
-        {tipoEcc === 'orario' ? (
+          Non lavora
+        </button>
+        <button
+          className={!chiusoSpec ? 'bottone mini' : 'bottone secondario mini'}
+          onClick={() => setChiusoSpec(false)}
+        >
+          Orario diverso
+        </button>
+        {!chiusoSpec ? (
           <>
-            <span className="cella-sub">dalle</span>
             <input
               type="time"
-              value={dalleEcc}
-              onChange={(e) => setDalleEcc(e.target.value)}
+              value={dalleSpec}
+              onChange={(e) => setDalleSpec(e.target.value)}
               aria-label="Dalle"
             />
-            <span className="cella-sub">alle</span>
+            <span className="cella-sub">–</span>
             <input
               type="time"
-              value={alleEcc}
-              onChange={(e) => setAlleEcc(e.target.value)}
+              value={alleSpec}
+              onChange={(e) => setAlleSpec(e.target.value)}
               aria-label="Alle"
             />
           </>
         ) : null}
         <input
-          value={motivoEcc}
-          onChange={(e) => setMotivoEcc(e.target.value)}
+          value={motivoSpec}
+          onChange={(e) => setMotivoSpec(e.target.value)}
           placeholder="motivo (ferie, visita…)"
           aria-label="Motivo"
-          style={{ width: 180 }}
+          style={{ width: 170 }}
         />
         <button
           className="bottone mini"
-          disabled={salvando || !chiEcc}
+          disabled={salvando || !chi}
           onClick={() =>
-            void manda({
+            void chiama('POST', {
               cosa: 'eccezione',
-              utenteId: chiEcc,
-              giorno: dataEcc,
-              tipo: tipoEcc,
-              dalle: dalleEcc,
-              alle: alleEcc,
-              motivo: motivoEcc,
-            }).then(() => setMotivoEcc(''))
+              utenteId: chi,
+              giorno: dataSpec,
+              tipo: chiusoSpec ? 'riposo' : 'orario',
+              dalle: dalleSpec,
+              alle: alleSpec,
+              motivo: motivoSpec,
+            }).then(() => setMotivoSpec(''))
           }
         >
-          Aggiungi l’eccezione
+          Aggiungi
         </button>
       </div>
 
-      {dati.eccezioni.length === 0 ? (
+      {eccezioniDi.length === 0 ? (
         <p className="descrizione">
-          Nessuna eccezione da ieri in poi. Quelle passate non si mostrano: sono archivio, e un
-          elenco che cresce all’infinito smette di guardarsi.
+          Nessun giorno speciale da ieri in poi. Quelli passati non si mostrano.
         </p>
       ) : (
-        <div className="tabella-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Giorno</th>
-                <th>Persona</th>
-                <th>Che cosa cambia</th>
-                <th>Motivo</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {dati.eccezioni.map((e) => (
-                <tr key={e.id}>
-                  <td className="cella-nome" style={{ whiteSpace: 'nowrap' }}>
-                    {nomeGiornoData(e.giorno)}
-                  </td>
-                  <td>{e.utenteNome}</td>
-                  <td>
-                    {e.tipo === 'riposo' ? (
-                      <span className="badge rosso">Non lavora</span>
-                    ) : (
-                      <span className="badge">
-                        {e.dalle}–{e.alle}
-                      </span>
-                    )}
-                  </td>
-                  <td className="cella-muta">
-                    {e.motivo || '—'}
-                    {e.creatoDaNome ? (
-                      <div className="cella-sub">messa da {e.creatoDaNome}</div>
-                    ) : null}
-                  </td>
-                  <td style={{ whiteSpace: 'nowrap' }}>
-                    <button
-                      className="bottone secondario mini"
-                      disabled={salvando}
-                      onClick={() => void togli(e.id, 'eccezione')}
-                    >
-                      Togli
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="card" style={{ padding: 0 }}>
+          {eccezioniDi.map((e, i) => (
+            <div
+              key={e.id}
+              style={{
+                display: 'flex',
+                gap: 12,
+                alignItems: 'center',
+                padding: '10px 16px',
+                borderBottom: i === eccezioniDi.length - 1 ? 'none' : '1px solid var(--hairline)',
+                flexWrap: 'wrap',
+              }}
+            >
+              <span className="cella-nome" style={{ minWidth: 150 }}>
+                {nomeGiornoData(e.giorno)}
+              </span>
+              {e.tipo === 'riposo' ? (
+                <span className="badge rosso">Non lavora</span>
+              ) : (
+                <span className="badge">
+                  {e.dalle}–{e.alle}
+                </span>
+              )}
+              <span className="cella-muta" style={{ flex: 1 }}>
+                {e.motivo}
+              </span>
+              <button
+                className="bottone secondario mini"
+                disabled={salvando}
+                onClick={() => void chiama('DELETE', undefined, `?id=${e.id}&cosa=eccezione`)}
+              >
+                Togli
+              </button>
+            </div>
+          ))}
         </div>
       )}
-
-      <div className="card" style={{ marginTop: 22, maxWidth: 860 }}>
-        <h2 style={{ marginTop: 0, fontSize: 15 }}>Che cosa fanno, e che cosa non fanno</h2>
-        <p className="descrizione" style={{ marginBottom: 0 }}>
-          I turni <strong>si scrivono qui e basta</strong>: non assegnano ordini, non
-          smistano conversazioni e non impediscono a nessuno di entrare fuori orario. Servono
-          a sapere chi c’è — e a poterlo dire a un cliente che chiede quando richiamare. Se
-          un domani devono contare davvero (per esempio per dare le chat nuove a chi è di
-          turno), è una cosa da decidere e da costruire, non da far succedere di lato.
-        </p>
-      </div>
     </main>
   )
 }

@@ -1200,7 +1200,7 @@ model TurnoSettimanale {
   utenteNome String   @default("")
   /** 1 = lunedì … 7 = domenica (come le settimane ISO, e come le legge la gente). */
   giorno     Int
-  /** «09:00». Fine ammessa fino a «24:00», che vuol dire fino a mezzanotte. */
+  /** «09:00». Da «00:00» a «23:59»: il campo orario del browser non conosce le 24:00. */
   dalle      String
   alle       String
   creatoIl   DateTime @default(now())

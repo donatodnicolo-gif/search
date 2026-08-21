@@ -52,19 +52,17 @@ export type EsitoTurni = {
 }
 
 /**
- * «09:00» sì, «9» no, «25:00» no.
+ * «09:00» sì, «9» no, «25:00» no. Da «00:00» a «23:59» e basta.
  *
- * ⚠️ In coda si ammette **«24:00»**: è la fine della giornata, e serve a chi
- * stacca a mezzanotte. Scritto «00:00» sarebbe *prima* dell'inizio e il turno
- * verrebbe rifiutato — con l'operatore convinto di aver sbagliato lui.
+ * ⚠️⚠️ **Niente «24:00», nemmeno come fine.** C'era, e sembrava una gentilezza
+ * verso chi stacca a mezzanotte. Ma il campo orario del browser
+ * (`<input type="time">`) arriva alle **23:59**: un turno salvato con le 24:00
+ * tornava a schermo con **la casella di fine vuota** — dato giusto nel
+ * database, pagina che sembra rotta, che è il modo peggiore di sbagliare.
+ * Chi stacca a mezzanotte scrive **23:59**.
  */
-export function oraValida(v: string, fine = false): boolean {
-  const m = /^([01]\d|2[0-4]):([0-5]\d)$/.exec(v)
-  if (!m) return false
-  const ore = Number(m[1])
-  const minuti = Number(m[2])
-  if (ore === 24) return fine && minuti === 0
-  return true
+export function oraValida(v: string): boolean {
+  return /^([01]\d|2[0-3]):([0-5]\d)$/.test(v)
 }
 
 /** Minuti dalla mezzanotte: serve solo a confrontare due orari. */
@@ -91,13 +89,13 @@ export function giornoIso(d: Date): string {
  * Controlla una fascia oraria. Torna l'errore da mostrare, o stringa vuota.
  *
  * ⚠️ I turni che scavalcano la mezzanotte **non ci sono**: qui si finisce al
- * più tardi alle 24:00. Dirlo con un messaggio chiaro è meglio che accettarli e
+ * più tardi alle 23:59. Dirlo con un messaggio chiaro è meglio che accettarli e
  * poi contarli storti — il servizio clienti dei fiori non lavora di notte, e se
  * un giorno servisse è una cosa da progettare, non da far entrare di lato.
  */
 export function controllaFascia(dalle: string, alle: string): string {
   if (!oraValida(dalle)) return 'L’ora di inizio va scritta come 09:00.'
-  if (!oraValida(alle, true)) return 'L’ora di fine va scritta come 13:00 (o 24:00 per mezzanotte).'
+  if (!oraValida(alle)) return 'L’ora di fine va scritta come 13:00 (al massimo 23:59).'
   if (inMinuti(alle) <= inMinuti(dalle)) {
     return 'La fine deve venire dopo l’inizio. Un turno che scavalca la mezzanotte va spezzato in due.'
   }
