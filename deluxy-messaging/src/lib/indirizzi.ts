@@ -15,6 +15,57 @@ import { leggiImpostazioni } from './impostazioni'
 const AUTOCOMPLETE = 'https://places.googleapis.com/v1/places:autocomplete'
 const DETTAGLIO = 'https://places.googleapis.com/v1/places'
 
+// ── La strada vecchia, che è quella che funziona con la chiave che abbiamo ──
+//
+// ⚠️⚠️ SONO DUE API DIVERSE, non due indirizzi della stessa: «Places API (New)»
+// e «Places API» si abilitano separatamente sul progetto Google, e una chiave
+// che va benissimo per una risponde all'altra **403 · API not enabled**.
+// La chiave che il gruppo usa già (Ricerca fornitori, `api/fornitori.js`) parla
+// con la VECCHIA. Quindi: si prova la nuova, e se il progetto non ce l'ha si
+// passa alla vecchia senza chiedere niente a nessuno.
+const AUTOCOMPLETE_VECCHIA = 'https://maps.googleapis.com/maps/api/place/autocomplete/json'
+const DETTAGLIO_VECCHIO = 'https://maps.googleapis.com/maps/api/place/details/json'
+
+/** L'errore di Google dice che quell'API non è accesa su questo progetto? */
+function apiNonAccesa(messaggio: string): boolean {
+  return /not enabled|has not been used|disabled|PERMISSION_DENIED|API key not valid/i.test(
+    messaggio
+  )
+}
+
+/** Suggerimenti con la Places API vecchia (quella della chiave che già usiamo). */
+async function suggerisciVecchia(testo: string, k: string): Promise<EsitoIndirizzi> {
+  const p = new URLSearchParams({
+    input: testo,
+    key: k,
+    language: 'it',
+    types: 'address',
+  })
+  const res = await fetch(`${AUTOCOMPLETE_VECCHIA}?${p.toString()}`, { cache: 'no-store' })
+  const d = (await res.json().catch(() => ({}))) as {
+    status?: string
+    error_message?: string
+    predictions?: {
+      place_id?: string
+      structured_formatting?: { main_text?: string; secondary_text?: string }
+      description?: string
+    }[]
+  }
+  if (d.status && d.status !== 'OK' && d.status !== 'ZERO_RESULTS') {
+    return { stato: 'errore', messaggio: d.error_message || d.status }
+  }
+  return {
+    stato: 'ok',
+    suggerimenti: (d.predictions ?? [])
+      .map((x) => ({
+        id: x.place_id ?? '',
+        testo: x.structured_formatting?.main_text ?? x.description ?? '',
+        secondario: x.structured_formatting?.secondary_text ?? '',
+      }))
+      .filter((x) => x.id && x.testo),
+  }
+}
+
 export type Suggerimento = { id: string; testo: string; secondario: string }
 
 export type EsitoIndirizzi =
@@ -61,7 +112,12 @@ export async function suggerisciIndirizzi(q: string): Promise<EsitoIndirizzi> {
       }[]
       error?: { message?: string }
     }
-    if (d.error?.message) return { stato: 'errore', messaggio: d.error.message }
+    if (d.error?.message) {
+      // La nuova non c'è su questo progetto: si va con la vecchia, che è quella
+      // che la nostra chiave conosce.
+      if (apiNonAccesa(d.error.message)) return suggerisciVecchia(testo, k)
+      return { stato: 'errore', messaggio: d.error.message }
+    }
     return {
       stato: 'ok',
       suggerimenti: (d.suggestions ?? [])
@@ -105,8 +161,24 @@ export async function dettaglioIndirizzo(placeId: string): Promise<IndirizzoScel
   })
   const d = (await res.json().catch(() => ({}))) as {
     addressComponents?: { longText?: string; shortText?: string; types?: string[] }[]
+    error?: { message?: string }
   }
-  const pezzi = d.addressComponents ?? []
+  // ⚠️ Stessa storia dei suggerimenti: se la Places nuova non è accesa si
+  // chiede alla vecchia, che usa nomi di campo diversi (`long_name` invece di
+  // `longText`) — per questo la traduzione è qui e non nel chiamante.
+  let pezzi = d.addressComponents ?? []
+  if (!pezzi.length && (d.error?.message ? apiNonAccesa(d.error.message) : true)) {
+    const p = new URLSearchParams({ place_id: placeId, key: k, language: 'it', fields: 'address_component' })
+    const vecchia = await fetch(`${DETTAGLIO_VECCHIO}?${p.toString()}`, { cache: 'no-store' })
+    const dv = (await vecchia.json().catch(() => ({}))) as {
+      result?: { address_components?: { long_name?: string; short_name?: string; types?: string[] }[] }
+    }
+    pezzi = (dv.result?.address_components ?? []).map((c) => ({
+      longText: c.long_name,
+      shortText: c.short_name,
+      types: c.types,
+    }))
+  }
   const prendi = (tipo: string, corto = false) => {
     const c = pezzi.find((x) => x.types?.includes(tipo))
     return (corto ? c?.shortText : c?.longText) ?? ''

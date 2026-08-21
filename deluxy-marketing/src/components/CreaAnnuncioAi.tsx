@@ -309,14 +309,13 @@ export function CreaAnnuncioAi({
                 style={stileArea}
               />
             </label>
-            <div className="cella-sub" style={{ marginBottom: 14, whiteSpace: "normal" }}>
+            <div className="cella-sub" style={{ whiteSpace: "normal" }}>
               {titoli.length} su 15{titoli.length > 15 ? " — oltre i primi 15 non partono" : ""}
               {titoliLunghi.length > 0 && (
-                <span style={{ color: "var(--orange)" }}>
-                  {" "}· troppo lunghi: {titoliLunghi.map((t) => `«${t}» (${misuraTesto(t).lunghezza})`).join(", ")}
-                </span>
+                <span style={{ color: "var(--orange)" }}> · {titoliLunghi.length} oltre i 30 caratteri</span>
               )}
             </div>
+            <RigheContate righe={titoli} limite={30} massimo={15} style={{ marginBottom: 14 }} />
 
             <label className="modale-campo" style={{ marginBottom: 4 }}>
               Descrizioni — una per riga, massimo 90 caratteri l&apos;una
@@ -331,11 +330,10 @@ export function CreaAnnuncioAi({
             <div className="cella-sub" style={{ whiteSpace: "normal" }}>
               {descrizioni.length} su 4{descrizioni.length > 4 ? " — oltre le prime 4 non partono" : ""}
               {descrizioniLunghe.length > 0 && (
-                <span style={{ color: "var(--orange)" }}>
-                  {" "}· troppo lunghe: {descrizioniLunghe.map((d) => `«${d.slice(0, 30)}…» (${misuraTesto(d).lunghezza})`).join(", ")}
-                </span>
+                <span style={{ color: "var(--orange)" }}> · {descrizioniLunghe.length} oltre i 90 caratteri</span>
               )}
             </div>
+            <RigheContate righe={descrizioni} limite={90} massimo={4} />
           </div>
 
           {/* ⚠️ Cosa succede davvero premendo: non va in asta adesso. */}
@@ -430,5 +428,95 @@ export function CreaAnnuncioAi({
         </div>
       </dialog>
     </>
+  );
+}
+
+/**
+ * Il righello: ogni riga scritta con accanto i suoi caratteri.
+ *
+ * ⚠️ Il totale in fondo alla casella non basta a chi scrive A MANO. «2 titoli
+ * oltre i 30 caratteri» dice che qualcosa non va ma non DOVE: con quindici
+ * righe una sopra l'altra tocca ricontarle a occhio, e un titolo di 31
+ * caratteri fa rifiutare l'annuncio INTERO. Il numero deve stare accanto alla
+ * riga a cui si riferisce, e aggiornarsi mentre si batte: così ci si ferma
+ * alla parola di troppo invece di scoprirlo dopo.
+ *
+ * ⚠️ Si conta con `misuraTesto`, non con `.length`: dentro le graffe il limite
+ * vale sul testo di riserva, e contare la stringa scritta darebbe 31 dove
+ * Google ne vede 21. Quando la resa NON si può sapere (città, conto alla
+ * rovescia) si scrive «+ variabile» invece di un numero preciso e falso.
+ */
+function RigheContate({
+  righe,
+  limite,
+  massimo,
+  style,
+}: {
+  righe: string[];
+  limite: number;
+  /** Quante ne prende Google: le successive si mostrano spente. */
+  massimo: number;
+  style?: React.CSSProperties;
+}) {
+  if (!righe.length) return null;
+  return (
+    <ol style={{ listStyle: "none", margin: "6px 0 0", padding: 0, ...style }}>
+      {righe.map((r, i) => {
+        const m = misuraTesto(r);
+        const oltre = m.certa && m.lunghezza > limite;
+        const fuori = i >= massimo;
+        return (
+          <li
+            key={i}
+            style={{
+              display: "flex",
+              gap: 8,
+              alignItems: "baseline",
+              padding: "3px 0",
+              borderTop: i ? "1px solid var(--hairline)" : undefined,
+              opacity: fuori ? 0.45 : 1,
+            }}
+          >
+            <span className="cella-sub" style={{ width: 20, textAlign: "right", flexShrink: 0 }}>
+              {i + 1}
+            </span>
+            <span
+              style={{
+                flex: 1,
+                minWidth: 0,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                fontSize: 13,
+              }}
+              title={r}
+            >
+              {r}
+            </span>
+            {fuori && (
+              <span className="cella-sub" style={{ flexShrink: 0 }}>non parte</span>
+            )}
+            <span
+              style={{
+                flexShrink: 0,
+                fontVariantNumeric: "tabular-nums",
+                fontSize: 13,
+                fontWeight: oltre ? 600 : 400,
+                color: oltre ? "var(--orange)" : "var(--text-tertiary)",
+              }}
+              title={
+                m.certa
+                  ? oltre
+                    ? `${m.lunghezza - limite} caratteri di troppo`
+                    : `${limite - m.lunghezza} caratteri liberi`
+                  : "Le graffe le riempie Google: la lunghezza finale dipende da chi cerca"
+              }
+            >
+              {m.certa ? `${m.lunghezza}/${limite}` : `${m.lunghezza} + variabile`}
+            </span>
+          </li>
+        );
+      })}
+    </ol>
   );
 }
