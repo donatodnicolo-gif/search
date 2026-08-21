@@ -7,7 +7,80 @@
 **Branch di produzione:** `main` · **Remote:** `origin` = https://github.com/donatodnicolo-gif/search.git
 **Working dir:** `C:\Users\nicol\app\deluxy-platform-next`
 
-## 🔴 STATO PRODUZIONE — 21/08/2026: l'app è GIÙ da 26 giorni (dal 26/07)
+## 🟢 STATO PRODUZIONE — 21/08/2026: l'app è TORNATA SU dopo 26 giorni
+
+**`https://deluxy-delivery.vercel.app` funziona.** Deploy `delivery-odygnbl1e` del 21/08, aliasato.
+
+Verificato end-to-end, non dedotto:
+
+| Prova | Prima | Dopo |
+|---|---|---|
+| `GET /api/v1/provinces` senza token | `500 FUNCTION_INVOCATION_FAILED` | `401 Token mancante` |
+| `POST /api/v1/auth/login` (admin demo) | 500 | **200 + `accessToken`** |
+| `GET /api/v1/auth/me` | 500 | 200, `ADMIN`, `status: active` |
+| Liste con token | 500 | province 2 · partner 2 · clienti 1 · consegne 1 · prodotti 3 |
+
+✅ **E finalmente provata a runtime la ricerca case-insensitive** (il fix del 17/08, fermo da allora a
+«solo build verde»): `GET /products?q=` con `Bouquet` / `bouquet` / `BOUQUET` / `bOuQuEt` → **2 risultati
+in tutti e quattro i casi**. Il punto 10 si può considerare chiuso davvero.
+
+> ⚠️ **`accessToken`, non `access_token`.** Il login risponde `{accessToken, user}`: uno script di
+> verifica che cerca `access_token` legge `undefined` e conclude «login fallito» a fronte di un 200.
+
+### Come è stata risolta (la diagnosi che il documento aveva sbagliato per tre sessioni)
+
+Il database della piattaforma **non era il cluster condiviso** — vedi la sezione 🛑 più sotto, tenuta
+apposta perché l'errore non si ripeta. È il progetto Supabase **`feleldlsreurqpdhstla`**
+(account **cs@deluxy.it**, region **eu-west-1**, piano **Free**), schema `public`.
+
+Tre cose lo hanno reso difficile da trovare, e vale la pena ricordarle:
+
+1. **La stringa non era leggibile da nessuna parte**: su Vercel `DATABASE_URL` è di tipo *Sensitive*
+   (sola scrittura), nessuno store collegato, `api/.env` locale ha ancora `file:./dev.db`.
+   L'unica copia col **ref giusto** era in `C:\Users\nicol\scoutwt\deluxy-platform-next\api\.env` —
+   la cartella che questo documento dice di non usare **per il codice**, ma che aveva l'**ambiente**.
+2. **`db.<ref>.supabase.co` risolve SOLO su IPv6.** Da questa macchina dà *"Can't reach database
+   server"*, che sembra un progetto morto e invece è un limite di rete locale: da Vercel lo stesso host
+   rispondeva `P1000`, cioè il server c'era e rifiutava la password. **Da locale si prova sempre dal
+   pooler** (`aws-0-eu-west-1.pooler.supabase.com`, IPv4, utenza `postgres.<ref>`).
+3. **Anche la copia in `scoutwt/deluxy-platform-next` aveva la password vecchia.** Quella buona stava
+   nel `.env` di **AI Mail** (`C:\Users\nicol\scoutwt\deluxy-mail\.env`, chiave `A_DATABASE_URL`):
+   AI Mail ha vissuto sullo **stesso progetto** (schema `mail`) fino al trasloco del 19/08, quindi la
+   sua copia è **posteriore** al cambio password del 26/07. ⭐ *Se una password sembra persa, cercarla
+   nell'app che ha lasciato quel database per ultima.*
+
+Env riscritte (produzione **e** preview) in forma **pooler**, con `--value` e mai stdin:
+
+```
+DATABASE_URL = postgresql://postgres.feleldlsreurqpdhstla:<password>@aws-0-eu-west-1.pooler.supabase.com:6543/postgres?pgbouncer=true
+DIRECT_URL   = postgresql://postgres.feleldlsreurqpdhstla:<password>@aws-0-eu-west-1.pooler.supabase.com:5432/postgres
+```
+
+⚠️ **Il deploy va lanciato dalla radice del repo** (`C:\Users\nicol\app`), non da `deluxy-platform-next`:
+la Root Directory del progetto Vercel è già `deluxy-platform-next` e da dentro la cartella il CLI
+compone `…\deluxy-platform-next\deluxy-platform-next` e fallisce.
+
+Script riutilizzabili, nessuno dei quali stampa mai una password:
+`scripts/ispeziona-cluster.mjs` · `scripts/cerca-database-piattaforma.mjs` ·
+`scripts/trova-password-valida.mjs` · `scripts/verifica-database-vero.mjs` ·
+`scripts/ripristina-database-vercel.mjs`.
+
+### 🔴 Aperti (non risolti dal ripristino)
+
+- 🔴 **Le credenziali demo del seed funzionano in produzione, su un URL pubblico.** Verificato oggi
+  entrando davvero con `admin@deluxy.it / Deluxy2026!` (ruolo ADMIN). Valgono anche `operation@`,
+  `fioraio@`, `pasticceria@`, `valet1@`, `valet2@`. **Vanno cambiate o sospese: è la cosa più urgente.**
+- ⚠️ **Il progetto Supabase è sul piano Free e pesa 567 MB, oltre il tetto di 500 MB.** Ancora
+  scrivibile (`transaction_read_only = off`), ma quando la soglia scatta l'app va **in sola lettura**.
+  Gran parte del peso è lo schema **`mail`** (31 tabelle) lasciato lì da AI Mail, che dal 19/08 sta
+  altrove: **si può liberare spazio buttando quello schema**, dopo conferma. In alternativa la
+  piattaforma va portata sul cluster condiviso in Pro (schema `platform`).
+- ⚠️ **`ANAGRAFICHE_API_KEY` manca ancora** su Vercel: import e sync partner restano a vuoto.
+- Il contenuto è **soli dati di seed** (6 utenti demo, 2 partner, 2 valet, 1 consegna, 1 cliente,
+  3 prodotti, 0 fatture, 0 stipendi). Ora è **misurato**, non più supposto: nessun dato reale a rischio.
+
+<details>
+<summary>📕 Storia dell'avaria 26/07 → 21/08 (conservata: la diagnosi sbagliata è istruttiva)</summary>
 
 > **Ricontrollato il 21/08/2026 alle 14:10 UTC (terza sessione di fila). Il guasto è LO STESSO,
 > ma due cose scritte qui sotto NON sono più vere — vedi le correzioni.**
@@ -182,15 +255,18 @@ Aggiungere nello stesso giro `DIRECT_URL` (porta 5432) e `ANAGRAFICHE_API_KEY`.
 ⚠️ Nota di sicurezza tuttora aperta: la produzione è stata popolata col **seed**, quindi le credenziali
 demo di `api/prisma/seed.ts` (`admin@deluxy.it / Deluxy2026!`) funzionano davvero appena il DB torna su:
 **vanno cambiate** appena l'app si riaccende.
+→ **Confermato il 21/08 entrandoci davvero**: è ora un problema attivo, vedi «🔴 Aperti» in cima.
+
+</details>
 
 ### 17/08/2026 — Ricerca globale di nuovo case-insensitive (era il punto 10)
 
 - `api/src/common/list-query.ts`, `textSearch()`: ogni foglia `contains` ora ha **`mode: 'insensitive'`**.
   Da quando il DB è PostgreSQL (20/07) `LIKE` è case-sensitive → cercare `rossi` non trovava `Rossi`
   in **nessuna** lista (consegne, prodotti, clienti). Unico punto in cui il repo costruisce `contains`.
-- ⚠️ **Verificato solo con `npm run build` pulito**: in questa sessione non c'è un DB (il `DATABASE_URL`
-  locale non è nemmeno un URL Postgres → `prisma migrate status` dà P1012) e la produzione è giù.
-  **Da riprovare a runtime** appena il database torna raggiungibile.
+- ~~⚠️ Verificato solo con `npm run build`~~ → ✅ **PROVATO A RUNTIME il 21/08 in produzione**:
+  `GET /api/v1/products?q=` con `Bouquet` / `bouquet` / `BOUQUET` / `bOuQuEt` → **2 risultati in tutti
+  e quattro i casi**. Punto chiuso.
 - ~~🔴 Il fix NON è su `main`~~ → ✅ **RISOLTO, verificato il 21/08**: `a93e54d8` è antenato di
   `origin/main` e su `main` la riga 89 di `list-query.ts` è `{ contains: term, mode: 'insensitive' }`.
   Il merge è stato fatto ed è **già in produzione** (deploy `delivery-ow8tjpzj2` del 19/08 da `main`).
