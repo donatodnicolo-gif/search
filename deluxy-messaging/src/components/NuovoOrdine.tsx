@@ -361,12 +361,14 @@ export function NuovoOrdine({
           </button>
         </div>
 
+        {/* ⚠️ Resta per il giorno in cui il permesso venisse tolto: un catalogo
+            che non si legge deve DIRLO, non tornare una lista vuota — «non c'è
+            niente con quel nome» è un'altra cosa da «non posso guardare». */}
         {catalogoChiuso ? (
           <div className="avviso-errore">
             L&apos;app non ha il permesso di leggere il catalogo (<code>read_products</code>):
             scrivi la riga a mano qui sotto. ⚠️ Un ordine così non porta la <strong>foto del
-            prodotto</strong>, che è quella che si manda al fornitore — aggiungendo il permesso
-            all&apos;app CRM_DELUXY si sceglie dal catalogo e la foto c&apos;è.
+            prodotto</strong>, che è quella che si manda al fornitore.
           </div>
         ) : null}
 
@@ -391,11 +393,28 @@ export function NuovoOrdine({
                   ])
                 }
               >
-                <div className="cella-nome">{p.titolo}</div>
-                <div className="cella-sub">
-                  {[p.variante, soldi(p.prezzo), p.disponibile ? '' : 'non disponibile']
-                    .filter(Boolean)
-                    .join(' · ')}
+                {/* ⚠️ La foto, non solo il nome: al telefono col cliente si
+                    riconosce «quello con le peonie» in un colpo d'occhio, e i
+                    titoli si somigliano tutti («Bouquet La Lady in Rose ·
+                    Medio», «· Medio-Grande», «· Grande»). È anche la foto che
+                    finirà nell'ordine e che si manda al fornitore. */}
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  {p.immagine ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={p.immagine}
+                      alt=""
+                      style={{ width: 44, height: 44, objectFit: 'cover', borderRadius: 6 }}
+                    />
+                  ) : null}
+                  <div>
+                    <div className="cella-nome">{p.titolo}</div>
+                    <div className="cella-sub">
+                      {[p.variante, soldi(p.prezzo), p.disponibile ? '' : 'non disponibile']
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </div>
+                  </div>
                 </div>
               </button>
             ))}
