@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 
 // Il diario di lavoro: le righe che ci si scrive per ricordare cosa c'è da fare
@@ -30,12 +30,40 @@ function quando(iso: string): string {
   return `${d.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })} · ${ora}`
 }
 
+type OrdineAperto = {
+  numero: string
+  clienteNome: string
+  negozioNome: string
+  dataConsegna: string | null
+  fasciaConsegna: string
+  note: number
+}
+
+/** «oggi», «domani», «16 lug»: come si dice una consegna in due parole. */
+function consegnaBreve(iso: string | null): string {
+  if (!iso) return 'senza data'
+  const d = new Date(iso)
+  const giorni = Math.round(
+    (new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() -
+      new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()).getTime()) /
+      86400000
+  )
+  if (giorni === 0) return 'oggi'
+  if (giorni === 1) return 'domani'
+  if (giorni < 0) return `scaduta da ${-giorni}g`
+  return d.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })
+}
+
 export function Diario() {
   const [note, setNote] = useState<NotaDiario[]>([])
   const [aperte, setAperte] = useState(0)
   const [stato, setStato] = useState<'aperte' | 'fatte' | 'tutte'>('aperte')
   const [q, setQ] = useState('')
   const [testo, setTesto] = useState('')
+  const campo = useRef<HTMLInputElement>(null)
+  /** Gli ordini aperti da suggerire sopra il campo. */
+  const [ordiniAperti, setOrdiniAperti] = useState<OrdineAperto[]>([])
+  const [soloScoperti, setSoloScoperti] = useState(false)
   const [caricato, setCaricato] = useState(false)
   const [errore, setErrore] = useState('')
 
@@ -53,6 +81,15 @@ export function Diario() {
   useEffect(() => {
     void carica()
   }, [carica])
+
+  // Gli ordini aperti: si rileggono quando cambia il diario, perché il numero
+  // di note per ordine cambia insieme.
+  useEffect(() => {
+    fetch('/api/diario/ordini')
+      .then((r) => (r.ok ? r.json() : { ordini: [] }))
+      .then((d: { ordini?: OrdineAperto[] }) => setOrdiniAperti(d.ordini ?? []))
+      .catch(() => setOrdiniAperti([]))
+  }, [note])
 
   async function aggiungi() {
     const riga = testo.trim()
@@ -110,11 +147,65 @@ export function Diario() {
       {/* ⚠️ Un campo solo, e si scrive come si è sempre scritto: «12562 da fare
           16 luglio». Il numero d'ordine si stacca da solo — chiedere due campi
           vorrebbe dire che le righe continuano a finire in una chat. */}
+      {/* ── GLI ORDINI APERTI, SOPRA IL CAMPO ──
+          ⚠️ Chi scrive il diario ha in testa «quello di Bolzano», non «#12562»:
+          l'elenco davanti evita di andarselo a cercare in un'altra schermata e
+          di riportarlo a mano — dove si sbaglia una cifra e la nota finisce su
+          un ordine di un altro.
+          ⚠️ Ogni ordine dice quante righe ha già: la domanda della mattina non
+          è «quali ordini ci sono», è **quali sono ancora scoperti**. */}
+      {ordiniAperti.length ? (
+        <div className="card" style={{ paddingBottom: 8 }}>
+          <div
+            style={{
+              display: 'flex',
+              gap: 8,
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              marginBottom: 8,
+            }}
+          >
+            <span className="cella-nome">Ordini aperti</span>
+            <span className="cella-sub">
+              clicca per scrivere una riga su quell&apos;ordine
+            </span>
+            <button
+              className={soloScoperti ? 'bottone mini' : 'bottone secondario mini'}
+              onClick={() => setSoloScoperti(!soloScoperti)}
+              title="Solo quelli che non hanno ancora nessuna riga nel diario"
+            >
+              {soloScoperti ? 'Solo senza note ✓' : 'Solo senza note'}
+            </button>
+          </div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {ordiniAperti
+              .filter((o) => !soloScoperti || o.note === 0)
+              .map((o) => (
+                <button
+                  key={o.numero}
+                  className={o.note ? 'bottone secondario mini' : 'bottone mini'}
+                  onClick={() => {
+                    // Il numero va in testa, come si scrive a mano: il resto
+                    // della riga lo continua chi sta scrivendo.
+                    setTesto((t) => `${o.numero.replace('#', '')} ${t}`.trimEnd() + ' ')
+                    campo.current?.focus()
+                  }}
+                  title={`${o.clienteNome || 'senza nome'} · ${o.negozioNome} · consegna ${consegnaBreve(o.dataConsegna)}${o.note ? ` · ${o.note} righe nel diario` : ' · nessuna riga'}`}
+                >
+                  {o.numero} · {consegnaBreve(o.dataConsegna)}
+                  {o.note ? ` · ${o.note}` : ''}
+                </button>
+              ))}
+          </div>
+        </div>
+      ) : null}
+
       <div className="card">
         <label className="campo">
           <span>Scrivi una riga — comincia col numero d&apos;ordine, se ce l&apos;ha</span>
           <div style={{ display: 'flex', gap: 8 }}>
             <input
+              ref={campo}
               value={testo}
               onChange={(e) => setTesto(e.target.value)}
               onKeyDown={(e) => {
