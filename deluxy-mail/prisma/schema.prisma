@@ -478,6 +478,10 @@ model Attivita {
    *  la nota dice a che punto sei — e riscrivere la prima per annotare la
    *  seconda cancellava il lavoro dell AI (segnalato il 21/08/2026). */
   note       String?
+  /** Chi ha scritto la nota e quando. Su un elenco condiviso una nota senza
+   *  firma vale poco: «chiesta rateizzazione» detto da chi, e quando? */
+  noteAutore String?
+  noteIl     DateTime?
   scadenza   DateTime?
   priorita   String    @default("P2")
   fatta      Boolean   @default(false)

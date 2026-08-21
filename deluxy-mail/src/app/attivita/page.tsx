@@ -222,7 +222,12 @@ export default async function Attivita() {
                       {/* La descrizione (spesso scritta dall AI) resta com e:
                           annotare non deve cancellarla. La nota sta sotto. */}
                       {a.dettaglio && <div className="task-sub">{a.dettaglio}</div>}
-                      <NotaAttivita id={a.id} nota={a.note} />
+                      <NotaAttivita
+                        id={a.id}
+                        nota={a.note}
+                        autore={a.noteAutore}
+                        quando={a.noteIl ? a.noteIl.toISOString() : null}
+                      />
                       {/* LA MAIL ESATTA da cui nasce QUESTA cosa da fare,
                           sempre: l'intestazione porta alla conversazione, ma
                           dentro una conversazione lunga «da quale mail viene»

@@ -148,6 +148,8 @@ type AttivitaDaMandare = {
   titolo: string
   dettaglio: string | null
   note: string | null
+  noteAutore: string | null
+  noteIl: Date | null
   scadenza: Date | null
   priorita: string
   fatta: boolean
@@ -166,11 +168,18 @@ function impronta(a: AttivitaDaMandare): string {
     a.titolo,
     a.dettaglio ?? '',
     a.note ?? '',
+    a.noteIl?.toISOString() ?? '',
     a.priorita,
     a.scadenza?.toISOString() ?? '',
     a.fatta ? '1' : '0',
     a.utente.email,
   ].join('|')
+}
+
+/** « (Nicolo, 21/08/2026)» — vuoto se non sappiamo ne chi ne quando. */
+function firmaNota(a: AttivitaDaMandare): string {
+  const pezzi = [a.noteAutore, a.noteIl?.toLocaleDateString('it-IT', { timeZone: 'Europe/Rome' })].filter(Boolean)
+  return pezzi.length ? ' (' + pezzi.join(', ') + ')' : ''
 }
 
 function corpoTask(a: AttivitaDaMandare) {
@@ -181,7 +190,9 @@ function corpoTask(a: AttivitaDaMandare) {
     utenteEmail: a.utente.email,
     utenteNome: a.utente.nome,
     titolo: a.titolo,
-    descrizione: [a.dettaglio, a.note && 'Note: ' + a.note].filter(Boolean).join('\n\n') || null,
+    // La nota viaggia FIRMATA: in un elenco condiviso «chiesta rateizzazione»
+    // senza autore ne data non si sa se vale ancora e a chi chiedere.
+    descrizione: [a.dettaglio, a.note && 'Note' + firmaNota(a) + ': ' + a.note].filter(Boolean).join('\n\n') || null,
     stato: a.fatta ? 'completata' : 'aperta',
     priorita: PRIORITA_REGISTRO[a.priorita] ?? 'media',
     scadenza: a.scadenza?.toISOString() ?? null,
@@ -411,6 +422,8 @@ export async function allineaAttivitaOra(id: string, sparita = false): Promise<v
       titolo: true,
       dettaglio: true,
       note: true,
+      noteAutore: true,
+      noteIl: true,
       scadenza: true,
       priorita: true,
       fatta: true,

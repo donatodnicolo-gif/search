@@ -743,6 +743,11 @@ Sotto ogni cosa da fare c'è **«+ Aggiungi una nota»**: ci si scrive a che pun
 è, cosa si aspetta, chi si è sentito. Si salva con **Ctrl+Invio**, si annulla
 con **Esc**, e la si può riaprire e correggere quando si vuole.
 
+**La nota è firmata**: accanto compare chi l'ha scritta e quando — «Nota (Nicolò,
+21 ago): chiesta rateizzazione». Su un elenco che guardano in più persone una nota
+anonima vale poco: non si sa se vale ancora, né a chi chiedere. La firma si
+aggiorna a ogni modifica, e sparisce insieme alla nota se la si cancella.
+
 ⚠️ La nota **si aggiunge**, non sostituisce: la riga che descrive cosa fare —
 quella che di solito scrive l'AI quando crea l'attività — resta dov'è e intatta.
 Sono due cose diverse: una dice cosa c'è da fare, l'altra a che punto sei.

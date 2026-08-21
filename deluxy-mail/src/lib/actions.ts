@@ -2082,19 +2082,30 @@ export async function segnaAttivitaTutte(
 export async function salvaNotaAttivita(
   id: string,
   nota: string
-): Promise<{ ok: boolean; messaggio: string; nota: string }> {
+): Promise<{ ok: boolean; messaggio: string; nota: string; autore?: string | null; quando?: string | null }> {
   const utenteId = await uid()
+  const chi = await db.utente.findUnique({ where: { id: utenteId }, select: { nome: true, email: true } })
   // Un tetto c'è: è una nota, non un allegato. E il campo finisce anche in una
   // schermata altrui, dove una parete di testo rovinerebbe l'elenco.
   const pulita = nota.trim().slice(0, 2000)
   const r = await db.attivita.updateMany({
     where: { id, utenteId },
-    data: { note: pulita || null },
+    // ⚠️ Togliendo la nota si toglie anche la firma: una data e un nome
+    //    appesi al nulla sono peggio che niente.
+    data: pulita
+      ? { note: pulita, noteAutore: chi?.nome || chi?.email || null, noteIl: new Date() }
+      : { note: null, noteAutore: null, noteIl: null },
   })
   if (r.count === 0) return { ok: false, messaggio: 'Attività non trovata.', nota: '' }
   after(() => allineaAttivitaOra(id).catch(() => {}))
   revalidatePath('/attivita')
-  return { ok: true, messaggio: pulita ? 'Nota salvata.' : 'Nota tolta.', nota: pulita }
+  return {
+    ok: true,
+    messaggio: pulita ? 'Nota salvata.' : 'Nota tolta.',
+    nota: pulita,
+    autore: pulita ? chi?.nome || chi?.email || null : null,
+    quando: pulita ? new Date().toISOString() : null,
+  }
 }
 
 export async function eliminaAttivita(id: string) {
