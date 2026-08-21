@@ -1102,3 +1102,34 @@ model Chargeback {
   @@index([stato])
   @@index([scadenzaProve])
 }
+
+// Il DIARIO di lavoro: le righe che il servizio clienti si scrive per ricordare
+// cosa c'è da fare su un ordine.
+//
+// ⚠️ NASCE DA UN QUADERNO VERO: prima queste righe stavano in una chat interna,
+// una sotto l'altra — «12562 da fare 16 luglio», «2506 pagamento su cs, per
+// oggi, concordato cambio fiori con mittente». Funzionava per chi le scriveva e
+// per nessun altro: chi apriva l'ordine #12562 non sapeva che esistessero.
+//
+// ⚠️ Il legame con l'ordine è il NUMERO, non l'id: è quello che si scrive a
+// mano e quello che sopravvive quando l'ordine esce dai 60 giorni che teniamo in
+// casa. Una nota può anche non averlo — «chiamare il fornitore di Bolzano» è
+// lavoro lo stesso.
+model NotaDiario {
+  id           String    @id @default(cuid())
+  /** «#12562» o vuoto: la riga vale anche senza ordine. */
+  ordineNumero String    @default("")
+  testo        String    @db.Text
+  /** Fatta o no: il diario è una lista di cose da fare, non un archivio. */
+  fatta        Boolean   @default(false)
+  fattaIl      DateTime?
+  /** Chi l'ha scritta e chi l'ha chiusa: con tre operatori è la prima domanda. */
+  autoreId     String    @default("")
+  autoreNome   String    @default("")
+  fattaDaNome  String    @default("")
+  creatoIl     DateTime  @default(now())
+  aggiornatoIl DateTime  @updatedAt
+
+  @@index([ordineNumero])
+  @@index([fatta, creatoIl])
+}

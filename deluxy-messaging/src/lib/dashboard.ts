@@ -108,6 +108,20 @@ export type DatiDashboard = {
     /** Quanti soldi sono in gioco su quelle contestazioni. */
     chargebackSoldi: number
   }
+  /**
+   * Le righe di diario ancora da fare.
+   *
+   * ⚠️ In home perché è il quaderno con cui si apre la giornata: prima stava in
+   * una chat interna, e chi non l'aveva sotto gli occhi non sapeva che «2506»
+   * aspettava un pagamento su cs.
+   */
+  diario: {
+    id: string
+    ordineNumero: string
+    testo: string
+    autoreNome: string
+    creatoIl: string
+  }[]
   /** Le contestazioni di pagamento aperte, dalla scadenza più vicina. */
   chargeback: {
     id: string
@@ -144,6 +158,7 @@ export async function datiDashboard(): Promise<DatiDashboard> {
     rimborsiDaDecidere,
     pagamentiDaInviare,
     chargebackVivi,
+    diarioAperto,
     marchi,
     ordiniUrgenti,
     reclamiVivi,
@@ -181,6 +196,9 @@ export async function datiDashboard(): Promise<DatiDashboard> {
       where: { stato: { in: ['needs_response', 'under_review'] } },
       orderBy: { scadenzaProve: 'asc' },
     }),
+    // Il diario: le ultime righe da fare. ⚠️ Poche — dodici — perché in home
+    // è un promemoria, non l'elenco: quello sta in /diario.
+    db.notaDiario.findMany({ where: { fatta: false }, orderBy: { creatoIl: 'desc' }, take: 12 }),
     risolutoreMarchio(),
     // Gli ordini da lavorare di TUTTI i marchi. Si prendono i non gestiti con
     // una finestra larga e si mettono in fascia qui sotto: le fasce non si
@@ -315,6 +333,13 @@ export async function datiDashboard(): Promise<DatiDashboard> {
     // ⚠️ In cima alla giornata, e non in fondo a una pagina: una contestazione
     // «da rispondere» che nessuno apre si perde per silenzio alla scadenza —
     // dieci perse per 2.087,66 € prima che questa riga esistesse.
+    diario: diarioAperto.map((n) => ({
+      id: n.id,
+      ordineNumero: n.ordineNumero,
+      testo: n.testo,
+      autoreNome: n.autoreNome,
+      creatoIl: n.creatoIl.toISOString(),
+    })),
     chargeback: chargebackVivi.map((c) => ({
       id: c.id,
       ordineNumero: c.ordineNumero,

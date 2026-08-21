@@ -3610,3 +3610,29 @@ td .azioni-ordine {
   gap: 10px;
   margin-bottom: 10px;
 }
+
+/* Il diario: righe brevi con la spunta a sinistra, come su un quaderno. */
+.elenco-diario {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.elenco-diario li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.elenco-diario li:last-child {
+  border-bottom: none;
+}
+
+/* Fatta: si legge ancora (serve a sapere che è stata fatta), ma non compete
+   con quelle da fare. */
+.elenco-diario li.fatta > div {
+  opacity: 0.55;
+  text-decoration: line-through;
+}

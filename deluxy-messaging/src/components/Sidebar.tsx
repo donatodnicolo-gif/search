@@ -33,6 +33,9 @@ export function Sidebar() {
         { href: '/inbox', nome: 'Inbox', icona: iconaChat },
         { href: '/ordini', nome: 'Ordini aperti', icona: iconaLista },
         { href: '/calendario', nome: 'Calendario', icona: iconaCalendario },
+        // Il quaderno di lavoro: sta in «Lavoro» perche' e' quello che si
+        // apre insieme a Oggi e Inbox, non un archivio da consultare.
+        { href: '/diario', nome: 'Diario', icona: iconaCalendario },
       ],
     },
     {

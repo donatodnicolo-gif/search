@@ -179,6 +179,40 @@ export function Dashboard({ dati }: { dati: DatiDashboard }) {
           </section>
         ) : null}
 
+        {/* ── IL DIARIO ──
+            Il quaderno con cui si apre la giornata: «12562 da fare 16 luglio»,
+            «2506 pagamento su cs». Prima stava in una chat interna, dove lo
+            vedeva solo chi lo scriveva.
+            ⚠️ Qui ce ne stanno dodici e non si scrive: è un promemoria, e
+            l'elenco intero (con la ricerca e le fatte) sta in /diario. */}
+        {dati.diario.length ? (
+          <section className="card riquadro">
+            <div className="testa-riquadro">
+              <h2>Diario</h2>
+              <Link href="/diario" className="bottone secondario mini">
+                Aprilo
+              </Link>
+            </div>
+            <ul className="elenco-attese">
+              {dati.diario.map((n) => (
+                <li key={n.id}>
+                  <Link href="/diario" className="riga-collegamento">
+                    <span className="cella-nome">
+                      {n.ordineNumero ? `${n.ordineNumero} · ` : ''}
+                      {n.testo}
+                    </span>
+                    <span className="cella-sub">
+                      {[n.autoreNome, new Date(n.creatoIl).toLocaleDateString('it-IT')]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+
         <section className="card riquadro">
           <div className="testa-riquadro">
             <h2>Chi aspetta una risposta</h2>

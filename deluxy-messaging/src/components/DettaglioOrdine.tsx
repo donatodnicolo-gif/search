@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { MessaggiOrdine } from './MessaggiOrdine'
+import { DiarioOrdine } from './DiarioOrdine'
 import { CHIUSURA, PASSI, coloreGestione, nomeGestione } from '@/lib/gestione'
 import { coloreTipoCliente, nomeTipoCliente } from '@/lib/clienti-tipo'
 import { fasciaRitiro, messaggioFornitore } from '@/lib/ritiro'
@@ -1066,6 +1067,15 @@ export function DettaglioOrdine({
                       )
                     })()
                   : null}
+              {/* ── IL DIARIO DI QUESTO ORDINE ──
+                  ⚠️ È il motivo per cui il diario esiste: prima queste righe
+                  stavano in una chat interna e chi apriva l'ordine non
+                  sapeva che ci fosse scritto «pagamento su cs, concordato
+                  cambio fiori con mittente». Qui si leggono dove si lavora.
+                  ⚠️ Solo sugli ordini che abbiamo in casa: su uno
+                  dell'archivio la riga si scriverebbe e non si ritroverebbe
+                  più. */}
+              {soloArchivio ? null : <DiarioOrdine numero={ordine.numero} />}
               </div>
             </div>
 
