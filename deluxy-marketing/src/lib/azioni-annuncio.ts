@@ -114,6 +114,12 @@ export async function creaAnnuncioConAi(input: {
       })),
       testiGiaEsistenti: testi.map((t) => ({ tipo: t.tipo, testo: t.testo, giudizioGoogle: t.rendimento })),
     },
+    // ⚠️ LO SCHEMA VA PASSATO. Era definito qui sopra e non arrivava mai alla
+    // chiamata: senza, il modello risponde in prosa e il JSON.parse qui sotto
+    // fallisce sempre — «L'AI ha risposto in una forma non leggibile», ogni
+    // volta. Uno schema dichiarato e non usato non protegge niente, e sembra
+    // che protegga: e' il difetto peggiore delle due possibilita'.
+    schema: SCHEMA_ANNUNCIO as unknown as Record<string, unknown>,
     massimoToken: 3000,
   });
 
