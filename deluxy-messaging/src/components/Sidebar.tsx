@@ -6,7 +6,7 @@ import { useEffect } from 'react'
 
 // Menu laterale (stesso impianto di Deluxy Orders). È un client component per
 // evidenziare la voce attiva e per richiudersi da solo su mobile.
-export function Sidebar() {
+export function Sidebar({ amministratore = false }: { amministratore?: boolean }) {
   const path = usePathname()
 
   // Su mobile il menu è un pannello che copre la pagina: appena hai scelto dove
@@ -25,7 +25,15 @@ export function Sidebar() {
   // giudizi, pagelle dei valet — servono a chi guarda indietro una volta a
   // settimana, non a chi ha un cliente al telefono adesso: stanno in fondo, in
   // «Qualità», e non più in mezzo alle cose da fare.
+  //
+  // ⚠️ L'UNICA ECCEZIONE a quell'ordine è «Turni», in cima. Non è lavoro
+  // quotidiano, ma la vede **solo un amministratore**: per lui la giornata
+  // comincia da chi c'è, e per l'operatore quel gruppo non esiste proprio —
+  // quindi non gli sposta niente più in basso.
   const gruppi = [
+    ...(amministratore
+      ? [{ titolo: 'Turni', voci: [{ href: '/turni', nome: 'Turni', icona: iconaCalendario }] }]
+      : []),
     {
       titolo: 'Lavoro',
       voci: [
@@ -67,8 +75,10 @@ export function Sidebar() {
       voci: [
         // Primo del gruppo: le altre voci misurano chi consegna (valet,
         // partner), questa misura NOI. È la sola che parli delle persone che
-        // usano l'app, e la sola che veda un amministratore soltanto.
-        { href: '/operatori', nome: 'Operatori', icona: iconaUtenti },
+        // usano l'app, e la vede solo un amministratore — come i Turni.
+        ...(amministratore
+          ? [{ href: '/operatori', nome: 'Operatori', icona: iconaUtenti }]
+          : []),
         { href: '/reclami/punteggi', nome: 'Punteggi', icona: iconaPunteggi },
         { href: '/reclami/feedback', nome: 'Feedback e orari', icona: iconaFeedback },
         { href: '/reclami/giudizi', nome: 'Giudizi', icona: iconaGiudizi },

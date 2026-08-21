@@ -30,7 +30,10 @@ export default async function LayoutApp({ children }: { children: React.ReactNod
           Su mobile diventa un pannello a scomparsa, col velo che lo chiude. */}
       <div className="layout">
         <VeloMenu />
-        <Sidebar />
+        {/* ⚠️ Il ruolo serve al menu per non mostrare a un operatore le due voci
+            che non può usare (Turni, Operatori): una voce che risponde «serve un
+            amministratore» sembra un guasto dell'app, non una regola. */}
+        <Sidebar amministratore={utente.ruolo === 'admin'} />
         <main className="main">{children}</main>
       </div>
     </>

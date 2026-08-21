@@ -674,6 +674,56 @@ veri non è teoria: 16 risultano già rimborsati, 11 in parte, 11 stornati, 5 no
 In alto: quante richieste sono da approvare, quante approvate da pagare, **quanto è
 promesso e non ancora uscito** e quanto è già stato reso.
 
+## Turni: chi lavora, e quando
+
+`/turni`, **primo gruppo del menu** e **solo per amministratori** — un operatore
+quel gruppo non lo vede proprio: una voce che risponde «serve un amministratore»
+sembra un guasto, non una regola.
+
+La pagina è fatta di tre parti.
+
+**Adesso**, in cima, è la domanda che ci si fa aprendo la pagina: c'è qualcuno in
+questo momento? Mostra chi è dentro e fino a che ora, e chi entra dopo.
+
+**La settimana** è la regola che si ripete: una riga per persona, sette colonne. Si
+aggiunge un turno scegliendo persona, giorno e le due ore; si toglie cliccando la
+pastiglia. Una persona può avere **due fasce nello stesso giorno** (mattina e
+pomeriggio): sono due righe, non una.
+
+**Quando la settimana non vale** sono i giorni singoli — ferie, permessi, un cambio
+di orario. Due tipi:
+
+- **Non lavora**: quel giorno spariscono **tutte** le sue fasce, non una.
+- **Orario diverso**: la fascia dell'eccezione **sostituisce** quella abituale, non
+  ci si aggiunge.
+
+⚠️ **L'eccezione vince sempre sulla settimana**, ed è tutto il motivo per cui esiste:
+senza, ogni permesso costringerebbe a riscrivere la regola e poi a rimetterla a
+posto — e non lo farebbe nessuno, così la griglia direbbe il falso in silenzio.
+Le eccezioni si vedono **da ieri in poi**: quelle passate sono archivio, e un elenco
+che cresce all'infinito smette di guardarsi.
+
+⚠️ **Le ore e i giorni sono scritti come li dice la gente**, non come istanti:
+`09:00` è un orario da parete, `2026-08-25` un giorno di calendario. Se fossero
+date vere, a fine ottobre — finita l'ora legale — tutti i turni si sposterebbero di
+un'ora da soli. Per la stessa ragione «Adesso» si calcola con l'orologio di chi
+guarda: sul server sarebbe UTC, e alle 09:30 italiane direbbe che non è entrato
+ancora nessuno.
+
+⚠️ **I turni di notte non ci sono.** Un turno finisce al più tardi alle **24:00**;
+uno che scavalca la mezzanotte va spezzato in due, e la pagina lo dice invece di
+accettarlo e contarlo storto.
+
+### Quello che i turni NON fanno
+
+Si scrivono qui e basta: **non assegnano ordini, non smistano conversazioni e non
+impediscono a nessuno di lavorare fuori orario**. Servono a sapere chi c'è — e a
+poterlo dire a un cliente che chiede quando richiamare. Se un domani devono contare
+davvero (dare le chat nuove a chi è di turno, per esempio), è una cosa da decidere e
+costruire, non da far succedere di lato.
+
+Le regole si ricontrollano senza aprire la pagina: `npx tsx scripts/prova-turni.mts`.
+
 ## Operatori: quanto lavoro ha fatto ciascuno
 
 `/operatori`, in **Qualità**. Le altre voci di quel gruppo misurano chi consegna —

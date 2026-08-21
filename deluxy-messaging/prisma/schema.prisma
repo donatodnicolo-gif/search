@@ -1179,3 +1179,60 @@ model OrdineCreato {
   @@index([creatoIl])
   @@index([utenteId, creatoIl])
 }
+
+// I TURNI degli operatori: chi lavora, quando.
+//
+// Due tabelle e non una, perché sono due domande diverse: la settimana che si
+// ripete («Federica il lunedì dalle 9 alle 13») e le volte in cui quella
+// settimana non vale («il 25 agosto Federica è in ferie»). Tenerle insieme
+// avrebbe voluto dire riscrivere la settimana ogni volta che qualcuno prende un
+// giorno libero — e perdere qual era la regola.
+//
+// ⚠️⚠️ ORE E GIORNI SONO TESTO, NON DATE. `"09:00"` e `"2026-08-25"` sono un
+// orario da parete e un giorno di calendario, non istanti: un turno comincia
+// alle nove **in Italia**, non «alle 07:00 UTC». Salvarli come `DateTime`
+// vorrebbe dire che a ottobre, finita l'ora legale, tutti i turni si spostano
+// di un'ora da soli. Vedi la stessa scelta nei periodi della pagina Operatori.
+model TurnoSettimanale {
+  id         String   @id @default(cuid())
+  utenteId   String
+  /** Copiato qui per leggere la griglia senza join; il nome buono resta quello di `Utente`. */
+  utenteNome String   @default("")
+  /** 1 = lunedì … 7 = domenica (come le settimane ISO, e come le legge la gente). */
+  giorno     Int
+  /** «09:00». Fine ammessa fino a «24:00», che vuol dire fino a mezzanotte. */
+  dalle      String
+  alle       String
+  creatoIl   DateTime @default(now())
+
+  // ⚠️ Una persona può avere due fasce nello stesso giorno (mattina e
+  // pomeriggio): l'unicità è sulla fascia, non sul giorno. Impedisce solo di
+  // scrivere due volte lo stesso identico turno.
+  @@unique([utenteId, giorno, dalle, alle])
+  @@index([giorno])
+}
+
+// Il giorno in cui la settimana non vale: un riposo, delle ferie, o un orario
+// diverso dal solito.
+//
+// ⚠️ `giorno` è una stringa «AAAA-MM-GG»: è un giorno di calendario. Con un
+// `DateTime` il 25 agosto salvato a mezzanotte italiana torna indietro come
+// «24 agosto 22:00 UTC», e la riga comparirebbe sul giorno sbagliato.
+model EccezioneTurno {
+  id         String   @id @default(cuid())
+  utenteId   String
+  utenteNome String   @default("")
+  /** «2026-08-25». */
+  giorno     String
+  /** `riposo` (quel giorno non lavora) | `orario` (lavora, ma in un'altra fascia). */
+  tipo       String   @default("riposo")
+  dalle      String   @default("")
+  alle       String   @default("")
+  /** «ferie», «visita medica»: si legge nella griglia, ed è quasi sempre la domanda dopo. */
+  motivo     String   @default("")
+  creatoDaNome String @default("")
+  creatoIl   DateTime @default(now())
+
+  @@unique([utenteId, giorno, dalle, alle])
+  @@index([giorno])
+}

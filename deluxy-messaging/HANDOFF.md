@@ -1,6 +1,6 @@
 # Handoff — Deluxy Customer Service
 
-Ultimo aggiornamento: **21/08/2026, ore 16:30** (pagina **Operatori** in Qualità;
+Ultimo aggiornamento: **21/08/2026, ore 17:00** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
 prima, alle 15:10, l'utente ha pubblicato la schermata di consenso Google e il
 conto alla rovescia dei 7 giorni è finito).
 Prima, il 19/08: la **risposta di primo contatto** che parte da sola al primo
@@ -151,6 +151,48 @@ AES-256-GCM nel database. `APP_SECRET` su Vercel **deve** essere identico al
 locale, altrimenti nulla si decifra.
 
 ## FATTO
+
+- **TURNI: CHI LAVORA E QUANDO** (21/08/2026). Chiesto dall'utente: «una
+  sezione in alto per admin TURNI dove consenti di impostare i turni per gli
+  operatori». Pagina `/turni`, **primo gruppo del menu**, **solo
+  amministratori** — e il gruppo per un operatore **non compare proprio**: una
+  voce che risponde «serve un amministratore» sembra un guasto, non una regola.
+  Per farlo, il ruolo ora arriva alla `Sidebar` dal layout (stessa cosa fatta
+  anche per «Operatori»).
+  - Tre parti: **Adesso** (chi è dentro, fino a che ora, e chi entra dopo), **La
+    settimana** (griglia persone × 7 giorni, si aggiunge e si toglie), **Quando
+    la settimana non vale** (ferie, permessi, orari diversi).
+  - Due tabelle e non una (`TurnoSettimanale`, `EccezioneTurno`; `db push`
+    additivo): la regola che si ripete e le volte in cui non vale sono due
+    domande diverse. Con una sola, ogni permesso costringerebbe a riscrivere la
+    settimana e poi a rimetterla a posto — e nessuno lo farebbe, così la griglia
+    direbbe il falso in silenzio.
+  - ⚠️⚠️ **L'eccezione vince sempre sulla settimana.** *Non lavora* cancella
+    **tutte** le fasce di quel giorno (non una); *orario diverso* le
+    **sostituisce**. Provato: `npx tsx scripts/prova-turni.mts`, 18 casi, tutti
+    passano — compreso il caso in cui Federica ha due fasce e le ferie le
+    devono togliere entrambe.
+  - ⚠️⚠️ **Ore e giorni sono TESTO, non date**: `"09:00"` è un orario da parete,
+    `"2026-08-25"` un giorno di calendario. Con dei `DateTime`, a fine ottobre
+    — finita l'ora legale — tutti i turni si sposterebbero di un'ora da soli, e
+    il 25 agosto salvato a mezzanotte italiana tornerebbe indietro come «24
+    agosto 22:00». Stessa ragione per cui «Adesso» si calcola nel browser.
+  - ⚠️ `giornoValido` controlla che il giorno **esista**: `2026-04-31`
+    scivolerebbe al primo maggio senza dare errore, e l'eccezione finirebbe sul
+    giorno sbagliato.
+  - ⚠️ **Niente turni di notte**: si finisce al più tardi alle `24:00` (ammessa
+    apposta in coda: `00:00` sarebbe *prima* dell'inizio e il turno verrebbe
+    rifiutato, con l'operatore convinto di aver sbagliato lui). Uno che scavalca
+    la mezzanotte va spezzato in due, e il messaggio lo dice.
+  - ⚠️ `src/lib/turni.ts` **non parla col database** ed è una regola da non
+    rompere: lo importa anche il componente client. Le query stanno in
+    `src/app/api/turni/route.ts`.
+  - ⚠️ **I turni non fanno succedere niente**: non assegnano ordini, non
+    smistano conversazioni, non impediscono di lavorare fuori orario. Scritto
+    anche a schermo, perché è la prima cosa che si dà per scontata.
+  - ⚠️ **Non verificata a schermo da una sessione** (serve un login da
+    amministratore). Typecheck, build e prove passano; le tabelle esistono in
+    produzione e rispondono. **Da guardare con gli occhi.**
 
 - **OPERATORI: QUANTO LAVORO HA FATTO CIASCUNO** (21/08/2026). Chiesto
   dall'utente: «una sezione per giudicare gli operatori — quanti ordini
