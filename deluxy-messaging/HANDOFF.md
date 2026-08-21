@@ -122,6 +122,22 @@ locale, altrimenti nulla si decifra.
 
 ## FATTO
 
+- **NUOVO ORDINE PER IL CLIENTE AL TELEFONO** (19/08/2026, LIVE). Pagina
+  `/nuovo-ordine`: negozio, cliente (precompilato dalla conversazione), giorno e
+  fascia, indirizzo, prodotti, biglietto, e **due metodi di pagamento**:
+  «link di pagamento» (bozza + invito, resta bozza finché non paga) o «ha già
+  pagato» (bonifico/contanti/POS → ordine **pagato**, con conferma davanti e il
+  mezzo scritto nelle note).
+  - ⚠️⚠️ L'ordine **nasce in Shopify** come bozza e torna dal registro come
+    tutti gli altri: uno scritto solo da noi sarebbe invisibile a logistica e
+    contabilità.
+  - ⚠️ Giorno e fascia vanno negli attributi `Data_Consegna` e
+    `Fascia_Oraria_Consegna`, gli unici che il registro legge.
+  - 🟡 **Manca `read_products`**: il catalogo non si può leggere, quindi la
+    riga si scrive a mano e l'ordine **non porta la foto del prodotto** — che è
+    quella che si manda al fornitore. La ricerca lo dice invece di tornare
+    vuota. Aggiungendo il permesso all'app CRM_DELUXY si sceglie dal catalogo.
+
 - **CHARGEBACK: SEZIONE, RISPOSTA ALLA BANCA E COMPITO DEL GIORNO** (19/08/2026,
   LIVE). Chiesto dall'utente. Il dato viveva solo dentro Shopify: misurato lo
   stesso giorno, **10 contestazioni perse per 2.087,66 €** e **3 aperte per
