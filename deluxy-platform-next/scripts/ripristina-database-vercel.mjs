@@ -1,58 +1,65 @@
-// Riscrive DATABASE_URL e DIRECT_URL di produzione sul progetto Vercel `delivery`
-// e rimette in piedi https://deluxy-delivery.vercel.app.
+// Scrive DATABASE_URL e DIRECT_URL del progetto Vercel `delivery` (produzione e
+// preview) puntandole al cluster Postgres condiviso in piano Pro, schema `platform`.
 //
-// Storia: dal 26/07/2026 ogni /api/v1/* rispondeva 500 perche' la DATABASE_URL su
-// Vercel aveva la password vecchia del progetto Supabase `feleldlsreurqpdhstla`
-// (Prisma P1000). La password attuale esiste in una sola copia locale: il .env di
-// AI Mail, che ha vissuto sullo stesso progetto fino al trasloco del 19/08.
+// Storia in due tappe, entrambe del 21/08/2026:
+//  1. la produzione era giu' da 26 giorni perche' la DATABASE_URL su Vercel aveva
+//     la password vecchia del progetto Supabase Free `feleldlsreurqpdhstla`
+//     (Prisma P1000). Rimessa in piedi leggendo la password dal .env di AI Mail.
+//  2. quel progetto e' Free e pesa 567 MB contro un tetto di 500: alla prima
+//     soglia superata l'app sarebbe andata in sola lettura. Su decisione
+//     dell'utente la piattaforma e' stata spostata sul cluster condiviso in Pro
+//     (`zegbztfxisqeowngvgvh`), schema `platform`, come le altre 13 app —
+//     vedi scripts/sposta-su-cluster-condiviso.mjs.
 //
-// ⚠️ Si usa il POOLER e non il host diretto: `db.<ref>.supabase.co` risolve solo
-// su IPv6 ed e' inadatto al runtime serverless.
+// ⚠️ Runtime sulla 6543 (transaction mode + pgbouncer), migrazioni sulla 5432.
 // ⚠️ Si passa --value e mai lo stdin: da stdin Vercel infila un a-capo nel segreto.
-// La password non viene mai stampata ne' passata alla shell (spawn senza shell).
+// ⚠️ Il deploy va lanciato dalla RADICE del repo: la Root Directory del progetto
+//    Vercel e' gia' `deluxy-platform-next`, da dentro la cartella il CLI la
+//    raddoppia e fallisce.
+// La password non viene mai stampata ne' passata alla shell.
 //
 // Uso:  node C:/Users/nicol/app/deluxy-platform-next/scripts/ripristina-database-vercel.mjs
 
 import fs from 'node:fs';
 import { spawnSync } from 'node:child_process';
 
-const ENV_FILE = 'C:/Users/nicol/scoutwt/deluxy-mail/.env';
-const CHIAVE = 'A_DATABASE_URL';
-const REF = 'feleldlsreurqpdhstla';
-const REGION = 'eu-west-1';
+const RADICE_REPO = 'C:/Users/nicol/app';
+const SCHEMA = 'platform';
 const PROGETTO = ['--scope', 'deluxy', '--project', 'delivery'];
 
-const riga = fs.readFileSync(ENV_FILE, 'utf8')
-  .split(/\r?\n/).find((l) => l.startsWith(`${CHIAVE}=`));
-if (!riga) { console.log(`Nessuna ${CHIAVE} in ${ENV_FILE}`); process.exit(1); }
+const riga = fs.readFileSync('C:/Users/nicol/app/deluxy-tasks/.env', 'utf8')
+  .split(/\r?\n/).find((l) => l.startsWith('DATABASE_URL='));
+if (!riga) { console.log('Nessuna DATABASE_URL nel .env di deluxy-tasks'); process.exit(1); }
 
-const sorgente = new URL(riga.slice(CHIAVE.length + 1).trim().replace(/^"|"$/g, ''));
-const password = decodeURIComponent(sorgente.password);
-
-/** Costruisce la connessione pooler per la porta data. 6543 = transaction, 5432 = session. */
+const sorgente = new URL(riga.slice('DATABASE_URL='.length).trim().replace(/^"|"$/g, ''));
 const url = (porta, extra) =>
-  `postgresql://postgres.${REF}:${encodeURIComponent(password)}` +
-  `@aws-0-${REGION}.pooler.supabase.com:${porta}/postgres${extra}`;
+  `postgresql://${sorgente.username}:${sorgente.password}` +
+  `@${sorgente.hostname}:${porta}/postgres?schema=${SCHEMA}${extra}`;
 
-const DATABASE_URL = url(6543, '?pgbouncer=true');
+const DATABASE_URL = url(6543, '&pgbouncer=true');
 const DIRECT_URL = url(5432, '');
 
+// ⚠️ Con shell:true gli argomenti NON vengono protetti: la `&` di
+// `?schema=platform&pgbouncer=true` spezzava il comando in due e Windows provava
+// a eseguire `pgbouncer` come programma. Ogni argomento va quindi virgolettato.
+const proteggi = (a) => (/[\s&|<>^"]/.test(a) ? `"${a.replace(/"/g, '\\"')}"` : a);
+
 const vercel = (...args) => {
-  const r = spawnSync('npx', ['vercel', ...args], { encoding: 'utf8', shell: true });
+  const r = spawnSync('npx', ['vercel', ...args].map(proteggi),
+    { encoding: 'utf8', shell: true, cwd: RADICE_REPO });
   return { ok: r.status === 0, out: `${r.stdout ?? ''}${r.stderr ?? ''}`.trim() };
 };
 
-/** Riscrive una variabile in un ambiente: prima la toglie, poi la rimette. */
 function riscrivi(nome, valore, ambiente) {
-  vercel('env', 'rm', nome, ambiente, ...PROGETTO, '--yes'); // se non c'e', non importa
+  vercel('env', 'rm', nome, ambiente, ...PROGETTO, '--yes'); // se non c'e', pazienza
   const r = vercel('env', 'add', nome, ambiente, ...PROGETTO, '--value', valore);
   console.log(`  ${nome} (${ambiente}): ${r.ok ? 'scritta' : 'ERRORE'}`);
   if (!r.ok) console.log(`    ${r.out.split('\n').slice(-3).join('\n    ')}`);
   return r.ok;
 }
 
-console.log(`progetto Supabase: ${REF} · region: ${REGION} · pooler 6543/5432`);
-console.log('(password letta dal .env di AI Mail, mai stampata)\n');
+console.log(`cluster: ${sorgente.hostname} · schema: ${SCHEMA} · pooler 6543/5432`);
+console.log('(password letta dal .env di deluxy-tasks, mai stampata)\n');
 
 console.log('Riscrittura delle variabili:');
 let ok = true;
@@ -62,13 +69,13 @@ for (const ambiente of ['production', 'preview']) {
 }
 if (!ok) { console.log('\nQualcosa non e\' stato scritto: mi fermo prima del deploy.'); process.exit(1); }
 
-console.log('\nDeploy di produzione…');
+console.log('\nDeploy di produzione (dalla radice del repo)…');
 const dep = vercel('deploy', '--prod', '--yes', ...PROGETTO);
-console.log(dep.out.split('\n').slice(-6).join('\n'));
+console.log(dep.out.split('\n').filter((l) => /https:\/\/|Error|Aliased/.test(l)).slice(-4).join('\n'));
 if (!dep.ok) process.exit(1);
 
-console.log('\nVerifica delle rotte (devono passare da 500 a 200):');
+console.log('\nVerifica:');
 for (const rotta of ['/api/v1/provinces', '/api/v1/settings/public']) {
   const r = await fetch(`https://deluxy-delivery.vercel.app${rotta}`);
-  console.log(`  ${rotta.padEnd(28)} ${r.status}`);
+  console.log(`  ${rotta.padEnd(28)} ${r.status}  ${r.status === 401 ? '(401 = app viva, rotta protetta)' : ''}`);
 }

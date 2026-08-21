@@ -9,16 +9,25 @@
 
 ## 🟢 STATO PRODUZIONE — 21/08/2026: l'app è TORNATA SU dopo 26 giorni
 
-**`https://deluxy-delivery.vercel.app` funziona.** Deploy `delivery-odygnbl1e` del 21/08, aliasato.
+**`https://deluxy-delivery.vercel.app` funziona.** Deploy `delivery-85ynuuzl0` del 21/08, aliasato.
+
+> 🗄️ **DOVE STA IL DATABASE ORA** (cambiato due volte il 21/08, leggere questo e non il resto):
+> **cluster condiviso in piano Pro `zegbztfxisqeowngvgvh`** (`aws-0-eu-central-1.pooler.supabase.com`),
+> **schema `platform`** — come le altre 13 app Deluxy, vedi [[cluster-postgres-condiviso]].
+> Il vecchio progetto Free `feleldlsreurqpdhstla` **non è stato toccato**: resta lì coi suoi dati come
+> rete di sicurezza, e non costa nulla.
 
 Verificato end-to-end, non dedotto:
 
 | Prova | Prima | Dopo |
 |---|---|---|
 | `GET /api/v1/provinces` senza token | `500 FUNCTION_INVOCATION_FAILED` | `401 Token mancante` |
-| `POST /api/v1/auth/login` (admin demo) | 500 | **200 + `accessToken`** |
+| `POST /api/v1/auth/login` (admin) | 500 | **200 + `accessToken`** |
 | `GET /api/v1/auth/me` | 500 | 200, `ADMIN`, `status: active` |
 | Liste con token | 500 | province 2 · partner 2 · clienti 1 · consegne 1 · prodotti 3 |
+
+⚠️ **Il primo login dopo un deploy può scadere** (avvio a freddo): un `curl -m 40` è tornato a vuoto e
+sembrava un guasto, la richiesta subito dopo ha risposto 200. **Riprovare prima di diagnosticare.**
 
 ✅ **E finalmente provata a runtime la ricerca case-insensitive** (il fix del 17/08, fermo da allora a
 «solo build verde»): `GET /products?q=` con `Bouquet` / `bouquet` / `BOUQUET` / `bOuQuEt` → **2 risultati
@@ -30,8 +39,9 @@ in tutti e quattro i casi**. Il punto 10 si può considerare chiuso davvero.
 ### Come è stata risolta (la diagnosi che il documento aveva sbagliato per tre sessioni)
 
 Il database della piattaforma **non era il cluster condiviso** — vedi la sezione 🛑 più sotto, tenuta
-apposta perché l'errore non si ripeta. È il progetto Supabase **`feleldlsreurqpdhstla`**
+apposta perché l'errore non si ripeta. **Era** il progetto Supabase **`feleldlsreurqpdhstla`**
 (account **cs@deluxy.it**, region **eu-west-1**, piano **Free**), schema `public`.
+*(«Era»: poche ore dopo è stato spostato sul cluster Pro — vedi la tappa successiva qui sotto.)*
 
 Tre cose lo hanno reso difficile da trovare, e vale la pena ricordarle:
 
@@ -49,35 +59,59 @@ Tre cose lo hanno reso difficile da trovare, e vale la pena ricordarle:
    sua copia è **posteriore** al cambio password del 26/07. ⭐ *Se una password sembra persa, cercarla
    nell'app che ha lasciato quel database per ultima.*
 
-Env riscritte (produzione **e** preview) in forma **pooler**, con `--value` e mai stdin:
+### Seconda tappa dello stesso giorno: via dal Free, dentro il Pro
+
+Rimessa su, l'app restava su un progetto **Free a 567 MB contro un tetto di 500**: alla prima soglia
+superata sarebbe passata **in sola lettura** senza preavviso. Su decisione dell'utente («usa Supabase a
+pagamento che abbiamo») la piattaforma è stata **spostata sul cluster condiviso in Pro**.
+
+Fatto con `scripts/sposta-su-cluster-condiviso.mjs`: `create schema platform` → `prisma migrate deploy`
+della baseline (41 tabelle) → `seed`. Controprova dal pooler 6543: utenti 6, province 2, servizi 5,
+partner 2, prodotti 3. Poi `scripts/ripristina-database-vercel.mjs` per riscrivere le env e ridistribuire.
+
+Env attuali (produzione **e** preview), con `--value` e mai stdin:
 
 ```
-DATABASE_URL = postgresql://postgres.feleldlsreurqpdhstla:<password>@aws-0-eu-west-1.pooler.supabase.com:6543/postgres?pgbouncer=true
-DIRECT_URL   = postgresql://postgres.feleldlsreurqpdhstla:<password>@aws-0-eu-west-1.pooler.supabase.com:5432/postgres
+DATABASE_URL = postgresql://postgres.zegbztfxisqeowngvgvh:<pw>@aws-0-eu-central-1.pooler.supabase.com:6543/postgres?schema=platform&pgbouncer=true
+DIRECT_URL   = postgresql://postgres.zegbztfxisqeowngvgvh:<pw>@aws-0-eu-central-1.pooler.supabase.com:5432/postgres?schema=platform
 ```
 
-⚠️ **Il deploy va lanciato dalla radice del repo** (`C:\Users\nicol\app`), non da `deluxy-platform-next`:
-la Root Directory del progetto Vercel è già `deluxy-platform-next` e da dentro la cartella il CLI
-compone `…\deluxy-platform-next\deluxy-platform-next` e fallisce.
+Tre trappole incontrate nel farlo, tutte già pagate:
+
+- ⚠️ **Il deploy va lanciato dalla radice del repo** (`C:\Users\nicol\app`), non da `deluxy-platform-next`:
+  la Root Directory del progetto Vercel è già `deluxy-platform-next` e da dentro la cartella il CLI
+  compone `…\deluxy-platform-next\deluxy-platform-next` e fallisce.
+- ⚠️ **La `&` di `?schema=platform&pgbouncer=true` va virgolettata.** Passando l'URL a `vercel env add`
+  attraverso una shell, la `&` spezza il comando: Windows prova a eseguire `pgbouncer` come programma,
+  l'`env add` fallisce **dopo che l'`env rm` è già riuscito** e la produzione resta *senza*
+  `DATABASE_URL`. Riscrivere subito.
+- ⚠️ **Migrazioni sulla 5432, runtime sulla 6543**: pgbouncer in transaction mode non regge le DDL.
 
 Script riutilizzabili, nessuno dei quali stampa mai una password:
 `scripts/ispeziona-cluster.mjs` · `scripts/cerca-database-piattaforma.mjs` ·
 `scripts/trova-password-valida.mjs` · `scripts/verifica-database-vero.mjs` ·
-`scripts/ripristina-database-vercel.mjs`.
+`scripts/sposta-su-cluster-condiviso.mjs` · `scripts/ripristina-database-vercel.mjs`.
 
-### 🔴 Aperti (non risolti dal ripristino)
+### 🔒 Credenziali demo — 5 account su 6 chiusi
 
-- 🔴 **Le credenziali demo del seed funzionano in produzione, su un URL pubblico.** Verificato oggi
-  entrando davvero con `admin@deluxy.it / Deluxy2026!` (ruolo ADMIN). Valgono anche `operation@`,
-  `fioraio@`, `pasticceria@`, `valet1@`, `valet2@`. **Vanno cambiate o sospese: è la cosa più urgente.**
-- ⚠️ **Il progetto Supabase è sul piano Free e pesa 567 MB, oltre il tetto di 500 MB.** Ancora
-  scrivibile (`transaction_read_only = off`), ma quando la soglia scatta l'app va **in sola lettura**.
-  Gran parte del peso è lo schema **`mail`** (31 tabelle) lasciato lì da AI Mail, che dal 19/08 sta
-  altrove: **si può liberare spazio buttando quello schema**, dopo conferma. In alternativa la
-  piattaforma va portata sul cluster condiviso in Pro (schema `platform`).
+Le credenziali del seed funzionavano davvero su un URL pubblico (verificato entrandoci come ADMIN).
+Sono stati **sospesi** `operation@`, `fioraio@`, `pasticceria@`, `valet1@`, `valet2@` via
+`PATCH /users/:id/status {status:'suspended'}`. **Controprova: il loro login risponde 401, quello
+dell'admin 200.**
+
+- 🔴 **Resta `admin@deluxy.it` attivo con la password nota `Deluxy2026!`.** Va cambiata: dall'app
+  (Configurazione → Utenti) o creando un account vero e archiviando questo. **Finché non si fa,
+  chiunque conosca il seed entra come amministratore.**
+
+### 🔴 Altri punti aperti
+
 - ⚠️ **`ANAGRAFICHE_API_KEY` manca ancora** su Vercel: import e sync partner restano a vuoto.
-- Il contenuto è **soli dati di seed** (6 utenti demo, 2 partner, 2 valet, 1 consegna, 1 cliente,
-  3 prodotti, 0 fatture, 0 stipendi). Ora è **misurato**, non più supposto: nessun dato reale a rischio.
+- Il contenuto è **soli dati di seed** (6 utenti, 2 partner, 2 valet, 1 consegna, 1 cliente,
+  3 prodotti, 0 fatture, 0 stipendi). Ora è **misurato**, non più supposto: nessun dato reale è mai
+  stato a rischio, né nel vecchio database né in questo.
+- Il vecchio progetto Free `feleldlsreurqpdhstla` **non è stato toccato**. Ci resta anche lo schema
+  `mail` (31 tabelle) abbandonato da AI Mail il 19/08. Non urge più — la piattaforma non ci abita
+  più — ma se un giorno lo si vuole ripulire, quello è il peso da togliere.
 
 <details>
 <summary>📕 Storia dell'avaria 26/07 → 21/08 (conservata: la diagnosi sbagliata è istruttiva)</summary>
@@ -290,6 +324,8 @@ npm run seed             # dati demo (idempotente)
 npm run dev:api          # http://localhost:3000/api/v1  — Swagger: /api/docs
 npm run dev:web          # http://localhost:4200
 # Login demo: admin@deluxy.it / Deluxy2026!  (anche operation@, fioraio@, pasticceria@, valet1@, valet2@)
+# ⚠️ Valgono in LOCALE. In produzione dal 21/08 i cinque non-admin sono SOSPESI (login 401):
+#    riattivarli da Configurazione -> Utenti se servono per una prova.
 ```
 
 Preview server (Claude): config in `.claude/launch.json` → `deluxy-next-api`, `deluxy-next-web`.
