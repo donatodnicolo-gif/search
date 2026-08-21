@@ -217,6 +217,14 @@ input:focus, select:focus, textarea:focus {
 .mesi-grid input { padding: 7px 10px; font-size: 13px; text-align: right; }
 .mese-cell .k { font-size: 11.5px; color: var(--text-tertiary); margin-bottom: 4px; font-weight: 500; }
 .mese-cell .sub { font-size: 11px; color: var(--text-tertiary); margin-top: 3px; text-align: right; font-variant-numeric: tabular-nums; }
+/* una casella cambiata e non ancora salvata: si vede quale muove il totale */
+.mesi-grid input.toccata { border-color: var(--blue); background: rgba(0, 113, 227, 0.08); }
+/* un mese chiuso non si riscrive: deve *sembrare* non scrivibile, non solo esserlo */
+.mesi-grid input:disabled { background: var(--fill); color: var(--text-tertiary); cursor: not-allowed; }
+/* uno scostamento non ancora salvato: in su costa (arancio), in giù libera (verde) */
+.delta { font-weight: 600; }
+.delta.su { color: var(--orange); }
+.delta.giu { color: var(--green); }
 
 /* selezione dei mesi (dipendenti) */
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }

@@ -127,3 +127,26 @@ export function variazione(ora: number, prima: number | null): number | null {
 export function quota(ora: number, rif: number | null): number | null {
   return rif === null || rif === 0 ? null : (ora / rif) * 100;
 }
+
+// ---- Fin dove si può ancora scrivere il budget ADV ----
+//
+// Il budget di un mese si decide **prima** del mese, non dopo: una volta che i
+// soldi sono usciti, riscrivere la percentuale non cambia la spesa, cambia solo
+// il metro con cui la si giudica — e fa sparire lo sforamento invece di
+// mostrarlo. Da qui la regola: i mesi già passati sono in sola lettura, il mese
+// in corso e i successivi no.
+//
+// Restituisce il **primo mese ancora modificabile**: 1 se l'anno deve ancora
+// cominciare, 13 se è tutto passato (nessun mese aperto).
+export function primoMeseAperto(year: number): number {
+  const oggi = new Date();
+  const annoInCorso = oggi.getUTCFullYear();
+  if (year > annoInCorso) return 1;
+  if (year < annoInCorso) return 13;
+  return oggi.getUTCMonth() + 1;
+}
+
+// Vero se quel mese di quell'anno non si può più scrivere.
+export function meseChiuso(year: number, month: number): boolean {
+  return month < primoMeseAperto(year);
+}

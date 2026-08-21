@@ -425,8 +425,11 @@ pubblicato), *sfidante* e *irraggiungibile*.
   > Il ripristino si fa con `scripts/ripristina-budget-azzerato.mjs` (prova a vuoto senza
   > argomenti, `scrivi` per applicare); i valori vengono dal seed, che è la fonte da cui il budget
   > era nato.
-- **Spese ADV** (`/spese`): quanto si può spendere in pubblicità per maison come **% delle
-  vendite del mese**, personalizzabile mese per mese; l'importo consentito si ricalcola.
+- **Spese ADV** (`/spese`): quanto si può spendere in pubblicità per brand come **% delle
+  vendite del mese**, personalizzabile mese per mese; l'importo consentito si ricalcola. I **mesi
+  già passati sono in sola lettura**, il **totale dell'anno sta anche in fondo** (per brand e
+  complessivo) e **mentre si scrive si vede di quanto cambia**, casella per casella. Da qui si
+  **aggiunge un brand** nuovo. Vedi «Spese ADV: cosa si può ancora scrivere, e quanto sposta».
 - **Impostazioni** (`/impostazioni`): moltiplicatori dei livelli sfidante/irraggiungibile,
   premi al raggiungimento, voci di costo del P&L (COGS %, costi fissi).
 
@@ -1351,6 +1354,56 @@ importato — ma non regge da solo: fra le 21 controparti di agosto ce ne sono d
 (`Netflix.com`, `Google One`, `DELIVEROO`, `ARIELFLORI*…`), quindi non manca *una fonte intera*,
 manca **una parte di entrambe**. Si guarda in `deluxy-partner`, contando i movimenti di agosto per
 fonte; qui si può solo dichiarare che mancano.
+
+### Spese ADV: cosa si può ancora scrivere, e quanto sposta (21/08/2026)
+
+Quattro cose chieste insieme sulla stessa pagina, perché rispondono alla stessa domanda: *se cambio
+questa casella, cosa succede al budget dell'anno — e questa casella si può ancora cambiare?*
+
+**1. I mesi passati non si riscrivono.** Il budget di un mese si decide **prima** del mese. Riscrivere
+la percentuale di marzo ad agosto non cambia un euro di quello che è stato speso: cambia solo il metro
+con cui lo si giudica, e fa **sparire lo scostamento** invece di mostrarlo. Da qui in poi i mesi già
+chiusi sono in sola lettura (input disabilitato, etichetta «chiuso», sfondo spento).
+
+⚠️ **Il blocco vive nell'API, non nel form.** `disabled` su un input è una cortesia verso chi guarda
+la pagina, non un controllo: la stessa `PUT /api/spese` partita da una scheda rimasta aperta da ieri —
+o rigiocata a mano — riscriverebbe un mese già speso. La regola sta in `src/lib/periodo.ts`
+(`primoMeseAperto` / `meseChiuso`), la usano **sia** la pagina **sia** la rotta, e la risposta dichiara
+cosa ha scartato (`mesiChiusiIgnorati`) invece di rispondere `ok` su una richiesta accolta a metà — il
+form lo mostra («*Ago si è chiuso nel frattempo: ricarica la pagina*»). Verificato sul vivo: `PUT` di
+marzo al 99% → `{"ok":true,"mesiChiusiIgnorati":[3]}`, e la percentuale a database resta 13,3.
+
+**2. Il totale in fondo, e non solo in cima.** Una tabella finale con una riga per brand — *consentito
+ora*, *salvato*, *differenza* — e la riga del totale dell'anno.
+
+**3. La differenza si vede mentre si scrive.** Tre livelli, perché «il totale è cambiato» senza dire
+*dove* costringe a ricontrollare dodici caselle per brand: sulla **casella** (`+3.300 €` sotto
+l'importo), sul **brand** (nel sottotitolo della sua scheda), e sul **totale** (KPI «rispetto a quello
+che è salvato», che nomina i mesi toccati). La colonna «salvato» è il database: finché non si preme
+Salva la differenza vive solo nella pagina, e ricaricando sparisce.
+
+> Il bottone si accende sulle **caselle toccate**, non sulla differenza in euro: due modifiche opposte
+> che si compensano lasciano il totale identico e sono comunque da salvare.
+
+**4. Aggiungere un brand.** Prima i brand esistevano solo nel seed: aggiungerne uno voleva dire aprire
+il database, quindi non lo faceva nessuno. Ora c'è `POST /api/maison` (nome → slug ricavato e reso
+unico, `ordine` in coda). Due nomi uguali si **rifiutano** (409, confronto senza distinzione di
+maiuscole) perché un gemello sdoppia i numeri in ogni pagina; due nomi diversi che darebbero lo stesso
+slug si **numerano**. Il brand nuovo **nasce a zero** e la pagina lo dice: senza vendite a budget la
+percentuale non ha su cosa applicarsi, e il consentito resta 0 finché il budget non si scrive in
+Maison.
+
+🔎 **Come è stato verificato** (dev locale sullo stesso database di produzione): 60 caselle, **35
+disabilitate** = Gen–Lug × 5 brand; totale 178.703 € di cui 40.884 nei mesi chiusi; portando agosto di
+Deluxy.it da 13,4% a 20% → totale 182.003 €, `+3.300 €` sulla casella, sul brand e sul totale; salvato
+e **rimesso a 13,4** subito dopo, ricontrollando il valore a database. Il brand di prova creato per
+l'occasione è stato **cancellato**, dopo aver verificato che non avesse né budget né percentuali.
+
+⚠️ **Trappola di misura, non di codice**: nel pannello browser non a schermo il `borderColor`
+*calcolato* di un input già esistente resta quello vecchio anche dopo che la classe è cambiata — lo
+sfondo della stessa regola si aggiorna, il bordo no. Sembrava una regola CSS che non si applicava. La
+prova che scioglie il dubbio è un **elemento nuovo** che matcha lo stesso selettore: lì il colore
+calcolato è giusto. Vedi anche «QA: pannello browser non a schermo» nelle note di lavoro.
 
 ### Una soglia attraversata non è un buco chiuso (21/08/2026)
 
