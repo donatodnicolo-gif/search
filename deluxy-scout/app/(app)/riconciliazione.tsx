@@ -5,8 +5,8 @@
 // mezz'ora e se ne esce puliti — ma restano separate perché le azioni sono
 // diverse: là si scrive un indirizzo, qui si decide se due schede sono lo
 // stesso negozio.
-import { useCallback, useState } from 'react';
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { colors, radius, spacing, contenutoCentrato } from '@/lib/theme';
@@ -33,6 +33,7 @@ export default function Riconciliazione() {
   const [coppie, setCoppie] = useState<CoppiaDuplicata[]>([]);
   const [loading, setLoading] = useState(true);
   const [errore, setErrore] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
 
   const carica = useCallback(async () => {
     setLoading(true);
@@ -43,7 +44,19 @@ export default function Riconciliazione() {
         setErrore(String(e?.message ?? e));
         return [] as SenzaPosizione[];
       }),
-      fetchCoppieDuplicate().catch(() => [] as CoppiaDuplicata[]),
+      // ⚠️ L'errore NON si ingoia. Il 21/08/2026 la funzione ha superato il
+      // tetto di 8 secondi di PostgREST e questa schermata mostrava
+      // «Doppioni 0»: un guasto travestito da buona notizia. Se la ricerca non
+      // riesce si deve leggere perché.
+      fetchCoppieDuplicate().catch((e) => {
+        const m = String(e?.message ?? e);
+        setErrore(
+          /timeout|57014/i.test(m)
+            ? 'La ricerca dei doppioni ha impiegato troppo e il server l’ha interrotta: l’elenco qui sotto è vuoto per questo, non perché non ci siano doppioni.'
+            : m,
+        );
+        return [] as CoppiaDuplicata[];
+      }),
     ]);
     setSenza(a);
     setCoppie(b);
@@ -54,6 +67,30 @@ export default function Riconciliazione() {
     useCallback(() => {
       carica();
     }, [carica]),
+  );
+
+  // La ricerca vale per tutte e due le schede: si arriva qui sapendo QUALE
+  // negozio si vuole sistemare, non per scorrere duecento righe.
+  const q = query.trim().toLowerCase();
+  const senzaFiltrati = useMemo(
+    () =>
+      q
+        ? senza.filter((r) =>
+            [r.nome, r.indirizzo, r.zona, r.categoria].some((v) => (v ?? '').toLowerCase().includes(q)),
+          )
+        : senza,
+    [senza, q],
+  );
+  const coppieFiltrate = useMemo(
+    () =>
+      q
+        ? coppie.filter((c) =>
+            [c.tiene, c.togli, c.citta, c.indirizzo_tiene, c.indirizzo_togli].some((v) =>
+              (v ?? '').toLowerCase().includes(q),
+            ),
+          )
+        : coppie,
+    [coppie, q],
   );
 
   return (
@@ -79,6 +116,25 @@ export default function Riconciliazione() {
         />
       </View>
 
+      <TextInput
+        style={styles.search}
+        value={query}
+        onChangeText={setQuery}
+        placeholder="Cerca per nome, indirizzo, città…"
+        placeholderTextColor={colors.grigio}
+        autoCapitalize="none"
+        clearButtonMode="while-editing"
+      />
+      {/* Con un filtro attivo un elenco corto sembra un elenco che ha perso i
+          dati: si dice sempre quante righe si stanno guardando su quante. */}
+      {q ? (
+        <Text style={styles.conto}>
+          {scheda === 'posizione'
+            ? `${senzaFiltrati.length} di ${senza.length} senza posizione`
+            : `${coppieFiltrate.length} di ${coppie.length} coppie`}
+        </Text>
+      ) : null}
+
       {errore ? (
         <Text style={styles.errore}>
           <Ionicons name="warning-outline" size={13} color={colors.errore} /> {errore}
@@ -86,9 +142,9 @@ export default function Riconciliazione() {
       ) : null}
 
       {scheda === 'posizione' ? (
-        <SenzaPosizioneLista righe={senza} loading={loading} onFatto={carica} />
+        <SenzaPosizioneLista righe={senzaFiltrati} loading={loading} onFatto={carica} />
       ) : (
-        <DoppioniLista righe={coppie} loading={loading} onFatto={carica} />
+        <DoppioniLista righe={coppieFiltrate} loading={loading} onFatto={carica} />
       )}
     </ScrollView>
   );
@@ -290,6 +346,17 @@ const styles = StyleSheet.create({
   tabTxtOn: { color: colors.bianco },
   spiega: { color: colors.testoSoft, fontSize: 12.5, lineHeight: 18 },
   forte: { color: colors.testo, fontWeight: '800' },
+  search: {
+    backgroundColor: colors.bianco,
+    borderWidth: 1,
+    borderColor: colors.grigioChiaro,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 9,
+    color: colors.testo,
+    fontSize: 14,
+  },
+  conto: { color: colors.testoSoft, fontSize: 12, marginTop: -4 },
   errore: { color: colors.errore, fontWeight: '600', fontSize: 13, backgroundColor: colors.bianco, borderRadius: radius.md, padding: spacing.md },
   card: { backgroundColor: colors.bianco, borderRadius: radius.md, borderWidth: 1, borderColor: colors.grigioChiaro, padding: spacing.md, gap: 4 },
   cardTesta: { flexDirection: 'row', alignItems: 'center', gap: 8 },
