@@ -15,16 +15,34 @@ import { useEffect, useRef, useState } from "react";
 // tenerne una seconda copia in React vuol dire due verità che possono
 // divergere — con l'utente che vede «3 selezionate» e ne parte una.
 
-/** Il conteggio nel bottone che agisce su tutte le righe spuntate. */
+/**
+ * Il conteggio nel bottone che agisce su tutte le righe spuntate.
+ *
+ * ⚠️ LE ETICHETTE SONO STRINGHE, NON UNA FUNZIONE. Il primo tentativo
+ * prendeva `etichetta: (n) => string` ed era comodo da scrivere: la pagina
+ * andava in **errore 500** appena caricata («Application error: a server-side
+ * exception has occurred»). Una funzione non attraversa il confine fra
+ * componente server e componente client — deve poter essere serializzata, e
+ * il codice non si serializza. Il build non se ne accorge: e' un errore di
+ * runtime, e si vede solo aprendo la pagina.
+ *
+ * Quindi: tre stringhe, e `{n}` viene sostituito col numero.
+ */
 export function ContaSelezionate({
   nome,
-  etichetta,
+  vuoto,
+  uno,
+  molte,
   className = "btn small",
 }: {
   /** Il `name` delle caselle da contare. */
   nome: string;
-  /** Come si legge il bottone: «Porta qui le N» → (n) => `…`. */
-  etichetta: (n: number) => string;
+  /** Come si legge quando non c'è niente di spuntato. */
+  vuoto: string;
+  /** Con una sola riga spuntata. */
+  uno: string;
+  /** Con più righe: `{n}` diventa il numero. */
+  molte: string;
   className?: string;
 }) {
   const ancora = useRef<HTMLSpanElement>(null);
@@ -46,7 +64,7 @@ export function ContaSelezionate({
       {/* ⚠️ Disabilitato a zero: un bottone che si può premere e non fa niente
           insegna che i bottoni di questa pagina a volte non funzionano. */}
       <button type="submit" className={className} disabled={n === 0}>
-        {etichetta(n)}
+        {n === 0 ? vuoto : n === 1 ? uno : molte.replace("{n}", String(n))}
       </button>
     </span>
   );

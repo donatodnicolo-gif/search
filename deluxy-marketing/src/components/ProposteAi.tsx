@@ -269,9 +269,9 @@ export async function ProposteAi({
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 12, flexWrap: "wrap" }}>
             <ContaSelezionate
               nome="ideali"
-              etichetta={(n) =>
-                n === 0 ? "Porta qui le selezionate" : n === 1 ? "Porta qui 1 parola" : `Porta qui ${n} parole`
-              }
+              vuoto="Porta qui le selezionate"
+              uno="Porta qui 1 parola"
+              molte="Porta qui {n} parole"
             />
             <span className="cella-sub" style={{ whiteSpace: "normal" }}>
               Ognuna diventa un&apos;operazione sua, da approvare: puoi dire sì a cinque e no a
