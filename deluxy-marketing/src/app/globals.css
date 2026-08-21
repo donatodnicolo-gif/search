@@ -1153,3 +1153,17 @@ tbody tr:hover { background: var(--fill); }
   border: 0; background: none; padding: 0; font: inherit; color: var(--blue);
   text-decoration: underline; cursor: pointer;
 }
+
+/* Le graffe di Google dentro il testo dell'annuncio, rese parlanti: al posto
+   di `{LOCATION(City)}` una pastiglia che dice «città». Si distingue dal testo
+   vero perché quella parte NON è quello che leggerà chi cerca — è il posto
+   dove Google metterà qualcos'altro. */
+.ga-funzione {
+  display: inline-flex; align-items: center;
+  padding: 0 6px; margin: 0 1px;
+  border-radius: var(--radius-pill);
+  background: rgba(184, 150, 62, .14);
+  border: 1px dashed rgba(184, 150, 62, .55);
+  color: var(--gold-strong, #8a6f2e);
+  font-size: .88em; font-style: italic; white-space: nowrap;
+}

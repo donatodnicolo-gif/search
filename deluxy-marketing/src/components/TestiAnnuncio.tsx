@@ -49,6 +49,59 @@ const PER_ANNUNCIO: Record<string, number> = { titolo: 15, descrizione: 4 };
 const dinamico = (t: string) => /\{(keyword|customizer|countdown|location)/i.test(t);
 
 /**
+ * Il testo dell'annuncio con le GRAFFE che parlano.
+ *
+ * ⚠️ Prima la casella mostrava il codice grezzo — `Fresh roses to
+ * {LOCATION(City)}` — e sotto una frase che lo spiegava. Ma un codice che ha
+ * bisogno di una didascalia è un codice che nella casella non ci doveva stare:
+ * lì dentro si deve leggere quello che leggerà chi cerca, non la sintassi con
+ * cui lo abbiamo scritto. Ora la parte fra graffe diventa una pastiglia che
+ * dice CHE COSA Google ci metterà: «parola cercata», «città», «conto alla
+ * rovescia».
+ *
+ * ⚠️ Il testo di riserva resta a portata di mano nel titolo della pastiglia:
+ * è quello che comparirà davvero quando la parola non ci sta, quindi
+ * nasconderlo del tutto sarebbe passare da un eccesso all'altro.
+ */
+function conFunzioniParlanti(testo: string): React.ReactNode[] {
+  const pezzi: React.ReactNode[] = [];
+  // Una graffa alla volta, tenendo il testo intorno: il `while` sull'indice
+  // evita di perdere le parti fra due funzioni, che con uno split sparirebbero.
+  const re = /\{(keyword|location|countdown|customizer)[^}]*\}/gi;
+  let ultimo = 0;
+  let m: RegExpExecArray | null;
+  let n = 0;
+  while ((m = re.exec(testo)) !== null) {
+    if (m.index > ultimo) pezzi.push(testo.slice(ultimo, m.index));
+    pezzi.push(
+      <span className="ga-funzione" key={`f${n++}`} title={`Nel codice: ${m[0]}`}>
+        {etichettaFunzione(m[0])}
+      </span>
+    );
+    ultimo = m.index + m[0].length;
+  }
+  if (ultimo < testo.length) pezzi.push(testo.slice(ultimo));
+  return pezzi.length > 0 ? pezzi : [testo];
+}
+
+/** Come si chiama, in italiano, quello che Google mette al posto delle graffe. */
+function etichettaFunzione(graffa: string): string {
+  const kw = graffa.match(/\{keyword\s*:\s*([^}]*)\}/i);
+  if (kw) {
+    const riserva = kw[1].trim();
+    return riserva ? `parola cercata → ${riserva}` : "parola cercata";
+  }
+  const loc = graffa.match(/\{location\s*\(([^)]*)\)/i);
+  if (loc) {
+    const cosa = loc[1].trim().toLowerCase();
+    return cosa === "city" ? "città" : cosa === "region" ? "regione" : cosa === "country" ? "paese" : "località";
+  }
+  if (/\{countdown/i.test(graffa)) return "conto alla rovescia";
+  if (/\{customizer/i.test(graffa)) return "personalizzatore";
+  return graffa;
+}
+
+/**
  * Che cosa vedrà davvero chi cerca, detto a parole.
  *
  * ⚠️ Prima qui c'era solo l'etichetta «dinamico», che non spiega niente: chi
@@ -95,7 +148,9 @@ function Gruppo({ titolo, tipo, testi }: { titolo: string; tipo: string; testi: 
             : null;
         return (
           <div className="ga-riga" key={t.id}>
-            <div className={`ga-casella${lungo ? " oltre" : ""}`}>{t.testo}</div>
+            <div className={`ga-casella${lungo ? " oltre" : ""}`}>
+              {din ? conFunzioniParlanti(t.testo) : t.testo}
+            </div>
             <div className="ga-sotto">
               {giudizio && <span className="ga-giudizio">{giudizio}</span>}
               <span className={lungo ? "ga-caratteri oltre" : "ga-caratteri"}>
@@ -105,6 +160,8 @@ function Gruppo({ titolo, tipo, testi }: { titolo: string; tipo: string; testi: 
             {/* La spiegazione sta sotto il testo, non in un tooltip: è la
                 domanda che si fa chi lo vede per la prima volta, e un tooltip
                 lo trova solo chi sospetta già che ci sia qualcosa da sapere. */}
+            {/* La frase resta, ma sotto: la pastiglia dice COSA, questa dice
+                COME funziona. Chi ha già capito la salta con l'occhio. */}
             {din && spiegaDinamico(t.testo) && (
               <div className="cella-sub" style={{ whiteSpace: "normal", marginTop: 2 }}>
                 {spiegaDinamico(t.testo)}
