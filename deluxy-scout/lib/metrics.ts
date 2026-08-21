@@ -81,8 +81,40 @@ export function visiteUltimi7Giorni(visits: Visit[], oggi: Date = new Date()): n
 export interface Richiamo {
   place: Place;
   visita: Visit;
-  giorni: number; // giorni trascorsi dall'ultima visita
+  giorni: number; // giorni dall'ultimo contatto (la visita, o un richiamo successivo)
   inRitardo: boolean; // oltre la soglia di richiamo per quell'esito
+  ultimoContatto?: string; // ISO del contatto avvenuto DOPO la visita, se c'è stato
+}
+
+/**
+ * Cosa può togliere un negozio dalla coda, oltre a un'altra visita.
+ *
+ * ⚠️ Senza queste due, la coda non si svuotava mai: l'unico modo di uscirne era
+ * registrare una NUOVA visita. Misurato il 21/08/2026 sui dati veri: 35 negozi
+ * in coda, e **tutti e 35 avevano una trattativa aperta** — cioè la sezione
+ * «chi chiamo oggi» era la pipeline, mostrata come arretrato di visite vecchie.
+ */
+export interface OpzioniRichiami {
+  /** Negozi con una trattativa aperta: la pipeline li muove, non il richiamo. */
+  conTrattativaAperta?: Set<string>;
+  /** Ultimo contatto per negozio (chiamata o mail partita), in ISO. */
+  ultimoContatto?: Map<string, string>;
+}
+
+/**
+ * I negozi che hanno almeno una trattativa aperta (né vinta né persa).
+ * Sta qui e non nelle schermate perché il criterio di «aperta» deve restare uno solo.
+ */
+export function placeIdConTrattativaAperta(
+  deals: { place_id?: string | null; fase?: string | null }[],
+): Set<string> {
+  const s = new Set<string>();
+  for (const d of deals) {
+    if (!d.place_id) continue;
+    if (d.fase === 'closedwon' || d.fase === 'closedlost') continue;
+    s.add(d.place_id);
+  }
+  return s;
 }
 
 // Soglie di richiamo in giorni: il recap all'interessato è urgente,
@@ -94,7 +126,12 @@ const SOGLIA_RICHIAMO: Record<string, number> = { interessato: 3, da_richiamare:
  * "da richiamare" (e che non sono già chiuse come cliente/perso).
  * Ordinate: prima i ritardi, poi le più vecchie.
  */
-export function daRicontattare(places: Place[], visits: Visit[], oggi: Date = new Date()): Richiamo[] {
+export function daRicontattare(
+  places: Place[],
+  visits: Visit[],
+  oggi: Date = new Date(),
+  opzioni: OpzioniRichiami = {},
+): Richiamo[] {
   const ultime = new Map<string, Visit>();
   for (const v of visits) {
     const cur = ultime.get(v.place_id);
@@ -106,8 +143,22 @@ export function daRicontattare(places: Place[], visits: Visit[], oggi: Date = ne
     if (v.esito !== 'interessato' && v.esito !== 'da_richiamare') continue;
     const place = perId.get(placeId);
     if (!place || place.stato === 'cliente' || place.stato === 'perso') continue;
-    const giorni = Math.floor((oggi.getTime() - new Date(v.data).getTime()) / 86400000);
-    out.push({ place, visita: v, giorni, inRitardo: giorni > SOGLIA_RICHIAMO[v.esito] });
+    // Trattativa aperta = il negozio è già in pipeline: lo muove «Trattative da
+    // muovere», non il richiamo post-visita, che serve a farla nascere.
+    if (opzioni.conTrattativaAperta?.has(placeId)) continue;
+    // Se dopo la visita c'è stata una chiamata o una mail, i giorni si contano
+    // da lì: un negozio sentito ieri non è «in ritardo di 36 giorni».
+    const contatto = opzioni.ultimoContatto?.get(placeId);
+    const dopoLaVisita = contatto && Date.parse(contatto) > Date.parse(v.data) ? contatto : undefined;
+    const riferimento = dopoLaVisita ?? v.data;
+    const giorni = Math.floor((oggi.getTime() - Date.parse(riferimento)) / 86400000);
+    out.push({
+      place,
+      visita: v,
+      giorni,
+      inRitardo: giorni > SOGLIA_RICHIAMO[v.esito],
+      ultimoContatto: dopoLaVisita,
+    });
   }
   return out.sort((a, b) => Number(b.inRitardo) - Number(a.inRitardo) || b.giorni - a.giorni);
 }

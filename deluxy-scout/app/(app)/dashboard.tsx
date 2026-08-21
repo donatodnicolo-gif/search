@@ -19,6 +19,7 @@ import {
   coperturaZone,
   daRicontattare,
   dealPerFase,
+  placeIdConTrattativaAperta,
   nomeVenditore,
   valorePerLinea,
   valoreTrattative,
@@ -136,7 +137,15 @@ export default function Dashboard() {
 
   const val = useMemo(() => valoreTrattative(dealsF), [dealsF]);
   const win = useMemo(() => winRate(dealsF), [dealsF]);
-  const richiami = useMemo(() => daRicontattare(placesF, visitsF), [placesF, visitsF]);
+  // Il criterio è quello della Home: chi ha una trattativa aperta non è un
+  // richiamo. Si usano TUTTE le trattative, non `dealsF`: i filtri della
+  // Dashboard (periodo, zona, venditore) restringono la vista, non il fatto che
+  // quel negozio sia in pipeline.
+  const conTrattativa = useMemo(() => placeIdConTrattativaAperta(deals), [deals]);
+  const richiami = useMemo(
+    () => daRicontattare(placesF, visitsF, new Date(), { conTrattativaAperta: conTrattativa }),
+    [placesF, visitsF, conTrattativa],
+  );
   const inRitardo = richiami.filter((r) => r.inRitardo).length;
   const cop = useMemo(() => coperturaZone(placesF), [placesF]);
   const perse = useMemo(() => chiusePerse(dealsF), [dealsF]);

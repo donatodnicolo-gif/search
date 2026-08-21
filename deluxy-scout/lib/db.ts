@@ -541,6 +541,50 @@ export async function registraContattoAvviato(dati: {
  * 1000 e basta, senza errore. Con la rubrica sopra le mille righe i negozi in
  * fondo risultavano «senza contatto» e retrocedevano di livello da soli.
  */
+/**
+ * Ultimo contatto per negozio: chiamate e mail partite, la data più recente.
+ *
+ * Serve alla coda richiami (`daRicontattare`), che senza questo conta i giorni
+ * dalla VISITA e quindi non si azzera mai — un negozio richiamato ieri restava
+ * «in ritardo» di un mese.
+ *
+ * Best-effort per fonte: se una tabella manca o la RLS la nega, quella torna
+ * vuota e l'altra risponde lo stesso. Una coda senza una fonte è imprecisa;
+ * una coda che non si carica è una schermata rotta.
+ */
+export async function fetchUltimoContattoPerPlace(): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  const fonti = await Promise.all([
+    contattiPaginati('chiamate').catch(() => []),
+    contattiPaginati('contatti_avviati').catch(() => []),
+  ]);
+  for (const righe of fonti) {
+    for (const r of righe) {
+      const cur = out.get(r.place_id);
+      if (!cur || Date.parse(r.created_at) > Date.parse(cur)) out.set(r.place_id, r.created_at);
+    }
+  }
+  return out;
+}
+
+/** Come `idPaginati`, ma tiene anche la data. Ordine per `id`: unico, quindi i blocchi non saltano righe. */
+async function contattiPaginati(tabella: string): Promise<{ place_id: string; created_at: string }[]> {
+  const BLOCCO = 1000;
+  const righe: { place_id: string; created_at: string }[] = [];
+  for (let da = 0; ; da += BLOCCO) {
+    const { data, error } = await supabase
+      .from(tabella)
+      .select('place_id, created_at')
+      .order('id')
+      .range(da, da + BLOCCO - 1);
+    if (error) throw error;
+    const blocco = (data ?? []) as any[];
+    for (const r of blocco) if (r.place_id && r.created_at) righe.push({ place_id: r.place_id, created_at: r.created_at });
+    if (blocco.length < BLOCCO) break;
+  }
+  return righe;
+}
+
 async function idPaginati(tabella: string): Promise<Set<string>> {
   const BLOCCO = 1000;
   const ids = new Set<string>();

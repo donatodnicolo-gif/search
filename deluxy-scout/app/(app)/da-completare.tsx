@@ -15,9 +15,15 @@ import {
   fetchDaCompletare,
   fetchPlaces,
   fetchTutteTrattative,
+  fetchUltimoContattoPerPlace,
   type TrattativaConLuogo,
 } from '@/lib/db';
-import { daRicontattare, followupAffiliazioni, type Richiamo } from '@/lib/metrics';
+import {
+  daRicontattare,
+  followupAffiliazioni,
+  placeIdConTrattativaAperta,
+  type Richiamo,
+} from '@/lib/metrics';
 import { PriorityBadge } from '@/components/PriorityBadge';
 import { VisitaModal } from '@/components/VisitaModal';
 
@@ -55,14 +61,21 @@ export default function DaCompletare() {
   const carica = useCallback(async () => {
     setLoading(true);
     try {
-      const [dc, places, visits, trattative] = await Promise.all([
+      const [dc, places, visits, trattative, ultimoContatto] = await Promise.all([
         fetchDaCompletare(),
         fetchPlaces(),
         fetchAllVisits(),
         fetchTutteTrattative(),
+        fetchUltimoContattoPerPlace().catch(() => new Map<string, string>()),
       ]);
       setDaCompletare(dc);
-      setRichiami(daRicontattare(places, visits));
+      // Stesso criterio della Home: chi è in trattativa non è un richiamo.
+      setRichiami(
+        daRicontattare(places, visits, new Date(), {
+          conTrattativaAperta: placeIdConTrattativaAperta(trattative),
+          ultimoContatto,
+        }),
+      );
       // Follow-up affiliazioni/re-seller aperti, prima i più urgenti (scaduti in cima).
       const fu = followupAffiliazioni(trattative).sort((a, b) => {
         if (!a.scadenza) return 1;

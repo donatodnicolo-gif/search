@@ -1,6 +1,6 @@
 // Coda richiami: regole di follow-up dopo la visita.
 import type { Place, Visit } from '@/types';
-import { daRicontattare, visiteUltimi7Giorni } from '@/lib/metrics';
+import { daRicontattare, placeIdConTrattativaAperta, visiteUltimi7Giorni } from '@/lib/metrics';
 
 const OGGI = new Date('2026-07-15T12:00:00Z');
 
@@ -92,6 +92,61 @@ describe('daRicontattare', () => {
     ];
     const ids = daRicontattare(places, visits, OGGI).map((r) => r.place.id);
     expect(ids).toEqual(['b', 'c', 'a']);
+  });
+
+  // Il caso vero del 21/08/2026: «Moncler Milano Montenapoleone» compariva in
+  // Home come richiamo in ritardo di 36 giorni mentre era già in trattativa.
+  // Sui dati reali erano 35 negozi in coda, tutti e 35 con una trattativa aperta.
+  it('esclude i negozi con una trattativa aperta', () => {
+    const places = [place('a'), place('b')];
+    const visits = [visita('a', 30, 'interessato'), visita('b', 30, 'interessato')];
+    const conTrattativaAperta = new Set(['a']);
+    const ids = daRicontattare(places, visits, OGGI, { conTrattativaAperta }).map((r) => r.place.id);
+    expect(ids).toEqual(['b']);
+  });
+
+  it('una trattativa vinta o persa NON toglie il negozio dalla coda', () => {
+    const places = [place('a')];
+    const visits = [visita('a', 30, 'interessato')];
+    const chiuse = placeIdConTrattativaAperta([
+      { place_id: 'a', fase: 'closedwon' },
+      { place_id: 'a', fase: 'closedlost' },
+    ]);
+    expect(chiuse.size).toBe(0);
+    expect(daRicontattare(places, visits, OGGI, { conTrattativaAperta: chiuse })).toHaveLength(1);
+  });
+
+  it('un contatto dopo la visita fa ripartire il conto dei giorni', () => {
+    const places = [place('a')];
+    const visits = [visita('a', 30, 'interessato')];
+    const ieri = new Date(OGGI.getTime() - 86400000).toISOString();
+    const [r] = daRicontattare(places, visits, OGGI, { ultimoContatto: new Map([['a', ieri]]) });
+    expect(r.giorni).toBe(1);
+    expect(r.inRitardo).toBe(false);
+    expect(r.ultimoContatto).toBe(ieri);
+  });
+
+  it('un contatto PRIMA della visita non conta', () => {
+    const places = [place('a')];
+    const visits = [visita('a', 5, 'interessato')];
+    const vecchio = new Date(OGGI.getTime() - 20 * 86400000).toISOString();
+    const [r] = daRicontattare(places, visits, OGGI, { ultimoContatto: new Map([['a', vecchio]]) });
+    expect(r.giorni).toBe(5);
+    expect(r.inRitardo).toBe(true);
+    expect(r.ultimoContatto).toBeUndefined();
+  });
+});
+
+describe('placeIdConTrattativaAperta', () => {
+  it('tiene le aperte, scarta chiuse e righe senza negozio', () => {
+    const s = placeIdConTrattativaAperta([
+      { place_id: 'a', fase: 'appointmentscheduled' },
+      { place_id: 'b', fase: 'closedwon' },
+      { place_id: 'c', fase: 'closedlost' },
+      { place_id: null, fase: 'appointmentscheduled' },
+      { place_id: 'd', fase: null },
+    ]);
+    expect([...s].sort()).toEqual(['a', 'd']);
   });
 });
 

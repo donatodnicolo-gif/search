@@ -20,10 +20,11 @@ import {
   fetchProfilo,
   fetchTask,
   fetchTutteTrattative,
+  fetchUltimoContattoPerPlace,
   inviaPromemoriaEmail,
   type TrattativaConLuogo,
 } from '@/lib/db';
-import { daRicontattare, type Richiamo } from '@/lib/metrics';
+import { daRicontattare, placeIdConTrattativaAperta, type Richiamo } from '@/lib/metrics';
 import { GIORNI_RISPOSTA_LEAD } from '@/lib/cadenze';
 import type { Lead } from '@/types';
 import { avvisa } from '@/lib/dialoghi';
@@ -60,7 +61,7 @@ export default function Oggi() {
     try {
       const uid = session?.user?.id;
       const settimanaFa = isoGiorniFa(7);
-      const [t, tr, places, visits, chiamate7g, prof, tuttiLead] = await Promise.all([
+      const [t, tr, places, visits, chiamate7g, prof, tuttiLead, ultimoContatto] = await Promise.all([
         fetchTask(true),
         fetchTutteTrattative(),
         fetchPlaces(),
@@ -68,11 +69,18 @@ export default function Oggi() {
         contaChiamateDal(settimanaFa),
         uid ? fetchProfilo(uid) : Promise.resolve(null),
         fetchLeads().catch(() => []),
+        fetchUltimoContattoPerPlace().catch(() => new Map<string, string>()),
       ]);
       setLeadNuovi(tuttiLead.filter((l) => l.stato === 'nuovo'));
       setTasks(t.filter((x) => !x.completata));
       setTrattative(tr);
-      setRichiami(daRicontattare(places, visits));
+      // Fuori dalla coda i negozi già in trattativa: li muove la pipeline.
+      setRichiami(
+        daRicontattare(places, visits, new Date(), {
+          conTrattativaAperta: placeIdConTrattativaAperta(tr),
+          ultimoContatto,
+        }),
+      );
       setNome(prof?.nome?.split(' ')[0] ?? '');
       // Il giro di oggi = i target selezionati con la stella (⭐), ancora da visitare.
       setGiro(places.filter((p) => p.starred && p.stato === 'da_visitare' && !p.nascosto));
