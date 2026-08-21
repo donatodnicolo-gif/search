@@ -13,6 +13,8 @@ import { CoperturaGruppi } from "@/components/CoperturaGruppi";
 import { DestinazioniCampagna } from "@/components/DestinazioniCampagna";
 import { EstensioniCampagna } from "@/components/EstensioniCampagna";
 import { BriefDiLancio } from "@/components/BriefDiLancio";
+import { CreaAnnuncioAi } from "@/components/CreaAnnuncioAi";
+import { accodaAnnuncio, creaAnnuncioConAi } from "@/lib/azioni-annuncio";
 import { CodaCampagna } from "@/components/CodaCampagna";
 import { OggiCampagna } from "@/components/OggiCampagna";
 import { PerformancePeriodi } from "@/components/PerformancePeriodi";
@@ -220,6 +222,24 @@ export default async function SchedaCampagna({
   // oggi perdeva il primo giorno e ignorava la data di fine, e la somma dei
   // gruppi non faceva il totale della campagna qui sopra.
   const gruppi = await gruppiConNumeri({ campagnaId: campagna.id, periodo: periodo.corrente });
+
+  // La destinazione con cui precompilare un annuncio nuovo: quella che gli
+  // annunci di questa campagna usano gia, la piu frequente. E un suggerimento
+  // modificabile — ma partire vuoti farebbe ricopiare a mano un URL che l app
+  // ha gia sotto gli occhi, e un URL ricopiato a mano prima o poi si sbaglia.
+  const urlAnnunciCampagna = await (async () => {
+    const righe = await prisma.copyAnnuncio.findMany({
+      where: { campagna: campagna.nome, tipo: { in: ["destinazione", "titolo", "descrizione"] }, finalUrl: { not: null } },
+      select: { finalUrl: true },
+    });
+    const conteggio = new Map<string, number>();
+    for (const r of righe) if (r.finalUrl) conteggio.set(r.finalUrl, (conteggio.get(r.finalUrl) ?? 0) + 1);
+    let vincitore: string | null = null; let max = 0;
+    for (const [u, n] of conteggio) if (n > max) { max = n; vincitore = u; }
+    // Se la campagna non ha ancora annunci (e successo alla WORLD-ENG), si
+    // ripiega sulla landing agganciata: e la stessa cosa che si era chiesta.
+    return vincitore ?? campagna.landing?.url ?? null;
+  })();
 
   const metricheCrono = [...campagna.metriche].reverse();
   const spesa = campagna.metriche.reduce((s, m) => s + (m.spesa ?? 0), 0);
@@ -655,8 +675,23 @@ export default async function SchedaCampagna({
             I gruppi stanno qui in cima perché sono il primo taglio che spiega
             la media di campagna. ——— */}
         <section className="scheda">
-          <div className="scheda-titolo">
-            Gruppi di annunci ({gruppi.length}) · ultimi {GIORNI_LETTURA} giorni
+          <div className="scheda-titolo" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+            <span>Gruppi di annunci ({gruppi.length}) · ultimi {GIORNI_LETTURA} giorni</span>
+            {/* ⚠️ L'annuncio si crea da qui SOLO se il gruppo è uno. Un annuncio
+                vive dentro un gruppo, e con più gruppi bisognerebbe scegliere:
+                farlo scegliere in fretta da un menù, davanti a una lista di
+                numeri, è il modo migliore per scrivere l'annuncio giusto nel
+                posto sbagliato — e su Google si scopre a cose fatte. Con più
+                gruppi si apre il gruppo, dove si vede cosa già eroga. */}
+            {gruppi.length === 1 && (
+              <CreaAnnuncioAi
+                gruppoId={gruppi[0].id}
+                nomeGruppo={gruppi[0].nome}
+                azione={creaAnnuncioConAi}
+                accoda={accodaAnnuncio}
+                urlSuggerito={urlAnnunciCampagna}
+              />
+            )}
           </div>
           {/* Prima della tabella, non dopo: il numero basso va spiegato mentre
               lo si legge, non quando si è già conclusa la cosa sbagliata. */}

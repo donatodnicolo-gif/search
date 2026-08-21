@@ -13,6 +13,8 @@ export function CreaAnnuncioAi({
   gruppoId,
   nomeGruppo,
   azione,
+  accoda,
+  urlSuggerito,
 }: {
   gruppoId: string;
   nomeGruppo: string;
@@ -21,6 +23,10 @@ export function CreaAnnuncioAi({
     indicazione: string;
     conFunzioniGoogle: boolean;
   }) => Promise<EsitoAnnuncioAi>;
+  /** Mette in coda l annuncio proposto. Se manca, il dialogo resta di sola proposta. */
+  accoda?: (input: { gruppoId: string; titoli: string[]; descrizioni: string[]; finalUrl: string }) => Promise<{ ok: true; operazioneId: string } | { ok: false; errore: string }>;
+  /** La destinazione che il gruppo usa gia: precompila il campo. */
+  urlSuggerito?: string | null;
 }) {
   const dialogo = useRef<HTMLDialogElement>(null);
   const [indicazione, setIndicazione] = useState("");
@@ -28,6 +34,9 @@ export function CreaAnnuncioAi({
   const [esito, setEsito] = useState<EsitoAnnuncioAi | null>(null);
   const [copiato, setCopiato] = useState(false);
   const [inCorso, avvia] = useTransition();
+  const [url, setUrl] = useState(urlSuggerito ?? "");
+  const [esitoCoda, setEsitoCoda] = useState<{ ok: true; operazioneId: string } | { ok: false; errore: string } | null>(null);
+  const [inCoda, avviaCoda] = useTransition();
 
   const chiedi = () => {
     setCopiato(false);
@@ -139,13 +148,34 @@ export function CreaAnnuncioAi({
                 ))}
               </div>
 
-              {/* ⚠️ Non si finge di poter creare l'annuncio: lo script non sa
-                  farlo, e prometterlo sarebbe peggio che dirlo. */}
+              {/* Dove manda l'annuncio: senza, Google non lo crea. Si arriva
+                  precompilato con la destinazione che il gruppo usa già — è
+                  quasi sempre quella giusta, ed è comunque modificabile. */}
+              <label className="modale-campo" style={{ margin: "0 18px 10px" }}>
+                Dove manda (pagina di destinazione)
+                <input
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  placeholder="https://…"
+                  style={{ font: "inherit", padding: "8px 10px", borderRadius: 8, border: "1px solid var(--hairline-strong)" }}
+                />
+              </label>
+
+              {/* ⚠️ Dal 19/08/2026 l'annuncio si può creare davvero: lo script
+                  usa il builder RSA dell'API. Restano i tre cancelli — l'AI
+                  propone, la persona sceglie, la coda approva — e qui NON si
+                  scrive su Google: si mette in coda. */}
               <div className="modale-avviso">
-                Questi testi <b>non vanno su Google da qui</b>: creare un annuncio non è fra le
-                operazioni che lo script sa eseguire. Copiali e incollali in Google Ads, nel gruppo{" "}
-                <b>{nomeGruppo}</b>.
+                Mettendolo in coda <b>non va subito in asta</b>: l&apos;operazione resta da
+                approvare in Operazioni, poi la esegue lo script nel gruppo <b>{nomeGruppo}</b> e
+                Google la mette in revisione. Se preferisci farlo a mano, i testi si copiano.
               </div>
+
+              {accoda && esitoCoda && (
+                <div className={esitoCoda.ok ? "avviso-ok" : "modale-avviso"} style={{ margin: "0 18px 10px" }}>
+                  {esitoCoda.ok ? "Annuncio messo in coda: va approvato in Operazioni." : esitoCoda.errore}
+                </div>
+              )}
 
               <div className="modale-piede">
                 <button type="button" className="btn small btn-secondario" onClick={() => dialogo.current?.close()}>
@@ -153,7 +183,7 @@ export function CreaAnnuncioAi({
                 </button>
                 <button
                   type="button"
-                  className="btn small"
+                  className="btn small btn-secondario"
                   onClick={async () => {
                     await navigator.clipboard.writeText(testoDaCopiare);
                     setCopiato(true);
@@ -161,6 +191,28 @@ export function CreaAnnuncioAi({
                 >
                   {copiato ? "Copiato ✓" : "Copia tutto"}
                 </button>
+                {accoda && (
+                  <button
+                    type="button"
+                    className="btn small"
+                    disabled={inCoda || esitoCoda?.ok === true}
+                    onClick={() => {
+                      setEsitoCoda(null);
+                      avviaCoda(async () => {
+                        setEsitoCoda(
+                          await accoda({
+                            gruppoId,
+                            titoli: proposta.titoli,
+                            descrizioni: proposta.descrizioni,
+                            finalUrl: url,
+                          })
+                        );
+                      });
+                    }}
+                  >
+                    {esitoCoda?.ok ? "In coda ✓" : inCoda ? "Metto in coda…" : "Metti in coda su Google"}
+                  </button>
+                )}
               </div>
             </>
           )}

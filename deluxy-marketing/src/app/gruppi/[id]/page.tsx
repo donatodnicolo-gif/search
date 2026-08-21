@@ -4,7 +4,7 @@ import { AndamentoMensile } from "@/components/AndamentoMensile";
 import { DettaglioKeyword } from "@/components/DettaglioKeyword";
 import { CreaAnnuncioAi } from "@/components/CreaAnnuncioAi";
 import { NuovaKeyword } from "@/components/NuovaKeyword";
-import { creaAnnuncioConAi } from "@/lib/azioni-annuncio";
+import { accodaAnnuncio, creaAnnuncioConAi } from "@/lib/azioni-annuncio";
 import { AzioneGruppo } from "@/components/AzioneGruppo";
 import { Badge } from "@/components/Badge";
 import { EstendiConAi } from "@/components/EstendiConAi";
@@ -387,6 +387,28 @@ export default async function SchedaGruppo({
     ...new Set(keyword.map((k) => k.metricheGiorni).filter((g): g is number => g != null)),
   ].sort((a, b) => a - b);
   const testi = copy.filter((c) => c.tipo === "titolo" || c.tipo === "descrizione");
+
+  // La destinazione con cui precompilare un annuncio nuovo: quella che gli
+  // annunci di QUESTO gruppo usano già, la più frequente.
+  //
+  // ⚠️ È un suggerimento, non una scelta: il campo resta modificabile. Ma
+  // partire vuoti farebbe incollare a mano un URL che l'app ha già sotto gli
+  // occhi — e un URL ricopiato a mano è un URL che prima o poi si sbaglia.
+  const urlSuggerito = (() => {
+    const conteggio = new Map<string, number>();
+    for (const c of copy) {
+      if (!c.finalUrl) continue;
+      // Solo le destinazioni degli ANNUNCI di questo gruppo: i sitelink hanno
+      // una loro pagina, e usarla come destinazione dell'annuncio manderebbe
+      // il traffico su un'altra cosa.
+      if (c.tipo !== "destinazione" && c.tipo !== "titolo" && c.tipo !== "descrizione") continue;
+      conteggio.set(c.finalUrl, (conteggio.get(c.finalUrl) ?? 0) + 1);
+    }
+    let vincitore: string | null = null;
+    let max = 0;
+    for (const [u, n] of conteggio) if (n > max) { max = n; vincitore = u; }
+    return vincitore;
+  })();
 
   // La lingua a cui parla il gruppo: prima il suo nome, poi quello della
   // campagna. Un gruppo "Fiori Milano ENG" parla inglese anche se sta in una
@@ -1543,9 +1565,17 @@ export default async function SchedaGruppo({
               <section className="scheda" id="annunci">
                 <div className="scheda-titolo" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
                   <span>Titoli e descrizioni usati qui ({testi.length})</span>
-                  {/* Un annuncio NUOVO scritto sui numeri di questo gruppo:
-                      propone soltanto, i testi si copiano in Google Ads. */}
-                  <CreaAnnuncioAi gruppoId={gruppo.id} nomeGruppo={nomeGruppo(gruppo)} azione={creaAnnuncioConAi} />
+                  {/* Un annuncio NUOVO scritto sui numeri di questo gruppo.
+                      Dal 19/08/2026 si puo anche METTERE IN CODA: lo script sa
+                      crearlo (builder RSA dell API). Restano i tre cancelli —
+                      l AI propone, la persona sceglie, la coda approva. */}
+                  <CreaAnnuncioAi
+                    gruppoId={gruppo.id}
+                    nomeGruppo={nomeGruppo(gruppo)}
+                    azione={creaAnnuncioConAi}
+                    accoda={accodaAnnuncio}
+                    urlSuggerito={urlSuggerito}
+                  />
                 </div>
                 {/* Stessa forma di Google Ads del blocco gemello sulla scheda
                     campagna: una scheda per testo col conteggio caratteri. */}

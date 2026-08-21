@@ -973,7 +973,11 @@ function migliorRendimento(a, b) {
    ═══════════════════════════════════════════════════════════════════════════ */
 
 function mandaGruppi(conto) {
-  var righe = leggiGruppi(conto).concat(leggiGruppiAsset(conto));
+  // L'anagrafica PRIMA delle metriche: cosi' un gruppo appena creato entra
+  // nell'app anche se non ha ancora un solo giorno di dati.
+  var righe = leggiAnagraficaGruppi(conto)
+    .concat(leggiGruppi(conto))
+    .concat(leggiGruppiAsset(conto));
   if (righe.length === 0) {
     Logger.log("Nessun gruppo con dati negli ultimi " + GIORNI_INDIETRO + " giorni.");
     RIEPILOGO.push("gruppi: niente da inviare");
@@ -996,6 +1000,58 @@ function mandaGruppi(conto) {
  * mostrarli su qualunque periodo e confrontarli con la campagna che li contiene.
  * `idCampagna` viaggia insieme: è l'aggancio esatto, il nome è solo il ripiego.
  */
+/**
+ * I gruppi che ESISTONO, a prescindere da quanto hanno speso.
+ *
+ * ATTENZIONE: `leggiGruppi` qui sotto e' segmentata per giorno
+ * (`segments.date`), quindi un gruppo senza erogazione nella finestra non
+ * produce NESSUNA riga - e per l'app non esiste. Non e' un dettaglio: un
+ * gruppo che non si vede non si puo' mettere in pausa, e non ci si puo'
+ * nemmeno creare dentro un annuncio dall'app.
+ *
+ * Costata il 19/08/2026: lo script aveva creato il gruppo "Luxury Flower
+ * Delivery - Worldwide" sulla WORLD-ENG, su Google c'era con le sue 15
+ * keyword, e nell'app non compariva - perche' la campagna nasce in pausa e
+ * un gruppo in pausa non ha giorni da mandare.
+ *
+ * E' la stessa cosa gia' fatta per le CAMPAGNE con mandaAnagrafica il
+ * 26/07: registrare cio' che esiste, e lasciare ai numeri il compito di
+ * dire come va. Le righe non portano `data`: l'ingest le riconosce e
+ * aggiorna solo l'esistenza, senza scrivere metriche vuote sopra a quelle
+ * vere.
+ */
+function leggiAnagraficaGruppi(conto) {
+  var query =
+    "SELECT campaign.id, campaign.name, ad_group.id, ad_group.name, " +
+    "ad_group.status, ad_group.type " +
+    "FROM ad_group " +
+    "WHERE ad_group.status != 'REMOVED'";
+
+  var righe = [];
+  try {
+    var it = AdsApp.search(query);
+    while (it.hasNext()) {
+      var r = it.next();
+      if (!r.adGroup || !r.campaign) continue;
+      righe.push({
+        idGruppo: conto.id + ":" + r.adGroup.id,
+        nome: String(r.adGroup.name),
+        idCampagna: String(r.campaign.id),
+        campagna: String(r.campaign.name),
+        statoPiattaforma: r.adGroup.status || null,
+        tipo: r.adGroup.type || null
+        // niente `data`: e' una riga di anagrafica, non una metrica
+      });
+    }
+  } catch (e) {
+    Logger.log("\u26a0 Anagrafica gruppi non riuscita: " + e);
+    // Non e' fatale: le metriche dei gruppi arrivano lo stesso dal giro
+    // segmentato, e un gruppo in meno nell'app e' meno grave di un giro
+    // di letture perso per intero.
+  }
+  return righe;
+}
+
 function leggiGruppi(conto) {
   var query =
     "SELECT campaign.id, campaign.name, ad_group.id, ad_group.name, " +
@@ -1657,6 +1713,8 @@ function trovaBersaglio(op, conto) {
 
   if (t === "pausa_keyword" || t === "attiva_keyword") return trovaKeyword(op, conto);
   if (t === "pausa_gruppo" || t === "attiva_gruppo") return trovaGruppo(op, conto);
+  // Un annuncio nuovo vive dentro un gruppo: e' quello il bersaglio.
+  if (t === "nuovo_annuncio") return trovaGruppo(op, conto);
 
   var campagna = trovaCampagna(op);
   return campagna ? { esito: "trovato", campagna: campagna } : { esito: "non-trovato" };
@@ -2053,6 +2111,7 @@ function applica(op, mira, conto) {
     };
   }
 
+  if (t === "nuovo_annuncio") return creaAnnuncio(op, mira);
   if (t === "nuova_keyword") return creaKeyword(op, mira);
   if (t === "nuova_campagna") return creaCampagna(op, conto);
   if (t === "completa_campagna") return completaCampagna(op, mira);
@@ -2113,6 +2172,56 @@ function budgetCondiviso(campagna) {
    nascono SEMPRE IN PAUSA: la checklist 4.1 va passata in interfaccia prima di
    accenderle.
    ═══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Crea un annuncio RSA dentro un gruppo che esiste gia'.
+ *
+ * Fino al 19/08/2026 creare annunci NON era fra le operazioni dello script:
+ * l'app sapeva scrivere i testi con l'AI e poi diceva di copiarli a mano in
+ * Google Ads. Da quando `completaCampagna` usa il builder RSA dell'API, il
+ * pezzo che mancava non manca piu' - e restare a meta' sarebbe stato peggio
+ * che non averlo mai avuto.
+ *
+ * ATTENZIONE: qui NON si controlla se il gruppo ha gia' annunci, al
+ * contrario di completaCampagna. La' l'annuncio e' un pezzo del lancio e
+ * rifarlo sarebbe un doppione; qui e' la cosa CHIESTA - un gruppo con piu'
+ * annunci e' normale, e anzi Google li mette in gara. Chi lo chiede sa che
+ * ce n'e' gia' uno: e' scritto nella scheda del gruppo da cui e' partito.
+ */
+function creaAnnuncio(op, mira) {
+  var par = op.parametri;
+  var gruppo = mira.gruppo;
+  var titoli = par.titoli || [];
+  var descrizioni = par.descrizioni || [];
+
+  // I minimi di Google: sotto questi l'annuncio non esiste proprio. Meglio
+  // fermarsi qui con una frase chiara che farsi rifiutare con un codice.
+  if (titoli.length < 3) throw new Error("Servono almeno 3 titoli (ne sono arrivati " + titoli.length + ")");
+  if (descrizioni.length < 2) throw new Error("Servono almeno 2 descrizioni (ne sono arrivate " + descrizioni.length + ")");
+  if (!par.finalUrl) throw new Error("Serve la pagina di destinazione");
+
+  // Google accetta al massimo 15 titoli e 4 descrizioni: si tagliano qui
+  // invece di farsi rifiutare l'annuncio intero per uno di troppo.
+  var esito = gruppo.newAd().responsiveSearchAdBuilder()
+    .withHeadlines(titoli.slice(0, 15))
+    .withDescriptions(descrizioni.slice(0, 4))
+    .withFinalUrl(par.finalUrl)
+    .build();
+
+  if (!esito.isSuccessful()) {
+    throw new Error(spiegaPolicy(esito.getErrors().join("; ")));
+  }
+
+  return {
+    dettaglio:
+      "annuncio RSA creato nel gruppo \"" + gruppo.getName() + "\" con " +
+      Math.min(titoli.length, 15) + " titoli e " + Math.min(descrizioni.length, 4) +
+      " descrizioni, verso " + par.finalUrl +
+      ". Google lo mette in revisione: puo' metterci qualche ora prima di erogare.",
+    prima: "assente",
+    dopo: "creato"
+  };
+}
 
 function creaKeyword(op, mira) {
   var testo = op.parametri.testo;

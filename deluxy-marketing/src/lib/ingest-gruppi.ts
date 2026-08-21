@@ -11,7 +11,8 @@ import { prisma } from "@/lib/db";
 export type RigaGruppo = {
   idGruppo: string; // "825-518-1560:12345" · "825-518-1560:ag:678" per le PMax
   nome: string;
-  data: string; // AAAA-MM-GG
+  /** Vuota su una riga di sola ANAGRAFICA: il gruppo esiste, non ha numeri. */
+  data?: string | null; // AAAA-MM-GG
   // Come si aggancia alla campagna: l'id di piattaforma se c'è, altrimenti il nome
   idCampagna?: string | null;
   campagna?: string | null;
@@ -27,6 +28,8 @@ export type RigaGruppo = {
 export type EsitoGruppi = {
   metricheSalvate: number;
   gruppiCreati: number;
+  /** Righe di sola anagrafica: gruppi confermati esistenti, senza metriche. */
+  gruppiCensiti: number;
   righeScartate: number;
   campagneNonTrovate: string[];
   giornoMin: Date | null;
@@ -44,6 +47,7 @@ export async function salvaMetricheGruppi(
   const esito: EsitoGruppi = {
     metricheSalvate: 0,
     gruppiCreati: 0,
+    gruppiCensiti: 0,
     righeScartate: 0,
     campagneNonTrovate: [],
     giornoMin: null,
@@ -56,16 +60,29 @@ export async function salvaMetricheGruppi(
   const gruppiPerChiave = new Map<string, string>();
 
   for (const r of righe) {
-    if (!r?.idGruppo || !r?.nome || !r?.data) {
+    if (!r?.idGruppo || !r?.nome) {
       esito.righeScartate++;
       continue;
     }
-    const giorno = new Date(r.data);
-    if (isNaN(giorno.getTime())) {
+    // ⚠️ RIGA SENZA DATA = ANAGRAFICA, non riga da scartare.
+    //
+    // La query dei gruppi è segmentata per giorno, quindi un gruppo che non ha
+    // ancora erogato non produce NESSUNA riga e per l'app non esiste — è
+    // successo alla WORLD-ENG il 19/08/2026: il gruppo era su Google, creato
+    // dallo script, e nell'app non compariva. È lo stesso difetto corretto per
+    // le campagne il 26/07 con `salvaAnagrafica`: «registra ciò che ESISTE, a
+    // prescindere da quanto ha speso». Un gruppo che non si vede non si può
+    // mettere in pausa, e non ci si può nemmeno creare dentro un annuncio.
+    //
+    // Queste righe creano/aggiornano il gruppo e basta: nessuna metrica, così
+    // non scrivono zeri sopra i numeri veri di un altro giro.
+    const soloAnagrafica = !r.data;
+    const giorno = soloAnagrafica ? null : new Date(r.data as string);
+    if (giorno && isNaN(giorno.getTime())) {
       esito.righeScartate++;
       continue;
     }
-    giorno.setUTCHours(0, 0, 0, 0);
+    if (giorno) giorno.setUTCHours(0, 0, 0, 0);
 
     const chiaveCampagna = `${r.idCampagna ?? ""}|${r.campagna ?? ""}`;
     let campagnaId = campagnePerChiave.get(chiaveCampagna);
@@ -121,6 +138,14 @@ export async function salvaMetricheGruppi(
       }
       gruppoId = gruppo.id;
       gruppiPerChiave.set(idEsterno, gruppoId);
+    }
+
+    // L'anagrafica ha fatto il suo: il gruppo adesso esiste nell'app. Niente
+    // metriche da scrivere — e scriverne di vuote metterebbe zeri sopra i
+    // numeri veri arrivati dal giro segmentato per giorno.
+    if (!giorno) {
+      esito.gruppiCensiti++;
+      continue;
     }
 
     const valori = {
