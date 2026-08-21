@@ -11,9 +11,12 @@ import { mostraFlash } from './Flash'
  * nata, l'attività non si poteva più annotare — e annotare è proprio quello che
  * si fa mentre una cosa da fare avanza («chiamato, richiama lunedì»).
  *
- * ⚠️ Si scrive nel campo `dettaglio` che esisteva già, non in uno nuovo: quello
- * viaggia verso il registro condiviso come `descrizione`, quindi la nota la
- * vedono anche le altre app invece di restare chiusa qui dentro.
+ * ⚠️ Campo PROPRIO (`note`), separato da `dettaglio`. Il primo tentativo riusava
+ * `dettaglio` per non aggiungere colonne — ma quello e la descrizione di cosa
+ * fare, quasi sempre scritta dall AI, e «modifica» invitava a cancellarla per
+ * annotare (segnalato dall utente: «non modifica ma aggiungi nota»). Sono due
+ * cose diverse e restano due campi. Al registro condiviso vanno insieme:
+ * `descrizione` = dettaglio + «Note: …» (vedi registroTask.ts).
  *
  * ⚠️ Lo stato locale si riallinea alla prop (`useEffect`): se la nota cambia
  * altrove — un'altra scheda aperta, o l'attività modificata dentro Deluxy Tasks
@@ -41,10 +44,10 @@ export function NotaAttivita({ id, nota }: { id: string; nota: string | null }) 
 
   if (!apre) {
     return testo ? (
-      <div className="task-sub">
-        {testo}{' '}
+      <div className="task-sub nota-riga">
+        <strong>Nota:</strong> {testo}{' '}
         <button type="button" className="link-sottile" onClick={() => setApre(true)}>
-          modifica
+          modifica la nota
         </button>
       </div>
     ) : (

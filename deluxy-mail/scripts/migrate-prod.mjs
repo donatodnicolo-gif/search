@@ -8,6 +8,9 @@
 import { PrismaClient } from '@prisma/client'
 
 const stmts = [
+  // Le note di chi segue un attivita: separate da `dettaglio`, che dice cosa
+  // fare ed e spesso scritto dall AI. Annotare non deve cancellare quello.
+  `ALTER TABLE "Attivita" ADD COLUMN IF NOT EXISTS "note" TEXT`,
   `CREATE TABLE IF NOT EXISTS "RiassuntoThread" (
      "id" TEXT PRIMARY KEY, "utenteId" TEXT NOT NULL, "chiave" TEXT NOT NULL,
      "riassunto" TEXT NOT NULL, "partecipanti" INTEGER NOT NULL DEFAULT 0,

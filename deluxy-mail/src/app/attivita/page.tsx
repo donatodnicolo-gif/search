@@ -219,7 +219,10 @@ export default async function Attivita() {
                     <CheckAttivita id={a.id} fatta={a.fatta} />
                     <div style={{ minWidth: 0 }}>
                       <div className="task-titolo">{a.titolo}</div>
-                      <NotaAttivita id={a.id} nota={a.dettaglio} />
+                      {/* La descrizione (spesso scritta dall AI) resta com e:
+                          annotare non deve cancellarla. La nota sta sotto. */}
+                      {a.dettaglio && <div className="task-sub">{a.dettaglio}</div>}
+                      <NotaAttivita id={a.id} nota={a.note} />
                       {/* LA MAIL ESATTA da cui nasce QUESTA cosa da fare,
                           sempre: l'intestazione porta alla conversazione, ma
                           dentro una conversazione lunga «da quale mail viene»

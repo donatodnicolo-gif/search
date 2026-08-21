@@ -1628,3 +1628,6 @@ mark.ricerca-hit {
 .nota-modifica { display: flex; flex-direction: column; gap: 8px; margin: 6px 0; }
 .nota-modifica textarea { width: 100%; resize: vertical; font: inherit; }
 .nota-azioni { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* La nota di chi segue l attivita, distinta dalla descrizione di cosa fare. */
+.nota-riga { border-left: 2px solid var(--hairline-strong); padding-left: 8px; margin: 4px 0; }

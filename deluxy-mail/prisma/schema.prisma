@@ -471,7 +471,13 @@ model Attivita {
   rapporto      RapportoAI? @relation(fields: [rapportoId], references: [id], onDelete: SetNull)
 
   titolo     String
+  /** Cosa fare, come l ha descritta chi ha creato l attivita (spesso l AI). */
   dettaglio  String?
+  /** Le note di chi la sta seguendo: si AGGIUNGONO al dettaglio, non lo
+   *  sostituiscono. Tenerle separate e voluto: la descrizione dice cosa fare,
+   *  la nota dice a che punto sei — e riscrivere la prima per annotare la
+   *  seconda cancellava il lavoro dell AI (segnalato il 21/08/2026). */
+  note       String?
   scadenza   DateTime?
   priorita   String    @default("P2")
   fatta      Boolean   @default(false)

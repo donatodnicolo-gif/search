@@ -147,6 +147,7 @@ type AttivitaDaMandare = {
   id: string
   titolo: string
   dettaglio: string | null
+  note: string | null
   scadenza: Date | null
   priorita: string
   fatta: boolean
@@ -164,6 +165,7 @@ function impronta(a: AttivitaDaMandare): string {
   return [
     a.titolo,
     a.dettaglio ?? '',
+    a.note ?? '',
     a.priorita,
     a.scadenza?.toISOString() ?? '',
     a.fatta ? '1' : '0',
@@ -179,7 +181,7 @@ function corpoTask(a: AttivitaDaMandare) {
     utenteEmail: a.utente.email,
     utenteNome: a.utente.nome,
     titolo: a.titolo,
-    descrizione: a.dettaglio,
+    descrizione: [a.dettaglio, a.note && 'Note: ' + a.note].filter(Boolean).join('\n\n') || null,
     stato: a.fatta ? 'completata' : 'aperta',
     priorita: PRIORITA_REGISTRO[a.priorita] ?? 'media',
     scadenza: a.scadenza?.toISOString() ?? null,
@@ -408,6 +410,7 @@ export async function allineaAttivitaOra(id: string, sparita = false): Promise<v
       id: true,
       titolo: true,
       dettaglio: true,
+      note: true,
       scadenza: true,
       priorita: true,
       fatta: true,

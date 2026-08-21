@@ -743,10 +743,12 @@ Sotto ogni cosa da fare c'è **«+ Aggiungi una nota»**: ci si scrive a che pun
 è, cosa si aspetta, chi si è sentito. Si salva con **Ctrl+Invio**, si annulla
 con **Esc**, e la si può riaprire e correggere quando si vuole.
 
-La nota non resta chiusa in AI Mail: finisce nella **descrizione** della stessa
-attività dentro l'app Attività, quindi la leggono anche i colleghi che la vedono
-da lì. È lo stesso campo che si può riempire quando l'attività viene creata —
-prima si poteva scrivere solo in quel momento, e dopo non si poteva più toccare.
+⚠️ La nota **si aggiunge**, non sostituisce: la riga che descrive cosa fare —
+quella che di solito scrive l'AI quando crea l'attività — resta dov'è e intatta.
+Sono due cose diverse: una dice cosa c'è da fare, l'altra a che punto sei.
+
+La nota non resta chiusa in AI Mail: arriva anche nell'app Attività, in coda alla
+descrizione, quindi la leggono i colleghi che la vedono da lì.
 
 ## 7. Sicurezza
 

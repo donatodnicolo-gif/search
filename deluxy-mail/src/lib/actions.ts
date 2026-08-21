@@ -2065,7 +2065,7 @@ export async function segnaAttivitaTutte(
 }
 
 /**
- * Le NOTE di un'attività: si scrivono nel campo `dettaglio`, quello che l'app
+ * Le NOTE di un'attività: campo PROPRIO, accanto al `dettaglio`.
  * mostra già sotto il titolo e che al momento si poteva riempire soltanto alla
  * creazione.
  *
@@ -2089,7 +2089,7 @@ export async function salvaNotaAttivita(
   const pulita = nota.trim().slice(0, 2000)
   const r = await db.attivita.updateMany({
     where: { id, utenteId },
-    data: { dettaglio: pulita || null },
+    data: { note: pulita || null },
   })
   if (r.count === 0) return { ok: false, messaggio: 'Attività non trovata.', nota: '' }
   after(() => allineaAttivitaOra(id).catch(() => {}))
