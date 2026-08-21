@@ -2675,6 +2675,15 @@ locale, altrimenti nulla si decifra.
 
 Da fare, in ordine di utilità:
 
+- 🔴 **CHARGEBACK APERTI: il dato non c'è ancora** (chiesto dall'utente il 19/08).
+  Né questa app né Deluxy Orders leggono le contestazioni: sull'ordine di Shopify
+  stanno in `disputes { id status initiatedAt }` (Shopify Payments), e la query di
+  Orders (`src/lib/shopify.ts`) oggi chiede solo `risk`. Strada: **Orders le legge →
+  qui si copiano** come già si fa per pagamento e rischio frode, poi bollino rosso e
+  filtro. ⚠️ Serve il permesso **`read_shopify_payments_disputes`** sull'app
+  CRM_DELUXY — da aggiungere insieme a `write_orders`. ⚠️ Vale solo per Shopify
+  Payments: una contestazione aperta su un altro gateway lì non compare.
+
 - **371 ordini senza data di consegna** (su 1.245 in tabella, 488 ancora «da gestire»):
   sono quelli che `chiudi-consegne-passate.mjs` non tocca di proposito. È un problema di
   **dati di Orders**, non di questa app, e va risolto lì.
