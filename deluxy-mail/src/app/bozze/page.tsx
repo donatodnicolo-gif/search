@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import { db } from '@/lib/db'
 import { dataBreve } from '@/lib/format'
+import { htmlAPlain, sembraHtml } from '@/lib/htmlMail'
+import { ripulisciAnteprima } from '@/lib/citato'
 import { EliminaBozza } from '@/components/EliminaBozza'
 import { RicercaMail } from '@/components/RicercaMail'
 import { CondizioniRicerca } from '@/components/CondizioniRicerca'
@@ -174,7 +176,7 @@ function RigaBozza({ bozza }: { bozza: BozzaConMessaggio }) {
           </div>
           <div className="mail-riassunto" style={{ paddingLeft: 17 }}>
             <span className="muted">
-              {bozza.corpo.replace(/\s+/g, ' ').slice(0, 160) || '(vuota)'}
+              {anteprimaBozza(bozza.corpo) || '(vuota)'}
             </span>
           </div>
           <div className="mail-tags" style={{ paddingLeft: 17 }}>
@@ -200,4 +202,20 @@ function RigaBozza({ bozza }: { bozza: BozzaConMessaggio }) {
       </div>
     </div>
   )
+}
+
+/**
+ * L'anteprima di una bozza in ELENCO.
+ *
+ * ⚠️ Il corpo di una bozza è HTML (lo produce l'editor), e prima finiva a
+ * schermo così com'era: si leggeva `<p><br></p><table style="width: 600px…`
+ * invece del testo (segnalato il 21/08/2026). Chi scorre le bozze vuole
+ * riconoscere quale sia, e i tag non glielo dicono.
+ *
+ * ⚠️ `sembraHtml` prima di convertire: una bozza salvata come testo semplice
+ * non va passata per il convertitore.
+ */
+function anteprimaBozza(corpo: string): string {
+  const testo = sembraHtml(corpo) ? htmlAPlain(corpo) : corpo
+  return ripulisciAnteprima(testo).replace(/s+/g, ' ').trim().slice(0, 160)
 }
