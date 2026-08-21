@@ -248,7 +248,7 @@ Ultimo aggiornamento: **17 agosto 2026** (verifica dello stato di produzione + c
 ---
 
 ## 1. Cos'è
-App mobile React Native (Expo Router, TypeScript) per la prospezione commerciale sul territorio a Milano. Backend Supabase (DB/Auth/Storage). Integrazione HubSpot via Supabase Edge Function. 6 fasi: mappa+priorità+giro · nuova visita offline · sync HubSpot · dashboard · test · build.
+App di prospezione commerciale sul territorio a Milano, scritta in React Native (Expo Router, TypeScript) ma **usata dal browser**: in produzione c'è **solo la build web** (deluxy-scout.vercel.app). ⚠️ «App mobile» è come è nata l'11/07, non come viene consegnata: l'APK Android è una **preview a distribuzione interna del 13/07/2026**, precedente al passaggio al drawer del 14/07 (che ha portato dipendenze native: `@react-navigation/drawer`, `gesture-handler`, `reanimated`) — quindi **non contiene nulla di quanto fatto dopo quella data**, e per aggiornarlo serve un nuovo build EAS (`EXPO_TOKEN`). Mai pubblicata sugli store, iOS mai configurato. Il codice però è davvero multipiattaforma: base Expo unica con due sole varianti dedicate al web (`mappa.web.tsx`, `RichTextEditor.web.tsx`); la **mappa nativa non è mai stata provata su un dispositivo vero**. Backend Supabase (DB/Auth/Storage). Integrazione HubSpot via Supabase Edge Function. 6 fasi: mappa+priorità+giro · nuova visita offline · sync HubSpot · dashboard · test · build.
 
 - **Codice**: `deluxy-scout/` (sotto-cartella del repo `donatodnicolo-gif/search`, branch `main`).
 - **Repo GitHub**: https://github.com/donatodnicolo-gif/search

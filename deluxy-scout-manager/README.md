@@ -1,6 +1,6 @@
 # deluxy-scout-manager
 
-Plugin di **handoff e gestione** per **Deluxy Scout** — l'app mobile di prospezione commerciale
+Plugin di **handoff e gestione** per **Deluxy Scout** — l'app di prospezione commerciale
 (React Native/Expo + Supabase + HubSpot) che vive in `deluxy-scout/` dentro il repo
 `donatodnicolo-gif/search`.
 

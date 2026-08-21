@@ -1,9 +1,14 @@
 # Deluxy Scout
 
-App mobile (React Native + Expo) di prospezione commerciale sul territorio per il
-Team Commerciale Deluxy a Milano. Mappa tutte le attività del territorio con
-priorità e ipotesi di interesse pre-calcolate, registra le visite (anche offline)
-e **alimenta HubSpot** creando company, contatti, deal e note.
+App di prospezione commerciale sul territorio per il Team Commerciale Deluxy a
+Milano. Mappa tutte le attività del territorio con priorità e ipotesi di interesse
+pre-calcolate, registra le visite (anche offline) e **alimenta HubSpot** creando
+company, contatti, deal e note.
+
+Scritta in **Expo / React Native** ma **consegnata come sito**: la versione viva è
+quella web — https://deluxy-scout.vercel.app — che si usa dal browser, anche dal
+telefono. L'APK Android è fermo a una preview interna del 13/07/2026, precedente al
+passaggio al drawer: per averlo aggiornato serve un nuovo build EAS.
 
 Stack: **Expo (Expo Router, TypeScript)** · **Supabase** (DB / Auth / Storage) ·
 **HubSpot API v3** via Supabase Edge Function.

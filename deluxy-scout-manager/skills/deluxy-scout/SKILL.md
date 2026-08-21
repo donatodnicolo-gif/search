@@ -1,7 +1,7 @@
 ---
 name: deluxy-scout
 description: >-
-  Sviluppa e riprendi "Deluxy Scout", l'app mobile di prospezione commerciale sul territorio
+  Sviluppa e riprendi "Deluxy Scout", l'app di prospezione commerciale sul territorio, usata dal browser (la build web è quella viva) e scritta
   (React Native/Expo + Supabase + HubSpot) che vive in deluxy-scout/ dentro il repo
   donatodnicolo-gif/search. Usala quando l'utente vuole continuare lo sviluppo, capire lo stato,
   eseguire migrazioni Supabase, deployare la Edge Function HubSpot, fare la build EAS, o
@@ -11,7 +11,8 @@ description: >-
 
 # Deluxy Scout
 
-App mobile di prospezione commerciale per il Team Commerciale Deluxy (Milano). Mappa tutte le
+App di prospezione commerciale per il Team Commerciale Deluxy (Milano), **usata dal browser** su
+deluxy-scout.vercel.app (l'APK Android è una preview interna ferma al 13/07/2026). Mappa tutte le
 attività del territorio con priorità e ipotesi di interesse pre-calcolate, registra le visite
 (anche offline) e **alimenta HubSpot** (company + contatto + deal). Non sostituisce HubSpot: lo popola.
 
