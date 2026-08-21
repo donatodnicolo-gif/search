@@ -2098,7 +2098,9 @@ export async function salvaNotaAttivita(
   })
   if (r.count === 0) return { ok: false, messaggio: 'Attività non trovata.', nota: '' }
   after(() => allineaAttivitaOra(id).catch(() => {}))
-  revalidatePath('/attivita')
+  // ⚠️ Non solo /attivita: la nota si scrive anche dalla pagina della mail
+  //    (blocco «Da fare su questa mail»), e li deve risultare aggiornata.
+  revalidatePath('/', 'layout')
   return {
     ok: true,
     messaggio: pulita ? 'Nota salvata.' : 'Nota tolta.',

@@ -3,6 +3,8 @@ import { notFound } from 'next/navigation'
 import { db } from '@/lib/db'
 import { dataBreve, dataLunga, FUSO } from '@/lib/format'
 import { statoRisposta } from '@/lib/statoRisposta'
+import { NotaAttivita } from '@/components/NotaAttivita'
+import { CheckAttivita } from '@/components/CheckAttivita'
 import { anteprimaPulita } from '@/lib/citato'
 import { ConversazioneStack } from '@/components/ConversazioneStack'
 import { BozzaEditor } from '@/components/BozzaEditor'
@@ -345,21 +347,41 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
           <div className="ai-box">
             <div className="ai-box-title">Cosa ha capito l’AI</div>
             <div className="ai-box-text">{messaggio.riassunto}</div>
-            {messaggio.attivita.length > 0 && (
-              <ul style={{ margin: '10px 0 0 18px', fontSize: 14 }}>
-                {messaggio.attivita.map((a) => (
-                  <li key={a.id} style={{ marginTop: 4 }}>
-                    {a.titolo}
-                    {a.scadenza && (
-                      <span className="muted">
-                        {' '}
-                        — entro {a.scadenza.toLocaleDateString('it-IT', { timeZone: FUSO })}
-                      </span>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
+          </div>
+        )}
+
+        {/* LE COSE DA FARE nate da questa mail, con le loro note.
+            ⚠️ Fuori dal riquadro dell'AI, e non è un dettaglio: prima stavano
+            DENTRO, quindi comparivano solo se l'AI aveva già letto la mail — e
+            un'attività creata a mano su una mail mai analizzata era invisibile
+            proprio dalla pagina della mail da cui nasce. */}
+        {messaggio.attivita.length > 0 && (
+          <div className="ai-box">
+            <div className="ai-box-title">Da fare su questa mail ({messaggio.attivita.length})</div>
+            {messaggio.attivita.map((a) => (
+              <div key={a.id} className="task-row" style={{ padding: '8px 0' }}>
+                <CheckAttivita id={a.id} fatta={a.fatta} riallinea />
+                <div style={{ minWidth: 0 }}>
+                  <div className="task-titolo">{a.titolo}</div>
+                  {a.dettaglio && <div className="task-sub">{a.dettaglio}</div>}
+                  {/* La nota si scrive anche da qui: è spesso leggendo la mail
+                      che si scopre la cosa da annotare. */}
+                  <NotaAttivita
+                    id={a.id}
+                    nota={a.note}
+                    autore={a.noteAutore}
+                    quando={a.noteIl ? a.noteIl.toISOString() : null}
+                  />
+                </div>
+                <div className="task-side">
+                  {a.scadenza && (
+                    <span className="badge neutral">
+                      entro {a.scadenza.toLocaleDateString('it-IT', { timeZone: FUSO, day: 'numeric', month: 'short' })}
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
         )}
 

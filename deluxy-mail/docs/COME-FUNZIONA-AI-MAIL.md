@@ -743,6 +743,13 @@ Sotto ogni cosa da fare c'è **«+ Aggiungi una nota»**: ci si scrive a che pun
 è, cosa si aspetta, chi si è sentito. Si salva con **Ctrl+Invio**, si annulla
 con **Esc**, e la si può riaprire e correggere quando si vuole.
 
+Le stesse cose da fare, con le loro note, si vedono e si scrivono anche **aprendo
+la mail**, nel riquadro «Da fare su questa mail»: è spesso leggendo la mail che si
+scopre la cosa da annotare. ⚠️ Prima quell'elenco esisteva ma stava dentro il
+riquadro dell'AI, quindi compariva solo se l'AI aveva già letto la mail — e
+un'attività creata a mano su una mail mai analizzata era invisibile proprio dalla
+pagina da cui nasceva.
+
 **La nota è firmata**: accanto compare chi l'ha scritta e quando — «Nota (Nicolò,
 21 ago): chiesta rateizzazione». Su un elenco che guardano in più persone una nota
 anonima vale poco: non si sa se vale ancora, né a chi chiedere. La firma si
