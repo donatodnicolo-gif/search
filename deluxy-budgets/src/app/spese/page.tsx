@@ -1,6 +1,7 @@
 import { ANNO_CORRENTE, caricaAnno, venditeMese } from "@/lib/calc";
 import { primoMeseAperto } from "@/lib/periodo";
 import { caricaVenduto } from "@/lib/venduto";
+import { fetchSpesaPerBrand } from "@/lib/marketing";
 import { MESI } from "@/lib/format";
 import { SpeseEditor } from "@/components/SpeseEditor";
 
@@ -20,6 +21,16 @@ export default async function Spese() {
   // sei mesi in cui si è venduto eccome. Stessa scelta già fatta in `/maison`:
   // i mesi passati portano il loro consuntivo.
   const vend = await caricaVenduto(dati.year, dati.maisons);
+
+  // E la pubblicità **davvero spesa** in quei mesi, brand per brand. Per un mese
+  // chiuso la domanda non è più «quanto posso spendere» ma «quanto ho speso»: la
+  // percentuale a budget di gennaio è una decisione vecchia, quella vera è
+  // spesa ÷ venduto. Si chiedono solo i mesi già chiusi — sui mesi aperti la
+  // spesa è ancora in corso e non è una misura.
+  const mesiChiusi = Array.from({ length: aperto - 1 }, (_, i) => i + 1).filter((m) => m <= 12);
+  const spesa = mesiChiusi.length > 0
+    ? await fetchSpesaPerBrand(dati.year, mesiChiusi)
+    : { ok: false, errore: "", perMaison: new Map<string, (number | null)[]>(), senzaMaison: [] };
 
   return (
     <>
@@ -44,14 +55,21 @@ export default async function Spese() {
         year={dati.year}
         primoMeseAperto={aperto}
         vendutoOk={vend.ok}
+        spesaOk={spesa.ok}
+        brandSenzaCasa={spesa.senzaMaison}
         maisons={dati.maisons.map((m) => {
           const reale = vend.ok ? vend.perMaison.get(m.slug) ?? null : null;
+          const speso = spesa.perMaison.get(m.slug) ?? null;
           return {
             id: m.id,
             nome: m.nome,
             mesi: m.mesi.map((x) => ({
               month: x.month,
               vendite: venditeMese(x),
+              // Quanto è stato speso davvero in pubblicità su questo brand in
+              // questo mese. `null` = non misurato (mese aperto, oppure
+              // Marketing non ha risposto), che non è «zero speso».
+              speso: speso ? speso[x.month - 1] ?? null : null,
               // Il venduto vero di quel mese, `null` se Orders non risponde.
               // ⚠️ È il venduto **dei negozi**: per un brand che vende anche
               // eventi o B2B non è tutto il suo giro, ed è per questo che si usa

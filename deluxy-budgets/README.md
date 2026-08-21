@@ -1438,6 +1438,42 @@ a budget, e non è una decisione da prendere di straforo.
 Effetto misurato sul 2026: consentito di Deluxy.it da **71.217 €** a **121.640 €**, totale dell'anno da
 178.703 € a **234.020 €** — gennaio da `= 0 €` a `= 6.843 € su 49.948 € (venduto reale)`.
 
+**4-ter. E nei mesi chiusi anche la percentuale è quella vera** (*«ok per i mesi già passati metti i
+valori reali»*, 21/08/2026). Sistemata la base, restava una stonatura: la casella di gennaio mostrava
+ancora la **percentuale decisa allora**, applicata al venduto vero. Ma su un mese passato «quanto posso
+spendere» non è una domanda — i soldi sono usciti. Ora un mese chiuso mostra la percentuale
+**misurata** (spesa ADV di Marketing ÷ venduto reale dei negozi) e l'importo **speso davvero**; la
+percentuale a budget resta a database, intatta, e si legge nel tooltip della casella.
+
+Conseguenze da tenere in fila, tutte volute:
+
+- **il totale somma le sue caselle**: `speso davvero` sui mesi misurati + `consentito` sul resto. Un
+  totale che non torna con quello che si legge sopra è il modo più veloce per non fidarsi di una pagina.
+  Perciò la scheda dice *«Speso davvero 44.879 € (Gen–Lug) · consentito 63.717 € sul resto dell'anno»* e
+  la tabella finale ha le colonne **Speso davvero · Consentito sul resto · Totale · Differenza**;
+- la **somma dei p.p.** diventa «punti davvero usati + punti pianificati» (Deluxy.it: 141 p.p., media
+  11,8% — era 160,8 a budget);
+- la **differenza** rispetto al salvato riguarda solo i mesi aperti, perché lo speso non si modifica.
+
+**L'abbinamento fra i brand di Marketing e le maison è confermato dall'utente, non dedotto**
+(`gifts → Deluxy.it`, `flowers → Deluxyflowers.com`, `cake → CakeDesign.me`, in `BRAND_MARKETING` dentro
+`src/lib/marketing.ts`): `flowers` combaciava con lo slug, gli altri due nessuna regola li avrebbe
+presi, e attribuire la spesa al brand sbagliato falsa il confronto senza che si veda. Riscontro che
+chiude il cerchio: la somma dei tre brand fa **75.147 €**, cioè *esattamente* il totale ADV di Marketing
+per gen–lug — nessuna spesa resta fuori. Se un domani un brand di Marketing non trovasse casa, la
+pagina lo elenca invece di lasciarlo cadere.
+
+⚠️ **Dettagli tecnici e trappole.** L'API di Marketing raggruppa **o** per mese **o** per brand
+(`raggruppa=brand,mese` risponde una lista vuota): si chiede **un mese per volta** e si compone qui, in
+parallelo, solo sui mesi chiusi. Una casella a `null` vuol dire **non misurato** — mese aperto,
+Marketing muto, o brand che in Marketing non esiste — e non «zero speso»: **B2B ed Experience non fanno
+campagne**, quindi restano sul consentito a budget anche nei mesi passati, e la pagina lo scrive.
+
+📌 **Cosa si legge adesso, e non si leggeva prima** (gen–lug 2026): Deluxy.it ha speso **44.879 €** su
+432.942 € venduti (**10,4%**), Deluxyflowers **19.750 €** su 140.556 (**14,1%**), e **CakeDesign.me
+10.518 € su 40.750 (25,8%)** — contro una media a budget del 20,7%. Il brand più piccolo è quello che
+spende di più in proporzione, e prima della modifica quel numero non stava da nessuna parte.
+
 **5. Una percentuale sopra il 100% è impossibile, e si dice con il metro accanto.** Spendere in
 pubblicità più di quanto il mese vende non è un budget aggressivo: è un budget che non esiste.
 `max={100}` sull'input **non lo impedisce** (frena le frecce, non la tastiera) e l'API lo **tagliava in

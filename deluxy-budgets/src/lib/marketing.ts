@@ -200,3 +200,98 @@ export async function fetchSpesaAdv(anno: number, dal: number, al: number): Prom
     return { ok: false, configurato: true, errore: "Marketing non raggiungibile: riprova più tardi." };
   }
 }
+
+// ---- La spesa pubblicitaria **per brand**, mese per mese ----
+//
+// Serve a `/spese`: per un mese già chiuso la domanda non è più «quanto posso
+// spendere» ma «quanto ho speso», e la risposta ce l'ha Marketing, non il
+// budget. L'API raggruppa **o** per mese **o** per brand (`raggruppa=brand,mese`
+// risponde una lista vuota), quindi si chiede un mese per volta e si compone
+// qui: sono N chiamate corte in parallelo, non N viaggi in fila.
+
+// L'abbinamento fra i brand di Marketing e le maison del budget. **Confermato
+// dall'utente il 21/08/2026** e non dedotto: `flowers` combacia con lo slug
+// della maison, ma `gifts` → Deluxy.it e `cake` → CakeDesign.me nessuna regola
+// li avrebbe presi, e attribuire la spesa al brand sbagliato falsa il confronto
+// senza che si veda. Torna anche per ordine di grandezza (gen–lug 2026): gifts
+// 44.879 € di spesa e 210.818 € di ricavi attribuiti contro i 432.942 € venduti
+// da Deluxy.it, flowers 19.750 € contro i 140.556 € di Deluxyflowers.com, cake
+// il più piccolo di tutti.
+const BRAND_MARKETING: Record<string, string> = {
+  gifts: "deluxy",
+  flowers: "flowers",
+  cake: "cakedesign",
+};
+
+export type SpesaPerBrand = {
+  ok: boolean;
+  errore: string;
+  // slug della maison → 12 caselle, indice 0 = gennaio. Una casella a `null`
+  // vuol dire **non misurato** (Marketing non ha risposto per quel mese), che
+  // non è la stessa cosa di «zero speso»: la pagina deve poterle distinguere.
+  perMaison: Map<string, (number | null)[]>;
+  // Brand che Marketing conosce e qui non trovano casa: si elencano invece di
+  // sparire in silenzio, come già fa il venduto di Orders.
+  senzaMaison: string[];
+};
+
+export async function fetchSpesaPerBrand(anno: number, mesi: number[]): Promise<SpesaPerBrand> {
+  const vuoto: SpesaPerBrand = { ok: false, errore: "", perMaison: new Map(), senzaMaison: [] };
+  const key = await chiave("MARKETING_API_KEY");
+  if (!key) return { ...vuoto, errore: "Chiave Marketing non configurata." };
+
+  const perMaison = new Map<string, (number | null)[]>();
+  const senzaMaison = new Set<string>();
+  const caselle = () => Array(12).fill(null) as (number | null)[];
+
+  const risposte = await Promise.all(
+    mesi.map(async (m) => {
+      const dal = `${anno}-${String(m).padStart(2, "0")}-01`;
+      const al = fineIntervallo(anno, m);
+      if (al < dal) return { m, righe: [] as { chiave: string; spesa: number }[], ok: true };
+      try {
+        const qs = new URLSearchParams({ dal, al, raggruppa: "brand" });
+        const res = await fetch(`${BASE}/api/v1/spesa?${qs.toString()}`, {
+          headers: { "x-api-key": key, "X-App": "deluxy-budgets" },
+          next: { revalidate: RIVALIDA },
+          signal: AbortSignal.timeout(8000),
+        });
+        if (!res.ok) return { m, righe: [], ok: false };
+        const b = (await res.json()) as { righe?: { chiave: string; spesa: number }[] };
+        return { m, righe: b?.righe ?? [], ok: true };
+      } catch {
+        return { m, righe: [], ok: false };
+      }
+    })
+  );
+
+  let almenoUna = false;
+  for (const r of risposte) {
+    if (!r.ok) continue; // mese non misurato: le sue caselle restano `null`
+    almenoUna = true;
+    for (const riga of r.righe) {
+      const slug = BRAND_MARKETING[String(riga.chiave).toLowerCase()];
+      if (!slug) {
+        senzaMaison.add(String(riga.chiave));
+        continue;
+      }
+      const arr = perMaison.get(slug) ?? caselle();
+      arr[r.m - 1] = (arr[r.m - 1] ?? 0) + (riga.spesa ?? 0);
+      perMaison.set(slug, arr);
+    }
+    // I brand che in quel mese non hanno speso niente valgono **zero**, non
+    // «non misurato»: il mese è stato interrogato e la risposta è arrivata.
+    for (const slug of Object.values(BRAND_MARKETING)) {
+      const arr = perMaison.get(slug) ?? caselle();
+      if (arr[r.m - 1] === null) arr[r.m - 1] = 0;
+      perMaison.set(slug, arr);
+    }
+  }
+
+  return {
+    ok: almenoUna,
+    errore: almenoUna ? "" : "Marketing non ha risposto per nessuno dei mesi chiesti.",
+    perMaison,
+    senzaMaison: [...senzaMaison],
+  };
+}

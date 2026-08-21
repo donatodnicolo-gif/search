@@ -12,6 +12,7 @@ type MeseSpesa = {
   month: number;
   vendite: number;
   reale: number | null;
+  speso: number | null;
   percent: number;
   pubblicato: number;
 };
@@ -22,6 +23,8 @@ export function SpeseEditor({
   maisons,
   primoMeseAperto,
   vendutoOk,
+  spesaOk,
+  brandSenzaCasa,
 }: {
   year: number;
   maisons: MaisonSpese[];
@@ -32,6 +35,11 @@ export function SpeseEditor({
   // Se Orders ha risposto. Quando non risponde i mesi chiusi restano sul
   // budget e la pagina lo dice, invece di far passare un budget per consuntivo.
   vendutoOk: boolean;
+  // Se Marketing ha risposto sulla spesa per brand.
+  spesaOk: boolean;
+  // Brand che Marketing conosce e che qui non hanno una maison: la loro spesa
+  // non è in nessuna scheda, e dirlo evita di leggere il totale come completo.
+  brandSenzaCasa: string[];
 }) {
   const router = useRouter();
 
@@ -74,6 +82,28 @@ export function SpeseEditor({
     chiuso(x.month) && x.reale !== null && x.reale > 0 ? x.reale : x.vendite;
   const daConsuntivo = (x: MeseSpesa) => chiuso(x.month) && x.reale !== null && x.reale > 0;
 
+  // ---- E per un mese chiuso, la percentuale non è più una decisione ----
+  //
+  // Su un mese già passato «quanto posso spendere» non è una domanda: i soldi
+  // sono usciti. La percentuale che conta è quella **misurata** — spesa vera di
+  // Marketing ÷ venduto vero — e l'importo è quello speso davvero. La
+  // percentuale a budget resta a database, intatta: qui semplicemente non è più
+  // la cosa da guardare.
+  //
+  // `speso === null` vuol dire **non misurato** (mese aperto, Marketing muto, o
+  // brand che in Marketing non esiste — B2B ed Experience non fanno campagne):
+  // lì si continua a mostrare il consentito a budget, dichiarandolo.
+  const misurato = (x: MeseSpesa) => chiuso(x.month) && x.speso !== null;
+  const percentualeReale = (x: MeseSpesa) =>
+    misurato(x) && base(x) > 0 ? ((x.speso ?? 0) / base(x)) * 100 : null;
+
+  // L'importo della casella: speso davvero dove è misurato, consentito dove no.
+  // Tutti i totali passano di qui, così **il totale somma le sue caselle** —
+  // un totale che non torna con quello che si legge sopra è il modo più veloce
+  // per non fidarsi più di una pagina.
+  const importoMese = (m: MaisonSpese, x: MeseSpesa, percentuale: (key: string) => number) =>
+    misurato(x) ? x.speso ?? 0 : (base(x) * percentuale(`${m.id}:${x.month}`)) / 100;
+
   const valore = (key: string) => modifiche[key] ?? originali[key] ?? 0;
   const toccata = (key: string) => modifiche[key] !== undefined && modifiche[key] !== (originali[key] ?? 0);
 
@@ -112,15 +142,20 @@ export function SpeseEditor({
   const consentito = (m: MaisonSpese, percentuale: (key: string) => number, mesi?: (x: MeseSpesa) => boolean) =>
     m.mesi
       .filter((x) => (mesi ? mesi(x) : true))
-      .reduce((s, x) => s + (base(x) * percentuale(`${m.id}:${x.month}`)) / 100, 0);
+      .reduce((s, x) => s + importoMese(m, x, percentuale), 0);
 
   // La **somma dei punti percentuali** dei dodici mesi. Non è una percentuale —
   // sommare percentuali di basi diverse non dà una percentuale — ma è il numero
   // con cui si controlla a colpo d'occhio quanto si sta distribuendo sull'anno,
   // e di quanto lo si è spostato. Per questo si scrive «p.p.» e non «%», e
   // accanto c'è la media, che invece una lettura percentuale ce l'ha.
+  // Nei mesi misurati contano i punti **veri**, non quelli decisi allora: la
+  // somma diventa «quanto ho davvero usato + quanto ho pianificato».
   const puntiTotali = (m: MaisonSpese, percentuale: (key: string) => number) =>
-    m.mesi.reduce((s, x) => s + percentuale(`${m.id}:${x.month}`), 0);
+    m.mesi.reduce(
+      (s, x) => s + (misurato(x) ? percentualeReale(x) ?? 0 : percentuale(`${m.id}:${x.month}`)),
+      0
+    );
 
   const righe = useMemo(
     () =>
@@ -129,7 +164,21 @@ export function SpeseEditor({
         const salvato = consentito(m, (k) => originali[k] ?? 0);
         const pp = puntiTotali(m, valore);
         const ppSalvati = puntiTotali(m, (k) => originali[k] ?? 0);
-        return { m, ora, salvato, differenza: ora - salvato, pp, ppSalvati, ppDiff: pp - ppSalvati };
+        // Quanto di quel totale è **già speso** e quanto è ancora una
+        // decisione: sommarli senza distinguerli farebbe leggere come budget
+        // dei soldi che sono già usciti.
+        const speso = m.mesi.filter(misurato).reduce((s, x) => s + (x.speso ?? 0), 0);
+        return {
+          m,
+          ora,
+          salvato,
+          differenza: ora - salvato,
+          pp,
+          ppSalvati,
+          ppDiff: pp - ppSalvati,
+          speso,
+          mesiMisurati: m.mesi.filter(misurato).map((x) => x.month),
+        };
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [maisons, modifiche, originali]
@@ -139,6 +188,7 @@ export function SpeseEditor({
   const totaleSalvato = righe.reduce((s, r) => s + r.salvato, 0);
   const differenza = totale - totaleSalvato;
 
+  const totaleSpeso = righe.reduce((s, r) => s + r.speso, 0);
   const totaleChiusi = maisons.reduce((s, m) => s + consentito(m, valore, (x) => chiuso(x.month)), 0);
   const totaleAperti = totale - totaleChiusi;
 
@@ -241,9 +291,13 @@ export function SpeseEditor({
     <>
       <div className="kpi-grid">
         <div className="kpi">
-          <div className="kpi-label">Spesa ADV consentita {year} (tutti i brand)</div>
+          <div className="kpi-label">Pubblicità {year}, tutti i brand</div>
           <div className="kpi-value">{eur(totale)}</div>
-          <div className="kpi-sub">si aggiorna con le % qui sotto</div>
+          <div className="kpi-sub">
+            {totaleSpeso > 0
+              ? `${eur(totaleSpeso)} già spesi + ${eur(totale - totaleSpeso)} ancora consentiti`
+              : "si aggiorna con le % qui sotto"}
+          </div>
         </div>
         <div className="kpi">
           <div className="kpi-label">Rispetto a quello che è salvato</div>
@@ -282,7 +336,18 @@ export function SpeseEditor({
               <div>
                 <h2 className="section-title" style={{ margin: 0 }}>{m.nome}</h2>
                 <p className="page-caption">
-                  Consentito {eur(riga.ora)} · pubblicato {eur(totPubblicato)}
+                  {riga.speso > 0 ? (
+                    <>
+                      Speso davvero <strong>{eur(riga.speso)}</strong> (
+                      {riga.mesiMisurati.length > 0
+                        ? `${MESI[riga.mesiMisurati[0] - 1]}–${MESI[riga.mesiMisurati[riga.mesiMisurati.length - 1] - 1]}`
+                        : "mesi chiusi"}
+                      ) · consentito {eur(riga.ora - riga.speso)} sul resto dell&apos;anno
+                    </>
+                  ) : (
+                    <>Consentito {eur(riga.ora)}</>
+                  )}{" "}
+                  · pubblicato {eur(totPubblicato)}
                   {riga.differenza !== 0 && (
                     <>
                       {" · "}
@@ -362,10 +427,16 @@ export function SpeseEditor({
             <div className="mesi-grid">
               {m.mesi.map((x) => {
                 const key = `${m.id}:${x.month}`;
-                const percent = valore(key);
                 const bloccato = chiuso(x.month);
-                const importo = (base(x) * percent) / 100;
-                const importoSalvato = (base(x) * (originali[key] ?? 0)) / 100;
+                // In un mese misurato la casella non mostra più la decisione di
+                // allora ma la percentuale **vera**: spesa ÷ venduto. Arrotondata
+                // a un decimale solo per essere leggibile — il conto sotto usa
+                // l'importo vero, non la percentuale arrotondata.
+                const reale = percentualeReale(x);
+                const misura = misurato(x);
+                const percent = misura && reale !== null ? Math.round(reale * 10) / 10 : valore(key);
+                const importo = importoMese(m, x, valore);
+                const importoSalvato = importoMese(m, x, (k) => originali[k] ?? 0);
                 // Un mese chiuso non si può correggere: segnarlo in rosso
                 // additerebbe un errore che nessuno può togliere.
                 const errata = !bloccato && fuoriScala(key);
@@ -392,11 +463,13 @@ export function SpeseEditor({
                         .filter(Boolean)
                         .join(" ") || undefined}
                       title={
-                        bloccato
-                          ? `${MESI[x.month - 1]} è un mese passato: il budget ADV non si riscrive dopo che è stato speso.`
-                          : errata
-                            ? "Fuori dallo 0–100%: la pubblicità di un mese non può superare quello che il mese vende."
-                            : undefined
+                        misura
+                          ? `${MESI[x.month - 1]} è passato: questa è la percentuale vera — ${eur(x.speso ?? 0)} spesi su ${eur(base(x))} venduti, misurati da Marketing e dal registro ordini. La percentuale decisa a budget era ${punti(valore(key))}%.`
+                          : bloccato
+                            ? `${MESI[x.month - 1]} è un mese passato: il budget ADV non si riscrive dopo che è stato speso.`
+                            : errata
+                              ? "Fuori dallo 0–100%: la pubblicità di un mese non può superare quello che il mese vende."
+                              : undefined
                       }
                       onChange={(e) =>
                         setModifiche((p) => ({
@@ -429,7 +502,9 @@ export function SpeseEditor({
                               {eur(Math.abs(importo - importoSalvato))}
                             </div>
                           ) : (
-                            <div className="fonte">{daConsuntivo(x) ? "venduto reale" : "a budget"}</div>
+                            <div className="fonte">
+                              {misura ? "speso davvero" : daConsuntivo(x) ? "venduto reale" : "a budget"}
+                            </div>
                           )}
                         </>
                       )}
@@ -477,8 +552,9 @@ export function SpeseEditor({
             <thead>
               <tr>
                 <th>Brand</th>
-                <th className="num">Consentito ora</th>
-                <th className="num">Salvato</th>
+                <th className="num">Speso davvero</th>
+                <th className="num">Consentito sul resto</th>
+                <th className="num">Totale</th>
                 <th className="num">Differenza</th>
               </tr>
             </thead>
@@ -486,8 +562,9 @@ export function SpeseEditor({
               {righe.map((r) => (
                 <tr key={r.m.id}>
                   <td>{r.m.nome}</td>
+                  <td className="num">{r.speso > 0 ? eur(r.speso) : <span className="muted">—</span>}</td>
+                  <td className="num">{eur(r.ora - r.speso)}</td>
                   <td className="num">{eur(r.ora)}</td>
-                  <td className="num muted">{eur(r.salvato)}</td>
                   <td className={`num ${r.differenza === 0 ? "muted" : r.differenza > 0 ? "neg" : "pos"}`}>
                     {r.differenza === 0 ? "—" : `${r.differenza > 0 ? "+" : "−"}${eur(Math.abs(r.differenza))}`}
                   </td>
@@ -495,8 +572,9 @@ export function SpeseEditor({
               ))}
               <tr className="tot">
                 <td>Totale {year}</td>
+                <td className="num">{eur(totaleSpeso)}</td>
+                <td className="num">{eur(totale - totaleSpeso)}</td>
                 <td className="num">{eur(totale)}</td>
-                <td className="num">{eur(totaleSalvato)}</td>
                 <td className={`num ${differenza === 0 ? "" : differenza > 0 ? "neg" : "pos"}`}>
                   {differenza === 0 ? "—" : `${differenza > 0 ? "+" : "−"}${eur(Math.abs(differenza))}`}
                 </td>
@@ -505,14 +583,36 @@ export function SpeseEditor({
           </table>
         </div>
         <p className="page-caption" style={{ margin: "10px 14px 4px" }}>
-          La colonna <strong>«salvato»</strong> è quello che c&apos;è nel database adesso: finché non premi
-          Salva la differenza vive solo in questa pagina, e ricaricando sparisce. Ogni brand ha il{" "}
+          La colonna <strong>«differenza»</strong> è rispetto a quello che c&apos;è nel database adesso:
+          finché non premi Salva vive solo in questa pagina, e ricaricando sparisce — e riguarda solo la
+          colonna «consentito sul resto», perché lo speso non si modifica. Ogni brand ha il{" "}
           <strong>suo bottone</strong> nella sua scheda; quello qui sotto salva tutti insieme.
           <br />
-          <strong>Su cosa si applica la percentuale</strong>: sui mesi ancora aperti il{" "}
-          <strong>budget</strong>, sui mesi chiusi il <strong>venduto reale</strong> dei negozi quando c&apos;è
-          — misurare la pubblicità di gennaio sulla previsione di gennaio, che gennaio ha già smentito, dà
-          un numero che non serve a nessuno. Ogni casella dice quale dei due sta usando.
+          <strong>Cosa c&apos;è nelle caselle</strong>: sui mesi ancora aperti la percentuale che hai
+          deciso, applicata al <strong>budget</strong> del mese. Sui mesi già chiusi la percentuale{" "}
+          <strong>vera</strong> — quello che Marketing dice sia stato speso diviso quello che i negozi
+          hanno venduto davvero — e l&apos;importo speso. Su un mese passato «quanto posso spendere» non è
+          una domanda: i soldi sono usciti. Ogni casella dichiara quale dei due sta mostrando (
+          <em>speso davvero</em>, <em>venduto reale</em>, <em>a budget</em>).
+          {!spesaOk && (
+            <>
+              {" "}
+              <strong>Adesso Marketing non risponde</strong>: i mesi chiusi mostrano il consentito a
+              budget, non lo speso.
+            </>
+          )}
+          {brandSenzaCasa.length > 0 && (
+            <>
+              {" "}
+              <strong>
+                In Marketing c&apos;è spesa su {brandSenzaCasa.join(", ")}, che qui non corrisponde a nessun
+                brand
+              </strong>
+              : quella pubblicità non è in nessuna scheda e non è in questo totale.
+            </>
+          )}{" "}
+          I brand che in Marketing non esistono (B2B, Experience) restano sul consentito a budget anche
+          nei mesi chiusi.
           {!vendutoOk && (
             <>
               {" "}
