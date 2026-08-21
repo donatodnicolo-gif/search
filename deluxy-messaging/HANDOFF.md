@@ -1,17 +1,21 @@
 # Handoff — Deluxy Customer Service
 
-Ultimo aggiornamento: **19/08/2026, ore 10:40** (la **risposta di primo
-contatto** parte da sola al primo messaggio, senza il nome di un operatore).
-Prima, il 17/08: «collegato a Google» lo dice Google e non la chiave salvata; il
-bottone **Shopify ↗** fra le azioni rapide; **i conteggi sul database sono
-tornati possibili dopo tre sessioni**.
+Ultimo aggiornamento: **21/08/2026, ore 15:00** (sessione di sola misura: tutto
+ricontato sul database di produzione, nessuna riga di codice cambiata).
+Prima, il 19/08: la **risposta di primo contatto** che parte da sola al primo
+messaggio; i **chargeback**; il **nuovo ordine** per il cliente al telefono.
 
-**Stato del 19/08/2026 ore 10:40 — l'app è viva e la produzione è il codice di
-oggi.** `GET /api/health` risponde `200` con `database: true`,
-`scrivibile: true`, **1.271 ordini** (1.245 il 17/08) e **514 conversazioni**
-(468): i giri automatici e i canali hanno lavorato da soli in questi due giorni.
-Ultimo commit **`ce95fbd6`**, pubblicato con `npx vercel deploy --prod --yes`;
-albero pulito per questa cartella, allineato con `origin/scout-ui`.
+**Stato del 21/08/2026 ore 15:00 — l'app è viva.** `GET /api/health` risponde
+`200` con `database: true`, `scrivibile: true`, **1.305 ordini** (1.271 il
+19/08) e **564 conversazioni** (514): i giri automatici e i canali hanno
+lavorato da soli. Ultimo commit di questa cartella **`3af85d56`**; albero pulito
+qui, allineato con `origin/scout-ui`.
+
+⚠️⚠️ **Il 21/08 un'altra sessione lavorava nella stessa cartella** (commit alle
+13:42, 13:53, 13:56, 14:40). In `scoutwt` **l'indice git è uno solo**: committare
+**sempre con pathspec** (`git commit -- deluxy-messaging/...`), e prima di
+toccare `HANDOFF.md` o `README.md` guardare `git log -1` — sono i due file che
+due sessioni si contendono.
 
 ✅ **IL FIX DEL WIDGET REGGE SUL CAMPO, con clienti veri** (era la prova che
 mancava il 17/08): dalle 16:23 del 17/08 a stamattina **5 conversazioni dei siti
@@ -33,21 +37,35 @@ con `sito=cake`, mandato un messaggio e riletto la conversazione — il messaggi
 c'è, con titolo e saluto **di Cake** e non quelli generali. La conversazione di
 prova è stata cancellata subito, per id, con uno script che pretende il token
 esatto. ⚠️ **Le 18 conversazioni widget del 30/07–17/08 restano a zero
-messaggi**: quelle parole sono perse davvero, e dal fix nessun visitatore ha
-ancora scritto (18 ieri, 18 adesso).
+messaggi**: quelle parole sono perse davvero. Dopo il fix i visitatori
+scrivono: le conversazioni widget sono **31** il 21/08 (erano 18 prima del fix).
 
-🔴 **GOOGLE NON ACCETTA PIÙ IL NOSTRO ACCESSO — serve una persona.** Chiesto un
-token a `oauth2.googleapis.com` con la chiave salvata: **HTTP 400
-`invalid_grant`**. Quindi la **rubrica Google non si aggiorna più** (il cron
-orario dei contatti gira a vuoto). Si ripara solo dal browser: *Impostazioni →
-Google Contacts → **Ricollega Google*** con l'account che possiede la rubrica.
+🟢 **GOOGLE HA RIPRESO A FUNZIONARE — cadono i due 🔴 del 17-19/08.** Rimisurato
+il **21/08**: chiesto un token a `oauth2.googleapis.com` col refresh token
+salvato, **HTTP 200**, scope `.../auth/contacts`. Fra il 19 e il 20/08 qualcuno
+ha ricollegato dal browser, quindi anche il `redirect_uri_mismatch` è chiuso: il
+giro **arriva in fondo**.
+✅ E si vede dall'effetto, non solo dalla chiamata: **1.143 ordini hanno il
+contatto salvato in rubrica, 0 rimasti da salvare, 0 errori** — l'arretrato che
+il cron smaltiva a 40 per giro **è finito**. Delle conversazioni, **122** sono
+già state cercate in rubrica e **5** hanno trovato un nome.
 
-🔴 **E «Ricollega Google» oggi non arriva in fondo: `Errore 400
-redirect_uri_mismatch`** (provato dall'utente il 17/08). Non è un guasto
-dell'app: nella console Google Cloud, sul client OAuth
-`813248887384-kdksp8lq8p8pg4tou6b2q4i7r0avchjt.apps.googleusercontent.com`
-(quello configurato in Impostazioni), **manca fra gli «URI di reindirizzamento
-autorizzati»** l'indirizzo che l'app manda:
+🔴🔴 **MA GOOGLE DICE ANCHE QUANDO SI RIROMPERÀ: intorno al 27/08/2026.** Nella
+risposta `200` c'è `refresh_token_expires_in: 516791` secondi = **5,98 giorni**.
+Quel campo è la firma della **schermata di consenso ancora in «Testing»** (lì i
+refresh token durano 7 giorni): un OAuth pubblicato **non ce l'ha**.
+⚠️ **Ricollegare di nuovo NON risolve**: fa ripartire il conto alla rovescia. Si
+chiude una volta sola, nella console Google Cloud, portando la schermata di
+consenso da **«Testing» a «In production»** sul progetto del client
+`813248887384-kdksp8lq8p8pg4tou6b2q4i7r0avchjt.apps.googleusercontent.com`.
+⭐ Da riusare in tutte le app del gruppo che parlano con Google:
+`refresh_token_expires_in` dice se un OAuth è in Testing **senza aprire la
+console**.
+
+<details><summary>Se dovesse ricapitare il <code>redirect_uri_mismatch</code> (storia del 17/08)</summary>
+
+Nella console Google Cloud, sullo stesso client OAuth, **mancavano fra gli «URI di
+reindirizzamento autorizzati»** gli indirizzi che l'app manda:
 
 ```
 https://deluxy-messaging.vercel.app/api/google/callback
@@ -59,10 +77,17 @@ http://localhost:3140/api/google/callback
 indietro con un messaggio chiaro. L'indirizzo lo costruisce `redirectUri()` in
 `src/lib/google.ts` da `APP_URL` (in produzione) o dall'host della richiesta:
 deve **combaciare carattere per carattere**, barra finale compresa.
-⚠️ Se dopo il riaggancio si scollega di nuovo in pochi giorni, la causa quasi
-certa è la **schermata di consenso ancora in «Testing»**: lì i refresh token
-scadono dopo **7 giorni**. Si risolve pubblicandola («In production»), non
-ricollegando ogni settimana.
+
+</details>
+
+🔴 **LAVORO CHE SCADE E NESSUNO LO STA GUARDANDO: due chargeback vogliono le prove
+entro il 4 settembre.** Contato in tabella il 21/08 (13 righe): **10 perse per
+2.087,66 €**, **1 in esame** (#12432, 170 €, prove mandate il 12/08) e **2 in
+`needs_response`** — **#1741 da 103,34 €** e **#12726 da 99,94 €**, tutte e due
+con `scadenzaProve` **04/09/2026** e `proveInviateIl` **null**: le prove non sono
+mai partite. Codice rete **13.1** su entrambe (merce/servizio non ricevuto → la
+banca vuole la prova di consegna). Si risponde da `/chargeback`.
+⚠️ Il totale delle perse **non è peggiorato** dal 19/08: è fermo.
 
 🟢 **Il bottone «Fornitore» non chiede più la password**: `searchApiKey` **ora è
 configurata** (l'ha messa l'utente) e funziona — provata contro
@@ -2690,7 +2715,28 @@ locale, altrimenti nulla si decifra.
 > (`node scripts/conta.mjs`, solo pieno/vuoto, mai i valori). I canali li collega
 > **l'utente, non una sessione**: prima di scrivere «manca X», **ricontarlo**.
 
-**Contato il 17/08/2026 pomeriggio** (fra parentesi il 15/08, dove cambia):
+**Ricontato il 21/08/2026** (`node scripts/conta.mjs`, più le tabelle
+`Chargeback`, `NotaDiario` e `PaginaMeta`):
+
+- **Ordini: 1.305**, **494 da gestire**, **383 senza data di consegna**.
+- **Conversazioni: 564** e **3.071 messaggi** — email **394**, WhatsApp **122**,
+  widget **31**, Instagram **17**, **Messenger 0** (in `PaginaMeta` le 3 righe
+  sono tutte `instagram`, token che si rinnovano da soli fino al **28/09/2026**).
+  Due non lette.
+- **Presa in carico: 50 conversazioni** hanno un proprietario (erano 8 il 17/08).
+- **Rubrica Google: arretrato finito** — 1.143 ordini con contatto salvato, **0
+  rimasti**, **0 errori**.
+- **Chargeback: 13** — 10 perse (2.087,66 €), 1 in esame, **2 da rispondere entro
+  il 4 settembre, prove mai inviate**.
+- **Diario di lavoro: 0 note.** La sezione è nata il 21/08 e nessuno ci ha ancora
+  scritto: fra qualche giorno vale la pena chiedere all'utente se il quaderno si è
+  spostato lì davvero, o se le righe finiscono ancora in chat.
+- **`apreSulSito` ancora `false` su tutti e tre i siti** (deluxy, flowers, cake).
+- **Utenti: 4**, fra cui ancora `diagnostica@deluxy.local`.
+- **Chiavi vuote**: `shopifyToken` (giusto), `waBusinessAccountId`,
+  `widgetTitolo`/`widgetMessaggio`, `partnerUrl`, `searchUrl`.
+
+**Contato il 17/08/2026 pomeriggio** — STORIA (fra parentesi il 15/08):
 
 - **Ordini**: **1.245** (1.216), **488 da gestire** (474), **371 senza data di consegna**
   (367).
@@ -2716,7 +2762,8 @@ locale, altrimenti nulla si decifra.
 
 | Cosa manca | Cosa non funziona finché manca |
 |---|---|
-| 🔴 **Google rifiuta il nostro accesso** (`invalid_grant` sul refresh token salvato, misurato oggi) | **La rubrica Google non si aggiorna più**: il cron orario dei contatti gira a vuoto. Si ripara solo a mano: *Impostazioni → Google Contacts → Ricollega Google*, e se ricapita entro pochi giorni va pubblicata la schermata di consenso (da «Testing» a «In production»: in Testing i token durano **7 giorni**). |
+| 🔴 **La schermata di consenso Google è ancora in «Testing»** (misurato il 21/08: il token funziona, ma `refresh_token_expires_in` = 5,98 giorni) | Il refresh token **muore intorno al 27/08** e la rubrica Google si ferma di nuovo. Ricollegare fa solo ripartire i 7 giorni: va **pubblicata** la schermata di consenso (da «Testing» a «In production») nella console Google Cloud. |
+| 🔴 **2 chargeback in `needs_response`, prove mai inviate** (#1741 · 103,34 € e #12726 · 99,94 €) | Scadono il **4 settembre 2026**: passata quella data la banca decide senza di noi. Si risponde da `/chargeback`. |
 | 🟡 **`apreSulSito` è ancora SPENTO su tutti e tre i siti** (verificato in tabella) | Il link `/chat/<codice>` continua a portare sulla chat a pagina intera invece che sul sito. Su **Flowers e Cake** la spunta va accesa (il `widget.js` là c'è, misurato il 17/08); su **deluxy.it no**, il widget non è installato. |
 | **Messenger**: `fbPageToken` è in Impostazioni ma in `PaginaMeta` **non c'è nessuna riga `facebook`** (le 3 righe sono tutte Instagram) | È l'unico canale ancora spento: zero conversazioni Messenger. Il token generale non basta — ogni Pagina vuole il **suo** Page Access Token, messo in `/account-meta`. |
 | `partnerApiKey` e `partnerUrl` (entrambi vuoti) | Le richieste di pagamento si salvano qui ma non arrivano a **FINANCE** (`deluxy-partner`). Oggi la tabella è comunque a 0 richieste. |
@@ -2773,9 +2820,9 @@ Da fare, in ordine di utilità:
   all'ordine. ⚠️ Le **18** rimaste a zero messaggi sono quelle del bug chiuso il 17/08 e
   restano perse; dopo il fix i visitatori hanno scritto davvero (**5 conversazioni con
   messaggi** al 19/08), quindi quella parte non è più «da provare».
-- **Rubrica Google**: il cron ne salva 40 per giro orario, restano clienti da smaltire.
-  Il redirect URI del progetto Google Cloud va fra gli "URI di reindirizzamento
-  autorizzati", non fra le origini JavaScript.
+- ~~**Rubrica Google**: restano clienti da smaltire~~ → **finito**, misurato il
+  21/08: 1.143 contatti salvati, 0 rimasti, 0 errori. Resta però il conto alla
+  rovescia della schermata di consenso in «Testing» (vedi in cima).
 - Account **`diagnostica@deluxy.local`** (operatore): è lì da luglio, non l'ha creato
   nessuna sessione nota. Da tenere o togliere — decisione dell'utente.
 
