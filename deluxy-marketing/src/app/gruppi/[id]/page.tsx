@@ -5,7 +5,7 @@ import { DettaglioKeyword } from "@/components/DettaglioKeyword";
 import { CreaAnnuncioAi } from "@/components/CreaAnnuncioAi";
 import { AnnunciAccodati } from "@/components/AnnunciAccodati";
 import { NuovaKeyword } from "@/components/NuovaKeyword";
-import { accodaAnnuncio, creaAnnuncioConAi, leggiBozzaAnnuncio, salvaBozzaAnnuncio, scartaBozzaAnnuncio } from "@/lib/azioni-annuncio";
+import { accodaAnnuncio, creaAnnuncioConAi, sistemaAnnuncioConAi, leggiBozzaAnnuncio, salvaBozzaAnnuncio, scartaBozzaAnnuncio } from "@/lib/azioni-annuncio";
 import { CodaCampagna } from "@/components/CodaCampagna";
 import { AzioneGruppo } from "@/components/AzioneGruppo";
 import { Badge } from "@/components/Badge";
@@ -1619,6 +1619,7 @@ export default async function SchedaGruppo({
                     gruppoId={gruppo.id}
                     nomeGruppo={nomeGruppo(gruppo)}
                     azione={creaAnnuncioConAi}
+                    sistema={sistemaAnnuncioConAi}
                     accoda={accodaAnnuncio}
                     urlSuggerito={urlPerAnnuncio}
                     ritorno={`/gruppi/${gruppo.id}`}

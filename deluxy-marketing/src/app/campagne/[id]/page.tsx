@@ -14,7 +14,7 @@ import { DestinazioniCampagna } from "@/components/DestinazioniCampagna";
 import { EstensioniCampagna } from "@/components/EstensioniCampagna";
 import { BriefDiLancio } from "@/components/BriefDiLancio";
 import { CreaAnnuncioAi } from "@/components/CreaAnnuncioAi";
-import { accodaAnnuncio, creaAnnuncioConAi, leggiBozzaAnnuncio, salvaBozzaAnnuncio, scartaBozzaAnnuncio } from "@/lib/azioni-annuncio";
+import { accodaAnnuncio, creaAnnuncioConAi, sistemaAnnuncioConAi, leggiBozzaAnnuncio, salvaBozzaAnnuncio, scartaBozzaAnnuncio } from "@/lib/azioni-annuncio";
 import { CodaCampagna } from "@/components/CodaCampagna";
 import { OggiCampagna } from "@/components/OggiCampagna";
 import { PerformancePeriodi } from "@/components/PerformancePeriodi";
@@ -688,6 +688,7 @@ export default async function SchedaCampagna({
                 gruppoId={gruppi[0].id}
                 nomeGruppo={gruppi[0].nome}
                 azione={creaAnnuncioConAi}
+                sistema={sistemaAnnuncioConAi}
                 accoda={accodaAnnuncio}
                 urlSuggerito={urlAnnunciCampagna}
                 ritorno={`/campagne/${campagna.id}`}

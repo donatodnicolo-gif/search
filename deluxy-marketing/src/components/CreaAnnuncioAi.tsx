@@ -29,6 +29,7 @@ export function CreaAnnuncioAi({
   salvaBozza,
   scartaBozza,
   apriSubito,
+  sistema,
 }: {
   gruppoId: string;
   nomeGruppo: string;
@@ -56,6 +57,8 @@ export function CreaAnnuncioAi({
   scartaBozza?: (gruppoId: string) => Promise<void>;
   /** Apre il dialogo appena la pagina si carica: si arriva da «Correggi i testi». */
   apriSubito?: boolean;
+  /** Fa correggere all'AI SOLO le righe rotte, lasciando le altre com'erano. */
+  sistema?: (input: { gruppoId: string; titoli: string[]; descrizioni: string[] }) => Promise<EsitoAnnuncioAi>;
 }) {
   const dialogo = useRef<HTMLDialogElement>(null);
   const [indicazione, setIndicazione] = useState("");
@@ -81,6 +84,7 @@ export function CreaAnnuncioAi({
   const [salvataIl, setSalvataIl] = useState<string | null>(null);
   const [ripresaDel, setRipresaDel] = useState<string | null>(null);
   const [caricata, setCaricata] = useState(false);
+  const [inSistemazione, avviaSistemazione] = useTransition();
 
   const righe = (t: string) => t.split("\n").map((r) => r.trim()).filter(Boolean);
   const titoli = righe(titoliTesto);
@@ -149,6 +153,30 @@ export function CreaAnnuncioAi({
     }, 1000);
     return () => clearTimeout(t);
   }, [titoliTesto, descrizioniTesto, url, indicazione, caricata, gruppoId, salvaBozza]);
+
+  // ⚠️ Correggere NON è «riscrivi con l'AI»: chi ha già sistemato dodici
+  // titoli a mano non deve perderli per far correggere il tredicesimo. Il
+  // bottone compare solo quando c'è davvero qualcosa di rotto.
+  const sistemaConAi = () => {
+    if (!sistema) return;
+    setErroreAi(null);
+    avviaSistemazione(async () => {
+      const e = await sistema({ gruppoId, titoli, descrizioni });
+      if (e.ok) {
+        setTitoliTesto(e.titoli.join("\n"));
+        setDescrizioniTesto(e.descrizioni.join("\n"));
+        setNoteAi(e.note ?? null);
+      } else {
+        setErroreAi(e.errore);
+      }
+    });
+  };
+
+  // Togliere una riga: si riscrive la casella senza quella riga. È la via
+  // più corta per un doppione — un titolo in meno non fa danno, il minimo
+  // di Google è 3.
+  const togliTitolo = (i: number) => setTitoliTesto(titoli.filter((_, k) => k !== i).join("\n"));
+  const togliDescrizione = (i: number) => setDescrizioniTesto(descrizioni.filter((_, k) => k !== i).join("\n"));
 
   const testoDaCopiare = ["TITOLI", ...titoli, "", "DESCRIZIONI", ...descrizioni].join("\n");
 
@@ -337,7 +365,7 @@ export function CreaAnnuncioAi({
                 <span style={{ color: "var(--orange)" }}> · {titoliLunghi.length} oltre i 30 caratteri</span>
               )}
             </div>
-            <RigheContate righe={titoli} limite={30} massimo={15} doppioni={titoliDoppi} style={{ marginBottom: 14 }} />
+            <RigheContate righe={titoli} limite={30} massimo={15} doppioni={titoliDoppi} onTogli={togliTitolo} style={{ marginBottom: 14 }} />
 
             <label className="modale-campo" style={{ marginBottom: 4 }}>
               Descrizioni — una per riga, massimo 90 caratteri l&apos;una
@@ -355,7 +383,7 @@ export function CreaAnnuncioAi({
                 <span style={{ color: "var(--orange)" }}> · {descrizioniLunghe.length} oltre i 90 caratteri</span>
               )}
             </div>
-            <RigheContate righe={descrizioni} limite={90} massimo={4} doppioni={descrizioniDoppie} />
+            <RigheContate righe={descrizioni} limite={90} massimo={4} doppioni={descrizioniDoppie} onTogli={togliDescrizione} />
           </div>
 
           {/* ⚠️ Cosa succede davvero premendo: non va in asta adesso. */}
@@ -392,8 +420,26 @@ export function CreaAnnuncioAi({
             </div>
           )}
           {!pronto && (titoli.length > 0 || descrizioni.length > 0) && (
-            <div className="cella-sub" style={{ margin: "0 18px 10px", whiteSpace: "normal" }}>
-              Manca ancora: {problemi.join(" · ")}.
+            <div style={{ margin: "0 18px 10px", display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap" }}>
+              <span className="cella-sub" style={{ whiteSpace: "normal" }}>
+                Manca ancora: {problemi.join(" · ")}.
+              </span>
+              {/* ⚠️ Il difetto si aggiusta DA QUI. Dirlo e basta lascia alla
+                  persona la parte difficile — inventare un titolo nuovo in 30
+                  caratteri, diverso dagli altri quattordici, nella lingua
+                  giusta — mentre l'app ha già tutto quello che serve per
+                  proporlo. */}
+              {sistema && (titoliDoppi.length > 0 || descrizioniDoppie.length > 0 || titoliLunghi.length > 0 || descrizioniLunghe.length > 0) && (
+                <button
+                  type="button"
+                  className="btn small btn-secondario"
+                  onClick={sistemaConAi}
+                  disabled={inSistemazione}
+                  title="Fa correggere all'AI solo le righe segnalate: le altre restano come le hai scritte"
+                >
+                  {inSistemazione ? "L'AI sta correggendo…" : "Fai sistemare all'AI"}
+                </button>
+              )}
             </div>
           )}
 
@@ -473,6 +519,7 @@ function RigheContate({
   limite,
   massimo,
   doppioni = [],
+  onTogli,
   style,
 }: {
   righe: string[];
@@ -481,6 +528,8 @@ function RigheContate({
   massimo: number;
   /** Gli indici delle righe ripetute: si segnano, perché fanno rifiutare tutto. */
   doppioni?: number[];
+  /** Toglie la riga: la via più corta per un doppione o una riga di troppo. */
+  onTogli?: (i: number) => void;
   style?: React.CSSProperties;
 }) {
   if (!righe.length) return null;
@@ -549,6 +598,18 @@ function RigheContate({
             >
               {m.certa ? `${m.lunghezza}/${limite}` : `${m.lunghezza} + variabile`}
             </span>
+            {onTogli && (
+              <button
+                type="button"
+                className="link-come-testo"
+                onClick={() => onTogli(i)}
+                title="Togli questa riga"
+                aria-label="Togli questa riga"
+                style={{ flexShrink: 0, color: "var(--text-tertiary)", lineHeight: 1 }}
+              >
+                ✕
+              </button>
+            )}
           </li>
         );
       })}

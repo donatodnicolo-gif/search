@@ -154,6 +154,108 @@ export async function creaAnnuncioConAi(input: {
   };
 }
 
+
+/**
+ * Sistema un annuncio che ha dei difetti, SENZA riscriverlo da capo.
+ *
+ * ⚠️ PERCHÉ ESISTE. Il 21/08/2026 un annuncio è stato rifiutato da Google
+ * per un titolo ripetuto (`DUPLICATE_ASSET`). L'app sapeva dirlo — «il titolo
+ * numero 10 è uguale al numero 1» — e poi si fermava lì: la correzione
+ * toccava alla persona, che doveva inventarsi un titolo nuovo dentro i 30
+ * caratteri, diverso dagli altri quattordici e nella stessa lingua. Cioè
+ * l'app faceva la parte facile (accorgersene) e lasciava fuori quella
+ * difficile. Se un difetto lo sa vedere, deve anche saperlo aggiustare.
+ *
+ * ⚠️ TOCCA SOLO LE RIGHE ROTTE. Non è «riscrivi con l'AI»: chi ha già
+ * corretto dodici titoli a mano non deve perderli per far sistemare il
+ * tredicesimo. L'ordine resta, le righe sane tornano IDENTICHE — e se il
+ * modello ne cambia una che andava bene, la si rimette com'era qui sotto.
+ */
+export async function sistemaAnnuncioConAi(input: {
+  gruppoId: string;
+  titoli: string[];
+  descrizioni: string[];
+}): Promise<EsitoAnnuncioAi> {
+  const gruppo = await prisma.gruppo.findUnique({
+    where: { id: input.gruppoId },
+    select: { nome: true, lingua: true, campagna: { select: { nome: true, brand: true } } },
+  });
+  if (!gruppo) return { ok: false, errore: "Gruppo non trovato." };
+
+  const { indiciDoppioni } = await import("./funzioni-annuncio");
+  const titoli = input.titoli.map((t) => t.trim()).filter(Boolean);
+  const descrizioni = input.descrizioni.map((d) => d.trim()).filter(Boolean);
+
+  // I difetti si passano NUMERATI: «il titolo 10» è un'istruzione che un
+  // modello può eseguire, «ci sono dei doppioni» no.
+  const difetti: string[] = [];
+  indiciDoppioni(titoli).forEach((i) =>
+    difetti.push(`titolo ${i + 1} («${titoli[i]}») è identico a un altro titolo: sostituiscilo con uno NUOVO e diverso da tutti`)
+  );
+  indiciDoppioni(descrizioni).forEach((i) =>
+    difetti.push(`descrizione ${i + 1} è identica a un'altra: sostituiscila con una nuova`)
+  );
+  titoli.forEach((t, i) => {
+    if (lunghezzaUtile(t) > 30) difetti.push(`titolo ${i + 1} («${t}») è di ${lunghezzaUtile(t)} caratteri: riscrivilo in 30`);
+  });
+  descrizioni.forEach((d, i) => {
+    if (lunghezzaUtile(d) > 90) difetti.push(`descrizione ${i + 1} è di ${lunghezzaUtile(d)} caratteri: riscrivila in 90`);
+  });
+
+  const esito = await chiediAllAi({
+    istruzioni: [
+      "Ti do i testi di un annuncio Google già scritto, e l'elenco dei suoi difetti.",
+      "Correggi SOLO i difetti elencati. Tutte le altre righe le riscrivi IDENTICHE, nello stesso ordine.",
+      "Regole:",
+      "- Rispondi con la lista COMPLETA dei titoli e delle descrizioni, non solo con quelle corrette.",
+      "- Stessa lingua dei testi che ricevi.",
+      "- Un titolo sostituito deve dire una cosa NUOVA (un angolo che manca), non essere una variante di uno che c'è già.",
+      "- Titoli max 30 caratteri, descrizioni max 90. Nelle funzioni fra graffe {KeyWord:testo} il limite vale sul testo di riserva.",
+      "- Correggi anche gli errori di ortografia evidenti che trovi nelle righe (es. una parola scritta male), e dillo in `note`.",
+      "- Niente superlativi non verificabili, niente MAIUSCOLO integrale, niente punti esclamativi multipli.",
+      "In `note` scrivi in una riga cosa hai cambiato. Rispondi solo in JSON.",
+    ].join("\n"),
+    dati: {
+      campagna: gruppo.campagna.nome,
+      gruppo: gruppo.nome,
+      brand: gruppo.campagna.brand,
+      linguaDelGruppo: gruppo.lingua,
+      titoliAttuali: titoli,
+      descrizioniAttuali: descrizioni,
+      difettiDaCorreggere: difetti,
+    },
+    schema: SCHEMA_ANNUNCIO as unknown as Record<string, unknown>,
+    massimoToken: 3000,
+  });
+  if (!esito.ok) return { ok: false, errore: esito.errore };
+
+  let grezzo: { titoli?: unknown; descrizioni?: unknown; note?: unknown };
+  try {
+    grezzo = JSON.parse(esito.testo);
+  } catch {
+    return { ok: false, errore: "L'AI ha risposto in una forma non leggibile: riprova." };
+  }
+
+  const lista = (v: unknown, limite: number, quante: number) =>
+    (Array.isArray(v) ? v : [])
+      .map((x) => String(x).replace(/\s+/g, " ").trim())
+      .filter((x) => x.length > 0 && lunghezzaUtile(x) <= limite)
+      .slice(0, quante);
+
+  const titoliNuovi = lista(grezzo.titoli, 30, 15);
+  const descrizioniNuove = lista(grezzo.descrizioni, 90, 4);
+  if (titoliNuovi.length === 0 && descrizioniNuove.length === 0) {
+    return { ok: false, errore: "L'AI non ha restituito testi utilizzabili: riprova." };
+  }
+
+  return {
+    ok: true,
+    titoli: titoliNuovi,
+    descrizioni: descrizioniNuove,
+    note: typeof grezzo.note === "string" ? grezzo.note : null,
+    modello: esito.modello,
+  };
+}
 // I segnaposto dinamici valgono per la loro lunghezza REALE solo a runtime:
 // per il limite conta il testo di riserva, non tutta la graffa.
 function lunghezzaUtile(t: string): number {
