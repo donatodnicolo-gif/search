@@ -542,6 +542,40 @@ export async function registraContattoAvviato(dati: {
  * fondo risultavano «senza contatto» e retrocedevano di livello da soli.
  */
 /**
+ * Chiude il richiamo post-visita di un negozio (la «×» nella coda).
+ *
+ * Non cancella niente: scrive QUANDO è stato chiuso. La coda lo salta finché
+ * l'ultima visita è più vecchia di questa data, quindi una visita nuova con
+ * esito «interessato» o «da richiamare» lo rimette in lista da sola.
+ *
+ * ⚠️ Un UPDATE che la RLS non fa passare **non è un errore**: torna zero righe.
+ * Senza guardarle, l'app direbbe «chiuso» a un richiamo che domani ricompare.
+ */
+export async function chiudiRichiamo(placeId: string): Promise<void> {
+  const { data: sessione } = await supabase.auth.getUser();
+  const { data, error } = await supabase
+    .from('places')
+    .update({
+      richiamo_chiuso_il: new Date().toISOString(),
+      richiamo_chiuso_da: sessione?.user?.id ?? null,
+    })
+    .eq('id', placeId)
+    .select('id');
+  if (error) {
+    if (/richiamo_chiuso/.test(error.message)) {
+      throw new Error(
+        'Manca la migrazione 0060 sul database: la colonna «richiamo_chiuso_il» non esiste ancora. ' +
+          'Si applica con APPLICA-MIGRAZIONI.cmd (o node scripts/allinea-supabase.mjs).',
+      );
+    }
+    throw error;
+  }
+  if (!data?.length) {
+    throw new Error('Richiamo non chiuso: il negozio non è stato trovato, o la scrittura è stata rifiutata.');
+  }
+}
+
+/**
  * Ultimo contatto per negozio: chiamate e mail partite, la data più recente.
  *
  * Serve alla coda richiami (`daRicontattare`), che senza questo conta i giorni

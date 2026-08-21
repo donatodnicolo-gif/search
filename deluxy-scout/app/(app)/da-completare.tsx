@@ -16,6 +16,7 @@ import {
   fetchPlaces,
   fetchTutteTrattative,
   fetchUltimoContattoPerPlace,
+  chiudiRichiamo,
   type TrattativaConLuogo,
 } from '@/lib/db';
 import {
@@ -24,6 +25,7 @@ import {
   placeIdConTrattativaAperta,
   type Richiamo,
 } from '@/lib/metrics';
+import { avvisa, conferma } from '@/lib/dialoghi';
 import { PriorityBadge } from '@/components/PriorityBadge';
 import { VisitaModal } from '@/components/VisitaModal';
 
@@ -94,6 +96,24 @@ export default function DaCompletare() {
     }, [carica]),
   );
 
+  // «×»: il richiamo esce dalla coda. Stesso comportamento della Home, testo
+  // compreso: due schermate che chiudono la stessa cosa devono dire la stessa cosa.
+  const chiudi = useCallback((r: Richiamo) => {
+    conferma(
+      'Chiudere il richiamo?',
+      `«${r.place.nome}» esce da questa coda. Ci torna da solo se registri una visita nuova con esito «interessato» o «da richiamare».`,
+      () => {
+        const prima = richiami;
+        setRichiami((cur) => cur.filter((x) => x.place.id !== r.place.id));
+        chiudiRichiamo(r.place.id).catch((e) => {
+          setRichiami(prima);
+          avvisa('Richiamo non chiuso', String((e as Error)?.message ?? e));
+        });
+      },
+      { testoConferma: 'Chiudi' },
+    );
+  }, [richiami]);
+
   const sezioni = [
     ...(richiami.length
       ? [{ title: `Da ricontattare (${richiami.length})`, data: richiami.map((r): Riga => ({ tipo: 'richiamo', richiamo: r })) }]
@@ -132,7 +152,11 @@ export default function DaCompletare() {
         renderSectionHeader={({ section }) => <Text style={styles.sezione}>{section.title}</Text>}
         renderItem={({ item }) =>
           item.tipo === 'richiamo' ? (
-            <RigaRichiamo r={item.richiamo} onPress={() => router.push(`/(app)/attivita/${item.richiamo.place.id}`)} />
+            <RigaRichiamo
+              r={item.richiamo}
+              onPress={() => router.push(`/(app)/attivita/${item.richiamo.place.id}`)}
+              onChiudi={() => chiudi(item.richiamo)}
+            />
           ) : item.tipo === 'followup' ? (
             <RigaFollowup
               d={item.deal}
@@ -155,7 +179,7 @@ export default function DaCompletare() {
   );
 }
 
-function RigaRichiamo({ r, onPress }: { r: Richiamo; onPress: () => void }) {
+function RigaRichiamo({ r, onPress, onChiudi }: { r: Richiamo; onPress: () => void; onChiudi: () => void }) {
   const { place: p, visita, giorni, inRitardo } = r;
   const quando = giorni === 0 ? 'oggi' : giorni === 1 ? 'ieri' : `${giorni} giorni fa`;
   return (
@@ -180,7 +204,17 @@ function RigaRichiamo({ r, onPress }: { r: Richiamo; onPress: () => void }) {
           </Text>
         ) : null}
       </View>
-      <Text style={styles.freccia}>Apri ›</Text>
+      <View style={styles.azioniRiga}>
+        <Pressable
+          onPress={onChiudi}
+          hitSlop={10}
+          style={styles.chiudiRichiamo}
+          accessibilityLabel={`Chiudi il richiamo di ${p.nome}`}
+        >
+          <Ionicons name="close" size={18} color={colors.grigio} />
+        </Pressable>
+        <Text style={styles.freccia}>Apri ›</Text>
+      </View>
     </Pressable>
   );
 }
@@ -279,6 +313,8 @@ const styles = StyleSheet.create({
   titoloRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: spacing.sm },
   nome: { flexShrink: 1, flexGrow: 1, minWidth: 140, color: colors.navy, fontWeight: '700', fontSize: 16, letterSpacing: -0.2 },
   meta: { color: colors.testoSoft, fontSize: 13 },
+  azioniRiga: { alignItems: 'flex-end', gap: 6 },
+  chiudiRichiamo: { padding: 4 },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 4, flexWrap: 'wrap' },
   metaSep: { color: colors.grigioChiaro, fontSize: 13 },
   nota: { color: colors.grigio, fontSize: 12, fontStyle: 'italic' },

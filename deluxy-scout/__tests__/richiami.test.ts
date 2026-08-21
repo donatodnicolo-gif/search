@@ -126,6 +126,20 @@ describe('daRicontattare', () => {
     expect(r.ultimoContatto).toBe(ieri);
   });
 
+  // La «×» della coda: si salva QUANDO è stato chiuso, non un flag.
+  it('un richiamo chiuso dopo la visita esce dalla coda', () => {
+    const chiuso = { ...place('a'), richiamo_chiuso_il: new Date(OGGI.getTime() - 86400000).toISOString() };
+    const visits = [visita('a', 10, 'interessato')];
+    expect(daRicontattare([chiuso], visits, OGGI)).toHaveLength(0);
+  });
+
+  it('una visita più recente della chiusura rimette il negozio in coda', () => {
+    // Chiuso 10 giorni fa, ma ieri ci siamo tornati e ha detto "interessato".
+    const riaperto = { ...place('a'), richiamo_chiuso_il: new Date(OGGI.getTime() - 10 * 86400000).toISOString() };
+    const visits = [visita('a', 1, 'interessato')];
+    expect(daRicontattare([riaperto], visits, OGGI)).toHaveLength(1);
+  });
+
   it('un contatto PRIMA della visita non conta', () => {
     const places = [place('a')];
     const visits = [visita('a', 5, 'interessato')];

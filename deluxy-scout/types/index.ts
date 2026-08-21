@@ -265,6 +265,11 @@ export interface Place {
   nascosto?: boolean; // "non interessante": escluso dalla scoperta, visibile solo in Profilo → Nascosti
   hubspot_ha_contatto?: boolean; // l'azienda abbinata ha almeno un contatto
   hubspot_deal_aperta?: boolean; // l'azienda abbinata ha una trattativa aperta
+  // Richiamo post-visita chiuso a mano dalla «×» della coda (migr. 0060). È una
+  // DATA e non un flag: vale finché non arriva una visita più recente, che
+  // rimette il negozio in coda da sé.
+  richiamo_chiuso_il?: string | null;
+  richiamo_chiuso_da?: string | null;
   google_rating?: number | null; // voto Google 0-5 (recensioni)
   google_reviews?: number | null; // numero di recensioni Google
   // Id del partner nel registro Anagrafiche (migr. 0016). È il ponte con le

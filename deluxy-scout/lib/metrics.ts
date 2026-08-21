@@ -146,6 +146,10 @@ export function daRicontattare(
     // Trattativa aperta = il negozio è già in pipeline: lo muove «Trattative da
     // muovere», non il richiamo post-visita, che serve a farla nascere.
     if (opzioni.conTrattativaAperta?.has(placeId)) continue;
+    // Chiuso a mano con la «×» (migr. 0060). Conta solo se chiuso DOPO l'ultima
+    // visita: una visita nuova rimette il negozio in coda senza azzerare nulla.
+    const chiuso = place.richiamo_chiuso_il;
+    if (chiuso && Date.parse(chiuso) >= Date.parse(v.data)) continue;
     // Se dopo la visita c'è stata una chiamata o una mail, i giorni si contano
     // da lì: un negozio sentito ieri non è «in ritardo di 36 giorni».
     const contatto = opzioni.ultimoContatto?.get(placeId);

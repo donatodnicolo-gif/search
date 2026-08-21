@@ -20,6 +20,7 @@ import {
   fetchProfilo,
   fetchTask,
   fetchTutteTrattative,
+  chiudiRichiamo,
   fetchUltimoContattoPerPlace,
   inviaPromemoriaEmail,
   type TrattativaConLuogo,
@@ -27,7 +28,7 @@ import {
 import { daRicontattare, placeIdConTrattativaAperta, type Richiamo } from '@/lib/metrics';
 import { GIORNI_RISPOSTA_LEAD } from '@/lib/cadenze';
 import type { Lead } from '@/types';
-import { avvisa } from '@/lib/dialoghi';
+import { avvisa, conferma } from '@/lib/dialoghi';
 import { RicercaGlobale } from '@/components/RicercaGlobale';
 
 const MESI = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'];
@@ -133,6 +134,25 @@ export default function Oggi() {
     [trattative, oggi],
   );
 
+  // «×» sulla riga: il richiamo esce dalla coda. Ottimistico, ma se il server
+  // rifiuta la riga TORNA e si dice perché — una UI ottimistica muta nasconde
+  // il guasto e l'utente scopre domani che non era chiuso niente.
+  const chiudi = useCallback((r: Richiamo) => {
+    conferma(
+      'Chiudere il richiamo?',
+      `«${r.place.nome}» esce da questa coda. Ci torna da solo se registri una visita nuova con esito «interessato» o «da richiamare».`,
+      () => {
+        const prima = richiami;
+        setRichiami((cur) => cur.filter((x) => x.place.id !== r.place.id));
+        chiudiRichiamo(r.place.id).catch((e) => {
+          setRichiami(prima);
+          avvisa('Richiamo non chiuso', String((e as Error)?.message ?? e));
+        });
+      },
+      { testoConferma: 'Chiudi' },
+    );
+  }, [richiami]);
+
   const richiamiOrdinati = useMemo(
     () => [...richiami].sort((a, b) => Number(b.inRitardo) - Number(a.inRitardo) || b.giorni - a.giorni),
     [richiami],
@@ -224,6 +244,14 @@ export default function Oggi() {
             <Text style={[styles.rigaMeta, r.inRitardo && styles.ritardo]}>
               {r.giorni}g fa{r.inRitardo ? ' · ritardo' : ''}
             </Text>
+            <Pressable
+              onPress={() => chiudi(r)}
+              hitSlop={10}
+              style={styles.chiudiRichiamo}
+              accessibilityLabel={`Chiudi il richiamo di ${r.place.nome}`}
+            >
+              <Ionicons name="close" size={15} color={colors.grigio} />
+            </Pressable>
           </Pressable>
         ))}
       </Canale>
@@ -422,6 +450,7 @@ const styles = StyleSheet.create({
   rigaTitolo: { flex: 1, color: colors.testo, fontWeight: '700', fontSize: 14 },
   rigaSotto: { color: colors.testoSoft, fontSize: 12 },
   rigaMeta: { color: colors.testoSoft, fontSize: 12, maxWidth: 150, textAlign: 'right' },
+  chiudiRichiamo: { padding: 4, marginLeft: 2 },
   ritardo: { color: colors.errore, fontWeight: '800' },
   dot: { width: 8, height: 8, borderRadius: 4 },
   vuoto: { color: colors.grigio, fontStyle: 'italic', fontSize: 13 },
