@@ -3,6 +3,7 @@ import { AncoraggioHash } from "@/components/AncoraggioHash";
 import { AndamentoMensile } from "@/components/AndamentoMensile";
 import { DettaglioKeyword } from "@/components/DettaglioKeyword";
 import { CreaAnnuncioAi } from "@/components/CreaAnnuncioAi";
+import { AnnunciAccodati } from "@/components/AnnunciAccodati";
 import { NuovaKeyword } from "@/components/NuovaKeyword";
 import { accodaAnnuncio, creaAnnuncioConAi, leggiBozzaAnnuncio, salvaBozzaAnnuncio, scartaBozzaAnnuncio } from "@/lib/azioni-annuncio";
 import { CodaCampagna } from "@/components/CodaCampagna";
@@ -1627,6 +1628,13 @@ export default async function SchedaGruppo({
                     apriSubito={sp.correggi === "1"}
                   />
                 </div>
+                {/* ⚠️ Prima di tutto: l'annuncio GIÀ SCRITTO che aspetta.
+                    Senza, la scheda diceva «questo gruppo non ha annunci» e
+                    invitava a scriverne uno — mentre uno c'era già, fermo in
+                    coda a due passi da lì, e l'invito portava dritto ad avere
+                    due annunci quasi uguali. */}
+                <AnnunciAccodati gruppoId={gruppo.id} ritorno={`/gruppi/${gruppo.id}`} />
+
                 {/* Stessa forma di Google Ads del blocco gemello sulla scheda
                     campagna: una scheda per testo col conteggio caratteri. */}
                 {testi.length > 0 ? (
@@ -1647,11 +1655,15 @@ export default async function SchedaGruppo({
                   <div className="nota-info" style={{ borderColor: "rgba(201,52,0,.35)", background: "rgba(201,52,0,.06)" }}>
                     <span className="nota-icona" style={{ color: "var(--orange)" }}>⚠</span>
                     <span>
-                      <b>Questo gruppo non ha annunci, quindi non può erogare</b> — su Google
+                      {/* ⚠️ «non ha annunci» era falso quando uno stava in coda: adesso
+                          questo avviso parla solo di cosa c'è su GOOGLE, e rimanda a
+                          quello che si vede qui sopra. */}
+                      <b>Su Google questo gruppo non ha ancora annunci, quindi non eroga</b> —
                       risulta «Not eligible» anche se le keyword ci sono e la campagna è accesa.
-                      Con <b>Nuovo annuncio</b> qui sopra lo scrivi — a mano o con l&apos;AI — e lo
-                      metti in coda; oppure lo crei a mano in Google Ads e al giro dopo compare
-                      qui da solo.
+                      Se qui sopra ne vedi uno in coda, manca solo l&apos;approvazione. Altrimenti
+                      con <b>Nuovo annuncio</b> lo scrivi — a mano o con l&apos;AI — e lo metti in
+                      coda; oppure lo crei a mano in Google Ads e al giro dopo compare qui da
+                      solo.
                     </span>
                   </div>
                 )}

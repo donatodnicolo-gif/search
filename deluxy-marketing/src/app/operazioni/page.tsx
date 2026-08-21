@@ -6,7 +6,7 @@ import { TornaIndietro } from "@/components/TornaIndietro";
 import { annullaOperazione, approvaOperazione, approvaOperazioniSelezionate,
   cambiaCorrispondenzaOperazione, riapriOperazione,
   cambiaTestoOperazione, rilanciaCampagnaRifiutata, accettaDivergenza, riprovaCompletamento,
-  riprovaFallita, correggiAnnuncioFallito,
+  riprovaFallita, riprendiAnnuncioAccodato,
 } from "@/lib/azioni";
 import { campagneNonConfermate, letturaNonConfermata } from "@/lib/campagne-non-confermate";
 import { COLORE_CONFERMA, confermeOperazioni, type Conferma } from "@/lib/conferme-operazioni";
@@ -380,7 +380,7 @@ export default async function PaginaOperazioni({
                 </button>
               </form>
               {o.tipo === "nuovo_annuncio" && o.gruppoId && (
-                <form action={correggiAnnuncioFallito} style={{ display: "inline" }}>
+                <form action={riprendiAnnuncioAccodato} style={{ display: "inline" }}>
                   <input type="hidden" name="id" value={o.id} />
                   <button
                     className="btn small btn-secondario"

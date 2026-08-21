@@ -3292,24 +3292,31 @@ export async function riprovaFallita(fd: FormData) {
 }
 
 /**
- * Riporta un annuncio fallito NELLE CASELLE in cui era stato scritto.
+ * Riporta un annuncio NELLE CASELLE in cui era stato scritto: quello fallito
+ * per correggerlo, quello ancora in coda per cambiarlo prima che parta.
  *
  * Rimettere in coda lo stesso identico annuncio serve quando la causa era
  * fuori (lo script, un id che non rispondeva). Ma se la causa erano i TESTI —
  * un titolo rifiutato, la landing sbagliata — riprovarli tali e quali
- * fallisce di nuovo. Qui l'operazione fallita torna a essere una **bozza** del
- * gruppo: si riapre, si corregge la riga che non andava e si rimette in coda
- * senza riscrivere gli altri quattordici titoli.
+ * fallisce di nuovo. E un annuncio che aspetta l'approvazione non e' ancora
+ * un fatto: e' un testo fermo, e per cambiargli una virgola non si deve
+ * essere costretti ad annullarlo e riscrivere quindici titoli.
  *
- * ⚠️ L'operazione fallita resta fallita: non si riscrive la storia. Correggere
- * e rimettere in coda crea un'operazione NUOVA, ed e' giusto che nel registro
- * si veda il tentativo andato male accanto a quello buono.
+ * ⚠️ Se l'operazione era ANCORA IN CODA viene ANNULLATA. Sono la stessa cosa
+ * vista due volte, non due annunci: lasciare in coda il vecchio mentre si
+ * scrive il nuovo vuol dire approvarli tutti e due e ritrovarsi con due
+ * annunci quasi uguali che vanno in gara fra loro nello stesso gruppo.
+ *
+ * ⚠️ Una FALLITA invece resta fallita: non si riscrive la storia. In quel
+ * caso rimettere in coda crea un'operazione NUOVA, ed e' giusto che nel
+ * registro si veda il tentativo andato male accanto a quello buono.
  */
-export async function correggiAnnuncioFallito(fd: FormData) {
+export async function riprendiAnnuncioAccodato(fd: FormData) {
   const id = testo(fd, "id");
   if (!id) return;
   const op = await prisma.operazioneAdv.findUnique({ where: { id } });
-  if (!op || op.tipo !== "nuovo_annuncio" || op.stato !== "fallita" || !op.gruppoId) return;
+  if (!op || op.tipo !== "nuovo_annuncio" || !op.gruppoId) return;
+  if (!["in_attesa", "approvata", "fallita"].includes(op.stato)) return;
 
   let par: { titoli?: string[]; descrizioni?: string[]; finalUrl?: string } = {};
   try {
@@ -3327,13 +3334,31 @@ export async function correggiAnnuncioFallito(fd: FormData) {
     update: { titoli, descrizioni, finalUrl: par.finalUrl ?? null },
     create: { gruppoId: op.gruppoId, titoli, descrizioni, finalUrl: par.finalUrl ?? null },
   });
+  // ⚠️ Se era ancora in coda si toglie di mezzo: quello che si sta per
+  // riscrivere lo sostituisce. C'e' una finestra in cui lo script potrebbe
+  // averla gia' presa (le approvate le esegue quando passa): annullarla la
+  // stringe quanto si puo' da qui.
+  const eraInCoda = op.stato === "in_attesa" || op.stato === "approvata";
+  if (eraInCoda) {
+    await prisma.operazioneAdv.update({
+      where: { id },
+      data: {
+        stato: "annullata",
+        esito: "Annullata: l'annuncio e' stato ripreso per essere modificato, lo sostituisce quello nuovo.",
+      },
+    });
+  }
   await registra({
     autore: "utente",
     tipo: "stato",
     entita: "operazione",
     entitaId: id,
-    titolo: `Annuncio fallito riaperto per correzione: ${op.bersaglio}`,
-    dettaglio: "I testi tornano nella bozza del gruppo. L'operazione fallita resta nello storico.",
+    titolo: eraInCoda
+      ? `Annuncio ripreso dalla coda per modifica: ${op.bersaglio}`
+      : `Annuncio fallito riaperto per correzione: ${op.bersaglio}`,
+    dettaglio: eraInCoda
+      ? "I testi tornano nella bozza del gruppo e l'operazione in coda e' stata annullata: la sostituisce quella che nascera' dalla modifica."
+      : "I testi tornano nella bozza del gruppo. L'operazione fallita resta nello storico.",
   });
   revalidatePath(`/gruppi/${op.gruppoId}`);
   redirect(`/gruppi/${op.gruppoId}?correggi=1`);

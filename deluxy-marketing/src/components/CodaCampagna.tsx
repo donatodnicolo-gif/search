@@ -12,6 +12,8 @@ const ETICHETTA_TIPO: Record<string, string> = {
   negativa: "Aggiungi negativa",
   pausa_gruppo: "Metti in pausa il gruppo",
   attiva_gruppo: "Riattiva il gruppo",
+  nuovo_annuncio: "Crea un annuncio",
+  completa_campagna: "Completa la campagna",
 };
 
 // Cosa sta per succedere su Google PER QUESTA CAMPAGNA: le operazioni in
