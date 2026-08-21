@@ -1,16 +1,21 @@
 # Handoff — Deluxy Marketing
 
-> Stato al **17/08/2026, ore 16:00**. Una finestra Claude nuova deve poter riprendere da qui
+> Stato al **21/08/2026**. Una finestra Claude nuova deve poter riprendere da qui
 > senza altro contesto. Leggere prima il [README](../README.md) per cosa fa l'app;
 > questo documento dice **dove siamo** e **cosa manca**.
 >
-> 🔴 **I due punti aperti di oggi**: (1) la creazione di una campagna nuova
-> dall'app viene **rifiutata da Google** («Missing value in EU political ads»)
-> mentre l'app la dava per eseguita — codice corretto e in produzione, **manca
-> il reincollo di `esegui.js`** (punto 0 di «Da riprendere subito»); (2)
-> **quattro keyword che l'app dà in pausa dal 04/08 e su Google sono attive e
-> spendono** (punto 4bis) — non un guasto: le ha riattivate l'utente a mano, e
-> l'app non poteva saperlo. Da decidere se è voluto.
+> 🔴 **I tre punti aperti di oggi**: (1) **`esegui.js` e `tutto.js` sono da
+> reincollare** in Google Ads (copie in `Downloads\deluxy-google-ads`) — finché
+> non lo sono, l'operazione `nuovo_annuncio` non ha chi la esegua; (2) in
+> `/operazioni` aspettano **un annuncio** e **6 negative**; (3) l'annuncio della
+> campagna WORLD-ENG è **rifiutato da Google per `DESTINATION_NOT_WORKING`** —
+> è la landing, non il testo, e per una campagna mondiale è probabilmente la
+> pagina sbagliata in partenza.
+>
+> ✅ **Chiuso il 18-19/08**: la campagna `[Deluxyflowers] - WORLD - ENG` esiste
+> su Google (id `24147855987`, 9 località, 1 gruppo, 15 keyword). Le 4 keyword
+> «in pausa nell'app e attive su Google» **non erano un guasto**: le aveva
+> riattivate l'utente a mano, ed è stato dichiarato «è voluto».
 
 ## In una riga
 
@@ -220,6 +225,76 @@ asta**. Da guardare in Google Ads: o l'esecuzione del 04/08 ha toccato un
 criterio diverso (era il periodo del difetto degli id, chiuso l'08/08), o
 qualcuno le ha riattivate a mano. ⚠️ Nota: il 04/08 quelle operazioni avevano
 `account` vuoto — il difetto chiuso l'08/08 con `accodaOperazione`.
+
+### ⭐⭐ L'annuncio si scrive DALL'APP: a mano o con l'AI, con la bozza che si salva (20-21/08/2026)
+
+Commit `fff14c7a` → `12769641` → `3af85d56`, tutto in produzione (deploy
+`deluxy-marketing-q11p2tceo`, health `200`). Prima gli annunci si potevano solo
+**proporre**: l'AI scriveva i testi e la scheda diceva «copiali in Google Ads».
+Adesso l'annuncio nuovo si compone qui e va in coda come le altre operazioni
+(`nuovo_annuncio`, livello **L0** per i negative e **L1** per l'annuncio).
+
+Cosa c'è, in ordine di come si incontra:
+
+- **«Vedi brief»** in testa alla campagna (`components/BriefDiLancio.tsx` +
+  `ApriBrief.tsx`): per le campagne nate dall'app mostra tutto quello che le
+  era stato passato — obiettivo, località, lingua, strategia, negative.
+  Accanto, l'avviso quando c'è **una modifica di budget in attesa di
+  approvazione**: il numero a schermo non è quello che sta per diventare.
+- **Nuovo annuncio** sulla scheda del gruppo (`components/CreaAnnuncioAi.tsx`).
+  ⚠️ Il bottone NON è più nascosto dietro «ci sono già dei testi»: era
+  invisibile proprio nei gruppi **senza annunci**, cioè dove serve.
+  ⚠️ **La destinazione si chiede PRIMA**, non dopo la proposta: se si sta
+  cambiando landing, l'AI deve scrivere per la pagina nuova.
+  ⚠️ **L'AI riempie le stesse caselle** in cui si scriverebbe a mano: «l'ha
+  scritto l'AI» e «l'ho scritto io» non sono due percorsi diversi.
+- **La bozza si salva da sola** (`BozzaAnnuncio`, una per gruppo, creata con
+  `scripts/crea-tabella-bozza-annuncio.mjs` — CREATE mirato, **mai**
+  `prisma db push` sul Postgres condiviso). Si riprende da un'altra postazione
+  o un altro giorno. Salvataggio **ritardato di 1 s** dall'ultima battuta
+  (`connection_limit 5`: una scrittura per tasto fa cadere la pagina), **non
+  prima** che la bozza sia stata letta (cancellerebbe quella che si sta per
+  leggere), e si butta **solo** se la messa in coda è riuscita.
+- **La coda si vede dove si è agito**: `CodaCampagna` accetta ora anche
+  `gruppoId` e sta in cima alla scheda del gruppo, e il messaggio di successo
+  porta un link **«Vai ad approvarlo»**. ⭐ Senza, l'annuncio ANDAVA in coda e
+  dal di fuori sembrava che non fosse successo niente — la lamentela era
+  «sembra poi non succedere nulla», e il difetto era solo che l'esito non si
+  vedeva dove l'azione era partita.
+- **I caratteri contati riga per riga** (21/08): sotto ogni casella l'elenco
+  delle righe scritte col loro conteggio (`24/30`, `91/90` in arancione),
+  aggiornato mentre si batte; le righe oltre il 15° titolo o la 4ª descrizione
+  si vedono spente con «non parte». Il totale diceva *quante* righe erano
+  lunghe, non *quali*, e un titolo di 31 caratteri fa rifiutare l'annuncio
+  intero.
+
+⭐⭐ **`lib/funzioni-annuncio.ts`: la regola delle graffe in UN posto solo.**
+Viveva in tre copie che non si parlavano (scheda testi, dialogo, validazione
+server) e due erano sbagliate: il dialogo contava `{KeyWord:Fresh Flower
+Delivery}` come **31 caratteri invece di 21** e **bloccava il bottone** su
+titoli perfetti. La regola di Google è che il limite vale sul **testo di
+riserva**, non sulla stringa scritta. Dove la resa non si può sapere
+(`{LOCATION(City)}`, countdown) la lunghezza si dichiara **incerta** e non si
+segnala niente: un allarme che può essere falso fa riscrivere testi buoni e
+insegna a ignorare gli avvisi.
+
+Nello stesso giro, sulla leggibilità: le estensioni ora sono **raggruppate per
+tipo** e quelle di conto sono marcate `(account NNN)` — la tabella era
+illeggibile e mostrava **15 asset su 76 di altri brand**; e le graffe dentro i
+testi si vedono come **pastiglie parlanti** («parola cercata → Luxury Florist»)
+invece che come codice.
+
+🔴 **Resta da fare, nell'ordine**: (1) reincollare `esegui.js` e `tutto.js`
+(copie in `Downloads\deluxy-google-ads`) — senza, `nuovo_annuncio` non ha chi
+lo esegua; (2) approvare in `/operazioni` l'annuncio in attesa e i **6 negative**
+rimasti; (3) **la landing**: l'annuncio della WORLD-ENG è rifiutato per
+`DESTINATION_NOT_WORKING`, ed è un problema di pagina, non di testo.
+
+⚠️ **Nota sulla storia dei commit**: il conteggio riga-per-riga è finito dentro
+il commit `3af85d56` («Indirizzi: Places API»), scritto da un'ALTRA sessione
+sulla stessa cartella scoutwt. Il contenuto è giusto e su `origin/scout-ui`; il
+messaggio no. È la trappola nota dell'indice git condiviso: **committare sempre
+con pathspec**, mai `git add -A`.
 
 ### ⭐ «È voluto»: una divergenza si può chiudere, e chiuderla ALLINEA l'app (19/08/2026)
 
