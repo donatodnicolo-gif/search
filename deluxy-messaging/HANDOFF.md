@@ -133,10 +133,14 @@ locale, altrimenti nulla si decifra.
     contabilità.
   - ⚠️ Giorno e fascia vanno negli attributi `Data_Consegna` e
     `Fascia_Oraria_Consegna`, gli unici che il registro legge.
-  - 🟡 **Manca `read_products`**: il catalogo non si può leggere, quindi la
-    riga si scrive a mano e l'ordine **non porta la foto del prodotto** — che è
-    quella che si manda al fornitore. La ricerca lo dice invece di tornare
-    vuota. Aggiungendo il permesso all'app CRM_DELUXY si sceglie dal catalogo.
+  - ✅ **`read_products` aggiunto il 19/08**: il catalogo si legge su tutti e
+    tre i negozi (30 varianti Deluxy, 12 Cake, 30 Flowers, **tutte con foto**) e
+    nei risultati c'è la miniatura — al telefono col cliente «quello con le
+    peonie» si riconosce a colpo d'occhio, e i titoli si somigliano tutti
+    («· Medio», «· Medio-Grande», «· Grande»). La riga scritta a mano resta per
+    i fuori-listino. ⚠️ L'avviso «catalogo non leggibile» resta nel codice: se
+    il permesso venisse tolto, una lista vuota direbbe «non c'è niente con quel
+    nome», che è un'altra cosa da «non posso guardare».
 
 - **CHARGEBACK: SEZIONE, RISPOSTA ALLA BANCA E COMPITO DEL GIORNO** (19/08/2026,
   LIVE). Chiesto dall'utente. Il dato viveva solo dentro Shopify: misurato lo
