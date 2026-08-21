@@ -674,6 +674,69 @@ veri non è teoria: 16 risultano già rimborsati, 11 in parte, 11 stornati, 5 no
 In alto: quante richieste sono da approvare, quante approvate da pagare, **quanto è
 promesso e non ancora uscito** e quanto è già stato reso.
 
+## Operatori: quanto lavoro ha fatto ciascuno
+
+`/operatori`, in **Qualità**. Le altre voci di quel gruppo misurano chi consegna —
+valet e partner; questa misura **noi**. La vede **solo un amministratore**: qui si
+confrontano fra loro le persone che lavorano insieme, e un operatore che vede quanti
+messaggi ha scritto il collega non ha in mano uno strumento di lavoro, ha una classifica.
+
+Una riga per persona, e sette colonne:
+
+| Colonna | Che cosa conta |
+|---|---|
+| **Ordini presi** | ordini di cui si è preso carico (il bollino col suo nome sulla bacheca) |
+| **Ordini chiusi** | ordini portati a «Gestito», cioè tolti dalla lista di lavoro |
+| **Chat prese** | conversazioni di cui si è preso carico in Inbox |
+| **Chat risposte** | conversazioni **diverse** in cui ha scritto almeno un messaggio |
+| **Messaggi inviati** | messaggi partiti col suo nome, su tutti i canali |
+| **Link di pagamento** | ordini creati da «Nuovo ordine» col link da mandare al cliente |
+| **Ordini creati** | tutti gli ordini fatti al telefono: col link o già pagati |
+
+**Chat prese** e **Chat risposte** non sono la stessa cosa, ed è voluto: prendere in
+carico è un clic, rispondere è il lavoro. Chi risponde senza prendere in carico compare
+lo stesso — la seconda colonna lo vede, la prima no.
+
+**Il periodo** si sceglie in cima: *Oggi · Ieri · 7 giorni · Questo mese · 30 giorni ·
+Trimestre · Anno · Date a scelta*. Mese, trimestre e anno sono di **calendario** (dal
+primo del mese, del trimestre, dell'anno); 7 e 30 giorni sono **mobili**, a ritroso da
+adesso — il mese è quello che si chiude in contabilità, i 30 giorni sono quanto si è
+lavorato ultimamente. *Ieri* è il giorno **intero** di ieri, non le ultime 24 ore. Con
+*Date a scelta* l'ultimo giorno è **compreso**.
+
+Sotto i pulsanti c'è sempre scritto **l'intervallo per esteso** («Dal 15 ago a adesso»):
+«trimestre» non vuol dire la stessa cosa per tutti, e un numero senza il suo periodo
+davanti si finisce per confrontarlo con quello sbagliato.
+
+### Quello che questa pagina NON dice
+
+⚠️ **Si contano solo i gesti che lasciano un nome nel database.** Leggere una chat,
+cercare un ordine, calmare un cliente al telefono non lasciano traccia e non sono qui
+dentro. È una misura del lavoro che si può contare, **non di quanto vale una persona**:
+va letta sapendolo, altrimenti premia chi fa molti gesti piccoli.
+
+⚠️ **«Ordini chiusi» vale l'ultimo cambio di stato, non la storia.** L'ordine si porta
+dietro un solo nome e una sola data (`gestioneDaId`, `gestioneIl`): se qualcuno riapre
+un ordine chiuso, quella chiusura non si conta più a nessuno. Non c'è un registro delle
+azioni in quest'app, e questa è la conseguenza.
+
+⚠️ **Le risposte automatiche non contano a nessuno.** La risposta di primo contatto
+nasce senza operatore, apposta: non gonfia i numeri di chi era di turno.
+
+⚠️ **Ogni colonna dice da quando si misura**, nel riquadro in fondo. Serve a leggere gli
+zeri: «zero link di pagamento nel trimestre» non vuol dire che nessuno ne ha mandati,
+vuol dire che prima del **21/08/2026** non li scrivevamo — il nome di chi crea un ordine
+vive solo nella sessione, Shopify non lo sa, e quel dato **non è recuperabile**
+all'indietro. Le altre colonne partono da fine luglio 2026, quando sono nate le firme
+che contano.
+
+⚠️ **Chi non lavora più con noi resta in tabella**, con scritto «non ha più un accesso»:
+far sparire i suoi numeri cambierebbe i totali del passato.
+
+I conti si possono ricontare senza aprire la pagina: `npx tsx scripts/prova-operatori.mts`
+stampa tutti i periodi e verifica che un intervallo «da sempre» dia gli stessi totali di
+un conteggio senza filtri.
+
 ## Punteggi: la pagella di valet e partner
 
 Il giudizio sui reclami guarda una cosa sola. La **pagella** (`/reclami/punteggi`) mette

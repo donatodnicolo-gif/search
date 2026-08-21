@@ -1133,3 +1133,49 @@ model NotaDiario {
   @@index([ordineNumero])
   @@index([fatta, creatoIl])
 }
+
+// Gli ordini creati DA QUI, al telefono col cliente (`/nuovo-ordine`).
+//
+// ⚠️⚠️ Esiste per una domanda sola, ed è quella della pagina «Operatori»:
+// **quanti link di pagamento manda ciascuno**. Shopify sa che la bozza c'è, ma
+// non sa chi di noi l'ha fatta: il nome dell'operatore vive solo nella nostra
+// sessione, e se non lo scriviamo qui nell'istante in cui l'ordine nasce è
+// perso per sempre — non c'è nessun archivio da cui ripescarlo dopo.
+//
+// ⚠️ NON è un secondo registro degli ordini: quello resta Deluxy Orders (vedi
+// `src/lib/negozi.ts`). Qui si tiene solo la **riga di lavoro** — chi, quando,
+// con che metodo, per quanto — e il numero con cui ritrovare l'ordine di là.
+// Nessuna schermata legge di qui lo stato di un ordine.
+//
+// ⚠️ La scrittura di questa riga non deve MAI far fallire la creazione
+// dell'ordine: quando ci arriviamo la bozza su Shopify esiste già, e un errore
+// mostrato all'operatore lo farebbe ricominciare — col cliente che si ritrova
+// due ordini. Vedi il try/catch in `src/lib/nuovo-ordine.ts`.
+model OrdineCreato {
+  id            String   @id @default(cuid())
+  /** Chi l'ha fatto: è il motivo per cui questa tabella esiste. */
+  utenteId      String   @default("")
+  utenteNome    String   @default("")
+  negozioId     String   @default("")
+  negozioNome   String   @default("")
+  /** `link` (paga il cliente da Shopify) | `pagato` (i soldi c'erano già). */
+  pagamento     String   @default("link")
+  /** Con che mezzo, quando è `pagato`: bonifico, contanti, POS. */
+  mezzoPagamento String  @default("")
+  /** gid della bozza Shopify e il suo nome (#D123). */
+  bozzaId       String   @default("")
+  bozzaNome     String   @default("")
+  /** Il numero dell'ordine vero, quando la bozza è stata chiusa subito. */
+  ordineNumero  String   @default("")
+  /** Il totale che Shopify ha calcolato sulla bozza: quello vero, non il nostro. */
+  importo       Float    @default(0)
+  valuta        String   @default("EUR")
+  clienteNome   String   @default("")
+  clienteEmail  String   @default("")
+  /** Shopify ha spedito da solo la mail con l'invito (serve un indirizzo). */
+  invitoInviato Boolean  @default(false)
+  creatoIl      DateTime @default(now())
+
+  @@index([creatoIl])
+  @@index([utenteId, creatoIl])
+}

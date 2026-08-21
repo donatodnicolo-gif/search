@@ -65,6 +65,10 @@ export function Sidebar() {
     {
       titolo: 'Qualità',
       voci: [
+        // Primo del gruppo: le altre voci misurano chi consegna (valet,
+        // partner), questa misura NOI. È la sola che parli delle persone che
+        // usano l'app, e la sola che veda un amministratore soltanto.
+        { href: '/operatori', nome: 'Operatori', icona: iconaUtenti },
         { href: '/reclami/punteggi', nome: 'Punteggi', icona: iconaPunteggi },
         { href: '/reclami/feedback', nome: 'Feedback e orari', icona: iconaFeedback },
         { href: '/reclami/giudizi', nome: 'Giudizi', icona: iconaGiudizi },

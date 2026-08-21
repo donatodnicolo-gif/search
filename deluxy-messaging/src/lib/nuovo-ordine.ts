@@ -186,6 +186,16 @@ export type DatiNuovoOrdine = {
   pagamento: 'link' | 'pagato'
   /** Con quale mezzo ha pagato: finisce nelle note dell'ordine. */
   mezzoPagamento: string
+  /**
+   * Chi lo sta creando.
+   *
+   * ⚠️ Shopify non lo saprà mai: la bozza è firmata dall'app, non dalla
+   * persona. Se non lo passiamo di qui e non lo scriviamo in `OrdineCreato`,
+   * la domanda «quanti link di pagamento manda ciascuno» non ha risposta —
+   * e non l'avrà nemmeno domani, perché quel dato non esiste da nessun'altra
+   * parte da cui ripescarlo.
+   */
+  operatore?: { id: string; nome: string }
 }
 
 export type EsitoNuovoOrdine =
@@ -271,7 +281,12 @@ export async function creaOrdine(d: DatiNuovoOrdine): Promise<EsitoNuovoOrdine> 
   const creata = await graphql<{
     data?: {
       draftOrderCreate?: {
-        draftOrder?: { id: string; invoiceUrl: string; name: string } | null
+        draftOrder?: {
+          id: string
+          invoiceUrl: string
+          name: string
+          totalPriceSet?: { shopMoney?: { amount?: string; currencyCode?: string } | null } | null
+        } | null
         userErrors?: { field: string[]; message: string }[]
       }
     }
@@ -281,7 +296,15 @@ export async function creaOrdine(d: DatiNuovoOrdine): Promise<EsitoNuovoOrdine> 
     t,
     `mutation Crea($input: DraftOrderInput!) {
       draftOrderCreate(input: $input) {
-        draftOrder { id invoiceUrl name }
+        draftOrder {
+          id
+          invoiceUrl
+          name
+          # Il totale lo calcola Shopify (sconti, spedizione, tasse): il nostro
+          # sarebbe una somma a mano, e sulle righe prese dal catalogo non
+          # conosciamo nemmeno il prezzo.
+          totalPriceSet { shopMoney { amount currencyCode } }
+        }
         userErrors { field message }
       }
     }`,
@@ -292,6 +315,10 @@ export async function creaOrdine(d: DatiNuovoOrdine): Promise<EsitoNuovoOrdine> 
   if (erroreCrea) return { ok: false, errore: erroreCrea }
   const bozza = creata.data?.draftOrderCreate?.draftOrder
   if (!bozza) return { ok: false, errore: 'Shopify non ha creato la bozza.' }
+
+  const soldi = bozza.totalPriceSet?.shopMoney
+  const importo = Number(soldi?.amount ?? 0) || 0
+  const valuta = soldi?.currencyCode || 'EUR'
 
   if (d.pagamento === 'link') {
     // ⚠️ La mail con il link la manda Shopify solo se c'è un indirizzo: senza,
@@ -311,6 +338,15 @@ export async function creaOrdine(d: DatiNuovoOrdine): Promise<EsitoNuovoOrdine> 
       )
       inviato = !(inv.errors?.length || inv.data?.draftOrderInvoiceSend?.userErrors?.length)
     }
+    await segnaOrdineCreato(d, {
+      bozzaId: bozza.id,
+      bozzaNome: bozza.name,
+      ordineNumero: '',
+      importo,
+      valuta,
+      invitoInviato: inviato,
+      negozioNome: n.nome,
+    })
     return {
       ok: true,
       bozzaId: bozza.id,
@@ -350,12 +386,70 @@ export async function creaOrdine(d: DatiNuovoOrdine): Promise<EsitoNuovoOrdine> 
       errore: `Bozza creata (${bozza.name}) ma non chiusa: ${erroreChiudi}. Finiscila da Shopify, non rifarla da qui.`,
     }
   }
+  const numeroVero = chiusa.data?.draftOrderComplete?.draftOrder?.order?.name ?? ''
+  await segnaOrdineCreato(d, {
+    bozzaId: bozza.id,
+    bozzaNome: bozza.name,
+    ordineNumero: numeroVero,
+    importo,
+    valuta,
+    invitoInviato: false,
+    negozioNome: n.nome,
+  })
   return {
     ok: true,
     bozzaId: bozza.id,
     linkPagamento: '',
-    ordineNumero: chiusa.data?.draftOrderComplete?.draftOrder?.order?.name ?? '',
+    ordineNumero: numeroVero,
     inviato: false,
+  }
+}
+
+/**
+ * Scrive la riga di lavoro: chi ha creato quest'ordine, quando, come.
+ *
+ * ⚠️⚠️ **Non può far fallire niente.** Quando ci arriviamo la bozza su Shopify
+ * esiste già: se questa scrittura lanciasse, l'operatore vedrebbe un errore,
+ * rifarebbe l'ordine, e il cliente si ritroverebbe due ordini e due link. Un
+ * conteggio che perde una riga è un fastidio; un ordine doppio è un danno. Per
+ * questo l'errore si scrive nei log e finisce lì.
+ *
+ * ⚠️ Non è il registro degli ordini (quello è Deluxy Orders): è la riga che
+ * risponde a «chi l'ha fatto», e nessuno legge di qui lo stato di un ordine.
+ */
+async function segnaOrdineCreato(
+  d: DatiNuovoOrdine,
+  extra: {
+    bozzaId: string
+    bozzaNome: string
+    ordineNumero: string
+    importo: number
+    valuta: string
+    invitoInviato: boolean
+    negozioNome: string
+  }
+): Promise<void> {
+  try {
+    await db.ordineCreato.create({
+      data: {
+        utenteId: d.operatore?.id ?? '',
+        utenteNome: d.operatore?.nome ?? '',
+        negozioId: d.negozioId,
+        negozioNome: extra.negozioNome,
+        pagamento: d.pagamento,
+        mezzoPagamento: d.pagamento === 'pagato' ? d.mezzoPagamento : '',
+        bozzaId: extra.bozzaId,
+        bozzaNome: extra.bozzaNome,
+        ordineNumero: extra.ordineNumero,
+        importo: extra.importo,
+        valuta: extra.valuta,
+        clienteNome: [d.cliente.nome, d.cliente.cognome].filter(Boolean).join(' ').trim(),
+        clienteEmail: d.cliente.email.trim(),
+        invitoInviato: extra.invitoInviato,
+      },
+    })
+  } catch (e) {
+    console.error('[nuovo-ordine] riga di lavoro non salvata:', (e as Error).message)
   }
 }
 

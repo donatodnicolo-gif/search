@@ -1,8 +1,8 @@
 # Handoff — Deluxy Customer Service
 
-Ultimo aggiornamento: **21/08/2026, ore 15:10** (tutto ricontato sul database di
-produzione; l'utente ha **pubblicato la schermata di consenso Google** e il
-conto alla rovescia dei 7 giorni è finito. Nessuna riga di codice cambiata).
+Ultimo aggiornamento: **21/08/2026, ore 16:30** (pagina **Operatori** in Qualità;
+prima, alle 15:10, l'utente ha pubblicato la schermata di consenso Google e il
+conto alla rovescia dei 7 giorni è finito).
 Prima, il 19/08: la **risposta di primo contatto** che parte da sola al primo
 messaggio; i **chargeback**; il **nuovo ordine** per il cliente al telefono.
 
@@ -151,6 +151,63 @@ AES-256-GCM nel database. `APP_SECRET` su Vercel **deve** essere identico al
 locale, altrimenti nulla si decifra.
 
 ## FATTO
+
+- **OPERATORI: QUANTO LAVORO HA FATTO CIASCUNO** (21/08/2026). Chiesto
+  dall'utente: «una sezione per giudicare gli operatori — quanti ordini
+  gestiscono, quante chat, quanti link di pagamento inviano». Pagina
+  `/operatori`, **prima voce del gruppo Qualità** (le altre misurano chi
+  consegna, questa misura noi) e **solo amministratori** — il controllo sta in
+  `/api/operatori`, non solo nella pagina.
+  - Sette colonne: **Ordini presi** (`Ordine.presaDaId`/`presaIl`), **Ordini
+    chiusi** (`gestione='gestito'` + `gestioneDaId`/`gestioneIl`), **Chat
+    prese** (`Conversazione.presaDaId`), **Chat risposte** (conversazioni
+    *diverse* in cui ha scritto), **Messaggi inviati**
+    (`Messaggio.direzione='out'` + `utenteId`), **Link di pagamento** e
+    **Ordini creati**.
+  - ⚠️ *Chat prese* e *Chat risposte* sono due cose diverse apposta: prendere
+    in carico è un clic, rispondere è il lavoro. Chi risponde senza prendere in
+    carico lo vede solo la seconda.
+  - **Periodi**: oggi · ieri · 7 giorni · questo mese · 30 giorni · trimestre ·
+    anno · date a scelta. Mese/trimestre/anno di **calendario**, 7 e 30 giorni
+    **mobili**; *ieri* è il giorno intero; nelle date a scelta l'ultimo giorno è
+    **compreso** (il confine è la mezzanotte del giorno dopo).
+  - ⚠️⚠️ **I confini si calcolano nel BROWSER e si mandano come istanti.** Sul
+    server sarebbero UTC — Vercel sta lì — e «oggi» comincerebbe alle 02:00
+    italiane: due ore di lavoro di ogni mattina finirebbero nel giorno prima,
+    **senza che nulla desse errore**. L'intervallo risolto è sempre scritto a
+    schermo, perché «trimestre» non vuol dire la stessa cosa per tutti.
+  - 🆕 **Tabella `OrdineCreato`** (`prisma db push`, additiva). Serviva perché
+    **i link di pagamento non erano misurabili**: `/nuovo-ordine` creava la
+    bozza su Shopify e nessuno scriveva chi era stato — il nome dell'operatore
+    vive solo nella sessione, Shopify non lo sa, e **all'indietro quel dato non
+    si recupera**. Ora la riga si scrive alla nascita dell'ordine, col totale
+    vero calcolato da Shopify (`totalPriceSet`, validato contro lo schema prima
+    di toccare la mutation).
+  - ⚠️⚠️ **La scrittura di quella riga non può far fallire l'ordine**: quando ci
+    si arriva la bozza su Shopify **esiste già**, e un errore mostrato
+    all'operatore lo farebbe ricominciare — col cliente che si ritrova due
+    ordini e due link. È in try/catch, l'errore va nei log e finisce lì.
+  - ⚠️ **`OrdineCreato` NON è un secondo registro degli ordini**: quello resta
+    Deluxy Orders. Qui c'è solo la riga di lavoro (chi, quando, come, quanto), e
+    nessuna schermata legge di lì lo stato di un ordine.
+  - ⚠️ **Il campanello grosso, scritto anche a schermo**: `gestioneDaId`/
+    `gestioneIl` tengono **solo l'ULTIMO cambio di stato**. Se qualcuno riapre
+    un ordine chiuso, quella chiusura non si conta più a nessuno. Non c'è un
+    registro delle azioni in quest'app: la pagina misura **il lavoro, non il
+    merito**, e lo dice.
+  - ⚠️ Ogni colonna dichiara **da quando si misura** (riquadro in fondo, letto
+    dal database): serve a non leggere «zero» come «non ha fatto niente» quando
+    la verità è «qui non si misurava ancora». Link e ordini creati: dal 21/08;
+    le altre da fine luglio 2026.
+  - ✅ **Provato contro il database vero**: `npx tsx scripts/prova-operatori.mts`
+    stampa tutti i periodi e verifica che «da sempre» dia gli stessi totali di
+    un conteggio senza filtri — **tornano tutti** (16 presi, 143 chiusi, 51 chat
+    prese, 810 messaggi). I periodi discriminano davvero: oggi 11 messaggi, ieri
+    23, 7 giorni 183, il mese 759.
+  - ⚠️ **Non verificato a schermo da una sessione**: la pagina vuole un login da
+    amministratore, e le password non le usa una sessione Claude. Typecheck e
+    build passano, `/operatori` compare fra le rotte. **Da guardare con gli
+    occhi.**
 
 - **NUOVO ORDINE PER IL CLIENTE AL TELEFONO** (19/08/2026, LIVE). Pagina
   `/nuovo-ordine`: negozio, cliente (precompilato dalla conversazione), giorno e
