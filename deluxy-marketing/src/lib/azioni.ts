@@ -609,6 +609,68 @@ export async function rilanciaCampagnaRifiutata(fd: FormData) {
 }
 
 /**
+ * Riprova un COMPLETAMENTO di campagna riuscito solo a metà.
+ *
+ * ⚠️ Perché è un'eccezione, e perché qui è sicura. `riapriOperazione` esclude
+ * apposta le eseguite: rifare un'operazione andata a buon fine vorrebbe dire
+ * una seconda campagna, una seconda keyword, una seconda negativa. Il
+ * completamento però è **l'unica operazione fatta per essere ripetibile**, e lo
+ * è nello script, non per fiducia: le località già presenti le salta, il gruppo
+ * lo riusa se c'è, le keyword già dentro le salta, e l'annuncio lo crea solo se
+ * il gruppo non ne ha. Ripeterlo riprova **soltanto il pezzo che era fallito**.
+ *
+ * Nasce dal caso vero del 19/08/2026: sulla WORLD-ENG erano entrati 9 località,
+ * il gruppo e 15 keyword, e l'annuncio era stato rifiutato per
+ * `DESTINATION_NOT_WORKING`. Sistemata la landing non c'era **nessun modo**
+ * nell'app di riprovare solo l'annuncio: bisognava rifare tutto il modulo di
+ * lancio, che avrebbe creato una seconda campagna.
+ *
+ * ⚠️ Solo se l'esito dichiara un problema: un completamento andato tutto bene
+ * non si ripete, non ci sarebbe niente da fare e il bottone confonderebbe.
+ * ⚠️ E torna «da approvare», non approvata: scrive su Google, e la rete che
+ * regge tutto il resto non si buca per comodità.
+ */
+export async function riprovaCompletamento(fd: FormData) {
+  const id = testo(fd, "id");
+  if (!id) return;
+  const op = await prisma.operazioneAdv.findUnique({ where: { id } });
+  if (!op || op.tipo !== "completa_campagna" || op.stato !== "eseguita") return;
+  // Il controllo è ripetuto qui e non solo sul bottone: un bottone nascosto
+  // non è una rete.
+  if (!/ATTENZIONE|RIFIUTAT|non trovate|ambigu/i.test(op.esito ?? "")) return;
+
+  await prisma.operazioneAdv.update({
+    where: { id },
+    data: {
+      stato: "in_attesa",
+      approvataDa: null,
+      approvataIl: null,
+      eseguitaIl: null,
+      // ⚠️ L'esito vecchio si conserva nel motivo: è la ragione per cui si sta
+      // riprovando, e buttarlo via renderebbe la riga incomprensibile fra un
+      // mese. Il campo `esito` invece si svuota, perché il prossimo giro ne
+      // scriverà uno nuovo e due esiti insieme sarebbero una bugia.
+      esito: null,
+      motivo:
+        `${op.motivo ? op.motivo + " · " : ""}Riprovato il ${new Date().toLocaleDateString("it-IT")}: ` +
+        `il giro precedente aveva lasciato indietro qualcosa — ${(op.esito ?? "").slice(0, 400)}`,
+    },
+  });
+  await registra({
+    autore: "utente",
+    tipo: "stato",
+    entita: "operazione",
+    entitaId: id,
+    titolo: `Completamento rimesso in coda: ${op.bersaglio}`,
+    dettaglio:
+      "Il completamento è ripetibile per costruzione: località già presenti, gruppo e keyword " +
+      "già dentro vengono saltati, quindi riprova solo il pezzo che era fallito. Torna «da approvare».",
+  });
+  revalidatePath("/operazioni");
+  redirect("/operazioni");
+}
+
+/**
  * «Lo so, è voluto»: chiude una divergenza fra l'app e Google **e allinea
  * l'app**, perché lo stato su Google è un fatto e quello dell'app un giudizio.
  *

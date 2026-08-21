@@ -5,7 +5,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { TornaIndietro } from "@/components/TornaIndietro";
 import { annullaOperazione, approvaOperazione, approvaOperazioniSelezionate,
   cambiaCorrispondenzaOperazione, riapriOperazione,
-  cambiaTestoOperazione, rilanciaCampagnaRifiutata, accettaDivergenza,
+  cambiaTestoOperazione, rilanciaCampagnaRifiutata, accettaDivergenza, riprovaCompletamento,
 } from "@/lib/azioni";
 import { campagneNonConfermate, letturaNonConfermata } from "@/lib/campagne-non-confermate";
 import { COLORE_CONFERMA, confermeOperazioni, type Conferma } from "@/lib/conferme-operazioni";
@@ -333,6 +333,28 @@ export default async function PaginaOperazioni({
               annullare non cambia niente su Google, perché l'operazione non è
               mai arrivata là. Dopo l'esecuzione sparisce — per disfare serve
               l'operazione opposta. */}
+          {/* ⚠️ RIPROVA, solo sul completamento e solo se qualcosa era andato
+              storto. È l'unica operazione fatta per essere ripetibile — lo
+              script salta località, gruppo e keyword che ci sono già — quindi
+              riprova soltanto il pezzo fallito. Senza questo bottone, dopo aver
+              sistemato (per esempio) la landing rifiutata non c'era modo di
+              riprovare il solo annuncio: bisognava rifare il modulo di lancio,
+              che avrebbe creato una SECONDA campagna. */}
+          {o.tipo === "completa_campagna" &&
+            o.stato === "eseguita" &&
+            /ATTENZIONE|RIFIUTAT|non trovate|ambigu/i.test(o.esito ?? "") && (
+              <form className="op-comandi" action={riprovaCompletamento}>
+                <input type="hidden" name="id" value={o.id} />
+                <button
+                  className="btn small btn-secondario"
+                  type="submit"
+                  title="Rimette in coda il completamento. Località, gruppo e keyword già presenti vengono saltati: riprova solo quello che era fallito. Prima però va sistemata la causa, o fallirà di nuovo."
+                >
+                  Riprova quello che manca
+                </button>
+              </form>
+            )}
+
           {(o.stato === "in_attesa" || o.stato === "approvata") && (
             <form className="pill-scelta op-comandi">
               <input type="hidden" name="id" value={o.id} />
