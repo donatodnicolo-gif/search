@@ -1146,3 +1146,10 @@ tbody tr:hover { background: var(--fill); }
   margin-top: 4px; overflow-wrap: anywhere;
 }
 .kpi-incoda a { text-decoration: underline; }
+
+/* Un bottone che deve leggersi come un link dentro una frase: serve quando
+   l'azione è un ripensamento («rimetti quella»), non un comando principale. */
+.link-come-testo {
+  border: 0; background: none; padding: 0; font: inherit; color: var(--blue);
+  text-decoration: underline; cursor: pointer;
+}

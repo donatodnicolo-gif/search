@@ -410,6 +410,30 @@ export default async function SchedaGruppo({
     return vincitore;
   })();
 
+  // ⚠️ Il ripiego sulla CAMPAGNA, per il caso che conta di più: un gruppo
+  // appena creato non ha annunci, quindi non ha nemmeno una destinazione da
+  // cui dedurre — ed è proprio lì che il campo precompilato serve. Si guarda
+  // dove mandano gli altri gruppi della stessa campagna. Resta un
+  // suggerimento: chi apre il dialogo lo vede e può cambiarlo.
+  const urlPerAnnuncio =
+    urlSuggerito ??
+    (await (async () => {
+      const righe = await prisma.copyAnnuncio.findMany({
+        where: {
+          campagna: gruppo.campagna.nome,
+          tipo: { in: ["destinazione", "titolo", "descrizione"] },
+          finalUrl: { not: null },
+        },
+        select: { finalUrl: true },
+      });
+      const conteggio = new Map<string, number>();
+      for (const r of righe) if (r.finalUrl) conteggio.set(r.finalUrl, (conteggio.get(r.finalUrl) ?? 0) + 1);
+      let vincitore: string | null = null;
+      let max = 0;
+      for (const [u, n] of conteggio) if (n > max) { max = n; vincitore = u; }
+      return vincitore;
+    })());
+
   // La lingua a cui parla il gruppo: prima il suo nome, poi quello della
   // campagna. Un gruppo "Fiori Milano ENG" parla inglese anche se sta in una
   // campagna senza lingua nel nome.
@@ -1586,7 +1610,7 @@ export default async function SchedaGruppo({
                     nomeGruppo={nomeGruppo(gruppo)}
                     azione={creaAnnuncioConAi}
                     accoda={accodaAnnuncio}
-                    urlSuggerito={urlSuggerito}
+                    urlSuggerito={urlPerAnnuncio}
                   />
                 </div>
                 {/* Stessa forma di Google Ads del blocco gemello sulla scheda
@@ -1611,7 +1635,7 @@ export default async function SchedaGruppo({
                     <span>
                       <b>Questo gruppo non ha annunci, quindi non può erogare</b> — su Google
                       risulta «Not eligible» anche se le keyword ci sono e la campagna è accesa.
-                      Con <b>Crea con AI</b> qui sopra ne scrivi uno sui numeri del gruppo e lo
+                      Con <b>Nuovo annuncio</b> qui sopra lo scrivi — a mano o con l&apos;AI — e lo
                       metti in coda; oppure lo crei a mano in Google Ads e al giro dopo compare
                       qui da solo.
                     </span>
