@@ -4,13 +4,23 @@
 > senza altro contesto. Leggere prima il [README](../README.md) per cosa fa l'app;
 > questo documento dice **dove siamo** e **cosa manca**.
 >
-> 🔴 **I tre punti aperti di oggi**: (1) **`esegui.js` e `tutto.js` sono da
-> reincollare** in Google Ads (copie in `Downloads\deluxy-google-ads`) — finché
-> non lo sono, l'operazione `nuovo_annuncio` non ha chi la esegua; (2) in
-> `/operazioni` aspettano **un annuncio** e **6 negative**; (3) l'annuncio della
-> campagna WORLD-ENG è **rifiutato da Google per `DESTINATION_NOT_WORKING`** —
-> è la landing, non il testo, e per una campagna mondiale è probabilmente la
-> pagina sbagliata in partenza.
+> 🔴 **I tre punti aperti di oggi**: (1) l'annuncio nuovo sulla WORLD-ENG è
+> **FALLITO**: «Bersaglio non trovato in questo account». Lo script cercava il
+> gruppo **solo per id** (`825-518-1560:199581767699`, l'id che Google stesso
+> aveva mandato nell'anagrafica delle 08:22) e `withIds` non ha restituito
+> niente. Corretto in `20aa9a95` — ricerca per nome dentro la campagna, poi su
+> tutto l'account, e in caso di fallimento l'esito **dice cosa vede Google** —
+> ma **`esegui.js` va rincollato** perché abbia effetto (copie rigenerate in
+> `Downloads\deluxy-google-ads`), poi «Rimetti in coda»; (2) in `/operazioni`
+> aspettano ancora **6 negative**; (3) l'annuncio della WORLD-ENG resta
+> **rifiutato per `DESTINATION_NOT_WORKING`** — è la landing, non il testo.
+>
+> ✅ **Sciolto il dubbio sullo script**: la copia su Google **era** aggiornata.
+> Lo dimostrano due cose: l'errore è «bersaglio non trovato» e non «tipo di
+> operazione non gestito», e l'anagrafica gruppi delle 08:22 (155 righe, 45
+> nuove) è una funzione di stamattina. ⚠️ Resta vero che **lo script non
+> dichiara la propria versione**: finché non lo fa, quale copia gira su Google
+> si può solo dedurre da come si comporta.
 >
 > ✅ **Chiuso il 18-19/08**: la campagna `[Deluxyflowers] - WORLD - ENG` esiste
 > su Google (id `24147855987`, 9 località, 1 gruppo, 15 keyword). Le 4 keyword
@@ -283,6 +293,30 @@ tipo** e quelle di conto sono marcate `(account NNN)` — la tabella era
 illeggibile e mostrava **15 asset su 76 di altri brand**; e le graffe dentro i
 testi si vedono come **pastiglie parlanti** («parola cercata → Luxury Florist»)
 invece che come codice.
+
+### ⭐ Provandolo: due difetti che l'app non poteva vedere da sola (21/08/2026, `20aa9a95`)
+
+**1. Il gruppo cercato solo per id.** `trovaGruppo` faceva
+`AdsApp.adGroups().withIds([id])` e basta: se quel selettore non risponde,
+l'operazione muore lì. È successo con l'annuncio della WORLD-ENG, e l'id era
+quello **mandato da Google stesso** poche ore prima. Ora: id → nome dentro la
+campagna → nome su tutto l'account (**una sola** corrispondenza: due gruppi
+omonimi e la scelta a caso significa scrivere l'annuncio nel posto sbagliato)
+→ e se fallisce tutto, l'esito riporta **cosa vede Google in quella campagna**,
+id e stato per ogni gruppo. Corretto anche `op.parametri.campagna`, che non
+esisteva: il nome della campagna arriva in **`op.campagna`**, quindi quel
+ripiego era codice morto.
+
+**2. Le estensioni in pausa sembravano attive.** La scheda le elencava tutte
+uguali. Contate sul database il 21/08 su «[Deluxyflowers] - ITALIAN - ENG»:
+**17 sitelink su 30 in pausa**, **4 callout su 5**, 6 immagini su 23; su tutto
+il conto Flowers **44 asset fermi su 215**. Il dato (`statoPiattaforma`)
+arrivava dallo script da sempre e la scheda **non lo leggeva nemmeno una
+volta**. Ora il numero grande conta le **attive**, le ferme si dichiarano e
+scendono in fondo spente, e ⭐ **«manca callout» si decide sulle attive**: un
+tipo con sole estensioni in pausa è mancante a tutti gli effetti — nella pagina
+dei risultati non compare niente, esattamente come se non ne avessimo mai
+fatte.
 
 🔴 **Resta da fare, nell'ordine**: (1) reincollare `esegui.js` e `tutto.js`
 (copie in `Downloads\deluxy-google-ads`) — senza, `nuovo_annuncio` non ha chi
