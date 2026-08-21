@@ -402,6 +402,15 @@ export function TestiAnnuncio({
                       {resa != null && ` · ${resa.toFixed(1)}×`}
                     </span>
                   )}
+                  {/* ⚠️ DI CHE PERIODO SONO. Questi numeri hanno la finestra
+                      fissa dello script (`GIORNI_COPY`, 30 giorni), mentre più
+                      in alto la stessa pagina mostra numeri che seguono il
+                      periodo scelto: due cifre diverse per la stessa cosa, e
+                      nessuna delle due che dice a cosa si riferisce. Un numero
+                      senza il suo periodo non è un numero, è un indovinello. */}
+                  {k.metricheGiorni != null && (
+                    <span style={{ color: "var(--text-tertiary)" }}>ultimi {k.metricheGiorni} giorni</span>
+                  )}
                 </div>
               );
             })()}

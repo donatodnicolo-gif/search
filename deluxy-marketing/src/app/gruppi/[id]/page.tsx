@@ -508,17 +508,24 @@ export default async function SchedaGruppo({
   // guardarle tutte insieme non serve a niente. "attive" è il caso comune.
   const filtroKw = sp.kw ?? "tutte";
   // Quante non sono più su Google: serve alla pillola del filtro.
-  const spariteDaGoogle = sogliaCensimento
-    ? keyword.filter((k) => k.aggiornataIl < sogliaCensimento).length
-    : 0;
+  // ⚠️ Una keyword che Google non riporta più non è roba su cui lavorare:
+  // metterle in mezzo alle altre riempie l'elenco di righe con zero spesa,
+  // zero clic e quattro bottoni («Pausa», «Escludi», «Porta», «Estendi AI»)
+  // che su una parola inesistente non vogliono dire niente. Restano
+  // raggiungibili dalla loro pillola: nascoste dal lavoro, non cancellate.
+  const sparita = (k: { aggiornataIl: Date }) =>
+    sogliaCensimento != null && k.aggiornataIl < sogliaCensimento;
+  const spariteDaGoogle = keyword.filter(sparita).length;
 
   const keywordMostrate = (filtroKw === "defunte" ? keywordDefunte : keyword).filter((k) => {
+    // Fuori da tutti gli elenchi tranne il loro.
+    if (filtroKw !== "sparite" && filtroKw !== "defunte" && sparita(k)) return false;
     if (filtroKw === "tutte" || filtroKw === "defunte") return true;
     if (filtroKw === "attive") return k.statoPiattaforma !== "PAUSED";
     if (filtroKw === "in_pausa") return k.statoPiattaforma === "PAUSED";
     // Quelle che Google non conferma più: si isolano per poterle marcare
     // defunte in blocco senza andarle a cercare una per una.
-    if (filtroKw === "sparite") return sogliaCensimento != null && k.aggiornataIl < sogliaCensimento;
+    if (filtroKw === "sparite") return sparita(k);
     if (filtroKw === "spendono") return numeriDi(k).spesa > 0;
     if (filtroKw === "a_vuoto") return numeriDi(k).spesa >= 20 && numeriDi(k).incasso === 0;
     if (filtroKw === "decise") return azioneDi(k.testo) != null;
@@ -1058,7 +1065,7 @@ export default async function SchedaGruppo({
                   sopravvive al salvataggio di un'operazione e al tasto indietro. */}
               <div className="pill-scelta" style={{ marginBottom: 12 }}>
                 {[
-                  ["tutte", `Tutte (${keyword.length})`],
+                  ["tutte", `Tutte (${keyword.length - spariteDaGoogle})`],
                   ["attive", "Solo attive"],
                   ["in_pausa", "In pausa"],
                   ["spendono", "Che spendono"],

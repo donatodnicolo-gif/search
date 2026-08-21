@@ -11,6 +11,8 @@ type Riga = {
   impressioni?: number | null;
   conversioni?: number | null;
   incasso?: number | null;
+  /** Su quanti giorni sono calcolati i numeri di questa riga. */
+  metricheGiorni?: number | null;
 };
 
 // Il recap in due righe: quanti annunci ci sono, quanti sono in asta, dove
@@ -42,6 +44,27 @@ export function RecapAnnunci({ righe }: { righe: Riga[] }) {
   }
   if (annunci.size === 0) return null;
 
+  // I TESTI di ogni annuncio, ricostruiti come fa la scheda in fondo: ogni
+  // riga `titolo`/`descrizione` porta l'elenco degli annunci che la usano
+  // ("id:STATO"), perché lo stesso titolo vive in più annunci.
+  //
+  // ⚠️ Servono QUI perché il pop-up di un annuncio mostrava solo i numeri:
+  // «come va» senza «cosa dice» obbliga a chiudere, scorrere fino in fondo
+  // alla pagina e ritrovare la colonna giusta per sapere di che annuncio si
+  // sta parlando. Le due cose si guardano insieme.
+  const testiPerAnnuncio = new Map<string, { titoli: string[]; descrizioni: string[] }>();
+  for (const riga of righe) {
+    if (riga.tipo !== "titolo" && riga.tipo !== "descrizione") continue;
+    for (const voce of (riga.annunci ?? "").split(",").filter(Boolean)) {
+      const idAnn = voce.split(":")[0];
+      if (!idAnn) continue;
+      const v = testiPerAnnuncio.get(idAnn) ?? { titoli: [], descrizioni: [] };
+      if (riga.tipo === "titolo") v.titoli.push(riga.testo);
+      else v.descrizioni.push(riga.testo);
+      testiPerAnnuncio.set(idAnn, v);
+    }
+  }
+
   const elenco = [...annunci.entries()]
     .map(([id, v]) => ({ id, ...v, n: kpi.get(id) }))
     .sort((a, b) => {
@@ -51,6 +74,15 @@ export function RecapAnnunci({ righe }: { righe: Riga[] }) {
       return pa - pb || (b.n?.spesa ?? 0) - (a.n?.spesa ?? 0);
     });
   const attivi = elenco.filter((a) => a.stato === "ENABLED").length;
+  // ⚠️ La finestra di questi numeri NON è il periodo scelto in cima alla
+  // pagina: è quella fissa con cui lo script legge i testi (30 giorni). Senza
+  // dirlo, la stessa spesa compare due volte con due cifre diverse e sembra
+  // che una delle due sia sbagliata.
+  const finestre = [
+    ...new Set(
+      elenco.map((a) => a.n?.metricheGiorni).filter((g): g is number => g != null)
+    ),
+  ].sort((a, b) => a - b);
   const landing = [...new Set(elenco.map((a) => a.url).filter(Boolean))] as string[];
 
   return (
@@ -61,6 +93,18 @@ export function RecapAnnunci({ righe }: { righe: Riga[] }) {
       <p className="cella-sub" style={{ whiteSpace: "normal", marginBottom: 10 }}>
         Il riassunto: chi è in asta, quanto spende e dove manda.{" "}
         <a href="#annunci" style={{ color: "var(--blue)" }}>I testi completi stanno in fondo</a>.
+        {finestre.length === 1 && (
+          <>
+            {" "}I numeri sono degli <b>ultimi {finestre[0]} giorni</b> — non del periodo scelto in
+            cima alla pagina: aprendo un annuncio si vedono le altre finestre.
+          </>
+        )}
+        {finestre.length > 1 && (
+          <>
+            {" "}⚠️ I numeri arrivano da finestre diverse ({finestre.join(", ")} giorni): le righe non
+            si confrontano fra loro finché lo script non le riallinea.
+          </>
+        )}
       </p>
 
       <div style={{ overflowX: "auto" }}>
@@ -94,6 +138,9 @@ export function RecapAnnunci({ righe }: { righe: Riga[] }) {
                       data-ann-dettaglio
                       data-kw-id={a.completo ?? ""}
                       data-kw-testo={`Annuncio ${i + 1}`}
+                      data-ann-titoli={JSON.stringify(testiPerAnnuncio.get(a.id)?.titoli ?? [])}
+                      data-ann-descrizioni={JSON.stringify(testiPerAnnuncio.get(a.id)?.descrizioni ?? [])}
+                      data-ann-url={a.url ?? ""}
                       title="Apri le prestazioni di questo annuncio per finestra"
                       style={{ background: "none", border: 0, padding: 0, font: "inherit", fontWeight: 700, cursor: "pointer", textAlign: "left" }}
                     >

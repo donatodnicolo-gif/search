@@ -26,6 +26,9 @@ export function DettaglioKeyword({
   const [testo, setTesto] = useState("");
   const [id, setId] = useState<string | null>(null);
   const [motivo, setMotivo] = useState<string | null>(null);
+  // I testi dell'annuncio, quando il bottone li porta con sé (sugli annunci
+  // sì, sulle keyword no: una parola è già tutta nel titolo del pannello).
+  const [testiAnn, setTestiAnn] = useState<{ titoli: string[]; descrizioni: string[]; url: string } | null>(null);
 
   useEffect(() => {
     const apri = (e: MouseEvent) => {
@@ -42,6 +45,24 @@ export function DettaglioKeyword({
             ? "assente"
             : null
       );
+      // ⚠️ Si legge SEMPRE, anche quando non c'è: senza il reset, aprendo
+      // un secondo annuncio si vedrebbero i testi del primo — che è il modo
+      // più efficace per far leggere il testo sbagliato a chi decide.
+      const grezziT = b.getAttribute("data-ann-titoli");
+      const grezziD = b.getAttribute("data-ann-descrizioni");
+      if (grezziT || grezziD) {
+        try {
+          setTestiAnn({
+            titoli: JSON.parse(grezziT ?? "[]"),
+            descrizioni: JSON.parse(grezziD ?? "[]"),
+            url: b.getAttribute("data-ann-url") ?? "",
+          });
+        } catch {
+          setTestiAnn(null);
+        }
+      } else {
+        setTestiAnn(null);
+      }
       dialogo.current?.showModal();
     };
     document.addEventListener("click", apri);
@@ -68,6 +89,39 @@ export function DettaglioKeyword({
             ✕
           </button>
         </div>
+
+        {/* Prima COSA DICE, poi come va: sono le due domande che uno si fa
+            aprendo un annuncio, e in quest'ordine. */}
+        {testiAnn && (testiAnn.titoli.length > 0 || testiAnn.descrizioni.length > 0) && (
+          <div style={{ padding: "0 18px 14px" }}>
+            {testiAnn.url && (
+              <div className="cella-sub" style={{ overflowWrap: "anywhere", marginBottom: 8 }}>
+                Manda a{" "}
+                <a href={testiAnn.url} target="_blank" rel="noreferrer" style={{ color: "var(--blue)" }}>
+                  {testiAnn.url.replace(/^https?:\/\/(www\.)?/, "")}
+                </a>
+              </div>
+            )}
+            <div style={{ display: "flex", gap: 18, flexWrap: "wrap" }}>
+              <div style={{ minWidth: 220, flex: 1 }}>
+                <div className="cella-sub" style={{ marginBottom: 4 }}>Titoli ({testiAnn.titoli.length})</div>
+                <ul className="brief-elenco">
+                  {testiAnn.titoli.map((t, i) => (
+                    <li key={i}>{t}</li>
+                  ))}
+                </ul>
+              </div>
+              <div style={{ minWidth: 220, flex: 1 }}>
+                <div className="cella-sub" style={{ marginBottom: 4 }}>Descrizioni ({testiAnn.descrizioni.length})</div>
+                <ul className="brief-elenco">
+                  {testiAnn.descrizioni.map((t, i) => (
+                    <li key={i}>{t}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
 
         {righe ? (
           <div style={{ padding: "0 18px 18px" }}>
