@@ -117,6 +117,21 @@ export async function unisciCoppia(tieneId: string, togliId: string): Promise<vo
   }
   const { error } = await supabase.rpc('unisci_places', { p_da: togliId, p_verso: tieneId });
   if (error) throw error;
+
+  // ⚠️ Il superstite non deve restare NASCOSTO.
+  //
+  // `unisci_places` sposta i figli e completa i campi vuoti, ma non tocca il
+  // flag «non interessante». Caso vero del 21/08/2026: la scheda buona di
+  // «Amir Roma. Cioccolato e Pasticceria» — quella con lo stato *cliente* — era
+  // nascosta, e il doppione vuoto no. Unendo nel modo giusto (resta il cliente)
+  // il negozio sarebbe **sparito da tutte le liste**, finendo in Profilo →
+  // Nascosti: il contrario di quello che uno si aspetta unendo due schede.
+  // Nascondere è una scelta fatta su un'altra scheda, in un altro momento;
+  // unire vuol dire «questa la tengo».
+  //
+  // Best-effort: se fallisce, l'unione è già avvenuta e non va annullata per
+  // un flag — al massimo il negozio va ripescato dai Nascosti.
+  await supabase.from('places').update({ nascosto: false }).eq('id', tieneId);
 }
 
 /** «Non sono la stessa cosa»: la coppia non ricompare più. */
