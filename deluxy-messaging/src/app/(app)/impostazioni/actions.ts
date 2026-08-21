@@ -21,6 +21,7 @@ const SEGRETI = [
   'metaAppSecret',
   'igAppSecret',
   'googleClientSecret',
+  'googleMapsApiKey',
   'ordersApiKey',
   'searchApiKey',
   'anthropicApiKey',

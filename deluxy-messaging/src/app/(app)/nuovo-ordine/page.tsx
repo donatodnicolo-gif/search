@@ -17,7 +17,12 @@ export default async function PaginaNuovoOrdine({
   }
   return (
     <NuovoOrdine
-      prefill={{ nome: uno('nome'), email: uno('email'), telefono: uno('telefono') }}
+      prefill={{
+        nome: uno('nome'),
+        email: uno('email'),
+        telefono: uno('telefono'),
+        negozioId: uno('negozio'),
+      }}
     />
   )
 }

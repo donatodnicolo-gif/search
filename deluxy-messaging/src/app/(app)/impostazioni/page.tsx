@@ -30,6 +30,7 @@ export default async function PaginaImpostazioni({
     'widgetTitolo',
     'widgetMessaggio',
     'googleClientId',
+    'googleMapsApiKey',
     'googleClientSecret',
     'googleRefreshToken',
     'ordersUrl',
@@ -238,6 +239,22 @@ export default async function PaginaImpostazioni({
                 Salva prima Client ID e Client Secret, poi il pulsante si attiva.
               </p>
             ) : null}
+          </div>
+
+          <div className="card">
+            <h2>Indirizzi (Google Maps)</h2>
+            <p className="descrizione">
+              Con una chiave Maps, l&apos;indirizzo di consegna in «Nuovo ordine» si sceglie da un
+              elenco invece di digitarlo: via, CAP, città e provincia arrivano già separati e
+              giusti. ⚠️ Serve l&apos;API <strong>Places (New)</strong> abilitata sul progetto
+              Google; la chiave resta sul server e non finisce mai nella pagina.
+            </p>
+            <CampoSegreto
+              nome="googleMapsApiKey"
+              etichetta="Chiave API Google Maps"
+              valore={config.googleMapsApiKey}
+              segnaposto="AIza…"
+            />
           </div>
 
           <div className="card">

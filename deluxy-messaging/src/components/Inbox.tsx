@@ -44,6 +44,8 @@ export type ConversazioneDto = {
    */
   presaDaId?: string
   presaDaNome?: string
+  /** Il negozio di questa conversazione: serve a creare l'ordine sul marchio giusto. */
+  negozioId?: string
   /** Il marchio di quell'account, se è collegato a un negozio. Decide la colonna. */
   brand?: string
   /**
@@ -1696,6 +1698,7 @@ export function Inbox({
               <a
                 className="bottone secondario mini"
                 href={`/nuovo-ordine?${new URLSearchParams({
+                  negozio: selezionata.negozioId ?? '',
                   nome: selezionata.nomeRubrica || selezionata.nome || '',
                   email: selezionata.canale === 'email' ? selezionata.idEsterno : '',
                   telefono: selezionata.canale === 'whatsapp' ? selezionata.idEsterno : '',

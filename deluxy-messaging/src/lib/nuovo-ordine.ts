@@ -358,3 +358,149 @@ export async function creaOrdine(d: DatiNuovoOrdine): Promise<EsitoNuovoOrdine> 
     inviato: false,
   }
 }
+
+export type SpedizioneNegozio = { titolo: string; prezzo: number; usata: number }
+
+/**
+ * Le voci di spedizione **che quel negozio usa davvero**, dai suoi ordini
+ * recenti.
+ *
+ * ⚠️⚠️ NON SI INVENTANO E NON SI CONDIVIDONO FRA I MARCHI: misurato il
+ * 19/08/2026 sugli ultimi 60 ordini di ciascuno — Deluxy usa «Consegna in
+ * Giacca, Cravatta e Guanti Bianchi» (15 €) e «Consegna Deluxy» (25 €), Cake
+ * «Consegna Standard» (10 €), Flowers «Consegna Sempre Gratuita» (0 €).
+ * Proporre «Consegna Deluxy» su un ordine Cake vorrebbe dire fatturare al
+ * cliente un servizio che quel marchio non fa.
+ *
+ * Si leggono dagli ordini e non da una tabella nostra perché il listino cambia
+ * senza avvisarci: una tabella scritta oggi sarebbe falsa fra un mese, e
+ * nessuno se ne accorgerebbe.
+ */
+export async function spedizioniDelNegozio(negozioId: string): Promise<SpedizioneNegozio[]> {
+  const n = await negozio(negozioId)
+  if (!n) return []
+  const t = await token(n)
+  if (!t) return []
+  const d = await graphql<{
+    data?: {
+      orders?: {
+        edges?: {
+          node: {
+            shippingLine?: {
+              title?: string
+              originalPriceSet?: { shopMoney?: { amount?: string } }
+            } | null
+          }
+        }[]
+      }
+    }
+  }>(
+    n,
+    t,
+    `{ orders(first: 60, sortKey: CREATED_AT, reverse: true) {
+        edges { node { shippingLine { title originalPriceSet { shopMoney { amount } } } } }
+      } }`
+  )
+  const conta = new Map<string, SpedizioneNegozio>()
+  for (const e of d.data?.orders?.edges ?? []) {
+    const s = e.node.shippingLine
+    if (!s?.title) continue
+    const prezzo = Number(s.originalPriceSet?.shopMoney?.amount ?? 0) || 0
+    const chiave = `${s.title}|${prezzo}`
+    const gia = conta.get(chiave)
+    if (gia) gia.usata++
+    else conta.set(chiave, { titolo: s.title, prezzo, usata: 1 })
+  }
+  // Le più usate davanti: la prima è quella che il negozio mette quasi sempre.
+  return [...conta.values()].sort((a, b) => b.usata - a.usata).slice(0, 8)
+}
+
+export type ClienteTrovato = {
+  nome: string
+  cognome: string
+  email: string
+  telefono: string
+  indirizzo: string
+  note: string
+  cap: string
+  citta: string
+  provincia: string
+  paese: string
+  ordini: number
+}
+
+/**
+ * I clienti già registrati in quel negozio.
+ *
+ * ⚠️ Si cerca DENTRO IL NEGOZIO scelto, non «fra i clienti Deluxy»: i tre
+ * negozi hanno anagrafiche separate su Shopify, e un indirizzo preso da un
+ * altro negozio sarebbe un dato che quel negozio non ha mai visto.
+ *
+ * ⚠️ Si porta indietro anche l'indirizzo predefinito: è il motivo per cui si
+ * richiama un cliente — non ridigitare via, CAP e città al telefono, dove si
+ * sbaglia una cifra e il valet suona alla porta sbagliata.
+ */
+export async function cercaClienti(negozioId: string, q: string): Promise<ClienteTrovato[]> {
+  const pulito = q.trim()
+  if (!pulito) return []
+  const n = await negozio(negozioId)
+  if (!n) return []
+  const t = await token(n)
+  if (!t) return []
+  const d = await graphql<{
+    data?: {
+      customers?: {
+        edges?: {
+          node: {
+            firstName?: string | null
+            lastName?: string | null
+            email?: string | null
+            phone?: string | null
+            numberOfOrders?: string | null
+            defaultAddress?: {
+              address1?: string | null
+              address2?: string | null
+              zip?: string | null
+              city?: string | null
+              provinceCode?: string | null
+              countryCodeV2?: string | null
+              phone?: string | null
+            } | null
+          }
+        }[]
+      }
+    }
+  }>(
+    n,
+    t,
+    `query Clienti($q: String!) {
+      customers(first: 8, query: $q) {
+        edges { node {
+          firstName lastName email phone numberOfOrders
+          defaultAddress { address1 address2 zip city provinceCode countryCodeV2 phone }
+        } }
+      }
+    }`,
+    { q: pulito }
+  )
+  return (d.data?.customers?.edges ?? []).map((e) => {
+    const c = e.node
+    const a = c.defaultAddress
+    return {
+      nome: c.firstName ?? '',
+      cognome: c.lastName ?? '',
+      email: c.email ?? '',
+      // ⚠️ Il telefono del CLIENTE è spesso vuoto mentre quello dell'indirizzo
+      // c'è: è lo stesso numero, e senza questo ripiego si chiederebbe al
+      // cliente un dato che abbiamo già.
+      telefono: c.phone || a?.phone || '',
+      indirizzo: a?.address1 ?? '',
+      note: a?.address2 ?? '',
+      cap: a?.zip ?? '',
+      citta: a?.city ?? '',
+      provincia: a?.provinceCode ?? '',
+      paese: a?.countryCodeV2 ?? 'IT',
+      ordini: Number(c.numberOfOrders ?? 0) || 0,
+    }
+  })
+}

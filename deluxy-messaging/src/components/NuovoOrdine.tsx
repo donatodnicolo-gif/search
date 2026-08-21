@@ -17,6 +17,20 @@ type Prodotto = {
   immagine: string
   disponibile: boolean
 }
+type ClienteTrovato = {
+  nome: string
+  cognome: string
+  email: string
+  telefono: string
+  indirizzo: string
+  note: string
+  cap: string
+  citta: string
+  provincia: string
+  paese: string
+  ordini: number
+}
+
 type Riga = {
   variantId?: string
   titolo: string
@@ -34,10 +48,14 @@ export function NuovoOrdine({
   prefill,
 }: {
   /** Chi è il cliente, quando si arriva da una conversazione. */
-  prefill?: { nome?: string; email?: string; telefono?: string }
+  prefill?: { nome?: string; email?: string; telefono?: string; negozioId?: string }
 }) {
   const [negozi, setNegozi] = useState<Negozio[]>([])
-  const [negozioId, setNegozioId] = useState('')
+  // ⚠️ Il negozio arriva dalla conversazione quando si parte da lì: il cliente
+  // ha scritto AL marchio, e far scegliere di nuovo è sia un gesto in più sia
+  // un modo per sbagliare — un ordine Cake creato su Flowers ha il listino, la
+  // spedizione e la voce di consegna di un'altra azienda.
+  const [negozioId, setNegozioId] = useState(prefill?.negozioId ?? '')
 
   const [nome, setNome] = useState(prefill?.nome ?? '')
   const [cognome, setCognome] = useState('')
@@ -62,8 +80,26 @@ export function NuovoOrdine({
   const [rigaTitolo, setRigaTitolo] = useState('')
   const [rigaPrezzo, setRigaPrezzo] = useState('')
 
-  const [spedizioneTitolo, setSpedizioneTitolo] = useState('Consegna Deluxy')
+  /** Le voci di spedizione che QUESTO negozio usa davvero. */
+  const [spedizioni, setSpedizioni] = useState<{ titolo: string; prezzo: number; usata: number }[]>(
+    []
+  )
+  const [spedizioneTitolo, setSpedizioneTitolo] = useState('')
   const [spedizionePrezzo, setSpedizionePrezzo] = useState('0')
+
+  /** I suggerimenti di Google Maps per l'indirizzo che si sta scrivendo. */
+  const [indirizzi, setIndirizzi] = useState<{ id: string; testo: string; secondario: string }[]>(
+    []
+  )
+  const [mapsSenzaChiave, setMapsSenzaChiave] = useState(false)
+  /** Vero quando l'indirizzo è stato SCELTO da Maps, non digitato. */
+  const [indirizzoDaMaps, setIndirizzoDaMaps] = useState(false)
+
+  /** Richiamo di un cliente già registrato in quel negozio. */
+  const [qCliente, setQCliente] = useState('')
+  const [clienti, setClienti] = useState<ClienteTrovato[]>([])
+  const [cercandoCliente, setCercandoCliente] = useState(false)
+  const [clienteCercato, setClienteCercato] = useState(false)
   const [biglietto, setBiglietto] = useState('')
 
   const [pagamento, setPagamento] = useState<'link' | 'pagato'>('link')
@@ -86,6 +122,72 @@ export function NuovoOrdine({
       })
       .catch(() => setNegozi([]))
   }, [])
+
+  // ⚠️ Le spedizioni si rileggono a ogni cambio di negozio, e la più usata si
+  // mette da sola: «Consegna Deluxy» su un ordine Cake sarebbe una voce che
+  // quel marchio non ha mai fatturato.
+  useEffect(() => {
+    if (!negozioId) {
+      setSpedizioni([])
+      return
+    }
+    fetch('/api/nuovo-ordine/spedizioni?negozio=' + encodeURIComponent(negozioId))
+      .then((r) => (r.ok ? r.json() : { spedizioni: [] }))
+      .then((d: { spedizioni?: { titolo: string; prezzo: number; usata: number }[] }) => {
+        const s = d.spedizioni ?? []
+        setSpedizioni(s)
+        if (s.length) {
+          setSpedizioneTitolo(s[0].titolo)
+          setSpedizionePrezzo(String(s[0].prezzo))
+        }
+      })
+      .catch(() => setSpedizioni([]))
+  }, [negozioId])
+
+  /** Cerca un cliente già registrato e, scegliendolo, riempie tutto. */
+  const cercaCliente = useCallback(async () => {
+    if (!negozioId) {
+      setErrore('Scegli prima il negozio: le anagrafiche sono separate per marchio.')
+      return
+    }
+    if (!qCliente.trim()) return
+    setCercandoCliente(true)
+    setErrore('')
+    try {
+      const p = new URLSearchParams({ negozio: negozioId, q: qCliente.trim() })
+      const res = await fetch('/api/nuovo-ordine/clienti?' + p.toString())
+      const d = (await res.json().catch(() => ({}))) as {
+        clienti?: ClienteTrovato[]
+        errore?: string
+      }
+      if (!res.ok) {
+        setErrore(d.errore || 'Ricerca non riuscita.')
+        return
+      }
+      setClienti(d.clienti ?? [])
+      setClienteCercato(true)
+    } finally {
+      setCercandoCliente(false)
+    }
+  }, [negozioId, qCliente])
+
+  function usaCliente(c: ClienteTrovato) {
+    setNome(c.nome)
+    setCognome(c.cognome)
+    if (c.email) setEmail(c.email)
+    if (c.telefono) setTelefono(c.telefono)
+    // ⚠️ L'indirizzo si riempie SOLO se il cliente ne ha uno: sovrascrivere con
+    // il vuoto quello appena scritto a mano sarebbe il modo più rapido per far
+    // perdere lavoro a chi sta al telefono.
+    if (c.indirizzo) setIndirizzo(c.indirizzo)
+    if (c.note) setNote(c.note)
+    if (c.cap) setCap(c.cap)
+    if (c.citta) setCitta(c.citta)
+    if (c.provincia) setProvincia(c.provincia)
+    if (c.paese) setPaese(c.paese)
+    setClienti([])
+    setClienteCercato(false)
+  }
 
   const cerca = useCallback(async () => {
     if (!negozioId) {
@@ -113,6 +215,50 @@ export function NuovoOrdine({
       setCercando(false)
     }
   }, [negozioId, q])
+
+  // ── L'indirizzo si cerca mentre si scrive ──
+  //
+  // ⚠️ Con un'attesa di mezzo secondo: una chiamata a ogni tasto sarebbe una
+  // raffica pagata a Google per niente, e i suggerimenti ballerebbero sotto le
+  // dita di chi sta scrivendo.
+  useEffect(() => {
+    const testo = indirizzo.trim()
+    if (indirizzoDaMaps || testo.length < 4) {
+      setIndirizzi([])
+      return
+    }
+    const attesa = setTimeout(() => {
+      fetch('/api/indirizzi?q=' + encodeURIComponent(testo))
+        .then((r) => (r.ok ? r.json() : { suggerimenti: [] }))
+        .then(
+          (d: {
+            suggerimenti?: { id: string; testo: string; secondario: string }[]
+            senzaChiave?: boolean
+          }) => {
+            setMapsSenzaChiave(Boolean(d.senzaChiave))
+            setIndirizzi(d.suggerimenti ?? [])
+          }
+        )
+        .catch(() => setIndirizzi([]))
+    }, 500)
+    return () => clearTimeout(attesa)
+  }, [indirizzo, indirizzoDaMaps])
+
+  /** Scelto un indirizzo: si prendono i campi separati, non la riga di testo. */
+  async function usaIndirizzo(id: string) {
+    const res = await fetch('/api/indirizzi?id=' + encodeURIComponent(id))
+    const d = (await res.json().catch(() => ({}))) as {
+      indirizzo?: { indirizzo: string; cap: string; citta: string; provincia: string; paese: string }
+    }
+    if (!d.indirizzo) return
+    setIndirizzo(d.indirizzo.indirizzo)
+    if (d.indirizzo.cap) setCap(d.indirizzo.cap)
+    if (d.indirizzo.citta) setCitta(d.indirizzo.citta)
+    if (d.indirizzo.provincia) setProvincia(d.indirizzo.provincia)
+    if (d.indirizzo.paese) setPaese(d.indirizzo.paese)
+    setIndirizzi([])
+    setIndirizzoDaMaps(true)
+  }
 
   const totale =
     righe.reduce((s, r) => s + r.prezzo * r.quantita, 0) + (Number(spedizionePrezzo) || 0)
@@ -283,6 +429,68 @@ export function NuovoOrdine({
               ))}
             </select>
           </label>
+          <label className="campo" style={{ gridColumn: '1 / -1' }}>
+            {/* ── Richiamare un cliente già registrato ──
+                ⚠️ Serve a NON ridigitare via, CAP e città al telefono: è lì che
+                si sbaglia una cifra e il valet suona alla porta sbagliata.
+                ⚠️ Si cerca dentro il negozio scelto: i tre marchi hanno
+                anagrafiche separate su Shopify, e un indirizzo preso da un altro
+                negozio è un dato che quel negozio non ha mai visto. */}
+            <span>Cliente già registrato (nome, email o telefono)</span>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                value={qCliente}
+                onChange={(e) => setQCliente(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    void cercaCliente()
+                  }
+                }}
+                placeholder="rossi, mario@…, 3331234567"
+                style={{ flex: 1 }}
+              />
+              <button
+                className="bottone secondario"
+                onClick={() => void cercaCliente()}
+                disabled={cercandoCliente}
+              >
+                {cercandoCliente ? 'Cerco…' : 'Richiama'}
+              </button>
+            </div>
+          </label>
+
+          {clienti.length ? (
+            <div style={{ gridColumn: '1 / -1', display: 'grid', gap: 6 }}>
+              {clienti.map((c, i) => (
+                <button
+                  key={i}
+                  className="card riga-cliccabile"
+                  style={{ padding: 8, textAlign: 'left' }}
+                  onClick={() => usaCliente(c)}
+                >
+                  <div className="cella-nome">
+                    {[c.nome, c.cognome].filter(Boolean).join(' ') || c.email || 'senza nome'}
+                  </div>
+                  <div className="cella-sub">
+                    {[
+                      c.email,
+                      c.telefono,
+                      [c.indirizzo, c.cap, c.citta].filter(Boolean).join(' '),
+                      c.ordini ? `${c.ordini} ordini` : 'mai ordinato',
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </div>
+                </button>
+              ))}
+            </div>
+          ) : clienteCercato ? (
+            <p className="descrizione" style={{ gridColumn: '1 / -1' }}>
+              Nessun cliente con quel nome in questo negozio: compila i campi a mano.
+            </p>
+          ) : null}
+
           <label className="campo">
             <span>Nome</span>
             <input value={nome} onChange={(e) => setNome(e.target.value)} />
@@ -314,8 +522,47 @@ export function NuovoOrdine({
             <input value={fascia} onChange={(e) => setFascia(e.target.value)} placeholder="16-20" />
           </label>
           <label className="campo" style={{ gridColumn: '1 / -1' }}>
-            <span>Indirizzo</span>
-            <input value={indirizzo} onChange={(e) => setIndirizzo(e.target.value)} placeholder="Via …, 12" />
+            {/* ── L'indirizzo lo dà Maps ──
+                ⚠️ Un indirizzo scelto da un elenco ESISTE; uno digitato al
+                telefono ha una cifra sbagliata una volta su dieci, e l'errore si
+                scopre col mazzo in mano davanti alla porta sbagliata. */}
+            <span>
+              Indirizzo{' '}
+              {indirizzoDaMaps ? (
+                <span className="cella-sub">· preso da Maps</span>
+              ) : (
+                <span className="cella-sub">· scrivi e scegli dall&apos;elenco</span>
+              )}
+            </span>
+            <input
+              value={indirizzo}
+              onChange={(e) => {
+                setIndirizzo(e.target.value)
+                setIndirizzoDaMaps(false)
+              }}
+              placeholder="Via …, 12"
+            />
+            {indirizzi.length ? (
+              <div style={{ display: 'grid', gap: 4, marginTop: 4 }}>
+                {indirizzi.map((s) => (
+                  <button
+                    key={s.id}
+                    className="card riga-cliccabile"
+                    style={{ padding: 8, textAlign: 'left' }}
+                    onClick={() => void usaIndirizzo(s.id)}
+                  >
+                    <div className="cella-nome">{s.testo}</div>
+                    <div className="cella-sub">{s.secondario}</div>
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            {mapsSenzaChiave ? (
+              <span className="cella-sub">
+                ⚠️ Manca la chiave Google Maps (Impostazioni → Indirizzi): l&apos;indirizzo si
+                scrive a mano, e nessuno controlla che esista.
+              </span>
+            ) : null}
           </label>
           <label className="campo">
             <span>CAP</span>
@@ -506,13 +753,37 @@ export function NuovoOrdine({
       <div className="card">
         <h2 style={{ marginTop: 0, fontSize: 15 }}>Consegna, biglietto e pagamento</h2>
         <div className="griglia-campi">
-          <label className="campo">
-            <span>Voce di spedizione</span>
-            <input value={spedizioneTitolo} onChange={(e) => setSpedizioneTitolo(e.target.value)} />
-          </label>
-          <label className="campo">
-            <span>Costo spedizione €</span>
-            <input value={spedizionePrezzo} onChange={(e) => setSpedizionePrezzo(e.target.value)} />
+          <label className="campo" style={{ gridColumn: '1 / -1' }}>
+            {/* ⚠️ Le voci sono quelle che QUESTO negozio usa davvero, lette dai
+                suoi ordini recenti: «Consegna Deluxy» (25 €) è di Deluxy,
+                «Consegna Standard» (10 €) di Cake, «Consegna Sempre Gratuita»
+                di Flowers. Metterne una dell'altro marchio vuol dire fatturare
+                al cliente un servizio che quel marchio non fa. */}
+            <span>Spedizione</span>
+            {spedizioni.length ? (
+              <select
+                value={`${spedizioneTitolo}|${spedizionePrezzo}`}
+                onChange={(e) => {
+                  const [tit, pre] = e.target.value.split('|')
+                  setSpedizioneTitolo(tit)
+                  setSpedizionePrezzo(pre)
+                }}
+              >
+                {spedizioni.map((s) => (
+                  <option key={`${s.titolo}|${s.prezzo}`} value={`${s.titolo}|${s.prezzo}`}>
+                    {s.titolo} — {soldi(s.prezzo)}
+                    {s.usata > 1 ? ` (usata ${s.usata} volte)` : ''}
+                  </option>
+                ))}
+                <option value="|0">Nessuna spedizione</option>
+              </select>
+            ) : (
+              <input
+                value={spedizioneTitolo}
+                onChange={(e) => setSpedizioneTitolo(e.target.value)}
+                placeholder={negozioId ? 'Leggo le spedizioni del negozio…' : 'Scegli prima il negozio'}
+              />
+            )}
           </label>
         </div>
         <label className="campo">
