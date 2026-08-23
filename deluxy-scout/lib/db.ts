@@ -1603,7 +1603,21 @@ export async function fetchAffiliazioni(): Promise<AffiliazioneRow[]> {
     .select(
       'id, nome, indirizzo, zona, categoria, stato, stato_affiliazione, anagrafiche_stato, starred, creato_da, source, created_at, contacts(nome, ruolo, telefono, is_decisore), chiamate(created_at)',
     )
-    .eq('linea_ipotizzata', 'Re-seller')
+    // ⚠️ DUE NOMI PER LA STESSA COSA, e uno solo era guardato.
+    //
+    // Il registro Anagrafiche tratta «Affiliazioni» e «Re-seller» come la
+    // stessa categoria (`INTERESSI_AFFILIAZIONE` in src/lib/interessi.ts), e
+    // chi entra dall'app fornitori riceve per regola l'interesse
+    // **«Affiliazioni»**. Questa schermata filtrava solo «Re-seller», e per di
+    // più solo sulla linea PRIMARIA: misurato il 23/08/2026, **37 negozi**
+    // restavano fuori dall'elenco che porta il loro nome — fra cui **23 dei 25
+    // segnalati dall'app fornitori**, che l'utente si aspettava di trovare qui.
+    //
+    // Ora vale l'una o l'altra, sia come linea primaria sia fra gli interessi
+    // multipli (`ov` = gli array si sovrappongono).
+    .or(
+      'linea_ipotizzata.in.(Re-seller,Affiliazioni),linee_ipotizzate.ov.{Re-seller,Affiliazioni}',
+    )
     .order('nome');
   if (error) throw error;
   return (data ?? []).map((r: any) => {
