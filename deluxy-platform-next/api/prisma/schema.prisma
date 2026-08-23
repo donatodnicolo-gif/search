@@ -240,6 +240,15 @@ model Partner {
   bankAccount         String? // IBAN
   bankAccountName     String? // intestatario conto
   sdiCode             String? // codice SDI fatturazione elettronica
+  // --- dati amministrativi che arrivano dal registro Anagrafiche ---
+  /// Referente amministrazione del registro (non il referente commerciale).
+  adminName           String?
+  adminEmail          String?
+  adminPhone          String?
+  /// Stato finanziario secondo il registro: da_verificare | regolare | in_ritardo | insoluto.
+  /// ⚠️ Nel registro vale `da_verificare` su 1.034 anagrafiche su 1.057, cioe' e'
+  /// il valore predefinito: solo 23 dicono davvero qualcosa.
+  financialStatus     String?
   certifiedEmail      String? // PEC
   contractStart       DateTime?
   contractEnd         DateTime?
