@@ -76,12 +76,32 @@ export function AiutoLaterale() {
     }
   }, [])
 
+  // ⚠️⚠️ **Ricaricare APRENDO il pannello** è la cosa che mancava, e si è vista
+  // subito alla prima prova vera: la risposta era arrivata in 17 secondi, ma chi
+  // apriva il pannello vedeva ancora «in attesa» — perché i dati erano quelli
+  // dell'ultimo giro. Un pannello che si apre su una cosa vecchia fa credere
+  // che il canale non funzioni, ed è il modo più veloce per farlo abbandonare.
+  useEffect(() => {
+    if (aperto) void carica()
+  }, [aperto, carica])
+
   useEffect(() => {
     void carica()
-    // ⚠️ Un giro ogni due minuti, non ogni cinque secondi come l'inbox: qui la
-    // fretta non serve, e una chiamata continua su OGNI pagina si paga.
-    const t = setInterval(() => void carica(), 120_000)
-    return () => clearInterval(t)
+    // ⚠️ Ogni 45 secondi, non ogni 5 come l'inbox: qui la fretta serve meno, ma
+    // due minuti erano troppi — chi aspetta una risposta guarda spesso.
+    const t = setInterval(() => void carica(), 45_000)
+    // ⚠️ E al ritorno sulla finestra: chi va su WhatsApp a leggere la risposta e
+    // torna qui deve trovarla, non aspettare il prossimo giro.
+    const alRitorno = () => {
+      if (!document.hidden) void carica()
+    }
+    document.addEventListener('visibilitychange', alRitorno)
+    window.addEventListener('focus', alRitorno)
+    return () => {
+      clearInterval(t)
+      document.removeEventListener('visibilitychange', alRitorno)
+      window.removeEventListener('focus', alRitorno)
+    }
   }, [carica])
 
   // Il numero d'ordine che si sta guardando, se l'indirizzo lo dice.

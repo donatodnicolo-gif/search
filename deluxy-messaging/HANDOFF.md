@@ -1,6 +1,6 @@
 # Handoff — Deluxy Customer Service
 
-Ultimo aggiornamento: **23/08/2026, ore 21:00** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
+Ultimo aggiornamento: **23/08/2026, ore 21:30** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
 prima, alle 15:10, l'utente ha pubblicato la schermata di consenso Google e il
 conto alla rovescia dei 7 giorni è finito).
 Prima, il 19/08: la **risposta di primo contatto** che parte da sola al primo
@@ -188,6 +188,19 @@ locale, altrimenti nulla si decifra.
     com'è** (131047 dice tutto a chi sa leggerlo) e il pannello lo mostra **in
     rosso** a chi ha chiesto — credere di aver avvisato qualcuno che non sa
     niente è peggio che sapere di non averlo avvisato.
+  - 🐞 **IL GIRO COMPLETO PROVATO DALL'UTENTE, e il difetto che ha scoperto.**
+    Domanda «aiutami» alle 16:04:53 dal pannello, avviso inviato, risposta da
+    WhatsApp «cosa hai bisogno?» **registrata alle 16:05:10 — 17 secondi dopo**,
+    firmata «Amministratore (WhatsApp)». Funzionava tutto, ma l'utente ha
+    scritto «non arriva nulla»: **il pannello non ricaricava aprendosi**, e
+    mostrava ancora «in attesa». ⚠️⚠️ Un pannello che si apre su una cosa
+    vecchia fa credere che il canale sia rotto — ed è il modo più veloce per
+    farlo abbandonare. Corretto: si ricarica **all'apertura**, ogni **45 s**
+    (erano 120) e **al ritorno sulla finestra** (chi va a leggere la risposta su
+    WhatsApp e torna deve trovarla).
+  - ⚠️ Lezione: quando una cosa passa da un altro canale, **il segnale di
+    ritorno va progettato quanto l'andata**. Qui il dato arrivava in 17 secondi
+    e restava invisibile per due minuti.
   - ✅ **Provato per davvero il 23/08**: `npx tsx scripts/prova-aiuto-whatsapp.mts`
     → `esito: inviato`, wamid vero. **La finestra era aperta.** ⚠️ Lo script
     manda un messaggio VERO e cancella la riga di prova per id.
