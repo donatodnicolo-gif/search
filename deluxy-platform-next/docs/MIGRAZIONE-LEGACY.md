@@ -128,7 +128,61 @@ vanno nominate a mano prima di usarle.
 
 ---
 
-## Prossimo passo
+## Fase 1 — anagrafiche (23/08/2026)
 
-Profilare `customer`, `partner`, `expert` e `provinces` — sono piccole e chiudono la parte anagrafica.
-`delivery` (62.376 × 114) va affrontata dopo, da sola.
+`scripts/importa-legacy.mjs --fase anagrafiche`. Prima si prova con `--prova`, che simula senza scrivere.
+
+| sorgente | destinazione | righe |
+|---|---|---|
+| `provinces` | `Province` | 107 (1 scartata) |
+| `province-cities` | `City` | 43 |
+| `partner` | `Partner` + `User` ruolo `PARTNER` | 265 |
+| `expert` | `Valet` + `User` ruolo `VALET` | 285 |
+| `operation` | `Operation` + `User` ruolo `OPERATION`/`PROJECT_MANAGER` | 16 |
+| `customer` | `Customer` + `User` ruolo `CUSTOMER` | 4.512 (2 senza nome) |
+| `user` senza `extraType` | `User` ruolo `ADMIN` | 2 (gli altri 9 non si importano) |
+
+### Modifiche allo schema che sono servite
+
+- **`legacyId Int? @unique`** su 11 modelli. Senza, l'import non è ripetibile e le relazioni del legacy
+  (tutte su id numerici) non si possono ricollegare.
+- **Ruolo `CUSTOMER` + relazione `User` ↔ `Customer`**: non esistevano, la richiesta di dare un accesso
+  ai clienti non era realizzabile così com'era.
+
+Migrazione `20260823125015_legacy_id_e_accesso_clienti`, puramente additiva.
+
+### Le cinque trappole, tutte incontrate davvero
+
+1. **`NULL` è una stringa.** Nell'export il vuoto è il testo `"NULL"`. Senza conversione si scriverebbe
+   la parola dentro i campi.
+2. **MySQL ammette `0000-00-00 00:00:00`, Postgres no.** In `provinces` metà delle date è la data zero:
+   passarla fa fallire l'intera riga.
+3. **Il codice provincia `TO` è duplicato**: due righe, «Torino» e «Turin». Vince la prima, la seconda
+   viene segnalata invece di far esplodere l'indice unico.
+4. **Il seed aveva già creato province e utenti senza `legacyId`.** Un upsert sul solo `legacyId` va a
+   sbattere sugli indici unici (`MI`, `MB`, gli utenti demo). Serve un aggancio a tre livelli:
+   `legacyId` → chiave naturale (codice, email) → creazione. Al secondo passaggio il `legacyId` c'è
+   e basta il primo livello.
+5. **Il client Prisma va rigenerato** dopo aver toccato lo schema, o l'import muore con
+   *Unknown argument `legacyId`* pur avendo la colonna nel database.
+
+### Scelte di sicurezza
+
+- ✅ **Le password si migrano tali e quali**: gli hash legacy sono `$2a$10$`/`$2b$10$` e il nuovo
+  ambiente usa `bcryptjs`. Le 421 persone che avevano un accesso lo tengono identico.
+- 🔒 **I clienti ricevono una password casuale e diversa per ciascuno**, e nascono in stato `invited`:
+  nessuno la conosce, l'accesso passa dal flusso di invito già presente. Una password di default uguale
+  per tutti sarebbe stata **4.514 account con la stessa chiave nota su un indirizzo pubblico**.
+- 🔒 **Il campo `notes` degli operatori non si migra**: in una riga contiene **una password in chiaro**.
+- 🔴 **Resta aperto**: 42 account condividono 7 password (uno stesso hash su 25 fra partner e valet).
+  Migrandoli tali e quali il problema entra nel nuovo ambiente: vanno forzati al cambio.
+
+## Prossime fasi
+
+`catalogo` (categorie, prodotti 21.909, varianti 18.375, servizi) → `consegne` (62.376 × 114 colonne,
+più `delivery-product` 62.800 e i log) → il resto (regole, ricevute, disponibilità, vendite).
+
+⚠️ **«Importare tutte le tabelle» non è letteralmente possibile**: parecchie tabelle legacy non hanno
+una destinazione nel nuovo schema (le sei di vendita Shopify, `stripe-*`, `emails-webhook`,
+`shop-collection`, `offer`, `web-push-history`…). Verranno elencate una per una col motivo, invece di
+essere ignorate in silenzio.
