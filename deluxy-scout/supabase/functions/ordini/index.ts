@@ -80,7 +80,12 @@ Deno.serve(async (req) => {
         const j = await r.json().catch(() => ({}));
         const righe = j?.dati ?? [];
         if (!righe.length) break;
-        partner.push(...righe);
+        // ⚠️ Si tengono SOLO i tre campi che la vista usa. Con i partner interi
+        // erano 1,8 MB da scaricare a ogni apertura della schermata: si sarebbe
+        // sostituita una lentezza con un'altra, meno visibile.
+        for (const p of righe) {
+          partner.push({ provincia: p?.provincia ?? null, citta: p?.citta ?? null, stato: p?.stato ?? null });
+        }
       }
 
       // 2) Il venduto per provincia, per ogni periodo che la schermata offre.
