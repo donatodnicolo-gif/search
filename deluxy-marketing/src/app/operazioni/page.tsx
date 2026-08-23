@@ -86,12 +86,39 @@ export default async function PaginaOperazioni({
   searchParams: Promise<{ esito?: string; saltate?: string; avvisi?: string; torna?: string }>;
 }) {
   const sp = await searchParams;
-  const [operazioni, nonConfermate] = await Promise.all([
-    prisma.operazioneAdv.findMany({ orderBy: { creataIl: "desc" }, take: 100 }),
+  // ⚠️ LE VIVE SI PRENDONO TUTTE, le concluse solo degli ULTIMI 7 GIORNI.
+  //
+  // Prima era «le ultime 100 comunque»: con abbastanza operazioni recenti,
+  // una da approvare poteva restare fuori dalla pagina che serve ad
+  // approvarla — e nessuno se ne sarebbe accorto, perché una coda che non
+  // mostra una riga è indistinguibile da una coda vuota.
+  //
+  // Il resto della storia non sparisce: sta in /operazioni/archivio, dove si
+  // cerca. Qui davanti resta quello su cui si lavora oggi.
+  const SETTE_GIORNI = new Date(Date.now() - 7 * 24 * 3600_000);
+  const [vive, concluseRecenti, piuVecchie, nonConfermate] = await Promise.all([
+    prisma.operazioneAdv.findMany({
+      where: { stato: { in: ["in_attesa", "approvata"] } },
+      orderBy: { creataIl: "desc" },
+    }),
+    prisma.operazioneAdv.findMany({
+      where: {
+        stato: { in: ["eseguita", "fallita", "annullata"] },
+        creataIl: { gte: SETTE_GIORNI },
+      },
+      orderBy: { creataIl: "desc" },
+    }),
+    prisma.operazioneAdv.count({
+      where: {
+        stato: { in: ["eseguita", "fallita", "annullata"] },
+        creataIl: { lt: SETTE_GIORNI },
+      },
+    }),
     // «Eseguita» su una campagna nuova vuol dire INVIATA: il bulk upload non
     // risponde. Qui si incrociano i giri di anagrafica arrivati dopo.
     campagneNonConfermate(),
   ]);
+  const operazioni = [...vive, ...concluseRecenti];
   const daApprovare = operazioni.filter((o) => o.stato === "in_attesa");
   const approvate = operazioni.filter((o) => o.stato === "approvata");
   const concluse = operazioni.filter((o) => ["eseguita", "fallita", "annullata"].includes(o.stato));
@@ -737,10 +764,27 @@ export default async function PaginaOperazioni({
           </section>
         )}
 
-        {concluse.length > 0 && (
+        {(concluse.length > 0 || piuVecchie > 0) && (
           <section className="scheda">
-            <div className="scheda-titolo">Storico</div>
-            <ul className="storia">{concluse.map((o) => riga(o))}</ul>
+            {/* ⚠️ La finestra si DICHIARA. «Storico» senza una data fa credere
+                che ci sia tutto, e chi non trova un'operazione di tre
+                settimane fa conclude che sia sparita. */}
+            <div
+              className="scheda-titolo"
+              style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}
+            >
+              <span>Storico — ultimi 7 giorni ({concluse.length})</span>
+              {piuVecchie > 0 && (
+                <a className="btn small btn-secondario" href="/operazioni/archivio">
+                  Archivio ({piuVecchie} più vecchie) →
+                </a>
+              )}
+            </div>
+            {concluse.length === 0 ? (
+              <div className="vuoto-mini">Niente negli ultimi 7 giorni.</div>
+            ) : (
+              <ul className="storia">{concluse.map((o) => riga(o))}</ul>
+            )}
           </section>
         )}
       </main>
