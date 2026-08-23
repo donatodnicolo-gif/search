@@ -1,31 +1,32 @@
 # Handoff — Deluxy Marketing
 
-> Stato al **21/08/2026**. Una finestra Claude nuova deve poter riprendere da qui
+> Stato al **23/08/2026**. Una finestra Claude nuova deve poter riprendere da qui
 > senza altro contesto. Leggere prima il [README](../README.md) per cosa fa l'app;
 > questo documento dice **dove siamo** e **cosa manca**.
 >
-> 🔴 **I tre punti aperti di oggi**: (1) l'annuncio nuovo sulla WORLD-ENG è
-> **FALLITO**: «Bersaglio non trovato in questo account». Lo script cercava il
-> gruppo **solo per id** (`825-518-1560:199581767699`, l'id che Google stesso
-> aveva mandato nell'anagrafica delle 08:22) e `withIds` non ha restituito
-> niente. Corretto in `20aa9a95` — ricerca per nome dentro la campagna, poi su
-> tutto l'account, e in caso di fallimento l'esito **dice cosa vede Google** —
-> ma **`esegui.js` va rincollato** perché abbia effetto (copie rigenerate in
-> `Downloads\deluxy-google-ads`), poi «Rimetti in coda»; (2) in `/operazioni`
-> aspettano ancora **6 negative**; (3) l'annuncio della WORLD-ENG resta
-> **rifiutato per `DESTINATION_NOT_WORKING`** — è la landing, non il testo.
+> 🔴 **I punti aperti di stasera (23/08)**:
 >
-> ✅ **Sciolto il dubbio sullo script**: la copia su Google **era** aggiornata.
-> Lo dimostrano due cose: l'errore è «bersaglio non trovato» e non «tipo di
-> operazione non gestito», e l'anagrafica gruppi delle 08:22 (155 righe, 45
-> nuove) è una funzione di stamattina. ⚠️ Resta vero che **lo script non
-> dichiara la propria versione**: finché non lo fa, quale copia gira su Google
-> si può solo dedurre da come si comporta.
+> 1. **`esegui.js` va REINCOLLATO** in Google Ads (copie in
+>    `Downloads\deluxy-google-ads`, ~152 KB). Tre tipi di operazione nuovi non
+>    hanno chi li esegua finché non lo si fa: `lista_negative`, `localita`,
+>    `estensione`. La coda adesso è **vuota**, quindi non c'è niente di fermo:
+>    va fatto prima di metterci dentro qualcosa.
+> 2. **Il doppione dell'annuncio** sulla WORLD-ENG: due RSA identici nel gruppo
+>    «Luxury Flower Delivery - Worldwide» (creati il 21 alle 22:17 e il 23 alle
+>    11:05, stessi testi). Vanno tolti a mano in Google Ads — l'app non sa
+>    mettere in pausa un annuncio. Da oggi non può più succedere.
+> 3. **La landing della WORLD-ENG**:
+>    `deluxyflowers.com/en/pages/fiori-in-consegna-oggi`, già rifiutata una
+>    volta per `DESTINATION_NOT_WORKING`, e per una campagna mondiale in inglese
+>    resta comunque una scelta da rivedere.
+> 4. **Cake**: 310 € di ADV consentiti in agosto contro 1.324 € già spesi. O il
+>    numero regge e Cake viaggia a quattro volte il suo tetto, o è la previsione
+>    di vendita in Budgets che va guardata.
 >
-> ✅ **Chiuso il 18-19/08**: la campagna `[Deluxyflowers] - WORLD - ENG` esiste
-> su Google (id `24147855987`, 9 località, 1 gruppo, 15 keyword). Le 4 keyword
-> «in pausa nell'app e attive su Google» **non erano un guasto**: le aveva
-> riattivate l'utente a mano, ed è stato dichiarato «è voluto».
+> ✅ **Chiuso oggi**: la WORLD-ENG è **accesa** (`attiva_campagna` eseguita alle
+> 14:09, «confermato rileggendo»), con 9 località, 15 keyword, l'annuncio in
+> asta e le negative di lancio applicate. E la scrittura su **Meta funziona**,
+> provata in produzione.
 
 ## In una riga
 
@@ -235,6 +236,81 @@ asta**. Da guardare in Google Ads: o l'esecuzione del 04/08 ha toccato un
 criterio diverso (era il periodo del difetto degli id, chiuso l'08/08), o
 qualcuno le ha riattivate a mano. ⚠️ Nota: il 04/08 quelle operazioni avevano
 `account` vuoto — il difetto chiuso l'08/08 con `accodaOperazione`.
+
+### ⭐⭐ I SOLDI: il tetto di Budgets arriva fin dentro le campagne (23/08/2026)
+
+Prima l'app sapeva quanto si può spendere (Budgets) e quanto è acceso (Google,
+Meta) — in due schermate che non si parlavano. Ora la catena è chiusa:
+
+- **`/budget`** si apre su **«Come stiamo andando»**: consentito, speso, quanto
+  resta, dove si arriva a fine mese, per brand. La pagina mescolava tre fonti
+  senza dire quale comanda; la tabella del Monitoraggio è diventata un archivio
+  richiuso (copre solo giugno-agosto e faceva credere che da settembre non ci
+  fossero soldi).
+- **`/budget/adatta`** è il posto dove si decide: campagne in asta divise per
+  piattaforma, tetto per piattaforma (Budgets espone la ripartizione di
+  `/piattaforme` da oggi), **suggerimento** dei budget, e per ogni riga *dove
+  arriva a fine mese*, *di quanto cambia* e *la % di variazione* con l'avviso
+  quando esce dai passi 20-30% dei Definitivi.
+- **Le modifiche si PROGRAMMANO**: campo `daEseguireDal`, rispettato
+  dall'endpoint che serve lo script e dall'esecutore Meta — non dalla sola
+  schermata.
+
+⚠️ **Tre trappole pagate qui, in ordine di quanto sono costate:**
+1. **Un campo non si sceglie dal nome.** Avevo cambiato il tetto da
+   `advConsentito` a `advPubblicato` perché «pubblicato» suonava come
+   «approvato»: in Budgets `budgetPubblicato` è il *riferimento del vecchio
+   monitoraggio*, mentre `advConsentito` nasce dal budget vendite **approvato**.
+   Corretto solo dopo che l'utente ha contestato la cifra.
+2. **Il budget giornaliero non è la spesa** ed è scritto ovunque compaia: è un
+   tetto, quasi nessuna campagna lo tocca. Per questo la proiezione si calcola
+   sulla spesa vera e «a fine mese» somma il già speso ai giorni che restano —
+   `budget × giorni del mese` a metà agosto sbagliava quasi del doppio.
+3. **Su Meta il budget può stare sugli ad set**: quelle campagne arrivano con
+   `budgetGiornaliero` nullo e NON entrano nei totali come zero.
+
+### ⭐ META SCRIVE DAVVERO (23/08/2026)
+
+`META_SCRITTURA=attiva` acceso su Vercel, permesso `ads_management` **misurato**
+(non dedotto) e provato in produzione: pausa su una campagna già ferma (effetto
+zero, voluto) e budget 40 → 35 €/g su «[Opera] ATC - VOLUME», entrambe eseguite.
+
+Restano cinque operazioni sole — pausa/riattiva campagna e ad set, budget: su
+Meta non esistono keyword né negative, e **creare una campagna non si può** (il
+modulo di lancio è cablato su Google; là servirebbero tre oggetti annidati più
+il creativo).
+
+⚠️ **Su Meta non c'è nessuno script**: esegue l'app, e solo quando qualcuno
+preme «Esegui adesso» in `/operazioni` — di proposito. Il registro prometteva
+«lo script la eseguirà alla prossima passata» anche lì: due operazioni sono
+rimaste ferme un'ora ad aspettare un motore che non sarebbe mai passato.
+⚠️ E dopo ogni scrittura **si rilegge** (stato + `effective_status`, budget in
+centesimi), come fa lo script su Google.
+
+### ⭐ Quello che l'app sa fare in più, da oggi (23/08/2026)
+
+- **Liste di parole escluse** (`/liste-escluse`): si scrivono una volta e si
+  applicano a più campagne, usando le **liste condivise** di Google — non N
+  copie di negative. ⚠️ Vivono dentro un account: applicarle a un altro brand ne
+  crea una COPIA.
+- **«Escludi parole»** sulla campagna e sul gruppo: prima si poteva escludere
+  solo ciò che era già in un elenco, cioè reagire, mai prevenire.
+- **Località**: si vedono in cima alla scheda (per intero, non troncate) e **si
+  cambiano** dall'app. ⚠️ Togliere non è aggiungere al contrario: senza
+  targeting geografico Google esce OVUNQUE — tre reti lo impediscono.
+- **Estensioni**: si aggiungono (sitelink, callout, snippet). Le immagini no,
+  vogliono un file caricato nell'account.
+- **Pagina Estensioni** (`/estensioni`): 247 in pausa su tre conti, e le
+  campagne senza nemmeno una attiva di un tipo.
+- **Archivio operazioni** (`/operazioni/archivio`) con ricerca su nome, motivo
+  ed esito: in pagina restano la coda viva e gli ultimi 7 giorni.
+- **Doppioni**: due annunci identici nello stesso gruppo non si creano più (è
+  successo il 21 e il 23), e un titolo ripetuto dentro l'annuncio si vede
+  mentre si scrive — Google rifiuta l'annuncio INTERO (`DUPLICATE_ASSET`).
+
+🔴 **DA FARE APPENA POSSIBILE**: `esegui.js` va **reincollato** (copie in
+`Downloads\deluxy-google-ads`, ~152 KB). Senza, restano in coda senza
+esecutore: `lista_negative`, `localita`, `estensione`.
 
 ### ⭐⭐ L'annuncio si scrive DALL'APP: a mano o con l'AI, con la bozza che si salva (20-21/08/2026)
 
