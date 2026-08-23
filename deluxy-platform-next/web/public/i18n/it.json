@@ -553,7 +553,12 @@
       "provinces": "Province",
       "categories": "Categorie",
       "payment": "Pagamento",
-      "status": "Stato"
+      "status": "Stato",
+      "registry": "Registro"
+    },
+    "registry": {
+      "matchable": "Abbinabile",
+      "matchableHint": "Esiste nel registro con la stessa P.IVA o email, ma non è ancora collegato."
     }
   },
   "valets": {

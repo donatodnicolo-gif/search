@@ -58,6 +58,7 @@ import { StatusOption, StatusSelectComponent } from '../core/status-select.compo
               <th>{{ 'partners.col.categories' | translate }}</th>
               <th class="sortable" (click)="table.sortBy('paymentStatus')">{{ 'partners.col.payment' | translate }}<span class="sort-ind">{{ table.indicator('paymentStatus') }}</span></th>
               <th class="sortable" (click)="table.sortBy('active')">{{ 'partners.col.status' | translate }}<span class="sort-ind">{{ table.indicator('active') }}</span></th>
+              <th>{{ 'partners.col.registry' | translate }}</th>
               <th>{{ 'deliveries.col.actions' | translate }}</th>
             </tr>
           </thead>
@@ -90,6 +91,14 @@ import { StatusOption, StatusSelectComponent } from '../core/status-select.compo
                     [editable]="canEdit()"
                     (changed)="changeActive(p, $event)"
                   />
+                </td>
+                <td>
+                  @switch (statoRegistro()[p.id]) {
+                    @case ('collegato') { <span class="pill pill-ok">{{ 'partnerAnagrafica.linked' | translate }}</span> }
+                    @case ('abbinabile') { <span class="pill pill-warn" [title]="'partners.registry.matchableHint' | translate">{{ 'partners.registry.matchable' | translate }}</span> }
+                    @case ('assente') { <span class="muted small">{{ 'partnerAnagrafica.notFound' | translate }}</span> }
+                    @default { <span class="muted small">—</span> }
+                  }
                 </td>
                 <td class="actions-cell" (click)="$event.stopPropagation()">
                   @if (canEdit()) {
@@ -125,6 +134,8 @@ import { StatusOption, StatusSelectComponent } from '../core/status-select.compo
       .small { font-size: 12.5px; white-space: normal; max-width: 220px; }
       .pill { display: inline-flex; align-items: center; gap: 6px; border-radius: 980px; padding: 3px 10px; font-size: 12px; font-weight: 550; margin-right: 4px; }
       .pill .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: 0.85; }
+      .pill-ok { background: rgba(36,138,61,.12); color: #1a7f37; }
+      .pill-warn { background: rgba(184,150,62,.16); color: #8a6d1f; }
       .pill-neutral { background: var(--fill); color: var(--text-secondary); }
       .s-active { background: rgba(36,138,61,0.12); color: var(--green); }
       .s-inactive { background: rgba(255,149,0,0.12); color: #b25000; }
@@ -156,6 +167,15 @@ export class PartnersListComponent {
     return r === 'ADMIN' || r === 'OPERATION' || r === 'PROJECT_MANAGER';
   }
 
+  /**
+   * Stato del collegamento col registro, per tutti i partner in una chiamata
+   * sola: chiederlo partner per partner significherebbe 265 richieste verso un
+   * servizio esterno. Vuoto se il registro non è configurato o non risponde:
+   * in quel caso la colonna mostra "—" invece di dire il falso.
+   */
+  readonly statoRegistro = signal<Record<string, string>>({});
+  readonly riepilogoRegistro = signal<{ collegati: number; abbinabili: number; assenti: number } | null>(null);
+
   readonly partners = signal<Partner[]>([]);
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
@@ -179,7 +199,20 @@ export class PartnersListComponent {
   readonly importing = signal(false);
   readonly importResult = signal<string | null>(null);
 
+  /** Legge lo stato del registro (best-effort: un errore non rompe la lista). */
+  private caricaStatoRegistro(): void {
+    this.http.get<any>(`${environment.apiUrl}/partners/anagrafiche/stato`).subscribe({
+      next: (r) => {
+        if (!r?.registroRaggiungibile) return;
+        this.statoRegistro.set(r.perPartner ?? {});
+        this.riepilogoRegistro.set({ collegati: r.collegati, abbinabili: r.abbinabili, assenti: r.assenti });
+      },
+      error: () => { /* registro non configurato: la colonna resta vuota */ },
+    });
+  }
+
   constructor() {
+    this.caricaStatoRegistro();
     this.load();
   }
 

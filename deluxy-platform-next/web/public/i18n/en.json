@@ -553,7 +553,12 @@
       "provinces": "Provinces",
       "categories": "Categories",
       "payment": "Payment",
-      "status": "Status"
+      "status": "Status",
+      "registry": "Registry"
+    },
+    "registry": {
+      "matchable": "Matchable",
+      "matchableHint": "Exists in the registry with the same VAT or email, but is not linked yet."
     }
   },
   "valets": {

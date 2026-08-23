@@ -47,6 +47,13 @@ export class PartnersController {
     return this.partnersService.importFromAnagrafiche(actor);
   }
 
+  @Get('anagrafiche/stato')
+  @Roles(Role.ADMIN, Role.OPERATION, Role.PROJECT_MANAGER)
+  @ApiOperation({ summary: 'Stato del collegamento col registro per tutti i partner (una sola chiamata)' })
+  statoSyncTutti() {
+    return this.partnersService.statoSyncTutti();
+  }
+
   @Get(':id/anagrafica')
   @Roles(Role.ADMIN, Role.OPERATION, Role.PROJECT_MANAGER)
   @ApiOperation({ summary: 'Confronta il partner col suo record nel registro Anagrafiche' })

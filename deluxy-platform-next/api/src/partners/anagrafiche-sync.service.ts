@@ -128,7 +128,7 @@ export class AnagraficheSyncService {
 
     const chiedi = async (query: string): Promise<AnagraficaPartner[]> => {
       try {
-        const res = await fetch(`${base}/api/v1/partners?${query}&attivo=tutti&perPagina=20`, {
+        const res = await fetch(`${base}/api/v1/partners?${query}&attivo=tutti&perPage=20`, {
           headers: { 'x-api-key': apiKey },
         });
         if (!res.ok) return [];
@@ -186,7 +186,17 @@ export class AnagraficheSyncService {
    * Usato dall'import massivo. Ritorna [] se la chiave manca o il registro
    * non risponde (best-effort, non solleva).
    */
+  /** Come fetchAttivi ma SENZA filtro di stato: serve a sapere chi è collegato. */
+  async fetchTutti(): Promise<AnagraficaPartner[]> {
+    return this.leggiTutte('attivo=tutti');
+  }
+
   async fetchAttivi(): Promise<AnagraficaPartner[]> {
+    return this.leggiTutte('stato=attivo');
+  }
+
+  /** Scorre tutte le pagine del registro con il filtro dato. */
+  private async leggiTutte(filtro: string): Promise<AnagraficaPartner[]> {
     const apiKey = await this.getApiKey();
     if (!apiKey) {
       this.logger.warn('Chiave anagrafiche non disponibile (né env né Hub): import saltato');
@@ -195,7 +205,7 @@ export class AnagraficheSyncService {
     const perPage = 200;
     const tutti: AnagraficaPartner[] = [];
     for (let page = 1; page <= 100; page++) {
-      const url = `${(await this.getBaseUrl())}/api/v1/partners?stato=attivo&perPage=${perPage}&page=${page}`;
+      const url = `${await this.getBaseUrl()}/api/v1/partners?${filtro}&perPage=${perPage}&page=${page}`;
       let body: { dati?: AnagraficaPartner[]; totale?: number } | null = null;
       try {
         const res = await fetch(url, { headers: { 'x-api-key': apiKey } });

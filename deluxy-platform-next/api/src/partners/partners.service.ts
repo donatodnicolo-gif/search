@@ -144,6 +144,43 @@ export class PartnersService {
     };
   }
 
+  /**
+   * Stato del collegamento col registro per TUTTI i partner, in una chiamata.
+   *
+   * Serve alla lista: chiedere il confronto partner per partner significherebbe
+   * 265 chiamate al registro. Qui si scarica il registro una volta e si
+   * abbinano in memoria.
+   */
+  async statoSyncTutti() {
+    const [partners, registro] = await Promise.all([
+      this.prisma.partner.findMany({ select: { id: true, insegna: true, email: true, vatNumber: true } }),
+      this.anagrafiche.fetchTutti(),
+    ]);
+    if (!registro.length) {
+      return { registroRaggiungibile: false, collegati: 0, abbinabili: 0, assenti: 0, perPartner: {} as Record<string, string> };
+    }
+
+    const perPlatformId = new Map<string, any>();
+    const perPiva = new Map<string, any>();
+    const perEmail = new Map<string, any>();
+    for (const a of registro) {
+      if ((a as any).platformId) perPlatformId.set((a as any).platformId, a);
+      if (a.pIva) perPiva.set(a.pIva.trim().toUpperCase(), a);
+      if (a.email) perEmail.set(a.email.trim().toLowerCase(), a);
+    }
+
+    const perPartner: Record<string, string> = {};
+    let collegati = 0, abbinabili = 0, assenti = 0;
+    for (const p of partners) {
+      if (perPlatformId.has(p.id)) { perPartner[p.id] = 'collegato'; collegati++; continue; }
+      const perViaPiva = p.vatNumber && perPiva.get(p.vatNumber.trim().toUpperCase());
+      const perViaEmail = p.email && perEmail.get(p.email.trim().toLowerCase());
+      if (perViaPiva || perViaEmail) { perPartner[p.id] = 'abbinabile'; abbinabili++; continue; }
+      perPartner[p.id] = 'assente'; assenti++;
+    }
+    return { registroRaggiungibile: true, totaleRegistro: registro.length, collegati, abbinabili, assenti, perPartner };
+  }
+
   /** Manda il partner al registro e riporta l'esito (non fire-and-forget). */
   async sincronizzaAnagrafica(id: string, actor?: JwtUser) {
     const p = await this.findOne(id, actor);
