@@ -413,6 +413,8 @@ model ValetProvince {
 // Servizi con salario per valet (matching per pricingModel con PartnerService)
 model ValetService {
   id            String      @id @default(cuid())
+  /// id nel database originario MySQL: serve a ricollegare expertServiceId delle consegne
+  legacyId      Int?        @unique
   valetId       String
   serviceTypeId String
   salary        Float
@@ -724,7 +726,9 @@ model Delivery {
   legacyOrderId      Int?
   realOrderNumber    String?
   shop               String? // ShopifySale | CakeSales | FlowersSales | BusinessSales
-  legacySaleId       Int?
+  /// ⚠️ Contiene sia id interni sia id di ordini Shopify (fino a 12 cifre):
+  /// non entra in un intero a 32 bit, quindi e' testo.
+  legacySaleId       String?
   legacyPrimarySaleId Int?
   saleType           String? // unique | nonunique | shopifysale
   acceptSale         Boolean           @default(false)
@@ -794,6 +798,10 @@ model Delivery {
   parentDeliveryId   String?
   parentDelivery     Delivery?         @relation("DeliveryPadre", fields: [parentDeliveryId], references: [id])
   childDeliveries    Delivery[]        @relation("DeliveryPadre")
+
+  /// Soft delete del legacy: 524 consegne. Sta in un campo suo per non
+  /// sovrascrivere lo stato reale della consegna.
+  deletedAt          DateTime?
 
   products           DeliveryProduct[]
   pickups            DeliveryPickup[]

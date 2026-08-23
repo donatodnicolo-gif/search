@@ -246,7 +246,41 @@ che il dato non ci fosse mai stato. Ora la fase **aggiorna** anche le righe esis
 ⚠️ `DeliveryRule.name` è obbligatorio e nel legacy **non esiste**: si compone («Regola 8 · prezzo
 fisso»). È un'etichetta, non un dato inventato.
 
-## Consegne — misurate, non ancora importate
+## ✅ Fase 5 — consegne IMPORTATE (23/08/2026)
+
+**61.835 consegne** = 62.376 del legacy − 344 senza partner − 197 senza data. Verificate in produzione:
+`GET /api/v1/deliveries` risponde **61.836** (le 61.835 più una del seed).
+
+Per stato: `delivered` 53.316 · `cancelled` 3.156 · `created` 1.831 · `not_delivered` 1.744 ·
+**`delivered_time_to_approve` 708** · **`approved` 550** · `assigned` 273 · **`invalidated` 230** ·
+`accepted` 10 · `cancellation_requested` 8 · `not_accepted` 6 · `in_delivery` 4.
+I tre stati in grassetto sono quelli aggiunti apposta: senza, 1.488 consegne avrebbero perso il loro
+significato.
+
+Campi recuperati, quanti sono davvero valorizzati: `startedAt` 34.115 · `deliveredAt` 33.225 ·
+`provinceId` 29.419 · `legacyOrderId` 21.630 · `readByValetUser` 23.533 · `valetServiceId` 39.970 ·
+`productManagement` 61.700 · `createdByUser` 49.728 · `receipt` 4.166 · `deliveryRule` 3.372 ·
+`deletedAt` 431 · `parentDelivery` 72.
+
+### 🔴 Tre trappole nuove, tutte pagate
+
+1. **INT4.** `saleId` arriva a **235.800.721.890**: dentro ci sono **id di ordini Shopify** mescolati
+   agli id interni, e **609 righe** non entrano in un intero a 32 bit. Un solo valore fuori scala fa
+   fallire **l'intero blocco da 500 righe**. `legacySaleId` è diventato **testo**, e per gli altri
+   interi c'è una guardia che scarta e conta invece di far esplodere il blocco.
+2. **Un import che crolla lascia il lavoro a metà, e l'errore non lo dice.** Il primo tentativo è
+   morto sull'overflow **dopo aver scritto 37.500 righe**, uscendo con **codice 0** perché la pipeline
+   mascherava l'esito. Ci si accorge solo ricontando: il secondo giro ha visto «già presenti 37.500» e
+   ha completato le restanti 24.335. *(È la seconda volta: era successo anche coi clienti.)*
+3. **`deletedAt` in un campo suo.** Nel legacy 431 consegne sono cancellate a soft delete. Mapparlo su
+   `status` avrebbe sovrascritto lo stato reale (consegnata, annullata…): ha una colonna propria.
+
+### Aggancio della consegna padre
+
+I multi-ritiro con DDT (72 righe) si agganciano in un **secondo giro**: al primo passaggio la riga
+padre può non essere ancora stata scritta.
+
+## Consegne — la misura fatta prima di importare
 
 62.376 righe × **114 colonne**. Decisioni già prese con l'utente il 23/08:
 

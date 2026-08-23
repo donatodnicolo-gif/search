@@ -86,6 +86,20 @@ const data = (v) => {
 
 const numero = (v) => { const t = testo(v); if (t === null) return null; const n = Number(t); return Number.isNaN(n) ? null : n; };
 const intero = (v) => { const n = numero(v); return n === null ? null : Math.trunc(n); };
+/**
+ * ⚠️ Postgres usa INT4 (max 2.147.483.647). Il legacy ha campi che lo superano
+ * (saleId arriva a 235 miliardi: dentro ci sono id di ordini Shopify). Un valore
+ * fuori scala fa fallire l'INTERO blocco da 500 righe, non solo la sua: qui
+ * diventa null e viene contato.
+ */
+const INT4 = 2147483647;
+const interoSicuro = (v, dove) => {
+  const n = intero(v);
+  if (n === null) return null;
+  if (n > INT4 || n < -INT4) { segna(`valore fuori scala INT4 scartato (${dove})`); return null; }
+  return n;
+};
+
 const bool = (v) => { const t = testo(v); return t === null ? null : t === '1' || t.toLowerCase() === 'true'; };
 
 /** `active` del legacy -> `status` del nuovo. 0 si tratta come -1 (decisione utente 23/08). */
@@ -147,6 +161,7 @@ try {
   else if (FASE === 'servizi') await servizi();
   else if (FASE === 'listini') await listini();
   else if (FASE === 'regole') await regole();
+  else if (FASE === 'consegne') await consegne();
   else { console.log(`Fase sconosciuta: ${FASE}`); process.exit(1); }
 } finally {
   await db.$disconnect();
@@ -378,6 +393,7 @@ async function listini() {
       const [valetId, serviceTypeId] = k.split('|');
       return {
         valetId, serviceTypeId,
+        legacyId: intero(r.id),
         salary: numero(r.salary) ?? 0,
         salaryPerItem: numero(r.salaryPerItem),
         // ⚠️ ASSUNZIONE: `minimumKmPrice` del legacy = `extraKmPrice` qui. I nomi
@@ -388,9 +404,265 @@ async function listini() {
     });
     for (let i = 0; i < nuovi.length; i += 500)
       await db.valetService.createMany({ data: nuovi.slice(i, i + 500), skipDuplicates: true });
-    segna('listino valet', nuovi.length);
-    segna('listino valet gia presenti', perValet.size - nuovi.length);
+    segna('listino valet creati', nuovi.length);
+
+    // Come per il listino partner: `createMany` salta le righe esistenti, quindi
+    // le si aggiorna in una sola query (serve anche a popolare `legacyId` su
+    // righe importate prima che il campo esistesse).
+    const daAggiornare = [...perValet.entries()].filter(([k]) => gia.has(k));
+    if (daAggiornare.length) {
+      const valori = daAggiornare.map(([k, r]) => {
+        const [v, s] = k.split('|');
+        const num = (x) => (x === null ? 'NULL' : String(x));
+        return `('${v}','${s}',${num(intero(r.id))},${num(numero(r.salary) ?? 0)},`
+             + `${num(numero(r.salaryPerItem))},${num(numero(r.minimumKmPrice))})`;
+      }).join(',');
+      await db.$executeRawUnsafe(
+        `update "ValetService" as t set
+           "legacyId" = v."legacyId", "salary" = v.salary,
+           "salaryPerItem" = v."salaryPerItem", "extraKmPrice" = v."extraKmPrice"
+         from (values ${valori}) as v("valetId","serviceTypeId","legacyId",salary,"salaryPerItem","extraKmPrice")
+         where t."valetId" = v."valetId" and t."serviceTypeId" = v."serviceTypeId"`);
+      segna('listino valet aggiornati', daAggiornare.length);
+    }
   } else segna('listino valet', perValet.size);
+}
+
+// ------------------------------------------------------- fase 5: consegne
+
+/**
+ * Le 62.376 consegne, la tabella piu' grossa e piu' diversa fra i due schemi
+ * (114 colonne contro le 20 di partenza; ora 105 hanno una destinazione).
+ *
+ * Si legge in STREAMING e si scrive a blocchi: il CSV pesa 57 MB e caricarlo
+ * tutto come oggetti costerebbe oltre un gigabyte.
+ *
+ * Decisioni prese con l'utente il 23/08:
+ *  · gli stati che qui non esistevano sono stati AGGIUNTI all'enum (708 + 550 +
+ *    230 consegne); le 434 senza stato restano `created`, il valore predefinito;
+ *  · le 17.669 senza servizio vanno sul servizio «Non indicato»;
+ *  · nome/cognome/indirizzo mancanti diventano «Non indicato»;
+ *  · le 141 senza data e le 401 senza partner si SALTANO e si elencano.
+ */
+async function consegne() {
+  const STATO = {
+    created: 'created', assigned: 'assigned', accepted: 'accepted',
+    delivering: 'in_delivery', delivered: 'delivered', notDelivered: 'not_delivered',
+    canceled: 'cancelled', requestCancellation: 'cancellation_requested',
+    notAccepted: 'not_accepted',
+    // I tre aggiunti apposta all'enum:
+    deliveredWithTimeToBeApproved: 'delivered_time_to_approve',
+    approved: 'approved',
+    invalidated: 'invalidated',
+  };
+
+  // --- indici (tutti piccoli: stanno in memoria senza problemi) -------------
+  const mappa = async (modello, campo = 'legacyId') =>
+    new Map((await db[modello].findMany({
+      where: { [campo]: { not: null } }, select: { id: true, [campo]: true },
+    })).map((x) => [x[campo], x.id]));
+
+  const idPartner = await mappa('partner');
+  const idValet = await mappa('valet');
+  const idCliente = await mappa('customer');
+  const idServizio = await mappa('serviceType');
+  const idUtente = await mappa('user');
+  const idRegola = await mappa('deliveryRule');
+  const idRegolaValet = await mappa('valetDeliveryRule');
+  const idListinoValet = await mappa('valetService');
+  const idProvinciaPerCodice = new Map((await db.province.findMany({ select: { id: true, code: true } }))
+    .map((x) => [x.code, x.id]));
+
+  const nonIndicato = await db.serviceType.findUnique({ where: { code: 'NON_INDICATO' } });
+  if (!nonIndicato) { console.log('Manca il servizio «Non indicato»: eseguire prima --fase servizi.'); return; }
+
+  // Chi c'e' gia': l'import resta ripetibile.
+  const gia = new Set((await db.delivery.findMany({
+    where: { legacyId: { not: null } }, select: { legacyId: true },
+  })).map((x) => x.legacyId));
+  console.log(`consegne gia' importate: ${gia.size}`);
+
+  const NI = 'Non indicato';
+  let lette = 0, scritte = 0;
+  let blocco = [];
+
+  const scarica = async () => {
+    if (!blocco.length) return;
+    await db.delivery.createMany({ data: blocco, skipDuplicates: true });
+    scritte += blocco.length;
+    blocco = [];
+    process.stdout.write(`\r  lette ${lette} · scritte ${scritte}`);
+  };
+
+  await perRiga(path.join(TABELLE, 'delivery.csv'), async (r) => {
+    lette++;
+    const legacyId = intero(r.id);
+    if (gia.has(legacyId)) { segna('gia presenti'); return; }
+
+    // Le due esclusioni decise: senza data o senza partner non sono collocabili.
+    const quando = data(r.deliveryDate);
+    if (!quando) { segna('SALTATE: senza data'); avvisi.push(`consegna ${legacyId}: senza data`); return; }
+    const partnerId = idPartner.get(intero(r.partnerId));
+    if (!partnerId) { segna('SALTATE: senza partner'); avvisi.push(`consegna ${legacyId}: partner ${testo(r.partnerId) ?? '(vuoto)'} non trovato`); return; }
+
+    const statoLegacy = testo(r.status);
+    const stato = STATO[statoLegacy] ?? 'created';
+    if (statoLegacy && !STATO[statoLegacy]) segna(`stato sconosciuto «${statoLegacy}» -> created`);
+    if (!statoLegacy) segna('senza stato -> created');
+
+    const servizio = idServizio.get(intero(r.service)) ?? nonIndicato.id;
+    if (!idServizio.get(intero(r.service))) segna('servizio «Non indicato»');
+
+    // "08:00-09:00" -> due orari.
+    const fascia = (testo(r.pickUpTime) ?? '').split('-');
+    const ricevuto = [testo(r.receiverName), testo(r.receiverSurname)].filter(Boolean).join(' ') || null;
+
+    if (!testo(r.name) || !testo(r.surname)) segna('destinatario «Non indicato»');
+    if (!testo(r.address)) segna('indirizzo «Non indicato»');
+
+    blocco.push({
+      legacyId, code: legacyId,
+      date: quando,
+      status: stato,
+      serviceTypeId: servizio,
+      partnerId,
+      valetId: idValet.get(intero(r.expertId)) ?? null,
+      customerId: idCliente.get(intero(r.customerId)) ?? null,
+      recipientFirstName: testo(r.name) ?? NI,
+      recipientLastName: testo(r.surname) ?? NI,
+      recipientAddress: testo(r.address) ?? NI,
+      recipientIntercom: testo(r.intercom),
+      recipientPhone: testo(r.receiverPhone),
+      recipientEmail: testo(r.email),
+      senderFirstName: testo(r.senderName),
+      senderLastName: testo(r.senderSurname),
+      senderPhone: testo(r.senderPhone),
+      latitude: numero(r.latitude), longitude: numero(r.longitude),
+      deliveryTimeFrom: testo(r.fromTime)?.slice(0, 5) ?? null,
+      deliveryTimeTo: testo(r.toTime)?.slice(0, 5) ?? null,
+      pickupTimeFrom: fascia[0]?.trim()?.slice(0, 5) || null,
+      pickupTimeTo: fascia[1]?.trim()?.slice(0, 5) || null,
+      pickupFlexible: bool(r.isFlexblePickUpTime) ?? false,
+      pickupAddress: testo(r.pickUpAddress),
+      paymentOnDelivery: bool(r.payAtDelivery) ?? false,
+      paymentAmount: numero(r.payAtDeliveryAmount),
+      paymentStatus: testo(r.paymentStatus) ?? 'default',
+      tryAndReturn: bool(r.tryAndReturn) ?? false,
+      deliveryCodeRequired: bool(r.deliveryCodeRequired) ?? false,
+      notes: testo(r.notes), internalNotes: testo(r.internalNotes),
+      ddtNumber: testo(r.ddtNumber), ddtFile: testo(r.ddtFile),
+      distanceKm: numero(r.distance),
+      deluxyDelivery: bool(r.deluxyDelivery) ?? false,
+      valetServiceId: idListinoValet.get(intero(r.expertServiceId)) ?? null,
+      billable: bool(r.billable) ?? true, payable: bool(r.payable) ?? true,
+      price: numero(r.price), additionalPrice: numero(r.additionalPrice),
+      valetSalary: numero(r.expertSalary), valetAdditionalPrice: numero(r.valetAdditionalPrice),
+      isFlexiblePrice: bool(r.isFlexiblePrice) ?? false, flexiblePrice: testo(r.flexiblePrice),
+      hours: numero(r.hours),
+      personalizeSaleNotes: testo(r.personalizeSaleNotes),
+      smsPhoneNo: testo(r.smsPhoneNo),
+      trackingToken: testo(r.deliveredToken),
+      receivedBy: ricevuto,
+      // --- campi recuperati ---
+      identifier: testo(r.identifier),
+      createdFrom: testo(r.createdFrom),
+      externalOrderSource: testo(r.externalOrderSource),
+      createdByUserId: idUtente.get(intero(r.createdUser)) ?? null,
+      legacyOrderId: interoSicuro(r.orderId, 'legacyOrderId'), realOrderNumber: testo(r.realOrderNumber),
+      shop: testo(r.shop), legacySaleId: testo(r.saleId),
+      legacyPrimarySaleId: interoSicuro(r.primaryIdOfSale, 'legacyPrimarySaleId'), saleType: testo(r.saleType),
+      acceptSale: bool(r.acceptSale) ?? false,
+      customSaleDelivery: bool(r.customSaleDelivery) ?? false,
+      readDelivery: bool(r.readDelivery) ?? false,
+      readAt: data(r.deliveryReadAt),
+      readByPartnerUserId: idUtente.get(intero(r.deliveryReadByPartner)) ?? null,
+      readAtByPartner: data(r.deliveryReadAtByPartner),
+      readByValetUserId: idUtente.get(intero(r.deliveryReadByExpert)) ?? null,
+      readAtByValet: data(r.deliveryReadAtByExpert),
+      startedAt: data(r.deliveryStartedAt), deliveredAt: data(r.deliveryDeliveredAt),
+      serviceStartTime: testo(r.startTime)?.slice(0, 5) ?? null,
+      serviceEndTime: testo(r.endTime)?.slice(0, 5) ?? null,
+      valetStartTime: testo(r.valetStartTime)?.slice(0, 5) ?? null,
+      valetEndTime: testo(r.valetEndTime)?.slice(0, 5) ?? null,
+      approvedTimingStatus: testo(r.approvedTimingStatus),
+      requestExpert: bool(r.requestExpert) ?? false,
+      sendToExpert: bool(r.sendToExpert) ?? false,
+      pickupCompleted: bool(r.pickUpCompleted) ?? false,
+      receiverType: testo(r.receiverType),
+      receiverSign: testo(r.receiverSign), receipt: testo(r.receipt),
+      notDeliveredActionTaken: bool(r.notDeliveredActionTaken) ?? false,
+      deliveryCode: testo(r.deliveryCode),
+      deliveryCodeVerified: bool(r.deliveryCodeVerifed) ?? false,
+      valetIdentityCheck: bool(r.expertIdentityCheck) ?? false,
+      valetVerified: bool(r.expertVerified) ?? false,
+      invoiced: bool(r.invoiced) ?? false,
+      invoicePaymentStatus: testo(r.invoicePaymentStatus),
+      productValue: numero(r.productValue),
+      paidViaCard: bool(r.paidViaCard) ?? false,
+      additionalValetPlusMinus: numero(r.additionalValetPlusMinus),
+      productManagement: testo(r.productManagement),
+      stockConsumed: bool(r.stockConsumed) ?? false,
+      stockReturned: bool(r.stockReturned) ?? false,
+      withDailyDeliveryRule: bool(r.withDailyDeliveryRule) ?? false,
+      withTotalDeliveryRule: bool(r.withTotalDeliveryRule) ?? false,
+      deliveryRuleId: idRegola.get(intero(r.deliveryRuleId)) ?? null,
+      valetDeliveryRuleId: idRegolaValet.get(intero(r.expertRuleId)) ?? null,
+      provinceId: idProvinciaPerCodice.get(testo(r.province)) ?? null,
+      existingCustomer: bool(r.existingCustomer) ?? false,
+      legacyCorrespondDeliveryId: interoSicuro(r.correspondDelivery, 'legacyCorrespondDeliveryId'),
+      deletedAt: data(r.deletedAt),
+      createdAt: data(r.createdAt) ?? quando,
+      updatedAt: data(r.updatedAt) ?? quando,
+    });
+    segna('consegne');
+    if (blocco.length >= 500) await scarica();
+  });
+  await scarica();
+  if (scritte) process.stdout.write('\n');
+
+  // La consegna padre (multi-ritiro DDT) si aggancia in un secondo giro: al
+  // primo passaggio la riga padre puo' non essere ancora stata scritta.
+  const conPadre = [];
+  await perRiga(path.join(TABELLE, 'delivery.csv'), (r) => {
+    if (testo(r.parentDeliveryId)) conPadre.push([intero(r.id), intero(r.parentDeliveryId)]);
+  });
+  if (conPadre.length) {
+    const idConsegna = await mappa('delivery');
+    let agganciate = 0;
+    for (const [figlio, padre] of conPadre) {
+      const f = idConsegna.get(figlio), p = idConsegna.get(padre);
+      if (!f || !p) { segna('consegna padre non trovata'); continue; }
+      await db.delivery.update({ where: { id: f }, data: { parentDeliveryId: p } });
+      agganciate++;
+    }
+    segna('consegne agganciate al padre', agganciate);
+  }
+}
+
+/** Legge un CSV riga per riga in streaming, senza tenerlo in memoria. */
+async function perRiga(file, onRiga) {
+  const flusso = fs.createReadStream(file, { encoding: 'utf8', highWaterMark: 1 << 20 });
+  let testa = null, campi = [], campo = '', inStr = false, chiusa = false;
+  const coda = [];
+  const record = (r) => {
+    if (!testa) { testa = r.map((x) => x.trim()); return; }
+    coda.push(Object.fromEntries(testa.map((c, i) => [c, r[i]])));
+  };
+  for await (const pezzo of flusso) {
+    for (let i = 0; i < pezzo.length; i++) {
+      const c = pezzo[i];
+      if (chiusa) { chiusa = false; if (c === '"') { campo += '"'; continue; } inStr = false; }
+      if (inStr) { if (c === '"') { chiusa = true; continue; } campo += c; continue; }
+      if (c === '"') { inStr = true; continue; }
+      if (c === ',') { campi.push(campo); campo = ''; continue; }
+      if (c === '\n') { campi.push(campo); record(campi); campi = []; campo = ''; continue; }
+      if (c === '\r') continue;
+      campo += c;
+    }
+    while (coda.length) await onRiga(coda.shift());
+  }
+  if (campo !== '' || campi.length) { campi.push(campo); record(campi); }
+  while (coda.length) await onRiga(coda.shift());
 }
 
 // ------------------------------------------------- fase 4: regole carnet
