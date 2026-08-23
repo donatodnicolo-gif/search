@@ -10,3 +10,7 @@ deluxy-scout/web-build/
 deluxy-scout/*.log
 .vercel
 .env*
+
+# Dati del database legacy (clienti reali): mai committati
+deluxy-platform-next/legacy/*
+!deluxy-platform-next/legacy/README.md
