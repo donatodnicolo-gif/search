@@ -228,8 +228,8 @@ Si ricontrolla con `npx tsx scripts/prova-reazioni.mts` (crea righe finte e le c
 
 ## Le azioni di un ordine, in cinque gruppi
 
-Sulla scheda di un ordine i bottoni sono raggruppati per **che cosa fanno**, con
-una lineetta fra un gruppo e l'altro, nell'ordine in cui si attraversano:
+Sulla scheda di un ordine i bottoni sono raggruppati per **che cosa fanno**,
+nell'ordine in cui si attraversano:
 
 1. **di chi è** — `Assegna a…`, prima di «cosa ci faccio»;
 2. **parlare col cliente** — `WhatsApp` · `Chiama` · `Email` · `Rubrica`;
@@ -247,9 +247,31 @@ capita a ogni larghezza di finestra, il raggruppamento non lo vedrebbe più
 nessuno — che è il difetto di prima, dieci bottoni uguali in fila che si
 spezzavano in punti diversi ogni volta.
 
-⚠️ Sul telefono i gruppi **vanno a capo** e la lineetta sparisce: su 360px
-«resta attaccato» è una promessa che non si può mantenere, e con ogni gruppo su
-una riga sua «in fondo a destra» non vuol più dire niente.
+⚠️⚠️ **I gruppi si separano con lo SPAZIO, non con una lineetta** — e il
+margine sta a **destra**. Una lineetta disegnata come `::before` dentro il
+gruppo, su una riga che va a capo, finisce **a inizio riga**: un trattino appeso
+nel vuoto a sinistra del primo bottone. Il CSS non sa dire «solo se non sei il
+primo della tua riga», quindi il separatore non può essere un segno: dev'essere
+una distanza. E a destra, perché il margine destro dell'ultimo gruppo di una riga
+semplicemente non si vede, mentre uno a sinistra rientrerebbe il primo gruppo
+della riga dopo — lo stesso difetto in forma di buco.
+Misurato: **4px dentro un gruppo, 16px fra due gruppi**, a ogni larghezza.
+
+⚠️⚠️ **Niente `margin-left: auto` sull'ultimo gruppo.** Su una riga sola spingeva
+Fornitore e Shopify in fondo a destra — che era il punto — ma appena il blocco
+andava a capo li lasciava **soli su una riga tutta loro, allineati a destra**,
+come se fossero un'altra cosa. Restano ultimi lo stesso: si leggono per ultimi
+perché sono scritti per ultimi.
+
+⚠️ **Il menu «Assegna a…» ha un tetto di larghezza.** Un `<select>` si dimensiona
+sull'opzione **più lunga**, non su quella scelta: con «Me ne occupo io (Federica
+Bertoldi)» in elenco diventava largo quanto la scheda e si portava via una riga da
+solo, mentre a schermo c'era scritto «Assegna a…», che è corto. La larghezza di un
+comando non deve dipendere da un testo che non si sta leggendo.
+
+⚠️ Sul telefono i gruppi **vanno a capo anche dentro di sé**: su 360px «resta
+attaccato» è una promessa che non si può mantenere, e quattro bottoni grandi in
+fila uscirebbero dallo schermo.
 
 ⚠️ Nella **tabella** `Paga fornitore` è sceso accanto a `Rimborso`: stava
 attaccato al menu `Assegna a…`, cioè un'azione sui soldi come primo vicino di

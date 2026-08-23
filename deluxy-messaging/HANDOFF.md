@@ -1,6 +1,6 @@
 # Handoff — Deluxy Customer Service
 
-Ultimo aggiornamento: **24/08/2026, ore 05:00** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
+Ultimo aggiornamento: **24/08/2026, ore 06:00** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
 prima, alle 15:10, l'utente ha pubblicato la schermata di consenso Google e il
 conto alla rovescia dei 7 giorni è finito).
 Prima, il 19/08: la **risposta di primo contatto** che parte da sola al primo
@@ -340,6 +340,33 @@ locale, altrimenti nulla si decifra.
     chat finisce nel cestino.
   - ⚠️ **Il numero delle note da fare sta sul bottone**: in un pannello chiuso
     una nota lasciata a un collega non esisterebbe.
+
+- **LE LINEETTE FRA I GRUPPI, TOLTE** (24/08/2026, chiesto sopra uno
+  screenshot: «sistema css»).
+  - ⚠️⚠️ **Il difetto**: il separatore era un `::before` DENTRO il gruppo, e su
+    una riga che va a capo finiva **a inizio riga** — tre trattini appesi nel
+    vuoto a sinistra di «WhatsApp», «Reclamo» e «Fornitore». Il CSS non sa
+    dire «solo se non sei il primo della tua riga»: **un separatore su una
+    riga che può andare a capo non può essere un segno, dev'essere una
+    distanza**.
+  - ⚠️ Ora `margin-right: 12px` (14 nella chat) sul gruppo, e il margine sta a
+    DESTRA apposta: quello a destra dell'ultimo gruppo di una riga non si
+    vede, mentre uno a sinistra rientrerebbe il primo della riga dopo — lo
+    stesso difetto in forma di buco. Misurato: **4px dentro, 16px fra**.
+  - ⚠️⚠️ **Tolto anche `margin-left: auto`** dall'ultimo gruppo (qui e nella
+    testata della chat): su una riga sola spingeva «fuori» / «togli» in fondo
+    a destra, ma appena si andava a capo li lasciava soli su una riga tutta
+    loro, allineati a destra.
+  - ⚠️ **Il `<select>` «Assegna a…» ha un tetto (180px)**: si dimensionava
+    sull'opzione PIÙ LUNGA, non su quella scelta, e con un nome lungo in
+    elenco si prendeva una riga intera mentre a schermo c'era scritto
+    «Assegna a…».
+  - ⚠️ **Stessa cura sulla testata della chat**, dove il difetto non si era
+    ancora visto ma c'era: misurata, a **862px va già a capo**, quindi i
+    trattini orfani sarebbero comparsi lì al primo restringimento.
+  - ✅ Misurato a 540/450/380/320px sulla scheda e a 862/662/522/382px sulla
+    chat: **zero trattini, zero gruppi spezzati, zero bottoni che sbordano,
+    nessun gruppo spaiato a destra**, select a 147px invece di una riga.
 
 - **LE AZIONI DELL'ORDINE, IN CINQUE GRUPPI** (24/08/2026, chiesto sopra uno
   screenshot: «paga va sotto con gli altri bottoni, riorganizza poi tutti i
