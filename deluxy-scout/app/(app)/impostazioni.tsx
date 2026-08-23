@@ -22,8 +22,10 @@ import {
   salvaImpostazione,
   type StatoChiaveApp,
 } from '@/lib/db';
-import { importaRichiesteDaMail } from '@/lib/mail';
+import { collegaCasellaMail, fetchCaselleMail, importaRichiesteDaMail, type CasellaMail } from '@/lib/mail';
 import { avvisa } from '@/lib/dialoghi';
+
+const CASELLA_VUOTA = { email: '', imapHost: '', imapPassword: '', ignoraCertTls: true };
 
 export default function Impostazioni() {
   const { session } = useAuth();
@@ -33,6 +35,49 @@ export default function Impostazioni() {
   const [salvando, setSalvando] = useState(false);
   const [provando, setProvando] = useState(false);
   const [esito, setEsito] = useState<{ ok: boolean; testo: string } | null>(null);
+  // Le caselle vere di AI Mail + il modulo per collegarne una nuova.
+  const [caselle, setCaselle] = useState<CasellaMail[]>([]);
+  const [formCasella, setFormCasella] = useState(false);
+  const [nuova, setNuova] = useState(CASELLA_VUOTA);
+  const [collegando, setCollegando] = useState(false);
+
+  const caricaCaselle = useCallback(() => {
+    // Best-effort: se AI Mail non è ancora aggiornata l'elenco non arriva, ma
+    // il campo scritto a mano continua a funzionare come prima.
+    fetchCaselleMail()
+      .then(setCaselle)
+      .catch(() => setCaselle([]));
+  }, []);
+
+  useEffect(() => {
+    caricaCaselle();
+  }, [caricaCaselle]);
+
+  /** Collega la casella in AI Mail e la imposta subito come casella delle richieste. */
+  async function collega() {
+    if (collegando) return;
+    setCollegando(true);
+    setEsito(null);
+    try {
+      const r = await collegaCasellaMail(nuova);
+      setCasella(r.casella);
+      await salvaImpostazione(CHIAVE_CASELLA_RICHIESTE, r.casella);
+      setNuova(CASELLA_VUOTA);
+      setFormCasella(false);
+      caricaCaselle();
+      setEsito({
+        ok: true,
+        testo:
+          'Casella «' +
+          r.casella +
+          '» collegata in AI Mail e impostata qui. Prova il collegamento per vedere quante richieste arrivano.',
+      });
+    } catch (e) {
+      setEsito({ ok: false, testo: (e as Error)?.message ?? 'Collegamento non riuscito.' });
+    } finally {
+      setCollegando(false);
+    }
+  }
 
   const carica = useCallback(async () => {
     const v = (await leggiImpostazione(CHIAVE_CASELLA_RICHIESTE)) ?? '';
@@ -115,6 +160,97 @@ export default function Impostazioni() {
             e IMAP collegato): è AI Mail che legge la posta, Scout la riceve da lì.
           </Text>
         )}
+
+        {/* Le caselle che AI Mail ha DAVVERO: si sceglie invece di indovinare.
+            L'errore «non c'è una casella attiva …» nasceva quasi sempre da un
+            indirizzo scritto a mano che in AI Mail non esisteva. */}
+        {caselle.length ? (
+          <View style={styles.chips}>
+            {caselle.map((c) => (
+              <Pressable
+                key={`${c.utente}-${c.email}`}
+                style={[styles.chip, casella === (c.utente ?? c.email) && styles.chipOn]}
+                onPress={() => admin && setCasella(c.utente ?? c.email)}
+              >
+                <Text style={[styles.chipTxt, casella === (c.utente ?? c.email) && styles.chipTxtOn]}>
+                  {c.utente ?? c.email}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
+
+        {admin ? (
+          <>
+            <Pressable style={styles.linkRiga} onPress={() => setFormCasella((v) => !v)}>
+              <Ionicons name={formCasella ? 'chevron-up' : 'add-circle-outline'} size={16} color={colors.navy} />
+              <Text style={styles.linkTxt}>
+                {formCasella ? 'Chiudi' : 'La casella non c’è? Collegala da qui'}
+              </Text>
+            </Pressable>
+
+            {formCasella ? (
+              <View style={styles.formCasella}>
+                <Text style={styles.nota}>
+                  Le credenziali vengono salvate <Text style={styles.forte}>in AI Mail</Text>, cifrate: è
+                  lei che legge la posta. Scout le inoltra e non le conserva. Prima di salvare si prova la
+                  connessione, così una password sbagliata si scopre adesso.
+                </Text>
+                <Text style={styles.campoLabel}>Indirizzo</Text>
+                <TextInput
+                  style={styles.input}
+                  value={nuova.email}
+                  onChangeText={(v) => setNuova((n) => ({ ...n, email: v }))}
+                  placeholder="commerciale@deluxy.it"
+                  placeholderTextColor={colors.grigio}
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                />
+                <Text style={styles.campoLabel}>Server IMAP</Text>
+                <TextInput
+                  style={styles.input}
+                  value={nuova.imapHost}
+                  onChangeText={(v) => setNuova((n) => ({ ...n, imapHost: v }))}
+                  placeholder="pop.securemail.pro (Register.it)"
+                  placeholderTextColor={colors.grigio}
+                  autoCapitalize="none"
+                />
+                <Text style={styles.campoLabel}>Password della casella</Text>
+                <TextInput
+                  style={styles.input}
+                  value={nuova.imapPassword}
+                  onChangeText={(v) => setNuova((n) => ({ ...n, imapPassword: v }))}
+                  placeholder="••••••••"
+                  placeholderTextColor={colors.grigio}
+                  secureTextEntry
+                  autoCapitalize="none"
+                />
+                <Pressable
+                  style={styles.spunta}
+                  onPress={() => setNuova((n) => ({ ...n, ignoraCertTls: !n.ignoraCertTls }))}
+                >
+                  <Ionicons
+                    name={nuova.ignoraCertTls ? 'checkbox-outline' : 'square-outline'}
+                    size={18}
+                    color={colors.navy}
+                  />
+                  <Text style={styles.spuntaTxt}>
+                    Ignora il nome sul certificato TLS — serve con Register.it, che presenta un
+                    certificato *.securemail.pro
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  style={[styles.btn, collegando && styles.btnOff]}
+                  disabled={collegando}
+                  onPress={collega}
+                >
+                  <Text style={styles.btnTxt}>{collegando ? 'Collego…' : 'Collega la casella'}</Text>
+                </Pressable>
+              </View>
+            ) : null}
+          </>
+        ) : null}
 
         <View style={styles.azioni}>
           {admin ? (
@@ -386,6 +522,30 @@ function SezioneAppCollegate() {
 }
 
 const styles = StyleSheet.create({
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  chip: {
+    borderWidth: 1,
+    borderColor: colors.grigioChiaro,
+    backgroundColor: colors.bianco,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  chipOn: { backgroundColor: colors.ink, borderColor: colors.ink },
+  chipTxt: { color: colors.testo, fontSize: 12.5 },
+  chipTxtOn: { color: colors.bianco, fontWeight: '700' },
+  linkRiga: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4 },
+  linkTxt: { color: colors.navy, fontSize: 13, fontWeight: '600' },
+  formCasella: {
+    gap: 6,
+    borderTopWidth: 1,
+    borderTopColor: colors.hairline,
+    paddingTop: spacing.sm,
+    marginTop: 2,
+  },
+  spunta: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, paddingVertical: 6 },
+  spuntaTxt: { flex: 1, color: colors.testoSoft, fontSize: 12.5, lineHeight: 18 },
+  forte: { fontWeight: '700', color: colors.testo },
   container: { flex: 1, backgroundColor: colors.sfondo },
   content: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xl },
   card: {

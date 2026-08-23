@@ -81,3 +81,73 @@ export async function importaRichiesteDaMail(limite = 50): Promise<{ lette: numb
   }
   return { lette: Number(payload.lette ?? 0), importate: Number(payload.importate ?? 0) };
 }
+
+export interface CasellaMail {
+  email: string;
+  nome: string | null;
+  imapHost: string | null;
+  cartella: string | null;
+  /** L'email dell'UTENTE di AI Mail: è questo il valore da mettere in «Casella». */
+  utente: string | null;
+  attivo: boolean;
+}
+
+/** Le caselle che AI Mail ha davvero: servono a scegliere invece di indovinare. */
+export async function fetchCaselleMail(): Promise<CasellaMail[]> {
+  const url = `${env.supabaseUrl().replace(/\/$/, '')}/functions/v1/mail`;
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: env.supabaseAnonKey(),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ azione: 'caselle' }),
+  });
+  const payload = await res.json().catch(() => ({}));
+  if (!res.ok || !payload?.ok) throw new Error(payload?.errore ?? `Elenco caselle non riuscito (${res.status}).`);
+  return (payload.caselle ?? []) as CasellaMail[];
+}
+
+export interface NuovaCasella {
+  email: string;
+  imapHost: string;
+  imapPassword: string;
+  imapPort?: number;
+  imapUtente?: string;
+  smtpHost?: string;
+  smtpPort?: number;
+  ignoraCertTls?: boolean;
+}
+
+/**
+ * Collega una casella in AI Mail (utente + IMAP/SMTP).
+ *
+ * ⚠️ Scout **non conserva** queste credenziali: le manda ad AI Mail, che è
+ * l'app padrona delle caselle e le cifra. Due app che custodiscono la stessa
+ * password sono due posti da cui può uscire e due da aggiornare quando cambia.
+ * AI Mail **prova la connessione prima di salvare**: se la password è sbagliata
+ * torna un errore leggibile e non resta niente scritto a metà.
+ */
+export async function collegaCasellaMail(casella: NuovaCasella): Promise<{ casella: string; creato: boolean }> {
+  const url = `${env.supabaseUrl().replace(/\/$/, '')}/functions/v1/mail`;
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: env.supabaseAnonKey(),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ azione: 'collega_casella', casella }),
+  });
+  const payload = await res.json().catch(() => ({}));
+  if (!res.ok || !payload?.ok) {
+    const dettaglio = payload?.suggerimento ? ` ${payload.suggerimento}` : '';
+    throw new Error(`${payload?.errore ?? `Collegamento non riuscito (${res.status}).`}${dettaglio}`);
+  }
+  return { casella: String(payload.casella ?? casella.email), creato: Boolean(payload.creato) };
+}

@@ -13,6 +13,11 @@ import { chiaveHub } from '../_shared/chiavi.ts';
 
 const BASE = Deno.env.get('MAIL_URL') ?? 'https://deluxy-mail.vercel.app';
 
+// Chi puo collegare una casella: e una credenziale aziendale, non una
+// preferenza personale. Stesso elenco di lib/admin.ts lato app — qui va
+// ripetuto perche le Edge Function non condividono il codice del client.
+const AMMINISTRATORI = ['nicolo.donato@deluxy.it'];
+
 const cors = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, content-type, apikey, x-client-info',
@@ -44,6 +49,51 @@ Deno.serve(async (req) => {
     // L'azione "richieste" accetta anche la chiave; tutto il resto vuole l'utente.
     if (!email && !(daServizio && body.azione === 'richieste')) {
       return json({ ok: false, errore: 'Non autenticato' }, 401);
+    }
+
+    // ── Caselle di AI Mail: elenco e collegamento ────────────────────────────
+    // Servono alla schermata Impostazioni di Scout: l'admin sceglie una casella
+    // che ESISTE (invece di digitare un indirizzo a caso e prendersi un 404) e,
+    // se non c'è, la collega da qui.
+    //
+    // ⚠️ Scout NON conserva le credenziali: le riceve dal modulo, le inoltra ad
+    // AI Mail — che è l'app padrona delle caselle e le cifra — e le dimentica.
+    // Due app che custodiscono la stessa password sono due posti da cui può
+    // uscire e due da aggiornare quando cambia.
+    if (body.azione === 'caselle') {
+      const res = await fetch(`${BASE}/api/v1/caselle`, { headers: { 'x-api-key': key } });
+      const txt = await res.text();
+      if (!res.ok) {
+        return json(
+          {
+            ok: false,
+            errore:
+              res.status === 404
+                ? 'Questa versione di AI Mail non ha ancora l’elenco delle caselle: va pubblicata.'
+                : `AI Mail ${res.status}: ${txt.slice(0, 200)}`,
+          },
+          502,
+        );
+      }
+      return new Response(txt, { status: 200, headers: { 'Content-Type': 'application/json', ...cors } });
+    }
+
+    if (body.azione === 'collega_casella') {
+      // Solo l'admin collega una casella: è una credenziale aziendale, non
+      // un'impostazione personale. Stessa regola della schermata App collegate.
+      if (!AMMINISTRATORI.includes((email ?? '').toLowerCase())) {
+        return json({ ok: false, errore: 'Solo un amministratore può collegare una casella.' }, 403);
+      }
+      const res = await fetch(`${BASE}/api/v1/caselle`, {
+        method: 'POST',
+        headers: { 'x-api-key': key, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body.casella ?? {}),
+      });
+      const txt = await res.text();
+      return new Response(txt, {
+        status: res.status,
+        headers: { 'Content-Type': 'application/json', ...cors },
+      });
     }
 
     // ── Richieste Web: la posta della casella commerciale diventa lead ────────
