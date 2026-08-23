@@ -97,6 +97,8 @@ export default async function SchedaCampagna({
     a?: string;
     ord?: string;
     verso?: string;
+    /** «attivi» = solo le keyword dei gruppi non in pausa. */
+    kwg?: string;
     // La finestra del blocco «Come sta andando»: è una lente a parte e non
     // tocca il periodo condiviso del resto della pagina.
     perf?: string;
@@ -747,6 +749,7 @@ export default async function SchedaCampagna({
           altriParametri={parametriPeriodo(periodo)}
           ord={sp.ordk}
           verso={sp.versok}
+          soloGruppiAttivi={sp.kwg === "attivi"}
         />
 
         {/* Il parere dell'AI subito dopo le due tabelle: ha appena finito di

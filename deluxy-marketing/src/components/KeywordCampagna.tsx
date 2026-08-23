@@ -35,6 +35,7 @@ export async function KeywordCampagna({
   altriParametri,
   ord,
   verso,
+  soloGruppiAttivi,
 }: {
   campagnaId: string;
   nomeCampagna: string;
@@ -43,6 +44,8 @@ export async function KeywordCampagna({
   altriParametri?: string;
   ord?: string;
   verso?: string;
+  /** Mostra solo le keyword dei gruppi che su Google non sono in pausa. */
+  soloGruppiAttivi?: boolean;
 }) {
   // Il legame con la campagna è il NOME: `CopyAnnuncio.campagna` è una stringa,
   // non una chiave esterna (le keyword arrivano dallo script prima ancora che
@@ -62,11 +65,78 @@ export async function KeywordCampagna({
     .map((n) => n.campagna)
     .filter((n) => normalizza(n) === bersaglio);
 
+  // Lo stato dei GRUPPI di questa campagna. Serve a rispondere alla domanda
+  // «ma queste parole stanno ancora andando?»: una keyword «Attiva» dentro un
+  // gruppo in pausa non compra niente, e in cima alla tabella — ordinata per
+  // spesa — finiscono proprio quelle, che hanno speso quando il gruppo era
+  // acceso. Misurato su «[Deluxy] Roma (Fiori) - English»: le tre parole che
+  // hanno speso di più sono di «Fiori Roma ITA», che su Google è PAUSED.
+  //
+  // ⚠️ Il legame campagna→gruppo passa per `campagnaId`, ma le keyword
+  // arrivano con un NOME di campagna che può appartenere a un'altra riga
+  // (nomi vecchi del Monitoraggio). Se per questo id non ci sono gruppi si
+  // ripiega sui nomi visti nelle keyword: meglio uno stato letto altrove che
+  // nessuno stato.
+  const gruppiDellaCampagna = await prisma.gruppo.findMany({
+    where: { campagnaId },
+    select: { nome: true, statoPiattaforma: true, stato: true },
+  });
+  const nomiGruppiKeyword = [
+    ...new Set(
+      (
+        await prisma.copyAnnuncio.findMany({
+          where: { tipo: "keyword", campagna: { in: nomiCompatibili } },
+          select: { gruppo: true },
+          distinct: ["gruppo"],
+        })
+      )
+        .map((x) => x.gruppo)
+        .filter((x): x is string => !!x)
+    ),
+  ];
+  const gruppi = gruppiDellaCampagna.length
+    ? gruppiDellaCampagna
+    : nomiGruppiKeyword.length
+      ? await prisma.gruppo.findMany({
+          where: { nome: { in: nomiGruppiKeyword } },
+          select: { nome: true, statoPiattaforma: true, stato: true },
+        })
+      : [];
+
+  // ⚠️ Attivo = NON in pausa su Google. Un gruppo di cui non sappiamo lo
+  // stato non è «fermo»: resta fuori dal conteggio e le sue keyword si
+  // mostrano comunque, dichiarandolo. Nascondere righe per un dato che non
+  // abbiamo sarebbe il modo più silenzioso di far sparire spesa vera.
+  const nomiAttivi = gruppi
+    .filter((g) => g.statoPiattaforma !== "PAUSED" && g.stato !== "defunto")
+    .map((g) => g.nome);
+  const nomiNoti = new Set(gruppi.map((g) => g.nome));
+  const filtroPossibile = gruppi.length > 0;
+  const filtroAcceso = Boolean(soloGruppiAttivi) && filtroPossibile;
+
   const keyword = nomiCompatibili.length
     ? await prisma.copyAnnuncio.findMany({
         // Le defunte non si vedono mai più (come le campagne): si ritrovano
         // solo dal filtro di stato della pagina Keywords.
-        where: { tipo: "keyword", campagna: { in: nomiCompatibili }, stato: { not: "defunta" } },
+        where: {
+          tipo: "keyword",
+          campagna: { in: nomiCompatibili },
+          stato: { not: "defunta" },
+          // ⚠️ Il filtro entra nella QUERY, non dopo: con `take: 60` filtrare
+          // in coda darebbe «le prime 60 per spesa, meno quelle scartate» —
+          // cioè una tabella che si svuota invece di mostrare le prime 60 dei
+          // gruppi attivi.
+          ...(filtroAcceso
+            ? {
+                OR: [
+                  { gruppo: { in: nomiAttivi } },
+                  // I gruppi che l'app non conosce restano visibili.
+                  { gruppo: { notIn: [...nomiNoti] } },
+                  { gruppo: null },
+                ],
+              }
+            : {}),
+        },
         orderBy: { spesa: { sort: "desc", nulls: "last" } },
         take: 60,
       })
@@ -165,7 +235,36 @@ export async function KeywordCampagna({
 
   return (
     <section className="scheda" id="keywords">
-      <div className="scheda-titolo">Cosa abbiamo comprato ({keyword.length} keyword)</div>
+      <div className="scheda-titolo" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+        <span>Cosa abbiamo comprato ({keyword.length} keyword)</span>
+        {/* ⚠️ La pillola c'è solo se lo stato dei gruppi lo conosciamo: un
+            filtro che non può funzionare non deve esistere, altrimenti chi lo
+            preme conclude che non ci sono keyword in gruppi attivi. */}
+        {filtroPossibile && base && (
+          <span className="pill-scelta">
+            {[
+              ["", "Tutti i gruppi"],
+              ["attivi", `Solo gruppi attivi (${nomiAttivi.length} su ${gruppi.length})`],
+            ].map(([valore, etichetta]) => {
+              const q = new URLSearchParams(altriParametri ?? "");
+              if (ord) q.set("ordk", ord);
+              if (verso) q.set("versok", verso);
+              if (valore) q.set("kwg", valore);
+              else q.delete("kwg");
+              const attuale = (filtroAcceso ? "attivi" : "") === valore;
+              return (
+                <a
+                  key={valore || "tutti"}
+                  className={`pill-opt${attuale ? " attuale" : ""}`}
+                  href={`${base}?${q}#keywords`}
+                >
+                  {etichetta}
+                </a>
+              );
+            })}
+          </span>
+        )}
+      </div>
       <p className="cella-sub" style={{ whiteSpace: "normal", marginBottom: 12 }}>
         Queste sono le <b>keyword</b>: quello per cui paghiamo. Sopra ci sono le <b>parole cercate</b>,
         cioè quello che la gente ha digitato davvero. Non sono lo stesso numero, e la distanza fra i
