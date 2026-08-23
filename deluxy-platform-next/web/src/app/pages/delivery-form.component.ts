@@ -15,6 +15,7 @@ import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
 import { loadGoogleMaps } from '../core/google-maps';
 import { detectProvince } from '../core/province.util';
+import { AuthService } from '../core/auth.service';
 
 declare const google: any;
 import {
@@ -63,6 +64,12 @@ interface ProductRow {
             <input #addressInput class="field" name="recipientAddress" [(ngModel)]="model.recipientAddress" (ngModelChange)="onAddressChange()" required autocomplete="off" [placeholder]="'deliveryForm.placeholder.address' | translate" />
             @if (addressProvince()) { <span class="slot-hint">{{ 'deliveryForm.hint.provinceDetected' | translate:{ code: addressProvince()?.code } }}</span> }
             @else if (model.recipientAddress) { <span class="slot-hint warn">{{ 'deliveryForm.hint.provinceUnknown' | translate }}</span> }
+            @if (mapsMancante() && puoConfigurare()) {
+              <span class="slot-hint warn">
+                {{ 'deliveryForm.hint.noMapsKey' | translate }}
+                <a routerLink="/settings">{{ 'deliveryForm.hint.noMapsKeyLink' | translate }}</a>
+              </span>
+            }
           </label>
           <label class="fld"><span>{{ 'deliveryForm.field.date' | translate }} *</span>
             <input class="field" type="date" name="date" [(ngModel)]="model.date" [min]="deliveryMinDate()" required />
@@ -359,10 +366,21 @@ interface ProductRow {
 })
 export class DeliveryFormComponent implements AfterViewInit {
   private readonly http = inject(HttpClient);
+  private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly translate = inject(TranslateService);
   private readonly zone = inject(NgZone);
+
+  /** Vero quando in Impostazioni manca la chiave Google Maps: i suggerimenti
+   *  indirizzo non possono funzionare e conviene dirlo invece di far sembrare
+   *  che il campo sia rotto. */
+  readonly mapsMancante = signal(false);
+
+  /** Solo l'admin può inserire la chiave: agli altri l'avviso non servirebbe. */
+  puoConfigurare(): boolean {
+    return this.auth.user()?.role === 'ADMIN';
+  }
 
   @ViewChild('addressInput') addressInput?: ElementRef<HTMLInputElement>;
   private autocomplete: any = null;
@@ -678,7 +696,14 @@ export class DeliveryFormComponent implements AfterViewInit {
       .subscribe({
         next: async (cfg) => {
           const key = cfg?.googleMapsBrowserKey;
-          if (!key) return; // nessuna chiave: resta il campo normale
+          if (!key) {
+            // ⚠️ Prima si tornava indietro in SILENZIO: il campo restava un
+            // normale input e l'integrazione sembrava rotta invece che da
+            // configurare. Ora lo si dice, così si sa che cosa manca.
+            this.mapsMancante.set(true);
+            return;
+          }
+          this.mapsMancante.set(false);
           try {
             await loadGoogleMaps(key);
             this.autocomplete = new google.maps.places.Autocomplete(input, {
@@ -695,7 +720,7 @@ export class DeliveryFormComponent implements AfterViewInit {
             /* script non caricato: resta il campo normale */
           }
         },
-        error: () => { /* nessuna chiave/rete: campo normale */ },
+        error: () => this.mapsMancante.set(true),
       });
   }
 

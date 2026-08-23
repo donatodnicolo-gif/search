@@ -845,7 +845,9 @@
       "provinceDetected": "Province {{code}} → only enabled partners/valets are shown",
       "provinceUnknown": "Province not recognized: partners/valets not filtered by province.",
       "notice": "Notice {{days}} d → from {{date}}",
-      "noPartners": "No partner with this service in the address province."
+      "noPartners": "No partner with this service in the address province.",
+      "noMapsKey": "Address suggestions are off: the Google Maps key is missing.",
+      "noMapsKeyLink": "Set it in Settings"
     },
     "timing": {
       "selectServiceFirst": "Select a service first to set the delivery time slot.",

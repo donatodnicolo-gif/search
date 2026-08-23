@@ -845,7 +845,9 @@
       "provinceDetected": "Provincia {{code}} → mostrati solo partner/valet abilitati",
       "provinceUnknown": "Provincia non riconosciuta: partner/valet non filtrati per provincia.",
       "notice": "Preavviso {{days}} g → dal {{date}}",
-      "noPartners": "Nessun partner con questo servizio nella provincia dell'indirizzo."
+      "noPartners": "Nessun partner con questo servizio nella provincia dell'indirizzo.",
+      "noMapsKey": "Suggerimenti indirizzo non attivi: manca la chiave Google Maps.",
+      "noMapsKeyLink": "Configurala in Impostazioni"
     },
     "timing": {
       "selectServiceFirst": "Seleziona prima un servizio per impostare la fascia di consegna.",
