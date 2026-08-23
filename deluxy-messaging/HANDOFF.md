@@ -1,6 +1,6 @@
 # Handoff — Deluxy Customer Service
 
-Ultimo aggiornamento: **23/08/2026, ore 20:30** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
+Ultimo aggiornamento: **23/08/2026, ore 21:00** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
 prima, alle 15:10, l'utente ha pubblicato la schermata di consenso Google e il
 conto alla rovescia dei 7 giorni è finito).
 Prima, il 19/08: la **risposta di primo contatto** che parte da sola al primo
@@ -156,7 +156,18 @@ locale, altrimenti nulla si decifra.
   messaggio WhatsApp a +393498853209 per l'aiuto, e la risposta sarà su
   WhatsApp».
   - Appena qualcuno chiede, l'avviso parte su WhatsApp col nome di chi ha
-    chiesto, l'ordine, la pagina, la domanda e un **codice** di 5 lettere. Il
+    chiesto, l'ordine, la pagina, la domanda e un **codice** di 5 lettere.
+  - 🐞 **Da quale numero esce: corretto subito dopo, su domanda dell'utente.**
+    La prima versione prendeva «il primo numero attivo con un token» — regola
+    arbitraria, e pescava **+1 555-336-2009, la linea clienti di Flowers** (59
+    conversazioni ricevute). Adesso l'ordine è: quello scelto in
+    `aiutoWaNumeroId`, altrimenti la linea del marchio **generale** (Deluxy,
+    +39 02 9475 1144, 4 conversazioni), altrimenti la prima che c'è.
+    ⚠️ Un avviso interno che esce dalla linea clienti di un brand ci finisce in
+    mezzo, e lì arrivano anche le risposte dell'amministratore.
+    ⚠️⚠️ **La finestra di 24 ore vale per COPPIA di numeri**: cambiando mittente
+    poteva chiudersi. Riprovato per davvero dopo il cambio → **`inviato`** anche
+    dal numero Deluxy. Il
     numero sta in `aiutoWhatsApp` (Impostazioni), con
     `393498853209` come ripiego: cambiarlo **non vuole un deploy**.
   - **Due modi di rispondere**, scritti dentro il messaggio: **citare** l'avviso

@@ -55,7 +55,13 @@ corregge una risposta già letta, il pallino torna: se no resteresti con la vers
 
 Appena qualcuno chiede, l'amministratore riceve la domanda **sul telefono**, su WhatsApp
 (oggi al **+39 349 885 3209**; si cambia scrivendo la chiave `aiutoWhatsApp` in
-Impostazioni, senza un deploy). Il messaggio porta chi ha chiesto, l'ordine, la pagina, la
+Impostazioni, senza un deploy).
+
+⚠️ **Da quale nostro numero esce non è indifferente.** L'avviso parte dalla linea del
+marchio **generale**, oggi **+39 02 9475 1144** (Deluxy): è quella che riceve meno clienti,
+quindi quella dove un messaggio interno dà meno fastidio — e dove le risposte
+dell'amministratore non finiscono in mezzo al traffico di un brand. Si può scegliere un
+altro numero scrivendo il suo `phone_number_id` nella chiave `aiutoWaNumeroId`. Il messaggio porta chi ha chiesto, l'ordine, la pagina, la
 domanda e un **codice** di cinque lettere.
 
 **Per rispondere ci sono due strade**, e sono scritte dentro il messaggio stesso:

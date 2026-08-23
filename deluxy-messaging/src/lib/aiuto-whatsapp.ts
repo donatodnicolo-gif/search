@@ -25,6 +25,8 @@ import { tokenPerNumero } from './numeri-whatsapp'
 const NUMERO_DEFAULT = '393498853209'
 /** La chiave da scrivere in Impostazioni per cambiarlo senza un deploy. */
 const CHIAVE_NUMERO = 'aiutoWhatsApp'
+/** Da quale nostro numero esce l'avviso: il `phone_number_id`, se scelto. */
+const CHIAVE_MITTENTE = 'aiutoWaNumeroId'
 
 /** «A7K2C»: corto, leggibile al telefono, e basta a ritrovare la domanda. */
 export function codiceDa(id: string): string {
@@ -37,17 +39,53 @@ export async function numeroAmministratore(): Promise<string> {
   return (c[CHIAVE_NUMERO] || NUMERO_DEFAULT).replace(/\D/g, '')
 }
 
-/** Da quale nostro numero esce l'avviso: il primo attivo che ha un token. */
+/**
+ * Da quale nostro numero esce l'avviso.
+ *
+ * ⚠️⚠️ **Non è indifferente.** Un avviso interno che esce dalla linea clienti di
+ * un marchio finisce in mezzo al suo traffico, e le risposte dell'amministratore
+ * arrivano su quella linea. La prima versione prendeva «il primo numero
+ * registrato»: era una regola arbitraria, e per caso pescava il numero di
+ * Flowers — la linea più battuta dai clienti dei fiori.
+ *
+ * L'ordine adesso è: **quello scelto in Impostazioni** (`aiutoWaNumeroId`),
+ * altrimenti la linea del marchio **generale** (Deluxy), altrimenti la prima che
+ * c'è. Non è un caso che il ripiego sia la generale: è quella che riceve meno
+ * clienti, quindi quella dove un messaggio interno dà meno fastidio.
+ */
 async function nostroNumero(): Promise<{ phoneNumberId: string; token: string } | null> {
   const numeri = await db.numeroWhatsApp.findMany({
     where: { attivo: true, phoneNumberId: { not: '' } },
     orderBy: { creatoIl: 'asc' },
+    include: { negozio: { select: { nome: true } } },
   })
-  for (const n of numeri) {
+  if (!numeri.length) return null
+
+  const conf = await leggiImpostazioni([CHIAVE_MITTENTE])
+  const scelto = (conf[CHIAVE_MITTENTE] ?? '').trim()
+
+  const preferiti = [
+    // 1. Quello scelto a mano.
+    ...numeri.filter((n) => scelto && n.phoneNumberId === scelto),
+    // 2. La linea del marchio generale: «Deluxy» e non «Deluxy Flowers» o
+    //    «Cake», che sono i marchi coi clienti.
+    ...numeri.filter((n) => (n.negozio?.nome ?? '').trim().toLowerCase() === 'deluxy'),
+    // 3. Quello che c'è.
+    ...numeri,
+  ]
+  for (const n of preferiti) {
     const token = await tokenPerNumero(n.phoneNumberId)
     if (token) return { phoneNumberId: n.phoneNumberId, token }
   }
   return null
+}
+
+/** Il numero da cui escono gli avvisi, in forma leggibile: per dirlo a schermo. */
+export async function mittenteAvvisi(): Promise<string> {
+  const scelto = await nostroNumero()
+  if (!scelto) return ''
+  const n = await db.numeroWhatsApp.findUnique({ where: { phoneNumberId: scelto.phoneNumberId } })
+  return n?.numeroVisibile || n?.nome || scelto.phoneNumberId
 }
 
 /**
