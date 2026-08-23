@@ -14,6 +14,7 @@ import { useFocusEffect } from 'expo-router';
 import { colors, radius, spacing, contenutoCentrato } from '@/lib/theme';
 import { avvisa, conferma } from '@/lib/dialoghi';
 import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
+import { CampoData } from '@/components/CampoData';
 import { cercaPlaces, type PlaceLite } from '@/lib/db';
 import { LINEE_ATTIVE } from '@/types';
 import {
@@ -192,14 +193,11 @@ function NuovoLavoro({ onFatto }: { onFatto: () => Promise<void> }) {
         ))}
       </View>
 
-      <Text style={styles.label}>Serve entro (AAAA-MM-GG)</Text>
-      <TextInput
-        style={styles.input}
-        value={serveEntro}
-        onChangeText={setServeEntro}
-        placeholder="es. 2026-09-15"
-        placeholderTextColor={colors.grigio}
-      />
+      {/* Il formato non si scrive più nell'etichetta: lo mostra il calendario,
+          e in italiano lo scrive gg/mm/aaaa — dire «AAAA-MM-GG» sarebbe una
+          istruzione per un campo che non si compila più a mano. */}
+      <Text style={styles.label}>Serve entro</Text>
+      <CampoData valore={serveEntro} onCambia={(iso) => setServeEntro(iso ?? '')} />
 
       <Text style={styles.label}>Dettagli</Text>
       <TextInput
