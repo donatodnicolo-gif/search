@@ -137,13 +137,23 @@ export class AnagraficheSyncService {
       } catch { return []; }
     };
 
+    const nomi = [partner.businessName, partner.insegna].filter(Boolean) as string[];
+    // Il nome cosi' com'e' scritto qui non basta: in piattaforma «BEYOND 142
+    // S.R.L.», nel registro «BEYOND 142 SRL». Si ritenta senza forma societaria
+    // ne' punteggiatura — ma DOPO i tentativi esatti, perche' e' piu' incerto.
+    const semplificati = [...new Set(nomi.map(semplificaNome).filter((n) => n.length >= 3))]
+      .filter((n) => !nomi.some((orig) => orig.trim().toLowerCase() === n));
+
     const tentativi: [string, string][] = [
       ['platformId', `platformId=${encodeURIComponent(partner.id)}`],
-      ...(partner.vatNumber ? [['P.IVA', `q=${encodeURIComponent(partner.vatNumber)}`] as [string, string]] : []),
+      // Una P.IVA segnaposto (11111111111) e' condivisa da decine di schede:
+      // cercarla collegherebbe il partner alla prima che capita.
+      ...(pivaAttendibile(partner.vatNumber) ? [['P.IVA', `q=${encodeURIComponent(partner.vatNumber!)}`] as [string, string]] : []),
       ...(partner.fiscalCode ? [['codice fiscale', `q=${encodeURIComponent(partner.fiscalCode)}`] as [string, string]] : []),
       ...(partner.email ? [['email', `q=${encodeURIComponent(partner.email)}`] as [string, string]] : []),
       ...(partner.businessName ? [['ragione sociale', `q=${encodeURIComponent(partner.businessName)}`] as [string, string]] : []),
       ['insegna', `q=${encodeURIComponent(partner.insegna)}`],
+      ...semplificati.map((n) => ['nome semplificato', `q=${encodeURIComponent(n)}`] as [string, string]),
     ];
 
     for (const [criterio, query] of tentativi) {
@@ -317,4 +327,25 @@ export class AnagraficheSyncService {
         this.logger.warn(`Registro anagrafiche non raggiungibile: ${err.message}`);
       });
   }
+}
+
+/**
+ * Una P.IVA fatta di una sola cifra ripetuta (11111111111) non identifica
+ * nessuno: e' il segnaposto usato quando il dato vero non c'era. In
+ * piattaforma la portano decine di schede, quindi cercarla nel registro
+ * collegherebbe il partner alla prima che capita.
+ */
+function pivaAttendibile(v?: string | null): boolean {
+  const p = (v ?? '').trim();
+  return p.length >= 8 && !/^(\d)\1+$/.test(p);
+}
+
+/** «BEYOND 142 S.R.L.» -> «beyond 142»: via forma societaria e punteggiatura. */
+function semplificaNome(v: string): string {
+  return v
+    .toLowerCase()
+    .replace(/[.,'`"()]/g, ' ')
+    .replace(/\b(s\s*r\s*l|srls|s\s*p\s*a|s\s*a\s*s|s\s*n\s*c|societa|soc)\b/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
