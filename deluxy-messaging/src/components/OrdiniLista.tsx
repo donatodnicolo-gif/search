@@ -1688,14 +1688,11 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
                             operatori={operatori}
                             onAzione={prendi}
                           />
-                          <a
-                            className="bottone secondario mini"
-                            href={linkPagamento(o)}
-                            onClick={() => segna(o.id, 'in_pagamento')}
-                            title="Paga fornitore: chiedi il pagamento del fornitore per questo ordine"
-                          >
-                            Paga
-                          </a>
+                          {/* ⚠️ «Paga» sta più in basso, fra le altre azioni:
+                              qui accanto ad «Assegna a…» faceva riga a sé con il
+                              menu, e un pagamento non è un compagno di riga
+                              dell'assegnazione — è un'azione come «Rimborso»,
+                              con cui invece va letto insieme. */}
                           {/* Un bottone per ogni canale che questo cliente ha
                               davvero: sceglie chi sta lavorando l'ordine, non
                               il codice. Senza recapiti resta scritto perché. */}
@@ -1754,6 +1751,17 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
                           >
                             Rimborso
                           </a>
+                          {/* I soldi vicini ai soldi: «Paga» accanto a
+                              «Rimborso», non in cima con l'assegnazione. */}
+                          <a
+                            className="bottone secondario mini"
+                            href={linkPagamento(o)}
+                            onClick={() => segna(o.id, 'in_pagamento')}
+                            title="Paga fornitore: chiedi il pagamento del fornitore per questo ordine"
+                          >
+                            Paga
+                          </a>
+                          <BottoneNota numero={o.numero} onErrore={setErrore} />
                           {!o.contattoSalvato ? (
                             <button
                               className="bottone secondario mini"
@@ -2188,5 +2196,106 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
       {/* Il pop-up di posta: si scrive e si manda dalla casella aziendale. */}
       {mail ? <ComponiMail bozza={mail} onChiudi={() => setMail(null)} /> : null}
     </>
+  )
+}
+
+/**
+ * «Nota»: una riga del diario di lavoro scritta DA QUI, sull'ordine che si
+ * ha davanti.
+ *
+ * ⚠️ Perché serviva. Il diario esiste già ed è la memoria del lavoro, ma per
+ * scriverci una riga bisognava cambiare pagina, ritrovare il numero
+ * dell'ordine e ribatterlo: tre passaggi nel momento in cui si ha in mano il
+ * telefono e mezza frase da annotare («richiama lunedì», «il fioraio non
+ * risponde»). Quello che costa tre passaggi non si scrive, e la memoria del
+ * lavoro resta nella testa di chi c'era.
+ *
+ * ⚠️ Il numero dell'ordine lo mette il codice, non la persona. L'API lo
+ * accetta anche staccandolo dalla testa del testo, ma qui il contesto lo
+ * conosciamo già: farlo ribattere significherebbe, prima o poi, attaccare la
+ * nota all'ordine sbagliato.
+ */
+function BottoneNota({
+  numero,
+  onErrore,
+}: {
+  numero: string
+  onErrore: (m: string) => void
+}) {
+  const [aperto, setAperto] = useState(false)
+  const [testo, setTesto] = useState('')
+  const [salvo, setSalvo] = useState(false)
+  const [fatto, setFatto] = useState(false)
+
+  const salva = async () => {
+    const corpo = testo.trim()
+    if (!corpo) return
+    setSalvo(true)
+    try {
+      const r = await fetch('/api/diario', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ testo: corpo, ordineNumero: numero }),
+      })
+      if (!r.ok) {
+        const e = await r.json().catch(() => ({}))
+        onErrore(e?.errore || 'Nota non salvata.')
+        return
+      }
+      // ⚠️ La casella si svuota e si chiude SOLO dopo un salvataggio
+      // riuscito: chiuderla comunque farebbe sparire una frase appena
+      // scritta proprio quando il salvataggio è fallito.
+      setTesto('')
+      setAperto(false)
+      setFatto(true)
+      setTimeout(() => setFatto(false), 2500)
+    } catch {
+      onErrore('Nota non salvata: rete assente?')
+    } finally {
+      setSalvo(false)
+    }
+  }
+
+  if (!aperto) {
+    return (
+      <button
+        className="bottone secondario mini"
+        onClick={() => setAperto(true)}
+        title={`Scrivi una riga sul diario di lavoro per l'ordine ${numero}`}
+      >
+        {fatto ? 'Nota salvata ✓' : 'Nota'}
+      </button>
+    )
+  }
+
+  return (
+    <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+      <input
+        autoFocus
+        value={testo}
+        onChange={(e) => setTesto(e.target.value)}
+        onKeyDown={(e) => {
+          // Invio salva, Esc chiude: si scrive con una mano sola mentre
+          // l'altra tiene il telefono.
+          if (e.key === 'Enter') salva()
+          if (e.key === 'Escape') setAperto(false)
+        }}
+        placeholder={`Nota per ${numero}…`}
+        style={{
+          font: 'inherit',
+          fontSize: 13,
+          padding: '4px 8px',
+          borderRadius: 999,
+          border: '1px solid var(--hairline-strong)',
+          minWidth: 220,
+        }}
+      />
+      <button className="bottone mini" onClick={salva} disabled={salvo || !testo.trim()}>
+        {salvo ? 'Salvo…' : 'Salva'}
+      </button>
+      <button className="bottone secondario mini" onClick={() => setAperto(false)}>
+        Annulla
+      </button>
+    </span>
   )
 }
