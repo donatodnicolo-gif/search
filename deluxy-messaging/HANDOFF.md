@@ -1,6 +1,6 @@
 # Handoff — Deluxy Customer Service
 
-Ultimo aggiornamento: **23/08/2026, ore 15:00** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
+Ultimo aggiornamento: **23/08/2026, ore 16:00** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
 prima, alle 15:10, l'utente ha pubblicato la schermata di consenso Google e il
 conto alla rovescia dei 7 giorni è finito).
 Prima, il 19/08: la **risposta di primo contatto** che parte da sola al primo
@@ -151,6 +151,41 @@ AES-256-GCM nel database. `APP_SECRET` su Vercel **deve** essere identico al
 locale, altrimenti nulla si decifra.
 
 ## FATTO
+
+- **QUANTO DARE AL FORNITORE, SULLA SCHEDA DELL'ORDINE** (23/08/2026).
+  Chiesto dall'utente: «metti anche la % da dare al fornitore indicativa».
+  - Nel riquadro «Chiedi al fornitore»: «Al fornitore, indicativamente:
+    **81,00 €** — il 60% di 135,00 €. È la quota uguale per tutti: si cambia in
+    Deluxy Orders → Impostazioni».
+  - ⭐⭐ **LA REGOLA ESISTEVA GIÀ, e non qui**: sta in **Deluxy Orders**,
+    impostazione `controllo.quotaFornitore` (default **60**), usata là per
+    controllare i pagamenti ai fornitori (`src/lib/controllo.ts`,
+    `valutaQuota`: sotto la quota è bene, sopra è male, tolleranza 0,5 pp).
+    **Non era esposta da nessuna API.**
+  - Aggiunta in Orders la rotta **`GET /api/v1/quota-fornitore`** (sola
+    lettura, chiave come le altre; `?totale=135` torna anche `atteso: 81`).
+    ⚠️ Il conto lo fa **chi possiede la regola**, così non si sparpagliano
+    moltiplicazioni per le app.
+  - ⚠️⚠️ **Non si ricopia il 60% qui.** Una seconda copia nel codice di
+    quest'app resterebbe al vecchio valore il giorno che la cambiano in Orders,
+    e due schermate direbbero due percentuali diverse **senza che nessuno se ne
+    accorga**. È la regola «non si duplicano i dati di altri registri», applicata
+    a una regola invece che a un dato.
+  - ⚠️ **Se Orders non risponde, la riga non compare** (`leggiQuotaFornitore`
+    torna `null`, timeout 4 s). Meglio una riga in meno che un numero inventato
+    accanto a dei soldi.
+  - ⚠️ **«Indicativamente» è scritto a schermo** e ci deve restare: la quota è
+    **una sola per tutti** — non ci sono regole per fornitore, per marchio o per
+    prodotto. Senza quella parola passerebbe per un prezzo concordato.
+  - ✅ Provata in produzione con la chiave vera: `60` senza totale, `atteso: 81`
+    con `totale=135` (l'ordine #2783 della richiesta), **nessun importo** con un
+    totale illeggibile (un «≈ 0,00 €» sarebbe una risposta sbagliata con l'aria
+    di una giusta), e **401** senza chiave.
+  - ⚠️ **Non vista a pixel**: pannello del browser non a schermo.
+  - 🐞 Nota di lavorazione: i file già in repo sono a **CRLF** (git li converte
+    in checkout). Uno script che cerca un blocco multiriga scritto con 
+ **non
+    lo trova**, e sembra che il testo sia cambiato: va convertito prima.
 
 - **LE REAZIONI SI VEDONO** (23/08/2026). Chiesto dall'utente vedendo
   «[reaction]» in una chat WhatsApp.

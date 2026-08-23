@@ -6,6 +6,8 @@ import {
   righeOrdineDaOrders,
   type RigaOrdine,
   type SpedizioneOrdine,
+  leggiQuotaFornitore,
+  type QuotaFornitore,
 } from './orders'
 
 // IL DETTAGLIO DI UN ORDINE, da qualunque parte arrivi.
@@ -64,6 +66,15 @@ export type DettaglioOrdinePayload = {
   biglietto: string
   /** Perché i prodotti non ci sono, quando non ci sono. */
   righeNota: string
+  /**
+   * Quanto ci si aspetta di pagare al fornitore per quest'ordine.
+   *
+   * ⚠️ `null` quando non si sa (Orders non configurato o non risponde): allora
+   * la scheda **non mostra niente**. La regola è di Orders e non si ricopia
+   * qui: un 60% scritto nel nostro codice resterebbe al vecchio valore il
+   * giorno che lo cambiano là.
+   */
+  quotaFornitore: QuotaFornitore | null
 }
 
 /**
@@ -78,6 +89,9 @@ export type DettaglioOrdinePayload = {
 export async function dettaglioOrdineLocale(id: string): Promise<DettaglioOrdinePayload | null> {
   const ordine = await db.ordine.findUnique({ where: { id } })
   if (!ordine) return null
+  // ⚠️ In parallelo con le righe, non dopo: sono due chiamate a Orders e messe
+  // in fila raddoppierebbero l'attesa di chi apre una scheda.
+  const quota = await leggiQuotaFornitore(ordine.totale)
 
   const negozio = await db.negozioShopify.findUnique({ where: { id: ordine.negozioId } })
   const brandRicerca = negozio
@@ -128,6 +142,7 @@ export async function dettaglioOrdineLocale(id: string): Promise<DettaglioOrdine
         : esito.stato === 'non-configurato'
           ? 'Registro Ordini non collegato: metti URL e chiave in Impostazioni.'
           : esito.messaggio,
+    quotaFornitore: quota,
   }
 }
 
@@ -211,6 +226,7 @@ export async function dettaglioOrdineArchivio(
       },
       ...pezzi,
       righeNota: '',
+      quotaFornitore: await leggiQuotaFornitore(o.totale ?? 0),
     },
   }
 }

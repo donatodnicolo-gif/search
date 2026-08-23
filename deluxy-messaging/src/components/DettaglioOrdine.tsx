@@ -248,6 +248,14 @@ export function DettaglioOrdine({
   const [ordine, setOrdine] = useState<OrdineDettaglio | null>(null)
   const [righe, setRighe] = useState<Riga[]>([])
   const [righeNota, setRigheNota] = useState('')
+  /**
+   * Quanto ci si aspetta di pagare al fornitore.
+   *
+   * ⚠️ `null` quando non si sa: allora **non si scrive niente**. La regola vive
+   * in Deluxy Orders e da qui si legge soltanto — scriversi un 60% nel codice
+   * vorrebbe dire mostrare il vecchio numero il giorno che la cambiano là.
+   */
+  const [quota, setQuota] = useState<{ quota: number; atteso?: number; dove: string } | null>(null)
   // Il destinatario arriva da Orders insieme alle righe: qui in casa c'è solo
   // chi compra, e nei regali sono due persone diverse.
   const [spedizione, setSpedizione] = useState<Spedizione | null>(null)
@@ -297,6 +305,7 @@ export function DettaglioOrdine({
         righeNota?: string
         spedizione?: Spedizione | null
         biglietto?: string
+        quotaFornitore?: { quota: number; atteso?: number; dove: string } | null
         errore?: string
       }
       if (!res.ok) {
@@ -306,6 +315,7 @@ export function DettaglioOrdine({
       setOrdine(d.ordine ?? null)
       setRighe(d.righe ?? [])
       setRigheNota(d.righeNota ?? '')
+      setQuota(d.quotaFornitore ?? null)
       setSpedizione(d.spedizione ?? null)
       setBiglietto(d.biglietto ?? '')
     } catch {
@@ -678,6 +688,30 @@ export function DettaglioOrdine({
                   </a>
                 ) : null}
               </div>
+              {/* ── QUANTO DARGLI ──
+                  ⚠️ È INDICATIVA, e la parola ci deve stare: è una percentuale
+                  sola per tutti i fornitori — non ci sono regole per fornitore,
+                  per marchio o per prodotto. Senza quella parola passerebbe per
+                  un prezzo concordato.
+                  ⚠️ Se Orders non risponde qui non compare niente: meglio una
+                  riga in meno che un numero inventato accanto a dei soldi. */}
+              {quota ? (
+                <p className="descrizione" style={{ marginBottom: 6 }}>
+                  Al fornitore, <strong>indicativamente</strong>:{' '}
+                  <strong>
+                    {(quota.atteso ?? (ordine.totale * quota.quota) / 100).toLocaleString('it-IT', {
+                      style: 'currency',
+                      currency: ordine.valuta || 'EUR',
+                    })}
+                  </strong>{' '}
+                  — il {quota.quota}% di{' '}
+                  {ordine.totale.toLocaleString('it-IT', {
+                    style: 'currency',
+                    currency: ordine.valuta || 'EUR',
+                  })}
+                  . È la quota uguale per tutti: si cambia in {quota.dove}.
+                </p>
+              ) : null}
               <p className="descrizione" style={{ marginBottom: 0 }}>
                 {ritiro ? (
                   <>

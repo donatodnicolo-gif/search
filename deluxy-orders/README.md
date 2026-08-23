@@ -73,9 +73,20 @@ npm run chiave -- deluxy-partner --scrittura # può riclassificare (PATCH)
 | GET | `/api/v1/liste/:chiave` | i clienti di una lista (`q, ordina, page, limit≤500`) con segmento, tipologia, spesa e recency; con `riepilogo=si` anche riassunto e gusti |
 | GET | `/api/v1/clienti` | i clienti **col riassunto scritto dall'AI** (`q, lista, ordina, verso, page, limit≤500`) |
 | GET | `/api/v1/clienti/:cliente` | la scheda di un cliente col riepilogo completo (riassunto, gusti, un punto per ordine); accetta l'id base64url **o l'email in chiaro** |
+| GET | `/api/v1/quota-fornitore` | la **quota attesa del fornitore** in percentuale (`totale` facoltativo: torna anche l'importo atteso per quell'ordine) |
 | POST | `/api/v1/sync?giorni=90` | avvia l'import (chiave di scrittura); `giorni=tutto` per lo storico completo |
 
 La forma della risposta è documentata in `src/lib/ordini.ts` (`serializzaOrdine`).
+
+> **La quota del fornitore sta QUI, ed è l'unica.** Deluxy paga al fornitore una quota del
+> valore dell'ordine — di norma il **60%** — e quel numero si cambia in *Impostazioni* di
+> Orders (`controllo.quotaFornitore`), senza deploy. Pagare **sotto** la quota è bene
+> (margine alto), **sopra** è male.
+> ⚠️ Le altre app devono **chiederla**, non ricopiarsela: una seconda copia scritta nel
+> codice di un'altra app resterebbe al vecchio valore il giorno che questo cambia, e due
+> schermate direbbero due numeri diversi senza che nessuno se ne accorga. La usa Deluxy
+> Customer Service sulla scheda di un ordine, prima di scrivere al fornitore.
+> ⚠️ È **una sola per tutti**: non ci sono regole per fornitore, per marchio o per prodotto.
 
 > **Ordini problematici.** Ogni ordine porta `problema: { problematico, motivi, gestito, nota }`.
 > Oggi `problematico` vuol dire **rimborso parziale**: l'ordine è valido e in piedi, ma una

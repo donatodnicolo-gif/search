@@ -31,6 +31,24 @@ Il collegamento numero → brand si dichiara in **Negozi**, nel campo *Phone Num
 (app Meta → WhatsApp → Configurazione API). Senza, il messaggio arriva comunque e in
 Inbox si vede il numero grezzo invece del nome del marchio.
 
+## Quanto dare al fornitore
+
+Sulla scheda di un ordine, nel riquadro **Chiedi al fornitore**, c'è quanto ci si aspetta di
+pagargli: «Al fornitore, indicativamente: **81,00 €** — il 60% di 135,00 €».
+
+⚠️ **È indicativa, e la parola ci sta apposta.** È una percentuale **sola per tutti i
+fornitori**: non ci sono regole per fornitore, per marchio o per prodotto. Senza quella
+parola passerebbe per un prezzo concordato.
+
+⚠️ **La regola non è di quest'app.** Vive in **Deluxy Orders → Impostazioni**
+(`controllo.quotaFornitore`, di norma **60%**), perché è là che si controllano i pagamenti
+ai fornitori: si cambia lì e da quel momento vale ovunque. Qui si legge soltanto — scriverne
+una copia nel nostro codice vorrebbe dire mostrare il vecchio numero il giorno che la
+cambiano, con due schermate che dicono due percentuali diverse.
+
+⚠️ **Se Orders non risponde, la riga non compare.** Meglio una riga in meno che un numero
+inventato accanto a dei soldi.
+
 ## Le reazioni
 
 Il cuore o il pollice che un cliente attacca a un messaggio adesso **si vede**: la sua

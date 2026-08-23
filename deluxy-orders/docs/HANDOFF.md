@@ -5,6 +5,26 @@ Stato al **17/08/2026** (fotografia qui sotto; il corpo del documento è del
 Serve a far ripartire una finestra nuova senza contesto: prima lo stato, poi le
 **trappole già pagate** — quelle valgono più dell'elenco delle funzioni.
 
+
+## 23/08/2026 — La quota del fornitore si può chiedere da fuori
+
+Nuova rotta **`GET /api/v1/quota-fornitore`** (sola lettura, chiave come le
+altre). Torna la percentuale di `controllo.quotaFornitore` — di norma **60** — e,
+se le si passa `?totale=135`, anche l'importo atteso (`atteso: 81`).
+
+⚠️⚠️ **Serve perché quella regola vive SOLO qui** e le altre app non devono
+ricopiarsela: Deluxy Customer Service la mostra sulla scheda di un ordine
+(«al fornitore, indicativamente, 81,00 €») prima che un operatore scriva al
+fioraio. Una copia scritta nel codice di un'altra app resterebbe al vecchio
+valore il giorno che la si cambia qui, e due schermate direbbero due numeri
+diversi senza che nessuno se ne accorga.
+
+⚠️ Il conto (`totale × quota`) lo fa **questa** app, che possiede la regola: se
+lo facesse ogni consumatore, la moltiplicazione sarebbe sparsa in cinque posti.
+
+⚠️ Un `totale` illeggibile **non diventa zero**: si risponde senza importo. Un
+«≈ 0,00 €» sarebbe una risposta sbagliata con l'aria di una giusta.
+
 ## FOTOGRAFIA AL 17/08/2026 — contata sul database, non ricordata
 
 **L'app è viva e la catena Shopify → Orders gira da sola.** `GET /api/v1/health`

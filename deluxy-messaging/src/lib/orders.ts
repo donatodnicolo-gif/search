@@ -570,3 +570,52 @@ export async function ordiniClienteDaOrders(
     return { stato: 'errore', messaggio: (e as Error).message }
   }
 }
+
+// ── LA QUOTA DEL FORNITORE ──
+//
+// ⚠️⚠️ **La regola non è nostra e non va ricopiata qui.** La percentuale che
+// Deluxy si aspetta di pagare al fornitore vive in **Deluxy Orders**
+// (impostazione `controllo.quotaFornitore`, di norma **60%**), perché è là che
+// si controllano i pagamenti ai fornitori. Scriverla nel nostro codice
+// vorrebbe dire che il giorno in cui la cambiano lì, questa schermata continua
+// a mostrare il vecchio numero — e due schermate che dicono due percentuali
+// diverse sono peggio di una schermata che non la dice.
+//
+// ⚠️ Se Orders non risponde, **non si inventa il 60%**: si torna `null` e la
+// scheda non mostra l'importo. Un numero indicativo va bene; un numero
+// indicativo sbagliato no.
+
+export type QuotaFornitore = {
+  /** La percentuale del totale che ci si aspetta di pagare al fornitore. */
+  quota: number
+  /** Quanto fa su questo ordine, se il totale è stato passato. */
+  atteso?: number
+  /** Dove si cambia, da dire a schermo: la regola non si tocca da qui. */
+  dove: string
+}
+
+/** Legge la quota da Orders. `null` quando non si sa: allora non si mostra niente. */
+export async function leggiQuotaFornitore(totale?: number): Promise<QuotaFornitore | null> {
+  const c = await configOrders()
+  if (!c) return null
+  try {
+    const p = totale && totale > 0 ? `?totale=${encodeURIComponent(String(totale))}` : ''
+    const res = await fetch(`${c.base}/api/v1/quota-fornitore${p}`, {
+      headers: { 'x-api-key': c.chiave },
+      // ⚠️ Corto: sta nel caricamento della scheda di un ordine. Meglio una
+      // riga in meno che una scheda che si apre in ritardo.
+      signal: AbortSignal.timeout(4000),
+      cache: 'no-store',
+    })
+    if (!res.ok) return null
+    const d = (await res.json()) as { quota?: number; atteso?: number; dove?: string }
+    if (typeof d.quota !== 'number' || !(d.quota > 0 && d.quota < 100)) return null
+    return {
+      quota: d.quota,
+      atteso: typeof d.atteso === 'number' ? d.atteso : undefined,
+      dove: d.dove || 'Deluxy Orders → Impostazioni',
+    }
+  } catch {
+    return null
+  }
+}
