@@ -58,7 +58,8 @@ export async function BudgetQuestoMese({ anno }: { anno: number }) {
     const conBudget = accese.filter((c) => c.budgetGiornaliero != null);
     const alGiorno = conBudget.reduce((s, c) => s + (c.budgetGiornaliero ?? 0), 0);
     const speso = spesoPerBrand.get(sito) ?? 0;
-    const consentito = meseDiSito(budgets, sito, mese)?.advConsentito ?? null;
+    const mb = meseDiSito(budgets, sito, mese);
+    const consentito = mb?.advConsentito ?? null;
     // Dove si arriva a fine mese se si continua così: la spesa vera al giorno
     // finora, moltiplicata per i giorni che restano. ⚠️ NON il budget acceso —
     // quello è un tetto, e quasi nessuna campagna lo tocca.
@@ -71,6 +72,8 @@ export async function BudgetQuestoMese({ anno }: { anno: number }) {
       alGiorno,
       speso,
       consentito,
+      advPercent: mb?.advPercent ?? null,
+      venditePreviste: mb?.venditeTotali ?? null,
       proiezione,
       resta: consentito != null ? consentito - speso : null,
     };
@@ -108,7 +111,14 @@ export async function BudgetQuestoMese({ anno }: { anno: number }) {
           <thead>
             <tr>
               <th>Brand</th>
-              <th className="num">Consentito</th>
+              {/* ⚠️ «Consentito» da CHI: senza il nome della fonte e della
+                  formula il numero sembra deciso da questa app, che invece non
+                  scrive niente sul budget. */}
+              <th className="num">
+                <a href="https://deluxy-budgets.vercel.app" target="_blank" rel="noreferrer">
+                  Consentito da Budgets ↗
+                </a>
+              </th>
               <th className="num">Speso finora</th>
               <th className="num">Resta</th>
               <th className="num">A fine mese, di questo passo</th>
@@ -130,7 +140,14 @@ export async function BudgetQuestoMese({ anno }: { anno: number }) {
                       )}
                     </div>
                   </td>
-                  <td className="num">{r.consentito != null ? formattaEuro(r.consentito) : "—"}</td>
+                  <td className="num">
+                    {r.consentito != null ? formattaEuro(r.consentito) : "—"}
+                    {r.consentito != null && r.advPercent != null && r.venditePreviste != null && (
+                      <div className="cella-sub">
+                        {Math.round(r.advPercent * 100)}% di {formattaEuro(r.venditePreviste)} di vendite previste
+                      </div>
+                    )}
+                  </td>
                   <td className="num">
                     {formattaEuro(r.speso)}
                     {quota != null && (
