@@ -1,4 +1,5 @@
 import { notFound, redirect } from "next/navigation";
+import { BudgetCampagneBrand } from "@/components/BudgetCampagneBrand";
 import { Badge } from "@/components/Badge";
 import { VisteSalvate } from "@/components/VisteSalvate";
 import { destinazionePredefinita } from "@/lib/viste";
@@ -202,6 +203,12 @@ export default async function PaginaBrand({
         </section>
 
         <FreschezzaDati brand={brand} />
+
+        {/* ⚠️ Quanto abbiamo ACCESO contro quanto POSSIAMO spendere: le due
+            cifre vivevano in due app diverse (i budget su Google e Meta, il
+            tetto in Budgets), quindi nessuno le confrontava mai — e la domanda
+            se la faceva la fattura. */}
+        <BudgetCampagneBrand brand={brand} />
 
         {/* Canale per canale: la media di brand nasconde chi tiene su la
             baracca e chi se la mangia. */}
