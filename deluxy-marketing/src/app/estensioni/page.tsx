@@ -186,16 +186,36 @@ export default async function Estensioni({
               <tbody>
                 {riepilogo.map((b) => (
                   <tr key={b.brand}>
-                    <td className="cella-nome">{ETICHETTA_BRAND[b.brand] ?? b.brand}</td>
+                    <td className="cella-nome">
+                      {/* ⚠️ OGNI NUMERO È UNA PORTA. Un quadro che si legge e
+                          non si apre costringe a rifare a mano, con le
+                          pillole in fondo, la selezione che si è appena fatta
+                          con gli occhi — e chi legge «+82 in pausa» vuole
+                          vedere QUELLE 82, non impostare tre filtri. */}
+                      <a href={`/estensioni?brand=${b.brand}&tipo=tutti&stato=tutte#elenco`}>
+                        {ETICHETTA_BRAND[b.brand] ?? b.brand}
+                      </a>
+                    </td>
                     {b.per.map((p) => (
                       <td key={p.tipo} className="num">
                         {/* Il numero grande è quello che ESCE. Le ferme accanto,
                             in arancione: sono lavoro già fatto e spento. */}
-                        <span style={{ fontWeight: 600, color: p.attive === 0 ? "var(--orange)" : undefined }}>
+                        <a
+                          href={`/estensioni?brand=${b.brand}&tipo=${p.tipo}&stato=attive#elenco`}
+                          style={{ fontWeight: 600, color: p.attive === 0 ? "var(--orange)" : undefined }}
+                          title={`Le ${ETICHETTA_TIPO[p.tipo].toLowerCase()} di ${ETICHETTA_BRAND[b.brand] ?? b.brand} che escono in asta`}
+                        >
                           {p.attive}
-                        </span>
+                        </a>
                         {p.ferme > 0 && (
-                          <span className="cella-sub" style={{ color: "var(--orange)" }}> +{p.ferme} in pausa</span>
+                          <a
+                            href={`/estensioni?brand=${b.brand}&tipo=${p.tipo}&stato=in_pausa#elenco`}
+                            className="cella-sub"
+                            style={{ color: "var(--orange)" }}
+                            title={`Le ${p.ferme} ${ETICHETTA_TIPO[p.tipo].toLowerCase()} di ${ETICHETTA_BRAND[b.brand] ?? b.brand} ferme su Google`}
+                          >
+                            {" "}+{p.ferme} in pausa
+                          </a>
                         )}
                       </td>
                     ))}
@@ -241,10 +261,16 @@ export default async function Estensioni({
                       <td className="cella-muta">{ETICHETTA_BRAND[c.brand ?? ""] ?? c.brand}</td>
                       <td>
                         {c.mancanti.map((t) => (
-                          <span key={t} className="tag-salute" style={{ color: "var(--orange)", marginRight: 6 }}>
+                          <a
+                            key={t}
+                            className="tag-salute"
+                            style={{ color: "var(--orange)", marginRight: 6 }}
+                            href={`/estensioni?brand=${c.brand ?? "tutti"}&tipo=${t}&stato=tutte&campagna=${encodeURIComponent(c.nome)}#elenco`}
+                            title={`Guarda le ${ETICHETTA_TIPO[t].toLowerCase()} di questa campagna: se ce ne sono, sono tutte in pausa`}
+                          >
                             <span className="dot" />
                             {ETICHETTA_TIPO[t]}
-                          </span>
+                          </a>
                         ))}
                       </td>
                     </tr>
@@ -261,7 +287,7 @@ export default async function Estensioni({
         )}
 
         {/* ── L'elenco ───────────────────────────────────────────────── */}
-        <section className="scheda">
+        <section className="scheda" id="elenco">
           <div className="scheda-titolo">
             Elenco ({mostrate.length} su {righe.length})
           </div>
