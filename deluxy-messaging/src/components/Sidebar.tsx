@@ -88,6 +88,10 @@ export function Sidebar({ amministratore = false }: { amministratore?: boolean }
     {
       titolo: 'Messaggi',
       voci: [
+        // Primo del gruppo: e' quello che si legge PRIMA di scrivere. Le
+        // risposte pronte sono il testo, il glossario e' quello che devi
+        // sapere per scegliere il testo giusto.
+        { href: '/glossario', nome: 'Glossario', icona: iconaScript },
         { href: '/script', nome: 'Risposte pronte', icona: iconaScript },
         { href: '/cs-ai', nome: 'CS AI', icona: iconaCsAi },
       ],

@@ -1247,3 +1247,83 @@ model EccezioneTurno {
   @@unique([utenteId, giorno, dalle, alle])
   @@index([giorno])
 }
+
+// IL GLOSSARIO: quello che si sa e che oggi sta nella testa di chi c'era.
+//
+// ⚠️⚠️ NON è un doppione delle altre tre cose che l'app già tiene, e la
+// distinzione va difesa o in sei mesi ci sono quattro posti dove cercare:
+//   · `Script`       = un TESTO che si manda al cliente (il *cosa si dice*);
+//   · `IstruzioneAI` = come l'AI si comporta mentre lo adatta (il *come*);
+//   · `DocumentoAI`  = un file caricato, da cui l'AI impara;
+//   · **`VoceGlossario` = un FATTO**, vero oggi, che serve a chi risponde —
+//     «a Milano si consegna anche la domenica», «il codice sul cartoncino di
+//     Cake è il numero d'ordine». Non è un testo da mandare: è quello che devi
+//     sapere per scrivere il testo giusto.
+//
+// ⚠️ Quello che l'app SA GIÀ non si scrive qui: domini, numeri WhatsApp,
+// caselle, siti e quota fornitore si leggono dalla configurazione ogni volta
+// che si apre la pagina. Copiarli in una voce vorrebbe dire che il giorno che
+// cambiano il glossario mente — ed è il modo più veloce per far smettere la
+// gente di fidarsene.
+model VoceGlossario {
+  id          String   @id @default(cuid())
+  /** «Consegna in giornata», «Cartoncino Cake»: come lo cercherebbe una persona. */
+  termine     String
+  definizione String   @db.Text
+  /**
+   * `cliente` = si può dire a un cliente · `tecnico` = come funziona di dentro.
+   * ⚠️ Serve a non leggere a un cliente una nota interna: sono due pubblici.
+   */
+  categoria   String   @default("cliente")
+  /**
+   * Il brand a cui vale. **Stringa vuota = vale per tutti.**
+   *
+   * ⚠️ Vuota e non `null`, ed è una scelta: in Postgres due NULL non sono
+   * uguali fra loro, quindi con una colonna nullable il vincolo di unicità
+   * qui sotto **non impedirebbe** due voci globali con lo stesso termine — e
+   * il glossario si riempirebbe di doppioni senza dare errore.
+   */
+  negozioId   String   @default("")
+  /** `persona` (scritta a mano) | `ai` (nata da una proposta accettata). */
+  fonte       String   @default("persona")
+  /** La conversazione da cui è uscita, quando viene da una proposta. */
+  conversazioneId String @default("")
+  autoreNome  String   @default("")
+  creatoIl    DateTime @default(now())
+  aggiornatoIl DateTime @updatedAt
+
+  @@unique([termine, negozioId])
+  @@index([categoria])
+}
+
+// Quello che l'AI PROPONE dopo aver letto le chat del giorno.
+//
+// ⚠️⚠️ **Proposte, non modifiche.** Il glossario è quello su cui un operatore si
+// basa per parlare a un cliente: un'AI che ci scrive dentro da sola metterebbe
+// in bocca alle persone un fatto che nessuno ha verificato, e lo scoprirebbe il
+// cliente. Qui vale la regola di tutta l'app: l'AI propone, decide una persona.
+//
+// ⚠️ Ogni proposta porta la **conversazione da cui nasce**: senza la prova non
+// è una proposta, è un'opinione — e non si può controllare in dieci secondi.
+model PropostaGlossario {
+  id          String   @id @default(cuid())
+  /** `aggiunta` (manca) · `correzione` (c'è ma è sbagliata) · `avviso` (da sapere). */
+  tipo        String   @default("aggiunta")
+  /** La voce da correggere, per le correzioni. */
+  voceId      String   @default("")
+  termine     String
+  definizione String   @db.Text
+  categoria   String   @default("cliente")
+  /** Vuota = vale per tutti i marchi (come in `VoceGlossario`). */
+  negozioId   String   @default("")
+  /** Che cosa ha visto nelle chat: è la prova, e si legge prima di accettare. */
+  perche      String   @default("") @db.Text
+  conversazioneId String @default("")
+  /** `aperta` | `accettata` | `scartata`. */
+  stato       String   @default("aperta")
+  decisaDaNome String  @default("")
+  decisaIl    DateTime?
+  creatoIl    DateTime @default(now())
+
+  @@index([stato, creatoIl])
+}

@@ -1,6 +1,6 @@
 # Handoff — Deluxy Customer Service
 
-Ultimo aggiornamento: **23/08/2026, ore 16:00** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
+Ultimo aggiornamento: **23/08/2026, ore 18:00** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
 prima, alle 15:10, l'utente ha pubblicato la schermata di consenso Google e il
 conto alla rovescia dei 7 giorni è finito).
 Prima, il 19/08: la **risposta di primo contatto** che parte da sola al primo
@@ -151,6 +151,48 @@ AES-256-GCM nel database. `APP_SECRET` su Vercel **deve** essere identico al
 locale, altrimenti nulla si decifra.
 
 ## FATTO
+
+- **IL GLOSSARIO, E IL GIRO NOTTURNO DELL'AI** (23/08/2026). Chiesto
+  dall'utente: «una sezione glossario con tutte le informazioni sui brand e
+  globali, tecniche e per i clienti; ogni giorno l'AI verifica dalle chat se c'è
+  da aggiungere, correggere o segnalare».
+  - `/glossario` (gruppo Messaggi, prima delle Risposte pronte: è quello che si
+    legge *prima* di scrivere). Tre parti: **Da controllare** (le proposte
+    dell'AI), **Le voci**, **Come siamo fatti**.
+  - Tabelle nuove `VoceGlossario` e `PropostaGlossario` (`db push` additivo).
+    Cron **`/api/cron/glossario` alle 5:40**, più «Rileggi le chat adesso».
+  - ⚠️⚠️ **L'AI PROPONE, NON SCRIVE.** Il glossario è ciò su cui ci si basa per
+    parlare a un cliente: scriverci dentro da sola metterebbe in bocca a una
+    persona un fatto che nessuno ha verificato. Ogni proposta resta `aperta`
+    finché qualcuno accetta o scarta.
+  - ⚠️⚠️ **Ogni proposta deve citare una conversazione VERA**: il codice butta
+    (in silenzio) quelle con un id inesistente, quelle su un marchio inventato,
+    le correzioni a voci che non ci sono e i doppioni di proposte già aperte.
+    Senza prova non è una proposta, è un'opinione. Provato: 12 conversazioni
+    lette, 3 proposte tenute, **1 scartata dal filtro**.
+  - ⚠️⚠️ **«Come siamo fatti» NON si scrive**: domini, numeri, caselle, siti e
+    quota fornitore si leggono dalla configurazione a ogni apertura. Copiarli in
+    una voce vorrebbe dire che il giorno che cambiano il glossario mente — e a
+    un glossario che mente ci si crede.
+  - ⚠️ **Non è un doppione di Script / IstruzioneAI / DocumentoAI**, e la
+    distinzione è scritta a schermo: qui stanno i **fatti**, non i testi da
+    mandare né le regole di tono. Se si mescolano, in sei mesi ci sono quattro
+    posti dove cercare la stessa cosa.
+  - ⚠️ `negozioId` è una **stringa vuota** e non `null` per «vale per tutti»: in
+    Postgres due NULL non sono uguali, quindi con una colonna nullable
+    `@@unique([termine, negozioId])` **non impedirebbe** due voci globali con lo
+    stesso termine.
+  - 🐞 **Terza volta che serve la stessa separazione**: `src/lib/glossario.ts`
+    deve restare **puro** (lo importa la pagina, che è client). La build fallisce
+    con «node:crypto non gestito» — le query stanno nella route. Come per
+    `turni.ts` e `refusi.ts`: è una regola, non un caso.
+  - ✅ Provato contro le chat vere: `npx tsx scripts/prova-glossario.mts` — 3
+    proposte sensate, ognuna con la sua conversazione («foto dei fiori prima
+    della consegna», «pagamento in valuta estera», «consegna in giornata»).
+  - ⚠️ **Non visto a pixel**: pannello del browser non a schermo.
+  - ➡️ **Passo successivo non fatto, da decidere**: il glossario **non entra**
+    ancora nelle risposte dell'AI ai clienti. Farlo entrare cambia quello che
+    l'AI dice a un cliente, ed è una decisione da prendere apposta.
 
 - **QUANTO DARE AL FORNITORE, SULLA SCHEDA DELL'ORDINE** (23/08/2026).
   Chiesto dall'utente: «metti anche la % da dare al fornitore indicativa».

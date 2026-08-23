@@ -31,6 +31,45 @@ Il collegamento numero → brand si dichiara in **Negozi**, nel campo *Phone Num
 (app Meta → WhatsApp → Configurazione API). Senza, il messaggio arriva comunque e in
 Inbox si vede il numero grezzo invece del nome del marchio.
 
+## Il glossario
+
+`/glossario`, nel gruppo **Messaggi** — prima delle Risposte pronte, perché è quello che
+si legge *prima* di scrivere. Lo vedono tutti gli operatori.
+
+È fatto di tre parti.
+
+**Da controllare**, in cima. Ogni notte alle 5:40 l'AI rilegge le chat delle ultime 24 ore
+e propone: cosa **manca** nel glossario, cosa c'è ma risulta **sbagliato**, e cosa
+l'operatore **deve sapere** (una domanda che torna ogni giorno senza risposta pronta).
+⚠️ **Propone: non scrive.** Il glossario è quello su cui ci si basa per parlare a un
+cliente — un'AI che ci mette dentro un fatto da sola lo metterebbe in bocca a una persona
+senza che nessuno l'abbia verificato, e a scoprirlo sarebbe il cliente.
+⚠️ **Ogni proposta porta la conversazione da cui nasce**, con un bottone «Vedi la chat».
+Senza la prova non è una proposta, è un'opinione: si controlla in dieci secondi invece di
+fidarsi. Le proposte che citano una conversazione inesistente **vengono buttate dal codice**
+prima di arrivare a schermo, insieme a quelle su un marchio inventato e ai doppioni.
+C'è anche «Rileggi le chat adesso», per non aspettare stanotte.
+
+**Le voci**: il glossario vero. Ogni voce ha un **termine** (come lo cercherebbe una
+persona), il **fatto** scritto come lo diresti a un collega nuovo, il **marchio** a cui vale
+(o *tutti*), e chi lo può leggere: **«si può dire al cliente»** oppure **«interno»**.
+⚠️ Quest'ultima etichetta è rossa apposta: è l'unica che dice *non leggerlo a un cliente*.
+
+**Come siamo fatti**, in fondo: domini Shopify, numeri WhatsApp, account Instagram, caselle
+email, siti col widget, quota del fornitore.
+⚠️ **Questa parte non si scrive a mano**: è letta dalla configurazione ogni volta che apri
+la pagina, quindi è vera per definizione. Copiarla in una voce vorrebbe dire che il giorno
+in cui qualcuno collega un numero nuovo il glossario **mente** — ed è il modo più veloce per
+far smettere la gente di fidarsene. Se qualcosa lì è sbagliato, si corregge dove sta
+davvero.
+
+### Che cosa NON va nel glossario
+
+Qui vanno i **fatti**. Un testo da mandare è una **Risposta pronta**; una regola di tono per
+l'AI è un'istruzione di **CS AI**; un file da cui l'AI impara è un **documento** di CS AI.
+Se le quattro cose si mescolano, in sei mesi ci sono quattro posti dove cercare la stessa
+cosa e nessuno è aggiornato.
+
 ## Quanto dare al fornitore
 
 Sulla scheda di un ordine, nel riquadro **Chiedi al fornitore**, c'è quanto ci si aspetta di
