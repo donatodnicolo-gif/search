@@ -1601,7 +1601,20 @@ import server esistenti continuano a funzionare. ⭐ **Regola: quello che serve 
 modulo che tocca il database.**
 
 A **ROS 7** la pubblicità vale un settimo del venduto (≈14,3%), a **6,5** un po' di più (≈15,4%). Sta
-in `calc.ts` (`rosObiettivo` / `budgetAdvAnno`): `deluxy` → 7, tutti gli altri → 6,5.
+Il ripiego per chi non ne ha uno suo resta **6,5×**.
+
+⭐ **Il ROS si imposta per brand** (23/08/2026, «consentimi di impostare il ros per ogni brand per i
+budget»): vive a database su `Maison.rosObiettivo` e si scrive **dalla scheda del brand in `/spese`**,
+dove il monte si legge — un parametro che sposta il P&L non sta in un file di codice. Il campo è
+**nullable di proposito**: vuoto vuol dire «usa il predefinito» e il segnaposto lo scrive, che è
+diverso dallo scriverci sopra lo stesso numero — uno è una scelta, l'altro è un ripiego, e la testata
+dice quale dei due (`÷ ROS 6,5× predefinito`).
+
+⚠️ L'API rifiuta **zero e negativi** (un ROS a zero è una divisione per zero, cioè un monte
+pubblicitario infinito) e i valori sopra 100. I valori che stavano nel codice sono stati **portati a
+database così com'erano** (`deluxy` → 7), altrimenti il monte di Deluxy.it sarebbe cambiato da solo al
+primo deploy. Provato sul vivo: CakeDesign a 8× → monte da 15.477 a **12.575 €**, poi rimesso a
+predefinito.
 
 **Le vendite dell'anno sono «consuntivo dove c'è + budget sul resto»** (*«nel calcolo devi sommare il
 budget a consuntivo»*): è la stessa riga «Attuale» di `/maison`, e per la stessa ragione — su un mese

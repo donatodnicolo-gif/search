@@ -55,3 +55,36 @@ export async function POST(req: Request) {
   // le pagine lo dicono, invece di ereditare numeri di qualcun altro.
   return NextResponse.json({ ok: true, id: creato.id, slug: creato.slug });
 }
+
+// Il **ROS obiettivo** del brand: quanti euro di vendite deve muovere ogni euro
+// di pubblicità. Da qui si stima il monte pubblicitario dell'anno, quindi è un
+// numero che sposta il P&L: si valida invece di fidarsi del form.
+export async function PUT(req: Request) {
+  const body = await req.json().catch(() => null);
+  const id = String(body?.id ?? "");
+  if (!id) return NextResponse.json({ error: "id mancante" }, { status: 400 });
+
+  // `null` = «usa il predefinito», ed è diverso da zero: uno zero qui
+  // farebbe una divisione per zero e un monte pubblicitario infinito.
+  const grezzo = body?.rosObiettivo;
+  let ros: number | null = null;
+  if (grezzo !== null && grezzo !== undefined && grezzo !== "") {
+    const n = Number(grezzo);
+    if (!Number.isFinite(n) || n <= 0) {
+      return NextResponse.json(
+        { error: "Il ROS dev'essere un numero maggiore di zero, oppure vuoto per usare il predefinito." },
+        { status: 400 }
+      );
+    }
+    if (n > 100) {
+      return NextResponse.json(
+        { error: "Un ROS sopra 100 vorrebbe dire pubblicità quasi a zero: se è voluto, scrivilo più basso e alza il budget." },
+        { status: 400 }
+      );
+    }
+    ros = n;
+  }
+
+  const m = await prisma.maison.update({ where: { id }, data: { rosObiettivo: ros } });
+  return NextResponse.json({ ok: true, rosObiettivo: m.rosObiettivo });
+}

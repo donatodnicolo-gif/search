@@ -28,6 +28,8 @@ type MaisonSpese = {
   // Il monte pubblicitario dell anno: **stimato** dal ROS obiettivo, non ereditato.
   pubblicatoAnno: number;
   ros: number;
+  // Il valore scelto; null = sta usando il predefinito.
+  rosScelto: number | null;
   // Quello che il monitoraggio aveva pubblicato, tenuto come riferimento.
   pubblicatoStorico: number;
   venditeAnnoBudget: number;
@@ -40,6 +42,7 @@ export function SpeseEditor({
   primoMeseAperto,
   spesaOk,
   brandSenzaCasa,
+  rosPredefinito,
 }: {
   year: number;
   maisons: MaisonSpese[];
@@ -52,6 +55,8 @@ export function SpeseEditor({
   // Brand che Marketing conosce e che qui non hanno una maison: la loro spesa
   // non è in nessuna scheda, e dirlo evita di leggere il totale come completo.
   brandSenzaCasa: string[];
+  // Il ROS di ripiego, per dirlo nel campo vuoto invece di lasciarlo muto.
+  rosPredefinito: number;
 }) {
   const router = useRouter();
 
@@ -74,6 +79,32 @@ export function SpeseEditor({
   const [nuovoBrand, setNuovoBrand] = useState("");
   const [creo, setCreo] = useState(false);
   const [esitoBrand, setEsitoBrand] = useState<string | null>(null);
+  // Il ROS che si sta scrivendo, per brand. Sta a parte dalle quote perche e un
+  // parametro del brand, non una casella del mese.
+  const [rosScritto, setRosScritto] = useState<Record<string, string>>({});
+  const [salvoRos, setSalvoRos] = useState<string | null>(null);
+
+  async function salvaRos(m: MaisonSpese) {
+    const scritto = rosScritto[m.id];
+    setSalvoRos(m.id);
+    const res = await fetch("/api/maison", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: m.id, rosObiettivo: scritto === "" ? null : scritto }),
+    });
+    const body = await res.json().catch(() => null);
+    setSalvoRos(null);
+    if (res.ok) {
+      setRosScritto((p) => {
+        const q = { ...p };
+        delete q[m.id];
+        return q;
+      });
+      router.refresh();
+    } else {
+      setEsito(body?.error ?? "ROS non salvato, riprova.");
+    }
+  }
 
   async function creaBrand() {
     const nome = nuovoBrand.trim();
@@ -335,7 +366,7 @@ export function SpeseEditor({
                   Budget pubblicità dell&apos;anno <strong>{eur(m.pubblicatoAnno)}</strong>{" "}
                   <span className="muted">
                     (stimato: {eur(m.venditeAnnoBudget)} di vendite dell’anno — consuntivo dove c’è,
-                    budget sul resto — ÷ ROS {volte(m.ros)}
+                    budget sul resto — ÷ ROS {volte(m.ros)}{m.rosScelto === null ? " predefinito" : ""}
                     {m.pubblicatoStorico > 0 && (
                       <> · il monitoraggio ne aveva pubblicati {eur(m.pubblicatoStorico)}</>
                     )}
@@ -414,6 +445,37 @@ export function SpeseEditor({
                     .
                   </p>
                 )}
+              </div>
+              <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                {/* Il **ROS obiettivo del brand**: da qui esce il monte
+                    pubblicitario, quindi si imposta dove il monte si legge.
+                    Vuoto = usa il predefinito, ed e diverso da scriverci sopra
+                    lo stesso numero: uno e una scelta, l altro e un ripiego. */}
+                <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 12.5 }}>
+                  <span className="muted">ROS obiettivo</span>
+                  <input
+                    type="number"
+                    min={0.1}
+                    max={100}
+                    step={0.1}
+                    placeholder={String(rosPredefinito)}
+                    value={rosScritto[m.id] ?? (m.rosScelto === null ? "" : String(m.rosScelto))}
+                    onChange={(e) => setRosScritto((p) => ({ ...p, [m.id]: e.target.value }))}
+                    title={
+                      m.rosScelto === null
+                        ? `Nessun ROS scelto per ${m.nome}: usa il predefinito ${rosPredefinito}×. Scrivilo per fissarlo.`
+                        : `Ogni euro di pubblicita deve muovere ${m.rosScelto} euro di vendite. Svuota il campo per tornare al predefinito.`
+                    }
+                    style={{ width: 78, padding: "5px 8px", fontSize: 12.5, textAlign: "right" }}
+                  />
+                  <span className="muted">×</span>
+                </label>
+                {rosScritto[m.id] !== undefined &&
+                  rosScritto[m.id] !== (m.rosScelto === null ? "" : String(m.rosScelto)) && (
+                    <button className="btn secondary small" onClick={() => salvaRos(m)} disabled={salvoRos === m.id}>
+                      {salvoRos === m.id ? "Salvo…" : "Salva ROS"}
+                    </button>
+                  )}
               </div>
               {/* Il salvataggio del singolo brand sta nella sua scheda: dodici
                   caselle si sistemano un brand per volta, e dover scorrere fino

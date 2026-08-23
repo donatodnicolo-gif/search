@@ -24,6 +24,11 @@ model Maison {
   slug        String        @unique
   nome        String
   ordine      Int           @default(0)
+  // ROS obiettivo del brand: quanti euro di vendite deve muovere ogni euro di
+  // pubblicita. Da qui si stima il monte pubblicitario dell anno
+  // (vendite / ROS). **Nullable**: chi non ce l ha usa il predefinito, e un
+  // valore nullo si distingue da uno scelto uguale al predefinito.
+  rosObiettivo Float?
   budgets     BudgetEntry[]
   advPercents AdvPercent[]
 }

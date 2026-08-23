@@ -122,6 +122,8 @@ export type MaisonBudget = {
   slug: string;
   nome: string;
   ordine: number;
+  // Il ROS obiettivo scelto per questo brand; null = usa il predefinito.
+  rosObiettivo: number | null;
   mesi: MeseMaison[];
   // Il venduto **vero** dei negozi, mese per mese (null se Orders non risponde
   // o se il brand un negozio non ce l ha). Sta qui, dentro i dati dell anno,
@@ -184,7 +186,10 @@ export async function caricaAnno(year = ANNO_CORRENTE): Promise<DatiAnno> {
         advPubblicato: adv?.budgetPubblicato ?? 0,
       });
     }
-    return { id: m.id, slug: m.slug, nome: m.nome, ordine: m.ordine, mesi, vendutoMesi: null };
+    return {
+      id: m.id, slug: m.slug, nome: m.nome, ordine: m.ordine,
+      rosObiettivo: m.rosObiettivo, mesi, vendutoMesi: null,
+    };
   });
 
   // Il venduto vero dei negozi, attaccato ai dati dell anno. **Best effort**: se
@@ -334,11 +339,16 @@ export function advPubblicatoAnno(m: MaisonBudget): number {
 // Orders** — dentro il P&L e in `/piattaforme`, che sono sincroni — altrimenti
 // il monte annuo varrebbe una cosa nella pagina dove si scrive e un'altra dove
 // si legge.
+// Il ROS obiettivo **si imposta per brand** (richiesta dell utente, 23/08/2026)
+// e vive a database su `Maison.rosObiettivo`. Qui resta solo il valore di
+// ripiego per chi non ne ha uno suo: un brand nuovo nasce con questo, e la
+// pagina dice che e il predefinito invece di far credere che qualcuno l abbia
+// scelto.
 export const ROS_OBIETTIVO_PREDEFINITO = 6.5;
-const ROS_OBIETTIVO: Record<string, number> = { deluxy: 7 };
 
-export function rosObiettivo(slug: string): number {
-  return ROS_OBIETTIVO[slug] ?? ROS_OBIETTIVO_PREDEFINITO;
+export function rosDi(m: { rosObiettivo: number | null }): number {
+  const r = m.rosObiettivo;
+  return r !== null && r > 0 ? r : ROS_OBIETTIVO_PREDEFINITO;
 }
 
 // Le vendite dell anno su cui si stima: **consuntivo dove c e, budget sul
@@ -366,7 +376,7 @@ export function venditeAnnoAttuale(m: MaisonBudget, year = ANNO_CORRENTE): numbe
 }
 
 export function budgetAdvAnno(m: MaisonBudget, year = ANNO_CORRENTE): number {
-  const ros = rosObiettivo(m.slug);
+  const ros = rosDi(m);
   if (ros <= 0) return 0;
   return venditeAnnoAttuale(m, year) / ros;
 }

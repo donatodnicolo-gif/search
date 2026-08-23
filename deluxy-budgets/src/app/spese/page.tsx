@@ -1,6 +1,6 @@
 import {
   ANNO_CORRENTE, advPubblicatoAnno, budgetAdvAnno, caricaAnno, FONTI, INIZIALE, nomeFonte,
-  rosObiettivo, venditeMese,
+  ROS_OBIETTIVO_PREDEFINITO, rosDi, venditeMese,
 } from "@/lib/calc";
 import { primoMeseAperto } from "@/lib/periodo";
 import { fetchSpesaPerBrand } from "@/lib/marketing";
@@ -69,7 +69,7 @@ export default async function Spese({
   // Il monte pubblicitario con la base scelta: sulla base approvata e
   // **esattamente** budgetAdvAnno, cioe quello che usano P&L e Piattaforme.
   const monteAdv = (m: (typeof dati.maisons)[number]) =>
-    base === APPROVATO ? budgetAdvAnno(m, dati.year) : venditeAnno(m) / rosObiettivo(m.slug);
+    base === APPROVATO ? budgetAdvAnno(m, dati.year) : venditeAnno(m) / rosDi(m);
 
   // La pubblicità **davvero spesa**, brand per brand e mese per mese. Per un
   // mese chiuso la domanda non è «quanto posso spendere» ma «quanto ho speso»:
@@ -158,6 +158,7 @@ export default async function Spese({
         primoMeseAperto={aperto}
         spesaOk={spesa.ok}
         brandSenzaCasa={spesa.senzaMaison}
+        rosPredefinito={ROS_OBIETTIVO_PREDEFINITO}
         maisons={dati.maisons.map((m) => {
           const speso = spesa.perMaison.get(m.slug) ?? null;
           const reale = vend.ok ? vend.perMaison.get(m.slug) ?? null : null;
@@ -169,7 +170,9 @@ export default async function Spese({
             // Stimato dal ROS obiettivo, non ereditato: vendite a budget
             // dell anno diviso il ROS del brand.
             pubblicatoAnno: monteAdv(m),
-            ros: rosObiettivo(m.slug),
+            ros: rosDi(m),
+            // null = sta usando il predefinito, non un valore scelto.
+            rosScelto: m.rosObiettivo,
             // Quello che il monitoraggio aveva pubblicato: resta come
             // riferimento, per vedere quanto la stima se ne discosta.
             pubblicatoStorico: advPubblicatoAnno(m),
