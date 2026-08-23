@@ -7,7 +7,7 @@ import { JwtUser } from '../common/decorators';
 import { Role } from '../common/enums';
 import { PrismaService } from '../prisma/prisma.service';
 import { UsersService } from '../users/users.service';
-import { AnagraficheSyncService } from './anagrafiche-sync.service';
+import { AnagraficheSyncService, pivaAttendibile, semplificaNome } from './anagrafiche-sync.service';
 import { CreatePartnerDto, UpdatePartnerDto } from './dto/create-partner.dto';
 
 const PARTNER_INCLUDE = {
@@ -165,15 +165,28 @@ export class PartnersService {
       return { registroRaggiungibile: false, collegati: 0, abbinabili: 0, assenti: 0, perPartner: {} as Record<string, string> };
     }
 
+    // Indici del registro, dal criterio piu' certo al piu' incerto.
+    // ⚠️ La P.IVA segnaposto (11111111111) NON entra negli indici: la portano
+    // 120 partner della piattaforma, e basterebbe che una sola finisse nel
+    // registro perche' tutte e 120 risultino «abbinabili» a quell'azienda.
     const perPlatformId = new Map<string, any>();
     const perPiva = new Map<string, any>();
+    const perCf = new Map<string, any>();
     const perEmail = new Map<string, any>();
+    const perNome = new Map<string, any>();
+    const perNomeSemplice = new Map<string, any>();
     for (const a of registro) {
       if ((a as any).platformId) perPlatformId.set((a as any).platformId, a);
-      if (a.pIva) perPiva.set(a.pIva.trim().toUpperCase(), a);
+      if (pivaAttendibile(a.pIva)) perPiva.set(a.pIva!.trim().toUpperCase(), a);
+      if (a.codiceFiscale) perCf.set(a.codiceFiscale.trim().toUpperCase(), a);
       if (a.email) perEmail.set(a.email.trim().toLowerCase(), a);
+      for (const n of [a.nome, a.ragioneSociale]) {
+        if (!n) continue;
+        perNome.set(n.trim().toLowerCase(), a);
+        const semplice = semplificaNome(n);
+        if (semplice.length >= 3) perNomeSemplice.set(semplice, a);
+      }
     }
-
     const perPartner: Record<string, string> = {};
     const differenze: {
       partnerId: string; partner: string; criterio: string;
@@ -182,17 +195,31 @@ export class PartnersService {
     const norm = (v: unknown) => (v === null || v === undefined || v === '' ? null : String(v).trim());
 
     let collegati = 0, abbinabili = 0, assenti = 0;
+    /** Prova i criteri in ordine e riporta QUALE ha funzionato: «per P.IVA» e
+     *  «per somiglianza di nome» non danno la stessa fiducia. */
+    const abbina = (p: (typeof partners)[number]): { a: any; criterio: string } | null => {
+      const nomi = [p.businessName, p.insegna].filter(Boolean) as string[];
+      const tentativi: [string, any][] = [
+        ['P.IVA', pivaAttendibile(p.vatNumber) ? perPiva.get(p.vatNumber!.trim().toUpperCase()) : null],
+        ['codice fiscale', p.fiscalCode ? perCf.get(p.fiscalCode.trim().toUpperCase()) : null],
+        ['email', p.email ? perEmail.get(p.email.trim().toLowerCase()) : null],
+        ['nome', nomi.map((n) => perNome.get(n.trim().toLowerCase())).find(Boolean)],
+        ['nome semplificato', nomi.map((n) => perNomeSemplice.get(semplificaNome(n))).find(Boolean)],
+      ];
+      for (const [criterio, a] of tentativi) if (a) return { a, criterio };
+      return null;
+    };
     for (const p of partners) {
       let a: any = perPlatformId.get(p.id);
       let criterio = 'platformId';
       if (a) { perPartner[p.id] = 'collegato'; collegati++; }
       else {
-        a = (p.vatNumber && perPiva.get(p.vatNumber.trim().toUpperCase()))
-          || (p.email && perEmail.get(p.email.trim().toLowerCase()));
-        criterio = p.vatNumber && perPiva.get(p.vatNumber.trim().toUpperCase()) ? 'P.IVA' : 'email';
-        if (a) { perPartner[p.id] = 'abbinabile'; abbinabili++; }
-        else { perPartner[p.id] = 'assente'; assenti++; continue; }
+        const esito = abbina(p);
+        if (!esito) { perPartner[p.id] = 'assente'; assenti++; continue; }
+        a = esito.a; criterio = esito.criterio;
+        perPartner[p.id] = 'abbinabile'; abbinabili++;
       }
+
 
       // Differenze sui campi che il registro espone dalle sue API.
       const campi = ([

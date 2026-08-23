@@ -335,13 +335,13 @@ export class AnagraficheSyncService {
  * piattaforma la portano decine di schede, quindi cercarla nel registro
  * collegherebbe il partner alla prima che capita.
  */
-function pivaAttendibile(v?: string | null): boolean {
+export function pivaAttendibile(v?: string | null): boolean {
   const p = (v ?? '').trim();
   return p.length >= 8 && !/^(\d)\1+$/.test(p);
 }
 
 /** «BEYOND 142 S.R.L.» -> «beyond 142»: via forma societaria e punteggiatura. */
-function semplificaNome(v: string): string {
+export function semplificaNome(v: string): string {
   return v
     .toLowerCase()
     .replace(/[.,'`"()]/g, ' ')
