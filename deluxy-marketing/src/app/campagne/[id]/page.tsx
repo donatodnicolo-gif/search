@@ -5,6 +5,7 @@ import { FreschezzaDati } from "@/components/FreschezzaDati";
 import { GuardrailCampagna } from "@/components/GuardrailCampagna";
 import { KeywordCampagna } from "@/components/KeywordCampagna";
 import { AggiungiNegative } from "@/components/AggiungiNegative";
+import { CambiaLocalita } from "@/components/CambiaLocalita";
 import { ProposteAi } from "@/components/ProposteAi";
 import { Badge } from "@/components/Badge";
 import { GraficoSpesa } from "@/components/GraficoSpesa";
@@ -45,7 +46,7 @@ import {
   aggiungiMetrica,
   cambiaStatoCampagna,
   applicaKeywordAdAltreCampagne,
-  accodaNegativeScritte, creaOperazione,
+  accodaCambioLocalita, accodaNegativeScritte, creaOperazione,
   impostaBrandCampagna,
   impostaLinguaCampagna,
   rinominaCampagna,
@@ -877,7 +878,23 @@ export default async function SchedaCampagna({
                   </dd>
                 </dl>
                 <dl className="campo">
-                  <dt>Località (targeting Google)</dt>
+                  <dt style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    Località (targeting Google)
+                    {/* Si leggevano e basta: cambiarle voleva dire andare in
+                        Google Ads, per una delle poche decisioni che spostano
+                        davvero la spesa. */}
+                    {campagna.canale === "google_ads" && (
+                      <CambiaLocalita
+                        campagnaId={campagna.id}
+                        nomeCampagna={campagna.nome}
+                        attuali={campagna.localita
+                          .filter((l) => !l.esclusa)
+                          .map((l) => ({ idEsterno: l.idEsterno, nome: l.nome, tipo: l.tipo }))}
+                        azione={accodaCambioLocalita}
+                        ritorno={`/campagne/${campagna.id}`}
+                      />
+                    )}
+                  </dt>
                   <dd style={{ overflowWrap: "anywhere" }}>
                     {campagna.localita.length === 0 ? (
                       /* Mai lette ≠ nessuna: senza questa frase, una campagna

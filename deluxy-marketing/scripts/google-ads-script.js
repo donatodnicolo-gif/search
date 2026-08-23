@@ -2192,6 +2192,7 @@ function applica(op, mira, conto) {
     };
   }
 
+  if (t === "localita") return cambiaLocalita(op, mira);
   if (t === "lista_negative") return applicaListaNegative(op, mira);
   if (t === "nuovo_annuncio") return creaAnnuncio(op, mira);
   if (t === "nuova_keyword") return creaKeyword(op, mira);
@@ -2740,6 +2741,114 @@ function completaCampagna(op, mira) {
     dettaglio: dettaglio || "niente da completare",
     prima: "campagna senza gruppo",
     dopo: fatto.join(", "),
+  };
+}
+
+/**
+ * Cambia le LOCALITA' di una campagna gia' esistente: ne aggiunge, ne toglie.
+ *
+ * Fino a oggi le localita' si potevano solo mettere AL LANCIO: dopo, l'app le
+ * leggeva e basta, e per spostare una campagna da Milano a tutta l'Italia si
+ * andava in Google Ads. Ma dove esce un annuncio e' una delle poche decisioni
+ * che cambiano davvero la spesa, ed e' la piu' facile da dimenticare.
+ *
+ * ATTENZIONE: TOGLIERE UNA LOCALITA' NON E' UN'AGGIUNTA AL CONTRARIO. Se si
+ * tolgono tutte, la campagna resta SENZA targeting geografico - e Google la
+ * fa uscire OVUNQUE, che e' l'opposto di quello che uno crede di aver
+ * chiesto. Per questo qui non si esegue mai una rimozione che svuoterebbe
+ * l'elenco: si rifiuta dicendolo.
+ *
+ * E' ripetibile: una localita' gia' mirata non si aggiunge due volte, una
+ * gia' assente non si toglie. Rilanciarla non fa danni.
+ */
+function cambiaLocalita(op, mira) {
+  var par = op.parametri || {};
+  var campagna = mira.campagna;
+  if (!campagna || typeof campagna.addLocation !== "function") {
+    throw new Error("Questo tipo di campagna non accetta modifiche di localita' dagli Script");
+  }
+
+  // Quelle di adesso: servono sia per non ripetere, sia per sapere cosa si
+  // sta per togliere.
+  var attuali = [];
+  try {
+    var itA = campagna.targeting().targetedLocations().get();
+    while (itA.hasNext()) {
+      var la = itA.next();
+      attuali.push({ id: String(la.getId()), nome: la.getName(), oggetto: la });
+    }
+  } catch (e) {
+    throw new Error("Non ho potuto leggere le localita' attuali: " + e);
+  }
+
+  // Da aggiungere: gli id scritti a mano e i nomi risolti su Google.
+  var daAggiungere = (par.aggiungiId || []).slice();
+  var geo = risolviLocalitaSuGoogle(par.aggiungiNomi || []);
+  for (var g = 0; g < geo.trovate.length; g++) daAggiungere.push(geo.trovate[g].id);
+
+  var daTogliere = (par.togliId || []).map(String);
+
+  // ATTENZIONE (vedi sopra): mai svuotare l'elenco.
+  var restanti = attuali.length + daAggiungere.length - daTogliere.length;
+  if (attuali.length > 0 && restanti <= 0) {
+    throw new Error(
+      "Non tolgo l'ultima localita': una campagna senza targeting geografico esce OVUNQUE. " +
+      "Aggiungi prima dove deve uscire, poi togli quella che non serve."
+    );
+  }
+
+  var messe = [];
+  var saltate = [];
+  for (var i = 0; i < daAggiungere.length; i++) {
+    var idA = Number(daAggiungere[i]);
+    var gia = false;
+    for (var k = 0; k < attuali.length; k++) if (attuali[k].id === String(idA)) gia = true;
+    if (gia) { saltate.push(idA); continue; }
+    var esitoA = campagna.addLocation(idA);
+    if (esitoA && typeof esitoA.isSuccessful === "function" && !esitoA.isSuccessful()) {
+      throw new Error(
+        "Localita' " + idA + " non aggiunta: " +
+        (esitoA.getErrors ? esitoA.getErrors().join("; ") : "Google non ha detto il motivo")
+      );
+    }
+    messe.push(idA);
+  }
+
+  var tolte = [];
+  for (var j = 0; j < daTogliere.length; j++) {
+    for (var m = 0; m < attuali.length; m++) {
+      if (attuali[m].id === String(daTogliere[j])) {
+        attuali[m].oggetto.remove();
+        tolte.push(attuali[m].nome + " [" + attuali[m].id + "]");
+      }
+    }
+  }
+
+  // Si rilegge: la stessa regola di tutte le altre scritture.
+  var dopo = [];
+  try {
+    var itD = campagna.targeting().targetedLocations().get();
+    while (itD.hasNext()) dopo.push(itD.next().getName());
+  } catch (e2) {
+    dopo = null;
+  }
+
+  return {
+    dettaglio:
+      (messe.length ? messe.length + " localita' aggiunte" : "nessuna aggiunta") +
+      (tolte.length ? ", tolte: " + tolte.join(", ") : "") +
+      (saltate.length ? " (" + saltate.length + " gia' presenti, saltate)" : "") +
+      (geo.ambigue.length
+        ? ". ATTENZIONE: " + geo.ambigue.length + " nomi danno piu' risultati e NON li ho scelti io - " +
+          geo.ambigue.map(function (x) {
+            return "\"" + x.nome + "\" puo' essere " +
+              x.scelte.map(function (c) { return c.canonico + " [" + c.id + "]"; }).join(" oppure ");
+          }).join(" | ")
+        : "") +
+      (geo.mancanti.length ? ". Non trovate su Google: " + geo.mancanti.join(", ") : "") +
+      (dopo ? ". Adesso la campagna esce su: " + (dopo.join(", ") || "(nessuna localita')") : ". Non ho potuto rileggere le localita' per confermare"),
+    prima: attuali.map(function (x) { return x.nome; }).join(", ") || "nessuna",
+    dopo: dopo ? (dopo.join(", ") || "nessuna") : null,
   };
 }
 

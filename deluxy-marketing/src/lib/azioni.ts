@@ -3597,6 +3597,118 @@ export async function eseguiMetaAdesso() {
   revalidatePath("/operazioni");
   redirect(`/operazioni?esito=${encodeURIComponent(riassunto)}`);
 }
+
+/**
+ * Cambia le LOCALITÀ di una campagna: ne aggiunge, ne toglie.
+ *
+ * ⚠️ Le località l'app le leggeva da settimane e non le sapeva cambiare: per
+ * spostare una campagna da Milano a tutta l'Italia si andava in Google Ads.
+ * Dove esce un annuncio è una delle poche decisioni che spostano la spesa, ed
+ * è la più facile da dimenticare — una campagna nata per una città ci resta
+ * finché qualcuno non se ne accorge dai numeri.
+ *
+ * ⚠️ L2, non L1: cambiare dove esce un annuncio non è un ritocco.
+ *
+ * ⚠️ I NOMI NON SI RISOLVONO QUI. Li cerca lo script su Google al momento di
+ * eseguire (`risolviLocalitaSuGoogle`), perché è là che esiste l'elenco vero e
+ * perché un nome ambiguo — «Como» città e provincia — deve fermare
+ * l'esecuzione, non essere indovinato dall'app. Qui si controlla solo che
+ * qualcosa ci sia.
+ */
+export async function accodaCambioLocalita(input: {
+  campagnaId: string;
+  aggiungi: string[];
+  togli: string[];
+  motivo: string;
+  ritorno: string;
+}): Promise<{ ok: true; messaggio: string } | { ok: false; errore: string }> {
+  const campagna = await prisma.campagna.findUnique({
+    where: { id: input.campagnaId },
+    select: { id: true, nome: true, canale: true, idEsterno: true, account: true, localita: true },
+  });
+  if (!campagna) return { ok: false, errore: "Campagna non trovata." };
+  if (campagna.canale !== "google_ads") {
+    return {
+      ok: false,
+      errore: "Per adesso le località si cambiano solo sulle campagne Google: su Meta il targeting sta sugli ad set e l'app non li importa ancora.",
+    };
+  }
+
+  // Gli id scritti a mano si distinguono dai nomi: sono solo cifre.
+  const aggiungiId: number[] = [];
+  const aggiungiNomi: string[] = [];
+  for (const x of input.aggiungi.map((s) => s.trim()).filter(Boolean)) {
+    if (/^[0-9]+$/.test(x)) aggiungiId.push(Number(x));
+    else aggiungiNomi.push(x);
+  }
+  const togli = input.togli.map(String).filter(Boolean);
+  if (aggiungiId.length + aggiungiNomi.length + togli.length === 0) {
+    return { ok: false, errore: "Non hai indicato niente da aggiungere né da togliere." };
+  }
+
+  // ⚠️ La stessa rete dello script, ripetuta qui: una campagna senza località
+  // esce OVUNQUE. Meglio fermarla prima che arrivi in coda.
+  const mirate = campagna.localita.filter((l) => !l.esclusa).length;
+  if (mirate > 0 && mirate + aggiungiId.length + aggiungiNomi.length - togli.length <= 0) {
+    return {
+      ok: false,
+      errore: "Così toglieresti tutte le località: senza targeting geografico Google fa uscire la campagna ovunque. Aggiungi prima dove deve uscire.",
+    };
+  }
+
+  const inCoda = await prisma.operazioneAdv.findFirst({
+    where: { campagnaId: campagna.id, tipo: "localita", stato: { in: ["in_attesa", "approvata"] } },
+  });
+  if (inCoda) {
+    return {
+      ok: false,
+      errore: "C'è già un cambio di località in coda per questa campagna: approvalo o annullalo prima di farne un altro.",
+    };
+  }
+
+  const nomiTolti = campagna.localita
+    .filter((l) => togli.includes(l.idEsterno))
+    .map((l) => l.nome);
+
+  const op = await accodaOperazione({
+    data: {
+      tipo: "localita",
+      canale: campagna.canale,
+      account: campagna.account,
+      bersaglio: campagna.nome,
+      idEsterno: campagna.idEsterno,
+      campagnaId: campagna.id,
+      parametri: JSON.stringify({ aggiungiId, aggiungiNomi, togliId: togli }),
+      motivo:
+        input.motivo.trim() ||
+        `Località: ${aggiungiId.length + aggiungiNomi.length} da aggiungere, ${togli.length} da togliere`,
+      avvisi: nomiTolti.length
+        ? `Verranno tolte: ${nomiTolti.join(", ")}. Dopo l'esecuzione la campagna non uscirà più lì.`
+        : null,
+      livello: "L2",
+      prima: campagna.localita.filter((l) => !l.esclusa).map((l) => l.nome).join(", ") || "nessuna",
+    },
+  });
+  await registra({
+    autore: "utente",
+    tipo: "creazione",
+    entita: "operazione",
+    entitaId: op.id,
+    titolo: `In coda (da approvare): località su ${campagna.nome}`,
+    dettaglio:
+      `${[...aggiungiNomi, ...aggiungiId.map(String)].join(", ") || "niente"} da aggiungere` +
+      (nomiTolti.length ? ` · da togliere: ${nomiTolti.join(", ")}` : ""),
+  });
+
+  revalidatePath(input.ritorno.split("?")[0]);
+  revalidatePath("/operazioni");
+  return {
+    ok: true,
+    messaggio:
+      "Cambio di località messo in coda: ora va approvato." +
+      (aggiungiNomi.length ? " I nomi li risolverà lo script su Google al momento di eseguire." : ""),
+  };
+}
 // ---------- Riportare in attesa un'operazione già approvata ----------
 // Diverso da annullare: annullare la scarta, questo la rimette in coda da
 // decidere. Serve quando si approva in fretta e poi si vuole ripensarci senza

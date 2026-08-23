@@ -31,6 +31,11 @@ const ETICHETTA_TIPO: Record<string, string> = {
   negativa: "Aggiungi keyword negativa",
   pausa_gruppo: "Metti in pausa il gruppo di annunci",
   attiva_gruppo: "Riattiva il gruppo di annunci",
+  // Aggiunti man mano che lo script impara a eseguirli: una riga senza
+  // etichetta si legge come "nuovo_annuncio", cioe' come un errore.
+  nuovo_annuncio: "Crea un annuncio",
+  lista_negative: "Applica una lista di parole escluse",
+  localita: "Cambia le localita' della campagna",
 };
 
 
