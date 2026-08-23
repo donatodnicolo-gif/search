@@ -682,6 +682,16 @@ Feedback "in app.deluxy.it ci sono cose che non hai considerato". Confrontata la
 
 ## MANCA / PROSSIMI PASSI
 
+### 🔴 23/08 — LA FEE DEI PARTNER È ZERO SU TUTTI E 267 (mai importata)
+
+Segnalato dall’utente come «la fee per 142 è sbagliata». **Non è sbagliata solo su 142**: `Partner.commissionPercent` vale `0` su **tutti e 267 i partner** — è il `@default(0)` dello schema, mai toccato.
+
+- **`commissionPercent` non compare in nessuno script di import.** Verificato con `grep -rln` su `scripts/` e `api/src/`: risponde solo `finance.module.ts` (che la usa) e `create-partner.dto.ts` (che la accetta dal form). Nessuno la scrive.
+- **Perché non è stata importata: nell’export non c’è.** Cercata in tutte e 75 le tabelle divise — l’unica colonna percentuale è `expert.holdingPercentage`, che è del valet. Cercata anche nei 210 MB di `deluxy.csv` grezzo (`grep -oiE` su fee/percent/commission/provv): zero intestazioni. Nemmeno `delivery.csv` la porta: ha `price`, `additionalPrice`, `productValue`, `expertSalary`, e basta.
+- ✅ **Escluso che l’abbia persa lo splitter** (`scripts/blocchi-mancanti-export.mjs`): l’export ha **92 intestazioni** contro **75 file**, ma i **14 blocchi non divisi hanno tutti 0 righe** — sono tabelle vuote, e nessuna parla di fee.
+- 💰 **Quanto pesa**: 61.836 consegne per **826.599 €** di prezzo partner. La Finanza calcola `feeValue = commissionPercent% × prezzoPartner`, quindi oggi **ogni punto di fee vale 8.266 €** che non vengono contati. Al 22% verificato il 21/07 su una riga vera sarebbero **181.852 €**. Con la fee a zero il primo margine è sottostimato e l’incasso partner sovrastimato **su tutta la sezione `/finance`**.
+- **Cosa serve**: ri-esportare da phpMyAdmin la tabella che contiene la percentuale (l’export attuale del `partner` ha 41 colonne e non ne ha nessuna). Finché non arriva, `/finance` va letta sapendo che la fee è 0 ovunque, **non che è zero davvero**.
+
 0-bis. **[IN CORSO — 26/07] Partner attivi da Anagrafiche.** Script
    `api/scripts/importa-partner-anagrafiche.mjs`: legge `GET /api/v1/partners?stato=attivo`
    e aggancia in cascata **P.IVA → email → insegna normalizzata**. Idempotente, prova a vuoto
