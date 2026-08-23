@@ -176,14 +176,24 @@ export default async function ConsuntivoPage({
 
   // Budget dei mesi chiusi: si somma il budget mensile (non si rapporta
   // l'annuale), così la stagionalità non falsa il confronto.
-  const bm = contoEconomicoMensile(dati, "RAGGIUNGIBILE");
+  // ⚠️ La quota va **passata**: senza, `contoEconomicoMensile` vale il D2C al
+  // 100%, cioè al venduto lordo, e lo confronta con un consuntivo che è la sola
+  // quota Deluxy. Fino al 23/08/2026 era così, e il budget di questa colonna
+  // era gonfio di tutta la parte che ai partner è già stata girata.
+  const bm = contoEconomicoMensile(dati, "RAGGIUNGIBILE", quotaDeluxy.percentuale / 100);
   const B = (campo: keyof (typeof bm)[number]) => mesiRif.reduce((s, m) => s + bm[m - 1][campo], 0);
-  const budgetVoce = (slug: string) =>
-    dati.maisons.reduce(
+  // Il budget di una singola voce, sulla **stessa base del consuntivo**: sul D2C
+  // il budget è scritto sul venduto (è così che si pianifica commercialmente) ma
+  // a conto economico entra la quota, quindi qui va convertito — altrimenti la
+  // riga «Ecommerce» confronta un prezzo di vendita con una provvigione.
+  const budgetVoce = (slug: string) => {
+    const lordo = dati.maisons.reduce(
       (s, m) =>
         s + mesiRif.reduce((a, mm) => a + (m.mesi.find((y) => y.month === mm)?.vendite[slug] ?? 0), 0),
       0
     );
+    return slug === SLUG_D2C ? lordo * (quotaDeluxy.percentuale / 100) : lordo;
+  };
 
   // Nomi Finance mappati a una voce di budget.
   const nomiMappati = new Set<string>();
@@ -348,7 +358,27 @@ export default async function ConsuntivoPage({
     }
   }
   const rosterPrec = datiPrec.persone.length > 0;
-  const personalePrec = rosterPrec ? mesiRif.reduce((s, m) => s + costoPersonaleMese(datiPrec, m), 0) : null;
+  // Il costo del personale dell'anno prima. Il roster di quell'anno **non
+  // esiste** (l'anagrafica Dipendenti nasce con il budget corrente), quindi
+  // senza un ripiego l'EBITDA dell'anno prima non si calcola affatto — ed e
+  // quello che succedeva: la casella restava vuota.
+  //
+  // ⚠️ Il ripiego e la **banca**, ed e una base diversa: il roster e il costo
+  // **maturato** (lordo + contributi + TFR), la banca e quello che e **uscito
+  // dal conto**. Sull'anno corrente le due si misurano entrambe e non si
+  // somigliano — 52.728 EUR di banca contro 139.492 di roster su Gen-Ago, cioe
+  // il **38%**. L'EBITDA dell'anno prima calcolato cosi e quindi **piu bello
+  // del vero**, e la pagina lo scrive invece di lasciarlo credere.
+  const personalePrecDaBanca = !rosterPrec && bancaPrec;
+  const personalePrec = rosterPrec
+    ? mesiRif.reduce((s, m) => s + costoPersonaleMese(datiPrec, m), 0)
+    : bancaPrec
+      ? costiPrec.PERSONALE
+      : null;
+  // Lo stesso conto sull'anno corrente **con la banca al posto del roster**:
+  // e l'unico confronto onesto con l'anno prima, e senza di lui il lettore
+  // mette a fianco due numeri che non sono la stessa cosa.
+  const personaleConsDaBanca = costi.PERSONALE;
   const costoPrec = (tp: keyof typeof costiPrec) => (bancaPrec ? costiPrec[tp] : null);
   // Il margine lordo dell'anno prima si calcola SOLO se il costo del venduto di
   // quell'anno copre tutto il periodo. Con la banca 2025 che parte a luglio,
@@ -431,10 +461,26 @@ export default async function ConsuntivoPage({
     { label: "Costo per servizi", nota: "banca · valet e servizi", cons: costi.COGS, budget: B("cogs"), prec: costoPrec("COGS"), precParziale: bancaPrecParziale, tipo: "costo", apre: "cogs" },
     { label: "Margine lordo", cons: margineLordoCons, budget: B("margineLordo"), prec: margineLordoPrec, tipo: "totale" },
     { label: "Spesa pubblicitaria (ADV)", nota: "banca · Marketing", cons: costi.ADV, budget: B("adv"), prec: costoPrec("ADV"), precParziale: bancaPrecParziale, tipo: "costo", apre: "adv" },
-    { label: "Costo del personale", nota: "anagrafica Dipendenti", cons: personaleCons, budget: B("personale"), prec: personalePrec, tipo: "costo", apre: "personale" },
+    {
+      label: "Costo del personale",
+      nota: personalePrecDaBanca
+        ? `anagrafica Dipendenti · ${annoPrec} dalla banca`
+        : "anagrafica Dipendenti",
+      cons: personaleCons,
+      budget: B("personale"),
+      prec: personalePrec,
+      tipo: "costo",
+      apre: "personale",
+    },
     { label: "Costi di struttura", nota: "banca · Struttura", cons: costi.STRUTTURA, budget: B("costiFissi"), prec: costoPrec("STRUTTURA"), precParziale: bancaPrecParziale, tipo: "costo", apre: "struttura" },
     { label: "EBITDA", cons: ebitdaCons, budget: B("ebitda"), prec: ebitdaPrec, tipo: "totale" },
   ];
+  // L'EBITDA dei due anni **sulla stessa base**: personale dalla banca da tutte
+  // e due le parti. Serve perche il numero in colonna non lo e — quest'anno il
+  // personale viene dal roster, l'anno prima dalla banca — e due numeri
+  // affiancati si leggono come confrontabili anche quando non lo sono.
+  const ebitdaConsDaBanca = margineLordoCons - costi.ADV - personaleConsDaBanca - costi.STRUTTURA;
+
   const buono = (r: RigaPL) => (r.tipo === "costo" ? r.cons - r.budget <= 0 : r.cons - r.budget >= 0);
   // Su un costo crescere è male, su un ricavo è bene: il colore segue quello.
   const buonaVar = (r: RigaPL, v: number) => (r.tipo === "costo" ? v <= 0 : v >= 0);
@@ -887,18 +933,26 @@ export default async function ConsuntivoPage({
                 ({etichettaPeriodo}), non l&apos;anno intero.{" "}
               </>
             )}
-            {(!bancaPrec || !rosterPrec) && (
+            {!bancaPrec && (
               <>
                 Dove l&apos;anno prima il dato non c&apos;è la casella resta{" "}
-                <strong>vuota invece che a zero</strong> —{" "}
-                {[
-                  !bancaPrec && `la banca non ha movimenti categorizzati per il periodo ${annoPrec}`,
-                  !rosterPrec && `non esiste un organico a budget ${annoPrec}`,
-                ]
-                  .filter(Boolean)
-                  .join(" e ")}
-                , quindi {!bancaPrec ? "costi ed EBITDA" : "l'EBITDA"} dell&apos;anno prima non si{" "}
-                {!bancaPrec ? "calcolano" : "calcola"}.{" "}
+                <strong>vuota invece che a zero</strong>: la banca non ha movimenti categorizzati per il
+                periodo {annoPrec}, quindi costi ed EBITDA dell&apos;anno prima non si calcolano.{" "}
+              </>
+            )}
+            {personalePrecDaBanca && (
+              <>
+                ⚠️ <strong>Il personale {annoPrec} viene dalla banca</strong>, non dall&apos;organico: un
+                roster {annoPrec} non esiste. Non è la stessa misura —{" "}
+                <strong>il roster è il costo maturato</strong> (lordo, contributi e TFR),{" "}
+                <strong>la banca è quello che è uscito dal conto</strong>. Quest&apos;anno, dove si possono
+                misurare tutt&apos;e due, la banca ne vede <strong>{eur(personaleConsDaBanca)}</strong>{" "}
+                contro i <strong>{eur(personaleCons)}</strong> dell&apos;organico
+                {personaleCons > 0 && <> ({pct((personaleConsDaBanca / personaleCons) * 100)})</>}: l&apos;
+                <strong>EBITDA {annoPrec} in colonna è quindi più bello del vero</strong>. A parità di base
+                — personale dalla banca da tutt&apos;e due le parti — {anno} fa{" "}
+                <strong>{eur(ebitdaConsDaBanca)}</strong> contro{" "}
+                <strong>{ebitdaPrec !== null ? eur(ebitdaPrec) : "—"}</strong> del {annoPrec}.{" "}
               </>
             )}
             {parziale && (

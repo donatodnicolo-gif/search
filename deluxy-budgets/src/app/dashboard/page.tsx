@@ -1,15 +1,21 @@
 import Link from "next/link";
 import { ANNO_CORRENTE, caricaAnno, contoEconomico, LIVELLI, totaliMaison } from "@/lib/calc";
 import { eur, pct } from "@/lib/format";
-import { misuraQuota } from "@/lib/quota";
+import { quotaDeluxyAnno } from "@/lib/quota";
 
 export const dynamic = "force-dynamic";
 
 export default async function Dashboard() {
   const dati = await caricaAnno(ANNO_CORRENTE);
   // Sul D2C il budget entra a conto economico con la quota che resta a Deluxy
-  // (modello C), la stessa che usa il consuntivo.
-  const q = (await misuraQuota(ANNO_CORRENTE, [1,2,3,4,5,6,7,8,9,10,11,12], [])).percentuale / 100;
+  // (modello C), la stessa che usano `/pl` e `/consuntivo`.
+  //
+  // ⚠️ Prima qui c'era `misuraQuota(anno, tuttiIMesi, [])`: con il venduto
+  // **vuoto** non c'è niente da misurare, e la funzione restituisce la stima
+  // (40%) senza dirlo. Il cruscotto mostrava quindi un EBITDA di −133.599 €
+  // contro i −229.401 del P&L, con la stessa etichetta.
+  const quota = await quotaDeluxyAnno(ANNO_CORRENTE, dati.maisons);
+  const q = quota.percentuale / 100;
   const pls = LIVELLI.map((l) => contoEconomico(dati, l.key, undefined, q));
 
   const righe: { label: string; get: (pl: (typeof pls)[number]) => string; cls?: (pl: (typeof pls)[number]) => string }[] = [
@@ -38,7 +44,11 @@ export default async function Dashboard() {
         <div>
           <h1 className="page-title">Budget {dati.year}</h1>
           <p className="page-caption">
-            P&amp;L aziendale sui 3 livelli di budget: raggiungibile (pubblicato), sfidante e irraggiungibile.
+            P&amp;L aziendale sui 3 livelli di budget: raggiungibile (pubblicato), sfidante e irraggiungibile.{" "}
+            I ricavi D2C entrano con la <strong>quota che resta a Deluxy</strong> (
+            {pct(quota.percentuale)}, {quota.misurata ? "misurata" : "stimata"}): è la stessa base del
+            consuntivo e del <Link href="/pl" style={{ color: "var(--blue)" }}>P&amp;L</Link>, così le tre
+            pagine dicono lo stesso numero.
           </p>
         </div>
         <div className="page-actions">

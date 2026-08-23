@@ -1603,6 +1603,52 @@ modulo che tocca il database.**
 A **ROS 7** la pubblicità vale un settimo del venduto (≈14,3%), a **6,5** un po' di più (≈15,4%). Sta
 Il ripiego per chi non ne ha uno suo resta **6,5×**.
 
+### ⚠️⚠️ Lo stesso «EBITDA» valeva tre numeri diversi (23/08/2026)
+
+«prova a riconciliare i numeri». Tre pagine, tre risposte, stessa etichetta:
+
+| pagina | quota D2C usata | EBITDA dell'anno |
+|---|---:|---:|
+| `/consuntivo` (colonna budget) | **100%** — non ne passava nessuna | +333.731 € |
+| `/dashboard` | **40%** — la stima, credendola misura | −133.599 € |
+| `/pl` | **27,7%** — quella vera | −229.401 € |
+
+⭐ **La causa non è tre conti sbagliati, è tre posti che decidono.** `/consuntivo` chiamava
+`contoEconomicoMensile(dati, "RAGGIUNGIBILE")` **senza il quarto argomento**, che vale 1: il budget D2C
+restava il venduto lordo e veniva confrontato con un consuntivo che è la sola quota Deluxy.
+`/dashboard` chiamava `misuraQuota(anno, tuttiIMesi, [])` — **con il venduto vuoto**: quella funzione
+non fallisce, restituisce la stima, e **una stima non si distingue da una misura guardando il numero**.
+
+✅ Ora la quota si decide in **un posto solo**, `quotaDeluxyAnno()` in `src/lib/quota.ts`: si misura sui
+**mesi chiusi** (dove venduto e banca sono entrambi veri) e vale per tutto l'anno, perché è una
+caratteristica del modello e non della stagione. `/pl` e `/dashboard` ora dicono lo **stesso** numero —
+**−228.623 €** con quota **27,8%** — e lo scrivono in testata.
+
+⚠️ `/consuntivo` usa la quota **del suo periodo** (35,7% su Gen–Ago) e non quella dei soli mesi chiusi:
+lì entrambe le colonne parlano dello stesso periodo, quindi è coerente. Ma gli **8 punti di differenza**
+non sono una variazione commerciale: **agosto è in corso e i pagamenti ai partner non sono ancora
+usciti**, quindi la quota misurata su un periodo che include il mese in corso è sempre gonfia. È lo
+stesso motivo per cui quella pagina già avvisa che margine ed EBITDA del periodo sono più belli del vero.
+
+### Il budget dei mesi chiusi ha sei mesi vuoti su Deluxy.it (23/08/2026)
+
+Riconciliando è venuto fuori anche perché il «Realizzato» di `/consuntivo` segnava **332%**: non è un
+errore di conto, è che **il budget non c'è**.
+
+```
+Deluxy.it · budget D2C   Gen 0 | Feb 0 | Mar 0 | Apr 0 | Mag 0 | Giu 0 | Lug 50.000 | Ago 50.000 | …
+Deluxy.it · venduto vero Gen 49.948 | Feb 86.427 | Mar 67.944 | Apr 55.536 | Mag 63.712 | Giu 50.576 | …
+```
+
+📌 **374.143 € venduti da gennaio a giugno contro 0 a budget.** Sugli altri due negozi il budget c'è ed
+è vicino al vero (CakeDesign 46.665 venduti contro 45.259 a budget). Anche **Eventi** parte a zero fino a
+marzo e **B2B** a gennaio, e il B2B ha 283.250 dei 308.000 caricati su Set–Dic.
+
+⭐ È lo stesso buco che si era già visto in `/spese` («i sei mesi di budget azzerato vengono rimpiazzati
+dal venduto vero»), ma lì non faceva rumore perché il monte pubblicitario si stima su **consuntivo +
+budget**. Nel confronto consuntivo/budget invece si vede tutto insieme, e rende **illeggibili** tutte le
+percentuali di realizzazione del periodo. Non si aggiusta dal codice: è un budget da scrivere.
+
 ### I costi di struttura vengono dal consuntivo (23/08/2026)
 
 ⭐ «costi di struttura prendi il consuntivo ed estendi la media ai restanti mesi». A budget valevano

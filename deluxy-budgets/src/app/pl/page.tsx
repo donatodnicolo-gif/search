@@ -6,7 +6,7 @@ import {
 import { eur, MESI, pct } from "@/lib/format";
 import { caricaConsuntivo, type ConsuntivoPeriodo } from "@/lib/consuntivo";
 import { QUOTA_STIMATA } from "@/lib/venduto";
-import { misuraQuota } from "@/lib/quota";
+import { quotaDeluxyAnno } from "@/lib/quota";
 
 export const dynamic = "force-dynamic";
 
@@ -73,7 +73,12 @@ export default async function ContoEconomico({
   // Il budget si converte alla stessa base del consuntivo: sul D2C entra la
   // quota che resta a Deluxy, non il venduto pieno. Senza, «realizzato» e
   // «scostamento» confrontano una provvigione con un prezzo di vendita.
-  const quotaDeluxy = cons?.quota ?? (await misuraQuota(dati.year, [1,2,3,4,5,6,7,8,9,10,11,12], []));
+  // ⚠️ **Una sola funzione per tutte le pagine.** Prima ogni pagina se la
+  // calcolava, e i tre risultati non coincidevano: `/consuntivo` non passava
+  // nessuna quota (D2C al 100%), `/dashboard` chiamava `misuraQuota` con il
+  // venduto vuoto e riceveva la stima del 40% senza accorgersene, qui c'era
+  // quella vera. Lo stesso EBITDA valeva +333.731, −133.599 e −229.401 €.
+  const quotaDeluxy = await quotaDeluxyAnno(dati.year, dati.maisons);
   const qD2C = quotaDeluxy.percentuale / 100;
 
   // Il budget **degli stessi mesi**, altrimenti il consuntivo di sei mesi

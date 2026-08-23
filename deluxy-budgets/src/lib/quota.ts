@@ -15,7 +15,8 @@
 
 import { caricaCategorie } from "./cfo";
 import { fetchSpeseBanca } from "./finance";
-import { QUOTA_STIMATA, quotaMisurata, sommaMesi, type Quota } from "./venduto";
+import { caricaVenduto, QUOTA_STIMATA, quotaMisurata, sommaMesi, type Quota } from "./venduto";
+import { primoMeseAperto } from "./periodo";
 
 export type { Quota };
 
@@ -72,4 +73,33 @@ function trovaCategoria<T extends { id: string; regole: { match: string; esatto:
     }
   }
   return migliore?.cat ?? null;
+}
+
+// ---- La quota D2C dell'anno: **una sola risposta per tutta l'app** ----
+//
+// ⚠️ Nata da un guasto trovato il 23/08/2026 riconciliando i numeri: la stessa
+// voce «EBITDA» valeva **tre cose diverse** su tre pagine, perché ognuna
+// decideva per conto suo la quota con cui il D2C entra a conto economico —
+// `/consuntivo` non ne passava nessuna (quindi **100%**, cioè il venduto lordo),
+// `/dashboard` chiamava `misuraQuota` **con il venduto vuoto** (quindi il
+// ripiego stimato del **40%** travestito da misura), `/pl` usava quella vera
+// (**27,7%**). Sull'anno facevano +333.731 €, −133.599 € e −229.401 €.
+//
+// ⭐ La lezione: `misuraQuota(anno, mesi, [])` **non fallisce** — restituisce la
+// stima, e la stima non si distingue dalla misura guardando il numero. Una
+// funzione che sa arrangiarsi va chiamata da un posto solo.
+//
+// La regola: si misura sui **mesi chiusi** (dove venduto e banca sono entrambi
+// veri) e si usa quella per tutto l'anno. Sui mesi che restano non c'è niente da
+// misurare, e la quota è una caratteristica del modello, non della stagione.
+export async function quotaDeluxyAnno(
+  anno: number,
+  maisons: { slug: string; nome: string }[]
+): Promise<Quota> {
+  const aperto = primoMeseAperto(anno);
+  const mesiChiusi = Array.from({ length: Math.min(aperto - 1, 12) }, (_, i) => i + 1);
+  if (mesiChiusi.length === 0) return QUOTA_STIMATA;
+  const vend = await caricaVenduto(anno, maisons);
+  if (!vend.ok) return QUOTA_STIMATA;
+  return misuraQuota(anno, mesiChiusi, vend.mese);
 }
