@@ -31,7 +31,26 @@ const opzione = (nome, predefinito) => {
 
 const CARTELLA = opzione('cartella', 'C:/Users/nicol/app/deluxy-platform-next/legacy');
 const SOLO = opzione('tabella', null);
+const INCROCIA = opzione('incrocia', null);   // es. --incrocia extraType,groupId
 const MAX_DISTINTI = 25;   // oltre questa soglia una colonna non e' un enum
+
+// ⚠️ Questi export contengono dati di persone reali: email e nomi di clienti,
+// hash di password, token. Il profilatore serve a capire la FORMA dei dati, non
+// a leggerli: gli esempi di queste colonne vengono oscurati, cosi' il suo output
+// si puo' incollare in una chat o in un documento senza esporre nessuno.
+const RISERVATE = /(email|mail|name|surname|nome|cognome|phone|tel|address|indirizzo|password|token|secret|iban|codice|sign)/i;
+
+/** Oscura un valore lasciandone visibile solo la forma. */
+function oscura(v, nomeColonna) {
+  const s = String(v);
+  if (!RISERVATE.test(nomeColonna)) return s;
+  if (/^[^@]+@[^@]+$/.test(s)) {                       // email: tengo il dominio
+    const [locale, dominio] = s.split('@');
+    return `${locale[0]}${'•'.repeat(Math.min(locale.length - 1, 6))}@${dominio}`;
+  }
+  if (s.length <= 2) return '••';
+  return `${s[0]}${'•'.repeat(Math.min(s.length - 1, 9))} (${s.length} car.)`;
+}
 
 // ---------------------------------------------------------------- parsing SQL
 
@@ -154,14 +173,18 @@ function profila(nome, { colonne, righe }) {
     const perc = Math.round((pieni.length / righe.length) * 100);
     const distinti = new Set(pieni.map(String));
 
+    const nomeCol = colonne[i].nome;
     let nota;
     if (pieni.length === 0) {
       nota = '⚠️ SEMPRE VUOTA';
     } else if (distinti.size <= MAX_DISTINTI) {
       // Bassa cardinalita' = enum di fatto: e' l'informazione piu' preziosa.
-      nota = [...distinti].sort().map((v) => (v.length > 20 ? v.slice(0, 20) + '…' : v)).join(' | ');
+      // Gli enum non sono dati personali, ma la colonna potrebbe esserlo lo stesso.
+      nota = [...distinti].sort()
+        .map((v) => { const o = oscura(v, nomeCol); return o.length > 22 ? o.slice(0, 22) + '…' : o; })
+        .join(' | ');
     } else {
-      const es = String(pieni[0]).replace(/\s+/g, ' ');
+      const es = oscura(String(pieni[0]).replace(/\s+/g, ' '), nomeCol);
       nota = `(${distinti.size} valori) es. ${es.length > 34 ? es.slice(0, 34) + '…' : es}`;
     }
 
@@ -209,6 +232,40 @@ for (const n of Object.keys(tutte).sort())
   console.log(`  ${n.padEnd(36)} ${String(tutte[n].righe.length).padStart(8)} righe · ${tutte[n].colonne.length} colonne`);
 
 for (const n of nomi) profila(n, tutte[n]);
+
+/**
+ * Incrocia due colonne e conta le combinazioni. Serve a capire le relazioni che
+ * il singolo profilo non mostra: es. quali ruoli (`groupId`) corrispondono a
+ * quali tipi (`extraType`), o quanti record di ogni tipo hanno una password.
+ */
+function incrocia(nome, { colonne, righe }, a, b) {
+  const ia = colonne.findIndex((c) => c.nome === a);
+  const ib = colonne.findIndex((c) => c.nome === b);
+  if (ia < 0 || ib < 0) {
+    console.log(`\nIncrocio impossibile su ${nome}: manca ${ia < 0 ? a : b}`);
+    return;
+  }
+  const conta = new Map();
+  for (const r of righe) {
+    // Sulle colonne riservate non conta il valore ma la sua PRESENZA.
+    const va = RISERVATE.test(a) ? (r[ia] ? 'valorizzato' : 'vuoto') : String(r[ia] ?? 'NULL');
+    const vb = RISERVATE.test(b) ? (r[ib] ? 'valorizzato' : 'vuoto') : String(r[ib] ?? 'NULL');
+    const k = `${va} ${vb}`;
+    conta.set(k, (conta.get(k) ?? 0) + 1);
+  }
+  console.log(`\nINCROCIO  ${nome}: ${a} × ${b}`);
+  console.log(`  ${a.padEnd(22)} ${b.padEnd(22)} righe`);
+  console.log('  ' + '-'.repeat(56));
+  for (const [k, n] of [...conta].sort((x, y) => y[1] - x[1])) {
+    const [va, vb] = k.split(' ');
+    console.log(`  ${va.padEnd(22)} ${vb.padEnd(22)} ${String(n).padStart(6)}`);
+  }
+}
+
+if (INCROCIA) {
+  const [a, b] = INCROCIA.split(',').map((s) => s.trim());
+  for (const n of nomi) incrocia(n, tutte[n], a, b);
+}
 
 console.log(`\n${'='.repeat(72)}`);
 console.log('Le colonne "⚠️ SEMPRE VUOTA" non vanno mappate: nel nuovo schema sarebbero');
