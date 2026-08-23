@@ -165,6 +165,9 @@ try {
   else if (FASE === 'catalogo') await catalogo();
   else if (FASE === 'righe') await righeConsegna();
   else if (FASE === 'abilitazioni') await abilitazioni();
+  else if (FASE === 'attivita') await attivita();
+  else if (FASE === 'disponibilita') await disponibilita();
+  else if (FASE === 'stipendi') await stipendi();
   else { console.log(`Fase sconosciuta: ${FASE}`); process.exit(1); }
 } finally {
   await db.$disconnect();
@@ -429,6 +432,205 @@ async function listini() {
       segna('listino valet aggiornati', daAggiornare.length);
     }
   } else segna('listino valet', perValet.size);
+}
+
+// ------------------------------------- fase 9: attività e storico consegne
+
+/** Le attività di ritiro/consegna dei valet e il registro delle consegne. */
+async function attivita() {
+  const idConsegna = await indice('delivery');
+  const idValet = await indice('valet');
+  const idUtente = await indice('user');
+
+  // --- valet-activities -> Activity ---------------------------------------
+  const gia = new Set((await db.activity.findMany({
+    where: { legacyId: { not: null } }, select: { legacyId: true },
+  })).map((x) => x.legacyId));
+  let blocco = [], scritte = 0, lette = 0;
+  const scarica = async () => {
+    if (!blocco.length) return;
+    await db.activity.createMany({ data: blocco, skipDuplicates: true });
+    scritte += blocco.length; blocco = [];
+    process.stdout.write(`\r  attività: lette ${lette} · scritte ${scritte}`);
+  };
+  await perRiga(path.join(TABELLE, 'valet-activities.csv'), async (r) => {
+    lette++;
+    const legacyId = intero(r.id);
+    if (gia.has(legacyId)) { segna('attività gia presenti'); return; }
+    const consegna = idConsegna.get(intero(r.deliveryId));
+    if (!consegna) { segna('attività: consegna assente'); return; }
+    blocco.push({
+      legacyId, deliveryId: consegna,
+      valetId: idValet.get(intero(r.expertId)) ?? null,
+      // Nel legacy il tipo e' minuscolo: pickup | delivery.
+      type: (testo(r.activityType) ?? '').toLowerCase() === 'pickup' ? 'PICKUP' : 'DELIVERY',
+      status: bool(r.completed) ? 'done' : 'pending',
+      scheduledAt: data(r.deliveryDate),
+      sortOrder: intero(r.order) ?? 0,
+    });
+    segna('attività');
+    if (blocco.length >= 500) await scarica();
+  });
+  await scarica();
+  if (scritte) process.stdout.write('\n');
+
+  // --- delivery-updates -> DeliveryLog ------------------------------------
+  // ⚠️ `DeliveryLog` non ha legacyId: per non duplicare a ogni rilancio si
+  // conta quanti log "legacy" ha gia' ogni consegna e si salta se combacia.
+  const giaLog = new Set((await db.deliveryLog.findMany({
+    where: { type: 'legacy_update' }, select: { message: true },
+  })).map((x) => x.message));
+  let bl = [], sl = 0, ll = 0;
+  const scaricaLog = async () => {
+    if (!bl.length) return;
+    await db.deliveryLog.createMany({ data: bl });
+    sl += bl.length; bl = [];
+    process.stdout.write(`\r  storico: lette ${ll} · scritte ${sl}`);
+  };
+  await perRiga(path.join(TABELLE, 'delivery-updates.csv'), async (r) => {
+    ll++;
+    const legacyId = intero(r.id);
+    const chiave = `legacy#${legacyId}`;
+    if (giaLog.has(chiave)) { segna('storico gia presente'); return; }
+    const consegna = idConsegna.get(intero(r.deliveryId));
+    if (!consegna) { segna('storico: consegna assente'); return; }
+    bl.push({
+      deliveryId: consegna,
+      type: 'legacy_update',
+      message: chiave,
+      userId: idUtente.get(intero(r.userId)) ?? null,
+      createdAt: data(r.createdAt) ?? undefined,
+    });
+    segna('storico consegne');
+    if (bl.length >= 500) await scaricaLog();
+  });
+  await scaricaLog();
+  if (sl) process.stdout.write('\n');
+}
+
+// ------------------------------------------------ fase 10: disponibilità
+
+/** Disponibilità dei valet e giorni speciali dei partner. */
+async function disponibilita() {
+  const idValet = await indice('valet');
+  const idPartner = await indice('partner');
+
+  // --- valet ---------------------------------------------------------------
+  // @@unique([valetId, date]): nel legacy la stessa coppia puo' ripetersi,
+  // quindi vince la riga con id piu' alto (la piu' recente).
+  const perValet = new Map();
+  for (const r of leggi('expert-time-availability')) {
+    const v = idValet.get(intero(r.expertId));
+    const giorno = data(r.date);
+    if (!v || !giorno) { segna('disponibilità valet: riga orfana'); continue; }
+    const chiave = `${v}|${giorno.toISOString()}`;
+    const prec = perValet.get(chiave);
+    if (prec && intero(prec.r.id) > intero(r.id)) continue;
+    if (prec) segna('disponibilità valet: giorno doppio, tenuta la piu recente');
+    perValet.set(chiave, { r, v, giorno });
+  }
+  const giaV = new Set((await db.valetAvailability.findMany({ select: { valetId: true, date: true } }))
+    .map((x) => `${x.valetId}|${x.date.toISOString()}`));
+  const nuoviV = [...perValet.entries()].filter(([k]) => !giaV.has(k)).map(([, x]) => ({
+    valetId: x.v, date: x.giorno,
+    timeFrom: testo(x.r.startTime)?.slice(0, 5) ?? null,
+    timeTo: testo(x.r.endTime)?.slice(0, 5) ?? null,
+    available: bool(x.r.available) ?? true,
+  }));
+  for (let i = 0; i < nuoviV.length; i += 500)
+    await db.valetAvailability.createMany({ data: nuoviV.slice(i, i + 500), skipDuplicates: true });
+  segna('disponibilità valet', nuoviV.length);
+  segna('disponibilità valet gia presenti', perValet.size - nuoviV.length);
+
+  // --- partner: TUTTE le fasce, non una per giorno -------------------------
+  // 🔴 Il primo tentativo le comprimeva in PartnerDayException, che ne ammette
+  // una sola per data: misurato, 8.466 giorni hanno due o piu' fasce DIVERSE
+  // (es. 12:00-14:30 e 19:30-23:30) e venivano perse in silenzio. Ora vanno in
+  // PartnerDaySlot, che ne ammette quante ne servono.
+  const giaSlot = new Set((await db.partnerDaySlot.findMany({
+    where: { legacyId: { not: null } }, select: { legacyId: true },
+  })).map((x) => x.legacyId));
+  let blocco = [], scritte = 0, lette = 0;
+  const scarica = async () => {
+    if (!blocco.length) return;
+    await db.partnerDaySlot.createMany({ data: blocco, skipDuplicates: true });
+    scritte += blocco.length; blocco = [];
+    process.stdout.write(`  fasce partner: lette ${lette} · scritte ${scritte}`);
+  };
+  await perRiga(path.join(TABELLE, 'partner-time-availability.csv'), async (r) => {
+    lette++;
+    const legacyId = intero(r.id);
+    if (giaSlot.has(legacyId)) { segna('fasce partner gia presenti'); return; }
+    const p = idPartner.get(intero(r.partnerId));
+    const giorno = data(r.date);
+    if (!p || !giorno) { segna('fasce partner: riga orfana'); return; }
+    blocco.push({
+      legacyId, partnerId: p, date: giorno,
+      timeFrom: testo(r.startTime)?.slice(0, 5) ?? null,
+      timeTo: testo(r.endTime)?.slice(0, 5) ?? null,
+      available: bool(r.available) ?? true,
+    });
+    segna('fasce partner');
+    if (blocco.length >= 1000) await scarica();
+  });
+  await scarica();
+  if (scritte) console.log('');
+
+  // Le PartnerDayException create dal primo tentativo sono un sottoinsieme
+  // incompleto: si tolgono, per non lasciare due verita' in disaccordo.
+  const tolte = await db.partnerDayException.deleteMany({ where: { note: null, openTime: { not: null } } });
+  if (tolte.count) segna('giorni partner incompleti rimossi', tolte.count);
+}
+
+// ---------------------------------------- fase 11: stipendi e rimborsi
+
+/**
+ * `expert-receipts` non sono "ricevute" nel senso del nuovo schema (dove una
+ * Receipt appartiene a uno Salary): sono il DOCUMENTO DI PAGA di un valet per
+ * un periodo (da/a, importo, stato). Vanno quindi su `Salary`.
+ */
+async function stipendi() {
+  const idValet = await indice('valet');
+  const idConsegna = await indice('delivery');
+
+  const STATO = { pending: 'DRAFT', sent: 'SENT', approved: 'APPROVED', paid: 'PAID' };
+
+  // 🔴 `fromReceipt`/`toReceipt` NON sono date: sono URL di PDF. Il primo
+  // tentativo li leggeva come periodo e scartava tutte e 350 le righe con
+  // "periodo mancante". Sono ricevute vere: documento + importo + stato.
+  for (const r of leggi('expert-receipts')) {
+    const v = idValet.get(intero(r.expertId));
+    if (!v) { segna('ricevute: valet assente'); continue; }
+    if (!PROVA) await salva('receipt', intero(r.id), null, {
+      valetId: v,
+      fileUrl: testo(r.toReceipt),
+      fileUrlFrom: testo(r.fromReceipt),
+      amount: numero(r.totalAmount),
+      status: testo(r.receiptStatus),
+      signed: !!testo(r.toReceipt),
+      signedAt: data(r.updatedAt),
+    });
+    segna('ricevute valet');
+  }
+
+  // --- rimborsi: richieste di plus del valet su una consegna --------------
+  const STATO_R = { pending: 'REQUESTED', approved: 'APPROVED', rejected: 'REJECTED', paid: 'PAID' };
+  for (const r of leggi('refund-requests')) {
+    const v = idValet.get(intero(r.expertId));
+    if (!v) { segna('rimborsi: valet assente'); continue; }
+    const consegna = idConsegna.get(intero(r.deliveryId));
+    // Il testo della richiesta e la consegna finiscono nella descrizione:
+    // `Payment` non ha un campo per la consegna.
+    const descrizione = [testo(r.requestText), consegna ? `consegna #${intero(r.deliveryId)}` : null]
+      .filter(Boolean).join(' · ') || null;
+    if (!PROVA) await salva('payment', intero(r.id), null, {
+      valetId: v, type: 'CLAIM',
+      amount: numero(r.plusValue) ?? 0,
+      description: descrizione,
+      status: STATO_R[testo(r.requestStatus)] ?? 'REQUESTED',
+    });
+    segna('rimborsi (refund-requests)');
+  }
 }
 
 // --------------------------------------------------- fase 8: abilitazioni

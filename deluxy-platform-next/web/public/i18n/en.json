@@ -796,6 +796,10 @@
       },
       "docs": {
         "title": "Documentation and notes"
+      },
+      "pickup": {
+        "title": "Pickup",
+        "sub": "Pickup slot: 1 hour by default unless flexible."
       }
     },
     "field": {

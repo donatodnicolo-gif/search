@@ -269,6 +269,7 @@ model Partner {
   categories          PartnerCategory[]
   openingHours        OpeningHour[]
   dayExceptions       PartnerDayException[]
+  daySlots            PartnerDaySlot[]
   products            Product[]
   deliveries          Delivery[]
   customers           Customer[]
@@ -334,6 +335,25 @@ model OpeningHour {
 
 // Eccezioni per DATA specifica (chiusura straordinaria o orario speciale):
 // vincono sull'orario settimanale per quel giorno. Una riga per (partner, data).
+/// Fascia oraria di apertura di un partner in un giorno preciso.
+/// ⚠️ Esiste perche' `PartnerDayException` ne ammette UNA sola per data
+/// (@@unique partnerId+date), mentre nel database originario un partner puo'
+/// avere piu' finestre nello stesso giorno: misurato, 8.466 giorni hanno due o
+/// piu' fasce diverse (es. 12:00-14:30 e 19:30-23:30). Comprimerle in una sola
+/// perdeva silenziosamente le altre.
+model PartnerDaySlot {
+  id        String   @id @default(cuid())
+  legacyId  Int?     @unique
+  partnerId String
+  partner   Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  date      DateTime
+  timeFrom  String?
+  timeTo    String?
+  available Boolean  @default(true)
+
+  @@index([partnerId, date])
+}
+
 model PartnerDayException {
   id        String   @id @default(cuid())
   partnerId String
@@ -395,6 +415,7 @@ model Valet {
   salaries            Salary[]
   payments            Payment[]
   deliveryRules       ValetDeliveryRuleValet[]
+  receipts            Receipt[]
   user                User?
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
@@ -1060,8 +1081,19 @@ model Receipt {
   id       String    @id @default(cuid())
   /// id nel database originario MySQL: rende l'import ripetibile e tracciabile
   legacyId             Int?      @unique
-  salaryId String
-  salary   Salary    @relation(fields: [salaryId], references: [id], onDelete: Cascade)
+  /// ⚠️ Facoltativo: nel database originario le ricevute del valet esistono da
+  /// sole (documento + importo + stato), senza uno stipendio a cui agganciarsi.
+  salaryId String?
+  salary   Salary?   @relation(fields: [salaryId], references: [id], onDelete: Cascade)
+  /// Valet a cui appartiene la ricevuta (per quelle importate, che non hanno stipendio).
+  valetId  String?
+  valet    Valet?    @relation(fields: [valetId], references: [id])
+  /// Importo della ricevuta.
+  amount   Float?
+  /// Secondo documento presente nel legacy (`fromReceipt`).
+  fileUrlFrom String?
+  /// Stato del legacy: pending | paid | …
+  status   String?
   number   String?
   fileUrl  String?
   signed   Boolean   @default(false)

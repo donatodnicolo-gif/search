@@ -92,38 +92,37 @@ interface ProductRow {
               <span class="slot-hint warn">{{ 'deliveryForm.hint.noServicesForPartner' | translate }}</span>
             }
           </label>
-        </div>
-      </section>
-
-      <!-- 2. Data di consegna e ritiro -->
-      <section class="card block">
-        <header class="block-head"><h2>{{ 'deliveryForm.section.timing.title' | translate }}</h2>
-          <span class="block-sub">{{ 'deliveryForm.section.timing.sub' | translate }}</span></header>
-
-        <!-- Consegna -->
-        @if (!selectedService()) {
-          <p class="muted">{{ 'deliveryForm.timing.selectServiceFirst' | translate }}</p>
-        } @else {
-          @if (selectedService()?.allowFlexibleTime) {
-            <label class="toggle"><input type="checkbox" name="deliveryFlexible" [(ngModel)]="model.deliveryFlexible" /><span>{{ 'deliveryForm.timing.deliveryFlexible' | translate }}</span></label>
-          }
-          @if (model.deliveryFlexible && selectedService()?.allowFlexibleTime) {
-            <div class="grid-2 mt">
-              <label class="fld"><span>{{ 'deliveryForm.field.deliveryFrom' | translate }}</span>
-                <input class="field" type="time" name="deliveryTimeFrom" [(ngModel)]="model.deliveryTimeFrom" /></label>
-              <label class="fld"><span>{{ 'deliveryForm.field.deliveryTo' | translate }}</span>
-                <input class="field" type="time" name="deliveryTimeTo" [(ngModel)]="model.deliveryTimeTo" /></label>
-            </div>
-          } @else {
-            <label class="fld mt" style="max-width:320px"><span>{{ 'deliveryForm.field.deliverySlot' | translate }} <em>{{ 'deliveryForm.timing.slotSize' | translate:{ hours: slotHours() } }}</em></span>
+          <!-- L'ORARIO DI CONSEGNA sta qui, non nel blocco dopo: e' un dato
+               essenziale quanto la data. Viene per ultimo perche' le fasce le
+               genera il servizio (min/max e passo), quindi prima va scelto quello. -->
+          <label class="fld"><span>{{ 'deliveryForm.field.deliverySlot' | translate }} *
+            @if (selectedService()) { <em>{{ 'deliveryForm.timing.slotSize' | translate:{ hours: slotHours() } }}</em> }</span>
+            @if (!selectedService()) {
+              <select class="field" disabled><option>{{ 'deliveryForm.placeholder.selectService' | translate }}</option></select>
+              <span class="slot-hint">{{ 'deliveryForm.timing.selectServiceFirst' | translate }}</span>
+            } @else if (model.deliveryFlexible && selectedService()?.allowFlexibleTime) {
+              <div class="grid-2">
+                <input class="field" type="time" name="deliveryTimeFrom" [(ngModel)]="model.deliveryTimeFrom" />
+                <input class="field" type="time" name="deliveryTimeTo" [(ngModel)]="model.deliveryTimeTo" />
+              </div>
+            } @else {
               <select class="field" name="deliveryTimeFrom" [(ngModel)]="model.deliveryTimeFrom">
                 <option value="">{{ 'deliveryForm.placeholder.selectSlot' | translate }}</option>
                 @for (slot of deliverySlots(); track slot.from) { <option [value]="slot.from">{{ slot.from }}–{{ slot.to }}</option> }
               </select>
               @if (deliverySlots().length === 0) { <span class="slot-hint warn">{{ 'deliveryForm.timing.noSlots' | translate }}</span> }
-            </label>
-          }
-        }
+            }
+            @if (selectedService()?.allowFlexibleTime) {
+              <label class="toggle mini"><input type="checkbox" name="deliveryFlexible" [(ngModel)]="model.deliveryFlexible" /><span>{{ 'deliveryForm.timing.deliveryFlexible' | translate }}</span></label>
+            }
+          </label>
+        </div>
+      </section>
+
+      <!-- 2. Data di consegna e ritiro -->
+      <section class="card block">
+        <header class="block-head"><h2>{{ 'deliveryForm.section.pickup.title' | translate }}</h2>
+          <span class="block-sub">{{ 'deliveryForm.section.pickup.sub' | translate }}</span></header>
 
         <!-- Ritiro -->
         <label class="toggle mt2"><input type="checkbox" name="pickupFlexible" [(ngModel)]="model.pickupFlexible" /><span>{{ 'deliveryForm.timing.pickupFlexible' | translate }}</span></label>
@@ -343,6 +342,7 @@ interface ProductRow {
       .mt2 { margin-top: 20px; }
       .slot-hint { margin-top: 6px; font-size: 12.5px; color: var(--gold-strong); font-weight: 550; }
       .slot-hint.warn { color: var(--red); }
+      .toggle.mini { margin-top: 6px; font-size: 13px; }
       .fld { display: flex; flex-direction: column; gap: 6px; }
       .fld > span { font-size: 13px; font-weight: 550; color: var(--text-secondary); }
       .fld em { color: var(--text-tertiary); font-style: normal; font-weight: 400; }

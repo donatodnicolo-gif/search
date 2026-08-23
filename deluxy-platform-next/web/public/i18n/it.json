@@ -796,6 +796,10 @@
       },
       "docs": {
         "title": "Documentazione e note"
+      },
+      "pickup": {
+        "title": "Ritiro",
+        "sub": "Fascia di ritiro: automatica di 1 ora salvo flessibile."
       }
     },
     "field": {
