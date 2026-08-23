@@ -19,6 +19,16 @@ type Piattaforma = { nome: string; percent: number; proprio: boolean; euro: numb
 // Il nome che Budgets dà alla piattaforma e il canale con cui arrivano le
 // campagne sono due vocabolari diversi: l'abbinamento sta qui, in un punto
 // solo, invece di essere indovinato da una `includes` sparsa nel codice.
+// L'ordine in cui si guardano, e come si chiamano a schermo. Google prima
+// perché è dove sta il grosso della spesa.
+const ORDINE_CANALI = ["google_ads", "meta_ads", "tiktok", ""];
+const NOME_CANALE: Record<string, string> = {
+  google_ads: "Google Ads",
+  meta_ads: "Meta Ads",
+  tiktok: "TikTok",
+  "": "Senza piattaforma",
+};
+
 const CANALE_DI_PIATTAFORMA: Record<string, string> = {
   google: "google_ads",
   meta: "meta_ads",
@@ -318,14 +328,46 @@ export function AdattaBudget({
           <thead>
             <tr>
               <th>Campagna</th>
-              <th>Piattaforma</th>
               <th className="num">Adesso</th>
               <th className="num">Nuovo €/giorno</th>
               <th className="num">Differenza</th>
             </tr>
           </thead>
-          <tbody>
-            {campagne.map((c) => {
+          {/* ⚠️ UN BLOCCO PER PIATTAFORMA. Google e Meta hanno budget
+              diversi, tetti diversi e perfino un esecutore diverso: in un
+              elenco unico si mescolavano, e per capire quanto stavi mettendo
+              su Meta bisognava sommare a occhio le righe con scritto Meta.
+              Ogni blocco chiude con il proprio totale, che è il numero su cui
+              si decide. */}
+          {ORDINE_CANALI.filter((canale) => campagne.some((c) => c.canale === canale)).map((canale) => {
+            const sue = campagne.filter((c) => c.canale === canale);
+            const pf = tettoDi(canale);
+            const v = perPiattaforma.get(canale);
+            const arrivo = (v?.speso ?? 0) + (v?.nuovoGiorno ?? 0) * giorniRimasti;
+            const sfora = pf != null && arrivo > pf.euro;
+            return (
+          <tbody key={canale}>
+            <tr>
+              {/* L'intestazione del blocco porta già il confronto: chi
+                  scrive un numero nella riga sotto deve vedere subito se
+                  sfora, non dopo aver scorso in cima alla pagina. */}
+              <td colSpan={4} style={{ background: "var(--fill)", fontWeight: 600 }}>
+                {NOME_CANALE[canale] ?? canale}
+                <span className="cella-sub" style={{ fontWeight: 400, marginLeft: 10 }}>
+                  {sue.length} campagne in asta
+                  {pf != null && (
+                    <>
+                      {" · "}disponibile {euro(pf.euro)}{" · "}
+                      <span style={{ color: sfora ? "var(--orange)" : "var(--green)" }}>
+                        a fine mese {euro(arrivo)}
+                      </span>
+                    </>
+                  )}
+                  {pf == null && " · Budgets non dice quanto spetta a questa piattaforma"}
+                </span>
+              </td>
+            </tr>
+            {sue.map((c) => {
               const n = numero(valori[c.id] ?? "");
               const diff = n != null && c.budget != null ? n - c.budget : null;
               return (
@@ -342,7 +384,6 @@ export function AdattaBudget({
                       )}
                     </div>
                   </td>
-                  <td className="cella-muta">{c.canale === "meta_ads" ? "Meta" : c.canale === "google_ads" ? "Google" : c.canale}</td>
                   <td className="num cella-muta">{c.budget != null ? euro(c.budget) : "non noto"}</td>
                   <td className="num">
                     <input
@@ -369,6 +410,8 @@ export function AdattaBudget({
               );
             })}
           </tbody>
+            );
+          })}
         </table>
       </div>
 
