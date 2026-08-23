@@ -701,6 +701,8 @@ model Delivery {
 
 model DeliveryProduct {
   id             String   @id @default(cuid())
+  /// id nel database originario MySQL: rende l'import ripetibile e tracciabile
+  legacyId             Int?      @unique
   deliveryId     String
   productId      String
   quantity       Int      @default(1)
@@ -740,6 +742,8 @@ model DeliveryLog {
 // ------------------------------------------------------------
 model Activity {
   id          String   @id @default(cuid())
+  /// id nel database originario MySQL: rende l'import ripetibile e tracciabile
+  legacyId             Int?      @unique
   deliveryId  String
   delivery    Delivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
   valetId     String?
@@ -783,6 +787,8 @@ model SmsTemplate {
 // ------------------------------------------------------------
 model DeliveryRule {
   id   String @id @default(cuid())
+  /// id nel database originario MySQL: rende l'import ripetibile e tracciabile
+  legacyId             Int?      @unique
   name String
 
   // Sull'app reale "Daily Number Rule" e "Total Number Rule" sono due Si/No
@@ -839,6 +845,8 @@ model DeliveryRulePartner {
 // ------------------------------------------------------------
 model Salary {
   id             String    @id @default(cuid())
+  /// id nel database originario MySQL: rende l'import ripetibile e tracciabile
+  legacyId             Int?      @unique
   valetId        String
   valet          Valet     @relation(fields: [valetId], references: [id])
   periodStart    DateTime
@@ -862,6 +870,8 @@ model Salary {
 // Ricevute (da firmare -> firmate)
 model Receipt {
   id       String    @id @default(cuid())
+  /// id nel database originario MySQL: rende l'import ripetibile e tracciabile
+  legacyId             Int?      @unique
   salaryId String
   salary   Salary    @relation(fields: [salaryId], references: [id], onDelete: Cascade)
   number   String?
@@ -878,6 +888,8 @@ model Receipt {
 // ------------------------------------------------------------
 model Payment {
   id          String   @id @default(cuid())
+  /// id nel database originario MySQL: rende l'import ripetibile e tracciabile
+  legacyId             Int?      @unique
   valetId     String
   valet       Valet    @relation(fields: [valetId], references: [id])
   // Reclamo aperto su una riga di stipendio (es. rimborso Area C). Facoltativo.
@@ -898,6 +910,8 @@ model Payment {
 // ------------------------------------------------------------
 model Invoice {
   id              String    @id @default(cuid())
+  /// id nel database originario MySQL: rende l'import ripetibile e tracciabile
+  legacyId             Int?      @unique
   partnerId       String
   partner         Partner   @relation(fields: [partnerId], references: [id])
   number          String? // FAT-<anno>-<n>

@@ -27,6 +27,10 @@ const PROVA = args.includes('--prova');
 const FASE = opzione('fase', 'anagrafiche');
 const TABELLE = opzione('tabelle', 'C:/Users/nicol/app/deluxy-platform-next/legacy/tabelle');
 
+// Offset per i legacyId del catalogo servizi lato VALET: vedi il commento
+// sulla collisione di id sopra la fase `listini`.
+const OFFSET_VALET = 900000;
+
 // ---------------------------------------------------------------- lettura CSV
 
 /** CSV con virgolette doppie e campi multiriga. */
@@ -140,6 +144,9 @@ console.log(`Sorgente: ${TABELLE}\n`);
 
 try {
   if (FASE === 'anagrafiche') await anagrafiche();
+  else if (FASE === 'servizi') await servizi();
+  else if (FASE === 'listini') await listini();
+  else if (FASE === 'regole') await regole();
   else { console.log(`Fase sconosciuta: ${FASE}`); process.exit(1); }
 } finally {
   await db.$disconnect();
@@ -153,6 +160,306 @@ if (avvisi.length) {
   if (avvisi.length > 20) console.log(`  … e altri ${avvisi.length - 20}`);
 }
 if (PROVA) console.log('\n(era una prova: nulla e\' stato scritto)');
+
+// ------------------------------------------------- fase 2: tipologie servizio
+
+/**
+ * I 32 servizi veri del legacy, piu' un «Non indicato».
+ *
+ * Va fatta PRIMA delle consegne: nel nuovo schema `Delivery.serviceTypeId` e'
+ * obbligatorio, e senza queste righe 62.376 consegne non avrebbero dove
+ * agganciarsi.
+ *
+ * ⚠️ Le 17.669 consegne (28,3%) che nel legacy non hanno servizio finiscono su
+ * «Non indicato»: e' una scelta esplicita per non inventare un dato che il
+ * legacy non ha mai avuto, e le lascia riconoscibili a colpo d'occhio.
+ */
+async function servizi() {
+  // pricingModel del legacy -> quello del nuovo schema.
+  const MODELLO = {
+    sales: 'VENDITA',
+    fixedprice: 'PREZZO_FISSO',
+    hourlyrate: 'A_ORA',
+    warehouseservice: 'MAGAZZINO',
+    corporate: 'CORPORATE',
+  };
+
+  // `code` e' unico e nel legacy non esiste: si ricava dal nome. I 5 codici del
+  // seed (CONSEGNA_FISSA, SERVIZIO_ORARIO, VENDITA, CORPORATE, MAGAZZINO) sono
+  // gia' occupati, quindi si parte da quelli per non collidere.
+  const presi = new Set((await db.serviceType.findMany({ select: { code: true } })).map((x) => x.code));
+  const codice = (nome, legacyId) => {
+    let base = String(nome).toUpperCase()
+      .normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .replace(/[^A-Z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 30) || `SERVIZIO_${legacyId}`;
+    let c = base, n = 2;
+    while (presi.has(c)) c = `${base}_${n++}`;   // il nome si ripete: si numera
+    presi.add(c);
+    return c;
+  };
+
+  for (const s of leggi('service')) {
+    const nome = testo(s.serviceName);
+    const modello = MODELLO[testo(s.pricingModel)];
+    if (!nome || !modello) {
+      avvisi.push(`servizio ${s.id}: nome o pricingModel non riconosciuto (${testo(s.pricingModel)}), saltato`);
+      segna('servizi saltati'); continue;
+    }
+    const legacyId = intero(s.id);
+    // Se c'e' gia' (secondo giro), si tiene il codice suo invece di generarne
+    // uno nuovo: cambiare il `code` a un servizio in uso e' un danno.
+    const gia = await db.serviceType.findUnique({ where: { legacyId } });
+    const dati = {
+      name: nome,
+      code: gia?.code ?? codice(nome, legacyId),
+      pricingModel: modello,
+      notes: testo(s.notes),
+      hideCustomerInfo: bool(s.hideCustomerInformation) ?? false,
+      active: !data(s.deletedAt),
+    };
+    if (!PROVA) await salva('serviceType', legacyId, null, dati);
+    segna(`servizi ${modello}`);
+    segna('servizi');
+  }
+
+  // Il contenitore delle consegne senza servizio.
+  const NON_INDICATO = 'NON_INDICATO';
+  if (!PROVA) {
+    const gia = await db.serviceType.findUnique({ where: { code: NON_INDICATO } });
+    if (!gia) {
+      await db.serviceType.create({ data: {
+        name: 'Non indicato',
+        code: NON_INDICATO,
+        pricingModel: 'PREZZO_FISSO',
+        notes: 'Le consegne che nel database originario non avevano un tipo di servizio. '
+             + 'Non e\' un servizio vero: serve a non inventare un dato mancante.',
+        active: false,
+      } });
+      segna('creato il servizio «Non indicato»');
+    } else segna('«Non indicato» gia presente');
+  }
+}
+
+// ------------------------------------------------------ fase 3: listini
+//
+// 🔴 LA COLLISIONE DI ID, da tenere a mente per sempre.
+//
+// Nel legacy i cataloghi dei servizi sono DUE, con due spazi di id che si
+// SOVRAPPONGONO:
+//   · `service`      32 righe, id 5-39  -> lato PARTNER, usato da partner-service
+//   · `tabella-38`    8 righe, id 3-10  -> lato VALET,   usato da expert-service
+//
+// Le 240 righe di `expert-service` usano i serviceId 3, 5 e 8. Tutti e tre
+// esistono ANCHE in `service`: agganciandole al catalogo sbagliato, 112 listini
+// valet su 240 finirebbero su un servizio che non c'entra nulla — e senza
+// nessun errore, perche' l'id esiste davvero.
+//
+// Nel nuovo schema il catalogo e' UNO SOLO con un `scope`. Per non perdere la
+// tracciabilita' e restare ripetibili, i servizi valet prendono
+// `legacyId = OFFSET_VALET + id`.
+
+async function listini() {
+  // --- catalogo lato valet ------------------------------------------------
+  const MODELLO_VALET = {
+    fixedpricesalary: 'PREZZO_FISSO',
+    hourlyratesalary: 'A_ORA',
+    warehousesalary: 'MAGAZZINO',
+  };
+  const presi = new Set((await db.serviceType.findMany({ select: { code: true } })).map((x) => x.code));
+
+  for (const s of leggi('tabella-38')) {
+    const nome = testo(s.serviceName);
+    const modello = MODELLO_VALET[testo(s.serviceType)];
+    if (!nome || !modello) { avvisi.push(`servizio valet ${s.id}: tipo "${testo(s.serviceType)}" non riconosciuto`); continue; }
+    const legacyId = OFFSET_VALET + intero(s.id);
+    const gia = await db.serviceType.findUnique({ where: { legacyId } });
+    let code = gia?.code;
+    if (!code) {
+      const base = 'VALET_' + nome.toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+        .replace(/[^A-Z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 24);
+      code = base; let n = 2;
+      while (presi.has(code)) code = `${base}_${n++}`;
+      presi.add(code);
+    }
+    if (!PROVA) await salva('serviceType', legacyId, null, {
+      name: nome, code, pricingModel: modello, scope: 'valet', active: !data(s.deletedAt),
+    });
+    segna('servizi lato valet');
+  }
+
+  // I 32 gia' importati sono lato partner: lo si dichiara.
+  if (!PROVA) {
+    const r = await db.serviceType.updateMany({
+      where: { legacyId: { lt: OFFSET_VALET, not: null } }, data: { scope: 'partner' },
+    });
+    segna('servizi marcati «partner»', r.count);
+  }
+
+  // --- indici -------------------------------------------------------------
+  const idServizio = new Map((await db.serviceType.findMany({
+    where: { legacyId: { not: null } }, select: { id: true, legacyId: true },
+  })).map((x) => [x.legacyId, x.id]));
+  const idPartner = new Map((await db.partner.findMany({
+    where: { legacyId: { not: null } }, select: { id: true, legacyId: true },
+  })).map((x) => [x.legacyId, x.id]));
+  const idValet = new Map((await db.valet.findMany({
+    where: { legacyId: { not: null } }, select: { id: true, legacyId: true },
+  })).map((x) => [x.legacyId, x.id]));
+
+  // --- listino partner ----------------------------------------------------
+  // @@unique([partnerId, serviceTypeId]): se il legacy ha la stessa coppia due
+  // volte vince la riga con id piu' alto, cioe' la piu' recente.
+  const perPartner = new Map();
+  for (const r of leggi('partner-service')) {
+    const p = idPartner.get(intero(r.partnerId));
+    const s = idServizio.get(intero(r.serviceId));
+    if (!p || !s) { segna('listino partner: riga orfana'); continue; }
+    const chiave = `${p}|${s}`;
+    const precedente = perPartner.get(chiave);
+    if (precedente && intero(precedente.id) > intero(r.id)) continue;
+    if (precedente) segna('listino partner: coppia doppia, tenuta la piu recente');
+    perPartner.set(chiave, r);
+    // ⚠️ `pricePerItem` (6 righe valorizzate) non ha destinazione: PartnerService
+    // non ha un prezzo a pezzo. Si segnala invece di buttarlo in silenzio.
+    if (testo(r.pricePerItem)) segna('listino partner: pricePerItem senza destinazione');
+  }
+  if (!PROVA) {
+    const gia = new Set((await db.partnerService.findMany({ select: { partnerId: true, serviceTypeId: true } }))
+      .map((x) => `${x.partnerId}|${x.serviceTypeId}`));
+    const nuovi = [...perPartner.entries()].filter(([k]) => !gia.has(k)).map(([k, r]) => {
+      const [partnerId, serviceTypeId] = k.split('|');
+      return { partnerId, serviceTypeId, price: numero(r.price) ?? 0, extraKmPrice: numero(r.extraKmPrice) ?? 0 };
+    });
+    for (let i = 0; i < nuovi.length; i += 500)
+      await db.partnerService.createMany({ data: nuovi.slice(i, i + 500), skipDuplicates: true });
+    segna('listino partner', nuovi.length);
+    segna('listino partner gia presenti', perPartner.size - nuovi.length);
+  } else segna('listino partner', perPartner.size);
+
+  // --- listino valet ------------------------------------------------------
+  const perValet = new Map();
+  for (const r of leggi('expert-service')) {
+    const v = idValet.get(intero(r.expertId));
+    // 🔴 Qui si aggancia al catalogo VALET (con l'offset), non a `service`.
+    const s = idServizio.get(OFFSET_VALET + intero(r.serviceId));
+    if (!v || !s) { segna('listino valet: riga orfana'); continue; }
+    const chiave = `${v}|${s}`;
+    const precedente = perValet.get(chiave);
+    if (precedente && intero(precedente.id) > intero(r.id)) continue;
+    if (precedente) segna('listino valet: coppia doppia, tenuta la piu recente');
+    perValet.set(chiave, r);
+  }
+  if (!PROVA) {
+    const gia = new Set((await db.valetService.findMany({ select: { valetId: true, serviceTypeId: true } }))
+      .map((x) => `${x.valetId}|${x.serviceTypeId}`));
+    const nuovi = [...perValet.entries()].filter(([k]) => !gia.has(k)).map(([k, r]) => {
+      const [valetId, serviceTypeId] = k.split('|');
+      return {
+        valetId, serviceTypeId,
+        salary: numero(r.salary) ?? 0,
+        salaryPerItem: numero(r.salaryPerItem),
+        // ⚠️ ASSUNZIONE: `minimumKmPrice` del legacy = `extraKmPrice` qui. I nomi
+        //    differiscono ma i valori sono gli stessi del lato partner
+        //    (0, 0.2, 0.5, 1, 1.5, 2…). Da confermare con l'utente.
+        extraKmPrice: numero(r.minimumKmPrice),
+      };
+    });
+    for (let i = 0; i < nuovi.length; i += 500)
+      await db.valetService.createMany({ data: nuovi.slice(i, i + 500), skipDuplicates: true });
+    segna('listino valet', nuovi.length);
+    segna('listino valet gia presenti', perValet.size - nuovi.length);
+  } else segna('listino valet', perValet.size);
+}
+
+// ------------------------------------------------- fase 4: regole carnet
+
+/**
+ * Le 28 regole carnet, piu' l'estensione ad altri partner (8 righe).
+ *
+ * Due cose del legacy NON hanno destinazione nel nuovo schema, e vengono
+ * segnalate invece di essere buttate in silenzio:
+ *
+ *  · `days` — un JSON con i giorni della settimana in cui la regola vale.
+ *    `DeliveryRule` non ha un campo per i giorni.
+ *  · `serviceType` — nel legacy e' un MODELLO DI PREZZO (`fixedprice`,
+ *    `hourlyrate`), non un servizio precise. Nel nuovo schema `serviceTypeId`
+ *    punta a UN servizio, e di PREZZO_FISSO ce ne sono 10: sceglierne uno
+ *    sarebbe inventare. Resta `null`, e il modello di prezzo finisce nel NOME
+ *    della regola, dove almeno si vede.
+ *
+ * ⚠️ `DeliveryRule.name` e' obbligatorio e nel legacy non esiste: si compone
+ * («Regola 8 · prezzo fisso»). E' un'etichetta, non un dato inventato.
+ */
+async function regole() {
+  const MODELLO = { fixedprice: 'prezzo fisso', hourlyrate: 'a ora' };
+
+  const idPartner = new Map((await db.partner.findMany({
+    where: { legacyId: { not: null } }, select: { id: true, legacyId: true },
+  })).map((x) => [x.legacyId, x.id]));
+
+  for (const r of leggi('delivery-rules')) {
+    const legacyId = intero(r.id);
+    const modello = MODELLO[testo(r.serviceType)] ?? testo(r.serviceType);
+    const dati = {
+      name: `Regola ${legacyId}${modello ? ` · ${modello}` : ''}`,
+      dailyRule: bool(r.perDayDeliveryRule) ?? false,
+      dailyCount: intero(r.perDayDeliveryLimit) ?? 0,
+      totalRule: bool(r.totalDeliveryRule) ?? false,
+      totalCount: intero(r.totalDeliveryLimit) ?? 0,
+      periodStart: data(r.validFrom),
+      periodEnd: data(r.validTill),
+      // Le ore arrivano come "08:00:00": il nuovo schema le vuole "HH:mm".
+      timeFrom: testo(r.startTimeRange)?.slice(0, 5) ?? null,
+      timeTo: testo(r.endTimeRange)?.slice(0, 5) ?? null,
+      kmDistance: numero(r.kmLimit),
+      partnerBillingAdjustment: numero(r.additionalPrice) ?? 0,
+      valetPayAdjustment: numero(r.valetAdditionalPrice) ?? 0,
+      toBill: bool(r.billable) ?? true,
+      toPay: bool(r.payable) ?? true,
+      active: !data(r.deletedAt),
+    };
+    if (testo(r.days)) segna('regole: campo «days» senza destinazione');
+    if (testo(r.serviceType)) segna('regole: serviceType finito nel nome');
+
+    if (!PROVA) {
+      const rec = await salva('deliveryRule', legacyId, null, dati);
+      // Il partner proprietario della regola.
+      const p = idPartner.get(intero(r.partnerId));
+      if (p) {
+        const gia = await db.deliveryRulePartner.findFirst({ where: { deliveryRuleId: rec.id, partnerId: p } });
+        if (!gia) { await db.deliveryRulePartner.create({ data: { deliveryRuleId: rec.id, partnerId: p } }); segna('regole: partner collegati'); }
+      } else segna('regole: partner proprietario non trovato');
+    }
+    segna('regole carnet');
+  }
+
+  // Estensione della stessa regola ad altri partner.
+  if (!PROVA) {
+    const idRegola = new Map((await db.deliveryRule.findMany({
+      where: { legacyId: { not: null } }, select: { id: true, legacyId: true },
+    })).map((x) => [x.legacyId, x.id]));
+    for (const e of leggi('tabella-3')) {
+      const rid = idRegola.get(intero(e.deliveryRuleId));
+      const pid = idPartner.get(intero(e.partnerId));
+      if (!rid || !pid) { segna('regole: estensione orfana'); continue; }
+      const gia = await db.deliveryRulePartner.findFirst({ where: { deliveryRuleId: rid, partnerId: pid } });
+      if (gia) { segna('regole: estensione gia presente'); continue; }
+      await db.deliveryRulePartner.create({ data: { deliveryRuleId: rid, partnerId: pid } });
+      segna('regole: partner aggiunti per estensione');
+    }
+  }
+
+  // Le regole lato VALET (7 righe + 44 di collegamento) non hanno destinazione:
+  // `DeliveryRule` e' legata ai partner, non ai valet, e il loro campo `rules`
+  // e' un JSON di scaglioni (pickUps -> plusSalary) che qui non esiste.
+  const regoleValet = leggi('tabella-34').length;
+  if (regoleValet) {
+    segna('regole VALET senza destinazione', regoleValet);
+    avvisi.push(`${regoleValet} regole lato valet (tabella-34) + ${leggi('tabella-2').length} collegamenti `
+      + 'non importate: nel nuovo schema le regole carnet sono solo dei partner, e il loro JSON di '
+      + 'scaglioni pickUps→plusSalary non ha un campo corrispondente.');
+  }
+}
 
 // ---------------------------------------------------------------- fase 1
 

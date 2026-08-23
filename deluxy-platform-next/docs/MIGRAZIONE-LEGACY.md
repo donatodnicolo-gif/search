@@ -177,6 +177,74 @@ Migrazione `20260823125015_legacy_id_e_accesso_clienti`, puramente additiva.
 - 🔴 **Resta aperto**: 42 account condividono 7 password (uno stesso hash su 25 fra partner e valet).
   Migrandoli tali e quali il problema entra nel nuovo ambiente: vanno forzati al cambio.
 
+## Fase 2-4 — servizi, listini, regole carnet (23/08/2026)
+
+`--fase servizi` → `--fase listini` → `--fase regole`. In quest'ordine: le consegne hanno il servizio
+obbligatorio, e i listini si agganciano ai servizi.
+
+| sorgente | destinazione | righe |
+|---|---|---|
+| `service` | `ServiceType` scope **partner** | 32 |
+| `tabella-38` | `ServiceType` scope **valet** | 8 |
+| *(creato qui)* | `ServiceType` «Non indicato» | 1 |
+| `partner-service` | `PartnerService` (listino partner) | **528** |
+| `expert-service` | `ValetService` (listino valet) | **240** |
+| `delivery-rules` | `DeliveryRule` + `DeliveryRulePartner` | 28 (+6 estensioni) |
+
+Zero righe orfane: ogni listino ha trovato il suo partner/valet **e** il suo servizio.
+
+### 🔴 La collisione di id che avrebbe corrotto i listini in silenzio
+
+Nel legacy i cataloghi dei servizi sono **due**, con spazi di id che **si sovrappongono**:
+
+- `service` — 32 righe, id **5-39** — lato **partner**, usato da `partner-service`
+- `tabella-38` — 8 righe, id **3-10** — lato **valet**, usato da `expert-service`
+
+Le 240 righe di `expert-service` usano i `serviceId` **3, 5, 8**. Tutti e tre esistono **anche** in
+`service`. Agganciandole al catalogo sbagliato, **112 listini valet su 240** sarebbero finiti su un
+servizio che non c'entra nulla — **senza nessun errore**, perché l'id esiste davvero.
+
+Nel nuovo schema il catalogo è **uno solo** con un campo `scope`. Per tenere separate le due origini e
+restare ripetibili, i servizi valet prendono `legacyId = 900000 + id`.
+
+✅ **Controprova fatta**: dei 240 listini valet importati, **0** puntano a un servizio non-valet; dei
+528 partner, **0** puntano a un servizio non-partner. *(Un primo controllo dava 3 falsi positivi: erano
+righe del seed, non del legacy — vanno escluse filtrando su `legacyId != null`.)*
+
+### Campi senza destinazione — segnalati, non buttati
+
+| campo legacy | perché non si mappa |
+|---|---|
+| `partner-service.pricePerItem` (10 righe) | `PartnerService` non ha un prezzo a pezzo |
+| `delivery-rules.days` (28 righe) | `DeliveryRule` non ha i giorni della settimana |
+| `delivery-rules.serviceType` | nel legacy è un **modello di prezzo** (`fixedprice`), non un servizio: di `PREZZO_FISSO` ce ne sono 10 e sceglierne uno sarebbe inventare. Finisce nel **nome** della regola, dove almeno si vede |
+| regole carnet lato **valet** (7 + 44 collegamenti) | nel nuovo schema le regole sono solo dei partner, e il loro JSON di scaglioni `pickUps→plusSalary` non ha un campo corrispondente |
+
+⚠️ **Un'assunzione da confermare**: `expert-service.minimumKmPrice` è stato mappato su
+`ValetService.extraKmPrice`. I nomi differiscono, ma i valori sono gli stessi del lato partner
+(0, 0,2, 0,5, 1, 1,5, 2…). Se il significato è un altro, va corretto prima di fidarsi delle paghe.
+
+⚠️ `DeliveryRule.name` è obbligatorio e nel legacy **non esiste**: si compone («Regola 8 · prezzo
+fisso»). È un'etichetta, non un dato inventato.
+
+## Consegne — misurate, non ancora importate
+
+62.376 righe × **114 colonne**. Decisioni già prese con l'utente il 23/08:
+
+| problema | righe | deciso |
+|---|---|---|
+| stati che nel nuovo schema non esistono: `deliveredWithTimeToBeApproved` 708, `approved` 550, vuoto 434, `invalidated` 230 | **1.922** | **aggiungere i 3 stati mancanti all'enum**; le 434 senza stato restano `created` (il valore predefinito) |
+| senza tipo di servizio, ma è obbligatorio | **17.669** | **servizio «Non indicato»** (creato) |
+| senza nome/cognome/indirizzo destinatario | 448 / 396 / 214 | riempire con **«Non indicato»** |
+| senza data (141) o senza partner (401) | 542 | **saltare** ed elencarle |
+
+Stati usati davvero: `delivered` 53.415 · `canceled` 3.361 · `notDelivered` 1.745 · `created` 1.629 ·
+`assigned` 273 · `requestCancellation` 11 · `accepted` 10 · `notAccepted` 6 · `delivering` 4.
+⚠️ La documentazione ne dichiarava 14: quelli **davvero usati sono 12**, e `inPreparation` non compare mai.
+
+⚠️ **97,5% delle consegne non ha un `customerId`**: il destinatario sta nei campi `name`/`surname`/
+`address` della consegna stessa. Solo 1.143 sono legate a un cliente in anagrafica.
+
 ## Prossime fasi
 
 `catalogo` (categorie, prodotti 21.909, varianti 18.375, servizi) → `consegne` (62.376 × 114 colonne,
