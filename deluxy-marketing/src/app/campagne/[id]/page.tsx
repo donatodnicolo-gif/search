@@ -6,6 +6,7 @@ import { GuardrailCampagna } from "@/components/GuardrailCampagna";
 import { KeywordCampagna } from "@/components/KeywordCampagna";
 import { AggiungiNegative } from "@/components/AggiungiNegative";
 import { CambiaLocalita } from "@/components/CambiaLocalita";
+import { AggiungiEstensione } from "@/components/AggiungiEstensione";
 import { ProposteAi } from "@/components/ProposteAi";
 import { Badge } from "@/components/Badge";
 import { GraficoSpesa } from "@/components/GraficoSpesa";
@@ -46,7 +47,7 @@ import {
   aggiungiMetrica,
   cambiaStatoCampagna,
   applicaKeywordAdAltreCampagne,
-  accodaCambioLocalita, accodaNegativeScritte, creaOperazione,
+  accodaCambioLocalita, accodaEstensione, accodaNegativeScritte, creaOperazione,
   impostaBrandCampagna,
   impostaLinguaCampagna,
   rinominaCampagna,
@@ -377,16 +378,11 @@ export default async function SchedaCampagna({
                   >
                     {nomiMirate.length === 0
                       ? "nessuna località mirata"
-                      : nomiMirate.length <= 4
-                        ? nomiMirate.join(" · ")
-                        : `${nomiMirate.slice(0, 3).join(" · ")} e altre ${nomiMirate.length - 3}`}
+                      : nomiMirate.length === 1
+                        ? nomiMirate[0]
+                        : `${nomiMirate.length} località`}
                     {escluse.length > 0 && (
-                      <span style={{ opacity: 0.65 }}>
-                        {" — esclude "}
-                        {escluse.length <= 3
-                          ? escluse.map((l) => l.nome).join(", ")
-                          : `${escluse.length} località`}
-                      </span>
+                      <span style={{ opacity: 0.65 }}>{` — ${escluse.length} escluse`}</span>
                     )}
                   </span>
                 );
@@ -460,6 +456,65 @@ export default async function SchedaCampagna({
             <a className="btn" href={`/azioni/nuova?campagna=${campagna.id}&brand=${campagna.brand}`}>Nuova azione sulla campagna</a>
           </div>
         </div>
+
+        {/* ⚠️ DOVE ESCE LA PUBBLICITÀ, per intero e in cima.
+            Il targeting geografico stava in un badge troncato («Croatia ·
+            Greece · Monaco e altre 6») e nel blocco Dettagli, in fondo: per
+            sapere se una campagna copre la Svizzera bisognava passare il
+            mouse su una pastiglia grigia o scorrere mezza pagina. È la prima
+            cosa che si guarda quando si apre una campagna, e adesso è la
+            prima cosa che si legge. */}
+        <section className="scheda" style={{ paddingTop: 14, paddingBottom: 14 }}>
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+            <div style={{ minWidth: 260, flex: 1 }}>
+              <div className="cella-sub" style={{ marginBottom: 4 }}>Dove esce</div>
+              {campagna.localita.length === 0 ? (
+                <div className="cella-muta" style={{ whiteSpace: "normal" }}>
+                  {/* «Mai lette» e «nessuna» sono due cose diverse: la prima è
+                      un dato che manca, la seconda una campagna che esce
+                      ovunque. Confonderle qui costerebbe caro. */}
+                  Non ancora lette dallo script — non vuol dire «nessuna»: finché non arrivano, dove
+                  esce questa campagna non lo sappiamo.
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {campagna.localita
+                    .filter((l) => !l.esclusa)
+                    .map((l) => (
+                      <span key={l.id} className="pill-opt" style={{ cursor: "default" }}>
+                        {l.nome}
+                        {l.tipo && <span className="cella-sub">{l.tipo}</span>}
+                        {l.modificatore != null && (
+                          <span className="cella-sub">offerta ×{l.modificatore}</span>
+                        )}
+                      </span>
+                    ))}
+                  {campagna.localita.filter((l) => !l.esclusa).length === 0 && (
+                    <span style={{ color: "var(--orange)" }}>
+                      nessuna località mirata: senza targeting geografico Google la fa uscire ovunque
+                    </span>
+                  )}
+                </div>
+              )}
+              {campagna.localita.some((l) => l.esclusa) && (
+                <div className="cella-sub" style={{ marginTop: 6, whiteSpace: "normal" }}>
+                  Esclude: {campagna.localita.filter((l) => l.esclusa).map((l) => l.nome).join(" · ")}
+                </div>
+              )}
+            </div>
+            {campagna.canale === "google_ads" && (
+              <CambiaLocalita
+                campagnaId={campagna.id}
+                nomeCampagna={campagna.nome}
+                attuali={campagna.localita
+                  .filter((l) => !l.esclusa)
+                  .map((l) => ({ idEsterno: l.idEsterno, nome: l.nome, tipo: l.tipo }))}
+                azione={accodaCambioLocalita}
+                ritorno={`/campagne/${campagna.id}`}
+              />
+            )}
+          </div>
+        </section>
 
         {/* L esito di «metti in coda» arriva qui: si resta sulla scheda
             invece di essere portati in coda a ogni parola. */}
@@ -789,6 +844,19 @@ export default async function SchedaCampagna({
         <SegmentiCampagna campagnaId={campagna.id} brand={campagna.brand} />
 
         <DestinazioniCampagna nomeCampagna={campagna.nome} />
+        {/* Si potevano solo guardare: per aggiungerne una si andava in Google
+            Ads, e infatti su tre conti ce ne sono 247 ferme e intere campagne
+            senza nemmeno un callout. */}
+        {campagna.canale === "google_ads" && (
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+            <AggiungiEstensione
+              campagnaId={campagna.id}
+              nomeCampagna={campagna.nome}
+              azione={accodaEstensione}
+              ritorno={`/campagne/${campagna.id}`}
+            />
+          </div>
+        )}
         <EstensioniCampagna campagnaId={campagna.id} nomeCampagna={campagna.nome} />
 
         {!defunta && <GuardrailCampagna campagnaId={campagna.id} bloccata={bloccata} salvata={salvata} />}

@@ -2192,6 +2192,7 @@ function applica(op, mira, conto) {
     };
   }
 
+  if (t === "estensione") return creaEstensione(op, mira);
   if (t === "localita") return cambiaLocalita(op, mira);
   if (t === "lista_negative") return applicaListaNegative(op, mira);
   if (t === "nuovo_annuncio") return creaAnnuncio(op, mira);
@@ -2761,6 +2762,99 @@ function completaCampagna(op, mira) {
  * E' ripetibile: una localita' gia' mirata non si aggiunge due volte, una
  * gia' assente non si toglie. Rilanciarla non fa danni.
  */
+/**
+ * Aggiunge una ESTENSIONE alla campagna: sitelink, callout o snippet.
+ *
+ * Le estensioni sono spazio gratuito nella pagina dei risultati - un
+ * annuncio piu' alto viene guardato di piu' a parita' di offerta - e fino a
+ * oggi si potevano solo GUARDARE dall'app: per aggiungerne una si andava in
+ * Google Ads. Le tre che si creano da qui sono quelle che si scrivono con
+ * del testo; le immagini no, perche' vogliono un file caricato nell'account
+ * e un file non si manda dentro un'operazione.
+ *
+ * ATTENZIONE: si crea nell'account e SI AGGANCIA alla campagna. Sono due
+ * cose, non una: `build()` la mette nella libreria del conto, `addSitelink`
+ * la fa uscire su quella campagna. Fermarsi alla prima vorrebbe dire
+ * riempire l'account di estensioni che non compaiono da nessuna parte.
+ *
+ * ATTENZIONE: non si controlla se ne esiste gia' una uguale. Google le
+ * accetta, e due callout identici sulla stessa campagna sono un doppione
+ * inutile ma innocuo: l'app blocca i doppioni PRIMA, quando l'operazione
+ * nasce, dove sa cosa c'e' gia'.
+ */
+function creaEstensione(op, mira) {
+  var par = op.parametri || {};
+  var tipo = String(par.tipo || "").toLowerCase();
+  var campagna = mira.campagna;
+  if (!campagna) throw new Error("Campagna non trovata per l'estensione");
+  if (typeof AdsApp.extensions !== "function") {
+    throw new Error("Questa copia dello script non conosce le estensioni: va reincollata.");
+  }
+  var ext = AdsApp.extensions();
+
+  function esito(costr, cosa) {
+    if (costr && typeof costr.isSuccessful === "function" && !costr.isSuccessful()) {
+      throw new Error(
+        cosa + " non creata: " +
+        (costr.getErrors ? costr.getErrors().join("; ") : "Google non ha detto il motivo")
+      );
+    }
+    var r = costr && typeof costr.getResult === "function" ? costr.getResult() : null;
+    if (!r) throw new Error(cosa + " creata ma non restituita da Google: riprova al prossimo giro");
+    return r;
+  }
+
+  if (tipo === "sitelink") {
+    var testo = String(par.testo || "").trim();
+    var url = String(par.url || "").trim();
+    if (!testo || !url) throw new Error("Un sitelink vuole il testo del link e la pagina di destinazione");
+    var b = ext.newSitelinkBuilder().withLinkText(testo).withFinalUrl(url);
+    if (par.descrizione1) b = b.withDescription1(String(par.descrizione1));
+    if (par.descrizione2) b = b.withDescription2(String(par.descrizione2));
+    var sl = esito(b.build(), "Sitelink");
+    campagna.addSitelink(sl);
+    return {
+      dettaglio: "sitelink \"" + testo + "\" creato e agganciato alla campagna, manda a " + url,
+      prima: "assente",
+      dopo: testo,
+    };
+  }
+
+  if (tipo === "callout") {
+    var testoC = String(par.testo || "").trim();
+    if (!testoC) throw new Error("Un callout vuole il testo");
+    var cl = esito(ext.newCalloutBuilder().withText(testoC).build(), "Callout");
+    campagna.addCallout(cl);
+    return {
+      dettaglio: "callout \"" + testoC + "\" creato e agganciato alla campagna",
+      prima: "assente",
+      dopo: testoC,
+    };
+  }
+
+  if (tipo === "snippet") {
+    var header = String(par.header || "").trim();
+    var valori = par.valori || [];
+    // La regola e' di Google: da 3 a 10 valori. Mandarne due fa fallire la
+    // creazione con un messaggio che non dice quanti ne servono.
+    if (!header || valori.length < 3) {
+      throw new Error("Uno snippet vuole l'intestazione e almeno 3 valori (Google ne accetta da 3 a 10)");
+    }
+    var sn = esito(
+      ext.newSnippetBuilder().withHeader(header).withValues(valori.slice(0, 10)).build(),
+      "Snippet"
+    );
+    campagna.addSnippet(sn);
+    return {
+      dettaglio: "snippet \"" + header + "\" creato con " + Math.min(valori.length, 10) + " valori e agganciato alla campagna",
+      prima: "assente",
+      dopo: header,
+    };
+  }
+
+  throw new Error("Tipo di estensione non gestito: " + tipo + " (sitelink, callout, snippet)");
+}
+
 function cambiaLocalita(op, mira) {
   var par = op.parametri || {};
   var campagna = mira.campagna;

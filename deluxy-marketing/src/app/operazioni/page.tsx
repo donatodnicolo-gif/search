@@ -36,6 +36,7 @@ const ETICHETTA_TIPO: Record<string, string> = {
   nuovo_annuncio: "Crea un annuncio",
   lista_negative: "Applica una lista di parole escluse",
   localita: "Cambia le localita' della campagna",
+  estensione: "Aggiungi un'estensione",
 };
 
 

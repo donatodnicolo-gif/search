@@ -3842,6 +3842,124 @@ export async function accodaBudgetCampagne(input: {
         : ""),
   };
 }
+
+/**
+ * Mette in coda una ESTENSIONE nuova per la campagna.
+ *
+ * ⚠️ Le estensioni si potevano solo GUARDARE: 247 in archivio, e per
+ * aggiungerne una si andava in Google Ads. Sono spazio gratuito nella pagina
+ * dei risultati — un annuncio più alto viene guardato di più a parità di
+ * offerta — quindi la cosa costosa non è aggiungerle: è non farlo.
+ *
+ * ⚠️ SOLO LE TRE TESTUALI (sitelink, callout, snippet). Le immagini vogliono
+ * un file già caricato nell'account, e un file non entra in un'operazione:
+ * offrirle qui vorrebbe dire un bottone che fallisce sempre.
+ *
+ * ⚠️ L0: aggiungere un'estensione non sposta budget e non tocca chi vede
+ * l'annuncio — allunga quello che si vede. È la stessa scala delle negative.
+ *
+ * ⚠️ Il DOPPIONE si ferma QUI, dove si sa cosa c'è già: lo script non lo
+ * controlla (Google accetterebbe due callout identici) perché l'unica
+ * copia completa di quello che esiste sta nell'app.
+ */
+export async function accodaEstensione(input: {
+  campagnaId: string;
+  tipo: string;
+  testo: string;
+  url: string;
+  descrizione1: string;
+  descrizione2: string;
+  header: string;
+  valori: string[];
+  ritorno: string;
+}): Promise<{ ok: true; messaggio: string } | { ok: false; errore: string }> {
+  const tipo = ["sitelink", "callout", "snippet"].includes(input.tipo) ? input.tipo : null;
+  if (!tipo) return { ok: false, errore: "Tipo di estensione non riconosciuto." };
+
+  const campagna = await prisma.campagna.findUnique({
+    where: { id: input.campagnaId },
+    select: { id: true, nome: true, canale: true, idEsterno: true, account: true },
+  });
+  if (!campagna) return { ok: false, errore: "Campagna non trovata." };
+  if (campagna.canale !== "google_ads") {
+    return {
+      ok: false,
+      errore: "Le estensioni si creano solo sulle campagne Google: su Meta non esistono con questa forma.",
+    };
+  }
+
+  // I minimi di Google, ripetuti qui perché una regola che vive solo nel
+  // browser non è una regola.
+  if (tipo === "sitelink" && (!input.testo || !/^https?:\/\//i.test(input.url))) {
+    return { ok: false, errore: "Un sitelink vuole il testo del link e una destinazione che cominci con http:// o https://." };
+  }
+  if (tipo === "callout" && !input.testo) return { ok: false, errore: "Il callout vuole il testo." };
+  if (tipo === "snippet" && (!input.header || input.valori.filter(Boolean).length < 3)) {
+    return { ok: false, errore: "Uno snippet vuole l'intestazione e almeno 3 valori: è il minimo di Google, non una nostra preferenza." };
+  }
+
+  // ⚠️ Il doppione: la stessa estensione, sulla stessa campagna, o già
+  // presente nell'archivio letto da Google. Aggiungerla di nuovo non rompe
+  // niente ma sporca il conto e non si vede più a cosa serve.
+  const chiave = tipo === "snippet" ? input.header : input.testo;
+  const gia = await prisma.copyAnnuncio.findFirst({
+    where: {
+      tipo: tipo === "snippet" ? "snippet" : tipo,
+      campagna: campagna.nome,
+      testo: { equals: chiave, mode: "insensitive" },
+    },
+  });
+  if (gia) {
+    return {
+      ok: false,
+      errore: `Su questa campagna c'è già «${chiave}»: non ne aggiungo una seconda uguale.`,
+    };
+  }
+  const inCoda = await prisma.operazioneAdv.findFirst({
+    where: {
+      tipo: "estensione",
+      campagnaId: campagna.id,
+      stato: { in: ["in_attesa", "approvata"] },
+      parametri: { contains: chiave },
+    },
+  });
+  if (inCoda) return { ok: false, errore: `«${chiave}» è già in coda per questa campagna.` };
+
+  const op = await accodaOperazione({
+    data: {
+      tipo: "estensione",
+      canale: campagna.canale,
+      account: campagna.account,
+      bersaglio: campagna.nome,
+      idEsterno: campagna.idEsterno,
+      campagnaId: campagna.id,
+      parametri: JSON.stringify({
+        tipo,
+        testo: input.testo,
+        url: input.url,
+        descrizione1: input.descrizione1 || null,
+        descrizione2: input.descrizione2 || null,
+        header: input.header,
+        valori: input.valori.filter(Boolean).slice(0, 10),
+      }),
+      motivo: `Nuova estensione ${tipo}: «${chiave}»`,
+      livello: "L0",
+      prima: "assente",
+    },
+  });
+  await registra({
+    autore: "utente",
+    tipo: "creazione",
+    entita: "operazione",
+    entitaId: op.id,
+    titolo: `In coda (da approvare): ${tipo} «${chiave}» su ${campagna.nome}`,
+    dettaglio: "L'estensione nasce nell'account e viene agganciata a questa campagna.",
+  });
+
+  revalidatePath(input.ritorno.split("?")[0]);
+  revalidatePath("/operazioni");
+  return { ok: true, messaggio: `Estensione «${chiave}» messa in coda: ora va approvata.` };
+}
 // ---------- Riportare in attesa un'operazione già approvata ----------
 // Diverso da annullare: annullare la scarta, questo la rimette in coda da
 // decidere. Serve quando si approva in fretta e poi si vuole ripensarci senza

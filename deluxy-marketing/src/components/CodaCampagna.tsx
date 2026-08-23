@@ -14,6 +14,7 @@ const ETICHETTA_TIPO: Record<string, string> = {
   attiva_gruppo: "Riattiva il gruppo",
   nuovo_annuncio: "Crea un annuncio",
   localita: "Cambia le localita' della campagna",
+  estensione: "Aggiungi un'estensione",
   completa_campagna: "Completa la campagna",
 };
 
