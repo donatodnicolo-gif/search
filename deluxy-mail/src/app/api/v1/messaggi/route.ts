@@ -8,6 +8,8 @@ import type { Prisma } from '@prisma/client'
 // GET /api/v1/messaggi?email=<contatto>&da=<ISO>&a=<ISO>&server=1&limite=30
 // GET /api/v1/messaggi?cliente=<nome o id Anagrafiche>&q=<testo>&direzione=tutte
 // GET /api/v1/messaggi?casella=1 → TUTTA la posta in arrivo dell'utente
+// GET /api/v1/messaggi?casella=1&destinatario=commerciale@deluxy.it → solo
+//   quella indirizzata a quel recapito (anche se è un alias che consegna qui)
 //   (serve a Scout per le «Richieste Web»: le mail a commerciale@deluxy.it)
 //
 // Le mail di un CONTATTO (?email=) oppure di un intero CLIENTE (?cliente=): nel
@@ -44,6 +46,14 @@ export async function GET(request: Request) {
     )
   }
   const limite = Math.min(Math.max(parseInt(url.searchParams.get('limite') || '30', 10) || 30, 1), 100)
+  // ?destinatario=<indirizzo> — solo la posta indirizzata a QUEL recapito.
+  //
+  // Serve alle «Richieste Web» di Deluxy Scout: commerciale@deluxy.it è un
+  // ALIAS che consegna nelle caselle personali, quindi quelle mail stanno già
+  // qui dentro ma mescolate a tutto il resto. Senza questo filtro l'unica
+  // scelta era importare l'INTERA casella di una persona (centinaia di mail al
+  // mese) e chiamarle «richieste»: rumore, non lavoro.
+  const destinatario = (url.searchParams.get('destinatario') || '').trim().toLowerCase()
   const q = (url.searchParams.get('q') || '').trim()
   // di default solo la posta ricevuta; con direzione=tutte anche le nostre risposte
   const tutteLeDirezioni = url.searchParams.get('direzione') === 'tutte'
@@ -95,6 +105,9 @@ export async function GET(request: Request) {
     // Con ?casella=1 non si filtra la controparte: si vuole tutta la posta.
     ...(controparte.length ? { OR: controparte } : {}),
     ...(casella ? { NOT: { sezione: { nome: 'SPAM' } }, archiviato: false } : {}),
+    // Il destinatario è un AND: restringe, non allarga (i destinatari stanno
+    // tutti in un campo di testo, così com'erano nell'intestazione della mail).
+    ...(destinatario ? { destinatari: { contains: destinatario, mode: 'insensitive' as const } } : {}),
     // il filtro testo è un AND separato: non deve allargare l'OR sulla controparte
     ...(q
       ? {
@@ -119,7 +132,7 @@ export async function GET(request: Request) {
       take: limite,
       select: {
         id: true, messageId: true, mittente: true, mittenteNome: true, oggetto: true, direzione: true,
-        data: true, anteprima: true, letto: true, allegati: true,
+        data: true, anteprima: true, letto: true, allegati: true, destinatari: true,
       },
     })
 
@@ -154,6 +167,7 @@ export async function GET(request: Request) {
       anteprima: m.anteprima,
       letto: m.letto,
       allegati: m.allegati,
+      destinatari: m.destinatari,
     })),
   })
 }
