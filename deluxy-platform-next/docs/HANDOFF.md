@@ -127,12 +127,44 @@ ha **~90 colonne** contro le ~20 del nuovo, **14 stati** contro 8, e i nomi dive
   Collaudato su un dump coi casi che rompono questi parser: virgole e parentesi dentro le stringhe,
   apostrofi con escape, `NULL`, `INSERT` multiriga, virgolette raddoppiate nel CSV.
 
-**Prossimo passo, palla all'utente**: esportare le sei tabelle in `legacy/` (bastano struttura +
-poche centinaia di righe) e lanciare il profilatore. Solo dopo si scrive la mappatura campo-per-campo,
-e solo dopo ancora l'importatore.
+### ✅ Fase 1 — anagrafiche IMPORTATE (23/08/2026)
 
-⚠️ Da valutare prima di caricare tutto: **quanto pesa il legacy**. Il cluster Pro ha 8 GB condivisi fra
-14 app.
+L'utente ha caricato l'export completo: **92 tabelle, 427.155 record, 209 MB** in un file unico
+(`scripts/dividi-export-unico.mjs` lo divide in 75 file). Poi `scripts/importa-legacy.mjs --fase anagrafiche`.
+
+Contato sul database dopo l'import, e servito dalla produzione:
+
+| | dal legacy | dal seed |
+|---|---|---|
+| Province | 107 | 0 |
+| City | 43 | 3 |
+| Partner | 265 | 2 |
+| Valet | 285 | 2 |
+| Operation | 16 | 0 |
+| Customer | **4.512** | 1 |
+| User | **5.076** | 6 |
+
+Utenti per ruolo: CUSTOMER 4.512 · VALET 286 · PARTNER 264 · OPERATION 14 · ADMIN 3 · PROJECT_MANAGER 3.
+
+Mappatura, trappole e scelte di sicurezza: **[MIGRAZIONE-LEGACY.md](MIGRAZIONE-LEGACY.md)**.
+
+⚠️ **Un import lungo va fatto a blocchi.** Riga per riga attraverso il pooler si impianta: misurato
+~5 righe al minuto dopo le prime migliaia, e il primo tentativo è **morto a metà** (2.418 su 4.512)
+uscendo con codice 0 e senza stampare niente. Riscritto con `createMany` a blocchi di 500: i 2.094
+rimanenti in **6 minuti**. Per `product` (21.909) e `delivery` (62.376) è l'unica strada.
+`scripts/conta-importati.mjs` dice se un import sta davvero avanzando invece di aspettare al buio.
+
+### Fasi che restano
+
+`catalogo` (categorie 63, prodotti 21.909, varianti 18.375, servizi 32) → `consegne` (62.376 × **114
+colonne**, più `delivery-product` 62.800, log e attività) → il resto (regole, ricevute, disponibilità).
+
+⚠️ **«Tutte le tabelle» non è letteralmente possibile**: parecchie legacy non hanno destinazione nel
+nuovo schema (le sei di vendita Shopify, `stripe-*`, `emails-webhook`, `shop-collection`, `offer`,
+`web-push-history`…). Vanno elencate col motivo, non ignorate in silenzio.
+
+⚠️ Da valutare prima di caricare le tabelle grosse: **quanto peserà**. Il cluster Pro ha 8 GB condivisi
+fra 14 app.
 
 ### 🔴 Altri punti aperti
 
