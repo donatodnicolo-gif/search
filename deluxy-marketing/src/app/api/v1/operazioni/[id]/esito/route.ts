@@ -119,6 +119,27 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
           });
         }
       }
+      // ── L'ACCENSIONE SI METTE IN CODA DA SOLA ────────────────────────
+      //
+      // Il lancio finisce con la campagna IN PAUSA, ed è giusto: fra
+      // «creata» e «accesa» c'è il momento in cui si guarda cosa è entrato
+      // davvero. Su [Deluxyflowers] - WORLD - ENG quel momento è servito tre
+      // volte — la campagna rifiutata in silenzio da Google, il gruppo che
+      // l'app non trovava, l'annuncio col titolo doppio.
+      //
+      // Quello che mancava non era l'automatismo: era che l'ultimo passo
+      // fosse VISIBILE. Bisognava sapere da soli che dopo il lancio restava
+      // un interruttore, e cercarselo in un modulo in fondo alla scheda.
+      // Adesso il completamento propone l'accensione: nasce **da
+      // approvare**, come tutto il resto.
+      //
+      // ⚠️ IN CODA, NON ESEGUITA. Approvarla da sé vorrebbe dire far partire
+      // la spesa senza che nessuno abbia guardato: è esattamente il cancello
+      // che ha salvato questa campagna tre volte.
+      if (operazione.tipo === "completa_campagna") {
+        await proponiAccensione(campagna, operazione.esito ?? null);
+      }
+
       for (const ore of [24, 72]) {
         await prisma.azione.create({
           data: {
@@ -165,4 +186,81 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     dettaglio: body.dettaglio ?? null,
   });
   return NextResponse.json({ operazione: aggiornata });
+}
+
+/**
+ * Mette in coda l'accensione della campagna appena lanciata.
+ *
+ * Tre cose che NON fa, e sono il punto:
+ *  · non approva (la spesa parte quando lo decide una persona);
+ *  · non tocca lo stato dell'app (quello lo scrive Google quando accade);
+ *  · non insiste: se una accensione è già in coda o la campagna su Google è
+ *    già accesa, non fa niente.
+ *
+ * ⚠️ Gli avvisi viaggiano CON l'operazione, perché chi approva può essere
+ * un'altra persona un altro giorno: le negative non ancora approvate e i
+ * problemi lasciati indietro dal completamento sono esattamente quello che
+ * bisogna sapere prima di accendere. Il 23/08/2026 la WORLD-ENG è stata accesa
+ * con 5 negative ferme in coda dal 19: ha erogato senza quelle esclusioni.
+ */
+async function proponiAccensione(
+  campagna: { id: string; nome: string; canale: string | null; account: string | null; idEsterno: string | null; statoPiattaforma: string | null },
+  esitoCompletamento: string | null
+) {
+  // Già accesa su Google: non c'è niente da proporre.
+  if (campagna.statoPiattaforma === "ENABLED") return;
+
+  const gia = await prisma.operazioneAdv.findFirst({
+    where: {
+      campagnaId: campagna.id,
+      tipo: "attiva_campagna",
+      stato: { in: ["in_attesa", "approvata"] },
+    },
+  });
+  if (gia) return;
+
+  const negativeFerme = await prisma.operazioneAdv.count({
+    where: { campagnaId: campagna.id, tipo: "negativa", stato: "in_attesa" },
+  });
+
+  const avvisi = [
+    negativeFerme > 0
+      ? `${negativeFerme} negative sono ancora da approvare: accendendo adesso la campagna eroga SENZA quelle esclusioni.`
+      : null,
+    esitoCompletamento && /ATTENZIONE|RIFIUTAT|non trovate|ambigu/i.test(esitoCompletamento)
+      ? `Il completamento aveva lasciato qualcosa indietro: ${esitoCompletamento.slice(0, 200)}`
+      : null,
+  ].filter(Boolean).join(" · ");
+
+  const op = await prisma.operazioneAdv.create({
+    data: {
+      tipo: "attiva_campagna",
+      canale: campagna.canale ?? "google_ads",
+      account: campagna.account,
+      bersaglio: campagna.nome,
+      idEsterno: campagna.idEsterno,
+      campagnaId: campagna.id,
+      parametri: JSON.stringify({}),
+      motivo:
+        "Proposta dall'app: il lancio è completo e la campagna è ancora in pausa. " +
+        "Da approvare quando quello che è stato creato convince.",
+      avvisi: avvisi || null,
+      // ⚠️ L2: accendere una campagna fa partire la spesa. Non è una modifica
+      // leggera solo perché è un interruttore.
+      livello: "L2",
+      prima: "in pausa",
+      richiestaDa: "app",
+      stato: "in_attesa",
+    },
+  });
+  await registra({
+    autore: "sistema",
+    tipo: "creazione",
+    entita: "operazione",
+    entitaId: op.id,
+    titolo: `In coda (da approvare): accendi «${campagna.nome}»`,
+    dettaglio:
+      "Il lancio è completo e la campagna è ancora in pausa. L'app propone l'accensione: " +
+      "parte solo dopo l'approvazione." + (avvisi ? ` ⚠️ ${avvisi}` : ""),
+  });
 }
