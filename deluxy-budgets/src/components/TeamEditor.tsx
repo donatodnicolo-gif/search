@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { TIPI_PERSONA } from "@/lib/calc";
+import { TIPI_PERSONA } from "@/lib/persone";
 import { eur } from "@/lib/format";
 
 type PersonaTeam = { id: string; nome: string; ruolo: string | null; tipo: string; costo: number };

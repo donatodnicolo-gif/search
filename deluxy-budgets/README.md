@@ -1416,25 +1416,53 @@ schermata dove si scrive.
 Il ROS è quanti euro di vendite deve muovere ogni euro speso, quindi il conto si rovescia:
 
 ```
-budget pubblicità dell'anno = budget vendite dell'anno ÷ ROS obiettivo
+budget pubblicità dell'anno = vendite dell'anno ÷ ROS obiettivo
+   dove vendite dell'anno = consuntivo dei mesi chiusi + budget di quelli che restano
 ```
+
+⚠️⚠️ **Trappola trovata facendolo, e vale per tutta l'app.** Far leggere il venduto a `calc.ts` ha
+**rotto la build del client**: `DipendentiEditor` e `TeamEditor` sono componenti *client* e importavano
+da `calc.ts` quattro funzioni di busta paga — così facendo si portavano nel bundle del browser tutta la
+catena `prisma → chiavi → node:crypto`, che webpack non sa risolvere («Reading from "node:crypto" is
+not handled»). Finché `calc.ts` toccava solo il database la cosa passava; il giorno in cui ha
+cominciato a fare una chiamata di rete è saltata. Rimedio strutturale, non tampone: le funzioni pure
+(`lordoAnnuo`, `costoPersonaMese`, `costoPersonaAnno`, `nettoBusta`, `TIPI_PERSONA`, `Persona`) sono in
+**`src/lib/persone.ts`**, che non tocca né database né rete; `calc.ts` le re-esporta, quindi tutti gli
+import server esistenti continuano a funzionare. ⭐ **Regola: quello che serve al browser non sta in un
+modulo che tocca il database.**
 
 A **ROS 7** la pubblicità vale un settimo del venduto (≈14,3%), a **6,5** un po' di più (≈15,4%). Sta
 in `calc.ts` (`rosObiettivo` / `budgetAdvAnno`): `deluxy` → 7, tutti gli altri → 6,5.
 
-⚠️ **La base sono le vendite a BUDGET, non il venduto vero dei mesi chiusi**, per due ragioni: un
-budget che si muove a ogni ordine non è un budget; e questo conto deve girare **anche dove Orders non
-c'è** — dentro il P&L e in `/piattaforme`, che sono sincroni — altrimenti il monte annuo varrebbe una
-cosa nella pagina dove si scrive e un'altra dove si legge.
+**Le vendite dell'anno sono «consuntivo dove c'è + budget sul resto»** (*«nel calcolo devi sommare il
+budget a consuntivo»*): è la stessa riga «Attuale» di `/maison`, e per la stessa ragione — su un mese
+già chiuso la previsione è stata smentita dai fatti, e dimensionare la pubblicità di tutto l'anno su
+una previsione sbagliata sbaglia due volte. Sul mese in corso vale il **maggiore** fra il venduto di
+adesso e il budget. Il venduto si usa **solo dove è sopra lo zero**, altrimenti B2B ed Experience —
+che sui negozi non vendono — si vedrebbero azzerare i mesi chiusi.
 
-| Brand | Budget vendite | ÷ ROS | **Stimato** | Il monitoraggio ne aveva |
-| --- | ---: | ---: | ---: | ---: |
-| Deluxy.it | 525.500 € | 7× | **75.071 €** | 199.922 € |
-| Deluxyflowers.com | 293.024 € | 6,5× | **45.081 €** | 47.251 € |
-| Deluxy Business (B2B) | 225.000 € | 6,5× | **34.615 €** | 40.909 € |
-| CakeDesign.me | 98.259 € | 6,5× | **15.117 €** | 18.189 € |
-| Deluxy Experience | 22.500 € | 6,5× | **3.462 €** | 4.500 € |
-| | | | **173.346 €** | 310.771 € |
+| Brand | Vendite anno (cons. + budget) | ÷ ROS | **Stimato** | Solo budget | Il monitoraggio ne aveva |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Deluxy.it | 908.441 € | 7× | **129.777 €** | 75.071 € | 199.922 € |
+| Deluxyflowers.com | 332.720 € | 6,5× | **51.188 €** | 45.081 € | 47.251 € |
+| Deluxy Business (B2B) | 225.000 € | 6,5× | **34.615 €** | 34.615 € | 40.909 € |
+| CakeDesign.me | 100.601 € | 6,5× | **15.477 €** | 15.117 € | 18.189 € |
+| Deluxy Experience | 22.500 € | 6,5× | **3.462 €** | 3.462 € | 4.500 € |
+| | | | **234.519 €** | 173.346 € | 310.771 € |
+
+Il consuntivo cambia soprattutto **Deluxy.it** (+54.706 €), perché i suoi sei mesi di budget azzerato
+vengono rimpiazzati dal venduto vero: la stima smette di ereditare quel buco. E porta
+**Deluxyflowers sopra il pubblicato** (51.188 contro 47.251), perché quest'anno sta vendendo più di
+quanto avesse a budget.
+
+⚠️ **Dove vive il dato, e perché lì.** Il venduto sta dentro `DatiAnno.maisons[].vendutoMesi`, caricato
+da `caricaAnno` in *best effort* (se Orders non risponde resta `null` e tutto ricade sul budget). Non è
+un dettaglio di una pagina: se quel dato lo avesse solo la schermata dove si scrive, il P&L e
+`/piattaforme` userebbero un altro monte annuo.
+
+⚠️ **Il totale «assegnato» di `/spese` è più basso di quello di `/piattaforme`** (309.804 contro
+441.618 al 23/08) e non è un errore: qui i mesi chiusi valgono **quello che è stato speso davvero**,
+lì valgono ancora la quota decisa a budget. Scritto in fondo alla pagina.
 
 **Il budget vendite da cui si stima è selezionabile, e di default è l'approvato** (*«consenti di
 selezionare il budget da prendere, ma dovrebbe essere di default quello approvato»*). In cima a

@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   costoPersonaAnno, costoPersonaMese, lordoAnnuo, nettoBusta,
   TIPI_PERSONA, type Persona,
-} from "@/lib/calc";
+} from "@/lib/persone";
 import { eur, MESI, pct } from "@/lib/format";
 
 type MaisonOpt = { id: string; nome: string };

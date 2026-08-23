@@ -334,7 +334,8 @@ export function SpeseEditor({
                 <p className="page-caption">
                   Budget pubblicità dell&apos;anno <strong>{eur(m.pubblicatoAnno)}</strong>{" "}
                   <span className="muted">
-                    (stimato: {eur(m.venditeAnnoBudget)} di budget vendite ÷ ROS {volte(m.ros)}
+                    (stimato: {eur(m.venditeAnnoBudget)} di vendite dell’anno — consuntivo dove c’è,
+                    budget sul resto — ÷ ROS {volte(m.ros)}
                     {m.pubblicatoStorico > 0 && (
                       <> · il monitoraggio ne aveva pubblicati {eur(m.pubblicatoStorico)}</>
                     )}
@@ -695,7 +696,9 @@ export function SpeseEditor({
           assegnato a nessun mese, e la colonna «da assegnare» dice quanto vale.
           <br />
           Nei <strong>mesi già chiusi</strong> la quota non è una decisione ma una <strong>misura</strong>:
-          quanto del monte annuo è stato davvero consumato, secondo Marketing.
+          quanto del monte annuo è stato davvero consumato, secondo Marketing. ⚠️ Per questo il totale{" "}
+          <strong>«assegnato» di questa pagina è più basso di quello di Piattaforme</strong>: lì i mesi chiusi
+          valgono ancora la quota decisa a budget, qui valgono quello che è stato speso davvero.
           {!spesaOk && (
             <>
               {" "}
@@ -724,7 +727,10 @@ export function SpeseEditor({
           <strong>Da quale budget arrivano i numeri.</strong> Il{" "}
           <strong>budget pubblicità dell&apos;anno</strong> (il 100%) non è ereditato: si{" "}
           <strong>stima dal ROS obiettivo</strong> — <strong>7×</strong> su Deluxy.it, <strong>6,5×</strong>{" "}
-          su tutti gli altri — cioè <em>budget vendite dell&apos;anno ÷ ROS</em>. A 7 la pubblicità vale un
+          su tutti gli altri — cioè <em>vendite dell&apos;anno ÷ ROS</em>, dove le vendite dell&apos;anno sono{" "}
+          <strong>il consuntivo dei mesi già chiusi più il budget di quelli che restano</strong> (sul mese in
+          corso vale il maggiore fra il venduto di adesso e il budget: il mese non può chiudere sotto quello
+          che ha già venduto). A 7 la pubblicità vale un
           settimo del venduto (≈14,3%), a 6,5 un po&apos; di più (≈15,4%). L&apos;ADV «pubblicato» del
           monitoraggio {year} resta scritto accanto come riferimento, per vedere quanto la stima se ne
           discosta. Le <strong>vendite attese</strong> di ogni mese sono il <strong>budget vendite</strong> del

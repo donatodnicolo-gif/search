@@ -28,6 +28,10 @@ export default async function Spese({
 }) {
   const sp = await searchParams;
   const dati = await caricaAnno(ANNO_CORRENTE);
+  // Deciso qui e non nel componente: new Date() dentro un client component da
+  // un valore sul server e uno nel browser, e a cavallo del primo del mese i
+  // due render non coinciderebbero.
+  const aperto = primoMeseAperto(dati.year);
 
   // Le basi disponibili: quella approvata più ogni fonte che nei dati esiste
   // davvero. Elencare una fonte che nessuno ha usato porterebbe a una vista
@@ -50,16 +54,22 @@ export default async function Spese({
     base === APPROVATO
       ? venditeMese(x)
       : Object.values(x.perFonte ?? {}).reduce((s, perCanale) => s + (perCanale?.[base] ?? 0), 0);
+  // Le vendite dell anno su cui si stima: **consuntivo dove c e, budget sul
+  // resto**. La base scelta cambia solo la parte a budget — il consuntivo e
+  // uno solo, e non e una opinione.
   const venditeAnno = (m: (typeof dati.maisons)[number]) =>
-    m.mesi.reduce((s, x) => s + venditeDelMese(x), 0);
-  // Il monte pubblicitario con la base scelta: sulla base approvata è
-  // **esattamente** `budgetAdvAnno`, cioè quello che usano P&L e Piattaforme.
+    m.mesi.reduce((s, x) => {
+      const budget = venditeDelMese(x);
+      const vero = m.vendutoMesi?.[x.month - 1] ?? 0;
+      if (vero <= 0) return s + budget;
+      if (x.month < aperto) return s + vero;
+      if (x.month === aperto) return s + Math.max(vero, budget);
+      return s + budget;
+    }, 0);
+  // Il monte pubblicitario con la base scelta: sulla base approvata e
+  // **esattamente** budgetAdvAnno, cioe quello che usano P&L e Piattaforme.
   const monteAdv = (m: (typeof dati.maisons)[number]) =>
-    base === APPROVATO ? budgetAdvAnno(m) : venditeAnno(m) / rosObiettivo(m.slug);
-  // Deciso qui e non nel componente: `new Date()` dentro un client component
-  // dà un valore sul server e uno nel browser, e a cavallo del primo del mese
-  // i due render non coinciderebbero.
-  const aperto = primoMeseAperto(dati.year);
+    base === APPROVATO ? budgetAdvAnno(m, dati.year) : venditeAnno(m) / rosObiettivo(m.slug);
 
   // La pubblicità **davvero spesa**, brand per brand e mese per mese. Per un
   // mese chiuso la domanda non è «quanto posso spendere» ma «quanto ho speso»:
