@@ -222,7 +222,7 @@ input:focus, select:focus, textarea:focus {
    stessa riga — l'allineamento si rompe da sotto, non da sopra. */
 .mese-cell .sub {
   font-size: 11px; color: var(--text-tertiary); margin-top: 3px; text-align: right;
-  font-variant-numeric: tabular-nums; line-height: 1.35; min-height: 5.4em;
+  font-variant-numeric: tabular-nums; line-height: 1.35; min-height: 6.75em;
 }
 /* Ogni riga della didascalia resta **una** riga: è l'altezza prevedibile di
    questo blocco (tre righe, sempre) a tenere in linea gli input della stessa

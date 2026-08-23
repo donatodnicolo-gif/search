@@ -16,6 +16,9 @@ type MeseSpesa = {
   // servono a leggere il risultato: **quanto pesa la pubblicità sul venduto**.
   vendite: number;
   venduto: number | null;
+  // Da quale budget arrivano quelle vendite: «Budget iniziale» (il file di
+  // monitoraggio) oppure le proposte che lo hanno sostituito.
+  fonti: string[];
   percent: number;
   pubblicato: number;
 };
@@ -132,11 +135,19 @@ export function SpeseEditor({
   // dice quale dei due sta usando.
   const venditeAttese = (x: MeseSpesa) =>
     chiuso(x.month) && x.venduto !== null && x.venduto > 0 ? x.venduto : x.vendite;
-  const incidenza = (m: MaisonSpese, x: MeseSpesa, percentuale: (key: string) => number) => {
+  // **ROS**: quanti euro di vendite per ogni euro di pubblicità. È il rapporto
+  // rovesciato rispetto all'incidenza (che era pubblicità ÷ vendite) e si legge
+  // meglio: «2,9×» vuol dire che ogni euro speso ne muove 2,9 di venduto. Sui
+  // mesi chiusi entrambi i termini sono veri — spesa di Marketing e venduto dei
+  // negozi — sugli altri sono l'atteso contro il pianificato.
+  const ros = (m: MaisonSpese, x: MeseSpesa, percentuale: (key: string) => number) => {
+    const adv = importoMese(m, x, percentuale);
+    if (adv <= 0) return null; // senza spesa il rapporto è infinito, non «alto»
     const attese = venditeAttese(x);
-    if (attese <= 0) return null; // niente vendite: un rapporto non esiste, non è «zero»
-    return (importoMese(m, x, percentuale) / attese) * 100;
+    if (attese <= 0) return null; // e senza vendite non esiste per niente
+    return attese / adv;
   };
+  const volte = (v: number) => `${v.toLocaleString("it-IT", { maximumFractionDigits: 1 })}×`;
 
   const consentito = (m: MaisonSpese, percentuale: (key: string) => number, filtro?: (x: MeseSpesa) => boolean) =>
     m.mesi.filter((x) => (filtro ? filtro(x) : true)).reduce((s, x) => s + importoMese(m, x, percentuale), 0);
@@ -311,7 +322,8 @@ export function SpeseEditor({
               <div>
                 <h2 className="section-title" style={{ margin: 0 }}>{m.nome}</h2>
                 <p className="page-caption">
-                  Budget pubblicità dell&apos;anno <strong>{eur(m.pubblicatoAnno)}</strong>
+                  Budget pubblicità dell&apos;anno <strong>{eur(m.pubblicatoAnno)}</strong>{" "}
+                  <span className="muted">(ADV «pubblicato» del monitoraggio)</span>
                   {riga.speso > 0 && (
                     <>
                       {" "}
@@ -373,12 +385,16 @@ export function SpeseEditor({
                 </p>
                 {/* L'altra domanda, quella che la quota non risponde: **quanto
                     pesa** tutta questa pubblicità su quello che il brand vende. */}
-                {riga.incAnno !== null && (
+                {riga.incAnno !== null && riga.ora > 0 && (
                   <p className="page-caption" style={{ marginTop: 2 }}>
-                    Sulle vendite dell&apos;anno pesa{" "}
-                    <strong style={{ color: "var(--blue)" }}>{punti(riga.incAnno)}%</strong> —{" "}
-                    {eur(riga.ora)} di pubblicità su {eur(riga.venditeAnno)} di vendite (
-                    {primoMeseAperto > 1 ? "vere fino ai mesi chiusi, a budget sul resto" : "a budget"}).
+                    <strong style={{ color: "var(--blue)" }}>ROS {volte(riga.venditeAnno / riga.ora)}</strong>{" "}
+                    sull&apos;anno — {eur(riga.venditeAnno)} di vendite per {eur(riga.ora)} di pubblicità
+                    {/* Il «vere fino ai mesi chiusi» vale solo per chi un
+                        negozio ce l'ha: su B2B ed Experience sarebbe falso. */}
+                    {primoMeseAperto > 1 && m.mesi.some((x) => (x.venduto ?? 0) > 0)
+                      ? " (vendite vere fino ai mesi chiusi, a budget sul resto)"
+                      : " (vendite a budget)"}
+                    .
                   </p>
                 )}
               </div>
@@ -458,7 +474,10 @@ export function SpeseEditor({
                 const percent = misura && reale !== null ? Math.round(reale * 10) / 10 : valore(key);
                 const importo = importoMese(m, x, valore);
                 const importoSalvato = importoMese(m, x, (k) => originali[k] ?? 0);
-                const inc = incidenza(m, x, valore);
+                const attese = venditeAttese(x);
+                // Vero quando il numero delle vendite non è più una previsione.
+                const vere = chiuso(x.month) && (x.venduto ?? 0) > 0;
+                const r = ros(m, x, valore);
                 // Una singola casella oltre 100 è impossibile per definizione —
                 // un mese non può prendersi più di tutto l'anno — ma il divieto
                 // vero è sulla somma: qui si segnala solo il valore assurdo.
@@ -496,24 +515,25 @@ export function SpeseEditor({
                         }))
                       }
                     />
-                    {/* Tre righe **sempre**, ognuna su una riga sola: è quello
-                        che tiene gli input della stessa riga alla stessa quota.
-                        1) quanto fa, 2) su quanto (il monte annuo del brand),
-                        3) se è speso o deciso — oppure di quanto si sposta. */}
+                    {/* **Cinque righe sempre**, ognuna su una riga sola: è
+                        l'altezza costante che tiene gli input della stessa riga
+                        alla stessa quota. 1) quanto fa di pubblicità, 2) se è
+                        speso o deciso (o di quanto si sposta), 3) le vendite di
+                        quel mese, 4) il ROS, 5) da quale budget vengono quelle
+                        vendite. Il «su 199.922 €» non c'è più: era lo stesso
+                        numero in dodici caselle e sta nella testata del brand. */}
                     <div className="sub">
                       {errata ? (
                         <>
                           <div className="errore">{percent > 100 ? "oltre il 100%" : "sotto zero"}</div>
                           <div className="errore">impossibile</div>
                           <div>su {eur(m.pubblicatoAnno)}</div>
-                          {/* Quarta riga anche qui: è l'altezza costante che
-                              tiene in linea gli input della stessa riga. */}
                           <div className="incidenza muted">—</div>
+                          <div className="fonte">—</div>
                         </>
                       ) : (
                         <>
                           <div>= {eur(importo)}</div>
-                          <div>su {eur(m.pubblicatoAnno)}</div>
                           {toccata(key) ? (
                             <div className={`delta ${importo >= importoSalvato ? "su" : "giu"}`}>
                               {importo >= importoSalvato ? "+" : "−"}
@@ -522,24 +542,38 @@ export function SpeseEditor({
                           ) : (
                             <div className="fonte">{misura ? "speso davvero" : "a budget"}</div>
                           )}
-                          {/* Quanto pesa sul venduto: il risultato della quota,
-                              non la sua regola. */}
+                          {/* Le vendite del mese e il ROS: il risultato della
+                              quota, non la sua regola. */}
                           <div
                             className="incidenza"
                             title={
-                              inc === null
-                                ? `${MESI[x.month - 1]} non ha vendite ${chiuso(x.month) ? "" : "a budget "}su cui misurare l'incidenza.`
-                                : `${eur(importo)} di pubblicità su ${eur(venditeAttese(x))} di vendite ${chiuso(x.month) && (x.venduto ?? 0) > 0 ? "vere" : "attese"}.`
+                              vere
+                                ? `${MESI[x.month - 1]} ha venduto davvero ${eur(attese)} (registro ordini).`
+                                : x.fonti.length > 0
+                                  ? `Vendite a budget di ${MESI[x.month - 1]}: ${eur(attese)}, da «${x.fonti.join(" + ")}».`
+                                  : `${MESI[x.month - 1]} non ha vendite a budget.`
                             }
                           >
-                            {inc === null ? (
-                              <span className="muted">niente vendite</span>
-                            ) : (
+                            {attese > 0 ? (
                               <>
-                                {punti(inc)}% del venduto
-                                {chiuso(x.month) && (x.venduto ?? 0) > 0 ? "" : " atteso"}
+                                {vere ? "venduto" : "vendite attese"} {eur(attese)}
                               </>
+                            ) : (
+                              <span className="muted">nessuna vendita</span>
                             )}
+                          </div>
+                          <div
+                            className="incidenza"
+                            title={
+                              r === null
+                                ? "Senza pubblicità o senza vendite il ROS non esiste."
+                                : `ROS: ${eur(attese)} di vendite per ${eur(importo)} di pubblicità — ${volte(r)} per ogni euro speso.`
+                            }
+                          >
+                            {r === null ? <span className="muted">ROS —</span> : <>ROS {volte(r)}</>}
+                          </div>
+                          <div className="fonte" title={x.fonti.join(" + ") || undefined}>
+                            {vere ? "vendite: registro ordini" : x.fonti.length > 0 ? x.fonti.join(" + ") : "—"}
                           </div>
                         </>
                       )}
@@ -666,6 +700,21 @@ export function SpeseEditor({
           I brand che in Marketing non esistono (B2B, Experience) restano sulla quota a budget anche nei mesi
           chiusi. La colonna <strong>differenza</strong> è rispetto a quello che c&apos;è nel database adesso:
           finché non premi Salva vive solo in questa pagina.
+        </p>
+        {/* Da dove viene ogni numero. Quattro fonti diverse in una schermata
+            sola: senza dirlo, due numeri che non tornano sembrano un errore di
+            conto invece che due misure di cose diverse. */}
+        <p className="page-caption" style={{ margin: "10px 14px 16px" }}>
+          <strong>Da quale budget arrivano i numeri.</strong> Il{" "}
+          <strong>budget pubblicità dell&apos;anno</strong> (il 100%) è l&apos;<strong>ADV
+          «pubblicato»</strong> del monitoraggio {year}, tenuto come riferimento e <em>non</em> scalato dagli
+          scenari. Le <strong>vendite attese</strong> di ogni mese sono il <strong>budget vendite</strong> del
+          brand, quello che si vede in <strong>Maison</strong>: ogni casella dice da quale fonte arriva —
+          «Budget iniziale» è il file di monitoraggio caricato a inizio anno, le altre sono proposte che lo
+          hanno <em>sostituito</em>. Nei mesi già chiusi le vendite non sono più attese ma{" "}
+          <strong>vere</strong>, dal registro ordini di <strong>Orders</strong>, e la pubblicità è quella
+          <strong> davvero spesa</strong> secondo <strong>Marketing</strong>. Il <strong>ROS</strong> è il
+          rapporto fra i due: quanti euro di vendite per ogni euro di pubblicità.
         </p>
       </div>
 

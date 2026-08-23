@@ -1420,18 +1420,42 @@ quote scritte quando la percentuale voleva dire un'altra cosa. Quindi: si blocca
 con un avviso a parte, che non blocca niente perché non c'è niente da correggere. Tolleranza di mezzo
 punto: le quote si scrivono con un decimale e dodici arrotondamenti non devono diventare un divieto.
 
-**E accanto alla quota, quanto pesa sulle vendite** (chiesto subito dopo: *«puoi mostrare rispetto
-alle vendite attese?»*). La quota risponde a *come distribuisco il monte annuo*; l'incidenza risponde
-a *quanto mi costa in rapporto a quello che vendo* — due domande diverse, e servono tutte e due: si
-può distribuire benissimo il budget e ritrovarsi con un mese al 35% di incidenza, che è la cosa che
-poi si paga. Ogni casella porta una quarta riga (`12% del venduto atteso`) e ogni brand la sua
-incidenza d'anno. Sui mesi chiusi il denominatore è il **venduto vero**, sugli aperti il **budget**, e
-la casella dice quale dei due (`del venduto` / `del venduto atteso`). Dove non ci sono vendite scrive
-«niente vendite», non «0%»: un rapporto senza denominatore non esiste.
+**E accanto alla quota, il ROS e la vendita del mese** (*«puoi mostrare rispetto alle vendite
+attese?»*, poi *«indica il ROS non % su vendite, e nei mesi mostra la vendita attesa»*). La quota
+risponde a *come distribuisco il monte annuo*; il **ROS** risponde a *quanto rende* — due domande
+diverse, e servono tutte e due: si può distribuire benissimo il budget e ritrovarsi con un mese a
+2,9× di ritorno, che è la cosa che poi si paga.
 
-📌 **Quanto pesa oggi, con le quote attuali**: Experience **48%**, B2B **39,7%**, Deluxy.it **22%**,
-CakeDesign **21,6%**, Deluxyflowers **18,1%**. Sul solo Deluxy.it, dicembre da solo vale il **34,8%**
-del venduto atteso di quel mese, contro il **9,2%** davvero speso a gennaio.
+Ogni casella ha **cinque righe fisse**, e sono cinque perché è l'altezza costante che tiene gli input
+in linea (verificato: `.sub` alta 74 px identica in tutte le caselle di tutti i brand):
+
+```
+= 53.179 €              la pubblicità del mese
+a budget                che tipo di numero è (o lo scostamento, se toccata)
+vendite attese 153.000 € quello che il mese vende
+ROS 2,9×                quanti euro di vendite per euro di pubblicità
+Pubblicità web          da quale budget arrivano quelle vendite
+```
+
+Il `su 199.922 €` è sparito dalla casella: era lo stesso numero in dodici caselle e sta nella testata
+del brand. Sui mesi chiusi le vendite non sono attese ma **vere** (`venduto 49.948 € · vendite:
+registro ordini`). Dove non ci sono vendite scrive «nessuna vendita» e `ROS —`, non «0»: un rapporto
+senza denominatore non esiste — succede su B2B ed Experience nei mesi con il budget azzerato.
+
+**Da quale budget arrivano i numeri**, scritto in fondo alla pagina perché in una schermata sola ce ne
+sono quattro diversi e due numeri che non tornano sembrerebbero un errore di conto:
+
+| | |
+| --- | --- |
+| Budget pubblicità dell'anno (il 100%) | l'ADV **«pubblicato»** del monitoraggio, non scalato dagli scenari |
+| Vendite attese | il **budget vendite** del brand (quello di `/maison`), con la **fonte** in ogni casella: «Budget iniziale» è il file di inizio anno, le altre sono proposte che lo hanno *sostituito* |
+| Venduto (mesi chiusi) | **Orders**, registro ordini Shopify |
+| Speso (mesi chiusi) | **Marketing**, spesa per brand |
+
+📌 **Il ROS con le quote di adesso**: Deluxyflowers **5,5×**, CakeDesign **4,6×**, Deluxy.it **4,5×**,
+B2B **2,5×**, Experience **2,1×**. Dentro Deluxy.it la forbice è larga: gennaio (misurato, vero)
+**10,9×**, agosto **8,3×**, dicembre **2,9×** — la distribuzione concentra sul finale d'anno una spesa
+che, sulle vendite attese di quei mesi, rende un terzo di gennaio.
 
 📌 **Cosa dice il dato il giorno del cambio** — e non lo diceva prima, perché le dodici percentuali non
 avevano nessun vincolo fra loro: **quattro brand su cinque distribuiscono più del loro budget

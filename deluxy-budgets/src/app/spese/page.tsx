@@ -1,4 +1,4 @@
-import { ANNO_CORRENTE, advPubblicatoAnno, caricaAnno, venditeMese } from "@/lib/calc";
+import { ANNO_CORRENTE, advPubblicatoAnno, caricaAnno, INIZIALE, nomeFonte, venditeMese } from "@/lib/calc";
 import { primoMeseAperto } from "@/lib/periodo";
 import { fetchSpesaPerBrand } from "@/lib/marketing";
 import { caricaVenduto } from "@/lib/venduto";
@@ -27,6 +27,22 @@ export default async function Spese() {
   // servono a leggere il risultato: un budget pubblicitario si giudica anche da
   // quanto pesa sul venduto. Sui mesi chiusi vale il venduto vero.
   const vend = await caricaVenduto(dati.year, dati.maisons);
+
+  // **Da quale budget arrivano le vendite attese di quel mese.** Una casella di
+  // budget non nasce dal nulla: o viene dal file di monitoraggio caricato a
+  // inizio anno, o da una proposta (pubblicita web, team commerciale) che lo ha
+  // **sostituito**. Si applica la stessa regola del calcolo — se una proposta ha
+  // parlato, l iniziale non conta piu — altrimenti la provenienza scritta qui
+  // direbbe una cosa e il numero ne direbbe un altra.
+  const fontiDelMese = (perFonte: Record<string, Record<string, number>>) => {
+    const usate = new Set<string>();
+    for (const perCanale of Object.values(perFonte ?? {})) {
+      const daProposte = Object.keys(perCanale ?? {}).filter((k) => k !== INIZIALE);
+      if (daProposte.length > 0) daProposte.forEach((k) => usate.add(k));
+      else if ((perCanale?.[INIZIALE] ?? 0) !== 0) usate.add(INIZIALE);
+    }
+    return [...usate].map(nomeFonte);
+  };
 
   return (
     <>
@@ -73,6 +89,7 @@ export default async function Spese() {
               // Le vendite di quel mese: a budget, e quelle vere dove ci sono.
               vendite: venditeMese(x),
               venduto: reale ? reale[x.month - 1] ?? null : null,
+              fonti: fontiDelMese(x.perFonte),
               percent: x.advPercent,
               pubblicato: x.advPubblicato,
             })),
