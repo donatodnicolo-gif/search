@@ -3748,3 +3748,7 @@ td .azioni-ordine {
   font-size: 12.5px;
   line-height: 1.45;
 }
+
+/* Una domanda che porta da qualche parte si vede che ci porta. */
+.aiuto-riga.apribile { cursor: pointer; }
+.aiuto-riga.apribile:hover { background: var(--fill); }

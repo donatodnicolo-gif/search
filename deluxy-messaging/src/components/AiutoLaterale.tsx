@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { usePathname, useSearchParams } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 
 // Il pannello dell'aiuto: una linguetta sul bordo destro, sempre lì.
 //
@@ -45,6 +45,23 @@ type Dati = {
 
 const VUOTO: Dati = { domande: [], daRispondere: 0, risposteDaLeggere: 0, amministratore: false }
 
+/**
+ * Dove porta una domanda quando ci si clicca sopra.
+ *
+ * ⚠️ Prima la **chat**, poi l'**ordine**: se una domanda nasce da una
+ * conversazione, quello che serve a chi risponde è leggere che cosa si sono
+ * detti — l'ordine lo si raggiunge da lì. Senza né l'una né l'altro non si
+ * porta da nessuna parte: un clic che non fa niente è peggio di un clic che non
+ * c'è, perché la prima volta si crede a un guasto.
+ */
+function dovePorta(d: { conversazioneId: string; ordineNumero: string }): string {
+  if (d.conversazioneId) return `/inbox?c=${encodeURIComponent(d.conversazioneId)}`
+  // ⚠️ Il numero si cerca SENZA cancelletto: è così che lo tiene la ricerca
+  // degli ordini globali.
+  if (d.ordineNumero) return `/ordini-globali?q=${encodeURIComponent(d.ordineNumero.replace('#', ''))}`
+  return ''
+}
+
 function quando(iso: string): string {
   const d = new Date(iso)
   const oggi = new Date()
@@ -55,7 +72,8 @@ function quando(iso: string): string {
 
 export function AiutoLaterale() {
   const path = usePathname()
-  const parametri = useSearchParams()
+  // Il contesto letto dall'indirizzo nel momento in cui si apre il pannello.
+  const [contesto, setContesto] = useState({ conversazione: '', ordine: '' })
   const [aperto, setAperto] = useState(false)
   const [dati, setDati] = useState<Dati>(VUOTO)
   const [testo, setTesto] = useState('')
@@ -104,13 +122,20 @@ export function AiutoLaterale() {
     }
   }, [carica])
 
-  // Il numero d'ordine che si sta guardando, se l'indirizzo lo dice.
-  const ordineDallaPagina = parametri.get('ordine') || parametri.get('numero') || ''
-  const conversazione = parametri.get('conversazione') || ''
-
+  // ⚠️⚠️ Si legge `window.location` e NON `useSearchParams`: l'inbox scrive la
+  // chat aperta con `history.replaceState`, che il router di Next non vede.
+  // Con `useSearchParams` il pannello continuerebbe a leggere l'indirizzo di
+  // quando la pagina è stata caricata — cioè quasi sempre senza la chat.
+  // ⚠️ Il parametro è `c`, quello che l'inbox usa davvero: la prima versione
+  // cercava `conversazione` e non trovava mai niente.
   useEffect(() => {
-    if (aperto && ordineDallaPagina && !ordine) setOrdine(ordineDallaPagina)
-  }, [aperto, ordineDallaPagina, ordine])
+    if (!aperto) return
+    const p = new URLSearchParams(window.location.search)
+    const conversazione = p.get('c') || ''
+    const ordineUrl = p.get('ordine') || p.get('numero') || ''
+    setContesto({ conversazione, ordine: ordineUrl })
+    if (ordineUrl && !ordine) setOrdine(ordineUrl)
+  }, [aperto, ordine])
 
   async function manda(corpo: Record<string, unknown>) {
     setSalvando(true)
@@ -207,7 +232,7 @@ export function AiutoLaterale() {
                     testo,
                     pagina: path,
                     ordineNumero: ordine,
-                    conversazioneId: conversazione,
+                    conversazioneId: contesto.conversazione,
                   })
                   if (ok) {
                     setTesto('')
@@ -229,7 +254,22 @@ export function AiutoLaterale() {
                 </p>
               ) : (
                 dati.domande.map((d) => (
-                  <div key={d.id} className="aiuto-riga">
+                  <div
+                    key={d.id}
+                    className={`aiuto-riga${dovePorta(d) ? ' apribile' : ''}`}
+                    // ⚠️ Il clic sta sulla RIGA, non su un link in fondo: chi
+                    // legge una domanda vuole vedere di cosa parla, e cercare un
+                    // bottone piccolo per farlo è un passaggio di troppo.
+                    // ⚠️ Ma non deve rubare i clic dei bottoni che ci stanno
+                    // dentro («Rispondi», «L'ho letta»): quelli fermano l'evento
+                    // da soli, e senza il controllo qui sotto premere Rispondi
+                    // porterebbe via dalla pagina.
+                    onClick={(e) => {
+                      if ((e.target as HTMLElement).closest('button, a, textarea, input')) return
+                      const dove = dovePorta(d)
+                      if (dove) window.location.href = dove
+                    }}
+                  >
                     <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
                       {d.stato === 'aperta' ? (
                         <span className="badge rosso">in attesa</span>
@@ -243,6 +283,11 @@ export function AiutoLaterale() {
                       </span>
                     </div>
                     <p style={{ margin: '5px 0 0', fontSize: 14 }}>{d.testo}</p>
+                    {dovePorta(d) ? (
+                      <p className="cella-sub" style={{ marginTop: 3 }}>
+                        {d.conversazioneId ? 'Clicca per aprire la chat' : 'Clicca per aprire l’ordine'}
+                      </p>
+                    ) : null}
 
                     {/* ── L'AVVISO SU WHATSAPP ──
                         ⚠️⚠️ Se non è partito bisogna DIRLO, e forte: chi crede

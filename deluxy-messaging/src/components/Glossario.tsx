@@ -178,7 +178,11 @@ export function Glossario() {
                     {p.conversazioneId ? (
                       <a
                         className="bottone secondario mini"
-                        href={`/inbox?conversazione=${encodeURIComponent(p.conversazioneId)}`}
+                        // ⚠️ Il parametro è `c`: è quello che l'inbox legge
+                        // davvero. Con `conversazione` il link apriva l'inbox
+                        // senza aprire niente — e la «prova» della proposta
+                        // restava a un clic che non funzionava.
+                        href={`/inbox?c=${encodeURIComponent(p.conversazioneId)}`}
                         target="_blank"
                         rel="noreferrer"
                         title="La conversazione da cui viene: è la prova"

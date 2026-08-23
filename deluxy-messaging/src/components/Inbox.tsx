@@ -456,6 +456,21 @@ export function Inbox({
   const [linguaCliente, setLinguaCliente] = useState('')
   const [traducendo, setTraducendo] = useState(false)
 
+  // ⚠️ Quale chat è aperta si scrive NELL'INDIRIZZO (`?c=…`), e serve a due
+  // cose che prima non funzionavano: il link a una conversazione precisa si può
+  // copiare e mandare a un collega, e il pannello Aiuto può capire da solo di
+  // quale chat stai parlando quando chiedi aiuto.
+  //
+  // ⚠️ `replaceState` e non il router: cambiare rotta rifarebbe il rendering di
+  // tutta l'inbox a ogni clic su una conversazione, e riempirebbe la cronologia
+  // del browser — il tasto «indietro» dovrebbe ripercorrere venti chat.
+  useEffect(() => {
+    const url = new URL(window.location.href)
+    if (selezionataId) url.searchParams.set('c', selezionataId)
+    else url.searchParams.delete('c')
+    window.history.replaceState(null, '', url.toString())
+  }, [selezionataId])
+
   const selezionata = conversazioni.find((c) => c.id === selezionataId) ?? null
 
   const aggiornaConversazioni = useCallback(async () => {

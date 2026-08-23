@@ -51,6 +51,16 @@ letta». ⚠️ Senza, una risposta arrivata mentre eri su un'altra pagina non t
 e tu resti bloccato mentre chi ha risposto ti dà per risolto. ⚠️ Se un amministratore
 corregge una risposta già letta, il pallino torna: se no resteresti con la versione vecchia.
 
+**Cliccando una domanda si apre di che cosa parla**: la **chat** da cui è nata, o — se non
+c'è una chat ma un numero d'ordine — l'**ordine**. Se non c'è né l'una né l'altro la riga
+non è cliccabile, e si vede: un clic che non fa niente è peggio di un clic che non c'è,
+perché la prima volta si crede a un guasto.
+
+⚠️ Perché la chat si sappia, l'inbox adesso **scrive nell'indirizzo quale conversazione è
+aperta** (`?c=…`). Serve a due cose che prima non funzionavano: il link a una
+conversazione precisa si può **copiare e mandare a un collega**, e il pannello Aiuto capisce
+da solo di quale chat stai parlando.
+
 ### La domanda arriva su WhatsApp, e la risposta torna da lì
 
 Appena qualcuno chiede, l'amministratore riceve la domanda **sul telefono**, su WhatsApp

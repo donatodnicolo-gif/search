@@ -1,6 +1,6 @@
 # Handoff — Deluxy Customer Service
 
-Ultimo aggiornamento: **23/08/2026, ore 21:30** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
+Ultimo aggiornamento: **23/08/2026, ore 22:00** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
 prima, alle 15:10, l'utente ha pubblicato la schermata di consenso Google e il
 conto alla rovescia dei 7 giorni è finito).
 Prima, il 19/08: la **risposta di primo contatto** che parte da sola al primo
@@ -188,6 +188,32 @@ locale, altrimenti nulla si decifra.
     com'è** (131047 dice tutto a chi sa leggerlo) e il pannello lo mostra **in
     rosso** a chi ha chiesto — credere di aver avvisato qualcuno che non sa
     niente è peggio che sapere di non averlo avvisato.
+  - **AL CLIC SI APRE DI CHE COSA PARLA** (chiesto dall'utente): la **chat** da
+    cui è nata, o l'**ordine** se chat non ce n'è. Senza né l'una né l'altro la
+    riga non è cliccabile — un clic che non fa niente è peggio di un clic che
+    non c'è.
+    - 🐞🐞 **Il contesto non veniva MAI catturato**: il pannello leggeva
+      `?conversazione=`, ma **l'inbox usa `?c=`**. La domanda «aiutami» delle
+      16:04 ha infatti `conversazioneId` **vuoto**. ⚠️ Lo stesso sbaglio era
+      nel link «Vedi la chat» delle proposte del **glossario**: portava
+      all'inbox senza aprire niente, e la «prova» della proposta era un clic
+      che non funzionava. Corretti tutti e due.
+    - 🐞 E non bastava: **l'inbox non scriveva affatto la chat aperta
+      nell'indirizzo** (lo leggeva solo all'avvio). Adesso lo fa con
+      `history.replaceState` — non col router, che rifarebbe il rendering di
+      tutta l'inbox a ogni clic e riempirebbe la cronologia. 🎁 Effetto
+      collaterale utile: il link a una conversazione si può copiare e mandare.
+    - ⚠️ Il pannello legge `window.location.search` **all'apertura** e non
+      `useSearchParams`: quello che scrive `replaceState` il router di Next non
+      lo vede, e il pannello continuerebbe a leggere l'indirizzo del caricamento.
+    - ⚠️ Il clic sta sulla RIGA, ma non ruba i clic dei bottoni dentro
+      («Rispondi», «L'ho letta»): senza il controllo, premere Rispondi
+      porterebbe via dalla pagina. **Provato**: premendo Rispondi l'indirizzo
+      non cambia e il campo si apre.
+    - ✅ Provato con l'anteprima temporanea: riga con chat → «Clicca per aprire
+      la chat» e `apribile`; riga col solo ordine → «Clicca per aprire
+      l'ordine»; riga senza contesto → **non** cliccabile; l'errore 131047
+      compare nel riquadro rosso.
   - 🐞 **IL GIRO COMPLETO PROVATO DALL'UTENTE, e il difetto che ha scoperto.**
     Domanda «aiutami» alle 16:04:53 dal pannello, avviso inviato, risposta da
     WhatsApp «cosa hai bisogno?» **registrata alle 16:05:10 — 17 secondi dopo**,
