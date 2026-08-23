@@ -662,6 +662,23 @@ non si vedono dati reali né si può diagnosticare «La Mimosa»).
    doppione non riaggiunto, nome inesistente col messaggio giusto, e cache dei dettagli (4
    richieste → 2 chiamate). Console pulita.
 
+50. **Aperto/chiuso anche sulle schede del registro: era rotto** (19/08, segnalato dall'utente
+   «anche per i prospect mostra se aperti o chiusi»). Il codice c'era dal 26/07 (punto 30) ma non
+   ha **mai** mostrato il badge: `annotaOrariRegistro` chiedeva a Google
+   `fields:['opening_hours','business_status','photos']` — **senza `utc_offset_minutes`**, e senza
+   quel campo `opening_hours.isOpen()` restituisce `undefined` (è documentato: serve il fuso del
+   posto per sapere che ore sono lì). La foto, chiesta nella stessa richiesta, arrivava: per questo
+   sembrava che la chiamata funzionasse.
+   ⭐ Regola: **se `isOpen()` non risponde, il campo mancante è `utc_offset_minutes`** — `shopCard`
+   lo chiedeva già, `annotaOrariRegistro` no.
+   In più, quando Google non ha gli orari ma il negozio è `OPERATIONAL`, ora compare
+   «orari non disponibili» come sulle schede Google: prima non compariva nulla e non si capiva se
+   il dato mancasse o se la funzione fosse rotta.
+   NB: le schede del registro **restano sempre visibili** anche col filtro «Aperti/Chiusi ora»
+   (scelta del 26/07: sono i nostri partner/prospect, non si nascondono).
+   Verificato nel browser con Google finto sui 4 casi (aperto, chiuso, senza orari →
+   «orari non disponibili», CLOSED_PERMANENTLY → nessun badge) e sui campi richiesti.
+
 ## Cose in sospeso
 
 - **Fornitore che Google non fa uscire** (era «La Mimosa» #2734, poi «Manfredini Fiori» #2756):

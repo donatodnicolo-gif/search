@@ -2016,14 +2016,14 @@ async function annotaOrariRegistro(list, cards, service, origin){
       if(bias) req.locationBias = bias;
       service.findPlaceFromQuery(req, (res,status)=>{
         if(status!==google.maps.places.PlacesServiceStatus.OK || !res || !res[0]){ resolve(); return; }
-        service.getDetails({ placeId: res[0].place_id, fields:['opening_hours','business_status','photos'] }, (d,st)=>{
+        service.getDetails({ placeId: res[0].place_id, fields:['opening_hours','utc_offset_minutes','business_status','photos'] }, (d,st)=>{
           try{
             if(st===google.maps.places.PlacesServiceStatus.OK && d){
               let open; try{ open = d.opening_hours && d.opening_hours.isOpen && d.opening_hours.isOpen(); }catch(e){ open = undefined; }
               card.dataset.open = (open===true)?'open':(open===false)?'closed':'unknown';
               const badge = (open===true)?'<span class="badge badge-open" style="color:var(--green); background:rgba(36,138,61,.1)">🟢 Aperto ora</span>'
                           : (open===false)?'<span class="badge badge-open" style="color:var(--red); background:rgba(215,0,21,.1)">🔴 Chiuso ora</span>'
-                          : '';
+                          : (d.business_status==='OPERATIONAL' ? '<span class="badge badge-open">orari non disponibili</span>' : '');
               const col = card.querySelector('.head > div');
               if(badge && col && !card.querySelector('.badge-open')) col.insertAdjacentHTML('beforeend', badge);
               // foto di copertina anche qui, sotto la riga dei dati del registro
