@@ -68,6 +68,17 @@ export class PartnersController {
     return this.partnersService.sincronizzaAnagrafica(id, actor);
   }
 
+  @Post(':id/anagrafica/importa')
+  @Roles(Role.ADMIN, Role.OPERATION)
+  @ApiOperation({ summary: 'Porta nella piattaforma i campi scelti dal record del registro' })
+  importaDaAnagrafica(
+    @Param('id') id: string,
+    @Body() body: { campi?: string[] },
+    @CurrentUser() actor: JwtUser,
+  ) {
+    return this.partnersService.importaDaAnagrafica(id, body?.campi ?? [], actor);
+  }
+
   @Put(':id')
   @Roles(Role.ADMIN, Role.OPERATION, Role.PROJECT_MANAGER, Role.PARTNER)
   @ApiOperation({ summary: 'Aggiorna partner (il partner solo i propri dati limitati)' })

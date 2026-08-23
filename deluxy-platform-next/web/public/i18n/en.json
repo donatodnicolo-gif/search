@@ -1542,6 +1542,10 @@
     "pushHint": "Sending overwrites the registry fields with the platform values and saves the link.",
     "mirrorTitle": "Careful: linked to a duplicate.",
     "mirrorBody": "The registry record this partner is linked to was created by the platform itself: it holds our own data, so “no differences” is guaranteed and proves nothing. Another registry record carries the same VAT number, and is almost certainly the real one:",
-    "contacts": "{{n}} contacts"
+    "contacts": "{{n}} contacts",
+    "pull": "Pull from registry ({{n}})",
+    "pullHint": "Pulls only the ticked fields into the platform. Rows where the registry is empty cannot be ticked: an empty value never overwrites a real one. Yellow rows are trade name and address — the registry holds the company, this page the outlet, so they start unticked.",
+    "riskyField": "The registry holds the company, this page the outlet: tick only if you know you need it.",
+    "emptyThere": "This field is empty in the registry: nothing to pull."
   }
 }

@@ -1542,6 +1542,10 @@
     "pushHint": "L’invio sovrascrive nel registro i campi della piattaforma e salva il collegamento.",
     "mirrorTitle": "Attenzione: collegato a un doppione.",
     "mirrorBody": "Il record del registro a cui questo partner è collegato è stato creato dalla piattaforma stessa: contiene i nostri dati, quindi «nessuna differenza» è garantito e non prova nulla. Nel registro esiste un altro record con la stessa P.IVA, ed è quasi certamente l’anagrafica vera:",
-    "contacts": "{{n}} contatti"
+    "contacts": "{{n}} contatti",
+    "pull": "Prendi dal registro ({{n}})",
+    "pullHint": "Prende nella piattaforma solo i campi spuntati. Le righe dove il registro è vuoto non si possono spuntare: un vuoto non sovrascrive mai un valore. Le righe in giallo sono insegna e indirizzo — nel registro c’è l’azienda, qui il punto vendita, quindi non partono spuntate.",
+    "riskyField": "Nel registro c’è l’azienda, qui il punto vendita: spuntalo solo se sai che serve.",
+    "emptyThere": "Nel registro questo campo è vuoto: non c’è niente da prendere."
   }
 }

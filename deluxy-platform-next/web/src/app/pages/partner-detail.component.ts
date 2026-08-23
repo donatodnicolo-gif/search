@@ -157,13 +157,23 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
                     <th>{{ 'partnerAnagrafica.field' | translate }}</th>
                     <th>{{ 'partnerAnagrafica.here' | translate }}</th>
                     <th>{{ 'partnerAnagrafica.registry' | translate }}</th>
+                    <th class="scegli"></th>
                   </tr></thead>
                   <tbody>
                     @for (d of a.differenze; track d.campo) {
-                      <tr>
+                      <tr [class.rischiosa]="rischioso(d.campo)">
                         <td>{{ d.campo }}</td>
                         <td>{{ d.piattaforma ?? '—' }}</td>
                         <td class="reg">{{ d.registro ?? '—' }}</td>
+                        <td class="scegli">
+                          @if (d.registro) {
+                            <input type="checkbox" [checked]="daPrendere().has(d.campo)"
+                                   (change)="scegli(d.campo)"
+                                   [title]="rischioso(d.campo) ? ('partnerAnagrafica.riskyField' | translate) : ''">
+                          } @else {
+                            <span class="vuoto" [title]="'partnerAnagrafica.emptyThere' | translate">—</span>
+                          }
+                        </td>
                       </tr>
                     }
                   </tbody>
@@ -173,6 +183,16 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
               }
 
               @if (canManage()) {
+                @if (a.differenze?.length && !a.specchio) {
+                  <div class="azioni">
+                    <button type="button" class="btn btn-primary" [disabled]="!daPrendere().size || importando()"
+                            (click)="importa()">
+                      {{ (importando() ? 'common.saving' : 'partnerAnagrafica.pull') | translate:{ n: daPrendere().size } }}
+                    </button>
+                    @if (esitoImport(); as e) { <span class="esito" [class.ok]="e.ok">{{ e.messaggio }}</span> }
+                  </div>
+                  <p class="hint">{{ 'partnerAnagrafica.pullHint' | translate }}</p>
+                }
                 <div class="azioni">
                   <button type="button" class="btn btn-primary" [disabled]="sincronizzando()" (click)="sincronizza()">
                     {{ (sincronizzando() ? 'common.saving' : 'partnerAnagrafica.push') | translate }}
@@ -337,6 +357,9 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
         font-size: 13px; line-height: 1.5;
       }
       .avviso-doppione strong { display: block; }
+      .mini th.scegli, .mini td.scegli { width: 34px; text-align: center; }
+      .mini tr.rischiosa td { background: color-mix(in srgb, var(--warning, #B8963E) 8%, transparent); }
+      .mini td.scegli .vuoto { color: var(--text-tertiary); }
       .candidati { margin: 6px 0 0 18px; font-size: 13px; }
       .azioni { display: flex; align-items: center; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
       .esito { font-size: 13px; color: var(--red, #d70015); }
@@ -414,6 +437,10 @@ export class PartnerDetailComponent {
   readonly cercando = signal(false);
   readonly sincronizzando = signal(false);
   readonly esitoSync = signal<{ ok: boolean; messaggio: string } | null>(null);
+  readonly importando = signal(false);
+  readonly esitoImport = signal<{ ok: boolean; messaggio: string } | null>(null);
+  /** I campi spuntati per essere presi dal registro. */
+  readonly daPrendere = signal<Set<string>>(new Set());
 
   /** Solo chi gestisce può scrivere sul registro. */
   canManage(): boolean {
@@ -431,12 +458,62 @@ export class PartnerDetailComponent {
     this.cercando.set(true);
     this.esitoSync.set(null);
     this.http.get<any>(`${environment.apiUrl}/partners/${p.id}/anagrafica`).subscribe({
-      next: (r) => { this.cercando.set(false); this.anagrafica.set(r); this.anagraficaCaricata.set(true); },
+      next: (r) => { this.cercando.set(false); this.anagrafica.set(r); this.anagraficaCaricata.set(true); this.preselezione(r.differenze ?? []); },
       error: (e) => {
         this.cercando.set(false);
         this.anagraficaCaricata.set(true);
         this.anagrafica.set({ stato: 'errore', criterio: null, anagrafica: null, differenze: [], candidati: [] });
         this.esitoSync.set({ ok: false, messaggio: e?.error?.message ?? 'Registro non raggiungibile' });
+      },
+    });
+  }
+
+  /**
+   * Campi che il registro conosce peggio di noi.
+   *
+   * Nel registro c'e' l'AZIENDA, qui il PUNTO VENDITA: prendere l'insegna
+   * trasforma «DR VRANJES FIORI CHIARI» in «DR. VRANJES», e l'indirizzo diventa
+   * quello della sede legale, uguale per tutti i negozi della catena. Si possono
+   * spuntare lo stesso, ma non partono mai da soli.
+   */
+  rischioso(campo: string): boolean {
+    return campo === 'Insegna / nome' || campo === 'Indirizzo';
+  }
+
+  scegli(campo: string): void {
+    const s = new Set(this.daPrendere());
+    s.has(campo) ? s.delete(campo) : s.add(campo);
+    this.daPrendere.set(s);
+  }
+
+  /** Spunta di partenza: quello che si guadagna senza perdere nulla. */
+  preselezione(differenze: { campo: string; piattaforma: string | null; registro: string | null }[]): void {
+    const s = new Set<string>();
+    for (const d of differenze) {
+      if (!d.registro) continue;              // un vuoto non sovrascrive mai
+      if (this.rischioso(d.campo)) continue;  // azienda vs punto vendita
+      s.add(d.campo);
+    }
+    this.daPrendere.set(s);
+  }
+
+  importa(): void {
+    const p = this.partner();
+    if (!p || !this.daPrendere().size) return;
+    this.importando.set(true);
+    this.esitoImport.set(null);
+    this.http.post<{ ok: boolean; messaggio: string }>(
+      `${environment.apiUrl}/partners/${p.id}/anagrafica/importa`,
+      { campi: [...this.daPrendere()] },
+    ).subscribe({
+      next: (r) => {
+        this.importando.set(false);
+        this.esitoImport.set(r);
+        if (r.ok) { this.ricarica(); this.confronta(); }
+      },
+      error: (e) => {
+        this.importando.set(false);
+        this.esitoImport.set({ ok: false, messaggio: e?.error?.message ?? 'Import non riuscito' });
       },
     });
   }
@@ -540,15 +617,21 @@ export class PartnerDetailComponent {
     });
   }
 
+  /** Rilegge il partner dal server: serve dopo un import dal registro. */
+  ricarica(): void {
+    const id = this.route.snapshot.paramMap.get('id');
+      this.http.get<PartnerDetail>(`${environment.apiUrl}/partners/${id}`).subscribe({
+        next: (p) => { this.partner.set(p); this.loading.set(false); },
+        error: (err) => {
+          this.loading.set(false);
+          this.error.set(err?.error?.message ?? 'Errore nel caricamento del partner');
+        },
+      });
+  }
+
   constructor() {
     const id = this.route.snapshot.paramMap.get('id');
-    this.http.get<PartnerDetail>(`${environment.apiUrl}/partners/${id}`).subscribe({
-      next: (p) => { this.partner.set(p); this.loading.set(false); },
-      error: (err) => {
-        this.loading.set(false);
-        this.error.set(err?.error?.message ?? 'Errore nel caricamento del partner');
-      },
-    });
+    this.ricarica();
     // Regole carnet del partner con le consegne rimaste (best-effort: se
     // fallisce, la scheda partner si carica lo stesso senza la sezione).
     if (id) this.loadCarnet(id);

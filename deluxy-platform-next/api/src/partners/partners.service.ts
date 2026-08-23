@@ -282,6 +282,83 @@ export class PartnersService {
     return this.anagrafiche.sincronizzaOra(p as any, trovato?.id ?? null);
   }
 
+  /**
+   * Porta nella piattaforma i campi scelti dal record del registro.
+   *
+   * È la direzione che mancava: fino al 23/08 esisteva solo «Invia al registro»,
+   * cioè schiacciare i nostri dati sui loro. Ma su 89 partner confrontabili il
+   * registro ha 33 codici fiscali che qui mancano e 8 P.IVA vere al posto del
+   * segnaposto 11111111111 — e allo stesso tempo ha il telefono VUOTO su 84 e
+   * l'email vuota su 77.
+   *
+   * Da qui le due regole non negoziabili:
+   *
+   *  1. **Un vuoto non sovrascrive mai un valore.** Un import «prendi tutto»
+   *     avrebbe cancellato 239 valori per guadagnarne 34.
+   *  2. **Insegna e indirizzo non si importano se non esplicitamente chiesti.**
+   *     Nel registro c'è l'AZIENDA, qui il PUNTO VENDITA: «DR VRANJES FIORI
+   *     CHIARI» diventerebbe «DR. VRANJES», e il suo indirizzo quello della
+   *     sede legale, uguale per tutti i negozi della catena.
+   */
+  async importaDaAnagrafica(id: string, campi: string[], actor?: JwtUser) {
+    const confronto = await this.confrontaAnagrafica(id, actor);
+    if (!confronto.anagrafica) {
+      return { ok: false, messaggio: 'Nessun record del registro collegato a questo partner.', applicati: [] };
+    }
+    // Importare da un record che abbiamo scritto noi significa ricopiarsi addosso
+    // i propri dati, e per giunta lasciando fuori l'anagrafica vera.
+    if ((confronto as any).specchio) {
+      return {
+        ok: false,
+        messaggio:
+          "Il record collegato e' un doppione creato dalla piattaforma: importarne i dati "
+          + "non porterebbe nulla. Collegare prima l'anagrafica vera.",
+        applicati: [],
+      };
+    }
+
+    const scelti = new Set(campi);
+    const dati: Record<string, unknown> = {};
+    const applicati: { campo: string; da: string | null; a: string }[] = [];
+    const ignorati: { campo: string; perche: string }[] = [];
+
+    for (const d of confronto.differenze) {
+      if (!scelti.has(d.campo)) continue;
+      const chiave = CAMPI_IMPORTABILI[d.campo];
+      if (!chiave) { ignorati.push({ campo: d.campo, perche: 'campo non importabile' }); continue; }
+      if (!d.registro) {
+        ignorati.push({ campo: d.campo, perche: 'nel registro è vuoto: non si sovrascrive un valore con un vuoto' });
+        continue;
+      }
+      dati[chiave] = d.registro;
+      applicati.push({ campo: d.campo, da: d.piattaforma, a: d.registro });
+    }
+
+    if (!applicati.length) {
+      return { ok: false, messaggio: 'Nessun campo da importare.', applicati: [], ignorati };
+    }
+
+    // L'email è unica in piattaforma: importarne una già in uso farebbe fallire
+    // l'intero salvataggio con un errore di vincolo, illeggibile a schermo.
+    if (typeof dati.email === 'string') {
+      const occupata = await this.prisma.partner.findFirst({
+        where: { email: dati.email, id: { not: id } },
+        select: { id: true, insegna: true },
+      });
+      if (occupata) {
+        return {
+          ok: false,
+          messaggio: `L'email ${dati.email} è già di «${occupata.insegna}»: non può stare su due partner.`,
+          applicati: [],
+        };
+      }
+    }
+
+    await this.prisma.partner.update({ where: { id }, data: dati });
+    return { ok: true, messaggio: `Importati ${applicati.length} campi dal registro.`, applicati, ignorati };
+  }
+
+
   async importFromAnagrafiche(actor?: JwtUser) {
     const attivi = await this.anagrafiche.fetchAttivi();
     const summary = { totale: attivi.length, importati: 0, saltati: 0, errori: [] as string[] };
@@ -482,3 +559,22 @@ export class PartnersService {
     return { deleted: true };
   }
 }
+
+/**
+ * Dai nomi mostrati nella tabella delle differenze ai campi del Partner.
+ *
+ * «Attivo» non c'è di proposito: è un interruttore operativo della piattaforma
+ * (un partner spento qui non riceve consegne) e non un dato anagrafico. Farlo
+ * decidere al registro spegnerebbe partner che lavorano — sono 18 quelli che
+ * oggi non concordano.
+ */
+const CAMPI_IMPORTABILI: Record<string, string> = {
+  'Insegna / nome': 'insegna',
+  'Ragione sociale': 'businessName',
+  'Email': 'email',
+  'P.IVA': 'vatNumber',
+  'Codice fiscale': 'fiscalCode',
+  'Indirizzo': 'address',
+  'Telefono': 'phone',
+  'Referente': 'contactName',
+};
