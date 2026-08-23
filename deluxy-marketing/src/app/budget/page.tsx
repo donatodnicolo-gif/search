@@ -1,6 +1,7 @@
 import { Sidebar } from "@/components/Sidebar";
 import { VenditeAttese } from "@/components/VenditeAttese";
 import { BudgetUfficiale } from "@/components/BudgetUfficiale";
+import { BudgetQuestoMese } from "@/components/BudgetQuestoMese";
 import { prisma } from "@/lib/db";
 import { ETICHETTA_SITO, formattaEuro, MESI_IT, SITI } from "@/lib/dominio";
 
@@ -31,13 +32,26 @@ export default async function PaginaBudget({
         <div className="page-head">
           <div>
             <h1 className="page-title">Budget ADV {anno}</h1>
+            {/* ⚠️ QUESTA PAGINA MESCOLAVA TRE FONTI SENZA DIRE QUALE COMANDA:
+                le attese per canale, il tetto ufficiale di Budgets su dodici
+                mesi, e una tabella «calendario» importata a mano dal
+                Monitoraggio che copre SOLO giugno-agosto. Tre verità
+                affiancate, e nessuna che rispondesse alla domanda per cui si
+                apre una pagina che si chiama Budget: stiamo dentro? */}
             <p className="page-sub">
-              Il calendario del budget pubblicitario: mesi in colonna, canali e campagne in riga
-              (spesa al giorno; la % è la quota della voce). Fonte: foglio “Budget adv” del
-              Monitoraggio, si aggiorna con l&apos;import.
+              Quanto si può spendere, quanto si sta spendendo e dove si arriva a fine mese. Il
+              tetto lo decide <b>Deluxy Budgets</b> — qui non si scrive, si legge — e la spesa
+              arriva dalle campagne. Le tabelle sotto sono il dettaglio: la prima è la fonte
+              ufficiale su dodici mesi, l&apos;ultima è la vecchia copia importata dal
+              Monitoraggio, tenuta solo come archivio.
             </p>
           </div>
         </div>
+
+        {/* La domanda per cui si apre questa pagina, e la sua risposta:
+            consentito, speso, quanto resta, dove si arriva. Tutto il resto è
+            dettaglio. */}
+        <BudgetQuestoMese anno={anno} />
 
         {/* Le attese per canale stanno in cima: sono la decisione da cui
             discende tutto il resto della pagina. */}
@@ -67,7 +81,24 @@ export default async function PaginaBudget({
           ))}
         </div>
 
-        {SITI.map((sito) => {
+        {/* ⚠️ ARCHIVIO, NON FONTE. Questa tabella nasce dal foglio «Budget
+            adv» del Monitoraggio, importato a mano: nel 2026 contiene solo
+            giugno, luglio e agosto. Affiancata al tetto ufficiale su dodici
+            mesi sembrava dire che da settembre non ci sono soldi. Resta
+            perché contiene la ripartizione per campagna, che Budgets non ha —
+            ma sta chiusa, e dice da dove viene. */}
+        {righe.length > 0 && (
+          <details className="scheda" style={{ marginBottom: 18 }}>
+            <summary className="scheda-titolo" style={{ cursor: "pointer" }}>
+              Vecchia copia dal Monitoraggio ({[...new Set(righe.map((r) => r.mese))].length} mesi
+              importati) — archivio, non fonte
+            </summary>
+            <p className="cella-sub" style={{ whiteSpace: "normal", margin: "8px 0 0" }}>
+              Importata a mano dal foglio «Budget adv»: copre solo i mesi che erano nel foglio,
+              e <b>non sa niente</b> di quello che è stato approvato in Budgets dopo. Serve per
+              la ripartizione per campagna, che il tetto ufficiale non ha.
+            </p>
+            {SITI.map((sito) => {
           const mesi = righe.filter((r) => r.sito === sito);
           if (mesi.length === 0) return null;
           const ripartizioni = mesi.map((m) => (m.ripartizione ? (JSON.parse(m.ripartizione) as Ripartizione) : {}));
@@ -149,8 +180,10 @@ export default async function PaginaBudget({
                 </table>
               </div>
             </section>
-          );
-        })}
+              );
+            })}
+          </details>
+        )}
         {righe.length === 0 && (
           <div className="vuoto">Nessun budget importato per il {anno}: npm run import:monitoraggio.</div>
         )}
