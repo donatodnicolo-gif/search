@@ -119,6 +119,36 @@ async function scrivi(percorso: string, campi: Record<string, string>): Promise<
   }
 }
 
+/**
+ * Rilegge un oggetto Meta DOPO averlo scritto.
+ *
+ * ⚠️ È la lezione già pagata tre volte su Google: una scrittura che non si
+ * rilegge fa registrare all'app un successo che potrebbe non essere avvenuto,
+ * e nessuno lo saprebbe mai. Qui la POST torna `{success:true}`, che è più di
+ * quanto dica `createNegativeKeyword` — ma «la chiamata è stata accettata» e
+ * «il valore adesso è quello» restano due frasi diverse: su Meta un budget
+ * può finire sul livello sbagliato, e uno stato può essere superato da quello
+ * del genitore.
+ *
+ * Torna `null` quando la rilettura non riesce: e `null` NON è un errore, è un
+ * «non lo so» — che si dichiara invece di trasformarlo in un fallimento.
+ */
+async function rileggi(id: string, campi: string): Promise<Record<string, unknown> | null> {
+  const t = token();
+  if (!t) return null;
+  try {
+    const r = await fetch(
+      `${BASE}/${id}?fields=${encodeURIComponent(campi)}&access_token=${encodeURIComponent(t)}`,
+      { cache: "no-store" }
+    );
+    const dati = (await r.json()) as Record<string, unknown> & { error?: unknown };
+    if (dati.error) return null;
+    return dati;
+  } catch {
+    return null;
+  }
+}
+
 /** Mette in pausa o riattiva una campagna o un ad set: stessa chiamata. */
 export async function cambiaStatoMeta(
   idEsterno: string,
@@ -128,9 +158,26 @@ export async function cambiaStatoMeta(
   const stato = acceso ? "ACTIVE" : "PAUSED";
   const esito = await scrivi(idEsterno, { status: stato });
   if (!esito.riuscita) return esito;
+
+  // ⚠️ `effective_status` è quello che conta davvero: una campagna può
+  // risultare ACTIVE e non erogare perché il genitore è fermo o l'account è
+  // sospeso. Si riportano tutti e due quando non coincidono, invece di
+  // scegliere quello che fa più bella figura.
+  const letto = await rileggi(idEsterno, "status,effective_status");
+  const ora = letto ? String(letto.status ?? "") : null;
+  const davvero = letto ? String(letto.effective_status ?? "") : null;
+  const nota =
+    ora == null
+      ? " (non ho potuto rileggere per confermare)"
+      : ora === stato
+        ? davvero && davvero !== stato
+          ? ` (confermato rileggendo, ma Meta lo dà come ${davvero}: c'è qualcosa sopra che lo tiene fermo)`
+          : " (confermato rileggendo)"
+        : ` - ATTENZIONE: rileggendo, Meta lo riporta ancora come ${ora}`;
+
   return {
     riuscita: true,
-    dettaglio: `${cosa === "campagna" ? "campagna" : "ad set"} → ${stato} su Meta`,
+    dettaglio: `${cosa === "campagna" ? "campagna" : "ad set"} → ${stato} su Meta${nota}`,
     dopo: acceso ? "attiva" : "in pausa",
   };
 }
@@ -156,9 +203,23 @@ export async function budgetMeta(idEsterno: string, euroAlGiorno: number): Promi
   const centesimi = Math.round(euroAlGiorno * 100);
   const esito = await scrivi(idEsterno, { daily_budget: String(centesimi) });
   if (!esito.riuscita) return esito;
+
+  // ⚠️ Si rilegge il valore, non ci si fida del `success`. Il budget su Meta
+  // può stare sulla campagna (CBO) o sugli ad set: scriverlo dove non vive
+  // può essere accettato e non cambiare niente, e sarebbe la peggiore delle
+  // risposte — «fatto» su una modifica che non c'è.
+  const letto = await rileggi(idEsterno, "daily_budget");
+  const suGoogleCent = letto?.daily_budget != null ? Number(letto.daily_budget) : null;
+  const nota =
+    suGoogleCent == null
+      ? " - non ho potuto rileggere il budget per confermarlo"
+      : suGoogleCent === centesimi
+        ? " (confermato rileggendo)"
+        : ` - ATTENZIONE: rileggendo, Meta riporta ${(suGoogleCent / 100).toFixed(2)} €/g. Il budget potrebbe stare sugli ad set e non sulla campagna.`;
+
   return {
     riuscita: true,
-    dettaglio: `budget → ${euroAlGiorno.toFixed(2)} €/g (${centesimi} centesimi, come li vuole Meta)`,
+    dettaglio: `budget → ${euroAlGiorno.toFixed(2)} €/g (${centesimi} centesimi, come li vuole Meta)${nota}`,
     dopo: `${euroAlGiorno.toFixed(2)} €/g`,
   };
 }
