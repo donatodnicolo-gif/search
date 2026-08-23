@@ -1,6 +1,6 @@
 # Handoff — Deluxy Customer Service
 
-Ultimo aggiornamento: **23/08/2026, ore 18:00** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
+Ultimo aggiornamento: **23/08/2026, ore 19:30** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
 prima, alle 15:10, l'utente ha pubblicato la schermata di consenso Google e il
 conto alla rovescia dei 7 giorni è finito).
 Prima, il 19/08: la **risposta di primo contatto** che parte da sola al primo
@@ -151,6 +151,40 @@ AES-256-GCM nel database. `APP_SECRET` su Vercel **deve** essere identico al
 locale, altrimenti nulla si decifra.
 
 ## FATTO
+
+- **CHIEDERE AIUTO ALL'AMMINISTRATORE, DA OGNI PAGINA** (23/08/2026). Chiesto
+  dall'utente: «un help laterale dove fare domande all'amministratore in caso di
+  bisogno con un ordine o una richiesta; registra tutte queste richieste,
+  verranno poi rilette dall'AI per capire come migliorare il modello».
+  - Linguetta **Aiuto** sul bordo destro di ogni pagina (montata nel layout,
+    **fuori** da `.layout`: dentro un contenitore che scorre seguirebbe la
+    pagina). Tabella `DomandaAiuto`, rotta `/api/aiuto`.
+  - ⚠️⚠️ **Il contesto lo registra il codice**: pagina di partenza e numero
+    d'ordine (dall'indirizzo). «Che faccio?» non si può rispondere, «che faccio
+    con l'ordine #2783» sì — e chiederlo in un campo vuol dire che una domanda
+    su tre arriva senza. ⚠️ Il pannello **dichiara** che allega la pagina:
+    allegare in silenzio roba di chi scrive è un modo per farlo scoprire male.
+  - ⚠️ **Rispondono gli amministratori** (403 per gli altri) e vedono le domande
+    di tutti; gli operatori vedono le proprie. **Chiedere lo possono tutti**,
+    admin compresi: un pannello che a chi coordina non lascia chiedere gli dice
+    che i suoi dubbi non contano.
+  - ⚠️ **Il pallino ha due significati**: per l'admin le domande che aspettano
+    lui, per chi ha chiesto le risposte non ancora lette (`lettaIl`). Senza,
+    una risposta arrivata mentre eri altrove non ti raggiunge mai e resti
+    bloccato mentre l'altro ti dà per risolto. ⚠️ Correggere una risposta
+    **azzera `lettaIl`**: se no resteresti con la versione vecchia.
+  - ⚠️ Il giro del pannello è ogni **2 minuti**, non 5 secondi come l'inbox: sta
+    su OGNI pagina, e una chiamata continua ovunque si paga.
+  - 🔗 **Le domande entrano nel giro notturno del glossario** come seconda fonte
+    accanto alle chat, e valgono di più: se una persona che lavora qui ha dovuto
+    chiedere, quel fatto nel glossario non c'era. Campo nuovo
+    `PropostaGlossario.domandaId`, e il filtro ora accetta **una** delle due
+    prove — conversazione **o** domanda — ma sempre una che **esiste**.
+  - ✅ Riprovato dopo la modifica: 11 chat lette, 2 proposte nuove, **2 scartate
+    dal filtro**; 5 proposte aperte in tutto.
+  - ⚠️ **Non visto a pixel**: pannello del browser non a schermo. La linguetta è
+    `position: fixed` col testo verticale — **da guardare**, soprattutto su
+    mobile dove il pannello è a tutta larghezza.
 
 - **IL GLOSSARIO, E IL GIRO NOTTURNO DELL'AI** (23/08/2026). Chiesto
   dall'utente: «una sezione glossario con tutte le informazioni sui brand e

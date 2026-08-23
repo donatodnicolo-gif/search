@@ -3652,3 +3652,86 @@ td .azioni-ordine {
   opacity: 0.55;
   text-decoration: line-through;
 }
+
+/* ── IL PANNELLO DELL'AIUTO ──
+   ⚠️ La linguetta sta sul bordo destro e su OGNI pagina: ci si blocca mentre si
+   sta facendo una cosa, non prima. Se per chiedere bisogna uscire da dove si è,
+   si perde il contesto — e con quello la voglia di chiedere. */
+.aiuto-linguetta {
+  position: fixed;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%) rotate(180deg);
+  writing-mode: vertical-rl;
+  z-index: 60;
+  padding: 14px 7px;
+  border: 1px solid var(--hairline);
+  border-right: none;
+  border-radius: var(--radius-m) 0 0 var(--radius-m);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  box-shadow: var(--shadow-card);
+}
+.aiuto-linguetta:hover { background: var(--fill); }
+/* Il pallino: qualcosa aspetta te. Oro come il resto dei segnali di questa app. */
+.aiuto-linguetta.segnalata {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: #fff;
+}
+
+.aiuto-velo {
+  position: fixed;
+  inset: 0;
+  z-index: 61;
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.aiuto-pannello {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 62;
+  width: min(420px, 100vw);
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border-left: 1px solid var(--hairline);
+  box-shadow: -12px 0 32px rgba(0, 0, 0, 0.10);
+}
+
+.aiuto-testa {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--hairline);
+}
+
+/* ⚠️ Scorre QUI dentro, non la pagina: il modulo per chiedere resta in alto e
+   la lista lunga non lo spinge fuori dallo schermo. */
+.aiuto-elenco {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.aiuto-riga {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.aiuto-risposta {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-left: 3px solid var(--gold);
+  border-radius: 0 var(--radius-m) var(--radius-m) 0;
+  background: var(--gold-soft);
+}

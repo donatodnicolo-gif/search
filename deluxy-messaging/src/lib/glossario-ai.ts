@@ -38,12 +38,13 @@ export type EsitoGiro = {
 
 const ISTRUZIONI = [
   'Sei il redattore del glossario interno di un servizio clienti che vende fiori e torte (marchi: Deluxy, Deluxy Flowers, Cake Design).',
-  'Ti do (1) il glossario di oggi e (2) le conversazioni con i clienti delle ultime 24 ore.',
+  'Ti do (1) il glossario di oggi, (2) le conversazioni con i clienti delle ultime 24 ore e (3) le DOMANDE che gli operatori hanno fatto all\'amministratore.',
   'Il tuo compito: trovare i FATTI che servirebbero a chi risponde e che nel glossario non ci sono, quelli che ci sono ma risultano SBAGLIATI dalle conversazioni, e i problemi ricorrenti che conviene segnalare.',
   '',
   'REGOLE, e sono la parte importante:',
   '- Proponi SOLO fatti che si leggono nelle conversazioni. Non dedurre, non generalizzare da un caso solo se il caso è chiaramente eccezionale, non inventare politiche aziendali.',
-  '- Ogni proposta DEVE citare l\'id della conversazione da cui nasce (campo "conversazioneId", copiato da quelli che ti do).',
+  '- Ogni proposta DEVE citare la sua PROVA: "conversazioneId" se nasce da una chat, oppure "domandaId" se nasce da una domanda di un operatore. Copiali da quelli che ti do; una proposta senza prova viene buttata.',
+  '- Le DOMANDE degli operatori valgono doppio: se una persona che lavora qui ha dovuto chiedere, quel fatto nel glossario non c\'era. Guarda soprattutto quelle che si ripetono.',
   '- Non proporre testi da mandare al cliente (quelli sono gli Script) né regole di tono per l\'AI (quelle sono le istruzioni CS AI): qui vanno solo FATTI.',
   '- Non proporre dati che l\'app già conosce da sola: numeri di telefono nostri, indirizzi email nostri, domini dei siti, percentuali di pagamento ai fornitori.',
   '- Nel dubbio non proporre. Una proposta sbagliata costa più di una mancata: chi la legge si fida.',
@@ -52,7 +53,7 @@ const ISTRUZIONI = [
   'Categoria: "cliente" se si può dire a chi scrive, "tecnico" se è roba interna.',
   'negozioId: copialo da quelli che ti do, oppure lascialo vuoto se il fatto vale per tutti i marchi.',
   '',
-  'Rispondi SOLO in JSON: {"proposte":[{"tipo":"...","voceId":"","termine":"...","definizione":"...","categoria":"...","negozioId":"","perche":"che cosa hai visto, in una frase","conversazioneId":"..."}]}',
+  'Rispondi SOLO in JSON: {"proposte":[{"tipo":"...","voceId":"","termine":"...","definizione":"...","categoria":"...","negozioId":"","perche":"che cosa hai visto, in una frase","conversazioneId":"","domandaId":""}]}',
 ].join('\n')
 
 type PropostaGrezza = {
@@ -64,6 +65,7 @@ type PropostaGrezza = {
   negozioId?: string
   perche?: string
   conversazioneId?: string
+  domandaId?: string
 }
 
 /**
@@ -101,6 +103,17 @@ export async function giroGlossario(ore = 24): Promise<EsitoGiro> {
     db.negozioShopify.findMany({ select: { id: true, nome: true } }),
     db.voceGlossario.findMany({ select: { id: true, termine: true, definizione: true, negozioId: true } }),
   ])
+  // ── LE DOMANDE ALL'AMMINISTRATORE ──
+  // ⚠️ Valgono doppio: se una persona che lavora qui ha dovuto chiedere, quel
+  // fatto nel glossario non c'era. Si prendono anche quelle già risposte —
+  // anzi, soprattutto: la risposta è il fatto da scrivere.
+  const domande = await db.domandaAiuto.findMany({
+    orderBy: { creatoIl: 'desc' },
+    take: 60,
+    select: { id: true, testo: true, risposta: true, ordineNumero: true },
+  })
+  const idDomande = new Set(domande.map((d) => d.id))
+
   const idNegozi = new Set(negozi.map((n) => n.id))
   const idVoci = new Set(voci.map((v) => v.id))
   const idConversazioni = new Set(conversazioni.map((c) => c.id))
@@ -126,6 +139,15 @@ export async function giroGlossario(ore = 24): Promise<EsitoGiro> {
     })
     .join('\n\n')
 
+  const elencoDomande = domande.length
+    ? domande
+        .map(
+          (d) =>
+            `- [${d.id}]${d.ordineNumero ? ` (ordine ${d.ordineNumero})` : ''} CHIESTO: ${d.testo.replace(/\s+/g, ' ').slice(0, 300)}${d.risposta ? ` — RISPOSTO: ${d.risposta.replace(/\s+/g, ' ').slice(0, 300)}` : ' — ancora senza risposta'}`
+        )
+        .join('\n')
+    : '(nessuno ha chiesto niente)'
+
   let grezze: PropostaGrezza[] = []
   try {
     const client = new OpenAI({ apiKey: imp.openaiApiKey })
@@ -138,7 +160,7 @@ export async function giroGlossario(ore = 24): Promise<EsitoGiro> {
           { role: 'system', content: ISTRUZIONI },
           {
             role: 'user',
-            content: `MARCHI:\n${marchi}\n\nGLOSSARIO DI OGGI:\n${glossarioOggi}\n\nCONVERSAZIONI:\n${chat}`,
+            content: `MARCHI:\n${marchi}\n\nGLOSSARIO DI OGGI:\n${glossarioOggi}\n\nDOMANDE DEGLI OPERATORI:\n${elencoDomande}\n\nCONVERSAZIONI:\n${chat}`,
           },
         ],
       },
@@ -175,14 +197,18 @@ export async function giroGlossario(ore = 24): Promise<EsitoGiro> {
     const voceId = (p.voceId ?? '').trim()
 
     if (!termine || !definizione) { scartate++; continue }
-    // ⚠️ Senza una conversazione VERA non è una proposta: è un'opinione.
-    if (!idConversazioni.has(conversazioneId)) { scartate++; continue }
+    const domandaId = (p.domandaId ?? '').trim()
+    // ⚠️⚠️ Senza una prova VERA non è una proposta, è un'opinione: o cita una
+    // conversazione che esiste, o una domanda che esiste. Un id inventato — che
+    // è il modo tipico in cui un modello «giustifica» una cosa che ha dedotto —
+    // fa buttare la riga senza discutere.
+    if (!idConversazioni.has(conversazioneId) && !idDomande.has(domandaId)) { scartate++; continue }
     if (negozioId && !idNegozi.has(negozioId)) { scartate++; continue }
     if (tipo === 'correzione' && !idVoci.has(voceId)) { scartate++; continue }
     const chiave = `${termine.toLowerCase()}|${negozioId}`
     if (giaAperte.has(chiave)) { scartate++; continue }
     giaAperte.add(chiave)
-    buone.push({ ...p, tipo, termine, definizione, conversazioneId, negozioId, voceId })
+    buone.push({ ...p, tipo, termine, definizione, conversazioneId, domandaId, negozioId, voceId })
     if (buone.length >= MAX_PROPOSTE) break
   }
 
@@ -196,7 +222,8 @@ export async function giroGlossario(ore = 24): Promise<EsitoGiro> {
         categoria: p.categoria === 'tecnico' ? 'tecnico' : 'cliente',
         negozioId: p.negozioId ?? '',
         perche: (p.perche ?? '').trim(),
-        conversazioneId: p.conversazioneId!,
+        conversazioneId: idConversazioni.has(p.conversazioneId ?? '') ? p.conversazioneId! : '',
+        domandaId: idDomande.has(p.domandaId ?? '') ? p.domandaId! : '',
       })),
     })
   }

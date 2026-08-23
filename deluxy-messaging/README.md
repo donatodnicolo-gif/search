@@ -31,6 +31,38 @@ Il collegamento numero → brand si dichiara in **Negozi**, nel campo *Phone Num
 (app Meta → WhatsApp → Configurazione API). Senza, il messaggio arriva comunque e in
 Inbox si vede il numero grezzo invece del nome del marchio.
 
+## Chiedere aiuto senza uscire da dove sei
+
+Sul bordo destro di **ogni** pagina c'è la linguetta **Aiuto**. Si apre un pannello
+laterale e si scrive la domanda: ci si blocca mentre si sta facendo una cosa, non prima —
+se per chiedere bisogna uscire da dove si è, si perde il contesto e con quello la voglia.
+
+⚠️ **Il contesto lo allega il codice, non tu.** Insieme alla domanda parte **la pagina da
+cui l'hai fatta**, e il numero d'ordine se l'indirizzo lo dice. «Che faccio?» non si può
+rispondere, «che faccio con l'ordine #2783» sì. Il pannello lo scrive a chiare lettere:
+allegare in silenzio qualcosa di chi scrive è un modo per farlo scoprire male.
+
+**Chi risponde**: gli amministratori. Loro nel pannello vedono le domande di tutti e
+rispondono lì; gli altri vedono le proprie con le risposte.
+
+**Il pallino sulla linguetta** dice due cose diverse: a un amministratore quante domande
+aspettano lui, a chi ha chiesto che **gli hanno risposto** — e resta finché non preme «L'ho
+letta». ⚠️ Senza, una risposta arrivata mentre eri su un'altra pagina non ti raggiunge mai,
+e tu resti bloccato mentre chi ha risposto ti dà per risolto. ⚠️ Se un amministratore
+corregge una risposta già letta, il pallino torna: se no resteresti con la versione vecchia.
+
+### Perché restano scritte
+
+Le domande **non si cancellano dopo la risposta**, ed è il motivo per cui la sezione
+esiste. Rilette tutte insieme dicono **che cosa non è chiaro** — cioè cosa manca nel
+glossario, nelle risposte pronte o nelle istruzioni dell'AI. Una domanda risposta e buttata
+è una lezione persa.
+
+Infatti il **giro notturno del glossario** le legge insieme alle chat, e le tratta come la
+prova più forte: ⚠️ se una persona che lavora qui ha dovuto chiedere, quel fatto nel
+glossario non c'era. Le proposte che ne nascono citano la domanda, esattamente come le
+altre citano la conversazione.
+
 ## Il glossario
 
 `/glossario`, nel gruppo **Messaggi** — prima delle Risposte pronte, perché è quello che

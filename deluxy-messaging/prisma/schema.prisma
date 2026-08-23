@@ -1316,9 +1316,17 @@ model PropostaGlossario {
   categoria   String   @default("cliente")
   /** Vuota = vale per tutti i marchi (come in `VoceGlossario`). */
   negozioId   String   @default("")
-  /** Che cosa ha visto nelle chat: è la prova, e si legge prima di accettare. */
+  /** Che cosa ha visto: è la prova, e si legge prima di accettare. */
   perche      String   @default("") @db.Text
   conversazioneId String @default("")
+  /**
+   * La domanda all'amministratore da cui nasce, quando viene da lì.
+   *
+   * ⚠️ Una proposta deve avere UNA delle due prove — una conversazione o una
+   * domanda — o non è una proposta, è un'opinione. Le domande che si ripetono
+   * sono esattamente le voci che al glossario mancano.
+   */
+  domandaId   String   @default("")
   /** `aperta` | `accettata` | `scartata`. */
   stato       String   @default("aperta")
   decisaDaNome String  @default("")
@@ -1326,4 +1334,49 @@ model PropostaGlossario {
   creatoIl    DateTime @default(now())
 
   @@index([stato, creatoIl])
+}
+
+// UNA DOMANDA ALL'AMMINISTRATORE, fatta dal punto in cui ci si è bloccati.
+//
+// ⚠️⚠️ **Il contesto è metà della domanda.** «Che faccio?» non si può rispondere;
+// «che faccio con l'ordine #2783» sì. Per questo la pagina da cui è partita e il
+// numero d'ordine si registrano **da soli**: chiederli a chi scrive vuol dire
+// che una domanda su tre arriva senza, e chi risponde deve rincorrere.
+//
+// ⚠️ Restano scritte anche dopo la risposta, ed è il motivo per cui la tabella
+// esiste: rilette tutte insieme dicono **che cosa non è chiaro** — cioè cosa
+// manca nel glossario, negli script o nelle istruzioni dell'AI. Una domanda
+// risposta e buttata è una lezione persa.
+model DomandaAiuto {
+  id       String @id @default(cuid())
+  testo    String @db.Text
+
+  /** Dove si trovava chi ha chiesto: `/ordini`, `/inbox`… Registrata da sola. */
+  pagina          String @default("")
+  /** L'ordine di cui si parla, se ce n'è uno. Preso dall'indirizzo quando c'è. */
+  ordineNumero    String @default("")
+  /** La conversazione da cui è partita, quando parte dall'inbox. */
+  conversazioneId String @default("")
+
+  utenteId   String @default("")
+  utenteNome String @default("")
+
+  /** `aperta` | `risposta`. */
+  stato          String @default("aperta")
+  risposta       String @default("") @db.Text
+  rispostaDaNome String @default("")
+  rispostaIl     DateTime?
+  /**
+   * Quando chi ha chiesto ha LETTO la risposta.
+   *
+   * ⚠️ Serve al pallino sulla linguetta: senza, una risposta arrivata mentre
+   * l'operatore era su un'altra pagina non lo raggiunge mai — e lui continua a
+   * essere bloccato mentre l'amministratore lo dà per risolto.
+   */
+  lettaIl DateTime?
+
+  creatoIl DateTime @default(now())
+
+  @@index([stato, creatoIl])
+  @@index([utenteId, creatoIl])
 }

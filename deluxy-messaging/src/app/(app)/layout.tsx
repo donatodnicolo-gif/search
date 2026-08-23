@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { utenteCorrente } from '@/lib/sessione'
 import { Sidebar } from '@/components/Sidebar'
 import { ToggleSidebar, VeloMenu } from '@/components/ToggleSidebar'
+import { AiutoLaterale } from '@/components/AiutoLaterale'
 import { esci } from '../login/actions'
 
 export const dynamic = 'force-dynamic'
@@ -36,6 +37,10 @@ export default async function LayoutApp({ children }: { children: React.ReactNod
         <Sidebar amministratore={utente.ruolo === 'admin'} />
         <main className="main">{children}</main>
       </div>
+      {/* ⚠️ Fuori dal <div class="layout">: la linguetta è fissa sul bordo
+          della finestra, e dentro un contenitore che scorre seguirebbe la
+          pagina invece di restare dov'è. */}
+      <AiutoLaterale />
     </>
   )
 }
