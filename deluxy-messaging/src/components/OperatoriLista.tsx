@@ -26,6 +26,7 @@ type Riga = {
   messaggiInviati: number
   linkPagamento: number
   ordiniCreati: number
+  giorniLavorati: number
 }
 
 type Esito = {
@@ -35,7 +36,10 @@ type Esito = {
   daQuando: { chiave: string; il: string | null }[]
 }
 
-type ChiaveMisura = Exclude<keyof Riga, 'utenteId' | 'nome' | 'ruolo' | 'uscito'>
+type ChiaveMisura = Exclude<
+  keyof Riga,
+  'utenteId' | 'nome' | 'ruolo' | 'uscito' | 'giorniLavorati'
+>
 
 const COLONNE: { chiave: ChiaveMisura; nome: string; spiega: string }[] = [
   {
@@ -169,6 +173,15 @@ function iso(d: Date): string {
 
 export function OperatoriLista({ amministratore }: { amministratore: boolean }) {
   const [periodo, setPeriodo] = useState<ChiavePeriodo>('g7')
+  /**
+   * Totali oppure media per giornata lavorata.
+   *
+   * ⚠️ «Al giorno» rende confrontabili persone che lavorano un numero diverso
+   * di giorni: senza, chi c'è due giorni su sette risulta sempre l'ultimo. Ma
+   * il totale resta il modo predefinito, perché è il numero che non ha bisogno
+   * di essere spiegato.
+   */
+  const [alGiorno, setAlGiorno] = useState(false)
   const [dal, setDal] = useState(iso(new Date(Date.now() - 6 * 86400000)))
   const [al, setAl] = useState(iso(new Date()))
   const [esito, setEsito] = useState<Esito | null>(null)
@@ -187,6 +200,9 @@ export function OperatoriLista({ amministratore }: { amministratore: boolean }) 
     const p = new URLSearchParams({
       da: finestra.da.toISOString(),
       a: finestra.a.toISOString(),
+      // ⚠️ Il fuso serve al server per sapere dove comincia un giorno: senza,
+      // i giorni lavorati si conterebbero a UTC.
+      fuso: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Rome',
     })
     try {
       const res = await fetch('/api/operatori?' + p.toString())
@@ -233,6 +249,30 @@ export function OperatoriLista({ amministratore }: { amministratore: boolean }) 
     (esito?.righe ?? []).reduce((s, r) => s + (r[c.chiave] as number), 0)
   )
   const tuttoVuoto = totali.every((t) => t === 0)
+  // ⚠️ Per la riga «Tutti» il divisore è la somma delle giornate di tutti, non
+  // il numero di giorni del periodo: se tre persone lavorano lo stesso giorno,
+  // quel giorno vale tre giornate di lavoro.
+  const giornateTotali = (esito?.righe ?? []).reduce((s, r) => s + r.giorniLavorati, 0)
+
+  /**
+   * Il numero da mettere in cella.
+   *
+   * ⚠️ **Zero giornate non fa zero: fa «—».** Dividere per zero darebbe
+   * `Infinity` o `NaN` a schermo, e un numero impossibile in una tabella di
+   * prestazioni è peggio di una cella vuota.
+   * ⚠️ Una cifra dopo la virgola e non due: «2,3 ordini al giorno» è una
+   * media, e la seconda cifra darebbe una precisione che il dato non ha.
+   */
+  function cella(valore: number, giornate: number) {
+    if (!alGiorno) {
+      return valore === 0 ? <span className="cella-muta">—</span> : valore.toLocaleString('it-IT')
+    }
+    if (!giornate || valore === 0) return <span className="cella-muta">—</span>
+    return (valore / giornate).toLocaleString('it-IT', {
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 1,
+    })
+  }
 
   return (
     <main>
@@ -257,6 +297,25 @@ export function OperatoriLista({ amministratore }: { amministratore: boolean }) 
             {p.nome}
           </button>
         ))}
+        {/* ⚠️ L'interruttore sta ACCANTO ai periodi e non altrove: «7 giorni» e
+            «al giorno» si leggono insieme, e separarli farebbe confondere il
+            periodo con il divisore. */}
+        <span className="etichetta-ordina" style={{ marginLeft: 12 }}>
+          Come
+        </span>
+        <button
+          className={!alGiorno ? 'bottone mini' : 'bottone secondario mini'}
+          onClick={() => setAlGiorno(false)}
+        >
+          Totali
+        </button>
+        <button
+          className={alGiorno ? 'bottone mini' : 'bottone secondario mini'}
+          onClick={() => setAlGiorno(true)}
+          title="Diviso i giorni in cui quella persona ha fatto almeno una cosa"
+        >
+          Al giorno
+        </button>
         {periodo === 'personalizzato' ? (
           <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
             <input
@@ -301,6 +360,13 @@ export function OperatoriLista({ amministratore }: { amministratore: boolean }) 
           <thead>
             <tr>
               <th>Persona</th>
+              {/* ⚠️⚠️ Il DIVISORE si vede sempre, anche coi totali: una media
+                  senza il suo denominatore davanti non si può controllare, e
+                  un numero che non si può controllare in una tabella di
+                  prestazioni non andrebbe mostrato affatto. */}
+              <th className="cella-num" title="I giorni in cui quella persona ha fatto almeno una cosa, nel periodo. Non i giorni di calendario: chi c'è stato due giorni su sette non deve risultare lento per i cinque in cui non c'era.">
+                Giorni
+              </th>
               {COLONNE.map((c) => (
                 <th key={c.chiave} className="cella-num" title={c.spiega}>
                   {c.nome}
@@ -321,22 +387,29 @@ export function OperatoriLista({ amministratore }: { amministratore: boolean }) 
                         : 'operatore'}
                   </div>
                 </td>
-                {COLONNE.map((c) => {
-                  const v = r[c.chiave] as number
-                  return (
-                    <td key={c.chiave} className="cella-num">
-                      {v === 0 ? <span className="cella-muta">—</span> : v.toLocaleString('it-IT')}
-                    </td>
-                  )
-                })}
+                <td className="cella-num">
+                  {r.giorniLavorati === 0 ? (
+                    <span className="cella-muta">—</span>
+                  ) : (
+                    r.giorniLavorati
+                  )}
+                </td>
+                {COLONNE.map((c) => (
+                  <td key={c.chiave} className="cella-num">
+                    {cella(r[c.chiave] as number, r.giorniLavorati)}
+                  </td>
+                ))}
               </tr>
             ))}
             {esito && esito.righe.length > 1 ? (
               <tr>
                 <td className="cella-nome">Tutti</td>
+                <td className="cella-num cella-nome">
+                  {giornateTotali === 0 ? <span className="cella-muta">—</span> : giornateTotali}
+                </td>
                 {totali.map((t, i) => (
                   <td key={COLONNE[i].chiave} className="cella-num cella-nome">
-                    {t === 0 ? <span className="cella-muta">—</span> : t.toLocaleString('it-IT')}
+                    {cella(t, giornateTotali)}
                   </td>
                 ))}
               </tr>

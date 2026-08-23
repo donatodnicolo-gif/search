@@ -28,6 +28,19 @@ export type RigaOperatore = {
   messaggiInviati: number
   linkPagamento: number
   ordiniCreati: number
+  /**
+   * In quanti GIORNI DIVERSI ha fatto almeno una cosa, dentro il periodo.
+   *
+   * ⚠️⚠️ È il denominatore delle medie, e non è «i giorni del periodo»: chi ha
+   * lavorato due giorni su sette non deve risultare lento per i cinque in cui
+   * non c'era. Si contano i giorni in cui **c'è una traccia**, non quelli di
+   * calendario.
+   * ⚠️ E non sono i giorni dei TURNI: quelli dicono quando una persona
+   * *doveva* esserci, non quando ha fatto qualcosa. Quando la griglia dei turni
+   * sarà piena si potrà confrontare le due cose — e la differenza sarà
+   * un'informazione, non un errore.
+   */
+  giorniLavorati: number
 }
 
 export type EsitoOperatori = {
@@ -86,6 +99,45 @@ export const COLONNE = [
 ] as const
 
 /**
+ * Le date grezze di ogni gesto misurato, con chi l'ha fatto.
+ *
+ * ⚠️ Serve a contare **in quanti giorni diversi** una persona ha lavorato: è il
+ * denominatore delle medie. Si prendono le date e basta — il giorno lo si
+ * calcola dopo, nel fuso di chi guarda.
+ */
+async function giorniDiLavoro(quando: { gte: Date; lt: Date }) {
+  const [presi, chiusi, chat, messaggi, creati] = await Promise.all([
+    db.ordine.findMany({
+      where: { presaDaId: { not: '' }, presaIl: quando },
+      select: { presaDaId: true, presaIl: true },
+    }),
+    db.ordine.findMany({
+      where: { gestioneDaId: { not: '' }, gestione: CHIUSURA, gestioneIl: quando },
+      select: { gestioneDaId: true, gestioneIl: true },
+    }),
+    db.conversazione.findMany({
+      where: { presaDaId: { not: '' }, presaIl: quando },
+      select: { presaDaId: true, presaIl: true },
+    }),
+    db.messaggio.findMany({
+      where: { direzione: 'out', utenteId: { not: '' }, creatoIl: quando },
+      select: { utenteId: true, creatoIl: true },
+    }),
+    db.ordineCreato.findMany({
+      where: { utenteId: { not: '' }, creatoIl: quando },
+      select: { utenteId: true, creatoIl: true },
+    }),
+  ])
+  const out: { utenteId: string; il: Date }[] = []
+  for (const x of presi) if (x.presaIl) out.push({ utenteId: x.presaDaId, il: x.presaIl })
+  for (const x of chiusi) if (x.gestioneIl) out.push({ utenteId: x.gestioneDaId, il: x.gestioneIl })
+  for (const x of chat) if (x.presaIl) out.push({ utenteId: x.presaDaId, il: x.presaIl })
+  for (const x of messaggi) out.push({ utenteId: x.utenteId, il: x.creatoIl })
+  for (const x of creati) out.push({ utenteId: x.utenteId, il: x.creatoIl })
+  return out
+}
+
+/**
  * Somma per operatore. Una query per misura, tutte sullo stesso intervallo.
  *
  * ⚠️ `da` incluso, `a` escluso: sono istanti, non giorni. Il confine dei giorni
@@ -93,10 +145,23 @@ export const COLONNE = [
  * vorrebbe dire calcolarlo sul server, che su Vercel sta a UTC e in estate
  * comincerebbe «oggi» alle due del mattino.
  */
-export async function misuraOperatori(da: Date, a: Date): Promise<EsitoOperatori> {
+export async function misuraOperatori(
+  da: Date,
+  a: Date,
+  /**
+   * Il fuso di chi guarda, per dire dove comincia un giorno.
+   *
+   * ⚠️⚠️ Senza, i giorni si conterebbero a UTC: un messaggio dell'una di notte
+   * italiana finirebbe nel giorno prima, e un turno serale risulterebbe spalmato
+   * su due giornate — cioè la media per giorno verrebbe più bassa del vero.
+   * È la stessa ragione per cui i confini del periodo li calcola il browser.
+   */
+  fuso = 'Europe/Rome'
+): Promise<EsitoOperatori> {
   const quando = { gte: da, lt: a }
 
-  const [utenti, presi, chiusi, chatPrese, messaggi, coppieChat, creati] = await Promise.all([
+  const [utenti, presi, chiusi, chatPrese, messaggi, coppieChat, creati, quandoHaFatto] =
+    await Promise.all([
     db.utente.findMany({ select: { id: true, nome: true, ruolo: true } }),
 
     db.ordine.groupBy({
@@ -138,6 +203,15 @@ export async function misuraOperatori(da: Date, a: Date): Promise<EsitoOperatori
       where: { utenteId: { not: '' }, creatoIl: quando },
       _count: { _all: true },
     }),
+
+    // ── QUANDO ha fatto qualcosa: le date grezze, per contare i giorni ──
+    //
+    // ⚠️ Le date arrivano grezze e si raggruppano in JS: il database
+    // raggrupperebbe per giorno **UTC**, e un messaggio dell'una di notte
+    // italiana finirebbe nel giorno prima. Con quattro gesti su cinque giorni
+    // la differenza è una giornata intera di media.
+    // ⚠️ Sono poche righe (qualche centinaio): non vale una query più furba.
+    giorniDiLavoro(quando),
   ])
 
   // Una riga per persona. Si parte dagli utenti veri e si aggiungono quelli che
@@ -159,6 +233,7 @@ export async function misuraOperatori(da: Date, a: Date): Promise<EsitoOperatori
       messaggiInviati: 0,
       linkPagamento: 0,
       ordiniCreati: 0,
+      giorniLavorati: 0,
     }
     righe.set(id, nuova)
     return nuova
@@ -183,6 +258,32 @@ export async function misuraOperatori(da: Date, a: Date): Promise<EsitoOperatori
     const r = riga(g.utenteId, g.utenteNome)
     r.ordiniCreati += g._count._all
     if (g.pagamento === 'link') r.linkPagamento += g._count._all
+  }
+
+  // ── I GIORNI LAVORATI ──
+  //
+  // ⚠️ Il giorno si calcola nel fuso di chi guarda con `en-CA`, che dà proprio
+  // «AAAA-MM-GG»: è l'unico formato che si può confrontare come stringa senza
+  // rimettere insieme dei pezzi.
+  const giorno = new Intl.DateTimeFormat('en-CA', {
+    timeZone: fuso,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  })
+  const giorniPerPersona = new Map<string, Set<string>>()
+  for (const g of quandoHaFatto) {
+    if (!g.utenteId) continue
+    let s = giorniPerPersona.get(g.utenteId)
+    if (!s) {
+      s = new Set<string>()
+      giorniPerPersona.set(g.utenteId, s)
+    }
+    s.add(giorno.format(g.il))
+  }
+  for (const [id, s] of giorniPerPersona) {
+    const r = righe.get(id)
+    if (r) r.giorniLavorati = s.size
   }
 
   const elenco = [...righe.values()]

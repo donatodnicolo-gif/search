@@ -82,6 +82,25 @@ for (const [k, atteso] of Object.entries(attesi) as [keyof typeof attesi, number
   console.log(`   ${ok ? 'OK  ' : 'NO  '} ${k.padEnd(16)} pagina ${avuto} · tabella ${atteso}`)
 }
 
+// ── I GIORNI LAVORATI, che sono il divisore delle medie ──
+//
+// ⚠️ Un divisore sbagliato non si vede: le medie restano plausibili. Si
+// controlla che i giorni di una persona non siano MAI più dei giorni di
+// calendario del periodo — se succede, il fuso sta spezzando le giornate.
+console.log('\n── I giorni lavorati ──')
+for (const [nome, da, a] of periodi) {
+  const e = await misuraOperatori(da, a)
+  const giorniPeriodo = Math.ceil((a.getTime() - da.getTime()) / 86400000)
+  for (const r of e.righe) {
+    if (r.giorniLavorati === 0) continue
+    const ok = r.giorniLavorati <= giorniPeriodo
+    if (!ok) falliti++
+    console.log(
+      `   ${ok ? 'OK  ' : 'NO  '} ${nome.padEnd(18)} ${r.nome.padEnd(24)} ${r.giorniLavorati} giorni su ${giorniPeriodo} di calendario`
+    )
+  }
+}
+
 console.log(
   falliti === 0 ? '\nI conti tornano.' : `\n${falliti} MISURE NON TORNANO: la pagina mente.`
 )

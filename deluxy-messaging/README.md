@@ -1038,6 +1038,23 @@ Una riga per persona, e sette colonne:
 carico è un clic, rispondere è il lavoro. Chi risponde senza prendere in carico compare
 lo stesso — la seconda colonna lo vede, la prima no.
 
+**Totali o al giorno.** Accanto ai periodi c'è l'interruttore **Totali / Al giorno**: il
+secondo divide ogni numero per i **giorni lavorati** di quella persona. Serve a confrontare
+chi lavora un numero diverso di giorni — senza, chi c'è due giorni su sette risulta sempre
+l'ultimo.
+
+⚠️ **«Giorni lavorati» non sono i giorni del periodo**: sono i giorni in cui quella persona
+ha lasciato **almeno una traccia**. Chi è stato in ferie cinque giorni su sette viene diviso
+per due, non per sette.
+⚠️ **Il divisore è sempre in tabella**, anche guardando i totali: c'è la colonna
+**Giorni**. Una media senza il suo denominatore davanti non si può controllare — e un
+numero che non si può controllare, in una tabella di prestazioni, non andrebbe mostrato
+affatto.
+⚠️ **Non sono i giorni dei Turni.** Quelli dicono quando una persona *doveva* esserci,
+questi quando *ha fatto* qualcosa. Quando la griglia dei turni sarà piena si potranno
+confrontare, e la differenza sarà un'informazione — non un errore.
+⚠️ Zero giornate dà **«—»**, non zero: dividere per zero darebbe un numero impossibile.
+
 **Il periodo** si sceglie in cima: *Oggi · Ieri · 7 giorni · Questo mese · 30 giorni ·
 Trimestre · Anno · Date a scelta*. Mese, trimestre e anno sono di **calendario** (dal
 primo del mese, del trimestre, dell'anno); 7 e 30 giorni sono **mobili**, a ritroso da

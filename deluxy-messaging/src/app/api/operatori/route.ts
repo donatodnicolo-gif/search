@@ -35,5 +35,10 @@ export async function GET(req: NextRequest) {
     )
   }
 
-  return NextResponse.json(await misuraOperatori(da, a))
+  // ⚠️ Il fuso arriva dal browser: è lì che si sa dove comincia un giorno.
+  // Senza, i giorni lavorati si conterebbero a UTC — e il lavoro serale
+  // risulterebbe spalmato su due giornate, cioè la media per giorno verrebbe
+  // più bassa del vero.
+  const fuso = p.get('fuso') || 'Europe/Rome'
+  return NextResponse.json(await misuraOperatori(da, a, fuso))
 }

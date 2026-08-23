@@ -1,6 +1,6 @@
 # Handoff — Deluxy Customer Service
 
-Ultimo aggiornamento: **23/08/2026, ore 23:59** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
+Ultimo aggiornamento: **24/08/2026, ore 00:30** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
 prima, alle 15:10, l'utente ha pubblicato la schermata di consenso Google e il
 conto alla rovescia dei 7 giorni è finito).
 Prima, il 19/08: la **risposta di primo contatto** che parte da sola al primo
@@ -308,6 +308,36 @@ locale, altrimenti nulla si decifra.
   - ⚠️ **Non visto a pixel**: pannello del browser non a schermo. La linguetta è
     `position: fixed` col testo verticale — **da guardare**, soprattutto su
     mobile dove il pannello è a tutta larghezza.
+
+- **OPERATORI: I NUMERI ANCHE AL GIORNO** (chiesto dall'utente: «mostra le KPI
+  diviso il numero di giorni lavorati»). Interruttore **Totali / Al giorno**
+  accanto ai periodi, e colonna **Giorni** sempre visibile.
+  - ⚠️⚠️ **«Giorni lavorati» = i giorni in cui c'è una TRACCIA**, non i giorni
+    di calendario del periodo: chi è stato in ferie cinque giorni su sette
+    verrebbe altrimenti diviso per sette e risulterebbe lento.
+  - ⚠️⚠️ **Il divisore si vede sempre**, anche coi totali. Una media senza il
+    denominatore davanti non si può controllare, e un numero che non si può
+    controllare in una tabella di prestazioni non andrebbe mostrato affatto.
+  - ⚠️⚠️ **Il giorno si calcola nel fuso di chi guarda** (`fuso` dal browser,
+    `Intl.DateTimeFormat('en-CA', { timeZone })`): raggruppando a UTC un
+    messaggio dell'una di notte italiana finirebbe nel giorno prima, e il lavoro
+    serale risulterebbe spalmato su due giornate — cioè **la media verrebbe più
+    bassa del vero**. Le date arrivano grezze e si raggruppano in JS apposta.
+  - ⚠️ Zero giornate dà **«—»**, non zero: dividere per zero darebbe `Infinity`.
+    E una cifra dopo la virgola, non due: è una media, non una misura.
+  - ⚠️ Per la riga «Tutti» il divisore è la **somma delle giornate di tutti**:
+    se tre persone lavorano lo stesso giorno, quel giorno vale tre giornate.
+  - ⚠️ **Non sono i giorni dei TURNI**: quelli dicono quando una persona doveva
+    esserci. Quando la griglia sarà piena si potranno confrontare, e la
+    differenza sarà un'informazione.
+  - ✅ `npx tsx scripts/prova-operatori.mts` ora controlla anche il divisore: i
+    giorni di una persona non superano **mai** i giorni di calendario del
+    periodo (se succedesse, il fuso starebbe spezzando le giornate). Misurato
+    sugli ultimi 30 giorni: **Federica 17, Riccardo 12, Nicolò 10**.
+  - 📊 E si vede subito a cosa serve: sui totali dei 30 giorni Federica domina i
+    messaggi (618 contro 57), ma **al giorno chiude quasi quanto Nicolò**
+    (5,4 ordini al giorno contro 5,4) — perché lui ha lavorato dieci giorni e
+    lei diciassette.
 
 - **GLOSSARIO: LA PASSATA SU TUTTO LO STORICO** (23/08/2026, chiesto
   dall'utente). `giroGlossario` ora prende opzioni (`ore: 0` = tutto,
