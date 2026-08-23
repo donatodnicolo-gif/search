@@ -976,7 +976,8 @@
       "add": "Aggiungi servizio",
       "kmIncludedPartner": "KM inclusi (a livello partner)",
       "extraOutOfCityPartner": "Extra fuori città (€, a livello partner)",
-      "commissionPercent": "Commissione Fee (%)"
+      "commissionPercent": "Commissione Fee (%)",
+      "warehouseHidden": "{{n}} servizio/i di magazzino a listino non sono mostrati: questo partner non ha il magazzino attivo, quindi non sono utilizzabili."
     },
     "categories": {
       "title": "Categorie vendute",

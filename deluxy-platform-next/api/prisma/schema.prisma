@@ -259,6 +259,10 @@ model Partner {
   extraOutOfCityPrice Float?
   // Commissione del partner (Fee%): usata dalla Finanza per Fee value = Fee% x prezzo partner.
   commissionPercent   Float             @default(0)
+  /// Il partner tiene merce da noi. Nel legacy e' `partner.partnerHasWarehouse`:
+  /// se e' spento, i servizi di magazzino a listino NON si mostrano, anche quando
+  /// la riga esiste (3 partner su 267 sono in questo stato, fra cui 142 RESTAURANT).
+  hasWarehouse        Boolean           @default(false)
   // Tipo codice di consegna (quando deliveryCodeRequired): UNIQUE_PER_DELIVERY | UNIQUE_PER_CUSTOMER
   deliveryCodeCheckType String          @default("UNIQUE_PER_DELIVERY")
   // Indirizzo di ritiro multiplo (+ lista indirizzi come JSON per compat. SQLite)

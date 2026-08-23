@@ -976,7 +976,8 @@
       "add": "Add service",
       "kmIncludedPartner": "KM included (partner level)",
       "extraOutOfCityPartner": "Out-of-town extra (€, partner level)",
-      "commissionPercent": "Fee commission (%)"
+      "commissionPercent": "Fee commission (%)",
+      "warehouseHidden": "{{n}} warehouse service(s) on the price list are hidden: this partner has no active warehouse, so they cannot be used."
     },
     "categories": {
       "title": "Sold categories",

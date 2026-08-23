@@ -30,7 +30,11 @@ interface PartnerDetail {
   invoiceEmail?: string;
   provinces?: { province: { id: string; code: string; name: string } }[];
   categories?: { category: { id: string; name: string } }[];
-  services?: { serviceType?: { id: string; name?: string }; price?: number }[];
+  hasWarehouse?: boolean;
+  services?: {
+    serviceType?: { id: string; name?: string; pricingModel?: string };
+    price?: number; pricePerItem?: number | null; extraKmPrice?: number;
+  }[];
   openingHours?: { dayOfWeek: number; openTime?: string | null; closeTime?: string | null; closed?: boolean }[];
 }
 
@@ -267,14 +271,19 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
                   <th class="num">{{ 'deliveryDetail.price' | translate }}</th>
                 </tr></thead>
                 <tbody>
-                  @for (s of p.services; track $index) {
+                  @for (s of serviziVisibili(p); track $index) {
                     <tr>
                       <td>{{ s.serviceType?.name || '—' }}</td>
-                      <td class="num">{{ s.price != null ? s.price + ' €' : '—' }}</td>
+                      <td class="num">{{ prezzoServizio(s) }}</td>
                     </tr>
                   }
                 </tbody>
               </table>
+              @if (serviziNascosti(p); as n) {
+                @if (n > 0) {
+                  <p class="hint">{{ 'partnerForm.services.warehouseHidden' | translate:{ n: n } }}</p>
+                }
+              }
             } @else { <p class="muted">{{ 'partnerForm.services.empty' | translate }}</p> }
           </section>
 
@@ -476,6 +485,39 @@ export class PartnerDetailComponent {
    * quello della sede legale, uguale per tutti i negozi della catena. Si possono
    * spuntare lo stesso, ma non partono mai da soli.
    */
+  /**
+   * Il numero a listino non e' sempre in euro: dipende dal modello di prezzo.
+   *
+   * Per un servizio di VENDITA quei «15» sono 15 **per cento** — e' la Fee che
+   * tratteniamo sul venduto, non il costo della consegna. Scriverci «15 €»
+   * accanto e' un errore che si legge come un prezzo.
+   */
+  prezzoServizio(s: { price?: number; pricePerItem?: number | null; serviceType?: { pricingModel?: string } }): string {
+    if (s.price == null) return '—';
+    switch (s.serviceType?.pricingModel) {
+      case 'VENDITA': return `${s.price} %`;
+      case 'A_ORA': return `${s.price} €/ora`;
+      case 'MAGAZZINO':
+        return s.pricePerItem != null ? `${s.price} € · ${s.pricePerItem} € a pezzo` : `${s.price} €`;
+      default: return `${s.price} €`;
+    }
+  }
+
+  /**
+   * I servizi di magazzino non si mostrano a chi il magazzino non ce l'ha.
+   *
+   * La riga a listino esiste davvero nel database originario — 142 RESTAURANT
+   * ha «Stock Pallet» con `partnerHasWarehouse = 0` — ma l'app originale la
+   * nasconde, ed e' giusto: e' un listino che non si puo' usare.
+   */
+  serviziVisibili(p: PartnerDetail) {
+    return (p.services ?? []).filter((s) => p.hasWarehouse || s.serviceType?.pricingModel !== 'MAGAZZINO');
+  }
+
+  serviziNascosti(p: PartnerDetail): number {
+    return (p.services ?? []).length - this.serviziVisibili(p).length;
+  }
+
   rischioso(campo: string): boolean {
     return campo === 'Insegna / nome' || campo === 'Indirizzo';
   }
