@@ -558,7 +558,9 @@
     },
     "registry": {
       "matchable": "Matchable",
-      "matchableHint": "Exists in the registry with the same VAT or email, but is not linked yet."
+      "matchableHint": "Exists in the registry with the same VAT or email, but is not linked yet.",
+      "showDiffs": "Show the {{n}} differences",
+      "hideDiffs": "Hide differences"
     }
   },
   "valets": {

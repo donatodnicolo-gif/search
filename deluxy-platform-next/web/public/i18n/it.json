@@ -558,7 +558,9 @@
     },
     "registry": {
       "matchable": "Abbinabile",
-      "matchableHint": "Esiste nel registro con la stessa P.IVA o email, ma non è ancora collegato."
+      "matchableHint": "Esiste nel registro con la stessa P.IVA o email, ma non è ancora collegato.",
+      "showDiffs": "Mostra le {{n}} differenze",
+      "hideDiffs": "Nascondi le differenze"
     }
   },
   "valets": {

@@ -37,6 +37,44 @@ import { StatusOption, StatusSelectComponent } from '../core/status-select.compo
     </div>
     @if (importResult()) { <div class="card state-card ok">{{ importResult() }}</div> }
 
+    <!-- Riepilogo del collegamento col registro + elenco delle differenze -->
+    @if (riepilogoRegistro(); as r) {
+      <div class="card riepilogo">
+        <span class="pill pill-ok">{{ r.collegati }} {{ 'partnerAnagrafica.linked' | translate }}</span>
+        <span class="pill pill-warn">{{ r.abbinabili }} {{ 'partners.registry.matchable' | translate }}</span>
+        <span class="pill pill-neutral">{{ r.assenti }} {{ 'partnerAnagrafica.notFound' | translate }}</span>
+        @if (r.conDifferenze) {
+          <button type="button" class="btn btn-secondary" (click)="mostraDifferenze.set(!mostraDifferenze())">
+            {{ (mostraDifferenze() ? 'partners.registry.hideDiffs' : 'partners.registry.showDiffs') | translate:{ n: r.conDifferenze } }}
+          </button>
+        }
+      </div>
+      @if (mostraDifferenze()) {
+        <div class="card table-wrap">
+          <table>
+            <thead><tr>
+              <th>{{ 'partners.col.insegna' | translate }}</th>
+              <th>{{ 'partnerAnagrafica.field' | translate }}</th>
+              <th>{{ 'partnerAnagrafica.here' | translate }}</th>
+              <th>{{ 'partnerAnagrafica.registry' | translate }}</th>
+            </tr></thead>
+            <tbody>
+              @for (d of differenzeRegistro(); track d.partnerId) {
+                @for (c of d.campi; track c.campo; let primo = $first) {
+                  <tr class="row-link" (click)="apriPartner(d.partnerId)">
+                    <td class="strong">@if (primo) { {{ d.partner }} <span class="muted small">· {{ d.criterio }}</span> }</td>
+                    <td>{{ c.campo }}</td>
+                    <td>{{ c.piattaforma ?? '—' }}</td>
+                    <td class="muted">{{ c.registro ?? '—' }}</td>
+                  </tr>
+                }
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    }
+
     @if (loading()) {
       <div class="card state-card">{{ 'partners.loading' | translate }}</div>
     } @else if (error()) {
@@ -119,6 +157,7 @@ import { StatusOption, StatusSelectComponent } from '../core/status-select.compo
       .page-caption { margin: 4px 0 0; color: var(--text-secondary); font-size: 14px; }
       .head-actions { display: flex; gap: 10px; align-items: center; }
       .head-actions .btn { text-decoration: none; }
+      .riepilogo { display: flex; align-items: center; gap: 10px; padding: 12px 16px; margin-bottom: 14px; flex-wrap: wrap; }
       .table-wrap { overflow-x: auto; }
       table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
       th, td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--hairline); white-space: nowrap; }
@@ -174,7 +213,11 @@ export class PartnersListComponent {
    * in quel caso la colonna mostra "—" invece di dire il falso.
    */
   readonly statoRegistro = signal<Record<string, string>>({});
-  readonly riepilogoRegistro = signal<{ collegati: number; abbinabili: number; assenti: number } | null>(null);
+  readonly riepilogoRegistro = signal<{ collegati: number; abbinabili: number; assenti: number; conDifferenze: number } | null>(null);
+  readonly differenzeRegistro = signal<{ partnerId: string; partner: string; criterio: string; campi: { campo: string; piattaforma: string | null; registro: string | null }[] }[]>([]);
+  readonly mostraDifferenze = signal(false);
+
+  apriPartner(id: string): void { this.router.navigate(['/partners', id]); }
 
   readonly partners = signal<Partner[]>([]);
   readonly loading = signal(true);
@@ -205,7 +248,8 @@ export class PartnersListComponent {
       next: (r) => {
         if (!r?.registroRaggiungibile) return;
         this.statoRegistro.set(r.perPartner ?? {});
-        this.riepilogoRegistro.set({ collegati: r.collegati, abbinabili: r.abbinabili, assenti: r.assenti });
+        this.riepilogoRegistro.set({ collegati: r.collegati, abbinabili: r.abbinabili, assenti: r.assenti, conDifferenze: r.conDifferenze ?? 0 });
+        this.differenzeRegistro.set(r.differenze ?? []);
       },
       error: () => { /* registro non configurato: la colonna resta vuota */ },
     });

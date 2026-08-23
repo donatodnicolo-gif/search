@@ -153,7 +153,12 @@ export class PartnersService {
    */
   async statoSyncTutti() {
     const [partners, registro] = await Promise.all([
-      this.prisma.partner.findMany({ select: { id: true, insegna: true, email: true, vatNumber: true } }),
+      this.prisma.partner.findMany({
+        select: {
+          id: true, insegna: true, email: true, vatNumber: true,
+          businessName: true, fiscalCode: true, address: true, phone: true, active: true,
+        },
+      }),
       this.anagrafiche.fetchTutti(),
     ]);
     if (!registro.length) {
@@ -170,15 +175,48 @@ export class PartnersService {
     }
 
     const perPartner: Record<string, string> = {};
+    const differenze: {
+      partnerId: string; partner: string; criterio: string;
+      campi: { campo: string; piattaforma: string | null; registro: string | null }[];
+    }[] = [];
+    const norm = (v: unknown) => (v === null || v === undefined || v === '' ? null : String(v).trim());
+
     let collegati = 0, abbinabili = 0, assenti = 0;
     for (const p of partners) {
-      if (perPlatformId.has(p.id)) { perPartner[p.id] = 'collegato'; collegati++; continue; }
-      const perViaPiva = p.vatNumber && perPiva.get(p.vatNumber.trim().toUpperCase());
-      const perViaEmail = p.email && perEmail.get(p.email.trim().toLowerCase());
-      if (perViaPiva || perViaEmail) { perPartner[p.id] = 'abbinabile'; abbinabili++; continue; }
-      perPartner[p.id] = 'assente'; assenti++;
+      let a: any = perPlatformId.get(p.id);
+      let criterio = 'platformId';
+      if (a) { perPartner[p.id] = 'collegato'; collegati++; }
+      else {
+        a = (p.vatNumber && perPiva.get(p.vatNumber.trim().toUpperCase()))
+          || (p.email && perEmail.get(p.email.trim().toLowerCase()));
+        criterio = p.vatNumber && perPiva.get(p.vatNumber.trim().toUpperCase()) ? 'P.IVA' : 'email';
+        if (a) { perPartner[p.id] = 'abbinabile'; abbinabili++; }
+        else { perPartner[p.id] = 'assente'; assenti++; continue; }
+      }
+
+      // Differenze sui campi che il registro espone dalle sue API.
+      const campi = ([
+        ['Insegna / nome', p.insegna, a.nome],
+        ['Ragione sociale', p.businessName, a.ragioneSociale],
+        ['Email', p.email, a.email],
+        ['P.IVA', p.vatNumber, a.pIva],
+        ['Codice fiscale', p.fiscalCode, a.codiceFiscale],
+        ['Indirizzo', p.address, a.indirizzo],
+        ['Telefono', p.phone, a.telefono],
+        ['Attivo', p.active, a.attivo],
+      ] as [string, unknown, unknown][])
+        .map(([campo, qui, la]) => ({ campo, piattaforma: norm(qui), registro: norm(la) }))
+        .filter((d) => d.piattaforma !== d.registro);
+
+      if (campi.length) differenze.push({ partnerId: p.id, partner: p.insegna, criterio, campi });
     }
-    return { registroRaggiungibile: true, totaleRegistro: registro.length, collegati, abbinabili, assenti, perPartner };
+
+    return {
+      registroRaggiungibile: true, totaleRegistro: registro.length,
+      collegati, abbinabili, assenti,
+      conDifferenze: differenze.length,
+      differenze, perPartner,
+    };
   }
 
   /** Manda il partner al registro e riporta l'esito (non fire-and-forget). */
