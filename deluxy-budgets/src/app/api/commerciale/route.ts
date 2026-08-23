@@ -93,3 +93,33 @@ export async function POST(req: Request) {
   // dodici caselle vuote dicono la verità meglio di dodici caselle inventate.
   return NextResponse.json({ ok: true, id: creata.id, slug: creata.slug });
 }
+
+// Il **collegamento a Finance**: quali tipologie di fatturato compongono il
+// consuntivo di ogni linea. Sta a parte dal PUT perché cambia solo **quello che
+// si legge** — il budget scritto non si tocca — e mescolare le due cose vorrebbe
+// dire che salvare un collegamento rischia di riscrivere dodici caselle.
+export async function PATCH(req: Request) {
+  const body = await req.json().catch(() => null);
+  const mappature = Array.isArray(body?.mappature) ? body.mappature : null;
+  if (!mappature) return NextResponse.json({ error: "payload non valido" }, { status: 400 });
+
+  let scritte = 0;
+  for (const m of mappature) {
+    const lineaId = String(m?.lineaId ?? "");
+    if (!lineaId) continue;
+    // Arriva come testo «A, B, C» dal form: qui diventa un JSON array. Vuoto =
+    // `null`, cioè «cerca una tipologia che si chiami come la linea» — che è la
+    // stessa regola di `TipologiaServizio.vociFinance`.
+    const lista = String(m?.vociFinance ?? "")
+      .split(",")
+      .map((x) => x.trim())
+      .filter(Boolean);
+    await prisma.lineaCommerciale.update({
+      where: { id: lineaId },
+      data: { vociFinance: lista.length > 0 ? JSON.stringify(lista) : null },
+    });
+    scritte++;
+  }
+
+  return NextResponse.json({ ok: true, scritte });
+}

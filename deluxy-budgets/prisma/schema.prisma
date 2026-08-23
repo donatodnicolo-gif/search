@@ -162,6 +162,16 @@ model LineaCommerciale {
   slug    String        @unique
   nome    String
   ordine  Int           @default(0)
+  // Nomi delle tipologie di **Finance** che compongono il consuntivo di questa
+  // linea (JSON array). Stessa idea di `TipologiaServizio.vociFinance`: vuoto =
+  // si cerca una tipologia con lo **stesso nome**.
+  //
+  // ⚠️ Serve perche i nomi non combaciano quasi mai: delle 8 linee a budget solo
+  // «Affiliazioni» ha un gemello in Finance. Il collegamento **non si indovina**
+  // («Consegne Corporate» → «Consegne»? «Torte e Mono» → «Food Supplier»?): lo
+  // dice chi sa come si fattura, e finche non lo dice il consuntivo di quella
+  // linea non e zero, e **non misurato**.
+  vociFinance String?
   targets TargetLinea[]
 }
 

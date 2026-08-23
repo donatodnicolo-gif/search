@@ -335,3 +335,9 @@ input:focus, select:focus, textarea:focus {
 .tab-mesi input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 .tab-mesi input[type="number"]::-webkit-outer-spin-button,
 .tab-mesi input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+/* Le stesse due segnalazioni della griglia dei mesi — «toccata, non ancora
+   salvata» e «non è un numero» — valgono qui: erano scritte solo dentro
+   `.mesi-grid`, quindi in questa tabella il bordo restava grigio e la casella
+   in errore non si distingueva da una sana. */
+.tab-mesi input.toccata { border-color: var(--blue); background: rgba(0, 113, 227, 0.08); }
+.tab-mesi input.errata { border-color: var(--red); background: rgba(215, 0, 21, 0.07); }

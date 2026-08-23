@@ -1603,6 +1603,42 @@ modulo che tocca il database.**
 A **ROS 7** la pubblicità vale un settimo del venduto (≈14,3%), a **6,5** un po' di più (≈15,4%). Sta
 Il ripiego per chi non ne ha uno suo resta **6,5×**.
 
+### Le cifre che si scrivono portano il separatore, e i mesi passati il consuntivo (23/08/2026)
+
+⚠️ **Un `<input type="number"` non puo mostrare il separatore delle migliaia**: il browser accetta solo
+la notazione informatica (`13000`) e qualunque punto rende il valore non valido. I campi sono quindi
+`type="text"` con `inputMode`, e formatta il componente.
+
+⭐ **Si formatta quando il campo NON e a fuoco**, non a ogni tasto: riscrivere il testo sotto le dita
+sposta il cursore a fine riga, e correggere la seconda cifra di un numero di sei diventa impossibile.
+Mentre si scrive si vedono le cifre nude, appena si esce compaiono i punti. Lo stato del fuoco si segna
+**anche in `onChange`**, non solo in `onFocus`: se l'evento di fuoco non arriva, senza quello la casella
+continuerebbe a mostrare il valore formattato mentre ci si scrive dentro e il testo sembrerebbe non
+entrare.
+
+⚠️ **`useGrouping: "always"`** non e pignoleria: l'italiano di CLDR **non separa i numeri di quattro
+cifre** (`(2000).toLocaleString("it-IT")` da «2000»), e qui i budget di quattro cifre sono la
+maggioranza — cioe proprio quelli su cui il separatore era stato chiesto. Per la stessa ragione i totali
+usano **lo stesso** formattatore e non `eur()`: due modi di scrivere lo stesso numero nella stessa
+tabella si leggono come due numeri diversi.
+
+⚠️ Quello che non e un numero **non si scrive e si segna in rosso**: azzerare in silenzio una casella per
+un carattere di troppo e la peggiore delle due. In lettura il **punto separa le migliaia e la virgola i
+decimali** — «1.500» sono millecinquecento — e la virgola serve davvero, perche mezzo cliente a database
+esiste (0,5).
+
+**Sotto ogni mese passato c'e il fatturato vero**, dalle tipologie di Finance. La casella resta
+scrivibile: serve a riempire i buchi, e il numero che conta per un mese chiuso e quello sotto.
+
+⭐⭐ **Il collegamento a Finance non si indovina.** Dei nomi a budget **solo «Affiliazioni»** ha un gemello
+identico in Finance: «Consegne Corporate» e «Consegne»? «Torte e Mono» e «Food Supplier»? Lo dice chi sa
+come si fattura. Campo **`LineaCommerciale.vociFinance`** (stessa idea di `TipologiaServizio`), si scrive
+dal riquadro «Da dove arriva il consuntivo» con `PATCH /api/commerciale` — separato dal `PUT` perche
+cambia solo quello che si **legge**, e mescolarli vorrebbe dire che salvare un collegamento rischia di
+riscrivere dodici caselle. Vuoto = si cerca il nome identico; se non c'e il consuntivo resta **«n.d.»**,
+che **non vuol dire zero**. Provato: collegata «Magazzino / Logistica» a «Magazzino» → 7.290 € sui mesi
+chiusi, poi **rimessa vuota** (la mappatura vera la decide l'utente).
+
 ### Il budget delle linee commerciali si scrive (23/08/2026)
 
 «Dobbiamo impostare il budget per categoria per mese anche qui». `TargetLinea` esisteva a database da

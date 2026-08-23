@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
-import { ANNO_CORRENTE } from "@/lib/calc";
+import { ANNO_CORRENTE, leggiVociFinance } from "@/lib/calc";
+import { fetchConsuntivoMensile } from "@/lib/finance";
 import { eur, num } from "@/lib/format";
 import { fetchLineeScout, normalizzaNome, type LineaScout } from "@/lib/scout";
 import { primoMeseAperto } from "@/lib/periodo";
@@ -11,13 +12,22 @@ export const dynamic = "force-dynamic";
 export default async function Commerciale() {
   // Scout è il master dell'elenco linee; i target di budget stanno in Budgets e
   // si agganciano per nome. Le due letture in parallelo.
-  const [scout, lineeBudget] = await Promise.all([
+  const aperto = primoMeseAperto(ANNO_CORRENTE);
+  const [scout, lineeBudget, consuntivo] = await Promise.all([
     fetchLineeScout(),
     prisma.lineaCommerciale.findMany({
       orderBy: { ordine: "asc" },
       include: { targets: { where: { year: ANNO_CORRENTE } } },
     }),
+    // Il **fatturato vero** di Finance, mese per mese: sui mesi già passati il
+    // budget non è più la domanda, la domanda è quanto è stato fatto.
+    fetchConsuntivoMensile({ anno: ANNO_CORRENTE, dal: 1, al: 12 }),
   ]);
+
+  // Il consuntivo di Finance indicizzato per nome normalizzato.
+  const consPerNome = new Map<string, number[]>();
+  if (consuntivo.ok)
+    for (const t of consuntivo.tipologie) consPerNome.set(normalizzaNome(t.tipologia), t.mesi ?? []);
 
   // Indice dei target di budget per nome normalizzato.
   const budgetPerNome = new Map<string, (typeof lineeBudget)[number]>();
@@ -27,6 +37,17 @@ export default async function Commerciale() {
   const granClienti = lineeBudget.reduce((s, l) => s + l.targets.reduce((a, t) => a + t.clienti, 0), 0);
 
   const budgetDi = (nome: string) => budgetPerNome.get(normalizzaNome(nome));
+
+  // Il consuntivo di una linea: la **somma** delle voci di Finance collegate.
+  // Senza collegamento si ripiega sul nome identico — che è la stessa regola
+  // delle tipologie — e se non c'è nemmeno quello si torna `null`.
+  const consuntivoDi = (voci: string[], nome: string): number[] | null => {
+    if (!consuntivo.ok) return null;
+    const nomi = voci.length > 0 ? voci : [nome];
+    const trovate = nomi.map((n) => consPerNome.get(normalizzaNome(n))).filter(Boolean) as number[][];
+    if (trovate.length === 0) return null;
+    return Array.from({ length: 12 }, (_, i) => trovate.reduce((s, m) => s + (m[i] ?? 0), 0));
+  };
 
   // ---- Le linee da compilare, e il loro stato in Scout ----
   //
@@ -55,6 +76,11 @@ export default async function Commerciale() {
         const t = l.targets.find((x) => x.month === i + 1);
         return { month: i + 1, valore: t?.valore ?? 0, clienti: t?.clienti ?? 0 };
       }),
+      vociFinance: leggiVociFinance(l.vociFinance),
+      // Il consuntivo mese per mese, **o `null`**. Un `null` non è uno zero: se
+      // la linea non è collegata a nessuna voce di Finance non sappiamo quanto
+      // ha fatturato, e scrivere «0 €» sarebbe dire che non ha venduto niente.
+      consuntivo: consuntivoDi(leggiVociFinance(l.vociFinance), l.nome),
     };
   });
 
@@ -113,8 +139,10 @@ export default async function Commerciale() {
       <LineeEditor
         year={ANNO_CORRENTE}
         linee={daCompilare}
-        primoMeseAperto={primoMeseAperto(ANNO_CORRENTE)}
+        primoMeseAperto={aperto}
         lineeScoutSenzaBudget={lineeScoutSenzaBudget}
+        vociFinanceNote={consuntivo.ok ? consuntivo.tipologie.map((t) => t.tipologia) : []}
+        consuntivoOk={consuntivo.ok}
       />
 
       {scout.ok && <LineeDaScout linee={scout.linee} budgetDi={budgetDi} />}
