@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { eur, MESI, num } from "@/lib/format";
+import { MESI } from "@/lib/format";
 
 // Il **budget delle linee di vendita, mese per mese**. Due misure sulla stessa
 // griglia — valore in € e nuovi clienti — e si guarda una per volta: dodici
@@ -199,9 +199,17 @@ export function LineeEditor({
     // dallo schermo le modifiche delle altre linee senza che nessuno le abbia
     // scritte da nessuna parte.
     setModifiche((p) => Object.fromEntries(Object.entries(p).filter(([k]) => !ids.has(k.split(":")[0]))));
+    const chiusiIgnorati: number[] = body.mesiChiusiIgnorati ?? [];
     setEsito(
       `${body.scritti} ${body.scritti === 1 ? "mese salvato" : "mesi salvati"}` +
         (body.rifiutati > 0 ? ` · ${body.rifiutati} scartati (valori non validi)` : "") +
+        // Non dovrebbe capitare — le caselle dei mesi chiusi non esistono più —
+        // ma se capita è perché la pagina è vecchia, e allora va detto.
+        (chiusiIgnorati.length > 0
+          ? ` · ${chiusiIgnorati.map((m) => MESI[m - 1]).join(", ")} non ${
+              chiusiIgnorati.length === 1 ? "scritto" : "scritti"
+            }: mesi già chiusi`
+          : "") +
         "."
     );
     router.refresh();
@@ -254,12 +262,12 @@ export function LineeEditor({
             {misura === "valore" ? (
               <>
                 Quanto ci si aspetta di <strong>vendere</strong> su ogni linea, mese per mese. Il totale
-                dell&apos;anno è <strong>{eur(totale)}</strong>.
+                dell&apos;anno è <strong>{mostra(totale)}</strong>.
               </>
             ) : (
               <>
                 Quanti <strong>nuovi clienti</strong> (o attivazioni) porta ogni linea, mese per mese. In
-                tutto <strong>{num(totale)}</strong> sull&apos;anno.
+                tutto <strong>{mostra(totale)}</strong> sull&apos;anno.
               </>
             )}
             {differenza !== 0 && (
@@ -303,7 +311,9 @@ export function LineeEditor({
                 {MESI.map((m, i) => (
                   <th className="num" key={m} title={chiuso(i + 1) ? `${m} è un mese passato.` : undefined}>
                     {m}
-                    {chiuso(i + 1) && <div className="muted" style={{ fontSize: 10, fontWeight: 400 }}>chiuso</div>}
+                    {chiuso(i + 1) && (
+                      <div className="muted" style={{ fontSize: 10, fontWeight: 400 }}>consuntivo</div>
+                    )}
                   </th>
                 ))}
                 <th className="num">Anno</th>
@@ -331,6 +341,42 @@ export function LineeEditor({
                       const month = i + 1;
                       const k = key(l.id, month, misura);
                       const reale = consuntivoDi(l, month);
+                      // ⚠️ **Un mese passato non si scrive** (decisione
+                      // dell'utente, 23/08/2026). E non si mostra nemmeno come
+                      // casella spenta: lì il numero che conta è il consuntivo,
+                      // e una casella disabilitata col budget dentro metterebbe
+                      // in primo piano proprio quello che non serve più. Il
+                      // budget resta scritto **sotto**, piccolo, perché il
+                      // confronto è il motivo per cui si guarda un mese chiuso.
+                      if (chiuso(month)) {
+                        const budget = valore(k);
+                        return (
+                          <td className="num chiusa" key={month}>
+                            <div
+                              style={{ fontWeight: 600 }}
+                              title={
+                                misura !== "valore"
+                                  ? `I nuovi clienti non si consuntivano: Finance conosce il fatturato, non le attivazioni.`
+                                  : reale === null
+                                    ? `${l.nome} non è collegata a nessuna voce di Finance: il consuntivo non è zero, è non misurato.`
+                                    : `Fatturato davvero a ${MESI[i]} (imponibile di Finance).`
+                              }
+                            >
+                              {misura !== "valore" ? "—" : reale === null ? "n.d." : formatta(reale, "valore")}
+                            </div>
+                            {/* Solo il numero: «a budget 13.000» in dodici
+                                colonne allargava la tabella oltre lo schermo, e
+                                la parola la dicono il titolo e la legenda. */}
+                            <div
+                              className="muted"
+                              style={{ fontSize: 10.5, marginTop: 2, whiteSpace: "nowrap" }}
+                              title={budget > 0 ? "Quanto era a budget" : "Nessun budget scritto per questo mese"}
+                            >
+                              {budget > 0 ? formatta(budget, misura) : "—"}
+                            </div>
+                          </td>
+                        );
+                      }
                       return (
                         <td className="num" key={month}>
                           <input
@@ -341,12 +387,6 @@ export function LineeEditor({
                               [toccata(k) ? "toccata" : "", invalida === k ? "errata" : ""]
                                 .filter(Boolean)
                                 .join(" ") || undefined
-                            }
-                            style={chiuso(month) ? { borderStyle: "dashed" } : undefined}
-                            title={
-                              chiuso(month)
-                                ? `${MESI[i]} è già passato: qui il budget si può ancora scrivere — serve a riempire i mesi rimasti vuoti — ma è un periodo già confrontato col consuntivo.`
-                                : undefined
                             }
                             onFocus={() => {
                               setAFuoco(k);
@@ -381,23 +421,6 @@ export function LineeEditor({
                               setModifiche((p) => ({ ...p, [k]: n }));
                             }}
                           />
-                          {/* Sui mesi già passati, sotto la casella, **quanto è
-                              stato fatto davvero**. La casella resta scrivibile —
-                              serve a riempire i buchi — ma il numero che conta
-                              per un mese chiuso è questo. */}
-                          {chiuso(month) && (
-                            <div
-                              className="muted"
-                              style={{ fontSize: 10.5, marginTop: 3, whiteSpace: "nowrap" }}
-                              title={
-                                reale === null
-                                  ? `${l.nome} non è collegata a nessuna voce di Finance: il consuntivo non è zero, è non misurato.`
-                                  : `Fatturato davvero a ${MESI[i]} (imponibile di Finance).`
-                              }
-                            >
-                              {misura !== "valore" ? "—" : reale === null ? "n.d." : formatta(reale, "valore")}
-                            </div>
-                          )}
                         </td>
                       );
                     })}
@@ -430,12 +453,22 @@ export function LineeEditor({
               <tr className="tot">
                 <td>Totale {year}</td>
                 {MESI.map((_, i) => (
-                  <td className="num" key={i}>
-                    {mostra(totMese(i + 1, misura))}
-                    {chiuso(i + 1) && (
-                      <div className="muted" style={{ fontSize: 10.5, marginTop: 3, fontWeight: 400 }}>
-                        {misura !== "valore" ? "—" : formatta(totConsuntivoMese(i + 1), "valore")}
-                      </div>
+                  <td className={`num ${chiuso(i + 1) ? "chiusa" : ""}`} key={i}>
+                    {chiuso(i + 1) ? (
+                      <>
+                        <div>
+                          {misura !== "valore" ? "—" : `${formatta(totConsuntivoMese(i + 1), "valore")} €`}
+                        </div>
+                        <div
+                          className="muted"
+                          style={{ fontSize: 10.5, marginTop: 2, fontWeight: 400 }}
+                          title="Quanto era a budget"
+                        >
+                          {mostra(totMese(i + 1, misura))}
+                        </div>
+                      </>
+                    ) : (
+                      mostra(totMese(i + 1, misura))
                     )}
                   </td>
                 ))}
@@ -445,6 +478,20 @@ export function LineeEditor({
             </tbody>
           </table>
         </div>
+        {/* La legenda del doppio numero. Senza, due cifre incolonnate nella
+            stessa casella si leggono come un totale e un dettaglio, che è
+            un'altra cosa. */}
+        <p className="page-caption" style={{ margin: "10px 14px 4px" }}>
+          {primoMeseAperto > 1 && (
+            <>
+              I mesi da <strong>{MESI[0]}</strong> a <strong>{MESI[primoMeseAperto - 2]}</strong> sono{" "}
+              <strong>chiusi e non si scrivono</strong>: portano il{" "}
+              <strong>fatturato vero</strong> e sotto, in piccolo, quanto era a budget. Quello che conta
+              per un mese passato è cosa è successo, non cosa si era previsto.{" "}
+            </>
+          )}
+          Le caselle bianche sono i mesi che restano: quelle si scrivono.
+        </p>
       </div>
 
       <div className="form-footer">

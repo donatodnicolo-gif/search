@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { meseChiuso } from "@/lib/periodo";
 
 // Il **budget delle linee di vendita, mese per mese**: valore in € e nuovi
 // clienti. Fino al 23/08/2026 `TargetLinea` esisteva a database ma non si
@@ -7,14 +8,17 @@ import { prisma } from "@/lib/db";
 // li mostrava soltanto (per giunta il dettaglio mensile compariva solo quando
 // Scout non rispondeva, cioè proprio quando la pagina era in avaria).
 
-// ⚠️ Qui **i mesi chiusi si scrivono**, al contrario di `/api/spese`. Non è una
-// dimenticanza: là la percentuale governa una spesa che nel mese passato è già
-// uscita, e riscriverla dopo non sposta un euro. Qui invece la casella è un
-// **obiettivo commerciale**, e il caso vero che si è presentato è l'opposto —
-// un budget mai scritto (sei mesi vuoti su Deluxy.it, trovati il 23/08/2026)
-// che va riempito adesso. Bloccare i mesi chiusi impedirebbe proprio la
-// correzione che serve. La pagina segna quali mesi sono chiusi, così chi
-// riscrive sa che sta toccando un periodo già confrontato col consuntivo.
+// ⚠️ **I mesi già passati si rifiutano**, come in `/api/spese` (decisione
+// dell'utente, 23/08/2026: «i dati dei mesi passati non possono essere
+// inseriti»). Per un breve tempo qui erano scrivibili — serviva a riempire i
+// mesi rimasti vuoti — ma da quando sotto ogni mese chiuso c'è il **consuntivo**
+// quella ragione è caduta: il numero che conta per un mese passato è quello che
+// è successo, non quello che si era previsto.
+//
+// E si rifiutano **qui**, non solo togliendo le caselle dal form: un campo che
+// non c'è è una cortesia verso chi guarda la pagina, non un blocco. La stessa
+// PUT partita da una scheda rimasta aperta da ieri, o rigiocata a mano,
+// riscriverebbe un mese già chiuso.
 
 export async function PUT(req: Request) {
   const body = await req.json().catch(() => null);
@@ -29,6 +33,7 @@ export async function PUT(req: Request) {
   // dove un `Math.min` scriveva 100 mentre a schermo restava 150).
   let rifiutati = 0;
   let scritti = 0;
+  const mesiChiusiIgnorati: number[] = [];
 
   for (const e of entries) {
     const lineaId = String(e?.lineaId ?? "");
@@ -37,6 +42,10 @@ export async function PUT(req: Request) {
     const clienti = Number(e?.clienti);
     if (!lineaId || !Number.isInteger(month) || month < 1 || month > 12) {
       rifiutati++;
+      continue;
+    }
+    if (meseChiuso(year, month)) {
+      if (!mesiChiusiIgnorati.includes(month)) mesiChiusiIgnorati.push(month);
       continue;
     }
     // Un budget negativo non esiste: sarebbe una vendita al contrario.
@@ -52,7 +61,14 @@ export async function PUT(req: Request) {
     scritti++;
   }
 
-  return NextResponse.json({ ok: true, scritti, rifiutati });
+  // Si dichiara quello che **non** è stato scritto: un `ok` secco su una
+  // richiesta scartata a metà è il modo più veloce per credere di aver salvato.
+  return NextResponse.json({
+    ok: true,
+    scritti,
+    rifiutati,
+    mesiChiusiIgnorati: mesiChiusiIgnorati.sort((a, b) => a - b),
+  });
 }
 
 // Una linea di **Scout** che a budget non esiste ancora. Scout è il master

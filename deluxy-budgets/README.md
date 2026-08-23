@@ -1655,12 +1655,20 @@ campi, e mandarne uno solo **azzererebbe l'altro** — una perdita che non fa ru
 cancellata è proprio quella che in quel momento non si sta guardando. Provato: salvato un valore in €, i
 clienti di quel mese sono rimasti.
 
-⚠️ **Qui i mesi chiusi SI scrivono**, al contrario di `/api/spese`. Non è una dimenticanza: là la
-percentuale governa una spesa che nel mese passato è già uscita, e riscriverla dopo non sposta un euro.
-Qui la casella è un **obiettivo commerciale**, e il caso vero è l'opposto — un budget **mai scritto** (i
-sei mesi vuoti trovati lo stesso giorno) che va riempito adesso. Bloccarli impedirebbe proprio la
-correzione che serve. Le colonne chiuse portano l'etichetta «chiuso», il bordo tratteggiato e un titolo
-che dice che è un periodo già confrontato col consuntivo.
+⚠️⚠️ **I mesi passati NON si scrivono** (correzione dell'utente, 23/08/2026: «i dati dei mesi passati non
+possono essere inseriti»). Per qualche ora qui erano scrivibili, per riempire i mesi rimasti vuoti — ma
+⭐ **da quando sotto ogni mese chiuso c'è il consuntivo quella ragione è caduta**: il numero che conta
+per un mese passato è cosa è successo, non cosa si era previsto.
+
+E non si mostrano nemmeno come **caselle spente**: lì il numero grande è il **consuntivo**, il budget
+resta sotto in piccolo (il confronto è il motivo per cui si guarda un mese chiuso). Togliere gli input
+ha anche **risolto il CSS**: sette colonne in meno da riempire di caselle e la tabella rientra nello
+schermo (1.205px, esatti quanti ne ha il contenitore) invece di sbordare di 89.
+
+⚠️ Il rifiuto sta anche **nell'API** (`meseChiuso`), non solo nel form: un campo che non c'è è una
+cortesia verso chi guarda la pagina, non un blocco — la stessa `PUT` da una scheda rimasta aperta da ieri
+riscriverebbe un mese chiuso. La risposta dichiara `mesiChiusiIgnorati`, perché un `ok` secco su una
+richiesta scartata a metà è il modo più veloce per credere di aver salvato.
 
 ⚠️ **Tutti e dodici i mesi, sempre.** A database una linea ha una riga solo per i mesi già valorizzati:
 senza riempire i buchi lato server, un mese mai scritto non avrebbe la sua casella — ed è esattamente il

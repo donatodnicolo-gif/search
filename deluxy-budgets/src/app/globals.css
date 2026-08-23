@@ -341,3 +341,8 @@ input:focus, select:focus, textarea:focus {
    in errore non si distingueva da una sana. */
 .tab-mesi input.toccata { border-color: var(--blue); background: rgba(0, 113, 227, 0.08); }
 .tab-mesi input.errata { border-color: var(--red); background: rgba(215, 0, 21, 0.07); }
+/* Un mese gia chiuso: niente casella, il numero e il consuntivo. Lo sfondo
+   tenue lo separa dai mesi che si scrivono senza gridarlo, e la colonna si
+   stringe perche non deve piu contenere un input. */
+.tab-mesi td.chiusa { background: var(--fill); }
+.tab-mesi tr:hover td.chiusa { background: var(--fill); }
