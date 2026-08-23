@@ -1,6 +1,6 @@
 # Handoff — Deluxy Customer Service
 
-Ultimo aggiornamento: **24/08/2026, ore 07:00** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
+Ultimo aggiornamento: **24/08/2026, ore 08:30** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
 prima, alle 15:10, l'utente ha pubblicato la schermata di consenso Google e il
 conto alla rovescia dei 7 giorni è finito).
 Prima, il 19/08: la **risposta di primo contatto** che parte da sola al primo
@@ -340,6 +340,44 @@ locale, altrimenti nulla si decifra.
     chat finisce nel cestino.
   - ⚠️ **Il numero delle note da fare sta sul bottone**: in un pannello chiuso
     una nota lasciata a un collega non esisterebbe.
+
+- **A CHI ABBIAMO DATO L'ORDINE** (24/08/2026, chiesto: «dobbiamo fare in modo
+  di registrare a quale fornitore viene dato un ordine»). Campi
+  `fornitore*` su `Ordine`, riquadro in cima alla scheda, badge in bacheca.
+  - ⚠️⚠️ **Non esisteva da nessuna parte**: l'app sapeva chi si poteva chiamare
+    (Anagrafiche) e che era stato pagato un nome su un IBAN, ma non «questo
+    ordine l'ha fatto Tizio». Il fatto viveva nella testa di chi aveva
+    telefonato.
+  - Si registra dalla riga del fornitore in zona (**«Lo fa lui»**, modulo già
+    pieno) o **a mano** — ⚠️ il fuori-registro è obbligatorio da accettare, se
+    no metà degli ordini non si registra e un archivio bucato non lo guarda
+    nessuno; quando succede la scheda scrive «fuori registro».
+  - ⚠️ Il costo è quello **concordato**: la quota di Orders (60%) si MOSTRA
+    accanto al campo ma non lo precompila — precompilare con una stima vuol
+    dire archiviare stime credendo di archiviare accordi. Vuoto = «da
+    concordare» ≠ zero. La virgola italiana si accetta («130,50»).
+  - ⚠️ **NON cambia `gestione`**: registrare il fornitore vuol dire «la
+    ricerca è finita», non «è in consegna».
+  - ⚠️⚠️ **Lo scarico da Orders non lo cancella** (l'upsert scrive solo
+    `comuni`). C'è un controllo che rifà esattamente quell'upsert: se un
+    giorno qualcuno ci aggiunge i nostri campi, fallisce **prima** che il dato
+    sparisca dagli ordini veri.
+  - ⚠️ **«fornitore?» solo sugli ordini in pagamento o in attesa**: contati,
+    828 senza fornitore di cui **822 già chiusi**. Segnalarli avrebbe acceso
+    un avviso su quasi ogni riga; ne restano **6**, che sono lavoro vero.
+  - ⚠️⚠️ **«Paga» ora paga il FORNITORE**: la pagina Pagamenti si apre col suo
+    nome e col **costo concordato**, non con l'importo del venduto — mandare
+    quello vorrebbe dire pagargli il prezzo di vendita. Senza fornitore
+    registrato, la pagina lo dice invece di lasciar credere che l'importo sia
+    giusto.
+  - ✅ `npx tsx scripts/prova-fornitore-ordine.mts`: 21 controlli su 21 (la
+    virgola, i costi assurdi, quando segnalare, scrittura/rilettura, la sync
+    che non cancella, la rimozione, l'ordine rimesso com'era). E guardato con
+    un'anteprima temporanea sui 4 casi: ordine nuovo (neutro), in pagamento
+    (avviso rosso), chiuso (neutro — i 822), registrato (nome, «130,50 €»,
+    «fuori registro»); il costo «centotrenta» viene fermato prima di partire.
+  - 🔜 **Non ancora fatto**: una pagina «quanto lavoro diamo a ciascun
+    fornitore». L'indice `@@index([fornitoreNome])` c'è già apposta.
 
 - 🔴→🟢 **IL RIQUADRO DEI MESSAGGI NASCONDEVA LE CONVERSAZIONI** (24/08/2026,
   segnalato: «non vedo la comunicazione col cliente»). **25 ordini su 45** con

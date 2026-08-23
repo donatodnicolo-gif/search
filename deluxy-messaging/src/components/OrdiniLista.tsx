@@ -19,6 +19,7 @@ import {
 } from '@/lib/cliente-valore'
 import { linkOrdineShopify } from '@/lib/link-shopify'
 import { segnaliOrdine } from '@/lib/segnali-ordine'
+import { fornitoreAtteso } from '@/lib/fornitore-ordine'
 import { DettaglioOrdine } from './DettaglioOrdine'
 import { ComponiMail, type BozzaMail } from './ComponiMail'
 
@@ -81,6 +82,14 @@ type OrdineDto = {
    */
   presaDaId: string
   presaDaNome: string
+  /**
+   * A chi abbiamo dato l'ordine da preparare. Vuoto = non ancora registrato.
+   * ⚠️ Solo il nome arriva in lista: il resto (telefono, costo, nota) si legge
+   * nella scheda. Serve a vedere a colpo d'occhio quali ordini hanno un
+   * fornitore e quali no, che è la domanda che si fa scorrendo la bacheca.
+   */
+  fornitoreNome: string
+  fornitoreCosto: number | null
   /** Rischio frode secondo Shopify: NONE | LOW | MEDIUM | HIGH, e cosa consiglia. */
   rischioLivello: string
   rischioRaccomandazione: string
@@ -404,6 +413,14 @@ function linkPagamento(o: OrdineDto): string {
     cliente: o.clienteNome,
     importo: String(o.totale || ''),
   })
+  // ⚠️ CHI VA PAGATO È IL FORNITORE, non il cliente. Finora la pagina si apriva
+  // con l'importo del venduto e l'intestatario vuoto: si ricopiava a mano il
+  // nome di chi ha preparato l'ordine — quando ci si ricordava chi fosse — e si
+  // rischiava di chiedere il pagamento della cifra sbagliata.
+  if (o.fornitoreNome) {
+    p.set('fornitore', o.fornitoreNome)
+    if (typeof o.fornitoreCosto === 'number') p.set('costo', String(o.fornitoreCosto))
+  }
   return `/pagamenti?${p.toString()}`
 }
 
@@ -1582,6 +1599,34 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
                           {/* Il cliente ci ha scritto: in oro se aspetta ancora
                               una risposta. */}
                           <SegnoMessaggi messaggi={o.messaggi} />
+                          {/* CHI LO PREPARA. ⚠️ Sta in lista e non solo nella
+                              scheda: «a chi l'abbiamo dato?» è una domanda che
+                              si fa scorrendo la bacheca, e un dato che vive
+                              dentro un pannello da aprire, nella pratica, non
+                              si guarda. */}
+                          {o.fornitoreNome ? (
+                            <span
+                              className="badge badge-fornitore"
+                              title={`Lo prepara ${o.fornitoreNome}${
+                                typeof o.fornitoreCosto === 'number'
+                                  ? ` · concordato ${o.fornitoreCosto.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' })}`
+                                  : ' · costo da concordare'
+                              }`}
+                            >
+                              {o.fornitoreNome}
+                            </span>
+                          ) : fornitoreAtteso(o.gestione) ? (
+                            /* ⚠️ Solo sugli ordini GIÀ AVANTI: su uno appena
+                               arrivato il fornitore non c'è ancora e non deve
+                               esserci — un avviso su ogni riga sarebbe rumore,
+                               e il rumore si smette di leggere. */
+                            <span
+                              className="badge badge-senza-fornitore"
+                              title="Quest'ordine è già in pagamento o in attesa di consegna, ma non risulta dato a nessun fornitore: aprilo e registralo"
+                            >
+                              fornitore?
+                            </span>
+                          ) : null}
                           <ProfiloCliente numeroOrdine={o.clienteNumeroOrdine} />
                           <TipoCliente tipo={o.clienteTipo} da={o.clienteTipoDa} />
                           <span

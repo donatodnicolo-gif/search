@@ -226,6 +226,65 @@ guardava solo i messaggi: venivano buttate in silenzio. Adesso si leggono.
 
 Si ricontrolla con `npx tsx scripts/prova-reazioni.mts` (crea righe finte e le cancella).
 
+## A chi abbiamo dato l'ordine da preparare
+
+Nella scheda di un ordine, in cima, il riquadro **«Chi prepara quest'ordine»**:
+nome, città, **quanto gli diamo**, telefono, mail, nota. Si registra in due modi:
+
+- dalla lista dei **fornitori in zona**, col bottone **«Lo fa lui»** sulla riga
+  di quello che si è appena chiamato — il modulo si apre già compilato;
+- **a mano**, per chi non è nel registro (trovato su Google, o per passaparola).
+
+⚠️⚠️ **Perché serviva**: l'app sapeva **chi si poteva chiamare** (i fornitori in
+provincia, chiesti ad Anagrafiche) e sapeva **che era stato pagato un nome su un
+IBAN**, ma non «questo ordine l'ha fatto Tizio». Quel fatto viveva nella testa di
+chi aveva telefonato: il giorno dopo, davanti a un reclamo, non c'era modo di
+sapere a chi chiedere — e alla domanda «quanto lavoro diamo a quel fornitore?»
+non si poteva rispondere affatto.
+
+⚠️ **Il costo è quello CONCORDATO**, non la quota indicativa. La quota (il 60%
+del venduto) la calcola Deluxy Orders e resta una stima: si **mostra** accanto al
+campo come riferimento, ma non lo precompila — precompilare con una stima vuol
+dire archiviare stime credendo di archiviare accordi. Vuoto = «da concordare»,
+che è diverso da zero.
+
+⚠️ **Si accetta un fornitore fuori dal registro.** Impedirlo avrebbe significato
+non registrare metà degli ordini — cioè non registrarne nessuno, perché un
+archivio con dei buchi non lo guarda più nessuno. Quando succede, la scheda lo
+dice: **«fuori registro»**.
+
+⚠️ **Registrare il fornitore NON cambia lo stato di lavorazione.** Vuol dire «la
+ricerca è finita», non «l'ordine è in consegna»: spostare lo stato da solo
+direbbe una cosa che non è ancora successa, e chi guarda la bacheca ci
+crederebbe.
+
+⚠️⚠️ **Lo scarico da Orders non lo cancella.** La sync fa un `upsert`
+sull'ordine ogni pochi minuti con i soli campi che arrivano da Orders: se un
+giorno ci si aggiungessero i nostri, il fornitore sparirebbe **senza che nessuno
+tocchi niente**, e sembrerebbe un dato mai inserito. C'è un controllo apposta in
+`scripts/prova-fornitore-ordine.mts` che rifà esattamente quell'upsert.
+
+### In bacheca, e nei pagamenti
+
+Sulla scheda in bacheca compare il **nome di chi lo prepara**: «a chi l'abbiamo
+dato?» è una domanda che si fa scorrendo, e un dato che vive dentro un pannello
+da aprire, nella pratica, non si guarda.
+
+⚠️ Quando manca, la scheda scrive **«fornitore?»** — ma **solo** sugli ordini
+*in pagamento* o *in attesa di consegna*. Contati sul database il 24/08/2026: gli
+ordini senza fornitore erano 828, di cui **822 già chiusi**. Segnalarli avrebbe
+acceso un avviso su quasi ogni riga per una cosa che non si può più fare e che
+non si *poteva* fare, visto che il campo nasce oggi. Restano **6**, che sono
+lavoro vero.
+
+⚠️⚠️ **Il bottone «Paga» ora paga il fornitore.** La pagina Pagamenti si apre con
+il suo nome come intestatario e con **il costo concordato**, non con l'importo
+del venduto: mandare quello vorrebbe dire pagare al fornitore il prezzo di
+vendita. Se sull'ordine non c'è nessun fornitore, la pagina lo dice a chiare
+lettere invece di lasciar credere che l'importo sia giusto.
+
+Prova: `npx tsx scripts/prova-fornitore-ordine.mts`
+
 ## Vedere la comunicazione col cliente da un ordine
 
 Il bollino **✉ 2** sulla scheda è un **link**: porta dritto alla conversazione

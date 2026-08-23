@@ -3325,6 +3325,88 @@ td .azioni-ordine {
   border-color: transparent;
 }
 
+/* ---- Chi prepara un ordine ---- */
+
+/* ⚠️ Il riquadro sta in cima al dettaglio e si vede anche VUOTO: è la domanda
+   («a chi l'abbiamo dato?») più che la risposta. Un modulo che compare solo
+   quando il dato c'è già non lo fa scrivere a nessuno. */
+.riquadro-fornitore {
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-m);
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  background: var(--surface);
+}
+
+.riga-titolo-fornitore {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.fornitore-scelto {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+
+.nome-fornitore {
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.modulo-fornitore {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Due campi per riga sul desktop, uno solo quando non ci stanno: sono coppie
+   che si compilano insieme (città e costo, telefono e mail). */
+.modulo-fornitore .due-campi {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 8px;
+}
+
+.azioni-fornitore {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.riquadro-fornitore .errore-riga {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--red);
+}
+
+/* Il nome di chi prepara, sulla scheda in bacheca: si legge scorrendo. */
+.badge-fornitore {
+  color: var(--text-secondary);
+  background: var(--fill);
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ⚠️ «fornitore?» in ORO e non in rosso: non è un guasto, è una cosa da fare —
+   il rosso in questa app è riservato ai segnali che devono fermare la mano
+   (pagamento non incassato, sospetto di frode). Se sono rossi tutti, non è
+   rosso nessuno. */
+.badge-senza-fornitore {
+  color: var(--gold);
+  border-color: var(--gold);
+  background: transparent;
+  font-weight: 600;
+}
+
 /* ---- Messaggi collegati a un ordine ---- */
 
 /* «✉ 2» sulla scheda dell'ordine: in oro quando qualcuno aspetta ancora. */

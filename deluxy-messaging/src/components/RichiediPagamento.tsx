@@ -63,10 +63,38 @@ export function RichiediPagamento() {
     const ordine = p.get('ordine')
     if (!ordine) return
     setCausale(`Ordine ${ordine}`)
-    const imp = p.get('importo')
-    if (imp && Number(imp) > 0) setImporto(imp)
     const cliente = p.get('cliente')
-    if (cliente) setAvviso(`Richiesta per ${cliente} — ordine ${ordine}.`)
+
+    // ⚠️⚠️ CHI VA PAGATO È IL FORNITORE, NON IL CLIENTE.
+    //
+    // Finora questa pagina si apriva con l'importo del VENDUTO e l'intestatario
+    // vuoto: bisognava ricordarsi chi aveva preparato l'ordine — un fatto che
+    // non era scritto da nessuna parte — e ricopiarlo a mano insieme alla cifra
+    // giusta. Adesso l'ordine sa a chi è stato dato, e la richiesta parte con
+    // il nome e con **quanto gli è stato promesso**.
+    const fornitore = p.get('fornitore')
+    const costo = p.get('costo')
+    if (fornitore) setIntestatario(fornitore)
+    // ⚠️ Il costo concordato vince sull'importo dell'ordine: quello è quanto ha
+    // pagato il cliente, e mandarlo al fornitore vorrebbe dire pagargli il
+    // prezzo di vendita. È l'errore che questa riga esiste per impedire.
+    if (costo && Number(costo) > 0) setImporto(costo)
+    else {
+      const imp = p.get('importo')
+      if (imp && Number(imp) > 0) setImporto(imp)
+    }
+
+    setAvviso(
+      fornitore
+        ? `Pagamento a ${fornitore}, che ha preparato l'ordine ${ordine}` +
+            (cliente ? ` per ${cliente}` : '') +
+            (costo && Number(costo) > 0
+              ? '.'
+              : '. ⚠️ Il costo non era concordato: controlla l’importo prima di mandare.')
+        : `Richiesta per l'ordine ${ordine}${cliente ? ` — cliente ${cliente}` : ''}. ` +
+            '⚠️ Su quest’ordine non è registrato nessun fornitore: l’importo qui sotto è quello ' +
+            'del venduto, non quello da pagare. Registra chi lo prepara dalla scheda dell’ordine.'
+    )
   }, [])
 
   const carica = useCallback(async () => {

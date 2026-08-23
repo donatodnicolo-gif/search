@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { MessaggiOrdine } from './MessaggiOrdine'
+import { FornitoreOrdine, type FornitoreProposto } from './FornitoreOrdine'
 import { DiarioOrdine } from './DiarioOrdine'
 import { CHIUSURA, PASSI, coloreGestione, nomeGestione } from '@/lib/gestione'
 import { coloreTipoCliente, nomeTipoCliente } from '@/lib/clienti-tipo'
@@ -74,6 +75,16 @@ type OrdineDettaglio = {
   gestione: string
   clienteTipo: string
   clienteTipoDa: string
+  /** A chi abbiamo dato l'ordine da preparare. */
+  fornitoreNome: string
+  fornitoreId: string
+  fornitoreCitta: string
+  fornitoreTelefono: string
+  fornitoreEmail: string
+  fornitoreCosto: number | null
+  fornitoreNota: string
+  fornitoreDaNome: string
+  fornitoreIl: string | null
 }
 
 /**
@@ -266,6 +277,10 @@ export function DettaglioOrdine({
   const [zona, setZona] = useState<FornitoreZona[]>([])
   const [zonaProvincia, setZonaProvincia] = useState('')
   const [zonaNota, setZonaNota] = useState('')
+  // ⚠️ «Dai a lui» sulla riga di un fornitore in zona: il modulo qui sopra si
+  // apre già pieno. Senza, chi ha appena telefonato dovrebbe ricopiare a mano
+  // nome, città e telefono che ha davanti agli occhi — e non lo farebbe.
+  const [proposto, setProposto] = useState<FornitoreProposto | null>(null)
   const [zonaCaricata, setZonaCaricata] = useState(false)
   /**
    * Che mestiere cercare: vuoto = lo decide il negozio (Cake → pasticcerie,
@@ -736,6 +751,39 @@ export function DettaglioOrdine({
             {/* Cosa si sono detti: mail e chat collegate a questo ordine, con la
                 risposta a portata di mano. Uscire, cercare la conversazione in
                 Inbox e tornare indietro è il modo migliore per non rispondere. */}
+            {/* ── CHI PREPARA QUEST'ORDINE ──
+                ⚠️ Sta PRIMA dei messaggi e dei fornitori in zona: è la
+                risposta, e le due cose sotto sono i modi per arrivarci. Chi
+                apre la scheda per un reclamo cerca questo, non l'elenco di chi
+                si sarebbe potuto chiamare.
+                ⚠️ Solo sugli ordini che abbiamo in casa: quelli dell'archivio
+                storico vivono solo in Orders e non c'è una riga su cui
+                scrivere. Un modulo che non salva è peggio di nessun modulo. */}
+            {ordine.id ? (
+              <FornitoreOrdine
+                ordineId={ordine.id}
+                gestione={ordine.gestione}
+                quotaAttesa={quota?.atteso ?? null}
+                proposto={proposto}
+                iniziale={
+                  ordine.fornitoreNome
+                    ? {
+                        fornitoreNome: ordine.fornitoreNome,
+                        fornitoreId: ordine.fornitoreId,
+                        fornitoreCitta: ordine.fornitoreCitta,
+                        fornitoreTelefono: ordine.fornitoreTelefono,
+                        fornitoreEmail: ordine.fornitoreEmail,
+                        fornitoreCosto: ordine.fornitoreCosto,
+                        fornitoreNota: ordine.fornitoreNota,
+                        fornitoreDaNome: ordine.fornitoreDaNome,
+                        fornitoreIl: ordine.fornitoreIl,
+                      }
+                    : null
+                }
+                onCambiato={() => void carica()}
+              />
+            ) : null}
+
             {ordine.id ? <MessaggiOrdine ordineId={ordine.id} /> : null}
 
             {/* I dati dell'ordine. */}
@@ -1227,6 +1275,29 @@ export function DettaglioOrdine({
                               onClick={() => copia(richiesta, `zona-${fz.id}`)}
                             >
                               {copiato === `zona-${fz.id}` ? 'Copiato ✓' : 'Copia richiesta'}
+                            </button>
+                            {/* ⚠️ Registrare la scelta parte DA QUI, dalla riga
+                                di chi si è appena chiamato: è l'istante in cui
+                                si sa. Chiedendolo dopo, in un modulo vuoto da
+                                riempire a memoria, non lo scriverebbe nessuno.
+                                ⚠️ Non manda niente al fornitore: apre il modulo
+                                qui sopra già pieno, e la registrazione la
+                                conferma una persona — perché aver chiesto la
+                                disponibilità non vuol dire che abbia detto sì. */}
+                            <button
+                              className="btn btn-secondario small"
+                              onClick={() =>
+                                setProposto({
+                                  id: fz.id,
+                                  nome: fz.nome,
+                                  citta: fz.citta,
+                                  telefono: fz.telefono,
+                                  email: fz.email,
+                                })
+                              }
+                              title="Registra che l'ordine lo prepara lui: il modulo qui sopra si apre già compilato"
+                            >
+                              Lo fa lui
                             </button>
                             {!cifre.length && !fz.email ? (
                               <span className="cella-sub">nessun recapito nel registro</span>

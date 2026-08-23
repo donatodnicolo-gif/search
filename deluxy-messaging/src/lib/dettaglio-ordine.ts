@@ -54,6 +54,16 @@ export type OrdineDettaglioDto = {
   gestione: string
   clienteTipo: string
   clienteTipoDa: string
+  /** A chi abbiamo dato l'ordine da preparare. Vedi `fornitore-ordine.ts`. */
+  fornitoreNome: string
+  fornitoreId: string
+  fornitoreCitta: string
+  fornitoreTelefono: string
+  fornitoreEmail: string
+  fornitoreCosto: number | null
+  fornitoreNota: string
+  fornitoreDaNome: string
+  fornitoreIl: string | null
 }
 
 export type DettaglioOrdinePayload = {
@@ -132,6 +142,15 @@ export async function dettaglioOrdineLocale(id: string): Promise<DettaglioOrdine
       gestione: ordine.gestione,
       clienteTipo: ordine.clienteTipo,
       clienteTipoDa: ordine.clienteTipoDa,
+      fornitoreNome: ordine.fornitoreNome,
+      fornitoreId: ordine.fornitoreId,
+      fornitoreCitta: ordine.fornitoreCitta,
+      fornitoreTelefono: ordine.fornitoreTelefono,
+      fornitoreEmail: ordine.fornitoreEmail,
+      fornitoreCosto: ordine.fornitoreCosto,
+      fornitoreNota: ordine.fornitoreNota,
+      fornitoreDaNome: ordine.fornitoreDaNome,
+      fornitoreIl: ordine.fornitoreIl?.toISOString() ?? null,
     },
     righe: esito.stato === 'ok' ? esito.righe : [],
     spedizione: esito.stato === 'ok' ? esito.spedizione : null,
@@ -221,6 +240,19 @@ export async function dettaglioOrdineArchivio(
         // su uno dell'archivio non esiste, e inventargli un «da gestire»
         // vorrebbe dire mettere in coda un ordine di due anni fa.
         gestione: '',
+        // ⚠️ L'ARCHIVIO STORICO non ha questi campi: quegli ordini vivono solo
+        // in Orders, e qui in casa non esiste una riga su cui scrivere. Il
+        // riquadro del fornitore non si mostra (vedi DettaglioOrdine), invece
+        // di mostrarne uno che non salva niente.
+        fornitoreNome: '',
+        fornitoreId: '',
+        fornitoreCitta: '',
+        fornitoreTelefono: '',
+        fornitoreEmail: '',
+        fornitoreCosto: null,
+        fornitoreNota: '',
+        fornitoreDaNome: '',
+        fornitoreIl: null,
         clienteTipo: o.cliente?.tipo ?? '',
         clienteTipoDa: o.cliente?.tipoDa ?? '',
       },

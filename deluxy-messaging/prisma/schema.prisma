@@ -346,6 +346,48 @@ model Ordine {
   gestioneDaId   String   @default("")
   gestioneDaNome String   @default("")
 
+  // ── A CHI ABBIAMO DATO L'ORDINE DA PREPARARE ──
+  //
+  // ⚠️⚠️ Non esisteva da nessuna parte. L'app sapeva **chi si poteva chiamare**
+  // (i fornitori in provincia, chiesti ad Anagrafiche) e sapeva **che è stato
+  // pagato qualcuno** (`RichiestaPagamento.intestatario`, un nome su un IBAN),
+  // ma non «questo ordine l'ha fatto Tizio». Quel fatto viveva nella testa di
+  // chi aveva telefonato: il giorno dopo, davanti a un reclamo, non c'era modo
+  // di sapere a chi chiedere — e alla domanda «quanto lavoro diamo a quel
+  // fornitore?» non si poteva rispondere affatto.
+  //
+  // ⚠️ Sta QUI, sull'ordine, e non su una tabella a parte: è un fatto singolo
+  // per ordine, si legge in ogni elenco, e una tabella in più vorrebbe dire un
+  // join su ogni riga della bacheca.
+  //
+  // ⚠️ Lo scarico da Orders NON tocca questi campi (l'upsert scrive solo
+  // `comuni`, vedi `src/lib/sincronizza.ts`): sono nostri, come
+  // `gestione` e `contattoSalvato`.
+  fornitoreNome  String   @default("")
+  /**
+   * L'id nel registro Anagrafiche, quando il fornitore viene da lì.
+   * ⚠️ Vuoto NON vuol dire «non censito», vuol dire «trovato fuori dal
+   * registro» (Google, passaparola): capita spesso, e impedirlo avrebbe
+   * significato non registrare metà degli ordini — cioè non registrarne
+   * nessuno, perché un archivio con dei buchi non lo guarda più nessuno.
+   */
+  fornitoreId    String   @default("")
+  fornitoreCitta String   @default("")
+  fornitoreTelefono String @default("")
+  fornitoreEmail String   @default("")
+  /**
+   * Quanto gli diamo DAVVERO, concordato al telefono.
+   * ⚠️ Diverso dalla «quota fornitore» indicativa (il 60% del venduto), che
+   * vive in Deluxy Orders e resta una stima: qui va la cifra pattuita. `null` =
+   * non ancora concordata, che è diverso da zero.
+   */
+  fornitoreCosto Float?
+  fornitoreNota  String   @default("") @db.Text
+  /** Chi l'ha registrato e quando: la prima domanda quando qualcosa va storto. */
+  fornitoreDaId  String   @default("")
+  fornitoreDaNome String  @default("")
+  fornitoreIl    DateTime?
+
   // ── Chi se ne sta occupando ──
   //
   // Distinto da `gestioneDaId`, che dice chi ha toccato lo STATO per ultimo:
@@ -377,6 +419,10 @@ model Ordine {
 
   @@unique([negozioId, shopifyId]) // dedup per-negozio: il gid è unico solo lì
   @@index([data])
+  // «Quanti ordini abbiamo dato a questo fornitore, e quanto gli abbiamo dato?»
+  // è la domanda per cui il campo esiste: senza indice, con 1.300 ordini si
+  // scansiona la tabella intera ogni volta.
+  @@index([fornitoreNome])
 }
 
 // Una conversazione con una persona su un canale. idEsterno identifica la
