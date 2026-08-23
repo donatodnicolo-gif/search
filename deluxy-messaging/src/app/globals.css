@@ -3338,6 +3338,28 @@ td .azioni-ordine {
   font-weight: 600;
 }
 
+/* ⚠️ Quando il bollino APRE la conversazione deve sembrare cliccabile: prima
+   era un'etichetta ferma che diceva «✉ 2» e basta, e per leggere quei messaggi
+   bisognava aprire l'ordine e scendere fino al riquadro in fondo. Un dato che
+   non porta dove serve è un dato a metà — nella pratica vuol dire che i
+   messaggi non si leggono. */
+.segno-messaggi.apribile {
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background 140ms var(--ease),
+    border-color 140ms var(--ease);
+}
+
+.segno-messaggi.apribile:hover {
+  background: var(--fill-active);
+  border-color: var(--text-tertiary);
+}
+
+.segno-messaggi.aspetta.apribile:hover {
+  border-color: var(--gold);
+}
+
 .conversazione-ordine {
   border: 1px solid var(--hairline);
   border-radius: var(--radius-m);

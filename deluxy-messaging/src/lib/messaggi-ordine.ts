@@ -47,30 +47,65 @@ export async function conversazioniDellOrdine(ordine: {
   const email = (ordine.email ?? '').trim().toLowerCase()
   const coda = telefonoConfrontabile(ordine.telefono ?? '')
 
-  const dove: Record<string, unknown>[] = []
-  if (numero) dove.push({ ordineNumero: numero })
-  if (email) dove.push({ canale: 'email', idEsterno: email })
-  // Il telefono si filtra dopo: in SQL non c'è un «finisce per» sugli indici, e
-  // le conversazioni WhatsApp sono poche.
-  if (coda) dove.push({ canale: 'whatsapp' })
-  if (!dove.length) return []
+  const precise: Record<string, unknown>[] = []
+  if (numero) precise.push({ ordineNumero: numero })
+  if (email) precise.push({ canale: 'email', idEsterno: email })
+  if (!precise.length && !coda) return []
 
-  const righe = await db.conversazione.findMany({
-    where: { eliminataIl: null, OR: dove as never },
-    orderBy: { ultimoMessaggioIl: 'desc' },
-    take: 40,
-    select: {
-      id: true,
-      canale: true,
-      nome: true,
-      nomeRubrica: true,
-      idEsterno: true,
-      ultimoTesto: true,
-      ultimoMessaggioIl: true,
-      nonLetti: true,
-      ordineNumero: true,
-    },
+  const campi = {
+    id: true,
+    canale: true,
+    nome: true,
+    nomeRubrica: true,
+    idEsterno: true,
+    ultimoTesto: true,
+    ultimoMessaggioIl: true,
+    nonLetti: true,
+    ordineNumero: true,
+  } as const
+
+  // ⚠️⚠️ DUE QUERY, NON UNA CON L'«OR» LARGO.
+  //
+  // Prima erano una sola: `OR: [numero, email, {canale:'whatsapp'}]` con
+  // `take: 40`. Ma `{canale:'whatsapp'}` **non filtra niente** — il telefono in
+  // SQL non si può confrontare per coda, quindi quel ramo pesca TUTTE le chat
+  // WhatsApp e le fa competere per i 40 posti insieme a quelle vere. Con 132
+  // conversazioni pescate, quella del cliente stava alla **posizione 87**: il
+  // riquadro dei messaggi diceva «nessun messaggio» mentre la chat esisteva.
+  //
+  // ⚠️ Il difetto era invisibile da tutte e due le parti: la bacheca contava 1
+  // messaggio (lei usa due query separate e le conta tutte) e il dettaglio ne
+  // mostrava 0, senza che nessuna delle due desse errore. Trovato solo
+  // confrontandole una contro l'altra — `scripts/prova-messaggi-ordine.mts`.
+  const [daPrecise, daChat] = await Promise.all([
+    precise.length
+      ? db.conversazione.findMany({
+          where: { eliminataIl: null, OR: precise as never },
+          orderBy: { ultimoMessaggioIl: 'desc' },
+          take: 40,
+          select: campi,
+        })
+      : Promise.resolve([]),
+    // Le conversazioni WhatsApp si prendono tutte e si filtrano in memoria per
+    // coda del numero: sono poche, ed è l'unico modo di non perderne nessuna.
+    coda
+      ? db.conversazione.findMany({
+          where: { canale: 'whatsapp', eliminataIl: null },
+          orderBy: { ultimoMessaggioIl: 'desc' },
+          select: campi,
+        })
+      : Promise.resolve([]),
+  ])
+
+  // ⚠️ Dedup per id: una chat WhatsApp che cita anche il numero d'ordine esce
+  // da tutte e due le query, e comparirebbe due volte nel riquadro.
+  const viste = new Set<string>()
+  const righe = [...daPrecise, ...daChat].filter((c) => {
+    if (viste.has(c.id)) return false
+    viste.add(c.id)
+    return true
   })
+  righe.sort((a, b) => b.ultimoMessaggioIl.getTime() - a.ultimoMessaggioIl.getTime())
 
   const fuori: ConversazioneOrdine[] = []
   for (const c of righe) {
@@ -90,7 +125,9 @@ export async function conversazioniDellOrdine(ordine: {
       legame,
     })
   }
-  return fuori
+  // ⚠️ Il tetto sta QUI, dopo aver riconosciuto i legami: tagliare prima vuol
+  // dire tagliare a caso, ed è il difetto appena tolto.
+  return fuori.slice(0, 40)
 }
 
 /**
@@ -100,9 +137,26 @@ export async function conversazioniDellOrdine(ordine: {
  * andate e ritorni al database a ogni caricamento della bacheca, e la pagina si
  * pianta. Si prendono le conversazioni una volta e si incrociano in memoria.
  */
+export type MessaggiDiUnOrdine = {
+  quanti: number
+  nonLetti: number
+  /**
+   * La conversazione più recente fra quelle collegate.
+   *
+   * ⚠️⚠️ Serve perché il bollino «✉ 2» sulla scheda **dicesse** che ci sono
+   * messaggi senza dare modo di leggerli: bisognava aprire l'ordine, scendere
+   * fino al riquadro dei messaggi e da lì capire di quale conversazione si
+   * trattava. Un'informazione che non porta dove serve è un'informazione a
+   * metà — e nella pratica vuol dire che i messaggi non si leggono.
+   * ⚠️ La PIÙ RECENTE, non la prima trovata: un cliente che ha scritto tre
+   * volte vuole risposta sull'ultima.
+   */
+  conversazioneId: string
+}
+
 export async function ordiniConMessaggi(
   ordini: { id: string; numero: string; email: string; telefono: string }[]
-): Promise<Map<string, { quanti: number; nonLetti: number }>> {
+): Promise<Map<string, MessaggiDiUnOrdine>> {
   const numeri = [...new Set(ordini.map((o) => o.numero).filter(Boolean))]
   const email = [...new Set(ordini.map((o) => (o.email ?? '').toLowerCase()).filter(Boolean))]
 
@@ -116,29 +170,45 @@ export async function ordiniConMessaggi(
               ...(email.length ? [{ canale: 'email', idEsterno: { in: email } }] : []),
             ],
           },
-          select: { idEsterno: true, canale: true, ordineNumero: true, nonLetti: true },
+          select: {
+            id: true,
+            idEsterno: true,
+            canale: true,
+            ordineNumero: true,
+            nonLetti: true,
+            ultimoMessaggioIl: true,
+          },
         })
       : Promise.resolve([]),
     // Le conversazioni WhatsApp sono poche: si prendono tutte e si confrontano
     // per coda del numero, che in SQL non si può indicizzare.
     db.conversazione.findMany({
       where: { canale: 'whatsapp', eliminataIl: null },
-      select: { idEsterno: true, nonLetti: true },
+      select: { id: true, idEsterno: true, nonLetti: true, ultimoMessaggioIl: true },
     }),
   ])
 
-  const perCoda = new Map<string, { quanti: number; nonLetti: number }>()
+  const perCoda = new Map<string, MessaggiDiUnOrdine & { quando: Date }>()
   for (const c of chat) {
     const coda = telefonoConfrontabile(c.idEsterno)
     if (!coda) continue
-    const prec = perCoda.get(coda) ?? { quanti: 0, nonLetti: 0 }
-    perCoda.set(coda, { quanti: prec.quanti + 1, nonLetti: prec.nonLetti + c.nonLetti })
+    const prec = perCoda.get(coda)
+    // ⚠️ Si tiene l'id della più recente: `prec` può essere di ieri.
+    const piuRecente = !prec || c.ultimoMessaggioIl > prec.quando
+    perCoda.set(coda, {
+      quanti: (prec?.quanti ?? 0) + 1,
+      nonLetti: (prec?.nonLetti ?? 0) + c.nonLetti,
+      conversazioneId: piuRecente ? c.id : prec.conversazioneId,
+      quando: piuRecente ? c.ultimoMessaggioIl : prec.quando,
+    })
   }
 
-  const fuori = new Map<string, { quanti: number; nonLetti: number }>()
+  const fuori = new Map<string, MessaggiDiUnOrdine>()
   for (const o of ordini) {
     let quanti = 0
     let nonLetti = 0
+    let conversazioneId = ''
+    let quando: Date | null = null
     for (const c of perNumeroEmail) {
       const perNumero = o.numero && c.ordineNumero === o.numero
       const perEmail =
@@ -146,6 +216,10 @@ export async function ordiniConMessaggi(
       if (perNumero || perEmail) {
         quanti++
         nonLetti += c.nonLetti
+        if (!quando || c.ultimoMessaggioIl > quando) {
+          quando = c.ultimoMessaggioIl
+          conversazioneId = c.id
+        }
       }
     }
     const coda = telefonoConfrontabile(o.telefono ?? '')
@@ -153,8 +227,12 @@ export async function ordiniConMessaggi(
     if (daChat) {
       quanti += daChat.quanti
       nonLetti += daChat.nonLetti
+      if (!quando || daChat.quando > quando) {
+        quando = daChat.quando
+        conversazioneId = daChat.conversazioneId
+      }
     }
-    if (quanti) fuori.set(o.id, { quanti, nonLetti })
+    if (quanti) fuori.set(o.id, { quanti, nonLetti, conversazioneId })
   }
   return fuori
 }

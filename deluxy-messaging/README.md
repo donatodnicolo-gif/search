@@ -226,6 +226,53 @@ guardava solo i messaggi: venivano buttate in silenzio. Adesso si leggono.
 
 Si ricontrolla con `npx tsx scripts/prova-reazioni.mts` (crea righe finte e le cancella).
 
+## Vedere la comunicazione col cliente da un ordine
+
+Il bollino **✉ 2** sulla scheda è un **link**: porta dritto alla conversazione
+(`/inbox?c=…`), quella **più recente** fra le collegate. Prima era un'etichetta
+ferma, e per leggere quei messaggi bisognava aprire l'ordine e scendere fino al
+riquadro in fondo: un'informazione che non porta dove serve è un'informazione a
+metà, e nella pratica vuol dire che i messaggi non si leggono.
+
+⚠️ Il clic sul bollino **non deve aprire anche il pannello dell'ordine**
+(`stopPropagation`): la scheda intera è cliccabile, e il pannello si vede sopra —
+il clic sembrerebbe aver fatto la cosa sbagliata.
+
+⚠️ Senza un id il bollino resta un'etichetta ferma. Un link che non sa dove
+andare è peggio di un'etichetta: si clicca, non succede niente, e la volta dopo
+non si clicca più nemmeno quello che funziona.
+
+### «Comunicazione con cliente» non vuol dire che ci sia un messaggio
+
+Quello stato lo scrive l'app quando qualcuno preme **WhatsApp, Chiama o Email**
+da qui: registra un gesto, non una conversazione. Se avete telefonato, o scritto
+dal telefono personale, l'app non può saperlo.
+
+⚠️ Perciò, quando lo stato è «Comunicazione con cliente» e non c'è **nessuna**
+conversazione collegata, la scheda lo dice a schermo: **«non registrata»**. Uno
+stato che promette qualcosa da leggere e non porta da nessuna parte fa perdere
+tempo a cercarlo. (Il consiglio, in quel caso, è scrivere una **Nota**.)
+
+### ⚠️ Il difetto che nascondeva le conversazioni
+
+Il riquadro dei messaggi dentro l'ordine faceva **una query sola**:
+`OR: [numero, email, {canale:'whatsapp'}]` con `take: 40`. Ma
+`{canale:'whatsapp'}` **non filtra niente** — il telefono in SQL non si può
+confrontare per coda — quindi quel ramo pescava **tutte** le chat WhatsApp e le
+faceva competere per i 40 posti con quelle vere. Su #1797 la conversazione del
+cliente stava alla **posizione 87 su 132**: il riquadro diceva «nessun messaggio»
+mentre la chat esisteva.
+
+⚠️ **Il difetto era invisibile da tutte e due le parti**: la bacheca contava 1
+messaggio (usa due query separate) e il dettaglio ne mostrava 0, senza che
+nessuna delle due desse errore. Si è visto solo **confrontandole una contro
+l'altra**: `npx tsx scripts/prova-messaggi-ordine.mts`.
+
+**Misurato: 25 ordini su 45** con messaggi nascondevano la conversazione.
+Adesso sono due query — le precise con il tetto, le chat prese tutte e filtrate
+in memoria — e il tetto si applica **dopo** aver riconosciuto i legami: tagliare
+prima vuol dire tagliare a caso.
+
 ## Le azioni di un ordine, in cinque gruppi
 
 Sulla scheda di un ordine i bottoni sono raggruppati per **che cosa fanno**,

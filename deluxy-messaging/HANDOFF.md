@@ -1,6 +1,6 @@
 # Handoff — Deluxy Customer Service
 
-Ultimo aggiornamento: **24/08/2026, ore 06:00** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
+Ultimo aggiornamento: **24/08/2026, ore 07:00** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
 prima, alle 15:10, l'utente ha pubblicato la schermata di consenso Google e il
 conto alla rovescia dei 7 giorni è finito).
 Prima, il 19/08: la **risposta di primo contatto** che parte da sola al primo
@@ -340,6 +340,41 @@ locale, altrimenti nulla si decifra.
     chat finisce nel cestino.
   - ⚠️ **Il numero delle note da fare sta sul bottone**: in un pannello chiuso
     una nota lasciata a un collega non esisterebbe.
+
+- 🔴→🟢 **IL RIQUADRO DEI MESSAGGI NASCONDEVA LE CONVERSAZIONI** (24/08/2026,
+  segnalato: «non vedo la comunicazione col cliente»). **25 ordini su 45** con
+  messaggi non li mostravano.
+  - ⚠️⚠️ **La causa**: `conversazioniDellOrdine` faceva UNA query,
+    `OR: [numero, email, {canale:'whatsapp'}]` con `take: 40`. Ma
+    `{canale:'whatsapp'}` **non filtra niente** (il telefono in SQL non si
+    confronta per coda), quindi pescava TUTTE le chat e le faceva competere
+    per i 40 posti. Su #1797 quella giusta stava alla **posizione 87 su 132**.
+  - ⚠️⚠️ **Era invisibile da tutte e due le parti**: la bacheca contava 1 e il
+    dettaglio 0, e nessuna delle due dava errore. Si è visto solo
+    **confrontando le due strade** — `scripts/prova-messaggi-ordine.mts`.
+    ⭐ Quando due schermate rispondono alla stessa domanda per vie diverse, il
+    controllo è metterle una contro l'altra, non guardarle separatamente.
+  - ⚠️ Ora due query (le precise col tetto, le chat tutte e filtrate in
+    memoria), dedup per id, e **il tetto si applica DOPO** aver riconosciuto i
+    legami: tagliare prima vuol dire tagliare a caso.
+
+- **DALL'ORDINE ALLA CONVERSAZIONE, IN UN CLIC** (stessa segnalazione).
+  - Il bollino **✉ 2** è un link a `/inbox?c=<id>` — la conversazione **più
+    recente** fra le collegate. Prima era un'etichetta ferma e i messaggi si
+    leggevano solo aprendo l'ordine e scendendo fino al riquadro in fondo.
+  - ⚠️ `stopPropagation` sul link: la scheda intera apre il pannello
+    dell'ordine, e senza si aprirebbero tutti e due.
+  - ⚠️ Senza id resta un'etichetta ferma: un link che non sa dove andare è
+    peggio: si clicca, non succede niente, e poi non si clicca più nemmeno
+    quello che funziona.
+  - **«Comunicazione con cliente» NON vuol dire che ci sia un messaggio**: lo
+    scrive l'app quando si preme WhatsApp/Chiama/Email. Se non c'è nessuna
+    conversazione collegata la scheda ora dice **«non registrata»** — è il
+    caso esatto di **#2778**, l'ordine dello screenshot, l'unico in
+    quello stato e senza niente da leggere.
+  - ✅ Guardato con un'anteprima temporanea: #2778 mostra «non registrata» e
+    nessun bollino; #2779 ha «✉ 1» come `<a href="/inbox?c=conv-abc">`, oro
+    perché non letto, e il clic **non** apre il pannello dell'ordine.
 
 - **LE LINEETTE FRA I GRUPPI, TOLTE** (24/08/2026, chiesto sopra uno
   screenshot: «sistema css»).

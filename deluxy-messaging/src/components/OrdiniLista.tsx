@@ -73,7 +73,7 @@ type OrdineDto = {
    * Se quel cliente ci ha gia' scritto — e se aspetta ancora una risposta.
    * Si collega per numero d'ordine citato nella mail, per email o per telefono.
    */
-  messaggi: { quanti: number; nonLetti: number } | null
+  messaggi: { quanti: number; nonLetti: number; conversazioneId: string } | null
   /**
    * Chi se ne sta occupando. ⚠️ Diverso da `gestioneDaNome`, che dice chi ha
    * toccato lo STATO per ultimo: quello è un fatto passato, questo è un impegno
@@ -234,19 +234,40 @@ function haProblemaConsegna(o: OrdineDto): boolean {
  * letti sono più di zero, quell'ordine ha qualcuno che **aspetta**: si vede in
  * oro, come i non letti dell'inbox.
  */
-function SegnoMessaggi({ messaggi }: { messaggi: { quanti: number; nonLetti: number } | null }) {
+function SegnoMessaggi({
+  messaggi,
+}: {
+  messaggi: { quanti: number; nonLetti: number; conversazioneId: string } | null
+}) {
   if (!messaggi?.quanti) return null
+  const testo = messaggi.nonLetti
+    ? `${messaggi.nonLetti} messagg${messaggi.nonLetti === 1 ? 'io' : 'i'} non lett${messaggi.nonLetti === 1 ? 'o' : 'i'} di questo cliente`
+    : `${messaggi.quanti} conversazion${messaggi.quanti === 1 ? 'e' : 'i'} con questo cliente`
+  const dentro = <>✉ {messaggi.nonLetti || messaggi.quanti}</>
+  // ⚠️⚠️ Senza un id non si può aprire niente: resta il bollino di prima, che
+  // almeno dice che i messaggi ci sono. Un link che non sa dove andare è
+  // peggio di un'etichetta ferma — si clicca, non succede niente, e la volta
+  // dopo non si clicca più nemmeno quello che funziona.
+  if (!messaggi.conversazioneId) {
+    return (
+      <span className={`badge segno-messaggi${messaggi.nonLetti ? ' aspetta' : ''}`} title={testo}>
+        {dentro}
+      </span>
+    )
+  }
   return (
-    <span
-      className={`badge segno-messaggi${messaggi.nonLetti ? ' aspetta' : ''}`}
-      title={
-        messaggi.nonLetti
-          ? `${messaggi.nonLetti} messaggi non letti di questo cliente: apri l'ordine per leggerli e rispondere`
-          : `${messaggi.quanti} conversazion${messaggi.quanti === 1 ? 'e' : 'i'} con questo cliente`
-      }
+    <a
+      className={`badge segno-messaggi apribile${messaggi.nonLetti ? ' aspetta' : ''}`}
+      href={`/inbox?c=${encodeURIComponent(messaggi.conversazioneId)}`}
+      // ⚠️ La scheda intera è cliccabile (apre il pannello dell'ordine): senza
+      // fermare la propagazione si aprirebbero tutti e due, e quello che si
+      // vede sopra è il pannello — cioè il clic sembrerebbe aver fatto la cosa
+      // sbagliata.
+      onClick={(e) => e.stopPropagation()}
+      title={`${testo}: apri la conversazione`}
     >
-      ✉ {messaggi.nonLetti || messaggi.quanti}
-    </span>
+      {dentro}
+    </a>
   )
 }
 
@@ -1570,17 +1591,36 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
                               background: 'var(--fill)',
                             }}
                             title={
-                              o.gestioneDaNome
+                              (o.gestioneDaNome
                                 ? `${nomeGestione(o.gestione)} — segnato da ${o.gestioneDaNome}${
                                     o.gestioneIl
                                       ? ' il ' + new Date(o.gestioneIl).toLocaleString('it-IT')
                                       : ''
                                   }`
-                                : 'Come stiamo lavorando questo ordine'
+                                : 'Come stiamo lavorando questo ordine') +
+                              (o.gestione === 'comunicazione' && !o.messaggi?.quanti
+                                ? '. ⚠️ Lo stato si scrive quando qualcuno preme WhatsApp, Chiama o Email da qui: non vuol dire che ci sia una conversazione registrata, e infatti di questo cliente non ne risulta nessuna. Le telefonate e i messaggi mandati dal telefono personale l app non li vede.'
+                                : '')
                             }
                           >
                             {nomeGestione(o.gestione)}
                           </span>
+                          {/* ⚠️ «Comunicazione con cliente» senza nessuna
+                              conversazione collegata: lo si dice A SCHERMO, non
+                              solo nel titolo. Uno stato che promette qualcosa da
+                              leggere e non porta da nessuna parte fa perdere
+                              tempo a cercarlo — succede quando si è telefonato,
+                              o scritto dal proprio telefono, e l app non può
+                              saperlo. */}
+                          {o.gestione === 'comunicazione' && !o.messaggi?.quanti ? (
+                            <span
+                              className="badge"
+                              style={{ color: 'var(--text-tertiary)', background: 'var(--fill)' }}
+                              title="Nessuna conversazione di questo cliente è collegata a questo ordine: né una mail che cita il numero, né la sua email, né il suo telefono su WhatsApp. Se avete parlato al telefono, scrivilo in una Nota."
+                            >
+                              non registrata
+                            </span>
+                          ) : null}
                           {/* ⚠️ I segnali che devono fermare la mano — pagamento
                               non incassato, sospetto di frode — stanno QUI, in
                               lista: l'ordine si lavora scorrendo la bacheca, e
