@@ -29,6 +29,9 @@ export function BudgetMaison({
   fonti,
   molt,
   consuntivoD2C,
+  meseInCorso,
+  giornoInCorso,
+  giorniDelMese,
   origini,
   approvate,
   daConsolidare,
@@ -44,9 +47,14 @@ export function BudgetMaison({
   }[];
   fonti: { key: string; nome: string; aiuto: string }[];
   molt: number;
-  // Il venduto ecommerce dei mesi già chiusi (`null` sui mesi non chiusi).
-  // È l'unico consuntivo che esiste per una maison.
+  // Il venduto ecommerce dei mesi già chiusi **e del mese in corso** (`null`
+  // sui mesi futuri). È l'unico consuntivo che esiste per una maison.
   consuntivoD2C: (number | null)[];
+  // Quale mese è in corso (1..12) e a che giorno siamo: il suo consuntivo è
+  // parziale e va letto sapendolo. `null` se l'anno mostrato non è quello in corso.
+  meseInCorso: number | null;
+  giornoInCorso: number;
+  giorniDelMese: number;
   // chiave `canale|mese` → chi ha proposto quel numero
   origini: Record<string, OrigineCella>;
   // `inUso` = è l'ultima consolidata **su quella fonte**, cioè quella che si
@@ -75,12 +83,20 @@ export function BudgetMaison({
   // consuntivo non esiste — ed è dichiarato sotto la tabella, invece di far
   // passare per misurato un numero che è ancora una promessa.
   const conConsuntivo = consuntivoD2C.some((v) => v !== null);
+  const inCorso = (i: number) => meseInCorso !== null && i + 1 === meseInCorso;
   const attualeMese = (i: number) => {
     if (consuntivoD2C[i] === null) return totaleMese(i);
     const altreLinee = tipologie
       .filter((t) => t.slug !== "D2C")
       .reduce((s, t) => s + valore(t.slug, i), 0);
-    return (consuntivoD2C[i] ?? 0) + altreLinee;
+    // Nel mese **in corso** il consuntivo è parziale: si prende il maggiore fra
+    // quello e il budget del mese, perché il mese non può chiudere sotto quello
+    // che ha già venduto — ma nemmeno si può dare per perso quello che manca
+    // solo perché non è ancora successo. Stessa regola dell'elenco Maison.
+    const d2c = inCorso(i)
+      ? Math.max(consuntivoD2C[i] ?? 0, valore("D2C", i))
+      : consuntivoD2C[i] ?? 0;
+    return d2c + altreLinee;
   };
   const attualeAnno = mesi.reduce((s, _, i) => s + attualeMese(i), 0);
   const senzaBudget = tipologie.filter((t) => mesi.every((m) => (m.vendite[t.slug] ?? 0) === 0));
@@ -243,11 +259,32 @@ export function BudgetMaison({
                       <td style={{ paddingLeft: 26, fontSize: 12.5 }}>
                         <span style={{ marginRight: 6 }}>↳</span>
                         Consuntivo · venduto reale
+                        {meseInCorso !== null && (
+                          <span className="muted" style={{ marginLeft: 6, fontSize: 11.5 }}>
+                            · {MESI[meseInCorso - 1]} al {giornoInCorso}
+                          </span>
+                        )}
                       </td>
                       {mesi.map((_, i) => (
-                        <td className="num" key={i} style={{ fontSize: 12.5, fontWeight: 600 }}>
+                        <td
+                          className="num"
+                          key={i}
+                          title={
+                            inCorso(i)
+                              ? `${MESI[i]} al ${giornoInCorso}: ${giornoInCorso} giorni su ${giorniDelMese}, il mese non è finito`
+                              : undefined
+                          }
+                          style={{
+                            fontSize: 12.5,
+                            fontWeight: 600,
+                            // Il mese in corso c'è, ma non si legge come gli
+                            // altri: è mezzo mese contro un budget intero.
+                            fontStyle: inCorso(i) ? "italic" : undefined,
+                            opacity: inCorso(i) ? 0.75 : undefined,
+                          }}
+                        >
                           {consuntivoD2C[i] === null ? (
-                            <span className="muted" title="Mese non ancora chiuso">—</span>
+                            <span className="muted" title="Mese non ancora cominciato">—</span>
                           ) : (
                             eur(consuntivoD2C[i] ?? 0)
                           )}
@@ -352,8 +389,16 @@ export function BudgetMaison({
           in questa pagina non vanno mai confuse. C&apos;è solo sotto il D2C perché per una maison l&apos;unico
           consuntivo è il venduto dei negozi: il fatturato di Finance è per tipologia di servizio (consegne,
           eventi, B2B) e non si può ripartire per brand. È sulla <strong>stessa base</strong> del budget D2C —
-          prezzo pieno, IVA e spedizione incluse — quindi il confronto è omogeneo. Il <strong>mese in corso
-          resta fuori</strong>: è parziale, e accanto a un budget intero sembrerebbe un crollo.
+          prezzo pieno, IVA e spedizione incluse — quindi il confronto è omogeneo.
+          {meseInCorso !== null && (
+            <>
+              {" "}
+              C&apos;è anche il <strong>mese in corso</strong>, in corsivo e più chiaro:{" "}
+              <strong>{MESI[meseInCorso - 1]} al {giornoInCorso}</strong>, cioè {giornoInCorso} giorni su{" "}
+              {giorniDelMese} — sopra di lui c&apos;è un budget di <strong>mese intero</strong>, quindi il
+              confronto diretto non regge finché il mese non finisce.
+            </>
+          )}
         </p>
       )}
 
@@ -362,7 +407,16 @@ export function BudgetMaison({
           Le righe <strong style={{ color: "var(--blue)" }}>Attuale</strong> — una sotto il D2C e una in fondo
           alla tabella — rispondono alla domanda di metà anno: <em>dato come è andata finora, dove si
           chiude</em>. I mesi già chiusi valgono per quello che è successo davvero, quelli che restano per
-          quello che è a budget. Servono perché <strong>budget e consuntivo non si sommano da soli</strong>:
+          quello che è a budget.
+          {meseInCorso !== null && (
+            <>
+              {" "}
+              Per il <strong>mese in corso</strong> vale il <strong>maggiore fra il venduto di adesso e il
+              budget</strong>: non è una proiezione — non si moltiplica niente per i giorni che mancano — è un
+              dato di fatto, il mese non può chiudere sotto quello che ha già venduto.
+            </>
+          )}{" "}
+          Servono perché <strong>budget e consuntivo non si sommano da soli</strong>:
           sulla riga del D2C c&apos;è la promessa, su quella blu il venduto vero, e nessuna delle due dice dove
           si arriva. In fondo fa{" "}
           <strong>{eur(attualeAnno)}</strong> contro <strong>{eur(totaleAnno)}</strong> di budget,{" "}

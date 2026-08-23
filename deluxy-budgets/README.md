@@ -160,13 +160,37 @@ pubblicato), *sfidante* e *irraggiungibile*.
   Misurato oggi: Deluxy.it budget 525.500 € → **attuale 908.441 €**, Flowers 293.024 → **316.957**,
   CakeDesign 98.259 → **99.853**, azienda 1.164.282 → **1.544.851** (venduto dei mesi chiusi 614.351 €).
   Sono gli stessi numeri della scheda del singolo brand: il conto è uno solo.
-  > ⚠️ Tre limiti dichiarati sotto la tabella. Il **mese in corso resta fuori** (mezzo mese di vendite
-  > contro un mese intero di budget farebbe sembrare in ritardo un brand che non lo è: per quello c'è
-  > `/venduto`, che è al giorno). Nei mesi chiusi **solo il D2C è misurato**, quindi dentro «Attuale»
-  > Eventi e B2B sono ancora budget — per un brand un loro consuntivo non esiste, il fatturato di
-  > Finance è per tipologia di servizio e non si ripartisce per maison. E i brand **senza negozio**
+  > ⚠️ Limiti dichiarati sotto la tabella. Nei mesi chiusi **solo il D2C è misurato**, quindi dentro
+  > «Attuale» Eventi e B2B sono ancora budget — per un brand un loro consuntivo non esiste, il fatturato
+  > di Finance è per tipologia di servizio e non si ripartisce per maison. E i brand **senza negozio**
   > (Business, Experience) non hanno nessuna riga blu: una riga di zeri sembrerebbe un crollo invece di
   > un dato che non c'è.
+- ⭐ **…E ANCHE IL MESE IN CORSO** (23/08/2026, richiesta dell'utente: «riesci a compilare il mese in
+  corso con il valore corrente del mese?»). Fino a ieri quella colonna era un trattino, per una ragione
+  scritta nel codice: mezzo mese di vendite accanto a un mese intero di budget fa sembrare in ritardo
+  un brand che non lo è. Ma il dato **c'era già** — Orders è al giorno — e nasconderlo lasciava una
+  casella vuota proprio dove stanno le sorprese. Misurato il 23/08: **Deluxyflowers aveva già venduto
+  35.093 € contro i 19.000 a budget**, cioè il mese era chiuso con nove giorni di anticipo, e la pagina
+  non lo diceva. Ora c'è, **dichiarato parziale**: colonna marcata «in corso» in testa, valore in
+  corsivo e più chiaro, e ovunque l'etichetta «Ago al 23» con i giorni passati sul totale del mese.
+  > 🎯 **Dentro «Attuale» il mese in corso vale il *maggiore* fra il venduto di adesso e il budget.**
+  > Non è una proiezione — non si moltiplica niente per i giorni che mancano — è un dato di fatto: *il
+  > mese non può chiudere sotto quello che ha già venduto*. Sostituirlo col parziale direbbe che l'anno
+  > si chiude più in basso ogni volta che si apre la pagina il 2 del mese; tenere il budget quando il
+  > parziale l'ha già superato nasconderebbe il contrario. Passando sopra la casella si legge **quale
+  > dei due ha vinto**. Il confronto «a che punto siamo» in fondo alla pagina resta invece sui **soli
+  > mesi chiusi**, che è la ragione per cui il mese in corso era stato escluso all'inizio.
+  >
+  > ⚠️⚠️ **Due conti sbagliati trovati mentre si aggiungeva il mese in corso**, tutti e due della stessa
+  > famiglia — *un totale che non torna con quello che c'è scritto sopra*.
+  > 1. Nell'elenco, un mese chiuso **sostituiva l'intero budget del mese** con il venduto ecommerce,
+  >    buttando via Eventi e B2B: la didascalia prometteva il contrario e la scheda del singolo brand
+  >    faceva il contrario. Ora il D2C si sostituisce e le altre linee restano, in tutte e due (su
+  >    Deluxyflowers luglio: 32.168 → **35.168 €**, i 3.000 di Eventi erano spariti).
+  > 2. Il totale d'azienda si rifaceva **sugli aggregati** invece di sommare le righe: con il `max` del
+  >    mese in corso le due cose divergono, perché il sorpasso di un brand veniva **annullato** dal
+  >    ritardo di un altro. Il 23/08 dava **78.200 €** mentre le righe sopra ne facevano **95.097**.
+  >    Adesso il totale è la somma delle righe, punto.
 - ⭐ **SI ENTRA NEL SINGOLO MESE** (`/consuntivo/mese/[m]`, 09/08/2026, richiesta dell'utente:
   «consentimi di entrare nel dettaglio di ogni mese»). Lo **split mensile** dava dodici colonne di
   numeri veri e nessun modo di chiedere *perché*, mentre la domanda che nasce lì è quasi sempre su un

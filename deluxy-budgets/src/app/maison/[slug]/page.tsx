@@ -36,15 +36,26 @@ export default async function MaisonDetail({
   // il fatturato di Finance è per tipologia di servizio e non si ripartisce per
   // brand. Si mostra sotto la riga D2C, in un colore diverso, perché un numero
   // già successo e un numero promesso non devono somigliarsi. Il mese in corso
-  // resta fuori: è parziale, e accanto a un budget intero sembrerebbe un crollo.
+  // c'è anche, dichiarato parziale: nasconderlo lasciava una casella vuota
+  // proprio dove stanno le sorprese.
   const oggi = new Date();
   const meseInCorso = oggi.getUTCFullYear() === ANNO_CORRENTE ? oggi.getUTCMonth() + 1 : 13;
   const mesiChiusi = Array.from({ length: Math.max(0, meseInCorso - 1) }, (_, i) => i + 1);
-  const vend = mesiChiusi.length > 0 ? await caricaVenduto(dati.year, dati.maisons) : null;
+  const cIsInCorso = meseInCorso <= 12;
+  const giornoInCorso = oggi.getUTCDate();
+  const giorniDelMese = new Date(Date.UTC(ANNO_CORRENTE, meseInCorso, 0)).getUTCDate();
+  const vend =
+    mesiChiusi.length > 0 || cIsInCorso ? await caricaVenduto(dati.year, dati.maisons) : null;
   const consuntivoMese = Array(12).fill(null) as (number | null)[];
   if (vend?.ok) {
     const mesiMaison = vend.perMaison.get(maison.slug);
-    if (mesiMaison) for (const m of mesiChiusi) consuntivoMese[m - 1] = mesiMaison[m - 1] ?? 0;
+    if (mesiMaison) {
+      for (const m of mesiChiusi) consuntivoMese[m - 1] = mesiMaison[m - 1] ?? 0;
+      // Anche il **mese in corso**: il dato c'è, Orders è al giorno. Che sia
+      // parziale lo dice la pagina, invece di lasciare una casella vuota su cui
+      // non si può fare nessuna domanda.
+      if (cIsInCorso) consuntivoMese[meseInCorso - 1] = mesiMaison[meseInCorso - 1] ?? 0;
+    }
   }
 
   // ---- Da dove viene ogni casella del budget ----
@@ -176,6 +187,9 @@ export default async function MaisonDetail({
         fonti={FONTI}
         molt={molt}
         consuntivoD2C={consuntivoMese}
+        meseInCorso={cIsInCorso ? meseInCorso : null}
+        giornoInCorso={giornoInCorso}
+        giorniDelMese={giorniDelMese}
         origini={origini}
         approvate={approvate}
         daConsolidare={daConsolidare}
