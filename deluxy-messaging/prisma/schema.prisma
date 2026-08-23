@@ -548,6 +548,17 @@ model Messaggio {
   // contando le parole comuni: nessuna chiamata, nessun costo, nessuna attesa.
   // Vuoto = testo troppo corto per decidere, e allora non si forza niente.
   lingua          String   @default("")
+  /**
+   * L'emoji con cui il cliente ha reagito a QUESTO messaggio («❤️», «👍»).
+   *
+   * ⚠️ Sta sul messaggio a cui la reazione si riferisce, non su una riga sua:
+   * su WhatsApp una reazione non è un messaggio, è un francobollo attaccato a
+   * uno che c'è già. Tenerla come riga a parte dava «[reaction]» in mezzo al
+   * filo — che non dice né quale emoji né a che cosa.
+   * ⚠️ Togliere la reazione arriva come un evento con l'emoji VUOTA: allora
+   * questo campo torna vuoto. Non è un caso da ignorare, è l'annullamento.
+   */
+  reazione        String   @default("")
   // La traduzione in italiano di un messaggio ARRIVATO in una lingua che non
   // leggiamo. Si salva perché è costata una chiamata: riaprire la
   // conversazione non deve ricomprarla.

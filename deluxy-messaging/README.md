@@ -31,6 +31,35 @@ Il collegamento numero → brand si dichiara in **Negozi**, nel campo *Phone Num
 (app Meta → WhatsApp → Configurazione API). Senza, il messaggio arriva comunque e in
 Inbox si vede il numero grezzo invece del nome del marchio.
 
+## Le reazioni
+
+Il cuore o il pollice che un cliente attacca a un messaggio adesso **si vede**: la sua
+emoji compare in una pastiglia **sotto la bolla a cui è stata messa**, come in ogni chat.
+Vale anche per le reazioni ai **nostri** messaggi.
+
+Prima arrivavano come un messaggio col testo **«[reaction]»** in mezzo al filo: non
+diceva né quale emoji né a che cosa. In tabella ce ne sono **19 rimaste così**, e non si
+possono recuperare — quell'evento l'emoji non la salvava. Al loro posto ora si legge «Il
+cliente ha messo una reazione — quale, non lo sappiamo», con la data da cui invece si sa.
+
+⚠️ **Togliere la reazione la fa sparire davvero.** Meta manda l'annullamento come un
+evento con l'emoji **vuota** (su Instagram è `action: "unreact"`): non è un evento da
+ignorare, è chi ha tolto il cuore.
+
+⚠️ **Una reazione non riporta la conversazione in cima all'inbox.** Il filo si ordina per
+l'ultimo messaggio, e un pollice è cortesia, non lavoro da fare: farla risalire vorrebbe
+dire mettere in cima una chat chiusa.
+
+⚠️ **Se il messaggio a cui si riferisce non ce l'abbiamo** (più vecchio del nostro
+archivio), l'emoji non si butta: compare come messaggio a sé. Meglio un cuore senza
+contesto che un cuore perso.
+
+Su **Instagram e Messenger** le reazioni prima non arrivavano affatto — nemmeno come
+«[reaction]». Lì Meta le manda in un campo tutto suo, fuori dal messaggio, e il codice
+guardava solo i messaggi: venivano buttate in silenzio. Adesso si leggono.
+
+Si ricontrolla con `npx tsx scripts/prova-reazioni.mts` (crea righe finte e le cancella).
+
 ## Il correttore di bozze
 
 **Misurato il 22/08/2026 su 120 messaggi usciti scritti a mano: 18 avevano almeno un

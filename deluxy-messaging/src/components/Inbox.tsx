@@ -78,6 +78,15 @@ type MessaggioDto = {
   /** Chi ha scritto, solo in uscita. Vuoto sui messaggi vecchi: parte da ora. */
   utenteNome?: string
   /**
+   * L'emoji con cui il cliente ha reagito a QUESTO messaggio.
+   *
+   * ⚠️ Sta sul messaggio a cui si riferisce, non in una riga sua: una reazione
+   * è un francobollo attaccato a una frase, e da sola non vuol dire niente.
+   * Prima arrivava come messaggio col testo «[reaction]» — in mezzo al filo,
+   * senza dire né quale emoji né a che cosa.
+   */
+  reazione?: string
+  /**
    * `testo` | `media` | `nota` | **`auto`**.
    *
    * `auto` è la risposta di primo contatto, partita da sola. Va distinta a
@@ -210,6 +219,12 @@ function Bolla({ m, canale }: { m: MessaggioDto; canale: string }) {
   // che lasciava il vecchio webhook, e al suo posto va l'avviso qui sotto.
   const soloSegnaposto =
     !allegato && /^\[(image|video|audio|file|sticker)\]$/i.test(m.testo.trim())
+  // ⚠️ Le 19 righe «[reaction]» rimaste in tabella: sono le reazioni arrivate
+  // prima del 23/08/2026, quando l'evento veniva registrato come un messaggio e
+  // **l'emoji non si salvava**. Non si possono recuperare — quel dato non c'è
+  // più da nessuna parte — ma «[reaction]» è gergo del protocollo di Meta e non
+  // dice niente a chi lavora: almeno si scrive in italiano.
+  const reazioneVecchia = !allegato && /^\[reaction\]$/i.test(m.testo.trim())
 
   return (
     <div className={`bolla ${m.direzione === 'out' ? 'out' : 'in'}`}>
@@ -242,7 +257,13 @@ function Bolla({ m, canale }: { m: MessaggioDto; canale: string }) {
           Instagram o Messenger.
         </span>
       ) : null}
-      {testoInutile || soloSegnaposto ? null : pezzi ? (
+      {reazioneVecchia ? (
+        <span className="allegato-perso">
+          Il cliente ha messo una reazione — quale, non lo sappiamo: arrivata prima del
+          23/08/2026, quando l'emoji non veniva salvata.
+        </span>
+      ) : null}
+      {testoInutile || soloSegnaposto || reazioneVecchia ? null : pezzi ? (
         pezzi.map((p, i) =>
           p.tipo === 'link' ? (
             <a
@@ -312,6 +333,16 @@ function Bolla({ m, canale }: { m: MessaggioDto; canale: string }) {
           ? ` · ${m.stato === 'errore' ? m.errore || 'errore' : m.stato}`
           : ''}
       </span>
+      {/* ── LA REAZIONE ──
+          ⚠️ Attaccata alla bolla, com'è in ogni chat: una reazione da sola non
+          vuol dire niente — «❤️» in mezzo al filo non dice a che cosa. Prima
+          arrivava come messaggio col testo «[reaction]», e nel database ce ne
+          sono 19 così, con l'emoji persa: quell'evento non la salvava. */}
+      {m.reazione ? (
+        <span className="reazione" title={`Il cliente ha reagito con ${m.reazione}`}>
+          {m.reazione}
+        </span>
+      ) : null}
     </div>
   )
 }

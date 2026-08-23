@@ -965,6 +965,22 @@ button {
   opacity: 0.6;
 }
 
+/* La reazione del cliente, attaccata alla bolla a cui si riferisce.
+   ⚠️ Dentro la bolla e non come riga a parte: una reazione è un francobollo su
+   una frase, e «❤️» in mezzo al filo non direbbe a che cosa. */
+.bolla .reazione {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 1px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--fill);
+  font-size: 13px;
+  line-height: 1.7;
+}
+.bolla.out .reazione {
+  background: rgba(255, 255, 255, 0.16);
+}
+
 .bolla .meta.errore {
   color: var(--red);
   opacity: 1;

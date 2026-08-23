@@ -3,6 +3,7 @@ import crypto from 'node:crypto'
 import { db } from '@/lib/db'
 import { leggiImpostazioni } from '@/lib/impostazioni'
 import { linguaDelTesto } from '@/lib/lingua-testo'
+import { attaccaReazione } from '@/lib/reazioni'
 import { rispostaDiPrimoContatto } from '@/lib/primo-contatto'
 
 export const dynamic = 'force-dynamic'
@@ -142,6 +143,9 @@ type MetaWebhook = {
           audio?: { id?: string; mime_type?: string }
           sticker?: { id?: string; mime_type?: string }
           document?: { id?: string; mime_type?: string; caption?: string; filename?: string }
+          // Una reazione: l'emoji e l'id del messaggio a cui è attaccata.
+          // ⚠️ `emoji` ASSENTE o vuota vuol dire «reazione tolta».
+          reaction?: { message_id?: string; emoji?: string }
         }[]
         statuses?: { id?: string; status?: string; errors?: { message?: string }[] }[]
       }
@@ -165,6 +169,14 @@ type MetaWebhook = {
         // — vuol dire perdere la foto per sempre e lasciare in chat «[image]».
         attachments?: { type?: string; payload?: { url?: string } }[]
       }
+      /**
+       * La reazione su Instagram e Messenger.
+       *
+       * ⚠️ Sta FUORI da `message`, e il messaggio non c'è: chi legge solo
+       * `ev.message` la butta via senza accorgersene. `mid` è il messaggio a cui
+       * è attaccata; `action: 'unreact'` vuol dire che è stata tolta.
+       */
+      reaction?: { mid?: string; action?: string; emoji?: string }
     }[]
   }[]
 }
@@ -269,6 +281,23 @@ async function gestisciWhatsApp(corpo: MetaWebhook) {
 
       for (const msg of valore.messages ?? []) {
         if (!msg.from) continue
+
+        // ── UNA REAZIONE ──
+        // Va attaccata al messaggio a cui si riferisce, non messa in fila come
+        // se fosse un messaggio: è così che si vede in ogni chat, ed è l'unico
+        // modo perché voglia dire qualcosa.
+        if (msg.type === 'reaction') {
+          const attaccata = await attaccaReazione(
+            msg.reaction?.message_id ?? '',
+            msg.reaction?.emoji ?? ''
+          )
+          // ⚠️ Se il messaggio di riferimento non c'è (più vecchio del nostro
+          // archivio) l'emoji non si butta: si scrive come riga normale. Meglio
+          // un cuore senza contesto che un cuore perso.
+          if (attaccata) continue
+          if (!msg.reaction?.emoji) continue // reazione tolta a qualcosa che non abbiamo: niente da dire
+        }
+
         // L'allegato, se c'è: si tiene l'id del file, non il file.
         const allegato = msg.image ?? msg.video ?? msg.audio ?? msg.sticker ?? msg.document
         const media = allegato?.id
@@ -289,6 +318,9 @@ async function gestisciWhatsApp(corpo: MetaWebhook) {
           msg.video?.caption ||
           msg.document?.caption ||
           msg.document?.filename ||
+          // Una reazione arrivata quaggiù è orfana: il messaggio a cui si
+          // riferiva non ce l'abbiamo. Almeno l'emoji si vede.
+          msg.reaction?.emoji ||
           `[${msg.type ?? 'contenuto'}]`
         await registraInArrivo({
           canale: 'whatsapp',
@@ -360,6 +392,21 @@ async function gestisciMessaging(canale: 'messenger' | 'instagram', corpo: MetaW
   for (const entry of corpo.entry ?? []) {
     for (const ev of entry.messaging ?? []) {
       const mittente = ev.sender?.id
+
+      // ── UNA REAZIONE (Instagram e Messenger) ──
+      // ⚠️ Qui la reazione NON sta dentro `message`: è un campo suo, e il
+      // messaggio manca del tutto. Finché non veniva letto, il `continue` qui
+      // sotto la buttava via in silenzio — le reazioni su Instagram non si
+      // vedevano affatto, senza nemmeno un «[reaction]» a tradirlo.
+      // ⚠️ `action: 'unreact'` è la reazione TOLTA: emoji vuota.
+      if (ev.reaction) {
+        await attaccaReazione(
+          ev.reaction.mid ?? '',
+          ev.reaction.action === 'unreact' ? '' : ev.reaction.emoji ?? ''
+        )
+        continue
+      }
+
       const msg = ev.message
       if (!mittente || !msg || msg.is_echo) continue // is_echo = inviato da noi
       // L'allegato: su questi canali Meta manda un indirizzo già firmato, non

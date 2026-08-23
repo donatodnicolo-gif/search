@@ -1,6 +1,6 @@
 # Handoff — Deluxy Customer Service
 
-Ultimo aggiornamento: **23/08/2026, ore 14:30** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
+Ultimo aggiornamento: **23/08/2026, ore 15:00** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
 prima, alle 15:10, l'utente ha pubblicato la schermata di consenso Google e il
 conto alla rovescia dei 7 giorni è finito).
 Prima, il 19/08: la **risposta di primo contatto** che parte da sola al primo
@@ -151,6 +151,37 @@ AES-256-GCM nel database. `APP_SECRET` su Vercel **deve** essere identico al
 locale, altrimenti nulla si decifra.
 
 ## FATTO
+
+- **LE REAZIONI SI VEDONO** (23/08/2026). Chiesto dall'utente vedendo
+  «[reaction]» in una chat WhatsApp.
+  - L'emoji compare in una pastiglia **sotto la bolla a cui è attaccata** (campo
+    nuovo `Messaggio.reazione`, `db push` additivo), come in ogni chat. Vale
+    anche per le reazioni ai **nostri** messaggi: 908 dei 945 usciti hanno
+    `idEsterno` salvato, quindi si ritrovano.
+  - ⚠️⚠️ **Una reazione non è un messaggio**: è un francobollo su una frase.
+    Registrarla come riga a sé dava «[reaction]» in mezzo al filo — né quale
+    emoji né a che cosa. In tabella ne restano **19** così, **irrecuperabili**
+    (l'evento l'emoji non la salvava): a schermo ora dicono «Il cliente ha messo
+    una reazione — quale, non lo sappiamo», con la data.
+  - ⚠️ **L'emoji vuota è l'annullamento**, non un evento da ignorare (su
+    Instagram `action: 'unreact'`): chi leva il cuore se lo deve veder sparire.
+  - ⚠️ **Non tocca `ultimoMessaggioIl`**: il filo si ordina per quello, e un
+    pollice non è lavoro da fare. Far risalire una chat chiusa per una reazione
+    sarebbe rumore.
+  - ⚠️ **Se il messaggio riferito non c'è** (più vecchio dell'archivio) l'emoji
+    non si butta: si registra come riga normale. Meglio un cuore senza contesto
+    che un cuore perso.
+  - 🐞 **Su Instagram e Messenger le reazioni non arrivavano AFFATTO**, nemmeno
+    come «[reaction]»: lì Meta le manda in `messaging[].reaction`, **fuori da
+    `message`**, e il codice leggeva solo `ev.message` — il `continue` le
+    buttava via in silenzio. Adesso si leggono.
+  - ✅ `npx tsx scripts/prova-reazioni.mts`: 8 casi, tutti passano (attacca,
+    sostituisce, toglie, id inesistente, e la conversazione che non risale).
+    ⚠️ Lo script SCRIVE: crea righe sue con un id riconoscibile e **le cancella
+    per id**. Mai un `deleteMany` senza filtro su questo database.
+  - ⚠️ **Non visto a pixel** (pannello del browser non a schermo): la pastiglia
+    ha la sua regola CSS `.bolla .reazione`, con la variante chiara sulle bolle
+    in uscita. **Da guardare.**
 
 - **IL CORRETTORE DI BOZZE** (23/08/2026). Chiesto dall'utente dopo aver visto
   partire «Good mornign» e «Yes we recived your order».
