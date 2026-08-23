@@ -53,6 +53,15 @@ export interface Preventivo {
   allegato_url: string | null;
   stato: StatoPreventivo;
   created_at: string;
+  /** Da dove arriva la riga (migr. 0066): NULL = scritta a mano qui dentro,
+   *  'mail' = registrata da AI Mail quando il fornitore ha risposto. Un importo
+   *  senza provenienza è un numero di cui non ci si fida. */
+  origine?: string | null;
+  /** L'indirizzo da cui è arrivato il prezzo: `fornitore` è solo un nome. */
+  fornitore_email?: string | null;
+  /** Id INTERNO del messaggio in AI Mail: apre la mail con quel prezzo dentro.
+   *  Non è il Message-ID della posta — quello in un URL non apre niente. */
+  mail_ref?: string | null;
 }
 
 /** Un lavoro con i suoi preventivi: è come si guarda, sempre. */

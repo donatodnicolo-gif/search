@@ -31,6 +31,12 @@ const PAT = process.env.SUPABASE_PAT || process.env.SUPABASE_ACCESS_TOKEN;
 
 // Cosa allineare. Le migrazioni sono idempotenti: rilanciarle non fa danni, e
 // la 0046 va anzi rilanciata apposta (il canale `web` è arrivato dopo).
+//
+// ⚠️ QUESTO ELENCO SI SCRIVE A MANO, non si legge dalla cartella: le migrazioni
+// prima della 0045 sono state applicate per altre strade e non sono tutte
+// idempotenti, quindi un glob le rilancerebbe. Il prezzo è che **aggiungere il
+// file non basta**: se il nome non finisce qui, la migrazione non parte mai e
+// lo script dice «ok» lo stesso — è successo il 23/08 con la 0066.
 const MIGRAZIONI = [
   '0045_chiavi_app.sql',
   '0046_contatti_avviati.sql',
@@ -53,6 +59,7 @@ const MIGRAZIONI = [
   '0063_doppioni_meno_rumore.sql',
   '0064_richieste_web_cancella_apri_cron.sql',
   '0065_copertura_salvata.sql',
+  '0066_preventivi_da_mail.sql',
 ];
 // `ordini` è il proxy verso Deluxy Orders (venduto per provincia): resta inerte
 // finché in cassaforte non c'è `ORDERS_API_KEY`, ma senza deploy non esiste
@@ -63,7 +70,11 @@ const MIGRAZIONI = [
 // casella di chi le scrive non ne resta traccia.
 // `lead` e `trattativa` sono qui dal 29/07: accettano anche la chiave generata
 // dall'app (Profilo → Impostazioni), non più solo il secret.
-const FUNZIONI = ['anagrafiche', 'ordini', 'health', 'finance', 'invio-email', 'partner', 'lead', 'trattativa'];
+// `preventivi` è del 23/08: la chiama AI Mail per registrare il prezzo che un
+// fornitore ha mandato per posta. Nasce dentro questa lista apposta — le 12
+// funzioni che non ci sono nessuno le aggiorna, e una modifica al loro codice
+// resta a terra in silenzio.
+const FUNZIONI = ['anagrafiche', 'ordini', 'health', 'finance', 'invio-email', 'partner', 'lead', 'trattativa', 'preventivi'];
 // `health` deve rispondere SENZA sessione (il Hub non ne ha una): va deployata
 // con --no-verify-jwt, altrimenti risponde 401 e la pagina «stato dei servizi»
 // vede Scout come irraggiungibile.
@@ -74,7 +85,11 @@ const FUNZIONI = ['anagrafiche', 'ordini', 'health', 'finance', 'invio-email', '
 // flag le romperebbe: col gateway JWT attivo la chiamata muore prima di
 // arrivare al codice («Missing authorization header») e l'`x-api-key` non
 // serve a niente. Chi le chiama è un server, non un utente loggato.
-const SENZA_JWT = new Set(['health', 'partner', 'lead', 'trattativa']);
+// ⚠️ `preventivi` va QUI oltre che in FUNZIONI: chi la chiama è AI Mail, cioè
+// un server senza sessione. Metterla solo di sopra la pubblicherebbe col
+// gateway JWT attivo, e la chiamata morirebbe prima del codice — l'`x-api-key`
+// non verrebbe nemmeno letta.
+const SENZA_JWT = new Set(['health', 'partner', 'lead', 'trattativa', 'preventivi']);
 
 if (!PAT) {
   console.error('\n✗ Manca SUPABASE_PAT.\n');

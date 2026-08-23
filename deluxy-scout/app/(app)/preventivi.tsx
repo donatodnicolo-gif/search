@@ -8,13 +8,14 @@
 // quindi ogni lavoro mostra i suoi preventivi affiancati, col più basso in
 // evidenza e la differenza rispetto a lui.
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { colors, radius, spacing, contenutoCentrato } from '@/lib/theme';
 import { avvisa, conferma } from '@/lib/dialoghi';
 import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 import { CampoData } from '@/components/CampoData';
+import { urlMessaggioAiMail } from '@/lib/aimail';
 import { cercaPlaces, type PlaceLite } from '@/lib/db';
 import { LINEE_ATTIVE } from '@/types';
 import {
@@ -348,6 +349,23 @@ function RigaPreventivo({
       {p.tempi || p.note ? (
         <Text style={styles.prevMeta} numberOfLines={2}>{[p.tempi, p.note].filter(Boolean).join(' · ')}</Text>
       ) : null}
+      {/* Da dove viene il numero. Un importo comparso nell'app senza dirlo è un
+          importo di cui non ci si fida: alla prima discussione col fornitore si
+          torna a cercare la mail a mano, cioè il lavoro che l'integrazione con
+          AI Mail doveva togliere. */}
+      {p.origine === 'mail' ? (
+        <View style={styles.prevFonte}>
+          <Ionicons name="mail-outline" size={12} color={colors.testoSoft} />
+          <Text style={styles.prevMeta} numberOfLines={1}>
+            {p.fornitore_email ? `da ${p.fornitore_email}` : 'arrivato per mail'}
+          </Text>
+          {p.mail_ref ? (
+            <Pressable hitSlop={6} onPress={() => Linking.openURL(urlMessaggioAiMail(p.mail_ref!))}>
+              <Text style={styles.prevAzione}>Vedi la mail</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
       <View style={styles.prevAzioni}>
         {p.stato !== 'scelto' ? (
           <Pressable
@@ -555,6 +573,7 @@ const styles = StyleSheet.create({
   prevBasso: { color: colors.successo, fontWeight: '700', fontSize: 11.5 },
   prevDiff: { color: '#B7791F', fontWeight: '700', fontSize: 11.5 },
   prevMeta: { color: colors.testoSoft, fontSize: 12 },
+  prevFonte: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
   prevAzioni: { flexDirection: 'row', gap: spacing.md, marginTop: 2 },
   prevAzione: { color: colors.testo, fontWeight: '700', fontSize: 12.5 },
   aggiungi: { gap: 8, backgroundColor: colors.sfondo, borderRadius: radius.md, padding: spacing.sm },

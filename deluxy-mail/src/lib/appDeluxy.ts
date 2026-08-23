@@ -40,6 +40,11 @@ export type ContestoAzione = {
   chiave: string
   nostriDomini?: string[]
   controparte?: string | null
+  /** L'id INTERNO di questo messaggio, quello che apre `/messaggio/<id>`.
+   *  Serve alle azioni che scrivono un dato in un'altra app e vogliono
+   *  lasciarci il rimando alla mail da cui viene: un numero che compare in
+   *  un'app senza dire da dove arriva è un numero di cui non ci si fida. */
+  messaggioId?: string
 }
 
 /**
@@ -841,6 +846,105 @@ const AZIONI: AzioneApp[] = [
           if (status === 401 || status === 403)
             return { ok: false, messaggio: 'Chiave Commerciale non valida: controllala in Impostazioni App.' }
           if (status === 404) return { ok: false, messaggio: testoErrore(risposta, 'Negozio non trovato in Commerciale.') }
+          return { ok: false, messaggio: testoErrore(risposta, `Commerciale ha risposto ${status}.`) }
+        }
+      )
+    },
+  },
+  {
+    id: 'commerciale.preventivo',
+    app: 'Commerciale',
+    nome: 'Registra il preventivo',
+    scrive: true,
+    descrizione: 'Segna in Scout il prezzo che un fornitore ha mandato per un lavoro aperto.',
+    colore: 'green',
+    guida:
+      'La mail è la RISPOSTA DI UN FORNITORE a cui avevamo chiesto un prezzo. lavoro = per quale lavoro è il preventivo, come lo chiama la mail (es. «allestimento vetrine», «torte per l’inaugurazione»): Scout lo riconosce fra i suoi lavori aperti. fornitore = il nome dell’azienda che manda il prezzo. importo = il prezzo in euro, SOLO se scritto (numero, senza simboli e senza IVA se è indicata a parte): se il fornitore non ha ancora dato un prezzo lascia null, non inventarlo e non metterlo a zero. tempi = i tempi di consegna come li scrive lui (es. «10 giorni»). note = condizioni che contano (validità dell’offerta, minimi, trasporto escluso), in una frase.',
+    campi: [
+      { nome: 'lavoro', etichetta: 'Per quale lavoro', obbligatorio: true, largo: true, aiuto: 'Scout lo cerca fra i lavori aperti.' },
+      { nome: 'fornitore', etichetta: 'Fornitore', obbligatorio: true },
+      { nome: 'importo', etichetta: 'Importo (€)', aiuto: 'Vuoto = prezzo non ancora arrivato.' },
+      { nome: 'tempi', etichetta: 'Tempi' },
+      { nome: 'note', etichetta: 'Condizioni', tipo: 'lungo', largo: true },
+    ],
+    schema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['lavoro', 'fornitore', 'importo', 'tempi', 'note'],
+      properties: {
+        lavoro: { type: 'string', description: 'Il lavoro a cui si riferisce il prezzo.' },
+        fornitore: { type: 'string', description: 'Nome dell’azienda che manda il preventivo.' },
+        importo: { type: ['number', 'null'], description: 'Prezzo in euro, solo se scritto.' },
+        tempi: { type: ['string', 'null'], description: 'Tempi di consegna, come li scrive il fornitore.' },
+        note: { type: ['string', 'null'], description: 'Condizioni che contano, in una frase.' },
+      },
+    },
+    // Chi manda il prezzo lo dice l'indirizzo, non il modello: il nome scritto
+    // in fondo alla mail può essere la persona, la sede o niente. Il codice sa
+    // con certezza da dove è arrivata, quindi quel campo lo riempie lui —
+    // prima del dialogo, così l'utente lo vede e può ancora cambiarlo.
+    daMail(dati, mail) {
+      const nome = String(mail.mittente ?? '').replace(/<[^>]*>/, '').replace(/["']/g, '').trim()
+      return {
+        ...dati,
+        fornitore: typeof dati.fornitore === 'string' && dati.fornitore.trim() ? dati.fornitore : nome || dati.fornitore,
+      }
+    },
+    async esegui(dati, ctx) {
+      const lavoro = typeof dati.lavoro === 'string' ? dati.lavoro.trim() : ''
+      const fornitore = typeof dati.fornitore === 'string' ? dati.fornitore.trim() : ''
+      if (!lavoro) return { ok: false, messaggio: 'Manca il lavoro a cui si riferisce il preventivo.' }
+      if (!fornitore) return { ok: false, messaggio: 'Manca il fornitore che ha fatto il prezzo.' }
+      // Il campo del modulo è testo: «1.250,50» è come si scrive un prezzo qui,
+      // e mandarlo così a Scout non darebbe un numero ma un errore.
+      const grezzo = dati.importo
+      let importo: number | null = null
+      if (typeof grezzo === 'number' && Number.isFinite(grezzo)) importo = grezzo
+      else if (typeof grezzo === 'string' && grezzo.trim()) {
+        const n = Number(grezzo.replace(/[€\s]/g, '').replace(/\./g, '').replace(',', '.'))
+        if (!Number.isFinite(n)) return { ok: false, messaggio: `«${grezzo}» non è un importo: scrivi solo il numero, o lascia vuoto.` }
+        importo = n
+      }
+      const body: Record<string, unknown> = {
+        azione: 'registra',
+        lavoro,
+        fornitore,
+        importo,
+        tempi: dati.tempi || undefined,
+        note: dati.note || undefined,
+        // L'indirizzo vero della controparte lo ha già risolto il codice.
+        fornitoreEmail: ctx.controparte || undefined,
+        // Il rimando alla mail: senza, in Scout resta un numero senza storia.
+        mailRef: ctx.messaggioId || undefined,
+      }
+      return chiama(
+        `${COMMERCIALE_URL}/preventivi`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-api-key': ctx.chiave },
+          body: JSON.stringify(body),
+        },
+        (status, risposta) => {
+          if (status === 200 || status === 201) {
+            return { ok: true, messaggio: testoErrore(risposta, `Preventivo di ${fornitore} registrato.`) }
+          }
+          if (status === 401 || status === 403)
+            return { ok: false, messaggio: 'Chiave Commerciale non valida: controllala in Impostazioni App.' }
+          // ⚠️ 404 e 409 non sono guasti: Scout non sa a quale lavoro attaccare
+          // il prezzo e si rifiuta di indovinare. Nella risposta manda i lavori
+          // aperti, e quelli vanno mostrati — «non trovato» senza dire cosa
+          // c'era costringe a uscire e andare a guardare in Scout.
+          if (status === 404 || status === 409) {
+            const aperti = risposta && typeof risposta === 'object' ? (risposta as Record<string, unknown>).lavori : null
+            const elenco = Array.isArray(aperti)
+              ? aperti
+                  .map((l) => (l && typeof l === 'object' ? String((l as Record<string, unknown>).titolo ?? '') : ''))
+                  .filter(Boolean)
+                  .slice(0, 6)
+              : []
+            const coda = elenco.length ? ` Lavori aperti: ${elenco.join(' · ')}.` : ''
+            return { ok: false, messaggio: testoErrore(risposta, 'Lavoro non riconosciuto in Scout.') + coda }
+          }
           return { ok: false, messaggio: testoErrore(risposta, `Commerciale ha risposto ${status}.`) }
         }
       )

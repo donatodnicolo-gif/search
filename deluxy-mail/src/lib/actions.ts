@@ -4223,6 +4223,7 @@ export async function eseguiInvioApp(
     chiave,
     nostriDomini: nostri,
     controparte: controparteDi(m, nostri),
+    messaggioId: m.id,
   }
 
   // Lo stesso trattamento dell'invio automatico: vale anche qui, dove a
