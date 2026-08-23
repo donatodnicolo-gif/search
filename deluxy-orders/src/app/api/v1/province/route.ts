@@ -93,14 +93,76 @@ export async function GET(req: NextRequest) {
 
   const totale = righe.reduce((s, r) => s + r.lordo, 0);
 
+  // ── Divisione TORTE / FIORI / ALTRO, per provincia ────────────────────────
+  //
+  // Chiesta da Deluxy Scout per la vista Copertura: «quanto vale qui» non basta
+  // se non si sa di CHE COSA, perché il fornitore da cercare è un fiorista o
+  // una pasticceria a seconda della risposta.
+  //
+  // Si usa la colonna `categorie` già calcolata sull'ordine (regole + AI +
+  // correzioni a mano, vedi src/lib/categorie.ts): rifare qui la
+  // classificazione vorrebbe dire avere due regole che col tempo dicono cose
+  // diverse.
+  //
+  // ⚠️ Ogni ordine sta in UNA colonna sola, così le tre sommano esatte al
+  // «venduto» e non c'è un totale che non torna. Gli ordini che hanno sia torte
+  // sia fiori (il 4% del fatturato) vanno dove pesano di più, contando il
+  // valore delle righe: metterli in entrambe le colonne le farebbe sforare il
+  // totale, buttarli in «altro» direbbe una cosa falsa.
+  const perTipo = await prisma.$queryRawUnsafe<
+    { provincia: string; tipo: string; lordo: number }[]
+  >(
+    `WITH base AS (
+       SELECT id, UPPER(TRIM(provincia)) AS provincia, totale, COALESCE(categorie, '') AS categorie
+         FROM "${SCHEMA}"."Ordine"
+         ${dove}${dove ? " AND" : "WHERE"} provincia IS NOT NULL AND TRIM(provincia) <> ''
+     ),
+     misti AS (
+       SELECT b.id,
+              CASE WHEN COALESCE(SUM(CASE WHEN r.titolo ~* '(torta|cake|pasticc|cheesecake|crostata|macaron|cupcake|monoporzion)' THEN r.prezzo * r.quantita END), 0)
+                        > COALESCE(SUM(CASE WHEN r.titolo ~* '(bouquet|fior|flower|rosa|rose|orchide|composizion|mazzo|piant)' THEN r.prezzo * r.quantita END), 0)
+                   THEN 'torte' ELSE 'fiori' END AS tipo
+         FROM base b
+         JOIN "${SCHEMA}"."RigaOrdine" r ON r."ordineId" = b.id
+        WHERE b.categorie ~ 'torte' AND b.categorie ~ 'fiori'
+        GROUP BY b.id
+     )
+     SELECT b.provincia,
+            COALESCE(
+              m.tipo,
+              CASE WHEN b.categorie ~ 'torte' THEN 'torte'
+                   WHEN b.categorie ~ 'fiori' THEN 'fiori'
+                   ELSE 'altro' END
+            ) AS tipo,
+            COALESCE(SUM(b.totale), 0)::float8 AS lordo
+       FROM base b
+       LEFT JOIN misti m ON m.id = b.id
+      GROUP BY 1, 2`,
+    ...valori,
+  );
+
+  const tipiPerProvincia = new Map<string, { torte: number; fiori: number; altro: number }>();
+  for (const r of perTipo) {
+    const v = tipiPerProvincia.get(r.provincia) ?? { torte: 0, fiori: 0, altro: 0 };
+    if (r.tipo === "torte" || r.tipo === "fiori" || r.tipo === "altro") v[r.tipo] += r.lordo;
+    tipiPerProvincia.set(r.provincia, v);
+  }
+
   return NextResponse.json({
     periodo: { da: da ?? "tutto lo storico", a: a ?? "oggi" },
-    province: righe.map((r) => ({
-      provincia: r.provincia,
-      ordini: r.ordini,
-      lordo: Math.round(r.lordo * 100) / 100,
-      clienti: r.clienti,
-    })),
+    province: righe.map((r) => {
+      const t = tipiPerProvincia.get(r.provincia) ?? { torte: 0, fiori: 0, altro: 0 };
+      return {
+        provincia: r.provincia,
+        ordini: r.ordini,
+        lordo: Math.round(r.lordo * 100) / 100,
+        clienti: r.clienti,
+        // Le tre sommano esatte a `lordo`: ogni ordine sta in una sola.
+        torte: Math.round(t.torte * 100) / 100,
+        fiori: Math.round(t.fiori * 100) / 100,
+        altro: Math.round(t.altro * 100) / 100,
+      };
+    }),
     totaleProvince: Math.round(totale * 100) / 100,
     // Dichiarato, non nascosto: è la differenza fra questa somma e il fatturato
     // totale, e senza saperlo i conti sembrano sbagliati.
