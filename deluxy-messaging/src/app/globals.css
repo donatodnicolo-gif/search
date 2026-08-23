@@ -1813,6 +1813,37 @@ td .azioni-ordine {
   flex-wrap: nowrap;
 }
 
+/* ── I GRUPPI DELLE AZIONI DELL'ORDINE ──
+   Di chi è · parlare col cliente · soldi e guai · lasciar detto · uscire.
+   ⚠️ Il gruppo NON va a capo dentro di sé (`nowrap`): il punto è che i tre
+   bottoni dei soldi restino attaccati anche quando la finestra si stringe —
+   se si spezzano dove capita, il raggruppamento non lo vede più nessuno. A
+   capo ci va la riga fra un gruppo e l'altro. */
+.azioni-ordine .gruppo {
+  display: flex;
+  align-items: center;
+  gap: inherit;
+  flex: 0 1 auto;
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+
+/* La lineetta fra un gruppo e l'altro: stessa lingua della testata della chat. */
+.azioni-ordine .gruppo + .gruppo::before {
+  content: '';
+  flex: 0 0 auto;
+  width: 1px;
+  height: 14px;
+  background: var(--hairline);
+  margin: 0 3px;
+}
+
+/* Fornitore e Shopify in fondo: sono gli unici che portano fuori dall'app, e
+   in fondo a destra è dove si va quando si è finito. */
+.azioni-ordine .gruppo-fuori {
+  margin-left: auto;
+}
+
 .bottone.mini {
   padding: 3px 11px;
   font-size: 12.5px;
@@ -2542,6 +2573,13 @@ td .azioni-ordine {
   /* Distanziati, altrimenti ingrandirli li fa solo toccare fra loro e si passa
      dal mancare il bersaglio al colpire quello sbagliato. */
   .scheda-ordine .azioni-ordine { gap: 8px; }
+  /* ⚠️ Qui i gruppi VANNO a capo: su 360px «resta attaccato» non è un ordine,
+     è una promessa che il telefono non può mantenere. E con ogni gruppo su una
+     riga sua la lineetta finirebbe da sola in cima, e «in fondo a destra» non
+     vorrebbe più dire niente. */
+  .azioni-ordine .gruppo { flex-wrap: wrap; row-gap: 8px; }
+  .azioni-ordine .gruppo + .gruppo::before { display: none; }
+  .azioni-ordine .gruppo-fuori { margin-left: 0; }
   .riga-bassa { gap: 8px; }
   /* Anche l'indirizzo email: resta una riga di testo, ma con un po' di
      spazio sopra e sotto da prendere col dito. */

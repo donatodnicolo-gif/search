@@ -1,6 +1,6 @@
 # Handoff — Deluxy Customer Service
 
-Ultimo aggiornamento: **24/08/2026, ore 04:15** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
+Ultimo aggiornamento: **24/08/2026, ore 05:00** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
 prima, alle 15:10, l'utente ha pubblicato la schermata di consenso Google e il
 conto alla rovescia dei 7 giorni è finito).
 Prima, il 19/08: la **risposta di primo contatto** che parte da sola al primo
@@ -340,6 +340,31 @@ locale, altrimenti nulla si decifra.
     chat finisce nel cestino.
   - ⚠️ **Il numero delle note da fare sta sul bottone**: in un pannello chiuso
     una nota lasciata a un collega non esisterebbe.
+
+- **LE AZIONI DELL'ORDINE, IN CINQUE GRUPPI** (24/08/2026, chiesto sopra uno
+  screenshot: «paga va sotto con gli altri bottoni, riorganizza poi tutti i
+  bottoni con logica»). Di chi è · parlare col cliente · soldi e guai ·
+  lasciar detto · uscire dall'app.
+  - ⚠️ **Nella SCHEDA «Paga» era già accanto a «Rimborso»**: quello che si
+    vede nello screenshot è il blocco che va a capo dove capita. Il difetto
+    vero era che dieci bottoni uguali in fila si spezzavano in punti diversi
+    a ogni larghezza di finestra, e «Rimborso» si cercava a occhio ogni volta.
+  - ⚠️ **Nella TABELLA invece il difetto c'era davvero**: `Paga fornitore`
+    stava attaccato al menu «Assegna a…» — un'azione sui soldi come primo
+    vicino di una sulle persone. Sceso accanto a «Rimborso».
+  - ⚠️ **Un gruppo non si spezza dentro di sé** (`flex-wrap: nowrap`): a capo
+    ci va la riga fra un gruppo e l'altro. Se i tre dei soldi si dividessero
+    dove capita, il raggruppamento non lo vedrebbe più nessuno.
+  - ⚠️ **«Rubrica» è finita col cliente** e non fra gli attrezzi: è il
+    recapito del cliente, cioè la stessa cosa dei bottoni accanto.
+  - ⚠️ Sul telefono i gruppi vanno a capo, la lineetta sparisce e «fuori»
+    perde la spinta a destra.
+  - ✅ Misurato su un'anteprima temporanea: a **450px** (la larghezza vera di
+    una scheda nella bacheca) il blocco passa da **tre righe** a **due**,
+    nessun gruppo spezzato, niente che sborda —
+    riga 1 «Assegna a… | WhatsApp · Chiama · Email · Rubrica»,
+    riga 2 «Reclamo · Rimborso · Paga | Nota | Fornitore ↗ · Shopify ↗».
+    A 375px separatori nascosti, gruppi a capo, bottoni da 40px.
 
 - **«DA LEGGERE» ANCHE DALL'ELENCO** (24/08/2026, chiesto: «consenti di
   impostare da leggere anche da vista inbox»). Una **busta** fra le iconcine

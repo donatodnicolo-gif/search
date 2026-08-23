@@ -1678,134 +1678,170 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
                             </button>
                           </span>
                         </div>
+                        {/* ── LE AZIONI DELL'ORDINE, IN CINQUE GRUPPI ──
+                            Da sinistra a destra nell'ordine in cui si
+                            attraversano davvero, guardando una scheda:
+                            1. **di chi è** — prima di «cosa ci faccio»;
+                            2. **parlare col cliente** — i canali che ha
+                               davvero, più il salvataggio in rubrica;
+                            3. **soldi e guai** — reclamo, rimborso, paga: si
+                               leggono insieme perché si decidono insieme;
+                            4. **lasciar detto** — la nota di diario;
+                            5. **uscire dall'app** — fornitore e Shopify, gli
+                               unici due che portano altrove (la ↗ lo dice).
+                            ⚠️ Erano dieci bottoni tutti uguali in fila, che
+                            andando a capo si spezzavano in punti diversi a
+                            ogni larghezza di finestra: si cercava «Rimborso»
+                            a occhio ogni volta. Adesso i gruppi restano
+                            attaccati e fra l'uno e l'altro c'è una lineetta. */}
                         <div className="azioni-ordine" onClick={(e) => e.stopPropagation()}>
-                          {/* Prima di tutto il resto: «di chi è» viene prima di
-                              «cosa ci faccio». */}
-                          <ComandoPresa
-                            ordine={o}
-                            ioId={ioId}
-                            ioRuolo={ioRuolo}
-                            operatori={operatori}
-                            onAzione={prendi}
-                          />
-                          {/* ⚠️ «Paga» sta più in basso, fra le altre azioni:
-                              qui accanto ad «Assegna a…» faceva riga a sé con il
-                              menu, e un pagamento non è un compagno di riga
-                              dell'assegnazione — è un'azione come «Rimborso»,
-                              con cui invece va letto insieme. */}
-                          {/* Un bottone per ogni canale che questo cliente ha
+                          {/* ── 1. Di chi è ──
+                              Prima di tutto il resto: «di chi è» viene prima
+                              di «cosa ci faccio». */}
+                          <span className="gruppo">
+                            <ComandoPresa
+                              ordine={o}
+                              ioId={ioId}
+                              ioRuolo={ioRuolo}
+                              operatori={operatori}
+                              onAzione={prendi}
+                            />
+                          </span>
+
+                          {/* ── 2. Parlare col cliente ──
+                              Un bottone per ogni canale che questo cliente ha
                               davvero: sceglie chi sta lavorando l'ordine, non
-                              il codice. Senza recapiti resta scritto perché. */}
-                          {(() => {
-                            const canali = canaliContatto(o)
-                            if (canali.length === 0) {
-                              return (
-                                <span
-                                  className="bottone secondario mini"
-                                  style={{ pointerEvents: 'none', opacity: 0.4 }}
-                                  title="Ordine senza telefono né email: non c'è modo di contattarlo"
-                                >
-                                  Nessun recapito
-                                </span>
-                              )
-                            }
-                            return canali.map((c) =>
-                              c.mail ? (
-                                <button
-                                  key={c.chiave}
-                                  className="bottone secondario mini"
-                                  onClick={() => {
-                                    setMail(c.mail!)
-                                    segna(o.id, 'comunicazione')
-                                  }}
-                                  title={spiegaContatto(c)}
-                                >
-                                  {c.nome}
-                                </button>
-                              ) : (
-                              <a
-                                key={c.chiave}
-                                className="bottone secondario mini"
-                                href={c.url}
-                                target={c.chiave === 'telefono' ? undefined : '_blank'}
-                                rel="noopener noreferrer"
-                                onClick={() => segna(o.id, 'comunicazione')}
-                                title={spiegaContatto(c)}
-                              >
-                                {c.nome}
-                              </a>
-                              )
-                            )
-                          })()}
-                          <a
-                            className="bottone secondario mini"
-                            href={linkReclamo(o)}
-                            title="Apri un reclamo su questo ordine"
-                          >
-                            Reclamo
-                          </a>
-                          <a
-                            className="bottone secondario mini"
-                            href={linkRimborso(o)}
-                            title="Chiedi il rimborso di questo ordine (lo approva poi una persona)"
-                          >
-                            Rimborso
-                          </a>
-                          {/* I soldi vicini ai soldi: «Paga» accanto a
-                              «Rimborso», non in cima con l'assegnazione. */}
-                          <a
-                            className="bottone secondario mini"
-                            href={linkPagamento(o)}
-                            onClick={() => segna(o.id, 'in_pagamento')}
-                            title="Paga fornitore: chiedi il pagamento del fornitore per questo ordine"
-                          >
-                            Paga
-                          </a>
-                          <BottoneNota numero={o.numero} onErrore={setErrore} />
-                          {!o.contattoSalvato ? (
-                            <button
-                              className="bottone secondario mini"
-                              onClick={() => salvaContatto(o.id)}
-                              disabled={!!occupato || !googleCollegato || (!o.telefono && !o.email)}
-                              title={
-                                !o.telefono && !o.email
-                                  ? 'Ordine senza telefono né email'
-                                  : googleCollegato
-                                    ? 'Salva il contatto in rubrica Google'
-                                    : 'Collega Google Contacts nelle Impostazioni'
+                              il codice. Senza recapiti resta scritto perché.
+                              ⚠️ «Rubrica» sta qui e non fra gli attrezzi: è
+                              il recapito del cliente, cioè la stessa cosa di
+                              cui parlano i bottoni accanto. */}
+                          <span className="gruppo">
+                            {(() => {
+                              const canali = canaliContatto(o)
+                              if (canali.length === 0) {
+                                return (
+                                  <span
+                                    className="bottone secondario mini"
+                                    style={{ pointerEvents: 'none', opacity: 0.4 }}
+                                    title="Ordine senza telefono né email: non c'è modo di contattarlo"
+                                  >
+                                    Nessun recapito
+                                  </span>
+                                )
                               }
-                            >
-                              {occupato === o.id ? 'Salvo…' : 'Rubrica'}
-                            </button>
-                          ) : null}
-                          {n.brandRicerca ? (
-                            <button
-                              className="bottone secondario mini"
-                              onClick={() => apriFornitore(n.brandRicerca, o.numero, setErrore)}
-                              title={`Cerca il fornitore per ${o.numero} su Ricerca fornitori`}
-                            >
-                              Fornitore ↗
-                            </button>
-                          ) : null}
-                          {/* Shopify fra le azioni rapide, non solo dentro il
-                              dettaglio: rimborsare davvero, cambiare le righe o
-                              guardare il pagamento è lavoro che si decide
-                              scorrendo l'elenco, e passare dal pannello per un
-                              link è un clic in più su ogni ordine.
-                              ⚠️ Il dominio è quello del NEGOZIO DI QUESTA
-                              COLONNA e l'indirizzo nasce dal gid: `#1733`
-                              esiste su più negozi. Se il link non si può
-                              costruire il bottone non c'è. */}
-                          {linkOrdineShopify(n.dominio, o.shopifyId) ? (
+                              return canali.map((c) =>
+                                c.mail ? (
+                                  <button
+                                    key={c.chiave}
+                                    className="bottone secondario mini"
+                                    onClick={() => {
+                                      setMail(c.mail!)
+                                      segna(o.id, 'comunicazione')
+                                    }}
+                                    title={spiegaContatto(c)}
+                                  >
+                                    {c.nome}
+                                  </button>
+                                ) : (
+                                  <a
+                                    key={c.chiave}
+                                    className="bottone secondario mini"
+                                    href={c.url}
+                                    target={c.chiave === 'telefono' ? undefined : '_blank'}
+                                    rel="noopener noreferrer"
+                                    onClick={() => segna(o.id, 'comunicazione')}
+                                    title={spiegaContatto(c)}
+                                  >
+                                    {c.nome}
+                                  </a>
+                                )
+                              )
+                            })()}
+                            {!o.contattoSalvato ? (
+                              <button
+                                className="bottone secondario mini"
+                                onClick={() => salvaContatto(o.id)}
+                                disabled={!!occupato || !googleCollegato || (!o.telefono && !o.email)}
+                                title={
+                                  !o.telefono && !o.email
+                                    ? 'Ordine senza telefono né email'
+                                    : googleCollegato
+                                      ? 'Salva il contatto in rubrica Google'
+                                      : 'Collega Google Contacts nelle Impostazioni'
+                                }
+                              >
+                                {occupato === o.id ? 'Salvo…' : 'Rubrica'}
+                              </button>
+                            ) : null}
+                          </span>
+
+                          {/* ── 3. Soldi e guai ──
+                              ⚠️ I tre stanno INSIEME perché si decidono
+                              insieme: «il cliente si lamenta» porta a
+                              «rimborsiamo?» e a «il fornitore l'abbiamo
+                              pagato?». Sparsi fra i canali e i link esterni,
+                              ognuno dei tre sembrava un'azione a sé. */}
+                          <span className="gruppo">
                             <a
                               className="bottone secondario mini"
-                              href={linkOrdineShopify(n.dominio, o.shopifyId)}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              title="Apri questo ordine nell'amministrazione di Shopify (rimborsi, righe, pagamenti), in una scheda nuova"
+                              href={linkReclamo(o)}
+                              title="Apri un reclamo su questo ordine"
                             >
-                              Shopify ↗
+                              Reclamo
                             </a>
+                            <a
+                              className="bottone secondario mini"
+                              href={linkRimborso(o)}
+                              title="Chiedi il rimborso di questo ordine (lo approva poi una persona)"
+                            >
+                              Rimborso
+                            </a>
+                            <a
+                              className="bottone secondario mini"
+                              href={linkPagamento(o)}
+                              onClick={() => segna(o.id, 'in_pagamento')}
+                              title="Paga fornitore: chiedi il pagamento del fornitore per questo ordine"
+                            >
+                              Paga
+                            </a>
+                          </span>
+
+                          {/* ── 4. Lasciar detto ── */}
+                          <span className="gruppo">
+                            <BottoneNota numero={o.numero} onErrore={setErrore} />
+                          </span>
+
+                          {/* ── 5. Uscire dall'app ──
+                              Gli unici due che portano altrove, e la ↗ lo dice
+                              prima del clic. Stando in mezzo agli altri, si
+                              perdeva una scheda del browser senza volerlo.
+                              ⚠️ Il dominio di Shopify è quello del NEGOZIO DI
+                              QUESTA COLONNA e l'indirizzo nasce dal gid:
+                              `#1733` esiste su più negozi. Se il link non si
+                              può costruire, il bottone non c'è. */}
+                          {n.brandRicerca || linkOrdineShopify(n.dominio, o.shopifyId) ? (
+                            <span className="gruppo gruppo-fuori">
+                              {n.brandRicerca ? (
+                                <button
+                                  className="bottone secondario mini"
+                                  onClick={() => apriFornitore(n.brandRicerca, o.numero, setErrore)}
+                                  title={`Cerca il fornitore per ${o.numero} su Ricerca fornitori`}
+                                >
+                                  Fornitore ↗
+                                </button>
+                              ) : null}
+                              {linkOrdineShopify(n.dominio, o.shopifyId) ? (
+                                <a
+                                  className="bottone secondario mini"
+                                  href={linkOrdineShopify(n.dominio, o.shopifyId)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  title="Apri questo ordine nell'amministrazione di Shopify (rimborsi, righe, pagamenti), in una scheda nuova"
+                                >
+                                  Shopify ↗
+                                </a>
+                              ) : null}
+                            </span>
                           ) : null}
                         </div>
                       </div>
@@ -1968,14 +2004,6 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
                         operatori={operatori}
                         onAzione={prendi}
                       />
-                      <a
-                        className="bottone secondario mini"
-                        href={linkPagamento(o)}
-                        onClick={() => segna(o.id, 'in_pagamento')}
-                        title="Chiedi il pagamento del fornitore per questo ordine"
-                      >
-                        Paga fornitore
-                      </a>
                       {(() => {
                         const canali = canaliContatto(o)
                         if (canali.length === 0) {
@@ -2016,6 +2044,16 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
                         title="Chiedi il rimborso di questo ordine"
                       >
                         Rimborso
+                      </a>
+                      {/* I soldi vicini ai soldi: «Paga» accanto a «Rimborso»,
+                          non attaccato al menu «Assegna a…». */}
+                      <a
+                        className="bottone secondario mini"
+                        href={linkPagamento(o)}
+                        onClick={() => segna(o.id, 'in_pagamento')}
+                        title="Chiedi il pagamento del fornitore per questo ordine"
+                      >
+                        Paga fornitore
                       </a>
                       {o.gestione === 'gestito' ? (
                         <button

@@ -226,6 +226,36 @@ guardava solo i messaggi: venivano buttate in silenzio. Adesso si leggono.
 
 Si ricontrolla con `npx tsx scripts/prova-reazioni.mts` (crea righe finte e le cancella).
 
+## Le azioni di un ordine, in cinque gruppi
+
+Sulla scheda di un ordine i bottoni sono raggruppati per **che cosa fanno**, con
+una lineetta fra un gruppo e l'altro, nell'ordine in cui si attraversano:
+
+1. **di chi è** — `Assegna a…`, prima di «cosa ci faccio»;
+2. **parlare col cliente** — `WhatsApp` · `Chiama` · `Email` · `Rubrica`;
+3. **soldi e guai** — `Reclamo` · `Rimborso` · `Paga`;
+4. **lasciar detto** — `Nota`;
+5. **uscire dall'app** — `Fornitore ↗` · `Shopify ↗`, in fondo a destra.
+
+⚠️ **I tre dei soldi stanno insieme perché si decidono insieme**: «il cliente si
+lamenta» porta a «rimborsiamo?» e a «il fornitore l'abbiamo pagato?». Sparsi fra
+i canali e i link esterni, ognuno dei tre sembrava un'azione a sé.
+
+⚠️ **Un gruppo non si spezza dentro di sé** (`flex-wrap: nowrap`): a capo ci va
+la riga fra un gruppo e l'altro. Se i tre bottoni dei soldi si dividessero dove
+capita a ogni larghezza di finestra, il raggruppamento non lo vedrebbe più
+nessuno — che è il difetto di prima, dieci bottoni uguali in fila che si
+spezzavano in punti diversi ogni volta.
+
+⚠️ Sul telefono i gruppi **vanno a capo** e la lineetta sparisce: su 360px
+«resta attaccato» è una promessa che non si può mantenere, e con ogni gruppo su
+una riga sua «in fondo a destra» non vuol più dire niente.
+
+⚠️ Nella **tabella** `Paga fornitore` è sceso accanto a `Rimborso`: stava
+attaccato al menu `Assegna a…`, cioè un'azione sui soldi come primo vicino di
+una sulle persone. Due schermate che mettono gli stessi bottoni in ordini
+diversi si imparano due volte.
+
 ## La testata della conversazione: chi è sopra, che cosa ci faccio sotto
 
 La riga in cima al thread è divisa in due, e la divisione è la funzione:
