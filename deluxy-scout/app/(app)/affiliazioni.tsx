@@ -7,6 +7,7 @@ import {
   Linking,
   Pressable,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -92,7 +93,7 @@ export default function Affiliazioni() {
   const [filtro, setFiltro] = useState<FiltroAff>('tutti');
   // Due modi di lavorare le affiliazioni: l'ELENCO di quelle già censite e la
   // RICERCA sul territorio (scoperta Google) per trovarne di nuove.
-  const [tab, setTab] = useState<'elenco' | 'ricerca'>('elenco');
+  const [tab, setTab] = useState<'elenco' | 'ricerca' | 'copertura'>('elenco');
   // Aperta da un preferito del menu (?lat&lng&indirizzo): vai alla Ricerca, centrata lì.
   const params = useLocalSearchParams<{ lat?: string; lng?: string; indirizzo?: string; cerca?: string }>();
   const centroIniziale = useMemo(() => {
@@ -127,14 +128,6 @@ export default function Affiliazioni() {
   // owner → nome, per scrivere CHI ha segnalato invece di un uuid. Tollerante:
   // se la tabella profiles non risponde restano i nomi di ripiego.
   const [nomi, setNomi] = useState<Map<string, string>>(new Map());
-  // COPERTURA: la tabella delle province vive qui dentro, chiusa di default.
-  // Le due schermate erano separate ma facevano un lavoro solo — «dove non
-  // abbiamo nessuno» e «chi chiamo» sono la stessa domanda, in due tempi. E il
-  // clic sulla provincia, che prima portava qui con un parametro che nessuno
-  // leggeva (`?zona=`, ignorato), adesso filtra l'elenco lì sotto.
-  // ⚠️ Chiusa di default perché costa due chiamate di rete (registro + venduto):
-  // aprirla è una scelta, non un pedaggio su ogni visita alla pagina.
-  const [copertura, setCopertura] = useState(false);
 
   const carica = useCallback(async () => {
     setLoading(true);
@@ -223,6 +216,11 @@ export default function Affiliazioni() {
         {([
           { v: 'elenco' as const, label: 'Elenco', icona: 'list-outline' as const },
           { v: 'ricerca' as const, label: 'Ricerca', icona: 'map-outline' as const },
+          // Terza scheda: «dove non abbiamo nessuno». Sta qui in cima e non più
+          // in un pannello dentro la testata dell'elenco — lì rubava una riga a
+          // tutti, anche a chi era venuto solo per telefonare, e i suoi dati
+          // (registro + venduto) si caricano solo quando la scheda si apre.
+          { v: 'copertura' as const, label: 'Copertura', icona: 'grid-outline' as const },
         ]).map((t) => (
           <Pressable key={t.v} onPress={() => setTab(t.v)} style={[styles.tab, tab === t.v && styles.tabOn]}>
             <Ionicons name={t.icona} size={15} color={tab === t.v ? colors.bianco : colors.testo} />
@@ -231,7 +229,21 @@ export default function Affiliazioni() {
         ))}
       </View>
 
-      {tab === 'ricerca' ? (
+      {tab === 'copertura' ? (
+        <ScrollView style={styles.container} contentContainerStyle={[styles.list, contenutoLargo]}>
+          <Text style={styles.coperturaAiuto}>
+            Tutte e 107 le province, comprese quelle dove non abbiamo nessuno: sono il motivo per cui la
+            schermata esiste. Tocca una provincia — il suo nome finisce nella ricerca e torni all’elenco
+            già filtrato.
+          </Text>
+          <CoperturaProvince
+            onProvincia={(nome) => {
+              setQuery(nome);
+              setTab('elenco');
+            }}
+          />
+        </ScrollView>
+      ) : tab === 'ricerca' ? (
         <RicercaAffiliazioni onPreso={carica} centroIniziale={centroIniziale} />
       ) : (
       <>
@@ -276,20 +288,6 @@ export default function Affiliazioni() {
                 ))}
               </View>
             </PannelloFiltri>
-            <Pressable style={styles.coperturaBtn} onPress={() => setCopertura((v) => !v)}>
-              <Ionicons name="map-outline" size={15} color={colors.testo} />
-              <Text style={styles.coperturaTxt}>Copertura per provincia</Text>
-              <Ionicons name={copertura ? 'chevron-up' : 'chevron-down'} size={15} color={colors.grigio} />
-            </Pressable>
-            {copertura ? (
-              <View style={styles.coperturaBox}>
-                <Text style={styles.coperturaAiuto}>
-                  Tutte e 107 le province, comprese quelle dove non abbiamo nessuno. Tocca una provincia:
-                  il suo nome finisce nella ricerca qui sopra e l’elenco si stringe.
-                </Text>
-                <CoperturaProvince onProvincia={(nome) => { setQuery(nome); setCopertura(false); }} />
-              </View>
-            ) : null}
             {tabella ? <Intestazione /> : null}
           </View>
         }
@@ -729,21 +727,6 @@ const styles = StyleSheet.create({
   stepWrapTab: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: spacing.md, paddingBottom: 10 },
   registroTab: { paddingHorizontal: spacing.md, paddingBottom: 10 },
   calBtn: { padding: 4, alignSelf: 'flex-start' },
-  coperturaBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: colors.bianco,
-    borderWidth: 1,
-    borderColor: colors.grigioChiaro,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 10,
-    marginHorizontal: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  coperturaTxt: { flex: 1, color: colors.testo, fontWeight: '600', fontSize: 14 },
-  coperturaBox: { marginHorizontal: spacing.md, marginBottom: spacing.md, gap: spacing.sm },
   coperturaAiuto: { color: colors.testoSoft, fontSize: 12.5, lineHeight: 18 },
   tabs: { flexDirection: 'row', gap: 8, paddingHorizontal: spacing.md, paddingBottom: spacing.sm },
   tab: { flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1, borderColor: colors.grigioChiaro, backgroundColor: colors.bianco, borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 8 },
