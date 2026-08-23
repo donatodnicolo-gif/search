@@ -1120,6 +1120,20 @@ maison e per mese, IVA inclusa come il budget), catalogo Hub aggiornato (id `bud
   > inizializzato **una volta sola**, e cambiando brand React riuserebbe la stessa istanza — si
   > vedrebbero le percentuali del brand precedente sopra i numeri di quello nuovo. Serve `key={ambito}`
   > sul componente per rimontarlo.
+  >
+  > ⭐ **E nei mesi già passati non c'è niente da ripartire: si è già ripartito** (23/08/2026, «per i
+  > mesi passati metti consuntivo»). Su un mese chiuso la domanda «quanto do a Google» non esiste più —
+  > i soldi sono usciti, e Marketing sa **per quale canale**. Quindi lì la riga non è *budget ×
+  > percentuale* ma la **spesa vera** di quella piattaforma, la percentuale accanto è quella che ne è
+  > uscita, e la casella è **in sola lettura** (riscriverla non riporta indietro i soldi). Il totale del
+  > mese diventa lo speso, così **somma le sue caselle**, e la riga si chiama «Speso / budget ADV mese».
+  > Misurato su CakeDesign.me a gennaio: **Google 93,3% (974 €) · Meta 6,7% (70 €)**, totale 1.045 € —
+  > lontanissimo dal 70/20/10 a budget. Il salvataggio manda **solo i mesi aperti**: rispedire un mese
+  > chiuso sovrascriverebbe la quota a budget con una misura.
+  >
+  > Il canale di Marketing si abbina alla piattaforma **dal nome** (`Google` → `google_ads`, `Meta` →
+  > `meta_ads`, in `canaleDiPiattaforma`). Una piattaforma che in Marketing non ha un canale — TikTok —
+  > nei mesi chiusi scrive **«non misurato»**, non uno zero che sembrerebbe «non ha speso niente».
 - ✅ **Storico Meta in Marketing: caricato** (verificato il 09/08, il 17/08 e il 21/08/2026 — copertura
   233 giorni su 233, Marketing spiega l'**85%** delle uscite ADV contro il 46% del 28/07). Resta una
   coda: **`flowers/meta_ads` sta a 191 giorni su 233** e **`cake/meta_ads` a 196** — nei giorni scoperti

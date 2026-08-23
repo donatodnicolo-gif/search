@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { advBudgetMese, advConsentitoMese, ANNO_CORRENTE, budgetAdvAnno, caricaAnno } from "@/lib/calc";
 import { eur } from "@/lib/format";
+import { canaleDiPiattaforma, fetchSpesaPerCanale } from "@/lib/marketing";
+import { primoMeseAperto } from "@/lib/periodo";
 import { PiattaformeEditor } from "@/components/PiattaformeEditor";
 
 export const dynamic = "force-dynamic";
@@ -33,18 +35,37 @@ export default async function Piattaforme({
     budgetMese.push(x ? advConsentitoMese(x, budgetAdvAnno(brand, dati.year)) : 0);
   }
 
+  // ---- I mesi gia passati non si ripartiscono: si sono gia ripartiti ----
+  //
+  // Su un mese chiuso la domanda «quanto do a Google» non esiste piu: i soldi
+  // sono usciti, e Marketing sa **per quale canale**. Quindi li la riga non e
+  // budget x percentuale ma la **spesa vera** di quel canale, e la percentuale
+  // che si vede accanto e quella che ne e uscita.
+  const aperto = primoMeseAperto(dati.year);
+  const mesiChiusi = Array.from({ length: aperto - 1 }, (_, i) => i + 1).filter((m) => m <= 12);
+  const spesa = mesiChiusi.length > 0 && brand
+    ? await fetchSpesaPerCanale(dati.year, mesiChiusi)
+    : { ok: false, perMaisonCanale: new Map() };
+  const perCanale = brand ? spesa.perMaisonCanale.get(brand.slug) ?? null : null;
+  const canaliNoti = perCanale ? [...perCanale.keys()] : [];
+
   // Un brand che non ha ancora una ripartizione sua **parte da quella
   // d'azienda**: è il punto di partenza giusto, e finché non si salva niente
   // resta scritto che sta ereditando.
   const piattaforme = dati.piattaforme.map((p) => {
     const suo = p.splitPerBrand[ambito];
+    const canale = perCanale ? canaleDiPiattaforma(p.nome, canaliNoti) : null;
     return {
       id: p.id,
       nome: p.nome,
       colore: p.colore,
       split: ambito === AZIENDA ? p.split : suo ?? p.split,
-      // Vero quando quel brand una ripartizione sua ce l'ha davvero.
+      // Vero quando quel brand una ripartizione sua ce l ha davvero.
       propria: ambito === AZIENDA ? true : Boolean(suo),
+      // La spesa vera per mese (12 caselle, null = non misurato). Il canale di
+      // Marketing si riconosce dal nome: «Google» sta dentro «google_ads».
+      speso: canale && perCanale ? perCanale.get(canale) ?? null : null,
+      canale,
     };
   });
   const ereditata = piattaforme.every((p) => !p.propria);
@@ -121,6 +142,7 @@ export default async function Piattaforme({
         year={dati.year}
         ambito={ambito}
         budgetMese={budgetMese}
+        primoMeseAperto={aperto}
         piattaforme={piattaforme}
       />
     </>

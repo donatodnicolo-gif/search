@@ -295,3 +295,79 @@ export async function fetchSpesaPerBrand(anno: number, mesi: number[]): Promise<
     senzaMaison: [...senzaMaison],
   };
 }
+
+// ---- La spesa vera per brand **e per canale**, mese per mese ----
+//
+// Serve a `/piattaforme`: su un mese già passato la ripartizione fra Google,
+// Meta e le altre non è una decisione da prendere, è una cosa che è successa.
+// L'API raggruppa per una dimensione sola, ma ogni risposta porta il blocco
+// `copertura.alimentano` con **brand + canale + spesa** del periodo chiesto:
+// interrogando un mese per volta si ottiene brand × canale × mese.
+export type SpesaPerCanale = {
+  ok: boolean;
+  // slug maison → canale Marketing (google_ads, meta_ads…) → 12 caselle.
+  // `null` = mese non misurato, che non è «zero speso».
+  perMaisonCanale: Map<string, Map<string, (number | null)[]>>;
+};
+
+export async function fetchSpesaPerCanale(anno: number, mesi: number[]): Promise<SpesaPerCanale> {
+  const key = await chiave("MARKETING_API_KEY");
+  if (!key) return { ok: false, perMaisonCanale: new Map() };
+
+  const out = new Map<string, Map<string, (number | null)[]>>();
+  const caselle = () => Array(12).fill(null) as (number | null)[];
+
+  const risposte = await Promise.all(
+    mesi.map(async (m) => {
+      const dal = `${anno}-${String(m).padStart(2, "0")}-01`;
+      const al = fineIntervallo(anno, m);
+      type Riga = { canale: string; brand: string; spesa?: number };
+      if (al < dal) return { m, righe: [] as Riga[], ok: true };
+      try {
+        const qs = new URLSearchParams({ dal, al, raggruppa: "brand" });
+        const res = await fetch(`${BASE}/api/v1/spesa?${qs.toString()}`, {
+          headers: { "x-api-key": key, "X-App": "deluxy-budgets" },
+          next: { revalidate: RIVALIDA },
+          signal: AbortSignal.timeout(8000),
+        });
+        if (!res.ok) return { m, righe: [] as Riga[], ok: false };
+        const b = (await res.json()) as { copertura?: { alimentano?: Riga[] } };
+        return { m, righe: b?.copertura?.alimentano ?? [], ok: true };
+      } catch {
+        return { m, righe: [] as Riga[], ok: false };
+      }
+    })
+  );
+
+  let almenoUna = false;
+  for (const r of risposte) {
+    if (!r.ok) continue;
+    almenoUna = true;
+    for (const riga of r.righe) {
+      const slug = BRAND_MARKETING[String(riga.brand).toLowerCase()];
+      if (!slug) continue;
+      const perCanale = out.get(slug) ?? new Map<string, (number | null)[]>();
+      const arr = perCanale.get(riga.canale) ?? caselle();
+      arr[r.m - 1] = (arr[r.m - 1] ?? 0) + (riga.spesa ?? 0);
+      perCanale.set(riga.canale, arr);
+      out.set(slug, perCanale);
+    }
+    // Un canale che in quel mese non ha speso vale **zero**, non «non
+    // misurato»: il mese è stato interrogato e la risposta è arrivata.
+    for (const perCanale of out.values())
+      for (const arr of perCanale.values()) if (arr[r.m - 1] === null) arr[r.m - 1] = 0;
+  }
+
+  return { ok: almenoUna, perMaisonCanale: out };
+}
+
+// Abbina una piattaforma di Budgets (Google, Meta, TikTok…) al canale di
+// Marketing (`google_ads`, `meta_ads`). Si confrontano i nomi ridotti a
+// lettere: «Google» sta dentro «google_ads». Chi non trova un canale — TikTok,
+// che in Marketing non esiste — resta senza consuntivo, e la pagina lo dice
+// invece di mostrargli uno zero che sembrerebbe «non ha speso niente».
+export function canaleDiPiattaforma(nome: string, canali: string[]): string | null {
+  const n = nome.toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (!n) return null;
+  return canali.find((c) => c.toLowerCase().replace(/[^a-z0-9]/g, "").startsWith(n)) ?? null;
+}

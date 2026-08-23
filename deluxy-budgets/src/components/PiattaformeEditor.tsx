@@ -12,6 +12,11 @@ type Piattaforma = {
   // Vero quando questa ripartizione e scritta per questo brand; falso quando e
   // ereditata da quella d azienda.
   propria: boolean;
+  // La spesa **vera** di questa piattaforma, mese per mese (null = non
+  // misurata: mese aperto, Marketing muto, o canale che Marketing non ha).
+  speso: (number | null)[] | null;
+  // Il canale di Marketing abbinato, per poterlo dichiarare in pagina.
+  canale: string | null;
 };
 
 const COLORI = [
@@ -27,12 +32,15 @@ export function PiattaformeEditor({
   year,
   ambito,
   budgetMese,
+  primoMeseAperto,
   piattaforme,
 }: {
   year: number;
   // Per quale brand si sta scrivendo: stringa vuota = azienda.
   ambito: string;
   budgetMese: number[]; // budget ADV per mese, indice 0..11
+  // Primo mese ancora da spendere: prima di questo si guarda il consuntivo.
+  primoMeseAperto: number;
   piattaforme: Piattaforma[];
 }) {
   const router = useRouter();
@@ -47,11 +55,39 @@ export function PiattaformeEditor({
   const [esito, setEsito] = useState<string | null>(null);
   const [errore, setErrore] = useState<string | null>(null);
 
-  const budgetAnno = budgetMese.reduce((s, v) => s + v, 0);
-  const getPct = (id: string, m: number) => perc[`${id}:${m}`] ?? 0;
-  const importo = (id: string, m: number) => (budgetMese[m - 1] * getPct(id, m)) / 100;
+  // ---- Un mese gia chiuso non si ripartisce: si e gia ripartito ----
+  //
+  // Li la riga non e «budget x percentuale» ma la **spesa vera** di quella
+  // piattaforma, e la percentuale accanto e quella che ne e uscita. La casella
+  // e in sola lettura: i soldi sono usciti, riscrivere la percentuale non li
+  // riporta indietro.
+  const chiuso = (m: number) => m < primoMeseAperto;
+  const spesoDi = (p: Piattaforma, m: number) => (chiuso(m) ? p.speso?.[m - 1] ?? null : null);
+  const misurato = (p: Piattaforma, m: number) => spesoDi(p, m) !== null;
+  // Il totale del mese: sui mesi chiusi e la somma di quello che le piattaforme
+  // hanno **davvero speso**, non il budget — cosi il totale somma le sue caselle.
+  const totaleMese = (m: number) =>
+    chiuso(m) && piattaforme.some((p) => misurato(p, m))
+      ? piattaforme.reduce((s, p) => s + (spesoDi(p, m) ?? 0), 0)
+      : budgetMese[m - 1];
 
-  const totalePctMese = (m: number) => piattaforme.reduce((s, p) => s + getPct(p.id, m), 0);
+  const getPct = (id: string, m: number) => perc[`${id}:${m}`] ?? 0;
+  const importo = (id: string, m: number) => {
+    const p = piattaforme.find((x) => x.id === id);
+    const vero = p ? spesoDi(p, m) : null;
+    return vero !== null ? vero : (totaleMese(m) * getPct(id, m)) / 100;
+  };
+  // La percentuale che si vede: misurata dove il mese e chiuso, decisa dove no.
+  const pctMostrata = (p: Piattaforma, m: number) => {
+    const vero = spesoDi(p, m);
+    const tot = totaleMese(m);
+    if (vero === null || tot <= 0) return getPct(p.id, m);
+    return Math.round((vero / tot) * 1000) / 10;
+  };
+
+  const budgetAnno = Array.from({ length: 12 }, (_, i) => totaleMese(i + 1)).reduce((s, v) => s + v, 0);
+
+  const totalePctMese = (m: number) => piattaforme.reduce((s, p) => s + pctMostrata(p, m), 0);
   const totaleAnnoPiattaforma = (id: string) => {
     let t = 0;
     for (let m = 1; m <= 12; m++) t += importo(id, m);
@@ -65,12 +101,13 @@ export function PiattaformeEditor({
   async function salva() {
     setSalvo(true);
     setEsito(null);
+    // Si mandano **solo i mesi ancora aperti**: su un mese chiuso la casella
+    // mostra la quota davvero uscita — una misura, non una decisione — e
+    // rispedirla sovrascriverebbe la quota a budget con quella misura.
     const split = piattaforme.flatMap((p) =>
-      Array.from({ length: 12 }, (_, i) => ({
-        piattaformaId: p.id,
-        month: i + 1,
-        percent: getPct(p.id, i + 1),
-      }))
+      Array.from({ length: 12 }, (_, i) => i + 1)
+        .filter((m) => !chiuso(m))
+        .map((m) => ({ piattaformaId: p.id, month: m, percent: getPct(p.id, m) }))
     );
     const res = await fetch("/api/piattaforme", {
       method: "PUT",
@@ -187,17 +224,37 @@ export function PiattaformeEditor({
                           min={0}
                           max={100}
                           step={1}
-                          value={getPct(p.id, m)}
+                          value={pctMostrata(p, m)}
+                          disabled={misurato(p, m)}
+                          title={
+                            misurato(p, m)
+                              ? `${MESI[m - 1]} e passato: questa e la quota davvero uscita — ${eur(spesoDi(p, m) ?? 0)} su ${p.canale ?? "questo canale"}, secondo Marketing.`
+                              : undefined
+                          }
                           onChange={(e) =>
                             setPerc((prev) => ({
                               ...prev,
                               [`${p.id}:${m}`]: Math.min(100, Math.max(0, Number(e.target.value) || 0)),
                             }))
                           }
-                          style={{ padding: "5px 8px", fontSize: 12.5, textAlign: "right" }}
+                          style={{
+                            padding: "5px 8px",
+                            fontSize: 12.5,
+                            textAlign: "right",
+                            ...(misurato(p, m)
+                              ? { background: "var(--fill)", color: "var(--text-tertiary)", cursor: "not-allowed" }
+                              : null),
+                          }}
                         />
                         <div className="muted" style={{ fontSize: 11, marginTop: 3, textAlign: "right" }}>
-                          {eur(importo(p.id, m))}
+                          {chiuso(m) && !misurato(p, m) ? (
+                            <span title="Marketing non ha questo canale: la spesa vera non si sa.">non misurato</span>
+                          ) : (
+                            <>
+                              {eur(importo(p.id, m))}
+                              {misurato(p, m) && <div style={{ color: "var(--blue)" }}>speso</div>}
+                            </>
+                          )}
                         </div>
                       </td>
                     ))}
@@ -229,9 +286,11 @@ export function PiattaformeEditor({
                   <td />
                 </tr>
                 <tr className="tot">
-                  <td>Budget ADV mese</td>
-                  {budgetMese.map((v, i) => (
-                    <td className="num" key={i}>{eur(v)}</td>
+                  <td>{primoMeseAperto > 1 ? "Speso / budget ADV mese" : "Budget ADV mese"}</td>
+                  {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                    <td className="num" key={m} style={chiuso(m) ? { color: "var(--blue)" } : undefined}>
+                      {eur(totaleMese(m))}
+                    </td>
                   ))}
                   <td className="num">{eur(budgetAnno)}</td>
                   <td />
