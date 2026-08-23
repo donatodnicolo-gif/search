@@ -10,6 +10,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -62,6 +63,12 @@ export default function Affiliazioni() {
     if (centroIniziale) setTab('ricerca');
   }, [centroIniziale]);
   const nSel = useMemo(() => righe.filter((r) => r.starred).length, [righe]);
+  // TABELLA sopra i 900px, SCHEDE sotto. Non è un vezzo: sette colonne su uno
+  // schermo da telefono diventano illeggibili, e in questa app la regola è che
+  // il nome non si tronca mai. La soglia è la stessa oltre la quale i filtri
+  // stanno già aperti (components/PannelloFiltri.tsx).
+  const { width } = useWindowDimensions();
+  const tabella = width >= 900;
 
   const carica = useCallback(async () => {
     setLoading(true);
@@ -200,6 +207,7 @@ export default function Affiliazioni() {
                 ))}
               </View>
             </PannelloFiltri>
+            {tabella ? <Intestazione /> : null}
           </View>
         }
         ListEmptyComponent={
@@ -210,17 +218,168 @@ export default function Affiliazioni() {
             aiuto="Prova ad azzerare i filtri o la ricerca. Le affiliazioni sono i negozi della linea Re-seller importati dal registro."
           />
         }
-        renderItem={({ item }) => (
-          <Card
-            item={item}
-            onChiama={() => chiama(item)}
-            onStato={(s) => cambiaStato(item, s)}
-            onSeleziona={() => seleziona(item)}
-          />
-        )}
+        renderItem={({ item }) =>
+          tabella ? (
+            <Riga
+              item={item}
+              onChiama={() => chiama(item)}
+              onStato={(s) => cambiaStato(item, s)}
+              onSeleziona={() => seleziona(item)}
+            />
+          ) : (
+            <Card
+              item={item}
+              onChiama={() => chiama(item)}
+              onStato={(s) => cambiaStato(item, s)}
+              onSeleziona={() => seleziona(item)}
+            />
+          )
+        }
       />
       </>
       )}
+    </View>
+  );
+}
+
+/**
+ * La stessa affiliazione, ma in riga di tabella (schermi larghi).
+ *
+ * ⚠️ Le colonne non tolgono NIENTE alla scheda: stella, telefono, referente,
+ * stato modificabile e registro Anagrafiche ci sono tutti. Su una tabella la
+ * tentazione è togliere le azioni per far entrare le colonne: qui si stringe la
+ * cornice, non il numero di cose che si possono fare.
+ */
+function Riga({
+  item,
+  onChiama,
+  onStato,
+  onSeleziona,
+}: {
+  item: AffiliazioneRow;
+  onChiama: () => void;
+  onStato: (s: StatoAffiliazione) => void;
+  onSeleziona: () => void;
+}) {
+  const [apriStep, setApriStep] = useState(false);
+  const [apriRegistro, setApriRegistro] = useState(false);
+  const stato = item.stato_affiliazione ?? 'prospect';
+  return (
+    <View style={[styles.trWrap, item.starred && styles.trSel]}>
+      <View style={styles.tr}>
+        <Pressable
+          style={[styles.tdStella, item.starred && styles.selBtnOn]}
+          onPress={onSeleziona}
+          hitSlop={6}
+          accessibilityLabel={item.starred ? 'Togli dai selezionati' : 'Seleziona da contattare'}
+        >
+          <Ionicons
+            name={item.starred ? 'star' : 'star-outline'}
+            size={16}
+            color={item.starred ? colors.bianco : colors.grigio}
+          />
+        </Pressable>
+
+        <View style={styles.tdNome}>
+          <Text style={styles.nomeTab}>{item.nome}</Text>
+          {item.indirizzo ? (
+            <Text style={styles.metaLeggero} numberOfLines={1}>
+              {item.indirizzo}
+            </Text>
+          ) : null}
+        </View>
+
+        <Text style={styles.tdCitta} numberOfLines={1}>
+          {item.zona ?? '—'}
+        </Text>
+
+        <Text style={styles.tdRef} numberOfLines={1}>
+          {item.referente ?? '—'}
+        </Text>
+
+        {item.telefono ? (
+          <Pressable style={styles.tdTel} onPress={onChiama}>
+            <Text style={styles.telTab} numberOfLines={1}>
+              {item.telefono}
+            </Text>
+          </Pressable>
+        ) : (
+          <Text style={[styles.tdTel, styles.metaLeggero]} numberOfLines={1}>
+            nessun numero
+          </Text>
+        )}
+
+        <Pressable style={styles.tdStato} onPress={() => setApriStep((v) => !v)}>
+          <View style={[styles.dot, { backgroundColor: coloreAffiliazione[stato] }]} />
+          <Text style={styles.statoTab} numberOfLines={1}>
+            {labelAffiliazione[stato]}
+          </Text>
+          <Ionicons name={apriStep ? 'chevron-up' : 'chevron-down'} size={13} color={colors.grigio} />
+        </Pressable>
+
+        <Text style={styles.tdQuando} numberOfLines={1}>
+          {quando(item.ultima_chiamata)}
+        </Text>
+
+        <View style={styles.tdAzioni}>
+          <Pressable
+            style={[styles.btnChiamaTab, !item.telefono && styles.btnChiamaOff]}
+            onPress={onChiama}
+            accessibilityLabel={`Chiama ${item.nome}`}
+          >
+            <Ionicons name="call-outline" size={14} color={colors.bianco} />
+          </Pressable>
+          <Pressable
+            onPress={() => setApriRegistro((v) => !v)}
+            hitSlop={6}
+            accessibilityLabel="Dati dal registro Anagrafiche"
+          >
+            <Ionicons name="library-outline" size={16} color={apriRegistro ? colors.oro : colors.grigio} />
+          </Pressable>
+        </View>
+      </View>
+
+      {apriStep ? (
+        <View style={styles.stepWrapTab}>
+          {STATI_AFFILIAZIONE.map((s) => (
+            <Pressable
+              key={s}
+              onPress={() => {
+                onStato(s);
+                setApriStep(false);
+              }}
+              style={[
+                styles.stepChip,
+                s === stato && { borderColor: coloreAffiliazione[s], backgroundColor: coloreAffiliazione[s] + '18' },
+              ]}
+            >
+              <Text style={[styles.stepTxt, s === stato && styles.stepTxtOn]}>{labelAffiliazione[s]}</Text>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
+
+      {apriRegistro ? (
+        <View style={styles.registroTab}>
+          <AnagraficaRegistroCard nome={item.nome} citta={item.zona} compatta />
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+/** Intestazione della tabella. Scorre con l'elenco: una sola area che scorre. */
+function Intestazione() {
+  return (
+    <View style={styles.th}>
+      <Text style={[styles.thTxt, styles.tdStella]}> </Text>
+      <Text style={[styles.thTxt, styles.tdNome]}>Negozio</Text>
+      <Text style={[styles.thTxt, styles.tdCitta]}>Città</Text>
+      <Text style={[styles.thTxt, styles.tdRef]}>Referente</Text>
+      <Text style={[styles.thTxt, styles.tdTel]}>Telefono</Text>
+      <Text style={[styles.thTxt, styles.tdStato]}>Stato</Text>
+      <Text style={[styles.thTxt, styles.tdQuando]}>Ultima chiamata</Text>
+      <Text style={[styles.thTxt, styles.tdAzioni]}> </Text>
     </View>
   );
 }
@@ -309,6 +468,43 @@ function Card({
 }
 
 const styles = StyleSheet.create({
+  // ── Tabella (schermi larghi) ──────────────────────────────────────────────
+  // Le colonne hanno un `flex` + un `minWidth`: senza il minimo, a 900px il
+  // telefono si riduce a tre caratteri e la colonna diventa decorativa.
+  th: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.grigioChiaro,
+  },
+  thTxt: { color: colors.testoSoft, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.4 },
+  trWrap: { backgroundColor: colors.bianco, borderBottomWidth: 1, borderBottomColor: colors.hairline },
+  trSel: { backgroundColor: colors.goldSoft },
+  tr: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: 10 },
+  tdStella: { width: 30, alignItems: 'center', justifyContent: 'center', borderRadius: 15, paddingVertical: 4 },
+  tdNome: { flex: 3, minWidth: 160 },
+  nomeTab: { color: colors.testo, fontWeight: '700', fontSize: 14 },
+  tdCitta: { flex: 1.2, minWidth: 80, color: colors.testoSoft, fontSize: 13 },
+  tdRef: { flex: 1.5, minWidth: 100, color: colors.testoSoft, fontSize: 13 },
+  tdTel: { flex: 1.4, minWidth: 105 },
+  telTab: { color: colors.successo, fontSize: 13, fontWeight: '700' },
+  tdStato: { flex: 1.7, minWidth: 125, flexDirection: 'row', alignItems: 'center', gap: 5 },
+  statoTab: { flex: 1, color: colors.testo, fontSize: 12.5 },
+  tdQuando: { flex: 1.2, minWidth: 85, color: colors.testoSoft, fontSize: 12 },
+  tdAzioni: { width: 66, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 10 },
+  btnChiamaTab: {
+    backgroundColor: colors.ink,
+    borderRadius: 999,
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepWrapTab: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: spacing.md, paddingBottom: 10 },
+  registroTab: { paddingHorizontal: spacing.md, paddingBottom: 10 },
   tabs: { flexDirection: 'row', gap: 8, paddingHorizontal: spacing.md, paddingBottom: spacing.sm },
   tab: { flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1, borderColor: colors.grigioChiaro, backgroundColor: colors.bianco, borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 8 },
   tabOn: { backgroundColor: colors.ink, borderColor: colors.ink },
