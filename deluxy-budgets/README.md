@@ -1029,6 +1029,31 @@ un a-capo); ricontrollato il 17/08/2026: c'è. Restano fuori `HUB_SSO_SECRET` e 
    | Margine lordo | 186.123 € (26,7%) | **388.633 € (55,8%)** |
    | EBITDA (Raggiungibile) | −443.255 € | **−240.745 €** |
 
+   ✅ **E le quote ADV dei mesi chiusi sono state riallineate** (23/08/2026, su ok dell utente). Erano
+   rimaste quelle scritte con la regola vecchia — «% del venduto del mese» — e siccome i mesi chiusi
+   sono in **sola lettura** nessuno poteva correggerle dall interfaccia. Il P&L attribuiva ai mesi
+   passati **206.961 €** di pubblicità quando ne erano usciti **75.147**.
+
+   Lo script è **`scripts/allinea-quote-adv-chiuse.ts`** (prova a vuoto senza argomenti, `scrivi` per
+   applicare): `quota nuova = speso davvero ÷ monte annuo × 100`. Tocca **solo** i mesi chiusi, **solo**
+   il campo `percent`, e **solo** dove Marketing ha una misura. **21 quote riscritte** su tre brand.
+
+   | | Prima | Dopo |
+   | --- | ---: | ---: |
+   | Spesa ADV nel P&L | 412.125 € | **280.311 €** |
+   | EBITDA (Raggiungibile) | −240.745 € | **−108.931 €** |
+
+   ⭐ **Il riscontro che chiude il cerchio**: dopo il riallineamento i tre negozi sommano **esattamente
+   100,0%** di quote sull anno — i mesi aperti li aveva già sistemati l utente, i chiusi adesso portano
+   quelle vere. Non era un controllo previsto: è venuto fuori da solo, ed è la prova che le due metà
+   ora parlano la stessa lingua.
+
+   🔴 **Restano fuori B2B (218,4%) ed Experience (240%)**: in Marketing non hanno campagne, quindi non
+   c è una misura con cui sostituire le loro quote — e i mesi chiusi non si scrivono a mano. Il P&L
+   attribuisce loro **83.908 €** contro un monte di 38.077: **45.831 € di troppo**. Non li ho toccati
+   perché «non misurato» non vuol dire «zero speso»: se quei due brand fanno pubblicità su canali che
+   Marketing non legge, metterli a zero sarebbe inventare. È una decisione dell utente.
+
    ⭐ **Le due basi, confermate dall utente il 23/08/2026 e adesso scritte in pagina.** Sono diverse di
    proposito, e finché non lo si dice sembrano un errore di conto:
 
