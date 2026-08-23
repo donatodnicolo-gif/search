@@ -58,6 +58,9 @@ model User {
   events       UserEvent[]
   notifications      Notification[]
   pushSubscriptions  PushSubscription[]
+  deliveriesCreated      Delivery[] @relation("DeliveryCreataDa")
+  deliveriesReadAsPartner Delivery[] @relation("DeliveryLettaDaPartner")
+  deliveriesReadAsValet   Delivery[] @relation("DeliveryLettaDaValet")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }
@@ -154,6 +157,7 @@ model Province {
   valetProvinces    ValetProvince[]
   categoryDiscounts CategoryDiscount[]
   sales             Sale[]
+  deliveries        Delivery[]
 }
 
 model City {
@@ -695,6 +699,102 @@ model Delivery {
   smsOnCreated       Boolean           @default(false)
   smsOnDeparted      Boolean           @default(false)
   smsOnArrived       Boolean           @default(false)
+  // ==========================================================================
+  // Campi recuperati dal database originario (23/08/2026).
+  // Delle 114 colonne del `delivery` legacy, 54 avevano gia' una destinazione,
+  // 4 erano sempre vuote e 56 no: queste sono quelle, meno cinque scartate
+  // perche' ridondanti (`isPickUpTimePassed`/`isDeliveryTimePassed` sono
+  // calcolate, `serviceName` e' denormalizzato, `updatedUser` vale 0 ovunque,
+  // `createdWith` vale sempre "xl").
+  // ==========================================================================
+
+  /// Codice pubblico alfanumerico del legacy (es. "ZhonMV"). Diverso da `code`,
+  /// che e' il progressivo interno.
+  identifier         String?
+  /// Origine della consegna: "SALEAUTOMATION", "chaneldeluxy"…
+  createdFrom        String?
+  /// Sito da cui e' arrivata (integrazioni WooCommerce/Shopify esterne).
+  externalOrderSource String?
+  createdByUserId    String?
+  createdByUser      User?             @relation("DeliveryCreataDa", fields: [createdByUserId], references: [id])
+
+  // --- ordine e vendita di provenienza --------------------------------------
+  // ⚠️ Riferimenti alle tabelle di vendita del legacy, non ancora importate:
+  // per ora sono numeri, non relazioni.
+  legacyOrderId      Int?
+  realOrderNumber    String?
+  shop               String? // ShopifySale | CakeSales | FlowersSales | BusinessSales
+  legacySaleId       Int?
+  legacyPrimarySaleId Int?
+  saleType           String? // unique | nonunique | shopifysale
+  acceptSale         Boolean           @default(false)
+  customSaleDelivery Boolean           @default(false)
+
+  // --- presa visione ---------------------------------------------------------
+  // ⚠️ Misurato: nel legacy questi NON sono partner/valet ma UTENTI (non
+  // coincidono quasi mai con partnerId/expertId), quindi puntano a User.
+  readDelivery       Boolean           @default(false)
+  readAt             DateTime?
+  readByPartnerUserId String?
+  readByPartnerUser  User?             @relation("DeliveryLettaDaPartner", fields: [readByPartnerUserId], references: [id])
+  readAtByPartner    DateTime?
+  readByValetUserId  String?
+  readByValetUser    User?             @relation("DeliveryLettaDaValet", fields: [readByValetUserId], references: [id])
+  readAtByValet      DateTime?
+
+  // --- tempi reali -----------------------------------------------------------
+  startedAt          DateTime? // quando il valet e' partito
+  deliveredAt        DateTime? // quando ha consegnato davvero
+  serviceStartTime   String? // servizi a ora: inizio previsto "HH:mm"
+  serviceEndTime     String? // servizi a ora: fine prevista
+  valetStartTime     String? // orario dichiarato dal valet
+  valetEndTime       String?
+  approvedTimingStatus String? // stato approvazione delle ore: 0 | 1 | 3
+
+  // --- svolgimento -----------------------------------------------------------
+  requestExpert      Boolean           @default(false) // "richiedi valet"
+  sendToExpert       Boolean           @default(false)
+  pickupCompleted    Boolean           @default(false)
+  receiverType       String? // recipient | concierge | other | null
+  receiverSign       String? // firma del ricevente
+  receipt            String? // foto/ricevuta della consegna
+  notDeliveredActionTaken Boolean      @default(false)
+  deliveryCode       String?
+  deliveryCodeVerified Boolean         @default(false)
+  valetIdentityCheck Boolean           @default(false)
+  valetVerified      Boolean           @default(false)
+
+  // --- economia --------------------------------------------------------------
+  invoiced           Boolean           @default(false)
+  invoicePaymentStatus String? // default | paid
+  productValue       Float? // valore della merce
+  paidViaCard        Boolean           @default(false)
+  additionalValetPlusMinus Float?
+
+  // --- magazzino -------------------------------------------------------------
+  productManagement  String? // none | deluxyWareHouse | keptInCar | returnToBoutique
+  stockConsumed      Boolean           @default(false)
+  stockReturned      Boolean           @default(false)
+
+  // --- regole carnet applicate -----------------------------------------------
+  withDailyDeliveryRule Boolean        @default(false)
+  withTotalDeliveryRule Boolean        @default(false)
+  deliveryRuleId     String?
+  deliveryRule       DeliveryRule?     @relation(fields: [deliveryRuleId], references: [id])
+  valetDeliveryRuleId String?
+  valetDeliveryRule  ValetDeliveryRule? @relation(fields: [valetDeliveryRuleId], references: [id])
+
+  // --- altro -----------------------------------------------------------------
+  provinceId         String?
+  province           Province?         @relation(fields: [provinceId], references: [id])
+  existingCustomer   Boolean           @default(false)
+  /// Consegna corrispondente nel legacy (110 righe): riferimento non risolto.
+  legacyCorrespondDeliveryId Int?
+  /// Consegna padre nei multi-ritiro con DDT.
+  parentDeliveryId   String?
+  parentDelivery     Delivery?         @relation("DeliveryPadre", fields: [parentDeliveryId], references: [id])
+  childDeliveries    Delivery[]        @relation("DeliveryPadre")
+
   products           DeliveryProduct[]
   pickups            DeliveryPickup[]
   activities         Activity[]
@@ -839,6 +939,7 @@ model DeliveryRule {
 
   active    Boolean               @default(true)
   partners  DeliveryRulePartner[]
+  deliveries Delivery[]
   createdAt DateTime              @default(now())
   updatedAt DateTime              @updatedAt
 }
@@ -859,6 +960,7 @@ model ValetDeliveryRule {
   tiers    String
   active   Boolean @default(true)
   valets   ValetDeliveryRuleValet[]
+  deliveries Delivery[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

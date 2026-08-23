@@ -37,6 +37,13 @@ export enum DeliveryStatus {
   // Solo per servizi a ora:
   DELIVERED_TIME_APPROVED = 'delivered_time_approved',
   DELIVERED_TIME_NOT_APPROVED = 'delivered_time_not_approved',
+  // --- stati che esistevano nel database originario e qui mancavano ---
+  /** Consegnata, ore ancora DA approvare (708 consegne nel legacy). */
+  DELIVERED_TIME_TO_APPROVE = 'delivered_time_to_approve',
+  /** Approvata (550 consegne). */
+  APPROVED = 'approved',
+  /** Annullata d'ufficio / non valida (230 consegne). */
+  INVALIDATED = 'invalidated',
 }
 
 export enum PricingModel {
