@@ -698,3 +698,22 @@ Feedback "in app.deluxy.it ci sono cose che non hai considerato". Confrontata la
 - La tabella scriveva **«€» su tutto**. Ora l’unità segue il `pricingModel`: **VENDITA → `15 %`**, A_ORA → `15 €/ora`, MAGAZZINO → `1 € · 1 € a pezzo`, il resto in euro.
 - **Stock Pallet non si mostra più a 142.** La riga a listino **esiste davvero** nel legacy (price 1, pricePerItem 1, extraKm 12), ma il partner ha `partnerHasWarehouse = 0` e l’app originale nasconde i servizi di magazzino a chi il magazzino non ce l’ha: è un listino che non si può usare. Aggiunto **`Partner.hasWarehouse`** (migrazione `aggiungi_has_warehouse`) e importato — **4 partner** ce l’hanno acceso, e **3 avevano servizi di magazzino a listino senza averlo**.
 - ✅ Provato in produzione (`delivery-l9f015ux9`) su `142 RESTAURANT`: fee 15%, magazzino false, `Vendita Deluxy 15 %`, `Servizio a Ora 15 €/ora`, `Stock Pallet` nascosto.
+
+### ✅ 23/08 — Verifica dei listini su TUTTI i partner (chiesta dall’utente dopo il caso 142)
+
+`scripts/verifica-listini-partner.mjs` + `scripts/verifica-servizi-e-km.mjs`. **265 partner, 528 righe di listino confrontate una a una col legacy.** Non scrivono nulla.
+
+| controllo | esito |
+|---|---|
+| righe del legacy non importate | ✅ 0 |
+| righe qui che nel legacy non esistono | ✅ 0 |
+| righe cancellate nel legacy ma presenti qui | ✅ 0 |
+| `price` / `pricePerItem` / `extraKmPrice` diversi | ✅ 0 |
+| catalogo servizi (32) — nome, `pricingModel`, cancellati | ✅ 32 su 32 |
+| flag magazzino | ✅ 0 |
+
+- 🔴 **Restano 2 fee da decidere a mano**: `GUSTO17` e `Voila` hanno **due percentuali diverse** fra i loro servizi di vendita (15 e 0). Il codice le lascia a 0 di proposito.
+- 🔴 **Trovato un terzo buco, e per lo stesso motivo dei primi due**: `kmIncluded` ed `extraOutOfCityPrice` erano **null su 267 partner su 267**. Nell’import esisteva la riga `extraOutOfCityPrice: numero(e.extraOutSideCityKmPrice)` — ma `e` è l’**expert**, cioè il valet. Una `grep` per nome di campo la trovava e faceva credere che fosse fatto. **Cercare per nome invece che per soggetto**: è la stessa trappola della fee.
+  - Importati con `scripts/importa-km-partner.mjs`: **265 partner aggiornati**, 117 km inclusi e 265 maggiorazioni fuori città. Riverificato: **0 differenze**. I 150 ancora senza km inclusi ce l’hanno vuoto anche nel legacy.
+  - ⚠️ Pesa sul calcolo: i km inclusi decidono **da dove parte** il conteggio dei km extra. A `null` l’extra rischia di partire dal chilometro zero.
+- ℹ️ **3 partner hanno servizi di magazzino a listino senza avere il magazzino** — `142 RESTAURANT` (Stock Pallet), `Capjari` (Stock Pallet, Picking & Packing a pezzo), `Chanel Galleria Shoes` (Picking e Preparazione con spedizione). Le righe restano nel database, la scheda le nasconde.
