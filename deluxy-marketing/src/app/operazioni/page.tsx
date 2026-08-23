@@ -14,6 +14,8 @@ import { prisma } from "@/lib/db";
 import { ETICHETTA_CANALE, ETICHETTA_LIVELLO, formattaDataOra } from "@/lib/dominio";
 import { spiegaErroreGoogle } from "@/lib/errori-google";
 import { EseguiMeta } from "@/components/EseguiMeta";
+import { Icona } from "@/components/Icona";
+import { iconaCanale } from "@/lib/salute";
 
 export const dynamic = "force-dynamic";
 
@@ -139,6 +141,47 @@ export default async function PaginaOperazioni({
         .filter((c) => c.account === o.account && c.ricevutoIl.getTime() > da)
         .map((c) => c.ricevutoIl.toISOString().slice(0, 10))
     ).size;
+  };
+
+  /**
+   * Le righe divise per PIATTAFORMA, con scritto chi le esegue.
+   *
+   * ⚠️ La coda è una sola ed è giusto — la decisione è la stessa, cambia chi
+   * la porta a termine — ma mescolare le righe le rende indistinguibili: «metti
+   * in pausa la campagna» su Google e su Meta si leggono identiche, e finiscono
+   * in due mondi diversi con due motori diversi. Uno aspetta lo script e l'altro
+   * aspetta te.
+   */
+  const perPiattaforma = (righe: typeof operazioni, selezionabile = false) => {
+    const ordine = ["google_ads", "meta_ads"];
+    const canali = [...new Set(righe.map((r) => r.canale ?? ""))].sort(
+      (a, b) => (ordine.indexOf(a) + 1 || 9) - (ordine.indexOf(b) + 1 || 9)
+    );
+    // Con una piattaforma sola il divisore è rumore: si mostra l'elenco.
+    if (canali.length <= 1) return <ul className="storia">{righe.map((r) => riga(r, selezionabile))}</ul>;
+    return (
+      <>
+        {canali.map((c) => {
+          const sue = righe.filter((r) => (r.canale ?? "") === c);
+          return (
+            <div key={c || "altro"}>
+              <div className="canale-divisore">
+                <Icona nome={iconaCanale(c)} />
+                {ETICHETTA_CANALE[c] ?? (c || "Altro")} ({sue.length})
+                <span className="cella-sub" style={{ fontWeight: 400, marginLeft: 8 }}>
+                  {c === "meta_ads"
+                    ? "le esegue l'app, quando premi «Esegui adesso» qui sopra"
+                    : c === "google_ads"
+                      ? "le esegue lo script dentro l'account, da solo"
+                      : "senza esecutore automatico"}
+                </span>
+              </div>
+              <ul className="storia">{sue.map((r) => riga(r, selezionabile))}</ul>
+            </div>
+          );
+        })}
+      </>
+    );
   };
 
   const riga = (o: (typeof operazioni)[number], selezionabile = false) => {
@@ -678,10 +721,11 @@ export default async function PaginaOperazioni({
                   Approva le selezionate
                 </button>
                 <span className="cella-sub">
-                  Restano in coda finché lo script non passa: nessuna parte adesso.
+                  Restano in coda: nessuna parte adesso. Su Google le prende lo script al giro
+                  successivo, su Meta partono quando premi «Esegui adesso».
                 </span>
               </form>
-              <ul className="storia">{daApprovare.map((o) => riga(o, true))}</ul>
+              {perPiattaforma(daApprovare, true)}
             </>
           )}
         </section>
@@ -689,7 +733,7 @@ export default async function PaginaOperazioni({
         {approvate.length > 0 && (
           <section className="scheda">
             <div className="scheda-titolo">Approvate, in attesa di partire ({approvate.length})</div>
-            <ul className="storia">{approvate.map((o) => riga(o))}</ul>
+            {perPiattaforma(approvate)}
           </section>
         )}
 

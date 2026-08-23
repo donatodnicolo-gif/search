@@ -76,7 +76,10 @@ export async function Sidebar({
         <SbSezione titolo="Adesso">
           {voce("home", "/", "home", "Dashboard")}
           {voce("azioni", "/azioni", "azioni", "Da fare", nAzioniAperte)}
-          {voce("operazioni", "/operazioni", "azioni", "Coda su Google", nOperazioni)}
+          {/* Si chiamava "Coda su Google" ed era vero a meta: nella stessa coda
+              ci sono anche le operazioni Meta, che uno script di Google non
+              eseguira mai. Il nome della voce segue quello della pagina. */}
+          {voce("operazioni", "/operazioni", "azioni", "Operazioni", nOperazioni)}
           {voce("errori", "/errori", "audit", "Incidenti aperti", nErroriAperti)}
         </SbSezione>
 

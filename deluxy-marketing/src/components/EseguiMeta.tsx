@@ -23,6 +23,18 @@ export async function EseguiMeta() {
   // Niente in ballo e scrittura spenta: il riquadro non serve a nessuno.
   if (inAttesa === 0 && approvate === 0 && !permesso.puo) return null;
 
+  // ⚠️ A coda VUOTA il riquadro si stringe in una riga. Con due zeri grandi e
+  // un bottone spento occupava la prima schermata per dire «non c'è niente da
+  // fare»: lo spazio va a chi ha qualcosa da dire.
+  if (inAttesa === 0 && approvate === 0) {
+    return (
+      <p className="cella-sub" style={{ whiteSpace: "normal", marginBottom: 12 }}>
+        <b>Meta</b>: niente in coda. Quando ci sarà qualcosa da eseguire il bottone compare qui —
+        su Meta esegue l&apos;app, e solo quando qualcuno preme.
+      </p>
+    );
+  }
+
   return (
     <section className="scheda">
       <div className="scheda-titolo">Operazioni su Meta</div>
