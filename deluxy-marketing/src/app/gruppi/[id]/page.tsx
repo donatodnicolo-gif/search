@@ -396,6 +396,25 @@ export default async function SchedaGruppo({
   // ⚠️ È un suggerimento, non una scelta: il campo resta modificabile. Ma
   // partire vuoti farebbe incollare a mano un URL che l'app ha già sotto gli
   // occhi — e un URL ricopiato a mano è un URL che prima o poi si sbaglia.
+  // ⚠️ Quello che l'app ha GIA' creato su Google per questo gruppo: si dice
+  // nel dialogo prima di scriverne un altro. Il 23/08 e' nato un annuncio
+  // identico a quello del 21/08 - stessi 14 titoli, stessa destinazione -
+  // perche' fra i due nessuno ha detto niente.
+  const annunciGiaCreati = await prisma.operazioneAdv.findMany({
+    where: { gruppoId: gruppo.id, tipo: "nuovo_annuncio", stato: "eseguita" },
+    orderBy: { eseguitaIl: "desc" },
+    select: { eseguitaIl: true },
+    take: 10,
+  });
+  const notaGiaCreati =
+    annunciGiaCreati.length === 0
+      ? undefined
+      : `L'app ha già creato ${
+          annunciGiaCreati.length === 1 ? "un annuncio" : annunciGiaCreati.length + " annunci"
+        } su Google per questo gruppo (${annunciGiaCreati
+          .map((x) => x.eseguitaIl?.toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" }) ?? "?")
+          .join(", ")}). Un gruppo con più annunci va bene — due identici no.`;
+
   const urlSuggerito = (() => {
     const conteggio = new Map<string, number>();
     for (const c of copy) {
@@ -1634,6 +1653,7 @@ export default async function SchedaGruppo({
                     salvaBozza={salvaBozzaAnnuncio}
                     scartaBozza={scartaBozzaAnnuncio}
                     apriSubito={sp.correggi === "1"}
+                    notaGiaCreati={notaGiaCreati}
                   />
                 </div>
                 {/* ⚠️ Prima di tutto: l'annuncio GIÀ SCRITTO che aspetta.

@@ -332,6 +332,45 @@ export async function accodaAnnuncio(input: {
     };
   }
 
+  // ⚠️ LO STESSO ANNUNCIO NON SI CREA DUE VOLTE.
+  //
+  // Google li accetta: due RSA identici nello stesso gruppo non violano
+  // niente, e lo script non può decidere da sé (un gruppo con più annunci è
+  // normale, è così che Google li mette in gara). Ma DUE COPIE IDENTICHE non
+  // sono una gara: sono la stessa cosa che compete con se stessa, e chi
+  // guarda i numeri poi divide la storia di un annuncio in due colonne.
+  //
+  // Successo davvero sulla WORLD-ENG: creato il 21/08 alle 22:17 e di nuovo
+  // il 23/08 alle 11:05, stessi 14 titoli, stesse 4 descrizioni, stessa
+  // destinazione — perché fra i due nessuno ha detto niente.
+  const impronta = (t: string[], d: string[], u: string) =>
+    JSON.stringify([t.map((x) => x.toLowerCase().replace(/\s+/g, " ")), d.map((x) => x.toLowerCase().replace(/\s+/g, " ")), u.toLowerCase()]);
+  const miaImpronta = impronta(titoli, descrizioni, finalUrl);
+  const gia = await prisma.operazioneAdv.findMany({
+    where: { gruppoId: input.gruppoId, tipo: "nuovo_annuncio", stato: "eseguita" },
+    orderBy: { eseguitaIl: "desc" },
+    take: 20,
+    select: { parametri: true, eseguitaIl: true },
+  });
+  for (const g of gia) {
+    try {
+      const par = JSON.parse(g.parametri ?? "{}");
+      const sua = impronta(par.titoli ?? [], par.descrizioni ?? [], par.finalUrl ?? "");
+      if (sua === miaImpronta) {
+        return {
+          ok: false,
+          errore:
+            `Questo identico annuncio è già stato creato su Google il ` +
+            `${g.eseguitaIl ? g.eseguitaIl.toLocaleString("it-IT", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "in precedenza"}. ` +
+            `Due copie identiche non fanno una gara: sono lo stesso annuncio che compete con se stesso. ` +
+            `Cambia almeno un titolo se ne vuoi una variante, oppure lascia stare.`,
+        };
+      }
+    } catch {
+      // parametri illeggibili: non è un motivo per bloccare
+    }
+  }
+
   const gruppo = await prisma.gruppo.findUnique({
     where: { id: input.gruppoId },
     select: { id: true, nome: true, idEsterno: true, campagna: { select: { id: true, nome: true, brand: true, canale: true, account: true } } },

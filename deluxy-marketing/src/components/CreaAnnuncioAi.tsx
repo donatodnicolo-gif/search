@@ -30,6 +30,7 @@ export function CreaAnnuncioAi({
   scartaBozza,
   apriSubito,
   sistema,
+  notaGiaCreati,
 }: {
   gruppoId: string;
   nomeGruppo: string;
@@ -57,6 +58,8 @@ export function CreaAnnuncioAi({
   scartaBozza?: (gruppoId: string) => Promise<void>;
   /** Apre il dialogo appena la pagina si carica: si arriva da «Correggi i testi». */
   apriSubito?: boolean;
+  /** Quanti annunci l'app ha già creato su Google per questo gruppo, e quando. */
+  notaGiaCreati?: string;
   /** Fa correggere all'AI SOLO le righe rotte, lasciando le altre com'erano. */
   sistema?: (input: { gruppoId: string; titoli: string[]; descrizioni: string[] }) => Promise<EsitoAnnuncioAi>;
 }) {
@@ -260,6 +263,14 @@ export function CreaAnnuncioAi({
           </div>
 
           <div className="modale-elenco" style={{ paddingTop: 14, paddingBottom: 14 }}>
+            {/* ⚠️ COSA C'È GIÀ, prima di scriverne un altro. Il gruppo può
+                avere più annunci ed è normale, ma saperlo cambia la domanda:
+                «ne scrivo uno nuovo» invece di «ne rifaccio uno uguale». */}
+            {notaGiaCreati && (
+              <div className="cella-sub" style={{ marginBottom: 12, whiteSpace: "normal" }}>
+                {notaGiaCreati}
+              </div>
+            )}
             {/* Perché le caselle non erano vuote: senza dirlo, chi riapre
                 pensa che l'app abbia inventato qualcosa. */}
             {ripresaDel && (
