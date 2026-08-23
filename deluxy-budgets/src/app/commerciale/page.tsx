@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { ANNO_CORRENTE } from "@/lib/calc";
-import { eur, MESI, num } from "@/lib/format";
+import { eur, num } from "@/lib/format";
 import { fetchLineeScout, normalizzaNome, type LineaScout } from "@/lib/scout";
+import { primoMeseAperto } from "@/lib/periodo";
+import { LineeEditor, type LineaBudget } from "@/components/LineeEditor";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +27,41 @@ export default async function Commerciale() {
   const granClienti = lineeBudget.reduce((s, l) => s + l.targets.reduce((a, t) => a + t.clienti, 0), 0);
 
   const budgetDi = (nome: string) => budgetPerNome.get(normalizzaNome(nome));
+
+  // ---- Le linee da compilare, e il loro stato in Scout ----
+  //
+  // L'elenco delle **righe di budget** è quello che si scrive: sono loro ad
+  // avere i dodici mesi. Scout resta il master dell'**elenco delle linee**, e
+  // serve qui a due cose: dire quali righe hanno ancora una linea viva (una
+  // riga senza corrispondenza non è un errore, può essere una linea chiusa, ma
+  // va detto) e quali linee di Scout un budget non ce l'hanno affatto.
+  const scoutPiatte = scout.ok
+    ? scout.linee.flatMap((l) => [l, ...l.sottolinee]).map((l) => ({ nome: l.nome, attiva: l.attiva }))
+    : [];
+  const scoutPerNome = new Map(scoutPiatte.map((l) => [normalizzaNome(l.nome), l]));
+
+  const daCompilare: LineaBudget[] = lineeBudget.map((l) => {
+    const inScout = scoutPerNome.get(normalizzaNome(l.nome));
+    return {
+      id: l.id,
+      nome: l.nome,
+      inScout: scout.ok ? Boolean(inScout) : true,
+      attiva: inScout ? inScout.attiva : null,
+      // ⚠️ **Tutti e dodici i mesi, sempre.** A database una linea ha una riga
+      // solo per i mesi già valorizzati: senza questo riempimento un mese mai
+      // scritto non avrebbe la sua casella, ed è esattamente il mese che si sta
+      // cercando di compilare.
+      mesi: Array.from({ length: 12 }, (_, i) => {
+        const t = l.targets.find((x) => x.month === i + 1);
+        return { month: i + 1, valore: t?.valore ?? 0, clienti: t?.clienti ?? 0 };
+      }),
+    };
+  });
+
+  const nomiABudget = new Set(lineeBudget.map((l) => normalizzaNome(l.nome)));
+  const lineeScoutSenzaBudget = scoutPiatte
+    .filter((l) => !nomiABudget.has(normalizzaNome(l.nome)))
+    .map((l) => l.nome);
 
   return (
     <>
@@ -57,16 +94,30 @@ export default async function Commerciale() {
         </div>
       </div>
 
-      {scout.ok ? (
-        <LineeDaScout linee={scout.linee} budgetDi={budgetDi} />
-      ) : (
-        <FallbackLocale
-          motivo={scout.errore}
-          configurato={scout.configurato}
-          linee={lineeBudget}
-          granTotale={granTotale}
-        />
+      {!scout.ok && (
+        <div className="card" style={{ borderColor: "var(--orange)", background: "rgba(201,52,0,0.04)" }}>
+          <strong>Linee da Scout non disponibili.</strong>{" "}
+          <span className="muted">
+            {scout.errore}
+            {!scout.configurato && " Imposta LINEE_API_KEY nel Hub (o in locale)."} Il budget qui sotto si
+            scrive lo stesso: vive in Budgets, non in Scout. Quello che manca è solo il confronto con
+            l&apos;elenco delle linee vive.
+          </span>
+        </div>
       )}
+
+      {/* Il budget **si scrive**, e sta prima dell'elenco di sola lettura: è la
+          cosa per cui si apre questa pagina. Prima il dettaglio mensile
+          compariva solo quando Scout NON rispondeva — cioè proprio quando la
+          pagina era in avaria — ed era comunque in sola lettura. */}
+      <LineeEditor
+        year={ANNO_CORRENTE}
+        linee={daCompilare}
+        primoMeseAperto={primoMeseAperto(ANNO_CORRENTE)}
+        lineeScoutSenzaBudget={lineeScoutSenzaBudget}
+      />
+
+      {scout.ok && <LineeDaScout linee={scout.linee} budgetDi={budgetDi} />}
     </>
   );
 }
@@ -133,101 +184,6 @@ function LineeDaScout({
         dove la linea di Scout non combacia con una linea a budget, la colonna resta “—”. Per allineare,
         usa in Scout gli stessi nomi delle linee a budget (o viceversa).
       </p>
-    </>
-  );
-}
-
-// ---- Fallback: Scout non disponibile → linee e target locali (come prima) ----
-function FallbackLocale({
-  motivo,
-  configurato,
-  linee,
-  granTotale,
-}: {
-  motivo: string;
-  configurato: boolean;
-  linee: {
-    id: string;
-    nome: string;
-    targets: { month: number; valore: number; clienti: number }[];
-  }[];
-  granTotale: number;
-}) {
-  const valore = (l: (typeof linee)[number], month: number) =>
-    l.targets.find((t) => t.month === month)?.valore ?? 0;
-  const clienti = (l: (typeof linee)[number], month: number) =>
-    l.targets.find((t) => t.month === month)?.clienti ?? 0;
-  const totValore = (l: (typeof linee)[number]) => l.targets.reduce((s, t) => s + t.valore, 0);
-  const totClienti = (l: (typeof linee)[number]) => l.targets.reduce((s, t) => s + t.clienti, 0);
-
-  return (
-    <>
-      <div className="card" style={{ borderColor: "var(--orange)", background: "rgba(201,52,0,0.04)" }}>
-        <strong>Linee da Scout non disponibili.</strong>{" "}
-        <span className="muted">
-          {motivo}
-          {!configurato && " Imposta LINEE_API_KEY nel Hub (o in locale)."} Mostro intanto le linee a budget locali.
-        </span>
-      </div>
-
-      <h2 className="section-title">Valore per linea (€ / mese)</h2>
-      <div className="card tight">
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Linea</th>
-                {MESI.map((m) => (<th className="num" key={m}>{m}</th>))}
-                <th className="num">Anno</th>
-              </tr>
-            </thead>
-            <tbody>
-              {linee.map((l) => (
-                <tr key={l.id}>
-                  <td style={{ fontWeight: 500, whiteSpace: "nowrap" }}>{l.nome}</td>
-                  {MESI.map((_, i) => (
-                    <td className="num" key={i}>{valore(l, i + 1) ? eur(valore(l, i + 1)) : <span className="muted">—</span>}</td>
-                  ))}
-                  <td className="num" style={{ fontWeight: 600 }}>{eur(totValore(l))}</td>
-                </tr>
-              ))}
-              <tr className="tot">
-                <td>Totale</td>
-                {MESI.map((_, i) => (
-                  <td className="num" key={i}>{eur(linee.reduce((s, l) => s + valore(l, i + 1), 0))}</td>
-                ))}
-                <td className="num">{eur(granTotale)}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <h2 className="section-title">Nuovi clienti per linea (numero / mese)</h2>
-      <div className="card tight">
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Linea</th>
-                {MESI.map((m) => (<th className="num" key={m}>{m}</th>))}
-                <th className="num">Anno</th>
-              </tr>
-            </thead>
-            <tbody>
-              {linee.map((l) => (
-                <tr key={l.id}>
-                  <td style={{ fontWeight: 500, whiteSpace: "nowrap" }}>{l.nome}</td>
-                  {MESI.map((_, i) => (
-                    <td className="num" key={i}>{clienti(l, i + 1) ? num(clienti(l, i + 1)) : <span className="muted">—</span>}</td>
-                  ))}
-                  <td className="num" style={{ fontWeight: 600 }}>{num(totClienti(l))}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
     </>
   );
 }

@@ -1603,6 +1603,40 @@ modulo che tocca il database.**
 A **ROS 7** la pubblicità vale un settimo del venduto (≈14,3%), a **6,5** un po' di più (≈15,4%). Sta
 Il ripiego per chi non ne ha uno suo resta **6,5×**.
 
+### Il budget delle linee commerciali si scrive (23/08/2026)
+
+«Dobbiamo impostare il budget per categoria per mese anche qui». `TargetLinea` esisteva a database da
+sempre, ma **non si scriveva da nessuna parte**: i numeri erano entrati col seed, e `/commerciale` li
+mostrava soltanto. ⭐ Peggio: il dettaglio **mese per mese** compariva **solo quando Scout non
+rispondeva** — cioè proprio quando la pagina era in avaria — e anche lì era in sola lettura. Ora la
+griglia c'è **sempre**, si scrive, e sta **prima** dell'elenco di sola lettura: è la cosa per cui si apre
+questa pagina.
+
+**Due misure, una griglia.** Valore in € e nuovi clienti si guardano **una per volta** (selettore in
+cima): dodici mesi × due numeri sulla stessa riga fanno ventiquattro caselle, e a quel punto non si legge
+più niente. ⚠️ Il salvataggio manda però **la coppia intera** del mese: l'upsert scrive tutti e due i
+campi, e mandarne uno solo **azzererebbe l'altro** — una perdita che non fa rumore, perché la misura
+cancellata è proprio quella che in quel momento non si sta guardando. Provato: salvato un valore in €, i
+clienti di quel mese sono rimasti.
+
+⚠️ **Qui i mesi chiusi SI scrivono**, al contrario di `/api/spese`. Non è una dimenticanza: là la
+percentuale governa una spesa che nel mese passato è già uscita, e riscriverla dopo non sposta un euro.
+Qui la casella è un **obiettivo commerciale**, e il caso vero è l'opposto — un budget **mai scritto** (i
+sei mesi vuoti trovati lo stesso giorno) che va riempito adesso. Bloccarli impedirebbe proprio la
+correzione che serve. Le colonne chiuse portano l'etichetta «chiuso», il bordo tratteggiato e un titolo
+che dice che è un periodo già confrontato col consuntivo.
+
+⚠️ **Tutti e dodici i mesi, sempre.** A database una linea ha una riga solo per i mesi già valorizzati:
+senza riempire i buchi lato server, un mese mai scritto non avrebbe la sua casella — ed è esattamente il
+mese che si sta cercando di compilare.
+
+**Scout resta il master dell'elenco**, non del budget. Le linee di Scout che qui non hanno una riga si
+aprono con un bottone (`POST /api/commerciale`), e nascono **a zero**: finché non ce l'hanno il loro
+budget non è zero, è **assente**, e non entra in nessun totale. Una riga di budget che in Scout non c'è
+più non è un errore — può essere una linea chiusa — ma la riga lo dichiara.
+
+📌 Stato: 8 linee, **504.000 €** e **317 nuovi clienti** sull'anno.
+
 ### ⚠️⚠️ Lo stesso «EBITDA» valeva tre numeri diversi (23/08/2026)
 
 «prova a riconciliare i numeri». Tre pagine, tre risposte, stessa etichetta:
