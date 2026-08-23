@@ -39,6 +39,7 @@ import { TaskFormModal } from '@/components/TaskFormModal';
 import { EmptyState, PageIntro } from '@/components/ui';
 import { RicercaAffiliazioni } from '@/components/RicercaAffiliazioni';
 import { CoperturaProvince } from '@/components/CoperturaProvince';
+import { SegnalazioniCS } from '@/components/SegnalazioniCS';
 import { frecciaOrdine, ordinaRighe, useOrdinamento } from '@/lib/ordinamento';
 import { PannelloFiltri } from '@/components/PannelloFiltri';
 
@@ -104,7 +105,7 @@ export default function Affiliazioni() {
   const [filtro, setFiltro] = useState<FiltroAff>('tutti');
   // Due modi di lavorare le affiliazioni: l'ELENCO di quelle già censite e la
   // RICERCA sul territorio (scoperta Google) per trovarne di nuove.
-  const [tab, setTab] = useState<'elenco' | 'ricerca' | 'copertura'>('elenco');
+  const [tab, setTab] = useState<'elenco' | 'ricerca' | 'copertura' | 'segnalati'>('elenco');
   // Aperta da un preferito del menu (?lat&lng&indirizzo): vai alla Ricerca, centrata lì.
   const params = useLocalSearchParams<{ lat?: string; lng?: string; indirizzo?: string; cerca?: string }>();
   const centroIniziale = useMemo(() => {
@@ -245,6 +246,10 @@ export default function Affiliazioni() {
           // tutti, anche a chi era venuto solo per telefonare, e i suoi dati
           // (registro + venduto) si caricano solo quando la scheda si apre.
           { v: 'copertura' as const, label: 'Copertura', icona: 'grid-outline' as const },
+          // Quarta scheda: chi ci ha già segnalato l'app fornitori. Stanno qui
+          // perché sono la stessa cosa dell'elenco — fioristi e pasticcerie da
+          // agganciare — solo che li ha trovati un'altra app invece di noi.
+          { v: 'segnalati' as const, label: 'Segnalazioni CS', icona: 'megaphone-outline' as const },
         ]).map((t) => (
           <Pressable key={t.v} onPress={() => setTab(t.v)} style={[styles.tab, tab === t.v && styles.tabOn]}>
             <Ionicons name={t.icona} size={15} color={tab === t.v ? colors.bianco : colors.testo} />
@@ -253,7 +258,9 @@ export default function Affiliazioni() {
         ))}
       </View>
 
-      {tab === 'copertura' ? (
+      {tab === 'segnalati' ? (
+        <SegnalazioniCS />
+      ) : tab === 'copertura' ? (
         <ScrollView style={styles.container} contentContainerStyle={[styles.list, contenutoLargo]}>
           <Text style={styles.coperturaAiuto}>
             Tutte e 107 le province, comprese quelle dove non abbiamo nessuno: sono il motivo per cui la

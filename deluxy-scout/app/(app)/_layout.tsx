@@ -42,7 +42,6 @@ const SEZIONI: { titolo: string; voci: Voce[] }[] = [
       { name: 'affiliazioni', label: 'Affiliazioni · Copertura', icon: 'call-outline' },
       { name: 'lead', label: 'Richieste Web', icon: 'globe-outline' },
       // Quarto canale: non li troviamo noi, ce li passa un'altra app.
-      { name: 'segnalati', label: 'Segnalazioni CS', icon: 'cube-outline' },
       // Quello che l'import non ha potuto decidere da solo: posizioni mancanti
       // e schede che forse sono lo stesso negozio.
       { name: 'riconciliazione', label: 'Riconciliazione', icon: 'git-merge-outline' },
