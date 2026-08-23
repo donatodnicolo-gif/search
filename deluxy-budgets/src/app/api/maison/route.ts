@@ -66,7 +66,13 @@ export async function PUT(req: Request) {
 
   // `null` = «usa il predefinito», ed è diverso da zero: uno zero qui
   // farebbe una divisione per zero e un monte pubblicitario infinito.
+  //
+  // ⚠️ E **assente è diverso da null**: chi manda solo l'interruttore della
+  // pubblicità non sta dicendo niente sul ROS, e trattare la sua assenza come
+  // «rimettilo al predefinito» cancellerebbe un valore scelto senza che nessuno
+  // l'abbia chiesto.
   const grezzo = body?.rosObiettivo;
+  const rosToccato = grezzo !== undefined;
   let ros: number | null = null;
   if (grezzo !== null && grezzo !== undefined && grezzo !== "") {
     const n = Number(grezzo);
@@ -85,6 +91,36 @@ export async function PUT(req: Request) {
     ros = n;
   }
 
-  const m = await prisma.maison.update({ where: { id }, data: { rosObiettivo: ros } });
-  return NextResponse.json({ ok: true, rosObiettivo: m.rosObiettivo });
+  // **Fa pubblicita, si o no.** Si manda solo quando lo si cambia: assente =
+  // non si tocca, cosi il salvataggio del ROS non spegne la pubblicita.
+  const fa = body?.faPubblicita;
+  const faPubblicita = typeof fa === "boolean" ? fa : undefined;
+
+  const m = await prisma.maison.update({
+    where: { id },
+    data: {
+      ...(rosToccato ? { rosObiettivo: ros } : {}),
+      ...(faPubblicita === undefined ? {} : { faPubblicita }),
+    },
+  });
+
+  // Spegnendo la pubblicita si **azzerano anche le quote**. Il monte gia va a
+  // zero da solo, ma lasciare a database un 218,4% che nessuno puo piu vedere
+  // vuol dire che il giorno in cui qualcuno riaccende l interruttore si ritrova
+  // addosso una ripartizione sbagliata di cui non sa niente.
+  let quoteAzzerate = 0;
+  if (faPubblicita === false) {
+    const esito = await prisma.advPercent.updateMany({
+      where: { maisonId: id, percent: { not: 0 } },
+      data: { percent: 0 },
+    });
+    quoteAzzerate = esito.count;
+  }
+
+  return NextResponse.json({
+    ok: true,
+    rosObiettivo: m.rosObiettivo,
+    faPubblicita: m.faPubblicita,
+    quoteAzzerate,
+  });
 }

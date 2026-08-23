@@ -124,6 +124,9 @@ export type MaisonBudget = {
   ordine: number;
   // Il ROS obiettivo scelto per questo brand; null = usa il predefinito.
   rosObiettivo: number | null;
+  // `false` = il brand non fa pubblicita: monte zero, e le sue quote non
+  // contano piu niente.
+  faPubblicita: boolean;
   mesi: MeseMaison[];
   // Il venduto **vero** dei negozi, mese per mese (null se Orders non risponde
   // o se il brand un negozio non ce l ha). Sta qui, dentro i dati dell anno,
@@ -188,7 +191,7 @@ export async function caricaAnno(year = ANNO_CORRENTE): Promise<DatiAnno> {
     }
     return {
       id: m.id, slug: m.slug, nome: m.nome, ordine: m.ordine,
-      rosObiettivo: m.rosObiettivo, mesi, vendutoMesi: null,
+      rosObiettivo: m.rosObiettivo, faPubblicita: m.faPubblicita, mesi, vendutoMesi: null,
     };
   });
 
@@ -375,7 +378,13 @@ export function venditeAnnoAttuale(m: MaisonBudget, year = ANNO_CORRENTE): numbe
   }, 0);
 }
 
+// ⚠️ Un brand che **non fa pubblicita** vale zero, e si ferma qui: non basta
+// azzerargli le quote. Le quote sono percentuali di questo monte, e finche il
+// monte esiste il P&L puo attribuirgliene una parte — e' esattamente quello
+// che succedeva a B2B ed Experience, che con quote al 218,4% e 240% si
+// prendevano 83.908 EUR di pubblicita che nessuno ha mai comprato.
 export function budgetAdvAnno(m: MaisonBudget, year = ANNO_CORRENTE): number {
+  if (!m.faPubblicita) return 0;
   const ros = rosDi(m);
   if (ros <= 0) return 0;
   return venditeAnnoAttuale(m, year) / ros;

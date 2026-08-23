@@ -30,6 +30,8 @@ type MaisonSpese = {
   ros: number;
   // Il valore scelto; null = sta usando il predefinito.
   rosScelto: number | null;
+  // `false` = questo brand non fa pubblicita: monte zero e quote spente.
+  faPubblicita: boolean;
   // Quello che il monitoraggio aveva pubblicato, tenuto come riferimento.
   pubblicatoStorico: number;
   venditeAnnoBudget: number;
@@ -84,25 +86,66 @@ export function SpeseEditor({
   const [rosScritto, setRosScritto] = useState<Record<string, string>>({});
   const [salvoRos, setSalvoRos] = useState<string | null>(null);
 
-  async function salvaRos(m: MaisonSpese) {
-    const scritto = rosScritto[m.id];
+  // I **parametri del brand** (ROS e interruttore della pubblicita) passano
+  // tutti di qui. Si manda **solo quello che si sta cambiando**: mandare anche
+  // l'altro col valore letto a schermo vorrebbe dire riscriverlo ogni volta, e
+  // basta una pagina rimasta aperta da prima per rimettere a posto un valore
+  // che nel frattempo qualcun altro ha cambiato.
+  async function salvaParametri(m: MaisonSpese, patch: Record<string, unknown>, errore: string) {
     setSalvoRos(m.id);
     const res = await fetch("/api/maison", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: m.id, rosObiettivo: scritto === "" ? null : scritto }),
+      body: JSON.stringify({ id: m.id, ...patch }),
     });
     const body = await res.json().catch(() => null);
     setSalvoRos(null);
-    if (res.ok) {
+    if (!res.ok) {
+      setEsito(body?.error ?? errore);
+      return null;
+    }
+    router.refresh();
+    return body;
+  }
+
+  async function salvaRos(m: MaisonSpese) {
+    const scritto = rosScritto[m.id];
+    const body = await salvaParametri(
+      m,
+      { rosObiettivo: scritto === "" ? null : scritto },
+      "ROS non salvato, riprova."
+    );
+    if (body) {
       setRosScritto((p) => {
         const q = { ...p };
         delete q[m.id];
         return q;
       });
-      router.refresh();
-    } else {
-      setEsito(body?.error ?? "ROS non salvato, riprova.");
+    }
+  }
+
+  // Spegnere la pubblicita di un brand **cancella le sue quote**, e non e una
+  // cosa che si fa per sbaglio: si chiede conferma dicendo quante ne sta per
+  // azzerare, invece di scoprirlo dopo.
+  async function cambiaPubblicita(m: MaisonSpese, acceso: boolean) {
+    if (!acceso) {
+      const quote = m.mesi.filter((x) => x.percent !== 0).length;
+      const avviso = quote > 0
+        ? `${m.nome} non farà più pubblicità: il suo budget pubblicitario va a zero nel P&L e le ${quote} quote già scritte vengono azzerate. Procedo?`
+        : `${m.nome} non farà più pubblicità: il suo budget pubblicitario va a zero nel P&L. Procedo?`;
+      if (!window.confirm(avviso)) return;
+    }
+    const body = await salvaParametri(m, { faPubblicita: acceso }, "Interruttore non salvato, riprova.");
+    if (body) {
+      setEsito(
+        acceso
+          ? `${m.nome} torna a fare pubblicità: le quote ripartono da zero.`
+          : `${m.nome} non fa più pubblicità${body.quoteAzzerate > 0 ? ` — ${body.quoteAzzerate} quote azzerate` : ""}.`
+      );
+      // Le caselle toccate di questo brand non hanno piu senso: le sue quote
+      // sono appena cambiate a database, e tenerle a schermo mostrerebbe una
+      // modifica in sospeso su numeri che non esistono piu.
+      setModifiche((p) => Object.fromEntries(Object.entries(p).filter(([k]) => !k.startsWith(`${m.id}:`))));
     }
   }
 
@@ -363,15 +406,28 @@ export function SpeseEditor({
               <div>
                 <h2 className="section-title" style={{ margin: 0 }}>{m.nome}</h2>
                 <p className="page-caption">
-                  Budget pubblicità dell&apos;anno <strong>{eur(m.pubblicatoAnno)}</strong>{" "}
-                  <span className="muted">
-                    (stimato: {eur(m.venditeAnnoBudget)} di vendite dell’anno — consuntivo dove c’è,
-                    budget sul resto — ÷ ROS {volte(m.ros)}{m.rosScelto === null ? " predefinito" : ""}
-                    {m.pubblicatoStorico > 0 && (
-                      <> · il monitoraggio ne aveva pubblicati {eur(m.pubblicatoStorico)}</>
-                    )}
-                    )
-                  </span>
+                  {!m.faPubblicita ? (
+                    <>
+                      <strong>Non fa pubblicità.</strong>{" "}
+                      <span className="muted">
+                        Budget pubblicitario <strong>0 €</strong>: non entra nel P&amp;L e non prende
+                        niente dalle piattaforme. Le sue {eur(m.venditeAnnoBudget)} di vendite restano
+                        dove sono — quello che sparisce è solo la pubblicità che gli veniva attribuita.
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      Budget pubblicità dell&apos;anno <strong>{eur(m.pubblicatoAnno)}</strong>{" "}
+                      <span className="muted">
+                        (stimato: {eur(m.venditeAnnoBudget)} di vendite dell’anno — consuntivo dove c’è,
+                        budget sul resto — ÷ ROS {volte(m.ros)}{m.rosScelto === null ? " predefinito" : ""}
+                        {m.pubblicatoStorico > 0 && (
+                          <> · il monitoraggio ne aveva pubblicati {eur(m.pubblicatoStorico)}</>
+                        )}
+                        )
+                      </span>
+                    </>
+                  )}
                   {riga.speso > 0 && (
                     <>
                       {" "}
@@ -382,8 +438,12 @@ export function SpeseEditor({
                       )
                     </>
                   )}
-                  {" · assegnato ai mesi "}
-                  <strong>{eur(riga.ora)}</strong>
+                  {m.faPubblicita && (
+                    <>
+                      {" · assegnato ai mesi "}
+                      <strong>{eur(riga.ora)}</strong>
+                    </>
+                  )}
                   {riga.differenza !== 0 && (
                     <>
                       {" "}
@@ -396,7 +456,11 @@ export function SpeseEditor({
                   )}
                 </p>
                 {/* La riga che risponde alla domanda vera: **le dodici quote
-                    fanno 100?** Sopra si blocca, sotto si dice quanto resta. */}
+                    fanno 100?** Sopra si blocca, sotto si dice quanto resta.
+                    ⚠️ Per un brand senza pubblicità **non si mostra affatto**:
+                    «restano 100 p.p. da assegnare, cioè 0 €» è una frase che
+                    invita a riempire dodici caselle che non servono a niente. */}
+                {m.faPubblicita && (
                 <p className="page-caption" style={{ marginTop: 2 }}>
                   Somma delle dodici quote:{" "}
                   <strong className={sforaQui ? "delta su" : Math.abs(riga.resta) <= TOLLERANZA ? "delta giu" : undefined}>
@@ -431,6 +495,7 @@ export function SpeseEditor({
                     </>
                   )}
                 </p>
+                )}
                 {/* L'altra domanda, quella che la quota non risponde: **quanto
                     pesa** tutta questa pubblicità su quello che il brand vende. */}
                 {riga.incAnno !== null && riga.ora > 0 && (
@@ -447,10 +512,30 @@ export function SpeseEditor({
                 )}
               </div>
               <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                {/* **Fa pubblicità, sì o no.** Un brand che non ne fa non si
+                    esprime con quote a zero: lì resterebbe un monte stimato che
+                    nessuno spende, e a schermo sembra budget disponibile. */}
+                <label
+                  style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 12.5 }}
+                  title={
+                    m.faPubblicita
+                      ? `Togli la spunta se ${m.nome} non fa pubblicità: budget a zero e quote azzerate.`
+                      : `${m.nome} non fa pubblicità: nessun budget pubblicitario nel P&L.`
+                  }
+                >
+                  <input
+                    type="checkbox"
+                    checked={m.faPubblicita}
+                    disabled={salvoRos === m.id}
+                    onChange={(e) => cambiaPubblicita(m, e.target.checked)}
+                  />
+                  <span className="muted">Fa pubblicità</span>
+                </label>
                 {/* Il **ROS obiettivo del brand**: da qui esce il monte
                     pubblicitario, quindi si imposta dove il monte si legge.
                     Vuoto = usa il predefinito, ed e diverso da scriverci sopra
                     lo stesso numero: uno e una scelta, l altro e un ripiego. */}
+                {m.faPubblicita && (
                 <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 12.5 }}>
                   <span className="muted">ROS obiettivo</span>
                   <input
@@ -470,7 +555,9 @@ export function SpeseEditor({
                   />
                   <span className="muted">×</span>
                 </label>
-                {rosScritto[m.id] !== undefined &&
+                )}
+                {m.faPubblicita &&
+                  rosScritto[m.id] !== undefined &&
                   rosScritto[m.id] !== (m.rosScelto === null ? "" : String(m.rosScelto)) && (
                     <button className="btn secondary small" onClick={() => salvaRos(m)} disabled={salvoRos === m.id}>
                       {salvoRos === m.id ? "Salvo…" : "Salva ROS"}
@@ -544,7 +631,10 @@ export function SpeseEditor({
             <div className="mesi-grid">
               {m.mesi.map((x) => {
                 const key = `${m.id}:${x.month}`;
-                const bloccato = chiuso(x.month);
+                // Un brand senza pubblicità non ha quote da distribuire: le
+                // caselle restano a schermo (sparire farebbe pensare a un
+                // guasto) ma non si scrivono.
+                const bloccato = chiuso(x.month) || !m.faPubblicita;
                 const misura = misurato(x);
                 const reale = quotaReale(m, x);
                 // In un mese misurato la casella mostra la quota **consumata**,
@@ -565,7 +655,7 @@ export function SpeseEditor({
                   <div className="mese-cell" key={x.month}>
                     <div className="k">
                       {MESI[x.month - 1]}
-                      {bloccato && " · chiuso"}
+                      {chiuso(x.month) && " · chiuso"}
                     </div>
                     <input
                       type="number"
@@ -579,7 +669,9 @@ export function SpeseEditor({
                         .filter(Boolean)
                         .join(" ") || undefined}
                       title={
-                        misura
+                        !m.faPubblicita
+                          ? `${m.nome} non fa pubblicità: non c'è un monte da distribuire fra i mesi.`
+                          : misura
                           ? `${MESI[x.month - 1]} è passato: questa è la quota davvero consumata — ${eur(x.speso ?? 0)} spesi sui ${eur(m.pubblicatoAnno)} dell'anno. La quota decisa a budget era ${punti(valore(key))}%.`
                           : bloccato
                             ? `${MESI[x.month - 1]} è un mese passato: il budget ADV non si riscrive dopo che è stato speso.`
@@ -711,12 +803,20 @@ export function SpeseEditor({
             <tbody>
               {righe.map((r) => (
                 <tr key={r.m.id}>
-                  <td>{r.m.nome}</td>
-                  <td className="num muted">{eur(r.m.pubblicatoAnno)}</td>
-                  <td className={`num ${sfora(r) ? "neg" : ""}`}>{punti(r.pp)}%</td>
-                  <td className="num">{eur(r.ora)}</td>
-                  <td className={`num ${Math.abs(r.resta) <= TOLLERANZA ? "muted" : r.resta < 0 ? "neg" : ""}`}>
-                    {Math.abs(r.resta) <= TOLLERANZA
+                  <td>
+                    {r.m.nome}
+                    {!r.m.faPubblicita && <span className="muted"> · non fa pubblicità</span>}
+                  </td>
+                  <td className="num muted">{r.m.faPubblicita ? eur(r.m.pubblicatoAnno) : "—"}</td>
+                  {/* Su un brand senza pubblicità «0%» e «da assegnare 0 €»
+                      sono due modi di dire che manca qualcosa: non manca
+                      niente, non c'è proprio un monte da distribuire. */}
+                  <td className={`num ${!r.m.faPubblicita ? "muted" : sfora(r) ? "neg" : ""}`}>
+                    {r.m.faPubblicita ? `${punti(r.pp)}%` : "—"}
+                  </td>
+                  <td className="num">{r.m.faPubblicita ? eur(r.ora) : "—"}</td>
+                  <td className={`num ${!r.m.faPubblicita || Math.abs(r.resta) <= TOLLERANZA ? "muted" : r.resta < 0 ? "neg" : ""}`}>
+                    {!r.m.faPubblicita || Math.abs(r.resta) <= TOLLERANZA
                       ? "—"
                       : r.resta < 0
                         ? `${eur((r.m.pubblicatoAnno * -r.resta) / 100)} oltre`

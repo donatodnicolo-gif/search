@@ -29,6 +29,12 @@ model Maison {
   // (vendite / ROS). **Nullable**: chi non ce l ha usa il predefinito, e un
   // valore nullo si distingue da uno scelto uguale al predefinito.
   rosObiettivo Float?
+  // `false` = questo brand **non fa pubblicita**: niente monte, niente quote,
+  // zero nel P&L. Non si esprime con un ROS a zero (sarebbe una divisione per
+  // zero, e «ROS zero» vuol dire il contrario: resa nulla) ne lasciando le
+  // quote a zero (li resterebbe un monte che nessuno spende, e a schermo
+  // sembrerebbe budget disponibile).
+  faPubblicita Boolean      @default(true)
   budgets     BudgetEntry[]
   advPercents AdvPercent[]
 }

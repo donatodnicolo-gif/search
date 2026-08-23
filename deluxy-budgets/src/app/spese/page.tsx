@@ -68,8 +68,13 @@ export default async function Spese({
     }, 0);
   // Il monte pubblicitario con la base scelta: sulla base approvata e
   // **esattamente** budgetAdvAnno, cioe quello che usano P&L e Piattaforme.
-  const monteAdv = (m: (typeof dati.maisons)[number]) =>
-    base === APPROVATO ? budgetAdvAnno(m, dati.year) : venditeAnno(m) / rosDi(m);
+  // ⚠️ Un brand che **non fa pubblicità** vale zero su qualunque base: la lente
+  // cambia il budget vendite da cui si stima, non il fatto che quel brand la
+  // pubblicità non la compri.
+  const monteAdv = (m: (typeof dati.maisons)[number]) => {
+    if (!m.faPubblicita) return 0;
+    return base === APPROVATO ? budgetAdvAnno(m, dati.year) : venditeAnno(m) / rosDi(m);
+  };
 
   // La pubblicità **davvero spesa**, brand per brand e mese per mese. Per un
   // mese chiuso la domanda non è «quanto posso spendere» ma «quanto ho speso»:
@@ -171,6 +176,7 @@ export default async function Spese({
             // dell anno diviso il ROS del brand.
             pubblicatoAnno: monteAdv(m),
             ros: rosDi(m),
+            faPubblicita: m.faPubblicita,
             // null = sta usando il predefinito, non un valore scelto.
             rosScelto: m.rosObiettivo,
             // Quello che il monitoraggio aveva pubblicato: resta come

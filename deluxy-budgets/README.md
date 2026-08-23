@@ -1603,6 +1603,27 @@ modulo che tocca il database.**
 A **ROS 7** la pubblicità vale un settimo del venduto (≈14,3%), a **6,5** un po' di più (≈15,4%). Sta
 Il ripiego per chi non ne ha uno suo resta **6,5×**.
 
+### Un brand che la pubblicità non la fa
+
+⭐ **`Maison.faPubblicita`** (23/08/2026, «b2b ed experience vanno azzerati come budget marketing»):
+l'interruttore sta sulla scheda del brand in `/spese`, e spento vuol dire **monte zero, quote zero,
+niente nel P&L e niente da ripartire in `/piattaforme`**.
+
+⚠️ **Non si esprime azzerando le quote** e nemmeno con un ROS a zero. Le quote sono percentuali del
+monte: finché il monte esiste resta a schermo un budget che nessuno spende, e sembra disponibile. Un
+ROS a zero, invece, è una divisione per zero — e «ROS zero» vorrebbe dire il contrario di quello che
+si intende, cioè resa nulla. Serviva un terzo stato, e ha un campo suo.
+
+⚠️ **Spegnere azzera anche le quote a database**, dopo conferma che dice quante ne sta per cancellare.
+Lasciarle lì vorrebbe dire che chi un giorno riaccende l'interruttore si ritrova addosso una
+ripartizione sbagliata di cui non sa niente. Riaccendendo si riparte da zero, non da quello che c'era.
+
+📌 **Applicato a B2B ed Experience** con `scripts/spegni-pubblicita-brand.ts` (prova a vuoto, poi
+`scrivi`): erano i due brand che in Marketing non hanno campagne, e le loro quote — scritte con la
+regola vecchia — sommavano **218,4%** e **240%**. Il P&L gli attribuiva **83.908 €** di pubblicità
+contro un monte di 38.077. Dopo: **ADV 280.324 → 196.416 €**, **EBITDA −108.931 → −26.660 €**, e i tre
+negozi che la pubblicità la fanno davvero sommano **100,0%** ciascuno.
+
 ⭐ **Il ROS si imposta per brand** (23/08/2026, «consentimi di impostare il ros per ogni brand per i
 budget»): vive a database su `Maison.rosObiettivo` e si scrive **dalla scheda del brand in `/spese`**,
 dove il monte si legge — un parametro che sposta il P&L non sta in un file di codice. Il campo è

@@ -168,7 +168,14 @@ export default async function Piattaforme({
             . Imposti le % (diverse mese per mese) e gli importi si calcolano da soli sul budget ADV del
             mese.
           </p>
-          {brand ? (
+          {brand && !brand.faPubblicita ? (
+            <p className="page-caption" style={{ marginTop: 6 }}>
+              <strong style={{ color: "var(--orange)" }}>{brand.nome} non fa pubblicità</strong>: il suo
+              budget pubblicitario è <strong>zero</strong>, quindi qui non c&apos;è niente da ripartire e
+              tutti gli importi sono a zero — non è un dato mancante. Si riaccende dalla sua scheda in{" "}
+              <Link href="/spese" style={{ color: "var(--blue)" }}>Spese ADV</Link>.
+            </p>
+          ) : brand ? (
             <p className="page-caption" style={{ marginTop: 6 }}>
               {ereditata ? (
                 <>
@@ -224,9 +231,18 @@ export default async function Piattaforme({
                 key={m.id}
                 href={`/piattaforme?brand=${m.id}`}
                 className={brand?.id === m.id ? "on" : ""}
-                title={`Ripartizione del budget pubblicitario di ${m.nome}.`}
+                title={
+                  m.faPubblicita
+                    ? `Ripartizione del budget pubblicitario di ${m.nome}.`
+                    : `${m.nome} non fa pubblicità: non ha un budget da ripartire.`
+                }
               >
                 {m.nome}
+                {/* Un brand senza pubblicità resta nell'elenco — toglierlo
+                    farebbe cercare una scheda che c'è — ma si marca: senza il
+                    segno si clicca e si trova una griglia di zeri senza
+                    capire perché. */}
+                {!m.faPubblicita && <span className="muted"> · no ADV</span>}
               </Link>
             ))}
           </div>
