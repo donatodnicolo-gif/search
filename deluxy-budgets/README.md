@@ -1637,6 +1637,19 @@ più non è un errore — può essere una linea chiusa — ma la riga lo dichiar
 
 📌 Stato: 8 linee, **504.000 €** e **317 nuovi clienti** sull'anno.
 
+⚠️ **Il CSS di una tabella di lettura non regge dodici caselle scrivibili** (`sistema css`, 23/08/2026):
+col padding normale i numeri si vedevano **a metà** — «2(», «13» — e un budget letto a metà è peggio di
+un budget non mostrato. La classe **`.tab-mesi`** in `globals.css`: celle strette, input a larghezza
+minima con cifre **tabulari** (così le colonne non ballano mentre si digita) e **frecce dello spinner
+tolte**, che si mangiavano ~17px di larghezza utile per una funzione che qui non serve — un budget si
+scrive, non si incrementa di uno alla volta. Con questo la tabella **entra** in un desktop largo (1.190px
+contro 1.205 disponibili) e sette cifre ci stanno.
+
+⚠️ Sotto quella larghezza la tabella scorre **dentro il suo contenitore** (la pagina no) e la **colonna
+della linea resta ferma**: senza, arrivati a dicembre non si sa più su quale riga si sta scrivendo. E la
+cella ferma della riga **totale** ha uno sfondo **opaco** — `--fill` è semitrasparente, e sopra il
+contenuto che scorre sotto si leggevano due numeri sovrapposti.
+
 ### ⚠️⚠️ Lo stesso «EBITDA» valeva tre numeri diversi (23/08/2026)
 
 «prova a riconciliare i numeri». Tre pagine, tre risposte, stessa etichetta:

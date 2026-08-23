@@ -200,7 +200,7 @@ export function LineeEditor({
 
       <div className="card tight">
         <div className="table-wrap">
-          <table>
+          <table className="tab-mesi">
             <thead>
               <tr>
                 <th>Linea</th>
@@ -235,7 +235,7 @@ export function LineeEditor({
                       const month = i + 1;
                       const k = key(l.id, month, misura);
                       return (
-                        <td className="num" key={month} style={{ minWidth: 84 }}>
+                        <td className="num" key={month}>
                           <input
                             type="number"
                             min={0}
