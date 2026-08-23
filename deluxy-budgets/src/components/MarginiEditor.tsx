@@ -10,7 +10,10 @@ type Riga = {
   nome: string;
   marginePct: number;
   note: string | null;
+  // Quello che entra nel conto economico: sul D2C e la sola quota Deluxy.
   ricavi: number;
+  // Il prezzo pieno pagato dal cliente, da cui quella quota si ricava.
+  venduto: number;
   vociFinance: string[];
 };
 
@@ -30,11 +33,12 @@ export function MarginiEditor({ tipologie }: { tipologie: Riga[] }) {
 
   const totali = useMemo(() => {
     const ricavi = tipologie.reduce((s, t) => s + t.ricavi, 0);
+    const venduto = tipologie.reduce((s, t) => s + t.venduto, 0);
     const margine = tipologie.reduce(
       (s, t) => s + (t.ricavi * (margini[t.id] ?? t.marginePct)) / 100,
       0
     );
-    return { ricavi, margine, cogs: ricavi - margine, mediaPct: ricavi > 0 ? (margine / ricavi) * 100 : 0 };
+    return { ricavi, venduto, margine, cogs: ricavi - margine, mediaPct: ricavi > 0 ? (margine / ricavi) * 100 : 0 };
   }, [tipologie, margini]);
 
   async function salva() {
@@ -101,7 +105,10 @@ export function MarginiEditor({ tipologie }: { tipologie: Riga[] }) {
         <div className="kpi">
           <div className="kpi-label">Costo del venduto</div>
           <div className="kpi-value">{eur(totali.cogs)}</div>
-          <div className="kpi-sub">su {eur(totali.ricavi)} di ricavi a budget</div>
+          <div className="kpi-sub">
+            su {eur(totali.ricavi)} di ricavi a budget
+            {Math.abs(totali.venduto - totali.ricavi) > 1 && ` (da ${eur(totali.venduto)} di venduto)`}
+          </div>
         </div>
         <div className="kpi">
           <div className="kpi-label">Tipologie di servizio</div>
@@ -131,7 +138,8 @@ export function MarginiEditor({ tipologie }: { tipologie: Riga[] }) {
             <thead>
               <tr>
                 <th>Tipologia</th>
-                <th className="num">Ricavi a budget</th>
+                <th className="num">Venduto a budget</th>
+                <th className="num">Ricavi nel P&amp;L</th>
                 <th className="num">% sul totale</th>
                 <th className="num">Margine %</th>
                 <th className="num">Margine €</th>
@@ -162,7 +170,19 @@ export function MarginiEditor({ tipologie }: { tipologie: Riga[] }) {
                         </div>
                       )}
                     </td>
-                    <td className="num">{t.ricavi > 0 ? eur(t.ricavi) : <span className="muted">—</span>}</td>
+                    <td className="num muted">{t.venduto > 0 ? eur(t.venduto) : "—"}</td>
+                    {/* Sul D2C i due numeri **non coincidono**: nel bilancio
+                        entra solo la quota che resta a Deluxy, il resto gira ai
+                        partner ed e una partita di giro. Il costo del venduto si
+                        calcola su questo, non sul venduto. */}
+                    <td className="num">
+                      {t.ricavi > 0 ? eur(t.ricavi) : <span className="muted">—</span>}
+                      {t.venduto > 0 && Math.abs(t.venduto - t.ricavi) > 1 && (
+                        <div className="muted" style={{ fontSize: 11, fontWeight: 400 }}>
+                          quota {pct((t.ricavi / t.venduto) * 100, 0)} del venduto
+                        </div>
+                      )}
+                    </td>
                     <td className="num muted">
                       {totali.ricavi > 0 ? pct((t.ricavi / totali.ricavi) * 100, 0) : "—"}
                     </td>
@@ -207,6 +227,7 @@ export function MarginiEditor({ tipologie }: { tipologie: Riga[] }) {
               })}
               <tr className="tot">
                 <td>Totale</td>
+                <td className="num muted">{eur(totali.venduto)}</td>
                 <td className="num">{eur(totali.ricavi)}</td>
                 <td className="num">100%</td>
                 <td className="num">{pct(totali.mediaPct)}</td>

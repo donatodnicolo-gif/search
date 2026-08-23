@@ -1029,6 +1029,21 @@ un a-capo); ricontrollato il 17/08/2026: c'è. Restano fuori `HUB_SSO_SECRET` e 
    | Margine lordo | 186.123 € (26,7%) | **388.633 € (55,8%)** |
    | EBITDA (Raggiungibile) | −443.255 € | **−240.745 €** |
 
+   ⭐ **Le due basi, confermate dall utente il 23/08/2026 e adesso scritte in pagina.** Sono diverse di
+   proposito, e finché non lo si dice sembrano un errore di conto:
+
+   | | Base | Perché |
+   | --- | --- | --- |
+   | **Budget pubblicitario** (`/spese`) | il **venduto globale**, prezzo pieno pagato dal cliente | la pubblicità genera il venduto **intero**, quindi è su quello che si misura quanto costa farlo |
+   | **Conto economico** (`/pl`) | solo la **quota che resta a Deluxy** | il resto gira ai partner: partita di giro, non ricavo — e per la stessa ragione lì il costo del venduto D2C è zero |
+
+   ⚠️ **E `/margini` diceva un terzo numero**: chiamava «ricavi» il venduto lordo (1.164.282 €) e
+   mostrava un margine del 73,5% che nel P&L non compariva da nessuna parte — la stessa confusione che
+   teneva in piedi il doppio conteggio. Ora la tabella ha **due colonne**, «Venduto a budget» e «Ricavi
+   nel P&L», con la quota scritta sotto (`quota 40% del venduto`), e i totali coincidono con il conto
+   economico: 1.164.282 € venduti → **696.953 € di ricavi**, margine **388.633 € (55,8%)**, costo del
+   venduto **308.320 €**.
+
    ⚠️ **Il perché sta scritto dove si cambia il numero**: la nota della tipologia adesso si legge in
    `/margini` accanto alla riga, non solo a database — una spiegazione che non raggiunge chi sta per
    rimettere 35% non serve a niente. E l EBITDA resta negativo: con 217.254 € di personale e la riga ADV

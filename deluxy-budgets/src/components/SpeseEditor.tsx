@@ -727,10 +727,16 @@ export function SpeseEditor({
           <strong>Da quale budget arrivano i numeri.</strong> Il{" "}
           <strong>budget pubblicità dell&apos;anno</strong> (il 100%) non è ereditato: si{" "}
           <strong>stima dal ROS obiettivo</strong> — <strong>7×</strong> su Deluxy.it, <strong>6,5×</strong>{" "}
-          su tutti gli altri — cioè <em>vendite dell&apos;anno ÷ ROS</em>, dove le vendite dell&apos;anno sono{" "}
+          su tutti gli altri — cioè <em>vendite dell&apos;anno ÷ ROS</em>, dove le vendite dell&apos;anno sono
           <strong>il consuntivo dei mesi già chiusi più il budget di quelli che restano</strong> (sul mese in
           corso vale il maggiore fra il venduto di adesso e il budget: il mese non può chiudere sotto quello
-          che ha già venduto). A 7 la pubblicità vale un
+          che ha già venduto).
+          <br />
+          ⚠️ <strong>Qui le vendite sono quelle globali, il prezzo pieno pagato dal cliente</strong> — non la
+          quota che resta a Deluxy. È voluto: la pubblicità genera il venduto <em>intero</em>, quindi è su
+          quello che si misura quanto costa farlo. Nel <strong>conto economico</strong> invece entra solo la
+          quota Deluxy, e per la stessa ragione lì il costo del venduto sull&apos;ecommerce è zero (la parte
+          dei partner è già fuori). Due basi diverse, ognuna giusta per la sua domanda. A 7 la pubblicità vale un
           settimo del venduto (≈14,3%), a 6,5 un po&apos; di più (≈15,4%). L&apos;ADV «pubblicato» del
           monitoraggio {year} resta scritto accanto come riferimento, per vedere quanto la stima se ne
           discosta. Le <strong>vendite attese</strong> di ogni mese sono il <strong>budget vendite</strong> del
