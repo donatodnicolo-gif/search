@@ -393,6 +393,8 @@ export interface Lead {
   lavorato_il: string | null;
   /** Id della mail dentro AI Mail: apre /messaggio/<id> (migr. 0064). */
   mail_ref?: string | null;
+  /** Message-ID della posta: serve a non reimportare due volte (migr. 0042). */
+  mail_id?: string | null;
 }
 
 // Perché una trattativa si perde. Il motivo decide come (e se) riprenderla.

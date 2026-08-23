@@ -100,6 +100,43 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ── Il testo intero di UNA mail ──────────────────────────────────────────
+    // All'import si salva solo oggetto + anteprima (due righe): per leggere
+    // davvero una richiesta serve il corpo, e chiederlo solo quando si apre
+    // evita di trascinarsi dietro migliaia di caratteri per ogni riga di elenco.
+    if (body.azione === 'corpo') {
+      const idMail = String(body.id ?? '').trim();
+      if (!idMail) return json({ ok: false, errore: 'Manca l’id del messaggio.' }, 400);
+      const { data: rigaL } = await admin
+        .from('impostazioni')
+        .select('valore')
+        .eq('chiave', 'mail.casella_lettura')
+        .maybeSingle();
+      const { data: rigaC } = await admin
+        .from('impostazioni')
+        .select('valore')
+        .eq('chiave', 'mail.casella_richieste')
+        .maybeSingle();
+      const dove = (rigaL?.valore ?? '').trim() || (rigaC?.valore ?? '').trim() || email || '';
+      const r = await fetch(`${BASE}/api/v1/messaggi?corpo=${encodeURIComponent(idMail)}`, {
+        headers: { 'x-api-key': key, 'x-utente': dove },
+      });
+      const txt = await r.text();
+      if (!r.ok) {
+        return json(
+          {
+            ok: false,
+            errore:
+              r.status === 404
+                ? 'Il testo non è disponibile: la mail non è (più) in quella casella, oppure AI Mail non è aggiornata.'
+                : `AI Mail ${r.status}`,
+          },
+          502,
+        );
+      }
+      return new Response(txt, { status: 200, headers: { 'Content-Type': 'application/json', ...cors } });
+    }
+
     // ── Richieste Web: la posta della casella commerciale diventa lead ────────
     if (body.azione === 'richieste') {
       // La casella la decide l'app (Profilo → Impostazioni, tabella

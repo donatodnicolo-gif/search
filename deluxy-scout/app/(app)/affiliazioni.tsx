@@ -1,7 +1,7 @@
 // Affiliazioni: le attività della linea Re-seller (fioristi/pasticcerie) da reclutare
 // come affiliati su deluxy.it. Per ciascuna: dati anagrafici, bottone "Chiama" (apre il
 // telefono e registra la chiamata) e lo "step" di stato (i 7 valori del registro).
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
   Linking,
@@ -274,6 +274,16 @@ export default function Affiliazioni() {
       <FlatList
         data={datiOrdinati}
         keyExtractor={(r) => r.id}
+        // ⚠️ Senza questi la lista disegnava **tutte** le 222 righe in un colpo,
+        // e ogni riga ha una decina di elementi premibili: sul web sono
+        // migliaia di nodi costruiti prima che compaia qualcosa. Segnalato
+        // dall'utente («è molto lento», 23/08/2026). Ora ne prepara 15 e va
+        // avanti mentre si scorre.
+        initialNumToRender={15}
+        maxToRenderPerBatch={15}
+        updateCellsBatchingPeriod={50}
+        windowSize={7}
+        removeClippedSubviews
         contentContainerStyle={[styles.list, tabella ? contenutoLargo : contenutoCentrato]}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}
         // Intro, ricerca e filtri scorrono con la lista: da fissi lasciavano
@@ -383,7 +393,7 @@ export default function Affiliazioni() {
  * la chiamata. Su una tabella la tentazione è togliere le azioni per far
  * entrare le colonne: qui si stringe la cornice, non ciò che si può fare.
  */
-function Riga({
+const Riga = memo(function Riga({
   item,
   onChiama,
   onStato,
@@ -543,7 +553,7 @@ function Riga({
       ) : null}
     </View>
   );
-}
+});
 
 /**
  * Intestazione della tabella: chiude la card in alto e scorre con l'elenco — in

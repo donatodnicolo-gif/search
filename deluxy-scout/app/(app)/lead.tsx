@@ -30,6 +30,7 @@ import {
   type PlaceLite,
 } from '@/lib/db';
 import { urlMessaggioAiMail } from '@/lib/aimail';
+import { fetchCorpoMail } from '@/lib/mail';
 import { avvisa, conferma } from '@/lib/dialoghi';
 import type { FonteLead, Lead } from '@/types';
 import { GIORNI_RISPOSTA_LEAD } from '@/lib/cadenze';
@@ -96,6 +97,33 @@ export default function LeadWeb() {
 
   // La mail aperta per intero (il testo salvato al momento dell'import).
   const [daLeggere, setDaLeggere] = useState<Lead | null>(null);
+
+  // Il testo intero della mail aperta: si chiede ad AI Mail solo quando serve.
+  const [corpo, setCorpo] = useState('');
+  const [corpoStato, setCorpoStato] = useState<'fermo' | 'carico' | 'ok' | 'ripiego'>('fermo');
+  const [corpoErrore, setCorpoErrore] = useState('');
+
+  function apriMessaggio(l: Lead) {
+    setDaLeggere(l);
+    setCorpo('');
+    setCorpoErrore('');
+    const rif = l.mail_ref || l.mail_id;
+    if (!rif) {
+      // Richiesta inserita a mano: non c'è nessuna mail da andare a prendere.
+      setCorpoStato('fermo');
+      return;
+    }
+    setCorpoStato('carico');
+    fetchCorpoMail(rif)
+      .then((r) => {
+        setCorpo(r.testo || '');
+        setCorpoStato(r.testo ? 'ok' : 'ripiego');
+      })
+      .catch((e) => {
+        setCorpoErrore((e as Error)?.message ?? '');
+        setCorpoStato('ripiego');
+      });
+  }
 
   /** Elimina una richiesta: sparisce dalla coda, in tutti e tre i filtri. */
   function elimina(l: Lead) {
@@ -200,7 +228,7 @@ export default function LeadWeb() {
                   richiesta già lavorata o scartata. */}
               <View style={styles.azioniMail}>
                 {item.messaggio ? (
-                  <Pressable hitSlop={6} onPress={() => setDaLeggere(item)}>
+                  <Pressable hitSlop={6} onPress={() => apriMessaggio(item)}>
                     <Text style={styles.azioneTxt}>Apri il messaggio</Text>
                   </Pressable>
                 ) : null}
@@ -231,24 +259,67 @@ export default function LeadWeb() {
       {daLeggere ? (
         <Modal visible transparent animationType="slide" onRequestClose={() => setDaLeggere(null)}>
           <View style={styles.overlay}>
-            <View style={styles.sheet}>
+            <View style={styles.sheetMail}>
               <View style={styles.sheetHead}>
-                <Text style={styles.sheetTitolo} numberOfLines={2}>{daLeggere.nome}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.sheetTitolo} numberOfLines={2}>{daLeggere.nome}</Text>
+                  {daLeggere.contatto ? <Text style={styles.meta}>{daLeggere.contatto}</Text> : null}
+                </View>
                 <Pressable onPress={() => setDaLeggere(null)} hitSlop={10}>
                   <Ionicons name="close" size={24} color={colors.testoSoft} />
                 </Pressable>
               </View>
-              {daLeggere.contatto ? <Text style={styles.meta}>{daLeggere.contatto}</Text> : null}
-              <ScrollView style={{ maxHeight: 320 }}>
-                <Text style={styles.corpoMail}>{daLeggere.messaggio ?? 'Nessun testo salvato.'}</Text>
+
+              <ScrollView style={styles.corpoBox} contentContainerStyle={{ paddingBottom: 8 }}>
+                {corpoStato === 'carico' ? (
+                  <Text style={styles.corpoAttesa}>Prendo il testo da AI Mail…</Text>
+                ) : null}
+                {/* Il testo intero se AI Mail lo dà; se no resta l'anteprima
+                    salvata all'import, che è meglio di niente ma è solo l'inizio. */}
+                <Text style={styles.corpoMail} selectable>
+                  {corpo || daLeggere.messaggio || 'Nessun testo disponibile.'}
+                </Text>
+                {corpoStato === 'ripiego' ? (
+                  <Text style={styles.corpoNota}>
+                    Questo è l’estratto salvato all’import: il testo intero non è arrivato
+                    {corpoErrore ? ` (${corpoErrore})` : ''}.
+                  </Text>
+                ) : null}
               </ScrollView>
-              {/* Qui c'è l'oggetto e l'anteprima salvati all'import: la mail
-                  intera, con allegati e catena, vive in AI Mail. */}
-              {daLeggere.mail_ref ? (
-                <Pressable onPress={() => Linking.openURL(urlMessaggioAiMail(daLeggere.mail_ref!))}>
-                  <Text style={styles.link}>Apri la mail intera in AI Mail ›</Text>
+
+              <View style={styles.azioniMail}>
+                {daLeggere.mail_ref ? (
+                  <Pressable hitSlop={6} onPress={() => Linking.openURL(urlMessaggioAiMail(daLeggere.mail_ref!))}>
+                    <Text style={styles.azioneTxt}>Aprila in AI Mail</Text>
+                  </Pressable>
+                ) : null}
+                {daLeggere.stato === 'nuovo' ? (
+                  <>
+                    <Text style={styles.sep}>·</Text>
+                    <Pressable
+                      hitSlop={6}
+                      onPress={() => {
+                        const l = daLeggere;
+                        setDaLeggere(null);
+                        setDaQualificare(l);
+                      }}
+                    >
+                      <Text style={styles.azioneTxt}>Qualifica</Text>
+                    </Pressable>
+                  </>
+                ) : null}
+                <Text style={styles.sep}>·</Text>
+                <Pressable
+                  hitSlop={6}
+                  onPress={() => {
+                    const l = daLeggere;
+                    setDaLeggere(null);
+                    elimina(l);
+                  }}
+                >
+                  <Text style={[styles.azioneTxt, styles.azionePericolo]}>Elimina</Text>
                 </Pressable>
-              ) : null}
+              </View>
             </View>
           </View>
         </Modal>
@@ -402,7 +473,18 @@ const styles = StyleSheet.create({
   azioneTxt: { color: colors.navy, fontSize: 12.5, fontWeight: '600' },
   azionePericolo: { color: colors.errore },
   sep: { color: colors.grigio, fontSize: 12 },
-  corpoMail: { color: colors.testo, fontSize: 14, lineHeight: 21 },
+  corpoMail: { color: colors.testo, fontSize: 14.5, lineHeight: 23 },
+  corpoBox: { maxHeight: 380, marginVertical: spacing.sm },
+  corpoAttesa: { color: colors.testoSoft, fontSize: 13, marginBottom: 6 },
+  corpoNota: { color: colors.testoSoft, fontSize: 12, marginTop: 10, fontStyle: 'italic' },
+  sheetMail: {
+    backgroundColor: colors.bianco,
+    borderTopLeftRadius: radius.lg,
+    borderTopRightRadius: radius.lg,
+    padding: spacing.md,
+    gap: 4,
+    maxHeight: '88%',
+  },
   container: { flex: 1, backgroundColor: colors.sfondo },
   head: { padding: spacing.md, gap: spacing.sm },
   btnImporta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderWidth: 1, borderColor: colors.grigioChiaro, backgroundColor: colors.bianco, borderRadius: radius.pill, paddingVertical: 9 },

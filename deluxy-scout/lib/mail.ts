@@ -82,6 +82,25 @@ export async function importaRichiesteDaMail(limite = 50): Promise<{ lette: numb
   return { lette: Number(payload.lette ?? 0), importate: Number(payload.importate ?? 0) };
 }
 
+/** Il testo intero di una mail importata (si chiede solo quando si apre). */
+export async function fetchCorpoMail(id: string): Promise<{ testo: string; oggetto: string | null }> {
+  const url = `${env.supabaseUrl().replace(/\/$/, '')}/functions/v1/mail`;
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: env.supabaseAnonKey(),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ azione: 'corpo', id }),
+  });
+  const payload = await res.json().catch(() => ({}));
+  if (!res.ok || !payload?.ok) throw new Error(payload?.errore ?? 'Testo non disponibile.');
+  return { testo: String(payload.messaggio?.testo ?? ''), oggetto: payload.messaggio?.oggetto ?? null };
+}
+
 export interface CasellaMail {
   email: string;
   nome: string | null;
