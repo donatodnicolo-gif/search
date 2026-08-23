@@ -3709,6 +3709,106 @@ export async function accodaCambioLocalita(input: {
       (aggiungiNomi.length ? " I nomi li risolverà lo script su Google al momento di eseguire." : ""),
   };
 }
+
+/**
+ * Mette in coda i budget cambiati su più campagne insieme.
+ *
+ * ⚠️ UNA OPERAZIONE PER CAMPAGNA, non un lotto: chi approva deve poter dire
+ * sì a quattro e no a una, e se lo script inciampa su una campagna le altre
+ * non devono cadere con lei. È la stessa regola delle keyword portate altrove
+ * e delle liste di esclusione.
+ *
+ * ⚠️ SOLO QUELLO CHE È CAMBIATO. Rimandare anche i budget identici vorrebbe
+ * dire far scattare il blackout di 72 ore su campagne che non hanno cambiato
+ * niente — e riempire la coda di modifiche che non modificano.
+ *
+ * ⚠️ L2, come ogni cambio di budget dal guardrail: sposta la spesa.
+ *
+ * ⚠️ NON è una programmazione. L'operazione parte quando qualcuno la approva
+ * e lo script passa (su Meta quando qualcuno preme): non esiste un «vale dal
+ * primo del mese». Guardare il tetto di un mese futuro serve a decidere, non
+ * a schedulare.
+ */
+export async function accodaBudgetCampagne(input: {
+  brand: string;
+  modifiche: { campagnaId: string; budget: number }[];
+  motivo: string;
+}): Promise<{ ok: true; messaggio: string } | { ok: false; errore: string }> {
+  const modifiche = input.modifiche.filter((m) => m.campagnaId && Number.isFinite(m.budget) && m.budget > 0);
+  if (modifiche.length === 0) return { ok: false, errore: "Non c'è nessun budget nuovo da mettere in coda." };
+
+  const campagne = await prisma.campagna.findMany({
+    where: { id: { in: modifiche.map((m) => m.campagnaId) } },
+    select: { id: true, nome: true, canale: true, idEsterno: true, account: true, budgetGiornaliero: true },
+  });
+  const per = new Map(campagne.map((c) => [c.id, c]));
+
+  // Quelle che hanno già un cambio in coda si saltano: due modifiche di
+  // budget sulla stessa campagna vorrebbero dire che la seconda cancella la
+  // prima, senza che nessuno l'abbia deciso.
+  const inCoda = await prisma.operazioneAdv.findMany({
+    where: {
+      tipo: "budget",
+      campagnaId: { in: modifiche.map((m) => m.campagnaId) },
+      stato: { in: ["in_attesa", "approvata"] },
+    },
+    select: { campagnaId: true },
+  });
+  const gia = new Set(inCoda.map((o) => o.campagnaId));
+
+  let messe = 0;
+  const saltate: string[] = [];
+  for (const m of modifiche) {
+    const c = per.get(m.campagnaId);
+    if (!c) continue;
+    if (gia.has(c.id)) {
+      saltate.push(c.nome);
+      continue;
+    }
+    const prima = c.budgetGiornaliero;
+    const variazione = prima && prima > 0 ? ((m.budget - prima) / prima) * 100 : null;
+    const op = await accodaOperazione({
+      data: {
+        tipo: "budget",
+        canale: c.canale,
+        account: c.account,
+        bersaglio: c.nome,
+        idEsterno: c.idEsterno,
+        campagnaId: c.id,
+        parametri: JSON.stringify({ budget: m.budget }),
+        motivo:
+          input.motivo.trim() ||
+          `Budget adattato al tetto del mese${variazione != null ? ` (${variazione > 0 ? "+" : ""}${Math.round(variazione)}%)` : ""}`,
+        avvisi:
+          variazione != null && Math.abs(variazione) >= 50
+            ? `Variazione forte: ${variazione > 0 ? "+" : ""}${Math.round(variazione)}%. Su Google un salto così rimette la campagna in apprendimento.`
+            : null,
+        livello: "L2",
+        prima: prima != null ? `budget ${prima} €/g` : "budget non noto",
+      },
+    });
+    messe++;
+    await registra({
+      autore: "utente",
+      tipo: "creazione",
+      entita: "operazione",
+      entitaId: op.id,
+      titolo: `In coda (da approvare): budget ${m.budget} €/g su ${c.nome}`,
+      dettaglio: `Prima: ${prima != null ? `${prima} €/g` : "non noto"}. ${input.motivo.trim()}`.trim(),
+    });
+  }
+
+  revalidatePath("/budget/adatta");
+  revalidatePath("/operazioni");
+  return {
+    ok: true,
+    messaggio:
+      `${messe === 1 ? "1 modifica messa" : `${messe} modifiche messe`} in coda.` +
+      (saltate.length
+        ? ` Saltate perché ne hanno già una in coda: ${saltate.join(", ")}.`
+        : ""),
+  };
+}
 // ---------- Riportare in attesa un'operazione già approvata ----------
 // Diverso da annullare: annullare la scarta, questo la rimette in coda da
 // decidere. Serve quando si approva in fretta e poi si vuole ripensarci senza

@@ -175,14 +175,23 @@ export async function VenditeAttese({
                       <td className="num">{somma > 0 ? formattaEuro(somma) : "—"}</td>
                       <td className="num cella-muta">
                         {p != null ? formattaEuro(p) : "—"}
-                        {scarto != null && (
-                          <div
-                            className="cella-sub"
-                            style={{ color: Math.abs(scarto - 1) <= 0.02 ? "var(--green)" : "var(--orange)" }}
-                          >
-                            {scarto > 1 ? "+" : ""}
-                            {Math.round((scarto - 1) * 100)}% sul piano
-                          </div>
+                        {/* ⚠️ Nessuna attesa scritta NON è «attese a zero».
+                            Il confronto col piano dava «-100% sul piano» in
+                            rosso su ogni brand — un numero da disastro che
+                            diceva soltanto che le caselle erano vuote, e che
+                            faceva sembrare rotta la pagina. */}
+                        {somma <= 0 ? (
+                          <div className="cella-sub">attese non compilate</div>
+                        ) : (
+                          scarto != null && (
+                            <div
+                              className="cella-sub"
+                              style={{ color: Math.abs(scarto - 1) <= 0.02 ? "var(--green)" : "var(--orange)" }}
+                            >
+                              {scarto > 1 ? "+" : ""}
+                              {Math.round((scarto - 1) * 100)}% sul piano
+                            </div>
+                          )
                         )}
                       </td>
                     </React.Fragment>

@@ -53,6 +53,14 @@ export default async function PaginaBudget({
             dettaglio. */}
         <BudgetQuestoMese anno={anno} />
 
+        <div style={{ margin: "-6px 0 18px" }}>
+          {/* Il seguito naturale di quella tabella: vedere lo scarto e non
+              poterci fare niente lasciava il lavoro a metà. */}
+          <a className="btn small" href="/budget/adatta">
+            Adatta i budget delle campagne →
+          </a>
+        </div>
+
         {/* Le attese per canale stanno in cima: sono la decisione da cui
             discende tutto il resto della pagina. */}
         {/* Le attese per canale vivono anche in Budget vendite, che è dove si va
