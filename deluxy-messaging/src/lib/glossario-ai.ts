@@ -34,6 +34,28 @@ export type EsitoGiro = {
   proposteNuove: number
   scartate: number
   errore: string
+  /** Quante conversazioni restano da guardare, in una passata storica. */
+  rimaste: number
+}
+
+export type OpzioniGiro = {
+  /** Quante ore indietro guardare. `0` = tutto lo storico. */
+  ore?: number
+  /** Quante conversazioni saltare: serve a percorrere lo storico a lotti. */
+  salta?: number
+  /** Quante guardarne in questo giro. */
+  quante?: number
+  /** Il tetto di proposte di QUESTO giro. */
+  maxProposte?: number
+  /**
+   * Solo conversazioni con almeno un messaggio in arrivo di questa lunghezza.
+   *
+   * ⚠️ Serve alla passata storica: fra 590 conversazioni ce ne sono centinaia
+   * fatte di «ciao», newsletter e risponditori automatici. Darle al modello
+   * costa e non produce niente — e ogni proposta nata da lì è rumore che poi
+   * qualcuno deve leggere e scartare.
+   */
+  minLunghezza?: number
 }
 
 const ISTRUZIONI = [
@@ -74,17 +96,44 @@ type PropostaGrezza = {
  * Non solleva mai: un giro che fallisce non deve lasciare tracce di errore in
  * un cron: torna il motivo e chi chiama lo scrive nella risposta.
  */
-export async function giroGlossario(ore = 24): Promise<EsitoGiro> {
-  const vuoto: EsitoGiro = { conversazioniLette: 0, proposteNuove: 0, scartate: 0, errore: '' }
+export async function giroGlossario(opz: OpzioniGiro = {}): Promise<EsitoGiro> {
+  const vuoto: EsitoGiro = {
+    conversazioniLette: 0,
+    proposteNuove: 0,
+    scartate: 0,
+    errore: '',
+    rimaste: 0,
+  }
 
   const imp = await leggiImpostazioni(['openaiApiKey', 'openaiModelloRisposte'])
   if (!imp.openaiApiKey) return { ...vuoto, errore: 'Chiave OpenAI non configurata.' }
 
-  const da = new Date(Date.now() - ore * 3600_000)
-  const conversazioni = await db.conversazione.findMany({
-    where: { ultimoMessaggioIl: { gte: da }, eliminataIl: null, archiviata: false },
+  const ore = opz.ore ?? 24
+  const quante = opz.quante ?? MAX_CONVERSAZIONI
+  const maxProposte = opz.maxProposte ?? MAX_PROPOSTE
+  const minLunghezza = opz.minLunghezza ?? 0
+
+  // ⚠️ `ore: 0` vuol dire **tutto lo storico**: la passata di recupero, quella
+  // che si fa una volta per riempire un glossario vuoto. Il giro di ogni notte
+  // resta a 24 ore — rileggere 590 conversazioni ogni mattina costerebbe e
+  // direbbe ogni volta le stesse cose.
+  const doveTempo = ore > 0 ? { gte: new Date(Date.now() - ore * 3600_000) } : undefined
+  const dove = {
+    eliminataIl: null,
+    archiviata: false,
+    ...(doveTempo ? { ultimoMessaggioIl: doveTempo } : {}),
+    // Solo conversazioni in cui il cliente ha scritto qualcosa di sostanza.
+    ...(minLunghezza
+      ? { messaggi: { some: { direzione: 'in', testo: { not: '' } } } }
+      : {}),
+  }
+  const totale = await db.conversazione.count({ where: dove })
+
+  const conversazioniGrezze = await db.conversazione.findMany({
+    where: dove,
     orderBy: { ultimoMessaggioIl: 'desc' },
-    take: MAX_CONVERSAZIONI,
+    skip: opz.salta ?? 0,
+    take: quante,
     select: {
       id: true,
       canale: true,
@@ -97,7 +146,21 @@ export async function giroGlossario(ore = 24): Promise<EsitoGiro> {
       },
     },
   })
-  if (!conversazioni.length) return vuoto
+
+  // ⚠️ Il filtro sulla LUNGHEZZA si fa qui e non nella query: Prisma non sa
+  // filtrare per lunghezza di un campo di testo, e scrivere SQL grezzo per un
+  // dettaglio del genere non vale un pezzo di codice fuori standard.
+  const conversazioni = minLunghezza
+    ? conversazioniGrezze.filter((c) =>
+        c.messaggi.some((m) => m.direzione === 'in' && m.testo.trim().length > minLunghezza)
+      )
+    : conversazioniGrezze
+
+  const rimaste = Math.max(0, totale - (opz.salta ?? 0) - conversazioniGrezze.length)
+  // ⚠️ Nessuna chat in QUESTO lotto non vuol dire che è finita: in una passata
+  // storica il lotto può essere fatto tutto di «ciao» e newsletter. Si torna
+  // `rimaste` e chi chiama va avanti.
+  if (!conversazioni.length) return { ...vuoto, rimaste }
 
   const [negozi, voci] = await Promise.all([
     db.negozioShopify.findMany({ select: { id: true, nome: true } }),
@@ -171,7 +234,12 @@ export async function giroGlossario(ore = 24): Promise<EsitoGiro> {
     }
     grezze = letto.proposte ?? []
   } catch (e) {
-    return { ...vuoto, conversazioniLette: conversazioni.length, errore: (e as Error).message }
+    return {
+      ...vuoto,
+      conversazioniLette: conversazioni.length,
+      rimaste,
+      errore: (e as Error).message,
+    }
   }
 
   // ── IL FILTRO: quello che l'AI dice non entra così com'è ──
@@ -209,7 +277,7 @@ export async function giroGlossario(ore = 24): Promise<EsitoGiro> {
     if (giaAperte.has(chiave)) { scartate++; continue }
     giaAperte.add(chiave)
     buone.push({ ...p, tipo, termine, definizione, conversazioneId, domandaId, negozioId, voceId })
-    if (buone.length >= MAX_PROPOSTE) break
+    if (buone.length >= maxProposte) break
   }
 
   if (buone.length) {
@@ -233,5 +301,6 @@ export async function giroGlossario(ore = 24): Promise<EsitoGiro> {
     proposteNuove: buone.length,
     scartate,
     errore: '',
+    rimaste,
   }
 }

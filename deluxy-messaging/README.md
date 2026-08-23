@@ -148,6 +148,17 @@ fidarsi. Le proposte che citano una conversazione inesistente **vengono buttate 
 prima di arrivare a schermo, insieme a quelle su un marchio inventato e ai doppioni.
 C'è anche «Rileggi le chat adesso», per non aspettare stanotte.
 
+**La passata di recupero.** Un glossario vuoto non si riempie da solo in una notte: c'è
+`npx tsx scripts/glossario-storico.mts`, che rilegge **tutte le conversazioni passate** a
+lotti di 25 e propone quello che ne esce. Si fa **una volta**; il giro di ogni notte resta
+alle ultime 24 ore, perché rileggere seicento conversazioni ogni mattina costerebbe e
+direbbe ogni volta le stesse cose.
+⚠️ Si ferma a **40 proposte aperte**: oltre non le rilegge nessuno, e un elenco che non si
+smaltisce è come non averlo. Quando le hai smaltite, si rilancia e riprende da dove era.
+⚠️ Guarda solo le conversazioni in cui il cliente ha scritto qualcosa di **sostanza** (oltre
+60 caratteri): fra 590 ce ne sono centinaia fatte di «ciao», newsletter e risponditori
+automatici — costano e producono rumore.
+
 **Le voci**: il glossario vero. Ogni voce ha un **termine** (come lo cercherebbe una
 persona), il **fatto** scritto come lo diresti a un collega nuovo, il **marchio** a cui vale
 (o *tutti*), e chi lo può leggere: **«si può dire al cliente»** oppure **«interno»**.

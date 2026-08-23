@@ -1,6 +1,6 @@
 # Handoff — Deluxy Customer Service
 
-Ultimo aggiornamento: **23/08/2026, ore 23:15** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
+Ultimo aggiornamento: **23/08/2026, ore 23:59** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
 prima, alle 15:10, l'utente ha pubblicato la schermata di consenso Google e il
 conto alla rovescia dei 7 giorni è finito).
 Prima, il 19/08: la **risposta di primo contatto** che parte da sola al primo
@@ -308,6 +308,31 @@ locale, altrimenti nulla si decifra.
   - ⚠️ **Non visto a pixel**: pannello del browser non a schermo. La linguetta è
     `position: fixed` col testo verticale — **da guardare**, soprattutto su
     mobile dove il pannello è a tutta larghezza.
+
+- **GLOSSARIO: LA PASSATA SU TUTTO LO STORICO** (23/08/2026, chiesto
+  dall'utente). `giroGlossario` ora prende opzioni (`ore: 0` = tutto,
+  `salta`/`quante` per i lotti, `minLunghezza`, `maxProposte`), e
+  `scripts/glossario-storico.mts` percorre l'archivio a lotti di 25.
+  - ✅ **Girata davvero**: 175 conversazioni lette, **35 proposte nuove**, 6
+    scartate dal filtro, fermata al tetto di **40 aperte** con **92
+    conversazioni ancora da guardare**.
+  - ⚠️ **Il tetto è una scelta, non un limite tecnico**: oltre le 40 nessuno le
+    rilegge davvero, e un elenco che non si smaltisce è come non averlo. Si
+    rilancia dopo aver smaltito, e riprende.
+  - ⚠️ Si guardano solo le conversazioni con un messaggio in arrivo **oltre i 60
+    caratteri**: su 590, quelle con sostanza sono **310** — il resto è «ciao»,
+    newsletter e risponditori automatici, che costano e fanno rumore.
+  - ⚠️ Il filtro sulla lunghezza è **in codice e non nella query**: Prisma non sa
+    filtrare per lunghezza di un testo, e SQL grezzo per questo non vale.
+  - ⚠️ **Un lotto vuoto non vuol dire che è finita**: può essere fatto tutto di
+    newsletter. Per questo il giro torna `rimaste` e chi chiama va avanti.
+  - ⚠️ **Il giro notturno resta a 24 ore**: la passata storica è una tantum.
+  - 📋 Qualità delle 40 proposte, guardata a campione: **utili** («opzioni di
+    ripieno per le torte» coi nomi veri, «modifica indirizzo/data di consegna»),
+    **vaghe** («se il destinatario non è presente, il cliente deve essere
+    informato» — non dice niente) e almeno una **rovesciata** («pagamento in
+    ritardo: il cliente può sollecitare il saldo» — è il contrario). ⚠️ La
+    revisione è lavoro vero: è esattamente il motivo per cui sono proposte.
 
 - **IL GLOSSARIO, E IL GIRO NOTTURNO DELL'AI** (23/08/2026). Chiesto
   dall'utente: «una sezione glossario con tutte le informazioni sui brand e
