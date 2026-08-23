@@ -138,6 +138,11 @@ export interface AffiliazioneRow {
   referente: string | null;
   ultima_chiamata: string | null;
   starred: boolean; // "Selezionato" da contattare (stesso flag della stella in mappa)
+  // Servono per tenere fuori dall'elenco chi è GIÀ cliente: qui si chiama per
+  // affiliare, e un cliente è già dall'altra parte. Si guardano tutte e tre le
+  // colonne perché lo stato «attivo» può arrivare dal registro o da Scout.
+  stato?: string | null;
+  anagrafiche_stato?: string | null;
 }
 
 // Stato del place derivato dall'esito della visita (regola commerciale unica,

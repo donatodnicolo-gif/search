@@ -78,9 +78,26 @@ export default function Affiliazioni() {
     }, [carica]),
   );
 
+  /**
+   * Chi è GIÀ cliente non sta in questo elenco.
+   *
+   * Qui si telefona per **affiliare** un negozio: un cliente è già dall'altra
+   * parte, e vederlo in mezzo alla lista delle chiamate da fare fa perdere
+   * tempo due volte — una a leggerlo, una a capire se bisogna chiamarlo.
+   * Richiesta dell'utente (21/08/2026): «quelli già clienti non servono qui».
+   *
+   * Si guardano tutte e tre le colonne perché lo «attivo» può arrivare dal
+   * registro (`anagrafiche_stato`), da Scout (`stato_affiliazione`) o dallo
+   * stato del negozio (`stato = 'cliente'`, che lo scrive l'esito di una visita).
+   */
+  const eCliente = (r: AffiliazioneRow) =>
+    r.stato === 'cliente' || r.stato_affiliazione === 'attivo' || r.anagrafiche_stato === 'attivo';
+  const clientiFuori = useMemo(() => righe.filter(eCliente).length, [righe]);
+
   const dati = useMemo(() => {
     const q = query.trim().toLowerCase();
     return righe.filter((r) => {
+      if (eCliente(r)) return false;
       if (filtro === 'selezionati') { if (!r.starred) return false; }
       else if (filtro !== 'tutti' && r.stato_affiliazione !== filtro) return false;
       if (!q) return true;
@@ -154,7 +171,10 @@ export default function Affiliazioni() {
           <View style={[styles.head, styles.headerScroll, contenutoCentrato]}>
             <PageIntro testo="Fioristi e pasticcerie da reclutare come affiliati. La stella li mette tra i Selezionati da contattare; Chiama registra la chiamata e apre il telefono." />
             <Text style={styles.sub}>
-              {righe.length} affiliazioni · fioristi e pasticcerie da reclutare
+              {righe.length - clientiFuori} da reclutare · fioristi e pasticcerie
+              {clientiFuori
+                ? ` · ${clientiFuori} già clienti, tenuti fuori`
+                : ''}
             </Text>
             <TextInput
               style={styles.search}

@@ -1564,7 +1564,9 @@ export async function inviaPromemoriaEmail(): Promise<{ sent: boolean; reason?: 
 export async function fetchAffiliazioni(): Promise<AffiliazioneRow[]> {
   const { data, error } = await supabase
     .from('places')
-    .select('id, nome, indirizzo, zona, categoria, stato_affiliazione, starred, contacts(nome, ruolo, telefono, is_decisore), chiamate(created_at)')
+    .select(
+      'id, nome, indirizzo, zona, categoria, stato, stato_affiliazione, anagrafiche_stato, starred, contacts(nome, ruolo, telefono, is_decisore), chiamate(created_at)',
+    )
     .eq('linea_ipotizzata', 'Re-seller')
     .order('nome');
   if (error) throw error;
@@ -1588,6 +1590,8 @@ export async function fetchAffiliazioni(): Promise<AffiliazioneRow[]> {
       referente: ref?.nome ?? null,
       ultima_chiamata: ultima,
       starred: Boolean(r.starred),
+      stato: r.stato ?? null,
+      anagrafiche_stato: r.anagrafiche_stato ?? null,
     } as AffiliazioneRow;
   });
 }
