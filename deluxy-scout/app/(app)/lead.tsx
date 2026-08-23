@@ -4,16 +4,36 @@
 // (canale web) agganciata a un negozio, o si scarta. Un lead "nuovo" più
 // vecchio di 2 giorni è in ritardo: sul web chi non risponde subito perde.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  FlatList,
+  Linking,
+  Modal,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { colors, radius, spacing, contenutoCentrato } from '@/lib/theme';
 import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
-import { cercaPlaces, creaLead, fetchLeads, qualificaLead, scartaLead, type PlaceLite } from '@/lib/db';
+import {
+  cercaPlaces,
+  creaLead,
+  eliminaLead,
+  fetchLeads,
+  qualificaLead,
+  scartaLead,
+  type PlaceLite,
+} from '@/lib/db';
+import { urlMessaggioAiMail } from '@/lib/aimail';
+import { avvisa, conferma } from '@/lib/dialoghi';
 import type { FonteLead, Lead } from '@/types';
 import { GIORNI_RISPOSTA_LEAD } from '@/lib/cadenze';
 import { importaRichiesteDaMail } from '@/lib/mail';
-import { avvisa } from '@/lib/dialoghi';
 
 const FONTI: { valore: FonteLead; label: string }[] = [
   { valore: 'sito', label: 'Sito' },
@@ -72,6 +92,30 @@ export default function LeadWeb() {
     } finally {
       setImportando(false);
     }
+  }
+
+  // La mail aperta per intero (il testo salvato al momento dell'import).
+  const [daLeggere, setDaLeggere] = useState<Lead | null>(null);
+
+  /** Elimina una richiesta: sparisce dalla coda, in tutti e tre i filtri. */
+  function elimina(l: Lead) {
+    conferma(
+      'Eliminare la richiesta?',
+      '«' + l.nome + '» sparisce dalla coda e non torna. La mail resta nella casella: qui si cancella solo la richiesta.',
+      async () => {
+        const prima = leads;
+        setLeads((cur) => cur.filter((x) => x.id !== l.id));
+        try {
+          await eliminaLead(l.id);
+        } catch (e) {
+          // Se il server rifiuta, la riga TORNA: una lista che si accorcia da
+          // sola fa credere fatta una cosa che non è successa.
+          setLeads(prima);
+          avvisa('Non eliminata', (e as Error)?.message ?? 'Riprova.');
+        }
+      },
+      { testoConferma: 'Elimina', distruttivo: true },
+    );
   }
 
   async function scarta(l: Lead) {
@@ -150,6 +194,29 @@ export default function LeadWeb() {
                   <Text style={styles.link}>Vedi la trattativa generata ›</Text>
                 </Pressable>
               ) : null}
+
+              {/* Azioni sulla MAIL, valide in qualunque stato: leggerla per
+                  intero e toglierla di mezzo sono cose che servono anche su una
+                  richiesta già lavorata o scartata. */}
+              <View style={styles.azioniMail}>
+                {item.messaggio ? (
+                  <Pressable hitSlop={6} onPress={() => setDaLeggere(item)}>
+                    <Text style={styles.azioneTxt}>Apri il messaggio</Text>
+                  </Pressable>
+                ) : null}
+                {item.mail_ref ? (
+                  <>
+                    <Text style={styles.sep}>·</Text>
+                    <Pressable hitSlop={6} onPress={() => Linking.openURL(urlMessaggioAiMail(item.mail_ref!))}>
+                      <Text style={styles.azioneTxt}>Vedila in AI Mail</Text>
+                    </Pressable>
+                  </>
+                ) : null}
+                <Text style={styles.sep}>·</Text>
+                <Pressable hitSlop={6} onPress={() => elimina(item)}>
+                  <Text style={[styles.azioneTxt, styles.azionePericolo]}>Elimina</Text>
+                </Pressable>
+              </View>
             </View>
           );
         }}
@@ -161,6 +228,32 @@ export default function LeadWeb() {
       </Pressable>
 
       {formAperto ? <NuovoLeadModal onClose={() => setFormAperto(false)} onSalvato={() => { setFormAperto(false); carica(); }} /> : null}
+      {daLeggere ? (
+        <Modal visible transparent animationType="slide" onRequestClose={() => setDaLeggere(null)}>
+          <View style={styles.overlay}>
+            <View style={styles.sheet}>
+              <View style={styles.sheetHead}>
+                <Text style={styles.sheetTitolo} numberOfLines={2}>{daLeggere.nome}</Text>
+                <Pressable onPress={() => setDaLeggere(null)} hitSlop={10}>
+                  <Ionicons name="close" size={24} color={colors.testoSoft} />
+                </Pressable>
+              </View>
+              {daLeggere.contatto ? <Text style={styles.meta}>{daLeggere.contatto}</Text> : null}
+              <ScrollView style={{ maxHeight: 320 }}>
+                <Text style={styles.corpoMail}>{daLeggere.messaggio ?? 'Nessun testo salvato.'}</Text>
+              </ScrollView>
+              {/* Qui c'è l'oggetto e l'anteprima salvati all'import: la mail
+                  intera, con allegati e catena, vive in AI Mail. */}
+              {daLeggere.mail_ref ? (
+                <Pressable onPress={() => Linking.openURL(urlMessaggioAiMail(daLeggere.mail_ref!))}>
+                  <Text style={styles.link}>Apri la mail intera in AI Mail ›</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          </View>
+        </Modal>
+      ) : null}
+
       {daQualificare ? (
         <QualificaModal
           lead={daQualificare}
@@ -236,6 +329,9 @@ function NuovoLeadModal({ onClose, onSalvato }: { onClose: () => void; onSalvato
 
 // ── Qualifica: scegli il negozio → nasce la trattativa (canale web) ───────────
 function QualificaModal({ lead, onClose, onFatto }: { lead: Lead; onClose: () => void; onFatto: () => void }) {
+  // Chi ci ha scritto è una persona vera, con nome e recapito: se non lo si
+  // salva ora, va ridigitato dopo nella scheda del negozio.
+  const [conContatto, setConContatto] = useState(Boolean(lead.contatto));
   const [ricerca, setRicerca] = useState(lead.nome);
   const [risultati, setRisultati] = useState<PlaceLite[]>([]);
   const [salvando, setSalvando] = useState(false);
@@ -261,7 +357,7 @@ function QualificaModal({ lead, onClose, onFatto }: { lead: Lead; onClose: () =>
     setSalvando(true);
     setErrore(null);
     try {
-      await qualificaLead(lead, p.id);
+      await qualificaLead(lead, p.id, conContatto);
       onFatto();
     } catch (e: any) {
       setErrore(e?.message ?? 'Qualifica non riuscita');
@@ -302,6 +398,11 @@ function QualificaModal({ lead, onClose, onFatto }: { lead: Lead; onClose: () =>
 }
 
 const styles = StyleSheet.create({
+  azioniMail: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 2 },
+  azioneTxt: { color: colors.navy, fontSize: 12.5, fontWeight: '600' },
+  azionePericolo: { color: colors.errore },
+  sep: { color: colors.grigio, fontSize: 12 },
+  corpoMail: { color: colors.testo, fontSize: 14, lineHeight: 21 },
   container: { flex: 1, backgroundColor: colors.sfondo },
   head: { padding: spacing.md, gap: spacing.sm },
   btnImporta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderWidth: 1, borderColor: colors.grigioChiaro, backgroundColor: colors.bianco, borderRadius: radius.pill, paddingVertical: 9 },

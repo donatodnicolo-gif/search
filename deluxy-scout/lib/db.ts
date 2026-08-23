@@ -1245,8 +1245,28 @@ export async function scartaLead(id: string): Promise<void> {
  * Qualifica un lead: nasce la trattativa (canale web, oggetto = la richiesta del
  * lead) sul negozio scelto, e il lead ricorda quale trattativa ha generato.
  */
-export async function qualificaLead(lead: Lead, placeId: string): Promise<Deal> {
+/**
+ * Da richiesta a trattativa (e, se si vuole, anche a contatto in rubrica).
+ *
+ * `conContatto`: la richiesta porta già nome e indirizzo di una persona vera —
+ * è arrivata lei a scriverci. Buttarli via e ridigitarli dopo, nella scheda del
+ * negozio, è lavoro doppio su un dato che avevamo in mano.
+ */
+export async function qualificaLead(lead: Lead, placeId: string, conContatto = false): Promise<Deal> {
   const { data: u } = await supabase.auth.getUser();
+  if (conContatto && lead.contatto) {
+    // Best-effort: se il contatto non si scrive, la trattativa si crea lo
+    // stesso — è il pezzo che conta, e un errore qui non deve farla perdere.
+    await inserisciContatto({
+      place_id: placeId,
+      nome: lead.nome,
+      ruolo: null,
+      email: lead.contatto.includes('@') ? lead.contatto : null,
+      telefono: lead.contatto.includes('@') ? null : lead.contatto,
+      is_decisore: false,
+      note: 'Arrivato dalle Richieste Web',
+    } as never).catch(() => {});
+  }
   const deal = await inserisciDeal({
     place_id: placeId,
     linea: null,
@@ -1263,6 +1283,22 @@ export async function qualificaLead(lead: Lead, placeId: string): Promise<Deal> 
     .eq('id', lead.id);
   if (error) throw error;
   return deal;
+}
+
+/**
+ * Elimina una richiesta web.
+ *
+ * ⚠️ Una DELETE che la RLS non fa passare **non è un errore**: torna zero righe.
+ * Fino alla migrazione 0064 la tabella `leads` non aveva nessuna policy di
+ * delete, quindi un bottone «elimina» avrebbe detto «fatto» senza cancellare
+ * niente, e la richiesta sarebbe ricomparsa al ricaricamento.
+ */
+export async function eliminaLead(id: string): Promise<void> {
+  const { data, error } = await supabase.from('leads').delete().eq('id', id).select('id');
+  if (error) throw error;
+  if (!data?.length) {
+    throw new Error('Richiesta non eliminata: non è stata trovata, o la scrittura è stata rifiutata.');
+  }
 }
 
 // ── Task personali (tasklist privata del venditore) ────────────────────────────

@@ -10,6 +10,7 @@
 // Dedup sul Message-ID (`leads.mail_id`, migr. 0042).
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { chiaveHub } from '../_shared/chiavi.ts';
+import { chiaveIngressoValida } from '../_shared/chiaveIn.ts';
 
 const BASE = Deno.env.get('MAIL_URL') ?? 'https://deluxy-mail.vercel.app';
 
@@ -43,7 +44,10 @@ Deno.serve(async (req) => {
     const { data: userData } = await admin.auth.getUser(jwt);
     const email = userData?.user?.email;
     const chiaveApi = (req.headers.get('x-api-key') ?? '').trim();
-    const daServizio = Boolean(chiaveApi) && chiaveApi === Deno.env.get('COMMERCIALE_API_KEY');
+    // Chiave di servizio: vale sia quella generata dall'app (`chiavi_app._ingresso`,
+    // che è quella usata dal cron notturno) sia il secret storico. Spegnere
+    // quello che già funziona non è una migrazione, è un guasto programmato.
+    const daServizio = chiaveApi ? (await chiaveIngressoValida(chiaveApi, admin)).ok : false;
 
     const body = await req.json().catch(() => ({}));
     // L'azione "richieste" accetta anche la chiave; tutto il resto vuole l'utente.
@@ -166,6 +170,9 @@ Deno.serve(async (req) => {
             // L'oggetto dice cosa chiede; l'anteprima aggiunge il contesto.
             messaggio: [m.oggetto, m.anteprima].filter(Boolean).join(' — ').slice(0, 2000) || null,
             mail_id: m.messageId,
+            // L'id INTERNO di AI Mail: è quello che apre /messaggio/<id>.
+            // `mail_id` (il Message-ID della posta) serve solo contro i doppioni.
+            mail_ref: m.id ?? null,
           }));
         if (nuovi.length) {
           const { error } = await admin.from('leads').insert(nuovi);

@@ -26,6 +26,17 @@ const BASE = 'https://deluxy-mail.vercel.app';
  *  (i browser tagliano oltre ~8000 caratteri, e AI Mail taglia a 8000). */
 const MAX_CORPO = 6000;
 
+/**
+ * L'indirizzo di UNA mail dentro AI Mail.
+ *
+ * ⚠️ Vuole l'id INTERNO di AI Mail (`leads.mail_ref`), non il Message-ID della
+ * posta (`leads.mail_id`): quello serve solo a non reimportare due volte, e in
+ * un URL non apre niente.
+ */
+export function urlMessaggioAiMail(idMessaggio: string): string {
+  return `${BASE}/messaggio/${encodeURIComponent(idMessaggio)}`;
+}
+
 export interface MailDaScrivere {
   /** Uno o più indirizzi, separati da virgola. */
   a: string;
