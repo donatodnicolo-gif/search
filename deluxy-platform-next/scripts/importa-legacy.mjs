@@ -164,6 +164,7 @@ try {
   else if (FASE === 'consegne') await consegne();
   else if (FASE === 'catalogo') await catalogo();
   else if (FASE === 'righe') await righeConsegna();
+  else if (FASE === 'abilitazioni') await abilitazioni();
   else { console.log(`Fase sconosciuta: ${FASE}`); process.exit(1); }
 } finally {
   await db.$disconnect();
@@ -428,6 +429,79 @@ async function listini() {
       segna('listino valet aggiornati', daAggiornare.length);
     }
   } else segna('listino valet', perValet.size);
+}
+
+// --------------------------------------------------- fase 8: abilitazioni
+
+/**
+ * Province abilitate per partner e valet, e categorie abilitate per partner.
+ *
+ * ⚠️ Perche' contano: il form consegna FILTRA partner e valet per la provincia
+ * dedotta dall'indirizzo. Senza queste righe la tendina risulta vuota, e in
+ * modifica la selezione salvata veniva perfino azzerata (bug corretto il 23/08).
+ *
+ * Nel legacy le due abilitazioni stanno nella STESSA tabella (`user-provinces`,
+ * qui `tabella-89`): ogni riga ha `partnerId` **oppure** `expertId`, mai
+ * entrambi. 1.608 righe sono di partner, 427 di valet.
+ */
+async function abilitazioni() {
+  const idPartner = await indice('partner');
+  const idValet = await indice('valet');
+  const idProvincia = await indice('province');
+  const idCategoria = await indice('category');
+
+  // ⚠️ Nel legacy il codice provincia `TO` compare DUE volte: 93 «Torino» e
+  // 98 «Turin». All'import delle province la seconda e' stata scartata (il
+  // codice e' unico), quindi le righe che puntano alla 98 non troverebbero
+  // nulla e perderebbero l'abilitazione in silenzio. Si reindirizzano.
+  const ALIAS = new Map([[98, 93]]);
+  const provincia = (legacyId) => idProvincia.get(ALIAS.get(legacyId) ?? legacyId);
+
+  // --- province -----------------------------------------------------------
+  const perPartner = new Map(), perValet = new Map();
+  for (const nome of ['tabella-89', 'tabella-35']) {
+    for (const r of leggi(nome)) {
+      const prov = provincia(intero(r.provinceId));
+      if (!prov) { segna('abilitazioni: provincia non trovata'); continue; }
+      const p = testo(r.partnerId) ? idPartner.get(intero(r.partnerId)) : null;
+      const v = testo(r.expertId) ? idValet.get(intero(r.expertId)) : null;
+      if (p) perPartner.set(`${p}|${prov}`, { partnerId: p, provinceId: prov });
+      else if (v) perValet.set(`${v}|${prov}`, { valetId: v, provinceId: prov });
+      else segna('abilitazioni: riga senza partner ne valet');
+    }
+  }
+
+  const giaP = new Set((await db.partnerProvince.findMany({ select: { partnerId: true, provinceId: true } }))
+    .map((x) => `${x.partnerId}|${x.provinceId}`));
+  const nuoviP = [...perPartner.entries()].filter(([k]) => !giaP.has(k)).map(([, v]) => v);
+  for (let i = 0; i < nuoviP.length; i += 500)
+    if (!PROVA) await db.partnerProvince.createMany({ data: nuoviP.slice(i, i + 500), skipDuplicates: true });
+  segna('province abilitate ai partner', nuoviP.length);
+  segna('province partner gia presenti', perPartner.size - nuoviP.length);
+
+  const giaV = new Set((await db.valetProvince.findMany({ select: { valetId: true, provinceId: true } }))
+    .map((x) => `${x.valetId}|${x.provinceId}`));
+  const nuoviV = [...perValet.entries()].filter(([k]) => !giaV.has(k)).map(([, v]) => v);
+  for (let i = 0; i < nuoviV.length; i += 500)
+    if (!PROVA) await db.valetProvince.createMany({ data: nuoviV.slice(i, i + 500), skipDuplicates: true });
+  segna('province abilitate ai valet', nuoviV.length);
+  segna('province valet gia presenti', perValet.size - nuoviV.length);
+
+  // --- categorie abilitate ai partner --------------------------------------
+  const perCategoria = new Map();
+  for (const r of leggi('tabella-57')) {
+    const p = idPartner.get(intero(r.partnerId));
+    const c = idCategoria.get(intero(r.productCategoryId));
+    if (!p || !c) { segna('categorie partner: riga orfana'); continue; }
+    perCategoria.set(`${p}|${c}`, { partnerId: p, categoryId: c });
+  }
+  const giaC = new Set((await db.partnerCategory.findMany({ select: { partnerId: true, categoryId: true } }))
+    .map((x) => `${x.partnerId}|${x.categoryId}`));
+  const nuoviC = [...perCategoria.entries()].filter(([k]) => !giaC.has(k)).map(([, v]) => v);
+  for (let i = 0; i < nuoviC.length; i += 500)
+    if (!PROVA) await db.partnerCategory.createMany({ data: nuoviC.slice(i, i + 500), skipDuplicates: true });
+  segna('categorie abilitate ai partner', nuoviC.length);
+  segna('categorie partner gia presenti', perCategoria.size - nuoviC.length);
 }
 
 // ------------------------------------------------------- fase 6: catalogo

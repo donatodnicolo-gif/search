@@ -46,6 +46,27 @@ export enum DeliveryStatus {
   INVALIDATED = 'invalidated',
 }
 
+/**
+ * Stati "chiusi": la consegna non è più operativa, è storia.
+ *
+ * Definiti in UN SOLO POSTO perché la lista consegne, lo Storico e i conteggi
+ * devono concordare: se due punti del codice decidessero da soli che cosa è
+ * chiuso, una consegna potrebbe non comparire in nessuna delle due viste.
+ *
+ * Nell'archivio importato dal legacy sono l'89% del totale (55.060 su 61.836):
+ * senza separarli, la lista operativa è illeggibile.
+ */
+export const DELIVERY_CLOSED_STATUSES: string[] = [
+  DeliveryStatus.DELIVERED,
+  DeliveryStatus.NOT_DELIVERED,
+  DeliveryStatus.CANCELLED,
+  DeliveryStatus.NOT_ACCEPTED,
+  DeliveryStatus.DELIVERED_TIME_APPROVED,
+  DeliveryStatus.DELIVERED_TIME_NOT_APPROVED,
+  DeliveryStatus.APPROVED,
+  DeliveryStatus.INVALIDATED,
+];
+
 export enum PricingModel {
   PREZZO_FISSO = 'PREZZO_FISSO',
   A_ORA = 'A_ORA',

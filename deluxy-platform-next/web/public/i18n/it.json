@@ -514,7 +514,11 @@
       "tomorrow": "Domani",
       "all": "Tutte"
     },
-    "suspectDate": "Data fuori dall’intervallo plausibile: era già così nel database originario (errore di battitura sull’anno), non è stata corretta per non inventare un valore."
+    "suspectDate": "Data fuori dall’intervallo plausibile: era già così nel database originario (errore di battitura sull’anno), non è stata corretta per non inventare un valore.",
+    "view": {
+      "active": "In lavorazione",
+      "history": "Storico"
+    }
   },
   "partners": {
     "title": "Partner",

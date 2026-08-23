@@ -31,6 +31,23 @@ const SERVICE_ICONS: Record<string, string> = {
         <p class="page-caption">{{ 'deliveries.caption' | translate }}</p>
       </div>
       <div class="filters">
+        <!-- Attive / Storico. Nell'archivio importato l'89% delle consegne è
+             chiusa (55.060 su 61.836): tenerle insieme rende la lista di lavoro
+             illeggibile. -->
+        <div class="quick-tabs vista">
+          <button
+            type="button"
+            class="quick-tab"
+            [class.active]="vista === 'attive'"
+            (click)="cambiaVista('attive')"
+          >{{ 'deliveries.view.active' | translate }}</button>
+          <button
+            type="button"
+            class="quick-tab"
+            [class.active]="vista === 'storico'"
+            (click)="cambiaVista('storico')"
+          >{{ 'deliveries.view.history' | translate }}</button>
+        </div>
         <select class="field" [(ngModel)]="statusFilter" (ngModelChange)="reload()">
           <option value="">{{ 'deliveries.allStatuses' | translate }}</option>
           @for (key of statusKeys; track key) {
@@ -316,6 +333,7 @@ const SERVICE_ICONS: Record<string, string> = {
         padding: 2px;
         gap: 2px;
       }
+      .quick-tabs.vista { background: var(--surface-sunken, #e4e4e8); }
       .quick-tab {
         border: 0;
         background: transparent;
@@ -867,6 +885,24 @@ export class DeliveriesListComponent {
   }
 
   /**
+   * Vista corrente: consegne ancora in lavorazione oppure storico (consegnate,
+   * non consegnate, annullate…). L'elenco degli stati chiusi sta nel backend,
+   * in `DELIVERY_CLOSED_STATUSES`: qui si manda solo il nome della vista, così
+   * le due parti non possono discordare.
+   */
+  vista: 'attive' | 'storico' = 'attive';
+
+  cambiaVista(v: 'attive' | 'storico'): void {
+    if (this.vista === v) return;
+    this.vista = v;
+    // Nello storico il filtro "oggi" non ha senso: si cerca nel passato.
+    // Tornando alle attive si riparte da oggi, che è il lavoro del giorno.
+    this.dateFilter = v === 'storico' ? '' : this.oggi();
+    this.statusFilter = '';
+    this.reload();
+  }
+
+  /**
    * Una data e' "impossibile" se cade fuori dalla vita dell'azienda.
    * Nell'archivio importato ce ne sono 98 (anni 202, 206, 2001, 2004, 2012,
    * 2028, 2029, 2926): sono errori di battitura sull'anno GIA' PRESENTI nel
@@ -956,7 +992,8 @@ export class DeliveriesListComponent {
       .set('page', String(this.page()))
       .set('pageSize', String(this.pageSize))
       .set('sort', this.sort())
-      .set('dir', this.dir());
+      .set('dir', this.dir())
+      .set('view', this.vista);
     if (this.statusFilter) params = params.set('status', this.statusFilter);
     if (this.dateFilter) params = params.set('date', this.dateFilter);
     if (this.query.trim()) params = params.set('q', this.query.trim());

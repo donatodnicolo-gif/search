@@ -12,6 +12,7 @@ import {
   NotificationType,
   PricingModel,
   Role,
+  DELIVERY_CLOSED_STATUSES,
 } from '../common/enums';
 import { NotificationsService } from '../notifications/notifications.module';
 import {
@@ -95,6 +96,10 @@ export class DeliveriesService {
   ): Promise<PagedResult<unknown>> {
     const scope: any = { ...this.roleFilter(user) };
     if (query.status) scope.status = query.status;
+    // Vista Attive / Storico. Uno stato esplicito VINCE sulla vista: se si
+    // chiede "consegnate" si vogliono quelle, in qualunque tab ci si trovi.
+    else if (query.view === 'storico') scope.status = { in: DELIVERY_CLOSED_STATUSES };
+    else if (query.view === 'attive') scope.status = { notIn: DELIVERY_CLOSED_STATUSES };
     if (query.partnerId && user.role !== Role.PARTNER) scope.partnerId = query.partnerId;
     if (query.valetId && user.role !== Role.VALET) scope.valetId = query.valetId;
     // `date` = giorno singolo (retrocompatibile); dateFrom/dateTo = intervallo
@@ -172,6 +177,10 @@ export class DeliveriesService {
   async mapPoints(user: JwtUser, query: DeliveryListQueryDto) {
     const scope: any = { ...this.roleFilter(user) };
     if (query.status) scope.status = query.status;
+    // Vista Attive / Storico. Uno stato esplicito VINCE sulla vista: se si
+    // chiede "consegnate" si vogliono quelle, in qualunque tab ci si trovi.
+    else if (query.view === 'storico') scope.status = { in: DELIVERY_CLOSED_STATUSES };
+    else if (query.view === 'attive') scope.status = { notIn: DELIVERY_CLOSED_STATUSES };
     if (query.partnerId && user.role !== Role.PARTNER) scope.partnerId = query.partnerId;
     if (query.valetId && user.role !== Role.VALET) scope.valetId = query.valetId;
     if (query.date) {

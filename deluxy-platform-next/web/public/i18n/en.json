@@ -514,7 +514,11 @@
       "tomorrow": "Tomorrow",
       "all": "All"
     },
-    "suspectDate": "Date outside the plausible range: it was already like this in the original database (year typo); it has not been corrected so as not to invent a value."
+    "suspectDate": "Date outside the plausible range: it was already like this in the original database (year typo); it has not been corrected so as not to invent a value.",
+    "view": {
+      "active": "In progress",
+      "history": "History"
+    }
   },
   "partners": {
     "title": "Partners",

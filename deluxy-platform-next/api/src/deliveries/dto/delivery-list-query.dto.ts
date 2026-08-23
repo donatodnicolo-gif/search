@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString } from 'class-validator';
+import { IsIn, IsOptional, IsString } from 'class-validator';
 import { ListQueryDto } from '../../common/list-query';
 
 /**
@@ -16,6 +16,17 @@ export class DeliveryListQueryDto extends ListQueryDto {
   @IsOptional()
   @IsString()
   status?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Vista: "attive" = consegne ancora in lavorazione (predefinita nella lista), ' +
+      '"storico" = consegnate, non consegnate e chiuse, "tutte" = nessun filtro. ' +
+      'L\'elenco degli stati chiusi sta in DELIVERY_CLOSED_STATUSES.',
+    enum: ['attive', 'storico', 'tutte'],
+  })
+  @IsOptional()
+  @IsIn(['attive', 'storico', 'tutte'])
+  view?: 'attive' | 'storico' | 'tutte';
 
   @ApiPropertyOptional({ description: 'Filtra per partner (ignorato per il ruolo PARTNER)' })
   @IsOptional()
