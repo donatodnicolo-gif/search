@@ -48,6 +48,10 @@ button {
 .layout { display: flex; align-items: flex-start; min-height: calc(100vh - 63px); }
 
 .sidebar {
+  /* La transizione stava in un secondo blocco `.sidebar` venti righe più sotto:
+     due regole per la stessa classe si perdono di vista, e la seconda vince in
+     silenzio. */
+  transition: margin-left 240ms var(--ease), opacity 200ms var(--ease);
   position: sticky;
   top: 63px; /* altezza della barra in alto */
   flex: 0 0 232px;
@@ -66,10 +70,6 @@ button {
   opacity: 0;
   pointer-events: none;
 }
-.sidebar {
-  transition: margin-left 240ms var(--ease), opacity 200ms var(--ease);
-}
-
 .toggle-sidebar {
   display: inline-flex;
   align-items: center;
@@ -268,6 +268,7 @@ button {
 .campo input,
 .campo textarea,
 .campo select {
+  cursor: pointer;
   width: 100%;
   padding: 9px 12px;
   border: 1px solid var(--hairline-strong);
@@ -275,10 +276,6 @@ button {
   font: inherit;
   background: var(--surface);
   color: var(--text);
-}
-
-.campo select {
-  cursor: pointer;
 }
 
 /* ⚠️ La regola qui sopra vale per OGNI input dentro un campo, quindi prendeva
@@ -1090,14 +1087,6 @@ button {
   border-color: var(--blue);
 }
 
-.vuoto {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  color: var(--text-tertiary);
-  font-size: 14px;
-}
 
 /* ---- Login ---- */
 
@@ -1352,7 +1341,20 @@ button {
 }
 .paginazione nav { display: flex; gap: 8px; }
 
+/* ⚠️⚠️ QUESTA CLASSE ERA DEFINITA DUE VOLTE, a mille righe di distanza e con due
+   intenzioni diverse: una «scritta al centro di un riquadro alto quanto il
+   contenitore», l'altra «cartoncino con bordo e imbottitura». Nessuna delle due
+   vinceva: la cascata le SOMMAVA, e quello che si vedeva era un ibrido che
+   nessuno aveva disegnato — con `color` deciso dall'ultima arrivata.
+   Qui sono unite in una regola sola, **con lo stesso risultato di prima** (per
+   non cambiare l'aspetto di venti schermate senza averle guardate).
+   ⚠️ Resta una decisione da prendere: `display:flex` + `height:100%` e il
+   cartoncino sono due idee diverse, e una delle due va tolta. */
 .vuoto {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
   padding: 48px 24px;
   text-align: center;
   background: var(--surface);
@@ -1804,7 +1806,13 @@ td .azioni-ordine {
  */
 
 .widget-app {
-  /* Tema di partenza: chiaro. Gli altri riscrivono solo queste variabili. */
+  /* Tema di partenza: chiaro. Gli altri riscrivono solo queste variabili.
+     ⚠️⚠️ I colori qui sono SCRITTI PER ESTESO di proposito, e non con i token
+     del design system — anche quando il valore è identico. Il widget gira
+     dentro un iframe sul sito di un cliente: un tema che dipendesse dalla
+     nostra palette cambierebbe aspetto sul sito altrui il giorno che noi
+     ritocchiamo un token, e nessuno lo collegherebbe. Qui l'indipendenza vale
+     più della ripetizione. */
   --w-sfondo: #f5f5f7;
   --w-superficie: #ffffff;
   --w-testo: #1d1d1f;
@@ -2254,14 +2262,21 @@ td .azioni-ordine {
   color: var(--text-secondary);
 }
 
-/* Barra di ricerca e colonne più strette: guadagnate ~90px di altezza in tutto. */
+/* ── LA BACHECA STRETTA ──
+   Barra di ricerca e colonne più strette: guadagnate ~90px di altezza in tutto.
+   ⚠️ Queste cinque regole **ridefiniscono di proposito** classi già definite più
+   in alto, e vincono perché vengono dopo. Non è una svista e non vanno unite
+   alle prime: là c'è la forma normale, qui la stretta — tenerle separate rende
+   possibile togliere la seconda in un colpo solo se un giorno si decidesse che
+   la bacheca deve tornare larga. */
 .barra-ricerca { margin-bottom: 10px; }
 
 .colonna { padding: 11px; max-height: calc(100vh - 190px); }
 .colonna-valore { margin-bottom: 8px; }
 .scheda-ordine { padding: 8px 10px; margin-bottom: 6px; }
 .scheda-ordine .riga-bassa { margin-top: 3px; }
-.scheda-ordine .azioni-ordine { margin-top: 6px; }
+/* ⚠️ `.scheda-ordine .azioni-ordine` NON si scrive qui: sette righe più sotto
+   c'è la regola vera, e questa veniva sovrascritta senza dire niente. */
 
 /* ---- Azioni della scheda: tutte presenti, ma compatte ----
    I bottoni sono il lavoro e restano tutti. Lo spazio si recupera dalla loro
@@ -3583,11 +3598,14 @@ td .azioni-ordine {
   border-left: 1px solid var(--hairline-strong);
 }
 
-/* Il verde della chiusura: è lo stesso di GESTIONI in src/lib/gestione.ts —
-   se cambia là, va cambiato qui. */
+/* Il verde della chiusura.
+   ⚠️ Oggi `--green` e il verde di GESTIONI (src/lib/gestione.ts) sono lo STESSO
+   colore. Si usa il token perché il design system lo impone; se un giorno i due
+   dovessero divergere, questa regola va staccata con un token suo — non
+   riportata a un valore scritto a mano, che è il modo per non accorgersene. */
 .bottone.mini.verde {
-  background: #248a3d;
-  border-color: #248a3d;
+  background: var(--green);
+  border-color: var(--green);
   color: #fff;
 }
 

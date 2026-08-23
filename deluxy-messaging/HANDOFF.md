@@ -1,6 +1,6 @@
 # Handoff — Deluxy Customer Service
 
-Ultimo aggiornamento: **24/08/2026, ore 00:30** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
+Ultimo aggiornamento: **24/08/2026, ore 01:15** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
 prima, alle 15:10, l'utente ha pubblicato la schermata di consenso Google e il
 conto alla rovescia dei 7 giorni è finito).
 Prima, il 19/08: la **risposta di primo contatto** che parte da sola al primo
@@ -308,6 +308,37 @@ locale, altrimenti nulla si decifra.
   - ⚠️ **Non visto a pixel**: pannello del browser non a schermo. La linguetta è
     `position: fixed` col testo verticale — **da guardare**, soprattutto su
     mobile dove il pannello è a tutta larghezza.
+
+- **IL FOGLIO DI STILE, RIVISTO** (24/08/2026, chiesto dall'utente: «rivedi
+  TUTTO il css»). 3.777 righe, 306 classi. Trovato poco, ma vero.
+  - 🐞 **`.vuoto` era definita DUE VOLTE**, a mille righe di distanza e con due
+    intenzioni diverse: «scritta al centro, alta quanto il contenitore» e
+    «cartoncino con bordo». ⚠️ Non vinceva nessuna delle due: la cascata le
+    **sommava**, e a schermo c'era un ibrido che nessuno aveva disegnato. Unite
+    in una regola sola **con lo stesso risultato di prima** — cambiare l'aspetto
+    di venti schermate senza averle guardate sarebbe stato peggio del difetto.
+    ⚠️ Resta una decisione: `display:flex`+`height:100%` e il cartoncino sono
+    due idee diverse, e una va tolta.
+  - 🐞 `.scheda-ordine .azioni-ordine` definita due volte a **sette righe** di
+    distanza: la prima era morta.
+  - 🐞 `#248a3d` scritto a mano dov'era già `var(--green)`; `.sidebar` e
+    `.campo select` spezzate in due blocchi lontani.
+  - ✅ **Controllati e ASSOLTI** (non erano difetti):
+    · i colori `--w-*` dei temi del **widget**, scritti per esteso anche quando
+      il valore coincide con un token — il widget gira in un iframe sul sito di
+      un cliente, e un tema che dipendesse dalla nostra palette cambierebbe
+      aspetto sul sito altrui il giorno che ritocchiamo un token;
+    · le **distanze in px**: questo design system ha token per colori, raggi e
+      ombre, **non per lo spazio** (è dichiarato nel foglio stesso);
+    · le cinque ridefinizioni della **bacheca stretta**: sono volute e vincono
+      perché vengono dopo. Ora è scritto, così nessuno le «aggiusta».
+  - 🆕 `npx tsx scripts/controlla-css.mts`: cerca **solo** le due cose che
+    marciscono davvero — selettori doppi nello stesso contesto (tenendo conto
+    delle `@media`) e colori già esistenti come token. ⚠️ Non segnala le classi
+    «mai usate»: molte si compongono a runtime (`canale-${canale}`) e un
+    controllo testuale le dà per morte — **il primo giro dava 21 falsi allarmi
+    su 21**, e un elenco così non lo guarda più nessuno.
+  - Oggi il controllo dice: **pulito**.
 
 - **OPERATORI: I NUMERI ANCHE AL GIORNO** (chiesto dall'utente: «mostra le KPI
   diviso il numero di giorni lavorati»). Interruttore **Totali / Al giorno**
