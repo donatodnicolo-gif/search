@@ -1130,7 +1130,10 @@
       "createError": "Error creating the valet",
       "updateError": "Error saving the valet"
     },
-    "editTitle": "Edit valet"
+    "editTitle": "Edit valet",
+    "columns": {
+      "service": "Service"
+    }
   },
   "productForm": {
     "backToProducts": "Products",

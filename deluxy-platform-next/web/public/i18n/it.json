@@ -1130,7 +1130,10 @@
       "createError": "Errore nella creazione del valet",
       "updateError": "Errore nel salvataggio del valet"
     },
-    "editTitle": "Modifica valet"
+    "editTitle": "Modifica valet",
+    "columns": {
+      "service": "Servizio"
+    }
   },
   "productForm": {
     "backToProducts": "Prodotti",

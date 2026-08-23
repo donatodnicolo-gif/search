@@ -115,6 +115,18 @@ interface ValetServiceRow {
           <span class="block-sub">{{ 'valetForm.servicesHint' | translate }}</span>
         </header>
         @if (serviceRows.length === 0) { <p class="muted">{{ 'valetForm.servicesEmpty' | translate }}</p> }
+        <!-- ⚠️ Intestazioni vere, non solo i segnaposto: quelli spariscono
+             appena si scrive, e una riga compilata mostrava numeri nudi
+             («6», «0,2») senza far capire che cosa fossero. -->
+        @if (serviceRows.length) {
+          <div class="svc-row svc-head">
+            <span>{{ 'valetForm.columns.service' | translate }}</span>
+            <span>{{ 'valetForm.placeholders.salary' | translate }}</span>
+            <span>{{ 'valetForm.placeholders.perItem' | translate }}</span>
+            <span>{{ 'valetForm.placeholders.extraKm' | translate }}</span>
+            <span></span>
+          </div>
+        }
         @for (row of serviceRows; track $index) {
           <div class="svc-row">
             <select class="field svc-type" [(ngModel)]="row.serviceTypeId" [name]="'svcType' + $index">
@@ -259,7 +271,23 @@ interface ValetServiceRow {
       .chip .x { border: none; background: transparent; color: inherit; cursor: pointer; font-size: 11px; line-height: 1; padding: 0; opacity: 0.65; }
       .chip .x:hover { opacity: 1; }
       .chip.excl { background: rgba(215,0,21,0.09); color: var(--red); border-color: rgba(215,0,21,0.22); }
-      .svc-row { display: grid; grid-template-columns: 1.8fr repeat(3, 1fr) auto; gap: 8px; margin-bottom: 10px; align-items: center; }
+      /* Il nome del servizio ha bisogno di spazio, i tre numeri no: colonne
+         fisse per i numeri, così restano allineati riga per riga. */
+      .svc-row {
+        display: grid;
+        grid-template-columns: minmax(180px, 1fr) 110px 110px 110px 36px;
+        gap: 8px;
+        margin-bottom: 8px;
+        align-items: center;
+      }
+      /* Intestazioni: stessa griglia delle righe, così le colonne combaciano. */
+      .svc-head {
+        margin-bottom: 6px;
+        font-size: 12px;
+        color: var(--text-tertiary);
+        font-weight: 500;
+      }
+      .svc-head > span + span { text-align: right; padding-right: 12px; }
       .icon-btn { width: 34px; height: 34px; border: none; border-radius: 8px; background: var(--fill); color: var(--text-secondary); cursor: pointer; font-size: 13px; transition: all 0.15s var(--ease); }
       .icon-btn:hover { background: rgba(215,0,21,0.09); color: var(--red); }
       .add { margin-top: 4px; align-self: flex-start; }
@@ -274,7 +302,15 @@ interface ValetServiceRow {
       .actions .btn { text-decoration: none; display: inline-flex; align-items: center; }
       .error-card { background: rgba(215,0,21,0.06); border: 1px solid rgba(215,0,21,0.15); color: var(--red); padding: 14px 18px; border-radius: var(--radius-l); }
       .ok-card { background: rgba(36,138,61,0.08); border: 1px solid rgba(36,138,61,0.2); color: var(--green); padding: 14px 18px; border-radius: var(--radius-l); }
-      @media (max-width: 720px) { .grid-2 { grid-template-columns: 1fr; } .svc-row { grid-template-columns: 1fr 1fr; } }
+      @media (max-width: 720px) {
+        .grid-2 { grid-template-columns: 1fr; }
+        /* Su schermo stretto la griglia a cinque colonne non ci sta: le righe
+           diventano un blocco e le intestazioni si nascondono, perché tornano
+           utili i segnaposto dei campi. */
+        .svc-head { display: none; }
+        .svc-row { grid-template-columns: 1fr 1fr; }
+        .svc-row .svc-type { grid-column: 1 / -1; }
+      }
     `,
   ],
 })
