@@ -56,16 +56,30 @@ try {
   // Le tabelle chiave della piattaforma: senza @@map nello schema Prisma,
   // Prisma usa il nome del modello cosi' com'e'.
   const attese = ['User', 'Delivery', 'Partner', 'Valet', 'Product', 'AppSetting'];
-  const presenti = new Set(pub.map((r) => r.table_name));
-  const mancanti = attese.filter((t) => !presenti.has(t));
-  console.log('\nVERDETTO:');
-  if (mancanti.length === 0) {
-    console.log('  OK — le tabelle della piattaforma sono in public: e\' il database giusto.');
-  } else {
-    console.log(`  ATTENZIONE — mancano in public: ${mancanti.join(', ')}`);
-    console.log('  Il database della piattaforma NON e\' lo schema public di questo cluster:');
-    console.log('  cambiare la password su Vercel non basterebbe.');
-  }
+  const inSchema = async (schema) => {
+    const r = await prisma.$queryRawUnsafe(
+      `select table_name from information_schema.tables where table_schema = '${schema}'`);
+    const presenti = new Set(r.map((x) => x.table_name));
+    return attese.filter((t) => !presenti.has(t));
+  };
+
+  console.log('\nVERDETTO (atteso dal 21/08/2026):');
+
+  const inPlatform = await inSchema('platform');
+  console.log(inPlatform.length === 0
+    ? "  OK — la piattaforma e' nello schema `platform`, dove deve stare."
+    : `  ATTENZIONE — in \`platform\` mancano: ${inPlatform.join(', ')}`);
+
+  // ⚠️ `Partner` esiste in ENTRAMBI (il FINANCE ha il suo): usarlo qui darebbe un
+  // falso allarme. E' la stessa omonimia che il 21/08 rese credibile la diagnosi
+  // sbagliata — per il controllo su `public` servono solo nomi non ambigui.
+  const soloPiattaforma = ['User', 'Delivery', 'Valet', 'Product', 'AppSetting'];
+  const nomiPublic = new Set(pub.map((r) => r.table_name));
+  const intrusi = soloPiattaforma.filter((t) => nomiPublic.has(t));
+  console.log(intrusi.length === 0
+    ? "  OK — in `public` non c'e' nulla della piattaforma: li' vive il FINANCE, ed e' giusto cosi'."
+    : `  ATTENZIONE — in \`public\` sono comparse tabelle della piattaforma (${intrusi.join(', ')}):\n` +
+      '  quello e\' lo schema del FINANCE. Qualcuno ha puntato la DATABASE_URL senza `?schema=platform`.');
 } catch (e) {
   console.log(`ERRORE: ${e.constructor.name} ${e.errorCode ?? ''}`);
   console.log(String(e.message).split('\n').slice(0, 6).join('\n'));
