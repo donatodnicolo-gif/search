@@ -168,6 +168,7 @@ try {
   else if (FASE === 'attivita') await attivita();
   else if (FASE === 'disponibilita') await disponibilita();
   else if (FASE === 'stipendi') await stipendi();
+  else if (FASE === 'teamleader') await teamLeader();
   else { console.log(`Fase sconosciuta: ${FASE}`); process.exit(1); }
 } finally {
   await db.$disconnect();
@@ -432,6 +433,79 @@ async function listini() {
       segna('listino valet aggiornati', daAggiornare.length);
     }
   } else segna('listino valet', perValet.size);
+}
+
+// --------------------------------------------------- fase 12: team leader
+
+/**
+ * Ambito dei TEAM LEADER.
+ *
+ * Un valet con il flag «team leader» sulla sua scheda vede tutte le consegne
+ * delle province che gli sono assegnate — eventualmente ristrette a certi
+ * partner. Nel legacy sono due tabelle:
+ *   · `team-leader-province` (113 righe) — le province del team leader
+ *   · `tabella-85` (64 righe)            — i partner a cui e' ristretto
+ *
+ * Nel nuovo schema sono due campi JSON sul valet (`teamLeaderProvinces`,
+ * `teamLeaderPartners`), com'e' gia' fatto altrove per compatibilita'.
+ *
+ * ⚠️ `team-leader-province` ha DUE colonne che indicano una persona: `expertId`
+ * e `teamLeaderId`. Nel campione `teamLeaderId` e' vuoto e il valet e'
+ * `expertId`: si usa il primo dei due valorizzati, invece di sceglierne uno a
+ * priori e perdere le righe dell'altro.
+ */
+async function teamLeader() {
+  const idValet = await indice('valet');
+  const idPartner = await indice('partner');
+  const idProvincia = await indice('province');
+  const ALIAS = new Map([[98, 93]]);   // il codice provincia TO duplicato
+
+  const province = new Map();   // valet -> Set(provinceId)
+  for (const r of leggi('team-leader-province')) {
+    const chi = idValet.get(intero(r.teamLeaderId)) ?? idValet.get(intero(r.expertId));
+    const prov = idProvincia.get(ALIAS.get(intero(r.provinceId)) ?? intero(r.provinceId));
+    if (!chi || !prov) { segna('team leader: riga orfana'); continue; }
+    (province.get(chi) ?? province.set(chi, new Set()).get(chi)).add(prov);
+  }
+
+  const partner = new Map();    // valet -> Set(partnerId)
+  for (const r of leggi('tabella-85')) {
+    const chi = idValet.get(intero(r.expertId));
+    const p = idPartner.get(intero(r.partnerId));
+    if (!chi || !p) { segna('team leader partner: riga orfana'); continue; }
+    (partner.get(chi) ?? partner.set(chi, new Set()).get(chi)).add(p);
+  }
+
+  const tutti = new Set([...province.keys(), ...partner.keys()]);
+  for (const valetId of tutti) {
+    const prov = [...(province.get(valetId) ?? [])];
+    const part = [...(partner.get(valetId) ?? [])];
+    if (!PROVA) await db.valet.update({
+      where: { id: valetId },
+      data: {
+        // Chi ha un ambito assegnato E' un team leader: il flag e l'ambito
+        // devono concordare, altrimenti la scheda dice una cosa e i permessi
+        // un'altra.
+        isTeamLeader: true,
+        teamLeaderProvinces: prov.length ? JSON.stringify(prov) : null,
+        teamLeaderPartners: part.length ? JSON.stringify(part) : null,
+      },
+    });
+    segna('team leader configurati');
+    if (prov.length) segna('team leader con province', 0);
+  }
+  segna('province assegnate', [...province.values()].reduce((s, x) => s + x.size, 0));
+  segna('partner assegnati', [...partner.values()].reduce((s, x) => s + x.size, 0));
+
+  // Controprova: chi ha il flag ma nessun ambito, e viceversa.
+  if (!PROVA) {
+    const conFlag = await db.valet.count({ where: { isTeamLeader: true } });
+    const senzaAmbito = await db.valet.count({
+      where: { isTeamLeader: true, teamLeaderProvinces: null, teamLeaderPartners: null },
+    });
+    segna('valet con flag team leader', conFlag);
+    if (senzaAmbito) segna('⚠️ con flag ma SENZA ambito (vedono niente)', senzaAmbito);
+  }
 }
 
 // ------------------------------------- fase 9: attività e storico consegne
