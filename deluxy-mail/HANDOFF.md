@@ -11,6 +11,12 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 
 **Stato: in PRODUZIONE.** Multi-utente, live e usato.
 
+> 📨 **23/08/2026 — azione nuova «Commerciale · Registra il preventivo»** (LIVE, `dpl_A5885jR25nw…`). Da una mail in cui un fornitore manda un prezzo, scrive il preventivo dentro Deluxy Scout (Edge `preventivi`, chiave **Commerciale**, la stessa di «Apri trattativa»). `scrive: true`, quindi passa **sempre** dalla conferma.
+> - ⭐ **Fornitore e indirizzo li mette il codice, non il modello** (`daMail` + `ctx.controparte`): chi manda il prezzo lo dice l'header della mail, il nome in calce può essere la persona, la sede o niente. L'importo accetta «1.250,50» e lo traduce prima di partire (il campo del modulo è testo).
+> - Se Scout non riconosce il lavoro risponde 404/409 **con l'elenco dei lavori aperti**, e il messaggio d'errore li mostra: un «non trovato» secco costringerebbe a uscire e andare a guardare in Scout.
+> - **Novità trasversale:** `ContestoAzione` ora porta anche **`messaggioId`** (valorizzato in `actions.ts` e `azioneSezione.ts`). Serve alle azioni che scrivono un dato in un'altra app e vogliono lasciarci il rimando alla mail: in Scout il preventivo mostra «Vedi la mail». Senza, un numero comparso là non ha storia.
+> - ⚠️ **Pubblicata da una copia pulita del commit, non dalla cartella**: quella sera in `src/lib/actions.ts`, `allegatiGrandi.ts`, `bozze/page.tsx`, `schema.prisma` c'era lavoro a metà di un'altra sessione che **non compilava**, e `npx vercel --prod --cwd …` carica la cartella così com'è. Si fa `git archive HEAD:deluxy-mail | tar -x -C <tmp>`, ci si copia `.vercel`, e si deploya da lì.
+
 - **URL produzione:** https://deluxy-mail.vercel.app
 - **Hosting:** Vercel (team `deluxy`, progetto `deluxy-mail`).
 - **DB (dal 19/08/2026): cluster condiviso `zegbztfxisqeowngvgvh`** (eu-central-1, org **Deluxy, piano Pro**, 8 GB, backup giornalieri), **schema `mail`** — lo stesso progetto delle altre 12 app Deluxy, ognuna nel suo schema. Commutazione fatta alle **07:36 del 19/08** e verificata **dai fatti, non dalle impostazioni**: il database vecchio si è fermato (ultima scrittura 07:25) e il nuovo ha ripreso a crescere. **Collaudo: 31 tabelle su 31, 31.134 righe controllate, ZERO rimaste indietro** (i messaggi confrontati sulla chiave naturale, vedi §9). `?schema=mail` va SEMPRE nelle stringhe: `DATABASE_URL` col pooler **6543** + `&pgbouncer=true`, `DIRECT_URL` col pooler **5432**. Region `fra1` in `vercel.json`, verificata (`X-Vercel-Id: fra1::fra1`).
