@@ -24,7 +24,13 @@ import {
   contenutoCentrato,
   contenutoLargo,
 } from '@/lib/theme';
-import { aggiornaStarred, aggiornaStatoAffiliazione, fetchAffiliazioni, registraChiamata } from '@/lib/db';
+import {
+  aggiornaStarred,
+  aggiornaStatoAffiliazione,
+  fetchAffiliazioni,
+  fetchProfiles,
+  registraChiamata,
+} from '@/lib/db';
 import { avvisa } from '@/lib/dialoghi';
 import { STATI_AFFILIAZIONE, type AffiliazioneRow, type StatoAffiliazione } from '@/types';
 import { AnagraficaRegistroCard } from '@/components/AnagraficaRegistroCard';
@@ -50,6 +56,32 @@ function quando(iso: string | null): string {
   if (giorni === 1) return 'chiamato ieri';
   if (giorni < 30) return `chiamato ${giorni} giorni fa`;
   return `chiamato ${Math.floor(giorni / 30)} mesi fa`;
+}
+
+/**
+ * Da chi è stato segnalato il negozio.
+ *
+ * ⚠️ Misurato il 21/08/2026: su **223 affiliazioni, ZERO hanno `creato_da`** —
+ * nessuna l'ha scelta una persona. 199 arrivano dall'import del registro
+ * Anagrafiche e 23 dalla scoperta Google. Quindi la colonna dice quasi sempre
+ * «Registro»: è la verità, ed è un'informazione (nessuno ci ha ancora messo
+ * mano), non un buco. Il giorno che qualcuno aggiunge un negozio con la ⭐ o
+ * col +, lì comparirà il suo nome.
+ */
+function segnalatoDa(r: AffiliazioneRow, nomi: Map<string, string>): string {
+  if (r.creato_da) return nomi.get(r.creato_da) ?? 'un venditore';
+  if (r.source === 'anagrafiche') return 'Registro';
+  if (r.source === 'google') return 'Ricerca Google';
+  if (r.source === 'manual') return 'Inserito a mano';
+  return '—';
+}
+
+/** «17 lug» — qui serve capire quanto è vecchia la segnalazione, non l'ora. */
+function dataBreve(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
 }
 
 export default function Affiliazioni() {
@@ -86,11 +118,17 @@ export default function Affiliazioni() {
   // database. Un campo nuovo, invece, sarebbe rimasto una data che non guarda
   // nessuno.
   const [daPianificare, setDaPianificare] = useState<AffiliazioneRow | null>(null);
+  // owner → nome, per scrivere CHI ha segnalato invece di un uuid. Tollerante:
+  // se la tabella profiles non risponde restano i nomi di ripiego.
+  const [nomi, setNomi] = useState<Map<string, string>>(new Map());
 
   const carica = useCallback(async () => {
     setLoading(true);
     try {
       setRighe(await fetchAffiliazioni());
+      fetchProfiles()
+        .then((ps) => setNomi(new Map(ps.map((p) => [p.id, p.nome ?? p.email ?? 'venditore']))))
+        .catch(() => {});
     } finally {
       setLoading(false);
     }
@@ -125,11 +163,11 @@ export default function Affiliazioni() {
       if (filtro === 'selezionati') { if (!r.starred) return false; }
       else if (filtro !== 'tutti' && r.stato_affiliazione !== filtro) return false;
       if (!q) return true;
-      return [r.nome, r.indirizzo, r.zona, r.referente, r.telefono]
+      return [r.nome, r.indirizzo, r.zona, r.referente, r.telefono, segnalatoDa(r, nomi)]
         .filter(Boolean)
         .some((v) => (v as string).toLowerCase().includes(q));
     });
-  }, [righe, query, filtro]);
+  }, [righe, query, filtro, nomi]);
 
   async function chiama(r: AffiliazioneRow) {
     if (!r.telefono) {
@@ -245,6 +283,7 @@ export default function Affiliazioni() {
               onSeleziona={() => seleziona(item)}
               onApri={() => router.push(`/(app)/attivita/${item.id}`)}
               onPianifica={() => setDaPianificare(item)}
+              segnalato={segnalatoDa(item, nomi)}
             />
           ) : (
             <Card
@@ -254,6 +293,7 @@ export default function Affiliazioni() {
               onSeleziona={() => seleziona(item)}
               onApri={() => router.push(`/(app)/attivita/${item.id}`)}
               onPianifica={() => setDaPianificare(item)}
+              segnalato={segnalatoDa(item, nomi)}
             />
           )
         }
@@ -300,6 +340,7 @@ function Riga({
   onSeleziona,
   onApri,
   onPianifica,
+  segnalato,
 }: {
   item: AffiliazioneRow;
   onChiama: () => void;
@@ -307,6 +348,7 @@ function Riga({
   onSeleziona: () => void;
   onApri: () => void;
   onPianifica: () => void;
+  segnalato: string;
 }) {
   const [apriStep, setApriStep] = useState(false);
   const [apriRegistro, setApriRegistro] = useState(false);
@@ -382,6 +424,19 @@ function Riga({
           </Pressable>
         </View>
 
+        {/* Da chi è arrivato e quando: due dati che stanno insieme — «Registro
+            · 17 lug» si legge in un colpo, su due colonne no. */}
+        <View style={styles.tdSegnalato}>
+          <Text style={styles.segnalatoTxt} numberOfLines={1}>
+            {segnalato}
+          </Text>
+          {item.created_at ? (
+            <Text style={styles.metaLeggero} numberOfLines={1}>
+              {dataBreve(item.created_at)}
+            </Text>
+          ) : null}
+        </View>
+
         <Text style={styles.tdQuando} numberOfLines={1}>
           {quando(item.ultima_chiamata)}
         </Text>
@@ -453,6 +508,7 @@ function Intestazione() {
       <Text style={[styles.thTxt, styles.tdRef]}>Referente</Text>
       <Text style={[styles.thTxt, styles.tdTel]}>Telefono</Text>
       <Text style={[styles.thTxt, styles.tdStato]}>Stato</Text>
+      <Text style={[styles.thTxt, styles.tdSegnalato]}>Segnalato da</Text>
       <Text style={[styles.thTxt, styles.tdQuando]}>Ultima chiamata</Text>
       <Text style={[styles.thTxt, styles.tdAzioni]}> </Text>
     </View>
@@ -471,6 +527,7 @@ function Card({
   onSeleziona,
   onApri,
   onPianifica,
+  segnalato,
 }: {
   item: AffiliazioneRow;
   onChiama: () => void;
@@ -478,6 +535,7 @@ function Card({
   onSeleziona: () => void;
   onApri: () => void;
   onPianifica: () => void;
+  segnalato: string;
 }) {
   const [apriStep, setApriStep] = useState(false);
   const [apriRegistro, setApriRegistro] = useState(false);
@@ -510,6 +568,10 @@ function Card({
             {item.referente ? <Text style={styles.meta}>{item.referente}</Text> : null}
             <Text style={styles.metaLeggero}>· {quando(item.ultima_chiamata)}</Text>
           </View>
+          <Text style={styles.metaLeggero} numberOfLines={1}>
+            Segnalato da {segnalato}
+            {item.created_at ? ` · ${dataBreve(item.created_at)}` : ''}
+          </Text>
         </Pressable>
         <Pressable
           onPress={onPianifica}
@@ -607,12 +669,12 @@ const styles = StyleSheet.create({
   stellaOn: { backgroundColor: colors.gold },
   tdNome: { flex: 3, minWidth: 150 },
   nomeTab: { color: colors.testo, fontWeight: '600', fontSize: 14, letterSpacing: -0.1 },
-  tdCitta: { flex: 1.1, minWidth: 75, color: colors.testoSoft, fontSize: 13 },
-  tdRef: { flex: 1.4, minWidth: 95, color: colors.testoSoft, fontSize: 13 },
+  tdCitta: { flex: 1, minWidth: 70, color: colors.testoSoft, fontSize: 13 },
+  tdRef: { flex: 1.2, minWidth: 88, color: colors.testoSoft, fontSize: 13 },
   tdTel: { flex: 1.3, minWidth: 100 },
   telTab: { color: colors.testo, fontSize: 13, fontVariant: ['tabular-nums'] },
   cellaVuota: { color: colors.grigio, fontSize: 13 },
-  tdStato: { flex: 1.7, minWidth: 130, flexDirection: 'row', alignItems: 'center' },
+  tdStato: { flex: 1.5, minWidth: 122, flexDirection: 'row', alignItems: 'center' },
   pill: { flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4 },
   pillTxt: { fontSize: 12, fontWeight: '600', maxWidth: 108 },
   // Le date a destra e con cifre a larghezza fissa: incolonnate si confrontano
@@ -625,6 +687,8 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     fontVariant: ['tabular-nums'],
   },
+  tdSegnalato: { flex: 1.2, minWidth: 92 },
+  segnalatoTxt: { color: colors.testoSoft, fontSize: 13 },
   tdAzioni: { width: 88, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 10 },
   btnChiamaTab: {
     backgroundColor: colors.ink,

@@ -1565,7 +1565,7 @@ export async function fetchAffiliazioni(): Promise<AffiliazioneRow[]> {
   const { data, error } = await supabase
     .from('places')
     .select(
-      'id, nome, indirizzo, zona, categoria, stato, stato_affiliazione, anagrafiche_stato, starred, contacts(nome, ruolo, telefono, is_decisore), chiamate(created_at)',
+      'id, nome, indirizzo, zona, categoria, stato, stato_affiliazione, anagrafiche_stato, starred, creato_da, source, created_at, contacts(nome, ruolo, telefono, is_decisore), chiamate(created_at)',
     )
     .eq('linea_ipotizzata', 'Re-seller')
     .order('nome');
@@ -1592,6 +1592,9 @@ export async function fetchAffiliazioni(): Promise<AffiliazioneRow[]> {
       starred: Boolean(r.starred),
       stato: r.stato ?? null,
       anagrafiche_stato: r.anagrafiche_stato ?? null,
+      creato_da: r.creato_da ?? null,
+      source: r.source ?? null,
+      created_at: r.created_at ?? null,
     } as AffiliazioneRow;
   });
 }

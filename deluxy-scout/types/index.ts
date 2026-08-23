@@ -143,6 +143,12 @@ export interface AffiliazioneRow {
   // colonne perché lo stato «attivo» può arrivare dal registro o da Scout.
   stato?: string | null;
   anagrafiche_stato?: string | null;
+  // Da chi è stato segnalato e quando. `creato_da` è la persona che l'ha messo
+  // dentro (⭐ dalla Mappa o bottone +); se è vuoto non l'ha scelto nessuno e
+  // vale `source`: dal registro Anagrafiche o dalla scoperta Google.
+  creato_da?: string | null;
+  source?: string | null;
+  created_at?: string | null;
 }
 
 // Stato del place derivato dall'esito della visita (regola commerciale unica,
