@@ -54,12 +54,15 @@ interface ProductRow {
       <section class="card block">
         <header class="block-head"><h2>{{ 'deliveryForm.section.service.title' | translate }}</h2>
           <span class="block-sub">{{ 'deliveryForm.section.service.sub' | translate }}</span></header>
+        <!-- Ordine: DATA → INDIRIZZO → PARTNER → SERVIZIO.
+             La catena delle dipendenze va in questa direzione: dall'indirizzo si
+             deduce la provincia, la provincia restringe i partner abilitati, e il
+             partner scelto determina quali servizi ha davvero a listino. -->
         <div class="grid-2">
-          <label class="fld"><span>{{ 'deliveryForm.field.service' | translate }} *</span>
-            <select class="field" name="serviceTypeId" [(ngModel)]="model.serviceTypeId" (ngModelChange)="onServiceChange()" required>
-              <option value="">{{ 'deliveryForm.placeholder.selectService' | translate }}</option>
-              @for (s of serviceTypes(); track s.id) { <option [value]="s.id">{{ s.name }}</option> }
-            </select></label>
+          <label class="fld"><span>{{ 'deliveryForm.field.date' | translate }} *</span>
+            <input class="field" type="date" name="date" [(ngModel)]="model.date" [min]="deliveryMinDate()" required />
+            @if (selectedService()?.noticeDays) { <span class="slot-hint">{{ 'deliveryForm.hint.notice' | translate:{ days: selectedService()?.noticeDays, date: deliveryMinDate() } }}</span> }
+          </label>
           <label class="fld"><span>{{ 'deliveryForm.field.recipientAddress' | translate }} *</span>
             <input #addressInput class="field" name="recipientAddress" [(ngModel)]="model.recipientAddress" (ngModelChange)="onAddressChange()" required autocomplete="off" [placeholder]="'deliveryForm.placeholder.address' | translate" />
             @if (addressProvince()) { <span class="slot-hint">{{ 'deliveryForm.hint.provinceDetected' | translate:{ code: addressProvince()?.code } }}</span> }
@@ -71,16 +74,23 @@ interface ProductRow {
               </span>
             }
           </label>
-          <label class="fld"><span>{{ 'deliveryForm.field.date' | translate }} *</span>
-            <input class="field" type="date" name="date" [(ngModel)]="model.date" [min]="deliveryMinDate()" required />
-            @if (selectedService()?.noticeDays) { <span class="slot-hint">{{ 'deliveryForm.hint.notice' | translate:{ days: selectedService()?.noticeDays, date: deliveryMinDate() } }}</span> }
-          </label>
           <label class="fld"><span>{{ 'deliveryForm.field.partner' | translate }} *</span>
-            <select class="field" name="partnerId" [(ngModel)]="model.partnerId" required>
+            <select class="field" name="partnerId" [(ngModel)]="model.partnerId" (ngModelChange)="onPartnerChange()" required>
               <option value="">{{ 'deliveryForm.placeholder.selectPartner' | translate }}</option>
               @for (p of partnerOptions(); track p.id) { <option [value]="p.id">{{ p.insegna }}</option> }
             </select>
-            @if (model.serviceTypeId && filteredPartners().length === 0) { <span class="slot-hint warn">{{ 'deliveryForm.hint.noPartners' | translate }}</span> }
+            @if (addressProvince() && filteredPartners().length === 0) { <span class="slot-hint warn">{{ 'deliveryForm.hint.noPartners' | translate }}</span> }
+          </label>
+          <label class="fld"><span>{{ 'deliveryForm.field.service' | translate }} *</span>
+            <select class="field" name="serviceTypeId" [(ngModel)]="model.serviceTypeId" (ngModelChange)="onServiceChange()" required>
+              <option value="">{{ 'deliveryForm.placeholder.selectService' | translate }}</option>
+              @for (s of serviceOptions(); track s.id) { <option [value]="s.id">{{ s.name }}</option> }
+            </select>
+            @if (!model.partnerId) {
+              <span class="slot-hint">{{ 'deliveryForm.hint.selectPartnerFirst' | translate }}</span>
+            } @else if (servizioDelPartner().length === 0) {
+              <span class="slot-hint warn">{{ 'deliveryForm.hint.noServicesForPartner' | translate }}</span>
+            }
           </label>
         </div>
       </section>
@@ -375,6 +385,15 @@ export class DeliveryFormComponent implements AfterViewInit {
   /** Vero quando in Impostazioni manca la chiave Google Maps: i suggerimenti
    *  indirizzo non possono funzionare e conviene dirlo invece di far sembrare
    *  che il campo sia rotto. */
+  /**
+   * ⚠️ `model` e' un oggetto normale, non un signal: un computed() che legge
+   * model.partnerId NON si ricalcola mai quando la scelta cambia. E' il motivo
+   * per cui i servizi non si restringevano scegliendo il partner. Questi due
+   * segnali rispecchiano la selezione, ed e' cio' che i computed osservano.
+   */
+  readonly partnerSel = signal('');
+  readonly servizioSel = signal('');
+
   readonly mapsMancante = signal(false);
 
   /** Solo l'admin può inserire la chiave: agli altri l'avviso non servirebbe. */
@@ -479,6 +498,7 @@ export class DeliveryFormComponent implements AfterViewInit {
 
   /** Al cambio servizio: aggiorna fasce, data minima e resetta stati non più validi. */
   onServiceChange(): void {
+    this.servizioSel.set(this.model.serviceTypeId);
     const s = this.serviceTypes().find((x) => x.id === this.model.serviceTypeId) ?? null;
     this.selectedService.set(s);
     // Se il servizio non consente la consegna flessibile, forza la modalità a fasce.
@@ -651,21 +671,64 @@ export class DeliveryFormComponent implements AfterViewInit {
     // Ricostruisce fasce orarie, data minima e filtri dipendenti
     this.onAddressChange();
     this.onServiceChange();
+    // I segnali seguono la selezione anche quando arriva dal prefill.
+    this.partnerSel.set(m.partnerId);
+    this.servizioSel.set(m.serviceTypeId);
     // onServiceChange puo' azzerare la fascia: la ripristina da quella salvata
     if (d['deliveryTimeFrom']) m.deliveryTimeFrom = d['deliveryTimeFrom'] as string;
     if (d['date']) m.date = (d['date'] as string).slice(0, 10);
   }
 
   /** Partner filtrati per tipo di servizio scelto e per provincia dell'indirizzo. */
+  /**
+   * Partner filtrati SOLO per la provincia dedotta dall'indirizzo.
+   *
+   * ⚠️ Prima si filtrava anche per il servizio scelto, ma l'ordine dei campi è
+   * stato invertito: ora il partner viene PRIMA del servizio, quindi filtrarlo
+   * per un servizio non ancora scelto non avrebbe senso. È il servizio a
+   * dipendere dal partner, non il contrario.
+   */
   readonly filteredPartners = computed(() => {
-    const svcId = this.selectedService()?.id;
     const prov = this.addressProvince();
-    return this.partners().filter((p) => {
-      const svcOk = !svcId || (p.services ?? []).some((s) => s.serviceType?.id === svcId);
-      const provOk = !prov || (p.provinces ?? []).some((pp) => pp.province?.code === prov.code);
-      return svcOk && provOk;
-    });
+    if (!prov) return this.partners();
+    return this.partners().filter((p) =>
+      (p.provinces ?? []).some((pp) => pp.province?.code === prov.code));
   });
+
+  /** I servizi che il partner scelto ha davvero a listino (PartnerService). */
+  readonly servizioDelPartner = computed(() => {
+    const p = this.partners().find((x) => x.id === this.partnerSel());
+    if (!p) return [];
+    const abilitati = new Set((p.services ?? []).map((s) => s.serviceType?.id).filter(Boolean));
+    return this.serviceTypes().filter((s) => abilitati.has(s.id));
+  });
+
+  /**
+   * Servizi da mostrare nella tendina.
+   * Senza partner scelto si mostra tutto il catalogo (altrimenti la casella
+   * sarebbe vuota e sembrerebbe rotta); con un partner si mostrano i suoi.
+   * Il servizio già salvato resta sempre presente, anche se fuori elenco:
+   * è la stessa regola applicata al partner in modifica.
+   */
+  readonly serviceOptions = computed(() => {
+    const suoi = this.servizioDelPartner();
+    const base = this.partnerSel() && suoi.length ? suoi : this.serviceTypes();
+    const scelto = this.servizioSel();
+    if (!scelto || base.some((s) => s.id === scelto)) return base;
+    const mancante = this.serviceTypes().find((s) => s.id === scelto);
+    return mancante ? [mancante, ...base] : base;
+  });
+
+  /** Cambiando partner, un servizio non più a listino va tolto. */
+  onPartnerChange(): void {
+    this.partnerSel.set(this.model.partnerId);
+    const suoi = this.servizioDelPartner();
+    if (this.model.serviceTypeId && suoi.length
+      && !suoi.some((s) => s.id === this.model.serviceTypeId)) {
+      this.model.serviceTypeId = '';
+      this.onServiceChange();
+    }
+  }
 
   /** Valet filtrati per provincia dell'indirizzo. */
   readonly filteredValets = computed(() => {
@@ -810,7 +873,7 @@ export class DeliveryFormComponent implements AfterViewInit {
    */
   readonly partnerOptions = computed(() => {
     const lista = this.filteredPartners();
-    const scelto = this.model.partnerId;
+    const scelto = this.partnerSel();
     if (!scelto || lista.some((p) => p.id === scelto)) return lista;
     const mancante = this.partners().find((p) => p.id === scelto);
     return mancante ? [mancante, ...lista] : lista;

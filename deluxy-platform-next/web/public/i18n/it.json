@@ -847,7 +847,9 @@
       "notice": "Preavviso {{days}} g → dal {{date}}",
       "noPartners": "Nessun partner con questo servizio nella provincia dell'indirizzo.",
       "noMapsKey": "Suggerimenti indirizzo non attivi: manca la chiave Google Maps.",
-      "noMapsKeyLink": "Configurala in Impostazioni"
+      "noMapsKeyLink": "Configurala in Impostazioni",
+      "selectPartnerFirst": "Scegli prima il partner: i servizi dipendono dal suo listino.",
+      "noServicesForPartner": "Questo partner non ha servizi a listino: mostrati tutti."
     },
     "timing": {
       "selectServiceFirst": "Seleziona prima un servizio per impostare la fascia di consegna.",
