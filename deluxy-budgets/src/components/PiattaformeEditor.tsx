@@ -34,6 +34,7 @@ export function PiattaformeEditor({
   budgetMese,
   primoMeseAperto,
   quandoSalvata,
+  soloLettura,
   piattaforme,
 }: {
   year: number;
@@ -45,6 +46,10 @@ export function PiattaformeEditor({
   // Quando questa ripartizione e stata salvata l ultima volta, gia formattata
   // sul fuso italiano dal server. null = mai passata da questa pagina.
   quandoSalvata: string | null;
+  // La vista somma non si scrive: e il risultato di quello che gli altri hanno
+  // deciso. Le caselle restano leggibili ma bloccate, e il bottone sparisce —
+  // un bottone che non puo fare niente e peggio di nessun bottone.
+  soloLettura: boolean;
   piattaforme: Piattaforma[];
 }) {
   const router = useRouter();
@@ -265,7 +270,7 @@ export function PiattaformeEditor({
                           max={100}
                           step={1}
                           value={pctMostrata(p, m)}
-                          disabled={chiuso(m)}
+                          disabled={soloLettura || chiuso(m)}
                           title={
                             misurato(p, m)
                               ? `${MESI[m - 1]} e passato: questa e la quota davvero uscita — ${eur(spesoDi(p, m) ?? 0)} su ${p.canale ?? "questo canale"}, secondo Marketing.`
@@ -283,7 +288,7 @@ export function PiattaformeEditor({
                             padding: "5px 8px",
                             fontSize: 12.5,
                             textAlign: "right",
-                            ...(chiuso(m)
+                            ...(soloLettura || chiuso(m)
                               ? { background: "var(--fill)", color: "var(--text-tertiary)", cursor: "not-allowed" }
                               : null),
                           }}
@@ -412,6 +417,10 @@ export function PiattaformeEditor({
         </div>
       )}
 
+      {/* Nella vista somma non c'è niente da salvare: il bottone sparisce del
+          tutto, invece di restare lì spento — un bottone che non può fare
+          niente fa cercare cosa manca per accenderlo. */}
+      {!soloLettura && (
       <div className="form-footer">
         {/* La conferma sta **dove si e agito**, accanto al bottone, e non e un
             grigetto: un salvataggio che non si vede sembra un bottone rotto. */}
@@ -425,6 +434,7 @@ export function PiattaformeEditor({
           {salvo ? "Salvataggio…" : "Salva ripartizione"}
         </button>
       </div>
+      )}
     </>
   );
 }

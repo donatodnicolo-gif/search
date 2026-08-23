@@ -1141,6 +1141,22 @@ maison e per mese, IVA inclusa come il budget), catalogo Hub aggiornato (id `bud
   > decisione** — nell'importo sono sommati e non si distinguerebbero. Su CakeDesign.me: Google
   > **11.995 € · 77,5%** (8.528 già spesi + 3.467 a budget), Meta **2.981 € · 19,3%** (1.990 + 991).
   >
+  > ⭐ **«Azienda» è la SOMMA dei brand, e non si scrive** (23/08/2026, «azienda fai la somma di
+  > tutti»). Prima quel tab applicava la ripartizione **predefinita** al budget di tutta l'azienda: una
+  > risposta sbagliata appena un brand se ne scrive una sua. Ora le viste sono **tre**, e rispondono a
+  > tre domande diverse:
+  >
+  > | Vista | Cosa dice | Si scrive? |
+  > | --- | --- | --- |
+  > | **Azienda (somma)** | quanto va davvero a ogni piattaforma su tutti i brand, ciascuno con la **sua** ripartizione dove ce l'ha | **no**: è una conseguenza |
+  > | **Predefinita** | la ripartizione che eredita chi non ne ha una sua (l'ambito vuoto a database) | sì |
+  > | **un brand** | la sua, applicata al suo budget | sì |
+  >
+  > Nella somma il bottone Salva **sparisce del tutto** invece di restare spento: un bottone che non può
+  > fare niente fa cercare cosa manca per accenderlo. Misurato il 23/08 su settembre: la somma dà
+  > **Google 72,6% · Meta 20% · TikTok 4,8%**, mentre la predefinita dice 70/20/0 — la differenza è
+  > esattamente quello che i brand hanno deciso per conto loro, e prima non si vedeva da nessuna parte.
+  >
   > **Quando è stata salvata, si vede** («rendi chiaro quando hai salvato una ripartizione»). Due cose
   > diverse e servono tutte e due: sopra la griglia la **data dell'ultimo salvataggio** (*«Salvata
   > l'ultima volta il 23/08/2026, 19:02»*, oppure «Mai salvata da questa pagina»), e dopo il clic una

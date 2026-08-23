@@ -12,16 +12,29 @@ export const dynamic = "force-dynamic";
 // non ne ha una sua. La stringa vuota è il suo ambito anche a database.
 const AZIENDA = "";
 
+// Le tre viste della pagina, che rispondono a tre domande diverse:
+//  - **Azienda**: quanto va davvero a ogni piattaforma su tutti i brand messi
+//    insieme. E una **somma**, quindi non si scrive: e la conseguenza di quello
+//    che ogni brand ha deciso.
+//  - **Predefinita**: la ripartizione che eredita chi non ne ha una sua. Questa
+//    si scrive, ed e la riga con ambito vuoto a database.
+//  - **un brand**: la sua ripartizione, applicata al suo budget.
+const SOMMA = "somma";
+const PREDEFINITA = "predefinita";
+
 export default async function Piattaforme({
   searchParams,
 }: {
-  searchParams: Promise<{ brand?: string }>;
+  searchParams: Promise<{ brand?: string; vista?: string }>;
 }) {
   const sp = await searchParams;
   const dati = await caricaAnno(ANNO_CORRENTE);
 
   const brand = dati.maisons.find((m) => m.id === sp.brand) ?? null;
+  const vista = brand ? "brand" : sp.vista === PREDEFINITA ? PREDEFINITA : SOMMA;
   const ambito = brand ? brand.id : AZIENDA;
+  // La somma non si scrive: e il risultato di quello che gli altri hanno deciso.
+  const soloLettura = vista === SOMMA;
 
   // Il budget ADV per mese: è la base che si ripartisce tra le piattaforme.
   // Con un brand selezionato è **il suo**, non quello d'azienda — altrimenti le
@@ -72,14 +85,40 @@ export default async function Piattaforme({
   // Un brand che non ha ancora una ripartizione sua **parte da quella
   // d'azienda**: è il punto di partenza giusto, e finché non si salva niente
   // resta scritto che sta ereditando.
+  // Il budget ADV di ogni brand, mese per mese: serve alla somma.
+  const budgetDelBrand = (m: (typeof dati.maisons)[number]) => {
+    const monte = budgetAdvAnno(m, dati.year);
+    return Array.from({ length: 12 }, (_, i) => {
+      const x = m.mesi.find((y) => y.month === i + 1);
+      return x ? advConsentitoMese(x, monte) : 0;
+    });
+  };
+
   const piattaforme = dati.piattaforme.map((p) => {
     const suo = p.splitPerBrand[ambito];
     const canale = perCanale ? canaleDiPiattaforma(p.nome, canaliNoti) : null;
+    // **La somma di tutti**: per ogni mese, quanto ciascun brand destina a
+    // questa piattaforma — con la **sua** ripartizione dove ce l ha, con quella
+    // predefinita dove no. La percentuale che ne esce e il mix vero, non una
+    // decisione: applicare la predefinita al totale d azienda direbbe un altra
+    // cosa appena un brand si scrive la sua.
+    const sommaMesi = Array.from({ length: 12 }, (_, i) => {
+      const mese = i + 1;
+      return dati.maisons.reduce((s, m) => {
+        const quota = (p.splitPerBrand[m.id] ?? p.split)[mese] ?? 0;
+        return s + (budgetDelBrand(m)[i] * quota) / 100;
+      }, 0);
+    });
+    const splitSomma: Record<number, number> = {};
+    for (let mese = 1; mese <= 12; mese++) {
+      const tot = budgetMese[mese - 1];
+      splitSomma[mese] = tot > 0 ? Math.round((sommaMesi[mese - 1] / tot) * 1000) / 10 : 0;
+    }
     return {
       id: p.id,
       nome: p.nome,
       colore: p.colore,
-      split: ambito === AZIENDA ? p.split : suo ?? p.split,
+      split: vista === SOMMA ? splitSomma : ambito === AZIENDA ? p.split : suo ?? p.split,
       // Vero quando quel brand una ripartizione sua ce l ha davvero.
       propria: ambito === AZIENDA ? true : Boolean(suo),
       // La spesa vera per mese (12 caselle, null = non misurato). Il canale di
@@ -146,6 +185,17 @@ export default async function Piattaforme({
                 </>
               )}
             </p>
+          ) : vista === SOMMA ? (
+            <p className="page-caption" style={{ marginTop: 6 }}>
+              <strong>La somma di tutti i brand</strong>: ogni brand conta con la <strong>sua</strong>
+              {" "}ripartizione dove ce l&apos;ha, con quella predefinita dove no. Le percentuali qui sono
+              il <strong>mix che ne esce</strong>, non una decisione — per questo non si scrivono. Per
+              cambiarle si va sul brand, o sulla{" "}
+              <Link href={`/piattaforme?vista=${PREDEFINITA}`} style={{ color: "var(--blue)" }}>
+                ripartizione predefinita
+              </Link>
+              .
+            </p>
           ) : (
             <p className="page-caption" style={{ marginTop: 6 }}>
               È la ripartizione <strong>predefinita</strong>: vale per ogni brand che non ne ha una sua.
@@ -155,8 +205,19 @@ export default async function Piattaforme({
         </div>
         <div className="page-actions">
           <div className="seg">
-            <Link href="/piattaforme" className={!brand ? "on" : ""} title="La ripartizione predefinita d'azienda.">
-              Azienda
+            <Link
+              href="/piattaforme"
+              className={vista === SOMMA ? "on" : ""}
+              title="Quanto va davvero a ogni piattaforma su tutti i brand messi insieme: e una somma, non si scrive."
+            >
+              Azienda (somma)
+            </Link>
+            <Link
+              href={`/piattaforme?vista=${PREDEFINITA}`}
+              className={vista === PREDEFINITA ? "on" : ""}
+              title="La ripartizione che eredita ogni brand che non ne ha una sua."
+            >
+              Predefinita
             </Link>
             {dati.maisons.map((m) => (
               <Link
@@ -182,6 +243,7 @@ export default async function Piattaforme({
         budgetMese={budgetMese}
         primoMeseAperto={aperto}
         quandoSalvata={quandoSalvata}
+        soloLettura={soloLettura}
         piattaforme={piattaforme}
       />
     </>
