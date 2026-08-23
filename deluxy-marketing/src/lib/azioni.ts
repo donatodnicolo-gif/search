@@ -1523,7 +1523,15 @@ export async function approvaOperazione(fd: FormData) {
   await registra({
     autore: "utente", tipo: "stato", entita: "operazione", entitaId: id,
     titolo: `Approvata: ${op.tipo} su ${op.bersaglio}`,
-    dettaglio: "Lo script la eseguirà alla prossima passata",
+    // ⚠️ Su META non passa nessuno script: esegue l'app, e solo quando
+    //    qualcuno preme «Esegui adesso» in Operazioni. Dire «alla prossima
+    //    passata» anche li vorrebbe dire promettere un automatismo che non
+    //    esiste, e lasciare l'operazione ferma per giorni ad aspettare un
+    //    motore che non partira' mai.
+    dettaglio:
+      op.canale === "meta_ads"
+        ? "Su Meta non c'e nessuno script: esegue l'app quando premi «Esegui adesso» in Operazioni."
+        : "Lo script la eseguira alla prossima passata",
   });
   revalidatePath("/operazioni");
   if (torna) redirect(`/operazioni?torna=${encodeURIComponent(torna)}`);
