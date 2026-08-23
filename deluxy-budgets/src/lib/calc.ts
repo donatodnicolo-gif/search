@@ -109,8 +109,12 @@ export type PiattaformaAdv = {
   colore: string | null;
   ordine: number;
   note: string | null;
-  // % per mese (1..12): quanta parte del budget ADV del mese va qui
+  // % per mese (1..12): quanta parte del budget ADV del mese va qui.
+  // La ripartizione **dell azienda**, cioe quella predefinita.
   split: Record<number, number>;
+  // Le ripartizioni scritte per un singolo brand: id della maison -> mese -> %.
+  // Un brand che non ce l ha usa quella dell azienda, e la pagina lo dichiara.
+  splitPerBrand: Record<string, Record<number, number>>;
 };
 
 export type MaisonBudget = {
@@ -243,9 +247,18 @@ export async function caricaAnno(year = ANNO_CORRENTE): Promise<DatiAnno> {
     piattaforme: piattaforme.map((p) => {
       const s: Record<number, number> = {};
       for (let m = 1; m <= 12; m++) {
-        s[m] = split.find((x) => x.piattaformaId === p.id && x.month === m)?.percent ?? 0;
+        s[m] = split.find((x) => x.piattaformaId === p.id && x.month === m && x.ambito === "")?.percent ?? 0;
       }
-      return { id: p.id, nome: p.nome, colore: p.colore, ordine: p.ordine, note: p.note, split: s };
+      // Le ripartizioni per brand, raccolte per ambito.
+      const perBrand: Record<string, Record<number, number>> = {};
+      for (const x of split) {
+        if (x.piattaformaId !== p.id || x.ambito === "") continue;
+        (perBrand[x.ambito] ??= {})[x.month] = x.percent;
+      }
+      return {
+        id: p.id, nome: p.nome, colore: p.colore, ordine: p.ordine, note: p.note,
+        split: s, splitPerBrand: perBrand,
+      };
     }),
   };
 }

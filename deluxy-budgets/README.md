@@ -1101,8 +1101,25 @@ maison e per mese, IVA inclusa come il budget), catalogo Hub aggiornato (id `bud
   Orders (per maison e per mese), ma i ricavi restano **su due basi diverse** — Finance imponibile,
   Shopify IVA inclusa: il totale è dichiarato, non omogeneo. I **rimborsi parziali** sono contati
   per intero (l'importo reso non esiste nel registro ordini).
-- **Piattaforme ADV**: split **globale** d'azienda, non per singola maison; il confronto col reale
-  esiste solo nel P&L (totale), non piattaforma per piattaforma.
+- ✅ **Piattaforme ADV: la ripartizione si sceglie per brand** (23/08/2026, richiesta dell'utente:
+  «devo poter selezionare per quale brand è così»). Era il limite scritto qui sotto — split unico
+  d'azienda — ed è chiuso: in cima a `/piattaforme` c'è il selettore **Azienda · un brand per volta**,
+  e ogni brand può avere le sue percentuali applicate **al suo** budget ADV (Deluxy.it 206.606 €
+  contro i 412.125 € d'azienda). Resta aperto il confronto col reale, che esiste solo nel P&L
+  (totale) e non piattaforma per piattaforma.
+  > **Come si comporta.** Un brand che non ha una ripartizione sua **eredita quella d'azienda**, e la
+  > pagina lo dice: *«Deluxy.it non ha ancora una ripartizione sua: quelle che vedi sono le percentuali
+  > dell'azienda… Salvando, diventano sue e da lì in poi non seguono più quelle d'azienda»*. Dopo il
+  > salvataggio la scritta diventa *«Ripartizione propria di Deluxy.it»*. A database sta in
+  > `PiattaformaSplit.ambito`: **stringa vuota = azienda**, altrimenti l'id della maison — non una
+  > foreign key, perché una FK non potrebbe reggere il valore vuoto e senza quello servirebbe una riga
+  > fittizia per rappresentare «tutti». Migrazione additiva (`prisma db push`): le 36 righe esistenti
+  > sono diventate «azienda» senza perderne una, verificato prima e dopo.
+  >
+  > ⚠️ **Trappola React, evitata di un soffio**: l'editor tiene le percentuali in uno stato
+  > inizializzato **una volta sola**, e cambiando brand React riuserebbe la stessa istanza — si
+  > vedrebbero le percentuali del brand precedente sopra i numeri di quello nuovo. Serve `key={ambito}`
+  > sul componente per rimontarlo.
 - ✅ **Storico Meta in Marketing: caricato** (verificato il 09/08, il 17/08 e il 21/08/2026 — copertura
   233 giorni su 233, Marketing spiega l'**85%** delle uscite ADV contro il 46% del 28/07). Resta una
   coda: **`flowers/meta_ads` sta a 191 giorni su 233** e **`cake/meta_ads` a 196** — nei giorni scoperti

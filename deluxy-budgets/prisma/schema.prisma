@@ -129,10 +129,16 @@ model PiattaformaSplit {
   year          Int
   month         Int
   percent       Float          @default(0)
+  // Per quale brand vale questa ripartizione. Stringa vuota = **azienda**, cioè
+  // la ripartizione predefinita che vale per chi non ne ha una sua. È un id di
+  // Maison ma **non una relazione**: una foreign key non potrebbe reggere il
+  // valore vuoto, e senza il valore vuoto servirebbe una riga fittizia per
+  // rappresentare «tutti».
+  ambito        String         @default("")
   piattaforma   PiattaformaAdv @relation(fields: [piattaformaId], references: [id], onDelete: Cascade)
   piattaformaId String
 
-  @@unique([year, piattaformaId, month])
+  @@unique([year, piattaformaId, month, ambito])
 }
 
 // Linee del team commerciale (Affiliazioni, Consegne Corporate, Catering & Eventi…)

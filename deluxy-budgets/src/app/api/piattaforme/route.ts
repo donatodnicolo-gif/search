@@ -16,14 +16,19 @@ export async function PUT(req: Request) {
   const voci = Array.isArray(body?.split) ? body.split : null;
   if (!year || !voci) return NextResponse.json({ error: "payload non valido" }, { status: 400 });
 
+  // Per quale brand vale questa ripartizione: stringa vuota = azienda, cioe
+  // quella predefinita. Arriva una volta sola nel corpo, non per riga: salvare
+  // meta ripartizione su un brand e meta su un altro non e un gesto che esiste.
+  const ambito = String(body?.ambito ?? "");
+
   for (const v of voci) {
     const piattaformaId = String(v?.piattaformaId ?? "");
     const month = Number(v?.month);
     if (!piattaformaId || month < 1 || month > 12) continue;
     await prisma.piattaformaSplit.upsert({
-      where: { year_piattaformaId_month: { year, piattaformaId, month } },
+      where: { year_piattaformaId_month_ambito: { year, piattaformaId, month, ambito } },
       update: { percent: percent(v.percent) },
-      create: { year, piattaformaId, month, percent: percent(v.percent) },
+      create: { year, piattaformaId, month, ambito, percent: percent(v.percent) },
     });
   }
   return NextResponse.json({ ok: true });

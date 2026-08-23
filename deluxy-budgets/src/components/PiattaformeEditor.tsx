@@ -9,6 +9,9 @@ type Piattaforma = {
   nome: string;
   colore: string | null;
   split: Record<number, number>;
+  // Vero quando questa ripartizione e scritta per questo brand; falso quando e
+  // ereditata da quella d azienda.
+  propria: boolean;
 };
 
 const COLORI = [
@@ -22,10 +25,13 @@ const COLORI = [
 
 export function PiattaformeEditor({
   year,
+  ambito,
   budgetMese,
   piattaforme,
 }: {
   year: number;
+  // Per quale brand si sta scrivendo: stringa vuota = azienda.
+  ambito: string;
   budgetMese: number[]; // budget ADV per mese, indice 0..11
   piattaforme: Piattaforma[];
 }) {
@@ -69,10 +75,16 @@ export function PiattaformeEditor({
     const res = await fetch("/api/piattaforme", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ year, split }),
+      body: JSON.stringify({ year, ambito, split }),
     });
     setSalvo(false);
-    setEsito(res.ok ? "Ripartizione salvata." : "Salvataggio non riuscito, riprovare.");
+    setEsito(
+      res.ok
+        ? ambito
+          ? "Ripartizione salvata per questo brand: da ora non segue piu quella d azienda."
+          : "Ripartizione d azienda salvata."
+        : "Salvataggio non riuscito, riprovare."
+    );
     if (res.ok) router.refresh();
   }
 
