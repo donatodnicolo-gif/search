@@ -71,7 +71,7 @@ interface ProductRow {
           <label class="fld"><span>{{ 'deliveryForm.field.partner' | translate }} *</span>
             <select class="field" name="partnerId" [(ngModel)]="model.partnerId" required>
               <option value="">{{ 'deliveryForm.placeholder.selectPartner' | translate }}</option>
-              @for (p of filteredPartners(); track p.id) { <option [value]="p.id">{{ p.insegna }}</option> }
+              @for (p of partnerOptions(); track p.id) { <option [value]="p.id">{{ p.insegna }}</option> }
             </select>
             @if (model.serviceTypeId && filteredPartners().length === 0) { <span class="slot-hint warn">{{ 'deliveryForm.hint.noPartners' | translate }}</span> }
           </label>
@@ -136,7 +136,7 @@ interface ProductRow {
           <label class="fld"><span>{{ 'deliveryForm.field.valet' | translate }}</span>
             <select class="field" name="valetId" [(ngModel)]="model.valetId">
               <option value="">{{ 'common.notAssigned' | translate }}</option>
-              @for (v of filteredValets(); track v.id) { <option [value]="v.id">{{ v.lastName }} {{ v.firstName }}</option> }
+              @for (v of valetOptions(); track v.id) { <option [value]="v.id">{{ v.lastName }} {{ v.firstName }}</option> }
             </select></label>
           <label class="fld"><span>{{ 'deliveryForm.field.status' | translate }}</span>
             <select class="field" name="status" [(ngModel)]="model.status">
@@ -525,6 +525,21 @@ export class DeliveryFormComponent implements AfterViewInit {
 
   constructor() {
     const api = environment.apiUrl;
+
+    // ⚠️ In MODIFICA la consegna si chiede PER PRIMA. E' una riga sola e torna
+    // subito, quindi il form si riempie mentre i cataloghi stanno ancora
+    // arrivando; chiedendola per ultima (com'era) la pagina restava vuota per
+    // secondi, perche' davanti c'erano 21.887 prodotti e 4.513 clienti.
+    const idModifica = this.route.snapshot.paramMap.get('id');
+    if (idModifica) {
+      this.editId.set(idModifica);
+      this.http.get<Record<string, unknown>>(`${api}/deliveries/${idModifica}`).subscribe({
+        next: (d) => this.prefill(d),
+        error: (err) =>
+          this.error.set(err?.error?.message ?? this.translate.instant('common.loadError')),
+      });
+    }
+
     this.http.get<Partner[]>(`${api}/partners`).subscribe((d) => this.partners.set(d));
     this.http.get<ServiceType[]>(`${api}/service-types`).subscribe((d) => this.serviceTypes.set(d));
     this.http.get<ValetRef[]>(`${api}/valets`).subscribe((d) => this.valets.set(d as ValetRef[]));
@@ -541,17 +556,6 @@ export class DeliveryFormComponent implements AfterViewInit {
       .get<{ items: Customer[] }>(`${api}/customers`, { params: { pageSize: 500 } })
       .subscribe((d) => this.customers.set(d.items ?? []));
     this.http.get<Province[]>(`${api}/provinces`).subscribe((d) => this.provinces.set(d));
-
-    // Modalita' modifica: /deliveries/:id/edit
-    const id = this.route.snapshot.paramMap.get('id');
-    if (id) {
-      this.editId.set(id);
-      this.http.get<Record<string, unknown>>(`${api}/deliveries/${id}`).subscribe({
-        next: (d) => this.prefill(d),
-        error: (err) =>
-          this.error.set(err?.error?.message ?? this.translate.instant('common.loadError')),
-      });
-    }
   }
 
   /** Riempie il form con la consegna esistente. */
@@ -705,15 +709,56 @@ export class DeliveryFormComponent implements AfterViewInit {
     return detectProvince(address, this.provinces());
   }
 
-  /** Azzera partner/valet se non più presenti nelle liste filtrate. */
+  /**
+   * Azzera partner/valet se non più presenti nelle liste filtrate.
+   *
+   * ⚠️ Due guardie, entrambe per bug veri:
+   *  1. se la lista di partenza e' ANCORA VUOTA, non e' che il partner non
+   *     esista: e' che la chiamata non e' tornata. Azzerare qui cancellava la
+   *     selezione appena caricata dal prefill;
+   *  2. in MODIFICA il valore arriva da una consegna salvata: e' un dato vero,
+   *     non una scelta dell'utente. Se il filtro per provincia non lo include
+   *     (i partner importati dal legacy non hanno province assegnate) va
+   *     comunque tenuto, altrimenti aprire e salvare una consegna le toglie il
+   *     partner senza dire niente.
+   */
   private syncSelections(): void {
-    if (this.model.partnerId && !this.filteredPartners().some((p) => p.id === this.model.partnerId)) {
+    const inModifica = !!this.editId();
+    if (
+      this.model.partnerId && this.partners().length && !inModifica
+      && !this.filteredPartners().some((p) => p.id === this.model.partnerId)
+    ) {
       this.model.partnerId = '';
     }
-    if (this.model.valetId && !this.filteredValets().some((v) => v.id === this.model.valetId)) {
+    if (
+      this.model.valetId && this.valets().length && !inModifica
+      && !this.filteredValets().some((v) => v.id === this.model.valetId)
+    ) {
       this.model.valetId = '';
     }
   }
+
+  /**
+   * Partner da mostrare nella tendina: quelli filtrati, piu' — se manca — quello
+   * gia' salvato sulla consegna. Senza, in modifica la tendina non contiene il
+   * valore selezionato e appare vuota.
+   */
+  readonly partnerOptions = computed(() => {
+    const lista = this.filteredPartners();
+    const scelto = this.model.partnerId;
+    if (!scelto || lista.some((p) => p.id === scelto)) return lista;
+    const mancante = this.partners().find((p) => p.id === scelto);
+    return mancante ? [mancante, ...lista] : lista;
+  });
+
+  /** Stesso ragionamento per il valet. */
+  readonly valetOptions = computed(() => {
+    const lista = this.filteredValets();
+    const scelto = this.model.valetId;
+    if (!scelto || lista.some((v) => v.id === scelto)) return lista;
+    const mancante = this.valets().find((v) => v.id === scelto);
+    return mancante ? [mancante, ...lista] : lista;
+  });
 
   addProduct(): void { this.productRows.push({ productId: '', quantity: 1, flexiblePrice: false, price: null }); }
   removeProduct(i: number): void { this.productRows.splice(i, 1); }

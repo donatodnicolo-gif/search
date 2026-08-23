@@ -267,7 +267,15 @@
       "timed": "Disponibile in fascia",
       "tag": "Non disp."
     },
-    "wd": { "mon": "Lun", "tue": "Mar", "wed": "Mer", "thu": "Gio", "fri": "Ven", "sat": "Sab", "sun": "Dom" }
+    "wd": {
+      "mon": "Lun",
+      "tue": "Mar",
+      "wed": "Mer",
+      "thu": "Gio",
+      "fri": "Ven",
+      "sat": "Sab",
+      "sun": "Dom"
+    }
   },
   "payments": {
     "title": "Pagamenti",
@@ -500,7 +508,13 @@
       "title": "Additional valet +/-",
       "hint": "Plus o minus sulla paga del valet per la consegna #{{code}}. Usa un valore negativo per il minus.",
       "amount": "Importo (€)"
-    }
+    },
+    "quick": {
+      "today": "Oggi",
+      "tomorrow": "Domani",
+      "all": "Tutte"
+    },
+    "suspectDate": "Data fuori dall’intervallo plausibile: era già così nel database originario (errore di battitura sull’anno), non è stata corretta per non inventare un valore."
   },
   "partners": {
     "title": "Partner",
@@ -701,7 +715,10 @@
     "empty": "Nessun corrispettivo nel periodo.",
     "total": "Totale",
     "assumption": "Formule verificate sull'app reale (fee = fee% × prezzo partner; +IVA 22%; commissione incassi 3%). Riga per consegna: manca ancora il legame Vendita↔Consegna.",
-    "tab": { "corrispettivi": "Corrispettivi", "margini": "Margini" },
+    "tab": {
+      "corrispettivi": "Corrispettivi",
+      "margini": "Margini"
+    },
     "c": {
       "status": "Stato",
       "delivery": "ID Consegna",

@@ -37,6 +37,28 @@ const SERVICE_ICONS: Record<string, string> = {
             <option [value]="key">{{ 'status.delivery.' + key | translate }}</option>
           }
         </select>
+        <!-- Scelte rapide: con 61.836 consegne in archivio, aprire la pagina
+             senza filtro significa impaginare tutto lo storico. -->
+        <div class="quick-tabs">
+          <button
+            type="button"
+            class="quick-tab"
+            [class.active]="dateFilter === oggi()"
+            (click)="vaiA(oggi())"
+          >{{ 'deliveries.quick.today' | translate }}</button>
+          <button
+            type="button"
+            class="quick-tab"
+            [class.active]="dateFilter === domani()"
+            (click)="vaiA(domani())"
+          >{{ 'deliveries.quick.tomorrow' | translate }}</button>
+          <button
+            type="button"
+            class="quick-tab"
+            [class.active]="!dateFilter"
+            (click)="vaiA('')"
+          >{{ 'deliveries.quick.all' | translate }}</button>
+        </div>
         <input
           class="field"
           type="date"
@@ -135,7 +157,12 @@ const SERVICE_ICONS: Record<string, string> = {
                   ></span>
                 </td>
                 <td class="mono">{{ d.code }}</td>
-                <td>{{ d.date | date: 'dd/MM/yyyy' }}</td>
+                <td>
+                  {{ d.date | date: 'dd/MM/yyyy' }}
+                  @if (dataSospetta(d.date)) {
+                    <span class="data-sospetta" [title]="'deliveries.suspectDate' | translate">⚠</span>
+                  }
+                </td>
                 <td>
                   <span
                     class="svc-icon"
@@ -178,7 +205,7 @@ const SERVICE_ICONS: Record<string, string> = {
                 </td>
                 <td class="actions-cell" (click)="$event.stopPropagation()">
                   @if (canEdit(d)) {
-                    <a class="act" [routerLink]="['/deliveries', d.id, 'edit']">{{ 'deliveries.actions.edit' | translate }}</a>
+                    <a class="act" [routerLink]="['/deliveries', d.id, 'edit']" target="_blank" rel="noopener">{{ 'deliveries.actions.edit' | translate }}</a>
                   }
                   @if (canManage()) {
                     <button type="button" class="act" (click)="openAssign(d)">{{ 'deliveries.actions.assign' | translate }}</button>
@@ -280,6 +307,38 @@ const SERVICE_ICONS: Record<string, string> = {
         gap: 10px;
         align-items: center;
         flex-wrap: wrap;
+      }
+      /* Scelte rapide della data: segmenti a pillola, stile design system. */
+      .quick-tabs {
+        display: inline-flex;
+        background: var(--surface-sunken, #ececef);
+        border-radius: 999px;
+        padding: 2px;
+        gap: 2px;
+      }
+      .quick-tab {
+        border: 0;
+        background: transparent;
+        border-radius: 999px;
+        padding: 6px 14px;
+        font: inherit;
+        font-size: 13px;
+        color: var(--text-secondary);
+        cursor: pointer;
+        white-space: nowrap;
+      }
+      .quick-tab:hover { color: var(--text-primary); }
+      .quick-tab.active {
+        background: var(--surface, #fff);
+        color: var(--text-primary);
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+        font-weight: 600;
+      }
+      /* Avviso su una data fuori dalla vita dell'azienda (errori del legacy). */
+      .data-sospetta {
+        margin-left: 6px;
+        color: #b8863e;
+        cursor: help;
       }
       /* Mobile: i filtri vanno a capo e occupano tutta la larghezza (niente overflow). */
       @media (max-width: 640px) {
@@ -786,10 +845,46 @@ export class DeliveriesListComponent {
     { cls: 's-archived', statuses: ['not_delivered', 'not_accepted', 'cancelled', 'delivered_time_not_approved'] },
   ];
 
+  /**
+   * "Oggi" e "domani" in formato YYYY-MM-DD, calcolati NEL BROWSER.
+   * ⚠️ Non si ricavano dal server: il runtime su Vercel e' UTC, e la mezzanotte
+   * italiana la' sono le 22:00 del giorno prima — due ore di consegne di ogni
+   * mattina finirebbero nel giorno sbagliato senza dare errore.
+   */
+  private giorno(scarto = 0): string {
+    const d = new Date();
+    d.setDate(d.getDate() + scarto);
+    const p = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  }
+  oggi(): string { return this.giorno(0); }
+  domani(): string { return this.giorno(1); }
+
+  /** Scelta rapida: stringa vuota = tutte le date. */
+  vaiA(data: string): void {
+    this.dateFilter = data;
+    this.reload();
+  }
+
+  /**
+   * Una data e' "impossibile" se cade fuori dalla vita dell'azienda.
+   * Nell'archivio importato ce ne sono 98 (anni 202, 206, 2001, 2004, 2012,
+   * 2028, 2029, 2926): sono errori di battitura sull'anno GIA' PRESENTI nel
+   * database originario, non introdotti dall'import. Si segnalano invece di
+   * correggerle a indovinare.
+   */
+  dataSospetta(iso: string | null | undefined): boolean {
+    if (!iso) return false;
+    const anno = new Date(iso).getFullYear();
+    return anno < 2019 || anno > new Date().getFullYear() + 1;
+  }
+
   constructor() {
     // Filtro data preimpostato dalla query (es. "Vai al giorno" dal calendario).
+    // Altrimenti si parte da OGGI: senza filtro la lista impagina tutto lo
+    // storico e la pagina impiega secondi ad aprirsi.
     const qDate = this.route.snapshot.queryParamMap.get('date');
-    if (qDate) this.dateFilter = qDate;
+    this.dateFilter = qDate ?? this.oggi();
     this.load();
     // Riferimenti per il pop-up "Assegna" (solo per chi può gestire)
     if (this.canManage()) {

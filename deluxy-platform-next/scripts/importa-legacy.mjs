@@ -162,6 +162,8 @@ try {
   else if (FASE === 'listini') await listini();
   else if (FASE === 'regole') await regole();
   else if (FASE === 'consegne') await consegne();
+  else if (FASE === 'catalogo') await catalogo();
+  else if (FASE === 'righe') await righeConsegna();
   else { console.log(`Fase sconosciuta: ${FASE}`); process.exit(1); }
 } finally {
   await db.$disconnect();
@@ -426,6 +428,210 @@ async function listini() {
       segna('listino valet aggiornati', daAggiornare.length);
     }
   } else segna('listino valet', perValet.size);
+}
+
+// ------------------------------------------------------- fase 6: catalogo
+
+/** Categorie, prodotti e varianti. */
+async function catalogo() {
+  // --- categorie ----------------------------------------------------------
+  const nomiPresi = new Set((await db.category.findMany({ select: { name: true } })).map((x) => x.name));
+  for (const c of leggi('product-category')) {
+    const legacyId = intero(c.id);
+    let nome = testo(c.categoryName);
+    if (!nome) { avvisi.push(`categoria ${legacyId} senza nome`); continue; }
+    // `Category.name` e' unico: se il nome si ripete si numera, invece di far
+    // fallire l'inserimento.
+    const gia = await db.category.findUnique({ where: { legacyId } });
+    if (!gia && nomiPresi.has(nome)) {
+      let n = 2; while (nomiPresi.has(`${nome} (${n})`)) n++;
+      segna('categorie con nome duplicato, numerate');
+      nome = `${nome} (${n})`;
+    }
+    nomiPresi.add(nome);
+    if (!PROVA) await salva('category', legacyId, null, {
+      name: nome, notes: testo(c.notes), aiPrompt: testo(c.aiPrompt),
+    });
+    segna('categorie');
+  }
+
+  const idCategoria = await indice('category');
+  const idPartner = await indice('partner');
+  const idUtente = await indice('user');
+
+  // --- prodotti -----------------------------------------------------------
+  // Le 6 piattaforme di vendita del legacy: ognuna ha un id prodotto e una
+  // descrizione propria. Qui diventano due JSON, invece di 12 colonne.
+  const PIATTAFORME = [
+    ['DELUXY', 'deluxyProductId', 'isDeluxyProduct', 'deluxyDescription'],
+    ['DELUXY_FLOWERS', 'flowersProductId', 'isFlowersProduct', 'flowersDescription'],
+    ['CAKEDESIGN_ME', 'cakeProductId', 'isCakeProduct', 'cakeDescription'],
+    ['BUSINESS_DELUXY', 'businessProductId', 'isBusinessProduct', 'businessDescription'],
+    ['DELUXY_EXPERIENCE', 'deluxyExperienceProductId', 'isDeluxyExperienceProduct', 'deluxyExperienceDescription'],
+    ['DELUXY_DOT_COM', 'deluxyDotComProductId', 'isDeluxyDotComProduct', 'deluxyDotComDescription'],
+  ];
+
+  const gia = new Set((await db.product.findMany({
+    where: { legacyId: { not: null } }, select: { legacyId: true },
+  })).map((x) => x.legacyId));
+
+  let blocco = [], scritti = 0;
+  const scarica = async () => {
+    if (!blocco.length) return;
+    await db.product.createMany({ data: blocco, skipDuplicates: true });
+    scritti += blocco.length; blocco = [];
+    process.stdout.write(`\r  prodotti: ${scritti}`);
+  };
+
+  for (const p of leggi('product')) {
+    const legacyId = intero(p.id);
+    if (gia.has(legacyId)) { segna('prodotti gia presenti'); continue; }
+    const nome = testo(p.name);
+    if (!nome) { segna('prodotti saltati (senza nome)'); avvisi.push(`prodotto ${legacyId} senza nome`); continue; }
+
+    const attive = {}, descrizioni = {};
+    for (const [chiave, colId, colFlag, colDesc] of PIATTAFORME) {
+      if (bool(p[colFlag])) attive[chiave] = testo(p[colId]) ?? true;
+      if (testo(p[colDesc])) descrizioni[chiave] = testo(p[colDesc]);
+    }
+
+    blocco.push({
+      legacyId, name: nome,
+      description: testo(p.description),
+      shortDesc: testo(p.productAdvantageDesc),
+      price: numero(p.price) ?? 0,
+      publicPrice: numero(p.shopifyPrice),
+      sku: testo(p.sku),
+      prepDays: intero(p.ggDispMin),
+      line: testo(p.line),
+      imageUrl: testo(p.image),
+      // Nel legacy il tipo e' fatto di due flag, non di un valore unico.
+      type: bool(p.isSuperProduct) ? 'SUPERPRODOTTO' : (bool(p.uniqueProduct) ? 'UNICO' : 'NON_UNICO'),
+      partnerId: idPartner.get(intero(p.partnerId)) ?? null,
+      categoryId: idCategoria.get(intero(p.productCategory)) ?? null,
+      visibleToOtherPartners: bool(p.visibleToOtherPartners) ?? false,
+      notEditable: bool(p.unEditable) ?? false,
+      controlStock: bool(p.controlStock) ?? false,
+      stock: intero(p.stock),
+      notPhysical: bool(p.notPhysical) ?? false,
+      isSuperProvince: bool(p.isSuperProvinceProduct) ?? false,
+      useAlternateName: bool(p.isAlternateProductName) ?? false,
+      alternateName: testo(p.alternateProductName),
+      hasVariants: bool(p.productHasVariants) ?? false,
+      optionTitle: testo(p.productOptionTitle),
+      approved: bool(p.adminApproval) ?? false,
+      approvalEmailSent: bool(p.approvalEmailSent) ?? false,
+      platforms: Object.keys(attive).length ? JSON.stringify(Object.keys(attive)) : null,
+      platformProductIds: Object.keys(attive).length ? JSON.stringify(attive) : null,
+      platformDescriptions: Object.keys(descrizioni).length ? JSON.stringify(descrizioni) : null,
+      priceHistory: testo(p.priceHistory),
+      categoryMetaFields: testo(p.productCategoryMetaFields),
+      reference: testo(p.productRefrence),
+      legacyProvince: testo(p.productProvince),
+      availability: testo(p.productAvailability),
+      createdFrom: testo(p.creationSource),
+      active: testo(p.productStatus) !== '0',
+      deletedAt: data(p.deletedAt),
+      archived: !!data(p.deletedAt),
+      archivedAt: data(p.deletedAt),
+      createdAt: data(p.createdAt) ?? undefined,
+      updatedAt: data(p.updatedAt) ?? undefined,
+    });
+    segna('prodotti');
+    if (blocco.length >= 500) await scarica();
+  }
+  await scarica();
+  if (scritti) process.stdout.write('\n');
+
+  // --- varianti -----------------------------------------------------------
+  const idProdotto = await indice('product');
+  const giaVar = new Set((await db.productVariant.findMany({
+    where: { legacyId: { not: null } }, select: { legacyId: true },
+  })).map((x) => x.legacyId));
+
+  let bv = [], sv = 0;
+  const scaricaVar = async () => {
+    if (!bv.length) return;
+    await db.productVariant.createMany({ data: bv, skipDuplicates: true });
+    sv += bv.length; bv = [];
+    process.stdout.write(`\r  varianti: ${sv}`);
+  };
+  for (const v of leggi('products-variants')) {
+    const legacyId = intero(v.id);
+    if (giaVar.has(legacyId)) { segna('varianti gia presenti'); continue; }
+    const prodotto = idProdotto.get(intero(v.productId));
+    if (!prodotto) { segna('varianti orfane (prodotto assente)'); continue; }
+    bv.push({
+      legacyId, productId: prodotto,
+      name: testo(v.variantName) ?? 'Non indicato',
+      price: numero(v.variantPrice),
+      publicPrice: numero(v.variantShopifyPrice),
+      sku: testo(v.variantSku),
+      prepDays: intero(v.variantGgDispMin),
+      controlStock: bool(v.controlVariantStock) ?? false,
+      stock: intero(v.variantInStock),
+      active: !data(v.deletedAt),
+    });
+    segna('varianti');
+    if (bv.length >= 500) await scaricaVar();
+  }
+  await scaricaVar();
+  if (sv) process.stdout.write('\n');
+}
+
+// --------------------------------------------- fase 7: righe di consegna
+
+/** Le 62.800 righe prodotto delle consegne. */
+async function righeConsegna() {
+  const idConsegna = await indice('delivery');
+  const idProdotto = await indice('product');
+  const idVariante = await indice('productVariant');
+  const gia = new Set((await db.deliveryProduct.findMany({
+    where: { legacyId: { not: null } }, select: { legacyId: true },
+  })).map((x) => x.legacyId));
+  console.log(`righe gia' importate: ${gia.size}`);
+
+  let blocco = [], scritte = 0, lette = 0;
+  const scarica = async () => {
+    if (!blocco.length) return;
+    await db.deliveryProduct.createMany({ data: blocco, skipDuplicates: true });
+    scritte += blocco.length; blocco = [];
+    process.stdout.write(`\r  lette ${lette} · scritte ${scritte}`);
+  };
+
+  await perRiga(path.join(TABELLE, 'delivery-product.csv'), async (r) => {
+    lette++;
+    const legacyId = intero(r.id);
+    if (gia.has(legacyId)) { segna('gia presenti'); return; }
+    // ⚠️ Il 5% delle righe non ha una consegna: nel nuovo schema `deliveryId`
+    // e' obbligatorio, quindi si saltano e si contano.
+    const consegna = idConsegna.get(intero(r.deliveryId));
+    if (!consegna) { segna('SALTATE: consegna assente'); return; }
+    const prodotto = idProdotto.get(intero(r.productId));
+    if (!prodotto) { segna('SALTATE: prodotto assente'); return; }
+    blocco.push({
+      legacyId, deliveryId: consegna, productId: prodotto,
+      productVariantId: idVariante.get(intero(r.productVariantId)) ?? null,
+      // `quantity` nel legacy e' decimale ("1.00"): qui e' un intero.
+      quantity: Math.max(1, Math.round(numero(r.quantity) ?? 1)),
+      price: numero(r.price),
+      withoutCommission: bool(r.deliveryWithoutCommision) ?? false,
+      length: numero(r.length), width: numero(r.width),
+      height: numero(r.height), weight: numero(r.weight),
+      deletedAt: data(r.deletedAt),
+    });
+    segna('righe di consegna');
+    if (blocco.length >= 500) await scarica();
+  });
+  await scarica();
+  if (scritte) process.stdout.write('\n');
+}
+
+/** Indice legacyId -> id nuovo, per un modello qualsiasi. */
+async function indice(modello) {
+  return new Map((await db[modello].findMany({
+    where: { legacyId: { not: null } }, select: { id: true, legacyId: true },
+  })).map((x) => [x.legacyId, x.id]));
 }
 
 // ------------------------------------------------------- fase 5: consegne

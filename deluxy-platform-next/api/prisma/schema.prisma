@@ -500,6 +500,22 @@ model Product {
   imageUrl                String? // immagine principale
   images                  String? // JSON array di URL immagine (galleria/Shopify)
   platformDescriptions    String? // JSON { piattaforma: descrizione } per SELECT PLATFORMS
+  /// JSON { piattaforma: idProdotto } sulle 6 piattaforme di vendita del legacy.
+  platformProductIds      String?
+  /// Storico prezzi del legacy (JSON).
+  priceHistory            String?
+  /// Campi extra della categoria, valorizzati sul prodotto (JSON).
+  categoryMetaFields      String?
+  /// Codice di riferimento interno del legacy.
+  reference               String?
+  /// Provincia dichiarata sul prodotto nel legacy.
+  legacyProvince          String?
+  /// Disponibilita' dichiarata nel legacy.
+  availability            String?
+  /// Origine della creazione (creationSource).
+  createdFrom             String?
+  approvalEmailSent       Boolean            @default(false)
+  deletedAt               DateTime?
   approved                Boolean            @default(false)
   type                    String // UNICO | NON_UNICO | SUPERPRODOTTO
   partnerId               String?
@@ -543,6 +559,8 @@ model Product {
 
 // Variante di prodotto (es. taglia S/M/L), con proprio prezzo e SKU
 model ProductVariant {
+  /// id nel database originario MySQL
+  legacyId     Int?    @unique
   id           String  @id @default(cuid())
   productId    String
   name         String // valore opzione (es. "Media")
@@ -555,6 +573,7 @@ model ProductVariant {
   stock        Int? // giacenza variante
   active       Boolean @default(true)
   product      Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  deliveryProducts DeliveryProduct[]
 }
 
 // Associazione prodotto <-> partner aggiuntivo (PRODUCTS PARTNER)
@@ -818,6 +837,17 @@ model DeliveryProduct {
   deliveryId     String
   productId      String
   quantity       Int      @default(1)
+  /// Variante scelta in questa riga di consegna (nel legacy 985 varianti diverse).
+  productVariantId String?
+  productVariant ProductVariant? @relation(fields: [productVariantId], references: [id])
+  /// Riga esclusa dal calcolo commissioni.
+  withoutCommission Boolean @default(false)
+  /// Misure dichiarate nel legacy (valorizzate sul 6% delle righe, valori 0/1).
+  length         Float?
+  width          Float?
+  height         Float?
+  weight         Float?
+  deletedAt      DateTime?
   price          Float? // prezzo del prodotto in questa consegna (override se flessibile)
   flexiblePrice  Boolean  @default(false) // consente la modifica del prezzo prodotto
   fieldValues    String? // JSON {nomeCampo: valore} per i ProductField

@@ -267,7 +267,15 @@
       "timed": "Available in a time range",
       "tag": "Off"
     },
-    "wd": { "mon": "Mon", "tue": "Tue", "wed": "Wed", "thu": "Thu", "fri": "Fri", "sat": "Sat", "sun": "Sun" }
+    "wd": {
+      "mon": "Mon",
+      "tue": "Tue",
+      "wed": "Wed",
+      "thu": "Thu",
+      "fri": "Fri",
+      "sat": "Sat",
+      "sun": "Sun"
+    }
   },
   "payments": {
     "title": "Payments",
@@ -500,7 +508,13 @@
       "title": "Additional valet +/-",
       "hint": "Plus or minus on the valet's pay for delivery #{{code}}. Use a negative value for a minus.",
       "amount": "Amount (€)"
-    }
+    },
+    "quick": {
+      "today": "Today",
+      "tomorrow": "Tomorrow",
+      "all": "All"
+    },
+    "suspectDate": "Date outside the plausible range: it was already like this in the original database (year typo); it has not been corrected so as not to invent a value."
   },
   "partners": {
     "title": "Partners",
@@ -701,7 +715,10 @@
     "empty": "No takings in this period.",
     "total": "Total",
     "assumption": "Formulas verified against the real app (fee = fee% × partner price; +VAT 22%; collection commission 3%). Row per delivery: the Sale↔Delivery link is still missing.",
-    "tab": { "corrispettivi": "Takings", "margini": "Margins" },
+    "tab": {
+      "corrispettivi": "Takings",
+      "margini": "Margins"
+    },
     "c": {
       "status": "Status",
       "delivery": "Delivery ID",
