@@ -108,6 +108,70 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
             </dl>
           </section>
 
+          <!-- Riconciliazione col registro Anagrafiche -->
+          <section class="card block span-2">
+            <h2>{{ 'partnerAnagrafica.title' | translate }}</h2>
+            @if (!anagraficaCaricata()) {
+              <button type="button" class="btn btn-secondary" [disabled]="cercando()" (click)="confronta()">
+                {{ (cercando() ? 'common.loading' : 'partnerAnagrafica.check') | translate }}
+              </button>
+              <p class="hint">{{ 'partnerAnagrafica.hint' | translate }}</p>
+            } @else {
+              @if (anagrafica(); as a) {
+              <p class="stato">
+                @switch (a.stato) {
+                  @case ('collegato') { <span class="badge ok">{{ 'partnerAnagrafica.linked' | translate }}</span> }
+                  @case ('trovato-non-collegato') { <span class="badge warn">{{ 'partnerAnagrafica.foundNotLinked' | translate }}</span> }
+                  @case ('ambiguo') { <span class="badge warn">{{ 'partnerAnagrafica.ambiguous' | translate }}</span> }
+                  @default { <span class="badge">{{ 'partnerAnagrafica.notFound' | translate }}</span> }
+                }
+                @if (a.criterio) { <span class="criterio">{{ 'partnerAnagrafica.matchedBy' | translate:{ criterio: a.criterio } }}</span> }
+              </p>
+
+              @if (a.candidati?.length) {
+                <p class="hint">{{ 'partnerAnagrafica.candidates' | translate }}</p>
+                <ul class="candidati">
+                  @for (c of a.candidati; track c.id) { <li>{{ c.nome }} @if (c.pIva) { <span class="mono">· {{ c.pIva }}</span> } </li> }
+                </ul>
+              }
+
+              @if (a.differenze?.length) {
+                <table class="mini">
+                  <thead><tr>
+                    <th>{{ 'partnerAnagrafica.field' | translate }}</th>
+                    <th>{{ 'partnerAnagrafica.here' | translate }}</th>
+                    <th>{{ 'partnerAnagrafica.registry' | translate }}</th>
+                  </tr></thead>
+                  <tbody>
+                    @for (d of a.differenze; track d.campo) {
+                      <tr>
+                        <td>{{ d.campo }}</td>
+                        <td>{{ d.piattaforma ?? '—' }}</td>
+                        <td class="reg">{{ d.registro ?? '—' }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              } @else if (a.anagrafica) {
+                <p class="hint ok">{{ 'partnerAnagrafica.identical' | translate }}</p>
+              }
+
+              @if (canManage()) {
+                <div class="azioni">
+                  <button type="button" class="btn btn-primary" [disabled]="sincronizzando()" (click)="sincronizza()">
+                    {{ (sincronizzando() ? 'common.saving' : 'partnerAnagrafica.push') | translate }}
+                  </button>
+                  <button type="button" class="btn btn-secondary" [disabled]="cercando()" (click)="confronta()">
+                    {{ 'common.refresh' | translate }}
+                  </button>
+                  @if (esitoSync(); as e) { <span class="esito" [class.ok]="e.ok">{{ e.messaggio }}</span> }
+                </div>
+                <p class="hint">{{ 'partnerAnagrafica.pushHint' | translate }}</p>
+              }
+              }
+            }
+          </section>
+
           <section class="card block">
             <h2>{{ 'partnerForm.payments.title' | translate }}</h2>
             <dl>
@@ -245,6 +309,17 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
   `,
   styles: [
     `
+      .stato { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; }
+      .badge { padding: 3px 10px; border-radius: 999px; font-size: 12.5px; background: var(--surface-sunken, #ececef); }
+      .badge.ok { background: rgba(36,138,61,.12); color: #1a7f37; }
+      .badge.warn { background: rgba(184,150,62,.14); color: #8a6d1f; }
+      .criterio { font-size: 12.5px; color: var(--text-tertiary); }
+      .candidati { margin: 6px 0 0 18px; font-size: 13px; }
+      .azioni { display: flex; align-items: center; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+      .esito { font-size: 13px; color: var(--red, #d70015); }
+      .esito.ok { color: #1a7f37; }
+      .reg { color: var(--text-secondary); }
+      .hint.ok { color: #1a7f37; }
       .form-head { margin-bottom: 24px; }
       .back { font-size: 13px; color: var(--text-secondary); }
       .back:hover { color: var(--text); }
@@ -302,6 +377,67 @@ export class PartnerDetailComponent {
   private readonly http = inject(HttpClient);
   private readonly route = inject(ActivatedRoute);
   private readonly auth = inject(AuthService);
+
+  // ---- Riconciliazione col registro Anagrafiche ----
+  readonly anagrafica = signal<{
+    stato: string; criterio: string | null;
+    anagrafica: { id: string; nome: string; platformId: string | null } | null;
+    differenze: { campo: string; piattaforma: string | null; registro: string | null }[];
+    candidati: { id: string; nome: string; pIva?: string | null }[];
+  } | null>(null);
+  readonly anagraficaCaricata = signal(false);
+  readonly cercando = signal(false);
+  readonly sincronizzando = signal(false);
+  readonly esitoSync = signal<{ ok: boolean; messaggio: string } | null>(null);
+
+  /** Solo chi gestisce può scrivere sul registro. */
+  canManage(): boolean {
+    const r = this.auth.user()?.role;
+    return r === 'ADMIN' || r === 'OPERATION';
+  }
+
+  /**
+   * Il confronto NON parte da solo all'apertura della scheda: interroga un
+   * servizio esterno e può metterci qualche secondo. Si chiede quando serve.
+   */
+  confronta(): void {
+    const p = this.partner();
+    if (!p) return;
+    this.cercando.set(true);
+    this.esitoSync.set(null);
+    this.http.get<any>(`${environment.apiUrl}/partners/${p.id}/anagrafica`).subscribe({
+      next: (r) => { this.cercando.set(false); this.anagrafica.set(r); this.anagraficaCaricata.set(true); },
+      error: (e) => {
+        this.cercando.set(false);
+        this.anagraficaCaricata.set(true);
+        this.anagrafica.set({ stato: 'errore', criterio: null, anagrafica: null, differenze: [], candidati: [] });
+        this.esitoSync.set({ ok: false, messaggio: e?.error?.message ?? 'Registro non raggiungibile' });
+      },
+    });
+  }
+
+  /** Manda il partner al registro e ATTENDE l'esito, poi rilegge il confronto. */
+  sincronizza(): void {
+    const p = this.partner();
+    if (!p) return;
+    this.sincronizzando.set(true);
+    this.esitoSync.set(null);
+    this.http.post<{ ok: boolean; messaggio: string }>(
+      `${environment.apiUrl}/partners/${p.id}/anagrafica/sincronizza`, {},
+    ).subscribe({
+      next: (r) => {
+        this.sincronizzando.set(false);
+        this.esitoSync.set(r);
+        // Si rilegge: dopo l'invio il collegamento dovrebbe risultare fatto, e
+        // mostrare ancora lo stato vecchio farebbe credere che non sia andata.
+        if (r.ok) this.confronta();
+      },
+      error: (e) => {
+        this.sincronizzando.set(false);
+        this.esitoSync.set({ ok: false, messaggio: e?.error?.message ?? 'Invio non riuscito' });
+      },
+    });
+  }
 
   readonly partner = signal<PartnerDetail | null>(null);
   readonly carnetRules = signal<CarnetRule[]>([]);

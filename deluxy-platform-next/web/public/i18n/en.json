@@ -113,7 +113,7 @@
       "url": "Registry address",
       "key": "API key",
       "test": "Test connection",
-      "hint": "A key with WRITE access on partners is required: read-only shows differences but cannot link anything."
+      "hint": "A key with WRITE access is required: read-only shows differences but cannot link anything."
     }
   },
   "role": {
@@ -1513,5 +1513,22 @@
     "share": "Share",
     "shareHint": "Make the view visible to the whole team",
     "sharedHint": "View shared by the team"
+  },
+  "partnerAnagrafica": {
+    "title": "Partner registry",
+    "check": "Compare with registry",
+    "hint": "The comparison queries the external registry: it runs only on request.",
+    "linked": "Linked",
+    "foundNotLinked": "Found but not linked",
+    "ambiguous": "Several possible matches",
+    "notFound": "No match",
+    "matchedBy": "matched by {{criterio}}",
+    "candidates": "No automatic choice is made: here are the candidates.",
+    "field": "Field",
+    "here": "On the platform",
+    "registry": "In the registry",
+    "identical": "No differences: the two records match.",
+    "push": "Send to registry",
+    "pushHint": "Sending overwrites the registry fields with the platform values and saves the link."
   }
 }

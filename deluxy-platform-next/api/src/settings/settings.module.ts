@@ -91,13 +91,19 @@ export class SettingsService {
       if (!res.ok) {
         return { esito: 'irraggiungibile', url, messaggio: `Il registro risponde HTTP ${res.status}.` };
       }
-      const body = (await res.json()) as { total?: number; items?: unknown[] };
-      const n = body.total ?? body.items?.length ?? 0;
+      // ⚠️ Il registro risponde in ITALIANO: `totale` e `dati`, non `total` e
+      // `items`. Leggendo i nomi inglesi la prova diceva «0 partner attivi»
+      // mentre il registro ne ha 51: uno zero che sembrava un problema di dati
+      // ed era un errore di lettura.
+      const body = (await res.json()) as { totale?: number; dati?: unknown[] };
+      const n = body.totale ?? body.dati?.length ?? 0;
       return {
         esito: 'ok', url, partnerTrovati: n,
         messaggio: `Collegato: il registro riporta ${n} partner attivi. `
-          + 'Verificare che la chiave abbia anche la scrittura sui partner, '
-          + 'altrimenti il collegamento non potrà essere salvato.',
+          // ⚠️ Verificato leggendo il codice del registro: il permesso che conta
+          // è `scrittura`. La colonna `scritturaPartner` esiste nel database ma
+          // NON è letta da nessuna parte, quindi non va indicata come requisito.
+          + 'Con una chiave di sola lettura si vedono le differenze ma non si può collegare.',
       };
     } catch (err) {
       return { esito: 'irraggiungibile', url, messaggio: `Registro non raggiungibile: ${(err as Error).message}` };

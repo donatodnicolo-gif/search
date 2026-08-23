@@ -110,6 +110,78 @@ export class AnagraficheSyncService {
   }
 
   /**
+   * Cerca nel registro il record che corrisponde a un partner della piattaforma.
+   *
+   * La cascata segue quella che il registro usa per l'upsert, dalla piu' certa
+   * alla piu' incerta: `platformId` (gia' collegato) → P.IVA → codice fiscale →
+   * email → ragione sociale/insegna. Il livello raggiunto viene restituito,
+   * perche' «trovato per P.IVA» e «trovato per nome» non danno la stessa
+   * fiducia e chi guarda deve poterlo sapere.
+   */
+  async cerca(partner: {
+    id: string; insegna: string; businessName?: string | null;
+    vatNumber?: string | null; fiscalCode?: string | null; email?: string | null;
+  }): Promise<{ trovato: AnagraficaPartner | null; criterio: string | null; candidati: AnagraficaPartner[] }> {
+    const apiKey = await this.getApiKey();
+    if (!apiKey) return { trovato: null, criterio: null, candidati: [] };
+    const base = (await this.getBaseUrl()).replace(/\/+$/, '');
+
+    const chiedi = async (query: string): Promise<AnagraficaPartner[]> => {
+      try {
+        const res = await fetch(`${base}/api/v1/partners?${query}&attivo=tutti&perPagina=20`, {
+          headers: { 'x-api-key': apiKey },
+        });
+        if (!res.ok) return [];
+        const body = (await res.json()) as { dati?: AnagraficaPartner[] };
+        return body.dati ?? [];
+      } catch { return []; }
+    };
+
+    const tentativi: [string, string][] = [
+      ['platformId', `platformId=${encodeURIComponent(partner.id)}`],
+      ...(partner.vatNumber ? [['P.IVA', `q=${encodeURIComponent(partner.vatNumber)}`] as [string, string]] : []),
+      ...(partner.fiscalCode ? [['codice fiscale', `q=${encodeURIComponent(partner.fiscalCode)}`] as [string, string]] : []),
+      ...(partner.email ? [['email', `q=${encodeURIComponent(partner.email)}`] as [string, string]] : []),
+      ...(partner.businessName ? [['ragione sociale', `q=${encodeURIComponent(partner.businessName)}`] as [string, string]] : []),
+      ['insegna', `q=${encodeURIComponent(partner.insegna)}`],
+    ];
+
+    for (const [criterio, query] of tentativi) {
+      const trovati = await chiedi(query);
+      if (trovati.length === 1) return { trovato: trovati[0], criterio, candidati: [] };
+      // Piu' di un risultato: non si sceglie a caso, si mostrano i candidati.
+      if (trovati.length > 1) return { trovato: null, criterio, candidati: trovati };
+    }
+    return { trovato: null, criterio: null, candidati: [] };
+  }
+
+  /**
+   * Manda un partner al registro e ATTENDE l'esito (a differenza di
+   * `sincronizza`, che e' fire-and-forget). Serve al bottone di collegamento:
+   * l'utente deve sapere se ha funzionato.
+   */
+  async sincronizzaOra(partner: PartnerPiattaforma): Promise<{ ok: boolean; stato: number; messaggio: string }> {
+    const apiKey = await this.getApiKey();
+    if (!apiKey) return { ok: false, stato: 0, messaggio: 'Chiave del registro non configurata.' };
+    const base = (await this.getBaseUrl()).replace(/\/+$/, '');
+    try {
+      const res = await fetch(`${base}/api/v1/partners`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
+        body: JSON.stringify(this.corpo(partner)),
+      });
+      const testo = await res.text();
+      if (res.status === 403) {
+        return { ok: false, stato: 403, messaggio: 'Il registro rifiuta la scrittura: la chiave è di sola lettura.' };
+      }
+      if (!res.ok) return { ok: false, stato: res.status, messaggio: `Il registro risponde HTTP ${res.status}: ${testo.slice(0, 200)}` };
+      return { ok: true, stato: res.status, messaggio: res.status === 201 ? 'Creato nel registro.' : 'Aggiornato nel registro.' };
+    } catch (err) {
+      return { ok: false, stato: 0, messaggio: `Registro non raggiungibile: ${(err as Error).message}` };
+    }
+  }
+
+  /**
    * Legge dal registro tutti i partner ATTIVI (stato=attivo), paginando.
    * Usato dall'import massivo. Ritorna [] se la chiave manca o il registro
    * non risponde (best-effort, non solleva).
@@ -144,10 +216,14 @@ export class AnagraficheSyncService {
   }
 
   // Fire-and-forget: da chiamare senza await dopo create/update/deactivate.
-  sincronizza(partner: PartnerPiattaforma): void {
+  /**
+   * Corpo dell'upsert verso il registro. Sta in un metodo perché lo usano sia
+   * la sync silenziosa sia il collegamento con esito: se divergessero, il
+   * bottone manderebbe una cosa e il salvataggio automatico un'altra.
+   */
+  private corpo(partner: PartnerPiattaforma): Record<string, unknown> {
     const categoria = partner.categories?.[0]?.category?.name?.toUpperCase();
-
-    const body = {
+    return {
       platformId: partner.id,
       nome: partner.insegna,
       ragioneSociale: partner.businessName ?? null,
@@ -165,6 +241,10 @@ export class AnagraficheSyncService {
         ? { contatti: [{ nome: partner.contactName, telefono: partner.phone ?? null, email: partner.email ?? null }] }
         : {}),
     };
+  }
+
+  sincronizza(partner: PartnerPiattaforma): void {
+    const body = this.corpo(partner);
 
     // Risolve la chiave (env o cassaforte Hub) e poi fa l'upsert. Tutto
     // fire-and-forget: un problema di sync non blocca l'operazione partner.

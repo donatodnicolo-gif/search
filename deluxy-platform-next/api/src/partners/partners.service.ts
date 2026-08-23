@@ -94,6 +94,62 @@ export class PartnersService {
    * piattaforma (pagamenti, servizi, contratto…) non esistono in Anagrafiche:
    * restano vuoti/default e si completano poi dalla scheda partner.
    */
+  /**
+   * Confronta un partner col suo record nel registro Anagrafiche.
+   *
+   * Non decide chi ha ragione: mostra i due valori affiancati e lascia scegliere.
+   * Il registro è il golden record delle anagrafiche, ma la piattaforma è
+   * l'unica che ci scrive: dire da sola quale valore è «giusto» sarebbe una
+   * deduzione, e qui si preferisce mostrare la differenza.
+   */
+  async confrontaAnagrafica(id: string, actor?: JwtUser) {
+    const p = await this.findOne(id, actor);
+    const { trovato, criterio, candidati } = await this.anagrafiche.cerca({
+      id: p.id, insegna: p.insegna, businessName: p.businessName,
+      vatNumber: p.vatNumber, fiscalCode: p.fiscalCode, email: p.email,
+    });
+
+    if (!trovato) {
+      return {
+        stato: candidati.length ? 'ambiguo' : 'non-trovato',
+        criterio, candidati: candidati.map((c) => ({ id: c.id, nome: c.nome, pIva: c.pIva, citta: (c as any).citta })),
+        differenze: [], anagrafica: null,
+      };
+    }
+
+    // Campo per campo: quello che c'è qui contro quello che c'è là.
+    const coppie: [string, unknown, unknown][] = [
+      ['Insegna / nome', p.insegna, trovato.nome],
+      ['Ragione sociale', p.businessName, trovato.ragioneSociale],
+      ['Email', p.email, trovato.email],
+      ['P.IVA', p.vatNumber, trovato.pIva],
+      ['Codice fiscale', p.fiscalCode, trovato.codiceFiscale],
+      ['Indirizzo', p.address, trovato.indirizzo],
+      ['Telefono', p.phone, trovato.telefono],
+      // Nel registro il referente sta fra i contatti, non su un campo suo.
+      ['Referente', p.contactName, (trovato as any).contatti?.[0]?.nome ?? null],
+      ['Attivo', p.active, trovato.attivo],
+    ];
+    const norm = (v: unknown) => (v === null || v === undefined || v === '' ? null : String(v).trim());
+    const differenze = coppie
+      .map(([campo, qui, la]) => ({ campo, piattaforma: norm(qui), registro: norm(la) }))
+      .filter((d) => d.piattaforma !== d.registro);
+
+    return {
+      stato: (trovato as any).platformId === p.id ? 'collegato' : 'trovato-non-collegato',
+      criterio,
+      anagrafica: { id: trovato.id, nome: trovato.nome, platformId: (trovato as any).platformId ?? null },
+      differenze,
+      candidati: [],
+    };
+  }
+
+  /** Manda il partner al registro e riporta l'esito (non fire-and-forget). */
+  async sincronizzaAnagrafica(id: string, actor?: JwtUser) {
+    const p = await this.findOne(id, actor);
+    return this.anagrafiche.sincronizzaOra(p as any);
+  }
+
   async importFromAnagrafiche(actor?: JwtUser) {
     const attivi = await this.anagrafiche.fetchAttivi();
     const summary = { totale: attivi.length, importati: 0, saltati: 0, errori: [] as string[] };

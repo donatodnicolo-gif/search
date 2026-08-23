@@ -113,7 +113,7 @@
       "url": "Indirizzo del registro",
       "key": "Chiave API",
       "test": "Prova connessione",
-      "hint": "Serve una chiave con la SCRITTURA sui partner: con la sola lettura si vedono le differenze ma non si può collegare nulla."
+      "hint": "Serve una chiave con la SCRITTURA: con la sola lettura si vedono le differenze ma non si può collegare nulla."
     }
   },
   "role": {
@@ -1513,5 +1513,22 @@
     "share": "Condividi",
     "shareHint": "Rendi la vista visibile a tutto il team",
     "sharedHint": "Vista condivisa dal team"
+  },
+  "partnerAnagrafica": {
+    "title": "Registro Anagrafiche",
+    "check": "Confronta col registro",
+    "hint": "Il confronto interroga il registro esterno: parte solo quando lo chiedi.",
+    "linked": "Collegato",
+    "foundNotLinked": "Trovato ma non collegato",
+    "ambiguous": "Più corrispondenze possibili",
+    "notFound": "Nessuna corrispondenza",
+    "matchedBy": "trovato per {{criterio}}",
+    "candidates": "Non si sceglie automaticamente: ecco i candidati.",
+    "field": "Campo",
+    "here": "In piattaforma",
+    "registry": "Nel registro",
+    "identical": "Nessuna differenza: i due record coincidono.",
+    "push": "Invia al registro",
+    "pushHint": "L’invio sovrascrive nel registro i campi della piattaforma e salva il collegamento."
   }
 }

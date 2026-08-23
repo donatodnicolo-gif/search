@@ -47,6 +47,20 @@ export class PartnersController {
     return this.partnersService.importFromAnagrafiche(actor);
   }
 
+  @Get(':id/anagrafica')
+  @Roles(Role.ADMIN, Role.OPERATION, Role.PROJECT_MANAGER)
+  @ApiOperation({ summary: 'Confronta il partner col suo record nel registro Anagrafiche' })
+  confrontaAnagrafica(@Param('id') id: string, @CurrentUser() actor: JwtUser) {
+    return this.partnersService.confrontaAnagrafica(id, actor);
+  }
+
+  @Post(':id/anagrafica/sincronizza')
+  @Roles(Role.ADMIN, Role.OPERATION)
+  @ApiOperation({ summary: 'Manda il partner al registro Anagrafiche e attende l\'esito' })
+  sincronizzaAnagrafica(@Param('id') id: string, @CurrentUser() actor: JwtUser) {
+    return this.partnersService.sincronizzaAnagrafica(id, actor);
+  }
+
   @Put(':id')
   @Roles(Role.ADMIN, Role.OPERATION, Role.PROJECT_MANAGER, Role.PARTNER)
   @ApiOperation({ summary: 'Aggiorna partner (il partner solo i propri dati limitati)' })
