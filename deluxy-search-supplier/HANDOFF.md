@@ -679,6 +679,28 @@ non si vedono dati reali né si può diagnosticare «La Mimosa»).
    Verificato nel browser con Google finto sui 4 casi (aperto, chiuso, senza orari →
    «orari non disponibili», CLOSED_PERMANENTLY → nessun badge) e sui campi richiesti.
 
+51. **Mappa: numeri contigui, vista sui negozi visibili, e la mappa dice quanti ne mostra**
+   (19/08, domanda dell'utente: «perché allo zoom della mappa non fa vedere i vari risultati?»,
+   con 60 negozi trovati e **un solo segnaposto** a schermo).
+   - **Non era un guasto**: era il filtro **«🟢 Aperti ora»** acceso. `syncMapMarkers` toglie dalla
+     mappa i segnaposto delle schede nascoste (giusto), ma niente lo diceva e il numero rimasto era
+     il **rango nella lista completa** (`56`), quindi sembrava che la mappa avesse perso tutto.
+   - Ora i segnaposto visibili sono **rinumerati 1,2,3…** nell'ordine della lista, la stessa
+     targhetta **#N** compare sulla scheda (`aggiornaRank`) e sopra la mappa si legge
+     «📍 Sulla mappa **3** negozi su 5 — gli altri sono nascosti dai filtri o archiviati».
+     (Chiude il punto «rinumerare i marker visibili + badge #N» aperto dal 27/07.)
+   - **La vista si adatta ai soli segnaposto visibili** (+ consegna): prima `buildMap` faceva
+     `fitBounds` su TUTTI i punti, così con un negozio solo restava inquadrata un'area di 40 km con
+     un puntino in mezzo. Il `fitBounds` è passato da `buildMap` a `syncMapMarkers`, che rifà la
+     vista a ogni cambio di filtro.
+   - ⚠️ Il fit si fa **solo se `#mapWrap` è visibile**: su un contenitore nascosto `fitBounds`
+     calcola su dimensioni zero e sbaglia lo zoom (parente della trappola già nota sul pannello
+     browser non a schermo).
+   - Tolta la nota statica sotto la mappa: il testo ora è dinamico in `#mapNote`.
+   Verificato nel browser con mappa e marker finti: numerazione e targhette con tutto visibile,
+   dopo il filtro (3 su 5, numeri 1-2-3 contigui, targhette allineate), fitBounds sui soli visibili
+   (4 punti invece di 6) e nessun fit a mappa chiusa.
+
 ## Cose in sospeso
 
 - **Fornitore che Google non fa uscire** (era «La Mimosa» #2734, poi «Manfredini Fiori» #2756):
@@ -698,10 +720,6 @@ non si vedono dati reali né si può diagnosticare «La Mimosa»).
   pass code amministratore + un'email qualsiasi). Le email degli operatori vanno anche
   aggiunte come **test user** dell'app OAuth (vedi sotto).
 - **Bottone nelle altre app**: deciso il deep link, manca l'integrazione (in quale app?).
-- **Numeri della mappa (proposto, non fatto)**: l'utente chiede perché i vicini a volte hanno
-  numero più alto. Risposta: i numeri = rango in lista (per «Ordina per»: Distanza=strada, o
-  Valutazione), e i marker filtrati/archiviati lasciano buchi. Offerto ma da confermare:
-  **rinumerare solo i marker visibili (contigui) + badge «#N» anche sulla scheda**.
 - **Pulizia eventi Storico vecchi**: gli eventi «ricerca» salvati prima del fix (27/07) hanno il
   `negozio.nome` rotto (elemento invece dell'indirizzo). Offerto: pulizia una-tantum che li
   sistema/nasconde. Da confermare.
