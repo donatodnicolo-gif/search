@@ -8,7 +8,7 @@ export type VoceSidebar =
   | "home" | "analisi" | "audit" | "azioni" | "campagne" | "gruppi" | "landing" | "copy" | "keywords"
   | "meta" | "pubblici" | "ordini" | "offerte" | "drive" | "storico" | "vendite" | "budget" | "mkt" | "impostazioni"
   | "errori" | "memoria" | "incongruenze" | "cadenze" | "occasioni" | "operazioni" | "periodo" | "ricezione" | "ai"
-  | "tracciamento" | "termini" | "trend" | "esclusioni" | "estensioni";
+  | "tracciamento" | "termini" | "trend" | "esclusioni" | "estensioni" | "liste-escluse";
 
 // Sidebar di navigazione. `attiva` identifica la sezione corrente; `brandAttivo`
 // e `canaleAttivo` evidenziano il filtro con cui si sta guardando la pagina.
@@ -95,7 +95,12 @@ export async function Sidebar({
           {voce("gruppi", "/gruppi?canale=google_ads", "metriche", "Gruppi di annunci")}
           {voce("keywords", "/keywords", "analisi", "Keywords")}
           {voce("termini", "/termini", "analisi", "Parole cercate", nTermini)}
-          {voce("esclusioni", "/esclusioni", "analisi", "Liste esclusioni")}
+          {voce("esclusioni", "/esclusioni", "analisi", "Regole di esclusione")}
+          {/* ⚠️ Due voci vicine e diverse: le REGOLE trasformano una ricerca in
+              una negativa, le LISTE sono insiemi di parole da applicare a piu'
+              campagne. La prima si chiamava "Liste esclusioni" e prendeva il
+              nome della seconda. */}
+          {voce("liste-escluse", "/liste-escluse", "analisi", "Liste di parole escluse")}
           {voce("copy", "/copy", "copy", "Copy & annunci")}
           {/* ⚠️ Le estensioni si vedevano SOLO dentro la singola campagna: per
               sapere se un brand aveva i callout bisognava aprirle una per una. Il

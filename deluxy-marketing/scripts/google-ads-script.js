@@ -2192,12 +2192,120 @@ function applica(op, mira, conto) {
     };
   }
 
+  if (t === "lista_negative") return applicaListaNegative(op, mira);
   if (t === "nuovo_annuncio") return creaAnnuncio(op, mira);
   if (t === "nuova_keyword") return creaKeyword(op, mira);
   if (t === "nuova_campagna") return creaCampagna(op, conto);
   if (t === "completa_campagna") return completaCampagna(op, mira);
 
   throw new Error("Tipo di operazione non gestito: " + t);
+}
+
+/**
+ * Applica una LISTA di parole escluse a una campagna.
+ *
+ * Le stesse esclusioni valgono per quasi tutte le campagne di un brand, e
+ * ricopiarle una per una su ognuna vuol dire che correggerne UNA poi obbliga
+ * a ripassare campagna per campagna. Google ha la cosa giusta - le liste
+ * condivise - e questa funzione la usa: la lista esiste una volta, le
+ * campagne ci si agganciano.
+ *
+ * ATTENZIONE: la lista si cerca per NOME. E' la chiave che l'app e Google
+ * hanno in comune (l'id lo assegna Google), quindi rinominarla nell'app
+ * significa creare una lista NUOVA al prossimo giro, non rinominare quella
+ * la'. Sta scritto anche nel modello.
+ *
+ * ATTENZIONE: le liste vivono DENTRO UN ACCOUNT. Applicare la stessa lista
+ * alle campagne di un altro brand crea una COPIA in quell'account: da quel
+ * momento sono due liste distinte, e allinearle tocca a noi.
+ *
+ * E' ripetibile per costruzione: lista gia' presente = riusata, parole gia'
+ * dentro = saltate, campagna gia' agganciata = non riagganciata. Rilanciarla
+ * non fa danni, che e' la proprieta' che serve quando un giro si interrompe.
+ */
+function applicaListaNegative(op, mira) {
+  var par = op.parametri || {};
+  var nome = String(par.nome || "").trim();
+  if (!nome) throw new Error("Nome della lista mancante");
+  var parole = par.parole || [];
+
+  if (typeof AdsApp.negativeKeywordLists !== "function") {
+    throw new Error(
+      "Questa copia dello script non conosce le liste di esclusione: va reincollata."
+    );
+  }
+
+  // 1) La lista, cercata per nome fra quelle dell'account.
+  var lista = null;
+  var itL = AdsApp.negativeKeywordLists().get();
+  while (itL.hasNext()) {
+    var l = itL.next();
+    if (String(l.getName()).toLowerCase() === nome.toLowerCase()) { lista = l; break; }
+  }
+
+  var creata = false;
+  if (!lista) {
+    var costr = AdsApp.newNegativeKeywordListBuilder().withName(nome).build();
+    if (costr && typeof costr.isSuccessful === "function" && !costr.isSuccessful()) {
+      throw new Error(
+        "Lista \"" + nome + "\" non creata: " +
+        (costr.getErrors ? costr.getErrors().join("; ") : "Google non ha detto il motivo")
+      );
+    }
+    lista = costr && typeof costr.getResult === "function" ? costr.getResult() : null;
+    // Ripiego: se il builder non restituisce l'oggetto, la si ricerca per nome.
+    if (!lista) {
+      var itL2 = AdsApp.negativeKeywordLists().get();
+      while (itL2.hasNext()) {
+        var l2 = itL2.next();
+        if (String(l2.getName()).toLowerCase() === nome.toLowerCase()) { lista = l2; break; }
+      }
+    }
+    if (!lista) throw new Error("Lista \"" + nome + "\" creata ma non ritrovata: riprova al prossimo giro");
+    creata = true;
+  }
+
+  // 2) Le parole che mancano. Quelle che ci sono gia' non si riaggiungono:
+  //    Google terrebbe il doppione e la lista diventerebbe illeggibile.
+  var presenti = {};
+  try {
+    var itK = lista.negativeKeywords().get();
+    while (itK.hasNext()) presenti[String(itK.next().getText()).toLowerCase()] = true;
+  } catch (e) {
+    // Non aver potuto leggere le parole non e' un motivo per non aggiungerle:
+    // al massimo Google scartera' i doppioni.
+  }
+  var daAggiungere = [];
+  for (var i = 0; i < parole.length; i++) {
+    var testo = formattaMatch(parole[i].testo, parole[i].corrispondenza);
+    if (!testo) continue;
+    if (!presenti[String(testo).toLowerCase()]) daAggiungere.push(testo);
+  }
+  if (daAggiungere.length) lista.addNegativeKeywords(daAggiungere);
+
+  // 3) L'aggancio alla campagna.
+  var giaApplicata = false;
+  try {
+    var itC = mira.campagna.negativeKeywordLists().get();
+    while (itC.hasNext()) {
+      if (String(itC.next().getId()) === String(lista.getId())) { giaApplicata = true; break; }
+    }
+  } catch (e2) {
+    // Se non si e' potuto leggere, si prova ad applicarla: Google rifiuta il
+    // doppione, ed e' meglio di una campagna lasciata senza esclusioni.
+  }
+  if (!giaApplicata) mira.campagna.addNegativeKeywordList(lista);
+
+  return {
+    dettaglio:
+      "lista \"" + nome + "\" " + (creata ? "creata" : "riusata") +
+      " (" + daAggiungere.length + " parole aggiunte su " + parole.length + " mandate)" +
+      (giaApplicata
+        ? ", era gia' applicata a questa campagna"
+        : ", applicata alla campagna \"" + mira.campagna.getName() + "\""),
+    prima: giaApplicata ? "lista gia' applicata" : "lista non applicata",
+    dopo: "lista \"" + nome + "\" applicata",
+  };
 }
 
 /**

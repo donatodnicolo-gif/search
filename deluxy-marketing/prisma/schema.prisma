@@ -1299,3 +1299,45 @@ model BozzaAnnuncio {
   creataIl     DateTime @default(now())
   aggiornataIl DateTime @updatedAt
 }
+
+// ── LISTE DI PAROLE ESCLUSE, condivise fra campagne ─────────────────────────
+//
+// Una lista è un gruppo di parole per cui non vogliamo comparire, con un nome:
+// «brand concorrenti», «lavoro e carriera», «gratis e fai da te». Si scrive una
+// volta e si applica a più campagne — che è il modo in cui questo lavoro si fa
+// davvero, perché le stesse esclusioni valgono per quasi tutte le campagne di
+// un brand.
+//
+// ⚠️ SU GOOGLE ESISTONO DAVVERO, e sono la cosa giusta da usare: gli Script
+// hanno `newNegativeKeywordListBuilder()`, `list.addNegativeKeywords()` e
+// `campagna.addNegativeKeywordList()`. Non si simula copiando N negative su
+// ogni campagna: quella strada le renderebbe indipendenti, e correggerne una
+// vorrebbe dire ripassare campagna per campagna.
+//
+// ⚠️ MA VIVONO DENTRO UN ACCOUNT. Una lista di Flowers non esiste per Cake:
+// applicarla a un altro brand vuol dire crearne una COPIA in quell'account, e
+// da quel momento sono due liste che vanno tenute allineate. L'app lo dichiara
+// invece di far finta che sia una sola.
+model ListaNegative {
+  id           String              @id @default(cuid())
+  // Il nome è quello che comparirà in Google Ads: si sceglie una volta e non
+  // si cambia a cuor leggero, perché è la chiave con cui lo script la ritrova.
+  nome         String              @unique
+  descrizione  String?
+  parole       ParolaListaNegative[]
+  creataIl     DateTime            @default(now())
+  aggiornataIl DateTime            @updatedAt
+}
+
+model ParolaListaNegative {
+  id             String        @id @default(cuid())
+  listaId        String
+  lista          ListaNegative @relation(fields: [listaId], references: [id], onDelete: Cascade)
+  testo          String
+  // exact | phrase | broad — la stessa scala delle negative singole.
+  corrispondenza String        @default("exact")
+  creataIl       DateTime      @default(now())
+
+  @@unique([listaId, testo, corrispondenza])
+  @@index([listaId])
+}
