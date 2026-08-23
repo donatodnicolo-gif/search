@@ -103,6 +103,37 @@ dell'admin 200.**
   (Configurazione → Utenti) o creando un account vero e archiviando questo. **Finché non si fa,
   chiunque conosca il seed entra come amministratore.**
 
+### 🚚 In corso — import dei dati veri dal database originario (MySQL/phpMyAdmin)
+
+Deciso il 21/08: i dati di `app.deluxy.it` vanno portati nel nuovo ambiente. Il database originario è
+MySQL e si amministra da **phpMyAdmin**.
+
+**Il momento è quello giusto**: in produzione ci sono solo dati di seed, quindi è un caricamento pulito
+senza fusioni da gestire. Fra un mese non sarebbe più così.
+
+⚠️ **La difficoltà non è caricare, è ristrutturare.** I due schemi non si somigliano: `delivery` legacy
+ha **~90 colonne** contro le ~20 del nuovo, **14 stati** contro 8, e i nomi divergono (`expert` = valet,
+`group` = ruolo). Le decisioni di mappatura sono dell'utente, non tecniche.
+
+**Pronto e collaudato** (non serve altro per partire):
+
+- `legacy/` — cartella che riceve gli export, col [README](../legacy/README.md) che dice **cosa**
+  esportare (sei tabelle: `provinces`, `partner`, `expert`, `customer`, `product`, `delivery`), come
+  farlo da phpMyAdmin e perché in quell'ordine. 🔒 `.gitignore` impedisce di committare i dati veri
+  (verificato: un `.sql` lasciato lì risulta ignorato; il README no).
+- `scripts/profila-export-legacy.mjs` — legge `.sql` e `.csv` e riporta per ogni tabella righe,
+  **quanto è piena ogni colonna** e i **valori distinti** di quelle a bassa cardinalità (gli enum
+  reali). Non importa niente e non tocca nessun database.
+  Collaudato su un dump coi casi che rompono questi parser: virgole e parentesi dentro le stringhe,
+  apostrofi con escape, `NULL`, `INSERT` multiriga, virgolette raddoppiate nel CSV.
+
+**Prossimo passo, palla all'utente**: esportare le sei tabelle in `legacy/` (bastano struttura +
+poche centinaia di righe) e lanciare il profilatore. Solo dopo si scrive la mappatura campo-per-campo,
+e solo dopo ancora l'importatore.
+
+⚠️ Da valutare prima di caricare tutto: **quanto pesa il legacy**. Il cluster Pro ha 8 GB condivisi fra
+14 app.
+
 ### 🔴 Altri punti aperti
 
 - ⚠️ **`ANAGRAFICHE_API_KEY` manca ancora** su Vercel: import e sync partner restano a vuoto.
