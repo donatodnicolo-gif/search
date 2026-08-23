@@ -291,6 +291,12 @@ export function AdattaBudget({
                 const canale = CANALE_DI_PIATTAFORMA[pf.nome.toLowerCase()] ?? pf.nome.toLowerCase();
                 const v = perPiattaforma.get(canale);
                 const arrivo = (v?.speso ?? 0) + (v?.nuovoGiorno ?? 0) * giorniRimasti;
+                // ⚠️ Dove arriverebbe LASCIANDO TUTTO COM'È: è il termine di
+                // paragone che manca sempre. «A fine mese 3.630 €» non dice
+                // se è una conseguenza di quello che hai appena scritto o lo
+                // stato di fatto — e sono due letture opposte.
+                const arrivoOggi = (v?.speso ?? 0) + (v?.attualeGiorno ?? 0) * giorniRimasti;
+                const scarto = arrivo - arrivoOggi;
                 const sfora = arrivo > pf.euro;
                 return (
                   <tr key={pf.nome}>
@@ -313,6 +319,11 @@ export function AdattaBudget({
                       {euro(arrivo)}
                       <div className="cella-sub" style={{ color: sfora ? "var(--orange)" : undefined }}>
                         {sfora ? `${euro(arrivo - pf.euro)} oltre` : `${euro(pf.euro - arrivo)} di spazio`}
+                      </div>
+                      <div className="cella-sub">
+                        {Math.round(scarto) === 0
+                          ? "come adesso"
+                          : `${scarto > 0 ? "+" : ""}${euro(scarto)} rispetto a oggi`}
                       </div>
                     </td>
                   </tr>
@@ -344,6 +355,8 @@ export function AdattaBudget({
             const pf = tettoDi(canale);
             const v = perPiattaforma.get(canale);
             const arrivo = (v?.speso ?? 0) + (v?.nuovoGiorno ?? 0) * giorniRimasti;
+            const arrivoOggi = (v?.speso ?? 0) + (v?.attualeGiorno ?? 0) * giorniRimasti;
+            const scarto = arrivo - arrivoOggi;
             const sfora = pf != null && arrivo > pf.euro;
             return (
           <tbody key={canale}>
@@ -361,8 +374,22 @@ export function AdattaBudget({
                       <span style={{ color: sfora ? "var(--orange)" : "var(--green)" }}>
                         a fine mese {euro(arrivo)}
                       </span>
+                      {sfora
+                        ? ` (${euro(arrivo - pf.euro)} oltre)`
+                        : ` (${euro(pf.euro - arrivo)} di spazio)`}
                     </>
                   )}
+                  {/* Il paragone con «se non tocco niente»: senza, non si
+                      capisce se quel numero è l'effetto di quello che si sta
+                      scrivendo o lo stato di fatto. */}
+                  {Math.round(scarto) !== 0 && (
+                    <span style={{ color: scarto > 0 ? "var(--blue)" : "var(--orange)" }}>
+                      {" · "}
+                      {scarto > 0 ? "+" : ""}
+                      {euro(scarto)} rispetto a oggi
+                    </span>
+                  )}
+                  {pf == null && arrivo > 0 && `${" · "}a fine mese ${euro(arrivo)}`}
                   {pf == null && " · Budgets non dice quanto spetta a questa piattaforma"}
                 </span>
               </td>
