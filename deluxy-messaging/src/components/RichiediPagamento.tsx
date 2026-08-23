@@ -1,6 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { CercaFornitore } from './CercaFornitore'
+import { ibanAccorciato, type FornitoreTrovato } from '@/lib/cerca-fornitore'
 
 // Richiedi pagamento: IBAN e intestatario si inseriscono a mano, oppure si
 // fanno leggere all'AI da un messaggio incollato o da un'immagine (schermata
@@ -55,6 +57,9 @@ export function RichiediPagamento() {
   const [errore, setErrore] = useState('')
   const [ibanNota, setIbanNota] = useState('')
   const [copiato, setCopiato] = useState('')
+  // Il nome del fornitore che arriva dal bottone «Paga» di un ordine: fa
+  // partire la ricerca da sola, perché chi arriva qui vuole pagare LUI.
+  const [fornitoreDaOrdine, setFornitoreDaOrdine] = useState('')
 
   // Arrivando dal bottone "Richiedi pagamento" di un ordine, i campi si
   // precompilano da soli con numero, cliente e importo.
@@ -74,7 +79,10 @@ export function RichiediPagamento() {
     // il nome e con **quanto gli è stato promesso**.
     const fornitore = p.get('fornitore')
     const costo = p.get('costo')
-    if (fornitore) setIntestatario(fornitore)
+    if (fornitore) {
+      setIntestatario(fornitore)
+      setFornitoreDaOrdine(fornitore)
+    }
     // ⚠️ Il costo concordato vince sull'importo dell'ordine: quello è quanto ha
     // pagato il cliente, e mandarlo al fornitore vorrebbe dire pagargli il
     // prezzo di vendita. È l'errore che questa riga esiste per impedire.
@@ -179,6 +187,36 @@ export function RichiediPagamento() {
     } finally {
       setLeggo(false)
     }
+  }
+
+  /**
+   * Un fornitore scelto dalla ricerca: i campi si compilano da soli.
+   *
+   * ⚠️ L'intestatario è la RAGIONE SOCIALE quando c'è, non l'insegna: il
+   * bonifico va a «Rossi S.r.l.», non a «Pasticceria Rossi», e una banca che non
+   * riconosce il nome può rifiutarlo o rimandarlo indietro giorni dopo.
+   * ⚠️ L'IBAN si compila SOLO se ne conosciamo uno solo: con più IBAN diversi
+   * per lo stesso nome, la ricerca non ne propone nessuno e lo dice.
+   * ⚠️ L'IMPORTO non si tocca mai: è quello dell'ordine da cui si arriva, e
+   * sovrascriverlo con l'ultimo pagamento fatto a quella persona vorrebbe dire
+   * pagare la cifra di un altro ordine.
+   */
+  function usaFornitore(f: FornitoreTrovato) {
+    setIntestatario(f.ragioneSociale || f.nome)
+    if (f.iban) {
+      setIban(f.iban)
+      setIbanNota('')
+      setAvviso(
+        `Compilato con i dati che avevamo: ${f.ragioneSociale || f.nome}, IBAN ${ibanAccorciato(f.iban)}. Controlla prima di salvare.`
+      )
+    } else {
+      setAvviso(
+        f.ibanDiversi > 1
+          ? `Di ${f.nome} risultano ${f.ibanDiversi} IBAN diversi: scrivi tu quello giusto.`
+          : `${f.ragioneSociale || f.nome}: il nome ce l'avevamo, l'IBAN no — va scritto a mano.`
+      )
+    }
+    setOrigine('manuale')
   }
 
   async function salva() {
@@ -312,6 +350,14 @@ export function RichiediPagamento() {
         {/* Modulo */}
         <div className="card">
           <h2 style={{ marginTop: 0 }}>Coordinate</h2>
+          {/* ⚠️ La ricerca sta PRIMA dei campi, non accanto: un IBAN sono
+              ventisette caratteri copiati da una chat o da una foto, e
+              ribatterli è il modo classico di sbagliarne uno — un bonifico
+              parte lo stesso, verso un conto che non esiste o, peggio, che
+              esiste. Se quel fornitore l'abbiamo già pagato, l'IBAN giusto ce
+              l'abbiamo in casa: va offerto prima che qualcuno cominci a
+              digitare, non dopo. */}
+          <CercaFornitore cercaSubito={fornitoreDaOrdine} onScelto={usaFornitore} />
           <label className="campo">
             <span>IBAN</span>
             <input

@@ -1,6 +1,6 @@
 # Handoff — Deluxy Customer Service
 
-Ultimo aggiornamento: **24/08/2026, ore 08:30** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
+Ultimo aggiornamento: **24/08/2026, ore 10:00** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
 prima, alle 15:10, l'utente ha pubblicato la schermata di consenso Google e il
 conto alla rovescia dei 7 giorni è finito).
 Prima, il 19/08: la **risposta di primo contatto** che parte da sola al primo
@@ -340,6 +340,40 @@ locale, altrimenti nulla si decifra.
     chat finisce nel cestino.
   - ⚠️ **Il numero delle note da fare sta sul bottone**: in un pannello chiuso
     una nota lasciata a un collega non esisterebbe.
+
+- **CERCARE UN FORNITORE PRIMA DI RIBATTERE L'IBAN** (24/08/2026, chiesto:
+  «fai cercare un fornitore perché magari abbiamo già i dati»).
+  `GET /api/fornitori/cerca?q=`, riquadro in cima al modulo Coordinate; dal
+  bottone «Paga» di un ordine **parte da sola** col nome del fornitore.
+  - ⚠️⚠️ Un IBAN sono 27 caratteri copiati da una chat: ribatterli è il modo
+    classico di sbagliarne uno, e il bonifico parte lo stesso.
+  - Tre fonti: **richieste di pagamento** (l'IBAN), **ordini già dati**
+    (città, telefono, ultimo costo pattuito), **registro Anagrafiche**
+    (ragione sociale, che è quella che va sul bonifico).
+  - ⚠️⚠️ **Con più IBAN diversi per lo stesso nome NON se ne propone nessuno**,
+    e lo si dice in rosso: due IBAN vogliono dire che è cambiato qualcosa, e
+    indovinare vuol dire mandare i soldi a qualcun altro.
+  - ⚠️ Intestatario = **ragione sociale** quando c'è. ⚠️ L'**importo non si
+    tocca mai**: è quello dell'ordine da cui si arriva.
+  - ⚠️ L'IBAN nell'elenco si mostra **accorciato** (`IT60…3456`).
+  - ⚠️⚠️ **TROVATO PER STRADA — il registro cerca dentro le NOTE**: cercando
+    «rossi» rispondevano ANTONIO MARRAS, BRIONI e DOLCE & GABBANA, perché
+    nelle loro note c'è «p**rossi**ma settimana». Su una pagina di pagamenti
+    quel rumore fa cliccare il nome sbagliato. Si tiene solo chi ha davvero
+    quelle parole nel **nome** o nella **ragione sociale** — parola per
+    parola, così «rossi pasticceria» trova «Pasticceria Rossi». Dopo il
+    filtro: «rossi» → 1 risultato, «capri» → 3, «pasticceria» → 4.
+  - ⚠️ Una fonte che non risponde non fa fallire la ricerca.
+  - 🔴 **Partner (FINANCE) non è collegata a quest'app**: `partnerApiKey` è
+    ASSENTE nelle Impostazioni, quindi le richieste di pagamento **non
+    partono** verso chi le approva e le paga, e non si può nemmeno chiedere a
+    lei gli IBAN già usati. Da mettere in Impostazioni → Partner.
+  - ✅ `npx tsx scripts/prova-cerca-fornitore.mts`: 21 su 21. Il registro
+    risponde con 1.048 anagrafiche. Guardato a schermo: campo precompilato dal
+    nome dell'ordine, tre risultati ordinati (prima quello pagabile subito con
+    «IBAN IT60…3456 · pagato 3 volte · 4 ordini · ultimo a 130,50 €»), avviso
+    rosso sui 2 IBAN, IBAN mai intero a schermo, e il clic passa la ragione
+    sociale — mentre sul caso dei 2 IBAN non passa nessun IBAN.
 
 - **A CHI ABBIAMO DATO L'ORDINE** (24/08/2026, chiesto: «dobbiamo fare in modo
   di registrare a quale fornitore viene dato un ordine»). Campi

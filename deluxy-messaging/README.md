@@ -226,6 +226,58 @@ guardava solo i messaggi: venivano buttate in silenzio. Adesso si leggono.
 
 Si ricontrolla con `npx tsx scripts/prova-reazioni.mts` (crea righe finte e le cancella).
 
+## Cercare un fornitore: magari i dati ce li abbiamo già
+
+In cima al modulo **Coordinate** della pagina Pagamenti c'è **«Cerca il
+fornitore»**. Arrivando dal bottone «Paga» di un ordine la ricerca **parte da
+sola** col nome di chi lo ha preparato. Un clic sul risultato compila
+intestatario e IBAN.
+
+⚠️⚠️ **Non è una comodità.** Un IBAN sono ventisette caratteri copiati da una
+chat o da una foto: ribatterli ogni volta è il modo classico di sbagliarne uno —
+e il bonifico parte lo stesso, verso un conto che non esiste o, peggio, che
+esiste.
+
+**Tre fonti**, in ordine di quanto risparmiano a chi sta compilando:
+
+1. **le richieste di pagamento già fatte** — qui c'è l'**IBAN**, l'unica cosa che
+   non si ricava da nessun'altra parte;
+2. **gli ordini che gli abbiamo già dato** — città, telefono, e **quanto gli
+   abbiamo pattuito l'ultima volta**;
+3. **il registro Anagrafiche** — la **ragione sociale**, che è quella che va sul
+   bonifico, più città e recapiti.
+
+⚠️ **Il registro non ha gli IBAN**: quelli li conosciamo solo perché li abbiamo
+usati. Per questo la prima fonte è la nostra tabella.
+
+⚠️⚠️ **Con più IBAN diversi per lo stesso nome non se ne propone nessuno**, e lo
+si scrive in rosso. Due IBAN vogliono dire che è cambiato qualcosa — un conto
+nuovo, un'altra società, un omonimo — e indovinare vuol dire mandare i soldi a
+qualcun altro. Da lì non si torna indietro.
+
+⚠️ **L'intestatario è la ragione sociale** quando c'è, non l'insegna: il bonifico
+va a «Rossi S.r.l.», non a «Pasticceria Rossi», e una banca che non riconosce il
+nome può rimandarlo indietro giorni dopo.
+
+⚠️ **L'importo non si tocca mai.** È quello dell'ordine da cui si arriva:
+sovrascriverlo con l'ultimo pagamento fatto a quella persona vorrebbe dire pagare
+la cifra di un altro ordine.
+
+⚠️ **L'IBAN non si mostra mai intero** nell'elenco, solo `IT60…3456`: a chi deve
+capire «è lui?» bastano le ultime quattro, e un elenco di IBAN completi a schermo
+è una cosa che si finisce per fotografare.
+
+### ⚠️ Il rumore del registro, tolto
+
+Anagrafiche cerca anche **dentro le note**: misurato, cercando «rossi»
+rispondevano **ANTONIO MARRAS, BRIONI e DOLCE & GABBANA**, perché nelle loro note
+c'è scritto «p**rossi**ma settimana». In un elenco da cui si sceglie **chi
+pagare**, quel rumore fa cliccare il nome sbagliato. I risultati si tengono solo
+se il **nome** o la **ragione sociale** contengono davvero le parole cercate —
+parola per parola, così «rossi pasticceria» trova «Pasticceria Rossi».
+
+Prova: `npx tsx scripts/prova-cerca-fornitore.mts`
+
 ## A chi abbiamo dato l'ordine da preparare
 
 Nella scheda di un ordine, in cima, il riquadro **«Chi prepara quest'ordine»**:
