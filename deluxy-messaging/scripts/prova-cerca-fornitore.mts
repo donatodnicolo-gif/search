@@ -14,6 +14,7 @@ import {
   cosaSappiamo,
   ibanAccorciato,
   nomeCorrisponde,
+  paroleTrovate,
   punteggio,
   unisci,
   type FornitoreTrovato,
@@ -39,6 +40,7 @@ const vuoto: FornitoreTrovato = {
   pagamenti: 0,
   fonti: [],
   stato: '',
+  corrispondenza: 0,
 }
 
 console.log('\n── Come si confrontano i nomi ──')
@@ -64,9 +66,25 @@ verifica(
   'parole in ordine diverso: «rossi pasticceria» trova «Pasticceria Rossi»',
   nomeCorrisponde({ nome: 'Pasticceria Rossi', ragioneSociale: '' }, 'rossi pasticceria')
 )
+// ⚠️⚠️ BASTA UNA PAROLA, non tutte. Pretendendole tutte, cercare «Pasticceria
+// Rossi» dava ZERO risultati (misurato sul registro vero): nessuna insegna si
+// chiama esattamente cosi. Una casella che non trova mai niente si smette di
+// usare, e si torna a ribattere gli IBAN a mano.
 verifica(
-  'una parola che manca esclude',
-  !nomeCorrisponde({ nome: 'Pasticceria Rossi', ragioneSociale: '' }, 'rossi bianchi')
+  'una parola su due basta a restare in elenco',
+  nomeCorrisponde({ nome: 'Pasticceria Rossi', ragioneSociale: '' }, 'rossi bianchi')
+)
+verifica(
+  'ma chi ha DUE parole conta di piu di chi ne ha una',
+  paroleTrovate({ nome: 'Capri Flor', ragioneSociale: '' }, 'capri flor') >
+    paroleTrovate({ nome: '100% CAPRI', ragioneSociale: '' }, 'capri flor')
+)
+verifica(
+  'e in cima ci va lui',
+  unisci([
+    { ...vuoto, nome: '100% CAPRI', corrispondenza: 1, iban: 'IT60X' },
+    { ...vuoto, nome: 'Capri Flor', corrispondenza: 2 },
+  ])[0].nome === 'Capri Flor'
 )
 
 console.log('\n── L’IBAN a schermo ──')

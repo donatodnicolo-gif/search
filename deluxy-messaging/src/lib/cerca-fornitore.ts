@@ -37,6 +37,13 @@ export type FornitoreTrovato = {
   fonti: FonteFornitore[]
   /** Lo stato nel registro Anagrafiche: «Partner», «Prospect»… */
   stato: string
+  /**
+   * Quante parole della ricerca compaiono davvero nel nome.
+   * ⚠️ È quello che mette in cima i risultati migliori senza buttare via gli
+   * altri: chi cerca «Pasticceria Rossi» vede prima «Pasticceria Rossi Snc»,
+   * ma vede anche le altre pasticcerie e gli altri Rossi.
+   */
+  corrispondenza: number
 }
 
 /** Come si confronta un nome: senza maiuscole, accenti né doppi spazi. */
@@ -67,14 +74,44 @@ export function chiaveNome(v: string): string {
  * ordine diverso. Le parole di una o due lettere si ignorano — «di», «e», «s»
  * non distinguono niente e taglierebbero fuori risultati buoni.
  */
+export function paroleTrovate(
+  f: { nome: string; ragioneSociale: string },
+  cercato: string
+): number {
+  const parole = chiaveNome(cercato)
+    .split(' ')
+    .filter((p) => p.length >= 3)
+  const dove = `${chiaveNome(f.nome)} ${chiaveNome(f.ragioneSociale)}`
+  if (!parole.length) {
+    // Ricerca di una o due lettere: non si esclude nessuno, ma non si finge
+    // nemmeno una corrispondenza.
+    return chiaveNome(cercato) && dove.includes(chiaveNome(cercato)) ? 1 : 0
+  }
+  return parole.filter((p) => dove.includes(p)).length
+}
+
+/**
+ * Si tiene, sì o no.
+ *
+ * ⚠️⚠️ Basta UNA parola, non tutte — ed è la correzione di un difetto vero:
+ * pretendendole tutte, cercare «Pasticceria Rossi» dava **zero risultati**
+ * (misurato) perché nel registro non c'è un'insegna con tutte e due le parole.
+ * Una casella che non trova mai niente si smette di usare dopo due volte, e si
+ * torna a ribattere gli IBAN a mano — cioè il problema da cui si è partiti.
+ * Chi corrisponde meglio va IN CIMA, non da solo.
+ *
+ * ⚠️ Ma almeno una parola dev'esserci: è quello che tiene fuori il rumore del
+ * registro, che cerca anche dentro le note («p**rossi**ma settimana»).
+ */
 export function nomeCorrisponde(
   f: { nome: string; ragioneSociale: string },
   cercato: string
 ): boolean {
-  const parole = chiaveNome(cercato).split(' ').filter((p) => p.length >= 3)
+  const parole = chiaveNome(cercato)
+    .split(' ')
+    .filter((p) => p.length >= 3)
   if (!parole.length) return true
-  const dove = `${chiaveNome(f.nome)} ${chiaveNome(f.ragioneSociale)}`
-  return parole.every((p) => dove.includes(p))
+  return paroleTrovate(f, cercato) > 0
 }
 
 /**
@@ -98,7 +135,10 @@ export function ibanAccorciato(iban: string): string {
  * clic; uno che conosciamo solo dal registro va comunque compilato a mano.
  */
 export function punteggio(f: FornitoreTrovato): number {
-  let p = 0
+  // ⚠️ La corrispondenza pesa più di tutto il resto: chi cerca «Pasticceria
+  // Rossi» vuole «Pasticceria Rossi» in cima, anche se di un'altra pasticceria
+  // conosciamo già l'IBAN. Il resto ordina i pari merito.
+  let p = f.corrispondenza * 5000
   if (f.iban) p += 1000
   if (f.ibanDiversi > 1) p += 500 // lo sa, ma deve scegliere lui
   p += Math.min(f.pagamenti, 20) * 10
@@ -135,6 +175,7 @@ export function unisci(pezzi: FornitoreTrovato[]): FornitoreTrovato[] {
       pagamenti: prec.pagamenti + p.pagamenti,
       fonti: [...new Set([...prec.fonti, ...p.fonti])],
       stato: prec.stato || p.stato,
+      corrispondenza: Math.max(prec.corrispondenza, p.corrispondenza),
     })
   }
   return [...per.values()].sort((a, b) => punteggio(b) - punteggio(a) || a.nome.localeCompare(b.nome, 'it'))

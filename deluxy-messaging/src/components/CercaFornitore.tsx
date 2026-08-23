@@ -80,14 +80,27 @@ export function CercaFornitore({
         />
       </label>
 
+      {/* ⚠️ La ricerca DEVE dire che sta lavorando e che cosa ha trovato.
+          Senza, una casella che non mostra niente sembra rotta — e chi la crede
+          rotta torna a ribattere l'IBAN a mano, che è il problema da cui si è
+          partiti. */}
       {cerco ? <p className="cella-sub">Cerco…</p> : null}
+
+      {!cerco && fatto && risultati.length > 0 ? (
+        <p className="cella-sub">
+          {risultati.length} che potrebbe{risultati.length === 1 ? '' : 'ro'} essere lui — il
+          primo è quello che ci fa risparmiare di più.
+        </p>
+      ) : null}
 
       {fatto && !cerco && risultati.length === 0 ? (
         <p className="cella-sub">
-          Non lo conosciamo: compila i campi qui sotto a mano.{' '}
-          {/* ⚠️ Si dice che è NORMALE. Senza, «nessun risultato» sembra un
-              guasto della ricerca e chi lo legge riprova invece di scrivere. */}
-          La prima volta è così per tutti — dalla prossima lo troverai qui.
+          {/* ⚠️ Si dice che è NORMALE, e si dice DOVE si è cercato. Senza,
+              «nessun risultato» sembra un guasto della ricerca, e chi lo legge
+              riprova invece di scrivere. */}
+          Nessuno con questo nome fra i nostri ordini, i pagamenti già fatti e il registro
+          Anagrafiche: compila i campi qui sotto a mano. La prima volta è così per tutti —
+          dalla prossima lo trovi qui.
         </p>
       ) : null}
 

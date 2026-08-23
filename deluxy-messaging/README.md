@@ -267,6 +267,27 @@ la cifra di un altro ordine.
 capire «è lui?» bastano le ultime quattro, e un elenco di IBAN completi a schermo
 è una cosa che si finisce per fotografare.
 
+### ⚠️⚠️ Si cerca PAROLA PER PAROLA, non a frase intera
+
+Misurato: cercando **«Pasticceria Rossi» i risultati erano ZERO**, mentre
+«pasticceria» da sola ne dava 4 e «rossi» da sola 1. Il motivo è che tutte e tre
+le fonti cercavano la stringa **così com'è**, e nessuna insegna si chiama
+esattamente «Pasticceria Rossi».
+
+⚠️ **Una casella che non trova mai niente si smette di usare dopo due volte** —
+cioè si torna a ribattere gli IBAN a mano, che è il problema da cui si era
+partiti. Ora la ricerca spezza la frase in parole (al massimo tre: ognuna è un
+giro in più su un'altra app) e interroga ogni fonte parola per parola.
+
+⚠️ **Basta UNA parola per restare in elenco, non tutte** — chi le ha tutte va in
+cima. Cercando «capri flor»: prima «Capri Flor» e «Capri Flor di Domenico
+Ruggiero» (due parole su due), poi «100% CAPRI» e «Doda Flores» (una).
+Il filtro decide **l'ordine**, non chi sopravvive.
+
+⚠️ La ricerca **dice sempre che cosa sta facendo**: «Cerco…», «5 che potrebbero
+essere lui», oppure «Nessuno con questo nome fra i nostri ordini, i pagamenti già
+fatti e il registro Anagrafiche». Una casella muta sembra rotta.
+
 ### ⚠️ Il rumore del registro, tolto
 
 Anagrafiche cerca anche **dentro le note**: misurato, cercando «rossi»

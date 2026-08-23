@@ -1,6 +1,6 @@
 # Handoff — Deluxy Customer Service
 
-Ultimo aggiornamento: **24/08/2026, ore 10:00** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
+Ultimo aggiornamento: **24/08/2026, ore 11:30** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
 prima, alle 15:10, l'utente ha pubblicato la schermata di consenso Google e il
 conto alla rovescia dei 7 giorni è finito).
 Prima, il 19/08: la **risposta di primo contatto** che parte da sola al primo
@@ -340,6 +340,28 @@ locale, altrimenti nulla si decifra.
     chat finisce nel cestino.
   - ⚠️ **Il numero delle note da fare sta sul bottone**: in un pannello chiuso
     una nota lasciata a un collega non esisterebbe.
+
+- 🔴→🟢 **LA RICERCA FORNITORE NON TROVAVA NIENTE** (24/08/2026, segnalato con
+  uno screenshot: «si ma io qui ho bisogno di poter cercare fornitori»).
+  - ⚠️⚠️ **La causa**: si cercava la FRASE INTERA. Misurato: «Pasticceria
+    Rossi» → **0 risultati**, mentre «pasticceria» → 4 e «rossi» → 1. Nessuna
+    insegna si chiama esattamente così, e tutte e tre le fonti cercano la
+    stringa com'è.
+  - ⚠️ **Mio difetto di ieri**: avevo scritto il filtro come «TUTTE le parole
+    devono stare nel nome», per togliere il rumore delle note del registro. Il
+    rumore l'ho tolto e ho tolto anche i risultati.
+  - ⚠️ Ora: la frase si spezza in parole (max 3, ognuna è un giro su un'altra
+    app) e ogni fonte si interroga parola per parola; **basta UNA parola** per
+    restare in elenco, e chi le ha **tutte** va in cima (`corrispondenza` pesa
+    5000 nel punteggio, più dell'avere già l'IBAN).
+  - ⚠️ La casella adesso **dice sempre che cosa fa**: «Cerco…», «5 che
+    potrebbero essere lui», «Nessuno con questo nome fra i nostri ordini, i
+    pagamenti già fatti e il registro Anagrafiche». Una casella muta sembra
+    rotta, e chi la crede rotta ribatte l'IBAN a mano.
+  - ✅ Sulla rotta vera coi dati veri: «Pasticceria Rossi» → **5** (era 0),
+    «capri flor» → 6 con «Capri Flor» e «Capri Flor di Domenico Ruggiero» in
+    cima (due parole su due), «zzzznessuno» → 0. E 24 controlli su 24 in
+    `scripts/prova-cerca-fornitore.mts`.
 
 - **CERCARE UN FORNITORE PRIMA DI RIBATTERE L'IBAN** (24/08/2026, chiesto:
   «fai cercare un fornitore perché magari abbiamo già i dati»).
