@@ -572,15 +572,71 @@ button {
   height: min(76vh, 720px);
 }
 
-/* Archivia / Elimina / Rubrica: a destra della testata, ma prima del Chiudi
-   della finestra — che resta l'ultimo, dove lo si cerca. */
-.testata-thread .azioni-thread {
+/* ── Le due righe della testata ──
+   Sopra CHI È (nome, recapito, badge: sola lettura), sotto CHE COSA CI FACCIO.
+   ⚠️ Erano una riga sola, e quando andava a capo — cioè quasi sempre — i pezzi
+   si mescolavano: il canale finiva dopo un bottone, il numero del cliente dopo
+   un altro. Due righe dichiarate costano la stessa altezza di una che va a capo
+   da sola, e in più si sa sempre che cosa c'è dove. */
+.testata-thread .riga-chi {
   display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  row-gap: 6px;
+  min-width: 0;
+}
+
+.testata-thread .riga-azioni {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  /* Più stretta di sopra: i bottoni hanno già una cornice loro, e 8px in mezzo
+     li facevano sembrare sette cose separate invece di quattro gruppi. */
   gap: 6px;
+  row-gap: 6px;
+  min-width: 0;
+}
+
+/* ⚠️ La ✕ all'estremità della riga di SOPRA: prima stava in fondo alle azioni,
+   attaccata a «Elimina» — il gesto per uscire accanto al gesto per distruggere. */
+.testata-thread .riga-chi .chiudi-finestra {
   margin-left: auto;
-  /* I bottoni restano in fila: impilati sembravano due errori diversi. */
-  flex-wrap: nowrap;
+}
+
+/* I gruppi: azioni che fanno la stessa cosa stanno insieme, e fra un gruppo e
+   l'altro una lineetta. Senza, sette bottoni identici in fila sono un elenco in
+   cui si cerca a occhio ogni volta. */
+.testata-thread .riga-azioni .gruppo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  row-gap: 6px;
+}
+
+.testata-thread .riga-azioni .gruppo + .gruppo::before {
+  content: '';
   flex: 0 0 auto;
+  width: 1px;
+  height: 16px;
+  background: var(--hairline);
+  margin: 0 4px;
+}
+
+/* Archivia / Spam / Elimina: in fondo a destra, lontani dagli altri. Sono gli
+   unici che fanno sparire la conversazione dall'elenco. */
+.testata-thread .gruppo-togli {
+  margin-left: auto;
+}
+
+/* ⚠️ «Elimina» STACCATO da «Archivia»: uno si usa cento volte al giorno e non
+   perde niente, l'altro butta la conversazione nel cestino. Con 6px in mezzo,
+   come prima, la differenza fra i due è la mira del dito. */
+.testata-thread .riga-azioni .bottone.pericolo {
+  margin-left: 8px;
+  color: var(--red);
 }
 
 /* Il numero di chi scrive: si legge, si copia, si clicca per chiamare. Non è
@@ -600,7 +656,7 @@ button {
   text-underline-offset: 3px;
 }
 
-.testata-thread .azioni-thread .bottone {
+.testata-thread .riga-azioni .bottone {
   white-space: nowrap;
 }
 
@@ -609,7 +665,6 @@ button {
    scritta, e su un'icona sola diventa un rettangolo con dentro una crocetta
    storta. */
 .testata-thread .chiudi-finestra {
-  margin-left: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -781,6 +836,30 @@ button {
   flex-shrink: 0;
 }
 
+/* «Da leggere»: messo a mano, non da un messaggio arrivato.
+   ⚠️ NON è oro pieno come il conteggio dei non letti: quello dice «è successo
+   qualcosa», questo dice «me lo sono messo da parte io». Confonderli farebbe
+   cercare un messaggio nuovo che non c'è. */
+.pill-rileggere {
+  background: transparent;
+  border: 1px solid var(--gold);
+  color: var(--gold);
+  border-radius: var(--radius-pill);
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 0 7px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Un bottone-interruttore che è ACCESO: Riassunto e Diario aprono un pannello,
+   e senza questo l'unico modo di sapere se è aperto è guardare sotto. */
+.bottone.attivo {
+  background: var(--fill-active);
+  border-color: var(--text-tertiary);
+  color: var(--text);
+}
+
 .inbox .thread {
   display: flex;
   flex-direction: column;
@@ -793,18 +872,11 @@ button {
 
 .thread .testata-thread {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 18px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  padding: 10px 18px 12px;
   border-bottom: 1px solid var(--hairline);
-  /* ⚠️ VA A CAPO, sempre — non solo sul telefono.
-     Con quattro azioni, tre badge e il numero del cliente, in una finestra da
-     880px la riga non ci sta: restando su una riga sola «Chiudi» finiva tagliato
-     a metà contro il bordo, e il numero — che è `flex: 1 1 auto` — si accorciava
-     fino a sparire. Cioè si perdevano il dato più utile e l'unica via d'uscita
-     della finestra, insieme. Andare a capo costa una riga di altezza. */
-  flex-wrap: wrap;
-  row-gap: 8px;
 }
 
 /* ⚠️ La testata sta su UNA riga, e ogni pezzo dichiara come si comporta quando
@@ -812,14 +884,18 @@ button {
    badge del marchio si spezzava in mezzo e i bottoni si impilavano uno sotto
    l'altro: tre modi diversi di sbagliare la stessa riga. Chi si accorcia è
    l'indirizzo, che è il dato meno urgente. */
+/* ⚠️ Ogni pezzo della riga dichiara come si comporta quando lo spazio finisce.
+   Senza, il nome del cliente andava a capo su due righe e il badge del marchio
+   si spezzava in mezzo. Chi si accorcia è il nome, che è l'unico ripetuto
+   anche nell'elenco a sinistra. */
 .thread .testata-thread .nome {
   font-weight: 600;
   font-size: 15px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 34%;
-  flex: 0 0 auto;
+  max-width: 44%;
+  flex: 0 1 auto;
 }
 
 .thread .testata-thread .badge {
@@ -833,7 +909,7 @@ button {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-width: 0;
 }
 
@@ -3394,23 +3470,30 @@ td .azioni-ordine {
     max-width: 100%;
   }
 
-  .testata-thread .azioni-thread {
+  /* ⚠️ Su 360px i gruppi non stanno in fila: «togli» perde lo spinta a destra
+     (con una riga tutta sua, «a destra» non vuol dire niente) e la lineetta fra
+     i gruppi sparisce, perché a capo il gruppo si distingue già da solo. */
+  .testata-thread .gruppo-togli {
     margin-left: 0;
-    /* Qui invece si va a capo: su 360px «nowrap» non è un ordine, è una
-       promessa che il telefono non può mantenere. */
-    flex-wrap: wrap;
-    /* Larghezza naturale, non tutta la riga: così «Chiudi», che sta fuori da
-       questo gruppo, gli va accanto invece di prendersi una riga da solo. */
-    flex: 1 1 auto;
   }
 
-  .testata-thread .azioni-thread .bottone {
+  .testata-thread .riga-azioni .gruppo + .gruppo::before {
+    display: none;
+  }
+
+  .testata-thread .riga-azioni .bottone {
     /* Stretti quanto basta al testo — si accorcia la cornice, non il numero
        delle azioni — ma alti abbastanza da prendersi col dito. */
     flex: 0 1 auto;
     min-height: 38px;
     padding: 8px 12px;
     font-size: 13px;
+  }
+
+  /* ⚠️ Lo stacco prima di «Elimina» sul telefono è più largo, non più stretto:
+     col dito si sbaglia mira più che col mouse, ed è il bottone che butta via. */
+  .testata-thread .riga-azioni .bottone.pericolo {
+    margin-left: 14px;
   }
 
   /* La ✕ resta tonda anche qui, solo un po' più grande: col dito si sbaglia
@@ -3669,6 +3752,38 @@ td .azioni-ordine {
 .elenco-diario li.fatta > div {
   opacity: 0.55;
   text-decoration: line-through;
+}
+
+/* ── IL DIARIO DENTRO LA CONVERSAZIONE ──
+   Sta fra la testata e i messaggi, come il riassunto: si apre a richiesta e si
+   richiude, perché aperto si mangia le righe di chat. */
+.diario-conversazione {
+  padding: 10px 18px 12px;
+  border-bottom: 1px solid var(--hairline);
+  background: var(--fill);
+}
+
+.diario-conversazione .elenco-diario li {
+  padding: 8px 0;
+}
+
+.diario-conversazione .riga-nuova-nota {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.diario-conversazione .riga-nuova-nota input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* ⚠️ L'errore si vede: una nota che sembra salvata e non c'è è peggio di una
+   nota mai scritta, perché chi l'ha scritta smette di pensarci. */
+.diario-conversazione .errore-riga {
+  margin: 6px 0 0;
+  font-size: 12.5px;
+  color: var(--red);
 }
 
 /* ── IL PANNELLO DELL'AIUTO ──

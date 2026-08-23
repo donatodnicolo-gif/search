@@ -8,6 +8,7 @@ import { urlScriviAiMail } from '@/lib/ai-mail'
 import { NuovaMail } from './NuovaMail'
 import { CollegaOrdine } from './CollegaOrdine'
 import { RiassuntoChat } from './RiassuntoChat'
+import { DiarioConversazione } from './DiarioConversazione'
 import { NOMI_ORIGINE } from '@/lib/provenienza'
 // ⚠️ Da `refusi.ts` e non da `correttore.ts`: quello importa OpenAI e le
 // impostazioni (cioè il database), e qui siamo in un componente client.
@@ -57,6 +58,11 @@ export type ConversazioneDto = {
    * usarlo come marchio faceva nascere una colonna che sembrava un brand in più.
    */
   etichettaAccount?: string
+  /**
+   * «L'ho letta, ma ci devo tornare». ⚠️ NON è `nonLetti`: quello è il numero
+   * di messaggi arrivati, e alzarlo a mano direbbe che ne è arrivato uno nuovo.
+   */
+  daRileggere?: boolean
 }
 
 type MessaggioDto = {
@@ -883,6 +889,11 @@ export function Inbox({
   function chiudiFinestra() {
     setSelezionataId(null)
     setErroreInvio('')
+    // ⚠️ Il diario si chiude e il contatore torna a zero: erano di QUELLA
+    // conversazione, e lasciarli accesi farebbe leggere «Diario 2» sulla chat
+    // di un altro cliente.
+    setDiarioAperto(false)
+    setNoteAperte(0)
     setSuggerimento(null)
     // I refusi erano di quel messaggio: aperta un'altra conversazione non
     // vogliono dire più niente.
@@ -1008,6 +1019,35 @@ export function Inbox({
   }
 
   // ── Togliere una conversazione dall'inbox ──
+  // ── «Ci devo tornare» ──
+  //
+  // ⚠️ Segnare da rileggere CHIUDE la finestra. Non è un vezzo: il segno serve a
+  // ritrovare la conversazione nell'elenco, e restare dentro a guardarla mentre
+  // dice «da leggere» è la sola cosa che lo rende inutile. È anche quello che fa
+  // la posta, ed è il gesto che la mano si aspetta.
+  async function segnaDaRileggere(id: string, segna: boolean) {
+    // Prima sullo schermo, poi sul server: il puntino deve accendersi subito.
+    setConversazioni((prec) =>
+      prec.map((c) => (c.id === id ? { ...c, daRileggere: segna } : c))
+    )
+    if (segna && id === selezionataId) chiudiFinestra()
+    try {
+      const res = await fetch(`/api/conversazioni/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ daRileggere: segna }),
+      })
+      if (!res.ok) throw new Error('no')
+    } catch {
+      // ⚠️ Se il server rifiuta si DISFA: un segno che c'è a schermo e non nel
+      // database è una conversazione che si crede ancora in coda e non c'è più.
+      setConversazioni((prec) =>
+        prec.map((c) => (c.id === id ? { ...c, daRileggere: !segna } : c))
+      )
+      setErroreInvio('Il segno «da rileggere» non è stato salvato.')
+    }
+  }
+
   // Archivia = sparisce e resta (e si riporta indietro dall'archivio);
   // Elimina = via davvero, messaggi compresi.
   const [inCorsoTogli, setInCorsoTogli] = useState(false)
@@ -1429,6 +1469,11 @@ export function Inbox({
   // Il pannello del riassunto: chiuso di suo. Aprirlo mostra quello gia' salvato,
   // rifarlo e' un gesto in piu' — l'AI non si scomoda da sola.
   const [riassuntoAperto, setRiassuntoAperto] = useState(false)
+  // Il diario di questa conversazione, e quante note ci sono ancora da fare.
+  // ⚠️ Il numero sta SUL BOTTONE: una nota che si vede solo aprendo un pannello
+  // che nessuno apre non è una nota, è un promemoria scritto e perso.
+  const [diarioAperto, setDiarioAperto] = useState(false)
+  const [noteAperte, setNoteAperte] = useState(0)
 
   // Scarica la posta dalla casella register.it: le mail entrano come
   // conversazioni del canale Email.
@@ -1454,6 +1499,10 @@ export function Inbox({
     function apri() {
       setSelezionataId(c.id)
       setErroreInvio('')
+      // ⚠️ Il segno «da rileggere» lo toglie QUESTO clic, non la rotta dei
+      // messaggi: quella la richiama il polling ogni 4 secondi, e il segno
+      // sarebbe durato meno di un battito di ciglia.
+      if (c.daRileggere) void segnaDaRileggere(c.id, false)
     }
     return (
       /**
@@ -1515,6 +1564,15 @@ export function Inbox({
           ) : null}
           <span className="testo">{c.ultimoTesto}</span>
           {c.nonLetti > 0 ? <span className="pill-nonletti">{c.nonLetti}</span> : null}
+          {/* ⚠️ Il segno «da rileggere» si vede solo quando NON ci sono
+              messaggi nuovi: con quelli, la riga chiede già attenzione da sola,
+              e due bollini uno accanto all'altro sarebbero due allarmi per una
+              cosa sola. */}
+          {c.daRileggere && c.nonLetti === 0 ? (
+            <span className="pill-rileggere" title="Segnata da rileggere">
+              da leggere
+            </span>
+          ) : null}
         </span>
 
         {/* Le due azioni che si fanno di continuo, senza aprire niente.
@@ -1809,254 +1867,336 @@ export function Inbox({
           <div className="vuoto">Scegli una conversazione a sinistra.</div>
         ) : (
           <>
+            {/* ── LA TESTATA, IN DUE RIGHE ──
+                Prima era una riga sola in cui identità e azioni stavano
+                mescolate: il badge del canale finiva DOPO «Collega a un
+                ordine», il numero del cliente DOPO «Lascia», e «Riassunto,
+                Rubrica, Archivia, Elimina» andavano a capo tutti insieme senza
+                che si capisse quale gruppo fosse quale. Chi guarda una testata
+                si fa due domande in ordine — **chi è** e **che cosa ci
+                faccio** — e adesso sono due righe distinte.
+                ⚠️ La riga di sopra è di SOLA LETTURA: non c'è niente da
+                cliccare che cambi qualcosa, quindi non si sbaglia gesto
+                cercando un dato. */}
             <div className="testata-thread">
-              <span
-                className="nome"
-                title={
-                  selezionata.nomeRubrica
-                    ? `In rubrica Google: ${selezionata.nomeRubrica}${selezionata.nome ? ` · sul profilo: ${selezionata.nome}` : ''}`
-                    : undefined
-                }
-              >
-                {selezionata.nomeRubrica || selezionata.nome || selezionata.idEsterno}
-              </span>
-              {selezionata.brand ? (
-                <span className="badge" title="Il marchio di questa conversazione">
-                  {selezionata.brand}
-                </span>
-              ) : null}
-              {/* SU QUALE NOSTRO ACCOUNT è arrivata: la casella di posta, il
-                  numero WhatsApp, il profilo Instagram. Prima si vedeva solo il
-                  marchio, e con due caselle non si sapeva quale delle due aveva
-                  ricevuto — che è la prima cosa da sapere per rispondere. */}
-              {selezionata.etichettaAccount || selezionata.numeroNostro ? (
+              <div className="riga-chi">
                 <span
-                  className="badge"
-                  title="Il nostro account che ha ricevuto: la risposta parte da qui"
-                >
-                  ← {selezionata.etichettaAccount || selezionata.numeroNostro}
-                </span>
-              ) : null}
-              {/* Il numero dell'ordine: è quello che ha deciso il marchio di
-                  questa conversazione, e chi risponde lo cerca comunque. */}
-              {selezionata.ordineNumero ? (
-                <span className="badge" title="L'ordine di cui parla questa conversazione">
-                  {selezionata.ordineNumero}
-                </span>
-              ) : null}
-              {/* ── Collega a un ordine ──
-                  L'aggancio automatico prende il caso facile: il cliente cita
-                  il numero, o scrive dalla mail dell'ordine. Tutti gli altri —
-                  «buongiorno, per la consegna di domani» da un altro indirizzo
-                  — restavano senza, e chi risponde si cercava l'ordine a mano
-                  **ogni volta** che riapriva il thread.
-                  ⚠️ Il bottone c'è anche quando il collegamento esiste: serve a
-                  cambiarlo o a toglierlo, e un aggancio sbagliato fa leggere la
-                  conversazione col contesto di un altro cliente. */}
-              {/* ── Fare l'ordine mentre si parla col cliente ──
-                  Il caso è quello di tutti i giorni: «mi mandi un bouquet per
-                  domani?». Finora si usciva dall'app, si apriva Shopify e si
-                  ricopiavano nome, telefono e indirizzo — con la conversazione
-                  chiusa alle spalle e il rischio di sbagliare una cifra.
-                  ⚠️ Si apre in una SCHEDA NUOVA: la conversazione resta aperta,
-                  perché mentre si compila l'ordine si continua a leggere quello
-                  che il cliente ha scritto (indirizzo, orari, il biglietto).
-                  ⚠️ Email e telefono si passano dal canale giusto: su una mail
-                  `idEsterno` è l'indirizzo, su WhatsApp è il numero — scambiarli
-                  vorrebbe dire un ordine con il telefono nel campo email. */}
-              <a
-                className="bottone secondario mini"
-                href={`/nuovo-ordine?${new URLSearchParams({
-                  negozio: selezionata.negozioId ?? '',
-                  nome: selezionata.nomeRubrica || selezionata.nome || '',
-                  email: selezionata.canale === 'email' ? selezionata.idEsterno : '',
-                  telefono: selezionata.canale === 'whatsapp' ? selezionata.idEsterno : '',
-                }).toString()}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                title="Fai un ordine per questo cliente: si apre in una scheda nuova, con nome e recapito già compilati"
-              >
-                Nuovo ordine ↗
-              </a>
-              <button
-                className="bottone secondario mini"
-                onClick={() => setCollegaAperto(true)}
-                title={
-                  selezionata.ordineNumero
-                    ? `Collegata a ${selezionata.ordineNumero}: cambia o togli`
-                    : 'Collega questa conversazione a un ordine'
-                }
-              >
-                {selezionata.ordineNumero ? 'Cambia ordine' : 'Collega a un ordine'}
-              </button>
-              <span className={`badge canale-${selezionata.canale}`}>
-                {etichettaCanale(selezionata.canale)}
-              </span>
-              {/* ── Chi se ne occupa, e il bottone per cambiarlo ──
-                  Sta nella testata e non fra le azioni in fondo: è la cosa da
-                  sapere PRIMA di cominciare a scrivere, non dopo. */}
-              {selezionata.presaDaId && selezionata.presaDaId !== ioId ? (
-                <span className="badge badge-presa" title="Se ne sta già occupando un collega">
-                  {selezionata.presaDaNome || 'Un altro operatore'}
-                </span>
-              ) : null}
-              <button
-                className={`bottone ${selezionata.presaDaId === ioId ? 'secondario ' : ''}mini`}
-                disabled={inCorsoPresa === selezionata.id}
-                onClick={() =>
-                  prendiInCarico(
-                    selezionata.id,
-                    selezionata.presaDaId === ioId ? 'nessuno' : 'io'
-                  )
-                }
-                title={
-                  selezionata.presaDaId === ioId
-                    ? 'La lasci libera: sparisce da «Mie» e chiunque può prenderla'
-                    : selezionata.presaDaId
-                      ? 'Prendila tu: te lo chiede una conferma, perché ce l’ha già un collega'
-                      : 'Segnala ai colleghi che te ne stai occupando tu'
-                }
-              >
-                {selezionata.presaDaId === ioId ? 'Lascia' : 'Me ne occupo io'}
-              </button>
-              {/* ⚠️ CHI SCRIVE, in chiaro. Su WhatsApp `idEsterno` è il numero
-                  vero del cliente (Meta lo manda senza «+»), ed è il dato che
-                  serve per chiamarlo, cercarlo negli ordini o salvarlo in
-                  rubrica. Prima era un testo grigio che, appena la testata si
-                  riempiva, si accorciava fino a sparire: c'era e non si vedeva.
-                  Su email è l'indirizzo, su Messenger e Instagram un id interno
-                  che non vuol dire niente a nessuno — quello resta piccolo. */}
-              {selezionata.canale === 'whatsapp' && selezionata.idEsterno ? (
-                <a
-                  className="numero-cliente"
-                  href={`tel:+${selezionata.idEsterno.replace(/\D/g, '')}`}
-                  title="Il numero da cui scrive: cliccalo per chiamarlo"
-                >
-                  +{selezionata.idEsterno.replace(/\D/g, '')}
-                </a>
-              ) : (
-                <span className="dettaglio">{selezionata.idEsterno}</span>
-              )}
-
-              {/* In che lingua ci ha scritto: è il dato che decide in che lingua
-                  gli si risponde, e va visto senza doverlo dedurre dal testo. */}
-              {linguaCliente && linguaCliente !== 'italiano' ? (
-                <span className="badge" title="La lingua in cui scrive il cliente: la risposta AI esce in questa lingua">
-                  {linguaCliente}
-                </span>
-              ) : null}
-
-              <span className="azioni-thread">
-                <button
-                  className="bottone secondario mini"
-                  onClick={() => setRiassuntoAperto(!riassuntoAperto)}
-                  title="Data, ora, luogo e prodotto detti dal cliente, con la frase da cui vengono"
-                >
-                  Riassunto
-                </button>
-                {/* Col traduci automatico spento resta il gesto a mano: la
-                    traduzione costa una chiamata, e c'è chi preferisce
-                    decidere volta per volta se serve. */}
-                {daTradurre ? (
-                  <button
-                    className="bottone secondario mini"
-                    onClick={() => traduciArrivati(selezionata.id)}
-                    disabled={traducendo}
-                    title="Traduci in italiano i messaggi del cliente. L'originale resta a un clic."
-                  >
-                    {traducendo ? 'Traduco…' : 'Traduci'}
-                  </button>
-                ) : null}
-                {/* Chi è questo numero: lo chiede alla rubrica Google, adesso.
-                    Solo su WhatsApp — è l'unico canale con un telefono. */}
-                {selezionata.canale === 'whatsapp' && !selezionata.nomeRubrica ? (
-                  <button
-                    className="bottone secondario mini"
-                    onClick={cercaInRubrica}
-                    disabled={cercandoRubrica}
-                    title="Cerca questo numero nella rubrica Google collegata"
-                  >
-                    {cercandoRubrica ? 'Cerco…' : 'Rubrica'}
-                  </button>
-                ) : null}
-                <button
-                  className="bottone secondario mini"
-                  onClick={() =>
-                    cestino ? ripristina(selezionata.id) : archivia(selezionata.id, !archivio)
-                  }
-                  disabled={inCorsoTogli}
+                  className="nome"
                   title={
-                    cestino || archivio
-                      ? 'Torna nella posta in arrivo'
-                      : "Sparisce dall'elenco ma resta salvata"
+                    selezionata.nomeRubrica
+                      ? `In rubrica Google: ${selezionata.nomeRubrica}${selezionata.nome ? ` · sul profilo: ${selezionata.nome}` : ''}`
+                      : undefined
                   }
                 >
-                  {cestino ? 'Ripristina' : archivio ? 'Riporta in inbox' : 'Archivia'}
-                </button>
-                {/* ── Spam, anche da qui ──
-                    Il bottone c'era solo nella riga dell'elenco, dove è
-                    un'icona piccola: ma la spazzatura la si riconosce
-                    LEGGENDOLA, cioè con la conversazione aperta davanti. Chi
-                    l'ha appena letta doveva chiudere, ritrovare la riga e
-                    centrare l'icona — e quasi sempre non lo faceva.
-                    ⚠️ Solo sulla POSTA: l'elenco dei mittenti ignorati lo
-                    leggono soltanto le rotte email, e su WhatsApp o Instagram
-                    questo bottone prometterebbe un blocco che non esiste (là si
-                    fa da Meta). Un bottone che non fa quello che dice è peggio
-                    di un bottone che manca.
-                    ⚠️ Non nel cestino: lì la conversazione è già fuori dai
-                    piedi, e l'unico gesto che ha senso è ripristinarla o
-                    cancellarla. */}
-                {selezionata.canale === 'email' && !cestino ? (
+                  {selezionata.nomeRubrica || selezionata.nome || selezionata.idEsterno}
+                </span>
+
+                {/* ⚠️ IL RECAPITO SUBITO DOPO IL NOME, non in fondo alla riga.
+                    Su WhatsApp `idEsterno` è il numero vero del cliente (Meta
+                    lo manda senza «+»), ed è il dato che serve per chiamarlo,
+                    cercarlo negli ordini o salvarlo in rubrica: fa parte di
+                    «chi è», non delle azioni. Su email è l'indirizzo, su
+                    Messenger e Instagram un id interno che non vuol dire
+                    niente a nessuno — quello resta piccolo. */}
+                {selezionata.canale === 'whatsapp' && selezionata.idEsterno ? (
+                  <a
+                    className="numero-cliente"
+                    href={`tel:+${selezionata.idEsterno.replace(/\D/g, '')}`}
+                    title="Il numero da cui scrive: cliccalo per chiamarlo"
+                  >
+                    +{selezionata.idEsterno.replace(/\D/g, '')}
+                  </a>
+                ) : (
+                  <span className="dettaglio">{selezionata.idEsterno}</span>
+                )}
+
+                {/* ── I BADGE, TUTTI INSIEME ──
+                    Da dove arriva e di che cosa parla: canale, marchio, il
+                    nostro account che ha ricevuto, l'ordine, la lingua. Prima
+                    erano sparsi prima e dopo i bottoni, e il canale — che è la
+                    prima cosa da guardare, perché decide come si risponde —
+                    stava in mezzo alle azioni. */}
+                <span className={`badge canale-${selezionata.canale}`}>
+                  {etichettaCanale(selezionata.canale)}
+                </span>
+                {selezionata.brand ? (
+                  <span className="badge" title="Il marchio di questa conversazione">
+                    {selezionata.brand}
+                  </span>
+                ) : null}
+                {/* SU QUALE NOSTRO ACCOUNT è arrivata: la casella di posta, il
+                    numero WhatsApp, il profilo Instagram. Con due caselle non
+                    si sapeva quale delle due aveva ricevuto — che è la prima
+                    cosa da sapere per rispondere. */}
+                {selezionata.etichettaAccount || selezionata.numeroNostro ? (
+                  <span
+                    className="badge"
+                    title="Il nostro account che ha ricevuto: la risposta parte da qui"
+                  >
+                    ← {selezionata.etichettaAccount || selezionata.numeroNostro}
+                  </span>
+                ) : null}
+                {/* Il numero dell'ordine: è quello che ha deciso il marchio di
+                    questa conversazione, e chi risponde lo cerca comunque. */}
+                {selezionata.ordineNumero ? (
+                  <span className="badge" title="L'ordine di cui parla questa conversazione">
+                    {selezionata.ordineNumero}
+                  </span>
+                ) : null}
+                {/* In che lingua ci ha scritto: è il dato che decide in che
+                    lingua gli si risponde, e va visto senza doverlo dedurre
+                    dal testo. */}
+                {linguaCliente && linguaCliente !== 'italiano' ? (
+                  <span
+                    className="badge"
+                    title="La lingua in cui scrive il cliente: la risposta AI esce in questa lingua"
+                  >
+                    {linguaCliente}
+                  </span>
+                ) : null}
+                {/* Chi se ne sta occupando: è la cosa da sapere PRIMA di
+                    cominciare a scrivere, non dopo. Il bottone per cambiarlo
+                    sta nella riga sotto, in testa alle azioni. */}
+                {selezionata.presaDaId && selezionata.presaDaId !== ioId ? (
+                  <span className="badge badge-presa" title="Se ne sta già occupando un collega">
+                    {selezionata.presaDaNome || 'Un altro operatore'}
+                  </span>
+                ) : null}
+
+                {/* La ✕ di sempre, in alto a destra, dove la cerca chiunque
+                    senza doverla leggere. Il nome resta per chi non vede
+                    l'icona: `aria-label`.
+                    ⚠️ Sta sulla riga dell'IDENTITÀ e non fra le azioni: prima
+                    era il vicino di casa di «Elimina», cioè il gesto per
+                    uscire attaccato al gesto per distruggere. */}
+                {aFinestra ? (
+                  <button
+                    className="chiudi-finestra"
+                    onClick={chiudiFinestra}
+                    title="Chiudi (Esc)"
+                    aria-label="Chiudi"
+                  >
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 16 16"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.7"
+                      strokeLinecap="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M4 4l8 8M12 4l-8 8" />
+                    </svg>
+                  </button>
+                ) : null}
+              </div>
+
+              {/* ── LE AZIONI, IN QUATTRO GRUPPI ──
+                  Da sinistra a destra nell'ordine in cui si usano davvero:
+                  1. **chi se ne occupa** — il primo gesto, e l'unico bottone
+                     pieno: è una decisione, non un attrezzo;
+                  2. **l'ordine** — collegarlo (frequente) e, in coda al
+                     gruppo, farne uno nuovo, che porta FUORI dall'app;
+                  3. **capire** — riassunto, traduzione, rubrica: leggono e
+                     basta, non cambiano niente;
+                  4. **togliere di mezzo** — spinto a destra, staccato.
+                  ⚠️ «Elimina» era il vicino di «Archivia» con 6px in mezzo:
+                  uno si usa cento volte al giorno, l'altro butta via la
+                  conversazione. Adesso c'è una lineetta e uno stacco. */}
+              <div className="riga-azioni">
+                <span className="gruppo">
+                  <button
+                    className={`bottone ${selezionata.presaDaId === ioId ? 'secondario ' : ''}mini`}
+                    disabled={inCorsoPresa === selezionata.id}
+                    onClick={() =>
+                      prendiInCarico(
+                        selezionata.id,
+                        selezionata.presaDaId === ioId ? 'nessuno' : 'io'
+                      )
+                    }
+                    title={
+                      selezionata.presaDaId === ioId
+                        ? 'La lasci libera: sparisce da «Mie» e chiunque può prenderla'
+                        : selezionata.presaDaId
+                          ? 'Prendila tu: te lo chiede una conferma, perché ce l’ha già un collega'
+                          : 'Segnala ai colleghi che te ne stai occupando tu'
+                    }
+                  >
+                    {selezionata.presaDaId === ioId ? 'Lascia' : 'Me ne occupo io'}
+                  </button>
+                </span>
+
+                {/* ── L'ordine ──
+                    ⚠️ «Collega» sta PRIMA di «Nuovo ordine»: l'aggancio
+                    automatico prende il caso facile (il cliente cita il
+                    numero, o scrive dalla mail dell'ordine), tutti gli altri —
+                    «buongiorno, per la consegna di domani» da un altro
+                    indirizzo — si collegano a mano, ed è il gesto di gran
+                    lunga più frequente dei due. Il bottone c'è anche quando il
+                    collegamento esiste: serve a cambiarlo o a toglierlo, e un
+                    aggancio sbagliato fa leggere la conversazione col contesto
+                    di un altro cliente. */}
+                <span className="gruppo">
                   <button
                     className="bottone secondario mini"
-                    onClick={() => segnalaSpam(selezionata.id)}
+                    onClick={() => setCollegaAperto(true)}
+                    title={
+                      selezionata.ordineNumero
+                        ? `Collegata a ${selezionata.ordineNumero}: cambia o togli`
+                        : 'Collega questa conversazione a un ordine'
+                    }
+                  >
+                    {selezionata.ordineNumero ? 'Cambia ordine' : 'Collega a un ordine'}
+                  </button>
+                  {/* ── Fare l'ordine mentre si parla col cliente ──
+                      Il caso è quello di tutti i giorni: «mi mandi un bouquet
+                      per domani?». Finora si usciva dall'app, si apriva
+                      Shopify e si ricopiavano nome, telefono e indirizzo — con
+                      la conversazione chiusa alle spalle e il rischio di
+                      sbagliare una cifra.
+                      ⚠️ Si apre in una SCHEDA NUOVA: la conversazione resta
+                      aperta, perché mentre si compila l'ordine si continua a
+                      leggere quello che il cliente ha scritto (indirizzo,
+                      orari, il biglietto). La ↗ lo dice prima di cliccare.
+                      ⚠️ Email e telefono si passano dal canale giusto: su una
+                      mail `idEsterno` è l'indirizzo, su WhatsApp è il numero —
+                      scambiarli vorrebbe dire un ordine con il telefono nel
+                      campo email. */}
+                  <a
+                    className="bottone secondario mini"
+                    href={`/nuovo-ordine?${new URLSearchParams({
+                      negozio: selezionata.negozioId ?? '',
+                      nome: selezionata.nomeRubrica || selezionata.nome || '',
+                      email: selezionata.canale === 'email' ? selezionata.idEsterno : '',
+                      telefono: selezionata.canale === 'whatsapp' ? selezionata.idEsterno : '',
+                    }).toString()}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="Fai un ordine per questo cliente: si apre in una scheda nuova, con nome e recapito già compilati"
+                  >
+                    Nuovo ordine ↗
+                  </a>
+                </span>
+
+                {/* ── Capire questa conversazione ──
+                    Tre attrezzi che LEGGONO e basta: nessuno cambia lo stato
+                    della chat, e stare insieme lo dice senza scriverlo. */}
+                <span className="gruppo">
+                  <button
+                    className={`bottone secondario mini${riassuntoAperto ? ' attivo' : ''}`}
+                    onClick={() => setRiassuntoAperto(!riassuntoAperto)}
+                    title="Data, ora, luogo e prodotto detti dal cliente, con la frase da cui vengono"
+                  >
+                    Riassunto
+                  </button>
+                  {/* ── La nota sul diario ──
+                      ⚠️ Il numero delle note da fare sta SUL BOTTONE: dentro un
+                      pannello chiuso, una nota lasciata a un collega non
+                      esisterebbe. */}
+                  <button
+                    className={`bottone secondario mini${diarioAperto ? ' attivo' : ''}`}
+                    onClick={() => setDiarioAperto(!diarioAperto)}
+                    title="Le note di lavoro su questa conversazione: si leggono anche dal diario, e dall'ordine se ce n'è uno"
+                  >
+                    Diario{noteAperte ? ` ${noteAperte}` : ''}
+                  </button>
+                  {/* Col traduci automatico spento resta il gesto a mano: la
+                      traduzione costa una chiamata, e c'è chi preferisce
+                      decidere volta per volta se serve. */}
+                  {daTradurre ? (
+                    <button
+                      className="bottone secondario mini"
+                      onClick={() => traduciArrivati(selezionata.id)}
+                      disabled={traducendo}
+                      title="Traduci in italiano i messaggi del cliente. L'originale resta a un clic."
+                    >
+                      {traducendo ? 'Traduco…' : 'Traduci'}
+                    </button>
+                  ) : null}
+                  {/* Chi è questo numero: lo chiede alla rubrica Google,
+                      adesso. Solo su WhatsApp — è l'unico canale con un
+                      telefono. */}
+                  {selezionata.canale === 'whatsapp' && !selezionata.nomeRubrica ? (
+                    <button
+                      className="bottone secondario mini"
+                      onClick={cercaInRubrica}
+                      disabled={cercandoRubrica}
+                      title="Cerca questo numero nella rubrica Google collegata"
+                    >
+                      {cercandoRubrica ? 'Cerco…' : 'Rubrica'}
+                    </button>
+                  ) : null}
+                </span>
+
+                {/* ── Toglierla di mezzo ──
+                    L'unico gruppo che fa sparire qualcosa, e per questo sta
+                    lontano dagli altri, in fondo a destra. */}
+                <span className="gruppo gruppo-togli">
+                  {/* ⚠️ Solo in posta in arrivo: nell'archivio e nel cestino la
+                      conversazione non sta in nessuna coda, e «da leggere»
+                      prometterebbe un ritorno che non avviene. */}
+                  {!archivio && !cestino ? (
+                    <button
+                      className="bottone secondario mini"
+                      onClick={() => void segnaDaRileggere(selezionata.id, true)}
+                      title="La chiude e la rimette in coda con il segno «da leggere», per tornarci dopo"
+                    >
+                      Da leggere
+                    </button>
+                  ) : null}
+                  <button
+                    className="bottone secondario mini"
+                    onClick={() =>
+                      cestino ? ripristina(selezionata.id) : archivia(selezionata.id, !archivio)
+                    }
                     disabled={inCorsoTogli}
-                    title={`Segnala come spam: ${selezionata.idEsterno} non arriverà più in posta in arrivo, e questa conversazione va in archivio`}
+                    title={
+                      cestino || archivio
+                        ? 'Torna nella posta in arrivo'
+                        : "Sparisce dall'elenco ma resta salvata"
+                    }
                   >
-                    Spam
+                    {cestino ? 'Ripristina' : archivio ? 'Riporta in inbox' : 'Archivia'}
                   </button>
-                ) : null}
-                <button
-                  className="bottone secondario mini"
-                  onClick={() => elimina(selezionata.id)}
-                  disabled={inCorsoTogli}
-                  style={{ color: 'var(--red)' }}
-                  title={
-                    cestino
-                      ? 'Cancella per sempre, coi suoi messaggi'
-                      : 'Sposta nel cestino: resta 30 giorni, poi si cancella'
-                  }
-                >
-                  {cestino ? 'Cancella per sempre' : 'Elimina'}
-                </button>
-              </span>
-
-              {/* La ✕ di sempre. Un bottone con scritto «Chiudi» occupava lo
-                  spazio di due azioni vere in una riga che già non ci stava, e
-                  la ✕ in alto a destra la cerca chiunque senza doverla leggere.
-                  Il nome resta per chi non vede l'icona: `aria-label`. */}
-              {aFinestra ? (
-                <button
-                  className="chiudi-finestra"
-                  onClick={chiudiFinestra}
-                  title="Chiudi (Esc)"
-                  aria-label="Chiudi"
-                >
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 16 16"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.7"
-                    strokeLinecap="round"
-                    aria-hidden="true"
+                  {/* ── Spam, anche da qui ──
+                      Il bottone c'era solo nella riga dell'elenco, dove è
+                      un'icona piccola: ma la spazzatura la si riconosce
+                      LEGGENDOLA, cioè con la conversazione aperta davanti. Chi
+                      l'ha appena letta doveva chiudere, ritrovare la riga e
+                      centrare l'icona — e quasi sempre non lo faceva.
+                      ⚠️ Solo sulla POSTA: l'elenco dei mittenti ignorati lo
+                      leggono soltanto le rotte email, e su WhatsApp o
+                      Instagram questo bottone prometterebbe un blocco che non
+                      esiste (là si fa da Meta). Un bottone che non fa quello
+                      che dice è peggio di un bottone che manca.
+                      ⚠️ Non nel cestino: lì la conversazione è già fuori dai
+                      piedi, e l'unico gesto che ha senso è ripristinarla o
+                      cancellarla. */}
+                  {selezionata.canale === 'email' && !cestino ? (
+                    <button
+                      className="bottone secondario mini"
+                      onClick={() => segnalaSpam(selezionata.id)}
+                      disabled={inCorsoTogli}
+                      title={`Segnala come spam: ${selezionata.idEsterno} non arriverà più in posta in arrivo, e questa conversazione va in archivio`}
+                    >
+                      Spam
+                    </button>
+                  ) : null}
+                  <button
+                    className="bottone secondario mini pericolo"
+                    onClick={() => elimina(selezionata.id)}
+                    disabled={inCorsoTogli}
+                    title={
+                      cestino
+                        ? 'Cancella per sempre, coi suoi messaggi'
+                        : 'Sposta nel cestino: resta 30 giorni, poi si cancella'
+                    }
                   >
-                    <path d="M4 4l8 8M12 4l-8 8" />
-                  </svg>
-                </button>
-              ) : null}
+                    {cestino ? 'Cancella per sempre' : 'Elimina'}
+                  </button>
+                </span>
+              </div>
             </div>
 
             {/* Da dove arriva chi ha aperto la chat: chi ha cliccato un annuncio
@@ -2082,6 +2222,24 @@ export function Inbox({
                 cliente da cui viene. Si apre a richiesta e non chiama l'AI da
                 solo: mostra prima quello già salvato. */}
             {riassuntoAperto ? <RiassuntoChat conversazioneId={selezionata.id} /> : null}
+
+            {/* Le note di lavoro di questa conversazione. Si aprono a richiesta
+                — il pannello sta sopra i messaggi, e tenerlo sempre aperto
+                vorrebbe dire meno chat a schermo per tutti. */}
+            {diarioAperto ? (
+              <DiarioConversazione
+                conversazioneId={selezionata.id}
+                chi={
+                  selezionata.nomeRubrica ||
+                  selezionata.nome ||
+                  (selezionata.canale === 'whatsapp'
+                    ? '+' + selezionata.idEsterno.replace(/\D/g, '')
+                    : selezionata.idEsterno)
+                }
+                ordineNumero={selezionata.ordineNumero}
+                onCambiato={setNoteAperte}
+              />
+            ) : null}
 
             <div className="messaggi" ref={contenitoreRef}>
               {messaggi.map((m) => (

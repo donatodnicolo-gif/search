@@ -38,7 +38,7 @@ export async function DELETE(req: NextRequest, { params }: Params) {
 
   await db.conversazione.update({
     where: { id },
-    data: { eliminataIl: new Date(), nonLetti: 0 },
+    data: { eliminataIl: new Date(), nonLetti: 0, daRileggere: false },
   })
   return NextResponse.json({ nelCestino: true })
 }
@@ -46,16 +46,35 @@ export async function DELETE(req: NextRequest, { params }: Params) {
 // Archivia, riporta in inbox, ripristina dal cestino, o prende in carico.
 export async function PATCH(req: NextRequest, { params }: Params) {
   const { id } = await params
-  const { archiviata, ripristina, presa, forza } = (await req.json().catch(() => ({}))) as {
+  const { archiviata, ripristina, presa, forza, daRileggere } = (await req
+    .json()
+    .catch(() => ({}))) as {
     archiviata?: boolean
     ripristina?: boolean
     /** 'io' = me ne occupo io · 'nessuno' = la lascio libera */
     presa?: 'io' | 'nessuno'
     /** Prenderla anche se ce l'ha già un altro: lo deve chiedere un clic apposta. */
     forza?: boolean
+    /** «Ci devo tornare»: la riga torna a chiedere attenzione nell'elenco. */
+    daRileggere?: boolean
   }
   const c = await db.conversazione.findUnique({ where: { id }, select: { id: true } })
   if (!c) return NextResponse.json({ errore: 'Conversazione non trovata' }, { status: 404 })
+
+  // ── DA RILEGGERE ──
+  //
+  // ⚠️ Sta PRIMA di tutto il resto e ritorna subito: è l'unico ramo che non
+  // archivia, non elimina e non prende in carico, e cadendo in fondo avrebbe
+  // finito per archiviare la conversazione (`archiviata !== false` è vero anche
+  // per `undefined`) — cioè il contrario di quello che chiede.
+  if (typeof daRileggere === 'boolean') {
+    const segnata = await db.conversazione.update({
+      where: { id },
+      data: { daRileggere },
+      select: { id: true, daRileggere: true },
+    })
+    return NextResponse.json(segnata)
+  }
 
   // ── PRESA IN CARICO ──
   if (presa) {
@@ -124,7 +143,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
   const aggiornata = await db.conversazione.update({
     where: { id },
-    data: { archiviata: archiviata !== false, nonLetti: 0 },
+    data: { archiviata: archiviata !== false, nonLetti: 0, daRileggere: false },
     select: { id: true, archiviata: true },
   })
   return NextResponse.json(aggiornata)

@@ -172,12 +172,25 @@ export async function datiDashboard(): Promise<DatiDashboard> {
     // alle email: prendendone 12 secche, con 105 mail non lette, in cima non
     // arriverebbe mai una chat.
     db.conversazione.findMany({
-      where: { archiviata: false, eliminataIl: null, nonLetti: { gt: 0 } },
+      // ⚠️ Anche le SEGNATE DA RILEGGERE: chi ha messo il segno sta dicendo
+      // «ci devo tornare», ed è la stessa domanda a cui risponde questo elenco.
+      // Contandole solo nell'inbox, le due schermate direbbero numeri diversi.
+      where: {
+        archiviata: false,
+        eliminataIl: null,
+        OR: [{ nonLetti: { gt: 0 } }, { daRileggere: true }],
+      },
       orderBy: { ultimoMessaggioIl: 'asc' },
       take: 200,
     }),
     db.conversazione.count({ where: { archiviata: false, eliminataIl: null } }),
-    db.conversazione.count({ where: { archiviata: false, eliminataIl: null, nonLetti: { gt: 0 } } }),
+    db.conversazione.count({
+      where: {
+        archiviata: false,
+        eliminataIl: null,
+        OR: [{ nonLetti: { gt: 0 } }, { daRileggere: true }],
+      },
+    }),
     db.ordine.count({ where: { dataConsegna: { gte: oggi, lt: domani } } }),
     db.ordine.count({ where: { gestione: { not: 'gestito' } } }),
     // In ritardo = consegna passata e non ancora spuntato come gestito, ma solo

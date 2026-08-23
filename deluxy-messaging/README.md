@@ -226,6 +226,75 @@ guardava solo i messaggi: venivano buttate in silenzio. Adesso si leggono.
 
 Si ricontrolla con `npx tsx scripts/prova-reazioni.mts` (crea righe finte e le cancella).
 
+## La testata della conversazione: chi è sopra, che cosa ci faccio sotto
+
+La riga in cima al thread è divisa in due, e la divisione è la funzione:
+
+- **sopra, l'identità** — nome, recapito cliccabile, e i badge tutti insieme:
+  canale, marchio, il nostro account che ha ricevuto, l'ordine, la lingua, chi
+  se ne sta occupando. Non c'è niente da cliccare che cambi qualcosa.
+- **sotto, le azioni**, in quattro gruppi separati da una lineetta:
+  1. **chi se ne occupa** (`Me ne occupo io` / `Lascia`) — il primo gesto, e
+     l'unico bottone pieno: è una decisione, non un attrezzo;
+  2. **l'ordine** — `Collega` (frequente) e poi `Nuovo ordine ↗`, che porta fuori;
+  3. **capire** — `Riassunto`, `Diario`, `Traduci`, `Rubrica`;
+  4. **andare via** — `Da leggere`, `Archivia`, `Spam`, `Elimina`, in fondo a destra.
+
+⚠️ **`Elimina` è staccato da `Archivia`** e la **✕ sta nella riga di sopra**:
+prima il gesto per uscire e quello per distruggere erano vicini di casa, con 6px
+in mezzo, e uno dei due si usa cento volte al giorno.
+
+## Una nota di diario dalla conversazione
+
+Il bottone **Diario** apre, sotto la testata, le note di lavoro di *questa*
+conversazione: si leggono, si spuntano, se ne scrive una nuova senza uscire.
+
+⚠️ **La cosa da ricordare nasce qui** — «richiamare lunedì», «vuole il biglietto
+scritto a mano», «citofonare al 3». Finché la nota si poteva scrivere solo dalla
+pagina del diario o dalla scheda di un ordine, o si usciva dalla chat — e allora
+non la si scriveva — oppure restava nella testa di chi aveva risposto.
+
+⚠️ **Se la conversazione è collegata a un ordine, la nota prende anche quel
+numero**: la stessa riga si legge dalla scheda dell'ordine, dove la cerca chi
+prepara la consegna. Scriverla due volte sarebbe l'unico modo per averne due
+versioni diverse.
+
+⚠️ **Il numero delle note da fare sta sul bottone** (`Diario 2`): dentro un
+pannello chiuso, una nota lasciata a un collega non esisterebbe.
+
+⚠️ Nel diario di lavoro la nota porta il **nome di chi scriveva**, copiato quando
+è stata scritta: la pagina del diario non carica le conversazioni, e regge anche
+se poi la chat finisce nel cestino.
+
+## Lasciare una conversazione «da leggere»
+
+Il bottone **Da leggere** la chiude e la rimette in coda col segno, come nella
+posta. Riaprendola il segno si toglie da solo.
+
+⚠️ **Non è `nonLetti` rimesso a 1.** Quello è il *contatore dei messaggi
+arrivati*: alzarlo a mano avrebbe detto che è arrivato un messaggio nuovo quando
+non è arrivato niente, e avrebbe fatto **squillare l'avviso** a chi ha appena
+messo il segno (`src/lib/avvisi.ts` suona quando `nonLetti` cresce). È un campo
+suo, `daRileggere`.
+
+⚠️ **Segnare chiude la finestra**: il segno serve a ritrovare la conversazione
+nell'elenco, e restare dentro a guardarla mentre dice «da leggere» è la sola cosa
+che lo rende inutile.
+
+⚠️ **Lo spegne il clic che riapre la conversazione**, non la rotta dei messaggi:
+quella la richiama il polling ogni 4 secondi, e il segno sarebbe durato meno di
+un battito di ciglia.
+
+⚠️ **Anche la dashboard lo conta** fra «chi aspetta una risposta»: le due
+schermate leggono da due funzioni diverse, e se una lo contasse e l'altra no
+direbbero numeri diversi sulla stessa cosa, senza che nessuna dia errore.
+
+⚠️ Nell'elenco il segno è una pillola **a contorno** d'oro, non piena come il
+conteggio dei non letti: quella dice «è successo qualcosa», questa «me lo sono
+messo da parte io».
+
+Prova: `npx tsx scripts/prova-nota-e-rileggere.mts`
+
 ## Correggere una risposta pronta senza uscire dalla chat
 
 Nel pannello **Risposte** dell'inbox (il bottone, o «/» a riquadro vuoto) ogni riga ha una

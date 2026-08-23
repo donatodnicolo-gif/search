@@ -38,6 +38,7 @@ export default async function PaginaInbox() {
     ultimoTesto: c.ultimoTesto,
     ultimoMessaggioIl: c.ultimoMessaggioIl.toISOString(),
     nonLetti: c.nonLetti,
+    daRileggere: c.daRileggere,
     numeroNostro: c.numeroNostro,
     presaDaId: c.presaDaId,
     presaDaNome: c.presaDaNome,

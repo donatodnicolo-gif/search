@@ -71,7 +71,7 @@ export async function POST(_req: NextRequest, { params }: Params) {
 
   await db.conversazione.update({
     where: { id },
-    data: { archiviata: true, nonLetti: 0 },
+    data: { archiviata: true, nonLetti: 0, daRileggere: false },
   })
 
   return NextResponse.json({ mittente, giaCera, archiviata: true })

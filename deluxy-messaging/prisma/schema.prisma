@@ -454,6 +454,23 @@ model Conversazione {
   ultimoTesto       String   @default("") @db.Text
   ultimoMessaggioIl DateTime @default(now())
   nonLetti          Int      @default(0) // messaggi in arrivo non ancora letti dall'operatore
+  /**
+   * «L'ho letta, ma ci devo tornare»: il gesto della posta, segnare di nuovo
+   * come da leggere.
+   *
+   * ⚠️⚠️ È un campo A PARTE e non un `nonLetti = 1` finto, per due motivi che
+   * si sarebbero visti solo dopo:
+   *  · `nonLetti` è un CONTATORE che alzano i webhook. Rimetterlo a mano
+   *    direbbe «è arrivato un messaggio nuovo» quando non è arrivato niente, e
+   *    il numero sulla riga sarebbe una bugia;
+   *  · `src/lib/avvisi.ts` fa suonare l'app quando `nonLetti` CRESCE. Segnare
+   *    da leggere avrebbe fatto squillare un avviso a chi l'ha appena segnata.
+   *
+   * ⚠️ Lo spegne il clic che riapre la conversazione, non la rotta dei
+   * messaggi: quella la richiama il polling ogni 4 secondi, e il segno sarebbe
+   * durato meno di un battito di ciglia.
+   */
+  daRileggere       Boolean  @default(false)
   // ── CHI SE NE STA OCCUPANDO ──
   //
   // Gli operatori sono tre e l'inbox è una sola: finora chi ha fatto cosa
@@ -1130,6 +1147,22 @@ model NotaDiario {
   id           String    @id @default(cuid())
   /** «#12562» o vuoto: la riga vale anche senza ordine. */
   ordineNumero String    @default("")
+  /**
+   * La conversazione da cui la nota è stata scritta, se è stata scritta da lì.
+   *
+   * ⚠️ Una nota presa mentre si parla col cliente — «richiamare domani», «vuole
+   * il biglietto scritto a mano» — nasce SEMPRE in una chat, e spesso quella
+   * chat non ha ancora un ordine. Legandola solo al numero d'ordine, quelle
+   * note finivano in un elenco in cui non si capiva più di chi parlassero.
+   */
+  conversazioneId String  @default("")
+  /**
+   * ⚠️ Il nome o il numero di chi scriveva, COPIATO qui. Il diario si legge da
+   * una pagina sua, che non carica le conversazioni: senza questa copia una
+   * riga direbbe soltanto «da una chat». E se la conversazione finisce nel
+   * cestino, la nota deve continuare a dire di chi parlava.
+   */
+  conversazioneChi String @default("")
   testo        String    @db.Text
   /** Fatta o no: il diario è una lista di cose da fare, non un archivio. */
   fatta        Boolean   @default(false)
@@ -1142,6 +1175,7 @@ model NotaDiario {
   aggiornatoIl DateTime  @updatedAt
 
   @@index([ordineNumero])
+  @@index([conversazioneId])
   @@index([fatta, creatoIl])
 }
 

@@ -13,6 +13,7 @@ export async function GET(req: NextRequest) {
   const p = req.nextUrl.searchParams
   const stato = (p.get('stato') ?? 'aperte').trim()
   const ordine = (p.get('ordine') ?? '').trim()
+  const conversazione = (p.get('conversazione') ?? '').trim()
   const q = (p.get('q') ?? '').trim()
 
   const dove: Record<string, unknown> = {}
@@ -22,6 +23,7 @@ export async function GET(req: NextRequest) {
   // cancelletto, a mano si scrivono senza. Senza questo la nota c'è ma
   // sull'ordine non compare, e nessuna delle due schermate dà errore.
   if (ordine) dove.ordineNumero = { in: formeNumero(ordine) }
+  if (conversazione) dove.conversazioneId = conversazione
   if (q) dove.testo = { contains: q, mode: 'insensitive' }
 
   const note = await db.notaDiario.findMany({
@@ -39,9 +41,13 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const io = await utenteCorrente()
   if (!io) return NextResponse.json({ errore: 'Sessione scaduta' }, { status: 401 })
-  const { testo, ordineNumero } = (await req.json().catch(() => ({}))) as {
+  const { testo, ordineNumero, conversazioneId, conversazioneChi } = (await req
+    .json()
+    .catch(() => ({}))) as {
     testo?: string
     ordineNumero?: string
+    conversazioneId?: string
+    conversazioneChi?: string
   }
   const grezzo = (testo ?? '').trim()
   if (!grezzo) return NextResponse.json({ errore: 'La riga è vuota.' }, { status: 400 })
@@ -57,6 +63,8 @@ export async function POST(req: NextRequest) {
   const nota = await db.notaDiario.create({
     data: {
       ordineNumero: numero,
+      conversazioneId: (conversazioneId ?? '').trim(),
+      conversazioneChi: (conversazioneChi ?? '').trim().slice(0, 80),
       testo: corpo,
       autoreId: io.id,
       autoreNome: io.nome,

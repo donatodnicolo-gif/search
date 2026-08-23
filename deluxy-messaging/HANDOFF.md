@@ -1,6 +1,6 @@
 # Handoff — Deluxy Customer Service
 
-Ultimo aggiornamento: **24/08/2026, ore 01:45** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
+Ultimo aggiornamento: **24/08/2026, ore 03:30** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
 prima, alle 15:10, l'utente ha pubblicato la schermata di consenso Google e il
 conto alla rovescia dei 7 giorni è finito).
 Prima, il 19/08: la **risposta di primo contatto** che parte da sola al primo
@@ -308,6 +308,57 @@ locale, altrimenti nulla si decifra.
   - ⚠️ **Non visto a pixel**: pannello del browser non a schermo. La linguetta è
     `position: fixed` col testo verticale — **da guardare**, soprattutto su
     mobile dove il pannello è a tutta larghezza.
+
+- **LA TESTATA DELLA CONVERSAZIONE, RIORGANIZZATA** (24/08/2026, chiesto
+  dall'utente sopra uno screenshot: «riorganizza con logica tutti questi
+  bottoni»). Due righe: sopra CHI È (nome, recapito, badge — sola lettura),
+  sotto CHE COSA CI FACCIO, in quattro gruppi separati da una lineetta:
+  presa in carico · ordine · capire · andare via.
+  - ⚠️ **Il difetto vero non era il numero dei bottoni, era il mescolamento**:
+    il badge del canale finiva DOPO «Collega a un ordine», il numero del
+    cliente DOPO «Lascia», e andando a capo non si capiva quale gruppo fosse
+    quale.
+  - ⚠️ **«Elimina» staccato da «Archivia»** (8px + lineetta, 14px sul
+    telefono) e **la ✕ spostata nella riga di sopra**: erano vicini di casa
+    con 6px in mezzo — il gesto per uscire e quello per distruggere.
+  - ⚠️ «Collega a un ordine» sta **prima** di «Nuovo ordine ↗»: è di gran
+    lunga il più frequente dei due, e il secondo porta fuori dall'app.
+  - ✅ Guardata con un'anteprima temporanea sotto `/widget` (l'unico ramo
+    pubblico del middleware): due righe, gruppi [Lascia] · [Cambia ordine,
+    Nuovo ordine ↗] · [Riassunto, Diario, Traduci, Rubrica] · [Da leggere,
+    Archivia, Elimina], ✕ nella riga dell'identità, separatori da 1px,
+    Elimina rosso con 8px di stacco.
+
+- **LA NOTA DI DIARIO DALLA CONVERSAZIONE** (24/08/2026, chiesto: «devo poter
+  inserire una nota per il diario legato a questa conversazione»). Bottone
+  **Diario** nella testata, pannello sotto, `NotaDiario.conversazioneId`.
+  - ⚠️ **La nota prende ANCHE il numero d'ordine** quando la conversazione ne
+    ha uno: si legge dalla chat e dalla scheda dell'ordine. Scriverla due
+    volte sarebbe l'unico modo per averne due versioni diverse.
+  - ⚠️ `conversazioneChi` è una **copia** del nome: la pagina del diario non
+    carica le conversazioni, e la nota deve dire di chi parlava anche se la
+    chat finisce nel cestino.
+  - ⚠️ **Il numero delle note da fare sta sul bottone**: in un pannello chiuso
+    una nota lasciata a un collega non esisterebbe.
+
+- **«DA LEGGERE», COME NELLA POSTA** (24/08/2026, chiesto: «consenti di
+  lasciare una conversazione come non letta»). Campo `Conversazione.daRileggere`.
+  - ⚠️⚠️ **NON è `nonLetti = 1`**: quello è il contatore dei messaggi
+    arrivati, alzarlo a mano avrebbe mentito sul numero **e fatto squillare
+    l'avviso** a chi ha appena messo il segno (`avvisi.ts` suona quando
+    `nonLetti` cresce).
+  - ⚠️ **Segnare CHIUDE la finestra**: il segno serve a ritrovarla
+    nell'elenco, restare dentro a guardarla è la sola cosa che lo rende
+    inutile.
+  - ⚠️ **Lo spegne il clic che riapre**, non la rotta dei messaggi: quella la
+    richiama il polling ogni 4 secondi.
+  - ⚠️ **Anche la dashboard lo conta** fra «chi aspetta una risposta»: due
+    funzioni diverse che contassero cose diverse direbbero numeri diversi
+    senza dare errore.
+  - ✅ `npx tsx scripts/prova-nota-e-rileggere.mts` sul database vero: 7
+    controlli su 7 (la nota si ritrova dalla chat e dall'ordine, il segno
+    porta «chi aspetta risposta» da 0 a 1, `nonLetti` resta 0, tutto
+    rimesso com'era).
 
 - **LA MATITA SULLE RISPOSTE PRONTE** (24/08/2026, chiesto dall'utente: «metti
   una matitina per cambiare anche da qui velocemente una risposta rapida»).

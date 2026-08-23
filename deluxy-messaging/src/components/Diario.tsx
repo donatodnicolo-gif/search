@@ -13,6 +13,9 @@ import Link from 'next/link'
 export type NotaDiario = {
   id: string
   ordineNumero: string
+  /** La chat da cui la nota e nata, e di chi era: vedi lo schema. */
+  conversazioneId: string
+  conversazioneChi: string
   testo: string
   fatta: boolean
   fattaIl: string | null
@@ -254,6 +257,19 @@ export function Diario() {
                         style={{ marginRight: 6 }}
                       >
                         {n.ordineNumero}
+                      </Link>
+                    ) : null}
+                    {/* La chat da cui la nota è nata. Il nome è una COPIA presa
+                        quando la nota è stata scritta, e regge anche se poi la
+                        conversazione finisce nel cestino. */}
+                    {n.conversazioneId ? (
+                      <Link
+                        href={`/inbox?c=${encodeURIComponent(n.conversazioneId)}`}
+                        className="badge"
+                        style={{ marginRight: 6 }}
+                        title="Apri la conversazione da cui è nata questa nota"
+                      >
+                        {n.conversazioneChi || 'dalla chat'}
                       </Link>
                     ) : null}
                     <span>{n.testo}</span>
