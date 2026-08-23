@@ -8,6 +8,7 @@ import type { Prisma } from '@prisma/client'
 // GET /api/v1/messaggi?email=<contatto>&da=<ISO>&a=<ISO>&server=1&limite=30
 // GET /api/v1/messaggi?cliente=<nome o id Anagrafiche>&q=<testo>&direzione=tutte
 // GET /api/v1/messaggi?casella=1 → TUTTA la posta in arrivo dell'utente
+// GET /api/v1/messaggi?corpo=<id o Message-ID> → UNA mail col testo intero
 // GET /api/v1/messaggi?casella=1&destinatario=commerciale@deluxy.it → solo
 //   quella indirizzata a quel recapito (anche se è un alias che consegna qui)
 //   (serve a Scout per le «Richieste Web»: le mail a commerciale@deluxy.it)
@@ -31,6 +32,44 @@ export async function GET(request: Request) {
   if (!auth.ok) return NextResponse.json({ ok: false, errore: auth.errore }, { status: auth.status })
 
   const url = new URL(request.url)
+
+  // ?corpo=<id interno | Message-ID> → UNA mail, col testo intero.
+  //
+  // Le liste tornano solo l'anteprima, che sta in un paio di righe: chi ha
+  // importato una richiesta altrove (Scout) si ritrova con un troncone e non
+  // può leggerla. Si accettano tutti e due gli identificativi perché chi chiama
+  // può avere salvato l'uno o l'altro.
+  const corpoDi = (url.searchParams.get('corpo') || '').trim()
+  if (corpoDi) {
+    const m = await db.messaggio.findFirst({
+      where: { utenteId: auth.utenteId, OR: [{ id: corpoDi }, { messageId: corpoDi }] },
+      select: {
+        id: true, messageId: true, mittente: true, mittenteNome: true, destinatari: true,
+        oggetto: true, data: true, direzione: true, corpoTesto: true, allegati: true,
+      },
+    })
+    if (!m) {
+      return NextResponse.json(
+        { ok: false, errore: 'Messaggio non trovato in questa casella.' },
+        { status: 404 }
+      )
+    }
+    return NextResponse.json({
+      ok: true,
+      messaggio: {
+        id: m.id,
+        messageId: m.messageId,
+        da: m.mittenteNome || m.mittente,
+        email: m.mittente,
+        destinatari: m.destinatari,
+        oggetto: m.oggetto,
+        data: m.data,
+        direzione: m.direzione,
+        allegati: m.allegati,
+        testo: m.corpoTesto,
+      },
+    })
+  }
   const email = (url.searchParams.get('email') || '').trim().toLowerCase()
   const cliente = (url.searchParams.get('cliente') || '').trim()
   // ?ordine=<riferimento> — la posta che parla di UN ordine (vedi sotto).
