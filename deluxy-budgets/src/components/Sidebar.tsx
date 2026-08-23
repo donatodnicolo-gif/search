@@ -137,7 +137,7 @@ const nav: AreaNav[] = [
         ],
       },
       {
-        label: "Ricavi",
+        label: "Budget vendite",
         items: [
           { href: "/maison", label: "Maison", icon: icons.maison },
           { href: "/commerciale", label: "Team commerciale", icon: icons.commerciale },

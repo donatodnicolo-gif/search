@@ -285,7 +285,7 @@ export function totaliMaison(m: MaisonBudget) {
   }
   const totale = Object.values(perServizio).reduce((s, v) => s + v, 0);
   const advPubblicato = m.mesi.reduce((s, x) => s + x.advPubblicato, 0);
-  const adv = m.mesi.reduce((s, x) => s + advConsentitoMese(x, advPubblicato), 0);
+  const adv = m.mesi.reduce((s, x) => s + advConsentitoMese(x, budgetAdvAnno(m)), 0);
   return { perServizio, totale, adv, advPubblicato };
 }
 
@@ -306,8 +306,40 @@ export function advPubblicatoAnno(m: MaisonBudget): number {
   return m.mesi.reduce((s, x) => s + x.advPubblicato, 0);
 }
 
-export function advConsentitoMese(mese: MeseMaison, pubblicatoAnno: number): number {
-  return (pubblicatoAnno * mese.advPercent) / 100;
+// ---------- Quanto vale il monte pubblicitario dell'anno ----------
+//
+// **Non è più un numero ereditato: si stima dal ROS obiettivo** (regola
+// dell'utente, 23/08/2026: «stima in automatico il budget pubblicitario pari a
+// 7 per deluxy.it e 6,5 per tutti gli altri siti»). Il ROS è quanti euro di
+// vendite deve muovere ogni euro speso, quindi il conto si rovescia:
+//
+//     budget pubblicità dell'anno = vendite a budget dell'anno ÷ ROS obiettivo
+//
+// A ROS 7 la pubblicità vale un settimo del venduto (≈14,3%), a 6,5 un po' di
+// più (≈15,4%).
+//
+// ⚠️ La base sono le **vendite a budget**, non il venduto vero dei mesi già
+// chiusi. Due ragioni: un budget che si muove ogni volta che arriva un ordine
+// non è un budget; e questo conto deve poter girare **anche dove non c'è
+// Orders** — dentro il P&L e in `/piattaforme`, che sono sincroni — altrimenti
+// il monte annuo varrebbe una cosa nella pagina dove si scrive e un'altra dove
+// si legge.
+export const ROS_OBIETTIVO_PREDEFINITO = 6.5;
+const ROS_OBIETTIVO: Record<string, number> = { deluxy: 7 };
+
+export function rosObiettivo(slug: string): number {
+  return ROS_OBIETTIVO[slug] ?? ROS_OBIETTIVO_PREDEFINITO;
+}
+
+export function budgetAdvAnno(m: MaisonBudget): number {
+  const ros = rosObiettivo(m.slug);
+  if (ros <= 0) return 0;
+  const vendite = m.mesi.reduce((s, x) => s + venditeMese(x), 0);
+  return vendite / ros;
+}
+
+export function advConsentitoMese(mese: MeseMaison, budgetAnno: number): number {
+  return (budgetAnno * mese.advPercent) / 100;
 }
 
 // Budget ADV dell'intera azienda in un mese (somma su tutte le maison): è la
@@ -315,7 +347,7 @@ export function advConsentitoMese(mese: MeseMaison, pubblicatoAnno: number): num
 export function advBudgetMese(dati: DatiAnno, month: number): number {
   return dati.maisons.reduce((s, m) => {
     const x = m.mesi.find((y) => y.month === month);
-    return s + (x ? advConsentitoMese(x, advPubblicatoAnno(m)) : 0);
+    return s + (x ? advConsentitoMese(x, budgetAdvAnno(m)) : 0);
   }, 0);
 }
 
@@ -602,7 +634,7 @@ export function contoEconomicoMensile(dati: DatiAnno, livello: Livello, quotaD2C
     const adv =
       dati.maisons.reduce((s, m) => {
         const x = m.mesi.find((y) => y.month === month);
-        return s + (x ? advConsentitoMese(x, advPubblicatoAnno(m)) : 0);
+        return s + (x ? advConsentitoMese(x, budgetAdvAnno(m)) : 0);
       }, 0) * molt;
     const personale = costoPersonaleMese(dati, month);
     const margineLordo = ricavi - cogs;

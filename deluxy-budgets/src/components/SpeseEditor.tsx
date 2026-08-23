@@ -22,7 +22,17 @@ type MeseSpesa = {
   percent: number;
   pubblicato: number;
 };
-type MaisonSpese = { id: string; nome: string; pubblicatoAnno: number; mesi: MeseSpesa[] };
+type MaisonSpese = {
+  id: string;
+  nome: string;
+  // Il monte pubblicitario dell anno: **stimato** dal ROS obiettivo, non ereditato.
+  pubblicatoAnno: number;
+  ros: number;
+  // Quello che il monitoraggio aveva pubblicato, tenuto come riferimento.
+  pubblicatoStorico: number;
+  venditeAnnoBudget: number;
+  mesi: MeseSpesa[];
+};
 
 export function SpeseEditor({
   year,
@@ -323,7 +333,13 @@ export function SpeseEditor({
                 <h2 className="section-title" style={{ margin: 0 }}>{m.nome}</h2>
                 <p className="page-caption">
                   Budget pubblicità dell&apos;anno <strong>{eur(m.pubblicatoAnno)}</strong>{" "}
-                  <span className="muted">(ADV «pubblicato» del monitoraggio)</span>
+                  <span className="muted">
+                    (stimato: {eur(m.venditeAnnoBudget)} di budget vendite ÷ ROS {volte(m.ros)}
+                    {m.pubblicatoStorico > 0 && (
+                      <> · il monitoraggio ne aveva pubblicati {eur(m.pubblicatoStorico)}</>
+                    )}
+                    )
+                  </span>
                   {riga.speso > 0 && (
                     <>
                       {" "}
@@ -706,9 +722,12 @@ export function SpeseEditor({
             conto invece che due misure di cose diverse. */}
         <p className="page-caption" style={{ margin: "10px 14px 16px" }}>
           <strong>Da quale budget arrivano i numeri.</strong> Il{" "}
-          <strong>budget pubblicità dell&apos;anno</strong> (il 100%) è l&apos;<strong>ADV
-          «pubblicato»</strong> del monitoraggio {year}, tenuto come riferimento e <em>non</em> scalato dagli
-          scenari. Le <strong>vendite attese</strong> di ogni mese sono il <strong>budget vendite</strong> del
+          <strong>budget pubblicità dell&apos;anno</strong> (il 100%) non è ereditato: si{" "}
+          <strong>stima dal ROS obiettivo</strong> — <strong>7×</strong> su Deluxy.it, <strong>6,5×</strong>{" "}
+          su tutti gli altri — cioè <em>budget vendite dell&apos;anno ÷ ROS</em>. A 7 la pubblicità vale un
+          settimo del venduto (≈14,3%), a 6,5 un po&apos; di più (≈15,4%). L&apos;ADV «pubblicato» del
+          monitoraggio {year} resta scritto accanto come riferimento, per vedere quanto la stima se ne
+          discosta. Le <strong>vendite attese</strong> di ogni mese sono il <strong>budget vendite</strong> del
           brand, quello che si vede in <strong>Maison</strong>: ogni casella dice da quale fonte arriva —
           «Budget iniziale» è il file di monitoraggio caricato a inizio anno, le altre sono proposte che lo
           hanno <em>sostituito</em>. Nei mesi già chiusi le vendite non sono più attese ma{" "}

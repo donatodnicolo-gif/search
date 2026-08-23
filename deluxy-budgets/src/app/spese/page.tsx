@@ -1,4 +1,7 @@
-import { ANNO_CORRENTE, advPubblicatoAnno, caricaAnno, INIZIALE, nomeFonte, venditeMese } from "@/lib/calc";
+import {
+  ANNO_CORRENTE, advPubblicatoAnno, budgetAdvAnno, caricaAnno, INIZIALE, nomeFonte,
+  rosObiettivo, venditeMese,
+} from "@/lib/calc";
 import { primoMeseAperto } from "@/lib/periodo";
 import { fetchSpesaPerBrand } from "@/lib/marketing";
 import { caricaVenduto } from "@/lib/venduto";
@@ -78,7 +81,14 @@ export default async function Spese() {
             nome: m.nome,
             // Il monte pubblicità dell'anno: è il **100%** di questo brand, e
             // tutte le sue caselle sono quote di questo numero.
-            pubblicatoAnno: advPubblicatoAnno(m),
+            // Stimato dal ROS obiettivo, non ereditato: vendite a budget
+            // dell anno diviso il ROS del brand.
+            pubblicatoAnno: budgetAdvAnno(m),
+            ros: rosObiettivo(m.slug),
+            // Quello che il monitoraggio aveva pubblicato: resta come
+            // riferimento, per vedere quanto la stima se ne discosta.
+            pubblicatoStorico: advPubblicatoAnno(m),
+            venditeAnnoBudget: m.mesi.reduce((s, x) => s + venditeMese(x), 0),
             mesi: m.mesi.map((x) => ({
               month: x.month,
               // Quanto è stato speso davvero in pubblicità su questo brand in

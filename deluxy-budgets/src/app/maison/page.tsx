@@ -177,7 +177,7 @@ export default async function MaisonIndex({
               {dati.tipologie
                 .filter((tip) => (r.t.perServizio[tip.slug] ?? 0) > 0)
                 .map((tip) => `${tip.nome} ${pct(((r.t.perServizio[tip.slug] ?? 0) / r.t.totale) * 100, 0)}`)
-                .join(" · ") || "nessun ricavo a budget"}
+                .join(" · ") || "nessun budget di vendita"}
             </div>
           </Link>
         ))}

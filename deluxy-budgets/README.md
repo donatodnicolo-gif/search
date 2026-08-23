@@ -1394,22 +1394,53 @@ posso spendere in pubblicità»*. Era sbagliato, e l'utente lo ha detto in tre m
 capissi: «così superiamo il 100% ed è impossibile», «devo vedere la somma dei p.p.», e infine
 **«sono da calcolare su totale pubblicità prevista per l'anno»**.
 
-**La regola giusta**: ogni brand ha un **monte pubblicità per l'anno** — l'ADV *pubblicato* del
-monitoraggio, che la pagina mostrava già come riferimento — e le dodici caselle dicono **come si
-distribuisce fra i mesi**. Da cui tutto il resto:
+**La regola giusta**: ogni brand ha un **monte pubblicità per l'anno** e le dodici caselle dicono
+**come si distribuisce fra i mesi**. Da cui tutto il resto:
 
 | | |
 | --- | --- |
 | Importo del mese | monte annuo del brand × quota del mese |
-| Il 100% | il monte annuo di **quel brand** (Deluxy.it 199.922 €, Deluxyflowers 47.251, B2B 40.909, CakeDesign 18.189, Experience 4.500) |
+| Il 100% | il monte annuo di **quel brand**, stimato dal ROS obiettivo (sotto) |
 | Le dodici quote | **devono fare 100**: distribuiscono un numero già deciso |
 | Sopra il 100 | si impegna pubblicità che non c'è → **salvataggio bloccato** |
 | Sotto il 100 | budget non ancora assegnato → si salva, e la pagina dice quanto resta |
 | Mese chiuso | la quota non è una decisione ma una **misura**: speso reale ÷ monte annuo |
 
-Il conto sta in un posto solo — `advConsentitoMese(mese, pubblicatoAnno)` in `calc.ts` — quindi la
+Il conto sta in un posto solo — `advConsentitoMese(mese, budgetAnno)` in `calc.ts` — quindi la
 regola nuova vale anche per `/piattaforme`, per il P&L e per l'API `/api/v1/maison`, non solo per la
 schermata dove si scrive.
+
+### Il monte annuo non è ereditato: si stima dal ROS obiettivo (23/08/2026)
+
+*«Stima in automatico il budget pubblicitario pari a 7 per deluxy.it e 6,5 per tutti gli altri siti»*.
+Il ROS è quanti euro di vendite deve muovere ogni euro speso, quindi il conto si rovescia:
+
+```
+budget pubblicità dell'anno = budget vendite dell'anno ÷ ROS obiettivo
+```
+
+A **ROS 7** la pubblicità vale un settimo del venduto (≈14,3%), a **6,5** un po' di più (≈15,4%). Sta
+in `calc.ts` (`rosObiettivo` / `budgetAdvAnno`): `deluxy` → 7, tutti gli altri → 6,5.
+
+⚠️ **La base sono le vendite a BUDGET, non il venduto vero dei mesi chiusi**, per due ragioni: un
+budget che si muove a ogni ordine non è un budget; e questo conto deve girare **anche dove Orders non
+c'è** — dentro il P&L e in `/piattaforme`, che sono sincroni — altrimenti il monte annuo varrebbe una
+cosa nella pagina dove si scrive e un'altra dove si legge.
+
+| Brand | Budget vendite | ÷ ROS | **Stimato** | Il monitoraggio ne aveva |
+| --- | ---: | ---: | ---: | ---: |
+| Deluxy.it | 525.500 € | 7× | **75.071 €** | 199.922 € |
+| Deluxyflowers.com | 293.024 € | 6,5× | **45.081 €** | 47.251 € |
+| Deluxy Business (B2B) | 225.000 € | 6,5× | **34.615 €** | 40.909 € |
+| CakeDesign.me | 98.259 € | 6,5× | **15.117 €** | 18.189 € |
+| Deluxy Experience | 22.500 € | 6,5× | **3.462 €** | 4.500 € |
+| | | | **173.346 €** | 310.771 € |
+
+🔴 **Su Deluxy.it la stima è costruita su un budget vendite bucato**: gennaio–giugno valgono **zero**
+(il budget azzerato dal consolidamento del 31/07, mai ripristinato — punto 10). Con quei sei mesi
+rimessi, il budget vendite andrebbe verso i ~900.000 € e la stima verso i **~128.000 €** invece di
+75.071. Finché il ripristino non gira, il monte pubblicitario del brand più grande è sottostimato di
+oltre un terzo — ed è lo stesso buco che si vede in `/maison`.
 
 ⚠️⚠️ **Il vincolo cade sui mesi APERTI, non sulla somma dei dodici.** Sembra la stessa cosa e non lo
 è: i mesi chiusi non si riscrivono, quindi un brand i cui **soli mesi chiusi** superano già il 100%
