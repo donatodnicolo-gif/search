@@ -20,6 +20,11 @@ export default async function Dashboard() {
 
   const righe: { label: string; get: (pl: (typeof pls)[number]) => string; cls?: (pl: (typeof pls)[number]) => string }[] = [
     { label: "Ricavi", get: (pl) => eur(pl.ricavi) },
+    // Le due fonti separate, perché sono due mestieri: il budget delle maison
+    // lo genera la pubblicità online, quello delle linee il lavoro commerciale.
+    // Sommarli è giusto; confonderli no.
+    { label: "└ dalle maison (pubblicità online)", get: (pl) => eur(pl.ricavi - pl.ricaviCommerciale) },
+    { label: "└ dal team commerciale", get: (pl) => eur(pl.ricaviCommerciale) },
     { label: "Costo del venduto", get: (pl) => `− ${eur(pl.cogs)}` },
     { label: "Margine lordo", get: (pl) => eur(pl.margineLordo) },
     { label: "Spesa ADV", get: (pl) => `− ${eur(pl.adv)}` },
@@ -45,6 +50,19 @@ export default async function Dashboard() {
           <h1 className="page-title">Budget {dati.year}</h1>
           <p className="page-caption">
             P&amp;L aziendale sui 3 livelli di budget: raggiungibile (pubblicato), sfidante e irraggiungibile.{" "}
+            I ricavi sono <strong>due fonti sommate</strong>: il budget delle maison, che lo genera la
+            pubblicità online, e quello delle{" "}
+            <Link href="/commerciale" style={{ color: "var(--blue)" }}>linee commerciali</Link>, che lo
+            porta il lavoro del team.{" "}
+            {pls[0].lineeSenzaTipologia > 0 && (
+              <>
+                <strong style={{ color: "var(--orange)" }}>
+                  {pls[0].lineeSenzaTipologia} linee non hanno ancora una tipologia
+                </strong>
+                : entrano a <strong>margine zero</strong>, quindi non spostano l&apos;EBITDA finché non la
+                si sceglie.{" "}
+              </>
+            )}
             I ricavi D2C entrano con la <strong>quota che resta a Deluxy</strong> (
             {pct(quota.percentuale)}, {quota.misurata ? "misurata" : "stimata"}): è la stessa base del
             consuntivo e del <Link href="/pl" style={{ color: "var(--blue)" }}>P&amp;L</Link>, così le tre

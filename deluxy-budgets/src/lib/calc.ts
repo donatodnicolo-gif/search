@@ -138,6 +138,15 @@ export type MaisonBudget = {
   vendutoMesi: number[] | null;
 };
 
+export type LineaBudgetPL = {
+  id: string;
+  nome: string;
+  // Come fattura: da qui eredita il margine. `null` = non deciso → margine zero.
+  tipologiaSlug: string | null;
+  // Il budget in € per mese (1..12).
+  mesi: number[];
+};
+
 export type DatiAnno = {
   year: number;
   maisons: MaisonBudget[];
@@ -147,6 +156,12 @@ export type DatiAnno = {
   team: TeamBudget[];
   tipologie: Tipologia[];
   piattaforme: PiattaformaAdv[];
+  // Il budget del **team commerciale**, per linea e per mese. È una fonte di
+  // ricavo **diversa** da quella delle maison (chiarito dall'utente il
+  // 23/08/2026): il budget delle maison — D2C, Eventi, B2B — è quello che
+  // genera la **pubblicità online**, questo è quello che porta il lavoro
+  // commerciale. Si sommano, non si sovrappongono.
+  linee: LineaBudgetPL[];
   // I **costi di struttura dal consuntivo**, con la media dei mesi chiusi estesa
   // al resto dell'anno (regola dell'utente, 23/08/2026). `null` = Finance non ha
   // risposto, e allora si ricade sulla configurazione a budget — che è quello
@@ -155,7 +170,7 @@ export type DatiAnno = {
 };
 
 export async function caricaAnno(year = ANNO_CORRENTE): Promise<DatiAnno> {
-  const [maisons, entries, advs, scenari, costi, dipendenti, team, tipologie, piattaforme, split] =
+  const [maisons, entries, advs, scenari, costi, dipendenti, team, tipologie, piattaforme, split, lineeDb] =
     await Promise.all([
       prisma.maison.findMany({ orderBy: { ordine: "asc" } }),
       prisma.budgetEntry.findMany({ where: { year } }),
@@ -167,6 +182,10 @@ export async function caricaAnno(year = ANNO_CORRENTE): Promise<DatiAnno> {
       prisma.tipologiaServizio.findMany({ orderBy: [{ ordine: "asc" }, { nome: "asc" }] }),
       prisma.piattaformaAdv.findMany({ orderBy: [{ ordine: "asc" }, { nome: "asc" }] }),
       prisma.piattaformaSplit.findMany({ where: { year } }),
+      prisma.lineaCommerciale.findMany({
+        orderBy: { ordine: "asc" },
+        include: { targets: { where: { year } } },
+      }),
     ]);
 
   const out: MaisonBudget[] = maisons.map((m) => {
@@ -226,6 +245,12 @@ export async function caricaAnno(year = ANNO_CORRENTE): Promise<DatiAnno> {
     year,
     maisons: out,
     struttura,
+    linee: lineeDb.map((l) => ({
+      id: l.id,
+      nome: l.nome,
+      tipologiaSlug: l.tipologiaSlug,
+      mesi: Array.from({ length: 12 }, (_, i) => l.targets.find((t) => t.month === i + 1)?.valore ?? 0),
+    })),
     scenari: scenari.map((s) => ({
       livello: s.livello as Livello,
       moltiplicatore: s.moltiplicatore,
@@ -471,6 +496,12 @@ export type PL = {
   premio: number;
   risultatoNetto: number;
   ebitdaPct: number;
+  // I ricavi del team commerciale, tenuti a parte perché sono un'altra fonte:
+  // le pagine li mostrano su una riga loro invece di confonderli con le maison.
+  ricaviCommerciale: number;
+  // Quante linee non hanno ancora una tipologia, e quindi entrano a margine
+  // zero. Si dichiara: un margine dedotto dal silenzio è peggio di un buco.
+  lineeSenzaTipologia: number;
 };
 
 // Margine di una tipologia. Una tipologia sconosciuta (dato vecchio rimasto in
@@ -539,13 +570,43 @@ export function contoEconomico(dati: DatiAnno, livello: Livello, maisonSlug?: st
       ricaviPerServizio[slug] = (ricaviPerServizio[slug] ?? 0) + v * molt * conversione;
     }
   }
+  // ---- I ricavi del **team commerciale** ----
+  //
+  // Sono una fonte **diversa** da quella delle maison, non una parte di essa
+  // (chiarito dall'utente il 23/08/2026): il budget delle maison è quello che
+  // genera la **pubblicità online**, questo è quello che porta il lavoro
+  // commerciale. Si sommano.
+  //
+  // ⚠️ Per la stessa ragione **non entrano nella stima del monte pubblicitario**:
+  // quello è `vendite ÷ ROS` per maison, e una linea commerciale non è una
+  // maison — se ci entrasse, il commerciale si porterebbe dietro un budget di
+  // campagne che non gli serve.
+  //
+  // ⚠️ Non compaiono nel P&L di una **singola maison**: non appartengono a
+  // nessuna, e spalmarle in proporzione ai ricavi vorrebbe dire attribuire a un
+  // negozio un fatturato che ha fatto un'altra squadra.
+  const ricaviCommerciale = maisonSlug
+    ? 0
+    : dati.linee.reduce((s, l) => s + l.mesi.reduce((a, b) => a + b, 0), 0) * molt;
+  const cogsCommerciale = maisonSlug
+    ? 0
+    : dati.linee.reduce((s, l) => {
+        const v = l.mesi.reduce((a, b) => a + b, 0) * molt;
+        // Linea senza tipologia = margine zero: il ricavo si conta lo stesso
+        // (ignorarlo gonfierebbe il risultato) ma senza margine. Finché nessuno
+        // sceglie, aggiungere le linee **non sposta l'EBITDA**.
+        return s + v * (1 - (l.tipologiaSlug ? margineDi(dati, l.tipologiaSlug) : 0) / 100);
+      }, 0);
+
   // Si risomma dalle tipologie invece di usare `venditeBase`: con la quota
   // applicata al D2C i due numeri non coincidono più.
-  const ricavi = Object.values(ricaviPerServizio).reduce((s, v) => s + v, 0);
-  const cogs = Object.entries(ricaviPerServizio).reduce(
-    (s, [slug, v]) => s + v * (1 - margineDi(dati, slug) / 100),
-    0
-  );
+  const ricavi =
+    Object.values(ricaviPerServizio).reduce((s, v) => s + v, 0) + ricaviCommerciale;
+  const cogs =
+    Object.entries(ricaviPerServizio).reduce(
+      (s, [slug, v]) => s + v * (1 - margineDi(dati, slug) / 100),
+      0
+    ) + cogsCommerciale;
   const cogsPct = ricavi > 0 ? (cogs / ricavi) * 100 : 0;
   const margineLordo = ricavi - cogs;
   const adv = advBase * molt;
@@ -571,6 +632,8 @@ export function contoEconomico(dati: DatiAnno, livello: Livello, maisonSlug?: st
     premio: p,
     risultatoNetto: ebitda - p,
     ebitdaPct: ricavi > 0 ? (ebitda / ricavi) * 100 : 0,
+    ricaviCommerciale,
+    lineeSenzaTipologia: maisonSlug ? 0 : dati.linee.filter((l) => !l.tipologiaSlug).length,
   };
 }
 
@@ -612,6 +675,14 @@ export function contoEconomicoMensile(dati: DatiAnno, livello: Livello, quotaD2C
         ricavi += r;
         cogs += r * (1 - margineDi(dati, slug) / 100);
       }
+    }
+    // I ricavi del **team commerciale** di quel mese, con il loro margine.
+    // Stessa regola dell'annuale, e per la stessa ragione: i due conti devono
+    // dare lo stesso numero, o la pagina mensile e quella annuale litigano.
+    for (const l of dati.linee) {
+      const r = (l.mesi[month - 1] ?? 0) * molt;
+      ricavi += r;
+      cogs += r * (1 - (l.tipologiaSlug ? margineDi(dati, l.tipologiaSlug) : 0) / 100);
     }
     const adv =
       dati.maisons.reduce((s, m) => {

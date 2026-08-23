@@ -1639,6 +1639,46 @@ riscrivere dodici caselle. Vuoto = si cerca il nome identico; se non c'e il cons
 che **non vuol dire zero**. Provato: collegata «Magazzino / Logistica» a «Magazzino» → 7.290 € sui mesi
 chiusi, poi **rimessa vuota** (la mappatura vera la decide l'utente).
 
+### ⭐⭐ Due fonti di ricavo, non una (23/08/2026)
+
+«b2b ed eventi sono a parte rispetto al budget dato da commerciale: sono ricavi che derivano dalle
+pubblicita online». È la frase che ha chiuso una confusione grossa, e va tenuta scritta perché guardando
+i numeri sembrava il contrario:
+
+```
+budget delle MAISON (D2C, Eventi, B2B)   → lo genera la PUBBLICITA ONLINE
+budget delle LINEE commerciali            → lo porta il LAVORO DEL TEAM
+```
+
+⚠️ **Si sommano, non si sovrappongono.** Le linee si chiamano «Consegne Corporate», «Catering & Eventi»,
+«Affiliazioni» — le stesse parole delle tipologie di Finance sotto cui sta il B2B — e da lì avevo dedotto
+un doppio conteggio. Era sbagliato: **è lo stesso mestiere venduto da due canali diversi**, e il nome non
+basta a distinguerli. ⭐ È il tipo di conclusione che sembra solida perché i dati tornano, e invece
+manca il pezzo che sa solo chi conosce l'azienda.
+
+📌 Effetto: i ricavi a budget passano da **601.929 €** a **1.101.929 €** (601.929 dalle maison + 500.000
+dal commerciale). `/dashboard` e `/pl` li mostrano su **righe separate**, perché sommarli è giusto e
+confonderli no.
+
+⚠️ **Il commerciale non entra nella stima del monte pubblicitario**: quello è `vendite ÷ ROS` **per
+maison**, e una linea commerciale non è una maison. Se ci entrasse, si porterebbe dietro un budget di
+campagne che per definizione non gli serve. Per la stessa ragione non compare nel P&L di una **singola**
+maison: non appartiene a nessuna, e spalmarlo in proporzione ai ricavi attribuirebbe a un negozio un
+fatturato fatto da un'altra squadra.
+
+**Il margine si imposta linea per linea** (scelta dell'utente): campo `LineaCommerciale.tipologiaSlug`,
+si sceglie dal riquadro «Come fattura ogni linea» in `/commerciale` e da lì eredita il margine della
+tipologia. ⭐ **`null` = non decisa vale margine ZERO**, non un margine di comodo: il ricavo si conta lo
+stesso (ignorarlo gonfierebbe il risultato) ma il costo del venduto se lo mangia tutto. Effetto voluto:
+finché nessuno sceglie, **aggiungere le linee al P&L non sposta l'EBITDA** — ricavo e COGS crescono dello
+stesso importo. Provato: mettendo «Torte e Mono» (15.000 €) su B2B al 20%, l'EBITDA si muove di
+**3.000 €** esatti, poi rimesso a «non decisa».
+
+⚠️ Sul confronto col consuntivo la riga del commerciale mostra **«—»** di proposito: Finance fattura
+tutto insieme e **non sa dire** quale ordine è arrivato da una campagna e quale l'ha portato un
+commerciale. Metterci il consuntivo di una tipologia vorrebbe dire attribuire al team anche il venduto
+delle campagne.
+
 ### Il budget delle linee commerciali si scrive (23/08/2026)
 
 «Dobbiamo impostare il budget per categoria per mese anche qui». `TargetLinea` esisteva a database da

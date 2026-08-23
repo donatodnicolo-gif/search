@@ -130,9 +130,19 @@ export async function PATCH(req: Request) {
       .split(",")
       .map((x) => x.trim())
       .filter(Boolean);
+    // La **tipologia con cui la linea fattura**, da cui eredita il margine nel
+    // conto economico. Si manda solo quando si cambia: assente = non si tocca.
+    // Stringa vuota = «non decisa», che vale margine zero e la pagina lo dice.
+    const grezza = m?.tipologiaSlug;
+    const tipologiaSlug =
+      grezza === undefined ? undefined : String(grezza).trim() === "" ? null : String(grezza).trim();
+
     await prisma.lineaCommerciale.update({
       where: { id: lineaId },
-      data: { vociFinance: lista.length > 0 ? JSON.stringify(lista) : null },
+      data: {
+        vociFinance: lista.length > 0 ? JSON.stringify(lista) : null,
+        ...(tipologiaSlug === undefined ? {} : { tipologiaSlug }),
+      },
     });
     scritte++;
   }

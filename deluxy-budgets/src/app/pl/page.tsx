@@ -140,6 +140,23 @@ export default async function ContoEconomico({
       valore: (pl: PL) => pl.ricaviPerServizio[t.slug] ?? 0,
       cons: (c: ConsuntivoPeriodo) => c.ricaviPerTipologia[t.slug] ?? 0,
     })),
+    // ⭐ **I ricavi del team commerciale stanno su una riga loro.** Sono
+    // un'altra fonte, non una parte del budget delle maison: quello lo genera
+    // la pubblicità online, questo il lavoro commerciale.
+    //
+    // ⚠️ `cons: null` di proposito: Finance fattura tutto insieme e **non sa
+    // dire** quale ordine è arrivato da una campagna e quale l'ha portato un
+    // commerciale. Mettere lì il consuntivo di una tipologia vorrebbe dire
+    // attribuire al commerciale anche il venduto delle campagne.
+    {
+      label: "Ricavi da team commerciale",
+      nota:
+        plScelto.lineeSenzaTipologia > 0
+          ? `${dati.linee.length} linee · ${plScelto.lineeSenzaTipologia} senza tipologia, quindi a margine zero`
+          : `${dati.linee.length} linee di vendita`,
+      valore: (pl: PL) => pl.ricaviCommerciale,
+      cons: () => null,
+    },
     ...RIGHE_FISSE.map((r) =>
       r.label === "Costi di struttura" ? { ...r, nota: notaStruttura(dati.struttura) } : r
     ),

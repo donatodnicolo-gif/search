@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { MESI } from "@/lib/format";
@@ -22,6 +23,9 @@ export type LineaBudget = {
   mesi: Mese[];
   // Le tipologie di Finance che compongono il consuntivo di questa linea.
   vociFinance: string[];
+  // Con quale tipologia di servizio fattura: da lì eredita il margine nel P&L.
+  // `null` = non deciso, e allora il margine vale zero.
+  tipologiaSlug: string | null;
   // Il fatturato vero mese per mese, **o `null`**. Un `null` non e uno zero:
   // senza collegamento a Finance non sappiamo quanto ha fatturato, e «0 €»
   // direbbe che non ha venduto niente.
@@ -75,6 +79,7 @@ export function LineeEditor({
   lineeScoutSenzaBudget,
   vociFinanceNote,
   consuntivoOk,
+  tipologie,
 }: {
   year: number;
   linee: LineaBudget[];
@@ -90,6 +95,9 @@ export function LineeEditor({
   // scriverne uno che non esiste e restare senza consuntivo senza capire perche.
   vociFinanceNote: string[];
   consuntivoOk: boolean;
+  // Le tipologie di servizio col loro margine: una linea ne sceglie una e da
+  // quella eredita il margine con cui entra nel conto economico.
+  tipologie: { slug: string; nome: string; marginePct: number }[];
 }) {
   const router = useRouter();
   const [misura, setMisura] = useState<Misura>("valore");
@@ -118,6 +126,11 @@ export function LineeEditor({
     Object.fromEntries(linee.map((l) => [l.id, l.vociFinance.join(", ")]))
   );
   const [salvoVoci, setSalvoVoci] = useState(false);
+  // La tipologia scelta per riga, come slug ("" = non decisa).
+  const [tip, setTip] = useState<Record<string, string>>(() =>
+    Object.fromEntries(linee.map((l) => [l.id, l.tipologiaSlug ?? ""]))
+  );
+  const senzaTipologia = linee.filter((l) => !l.tipologiaSlug).length;
 
   const chiuso = (month: number) => month < primoMeseAperto;
   const key = (lineaId: string, month: number, m: Misura) => `${lineaId}:${month}:${m}`;
@@ -222,7 +235,11 @@ export function LineeEditor({
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        mappature: linee.map((l) => ({ lineaId: l.id, vociFinance: voci[l.id] ?? "" })),
+        mappature: linee.map((l) => ({
+          lineaId: l.id,
+          vociFinance: voci[l.id] ?? "",
+          tipologiaSlug: tip[l.id] ?? "",
+        })),
       }),
     });
     const body = await res.json().catch(() => null);
@@ -516,7 +533,24 @@ export function LineeEditor({
           collegamento **non si indovina** — «Consegne Corporate» è «Consegne»?
           «Torte e Mono» è «Food Supplier»? — lo dice chi sa come si fattura. */}
       <div className="card">
-        <h2 className="section-title" style={{ marginTop: 0 }}>Da dove arriva il consuntivo</h2>
+        <h2 className="section-title" style={{ marginTop: 0 }}>Come fattura ogni linea</h2>
+        <p className="page-caption" style={{ marginTop: 0 }}>
+          Due cose per riga, e servono a due domande diverse. La{" "}
+          <strong>tipologia</strong> dice con che margine la linea entra nel{" "}
+          <Link href="/pl" style={{ color: "var(--blue)" }}>conto economico</Link>; le{" "}
+          <strong>voci di Finance</strong> dicono da dove si legge il suo consuntivo.
+          {senzaTipologia > 0 && (
+            <>
+              {" "}
+              <strong style={{ color: "var(--orange)" }}>
+                {senzaTipologia} linee sono senza tipologia
+              </strong>
+              : entrano a <strong>margine zero</strong>, cioè il ricavo si conta e il costo del venduto se
+              lo mangia tutto. Non è una stima prudente per caso — è il modo di non spostare l&apos;EBITDA
+              con un margine che nessuno ha scelto.
+            </>
+          )}
+        </p>
         <p className="page-caption" style={{ marginTop: 0 }}>
           Sotto ogni mese passato c&apos;è il <strong>fatturato vero</strong>, che arriva dalle tipologie di{" "}
           <strong>Finance</strong>. Il collegamento è per <strong>nome</strong>: lasciandolo vuoto si cerca
@@ -541,6 +575,7 @@ export function LineeEditor({
             <thead>
               <tr>
                 <th>Linea</th>
+                <th>Fattura come</th>
                 <th>Tipologie di Finance</th>
                 <th className="num">Consuntivo {MESI[0]}–{MESI[Math.max(0, primoMeseAperto - 2)]}</th>
               </tr>
@@ -549,6 +584,20 @@ export function LineeEditor({
               {linee.map((l) => (
                 <tr key={l.id}>
                   <td style={{ fontWeight: 500, whiteSpace: "nowrap" }}>{l.nome}</td>
+                  <td>
+                    <select
+                      value={tip[l.id] ?? ""}
+                      onChange={(e) => setTip((p) => ({ ...p, [l.id]: e.target.value }))}
+                      title="Da questa tipologia la linea eredita il margine con cui entra nel P&L."
+                    >
+                      <option value="">— non decisa (margine 0%)</option>
+                      {tipologie.map((t) => (
+                        <option key={t.slug} value={t.slug}>
+                          {t.nome} · margine {t.marginePct.toLocaleString("it-IT")}%
+                        </option>
+                      ))}
+                    </select>
+                  </td>
                   <td>
                     <input
                       type="text"
@@ -574,8 +623,8 @@ export function LineeEditor({
         </div>
         <div className="form-footer">
           <span className="muted">
-            Il collegamento cambia solo <strong>quello che si legge</strong>: il budget scritto sopra non si
-            tocca.
+            Il budget scritto sopra non si tocca: qui si dice solo <strong>come si legge</strong> e{" "}
+            <strong>con che margine entra nel conto economico</strong>.
           </span>
           <button className="btn secondary" onClick={salvaVoci} disabled={salvoVoci}>
             {salvoVoci ? "Salvo…" : "Salva i collegamenti"}
