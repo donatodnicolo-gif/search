@@ -11,6 +11,11 @@ const punti = (v: number) => v.toLocaleString("it-IT", { maximumFractionDigits: 
 type MeseSpesa = {
   month: number;
   speso: number | null;
+  // Le vendite del mese: a budget, e quelle vere dove esistono. Non sono la
+  // base della percentuale — quella è il monte pubblicitario dell'anno — ma
+  // servono a leggere il risultato: **quanto pesa la pubblicità sul venduto**.
+  vendite: number;
+  venduto: number | null;
   percent: number;
   pubblicato: number;
 };
@@ -115,6 +120,24 @@ export function SpeseEditor({
   const sommaQuote = (m: MaisonSpese, percentuale: (key: string) => number) =>
     m.mesi.reduce((s, x) => s + quota(m, x, percentuale), 0);
 
+  // ---- L'incidenza sulle vendite: il risultato, non la regola ----
+  //
+  // La quota dice **come si distribuisce** il budget pubblicitario; questa dice
+  // **quanto pesa** su quello che il mese vende. Sono due domande diverse e
+  // servono tutte e due: si può distribuire benissimo il monte annuo e ritrovarsi
+  // con un mese al 40% di incidenza, che è la cosa che poi si paga.
+  //
+  // «Attese» sono le vendite a budget; su un mese già chiuso però la previsione
+  // è stata smentita dai fatti, quindi vale il **venduto vero** — e la casella
+  // dice quale dei due sta usando.
+  const venditeAttese = (x: MeseSpesa) =>
+    chiuso(x.month) && x.venduto !== null && x.venduto > 0 ? x.venduto : x.vendite;
+  const incidenza = (m: MaisonSpese, x: MeseSpesa, percentuale: (key: string) => number) => {
+    const attese = venditeAttese(x);
+    if (attese <= 0) return null; // niente vendite: un rapporto non esiste, non è «zero»
+    return (importoMese(m, x, percentuale) / attese) * 100;
+  };
+
   const consentito = (m: MaisonSpese, percentuale: (key: string) => number, filtro?: (x: MeseSpesa) => boolean) =>
     m.mesi.filter((x) => (filtro ? filtro(x) : true)).reduce((s, x) => s + importoMese(m, x, percentuale), 0);
 
@@ -136,6 +159,11 @@ export function SpeseEditor({
         const ppChiusi = m.mesi.filter((x) => chiuso(x.month)).reduce((s, x) => s + quota(m, x, valore), 0);
         const ppAperti = pp - ppChiusi;
         const disponibile = Math.max(0, 100 - ppChiusi);
+        // Le vendite dell'anno su cui si misura l'incidenza: si sommano **solo i
+        // mesi che ne hanno**, altrimenti un mese senza vendite a budget
+        // abbasserebbe il rapporto facendolo sembrare più sano di quello che è.
+        const venditeAnno = m.mesi.reduce((s, x) => s + venditeAttese(x), 0);
+        const incAnno = venditeAnno > 0 ? (ora / venditeAnno) * 100 : null;
         return {
           m,
           ora,
@@ -149,6 +177,8 @@ export function SpeseEditor({
           ppChiusi,
           ppAperti,
           disponibile,
+          venditeAnno,
+          incAnno,
           // Quanto manca al 100% (positivo) o di quanto si sfora (negativo).
           resta: 100 - pp,
         };
@@ -341,6 +371,16 @@ export function SpeseEditor({
                     </>
                   )}
                 </p>
+                {/* L'altra domanda, quella che la quota non risponde: **quanto
+                    pesa** tutta questa pubblicità su quello che il brand vende. */}
+                {riga.incAnno !== null && (
+                  <p className="page-caption" style={{ marginTop: 2 }}>
+                    Sulle vendite dell&apos;anno pesa{" "}
+                    <strong style={{ color: "var(--blue)" }}>{punti(riga.incAnno)}%</strong> —{" "}
+                    {eur(riga.ora)} di pubblicità su {eur(riga.venditeAnno)} di vendite (
+                    {primoMeseAperto > 1 ? "vere fino ai mesi chiusi, a budget sul resto" : "a budget"}).
+                  </p>
+                )}
               </div>
               {/* Il salvataggio del singolo brand sta nella sua scheda: dodici
                   caselle si sistemano un brand per volta, e dover scorrere fino
@@ -418,6 +458,7 @@ export function SpeseEditor({
                 const percent = misura && reale !== null ? Math.round(reale * 10) / 10 : valore(key);
                 const importo = importoMese(m, x, valore);
                 const importoSalvato = importoMese(m, x, (k) => originali[k] ?? 0);
+                const inc = incidenza(m, x, valore);
                 // Una singola casella oltre 100 è impossibile per definizione —
                 // un mese non può prendersi più di tutto l'anno — ma il divieto
                 // vero è sulla somma: qui si segnala solo il valore assurdo.
@@ -465,6 +506,9 @@ export function SpeseEditor({
                           <div className="errore">{percent > 100 ? "oltre il 100%" : "sotto zero"}</div>
                           <div className="errore">impossibile</div>
                           <div>su {eur(m.pubblicatoAnno)}</div>
+                          {/* Quarta riga anche qui: è l'altezza costante che
+                              tiene in linea gli input della stessa riga. */}
+                          <div className="incidenza muted">—</div>
                         </>
                       ) : (
                         <>
@@ -478,6 +522,25 @@ export function SpeseEditor({
                           ) : (
                             <div className="fonte">{misura ? "speso davvero" : "a budget"}</div>
                           )}
+                          {/* Quanto pesa sul venduto: il risultato della quota,
+                              non la sua regola. */}
+                          <div
+                            className="incidenza"
+                            title={
+                              inc === null
+                                ? `${MESI[x.month - 1]} non ha vendite ${chiuso(x.month) ? "" : "a budget "}su cui misurare l'incidenza.`
+                                : `${eur(importo)} di pubblicità su ${eur(venditeAttese(x))} di vendite ${chiuso(x.month) && (x.venduto ?? 0) > 0 ? "vere" : "attese"}.`
+                            }
+                          >
+                            {inc === null ? (
+                              <span className="muted">niente vendite</span>
+                            ) : (
+                              <>
+                                {punti(inc)}% del venduto
+                                {chiuso(x.month) && (x.venduto ?? 0) > 0 ? "" : " atteso"}
+                              </>
+                            )}
+                          </div>
                         </>
                       )}
                     </div>

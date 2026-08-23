@@ -1,6 +1,7 @@
-import { ANNO_CORRENTE, advPubblicatoAnno, caricaAnno } from "@/lib/calc";
+import { ANNO_CORRENTE, advPubblicatoAnno, caricaAnno, venditeMese } from "@/lib/calc";
 import { primoMeseAperto } from "@/lib/periodo";
 import { fetchSpesaPerBrand } from "@/lib/marketing";
+import { caricaVenduto } from "@/lib/venduto";
 import { MESI } from "@/lib/format";
 import { SpeseEditor } from "@/components/SpeseEditor";
 
@@ -21,6 +22,11 @@ export default async function Spese() {
   const spesa = mesiChiusi.length > 0
     ? await fetchSpesaPerBrand(dati.year, mesiChiusi)
     : { ok: false, errore: "", perMaison: new Map<string, (number | null)[]>(), senzaMaison: [] };
+
+  // Le **vendite attese** del mese, che qui non sono la base del calcolo ma
+  // servono a leggere il risultato: un budget pubblicitario si giudica anche da
+  // quanto pesa sul venduto. Sui mesi chiusi vale il venduto vero.
+  const vend = await caricaVenduto(dati.year, dati.maisons);
 
   return (
     <>
@@ -50,6 +56,7 @@ export default async function Spese() {
         brandSenzaCasa={spesa.senzaMaison}
         maisons={dati.maisons.map((m) => {
           const speso = spesa.perMaison.get(m.slug) ?? null;
+          const reale = vend.ok ? vend.perMaison.get(m.slug) ?? null : null;
           return {
             id: m.id,
             nome: m.nome,
@@ -63,6 +70,9 @@ export default async function Spese() {
               // risponde, o brand che in Marketing non esiste), che non è
               // «zero speso».
               speso: speso ? speso[x.month - 1] ?? null : null,
+              // Le vendite di quel mese: a budget, e quelle vere dove ci sono.
+              vendite: venditeMese(x),
+              venduto: reale ? reale[x.month - 1] ?? null : null,
               percent: x.advPercent,
               pubblicato: x.advPubblicato,
             })),

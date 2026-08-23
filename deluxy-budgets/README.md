@@ -1420,6 +1420,19 @@ quote scritte quando la percentuale voleva dire un'altra cosa. Quindi: si blocca
 con un avviso a parte, che non blocca niente perché non c'è niente da correggere. Tolleranza di mezzo
 punto: le quote si scrivono con un decimale e dodici arrotondamenti non devono diventare un divieto.
 
+**E accanto alla quota, quanto pesa sulle vendite** (chiesto subito dopo: *«puoi mostrare rispetto
+alle vendite attese?»*). La quota risponde a *come distribuisco il monte annuo*; l'incidenza risponde
+a *quanto mi costa in rapporto a quello che vendo* — due domande diverse, e servono tutte e due: si
+può distribuire benissimo il budget e ritrovarsi con un mese al 35% di incidenza, che è la cosa che
+poi si paga. Ogni casella porta una quarta riga (`12% del venduto atteso`) e ogni brand la sua
+incidenza d'anno. Sui mesi chiusi il denominatore è il **venduto vero**, sugli aperti il **budget**, e
+la casella dice quale dei due (`del venduto` / `del venduto atteso`). Dove non ci sono vendite scrive
+«niente vendite», non «0%»: un rapporto senza denominatore non esiste.
+
+📌 **Quanto pesa oggi, con le quote attuali**: Experience **48%**, B2B **39,7%**, Deluxy.it **22%**,
+CakeDesign **21,6%**, Deluxyflowers **18,1%**. Sul solo Deluxy.it, dicembre da solo vale il **34,8%**
+del venduto atteso di quel mese, contro il **9,2%** davvero speso a gennaio.
+
 📌 **Cosa dice il dato il giorno del cambio** — e non lo diceva prima, perché le dodici percentuali non
 avevano nessun vincolo fra loro: **quattro brand su cinque distribuiscono più del loro budget
 pubblicitario**, per **47.019 €** in totale (Experience 240%, B2B 218,4%, Deluxyflowers 121,3%,

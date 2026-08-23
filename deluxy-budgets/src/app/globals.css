@@ -222,13 +222,15 @@ input:focus, select:focus, textarea:focus {
    stessa riga — l'allineamento si rompe da sotto, non da sopra. */
 .mese-cell .sub {
   font-size: 11px; color: var(--text-tertiary); margin-top: 3px; text-align: right;
-  font-variant-numeric: tabular-nums; line-height: 1.35; min-height: 4.05em;
+  font-variant-numeric: tabular-nums; line-height: 1.35; min-height: 5.4em;
 }
 /* Ogni riga della didascalia resta **una** riga: è l'altezza prevedibile di
    questo blocco (tre righe, sempre) a tenere in linea gli input della stessa
    riga della griglia. */
 .mese-cell .sub > div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mese-cell .sub .fonte { color: var(--text-quaternary, var(--text-tertiary)); opacity: 0.75; }
+/* quanto pesa sul venduto: e il risultato della quota, non la sua regola */
+.mese-cell .sub .incidenza { color: var(--blue); opacity: 0.85; }
 /* L'etichetta del mese va a capo quando è lunga (es. «Lug · % su 50.000 € · chiuso»)
    e senza questo la cella sfalsa in basso il proprio input, disallineando tutta
    la riga. Niente altezza fissa — che sarebbe un numero da indovinare e sbagliato
