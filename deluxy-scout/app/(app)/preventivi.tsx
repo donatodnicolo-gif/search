@@ -237,30 +237,43 @@ function SchedaLavoro({
 
   return (
     <View style={styles.card}>
-      <Pressable style={styles.cardTesta} onPress={onToggle}>
-        <Text style={styles.cardNome} numberOfLines={2}>{lavoro.titolo}</Text>
-        {lavoro.stato !== 'aperto' ? (
-          <StatusBadge small label={lavoro.stato === 'chiuso' ? 'Chiuso' : 'Annullato'} colore={colors.grigio} />
-        ) : null}
-        <Ionicons name={aperto ? 'chevron-up' : 'chevron-down'} size={16} color={colors.testoSoft} />
+      {/* Tutto il riepilogo apre il dettaglio, non solo la riga del titolo:
+          il cliente, la data e «Nessun preventivo: aprilo e chiedine uno»
+          sono la parte che si legge — cliccarci sopra e non ottenere niente
+          faceva sembrare la scheda ferma. Il dettaglio resta FUORI da questo
+          Pressable: lì dentro ci sono i bottoni, e un clic di troppo
+          richiuderebbe la scheda mentre ci si sta lavorando. */}
+      <Pressable
+        style={({ hovered }: any) => [styles.cardSommario, hovered && styles.cardSommarioHover]}
+        onPress={onToggle}
+        accessibilityRole="button"
+        accessibilityLabel={`${aperto ? 'Chiudi' : 'Apri'} il dettaglio di ${lavoro.titolo}`}
+      >
+        <View style={styles.cardTesta}>
+          <Text style={styles.cardNome} numberOfLines={2}>{lavoro.titolo}</Text>
+          {lavoro.stato !== 'aperto' ? (
+            <StatusBadge small label={lavoro.stato === 'chiuso' ? 'Chiuso' : 'Annullato'} colore={colors.grigio} />
+          ) : null}
+          <Ionicons name={aperto ? 'chevron-up' : 'chevron-down'} size={16} color={colors.testoSoft} />
+        </View>
+
+        <Text style={styles.cardMeta} numberOfLines={2}>
+          {[lavoro.place_nome, lavoro.linea, lavoro.serve_entro ? `entro il ${lavoro.serve_entro}` : null]
+            .filter(Boolean)
+            .join(' · ') || 'Nessun cliente collegato'}
+        </Text>
+
+        {/* Il riassunto che serve prima di aprire: quanto costa e quanti mancano. */}
+        <Text style={styles.riassunto}>
+          {lavoro.preventivi.length === 0
+            ? 'Nessun preventivo: aprilo e chiedine uno'
+            : scelto
+              ? `Scelto ${scelto.fornitore} · ${euro(scelto.importo)}`
+              : `${lavoro.preventivi.length} preventiv${lavoro.preventivi.length === 1 ? 'o' : 'i'}${
+                  minimo != null ? ` · il più basso ${euro(minimo)}` : ''
+                }${inAttesa ? ` · ${inAttesa} in attesa` : ''}`}
+        </Text>
       </Pressable>
-
-      <Text style={styles.cardMeta} numberOfLines={2}>
-        {[lavoro.place_nome, lavoro.linea, lavoro.serve_entro ? `entro il ${lavoro.serve_entro}` : null]
-          .filter(Boolean)
-          .join(' · ') || 'Nessun cliente collegato'}
-      </Text>
-
-      {/* Il riassunto che serve prima di aprire: quanto costa e quanti mancano. */}
-      <Text style={styles.riassunto}>
-        {lavoro.preventivi.length === 0
-          ? 'Nessun preventivo: aprilo e chiedine uno'
-          : scelto
-            ? `Scelto ${scelto.fornitore} · ${euro(scelto.importo)}`
-            : `${lavoro.preventivi.length} preventiv${lavoro.preventivi.length === 1 ? 'o' : 'i'}${
-                minimo != null ? ` · il più basso ${euro(minimo)}` : ''
-              }${inAttesa ? ` · ${inAttesa} in attesa` : ''}`}
-      </Text>
 
       {aperto ? (
         <View style={styles.dettaglio}>
@@ -517,12 +530,20 @@ const styles = StyleSheet.create({
   chipOn: { backgroundColor: colors.navy, borderColor: colors.navy },
   chipTxt: { color: colors.testo, fontSize: 12.5, fontWeight: '600' },
   chipTxtOn: { color: colors.bianco },
-  card: { backgroundColor: colors.bianco, borderRadius: radius.md, borderWidth: 1, borderColor: colors.grigioChiaro, padding: spacing.md, gap: 5 },
+  // ⚠️ Il padding è passato dalla card al riepilogo: così l'area premibile
+  // arriva ai bordi e il colore dell'hover copre tutta la scheda invece di
+  // lasciare una cornice bianca intorno. `overflow: hidden` perché quel colore
+  // deve fermarsi agli angoli arrotondati.
+  card: { backgroundColor: colors.bianco, borderRadius: radius.md, borderWidth: 1, borderColor: colors.grigioChiaro, overflow: 'hidden' },
+  cardSommario: { padding: spacing.md, gap: 5 },
+  cardSommarioHover: { backgroundColor: colors.fill },
   cardTesta: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   cardNome: { flex: 1, color: colors.navy, fontWeight: '800', fontSize: 15 },
   cardMeta: { color: colors.testoSoft, fontSize: 12.5, lineHeight: 17 },
   riassunto: { color: colors.testo, fontSize: 13, fontWeight: '600' },
-  dettaglio: { gap: 8, marginTop: 6, borderTopWidth: 1, borderTopColor: colors.grigioChiaro, paddingTop: spacing.sm },
+  // Il padding se lo porta da sé, ora che la card non ne ha più; il filo in
+  // alto arriva da bordo a bordo e divide il riepilogo dal dettaglio.
+  dettaglio: { gap: 8, borderTopWidth: 1, borderTopColor: colors.grigioChiaro, paddingTop: spacing.sm, paddingHorizontal: spacing.md, paddingBottom: spacing.md },
   descrizione: { color: colors.testoSoft, fontSize: 13, lineHeight: 18 },
   prev: { backgroundColor: colors.sfondo, borderRadius: radius.md, padding: spacing.sm, gap: 4, borderWidth: 1, borderColor: 'transparent' },
   prevScelto: { borderColor: colors.successo, backgroundColor: '#F3FAF5' },
