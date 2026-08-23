@@ -7,6 +7,12 @@ export enum Role {
   PARTNER = 'PARTNER',
   VALET = 'VALET',
   PROJECT_MANAGER = 'PROJECT_MANAGER',
+  /**
+   * Cliente finale. Introdotto con la migrazione dal legacy: lì i clienti erano
+   * anagrafiche senza accesso (password sempre vuota su tutte le 4.514 righe).
+   * Un account CUSTOMER vede solo le proprie consegne, mai quelle altrui.
+   */
+  CUSTOMER = 'CUSTOMER',
 }
 
 /** Stato dell'accesso di un utente (separato dall'operatività dell'anagrafica). */

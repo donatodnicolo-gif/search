@@ -27,6 +27,8 @@ datasource db {
 // ------------------------------------------------------------
 model User {
   id           String   @id @default(cuid())
+  /// id nel database originario MySQL: rende l'import ripetibile e tracciabile
+  legacyId             Int?      @unique
   email        String   @unique
   passwordHash String?  // null finché l'utente non accetta l'invito e sceglie la password
   firstName    String
@@ -49,6 +51,9 @@ model User {
   valet        Valet?   @relation(fields: [valetId], references: [id])
   operationId  String?    @unique
   operation    Operation? @relation(fields: [operationId], references: [id])
+  /// account di accesso di un cliente (ruolo CUSTOMER)
+  customerId   String?    @unique
+  customer     Customer?  @relation(fields: [customerId], references: [id])
   savedViews   SavedView[]
   events       UserEvent[]
   notifications      Notification[]
@@ -140,6 +145,8 @@ model SavedView {
 // ------------------------------------------------------------
 model Province {
   id                String             @id @default(cuid())
+  /// id nel database originario MySQL: rende l'import ripetibile e tracciabile
+  legacyId             Int?      @unique
   name              String
   code              String             @unique // es. "MI"
   cities            City[]
@@ -151,6 +158,8 @@ model Province {
 
 model City {
   id         String   @id @default(cuid())
+  /// id nel database originario MySQL: rende l'import ripetibile e tracciabile
+  legacyId             Int?      @unique
   name       String
   provinceId String
   province   Province @relation(fields: [provinceId], references: [id])
@@ -166,6 +175,8 @@ model City {
 // ------------------------------------------------------------
 model ServiceType {
   id              String           @id @default(cuid())
+  /// id nel database originario MySQL: rende l'import ripetibile e tracciabile
+  legacyId             Int?      @unique
   name            String
   code            String           @unique
   pricingModel    String // VENDITA | PREZZO_FISSO | A_ORA | MAGAZZINO | CORPORATE
@@ -195,6 +206,8 @@ model ServiceType {
 // ------------------------------------------------------------
 model Partner {
   id                  String            @id @default(cuid())
+  /// id nel database originario MySQL: rende l'import ripetibile e tracciabile
+  legacyId             Int?      @unique
   insegna             String
   businessName        String? // ragione sociale
   email               String            @unique
@@ -337,6 +350,8 @@ model PartnerDayException {
 // di business.
 model Valet {
   id                  String            @id @default(cuid())
+  /// id nel database originario MySQL: rende l'import ripetibile e tracciabile
+  legacyId             Int?      @unique
   firstName           String
   lastName            String
   email               String            @unique
@@ -427,6 +442,8 @@ model ValetAvailability {
 // ------------------------------------------------------------
 model Category {
   id               String             @id @default(cuid())
+  /// id nel database originario MySQL: rende l'import ripetibile e tracciabile
+  legacyId             Int?      @unique
   name             String             @unique
   notes            String?
   aiPrompt         String? // prompt per generazione AI (es. torte)
@@ -460,6 +477,8 @@ model CategoryDiscount {
 
 model Product {
   id                      String             @id @default(cuid())
+  /// id nel database originario MySQL: rende l'import ripetibile e tracciabile
+  legacyId             Int?      @unique
   name                    String
   description             String?
   shortDesc               String? // "Plus del prodotto" (max 80 char)
@@ -565,6 +584,8 @@ model ProductField {
 // ------------------------------------------------------------
 model Customer {
   id         String     @id @default(cuid())
+  /// id nel database originario MySQL: rende l'import ripetibile e tracciabile
+  legacyId             Int?      @unique
   firstName  String
   lastName   String
   email      String?
@@ -575,6 +596,8 @@ model Customer {
   partner    Partner?   @relation(fields: [partnerId], references: [id])
   deliveries Delivery[]
   sales      Sale[]
+  /// account di accesso del cliente (facoltativo)
+  user       User?
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
 }
@@ -589,6 +612,8 @@ model Customer {
 // ------------------------------------------------------------
 model Delivery {
   id                 String            @id @default(cuid())
+  /// id nel database originario MySQL: rende l'import ripetibile e tracciabile
+  legacyId             Int?      @unique
   // Numero progressivo leggibile (assegnato dal service: max(code)+1;
   // autoincrement su campo non-id non e' supportato da SQLite)
   code               Int               @unique
@@ -942,6 +967,8 @@ model AppSetting {
 // (come Operation ma senza Consegne e Attività).
 model Operation {
   id               String   @id @default(cuid())
+  /// id nel database originario MySQL: rende l'import ripetibile e tracciabile
+  legacyId             Int?      @unique
   firstName        String
   lastName         String
   email            String   @unique
