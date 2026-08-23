@@ -34,9 +34,12 @@ const SEZIONI: { titolo: string; voci: Voce[] }[] = [
     titolo: 'Canali',
     voci: [
       { name: 'mappa', label: 'Territorio · Mappa', icon: 'map-outline' },
-      { name: 'affiliazioni', label: 'Chiamate · Affiliazioni', icon: 'call-outline' },
-      // L'Italia dall'alto: dove siamo, dove vendiamo, dove non c'è nessuno.
-      { name: 'province', label: 'Province · Copertura', icon: 'grid-outline' },
+      // Una voce sola per due domande che sono la stessa in due tempi: «dove
+      // non abbiamo nessuno» (la copertura per provincia, in cima, chiusa di
+      // default) e «chi chiamo» (l'elenco). Erano due schermate separate, e
+      // dalla prima si arrivava alla seconda con un parametro che nessuno
+      // leggeva. La rotta /province resta viva per i link già in giro.
+      { name: 'affiliazioni', label: 'Affiliazioni · Copertura', icon: 'call-outline' },
       { name: 'lead', label: 'Richieste Web', icon: 'globe-outline' },
       // Quarto canale: non li troviamo noi, ce li passa un'altra app.
       { name: 'segnalati', label: 'Segnalazioni CS', icon: 'cube-outline' },
@@ -384,12 +387,14 @@ export default function AppLayout() {
             testata mostra il nome della rotta («segnalati», «province»…). */}
         <Drawer.Screen name="segnalati" options={{ title: 'Segnalazioni CS' }} />
         <Drawer.Screen name="riconciliazione" options={{ title: 'Riconciliazione' }} />
+        {/* Fuori dal menu (la copertura sta dentro Affiliazioni), ma la rotta
+            resta: i link salvati e quelli di altre app devono continuare ad aprirsi. */}
         <Drawer.Screen name="province" options={{ title: 'Province · Copertura' }} />
         <Drawer.Screen name="interessi" options={{ title: 'Per interesse' }} />
         <Drawer.Screen name="sequenze" options={{ title: 'Sequenze' }} />
         <Drawer.Screen name="preventivi" options={{ title: 'Preventivi fornitori' }} />
         <Drawer.Screen name="clienti" options={{ title: 'Clienti' }} />
-        <Drawer.Screen name="affiliazioni" options={{ title: 'Affiliazioni' }} />
+        <Drawer.Screen name="affiliazioni" options={{ title: 'Affiliazioni · Copertura' }} />
         <Drawer.Screen name="pagamenti" options={{ title: 'Pagamenti' }} />
         <Drawer.Screen name="dashboard" options={{ title: 'Dashboard' }} />
         <Drawer.Screen name="storico" options={{ title: 'Storico' }} />

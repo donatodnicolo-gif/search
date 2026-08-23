@@ -37,6 +37,7 @@ import { AnagraficaRegistroCard } from '@/components/AnagraficaRegistroCard';
 import { TaskFormModal } from '@/components/TaskFormModal';
 import { EmptyState, PageIntro } from '@/components/ui';
 import { RicercaAffiliazioni } from '@/components/RicercaAffiliazioni';
+import { CoperturaProvince } from '@/components/CoperturaProvince';
 import { PannelloFiltri } from '@/components/PannelloFiltri';
 
 type FiltroAff = StatoAffiliazione | 'tutti' | 'selezionati';
@@ -93,7 +94,7 @@ export default function Affiliazioni() {
   // RICERCA sul territorio (scoperta Google) per trovarne di nuove.
   const [tab, setTab] = useState<'elenco' | 'ricerca'>('elenco');
   // Aperta da un preferito del menu (?lat&lng&indirizzo): vai alla Ricerca, centrata lì.
-  const params = useLocalSearchParams<{ lat?: string; lng?: string; indirizzo?: string }>();
+  const params = useLocalSearchParams<{ lat?: string; lng?: string; indirizzo?: string; cerca?: string }>();
   const centroIniziale = useMemo(() => {
     const lat = parseFloat(String(params.lat ?? ''));
     const lng = parseFloat(String(params.lng ?? ''));
@@ -103,6 +104,11 @@ export default function Affiliazioni() {
   useEffect(() => {
     if (centroIniziale) setTab('ricerca');
   }, [centroIniziale]);
+
+  // Arrivo da /province (o da un link salvato) con una provincia già in mano.
+  useEffect(() => {
+    if (params.cerca) setQuery(String(params.cerca));
+  }, [params.cerca]);
   const nSel = useMemo(() => righe.filter((r) => r.starred).length, [righe]);
   // TABELLA sopra i 900px, SCHEDE sotto. Non è un vezzo: sette colonne su uno
   // schermo da telefono diventano illeggibili, e in questa app la regola è che
@@ -121,6 +127,14 @@ export default function Affiliazioni() {
   // owner → nome, per scrivere CHI ha segnalato invece di un uuid. Tollerante:
   // se la tabella profiles non risponde restano i nomi di ripiego.
   const [nomi, setNomi] = useState<Map<string, string>>(new Map());
+  // COPERTURA: la tabella delle province vive qui dentro, chiusa di default.
+  // Le due schermate erano separate ma facevano un lavoro solo — «dove non
+  // abbiamo nessuno» e «chi chiamo» sono la stessa domanda, in due tempi. E il
+  // clic sulla provincia, che prima portava qui con un parametro che nessuno
+  // leggeva (`?zona=`, ignorato), adesso filtra l'elenco lì sotto.
+  // ⚠️ Chiusa di default perché costa due chiamate di rete (registro + venduto):
+  // aprirla è una scelta, non un pedaggio su ogni visita alla pagina.
+  const [copertura, setCopertura] = useState(false);
 
   const carica = useCallback(async () => {
     setLoading(true);
@@ -262,6 +276,20 @@ export default function Affiliazioni() {
                 ))}
               </View>
             </PannelloFiltri>
+            <Pressable style={styles.coperturaBtn} onPress={() => setCopertura((v) => !v)}>
+              <Ionicons name="map-outline" size={15} color={colors.testo} />
+              <Text style={styles.coperturaTxt}>Copertura per provincia</Text>
+              <Ionicons name={copertura ? 'chevron-up' : 'chevron-down'} size={15} color={colors.grigio} />
+            </Pressable>
+            {copertura ? (
+              <View style={styles.coperturaBox}>
+                <Text style={styles.coperturaAiuto}>
+                  Tutte e 107 le province, comprese quelle dove non abbiamo nessuno. Tocca una provincia:
+                  il suo nome finisce nella ricerca qui sopra e l’elenco si stringe.
+                </Text>
+                <CoperturaProvince onProvincia={(nome) => { setQuery(nome); setCopertura(false); }} />
+              </View>
+            ) : null}
             {tabella ? <Intestazione /> : null}
           </View>
         }
@@ -701,6 +729,22 @@ const styles = StyleSheet.create({
   stepWrapTab: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: spacing.md, paddingBottom: 10 },
   registroTab: { paddingHorizontal: spacing.md, paddingBottom: 10 },
   calBtn: { padding: 4, alignSelf: 'flex-start' },
+  coperturaBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: colors.bianco,
+    borderWidth: 1,
+    borderColor: colors.grigioChiaro,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  coperturaTxt: { flex: 1, color: colors.testo, fontWeight: '600', fontSize: 14 },
+  coperturaBox: { marginHorizontal: spacing.md, marginBottom: spacing.md, gap: spacing.sm },
+  coperturaAiuto: { color: colors.testoSoft, fontSize: 12.5, lineHeight: 18 },
   tabs: { flexDirection: 'row', gap: 8, paddingHorizontal: spacing.md, paddingBottom: spacing.sm },
   tab: { flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1, borderColor: colors.grigioChiaro, backgroundColor: colors.bianco, borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 8 },
   tabOn: { backgroundColor: colors.ink, borderColor: colors.ink },
