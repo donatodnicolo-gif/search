@@ -1134,6 +1134,18 @@ maison e per mese, IVA inclusa come il budget), catalogo Hub aggiornato (id `bud
   > Il canale di Marketing si abbina alla piattaforma **dal nome** (`Google` → `google_ads`, `Meta` →
   > `meta_ads`, in `canaleDiPiattaforma`). Una piattaforma che in Marketing non ha un canale — TikTok —
   > nei mesi chiusi scrive **«non misurato»**, non uno zero che sembrerebbe «non ha speso niente».
+  >
+  > **La colonna «Anno» porta anche la quota in %** («fai vedere anche le ripartizioni delle spese %»):
+  > sull'anno la domanda non è più *quanto* ma *quanta parte*. Sotto l'importo c'è la sua percentuale
+  > sul totale, e nel titolo la spaccatura fra **quello che è già uscito e quello che è ancora una
+  > decisione** — nell'importo sono sommati e non si distinguerebbero. Su CakeDesign.me: Google
+  > **11.995 € · 77,5%** (8.528 già spesi + 3.467 a budget), Meta **2.981 € · 19,3%** (1.990 + 991).
+  >
+  > ⚠️ **Il totale della colonna non è 100 per definizione, e non va scritto a mano.** L'avevo messo
+  > fisso a «100%» pensando che la somma delle quote lo fosse per costruzione: è falso appena una
+  > piattaforma viene **tolta** — la sua parte resta scoperta e nessuno la riassegna. Oggi vale
+  > **96,8%**, in arancione, con scritto quanto resta senza casa (495 €): è successo davvero perché
+  > TikTok è stato rimosso e il suo 10% sui mesi aperti è sparito con lui.
 - ✅ **Storico Meta in Marketing: caricato** (verificato il 09/08, il 17/08 e il 21/08/2026 — copertura
   233 giorni su 233, Marketing spiega l'**85%** delle uscite ADV contro il 46% del 28/07). Resta una
   coda: **`flowers/meta_ads` sta a 191 giorni su 233** e **`cake/meta_ads` a 196** — nei giorni scoperti

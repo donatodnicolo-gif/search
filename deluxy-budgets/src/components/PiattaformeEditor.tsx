@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { eur, MESI } from "@/lib/format";
+import { eur, MESI, pct } from "@/lib/format";
 
 type Piattaforma = {
   id: string;
@@ -93,10 +93,27 @@ export function PiattaformeEditor({
     for (let m = 1; m <= 12; m++) t += importo(id, m);
     return t;
   };
+  // Quanto di quel totale è **già uscito** e quanto è ancora una decisione:
+  // sommati nell'importo non si distinguono, e sono due cose diverse.
+  const dettaglioAnno = (p: Piattaforma) => {
+    let speso = 0;
+    let daSpendere = 0;
+    for (let m = 1; m <= 12; m++) {
+      const vero = spesoDi(p, m);
+      if (vero !== null) speso += vero;
+      else daSpendere += importo(p.id, m);
+    }
+    return speso > 0
+      ? `${eur(speso)} già spesi nei mesi chiusi + ${eur(daSpendere)} a budget su quelli che restano.`
+      : `${eur(daSpendere)} a budget: nessun mese chiuso misurato per questa piattaforma.`;
+  };
   const allocatoAnno = useMemo(
     () => piattaforme.reduce((s, p) => s + totaleAnnoPiattaforma(p.id), 0),
     [piattaforme, perc, budgetMese] // eslint-disable-line react-hooks/exhaustive-deps
   );
+  // La quota dell anno coperta dalle piattaforme: e la somma vera, non 100 per
+  // definizione — se una piattaforma viene tolta, la sua parte resta scoperta.
+  const quotaAnnoTotale = budgetAnno > 0 ? (allocatoAnno / budgetAnno) * 100 : 0;
 
   async function salva() {
     setSalvo(true);
@@ -258,7 +275,21 @@ export function PiattaformeEditor({
                         </div>
                       </td>
                     ))}
-                    <td className="num" style={{ fontWeight: 600 }}>{eur(totaleAnnoPiattaforma(p.id))}</td>
+                    {/* Sull'anno la domanda non è più «quanto», è **quanta
+                        parte**: la colonna porta l'importo e la sua quota sul
+                        totale. Nel titolo la spaccatura fra quello che è già
+                        uscito e quello che è ancora una decisione, che
+                        nell'importo sono sommati e non si distinguerebbero. */}
+                    <td className="num" style={{ fontWeight: 600 }}>
+                      <div title={dettaglioAnno(p)}>{eur(totaleAnnoPiattaforma(p.id))}</div>
+                      <div
+                        className="muted"
+                        style={{ fontSize: 11, fontWeight: 400, marginTop: 2 }}
+                        title={dettaglioAnno(p)}
+                      >
+                        {budgetAnno > 0 ? pct((totaleAnnoPiattaforma(p.id) / budgetAnno) * 100) : "—"}
+                      </div>
+                    </td>
                     <td>
                       <button
                         className="btn secondary small"
@@ -282,7 +313,21 @@ export function PiattaformeEditor({
                       </td>
                     );
                   })}
-                  <td className="num" />
+                  {/* Sull anno la somma delle quote **non e** per costruzione
+                      100: se una piattaforma viene tolta, la sua quota resta
+                      non assegnata. Scriverla a mano direbbe una cosa falsa
+                      proprio dove serve accorgersene. */}
+                  <td
+                    className="num"
+                    style={{ color: quotaAnnoTotale >= 99.5 && quotaAnnoTotale <= 100.5 ? "var(--green)" : "var(--orange)" }}
+                    title={
+                      quotaAnnoTotale < 99.5
+                        ? `Le piattaforme coprono il ${pct(quotaAnnoTotale)} del budget dell anno: ${eur(budgetAnno - allocatoAnno)} non sono assegnati a nessuna.`
+                        : undefined
+                    }
+                  >
+                    {pct(quotaAnnoTotale)}
+                  </td>
                   <td />
                 </tr>
                 <tr className="tot">
