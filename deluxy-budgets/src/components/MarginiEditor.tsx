@@ -149,6 +149,18 @@ export function MarginiEditor({ tipologie }: { tipologie: Riga[] }) {
                     <td>
                       <div style={{ fontWeight: 600 }}>{t.nome}</div>
                       <div className="muted" style={{ fontSize: 11.5 }}>{t.slug}</div>
+                      {/* La nota della tipologia si legge **qui**, accanto al
+                          margine che spiega: tenuta solo a database sarebbe una
+                          spiegazione che non raggiunge chi sta per cambiare il
+                          numero. */}
+                      {t.note && (
+                        <div
+                          className="muted"
+                          style={{ fontSize: 11.5, marginTop: 4, maxWidth: 320, lineHeight: 1.4 }}
+                        >
+                          {t.note}
+                        </div>
+                      )}
                     </td>
                     <td className="num">{t.ricavi > 0 ? eur(t.ricavi) : <span className="muted">—</span>}</td>
                     <td className="num muted">

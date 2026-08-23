@@ -1010,9 +1010,29 @@ un a-capo); ricontrollato il 17/08/2026: c'è. Restano fuori `HUB_SSO_SECRET` e 
    ed è **distorta verso il basso**: quei pagamenti comprendono i fioristi degli ordini **B2B ed
    eventi**, che non si dividono per il venduto Shopify. Serve l'aggancio pagamento → ordine →
    canale. Finché manca, il 29% è un limite inferiore, non la misura.
-2. **I margini per tipologia a budget** (D2C 35%, Eventi 20%, B2B 20%) restano scritti sul venduto
-   lordo: applicati a ricavi ormai netti danno un EBITDA a budget negativo e «12 mesi in perdita»,
-   che è un artefatto. Rifarli **cambia i premi**.
+2. ✅ **RISOLTO il 23/08/2026 — il costo del venduto contava la quota partner due volte.** Segnalato
+   dall utente («il costo del venduto è troppo alto rispetto alle vendite che ci sono») ed era il punto
+   aperto che stava qui: i margini per tipologia erano scritti sul **venduto lordo**, ma sul D2C il
+   ricavo è già **netto** — 778.883 € venduti diventano 311.553 € di quota Deluxy — e sopra veniva
+   tolto un altro 65% di costo del venduto (202.509 €). La quota partner spariva due volte: una
+   convertendo il venduto in ricavo, una come costo.
+
+   **Deciso dall utente**: margine D2C **da 35% a 100%**, cioè nessun costo del venduto sull ecommerce —
+   la quota che va ai partner è una **partita di giro**, non un costo, ed è già fuori dal ricavo. È il
+   modello C applicato fino in fondo. Su **Eventi e B2B** il costo resta (lì fattura Deluxy e il
+   fornitore fattura a Deluxy): sono loro a tenere basso il margine, 246.400 € di costo su 308.000 € di
+   ricavi B2B.
+
+   | | Prima | Dopo |
+   | --- | ---: | ---: |
+   | Costo del venduto | 510.829 € | **308.320 €** |
+   | Margine lordo | 186.123 € (26,7%) | **388.633 € (55,8%)** |
+   | EBITDA (Raggiungibile) | −443.255 € | **−240.745 €** |
+
+   ⚠️ **Il perché sta scritto dove si cambia il numero**: la nota della tipologia adesso si legge in
+   `/margini` accanto alla riga, non solo a database — una spiegazione che non raggiunge chi sta per
+   rimettere 35% non serve a niente. E l EBITDA resta negativo: con 217.254 € di personale e la riga ADV
+   ancora gonfiata (sotto), il conto non torna comunque — ma adesso non è più un artefatto.
 3. **4.903 € che nessuna regola riconosce** nel 2026 (146 controparti) e **23.548 €** sul 2025
    (545 controparti) — rimisurati il 17/08/2026. ⚠️ Attenzione a *dove* stanno: non sono fuori dal
    conto economico, sono dentro la categoria **«Da classificare»** (tipo di P&L: COGS), quindi il
