@@ -1265,7 +1265,20 @@ maison e per mese, IVA inclusa come il budget), catalogo Hub aggiornato (id `bud
   quella spesa manca del tutto (≈ **1.280 €**). Sono *sopra* la soglia dell'80% che fa scattare
   l'avvertenza degli account parziali, quindi Marketing li dichiara «completi»: da qui in poi l'app li
   nomina lo stesso (vedi «Una soglia attraversata non è un buco chiuso»). Si chiude in **Marketing**, non qui.
-- **Costo del lavoro**: tredicesima/quattordicesima e TFR non sono voci distinte; nessun consuntivo del personale.
+- ⭐ **Costo del lavoro: il TFR di chi smette c è** (23/08/2026, «aggiungi tfr per chi smette»). Il TFR
+  matura per tutti ma **si paga quando il rapporto finisce**: per chi resta è un accantonamento, per chi
+  se ne va è un costo dell anno, e nel budget va messo lì dove esce. Quota di legge: retribuzione ÷
+  **13,5**, sul lordo già riproporzionato ai mesi lavorati — il TFR del 2026 è quello maturato nel 2026,
+  non tutta l anzianità, che questa app non conosce. Solo i **dipendenti**: un consulente fattura e uno
+  stagista prende un rimborso, il TFR non lo maturano né l uno né l altro.
+  > **Cade tutto nel mese in cui il rapporto finisce**, non spalmato sui dodicesimi: è lì che si
+  > liquida, e spalmarlo direbbe che quel costo esce a gennaio. Misurato: Andrea Bellazzi **852 €** a
+  > giugno, Giada Lo Proto **772 €** a maggio — costo del personale da 217.254 a **218.877 €**. In
+  > `/dipendenti` si legge accanto al totale della persona («di cui TFR 852 € a Giu»), perché un costo
+  > che esce una volta sola, sommato in silenzio, fa sembrare sbagliato il conto dei dodicesimi.
+- **Costo del lavoro, cosa manca ancora**: tredicesima e quattordicesima non sono voci distinte (per i
+  contratti **annui** la RAL le comprende già, per i **mensili** il lordo si fa ×12 anche se il campo
+  dice 14); il TFR di chi **resta** non è accantonato; e non c è un consuntivo del personale.
 - **P&L**: per singola **linea commerciale** non c'è (le linee hanno solo il budget vendite, non un conto economico).
 
 ## Chiavi dall'app (Configurazione → Chiavi)

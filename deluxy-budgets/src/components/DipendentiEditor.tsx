@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  costoPersonaAnno, costoPersonaMese, lordoAnnuo, nettoBusta,
+  costoPersonaAnno, costoPersonaMese, lordoAnnuo, nettoBusta, tfrDi, ultimoMese,
   TIPI_PERSONA, type Persona,
 } from "@/lib/persone";
 import { eur, MESI, pct } from "@/lib/format";
@@ -303,7 +303,19 @@ export function DipendentiEditor({
                         {p.mesi.length === 12 ? "tutto l'anno" : p.mesi.map((m) => MESI[m - 1]).join(" ")}
                       </td>
                       <td className="num">{eur(costoPersonaMese(p, p.mesi[0] ?? 1))}</td>
-                      <td className="num" style={{ fontWeight: 600 }}>{eur(costoPersonaAnno(p))}</td>
+                      {/* Il TFR di chi smette sta **dentro** questo totale: si
+                          scrive accanto perche e un costo che esce una volta
+                          sola, nel mese in cui il rapporto finisce, e sommato
+                          in silenzio farebbe sembrare sbagliato il conto dei
+                          dodicesimi. */}
+                      <td className="num" style={{ fontWeight: 600 }}>
+                        {eur(costoPersonaAnno(p))}
+                        {tfrDi(p) > 0 && (
+                          <div className="muted" style={{ fontSize: 11, fontWeight: 400 }}>
+                            di cui TFR {eur(tfrDi(p))} a {MESI[ultimoMese(p) - 1]}
+                          </div>
+                        )}
+                      </td>
                       <td style={{ whiteSpace: "nowrap" }}>
                         <button className="btn secondary small" onClick={() => apriModifica(p)}>Modifica</button>{" "}
                         <button className="btn secondary small" style={{ color: "var(--red)" }} onClick={() => elimina(p)}>
