@@ -823,7 +823,19 @@ export default async function SchedaGruppo({
           </div>
         )}
 
-        <SceltaPeriodo periodo={periodo} da={sp.da} a={sp.a} azione={`/gruppi/${gruppo.id}`} />
+        {/* I filtri della pagina viaggiano col periodo: cambiarlo e una lente,
+            non un modo per tornare all elenco completo. */}
+        <SceltaPeriodo
+          periodo={periodo}
+          da={sp.da}
+          a={sp.a}
+          azione={`/gruppi/${gruppo.id}`}
+          altriFiltri={new URLSearchParams(
+            Object.entries(sp).filter(
+              ([k, v]) => v != null && v !== "" && k !== "preset" && k !== "da" && k !== "a"
+            ) as [string, string][]
+          ).toString()}
+        />
 
         {/* Zero speso in un periodo non vuol dire zero speso mai. Senza questa
             riga la scheda di un gruppo fermo è indistinguibile da quella di un

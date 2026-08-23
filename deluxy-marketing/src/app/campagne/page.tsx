@@ -173,7 +173,20 @@ export default async function PaginaCampagne({
 
         {/* Il periodo dell'app: le card e i totali lo seguono, e la
             scelta resta la stessa passando alle schede. */}
-        <SceltaPeriodo periodo={periodo} da={p.da} a={p.a} azione="/campagne" />
+        {/* ⚠️ I filtri con cui si sta guardando viaggiano col periodo: da
+            «Campagne — Meta Ads» cambiare periodo riportava a TUTTE le
+            campagne. */}
+        <SceltaPeriodo
+          periodo={periodo}
+          da={p.da}
+          a={p.a}
+          azione="/campagne"
+          altriFiltri={new URLSearchParams(
+            Object.entries(p).filter(
+              ([k, v]) => v != null && v !== "" && k !== "preset" && k !== "da" && k !== "a"
+            ) as [string, string][]
+          ).toString()}
+        />
 
         <VisteSalvate pagina="campagne" base="/campagne" parametri={p} />
 

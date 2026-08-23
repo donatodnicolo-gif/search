@@ -11,17 +11,35 @@ export function SceltaPeriodo({
   da,
   a,
   azione,
+  altriFiltri,
 }: {
   periodo: PeriodoRisolto;
   da?: string;
   a?: string;
   azione: string;
+  /**
+   * Gli ALTRI parametri con cui si sta guardando la pagina (canale, brand,
+   * stato, ricerca…), come query string senza `preset`/`da`/`a`.
+   *
+   * ⚠️ Senza questi, cambiare periodo riportava all'elenco COMPLETO: da
+   * «Campagne — Meta Ads» si finiva su tutte e tre le piattaforme, e il salto
+   * sembrava un guasto della pagina invece che del link. Il periodo è una
+   * lente: cambiarla non deve cambiare anche cosa si sta guardando.
+   */
+  altriFiltri?: string;
 }) {
   const giorni = Math.max(
     1,
     Math.round((periodo.corrente.a.getTime() - periodo.corrente.da.getTime()) / 86_400_000)
   );
-  const link = (preset: string) => `${azione}?preset=${preset}`;
+  const coda = (altriFiltri ?? "").replace(/^[?&]+/, "");
+  const link = (preset: string) => `${azione}?preset=${preset}${coda ? `&${coda}` : ""}`;
+  // Il modulo delle date manda solo `da` e `a`: gli altri filtri devono
+  // viaggiare come campi nascosti, o «Vai» li perde esattamente come li
+  // perdevano le pillole.
+  const nascosti = [...new URLSearchParams(coda).entries()].filter(
+    ([k]) => k !== "preset" && k !== "da" && k !== "a"
+  );
   const libero = periodo.preset === "libero";
 
   // ⚠️ Le caselle mostrano SEMPRE le date che si stanno guardando, anche quando
@@ -57,6 +75,9 @@ export function SceltaPeriodo({
         {libero && <span className="pill-opt attuale">Personalizzato</span>}
       </div>
       <form className="filtri" method="get" action={azione} style={{ marginBottom: 0 }}>
+        {nascosti.map(([k, v]) => (
+          <input key={k} type="hidden" name={k} value={v} />
+        ))}
         <input type="date" name="da" defaultValue={daMostrare} title="Dal (compreso)" />
         <input type="date" name="a" defaultValue={aMostrare} title="Al (compreso)" />
         <button className="btn small" type="submit">Vai</button>

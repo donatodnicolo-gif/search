@@ -205,7 +205,19 @@ export default async function Dashboard({
           </div>
         </div>
 
-        <SceltaPeriodo periodo={periodo} da={p.da} a={p.a} azione="/" />
+        {/* I filtri della pagina viaggiano col periodo: cambiarlo e una lente,
+            non un modo per tornare all elenco completo. */}
+        <SceltaPeriodo
+          periodo={periodo}
+          da={p.da}
+          a={p.a}
+          azione={"/"}
+          altriFiltri={new URLSearchParams(
+            Object.entries(p).filter(
+              ([k, v]) => v != null && v !== "" && k !== "preset" && k !== "da" && k !== "a"
+            ) as [string, string][]
+          ).toString()}
+        />
 
         <ScelteBrand periodo={periodo.corrente} />
 

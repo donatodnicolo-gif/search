@@ -474,7 +474,19 @@ export default async function SchedaCampagna({
           </div>
         )}
 
-        <SceltaPeriodo periodo={periodo} da={sp.da} a={sp.a} azione={`/campagne/${campagna.id}`} />
+        {/* I filtri della pagina viaggiano col periodo: cambiarlo e una lente,
+            non un modo per tornare all elenco completo. */}
+        <SceltaPeriodo
+          periodo={periodo}
+          da={sp.da}
+          a={sp.a}
+          azione={`/campagne/${campagna.id}`}
+          altriFiltri={new URLSearchParams(
+            Object.entries(sp).filter(
+              ([k, v]) => v != null && v !== "" && k !== "preset" && k !== "da" && k !== "a"
+            ) as [string, string][]
+          ).toString()}
+        />
 
         <div className="kpi-riga">
           <div className="kpi">
