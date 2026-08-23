@@ -133,10 +133,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ errore: 'Non è una tua richiesta.' }, { status: 403 })
     }
 
+    // ⚠️⚠️ **Chi scrive si decide da CHI HA CHIESTO, non dal ruolo.** La prima
+    // versione guardava `amministratore`: così un amministratore che continuava
+    // una richiesta **sua** risultava «chi risponde», e il suo messaggio non
+    // avvisava nessuno su WhatsApp. Si è visto subito, perché chi ha provato
+    // l'app è amministratore: ha scritto nel pannello e «non è passato nulla».
+    // La domanda giusta è «è la tua richiesta?», non «che ruolo hai».
+    const sonoIoCheHoChiesto = d.utenteId === io.id
     await db.messaggioAiuto.create({
       data: {
         domandaId: d.id,
-        autore: amministratore ? 'admin' : 'operatore',
+        autore: sonoIoCheHoChiesto ? 'operatore' : 'admin',
         autoreNome: io.nome,
         testo,
       },
@@ -146,13 +153,15 @@ export async function POST(req: NextRequest) {
     // scrive ancora, evidentemente chiusa non era.
     await db.domandaAiuto.updateMany({
       where: { id: d.id },
-      data: { lettaIl: amministratore ? null : d.lettaIl, stato: 'aperta' },
+      // ⚠️ «Letta» si azzera quando risponde QUALCUN ALTRO: chi ha chiesto non
+      // deve rileggere il proprio messaggio.
+      data: { lettaIl: sonoIoCheHoChiesto ? d.lettaIl : null, stato: 'aperta' },
     })
 
-    // ⚠️ Se scrive un operatore, l'amministratore va avvisato su WhatsApp come
-    // per la prima domanda: se no la seconda riga dello scambio resta lì e
-    // nessuno la vede — che è esattamente il difetto che stiamo togliendo.
-    if (!amministratore) await avvisaAmministratore(d.id, testo)
+    // ⚠️ Se a scrivere è chi ha chiesto, l'avviso riparte su WhatsApp come per
+    // la prima domanda: se no la seconda riga dello scambio resta lì e nessuno
+    // la vede — che è esattamente il difetto che stiamo togliendo.
+    if (sonoIoCheHoChiesto) await avvisaAmministratore(d.id, testo)
 
     return NextResponse.json(await elenco(io.id, amministratore))
   }

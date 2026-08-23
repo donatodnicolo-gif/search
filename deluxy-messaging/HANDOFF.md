@@ -1,6 +1,6 @@
 # Handoff — Deluxy Customer Service
 
-Ultimo aggiornamento: **23/08/2026, ore 22:45** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
+Ultimo aggiornamento: **23/08/2026, ore 23:15** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
 prima, alle 15:10, l'utente ha pubblicato la schermata di consenso Google e il
 conto alla rovescia dei 7 giorni è finito).
 Prima, il 19/08: la **risposta di primo contatto** che parte da sola al primo
@@ -188,6 +188,20 @@ locale, altrimenti nulla si decifra.
     com'è** (131047 dice tutto a chi sa leggerlo) e il pannello lo mostra **in
     rosso** a chi ha chiesto — credere di aver avvisato qualcuno che non sa
     niente è peggio che sapere di non averlo avvisato.
+  - 🐞🐞 **CHI SCRIVE SI DECIDEVA DAL RUOLO, NON DA CHI HA CHIESTO.** Chi prova
+    l'app è **amministratore**: continuando una richiesta **sua** dal pannello,
+    il suo messaggio veniva registrato come «chi risponde» e **non avvisava
+    nessuno** su WhatsApp. Da fuori: «ho risposto e non è passato nulla».
+    Corretto: la domanda giusta è **«è la tua richiesta?»**, non «che ruolo
+    hai». Ora i messaggi di chi ha chiesto riavvisano su WhatsApp anche se chi
+    ha chiesto è un amministratore, e «letta» si azzera solo quando risponde
+    **qualcun altro**.
+    ⚠️ Diagnosi fatta sui dati, non a intuito: `webhookUltimaChiamata` era fermo
+    alle 16:05 mentre il messaggio delle 16:36 era in tabella **senza**
+    `viaWhatsApp` — cioè scritto dal pannello, non arrivato dal telefono.
+    ✅ Controllate anche le iscrizioni al webhook di tutti e tre i WABA
+    (`GET /{waba}/subscribed_apps`): **tutte e tre iscritte a «Messaggi
+    Deluxy»**, quindi il canale non c'entrava.
   - 🐞🐞 **ERA UNA DOMANDA SOLA, E SI È ROTTA AL PRIMO USO VERO.** L'utente ha
     scritto «aiutami», l'amministratore ha risposto **«cosa hai bisogno?»** — e
     chi aveva chiesto **non poteva continuare**. Una richiesta d'aiuto **è una
