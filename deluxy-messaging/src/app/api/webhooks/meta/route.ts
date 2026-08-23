@@ -4,6 +4,7 @@ import { db } from '@/lib/db'
 import { leggiImpostazioni } from '@/lib/impostazioni'
 import { linguaDelTesto } from '@/lib/lingua-testo'
 import { attaccaReazione } from '@/lib/reazioni'
+import { confermaSuWhatsApp, rispostaDaWhatsApp } from '@/lib/aiuto-whatsapp'
 import { rispostaDiPrimoContatto } from '@/lib/primo-contatto'
 
 export const dynamic = 'force-dynamic'
@@ -146,6 +147,10 @@ type MetaWebhook = {
           // Una reazione: l'emoji e l'id del messaggio a cui è attaccata.
           // ⚠️ `emoji` ASSENTE o vuota vuol dire «reazione tolta».
           reaction?: { message_id?: string; emoji?: string }
+          // Il messaggio CITATO, quando si usa «rispondi a questo messaggio».
+          // ⚠️ È il legame esatto fra una risposta e la domanda d'aiuto a cui
+          // si riferisce: senza, bisognerebbe indovinare.
+          context?: { id?: string }
         }[]
         statuses?: { id?: string; status?: string; errors?: { message?: string }[] }[]
       }
@@ -296,6 +301,31 @@ async function gestisciWhatsApp(corpo: MetaWebhook) {
           // un cuore senza contesto che un cuore perso.
           if (attaccata) continue
           if (!msg.reaction?.emoji) continue // reazione tolta a qualcosa che non abbiamo: niente da dire
+        }
+
+        // ── È LA RISPOSTA A UNA DOMANDA D'AIUTO? ──
+        //
+        // L'amministratore riceve le domande dei colleghi su WhatsApp e può
+        // rispondere da lì. Si riconosce in due modi — la **citazione** del
+        // nostro avviso, o il **codice** in testa al testo — e in nessun altro:
+        // vedi `src/lib/aiuto-whatsapp.ts`.
+        //
+        // ⚠️ Se è una risposta, il messaggio **non entra in inbox**: è una
+        // comunicazione interna, e in mezzo ai clienti sarebbe rumore. Se non lo
+        // è, prosegue come un messaggio qualsiasi — perché l'amministratore
+        // scrive a quel numero anche per altro.
+        if (msg.type === 'text' && msg.text?.body) {
+          const esito = await rispostaDaWhatsApp({
+            da: msg.from,
+            testo: msg.text.body,
+            citato: msg.context?.id ?? '',
+          })
+          if (esito.trovata) {
+            await confermaSuWhatsApp(
+              `Risposta registrata (${esito.codice}). ${esito.chiHaChiesto || 'Chi ha chiesto'} la vede nel pannello Aiuto.`
+            )
+            continue
+          }
         }
 
         // L'allegato, se c'è: si tiene l'id del file, non il file.

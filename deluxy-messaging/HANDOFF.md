@@ -1,6 +1,6 @@
 # Handoff — Deluxy Customer Service
 
-Ultimo aggiornamento: **23/08/2026, ore 19:30** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
+Ultimo aggiornamento: **23/08/2026, ore 20:30** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
 prima, alle 15:10, l'utente ha pubblicato la schermata di consenso Google e il
 conto alla rovescia dei 7 giorni è finito).
 Prima, il 19/08: la **risposta di primo contatto** che parte da sola al primo
@@ -151,6 +151,38 @@ AES-256-GCM nel database. `APP_SECRET` su Vercel **deve** essere identico al
 locale, altrimenti nulla si decifra.
 
 ## FATTO
+
+- **L'AIUTO PASSA DA WHATSAPP** (23/08/2026). Chiesto dall'utente: «invia un
+  messaggio WhatsApp a +393498853209 per l'aiuto, e la risposta sarà su
+  WhatsApp».
+  - Appena qualcuno chiede, l'avviso parte su WhatsApp col nome di chi ha
+    chiesto, l'ordine, la pagina, la domanda e un **codice** di 5 lettere. Il
+    numero sta in `aiutoWhatsApp` (Impostazioni), con
+    `393498853209` come ripiego: cambiarlo **non vuole un deploy**.
+  - **Due modi di rispondere**, scritti dentro il messaggio: **citare** l'avviso
+    (`context.id` = il wamid che abbiamo salvato — legame esatto) o mettere il
+    **codice in testa**.
+  - ⚠️⚠️ **Fuori da quei due casi NON si indovina.** «C'è una sola domanda
+    aperta, sarà quella» farebbe diventare un «ok» mandato per altro la risposta
+    ufficiale a una domanda di lavoro. Un messaggio non riconosciuto prosegue e
+    finisce in inbox: a quel numero l'amministratore scrive anche per altro.
+  - ⚠️ Una risposta riconosciuta **non entra in inbox** (è roba interna) e si
+    firma «Amministratore (WhatsApp)»: chi la legge ha diritto di sapere che è
+    stata scritta dal telefono e non guardando la schermata. Sul telefono torna
+    una conferma col codice.
+  - ⚠️⚠️ **LA FINESTRA DI 24 ORE.** WhatsApp lascia mandare messaggi liberi solo
+    a chi ci ha scritto nelle ultime 24 ore; fuori serve un **template
+    approvato** (da creare a mano nel Business Manager). Quindi l'avviso **può
+    non partire**. Quando non parte, `avvisoEsito` tiene l'errore di Meta **così
+    com'è** (131047 dice tutto a chi sa leggerlo) e il pannello lo mostra **in
+    rosso** a chi ha chiesto — credere di aver avvisato qualcuno che non sa
+    niente è peggio che sapere di non averlo avvisato.
+  - ✅ **Provato per davvero il 23/08**: `npx tsx scripts/prova-aiuto-whatsapp.mts`
+    → `esito: inviato`, wamid vero. **La finestra era aperta.** ⚠️ Lo script
+    manda un messaggio VERO e cancella la riga di prova per id.
+  - ⚠️ La riga di prova è stata cancellata: se qualcuno risponde a **quel**
+    messaggio, la domanda non c'è più e la risposta finisce in inbox come un
+    messaggio qualsiasi. È il comportamento giusto, non un guasto.
 
 - **CHIEDERE AIUTO ALL'AMMINISTRATORE, DA OGNI PAGINA** (23/08/2026). Chiesto
   dall'utente: «un help laterale dove fare domande all'amministratore in caso di

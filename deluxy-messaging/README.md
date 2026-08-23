@@ -51,6 +51,40 @@ letta». ⚠️ Senza, una risposta arrivata mentre eri su un'altra pagina non t
 e tu resti bloccato mentre chi ha risposto ti dà per risolto. ⚠️ Se un amministratore
 corregge una risposta già letta, il pallino torna: se no resteresti con la versione vecchia.
 
+### La domanda arriva su WhatsApp, e la risposta torna da lì
+
+Appena qualcuno chiede, l'amministratore riceve la domanda **sul telefono**, su WhatsApp
+(oggi al **+39 349 885 3209**; si cambia scrivendo la chiave `aiutoWhatsApp` in
+Impostazioni, senza un deploy). Il messaggio porta chi ha chiesto, l'ordine, la pagina, la
+domanda e un **codice** di cinque lettere.
+
+**Per rispondere ci sono due strade**, e sono scritte dentro il messaggio stesso:
+
+1. **citare l'avviso** con «rispondi a questo messaggio» — è il legame esatto;
+2. **scrivere il codice in testa**: «XBW0I la consegna si può fare».
+
+⚠️ **Fuori da questi due casi non si indovina.** La tentazione sarebbe «c'è una sola
+domanda aperta, sarà quella» — ma allora un «ok» mandato per altro diventerebbe la risposta
+ufficiale a una domanda di lavoro, e nessuno capirebbe da dove è uscita. Un messaggio che
+non è riconosciuto come risposta prosegue normalmente e finisce in inbox, perché
+l'amministratore a quel numero scrive anche per altro.
+
+La risposta compare nel pannello con scritto **«Amministratore (WhatsApp)»**: chi la legge
+ha diritto di sapere che è stata scritta dal telefono e non guardando la schermata. E sul
+telefono torna una conferma con il codice.
+
+⚠️⚠️ **La finestra di 24 ore.** WhatsApp lascia mandare un messaggio libero a un numero
+**solo se quel numero ci ha scritto nelle ultime 24 ore**. Fuori da lì Meta rifiuta
+(errore 131047) e servirebbe un *template* approvato, che si crea a mano nel Business
+Manager. Quindi **l'avviso può non partire**, ed è la norma se l'amministratore non scrive
+da un po'.
+⚠️ Quando non parte, **il pannello lo dice in rosso** a chi ha chiesto, con l'errore di
+Meta. Chi crede di aver avvisato qualcuno che invece non sa niente sta peggio di chi sa di
+non averlo avvisato. La domanda resta comunque salvata e visibile: la notifica è un di più,
+non il canale.
+⚠️ Per riaprire il canale basta che l'amministratore **scriva una parola** al numero
+aziendale: da lì, e per 24 ore, gli avvisi passano.
+
 ### Perché restano scritte
 
 Le domande **non si cancellano dopo la risposta**, ed è il motivo per cui la sezione

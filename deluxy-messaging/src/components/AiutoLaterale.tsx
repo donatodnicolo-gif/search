@@ -27,6 +27,8 @@ type Domanda = {
   utenteNome: string
   mia: boolean
   stato: string
+  avvisoEsito: string
+  codice: string
   risposta: string
   rispostaDaNome: string
   rispostaIl: string | null
@@ -222,6 +224,26 @@ export function AiutoLaterale() {
                     </div>
                     <p style={{ margin: '5px 0 0', fontSize: 14 }}>{d.testo}</p>
 
+                    {/* ── L'AVVISO SU WHATSAPP ──
+                        ⚠️⚠️ Se non è partito bisogna DIRLO, e forte: chi crede
+                        di aver avvisato qualcuno che invece non sa niente sta
+                        peggio di chi sa di non averlo avvisato. Fuori dalla
+                        finestra di 24 ore WhatsApp rifiuta i messaggi liberi,
+                        e capita spesso. */}
+                    {d.stato === 'aperta' && d.avvisoEsito && d.avvisoEsito !== 'inviato' ? (
+                      <p className="aiuto-avviso-ko">
+                        ⚠️ L’avviso su WhatsApp <strong>non è partito</strong>: {d.avvisoEsito}
+                        <br />
+                        La domanda è comunque salvata e si vede qui. Per riaprire il canale
+                        basta che l’amministratore scriva una parola al numero aziendale.
+                      </p>
+                    ) : null}
+                    {d.stato === 'aperta' && d.avvisoEsito === 'inviato' ? (
+                      <p className="cella-sub" style={{ marginTop: 3 }}>
+                        Avvisato su WhatsApp{d.codice ? ` · codice ${d.codice}` : ''}
+                      </p>
+                    ) : null}
+
                     {d.risposta ? (
                       <div className="aiuto-risposta">
                         <p style={{ margin: 0, fontSize: 14 }}>{d.risposta}</p>
@@ -299,9 +321,10 @@ export function AiutoLaterale() {
             </div>
 
             <p className="cella-sub" style={{ padding: '10px 16px', margin: 0 }}>
-              Le domande restano scritte anche dopo la risposta: rilette tutte insieme dicono
-              che cosa non è chiaro, e da lì si capisce cosa aggiungere al glossario o alle
-              risposte pronte.
+              La domanda arriva all’amministratore <strong>su WhatsApp</strong>, e lui può
+              rispondere da lì: la risposta compare qui. Le domande restano scritte anche
+              dopo la risposta — rilette tutte insieme dicono che cosa non è chiaro, e da lì
+              si capisce cosa aggiungere al glossario o alle risposte pronte.
             </p>
           </aside>
         </>

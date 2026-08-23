@@ -1367,6 +1367,23 @@ model DomandaAiuto {
   rispostaDaNome String @default("")
   rispostaIl     DateTime?
   /**
+   * L'avviso mandato su WhatsApp all'amministratore.
+   *
+   * ⚠️⚠️ `avvisoEsito` va MOSTRATO a chi ha chiesto. Se la notifica non parte
+   * — e fuori dalla finestra di 24h di WhatsApp non parte — chi ha scritto
+   * crederebbe di aver avvisato qualcuno che invece non sa niente: e' peggio
+   * che non avere la notifica del tutto.
+   */
+  avvisoWaId  String @default("")
+  avvisoEsito String @default("") @db.Text
+  /**
+   * Il codice corto («A7K2C») che va nell'avviso.
+   *
+   * ⚠️ Serve a rispondere da WhatsApp senza dover citare il messaggio: chi
+   * risponde dal telefono, in piedi, non usa «rispondi a questo messaggio».
+   */
+  codice      String @default("")
+  /**
    * Quando chi ha chiesto ha LETTO la risposta.
    *
    * ⚠️ Serve al pallino sulla linguetta: senza, una risposta arrivata mentre

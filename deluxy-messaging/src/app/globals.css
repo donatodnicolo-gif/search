@@ -3735,3 +3735,16 @@ td .azioni-ordine {
   border-radius: 0 var(--radius-m) var(--radius-m) 0;
   background: var(--gold-soft);
 }
+
+/* ⚠️ L'avviso WhatsApp non partito: rosso e non «cella-sub». Chi crede di aver
+   avvisato qualcuno che invece non sa niente sta peggio di chi sa di non averlo
+   avvisato — questa riga non deve potersi scambiare per un dettaglio. */
+.aiuto-avviso-ko {
+  margin: 6px 0 0;
+  padding: 7px 9px;
+  border-radius: var(--radius-m);
+  background: rgba(201, 52, 0, 0.08);
+  color: var(--red);
+  font-size: 12.5px;
+  line-height: 1.45;
+}

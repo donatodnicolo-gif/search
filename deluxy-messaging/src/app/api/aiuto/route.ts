@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { utenteCorrente } from '@/lib/sessione'
+import { avvisaAmministratore, codiceDa } from '@/lib/aiuto-whatsapp'
 
 export const dynamic = 'force-dynamic'
 
@@ -19,6 +20,8 @@ type DomandaDto = {
   utenteNome: string
   mia: boolean
   stato: string
+  avvisoEsito: string
+  codice: string
   risposta: string
   rispostaDaNome: string
   rispostaIl: string | null
@@ -44,6 +47,8 @@ async function elenco(ioId: string, amministratore: boolean) {
     utenteNome: d.utenteNome,
     mia: d.utenteId === ioId,
     stato: d.stato,
+    avvisoEsito: d.avvisoEsito,
+    codice: d.codice,
     risposta: d.risposta,
     rispostaDaNome: d.rispostaDaNome,
     rispostaIl: d.rispostaIl?.toISOString() ?? null,
@@ -126,7 +131,7 @@ export async function POST(req: NextRequest) {
   const testo = (c.testo ?? '').trim()
   if (!testo) return NextResponse.json({ errore: 'Scrivi la domanda.' }, { status: 400 })
 
-  await db.domandaAiuto.create({
+  const creata = await db.domandaAiuto.create({
     data: {
       testo,
       // ⚠️ Il contesto arriva dalla pagina e non da un campo da compilare: una
@@ -138,5 +143,16 @@ export async function POST(req: NextRequest) {
       utenteNome: io.nome,
     },
   })
+  // ⚠️ Il codice si scrive SUBITO, anche se l'avviso non parte: è quello con
+  // cui si risponde da WhatsApp, e deve esistere prima del messaggio.
+  await db.domandaAiuto.updateMany({
+    where: { id: creata.id },
+    data: { codice: codiceDa(creata.id) },
+  })
+  // ⚠️ L'avviso si aspetta (non è un `void`): l'esito va mostrato subito a chi
+  // ha chiesto. Se fuori dalla finestra di 24h WhatsApp lo rifiuta, chi scrive
+  // deve saperlo adesso — non credere di aver avvisato qualcuno che non sa
+  // niente. La funzione non solleva mai.
+  await avvisaAmministratore(creata.id)
   return NextResponse.json(await elenco(io.id, amministratore))
 }
