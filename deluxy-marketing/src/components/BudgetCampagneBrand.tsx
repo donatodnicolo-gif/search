@@ -68,7 +68,14 @@ export async function BudgetCampagneBrand({ brand }: { brand: string }) {
   const alMese = alGiorno * GIORNI_MESE;
 
   const delMese = budgets.ok ? meseDiSito(budgets, brand, mese) : null;
-  const tetto = delMese?.advConsentito ?? null;
+  // ⚠️ Comanda il budget PUBBLICATO in Budgets — quello deciso là dentro —
+  // non il calcolo «vendite × percentuale», che è solo quanto si potrebbe
+  // spendere in teoria. Mostrare il calcolo voleva dire scrivere un numero
+  // che in Budgets non si trova da nessuna parte.
+  const tetto =
+    delMese?.advPubblicato != null && delMese.advPubblicato > 0
+      ? delMese.advPubblicato
+      : delMese?.advConsentito ?? null;
   const differenza = tetto != null ? tetto - alMese : null;
 
   return (
@@ -91,7 +98,11 @@ export async function BudgetCampagneBrand({ brand }: { brand: string }) {
         <div className="kpi">
           <div className="kpi-valore">{tetto != null ? formattaEuro(tetto) : "—"}</div>
           <div className="kpi-etichetta">
-            {tetto != null ? "Consentito da Budgets questo mese" : "Budgets non risponde"}
+            {tetto == null
+              ? "Budgets non risponde"
+              : delMese?.advPubblicato != null && delMese.advPubblicato > 0
+                ? "Pubblicato in Budgets per questo mese"
+                : "Calcolo sulle vendite (in Budgets non c'è ancora un budget pubblicato)"}
           </div>
         </div>
         {differenza != null && (
@@ -115,8 +126,8 @@ export async function BudgetCampagneBrand({ brand }: { brand: string }) {
         Il budget giornaliero è un <b>tetto, non una spesa</b>: Google può spendere fino al doppio in
         un giorno e compensare nel mese, e una campagna con poco traffico spende meno di quello che
         le hai dato. Il numero «al mese» è quindi il <b>massimo teorico</b> — la spesa vera sta nelle
-        schede delle campagne. Il consentito arriva da <b>Deluxy Budgets</b>: vendite previste del
-        mese per la percentuale ADV decisa lì.
+        schede delle campagne. Il tetto arriva da <b>Deluxy Budgets</b>: è quello <b>pubblicato</b>
+        là dentro — proposto, approvato e consolidato — non un conto rifatto qui.
       </p>
 
       {!budgets.ok && (

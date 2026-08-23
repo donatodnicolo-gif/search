@@ -59,7 +59,22 @@ export async function BudgetQuestoMese({ anno }: { anno: number }) {
     const alGiorno = conBudget.reduce((s, c) => s + (c.budgetGiornaliero ?? 0), 0);
     const speso = spesoPerBrand.get(sito) ?? 0;
     const mb = meseDiSito(budgets, sito, mese);
-    const consentito = mb?.advConsentito ?? null;
+    // ⚠️ IL TETTO È QUELLO PUBBLICATO IN BUDGETS.
+    //
+    // La risposta di Budgets porta due numeri, e per settimane qui se ne è
+    // usato uno solo — quello sbagliato dei due:
+    //   · `advPubblicato` è il budget DECISO in quell'app: proposto,
+    //     approvato, consolidato, con un autore e una data;
+    //   · `advConsentito` è un CALCOLO (vendite previste × la percentuale
+    //     ADV), cioè quanto si potrebbe spendere in teoria.
+    //
+    // Mostrando il calcolo, l'app diceva un numero che in Budgets non è
+    // scritto da nessuna parte: si apriva quella pagina per confrontarlo e
+    // non lo si trovava. Comanda il pubblicato; il calcolo resta sotto,
+    // perché quando i due si discostano la differenza è una domanda da fare.
+    const pubblicato = mb?.advPubblicato ?? null;
+    const calcolato = mb?.advConsentito ?? null;
+    const consentito = pubblicato != null && pubblicato > 0 ? pubblicato : calcolato;
     // Dove si arriva a fine mese se si continua così: la spesa vera al giorno
     // finora, moltiplicata per i giorni che restano. ⚠️ NON il budget acceso —
     // quello è un tetto, e quasi nessuna campagna lo tocca.
@@ -72,6 +87,8 @@ export async function BudgetQuestoMese({ anno }: { anno: number }) {
       alGiorno,
       speso,
       consentito,
+      pubblicato,
+      calcolato,
       advPercent: mb?.advPercent ?? null,
       venditePreviste: mb?.venditeTotali ?? null,
       proiezione,
@@ -99,8 +116,10 @@ export async function BudgetQuestoMese({ anno }: { anno: number }) {
       </div>
 
       <p className="cella-sub" style={{ whiteSpace: "normal", marginBottom: 12 }}>
-        Tre numeri diversi che è facile confondere. <b>Consentito</b> è il tetto, e lo decide{" "}
-        <b>Deluxy Budgets</b> sulle vendite previste. <b>Speso</b> è quello che è già uscito dal
+        Tre numeri diversi che è facile confondere. <b>Consentito</b> è il tetto <b>pubblicato in
+        Deluxy Budgets</b> — quello proposto, approvato e consolidato lì, con un autore e una
+        data. Dove Budgets non ha ancora pubblicato niente si mostra il calcolo sulle vendite
+        previste, dicendolo. <b>Speso</b> è quello che è già uscito dal
         primo del mese a oggi. <b>Acceso</b> è la somma dei budget giornalieri delle campagne in
         asta: è un tetto per giorno, non una spesa — quasi nessuna campagna lo tocca davvero, ed è
         per questo che la proiezione si calcola sulla spesa vera e non su di lui.
@@ -142,10 +161,28 @@ export async function BudgetQuestoMese({ anno }: { anno: number }) {
                   </td>
                   <td className="num">
                     {r.consentito != null ? formattaEuro(r.consentito) : "—"}
-                    {r.consentito != null && r.advPercent != null && r.venditePreviste != null && (
+                    {/* Da dove viene il numero grande, e — quando c'è — il
+                        secondo numero che NON è quello: il calcolo teorico.
+                        Tenerli separati è l'unico modo perché la differenza
+                        diventi una domanda invece di una confusione. */}
+                    {r.pubblicato != null && r.pubblicato > 0 ? (
                       <div className="cella-sub">
-                        {Math.round(r.advPercent * 100)}% di {formattaEuro(r.venditePreviste)} di vendite previste
+                        pubblicato in Budgets
+                        {r.calcolato != null && Math.round(r.calcolato) !== Math.round(r.pubblicato) && (
+                          <div>
+                            il calcolo sulle vendite darebbe {formattaEuro(r.calcolato)}
+                            {r.advPercent != null && ` (${Math.round(r.advPercent * 100)}%)`}
+                          </div>
+                        )}
                       </div>
+                    ) : (
+                      r.calcolato != null && (
+                        <div className="cella-sub" style={{ color: "var(--orange)" }}>
+                          in Budgets non c&apos;è un budget pubblicato per questo mese: questo è il
+                          calcolo sulle vendite
+                          {r.advPercent != null && ` (${Math.round(r.advPercent * 100)}%)`}
+                        </div>
+                      )
                     )}
                   </td>
                   <td className="num">
