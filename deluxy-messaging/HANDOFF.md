@@ -1,6 +1,6 @@
 # Handoff — Deluxy Customer Service
 
-Ultimo aggiornamento: **21/08/2026, ore 19:00** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
+Ultimo aggiornamento: **23/08/2026, ore 14:00** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
 prima, alle 15:10, l'utente ha pubblicato la schermata di consenso Google e il
 conto alla rovescia dei 7 giorni è finito).
 Prima, il 19/08: la **risposta di primo contatto** che parte da sola al primo
@@ -151,6 +151,27 @@ AES-256-GCM nel database. `APP_SECRET` su Vercel **deve** essere identico al
 locale, altrimenti nulla si decifra.
 
 ## FATTO
+
+- **«PAGA» FRA LE AZIONI, E «NOTA» CHE SCRIVE SUL DIARIO** (23/08/2026, LIVE,
+  commit `587edfc8`). Chiesto dall'utente guardando la bacheca ordini.
+  - **«Paga»** stava in cima accanto al menu «Assegna a…» e ci faceva riga a
+    sé. Un pagamento non è compagno di riga dell'assegnazione: è un'azione come
+    «Rimborso», con cui si legge insieme. Spostato lì accanto — i soldi vicini
+    ai soldi.
+  - **«Nota»** (`BottoneNota` in `OrdiniLista.tsx`) scrive una riga del diario
+    **dall'ordine che si ha davanti**. Prima: cambiare pagina, ritrovare il
+    numero, ribatterlo — tre passaggi, e quello che costa tre passaggi non si
+    scrive. Invio salva, Esc chiude.
+  - ⚠️ **Il numero dell'ordine lo mette il codice, non la persona**: l'API sa
+    staccarlo dalla testa del testo, ma qui il contesto lo conosciamo già, e
+    farlo ribattere vuol dire prima o poi attaccare la nota all'ordine
+    sbagliato.
+  - ⚠️ **La casella si svuota e si chiude SOLO dopo un salvataggio riuscito**:
+    chiuderla comunque farebbe sparire una frase appena scritta proprio quando
+    il salvataggio è fallito.
+  - ⚠️ Il commit toccava **solo `OrdiniLista.tsx`**: manuale e handoff sono
+    arrivati dopo, in un commit a parte. La regola del repo li vuole **nello
+    stesso commit** — segnato qui perché non si ripeta.
 
 - **TURNI: CHI LAVORA E QUANDO** (21/08/2026). Chiesto dall'utente: «una
   sezione in alto per admin TURNI dove consenti di impostare i turni per gli

@@ -55,6 +55,9 @@ nessuna delle due, ognuna convinta che ci pensi l'altra.
 - **Amministratore**: al posto del bottone c'è il menu **«Assegna a…»** con tutti gli
   operatori e «Lascialo libero». Chi coordina il lavoro non lo prende: lo distribuisce.
 - Bollino accanto al numero: **oro** = di un collega, **grigio** = mio.
+- ⚠️ **«Paga» non sta piu' qui.** Stava accanto al menu «Assegna a…» e ci faceva riga a
+  se': ma un pagamento non e' compagno di riga dell'assegnazione. Adesso e' piu' in basso
+  **accanto a «Rimborso»**, con cui invece si legge insieme — i soldi vicini ai soldi.
 - Filtro **«Chi se ne occupa: Liberi / Miei»**. ⚠️ Liberi prima di Miei: il guaio peggiore
   non è che due lavorino lo stesso ordine, è che non lo lavori nessuno.
 
@@ -102,6 +105,21 @@ nessuno.
 **Le note si vedono anche sull'ordine** (riquadro nel pannello, dove si scrive senza
 ripetere il numero) e **in home**, con le ultime dodici da fare: e' il quaderno con cui si
 apre la giornata. Se non ce ne sono, il riquadro sparisce.
+
+**E si scrivono dalla bacheca**, senza cambiare pagina: fra le azioni di ogni ordine c'e'
+il bottone **«Nota»**. Si apre una casella, si scrive la mezza frase che si ha in testa
+(«richiama lunedi'», «il fioraio non risponde») e Invio salva; Esc chiude. Prima
+bisognava andare nel Diario, ritrovare il numero e ribatterlo: **tre passaggi**, e quello
+che costa tre passaggi non si scrive — la memoria del lavoro resta nella testa di chi
+c'era.
+
+⚠️ **Il numero dell'ordine lo mette il codice, non la persona.** Il campo del Diario sa
+staccarlo dalla testa del testo, ma qui l'ordine ce l'abbiamo gia' davanti: farlo ribattere
+vorrebbe dire, prima o poi, attaccare la nota all'ordine sbagliato.
+
+⚠️ **La casella si svuota e si chiude solo dopo un salvataggio riuscito.** Chiuderla
+comunque farebbe sparire una frase appena scritta **proprio quando il salvataggio e'
+fallito**, cioe' nell'unico momento in cui serviva ancora.
 
 ## Fare un ordine per il cliente
 
