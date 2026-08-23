@@ -211,14 +211,33 @@ restare ripetibili, i servizi valet prendono `legacyId = 900000 + id`.
 528 partner, **0** puntano a un servizio non-partner. *(Un primo controllo dava 3 falsi positivi: erano
 righe del seed, non del legacy — vanno escluse filtrando su `legacyId != null`.)*
 
-### Campi senza destinazione — segnalati, non buttati
+### ✅ Quello che non entrava è stato recuperato (23/08, su richiesta dell'utente)
 
-| campo legacy | perché non si mappa |
-|---|---|
-| `partner-service.pricePerItem` (10 righe) | `PartnerService` non ha un prezzo a pezzo |
-| `delivery-rules.days` (28 righe) | `DeliveryRule` non ha i giorni della settimana |
-| `delivery-rules.serviceType` | nel legacy è un **modello di prezzo** (`fixedprice`), non un servizio: di `PREZZO_FISSO` ce ne sono 10 e sceglierne uno sarebbe inventare. Finisce nel **nome** della regola, dove almeno si vede |
-| regole carnet lato **valet** (7 + 44 collegamenti) | nel nuovo schema le regole sono solo dei partner, e il loro JSON di scaglioni `pickUps→plusSalary` non ha un campo corrispondente |
+Nessuno dei quattro pezzi è andato perso: per ognuno è stato aggiunto il posto dove metterlo.
+
+| campo legacy | dove sta ora | controprova |
+|---|---|---|
+| `partner-service.pricePerItem` | **`PartnerService.pricePerItem`** (campo nuovo, gemello di `ValetService.salaryPerItem`) | 10 righe valorizzate: 0 · 0 · 0,25 ×3 · 1 ×2 · 1,2 · 1,3 · 14,5 |
+| `delivery-rules.days` | **`DeliveryRule.days`** — 7 flag `"0"/"1"` nell'ordine originale | 28 su 28 |
+| `delivery-rules.serviceType` | **`DeliveryRule.legacyPricingModel`** — *non* `serviceTypeId` | 28 su 28 |
+| regole carnet lato **valet** | **`ValetDeliveryRule`** + **`ValetDeliveryRuleValet`** (modelli nuovi) | 7 regole, 51 collegamenti (7 proprietari + 44 estensioni) |
+
+Due scelte da tenere a mente:
+
+- ⚠️ **I giorni si conservano nell'ordine del legacy, senza reinterpretarli.** Gli schemi osservati
+  (`1000001` e il suo complemento `0111110`) fanno pensare che l'indice 0 sia la **domenica**, ma è una
+  deduzione: **prima di usarli per filtrare, confrontare una regola con l'app reale.**
+- ⚠️ **Il modello di prezzo non è diventato un `serviceTypeId`.** Nel legacy `fixedprice` è un
+  *modello*, e di `PREZZO_FISSO` esistono 10 servizi: sceglierne uno sarebbe stato inventare. Sta in un
+  campo suo, dove resta vero.
+- Le regole valet **non** sono una variante di `DeliveryRule`: quelle dei partner limitano il **numero
+  di consegne**, queste alzano la **paga a scaglioni** sul numero di ritiri
+  (`[{operator, pickUps, plusSalary}]`). Forzarle nello stesso modello avrebbe confuso due cose diverse.
+
+🔴 **Trappola trovata recuperandoli**: `createMany` **salta** le righe che esistono già. Aggiungendo un
+campo dopo un primo import, le 528 righe di listino sarebbero rimaste vuote per sempre — e sembrerebbe
+che il dato non ci fosse mai stato. Ora la fase **aggiorna** anche le righe esistenti, con una sola
+`UPDATE … FROM (VALUES …)` invece di 528 query.
 
 ⚠️ **Un'assunzione da confermare**: `expert-service.minimumKmPrice` è stato mappato su
 `ValetService.extraKmPrice`. I nomi differiscono, ma i valori sono gli stessi del lato partner

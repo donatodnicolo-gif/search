@@ -321,19 +321,41 @@ async function listini() {
     perPartner.set(chiave, r);
     // ⚠️ `pricePerItem` (6 righe valorizzate) non ha destinazione: PartnerService
     // non ha un prezzo a pezzo. Si segnala invece di buttarlo in silenzio.
-    if (testo(r.pricePerItem)) segna('listino partner: pricePerItem senza destinazione');
+    if (testo(r.pricePerItem)) segna('listino partner: con prezzo a pezzo');
   }
   if (!PROVA) {
     const gia = new Set((await db.partnerService.findMany({ select: { partnerId: true, serviceTypeId: true } }))
       .map((x) => `${x.partnerId}|${x.serviceTypeId}`));
     const nuovi = [...perPartner.entries()].filter(([k]) => !gia.has(k)).map(([k, r]) => {
       const [partnerId, serviceTypeId] = k.split('|');
-      return { partnerId, serviceTypeId, price: numero(r.price) ?? 0, extraKmPrice: numero(r.extraKmPrice) ?? 0 };
+      return { partnerId, serviceTypeId, price: numero(r.price) ?? 0,
+        extraKmPrice: numero(r.extraKmPrice) ?? 0,
+        pricePerItem: numero(r.pricePerItem) };
     });
     for (let i = 0; i < nuovi.length; i += 500)
       await db.partnerService.createMany({ data: nuovi.slice(i, i + 500), skipDuplicates: true });
-    segna('listino partner', nuovi.length);
-    segna('listino partner gia presenti', perPartner.size - nuovi.length);
+    segna('listino partner creati', nuovi.length);
+
+    // ⚠️ `createMany` SALTA le righe che ci sono gia': se un campo viene aggiunto
+    // dopo un primo import (e' successo con `pricePerItem`), le righe esistenti
+    // resterebbero vuote per sempre e sembrerebbe che il dato non ci fosse.
+    // Quindi le esistenti si aggiornano — in UNA query, non 528.
+    const daAggiornare = [...perPartner.entries()].filter(([k]) => gia.has(k));
+    if (daAggiornare.length) {
+      const valori = daAggiornare.map(([k, r]) => {
+        const [p, s] = k.split('|');
+        const num = (v) => (v === null ? 'NULL' : String(v));
+        // Gli id sono cuid nostri e i valori numerici: niente da citare.
+        return `('${p}','${s}',${num(numero(r.price) ?? 0)},`
+             + `${num(numero(r.extraKmPrice) ?? 0)},${num(numero(r.pricePerItem))})`;
+      }).join(',');
+      await db.$executeRawUnsafe(
+        `update "PartnerService" as t set
+           "price" = v.price, "extraKmPrice" = v."extraKmPrice", "pricePerItem" = v."pricePerItem"
+         from (values ${valori}) as v("partnerId","serviceTypeId",price,"extraKmPrice","pricePerItem")
+         where t."partnerId" = v."partnerId" and t."serviceTypeId" = v."serviceTypeId"`);
+      segna('listino partner aggiornati', daAggiornare.length);
+    }
   } else segna('listino partner', perPartner.size);
 
   // --- listino valet ------------------------------------------------------
@@ -414,12 +436,18 @@ async function regole() {
       kmDistance: numero(r.kmLimit),
       partnerBillingAdjustment: numero(r.additionalPrice) ?? 0,
       valetPayAdjustment: numero(r.valetAdditionalPrice) ?? 0,
+      // I 7 flag dei giorni, nell'ordine originale del legacy: si conserva il
+      // dato senza reinterpretarlo (vedi il commento nello schema).
+      days: (() => { try { const g = JSON.parse(testo(r.days) ?? 'null');
+        return Array.isArray(g) ? g.map((x) => (x?.selected ? '1' : '0')).join('') : null; }
+        catch { return null; } })(),
+      legacyPricingModel: testo(r.serviceType),
       toBill: bool(r.billable) ?? true,
       toPay: bool(r.payable) ?? true,
       active: !data(r.deletedAt),
     };
-    if (testo(r.days)) segna('regole: campo «days» senza destinazione');
-    if (testo(r.serviceType)) segna('regole: serviceType finito nel nome');
+    if (testo(r.days)) segna('regole: giorni conservati');
+    if (testo(r.serviceType)) segna('regole: modello di prezzo conservato');
 
     if (!PROVA) {
       const rec = await salva('deliveryRule', legacyId, null, dati);
@@ -449,15 +477,48 @@ async function regole() {
     }
   }
 
-  // Le regole lato VALET (7 righe + 44 di collegamento) non hanno destinazione:
-  // `DeliveryRule` e' legata ai partner, non ai valet, e il loro campo `rules`
-  // e' un JSON di scaglioni (pickUps -> plusSalary) che qui non esiste.
-  const regoleValet = leggi('tabella-34').length;
-  if (regoleValet) {
-    segna('regole VALET senza destinazione', regoleValet);
-    avvisi.push(`${regoleValet} regole lato valet (tabella-34) + ${leggi('tabella-2').length} collegamenti `
-      + 'non importate: nel nuovo schema le regole carnet sono solo dei partner, e il loro JSON di '
-      + 'scaglioni pickUps→plusSalary non ha un campo corrispondente.');
+  // --- regole carnet LATO VALET ------------------------------------------
+  // Non sono una variante di quelle dei partner: quelle limitano il numero di
+  // consegne, queste alzano la paga a scaglioni sul numero di ritiri. Hanno
+  // quindi un modello proprio, `ValetDeliveryRule`.
+  const idValet = new Map((await db.valet.findMany({
+    where: { legacyId: { not: null } }, select: { id: true, legacyId: true },
+  })).map((x) => [x.legacyId, x.id]));
+
+  for (const r of leggi('tabella-34')) {
+    const legacyId = intero(r.id);
+    const scaglioni = testo(r.rules);
+    if (!scaglioni) { avvisi.push(`regola valet ${legacyId}: nessuno scaglione, saltata`); continue; }
+    if (!PROVA) {
+      const rec = await salva('valetDeliveryRule', legacyId, null, {
+        name: `Regola valet ${legacyId}`,
+        tiers: scaglioni,
+        active: !data(r.deletedAt),
+      });
+      // Il valet proprietario della regola.
+      const v = idValet.get(intero(r.expertId));
+      if (v) {
+        const gia = await db.valetDeliveryRuleValet.findFirst({ where: { valetDeliveryRuleId: rec.id, valetId: v } });
+        if (!gia) { await db.valetDeliveryRuleValet.create({ data: { valetDeliveryRuleId: rec.id, valetId: v } }); segna('regole valet: valet collegati'); }
+      } else segna('regole valet: proprietario non trovato');
+    }
+    segna('regole carnet valet');
+  }
+
+  // Estensione della stessa regola ad altri valet.
+  if (!PROVA) {
+    const idRegolaValet = new Map((await db.valetDeliveryRule.findMany({
+      where: { legacyId: { not: null } }, select: { id: true, legacyId: true },
+    })).map((x) => [x.legacyId, x.id]));
+    for (const e of leggi('tabella-2')) {
+      const rid = idRegolaValet.get(intero(e.expertDeliveryRuleId));
+      const vid = idValet.get(intero(e.expertId));
+      if (!rid || !vid) { segna('regole valet: estensione orfana'); continue; }
+      const gia = await db.valetDeliveryRuleValet.findFirst({ where: { valetDeliveryRuleId: rid, valetId: vid } });
+      if (gia) { segna('regole valet: estensione gia presente'); continue; }
+      await db.valetDeliveryRuleValet.create({ data: { valetDeliveryRuleId: rid, valetId: vid } });
+      segna('regole valet: valet aggiunti per estensione');
+    }
   }
 }
 

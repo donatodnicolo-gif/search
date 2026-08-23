@@ -296,6 +296,9 @@ model PartnerService {
   includedKm          Float       @default(0)
   extraKmPrice        Float       @default(0)
   extraOutOfCityPrice Float       @default(0)
+  /// Prezzo a pezzo (servizi magazzino). Gemello di ValetService.salaryPerItem,
+  /// che sul lato partner mancava: nel legacy 10 listini lo usano.
+  pricePerItem        Float?
   partner             Partner     @relation(fields: [partnerId], references: [id], onDelete: Cascade)
   serviceType         ServiceType @relation(fields: [serviceTypeId], references: [id])
 
@@ -387,6 +390,7 @@ model Valet {
   availabilities      ValetAvailability[]
   salaries            Salary[]
   payments            Payment[]
+  deliveryRules       ValetDeliveryRuleValet[]
   user                User?
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
@@ -808,6 +812,19 @@ model DeliveryRule {
   // Distanza (KM) entro cui vale la regola; opzionale.
   kmDistance Float?
 
+  /// Giorni della settimana in cui la regola vale: 7 flag "0"/"1".
+  /// ⚠️ L'ordine e' quello ORIGINALE del legacy, conservato senza reinterpretarlo.
+  /// Gli schemi osservati ("1000001" e il suo complemento "0111110") fanno pensare
+  /// che l'indice 0 sia la DOMENICA, ma e' una deduzione: prima di usarlo per
+  /// filtrare, confrontare una regola con l'app reale.
+  days String?
+
+  /// Modello di prezzo a cui la regola era legata nel legacy (`fixedprice`,
+  /// `hourlyrate`). ⚠️ NON e' un servizio: li' era un modello, e di PREZZO_FISSO
+  /// esistono 10 servizi. Sta qui, e non in `serviceTypeId`, per non inventare
+  /// a quale servizio si riferisse.
+  legacyPricingModel String?
+
   // Tipo di servizio a cui la regola e' legata (opzionale).
   serviceTypeId String?
   serviceType   ServiceType? @relation(fields: [serviceTypeId], references: [id])
@@ -824,6 +841,37 @@ model DeliveryRule {
   partners  DeliveryRulePartner[]
   createdAt DateTime              @default(now())
   updatedAt DateTime              @updatedAt
+}
+
+/// Regole carnet LATO VALET: scaglioni che aumentano la paga in base al numero
+/// di ritiri. Nel legacy sono una tabella a parte (`expert-delivery-rules`),
+/// non una variante di DeliveryRule: quelle dei partner limitano il numero di
+/// consegne, queste modificano una paga. Tenerle separate evita di forzare due
+/// cose diverse nello stesso modello.
+model ValetDeliveryRule {
+  id       String  @id @default(cuid())
+  /// id nel database originario MySQL: rende l'import ripetibile e tracciabile
+  legacyId Int?    @unique
+  name     String
+  /// Scaglioni, come nel legacy: [{operator, pickUps, plusSalary}].
+  /// `operator` vale `equal` o `moreThan`; `pickUps` e' il numero di ritiri e
+  /// `plusSalary` il plus sulla paga.
+  tiers    String
+  active   Boolean @default(true)
+  valets   ValetDeliveryRuleValet[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ValetDeliveryRuleValet {
+  id                  String            @id @default(cuid())
+  valetDeliveryRuleId String
+  valetId             String
+  valetDeliveryRule   ValetDeliveryRule @relation(fields: [valetDeliveryRuleId], references: [id], onDelete: Cascade)
+  valet               Valet             @relation(fields: [valetId], references: [id])
+
+  @@unique([valetDeliveryRuleId, valetId])
 }
 
 model DeliveryRulePartner {
