@@ -29,6 +29,34 @@ const NOME_CANALE: Record<string, string> = {
   "": "Senza piattaforma",
 };
 
+/**
+ * Quanto si può muovere un budget in un colpo solo.
+ *
+ * ⚠️ NON è una soglia inventata qui: è la stessa che applica il guardrail
+ * quando l'operazione va in coda (`lib/guardrail.ts`) e viene dai Definitivi
+ * (doc 11 §2) — passi da 20-30%, oltre il 30% l'algoritmo riparte ad
+ * apprendere e per qualche giorno la resa peggiora.
+ *
+ * Mostrarla QUI, mentre si scrive, e non solo dopo in coda, è la differenza
+ * fra correggere un numero e scoprire da un avviso che si è già deciso male.
+ */
+const PASSO_DA_MONITORARE = 20;
+const PASSO_CHE_RIAPPRENDE = 30;
+
+function giudizioPasso(pct: number): { colore: string; nota: string } | null {
+  const a = Math.abs(pct);
+  if (a > PASSO_CHE_RIAPPRENDE) {
+    return {
+      colore: "var(--orange)",
+      nota: "oltre il 30%: l'algoritmo riparte ad apprendere",
+    };
+  }
+  if (a > PASSO_DA_MONITORARE) {
+    return { colore: "var(--gold-strong)", nota: "fra 20% e 30%: da rivedere a +24h e +72h" };
+  }
+  return null;
+}
+
 const CANALE_DI_PIATTAFORMA: Record<string, string> = {
   google: "google_ads",
   meta: "meta_ads",
@@ -357,6 +385,16 @@ export function AdattaBudget({
             const arrivo = (v?.speso ?? 0) + (v?.nuovoGiorno ?? 0) * giorniRimasti;
             const arrivoOggi = (v?.speso ?? 0) + (v?.attualeGiorno ?? 0) * giorniRimasti;
             const scarto = arrivo - arrivoOggi;
+            const pctCanale =
+              v && v.attualeGiorno > 0 ? ((v.nuovoGiorno - v.attualeGiorno) / v.attualeGiorno) * 100 : null;
+            // Quante campagne di questo canale escono dai passi consigliati:
+            // il totale può muoversi del 10% mentre dentro una singola
+            // campagna raddoppia, ed è quella che riparte ad apprendere.
+            const oltrePasso = sue.filter((c) => {
+              const n = numero(valori[c.id] ?? "");
+              if (n == null || c.budget == null || c.budget <= 0) return false;
+              return Math.abs(((n - c.budget) / c.budget) * 100) > PASSO_CHE_RIAPPRENDE;
+            }).length;
             const sfora = pf != null && arrivo > pf.euro;
             return (
           <tbody key={canale}>
@@ -387,6 +425,18 @@ export function AdattaBudget({
                       {" · "}
                       {scarto > 0 ? "+" : ""}
                       {euro(scarto)} rispetto a oggi
+                      {pctCanale != null && (
+                        <>
+                          {" ("}
+                          {pctCanale > 0 ? "+" : ""}
+                          {Math.round(pctCanale)}%{")"}
+                        </>
+                      )}
+                    </span>
+                  )}
+                  {oltrePasso > 0 && (
+                    <span style={{ color: "var(--orange)", fontWeight: 600 }}>
+                      {" · "}⚠ {oltrePasso === 1 ? "1 campagna oltre il 30%" : `${oltrePasso} campagne oltre il 30%`}
                     </span>
                   )}
                   {pf == null && arrivo > 0 && `${" · "}a fine mese ${euro(arrivo)}`}
@@ -404,6 +454,11 @@ export function AdattaBudget({
               const arrivoRiga = c.speso + (n ?? 0) * giorniRimasti;
               const arrivoOggi = c.speso + (c.budget ?? 0) * giorniRimasti;
               const scartoRiga = arrivoRiga - arrivoOggi;
+              // La variazione in percentuale si può dire solo se c'è un
+              // budget di partenza: su «non noto» ogni percentuale sarebbe
+              // inventata.
+              const pct = n != null && c.budget != null && c.budget > 0 ? ((n - c.budget) / c.budget) * 100 : null;
+              const passo = pct != null ? giudizioPasso(pct) : null;
               return (
                 <tr key={c.id} style={{ opacity: c.accesa ? 1 : 0.5 }}>
                   <td className="cella-nome" style={{ maxWidth: 320 }}>
@@ -451,7 +506,22 @@ export function AdattaBudget({
                         <div>
                           {diff > 0 ? "+" : ""}
                           {euro(diff)} al giorno × {giorniRimasti} giorni
+                          {pct != null && (
+                            <>
+                              {" · "}
+                              <b>
+                                {pct > 0 ? "+" : ""}
+                                {Math.round(pct)}%
+                              </b>
+                            </>
+                          )}
                         </div>
+                      )}
+                      {/* ⚠️ L'avviso sta sulla RIGA che lo causa. In fondo
+                          alla pagina direbbe «qualcosa è troppo grosso» e
+                          lascerebbe a chi legge il compito di cercare quale. */}
+                      {passo && (
+                        <div style={{ color: passo.colore, fontWeight: 600 }}>⚠ {passo.nota}</div>
                       )}
                     </div>
                   </td>
