@@ -284,14 +284,30 @@ export function totaliMaison(m: MaisonBudget) {
     }
   }
   const totale = Object.values(perServizio).reduce((s, v) => s + v, 0);
-  const adv = m.mesi.reduce((s, x) => s + advConsentitoMese(x), 0);
   const advPubblicato = m.mesi.reduce((s, x) => s + x.advPubblicato, 0);
+  const adv = m.mesi.reduce((s, x) => s + advConsentitoMese(x, advPubblicato), 0);
   return { perServizio, totale, adv, advPubblicato };
 }
 
-// ADV consentito nel mese = vendite del mese × % impostata in /spese.
-export function advConsentitoMese(mese: MeseMaison): number {
-  return (venditeMese(mese) * mese.advPercent) / 100;
+// ---------- Il budget pubblicitario del mese ----------
+//
+// **La percentuale di /spese è una quota del budget pubblicitario dell'anno,
+// non una percentuale delle vendite del mese** (regola dell'utente, 23/08/2026:
+// «sono da calcolare su totale pubblicità prevista per l'anno»). Ogni brand ha
+// un monte pubblicità per l'anno — l'ADV **pubblicato**, quello del
+// monitoraggio — e le dodici caselle dicono **come si distribuisce fra i mesi**:
+// per questo devono sommare 100 e non possono sforare.
+//
+// Prima qui c'era «vendite del mese × %», che è una domanda diversa («quanto
+// posso spendere dato quanto vendo») e faceva due danni: le dodici percentuali
+// non avevano nessun vincolo fra loro, e un mese senza budget di vendita
+// portava a zero la sua pubblicità anche quando il monte annuo c'era tutto.
+export function advPubblicatoAnno(m: MaisonBudget): number {
+  return m.mesi.reduce((s, x) => s + x.advPubblicato, 0);
+}
+
+export function advConsentitoMese(mese: MeseMaison, pubblicatoAnno: number): number {
+  return (pubblicatoAnno * mese.advPercent) / 100;
 }
 
 // Budget ADV dell'intera azienda in un mese (somma su tutte le maison): è la
@@ -299,7 +315,7 @@ export function advConsentitoMese(mese: MeseMaison): number {
 export function advBudgetMese(dati: DatiAnno, month: number): number {
   return dati.maisons.reduce((s, m) => {
     const x = m.mesi.find((y) => y.month === month);
-    return s + (x ? advConsentitoMese(x) : 0);
+    return s + (x ? advConsentitoMese(x, advPubblicatoAnno(m)) : 0);
   }, 0);
 }
 
@@ -586,7 +602,7 @@ export function contoEconomicoMensile(dati: DatiAnno, livello: Livello, quotaD2C
     const adv =
       dati.maisons.reduce((s, m) => {
         const x = m.mesi.find((y) => y.month === month);
-        return s + (x ? advConsentitoMese(x) : 0);
+        return s + (x ? advConsentitoMese(x, advPubblicatoAnno(m)) : 0);
       }, 0) * molt;
     const personale = costoPersonaleMese(dati, month);
     const margineLordo = ricavi - cogs;

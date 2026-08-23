@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { autentica } from "@/lib/api-auth";
 import {
-  ANNO_CORRENTE, advConsentitoMese, caricaAnno, LIVELLI, moltiplicatore,
+  ANNO_CORRENTE, advConsentitoMese, advPubblicatoAnno, caricaAnno, LIVELLI, moltiplicatore,
   venditeMese, type Livello,
 } from "@/lib/calc";
 
@@ -45,6 +45,9 @@ export async function GET(req: NextRequest) {
   const maisons = dati.maisons
     .filter((m) => !soloMaison || m.slug === soloMaison)
     .map((m) => {
+      // Il monte pubblicita dell anno del brand: e la base su cui sono
+      // calcolate le percentuali mensili (regola del 23/08/2026).
+      const pubblicatoAnno = advPubblicatoAnno(m);
       const mesi = m.mesi.map((x) => {
         const vendite: Record<string, number> = {};
         for (const [slug, v] of Object.entries(x.vendite)) vendite[slug] = v * molt;
@@ -53,7 +56,7 @@ export async function GET(req: NextRequest) {
           vendite,
           venditeTotali: venditeMese(x) * molt,
           advPercent: x.advPercent,
-          advConsentito: advConsentitoMese(x) * molt,
+          advConsentito: advConsentitoMese(x, pubblicatoAnno) * molt,
           // Quello che il monitoraggio ADV aveva pubblicato come riferimento:
           // NON si moltiplica, è un numero storico, non uno scenario.
           advPubblicato: x.advPubblicato,

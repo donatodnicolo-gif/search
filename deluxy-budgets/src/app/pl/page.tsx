@@ -28,7 +28,7 @@ const RIGHE_FISSE: Riga[] = [
   { label: "Totale ricavi", valore: (pl) => pl.ricavi, tipo: "totale", cons: (c) => c.ricavi },
   { label: "Costo per servizi", valore: (pl) => pl.cogs, tipo: "costo", nota: "a budget: dai margini per tipologia", cons: (c) => c.cogs },
   { label: "Margine lordo", valore: (pl) => pl.margineLordo, tipo: "totale", cons: (c) => c.margineLordo },
-  { label: "Spesa pubblicitaria (ADV)", valore: (pl) => pl.adv, tipo: "costo", nota: "% sulle vendite per maison/mese", cons: (c) => c.adv },
+  { label: "Spesa pubblicitaria (ADV)", valore: (pl) => pl.adv, tipo: "costo", nota: "quota del budget pubblicita dell anno, per brand e per mese", cons: (c) => c.adv },
   { label: "Costo del personale", valore: (pl) => pl.personale, tipo: "costo", nota: "dipendenti, stagisti e consulenti", cons: (c) => c.personale },
   { label: "Costi di struttura", valore: (pl) => pl.costiFissi, tipo: "costo", cons: (c) => c.struttura },
   { label: "EBITDA", valore: (pl) => pl.ebitda, tipo: "risultato", cons: (c) => c.ebitda },

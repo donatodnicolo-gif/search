@@ -451,9 +451,11 @@ pubblicato), *sfidante* e *irraggiungibile*.
   > era nato. **Ancora non eseguito al 21/08/2026** — verificato a database: su Deluxy.it le righe di
   > gennaio–giugno ci sono e valgono `0` su tutti e tre i canali. È il motivo per cui `/spese`
   > mostrava «100% = 0 €» su sei mesi, ed è il primo posto da guardare quando un budget «sparisce».
-- **Spese ADV** (`/spese`): quanto si può spendere in pubblicità per brand come **% di quello che il
-  mese vende** — budget sui mesi aperti, **venduto reale sui mesi chiusi** —, personalizzabile mese per
-  mese; l'importo consentito si ricalcola. I **mesi
+- **Spese ADV** (`/spese`): **come si distribuisce fra i mesi il budget pubblicitario dell'anno** di
+  ogni brand. Ogni casella è una quota di quel monte, quindi le dodici quote di un brand devono fare
+  **100%**: sopra si impegna pubblicità che non c'è e il salvataggio è bloccato, sotto si salva e la
+  pagina dice quanto resta da assegnare. Nei mesi già chiusi la quota è **misurata** (speso reale ÷
+  monte annuo), non decisa. I **mesi
   già passati sono in sola lettura**, il **totale dell'anno sta anche in fondo** (per brand e
   complessivo) e **mentre si scrive si vede di quanto cambia**, casella per casella. Una percentuale
   **oltre il 100% blocca il salvataggio** (sarebbe spendere più di quanto il mese vende). Ogni brand
@@ -1384,7 +1386,53 @@ importato — ma non regge da solo: fra le 21 controparti di agosto ce ne sono d
 manca **una parte di entrambe**. Si guarda in `deluxy-partner`, contando i movimenti di agosto per
 fonte; qui si può solo dichiarare che mancano.
 
+### ⚠️ La percentuale di /spese è una quota del budget ADV dell'anno (23/08/2026)
+
+**Leggere questo prima della sezione qui sotto**, che descrive la regola vecchia e resta solo come
+storia. Fino al 23/08/2026 la percentuale di `/spese` voleva dire *«quanto del venduto di questo mese
+posso spendere in pubblicità»*. Era sbagliato, e l'utente lo ha detto in tre modi prima che lo
+capissi: «così superiamo il 100% ed è impossibile», «devo vedere la somma dei p.p.», e infine
+**«sono da calcolare su totale pubblicità prevista per l'anno»**.
+
+**La regola giusta**: ogni brand ha un **monte pubblicità per l'anno** — l'ADV *pubblicato* del
+monitoraggio, che la pagina mostrava già come riferimento — e le dodici caselle dicono **come si
+distribuisce fra i mesi**. Da cui tutto il resto:
+
+| | |
+| --- | --- |
+| Importo del mese | monte annuo del brand × quota del mese |
+| Il 100% | il monte annuo di **quel brand** (Deluxy.it 199.922 €, Deluxyflowers 47.251, B2B 40.909, CakeDesign 18.189, Experience 4.500) |
+| Le dodici quote | **devono fare 100**: distribuiscono un numero già deciso |
+| Sopra il 100 | si impegna pubblicità che non c'è → **salvataggio bloccato** |
+| Sotto il 100 | budget non ancora assegnato → si salva, e la pagina dice quanto resta |
+| Mese chiuso | la quota non è una decisione ma una **misura**: speso reale ÷ monte annuo |
+
+Il conto sta in un posto solo — `advConsentitoMese(mese, pubblicatoAnno)` in `calc.ts` — quindi la
+regola nuova vale anche per `/piattaforme`, per il P&L e per l'API `/api/v1/maison`, non solo per la
+schermata dove si scrive.
+
+⚠️⚠️ **Il vincolo cade sui mesi APERTI, non sulla somma dei dodici.** Sembra la stessa cosa e non lo
+è: i mesi chiusi non si riscrivono, quindi un brand i cui **soli mesi chiusi** superano già il 100%
+resterebbe **bloccato per sempre** — nessuna modifica possibile lo riporterebbe sotto. Succede
+davvero, ed è il primo caso provato: B2B ha i mesi Gen–Lug a **127,4%** ed Experience a **140%**,
+quote scritte quando la percentuale voleva dire un'altra cosa. Quindi: si blocca quando
+`quote dei mesi aperti > 100 − quote dei mesi chiusi`, e lo sforamento già consumato si **dichiara**
+con un avviso a parte, che non blocca niente perché non c'è niente da correggere. Tolleranza di mezzo
+punto: le quote si scrivono con un decimale e dodici arrotondamenti non devono diventare un divieto.
+
+📌 **Cosa dice il dato il giorno del cambio** — e non lo diceva prima, perché le dodici percentuali non
+avevano nessun vincolo fra loro: **quattro brand su cinque distribuiscono più del loro budget
+pubblicitario**, per **47.019 €** in totale (Experience 240%, B2B 218,4%, Deluxyflowers 121,3%,
+CakeDesign 118,2%; solo Deluxy.it sta sotto, a 89,4% con 21.095 € ancora da assegnare). ⚠️ Sono numeri
+scritti con la regola vecchia: **vanno rifatti**, e finché non lo sono il salvataggio di quei brand
+resta bloccato — che è esattamente ciò che deve succedere.
+
 ### Spese ADV: cosa si può ancora scrivere, e quanto sposta (21/08/2026)
+
+> ⚠️ **Sezione storica.** Il punto 4-bis, 4-ter e il punto 5 qui sotto descrivono la regola
+> **precedente** (percentuale sul venduto del mese), sostituita il 23/08/2026 — vedi la sezione qui
+> sopra. Restano perché spiegano da dove vengono l'avviso sui mesi chiusi, la lettura dei mesi
+> misurati e l'allineamento delle caselle, che sono sopravvissuti al cambio di regola.
 
 Quattro cose chieste insieme sulla stessa pagina, perché rispondono alla stessa domanda: *se cambio
 questa casella, cosa succede al budget dell'anno — e questa casella si può ancora cambiare?*

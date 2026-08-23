@@ -155,7 +155,7 @@ export default async function MaisonDetail({
         <div className="kpi">
           <div className="kpi-label">ADV consentito</div>
           <div className="kpi-value">{eur(t.adv * molt)}</div>
-          <div className="kpi-sub">{t.totale > 0 ? pct((t.adv / t.totale) * 100) : "—"} delle vendite</div>
+          <div className="kpi-sub">quota assegnata ai mesi del budget pubblicita dell anno ({eur(t.advPubblicato)})</div>
         </div>
         <div className="kpi">
           <div className="kpi-label">Margine lordo</div>
