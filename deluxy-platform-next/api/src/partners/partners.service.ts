@@ -219,10 +219,26 @@ export class PartnersService {
     };
   }
 
-  /** Manda il partner al registro e riporta l'esito (non fire-and-forget). */
+  /**
+   * Manda il partner al registro e riporta l'esito (non fire-and-forget).
+   *
+   * ⚠️ Prima si CERCA. Se il record esiste, si scrive su quello; altrimenti un
+   * upsert alla cieca può crearne un doppione, perché la cascata di identità
+   * del registro non ritrova un partner con P.IVA diversa e senza città.
+   */
   async sincronizzaAnagrafica(id: string, actor?: JwtUser) {
     const p = await this.findOne(id, actor);
-    return this.anagrafiche.sincronizzaOra(p as any);
+    const { trovato, candidati } = await this.anagrafiche.cerca({
+      id: p.id, insegna: p.insegna, businessName: p.businessName,
+      vatNumber: p.vatNumber, fiscalCode: p.fiscalCode, email: p.email,
+    });
+    if (!trovato && candidati.length) {
+      return {
+        ok: false, stato: 0,
+        messaggio: `Nel registro ci sono ${candidati.length} record possibili: scegliere a mano quale collegare, per non crearne un altro.`,
+      };
+    }
+    return this.anagrafiche.sincronizzaOra(p as any, trovato?.id ?? null);
   }
 
   async importFromAnagrafiche(actor?: JwtUser) {

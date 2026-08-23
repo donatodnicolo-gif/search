@@ -160,10 +160,41 @@ export class AnagraficheSyncService {
    * `sincronizza`, che e' fire-and-forget). Serve al bottone di collegamento:
    * l'utente deve sapere se ha funzionato.
    */
-  async sincronizzaOra(partner: PartnerPiattaforma): Promise<{ ok: boolean; stato: number; messaggio: string }> {
+  async sincronizzaOra(
+    partner: PartnerPiattaforma,
+    anagraficaId?: string | null,
+  ): Promise<{ ok: boolean; stato: number; messaggio: string }> {
     const apiKey = await this.getApiKey();
     if (!apiKey) return { ok: false, stato: 0, messaggio: 'Chiave del registro non configurata.' };
     const base = (await this.getBaseUrl()).replace(/\/+$/, '');
+
+    // 🔴 Se il confronto ha GIÀ trovato il record, si scrive SU QUELLO (PATCH).
+    //
+    // Con un POST il registro rifà la sua cascata di identità
+    // (platformId → P.IVA → codice fiscale → nome+città) e può non ritrovarlo:
+    // il 23/08/2026 è successo davvero su 142 RESTAURANT, perché la P.IVA qui
+    // è diversa da quella del registro e la città non viene inviata, quindi
+    // l'ultimo passo cercava «nome + città vuota». Risultato: un DOPPIONE, e il
+    // collegamento finito sul record sbagliato.
+    if (anagraficaId) {
+      try {
+        const res = await fetch(`${base}/api/v1/partners/${anagraficaId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
+          body: JSON.stringify({ ...this.corpo(partner), platformId: partner.id }),
+        });
+        const testo = await res.text();
+        if (res.status === 403) {
+          return { ok: false, stato: 403, messaggio: 'Il registro rifiuta la scrittura: la chiave configurata è di sola lettura.' };
+        }
+        if (!res.ok) return { ok: false, stato: res.status, messaggio: `Il registro risponde HTTP ${res.status}: ${testo.slice(0, 200)}` };
+        return { ok: true, stato: res.status, messaggio: 'Collegato al record esistente del registro.' };
+      } catch (err) {
+        return { ok: false, stato: 0, messaggio: `Registro non raggiungibile: ${(err as Error).message}` };
+      }
+    }
+
+    // Nessun record trovato: si crea, ed è il caso in cui il POST è corretto.
     try {
       const res = await fetch(`${base}/api/v1/partners`, {
         method: 'POST',
