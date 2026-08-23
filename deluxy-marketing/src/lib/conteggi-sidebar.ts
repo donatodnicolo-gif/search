@@ -30,6 +30,8 @@ export type ConteggiSidebar = {
   nOperazioni: number;
   nGruppi: number;
   nTermini: number;
+  /** Estensioni ferme su Google: e' la ragione per aprire la pagina. */
+  nEstensioniFerme: number;
   aperteBrand: Record<string, number>;
   aperteCanale: Record<string, number>;
   analisiCanale: Record<string, number>;
@@ -40,7 +42,7 @@ export type ConteggiSidebar = {
 const VUOTI: ConteggiSidebar = {
   nAnalisi: 0, nAudit: 0, nAzioniAperte: 0, nCampagneVive: 0, nLanding: 0,
   nTestAperti: 0, nDocumenti: 0, nPubblici: 0, nOrdini: 0, nErroriAperti: 0,
-  nIncongruenzeAperte: 0, nOperazioni: 0, nGruppi: 0, nTermini: 0,
+  nIncongruenzeAperte: 0, nOperazioni: 0, nGruppi: 0, nTermini: 0, nEstensioniFerme: 0,
   aperteBrand: {}, aperteCanale: {}, analisiCanale: {}, auditCanale: {}, campagneCanale: {},
 };
 
@@ -61,7 +63,10 @@ const SQL = `
     (SELECT count(*) FROM "Incongruenza" WHERE stato = 'aperta')                            AS "nIncongruenzeAperte",
     (SELECT count(*) FROM "OperazioneAdv" WHERE stato IN ('in_attesa','approvata'))         AS "nOperazioni",
     (SELECT count(*) FROM "Gruppo" WHERE stato <> 'defunto')                                AS "nGruppi",
-    (SELECT count(*) FROM "TermineRicerca" WHERE spesa > 0 AND conversioni = 0)             AS "nTermini"
+    (SELECT count(*) FROM "TermineRicerca" WHERE spesa > 0 AND conversioni = 0)             AS "nTermini",
+    (SELECT count(*) FROM "CopyAnnuncio"
+       WHERE tipo IN ('sitelink','callout','snippet','immagine')
+         AND "statoPiattaforma" IS NOT NULL AND "statoPiattaforma" <> 'ENABLED')             AS "nEstensioniFerme"
 `;
 
 const SQL_GRUPPI = `
@@ -110,6 +115,7 @@ async function leggi(): Promise<ConteggiSidebar> {
       nOperazioni: num(t.nOperazioni),
       nGruppi: num(t.nGruppi),
       nTermini: num(t.nTermini),
+      nEstensioniFerme: num(t.nEstensioniFerme),
       aperteBrand: perQuery("azioniBrand"),
       aperteCanale: perQuery("azioniCanale"),
       analisiCanale: perQuery("analisiCanale"),

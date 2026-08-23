@@ -8,7 +8,7 @@ export type VoceSidebar =
   | "home" | "analisi" | "audit" | "azioni" | "campagne" | "gruppi" | "landing" | "copy" | "keywords"
   | "meta" | "pubblici" | "ordini" | "offerte" | "drive" | "storico" | "vendite" | "budget" | "mkt" | "impostazioni"
   | "errori" | "memoria" | "incongruenze" | "cadenze" | "occasioni" | "operazioni" | "periodo" | "ricezione" | "ai"
-  | "tracciamento" | "termini" | "trend" | "esclusioni";
+  | "tracciamento" | "termini" | "trend" | "esclusioni" | "estensioni";
 
 // Sidebar di navigazione. `attiva` identifica la sezione corrente; `brandAttivo`
 // e `canaleAttivo` evidenziano il filtro con cui si sta guardando la pagina.
@@ -26,7 +26,7 @@ export async function Sidebar({
   const {
     nAnalisi, nAudit, nAzioniAperte, nCampagneVive, nLanding, nTestAperti, nDocumenti,
     aperteBrand, aperteCanale, analisiCanale, auditCanale, campagneCanale,
-    nPubblici, nOrdini, nErroriAperti, nIncongruenzeAperte, nOperazioni, nGruppi, nTermini,
+    nPubblici, nOrdini, nErroriAperti, nIncongruenzeAperte, nOperazioni, nGruppi, nTermini, nEstensioniFerme,
   } = await conteggiSidebar();
 
 
@@ -97,6 +97,10 @@ export async function Sidebar({
           {voce("termini", "/termini", "analisi", "Parole cercate", nTermini)}
           {voce("esclusioni", "/esclusioni", "analisi", "Liste esclusioni")}
           {voce("copy", "/copy", "copy", "Copy & annunci")}
+          {/* ⚠️ Le estensioni si vedevano SOLO dentro la singola campagna: per
+              sapere se un brand aveva i callout bisognava aprirle una per una. Il
+              contatore mostra quante sono ferme, che è la ragione per entrare. */}
+          {voce("estensioni", "/estensioni", "copy", "Estensioni", nEstensioniFerme)}
         </SbSezione>
 
         <SbSezione titolo="Meta">
