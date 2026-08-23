@@ -476,7 +476,11 @@ export class DeliveryFormComponent implements AfterViewInit {
     // Data minima = oggi + giorni preavviso.
     const min = this.computeMinDate(s?.noticeDays ?? 0);
     this.deliveryMinDate.set(min);
-    if (!this.model.date || this.model.date < min) this.model.date = min;
+    // ⚠️ Il preavviso è una regola per le consegne NUOVE. In modifica la data
+    // salvata è quasi sempre nel passato, quindi questa riga la sostituiva con
+    // oggi: aprire una consegna del 2024 e salvarla la spostava al giorno
+    // corrente, senza dire niente.
+    if (!this.editId() && (!this.model.date || this.model.date < min)) this.model.date = min;
     // Il filtro per tipo servizio può escludere il partner scelto.
     this.syncSelections();
   }
@@ -541,7 +545,28 @@ export class DeliveryFormComponent implements AfterViewInit {
     }
 
     this.http.get<Partner[]>(`${api}/partners`).subscribe((d) => this.partners.set(d));
-    this.http.get<ServiceType[]>(`${api}/service-types`).subscribe((d) => this.serviceTypes.set(d));
+    this.http.get<ServiceType[]>(`${api}/service-types`).subscribe((d) => {
+      // ⚠️ Non si SOSTITUISCE la lista: il prefill può averci già messo il
+      // servizio della consegna (se disattivato non arriva da qui). Sostituendo
+      // lo si perderebbe, e la casella tornerebbe vuota dopo essersi riempita.
+      const scelto = this.selectedService();
+      this.serviceTypes.set(
+        scelto && !d.some((s) => s.id === scelto.id) ? [scelto, ...d] : d,
+      );
+      // ⚠️ Il servizio si risolve cercandolo in QUESTA lista. In modifica la
+      // consegna arriva prima (e' una riga sola), quindi al momento del prefill
+      // la lista era vuota e `selectedService` restava null: a schermo
+      // compariva «Seleziona prima un servizio» pur essendocene uno scelto, e
+      // le fasce orarie non venivano generate. Appena la lista arriva si
+      // riapplica, conservando gli orari salvati.
+      if (this.model.serviceTypeId) {
+        const fascia = this.model.deliveryTimeFrom;
+        const data = this.model.date;
+        this.onServiceChange();
+        if (fascia) this.model.deliveryTimeFrom = fascia;
+        if (data) this.model.date = data;
+      }
+    });
     this.http.get<ValetRef[]>(`${api}/valets`).subscribe((d) => this.valets.set(d as ValetRef[]));
     // La lista prodotti e' paginata: qui serve il catalogo per la tendina,
     // quindi chiedo la pagina massima consentita.
@@ -562,6 +587,21 @@ export class DeliveryFormComponent implements AfterViewInit {
   private prefill(d: Record<string, any>): void {
     const m = this.model;
     m.date = typeof d['date'] === 'string' ? d['date'].slice(0, 10) : '';
+
+    // ⚠️ Il servizio della consegna arriva GIA' dentro la risposta: si usa
+    // quello, invece di cercarlo nella tendina. Cercandolo, un servizio
+    // disattivato (come «Non indicato», su cui stanno 17.669 consegne
+    // importate) non viene trovato: la casella resta vuota, compare
+    // «Seleziona prima un servizio» e le fasce orarie non si generano.
+    // Se manca dall'elenco lo si aggiunge, altrimenti la tendina non può
+    // mostrare il valore selezionato.
+    const svc = d['serviceType'];
+    if (svc?.id) {
+      if (!this.serviceTypes().some((s) => s.id === svc.id)) {
+        this.serviceTypes.set([svc as ServiceType, ...this.serviceTypes()]);
+      }
+      this.selectedService.set(svc as ServiceType);
+    }
     for (const key of [
       'recipientAddress', 'partnerId', 'serviceTypeId', 'deliveryTimeFrom', 'deliveryTimeTo',
       'pickupTimeFrom', 'pickupTimeTo', 'valetId', 'status', 'paymentStatus', 'customerId',

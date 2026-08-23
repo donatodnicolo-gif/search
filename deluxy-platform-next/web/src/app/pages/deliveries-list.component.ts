@@ -1,6 +1,6 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { DatePipe } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, HostListener, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -167,11 +167,20 @@ const SERVICE_ICONS: Record<string, string> = {
                 (keydown.enter)="openDetail(d)"
               >
                 <td class="st-col">
-                  <span
-                    class="status-dot"
-                    [class]="'status-dot s-' + d.status"
-                    [title]="'status.delivery.' + d.status | translate"
-                  ></span>
+                  <!-- Clic sul pallino = cambio stato rapido, senza entrare in
+                       modifica. Si ferma la propagazione perché la riga apre il
+                       dettaglio. -->
+                  <button
+                    type="button"
+                    class="status-dot-btn"
+                    [class.cliccabile]="canManage()"
+                    (click)="canManage() ? apriStato(d, $event) : null"
+                    [attr.title]="
+                      (canManage() ? 'deliveries.status.change' : 'status.delivery.' + d.status) | translate
+                    "
+                  >
+                    <span class="status-dot" [class]="'status-dot s-' + d.status"></span>
+                  </button>
                 </td>
                 <td class="mono">{{ d.code }}</td>
                 <td>
@@ -252,6 +261,7 @@ const SERVICE_ICONS: Record<string, string> = {
     @if (assignFor(); as d) {
       <div class="overlay" (click)="assignFor.set(null)"></div>
       <div class="modal card" role="dialog" aria-modal="true">
+        <button type="button" class="modal-close" (click)="assignFor.set(null)" [attr.aria-label]="'common.close' | translate">×</button>
         <h2>{{ 'deliveries.assign.title' | translate }}</h2>
         <p class="modal-sub">
           {{ 'deliveries.assign.forDelivery' | translate: { code: d.code } }}
@@ -280,10 +290,42 @@ const SERVICE_ICONS: Record<string, string> = {
       </div>
     }
 
+    <!-- Pop-up CAMBIO STATO: dal pallino della lista, senza aprire la modifica -->
+    @if (statoFor(); as d) {
+      <div class="overlay" (click)="statoFor.set(null)"></div>
+      <div class="modal card" role="dialog" aria-modal="true">
+        <button type="button" class="modal-close" (click)="statoFor.set(null)" [attr.aria-label]="'common.close' | translate">×</button>
+        <h2>{{ 'deliveries.status.title' | translate }}</h2>
+        <p class="modal-sub">
+          {{ 'deliveries.assign.forDelivery' | translate: { code: d.code } }}
+          · <span class="tag">{{ 'status.delivery.' + d.status | translate }}</span>
+        </p>
+        @if (actionError()) { <div class="modal-err">{{ actionError() }}</div> }
+        <ul class="valet-list">
+          @for (s of statusKeys; track s) {
+            <li>
+              <span>
+                <span class="status-dot" [class]="'status-dot s-' + s"></span>
+                {{ 'status.delivery.' + s | translate }}
+              </span>
+              @if (s === d.status) {
+                <span class="muted">{{ 'deliveries.status.current' | translate }}</span>
+              } @else {
+                <button type="button" class="act" [disabled]="salvandoStato()" (click)="cambiaStato(s)">
+                  {{ 'deliveries.status.set' | translate }}
+                </button>
+              }
+            </li>
+          }
+        </ul>
+      </div>
+    }
+
     <!-- Pop-up ADDITIONAL VALET: plus/minus immediato sulla paga del valet -->
     @if (additionalFor(); as d) {
       <div class="overlay" (click)="additionalFor.set(null)"></div>
       <div class="modal card" role="dialog" aria-modal="true">
+        <button type="button" class="modal-close" (click)="additionalFor.set(null)" [attr.aria-label]="'common.close' | translate">×</button>
         <h2>{{ 'deliveries.additional.title' | translate }}</h2>
         <p class="modal-sub">{{ 'deliveries.additional.hint' | translate: { code: d.code } }}</p>
         @if (actionError()) { <div class="modal-err">{{ actionError() }}</div> }
@@ -481,6 +523,34 @@ const SERVICE_ICONS: Record<string, string> = {
         padding: 22px 24px;
         box-shadow: var(--shadow-float);
       }
+      /* X di chiusura: le finestre si chiudevano solo dal fondo o cliccando
+         fuori, e con l'elenco valet lungo il bottone Annulla restava sotto. */
+      .status-dot-btn {
+        border: 0;
+        background: transparent;
+        padding: 4px;
+        margin: -4px;
+        border-radius: 999px;
+        line-height: 0;
+        cursor: default;
+      }
+      .status-dot-btn.cliccabile { cursor: pointer; }
+      .status-dot-btn.cliccabile:hover { background: var(--surface-sunken, #ececef); }
+      .modal-close {
+        position: sticky;
+        float: right;
+        top: -6px;
+        margin: -8px -8px 0 0;
+        border: 0;
+        background: transparent;
+        font-size: 26px;
+        line-height: 1;
+        color: var(--text-tertiary);
+        cursor: pointer;
+        padding: 2px 8px;
+        border-radius: 999px;
+      }
+      .modal-close:hover { background: var(--surface-sunken, #ececef); color: var(--text-primary); }
       .modal h2 {
         margin: 0 0 4px;
         font-size: 17px;
@@ -750,6 +820,48 @@ export class DeliveriesListComponent {
   // ---- ASSEGNA: pop-up con i valet della provincia della consegna ----
   readonly provinces = signal<Province[]>([]);
   readonly valets = signal<ValetRef[]>([]);
+  /** Esc chiude la finestra aperta: e' la scorciatoia che tutti provano. */
+  @HostListener('document:keydown.escape')
+  chiudiFinestre(): void {
+    this.assignFor.set(null);
+    this.additionalFor.set(null);
+    this.statoFor.set(null);
+  }
+
+  // ---- Cambio stato rapido dal pallino della lista ----
+  readonly statoFor = signal<Delivery | null>(null);
+  readonly salvandoStato = signal(false);
+
+  /** Apre il pop-up di cambio stato senza far scattare l'apertura del dettaglio. */
+  apriStato(d: Delivery, ev: Event): void {
+    ev.stopPropagation();
+    this.actionError.set(null);
+    this.statoFor.set(d);
+  }
+
+  cambiaStato(status: string): void {
+    const d = this.statoFor();
+    if (!d) return;
+    this.salvandoStato.set(true);
+    this.actionError.set(null);
+    this.http
+      .patch(`${environment.apiUrl}/deliveries/${d.id}/status`, { status })
+      .subscribe({
+        next: () => {
+          this.salvandoStato.set(false);
+          this.statoFor.set(null);
+          // Si ricarica: cambiando stato la consegna può uscire dalla vista
+          // corrente (da "In lavorazione" allo Storico), e lasciarla a schermo
+          // farebbe credere che il salvataggio non sia andato.
+          this.load();
+        },
+        error: (err) => {
+          this.salvandoStato.set(false);
+          this.actionError.set(err?.error?.message ?? this.translate.instant('common.saveError'));
+        },
+      });
+  }
+
   readonly assignFor = signal<Delivery | null>(null);
   readonly actionError = signal<string | null>(null);
 
@@ -770,6 +882,7 @@ export class DeliveriesListComponent {
 
   openAssign(d: Delivery): void {
     this.actionError.set(null);
+    this.caricaRiferimenti();
     this.assignFor.set(d);
   }
 
@@ -895,9 +1008,9 @@ export class DeliveriesListComponent {
   cambiaVista(v: 'attive' | 'storico'): void {
     if (this.vista === v) return;
     this.vista = v;
-    // Nello storico il filtro "oggi" non ha senso: si cerca nel passato.
-    // Tornando alle attive si riparte da oggi, che è il lavoro del giorno.
-    this.dateFilter = v === 'storico' ? '' : this.oggi();
+    // Entrambe le viste partono da OGGI: cambiando tab si resta sullo stesso
+    // giorno, e per guardare indietro ci sono il tab "Tutte" e il calendario.
+    this.dateFilter = this.oggi();
     this.statusFilter = '';
     this.reload();
   }
@@ -922,15 +1035,23 @@ export class DeliveriesListComponent {
     const qDate = this.route.snapshot.queryParamMap.get('date');
     this.dateFilter = qDate ?? this.oggi();
     this.load();
-    // Riferimenti per il pop-up "Assegna" (solo per chi può gestire)
-    if (this.canManage()) {
-      this.http
-        .get<Province[]>(`${environment.apiUrl}/provinces`)
-        .subscribe((d) => this.provinces.set(d));
-      this.http
-        .get<ValetRef[]>(`${environment.apiUrl}/valets`)
-        .subscribe((d) => this.valets.set(d));
-    }
+    // ⚠️ Province e valet servono SOLO dentro il pop-up "Assegna", ma venivano
+    // chiesti all'apertura della pagina: misurato, /valets pesa 445 KB e
+    // ritarda la lista di oltre due secondi per una finestra che quasi sempre
+    // non si apre. Ora si caricano al primo bisogno (vedi openAssign).
+  }
+
+  /**
+   * Carica province e valet una volta sola, quando servono davvero.
+   * Il flag evita che riaprendo il pop-up si riscarichino ogni volta.
+   */
+  private riferimentiChiesti = false;
+  private caricaRiferimenti(): void {
+    if (this.riferimentiChiesti || !this.canManage()) return;
+    this.riferimentiChiesti = true;
+    const api = environment.apiUrl;
+    this.http.get<Province[]>(`${api}/provinces`).subscribe((d) => this.provinces.set(d));
+    this.http.get<ValetRef[]>(`${api}/valets`).subscribe((d) => this.valets.set(d));
   }
 
   // ---- Stato tabella: ricerca globale + ordinamento + paginazione (server-side) ----

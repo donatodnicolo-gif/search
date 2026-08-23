@@ -156,7 +156,8 @@
     "required": "required",
     "loadError": "Error loading data",
     "saveError": "Error while saving",
-    "comingSoon": "Coming soon"
+    "comingSoon": "Coming soon",
+    "close": "Close"
   },
   "enums": {
     "productType": {
@@ -518,6 +519,12 @@
     "view": {
       "active": "In progress",
       "history": "History"
+    },
+    "status": {
+      "title": "Change status",
+      "change": "Click to change the status",
+      "current": "Current",
+      "set": "Set"
     }
   },
   "partners": {

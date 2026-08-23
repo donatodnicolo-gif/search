@@ -156,7 +156,8 @@
     "required": "obbligatorio",
     "loadError": "Errore nel caricamento dei dati",
     "saveError": "Errore nel salvataggio",
-    "comingSoon": "In arrivo"
+    "comingSoon": "In arrivo",
+    "close": "Chiudi"
   },
   "enums": {
     "productType": {
@@ -518,6 +519,12 @@
     "view": {
       "active": "In lavorazione",
       "history": "Storico"
+    },
+    "status": {
+      "title": "Cambia stato",
+      "change": "Clic per cambiare lo stato",
+      "current": "Attuale",
+      "set": "Imposta"
     }
   },
   "partners": {
