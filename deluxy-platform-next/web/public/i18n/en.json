@@ -1363,7 +1363,8 @@
       "people": "Recipient and sender",
       "order": "Order",
       "docs": "Documents and notes",
-      "history": "Delivery history"
+      "history": "Delivery history",
+      "attachments": "Attachments"
     },
     "pickupAddress": "Pickup address",
     "pricingModel": "Service type",
@@ -1395,7 +1396,11 @@
       "assign": "Assign",
       "shareCopied": "Tracking link copied ✓",
       "deliveredCopied": "Delivery confirmation link copied ✓"
-    }
+    },
+    "noAttachments": "No attachments for this delivery.",
+    "receipt": "Delivery photo",
+    "sign": "Recipient signature",
+    "fileOnLegacy": "File on the original system: not reachable from here."
   },
   "confirmDelivery": {
     "title": "Confirm delivery #{{code}}",

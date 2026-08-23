@@ -48,6 +48,8 @@ interface DeliveryDetail {
   internalNotes?: string;
   ddtNumber?: string;
   ddtFile?: string;
+  receipt?: string;
+  receiverSign?: string;
   personalizeSaleNotes?: string;
   deluxyDelivery?: boolean;
   price?: number;
@@ -193,7 +195,19 @@ interface DeliveryDetail {
           <dl>
             <dt>{{ 'deliveryDetail.ddtNumber' | translate }}</dt><dd>{{ d.ddtNumber || '—' }}</dd>
             <dt>{{ 'deliveryDetail.ddtFile' | translate }}</dt>
-            <dd>@if (d.ddtFile) { <a [href]="d.ddtFile" target="_blank" rel="noopener">{{ d.ddtFile }}</a> } @else { — }</dd>
+            <dd>
+              @if (!d.ddtFile) { — }
+              @else if (eUrl(d.ddtFile)) {
+                <a [href]="d.ddtFile" target="_blank" rel="noopener">{{ d.ddtFile }}</a>
+              } @else {
+                <!-- ⚠️ Nelle consegne importate ddtFile è solo un NOME DI FILE
+                     (es. "peonieegirasoli_720x-B789.jpg"): il documento sta sul
+                     sistema originario e non è raggiungibile da qui. Mostrarlo
+                     come collegamento darebbe un link rotto. -->
+                <span class="mono">{{ d.ddtFile }}</span>
+                <span class="allegato-nota">{{ 'deliveryDetail.fileOnLegacy' | translate }}</span>
+              }
+            </dd>
             <dt>{{ 'deliveryDetail.notes' | translate }}</dt><dd>{{ d.notes || '—' }}</dd>
             <dt>{{ 'deliveryDetail.personalization' | translate }}</dt><dd>{{ d.personalizeSaleNotes || '—' }}</dd>
             <!-- Note interne: mai visibili al partner -->
@@ -201,6 +215,48 @@ interface DeliveryDetail {
               <dt>{{ 'deliveryDetail.internalNotes' | translate }}</dt><dd>{{ d.internalNotes || '—' }}</dd>
             }
           </dl>
+        </section>
+
+        <!-- Allegati: la foto/ricevuta della consegna e il documento DDT -->
+        <section class="card block">
+          <h2>{{ 'deliveryDetail.section.attachments' | translate }}</h2>
+          @if (!d.receipt && !d.receiverSign && !d.ddtFile) {
+            <p class="muted">{{ 'deliveryDetail.noAttachments' | translate }}</p>
+          } @else {
+            <div class="allegati">
+              @if (d.receipt) {
+                <figure class="allegato">
+                  <a [href]="d.receipt" target="_blank" rel="noopener">
+                    <img [src]="d.receipt" [alt]="'deliveryDetail.receipt' | translate" />
+                  </a>
+                  <figcaption>{{ 'deliveryDetail.receipt' | translate }}</figcaption>
+                </figure>
+              }
+              @if (d.receiverSign) {
+                <figure class="allegato">
+                  @if (eUrl(d.receiverSign)) {
+                    <a [href]="d.receiverSign" target="_blank" rel="noopener">
+                      <img [src]="d.receiverSign" [alt]="'deliveryDetail.sign' | translate" />
+                    </a>
+                  } @else {
+                    <span class="mono">{{ d.receiverSign }}</span>
+                  }
+                  <figcaption>{{ 'deliveryDetail.sign' | translate }}</figcaption>
+                </figure>
+              }
+              @if (d.ddtFile) {
+                <figure class="allegato doc">
+                  @if (eUrl(d.ddtFile)) {
+                    <a [href]="d.ddtFile" target="_blank" rel="noopener">📄 {{ d.ddtFile }}</a>
+                  } @else {
+                    <span class="mono">📄 {{ d.ddtFile }}</span>
+                    <span class="allegato-nota">{{ 'deliveryDetail.fileOnLegacy' | translate }}</span>
+                  }
+                  <figcaption>{{ 'deliveryDetail.ddtFile' | translate }}</figcaption>
+                </figure>
+              }
+            </div>
+          }
         </section>
 
         <!-- Storico consegna: solo admin/operation -->
@@ -253,6 +309,18 @@ interface DeliveryDetail {
   `,
   styles: [
     `
+      .allegati { display: flex; flex-wrap: wrap; gap: 16px; }
+      .allegato { margin: 0; max-width: 220px; }
+      .allegato img {
+        width: 100%;
+        border-radius: var(--radius-m, 10px);
+        border: 1px solid var(--hairline, rgba(0,0,0,.1));
+        display: block;
+        background: var(--surface-sunken, #f2f2f4);
+      }
+      .allegato figcaption { font-size: 12px; color: var(--text-tertiary); margin-top: 6px; }
+      .allegato.doc { max-width: none; }
+      .allegato-nota { display: block; font-size: 12px; color: var(--text-tertiary); margin-top: 2px; }
       .form-head { margin-bottom: 24px; }
       .back { font-size: 13px; color: var(--text-secondary); }
       .back:hover { color: var(--text); }
@@ -306,6 +374,16 @@ interface DeliveryDetail {
   ],
 })
 export class DeliveryDetailComponent {
+  /**
+   * Un allegato è apribile solo se è un indirizzo web.
+   * Nelle consegne importate `receipt` è un URL completo su app.deluxy.it e
+   * funziona, mentre `ddtFile` è soltanto il NOME del file sul sistema
+   * originario (125 consegne): mostrarlo come collegamento darebbe un link rotto.
+   */
+  eUrl(v: string | undefined | null): boolean {
+    return !!v && /^https?:\/\//i.test(v);
+  }
+
   private readonly http = inject(HttpClient);
   private readonly route = inject(ActivatedRoute);
   private readonly auth = inject(AuthService);

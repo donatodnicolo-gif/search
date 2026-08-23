@@ -279,7 +279,9 @@ const SERVICE_ICONS: Record<string, string> = {
             @for (v of assignValets(); track v.id) {
               <li>
                 <span>{{ v.firstName }} {{ v.lastName }}</span>
-                <button type="button" class="act" (click)="assign(v.id)">{{ 'deliveries.assign.choose' | translate }}</button>
+                <button type="button" class="act" [disabled]="salvandoAssegna()" (click)="assign(v.id)">
+                  {{ (salvandoAssegna() ? 'common.saving' : 'deliveries.assign.choose') | translate }}
+                </button>
               </li>
             }
           </ul>
@@ -561,6 +563,14 @@ const SERVICE_ICONS: Record<string, string> = {
         margin: 0 0 14px;
         font-size: 13px;
         color: var(--text-tertiary);
+      }
+      .modal-wait {
+        background: rgba(184, 150, 62, 0.1);
+        border: 1px solid rgba(184, 150, 62, 0.25);
+        border-radius: var(--radius-m);
+        padding: 8px 12px;
+        font-size: 13px;
+        margin-bottom: 12px;
       }
       .modal-err {
         background: rgba(215, 0, 21, 0.06);
@@ -861,6 +871,11 @@ export class DeliveriesListComponent {
         },
       });
   }
+
+  /** ⚠️ Misurato: la PATCH di assegnazione impiega ~5s e la ricarica altri ~2,5.
+   *  Senza un segnale il bottone sembra non fare NIENTE per otto secondi, ed e'
+   *  esattamente cosi' che e' stato segnalato («assegna non fa poi nulla»). */
+  readonly salvandoAssegna = signal(false);
 
   readonly assignFor = signal<Delivery | null>(null);
   readonly actionError = signal<string | null>(null);

@@ -140,7 +140,7 @@
     "add": "Aggiungi",
     "edit": "Modifica",
     "save": "Salva",
-    "saving": "Salvataggio…",
+    "saving": "Salvataggio in corso…",
     "cancel": "Annulla",
     "delete": "Elimina",
     "duplicate": "Duplica",
@@ -1363,7 +1363,8 @@
       "people": "Destinatario e mittente",
       "order": "Gestione dell'ordine",
       "docs": "Documentazione e note",
-      "history": "Storico consegna"
+      "history": "Storico consegna",
+      "attachments": "Allegati"
     },
     "pickupAddress": "Indirizzo di ritiro",
     "pricingModel": "Tipo servizio",
@@ -1395,7 +1396,11 @@
       "assign": "Assegna",
       "shareCopied": "Link di monitoraggio copiato ✓",
       "deliveredCopied": "Link di conferma consegna copiato ✓"
-    }
+    },
+    "noAttachments": "Nessun allegato per questa consegna.",
+    "receipt": "Foto della consegna",
+    "sign": "Firma di chi ha ricevuto",
+    "fileOnLegacy": "File sul sistema originario: non raggiungibile da qui."
   },
   "confirmDelivery": {
     "title": "Conferma consegna #{{code}}",
