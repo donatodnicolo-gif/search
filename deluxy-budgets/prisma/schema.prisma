@@ -135,6 +135,10 @@ model PiattaformaSplit {
   // valore vuoto, e senza il valore vuoto servirebbe una riga fittizia per
   // rappresentare «tutti».
   ambito        String         @default("")
+  // Quando questa riga e stata salvata da /piattaforme. **Nullable di proposito**:
+  // le righe che c erano prima di questo campo non sono mai passate da qui, e
+  // stamparle con la data della migrazione sarebbe una data inventata.
+  aggiornatoIl  DateTime?
   piattaforma   PiattaformaAdv @relation(fields: [piattaformaId], references: [id], onDelete: Cascade)
   piattaformaId String
 

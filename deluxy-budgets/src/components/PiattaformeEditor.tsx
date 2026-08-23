@@ -33,6 +33,7 @@ export function PiattaformeEditor({
   ambito,
   budgetMese,
   primoMeseAperto,
+  quandoSalvata,
   piattaforme,
 }: {
   year: number;
@@ -41,6 +42,9 @@ export function PiattaformeEditor({
   budgetMese: number[]; // budget ADV per mese, indice 0..11
   // Primo mese ancora da spendere: prima di questo si guarda il consuntivo.
   primoMeseAperto: number;
+  // Quando questa ripartizione e stata salvata l ultima volta, gia formattata
+  // sul fuso italiano dal server. null = mai passata da questa pagina.
+  quandoSalvata: string | null;
   piattaforme: Piattaforma[];
 }) {
   const router = useRouter();
@@ -52,7 +56,9 @@ export function PiattaformeEditor({
   });
   const [nuovo, setNuovo] = useState<{ nome: string; colore: string } | null>(null);
   const [salvo, setSalvo] = useState(false);
-  const [esito, setEsito] = useState<string | null>(null);
+  // L esito del salvataggio: **con l ora**, perche «salvata» senza quando non
+  // distingue il salvataggio di adesso da quello di dieci minuti fa.
+  const [esito, setEsito] = useState<{ ok: boolean; testo: string } | null>(null);
   const [errore, setErrore] = useState<string | null>(null);
 
   // ---- Un mese gia chiuso non si ripartisce: si e gia ripartito ----
@@ -132,12 +138,16 @@ export function PiattaformeEditor({
       body: JSON.stringify({ year, ambito, split }),
     });
     setSalvo(false);
+    const ora = new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
     setEsito(
       res.ok
-        ? ambito
-          ? "Ripartizione salvata per questo brand: da ora non segue piu quella d azienda."
-          : "Ripartizione d azienda salvata."
-        : "Salvataggio non riuscito, riprovare."
+        ? {
+            ok: true,
+            testo: ambito
+              ? `Ripartizione di questo brand salvata alle ${ora}: da ora non segue più quella d azienda.`
+              : `Ripartizione d azienda salvata alle ${ora}.`,
+          }
+        : { ok: false, testo: "Salvataggio non riuscito: riprova." }
     );
     if (res.ok) router.refresh();
   }
@@ -196,7 +206,20 @@ export function PiattaformeEditor({
       </div>
 
       <div className="page-head" style={{ marginBottom: 12 }}>
-        <h2 className="section-title" style={{ margin: 0 }}>Ripartizione mensile (% → importo)</h2>
+        <div>
+          <h2 className="section-title" style={{ margin: 0 }}>Ripartizione mensile (% → importo)</h2>
+          {/* Quando e stata salvata: una ripartizione senza data non si sa se
+              e quella di stamattina o quella di marzo. */}
+          <p className="page-caption" style={{ marginTop: 4 }}>
+            {quandoSalvata ? (
+              <>
+                Salvata l’ultima volta il <strong>{quandoSalvata}</strong>
+              </>
+            ) : (
+              <span className="muted">Mai salvata da questa pagina</span>
+            )}
+          </p>
+        </div>
         <button
           className="btn secondary"
           onClick={() => {
@@ -242,11 +265,13 @@ export function PiattaformeEditor({
                           max={100}
                           step={1}
                           value={pctMostrata(p, m)}
-                          disabled={misurato(p, m)}
+                          disabled={chiuso(m)}
                           title={
                             misurato(p, m)
                               ? `${MESI[m - 1]} e passato: questa e la quota davvero uscita — ${eur(spesoDi(p, m) ?? 0)} su ${p.canale ?? "questo canale"}, secondo Marketing.`
-                              : undefined
+                              : chiuso(m)
+                                ? `${MESI[m - 1]} e un mese passato: la ripartizione non si riscrive dopo che i soldi sono usciti.`
+                                : undefined
                           }
                           onChange={(e) =>
                             setPerc((prev) => ({
@@ -258,20 +283,20 @@ export function PiattaformeEditor({
                             padding: "5px 8px",
                             fontSize: 12.5,
                             textAlign: "right",
-                            ...(misurato(p, m)
+                            ...(chiuso(m)
                               ? { background: "var(--fill)", color: "var(--text-tertiary)", cursor: "not-allowed" }
                               : null),
                           }}
                         />
                         <div className="muted" style={{ fontSize: 11, marginTop: 3, textAlign: "right" }}>
-                          {chiuso(m) && !misurato(p, m) ? (
-                            <span title="Marketing non ha questo canale: la spesa vera non si sa.">non misurato</span>
-                          ) : (
-                            <>
-                              {eur(importo(p.id, m))}
-                              {misurato(p, m) && <div style={{ color: "var(--blue)" }}>speso</div>}
-                            </>
-                          )}
+                          {eur(importo(p.id, m))}
+                          {misurato(p, m) ? (
+                            <div style={{ color: "var(--blue)" }}>speso</div>
+                          ) : chiuso(m) ? (
+                            <div title="Mese chiuso, ma Marketing non ha un canale per questa piattaforma: quello che vedi e ancora il budget.">
+                              a budget
+                            </div>
+                          ) : null}
                         </div>
                       </td>
                     ))}
@@ -388,7 +413,14 @@ export function PiattaformeEditor({
       )}
 
       <div className="form-footer">
-        {esito && <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>{esito}</span>}
+        {/* La conferma sta **dove si e agito**, accanto al bottone, e non e un
+            grigetto: un salvataggio che non si vede sembra un bottone rotto. */}
+        {esito && (
+          <span className={`badge ${esito.ok ? "green" : "red"}`}>
+            <span className="dot" />
+            {esito.testo}
+          </span>
+        )}
         <button className="btn primary" onClick={salva} disabled={salvo || piattaforme.length === 0}>
           {salvo ? "Salvataggio…" : "Salva ripartizione"}
         </button>

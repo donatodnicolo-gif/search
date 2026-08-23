@@ -1141,6 +1141,27 @@ maison e per mese, IVA inclusa come il budget), catalogo Hub aggiornato (id `bud
   > decisione** — nell'importo sono sommati e non si distinguerebbero. Su CakeDesign.me: Google
   > **11.995 € · 77,5%** (8.528 già spesi + 3.467 a budget), Meta **2.981 € · 19,3%** (1.990 + 991).
   >
+  > **Quando è stata salvata, si vede** («rendi chiaro quando hai salvato una ripartizione»). Due cose
+  > diverse e servono tutte e due: sopra la griglia la **data dell'ultimo salvataggio** (*«Salvata
+  > l'ultima volta il 23/08/2026, 19:02»*, oppure «Mai salvata da questa pagina»), e dopo il clic una
+  > **pastiglia verde accanto al bottone** con l'ora — *«Ripartizione d'azienda salvata alle 19:02»*.
+  > Sta lì e non altrove perché **l'esito si vede dove si è agito**: un salvataggio che non si vede
+  > sembra un bottone rotto.
+  >
+  > Il campo è `PiattaformaSplit.aggiornatoIl`, **nullable di proposito**: le righe che c'erano prima
+  > non sono mai passate da questa pagina, e stamparle con la data della migrazione sarebbe una data
+  > inventata. Tutte le righe di un salvataggio portano lo **stesso istante** (uno solo, preso a inizio
+  > scrittura), se no «quando l'ho salvata» diventerebbe un intervallo. ⚠️ La data si formatta su
+  > **`Europe/Rome`**, non sul fuso del server: su Vercel il runtime è UTC e un salvataggio delle 19:02
+  > si leggerebbe «17:02» ([[trappola-periodi-fuso-server]] della memoria di progetto).
+  >
+  > ⚠️ **Due difetti trovati provandola, e sistemati**: nella vista **Azienda** i mesi chiusi restavano
+  > **scrivibili** ma il salvataggio li scartava — una modifica che sparisce in silenzio, il difetto
+  > peggiore di tutti. Ora i mesi passati sono in sola lettura **ovunque**, e la vista Azienda mostra
+  > anche lei lo **speso vero** (somma dei brand per canale) invece del budget: era rimasta l'unica a
+  > dire una cosa diversa dalle altre. Gennaio d'azienda: **Google 69,7% (5.135 €) · Meta 30,3%
+  > (2.230 €)** — a budget erano 70/20.
+  >
   > ⚠️ **Il totale della colonna non è 100 per definizione, e non va scritto a mano.** L'avevo messo
   > fisso a «100%» pensando che la somma delle quote lo fosse per costruzione: è falso appena una
   > piattaforma viene **tolta** — la sua parte resta scoperta e nessuno la riassegna. Oggi vale

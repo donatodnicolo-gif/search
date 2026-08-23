@@ -3,6 +3,7 @@ import { advBudgetMese, advConsentitoMese, ANNO_CORRENTE, budgetAdvAnno, caricaA
 import { eur } from "@/lib/format";
 import { canaleDiPiattaforma, fetchSpesaPerCanale } from "@/lib/marketing";
 import { primoMeseAperto } from "@/lib/periodo";
+import { prisma } from "@/lib/db";
 import { PiattaformeEditor } from "@/components/PiattaformeEditor";
 
 export const dynamic = "force-dynamic";
@@ -43,10 +44,29 @@ export default async function Piattaforme({
   // che si vede accanto e quella che ne e uscita.
   const aperto = primoMeseAperto(dati.year);
   const mesiChiusi = Array.from({ length: aperto - 1 }, (_, i) => i + 1).filter((m) => m <= 12);
-  const spesa = mesiChiusi.length > 0 && brand
+  const spesa = mesiChiusi.length > 0
     ? await fetchSpesaPerCanale(dati.year, mesiChiusi)
-    : { ok: false, perMaisonCanale: new Map() };
-  const perCanale = brand ? spesa.perMaisonCanale.get(brand.slug) ?? null : null;
+    : { ok: false, perMaisonCanale: new Map<string, Map<string, (number | null)[]>>() };
+  // Sul brand si guarda il suo; su «Azienda» si sommano tutti, altrimenti la
+  // vista predefinita resterebbe l unica a mostrare budget dove le altre
+  // mostrano speso.
+  const perCanale = brand
+    ? spesa.perMaisonCanale.get(brand.slug) ?? null
+    : (() => {
+        if (!spesa.ok) return null;
+        const somma = new Map<string, (number | null)[]>();
+        for (const canali of spesa.perMaisonCanale.values()) {
+          for (const [canale, mesi] of canali) {
+            const arr = somma.get(canale) ?? (Array(12).fill(null) as (number | null)[]);
+            mesi.forEach((v, i) => {
+              if (v === null) return;
+              arr[i] = (arr[i] ?? 0) + v;
+            });
+            somma.set(canale, arr);
+          }
+        }
+        return somma.size > 0 ? somma : null;
+      })();
   const canaliNoti = perCanale ? [...perCanale.keys()] : [];
 
   // Un brand che non ha ancora una ripartizione sua **parte da quella
@@ -69,6 +89,24 @@ export default async function Piattaforme({
     };
   });
   const ereditata = piattaforme.every((p) => !p.propria);
+
+  // **Quando** questa ripartizione è stata salvata l'ultima volta. `null` = mai
+  // passata da questa pagina (righe piu vecchie del campo, o brand che eredita).
+  const ultimoSalvataggio = (
+    await prisma.piattaformaSplit.aggregate({
+      where: { year: dati.year, ambito },
+      _max: { aggiornatoIl: true },
+    })
+  )._max.aggiornatoIl;
+  // ⚠️ Formattata su **Europe/Rome** e non sul fuso del server: su Vercel il
+  // runtime e UTC, e un salvataggio delle 17:32 si leggerebbe «15:32».
+  const quandoSalvata = ultimoSalvataggio
+    ? ultimoSalvataggio.toLocaleString("it-IT", {
+        timeZone: "Europe/Rome",
+        day: "2-digit", month: "2-digit", year: "numeric",
+        hour: "2-digit", minute: "2-digit",
+      })
+    : null;
 
   return (
     <>
@@ -143,6 +181,7 @@ export default async function Piattaforme({
         ambito={ambito}
         budgetMese={budgetMese}
         primoMeseAperto={aperto}
+        quandoSalvata={quandoSalvata}
         piattaforme={piattaforme}
       />
     </>

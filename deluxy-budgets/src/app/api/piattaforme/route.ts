@@ -20,6 +20,10 @@ export async function PUT(req: Request) {
   // quella predefinita. Arriva una volta sola nel corpo, non per riga: salvare
   // meta ripartizione su un brand e meta su un altro non e un gesto che esiste.
   const ambito = String(body?.ambito ?? "");
+  // Un istante solo per tutta la scrittura: righe salvate nello stesso gesto
+  // devono portare la stessa ora, se no «quando l ho salvata» diventa un
+  // intervallo invece di un momento.
+  const adesso = new Date();
 
   for (const v of voci) {
     const piattaformaId = String(v?.piattaformaId ?? "");
@@ -27,8 +31,8 @@ export async function PUT(req: Request) {
     if (!piattaformaId || month < 1 || month > 12) continue;
     await prisma.piattaformaSplit.upsert({
       where: { year_piattaformaId_month_ambito: { year, piattaformaId, month, ambito } },
-      update: { percent: percent(v.percent) },
-      create: { year, piattaformaId, month, ambito, percent: percent(v.percent) },
+      update: { percent: percent(v.percent), aggiornatoIl: adesso },
+      create: { year, piattaformaId, month, ambito, percent: percent(v.percent), aggiornatoIl: adesso },
     });
   }
   return NextResponse.json({ ok: true });
