@@ -74,6 +74,13 @@ import {
   STATI_CAMPAGNA_IGNORATE,
 } from "@/lib/dominio";
 
+// exact | phrase | broad, dette come le dice il resto dell'app.
+const ETICHETTA_MATCH_NEGATIVA: Record<string, string> = {
+  exact: "esatta",
+  phrase: "a frase",
+  broad: "generica",
+};
+
 export const dynamic = "force-dynamic";
 // «Estendi con AI» è una server action di QUESTA pagina: la chiamata al
 // modello può superare i secondi di default delle funzioni Vercel, e senza
@@ -138,6 +145,29 @@ export default async function SchedaCampagna({
     },
   });
   if (!campagna) notFound();
+
+  // Le PAROLE ESCLUSE che Google riporta davvero (censimento del lavoro
+  // `negative`, dal 23/08/2026). Sono l'altra metà di una campagna: fin qui la
+  // scheda mostrava solo le parole su cui si SPENDE, e una ricerca spenta non
+  // lasciava traccia da nessuna parte — né per capire perché il traffico non
+  // arriva, né per accorgersi di un'esclusione troppo larga.
+  const [negative, ultimoCensimentoNegative] = await Promise.all([
+    prisma.negativaCampagna.findMany({
+      where: { campagnaId: campagna.id },
+      orderBy: [{ livello: "asc" }, { testo: "asc" }],
+      select: { id: true, testo: true, corrispondenza: true, livello: true, gruppo: true, vistaIl: true },
+    }),
+    // ⚠️ Serve a distinguere «nessuna parola esclusa» da «non ancora censite»,
+    // che è la stessa trappola già pagata sulle località: senza questa riga le
+    // due cose si leggono uguali, e sono opposte.
+    campagna.account
+      ? prisma.ricezioneDati.findFirst({
+          where: { fonte: "google_ads", tipo: "negative", account: campagna.account },
+          orderBy: { ricevutoIl: "desc" },
+          select: { ricevutoIl: true },
+        })
+      : null,
+  ]);
 
   // ⚠️ UN CAMBIO DI BUDGET GIÀ IN CODA. Il numero grande in alto è quello che
   // Google ha ADESSO, ed è giusto così — ma se qualcuno ha già chiesto di
@@ -995,6 +1025,59 @@ export default async function SchedaCampagna({
                   </dl>
                 )}
               </div>
+            </section>
+
+            {/* LE PAROLE ESCLUSE. Fino al 23/08/2026 la scheda diceva solo su
+                cosa si SPENDE: metà della campagna — quella che decide cosa
+                NON arriva — non era da nessuna parte, e le operazioni
+                «Escludi parole» sparivano dentro Google senza lasciare un
+                elenco da rileggere. */}
+            <section className="scheda">
+              <div className="scheda-titolo">
+                Parole escluse{negative.length > 0 ? ` (${negative.length})` : ""}
+              </div>
+              {negative.length === 0 ? (
+                <div className="vuoto-mini" style={{ whiteSpace: "normal" }}>
+                  {ultimoCensimentoNegative
+                    ? `Nessuna parola esclusa su questa campagna (censimento del ${formattaDataOra(ultimoCensimentoNegative.ricevutoIl)}).`
+                    : /* Mai censite ≠ nessuna, come per le località: senza
+                         questa frase una campagna senza esclusioni e una mai
+                         letta si leggono uguali, e sono opposte. */
+                      "Non ancora censite: arrivano col giro «negative» dello script (da reincollare in Google Ads)."}
+                </div>
+              ) : (
+                <>
+                  <ul className="storia">
+                    {negative.map((n) => (
+                      <li key={n.id}>
+                        <span className="storia-testo">
+                          <span className="cella-nome">{n.testo}</span>
+                          {/* La corrispondenza decide QUANTO blocca: senza
+                              scriverla, «cheap» esatta e «cheap» generica si
+                              leggono uguali e spengono cose diversissime. */}
+                          <span className="cella-sub">
+                            {ETICHETTA_MATCH_NEGATIVA[n.corrispondenza] ?? n.corrispondenza}
+                            {n.livello === "gruppo" ? ` · solo nel gruppo ${n.gruppo ?? "?"}` : " · tutta la campagna"}
+                          </span>
+                        </span>
+                        <span className="storia-data" style={{ flex: "0 0 auto" }}>
+                          {formattaData(n.vistaIl)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  {/* ⚠️ Il limite si dichiara accanto all'elenco, non in fondo
+                      alla pagina: le liste di esclusione condivise vivono in
+                      shared_set e non compaiono fra i criteri della campagna.
+                      Leggere questo elenco come completo vuol dire riescludere
+                      parole già spente. */}
+                  <div className="cella-sub" style={{ whiteSpace: "normal", marginTop: 10 }}>
+                    ⚠️ Qui ci sono le esclusioni scritte sulla campagna e sui suoi gruppi. Le{" "}
+                    <a href="/liste-escluse" style={{ color: "var(--blue)" }}>liste condivise</a>{" "}
+                    applicate alla campagna spengono altre parole che non compaiono in questo elenco.
+                  </div>
+                </>
+              )}
             </section>
 
             <section className="scheda">

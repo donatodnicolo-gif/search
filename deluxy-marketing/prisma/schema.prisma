@@ -1353,3 +1353,60 @@ model ParolaListaNegative {
   @@unique([listaId, testo, corrispondenza])
   @@index([listaId])
 }
+
+// Le keyword NEGATIVE che ci sono davvero su Google, censite dal lavoro
+// `negative` dello script.
+//
+// ⚠️ PERCHÉ ESISTE (23/08/2026). Fino a oggi l'app non le importava mai, e la
+// conseguenza era doppia. (1) Le operazioni `negativa` restavano senza
+// conferma indipendente: `conferme-operazioni.ts` doveva dichiarare «vale la
+// rilettura dello script», cioè la parola di chi ha scritto, che è esattamente
+// ciò che tutto il resto del file esiste per NON fare. La sera del 23/08 dieci
+// negative di lancio sulla WORLD-ENG sono uscite con «rileggendo la campagna
+// non risulta ancora: ricontrollare al prossimo giro» — e nessuno poteva
+// ricontrollare, perché il prossimo giro non le guarda. (2) Metà di una
+// campagna era invisibile: le parole su cui si spende si vedono, quelle che
+// sono state spente no, e una ricerca che non arriva non lascia traccia da
+// nessuna parte.
+//
+// ⚠️ NON è la stessa cosa di ListaNegative: quella è ciò che vogliamo
+// escludere e mandiamo a Google, questa è ciò che Google riporta di avere.
+// Tenerle separate è la regola di sempre — la nostra parola e il fatto non si
+// sovrascrivono (vedi `Campagna.stato` contro `statoPiattaforma`).
+//
+// ⚠️ NIENTE CANCELLAZIONE. Il censimento arriva a blocchi (`inviaABlocchi` li
+// dimezza quando l'app fatica) e un invio interrotto a metà è normale: se il
+// giro cancellasse le righe non viste, un blocco perso spegnerebbe l'archivio
+// delle negative di un intero account senza un errore. Si scrive `vistaIl`, e
+// «non c'è più su Google» si deduce confrontandola con l'ultima consegna
+// `negative` di quell'account — la stessa strada delle keyword non confermate.
+model NegativaCampagna {
+  id             String   @id @default(cuid())
+  // L'account che l'ha censita. Una negativa vive DENTRO un account: la stessa
+  // parola su due conti sono due fatti diversi, e il brand è la conseguenza.
+  account        String
+  // Il nome della campagna su Google: è la chiave con cui l'import ritrova le
+  // cose, qui come altrove (`Campagna.nome` non si tocca mai).
+  campagna       String
+  campagnaId     String?
+  // campagna | gruppo — una negativa di campagna vale per tutti i gruppi, una
+  // di gruppo solo lì dentro. Confonderle fa credere spenta una ricerca viva.
+  livello        String   @default("campagna")
+  gruppo         String?
+  // account:campagna:criterio (o account:gruppo:criterio): la chiave stabile
+  // del censimento, con l'account dentro come per keyword e asset.
+  idEsterno      String   @unique
+  // Il testo NUDO, senza [] né "": la corrispondenza sta nel suo campo, così
+  // «cheap» esatta e «cheap» generica si riconoscono come la stessa parola con
+  // due regole diverse — che è il caso vero del 23/08.
+  testo          String
+  // exact | phrase | broad
+  corrispondenza String   @default("broad")
+  // L'ultima volta che Google l'ha nominata. Vedi la nota sulla cancellazione.
+  vistaIl        DateTime @default(now())
+  creataIl       DateTime @default(now())
+
+  @@index([account, campagna])
+  @@index([campagnaId])
+  @@index([vistaIl])
+}

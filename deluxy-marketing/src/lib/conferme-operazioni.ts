@@ -1,6 +1,7 @@
 import type { OperazioneAdv } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { testoKeywordPulito } from "@/lib/dominio";
+import { censimentiCompleti } from "@/lib/negative";
 
 // «Portata a termine o no?» — per OGNI operazione eseguita, non solo per le
 // campagne nuove.
@@ -73,10 +74,17 @@ const CONSEGNA_CHE_FA_FEDE: Record<string, string> = {
   pausa_keyword: "stati-keyword",
   attiva_keyword: "stati-keyword",
   nuova_keyword: "stati-keyword",
+  // Dal 23/08/2026: il giro `negative` censisce le keyword ESCLUSE di campagna
+  // e di gruppo. Prima qui non c'era niente, e la conferma di un'operazione
+  // `negativa` era la rilettura che lo script fa subito dopo aver scritto —
+  // cioè la parola di chi ha scritto, che è esattamente ciò che questo file
+  // esiste per non usare.
+  negativa: "negative",
 };
 
 const ETICHETTA_CONSEGNA: Record<string, string> = {
   anagrafica: "l'elenco delle campagne",
+  negative: "l'elenco delle parole escluse",
   gruppi: "l'elenco dei gruppi",
   "stati-keyword": "il censimento delle keyword",
 };
@@ -225,12 +233,32 @@ export async function confermeOperazioni(operazioni: OperazioneAdv[]): Promise<M
       })
     : [];
 
+  // Le NEGATIVE censite (dal 23/08/2026): si cercano per (campagna, testo
+  // nudo), perché la corrispondenza sta in un campo suo — «cheap» esclusa
+  // esatta e «cheap» esclusa generica sono la stessa parola con due regole, ed
+  // è il caso vero della WORLD-ENG.
+  const opNegative = eseguite.filter((o) => o.tipo === "negativa");
+  const condNegative: Array<Record<string, unknown>> = [];
+  for (const o of opNegative) {
+    const testo = testoOperazione(o);
+    const nome = campagnaDi(o)?.nome ?? o.bersaglio;
+    if (testo && nome) condNegative.push({ campagna: nome, testo: { equals: testo, mode: "insensitive" } });
+  }
+  const righeNegative = condNegative.length
+    ? await prisma.negativaCampagna.findMany({
+        where: { OR: condNegative },
+        select: { account: true, campagna: true, livello: true, gruppo: true, testo: true, corrispondenza: true, vistaIl: true },
+      })
+    : [];
+
   // Le consegne dopo la più vecchia esecuzione, per gli account coinvolti.
-  const conti = [
+  const conti: string[] = [
     ...new Set(
       eseguite.map((o) => o.account ?? campagnaDi(o)?.account ?? null).filter((x): x is string => Boolean(x))
     ),
   ];
+  const censimentoNegative = opNegative.length ? await censimentiCompleti(conti) : new Map<string, Date>();
+
   const piuVecchia = eseguite.reduce<Date>((min, o) => (o.eseguitaIl! < min ? o.eseguitaIl! : min), eseguite[0].eseguitaIl!);
   const consegne: Consegna[] = conti.length
     ? (
@@ -305,7 +333,7 @@ export async function confermeOperazioni(operazioni: OperazioneAdv[]): Promise<M
       });
       continue;
     }
-    esito.set(o.id, verdetto(o, { campagnaDi, gruppoPerId, righeKeyword, consegne }));
+    esito.set(o.id, verdetto(o, { campagnaDi, gruppoPerId, righeKeyword, righeNegative, censimentoNegative, consegne }));
   }
   return esito;
 }
@@ -330,6 +358,14 @@ function chiaveBersaglio(o: OperazioneAdv, nomeCampagna?: string | null): string
     case "pausa_gruppo":
     case "attiva_gruppo":
       return o.gruppoId ? `stato-gruppo:${o.gruppoId}` : null;
+    // Escludere due volte la stessa parola sulla stessa campagna è lo stesso
+    // campo toccato due volte: vale l'ultima. La corrispondenza resta FUORI
+    // dalla chiave apposta — aggiungere «cheap» generica dove c'era «cheap»
+    // esatta cambia il fatto, e leggerle come due bersagli scollegati farebbe
+    // dire «confermata» a tutte e due senza notare che ora ce ne sono due e
+    // comanda la più larga.
+    case "negativa":
+      return `negativa:${campagna}|${(testoOperazione(o) ?? "").toLowerCase()}`;
     case "pausa_keyword":
     case "attiva_keyword":
     case "nuova_keyword":
@@ -392,6 +428,9 @@ type Contesto = {
   campagnaDi: (o: OperazioneAdv) => { id: string; nome: string; account: string | null; idEsterno: string | null; statoPiattaforma: string | null; budgetGiornaliero: number | null } | null;
   gruppoPerId: Map<string, { id: string; nome: string; statoPiattaforma: string | null }>;
   righeKeyword: Array<{ idEsterno: string | null; campagna: string; gruppo: string | null; testo: string; statoPiattaforma: string | null }>;
+  righeNegative: Array<{ account: string; campagna: string; livello: string; gruppo: string | null; testo: string; corrispondenza: string; vistaIl: Date }>;
+  /** Quando ogni account ha dichiarato un censimento COMPLETO delle negative. */
+  censimentoNegative: Map<string, Date>;
   consegne: Consegna[];
 };
 
@@ -403,18 +442,6 @@ function verdetto(o: OperazioneAdv, ctx: Contesto): Conferma {
       stato: "non_verificabile",
       etichetta: "Senza conferma",
       frase: "Su questo canale l'app non riceve un giro di lettura con cui confrontare l'esito: vale la parola dello script.",
-      quando: null,
-    };
-  }
-
-  if (o.tipo === "negativa") {
-    const dubbio = /dubbio|non confermat|verificare/i.test(o.esito ?? "");
-    return {
-      stato: dubbio ? "in_attesa" : "non_verificabile",
-      etichetta: dubbio ? "Da controllare" : "Vale la rilettura dello script",
-      frase: dubbio
-        ? "Lo script ha dichiarato un dubbio nell'esito (qui sopra): la negativa va cercata a mano su Google Ads, l'app non importa le negative."
-        : "L'app non importa le keyword negative, quindi non ha un dato indipendente: fa fede la rilettura fatta dallo script prima e dopo (`negativaPresente`), riportata nell'esito.",
       quando: null,
     };
   }
@@ -451,6 +478,82 @@ function verdetto(o: OperazioneAdv, ctx: Contesto): Conferma {
   const tardi = primaConsegnaDopo(ctx.consegne, account, tipoConsegna, eseguitaIl, MARGINE_STESSO_GIRO_MS);
   const letta = ultimaConsegnaDopo(ctx.consegne, account, tipoConsegna, eseguitaIl) ?? subito;
   const cosa = ETICHETTA_CONSEGNA[tipoConsegna] ?? tipoConsegna;
+
+  // ── Negativa: Google la riporta fra le parole escluse? ─────────────────
+  if (o.tipo === "negativa") {
+    const parola = testoOperazione(o);
+    const nome = campagna?.nome ?? o.bersaglio;
+    const chiesto = normalizzaMatch(parametri(o).corrispondenza);
+    const trovate = parola
+      ? ctx.righeNegative.filter(
+          (n) => n.account === account && n.campagna === nome && n.testo.toLowerCase() === parola.toLowerCase(),
+        )
+      : [];
+
+    if (trovate.length > 0) {
+      const match = [...new Set(trovate.map((n) => n.corrispondenza))];
+      const dove = trovate.some((n) => n.livello === "campagna")
+        ? "sulla campagna"
+        : `solo sul gruppo ${[...new Set(trovate.map((n) => n.gruppo).filter(Boolean))].join(", ")}`;
+      // ⚠️ La corrispondenza non è un dettaglio: decide QUANTO blocca. Chiedere
+      // «cheap» esatta e trovarla generica vuol dire che è spento molto più di
+      // quanto si era deciso, e il contrario che è spento molto meno. In
+      // nessuno dei due casi «confermata» sarebbe una risposta onesta.
+      if (chiesto && !match.includes(chiesto)) {
+        return {
+          stato: "smentita",
+          etichetta: "Su Google, ma diversa",
+          frase:
+            `Google esclude «${parola}» ${dove}, ma con corrispondenza ${match.map((m) => ETICHETTA_MATCH[m] ?? m).join("/")} ` +
+            `e non ${ETICHETTA_MATCH[chiesto] ?? chiesto}: blocca ${match.includes("broad") ? "più" : "meno"} ricerche di quante se ne erano decise. Controllare in Google Ads.`,
+          quando: letta,
+        };
+      }
+      return {
+        stato: "confermata",
+        etichetta: "Esclusa su Google",
+        frase:
+          `Google la riporta fra le parole escluse di «${nome}» ${dove}` +
+          `${match.length ? ` (corrispondenza ${match.map((m) => ETICHETTA_MATCH[m] ?? m).join("/")})` : ""}` +
+          `${trovate.length > 1 ? `, in ${trovate.length} punti` : ""}.`,
+        quando: letta,
+      };
+    }
+
+    // ⚠️⚠️ Per SMENTIRE non basta che sia arrivato un giro dopo l'esecuzione:
+    // ci vuole un giro che abbia dichiarato di aver mandato TUTTO. Le negative
+    // arrivano a blocchi e lo script si ferma quando Google sta per scadere —
+    // un elenco troncato letto come completo direbbe «Google non le esclude
+    // più» di tutte le parole rimaste fuori, in blocco, per un giro solo lento.
+    // Confermare invece si può sempre: una riga che c'è, c'è.
+    const censito = ctx.censimentoNegative.get(account);
+    if (tardi && censito && censito.getTime() > eseguitaIl.getTime() + MARGINE_STESSO_GIRO_MS) {
+      return {
+        stato: "smentita",
+        etichetta: "Non risulta esclusa",
+        frase:
+          `${cosa[0].toUpperCase() + cosa.slice(1)} del ${dataOra(letta!)}, arrivato dopo l'esecuzione, non contiene «${parola}» in «${nome}»: l'esclusione non risulta. ` +
+          // ⚠️ Il limite si dichiara qui, non in una nota a fondo pagina: il
+          // censimento legge i criteri della campagna e dei gruppi, NON le
+          // liste di esclusione condivise (vivono in shared_set). Se la parola
+          // è dentro una lista applicata alla campagna, quella ricerca è spenta
+          // lo stesso — e leggere questo verdetto come «arriva ancora» sarebbe
+          // il modo di riescluderla due volte.
+          "⚠️ Il censimento non legge le liste di esclusione condivise: se la parola sta in una lista applicata alla campagna, è comunque spenta. Controllare in Google Ads.",
+        quando: letta,
+      };
+    }
+    return inAttesa(
+      tipoConsegna,
+      eseguitaIl,
+      censito
+        ? `Nell'archivio non c'è ancora una riga di Google per «${parola}» fra le parole escluse di «${nome}».`
+        : // Dirlo è metà del lavoro: senza questa frase «da confermare» sembra
+          // un ritardo di Google, mentre è un giro che non è mai arrivato per
+          // intero — e la cosa da fare non è aspettare, è guardare il log.
+          `Nessun censimento completo delle parole escluse è ancora arrivato da questo account: finché non arriva, «${parola}» non si può né confermare né smentire.`,
+    );
+  }
 
   // ── Campagna nuova: esiste? ────────────────────────────────────────────
   if (o.tipo === "nuova_campagna") {

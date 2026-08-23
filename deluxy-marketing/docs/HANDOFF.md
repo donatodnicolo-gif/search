@@ -4,13 +4,19 @@
 > senza altro contesto. Leggere prima il [README](../README.md) per cosa fa l'app;
 > questo documento dice **dove siamo** e **cosa manca**.
 >
-> 🔴 **I punti aperti di stasera (23/08)**:
+> 🔴 **I punti aperti di stasera (23/08, aggiornato alle 23:30)**:
 >
-> 1. **`esegui.js` va REINCOLLATO** in Google Ads (copie in
->    `Downloads\deluxy-google-ads`, ~152 KB). Tre tipi di operazione nuovi non
->    hanno chi li esegua finché non lo si fa: `lista_negative`, `localita`,
->    `estensione`. La coda adesso è **vuota**, quindi non c'è niente di fermo:
->    va fatto prima di metterci dentro qualcosa.
+> 1. **Gli script vanno REINCOLLATI** in Google Ads. Le copie sono state
+>    **rigenerate alle 23:26** in `Downloads\deluxy-google-ads` (adesso sono
+>    **11**: c'è anche `negative.js`) con `node scripts/genera-copie-google.mjs`.
+>    Servono per due cose diverse:
+>    · **`esegui.js`** — tre tipi di operazione non hanno chi li esegua finché
+>      non lo si reincolla: `lista_negative`, `localita`, `estensione`.
+>    · **`tutto.js`** (oppure `negative.js` a parte) — porta il giro
+>      **`negative`** nuovo di stasera: finché non arriva, le dieci negative
+>      della WORLD-ENG restano «da confermare» e la scheda campagna dice «non
+>      ancora censite».
+>    ⚠️ `CHIAVE_API` e `BRAND` sono vuoti nelle copie e vanno rimessi a mano.
 > 2. **Il doppione dell'annuncio** sulla WORLD-ENG: due RSA identici nel gruppo
 >    «Luxury Flower Delivery - Worldwide» (creati il 21 alle 22:17 e il 23 alle
 >    11:05, stessi testi). Vanno tolti a mano in Google Ads — l'app non sa
@@ -26,7 +32,32 @@
 > ✅ **Chiuso oggi**: la WORLD-ENG è **accesa** (`attiva_campagna` eseguita alle
 > 14:09, «confermato rileggendo»), con 9 località, 15 keyword, l'annuncio in
 > asta e le negative di lancio applicate. E la scrittura su **Meta funziona**,
-> provata in produzione.
+> provata in produzione. In serata: **le keyword escluse si importano**, e con
+> loro le operazioni `negativa` hanno finalmente una conferma indipendente
+> (prima sezione di FATTO).
+
+## Ri-misurato la sera del 23/08 (sola lettura, prima di lavorare)
+
+Un handoff si ri-misura, non si rilegge. Query dirette sul database di
+produzione + `/api/health` (`200`, `fra1::fra1`, `database: true`).
+
+- **Coda**: 0 in attesa · 0 approvate · **92 eseguite** · 7 annullate · **1
+  FALLITA**, ferma lì dal 21/08: `nuovo_annuncio` su «Luxury Flower Delivery -
+  Worldwide», `DUPLICATE_ASSET` (un titolo ripetuto dentro l'annuncio: Google
+  rifiuta l'annuncio INTERO). Il difetto è chiuso nel codice, la riga fallita no.
+- **Meta scrive davvero**: le due operazioni delle 17:01/17:02 risultano
+  eseguite con la rilettura dentro l'esito (`PAUSED`, `3500` centesimi).
+- 🔴 **Le dieci negative della WORLD-ENG (16:17) erano tutte «con dubbio»**:
+  ognuna diceva «rileggendo la campagna non risulta ancora: ricontrollare al
+  prossimo giro» — e **nessuno poteva ricontrollare**, perché il giro dopo non
+  guardava le negative. È il punto da cui nasce il lavoro di stasera.
+- **Consegne**: Meta ogni ora (21:07), Google 19:04-19:17 su tutti e tre i
+  conti, ordini 18:20 (**8.440** ordini). **0 consegne non-ok in 10 giorni.**
+- **Campagne**: Google 20 attive · 1 in pausa · 1 bozza · 140 defunte;
+  Meta 7 · 57 · 5.
+- **Spesa 7 giorni**: Google Flowers 1.191 € · Gifts 876 € · Cake 307 €;
+  Meta Flowers 405 € · Cake 163 € · Gifts 149 €. ⚠️ **Cake resta il punto 4**:
+  470 € in sette giorni contro i 310 € consentiti per tutto agosto.
 
 ## In una riga
 
@@ -157,6 +188,86 @@ questi numeri: dicono cosa gira e cosa è fermo.**
   `lib/meta-scrittura.ts` c'è ma non ha `ads_management`. TikTok scollegato.
 
 ## FATTO
+
+### ⭐⭐ LE PAROLE ESCLUSE si importano, e «negativa» ha una conferma vera (23/08/2026, sera)
+
+Era l'unico pezzo di una campagna che l'app non riceveva mai. Costava due cose,
+e la seconda si è vista proprio oggi.
+
+**1. Le operazioni `negativa` erano senza prova.** `createNegativeKeyword()` non
+restituisce niente: è l'unica scrittura dello script che non può dire se è
+andata. L'unico controllo era la rilettura fatta **dentro la stessa
+esecuzione** — e lì i selettori di Google vedono ancora lo stato di partenza.
+Misurato stasera: **tutte e dieci** le negative di lancio della WORLD-ENG
+(16:17) sono uscite con «rileggendo la campagna non risulta ancora:
+ricontrollare al prossimo giro», e il giro dopo non le guardava.
+`conferme-operazioni.ts` lo diceva a chiare lettere: *«L'app non importa le
+keyword negative, quindi non ha un dato indipendente: fa fede la rilettura
+dello script»* — cioè la parola di chi ha scritto, che è esattamente ciò che
+tutto quel file esiste per non usare.
+
+**2. Metà campagna era invisibile.** La scheda mostrava su cosa si SPENDE, mai
+cosa è stato spento. Una ricerca che non arriva non lascia traccia da nessuna
+parte: né per capire perché il traffico non c'è, né per accorgersi di
+un'esclusione troppo larga.
+
+**Cosa c'è adesso:**
+
+- **Lavoro `negative` nello script** (`AZIONE = "negative"`, ed è dentro anche a
+  `tutto`), con **due query, non una**: le negative di CAMPAGNA stanno in
+  `campaign_criterion`, quelle di GRUPPO in `ad_group_criterion`. Due tabelle
+  diverse per due cose diverse — una di campagna spegne la ricerca in tutti i
+  gruppi, una di gruppo solo lì dentro. (Il giro `stati-keyword` incontrava le
+  seconde e le saltava apposta: lì sarebbero parole su cui si spende.)
+- **Tabella `NegativaCampagna`** (`node scripts/crea-tabella-negative.mjs`,
+  **già lanciato in produzione**) e rotta **`POST /api/v1/ingest/negative`**.
+  Il testo si archivia **nudo**, la corrispondenza in un campo suo: «cheap»
+  esatta e «cheap» generica sono la stessa parola con due regole diverse, ed è
+  il caso vero della WORLD-ENG.
+- **Sezione «Parole escluse» sulla scheda campagna**, con la corrispondenza
+  accanto (decide QUANTO blocca) e il livello (tutta la campagna / solo quel
+  gruppo). Vuoto ≠ mai censite: due frasi diverse, come per le località.
+- **`negativa` entra in `CONSEGNA_CHE_FA_FEDE`**: gli stessi sei stati degli
+  altri tipi. «Esclusa su Google» · «Su Google, ma diversa» (chiesta esatta,
+  trovata generica: blocca molto più di quanto si era deciso) · «Non risulta
+  esclusa» · «Da confermare».
+- **Copie dello script da un comando**, non più a mano:
+  `node scripts/genera-copie-google.mjs` legge `LAVORI_LETTURA` dal sorgente,
+  così un lavoro nuovo ha subito il suo file. Erano dieci file identici tranne
+  una riga, rifatti a memoria ogni volta — e `negative.js` non sarebbe esistito.
+
+⚠️⚠️ **LA TRAPPOLA PAGATA, trovata provandola.** Con un censimento **finto e
+parziale** caricato in locale, l'app ha subito dichiarato **«Non risulta
+esclusa» su sedici operazioni su diciannove**. Erano parole vere, già escluse
+su Google: mancavano solo dal mio elenco a metà. Le righe arrivano a blocchi e
+`inviaABlocchi` si ferma quando Google sta per scadere — un caso **normale**,
+previsto e scritto. Un elenco troncato letto come completo accusa di un guasto
+un giro semplicemente lento, e lo fa su tutte le parole insieme. Perciò: lo
+script manda `{ completo: true }` **solo se ha spedito tutte le righe che
+aveva letto**, l'app lo registra come `negative.censimento.<account>`, e
+**senza quella dichiarazione non smentisce niente** — confermare invece si può
+sempre, perché una riga che c'è, c'è. Rimisurato dopo la correzione: senza
+marcatore **zero** smentite e la frase giusta («nessun censimento completo è
+ancora arrivato da questo account»), col marcatore i verdetti tornano.
+Il verso giusto in cui sbagliare è tacere, non accusare.
+
+⚠️ **Il limite dichiarato, in pagina e dentro il verdetto.** Il censimento legge
+i criteri della campagna e dei gruppi, **non le liste di esclusione condivise**
+(vivono in `shared_set`). Se una parola sta in una lista applicata alla
+campagna, quella ricerca è spenta lo stesso: leggere «non risulta esclusa» come
+«arriva ancora» vorrebbe dire riescluderla due volte. Sta scritto sotto
+l'elenco e dentro la frase della smentita, non in una nota a fondo pagina.
+
+**Provato**: `npx tsc --noEmit` pulito, `npm run build` completo,
+`node scripts/prova-script-google.mjs` **12 lavori su 12, 25 query preparate**
+(la riga finta ha ricevuto un `keyword` anche su `campaignCriterion`, se no il
+giro `negative` la saltava con un `continue` — cioè la prova non entrava nel
+ciclo, che è il difetto descritto in cima a quel file stesso). Rotta provata in
+locale contro il database vero: 3 righe accettate, 1 scartata (testo vuoto),
+ripetizione = 0 nuove e 1 aggiornata, marcatore `{"censimentoCompleto":true}`.
+**Tutti i record di prova sono stati cancellati** (3 negative `PROVA:…`, il
+censimento finto, la chiave temporanea): l'archivio è a **0 righe** e aspetta
+il primo giro vero, che arriva col reincollo dello script.
 
 ### ⭐ Ogni operazione dice se Google l'ha confermata, non solo le campagne nuove (17/08/2026)
 

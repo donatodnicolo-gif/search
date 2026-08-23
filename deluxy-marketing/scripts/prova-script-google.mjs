@@ -36,7 +36,11 @@ const rigaFinta = () => ({
   adGroupCriterion: { criterionId: "444", negative: false, status: "ENABLED", keyword: { text: "parola di prova", matchType: "EXACT" }, qualityInfo: { qualityScore: 7 } },
   adGroupAdAssetView: { fieldType: "HEADLINE", performanceLabel: "GOOD", enabled: true },
   asset: { id: "555", textAsset: { text: "Titolo di prova" }, name: "asset", sitelinkAsset: { linkText: "Vai" }, imageAsset: { fullSize: { url: "https://esempio.it/i.jpg" } } },
-  campaignCriterion: { criterionId: "666", displayName: "Milan", type: "LOCATION", negative: false, bidModifier: 1.2, status: "ENABLED" },
+  // ⚠️ `keyword` c'è anche qui: le negative di CAMPAGNA stanno in
+  // campaign_criterion, e senza questo campo il giro `negative` saltava la
+  // riga finta con un `continue` — cioè la prova non entrava nel ciclo, che è
+  // esattamente il difetto descritto qui sopra.
+  campaignCriterion: { criterionId: "666", displayName: "Milan", type: "LOCATION", negative: false, bidModifier: 1.2, status: "ENABLED", keyword: { text: "parola esclusa", matchType: "PHRASE" } },
   geoTargetConstant: { id: "666", name: "Milan", canonicalName: "Milan,Italy", targetType: "City" },
   searchTermView: { searchTerm: "ricerca di prova", status: "NONE" },
   segments: { date: "2026-08-11", device: "MOBILE", dayOfWeek: "MONDAY", adNetworkType: "SEARCH", keyword: { info: { text: "parola", matchType: "EXACT" }, adGroupCriterion: "customers/1/adGroupCriteria/222~444" } },
@@ -160,6 +164,7 @@ const lavori = [
   ["diagnosi", () => contesto.mandaDiagnosi(conto)],
   ["approvazioni", () => contesto.mandaApprovazioni(conto)],
   ["stati-keyword", () => contesto.mandaStatiKeyword(conto)],
+  ["negative", () => contesto.mandaNegative(conto)],
   ["keyword-giorni", () => contesto.mandaKeywordGiorni(conto)],
   ["esegui", () => contesto.eseguiOperazioni(conto)],
   // ⚠️⚠️ I DUE RAMI CHE SCRIVONO, provati per davvero. Fino al 19/08/2026

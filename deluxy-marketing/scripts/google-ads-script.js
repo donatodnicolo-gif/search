@@ -30,6 +30,9 @@
  *   AZIONE = "asset"        → ogni settimana (sitelink, callout, snippet, immagini)
  *   AZIONE = "diagnosi"     → ogni settimana (termini di ricerca cercati davvero,
  *                             spesa per dispositivo, giorno e rete)
+ *   AZIONE = "negative"     → ogni settimana (le keyword ESCLUSE, di campagna e
+ *                              di gruppo: sono l'altra metà di una campagna, e
+ *                              l'unica conferma vera delle operazioni "negativa")
  *   AZIONE = "esegui"       → solo quando serve: esegue le operazioni approvate
  *   AZIONE = "tutto"        → le fa tutte in fila (comodo per il primo giro)
  *
@@ -156,7 +159,7 @@ var MINUTI_MASSIMI = 25; // Google ferma gli script a 30': ci fermiamo prima, co
 //   1. le letture che si guardano ogni giorno: metriche e gruppi di annunci;
 //   2. in fondo il copy, che da solo può prendersi metà del tempo (mille
 //      keyword per account a blocchi di 200) ed è la lettura meno urgente.
-var LAVORI_LETTURA = ["metriche", "gruppi", "keyword-giorni", "approvazioni", "diagnosi", "asset", "copy", "stati-keyword"];
+var LAVORI_LETTURA = ["metriche", "gruppi", "keyword-giorni", "approvazioni", "diagnosi", "asset", "copy", "stati-keyword", "negative"];
 
 var MAX_STATI_KEYWORD = 20000; // tetto di sicurezza (vedi nota sotto)
 // ATTENZIONE: Era 4000, e su Gifts non bastava: l archivio ne ha 4.623. Il ciclo si
@@ -216,9 +219,10 @@ function main() {
       else if (lavoro === "diagnosi") mandaDiagnosi(conto);
       else if (lavoro === "approvazioni") mandaApprovazioni(conto);
       else if (lavoro === "stati-keyword") mandaStatiKeyword(conto);
+      else if (lavoro === "negative") mandaNegative(conto);
       else if (lavoro === "keyword-giorni") mandaKeywordGiorni(conto);
       else if (lavoro === "esegui") eseguiOperazioni(conto);
-      else Logger.log("AZIONE non riconosciuta: \"" + lavoro + "\". Ammesse: metriche, approvazioni, copy, gruppi, asset, diagnosi, esegui, tutto.");
+      else Logger.log("AZIONE non riconosciuta: \"" + lavoro + "\". Ammesse: metriche, approvazioni, copy, gruppi, asset, diagnosi, negative, esegui, tutto.");
     } catch (e) {
       Logger.log("⚠ ERRORE in \"" + lavoro + "\": " + e);
       RIEPILOGO.push(lavoro + ": ERRORE — " + e);
@@ -3469,4 +3473,127 @@ function mandaStatiKeyword(conto) {
     return corpoBase(conto, { keywords: lotto, lavoro: "stati-keyword" });
   });
   RIEPILOGO.push("stati-keyword: " + esito.inviate + " keyword allineate (" + inPausa + " in pausa)");
+}
+
+/**
+ * Le keyword NEGATIVE dell'account: quelle di CAMPAGNA e quelle di GRUPPO.
+ *
+ * ⚠️ PERCHE' ESISTE (23/08/2026). Era l'unico pezzo di una campagna che l'app
+ * non riceveva mai. Costava due cose. (1) Le operazioni "negativa" restavano
+ * senza conferma indipendente: createNegativeKeyword() non restituisce niente,
+ * quindi l'unica prova era la rilettura che fa questo script SUBITO DOPO — e
+ * dentro la stessa esecuzione i selettori vedono ancora lo stato di partenza.
+ * La sera del 23/08 dieci negative di lancio sulla WORLD-ENG sono uscite tutte
+ * con "rileggendo la campagna non risulta ancora: ricontrollare al prossimo
+ * giro", e nessuno poteva ricontrollare perche' il giro dopo non le guardava.
+ * (2) Meta' di una campagna era invisibile nell'app: si vedeva su cosa si
+ * spende, non cosa e' stato spento.
+ *
+ * ⚠️ DUE QUERY, non una. Le negative di CAMPAGNA stanno in campaign_criterion,
+ * quelle di GRUPPO in ad_group_criterion: sono due tabelle diverse e valgono
+ * cose diverse (una di campagna spegne la ricerca in tutti i gruppi, una di
+ * gruppo solo li' dentro). Il giro "stati-keyword" incontra le seconde e le
+ * SALTA apposta - li' sarebbero parole su cui si spende, che e' il contrario.
+ *
+ * ⚠️ LE LISTE CONDIVISE NON PASSANO DI QUI. Una lista di esclusione applicata
+ * a una campagna vive in shared_set: le sue parole non compaiono fra i criteri
+ * della campagna. Quindi "non risulta fra le negative" NON vuol dire "quella
+ * ricerca arriva" - l'app deve dirlo, o si legge un elenco parziale come se
+ * fosse completo. Le liste hanno gia' la loro pagina (/liste-escluse).
+ */
+function mandaNegative(conto) {
+  var righe = [];
+  var diCampagna = 0, diGruppo = 0;
+
+  // ── Negative di CAMPAGNA ────────────────────────────────────────────────
+  try {
+    var qC =
+      "SELECT campaign.name, campaign_criterion.criterion_id, " +
+      "campaign_criterion.keyword.text, campaign_criterion.keyword.match_type " +
+      "FROM campaign_criterion " +
+      "WHERE campaign_criterion.type = 'KEYWORD' " +
+      "AND campaign_criterion.negative = TRUE " +
+      "AND campaign_criterion.status != 'REMOVED'";
+    var rC = AdsApp.search(qC);
+    while (rC.hasNext()) {
+      var a = rC.next();
+      var cc = a.campaignCriterion;
+      if (!cc || !cc.keyword) continue;
+      righe.push({
+        idEsterno: conto.id + ":" + a.campaign.name + ":" + cc.criterionId,
+        campagna: a.campaign.name,
+        livello: "campagna",
+        gruppo: null,
+        testo: cc.keyword.text,
+        corrispondenza: String(cc.keyword.matchType),
+      });
+      diCampagna++;
+    }
+  } catch (e) {
+    Logger.log("Non riesco a leggere le negative di campagna: " + e);
+    RIEPILOGO.push("negative: query di campagna rifiutata");
+  }
+
+  // ── Negative di GRUPPO ──────────────────────────────────────────────────
+  try {
+    var qG =
+      "SELECT campaign.name, ad_group.id, ad_group.name, " +
+      "ad_group_criterion.criterion_id, ad_group_criterion.keyword.text, " +
+      "ad_group_criterion.keyword.match_type " +
+      "FROM ad_group_criterion " +
+      "WHERE ad_group_criterion.type = 'KEYWORD' " +
+      "AND ad_group_criterion.negative = TRUE " +
+      "AND ad_group_criterion.status != 'REMOVED'";
+    var rG = AdsApp.search(qG);
+    while (rG.hasNext()) {
+      var b = rG.next();
+      var gc = b.adGroupCriterion;
+      if (!gc || !gc.keyword) continue;
+      righe.push({
+        idEsterno: conto.id + ":" + b.adGroup.id + ":" + gc.criterionId,
+        campagna: b.campaign.name,
+        livello: "gruppo",
+        gruppo: b.adGroup.name,
+        testo: gc.keyword.text,
+        corrispondenza: String(gc.keyword.matchType),
+      });
+      diGruppo++;
+    }
+  } catch (e2) {
+    Logger.log("Non riesco a leggere le negative di gruppo: " + e2);
+    RIEPILOGO.push("negative: query di gruppo rifiutata");
+  }
+
+  if (righe.length === 0) {
+    // ⚠️ Zero non e' "nessuna negativa": puo' essere che ENTRAMBE le query
+    // siano state rifiutate. Non si manda niente, cosi' l'app non registra
+    // una consegna vuota che poi userebbe per dire "non c'e' piu' su Google".
+    Logger.log("Nessuna negativa letta: non mando niente.");
+    RIEPILOGO.push("negative: niente da inviare");
+    return;
+  }
+
+  Logger.log("Negative lette: " + righe.length + " (di campagna " + diCampagna + " · di gruppo " + diGruppo + ")");
+
+  var esito = inviaABlocchi("/api/v1/ingest/negative", righe, function (lotto) {
+    return corpoBase(conto, { righe: lotto });
+  });
+
+  // ⚠️⚠️ IL MARCATORE DI FINE, e solo se e' andato TUTTO.
+  // I blocchi si fermano quando Google sta per scadere ("interrotto per
+  // tempo"): e' un caso normale, previsto da inviaABlocchi. Ma un censimento
+  // a meta' letto come completo fa dire all'app "Google non esclude piu'
+  // questa parola" per tutte quelle rimaste fuori - cioe' accusa di un guasto
+  // un giro semplicemente lento. Senza questa riga l'app non puo' distinguere
+  // le due cose, perche' una consegna esiste in entrambi i casi.
+  var completo = esito.inviate === righe.length;
+  if (completo && !ANTEPRIMA) {
+    var m = chiamata("post", "/api/v1/ingest/negative", corpoBase(conto, { completo: true }));
+    if (!m.ok) Logger.log("   (non sono riuscito a dichiarare il censimento completo: HTTP " + m.codice + ")");
+  }
+
+  RIEPILOGO.push(
+    "negative: " + esito.inviate + " censite (" + diCampagna + " di campagna · " + diGruppo + " di gruppo)" +
+    (completo ? "" : " - ELENCO INCOMPLETO: l'app non lo usera' per dire che una parola non c'e' piu'")
+  );
 }

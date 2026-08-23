@@ -111,6 +111,7 @@ collettive → Script), una copia per account e per lavoro. Google Ads esegue **
 | `gruppi` | Gruppi di annunci, una riga per giorno (e gruppi di asset per le PMax) | Ogni giorno o settimana |
 | `asset` | Sitelink, callout, snippet e immagini sui tre livelli | Ogni settimana |
 | `diagnosi` | Termini di ricerca cercati davvero + spesa per dispositivo, giorno e rete | Ogni settimana |
+| `negative` | Le keyword **escluse** di campagna e di gruppo: l'altra metà di una campagna, e l'unica conferma vera delle operazioni «negativa» | Ogni settimana |
 | `esegui` | Esegue le operazioni **approvate** in /operazioni | Quando serve |
 
 Va impostato anche `BRAND` (`flowers` | `gifts` | `cake`): senza, le campagne il cui
@@ -118,7 +119,17 @@ nome non dice il marchio finiscono in "cross".
 
 Non serve developer token né OAuth: lo script gira dentro Google Ads. Serve solo una
 chiave dell'app (`npm run chiave -- google-ads-<brand>`) e che l'app sia raggiungibile da
-internet. Endpoint usati: `/api/v1/ingest`, `/api/v1/ingest/copy`, `/api/v1/ingest/diagnosi`, `/api/v1/operazioni`.
+internet. Endpoint usati: `/api/v1/ingest`, `/api/v1/ingest/copy`, `/api/v1/ingest/diagnosi`,
+`/api/v1/ingest/negative`, `/api/v1/operazioni`.
+
+Le copie da incollare, una per lavoro, si rigenerano con
+`node scripts/genera-copie-google.mjs` (finiscono in `Downloadsdeluxy-google-ads`;
+`CHIAVE_API` e `BRAND` restano vuoti apposta e si rimettono a mano in Google Ads).
+
+⚠️ Il giro `negative` chiude il censimento con una chiamata `{ completo: true }`, e la
+manda **solo se ha spedito tutte le righe**. Senza quella dichiarazione l'app non si
+permette di dire che una parola non è più esclusa: le righe arrivano a blocchi e un
+elenco troncato, letto come completo, accuserebbe di un guasto un giro solo lento.
 
 **La scrittura passa sempre dall'approvazione**: una modifica decisa nell'app entra in
 coda come "da approvare", il guardrail la valida prima (blackout 72h, ±20% budget,
