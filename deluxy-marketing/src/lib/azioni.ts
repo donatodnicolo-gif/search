@@ -3551,6 +3551,44 @@ export async function accodaNegativeScritte(input: {
   revalidatePath("/operazioni");
   return { ok: true, messe: nuove.length, gia: parole.length - nuove.length };
 }
+
+/**
+ * Esegue ADESSO le operazioni Meta già approvate.
+ *
+ * ⚠️ Su Meta non c'è nessuno script che passa da solo: il motore è l'app, e
+ * parte solo quando qualcuno preme. È una scelta (`esegui/meta` non ha cron):
+ * finché la scrittura su Meta non avrà fatto qualche giro vero sotto gli occhi
+ * di una persona, non deve poter partire da sola di notte.
+ *
+ * Il difetto era che quella scelta non si vedeva: una coda Meta approvata
+ * restava ferma per sempre, identica a una che sta per essere eseguita. Il
+ * bottone la rende una decisione invece di un'attesa.
+ *
+ * ⚠️ Non decide niente da sé: esegue solo le APPROVATE, dieci per volta, e
+ * ogni esito finisce sulla riga dell'operazione come per Google.
+ */
+export async function eseguiMetaAdesso() {
+  const { eseguiOperazioniMeta } = await import("./meta-scrittura");
+  const esito = await eseguiOperazioniMeta({ limite: 10 });
+
+  const riassunto = esito.spento
+    ? `Scrittura su Meta spenta: non ho toccato niente. ${esito.nota ?? ""}`
+    : esito.eseguite + esito.fallite + esito.saltate === 0
+      ? "Niente di approvato in coda su Meta."
+      : `Meta: ${esito.eseguite} eseguite, ${esito.fallite} fallite, ${esito.saltate} saltate` +
+        (esito.saltate > 0 ? " (saltate = senza id di piattaforma: non si tocca un omonimo)" : "") + ".";
+
+  await registra({
+    autore: "utente",
+    tipo: "stato",
+    entita: "operazione",
+    entitaId: "meta",
+    titolo: "Esecuzione manuale delle operazioni Meta",
+    dettaglio: riassunto,
+  });
+  revalidatePath("/operazioni");
+  redirect(`/operazioni?esito=${encodeURIComponent(riassunto)}`);
+}
 // ---------- Riportare in attesa un'operazione già approvata ----------
 // Diverso da annullare: annullare la scarta, questo la rimette in coda da
 // decidere. Serve quando si approva in fretta e poi si vuole ripensarci senza

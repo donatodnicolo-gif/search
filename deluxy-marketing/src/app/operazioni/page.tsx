@@ -13,6 +13,7 @@ import { COLORE_CONFERMA, confermeOperazioni, type Conferma } from "@/lib/confer
 import { prisma } from "@/lib/db";
 import { ETICHETTA_LIVELLO, formattaDataOra } from "@/lib/dominio";
 import { spiegaErroreGoogle } from "@/lib/errori-google";
+import { EseguiMeta } from "@/components/EseguiMeta";
 
 export const dynamic = "force-dynamic";
 
@@ -608,6 +609,12 @@ export default async function PaginaOperazioni({
             <strong>{sp.esito}</strong>
           </div>
         )}
+
+        {/* ⚠️ Meta ha un motore diverso: su Google esegue lo script dentro
+            l account, qui esegue l app e SOLO quando qualcuno preme. Senza
+            dirlo, una coda Meta approvata resta ferma per sempre ed e
+            indistinguibile da una che sta per partire. */}
+        <EseguiMeta />
         {/* Le saltate NON sono un dettaglio: sono il motivo per cui uno guarda
             la coda e non trova quello che si aspettava. */}
         {sp.saltate && (
