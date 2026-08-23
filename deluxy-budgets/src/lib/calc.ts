@@ -5,6 +5,7 @@
 import { prisma } from "./db";
 import { caricaVenduto } from "./venduto";
 import { primoMeseAperto } from "./periodo";
+import { caricaStruttura, strutturaDelMese, type StrutturaConsuntivo } from "./struttura";
 
 export const ANNO_CORRENTE = 2026;
 
@@ -146,6 +147,11 @@ export type DatiAnno = {
   team: TeamBudget[];
   tipologie: Tipologia[];
   piattaforme: PiattaformaAdv[];
+  // I **costi di struttura dal consuntivo**, con la media dei mesi chiusi estesa
+  // al resto dell'anno (regola dell'utente, 23/08/2026). `null` = Finance non ha
+  // risposto, e allora si ricade sulla configurazione a budget — che è quello
+  // che si faceva prima.
+  struttura: StrutturaConsuntivo | null;
 };
 
 export async function caricaAnno(year = ANNO_CORRENTE): Promise<DatiAnno> {
@@ -206,9 +212,20 @@ export async function caricaAnno(year = ANNO_CORRENTE): Promise<DatiAnno> {
     // si resta sul budget: lo dichiarano le pagine
   }
 
+  // Stessa regola per i **costi di struttura**: si prova a leggerli dalla banca,
+  // e se Finance non risponde si torna alla configurazione a budget. Best effort
+  // per la stessa ragione di sopra — il P&L deve aprirsi comunque.
+  let struttura: StrutturaConsuntivo | null = null;
+  try {
+    struttura = await caricaStruttura(year);
+  } catch {
+    // si resta sulla configurazione: lo dichiarano le pagine
+  }
+
   return {
     year,
     maisons: out,
+    struttura,
     scenari: scenari.map((s) => ({
       livello: s.livello as Livello,
       moltiplicatore: s.moltiplicatore,
@@ -494,7 +511,20 @@ export function contoEconomico(dati: DatiAnno, livello: Livello, maisonSlug?: st
   const advBase = tot.reduce((s, t) => s + t.adv, 0);
   const venditeTotali = dati.maisons.reduce((s, m) => s + totaliMaison(m).totale, 0);
 
-  const fissi = sommaCosti(dati, "FISSO_MENSILE", ids) * 12 + sommaCosti(dati, "FISSO_ANNUO", ids);
+  // I **costi di struttura**: dal consuntivo quando c'è, dalla configurazione
+  // quando Finance non risponde. La regola (mesi chiusi veri + media sul resto)
+  // sta in `struttura.ts`, non qui, perché il P&L annuale e quello mensile
+  // devono dare lo stesso numero.
+  //
+  // ⚠️ Il consuntivo della banca è **di tutta l'azienda**: non sa dividersi per
+  // maison, quindi nel P&L di un singolo brand si ripartisce come tutti gli
+  // altri costi comuni, in proporzione ai ricavi (la `quota` qui sotto). Con la
+  // configurazione invece si potevano avere righe intestate a una maison, e per
+  // quelle il filtro su `ids` valeva davvero: è una precisione che il dato di
+  // banca non ha, e fingere il contrario sarebbe peggio del dato grezzo.
+  const fissi = dati.struttura
+    ? dati.struttura.anno
+    : sommaCosti(dati, "FISSO_MENSILE", ids) * 12 + sommaCosti(dati, "FISSO_ANNUO", ids);
 
   // Nel P&L di una singola maison i costi comuni (struttura, personale non
   // attribuito, premi) si ripartiscono in proporzione ai ricavi.
@@ -559,7 +589,14 @@ export type PLMese = {
 // fissi e il personale non seguono la stagionalità delle vendite).
 export function contoEconomicoMensile(dati: DatiAnno, livello: Livello, quotaD2C = 1): PLMese[] {
   const molt = moltiplicatore(dati, livello);
-  const fissiMese = sommaCosti(dati, "FISSO_MENSILE") + sommaCosti(dati, "FISSO_ANNUO") / 12;
+  // Dalla configurazione i costi fissi erano **uguali tutti i mesi**; dal
+  // consuntivo no, e non devono esserlo: un mese chiuso porta quello che è
+  // uscito davvero, e solo i mesi che restano prendono la media. Appiattire
+  // anche il passato sulla media cancellerebbe proprio la cosa che questa
+  // pagina serve a vedere, cioè dove il risultato va sotto zero.
+  const fissiConfig = sommaCosti(dati, "FISSO_MENSILE") + sommaCosti(dati, "FISSO_ANNUO") / 12;
+  const fissiDelMese = (month: number) =>
+    dati.struttura ? strutturaDelMese(dati.struttura, month) : fissiConfig;
 
   const righe: PLMese[] = [];
   for (let month = 1; month <= 12; month++) {
@@ -583,6 +620,7 @@ export function contoEconomicoMensile(dati: DatiAnno, livello: Livello, quotaD2C
       }, 0) * molt;
     const personale = costoPersonaleMese(dati, month);
     const margineLordo = ricavi - cogs;
+    const fissi = fissiDelMese(month);
     righe.push({
       month,
       ricavi,
@@ -590,8 +628,8 @@ export function contoEconomicoMensile(dati: DatiAnno, livello: Livello, quotaD2C
       margineLordo,
       adv,
       personale,
-      costiFissi: fissiMese,
-      ebitda: margineLordo - adv - personale - fissiMese,
+      costiFissi: fissi,
+      ebitda: margineLordo - adv - personale - fissi,
     });
   }
   return righe;

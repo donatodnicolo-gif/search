@@ -32,7 +32,23 @@ export default async function Impostazioni() {
           </p>
         </div>
       </div>
-      <ImpostazioniForm year={ANNO_CORRENTE} scenari={scenari} costi={costi} />
+      {/* Quanto vale la struttura **davvero**, per dire su questa pagina che le
+          righe qui sotto non la comandano più: una casella che si salva e non
+          cambia niente è peggio di una casella che non c'è. */}
+      <ImpostazioniForm
+        year={ANNO_CORRENTE}
+        scenari={scenari}
+        costi={costi}
+        strutturaDaBanca={
+          dati.struttura
+            ? {
+                anno: dati.struttura.anno,
+                media: dati.struttura.media,
+                mesiChiusi: dati.struttura.mesiChiusi.length,
+              }
+            : null
+        }
+      />
     </>
   );
 }

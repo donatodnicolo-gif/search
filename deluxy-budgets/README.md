@@ -1603,6 +1603,44 @@ modulo che tocca il database.**
 A **ROS 7** la pubblicità vale un settimo del venduto (≈14,3%), a **6,5** un po' di più (≈15,4%). Sta
 Il ripiego per chi non ne ha uno suo resta **6,5×**.
 
+### I costi di struttura vengono dal consuntivo (23/08/2026)
+
+⭐ «costi di struttura prendi il consuntivo ed estendi la media ai restanti mesi». A budget valevano
+**0 €**: c'era una sola riga di configurazione, «Costi di struttura mensili», ferma a zero — quindi il
+P&L non li contava affatto, e un EBITDA senza affitti, software e servizi è un numero che si legge
+volentieri e non vuol dire niente.
+
+La regola sta in **`src/lib/struttura.ts`**, non nelle pagine, perché il P&L annuale e quello mensile
+devono dare lo stesso numero (e lo danno: 12 caselle che sommano al totale):
+
+```
+mesi chiusi   → quello che è davvero uscito dalla banca (categorie con tipoPL = STRUTTURA)
+mesi restanti → la media dei mesi chiusi
+```
+
+📌 Misurato: **62.375 € da gennaio a luglio**, media **8.911 €/mese**, anno **106.929 €**.
+
+⚠️ **Il mese in corso non è un mese chiuso e non entra nella media.** Ad agosto la banca ne aveva
+registrati 1.363 € contro una media di 8.911 — non perché la struttura costi meno, ma perché il mese
+non è finito (e l'archivio di agosto di Finance è per conto suo incompleto, vedi il punto aperto).
+Un mese a un sesto dentro una media di sette la abbassa del 12% senza che si veda.
+
+⚠️ **Il dato di banca è di tutta l'azienda**: non sa dividersi per maison, quindi nel P&L di un
+singolo brand si ripartisce in proporzione ai ricavi come gli altri costi comuni. Con la
+configurazione si potevano avere righe intestate a una maison; è una precisione che il consuntivo non
+ha, e fingere il contrario sarebbe peggio del dato grezzo.
+
+⚠️ **Le righe di `/impostazioni` non comandano più**, e la pagina lo dice marcandole «non più usata»:
+una casella che si salva e non cambia niente è peggio di una casella che non c'è. Restano il ripiego
+per quando Finance non risponde, e in quel caso la didascalia cambia e lo dichiara.
+
+⚠️ **Lo scostamento di quella riga è un trattino, non «+0 €»**: sui mesi chiusi il budget di struttura
+*è* il consuntivo, quindi lo zero è per costruzione. Scriverlo come scostamento sarebbe un complimento
+che nessuno si è guadagnato.
+
+📌 Effetto sul P&L: struttura **0 → 106.929 €**, EBITDA **−122.463 → −229.392 €** (con la quota D2C
+misurata del 27,7% che usa `/pl`).
+
 ### Un brand che la pubblicità non la fa
 
 ⭐ **`Maison.faPubblicita`** (23/08/2026, «b2b ed experience vanno azzerati come budget marketing»):

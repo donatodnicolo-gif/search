@@ -1,7 +1,7 @@
 import Link from "next/link";
 import {
   ANNO_CORRENTE, caricaAnno, contoEconomico, contoEconomicoMensile,
-  LIVELLI, type Livello, type PL,
+  LIVELLI, type DatiAnno, type Livello, type PL,
 } from "@/lib/calc";
 import { eur, MESI, pct } from "@/lib/format";
 import { caricaConsuntivo, type ConsuntivoPeriodo } from "@/lib/consuntivo";
@@ -30,11 +30,25 @@ const RIGHE_FISSE: Riga[] = [
   { label: "Margine lordo", valore: (pl) => pl.margineLordo, tipo: "totale", cons: (c) => c.margineLordo },
   { label: "Spesa pubblicitaria (ADV)", valore: (pl) => pl.adv, tipo: "costo", nota: "quota del budget pubblicita dell anno, per brand e per mese", cons: (c) => c.adv },
   { label: "Costo del personale", valore: (pl) => pl.personale, tipo: "costo", nota: "dipendenti, stagisti e consulenti", cons: (c) => c.personale },
+  // La nota di questa riga la scrive `notaStruttura()`: dipende da dove arriva
+  // il numero — banca o configurazione — e senza dirlo la stessa cifra si legge
+  // come un preventivo o come un consuntivo, che non è la stessa cosa.
   { label: "Costi di struttura", valore: (pl) => pl.costiFissi, tipo: "costo", cons: (c) => c.struttura },
   { label: "EBITDA", valore: (pl) => pl.ebitda, tipo: "risultato", cons: (c) => c.ebitda },
   { label: "Premi al raggiungimento", valore: (pl) => pl.premio, tipo: "costo", cons: () => null },
   { label: "Risultato netto", valore: (pl) => pl.risultatoNetto, tipo: "risultato", cons: () => null },
 ];
+
+// Da dove arriva la riga «Costi di struttura», detto sulla riga stessa.
+function notaStruttura(s: DatiAnno["struttura"]): string {
+  if (!s) return "dalla configurazione a budget (Finance non ha risposto)";
+  const ultimo = s.mesiChiusi[s.mesiChiusi.length - 1] ?? 0;
+  const restanti = 12 - s.mesiChiusi.length;
+  return (
+    `consuntivo Gen–${MESI[ultimo - 1]} (${Math.round(s.uscito).toLocaleString("it-IT")} €) ` +
+    `+ la media di ${Math.round(s.media).toLocaleString("it-IT")} €/mese sui ${restanti} mesi che restano`
+  );
+}
 
 export default async function ContoEconomico({
   searchParams,
@@ -121,8 +135,11 @@ export default async function ContoEconomico({
       valore: (pl: PL) => pl.ricaviPerServizio[t.slug] ?? 0,
       cons: (c: ConsuntivoPeriodo) => c.ricaviPerTipologia[t.slug] ?? 0,
     })),
-    ...RIGHE_FISSE,
+    ...RIGHE_FISSE.map((r) =>
+      r.label === "Costi di struttura" ? { ...r, nota: notaStruttura(dati.struttura) } : r
+    ),
   ];
+  const strutturaDaBanca = dati.struttura !== null;
   const mensile = contoEconomicoMensile(dati, livello, qD2C);
   const mesiInPerdita = mensile.filter((m) => m.ebitda < 0).length;
 
@@ -233,15 +250,29 @@ export default async function ContoEconomico({
                       // Su un costo spendere meno del previsto è una buona
                       // notizia: il colore segue il verso della voce.
                       const buono = r.tipo === "costo" ? scost <= 0 : scost >= 0;
+                      // ⚠️ Sui costi di struttura il budget dei mesi chiusi **è**
+                      // il consuntivo: lo scostamento è zero per costruzione, non
+                      // perché si sia centrato il bersaglio. Scrivere «+0 €»
+                      // sarebbe un complimento che nessuno si è guadagnato.
+                      const perCostruzione = r.label === "Costi di struttura" && strutturaDaBanca;
                       return (
                         <>
                           <td className="num" style={{ fontWeight: 600 }}>
                             {r.tipo === "costo" ? `− ${eur(c)}` : eur(c)}
                           </td>
                           <td className="num muted">{r.tipo === "costo" ? `− ${eur(b)}` : eur(b)}</td>
-                          <td className={`num ${buono ? "pos" : "neg"}`}>
-                            {scost >= 0 ? "+" : ""}{eur(scost)}
-                          </td>
+                          {perCostruzione ? (
+                            <td
+                              className="num muted"
+                              title="Sui mesi chiusi il budget di struttura è il consuntivo stesso: qui non c'è uno scostamento da leggere."
+                            >
+                              —
+                            </td>
+                          ) : (
+                            <td className={`num ${buono ? "pos" : "neg"}`}>
+                              {scost >= 0 ? "+" : ""}{eur(scost)}
+                            </td>
+                          )}
                         </>
                       );
                     })()}

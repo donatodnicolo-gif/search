@@ -17,10 +17,15 @@ export function ImpostazioniForm({
   year,
   scenari: scenariIniziali,
   costi: costiIniziali,
+  strutturaDaBanca,
 }: {
   year: number;
   scenari: Scenario[];
   costi: Costo[];
+  // Quando il P&L legge i costi di struttura **dal consuntivo**, le righe fisse
+  // qui sotto non li comandano più. `null` = Finance non risponde e allora
+  // valgono davvero.
+  strutturaDaBanca: { anno: number; media: number; mesiChiusi: number } | null;
 }) {
   const router = useRouter();
   const [scenari, setScenari] = useState(scenariIniziali);
@@ -109,9 +114,14 @@ export function ImpostazioniForm({
               </tr>
             </thead>
             <tbody>
-              {costi.map((c, i) => (
-                <tr key={c.id}>
-                  <td style={{ fontWeight: 500 }}>{c.label}</td>
+              {costi.map((c, i) => {
+                const scavalcata = Boolean(strutturaDaBanca) && c.tipo !== "COGS_PCT";
+                return (
+                <tr key={c.id} style={scavalcata ? { opacity: 0.6 } : undefined}>
+                  <td style={{ fontWeight: 500 }}>
+                    {c.label}
+                    {scavalcata && <span className="muted"> · non più usata</span>}
+                  </td>
                   <td className="muted">{TIPO_LABEL[c.tipo] ?? c.tipo}</td>
                   <td className="num" style={{ width: 220 }}>
                     <input
@@ -127,13 +137,27 @@ export function ImpostazioniForm({
                     />
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
         <p className="page-caption" style={{ marginTop: 12 }}>
-          Il costo del venduto di partenza (65%) deriva dal margine stimato 2026 dei budget pubblicati (≈35% delle vendite).
-          I costi fissi sono da impostare: entrano nel P&amp;L come {eur(0)} finché non vengono valorizzati.
+          {strutturaDaBanca ? (
+            <>
+              <strong>I costi di struttura il P&amp;L li legge dal consuntivo</strong>, non da qui:{" "}
+              {eur(strutturaDaBanca.anno)} sull&apos;anno — quello che è uscito dalla banca nei{" "}
+              {strutturaDaBanca.mesiChiusi} mesi chiusi, più la media di {eur(strutturaDaBanca.media)} al
+              mese su quelli che restano. Le righe qui sopra restano scritte ma{" "}
+              <strong>non entrano più nel conto</strong>: valgono solo se Finance non risponde.
+            </>
+          ) : (
+            <>
+              Il costo del venduto di partenza (65%) deriva dal margine stimato 2026 dei budget pubblicati
+              (≈35% delle vendite). <strong>Finance non sta rispondendo</strong>, quindi i costi di
+              struttura del P&amp;L vengono da queste righe: a zero entrano come {eur(0)}.
+            </>
+          )}
         </p>
       </div>
 
