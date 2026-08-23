@@ -28,7 +28,9 @@ export interface RispostaProvince {
  * e prospect anche quando i numeri di vendita mancano — sono due informazioni
  * indipendenti, e perderle entrambe per colpa di una chiave sarebbe assurdo.
  */
-export async function fetchVenditePerProvincia(anno?: number): Promise<RispostaProvince> {
+export async function fetchVenditePerProvincia(
+  opz: { anno?: number; da?: string; a?: string } = {},
+): Promise<RispostaProvince> {
   const vuota: RispostaProvince = {
     province: [],
     totaleProvince: 0,
@@ -46,7 +48,15 @@ export async function fetchVenditePerProvincia(anno?: number): Promise<RispostaP
         apikey: env.supabaseAnonKey(),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      body: JSON.stringify({ action: 'province', ...(anno ? { anno } : {}) }),
+      // `a` è ESCLUSIVA in Orders (data < a): i confini li calcola il browser,
+      // non il server — su Vercel il runtime è UTC e la mezzanotte italiana
+      // sono le 02:00, cioè due ore di ogni giorno finirebbero nel mese prima.
+      body: JSON.stringify({
+        action: 'province',
+        ...(opz.anno ? { anno: opz.anno } : {}),
+        ...(opz.da ? { da: opz.da } : {}),
+        ...(opz.a ? { a: opz.a } : {}),
+      }),
     });
     if (!res.ok) return vuota;
     const j = await res.json();

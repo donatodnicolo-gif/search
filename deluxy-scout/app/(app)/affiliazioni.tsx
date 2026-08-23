@@ -39,6 +39,7 @@ import { TaskFormModal } from '@/components/TaskFormModal';
 import { EmptyState, PageIntro } from '@/components/ui';
 import { RicercaAffiliazioni } from '@/components/RicercaAffiliazioni';
 import { CoperturaProvince } from '@/components/CoperturaProvince';
+import { frecciaOrdine, ordinaRighe, useOrdinamento } from '@/lib/ordinamento';
 import { PannelloFiltri } from '@/components/PannelloFiltri';
 
 type FiltroAff = StatoAffiliazione | 'tutti' | 'selezionati';
@@ -59,6 +60,16 @@ function quando(iso: string | null): string {
   if (giorni < 30) return `chiamato ${giorni} giorni fa`;
   return `chiamato ${Math.floor(giorni / 30)} mesi fa`;
 }
+
+/** Le colonne ordinabili della tabella. */
+type ColonnaAff =
+  | 'nome'
+  | 'zona'
+  | 'referente'
+  | 'telefono'
+  | 'stato_affiliazione'
+  | 'segnalato'
+  | 'ultima_chiamata';
 
 /**
  * Da chi è stato segnalato il negozio.
@@ -125,6 +136,9 @@ export default function Affiliazioni() {
   // database. Un campo nuovo, invece, sarebbe rimasto una data che non guarda
   // nessuno.
   const [daPianificare, setDaPianificare] = useState<AffiliazioneRow | null>(null);
+  // Ordinamento della tabella. Di default per nome: è come si cerca un negozio
+  // in un elenco, e non suggerisce una priorità che non c'è.
+  const { ordine, ordinaPer } = useOrdinamento<ColonnaAff>({ campo: 'nome', verso: 'asc' }, ['ultima_chiamata']);
   // owner → nome, per scrivere CHI ha segnalato invece di un uuid. Tollerante:
   // se la tabella profiles non risponde restano i nomi di ripiego.
   const [nomi, setNomi] = useState<Map<string, string>>(new Map());
@@ -175,6 +189,16 @@ export default function Affiliazioni() {
         .some((v) => (v as string).toLowerCase().includes(q));
     });
   }, [righe, query, filtro, nomi]);
+
+  const datiOrdinati = useMemo(
+    () =>
+      ordinaRighe(dati, ordine, (r, c) => {
+        if (c === 'segnalato') return segnalatoDa(r, nomi);
+        if (c === 'stato_affiliazione') return labelAffiliazione[r.stato_affiliazione ?? 'prospect'];
+        return (r as any)[c];
+      }),
+    [dati, ordine, nomi],
+  );
 
   async function chiama(r: AffiliazioneRow) {
     if (!r.telefono) {
@@ -248,7 +272,7 @@ export default function Affiliazioni() {
       ) : (
       <>
       <FlatList
-        data={dati}
+        data={datiOrdinati}
         keyExtractor={(r) => r.id}
         contentContainerStyle={[styles.list, tabella ? contenutoLargo : contenutoCentrato]}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}
@@ -288,7 +312,7 @@ export default function Affiliazioni() {
                 ))}
               </View>
             </PannelloFiltri>
-            {tabella ? <Intestazione /> : null}
+            {tabella ? <Intestazione ordine={ordine} ordinaPer={ordinaPer} /> : null}
           </View>
         }
         ListFooterComponent={tabella && dati.length ? <Chiusura /> : null}
@@ -525,17 +549,33 @@ function Riga({
  * Intestazione della tabella: chiude la card in alto e scorre con l'elenco — in
  * questa app c'è una sola area che scorre.
  */
-function Intestazione() {
+function Intestazione({
+  ordine,
+  ordinaPer,
+}: {
+  ordine: { campo: ColonnaAff; verso: 'asc' | 'desc' };
+  ordinaPer: (c: ColonnaAff) => void;
+}) {
+  const col: { c: ColonnaAff; label: string; stile: any }[] = [
+    { c: 'nome', label: 'Negozio', stile: styles.tdNome },
+    { c: 'zona', label: 'Città', stile: styles.tdCitta },
+    { c: 'referente', label: 'Referente', stile: styles.tdRef },
+    { c: 'telefono', label: 'Telefono', stile: styles.tdTel },
+    { c: 'stato_affiliazione', label: 'Stato', stile: styles.tdStato },
+    { c: 'segnalato', label: 'Segnalato da', stile: styles.tdSegnalato },
+    { c: 'ultima_chiamata', label: 'Ultima chiamata', stile: styles.tdQuando },
+  ];
   return (
     <View style={styles.th}>
       <Text style={[styles.thTxt, styles.tdStella]}> </Text>
-      <Text style={[styles.thTxt, styles.tdNome]}>Negozio</Text>
-      <Text style={[styles.thTxt, styles.tdCitta]}>Città</Text>
-      <Text style={[styles.thTxt, styles.tdRef]}>Referente</Text>
-      <Text style={[styles.thTxt, styles.tdTel]}>Telefono</Text>
-      <Text style={[styles.thTxt, styles.tdStato]}>Stato</Text>
-      <Text style={[styles.thTxt, styles.tdSegnalato]}>Segnalato da</Text>
-      <Text style={[styles.thTxt, styles.tdQuando]}>Ultima chiamata</Text>
+      {col.map((h) => (
+        <Pressable key={h.c} style={h.stile} onPress={() => ordinaPer(h.c)}>
+          <Text style={[styles.thTxt, ordine.campo === h.c && styles.thAttiva]} numberOfLines={1}>
+            {h.label}
+            {frecciaOrdine(ordine, h.c)}
+          </Text>
+        </Pressable>
+      ))}
       <Text style={[styles.thTxt, styles.tdAzioni]}> </Text>
     </View>
   );
@@ -668,6 +708,7 @@ const styles = StyleSheet.create({
   },
   // 12px, peso 500, terziario: l'intestazione si legge, non si urla.
   thTxt: { color: colors.grigio, fontSize: 12, fontWeight: '500' },
+  thAttiva: { color: colors.testo, fontWeight: '700' },
   trWrap: {
     backgroundColor: colors.bianco,
     borderLeftWidth: 1,

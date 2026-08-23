@@ -13,13 +13,16 @@
 // Il filtro «Scoperte» toglie le province dove un fornitore attivo c'è già:
 // resta l'elenco di dove si vende (o si potrebbe vendere) senza avere nessuno.
 import { useCallback, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { colors, radius, spacing } from '@/lib/theme';
 import { PROVINCE, siglaProvincia, type Provincia } from '@/lib/province';
+import { frecciaOrdine, ordinaRighe, useOrdinamento } from '@/lib/ordinamento';
 import { fetchTuttiPartner } from '@/lib/anagrafiche';
 import { fetchVenditePerProvincia } from '@/lib/ordini';
+
+type Colonna = 'nome' | 'attivi' | 'lavorazione' | 'lordo';
 
 type Riga = Provincia & {
   attivi: number;
@@ -27,6 +30,41 @@ type Riga = Provincia & {
   ordini: number;
   lordo: number;
 };
+
+/**
+ * I periodi del venduto. **Calcolati nel browser**, mai sul server: su Vercel il
+ * runtime è UTC e la mezzanotte italiana sono le 02:00 — due ore di ogni giorno
+ * finirebbero nel mese prima senza che niente segnali l'errore.
+ *
+ * `a` è ESCLUSIVA (Orders filtra `data < a`), quindi si passa il primo giorno
+ * del periodo successivo.
+ */
+type Periodo = 'mese' | 'trimestre' | 'anno' | 'anno-scorso' | 'tutto';
+
+const ETICHETTA_PERIODO: Record<Periodo, string> = {
+  mese: 'Questo mese',
+  trimestre: 'Trimestre',
+  anno: 'Quest’anno',
+  'anno-scorso': 'Anno scorso',
+  tutto: 'Tutto lo storico',
+};
+
+const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+function intervallo(p: Periodo): { da?: string; a?: string } {
+  const oggi = new Date();
+  const anno = oggi.getFullYear();
+  if (p === 'tutto') return {};
+  if (p === 'mese') {
+    return { da: iso(new Date(anno, oggi.getMonth(), 1)), a: iso(new Date(anno, oggi.getMonth() + 1, 1)) };
+  }
+  if (p === 'trimestre') {
+    const primoMese = Math.floor(oggi.getMonth() / 3) * 3;
+    return { da: iso(new Date(anno, primoMese, 1)), a: iso(new Date(anno, primoMese + 3, 1)) };
+  }
+  if (p === 'anno') return { da: iso(new Date(anno, 0, 1)), a: iso(new Date(anno + 1, 0, 1)) };
+  return { da: iso(new Date(anno - 1, 0, 1)), a: iso(new Date(anno, 0, 1)) };
+}
 
 /** Gli stati del registro che contano come «fornitore attivo». */
 const ATTIVI = new Set(['attivo']);
@@ -45,6 +83,14 @@ export function CoperturaProvince({ onProvincia }: { onProvincia?: (nome: string
   const [registroCompleto, setRegistroCompleto] = useState(true);
   const [senzaProvincia, setSenzaProvincia] = useState<{ ordini: number; lordo: number } | null>(null);
   const [errore, setErrore] = useState<string | null>(null);
+  const [periodo, setPeriodo] = useState<Periodo>('tutto');
+  // Ordinamento: si parte dal venduto più alto, che è la domanda con cui si
+  // apre questa tabella («dove si vende e non abbiamo nessuno?»).
+  const { ordine, ordinaPer } = useOrdinamento<Colonna>({ campo: 'lordo', verso: 'desc' }, [
+    'attivi',
+    'lavorazione',
+    'lordo',
+  ]);
 
   const carica = useCallback(async () => {
     setLoading(true);
@@ -54,7 +100,7 @@ export function CoperturaProvince({ onProvincia }: { onProvincia?: (nome: string
       // partner si vedono lo stesso (e viceversa).
       const [reg, vendite] = await Promise.all([
         fetchTuttiPartner().catch(() => ({ partner: [], completo: false })),
-        fetchVenditePerProvincia(),
+        fetchVenditePerProvincia(intervallo(periodo)),
       ]);
       setRegistroCompleto(reg.completo);
       setVenditeCollegate(!vendite.nonCollegato);
@@ -94,7 +140,7 @@ export function CoperturaProvince({ onProvincia }: { onProvincia?: (nome: string
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [periodo]);
 
   useFocusEffect(
     useCallback(() => {
@@ -104,12 +150,10 @@ export function CoperturaProvince({ onProvincia }: { onProvincia?: (nome: string
 
   const viste = useMemo(() => {
     const f = soloScoperte ? righe.filter((r) => r.attivi === 0) : righe;
-    // Prima dove si vende di più: è lì che un fornitore mancante costa di più.
-    // A parità di venduto, prima chi ha già qualcuno in lavorazione.
-    return [...f].sort(
-      (a, b) => b.lordo - a.lordo || b.lavorazione - a.lavorazione || a.nome.localeCompare(b.nome),
-    );
-  }, [righe, soloScoperte]);
+    // L'ordine lo sceglie chi guarda (intestazioni premibili). Di default il
+    // venduto più alto: è lì che un fornitore mancante costa di più.
+    return ordinaRighe(f, ordine, (r, c) => (c === 'nome' ? r.nome : r[c]));
+  }, [righe, soloScoperte, ordine]);
 
   const totali = useMemo(() => {
     const conAttivi = righe.filter((r) => r.attivi > 0).length;
@@ -120,7 +164,7 @@ export function CoperturaProvince({ onProvincia }: { onProvincia?: (nome: string
   return (
     <View style={styles.wrap}>
       <View style={styles.filtri}>
-        <Chip label="Tutto" on={!soloScoperte} onPress={() => setSoloScoperte(false)} />
+        <Chip label="Tutte" on={!soloScoperte} onPress={() => setSoloScoperte(false)} />
         <Chip label="Scoperte" on={soloScoperte} onPress={() => setSoloScoperte(true)} />
         <Text style={styles.conteggio}>
           {soloScoperte
@@ -128,6 +172,28 @@ export function CoperturaProvince({ onProvincia }: { onProvincia?: (nome: string
             : `${totali.conAttivi} coperte · ${totali.scopribili} scoperte con vendite · ${totali.vuote} vuote`}
         </Text>
       </View>
+
+      {/* Periodo del VENDUTO. ⚠️ Vale solo per l'ultima colonna: fornitori e
+          «in lavorazione» vengono dal registro, che non ha una dimensione
+          temporale — cambiando periodo restano uguali, ed è giusto così. */}
+      <View style={styles.filtri}>
+        {(['mese', 'trimestre', 'anno', 'anno-scorso', 'tutto'] as Periodo[]).map((p) => (
+          <Chip key={p} label={ETICHETTA_PERIODO[p]} on={periodo === p} onPress={() => setPeriodo(p)} />
+        ))}
+      </View>
+      <Text style={styles.notaPeriodo}>
+        Il periodo vale per il <Text style={styles.forte}>venduto</Text>: fornitori e «in lav.» vengono
+        dal registro e non cambiano.
+      </Text>
+
+      {loading ? (
+        <View style={styles.caricamento}>
+          <ActivityIndicator size="small" color={colors.grigio} />
+          <Text style={styles.caricamentoTxt}>
+            Carico le 107 province: partner dal registro e venduto da Deluxy Orders…
+          </Text>
+        </View>
+      ) : null}
 
       {errore ? <Text style={styles.errore}>{errore}</Text> : null}
 
@@ -156,10 +222,19 @@ export function CoperturaProvince({ onProvincia }: { onProvincia?: (nome: string
 
       <View style={styles.tabella}>
         <View style={[styles.riga, styles.intestazione]}>
-          <Text style={[styles.cellaNome, styles.thTxt]}>Provincia</Text>
-          <Text style={[styles.cellaNum, styles.thTxt]}>Fornit.</Text>
-          <Text style={[styles.cellaNum, styles.thTxt]}>In lav.</Text>
-          <Text style={[styles.cellaEuro, styles.thTxt]}>Venduto</Text>
+          {([
+            { c: 'nome' as const, label: 'Provincia', stile: styles.cellaNome },
+            { c: 'attivi' as const, label: 'Fornit.', stile: styles.cellaNum },
+            { c: 'lavorazione' as const, label: 'In lav.', stile: styles.cellaNum },
+            { c: 'lordo' as const, label: 'Venduto', stile: styles.cellaEuro },
+          ]).map((h) => (
+            <Pressable key={h.c} style={h.stile} onPress={() => ordinaPer(h.c)}>
+              <Text style={[styles.thTxt, ordine.campo === h.c && styles.thAttiva]}>
+                {h.label}
+                {frecciaOrdine(ordine, h.c)}
+              </Text>
+            </Pressable>
+          ))}
         </View>
         {viste.map((r) => {
           // Il caso che vale la pena vedere per primo: si vende, ma non abbiamo
@@ -220,6 +295,11 @@ function Chip({ label, on, onPress }: { label: string; on: boolean; onPress: () 
 
 const styles = StyleSheet.create({
   wrap: { gap: spacing.sm },
+  thAttiva: { color: colors.testo, fontWeight: '700' },
+  notaPeriodo: { color: colors.testoSoft, fontSize: 12, marginTop: -2 },
+  forte: { fontWeight: '700', color: colors.testo },
+  caricamento: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: spacing.sm },
+  caricamentoTxt: { color: colors.testoSoft, fontSize: 13, flex: 1 },
   container: { flex: 1, backgroundColor: colors.sfondo },
   list: { padding: spacing.md, gap: spacing.sm, paddingBottom: 96 },
   headerScroll: { marginHorizontal: -spacing.md, marginTop: -spacing.md },
