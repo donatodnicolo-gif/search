@@ -1,6 +1,6 @@
 # Handoff — Deluxy Customer Service
 
-Ultimo aggiornamento: **23/08/2026, ore 22:00** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
+Ultimo aggiornamento: **23/08/2026, ore 22:45** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
 prima, alle 15:10, l'utente ha pubblicato la schermata di consenso Google e il
 conto alla rovescia dei 7 giorni è finito).
 Prima, il 19/08: la **risposta di primo contatto** che parte da sola al primo
@@ -188,6 +188,33 @@ locale, altrimenti nulla si decifra.
     com'è** (131047 dice tutto a chi sa leggerlo) e il pannello lo mostra **in
     rosso** a chi ha chiesto — credere di aver avvisato qualcuno che non sa
     niente è peggio che sapere di non averlo avvisato.
+  - 🐞🐞 **ERA UNA DOMANDA SOLA, E SI È ROTTA AL PRIMO USO VERO.** L'utente ha
+    scritto «aiutami», l'amministratore ha risposto **«cosa hai bisogno?»** — e
+    chi aveva chiesto **non poteva continuare**. Una richiesta d'aiuto **è una
+    conversazione**: quasi mai la prima risposta è quella definitiva.
+    - Tabella nuova `MessaggioAiuto` (`db push` additivo) e bottone **«Scrivi»**
+      su ogni richiesta, per **tutti e due** i lati. Le vecchie risposte nel
+      campo `risposta` sono state **migrate nel filo**
+      (`scripts/migra-aiuto-in-filo.mts`, 1 riga) invece di lasciare due strade
+      di lettura per sempre.
+    - ⚠️ Ogni messaggio nuovo di un operatore **riavvisa su WhatsApp**, con
+      «(ancora)» nel titolo: se no la seconda riga dello scambio resta lì e non
+      la vede nessuno — che è il difetto che stiamo togliendo. E l'avviso di
+      «(ancora)» porta il testo NUOVO, non la domanda iniziale.
+    - ⚠️ Lo stato è `aperta` | `chiusa`, non più «risposta»: **rispondere non
+      vuol dire aver finito**. Si chiude con «Risolto», e scriverci ancora la
+      **riapre** — se qualcuno scrive, evidentemente chiusa non era.
+    - ⚠️ Una risposta da WhatsApp cerca la richiesta fra quelle **non chiuse**,
+      non fra quelle «aperte»: con lo stato vecchio, dopo la prima risposta il
+      filo non era più raggiungibile dal telefono.
+    - ⚠️ `avvisoWaId` è quello dell'**ultimo** avviso: citando un avviso vecchio
+      di uno scambio lungo non si trova più niente, e allora vale il **codice**
+      in testa. È il motivo per cui le due strade servono tutte e due.
+    - ⚠️ Un operatore continua **solo le proprie** (403): intromettersi nello
+      scambio di un collega non è aiutare, è confondere chi deve rispondere.
+    - ✅ Provato con l'anteprima temporanea: filo di tre bolle nell'ordine giusto
+      (OP → ADMIN → OP), richiesta chiusa spenta con «Riapri e scrivi», bottoni
+      «Apri la chat ↗» / «Apri l'ordine ↗» a seconda del contesto.
   - **AL CLIC SI APRE DI CHE COSA PARLA** (chiesto dall'utente): la **chat** da
     cui è nata, o l'**ordine** se chat non ce n'è. Senza né l'una né l'altro la
     riga non è cliccabile — un clic che non fa niente è peggio di un clic che

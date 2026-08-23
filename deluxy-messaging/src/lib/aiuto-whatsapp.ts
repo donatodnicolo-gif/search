@@ -94,17 +94,20 @@ export async function mittenteAvvisi(): Promise<string> {
  * ⚠️ Non solleva mai: la domanda è già salvata, e un errore qui non deve
  * cancellare il lavoro di chi ha chiesto. L'esito torna scritto sulla riga.
  */
-export async function avvisaAmministratore(domandaId: string): Promise<void> {
+export async function avvisaAmministratore(domandaId: string, seguito?: string): Promise<void> {
   const d = await db.domandaAiuto.findUnique({ where: { id: domandaId } })
   if (!d) return
 
   const codice = d.codice || codiceDa(d.id)
+  // ⚠️ Un messaggio successivo si annuncia come tale: «AIUTO K37ZP (ancora)».
+  // Senza, sul telefono sembrerebbe una richiesta nuova, e chi risponde
+  // ricomincerebbe da capo una conversazione già a metà.
   const righe = [
-    `AIUTO ${codice} — ${d.utenteNome || 'un operatore'}`,
+    `AIUTO ${codice}${seguito ? ' (ancora)' : ''} — ${d.utenteNome || 'un operatore'}`,
     d.ordineNumero ? `Ordine ${d.ordineNumero}` : '',
     d.pagina ? `Da: ${d.pagina}` : '',
     '',
-    d.testo,
+    seguito ?? d.testo,
     '',
     // ⚠️ Le due strade sono scritte nel messaggio: chi risponde dal telefono, in
     // piedi, non si ricorda una convenzione che non ha davanti.
@@ -172,8 +175,12 @@ export async function rispostaDaWhatsApp(opz: {
   if (!testo) return { trovata: false }
 
   // 1. La citazione.
+  // ⚠️ `avvisoWaId` è quello dell'ULTIMO avviso mandato per quella richiesta:
+  // citando un avviso vecchio di uno scambio lungo non si trova più niente, e
+  // allora vale il codice in testa. È il motivo per cui le due strade servono
+  // tutte e due.
   let domanda = opz.citato
-    ? await db.domandaAiuto.findFirst({ where: { avvisoWaId: opz.citato, stato: 'aperta' } })
+    ? await db.domandaAiuto.findFirst({ where: { avvisoWaId: opz.citato, stato: { not: 'chiusa' } } })
     : null
   let risposta = testo
 
@@ -182,7 +189,7 @@ export async function rispostaDaWhatsApp(opz: {
     const m = /^([A-Za-z0-9]{5})\b[\s:,-]*([\s\S]*)$/.exec(testo)
     if (m) {
       const trovata = await db.domandaAiuto.findFirst({
-        where: { codice: m[1].toUpperCase(), stato: 'aperta' },
+        where: { codice: m[1].toUpperCase(), stato: { not: 'chiusa' } },
       })
       if (trovata && m[2].trim()) {
         domanda = trovata
@@ -193,18 +200,24 @@ export async function rispostaDaWhatsApp(opz: {
 
   if (!domanda) return { trovata: false }
 
+  // ⚠️ Entra nel FILO, non in un campo «risposta»: una richiesta d'aiuto è uno
+  // scambio, e la prima risposta quasi mai è quella definitiva.
+  // ⚠️ `viaWhatsApp` resta scritto: chi legge ha diritto di sapere che quella
+  // riga è stata scritta dal telefono e non guardando la schermata.
+  await db.messaggioAiuto.create({
+    data: {
+      domandaId: domanda.id,
+      autore: 'admin',
+      autoreNome: 'Amministratore',
+      testo: risposta,
+      viaWhatsApp: true,
+    },
+  })
   await db.domandaAiuto.updateMany({
     where: { id: domanda.id },
-    data: {
-      risposta,
-      stato: 'risposta',
-      // ⚠️ Chi ha risposto resta scritto insieme al COME: una risposta arrivata
-      // da WhatsApp non è stata scritta guardando la schermata, ed è una cosa
-      // che chi la legge ha il diritto di sapere.
-      rispostaDaNome: 'Amministratore (WhatsApp)',
-      rispostaIl: new Date(),
-      lettaIl: null,
-    },
+    // ⚠️ Resta APERTA: rispondere non vuol dire aver finito. Si chiude con un
+    // gesto apposta, quando chi ha chiesto (o chi risponde) dice che basta.
+    data: { stato: 'aperta', lettaIl: null },
   })
   return {
     trovata: true,

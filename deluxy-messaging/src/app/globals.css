@@ -3749,6 +3749,29 @@ td .azioni-ordine {
   line-height: 1.45;
 }
 
-/* Una domanda che porta da qualche parte si vede che ci porta. */
-.aiuto-riga.apribile { cursor: pointer; }
-.aiuto-riga.apribile:hover { background: var(--fill); }
+
+/* Il filo di una richiesta d'aiuto: la domanda e tutto quello che è venuto dopo.
+   ⚠️ Le due parti si distinguono a colpo d'occhio — chi ha chiesto a sinistra,
+   chi risponde col bordo oro: in uno scambio di sei righe, sapere chi ha detto
+   cosa è metà della lettura. */
+.aiuto-filo {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.aiuto-bolla {
+  margin: 0;
+  padding: 7px 10px;
+  border-radius: var(--radius-m);
+  background: var(--fill);
+  font-size: 14px;
+  line-height: 1.45;
+}
+.aiuto-bolla.admin {
+  background: var(--gold-soft);
+  border-left: 3px solid var(--gold);
+}
+/* Una richiesta chiusa non sparisce: si spegne. Sparire vorrebbe dire perdere
+   la memoria dello scambio, che è il motivo per cui la teniamo. */
+.aiuto-riga.chiusa { opacity: 0.62; }

@@ -1394,6 +1394,38 @@ model DomandaAiuto {
 
   creatoIl DateTime @default(now())
 
+  messaggi MessaggioAiuto[]
+
   @@index([stato, creatoIl])
   @@index([utenteId, creatoIl])
+}
+
+// I messaggi di una richiesta d'aiuto: è uno scambio, non una domanda sola.
+//
+// ⚠️⚠️ La prima versione era **una domanda e una risposta**, e si è rotta al
+// primo uso vero: l'amministratore ha risposto «cosa hai bisogno?» e chi aveva
+// chiesto non poteva continuare. Una richiesta d'aiuto **è una conversazione**:
+// quasi mai la prima risposta è quella definitiva.
+//
+// ⚠️ `viaWhatsApp` dice da dove è entrato il messaggio. Chi legge ha diritto di
+// sapere che una riga è stata scritta dal telefono, in piedi, e non guardando
+// la schermata: cambia quanto ci si può appoggiare sopra.
+model MessaggioAiuto {
+  id        String @id @default(cuid())
+  domandaId String
+  domanda   DomandaAiuto @relation(fields: [domandaId], references: [id], onDelete: Cascade)
+
+  /** `operatore` (chi ha chiesto o un collega) | `admin`. */
+  autore     String @default("operatore")
+  autoreNome String @default("")
+  testo      String @db.Text
+  viaWhatsApp Boolean @default(false)
+
+  /** L'avviso mandato su WhatsApp per QUESTO messaggio, e com'è andata. */
+  avvisoWaId  String @default("")
+  avvisoEsito String @default("") @db.Text
+
+  creatoIl DateTime @default(now())
+
+  @@index([domandaId, creatoIl])
 }

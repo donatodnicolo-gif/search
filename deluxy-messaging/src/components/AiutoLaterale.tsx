@@ -9,14 +9,27 @@ import { usePathname } from 'next/navigation'
 // cosa, non prima: se per chiedere bisogna uscire da dove si è, si perde il
 // contesto — e con quello la voglia. La linguetta si apre dove sei.
 //
-// ⚠️⚠️ **Il contesto lo registra il codice, non la persona.** «Che faccio?» non
-// si può rispondere, «che faccio con l'ordine #2783» sì: la pagina e il numero
-// d'ordine si prendono dall'indirizzo. Chiederli in un campo vorrebbe dire che
-// una domanda su tre arriva senza, e chi risponde deve rincorrere.
+// ⚠️⚠️ **È uno SCAMBIO, non una domanda sola.** La prima versione aveva una
+// domanda e una risposta, e si è rotta al primo uso vero: l'amministratore ha
+// risposto «cosa hai bisogno?» e chi aveva chiesto non poteva continuare.
 //
-// ⚠️ Le domande **restano scritte anche dopo la risposta**, ed è il motivo per
-// cui esistono: rilette tutte insieme dicono che cosa non è chiaro — cioè cosa
+// ⚠️⚠️ **Il contesto lo registra il codice, non la persona.** «Che faccio?» non
+// si può rispondere, «che faccio con l'ordine #2783» sì: la pagina e la chat
+// aperta si prendono dall'indirizzo.
+//
+// ⚠️ Le richieste **restano scritte anche dopo**, ed è il motivo per cui
+// esistono: rilette tutte insieme dicono che cosa non è chiaro — cioè cosa
 // manca nel glossario, negli script o nelle istruzioni dell'AI.
+
+type MessaggioAiuto = {
+  id: string
+  autore: string
+  autoreNome: string
+  testo: string
+  viaWhatsApp: boolean
+  avvisoEsito: string
+  creatoIl: string
+}
 
 type Domanda = {
   id: string
@@ -29,9 +42,8 @@ type Domanda = {
   stato: string
   avvisoEsito: string
   codice: string
-  risposta: string
-  rispostaDaNome: string
-  rispostaIl: string | null
+  messaggi: MessaggioAiuto[]
+  ultimoAutore: string
   lettaIl: string | null
   creatoIl: string
 }
@@ -46,19 +58,20 @@ type Dati = {
 const VUOTO: Dati = { domande: [], daRispondere: 0, risposteDaLeggere: 0, amministratore: false }
 
 /**
- * Dove porta una domanda quando ci si clicca sopra.
+ * Dove porta una richiesta quando ci si clicca sopra.
  *
  * ⚠️ Prima la **chat**, poi l'**ordine**: se una domanda nasce da una
  * conversazione, quello che serve a chi risponde è leggere che cosa si sono
- * detti — l'ordine lo si raggiunge da lì. Senza né l'una né l'altro non si
- * porta da nessuna parte: un clic che non fa niente è peggio di un clic che non
- * c'è, perché la prima volta si crede a un guasto.
+ * detti. Senza né l'una né l'altro non si porta da nessuna parte: un clic che
+ * non fa niente è peggio di un clic che non c'è.
  */
 function dovePorta(d: { conversazioneId: string; ordineNumero: string }): string {
   if (d.conversazioneId) return `/inbox?c=${encodeURIComponent(d.conversazioneId)}`
   // ⚠️ Il numero si cerca SENZA cancelletto: è così che lo tiene la ricerca
   // degli ordini globali.
-  if (d.ordineNumero) return `/ordini-globali?q=${encodeURIComponent(d.ordineNumero.replace('#', ''))}`
+  if (d.ordineNumero) {
+    return `/ordini-globali?q=${encodeURIComponent(d.ordineNumero.replace('#', ''))}`
+  }
   return ''
 }
 
@@ -72,7 +85,6 @@ function quando(iso: string): string {
 
 export function AiutoLaterale() {
   const path = usePathname()
-  // Il contesto letto dall'indirizzo nel momento in cui si apre il pannello.
   const [contesto, setContesto] = useState({ conversazione: '', ordine: '' })
   const [aperto, setAperto] = useState(false)
   const [dati, setDati] = useState<Dati>(VUOTO)
@@ -80,8 +92,9 @@ export function AiutoLaterale() {
   const [ordine, setOrdine] = useState('')
   const [salvando, setSalvando] = useState(false)
   const [errore, setErrore] = useState('')
-  const [rispostaA, setRispostaA] = useState('')
-  const [testoRisposta, setTestoRisposta] = useState('')
+  /** Quale filo si sta continuando, e cosa si sta scrivendo dentro. */
+  const [filoAperto, setFiloAperto] = useState('')
+  const [seguito, setSeguito] = useState('')
 
   const carica = useCallback(async () => {
     try {
@@ -94,11 +107,10 @@ export function AiutoLaterale() {
     }
   }, [])
 
-  // ⚠️⚠️ **Ricaricare APRENDO il pannello** è la cosa che mancava, e si è vista
+  // ⚠️⚠️ Ricaricare APRENDO il pannello è la cosa che mancava, e si è vista
   // subito alla prima prova vera: la risposta era arrivata in 17 secondi, ma chi
-  // apriva il pannello vedeva ancora «in attesa» — perché i dati erano quelli
-  // dell'ultimo giro. Un pannello che si apre su una cosa vecchia fa credere
-  // che il canale non funzioni, ed è il modo più veloce per farlo abbandonare.
+  // apriva il pannello vedeva ancora «in attesa». Un pannello che si apre su una
+  // cosa vecchia fa credere che il canale non funzioni.
   useEffect(() => {
     if (aperto) void carica()
   }, [aperto, carica])
@@ -124,8 +136,6 @@ export function AiutoLaterale() {
 
   // ⚠️⚠️ Si legge `window.location` e NON `useSearchParams`: l'inbox scrive la
   // chat aperta con `history.replaceState`, che il router di Next non vede.
-  // Con `useSearchParams` il pannello continuerebbe a leggere l'indirizzo di
-  // quando la pagina è stata caricata — cioè quasi sempre senza la chat.
   // ⚠️ Il parametro è `c`, quello che l'inbox usa davvero: la prima versione
   // cercava `conversazione` e non trovava mai niente.
   useEffect(() => {
@@ -161,8 +171,6 @@ export function AiutoLaterale() {
     }
   }
 
-  // Il pallino sulla linguetta: per l'amministratore le domande che aspettano
-  // lui, per gli altri le risposte che non hanno ancora letto.
   const daVedere = dati.amministratore ? dati.daRispondere : dati.risposteDaLeggere
 
   return (
@@ -174,7 +182,7 @@ export function AiutoLaterale() {
         aria-controls="pannello-aiuto"
         title={
           dati.amministratore
-            ? 'Le domande dei colleghi, e il posto per rispondere'
+            ? 'Le richieste dei colleghi, e il posto per rispondere'
             : 'Chiedi all’amministratore, senza uscire da qui'
         }
       >
@@ -186,7 +194,7 @@ export function AiutoLaterale() {
           <div className="aiuto-velo" onClick={() => setAperto(false)} />
           <aside className="aiuto-pannello" id="pannello-aiuto">
             <div className="aiuto-testa">
-              <strong>{dati.amministratore ? 'Domande dei colleghi' : 'Chiedi aiuto'}</strong>
+              <strong>{dati.amministratore ? 'Richieste dei colleghi' : 'Chiedi aiuto'}</strong>
               <button className="bottone secondario mini" onClick={() => setAperto(false)}>
                 Chiudi
               </button>
@@ -202,7 +210,7 @@ export function AiutoLaterale() {
               <label className="campo">
                 <span>Che cosa ti serve sapere?</span>
                 <textarea
-                  rows={3}
+                  rows={2}
                   value={testo}
                   onChange={(e) => setTesto(e.target.value)}
                   placeholder="Il cliente chiede la consegna alle 7 di mattina: posso confermare?"
@@ -216,12 +224,12 @@ export function AiutoLaterale() {
                   placeholder="#2783"
                 />
               </label>
-              {/* ⚠️ Si dice a schermo che la pagina viene allegata: allegare in
-                  silenzio qualcosa di chi scrive è un modo per farlo scoprire
-                  male. E chi lo sa scrive domande migliori. */}
+              {/* ⚠️ Si dice a schermo che il contesto viene allegato: allegare
+                  in silenzio qualcosa di chi scrive è un modo per farlo
+                  scoprire male. E chi lo sa scrive domande migliori. */}
               <p className="cella-sub" style={{ marginTop: -4, marginBottom: 8 }}>
-                Insieme alla domanda parte anche <strong>da dove la stai facendo</strong> ({path}
-                ): serve a chi risponde per capire di cosa parli.
+                Parte anche <strong>da dove la stai facendo</strong> ({path}
+                {contesto.conversazione ? ', con la chat aperta' : ''}).
               </p>
               <button
                 className="bottone"
@@ -244,152 +252,165 @@ export function AiutoLaterale() {
               </button>
             </div>
 
-            {/* ── L'ELENCO ── */}
+            {/* ── I FILI ── */}
             <div className="aiuto-elenco">
               {dati.domande.length === 0 ? (
                 <p className="descrizione" style={{ padding: 16 }}>
                   {dati.amministratore
                     ? 'Nessuno ha chiesto niente.'
-                    : 'Non hai ancora chiesto niente. Le domande e le risposte restano qui.'}
+                    : 'Non hai ancora chiesto niente. Le richieste e le risposte restano qui.'}
                 </p>
               ) : (
-                dati.domande.map((d) => (
-                  <div
-                    key={d.id}
-                    className={`aiuto-riga${dovePorta(d) ? ' apribile' : ''}`}
-                    // ⚠️ Il clic sta sulla RIGA, non su un link in fondo: chi
-                    // legge una domanda vuole vedere di cosa parla, e cercare un
-                    // bottone piccolo per farlo è un passaggio di troppo.
-                    // ⚠️ Ma non deve rubare i clic dei bottoni che ci stanno
-                    // dentro («Rispondi», «L'ho letta»): quelli fermano l'evento
-                    // da soli, e senza il controllo qui sotto premere Rispondi
-                    // porterebbe via dalla pagina.
-                    onClick={(e) => {
-                      if ((e.target as HTMLElement).closest('button, a, textarea, input')) return
-                      const dove = dovePorta(d)
-                      if (dove) window.location.href = dove
-                    }}
-                  >
-                    <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-                      {d.stato === 'aperta' ? (
-                        <span className="badge rosso">in attesa</span>
-                      ) : (
-                        <span className="badge verde">risposta</span>
-                      )}
-                      {d.ordineNumero ? <span className="badge">{d.ordineNumero}</span> : null}
-                      <span className="cella-sub">
-                        {d.mia ? 'tu' : d.utenteNome} · {quando(d.creatoIl)}
-                        {d.pagina ? ` · da ${d.pagina}` : ''}
-                      </span>
-                    </div>
-                    <p style={{ margin: '5px 0 0', fontSize: 14 }}>{d.testo}</p>
-                    {dovePorta(d) ? (
-                      <p className="cella-sub" style={{ marginTop: 3 }}>
-                        {d.conversazioneId ? 'Clicca per aprire la chat' : 'Clicca per aprire l’ordine'}
-                      </p>
-                    ) : null}
-
-                    {/* ── L'AVVISO SU WHATSAPP ──
-                        ⚠️⚠️ Se non è partito bisogna DIRLO, e forte: chi crede
-                        di aver avvisato qualcuno che invece non sa niente sta
-                        peggio di chi sa di non averlo avvisato. Fuori dalla
-                        finestra di 24 ore WhatsApp rifiuta i messaggi liberi,
-                        e capita spesso. */}
-                    {d.stato === 'aperta' && d.avvisoEsito && d.avvisoEsito !== 'inviato' ? (
-                      <p className="aiuto-avviso-ko">
-                        ⚠️ L’avviso su WhatsApp <strong>non è partito</strong>: {d.avvisoEsito}
-                        <br />
-                        La domanda è comunque salvata e si vede qui. Per riaprire il canale
-                        basta che l’amministratore scriva una parola al numero aziendale.
-                      </p>
-                    ) : null}
-                    {d.stato === 'aperta' && d.avvisoEsito === 'inviato' ? (
-                      <p className="cella-sub" style={{ marginTop: 3 }}>
-                        Avvisato su WhatsApp{d.codice ? ` · codice ${d.codice}` : ''}
-                      </p>
-                    ) : null}
-
-                    {d.risposta ? (
-                      <div className="aiuto-risposta">
-                        <p style={{ margin: 0, fontSize: 14 }}>{d.risposta}</p>
-                        <p className="cella-sub" style={{ marginTop: 3 }}>
-                          {d.rispostaDaNome}
-                          {d.rispostaIl ? ` · ${quando(d.rispostaIl)}` : ''}
-                        </p>
-                        {/* ⚠️ «L'ho letta» toglie il pallino solo a chi ha
-                            chiesto: è il segnale che la risposta è arrivata a
-                            destinazione, non che è stata scritta. */}
-                        {d.mia && !d.lettaIl ? (
-                          <button
+                dati.domande.map((d) => {
+                  const stoScrivendo = filoAperto === d.id
+                  // ⚠️ Un operatore continua solo le PROPRIE: intromettersi
+                  // nello scambio di un collega non è aiutare, è confondere chi
+                  // deve rispondere.
+                  const posso = dati.amministratore || d.mia
+                  return (
+                    <div key={d.id} className={`aiuto-riga${d.stato === 'chiusa' ? ' chiusa' : ''}`}>
+                      <div
+                        style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}
+                      >
+                        {d.stato === 'chiusa' ? (
+                          <span className="badge">chiusa</span>
+                        ) : d.ultimoAutore === 'operatore' ? (
+                          <span className="badge rosso">aspetta risposta</span>
+                        ) : (
+                          <span className="badge verde">ha risposto</span>
+                        )}
+                        {d.ordineNumero ? <span className="badge">{d.ordineNumero}</span> : null}
+                        <span className="cella-sub">
+                          {d.mia ? 'tu' : d.utenteNome} · {quando(d.creatoIl)}
+                          {d.pagina ? ` · da ${d.pagina}` : ''}
+                        </span>
+                        {dovePorta(d) ? (
+                          <a
                             className="bottone secondario mini"
-                            disabled={salvando}
-                            onClick={() => void manda({ azione: 'letta', id: d.id })}
+                            href={dovePorta(d)}
+                            style={{ marginLeft: 'auto' }}
                           >
-                            L’ho letta
-                          </button>
+                            {d.conversazioneId ? 'Apri la chat ↗' : 'Apri l’ordine ↗'}
+                          </a>
                         ) : null}
                       </div>
-                    ) : null}
 
-                    {dati.amministratore && d.stato === 'aperta' ? (
-                      rispostaA === d.id ? (
-                        <div style={{ marginTop: 6 }}>
-                          <textarea
-                            rows={2}
-                            value={testoRisposta}
-                            onChange={(e) => setTestoRisposta(e.target.value)}
-                            placeholder="La risposta…"
-                            style={{ width: '100%' }}
-                          />
-                          <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
-                            <button
-                              className="bottone mini"
-                              disabled={salvando || !testoRisposta.trim()}
-                              onClick={async () => {
-                                const ok = await manda({
-                                  azione: 'rispondi',
-                                  id: d.id,
-                                  testo: testoRisposta,
-                                })
-                                if (ok) {
-                                  setRispostaA('')
-                                  setTestoRisposta('')
-                                }
-                              }}
-                            >
-                              Manda la risposta
-                            </button>
-                            <button
-                              className="bottone secondario mini"
-                              onClick={() => setRispostaA('')}
-                            >
-                              Lascia stare
-                            </button>
-                          </div>
+                      {/* Il filo: la domanda, e tutto quello che è venuto dopo. */}
+                      <div className="aiuto-filo">
+                        <p className="aiuto-bolla operatore">{d.testo}</p>
+                        {d.messaggi.map((m) => (
+                          <p
+                            key={m.id}
+                            className={`aiuto-bolla ${m.autore === 'admin' ? 'admin' : 'operatore'}`}
+                          >
+                            {m.testo}
+                            <span className="cella-sub" style={{ display: 'block', marginTop: 2 }}>
+                              {m.autoreNome}
+                              {/* ⚠️ Da dove è entrato il messaggio resta scritto:
+                                  una riga scritta dal telefono, in piedi, non è
+                                  una riga scritta guardando la schermata. */}
+                              {m.viaWhatsApp ? ' · da WhatsApp' : ''} · {quando(m.creatoIl)}
+                            </span>
+                          </p>
+                        ))}
+                      </div>
+
+                      {d.stato !== 'chiusa' && d.avvisoEsito && d.avvisoEsito !== 'inviato' ? (
+                        <p className="aiuto-avviso-ko">
+                          ⚠️ L’avviso su WhatsApp <strong>non è partito</strong>: {d.avvisoEsito}
+                          <br />
+                          La richiesta è comunque salvata e si vede qui. Per riaprire il canale
+                          basta che l’amministratore scriva una parola al numero aziendale.
+                        </p>
+                      ) : null}
+
+                      {posso ? (
+                        <div style={{ marginTop: 8, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                          {stoScrivendo ? (
+                            <>
+                              <textarea
+                                rows={2}
+                                value={seguito}
+                                onChange={(e) => setSeguito(e.target.value)}
+                                placeholder="Continua…"
+                                style={{ width: '100%' }}
+                              />
+                              <button
+                                className="bottone mini"
+                                disabled={salvando || !seguito.trim()}
+                                onClick={async () => {
+                                  const ok = await manda({
+                                    azione: 'scrivi',
+                                    id: d.id,
+                                    testo: seguito,
+                                  })
+                                  if (ok) {
+                                    setSeguito('')
+                                    setFiloAperto('')
+                                  }
+                                }}
+                              >
+                                Manda
+                              </button>
+                              <button
+                                className="bottone secondario mini"
+                                onClick={() => {
+                                  setFiloAperto('')
+                                  setSeguito('')
+                                }}
+                              >
+                                Lascia stare
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              {/* ⚠️ Lo stesso bottone per tutti e due: chi ha
+                                  chiesto continua, chi risponde risponde. È il
+                                  difetto che stiamo togliendo — «cosa hai
+                                  bisogno?» dev'essere una domanda a cui si può
+                                  rispondere, non un vicolo cieco. */}
+                              <button
+                                className="bottone secondario mini"
+                                onClick={() => {
+                                  setFiloAperto(d.id)
+                                  setSeguito('')
+                                }}
+                              >
+                                {d.stato === 'chiusa' ? 'Riapri e scrivi' : 'Scrivi'}
+                              </button>
+                              {d.stato !== 'chiusa' ? (
+                                <button
+                                  className="bottone secondario mini"
+                                  disabled={salvando}
+                                  onClick={() => void manda({ azione: 'chiudi', id: d.id })}
+                                >
+                                  Risolto
+                                </button>
+                              ) : null}
+                              {d.mia && d.ultimoAutore === 'admin' && !d.lettaIl ? (
+                                <button
+                                  className="bottone secondario mini"
+                                  disabled={salvando}
+                                  onClick={() => void manda({ azione: 'letta', id: d.id })}
+                                >
+                                  L’ho letta
+                                </button>
+                              ) : null}
+                            </>
+                          )}
                         </div>
-                      ) : (
-                        <button
-                          className="bottone secondario mini"
-                          style={{ marginTop: 6 }}
-                          onClick={() => {
-                            setRispostaA(d.id)
-                            setTestoRisposta('')
-                          }}
-                        >
-                          Rispondi
-                        </button>
-                      )
-                    ) : null}
-                  </div>
-                ))
+                      ) : null}
+                    </div>
+                  )
+                })
               )}
             </div>
 
             <p className="cella-sub" style={{ padding: '10px 16px', margin: 0 }}>
-              La domanda arriva all’amministratore <strong>su WhatsApp</strong>, e lui può
-              rispondere da lì: la risposta compare qui. Le domande restano scritte anche
-              dopo la risposta — rilette tutte insieme dicono che cosa non è chiaro, e da lì
-              si capisce cosa aggiungere al glossario o alle risposte pronte.
+              La richiesta arriva all’amministratore <strong>su WhatsApp</strong>, e lui può
+              rispondere da lì: la risposta compare qui e <strong>la conversazione
+              continua</strong>. Resta scritta anche dopo — rilette tutte insieme, le
+              richieste dicono che cosa non è chiaro.
             </p>
           </aside>
         </>

@@ -5,11 +5,25 @@ import { avvisaAmministratore, codiceDa } from '@/lib/aiuto-whatsapp'
 
 export const dynamic = 'force-dynamic'
 
-// Le domande all'amministratore: si scrivono dal pannello laterale, si
-// rispondono da lì, e restano scritte.
+// Le richieste d'aiuto: si scrivono dal pannello laterale, si continuano lì o
+// da WhatsApp, e restano scritte.
+//
+// ⚠️⚠️ **È uno SCAMBIO, non una domanda sola.** La prima versione aveva una
+// domanda e una risposta, e si è rotta al primo uso vero: l'amministratore ha
+// risposto «cosa hai bisogno?» e chi aveva chiesto non poteva continuare.
 //
 // ⚠️ Non c'è un ruolo per CHIEDERE: chiunque lavori può bloccarsi. C'è per
-// RISPONDERE, e per vedere le domande degli altri: quelle sono di chi coordina.
+// vedere le richieste degli altri: quelle sono di chi coordina.
+
+type MessaggioDto = {
+  id: string
+  autore: string
+  autoreNome: string
+  testo: string
+  viaWhatsApp: boolean
+  avvisoEsito: string
+  creatoIl: string
+}
 
 type DomandaDto = {
   id: string
@@ -22,50 +36,63 @@ type DomandaDto = {
   stato: string
   avvisoEsito: string
   codice: string
-  risposta: string
-  rispostaDaNome: string
-  rispostaIl: string | null
+  messaggi: MessaggioDto[]
+  /** Chi ha scritto per ultimo: `operatore` o `admin`. Decide di chi è la palla. */
+  ultimoAutore: string
   lettaIl: string | null
   creatoIl: string
 }
 
 async function elenco(ioId: string, amministratore: boolean) {
-  // ⚠️ Un operatore vede **le sue**, un amministratore **tutte**: le domande
-  // degli altri raccontano dove sono in difficoltà i colleghi, e non è
-  // materiale da corridoio.
   const righe = await db.domandaAiuto.findMany({
     where: amministratore ? {} : { utenteId: ioId },
     orderBy: [{ stato: 'asc' }, { creatoIl: 'desc' }],
-    take: 200,
+    take: 100,
+    include: { messaggi: { orderBy: { creatoIl: 'asc' } } },
   })
-  const domande: DomandaDto[] = righe.map((d) => ({
-    id: d.id,
-    testo: d.testo,
-    pagina: d.pagina,
-    ordineNumero: d.ordineNumero,
-    conversazioneId: d.conversazioneId,
-    utenteNome: d.utenteNome,
-    mia: d.utenteId === ioId,
-    stato: d.stato,
-    avvisoEsito: d.avvisoEsito,
-    codice: d.codice,
-    risposta: d.risposta,
-    rispostaDaNome: d.rispostaDaNome,
-    rispostaIl: d.rispostaIl?.toISOString() ?? null,
-    lettaIl: d.lettaIl?.toISOString() ?? null,
-    creatoIl: d.creatoIl.toISOString(),
-  }))
+
+  const domande: DomandaDto[] = righe.map((d) => {
+    const messaggi = d.messaggi.map((m) => ({
+      id: m.id,
+      autore: m.autore,
+      autoreNome: m.autoreNome,
+      testo: m.testo,
+      viaWhatsApp: m.viaWhatsApp,
+      avvisoEsito: m.avvisoEsito,
+      creatoIl: m.creatoIl.toISOString(),
+    }))
+    return {
+      id: d.id,
+      testo: d.testo,
+      pagina: d.pagina,
+      ordineNumero: d.ordineNumero,
+      conversazioneId: d.conversazioneId,
+      utenteNome: d.utenteNome,
+      mia: d.utenteId === ioId,
+      stato: d.stato,
+      avvisoEsito: d.avvisoEsito,
+      codice: d.codice,
+      messaggi,
+      // ⚠️ La prima riga è sempre di chi ha chiesto: se non c'è nessun
+      // messaggio dopo, la palla è ancora dell'amministratore.
+      ultimoAutore: messaggi.length ? messaggi[messaggi.length - 1].autore : 'operatore',
+      lettaIl: d.lettaIl?.toISOString() ?? null,
+      creatoIl: d.creatoIl.toISOString(),
+    }
+  })
 
   // I due numeri della linguetta, e sono due cose diverse:
-  // · l'amministratore deve sapere quante domande **aspettano lui**;
-  // · chi ha chiesto deve sapere che **gli hanno risposto** — anche se nel
-  //   frattempo è andato su un'altra pagina, o quella risposta non la vede mai.
+  // · l'amministratore deve sapere quante richieste **aspettano lui** — cioè
+  //   quelle aperte in cui l'ultima parola è di un operatore;
+  // · chi ha chiesto deve sapere che **gli hanno risposto**, anche se nel
+  //   frattempo è andato su un'altra pagina.
   const daRispondere = amministratore
-    ? await db.domandaAiuto.count({ where: { stato: 'aperta' } })
+    ? domande.filter((d) => d.stato === 'aperta' && d.ultimoAutore === 'operatore').length
     : 0
-  const risposteDaLeggere = await db.domandaAiuto.count({
-    where: { utenteId: ioId, stato: 'risposta', lettaIl: null },
-  })
+  const risposteDaLeggere = domande.filter(
+    (d) => d.mia && d.ultimoAutore === 'admin' && !d.lettaIl
+  ).length
+
   return { domande, daRispondere, risposteDaLeggere, amministratore }
 }
 
@@ -76,7 +103,7 @@ export async function GET() {
 }
 
 type Corpo = {
-  azione?: 'chiedi' | 'rispondi' | 'letta'
+  azione?: 'chiedi' | 'scrivi' | 'letta' | 'chiudi' | 'riapri'
   id?: string
   testo?: string
   pagina?: string
@@ -90,27 +117,57 @@ export async function POST(req: NextRequest) {
   const c = (await req.json().catch(() => ({}))) as Corpo
   const amministratore = io.ruolo === 'admin'
 
-  // ── Rispondere ──
-  if (c.azione === 'rispondi') {
-    if (!amministratore) {
-      return NextResponse.json({ errore: 'Rispondono gli amministratori.' }, { status: 403 })
-    }
+  // ── Continuare lo scambio ──
+  //
+  // ⚠️ Scrivono tutti e due: chi ha chiesto e chi risponde. È il punto di
+  // questa modifica — «cosa hai bisogno?» dev'essere una domanda a cui si può
+  // rispondere, non un vicolo cieco.
+  if (c.azione === 'scrivi') {
     const testo = (c.testo ?? '').trim()
-    if (!c.id || !testo) {
-      return NextResponse.json({ errore: 'Scrivi la risposta.' }, { status: 400 })
+    if (!c.id || !testo) return NextResponse.json({ errore: 'Scrivi qualcosa.' }, { status: 400 })
+    const d = await db.domandaAiuto.findUnique({ where: { id: c.id } })
+    if (!d) return NextResponse.json({ errore: 'Richiesta non trovata.' }, { status: 404 })
+    // ⚠️ Un operatore scrive solo nelle proprie: intromettersi nello scambio di
+    // un collega non è aiutare, è confondere chi risponde.
+    if (!amministratore && d.utenteId !== io.id) {
+      return NextResponse.json({ errore: 'Non è una tua richiesta.' }, { status: 403 })
+    }
+
+    await db.messaggioAiuto.create({
+      data: {
+        domandaId: d.id,
+        autore: amministratore ? 'admin' : 'operatore',
+        autoreNome: io.nome,
+        testo,
+      },
+    })
+    // ⚠️ Chi ha chiesto deve rileggere: una risposta nuova azzera «letta».
+    // E una richiesta chiusa che riceve un messaggio si RIAPRE — se qualcuno
+    // scrive ancora, evidentemente chiusa non era.
+    await db.domandaAiuto.updateMany({
+      where: { id: d.id },
+      data: { lettaIl: amministratore ? null : d.lettaIl, stato: 'aperta' },
+    })
+
+    // ⚠️ Se scrive un operatore, l'amministratore va avvisato su WhatsApp come
+    // per la prima domanda: se no la seconda riga dello scambio resta lì e
+    // nessuno la vede — che è esattamente il difetto che stiamo togliendo.
+    if (!amministratore) await avvisaAmministratore(d.id, testo)
+
+    return NextResponse.json(await elenco(io.id, amministratore))
+  }
+
+  // ── Chiudere / riaprire ──
+  if (c.azione === 'chiudi' || c.azione === 'riapri') {
+    if (!c.id) return NextResponse.json({ errore: 'Manca l’id.' }, { status: 400 })
+    const d = await db.domandaAiuto.findUnique({ where: { id: c.id } })
+    if (!d) return NextResponse.json({ errore: 'Richiesta non trovata.' }, { status: 404 })
+    if (!amministratore && d.utenteId !== io.id) {
+      return NextResponse.json({ errore: 'Non è una tua richiesta.' }, { status: 403 })
     }
     await db.domandaAiuto.updateMany({
       where: { id: c.id },
-      data: {
-        risposta: testo,
-        stato: 'risposta',
-        rispostaDaNome: io.nome,
-        rispostaIl: new Date(),
-        // ⚠️ Rispondere azzera «letta»: se l'amministratore corregge una
-        // risposta già letta, chi aveva chiesto deve rivederla — altrimenti
-        // resta con la versione vecchia e nessuno se ne accorge.
-        lettaIl: null,
-      },
+      data: { stato: c.azione === 'chiudi' ? 'chiusa' : 'aperta' },
     })
     return NextResponse.json(await elenco(io.id, amministratore))
   }
@@ -118,8 +175,6 @@ export async function POST(req: NextRequest) {
   // ── «L'ho letta» ──
   if (c.azione === 'letta') {
     if (!c.id) return NextResponse.json({ errore: 'Manca l’id.' }, { status: 400 })
-    // Solo le proprie: segnare come letta la domanda di un collega toglierebbe
-    // a lui il pallino senza che l'abbia vista.
     await db.domandaAiuto.updateMany({
       where: { id: c.id, utenteId: io.id },
       data: { lettaIl: new Date() },
@@ -151,8 +206,7 @@ export async function POST(req: NextRequest) {
   })
   // ⚠️ L'avviso si aspetta (non è un `void`): l'esito va mostrato subito a chi
   // ha chiesto. Se fuori dalla finestra di 24h WhatsApp lo rifiuta, chi scrive
-  // deve saperlo adesso — non credere di aver avvisato qualcuno che non sa
-  // niente. La funzione non solleva mai.
+  // deve saperlo adesso. La funzione non solleva mai.
   await avvisaAmministratore(creata.id)
   return NextResponse.json(await elenco(io.id, amministratore))
 }

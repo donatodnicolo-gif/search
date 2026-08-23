@@ -51,10 +51,26 @@ letta». ⚠️ Senza, una risposta arrivata mentre eri su un'altra pagina non t
 e tu resti bloccato mentre chi ha risposto ti dà per risolto. ⚠️ Se un amministratore
 corregge una risposta già letta, il pallino torna: se no resteresti con la versione vecchia.
 
-**Cliccando una domanda si apre di che cosa parla**: la **chat** da cui è nata, o — se non
-c'è una chat ma un numero d'ordine — l'**ordine**. Se non c'è né l'una né l'altro la riga
-non è cliccabile, e si vede: un clic che non fa niente è peggio di un clic che non c'è,
-perché la prima volta si crede a un guasto.
+**Una richiesta è uno scambio, non una domanda sola.** Dopo la prima risposta la
+conversazione continua: c'è **«Scrivi»** su ogni richiesta, e lo usano tutti e due — chi ha
+chiesto e chi risponde. ⚠️ Era il difetto della prima versione, e si è visto al primo uso
+vero: l'amministratore ha risposto «cosa hai bisogno?» e chi aveva chiesto **non poteva
+continuare**.
+
+Il filo si legge a colpo d'occhio: le righe di chi ha chiesto sono grigie, quelle di chi
+risponde hanno il bordo oro, e sotto ognuna c'è chi l'ha scritta e **se è arrivata da
+WhatsApp** — una riga scritta dal telefono, in piedi, non è una riga scritta guardando la
+schermata.
+
+Ogni messaggio nuovo di un operatore **riavvisa l'amministratore su WhatsApp** («AIUTO
+K37ZP (ancora)»), se no la seconda riga dello scambio resterebbe lì senza che nessuno la
+veda. Quando basta, **«Risolto»** chiude la richiesta: resta scritta, spenta, e si riapre
+scrivendoci ancora.
+
+**Il bottone «Apri la chat ↗»** su ogni richiesta apre di che cosa parla: la **chat** da
+cui è nata, o — se una chat non c'è ma c'è un numero d'ordine — l'**ordine**. Se non c'è né
+l'una né l'altro il bottone non compare: un bottone che non fa niente è peggio di un
+bottone che non c'è, perché la prima volta si crede a un guasto.
 
 ⚠️ Perché la chat si sappia, l'inbox adesso **scrive nell'indirizzo quale conversazione è
 aperta** (`?c=…`). Serve a due cose che prima non funzionavano: il link a una
