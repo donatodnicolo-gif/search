@@ -24,17 +24,45 @@ export async function AnnunciAccodati({
   /** Dove tornare dopo aver approvato: finisce nel link di Operazioni. */
   ritorno: string;
 }) {
-  const ops = await prisma.operazioneAdv.findMany({
-    where: {
-      gruppoId,
-      tipo: "nuovo_annuncio",
-      // Le vive e le fallite: sono quelle su cui si può ancora fare qualcosa.
-      // Le eseguite no — quelle sono su Google e si vedono nell'elenco vero.
-      stato: { in: ["in_attesa", "approvata", "fallita"] },
-    },
-    orderBy: { creataIl: "desc" },
-    take: 5,
-  });
+  const [grezze, ultimaRiuscita] = await Promise.all([
+    prisma.operazioneAdv.findMany({
+      where: {
+        gruppoId,
+        tipo: "nuovo_annuncio",
+        // Le vive e le fallite: sono quelle su cui si può ancora fare qualcosa.
+        // Le eseguite no — quelle sono su Google e si vedono nell'elenco vero.
+        stato: { in: ["in_attesa", "approvata", "fallita"] },
+      },
+      orderBy: { creataIl: "desc" },
+      take: 5,
+    }),
+    // L'ultimo annuncio andato a buon fine su questo gruppo: serve a capire
+    // quali fallimenti sono ormai storia.
+    prisma.operazioneAdv.findFirst({
+      where: { gruppoId, tipo: "nuovo_annuncio", stato: "eseguita" },
+      orderBy: { eseguitaIl: "desc" },
+      select: { eseguitaIl: true },
+    }),
+  ]);
+
+  // ⚠️ UN FALLIMENTO SUPERATO NON È LAVORO DA FARE.
+  //
+  // Il tentativo del 21/08 sulla WORLD-ENG era morto per un titolo ripetuto;
+  // poi l'annuncio è stato creato davvero, due volte. La scheda continuava a
+  // mostrare quel fallimento in rosso, in cima, con «Modifica» accanto: cioè
+  // chiedeva di riparare una cosa già riparata. È la stessa regola delle
+  // conferme in /operazioni — **solo l'ultimo tentativo su un bersaglio può
+  // essere giudicato** — applicata qui.
+  //
+  // Non si cancella niente: il tentativo resta nello storico di /operazioni,
+  // dove la storia è quello che si va a cercare.
+  const soglia = ultimaRiuscita?.eseguitaIl ?? null;
+  const superate = grezze.filter(
+    (o) => o.stato === "fallita" && soglia != null && (o.eseguitaIl ?? o.creataIl) < soglia
+  ).length;
+  const ops = grezze.filter(
+    (o) => !(o.stato === "fallita" && soglia != null && (o.eseguitaIl ?? o.creataIl) < soglia)
+  );
   if (ops.length === 0) return null;
 
   const ETICHETTA: Record<string, { testo: string; colore: string }> = {
@@ -45,6 +73,13 @@ export async function AnnunciAccodati({
 
   return (
     <div style={{ marginBottom: 14 }}>
+      {superate > 0 && (
+        <div className="cella-sub" style={{ whiteSpace: "normal" }}>
+          {superate === 1
+            ? "Un tentativo precedente era fallito, ma l'annuncio è poi stato creato: resta nello storico delle operazioni."
+            : `${superate} tentativi precedenti erano falliti, ma l'annuncio è poi stato creato: restano nello storico delle operazioni.`}
+        </div>
+      )}
       {ops.map((o) => {
         let par: { titoli?: string[]; descrizioni?: string[]; finalUrl?: string } = {};
         try {
