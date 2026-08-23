@@ -107,12 +107,14 @@ export function AdattaBudget({
     brand: string;
     modifiche: { campagnaId: string; budget: number }[];
     motivo: string;
+    dal?: string;
   }) => Promise<{ ok: true; messaggio: string } | { ok: false; errore: string }>;
 }) {
   const [valori, setValori] = useState<Record<string, string>>(() =>
     Object.fromEntries(campagne.map((c) => [c.id, c.budget != null ? String(c.budget) : ""]))
   );
   const [motivo, setMotivo] = useState("");
+  const [dal, setDal] = useState("");
   const [esito, setEsito] = useState<{ ok: true; messaggio: string } | { ok: false; errore: string } | null>(null);
   const [inCorso, avvia] = useTransition();
 
@@ -544,6 +546,25 @@ export function AdattaBudget({
         </p>
       )}
 
+      {/* ⚠️ QUANDO, non solo quanto. Senza questa casella l'unica scelta era
+          «adesso»: per far valere un budget dal primo del mese bisognava
+          ricordarsi di tornare qui quel giorno — e chi se lo ricorda una
+          volta su due ha una spesa sbagliata per una settimana. */}
+      <div className="campo-modulo" style={{ marginTop: 12 }}>
+        <label>Da quando (vuoto = appena approvate)</label>
+        <input
+          type="date"
+          value={dal}
+          onChange={(e) => setDal(e.target.value)}
+          style={{ font: "inherit", padding: "8px 10px", borderRadius: 8, border: "1px solid var(--hairline-strong)" }}
+        />
+        <span className="cella-sub" style={{ whiteSpace: "normal" }}>
+          {dal
+            ? "Restano ferme in coda fino a quel giorno, anche se le approvi adesso: parte il primo giro utile dopo."
+            : "Partono al primo giro dopo l'approvazione."}
+        </span>
+      </div>
+
       <div className="campo-modulo largo" style={{ marginTop: 12 }}>
         <label>Perché (finisce nello storico di ogni operazione)</label>
         <input
@@ -574,7 +595,7 @@ export function AdattaBudget({
           onClick={() => {
             setEsito(null);
             avvia(async () => {
-              const r = await azione({ brand, modifiche, motivo });
+              const r = await azione({ brand, modifiche, motivo, dal: dal || undefined });
               setEsito(r);
             });
           }}

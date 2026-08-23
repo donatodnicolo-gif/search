@@ -18,6 +18,11 @@ export async function GET(req: NextRequest) {
       stato: "approvata",
       canale: p.get("canale") ?? "google_ads",
       ...(p.get("account") ? { account: p.get("account")! } : {}),
+      // ⚠️ Le PROGRAMMATE non si consegnano prima del loro giorno. Il filtro
+      // sta qui, nel punto in cui lo script viene a prendersi il lavoro:
+      // così vale per qualunque copia dello script, anche quelle vecchie, e
+      // non serve reincollare niente perché la programmazione funzioni.
+      OR: [{ daEseguireDal: null }, { daEseguireDal: { lte: new Date() } }],
     },
     orderBy: { approvataIl: "asc" },
     take: 50,

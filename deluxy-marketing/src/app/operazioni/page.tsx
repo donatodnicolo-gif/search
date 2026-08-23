@@ -228,11 +228,19 @@ export default async function PaginaOperazioni({
     // AGGIUNGE (non sostituisce): il testo originale serve a cercarlo, e su
     // un errore sconosciuto una frase generica sarebbe peggio del JSON.
     const spiegato = spiegaErroreGoogle(o.esito);
+    // ⚠️ Una PROGRAMMATA approvata non sta per partire: senza dirlo si legge
+    //    come le altre, e chi guarda la coda si aspetta di vederla eseguita
+    //    stanotte.
+    const programmata =
+      o.daEseguireDal && o.daEseguireDal.getTime() > Date.now()
+        ? o.daEseguireDal.toLocaleDateString("it-IT")
+        : null;
     const dettagli = [
       o.prima ? `prima: ${o.prima}` : null,
       o.motivo || null,
       // La traduzione PRIMA del testo grezzo: e' quella che si legge.
       spiegato,
+      programmata ? `programmata: parte dal ${programmata}` : null,
       o.esito ? `esito: ${o.esito}` : null,
     ].filter(Boolean);
 

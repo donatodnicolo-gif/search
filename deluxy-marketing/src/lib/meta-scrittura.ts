@@ -245,7 +245,14 @@ export async function eseguiOperazioniMeta(opzioni: { limite?: number } = {}) {
   }
 
   const operazioni = await prisma.operazioneAdv.findMany({
-    where: { canale: "meta_ads", stato: "approvata" },
+    // ⚠️ Anche qui le programmate aspettano il loro giorno: se il filtro
+    // stesse solo dall'altra parte, «Esegui adesso» sarebbe la scorciatoia
+    // che scavalca una data messa apposta.
+    where: {
+      canale: "meta_ads",
+      stato: "approvata",
+      OR: [{ daEseguireDal: null }, { daEseguireDal: { lte: new Date() } }],
+    },
     orderBy: { approvataIl: "asc" },
     take: opzioni.limite ?? 10,
   });

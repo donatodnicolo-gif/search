@@ -906,6 +906,18 @@ model OperazioneAdv {
   richiestaDa String    @default("utente")
   approvataDa String?
   approvataIl DateTime?
+  // Da quando può partire. `null` = appena approvata, come è sempre stato.
+  //
+  // ⚠️ È una data DI PARTENZA, non un orario di esecuzione: l'operazione
+  // parte al primo giro utile DOPO quel giorno. Prometterlo al minuto
+  // vorrebbe dire promettere qualcosa che dipende dallo scheduler di Google
+  // (o da chi preme, su Meta).
+  //
+  // ⚠️ La rispetta CHI ESEGUE, non solo la schermata: l'endpoint che serve
+  // le operazioni allo script e l'esecutore Meta filtrano su questo campo.
+  // Una data che vive solo nell'interfaccia è una promessa che il primo giro
+  // notturno smentisce.
+  daEseguireDal DateTime?
   eseguitaIl  DateTime?
   // «Lo so, è voluto»: quando qualcuno dichiara che la differenza fra ciò che
   // l'app crede e ciò che Google riporta è una SUA decisione, non un guasto.

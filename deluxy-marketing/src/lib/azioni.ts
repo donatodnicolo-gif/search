@@ -3733,6 +3733,16 @@ export async function accodaBudgetCampagne(input: {
   brand: string;
   modifiche: { campagnaId: string; budget: number }[];
   motivo: string;
+  /**
+   * Da quando può partire (gg/mm/aaaa in formato ISO). Vuoto = appena
+   * approvata, come è sempre stato.
+   *
+   * ⚠️ È una data di PARTENZA, non un orario: l'operazione parte al primo
+   * giro utile dopo quel giorno. Su Google lo script passa da solo, su Meta
+   * esegue chi preme — promettere il minuto sarebbe promettere una cosa che
+   * non dipende da noi.
+   */
+  dal?: string;
 }): Promise<{ ok: true; messaggio: string } | { ok: false; errore: string }> {
   const modifiche = input.modifiche.filter((m) => m.campagnaId && Number.isFinite(m.budget) && m.budget > 0);
   if (modifiche.length === 0) return { ok: false, errore: "Non c'è nessun budget nuovo da mettere in coda." };
@@ -3755,6 +3765,25 @@ export async function accodaBudgetCampagne(input: {
     select: { campagnaId: true },
   });
   const gia = new Set(inCoda.map((o) => o.campagnaId));
+
+  // ⚠️ Una data nel PASSATO non si accetta in silenzio: farebbe partire tutto
+  // al primo giro, cioè l'opposto di quello che chiede chi la scrive.
+  let daEseguireDal: Date | null = null;
+  if (input.dal) {
+    const d = new Date(`${input.dal}T00:00:00`);
+    if (Number.isNaN(d.getTime())) {
+      return { ok: false, errore: "La data di partenza non si legge." };
+    }
+    const oggi = new Date();
+    oggi.setHours(0, 0, 0, 0);
+    if (d.getTime() < oggi.getTime()) {
+      return {
+        ok: false,
+        errore: "La data di partenza è nel passato: così partirebbero al primo giro. Lascia vuoto se le vuoi subito.",
+      };
+    }
+    if (d.getTime() > oggi.getTime()) daEseguireDal = d;
+  }
 
   let messe = 0;
   const saltate: string[] = [];
@@ -3785,6 +3814,7 @@ export async function accodaBudgetCampagne(input: {
             : null,
         livello: "L2",
         prima: prima != null ? `budget ${prima} €/g` : "budget non noto",
+        daEseguireDal,
       },
     });
     messe++;
@@ -3803,7 +3833,10 @@ export async function accodaBudgetCampagne(input: {
   return {
     ok: true,
     messaggio:
-      `${messe === 1 ? "1 modifica messa" : `${messe} modifiche messe`} in coda.` +
+      `${messe === 1 ? "1 modifica messa" : `${messe} modifiche messe`} in coda` +
+      (daEseguireDal
+        ? `, programmate dal ${daEseguireDal.toLocaleDateString("it-IT")}: restano ferme fino a quel giorno anche se le approvi adesso.`
+        : ".") +
       (saltate.length
         ? ` Saltate perché ne hanno già una in coda: ${saltate.join(", ")}.`
         : ""),
