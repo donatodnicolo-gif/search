@@ -330,7 +330,7 @@ export function AdattaBudget({
               <th>Campagna</th>
               <th className="num">Adesso</th>
               <th className="num">Nuovo €/giorno</th>
-              <th className="num">Differenza</th>
+              <th className="num">A fine mese</th>
             </tr>
           </thead>
           {/* ⚠️ UN BLOCCO PER PIATTAFORMA. Google e Meta hanno budget
@@ -370,6 +370,13 @@ export function AdattaBudget({
             {sue.map((c) => {
               const n = numero(valori[c.id] ?? "");
               const diff = n != null && c.budget != null ? n - c.budget : null;
+              // ⚠️ Dove arriva QUESTA campagna a fine mese, e di quanto
+              // cambia rispetto a com'è impostata adesso. Il numero al giorno
+              // è troppo piccolo per pesare una decisione: 5 € in più al
+              // giorno sembrano niente e a fine mese sono 150.
+              const arrivoRiga = c.speso + (n ?? 0) * giorniRimasti;
+              const arrivoOggi = c.speso + (c.budget ?? 0) * giorniRimasti;
+              const scartoRiga = arrivoRiga - arrivoOggi;
               return (
                 <tr key={c.id} style={{ opacity: c.accesa ? 1 : 0.5 }}>
                   <td className="cella-nome" style={{ maxWidth: 320 }}>
@@ -400,11 +407,26 @@ export function AdattaBudget({
                       }}
                     />
                   </td>
-                  <td
-                    className="num"
-                    style={{ color: diff == null || diff === 0 ? undefined : diff > 0 ? "var(--blue)" : "var(--orange)" }}
-                  >
-                    {diff == null || diff === 0 ? "—" : `${diff > 0 ? "+" : ""}${euro(diff)}`}
+                  <td className="num">
+                    <b>{euro(arrivoRiga)}</b>
+                    <div className="cella-sub">
+                      {/* Quanto cambia rispetto a oggi: è la cifra che si
+                          confronta col tetto, non i 5 € al giorno. */}
+                      {Math.round(scartoRiga) === 0 ? (
+                        "come adesso"
+                      ) : (
+                        <span style={{ color: scartoRiga > 0 ? "var(--blue)" : "var(--orange)" }}>
+                          {scartoRiga > 0 ? "+" : ""}
+                          {euro(scartoRiga)} rispetto a oggi
+                        </span>
+                      )}
+                      {diff != null && diff !== 0 && (
+                        <div>
+                          {diff > 0 ? "+" : ""}
+                          {euro(diff)} al giorno × {giorniRimasti} giorni
+                        </div>
+                      )}
+                    </div>
                   </td>
                 </tr>
               );
