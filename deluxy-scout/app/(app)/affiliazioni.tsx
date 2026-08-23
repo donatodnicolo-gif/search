@@ -14,12 +14,21 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { colors, coloreAffiliazione, labelAffiliazione, radius, spacing, contenutoCentrato } from '@/lib/theme';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import {
+  colors,
+  coloreAffiliazione,
+  labelAffiliazione,
+  radius,
+  spacing,
+  contenutoCentrato,
+  contenutoLargo,
+} from '@/lib/theme';
 import { aggiornaStarred, aggiornaStatoAffiliazione, fetchAffiliazioni, registraChiamata } from '@/lib/db';
 import { avvisa } from '@/lib/dialoghi';
 import { STATI_AFFILIAZIONE, type AffiliazioneRow, type StatoAffiliazione } from '@/types';
 import { AnagraficaRegistroCard } from '@/components/AnagraficaRegistroCard';
+import { TaskFormModal } from '@/components/TaskFormModal';
 import { EmptyState, PageIntro } from '@/components/ui';
 import { RicercaAffiliazioni } from '@/components/RicercaAffiliazioni';
 import { PannelloFiltri } from '@/components/PannelloFiltri';
@@ -69,6 +78,14 @@ export default function Affiliazioni() {
   // stanno già aperti (components/PannelloFiltri.tsx).
   const { width } = useWindowDimensions();
   const tabella = width >= 900;
+  const router = useRouter();
+  // «Quando lo chiamo»: si fissa in AGENDA, non in un campo isolato. Il
+  // Calendario di Scout legge i **task con scadenza** (più i follow-up delle
+  // trattative), quindi la data di una chiamata è un task datato sul negozio:
+  // compare in Calendario, in «Da fare» e nella Home senza aggiungere nulla al
+  // database. Un campo nuovo, invece, sarebbe rimasto una data che non guarda
+  // nessuno.
+  const [daPianificare, setDaPianificare] = useState<AffiliazioneRow | null>(null);
 
   const carica = useCallback(async () => {
     setLoading(true);
@@ -169,13 +186,13 @@ export default function Affiliazioni() {
       <FlatList
         data={dati}
         keyExtractor={(r) => r.id}
-        contentContainerStyle={[styles.list, contenutoCentrato]}
+        contentContainerStyle={[styles.list, tabella ? contenutoLargo : contenutoCentrato]}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}
         // Intro, ricerca e filtri scorrono con la lista: da fissi lasciavano
         // alle affiliazioni una striscia di schermo. Elemento e non funzione,
         // se no la ricerca perde il fuoco a ogni lettera.
         ListHeaderComponent={
-          <View style={[styles.head, styles.headerScroll, contenutoCentrato]}>
+          <View style={[styles.head, styles.headerScroll, tabella ? contenutoLargo : contenutoCentrato]}>
             <PageIntro testo="Fioristi e pasticcerie da reclutare come affiliati. La stella li mette tra i Selezionati da contattare; Chiama registra la chiamata e apre il telefono." />
             <Text style={styles.sub}>
               {righe.length - clientiFuori} da reclutare · fioristi e pasticcerie
@@ -210,6 +227,7 @@ export default function Affiliazioni() {
             {tabella ? <Intestazione /> : null}
           </View>
         }
+        ListFooterComponent={tabella && dati.length ? <Chiusura /> : null}
         ListEmptyComponent={
           <EmptyState
             loading={loading}
@@ -225,6 +243,8 @@ export default function Affiliazioni() {
               onChiama={() => chiama(item)}
               onStato={(s) => cambiaStato(item, s)}
               onSeleziona={() => seleziona(item)}
+              onApri={() => router.push(`/(app)/attivita/${item.id}`)}
+              onPianifica={() => setDaPianificare(item)}
             />
           ) : (
             <Card
@@ -232,50 +252,89 @@ export default function Affiliazioni() {
               onChiama={() => chiama(item)}
               onStato={(s) => cambiaStato(item, s)}
               onSeleziona={() => seleziona(item)}
+              onApri={() => router.push(`/(app)/attivita/${item.id}`)}
+              onPianifica={() => setDaPianificare(item)}
             />
           )
         }
       />
       </>
       )}
+
+      {daPianificare ? (
+        <TaskFormModal
+          placeId={daPianificare.id}
+          placeNome={daPianificare.nome}
+          titoloIniziale={`Chiamare ${daPianificare.nome}`}
+          onClose={() => setDaPianificare(null)}
+          onSalvato={() => {
+            setDaPianificare(null);
+            carica();
+          }}
+        />
+      ) : null}
     </View>
   );
 }
 
 /**
- * La stessa affiliazione, ma in riga di tabella (schermi larghi).
+ * La stessa affiliazione, in riga di tabella (schermi larghi).
+ *
+ * Stile secondo il design system, §Tabelle: la tabella sta DENTRO una card (le
+ * righe portano i bordi laterali, l'intestazione chiude in alto e una riga di
+ * chiusura in basso), intestazioni non urlate (12px, peso 500, terziario:
+ * niente maiuscolo spaziato), divisori hairline, hover appena percettibile,
+ * celle vuote «—», stato come pillola con dot e tinta al 10%.
+ *
+ * La riga si apre al clic: porta alla scheda del negozio.
  *
  * ⚠️ Le colonne non tolgono NIENTE alla scheda: stella, telefono, referente,
- * stato modificabile e registro Anagrafiche ci sono tutti. Su una tabella la
- * tentazione è togliere le azioni per far entrare le colonne: qui si stringe la
- * cornice, non il numero di cose che si possono fare.
+ * stato modificabile, registro Anagrafiche, e in più il calendario per fissare
+ * la chiamata. Su una tabella la tentazione è togliere le azioni per far
+ * entrare le colonne: qui si stringe la cornice, non ciò che si può fare.
  */
 function Riga({
   item,
   onChiama,
   onStato,
   onSeleziona,
+  onApri,
+  onPianifica,
 }: {
   item: AffiliazioneRow;
   onChiama: () => void;
   onStato: (s: StatoAffiliazione) => void;
   onSeleziona: () => void;
+  onApri: () => void;
+  onPianifica: () => void;
 }) {
   const [apriStep, setApriStep] = useState(false);
   const [apriRegistro, setApriRegistro] = useState(false);
   const stato = item.stato_affiliazione ?? 'prospect';
+  const colore = coloreAffiliazione[stato];
+  // Le azioni dentro la riga non devono far scattare anche l'apertura della
+  // scheda: sul web l'evento risale, quindi lo si ferma qui.
+  const solo = (fn: () => void) => (e?: any) => {
+    e?.stopPropagation?.();
+    fn();
+  };
   return (
     <View style={[styles.trWrap, item.starred && styles.trSel]}>
-      <View style={styles.tr}>
+      <Pressable
+        style={({ hovered }: any) => [styles.tr, hovered && styles.trHover]}
+        onPress={onApri}
+        accessibilityRole="button"
+        accessibilityLabel={`Apri la scheda di ${item.nome}`}
+      >
         <Pressable
-          style={[styles.tdStella, item.starred && styles.selBtnOn]}
-          onPress={onSeleziona}
+          style={[styles.tdStella, item.starred && styles.stellaOn]}
+          onPress={solo(onSeleziona)}
           hitSlop={6}
           accessibilityLabel={item.starred ? 'Togli dai selezionati' : 'Seleziona da contattare'}
         >
           <Ionicons
             name={item.starred ? 'star' : 'star-outline'}
-            size={16}
+            size={15}
             color={item.starred ? colors.bianco : colors.grigio}
           />
         </Pressable>
@@ -290,32 +349,38 @@ function Riga({
         </View>
 
         <Text style={styles.tdCitta} numberOfLines={1}>
-          {item.zona ?? '—'}
+          {item.zona || '—'}
         </Text>
 
         <Text style={styles.tdRef} numberOfLines={1}>
-          {item.referente ?? '—'}
+          {item.referente || '—'}
         </Text>
 
-        {item.telefono ? (
-          <Pressable style={styles.tdTel} onPress={onChiama}>
-            <Text style={styles.telTab} numberOfLines={1}>
-              {item.telefono}
-            </Text>
-          </Pressable>
-        ) : (
-          <Text style={[styles.tdTel, styles.metaLeggero]} numberOfLines={1}>
-            nessun numero
-          </Text>
-        )}
+        <View style={styles.tdTel}>
+          {item.telefono ? (
+            <Pressable onPress={solo(onChiama)} hitSlop={4}>
+              <Text style={styles.telTab} numberOfLines={1}>
+                {item.telefono}
+              </Text>
+            </Pressable>
+          ) : (
+            <Text style={styles.cellaVuota}>—</Text>
+          )}
+        </View>
 
-        <Pressable style={styles.tdStato} onPress={() => setApriStep((v) => !v)}>
-          <View style={[styles.dot, { backgroundColor: coloreAffiliazione[stato] }]} />
-          <Text style={styles.statoTab} numberOfLines={1}>
-            {labelAffiliazione[stato]}
-          </Text>
-          <Ionicons name={apriStep ? 'chevron-up' : 'chevron-down'} size={13} color={colors.grigio} />
-        </Pressable>
+        <View style={styles.tdStato}>
+          <Pressable
+            style={[styles.pill, { backgroundColor: colore + '1A' }]}
+            onPress={solo(() => setApriStep((v) => !v))}
+            accessibilityLabel={`Stato: ${labelAffiliazione[stato]}. Tocca per cambiarlo`}
+          >
+            <View style={[styles.dot, { backgroundColor: colore }]} />
+            <Text style={[styles.pillTxt, { color: colore }]} numberOfLines={1}>
+              {labelAffiliazione[stato]}
+            </Text>
+            <Ionicons name={apriStep ? 'chevron-up' : 'chevron-down'} size={11} color={colore} />
+          </Pressable>
+        </View>
 
         <Text style={styles.tdQuando} numberOfLines={1}>
           {quando(item.ultima_chiamata)}
@@ -324,20 +389,27 @@ function Riga({
         <View style={styles.tdAzioni}>
           <Pressable
             style={[styles.btnChiamaTab, !item.telefono && styles.btnChiamaOff]}
-            onPress={onChiama}
+            onPress={solo(onChiama)}
             accessibilityLabel={`Chiama ${item.nome}`}
           >
-            <Ionicons name="call-outline" size={14} color={colors.bianco} />
+            <Ionicons name="call-outline" size={13} color={colors.bianco} />
           </Pressable>
           <Pressable
-            onPress={() => setApriRegistro((v) => !v)}
+            onPress={solo(onPianifica)}
+            hitSlop={6}
+            accessibilityLabel={`Fissa in agenda quando chiamare ${item.nome}`}
+          >
+            <Ionicons name="calendar-outline" size={16} color={colors.grigio} />
+          </Pressable>
+          <Pressable
+            onPress={solo(() => setApriRegistro((v) => !v))}
             hitSlop={6}
             accessibilityLabel="Dati dal registro Anagrafiche"
           >
             <Ionicons name="library-outline" size={16} color={apriRegistro ? colors.oro : colors.grigio} />
           </Pressable>
         </View>
-      </View>
+      </Pressable>
 
       {apriStep ? (
         <View style={styles.stepWrapTab}>
@@ -368,7 +440,10 @@ function Riga({
   );
 }
 
-/** Intestazione della tabella. Scorre con l'elenco: una sola area che scorre. */
+/**
+ * Intestazione della tabella: chiude la card in alto e scorre con l'elenco — in
+ * questa app c'è una sola area che scorre.
+ */
 function Intestazione() {
   return (
     <View style={styles.th}>
@@ -384,16 +459,25 @@ function Intestazione() {
   );
 }
 
+/** Chiude la card della tabella in basso: bordi e angoli arrotondati. */
+function Chiusura() {
+  return <View style={styles.tfoot} />;
+}
+
 function Card({
   item,
   onChiama,
   onStato,
   onSeleziona,
+  onApri,
+  onPianifica,
 }: {
   item: AffiliazioneRow;
   onChiama: () => void;
   onStato: (s: StatoAffiliazione) => void;
   onSeleziona: () => void;
+  onApri: () => void;
+  onPianifica: () => void;
 }) {
   const [apriStep, setApriStep] = useState(false);
   const [apriRegistro, setApriRegistro] = useState(false);
@@ -410,7 +494,7 @@ function Card({
         >
           <Ionicons name={item.starred ? 'star' : 'star-outline'} size={18} color={item.starred ? colors.bianco : colors.grigio} />
         </Pressable>
-        <View style={{ flex: 1 }}>
+        <Pressable style={{ flex: 1 }} onPress={onApri} accessibilityLabel={`Apri la scheda di ${item.nome}`}>
           <Text numberOfLines={3} style={styles.nome}>{item.nome}</Text>
           {item.indirizzo ? <Text style={styles.meta} numberOfLines={1}>{item.indirizzo}</Text> : null}
           {item.telefono ? (
@@ -426,7 +510,15 @@ function Card({
             {item.referente ? <Text style={styles.meta}>{item.referente}</Text> : null}
             <Text style={styles.metaLeggero}>· {quando(item.ultima_chiamata)}</Text>
           </View>
-        </View>
+        </Pressable>
+        <Pressable
+          onPress={onPianifica}
+          hitSlop={8}
+          style={styles.calBtn}
+          accessibilityLabel={`Fissa in agenda quando chiamare ${item.nome}`}
+        >
+          <Ionicons name="calendar-outline" size={18} color={colors.grigio} />
+        </Pressable>
         <Pressable style={[styles.btnChiama, !item.telefono && styles.btnChiamaOff]} onPress={onChiama}>
           <Ionicons name="call-outline" size={16} color={colors.bianco} />
           <Text style={styles.btnChiamaTxt}>Chiama</Text>
@@ -468,43 +560,83 @@ function Card({
 }
 
 const styles = StyleSheet.create({
-  // ── Tabella (schermi larghi) ──────────────────────────────────────────────
-  // Le colonne hanno un `flex` + un `minWidth`: senza il minimo, a 900px il
-  // telefono si riduce a tre caratteri e la colonna diventa decorativa.
+  // ── Tabella (schermi larghi) — design system §Tabelle ─────────────────────
+  // La tabella sta dentro una card: l'intestazione la chiude in alto, le righe
+  // portano i bordi laterali, `tfoot` la chiude in basso. Le colonne hanno
+  // `flex` + `minWidth`: senza il minimo, a 900px il telefono si riduce a tre
+  // caratteri e la colonna diventa decorativa.
   th: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
     paddingHorizontal: spacing.md,
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.grigioChiaro,
+    paddingVertical: 10,
+    backgroundColor: colors.bianco,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    borderTopLeftRadius: radius.lg,
+    borderTopRightRadius: radius.lg,
+    marginTop: spacing.sm,
   },
-  thTxt: { color: colors.testoSoft, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.4 },
-  trWrap: { backgroundColor: colors.bianco, borderBottomWidth: 1, borderBottomColor: colors.hairline },
-  trSel: { backgroundColor: colors.goldSoft },
-  tr: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: 10 },
-  tdStella: { width: 30, alignItems: 'center', justifyContent: 'center', borderRadius: 15, paddingVertical: 4 },
-  tdNome: { flex: 3, minWidth: 160 },
-  nomeTab: { color: colors.testo, fontWeight: '700', fontSize: 14 },
-  tdCitta: { flex: 1.2, minWidth: 80, color: colors.testoSoft, fontSize: 13 },
-  tdRef: { flex: 1.5, minWidth: 100, color: colors.testoSoft, fontSize: 13 },
-  tdTel: { flex: 1.4, minWidth: 105 },
-  telTab: { color: colors.successo, fontSize: 13, fontWeight: '700' },
-  tdStato: { flex: 1.7, minWidth: 125, flexDirection: 'row', alignItems: 'center', gap: 5 },
-  statoTab: { flex: 1, color: colors.testo, fontSize: 12.5 },
-  tdQuando: { flex: 1.2, minWidth: 85, color: colors.testoSoft, fontSize: 12 },
-  tdAzioni: { width: 66, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 10 },
+  // 12px, peso 500, terziario: l'intestazione si legge, non si urla.
+  thTxt: { color: colors.grigio, fontSize: 12, fontWeight: '500' },
+  trWrap: {
+    backgroundColor: colors.bianco,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: colors.hairline,
+  },
+  // Selezionato: tinta appena accennata + filo oro a sinistra, non un blocco
+  // di colore che copre la riga.
+  trSel: { backgroundColor: colors.goldSoft, borderLeftWidth: 3, borderLeftColor: colors.gold },
+  tr: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: 11 },
+  trHover: { backgroundColor: colors.fill },
+  tfoot: {
+    height: spacing.sm,
+    backgroundColor: colors.bianco,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: colors.hairline,
+    borderBottomLeftRadius: radius.lg,
+    borderBottomRightRadius: radius.lg,
+    marginBottom: spacing.md,
+  },
+  tdStella: { width: 28, alignItems: 'center', justifyContent: 'center', borderRadius: 14, paddingVertical: 4 },
+  stellaOn: { backgroundColor: colors.gold },
+  tdNome: { flex: 3, minWidth: 150 },
+  nomeTab: { color: colors.testo, fontWeight: '600', fontSize: 14, letterSpacing: -0.1 },
+  tdCitta: { flex: 1.1, minWidth: 75, color: colors.testoSoft, fontSize: 13 },
+  tdRef: { flex: 1.4, minWidth: 95, color: colors.testoSoft, fontSize: 13 },
+  tdTel: { flex: 1.3, minWidth: 100 },
+  telTab: { color: colors.testo, fontSize: 13, fontVariant: ['tabular-nums'] },
+  cellaVuota: { color: colors.grigio, fontSize: 13 },
+  tdStato: { flex: 1.7, minWidth: 130, flexDirection: 'row', alignItems: 'center' },
+  pill: { flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4 },
+  pillTxt: { fontSize: 12, fontWeight: '600', maxWidth: 108 },
+  // Le date a destra e con cifre a larghezza fissa: incolonnate si confrontano
+  // con l'occhio, non leggendole una per una.
+  tdQuando: {
+    flex: 1.1,
+    minWidth: 80,
+    color: colors.testoSoft,
+    fontSize: 12,
+    textAlign: 'right',
+    fontVariant: ['tabular-nums'],
+  },
+  tdAzioni: { width: 88, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 10 },
   btnChiamaTab: {
     backgroundColor: colors.ink,
     borderRadius: 999,
-    width: 28,
-    height: 28,
+    width: 26,
+    height: 26,
     alignItems: 'center',
     justifyContent: 'center',
   },
   stepWrapTab: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: spacing.md, paddingBottom: 10 },
   registroTab: { paddingHorizontal: spacing.md, paddingBottom: 10 },
+  calBtn: { padding: 4, alignSelf: 'flex-start' },
   tabs: { flexDirection: 'row', gap: 8, paddingHorizontal: spacing.md, paddingBottom: spacing.sm },
   tab: { flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1, borderColor: colors.grigioChiaro, backgroundColor: colors.bianco, borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 8 },
   tabOn: { backgroundColor: colors.ink, borderColor: colors.ink },

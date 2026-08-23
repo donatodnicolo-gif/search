@@ -41,17 +41,20 @@ export function TaskFormModal({
   task,
   placeId,
   placeNome,
+  titoloIniziale,
   onClose,
   onSalvato,
 }: {
   task?: Task;
   placeId?: string;
   placeNome?: string;
+  /** Titolo giá scritto per chi apre il modale con un intento preciso (es. «Chiamare X»). */
+  titoloIniziale?: string;
   onClose: () => void;
   onSalvato: () => void;
 }) {
   const inModifica = !!task;
-  const [titolo, setTitolo] = useState(task?.titolo ?? '');
+  const [titolo, setTitolo] = useState(task?.titolo ?? titoloIniziale ?? '');
   const [priorita, setPriorita] = useState<Priorita>(task?.priorita ?? 'P2');
   const [scadenza, setScadenza] = useState<string | null>(task?.scadenza ?? null);
   const [owner, setOwner] = useState<string | null>(task?.owner ?? null);

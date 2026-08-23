@@ -190,3 +190,10 @@ export const coloreAffiliazione: Record<StatoAffiliazione, string> = {
 // lo schermo e nelle righe "nome … valore" i due estremi finivano lontanissimi.
 export const CONTENUTO_MAX = 760;
 export const contenutoCentrato = { width: '100%' as const, maxWidth: CONTENUTO_MAX, alignSelf: 'center' as const };
+
+// Cap più largo per le schermate a TABELLA. I 760px sopra sono tarati sulle
+// righe «nome … valore», dove una colonna larga allontana i due estremi; una
+// tabella a sette colonne dentro 760px invece si strozza (~100px a colonna, e
+// il telefono diventa illeggibile). Si usa solo dove c’è davvero una tabella.
+export const CONTENUTO_LARGO = 1180;
+export const contenutoLargo = { width: '100%' as const, maxWidth: CONTENUTO_LARGO, alignSelf: 'center' as const };
