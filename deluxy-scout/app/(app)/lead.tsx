@@ -194,8 +194,26 @@ export default function LeadWeb() {
         renderItem={({ item }) => {
           const eta = etaGiorni(item.created_at);
           const ritardo = item.stato === 'nuovo' && eta >= GIORNI_RISPOSTA_LEAD;
+          // La scheda intera apre la mail: è la prima cosa che si vuole fare su
+          // una richiesta, e cercare il link in fondo era un passaggio in più.
+          // Ma solo se c'è davvero qualcosa da leggere: le richieste inserite a
+          // mano non hanno mail, e un pop-up vuoto è peggio di un clic che non
+          // fa niente.
+          const leggibile = !!(item.messaggio || item.mail_ref || item.mail_id);
+          // Le azioni dentro la scheda non devono far scattare anche il pop-up:
+          // sul web l'evento risale, quindi lo si ferma qui.
+          const solo = (fn: () => void) => (e?: any) => {
+            e?.stopPropagation?.();
+            fn();
+          };
           return (
-            <View style={styles.card}>
+            <Pressable
+              style={({ hovered }: any) => [styles.card, leggibile && hovered && styles.cardHover]}
+              onPress={leggibile ? () => apriMessaggio(item) : undefined}
+              disabled={!leggibile}
+              accessibilityRole={leggibile ? 'button' : undefined}
+              accessibilityLabel={leggibile ? `Apri il messaggio di ${item.nome}` : undefined}
+            >
               <View style={styles.cardHead}>
                 <Text numberOfLines={3} style={styles.nome}>{item.nome}</Text>
                 <Text style={[styles.eta, ritardo && styles.ritardo]}>
@@ -209,16 +227,16 @@ export default function LeadWeb() {
               </View>
               {item.stato === 'nuovo' ? (
                 <View style={styles.azioni}>
-                  <Pressable style={styles.btn} onPress={() => setDaQualificare(item)}>
+                  <Pressable style={styles.btn} onPress={solo(() => setDaQualificare(item))}>
                     <Ionicons name="briefcase-outline" size={15} color={colors.bianco} />
                     <Text style={styles.btnTxt}>Qualifica → trattativa</Text>
                   </Pressable>
-                  <Pressable style={styles.btnGhost} onPress={() => scarta(item)}>
+                  <Pressable style={styles.btnGhost} onPress={solo(() => scarta(item))}>
                     <Text style={styles.btnGhostTxt}>Scarta</Text>
                   </Pressable>
                 </View>
               ) : item.stato === 'qualificato' ? (
-                <Pressable onPress={() => router.push('/(app)/trattative')}>
+                <Pressable onPress={solo(() => router.push('/(app)/trattative'))}>
                   <Text style={styles.link}>Vedi la trattativa generata ›</Text>
                 </Pressable>
               ) : null}
@@ -227,25 +245,25 @@ export default function LeadWeb() {
                   intero e toglierla di mezzo sono cose che servono anche su una
                   richiesta già lavorata o scartata. */}
               <View style={styles.azioniMail}>
-                {item.messaggio ? (
-                  <Pressable hitSlop={6} onPress={() => apriMessaggio(item)}>
+                {leggibile ? (
+                  <Pressable hitSlop={6} onPress={solo(() => apriMessaggio(item))}>
                     <Text style={styles.azioneTxt}>Apri il messaggio</Text>
                   </Pressable>
                 ) : null}
                 {item.mail_ref ? (
                   <>
                     <Text style={styles.sep}>·</Text>
-                    <Pressable hitSlop={6} onPress={() => Linking.openURL(urlMessaggioAiMail(item.mail_ref!))}>
+                    <Pressable hitSlop={6} onPress={solo(() => Linking.openURL(urlMessaggioAiMail(item.mail_ref!)))}>
                       <Text style={styles.azioneTxt}>Vedila in AI Mail</Text>
                     </Pressable>
                   </>
                 ) : null}
                 <Text style={styles.sep}>·</Text>
-                <Pressable hitSlop={6} onPress={() => elimina(item)}>
+                <Pressable hitSlop={6} onPress={solo(() => elimina(item))}>
                   <Text style={[styles.azioneTxt, styles.azionePericolo]}>Elimina</Text>
                 </Pressable>
               </View>
-            </View>
+            </Pressable>
           );
         }}
       />
@@ -258,8 +276,11 @@ export default function LeadWeb() {
       {formAperto ? <NuovoLeadModal onClose={() => setFormAperto(false)} onSalvato={() => { setFormAperto(false); carica(); }} /> : null}
       {daLeggere ? (
         <Modal visible transparent animationType="slide" onRequestClose={() => setDaLeggere(null)}>
-          <View style={styles.overlay}>
-            <View style={styles.sheetMail}>
+          {/* Si chiude anche toccando fuori: qui non si sta scrivendo niente,
+              è una lettura, e un pop-up che si chiude solo dalla × sembra
+              bloccato. Il clic dentro non deve risalire fino allo sfondo. */}
+          <Pressable style={styles.overlay} onPress={() => setDaLeggere(null)}>
+            <Pressable style={styles.sheetMail} onPress={() => {}}>
               <View style={styles.sheetHead}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.sheetTitolo} numberOfLines={2}>{daLeggere.nome}</Text>
@@ -320,8 +341,8 @@ export default function LeadWeb() {
                   <Text style={[styles.azioneTxt, styles.azionePericolo]}>Elimina</Text>
                 </Pressable>
               </View>
-            </View>
-          </View>
+            </Pressable>
+          </Pressable>
         </Modal>
       ) : null}
 
@@ -496,6 +517,9 @@ const styles = StyleSheet.create({
   chipTxtOn: { color: colors.bianco },
   list: { padding: spacing.md, gap: spacing.sm, paddingBottom: 90 },
   card: { backgroundColor: colors.bianco, borderRadius: radius.md, borderWidth: 1, borderColor: colors.grigioChiaro, padding: spacing.md, gap: 7 },
+  // Sul web è l'unico segnale che la scheda si apre: sul telefono lo dice il
+  // link «Apri il messaggio», che infatti resta.
+  cardHover: { backgroundColor: colors.fill },
   cardHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   nome: { flex: 1, color: colors.navy, fontWeight: '800', fontSize: 15 },
   eta: { color: colors.testoSoft, fontSize: 12 },
