@@ -55,19 +55,80 @@ scrive «non indicato» — non un valore plausibile.
   Migrando gli hash tali e quali **il problema si porta dentro**: vanno forzate al cambio, o quei
   25 account nascono già condivisi.
 
-### ❓ Domande aperte
+### Domande chiuse dall'utente il 23/08
 
-1. **`active = 0` cosa significa?** Sono **6 righe** (4 partner, 2 valet). `1` è attivo e `-1` è «non
-   attivato»: `0` sarebbe «disattivato/sospeso», ma è un'ipotesi e riguarda l'accesso.
-2. **I 4.514 Customer vanno importati da qui?** Non hanno password: nel legacy non sono account, sono
-   scorciatoie verso la tabella `customer` (via `extraId`). Se `customer` contiene già tutto, queste
-   4.514 righe **non servono** e i clienti si importano da lì. Si decide vedendo `customer.csv`.
-3. **Le 9 righe senza `extraType`** (oltre ai 2 superadmin): che utenti sono?
+- **`active = 0` → si tratta come `-1`**, quindi `invited`. Riguarda 6 righe.
+- **I 4.514 clienti si importano come `Customer`.** ⚠️ Vedi però il nodo qui sotto sulla password.
+
+### Le 11 righe senza `extraType` — risolte
+
+Non sono 9 ma **11**, e si dividono in tre gruppi:
+
+| chi | righe | cosa fare |
+|---|---|---|
+| `support@deluxy.it` — `groupId 1`, `isSuperAdmin=1`, attivo dal **21/07/2020** | 1 | è l'admin storico: **importare** |
+| un account **`@jamtech.info`**, `isSuperAdmin=1`, attivo, creato il 13/06/2023 | 1 | è lo **sviluppatore esterno** (`jamtechdev/deluxy-backend`): decidere se ha ancora senso |
+| account orfani del 2020-2021: nessun `groupId`, nessun `extraId`, **5 su 9 con email `@yopmail.com`** (servizio di indirizzi usa-e-getta), 6 su 9 mai attivati | 9 | sono **prove di collaudo rimaste lì**: non importare |
+
+⚠️ `groupId 1` non è un ruolo di persone: è l'admin, e vale su **3 righe in tutto**.
+
+### 🔴 Nodo aperto: i clienti non possono avere una password
+
+L'utente ha chiesto di importare i clienti «come customer, con una password di default». **Nel nuovo
+schema non è possibile così com'è**, ed è bene saperlo prima di scrivere l'importatore:
+
+- `model Customer` (`api/prisma/schema.prisma`) ha `firstName, lastName, email?, phone?, address?,
+  notes?, partnerId?` — **nessun campo password, nessuna relazione con `User`**;
+- `enum Role` (`api/src/common/enums.ts`) ha `ADMIN, OPERATION, PARTNER, VALET, PROJECT_MANAGER` —
+  **non esiste un ruolo cliente**;
+- nel legacy i 4.514 clienti **non avevano password** (`NULL` su tutte le righe): non hanno mai fatto
+  login nemmeno lì.
+
+Quindi ci sono due strade, e sono lavori diversi:
+
+1. **Importarli come anagrafiche** (`Customer`), senza account. Rispecchia il legacy, è l'import di cui
+   stiamo parlando, si fa subito.
+2. **Dare loro un accesso** = funzionalità nuova: ruolo `CUSTOMER`, relazione `User`→`Customer`, tutta
+   la parte di permessi. Non è una migrazione, è uno sviluppo.
+
+⚠️ E in ogni caso **una password di default uguale per tutti è da evitare**: sarebbero 4.514 account
+con la stessa password nota su un indirizzo pubblico. È lo stesso problema che il 21/08 ha richiesto di
+sospendere gli account demo del seed. Se serve l'accesso clienti, la strada sana è **una password
+diversa per ciascuno** (o nessuna password e accesso via link/OTP), con obbligo di cambio al primo uso.
 
 ---
 
-## Prossime tabelle
+## L'export completo — 92 tabelle, 427.155 record (23/08/2026)
 
-`provinces` · `partner` · `expert` · `customer` · `product` · `delivery`
+`legacy/deluxy.csv` (209 MB) non era un CSV ma **92 CSV impilati**: phpMyAdmin, esportando più tabelle
+insieme, le scrive una dopo l'altra ognuna con la propria intestazione. `scripts/dividi-export-unico.mjs`
+lo divide in streaming e riconosce i nomi dalle colonne (phpMyAdmin non li scrive): **75 file** in
+`legacy/tabelle/`, le 17 tabelle vuote non producono file.
 
-`expert` è la più utile subito: incrociandola con i 283 valet si chiude anche la domanda 1.
+Le tabelle che servono, con le dimensioni vere:
+
+| tabella | righe | colonne | nota |
+|---|---|---|---|
+| `delivery` | **62.376** | **114** | l'analisi diceva ~90 colonne: sono **114** |
+| `product` | 21.909 | 58 | |
+| `products-variants` | 18.375 | 19 | |
+| `customer` | **4.514** | 14 | ✅ combacia esatto coi 4.514 utenti `extraType=Customer`, e ha `userId` |
+| `partner` | 265 | 41 | (i `user` di tipo Partner erano 263) |
+| `expert` | 285 | 25 | (i `user` di tipo Expert erano 283) |
+| `operation` | 16 | 14 | combacia esatto |
+| `provinces` | 108 | 6 | |
+| `user` | 5.087 | 21 | **già dentro il file unico**: `user.csv` a parte è un doppione |
+
+Le più grosse non ancora mappate: `partner-time-availability` 113.191 · `delivery-product` 62.800 ·
+`valet-activities` 57.296 · `web-push-history` 19.211 · `delivery-updates` 17.682 · `shopify-sale` 11.055.
+
+⚠️ **Sei tabelle di vendita** hanno 69 colonne quasi identiche (shopify, cake, flowers, business,
+deluxy.com, experience) e si distinguono solo per il numero di righe: sono rimaste `tabella-N`,
+vanno nominate a mano prima di usarle.
+
+---
+
+## Prossimo passo
+
+Profilare `customer`, `partner`, `expert` e `provinces` — sono piccole e chiudono la parte anagrafica.
+`delivery` (62.376 × 114) va affrontata dopo, da sola.
