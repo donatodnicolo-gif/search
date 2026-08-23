@@ -22,13 +22,18 @@ import { frecciaOrdine, ordinaRighe, useOrdinamento } from '@/lib/ordinamento';
 import { fetchTuttiPartner } from '@/lib/anagrafiche';
 import { aggiornaCoperturaSalvata, fetchCoperturaSalvata, fetchVenditePerProvincia } from '@/lib/ordini';
 
-type Colonna = 'nome' | 'attivi' | 'lavorazione' | 'lordo';
+type Colonna = 'nome' | 'attivi' | 'lavorazione' | 'torte' | 'fiori' | 'altro' | 'lordo';
 
 type Riga = Provincia & {
   attivi: number;
   lavorazione: number; // prospect, in contatto, in trattativa…
   ordini: number;
   lordo: number;
+  // Di che cosa è fatto quel venduto: il fornitore da cercare è un fiorista o
+  // una pasticceria a seconda della risposta.
+  torte: number;
+  fiori: number;
+  altro: number;
 };
 
 /**
@@ -105,6 +110,9 @@ export function CoperturaProvince({ onProvincia }: { onProvincia?: (nome: string
   const { ordine, ordinaPer } = useOrdinamento<Colonna>({ campo: 'lordo', verso: 'desc' }, [
     'attivi',
     'lavorazione',
+    'torte',
+    'fiori',
+    'altro',
     'lordo',
   ]);
 
@@ -148,12 +156,21 @@ export function CoperturaProvince({ onProvincia }: { onProvincia?: (nome: string
         else if (!FUORI.has(stato)) lavorazione.set(sigla, (lavorazione.get(sigla) ?? 0) + 1);
       }
 
-      const perProvincia = new Map<string, { ordini: number; lordo: number }>();
+      const perProvincia = new Map<
+        string,
+        { ordini: number; lordo: number; torte: number; fiori: number; altro: number }
+      >();
       for (const v of vendite.province) {
         const sigla = siglaProvincia(v.provincia);
         if (!sigla) continue; // valori esteri («ENG»): non sono province italiane
-        const gia = perProvincia.get(sigla) ?? { ordini: 0, lordo: 0 };
-        perProvincia.set(sigla, { ordini: gia.ordini + v.ordini, lordo: gia.lordo + v.lordo });
+        const gia = perProvincia.get(sigla) ?? { ordini: 0, lordo: 0, torte: 0, fiori: 0, altro: 0 };
+        perProvincia.set(sigla, {
+          ordini: gia.ordini + v.ordini,
+          lordo: gia.lordo + v.lordo,
+          torte: gia.torte + (v.torte ?? 0),
+          fiori: gia.fiori + (v.fiori ?? 0),
+          altro: gia.altro + (v.altro ?? 0),
+        });
       }
 
       setRighe(
@@ -163,6 +180,9 @@ export function CoperturaProvince({ onProvincia }: { onProvincia?: (nome: string
           lavorazione: lavorazione.get(p.sigla) ?? 0,
           ordini: perProvincia.get(p.sigla)?.ordini ?? 0,
           lordo: perProvincia.get(p.sigla)?.lordo ?? 0,
+          torte: perProvincia.get(p.sigla)?.torte ?? 0,
+          fiori: perProvincia.get(p.sigla)?.fiori ?? 0,
+          altro: perProvincia.get(p.sigla)?.altro ?? 0,
         })),
       );
     } catch (e: any) {
@@ -288,6 +308,9 @@ export function CoperturaProvince({ onProvincia }: { onProvincia?: (nome: string
             { c: 'nome' as const, label: 'Provincia', stile: styles.cellaNome },
             { c: 'attivi' as const, label: 'Fornit.', stile: styles.cellaNum },
             { c: 'lavorazione' as const, label: 'In lav.', stile: styles.cellaNum },
+            { c: 'torte' as const, label: 'Torte', stile: styles.cellaTipo },
+            { c: 'fiori' as const, label: 'Fiori', stile: styles.cellaTipo },
+            { c: 'altro' as const, label: 'Altro', stile: styles.cellaTipo },
             { c: 'lordo' as const, label: 'Venduto', stile: styles.cellaEuro },
           ]).map((h) => (
             <Pressable key={h.c} style={h.stile} onPress={() => ordinaPer(h.c)}>
@@ -330,6 +353,10 @@ export function CoperturaProvince({ onProvincia }: { onProvincia?: (nome: string
               <Text style={[styles.cellaNum, r.lavorazione ? styles.numLav : styles.numZero]}>
                 {r.lavorazione || '—'}
               </Text>
+              {/* Le tre sommano esatte al venduto: ogni ordine sta in una sola. */}
+              <Text style={styles.cellaTipo}>{r.torte ? euro(r.torte) : '—'}</Text>
+              <Text style={styles.cellaTipo}>{r.fiori ? euro(r.fiori) : '—'}</Text>
+              <Text style={styles.cellaTipo}>{r.altro ? euro(r.altro) : '—'}</Text>
               <View style={styles.cellaEuro}>
                 <Text style={[styles.euro, buco && styles.euroBuco]}>{r.lordo ? euro(r.lordo) : '—'}</Text>
                 {r.ordini ? <Text style={styles.ordini}>{r.ordini} ord.</Text> : null}
@@ -357,6 +384,13 @@ function Chip({ label, on, onPress }: { label: string; on: boolean; onPress: () 
 
 const styles = StyleSheet.create({
   wrap: { gap: spacing.sm },
+  cellaTipo: {
+    width: 66,
+    textAlign: 'right',
+    color: colors.testoSoft,
+    fontSize: 12.5,
+    fontVariant: ['tabular-nums'],
+  },
   thAttiva: { color: colors.testo, fontWeight: '700' },
   notaPeriodo: { color: colors.testoSoft, fontSize: 12, marginTop: -2, flex: 1 },
   rigaVista: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },

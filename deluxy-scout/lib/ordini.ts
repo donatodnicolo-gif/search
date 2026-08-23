@@ -65,6 +65,12 @@ export interface VenditeProvincia {
   ordini: number;
   lordo: number;
   clienti: number;
+  // La divisione per tipo di prodotto. ⚠️ Le tre sommano ESATTE a `lordo`:
+  // ogni ordine sta in una sola colonna, e i misti torte+fiori vanno dove
+  // pesano di più (lo decide Orders, che possiede la classificazione).
+  torte?: number;
+  fiori?: number;
+  altro?: number;
 }
 
 export interface RispostaProvince {

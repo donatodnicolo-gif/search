@@ -62,9 +62,27 @@ function quando(iso: string | null): string {
   return `chiamato ${Math.floor(giorni / 30)} mesi fa`;
 }
 
+/**
+ * La categoria, scritta in un modo solo.
+ *
+ * ⚠️ Nei dati veri convivono «fioraio» (137) e «FIORISTA» (16), «pasticceria»
+ * (115) e «PASTICCERIA» (6): sono lo stesso mestiere scritto da due import
+ * diversi. Senza questa normalizzazione la colonna mostra quattro categorie
+ * dove ce ne sono due, e ordinandola i fioristi finiscono in due blocchi
+ * lontani. È la stessa trappola di «Gifting» / «Regali aziendali».
+ */
+function categoriaLeggibile(c: string | null | undefined): string {
+  const s = (c ?? '').trim().toLowerCase();
+  if (!s) return '';
+  if (s.startsWith('fior')) return 'Fioraio';
+  if (s.startsWith('pastic')) return 'Pasticceria';
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
 /** Le colonne ordinabili della tabella. */
 type ColonnaAff =
   | 'nome'
+  | 'categoria'
   | 'zona'
   | 'referente'
   | 'telefono'
@@ -185,7 +203,7 @@ export default function Affiliazioni() {
       if (filtro === 'selezionati') { if (!r.starred) return false; }
       else if (filtro !== 'tutti' && r.stato_affiliazione !== filtro) return false;
       if (!q) return true;
-      return [r.nome, r.indirizzo, r.zona, r.referente, r.telefono, segnalatoDa(r, nomi)]
+      return [r.nome, categoriaLeggibile(r.categoria), r.indirizzo, r.zona, r.referente, r.telefono, segnalatoDa(r, nomi)]
         .filter(Boolean)
         .some((v) => (v as string).toLowerCase().includes(q));
     });
@@ -195,6 +213,7 @@ export default function Affiliazioni() {
     () =>
       ordinaRighe(dati, ordine, (r, c) => {
         if (c === 'segnalato') return segnalatoDa(r, nomi);
+        if (c === 'categoria') return categoriaLeggibile(r.categoria);
         if (c === 'stato_affiliazione') return labelAffiliazione[r.stato_affiliazione ?? 'prospect'];
         return (r as any)[c];
       }),
@@ -457,6 +476,12 @@ const Riga = memo(function Riga({
           ) : null}
         </View>
 
+        {/* Fiorista o pasticceria: è la prima cosa da sapere prima di chiamare,
+            e finora si poteva solo indovinarla dal nome. */}
+        <Text style={styles.tdCategoria} numberOfLines={1}>
+          {categoriaLeggibile(item.categoria) || '—'}
+        </Text>
+
         <Text style={styles.tdCitta} numberOfLines={1}>
           {item.zona || '—'}
         </Text>
@@ -575,6 +600,7 @@ function Intestazione({
 }) {
   const col: { c: ColonnaAff; label: string; stile: any }[] = [
     { c: 'nome', label: 'Negozio', stile: styles.tdNome },
+    { c: 'categoria', label: 'Categoria', stile: styles.tdCategoria },
     { c: 'zona', label: 'Città', stile: styles.tdCitta },
     { c: 'referente', label: 'Referente', stile: styles.tdRef },
     { c: 'telefono', label: 'Telefono', stile: styles.tdTel },
@@ -637,7 +663,9 @@ function Card({
         </Pressable>
         <Pressable style={{ flex: 1 }} onPress={onApri} accessibilityLabel={`Apri la scheda di ${item.nome}`}>
           <Text numberOfLines={3} style={styles.nome}>{item.nome}</Text>
-          {item.indirizzo ? <Text style={styles.meta} numberOfLines={1}>{item.indirizzo}</Text> : null}
+          <Text style={styles.meta} numberOfLines={1}>
+            {[categoriaLeggibile(item.categoria), item.indirizzo].filter(Boolean).join(' · ') || '—'}
+          </Text>
           {item.telefono ? (
             <Pressable onPress={onChiama} hitSlop={6}>
               <Text style={styles.tel}>
@@ -751,7 +779,8 @@ const styles = StyleSheet.create({
   },
   tdStella: { width: 28, alignItems: 'center', justifyContent: 'center', borderRadius: 14, paddingVertical: 4 },
   stellaOn: { backgroundColor: colors.gold },
-  tdNome: { flex: 3, minWidth: 150 },
+  tdNome: { flex: 2.4, minWidth: 130 },
+  tdCategoria: { flex: 1.1, minWidth: 80, color: colors.testoSoft, fontSize: 13 },
   nomeTab: { color: colors.testo, fontWeight: '600', fontSize: 14, letterSpacing: -0.1 },
   tdCitta: { flex: 1, minWidth: 70, color: colors.testoSoft, fontSize: 13 },
   tdRef: { flex: 1.2, minWidth: 88, color: colors.testoSoft, fontSize: 13 },
