@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { caricaAnno, FONTI, nomeFonte } from "@/lib/calc";
+import { caricaAnno, FONTI, nomeFonte, venditeApplicate } from "@/lib/calc";
 import { eur, MESI } from "@/lib/format";
 import { DecisioneProposta } from "@/components/DecisioneProposta";
 
@@ -71,6 +71,38 @@ export default async function DettaglioProposta({ params }: { params: Promise<{ 
     }
   }
 
+  // ---- Come resterebbe l anno, se questa proposta venisse consolidata ----
+  //
+  // Il totale proposto da solo non risponde alla domanda di chi approva: una
+  // proposta copre **alcuni** mesi, e confrontarla con il budget di dodici fa
+  // sembrare un taglio enorme quello che e solo un pezzo d anno. La proiezione
+  // mette insieme le due cose: i mesi che la proposta tocca valgono quello che
+  // propone, gli altri restano come sono adesso.
+  //
+  // Si applica la **regola vera del consolidamento** — la proposta riscrive
+  // solo la sua fonte, e le proposte sostituiscono il budget iniziale — invece
+  // di sommare: sommare direbbe un numero che dopo il consolidamento non si
+  // vedrebbe da nessuna parte.
+  //
+  // Le proposte vecchie (un numero per mese, senza linea) non si proiettano: non
+  // dicono su quale voce atterrano, ed e la stessa ragione per cui il
+  // consolidamento chiede di sceglierla.
+  const proiettabile = Boolean(maison) && canaliProposti.length > 0;
+  const proiezione: Record<string, number[]> = {};
+  if (maison && proiettabile) {
+    for (const tip of dati.tipologie) {
+      proiezione[tip.slug] = maison.mesi.map((mese) => {
+        const proposto = valori.find((v) => v.month === mese.month && v.canale === tip.slug);
+        const perFonte = { ...(mese.perFonte[tip.slug] ?? {}) };
+        if (proposto) perFonte[p.fonte] = proposto.valore || 0;
+        return venditeApplicate(perFonte);
+      });
+    }
+  }
+  const proiezioneMese = (i: number) =>
+    dati.tipologie.reduce((s, tip) => s + (proiezione[tip.slug]?.[i] ?? 0), 0);
+  const proiezioneAnno = Array.from({ length: 12 }, (_, i) => proiezioneMese(i)).reduce((s, v) => s + v, 0);
+
   return (
     <>
       <div className="page-head">
@@ -105,8 +137,28 @@ export default async function DettaglioProposta({ params }: { params: Promise<{ 
           <div className="kpi">
             <div className="kpi-label">Oggi a budget su {ambito}</div>
             <div className="kpi-value">{eur(attuale)}</div>
+            {/* ⚠️ Il confronto fra il totale proposto e il budget dell anno e
+                fra cose diverse: la proposta copre **alcuni** mesi. Dirlo qui,
+                accanto alla percentuale, evita di leggere come un taglio del
+                40% quello che e solo un pezzo d anno — la risposta vera e nel
+                riquadro accanto, la proiezione. */}
             <div className="kpi-sub">
-              {attuale > 0 ? `la proposta è ${totale >= attuale ? "+" : ""}${Math.round(((totale - attuale) / attuale) * 100)}%` : "nessun budget attuale"}
+              {attuale > 0
+                ? `sull anno intero; la proposta ne copre ${new Set(valori.map((v) => v.month)).size} mesi`
+                : "nessun budget attuale"}
+            </div>
+          </div>
+        )}
+        {proiettabile && attuale !== null && (
+          <div className="kpi">
+            <div className="kpi-label">L anno intero, se consolidata</div>
+            <div className="kpi-value">{eur(proiezioneAnno)}</div>
+            <div className="kpi-sub">
+              da {eur(attuale)} a {eur(proiezioneAnno)} ·{" "}
+              <strong className={proiezioneAnno >= attuale ? "delta giu" : "delta su"}>
+                {proiezioneAnno >= attuale ? "+" : "−"}
+                {eur(Math.abs(proiezioneAnno - attuale))}
+              </strong>
             </div>
           </div>
         )}
@@ -190,6 +242,67 @@ export default async function DettaglioProposta({ params }: { params: Promise<{ 
         <strong>non contiene</strong>, e che il consolidamento quindi non tocca. I mesi già chiusi non si
         propongono, per questo di solito mancano.
       </p>
+
+      {proiettabile && (
+        <>
+          <h2 className="section-title">L anno intero, se questa proposta venisse consolidata</h2>
+          <div className="card tight">
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th style={{ minWidth: 140 }}>Linea di business</th>
+                    {MESI.map((m) => (<th className="num" key={m}>{m}</th>))}
+                    <th className="num">Anno</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dati.tipologie.map((tip) => {
+                    const mesi = proiezione[tip.slug] ?? Array(12).fill(0);
+                    const tot = mesi.reduce((s, v) => s + v, 0);
+                    if (tot === 0) return null;
+                    return (
+                      <tr key={tip.slug}>
+                        <td style={{ fontWeight: 500 }}>{tip.nome}</td>
+                        {mesi.map((v, i) => {
+                          // I mesi che la proposta tocca si distinguono: sono
+                          // quelli che cambierebbero, gli altri restano come sono.
+                          const tocco = valori.some((x) => x.month === i + 1 && x.canale === tip.slug);
+                          return (
+                            <td
+                              className={`num ${v === 0 ? "muted" : ""}`}
+                              key={i}
+                              style={tocco ? { color: "var(--blue)", fontWeight: 600 } : undefined}
+                              title={tocco ? "Mese scritto da questa proposta" : "Resta il budget di oggi"}
+                            >
+                              {v === 0 ? "—" : eur(v)}
+                            </td>
+                          );
+                        })}
+                        <td className="num" style={{ fontWeight: 600 }}>{eur(tot)}</td>
+                      </tr>
+                    );
+                  })}
+                  <tr className="tot">
+                    <td>Totale anno</td>
+                    {Array.from({ length: 12 }, (_, i) => (
+                      <td className="num" key={i}>{eur(proiezioneMese(i))}</td>
+                    ))}
+                    <td className="num">{eur(proiezioneAnno)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <p className="page-caption" style={{ marginTop: 12 }}>
+            In <strong style={{ color: "var(--blue)" }}>blu</strong> i mesi che questa proposta scrive; gli
+            altri restano il budget di oggi. Non e una somma: il consolidamento riscrive solo la fonte{" "}
+            <strong>{nomeFonte(p.fonte)}</strong>, e una proposta <strong>sostituisce</strong> il budget
+            iniziale invece di aggiungersi — sommare direbbe un numero che dopo il consolidamento non si
+            vedrebbe da nessuna parte.
+          </p>
+        </>
+      )}
 
       {p.note && (
         <div className="card" style={{ marginTop: 12 }}>

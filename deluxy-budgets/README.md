@@ -1096,6 +1096,22 @@ maison e per mese, IVA inclusa come il budget), catalogo Hub aggiornato (id `bud
 **MANCA**:
 - **Anno unico 2026**: nessun selettore d'anno; il pluriennale 2027-30 (già nei file pubblicati) non è caricato.
 - **Proposte budget**: un Responsabile invia i suoi dodici mesi da /proposte/nuova; l admin apre la proposta (/proposte/[id]), vede il totale accanto a **quanto c e oggi a budget** sullo stesso ambito, **approva o respinge** con una nota, e in un **secondo gesto separato** la **consolida** nel budget ufficiale (BudgetEntry per le maison, TargetLinea per le linee). Approvare e consolidare sono distinti di proposito: una proposta si puo approvare e applicare in parte, piu tardi, o mai. Respingere **richiede una motivazione** (chi l ha scritta deve sapere cosa correggere), consolidare **richiede la voce di budget** su cui applicarla (una proposta per maison non dice se e D2C, Eventi o B2B: indovinarlo scriverebbe numeri nel posto sbagliato), e una proposta **globale non si consolida** perche il budget si scrive per maison o per linea. Ogni consolidamento lascia traccia sulla proposta (data e dove).
+  > ⭐ **E si vede come resterebbe l anno intero** (23/08/2026, «mostra anche la proiezione di tutto
+  > l anno»). Il totale proposto da solo non risponde alla domanda di chi approva: una proposta copre
+  > **alcuni** mesi, e affiancarla al budget di dodici fa leggere come un taglio del 40% quello che è
+  > solo un pezzo d anno. Ora c è un KPI **«L anno intero, se consolidata»** (da X a Y, con la
+  > differenza) e una tabella mese per mese: **in blu i mesi che la proposta scrive**, gli altri restano
+  > il budget di oggi.
+  >
+  > ⚠️ **Non è una somma**: si applica la regola vera del consolidamento — la proposta riscrive **solo
+  > la sua fonte**, e una proposta **sostituisce** il budget iniziale invece di aggiungersi. Sommare
+  > direbbe un numero che dopo il consolidamento non si vedrebbe da nessuna parte. Le proposte vecchie
+  > (un numero per mese, senza linea) **non si proiettano**: non dicono su quale voce atterrano, ed è la
+  > stessa ragione per cui il consolidamento chiede di sceglierla.
+  >
+  > 📌 Su una proposta **già consolidata** la proiezione dice `293.024 € → 293.024 €, +0 €`: è la
+  > risposta giusta — riconsolidarla non cambierebbe niente — e prima non c era modo di saperlo senza
+  > confrontare a mano dodici caselle.
 - **Premi per singolo responsabile**: oggi è un monte premi totale per livello, non ripartito per persona/team.
 - **Consuntivo**: confronto solo dove la mappatura Finance è impostata. Il D2C reale ora arriva da
   Orders (per maison e per mese), ma i ricavi restano **su due basi diverse** — Finance imponibile,
