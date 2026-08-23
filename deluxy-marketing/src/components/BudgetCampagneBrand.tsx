@@ -68,14 +68,12 @@ export async function BudgetCampagneBrand({ brand }: { brand: string }) {
   const alMese = alGiorno * GIORNI_MESE;
 
   const delMese = budgets.ok ? meseDiSito(budgets, brand, mese) : null;
-  // ⚠️ Comanda il budget PUBBLICATO in Budgets — quello deciso là dentro —
-  // non il calcolo «vendite × percentuale», che è solo quanto si potrebbe
-  // spendere in teoria. Mostrare il calcolo voleva dire scrivere un numero
-  // che in Budgets non si trova da nessuna parte.
-  const tetto =
-    delMese?.advPubblicato != null && delMese.advPubblicato > 0
-      ? delMese.advPubblicato
-      : delMese?.advConsentito ?? null;
+  // ⚠️ `advConsentito`, che in Budgets nasce dal budget vendite APPROVATO —
+  // non `advPubblicato`, che è il riferimento del vecchio monitoraggio («ADV
+  // HP mensile»). Sono due cose diverse con due nomi che si somigliano, e
+  // sceglierne uno dal nome invece che dalla definizione è un errore che ho
+  // già fatto una volta su questa stessa cifra.
+  const tetto = delMese?.advConsentito ?? null;
   const differenza = tetto != null ? tetto - alMese : null;
 
   return (
@@ -98,11 +96,7 @@ export async function BudgetCampagneBrand({ brand }: { brand: string }) {
         <div className="kpi">
           <div className="kpi-valore">{tetto != null ? formattaEuro(tetto) : "—"}</div>
           <div className="kpi-etichetta">
-            {tetto == null
-              ? "Budgets non risponde"
-              : delMese?.advPubblicato != null && delMese.advPubblicato > 0
-                ? "Pubblicato in Budgets per questo mese"
-                : "Calcolo sulle vendite (in Budgets non c'è ancora un budget pubblicato)"}
+            {tetto == null ? "Budgets non risponde" : "Da Budgets, sul budget vendite approvato"}
           </div>
         </div>
         {differenza != null && (
@@ -126,8 +120,9 @@ export async function BudgetCampagneBrand({ brand }: { brand: string }) {
         Il budget giornaliero è un <b>tetto, non una spesa</b>: Google può spendere fino al doppio in
         un giorno e compensare nel mese, e una campagna con poco traffico spende meno di quello che
         le hai dato. Il numero «al mese» è quindi il <b>massimo teorico</b> — la spesa vera sta nelle
-        schede delle campagne. Il tetto arriva da <b>Deluxy Budgets</b>: è quello <b>pubblicato</b>
-        là dentro — proposto, approvato e consolidato — non un conto rifatto qui.
+        schede delle campagne. Il tetto arriva da <b>Deluxy Budgets</b>, calcolato là sul budget
+        vendite <b>approvato</b> — quello in cui le proposte consolidate hanno sostituito
+        l&apos;iniziale.
       </p>
 
       {!budgets.ok && (
