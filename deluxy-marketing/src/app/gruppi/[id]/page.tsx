@@ -4,6 +4,7 @@ import { AndamentoMensile } from "@/components/AndamentoMensile";
 import { DettaglioKeyword } from "@/components/DettaglioKeyword";
 import { CreaAnnuncioAi } from "@/components/CreaAnnuncioAi";
 import { AnnunciAccodati } from "@/components/AnnunciAccodati";
+import { AggiungiNegative } from "@/components/AggiungiNegative";
 import { NuovaKeyword } from "@/components/NuovaKeyword";
 import { accodaAnnuncio, creaAnnuncioConAi, sistemaAnnuncioConAi, leggiBozzaAnnuncio, salvaBozzaAnnuncio, scartaBozzaAnnuncio } from "@/lib/azioni-annuncio";
 import { CodaCampagna } from "@/components/CodaCampagna";
@@ -28,7 +29,7 @@ import { SceltaPeriodo } from "@/components/SceltaPeriodo";
 import { SelettoreStato } from "@/components/SelettoreStato";
 import { Stagionalita } from "@/components/Stagionalita";
 import { Sidebar } from "@/components/Sidebar";
-import { cambiaStatoGruppo, cambiaStatoKeyword, cambiaStatoKeywordSelezionate, creaOperazioneGruppo, creaOperazioneKeyword, annullaOperazioneParola, escludiParoleSelezionate, rinominaGruppo, vaiAlGruppo,
+import { cambiaStatoGruppo, cambiaStatoKeyword, cambiaStatoKeywordSelezionate, creaOperazioneGruppo, accodaNegativeScritte, creaOperazioneKeyword, annullaOperazioneParola, escludiParoleSelezionate, rinominaGruppo, vaiAlGruppo,
   impostaLinguaGruppo, applicaKeywordAdAltreCampagne,
 } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
@@ -993,6 +994,16 @@ export default async function SchedaGruppo({
                     nomeGruppo={gruppo.nome}
                     ritorno={`/gruppi/${gruppo.id}?kw=${filtroKw}#keywords`}
                     azione={applicaKeywordAdAltreCampagne}
+                  />
+                  {/* Le parole per cui NON vogliamo comparire: stessa coda,
+                      stessa approvazione. Sta accanto a «Nuova keyword» perche
+                      sono le due meta della stessa decisione - cosa compriamo e
+                      cosa no - e finora la seconda meta non aveva un posto. */}
+                  <AggiungiNegative
+                    campagnaId={gruppo.campagna.id}
+                    nomeCampagna={gruppo.campagna.nome}
+                    azione={accodaNegativeScritte}
+                    ritorno={`/gruppi/${gruppo.id}?kw=${filtroKw}#keywords`}
                   />
                 </div>
                 {keyword.length === 0 && filtroKw !== "defunte" && (

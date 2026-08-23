@@ -3450,6 +3450,107 @@ export async function riprendiAnnuncioAccodato(fd: FormData) {
   revalidatePath(`/gruppi/${op.gruppoId}`);
   redirect(`/gruppi/${op.gruppoId}?correggi=1`);
 }
+
+/**
+ * Parole da escludere SCRITTE A MANO.
+ *
+ * ⚠️ Perché mancava. Fino a oggi si poteva escludere solo quello che era già
+ * in un elenco — una ricerca fatta da qualcuno, una keyword esistente —
+ * cioè si poteva reagire, non prevenire. Per una parola che nessuno ha ancora
+ * cercato («funerale», «gratis», il nome di un concorrente) non c'era nessun
+ * posto in cui scriverla, e su una campagna nuova è esattamente il momento in
+ * cui si sa già cosa NON si vuole comprare.
+ *
+ * ⚠️ Le negative vivono sulla CAMPAGNA: lo script le crea con
+ * `campagna.createNegativeKeyword`. Anche partendo dalla scheda di un gruppo,
+ * si escludono per tutta la campagna — ed è scritto nel dialogo.
+ *
+ * ⚠️ L0: escludere non sposta budget e non tocca creativi. Le negative di
+ * lancio erano state accodate a L1 e avrebbero fatto scattare il blackout di
+ * 72 ore sedici volte (corretto il 19/08/2026): lo stesso errore non si rifà.
+ */
+export async function accodaNegativeScritte(input: {
+  campagnaId: string;
+  parole: string[];
+  corrispondenza: string;
+  motivo: string;
+  ritorno: string;
+}): Promise<{ ok: true; messe: number; gia: number } | { ok: false; errore: string }> {
+  const campagna = await prisma.campagna.findUnique({
+    where: { id: input.campagnaId },
+    select: { id: true, nome: true, canale: true, idEsterno: true },
+  });
+  if (!campagna) return { ok: false, errore: "Campagna non trovata." };
+
+  const corrispondenza = ["exact", "phrase", "broad"].includes(input.corrispondenza)
+    ? input.corrispondenza
+    : "exact";
+
+  // Ripulite e senza doppioni fra loro: la stessa parola scritta due volte
+  // nella casella non deve diventare due operazioni.
+  const viste = new Set<string>();
+  const parole: string[] = [];
+  for (const p of input.parole) {
+    const pulito = testoKeywordPulito(String(p)).trim();
+    if (!pulito) continue;
+    const chiave = pulito.toLowerCase();
+    if (viste.has(chiave)) continue;
+    viste.add(chiave);
+    parole.push(pulito);
+  }
+  if (parole.length === 0) return { ok: false, errore: "Non c'è nessuna parola da escludere." };
+
+  // ⚠️ Quelle già in coda non si riaccodano: succede a chi torna sulla pagina
+  // e riscrive le stesse, e la coda si riempirebbe di doppioni da approvare.
+  // Quelle già presenti SU GOOGLE l'app non le conosce (non le importa): le
+  // intercetta lo script al momento di scrivere, e lo riferisce.
+  const inCoda = await prisma.operazioneAdv.findMany({
+    where: { campagnaId: campagna.id, tipo: "negativa", stato: { in: ["in_attesa", "approvata"] } },
+    select: { parametri: true },
+  });
+  const gia = new Set(
+    inCoda
+      .map((o) => {
+        try {
+          return String(JSON.parse(o.parametri ?? "{}").testo ?? "").toLowerCase();
+        } catch {
+          return "";
+        }
+      })
+      .filter(Boolean)
+  );
+  const nuove = parole.filter((p) => !gia.has(p.toLowerCase()));
+
+  for (const p of nuove) {
+    const op = await accodaOperazione({
+      data: {
+        tipo: "negativa",
+        canale: campagna.canale,
+        bersaglio: campagna.nome,
+        idEsterno: campagna.idEsterno,
+        parametri: JSON.stringify({ testo: p, corrispondenza }),
+        motivo:
+          input.motivo.trim() ||
+          "Scritta a mano: parola per cui non vogliamo comparire.",
+        livello: "L0",
+        prima: "assente",
+        campagnaId: campagna.id,
+      },
+    });
+    await registra({
+      autore: "utente",
+      tipo: "creazione",
+      entita: "operazione",
+      entitaId: op.id,
+      titolo: `In coda (da approvare): escludi «${p}» da ${campagna.nome}`,
+      dettaglio: `Corrispondenza ${corrispondenza}. ${input.motivo.trim()}`.trim(),
+    });
+  }
+
+  revalidatePath(input.ritorno.split("?")[0]);
+  revalidatePath("/operazioni");
+  return { ok: true, messe: nuove.length, gia: parole.length - nuove.length };
+}
 // ---------- Riportare in attesa un'operazione già approvata ----------
 // Diverso da annullare: annullare la scarta, questo la rimette in coda da
 // decidere. Serve quando si approva in fretta e poi si vuole ripensarci senza

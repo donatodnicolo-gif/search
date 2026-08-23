@@ -4,6 +4,7 @@ import { AndamentoMensile } from "@/components/AndamentoMensile";
 import { FreschezzaDati } from "@/components/FreschezzaDati";
 import { GuardrailCampagna } from "@/components/GuardrailCampagna";
 import { KeywordCampagna } from "@/components/KeywordCampagna";
+import { AggiungiNegative } from "@/components/AggiungiNegative";
 import { ProposteAi } from "@/components/ProposteAi";
 import { Badge } from "@/components/Badge";
 import { GraficoSpesa } from "@/components/GraficoSpesa";
@@ -44,7 +45,7 @@ import {
   aggiungiMetrica,
   cambiaStatoCampagna,
   applicaKeywordAdAltreCampagne,
-  creaOperazione,
+  accodaNegativeScritte, creaOperazione,
   impostaBrandCampagna,
   impostaLinguaCampagna,
   rinominaCampagna,
@@ -741,6 +742,16 @@ export default async function SchedaCampagna({
         {/* Le keyword subito dopo le parole cercate: sono i due lati della
             stessa cosa — cosa abbiamo comprato e cosa ci hanno chiesto — e
             separarli vuol dire non vedere mai la distanza fra i due. */}
+        {/* Le parole per cui NON vogliamo comparire. Le negative vivono qui,
+            sulla campagna: e la loro casa naturale. */}
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+          <AggiungiNegative
+            campagnaId={campagna.id}
+            nomeCampagna={campagna.nome}
+            azione={accodaNegativeScritte}
+            ritorno={`/campagne/${campagna.id}`}
+          />
+        </div>
         <KeywordCampagna
           campagnaId={campagna.id}
           nomeCampagna={campagna.nome}
