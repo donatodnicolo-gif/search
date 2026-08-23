@@ -66,15 +66,22 @@ export class ReceiptsService {
       include: { salary: true },
     });
     if (!receipt) throw new NotFoundException('Ricevuta non trovata');
-    if (user.role === Role.VALET && receipt.salary.valetId !== user.valetId) {
+    // ⚠️ `salary` è facoltativo da quando esistono le ricevute importate dal
+    // legacy, che appartengono a un valet ma non a uno stipendio: il controllo
+    // ricade sul valet della ricevuta.
+    const valetDellaRicevuta = receipt.salary?.valetId ?? receipt.valetId;
+    if (user.role === Role.VALET && valetDellaRicevuta !== user.valetId) {
       throw new ForbiddenException('Accesso non consentito');
     }
     if (!fileUrl) throw new BadRequestException('Allega il file della ricevuta firmata');
 
-    await this.prisma.salary.update({
-      where: { id: receipt.salaryId },
-      data: { status: SalaryStatus.RECEIPT_PENDING },
-    });
+    // Lo stipendio avanza solo se la ricevuta ne ha uno.
+    if (receipt.salaryId) {
+      await this.prisma.salary.update({
+        where: { id: receipt.salaryId },
+        data: { status: SalaryStatus.RECEIPT_PENDING },
+      });
+    }
     return this.prisma.receipt.update({
       where: { id },
       data: { signed: true, signedAt: new Date(), fileUrl },

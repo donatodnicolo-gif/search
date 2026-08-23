@@ -107,6 +107,13 @@
       "found": "Provincia rilevata: {{code}}",
       "noKey": "Nessuna chiave salvata: salva prima la chiave API Google Maps.",
       "notFound": "Indirizzo non riconosciuto o chiave non valida"
+    },
+    "anagrafiche": {
+      "title": "Registro Anagrafiche",
+      "url": "Indirizzo del registro",
+      "key": "Chiave API",
+      "test": "Prova connessione",
+      "hint": "Serve una chiave con la SCRITTURA sui partner: con la sola lettura si vedono le differenze ma non si può collegare nulla."
     }
   },
   "role": {

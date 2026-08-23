@@ -107,6 +107,13 @@
       "found": "Province detected: {{code}}",
       "noKey": "No key saved: save the Google Maps API key first.",
       "notFound": "Address not recognized or invalid key"
+    },
+    "anagrafiche": {
+      "title": "Partner registry",
+      "url": "Registry address",
+      "key": "API key",
+      "test": "Test connection",
+      "hint": "A key with WRITE access on partners is required: read-only shows differences but cannot link anything."
     }
   },
   "role": {

@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { SettingsService } from '../settings/settings.module';
 
 // Sincronizza i partner della piattaforma verso Deluxy Anagrafiche
 // (deluxy-anagrafiche, il registro centralizzato B2B). La piattaforma consegne
@@ -46,14 +47,21 @@ type PartnerPiattaforma = {
 
 @Injectable()
 export class AnagraficheSyncService {
+  constructor(private readonly settings: SettingsService) {}
+
   private readonly logger = new Logger(AnagraficheSyncService.name);
 
   /** Chiave letta dalla cassaforte Hub, con scadenza (TTL). */
   private chiaveCache: { valore: string; scade: number } | null = null;
   private static readonly TTL_MS = 10 * 60 * 1000;
 
-  private get baseUrl(): string {
-    return process.env.ANAGRAFICHE_URL ?? 'http://localhost:3060';
+  /**
+   * Indirizzo del registro. L'ordine è: impostazioni dell'app (modificabili da
+   * schermo, senza un deploy) → variabile d'ambiente → localhost per lo sviluppo.
+   */
+  private async getBaseUrl(): Promise<string> {
+    const daImpostazioni = await this.settings.get('anagraficheUrl').catch(() => null);
+    return daImpostazioni ?? process.env.ANAGRAFICHE_URL ?? 'http://localhost:3060';
   }
 
   /**
@@ -64,8 +72,14 @@ export class AnagraficheSyncService {
    * Ritorna undefined se non configurata / Hub non raggiungibile (best-effort).
    */
   private async getApiKey(): Promise<string | undefined> {
+    // 1) variabile d'ambiente: scorciatoia d'emergenza, ha la precedenza.
     const override = process.env.ANAGRAFICHE_API_KEY;
     if (override) return override;
+
+    // 2) impostazioni dell'app: è qui che la chiave si inserisce da schermo
+    //    (Configurazione → Impostazioni), senza rifare un deploy.
+    const daImpostazioni = await this.settings.get('anagraficheApiKey').catch(() => null);
+    if (daImpostazioni) return daImpostazioni;
 
     if (this.chiaveCache && this.chiaveCache.scade > Date.now()) {
       return this.chiaveCache.valore;
@@ -109,7 +123,7 @@ export class AnagraficheSyncService {
     const perPage = 200;
     const tutti: AnagraficaPartner[] = [];
     for (let page = 1; page <= 100; page++) {
-      const url = `${this.baseUrl}/api/v1/partners?stato=attivo&perPage=${perPage}&page=${page}`;
+      const url = `${(await this.getBaseUrl())}/api/v1/partners?stato=attivo&perPage=${perPage}&page=${page}`;
       let body: { dati?: AnagraficaPartner[]; totale?: number } | null = null;
       try {
         const res = await fetch(url, { headers: { 'x-api-key': apiKey } });
@@ -155,12 +169,12 @@ export class AnagraficheSyncService {
     // Risolve la chiave (env o cassaforte Hub) e poi fa l'upsert. Tutto
     // fire-and-forget: un problema di sync non blocca l'operazione partner.
     this.getApiKey()
-      .then((apiKey) => {
+      .then(async (apiKey) => {
         if (!apiKey) {
           this.logger.debug('Chiave anagrafiche non disponibile: sync saltata');
           return;
         }
-        return fetch(`${this.baseUrl}/api/v1/partners`, {
+        return fetch(`${await this.getBaseUrl()}/api/v1/partners`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

@@ -1,11 +1,12 @@
 import { Module } from '@nestjs/common';
 import { UsersModule } from '../users/users.module';
+import { SettingsModule } from '../settings/settings.module';
 import { AnagraficheSyncService } from './anagrafiche-sync.service';
 import { PartnersController } from './partners.controller';
 import { PartnersService } from './partners.service';
 
 @Module({
-  imports: [UsersModule],
+  imports: [UsersModule, SettingsModule],
   controllers: [PartnersController],
   providers: [PartnersService, AnagraficheSyncService],
   exports: [PartnersService],

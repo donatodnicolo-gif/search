@@ -35,7 +35,7 @@ interface GeocodeResult {
         <label class="fld"><span>{{ 'settings.apiKeys.googleMaps' | translate }}</span>
           <div class="key-row">
             <input class="field mono" [type]="showKey() ? 'text' : 'password'" name="googleMapsApiKey"
-                   [(ngModel)]="model.googleMapsApiKey" autocomplete="off"
+                   [(ngModel)]="model.googleMapsApiKey" autocomplete="new-password" data-lpignore="true" data-1p-ignore
                    [attr.placeholder]="'settings.apiKeys.googleMapsPlaceholder' | translate" />
             <button type="button" class="btn btn-secondary" (click)="showKey.set(!showKey())">
               {{ (showKey() ? 'settings.apiKeys.hide' : 'settings.apiKeys.show') | translate }}
@@ -47,7 +47,7 @@ interface GeocodeResult {
         <label class="fld" style="margin-top:16px"><span>{{ 'settings.apiKeys.googleMapsBrowser' | translate }}</span>
           <div class="key-row">
             <input class="field mono" [type]="showBrowserKey() ? 'text' : 'password'" name="googleMapsBrowserKey"
-                   [(ngModel)]="model.googleMapsBrowserKey" autocomplete="off"
+                   [(ngModel)]="model.googleMapsBrowserKey" autocomplete="new-password" data-lpignore="true" data-1p-ignore
                    [attr.placeholder]="'settings.apiKeys.googleMapsPlaceholder' | translate" />
             <button type="button" class="btn btn-secondary" (click)="showBrowserKey.set(!showBrowserKey())">
               {{ (showBrowserKey() ? 'settings.apiKeys.hide' : 'settings.apiKeys.show') | translate }}
@@ -55,6 +55,33 @@ interface GeocodeResult {
           </div>
         </label>
         <p class="hint">{{ 'settings.apiKeys.googleMapsBrowserHint' | translate }}</p>
+
+        <!-- Registro Anagrafiche: indirizzo + chiave.
+             Stanno qui e non nelle variabili di Vercel così si cambiano da
+             schermo, senza rifare un deploy. -->
+        <h3 class="sotto-titolo">{{ 'settings.anagrafiche.title' | translate }}</h3>
+        <label class="fld"><span>{{ 'settings.anagrafiche.url' | translate }}</span>
+          <input class="field mono" name="anagraficheUrl" [(ngModel)]="model.anagraficheUrl"
+                 autocomplete="new-password" data-lpignore="true" data-1p-ignore placeholder="https://deluxy-anagrafiche.vercel.app" />
+        </label>
+        <label class="fld" style="margin-top:16px"><span>{{ 'settings.anagrafiche.key' | translate }}</span>
+          <div class="key-row">
+            <input class="field mono" [type]="showAnagraficheKey() ? 'text' : 'password'" name="anagraficheApiKey"
+                   [(ngModel)]="model.anagraficheApiKey" autocomplete="new-password" data-lpignore="true" data-1p-ignore placeholder="dlxk_…" />
+            <button type="button" class="btn btn-secondary" (click)="showAnagraficheKey.set(!showAnagraficheKey())">
+              {{ (showAnagraficheKey() ? 'settings.apiKeys.hide' : 'settings.apiKeys.show') | translate }}
+            </button>
+          </div>
+        </label>
+        <p class="hint">{{ 'settings.anagrafiche.hint' | translate }}</p>
+        <div class="key-row" style="margin-top:10px">
+          <button type="button" class="btn btn-secondary" [disabled]="provando()" (click)="provaAnagrafiche()">
+            {{ (provando() ? 'common.loading' : 'settings.anagrafiche.test') | translate }}
+          </button>
+          @if (esitoAnagrafiche(); as e) {
+            <span class="esito" [class.ok]="e.esito === 'ok'" [class.ko]="e.esito !== 'ok'">{{ e.messaggio }}</span>
+          }
+        </div>
 
         <div class="actions">
           <button type="button" class="btn btn-primary" [disabled]="saving()" (click)="save()">
@@ -105,6 +132,10 @@ interface GeocodeResult {
       .key-row { display: flex; gap: 8px; }
       .key-row .field { flex: 1; }
       .mono { font-family: ui-monospace, monospace; }
+      .sotto-titolo { margin: 28px 0 12px; font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+      .esito { font-size: 13px; }
+      .esito.ok { color: #1a7f37; }
+      .esito.ko { color: var(--red, #d70015); }
       .hint { margin: 12px 0 0; font-size: 12.5px; color: var(--text-tertiary); }
       .actions { display: flex; justify-content: flex-end; margin-top: 16px; }
       .error-card { margin-top: 14px; background: rgba(215,0,21,0.06); border: 1px solid rgba(215,0,21,0.15); color: var(--red); padding: 14px 18px; border-radius: var(--radius-l); }
@@ -123,7 +154,36 @@ export class SettingsComponent {
   readonly testing = signal(false);
   readonly testResult = signal<GeocodeResult | null>(null);
 
-  model = { googleMapsApiKey: '', googleMapsBrowserKey: '' };
+  model = { googleMapsApiKey: '', googleMapsBrowserKey: '', anagraficheUrl: '', anagraficheApiKey: '' };
+
+  readonly showAnagraficheKey = signal(false);
+  readonly provando = signal(false);
+  readonly esitoAnagrafiche = signal<{ esito: string; messaggio: string } | null>(null);
+
+  /** Prova la connessione al registro e dice PERCHE' non funziona, se non funziona. */
+  provaAnagrafiche(): void {
+    this.provando.set(true);
+    this.esitoAnagrafiche.set(null);
+    // Si salva prima: la prova gira sul server e legge i valori dal database,
+    // quindi provare senza salvare misurerebbe quelli vecchi.
+    // ⚠️ Si salvano SOLO i due campi di Anagrafiche, non tutto il modello.
+    // Mandando l'intero modello, un valore messo dal gestore password del
+    // browser nei campi Google finiva nel database: e' successo davvero, 39
+    // caratteri scritti in entrambe le chiavi Maps che erano vuote.
+    const soloAnagrafiche = {
+      anagraficheUrl: this.model.anagraficheUrl,
+      anagraficheApiKey: this.model.anagraficheApiKey,
+    };
+    this.http.put(`${environment.apiUrl}/settings`, soloAnagrafiche).subscribe({
+      next: () => this.http
+        .get<{ esito: string; messaggio: string }>(`${environment.apiUrl}/settings/anagrafiche/prova`)
+        .subscribe({
+          next: (r) => { this.provando.set(false); this.esitoAnagrafiche.set(r); },
+          error: (e) => { this.provando.set(false); this.esitoAnagrafiche.set({ esito: 'ko', messaggio: e?.error?.message ?? 'Prova non riuscita' }); },
+        }),
+      error: (e) => { this.provando.set(false); this.esitoAnagrafiche.set({ esito: 'ko', messaggio: e?.error?.message ?? 'Salvataggio non riuscito' }); },
+    });
+  }
   testAddress = '';
 
   constructor() {
@@ -131,6 +191,8 @@ export class SettingsComponent {
       next: (s) => {
         this.model.googleMapsApiKey = s['googleMapsApiKey'] ?? '';
         this.model.googleMapsBrowserKey = s['googleMapsBrowserKey'] ?? '';
+        this.model.anagraficheUrl = s['anagraficheUrl'] ?? '';
+        this.model.anagraficheApiKey = s['anagraficheApiKey'] ?? '';
       },
       error: () => this.error.set('Errore nel caricamento delle impostazioni'),
     });
