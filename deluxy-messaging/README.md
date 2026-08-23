@@ -31,6 +31,56 @@ Il collegamento numero → brand si dichiara in **Negozi**, nel campo *Phone Num
 (app Meta → WhatsApp → Configurazione API). Senza, il messaggio arriva comunque e in
 Inbox si vede il numero grezzo invece del nome del marchio.
 
+## Il correttore di bozze
+
+**Misurato il 22/08/2026 su 120 messaggi usciti scritti a mano: 18 avevano almeno un
+refuso vero — il 15%.** «Good mornign», «Yes we recived your order», «compresa
+consegnsa», «servirbbe», «tutta via», «un ora». Sono i messaggi che legge un cliente.
+
+Adesso, quando premi **Invia** in Inbox, il messaggio viene **riletto prima di partire**:
+
+- **Se è a posto parte subito.** Nell'85% dei casi non te ne accorgi nemmeno: il bottone
+  dice «Rileggo…» per un attimo e il messaggio va.
+- **Se trova qualcosa non parte.** Sopra la casella compaiono le parole trovate
+  (`mornign → morning`) e due bottoni: **«Correggi»** mette a posto il testo e lo lascia
+  lì da rileggere, **«Manda così»** manda com'è.
+
+⚠️ **Non corregge mai da solo, e non manda mai da solo.** Un correttore che riscrive in
+silenzio prima o poi «aggiusta» il cognome di un cliente o una via, e non se ne accorge
+nessuno. Qui l'AI propone e decide una persona — la stessa regola dell'IBAN letto da una
+foto.
+
+⚠️ **«Manda così» non è un ripiego: è la via d'uscita, e deve restare.** Chi scrive sa
+cose che il correttore non sa (una sigla, un nome, una parola in dialetto). Senza quel
+bottone il correttore diventa un ostacolo, e un ostacolo si aggira — di solito smettendo
+di leggerlo.
+
+⚠️ **Se il correttore non risponde entro 2,5 secondi, il messaggio parte lo stesso.**
+Rete, timeout, chiave scaduta: bloccare le risposte ai clienti è molto peggio di un
+refuso.
+
+⚠️ **Quello che non viene nemmeno guardato**: link, indirizzi email, numeri d'ordine
+(`#2529`), telefoni e IBAN si mascherano prima di mandare il testo al modello. Sono la
+fonte principale dei falsi allarmi, e un allarme falso di troppo insegna a mandare senza
+leggere. E qualunque proposta che contenga cifre viene buttata comunque: «21018» non è un
+refuso, è un CAP.
+
+⚠️ **Più di cinque refusi in un messaggio = nessuno.** Non è un testo pieno di errori: è
+un testo che il modello non ha capito (un'altra lingua, un elenco di codici). Meglio non
+dire niente.
+
+**Il modello è quello grande**, e non per abitudine: sugli stessi 120 messaggi `gpt-4o` ne
+ha trovati **18** e `gpt-4o-mini` solo **11** — si perdeva «servirbbe», «tranfer»,
+«theese», «tutta via». Costa circa **un euro al mese** al nostro volume.
+
+C'è anche un aiuto gratis che prima non funzionava: la casella di risposta adesso dichiara
+al browser **in che lingua si sta scrivendo** (quella del cliente, che l'app sa già). Prima,
+con il solo dizionario italiano installato, ogni parola inglese risultava sbagliata — e una
+schermata tutta rossa si impara a ignorare in un giorno.
+
+Le regole si ricontrollano senza spendere niente: `npx tsx scripts/prova-correttore.mts`.
+La catena intera (che chiama il modello): `npx tsx scripts/prova-correttore-vero.mts`.
+
 ## Segnalare spam
 
 Il bottone **Spam** sta sia nella riga dell'elenco sia **dentro la conversazione aperta**:

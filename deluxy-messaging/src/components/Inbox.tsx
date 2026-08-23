@@ -9,6 +9,9 @@ import { NuovaMail } from './NuovaMail'
 import { CollegaOrdine } from './CollegaOrdine'
 import { RiassuntoChat } from './RiassuntoChat'
 import { NOMI_ORIGINE } from '@/lib/provenienza'
+// ⚠️ Da `refusi.ts` e non da `correttore.ts`: quello importa OpenAI e le
+// impostazioni (cioè il database), e qui siamo in un componente client.
+import { applica, type Refuso } from '@/lib/refusi'
 import { nuoviDaAvvisare } from '@/lib/avvisi'
 
 // L'inbox unificata: elenco conversazioni a sinistra, thread a destra.
@@ -315,6 +318,25 @@ function Bolla({ m, canale }: { m: MessaggioDto; canale: string }) {
 
 /** Dove finiscono le conversazioni che non sappiamo di chi sono. */
 const SENZA_MARCHIO = 'Senza marchio'
+
+/**
+ * Il codice che il browser capisce, per la lingua che l'app chiama per nome.
+ *
+ * ⚠️ Serve all'attributo `lang` della casella di risposta, cioè al correttore
+ * del browser: se non gli si dice in che lingua si sta scrivendo, usa i
+ * dizionari installati — e a chi ha solo l'italiano ogni parola inglese
+ * risulta sbagliata. Una schermata tutta rossa si impara a ignorare in un
+ * giorno, e da lì il correttore è spento anche se è acceso.
+ */
+const CODICE_LINGUA: Record<string, string> = {
+  italiano: 'it',
+  inglese: 'en',
+  francese: 'fr',
+  spagnolo: 'es',
+  tedesco: 'de',
+  portoghese: 'pt',
+  olandese: 'nl',
+}
 
 // Le iconcine delle azioni rapide. Disegnate qui e non prese da una libreria:
 // tre icone non giustificano un pacchetto, e `currentColor` le fa seguire il
@@ -737,8 +759,53 @@ export function Inbox({
     }
   }
 
+  // ── IL CORRETTORE DI BOZZE ──
+  //
+  // Misurato il 22/08/2026 su 120 messaggi usciti scritti a mano: **18 avevano
+  // almeno un refuso vero, il 15%** — «Good mornign», «Yes we recived your
+  // order», «compresa consegnsa», «servirbbe». Il correttore del browser è già
+  // acceso su questa casella e non basta: l'invio parte con **Invio**, e non
+  // c'è un momento in cui si guardino le sottolineature.
+  //
+  // ⚠️⚠️ **Non corregge mai da solo.** Trovato qualcosa, il messaggio NON parte:
+  // si mostra la proposta e si decide. «Correggi e manda» sostituisce e manda,
+  // «Manda così» manda com'è. Un correttore che riscrive in silenzio prima o
+  // poi «aggiusta» un cognome o un indirizzo, e nessuno se ne accorge.
+  //
+  // ⚠️ Se il controllo non riesce (rete, timeout, chiave), `controllato` torna
+  // `false` e **si manda lo stesso**: bloccare le risposte ai clienti è molto
+  // peggio di un refuso.
+  const [refusi, setRefusi] = useState<Refuso[]>([])
+  const [controllando, setControllando] = useState(false)
+
   async function invia() {
     if (!selezionataId || !bozza.trim() || inviando) return
+
+    // ⚠️ Il controllo si fa UNA volta sola: se ci sono già delle proposte a
+    // schermo vuol dire che questo è il secondo Invio — cioè «manda così».
+    if (!refusi.length) {
+      setControllando(true)
+      try {
+        const res = await fetch('/api/correggi', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ testo: bozza.trim() }),
+        })
+        const d = (await res.json().catch(() => ({}))) as {
+          refusi?: { sbagliato: string; giusto: string }[]
+        }
+        if (d.refusi?.length) {
+          setRefusi(d.refusi)
+          setControllando(false)
+          return // non si manda: adesso decide una persona
+        }
+      } catch {
+        // Il correttore non ha risposto: si manda lo stesso.
+      }
+      setControllando(false)
+    }
+
+    setRefusi([])
     setInviando(true)
     setErroreInvio('')
     try {
@@ -771,6 +838,9 @@ export function Inbox({
     setSelezionataId(null)
     setErroreInvio('')
     setSuggerimento(null)
+    // I refusi erano di quel messaggio: aperta un'altra conversazione non
+    // vogliono dire più niente.
+    setRefusi([])
   }
 
   // Esc chiude: aperta una finestra, è il gesto che tutti provano per primo.
@@ -2025,10 +2095,62 @@ export function Inbox({
               </div>
             ) : null}
 
+            {/* ── I REFUSI TROVATI ──
+                ⚠️ Sta SOPRA la casella e non dentro un pop-up: il messaggio è
+                già scritto e la mano è sulla tastiera. Due strade, e nessuna
+                delle due è «l'app ha deciso per te». */}
+            {refusi.length ? (
+              <div className="avviso-presa">
+                <strong>{refusi.length === 1 ? 'Un refuso' : `${refusi.length} refusi`}</strong>
+                <span style={{ display: 'flex', gap: 6, flexWrap: 'wrap', flex: 1 }}>
+                  {refusi.map((r) => (
+                    <span key={r.sbagliato} className="badge rosso">
+                      {r.sbagliato} → {r.giusto}
+                    </span>
+                  ))}
+                </span>
+                {/* ⚠️ I due bottoni restano insieme: `.avviso-presa .bottone` ha
+                    `margin-left:auto`, e presi singolarmente si spartirebbero
+                    lo spazio finendo lontani l'uno dall'altro. */}
+                <span style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
+                  <button
+                    className="bottone"
+                    style={{ marginLeft: 0 }}
+                    disabled={inviando}
+                    onClick={() => {
+                      setBozza((t) => applica(t, refusi))
+                      setRefusi([])
+                      bozzaRef.current?.focus()
+                    }}
+                  >
+                    Correggi
+                  </button>
+                  {/* ⚠️ «Manda così» resta, ed è importante che resti: chi
+                      scrive sa cose che il correttore non sa (un nome, una
+                      sigla, una parola in dialetto). Senza questa via d'uscita
+                      il correttore diventa un ostacolo, e un ostacolo si
+                      aggira — di solito smettendo di leggerlo. */}
+                  <button
+                    className="bottone secondario"
+                    style={{ marginLeft: 0 }}
+                    disabled={inviando}
+                    onClick={() => void invia()}
+                  >
+                    Manda così
+                  </button>
+                </span>
+              </div>
+            ) : null}
+
             <div className="composer">
               <textarea
                 ref={bozzaRef}
                 rows={1}
+                // ⚠️ La lingua serve al correttore del BROWSER: con un solo
+                // dizionario installato, ogni parola dell'altra lingua risulta
+                // sbagliata e le sottolineature diventano rumore da ignorare.
+                // Qui la lingua del cliente la sappiamo già, e gliela diciamo.
+                lang={CODICE_LINGUA[linguaCliente] ?? 'it'}
                 placeholder={`Rispondi su ${etichettaCanale(selezionata.canale)}…  ( / per le risposte pronte )`}
                 value={bozza}
                 onChange={(e) => {
@@ -2051,6 +2173,10 @@ export function Inbox({
                     setRisposteAperte(true)
                     return
                   }
+                  // ⚠️ Toccato il testo, le proposte del correttore non valgono
+                  // più: erano fatte su un'altra frase, e applicarle dopo
+                  // vorrebbe dire cambiare una parola che nessuno ha guardato.
+                  if (refusi.length) setRefusi([])
                   setBozza(v)
                 }}
                 onKeyDown={(e) => {
@@ -2139,8 +2265,12 @@ export function Inbox({
                   {traducendo ? 'Traduco…' : `Traduci in ${linguaCliente}`}
                 </button>
               ) : null}
-              <button className="bottone" onClick={invia} disabled={inviando || !bozza.trim()}>
-                Invia
+              <button
+                className="bottone"
+                onClick={invia}
+                disabled={inviando || controllando || !bozza.trim()}
+              >
+                {controllando ? 'Rileggo…' : 'Invia'}
               </button>
             </div>
           </>

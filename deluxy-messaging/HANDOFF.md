@@ -1,6 +1,6 @@
 # Handoff — Deluxy Customer Service
 
-Ultimo aggiornamento: **23/08/2026, ore 14:00** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
+Ultimo aggiornamento: **23/08/2026, ore 14:30** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
 prima, alle 15:10, l'utente ha pubblicato la schermata di consenso Google e il
 conto alla rovescia dei 7 giorni è finito).
 Prima, il 19/08: la **risposta di primo contatto** che parte da sola al primo
@@ -151,6 +151,46 @@ AES-256-GCM nel database. `APP_SECRET` su Vercel **deve** essere identico al
 locale, altrimenti nulla si decifra.
 
 ## FATTO
+
+- **IL CORRETTORE DI BOZZE** (23/08/2026). Chiesto dall'utente dopo aver visto
+  partire «Good mornign» e «Yes we recived your order».
+  - 📊 **Misurato prima di costruire**: su **120 messaggi usciti** scritti a
+    mano, **18 avevano almeno un refuso vero (15%)** — «consegnsa»,
+    «servirbbe», «realzzazioen», «tranfer», «theese», «tutta via», «un ora».
+    ⚠️ Nel campione **103 messaggi su 120 sono di una persona sola**: non si
+    può leggere come «è un problema suo», scrive lei quasi tutto.
+  - **Come funziona**: premi Invia → il messaggio viene riletto. A posto, parte
+    subito; con dei refusi **non parte**, e sopra la casella compaiono le
+    parole trovate con **«Correggi»** e **«Manda così»**.
+  - ⚠️⚠️ **L'AI propone, il codice decide** (`src/lib/refusi.ts`): ogni parola
+    proposta deve **esistere nel testo come parola intera**, o si butta in
+    silenzio. Senza questo filtro un modello che «migliora» la frase
+    riscriverebbe un cognome o una via, e non se ne accorgerebbe nessuno.
+  - ⚠️⚠️ **Non corregge e non manda mai da solo.** «Manda così» **deve
+    restare**: chi scrive sa cose che il correttore non sa, e senza via d'uscita
+    il correttore diventa un ostacolo — che si aggira smettendo di leggerlo.
+  - ⚠️ **Fallisce aperto**: timeout 2,5 s, errori ingoiati, `controllato:false`
+    → il messaggio parte. Bloccare le risposte ai clienti è peggio di un refuso.
+  - ⚠️ **Mascherati prima di andare al modello**: link, email, `#numeri`,
+    telefoni, IBAN. E ogni proposta con cifre si butta comunque («21018» è un
+    CAP). **Più di 5 refusi = nessuno**: non è un testo pieno di errori, è un
+    testo non capito.
+  - ⚠️ **Modello grande, misurato**: `gpt-4o` 18 trovati, `gpt-4o-mini` 11 sugli
+    stessi 120. ~1 €/mese al nostro volume. Stessa lezione già in `src/lib/ai.ts`.
+  - ⚠️ `src/lib/refusi.ts` **non importa né OpenAI né il database**: lo importa
+    l'Inbox, che è un componente client. Le chiamate stanno in `correttore.ts`.
+  - 🎁 Aggiunto anche l'attributo `lang` alla casella di risposta (dalla lingua
+    del cliente, che l'app già calcola in codice): il correttore del browser
+    era acceso ma inutile — con il solo dizionario italiano ogni parola inglese
+    risultava sbagliata.
+  - ✅ `npx tsx scripts/prova-correttore.mts`: **17 casi**, tutti passano.
+    `prova-correttore-vero.mts` prova la catena col modello: le quattro frasi
+    vere corrette, e la frase giusta con indirizzo/ordine/telefono **non dà
+    nessun falso allarme**.
+  - ⚠️ **Il riquadro non è stato visto a pixel**: il pannello del browser non
+    era a schermo e `getBoundingClientRect` tornava zeri (trappola nota). La
+    struttura è verificata nel DOM — etichetta, pastiglie, «Correggi», «Manda
+    così» — ma **l'occhio ce lo deve mettere una persona**.
 
 - **«PAGA» FRA LE AZIONI, E «NOTA» CHE SCRIVE SUL DIARIO** (23/08/2026, LIVE,
   commit `587edfc8`). Chiesto dall'utente guardando la bacheca ordini.
