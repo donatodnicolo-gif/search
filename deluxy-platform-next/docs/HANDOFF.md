@@ -682,73 +682,19 @@ Feedback "in app.deluxy.it ci sono cose che non hai considerato". Confrontata la
 
 ## MANCA / PROSSIMI PASSI
 
-### 🔴 23/08 — LA FEE DEI PARTNER È ZERO SU TUTTI E 267 (mai importata)
+### ✅ 23/08 — LA FEE DEI PARTNER: era nell’export, cercavo la colonna sbagliata
 
-Segnalato dall’utente come «la fee per 142 è sbagliata». **Non è sbagliata solo su 142**: `Partner.commissionPercent` vale `0` su **tutti e 267 i partner** — è il `@default(0)` dello schema, mai toccato.
+> ⚠️ **Questa sezione corregge quello che c’era scritto qui poche ore prima.** Avevo concluso che la Fee% non fosse nell’export legacy. **Falso.** C’è — ma non è un campo del partner.
 
-- **`commissionPercent` non compare in nessuno script di import.** Verificato con `grep -rln` su `scripts/` e `api/src/`: risponde solo `finance.module.ts` (che la usa) e `create-partner.dto.ts` (che la accetta dal form). Nessuno la scrive.
-- **Perché non è stata importata: nell’export non c’è.** Cercata in tutte e 75 le tabelle divise — l’unica colonna percentuale è `expert.holdingPercentage`, che è del valet. Cercata anche nei 210 MB di `deluxy.csv` grezzo (`grep -oiE` su fee/percent/commission/provv): zero intestazioni. Nemmeno `delivery.csv` la porta: ha `price`, `additionalPrice`, `productValue`, `expertSalary`, e basta.
-- ✅ **Escluso che l’abbia persa lo splitter** (`scripts/blocchi-mancanti-export.mjs`): l’export ha **92 intestazioni** contro **75 file**, ma i **14 blocchi non divisi hanno tutti 0 righe** — sono tabelle vuote, e nessuna parla di fee.
-- 💰 **Quanto pesa**: 61.836 consegne per **826.599 €** di prezzo partner. La Finanza calcola `feeValue = commissionPercent% × prezzoPartner`, quindi oggi **ogni punto di fee vale 8.266 €** che non vengono contati. Al 22% verificato il 21/07 su una riga vera sarebbero **181.852 €**. Con la fee a zero il primo margine è sottostimato e l’incasso partner sovrastimato **su tutta la sezione `/finance`**.
-- **Cosa serve**: ri-esportare da phpMyAdmin la tabella che contiene la percentuale (l’export attuale del `partner` ha 41 colonne e non ne ha nessuna). Finché non arriva, `/finance` va letta sapendo che la fee è 0 ovunque, **non che è zero davvero**.
+- **Dov’era**: nel `price` delle righe di `partner-service` sui servizi con **`pricingModel = sales`**. Per un servizio di VENDITA quel numero **non sono euro, sono punti percentuali**. Cercavo una colonna che si chiamasse «fee»/«commission»/«percent» e non l’ho vista. L’ha trovata l’utente guardando la scheda: *«per i servizi di vendita quella è una fee %, non un valore in €»*.
+- ⚠️ **Trappola di metodo**: `pricingModel` di `service.csv` ha 5 valori — `fixedprice`, `hourlyrate`, **`sales`**, `corporate`, `warehouseservice` — e **cambia il significato della stessa colonna `price`**. Un campo non si legge senza il campo che lo qualifica.
+- ⚠️ **E un parser sbagliato me l’aveva nascosto un’altra volta**: leggendo `service.csv` con una regex, le colonne si erano disallineate e stavo leggendo `serviceName` nella posizione di `pricingModel`. Ora c’è `scripts/leggi-csv.mjs` (virgolette, virgole nei campi, virgolette raddoppiate) — **usare quello**.
+- ✅ **Importata** (`scripts/importa-fee-e-magazzino.mjs`, prova a vuoto di default): **80 partner** hanno ora la loro percentuale — **36 al 20%**, 13 al 15%, **9 al 22%** (lo stesso valore verificato il 21/07 riproducendo una riga reale al centesimo), 7 al 25%. `142 RESTAURANT` è al **15%**.
+- 🔴 **Restano a 0 due partner che una fee ce l’hanno**: `GUSTO17` e `Voila` hanno **due percentuali diverse** fra i loro servizi di vendita (15 e 0). Non si sceglie a caso: **vanno scritte a mano**. Gli altri 185 a zero semplicemente non hanno servizi di vendita.
+- 💰 Con la fee a zero la Finanza calcolava `feeValue = 0` su tutto: primo margine sottostimato e incasso partner sovrastimato su 61.836 consegne e 826.599 € di prezzo partner.
 
-0-bis. **[IN CORSO — 26/07] Partner attivi da Anagrafiche.** Script
-   `api/scripts/importa-partner-anagrafiche.mjs`: legge `GET /api/v1/partners?stato=attivo`
-   e aggancia in cascata **P.IVA → email → insegna normalizzata**. Idempotente, prova a vuoto
-   per default (`--scrivi` applica, `--collega` rimanda ad Anagrafiche il `platformId`).
-   Provato sul db locale: **33 partner su 41**.
-   - ⚠️ **`attivo` (bool) ≠ `stato="attivo"`**: il primo è il soft delete del registro, il secondo
-     è lo stato commerciale (= è un Partner). Per "i partner attivi" filtrare **`stato`**.
-   - ⚠️ In Anagrafiche l'email sta quasi sempre sul **referente** (`contatti[].email`), non nel
-     campo `email`: solo 4 su 41 ce l'hanno in alto, 29 solo nei contatti, **8 non ce l'hanno**
-     (non importabili: `Partner.email` è obbligatoria e `@unique`).
-   - ⚠️ La chiave `deluxy-platform` ha `scrittura=true` ma **`scritturaPartner=false`**: il campo
-     `stato` inviato da `anagrafiche-sync.service.ts` viene **scartato** dal registro. Su 943
-     anagrafiche **1 sola ha `platformId`** → oggi i due archivi non si agganciano. La chiave
-     **non è nella cassaforte del Hub**: lì ci sono due chiavi di Scout con nomi fuorvianti
-     (`ANAGRAFICHE_WRITE_KEY` → utenza `deluxy-scout-referenti`, che non scrive partner).
-   - **Manca**: eseguirlo contro la **produzione** (dipende dal punto 0), più province e tipi di
-     servizio, che esistono **solo** nel legacy app.deluxy.it (punto 1).
+### ✅ 23/08 — «Servizi abilitati»: l’unità era sbagliata e Stock Pallet non doveva esserci
 
-0. **[FATTO il 23/07, ma 🔴 IN AVARIA dal 26/07 — vedi «STATO PRODUZIONE» in cima] Deploy su Vercel.**
-   L'app **è** in produzione su `https://deluxy-delivery.vercel.app` (progetto Vercel `delivery`,
-   Root Directory `deluxy-platform-next`, branch **`main`**), ma le API sono giù per credenziali DB
-   scadute. Storia originale del lavoro di deploy (branch `worktree-vercel-deploy`). **Fatto:** provider Prisma `sqlite` → `postgresql` con `binaryTargets` per il runtime Vercel; le 32 migrazioni SQLite sostituite da **una baseline** `00000000000000_init_postgres` (41 tabelle, 24 indici, 54 FK) generata con `prisma migrate diff`; handler serverless `api/src/vercel.ts` (bootstrap Nest cachato, niente `listen`/CORS/static); `vercel.json` (progetto unico: web su `/`, API su `/api/*` → **niente CORS**); `environment.prod.ts` + `fileReplacements`; `.env.example` e docker-compose allineati. Build API e web verdi, bundle prod senza `localhost`.
-   ~~**[BLOCCATO]** creare il progetto Supabase, collegare il repo a Vercel~~ → **fatto il 23/07**: il DB è sul cluster Supabase condiviso con le altre app Deluxy, il progetto Vercel è `delivery`. Resta aperto solo il **rinnovo delle credenziali** (in cima).
-   ⚠️ **Non ancora risolto — le ricevute si rompono su serverless**: `api/src/receipts/receipts.module.ts` salva con `diskStorage` in `uploads/receipts/` e `main.ts` le serve da `/uploads`. Su Vercel il filesystem e' **effimero**: i file caricati spariscono al primo redeploy. Vanno spostati su **Supabase Storage** prima di considerare il deploy completo. L'handler `vercel.ts` non monta `useStaticAssets` proprio per non dare l'illusione che funzioni.
-   ⚠️ **Cold start**: NestJS + Prisma su serverless paga ~1-3s a funzione fredda. Accettabile per staging; se questa diventa produzione, valutare un host container (Railway/Render) per l'API tenendo il web su Vercel.
-
-1. **[BLOCCATO — palla all'utente] Connessione al DB di produzione (MySQL, sola lettura)**: servono i 5 valori `MYSQL_*` (o replica) + raggiungibilità/tunnel. Vedi ANALISI-BACKEND-LEGACY. Poi `prisma db pull` per lo schema reale.
-2. **Allineare l'endpoint WooCommerce** al contratto reale: `POST /api/deliveries/sync/woo-order`, header `x-deluxy-partner-key`, payload+risposta identici (oggi usa `x-api-key` e `/woocommerce/orders`).
-3. ~~**Form di MODIFICA**~~ → **FATTO il 17/07** per tutte le sezioni (vedi FATTO).
-2-bis. ~~Form **Prodotti**: comportamento dei flag dell'app reale~~ → **FATTO il 17/07**: osservato dal vivo su app.deluxy.it (l'utente ha fatto il login; Claude non inserisce credenziali) e replicato. Semantica dei campi ora nel manuale (§3.6).
-3-bis. ~~**Traduzione incrementale**~~ → **FATTO il 17/07**: tutte le schermate tradotte (~775 chiavi IT/EN allineate).
-4. **Applicare la visibilità per ruolo operatore** al login (Finance vede Amministrazione, PM no Operatività, Customer Service no Amministrazione) — richiede auth reale che porti `operationRole` nel token e sidebar che filtri.
-5. **Autenticazione reale** contro il DB: mapping `extraId`/`extraType` → partner/valet/operation. *(17/07: `User` ora collega partner/valet/operation e ha stati espliciti — base pronta.)*
-6. **Sezioni ancora stub**: Attività, Vendite, Stipendi, Pagamenti, Modelli SMS, Disponibilità, Province. *(Clienti e Utenti non sono più stub: fatti il 17/07. **Regole carnet** e **Finanza**: fatte il 20/07.)*
-6-bis. **Invito via email**: oggi l'invito è un **link da copiare** (nessun SMTP configurato). Wire di un invio email reale (o WhatsApp) quando si configura un provider; il token e il flusso sono già pronti.
-6-ter. **Notifiche — canali mancanti (20/07)**: portato il **Web Push + in-app** (vedi FATTO). Restano da collegare **SMS / WhatsApp / Mail** (servono credenziali Twilio/WATI/SMTP) e il **job notturno `checkingPartnerContract`** (scadenza contratto partner, tipo `PARTNER_CONTRACT_EXPIRING` già previsto nell'enum): su Vercel serve un **Cron Job** che chiami un endpoint protetto, non un `@Cron` in-process (le funzioni serverless non restano vive). L'interfaccia `notifyUsers()` è pronta ad accoglierli. Da agganciare anche un **bottone "Attiva notifiche push" in Profilo** che chiami `NotificationsService.enablePush()`.
-9. ~~**Filtri/ordinamenti**~~ → **FATTO il 17/07** su tutte le liste, con **due strategie decise in base al volume**:
-   - **Server-side** (`api/src/common/list-query.ts`, risposta `{items,total,page,pageSize}`): **Prodotti** (8.503 in prod), **Consegne**, **Clienti** (4.092). Ricerca globale `q` in AND con lo scope di ruolo, sort su whitelist, paginazione 10–500 (default 50).
-   - **Client-side** (`web/src/app/core/client-table.ts`): **Partner, Valet, Categorie, Servizi, Operatori** — liste piccole (≤243) usate soprattutto come tendine nei form: la conversione server-side avrebbe rotto ~14 punti di chiamata senza dare valore. Queste API restano array.
-   - ⚠️ **Regola per il futuro**: se una lista cresce, spostarla su server-side e aggiornare **tutti** i consumatori (leggere `.items`, passare `pageSize=500` per le tendine).
-9-bis. **Tendina "Cliente esistente" nel form consegna**: carica `pageSize=500`, ma in produzione i clienti sono **4.092** → la tendina è **parziale**. Va sostituita con una **ricerca mentre si scrive** (usa `GET /customers?q=`). Stesso discorso, meno urgente, per i prodotti nel form consegna (8.503, `pageSize=500`).
-10. **Ricerca case-insensitive su PostgreSQL** — **scritta il 17/08 ma NON in produzione.** `mode: 'insensitive'` aggiunto in `textSearch()` (`api/src/common/list-query.ts`), build pulita, ma il commit `a93e54d8` è **solo sul branch `piattaforma-ricerca-insensitive`**: su `main` la riga di codice è ancora `{ contains: term }` (là *insensitive* compare solo nel commento). Restano **due** cose da fare: ① **merge su `main`**, ② **verifica a runtime** appena il DB torna su.
-11. **Image manager Shopify e descrizione per piattaforma**: la parte dati/form c'è (URL multipli + descrizione per piattaforma); manca l'**upload/sincronizzazione reale su Shopify** (stub).
-12. **`trackingToken` senza vincolo unique** — **ora è banale da fare** (20/07): l'ostacolo era il rebuild tabella di SQLite, che non esiste più. Basta `@unique` nello schema + una migrazione. Non l'ho fatto nel lavoro Vercel per non allargarne il perimetro: è un cambio di schema a sé.
-7. **Rifiniture**: nel form valet rendere Telefono/Indirizzo obbligatori e CF sempre richiesto (come app reale).
-7-bis. **Da confermare con l'utente/app reale**: la semantica di `minOrderTime`/`maxOrderTime` — oggi usati sia come limite di inserimento (testo nel form Servizi) sia come intervallo di **generazione fasce di consegna** (elenco 08–10… nel form Consegna). Verificare su app.deluxy.it quale delle due (o entrambe) è quella vera.
-8. **In pausa**: analisi multi-agente del vecchio codice (cosa fa ogni funzione + come aggiornarla).
-
-## Note operative (IMPORTANTI per una nuova sessione)
-
-- ⚠️ **Una sola sessione Claude per questa cartella** (regola 4): due sessioni sulla stessa working dir si sovrascrivono branch e lavoro non committato. Se serve lavorare in parallelo, usare un **git worktree** isolato (cartella + branch dedicati).
-- **Porte alternative per sessioni parallele**: se 3000/4200 sono occupate da un'altra sessione, avviare l'API con `PORT=3010` e `CORS_ORIGINS=http://localhost:4200,http://localhost:4210`, e il web con `npx ng serve --port 4210`. `environment.ts` capisce da solo la porta: web su 4210 → API su 3010.
-- **Push e deploy pre-autorizzati** (utente, 15/07 "si sempre"; poi anche il deploy): dopo ogni commit pushare **senza chiedere conferma** (menzionarlo soltanto). Il deploy di produzione si fa con `npx vercel deploy --prod --yes`. Restano da confermare: invii e cancellazioni.
-- **Regola d'oro UI**: ogni form/schermata va **verificato campo-per-campo contro l'app reale** app.deluxy.it (sessione admin) prima di dirlo finito; integrare le scoperte nel manuale; se un campo ha semantica dubbia, **chiedere all'utente**.
-- Token demo a scadenza breve: durante i test la sessione web può saltare — rifare login.
-- Le migrazioni Prisma vanno create con l'API server **fermo** (lock del query engine su Windows): `preview_stop` o chiudere `npm run dev:api`, poi `npx prisma migrate dev --name ...`.
-- Dopo ogni modifica al `.md`: `npm run doc:word` per rigenerare il Word, e committarlo.
-- ⚠️ **La produzione nasce da `main`** (non più da `deluxy-scout`): Vercel builda il branch `main` del repo `C:\Users\nicol\app`. Ogni modifica alla piattaforma va portata **lì**, altrimenti non va mai online. Ultimo commit della cartella su `main`: `36681f8f` (22/07) — **confermato ancora così il 17/08**, cioè da 26 giorni nulla della piattaforma è arrivato online. Il lavoro del 17/08 (ricerca case-insensitive) è fermo sul branch `piattaforma-ricerca-insensitive`, **non mergiato**.
-- ⚠️ **Non ripescare copie vecchie**: `C:\Users\nicol\scoutwt\deluxy-platform-next` è un repo diverso e obsoleto (fermo al 19/07, senza `vercel.json`). La versione buona è quella su `main`.
-- I push di branch di lavoro creano **deploy Preview** anche sul progetto `delivery` (il repo è collegato a tutti i progetti Vercel Deluxy): le Preview in stato *Error* sono attese e non toccano la produzione.
+- La tabella scriveva **«€» su tutto**. Ora l’unità segue il `pricingModel`: **VENDITA → `15 %`**, A_ORA → `15 €/ora`, MAGAZZINO → `1 € · 1 € a pezzo`, il resto in euro.
+- **Stock Pallet non si mostra più a 142.** La riga a listino **esiste davvero** nel legacy (price 1, pricePerItem 1, extraKm 12), ma il partner ha `partnerHasWarehouse = 0` e l’app originale nasconde i servizi di magazzino a chi il magazzino non ce l’ha: è un listino che non si può usare. Aggiunto **`Partner.hasWarehouse`** (migrazione `aggiungi_has_warehouse`) e importato — **4 partner** ce l’hanno acceso, e **3 avevano servizi di magazzino a listino senza averlo**.
+- ✅ Provato in produzione (`delivery-l9f015ux9`) su `142 RESTAURANT`: fee 15%, magazzino false, `Vendita Deluxy 15 %`, `Servizio a Ora 15 €/ora`, `Stock Pallet` nascosto.
