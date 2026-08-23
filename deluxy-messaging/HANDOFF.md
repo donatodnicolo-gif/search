@@ -1,6 +1,6 @@
 # Handoff — Deluxy Customer Service
 
-Ultimo aggiornamento: **24/08/2026, ore 03:30** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
+Ultimo aggiornamento: **24/08/2026, ore 04:15** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
 prima, alle 15:10, l'utente ha pubblicato la schermata di consenso Google e il
 conto alla rovescia dei 7 giorni è finito).
 Prima, il 19/08: la **risposta di primo contatto** che parte da sola al primo
@@ -340,6 +340,29 @@ locale, altrimenti nulla si decifra.
     chat finisce nel cestino.
   - ⚠️ **Il numero delle note da fare sta sul bottone**: in un pannello chiuso
     una nota lasciata a un collega non esisterebbe.
+
+- **«DA LEGGERE» ANCHE DALL'ELENCO** (24/08/2026, chiesto: «consenti di
+  impostare da leggere anche da vista inbox»). Una **busta** fra le iconcine
+  di ogni riga in posta in arrivo: vuota = normale, piena e d'oro = segnata.
+  - ⚠️ Serve **scorrendo l'elenco**: si legge l'anteprima, si capisce che ci
+    vuole tempo, e la si mette da parte **senza entrarci**. Il bottone nella
+    testata presuppone di essere già dentro.
+  - ⚠️⚠️ `stopPropagation` obbligatorio: senza, il clic sarebbe arrivato alla
+    riga, che APRE la conversazione — e aprirla **cancella** il segno. Il
+    bottone avrebbe fatto il contrario di quello che dice, in silenzio.
+  - ⚠️ È un INTERRUTTORE: un segno che si può solo mettere si toglierebbe
+    aprendo la chat, cioè facendo la cosa che si voleva rimandare.
+  - ⚠️ L'icona **cambia** (busta piena/vuota) e la busta accesa **non è
+    smorzata** come le altre: quelle sono azioni, questa è uno stato.
+  - ⚠️ **Difetto vecchio trovato per strada**: la riga riservava 58px a destra,
+    che bastano a DUE icone. Sulle mail (che hanno anche lo Spam) ce n'erano
+    già tre e l'anteprima finiva sotto le iconcine. Adesso lo spazio si conta
+    con `:has(.azioni-riga > button:nth-child(3|4))` → 84px / 110px.
+  - ✅ Guardata con un'anteprima temporanea con due righe, una WhatsApp
+    segnata (3 icone, 84px, busta piena oro) e una mail non segnata (4 icone,
+    110px, busta vuota grigia): in nessuna delle due il testo finisce sotto le
+    icone, e il clic manda un solo PATCH nei due versi **senza aprire la
+    conversazione**.
 
 - **«DA LEGGERE», COME NELLA POSTA** (24/08/2026, chiesto: «consenti di
   lasciare una conversazione come non letta»). Campo `Conversazione.daRileggere`.

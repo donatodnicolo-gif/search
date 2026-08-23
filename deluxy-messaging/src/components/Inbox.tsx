@@ -389,6 +389,30 @@ function IconaArchivia() {
   )
 }
 
+/**
+ * «Da leggere»: la busta chiusa, che è come si dice «non letta» da sempre.
+ *
+ * ⚠️ Piena quando il segno c'è, vuota quando non c'è. Un'icona che resta uguale
+ * in tutti e due i casi trasforma un interruttore in un bottone che non si sa
+ * se ha funzionato — e questo si preme e si ripreme.
+ */
+function IconaDaLeggere({ segnata }: { segnata: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      width="15"
+      height="15"
+      fill={segnata ? 'currentColor' : 'none'}
+      stroke="currentColor"
+      strokeWidth="1.4"
+      aria-hidden="true"
+    >
+      <rect x="1.8" y="3.5" width="12.4" height="9" rx="1.4" />
+      <path d="M2.2 4.6l5.8 4.2 5.8-4.2" stroke={segnata ? 'var(--surface)' : 'currentColor'} />
+    </svg>
+  )
+}
+
 /** Spam: il segnale di divieto, che si legge senza doverci pensare. */
 function IconaSpam() {
   return (
@@ -1579,6 +1603,37 @@ export function Inbox({
             ⚠️ `stopPropagation`: senza, archiviare aprirebbe anche il thread di
             una conversazione che sta sparendo. */}
         <span className="azioni-riga">
+          {/* ── «Da leggere» anche da qui ──
+              Chiesto dall'utente: il gesto serve **scorrendo l'elenco**, non
+              solo dentro una conversazione aperta. Si legge l'anteprima, si
+              capisce che ci vuole tempo, e la si mette da parte senza entrarci.
+              ⚠️ Solo in posta in arrivo: nell'archivio e nel cestino la
+              conversazione non sta in nessuna coda, e il segno prometterebbe
+              un ritorno che non avviene.
+              ⚠️ È un INTERRUTTORE: ripremendolo si toglie. Un segno che si
+              può solo mettere si toglie aprendo la chat — cioè facendo
+              esattamente la cosa che si voleva rimandare.
+              ⚠️⚠️ Lo `stopPropagation` qui vale doppio: senza, il clic
+              arriverebbe alla riga, che APRE la conversazione — e aprirla
+              cancella il segno. Il bottone avrebbe fatto il contrario di
+              quello che dice, e in silenzio. */}
+          {!archivio && !cestino ? (
+            <button
+              aria-label={c.daRileggere ? 'Togli il segno «da leggere»' : 'Segna da leggere'}
+              title={
+                c.daRileggere
+                  ? 'Togli il segno: torna una conversazione come le altre'
+                  : 'Segna da leggere: resta in coda, per tornarci dopo'
+              }
+              className={c.daRileggere ? 'segnata' : ''}
+              onClick={(e) => {
+                e.stopPropagation()
+                void segnaDaRileggere(c.id, !c.daRileggere)
+              }}
+            >
+              <IconaDaLeggere segnata={!!c.daRileggere} />
+            </button>
+          ) : null}
           {cestino ? (
             <button
               aria-label="Ripristina"

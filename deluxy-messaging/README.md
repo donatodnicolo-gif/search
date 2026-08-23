@@ -293,6 +293,27 @@ direbbero numeri diversi sulla stessa cosa, senza che nessuna dia errore.
 conteggio dei non letti: quella dice «è successo qualcosa», questa «me lo sono
 messo da parte io».
 
+**Anche dall'elenco, senza aprire niente**: ogni riga in posta in arrivo ha una
+**busta** fra le iconcine — vuota se la conversazione è come le altre, piena e
+d'oro se è segnata. Serve **scorrendo l'elenco**: si legge l'anteprima, si capisce
+che ci vuole tempo, e la si mette da parte senza entrarci.
+
+⚠️ È un **interruttore**: ripremendolo si toglie. Un segno che si può solo mettere
+si toglierebbe aprendo la chat, cioè facendo esattamente la cosa che si voleva
+rimandare.
+
+⚠️⚠️ Il clic sulla busta **non deve arrivare alla riga** (`stopPropagation`): la
+riga apre la conversazione, e aprirla cancella il segno. Senza, il bottone
+avrebbe fatto il contrario di quello che dice, in silenzio.
+
+⚠️ La busta accesa **non è smorzata** come le altre iconcine: quelle sono azioni
+in attesa di essere usate, questa è uno **stato**, e uno stato che non si vede non
+serve a niente.
+
+⚠️ Lo spazio riservato a destra nella riga **si conta sulle icone che ci sono**
+(`:has(...:nth-child(3|4))`): i 58px di prima bastavano a due, e sulle mail — che
+hanno anche lo Spam — l'anteprima del messaggio finiva già sotto le iconcine.
+
 Prova: `npx tsx scripts/prova-nota-e-rileggere.mts`
 
 ## Correggere una risposta pronta senza uscire dalla chat

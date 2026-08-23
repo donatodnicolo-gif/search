@@ -748,6 +748,31 @@ button {
   color: var(--red);
 }
 
+/* La busta piena: questa riga È segnata da leggere.
+   ⚠️ Non è smorzata come le altre. Le altre sono AZIONI — stanno lì in attesa
+   che qualcuno le usi, e devono farsi notare il meno possibile; questa, quando
+   è accesa, è uno STATO della conversazione, e uno stato che non si vede non
+   serve a niente. Stesso oro della pillola nell'elenco, che dice la stessa cosa. */
+.azioni-riga button.segnata {
+  color: var(--gold);
+}
+
+.azioni-riga button.segnata:hover {
+  color: var(--gold);
+}
+
+/* ⚠️ LO SPAZIO A DESTRA SI CONTA SULLE ICONE CHE CI SONO DAVVERO.
+   58px bastano a due. Con la terza (Spam, che compare solo sulle mail)
+   l'anteprima del messaggio finiva già sotto le iconcine, e la quarta («da
+   leggere») lo avrebbe peggiorato: 24px l'una più 2 di stacco. */
+.riga-conversazione:has(.azioni-riga > button:nth-child(3)) {
+  padding-right: 84px;
+}
+
+.riga-conversazione:has(.azioni-riga > button:nth-child(4)) {
+  padding-right: 110px;
+}
+
 .azioni-riga button:disabled {
   opacity: 0.4;
   cursor: default;
