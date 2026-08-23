@@ -25,12 +25,16 @@ import {
 import { collegaCasellaMail, fetchCaselleMail, importaRichiesteDaMail, type CasellaMail } from '@/lib/mail';
 import { avvisa } from '@/lib/dialoghi';
 
+const CHIAVE_CASELLA_LETTURA = 'mail.casella_lettura';
+
 const CASELLA_VUOTA = { email: '', imapHost: '', imapPassword: '', ignoraCertTls: true };
 
 export default function Impostazioni() {
   const { session } = useAuth();
   const admin = isAdmin(session?.user?.email);
   const [casella, setCasella] = useState('');
+  // Da quale cassetta leggere: serve solo quando l'indirizzo sopra e' un alias.
+  const [lettura, setLettura] = useState('');
   const [originale, setOriginale] = useState('');
   const [salvando, setSalvando] = useState(false);
   const [provando, setProvando] = useState(false);
@@ -83,6 +87,7 @@ export default function Impostazioni() {
     const v = (await leggiImpostazione(CHIAVE_CASELLA_RICHIESTE)) ?? '';
     setCasella(v);
     setOriginale(v);
+    setLettura((await leggiImpostazione(CHIAVE_CASELLA_LETTURA)) ?? '');
   }, []);
 
   useFocusEffect(
@@ -99,6 +104,7 @@ export default function Impostazioni() {
     setEsito(null);
     try {
       await salvaImpostazione(CHIAVE_CASELLA_RICHIESTE, casella);
+      await salvaImpostazione(CHIAVE_CASELLA_LETTURA, lettura.trim());
       setOriginale(casella.trim());
       avvisa('Salvato', 'Da adesso le Richieste Web arrivano da questa casella.');
     } catch (e: any) {
@@ -160,6 +166,24 @@ export default function Impostazioni() {
             e IMAP collegato): è AI Mail che legge la posta, Scout la riceve da lì.
           </Text>
         )}
+
+        <Text style={styles.campoLabel}>Da quale cassetta leggere</Text>
+        <TextInput
+          style={[styles.input, !admin && styles.inputOff]}
+          value={lettura}
+          onChangeText={setLettura}
+          editable={admin}
+          placeholder="(la stessa casella)"
+          placeholderTextColor={colors.grigio}
+          autoCapitalize="none"
+          keyboardType="email-address"
+        />
+        <Text style={styles.nota}>
+          Serve quando l’indirizzo qui sopra è un <Text style={styles.forte}>alias</Text>: la posta
+          indirizzata a «{casella || 'quell’indirizzo'}» viene consegnata dentro un’altra cassetta, e
+          si legge da lì. Lasciandolo vuoto si legge dalla casella stessa. In ogni caso si importa
+          <Text style={styles.forte}> solo</Text> ciò che era indirizzato all’indirizzo qui sopra.
+        </Text>
 
         {/* Le caselle che AI Mail ha DAVVERO: si sceglie invece di indovinare.
             L'errore «non c'è una casella attiva …» nasceva quasi sempre da un

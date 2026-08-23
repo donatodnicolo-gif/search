@@ -108,11 +108,34 @@ Deno.serve(async (req) => {
       const casella =
         (imp?.valore ?? '').trim() || Deno.env.get('MAIL_CASELLA_RICHIESTE') || 'commerciale@deluxy.it';
       const limite = Math.min(Math.max(Number(body.limite ?? 50) || 50, 1), 100);
-      const p = new URLSearchParams({ casella: '1', limite: String(limite) });
+      // ⚠️ SOLO LA POSTA INDIRIZZATA ALLA CASELLA COMMERCIALE.
+      //
+      // Misurato il 21/08/2026: `commerciale@deluxy.it` è un **alias** che
+      // consegna nelle caselle personali (218 mail, nelle cassette di due
+      // persone), non una casella con una sua posta in arrivo. Leggendo
+      // `?casella=1` e basta si importerebbe **tutta** la posta di quella
+      // persona — centinaia di mail al mese — chiamandola «richiesta».
+      // Con `destinatario=` si prende solo ciò che era indirizzato lì.
+      //
+      // `lettura` = da quale cassetta leggere (un utente che esiste in AI Mail);
+      // `casella` = a quale indirizzo dev'essere indirizzata la mail. Se sono lo
+      // stesso indirizzo — cioè la casella esiste davvero — il filtro non toglie
+      // niente e il comportamento resta quello di prima.
+      const { data: rigaLettura } = await admin
+        .from('impostazioni')
+        .select('valore')
+        .eq('chiave', 'mail.casella_lettura')
+        .maybeSingle();
+      const lettura = (rigaLettura?.valore ?? '').trim() || casella;
+      const p = new URLSearchParams({
+        casella: '1',
+        limite: String(limite),
+        destinatario: casella,
+      });
       if (body.da) p.set('da', String(body.da));
 
       const res = await fetch(`${BASE}/api/v1/messaggi?${p.toString()}`, {
-        headers: { 'x-api-key': key, 'x-utente': casella },
+        headers: { 'x-api-key': key, 'x-utente': lettura },
       });
       const dati = await res.json().catch(() => null);
       if (!res.ok || !dati?.ok) {
