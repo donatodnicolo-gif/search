@@ -8,8 +8,21 @@ type Campagna = {
   canale: string;
   accesa: boolean;
   budget: number | null;
+  /** Quanto ha già speso questo mese (0 se il mese non è cominciato). */
+  speso: number;
   inCoda: boolean;
   budgetInCoda: number | null;
+};
+
+type Piattaforma = { nome: string; percent: number; proprio: boolean; euro: number };
+
+// Il nome che Budgets dà alla piattaforma e il canale con cui arrivano le
+// campagne sono due vocabolari diversi: l'abbinamento sta qui, in un punto
+// solo, invece di essere indovinato da una `includes` sparsa nel codice.
+const CANALE_DI_PIATTAFORMA: Record<string, string> = {
+  google: "google_ads",
+  meta: "meta_ads",
+  tiktok: "tiktok",
 };
 
 // L'editor dei budget: si scrive, il totale si aggiorna, si mette in coda solo
@@ -30,6 +43,9 @@ export function AdattaBudget({
   giorniMese,
   tetto,
   tettoTesto,
+  piattaforme,
+  giorniRimasti,
+  meseIniziato,
   campagne,
   azione,
 }: {
@@ -39,6 +55,12 @@ export function AdattaBudget({
   giorniMese: number;
   tetto: number | null;
   tettoTesto: string | null;
+  /** Come Budgets ripartisce il monte del mese fra le piattaforme. */
+  piattaforme: Piattaforma[] | null;
+  /** Giorni che restano nel mese, oggi compreso. */
+  giorniRimasti: number;
+  /** Il mese è in corso (c'è già spesa) o è tutto davanti? */
+  meseIniziato: boolean;
   campagne: Campagna[];
   azione: (input: {
     brand: string;
@@ -80,26 +102,93 @@ export function AdattaBudget({
     return { attuale, nuovo, modifiche };
   }, [valori, campagne]);
 
-  const alMeseNuovo = nuovo * giorniMese;
-  const differenza = tetto != null ? tetto - alMeseNuovo : null;
-
-  // «Portalo al tetto»: scala tutti i budget accesi con la stessa proporzione.
-  // ⚠️ Proporzionale e non uguale per tutti: chi spende 100 e chi spende 5 non
-  // vanno riportati allo stesso numero — la ripartizione fra campagne è una
-  // decisione già presa, e questo bottone non deve cancellarla.
-  const scalaAlTetto = () => {
-    if (tetto == null || nuovo <= 0) return;
-    const obiettivoGiorno = tetto / giorniMese;
-    const fattore = obiettivoGiorno / nuovo;
-    const prossimi = { ...valori };
+  // ⚠️ DOVE SI ARRIVA A FINE MESE. Non «budget × giorni del mese»: a metà
+  // agosto quel conto ignora i venti giorni già spesi e sbaglia quasi del
+  // doppio. Si somma quello che è GIÀ uscito con i giorni che restano al
+  // budget nuovo.
+  //
+  // ⚠️ Resta comunque un MASSIMO: il budget giornaliero è un tetto, e quasi
+  // nessuna campagna lo tocca. È scritto sotto la cifra, perché un numero
+  // così preciso si legge come una previsione.
+  const perPiattaforma = useMemo(() => {
+    const m = new Map<string, { speso: number; nuovoGiorno: number; attualeGiorno: number; campagne: number }>();
     for (const c of campagne) {
-      if (!c.accesa) continue;
-      const n = numero(valori[c.id] ?? "");
-      if (n == null) continue;
-      prossimi[c.id] = String(Math.max(1, Math.round(n * fattore)));
+      const k = c.canale || "altro";
+      const v = m.get(k) ?? { speso: 0, nuovoGiorno: 0, attualeGiorno: 0, campagne: 0 };
+      v.speso += c.speso;
+      if (c.accesa) {
+        v.campagne++;
+        v.attualeGiorno += c.budget ?? 0;
+        const n = numero(valori[c.id] ?? "");
+        if (n != null) v.nuovoGiorno += n;
+      }
+      m.set(k, v);
+    }
+    return m;
+  }, [valori, campagne]);
+
+  const tettoDi = (canale: string) => {
+    const pf = (piattaforme ?? []).find((x) => CANALE_DI_PIATTAFORMA[x.nome.toLowerCase()] === canale);
+    return pf ?? null;
+  };
+
+  const fineMese = campagne.reduce((s, c) => {
+    if (!c.accesa) return s + c.speso;
+    const n = numero(valori[c.id] ?? "");
+    return s + c.speso + (n ?? 0) * giorniRimasti;
+  }, 0);
+
+  const alMeseNuovo = nuovo * giorniMese;
+  // ⚠️ Lo scarto si misura su DOVE SI ARRIVA, non sul mese teorico pieno:
+  // a metà mese quel secondo numero direbbe che c'è spazio quando i soldi
+  // sono già usciti.
+  const differenza = tetto != null ? tetto - fineMese : null;
+  void alMeseNuovo;
+
+  /**
+   * Il budget giornaliero SUGGERITO per ogni campagna.
+   *
+   * La regola, detta in una riga: *quello che resta del tetto, diviso i
+   * giorni che restano, spartito fra le campagne accese in proporzione a
+   * quello che hanno adesso.*
+   *
+   * ⚠️ In proporzione, non in parti uguali: la ripartizione fra campagne è
+   * una decisione già presa — c'è chi porta ordini e chi presidia — e un
+   * suggerimento non deve cancellarla.
+   * ⚠️ Si parte da QUELLO CHE RESTA, non dal tetto pieno: a metà mese
+   * spartire tutto il tetto sui giorni rimasti vorrebbe dire spendere due
+   * volte i soldi già usciti.
+   * ⚠️ Per piattaforma quando Budgets dice come ripartire: il totale può
+   * tornare mentre Google e Meta sono entrambe fuori posto in direzioni
+   * opposte, ed è il caso che il totale nasconde.
+   */
+  const suggerisci = () => {
+    const prossimi = { ...valori };
+    const gruppi = piattaforme && piattaforme.length > 0
+      ? [...new Set(campagne.map((c) => c.canale))].map((canale) => ({
+          canale,
+          tetto: tettoDi(canale)?.euro ?? null,
+        }))
+      : [{ canale: null as string | null, tetto }];
+
+    for (const g of gruppi) {
+      if (g.tetto == null) continue;
+      const sue = campagne.filter((c) => c.accesa && (g.canale == null || c.canale === g.canale));
+      if (sue.length === 0) continue;
+      const spesoLoro = campagne
+        .filter((c) => g.canale == null || c.canale === g.canale)
+        .reduce((s, c) => s + c.speso, 0);
+      const restante = Math.max(0, g.tetto - spesoLoro);
+      const alGiornoObiettivo = restante / giorniRimasti;
+      const base = sue.reduce((s, c) => s + (c.budget ?? 0), 0);
+      for (const c of sue) {
+        const quota = base > 0 ? (c.budget ?? 0) / base : 1 / sue.length;
+        prossimi[c.id] = String(Math.max(1, Math.round(alGiornoObiettivo * quota)));
+      }
     }
     setValori(prossimi);
   };
+
 
   return (
     <section className="scheda">
@@ -119,8 +208,15 @@ export function AdattaBudget({
           <div className="kpi-etichetta">Con quello che hai scritto</div>
         </div>
         <div className="kpi">
-          <div className="kpi-valore">{euro(alMeseNuovo)}</div>
-          <div className="kpi-etichetta">Al mese ({giorniMese} giorni), al massimo</div>
+          <div className="kpi-valore">{euro(fineMese)}</div>
+          <div className="kpi-etichetta">
+            A fine mese, con questi valori
+            {meseIniziato && (
+              <div className="cella-sub">
+                già spesi {euro(campagne.reduce((t, c) => t + c.speso, 0))} + {giorniRimasti} giorni
+              </div>
+            )}
+          </div>
         </div>
         <div className="kpi">
           <div className="kpi-valore">{tettoTesto ?? "—"}</div>
@@ -140,8 +236,8 @@ export function AdattaBudget({
       </div>
 
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-        <button type="button" className="btn small btn-secondario" onClick={scalaAlTetto} disabled={tetto == null}>
-          Portalo al tetto (in proporzione)
+        <button type="button" className="btn small" onClick={suggerisci} disabled={tetto == null}>
+          Suggerisci i budget
         </button>
         <button
           type="button"
@@ -153,10 +249,66 @@ export function AdattaBudget({
           Rimetti com&apos;era
         </button>
         <span className="cella-sub" style={{ alignSelf: "center", whiteSpace: "normal" }}>
-          «Portalo al tetto» scala <b>in proporzione</b>: chi spende molto e chi spende poco non
-          finiscono allo stesso numero — la ripartizione fra campagne è una decisione già presa.
+          Il suggerimento è una divisione dichiarata: <b>quello che resta del tetto</b> diviso i{" "}
+          <b>{giorniRimasti} giorni</b> che restano, spartito fra le campagne accese{" "}
+          <b>in proporzione a quello che hanno adesso</b> — chi porta ordini e chi presidia non
+          finiscono allo stesso numero. {piattaforme && piattaforme.length > 0
+            ? "Piattaforma per piattaforma, come dice Budgets."
+            : "Sul totale del brand: Budgets non ha una ripartizione per piattaforma per questo mese."}
         </span>
       </div>
+
+      {/* ⚠️ PIATTAFORMA PER PIATTAFORMA. Il totale può tornare mentre Google
+          e Meta sono entrambe fuori posto in direzioni opposte: è il caso che
+          un totale nasconde, ed è anche quello che capita più spesso. */}
+      {piattaforme && piattaforme.length > 0 && (
+        <div style={{ overflowX: "auto", marginBottom: 14 }}>
+          <table>
+            <thead>
+              <tr>
+                <th>Piattaforma</th>
+                <th className="num">Disponibile per {mese}</th>
+                <th className="num">Già speso</th>
+                <th className="num">Acceso ora</th>
+                <th className="num">Con i tuoi valori, a fine mese</th>
+              </tr>
+            </thead>
+            <tbody>
+              {piattaforme.map((pf) => {
+                const canale = CANALE_DI_PIATTAFORMA[pf.nome.toLowerCase()] ?? pf.nome.toLowerCase();
+                const v = perPiattaforma.get(canale);
+                const arrivo = (v?.speso ?? 0) + (v?.nuovoGiorno ?? 0) * giorniRimasti;
+                const sfora = arrivo > pf.euro;
+                return (
+                  <tr key={pf.nome}>
+                    <td className="cella-nome">
+                      {pf.nome}
+                      <div className="cella-sub">
+                        {pf.percent}% del monte
+                        {/* Chi decide deve sapere se la ripartizione è stata
+                            scelta per questo brand o ereditata dall'azienda. */}
+                        {!pf.proprio && " · ripartizione d'azienda, non di questo brand"}
+                      </div>
+                    </td>
+                    <td className="num">{euro(pf.euro)}</td>
+                    <td className="num cella-muta">{v ? euro(v.speso) : "—"}</td>
+                    <td className="num cella-muta">
+                      {v ? euro(v.nuovoGiorno) : "—"}
+                      <div className="cella-sub">al giorno · {v?.campagne ?? 0} campagne</div>
+                    </td>
+                    <td className="num" style={{ fontWeight: 600, color: sfora ? "var(--orange)" : "var(--green)" }}>
+                      {euro(arrivo)}
+                      <div className="cella-sub" style={{ color: sfora ? "var(--orange)" : undefined }}>
+                        {sfora ? `${euro(arrivo - pf.euro)} oltre` : `${euro(pf.euro - arrivo)} di spazio`}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       <div style={{ overflowX: "auto" }}>
         <table>

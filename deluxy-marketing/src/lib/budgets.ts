@@ -41,6 +41,18 @@ export type MeseBudget = {
   advPercent: number;
   advConsentito: number;
   advPubblicato: number;
+  /**
+   * Come il monte del mese si ripartisce fra le piattaforme, deciso in
+   * Budgets (/piattaforme) e già in euro.
+   *
+   * ⚠️ `proprio: false` vuol dire che quel brand non ha una ripartizione sua
+   * e sta usando quella d'azienda: chi decide deve sapere se guarda una
+   * scelta fatta per lui o una ereditata.
+   *
+   * Facoltativo: le versioni di Budgets precedenti al 23/08/2026 non lo
+   * mandano, e mostrare zero al posto di «non lo so» sarebbe peggio.
+   */
+  piattaforme?: { nome: string; percent: number; proprio: boolean; euro: number }[];
 };
 
 export type MaisonBudget = {

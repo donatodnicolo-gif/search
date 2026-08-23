@@ -71,6 +71,24 @@ export default async function AdattaBudgetPagina({
   const mb = meseDiSito(budgets, brand, mese);
   const tetto = mb?.advConsentito ?? null;
 
+  // ⚠️ Quanto è GIÀ USCITO nel mese, per campagna: senza, «dove arrivo a
+  // fine mese» sarebbe budget × giorni — una cifra che ignora i venti giorni
+  // già spesi e che a metà mese sbaglia di quasi il doppio.
+  const oggiNelMese = anno === oggi.getFullYear() && mese === oggi.getMonth() + 1;
+  const inizioMese = new Date(anno, mese - 1, 1);
+  const fineFinestra = oggiNelMese ? oggi : new Date(anno, mese, 0);
+  const spese = oggiNelMese
+    ? await prisma.metricaCampagna.groupBy({
+        by: ["campagnaId"],
+        where: { campagnaId: { in: campagne.map((c) => c.id) }, data: { gte: inizioMese, lte: fineFinestra } },
+        _sum: { spesa: true },
+      })
+    : [];
+  const spesoDi = new Map(spese.map((s) => [s.campagnaId, s._sum.spesa ?? 0]));
+  // I giorni che restano: oggi compreso, perché il budget di oggi è ancora
+  // tutto da spendere quando si guarda la pagina di mattina.
+  const giorniRimasti = oggiNelMese ? Math.max(1, giorniMese - oggi.getDate() + 1) : giorniMese;
+
   return (
     <div className="layout">
       <Sidebar attiva="budget" brandAttivo={brand} />
@@ -138,12 +156,16 @@ export default async function AdattaBudgetPagina({
           giorniMese={giorniMese}
           tetto={tetto}
           tettoTesto={tetto != null ? formattaEuro(tetto) : null}
+          piattaforme={mb?.piattaforme ?? null}
+          giorniRimasti={giorniRimasti}
+          meseIniziato={oggiNelMese}
           campagne={campagne.map((c) => ({
             id: c.id,
             nome: c.nome,
             canale: c.canale ?? "",
             accesa: c.statoPiattaforma === "ENABLED",
             budget: c.budgetGiornaliero,
+            speso: spesoDi.get(c.id) ?? 0,
             inCoda: giaInCoda.has(c.id),
             budgetInCoda: giaInCoda.get(c.id) ?? null,
           }))}
