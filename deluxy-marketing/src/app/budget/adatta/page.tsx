@@ -15,6 +15,11 @@ export const dynamic = "force-dynamic";
 // modifica. Qui si vedono tutte insieme, il totale si aggiorna mentre si
 // scrive, e si mette in coda in un colpo solo quello che è cambiato.
 //
+// ⚠️ IN ELENCO CI SONO SOLO LE CAMPAGNE IN ASTA. Una ferma non spende:
+// metterla in tabella allunga la lista con righe su cui non si decide niente,
+// e il suo budget non entra in nessun totale. Quante restano fuori si dichiara
+// sotto la tabella, o sembrerebbe che siano sparite.
+//
 // ⚠️ E UNA COSA CHE VA DETTA SUBITO: qui non si programma il futuro. Le
 // operazioni partono quando qualcuno le approva e lo script passa — non il
 // primo del mese. Guardare il tetto di settembre serve a DECIDERE oggi; se la
@@ -159,16 +164,19 @@ export default async function AdattaBudgetPagina({
           piattaforme={mb?.piattaforme ?? null}
           giorniRimasti={giorniRimasti}
           meseIniziato={oggiNelMese}
-          campagne={campagne.map((c) => ({
-            id: c.id,
-            nome: c.nome,
-            canale: c.canale ?? "",
-            accesa: c.statoPiattaforma === "ENABLED",
-            budget: c.budgetGiornaliero,
-            speso: spesoDi.get(c.id) ?? 0,
-            inCoda: giaInCoda.has(c.id),
-            budgetInCoda: giaInCoda.get(c.id) ?? null,
-          }))}
+          fuoriElenco={campagne.filter((c) => c.statoPiattaforma !== "ENABLED").length}
+          campagne={campagne
+            .filter((c) => c.statoPiattaforma === "ENABLED")
+            .map((c) => ({
+              id: c.id,
+              nome: c.nome,
+              canale: c.canale ?? "",
+              accesa: true,
+              budget: c.budgetGiornaliero,
+              speso: spesoDi.get(c.id) ?? 0,
+              inCoda: giaInCoda.has(c.id),
+              budgetInCoda: giaInCoda.get(c.id) ?? null,
+            }))}
           azione={accodaBudgetCampagne}
         />
       </main>

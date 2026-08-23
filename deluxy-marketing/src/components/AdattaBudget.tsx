@@ -46,6 +46,7 @@ export function AdattaBudget({
   piattaforme,
   giorniRimasti,
   meseIniziato,
+  fuoriElenco,
   campagne,
   azione,
 }: {
@@ -61,6 +62,8 @@ export function AdattaBudget({
   giorniRimasti: number;
   /** Il mese è in corso (c'è già spesa) o è tutto davanti? */
   meseIniziato: boolean;
+  /** Quante campagne ferme sono rimaste fuori: si dichiarano, non spariscono. */
+  fuoriElenco: number;
   campagne: Campagna[];
   azione: (input: {
     brand: string;
@@ -368,6 +371,16 @@ export function AdattaBudget({
           </tbody>
         </table>
       </div>
+
+      {fuoriElenco > 0 && (
+        <p className="cella-sub" style={{ whiteSpace: "normal", marginTop: 8 }}>
+          {fuoriElenco === 1
+            ? "Una campagna ferma su Google/Meta non è in elenco: non spende, quindi non c’è niente da adattare."
+            : fuoriElenco +
+              " campagne ferme su Google/Meta non sono in elenco: non spendono, quindi non c’è niente da adattare."}{" "}
+          Per riaccenderne una si passa dalla sua scheda.
+        </p>
+      )}
 
       <div className="campo-modulo largo" style={{ marginTop: 12 }}>
         <label>Perché (finisce nello storico di ogni operazione)</label>
