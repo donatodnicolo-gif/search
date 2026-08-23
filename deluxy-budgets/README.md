@@ -1436,6 +1436,31 @@ cosa nella pagina dove si scrive e un'altra dove si legge.
 | Deluxy Experience | 22.500 € | 6,5× | **3.462 €** | 4.500 € |
 | | | | **173.346 €** | 310.771 € |
 
+**Il budget vendite da cui si stima è selezionabile, e di default è l'approvato** (*«consenti di
+selezionare il budget da prendere, ma dovrebbe essere di default quello approvato»*). In cima a
+`/spese` c'è un selettore con **Approvato** · **Budget iniziale** · e ogni fonte che nei dati esiste
+davvero (oggi «Pubblicità web»). Le voci diverse da «Approvato» sono una **lente**: rispondono a *«e se
+prendessimo l'altro budget, quanta pubblicità sarebbe?»* senza cambiare niente — il P&L e
+`/piattaforme` restano sempre sull'approvato, e la pagina lo scrive in arancione quando la lente è
+attiva.
+
+⭐ **La differenza non è teorica, ed è la scoperta di questo giro**: su Deluxy.it il **budget iniziale
+vale 1.173.904 €** contro i **525.500 approvati** — più del doppio, perché una proposta «Pubblicità
+web» consolidata ha *sostituito* l'iniziale. Con quella base il monte pubblicitario passa da 75.071 a
+**167.701 €**, e succede una cosa che vale la pena guardare: **su tutti e tre i negozi la stima
+sull'iniziale è quasi identica all'ADV che il monitoraggio aveva pubblicato**.
+
+| Brand | Stima su iniziale | Pubblicato dal monitoraggio |
+| --- | ---: | ---: |
+| Deluxy.it | 167.701 € | 199.922 € |
+| Deluxyflowers.com | 46.154 € | 47.251 € |
+| CakeDesign.me | 18.308 € | 18.189 € |
+
+Cioè: il budget ADV pubblicato era stato dimensionato **sul budget vendite iniziale**, con un ROS
+molto vicino a quello che l'utente ha indicato ora. Il che spiega perché sulla base approvata il monte
+scende tanto — non è la stima a essere sbagliata, è il budget vendite che nel frattempo si è
+dimezzato.
+
 🔴 **Su Deluxy.it la stima è costruita su un budget vendite bucato**: gennaio–giugno valgono **zero**
 (il budget azzerato dal consolidamento del 31/07, mai ripristinato — punto 10). Con quei sei mesi
 rimessi, il budget vendite andrebbe verso i ~900.000 € e la stima verso i **~128.000 €** invece di

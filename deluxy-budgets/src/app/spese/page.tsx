@@ -1,17 +1,61 @@
 import {
-  ANNO_CORRENTE, advPubblicatoAnno, budgetAdvAnno, caricaAnno, INIZIALE, nomeFonte,
+  ANNO_CORRENTE, advPubblicatoAnno, budgetAdvAnno, caricaAnno, FONTI, INIZIALE, nomeFonte,
   rosObiettivo, venditeMese,
 } from "@/lib/calc";
 import { primoMeseAperto } from "@/lib/periodo";
 import { fetchSpesaPerBrand } from "@/lib/marketing";
 import { caricaVenduto } from "@/lib/venduto";
 import { MESI } from "@/lib/format";
+import Link from "next/link";
 import { SpeseEditor } from "@/components/SpeseEditor";
 
 export const dynamic = "force-dynamic";
 
-export default async function Spese() {
+// ---- Su quale budget vendite si stima il monte pubblicitario ----
+//
+// «Approvato» è il budget che vale davvero: le proposte consolidate hanno
+// **sostituito** quello iniziale, ed è quello che usano il P&L e /piattaforme.
+// Resta il default. Le altre voci sono una **lente**: servono a rispondere a
+// «e se prendessimo l'altro budget, quanta pubblicità sarebbe?» senza cambiare
+// niente — la differenza non è teorica, su Deluxy.it il budget iniziale vale
+// 1.173.904 € contro i 525.500 approvati, cioè più del doppio.
+const APPROVATO = "approvato";
+
+export default async function Spese({
+  searchParams,
+}: {
+  searchParams: Promise<{ base?: string }>;
+}) {
+  const sp = await searchParams;
   const dati = await caricaAnno(ANNO_CORRENTE);
+
+  // Le basi disponibili: quella approvata più ogni fonte che nei dati esiste
+  // davvero. Elencare una fonte che nessuno ha usato porterebbe a una vista
+  // tutta a zero, che sembra un guasto.
+  const fontiPresenti = new Set<string>();
+  for (const m of dati.maisons)
+    for (const x of m.mesi)
+      for (const perCanale of Object.values(x.perFonte ?? {}))
+        for (const [f, v] of Object.entries(perCanale ?? {})) if (v !== 0) fontiPresenti.add(f);
+  const basi = [
+    { key: APPROVATO, nome: "Approvato" },
+    ...FONTI.filter((f) => fontiPresenti.has(f.key)).map((f) => ({ key: f.key, nome: f.nome })),
+  ];
+  const base = basi.some((b) => b.key === sp.base) ? (sp.base as string) : APPROVATO;
+
+  // Le vendite di un mese secondo la base scelta. Su «approvato» vale la regola
+  // di sempre (le proposte sostituiscono l'iniziale); su una fonte singola si
+  // guarda solo quello che ha scritto lei.
+  const venditeDelMese = (x: (typeof dati.maisons)[number]["mesi"][number]) =>
+    base === APPROVATO
+      ? venditeMese(x)
+      : Object.values(x.perFonte ?? {}).reduce((s, perCanale) => s + (perCanale?.[base] ?? 0), 0);
+  const venditeAnno = (m: (typeof dati.maisons)[number]) =>
+    m.mesi.reduce((s, x) => s + venditeDelMese(x), 0);
+  // Il monte pubblicitario con la base scelta: sulla base approvata è
+  // **esattamente** `budgetAdvAnno`, cioè quello che usano P&L e Piattaforme.
+  const monteAdv = (m: (typeof dati.maisons)[number]) =>
+    base === APPROVATO ? budgetAdvAnno(m) : venditeAnno(m) / rosObiettivo(m.slug);
   // Deciso qui e non nel componente: `new Date()` dentro un client component
   // dà un valore sul server e uno nel browser, e a cavallo del primo del mese
   // i due render non coinciderebbero.
@@ -66,6 +110,37 @@ export default async function Spese() {
               </>
             )}
           </p>
+          {base !== APPROVATO && (
+            <p className="page-caption" style={{ marginTop: 6 }}>
+              <strong style={{ color: "var(--orange)" }}>
+                Stai guardando il monte pubblicitario calcolato su «{basi.find((b) => b.key === base)?.nome}».
+              </strong>{" "}
+              È una <strong>lente</strong>, non un cambio di budget: quello che vale — e che usano il P&amp;L
+              e <Link href="/piattaforme" style={{ color: "var(--blue)" }}>Piattaforme</Link> — resta{" "}
+              <Link href="/spese" style={{ color: "var(--blue)" }}>l&apos;approvato</Link>.
+            </p>
+          )}
+        </div>
+        <div className="page-actions">
+          {/* Su quale budget vendite si stima il monte pubblicitario. Il default
+              è **l'approvato** perché è quello che vale davvero; le altre voci
+              rispondono a «e se prendessimo l'altro budget?». */}
+          <div className="seg">
+            {basi.map((b) => (
+              <Link
+                key={b.key}
+                href={b.key === APPROVATO ? "/spese" : `/spese?base=${b.key}`}
+                className={b.key === base ? "on" : ""}
+                title={
+                  b.key === APPROVATO
+                    ? "Il budget che vale: le proposte consolidate hanno sostituito quello iniziale."
+                    : `Solo quello che ha scritto «${b.nome}».`
+                }
+              >
+                {b.nome}
+              </Link>
+            ))}
+          </div>
         </div>
       </div>
       <SpeseEditor
@@ -83,12 +158,12 @@ export default async function Spese() {
             // tutte le sue caselle sono quote di questo numero.
             // Stimato dal ROS obiettivo, non ereditato: vendite a budget
             // dell anno diviso il ROS del brand.
-            pubblicatoAnno: budgetAdvAnno(m),
+            pubblicatoAnno: monteAdv(m),
             ros: rosObiettivo(m.slug),
             // Quello che il monitoraggio aveva pubblicato: resta come
             // riferimento, per vedere quanto la stima se ne discosta.
             pubblicatoStorico: advPubblicatoAnno(m),
-            venditeAnnoBudget: m.mesi.reduce((s, x) => s + venditeMese(x), 0),
+            venditeAnnoBudget: venditeAnno(m),
             mesi: m.mesi.map((x) => ({
               month: x.month,
               // Quanto è stato speso davvero in pubblicità su questo brand in
@@ -97,7 +172,7 @@ export default async function Spese() {
               // «zero speso».
               speso: speso ? speso[x.month - 1] ?? null : null,
               // Le vendite di quel mese: a budget, e quelle vere dove ci sono.
-              vendite: venditeMese(x),
+              vendite: venditeDelMese(x),
               venduto: reale ? reale[x.month - 1] ?? null : null,
               fonti: fontiDelMese(x.perFonte),
               percent: x.advPercent,
