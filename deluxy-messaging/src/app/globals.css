@@ -3793,3 +3793,63 @@ td .azioni-ordine {
 /* Una richiesta chiusa non sparisce: si spegne. Sparire vorrebbe dire perdere
    la memoria dello scambio, che è il motivo per cui la teniamo. */
 .aiuto-riga.chiusa { opacity: 0.62; }
+
+/* ── LA MATITA SULLE RISPOSTE PRONTE ──
+   ⚠️ Ci si accorge che un testo è sbagliato MENTRE lo si sta per mandare, non
+   aprendo la pagina delle risposte pronte. La matita sta lì per questo: se
+   correggere costa «esci, cerca, correggi, torna, ritrova la chat», nessuno lo
+   fa — si aggiusta a mano quella volta, e il testo resta sbagliato per tutti. */
+.gruppo-risposte .risposta-riga {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+/* La riga tiene il margine sul contenitore: se lo tenesse anche il bottone,
+   fra una risposta e l'altra ci sarebbero due spazi sommati. */
+.gruppo-risposte .risposta-riga .risposta {
+  margin-bottom: 0;
+  flex: 1;
+  min-width: 0;
+}
+.gruppo-risposte .matita {
+  flex: 0 0 auto;
+  padding: 0 9px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-m);
+  background: var(--surface);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  /* ⚠️ Si vede appena finché non la si cerca: è un'azione di manutenzione, e
+     non deve competere con il gesto vero della riga, che è «usa questa
+     risposta». Al passaggio del mouse si accende. */
+  opacity: 0.45;
+  transition: opacity 140ms var(--ease), background 140ms var(--ease);
+}
+.gruppo-risposte .risposta-riga:hover .matita,
+.gruppo-risposte .matita:focus-visible {
+  opacity: 1;
+}
+.gruppo-risposte .matita:hover {
+  background: var(--fill);
+}
+
+.gruppo-risposte .risposta-correggo {
+  border: 1px solid var(--gold);
+  border-radius: var(--radius-m);
+  background: var(--gold-soft);
+  padding: 9px 10px;
+  margin-bottom: 6px;
+}
+.gruppo-risposte .risposta-correggo input,
+.gruppo-risposte .risposta-correggo textarea {
+  width: 100%;
+  margin-bottom: 6px;
+  padding: 7px 9px;
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-m);
+  background: var(--surface);
+  font: inherit;
+  font-size: 13px;
+}

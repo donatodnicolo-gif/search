@@ -226,6 +226,22 @@ guardava solo i messaggi: venivano buttate in silenzio. Adesso si leggono.
 
 Si ricontrolla con `npx tsx scripts/prova-reazioni.mts` (crea righe finte e le cancella).
 
+## Correggere una risposta pronta senza uscire dalla chat
+
+Nel pannello **Risposte** dell'inbox (il bottone, o «/» a riquadro vuoto) ogni riga ha una
+**matitina** a destra. Si clicca e la risposta pronta si apre lì: titolo, testo, **Salva**.
+
+⚠️ **Serve perché ci si accorge che un testo è sbagliato mentre lo si sta per mandare**, non
+aprendo la pagina delle risposte pronte. Se in quel momento correggerlo costa «esci, cerca,
+correggi, torna, ritrova la chat», nessuno lo fa: si aggiusta a mano quella volta e il testo
+resta sbagliato **per tutti**, per sempre.
+
+⚠️ L'editor lo dice a chiare lettere: stai cambiando la risposta **di tutti** — e anche
+quella a cui attinge l'AI — non questo messaggio.
+
+⚠️ La matitina è **appena visibile** finché non ci passi sopra: è manutenzione, e non deve
+competere col gesto vero della riga, che è «usa questa risposta».
+
 ## Il correttore di bozze
 
 **Misurato il 22/08/2026 su 120 messaggi usciti scritti a mano: 18 avevano almeno un

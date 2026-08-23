@@ -1238,6 +1238,59 @@ export function Inbox({
 
   const [risposte, setRisposte] = useState<ScriptDto[]>([])
   const [cercaRisposta, setCercaRisposta] = useState('')
+  /**
+   * La risposta pronta che si sta correggendo, senza uscire dall'inbox.
+   *
+   * ⚠️ Ci si accorge che un testo è sbagliato **mentre lo si sta per mandare**,
+   * non aprendo la pagina delle risposte pronte. Se in quel momento correggerlo
+   * costa «esci, cerca, correggi, torna, ritrova la chat», nessuno lo fa: si
+   * aggiusta a mano quella volta e il testo resta sbagliato per tutti.
+   */
+  const [correggo, setCorreggo] = useState<{ id: string; titolo: string; testo: string } | null>(
+    null
+  )
+  const [salvandoRisposta, setSalvandoRisposta] = useState(false)
+
+  /** Salva la correzione di una risposta pronta e aggiorna l'elenco qui. */
+  async function salvaRisposta() {
+    if (!correggo || !correggo.titolo.trim() || !correggo.testo.trim()) return
+    const originale = risposte.find((s) => s.id === correggo.id)
+    if (!originale) return
+    setSalvandoRisposta(true)
+    try {
+      const res = await fetch('/api/script', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: correggo.id,
+          titolo: correggo.titolo.trim(),
+          testo: correggo.testo.trim(),
+          // ⚠️ Categoria e «quando» si rimandano com'erano: la rotta riscrive
+          // la riga INTERA, e non mandarli li svuoterebbe — la categoria è
+          // quella che raggruppa l'elenco, e sparirebbe sotto le mani.
+          categoria: originale.categoria,
+          quando: originale.quando,
+        }),
+      })
+      if (!res.ok) {
+        const d = (await res.json().catch(() => ({}))) as { errore?: string }
+        setErroreInvio(d.errore || 'Correzione non salvata.')
+        return
+      }
+      setRisposte((elenco) =>
+        elenco.map((s) =>
+          s.id === correggo.id
+            ? { ...s, titolo: correggo.titolo.trim(), testo: correggo.testo.trim() }
+            : s
+        )
+      )
+      setCorreggo(null)
+    } catch {
+      setErroreInvio('Correzione non salvata: problema di rete.')
+    } finally {
+      setSalvandoRisposta(false)
+    }
+  }
 
   /**
    * Le risposte che corrispondono a quello che si sta cercando.
@@ -2099,17 +2152,78 @@ export function Inbox({
                     return [...perCategoria].map(([categoria, righe]) => (
                       <div className="gruppo-risposte" key={categoria}>
                         <span className="tipologia">{categoria}</span>
-                        {righe.map((s) => (
-                          <button
-                            key={s.id}
-                            className="risposta"
-                            onClick={() => usaRisposta(s)}
-                            title={s.quando || 'Inserisce il testo nel riquadro'}
-                          >
-                            <span className="titolo">{s.titolo}</span>
-                            <span className="anteprima-testo">{s.testo}</span>
-                          </button>
-                        ))}
+                        {righe.map((s) =>
+                          correggo?.id === s.id ? (
+                            <div className="risposta-correggo" key={s.id}>
+                              <input
+                                value={correggo.titolo}
+                                onChange={(e) =>
+                                  setCorreggo({ ...correggo, titolo: e.target.value })
+                                }
+                                placeholder="Titolo"
+                                aria-label="Titolo della risposta pronta"
+                              />
+                              <textarea
+                                rows={4}
+                                value={correggo.testo}
+                                onChange={(e) =>
+                                  setCorreggo({ ...correggo, testo: e.target.value })
+                                }
+                                aria-label="Testo della risposta pronta"
+                              />
+                              {/* ⚠️ Va detto che si sta cambiando il testo di
+                                  TUTTI, non questo messaggio: la matita sta
+                                  dentro una conversazione, ed è facile crederlo. */}
+                              <p className="cella-sub" style={{ margin: '2px 0 6px' }}>
+                                Stai correggendo la risposta pronta per <strong>tutti</strong>, e
+                                anche per l’AI che ci attinge — non solo questo messaggio.
+                              </p>
+                              <div style={{ display: 'flex', gap: 6 }}>
+                                <button
+                                  className="bottone mini"
+                                  disabled={
+                                    salvandoRisposta ||
+                                    !correggo.titolo.trim() ||
+                                    !correggo.testo.trim()
+                                  }
+                                  onClick={() => void salvaRisposta()}
+                                >
+                                  Salva
+                                </button>
+                                <button
+                                  className="bottone secondario mini"
+                                  onClick={() => setCorreggo(null)}
+                                >
+                                  Lascia com’era
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            /* ⚠️ La matita è un bottone SUO accanto alla riga, non
+                               dentro: un bottone dentro un bottone non è HTML
+                               valido, e il clic finirebbe a caso su uno dei due. */
+                            <div className="risposta-riga" key={s.id}>
+                              <button
+                                className="risposta"
+                                onClick={() => usaRisposta(s)}
+                                title={s.quando || 'Inserisce il testo nel riquadro'}
+                              >
+                                <span className="titolo">{s.titolo}</span>
+                                <span className="anteprima-testo">{s.testo}</span>
+                              </button>
+                              <button
+                                className="matita"
+                                title="Correggi questa risposta pronta, senza uscire da qui"
+                                aria-label={`Correggi «${s.titolo}»`}
+                                onClick={() =>
+                                  setCorreggo({ id: s.id, titolo: s.titolo, testo: s.testo })
+                                }
+                              >
+                                ✏️
+                              </button>
+                            </div>
+                          )
+                        )}
                       </div>
                     ))
                   })()}

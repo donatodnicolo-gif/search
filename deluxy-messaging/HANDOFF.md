@@ -1,6 +1,6 @@
 # Handoff — Deluxy Customer Service
 
-Ultimo aggiornamento: **24/08/2026, ore 01:15** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
+Ultimo aggiornamento: **24/08/2026, ore 01:45** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
 prima, alle 15:10, l'utente ha pubblicato la schermata di consenso Google e il
 conto alla rovescia dei 7 giorni è finito).
 Prima, il 19/08: la **risposta di primo contatto** che parte da sola al primo
@@ -308,6 +308,29 @@ locale, altrimenti nulla si decifra.
   - ⚠️ **Non visto a pixel**: pannello del browser non a schermo. La linguetta è
     `position: fixed` col testo verticale — **da guardare**, soprattutto su
     mobile dove il pannello è a tutta larghezza.
+
+- **LA MATITA SULLE RISPOSTE PRONTE** (24/08/2026, chiesto dall'utente: «metti
+  una matitina per cambiare anche da qui velocemente una risposta rapida»).
+  Nel pannello Risposte dell'inbox ogni riga ha una matitina: si apre lì titolo
+  e testo, si salva su `POST /api/script` (che già accettava un `id`).
+  - ⚠️ **Il perché**: ci si accorge che un testo è sbagliato **mentre lo si sta
+    per mandare**. Se correggerlo costa «esci, cerca, correggi, torna, ritrova
+    la chat», nessuno lo fa: si aggiusta a mano quella volta e il testo resta
+    sbagliato **per tutti**.
+  - ⚠️ **Categoria e «quando» si rimandano com'erano**: la rotta riscrive la
+    riga INTERA, e non mandarli li svuoterebbe — la categoria è quella che
+    raggruppa l'elenco, e sparirebbe sotto le mani.
+  - ⚠️ La matita è un bottone **fratello** della riga, non dentro: un bottone
+    dentro un bottone non è HTML valido e il clic finirebbe a caso su uno dei
+    due.
+  - ⚠️ L'editor **dichiara** che si sta cambiando la risposta di tutti (e quella
+    da cui attinge l'AI), non questo messaggio: la matita sta dentro una
+    conversazione ed è facile crederlo.
+  - ⚠️ Opacità **0,45** finché non ci si passa sopra: è manutenzione, e non deve
+    competere col gesto vero della riga.
+  - ✅ Guardata con l'anteprima temporanea: matita alta quanto la riga, 38px,
+    opacità 0,45, niente scorrimento laterale; al clic l'editor si apre **al
+    posto** di quella riga e le altre restano righe.
 
 - **IL FOGLIO DI STILE, RIVISTO** (24/08/2026, chiesto dall'utente: «rivedi
   TUTTO il css»). 3.777 righe, 306 classi. Trovato poco, ma vero.
