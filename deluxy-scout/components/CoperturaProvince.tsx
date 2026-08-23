@@ -20,7 +20,7 @@ import { colors, radius, spacing } from '@/lib/theme';
 import { PROVINCE, siglaProvincia, type Provincia } from '@/lib/province';
 import { frecciaOrdine, ordinaRighe, useOrdinamento } from '@/lib/ordinamento';
 import { fetchTuttiPartner } from '@/lib/anagrafiche';
-import { fetchVenditePerProvincia } from '@/lib/ordini';
+import { aggiornaCoperturaSalvata, fetchCoperturaSalvata, fetchVenditePerProvincia } from '@/lib/ordini';
 
 type Colonna = 'nome' | 'attivi' | 'lavorazione' | 'lordo';
 
@@ -66,6 +66,19 @@ function intervallo(p: Periodo): { da?: string; a?: string } {
   return { da: iso(new Date(anno - 1, 0, 1)), a: iso(new Date(anno, 0, 1)) };
 }
 
+/** «oggi alle 4:40» / «ieri» / «il 21 ago»: quanto è vecchio il dato che leggi. */
+function quandoBreve(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const oggi = new Date();
+  const stessoGiorno = d.toDateString() === oggi.toDateString();
+  const ieri = new Date(oggi.getTime() - 86400000).toDateString() === d.toDateString();
+  const ora = d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+  if (stessoGiorno) return `oggi alle ${ora}`;
+  if (ieri) return `ieri alle ${ora}`;
+  return `il ${d.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })} alle ${ora}`;
+}
+
 /** Gli stati del registro che contano come «fornitore attivo». */
 const ATTIVI = new Set(['attivo']);
 /** Quelli che contano come lavorazione in corso (non ancora attivi, non persi). */
@@ -84,6 +97,9 @@ export function CoperturaProvince({ onProvincia }: { onProvincia?: (nome: string
   const [senzaProvincia, setSenzaProvincia] = useState<{ ordini: number; lordo: number } | null>(null);
   const [errore, setErrore] = useState<string | null>(null);
   const [periodo, setPeriodo] = useState<Periodo>('tutto');
+  // Quando è stata calcolata la vista che stai guardando (null = adesso, dal vivo).
+  const [aggiornatoIl, setAggiornatoIl] = useState<string | null>(null);
+  const [ricalcolo, setRicalcolo] = useState(false);
   // Ordinamento: si parte dal venduto più alto, che è la domanda con cui si
   // apre questa tabella («dove si vende e non abbiamo nessuno?»).
   const { ordine, ordinaPer } = useOrdinamento<Colonna>({ campo: 'lordo', verso: 'desc' }, [
@@ -98,10 +114,24 @@ export function CoperturaProvince({ onProvincia }: { onProvincia?: (nome: string
     try {
       // Le due letture sono indipendenti: se il venduto non è collegato, i
       // partner si vedono lo stesso (e viceversa).
-      const [reg, vendite] = await Promise.all([
-        fetchTuttiPartner().catch(() => ({ partner: [], completo: false })),
-        fetchVenditePerProvincia(intervallo(periodo)),
-      ]);
+      // ⚠️ PRIMA LA VISTA SALVATA. Il lavoro notturno mette da parte le due
+      // risposte lente: il registro (1056 partner, che il client paginava
+      // **50 alla volta**, cioè una ventina di andate e ritorno) e il venduto.
+      // Leggerle da una tabella è una query sola. Se la vista non c'è ancora
+      // — o non ha questo periodo — si ricade sul calcolo dal vivo, e la
+      // schermata lo dice invece di far finta di niente.
+      const salvata = await fetchCoperturaSalvata().catch(() => null);
+      const usaSalvata = Boolean(salvata?.partner && salvata?.vendite[periodo]);
+      setAggiornatoIl(usaSalvata ? salvata!.aggiornatoIl : null);
+      const [reg, vendite] = usaSalvata
+        ? [
+            { partner: salvata!.partner as any[], completo: salvata!.completo },
+            salvata!.vendite[periodo],
+          ]
+        : await Promise.all([
+            fetchTuttiPartner().catch(() => ({ partner: [], completo: false })),
+            fetchVenditePerProvincia(intervallo(periodo)),
+          ]);
       setRegistroCompleto(reg.completo);
       setVenditeCollegate(!vendite.nonCollegato);
       setSenzaProvincia(vendite.nonCollegato ? null : vendite.senzaProvincia);
@@ -148,6 +178,21 @@ export function CoperturaProvince({ onProvincia }: { onProvincia?: (nome: string
     }, [carica]),
   );
 
+  /** Rifà la vista salvata e ricarica: si usa quando il dato di stanotte non basta. */
+  async function ricalcola() {
+    if (ricalcolo) return;
+    setRicalcolo(true);
+    setErrore(null);
+    try {
+      await aggiornaCoperturaSalvata();
+      await carica();
+    } catch (e) {
+      setErrore((e as Error)?.message ?? 'Ricalcolo non riuscito.');
+    } finally {
+      setRicalcolo(false);
+    }
+  }
+
   const viste = useMemo(() => {
     const f = soloScoperte ? righe.filter((r) => r.attivi === 0) : righe;
     // L'ordine lo sceglie chi guarda (intestazioni premibili). Di default il
@@ -185,6 +230,23 @@ export function CoperturaProvince({ onProvincia }: { onProvincia?: (nome: string
         Il periodo vale per il <Text style={styles.forte}>venduto</Text>: fornitori e «in lav.» vengono
         dal registro e non cambiano.
       </Text>
+
+      {/* Da dove viene il numero che stai guardando: una vista di stanotte o un
+          conto fatto adesso. Un dato senza data è un dato di cui non ci si fida. */}
+      {!loading ? (
+        <View style={styles.rigaVista}>
+          <Text style={styles.notaPeriodo}>
+            {aggiornatoIl
+              ? `Vista salvata, aggiornata ${quandoBreve(aggiornatoIl)}`
+              : 'Calcolata adesso (la vista salvata non è ancora pronta per questo periodo)'}
+          </Text>
+          <Pressable disabled={ricalcolo} onPress={ricalcola} hitSlop={6}>
+            <Text style={[styles.linkRicalcola, ricalcolo && { opacity: 0.5 }]}>
+              {ricalcolo ? 'Ricalcolo…' : 'Ricalcola adesso'}
+            </Text>
+          </Pressable>
+        </View>
+      ) : null}
 
       {loading ? (
         <View style={styles.caricamento}>
@@ -296,7 +358,9 @@ function Chip({ label, on, onPress }: { label: string; on: boolean; onPress: () 
 const styles = StyleSheet.create({
   wrap: { gap: spacing.sm },
   thAttiva: { color: colors.testo, fontWeight: '700' },
-  notaPeriodo: { color: colors.testoSoft, fontSize: 12, marginTop: -2 },
+  notaPeriodo: { color: colors.testoSoft, fontSize: 12, marginTop: -2, flex: 1 },
+  rigaVista: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  linkRicalcola: { color: colors.navy, fontSize: 12, fontWeight: '700' },
   forte: { fontWeight: '700', color: colors.testo },
   caricamento: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: spacing.sm },
   caricamentoTxt: { color: colors.testoSoft, fontSize: 13, flex: 1 },

@@ -4,6 +4,62 @@
 import { env } from '@/lib/env';
 import { supabase } from '@/lib/supabase';
 
+/**
+ * La copertura SALVATA: le due risposte lente (registro e venduto) messe da
+ * parte dal lavoro notturno, lette con una query sola.
+ *
+ * ⚠️ Qui non si calcola niente: si restituiscono i dati grezzi, e il conto
+ * resta dov'è sempre stato (nel componente). Salvare il risultato avrebbe
+ * messo la stessa regola in due posti.
+ */
+export async function fetchCoperturaSalvata(): Promise<{
+  partner: any[] | null;
+  completo: boolean;
+  vendite: Record<string, RispostaProvince>;
+  aggiornatoIl: string | null;
+}> {
+  const { data, error } = await supabase.from('copertura_cache').select('chiave, dati, aggiornato_il');
+  if (error || !data?.length) return { partner: null, completo: true, vendite: {}, aggiornatoIl: null };
+  let partner: any[] | null = null;
+  let completo = true;
+  let aggiornatoIl: string | null = null;
+  const vendite: Record<string, RispostaProvince> = {};
+  for (const r of data as any[]) {
+    if (!aggiornatoIl || r.aggiornato_il > aggiornatoIl) aggiornatoIl = r.aggiornato_il;
+    if (r.chiave === 'partner') {
+      partner = r.dati?.partner ?? [];
+      completo = r.dati?.completo !== false;
+    } else if (String(r.chiave).startsWith('vendite:')) {
+      const p = r.dati ?? {};
+      vendite[String(r.chiave).slice(8)] = {
+        province: p.province ?? [],
+        totaleProvince: Number(p.totaleProvince ?? 0),
+        senzaProvincia: p.senzaProvincia ?? { ordini: 0, lordo: 0 },
+        nonCollegato: false,
+      };
+    }
+  }
+  return { partner, completo, vendite, aggiornatoIl };
+}
+
+/** Rilancia il lavoro che riempie la copertura salvata (bottone «Ricalcola»). */
+export async function aggiornaCoperturaSalvata(): Promise<void> {
+  const url = `${env.supabaseUrl().replace(/\/$/, '')}/functions/v1/ordini`;
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: env.supabaseAnonKey(),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ action: 'aggiorna_copertura' }),
+  });
+  const j = await res.json().catch(() => ({}));
+  if (!res.ok || j?.ok === false) throw new Error(j?.error ?? j?.reason ?? 'Aggiornamento non riuscito.');
+}
+
 export interface VenditeProvincia {
   provincia: string; // com'è scritta negli ordini: sigla di targa, a volte estera
   ordini: number;
@@ -38,7 +94,7 @@ export async function fetchVenditePerProvincia(
     nonCollegato: true,
   };
   try {
-    const url = `${env.supabaseUrl().replace(/\/$/, '')}/functions/v1/ordini`;
+  const url = `${env.supabaseUrl().replace(/\/$/, '')}/functions/v1/ordini`;
     const { data } = await supabase.auth.getSession();
     const token = data.session?.access_token;
     const res = await fetch(url, {

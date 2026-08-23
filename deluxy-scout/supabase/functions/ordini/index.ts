@@ -10,6 +10,7 @@
 // giorno servisse, va aggiunto un permesso esplicito — non allargato questo.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { chiaveHub } from '../_shared/chiavi.ts';
+import { chiaveIngressoValida } from '../_shared/chiaveIn.ts';
 
 const BASE = Deno.env.get('ORDERS_URL') ?? 'https://deluxy-orders.vercel.app';
 
@@ -31,13 +32,100 @@ Deno.serve(async (req) => {
     // dire «i dati di vendita non sono collegati» e mostrare tutto il resto.
     if (!key) return json({ ok: false, reason: 'non_configurato' });
 
-    // Autenticazione: chi chiama dev'essere un utente Scout loggato.
     const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+    const body = await req.json().catch(() => ({}));
+
+    // Autenticazione: di norma un utente Scout loggato. L'aggiornamento della
+    // copertura lo lancia però il **cron notturno**, che una sessione non ce
+    // l'ha: per quella sola azione vale anche la chiave di servizio.
+    //
+    // ⚠️ Il controllo sta PRIMA dello smistamento delle azioni, non dentro un
+    // ramo: un'azione aggiunta sopra il controllo sarebbe pubblica senza che
+    // nessuno se ne accorga (è successo davvero in `hubspot-match`).
     const jwt = (req.headers.get('Authorization') ?? '').replace('Bearer ', '');
     const { data: userData } = await admin.auth.getUser(jwt);
-    if (!userData?.user) return json({ error: 'Non autenticato' }, 401);
+    const chiaveApi = (req.headers.get('x-api-key') ?? '').trim();
+    const daServizio = chiaveApi ? (await chiaveIngressoValida(chiaveApi, admin)).ok : false;
+    if (!userData?.user && !(daServizio && body.action === 'aggiorna_copertura')) {
+      return json({ error: 'Non autenticato' }, 401);
+    }
 
-    const body = await req.json().catch(() => ({}));
+    // ── Aggiorna la COPERTURA salvata (la lancia il cron notturno) ───────────
+    //
+    // Salva i **dati grezzi** delle due chiamate lente — il registro (1056
+    // partner) e il venduto per provincia — dentro `copertura_cache`. Il conto
+    // resta nel client: se lo rifacessimo qui, la stessa regola vivrebbe in due
+    // posti e al primo ritocco direbbero due cose diverse.
+    //
+    // ⚠️ È QUI che si guadagna il tempo: il client paginava il registro **50
+    // alla volta** passando ogni volta da questa Edge, cioè ~22 andate e
+    // ritorno prima di poter disegnare qualcosa. Da qui si chiede a pagine di
+    // 200, e chi apre la schermata legge una riga di tabella.
+    if (body.action === 'aggiorna_copertura') {
+      const chiaveAnag = await chiaveHub('ANAGRAFICHE_API_KEY');
+      if (!chiaveAnag) return json({ ok: false, reason: 'anagrafiche_non_configurato' });
+      const ANAG = Deno.env.get('ANAGRAFICHE_URL') ?? 'https://deluxy-anagrafiche.vercel.app';
+
+      // 1) I partner del registro, a pagine di 200.
+      const partner: unknown[] = [];
+      let completo = true;
+      for (let page = 1; page <= 12; page++) {
+        const r = await fetch(`${ANAG}/api/v1/partners?perPage=200&attivo=tutti&page=${page}`, {
+          headers: { 'x-api-key': chiaveAnag },
+        });
+        if (!r.ok) {
+          completo = false;
+          break;
+        }
+        const j = await r.json().catch(() => ({}));
+        const righe = j?.dati ?? [];
+        if (!righe.length) break;
+        partner.push(...righe);
+      }
+
+      // 2) Il venduto per provincia, per ogni periodo che la schermata offre.
+      //    ⚠️ I confini si calcolano su **Europe/Rome**, non su UTC: la
+      //    mezzanotte italiana sono le 22:00 o le 23:00 UTC, e due ore di ogni
+      //    giorno finirebbero nel periodo prima.
+      const oggiRoma = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Rome' }));
+      const A = oggiRoma.getFullYear();
+      const M = oggiRoma.getMonth();
+      const iso = (d: Date) =>
+        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const periodi: Record<string, { da?: string; a?: string }> = {
+        mese: { da: iso(new Date(A, M, 1)), a: iso(new Date(A, M + 1, 1)) },
+        trimestre: {
+          da: iso(new Date(A, Math.floor(M / 3) * 3, 1)),
+          a: iso(new Date(A, Math.floor(M / 3) * 3 + 3, 1)),
+        },
+        anno: { da: iso(new Date(A, 0, 1)), a: iso(new Date(A + 1, 0, 1)) },
+        'anno-scorso': { da: iso(new Date(A - 1, 0, 1)), a: iso(new Date(A, 0, 1)) },
+        tutto: {},
+      };
+
+      const righeCache: { chiave: string; dati: unknown; aggiornato_il: string }[] = [
+        { chiave: 'partner', dati: { partner, completo }, aggiornato_il: new Date().toISOString() },
+      ];
+
+      for (const [nome, int] of Object.entries(periodi)) {
+        const p = new URLSearchParams();
+        if (int.da) p.set('da', int.da);
+        if (int.a) p.set('a', int.a);
+        const r = await fetch(`${BASE}/api/v1/province${p.toString() ? `?${p}` : ''}`, {
+          headers: { 'x-api-key': key },
+        });
+        if (!r.ok) continue; // un periodo che non risponde non deve far saltare gli altri
+        righeCache.push({
+          chiave: `vendite:${nome}`,
+          dati: await r.json(),
+          aggiornato_il: new Date().toISOString(),
+        });
+      }
+
+      const { error } = await admin.from('copertura_cache').upsert(righeCache, { onConflict: 'chiave' });
+      if (error) return json({ ok: false, error: error.message }, 500);
+      return json({ ok: true, partner: partner.length, completo, periodi: righeCache.length - 1 });
+    }
 
     let path = '';
     if (body.action === 'province') {
