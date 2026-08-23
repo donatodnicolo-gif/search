@@ -117,6 +117,15 @@ export class PartnersService {
       };
     }
 
+    // ⚠️ Un record del registro creato dalla piattaforma (`fonte: platform`) e'
+    // un rispecchiamento dei nostri stessi dati: confrontarcisi non prova nulla,
+    // dice sempre «nessuna differenza». Se esiste un altro record con la stessa
+    // P.IVA, quello e' probabilmente l'anagrafica vera, e il collegamento e'
+    // finito sul doppione. Successo davvero il 23/08 con 142 RESTAURANT, la cui
+    // ragione sociale «BEYOND 142 SRL» era percio' introvabile.
+    const gemelli = await this.anagrafiche.gemelli(trovato);
+    const specchio = trovato.fonte === 'platform' && gemelli.length > 0;
+
     // Campo per campo: quello che c'è qui contro quello che c'è là.
     const coppie: [string, unknown, unknown][] = [
       ['Insegna / nome', p.insegna, trovato.nome],
@@ -137,6 +146,11 @@ export class PartnersService {
 
     return {
       stato: (trovato as any).platformId === p.id ? 'collegato' : 'trovato-non-collegato',
+      specchio,
+      gemelli: gemelli.map((g) => ({
+        id: g.id, nome: g.nome, ragioneSociale: g.ragioneSociale ?? null,
+        citta: g.citta ?? null, fonte: g.fonte ?? null, contatti: g.contatti?.length ?? 0,
+      })),
       criterio,
       anagrafica: { id: trovato.id, nome: trovato.nome, platformId: (trovato as any).platformId ?? null },
       differenze,

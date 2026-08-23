@@ -128,6 +128,22 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
                 @if (a.criterio) { <span class="criterio">{{ 'partnerAnagrafica.matchedBy' | translate:{ criterio: a.criterio } }}</span> }
               </p>
 
+              @if (a.specchio) {
+                <p class="avviso-doppione">
+                  <strong>{{ 'partnerAnagrafica.mirrorTitle' | translate }}</strong>
+                  {{ 'partnerAnagrafica.mirrorBody' | translate }}
+                </p>
+                <ul class="candidati">
+                  @for (g of a.gemelli; track g.id) {
+                    <li>
+                      <strong>{{ g.ragioneSociale || g.nome }}</strong>
+                      @if (g.citta) { <span class="mono">· {{ g.citta }}</span> }
+                      <span class="mono">· {{ 'partnerAnagrafica.contacts' | translate:{ n: g.contatti } }}</span>
+                    </li>
+                  }
+                </ul>
+              }
+
               @if (a.candidati?.length) {
                 <p class="hint">{{ 'partnerAnagrafica.candidates' | translate }}</p>
                 <ul class="candidati">
@@ -152,7 +168,7 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
                     }
                   </tbody>
                 </table>
-              } @else if (a.anagrafica) {
+              } @else if (a.anagrafica && !a.specchio) {
                 <p class="hint ok">{{ 'partnerAnagrafica.identical' | translate }}</p>
               }
 
@@ -314,6 +330,13 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
       .badge.ok { background: rgba(36,138,61,.12); color: #1a7f37; }
       .badge.warn { background: rgba(184,150,62,.14); color: #8a6d1f; }
       .criterio { font-size: 12.5px; color: var(--text-tertiary); }
+      .avviso-doppione {
+        margin: 10px 0 6px; padding: 10px 12px; border-radius: var(--radius-md);
+        background: color-mix(in srgb, var(--danger) 8%, transparent);
+        border: 1px solid color-mix(in srgb, var(--danger) 28%, transparent);
+        font-size: 13px; line-height: 1.5;
+      }
+      .avviso-doppione strong { display: block; }
       .candidati { margin: 6px 0 0 18px; font-size: 13px; }
       .azioni { display: flex; align-items: center; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
       .esito { font-size: 13px; color: var(--red, #d70015); }
@@ -381,6 +404,8 @@ export class PartnerDetailComponent {
   // ---- Riconciliazione col registro Anagrafiche ----
   readonly anagrafica = signal<{
     stato: string; criterio: string | null;
+    specchio?: boolean;
+    gemelli?: { id: string; nome: string; ragioneSociale: string | null; citta: string | null; fonte: string | null; contatti: number }[];
     anagrafica: { id: string; nome: string; platformId: string | null } | null;
     differenze: { campo: string; piattaforma: string | null; registro: string | null }[];
     candidati: { id: string; nome: string; pIva?: string | null }[];

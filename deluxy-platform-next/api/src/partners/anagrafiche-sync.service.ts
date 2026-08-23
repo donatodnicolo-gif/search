@@ -28,6 +28,8 @@ export type AnagraficaPartner = {
   contatti?: { ruolo?: string | null; nome?: string | null; telefono?: string | null; email?: string | null }[];
   platformId?: string | null;
   attivo?: boolean;
+  /** Chi ha creato il record nel registro: `platform` = lo abbiamo scritto noi. */
+  fonte?: string | null;
 };
 
 type PartnerPiattaforma = {
@@ -163,6 +165,33 @@ export class AnagraficheSyncService {
       if (trovati.length > 1) return { trovato: null, criterio, candidati: trovati };
     }
     return { trovato: null, criterio: null, candidati: [] };
+  }
+
+  /**
+   * Altri record del registro che portano la STESSA P.IVA di quello trovato.
+   *
+   * Serve a smascherare un caso visto il 23/08: la scheda di 142 RESTAURANT
+   * diceva «collegato, nessuna differenza» perche' il `platformId` stava su un
+   * doppione creato dalla piattaforma stessa — un rispecchiamento dei nostri
+   * dati, che per costruzione non puo' mai discordare. Il record vero, con la
+   * ragione sociale «BEYOND 142 SRL», restava invisibile.
+   *
+   * Un confronto che non puo' fallire non e' una conferma: e' un silenzio.
+   */
+  async gemelli(trovato: AnagraficaPartner): Promise<AnagraficaPartner[]> {
+    if (!pivaAttendibile(trovato.pIva)) return [];
+    const apiKey = await this.getApiKey();
+    if (!apiKey) return [];
+    const base = (await this.getBaseUrl()).replace(/\/+$/, '');
+    try {
+      const res = await fetch(
+        `${base}/api/v1/partners?q=${encodeURIComponent(trovato.pIva!.trim())}&attivo=tutti&perPage=20`,
+        { headers: { 'x-api-key': apiKey } },
+      );
+      if (!res.ok) return [];
+      const body = (await res.json()) as { dati?: AnagraficaPartner[] };
+      return (body.dati ?? []).filter((a) => a.id !== trovato.id);
+    } catch { return []; }
   }
 
   /**
