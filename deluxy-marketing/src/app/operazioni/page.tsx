@@ -11,7 +11,7 @@ import { annullaOperazione, approvaOperazione, approvaOperazioniSelezionate,
 import { campagneNonConfermate, letturaNonConfermata } from "@/lib/campagne-non-confermate";
 import { COLORE_CONFERMA, confermeOperazioni, type Conferma } from "@/lib/conferme-operazioni";
 import { prisma } from "@/lib/db";
-import { ETICHETTA_LIVELLO, formattaDataOra } from "@/lib/dominio";
+import { ETICHETTA_CANALE, ETICHETTA_LIVELLO, formattaDataOra } from "@/lib/dominio";
 import { spiegaErroreGoogle } from "@/lib/errori-google";
 import { EseguiMeta } from "@/components/EseguiMeta";
 
@@ -62,7 +62,7 @@ const COLORE_STATO: Record<string, string> = {
 };
 const ETICHETTA_STATO: Record<string, string> = {
   in_attesa: "Da approvare",
-  approvata: "Approvata — in attesa dello script",
+  approvata: "Approvata — in attesa di chi la esegue",
   eseguita: "Eseguita sulla piattaforma",
   fallita: "Fallita",
   annullata: "Annullata",
@@ -445,6 +445,10 @@ export default async function PaginaOperazioni({
         </div>
 
         <div className="op-stato">
+          {/* ⚠️ La piattaforma sulla riga: «pausa campagna» su Google e su
+              Meta si leggono uguali e finiscono in due posti diversi, con due
+              esecutori diversi. */}
+          <span className="cella-sub">{ETICHETTA_CANALE[o.canale ?? ""] ?? o.canale}</span>
           <span className="tag-salute" style={{ color: COLORE_STATO[o.stato] }}>
             <span className="dot" />
             {ETICHETTA_STATO[o.stato] ?? o.stato}
@@ -480,9 +484,17 @@ export default async function PaginaOperazioni({
           <div>
             <h1 className="page-title">Operazioni</h1>
             <p className="page-sub">
-              Le modifiche decise qui non partono da sole: restano in attesa finché non le approvi,
-              poi è lo script di Google Ads a eseguirle e a riferire com&apos;è andata. Quando
-              un&apos;operazione va a buon fine parte il blackout di 72 ore e nascono le verifiche.
+              {/* ⚠️ UNA CODA SOLA, DUE MOTORI. Le operazioni Google e Meta
+                  stanno nella stessa tabella — ed è giusto: la decisione è la
+                  stessa, cambia solo chi la esegue. Ma la pagina parlava solo
+                  di «lo script», e su Meta lo script non esiste: chi
+                  approvava una modifica Meta restava ad aspettare un motore
+                  che non sarebbe mai passato. */}
+              Le modifiche decise qui non partono da sole: restano in attesa finché non le approvi.
+              Poi cambia <b>chi le esegue</b>: su <b>Google</b> lo script dentro l&apos;account, che
+              passa da solo; su <b>Meta</b> l&apos;app, e solo quando premi <b>Esegui adesso</b> nel
+              riquadro qui sopra. Quando un&apos;operazione va a buon fine parte il blackout di 72
+              ore e nascono le verifiche.
               {" "}Sulle parole, la <b>corrispondenza</b> si cambia da qui finché l&apos;operazione non
               è partita: <b>esatta</b> blocca solo quella ricerca, <b>a frase</b> la sequenza di
               parole, <b>generica</b> ogni ricerca che le contenga in qualsiasi ordine — ed è quella
@@ -676,7 +688,7 @@ export default async function PaginaOperazioni({
 
         {approvate.length > 0 && (
           <section className="scheda">
-            <div className="scheda-titolo">Approvate, in attesa dello script ({approvate.length})</div>
+            <div className="scheda-titolo">Approvate, in attesa di partire ({approvate.length})</div>
             <ul className="storia">{approvate.map((o) => riga(o))}</ul>
           </section>
         )}

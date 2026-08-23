@@ -56,7 +56,7 @@ export async function CodaCampagna({
   return (
     <section className="scheda">
       <div className="scheda-titolo" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-        <span>In coda su Google ({inCoda.length})</span>
+        <span>In coda ({inCoda.length})</span>
         <a className="btn small" href={linkCoda}>
           {daApprovare > 0 ? `Approva (${daApprovare})` : "Vai alla coda"}
         </a>
@@ -69,8 +69,10 @@ export async function CodaCampagna({
         )}
         {approvate > 0 && (
           <>
-            <b>{approvate} già approvate</b>, in attesa che lo script passi (gira ogni notte, o
-            ogni ora se l&apos;account ha il lavoro «esegui» schedulato).
+            <b>{approvate} già approvate</b>, in attesa di chi le esegue: su Google lo script
+            dentro l&apos;account (ogni notte, o ogni ora dove è schedulato), su Meta l&apos;app
+            quando qualcuno preme <b>Esegui adesso</b> in Operazioni — lì non c&apos;è nessun
+            automatismo.
           </>
         )}
       </p>
