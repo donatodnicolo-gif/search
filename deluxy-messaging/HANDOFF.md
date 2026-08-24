@@ -1,6 +1,6 @@
 # Handoff — Deluxy Customer Service
 
-Ultimo aggiornamento: **24/08/2026, ore 14:00** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
+Ultimo aggiornamento: **24/08/2026, ore 16:00** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
 prima, alle 15:10, l'utente ha pubblicato la schermata di consenso Google e il
 conto alla rovescia dei 7 giorni è finito).
 Prima, il 19/08: la **risposta di primo contatto** che parte da sola al primo
@@ -340,6 +340,44 @@ locale, altrimenti nulla si decifra.
     chat finisce nel cestino.
   - ⚠️ **Il numero delle note da fare sta sul bottone**: in un pannello chiuso
     una nota lasciata a un collega non esisterebbe.
+
+- **LA PAGINA PAGAMENTI, RIFATTA** (24/08/2026, sei richieste dell'utente in
+  fila: metodi diversi dall'IBAN, associazione con l'ordine, margine subito,
+  copia per cella, modifica, conferma pagamento con ricevuta).
+  - **Metodi**: `iban` · `link` · `paypal` · `altro`. ⚠️⚠️ Finché l'unica
+    forma prevista era l'IBAN, tutto il resto **non si registrava affatto** —
+    restava in una chat, e sull'ordine risultava che non avevamo pagato
+    nessuno. ⚠️ Su un metodo che non è un bonifico la verifica **non si finge**:
+    «non si verifica», non un rosso «da controllare».
+  - **Ordine collegato**: ⚠️ il campo `ordineNumero` esisteva ed era **sempre
+    vuoto** (la pagina non lo mandava mai). Ora si cerca dal numero letto nella
+    causale, e **si collega da solo solo se il risultato è uno**: lo stesso
+    numero esiste su più negozi, e sbagliare vuol dire calcolare il margine sul
+    valore di un altro ordine.
+  - **Copia per cella** (desktop e telefono): ⚠️ si prova `navigator.clipboard`
+    e **se fallisce si riprova con `execCommand`** — il primo rifiuta quando la
+    pagina non ha il fuoco. ⚠️ Se falliscono tutti e due lo si DICE
+    («selezionalo a mano»): un tocco che non fa niente si smette di usare.
+  - **Modifica**: solo finché non è stata mandata a chi approva, o le due copie
+    divergerebbero in silenzio.
+  - **Pagata + ricevuta**: ⚠️ «pagata» ≠ «inviata a chi approva» — l'app sapeva
+    solo di aver CHIESTO un pagamento. Si può disfare, ma la ricevuta resta: è
+    un documento. Immagini e PDF, tetto 1,5 MB.
+  - ⚠️⚠️ **I byte della ricevuta NON escono nell'elenco** (`select` esplicito):
+    senza, ogni caricamento si sarebbe portato dietro tutte le ricevute.
+  - ⚠️ **La ricevuta sta nel database** perché quest'app non ha storage. Va
+    bene per qualche centinaio; scritto nello schema perché chi lo sposterà
+    sappia perché sta così.
+  - ⚠️ **Un PDF nella lettura AI non si legge** e lo si dice: il modello legge
+    immagini. 🔜 Per leggerli servirebbe estrarre il testo (dipendenza nuova).
+  - ✅ `npx tsx scripts/prova-pagamenti.mts`: 25 su 25. A schermo: 4 metodi,
+    ordine agganciato da solo dalla causale («#2785 · CakeDesignMe · Ajayta Rai
+    · 300,00 €»), margine «43,3% · ✓ in linea», 8 celle copiabili, riga pagata
+    col bordo verde e «ricevuta ✓», «Modifica» che riporta tutto nel modulo.
+  - ⚠️ **La copia non è provabile in questa sessione**: il pannello del browser
+    non è a schermo, il documento non ha il fuoco e **anche `execCommand`
+    torna `false`** — misurato. Il codice tenta entrambe le strade e riporta
+    l'esito vero; il percorso felice va provato su un dispositivo.
 
 - **CORREGGERE UNA PROPOSTA DEL GLOSSARIO** (24/08/2026, chiesto: «consenti di
   modificare la risposta»). Terzo bottone **Modifica** accanto ad Accetta e

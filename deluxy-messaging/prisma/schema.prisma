@@ -117,9 +117,52 @@ model RichiestaPagamento {
   // Da dove arriva: manuale | testo | immagine
   origine      String   @default("manuale")
   ordineNumero String   @default("") // se legata a un ordine
+  /**
+   * COME lo paghiamo: `iban` · `link` · `paypal` · `altro`.
+   *
+   * ⚠️⚠️ Non tutti i fornitori si pagano con un bonifico. Chi manda un link di
+   * pagamento, chi dà un indirizzo PayPal, chi si accorda a voce («mi paghi in
+   * contanti alla consegna»). Finché l'unica forma prevista era l'IBAN, tutto
+   * il resto **non si registrava affatto**: restava in una chat, e su
+   * quell'ordine risultava che non avevamo pagato nessuno.
+   *
+   * ⚠️ `iban` resta il caso di gran lunga più frequente, ed è l'unico che si
+   * può verificare col codice di controllo: gli altri sono testo, e la verifica
+   * non si finge (`ibanValido` resta falso, e non vuol dire «sbagliato»).
+   */
+  metodo       String   @default("iban")
+  /**
+   * Il riferimento quando NON è un IBAN: l'indirizzo del link, la mail PayPal,
+   * la frase concordata. ⚠️ Testo libero di proposito: la varietà è il punto.
+   */
+  riferimentoPagamento String @default("") @db.Text
+
+  // ── QUANDO È STATA PAGATA DAVVERO, e la prova ──
+  //
+  // ⚠️ Diverso da `inviataIl` (mandata a chi approva) e da `partnerStato`: qui
+  // si annota che il denaro È USCITO. Finora l'app sapeva solo di aver chiesto
+  // il pagamento, e «chiesto» e «pagato» non sono la stessa cosa — con un
+  // fornitore che richiama per sapere se è stato pagato non c'era niente da
+  // guardare.
+  pagataIl     DateTime?
+  pagataDaNome String   @default("")
+  /**
+   * La ricevuta: immagine o PDF, tenuta come data URI.
+   *
+   * ⚠️ Sta nel database e non in uno storage perché quest'app **non ha uno
+   * storage**: gli allegati delle chat passano da Meta e non restano. Per
+   * qualche centinaio di ricevute va bene; se diventano migliaia va spostata
+   * altrove, ed è scritto qui perché chi lo farà sappia perché sta così.
+   * ⚠️ Il tetto è ~1,5 MB: il corpo di una funzione serverless arriva a ~4,5 MB
+   * e oltre non arriva nemmeno l'errore giusto.
+   */
+  ricevutaDati String   @default("") @db.Text
+  ricevutaNome String   @default("")
+  ricevutaTipo String   @default("")
   creatoIl     DateTime @default(now())
 
   @@index([creatoIl])
+  @@index([ordineNumero])
 }
 
 // Un numero WhatsApp Business collegato. Ce n'è più d'uno perché la holding ha

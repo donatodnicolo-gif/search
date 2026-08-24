@@ -3345,6 +3345,125 @@ td .azioni-ordine {
   margin: 0;
 }
 
+/* ---- Copiare una cella toccandola ---- */
+
+/* ⚠️ Sembra testo, non un bottone: dentro una tabella una fila di bottoni
+   grigi sarebbe illeggibile. Ma è un <button> vero — la tastiera ci arriva, e
+   su un telefono il tocco è un gesto, che è quello che serve agli appunti. */
+.cella-copia {
+  display: inline;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: inherit;
+  cursor: copy;
+  border-radius: var(--radius-s);
+}
+
+.cella-copia:disabled {
+  cursor: default;
+}
+
+.cella-copia:not(:disabled):hover {
+  background: var(--fill-active);
+  box-shadow: 0 0 0 3px var(--fill-active);
+}
+
+.cella-copia:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+.cella-copia.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px;
+}
+
+/* ⚠️ La conferma sta DENTRO la cella, non in un angolo dello schermo: con una
+   tabella lunga, un avviso in cima non lo vede chi ha appena toccato in fondo. */
+.segno-copiato {
+  color: var(--green);
+  font-weight: 600;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.segno-copiato.errore {
+  color: var(--red);
+}
+
+/* La riga di una richiesta gia' pagata: si vede a colpo d'occhio quali restano
+   da pagare. */
+.riga-pagata > td:first-child {
+  box-shadow: inset 3px 0 0 var(--green);
+}
+
+/* ---- La ricevuta e l'ordine collegato ---- */
+
+.riquadro-ricevuta {
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-m);
+  background: var(--surface);
+  padding: 10px 14px;
+  margin: 10px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ordine-collegato {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-m);
+  background: var(--fill);
+  margin-bottom: 10px;
+}
+
+.scegli-ordine {
+  margin-bottom: 10px;
+}
+
+.elenco-ordini-trovati {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.riga-ordine-trovato {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-m);
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.riga-ordine-trovato:hover {
+  background: var(--fill);
+  border-color: var(--text-tertiary);
+}
+
+.riga-ordine-trovato .titolo {
+  font-weight: 600;
+  font-size: 14px;
+}
+
 /* ---- Quanto ci resta, su una richiesta di pagamento ---- */
 
 /* ⚠️ Sta fra l'importo e il bottone che salva: è l'ultima cosa che si legge

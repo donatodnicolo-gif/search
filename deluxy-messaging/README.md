@@ -226,6 +226,89 @@ guardava solo i messaggi: venivano buttate in silenzio. Adesso si leggono.
 
 Si ricontrolla con `npx tsx scripts/prova-reazioni.mts` (crea righe finte e le cancella).
 
+## La pagina Pagamenti: non solo bonifici
+
+### Come si paga — quattro modi, non uno
+
+`Bonifico (IBAN)` · `Link di pagamento` · `PayPal` · `Altro (scritto)`.
+
+⚠️⚠️ **Non tutti i fornitori si pagano con un bonifico.** Chi manda un link, chi
+dà un indirizzo PayPal, chi si accorda a voce. Finché l'unica forma prevista era
+l'IBAN, tutto il resto **non si registrava affatto**: restava in una chat, e su
+quell'ordine risultava che non avevamo pagato nessuno.
+
+⚠️ Quello che serve cambia col metodo: un bonifico senza IBAN non è pagabile, un
+«altro» senza la frase non dice niente a nessuno. L'unica cosa che serve
+**sempre** è il nome di chi va pagato.
+
+⚠️ **Su un metodo che non è un bonifico non c'è niente da verificare**: il codice
+di controllo esiste solo per gli IBAN. In tabella si legge «non si verifica», non
+un «da controllare» rosso — un allarme su una riga che sta benissimo, ripetuto
+tre volte, spegne anche quello vero.
+
+⚠️ Un link diventa cliccabile **solo se è `http` o `https`**: un `javascript:`
+o un `data:` incollati per sbaglio (o non per sbaglio) restano testo.
+
+### L'ordine collegato, e il margine
+
+Sotto la causale c'è **Ordine**: si cerca per numero e si collega. ⚠️ Il campo
+`ordineNumero` esisteva già in tabella ed era **sempre vuoto** — la pagina non lo
+mandava mai. Di una richiesta salvata non si sapeva a quale ordine appartenesse:
+restava la causale scritta a mano, che non è un collegamento (non si conta, non
+porta al cliente, e non dice quanto valeva l'ordine — da cui: niente margine).
+
+⚠️ **Il numero si legge dalla causale e si cerca da solo, ma si collega da solo
+solo se il risultato è UNO.** Lo stesso numero esiste su più negozi («#1733» è
+sia di Cake sia di Deluxy): sceglierne uno a caso vorrebbe dire mostrare il
+margine calcolato sul valore di un altro ordine.
+
+### La riga si lavora: copia, modifica, pagata
+
+⚠️ **Ogni cella si copia toccando il testo.** Il caso vero: un IBAN di ventisette
+caratteri va incollato nel portale della banca, e selezionarlo col dito dentro
+una tabella che scorre di lato non riesce quasi mai — chi ci prova lo ribatte a
+mano. ⚠️ Si prova `navigator.clipboard` e, **se fallisce, si riprova col vecchio
+`execCommand`**: il primo rifiuta quando la pagina non ha il fuoco, e arrendersi
+al primo no vorrebbe dire dire «selezionalo a mano» su una copia che si poteva
+fare.
+
+⚠️ **Modifica** riporta la riga nel modulo — ma solo finché **non è stata mandata
+a chi approva**: dopo, quello che c'è qui e quello che hanno loro divergerebbero
+in silenzio, e si leggerebbe un importo mentre ne viene pagato un altro.
+
+⚠️ **Pagata** dice che il denaro è **uscito** — un'altra cosa da «inviata a chi
+approva». Prima l'app sapeva solo di aver *chiesto* un pagamento: con un
+fornitore che richiama per sapere se è stato pagato non c'era niente da guardare.
+Si può disfare (capita di spuntare la riga sbagliata), ma **la ricevuta resta**:
+è un documento.
+
+### La ricevuta
+
+Si sceglie una volta, sopra la tabella, poi si preme «Pagata» sulla riga giusta.
+Si accettano **immagini e PDF**: la prova di un bonifico è quasi sempre un PDF
+della banca, e accettare solo le foto vorrebbe dire chiedere a qualcuno di
+fotografare uno schermo.
+
+⚠️ Tetto **1,5 MB**: il corpo di una funzione serverless arriva a ~4,5 MB, e un
+file più grande non ci arriva nemmeno — muore prima con un errore che non spiega
+niente.
+
+⚠️⚠️ **I byte della ricevuta NON escono nell'elenco** (`select` esplicito nella
+GET): senza, ogni caricamento della pagina si porterebbe dietro le ricevute di
+tutte le righe — duecento file — per mostrare una tabella che di quel file usa
+solo il nome.
+
+⚠️ **La ricevuta sta nel database** perché quest'app non ha uno storage (gli
+allegati delle chat passano da Meta e non restano). Per qualche centinaio di
+ricevute va bene; se diventano migliaia va spostata altrove.
+
+⚠️ **Un PDF nella lettura AI non si legge**, e lo si dice invece di lasciarlo
+caricare e fallire: il modello legge immagini, non documenti. Un file scelto e
+ignorato in silenzio è il modo migliore per far credere che l'AI abbia «letto
+male».
+
+Prova: `npx tsx scripts/prova-pagamenti.mts`
+
 ## Correggere una proposta del glossario prima di accettarla
 
 Ogni proposta dell'AI ha tre bottoni: **Accetta**, **Modifica**, **Scarta**.

@@ -4,6 +4,17 @@ import { useCallback, useEffect, useState } from 'react'
 import { CercaFornitore } from './CercaFornitore'
 import { ibanAccorciato, type FornitoreTrovato } from '@/lib/cerca-fornitore'
 import { calcolaMargine, frasiMargine } from '@/lib/margine'
+import { CellaCopiabile } from './CellaCopiabile'
+import { ScegliOrdine, type OrdineTrovato } from './ScegliOrdine'
+import {
+  METODI,
+  cosaManca,
+  linkSicuro,
+  nomeMetodo,
+  pesoScritto,
+  ricevutaAccettabile,
+  type Metodo,
+} from '@/lib/metodo-pagamento'
 
 // Richiedi pagamento: IBAN e intestatario si inseriscono a mano, oppure si
 // fanno leggere all'AI da un messaggio incollato o da un'immagine (schermata
@@ -23,6 +34,13 @@ type Richiesta = {
   inviataIl: string | null
   partnerStato: string
   esitoInvio: string
+  metodo: string
+  riferimentoPagamento: string
+  ordineNumero: string
+  pagataIl: string | null
+  pagataDaNome: string
+  ricevutaNome: string
+  ricevutaTipo: string
 }
 
 const STATI_PARTNER: Record<string, string> = {
@@ -68,6 +86,24 @@ export function RichiediPagamento() {
   // La quota prevista arriva da Deluxy Orders. ⚠️ `null` = non la sappiamo, e
   // allora niente verdetto: vedi src/lib/margine.ts.
   const [quotaPrevista, setQuotaPrevista] = useState<number | null>(null)
+  // ⚠️ COME lo paghiamo. Non tutti i fornitori si pagano con un bonifico: chi
+  // manda un link, chi dà un PayPal, chi si accorda a voce. Finché l'unica
+  // forma prevista era l'IBAN, tutto il resto non si registrava affatto.
+  const [metodo, setMetodo] = useState<Metodo>('iban')
+  const [riferimento, setRiferimento] = useState('')
+  // L'ordine a cui si riferisce: da qui viene anche il valore su cui si calcola
+  // il margine. ⚠️ Il campo esisteva in tabella ed era sempre vuoto.
+  const [ordineNumero, setOrdineNumero] = useState('')
+  const [ordineScelto, setOrdineScelto] = useState<OrdineTrovato | null>(null)
+  // La riga che si sta correggendo, e la ricevuta che si sta caricando.
+  const [modificoId, setModificoId] = useState('')
+  const [ricevuta, setRicevuta] = useState<{
+    dati: string
+    nome: string
+    tipo: string
+    byte: number
+  } | null>(null)
+  const [pagando, setPagando] = useState('')
 
   // Arrivando dal bottone "Richiedi pagamento" di un ordine, i campi si
   // precompilano da soli con numero, cliente e importo.
@@ -254,6 +290,127 @@ export function RichiediPagamento() {
     setOrigine('manuale')
   }
 
+  /** Il file della ricevuta, letto come data URI. */
+  function scegliRicevuta(file: File | null) {
+    if (!file) {
+      setRicevuta(null)
+      return
+    }
+    const problema = ricevutaAccettabile(file.type, file.size)
+    if (problema) {
+      setErrore(problema)
+      setRicevuta(null)
+      return
+    }
+    setErrore('')
+    const lettore = new FileReader()
+    lettore.onload = () =>
+      setRicevuta({
+        dati: String(lettore.result),
+        nome: file.name,
+        tipo: file.type,
+        byte: file.size,
+      })
+    lettore.readAsDataURL(file)
+  }
+
+  /**
+   * Segnare che il denaro è USCITO, con la prova.
+   *
+   * ⚠️ Diverso da «inviata a chi approva»: l'app sapeva solo di aver CHIESTO un
+   * pagamento, e con un fornitore che richiama per sapere se è stato pagato non
+   * c'era niente da guardare.
+   */
+  async function segnaPagata(id: string, pagata: boolean) {
+    setPagando(id)
+    setErrore('')
+    try {
+      const res = await fetch(`/api/pagamenti/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          azione: pagata ? 'pagata' : 'nonpagata',
+          ricevuta: pagata ? ricevuta : null,
+        }),
+      })
+      const d = (await res.json().catch(() => ({}))) as { errore?: string }
+      if (!res.ok) {
+        setErrore(d.errore || 'Non è stato registrato.')
+        return
+      }
+      setRicevuta(null)
+      setAvviso(pagata ? 'Segnata come pagata.' : 'Tolto il segno «pagata».')
+      await carica()
+    } catch {
+      setErrore('Non è stato registrato: problema di rete.')
+    } finally {
+      setPagando('')
+    }
+  }
+
+  /** Correggere una riga salvata. */
+  async function modifica(id: string) {
+    const manca = cosaManca({ metodo, iban, riferimento, intestatario })
+    if (manca) {
+      setErrore(manca)
+      return
+    }
+    setErrore('')
+    try {
+      const res = await fetch(`/api/pagamenti/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          azione: 'modifica',
+          metodo,
+          iban,
+          riferimentoPagamento: riferimento,
+          intestatario,
+          importo: Number(importo.replace(',', '.')) || 0,
+          causale,
+          ordineNumero: ordineScelto?.numero || ordineNumero,
+        }),
+      })
+      const d = (await res.json().catch(() => ({}))) as { errore?: string; motivoIban?: string }
+      if (!res.ok) {
+        setErrore(d.errore || 'Correzione non riuscita.')
+        return
+      }
+      if (d.motivoIban) setIbanNota(d.motivoIban)
+      setModificoId('')
+      setIban('')
+      setRiferimento('')
+      setIntestatario('')
+      setImporto('')
+      setCausale('')
+      setOrdineNumero('')
+      setOrdineScelto(null)
+      setAvviso('Corretta.')
+      await carica()
+    } catch {
+      setErrore('Correzione non riuscita: problema di rete.')
+    }
+  }
+
+  /** Riporta una riga dentro il modulo per correggerla. */
+  function apriPerModifica(r: Richiesta) {
+    setModificoId(r.id)
+    setMetodo((r.metodo || 'iban') as Metodo)
+    setIban(r.iban)
+    setRiferimento(r.riferimentoPagamento)
+    setIntestatario(r.intestatario)
+    setImporto(r.importo ? String(r.importo).replace('.', ',') : '')
+    setCausale(r.causale)
+    setOrdineNumero(r.ordineNumero)
+    setOrdineScelto(null)
+    setErrore('')
+    setAvviso(`Stai correggendo la richiesta di ${r.intestatario}.`)
+    // ⚠️ Si porta lo schermo sul modulo: su un telefono la tabella sta in
+    // fondo, e senza questo si preme «Modifica» e non succede niente di
+    // visibile — cioè sembra rotto.
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
   async function salva() {
     setErrore('')
     setAvviso('')
@@ -262,11 +419,17 @@ export function RichiediPagamento() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          metodo,
           iban,
+          riferimentoPagamento: riferimento,
           intestatario,
           importo: Number(importo.replace(',', '.')) || 0,
           causale,
           origine,
+          // ⚠️ Adesso parte davvero: prima il campo esisteva in tabella e non
+          // veniva mai mandato, quindi nessuna richiesta salvata sapeva a quale
+          // ordine appartenesse.
+          ordineNumero: ordineScelto?.numero || ordineNumero,
         }),
       })
       const d = (await res.json().catch(() => ({}))) as {
@@ -285,9 +448,12 @@ export function RichiediPagamento() {
       else if (d.invio?.ok) setAvviso(`Salvata e inviata a Partner: ${d.richiesta?.stringa ?? ''}`)
       if (d.motivoIban) setIbanNota(d.motivoIban)
       setIban('')
+      setRiferimento('')
       setIntestatario('')
       setImporto('')
       setCausale('')
+      setOrdineNumero('')
+      setOrdineScelto(null)
       setTesto('')
       setImmagine(null)
       setOrigine('manuale')
@@ -365,12 +531,22 @@ export function RichiediPagamento() {
             />
           </label>
           <label className="campo">
-            <span>Immagine (schermata o foto)</span>
+            <span>Immagine o file (schermata, foto, PDF)</span>
             <input
               type="file"
-              accept="image/png,image/jpeg,image/webp,image/gif"
+              accept="image/png,image/jpeg,image/webp,image/gif,application/pdf"
               onChange={(e) => scegliImmagine(e.target.files?.[0] ?? null)}
             />
+            {/* ⚠️⚠️ UN PDF QUI NON SI LEGGE, e lo si dice invece di lasciarlo
+                caricare e fallire: il modello che usiamo legge immagini, non
+                documenti. Un file scelto e poi ignorato in silenzio è il modo
+                migliore per far credere che l'AI abbia «letto male». */}
+            {immagine?.tipo === 'application/pdf' ? (
+              <span className="cella-sub" style={{ color: 'var(--red)' }}>
+                Un PDF da qui non lo so leggere: l’AI legge immagini. Fanne una schermata,
+                oppure caricalo come <strong>ricevuta</strong> qui sotto, dove il PDF va benissimo.
+              </span>
+            ) : null}
           </label>
           {immagine ? (
             <p className="descrizione" style={{ marginTop: -6 }}>
@@ -393,15 +569,67 @@ export function RichiediPagamento() {
               l'abbiamo in casa: va offerto prima che qualcuno cominci a
               digitare, non dopo. */}
           <CercaFornitore cercaSubito={fornitoreDaOrdine} onScelto={usaFornitore} />
+
+          {/* ── COME lo paghiamo ──
+              ⚠️ Non tutti i fornitori si pagano con un bonifico: chi manda un
+              link, chi dà un PayPal, chi si accorda a voce. Finché l'unica
+              forma prevista era l'IBAN, tutto il resto non si registrava
+              affatto — restava in una chat, e sull'ordine risultava che non
+              avevamo pagato nessuno. */}
           <label className="campo">
-            <span>IBAN</span>
-            <input
-              value={iban}
-              onChange={(e) => setIban(e.target.value)}
-              placeholder="IT60X0542811101000000123456"
-            />
+            <span>Come si paga</span>
+            <select
+              value={metodo}
+              onChange={(e) => {
+                setMetodo(e.target.value as Metodo)
+                setIbanNota('')
+              }}
+            >
+              {METODI.map((m) => (
+                <option key={m.chiave} value={m.chiave}>
+                  {m.nome}
+                </option>
+              ))}
+            </select>
           </label>
-          {ibanNota ? <div className="avviso-errore">{ibanNota}</div> : null}
+          <p className="cella-sub" style={{ marginTop: -4 }}>
+            {METODI.find((m) => m.chiave === metodo)?.aiuto}
+          </p>
+
+          {metodo === 'iban' ? (
+            <>
+              <label className="campo">
+                <span>IBAN</span>
+                <input
+                  value={iban}
+                  onChange={(e) => setIban(e.target.value)}
+                  placeholder="IT60X0542811101000000123456"
+                />
+              </label>
+              {ibanNota ? <div className="avviso-errore">{ibanNota}</div> : null}
+            </>
+          ) : (
+            <label className="campo">
+              <span>
+                {metodo === 'link'
+                  ? 'Link di pagamento'
+                  : metodo === 'paypal'
+                    ? 'Indirizzo PayPal'
+                    : 'Com’è stato concordato'}
+              </span>
+              <input
+                value={riferimento}
+                onChange={(e) => setRiferimento(e.target.value)}
+                placeholder={METODI.find((m) => m.chiave === metodo)?.segnaposto}
+              />
+              {/* ⚠️ Qui non c'è niente da verificare: il codice di controllo
+                  esiste solo per gli IBAN. Si dice, invece di lasciare una
+                  spunta verde che non vuol dire niente. */}
+              <span className="cella-sub">
+                Su questo non c’è un codice di controllo: la verifica vale solo per gli IBAN.
+              </span>
+            </label>
+          )}
           <label className="campo">
             <span>Intestatario del conto</span>
             <input
@@ -428,6 +656,29 @@ export function RichiediPagamento() {
               />
             </label>
           </div>
+
+          {/* ── L'ORDINE ──
+              ⚠️ Il campo esisteva in tabella ed era **sempre vuoto**: la pagina
+              non lo mandava mai. Quindi di una richiesta salvata non si sapeva a
+              quale ordine appartenesse — restava la causale scritta a mano, che
+              non è un collegamento: non si può contare, non porta al cliente, e
+              soprattutto non dice quanto valeva quell'ordine. Da cui: niente
+              margine, che è la cosa che si voleva vedere. */}
+          <ScegliOrdine
+            numero={ordineScelto?.numero ?? ''}
+            cercaDa={causale}
+            onScelto={(o) => {
+              setOrdineScelto(o)
+              setOrdineNumero(o.numero)
+              // ⚠️ Il valore dell'ordine arriva da qui: è quello su cui si
+              // calcola il margine.
+              setValoreOrdine(o.totale || 0)
+            }}
+            onTolto={() => {
+              setOrdineScelto(null)
+              setOrdineNumero('')
+            }}
+          />
           {/* ── QUANTO CI RESTA ──
               ⚠️ Il conto si faceva a mente, o non si faceva. Chi compila una
               richiesta ha davanti due numeri — quanto ha incassato l'ordine e
@@ -468,13 +719,68 @@ export function RichiediPagamento() {
               </div>
             )
           })()}
-          <button className="btn" onClick={salva} disabled={!iban || !intestatario}>
-            Salva la richiesta
-          </button>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button
+              className="btn"
+              onClick={() => (modificoId ? void modifica(modificoId) : void salva())}
+              disabled={!!cosaManca({ metodo, iban, riferimento, intestatario })}
+              title={cosaManca({ metodo, iban, riferimento, intestatario }) || undefined}
+            >
+              {modificoId ? 'Salva la correzione' : 'Salva la richiesta'}
+            </button>
+            {modificoId ? (
+              <button
+                className="btn btn-secondario"
+                onClick={() => {
+                  setModificoId('')
+                  setIban('')
+                  setRiferimento('')
+                  setIntestatario('')
+                  setImporto('')
+                  setCausale('')
+                  setOrdineNumero('')
+                  setOrdineScelto(null)
+                  setAvviso('')
+                }}
+              >
+                Lascia stare
+              </button>
+            ) : null}
+          </div>
         </div>
       </div>
 
       <h2 style={{ fontSize: 17, marginTop: 26 }}>Richieste salvate</h2>
+
+      {/* ── LA RICEVUTA DEL PAGAMENTO ──
+          ⚠️ Si sceglie QUI e poi si preme «Pagata» sulla riga giusta. Un campo
+          file dentro ogni riga della tabella vorrebbe dire una tabella che su un
+          telefono non si legge più; e la ricevuta si carica una volta ogni
+          tanto, non su ogni riga.
+          ⚠️ Si accettano immagini E PDF: la prova di un bonifico è quasi sempre
+          un PDF della banca, e accettare solo le foto vorrebbe dire chiedere a
+          qualcuno di fotografare uno schermo. */}
+      <div className="riquadro-ricevuta">
+        <label className="campo" style={{ margin: 0 }}>
+          <span>Ricevuta da allegare (immagine o PDF)</span>
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/gif,application/pdf"
+            onChange={(e) => scegliRicevuta(e.target.files?.[0] ?? null)}
+          />
+        </label>
+        {ricevuta ? (
+          <p className="cella-sub">
+            Pronta: <strong>{ricevuta.nome}</strong> ({pesoScritto(ricevuta.byte)}). Adesso premi
+            «Pagata» sulla riga giusta e te la allego.
+          </p>
+        ) : (
+          <p className="cella-sub">
+            Facoltativa. Puoi segnare «pagata» anche senza — ma con la ricevuta, fra sei mesi,
+            si sa <em>che cosa</em> è stato pagato e non solo che qualcuno l&apos;ha spuntato.
+          </p>
+        )}
+      </div>
       {!caricato ? (
         <div className="vuoto">Carico…</div>
       ) : richieste.length === 0 ? (
@@ -484,38 +790,98 @@ export function RichiediPagamento() {
           <table>
             <thead>
               <tr>
-                <th>IBAN</th>
+                <th>Come si paga</th>
                 <th>Intestatario</th>
                 <th className="num">Importo</th>
+                <th>Ordine</th>
                 <th>Causale</th>
-                <th>Origine</th>
                 <th>Verifica</th>
-                <th>Partner</th>
+                <th>Stato</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
               {richieste.map((r) => (
-                <tr key={r.id}>
-                  <td style={{ fontFamily: 'monospace', fontSize: 12.5 }}>{r.iban}</td>
-                  <td className="cella-nome">{r.intestatario}</td>
-                  <td className="cella-num">
-                    {r.importo
-                      ? r.importo.toLocaleString('it-IT', { style: 'currency', currency: r.valuta })
-                      : '—'}
+                <tr key={r.id} className={r.pagataIl ? 'riga-pagata' : ''}>
+                  {/* ⚠️ OGNI CELLA SI COPIA TOCCANDOLA. Il caso vero: un IBAN di
+                      ventisette caratteri va incollato nel portale della banca.
+                      Selezionarlo col dito su un telefono — trascinare le due
+                      maniglie dentro una tabella che scorre di lato — non
+                      riesce quasi mai, e chi ci prova finisce per ribatterlo. */}
+                  <CellaCopiabile
+                    testo={r.metodo === 'iban' ? r.iban : r.riferimentoPagamento}
+                    monospazio={r.metodo === 'iban'}
+                    titolo={`${nomeMetodo(r.metodo || 'iban')} — tocca per copiare`}
+                    mostrato={
+                      <>
+                        {r.metodo && r.metodo !== 'iban' ? (
+                          <span className="badge" style={{ marginRight: 6 }}>
+                            {nomeMetodo(r.metodo)}
+                          </span>
+                        ) : null}
+                        {r.metodo === 'iban' ? r.iban : r.riferimentoPagamento || '—'}
+                      </>
+                    }
+                  />
+                  <CellaCopiabile testo={r.intestatario} className="cella-nome" />
+                  <CellaCopiabile
+                    className="cella-num"
+                    testo={r.importo ? String(r.importo).replace('.', ',') : ''}
+                    mostrato={
+                      r.importo
+                        ? r.importo.toLocaleString('it-IT', {
+                            style: 'currency',
+                            currency: r.valuta,
+                          })
+                        : '—'
+                    }
+                  />
+                  {/* L'ordine collegato: si apre, non si copia — di lì si va a
+                      vedere di che si tratta. */}
+                  <td className="cella-muta">
+                    {r.ordineNumero ? (
+                      <a
+                        href={`/ordini-globali?q=${encodeURIComponent(r.ordineNumero.replace('#', ''))}`}
+                        className="badge"
+                      >
+                        {r.ordineNumero}
+                      </a>
+                    ) : (
+                      '—'
+                    )}
                   </td>
-                  <td className="cella-muta">{r.causale || '—'}</td>
-                  <td className="cella-muta">{ORIGINI[r.origine] ?? r.origine}</td>
+                  <CellaCopiabile testo={r.causale} className="cella-muta" />
                   <td>
-                    {r.ibanValido ? (
+                    {/* ⚠️ Su un metodo che non è un bonifico non c'è niente da
+                        verificare: il codice di controllo esiste solo per gli
+                        IBAN. Un «da controllare» rosso su un link di pagamento
+                        sarebbe un allarme per una riga che sta benissimo. */}
+                    {r.metodo && r.metodo !== 'iban' ? (
+                      <span className="cella-sub">non si verifica</span>
+                    ) : r.ibanValido ? (
                       <span className="badge verde">valido</span>
                     ) : (
                       <span className="badge rosso">da controllare</span>
                     )}
                   </td>
                   <td style={{ whiteSpace: 'nowrap' }}>
-                    {r.inviataIl ? (
-                      <span className="badge verde" title={`Inviata il ${new Date(r.inviataIl).toLocaleString('it-IT')}`}>
+                    {/* ⚠️ «Pagata» viene PRIMA dello stato di Partner: è il
+                        fatto che conta — il denaro è uscito — mentre l'altro
+                        dice solo a che punto è la pratica. */}
+                    {r.pagataIl ? (
+                      <span
+                        className="badge verde"
+                        title={`Pagata il ${new Date(r.pagataIl).toLocaleString('it-IT')}${
+                          r.pagataDaNome ? ` da ${r.pagataDaNome}` : ''
+                        }`}
+                      >
+                        pagata
+                      </span>
+                    ) : r.inviataIl ? (
+                      <span
+                        className="badge"
+                        title={`Inviata il ${new Date(r.inviataIl).toLocaleString('it-IT')}`}
+                      >
                         {STATI_PARTNER[r.partnerStato] ?? r.partnerStato ?? 'inviata'}
                       </span>
                     ) : (
@@ -523,24 +889,48 @@ export function RichiediPagamento() {
                         non inviata
                       </span>
                     )}
+                    {r.ricevutaNome ? (
+                      <span className="badge" style={{ marginLeft: 4 }} title={r.ricevutaNome}>
+                        ricevuta ✓
+                      </span>
+                    ) : null}
                   </td>
                   <td style={{ whiteSpace: 'nowrap' }}>
                     <button
                       className="btn btn-secondario small"
                       onClick={() => versoPartner(r.id, r.inviataIl ? 'stato' : 'invia')}
                       title={
-                        r.inviataIl
-                          ? 'Chiedi a Partner a che punto è'
-                          : 'Manda la richiesta a Partner'
+                        r.inviataIl ? 'Chiedi a Partner a che punto è' : 'Manda la richiesta a Partner'
                       }
                     >
                       {r.inviataIl ? 'Aggiorna' : 'Invia'}
                     </button>{' '}
+                    {/* ⚠️ Correggere si può solo finché non è stata mandata a
+                        chi approva: dopo, quello che c'è qui e quello che hanno
+                        loro divergerebbero in silenzio — si leggerebbe un
+                        importo e ne verrebbe pagato un altro. */}
+                    {!r.inviataIl ? (
+                      <>
+                        <button
+                          className="btn btn-secondario small"
+                          onClick={() => apriPerModifica(r)}
+                          title="Correggi questa richiesta"
+                        >
+                          Modifica
+                        </button>{' '}
+                      </>
+                    ) : null}
                     <button
-                      className="btn btn-secondario small"
-                      onClick={() => copia(r.stringa, r.id)}
+                      className={`btn small${r.pagataIl ? ' btn-secondario' : ''}`}
+                      disabled={pagando === r.id}
+                      onClick={() => void segnaPagata(r.id, !r.pagataIl)}
+                      title={
+                        r.pagataIl
+                          ? 'Toglie il segno «pagata». La ricevuta resta: è un documento.'
+                          : 'Segna che il denaro è uscito. Se hai caricato una ricevuta qui sotto, la allega.'
+                      }
                     >
-                      {copiato === r.id ? 'Copiato ✓' : 'Copia'}
+                      {pagando === r.id ? '…' : r.pagataIl ? 'Non pagata' : 'Pagata'}
                     </button>{' '}
                     <button
                       className="btn btn-secondario small"
