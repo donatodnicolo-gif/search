@@ -1,6 +1,17 @@
 # Handoff — Deluxy Transactions
 
-Aggiornato: **17 agosto 2026**
+> 🏛️ **ARCHITETTURA DEI DATI (OBBLIGATORIA, 24/08/2026)** — Standard Deluxy §7
+> ([../../deluxy-standard/STANDARD-DELUXY.md](../../deluxy-standard/STANDARD-DELUXY.md)).
+> Il ruolo di QUESTA app: **l'unica da cui può uscire denaro** — nel giro
+> dell'ordine D2C riceve le richieste firmate HMAC del «Paga» del Customer
+> Service (client già in produzione dal 24/08 in deluxy-messaging, doppio
+> binario: per accendere il canale servono una chiave con scrittura + segreto
+> HMAC per «deluxy-messaging» e le tre variabili sul suo Vercel). Dall'audit
+> 24/08 restano: confrontare nome+IBAN dei beneficiari con Anagrafiche PRIMA
+> di accettare una richiesta (oggi nessuno lo fa), `GET /api/health` costante,
+> credenziali Qonto nella cassaforte del Hub, l'IBAN reale via da questo file.
+
+Aggiornato: **24 agosto 2026** (architettura); fotografia del 17 agosto
 
 ## Fotografia del 17/08/2026 (letta dal database e dall'API di Qonto)
 

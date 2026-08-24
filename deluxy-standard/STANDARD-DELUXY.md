@@ -1,6 +1,8 @@
 # Standard Deluxy — regole comuni a tutte le app
 
-**Versione 1.0 — 24 luglio 2026**
+**Versione 1.1 — 24 agosto 2026** (1.0 del 24 luglio; la 1.1 aggiunge il
+capitolo 7 — **Architettura dei dati, obbligatoria** — e le voci d'architettura
+nella checklist §6, dopo l'audit su tutte le 18 app)
 
 Questo documento è la **fonte unica** di come si fanno le cose in tutte le app
 Deluxy: CSS, server, database, chiavi interne, chiavi esterne. Vale per le app
@@ -306,3 +308,91 @@ Un'app è **allineata** quando tutte queste righe sono vere:
 - [ ] `.env` non committato, `.env.example` con i soli nomi
 - [ ] `npx tsc --noEmit` e `npm run build` puliti
 - [ ] handoff dell'app aggiornato
+- [ ] **architettura (§7)**: nessuna tabella-copia di domini altrui; nessuna
+      query su schemi altrui; regole economiche mai ricopiate
+- [ ] `GET /api/health` pubblica, fuori dal middleware, `{ ok: true }`
+- [ ] `vercel.json` con `"regions": ["fra1"]`
+- [ ] middleware **fail-closed**: password mancante in produzione = 503, mai
+      app aperta (pattern di deluxy-merchandising)
+
+---
+
+## 7. Architettura dei dati (OBBLIGATORIA)
+
+Decisa il **24/08/2026** dopo l'audit su tutte le 18 app. Il disegno completo,
+coi diagrammi e l'esito dell'audit app per app, sta nell'artifact
+**«Architettura Dati Deluxy»** (lo si apre con `/artifacts` dal terminale
+Claude, o dalla galleria claude.ai/code/artifacts). Vale la regola d'oro di
+questo documento: chi devia, o si allinea o scrive qui la deviazione motivata.
+
+### 7.1 La regola fondante
+
+**Ogni dato ha una casa sola.** Chi lo possiede è l'unico che lo scrive; tutti
+gli altri lo leggono via `/api/v1` con chiave a scope e **non ne tengono copie
+di verità**. Cache in memoria con scadenza breve: sì. Tabella-copia: no.
+Riferimento per id esterno (`sistema` + `idEsterno`, `platformId`,
+`hubspotId`): sì, è il modo giusto di agganciarsi.
+
+### 7.2 Le fonti di verità per dominio
+
+| Dominio | Proprietaria | Nota |
+|---|---|---|
+| Identità partner/prospect B2B | `deluxy-anagrafiche` | scrive solo la piattaforma consegne; le altre propongono (merge lato registro) |
+| Ordini Shopify, quota fornitore, **margine per ordine** | `deluxy-orders` | quota via `/api/v1/quota-fornitore`; annullamenti da ritirare via `?annullatiDa=` |
+| **Decisione di gestione** dell'ordine (come si evade, a chi, esiti coi fornitori) | `deluxy-messaging` (Customer Service) | decisore UNICO: per mano o per regola |
+| **Offerta del fornitore** (prodotti caricati dal partner, `type=UNICO`, suo prezzo), **incarichi** ed **esecuzione consegne** | piattaforma consegne (`deluxy-platform-next`) | è il canale applicativo del fornitore-partner |
+| **Assortimento D2C** (cosa va sui siti, scheda di vendita, prezzi al cliente) | `deluxy-merchandising` (PLM) | pubblica su Shopify; il legame col prodotto-fornitore è un riferimento per id |
+| Denaro in uscita | `deluxy-transactions` | UNICA app che paga; richieste firmate HMAC |
+| Contabilità (fatture, saldi, banca) | `deluxy-partner` (FINANCE) | schema `public` (deroga storica) |
+| Utenti, ruoli, SSO, cassaforte chiavi | `deluxy-hub` | le app non tengono utenti propri (deviazioni esistenti da riassorbire o dichiarare) |
+| Attività / eventi datati | `deluxy-tasks` / `deluxy-calendario` | Calendario sincronizza da Tasks via API |
+| Ricerca fornitori sul territorio | `deluxy-search-supplier` | **motore, nessuna verità**: niente graduatorie né copie di anagrafiche |
+| Prospezione commerciale | `deluxy-scout` | eccezione dichiarata (Supabase proprio); vale finché è prospezione |
+| Copioni commerciali | `deluxy-scripts` | |
+
+### 7.3 Le regole operative
+
+1. **Un dominio, un solo scrittore.** Le chiavi API hanno lo scope; chi non
+   possiede il dato propone, il proprietario fonde.
+2. **Mai query su schemi altrui.** Nemmeno in lettura, nemmeno «per fare
+   prima» (è la violazione che l'audit ha trovato in Tasks e Calendario su
+   `hub."Utente"`). Si passa dalle API del proprietario.
+3. **Le regole economiche vivono in un posto solo** e si leggono da lì: quota
+   fornitore e margine in Orders, fee e listini nella piattaforma, IVA e
+   aliquote nella contabilità. Un numero ricopiato resta al valore vecchio il
+   giorno che il proprietario lo cambia.
+4. **Una replica di lavoro dichiarata si misura.** Se una copia serve davvero
+   (lo specchio banca di Orders: l'abbinamento cerca dentro tutto l'estratto),
+   va dichiarata nel modello e la completezza si **conta** contro il
+   proprietario — l'ultima data non tradisce i buchi in mezzo.
+5. **La fonte espone i cambi che i lettori devono ritirare.** Un fatto che
+   sparisce dagli elenchi (un ordine annullato) è una copia a valle che resta
+   «valida» per sempre: serve il canale dedicato (`?annullatiDa=` in Orders è
+   il modello).
+6. **Un dato senza ingrediente non vale zero**: si dichiara «non calcolabile».
+
+### 7.4 Il giro dell'ordine D2C (vincola Orders, Customer Service, piattaforma, Merchandising, Search, Transactions)
+
+L'ordine arriva su **Orders** (sync Shopify). Il **Customer Service** è il
+decisore — per mano o per regola — e ha quattro percorsi:
+
+- **A · Fornitore in chat** (senza account partner): WhatsApp dal CS, consegna
+  lui, conferma in chat → il CS propone tutto a Orders via PATCH. Nessun
+  incarico in piattaforma.
+- **B · Consegna nostra**: il CS crea l'**incarico** nella piattaforma
+  (`POST /api/v1/consegne`, riferimento `orders:brand+orderId`, idempotente);
+  il fornitore-partner lo vede dal suo account; valet, tracking, consegnato.
+- **C · Fornitore da trovare**: Search propone i candidati, poi A, B o D.
+- **D · Accettazione autonoma**: il prodotto è `type=UNICO` nella piattaforma
+  (caricato dal fornitore, col suo prezzo). Il cron del CS incrocia il
+  `productId` Shopify delle righe (Orders lo registra) con gli UNICI
+  pubblicati e propone l'incarico **senza operatore**; il fornitore accetta
+  dal suo applicativo (`proposto → accettato | rifiutato | scaduto`, timer
+  della piattaforma); rifiuto o scadenza → coda umana del CS.
+
+Il pagamento del fornitore passa **sempre** da Transactions (richiesta firmata
+dal CS). Il **margine si calcola SOLO in Orders**: `incassato −
+costoFornitore` (percorsi con consegna del fornitore) oppure `incassato −
+costoFornitore − costoConsegna + fee` (consegna nostra) — costo e fee arrivano
+dall'incarico della piattaforma, il costo pattuito è il `price` caricato dal
+fornitore **cristallizzato sull'incarico** alla proposta.

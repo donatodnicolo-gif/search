@@ -32,6 +32,20 @@ architettura (rapporto per app nell'artifact «Architettura Dati Deluxy», §7):
 l'annullamento intanto non è più muto). Colonne `canale` e `annullatoIl` già
 aggiunte al database (push additivo del 24/08).
 
+> 🏛️ **ARCHITETTURA (OBBLIGATORIA, Standard Deluxy §7)** — Il ruolo di QUESTA
+> app nel giro dell'ordine D2C: **il DECISORE, unico** — per mano di un
+> operatore o per regola. Quattro percorsi: A fornitore in chat (senza account:
+> WhatsApp, poi PATCH a Orders), B consegna nostra (incarico alla piattaforma
+> via `POST /api/v1/consegne`), C fornitore da trovare (Search propone, il CS
+> decide), D accettazione autonoma (il cron incrocia il `productId` Shopify
+> delle righe con i prodotti `UNICO` della piattaforma e propone l'incarico
+> senza operatore; rifiuto/timeout → coda umana). La **graduatoria di
+> preferenza per zona è di quest'app** (nasce dal suo storico: assegnazioni,
+> esiti, reclami); il dato «chi fa il prodotto» NO — è l'offerta che il
+> fornitore carica in piattaforma. **Da costruire qui**: flag scrittura sulla
+> chiave Orders + PATCH della gestione, client «Crea incarico», la politica
+> d'instradamento nel cron.
+
 Prima, ore 19:00: sezione **Turni** in cima al menu e pagina **Operatori** in
 Qualità; alle 15:10 l'utente ha pubblicato la schermata di consenso Google e il
 conto alla rovescia dei 7 giorni è finito.

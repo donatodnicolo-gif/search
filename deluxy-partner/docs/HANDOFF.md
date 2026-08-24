@@ -1,5 +1,17 @@
 # FINANCE (cartella `deluxy-partner`) — Handoff / Stato del prodotto
 
+> 🏛️ **ARCHITETTURA DEI DATI (OBBLIGATORIA, 24/08/2026)** — Standard Deluxy §7
+> ([../../deluxy-standard/STANDARD-DELUXY.md](../../deluxy-standard/STANDARD-DELUXY.md)).
+> Il ruolo di QUESTA app: **contabilità e riconciliazione** (fatture FIC,
+> saldi, banca) — a valle del giro dell'ordine, mai dentro. NON possiede: la
+> quota fornitore e il margine (Orders: `GET /api/v1/quota-fornitore`, mai il
+> default 60 locale), l'identità dei partner (Anagrafiche: qui solo
+> `anagraficaId` + i campi commerciali propri come fee e giorni), il denaro in
+> uscita (Transactions: la distinta SEPA fatta qui è una deviazione da
+> riassorbire o dichiarare nello standard). Dall'audit 24/08 restano: chiavi
+> separate lettura/scrittura, via i seed con IBAN reali + rotazione, `where`
+> sul deleteMany di /verifiche, token Shopify in cassaforte.
+
 > ⚠️ **L'app si chiama FINANCE.** Dal 01/08/2026 è così che si presenta a schermo (titolo, sidebar, accesso). **Cartella, database, URL `deluxy-partner.vercel.app`, cookie `dp_session` e il `sistema: "deluxy-partner"` con cui il registro Anagrafiche riconosce chi scrive NON sono stati rinominati**: cambiarli scollegherebbe le altre app.
 
 ## ⏱️ PUNTO DI RIPRESA — 01/08/2026, fine sessione (ricontrollato il 17/08/2026, poi il 21/08/2026)

@@ -42,6 +42,18 @@ nell'artifact «Architettura Dati Deluxy», §7):
 con verifica HMAC) al posto del solo polling a 15′ — richiedono la
 registrazione sui 3 negozi e un segreto per negozio; il polling oggi basta.
 
+> 🏛️ **ARCHITETTURA (OBBLIGATORIA, Standard Deluxy §7)** — Il ruolo di QUESTA
+> app nel giro dell'ordine D2C: **registro e controllo economico**. Il
+> **margine si calcola SOLO qui** (`incassato − costoFornitore` per la
+> consegna del fornitore; `− costoConsegna + fee` per la nostra, con costo e
+> fee ritirati dall'incarico della piattaforma; ingrediente mancante = «non
+> calcolabile», mai zero). Il Customer Service PROPONE la gestione via PATCH
+> (chiave con scrittura, `costoDa='customer-service'`: le decisioni prese qui
+> non si sovrascrivono). **Da costruire qui**: il `productId` Shopify sulle
+> righe (c'è nel payload: serve al riconoscimento del prodotto UNICO),
+> `gestioneTipo` + campi consegna, il pull dello stato consegne dal cron, la
+> formula del margine esposta via `/api/v1`.
+
 
 ## 23/08/2026 — La quota del fornitore si può chiedere da fuori
 

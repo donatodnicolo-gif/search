@@ -24,6 +24,16 @@ Le voci sono in ordine di data: **le ultime stanno in fondo a FATTO**, appena so
    anagrafici a mano. Candidato alla rimozione: decidere se cancellare i 3
    record demo (e slegare i 5 prodotti) — non fatto senza conferma.
 
+> 🏛️ **ARCHITETTURA (OBBLIGATORIA, Standard Deluxy §7)** — Il ruolo di QUESTA
+> app nel giro dell'ordine D2C: **l'ASSORTIMENTO** — sceglie cosa va sui siti,
+> cura la scheda di vendita (prezzo al cliente, collezioni, SEO) e pubblica su
+> Shopify. L'**offerta** dei fornitori (prodotti caricati, `type=UNICO`, il
+> loro prezzo) NON vive qui: la carica il fornitore nella piattaforma consegne
+> dal suo account — questa app la legge e, quando pubblica un prodotto che
+> nasce da lì, registra il legame **per id** (mai copiando i campi). Il
+> venduto arriva da Orders via API (già così), gli annullati si ritirano
+> (fatto il 24/08).
+
 ## Cos'è
 App per gestire il **prodotto a 360° come una maison di moda**: fonte di verità a
 monte, Shopify canale di vendita a valle. Next.js 15 + Prisma + SQLite (dev),
