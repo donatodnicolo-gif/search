@@ -1,10 +1,10 @@
 # Handoff — Deluxy Marketing
 
-> Stato al **24/08/2026** (mattina). Una finestra Claude nuova deve poter riprendere da qui
+> Stato al **24/08/2026** (ri-misurato a mezzogiorno). Una finestra Claude nuova deve poter riprendere da qui
 > senza altro contesto. Leggere prima il [README](../README.md) per cosa fa l'app;
 > questo documento dice **dove siamo** e **cosa manca**.
 >
-> 🔴 **I punti aperti (aggiornato la mattina del 24/08)**:
+> 🔴 **I punti aperti (ri-misurati il 24/08 a mezzogiorno)**:
 >
 > 1. **Gli script vanno REINCOLLATI** in Google Ads. Le copie sono state
 >    **rigenerate alle 23:26** in `Downloads\deluxy-google-ads` (adesso sono
@@ -13,10 +13,13 @@
 >    · **`esegui.js`** — tre tipi di operazione non hanno chi li esegua finché
 >      non lo si reincolla: `lista_negative`, `localita`, `estensione`.
 >    · **`tutto.js`** (oppure `negative.js` a parte) — porta il giro
->      **`negative`** nuovo di stasera: finché non arriva, le dieci negative
->      della WORLD-ENG restano «da confermare» e la scheda campagna dice «non
->      ancora censite».
+>      **`negative`**: finché non arriva, le dieci negative della WORLD-ENG
+>      restano «da confermare» e la scheda campagna dice «non ancora censite».
 >    ⚠️ `CHIAVE_API` e `BRAND` sono vuoti nelle copie e vanno rimessi a mano.
+>    ✋ **NON è ancora stato fatto, e adesso è un fatto misurato**: stanotte
+>    tutti e tre i conti hanno girato per intero (Cake 02:38, Gifts 03:47,
+>    Flowers 05:14-05:19) e **nessuno ha consegnato `negative`**. L'archivio
+>    delle parole escluse è a **0 righe**: gira ancora la versione vecchia.
 > 2. **Il doppione dell'annuncio** sulla WORLD-ENG: due RSA identici nel gruppo
 >    «Luxury Flower Delivery - Worldwide» (creati il 21 alle 22:17 e il 23 alle
 >    11:05, stessi testi). Vanno tolti a mano in Google Ads — l'app non sa
@@ -35,6 +38,55 @@
 > provata in produzione. In serata: **le keyword escluse si importano**, e con
 > loro le operazioni `negativa` hanno finalmente una conferma indipendente
 > (prima sezione di FATTO).
+
+> 🏛️ **ARCHITETTURA (OBBLIGATORIA, Standard Deluxy §7)** — Il ruolo di QUESTA
+> app: **la memoria e il comando della PUBBLICITÀ**. Possiede — ed è l'unica a
+> possedere — campagne, gruppi, keyword, **parole escluse**, testi e asset degli
+> annunci, località di targeting, landing censite, la **coda delle operazioni**
+> con la sua approvazione, e l'indice dei documenti ADV su Drive. La **spesa**
+> pubblicitaria è sua: le altre app la leggono da `GET /api/v1/spesa`, non la
+> ricalcolano.
+>
+> Cosa NON possiede, e legge da chi la possiede: il **venduto** (Deluxy Orders,
+> via API ogni 3 ore), il **budget di vendita e il tetto ADV** (Deluxy Budgets,
+> via API, con la ripartizione per piattaforma). ⚠️ Il tetto è `advConsentito`,
+> **non** `budgetPubblicato` — vedi la trappola in FATTO: un campo non si sceglie
+> dal nome. Il **margine** e la **quota fornitore** non si toccano: non sono di
+> questa app.
+>
+> 🔴 **Tre scostamenti dal contratto, verificati sul database il 24/08** (non
+> chiusi: sono qui perché il prossimo che passa li veda, non perché siano
+> accettati):
+> 1. **Un segreto in chiaro**: l'impostazione `drive.service_account` contiene
+>    la chiave privata del service account Google — 2.343 caratteri, leggibili
+>    da chiunque legga quella tabella. Va spostata in una variabile d'ambiente
+>    (o nella cassaforte del Hub) **e ruotata**, perché è già stata in chiaro.
+> 2. **Una copia di verità con dati personali**: `Ordine` tiene **8.446** ordini
+>    dal 01/01/2025, di cui **6.486 con l'email** del cliente e **8.152 col
+>    nome**. Per mettere la spesa accanto all'incasso servono importi, data,
+>    brand e attribuzione: nome ed email non servono a nessuna schermata di
+>    questa app, e replicarli allarga la superficie senza dare niente. Il
+>    riferimento per id resta giusto, i campi personali no.
+> 3. **Password fail-OPEN**: in `middleware.ts`, se `MARKETING_APP_PASSWORD`
+>    manca l'interfaccia resta **aperta**. In sviluppo va bene; in produzione una
+>    variabile persa spalanca l'app invece di chiuderla. Il verso giusto è quello
+>    di Merchandising: **503** su Vercel quando la password non c'è.
+
+## Ri-misurato il 24/08 a mezzogiorno (sola lettura)
+
+- **Produzione = codice**: health `200`, `fra1::fra1`, `database: true`; badge
+  della dashboard **«24 giorni su 31»** — le due correzioni di stamattina sono
+  vive (fuso di Roma e ritmo sul tempo trascorso).
+- **Il reincollo non è avvenuto**: tre giri completi stanotte, **zero consegne
+  `negative`**, archivio parole escluse a **0 righe** (vedi punto aperto 1).
+- **Coda ferma dov'era**: 0 in attesa · 0 approvate · 92 eseguite · 7 annullate
+  · **1 fallita** (`nuovo_annuncio`, `DUPLICATE_ASSET`, dal 21/08).
+- **Consegne sane**: Meta ogni ora (11:07), ordini alle 11:20 (**8.446**),
+  **0 consegne non-ok** in 10 giorni.
+- 🧹 **Pulite due consegne di prova** di tipo `negative` rimaste dalla sera del
+  23 (chiave `prova-negative-tmp`): erano le mie, mi erano sfuggite quando
+  avevo cancellato righe, censimento e chiave. Ora le consegne `negative` sono
+  **0**, così la prima vera si riconosce a colpo d'occhio.
 
 ## Ri-misurato la sera del 23/08 (sola lettura, prima di lavorare)
 
