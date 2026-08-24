@@ -175,6 +175,39 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
   }
 
+  // ── GLI INGREDIENTI DELLA CONSEGNA NOSTRA, DALLA PIATTAFORMA ──
+  //
+  // `margineOrdine()` sa gia' farci i conti — `totale − costoFornitore −
+  // costoConsegna + feeConsegna` — ma finora dichiarava il margine PARZIALE con
+  // la nota «la piattaforma non lo espone ancora». Adesso lo espone: la
+  // piattaforma consegne e' l'unica che sa quanto e' costato il valet e quanta
+  // fee di listino abbiamo trattenuto al partner.
+  //
+  // ⚠️ Qui arrivano gli INGREDIENTI, non il margine gia' fatto. Il margine si
+  // calcola in un posto solo (Standard §7): se ogni app mandasse il proprio
+  // numero, due schermate direbbero due cifre diverse e nessuno saprebbe quale
+  // credere.
+  //
+  // ⚠️ `null` azzera: la consegna e' stata annullata o la riga era sbagliata.
+  // Lasciare un vecchio costo attaccato a un ordine che non l'ha piu' e'
+  // peggio che non averlo mai scritto.
+  for (const campo of ["costoConsegna", "feeConsegna"] as const) {
+    if (!(campo in body)) continue;
+    const grezzo = body[campo];
+    if (grezzo === null || grezzo === "") {
+      data[campo] = null;
+      continue;
+    }
+    const n = Number(grezzo);
+    // Stesso tetto di `costoFornitore`: un importo assurdo arrivato da
+    // un'altra app finisce nei margini, e li' un numero sbagliato non si
+    // riconosce — sembra un ordine andato male.
+    if (!Number.isFinite(n) || n < 0 || n > 100000) {
+      return erroreApi(400, `${campo} non e' un importo valido (fra 0 e 100.000)`);
+    }
+    data[campo] = +n.toFixed(2);
+  }
+
   if ("classificazioni" in body) {
     data.classificazioni = body.classificazioni == null ? Prisma.DbNull : body.classificazioni;
   }
