@@ -242,6 +242,45 @@ questi numeri: dicono cosa gira e cosa è fermo.**
 
 ## FATTO
 
+### ⭐⭐ LE ORE ERANO QUELLE DI GREENWICH, in tutta l'app (24/08/2026)
+
+Trovato dallo screenshot di un'operazione mandato dall'utente: la scheda diceva
+**«24/08/2026, 10:49»**, il database **12:49** ora di Roma. `formattaDataOra`
+non dichiarava il fuso e su Vercel il runtime è UTC — quindi **ogni data e ora
+dell'app** era indietro di due ore d'estate, una d'inverno. Non solo la
+dashboard: la coda operazioni, /ricezione, le bozze, i grafici, il registro.
+
+Passata mirata sui soli formattatori di **data e ora**: **35 punti in 18 file**.
+⚠️ Numeri e valute **non** toccati — il filtro esclude `style`, `currency`,
+`FractionDigits` e `useGrouping`, e richiede che le opzioni contengano almeno
+un campo di data. Verificato in produzione: adesso la riga dice **12:49**.
+
+⚠️ È lo stesso difetto di `andamento-mese.ts` di stamattina, in un altro punto:
+là erano i **confini** dei periodi, qui la **visualizzazione**. Chi ne trova uno
+cerchi l'altro — `grep -rn "toLocale" src/ | grep -v timeZone`.
+
+### ⭐ L'avviso del change control dice COSA avevi già cambiato (24/08/2026)
+
+Chiesto dall'utente guardando la coda: *«mostrami quali sono le modifiche già
+fatte»*. L'avviso diceva «seconda modifica sulla stessa campagna in 69 ore» e
+si fermava lì: un fatto vero e **inutilizzabile**, perché per decidere serve
+sapere *cosa* era stato cambiato, e chi legge doveva andarselo a cercare nello
+storico. Adesso la nomina — «la precedente era **17 €/g → 15 €/g** (L2)» — e
+dice **fino a quando aspettare** perché sparisca («fino alle 24/08, 16:09»):
+così diventa una decisione invece di un rimprovero.
+
+⚠️ **Si vede dalla prossima operazione messa in coda, non su quelle già lì**:
+`OperazioneAdv.avvisi` è una **stringa salvata** al momento dell'accodamento
+(di proposito: è il paper trail di cosa disse il change control allora). Le
+righe già in coda continuano a mostrare il testo vecchio.
+
+🔴 **DOMANDA APERTA, non risolta**: quel testo salvato **invecchia**. La riga
+delle 12:49 dice «69 ore» anche letta alle 15:00, quando ne sono passate 71 — e
+il numero serve proprio a chi approva, cioè dopo. O l'avviso si ricalcola per le
+operazioni ancora *da approvare* (e allora non è più un paper trail), o accanto
+al testo salvato va scritta l'ora in cui fu calcolato. Non l'ho deciso io: è una
+scelta di disegno, e il paper trail è stato voluto apposta.
+
 ### ⭐⭐ I TRE SCOSTAMENTI dal contratto dati, chiusi (24/08/2026 pomeriggio)
 
 **1. La password non apre più l'app quando manca.** `middleware.ts` era
