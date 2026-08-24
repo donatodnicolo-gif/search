@@ -66,7 +66,15 @@ export default async function MaisonIndex({
     // parte che il venduto vero sostituisce dentro «Attuale». Le altre linee
     // restano dov'erano.
     const d2cMesi = perCanale.find((c) => c.tip.slug === "D2C")?.mesi ?? (Array(12).fill(0) as number[]);
-    return { m, t, mesi, perCanale, budgetD2C, vendutoReale, vendutoMesi, d2cMesi };
+    // ⚠️ I mesi **chiusi in cui il budget D2C è zero mentre il negozio vendeva**.
+    // Non è un brand fermo: è un budget che non è mai stato scritto, e finché
+    // c'è il confronto con il venduto **non vuol dire niente** — su Deluxy.it
+    // faceva leggere «realizzato 866%», che sembra un trionfo ed è invece un
+    // buco (50.000 € di budget su sette mesi contro 432.941 venduti).
+    const mesiSenzaBudget = mesiChiusi.filter(
+      (mm) => (m.mesi.find((x) => x.month === mm)?.vendite.D2C ?? 0) === 0 && (vendutoMesi?.[mm - 1] ?? 0) > 0
+    );
+    return { m, t, mesi, perCanale, budgetD2C, vendutoReale, vendutoMesi, d2cMesi, mesiSenzaBudget };
   });
 
   const totMesi = Array(12).fill(0) as number[];
@@ -414,6 +422,32 @@ export default async function MaisonIndex({
           <h2 className="section-title">
             A che punto siamo — {MESI[0]}–{MESI[mesiChiusi.length - 1]} {dati.year}
           </h2>
+          {/* ⚠️ L'avviso sta **sopra** la tabella, non in fondo: chi guarda
+              legge i numeri prima delle note, e questi numeri senza la nota
+              raccontano il contrario di quello che è successo. */}
+          {conEcommerce.some((r) => r.mesiSenzaBudget.length > 0) && (
+            <div
+              className="card"
+              style={{ borderColor: "var(--orange)", background: "rgba(201,52,0,0.04)", marginBottom: 12 }}
+            >
+              <strong>Qui il confronto non si può fare: manca il budget, non le vendite.</strong>{" "}
+              <span className="muted">
+                {conEcommerce
+                  .filter((r) => r.mesiSenzaBudget.length > 0)
+                  .map(
+                    (r) =>
+                      `${r.m.nome} ha ${r.mesiSenzaBudget.length} mesi chiusi senza budget D2C (${r.mesiSenzaBudget
+                        .map((mm) => MESI[mm - 1])
+                        .join(", ")}) e in quei mesi ha venduto ${eur(
+                        r.mesiSenzaBudget.reduce((sm, mm) => sm + (r.vendutoMesi?.[mm - 1] ?? 0), 0)
+                      )}`
+                  )
+                  .join("; ")}
+                . Il budget di quei mesi <strong>non è mai stato scritto</strong>, quindi «realizzato» e
+                «scostamento» restano vuoti invece di mostrare una percentuale che sembrerebbe un record.
+              </span>
+            </div>
+          )}
           {vend?.ok ? (
             <>
               <div className="card tight">
@@ -433,7 +467,12 @@ export default async function MaisonIndex({
                       {conEcommerce.map((r) => {
                         const reale = r.vendutoReale ?? 0;
                         const scarto = reale - r.budgetD2C;
-                        const quota = r.budgetD2C > 0 ? (reale / r.budgetD2C) * 100 : null;
+                        // ⚠️ Il confronto vale solo se il budget copre **tutti**
+                        // i mesi chiusi. Con dei mesi vuoti in mezzo la
+                        // percentuale non è alta: è **priva di senso**, e
+                        // mostrarla comunque fa scambiare un buco per un record.
+                        const incompleto = r.mesiSenzaBudget.length > 0;
+                        const quota = r.budgetD2C > 0 && !incompleto ? (reale / r.budgetD2C) * 100 : null;
                         return (
                           <tr key={r.m.id}>
                             <td style={{ fontWeight: 500 }}>
@@ -443,10 +482,18 @@ export default async function MaisonIndex({
                             </td>
                             <td className={`num ${r.budgetD2C === 0 ? "muted" : ""}`}>
                               {r.budgetD2C === 0 ? "nessun budget" : eur(r.budgetD2C)}
+                              {incompleto && (
+                                <div
+                                  style={{ fontSize: 11, fontWeight: 400, color: "var(--orange)" }}
+                                  title={`Su ${r.mesiSenzaBudget.length} dei ${mesiChiusi.length} mesi chiusi il budget D2C è a zero, ma il negozio ha venduto. Il budget di quei mesi non è mai stato scritto.`}
+                                >
+                                  manca {r.mesiSenzaBudget.map((mm) => MESI[mm - 1]).join(", ")}
+                                </div>
+                              )}
                             </td>
                             <td className="num" style={{ fontWeight: 600 }}>{eur(reale)}</td>
-                            <td className={`num ${r.budgetD2C === 0 ? "muted" : scarto >= 0 ? "pos" : "neg"}`}>
-                              {r.budgetD2C === 0 ? "—" : `${scarto >= 0 ? "+" : ""}${eur(scarto)}`}
+                            <td className={`num ${r.budgetD2C === 0 || incompleto ? "muted" : scarto >= 0 ? "pos" : "neg"}`}>
+                              {r.budgetD2C === 0 || incompleto ? "—" : `${scarto >= 0 ? "+" : ""}${eur(scarto)}`}
                             </td>
                             {/* Senza budget non si calcola una percentuale:
                                 dividere per zero darebbe «infinito», e mostrarlo
@@ -457,7 +504,12 @@ export default async function MaisonIndex({
                             </td>
                             <td style={{ minWidth: 140 }}>
                               {quota === null ? (
-                                <span className="muted" style={{ fontSize: 12 }}>non confrontabile</span>
+                                <span
+                                  className="muted"
+                                  style={{ fontSize: 12, color: incompleto ? "var(--orange)" : undefined }}
+                                >
+                                  {incompleto ? "budget da scrivere" : "non confrontabile"}
+                                </span>
                               ) : (
                                 <div style={{ background: "var(--hairline, rgba(0,0,0,.08))", borderRadius: 999, height: 8, overflow: "hidden" }}>
                                   <div

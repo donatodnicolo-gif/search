@@ -33,6 +33,10 @@ Budgets **emette le sue chiavi API** con scope e revoca.
 1. 🔴 **Il budget D2C di Deluxy.it è a zero da gennaio a giugno**, contro **453.396 €** venduti
    davvero nell'anno. Non si aggiusta dal codice: sono sei mesi di budget da scrivere, e finché
    mancano ogni percentuale di realizzazione del periodo è illeggibile.
+   ⭐ **Dal 24/08 `/maison` non ne fa più una percentuale**: con dei mesi vuoti in mezzo «realizzato»
+   e «scostamento» restano **vuoti**, la colonna del budget scrive quali mesi mancano e sopra la
+   tabella c'è l'avviso col venduto di quei mesi. Prima Deluxy.it segnava **«realizzato 866%»** —
+   50.000 € di budget su sette mesi contro **432.941** venduti — che sembra un record ed è un buco.
 2. 🔴 **I margini delle 8 linee commerciali sono tutti al 20%, ma è un'assunzione** presa da B2B ed
    Eventi. Su una **fee di affiliazione** il margine vero è molto più alto; su **Consegne Corporate**
    o **Magazzino**, dove il fornitore prende la parte grossa, può essere troppo. Si correggono in
