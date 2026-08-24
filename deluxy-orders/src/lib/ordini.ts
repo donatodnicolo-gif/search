@@ -419,7 +419,24 @@ export function serializzaOrdine(
       costoFornitore: o.costoFornitoreNome,
       costoIl: o.costoIl?.toISOString() ?? null,
       costoDa: o.costoDa,
-      margine: o.costoFornitore != null ? +(o.totale - o.costoFornitore).toFixed(2) : null,
+      // ⚠️ Il margine si calcola con `margineOrdine()`, non a mano qui.
+      //
+      // Fino a ora questa riga faceva `totale − costoFornitore` e basta,
+      // mentre la funzione — usata dall'altro serializzatore, dieci righe piu'
+      // su — toglie anche il costo della consegna e riaggiunge la fee. Due
+      // calcoli diversi nello stesso file: l'app diceva un numero e l'API
+      // un altro, e quello dell'API era sempre piu' alto del vero.
+      //
+      // `parziale` dice che il numero c'e' ma manca un ingrediente della
+      // consegna nostra, e `nota` dice quale: un margine incompleto che si
+      // spaccia per completo e' peggio di un margine mancante.
+      margine: margineOrdine(o).valore,
+      margineParziale: margineOrdine(o).parziale,
+      margineNota: margineOrdine(o).nota,
+      // Gli ingredienti che arrivano dalla piattaforma consegne: chi legge il
+      // margine deve poter vedere di che cosa e' fatto.
+      costoConsegna: o.costoConsegna,
+      feeConsegna: o.feeConsegna,
       nota: o.controlloNota,
     },
     // Lo stato di LAVORAZIONE secondo il Customer Service (deluxy-messaging), che
