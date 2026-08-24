@@ -157,6 +157,13 @@ const GLIFI: Record<AppDeluxy["icona"], React.ReactNode> = {
       <circle cx="10" cy="11.5" r="1.6" {...TRATTO} />
     </>
   ),
+  crm: (
+    <>
+      <circle cx="9.5" cy="7.8" r="3.2" {...TRATTO} />
+      <path d="M3.2 19.5c.9-3.1 3.3-4.8 6.3-4.8.9 0 1.8.2 2.6.5" {...TRATTO} />
+      <path d="M17.2 20.2c-2.5-2-3.9-3.4-3.9-5.1 0-1.2.9-2.1 2.1-2.1.7 0 1.4.4 1.8 1 .4-.6 1.1-1 1.8-1 1.2 0 2.1.9 2.1 2.1 0 1.7-1.4 3.1-3.9 5.1z" {...TRATTO} />
+    </>
+  ),
 };
 
 export function AppIcon({ icona }: { icona: AppDeluxy["icona"] }) {

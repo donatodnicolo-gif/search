@@ -8,7 +8,7 @@ export type AppDeluxy = {
   nome: string;
   sottotitolo: string;
   descrizione: string;
-  icona: "consegne" | "search" | "partner" | "scout" | "mail" | "anagrafiche" | "maison" | "budgets" | "tasks" | "calendario" | "merchandising" | "marketing" | "messaggi" | "orders" | "transactions" | "scripts" | "fondo" | "personale";
+  icona: "consegne" | "search" | "partner" | "scout" | "mail" | "anagrafiche" | "maison" | "budgets" | "tasks" | "calendario" | "merchandising" | "marketing" | "messaggi" | "orders" | "transactions" | "scripts" | "fondo" | "personale" | "crm";
   url: string;
   ruoli: readonly Ruolo[];
   // true = app mobile, si apre sul dispositivo/build web di Expo
@@ -243,6 +243,20 @@ export function catalogoApp(): AppDeluxy[] {
       ruoli: ["admin"],
       // Personale accetta il SSO del Hub (/api/sso, app "personale"): serve lo
       // stesso HUB_SSO_SECRET nelle due app, altrimenti degrada al login.
+      sso: true,
+    },
+    {
+      id: "crm",
+      nome: "CRM",
+      sottotitolo: "Il libro dei clienti",
+      descrizione:
+        "Il clienteling Deluxy: schede a 360 gradi dei clienti dei siti (ordini, gusti e ricorrenze letti da Orders), mail personalizzate, eventi con inviti e diario della relazione.",
+      icona: "crm",
+      url: process.env.APP_URL_CRM ?? "https://deluxy-crm.vercel.app",
+      // Chi segue i clienti: admin e commerciali.
+      ruoli: ["admin", "commerciale"],
+      // CRM accetta il SSO del Hub (/api/sso, app "crm"): serve lo stesso
+      // HUB_SSO_SECRET nelle due app, altrimenti degrada al login di team.
       sso: true,
     },
     {
