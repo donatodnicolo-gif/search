@@ -267,6 +267,99 @@ export class ProductsService {
     });
   }
 
+  /**
+   * Azioni su piu' prodotti insieme: archivia, ripristina, elimina.
+   *
+   * ⚠️ L'ELIMINAZIONE NON E' PER TUTTI, e non fallisce: separa.
+   *
+   * Un prodotto usato in una consegna o in una vendita non si puo' cancellare —
+   * il database stesso lo impedisce (`ON DELETE RESTRICT`), ed e' giusto: quella
+   * riga di consegna dice cosa e' stato portato a qualcuno, e senza il prodotto
+   * diventa illeggibile. Sono 6.531 su 22.952 prodotti.
+   *
+   * Un'azione di gruppo che si ferma al primo prodotto protetto sarebbe
+   * peggio di inutile: chi ne seleziona cento non sa quale ha bloccato tutto.
+   * Qui si cancella quello che si puo', si LASCIANO STARE gli altri, e la
+   * risposta dice quanti e perche'.
+   *
+   * Chi non puo' essere cancellato viene comunque ARCHIVIATO: e' quasi sempre
+   * cio' che chi ha chiesto «elimina» voleva davvero — toglierlo di mezzo.
+   */
+  async azioneMultipla(
+    ids: string[],
+    azione: 'archivia' | 'ripristina' | 'elimina',
+    user: JwtUser,
+  ) {
+    if (!ids?.length) throw new BadRequestException('Nessun prodotto selezionato.');
+    if (ids.length > 500) throw new BadRequestException('Troppi prodotti in un colpo solo: massimo 500.');
+
+    // Il partner tocca solo i propri, e non si limita a vederselo negato: i
+    // prodotti altrui vengono esclusi dalla selezione, non fanno fallire tutto.
+    const suoi = await this.prisma.product.findMany({
+      where: {
+        id: { in: ids },
+        ...(user.role === Role.PARTNER ? { partnerId: user.partnerId ?? '-' } : {}),
+      },
+      select: { id: true, name: true, archived: true },
+    });
+    const nonTuoi = ids.length - suoi.length;
+
+    if (azione === 'archivia' || azione === 'ripristina') {
+      const archived = azione === 'archivia';
+      const { count } = await this.prisma.product.updateMany({
+        where: { id: { in: suoi.map((p) => p.id) } },
+        data: {
+          archived,
+          archivedAt: archived ? new Date() : null,
+          // Un ripristino a mano cancella anche il motivo: da qui in poi quel
+          // prodotto e' in lista per decisione di una persona, e le regole
+          // automatiche non devono poterlo disfare credendolo loro.
+          archivedReason: archived ? 'scelta-manuale' : null,
+        },
+      });
+      return { azione, fatti: count, nonTuoi, bloccati: 0, dettaglio: [] };
+    }
+
+    // elimina: prima si guarda chi ha storia
+    const conStoria = await this.prisma.product.findMany({
+      where: {
+        id: { in: suoi.map((p) => p.id) },
+        OR: [{ deliveryProducts: { some: {} } }, { sales: { some: {} } }],
+      },
+      select: { id: true, name: true },
+    });
+    const protetti = new Set(conStoria.map((p) => p.id));
+    const eliminabili = suoi.filter((p) => !protetti.has(p.id));
+
+    let eliminati = 0;
+    if (eliminabili.length) {
+      const esito = await this.prisma.product.deleteMany({
+        where: { id: { in: eliminabili.map((p) => p.id) } },
+      });
+      eliminati = esito.count;
+    }
+    // Chi non si puo' cancellare finisce in archivio: e' quello che chi ha
+    // chiesto «elimina» voleva ottenere, e resta reversibile.
+    let archiviati = 0;
+    if (protetti.size) {
+      const esito = await this.prisma.product.updateMany({
+        where: { id: { in: [...protetti] }, archived: false },
+        data: { archived: true, archivedAt: new Date(), archivedReason: 'scelta-manuale' },
+      });
+      archiviati = esito.count;
+    }
+    return {
+      azione,
+      fatti: eliminati,
+      archiviatiInvece: archiviati,
+      bloccati: protetti.size,
+      nonTuoi,
+      motivoBlocco: 'usato in una consegna o in una vendita: cancellarlo renderebbe illeggibile quella riga',
+      dettaglio: conStoria.slice(0, 10).map((p) => p.name),
+    };
+  }
+
+
   async remove(id: string, user: JwtUser) {
     const product = await this.findOne(id);
     if (user.role === Role.PARTNER && product.partnerId !== user.partnerId) {

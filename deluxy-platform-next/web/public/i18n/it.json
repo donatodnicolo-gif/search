@@ -629,6 +629,21 @@
       "superProduct": "Super prodotto",
       "superProvince": "Super provincia",
       "inStock": "In magazzino"
+    },
+    "bulk": {
+      "selected": "{{n}} selezionati",
+      "selectPage": "Seleziona tutti quelli di questa pagina",
+      "archive": "Archivia",
+      "restore": "Ripristina",
+      "delete": "Elimina",
+      "clear": "Annulla selezione",
+      "confirmTitle": "Eliminare {{n}} prodotti?",
+      "confirmBody": "L’eliminazione non si disfa. I prodotti già usati in una consegna o in una vendita NON verranno cancellati — quella riga di consegna dice cosa è stato portato a qualcuno, e senza il prodotto diventa illeggibile: quelli vengono archiviati.",
+      "confirmYes": "Sì, elimina",
+      "doneDelete": "{{n}} eliminati.",
+      "doneMove": "{{n}} spostati.",
+      "blocked": "{{n}} non eliminabili perché usati in consegne o vendite: archiviati.",
+      "notYours": "{{n}} esclusi perché non tuoi."
     }
   },
   "categories": {

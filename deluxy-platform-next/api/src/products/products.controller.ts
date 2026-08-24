@@ -49,6 +49,20 @@ export class ProductsController {
     return this.productsService.setArchived(id, dto.archived, user);
   }
 
+  @Post('azione-multipla')
+  @Roles(Role.ADMIN, Role.OPERATION, Role.PARTNER)
+  @ApiOperation({
+    summary:
+      "Archivia, ripristina o elimina piu prodotti insieme. "
+      + "L eliminazione salta quelli usati in consegne o vendite e li archivia invece.",
+  })
+  azioneMultipla(
+    @Body() body: { ids: string[]; azione: 'archivia' | 'ripristina' | 'elimina' },
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.productsService.azioneMultipla(body?.ids ?? [], body?.azione, user);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Dettaglio prodotto' })
   findOne(@Param('id') id: string) {

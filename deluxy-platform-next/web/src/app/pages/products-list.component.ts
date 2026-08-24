@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
+import { AuthService } from '../core/auth.service';
 import { ProductRef } from '../core/models';
 import { SavedViewsComponent } from '../core/saved-views.component';
 
@@ -68,9 +69,48 @@ import { SavedViewsComponent } from '../core/saved-views.component';
     @else if (products().length === 0) {
       <div class="card state-card"><strong>{{ 'products.emptyTitle' | translate }}</strong><span class="muted">{{ 'products.emptyHint' | translate }}</span></div>
     } @else {
+      @if (puoAgire() && scelti().size) {
+        <!-- La barra compare solo quando c'e' una selezione: un'azione di
+             gruppo sempre visibile invita a premerla anche a vuoto. -->
+        <div class="barra-azioni">
+          <span class="quanti">{{ 'products.bulk.selected' | translate:{ n: scelti().size } }}</span>
+          <button type="button" class="btn btn-secondary mini" [disabled]="inAzione()" (click)="agisci('archivia')">
+            {{ 'products.bulk.archive' | translate }}
+          </button>
+          <button type="button" class="btn btn-secondary mini" [disabled]="inAzione()" (click)="agisci('ripristina')">
+            {{ 'products.bulk.restore' | translate }}
+          </button>
+          <button type="button" class="btn btn-danger mini" [disabled]="inAzione()" (click)="chiediElimina()">
+            {{ 'products.bulk.delete' | translate }}
+          </button>
+          <button type="button" class="btn btn-secondary mini" (click)="azzeraSelezione()">
+            {{ 'products.bulk.clear' | translate }}
+          </button>
+        </div>
+        @if (conferma()) {
+          <!-- L'eliminazione si conferma: e' l'unica delle tre che non si disfa. -->
+          <div class="card conferma">
+            <p><strong>{{ 'products.bulk.confirmTitle' | translate:{ n: scelti().size } }}</strong></p>
+            <p class="hint">{{ 'products.bulk.confirmBody' | translate }}</p>
+            <div class="azioni">
+              <button type="button" class="btn btn-danger" [disabled]="inAzione()" (click)="agisci('elimina')">
+                {{ (inAzione() ? 'common.saving' : 'products.bulk.confirmYes') | translate }}
+              </button>
+              <button type="button" class="btn btn-secondary" (click)="conferma.set(false)">{{ 'common.cancel' | translate }}</button>
+            </div>
+          </div>
+        }
+        @if (esitoAzione(); as e) { <div class="card esito-azione">{{ e }}</div> }
+      }
       <div class="card table-wrap">
         <table>
           <thead><tr>
+            @if (puoAgire()) {
+              <th class="sel">
+                <input type="checkbox" [checked]="tuttiSelezionati()" (change)="selezionaPagina()"
+                       [title]="'products.bulk.selectPage' | translate" />
+              </th>
+            }
             @for (c of columns; track c.field) {
               <th [class.num]="c.num" class="sortable" (click)="sortBy(c.field)">
                 {{ c.label | translate }}<span class="sort-ind">{{ sortIndicator(c.field) }}</span>
@@ -80,7 +120,12 @@ import { SavedViewsComponent } from '../core/saved-views.component';
           </tr></thead>
           <tbody>
             @for (p of products(); track p.id) {
-              <tr class="row-link" tabindex="0" (click)="openDetail(p)" (keydown.enter)="openDetail(p)">
+              <tr class="row-link" [class.scelta]="scelti().has(p.id)" tabindex="0" (click)="openDetail(p)" (keydown.enter)="openDetail(p)">
+                @if (puoAgire()) {
+                  <td class="sel" (click)="$event.stopPropagation()">
+                    <input type="checkbox" [checked]="scelti().has(p.id)" (change)="scegli(p.id)" />
+                  </td>
+                }
                 <td class="strong">{{ p.name }}</td>
                 <td class="mono muted">{{ p.sku || '—' }}</td>
                 <td>{{ p.category?.name || '—' }}</td>
@@ -152,6 +197,19 @@ import { SavedViewsComponent } from '../core/saved-views.component';
       .tab { border: 1px solid var(--hairline-strong); background: var(--surface); border-radius: 980px; padding: 6px 16px; font-size: 13px; font-weight: 550; font-family: inherit; color: var(--text); cursor: pointer; }
       .tab:hover { background: var(--fill); }
       .tab.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+      /* Selezione multipla */
+      th.sel, td.sel { width: 34px; text-align: center; }
+      tr.scelta { background: color-mix(in srgb, var(--ink) 4%, transparent); }
+      .barra-azioni {
+        display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px;
+        padding: 8px 12px; border-radius: var(--radius-md, 12px);
+        background: var(--surface-2, #f5f5f7); border: 1px solid var(--hairline, #e5e5ea);
+      }
+      .barra-azioni .quanti { font-size: 13px; font-weight: 550; margin-right: 4px; }
+      .btn-danger { background: var(--red, #d70015); color: #fff; border-color: var(--red, #d70015); }
+      .conferma { padding: 14px 16px; margin-bottom: 10px; border-color: color-mix(in srgb, #d70015 30%, transparent); }
+      .conferma .azioni { display: flex; gap: 8px; margin-top: 8px; }
+      .esito-azione { padding: 10px 14px; margin-bottom: 10px; font-size: 13px; }
       /* Filtri Sì/No */
       .filtri { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; margin-bottom: 14px; }
       .filtro { display: flex; flex-direction: column; gap: 3px; }
@@ -174,6 +232,7 @@ import { SavedViewsComponent } from '../core/saved-views.component';
 })
 export class ProductsListComponent {
   private readonly http = inject(HttpClient);
+  private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
   private readonly translate = inject(TranslateService);
 
@@ -210,6 +269,93 @@ export class ProductsListComponent {
   readonly totalPages = computed(() => Math.max(1, Math.ceil(this.total() / this.pageSize)));
 
   // ---- Archivio: stato separato da "Attivo" (un disattivato resta in lista) ----
+  // --- selezione multipla ---------------------------------------------------
+
+  readonly scelti = signal<Set<string>>(new Set());
+  readonly inAzione = signal(false);
+  readonly conferma = signal(false);
+  readonly esitoAzione = signal<string | null>(null);
+
+  /** Chi puo' agire: il partner sui propri, admin e operation su tutti. */
+  puoAgire(): boolean {
+    return ['ADMIN', 'OPERATION', 'PARTNER'].includes(this.auth.user()?.role ?? '');
+  }
+
+  scegli(id: string): void {
+    const s = new Set(this.scelti());
+    s.has(id) ? s.delete(id) : s.add(id);
+    this.scelti.set(s);
+    this.esitoAzione.set(null);
+    this.conferma.set(false);
+  }
+
+  tuttiSelezionati(): boolean {
+    const p = this.products();
+    return p.length > 0 && p.every((x) => this.scelti().has(x.id));
+  }
+
+  /**
+   * Seleziona (o deseleziona) i prodotti DI QUESTA PAGINA, non tutti i 22.952.
+   *
+   * La differenza conta: una casella che dicesse «tutti» su una lista paginata
+   * farebbe agire su record che nessuno ha visto. Qui si agisce su cio' che si
+   * ha davanti, e per farne di piu' si cambia pagina.
+   */
+  selezionaPagina(): void {
+    const s = new Set(this.scelti());
+    const tutti = this.tuttiSelezionati();
+    for (const p of this.products()) tutti ? s.delete(p.id) : s.add(p.id);
+    this.scelti.set(s);
+    this.esitoAzione.set(null);
+  }
+
+  azzeraSelezione(): void {
+    this.scelti.set(new Set());
+    this.esitoAzione.set(null);
+    this.conferma.set(false);
+  }
+
+  chiediElimina(): void {
+    this.esitoAzione.set(null);
+    this.conferma.set(true);
+  }
+
+  /**
+   * Esegue l'azione sui prodotti scelti e RIFERISCE l'esito vero.
+   *
+   * L'eliminazione non riesce sempre, e non e' un guasto: 6.531 prodotti su
+   * 22.952 sono usati in una consegna o in una vendita e il database rifiuta di
+   * cancellarli. Quelli vengono archiviati e il messaggio lo dice, invece di
+   * far credere che siano spariti.
+   */
+  agisci(azione: 'archivia' | 'ripristina' | 'elimina'): void {
+    const ids = [...this.scelti()];
+    if (!ids.length) return;
+    this.inAzione.set(true);
+    this.esitoAzione.set(null);
+    this.http.post<any>(`${environment.apiUrl}/products/azione-multipla`, { ids, azione }).subscribe({
+      next: (r) => {
+        this.inAzione.set(false);
+        this.conferma.set(false);
+        this.scelti.set(new Set());
+        const pezzi: string[] = [];
+        if (azione === 'elimina') {
+          pezzi.push(this.translate.instant('products.bulk.doneDelete', { n: r.fatti ?? 0 }));
+          if (r.bloccati) pezzi.push(this.translate.instant('products.bulk.blocked', { n: r.bloccati }));
+        } else {
+          pezzi.push(this.translate.instant('products.bulk.doneMove', { n: r.fatti ?? 0 }));
+        }
+        if (r.nonTuoi) pezzi.push(this.translate.instant('products.bulk.notYours', { n: r.nonTuoi }));
+        this.esitoAzione.set(pezzi.join(' '));
+        this.load();
+      },
+      error: (e) => {
+        this.inAzione.set(false);
+        this.esitoAzione.set(e?.error?.message ?? this.translate.instant('common.loadError'));
+      },
+    });
+  }
+
   readonly archived = signal(false);
 
   /**
@@ -236,6 +382,7 @@ export class ProductsListComponent {
     const nuovi = { ...this.siNo() };
     if (valore) nuovi[chiave] = valore; else delete nuovi[chiave];
     this.siNo.set(nuovi);
+    this.scelti.set(new Set());
     this.page.set(1);
     this.load();
   }
@@ -251,6 +398,7 @@ export class ProductsListComponent {
   setArchived(value: boolean): void {
     if (this.archived() === value) return;
     this.archived.set(value);
+    this.scelti.set(new Set());
     this.page.set(1);
     this.load();
   }

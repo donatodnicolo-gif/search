@@ -629,6 +629,21 @@
       "superProduct": "Super product",
       "superProvince": "Super province",
       "inStock": "In stock"
+    },
+    "bulk": {
+      "selected": "{{n}} selected",
+      "selectPage": "Select all on this page",
+      "archive": "Archive",
+      "restore": "Restore",
+      "delete": "Delete",
+      "clear": "Clear selection",
+      "confirmTitle": "Delete {{n}} products?",
+      "confirmBody": "Deletion cannot be undone. Products already used in a delivery or a sale will NOT be deleted — that delivery line records what was brought to someone, and without the product it becomes unreadable: those are archived instead.",
+      "confirmYes": "Yes, delete",
+      "doneDelete": "{{n}} deleted.",
+      "doneMove": "{{n}} moved.",
+      "blocked": "{{n}} could not be deleted because used in deliveries or sales: archived instead.",
+      "notYours": "{{n}} skipped because not yours."
     }
   },
   "categories": {
