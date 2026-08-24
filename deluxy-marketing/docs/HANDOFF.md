@@ -1,6 +1,6 @@
 # Handoff — Deluxy Marketing
 
-> Stato al **24/08/2026** (pomeriggio). Una finestra Claude nuova deve poter riprendere da qui
+> Stato al **24/08/2026** (sera). Una finestra Claude nuova deve poter riprendere da qui
 > senza altro contesto. Leggere prima il [README](../README.md) per cosa fa l'app;
 > questo documento dice **dove siamo** e **cosa manca**.
 >
@@ -16,10 +16,16 @@
 >      **`negative`**: finché non arriva, le dieci negative della WORLD-ENG
 >      restano «da confermare» e la scheda campagna dice «non ancora censite».
 >    ⚠️ `CHIAVE_API` e `BRAND` sono vuoti nelle copie e vanno rimessi a mano.
->    ✋ **NON è ancora stato fatto, e adesso è un fatto misurato**: stanotte
->    tutti e tre i conti hanno girato per intero (Cake 02:38, Gifts 03:47,
->    Flowers 05:14-05:19) e **nessuno ha consegnato `negative`**. L'archivio
->    delle parole escluse è a **0 righe**: gira ancora la versione vecchia.
+>    ✅ **FATTO su FLOWERS il 24/08 alle 17:13** — vedi la sezione in FATTO:
+>    18.357 parole escluse censite, marcatore di censimento completo arrivato,
+>    e **tutte e venti** le operazioni `negativa` della WORLD-ENG confermate.
+>    🔴 **Restano Gifts (248-656-1148) e Cake (846-090-5423)**: girano di notte,
+>    e finché non arriva il loro giro le loro parole escluse non ci sono.
+>    ⚠️ **E non è detto che `esegui.js` sia aggiornato**: la consegna `negative`
+>    prova che **`tutto.js`** è quello nuovo, ma le operazioni le applica un
+>    lavoro `esegui` **schedulato a parte** (ogni ora, ~:09). Sono due copie
+>    diverse dello stesso file: una può essere nuova e l'altra vecchia. Lo si
+>    saprà alla prima `lista_negative`, `localita` o `estensione` messa in coda.
 > 2. **Il doppione dell'annuncio** sulla WORLD-ENG: due RSA identici nel gruppo
 >    «Luxury Flower Delivery - Worldwide» (creati il 21 alle 22:17 e il 23 alle
 >    11:05, stessi testi). Vanno tolti a mano in Google Ads — l'app non sa
@@ -241,6 +247,33 @@ questi numeri: dicono cosa gira e cosa è fermo.**
   `lib/meta-scrittura.ts` c'è ma non ha `ads_management`. TikTok scollegato.
 
 ## FATTO
+
+### ⭐⭐⭐ IL CENSIMENTO DELLE PAROLE ESCLUSE È ARRIVATO, e il dubbio era un falso allarme (24/08/2026, 17:13)
+
+L'utente ha reincollato gli script. Misurato subito dopo, sul database di
+produzione:
+
+- **18.357 parole escluse** consegnate da Flowers (825-518-1560) in **92
+  blocchi**, su 31 campagne: 3.681 di **campagna**, 14.676 di **gruppo**.
+  5.283 parole diverse — l'archivio di anni di esclusioni, che l'app non aveva
+  mai visto.
+- ✅ **Il marcatore di censimento completo è arrivato** (`negative.censimento.825-518-1560`,
+  17:14:11): la rete contro l'elenco troncato ha fatto il suo giro per davvero,
+  non solo nella prova in locale.
+- ✅ **Tutte e VENTI le operazioni `negativa` della WORLD-ENG sono
+  confermate** — non solo le dieci di ieri sera. Google le riporta tutte, a
+  livello campagna, **con la corrispondenza chiesta**. Compreso `cheap`, che
+  risulta due volte (esatta e a frase) esattamente come l'esito dello script
+  aveva dichiarato.
+
+⭐⭐ **QUINDI IL DUBBIO ERA UN FALSO ALLARME, ed è la lezione che vale.** Le dieci
+negative di ieri erano uscite tutte con «rileggendo la campagna non risulta
+ancora: ricontrollare al prossimo giro». Non era un rifiuto muto: era **la
+rilettura dentro la stessa esecuzione che vedeva ancora lo stato di partenza**,
+esattamente il sospetto scritto nel commento di `negativaPresente`. Chi avesse
+letto quell'esito come un guasto avrebbe rifatto venti esclusioni già fatte.
+**Un dubbio dichiarato non è una smentita** — e serviva un dato indipendente
+per chiuderlo, che è precisamente il motivo per cui questo giro esiste.
 
 ### ⭐⭐ LE ORE ERANO QUELLE DI GREENWICH, in tutta l'app (24/08/2026)
 
