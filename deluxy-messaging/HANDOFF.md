@@ -63,6 +63,13 @@ la procedura della copia pulita (`git worktree add <tmp> <commit>` + copia di
 `.vercel/` + deploy da lì). Commit `f69c7b32`, LIVE e collaudato dal CRM
 (bozza reale creata e poi eliminata).
 
+**Aggiunta della stessa notte:** anche **`POST /api/v1/whatsapp`** (chiave
+con scrittura) — mandare UN WhatsApp a UN numero, dal phone_number_id scelto
+(`GET /api/v1/whatsapp/numeri` li elenca senza token) o da quello
+predefinito; riusa `inviaWhatsApp` di `meta.ts`. La finestra 24h di Meta è
+documentata nella rotta: fuori finestra il messaggio NON parte e l'errore va
+mostrato, non riprovato (il CRM lo traduce e offre il canale wa.me).
+
 ## 24/08/2026 (sera 3) — la riconciliazione e AUTOMATICA quando si paga da qui
 
 Premendo «Pagata» su una richiesta collegata a un ordine, l ordine impara **da
