@@ -10,6 +10,20 @@ import { UsersService } from '../users/users.service';
 import { AnagraficheSyncService, pivaAttendibile, semplificaNome } from './anagrafiche-sync.service';
 import { CreatePartnerDto, UpdatePartnerDto } from './dto/create-partner.dto';
 
+/**
+ * La chiave WooCommerce non esce MAI dall'API.
+ *
+ * E' una credenziale vera (`ck_` + 48 esadecimali) che nel database originario
+ * stava in una colonna di anagrafica come tutto il resto. Importandola qui il
+ * 24/08/2026 sarebbe finita in ogni risposta di `GET /partners`, perche' un
+ * `findMany` con `include` restituisce tutti i campi scalari — quindi visibile a
+ * chiunque abbia un token buono per leggere i partner, partner compresi.
+ *
+ * `omit` la toglie dalla SELECT: non viaggia e non si puo' dimenticare in giro.
+ * Chi deve usarla la legge dal database, non dall'API.
+ */
+const PARTNER_OMIT = { woocommerceApiKey: true } as const;
+
 const PARTNER_INCLUDE = {
   provinces: { include: { province: true } },
   services: { include: { serviceType: true } },
@@ -28,6 +42,7 @@ export class PartnersService {
   findAll() {
     return this.prisma.partner.findMany({
       include: PARTNER_INCLUDE,
+      omit: PARTNER_OMIT,
       orderBy: { insegna: 'asc' },
     });
   }
@@ -40,6 +55,7 @@ export class PartnersService {
     const partner = await this.prisma.partner.findUnique({
       where: { id },
       include: PARTNER_INCLUDE,
+      omit: PARTNER_OMIT,
     });
     if (!partner) throw new NotFoundException('Partner non trovato');
     return partner;
@@ -68,6 +84,7 @@ export class PartnersService {
         openingHours: openingHours?.length ? { create: openingHours } : undefined,
       },
       include: PARTNER_INCLUDE,
+      omit: PARTNER_OMIT,
     });
     // Un gesto solo: crea l'utente PARTNER collegato (invitato). Gestione
     // dell'invito dalla pagina Utenti.
@@ -411,6 +428,7 @@ export class PartnersService {
             categories: categoryId ? { create: [{ categoryId, priority: 0 }] } : undefined,
           },
           include: PARTNER_INCLUDE,
+      omit: PARTNER_OMIT,
         });
         perEmail.add(email);
         if (piva) perPiva.add(piva);
@@ -452,6 +470,7 @@ export class PartnersService {
             : {}),
         },
         include: PARTNER_INCLUDE,
+      omit: PARTNER_OMIT,
       });
       this.anagrafiche.sincronizza(aggiornatoPartner);
       return aggiornatoPartner;
@@ -486,6 +505,7 @@ export class PartnersService {
           : {}),
       },
       include: PARTNER_INCLUDE,
+      omit: PARTNER_OMIT,
     });
     this.anagrafiche.sincronizza(aggiornato);
     return aggiornato;
@@ -498,6 +518,7 @@ export class PartnersService {
       where: { id },
       data: { active: false },
       include: PARTNER_INCLUDE,
+      omit: PARTNER_OMIT,
     });
     this.anagrafiche.sincronizza(disattivato);
     return { deactivated: true };

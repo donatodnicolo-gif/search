@@ -728,3 +728,13 @@ Feedback "in app.deluxy.it ci sono cose che non hai considerato". Confrontata la
 - ⛔ **Due colonne restano fuori di proposito**: `wooCommerceApiKey` (2 valori) è una **credenziale** — va dove stanno i segreti, non in una colonna di anagrafica; `contractExpiryNotificationSent` (1) è lo stato di una notifica del vecchio sistema.
 - ✅ **I VALET erano già a posto**: stesso inventario su `expert.csv`, **0 campi con casa ma non importati** (IBAN, P.IVA, codice fiscale, data e luogo di nascita, ritenuta, km, notifiche: tutti presenti).
 - ✅ **Distanza delle consegne verificata una a una**: 61.835 confrontate col legacy, **0 valori diversi**, 0 mancanti. I 185 che sembravano un buco hanno nel legacy la stringa letterale `"NaN"` — non c’è niente da importare, il `null` è corretto (`scripts/verifica-km-consegne.mjs`).
+
+### 🔒 24/08 — Le ultime due colonne, e la credenziale che stava per uscire dall’API
+
+Chiuse su richiesta dell’utente le due colonne che avevo lasciato fuori. **Ma la scoperta è un’altra.**
+
+- 🔒 **`Partner.woocommerceApiKey` usciva da `GET /partners`.** Sono **consumer key WooCommerce vere** (`ck_` + 48 esadecimali). `findMany` con `include` restituisce **tutti** i campi scalari, quindi la chiave sarebbe stata servita a chiunque avesse un token buono per leggere i partner — **partner compresi**. Aggiunto `PARTNER_OMIT = { woocommerceApiKey: true }` su tutte e **7** le letture di `partners.service.ts`: la colonna non entra più nella SELECT. Chi deve usarla la legge dal database, non dall’API.
+- ℹ️ **Le chiavi erano già importate**, e sono identiche al legacy: confrontate per **impronta SHA-256** senza mai stampare il valore (`Martesana ecommerce` e `CLIVATI-CONSEGNE`, entrambe ✅). Il mio inventario le dava per mancanti perché la mappa le aveva a `null`, non perché mancassero — **una mappa sbagliata mente come una colonna vuota**.
+  - ⚠️ Un terzo partner, `Fioraio Milano Centro`, ha una chiave che **nel legacy non esiste**: è del seed, non dei dati veri.
+- ✅ **`contractExpiryNotified`** (migrazione `avviso_scadenza_contratto`): 1 partner, `Angolo Fiorito`, contratto fino al 16/06/2026. Senza questo dato il nuovo ambiente gli **rimanderebbe da capo** un avviso di scadenza che ha già ricevuto.
+- ✅ **Nessuna colonna di `partner.csv` resta fuori.** `scripts/inventario-campi-partner.mjs` va a zero.

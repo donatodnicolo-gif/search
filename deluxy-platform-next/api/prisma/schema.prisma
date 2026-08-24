@@ -258,6 +258,9 @@ model Partner {
   certifiedEmail      String? // PEC
   contractStart       DateTime?
   contractEnd         DateTime?
+  /// Il vecchio sistema aveva gia' avvisato della scadenza del contratto.
+  /// Si importa per non rimandare a quel partner un avviso che ha gia' avuto.
+  contractExpiryNotified Boolean        @default(false)
   // Notifiche extra
   activityReminder    Boolean           @default(false) // promemoria attività
   // KM a livello partner (soglia inclusa entro il comune + extra fuori città)
