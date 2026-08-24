@@ -56,7 +56,23 @@ export type ConsegnaDaPagare = {
  *    `[{operator: 'equal'|'moreThan', pickUps, plusSalary}]`. Serve a pagare
  *    di piu' chi in un giro ritira in piu' posti.
  */
+/**
+ * Da quando in poi un buco di paga e' un problema da guardare.
+ *
+ * Gemella della soglia lato fatture. Qui l'arretrato e' ancora piu' netto:
+ * l'ultima consegna non pagabile e' del 13 febbraio 2024, e i valet senza
+ * listino sono account interni di chi consegnava di persona agli inizi
+ * (sergio.deluxy@gmail.com, 1.201 consegne). Non e' una tariffa da decidere:
+ * e' un capitolo chiuso.
+ *
+ * La soglia resta comunque viva: se domani nasce una consegna non pagabile,
+ * quella si vede. Ignorare per sempre sarebbe cieco, ignorare il passato e'
+ * solo ordinato.
+ */
+export const SOGLIA_ARRETRATO = new Date('2026-07-01T00:00:00.000Z');
+
 export type RegolaPaga = {
+
   valetPayAdjustment?: number | null;
   toPay?: boolean | null;
 } | null;
@@ -258,6 +274,7 @@ export class SalariesService {
       unpaidCount: number; ruleExcludedCount: number; fromListino: number; from: Date; to: Date;
     };
     const per = new Map<string, Riga>();
+    let arretrato = 0;
     for (const d of deliveries) {
       if (!d.valetId) continue;
       const calcolo = pagaConsegna(
@@ -267,7 +284,13 @@ export class SalariesService {
         (d as any).valetDeliveryRule ?? null,
         (d as any)._count?.pickups ?? 0,
       );
+      // Buco di paga su una consegna vecchia: arretrato, non lavoro aperto.
+      if (!calcolo && !((d as any).deliveryRule?.toPay === false) && d.date < SOGLIA_ARRETRATO) {
+        arretrato++;
+        continue;
+      }
       const r = per.get(d.valetId) ?? {
+
         valetId: d.valetId, deliveriesCount: 0, grossAmount: 0, cashDeductions: 0,
         unpaidCount: 0, ruleExcludedCount: 0, fromListino: 0, from: d.date, to: d.date,
       };
@@ -324,6 +347,9 @@ export class SalariesService {
         grossAmount: Math.round(voci.reduce((s, v) => s + v.grossAmount, 0) * 100) / 100,
         cashDeductions: Math.round(voci.reduce((s, v) => s + v.cashDeductions, 0) * 100) / 100,
         netAmount: Math.round(voci.reduce((s, v) => s + v.netAmount, 0) * 100) / 100,
+        /// Consegne senza paga piu' vecchie della soglia: messe da parte, non perse.
+        arretrato,
+        soglia: SOGLIA_ARRETRATO,
       },
     };
   }
@@ -357,7 +383,18 @@ export class SalariesService {
     });
     const listini = await this.listiniValet(deliveries);
     return {
-      deliveries: deliveries.map((d) => {
+      // Anche nel dettaglio l'arretrato non si mostra: sarebbe un elenco di
+      // consegne del 2021 in mezzo al lavoro di oggi.
+      deliveries: deliveries.filter((d) => {
+        const c = pagaConsegna(
+          d as any,
+          scegliListinoValet(d as any, listini.perId, listini.perValet),
+          (d as any).deliveryRule ?? null,
+          (d as any).valetDeliveryRule ?? null,
+          (d as any)._count?.pickups ?? 0,
+        );
+        return c || (d as any).deliveryRule?.toPay === false || d.date >= SOGLIA_ARRETRATO;
+      }).map((d) => {
         const calcolo = pagaConsegna(
         d as any,
         scegliListinoValet(d as any, listini.perId, listini.perValet),

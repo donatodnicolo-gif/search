@@ -194,6 +194,11 @@ const NEXT: Record<string, { next: string; key: string }> = {
         @if (t.unpricedCount) {
           <p class="avviso">{{ 'invoices.pending.unpricedHint' | translate:{ n: t.unpricedCount } }}</p>
         }
+        <!-- Il taglio si dichiara: «non conteggiate» senza dirlo sarebbe
+             indistinguibile da «non esistono». -->
+        @if (t.arretrato) {
+          <p class="avviso">{{ 'invoices.pending.backlog' | translate:{ n: t.arretrato, d: (t.soglia | date: 'dd/MM/yyyy') } }}</p>
+        }
       }
       <div class="card table-wrap">
         <table>
@@ -441,7 +446,7 @@ export class InvoicesListComponent {
   /** Si apre su «Da fatturare»: e' la domanda che si fa arrivando qui. */
   readonly view = signal<'pending' | 'active' | 'archive'>('pending');
   readonly pending = signal<Pending[]>([]);
-  readonly pendingTotals = signal<{ partners: number; deliveriesCount: number; unpricedCount: number; ruleExcludedCount: number; fromListino: number; netAmount: number; totalAmount: number } | null>(null);
+  readonly pendingTotals = signal<{ partners: number; deliveriesCount: number; unpricedCount: number; ruleExcludedCount: number; fromListino: number; netAmount: number; totalAmount: number; arretrato: number; soglia: string } | null>(null);
   readonly pendingOpen = signal<string | null>(null);
   readonly pendingDetail = signal<PendingDelivery[]>([]);
   readonly pendingDetailLoading = signal(false);

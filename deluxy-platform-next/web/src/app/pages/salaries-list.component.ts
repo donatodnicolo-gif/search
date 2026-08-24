@@ -187,6 +187,9 @@ const NEXT: Record<string, { next: string; key: string }> = {
         @if (t.unpaidCount) {
           <p class="avviso">{{ 'salaries.pending.unpaidHint' | translate:{ n: t.unpaidCount } }}</p>
         }
+        @if (t.arretrato) {
+          <p class="avviso">{{ 'salaries.pending.backlog' | translate:{ n: t.arretrato, d: (t.soglia | date: 'dd/MM/yyyy') } }}</p>
+        }
       }
       <div class="card table-wrap">
         <table>
@@ -416,7 +419,7 @@ export class SalariesListComponent {
   /** Si apre su «Da pagare»: e' la domanda che si fa arrivando qui. */
   readonly view = signal<'pending' | 'active' | 'archive'>('pending');
   readonly pending = signal<Pending[]>([]);
-  readonly pendingTotals = signal<{ valets: number; deliveriesCount: number; unpaidCount: number; ruleExcludedCount: number; fromListino: number; grossAmount: number; cashDeductions: number; netAmount: number } | null>(null);
+  readonly pendingTotals = signal<{ valets: number; deliveriesCount: number; unpaidCount: number; ruleExcludedCount: number; fromListino: number; grossAmount: number; cashDeductions: number; netAmount: number; arretrato: number; soglia: string } | null>(null);
   readonly pendingOpen = signal<string | null>(null);
   readonly pendingDetail = signal<PendingDelivery[]>([]);
   readonly pendingDetailLoading = signal(false);

@@ -399,7 +399,8 @@
       "unpricedRow": "No price on the delivery and no partner rate card for this service: it stays out of the invoice until a rate is decided.",
       "unpricedHint": "{{n}} deliveries stay out of the invoice: they have no price and the partner has no rate card for their service. Invoicing them at 0 EUR would be a document that lies.",
       "byRule": "Excluded by rule",
-      "byRuleRow": "by rule"
+      "byRuleRow": "by rule",
+      "backlog": "{{n}} deliveries older than {{d}} have no rate and are out of the list: they come from closed relationships and nobody will invoice them. They stay in the database."
     },
     "filter": {
       "search": "Search",
@@ -506,7 +507,8 @@
       "empty": "Nothing to pay: every delivery is already on a salary.",
       "capped": "Showing the valet's first 500 deliveries.",
       "byRule": "Excluded by rule",
-      "byRuleRow": "by rule"
+      "byRuleRow": "by rule",
+      "backlog": "{{n}} deliveries older than {{d}} have no derivable pay and are out of the list: they are internal accounts from the early days. They stay in the database."
     },
     "line": {
       "date": "Date",

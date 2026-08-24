@@ -178,7 +178,23 @@ export function prezzoConsegna(d: ConsegnaDaPrezzare, listino: ListinoPartner, r
 }
 
 
+/**
+ * Da quando in poi un buco di tariffa e' un problema da guardare.
+ *
+ * Le consegne che non si riescono a prezzare sono quasi tutte vecchie: 3.550 su
+ * 3.557 sono del 2020-2024, e vengono da rapporti chiusi (BASARA Padova e
+ * Vimercate, ultima consegna 2022; Chanel Milano e Roma, ultima febbraio 2024).
+ * Nessuno le fatturera' mai, e tenerle nel conto faceva sembrare aperto un
+ * lavoro che e' finito da anni.
+ *
+ * Quelle piu' vecchie di questa data escono dall'elenco. NON spariscono in
+ * silenzio: il conto di quante sono messe da parte torna in `arretrato`, o
+ * «non conteggiate» diventerebbe indistinguibile da «non esistono».
+ */
+export const SOGLIA_ARRETRATO = new Date('2026-07-01T00:00:00.000Z');
+
 /** Aliquota IVA e conversione imponibile → totale: una regola sola per tutti. */
+
 const IVA = 22;
 const conIva = (n: number) => Math.round(n * (1 + IVA / 100) * 100) / 100;
 
@@ -308,6 +324,7 @@ export class InvoicesService {
       modelli: Record<string, number>;
     };
     const per = new Map<string, Riga>();
+    let arretrato = 0;
     for (const d of deliveries) {
       if (!d.partnerId) continue;
       const calcolo = prezzoConsegna(
@@ -315,7 +332,14 @@ export class InvoicesService {
         listini.get(`${d.partnerId}|${d.serviceTypeId}`) ?? null,
         (d as any).deliveryRule ?? null,
       );
+      // Buco di tariffa su una consegna vecchia: e' arretrato, non un lavoro
+      // aperto. Esce dall'elenco ma resta contato.
+      if (!calcolo && !((d as any).deliveryRule?.toBill === false) && d.date < SOGLIA_ARRETRATO) {
+        arretrato++;
+        continue;
+      }
       const r = per.get(d.partnerId) ?? {
+
         partnerId: d.partnerId, deliveriesCount: 0, netAmount: 0, unpricedCount: 0,
         ruleExcludedCount: 0, from: d.date, to: d.date, fromListino: 0, modelli: {},
       };
@@ -372,6 +396,9 @@ export class InvoicesService {
         fromListino: voci.reduce((s, v) => s + v.fromListino, 0),
         netAmount: Math.round(voci.reduce((s, v) => s + v.netAmount, 0) * 100) / 100,
         totalAmount: Math.round(voci.reduce((s, v) => s + v.totalAmount, 0) * 100) / 100,
+        /// Consegne senza tariffa piu’ vecchie della soglia: messe da parte, non perse.
+        arretrato,
+        soglia: SOGLIA_ARRETRATO,
       },
     };
   }
@@ -400,7 +427,8 @@ export class InvoicesService {
     const deliveries = await this.prisma.delivery.findMany({
       where,
       select: {
-        id: true, code: true, date: true, status: true, serviceTypeId: true,
+        id: true, code: true, date: true, status: true, serviceTypeId: true, partnerId: true,
+
         price: true, additionalPrice: true, hours: true,
         distanceKm: true, extraKm: true, extraOutOfCity: true,
         recipientFirstName: true, recipientLastName: true, recipientAddress: true,
@@ -416,9 +444,15 @@ export class InvoicesService {
         .map((l) => [l.serviceTypeId, l]),
     );
     return {
-      deliveries: deliveries.map((d) => {
+      // Anche nel dettaglio l'arretrato non si mostra: sarebbe un elenco di
+      // consegne del 2021 in mezzo al lavoro di oggi.
+      deliveries: deliveries.filter((d) => {
+        const c = prezzoConsegna(d as any, listini.get(d.serviceTypeId) ?? null, (d as any).deliveryRule ?? null);
+        return c || (d as any).deliveryRule?.toBill === false || d.date >= SOGLIA_ARRETRATO;
+      }).map((d) => {
         const calcolo = prezzoConsegna(d as any, listini.get(d.serviceTypeId) ?? null, (d as any).deliveryRule ?? null);
         return {
+
           id: d.id, code: d.code, date: d.date, status: d.status,
           recipientFirstName: d.recipientFirstName, recipientLastName: d.recipientLastName,
           recipientAddress: d.recipientAddress,

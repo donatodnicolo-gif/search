@@ -399,7 +399,8 @@
       "unpricedRow": "Nessun prezzo sulla consegna e nessun listino del partner per questo servizio: non entra in fattura finche' non si decide la tariffa.",
       "unpricedHint": "{{n}} consegne non entrano in fattura: non hanno prezzo e il partner non ha un listino per il loro servizio. Fatturarle a 0 EUR sarebbe un documento che dice il falso.",
       "byRule": "Escluse da regola",
-      "byRuleRow": "da regola"
+      "byRuleRow": "da regola",
+      "backlog": "{{n}} consegne piu' vecchie del {{d}} non hanno una tariffa e sono fuori dall'elenco: vengono da rapporti chiusi e nessuno le fatturera'. Restano in banca dati."
     },
     "filter": {
       "search": "Cerca",
@@ -506,7 +507,8 @@
       "empty": "Niente da pagare: ogni consegna ha gia' il suo stipendio.",
       "capped": "Mostrate le prime 500 consegne del valet.",
       "byRule": "Escluse da regola",
-      "byRuleRow": "da regola"
+      "byRuleRow": "da regola",
+      "backlog": "{{n}} consegne piu' vecchie del {{d}} non hanno una paga ricavabile e sono fuori dall'elenco: sono account interni di chi consegnava di persona agli inizi. Restano in banca dati."
     },
     "line": {
       "date": "Data",
