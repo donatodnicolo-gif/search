@@ -114,6 +114,13 @@
       "key": "Chiave API",
       "test": "Prova connessione",
       "hint": "Serve una chiave con la SCRITTURA: con la sola lettura si vedono le differenze ma non si può collegare nulla."
+    },
+    "orders": {
+      "title": "Deluxy Orders (ordini Shopify)",
+      "url": "Indirizzo di Orders",
+      "key": "Chiave API di Orders",
+      "hint": "Da qui arrivano gli ordini Shopify da smistare ai partner. Serve una chiave di SOLA LETTURA: la piattaforma legge da Orders e non ci scrive mai.",
+      "test": "Prova connessione"
     }
   },
   "role": {

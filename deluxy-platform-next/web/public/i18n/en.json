@@ -114,6 +114,13 @@
       "key": "API key",
       "test": "Test connection",
       "hint": "A key with WRITE access is required: read-only shows differences but cannot link anything."
+    },
+    "orders": {
+      "title": "Deluxy Orders (Shopify orders)",
+      "url": "Orders address",
+      "key": "Orders API key",
+      "hint": "This is where the Shopify orders to dispatch come from. A READ-ONLY key is enough: the platform reads from Orders and never writes to it.",
+      "test": "Test connection"
     }
   },
   "role": {

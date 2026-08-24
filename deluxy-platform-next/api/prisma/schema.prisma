@@ -353,6 +353,8 @@ model OpeningHour {
   closeTime String? // "19:30"
   closed    Boolean @default(false)
   partner   Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+
+  @@unique([partnerId, dayOfWeek])
 }
 
 // Eccezioni per DATA specifica (chiusura straordinaria o orario speciale):
@@ -440,6 +442,7 @@ model Valet {
   deliveries          Delivery[]
   activities          Activity[]
   availabilities      ValetAvailability[]
+  openingHours        ValetOpeningHour[]
   salaries            Salary[]
   payments            Payment[]
   deliveryRules       ValetDeliveryRuleValet[]
@@ -477,6 +480,24 @@ model ValetService {
 
 // Disponibilita' del valet per DATA specifica (impostata dal valet dal calendario):
 // available=false -> non disponibile; timeFrom/timeTo -> disponibile solo in fascia.
+/// Orario settimanale del valet: il gemello di OpeningHour lato partner.
+///
+/// Prima esisteva solo la disponibilita' giorno per giorno (ValetAvailability),
+/// cioe' migliaia di righe per dire «il lunedi' lavoro dalle 9 alle 18». Il
+/// modello e' quello di Google: una settimana tipo, piu' le date che fanno
+/// eccezione.
+model ValetOpeningHour {
+  id        String  @id @default(cuid())
+  valetId   String
+  dayOfWeek Int
+  openTime  String? // "09:00"
+  closeTime String? // "18:00"
+  closed    Boolean @default(false)
+  valet     Valet   @relation(fields: [valetId], references: [id], onDelete: Cascade)
+
+  @@unique([valetId, dayOfWeek])
+}
+
 model ValetAvailability {
   id        String   @id @default(cuid())
   valetId   String

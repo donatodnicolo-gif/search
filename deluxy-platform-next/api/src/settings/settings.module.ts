@@ -23,12 +23,17 @@ import { PrismaService } from '../prisma/prisma.service';
  *   Stanno qui e non nelle variabili d'ambiente perché così si cambiano
  *   dall'app, senza un deploy. Le env restano come scorciatoia d'emergenza e
  *   hanno la precedenza (vedi AnagraficheSyncService.getApiKey).
+ * - ordersUrl / ordersApiKey: registro ordini Shopify (deluxy-orders, porta 3150).
+ *   Serve a tirare dentro gli ordini e smistarli. È una chiave di SOLA LETTURA:
+ *   la piattaforma legge da Orders, non ci scrive mai.
  */
 export const SETTING_KEYS = [
   'googleMapsApiKey',
   'googleMapsBrowserKey',
   'anagraficheUrl',
   'anagraficheApiKey',
+  'ordersUrl',
+  'ordersApiKey',
 ] as const;
 
 @Injectable()
@@ -60,6 +65,45 @@ export class SettingsService {
   async get(key: (typeof SETTING_KEYS)[number]): Promise<string | null> {
     const row = await this.prisma.appSetting.findUnique({ where: { key } });
     return row?.value?.trim() || null;
+  }
+
+  /**
+   * Prova la connessione a Deluxy Orders.
+   *
+   * Gemella di `provaAnagrafiche()`: l'esito distingue «chiave assente» da
+   * «chiave rifiutata» da «non raggiungibile», perché sono tre problemi diversi
+   * e un unico «non funziona» li confonderebbe.
+   *
+   * ⚠️ Orders risponde in ITALIANO come il registro: il conteggio sta in
+   * `totale`. Leggere un nome inglese darebbe «0 ordini» a fronte di 14.385 —
+   * uno zero che sembra un problema di dati ed è un errore di lettura.
+   */
+  async provaOrders(): Promise<{
+    esito: 'ok' | 'senza-chiave' | 'chiave-rifiutata' | 'irraggiungibile';
+    url: string;
+    messaggio: string;
+    ordiniTrovati?: number;
+  }> {
+    const url = (await this.get('ordersUrl')) ?? process.env.ORDERS_URL ?? '';
+    const chiave = (await this.get('ordersApiKey')) ?? process.env.ORDERS_API_KEY ?? '';
+    if (!url) return { esito: 'irraggiungibile', url, messaggio: 'Indirizzo di Orders non impostato.' };
+    if (!chiave) return { esito: 'senza-chiave', url, messaggio: 'Chiave non impostata.' };
+    try {
+      const res = await fetch(`${url.replace(/\/+$/, '')}/api/v1/ordini?limit=1`, {
+        headers: { 'x-api-key': chiave },
+      });
+      if (res.status === 401 || res.status === 403) {
+        return { esito: 'chiave-rifiutata', url, messaggio: `Orders rifiuta la chiave (HTTP ${res.status}).` };
+      }
+      if (!res.ok) {
+        return { esito: 'irraggiungibile', url, messaggio: `Orders risponde HTTP ${res.status}.` };
+      }
+      const body = (await res.json()) as { totale?: number; ordini?: unknown[]; dati?: unknown[] };
+      const quanti = body.totale ?? body.ordini?.length ?? body.dati?.length ?? 0;
+      return { esito: 'ok', url, messaggio: `Collegato: Orders ha ${quanti} ordini.`, ordiniTrovati: quanti };
+    } catch (err) {
+      return { esito: 'irraggiungibile', url, messaggio: `Orders non raggiungibile: ${(err as Error).message}` };
+    }
   }
 
   /**
@@ -206,6 +250,13 @@ export class SettingsController {
   @ApiOperation({ summary: 'Verifica indirizzo e chiave del registro Anagrafiche (solo admin)' })
   provaAnagrafiche() {
     return this.service.provaAnagrafiche();
+  }
+
+  @Get('orders/prova')
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Verifica indirizzo e chiave di Deluxy Orders (solo admin)' })
+  provaOrders() {
+    return this.service.provaOrders();
   }
 
   @Get('public')

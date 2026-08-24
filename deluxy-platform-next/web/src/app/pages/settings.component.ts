@@ -83,6 +83,32 @@ interface GeocodeResult {
           }
         </div>
 
+        <!-- Deluxy Orders: da qui arrivano gli ordini Shopify da smistare.
+             Chiave di SOLA LETTURA: la piattaforma legge, non scrive mai. -->
+        <h3 class="sotto-titolo">{{ 'settings.orders.title' | translate }}</h3>
+        <label class="fld"><span>{{ 'settings.orders.url' | translate }}</span>
+          <input class="field mono" name="ordersUrl" [(ngModel)]="model.ordersUrl"
+                 autocomplete="new-password" data-lpignore="true" data-1p-ignore placeholder="https://deluxy-orders.vercel.app" />
+        </label>
+        <label class="fld" style="margin-top:16px"><span>{{ 'settings.orders.key' | translate }}</span>
+          <div class="key-row">
+            <input class="field mono" [type]="showOrdersKey() ? 'text' : 'password'" name="ordersApiKey"
+                   [(ngModel)]="model.ordersApiKey" autocomplete="new-password" data-lpignore="true" data-1p-ignore placeholder="dlxk_…" />
+            <button type="button" class="btn btn-secondary" (click)="showOrdersKey.set(!showOrdersKey())">
+              {{ (showOrdersKey() ? 'settings.apiKeys.hide' : 'settings.apiKeys.show') | translate }}
+            </button>
+          </div>
+        </label>
+        <p class="hint">{{ 'settings.orders.hint' | translate }}</p>
+        <div class="key-row" style="margin-top:10px">
+          <button type="button" class="btn btn-secondary" [disabled]="provandoOrders()" (click)="provaOrders()">
+            {{ (provandoOrders() ? 'common.loading' : 'settings.orders.test') | translate }}
+          </button>
+          @if (esitoOrders(); as e) {
+            <span class="esito" [class.ok]="e.esito === 'ok'" [class.ko]="e.esito !== 'ok'">{{ e.messaggio }}</span>
+          }
+        </div>
+
         <div class="actions">
           <button type="button" class="btn btn-primary" [disabled]="saving()" (click)="save()">
             {{ saving() ? ('common.saving' | translate) : ('common.save' | translate) }}
@@ -154,11 +180,18 @@ export class SettingsComponent {
   readonly testing = signal(false);
   readonly testResult = signal<GeocodeResult | null>(null);
 
-  model = { googleMapsApiKey: '', googleMapsBrowserKey: '', anagraficheUrl: '', anagraficheApiKey: '' };
+  model = {
+    googleMapsApiKey: '', googleMapsBrowserKey: '',
+    anagraficheUrl: '', anagraficheApiKey: '',
+    ordersUrl: '', ordersApiKey: '',
+  };
 
   readonly showAnagraficheKey = signal(false);
   readonly provando = signal(false);
   readonly esitoAnagrafiche = signal<{ esito: string; messaggio: string } | null>(null);
+  readonly showOrdersKey = signal(false);
+  readonly provandoOrders = signal(false);
+  readonly esitoOrders = signal<{ esito: string; messaggio: string } | null>(null);
 
   /** Prova la connessione al registro e dice PERCHE' non funziona, se non funziona. */
   provaAnagrafiche(): void {
@@ -184,6 +217,32 @@ export class SettingsComponent {
       error: (e) => { this.provando.set(false); this.esitoAnagrafiche.set({ esito: 'ko', messaggio: e?.error?.message ?? 'Salvataggio non riuscito' }); },
     });
   }
+  /**
+   * Come provaAnagrafiche, e per gli stessi due motivi.
+   *
+   * Si salva PRIMA di provare, perche' la prova gira sul server e legge dal
+   * database: provare senza salvare misurerebbe i valori vecchi.
+   *
+   * E si salvano SOLO i due campi di Orders. Mandando tutto il modello, un
+   * valore infilato dal gestore password del browser in un altro campo
+   * finirebbe nel database: e' gia' successo il 23/08, 39 caratteri scritti
+   * nelle due chiavi Maps che erano vuote.
+   */
+  provaOrders(): void {
+    this.provandoOrders.set(true);
+    this.esitoOrders.set(null);
+    const soloOrders = { ordersUrl: this.model.ordersUrl, ordersApiKey: this.model.ordersApiKey };
+    this.http.put(`${environment.apiUrl}/settings`, soloOrders).subscribe({
+      next: () => this.http
+        .get<{ esito: string; messaggio: string }>(`${environment.apiUrl}/settings/orders/prova`)
+        .subscribe({
+          next: (r) => { this.provandoOrders.set(false); this.esitoOrders.set(r); },
+          error: (e) => { this.provandoOrders.set(false); this.esitoOrders.set({ esito: 'ko', messaggio: e?.error?.message ?? 'Prova non riuscita' }); },
+        }),
+      error: (e) => { this.provandoOrders.set(false); this.esitoOrders.set({ esito: 'ko', messaggio: e?.error?.message ?? 'Salvataggio non riuscito' }); },
+    });
+  }
+
   testAddress = '';
 
   constructor() {
@@ -191,6 +250,8 @@ export class SettingsComponent {
       next: (s) => {
         this.model.googleMapsApiKey = s['googleMapsApiKey'] ?? '';
         this.model.googleMapsBrowserKey = s['googleMapsBrowserKey'] ?? '';
+        this.model.ordersUrl = s['ordersUrl'] ?? '';
+        this.model.ordersApiKey = s['ordersApiKey'] ?? '';
         this.model.anagraficheUrl = s['anagraficheUrl'] ?? '';
         this.model.anagraficheApiKey = s['anagraficheApiKey'] ?? '';
       },
