@@ -1,6 +1,6 @@
 # Handoff — Deluxy Marketing
 
-> Stato al **24/08/2026** (sera). Una finestra Claude nuova deve poter riprendere da qui
+> Stato al **24/08/2026** (sera, dopo il reincollo su tutti e tre i conti). Una finestra Claude nuova deve poter riprendere da qui
 > senza altro contesto. Leggere prima il [README](../README.md) per cosa fa l'app;
 > questo documento dice **dove siamo** e **cosa manca**.
 >
@@ -16,11 +16,9 @@
 >      **`negative`**: finché non arriva, le dieci negative della WORLD-ENG
 >      restano «da confermare» e la scheda campagna dice «non ancora censite».
 >    ⚠️ `CHIAVE_API` e `BRAND` sono vuoti nelle copie e vanno rimessi a mano.
->    ✅ **FATTO su FLOWERS il 24/08 alle 17:13** — vedi la sezione in FATTO:
->    18.357 parole escluse censite, marcatore di censimento completo arrivato,
->    e **tutte e venti** le operazioni `negativa` della WORLD-ENG confermate.
->    🔴 **Restano Gifts (248-656-1148) e Cake (846-090-5423)**: girano di notte,
->    e finché non arriva il loro giro le loro parole escluse non ci sono.
+>    ✅ **FATTO SU TUTTI E TRE I CONTI il 24/08** (Flowers 17:14 · Cake 17:55 ·
+>    Gifts 18:12): **92.731 parole escluse** censite su 131 campagne, e
+>    **3 censimenti completi su 3**. Vedi la sezione in FATTO.
 >    ⚠️ **E non è detto che `esegui.js` sia aggiornato**: la consegna `negative`
 >    prova che **`tutto.js`** è quello nuovo, ma le operazioni le applica un
 >    lavoro `esegui` **schedulato a parte** (ogni ora, ~:09). Sono due copie
@@ -247,6 +245,57 @@ questi numeri: dicono cosa gira e cosa è fermo.**
   `lib/meta-scrittura.ts` c'è ma non ha `ads_management`. TikTok scollegato.
 
 ## FATTO
+
+### ⭐⭐⭐ 92.731 PAROLE ESCLUSE, e il censimento ha trovato il residuo di un difetto chiuso il 06/08
+
+Reincollati gli script su tutti e tre i conti. Censimento **completo su 3 conti
+su 3** — Flowers 17:14 (18.357 righe), Cake 17:55 (4.268), Gifts 18:12
+(**70.106**).
+
+| conto | righe | campagne | parole diverse | di campagna | di gruppo |
+| --- | --- | --- | --- | --- | --- |
+| Gifts 248-656-1148 | 70.106 | 93 | 12.476 | 27.778 | 42.328 |
+| Flowers 825-518-1560 | 18.357 | 31 | 5.283 | 3.681 | 14.676 |
+| Cake 846-090-5423 | 4.268 | 7 | 3.542 | 1.421 | 2.847 |
+| **totale** | **92.731** | **131** | | | |
+
+⚠️ **Gifts ha impiegato tre minuti e 350 blocchi**, e per un pezzo del giro il
+marcatore non c'era: **non era un guasto, era che stava ancora scaricando.** Me
+ne sono accorto solo perché ho rimisurato invece di concludere — la prima
+lettura, presa a metà corsa, sembrava «finito senza dichiarare completo». Su un
+account grande il censimento non è istantaneo, e chi guarda troppo presto legge
+un guasto che non c'è.
+
+**IL PRIMO RISULTATO UTILE — 27 operazioni `negativa` eseguite: 21 confermate,
+3 «su Google ma diverse», 3 «non risultano».**
+
+⭐⭐⭐ **Le tre diverse sono il RESIDUO di un difetto già chiuso.** Tutte e tre
+(«flora fiori a domicilio», «fiori online» ×2, su *[Deluxy] - Fiori Milano ITA*)
+erano state chieste **a frase** o **esatte** e su Google sono **generiche**. Sono
+del **04-06/08** — cioè la finestra del difetto *«Una keyword ESATTA finiva in
+coda come GENERICA»*, corretto il **06/08** e descritto in FATTO con le parole
+giuste: *«da esatta a generica, l'allargamento più pericoloso che esista, in
+silenzio»*. **Il codice era stato corretto, le negative che aveva già sbagliato
+no** — e sono rimaste a bloccare più ricerche del dovuto per diciotto giorni,
+senza che nessuno potesse vederlo. Una negativa **generica** su «fiori online»
+spegne ogni ricerca che contenga quelle due parole in qualunque ordine.
+🔴 **Da correggere a mano in Google Ads**: togliere le tre generiche e rimetterle
+con la corrispondenza voluta.
+
+🔴 **Le tre che non risultano**: «flowers milan» su *Fiori Milano ENG* (accodata
+due volte il 04/08, broad e poi exact — e su Google non c'è né l'una né l'altra)
+e «fiori delivery milano» su *Fiori Milano ITA* — che però **è esclusa su
+*Fiori Milano ENG*** (esatta). O non sono mai passate, o qualcuno le ha tolte
+dopo. Sono del **04/08**, il primo giorno in cui lo script eseguiva davvero.
+⚠️ Prima di rifarle, guardare se sono state tolte apposta: «flowers milan»
+escluso dalla campagna inglese di Milano sarebbe una scelta strana, e potrebbe
+essere stata **corretta a mano proprio per questo**.
+
+⭐ **La lezione che vale oltre questo caso**: correggere il codice non corregge
+ciò che il codice ha già scritto **fuori** dall'app. Per diciotto giorni la
+correzione del 06/08 è sembrata completa perché nessuno poteva rileggere il
+risultato. Un difetto che scrive su un sistema esterno ha **due** rimedi, e il
+secondo si dimentica sempre.
 
 ### ⭐ TIKTOK: c'era tutto tranne chi lo facesse partire (24/08/2026)
 
