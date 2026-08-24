@@ -1,6 +1,6 @@
 # Deluxy Anagrafiche — Handoff / Stato del progetto
 
-> Documento per riprendere il lavoro da zero in una nuova sessione. Aggiornato il 31/07/2026.
+> Documento per riprendere il lavoro da zero in una nuova sessione. Aggiornato il 24/08/2026.
 > Leggi anche `README.md` (brief di integrazione per le altre app) e il `CLAUDE.md` alla radice del repo.
 
 ## 1. Cos'è, in una riga
@@ -292,6 +292,9 @@ Ogni scrittura via API è un **merge governato per campo**, mai una sostituzione
   il primo collega, il secondo unisce, con la stessa schermata di conferma della scheda perché
   unire **archivia** un'anagrafica e non va fatto al primo clic. Sulle righe di `/sync-hubspot` il
   ⇄ resta quello di prima (lì la riga *è* una company HubSpot).
+  **Dal 23/08/2026 unire è anche un'API** (`POST /api/v1/partners/unisci`, tabella in §5):
+  la chiamano le app che i doppioni li trovano da loro — oggi Deluxy Scout dalla sua
+  Riconciliazione, perché un'unione fatta solo là si disfaceva al re-import.
   **Gruppi** — i due bottoni sono l'uno l'inverso dell'altro, e dal 31/07/2026 **il nome dice il
   verso**: `⧉ Raggruppa` veniva letto al contrario (sembrava «aggancia altre a questa») ed è
   diventato **↳ È una sede di…**, mentre `＋ Sede` è **＋ Sedi di questa**. Ogni modale dichiara la
@@ -481,6 +484,7 @@ Pubbliche `/api/v1` — auth header `x-api-key: <chiave>` (o `Authorization: Bea
 | POST | `/api/v1/partners` | scrittura | Upsert-merge; body opzionale `sistema`,`idEsterno`,`asOf` |
 | PATCH | `/api/v1/partners/:id` | scrittura | Aggiornamento parziale mirato |
 | DELETE | `/api/v1/partners/:id` | scrittura | Soft delete (attivo=false) |
+| POST | `/api/v1/partners/unisci` | **scrittura piena** | Unisce due doppioni (23/08/2026): `{sorgenteId, destinazioneId, prova?}` — la sorgente si **archivia** (mai cancellata), la destinazione resta; referenti/feedback/xref/sedi si spostano (stessa `unisciAnagrafiche` della UI). Con `prova: true` racconta cosa succederebbe **senza scrivere** — è il modo di provare in produzione una rotta che archivia. La chiama Deluxy Scout dalla sua Riconciliazione: senza, l'unione fatta là si disfaceva al re-import (`upsert on conflict (anagrafiche_id)` ricreava il doppione — misurate 65 coppie su 364) |
 | GET | `/api/v1/feedback` | lettura | Feedback D2C: `partnerId`, `origine`, `sistema`, `votoMin/votoMax`, `dal/al`, page, perPage. Con `partnerId` include anche `valutazioneD2C` |
 | POST | `/api/v1/feedback` | scrittura **o** feedback | Registra un giudizio interno (`origine`, `autore`). Aggancio: `partnerId` → `riferimento{sistema,idEsterno}` → `platformId` → `negozio`+`citta`; niente aggancio = **404** (mai attribuito a caso). `voto` obbligatorio (+`scala` per NPS/percentuali, fuori scala = 400), `idEsterno` = idempotenza (la riga viene sostituita), `motivi` solo dal catalogo. Risponde con il feedback e la valutazione ricalcolata |
 | GET | `/api/v1/valet` | lettura | Elenco valet. Filtri: `q`, `stato`, `provincia` (guarda anche le province servite), `attivo` (`false`/`tutti`), page, perPage. `provinceServite` esce come **lista** e c'è `nomeCompleto` già composto |

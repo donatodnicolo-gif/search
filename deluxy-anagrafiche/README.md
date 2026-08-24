@@ -382,6 +382,7 @@ Autenticazione: header `x-api-key: <chiave>` (oppure `Authorization: Bearer <chi
 | POST | `/api/v1/partners` | scrittura | Upsert-merge; identità via `sistema`+`idEsterno` → `platformId` → P.IVA/CF → nome+città |
 | PATCH | `/api/v1/partners/:id` | scrittura | Aggiornamento parziale |
 | DELETE | `/api/v1/partners/:id` | scrittura | Disattiva (soft delete, `attivo=false`) |
+| POST | `/api/v1/partners/unisci` | **scrittura piena** | Unisce due doppioni: `{sorgenteId, destinazioneId, prova?}` — la sorgente si archivia, la destinazione resta, referenti/feedback/riferimenti si spostano. `prova: true` = racconta senza scrivere |
 | GET | `/api/v1/feedback` | lettura | Feedback D2C: `partnerId`, `origine`, `sistema`, `votoMin/votoMax`, `dal/al`, `page`, `perPage` |
 | POST | `/api/v1/feedback` | scrittura **o** feedback | Registra un giudizio interno sul partner e ricalcola la valutazione D2C |
 
