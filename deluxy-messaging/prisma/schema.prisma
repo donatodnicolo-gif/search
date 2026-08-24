@@ -1108,6 +1108,10 @@ model ApiKey {
   id        String    @id @default(cuid())
   nome      String    @unique // app client: deluxy-orders, ...
   hash      String    @unique // sha256 esadecimale della chiave
+  // false = sola lettura (reclami e voti). true = può anche CREARE ordini
+  // via /api/v1/nuovo-ordine (bozze Shopify con link di pagamento): si dà
+  // solo alle app che mettono un operatore davanti al cliente (es. il CRM).
+  scrittura Boolean   @default(false)
   attiva    Boolean   @default(true)
   creataIl  DateTime  @default(now())
   ultimoUso DateTime?

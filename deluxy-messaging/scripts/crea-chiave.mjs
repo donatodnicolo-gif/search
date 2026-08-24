@@ -1,8 +1,11 @@
-// Crea (o rigenera) una chiave di SOLA LETTURA per un'app che deve leggere il
-// Customer Service (reclami e voti degli ordini) via /api/v1/*.
-// Uso:  npm run chiave -- <nome-app>
+// Crea (o rigenera) una chiave per un'app che deve parlare col Customer
+// Service via /api/v1/*. Di default è di SOLA LETTURA (reclami e voti);
+// con `--scrittura` può anche CREARE ordini con link di pagamento
+// (/api/v1/nuovo-ordine).
+// Uso:  npm run chiave -- <nome-app> [--scrittura]
 // Esempio:
 //   npm run chiave -- deluxy-orders
+//   npm run chiave -- deluxy-crm --scrittura
 //
 // La chiave viene stampata UNA SOLA VOLTA: nel database resta solo lo SHA-256.
 // Va copiata nel .env dell'app client (es. MESSAGGI_API_KEY=...).
@@ -12,8 +15,9 @@ import { createHash, randomBytes } from 'crypto'
 const prisma = new PrismaClient()
 
 const nome = process.argv.slice(2).find((a) => !a.startsWith('--'))
+const scrittura = process.argv.includes('--scrittura')
 if (!nome) {
-  console.error('Uso: npm run chiave -- <nome-app>')
+  console.error('Uso: npm run chiave -- <nome-app> [--scrittura]')
   process.exit(1)
 }
 
@@ -22,11 +26,11 @@ const hash = createHash('sha256').update(chiave).digest('hex')
 
 await prisma.apiKey.upsert({
   where: { nome },
-  create: { nome, hash },
-  update: { hash, attiva: true },
+  create: { nome, hash, scrittura },
+  update: { hash, attiva: true, scrittura },
 })
 
-console.log(`Chiave API di sola lettura per "${nome}":`)
+console.log(`Chiave API ${scrittura ? 'con SCRITTURA (crea ordini)' : 'di sola lettura'} per "${nome}":`)
 console.log()
 console.log(`  ${chiave}`)
 console.log()
