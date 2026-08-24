@@ -90,6 +90,9 @@ type OrdineDto = {
    */
   fornitoreNome: string
   fornitoreCosto: number | null
+  /** Quando risulta pagato (dalla richiesta di pagamento), e quanto. */
+  pagatoIl?: string | null
+  pagatoQuanto?: number
   /** Rischio frode secondo Shopify: NONE | LOW | MEDIUM | HIGH, e cosa consiglia. */
   rischioLivello: string
   rischioRaccomandazione: string
@@ -1604,6 +1607,23 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
                               si fa scorrendo la bacheca, e un dato che vive
                               dentro un pannello da aprire, nella pratica, non
                               si guarda. */}
+                          {/* ⚠️ PAGATO: il fatto, non il passo di lavorazione.
+                              Segnalato dall'utente su un ordine che diceva
+                              ancora «In pagamento» col bonifico già fatto. Sta
+                              accanto al fornitore perché è la stessa domanda:
+                              chi lo prepara, e l'abbiamo pagato? */}
+                          {o.pagatoIl ? (
+                            <span
+                              className="badge badge-pagato"
+                              title={`Pagato il ${new Date(o.pagatoIl).toLocaleDateString('it-IT')}${
+                                o.pagatoQuanto
+                                  ? ` · ${o.pagatoQuanto.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' })}`
+                                  : ''
+                              }`}
+                            >
+                              pagato
+                            </span>
+                          ) : null}
                           {o.fornitoreNome ? (
                             <span
                               className="badge badge-fornitore"

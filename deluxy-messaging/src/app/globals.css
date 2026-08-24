@@ -3421,6 +3421,44 @@ td .azioni-ordine {
   box-shadow: inset 3px 0 0 var(--green);
 }
 
+/* ---- Il pop-up che registra il pagamento ---- */
+
+/* ⚠️ Copre la pagina perche' e' il momento in cui esce del denaro: non e' un
+   pannello laterale da guardare con la coda dell'occhio. Si chiude cliccando
+   fuori, ma NON cliccando dentro: un clic finito male che butta via il file
+   appena caricato fa ricominciare da capo. */
+.velo-pagata {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.finestra-pagata {
+  background: var(--surface);
+  border-radius: var(--radius-l);
+  box-shadow: var(--shadow-float);
+  padding: 18px 20px;
+  width: min(420px, 100%);
+  max-height: 90vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.finestra-pagata .campo { margin: 0; }
+
+.finestra-pagata .errore-riga {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--red);
+}
+
 /* ---- La ricevuta e l'ordine collegato ---- */
 
 .riquadro-ricevuta {
@@ -3676,6 +3714,16 @@ td .azioni-ordine {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* «pagato» sulla scheda: e' un FATTO compiuto, e il verde lo dice senza
+   leggere. ⚠️ Pieno e non a contorno come «fornitore?»: quello e' una cosa da
+   fare, questo e' una cosa fatta. */
+.badge-pagato {
+  color: var(--green);
+  border-color: var(--green);
+  background: rgba(36, 138, 61, 0.1);
+  font-weight: 600;
 }
 
 /* ⚠️ «fornitore?» in ORO e non in rosso: non è un guasto, è una cosa da fare —

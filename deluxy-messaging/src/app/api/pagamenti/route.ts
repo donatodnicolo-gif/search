@@ -42,6 +42,9 @@ export async function GET() {
       pagataIl: true,
       pagataDaNome: true,
       pagatoCon: true,
+      avvisoIl: true,
+      avvisoCanale: true,
+      avvisoEsito: true,
       // Il NOME e il TIPO sì (servono a dire «ricevuta ✓» e ad aprirla), i byte no.
       ricevutaNome: true,
       ricevutaTipo: true,

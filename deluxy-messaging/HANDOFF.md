@@ -1,6 +1,6 @@
 # Handoff — Deluxy Customer Service
 
-Ultimo aggiornamento: **24/08/2026, ore 17:30** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
+Ultimo aggiornamento: **24/08/2026, ore 19:00** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
 prima, alle 15:10, l'utente ha pubblicato la schermata di consenso Google e il
 conto alla rovescia dei 7 giorni è finito).
 Prima, il 19/08: la **risposta di primo contatto** che parte da sola al primo
@@ -340,6 +340,32 @@ locale, altrimenti nulla si decifra.
     chat finisce nel cestino.
   - ⚠️ **Il numero delle note da fare sta sul bottone**: in un pannello chiuso
     una nota lasciata a un collega non esisterebbe.
+
+- **POP-UP DELLA RICEVUTA, AVVISO AUTOMATICO, L'ORDINE RISULTA PAGATO**
+  (24/08/2026, tre richieste).
+  - **Pop-up su «Pagata»**: ricevuta + da dove esce + conferma. ⚠️ La ricevuta
+    si carica NEL momento del pagamento: sceglierla in cima e poi premere la
+    riga giusta è un passaggio che si sbaglia, e allora la ricevuta finisce sul
+    pagamento di un altro. ⚠️ Si conferma anche senza (i pagamenti al telefono
+    non hanno un documento).
+  - **Avviso AUTOMATICO** (chiesto esplicitamente, ribalta la mia scelta di
+    prima). ⚠️ Parte solo perché una persona ha premuto «Pagata»: è la
+    differenza fra «automatico» e «da solo». ⚠️⚠️ E **non sempre riesce**: la
+    finestra di 24h di WhatsApp (131047). L'esito si scrive e si mostra sulla
+    riga — «avvisato» / «non avvisato» col motivo — perché un avviso di cui non
+    si vede l'esito fa credere che il fornitore sappia.
+  - ⚠️ Il recapito viene dall'ORDINE, non dalla richiesta: lì c'è l'intestatario
+    del conto, che è una ragione sociale, non un contatto.
+  - **L'ordine risulta pagato**: esce da «in pagamento» → «attesa consegna», e
+    sulla scheda compare il bollino verde «pagato». ⚠️ Solo in avanti e solo da
+    `in_pagamento`; togliendo il segno l'ordine NON torna indietro.
+  - **Il campo Ordine si riempie dall'URL** arrivando da «Paga»: è più
+    affidabile del numero letto nella causale, che è testo riscrivibile.
+  - ✅ A schermo: ordine precompilato «#2785 · CakeDesignMe · Ajayta Rai ·
+    135,00 €», pop-up con i due campi e l'avvertenza sull'avviso, PATCH con
+    `pagatoCon: "banca"`, e la frase di esito «Registrata, e il fornitore è
+    stato avvisato per whatsapp». Sulla riga già pagata: «pagata · dal portale
+    della banca», «ricevuta ✓», «non avvisato».
 
 - **DA DOVE ESCE IL DENARO, AVVISO, «IN PAGAMENTO», MARGINE IN TABELLA**
   (24/08/2026). ⚠️⚠️ Nasce da una **correzione dell'utente**: «non è detto che

@@ -334,13 +334,49 @@ export async function GET(req: NextRequest) {
   // Quali ordini hanno messaggi: due query per tutta la lista, non una per
   // ordine — con 200 ordini a schermo sarebbero 200 andate e ritorni al
   // database a ogni caricamento della bacheca.
+  // ── QUALI ORDINI RISULTANO PAGATI ──
+  //
+  // ⚠️ Segnalato dall'utente: un ordine col pagamento fatto continuava a dire
+  // solo «In pagamento». Il fatto («l'abbiamo pagato») vive sulla richiesta di
+  // pagamento, e senza portarlo qui la bacheca — che è dove si guarda — non lo
+  // sapeva.
+  //
+  // ⚠️ UNA query per tutta la pagina, non una per ordine.
+  const pagati = new Map<string, { quando: Date; quanto: number }>()
+  try {
+    const righe = await db.richiestaPagamento.findMany({
+      where: {
+        pagataIl: { not: null },
+        ordineNumero: { in: ordini.map((o) => o.numero).filter(Boolean) },
+      },
+      select: { ordineNumero: true, pagataIl: true, importo: true },
+      orderBy: { pagataIl: 'desc' },
+    })
+    for (const r of righe) {
+      if (!r.pagataIl) continue
+      // ⚠️ Il PIÙ RECENTE: di un ordine pagato in due tranche interessa
+      // l'ultima, che è quella che dice «da quando è a posto».
+      if (!pagati.has(r.ordineNumero)) {
+        pagati.set(r.ordineNumero, { quando: r.pagataIl, quanto: r.importo })
+      }
+    }
+  } catch {
+    // ⚠️ Se questa fallisce la bacheca si apre lo stesso senza i bollini: è un
+    // contorno, e una pagina che non si apre è molto peggio.
+  }
+
   const messaggiPerOrdine = await ordiniConMessaggi(
     ordini.map((o) => ({ id: o.id, numero: o.numero, email: o.email, telefono: o.telefono }))
   )
 
   return NextResponse.json({
     // Se quel cliente ci ha scritto, e se aspetta ancora una risposta.
-    ordini: ordini.map((o) => ({ ...o, messaggi: messaggiPerOrdine.get(o.id) ?? null })),
+    ordini: ordini.map((o) => ({
+      ...o,
+      messaggi: messaggiPerOrdine.get(o.id) ?? null,
+      pagatoIl: pagati.get(o.numero)?.quando?.toISOString() ?? null,
+      pagatoQuanto: pagati.get(o.numero)?.quanto ?? 0,
+    })),
     totale, // quanti corrispondono in tutto (la lista è tagliata a 200)
     // Chi sta guardando: senza, il bollino «preso da» non saprebbe dire se
     // quell'ordine è mio o di un collega — che è tutta la differenza.

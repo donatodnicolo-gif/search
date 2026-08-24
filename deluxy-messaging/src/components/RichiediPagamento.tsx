@@ -50,6 +50,9 @@ type Richiesta = {
   fornitoreOrdine: string
   /** Quanti ordini portano quel numero: piu' di uno = non si mostra il margine. */
   ordiniOmonimi: number
+  avvisoIl: string | null
+  avvisoCanale: string
+  avvisoEsito: string
 }
 
 const STATI_PARTNER: Record<string, string> = {
@@ -119,6 +122,14 @@ export function RichiediPagamento() {
   // scontato un solo canale vorrebbe dire un registro che descrive un mondo che
   // non esiste, e che quindi nessuno tiene aggiornato.
   const [pagatoCon, setPagatoCon] = useState('')
+  // ⚠️ Il pop-up si apre premendo «Pagata»: la ricevuta si carica NEL momento in
+  // cui si registra il pagamento, non prima. Sceglierla in cima e poi ricordarsi
+  // di premere la riga giusta è un passaggio in più che si sbaglia — e quando si
+  // sbaglia la ricevuta finisce sul pagamento di un altro fornitore.
+  const [chiedoPagata, setChiedoPagata] = useState<Richiesta | null>(null)
+  // Il numero d'ordine che arriva dal bottone «Paga»: è più affidabile del
+  // numero letto nella causale, perché non è stato scritto a mano da nessuno.
+  const [ordineDaUrl, setOrdineDaUrl] = useState('')
 
   // Arrivando dal bottone "Richiedi pagamento" di un ordine, i campi si
   // precompilano da soli con numero, cliente e importo.
@@ -127,6 +138,10 @@ export function RichiediPagamento() {
     const ordine = p.get('ordine')
     if (!ordine) return
     setCausale(`Ordine ${ordine}`)
+    // ⚠️ Il campo «Ordine» si riempie da qui, non dalla causale: arrivando dal
+    // bottone «Paga» il numero lo sappiamo già con certezza, mentre la causale
+    // è testo che qualcuno può aver riscritto.
+    setOrdineDaUrl(ordine)
     const cliente = p.get('cliente')
 
     // ⚠️⚠️ CHI VA PAGATO È IL FORNITORE, NON IL CLIENTE.
@@ -355,7 +370,18 @@ export function RichiediPagamento() {
         return
       }
       setRicevuta(null)
-      setAvviso(pagata ? 'Segnata come pagata.' : 'Tolto il segno «pagata».')
+      // ⚠️ L'esito dell'avviso si dice SUBITO e per intero: e' partito un
+      // messaggio a nome nostro, e chi ha premuto deve sapere se e' arrivato.
+      const av = (d as { avviso?: { canale: string; errore: string } }).avviso
+      setAvviso(
+        !pagata
+          ? 'Tolto il segno «pagata».'
+          : av && !av.errore
+            ? `Registrata, e il fornitore e' stato avvisato per ${av.canale}.`
+            : av && av.errore
+              ? `Registrata. ⚠️ L'avviso NON e' partito: ${av.errore}`
+              : 'Segnata come pagata.'
+      )
       await carica()
     } catch {
       setErrore('Non è stato registrato: problema di rete.')
@@ -682,7 +708,7 @@ export function RichiediPagamento() {
               margine, che è la cosa che si voleva vedere. */}
           <ScegliOrdine
             numero={ordineScelto?.numero ?? ''}
-            cercaDa={causale}
+            cercaDa={ordineDaUrl || causale}
             onScelto={(o) => {
               setOrdineScelto(o)
               setOrdineNumero(o.numero)
@@ -765,6 +791,104 @@ export function RichiediPagamento() {
           </div>
         </div>
       </div>
+
+      {/* ── IL POP-UP DELLA RICEVUTA ──
+          ⚠️ Si apre premendo «Pagata»: la ricevuta si carica NEL momento in cui
+          si registra il pagamento, non prima. Sceglierla in cima alla pagina e
+          poi ricordarsi di premere la riga giusta è un passaggio in più che si
+          sbaglia — e quando si sbaglia la ricevuta finisce sul pagamento di un
+          altro fornitore.
+          ⚠️ Si può confermare anche SENZA ricevuta: obbligarla vorrebbe dire
+          che i pagamenti fatti al telefono, senza un documento in mano, non si
+          registrano affatto. */}
+      {chiedoPagata ? (
+        <div
+          className="velo-pagata"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Registra il pagamento"
+          onClick={(e) => {
+            // ⚠️ Si chiude solo cliccando FUORI dal riquadro: dentro si sta
+            // compilando, e un clic finito male che butta via il file caricato
+            // è il modo migliore per far ricominciare da capo.
+            if (e.target === e.currentTarget) setChiedoPagata(null)
+          }}
+        >
+          <div className="finestra-pagata">
+            <h3 style={{ margin: 0 }}>Pagamento a {chiedoPagata.intestatario}</h3>
+            <p className="cella-sub" style={{ margin: 0 }}>
+              {[
+                chiedoPagata.importo
+                  ? chiedoPagata.importo.toLocaleString('it-IT', {
+                      style: 'currency',
+                      currency: chiedoPagata.valuta || 'EUR',
+                    })
+                  : 'importo non indicato',
+                chiedoPagata.ordineNumero,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </p>
+
+            <label className="campo">
+              <span>Ricevuta (immagine o PDF)</span>
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif,application/pdf"
+                onChange={(e) => scegliRicevuta(e.target.files?.[0] ?? null)}
+                autoFocus
+              />
+            </label>
+            {ricevuta ? (
+              <p className="cella-sub" style={{ margin: 0 }}>
+                {ricevuta.nome} ({pesoScritto(ricevuta.byte)})
+              </p>
+            ) : null}
+
+            <label className="campo">
+              <span>Da dove esce</span>
+              <select value={pagatoCon} onChange={(e) => setPagatoCon(e.target.value)}>
+                <option value="">non indicato</option>
+                {USCITE.map((u) => (
+                  <option key={u.chiave} value={u.chiave}>
+                    {u.nome}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            {/* ⚠️ Si dice PRIMA che parte un messaggio al fornitore. Un avviso
+                automatico scoperto dopo è la cosa che fa perdere fiducia in un
+                bottone: la prossima volta non lo si preme più. */}
+            <p className="cella-sub" style={{ margin: 0 }}>
+              Premendo «Registra» avviso il fornitore che il pagamento è stato disposto, se
+              abbiamo un suo recapito. Ti dico com&apos;è andata.
+            </p>
+
+            {errore ? <p className="errore-riga">{errore}</p> : null}
+
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button
+                className="btn"
+                disabled={pagando === chiedoPagata.id}
+                onClick={() => {
+                  const id = chiedoPagata.id
+                  void segnaPagata(id, true).then(() => setChiedoPagata(null))
+                }}
+              >
+                {pagando === chiedoPagata.id ? 'Registro…' : 'Registra il pagamento'}
+              </button>
+              <button
+                className="btn btn-secondario"
+                onClick={() => setChiedoPagata(null)}
+                disabled={pagando === chiedoPagata.id}
+              >
+                Lascia stare
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <h2 style={{ fontSize: 17, marginTop: 26 }}>Richieste salvate</h2>
 
@@ -976,6 +1100,24 @@ export function RichiediPagamento() {
                         ⚠️ Dice «disposto», non «arrivato»: fra i due ci sono
                         due o tre giorni lavorativi in cui il fornitore non lo
                         vede e richiama pensando a un errore. */}
+                    {/* ⚠️ L'ESITO DELL'AVVISO, sulla riga. Un avviso
+                        automatico di cui non si vede l'esito è peggio di
+                        nessun avviso: si crede che il fornitore sappia, e
+                        quello richiama lo stesso tre giorni dopo. */}
+                    {r.avvisoIl && !r.avvisoEsito ? (
+                      <span
+                        className="badge verde"
+                        style={{ marginLeft: 4 }}
+                        title={`Avvisato per ${r.avvisoCanale} il ${new Date(r.avvisoIl).toLocaleString('it-IT')}`}
+                      >
+                        avvisato
+                      </span>
+                    ) : null}
+                    {r.avvisoEsito ? (
+                      <span className="badge rosso" style={{ marginLeft: 4 }} title={r.avvisoEsito}>
+                        non avvisato
+                      </span>
+                    ) : null}
                     {r.pagataIl ? (
                       <button
                         className="btn btn-secondario small"
@@ -1026,7 +1168,15 @@ export function RichiediPagamento() {
                     <button
                       className={`btn small${r.pagataIl ? ' btn-secondario' : ''}`}
                       disabled={pagando === r.id}
-                      onClick={() => void segnaPagata(r.id, !r.pagataIl)}
+                      onClick={() => {
+                        if (r.pagataIl) {
+                          void segnaPagata(r.id, false)
+                          return
+                        }
+                        setRicevuta(null)
+                        setPagatoCon('')
+                        setChiedoPagata(r)
+                      }}
                       title={
                         r.pagataIl
                           ? 'Toglie il segno «pagata». La ricevuta resta: è un documento.'

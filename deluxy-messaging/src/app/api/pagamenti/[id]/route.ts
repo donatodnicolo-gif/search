@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { utenteCorrente } from '@/lib/sessione'
 import { verificaIban } from '@/lib/iban'
+import { avvisaFornitorePagato } from '@/lib/avvisa-pagamento'
 import {
   cosaManca,
   metodoValido,
@@ -54,7 +55,17 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       // documento, e cancellarla per un clic sbagliato sarebbe peggio.
       const tornata = await db.richiestaPagamento.update({
         where: { id },
-        data: { pagataIl: null, pagataDaNome: '', pagatoCon: '' },
+        // ⚠️ Si azzera anche l'avviso: se il pagamento non c'è più, «avvisato»
+        // sarebbe una bugia — e peggio, farebbe credere che il fornitore sappia
+        // una cosa che non è vera.
+        data: {
+          pagataIl: null,
+          pagataDaNome: '',
+          pagatoCon: '',
+          avvisoIl: null,
+          avvisoCanale: '',
+          avvisoEsito: '',
+        },
       })
       return NextResponse.json({ richiesta: tornata })
     }
@@ -80,7 +91,57 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       dati.ricevutaTipo = c.ricevuta.tipo
     }
     const pagata = await db.richiestaPagamento.update({ where: { id }, data: dati })
-    return NextResponse.json({ richiesta: pagata })
+
+    // ── L'ORDINE ESCE DA «IN PAGAMENTO» ──
+    //
+    // ⚠️ Segnalato dall'utente: un ordine con il pagamento fatto continuava a
+    // dire «In pagamento», cioè lo stato di quando lo si stava pagando. Quel
+    // passo è finito, e il successivo nel loro flusso è «attesa consegna».
+    //
+    // ⚠️ SOLO da `in_pagamento`, e quindi solo in avanti. Da uno stato più
+    // avanti non si torna indietro, e da uno più indietro non si salta: se
+    // l'ordine è ancora «da gestire» vuol dire che è successo qualcosa di
+    // diverso da quello che crediamo, e indovinare peggiorerebbe le cose.
+    //
+    // ⚠️ Togliendo il segno «pagata» l'ordine NON torna indietro: era già stato
+    // spostato a mano da qualcuno, forse, e riportarlo a «in pagamento»
+    // cancellerebbe una decisione di una persona per disfare un clic.
+    if (pagata.ordineNumero) {
+      try {
+        await db.ordine.updateMany({
+          where: { numero: pagata.ordineNumero, gestione: 'in_pagamento' },
+          data: { gestione: 'attesa_consegna', gestioneIl: new Date() },
+        })
+      } catch {
+        // lo stato è un contorno: il pagamento resta registrato
+      }
+    }
+
+    // ── L'AVVISO AL FORNITORE, DA SOLO ──
+    //
+    // ⚠️ Chiesto esplicitamente: «l'avviso del pagamento è automatico». Parte
+    // solo perché una persona ha premuto «Pagata» — è la differenza fra
+    // «automatico» e «da solo».
+    //
+    // ⚠️⚠️ Un fallimento qui NON fa fallire la registrazione del pagamento: il
+    // denaro è uscito comunque, e perdere quel fatto perché un messaggio non è
+    // partito sarebbe il peggiore dei due errori. L'esito si scrive e si mostra.
+    let avviso: { canale: string; errore: string } = { canale: '', errore: '' }
+    try {
+      avviso = await avvisaFornitorePagato(id)
+    } catch (e) {
+      avviso = { canale: '', errore: e instanceof Error ? e.message : 'errore' }
+    }
+    const conAvviso = await db.richiestaPagamento.update({
+      where: { id },
+      data: {
+        avvisoIl: new Date(),
+        avvisoCanale: avviso.canale,
+        avvisoEsito: avviso.errore,
+      },
+      select: { avvisoIl: true, avvisoCanale: true, avvisoEsito: true },
+    })
+    return NextResponse.json({ richiesta: { ...pagata, ...conAvviso }, avviso })
   }
 
   // ── CORREGGERE ──

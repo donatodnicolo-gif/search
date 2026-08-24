@@ -178,6 +178,21 @@ model RichiestaPagamento {
   ricevutaDati String   @default("") @db.Text
   ricevutaNome String   @default("")
   ricevutaTipo String   @default("")
+  // ── L'AVVISO AL FORNITORE ──
+  //
+  // Parte da solo quando si segna «pagata». ⚠️ Ma **non sempre riesce**, e la
+  // ragione più frequente non è un guasto: su WhatsApp si può scrivere a
+  // qualcuno solo entro 24 ore da un suo messaggio (Meta, errore 131047). Un
+  // fornitore che non ci scrive da ieri non è raggiungibile in testo libero.
+  //
+  // ⚠️⚠️ Per questo l'esito si SCRIVE e si mostra sulla riga. Un avviso
+  // automatico di cui non si vede l'esito è la cosa peggiore delle due: si
+  // crede che il fornitore sappia, e quello richiama fra tre giorni chiedendo
+  // se è stato pagato — cioè si è persa anche la telefonata che si voleva
+  // evitare.
+  avvisoIl     DateTime?
+  avvisoCanale String   @default("") // whatsapp | email
+  avvisoEsito  String   @default("") @db.Text // vuoto = riuscito
   creatoIl     DateTime @default(now())
 
   @@index([creatoIl])

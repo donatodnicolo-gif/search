@@ -298,13 +298,56 @@ movimento dove non è mai passato.
 `pagatoCon: "fuori_app"`. Il canale si legge **sulla riga**, non solo nel
 titolo: «pagata» da solo non dice dove andare a cercare.
 
-### Avvisare chi abbiamo pagato
+### Il pop-up che registra il pagamento
+
+Premendo **Pagata** si apre una finestra: ricevuta, da dove esce, conferma.
+
+⚠️ La ricevuta si carica **nel momento in cui si registra**, non prima.
+Sceglierla in cima alla pagina e poi ricordarsi di premere la riga giusta è un
+passaggio in più che si sbaglia — e quando si sbaglia la ricevuta finisce sul
+pagamento di un altro fornitore.
+
+⚠️ Si conferma anche **senza** ricevuta: obbligarla vorrebbe dire che i
+pagamenti fatti al telefono, senza un documento in mano, non si registrano
+affatto.
+
+⚠️ Si chiude cliccando **fuori**, non dentro: un clic finito male che butta via
+il file appena caricato fa ricominciare da capo.
+
+### L'ordine risulta pagato
+
+Segnando pagata, l'ordine **esce da «in pagamento»** e passa ad «attesa
+consegna», e sulla scheda in bacheca compare il bollino verde **pagato**.
+
+⚠️ Segnalato dall'utente: un ordine col bonifico già fatto continuava a dire «In
+pagamento», cioè lo stato di quando lo si *stava* pagando.
+
+⚠️ **Solo in avanti**, e solo da `in_pagamento`: da uno stato più avanti non si
+torna indietro, e da uno più indietro non si salta. E togliendo il segno
+«pagata» l'ordine **non** torna indietro — era forse stato spostato a mano da
+qualcuno, e disfare un clic non deve cancellare la decisione di una persona.
+
+### Avvisare chi abbiamo pagato — da solo
 
 Sulle righe pagate c'è **Avvisa**: copia un messaggio pronto per il fornitore.
 
-⚠️⚠️ **Non parte da solo.** Un avviso automatico su un pagamento è una promessa
-fatta a nome nostro senza che nessuno l'abbia riletta — e se la riga era
-sbagliata l'abbiamo appena detto al fornitore.
+⚠️ **Parte da solo** premendo «Pagata» — chiesto esplicitamente. Ma parte solo
+perché **una persona ha premuto**: è la differenza fra «automatico» e «da solo».
+
+⚠️⚠️ **E non sempre riesce.** La ragione più frequente non è un guasto: su
+WhatsApp si può scrivere in testo libero solo entro **24 ore** dall'ultimo
+messaggio di quella persona (Meta, errore 131047). Un fornitore che non ci scrive
+da ieri non è raggiungibile. Per questo l'esito si **scrive** e si mostra sulla
+riga: «avvisato» oppure «non avvisato» col motivo. Un avviso automatico di cui non
+si vede l'esito è peggio di nessun avviso — si crede che il fornitore sappia, e
+quello richiama lo stesso tre giorni dopo.
+
+⚠️ Il recapito si prende dall'**ordine** (`fornitoreTelefono`/`fornitoreEmail`),
+non dalla richiesta: lì c'è l'intestatario del conto, che è una ragione sociale,
+non un contatto. Senza recapito si dice **dove metterlo**, invece di un generico
+«non riuscito».
+
+⚠️ Il vecchio bottone «Avvisa» resta, per rimandarlo a mano.
 
 ⚠️ Dice «abbiamo **disposto** il pagamento», non «è arrivato»: fra i due ci sono
 due o tre giorni lavorativi in cui il fornitore non lo vede e richiama pensando a
