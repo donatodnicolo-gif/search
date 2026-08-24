@@ -113,7 +113,7 @@ Dato salvato: `Utente.appAbilitate String[]` (id delle app), vedi
 | [`src/middleware.ts`](src/middleware.ts) | blocca chi non è loggato; `/utenti`, `/chiavi`, `/stato` solo admin |
 | [`src/components/AppIcon.tsx`](src/components/AppIcon.tsx) | glifi SVG delle app |
 | [`src/app/{page,login,utenti,profilo}`](src/app) | home, login, gestione utenti, profilo |
-| [`src/lib/organico.ts`](src/lib/organico.ts) | legge squadre e persone da Budgets (`GET /api/v1/team`, chiave da env o cassaforte) per la sezione in `/utenti` |
+| [`src/lib/organico.ts`](src/lib/organico.ts) | legge squadre e persone da Budgets (`GET /api/v1/team`; chiave dalla cassaforte, env come ripiego) per la sezione in `/utenti` |
 | [`src/app/utenti/OrganicoBudgets.tsx`](src/app/utenti/OrganicoBudgets.tsx) | la sezione «Squadre e persone»: badge squadra, stato account per persona, bottone «Crea account» che precompila il form |
 | [`src/lib/stato-servizi.ts`](src/lib/stato-servizi.ts) | interroga l'health di ogni app del catalogo (server + database) |
 | [`src/app/stato`](src/app/stato) | pagina **Stato servizi** (admin) |
@@ -259,10 +259,22 @@ in `deluxy-budgets/.env` e `deluxy-partner/.env` locali. ⚠️ Le env `Sensitiv
   attiva**: in produzione `chiave()` legge prima l'**env Sensitive di Vercel**
   (che vince sempre, ed è la stessa che manda Finance) e la Configurazione
   scrive a database solo con `APP_SECRET`, che in prod manca. Il secondo
-  tentativo dell'utente (24/08, riga «budgets / Budget», suffisso `L484`) era
-  proprio una chiave generata così: inerte, Budgets risponde 401 comunque.
+  tentativo dell'utente (24/08, riga «budgets / Budget», suffisso `L484`, poi
+  rigenerata: `DYt4`) era proprio una chiave generata così: inerte, Budgets
+  risponde 401 comunque.
   **La chiave valida è UNA**: quella dell'env, copia leggibile nei `.env`
   locali di `deluxy-budgets` e `deluxy-partner` (suffisso `376f`).
+
+🔴 **Stato della cassaforte al 24/08 ~12:10 — la chiave giusta manca ancora.**
+In `/chiavi` ci sono due righe legate a Budgets, nessuna delle due valida:
+`deluxy-budgets / BUDGETS_APP_PASSWORD` (`••••1w8i`, la password dell'app,
+rietichettata col suo nome vero, da tenere o cancellare) e `budgets / Budget`
+(`••••DYt4`, chiave generata inerte, si può cancellare). Perché la sezione
+di `/utenti` si accenda va creata la voce **`deluxy-budgets` /
+`BUDGETS_API_KEY`** incollando la chiave da `deluxy-budgets/.env`: a
+salvataggio fatto la lista deve mostrarla come **`••••376f`** — è il
+controllo a vista che stavolta è quella giusta. Effetto immediato, senza
+redeploy.
 - **Gli orari di `/chiavi` e dell'«ultimo accesso» in `/utenti` erano UTC**
   (segnalato dall'utente guardando «aggiornata 09:08» alle 11): mancava
   `timeZone: "Europe/Rome"` nei due `dataIt()` — il Cartellino invece lo aveva
