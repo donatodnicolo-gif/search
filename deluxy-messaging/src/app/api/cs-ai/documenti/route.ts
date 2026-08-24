@@ -46,9 +46,12 @@ export async function GET(req: NextRequest) {
   // L'estratto e la lunghezza si chiedono a Postgres, che li calcola sulla
   // colonna senza spedirla: rileggere i testi qui per tagliarli a 240 caratteri
   // rimetterebbe in rete tutto quello che l'omit ha appena tolto.
+  // ⚠️ Lo schema va scritto per esteso: col pooler in modalità transazione il
+  // search_path non è garantito, e un nome nudo dà «relation does not exist» a
+  // intermittenza (trappola già pagata in deluxy-orders, src/lib/db.ts).
   const misure = await db.$queryRaw<{ id: string; assaggio: string; caratteri: number }[]>`
     SELECT id, left(testo, 400) AS assaggio, length(testo)::int AS caratteri
-    FROM "DocumentoAI"
+    FROM "messaging"."DocumentoAI"
   `
   const perId = new Map(misure.map((m) => [m.id, m]))
 

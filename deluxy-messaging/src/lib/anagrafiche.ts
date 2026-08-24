@@ -108,10 +108,16 @@ export async function partnerAttivi(opzioni: {
    */
   stato?: string
 }): Promise<EsitoPartner> {
-  const config = await leggiImpostazioni(['anagraficheUrl', 'anagraficheApiKey'])
-  const chiave = config.anagraficheApiKey
+  // Prima le env (`ANAGRAFICHE_URL`/`ANAGRAFICHE_API_KEY`, standard §4.4),
+  // poi le Impostazioni come ripiego per chi le aveva già lì.
+  const envUrl = (process.env.ANAGRAFICHE_URL ?? '').trim()
+  const envChiave = (process.env.ANAGRAFICHE_API_KEY ?? '').trim()
+  const config: { anagraficheUrl?: string; anagraficheApiKey?: string } = envChiave
+    ? {}
+    : await leggiImpostazioni(['anagraficheUrl', 'anagraficheApiKey'])
+  const chiave = envChiave || config.anagraficheApiKey
   if (!chiave) return { stato: 'non-configurato' }
-  const base = (config.anagraficheUrl || BASE_DEFAULT).replace(/\/+$/, '')
+  const base = (envUrl || config.anagraficheUrl || BASE_DEFAULT).replace(/\/+$/, '')
 
   const chiesto = (opzioni.stato ?? STATO_PARTNER).trim()
   const p = new URLSearchParams({

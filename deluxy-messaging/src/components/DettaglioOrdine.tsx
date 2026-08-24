@@ -56,6 +56,8 @@ type OrdineDettaglio = {
   totale: number
   valuta: string
   statoPagamento: string
+  /** Valorizzato = annullato su Shopify: la scheda lo urla e non si lavora. */
+  annullatoIl?: string | null
   clienteNome: string
   telefono: string
   email: string
@@ -501,6 +503,29 @@ export function DettaglioOrdine({
                   clic su un bottone che non c'è. */}
               {soloArchivio ? ' · archivio storico (sola lettura)' : ''}
             </div>
+            {/* ── ANNULLATO: si urla in testa, non si annota in fondo ──
+                Un ordine annullato su Shopify non si lavora: né smistato a un
+                fornitore, né pagato. Prima l'annullamento era invisibile da qui
+                (Orders lo toglieva dai suoi elenchi e la copia restava valida):
+                ora la sync lo ritira e questa riga lo dice a chi sta per
+                scrivere a un fioraio. */}
+            {ordine?.annullatoIl ? (
+              <div
+                role="alert"
+                style={{
+                  marginTop: 8,
+                  padding: '6px 12px',
+                  borderRadius: 999,
+                  display: 'inline-block',
+                  background: 'color-mix(in srgb, var(--rosso, #B3261E) 12%, transparent)',
+                  color: 'var(--rosso, #B3261E)',
+                  fontWeight: 650,
+                  fontSize: 13,
+                }}
+              >
+                Annullato su Shopify il {dataOraBreve(ordine.annullatoIl)} — non lavorare: niente fornitore, niente pagamento.
+              </div>
+            ) : null}
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             {/* ── Apri in Shopify ──

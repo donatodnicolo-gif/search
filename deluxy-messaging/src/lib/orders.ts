@@ -168,11 +168,17 @@ function normalizza(o: OrdineOrders): OrdineArchivio {
   }
 }
 
-/** Configurazione del ponte verso Orders (URL + chiave), o null se manca. */
+/** Configurazione del ponte verso Orders (URL + chiave), o null se manca.
+ *  Prima le variabili d'ambiente (`ORDERS_URL`/`ORDERS_API_KEY`, standard
+ *  Deluxy §4.4: ispezionabili dal pannello Vercel e ruotabili senza toccare il
+ *  database), poi le Impostazioni come ripiego per chi le aveva già lì. */
 async function configOrders(): Promise<{ base: string; chiave: string } | null> {
+  const envUrl = (process.env.ORDERS_URL ?? '').trim()
+  const envChiave = (process.env.ORDERS_API_KEY ?? '').trim()
+  if (envChiave) return { base: (envUrl || BASE_DEFAULT).replace(/\/$/, ''), chiave: envChiave }
   const c = await leggiImpostazioni(['ordersUrl', 'ordersApiKey'])
   if (!c.ordersApiKey) return null
-  return { base: (c.ordersUrl || BASE_DEFAULT).replace(/\/$/, ''), chiave: c.ordersApiKey }
+  return { base: (envUrl || c.ordersUrl || BASE_DEFAULT).replace(/\/$/, ''), chiave: c.ordersApiKey }
 }
 
 /**
@@ -215,6 +221,46 @@ export async function scaricaOrdiniDaOrders(
   return out
 }
 
+export type OrdineAnnullato = { orderId: string; annullatoIl: string | null }
+
+/**
+ * Gli ordini ANNULLATI su Shopify da `giorni` a oggi, dal canale dedicato di
+ * Orders (`?annullatiDa=`). Serve al ritiro dello specchio: Orders esclude gli
+ * annullati dagli elenchi normali, quindi senza questa chiamata un annullamento
+ * resterebbe invisibile qui per sempre. Non solleva mai: il ritiro è un
+ * contorno della sync, e un elenco vuoto per errore di rete si recupera al
+ * giro dopo.
+ */
+export async function annullatiDaOrders(giorni = 60, maxPagine = 5): Promise<OrdineAnnullato[]> {
+  const c = await configOrders()
+  if (!c) return []
+  const da = new Date(Date.now() - giorni * 24 * 60 * 60 * 1000).toISOString()
+  const out: OrdineAnnullato[] = []
+  try {
+    for (let page = 1; page <= maxPagine; page++) {
+      const p = new URLSearchParams({ annullatiDa: da, page: String(page), limit: '200' })
+      const res = await fetch(`${c.base}/api/v1/ordini?${p}`, {
+        headers: { 'x-api-key': c.chiave },
+        signal: AbortSignal.timeout(20000),
+        cache: 'no-store',
+      })
+      if (!res.ok) return out
+      const corpo = (await res.json().catch(() => ({}))) as {
+        ordini?: { orderId?: string; shopify?: { annullatoIl?: string | null } }[]
+        pagine?: number
+      }
+      const righe = corpo.ordini ?? []
+      for (const o of righe) {
+        if (o.orderId) out.push({ orderId: o.orderId, annullatoIl: o.shopify?.annullatoIl ?? null })
+      }
+      if (righe.length === 0 || page >= (corpo.pagine ?? 1)) break
+    }
+  } catch {
+    // rete o timeout: si riprova al prossimo giro di sync
+  }
+  return out
+}
+
 /**
  * La pipeline degli stati di Orders (chiave → nome e colore): serve a colorare
  * il calendario con gli stessi colori dell'app Ordini.
@@ -242,15 +288,15 @@ export async function statiDaOrders(): Promise<Map<string, { nome: string; color
 
 /** Cerca negli ordini storici di Deluxy Orders. */
 export async function cercaInArchivio(q: string, limit = 50): Promise<EsitoArchivio> {
-  const c = await leggiImpostazioni(['ordersUrl', 'ordersApiKey'])
-  if (!c.ordersApiKey) return { stato: 'non-configurato' }
-  const base = (c.ordersUrl || BASE_DEFAULT).replace(/\/$/, '')
+  const c = await configOrders()
+  if (!c) return { stato: 'non-configurato' }
+  const base = c.base
 
   const p = new URLSearchParams({ q, limit: String(limit) })
   let res: Response
   try {
     res = await fetch(`${base}/api/v1/ordini?${p}`, {
-      headers: { 'x-api-key': c.ordersApiKey },
+      headers: { 'x-api-key': c.chiave },
       signal: AbortSignal.timeout(15000),
       cache: 'no-store',
     })
@@ -294,7 +340,8 @@ export async function cercaInArchivio(q: string, limit = 50): Promise<EsitoArchi
  * semplicemente non mostra quel pezzo.
  */
 export async function ultimoImportOrders(): Promise<string | null> {
-  const c = await leggiImpostazioni(['ordersUrl'])
+  const envUrl = (process.env.ORDERS_URL ?? '').trim()
+  const c = envUrl ? { ordersUrl: envUrl } : await leggiImpostazioni(['ordersUrl'])
   const base = (c.ordersUrl || BASE_DEFAULT).replace(/\/$/, '')
   try {
     const res = await fetch(`${base}/api/v1/health`, {

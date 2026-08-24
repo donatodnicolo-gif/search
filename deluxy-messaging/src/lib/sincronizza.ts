@@ -2,7 +2,7 @@ import { db } from './db'
 import { salvaContattiOrdini } from './contatti'
 import { brandRicercaDaNegozio, prefissoDaNegozio } from './negozi'
 import { salvaImpostazione } from './impostazioni'
-import { scaricaOrdiniDaOrders, statiDaOrders } from './orders'
+import { annullatiDaOrders, scaricaOrdiniDaOrders, statiDaOrders } from './orders'
 
 // Lo scarico degli ordini da Deluxy Orders, in un posto solo: lo chiamano sia il
 // pulsante "Aggiorna" (POST /api/ordini/sync) sia il cron dei 15 minuti
@@ -51,6 +51,7 @@ async function negozioPerBrand(brand: string, cache: Map<string, Negozio>): Prom
 export type EsitoSync = {
   scaricati: number
   nuovi: number
+  annullati: number // righe locali ritirate perché l'ordine è stato annullato su Shopify
   contatti: unknown
 }
 
@@ -226,6 +227,28 @@ export async function sincronizzaOrdini(
     if (Date.now() - esito.creatoIl.getTime() < 5000) nuovi++
   }
 
+  // ── Gli annullati si RITIRANO, non si scoprono per assenza ──
+  //
+  // Orders esclude gli annullati dai suoi elenchi: da qui non arriverebbero mai
+  // più, e la copia resterebbe «valida» per sempre — smistabile a un fornitore,
+  // pagabile (audit 24/08/2026). Il canale è `?annullatiDa=`: si chiede la
+  // stessa finestra dello specchio e si scrive `annullatoIl` sulle righe
+  // locali. Idempotente (si toccano solo le righe non ancora marcate), e un
+  // errore qui non fa fallire la sync: il ritiro riparte al giro dopo.
+  let annullati = 0
+  try {
+    for (const a of await annullatiDaOrders(60)) {
+      const marcato = await db.ordine.updateMany({
+        // il gid Shopify è globale per tutta la piattaforma Shopify: basta lui
+        where: { shopifyId: a.orderId, annullatoIl: null },
+        data: { annullatoIl: a.annullatoIl ? new Date(a.annullatoIl) : new Date() },
+      })
+      annullati += marcato.count
+    }
+  } catch {
+    // il ritiro è un contorno: la sync resta valida
+  }
+
   // Salvataggio automatico dei contatti (salta da solo se Google non è collegato).
   let contatti: unknown
   if (conContatti) {
@@ -236,7 +259,7 @@ export async function sincronizzaOrdini(
     }
   }
 
-  return { scaricati: ordini.length, nuovi, contatti }
+  return { scaricati: ordini.length, nuovi, annullati, contatti }
 }
 
 /**

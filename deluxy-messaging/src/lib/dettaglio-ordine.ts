@@ -35,6 +35,9 @@ export type OrdineDettaglioDto = {
   totale: number
   valuta: string
   statoPagamento: string
+  /** Valorizzato = l'ordine è stato ANNULLATO su Shopify: non si lavora più
+   *  (né fornitore né pagamento). Arriva dal ritiro `?annullatiDa=` di Orders. */
+  annullatoIl?: string | null
   clienteNome: string
   telefono: string
   email: string
@@ -122,6 +125,7 @@ export async function dettaglioOrdineLocale(id: string): Promise<DettaglioOrdine
       totale: ordine.totale,
       valuta: ordine.valuta,
       statoPagamento: ordine.statoPagamento,
+      annullatoIl: ordine.annullatoIl ? ordine.annullatoIl.toISOString() : null,
       clienteNome: ordine.clienteNome,
       telefono: ordine.telefono,
       email: ordine.email,

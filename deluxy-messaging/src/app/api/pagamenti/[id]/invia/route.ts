@@ -27,7 +27,7 @@ export async function POST(_req: NextRequest, { params }: Params) {
 
   if (esito.stato === 'non-configurato') {
     return NextResponse.json(
-      { errore: 'Partner non configurato: URL e chiave in Impostazioni.' },
+      { errore: 'Nessun canale di pagamento configurato: variabili Transactions (o, in ripiego, Partner in Impostazioni).' },
       { status: 400 }
     )
   }
@@ -42,19 +42,20 @@ export async function POST(_req: NextRequest, { params }: Params) {
       inviataIl: new Date(),
       partnerId: esito.id,
       partnerStato: esito.statoRichiesta,
+      canale: esito.canale,
       esitoInvio: '',
     },
   })
   return NextResponse.json({ richiesta: aggiornata, aggiornata: esito.aggiornata })
 }
 
-// Chiede a Partner a che punto è (approvata? rifiutata?).
+// Chiede al canale giusto a che punto è (approvata? rifiutata?).
 export async function GET(_req: NextRequest, { params }: Params) {
   const { id } = await params
   const r = await db.richiestaPagamento.findUnique({ where: { id } })
   if (!r) return NextResponse.json({ errore: 'Richiesta non trovata' }, { status: 404 })
 
-  const stato = await statoRichiestaPartner(r.riferimento)
+  const stato = await statoRichiestaPartner(r.riferimento, r.canale || undefined)
   if (!stato) return NextResponse.json({ errore: 'Stato non disponibile.' }, { status: 502 })
 
   await db.richiestaPagamento.update({ where: { id }, data: { partnerStato: stato.stato } })

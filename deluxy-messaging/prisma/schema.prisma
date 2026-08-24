@@ -103,12 +103,17 @@ model RichiestaPagamento {
   note         String   @default("") @db.Text
   contatto     String   @default("") // come ricontattare chi ha chiesto il pagamento
   linkConversazione String @default("") // il thread da cui nasce la richiesta
-  // Invio a Deluxy Partner, che approva e paga. `riferimento` è la chiave di
-  // idempotenza concordata: rimandare la stessa richiesta non la duplica.
+  // Invio al canale di pagamento. `riferimento` è la chiave di idempotenza
+  // concordata: rimandare la stessa richiesta non la duplica.
   riferimento  String   @unique @default(cuid())
   inviataIl    DateTime?
   partnerId    String   @default("")
   partnerStato String   @default("") // in_attesa | approvata | rifiutata …
+  // Da che canale è passata: `transactions` (il contratto: unica app da cui
+  // esce denaro, richieste firmate) o `finance` (il ponte storico verso Deluxy
+  // Partner, ripiego finché le variabili Transactions non sono impostate).
+  // Vuoto = mai inviata. Serve a chiedere lo stato al canale giusto.
+  canale       String   @default("")
   esitoInvio   String   @default("") @db.Text // errore dell'ultimo tentativo
   // Esito della verifica formale dell'IBAN (checksum mod-97): non ci si fida
   // di quello che estrae l'AI, si controlla.
@@ -341,6 +346,12 @@ model Ordine {
   totale         Float    @default(0)
   valuta         String   @default("EUR")
   statoPagamento String   @default("")
+  // ⚠️ ANNULLATO SU SHOPIFY. Orders esclude gli annullati dai suoi elenchi:
+  // senza questo campo l'annullamento era INVISIBILE da qui — l'ordine copiato
+  // restava «valido» per sempre, smistabile e pagabile. Lo valorizza la sync
+  // leggendo `GET /api/v1/ordini?annullatiDa=` (audit 24/08/2026). Un ordine
+  // con annullatoIl non si lavora: né fornitore, né pagamento.
+  annullatoIl    DateTime?
   clienteNome    String   @default("")
   telefono       String   @default("")
   email          String   @default("")

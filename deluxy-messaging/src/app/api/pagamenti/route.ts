@@ -206,15 +206,19 @@ export async function POST(req: NextRequest) {
           inviataIl: new Date(),
           partnerId: esito.id,
           partnerStato: esito.statoRichiesta,
+          canale: esito.canale,
           esitoInvio: '',
         },
       })
-      invio = { ok: true, messaggio: `Inviata a Partner (${esito.statoRichiesta}).` }
+      invio = {
+        ok: true,
+        messaggio: `Inviata a ${esito.canale === 'transactions' ? 'Transactions' : 'Partner'} (${esito.statoRichiesta}).`,
+      }
     } else if (esito.stato === 'non-configurato') {
-      invio = { ok: false, messaggio: 'Salvata qui: Partner non è configurato (Impostazioni).' }
+      invio = { ok: false, messaggio: 'Salvata qui: nessun canale di pagamento configurato.' }
       await db.richiestaPagamento.update({
         where: { id: richiesta.id },
-        data: { esitoInvio: 'Partner non configurato' },
+        data: { esitoInvio: 'Nessun canale di pagamento configurato' },
       })
     } else {
       invio = { ok: false, messaggio: `Salvata qui, ma non inviata: ${esito.messaggio}` }

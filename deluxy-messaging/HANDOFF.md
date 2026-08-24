@@ -1,8 +1,40 @@
 # Handoff — Deluxy Customer Service
 
-Ultimo aggiornamento: **24/08/2026, ore 19:00** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
-prima, alle 15:10, l'utente ha pubblicato la schermata di consenso Google e il
-conto alla rovescia dei 7 giorni è finito).
+Ultimo aggiornamento: **24/08/2026, sera** — quattro interventi dall'audit
+architettura (rapporto per app nell'artifact «Architettura Dati Deluxy», §7):
+
+1. **Il «Paga» punta a Deluxy Transactions** (`src/lib/transactions.ts` nuovo:
+   chiamate firmate HMAC con nonce, marca temporale e idempotenza — lo stesso
+   client già in produzione in deluxy-partner). Doppio binario dichiarato: con
+   `TRANSACTIONS_URL` + `TRANSACTIONS_API_KEY` + `TRANSACTIONS_HMAC_SECRET`
+   impostate su Vercel ogni richiesta va a Transactions; senza, resta il vecchio
+   ponte verso Finance. ⚠️ Se Transactions è configurata e dà errore NON si
+   ripiega sul canale vecchio: un guasto del canale sicuro non deve far uscire
+   un bonifico dal canale debole in silenzio. Il canale usato si salva sulla
+   richiesta (`RichiestaPagamento.canale`) e lo stato si chiede al canale
+   giusto. 🔴 **Per accendere il canale a norma**: creare in Transactions una
+   chiave API con permesso di scrittura + segreto HMAC per «deluxy-messaging» e
+   mettere le tre variabili su Vercel, poi ripubblicare.
+2. **Gli ordini annullati si RITIRANO**: la sync legge il canale nuovo di
+   Orders (`?annullatiDa=`) e scrive `Ordine.annullatoIl`; la scheda ordine lo
+   urla in testa («non lavorare: niente fornitore, niente pagamento»). Prima
+   l'annullamento era invisibile: Orders toglieva l'ordine dagli elenchi e la
+   copia qui restava valida per sempre.
+3. **Le chiavi delle altre app si leggono prima dalle env** (`ORDERS_URL`/
+   `ORDERS_API_KEY`, `ANAGRAFICHE_URL`/`ANAGRAFICHE_API_KEY`, standard §4.4),
+   con le Impostazioni nel database come ripiego per chi le aveva già lì.
+4. **La raw su `DocumentoAI` è qualificata** (`"messaging"."DocumentoAI"`): col
+   pooler il search_path non è garantito (trappola già pagata in Orders).
+
+**Resta dichiarato e NON fatto**: ridurre le colonne copiate dello specchio
+`Ordine` (clienteNome/telefono/email/indirizzo/totale/stati restano una copia a
+60 giorni del dominio Orders — toccarle vuol dire rivedere tutte le viste;
+l'annullamento intanto non è più muto). Colonne `canale` e `annullatoIl` già
+aggiunte al database (push additivo del 24/08).
+
+Prima, ore 19:00: sezione **Turni** in cima al menu e pagina **Operatori** in
+Qualità; alle 15:10 l'utente ha pubblicato la schermata di consenso Google e il
+conto alla rovescia dei 7 giorni è finito.
 Prima, il 19/08: la **risposta di primo contatto** che parte da sola al primo
 messaggio; i **chargeback**; il **nuovo ordine** per il cliente al telefono.
 

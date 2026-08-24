@@ -1,12 +1,23 @@
 import { leggiImpostazioni } from './impostazioni'
+import { transactionsConfigurata, richiediPagamentoFornitore, statoRichiestaTransactions } from './transactions'
 
-// Ponte verso Deluxy Partner, che approva e paga le richieste.
+// Il «Paga» del Customer Service.
 //
-//   POST {partnerUrl}/api/richieste-pagamento
-//   header: X-API-Key: <chiave>   X-App: deluxy-messaging
+// IL CANALE A NORMA È DELUXY TRANSACTIONS (contratto dell'ecosistema: l'unica
+// app da cui può uscire denaro, richieste firmate HMAC con nonce e idempotenza,
+// autorizzazione umana con secondo fattore). Con TRANSACTIONS_URL /
+// TRANSACTIONS_API_KEY / TRANSACTIONS_HMAC_SECRET impostate, ogni richiesta va
+// lì — e se Transactions risponde con un errore NON si ripiega sul canale
+// vecchio: un guasto del canale sicuro non deve far uscire un bonifico dal
+// canale debole, in silenzio.
 //
-// L'invio è idempotente su (app di origine, `riferimento`): rimandare la stessa
-// richiesta la aggiorna finché è "in_attesa", e non la duplica mai.
+// FINCHÉ quelle variabili non ci sono, resta il vecchio ponte verso Deluxy
+// Partner (`POST {partnerUrl}/api/richieste-pagamento`, sola chiave): serviva
+// prima dell'audit del 24/08/2026 e resta come ripiego dichiarato, così il
+// trasloco non blocca i pagamenti. L'esito dice sempre da che canale è passato.
+//
+// L'invio è idempotente sul `riferimento` in entrambi i canali: rimandare la
+// stessa richiesta non la duplica mai.
 
 const BASE_DEFAULT = 'https://deluxy-partner.vercel.app'
 const APP = 'deluxy-messaging'
@@ -30,17 +41,38 @@ export type DatiRichiesta = {
 }
 
 export type EsitoInvio =
-  | { stato: 'ok'; id: string; statoRichiesta: string; aggiornata?: boolean }
+  | { stato: 'ok'; id: string; statoRichiesta: string; aggiornata?: boolean; canale: 'transactions' | 'finance' }
   | { stato: 'non-configurato' }
   | { stato: 'errore'; messaggio: string }
 
-/** Manda la richiesta a Partner. L'importo dev'essere maggiore di zero. */
+/** Manda la richiesta di pagamento: a Transactions se configurata (canale a
+ *  norma), altrimenti al vecchio ponte Partner. L'importo dev'essere > 0. */
 export async function inviaRichiestaPagamento(d: DatiRichiesta): Promise<EsitoInvio> {
+  if (!(d.importo > 0)) {
+    return { stato: 'errore', messaggio: 'Si accettano solo richieste con un importo maggiore di zero.' }
+  }
+
+  if (transactionsConfigurata()) {
+    const note = [d.note, d.contatto && `Contatto: ${d.contatto}`, d.linkConversazione && `Conversazione: ${d.linkConversazione}`]
+      .filter(Boolean)
+      .join('\n')
+    const t = await richiediPagamentoFornitore({
+      riferimento: d.riferimento,
+      importo: d.importo,
+      beneficiario: d.beneficiario,
+      iban: d.iban,
+      causale: d.causale,
+      note: note || undefined,
+    })
+    if (t.ok) {
+      return { stato: 'ok', id: t.riferimento, statoRichiesta: t.stato, aggiornata: t.ripetuta, canale: 'transactions' }
+    }
+    // Niente ripiego sul canale vecchio: l'errore si mostra e si riprova.
+    return { stato: 'errore', messaggio: t.errore }
+  }
+
   const c = await config()
   if (!c) return { stato: 'non-configurato' }
-  if (!(d.importo > 0)) {
-    return { stato: 'errore', messaggio: 'Partner accetta solo richieste con un importo maggiore di zero.' }
-  }
 
   let res: Response
   try {
@@ -94,13 +126,22 @@ export async function inviaRichiestaPagamento(d: DatiRichiesta): Promise<EsitoIn
     id: corpo.id,
     statoRichiesta: corpo.stato ?? 'in_attesa',
     aggiornata: corpo.aggiornata,
+    canale: 'finance',
   }
 }
 
-/** Chiede a Partner a che punto è una richiesta già inviata. */
+/** A che punto è una richiesta già inviata. Il `canale` è quello registrato
+ *  all'invio: se manca (richieste vecchie) si prova prima Transactions quando è
+ *  configurata, e si ripiega su Partner — solo per la LETTURA dello stato. */
 export async function statoRichiestaPartner(
-  riferimento: string
+  riferimento: string,
+  canale?: string
 ): Promise<{ stato: string; decisoIl: string | null } | null> {
+  if (canale === 'transactions' || (!canale && transactionsConfigurata())) {
+    const t = await statoRichiestaTransactions(riferimento)
+    if (t) return t
+    if (canale === 'transactions') return null
+  }
   const c = await config()
   if (!c) return null
   try {
