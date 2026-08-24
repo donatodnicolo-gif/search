@@ -133,6 +133,19 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     data.csGestioneDa = body.csGestioneDa == null ? "" : String(body.csGestioneDa).slice(0, 120);
   }
 
+  // ── SMISTAMENTO: il CS decide se l'ordine può andare in automatico ──
+  //
+  // "manuale" = riservato al Customer Service: l'orders-sync della piattaforma
+  // lo salta. "" (o "auto") = può andare in automatico. È l'interruttore di
+  // governo del giro: l'automatico non scavalca mai il decisore.
+  if ("smistamento" in body) {
+    const s = body.smistamento == null ? "" : String(body.smistamento).trim().toLowerCase();
+    if (s && s !== "manuale" && s !== "auto") {
+      return erroreApi(400, 'smistamento: si accetta "manuale", "auto" o vuoto');
+    }
+    data.smistamento = s === "manuale" ? "manuale" : "";
+  }
+
   // ── EVASIONE E CONSEGNA, PROPOSTE DAL CUSTOMER SERVICE (Standard §7.4) ──
   //
   // Il percorso A (fornitore in chat, consegna lui): il CS ci dice che

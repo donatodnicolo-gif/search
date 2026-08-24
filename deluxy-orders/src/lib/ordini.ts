@@ -316,6 +316,9 @@ export function serializzaOrdine(
     // è stato CONSEGNATO davvero (cosa diversa dalla consegna richiesta qui
     // sopra), e il MARGINE — la formula vive solo in questa app: null = non
     // calcolabile, `parziale` = manca un ingrediente della consegna nostra.
+    // `smistamento` è il GOVERNO: "manuale" = riservato al Customer Service,
+    // e l'orders-sync della piattaforma lo salta.
+    smistamento: o.smistamento || null,
     evasione: o.evasione || null,
     consegnata: o.consegnataIl
       ? { il: o.consegnataIl.toISOString(), da: o.consegnataDa || null }

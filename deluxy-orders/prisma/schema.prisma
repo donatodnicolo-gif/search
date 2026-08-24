@@ -501,6 +501,17 @@ model Ordine {
   csGestioneDa String    @default("") // nome (denormalizzato) di chi l'ha deciso
   csGestioneIl DateTime?
 
+  // ── SMISTAMENTO: automatico o riservato al Customer Service ──
+  //
+  // L'interruttore di GOVERNO del giro (deciso dall'utente il 24/08/2026): lo
+  // smistamento automatico della piattaforma non deve poter scavalcare il
+  // decisore. `""` = può andare in automatico (default); `"manuale"` = il CS
+  // se lo tiene, e l'orders-sync della piattaforma DEVE saltarlo (lo legge da
+  // qui: il registro è il punto di incontro, CS e piattaforma non si parlano
+  // direttamente). Lo scrive il CS via PATCH; un ordine già evaso per
+  // fornitore diretto è comunque fuori dall'automatico, con o senza flag.
+  smistamento String @default("")
+
   // ── EVASIONE E CONSEGNA — il ritorno del giro dell'ordine (Standard §7.4) ──
   //
   // Da che strada l'ordine è stato evaso:

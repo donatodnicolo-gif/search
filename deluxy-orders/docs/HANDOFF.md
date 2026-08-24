@@ -37,6 +37,15 @@ Quattro pezzi nuovi, costruiti insieme al canale app-to-app della piattaforma:
    consegna nostra); `null` = manca il costo, `parziale` = manca un
    ingrediente della consegna. La formula vive SOLO qui.
 
+5. **Il GOVERNO dello smistamento** (`Ordine.smistamento`, deciso dall'utente):
+   `"manuale"` = il Customer Service se lo tiene e l'orders-sync della
+   piattaforma lo salta (esito `riservato-al-cs`, mai un salto silenzioso);
+   `""` = può andare in automatico. Lo scrive il CS via PATCH
+   (`smistamento: "manuale" | "auto"`), esce da `serializzaOrdine`, e la
+   piattaforma lo legge da qui: il registro è il punto d'incontro, CS e
+   piattaforma non si parlano direttamente. Un ordine già evaso per
+   fornitore diretto è comunque fuori dall'automatico, con o senza flag.
+
 **Deciso e scartato**: il `productId` Shopify sulle righe — richiederebbe lo
 scope `read_products` che ha già fatto fallire import interi (ACCESS_DENIED,
 commento in shopify.ts); lo smistamento della piattaforma matcha per SKU e
