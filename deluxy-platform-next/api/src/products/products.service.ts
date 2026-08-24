@@ -72,7 +72,31 @@ export class ProductsService {
         : {};
     // Archivio: sezione separata da `active`. Di default si vedono i NON
     // archiviati (compresi i disattivati, che restano visibili).
-    const scope = { ...roleScope, archived: query.archived === true };
+    // I filtri Sì/No entrano solo se qualcuno li ha chiesti: un `undefined`
+    // messo nel `where` di Prisma non filtra, ma un `false` sì — e sono cose
+    // diverse («tutti» contro «solo i no»).
+    const siNo: Record<string, boolean> = {};
+    for (const [campo, valore] of [
+      ['active', query.active],
+      ['approved', query.approved],
+      ['isSuperProvince', query.superProvince],
+      ['controlStock', query.inStock],
+    ] as const) {
+      if (valore !== undefined) siNo[campo] = valore;
+    }
+    // «Prodotto unico» e «Super prodotto» non sono flag ma valori di `type`:
+    // nel legacy erano `uniqueProduct` e `isSuperProduct`, qui sono
+    // ProductType.UNICO e ProductType.SUPERPRODOTTO.
+    const perTipo: Record<string, unknown> = {};
+    if (query.unique !== undefined) {
+      perTipo['type'] = query.unique ? ProductType.UNICO : { not: ProductType.UNICO };
+    }
+    if (query.superProduct !== undefined) {
+      perTipo['type'] = query.superProduct
+        ? ProductType.SUPERPRODOTTO
+        : { not: ProductType.SUPERPRODOTTO };
+    }
+    const scope = { ...roleScope, archived: query.archived === true, ...siNo, ...perTipo };
     const search = textSearch(query.q, ProductsService.SEARCH_FIELDS);
     // scope e ricerca vanno in AND: la ricerca non deve allargare la visibilita'
     const where = search ? { AND: [scope, search] } : scope;

@@ -617,7 +617,19 @@
     "tabActive": "Products",
     "tabArchive": "Archive",
     "archive": "Archive",
-    "restore": "Restore"
+    "restore": "Restore",
+    "filter": {
+      "all": "all",
+      "yes": "Yes",
+      "no": "No",
+      "clear": "Clear filters",
+      "active": "Active",
+      "approved": "Approved",
+      "unique": "Unique product",
+      "superProduct": "Super product",
+      "superProvince": "Super province",
+      "inStock": "In stock"
+    }
   },
   "categories": {
     "title": "Categories",

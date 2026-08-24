@@ -617,7 +617,19 @@
     "tabActive": "Prodotti",
     "tabArchive": "Archivio",
     "archive": "Archivia",
-    "restore": "Ripristina"
+    "restore": "Ripristina",
+    "filter": {
+      "all": "tutti",
+      "yes": "Sì",
+      "no": "No",
+      "clear": "Azzera filtri",
+      "active": "Attivo",
+      "approved": "Approvato",
+      "unique": "Prodotto unico",
+      "superProduct": "Super prodotto",
+      "superProvince": "Super provincia",
+      "inStock": "In magazzino"
+    }
   },
   "categories": {
     "title": "Categorie",

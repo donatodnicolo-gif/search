@@ -41,6 +41,28 @@ import { SavedViewsComponent } from '../core/saved-views.component';
       </button>
     </div>
 
+    <!-- Filtri Sì/No come nella lista prodotti dell'app reale (manuale §3.6):
+         Attivo, Approvato, Prodotto Unico, Super Prodotto, Super Provincia,
+         In Magazzino. Sono a TRE stati: vuoto = tutti, Sì, No. Senza il terzo
+         stato «mostrami i non approvati» non sarebbe esprimibile. -->
+    <div class="filtri">
+      @for (f of filtri; track f.chiave) {
+        <label class="filtro"><span>{{ f.etichetta | translate }}</span>
+          <select class="field" [ngModel]="valoreFiltro(f.chiave)"
+                  (ngModelChange)="cambiaFiltro(f.chiave, $event)">
+            <option value="">{{ 'products.filter.all' | translate }}</option>
+            <option value="true">{{ 'products.filter.yes' | translate }}</option>
+            <option value="false">{{ 'products.filter.no' | translate }}</option>
+          </select>
+        </label>
+      }
+      @if (filtriAttivi()) {
+        <button type="button" class="btn btn-secondary mini" (click)="azzeraFiltri()">
+          {{ 'products.filter.clear' | translate }}
+        </button>
+      }
+    </div>
+
     @if (loading()) { <div class="card state-card">{{ 'products.loading' | translate }}</div> }
     @else if (error()) { <div class="error-card">{{ error() }}</div> }
     @else if (products().length === 0) {
@@ -130,6 +152,12 @@ import { SavedViewsComponent } from '../core/saved-views.component';
       .tab { border: 1px solid var(--hairline-strong); background: var(--surface); border-radius: 980px; padding: 6px 16px; font-size: 13px; font-weight: 550; font-family: inherit; color: var(--text); cursor: pointer; }
       .tab:hover { background: var(--fill); }
       .tab.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+      /* Filtri Sì/No */
+      .filtri { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; margin-bottom: 14px; }
+      .filtro { display: flex; flex-direction: column; gap: 3px; }
+      .filtro span { font-size: 11px; color: var(--text-tertiary); padding-left: 2px; }
+      .filtro .field { padding: 6px 10px; font-size: 13px; }
+      .filtri .btn.mini { padding: 6px 12px; font-size: 13px; }
       /* Intestazioni ordinabili */
       th.sortable { cursor: pointer; user-select: none; }
       th.sortable:hover { color: var(--text); }
@@ -183,6 +211,42 @@ export class ProductsListComponent {
 
   // ---- Archivio: stato separato da "Attivo" (un disattivato resta in lista) ----
   readonly archived = signal(false);
+
+  /**
+   * I filtri Sì/No, nell'ordine in cui li mostra l'app reale (manuale §3.6).
+   *
+   * Il valore è una STRINGA a tre stati ('' | 'true' | 'false'), non un
+   * booleano: «tutti» e «solo i no» devono restare distinguibili, se no
+   * chiedere i 19.789 prodotti non approvati sarebbe impossibile.
+   */
+  readonly filtri = [
+    { chiave: 'active', etichetta: 'products.filter.active' },
+    { chiave: 'approved', etichetta: 'products.filter.approved' },
+    { chiave: 'unique', etichetta: 'products.filter.unique' },
+    { chiave: 'superProduct', etichetta: 'products.filter.superProduct' },
+    { chiave: 'superProvince', etichetta: 'products.filter.superProvince' },
+    { chiave: 'inStock', etichetta: 'products.filter.inStock' },
+  ] as const;
+
+  readonly siNo = signal<Record<string, string>>({});
+
+  valoreFiltro(chiave: string): string { return this.siNo()[chiave] ?? ''; }
+
+  cambiaFiltro(chiave: string, valore: string): void {
+    const nuovi = { ...this.siNo() };
+    if (valore) nuovi[chiave] = valore; else delete nuovi[chiave];
+    this.siNo.set(nuovi);
+    this.page.set(1);
+    this.load();
+  }
+
+  filtriAttivi(): boolean { return Object.keys(this.siNo()).length > 0; }
+
+  azzeraFiltri(): void {
+    this.siNo.set({});
+    this.page.set(1);
+    this.load();
+  }
 
   setArchived(value: boolean): void {
     if (this.archived() === value) return;
@@ -277,6 +341,14 @@ export class ProductsListComponent {
       dir: this.dir(),
     };
     if (this.query.trim()) params['q'] = this.query.trim();
+    // ⚠️ `archived` non veniva mandato: il tab Archivio cambiava solo
+    // l'evidenziazione e la lista restava quella dei non archiviati. Sembrava
+    // che la sezione non esistesse, mentre l'API rispondeva correttamente
+    // (15.135 attivi / 6.752 archiviati) a chi il parametro glielo passava.
+    if (this.archived()) params['archived'] = 'true';
+    for (const [chiave, valore] of Object.entries(this.siNo())) {
+      if (valore !== '') params[chiave] = valore;
+    }
     this.http
       .get<{ items: ProductRef[]; total: number }>(`${environment.apiUrl}/products`, { params })
       .subscribe({
