@@ -705,7 +705,7 @@
       "name": "Rule name",
       "dailyRule": "Daily Number Rule",
       "dailyCount": "Deliveries per day",
-      "totalRule": "Total Number Rule",
+      "totalRule": "Carnet (Total Deliveries)",
       "totalCount": "Total deliveries",
       "periodStart": "Valid from",
       "periodEnd": "Valid to",

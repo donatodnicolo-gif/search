@@ -705,7 +705,7 @@
       "name": "Nome regola",
       "dailyRule": "Regola giornaliera (Daily Number Rule)",
       "dailyCount": "N° consegne al giorno",
-      "totalRule": "Regola totale (Total Number Rule)",
+      "totalRule": "Carnet (Totale Consegne)",
       "totalCount": "N° consegne totali",
       "periodStart": "Valida dal",
       "periodEnd": "Valida al",
