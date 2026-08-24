@@ -172,7 +172,10 @@ Ogni scrittura via API è un **merge governato per campo**, mai una sostituzione
 - **Bloccati** (curati dal team): `stato` (commerciale), `interessi` mai sovrascritti; `account`/`categoria`
   solo se vuoti (categoria: anche se `DA CLASSIFICARE`/`ALTRO`).
 - **Fattuali** (nome, ragioneSociale, città, indirizzo, email, telefono, pIva, CF, ultimaVisita,
-  **statoFinanziario**, **statoAnalisi**, **statoFornitore**: i primi due nascono in FINANCE, quindi le app li scrivono —
+  **statoFinanziario**, **statoAnalisi**, **statoFornitore** ⚠️ con una guardia: **«da_evitare» non lo
+  sovrascrive nessuna app**, nemmeno con asOf più fresco — è una bocciatura del team e il pagamento
+  di un arretrato non riabilita un fornitore bocciato; si toglie solo dalla UI del registro (24/08/2026).
+  I primi due nascono in FINANCE, quindi le app li scrivono —
   `da_verificare` vale come casella vuota; fiducia `partner` = 70, sotto platform, sopra scout):
   **vince il più fresco** (`asOf`) o, a parità, la sorgente più **autorevole** (ranking di
   fiducia: ui 100 > platform 80 > scout 60 > suppliers 55 > hubspot 40 > … > sconosciuta 20).
@@ -546,7 +549,10 @@ Scope chiavi (4 oltre la sola lettura; catalogo leggibile in `src/lib/chiavi.ts`
   bastano due click, tipologia «Feedback D2C».
 Le app con chiave: `deluxy-platform` (scrittura), **`deluxy-partner` (scrittura dal 20/07/2026**,
 ruotata da lettura → la vecchia read key non vale più, aggiornare `ANAGRAFICHE_API_KEY` in
-deluxy-partner sia per lettura che scrittura), `deluxy-suppliers`, `deluxy-scout` (lettura). Il
+deluxy-partner sia per lettura che scrittura), `deluxy-suppliers`, `deluxy-scout` (lettura),
+**`deluxy-messaging` (dal 24/08/2026 driver di prima parte** — era sola lettura per la ricerca
+fornitori; promossa a `scritturaPartner` perché il Customer Service manda i **fornitori pagati**
+come `statoFornitore: "abituale"` via POST upsert; niente PATCH/DELETE). Il
 **nome** della chiave = la sorgente nella provenienza/ranking. La cascata d'identità in scrittura:
 xref → platformId → P.IVA/CF → nome+città.
 

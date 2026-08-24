@@ -287,7 +287,11 @@ azienda può avere entrambi, ed è il motivo per cui non sta nel funnel commerci
 `statoFornitore = "segnalato"` — il gradino zero: trovato e mandato qui, nessuno
 ci ha ancora lavorato. Solo se il campo è vuoto: uno stato già deciso dal team
 non viene degradato. Le altre app possono mandare direttamente un valore più
-preciso nel body (`statoFornitore`), che essendo fattuale passa dal merge.
+preciso nel body (`statoFornitore`), che essendo fattuale passa dal merge —
+è quello che fa il **Customer Service** quando paga un fornitore (manda
+`"abituale"`: l'ha pagato, è del nostro giro).
+⚠️ **«da_evitare» non lo sovrascrive nessuna app**, nemmeno con `asOf` più
+fresco: è una bocciatura del team, e si toglie solo dalla UI del registro.
 
 In scrittura `statoAnalisi` accetta anche le forme di FINANCE (`"P.P."`,
 `"Nuovo"`, `"Dismesso"`) e le normalizza sugli slug. I cambi delle cinque

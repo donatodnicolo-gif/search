@@ -142,6 +142,16 @@ export function calcolaMerge(
       continue;
     }
 
+    // «Da evitare» è una bocciatura del TEAM: nessuna app la ribalta, nemmeno
+    // con un asOf più fresco (24/08/2026). Il caso concreto: il Customer
+    // Service ripaga un arretrato a un fornitore bocciato e manderebbe
+    // «abituale» — il pagamento è un fatto, la bocciatura una decisione, e
+    // qui vince la decisione. Si toglie solo dalla UI del registro.
+    if (campo === "statoFornitore" && esistente.statoFornitore === "da_evitare") {
+      ignorati.push(campo);
+      continue;
+    }
+
     if ((FATTUALI as readonly string[]).includes(campo)) {
       const attuale = esistente[campo];
       if (vuotoPerMerge(campo, attuale)) {
