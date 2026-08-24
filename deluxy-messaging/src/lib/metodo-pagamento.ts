@@ -240,6 +240,34 @@ export function pesoScritto(byte: number): string {
  * telefonare. Un'etichetta che non distingue fra le due fa perdere tempo su
  * tutte e due.
  */
+/**
+ * ⚠️⚠️ QUESTA ASSENZA È NORMALE, e non va segnalata.
+ *
+ * Una richiesta di pagamento ha un IBAN, **non un telefono**: i recapiti del
+ * fornitore stanno sull'ordine, e spesso non ci sono. Quindi «non l'ho
+ * avvisato» qui non è un guasto — è la condizione normale di quasi ogni riga.
+ *
+ * Segnalato dall'utente guardando la sua tabella: quattro righe su quattro con
+ * un bollino rosso «non avvisato». Un avviso rosso che compare sempre non
+ * avverte di niente: insegna a non guardare i bollini rossi, e il giorno che ne
+ * compare uno vero non lo vede nessuno.
+ *
+ * ⚠️ Resta invece segnalato il RIFIUTO vero: il recapito c'era, il messaggio è
+ * partito e qualcuno l'ha respinto (la finestra di 24 ore di WhatsApp, una
+ * casella che non accetta). Lì il fornitore crede di non essere stato pagato, e
+ * tacerlo sarebbe la bugia che il bollino esisteva per impedire.
+ */
+export function assenzaNormale(esito: string): boolean {
+  const e = (esito || '').toLowerCase()
+  if (!e) return true
+  return (
+    e.includes('non è collegata a un ordine') ||
+    e.includes('non e collegata a un ordine') ||
+    e.includes('né telefono né email') ||
+    e.includes('ne telefono ne email')
+  )
+}
+
 export function perchePersoAvviso(esito: string): string {
   const e = (esito || '').toLowerCase()
   if (!e) return ''

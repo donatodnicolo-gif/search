@@ -25,5 +25,40 @@ for (const [dentro, atteso] of casi) {
 const ignoto = perchePersoAvviso('Il numero del fornitore non è su WhatsApp.')
 console.log(`${ignoto.startsWith('Il numero') ? 'ok  ' : 'NO  '} motivo sconosciuto → si mostra il vero: «${ignoto}»`)
 if (!ignoto.startsWith('Il numero')) male++
-console.log(male === 0 ? '\nTutto a posto.' : `\n${male} sbagliati.`)
+
+// ══════════════════════════════════════════════════════════════════════════
+// ⚠️⚠️ QUANDO L ASSENZA E NORMALE, NON SI SEGNALA
+//
+// Segnalato dall utente guardando la sua tabella: quattro righe su quattro col
+// bollino rosso «non avvisato». Una richiesta di pagamento ha un IBAN, NON un
+// telefono — i recapiti stanno sull ordine, dove spesso non ci sono — quindi
+// quella e la condizione normale, non un guasto. Un allarme che compare sempre
+// insegna a non guardare gli allarmi.
+// ══════════════════════════════════════════════════════════════════════════
+import { assenzaNormale } from '../src/lib/metodo-pagamento'
+
+console.log('\n══ NORMALE, QUINDI MUTO ══')
+const normali = [
+  'Questa richiesta non è collegata a un ordine, quindi non so a chi scrivere.',
+  'Del fornitore non abbiamo né telefono né email.',
+  '',
+]
+for (const x of normali) {
+  const ok = assenzaNormale(x)
+  if (!ok) male++
+  console.log(`${ok ? 'ok  ' : 'NO  '} muto: «${x.slice(0, 46) || '(nessun esito)'}»`)
+}
+
+console.log('\n══ UN RIFIUTO VERO SI DICE ANCORA ══')
+const veri = [
+  'WhatsApp ha rifiutato (131047): è la finestra di 24 ore di WhatsApp.',
+  'Nessuna casella di posta collegata.',
+  'Il numero del fornitore non è su WhatsApp.',
+]
+for (const x of veri) {
+  const ok = !assenzaNormale(x)
+  if (!ok) male++
+  console.log(`${ok ? 'ok  ' : 'NO  '} si vede: «${x.slice(0, 46)}»`)
+}
+console.log(male === 0 ? '\nTutto a posto.' : `\n${male} SBAGLIATI.`)
 process.exit(male === 0 ? 0 : 1)

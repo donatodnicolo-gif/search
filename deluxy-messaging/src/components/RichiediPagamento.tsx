@@ -15,6 +15,7 @@ import {
   nomeMetodo,
   messaggioPagato,
   nomeUscita,
+  assenzaNormale,
   perchePersoAvviso,
   pesoScritto,
   ricevutaAccettabile,
@@ -456,9 +457,13 @@ export function RichiediPagamento() {
         !pagata
           ? 'Tolto il segno «pagata».'
           : [
+              // ⚠️ Anche qui l'assenza NORMALE si tace: il pagamento non porta
+              // i recapiti del fornitore, quindi «l'avviso non è partito» è la
+              // condizione di quasi ogni riga e non una notizia. L'avviso lo
+              // manda una persona col bottone «Avvisa».
               av && !av.errore
                 ? `Registrata, e il fornitore e' stato avvisato per ${av.canale}.`
-                : av && av.errore
+                : av && av.errore && !assenzaNormale(av.errore)
                   ? `Registrata. ⚠️ L'avviso NON e' partito: ${av.errore}`
                   : 'Segnata come pagata.',
               ric && ric.fatto
@@ -1227,7 +1232,21 @@ export function RichiediPagamento() {
                         avvisato
                       </span>
                     ) : null}
-                    {r.avvisoEsito ? (
+                    {/* ⚠️⚠️ «Non avvisato» NON si scrive quando l'assenza è
+                        normale — cioè quasi sempre: una richiesta di pagamento
+                        ha un IBAN, non un telefono, e i recapiti del fornitore
+                        stanno sull'ordine, dove spesso non ci sono.
+                        Segnalato dall'utente guardando la sua tabella: quattro
+                        righe su quattro col bollino rosso. Un allarme che
+                        compare sempre non avverte di niente — insegna a non
+                        guardare i bollini rossi, e il giorno che ne compare uno
+                        vero non lo vede nessuno.
+                        ⚠️ Il RIFIUTO vero resta: il recapito c'era, il messaggio
+                        è partito e l'hanno respinto (la finestra di 24 ore di
+                        WhatsApp). Lì il fornitore crede di non essere stato
+                        pagato, e tacerlo sarebbe la bugia che questo bollino
+                        esisteva per impedire. */}
+                    {r.avvisoEsito && !assenzaNormale(r.avvisoEsito) ? (
                       <span className="badge rosso" style={{ marginLeft: 4 }} title={r.avvisoEsito}>
                         {/* ⚠️ Il MOTIVO sulla riga, non solo nel titolo: sul
                             telefono il passaggio del mouse non esiste, e «non
