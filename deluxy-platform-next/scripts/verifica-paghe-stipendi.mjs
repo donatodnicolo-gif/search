@@ -17,7 +17,7 @@ const js = ts.transpileModule(
   src.slice(src.indexOf('export type ConsegnaDaPagare'), src.indexOf('@Injectable()')),
   { compilerOptions: { target: 'ES2022', module: 'ESNext' } }).outputText;
 fs.writeFileSync('C:/Users/nicol/app/deluxy-platform-next/scripts/_paga.mjs', js);
-const { pagaConsegna } = await import('./_paga.mjs');
+const { pagaConsegna, scegliListinoValet } = await import('./_paga.mjs');
 
 const riga = fs.readFileSync('C:/Users/nicol/app/deluxy-tasks/.env', 'utf8')
   .split(/\r?\n/).find((l) => l.startsWith('DATABASE_URL='));
@@ -38,16 +38,19 @@ const dd = await db.delivery.findMany({ where, select: {
   valetDeliveryRule: { select: { tiers: true, active: true } },
   _count: { select: { pickups: true } } } });
 
-const ids = [...new Set(dd.map((d) => d.valetServiceId).filter(Boolean))];
-const listini = new Map((await db.valetService.findMany({
-  where: { id: { in: ids } },
+const valetIds = [...new Set(dd.map((d) => d.valetId).filter(Boolean))];
+const righe = await db.valetService.findMany({
+  where: { valetId: { in: valetIds } },
   include: { serviceType: { select: { pricingModel: true, minHours: true } } },
-})).map((r) => [r.id, r]));
+});
+const perId = new Map(righe.map((r) => [r.id, r]));
+const perValet = new Map();
+for (const r of righe) { const a = perValet.get(r.valetId) ?? []; a.push(r); perValet.set(r.valetId, a); }
 
 let tot = 0, contanti = 0, senza = 0, daListino = 0, daConsegna = 0;
 const perModello = {};
 for (const d of dd) {
-  const l = listini.get(d.valetServiceId ?? '') ?? null;
+  const l = scegliListinoValet(d, perId, perValet);
   const m = l?.serviceType?.pricingModel ?? d.serviceType?.pricingModel ?? '—';
   perModello[m] ??= { n: 0, eur: 0, senza: 0, recuperate: 0, recuperateEur: 0 };
   perModello[m].n++;

@@ -266,7 +266,7 @@ export class InvoicesService {
         distanceKm: true, extraKm: true, extraOutOfCity: true,
         serviceType: { select: { pricingModel: true, basePrice: true, perPiecePrice: true, minHours: true } },
         // La regola carnet: sconto sulla fattura, o «non fatturare affatto».
-        deliveryRule: { select: { partnerBillingAdjustment: true, toBill: true } },
+        deliveryRule: { select: { name: true, partnerBillingAdjustment: true, toBill: true } },
       },
     });
 
@@ -299,7 +299,7 @@ export class InvoicesService {
 
     type Riga = {
       partnerId: string; deliveriesCount: number; netAmount: number;
-      unpricedCount: number; from: Date; to: Date;
+      unpricedCount: number; ruleExcludedCount: number; from: Date; to: Date;
       /** Quante consegne prendono il prezzo dal listino invece che da sé. */
       fromListino: number;
       modelli: Record<string, number>;
@@ -314,7 +314,7 @@ export class InvoicesService {
       );
       const r = per.get(d.partnerId) ?? {
         partnerId: d.partnerId, deliveriesCount: 0, netAmount: 0, unpricedCount: 0,
-        from: d.date, to: d.date, fromListino: 0, modelli: {},
+        ruleExcludedCount: 0, from: d.date, to: d.date, fromListino: 0, modelli: {},
       };
       r.deliveriesCount++;
       const m = d.serviceType?.pricingModel ?? '—';
@@ -322,6 +322,11 @@ export class InvoicesService {
       if (calcolo) {
         r.netAmount += calcolo.amount;
         if (calcolo.origine === 'listino') r.fromListino++;
+      } else if ((d as any).deliveryRule?.toBill === false) {
+        // Non e' un buco: una regola carnet dice di non fatturarla perche' il
+        // carnet e' gia' stato pagato in anticipo. Contarla fra i dati
+        // mancanti la farebbe sembrare un problema da risolvere.
+        r.ruleExcludedCount++;
       } else r.unpricedCount++;
       if (d.date < r.from) r.from = d.date;
       if (d.date > r.to) r.to = d.date;
@@ -342,6 +347,7 @@ export class InvoicesService {
           partner: { id: r.partnerId, insegna: nome.get(r.partnerId) ?? '—' },
           deliveriesCount: r.deliveriesCount,
           unpricedCount: r.unpricedCount,
+          ruleExcludedCount: r.ruleExcludedCount,
           fromListino: r.fromListino,
           modelli: r.modelli,
           netAmount,
@@ -359,6 +365,7 @@ export class InvoicesService {
         partners: voci.length,
         deliveriesCount: voci.reduce((s, v) => s + v.deliveriesCount, 0),
         unpricedCount: voci.reduce((s, v) => s + v.unpricedCount, 0),
+        ruleExcludedCount: voci.reduce((s, v) => s + v.ruleExcludedCount, 0),
         fromListino: voci.reduce((s, v) => s + v.fromListino, 0),
         netAmount: Math.round(voci.reduce((s, v) => s + v.netAmount, 0) * 100) / 100,
         totalAmount: Math.round(voci.reduce((s, v) => s + v.totalAmount, 0) * 100) / 100,
@@ -392,7 +399,7 @@ export class InvoicesService {
         distanceKm: true, extraKm: true, extraOutOfCity: true,
         recipientFirstName: true, recipientLastName: true, recipientAddress: true,
         serviceType: { select: { name: true, pricingModel: true, basePrice: true, perPiecePrice: true, minHours: true } },
-        deliveryRule: { select: { partnerBillingAdjustment: true, toBill: true } },
+        deliveryRule: { select: { name: true, partnerBillingAdjustment: true, toBill: true } },
         products: { select: { quantity: true, price: true } },
       },
       orderBy: { date: 'desc' },
@@ -415,6 +422,9 @@ export class InvoicesService {
           /// Da dove viene il numero: dalla consegna (deciso allora) o dal
           /// listino (ricalcolato ora). `null` = non prezzabile.
           origine: calcolo?.origine ?? null,
+          /// Esclusa da una regola carnet, non per un dato mancante.
+          esclusaDaRegola: d.deliveryRule?.toBill === false,
+          regola: d.deliveryRule?.toBill === false ? d.deliveryRule?.name ?? null : null,
         };
       }),
       troncato: deliveries.length === 500,
@@ -454,7 +464,7 @@ export class InvoicesService {
       include: {
         serviceType: { select: { pricingModel: true, basePrice: true, perPiecePrice: true, minHours: true } },
         // La regola carnet: sconto sulla fattura, o «non fatturare affatto».
-        deliveryRule: { select: { partnerBillingAdjustment: true, toBill: true } },
+        deliveryRule: { select: { name: true, partnerBillingAdjustment: true, toBill: true } },
         products: { select: { quantity: true, price: true } },
       },
       orderBy: { date: 'asc' },

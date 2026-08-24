@@ -397,7 +397,9 @@
       "fromListino": "{{n}} da listino",
       "fromListinoHint": "Il prezzo non era sulla consegna: e' calcolato dal listino del partner secondo il tipo di servizio (a ora, a pezzo, fee % sul venduto).",
       "unpricedRow": "Nessun prezzo sulla consegna e nessun listino del partner per questo servizio: non entra in fattura finche' non si decide la tariffa.",
-      "unpricedHint": "{{n}} consegne non entrano in fattura: non hanno prezzo e il partner non ha un listino per il loro servizio. Fatturarle a 0 EUR sarebbe un documento che dice il falso."
+      "unpricedHint": "{{n}} consegne non entrano in fattura: non hanno prezzo e il partner non ha un listino per il loro servizio. Fatturarle a 0 EUR sarebbe un documento che dice il falso.",
+      "byRule": "Escluse da regola",
+      "byRuleRow": "da regola"
     },
     "filter": {
       "search": "Cerca",
@@ -502,7 +504,9 @@
       "unpaidRow": "Nessuna paga sulla consegna e nessun listino del valet per questo servizio — oppure una regola carnet dice di non pagarla. Resta fuori dallo stipendio finche' non si decide la tariffa.",
       "unpaidHint": "{{n}} consegne non entrano nello stipendio: non hanno paga e il valet non ha un listino per il loro servizio. Metterle a 0 EUR direbbe al valet che quel lavoro non valeva niente.",
       "empty": "Niente da pagare: ogni consegna ha gia' il suo stipendio.",
-      "capped": "Mostrate le prime 500 consegne del valet."
+      "capped": "Mostrate le prime 500 consegne del valet.",
+      "byRule": "Escluse da regola",
+      "byRuleRow": "da regola"
     },
     "line": {
       "date": "Data",

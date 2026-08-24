@@ -38,6 +38,8 @@ interface Pending {
   deliveriesCount: number;
   /** Consegne senza prezzo e senza listino: non entrano in fattura. */
   unpricedCount: number;
+  /** Escluse da una regola carnet: non sono un buco, sono una decisione. */
+  ruleExcludedCount: number;
   /** Quante prendono il prezzo dal listino invece che da se'. */
   fromListino: number;
   modelli: Record<string, number>;
@@ -52,6 +54,8 @@ interface PendingDelivery {
   /** null = non prezzabile: nessun prezzo sulla consegna, nessun listino. */
   amount: number | null;
   origine: 'consegna' | 'listino' | null;
+  esclusaDaRegola: boolean;
+  regola?: string | null;
   service: string; pricingModel: string;
   recipientFirstName?: string | null; recipientLastName?: string | null; recipientAddress?: string | null;
 }
@@ -183,6 +187,9 @@ const NEXT: Record<string, { next: string; key: string }> = {
           @if (t.unpricedCount) {
             <div><span class="etichetta">{{ 'invoices.pending.unpriced' | translate }}</span><strong class="rosso">{{ t.unpricedCount | number }}</strong></div>
           }
+          @if (t.ruleExcludedCount) {
+            <div><span class="etichetta">{{ 'invoices.pending.byRule' | translate }}</span><strong>{{ t.ruleExcludedCount | number }}</strong></div>
+          }
         </div>
         @if (t.unpricedCount) {
           <p class="avviso">{{ 'invoices.pending.unpricedHint' | translate:{ n: t.unpricedCount } }}</p>
@@ -243,7 +250,9 @@ const NEXT: Record<string, { next: string; key: string }> = {
                               <td>{{ (d.recipientLastName || '') + ' ' + (d.recipientFirstName || '') }}</td>
                               <td class="muted">{{ d.service }}</td>
                               <td class="num">
-                                @if (d.amount === null) {
+                                @if (d.esclusaDaRegola) {
+                                  <span class="regola" [title]="d.regola || ''">{{ 'invoices.pending.byRuleRow' | translate }}</span>
+                                } @else if (d.amount === null) {
                                   <span class="rosso" [title]="'invoices.pending.unpricedRow' | translate">{{ 'invoices.pending.noPrice' | translate }}</span>
                                 } @else {
                                   {{ d.amount | number: '1.2-2' }} €
@@ -406,6 +415,7 @@ const NEXT: Record<string, { next: string; key: string }> = {
       .filtri .interruttore > span { font-size: 13px; color: var(--text); }
       .filtri .azzera { padding-bottom: 8px; }
       .rosso { color: #C0392B; font-weight: 600; }
+      .regola { font-size: 11px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; color: var(--text-secondary); background: var(--fill, #f5f5f7); border-radius: 999px; padding: 2px 8px; cursor: help; }
       .avviso { margin: -4px 0 12px; font-size: 13px; color: var(--text-secondary); }
       .riepilogo .oro { color: var(--gold-strong, #B8963E); }
       .tab .pill { margin-left: 6px; font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px; background: color-mix(in srgb, currentColor 14%, transparent); font-variant-numeric: tabular-nums; }
@@ -431,7 +441,7 @@ export class InvoicesListComponent {
   /** Si apre su «Da fatturare»: e' la domanda che si fa arrivando qui. */
   readonly view = signal<'pending' | 'active' | 'archive'>('pending');
   readonly pending = signal<Pending[]>([]);
-  readonly pendingTotals = signal<{ partners: number; deliveriesCount: number; unpricedCount: number; fromListino: number; netAmount: number; totalAmount: number } | null>(null);
+  readonly pendingTotals = signal<{ partners: number; deliveriesCount: number; unpricedCount: number; ruleExcludedCount: number; fromListino: number; netAmount: number; totalAmount: number } | null>(null);
   readonly pendingOpen = signal<string | null>(null);
   readonly pendingDetail = signal<PendingDelivery[]>([]);
   readonly pendingDetailLoading = signal(false);

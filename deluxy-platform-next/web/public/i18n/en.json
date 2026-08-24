@@ -397,7 +397,9 @@
       "fromListino": "{{n}} from rate card",
       "fromListinoHint": "The price was not on the delivery: it is computed from the partner rate card according to the service type (hourly, per item, % fee on sales).",
       "unpricedRow": "No price on the delivery and no partner rate card for this service: it stays out of the invoice until a rate is decided.",
-      "unpricedHint": "{{n}} deliveries stay out of the invoice: they have no price and the partner has no rate card for their service. Invoicing them at 0 EUR would be a document that lies."
+      "unpricedHint": "{{n}} deliveries stay out of the invoice: they have no price and the partner has no rate card for their service. Invoicing them at 0 EUR would be a document that lies.",
+      "byRule": "Excluded by rule",
+      "byRuleRow": "by rule"
     },
     "filter": {
       "search": "Search",
@@ -502,7 +504,9 @@
       "unpaidRow": "No pay on the delivery and no valet rate card for this service — or a carnet rule says not to pay it. It stays out of the salary until a rate is decided.",
       "unpaidHint": "{{n}} deliveries stay out of the salary: they have no pay and the valet has no rate card for their service. Putting them at 0 would tell the valet that work was worth nothing.",
       "empty": "Nothing to pay: every delivery is already on a salary.",
-      "capped": "Showing the valet's first 500 deliveries."
+      "capped": "Showing the valet's first 500 deliveries.",
+      "byRule": "Excluded by rule",
+      "byRuleRow": "by rule"
     },
     "line": {
       "date": "Date",

@@ -94,7 +94,44 @@ export type ListinoValet = {
   serviceType?: { pricingModel?: string | null; minHours?: number | null } | null;
 } | null;
 
+/**
+ * Sceglie il listino del valet quando la consegna non dice quale servizio ha
+ * svolto (`valetServiceId` vuoto: 15.413 consegne, e nel legacy quella colonna
+ * era vuota davvero — non e' un difetto d'importazione).
+ *
+ * ⚠️ Non e' un dato mancante: il valet **ha** il suo listino. Il servizio
+ * scritto sulla consegna e' quello del PARTNER («Vendita Deluxy», «Servizio
+ * Consegna Standard»: 30 voci, cosa ha comprato il cliente); il valet ha una
+ * tassonomia sua, corta, di cosa ha FATTO — «Consegna Standard» e «Servizio a
+ * Ora» coprono 239 valet su 243 listini. Leggendo la prima al posto della
+ * seconda sembrava che mancasse tutto.
+ *
+ * La corrispondenza passa dal MODELLO DI PREZZO: una consegna a ore si paga col
+ * listino a ore del valet, tutte le altre col suo listino a prezzo fisso. Se ne
+ * ha uno solo, e' quello.
+ *
+ * Recupera 7.157 consegne che uscivano come «non pagabili».
+ */
+export function scegliListinoValet(
+  d: { valetServiceId?: string | null; valetId?: string | null; serviceType?: { pricingModel?: string | null } | null },
+  perId: Map<string, any>,
+  perValet: Map<string, any[]>,
+): any | null {
+  // Se la consegna lo dice, si usa quello: e' la scelta fatta allora.
+  if (d.valetServiceId) return perId.get(d.valetServiceId) ?? null;
+
+  const suoi = perValet.get(d.valetId ?? '') ?? [];
+  if (!suoi.length) return null;
+  if (suoi.length === 1) return suoi[0];
+
+  const cercato = d.serviceType?.pricingModel === 'A_ORA' ? 'A_ORA' : 'PREZZO_FISSO';
+  return suoi.find((l) => l.serviceType?.pricingModel === cercato && (l.salary ?? 0) > 0)
+    ?? suoi.find((l) => l.serviceType?.pricingModel === cercato)
+    ?? null;
+}
+
 export function pagaConsegna(
+
   d: ConsegnaDaPagare,
   listino: ListinoValet,
   regolaCarnet: RegolaPaga = null,
@@ -199,7 +236,7 @@ export class SalariesService {
         paymentOnDelivery: true, paymentAmount: true,
         serviceType: { select: { pricingModel: true, minHours: true } },
         // Le due regole che toccano la paga, e i ritiri del giro per gli scaglioni.
-        deliveryRule: { select: { valetPayAdjustment: true, toPay: true } },
+        deliveryRule: { select: { name: true, valetPayAdjustment: true, toPay: true } },
         valetDeliveryRule: { select: { tiers: true, active: true } },
         _count: { select: { pickups: true } },
       },
@@ -208,27 +245,31 @@ export class SalariesService {
 
     type Riga = {
       valetId: string; deliveriesCount: number; grossAmount: number; cashDeductions: number;
-      unpaidCount: number; fromListino: number; from: Date; to: Date;
+      unpaidCount: number; ruleExcludedCount: number; fromListino: number; from: Date; to: Date;
     };
     const per = new Map<string, Riga>();
     for (const d of deliveries) {
       if (!d.valetId) continue;
       const calcolo = pagaConsegna(
         d as any,
-        listini.get(d.valetServiceId ?? '') ?? null,
+        scegliListinoValet(d as any, listini.perId, listini.perValet),
         (d as any).deliveryRule ?? null,
         (d as any).valetDeliveryRule ?? null,
         (d as any)._count?.pickups ?? 0,
       );
       const r = per.get(d.valetId) ?? {
         valetId: d.valetId, deliveriesCount: 0, grossAmount: 0, cashDeductions: 0,
-        unpaidCount: 0, fromListino: 0, from: d.date, to: d.date,
+        unpaidCount: 0, ruleExcludedCount: 0, fromListino: 0, from: d.date, to: d.date,
       };
       r.deliveriesCount++;
       if (calcolo) {
         r.grossAmount += calcolo.amount;
         if (calcolo.origine === 'listino') r.fromListino++;
         if (d.paymentOnDelivery) r.cashDeductions += d.paymentAmount ?? 0;
+      } else if ((d as any).deliveryRule?.toPay === false) {
+        // Non e' un buco: e' una decisione gia' presa. Una regola carnet che
+        // dice di non pagare va contata a parte, o sembra un dato mancante.
+        r.ruleExcludedCount++;
       } else r.unpaidCount++;
       if (d.date < r.from) r.from = d.date;
       if (d.date > r.to) r.to = d.date;
@@ -251,6 +292,7 @@ export class SalariesService {
           valet: { id: r.valetId, firstName: v?.firstName ?? '', lastName: v?.lastName ?? '—', hasVat: v?.hasVat ?? false },
           deliveriesCount: r.deliveriesCount,
           unpaidCount: r.unpaidCount,
+          ruleExcludedCount: r.ruleExcludedCount,
           fromListino: r.fromListino,
           grossAmount,
           cashDeductions,
@@ -267,6 +309,7 @@ export class SalariesService {
         valets: voci.length,
         deliveriesCount: voci.reduce((s, v) => s + v.deliveriesCount, 0),
         unpaidCount: voci.reduce((s, v) => s + v.unpaidCount, 0),
+        ruleExcludedCount: voci.reduce((s, v) => s + v.ruleExcludedCount, 0),
         fromListino: voci.reduce((s, v) => s + v.fromListino, 0),
         grossAmount: Math.round(voci.reduce((s, v) => s + v.grossAmount, 0) * 100) / 100,
         cashDeductions: Math.round(voci.reduce((s, v) => s + v.cashDeductions, 0) * 100) / 100,
@@ -289,13 +332,13 @@ export class SalariesService {
     const deliveries = await this.prisma.delivery.findMany({
       where,
       select: {
-        id: true, code: true, date: true, status: true, valetServiceId: true,
+        id: true, code: true, date: true, status: true, valetServiceId: true, valetId: true,
         valetSalary: true, valetAdditionalPrice: true, hours: true, extraKm: true,
         paymentOnDelivery: true, paymentAmount: true,
         recipientAddress: true,
         serviceType: { select: { name: true, pricingModel: true, minHours: true } },
         // Le due regole che toccano la paga, e i ritiri del giro per gli scaglioni.
-        deliveryRule: { select: { valetPayAdjustment: true, toPay: true } },
+        deliveryRule: { select: { name: true, valetPayAdjustment: true, toPay: true } },
         valetDeliveryRule: { select: { tiers: true, active: true } },
         _count: { select: { pickups: true } },
       },
@@ -307,7 +350,7 @@ export class SalariesService {
       deliveries: deliveries.map((d) => {
         const calcolo = pagaConsegna(
         d as any,
-        listini.get(d.valetServiceId ?? '') ?? null,
+        scegliListinoValet(d as any, listini.perId, listini.perValet),
         (d as any).deliveryRule ?? null,
         (d as any).valetDeliveryRule ?? null,
         (d as any)._count?.pickups ?? 0,
@@ -319,6 +362,9 @@ export class SalariesService {
           cash: d.paymentOnDelivery ? (d.paymentAmount ?? 0) : 0,
           amount: calcolo?.amount ?? null,
           origine: calcolo?.origine ?? null,
+          /// Esclusa da una regola carnet, non per un dato mancante.
+          esclusaDaRegola: d.deliveryRule?.toPay === false,
+          regola: d.deliveryRule?.toPay === false ? d.deliveryRule?.name ?? null : null,
         };
       }),
       troncato: deliveries.length === 500,
@@ -346,7 +392,7 @@ export class SalariesService {
       include: {
         serviceType: { select: { pricingModel: true, minHours: true } },
         // Le due regole che toccano la paga, e i ritiri del giro per gli scaglioni.
-        deliveryRule: { select: { valetPayAdjustment: true, toPay: true } },
+        deliveryRule: { select: { name: true, valetPayAdjustment: true, toPay: true } },
         valetDeliveryRule: { select: { tiers: true, active: true } },
         _count: { select: { pickups: true } },
         products: { select: { quantity: true } },
@@ -361,7 +407,7 @@ export class SalariesService {
     for (const d of deliveries) {
       const calcolo = pagaConsegna(
         d as any,
-        listini.get(d.valetServiceId ?? '') ?? null,
+        scegliListinoValet(d as any, listini.perId, listini.perValet),
         (d as any).deliveryRule ?? null,
         (d as any).valetDeliveryRule ?? null,
         (d as any)._count?.pickups ?? 0,
@@ -450,15 +496,25 @@ export class SalariesService {
    * NON da `serviceTypeId`. Unendo per `serviceTypeId` il listino non si
    * trovava mai: su 38.524 consegne da pagare il conto usciva 0 su 0.
    */
-  private async listiniValet(deliveries: { valetServiceId: string | null }[]) {
-    const ids = [...new Set(deliveries.map((d) => d.valetServiceId).filter(Boolean) as string[])];
-    if (!ids.length) return new Map<string, any>();
+  private async listiniValet(deliveries: { valetServiceId: string | null; valetId?: string | null }[]) {
+    const valetIds = [...new Set(deliveries.map((d) => d.valetId).filter(Boolean) as string[])];
+    if (!valetIds.length) return { perId: new Map<string, any>(), perValet: new Map<string, any[]>() };
+    // Tutti i listini dei valet coinvolti, non solo quelli citati dalle
+    // consegne: servono anche per la scelta quando la consegna non dice quale.
     const righe = await this.prisma.valetService.findMany({
-      where: { id: { in: ids } },
+      where: { valetId: { in: valetIds } },
       include: { serviceType: { select: { pricingModel: true, minHours: true } } },
     });
-    return new Map(righe.map((r) => [r.id, r]));
+    const perId = new Map(righe.map((r) => [r.id, r]));
+    const perValet = new Map<string, any[]>();
+    for (const r of righe) {
+      const arr = perValet.get(r.valetId) ?? [];
+      arr.push(r);
+      perValet.set(r.valetId, arr);
+    }
+    return { perId, perValet };
   }
+
 
 
   /**

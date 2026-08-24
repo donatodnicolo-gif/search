@@ -14,6 +14,8 @@ interface Pending {
   deliveriesCount: number;
   /** Consegne senza paga e senza listino: non entrano nello stipendio. */
   unpaidCount: number;
+  /** Escluse da una regola carnet: non sono un buco, sono una decisione. */
+  ruleExcludedCount: number;
   fromListino: number;
   grossAmount: number;
   cashDeductions: number;
@@ -27,6 +29,8 @@ interface PendingDelivery {
   /** null = non pagabile: nessuna paga, nessun listino, o regola «non pagare». */
   amount: number | null;
   origine: 'consegna' | 'listino' | null;
+  esclusaDaRegola: boolean;
+  regola?: string | null;
 }
 
 interface Salary {
@@ -176,6 +180,9 @@ const NEXT: Record<string, { next: string; key: string }> = {
           @if (t.unpaidCount) {
             <div><span class="etichetta">{{ 'salaries.pending.unpaid' | translate }}</span><strong class="rosso">{{ t.unpaidCount | number }}</strong></div>
           }
+          @if (t.ruleExcludedCount) {
+            <div><span class="etichetta">{{ 'salaries.pending.byRule' | translate }}</span><strong>{{ t.ruleExcludedCount | number }}</strong></div>
+          }
         </div>
         @if (t.unpaidCount) {
           <p class="avviso">{{ 'salaries.pending.unpaidHint' | translate:{ n: t.unpaidCount } }}</p>
@@ -238,7 +245,9 @@ const NEXT: Record<string, { next: string; key: string }> = {
                               <td class="muted">{{ d.address || '—' }}</td>
                               <td class="num">{{ d.cash ? ('−' + (d.cash | number: '1.2-2') + ' €') : '—' }}</td>
                               <td class="num">
-                                @if (d.amount === null) {
+                                @if (d.esclusaDaRegola) {
+                                  <span class="regola" [title]="d.regola || ''">{{ 'salaries.pending.byRuleRow' | translate }}</span>
+                                } @else if (d.amount === null) {
                                   <span class="rosso" [title]="'salaries.pending.unpaidRow' | translate">{{ 'salaries.pending.noPay' | translate }}</span>
                                 } @else {
                                   {{ d.amount | number: '1.2-2' }} €
@@ -352,6 +361,7 @@ const NEXT: Record<string, { next: string; key: string }> = {
       .riepilogo strong { font-size: 20px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
       .riepilogo .oro { color: var(--gold-strong, #B8963E); }
       .rosso { color: #C0392B; font-weight: 600; }
+      .regola { font-size: 11px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; color: var(--text-secondary); background: var(--fill, #f5f5f7); border-radius: 999px; padding: 2px 8px; cursor: help; }
       .avviso { margin: -4px 0 12px; font-size: 13px; color: var(--text-secondary); }
       .ric { margin-left: 6px; font-size: 10.5px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; color: var(--gold-strong, #B8963E); background: color-mix(in srgb, #B8963E 12%, transparent); border-radius: 999px; padding: 2px 6px; cursor: help; }
       .tab .pill { margin-left: 6px; font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px; background: color-mix(in srgb, currentColor 14%, transparent); font-variant-numeric: tabular-nums; }
@@ -406,7 +416,7 @@ export class SalariesListComponent {
   /** Si apre su «Da pagare»: e' la domanda che si fa arrivando qui. */
   readonly view = signal<'pending' | 'active' | 'archive'>('pending');
   readonly pending = signal<Pending[]>([]);
-  readonly pendingTotals = signal<{ valets: number; deliveriesCount: number; unpaidCount: number; fromListino: number; grossAmount: number; cashDeductions: number; netAmount: number } | null>(null);
+  readonly pendingTotals = signal<{ valets: number; deliveriesCount: number; unpaidCount: number; ruleExcludedCount: number; fromListino: number; grossAmount: number; cashDeductions: number; netAmount: number } | null>(null);
   readonly pendingOpen = signal<string | null>(null);
   readonly pendingDetail = signal<PendingDelivery[]>([]);
   readonly pendingDetailLoading = signal(false);
