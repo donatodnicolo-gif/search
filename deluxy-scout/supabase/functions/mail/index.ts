@@ -191,7 +191,53 @@ Deno.serve(async (req) => {
 
       const messaggi: any[] = Array.isArray(dati.messaggi) ? dati.messaggi : [];
       // Le nostre stesse mail non sono richieste.
-      const inArrivo = messaggi.filter((m) => m.direzione !== 'uscita' && m.email !== casella);
+      const ricevute = messaggi.filter((m) => m.direzione !== 'uscita' && m.email !== casella);
+
+      // ── CHI NON È UNA RICHIESTA ──────────────────────────────────────────
+      //
+      // 🔴 Misurato il 23/08/2026: in coda c'erano **25 richieste, 24 delle
+      // quali non erano richieste**. L'indirizzo commerciale è finito nelle
+      // liste di notifica di Shopify: su 218 mail arrivate a quella casella,
+      // 167 erano di Shopify.
+      //
+      // ⭐ E i mittenti veri smentiscono la regola che verrebbe da scrivere:
+      // sono `mailer@shopify.com` (20) e `email@email.shopify.com` (4).
+      // **Nessuno dei due è un `no-reply`** — una lista di local part
+      // «classici» (noreply, donotreply, mailer-daemon…) ne avrebbe presi
+      // ZERO. Qui il segnale che funziona è il **dominio**. La lista dei local
+      // part resta lo stesso, ma come rete per il futuro, non come regola
+      // principale.
+      //
+      // Una richiesta la scrive una persona: se l'ha scritta un robot, o un
+      // collega, non è una richiesta.
+      const dominioDi = (e: unknown) => String(e ?? '').toLowerCase().split('@')[1] ?? '';
+      const utenteDi = (e: unknown) => String(e ?? '').toLowerCase().split('@')[0] ?? '';
+
+      /** Domini che mandano solo posta automatica. Suffisso, non uguaglianza:
+       *  `email.shopify.com` è un sottodominio di `shopify.com`. */
+      const DOMINI_ROBOT = ['shopify.com', 'shopifyemail.com', 'mailchimp.com', 'sendgrid.net'];
+      /** Rete di sicurezza per i robot che verranno, non per quelli di oggi. */
+      const UTENTI_ROBOT = [
+        'noreply', 'no-reply', 'donotreply', 'do-not-reply', 'nonrispondere', 'non-rispondere',
+        'mailer-daemon', 'postmaster', 'bounce', 'bounces', 'newsletter', 'notifications',
+        'notification', 'notifiche', 'alert', 'alerts', 'automated', 'mailer',
+      ];
+      // Il nostro stesso dominio: un collega che scrive a commerciale@ non sta
+      // mandando una richiesta dal web. (Prima si scartava solo la casella
+      // esatta; era la stessa idea, applicata a metà.)
+      const nostroDominio = dominioDi(casella);
+
+      const automatica = (m: any) => {
+        const d = dominioDi(m.email);
+        if (DOMINI_ROBOT.some((x) => d === x || d.endsWith('.' + x))) return true;
+        return UTENTI_ROBOT.includes(utenteDi(m.email));
+      };
+      const interna = (m: any) => !!nostroDominio && dominioDi(m.email) === nostroDominio;
+
+      const scartateAuto = ricevute.filter(automatica);
+      const scartateInterne = ricevute.filter((m) => !automatica(m) && interna(m));
+      const inArrivo = ricevute.filter((m) => !automatica(m) && !interna(m));
+
       const ids = inArrivo.map((m) => m.messageId).filter(Boolean);
 
       let importati = 0;
@@ -218,7 +264,22 @@ Deno.serve(async (req) => {
         }
       }
 
-      return json({ ok: true, casella, lette: inArrivo.length, importate: importati });
+      // ⚠️ `lette` sono le mail RICEVUTE, non quelle sopravvissute al filtro:
+      // se no il taglio sparisce dal conto e sembra che la casella non riceva
+      // niente. Gli scarti si dichiarano, con il motivo — le mail restano
+      // comunque nella casella, qui non si cancella niente.
+      return json({
+        ok: true,
+        casella,
+        lette: ricevute.length,
+        importate: importati,
+        scartate: scartateAuto.length + scartateInterne.length,
+        automatiche: scartateAuto.length,
+        interne: scartateInterne.length,
+        // Da chi: serve a capire in fretta se il filtro sta tagliando qualcuno
+        // che non doveva. Pochi, e solo gli indirizzi.
+        mittentiScartati: [...new Set([...scartateAuto, ...scartateInterne].map((m) => m.email).filter(Boolean))].slice(0, 8),
+      });
     }
 
     if (body.azione !== 'messaggi') return json({ ok: false, errore: `Azione sconosciuta: ${body.azione}` }, 400);

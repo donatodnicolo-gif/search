@@ -80,13 +80,28 @@ export default function LeadWeb() {
     if (importando) return;
     setImportando(true);
     try {
-      const { lette, importate } = await importaRichiesteDaMail();
+      const { lette, importate, scartate, automatiche, interne, mittentiScartati } = await importaRichiesteDaMail();
       await carica();
+      // ⚠️ Il taglio si DICHIARA. Un import che dice «0 nuove» dopo aver letto
+      // 30 mail sembra un guasto; e un filtro silenzioso che un giorno taglia
+      // un cliente vero non lo scopre nessuno. Si dice quante, perché, e da
+      // quali indirizzi — le mail restano comunque nella casella.
+      const perche = [
+        automatiche ? `${automatiche} ${automatiche === 1 ? 'automatica' : 'automatiche'}` : '',
+        interne ? `${interne} da noi` : '',
+      ]
+        .filter(Boolean)
+        .join(' · ');
+      const notaScarto = scartate
+        ? `\n\nNon sono richieste e restano fuori: ${scartate} (${perche}).${
+            mittentiScartati.length ? ` Da: ${mittentiScartati.join(', ')}.` : ''
+          }`
+        : '';
       avvisa(
         importate ? 'Richieste importate' : 'Nessuna nuova richiesta',
-        importate
+        (importate
           ? `${importate} nuove richieste dalla casella commerciale (su ${lette} mail lette).`
-          : `Nessuna mail nuova da importare: le ${lette} lette erano già in elenco.`,
+          : `Nessuna mail nuova da importare: le ${lette} lette erano già in elenco o non sono richieste.`) + notaScarto,
       );
     } catch (e: any) {
       avvisa('Importazione non riuscita', e?.message ?? 'Riprova più tardi.');

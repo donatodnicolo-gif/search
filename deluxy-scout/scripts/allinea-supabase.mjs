@@ -78,7 +78,10 @@ const MIGRAZIONI = [
 // DOPO lo smistamento delle azioni e `sync_crm` rispondeva a chiunque. Sta qui
 // perché una correzione di sicurezza che nessuno ripubblica non è una
 // correzione — era anche il motivo per cui andava deployata a mano.
-const FUNZIONI = ['anagrafiche', 'ordini', 'health', 'finance', 'invio-email', 'partner', 'lead', 'trattativa', 'preventivi', 'hubspot-match'];
+// `mail` è entrata il 23/08 col filtro dei mittenti-robot: la chiama il cron
+// delle Richieste Web, e lasciarla fuori dalla lista avrebbe voluto dire tenere
+// in produzione la versione senza filtro senza che nessuno se ne accorgesse.
+const FUNZIONI = ['anagrafiche', 'ordini', 'health', 'finance', 'invio-email', 'partner', 'lead', 'trattativa', 'preventivi', 'hubspot-match', 'mail'];
 // `health` deve rispondere SENZA sessione (il Hub non ne ha una): va deployata
 // con --no-verify-jwt, altrimenti risponde 401 e la pagina «stato dei servizi»
 // vede Scout come irraggiungibile.
@@ -98,7 +101,7 @@ const FUNZIONI = ['anagrafiche', 'ordini', 'health', 'finance', 'invio-email', '
 // chiama da server — togliendo la flag quella strada morirebbe al gateway.
 // Pubblica al gateway **non** vuol più dire aperta: l'auth è nel codice, e ora
 // sta prima dello smistamento delle azioni.
-const SENZA_JWT = new Set(['health', 'partner', 'lead', 'trattativa', 'preventivi', 'hubspot-match']);
+const SENZA_JWT = new Set(['health', 'partner', 'lead', 'trattativa', 'preventivi', 'hubspot-match', 'mail']);
 
 if (!PAT) {
   console.error('\n✗ Manca SUPABASE_PAT.\n');

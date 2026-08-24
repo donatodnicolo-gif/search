@@ -62,7 +62,20 @@ export async function mailDaContatto(email: string, opts: OpzioniMail = {}): Pro
  * Ogni mail non ancora importata diventa un lead di fonte "mail"; il dedup è
  * sul Message-ID, quindi si può rilanciare quante volte si vuole.
  */
-export async function importaRichiesteDaMail(limite = 50): Promise<{ lette: number; importate: number }> {
+export interface EsitoImportRichieste {
+  lette: number;
+  importate: number;
+  /** Quante mail il filtro ha tenuto fuori perché non sono richieste. */
+  scartate: number;
+  /** Mandate da un robot (dominio di notifica, o local part tipo `noreply`). */
+  automatiche: number;
+  /** Mandate da un collega del nostro dominio. */
+  interne: number;
+  /** Gli indirizzi scartati (max 8): servono a vedere se il filtro taglia troppo. */
+  mittentiScartati: string[];
+}
+
+export async function importaRichiesteDaMail(limite = 50): Promise<EsitoImportRichieste> {
   const url = `${env.supabaseUrl().replace(/\/$/, '')}/functions/v1/mail`;
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
@@ -79,7 +92,14 @@ export async function importaRichiesteDaMail(limite = 50): Promise<{ lette: numb
   if (!res.ok || !payload?.ok) {
     throw new Error(payload?.errore ?? `Importazione non riuscita (${res.status}).`);
   }
-  return { lette: Number(payload.lette ?? 0), importate: Number(payload.importate ?? 0) };
+  return {
+    lette: Number(payload.lette ?? 0),
+    importate: Number(payload.importate ?? 0),
+    scartate: Number(payload.scartate ?? 0),
+    automatiche: Number(payload.automatiche ?? 0),
+    interne: Number(payload.interne ?? 0),
+    mittentiScartati: Array.isArray(payload.mittentiScartati) ? payload.mittentiScartati.map(String) : [],
+  };
 }
 
 /** Il testo intero di una mail importata (si chiede solo quando si apre). */
