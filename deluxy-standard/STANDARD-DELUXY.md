@@ -399,6 +399,24 @@ costoFornitore − costoConsegna + fee` (consegna nostra) — costo e fee arriva
 dall'incarico della piattaforma, il costo pattuito è il `price` caricato dal
 fornitore **cristallizzato sull'incarico** alla proposta.
 
+**Sconti per provincia e lista di priorità (deciso il 24/08/2026):**
+
+- La **% riconosciuta al fornitore può variare per provincia** (e per
+  categoria: fiori/torte): è una regola economica dell'ordine, quindi vive in
+  **Orders** — è l'evoluzione della quota fornitore che Orders possiede già.
+  `GET /api/v1/quota-fornitore` accetta `?provincia=` (e `?categoria=`) e
+  risponde quota e importo atteso; senza una riga per quella provincia vale il
+  default. Nessun'app ricopia la tabella: la si interroga. L'atteso è la
+  bussola — il costo **concordato** dal CS può sempre scostarsene, e sono i
+  due numeri che il controllo di Orders confronta. ⚠️ Non si applica ai
+  prodotti `UNICO`: lì il costo è il `price` caricato dal fornitore.
+- La **lista di priorità dei fornitori per provincia** è del **Customer
+  Service**, il decisore: nasce dai suoi fatti (a chi abbiamo dato gli ordini,
+  esiti, reclami con colpa, tempi di risposta) più la preferenza manuale
+  dell'operatore; può usare la quota di Orders come ingrediente. **Search
+  resta il motore di scoperta** (chi esiste in zona, aperto adesso) e non
+  tiene graduatorie; Anagrafiche resta l'identità.
+
 **Deviazione dichiarata — `deluxy-messaging` (24/08/2026, decisa dall'utente).**
 Due punti di §7.4 sono stati cambiati, e vale la pena scrivere perché.
 
