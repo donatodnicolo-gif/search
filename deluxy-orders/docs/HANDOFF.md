@@ -6,6 +6,44 @@ Deluxy). Serve a far ripartire una finestra nuova senza contesto: prima lo
 stato, poi le **trappole già pagate** — quelle valgono più dell'elenco delle
 funzioni.
 
+## 24/08/2026 sera — Il giro dell'ordine entra in Orders (Standard §7.4)
+
+Quattro pezzi nuovi, costruiti insieme al canale app-to-app della piattaforma:
+
+1. **Il ritiro dalla piattaforma** (`src/lib/piattaforma.ts`, chiamato in OGNI
+   giro del cron): legge `GET {PLATFORM_URL}/api/v1/app/vendite?source=deluxy-orders`
+   (pull incrementale su cursore `piattaforma.ritiroDa`) e scrive sull'ordine:
+   `evasione='piattaforma'`, il costo del fornitore quando il partner ACCETTA
+   (`costoPartner` = importo − sconto cristallizzato, `costoDa='piattaforma'`,
+   mai sopra una decisione già presa), `consegnataIl/consegnataDa` quando la
+   consegna è fatta. Env: `PLATFORM_URL` + `PLATFORM_API_KEY` (già su Vercel,
+   chiave generata con `crea-chiave-app.mjs` della piattaforma). ⚠️ Il flusso
+   si accende davvero quando la piattaforma PESCA gli ordini (il suo
+   `orders-sync` con `applica=true`, oggi manuale/admin): fino ad allora il
+   ritiro legge un elenco vuoto, e va bene così.
+2. **La quota per provincia** (`QuotaRegola`: provincia+categoria → percento;
+   cascata provincia+categoria → provincia → default):
+   `GET /api/v1/quota-fornitore?provincia=CE&categoria=torte` risponde quota,
+   `regola` (da dove viene il numero) e l'atteso. Vale per i fornitori in
+   chat; gli smistati hanno lo sconto sulla vendita della piattaforma.
+   ⚠️ La tabella si popola via Prisma/SQL: la UI di gestione non c'è ancora.
+3. **Evasione e consegna sull'ordine** (`evasione`, `consegnataIl/Da`,
+   `costoConsegna`/`feeConsegna` per quando la piattaforma esporrà i costi):
+   il PATCH v1 accetta dal CS solo `evasione='fornitore_diretto'` e la
+   consegna (percorso A) — `piattaforma` la scrive solo il ritiro: due mani
+   sullo stesso campo con la stessa parola sono un conflitto invisibile.
+4. **Il margine esce dalle API** (`margineOrdine` in controllo.ts, esposto da
+   `serializzaOrdine`): `totale − costoFornitore` (− costoConsegna + fee sulla
+   consegna nostra); `null` = manca il costo, `parziale` = manca un
+   ingrediente della consegna. La formula vive SOLO qui.
+
+**Deciso e scartato**: il `productId` Shopify sulle righe — richiederebbe lo
+scope `read_products` che ha già fatto fallire import interi (ACCESS_DENIED,
+commento in shopify.ts); lo smistamento della piattaforma matcha per SKU e
+non ne ha bisogno. **Completato**: il drop delle colonne orfane di
+`FeedbackOrdine` (col `db push` di stasera: 6 colonne con 1 valore ciascuna,
+copie che la fonte ha).
+
 ## 24/08/2026 — Audit architettura: copie ridotte, annullamenti non più muti
 
 Cinque interventi dall'audit di conformità (il rapporto per app sta

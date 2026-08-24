@@ -6,6 +6,7 @@ import { prisma } from "./db";
 import { daLontano, variantiCitta } from "./luoghi";
 import { giorniDiAnticipo } from "./urgenza";
 import { etichettaLavorazioneCs } from "./customer-service";
+import { margineOrdine } from "./controllo";
 
 // Costruzione del filtro Prisma degli ordini, condivisa tra la UI (elenco) e le
 // API di lettura, così i due percorsi filtrano allo stesso modo.
@@ -310,6 +311,16 @@ export function serializzaOrdine(
       data: o.dataConsegna ? o.dataConsegna.toISOString().slice(0, 10) : null,
       fascia: o.fasciaConsegna,
     },
+    // IL RITORNO DEL GIRO (Standard §7.4): da che strada è stato evaso
+    // ("" = non ancora noto | fornitore_diretto | piattaforma), quando e da chi
+    // è stato CONSEGNATO davvero (cosa diversa dalla consegna richiesta qui
+    // sopra), e il MARGINE — la formula vive solo in questa app: null = non
+    // calcolabile, `parziale` = manca un ingrediente della consegna nostra.
+    evasione: o.evasione || null,
+    consegnata: o.consegnataIl
+      ? { il: o.consegnataIl.toISOString(), da: o.consegnataDa || null }
+      : null,
+    margine: margineOrdine(o),
     biglietto: o.biglietto,
     spedizione: {
       nome: o.spedizioneNome,

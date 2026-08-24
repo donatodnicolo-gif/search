@@ -112,6 +112,72 @@ export async function quotaFornitore(): Promise<number> {
   return Number.isFinite(v) && v > 0 && v < 100 ? v : QUOTA_FORNITORE_DEFAULT;
 }
 
+/**
+ * La quota fornitore PER PROVINCIA (e categoria): Standard §7.4.
+ *
+ * Cascata: regola (provincia, categoria) → regola (provincia, qualunque) →
+ * quota globale. La risposta dice DA DOVE viene il numero (`regola`), perché
+ * «60 di default» e «55 deciso per Caserta» non meritano la stessa fiducia
+ * quando qualcuno si chiede perché un costo non torna.
+ *
+ * ⚠️ Vale per i fornitori in chat: gli ordini smistati dalla piattaforma hanno
+ * lo sconto cristallizzato sulla vendita là, e questo numero non c'entra.
+ */
+export async function quotaFornitorePer(
+  provincia?: string | null,
+  categoria?: string | null,
+): Promise<{ quota: number; regola: "provincia+categoria" | "provincia" | "default" }> {
+  const prov = provincia?.trim().toUpperCase() ?? "";
+  const cat = categoria?.trim().toLowerCase() ?? "";
+  if (prov) {
+    const regole = await prisma.quotaRegola.findMany({
+      where: { provincia: prov, categoria: { in: cat ? [cat, ""] : [""] } },
+    });
+    const precisa = cat ? regole.find((r) => r.categoria === cat) : undefined;
+    if (precisa) return { quota: precisa.percento, regola: "provincia+categoria" };
+    const generica = regole.find((r) => r.categoria === "");
+    if (generica) return { quota: generica.percento, regola: "provincia" };
+  }
+  return { quota: await quotaFornitore(), regola: "default" };
+}
+
+/**
+ * Il MARGINE di un ordine — la formula vive QUI e solo qui (Standard §7.4).
+ *
+ *   fornitore diretto:  totale − costoFornitore
+ *   via piattaforma:    totale − costoFornitore − costoConsegna + feeConsegna
+ *
+ * `null` = non calcolabile (manca il costo del fornitore): mai zero, mai un
+ * numero finto. `parziale` dice che manca un ingrediente della consegna
+ * nostra: il numero c'è ma non è tutto.
+ */
+export function margineOrdine(o: {
+  totale: number;
+  costoFornitore: number | null;
+  costoConsegna: number | null;
+  feeConsegna: number | null;
+  evasione: string;
+  consegnataDa: string;
+}): { valore: number | null; parziale: boolean; nota: string } {
+  if (o.costoFornitore == null) {
+    return { valore: null, parziale: false, nota: "manca il costo del fornitore" };
+  }
+  let valore = o.totale - o.costoFornitore;
+  let parziale = false;
+  let nota = "totale − costo fornitore";
+  const consegnaNostra = o.evasione === "piattaforma" && o.consegnataDa !== "fornitore";
+  if (consegnaNostra) {
+    if (o.costoConsegna != null) {
+      valore = valore - o.costoConsegna + (o.feeConsegna ?? 0);
+      nota = "totale − costo fornitore − costo consegna + fee";
+    } else {
+      parziale = true;
+      nota = "senza il costo della consegna (la piattaforma non lo espone ancora)";
+    }
+  }
+  return { valore: Math.round(valore * 100) / 100, parziale, nota };
+}
+
 export async function salvaQuotaFornitore(quota: number): Promise<void> {
   const v = Math.min(99, Math.max(1, Math.round(quota)));
   await prisma.impostazione.upsert({

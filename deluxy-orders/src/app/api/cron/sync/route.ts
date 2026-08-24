@@ -7,6 +7,7 @@ import { rilevaEventi } from "@/lib/eventi";
 import { importaMovimenti } from "@/lib/movimenti";
 import { eseguiAbbinamentoPerNumero } from "@/lib/abbina";
 import { normalizzaControllo } from "@/lib/controllo";
+import { ritiraVenditePiattaforma } from "@/lib/piattaforma";
 
 // Sincronizzazione automatica degli ordini Shopify (cron Vercel, vedi
 // vercel.json). Scarica gli ordini recenti da tutti i negozi collegati e li
@@ -92,8 +93,14 @@ export async function GET(req: NextRequest) {
     const abbinati = veloce
       ? "saltato (giro veloce)"
       : await eseguiAbbinamentoPerNumero().catch((e) => ({ errore: (e as Error).message }));
+    // IL RITORNO DAL GIRO DELL'ORDINE (Standard §7.4): lo stato delle vendite
+    // smistate dalla piattaforma — evasione, costo del partner accettante,
+    // consegnato. In OGNI giro, anche quello veloce: un'accettazione o una
+    // consegna sono notizie da un quarto d'ora, non da un giorno. Se la
+    // piattaforma non è configurata l'esito lo dice e il resto non ne soffre.
+    const piattaforma = await ritiraVenditePiattaforma().catch((e) => ({ errore: (e as Error).message }));
     revalidatePath("/", "layout");
-    return NextResponse.json({ ok: true, giorni, veloce, ...esito, feedback, eventi, movimenti, normalizzati, abbinati });
+    return NextResponse.json({ ok: true, giorni, veloce, ...esito, feedback, eventi, movimenti, normalizzati, abbinati, piattaforma });
   } catch (e) {
     return NextResponse.json({ errore: (e as Error).message }, { status: 500 });
   }

@@ -133,6 +133,35 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     data.csGestioneDa = body.csGestioneDa == null ? "" : String(body.csGestioneDa).slice(0, 120);
   }
 
+  // ── EVASIONE E CONSEGNA, PROPOSTE DAL CUSTOMER SERVICE (Standard §7.4) ──
+  //
+  // Il percorso A (fornitore in chat, consegna lui): il CS ci dice che
+  // l'ordine è evaso da un fornitore diretto e quando è stato consegnato.
+  // `piattaforma` NON si accetta da qui: quella la scrive solo il ritiro
+  // dal canale della piattaforma (lib/piattaforma.ts) — due mani sullo
+  // stesso campo con la stessa parola sono un conflitto che non si vede.
+  if ("evasione" in body) {
+    const e = body.evasione == null ? "" : String(body.evasione).slice(0, 40);
+    if (e && e !== "fornitore_diretto") {
+      return erroreApi(400, 'evasione: da qui si accetta solo "fornitore_diretto" (o vuoto per azzerare)');
+    }
+    data.evasione = e;
+  }
+  if ("consegnataIl" in body) {
+    if (body.consegnataIl == null) {
+      data.consegnataIl = null;
+      data.consegnataDa = "";
+    } else {
+      const quando = new Date(String(body.consegnataIl));
+      if (Number.isNaN(quando.getTime())) return erroreApi(400, "consegnataIl non è una data valida");
+      data.consegnataIl = quando;
+      data.consegnataDa =
+        "consegnataDa" in body && body.consegnataDa != null
+          ? String(body.consegnataDa).slice(0, 20)
+          : "fornitore";
+    }
+  }
+
   if ("classificazioni" in body) {
     data.classificazioni = body.classificazioni == null ? Prisma.DbNull : body.classificazioni;
   }

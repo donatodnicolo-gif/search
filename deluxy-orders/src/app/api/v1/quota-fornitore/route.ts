@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { autentica } from "@/lib/api-auth";
-import { QUOTA_FORNITORE_DEFAULT, quotaFornitore, valutaQuota } from "@/lib/controllo";
+import { QUOTA_FORNITORE_DEFAULT, quotaFornitorePer, valutaQuota } from "@/lib/controllo";
 
 // GET /api/v1/quota-fornitore — quanto ci aspettiamo di pagare al fornitore.
 //
@@ -23,7 +23,12 @@ export async function GET(req: NextRequest) {
   const cliente = await autentica(req);
   if (cliente instanceof NextResponse) return cliente;
 
-  const quota = await quotaFornitore();
+  // Dal 24/08/2026 la quota può variare PER PROVINCIA (e categoria): la
+  // cascata è (provincia, categoria) → (provincia) → default, e la risposta
+  // dice da dove viene il numero. Senza parametri: il default, come sempre.
+  const provincia = req.nextUrl.searchParams.get("provincia");
+  const categoria = req.nextUrl.searchParams.get("categoria");
+  const { quota, regola } = await quotaFornitorePer(provincia, categoria);
   const grezzo = req.nextUrl.searchParams.get("totale");
   const totale = grezzo === null ? null : Number(grezzo);
 
@@ -39,7 +44,14 @@ export async function GET(req: NextRequest) {
     dove: "Deluxy Orders → Impostazioni",
     // Che cosa vuol dire: pagare SOTTO la quota è bene (margine alto), sopra è
     // male. Scritto qui perché chi mostra il numero lo dica giusto.
-    nota: "Quota indicativa uguale per tutti i fornitori: non ci sono regole per fornitore, marchio o prodotto.",
+    // Da dove viene il numero: «default» oppure una regola per provincia
+    // (tabella QuotaRegola). Vale per i fornitori in chat: gli smistati dalla
+    // piattaforma hanno lo sconto cristallizzato sulla vendita là.
+    regola,
+    nota:
+      regola === "default"
+        ? "Quota indicativa di default: nessuna regola per questa provincia."
+        : "Quota decisa per questa provincia (tabella QuotaRegola di Orders).",
     ...(valido ? { totale, atteso: valutaQuota(totale, 0, quota).atteso } : {}),
   });
 }

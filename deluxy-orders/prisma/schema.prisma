@@ -501,6 +501,24 @@ model Ordine {
   csGestioneDa String    @default("") // nome (denormalizzato) di chi l'ha deciso
   csGestioneIl DateTime?
 
+  // ── EVASIONE E CONSEGNA — il ritorno del giro dell'ordine (Standard §7.4) ──
+  //
+  // Da che strada l'ordine è stato evaso:
+  //   ""                 non ancora noto
+  //   fornitore_diretto  percorso A: il fornitore consegna lui (lo propone il
+  //                      Customer Service via PATCH, con la conferma in chat)
+  //   piattaforma        percorsi B/D: smistato dalla piattaforma consegne
+  //                      (lo scrive il ritiro `ritiraVenditePiattaforma`)
+  evasione     String    @default("")
+  // Quando e da chi è stato CONSEGNATO. `consegnataDa`: fornitore | valet.
+  consegnataIl DateTime?
+  consegnataDa String    @default("")
+  // Ingredienti del margine sulla consegna nostra, quando la piattaforma li
+  // esporrà (costo del valet e fee di listino). Null = non noti: il margine
+  // si dichiara parziale, non si finge completo.
+  costoConsegna Float?
+  feeConsegna   Float?
+
   noteInterne      String?
   ultimaClassifica DateTime? // ultima modifica manuale della classificazione
   eventi           EventoOrdine[]
@@ -722,6 +740,24 @@ model LinkIncasso {
 // Impostazione dell'app: chiave → valore, testuale. Serve alle poche scelte che
 // non sono dati (la quota attesa del fornitore) e che devono valere anche in
 // produzione senza un deploy.
+// La QUOTA FORNITORE per PROVINCIA (e categoria): l'evoluzione della regola
+// unica `controllo.quotaFornitore` (Standard §7.4, «sconti per provincia»).
+// Vale per i fornitori in chat (percorsi A/C): per gli ordini smistati dalla
+// piattaforma lo sconto è il suo CategoryDiscount, cristallizzato sulla
+// vendita. La cascata di lettura: (provincia, categoria) → (provincia, "") →
+// default globale. Le altre app NON ricopiano questa tabella: chiedono a
+// `GET /api/v1/quota-fornitore?provincia=&categoria=`.
+model QuotaRegola {
+  id           String   @id @default(cuid())
+  provincia    String // sigla MAIUSCOLA ("MI", "CE")
+  categoria    String   @default("") // "" = qualunque; altrimenti es. torte | fiori
+  percento     Float // quanto va al fornitore, in percentuale sul totale
+  creatoIl     DateTime @default(now())
+  aggiornatoIl DateTime @updatedAt
+
+  @@unique([provincia, categoria])
+}
+
 model Impostazione {
   chiave       String   @id
   valore       String   @db.Text
