@@ -22,7 +22,16 @@ riga con la sua decorrenza; il "corrente" è l'ultima decorrenza non futura).
 - ✅ `/api/v1` di sola lettura con chiave (`x-api-key`): `team` (stesso formato
   del team di Budgets), `persone`, `funzioni`, `organigramma`.
 - ✅ Tessera nel catalogo del Hub (`personale`, `sso: true`).
-- Il database parte VUOTO: niente seed, i dati veri li inserisce il team.
+- ✅ **Organico importato dal roster 2026 di Budgets** (24/08): 3 funzioni
+  (Maison, Commerciale, Operation coi responsabili) e 11 persone, 4 senza team.
+  Script `scripts/importa-da-budgets.mjs` (prova a vuoto di default, `scrivi`
+  per applicare; idempotente per nome normalizzato, come il Hub). Di proposito
+  NON importa stipendi né inquadramenti: l'API di Budgets dà solo il costo
+  aggregato e il «tipo» non dice il contratto vero — tipo, part-time, maison e
+  mesi stanno nelle note di ogni persona, da completare coi dati del contratto.
+- 🔴 Da completare a mano: inquadramenti e retribuzioni delle 11 persone
+  (oggi «da inquadrare» e costo «non calcolabile»), e l'organigramma
+  (nessun «riporta a» è impostato).
 
 ## Le regole che l'app rispetta
 
@@ -88,6 +97,9 @@ npm run db:push
 npm run dev                                          # http://localhost:3200
 npx tsc --noEmit && npm run build                    # prima di ogni commit
 npx vercel deploy --prod --yes                       # deploy (dalla cartella dell'app)
+
+# Import organico dal roster di Budgets (prova a vuoto; aggiungi "scrivi" per applicare)
+node scripts/importa-da-budgets.mjs --chiave-da ../percorso/di/un/.env-con-BUDGETS_API_KEY
 ```
 
 ## Cosa manca / prossimi passi
