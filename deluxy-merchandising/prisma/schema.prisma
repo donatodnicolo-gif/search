@@ -123,6 +123,15 @@ model Prodotto {
   origine    String  @default("merchandising")
   // Il suo id nell'app dov'e' nato, per ritrovarlo senza indovinare.
   idEsterno  String?
+  // **Che ne fa la piattaforma consegne di questo prodotto**: `attivo` oppure
+  // `archiviato`. NON e' la nostra `fase`, ed e' apposta che siano due campi:
+  // la fase e' la decisione del PLM (dove sta nel suo ciclo di vita), questo e'
+  // il fatto che la piattaforma lo tenga ancora a catalogo. Un prodotto puo'
+  // essere «in vendita» per noi e archiviato la' perche' non lo consegna
+  // nessuno da due anni: sono due verita', e schiacciarle in un campo solo ne
+  // farebbe sparire una.
+  statoPiattaforma   String?
+  statoPiattaformaIl DateTime?
   // **L'anagrafica vera del prodotto**, dai metafield `custom.*` di Shopify.
   // Sono liste scelte da un elenco chiuso — non testo libero come i tag — quindi
   // una condizione costruita qui sopra non sbaglia per una maiuscola o un
