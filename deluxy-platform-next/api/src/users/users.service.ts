@@ -139,10 +139,53 @@ export class UsersService {
     return { inviteToken: invite.inviteToken, expiresAt: invite.inviteTokenExpiresAt };
   }
 
+  /**
+   * ESTINGUI: chiude l'accesso e rimuove i dati personali, in un gesto solo.
+   *
+   * Prende il posto di «elimina», che qui archiviava soltanto. Erano due mezze
+   * misure: l'archiviazione conserva lo storico ma lascia nome ed email di chi
+   * se n'è andato; una cancellazione vera li toglie ma **svuota l'autore su
+   * tutto il suo storico** (`Delivery.createdByUserId` è `ON DELETE SET NULL`,
+   * e sono 49.728 consegne) e porta via con sé il registro delle sue azioni
+   * (`UserEvent` è `onDelete: Cascade`).
+   *
+   * L'estinzione tiene il buono di entrambe: **l'id resta**, quindi lo storico
+   * non si muove, e della persona non rimane niente di riconoscibile.
+   *
+   * L'evento si scrive PRIMA e sopravvive, perché l'utente resta: l'atto di
+   * estinzione deve lasciare traccia più di ogni altro.
+   */
+  async estingui(id: string, actor?: JwtUser, motivo?: string) {
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) throw new NotFoundException('Utente non trovato');
+    if (user.status === UserStatus.EXTINCT) return { extinct: true, gia: true };
+
+    await this.prisma.userEvent.create({
+      data: {
+        userId: id,
+        action: 'extinguished',
+        actorId: actor?.sub ?? null,
+        actorEmail: actor?.email ?? 'sistema',
+        note: motivo ?? 'Dati personali rimossi, storico conservato.',
+      },
+    });
+    await this.prisma.user.update({
+      where: { id },
+      data: {
+        status: UserStatus.EXTINCT,
+        email: `estinto-${id}@deluxy.invalid`,
+        firstName: 'Utente',
+        lastName: 'estinto',
+        passwordHash: null,
+        inviteToken: null,
+        inviteTokenExpiresAt: null,
+      },
+    });
+    return { extinct: true };
+  }
+
   async remove(id: string, actor?: JwtUser) {
-    // "Elimina" = archivia (lo storico va conservato: consegne, stipendi, fatture).
-    await this.setStatus(id, UserStatus.ARCHIVED, actor);
-    return { archived: true };
+    return this.estingui(id, actor);
   }
 
   /**

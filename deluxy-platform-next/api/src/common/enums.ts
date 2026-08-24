@@ -21,6 +21,18 @@ export enum UserStatus {
   ACTIVE = 'active', // può accedere
   SUSPENDED = 'suspended', // sospeso temporaneo
   ARCHIVED = 'archived', // cessato (record conservato)
+  /**
+   * Estinto: l'accesso è chiuso E i dati personali sono stati rimossi.
+   *
+   * È un gesto solo, non due. Archiviare senza anonimizzare lascia in giro
+   * nome, email e telefono di persone che se ne sono andate anni fa;
+   * anonimizzare senza chiudere l'accesso lascia un account che entra.
+   *
+   * ⚠️ L'ID non cambia mai: le consegne mantengono il legame col loro autore e
+   * i conteggi non si muovono. Cancellare la riga avrebbe invece svuotato
+   * l'autore su tutto lo storico (`ON DELETE SET NULL`), in silenzio.
+   */
+  EXTINCT = 'extinct',
 }
 
 export enum DeliveryStatus {
