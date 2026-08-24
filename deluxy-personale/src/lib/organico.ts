@@ -81,7 +81,9 @@ export function costoAziendaAnnuo(compenso: Compenso | null): number | null {
   const ral = Number(compenso.ral);
   const pct = Number(compenso.contributiPct);
   if (!Number.isFinite(ral) || !Number.isFinite(pct)) return null;
-  return ral * (1 + pct / 100);
+  // Al centesimo: 18.750 × 1,38 in virgola mobile fa 25874,999…96, e un'API
+  // che lo restituisce così sporca ogni consumatore a valle.
+  return Math.round(ral * (1 + pct / 100) * 100) / 100;
 }
 
 // Un contratto a scadenza si segnala: entro 60 giorni è "in scadenza",
