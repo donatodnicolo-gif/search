@@ -858,6 +858,50 @@ quasi pareggiava il debito.
 > **di cassa**, non la liquidazione vera, che si fa sui registri per data di fattura: qui gli acquisti
 > arrivano dalla banca, cioe da quando il denaro e uscito. Motore in .
 
+## Premi al raggiungimento (`/premi`, 24/08/2026)
+
+«premi per le persone al raggiungimento di specifici risultati: per singoli, team o aziendali». Prima
+ne esisteva **uno solo per livello di scenario** (`ScenarioConfig.premio`, un monte premi aziendale) e
+valeva **zero**: non si poteva dire *a chi* andasse né *per cosa*.
+
+Un premio ha **tre pezzi, e servono tutti e tre**:
+
+1. **a chi** va — `AZIENDA`, `TEAM` (una squadra), `PERSONA` (un nome dell'anagrafica Dipendenti);
+2. **per cosa** — obiettivo, riferimento, soglia e **periodo** (un premio trimestrale è dal 10 al 12);
+3. **quanto** vale.
+
+Gli obiettivi sono quelli che **l'app sa misurare**: vendite dell'azienda, di un brand, di una linea
+commerciale, EBITDA. ⭐ **Un obiettivo che l'app non sa misurare non è un obiettivo, è una nota** — per
+quelli c'è `MANUALE`, che resta «da riconoscere» e lo dichiara invece di far finta di calcolarlo.
+
+⚠️⚠️ **Un premio si misura sullo scenario che si sta guardando.** Nel budget *sfidante* le vendite sono
+più alte, quindi **scattano più premi** — ed è il senso stesso di uno scenario più ambizioso. Un P&L che
+mostrasse gli stessi premi sui tre livelli nasconderebbe il loro costo proprio dove diventa vero.
+
+⚠️ Nel conto economico entra **solo quello che scatta**: provisionare anche i premi mancati gonfierebbe
+un costo che nessuno sosterrà, ignorarli tutti nasconderebbe quello che invece si pagherà. La riga
+«Premi al raggiungimento» e il **risultato netto** vengono da lì, non più da `ScenarioConfig`.
+
+⚠️ **Il riconoscimento a mano vince sulla misura**, in tutt'e due i versi: si può pagare un premio
+mancato di poco, o non pagarne uno scattato per un motivo che i numeri non vedono. Resta una **decisione
+visibile** (badge «riconosciuto a mano» / «negato a mano»), non un aggiustamento del calcolo. Per questo
+gli stati sono **tre** — raggiunto, non ancora, lo dice una persona — e non due.
+
+⚠️ **L'EBITDA arriva da fuori a `misuraPremi`**, non si calcola dentro: un premio sull'EBITDA misurato
+dentro il conto economico che lo contiene sarebbe una ricorsione senza fondo. Non è un espediente — nel
+P&L il premio sta **sotto** l'EBITDA (EBITDA → premi → risultato netto), quindi misurarlo sull'EBITDA
+*prima dei premi* è anche la definizione giusta.
+
+⚠️ **`premi-tipi.ts` è separato da `premi.ts`** per la stessa ragione di `persone.ts`: `PremiEditor` è un
+componente **client**, e importando da `premi.ts` si tirava dietro `calc` → `struttura` → `finance` →
+`chiavi` → **`node:crypto`**, che nel browser non esiste. La build falliva con «Reading from
+"node:crypto" is not handled». Regola: quello che serve **anche al browser** non sta nello stesso file
+di quello che parla col database.
+
+📌 Provato: creazione dei tre tipi, misura di `VENDITE_AZIENDA` (1.101.929 su soglia 1.000.000 →
+raggiunto) e di `EBITDA`, rifiuto di nome vuoto / squadra mancante / importo zero / periodo rovesciato,
+e la riga del P&L che si muove col livello.
+
 ## Chiavi che questa app EMETTE (23/08/2026)
 
 «dobbiamo avere la possibilità di generare chiavi di questa app a cui possono accedere altre app in

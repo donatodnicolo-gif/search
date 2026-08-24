@@ -151,6 +151,10 @@ const nav: AreaNav[] = [
           { href: "/piattaforme", label: "Piattaforme ADV", icon: icons.piattaforme },
           { href: "/dipendenti", label: "Dipendenti", icon: icons.dipendenti },
           { href: "/team", label: "Team", icon: icons.team },
+          // I premi stanno **con le persone**, non nelle impostazioni: sono un
+          // impegno verso qualcuno, e la domanda «quanto costa il lavoro» li
+          // comprende.
+          { href: "/premi", label: "Premi", icon: icons.premi },
         ],
       },
       {

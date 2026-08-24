@@ -441,3 +441,50 @@ model ChiaveEmessa {
 
   @@index([prefisso])
 }
+
+// **I premi al raggiungimento.** Prima ne esisteva uno solo per livello di
+// scenario (`ScenarioConfig.premio`, un monte premi aziendale) e valeva zero:
+// non si poteva dire *a chi* andasse né *per cosa*.
+//
+// Un premio ha tre pezzi, e servono tutti e tre:
+//   1. **a chi** va (`ambito`): tutta l'azienda, una squadra, una persona;
+//   2. **per cosa** (`obiettivoTipo` + `obiettivoRif` + `soglia`): il risultato
+//      da raggiungere, e su quale periodo;
+//   3. **quanto** vale (`importo`).
+//
+// ⚠️ L'obiettivo deve essere qualcosa che **l'app sa misurare**, altrimenti il
+// premio è una nota e non un impegno. I tipi misurabili sono quelli sotto;
+// `MANUALE` esiste per i casi che l'app non vede, e si riconosce a mano —
+// dichiarato come tale invece di far finta di calcolarlo.
+model Premio {
+  id     String @id @default(cuid())
+  year   Int
+  nome   String
+
+  // AZIENDA | TEAM | PERSONA. Chi lo prende.
+  ambito       String
+  teamId       String?
+  dipendenteId String?
+
+  // VENDITE_AZIENDA | VENDITE_MAISON | VENDITE_LINEA | EBITDA | MANUALE
+  obiettivoTipo String
+  // slug della maison o id della linea, secondo il tipo. Null sugli altri.
+  obiettivoRif  String?
+  // Il risultato da superare. Su EBITDA può essere negativo (un obiettivo
+  // realistico quest'anno è «perdere meno di X»).
+  soglia        Float  @default(0)
+  // Il periodo su cui si misura: 1..12. Un premio trimestrale è dal 10 al 12.
+  dal           Int    @default(1)
+  al            Int    @default(12)
+
+  importo Float   @default(0)
+  note    String?
+
+  // ⚠️ **Riconosciuto a mano**, per i premi `MANUALE` e per quando si decide di
+  // pagarlo comunque. Null = decide la misura.
+  riconosciuto Boolean?
+
+  creato  DateTime @default(now())
+
+  @@index([year])
+}

@@ -7,6 +7,8 @@ import { eur, MESI, pct } from "@/lib/format";
 import { caricaConsuntivo, type ConsuntivoPeriodo } from "@/lib/consuntivo";
 import { QUOTA_STIMATA } from "@/lib/venduto";
 import { quotaDeluxyAnno } from "@/lib/quota";
+import { costoPremi, misuraPremi } from "@/lib/premi";
+import { prisma } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +37,11 @@ const RIGHE_FISSE: Riga[] = [
   // come un preventivo o come un consuntivo, che non è la stessa cosa.
   { label: "Costi di struttura", valore: (pl) => pl.costiFissi, tipo: "costo", cons: (c) => c.struttura },
   { label: "EBITDA", valore: (pl) => pl.ebitda, tipo: "risultato", cons: (c) => c.ebitda },
+  // Il valore lo rimpiazza `righe` più sotto: dipende dai premi misurati sul
+  // livello di ciascuna colonna, non da un campo del PL.
   { label: "Premi al raggiungimento", valore: (pl) => pl.premio, tipo: "costo", cons: () => null },
+  // ⚠️ Anche il risultato netto va ricalcolato coi premi veri, altrimenti la
+  // riga sopra e la somma in fondo raccontano due storie diverse.
   { label: "Risultato netto", valore: (pl) => pl.risultatoNetto, tipo: "risultato", cons: () => null },
 ];
 
@@ -133,6 +139,48 @@ export default async function ContoEconomico({
 
   // I ricavi si dettagliano per tipologia di servizio: l'elenco è quello
   // configurato in /margini, non un insieme fisso di canali.
+  // ---- I premi al raggiungimento ----
+  //
+  // ⚠️ Entrano **solo quelli che scattano su questo livello**, e per questo si
+  // misurano qui invece di leggere un totale: nello scenario sfidante le vendite
+  // sono più alte e scattano più premi, quindi il costo dei premi **non è lo
+  // stesso sui tre livelli**. Un numero unico nasconderebbe il loro costo
+  // proprio dove diventa vero.
+  //
+  // L'EBITDA su cui si misurano è quello **prima dei premi**, che è anche
+  // l'ordine di questo conto economico (EBITDA → premi → risultato netto).
+  const premiDb = await prisma.premio.findMany({ where: { year: dati.year } });
+  const [teamPremi, personePremi] = await Promise.all([
+    prisma.team.findMany({ select: { id: true, nome: true } }),
+    prisma.dipendente.findMany({ where: { year: dati.year }, select: { id: true, nome: true } }),
+  ]);
+  const nomiTeam = new Map(teamPremi.map((t) => [t.id, t.nome]));
+  const nomiPersone = new Map(personePremi.map((p) => [p.id, p.nome]));
+  const premiPerLivello = new Map<string, number>();
+  for (const l of LIVELLI) {
+    const men = contoEconomicoMensile(dati, l.key, qD2C);
+    const anno = contoEconomico(dati, l.key, undefined, qD2C).ebitda;
+    const misurati = misuraPremi(
+      dati,
+      premiDb,
+      l.key,
+      qD2C,
+      (mesi) => (mesi.length === 12 ? anno : men.filter((m) => mesi.includes(m.month)).reduce((s, m) => s + m.ebitda, 0)),
+      nomiTeam,
+      nomiPersone
+    );
+    premiPerLivello.set(l.key, costoPremi(misurati));
+  }
+  const premiScattati = misuraPremi(
+    dati,
+    premiDb,
+    livello,
+    qD2C,
+    () => contoEconomico(dati, livello, undefined, qD2C).ebitda,
+    nomiTeam,
+    nomiPersone
+  ).filter((p) => p.costa);
+
   const RIGHE: Riga[] = [
     ...dati.tipologie.map((t) => ({
       label: `Ricavi ${t.nome}`,
@@ -157,9 +205,23 @@ export default async function ContoEconomico({
       valore: (pl: PL) => pl.ricaviCommerciale,
       cons: () => null,
     },
-    ...RIGHE_FISSE.map((r) =>
-      r.label === "Costi di struttura" ? { ...r, nota: notaStruttura(dati.struttura) } : r
-    ),
+    ...RIGHE_FISSE.map((r) => {
+      if (r.label === "Costi di struttura") return { ...r, nota: notaStruttura(dati.struttura) };
+      if (r.label === "Premi al raggiungimento")
+        return {
+          ...r,
+          nota:
+            premiDb.length === 0
+              ? "nessun premio scritto"
+              : `${premiScattati.length} su ${premiDb.length} scattano su «${
+                  LIVELLI.find((l) => l.key === livello)?.label ?? livello
+                }»`,
+          valore: (pl: PL) => premiPerLivello.get(pl.livello) ?? 0,
+        };
+      if (r.label === "Risultato netto")
+        return { ...r, valore: (pl: PL) => pl.ebitda - (premiPerLivello.get(pl.livello) ?? 0) };
+      return r;
+    }),
   ];
   const strutturaDaBanca = dati.struttura !== null;
   const mensile = contoEconomicoMensile(dati, livello, qD2C);
