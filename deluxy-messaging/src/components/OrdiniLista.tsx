@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { CHIUSURA, GESTIONI, PASSI, coloreGestione, nomeGestione } from '@/lib/gestione'
 import {
@@ -782,6 +782,8 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
   // chi lavora il compito di ricercare la riga che aveva appena letto.
   const parametri = useSearchParams()
   const [dettaglio, setDettaglio] = useState(parametri.get('apri') ?? '')
+  /** La scheda si apre da sola una volta sola: vedi `carica()`. */
+  const apertaDaLink = useRef(false)
   // L'ordine dell'ARCHIVIO aperto nel pannello (null = nessuno). Sta a parte
   // dal precedente perché lì la chiave è il nostro id, qui non c'è: l'ordine si
   // chiede a Orders per numero + gid Shopify.
@@ -795,8 +797,20 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
 
   // Ricerca e filtri (la ricerca vera avviene sul server: cerca su TUTTI gli
   // ordini, non solo quelli già in pagina).
-  const [q, setQ] = useState('')
-  const [qCercata, setQCercata] = useState('') // `q` ritardata, per non chiamare a ogni tasto
+  // ⚠️⚠️ `?q=` SI LEGGE DALL'INDIRIZZO. Non si leggeva, e quattro punti
+  // dell'app ci mandavano lo stesso: il numero d'ordine cliccato dai Pagamenti,
+  // dalla Riconciliazione, dal Diario e dall'aiuto laterale. Si arrivava qui con
+  // la casella di ricerca VUOTA e l'elenco di sempre — che, non contenendo
+  // l'ordine cercato (è tagliato a 200 su 1.341, ordinato per urgenza), si legge
+  // come «la ricerca non trova niente». Il numero c'era, nell'indirizzo: non lo
+  // raccoglieva nessuno.
+  const qDaLink = (parametri.get('q') ?? '').trim()
+  const [q, setQ] = useState(qDaLink)
+  // ⚠️ Anche quella ritardata parte già piena: lasciandola vuota la prima
+  // chiamata al server partirebbe SENZA filtro, mostrando per un attimo
+  // l'elenco intero — cioè esattamente la schermata sbagliata che si sta
+  // correggendo, solo più breve.
+  const [qCercata, setQCercata] = useState(qDaLink) // `q` ritardata, per non chiamare a ogni tasto
   const [negozio, setNegozio] = useState('')
   const [filtroContatto, setFiltroContatto] = useState('')
   /** '' tutti · 'miei' · 'liberi'. «Liberi» è il filtro che serve davvero: sono
@@ -859,6 +873,18 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
         operatori?: { id: string; nome: string }[]
       }
       setOrdini(dati.ordini)
+      // ⚠️ Arrivando da un link su un NUMERO D'ORDINE, se il risultato è uno
+      // solo la scheda si apre da sola: chi ha cliccato l'id di un ordine si
+      // aspetta quell'ordine, non un elenco di uno da cliccare di nuovo.
+      //
+      // ⚠️ Una volta sola (`apertaDaLink`) e solo se è UNO: con due ordini dello
+      // stesso numero su negozi diversi — «#1733» è sia di Cake sia di Deluxy —
+      // aprirne uno a caso mostrerebbe la scheda sbagliata come se fosse quella
+      // giusta.
+      if (qDaLink && !apertaDaLink.current && dati.ordini.length === 1) {
+        apertaDaLink.current = true
+        setDettaglio(dati.ordini[0].id)
+      }
       setTotale(dati.totale)
       setNegozi(dati.negozi)
       setGoogleCollegato(dati.googleCollegato)

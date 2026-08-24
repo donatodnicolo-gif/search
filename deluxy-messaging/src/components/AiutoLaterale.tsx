@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
+import { linkOrdine } from '@/lib/link-ordine'
 
 // Il pannello dell'aiuto: una linguetta sul bordo destro, sempre lì.
 //
@@ -70,7 +71,7 @@ function dovePorta(d: { conversazioneId: string; ordineNumero: string }): string
   // ⚠️ Il numero si cerca SENZA cancelletto: è così che lo tiene la ricerca
   // degli ordini globali.
   if (d.ordineNumero) {
-    return `/ordini-globali?q=${encodeURIComponent(d.ordineNumero.replace('#', ''))}`
+    return linkOrdine(d.ordineNumero)
   }
   return ''
 }

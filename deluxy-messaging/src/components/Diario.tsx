@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
+import { linkOrdine } from '@/lib/link-ordine'
 
 // Il diario di lavoro: le righe che ci si scrive per ricordare cosa c'è da fare
 // su un ordine.
@@ -252,7 +253,7 @@ export function Diario() {
                         letta. */}
                     {n.ordineNumero ? (
                       <Link
-                        href={`/ordini-globali?q=${encodeURIComponent(n.ordineNumero.replace('#', ''))}`}
+                        href={linkOrdine(n.ordineNumero)}
                         className="badge"
                         style={{ marginRight: 6 }}
                       >

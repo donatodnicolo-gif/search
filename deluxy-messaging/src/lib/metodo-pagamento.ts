@@ -106,6 +106,39 @@ export const TIPI_RICEVUTA = [
   'application/pdf',
 ]
 
+/**
+ * Come si chiama il file che si scarica.
+ *
+ * ⚠️⚠️ Il nome NON si passa così com'è nell'intestazione HTTP: viene da un file
+ * scelto da qualcuno, e le virgolette o un a-capo dentro un
+ * `Content-Disposition` spezzano l'intestazione — è il modo classico per farne
+ * apparire un'altra. Si tiene solo quello che in un nome di file ha senso.
+ *
+ * ⚠️ E se il nome non c'è (una schermata incollata, un file senza nome) se ne
+ * costruisce uno con la causale: «ricevuta.png» ripetuto venti volte nella
+ * cartella dei download non si distingue più.
+ */
+export function nomeFileRicevuta(nome: string, causale: string, tipo: string): string {
+  const estensione =
+    tipo === 'application/pdf'
+      ? 'pdf'
+      : tipo.startsWith('image/')
+        ? tipo.slice(6).replace('jpeg', 'jpg')
+        : 'bin'
+  const pulito = (nome || '')
+    .replace(/[\\/]/g, ' ')
+    .replace(/[^\w .()-]/g, '')
+    .trim()
+    .slice(0, 80)
+  if (pulito && /\.[a-z0-9]{2,4}$/i.test(pulito)) return pulito
+  const daCausale = (causale || 'ricevuta')
+    .replace(/[^\w -]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .slice(0, 60)
+  return `${pulito || daCausale || 'ricevuta'}.${estensione}`
+}
+
 export function ricevutaAccettabile(tipo: string, byte: number): string {
   if (!TIPI_RICEVUTA.includes(tipo)) {
     return 'Si può caricare un’immagine (PNG, JPG, WEBP, GIF) o un PDF.'

@@ -6,6 +6,7 @@ import { ibanAccorciato, type FornitoreTrovato } from '@/lib/cerca-fornitore'
 import { calcolaMargine, frasiMargine, pct } from '@/lib/margine'
 import { CellaCopiabile } from './CellaCopiabile'
 import { ScegliOrdine, type OrdineTrovato } from './ScegliOrdine'
+import { linkOrdine } from '@/lib/link-ordine'
 import {
   METODI,
   cosaManca,
@@ -1131,7 +1132,7 @@ export function RichiediPagamento() {
                   <td className="cella-muta">
                     {r.ordineNumero ? (
                       <a
-                        href={`/ordini-globali?q=${encodeURIComponent(r.ordineNumero.replace('#', ''))}`}
+                        href={linkOrdine(r.ordineNumero)}
                         className="badge"
                       >
                         {r.ordineNumero}
@@ -1183,10 +1184,22 @@ export function RichiediPagamento() {
                         non inviata
                       </span>
                     )}
+                    {/* ⚠️ Il bollino della ricevuta SI SCARICA. Prima diceva
+                        soltanto che c'era: per rivederla — davanti a un
+                        fornitore che dice di non aver ricevuto niente, o al
+                        commercialista — bisognava ricaricarla, e nessuno la
+                        ricaricava. Una prova che non si può tirare fuori è
+                        archiviata solo per modo di dire. */}
                     {r.ricevutaNome ? (
-                      <span className="badge" style={{ marginLeft: 4 }} title={r.ricevutaNome}>
-                        ricevuta ✓
-                      </span>
+                      <a
+                        className="badge"
+                        style={{ marginLeft: 4 }}
+                        href={`/api/pagamenti/${r.id}/ricevuta`}
+                        download
+                        title={`Scarica ${r.ricevutaNome}`}
+                      >
+                        ricevuta ↓
+                      </a>
                     ) : null}
                     {/* ── AVVISARE CHI ABBIAMO PAGATO ──
                         ⚠️⚠️ Il messaggio si PREPARA, non parte da solo: si apre

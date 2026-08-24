@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { ibanAccorciato } from '@/lib/cerca-fornitore'
 import { euro, pct } from '@/lib/margine'
 import { daFare, valoreSospeso, type Riga } from '@/lib/riconciliazione'
+import { linkOrdine } from '@/lib/link-ordine'
 
 // RIMETTERE INSIEME QUELLO CHE SAPPIAMO GIÀ.
 //
@@ -206,7 +207,7 @@ export function Riconciliazione() {
                 {r.ordine ? (
                   <a
                     className="btn btn-secondario small"
-                    href={`/ordini-globali?q=${encodeURIComponent(r.ordine.numero.replace('#', ''))}`}
+                    href={linkOrdine(r.ordine.numero)}
                   >
                     Apri {r.ordine.numero}
                   </a>
