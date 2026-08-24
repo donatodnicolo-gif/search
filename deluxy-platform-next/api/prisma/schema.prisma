@@ -218,6 +218,12 @@ model Partner {
   vatNumber           String? // P.IVA
   fiscalCode          String? // CF
   address             String?
+  /// Citta' e coordinate dal database originario. La citta' NON e' sempre
+  /// dentro l'indirizzo (32 partner e 78 valet ce l'hanno solo qui), e le
+  /// coordinate servono a calcolare le distanze senza richiamare Maps.
+  city                String?
+  latitude            Float?
+  longitude           Float?
   phone               String?
   contactName         String? // referente
   invoicingEnabled    Boolean           @default(false)
@@ -397,6 +403,12 @@ model Valet {
   email               String            @unique
   phone               String?
   address             String?
+  /// Citta' e coordinate dal database originario. La citta' NON e' sempre
+  /// dentro l'indirizzo (32 partner e 78 valet ce l'hanno solo qui), e le
+  /// coordinate servono a calcolare le distanze senza richiamare Maps.
+  city                String?
+  latitude            Float?
+  longitude           Float?
   hasVat              Boolean           @default(false) // flag P.IVA
   vatNumber           String?
   fiscalCode          String?
