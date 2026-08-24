@@ -1,6 +1,6 @@
 # AI Mail 2.0 (deluxy-mail) — Handoff tecnico
 
-> Documento di ripartenza. Aggiornato: **19 agosto 2026**.
+> Documento di ripartenza. Aggiornato: **24 agosto 2026**.
 > Leggi anche `CLAUDE.md` alla radice del repo e il design system in `deluxy-design-system/`.
 
 ---
@@ -23,27 +23,23 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
 
-### Dove siamo (19 agosto 2026)
+### Dove siamo (24 agosto 2026)
 
-**Fotografia verificata oggi, 19 agosto 2026** (la giornata è stata il **trasloco
-del database**: dettaglio in §9):
+**Fotografia verificata oggi, 24 agosto 2026** (giornata: sette correzioni nate da
+segnalazioni a schermo — vedi §9, «Lotto del 21-24/08»):
 
-- **Codice**: niente in sospeso in `deluxy-mail/` (`git status -- deluxy-mail`
-  pulito), tutto **pushato** su `origin/scout-ui` — verificato **sul contenuto**
-  (non sullo SHA: su questo branch altre sessioni riscrivono la storia, quindi si
-  controlla che i file ci siano su `origin`, non che il numero del commit combaci).
-  ⚠️ `git log` senza `-- deluxy-mail` mostra i commit delle **altre app** del repo
-  condiviso: qui l'ultimo commit del branch non è il nostro.
-- **Database NUOVO**: dal 19/08 AI Mail sta sul cluster condiviso
-  `zegbztfxisqeowngvgvh` (schema `mail`, org Deluxy in **Pro**). Commutato alle
-  **07:36**, collaudato: **31 tabelle su 31, zero righe rimaste indietro**.
-- **Produzione**: deploy `dpl_7shvLxd3A13JCAZMqqKXKpyeZwPf`, `Ready` e aliasato su
-  `deluxy-mail.vercel.app`; `migrate-prod` ha applicato **98/98** statement via
-  `DIRECT_URL`.
-- **Salute**: `GET /api/health` → `{"ok":true,"database":true,"scrivibile":true}`,
-  e `X-Vercel-Id: **fra1::fra1**` — le funzioni girano a **Francoforte**, accanto al
-  database in eu-central-1. (Fino al 18/08 era `fra1::dub1`, giusto allora: il
-  database stava in Irlanda. **La region si sposta insieme al database.**)
+- **Codice**: niente in sospeso in `deluxy-mail/`, tutto pushato su `origin/scout-ui`
+  (verificato **sul contenuto**, non sullo SHA). ⚠️ In questi giorni **altre sessioni**
+  hanno lavorato sulla stessa cartella (preventivi fornitori registrati da AI Mail,
+  rotte per Scout): `git log -- deluxy-mail` prima di dare per scontato cosa c'è.
+- **Produzione**: deploy `dpl_75XpRkF6JJfL3DyFSKChmMPZJcWv` delle **10:45**, `Ready`, sullo
+  stesso commit del codice locale.
+- **Salute**: `/api/health` → `{"ok":true,"database":true,"scrivibile":true}` in **0,63 s**,
+  `X-Vercel-Id: fra1::fra1` — funzioni a Francoforte, accanto al database.
+- **Database**: cluster condiviso `zegbztfxisqeowngvgvh`, schema `mail` (dal 19/08).
+  Le migrazioni di questi giorni sono passate: `migrate-prod` da 98 a **102 statement**
+  (`Attivita.note/noteAutore/noteIl`, `Bozza.allegatiGruppo`).
+
 
 - ⚠️ **Il push non pubblica**: il deploy è manuale —
   `npx vercel --prod --cwd C:/Users/nicol/scoutwt/deluxy-mail`, da lanciare come
@@ -493,6 +489,50 @@ Cron: **`/api/sync`** (route, autenticata con `CRON_SECRET`) — su Vercel Hobby
 ---
 
 ## 9. Problemi noti / gotchas
+
+- **Lotto del 21-24/08/2026 — sette cose, tutte nate da una segnalazione a schermo.**
+  1. **Le attività si annotano** (`Attivita.note`, `noteAutore`, `noteIl`). ⚠️ Il primo
+     tentativo riusava `dettaglio` per non aggiungere colonne: sbagliato, perché quello è la
+     descrizione di COSA FARE, quasi sempre scritta dall'AI, e «modifica» invitava a
+     cancellarla per annotare («non modifica ma aggiungi nota»). Sono due cose diverse e
+     restano due campi; al registro condiviso vanno insieme (`descrizione` = dettaglio +
+     «Note (autore, data): …», con `noteIl` nell'impronta perché una nota modificata riparta).
+  2. **Le cose da fare si vedono aprendo la mail** (blocco «Da fare su questa mail»).
+     ⚠️ Difetto più vecchio trovato strada facendo: l'elenco stava DENTRO il riquadro
+     «Cosa ha capito l'AI», quindi compariva **solo se l'AI aveva già letto la mail** — una
+     attività creata a mano su una mail mai analizzata era invisibile dalla mail da cui nasce.
+  3. **Le bozze mostrano il testo, non i tag**: il corpo è HTML (lo produce l'editor) e
+     l'elenco lo stampava grezzo (`<p><br></p><table style=…`). Ora passa da `htmlAPlain`,
+     e solo se `sembraHtml`: una bozza di solo testo non va convertita.
+  4. 🔴 **Le bozze conservano gli allegati** (`Bozza.allegatiGruppo`). ⚠️ Non era «non li
+     salva»: `salvaMinuta` chiamava `ripulisciAllegatiGrandi`, quindi **salvare una bozza
+     BUTTAVA VIA i file già caricati**. Un allegato in partenza non vive da nessun'altra
+     parte. Il salvataggio RIMPIAZZA il gruppo (togliere un allegato deve toglierlo davvero),
+     l'invio ci aggiunge i conservati. ⚠️⚠️ La pulizia dopo l'invio sta **dopo
+     `registraInviato`**, non dopo il flag `inviata`: quel flag è il LUCCHETTO preso PRIMA di
+     spedire, e cancellare lì avrebbe perso gli allegati a ogni invio fallito. Ce l'avevo
+     messa lì e l'ho spostata: è la classe di errore che si vede solo quando è tardi.
+  5. **Nella conversazione i comandi stanno SOPRA la mail.** ⚠️ **QUARTA volta** che rientra
+     la stessa segnalazione con la stessa forma (allegati → graffetta in testa, scorciatoie →
+     lettere sui bottoni, app → «→ App» in testa, ora Rispondi/Inoltra/Stacca). **Regola
+     scritta nel codice**: in questa pagina un comando si mette DOPO l'intestazione, mai in
+     fondo — ciò che sta sotto il testo, per chi guarda, non esiste.
+  6. ⭐ **Nei riassunti luoghi e orari non si perdono** (`REGOLA_DOVE_QUANDO`, un posto solo,
+     usata da tutti e tre i prompt: mail singola, conversazione, sezione). Nato da un riassunto
+     che diceva «un evento aziendale a Milano l'8 settembre 2026» mentre la mail diceva «at the
+     **Plein hotel** … **starting 20:00**». ⚠️ **MISURATO prima di tenerlo** (regola
+     dell'utente): 4 chiamate col prompt vecchio e 4 col nuovo, stesso testo — «Plein» 0/4 →
+     4/4, «20:00» 0/4 → 4/4, «2026» 0/4 → 4/4; rimisurato dopo l'estrazione della costante,
+     ancora 4/4.
+  7. **Gli appuntamenti con data certa entrano in agenda da soli** (`sync.ts`, dove prima si
+     salvava solo `eventoProposto`). ⚠️ **Due cancelli**: il prompt accetta come evento solo
+     data+ora precise, e qui la data dev'essere valida una volta convertita in UTC; se uno dei
+     due non passa si torna alla proposta col tasto, che non scrive niente. L'evento nasce
+     `creatoDaAI` e legato al messaggio, e la mail mostra il riquadro **«In agenda»** con
+     quando, dove e il tasto per toglierlo — una scrittura che non si vede è una scrittura di
+     cui non ci si fida.
+  ⚠️ **Da finire**: riaprendo una bozza con «Riprendi», la schermata di scrittura non mostra
+  ancora l'elenco degli allegati conservati (partono, ma non si vedono finché non invii).
 
 - **«I tasti rapidi a volte non funzionano» (20 ago)** — e il «a volte» era la chiave, come
   già per il pallino blu e per le mail inoltrate. Non è casuale: **dipende da dove hai
