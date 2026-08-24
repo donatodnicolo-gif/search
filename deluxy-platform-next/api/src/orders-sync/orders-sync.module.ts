@@ -31,11 +31,16 @@ type OrdineOrders = {
   consegna?: { data?: string | null; fascia?: string | null } | null;
   righe?: { sku?: string | null; titolo?: string | null; quantita?: number | null }[];
   classificazione?: { stato?: { chiave?: string; terminale?: boolean } | null } | null;
+  /** "manuale" = il Customer Service se lo tiene: NON va smistato. */
+  smistamento?: string | null;
+  /** Già evaso per un'altra strada (es. "fornitore_diretto"): NON va smistato. */
+  evasione?: string | null;
 };
 
 type Esito =
   | 'creata'
   | 'gia-presente'
+  | 'riservato-al-cs'
   | 'senza-provincia'
   | 'provincia-sconosciuta'
   | 'senza-sku'
@@ -129,8 +134,8 @@ export class OrdersSyncService {
     }
 
     const conteggio: Record<Esito, number> = {
-      creata: 0, 'gia-presente': 0, 'senza-provincia': 0, 'provincia-sconosciuta': 0,
-      'senza-sku': 0, 'prodotto-sconosciuto': 0, errore: 0,
+      creata: 0, 'gia-presente': 0, 'riservato-al-cs': 0, 'senza-provincia': 0,
+      'provincia-sconosciuta': 0, 'senza-sku': 0, 'prodotto-sconosciuto': 0, errore: 0,
     };
     const esempi: { ordine: string; esito: Esito; dettaglio?: string }[] = [];
     const daGestire: string[] = [];
@@ -142,7 +147,16 @@ export class OrdersSyncService {
 
       let esito: Esito;
       let dettaglio: string | undefined;
-      if (!codice) { esito = 'senza-provincia'; }
+      // IL GOVERNO DEL DECISORE (Standard §7.4, deciso dall'utente il 24/08):
+      // l'automatico non scavalca mai il Customer Service. `smistamento =
+      // "manuale"` = se lo tiene lui; `evasione = "fornitore_diretto"` = già
+      // evaso per un'altra strada (assegnato in chat) — in entrambi i casi
+      // questo ordine NON entra nello smistamento, e l'esito lo dice.
+      if (o.smistamento === 'manuale' || o.evasione === 'fornitore_diretto') {
+        esito = 'riservato-al-cs';
+        dettaglio = o.smistamento === 'manuale' ? 'gestione manuale' : 'già assegnato in chat';
+      }
+      else if (!codice) { esito = 'senza-provincia'; }
       else if (!province.has(codice)) { esito = 'provincia-sconosciuta'; dettaglio = codice; }
       else if (!sku) { esito = 'senza-sku'; }
       else if (!prodotti.has(sku)) { esito = 'prodotto-sconosciuto'; dettaglio = sku; }
