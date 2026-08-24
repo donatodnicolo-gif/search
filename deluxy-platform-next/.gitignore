@@ -27,3 +27,4 @@ Thumbs.db
 .vscode/
 .idea/
 scripts/_prezzo.mjs
+scripts/_paga.mjs
