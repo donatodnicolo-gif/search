@@ -400,7 +400,12 @@
       "unpricedHint": "{{n}} deliveries stay out of the invoice: they have no price and the partner has no rate card for their service. Invoicing them at 0 EUR would be a document that lies.",
       "byRule": "Excluded by rule",
       "byRuleRow": "by rule",
-      "backlog": "{{n}} deliveries older than {{d}} have no rate and are out of the list: they come from closed relationships and nobody will invoice them. They stay in the database."
+      "backlog": "{{n}} deliveries older than {{d}} have no rate and are out of the list: they come from closed relationships and nobody will invoice them. They stay in the database.",
+      "month": "Month",
+      "sold": "Sold",
+      "dueToPartner": "Due to partner",
+      "openMonth": "open",
+      "openMonthHint": "The month is not over yet: invoicing usually happens once it closes."
     },
     "filter": {
       "search": "Search",

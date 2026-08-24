@@ -100,8 +100,21 @@ export type ListinoPartner = {
   pricePerItem?: number | null;
 } | null;
 
+/**
+ * Quanto vale una consegna nel conto col partner.
+ *
+ * ⚠️ Nei servizi di VENDITA il denaro va nell'altro verso. Il cliente paga
+ * Deluxy, Deluxy trattiene la sua percentuale e **deve il resto al partner**:
+ * su un prodotto da 110 € con fee al 20%, a noi restano 22 e al partner ne
+ * dobbiamo 88. Mostrare solo i 22 come «da fatturare» racconta meta' della
+ * storia — e la meta' meno importante per chi legge dall'altra parte.
+ *
+ * Negli altri servizi (consegna a prezzo fisso, a ora, magazzino) il verso e'
+ * quello normale: il partner paga noi, e `dovutoAlPartner` vale 0.
+ */
 export function prezzoConsegna(d: ConsegnaDaPrezzare, listino: ListinoPartner, regola: RegolaCarnet = null):
-  { amount: number; origine: 'consegna' | 'listino'; modello: string } | null {
+  { amount: number; origine: 'consegna' | 'listino'; modello: string; venduto: number; dovutoAlPartner: number } | null {
+
   // Una regola carnet che dice «non fatturare» vince su tutto: il carnet è
   // già stato pagato in anticipo, rifatturarlo sarebbe chiedere due volte.
   if (regola && regola.toBill === false) return null;
@@ -113,16 +126,25 @@ export function prezzoConsegna(d: ConsegnaDaPrezzare, listino: ListinoPartner, r
   // Lo sconto non puo' far pagare al partner meno di zero.
   const mai_negativo = (n: number) => Math.max(0, arrotonda(n));
 
+  const valoreProdotti = (d.products ?? []).reduce(
+    (s, p) => s + (p.price ?? 0) * (p.quantity ?? 1), 0,
+  );
+  const vendita = (d.serviceType?.pricingModel ?? '') === 'VENDITA';
+  /**
+   * Cio' che incassiamo per conto del partner e gli dobbiamo girare.
+   * Solo nelle vendite: altrove il denaro va dal partner a noi.
+   */
+  const dovuto = (trattenuto: number) =>
+    vendita ? Math.max(0, Math.round((valoreProdotti - trattenuto) * 100) / 100) : 0;
+
   // Il prezzo deciso sulla consegna vince: è un fatto, non una stima.
   if ((d.price ?? 0) > 0) {
-    return { amount: mai_negativo(d.price! + extra), origine: 'consegna', modello: d.serviceType?.pricingModel ?? '—' };
+    const a = mai_negativo(d.price! + extra);
+    return { amount: a, origine: 'consegna', modello: d.serviceType?.pricingModel ?? '—', venduto: valoreProdotti, dovutoAlPartner: dovuto(a) };
   }
 
 
   const modello = d.serviceType?.pricingModel ?? '';
-  const valoreProdotti = (d.products ?? []).reduce(
-    (s, p) => s + (p.price ?? 0) * (p.quantity ?? 1), 0,
-  );
 
   // Km oltre quelli inclusi: vale solo dove si paga la distanza.
   const supplementoKm = (): number => {
@@ -147,30 +169,35 @@ export function prezzoConsegna(d: ConsegnaDaPrezzare, listino: ListinoPartner, r
   switch (modello) {
     case 'PREZZO_FISSO': {
       const tariffa = listino?.price ?? d.serviceType?.basePrice ?? 0;
-      return { amount: mai_negativo(tariffa + supplementoKm() + extra), origine: 'listino', modello };
+      const a = mai_negativo(tariffa + supplementoKm() + extra);
+      return { amount: a, origine: 'listino', modello, venduto: valoreProdotti, dovutoAlPartner: dovuto(a) };
     }
     case 'A_ORA': {
       // Il minimo di ore del servizio: mezz'ora di lavoro non si fattura mezza.
       const ore = Math.max(d.hours ?? 0, d.serviceType?.minHours ?? 1);
-      return { amount: mai_negativo((listino?.price ?? 0) * ore + supplementoKm() + extra), origine: 'listino', modello };
+      const a = mai_negativo((listino?.price ?? 0) * ore + supplementoKm() + extra);
+      return { amount: a, origine: 'listino', modello, venduto: valoreProdotti, dovutoAlPartner: dovuto(a) };
     }
     case 'MAGAZZINO': {
       const base = listino?.price ?? d.serviceType?.basePrice ?? 0;
       const aPezzo = listino?.pricePerItem ?? d.serviceType?.perPiecePrice ?? 0;
       const pezzi = (d.products ?? []).reduce((s, p) => s + (p.quantity ?? 1), 0);
-      return { amount: mai_negativo(base + aPezzo * pezzi + extra), origine: 'listino', modello };
+      const a = mai_negativo(base + aPezzo * pezzi + extra);
+      return { amount: a, origine: 'listino', modello, venduto: valoreProdotti, dovutoAlPartner: dovuto(a) };
     }
     case 'VENDITA': {
       // ⚠️ `listino.price` qui e' una PERCENTUALE, non euro. Una fee dello 0%
       // e' legittima: la consegna e' avvenuta e non si trattiene niente.
       const feePercento = listino?.price ?? 0;
-      return { amount: mai_negativo((valoreProdotti * feePercento) / 100 + extra), origine: 'listino', modello };
+      const a = mai_negativo((valoreProdotti * feePercento) / 100 + extra);
+      return { amount: a, origine: 'listino', modello, venduto: valoreProdotti, dovutoAlPartner: dovuto(a) };
     }
     case 'CORPORATE': {
       // Il corporate non passa dal listino ma dai prodotti: senza prodotti non
       // c'e' proprio niente su cui calcolare.
       if (!(d.products ?? []).length) return null;
-      return { amount: mai_negativo(valoreProdotti + extra), origine: 'listino', modello };
+      const a = mai_negativo(valoreProdotti + extra);
+      return { amount: a, origine: 'listino', modello, venduto: valoreProdotti, dovutoAlPartner: 0 };
     }
     default:
       return null;
@@ -257,8 +284,6 @@ export class InvoicesService {
    */
   async pending(user: JwtUser, opzioni: { partnerId?: string; fino?: string; dal?: string; al?: string } = {}) {
     const where: any = {
-      // Le consegne cancellate logicamente non esistono piu': ne restavano
-      // 431 nel conto del da fatturare.
       deletedAt: null,
       billable: true,
       status: { notIn: InvoicesService.NON_BILLABLE_STATUSES },
@@ -284,17 +309,16 @@ export class InvoicesService {
         price: true, additionalPrice: true, hours: true,
         distanceKm: true, extraKm: true, extraOutOfCity: true,
         serviceType: { select: { pricingModel: true, basePrice: true, perPiecePrice: true, minHours: true } },
-        // La regola carnet: sconto sulla fattura, o «non fatturare affatto».
         deliveryRule: { select: { name: true, partnerBillingAdjustment: true, toBill: true } },
       },
     });
 
     // I prodotti servono solo dove il prezzo si ricava da loro (vendita a
     // percentuale, corporate, magazzino a pezzo) e manca sulla consegna:
-    // caricarli per tutte e 47.126 sarebbe una lettura enorme per niente.
+    // caricarli per tutte sarebbe una lettura enorme per niente.
     const DA_PRODOTTI = ['VENDITA', 'CORPORATE', 'MAGAZZINO'];
     const serveProdotti = deliveries
-      .filter((d) => (d.price ?? 0) <= 0 && DA_PRODOTTI.includes(d.serviceType?.pricingModel ?? ''))
+      .filter((d) => DA_PRODOTTI.includes(d.serviceType?.pricingModel ?? ''))
       .map((d) => d.id);
     const prodotti = new Map<string, { quantity: number; price: number | null }[]>();
     for (let i = 0; i < serveProdotti.length; i += 2000) {
@@ -317,66 +341,94 @@ export class InvoicesService {
     );
 
     type Riga = {
-      partnerId: string; deliveriesCount: number; netAmount: number;
-      unpricedCount: number; ruleExcludedCount: number; from: Date; to: Date;
-      /** Quante consegne prendono il prezzo dal listino invece che da sé. */
-      fromListino: number;
+      partnerId: string; mese: string;
+      deliveriesCount: number; netAmount: number;
+      /** Valore di quello che si e' venduto per conto del partner. */
+      venduto: number;
+      /** Quello che di quel venduto va girato a lui. */
+      dovutoAlPartner: number;
+      unpricedCount: number; ruleExcludedCount: number; fromListino: number;
+      from: Date; to: Date;
       modelli: Record<string, number>;
     };
     const per = new Map<string, Riga>();
     let arretrato = 0;
+    let dateImpossibili = 0;
+
+    // ⚠️ Il mese si calcola in ora di Roma, non UTC: una consegna del 1° del
+    // mese alle 00:30 italiane a Greenwich e' ancora l'ultimo del mese prima,
+    // e finirebbe nella fattura sbagliata.
+    const meseDi = (d: Date) =>
+      new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit' })
+        .format(d).slice(0, 7);
+
     for (const d of deliveries) {
       if (!d.partnerId) continue;
+      // Le date fuori dal mondo (2926, 2029, 2001) sono errori del legacy:
+      // messe in un mese vero farebbero comparire «fattura di maggio 2926».
+      const anno = d.date.getFullYear();
+      if (anno < 2019 || anno > new Date().getFullYear() + 1) { dateImpossibili++; continue; }
+
       const calcolo = prezzoConsegna(
         { ...d, products: prodotti.get(d.id) ?? [] } as any,
         listini.get(`${d.partnerId}|${d.serviceTypeId}`) ?? null,
         (d as any).deliveryRule ?? null,
       );
-      // Buco di tariffa su una consegna vecchia: e' arretrato, non un lavoro
-      // aperto. Esce dall'elenco ma resta contato.
-      if (!calcolo && !((d as any).deliveryRule?.toBill === false) && d.date < SOGLIA_ARRETRATO) {
-        arretrato++;
-        continue;
-      }
-      const r = per.get(d.partnerId) ?? {
+      const perRegola = (d as any).deliveryRule?.toBill === false;
 
-        partnerId: d.partnerId, deliveriesCount: 0, netAmount: 0, unpricedCount: 0,
-        ruleExcludedCount: 0, from: d.date, to: d.date, fromListino: 0, modelli: {},
+      // Buco di tariffa su una consegna vecchia: arretrato, non lavoro aperto.
+      if (!calcolo && !perRegola && d.date < SOGLIA_ARRETRATO) { arretrato++; continue; }
+
+      const mese = meseDi(d.date);
+      const chiave = `${d.partnerId}|${mese}`;
+      const r = per.get(chiave) ?? {
+        partnerId: d.partnerId, mese,
+        deliveriesCount: 0, netAmount: 0, venduto: 0, dovutoAlPartner: 0,
+        unpricedCount: 0, ruleExcludedCount: 0, fromListino: 0,
+        from: d.date, to: d.date, modelli: {},
       };
       r.deliveriesCount++;
-      const m = d.serviceType?.pricingModel ?? '—';
-      r.modelli[m] = (r.modelli[m] ?? 0) + 1;
+      const mod = d.serviceType?.pricingModel ?? '—';
+      r.modelli[mod] = (r.modelli[mod] ?? 0) + 1;
       if (calcolo) {
         r.netAmount += calcolo.amount;
+        r.venduto += calcolo.venduto;
+        r.dovutoAlPartner += calcolo.dovutoAlPartner;
         if (calcolo.origine === 'listino') r.fromListino++;
-      } else if ((d as any).deliveryRule?.toBill === false) {
-        // Non e' un buco: una regola carnet dice di non fatturarla perche' il
-        // carnet e' gia' stato pagato in anticipo. Contarla fra i dati
-        // mancanti la farebbe sembrare un problema da risolvere.
-        r.ruleExcludedCount++;
-      } else r.unpricedCount++;
+      } else if (perRegola) r.ruleExcludedCount++;
+      else r.unpricedCount++;
       if (d.date < r.from) r.from = d.date;
       if (d.date > r.to) r.to = d.date;
-      per.set(d.partnerId, r);
+      per.set(chiave, r);
     }
 
     const partners = await this.prisma.partner.findMany({
-      where: { id: { in: [...per.keys()] } },
+      where: { id: { in: [...new Set([...per.values()].map((r) => r.partnerId))] } },
       select: { id: true, insegna: true },
     });
     const nome = new Map(partners.map((p) => [p.id, p.insegna]));
 
+    // Il mese in corso non e' chiuso: si fattura quando finisce, e dirlo evita
+    // fatture di mezzo mese emesse per sbaglio.
+    const meseCorrente = meseDi(new Date());
+
     const voci = [...per.values()]
       .map((r) => {
         const netAmount = Math.round(r.netAmount * 100) / 100;
+        const dovutoAlPartner = Math.round(r.dovutoAlPartner * 100) / 100;
         return {
+          chiave: `${r.partnerId}|${r.mese}`,
           partnerId: r.partnerId,
           partner: { id: r.partnerId, insegna: nome.get(r.partnerId) ?? '—' },
+          mese: r.mese,
+          inCorso: r.mese === meseCorrente,
           deliveriesCount: r.deliveriesCount,
           unpricedCount: r.unpricedCount,
           ruleExcludedCount: r.ruleExcludedCount,
           fromListino: r.fromListino,
           modelli: r.modelli,
+          venduto: Math.round(r.venduto * 100) / 100,
+          dovutoAlPartner,
           netAmount,
           vatRate: IVA,
           totalAmount: conIva(netAmount),
@@ -384,21 +436,28 @@ export class InvoicesService {
           to: r.to,
         };
       })
-      .sort((a, b) => b.netAmount - a.netAmount);
+      // Prima i mesi recenti, e dentro il mese i conti piu' grossi.
+      .sort((a, b) => (a.mese === b.mese ? b.netAmount - a.netAmount : b.mese.localeCompare(a.mese)));
 
     return {
       voci,
       totali: {
-        partners: voci.length,
+        righe: voci.length,
+        partners: new Set(voci.map((v) => v.partnerId)).size,
+        mesi: new Set(voci.map((v) => v.mese)).size,
         deliveriesCount: voci.reduce((s, v) => s + v.deliveriesCount, 0),
         unpricedCount: voci.reduce((s, v) => s + v.unpricedCount, 0),
         ruleExcludedCount: voci.reduce((s, v) => s + v.ruleExcludedCount, 0),
         fromListino: voci.reduce((s, v) => s + v.fromListino, 0),
+        venduto: Math.round(voci.reduce((s, v) => s + v.venduto, 0) * 100) / 100,
+        dovutoAlPartner: Math.round(voci.reduce((s, v) => s + v.dovutoAlPartner, 0) * 100) / 100,
         netAmount: Math.round(voci.reduce((s, v) => s + v.netAmount, 0) * 100) / 100,
         totalAmount: Math.round(voci.reduce((s, v) => s + v.totalAmount, 0) * 100) / 100,
-        /// Consegne senza tariffa piu’ vecchie della soglia: messe da parte, non perse.
+        /// Consegne senza tariffa piu' vecchie della soglia: messe da parte, non perse.
         arretrato,
         soglia: SOGLIA_ARRETRATO,
+        /// Date fuori dal mondo nel legacy (2926, 2029, 2001): escluse dai mesi.
+        dateImpossibili,
       },
     };
   }

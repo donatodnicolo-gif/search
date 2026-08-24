@@ -33,6 +33,15 @@ interface PartnerLite { id: string; insegna: string }
 
 /** Una riga di «Da fatturare»: un partner e il lavoro che aspetta fattura. */
 interface Pending {
+  /** partnerId|YYYY-MM: una riga e' un partner in un mese, cioe' una fattura. */
+  chiave: string;
+  mese: string;
+  /** Il mese non e' ancora finito: si fattura quando chiude. */
+  inCorso: boolean;
+  /** Valore di quello che si e' venduto per conto del partner. */
+  venduto: number;
+  /** Quello che di quel venduto va girato a lui. */
+  dovutoAlPartner: number;
   partnerId: string;
   partner: { id: string; insegna: string };
   deliveriesCount: number;
@@ -183,6 +192,10 @@ const NEXT: Record<string, { next: string; key: string }> = {
           <div><span class="etichetta">{{ 'invoices.pending.partners' | translate }}</span><strong>{{ t.partners | number }}</strong></div>
           <div><span class="etichetta">{{ 'invoices.pending.deliveries' | translate }}</span><strong>{{ t.deliveriesCount | number }}</strong></div>
           <div><span class="etichetta">{{ 'invoices.col.net' | translate }}</span><strong>{{ t.netAmount | number: '1.2-2' }} €</strong></div>
+          @if (t.venduto) {
+            <div><span class="etichetta">{{ 'invoices.pending.sold' | translate }}</span><strong>{{ t.venduto | number: '1.2-2' }} €</strong></div>
+            <div><span class="etichetta">{{ 'invoices.pending.dueToPartner' | translate }}</span><strong class="dovuto">{{ t.dovutoAlPartner | number: '1.2-2' }} €</strong></div>
+          }
           <div><span class="etichetta">{{ 'invoices.col.total' | translate }}</span><strong class="oro">{{ t.totalAmount | number: '1.2-2' }} €</strong></div>
           @if (t.unpricedCount) {
             <div><span class="etichetta">{{ 'invoices.pending.unpriced' | translate }}</span><strong class="rosso">{{ t.unpricedCount | number }}</strong></div>
@@ -204,20 +217,25 @@ const NEXT: Record<string, { next: string; key: string }> = {
         <table>
           <thead>
             <tr>
+              <th>{{ 'invoices.pending.month' | translate }}</th>
               <th>{{ 'invoices.col.partner' | translate }}</th>
-              <th>{{ 'invoices.pending.period' | translate }}</th>
               <th class="num">{{ 'invoices.col.deliveries' | translate }}</th>
               <th class="num">{{ 'invoices.pending.unpriced' | translate }}</th>
+              <th class="num">{{ 'invoices.pending.sold' | translate }}</th>
+              <th class="num">{{ 'invoices.pending.dueToPartner' | translate }}</th>
               <th class="num">{{ 'invoices.col.net' | translate }}</th>
               <th class="num">{{ 'invoices.col.total' | translate }}</th>
               <th>{{ 'invoices.col.actions' | translate }}</th>
             </tr>
           </thead>
           <tbody>
-            @for (r of pendingFiltered(); track r.partnerId) {
+            @for (r of pendingFiltered(); track r.chiave) {
               <tr>
+                <td class="mese">
+                  {{ mese(r.mese) }}
+                  @if (r.inCorso) { <span class="incorso" [title]="'invoices.pending.openMonthHint' | translate">{{ 'invoices.pending.openMonth' | translate }}</span> }
+                </td>
                 <td class="strong">{{ r.partner.insegna }}</td>
-                <td class="muted">{{ r.from | date: 'dd/MM/yy' }} – {{ r.to | date: 'dd/MM/yy' }}</td>
                 <td class="num">
                   {{ r.deliveriesCount | number }}
                   @if (r.fromListino) { <span class="ric" [title]="'invoices.pending.fromListinoHint' | translate">{{ 'invoices.pending.fromListino' | translate:{ n: r.fromListino } }}</span> }
@@ -225,20 +243,22 @@ const NEXT: Record<string, { next: string; key: string }> = {
                 <td class="num">
                   @if (r.unpricedCount) { <span class="rosso">{{ r.unpricedCount | number }}</span> } @else { <span class="muted">—</span> }
                 </td>
+                <td class="num muted">{{ r.venduto ? ((r.venduto | number: '1.2-2') + ' €') : '—' }}</td>
+                <td class="num">{{ r.dovutoAlPartner ? ('−' + (r.dovutoAlPartner | number: '1.2-2') + ' €') : '—' }}</td>
                 <td class="num muted">{{ r.netAmount | number: '1.2-2' }} €</td>
                 <td class="num strong">{{ r.totalAmount | number: '1.2-2' }} €</td>
                 <td class="row-actions">
                   <button class="link-btn" (click)="togglePendingDetail(r)">
-                    {{ (pendingOpen() === r.partnerId ? 'invoices.action.hideDetail' : 'invoices.action.detail') | translate }}
+                    {{ (pendingOpen() === r.chiave ? 'invoices.action.hideDetail' : 'invoices.action.detail') | translate }}
                   </button>
                   @if (canManage()) {
                     <button class="link-btn" (click)="fatturaTutto(r)">{{ 'invoices.pending.invoiceAll' | translate }}</button>
                   }
                 </td>
               </tr>
-              @if (pendingOpen() === r.partnerId) {
+              @if (pendingOpen() === r.chiave) {
                 <tr class="detail-row">
-                  <td colspan="7">
+                  <td colspan="9">
                     @if (pendingDetailLoading()) { <p class="muted">{{ 'common.loading' | translate }}</p> }
                     @else {
                       <table class="sub">
@@ -275,7 +295,7 @@ const NEXT: Record<string, { next: string; key: string }> = {
               }
             }
             @if (!pendingFiltered().length) {
-              <tr><td colspan="7" class="muted empty">{{ 'invoices.pending.empty' | translate }}</td></tr>
+              <tr><td colspan="9" class="muted empty">{{ 'invoices.pending.empty' | translate }}</td></tr>
             }
           </tbody>
         </table>
@@ -420,6 +440,9 @@ const NEXT: Record<string, { next: string; key: string }> = {
       .filtri .interruttore > span { font-size: 13px; color: var(--text); }
       .filtri .azzera { padding-bottom: 8px; }
       .rosso { color: #C0392B; font-weight: 600; }
+      .dovuto { color: #007aff; }
+      .mese { font-weight: 550; text-transform: capitalize; white-space: nowrap; }
+      .incorso { margin-left: 6px; font-size: 10.5px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; color: var(--text-secondary); background: var(--fill, #f5f5f7); border-radius: 999px; padding: 2px 7px; cursor: help; }
       .regola { font-size: 11px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; color: var(--text-secondary); background: var(--fill, #f5f5f7); border-radius: 999px; padding: 2px 8px; cursor: help; }
       .avviso { margin: -4px 0 12px; font-size: 13px; color: var(--text-secondary); }
       .riepilogo .oro { color: var(--gold-strong, #B8963E); }
@@ -446,7 +469,7 @@ export class InvoicesListComponent {
   /** Si apre su «Da fatturare»: e' la domanda che si fa arrivando qui. */
   readonly view = signal<'pending' | 'active' | 'archive'>('pending');
   readonly pending = signal<Pending[]>([]);
-  readonly pendingTotals = signal<{ partners: number; deliveriesCount: number; unpricedCount: number; ruleExcludedCount: number; fromListino: number; netAmount: number; totalAmount: number; arretrato: number; soglia: string } | null>(null);
+  readonly pendingTotals = signal<{ righe: number; partners: number; mesi: number; deliveriesCount: number; unpricedCount: number; ruleExcludedCount: number; fromListino: number; venduto: number; dovutoAlPartner: number; netAmount: number; totalAmount: number; arretrato: number; soglia: string; dateImpossibili: number } | null>(null);
   readonly pendingOpen = signal<string | null>(null);
   readonly pendingDetail = signal<PendingDelivery[]>([]);
   readonly pendingDetailLoading = signal(false);
@@ -532,12 +555,13 @@ export class InvoicesListComponent {
 
   /** Apre/chiude le consegne da fatturare di un partner. */
   togglePendingDetail(r: Pending): void {
-    if (this.pendingOpen() === r.partnerId) { this.pendingOpen.set(null); return; }
-    this.pendingOpen.set(r.partnerId);
+    if (this.pendingOpen() === r.chiave) { this.pendingOpen.set(null); return; }
+    this.pendingOpen.set(r.chiave);
     this.pendingDetail.set([]);
     this.pendingDetailLoading.set(true);
     this.http.get<{ deliveries: PendingDelivery[]; troncato: boolean }>(
       `${environment.apiUrl}/invoices/pending/${r.partnerId}`,
+      { params: { dal: this.primoDelMese(r.mese), al: this.ultimoDelMese(r.mese) } },
     ).subscribe({
       next: (d) => {
         this.pendingDetail.set(d.deliveries ?? []);
@@ -555,10 +579,22 @@ export class InvoicesListComponent {
    * Non genera da solo: il periodo e' una scelta contabile, e premere un tasto
    * che emette un documento senza mostrarlo prima sarebbe un gesto pesante.
    */
+  /** Il primo e l'ultimo giorno del mese: la fattura copre il mese, non l'intervallo delle consegne. */
+  primoDelMese(m: string): string { return m + '-01'; }
+  ultimoDelMese(m: string): string {
+    const [a, me] = m.split('-').map(Number);
+    return `${m}-${String(new Date(a, me, 0).getDate()).padStart(2, '0')}`;
+  }
+  /** «2026-08» → «agosto 2026». */
+  mese(m: string): string {
+    const [a, me] = m.split('-').map(Number);
+    return new Date(a, me - 1, 1).toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
+  }
+
   fatturaTutto(r: Pending): void {
     this.genPartner = r.partnerId;
-    this.genFrom = String(r.from).slice(0, 10);
-    this.genTo = String(r.to).slice(0, 10);
+    this.genFrom = this.primoDelMese(r.mese);
+    this.genTo = this.ultimoDelMese(r.mese);
     this.view.set('active');
     this.showGen.set(true);
     this.load();

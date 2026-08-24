@@ -400,7 +400,12 @@
       "unpricedHint": "{{n}} consegne non entrano in fattura: non hanno prezzo e il partner non ha un listino per il loro servizio. Fatturarle a 0 EUR sarebbe un documento che dice il falso.",
       "byRule": "Escluse da regola",
       "byRuleRow": "da regola",
-      "backlog": "{{n}} consegne piu' vecchie del {{d}} non hanno una tariffa e sono fuori dall'elenco: vengono da rapporti chiusi e nessuno le fatturera'. Restano in banca dati."
+      "backlog": "{{n}} consegne piu' vecchie del {{d}} non hanno una tariffa e sono fuori dall'elenco: vengono da rapporti chiusi e nessuno le fatturera'. Restano in banca dati.",
+      "month": "Mese",
+      "sold": "Venduto",
+      "dueToPartner": "Dovuto al partner",
+      "openMonth": "in corso",
+      "openMonthHint": "Il mese non e' ancora finito: di solito si fattura quando chiude."
     },
     "filter": {
       "search": "Cerca",
