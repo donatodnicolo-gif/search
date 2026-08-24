@@ -1555,5 +1555,45 @@
     "pullHint": "Pulls only the ticked fields into the platform. Rows where the registry is empty cannot be ticked: an empty value never overwrites a real one. Yellow rows are trade name and address — the registry holds the company, this page the outlet, so they start unticked.",
     "riskyField": "The registry holds the company, this page the outlet: tick only if you know you need it.",
     "emptyThere": "This field is empty in the registry: nothing to pull."
+  },
+  "sales": {
+    "title": "Sales",
+    "caption": "Orders dispatched to partners.",
+    "empty": "No sales yet. Use “Pull from Orders” to bring orders in.",
+    "noPartner": "— no partner",
+    "accept": "Accept",
+    "refuse": "Decline",
+    "col": {
+      "status": "Status",
+      "order": "Source",
+      "product": "Product",
+      "province": "Prov.",
+      "partner": "Partner",
+      "delivery": "Delivery",
+      "amount": "Amount"
+    },
+    "tab": {
+      "tutte": "All",
+      "da_gestire": "To handle",
+      "proposta": "Offered",
+      "accettata": "Accepted",
+      "annullata": "Cancelled"
+    },
+    "sync": {
+      "simulate": "Preview from Orders",
+      "apply": "Pull from Orders",
+      "preview": "Read {{n}} orders. Nothing was written: here is what would happen.",
+      "done": "Read {{n}} orders from Orders.",
+      "examples": "Examples of what does not come in:",
+      "esito": {
+        "creata": "would come in",
+        "gia-presente": "already here",
+        "senza-provincia": "no province (dispatch cannot choose)",
+        "provincia-sconosciuta": "non-Italian province",
+        "senza-sku": "no SKU",
+        "prodotto-sconosciuto": "product not in catalogue",
+        "errore": "errors"
+      }
+    }
   }
 }

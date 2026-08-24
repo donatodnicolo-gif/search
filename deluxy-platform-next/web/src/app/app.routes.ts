@@ -378,10 +378,17 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./pages/settings.component').then((m) => m.SettingsComponent),
       },
+      // ---- Vendite (ordini smistati ai partner) ----
+      {
+        path: 'sales',
+        canActivate: [roleGuard],
+        data: { roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER', 'PARTNER'] },
+        loadComponent: () =>
+          import('./pages/sales-list.component').then((m) => m.SalesListComponent),
+      },
       // ---- Route stub: sezioni in migrazione ----
       ...[
         { path: 'activities', title: 'Attivita', roles: ['ADMIN', 'OPERATION', 'VALET'] },
-        { path: 'sales', title: 'Vendite', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER', 'PARTNER'] },
         { path: 'sms-templates', title: 'Modelli SMS', roles: ['ADMIN', 'OPERATION', 'PARTNER'] },
         { path: 'availability', title: 'Disponibilita', roles: ['VALET'] },
         { path: 'provinces', title: 'Province e citta', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },

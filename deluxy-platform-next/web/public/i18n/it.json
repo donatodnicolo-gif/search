@@ -1555,5 +1555,45 @@
     "pullHint": "Prende nella piattaforma solo i campi spuntati. Le righe dove il registro è vuoto non si possono spuntare: un vuoto non sovrascrive mai un valore. Le righe in giallo sono insegna e indirizzo — nel registro c’è l’azienda, qui il punto vendita, quindi non partono spuntate.",
     "riskyField": "Nel registro c’è l’azienda, qui il punto vendita: spuntalo solo se sai che serve.",
     "emptyThere": "Nel registro questo campo è vuoto: non c’è niente da prendere."
+  },
+  "sales": {
+    "title": "Vendite",
+    "caption": "Gli ordini smistati ai partner.",
+    "empty": "Nessuna vendita. Usa «Tira da Orders» per far entrare gli ordini.",
+    "noPartner": "— nessun partner",
+    "accept": "Accetta",
+    "refuse": "Rifiuta",
+    "col": {
+      "status": "Stato",
+      "order": "Origine",
+      "product": "Prodotto",
+      "province": "Prov.",
+      "partner": "Partner",
+      "delivery": "Consegna",
+      "amount": "Importo"
+    },
+    "tab": {
+      "tutte": "Tutte",
+      "da_gestire": "Da gestire",
+      "proposta": "Proposte",
+      "accettata": "Accettate",
+      "annullata": "Annullate"
+    },
+    "sync": {
+      "simulate": "Prova da Orders",
+      "apply": "Tira da Orders",
+      "preview": "Letti {{n}} ordini. Niente è stato scritto: ecco cosa succederebbe.",
+      "done": "Letti {{n}} ordini da Orders.",
+      "examples": "Esempi di quello che non entra:",
+      "esito": {
+        "creata": "entrano",
+        "gia-presente": "già presenti",
+        "senza-provincia": "senza provincia (lo smistamento non può scegliere)",
+        "provincia-sconosciuta": "provincia non italiana",
+        "senza-sku": "senza SKU",
+        "prodotto-sconosciuto": "prodotto non in catalogo",
+        "errore": "errori"
+      }
+    }
   }
 }
