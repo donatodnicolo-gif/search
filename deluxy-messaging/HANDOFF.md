@@ -1,5 +1,50 @@
 # Handoff — Deluxy Customer Service
 
+## 24/08/2026 — il giro fornitore→pagamento→margine, e i suoi due buchi muti
+
+**Il costo del fornitore arriva a Orders.** Registrando chi prepara un ordine, il
+costo concordato viene proposto a Orders (`comunicaCostoAOrders` in
+`src/lib/orders.ts` → `PATCH /api/v1/ordini/<id>` con `costoFornitore`,
+`costoFornitoreNome`, `costoDa: "customer-service"`). Anche il RITIRO si
+comunica: se il fornitore dice di no, un costo rimasto là continuerebbe a
+produrre un margine su un ordine dato a nessuno. Provato in produzione su #2785:
+`costo non lo sa` → propongo 80 € → `costo 80 · margine 55 · da customer-service`
+→ ritiro → com'era. ⚠️ Ha richiesto di **abilitare alla scrittura la chiave
+`deluxy-messaggi` in Orders** (era in sola lettura, PATCH → 403). Deviazione
+dallo standard §7.4 dichiarata in `deluxy-standard/STANDARD-DELUXY.md` (il
+margine lo calcola il CS; il pagamento non passa sempre da Transactions).
+
+**Due buchi che non si vedevano, trovati sulla stessa riga vera.**
+
+1. ⚠️⚠️ **Scrivere il numero d'ordine non lo collega.** Il campo, una volta
+   scritto, sembra compilato: si salvava credendo che l'ordine ci fosse, e
+   restava la causale «Ordine #2791» con `ordineNumero` VUOTO — niente valore,
+   niente margine, e l'avviso al fornitore impossibile. Ora l'elenco dei
+   risultati lo dice in rosso: **tocca l'ordine, o resta scollegato**.
+2. ⚠️⚠️ **«non avvisato» non voleva dire niente.** Il motivo stava solo nel
+   `title` del bollino: sul telefono non esiste il passaggio del mouse, quindi
+   non si leggeva. E i motivi sono cose diversissime — «manca l'ordine
+   collegato» si risolve in dieci secondi, «fuori dalle 24 ore di WhatsApp»
+   vuol dire telefonare. Ora il motivo sta sulla riga
+   (`perchePersoAvviso` in `src/lib/metodo-pagamento.ts`), e uno **sconosciuto
+   si mostra com'è** invece di diventare un generico «errore».
+
+**La ricevuta si incolla (Ctrl+V).** La prova di un bonifico nasce come una
+schermata, negli appunti: chiedere un file vuol dire salvarla, ritrovarla fra i
+download e sceglierla — tre passaggi, e alla terza volta non si allega più
+niente. L'ascoltatore è sulla PAGINA (una schermata non ha un campo su cui
+cliccare prima) e interviene **solo se negli appunti c'è davvero un file** di un
+tipo accettato: col testo si sta incollando un IBAN, e rubare quel Ctrl+V
+romperebbe il lavoro normale. Dove finisce dipende dal contesto — pop-up
+«Pagata» aperto = ricevuta, altrimenti = immagine da far leggere all'AI, e un
+PDF è sempre ricevuta perché l'AI non lo legge — **lo si dice a schermo e si può
+spostare**: un allegato che atterra dove non te lo aspetti, in silenzio, si
+scopre dopo aver salvato.
+
+**Ancora aperto e chiesto**: la **riconciliazione dell'IBAN** con fornitori o
+clienti già noti (chiesta, mai costruita).
+
+
 Ultimo aggiornamento: **24/08/2026, sera** — quattro interventi dall'audit
 architettura (rapporto per app nell'artifact «Architettura Dati Deluxy», §7):
 
