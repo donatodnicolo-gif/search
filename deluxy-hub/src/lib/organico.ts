@@ -49,10 +49,16 @@ async function chiaveBudgets(): Promise<string | null> {
   const ambiente = (process.env.BUDGETS_API_KEY ?? "").trim();
   if (ambiente) return ambiente;
 
-  const riga = await prisma.chiave.findFirst({
-    where: { nome: "BUDGETS_API_KEY", progetto: { in: ["deluxy-budgets", "budgets"] } },
-    select: { valoreCifrato: true },
+  const righe = await prisma.chiave.findMany({
+    where: { progetto: { in: ["deluxy-budgets", "budgets"] } },
+    select: { nome: true, valoreCifrato: true },
   });
+  // Prima il nome canonico; se non c'è ma il progetto ha UNA voce sola, è lei.
+  // In cassaforte i nomi sono spesso "umani" («Budget Key», 24/08/2026) e con
+  // una voce sola non c'è ambiguità; con più voci senza il nome canonico non si
+  // indovina — si torna al messaggio che spiega come chiamarla.
+  const riga =
+    righe.find((r) => r.nome === "BUDGETS_API_KEY") ?? (righe.length === 1 ? righe[0] : null);
   if (!riga) return null;
   try {
     return decifra(riga.valoreCifrato).trim() || null;

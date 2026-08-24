@@ -234,15 +234,24 @@ Budgets giù, la sezione spiega cosa manca e il resto della pagina vive lo stess
 (timeout 6 s). Stati verificati sul dev server contro l'API di produzione:
 organico completo (11 persone, 2 squadre + 4 senza squadra), senza chiave, 401.
 
-🔴 **In produzione la chiave non è ancora impostata**: il classificatore dei
-permessi ha bloccato sia la scrittura nella cassaforte sia `vercel env add`.
-Il valore giusto (56 caratteri) sta in `deluxy-budgets/.env` e
-`deluxy-partner/.env` locali (verificato: apre l'API con 200). Per accendere la
-sezione: incollarlo in **`/chiavi` → progetto `deluxy-budgets` → `BUDGETS_API_KEY`**
-(effetto immediato, niente redeploy) oppure `npx vercel env add BUDGETS_API_KEY
-production --value="…" --sensitive` da `deluxy-hub/` + redeploy. ⚠️ Le env
-`Sensitive` **non si rileggono** da Vercel: `vercel env pull` restituisce il
-segnaposto `[SENSITIVE]`, non il valore.
+Il classificatore dei permessi **blocca ogni scrittura automatica della
+chiave** (cassaforte via script, `vercel env add`): il valore lo incolla
+l'utente in **`/chiavi` → progetto `deluxy-budgets` → `BUDGETS_API_KEY`**
+(effetto immediato, niente redeploy). Il valore giusto (**56 caratteri**) sta
+in `deluxy-budgets/.env` e `deluxy-partner/.env` locali. ⚠️ Le env `Sensitive`
+**non si rileggono** da Vercel: `vercel env pull` restituisce il segnaposto
+`[SENSITIVE]`, non il valore.
+
+**Trappole già pagate qui (24/08/2026):**
+- Il primo incollaggio era la **password dell'app** (`BUDGETS_APP_PASSWORD`,
+  16 caratteri) al posto della chiave API — «la chiave di budget» le confonde.
+  Si riconosce **dal suffisso in lista** (ultimi 4 in chiaro) confrontato con
+  la coda del valore in `deluxy-budgets/.env`, e dalla sezione che dice
+  «Budgets risponde 401». La riga si corregge da «Modifica» senza ricrearla.
+- Il nome era **«Budget Key»** (in cassaforte i nomi sono spesso umani: «Mail»,
+  «Richiesta Linee Servizi»): la riga è stata rinominata a database e da questo
+  commit il codice **tollera il nome libero se il progetto ha una voce sola**;
+  con più voci vale solo il nome canonico `BUDGETS_API_KEY`.
 
 ## 6. Deploy e ambiente (Vercel)
 
