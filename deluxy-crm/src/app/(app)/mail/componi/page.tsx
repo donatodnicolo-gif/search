@@ -13,6 +13,7 @@ type Query = {
   invito?: string;
   template?: string;
   occasione?: string;
+  ordinelink?: string;
   errore?: string;
 };
 
@@ -50,6 +51,18 @@ export default async function Componi({ searchParams }: { searchParams: Promise<
     oggetto = `Un pensiero per ${sp.occasione.toLowerCase()}`;
     corpo = `Gentile ${nome || "cliente"},\n\n`;
   }
+  // Arrivati qui dal «Nuovo ordine»: la mail porta il link di pagamento. Il
+  // link non è salvato da nessuna parte, viaggia solo in questo passaggio.
+  const ordinelink = sp.ordinelink?.trim();
+  if (ordinelink && /^https:\/\//.test(ordinelink)) {
+    const nome = primoNome(cliente?.nome) || "";
+    if (!oggetto) oggetto = "Il suo ordine Deluxy — link per il pagamento";
+    corpo =
+      `Gentile ${nome || "cliente"},\n\n` +
+      `come concordato, ecco il collegamento riservato per completare il suo ordine:\n\n${ordinelink}\n\n` +
+      `Basta un minuto, con qualunque carta. Per ogni desiderio o modifica siamo qui.\n\n` +
+      `Con i più cordiali saluti,\nil team Deluxy`;
+  }
 
   const linkTemplate = (id: string) => {
     const p = new URLSearchParams();
@@ -57,6 +70,7 @@ export default async function Componi({ searchParams }: { searchParams: Promise<
     if (sp.evento) p.set("evento", sp.evento);
     if (sp.invito) p.set("invito", sp.invito);
     if (sp.occasione) p.set("occasione", sp.occasione);
+    if (ordinelink) p.set("ordinelink", ordinelink);
     if (id) p.set("template", id);
     return `/mail/componi?${p}`;
   };

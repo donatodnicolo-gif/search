@@ -64,6 +64,7 @@ export const TIPI_ATTIVITA: Record<string, string> = {
   email: "Email",
   incontro: "Incontro",
   whatsapp: "WhatsApp",
+  ordine: "Ordine",
   altro: "Altro",
 };
 

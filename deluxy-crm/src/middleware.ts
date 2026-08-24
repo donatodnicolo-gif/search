@@ -19,6 +19,17 @@ const CORS_HEADERS = {
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
+  // /api/interno/* — endpoint per la UI (ricerca prodotti, spedizioni):
+  // stessa sessione a cookie della UI, niente CORS. La chiave del Customer
+  // Service resta sul server: il browser non la vede mai.
+  if (pathname.startsWith("/api/interno")) {
+    if (authAttiva()) {
+      const sess = await leggiSessione(req.cookies.get(SESSION_COOKIE)?.value);
+      if (!sess) return NextResponse.json({ errore: "Non autenticato" }, { status: 401 });
+    }
+    return NextResponse.next();
+  }
+
   if (pathname.startsWith("/api")) {
     if (req.method === "OPTIONS") return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
     const res = NextResponse.next();

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { statoOrders } from "@/lib/orders";
 import { configurazioneMail, statoMail } from "@/lib/mail";
+import { statoCS } from "@/lib/nuovo-ordine";
 import { chiaveApp } from "@/lib/chiavi-app";
 
 export const dynamic = "force-dynamic";
@@ -10,10 +11,11 @@ export const dynamic = "force-dynamic";
 // regge. Le chiavi vivono nella cassaforte del Hub o nelle env di Vercel: qui
 // non si mostrano mai i valori.
 export default async function Impostazioni() {
-  const [orders, mail, mailConfig, calKey, calUtente, hubToken, db] = await Promise.all([
+  const [orders, mail, mailConfig, cs, calKey, calUtente, hubToken, db] = await Promise.all([
     statoOrders(),
     statoMail(),
     configurazioneMail(),
+    statoCS(),
     chiaveApp("CALENDARIO_API_KEY"),
     chiaveApp("CALENDARIO_UTENTE"),
     chiaveApp("HUB_KEYS_TOKEN"),
@@ -72,6 +74,19 @@ export default async function Impostazioni() {
             <br />
             Il token si genera da AI Mail → Impostazioni App → «Token API di AI Mail»; MAIL_UTENTE è l&apos;email con cui
             si entra in AI Mail (decide la casella mittente).
+          </p>
+        </div>
+
+        <div className="card">
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
+            <div className="card-titolo">Customer Service (nuovo ordine)</div>
+            <Stato ok={cs.raggiungibile && cs.autenticato} testoOk="Collegato" testoNo={cs.raggiungibile ? "Chiave mancante o sbagliata" : "Non raggiungibile"} />
+          </div>
+          <div className="card-sub">Creare un ordine con link di pagamento passa da lì (bozza su Shopify).</div>
+          <p className="secondario piccolo" style={{ lineHeight: 1.6 }}>
+            Variabili: <code className="chip">MESSAGGI_URL</code> <code className="chip">MESSAGGI_API_KEY</code>
+            <br />
+            La chiave si emette dal Customer Service: <code className="chip">npm run chiave -- deluxy-crm --scrittura</code>.
           </p>
         </div>
 

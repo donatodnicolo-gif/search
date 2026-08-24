@@ -271,6 +271,58 @@ export async function eliminaTemplate(fd: FormData): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// Nuovo ordine con link di pagamento (via Customer Service)
+
+import { creaOrdineCS, type DatiCreazione, type EsitoCreazione } from "./nuovo-ordine";
+
+// Chiamata dal form client: riceve i dati già composti, crea l'ordine
+// passando dal Customer Service e RITORNA l'esito (niente redirect: il link
+// di pagamento si mostra subito e non si persiste da nessuna parte — si
+// copia e si manda, come vuole la regola di Orders sui link col segreto).
+export async function creaOrdineDalCrm(
+  dati: Omit<DatiCreazione, "operatore"> & { chiaveCliente: string; nomeCliente: string },
+): Promise<EsitoCreazione> {
+  const sessione = await richiediSessione();
+
+  const { chiaveCliente, nomeCliente, ...corpo } = dati;
+  const esito = await creaOrdineCS({
+    ...corpo,
+    operatore: { id: "deluxy-crm", nome: `CRM — ${sessione?.nome ?? "Team Deluxy"}` },
+  });
+
+  // Il diario racconta il gesto (senza il link: quello si chiede quando
+  // serve). Best-effort: un diario che fallisce non deve annullare l'ordine.
+  if (esito.ok && chiaveCliente) {
+    const titolo = esito.ordineNumero
+      ? `Ordine ${esito.ordineNumero} creato e segnato pagato`
+      : "Ordine creato con link di pagamento";
+    await prisma.attivita
+      .create({
+        data: {
+          chiaveCliente,
+          nomeCliente,
+          tipo: "ordine",
+          titolo,
+          dettaglio: [
+            corpo.righe
+              .map((r) => `${r.quantita > 1 ? `${r.quantita}× ` : ""}${r.titolo ?? "prodotto dal catalogo"}`)
+              .join(", "),
+            corpo.consegna.data ? `Consegna ${corpo.consegna.data}${corpo.consegna.fascia ? ` (${corpo.consegna.fascia})` : ""}` : "",
+            esito.inviato ? "Shopify ha mandato la mail col link." : "",
+          ]
+            .filter(Boolean)
+            .join("\n"),
+          autore: sessione?.nome ?? "",
+        },
+      })
+      .catch(() => {});
+    revalidatePath(`/clienti/${encodeURIComponent(chiaveCliente)}`);
+  }
+
+  return esito;
+}
+
+// ---------------------------------------------------------------------------
 // Invio mail personalizzata
 
 export async function inviaMailPersonalizzata(fd: FormData): Promise<void> {

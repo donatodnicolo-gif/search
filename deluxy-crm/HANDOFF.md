@@ -1,6 +1,7 @@
 # Handoff — Deluxy CRM
 
-Stato al 2026-08-24. App **nuova**, costruita e pubblicata in giornata.
+Stato al 2026-08-24 (sera). App **nuova**, costruita e pubblicata in giornata;
+in serata aggiunto il **nuovo ordine con link di pagamento**.
 Cartella: `deluxy-crm/`, porta **3190**, schema Postgres **`crm`**.
 
 **LIVE**: https://deluxy-crm.vercel.app (progetto Vercel `deluxy/deluxy-crm`,
@@ -43,6 +44,27 @@ region fra1). Tessera nel Hub: id `crm`, ruoli admin+commerciale, `sso: true`.
 - **Registrazioni**: porta 3190 nello Standard §2.1 (commit `def30ef5`),
   tessera+icona nel Hub (commit `dee97b59`, deployato), launch.json radice e
   locale.
+
+- **Nuovo ordine con link di pagamento** (24/08 sera): dalla scheda cliente,
+  «Crea ordine» → `/clienti/<codice>/nuovo-ordine`. Il form (client
+  component) cerca nel catalogo del negozio (con foto), accetta righe a mano
+  per i fuori listino, precompila cliente e indirizzo dall'ultimo ordine,
+  sceglie la spedizione fra le voci VERE del negozio, e crea la bozza
+  **passando dal Customer Service** (`POST /api/v1/nuovo-ordine`, chiave
+  `MESSAGGI_API_KEY` con scrittura): è lui che ha le credenziali Shopify con
+  lo scope giusto. Due strade come nel CS: link di pagamento (bozza resta
+  bozza; se c'è l'email Shopify manda da sé l'invoice) o «ha già pagato»
+  (nasce pagato). L'esito mostra il link con Copia + «Manda il link per
+  mail» (componi precompilata via `?ordinelink=`); il link NON si salva da
+  nessuna parte (regola dei link col segreto); nel diario resta l'attività
+  `ordine`. Al CS sono state aggiunte 4 rotte `/api/v1/nuovo-ordine{,/negozi,
+  /prodotti,/spedizioni}` + scope `scrittura` su ApiKey (commit `f69c7b32`,
+  deployato **da copia pulita del commit** perché la working copy aveva la
+  riconciliazione a metà di un'altra sessione). **Collaudato end-to-end in
+  produzione**: bozza #D5627 creata dal form (riga a mano 1 €, cliente
+  fittizio) con link vero, poi eliminata da Shopify e diario ripulito.
+  Le rotte interne `/api/interno/*` (proxy catalogo/spedizioni) sono protette
+  dalla sessione nel middleware: la chiave del CS non arriva mai al browser.
 
 ### Trappola già pagata
 
