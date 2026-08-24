@@ -659,7 +659,11 @@
       "notes": "Notes",
       "fields": "Extra fields",
       "discounts": "Province discounts"
-    }
+    },
+    "tabActive": "Categories in use",
+    "tabArchive": "Archive",
+    "archive": "Archive",
+    "restore": "Restore"
   },
   "services": {
     "title": "Services",

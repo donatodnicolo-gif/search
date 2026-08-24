@@ -659,7 +659,11 @@
       "notes": "Note",
       "fields": "Campi extra",
       "discounts": "Sconti provincia"
-    }
+    },
+    "tabActive": "Categorie in uso",
+    "tabArchive": "Archivio",
+    "archive": "Archivia",
+    "restore": "Ripristina"
   },
   "services": {
     "title": "Servizi",

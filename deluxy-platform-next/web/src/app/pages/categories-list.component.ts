@@ -3,6 +3,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
+import { AuthService } from '../core/auth.service';
 import { environment } from '../../environments/environment';
 import { ClientTable } from '../core/client-table';
 import { Category } from '../core/models';
@@ -21,6 +22,20 @@ import { Category } from '../core/models';
         <input class="field" name="q" [attr.placeholder]="'common.search' | translate" [ngModel]="table.query()" (ngModelChange)="table.query.set($event)" />
         <a routerLink="/categories/new" class="btn btn-primary">+ {{ 'categories.add' | translate }}</a>
       </div>
+    </div>
+
+    <!-- Lista / archivio, come nei prodotti. Una categoria archiviata sparisce
+         dalle tendine di scelta ma resta scritta su tutti i prodotti che ce
+         l'hanno: 16 categorie su 65 non hanno piu' un prodotto in lista, e i
+         loro prodotti archiviati devono continuare a dire a quale categoria
+         appartenevano. -->
+    <div class="tabs">
+      <button type="button" class="tab" [class.on]="!archiviate()" (click)="mostraArchiviate(false)">
+        {{ 'categories.tabActive' | translate }}
+      </button>
+      <button type="button" class="tab" [class.on]="archiviate()" (click)="mostraArchiviate(true)">
+        {{ 'categories.tabArchive' | translate }}
+      </button>
     </div>
 
     @if (loading()) { <div class="card state-card">{{ 'categories.loading' | translate }}</div> }
@@ -54,6 +69,11 @@ import { Category } from '../core/models';
                 </td>
                 <td class="actions-cell" (click)="$event.stopPropagation()">
                   <a class="act" [routerLink]="['/categories', c.id, 'edit']">{{ 'common.edit' | translate }}</a>
+                  @if (puoArchiviare()) {
+                    <button type="button" class="act" [disabled]="inCorso() === c.id" (click)="archivia(c, !archiviate())">
+                      {{ (archiviate() ? 'categories.restore' : 'categories.archive') | translate }}
+                    </button>
+                  }
                 </td>
               </tr>
             }
@@ -64,6 +84,10 @@ import { Category } from '../core/models';
   `,
   styles: [
     `
+      .tabs { display: flex; gap: 6px; margin-bottom: 14px; }
+      .tab { border: 1px solid var(--hairline-strong); background: var(--surface); border-radius: 980px; padding: 6px 16px; font-size: 13px; font-weight: 550; font-family: inherit; color: var(--text); cursor: pointer; }
+      .tab:hover { background: var(--fill); }
+      .tab.on { background: var(--ink); color: #fff; border-color: var(--ink); }
       .page-header { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin-bottom: 24px; }
       h1 { margin: 0; font-size: 32px; font-weight: 600; letter-spacing: -0.025em; }
       .page-caption { margin: 4px 0 0; color: var(--text-secondary); font-size: 14px; }
@@ -95,6 +119,7 @@ import { Category } from '../core/models';
 })
 export class CategoriesListComponent {
   private readonly http = inject(HttpClient);
+  private readonly auth = inject(AuthService);
   private readonly translate = inject(TranslateService);
   private readonly router = inject(Router);
 
@@ -104,6 +129,38 @@ export class CategoriesListComponent {
   }
 
   readonly categories = signal<Category[]>([]);
+  readonly archiviate = signal(false);
+  readonly inCorso = signal<string | null>(null);
+
+  /** Solo chi gestisce il catalogo archivia: un partner non tocca le categorie. */
+  puoArchiviare(): boolean {
+    return ['ADMIN', 'OPERATION'].includes(this.auth.user()?.role ?? '');
+  }
+
+  mostraArchiviate(valore: boolean): void {
+    if (this.archiviate() === valore) return;
+    this.archiviate.set(valore);
+    this.carica();
+  }
+
+  /**
+   * Archivia o ripristina una categoria.
+   *
+   * ⚠️ NON tocca i prodotti che ce l'hanno. Una categoria archiviata sparisce
+   * dalle tendine di scelta — non si puo' piu' SCEGLIERE — ma resta scritta
+   * ovunque lo sia gia': senza il suo nome, una scheda prodotto del 2023
+   * diventa illeggibile.
+   */
+  archivia(c: Category, archived: boolean): void {
+    this.inCorso.set(c.id);
+    this.http.patch(`${environment.apiUrl}/categories/${c.id}/archive`, { archived }).subscribe({
+      next: () => { this.inCorso.set(null); this.carica(); },
+      error: (err) => {
+        this.inCorso.set(null);
+        this.error.set(err?.error?.message ?? this.translate.instant('common.loadError'));
+      },
+    });
+  }
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
   /** Ricerca globale + ordinamento per colonna, lato client (lista piccola). */
@@ -115,7 +172,15 @@ export class CategoriesListComponent {
   readonly filtered = computed(() => this.table.view(this.categories()));
 
   constructor() {
-    this.http.get<Category[]>(`${environment.apiUrl}/categories`).subscribe({
+    this.carica();
+  }
+
+  /** Rilegge la lista: cambia sezione (lista/archivio) o dopo un'azione. */
+  private carica(): void {
+    this.loading.set(true);
+    this.error.set(null);
+    const params: Record<string, string> = this.archiviate() ? { archived: 'true' } : {};
+    this.http.get<Category[]>(`${environment.apiUrl}/categories`, { params }).subscribe({
       next: (d) => { this.categories.set(d); this.loading.set(false); },
       error: (err) => { this.loading.set(false); this.error.set(err?.error?.message ?? this.translate.instant('common.loadError')); },
     });
