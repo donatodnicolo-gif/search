@@ -179,6 +179,71 @@ l'AI è un'istruzione di **CS AI**; un file da cui l'AI impara è un **documento
 Se le quattro cose si mescolano, in sei mesi ci sono quattro posti dove cercare la stessa
 cosa e nessuno è aggiornato.
 
+## Cercare un fornitore: quattro fonti
+
+La casella «Cerca il fornitore» guarda in quattro posti, in quest'ordine di
+utilità: **i pagamenti già fatti** (l'unico posto dove c'è l'IBAN), **gli ordini
+già affidati**, **il registro Anagrafiche**, e — solo su richiesta — **Google
+Maps**.
+
+### Chi è «segnato come fornitore»
+
+⚠️⚠️ **Nel registro non esiste un campo «fornitore».** La marcatura è la
+**categoria**, e sono più parole per la stessa cosa: contate sul registro vero il
+24/08/2026, FIORISTA 144 **e** FIORI 5, PASTICCERIA 98 **e** CIOCCOLATERIA 5.
+Guardarne una sola perde un pezzo di elenco senza che si veda che manca.
+
+La categoria ora si vede sulla riga — **verde** se è un mestiere da cui
+compriamo, grigia se no — e chi è segnato così va davanti a parità di nome. Serve
+a distinguere un fioraio da una boutique cliente, che in un elenco si somigliano
+molto.
+
+⚠️⚠️ **Ma non si filtra**: **340 partner su 1048 sono «DA CLASSIFICARE»**.
+Filtrando sui soli fornitori, un terzo del registro sparirebbe dalla ricerca —
+compreso, un giorno su tre, proprio quello che si sta cercando. Si **marca e si
+ordina**: nessuno nascosto.
+
+### Google Maps, per chi non è ancora dei nostri
+
+Un bottone sotto ai risultati di casa, con accanto la zona in cui cercare.
+
+⚠️⚠️ **Si paga a chiamata**, per questo è un bottone e non parte mentre si
+scrive: un autocompletamento su Maps a ogni tasto sarebbero centinaia di ricerche
+al giorno per riempire un campo che nove volte su dieci si riempie con quello che
+sappiamo già.
+
+⚠️ **Il telefono si chiede solo per quello che si sceglie.** La ricerca di testo
+non lo restituisce: servirebbe una chiamata di dettaglio *per ogni risultato* —
+venti a pagamento per usarne una.
+
+⚠️⚠️ **I risultati di Maps stanno in fondo e sono marcati.** Non li conosciamo:
+non sappiamo se rispondono, se fatturano, se hanno già lavorato per noi. Una riga
+uguale alle altre li farebbe scegliere per sbaglio, con la fretta di un ordine da
+sistemare. La riga dice «da Google Maps: non ci abbiamo mai lavorato», col voto e
+il numero di recensioni, e se risultano **chiusi** lo dice.
+
+### Tre trappole già pagate
+
+⚠️ **«are blocked» è un «API non accesa».** Sono due API diverse — «Places API»
+e «Places API (New)» — e la nostra chiave parla la vecchia. Il riconoscitore non
+capiva quella frase, quindi non ricadeva sulla strada che funziona: la ricerca
+sembrava rotta con la soluzione lì accanto. Corretto anche in `indirizzi.ts`, che
+aveva la stessa lacuna.
+
+⚠️ **La città non è «il penultimo pezzo» dell'indirizzo.** L'API vecchia separa
+il civico con una virgola e non mette «, Italia» in fondo, la nuova sì: contando
+le virgole, `Via Salvatore Trinchese, 7, 73100 Lecce LE` diventava città «7». Si
+cerca il **CAP**, che sta sempre attaccato alla città.
+
+⚠️ **La zona conta anche sui nostri.** Cercando «pasticceria» per una consegna a
+**Lecce**, in cima uscivano le pasticcerie di Firenze, Roma e Siena: la zona
+restringeva solo Maps. Ora alza anche i risultati di casa — ma li **alza**, non
+li filtra: un fornitore del paese accanto è quasi sempre buono, e la città scritta
+nel registro non è sempre quella del laboratorio.
+
+Prove: `npx tsx scripts/prova-cerca-zona.mts` e
+`npx tsx scripts/prova-maps-fornitori.mts`
+
 ## Quanto dare al fornitore
 
 Sulla scheda di un ordine, nel riquadro **Chiedi al fornitore**, c'è quanto ci si aspetta di

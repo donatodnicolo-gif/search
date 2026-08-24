@@ -1,5 +1,52 @@
 # Handoff — Deluxy Customer Service
 
+## 24/08/2026 (sera 4) — il fornitore si cerca fra i FORNITORI del registro, e su Google Maps
+
+La casella «Cerca il fornitore» guarda ora in **quattro** posti: pagamenti già
+fatti (l'unico con l'IBAN), ordini già affidati, registro Anagrafiche, e — solo
+premendo un bottone — **Google Maps**.
+
+⚠️⚠️ **Nel registro NON esiste un campo «fornitore».** La marcatura è la
+CATEGORIA, e sono più parole per la stessa cosa (contate sul registro vero:
+FIORISTA 144 **e** FIORI 5, PASTICCERIA 98 **e** CIOCCOLATERIA 5). La categoria
+ora si vede sulla riga — verde se è un mestiere da cui compriamo — e chi è
+segnato così va davanti a parità di nome (`diMestiere()` in
+`src/lib/cerca-fornitore.ts`).
+
+⚠️⚠️ **Ma NON si filtra**: **340 partner su 1048 sono «DA CLASSIFICARE»**.
+Filtrando sui soli fornitori, un terzo del registro sparirebbe dalla ricerca —
+compreso, un giorno su tre, proprio quello cercato. Si marca e si ordina.
+
+**Google Maps** (`src/lib/maps-fornitori.ts`, rotta `/api/fornitori/maps` per il
+dettaglio). ⚠️ Si paga a chiamata: parte con un bottone, non mentre si scrive.
+⚠️ Il telefono si chiede **solo per quello scelto** — la ricerca di testo non lo
+restituisce e servirebbe una chiamata per ciascuno. ⚠️ I risultati stanno in
+fondo e sono marcati «non ci abbiamo mai lavorato», col voto e le recensioni, e
+se risultano chiusi lo dice.
+
+### Tre difetti trovati misurando, non ragionando
+
+1. **«are blocked» non era riconosciuto** come «questa API non è accesa», quindi
+   non si ricadeva sulla Places **vecchia** — che è l'unica che la nostra chiave
+   parla. La ricerca sembrava rotta con la strada buona lì accanto. Corretto
+   anche in `src/lib/indirizzi.ts`, che aveva la stessa lacuna.
+2. **La città letta come «il penultimo pezzo»** dell'indirizzo dava
+   `Via Salvatore Trinchese, 7, 73100 Lecce LE` → città **«7»**: l'API vecchia
+   separa il civico con una virgola e non mette «, Italia» in fondo, la nuova sì.
+   Ora si cerca il **CAP**.
+3. **La zona restringeva solo Maps**: cercando «pasticceria» per **Lecce**, in
+   cima uscivano le pasticcerie di Firenze, Roma e Siena. Ora `punteggio()`
+   accetta `dove` e **alza** anche i nostri (non filtra: un fornitore del paese
+   accanto è quasi sempre buono).
+
+Prove: `scripts/prova-cerca-zona.mts` (15 casi), `scripts/prova-maps-fornitori.mts`
+(9 indirizzi veri). Commit `60e70156`, deployato.
+
+⚠️ **Il push era stato rifiutato** (un'altra sessione aveva spinto): il commit è
+comunque su `origin/scout-ui`, portato su dal loro push. In `scoutwt` l'indice
+git è uno solo — controllare sempre `git log origin/scout-ui` prima di ripushare.
+
+
 ## 24/08/2026 (sera 7) — MANUALE O AUTOMATICO: il governo è dell'operatore
 
 Sulla scheda ordine c'è l'interruttore del giro (deciso dall'utente):
