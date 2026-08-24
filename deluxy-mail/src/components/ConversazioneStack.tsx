@@ -246,15 +246,15 @@ export function ConversazioneStack({ righe, correnteId, oggetto }: Props) {
 
               {aperta && !corrente && (
                 <div className="conv-corpo">
-                  <CorpoDellaRiga id={r.id} />
-                  {/* ⚠️ Gli ALLEGATI anche qui dentro. La graffetta sulla riga
-                      diceva che c'erano, ma per aprirli bisognava andare sulla
-                      mail a tutta pagina — e in una conversazione il file che
-                      cerchi (la planimetria, il preventivo) sta quasi sempre in
-                      un messaggio di MEZZO. Segnalato il 9/08/2026. L'elenco si
-                      chiede al server solo quando apri quel messaggio. */}
-                  {r.allegati > 0 && <AllegatiMessaggio messaggioId={r.id} quanti={r.allegati} />}
-                  <div className="conv-azioni">
+                  {/* ⚠️ LE AZIONI STANNO SOPRA IL CORPO, non sotto.
+                      È la QUARTA volta che rientra la stessa segnalazione con la
+                      stessa forma: allegati → graffetta in testa, scorciatoie →
+                      lettere sui bottoni, app → «→ App» in testa, e ora questi.
+                      In una mail lunga tutto ciò che sta sotto il testo, per chi
+                      guarda, NON ESISTE: bisogna sapere che c'è e andarlo a
+                      cercare scorrendo. Regola per la prossima volta: in questa
+                      pagina un comando si mette DOPO l'intestazione, mai in fondo. */}
+                  <div className="conv-azioni conv-azioni-alto">
                     <RispostaAzioni id={r.id} />
                     {!eLetta(r) && r.direzione === 'entrata' && (
                       <button
@@ -279,6 +279,14 @@ export function ConversazioneStack({ righe, correnteId, oggetto }: Props) {
                     </Link>
                     <StaccaRiga messaggioId={r.id} />
                   </div>
+                  <CorpoDellaRiga id={r.id} />
+                  {/* ⚠️ Gli ALLEGATI anche qui dentro. La graffetta sulla riga
+                      diceva che c'erano, ma per aprirli bisognava andare sulla
+                      mail a tutta pagina — e in una conversazione il file che
+                      cerchi (la planimetria, il preventivo) sta quasi sempre in
+                      un messaggio di MEZZO. Segnalato il 9/08/2026. L'elenco si
+                      chiede al server solo quando apri quel messaggio. */}
+                  {r.allegati > 0 && <AllegatiMessaggio messaggioId={r.id} quanti={r.allegati} />}
                 </div>
               )}
             </div>

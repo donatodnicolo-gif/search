@@ -1149,6 +1149,13 @@ mark.ricerca-hit {
   margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--hairline);
 }
 
+/* Le azioni sopra il corpo: il filetto va SOTTO, o separerebbe la riga
+   dall intestazione invece che dal testo. */
+.conv-azioni-alto {
+  margin-top: 0; padding-top: 0; border-top: none;
+  margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--hairline);
+}
+
 /* «Da qui non hai letto»: dove riprendere, senza contare le righe. */
 .conv-nonlette {
   display: flex; align-items: center; gap: 10px;
