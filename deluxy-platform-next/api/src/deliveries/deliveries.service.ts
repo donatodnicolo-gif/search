@@ -92,7 +92,10 @@ export class DeliveriesService {
     const base = Array.isArray(scelto) ? scelto : [scelto];
     if (!base.length) {
       return [
-        { date: 'asc' as const },
+        // La data resta DECRESCENTE: con la data crescente in cima finivano le
+        // consegne con anno 0202 e 0206 (date impossibili, gia' segnalate dalla
+        // lista). L'orario sale DENTRO il giorno, che e' quello che serve.
+        { date: 'desc' as const },
         { deliveryTimeFrom: { sort: 'asc' as const, nulls: 'last' as const } },
         { code: 'asc' as const },
       ] as any;
