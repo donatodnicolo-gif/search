@@ -439,14 +439,31 @@ export function RichiediPagamento() {
       // ⚠️ L'esito dell'avviso si dice SUBITO e per intero: e' partito un
       // messaggio a nome nostro, e chi ha premuto deve sapere se e' arrivato.
       const av = (d as { avviso?: { canale: string; errore: string } }).avviso
+      // ⚠️⚠️ La riconciliazione parte DA SOLA segnando pagata una richiesta
+      // nata qui: l'ordine impara chi l'ha preparato e quanto è costato, senza
+      // un secondo clic su un'altra pagina. Ma un automatismo muto è un
+      // automatismo di cui nessuno si fida — e se NON è partito (perché
+      // sembrava un rimborso, o perché sull'ordine c'era già un altro
+      // fornitore) quello va detto ancora di più: vuol dire che quella riga
+      // aspetta una persona nella pagina Riconciliazione.
+      const ric = (d as { riconciliato?: { fatto: boolean; messaggio: string } }).riconciliato
       setAvviso(
         !pagata
           ? 'Tolto il segno «pagata».'
-          : av && !av.errore
-            ? `Registrata, e il fornitore e' stato avvisato per ${av.canale}.`
-            : av && av.errore
-              ? `Registrata. ⚠️ L'avviso NON e' partito: ${av.errore}`
-              : 'Segnata come pagata.'
+          : [
+              av && !av.errore
+                ? `Registrata, e il fornitore e' stato avvisato per ${av.canale}.`
+                : av && av.errore
+                  ? `Registrata. ⚠️ L'avviso NON e' partito: ${av.errore}`
+                  : 'Segnata come pagata.',
+              ric && ric.fatto
+                ? `✓ ${ric.messaggio}`
+                : ric && ric.messaggio
+                  ? `⚠️ L'ordine NON l'ho aggiornato: ${ric.messaggio} Guarda in Riconciliazione.`
+                  : '',
+            ]
+              .filter(Boolean)
+              .join(' ')
       )
       await carica()
     } catch {

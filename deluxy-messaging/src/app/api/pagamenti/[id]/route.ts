@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { utenteCorrente } from '@/lib/sessione'
 import { verificaIban } from '@/lib/iban'
 import { avvisaFornitorePagato } from '@/lib/avvisa-pagamento'
+import { riconciliaDaPagamento, type EsitoRiconciliazione } from '@/lib/riconcilia'
 import {
   cosaManca,
   metodoValido,
@@ -117,6 +118,35 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       }
     }
 
+    // ── L'ORDINE IMPARA CHI L'HA PREPARATO, DA SOLO ──
+    //
+    // ⚠️⚠️ Se il pagamento nasce QUI DENTRO, nel momento in cui si preme
+    // «Pagata» sappiamo già tutto: a chi stiamo dando i soldi, quanto, e per
+    // quale ordine. Chiedere poi un secondo clic su un'altra pagina vuol dire
+    // far rifare a mano una cosa già decisa — ed è esattamente il motivo per
+    // cui, misurato il 24/08, c'erano 8 pagamenti fatti e ZERO ordini che
+    // sapessero chi li aveva preparati: nessuno fa un lavoro che sembra già
+    // fatto.
+    //
+    // ⚠️⚠️ «Automatico» NON vuol dire «senza controlli». `riconciliaDaPagamento`
+    // è la STESSA funzione del bottone a mano, e i suoi rifiuti valgono identici
+    // qui: un pagamento che assomiglia a un rimborso al cliente, un fornitore
+    // diverso già scritto, un costo che non torna — non si toccano. Quello che
+    // non passa resta nella pagina Riconciliazione, che così diventa l'elenco
+    // delle **eccezioni** invece della coda di tutto il lavoro.
+    //
+    // ⚠️ Prima dell'avviso, di proposito: l'avviso legge i recapiti
+    // dall'ORDINE, e su un ordine senza fornitore fallirebbe con «non so a chi
+    // scrivere» anche quando il fornitore lo conosciamo benissimo.
+    let riconciliato: EsitoRiconciliazione | null = null
+    try {
+      riconciliato = await riconciliaDaPagamento(id, io, 'auto')
+    } catch {
+      // ⚠️ Non fa fallire il pagamento: il denaro è uscito comunque, e perdere
+      // quel fatto per colpa di un contorno sarebbe il peggiore dei due errori.
+      riconciliato = null
+    }
+
     // ── L'AVVISO AL FORNITORE, DA SOLO ──
     //
     // ⚠️ Chiesto esplicitamente: «l'avviso del pagamento è automatico». Parte
@@ -141,7 +171,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       },
       select: { avvisoIl: true, avvisoCanale: true, avvisoEsito: true },
     })
-    return NextResponse.json({ richiesta: { ...pagata, ...conAvviso }, avviso })
+    return NextResponse.json({ richiesta: { ...pagata, ...conAvviso }, avviso, riconciliato })
   }
 
   // ── CORREGGERE ──

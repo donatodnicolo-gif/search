@@ -3,13 +3,13 @@ import { db } from '@/lib/db'
 import { utenteCorrente } from '@/lib/sessione'
 import { partnerAttivi } from '@/lib/anagrafiche'
 import { paroleTrovate } from '@/lib/cerca-fornitore'
-import { comunicaCostoAOrders } from '@/lib/orders'
 import {
   decidi,
   stessaIdentita,
   STATI_IMPOSSIBILI_SE_PAGATO,
   type DaRiconciliare,
 } from '@/lib/riconciliazione'
+import { riconciliaDaPagamento } from '@/lib/riconcilia'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -242,59 +242,19 @@ export async function POST(req: NextRequest) {
 
   // ── REGISTRA IL FORNITORE ──
   //
-  // ⚠️ Si ricontrollano QUI le stesse condizioni della schermata. La pagina può
-  // essere vecchia di dieci minuti — nel frattempo un collega può aver
-  // registrato un altro fornitore, o annullato l'ordine — e un bottone premuto
-  // su uno schermo stantio non deve poter sovrascrivere niente.
-  const verdetto = decidi({
-    richiestaId: corpo.richiestaId,
-    intestatario: r.intestatario,
-    iban: '',
-    importo: r.importo,
-    metodo: r.metodo,
-    pagataIl: r.pagataIl.toISOString(),
-    ordine: {
-      id: ordine.id,
-      numero: ordine.numero,
-      negozioNome: ordine.negozioNome,
-      clienteNome: ordine.clienteNome,
-      totale: ordine.totale,
-      valuta: ordine.valuta,
-      gestione: ordine.gestione,
-      annullato: !!ordine.annullatoIl,
-      fornitoreNome: ordine.fornitoreNome,
-      fornitoreCosto: ordine.fornitoreCosto,
-    },
-    registro: null,
-  })
-  if (verdetto.verdetto !== 'da-registrare') {
-    return NextResponse.json({ errore: verdetto.frase }, { status: 409 })
+  // ⚠️⚠️ È la STESSA funzione che parte da sola quando si preme «Pagata» sulla
+  // pagina Pagamenti (`riconciliaDaPagamento`). Non è un dettaglio di stile:
+  // se la strada a mano e quella automatica avessero due copie della stessa
+  // logica, il giorno che si corregge un controllo se ne correggerebbe una
+  // sola — e il buco resterebbe aperto proprio su quella automatica, che è la
+  // strada che nessuno guarda.
+  //
+  // ⚠️ Le condizioni si ricontrollano lì dentro: questa pagina può essere
+  // vecchia di dieci minuti, e nel frattempo un collega può aver registrato un
+  // altro fornitore o annullato l'ordine.
+  const esito = await riconciliaDaPagamento(corpo.richiestaId, io, 'a-mano')
+  if (!esito.fatto) {
+    return NextResponse.json({ errore: esito.messaggio }, { status: 409 })
   }
-
-  await db.ordine.update({
-    where: { id: ordine.id },
-    data: {
-      fornitoreNome: ordine.fornitoreNome || r.intestatario,
-      fornitoreCosto: r.importo,
-      // ⚠️ Da dove viene questo fatto si SCRIVE. Fra sei mesi la differenza fra
-      // «l'ha detto chi ha telefonato» e «l'ho dedotto da un bonifico» è
-      // esattamente ciò che serve per sapere quanto fidarsi.
-      fornitoreNota: ordine.fornitoreNome
-        ? 'Costo ricavato dal pagamento già fatto.'
-        : `Ricavato dal pagamento già fatto a ${r.intestatario}.`,
-      fornitoreDaId: io.id,
-      fornitoreDaNome: io.nome,
-      fornitoreIl: new Date(),
-    },
-  })
-  const versoOrders = await comunicaCostoAOrders(
-    ordine.numero,
-    ordine.shopifyId,
-    r.importo,
-    ordine.fornitoreNome || r.intestatario
-  )
-  return NextResponse.json({
-    ok: true,
-    orders: versoOrders.ok ? { ok: true } : { ok: false, messaggio: versoOrders.messaggio },
-  })
+  return NextResponse.json({ ok: true, messaggio: esito.messaggio, orders: esito.orders })
 }

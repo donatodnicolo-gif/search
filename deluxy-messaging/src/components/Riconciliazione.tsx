@@ -108,16 +108,130 @@ export function Riconciliazione() {
   const sospeso = valoreSospeso(righe)
   const restano = daFare(righe)
 
+  /**
+   * Una riga. ⚠️ Sta in una funzione sola perché si mostra in DUE posti: fra
+   * le eccezioni da sistemare e nell'elenco di controllo quando non c'è più
+   * niente da fare. Due copie divergerebbero, e la seconda — quella che si
+   * guarda per fidarsi di quello che ha fatto l'automatismo — sarebbe quella
+   * rimasta indietro.
+   */
+  function rigaDi(r: Riga) {
+    return (
+            <div key={r.richiestaId} className="riquadro-fornitore">
+              <div className="riga-titolo-fornitore">
+                <span className="cella-nome">
+                  {r.intestatario}
+                  {r.iban ? (
+                    // ⚠️ Mai l'IBAN intero in un elenco: le ultime quattro
+                    // cifre bastano a riconoscerlo, e un elenco di IBAN
+                    // completi a schermo è una cosa che si fotografa.
+                    <span className="cella-sub"> · {ibanAccorciato(r.iban)}</span>
+                  ) : null}
+                </span>
+                {/* ⚠️ Niente pallino nel testo: `.badge::before` ne disegna
+                    già uno e prende il colore da `color`. Scrivendone un
+                    secondo se ne vedevano due (misurato nell'anteprima). */}
+                <span className="badge" style={{ color: COLORE[r.verdetto] }}>
+                  {ETICHETTA[r.verdetto]}
+                </span>
+              </div>
+  
+              <div className="cella-sub">
+                {[
+                  r.ordine ? `${r.ordine.numero} · ${r.ordine.negozioNome}` : 'nessun ordine',
+                  r.ordine && r.ordine.totale
+                    ? `venduto ${euro(r.ordine.totale)}`
+                    : '',
+                  `pagato ${euro(r.importo)}`,
+                  r.pagataIl ? new Date(r.pagataIl).toLocaleDateString('it-IT') : '',
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </div>
+  
+              {/* Quanto conosciamo già questo nome. ⚠️ «non nel registro» si
+                  scrive solo se l'elenco è arrivato intero: vedi la nota in
+                  cima. */}
+              {r.registro ? (
+                <div className="cella-sub">
+                  Nel registro:{' '}
+                  <strong>{r.registro.nome}</strong>
+                  {r.registro.citta ? ` · ${r.registro.citta}` : ''}
+                  {r.registro.telefono ? ` · ${r.registro.telefono}` : ''}
+                </div>
+              ) : !nota ? (
+                <div className="cella-sub">Non è nel registro Anagrafiche.</div>
+              ) : null}
+  
+              {r.margine ? (
+                <div className="cella-sub">
+                  Ne risulterebbe un margine di <strong>{euro(r.margine.margineEuro)}</strong>, il{' '}
+                  {pct(r.margine.marginePct)}.
+                </div>
+              ) : null}
+  
+              <p className="frase-riconciliazione">{r.frase}</p>
+  
+              {fatte[r.richiestaId] ? (
+                <p className="cella-sub" style={{ color: 'var(--green)' }}>
+                  ✓ {fatte[r.richiestaId]}
+                </p>
+              ) : null}
+  
+              <div className="azioni-fornitore">
+                {r.verdetto === 'da-registrare' ? (
+                  <button
+                    className="btn small"
+                    onClick={() => void applica(r, 'registra')}
+                    disabled={!!lavoro}
+                  >
+                    {lavoro === r.richiestaId + 'registra' ? 'Registro…' : 'Registra sull’ordine'}
+                  </button>
+                ) : null}
+                {/* ⚠️ Un ordine PAGATO che risulta ancora «da iniziare» dice a
+                    un collega di mettersi al lavoro su una cosa già chiusa, e
+                    falsa il conteggio degli arretrati. */}
+                {r.statoDaAllineare ? (
+                  <button
+                    className="btn btn-secondario small"
+                    onClick={() => void applica(r, 'allinea-stato')}
+                    disabled={!!lavoro}
+                    title="Il pagamento è partito ma l’ordine risulta ancora da iniziare: lo porto in «attesa di consegna»"
+                  >
+                    {lavoro === r.richiestaId + 'allinea-stato'
+                      ? 'Allineo…'
+                      : 'Allinea lo stato (è pagato)'}
+                  </button>
+                ) : null}
+                {r.ordine ? (
+                  <a
+                    className="btn btn-secondario small"
+                    href={`/ordini-globali?q=${encodeURIComponent(r.ordine.numero.replace('#', ''))}`}
+                  >
+                    Apri {r.ordine.numero}
+                  </a>
+                ) : (
+                  <a className="btn btn-secondario small" href="/pagamenti">
+                    Collega un ordine
+                  </a>
+                )}
+              </div>
+            </div>
+    )
+  }
+
   return (
     <main>
       <div className="page-head">
         <div>
           <h1 className="page-title">Riconciliazione</h1>
           <p className="page-sub">
-          I pagamenti che abbiamo già fatto dicono <strong>chi ha preparato</strong> un ordine e{' '}
-          <strong>quanto ci è costato</strong>. Qui quel fatto si porta sull&apos;ordine, dove serve:
-          senza, il costo non arriva a Deluxy Orders e il margine risulta non calcolabile anche
-            quando i numeri ci sono tutti.
+            Pagando da questa app,{' '}
+            <strong>l&apos;ordine impara da solo</strong> chi l&apos;ha preparato e quanto è
+            costato: succede premendo «Pagata», e il costo parte verso Deluxy Orders. Qui restano
+            le <strong>eccezioni</strong> — i pagamenti vecchi, quelli fatti altrove, e quelli su
+            cui non decido io: un nome che somiglia a quello del cliente, un fornitore diverso già
+            scritto sull&apos;ordine, un costo che non torna.
           </p>
         </div>
       </div>
@@ -134,6 +248,21 @@ export function Riconciliazione() {
         <div className="vuoto">Carico…</div>
       ) : righe.length === 0 ? (
         <div className="vuoto">Nessun pagamento già fatto da riconciliare.</div>
+      ) : restano.length === 0 ? (
+        // ⚠️ «Zero da fare» non è una pagina vuota: si dice che è tutto a
+        // posto e si lascia l'elenco sotto, perché serve anche a controllare
+        // che cosa ha registrato l'automatismo — un automatismo che non si può
+        // rileggere è un automatismo di cui nessuno si fida.
+        <>
+          <div className="riquadro-fornitore" style={{ marginBottom: 16 }}>
+            <strong>Niente da rimettere insieme</strong>
+            <p className="cella-sub" style={{ margin: '4px 0 0' }}>
+              Ogni pagamento fatto risulta già sull&apos;ordine giusto. Qui sotto restano tutti,
+              per rileggere che cosa è stato registrato e da chi.
+            </p>
+          </div>
+          <div className="elenco-riconciliazione">{righe.map((r) => rigaDi(r))}</div>
+        </>
       ) : (
         <>
           {restano.length > 0 ? (
@@ -150,108 +279,7 @@ export function Riconciliazione() {
           ) : null}
 
           <div className="elenco-riconciliazione">
-            {righe.map((r) => (
-              <div key={r.richiestaId} className="riquadro-fornitore">
-                <div className="riga-titolo-fornitore">
-                  <span className="cella-nome">
-                    {r.intestatario}
-                    {r.iban ? (
-                      // ⚠️ Mai l'IBAN intero in un elenco: le ultime quattro
-                      // cifre bastano a riconoscerlo, e un elenco di IBAN
-                      // completi a schermo è una cosa che si fotografa.
-                      <span className="cella-sub"> · {ibanAccorciato(r.iban)}</span>
-                    ) : null}
-                  </span>
-                  {/* ⚠️ Niente pallino nel testo: `.badge::before` ne disegna
-                      già uno e prende il colore da `color`. Scrivendone un
-                      secondo se ne vedevano due (misurato nell'anteprima). */}
-                  <span className="badge" style={{ color: COLORE[r.verdetto] }}>
-                    {ETICHETTA[r.verdetto]}
-                  </span>
-                </div>
-
-                <div className="cella-sub">
-                  {[
-                    r.ordine ? `${r.ordine.numero} · ${r.ordine.negozioNome}` : 'nessun ordine',
-                    r.ordine && r.ordine.totale
-                      ? `venduto ${euro(r.ordine.totale)}`
-                      : '',
-                    `pagato ${euro(r.importo)}`,
-                    r.pagataIl ? new Date(r.pagataIl).toLocaleDateString('it-IT') : '',
-                  ]
-                    .filter(Boolean)
-                    .join(' · ')}
-                </div>
-
-                {/* Quanto conosciamo già questo nome. ⚠️ «non nel registro» si
-                    scrive solo se l'elenco è arrivato intero: vedi la nota in
-                    cima. */}
-                {r.registro ? (
-                  <div className="cella-sub">
-                    Nel registro:{' '}
-                    <strong>{r.registro.nome}</strong>
-                    {r.registro.citta ? ` · ${r.registro.citta}` : ''}
-                    {r.registro.telefono ? ` · ${r.registro.telefono}` : ''}
-                  </div>
-                ) : !nota ? (
-                  <div className="cella-sub">Non è nel registro Anagrafiche.</div>
-                ) : null}
-
-                {r.margine ? (
-                  <div className="cella-sub">
-                    Ne risulterebbe un margine di <strong>{euro(r.margine.margineEuro)}</strong>, il{' '}
-                    {pct(r.margine.marginePct)}.
-                  </div>
-                ) : null}
-
-                <p className="frase-riconciliazione">{r.frase}</p>
-
-                {fatte[r.richiestaId] ? (
-                  <p className="cella-sub" style={{ color: 'var(--green)' }}>
-                    ✓ {fatte[r.richiestaId]}
-                  </p>
-                ) : null}
-
-                <div className="azioni-fornitore">
-                  {r.verdetto === 'da-registrare' ? (
-                    <button
-                      className="btn small"
-                      onClick={() => void applica(r, 'registra')}
-                      disabled={!!lavoro}
-                    >
-                      {lavoro === r.richiestaId + 'registra' ? 'Registro…' : 'Registra sull’ordine'}
-                    </button>
-                  ) : null}
-                  {/* ⚠️ Un ordine PAGATO che risulta ancora «da iniziare» dice a
-                      un collega di mettersi al lavoro su una cosa già chiusa, e
-                      falsa il conteggio degli arretrati. */}
-                  {r.statoDaAllineare ? (
-                    <button
-                      className="btn btn-secondario small"
-                      onClick={() => void applica(r, 'allinea-stato')}
-                      disabled={!!lavoro}
-                      title="Il pagamento è partito ma l’ordine risulta ancora da iniziare: lo porto in «attesa di consegna»"
-                    >
-                      {lavoro === r.richiestaId + 'allinea-stato'
-                        ? 'Allineo…'
-                        : 'Allinea lo stato (è pagato)'}
-                    </button>
-                  ) : null}
-                  {r.ordine ? (
-                    <a
-                      className="btn btn-secondario small"
-                      href={`/ordini-globali?q=${encodeURIComponent(r.ordine.numero.replace('#', ''))}`}
-                    >
-                      Apri {r.ordine.numero}
-                    </a>
-                  ) : (
-                    <a className="btn btn-secondario small" href="/pagamenti">
-                      Collega un ordine
-                    </a>
-                  )}
-                </div>
-              </div>
-            ))}
+            {righe.map((r) => rigaDi(r))}
           </div>
         </>
       )}
