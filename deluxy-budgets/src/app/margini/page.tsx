@@ -1,4 +1,6 @@
 import { ANNO_CORRENTE, caricaAnno, totaliMaison } from "@/lib/calc";
+import { fetchMarginiBrand } from "@/lib/orders";
+import { eur, pct } from "@/lib/format";
 import { quotaDeluxyAnno } from "@/lib/quota";
 import { MarginiEditor } from "@/components/MarginiEditor";
 
@@ -6,6 +8,8 @@ export const dynamic = "force-dynamic";
 
 export default async function Margini() {
   const dati = await caricaAnno(ANNO_CORRENTE);
+  // Il margine D2C per brand, misurato da Orders sugli ordini riconciliati.
+  const margini = await fetchMarginiBrand(ANNO_CORRENTE);
 
   // **Venduto** a budget per tipologia: e il prezzo pieno pagato dal cliente,
   // non quello che entra nel conto economico.
@@ -46,6 +50,68 @@ export default async function Margini() {
           </p>
         </div>
       </div>
+      {/* ---- Il margine D2C, brand per brand, da Orders ----
+          Sola lettura: la misura vive negli ordini riconciliati e la regola in
+          Orders → Impostazioni. Qui si LEGGE, perché è qui che si ragiona di
+          margini — ma scriverla qui sarebbe la copia che il contratto dati
+          vieta. */}
+      <h2 className="section-title">Margine D2C per brand — misurato da Orders</h2>
+      {margini.ok ? (
+        <div className="card tight">
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Negozio</th>
+                  <th className="num">Margine</th>
+                  <th className="num">Su quanti ordini</th>
+                  <th className="num">Copertura del lordo</th>
+                  <th>Come</th>
+                </tr>
+              </thead>
+              <tbody>
+                {margini.brand.filter((b) => b.lordo > 0).map((b) => (
+                  <tr key={b.brand}>
+                    <td style={{ fontWeight: 500 }}>{b.brand}</td>
+                    <td className="num" style={{ fontWeight: 600 }}>
+                      {b.margineMisurato !== null ? pct(b.margineMisurato) : pct(margini.regola.margine)}
+                    </td>
+                    <td className="num muted">
+                      {b.margineMisurato !== null ? `${b.ordiniMisurati} su ${b.ordini}` : "—"}
+                    </td>
+                    <td className="num muted">
+                      {b.margineMisurato !== null ? pct(b.coperturaPct) : "—"}
+                    </td>
+                    <td>
+                      {b.margineMisurato !== null ? (
+                        <span className="badge green"><span className="dot" />misurato (riconciliazioni)</span>
+                      ) : (
+                        <span className="badge neutral"><span className="dot" />regola: nessun ordine riconciliato</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="page-caption" style={{ margin: "10px 14px 4px" }}>
+            La <strong>media pesata sul venduto</strong> di questi margini è la quota D2C che il conto
+            economico usa per convertire il budget. La misura arriva dagli ordini con il{" "}
+            <strong>costo del fornitore scritto</strong> (riconciliazione banca o Customer Service): dove la
+            copertura è bassa il numero è un&apos;<strong>indicazione</strong>, e si affina da solo man mano
+            che le riconciliazioni crescono. La regola di ripiego ({pct(margini.regola.margine)}) si cambia
+            in <strong>Orders → Impostazioni</strong>, non qui.
+          </p>
+        </div>
+      ) : (
+        <div className="card">
+          <p className="page-caption" style={{ margin: 0 }}>
+            <strong>Orders non risponde</strong> ({margini.errore}): senza i margini per brand la quota D2C
+            usa la regola unica o i ripieghi, e la pagina del conto economico dice quale.
+          </p>
+        </div>
+      )}
+
       <MarginiEditor
         tipologie={dati.tipologie.map((t) => ({
           id: t.id,

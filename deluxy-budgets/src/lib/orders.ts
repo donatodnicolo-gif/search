@@ -146,3 +146,45 @@ export async function fetchQuotaFornitore(): Promise<
     return { ok: false, errore: "Orders non raggiungibile." };
   }
 }
+
+// ---- Il margine per brand, misurato sugli ordini riconciliati ----
+export type MargineBrand = {
+  brand: string;
+  ordini: number;
+  lordo: number;
+  ordiniMisurati: number;
+  lordoMisurato: number;
+  // `null` = nessun ordine riconciliato per questo brand: non si sa, non è zero.
+  margineMisurato: number | null;
+  coperturaPct: number;
+};
+
+export type MarginiResult =
+  | { ok: true; brand: MargineBrand[]; regola: { quotaFornitore: number; margine: number; dove: string } }
+  | { ok: false; errore: string };
+
+// I margini che Orders misura sugli ordini con il costo del fornitore scritto
+// (riconciliazione banca / Customer Service). La copertura arriva con il dato:
+// un margine su 60 ordini di 800 è un'indicazione, non un censimento, e chi lo
+// usa deve poterlo dire.
+export async function fetchMarginiBrand(anno: number): Promise<MarginiResult> {
+  const key = await chiave("ORDERS_API_KEY");
+  if (!key) return { ok: false, errore: "ORDERS_API_KEY non configurata." };
+  try {
+    const res = await fetch(`${BASE}/api/v1/margini?anno=${anno}`, {
+      headers: { "X-API-Key": key, "X-App": "deluxy-budgets" },
+      next: { revalidate: RIVALIDA },
+    });
+    if (!res.ok) return { ok: false, errore: `Orders ha risposto ${res.status}.` };
+    const dati = (await res.json()) as {
+      brand?: MargineBrand[];
+      regola?: { quotaFornitore: number; margine: number; dove: string };
+    };
+    if (!Array.isArray(dati?.brand) || !dati.regola) {
+      return { ok: false, errore: "Risposta di Orders non riconosciuta." };
+    }
+    return { ok: true, brand: dati.brand, regola: dati.regola };
+  } catch {
+    return { ok: false, errore: "Orders non raggiungibile." };
+  }
+}

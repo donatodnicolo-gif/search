@@ -4,6 +4,26 @@ App dei budget aziendali Deluxy (porta **3080**): raccoglie tutti i budget, calc
 con i costi e stabilisce i premi su **3 livelli di budget** — *raggiungibile* (il budget
 pubblicato), *sfidante* e *irraggiungibile*.
 
+### E dal pomeriggio: i margini PER BRAND, misurati (24/08/2026)
+
+«orders dovrebbe avere le % di margine di ogni brand per gli ordini». Non le aveva — la quota era unica
+e per provincia — ma aveva i **dati** per misurarle: gli ordini riconciliati portano il costo del
+fornitore. Nuova rotta in Orders, **`GET /api/v1/margini`**: per ogni brand `1 − Σcosto ÷ Σtotale`
+sugli ordini col costo scritto, con la **copertura dichiarata** (un margine su 60 ordini di 800 è
+un'indicazione, non un censimento). Esclusi annullati e rimborsati; la regola (40%) viaggia nella
+risposta come ripiego per i brand senza riconciliazioni.
+
+📌 **I brand NON marginano uguale**: deluxy.it **53%** (124 ordini), CakeDesign **45,2%** (59),
+Flowers **43,9%** (146). La quota dell'app è la **media pesata sul venduto**: **50,1%**, contro il 40%
+della regola piatta e il 27,8% della vecchia misura di banca. Ricavi a budget **1.275.620 €**, EBITDA
+**+98.946 €**. La cascata completa: margini per brand → regola unica → misura di banca → stima, ognuna
+col suo nome in testata.
+
+⚠️ La misura si usa **anche con copertura bassa** (5–15% del lordo): è comunque più vicina al vero
+della regola piatta, e la spiegazione dichiara la copertura invece di nasconderla. Crescendo le
+riconciliazioni del Customer Service, il numero si affina da solo. La tabella per brand si **legge** in
+`/margini` (che è la casa dei margini) ma si **scrive** in Orders: la copia è vietata dal contratto dati.
+
 ## Il margine del D2C viene da Orders (24/08/2026)
 
 «il margine del d2c lo prendi da orders». Orders tiene la **quota del fornitore**

@@ -17,7 +17,7 @@ import { caricaCategorie } from "./cfo";
 import { fetchSpeseBanca } from "./finance";
 import { caricaVenduto, QUOTA_STIMATA, quotaMisurata, sommaMesi, type Quota } from "./venduto";
 import { primoMeseAperto } from "./periodo";
-import { fetchQuotaFornitore } from "./orders";
+import { fetchMarginiBrand, fetchQuotaFornitore } from "./orders";
 
 export type { Quota };
 
@@ -97,14 +97,45 @@ export async function quotaDeluxyAnno(
   anno: number,
   maisons: { slug: string; nome: string }[]
 ): Promise<Quota> {
-  // ---- 1. La regola, da chi la possiede (24/08/2026: «il margine del d2c lo
-  // prendi da orders») ----
+  // ---- 1. I margini per brand, misurati da Orders (24/08/2026: «orders
+  // dovrebbe avere le % di margine di ogni brand per gli ordini») ----
   //
-  // Orders tiene la quota del fornitore; il margine Deluxy è il complemento.
-  // Non è una misura, è **la regola economica** — e per il contratto dati le
-  // regole si leggono dal proprietario, non si ricavano di sponda dalla banca:
-  // il conto di banca divideva TUTTI i pagamenti ai fioristi per il SOLO
-  // venduto dei negozi, e peggiorava a ogni classificazione in più.
+  // Orders misura il margine sugli ordini riconciliati, brand per brand, e i
+  // brand NON marginano uguale: deluxy.it sta sul 53%, Flowers sul 44%. La
+  // quota unica dell'app è la **media pesata sul venduto** di ogni brand — col
+  // margine misurato dove c'è, con la regola (100 − quota fornitore) dove non
+  // c'è ancora nessuna riconciliazione.
+  //
+  // ⚠️ La misura si usa anche quando copre poco (5–15% del lordo): è comunque
+  // più vicina al vero della regola piatta, e la spiegazione dichiara la
+  // copertura invece di nasconderla. Crescendo le riconciliazioni, il numero si
+  // affina da solo.
+  const margini = await fetchMarginiBrand(anno);
+  if (margini.ok && margini.brand.some((b) => b.lordo > 0)) {
+    let sommaPesata = 0;
+    let peso = 0;
+    const pezzi: string[] = [];
+    for (const b of margini.brand) {
+      if (b.lordo <= 0) continue;
+      const m = b.margineMisurato ?? margini.regola.margine;
+      sommaPesata += b.lordo * m;
+      peso += b.lordo;
+      pezzi.push(
+        b.margineMisurato !== null
+          ? `${b.brand} ${b.margineMisurato}% (misurato su ${b.ordiniMisurati} ordini, ${b.coperturaPct}% del lordo)`
+          : `${b.brand} ${margini.regola.margine}% (regola: nessun ordine riconciliato)`
+      );
+    }
+    const percentuale = Math.round((sommaPesata / peso) * 10) / 10;
+    return {
+      percentuale,
+      misurata: true,
+      spiegazione: `media pesata sul venduto dei margini di Orders — ${pezzi.join("; ")}`,
+      etichetta: "margini di Orders",
+    };
+  }
+
+  // ---- 2. La regola unica, sempre da Orders ----
   const daOrders = await fetchQuotaFornitore();
   if (daOrders.ok) {
     const percentuale = Math.round((100 - daOrders.quotaFornitore) * 10) / 10;
@@ -116,7 +147,7 @@ export async function quotaDeluxyAnno(
     };
   }
 
-  // ---- 2. Il ripiego: la misura di banca sui mesi chiusi, poi la stima ----
+  // ---- 3. Il ripiego: la misura di banca sui mesi chiusi, poi la stima ----
   // Restano per quando Orders non risponde: un P&L che non si apre è peggio di
   // una quota di ripiego dichiarata come tale.
   const aperto = primoMeseAperto(anno);
