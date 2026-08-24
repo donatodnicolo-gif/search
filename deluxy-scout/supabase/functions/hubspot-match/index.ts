@@ -14,6 +14,7 @@
 //   supabase secrets set ANTHROPIC_API_KEY=sk-ant-... --project-ref fdsziebgkljfsugqqbqd
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { istruzioniEleonor } from '../_shared/eleonor.ts';
+import { chiaveIngressoValida } from '../_shared/chiaveIn.ts';
 
 const HUBSPOT = 'https://api.hubapi.com';
 const ANTHROPIC = 'https://api.anthropic.com/v1/messages';
@@ -115,22 +116,48 @@ async function syncCrm(admin: any, token: string) {
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   try {
-    const token = Deno.env.get('HUBSPOT_TOKEN');
-    if (!token) return json({ error: 'HUBSPOT_TOKEN non configurato' }, 500);
     const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
     const body = await req.json().catch(() => ({}));
+
+    // ── CHI SEI, PRIMA DI QUALUNQUE AZIONE ───────────────────────────────────
+    //
+    // 🔓 Fino al 23/08/2026 il ramo `sync_crm` stava QUI SOPRA, prima di questo
+    // controllo: la funzione è pubblicata `--no-verify-jwt` (il gateway non
+    // filtra niente), quindi **un anonimo che conosceva l'URL poteva far
+    // riversare tutto il CRM HubSpot** nelle tabelle mirror con la service
+    // role, in loop — quota HubSpot bruciata e scritture sul database.
+    //
+    // ⚠️ La regola che ne esce: in una funzione pubblicata `--no-verify-jwt`
+    // **il primo `return` di un ramo d'azione è già la porta d'ingresso**.
+    // L'autenticazione va prima dello smistamento, non dentro il ramo che «se
+    // la ricorda»: basta aggiungere un'azione sopra il controllo e la funzione
+    // torna pubblica senza che nessuno se ne accorga. Aggiungendo un'azione
+    // qui, va sotto questo blocco.
+    //
+    // Vale una sessione utente (è così che chiama l'app, vedi `lib/hubspot.ts`)
+    // **oppure** la chiave d'ingresso, per chi chiama da server.
+    const jwt = (req.headers.get('Authorization') ?? '').replace('Bearer ', '');
+    const { data: userData } = await admin.auth.getUser(jwt);
+    if (!userData?.user) {
+      const key = req.headers.get('x-api-key');
+      const conChiave = await chiaveIngressoValida(key, admin);
+      if (!conChiave.ok) return json({ error: 'Non autenticato' }, 401);
+    }
+
+    // Da qui in giù si sa chi sta chiamando. I controlli sulla configurazione
+    // stanno DOPO apposta: dire a un anonimo quali segreti ci mancano è
+    // raccontargli com'è fatto il dietro le quinte.
+    const token = Deno.env.get('HUBSPOT_TOKEN');
+    if (!token) return json({ error: 'HUBSPOT_TOKEN non configurato' }, 500);
 
     // Estrazione CRM → copia locale (aziende + contatti). Non richiede AI.
     if (body.action === 'sync_crm') {
       return await syncCrm(admin, token);
     }
 
-    // match_contacts: richiede utente autenticato + chiave AI.
+    // match_contacts: oltre all'identità, serve la chiave AI.
     const aiKey = Deno.env.get('ANTHROPIC_API_KEY');
     if (!aiKey) return json({ error: 'ANTHROPIC_API_KEY non configurato' }, 500);
-    const jwt = (req.headers.get('Authorization') ?? '').replace('Bearer ', '');
-    const { data: userData } = await admin.auth.getUser(jwt);
-    if (!userData?.user) return json({ error: 'Non autenticato' }, 401);
     if (body.action !== 'match_contacts') return json({ error: `Azione sconosciuta: ${body.action}` }, 400);
 
     const { data: place } = await admin.from('places').select('*').eq('id', body.place_id).single();

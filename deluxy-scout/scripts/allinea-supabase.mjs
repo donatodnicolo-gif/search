@@ -74,7 +74,11 @@ const MIGRAZIONI = [
 // fornitore ha mandato per posta. Nasce dentro questa lista apposta — le 12
 // funzioni che non ci sono nessuno le aggiorna, e una modifica al loro codice
 // resta a terra in silenzio.
-const FUNZIONI = ['anagrafiche', 'ordini', 'health', 'finance', 'invio-email', 'partner', 'lead', 'trattativa', 'preventivi'];
+// `hubspot-match` è entrata il 23/08 con la correzione del buco: l'auth era
+// DOPO lo smistamento delle azioni e `sync_crm` rispondeva a chiunque. Sta qui
+// perché una correzione di sicurezza che nessuno ripubblica non è una
+// correzione — era anche il motivo per cui andava deployata a mano.
+const FUNZIONI = ['anagrafiche', 'ordini', 'health', 'finance', 'invio-email', 'partner', 'lead', 'trattativa', 'preventivi', 'hubspot-match'];
 // `health` deve rispondere SENZA sessione (il Hub non ne ha una): va deployata
 // con --no-verify-jwt, altrimenti risponde 401 e la pagina «stato dei servizi»
 // vede Scout come irraggiungibile.
@@ -89,7 +93,12 @@ const FUNZIONI = ['anagrafiche', 'ordini', 'health', 'finance', 'invio-email', '
 // un server senza sessione. Metterla solo di sopra la pubblicherebbe col
 // gateway JWT attivo, e la chiamata morirebbe prima del codice — l'`x-api-key`
 // non verrebbe nemmeno letta.
-const SENZA_JWT = new Set(['health', 'partner', 'lead', 'trattativa', 'preventivi']);
+// ⚠️ `hubspot-match` era GIÀ pubblicata così e ci resta: l'app la chiama con la
+// sessione dell'utente, ma dal 23/08 accetta anche la chiave d'ingresso per chi
+// chiama da server — togliendo la flag quella strada morirebbe al gateway.
+// Pubblica al gateway **non** vuol più dire aperta: l'auth è nel codice, e ora
+// sta prima dello smistamento delle azioni.
+const SENZA_JWT = new Set(['health', 'partner', 'lead', 'trattativa', 'preventivi', 'hubspot-match']);
 
 if (!PAT) {
   console.error('\n✗ Manca SUPABASE_PAT.\n');
