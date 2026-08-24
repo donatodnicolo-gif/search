@@ -252,6 +252,12 @@ const NEXT: Record<string, { next: string; key: string }> = {
                     {{ (pendingOpen() === r.chiave ? 'invoices.action.hideDetail' : 'invoices.action.detail') | translate }}
                   </button>
                   @if (canManage()) {
+                    <button class="link-btn" [disabled]="recapInCorso() === r.chiave" (click)="scaricaRecap(r)">
+                      {{ 'invoices.pending.recap' | translate }}
+                    </button>
+                    <button class="link-btn" [disabled]="recapInCorso() === r.chiave" (click)="inviaRecap(r)">
+                      {{ (recapInCorso() === r.chiave ? 'common.saving' : 'invoices.pending.sendRecap') | translate }}
+                    </button>
                     <button class="link-btn" (click)="fatturaTutto(r)">{{ 'invoices.pending.invoiceAll' | translate }}</button>
                   }
                 </td>
@@ -589,6 +595,62 @@ export class InvoicesListComponent {
   mese(m: string): string {
     const [a, me] = m.split('-').map(Number);
     return new Date(a, me - 1, 1).toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
+  }
+
+  readonly recapInCorso = signal<string | null>(null);
+
+  /**
+   * Scarica il recap del mese.
+   *
+   * Passa dall'HttpClient e non da un link aperto a mano: l'API vuole il
+   * token, e una scheda nuova non se lo porta dietro — uscirebbe un 401
+   * travestito da pagina vuota.
+   */
+  scaricaRecap(r: Pending): void {
+    this.error.set(null);
+    this.recapInCorso.set(r.chiave);
+    this.http.get(`${environment.apiUrl}/invoices/recap/${r.partnerId}`, {
+      params: { mese: r.mese, formato: 'html' }, responseType: 'text',
+    }).subscribe({
+      next: (html) => {
+        this.recapInCorso.set(null);
+        const url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `recap-${r.partner.insegna.replace(/[^w-]+/g, '-')}-${r.mese}.html`;
+        a.click();
+        URL.revokeObjectURL(url);
+      },
+      error: (e) => {
+        this.recapInCorso.set(null);
+        this.error.set(e?.error?.message ?? 'Recap non riuscito');
+      },
+    });
+  }
+
+  /**
+   * Manda il recap al partner.
+   *
+   * Chiede conferma ogni volta, col destinatario scritto: e' una mail che esce
+   * davvero verso qualcuno, e un click di troppo non si disfa.
+   */
+  inviaRecap(r: Pending): void {
+    const quando = this.mese(r.mese);
+    if (!confirm(this.translate.instant('invoices.pending.sendConfirm', { partner: r.partner.insegna, mese: quando }))) return;
+    this.error.set(null);
+    this.recapInCorso.set(r.chiave);
+    this.http.post<{ a: string; righe: number }>(
+      `${environment.apiUrl}/invoices/recap/${r.partnerId}/invia`, { mese: r.mese },
+    ).subscribe({
+      next: (esito) => {
+        this.recapInCorso.set(null);
+        this.banner.set(this.translate.instant('invoices.pending.sent', { a: esito.a, n: esito.righe }));
+      },
+      error: (e) => {
+        this.recapInCorso.set(null);
+        this.error.set(e?.error?.message ?? 'Invio non riuscito');
+      },
+    });
   }
 
   fatturaTutto(r: Pending): void {

@@ -121,6 +121,13 @@
       "key": "Chiave API di Orders",
       "hint": "Da qui arrivano gli ordini Shopify da smistare ai partner. Serve una chiave di SOLA LETTURA: la piattaforma legge da Orders e non ci scrive mai.",
       "test": "Prova connessione"
+    },
+    "mail": {
+      "title": "AI Mail (recap ai partner)",
+      "url": "Indirizzo di AI Mail",
+      "user": "Casella da cui parte la mail",
+      "key": "Chiave di AI Mail",
+      "hint": "Il recap al partner esce da qui, cosi' la copia finisce negli «Inviati» della casella vera. Il token si genera da AI Mail → Impostazioni App → «Token API di AI Mail». Senza chiave e casella il recap si puo' comunque scaricare."
     }
   },
   "role": {
@@ -405,7 +412,11 @@
       "sold": "Venduto",
       "dueToPartner": "Dovuto al partner",
       "openMonth": "in corso",
-      "openMonthHint": "Il mese non e' ancora finito: di solito si fattura quando chiude."
+      "openMonthHint": "Il mese non e' ancora finito: di solito si fattura quando chiude.",
+      "recap": "Recap",
+      "sendRecap": "Invia",
+      "sendConfirm": "Mandare a {{partner}} il recap di {{mese}}? Parte una mail vera.",
+      "sent": "Recap inviato a {{a}} — {{n}} consegne."
     },
     "filter": {
       "search": "Cerca",

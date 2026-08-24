@@ -121,6 +121,13 @@
       "key": "Orders API key",
       "hint": "This is where the Shopify orders to dispatch come from. A READ-ONLY key is enough: the platform reads from Orders and never writes to it.",
       "test": "Test connection"
+    },
+    "mail": {
+      "title": "AI Mail (partner recaps)",
+      "url": "AI Mail address",
+      "user": "Mailbox the email is sent from",
+      "key": "AI Mail key",
+      "hint": "Partner recaps go out from here, so the copy lands in the real mailbox's Sent folder. Generate the token in AI Mail → App Settings. Without key and mailbox the recap can still be downloaded."
     }
   },
   "role": {
@@ -405,7 +412,11 @@
       "sold": "Sold",
       "dueToPartner": "Due to partner",
       "openMonth": "open",
-      "openMonthHint": "The month is not over yet: invoicing usually happens once it closes."
+      "openMonthHint": "The month is not over yet: invoicing usually happens once it closes.",
+      "recap": "Recap",
+      "sendRecap": "Send",
+      "sendConfirm": "Send {{partner}} the {{mese}} recap? A real email goes out.",
+      "sent": "Recap sent to {{a}} — {{n}} deliveries."
     },
     "filter": {
       "search": "Search",

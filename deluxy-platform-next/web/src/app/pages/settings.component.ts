@@ -83,6 +83,29 @@ interface GeocodeResult {
           }
         </div>
 
+        <!-- AI Mail: da qui esce il recap al partner. Il canale SMTP appartiene
+             a quell'app (Standard §5.3): la piattaforma non ha e non deve avere
+             credenziali di posta proprie, tiene solo come raggiungerla. -->
+        <h3 class="sotto-titolo">{{ 'settings.mail.title' | translate }}</h3>
+        <label class="fld"><span>{{ 'settings.mail.url' | translate }}</span>
+          <input class="field mono" name="mailUrl" [(ngModel)]="model.mailUrl"
+                 autocomplete="new-password" data-lpignore="true" data-1p-ignore placeholder="https://deluxy-mail.vercel.app" />
+        </label>
+        <label class="fld" style="margin-top:16px"><span>{{ 'settings.mail.user' | translate }}</span>
+          <input class="field mono" name="mailUtente" [(ngModel)]="model.mailUtente"
+                 autocomplete="new-password" data-lpignore="true" data-1p-ignore placeholder="amministrazione@deluxy.it" />
+        </label>
+        <label class="fld" style="margin-top:16px"><span>{{ 'settings.mail.key' | translate }}</span>
+          <div class="key-row">
+            <input class="field mono" [type]="showMailKey() ? 'text' : 'password'" name="mailApiKey"
+                   [(ngModel)]="model.mailApiKey" autocomplete="new-password" data-lpignore="true" data-1p-ignore />
+            <button type="button" class="btn btn-secondary" (click)="showMailKey.set(!showMailKey())">
+              {{ (showMailKey() ? 'settings.apiKeys.hide' : 'settings.apiKeys.show') | translate }}
+            </button>
+          </div>
+        </label>
+        <p class="hint">{{ 'settings.mail.hint' | translate }}</p>
+
         <!-- Deluxy Orders: da qui arrivano gli ordini Shopify da smistare.
              Chiave di SOLA LETTURA: la piattaforma legge, non scrive mai. -->
         <h3 class="sotto-titolo">{{ 'settings.orders.title' | translate }}</h3>
@@ -184,12 +207,14 @@ export class SettingsComponent {
     googleMapsApiKey: '', googleMapsBrowserKey: '',
     anagraficheUrl: '', anagraficheApiKey: '',
     ordersUrl: '', ordersApiKey: '',
+    mailUrl: '', mailApiKey: '', mailUtente: '',
   };
 
   readonly showAnagraficheKey = signal(false);
   readonly provando = signal(false);
   readonly esitoAnagrafiche = signal<{ esito: string; messaggio: string } | null>(null);
   readonly showOrdersKey = signal(false);
+  readonly showMailKey = signal(false);
   readonly provandoOrders = signal(false);
   readonly esitoOrders = signal<{ esito: string; messaggio: string } | null>(null);
 
@@ -252,6 +277,9 @@ export class SettingsComponent {
         this.model.googleMapsBrowserKey = s['googleMapsBrowserKey'] ?? '';
         this.model.ordersUrl = s['ordersUrl'] ?? '';
         this.model.ordersApiKey = s['ordersApiKey'] ?? '';
+        this.model.mailUrl = s['mailUrl'] ?? '';
+        this.model.mailApiKey = s['mailApiKey'] ?? '';
+        this.model.mailUtente = s['mailUtente'] ?? '';
         this.model.anagraficheUrl = s['anagraficheUrl'] ?? '';
         this.model.anagraficheApiKey = s['anagraficheApiKey'] ?? '';
       },

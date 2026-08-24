@@ -6,19 +6,23 @@ import {
   ExecutionContext,
   Get,
   Injectable,
+  Logger,
   Module,
   NotFoundException,
   Param,
   Patch,
   Post,
   Query,
+  Res,
   UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
+import type { Response as RispostaHttp } from 'express';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiSecurity, ApiTags } from '@nestjs/swagger';
 import { CurrentUser, JwtUser, Public, Roles } from '../common/decorators';
 import { InvoiceStatus, Role } from '../common/enums';
 import { PrismaService } from '../prisma/prisma.service';
+import { SettingsModule, SettingsService } from '../settings/settings.module';
 
 /**
  * Guard per i webhook macchina-a-macchina: richiede l'header `x-api-key`
@@ -227,7 +231,12 @@ const conIva = (n: number) => Math.round(n * (1 + IVA / 100) * 100) / 100;
 
 @Injectable()
 export class InvoicesService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(InvoicesService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly settings: SettingsService,
+  ) {}
 
   /**
    * Le fatture, filtrate.
@@ -460,6 +469,271 @@ export class InvoicesService {
         dateImpossibili,
       },
     };
+  }
+
+  /**
+   * Il recap del mese da mandare al partner.
+   *
+   * È il documento che nel vecchio sistema arrivava come PDF allegato alla
+   * fattura. Qui si ricostruisce dai dati: intestazione, una riga per consegna,
+   * e i totali.
+   *
+   * ⚠️ Per i servizi di VENDITA c'è un secondo blocco, e racconta l'altro verso
+   * del denaro: il cliente ha pagato Deluxy, noi tratteniamo la nostra quota e
+   * **il resto lo dobbiamo al partner**. Un recap che mostrasse solo la nostra
+   * quota sarebbe la metà meno interessante per chi lo riceve.
+   */
+  async recap(user: JwtUser, partnerId: string, mese: string) {
+    if (user.role === Role.PARTNER && user.partnerId !== partnerId) {
+      throw new NotFoundException('Partner non trovato');
+    }
+    if (!/^\d{4}-\d{2}$/.test(mese)) {
+      throw new BadRequestException('Mese non valido: atteso AAAA-MM.');
+    }
+    const partner = await this.prisma.partner.findUnique({
+      where: { id: partnerId },
+      select: {
+        id: true, insegna: true, businessName: true, vatNumber: true,
+        address: true, city: true, invoiceEmail: true, email: true,
+      },
+    });
+    if (!partner) throw new NotFoundException('Partner non trovato');
+
+    const [anno, m] = mese.split('-').map(Number);
+    const dal = new Date(Date.UTC(anno, m - 1, 1));
+    const al = new Date(Date.UTC(anno, m, 0, 23, 59, 59, 999));
+
+    const deliveries = await this.prisma.delivery.findMany({
+      where: {
+        partnerId,
+        deletedAt: null,
+        billable: true,
+        status: { notIn: InvoicesService.NON_BILLABLE_STATUSES },
+        invoiceLines: { none: {} },
+        invoiced: false,
+        date: { gte: dal, lte: al },
+      },
+      select: {
+        id: true, code: true, date: true, serviceTypeId: true,
+        price: true, additionalPrice: true, hours: true,
+        distanceKm: true, extraKm: true, extraOutOfCity: true,
+        recipientFirstName: true, recipientLastName: true, recipientAddress: true,
+        serviceType: { select: { name: true, pricingModel: true, basePrice: true, perPiecePrice: true, minHours: true } },
+        products: { select: { quantity: true, price: true } },
+        deliveryRule: { select: { name: true, partnerBillingAdjustment: true, toBill: true } },
+      },
+      orderBy: { date: 'asc' },
+    });
+
+    const listini = new Map(
+      (await this.prisma.partnerService.findMany({ where: { partnerId } }))
+        .map((l) => [l.serviceTypeId, l]),
+    );
+
+    const righe: {
+      code: number; date: Date; recipient: string; address: string | null;
+      service: string; amount: number; venduto: number; dovuto: number;
+    }[] = [];
+    let escluse = 0;
+    for (const d of deliveries) {
+      const c = prezzoConsegna(d as any, listini.get(d.serviceTypeId) ?? null, (d as any).deliveryRule ?? null);
+      // Fuori dal recap quello che non entra in fattura: il partner non deve
+      // leggere righe che poi non trova sul documento.
+      if (!c) { escluse++; continue; }
+      // ⚠️ Nei servizi a ore il destinatario non c'e' e il legacy ci ha messo
+      // un punto: «. .» in un documento che va al cliente sembra un guasto.
+      // Se non ci sono lettere, non e' un nome — meglio l'indirizzo, o niente.
+      const chi = `${d.recipientLastName ?? ''} ${d.recipientFirstName ?? ''}`.trim();
+      const recipient = /p{L}/u.test(chi) ? chi : (d.recipientAddress?.trim() || '—');
+      righe.push({
+        code: d.code,
+        date: d.date,
+        recipient,
+        address: d.recipientAddress,
+        service: d.serviceType?.name ?? '—',
+        amount: c.amount,
+        venduto: c.venduto,
+        dovuto: c.dovutoAlPartner,
+      });
+    }
+
+    const netAmount = Math.round(righe.reduce((s, r) => s + r.amount, 0) * 100) / 100;
+    const venduto = Math.round(righe.reduce((s, r) => s + r.venduto, 0) * 100) / 100;
+    const dovutoAlPartner = Math.round(righe.reduce((s, r) => s + r.dovuto, 0) * 100) / 100;
+    // La quota Deluxy sul venduto è quello che si trattiene: il venduto meno
+    // quello che gli si gira. Non si ricalcola dalla percentuale — le
+    // percentuali sono per servizio, e sommarle sarebbe una media inventata.
+    const quotaDeluxy = Math.round((venduto - dovutoAlPartner) * 100) / 100;
+
+    return {
+      partner,
+      mese,
+      periodo: { dal, al },
+      righe,
+      escluse,
+      totali: {
+        deliveriesCount: righe.length,
+        netAmount,
+        vatRate: IVA,
+        vatAmount: Math.round((conIva(netAmount) - netAmount) * 100) / 100,
+        totalAmount: conIva(netAmount),
+        venduto,
+        quotaDeluxy,
+        dovutoAlPartner,
+      },
+    };
+  }
+
+  /**
+   * Il recap in HTML: una pagina sola, stampabile, e leggibile anche dentro una
+   * mail. Niente CSS esterno né immagini — un documento che si apre a pezzi
+   * quando la rete non c'è non è un documento.
+   */
+  recapHtml(r: Awaited<ReturnType<InvoicesService['recap']>>): string {
+    const e = (v: unknown) => String(v ?? '')
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const eur = (n: number) => n.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' &euro;';
+    const gg = (d: Date) => new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', day: '2-digit', month: '2-digit', year: '2-digit' }).format(d);
+    const mese = new Date(Number(r.mese.slice(0, 4)), Number(r.mese.slice(5, 7)) - 1, 1)
+      .toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
+
+    const righe = r.righe.map((x) => `
+      <tr>
+        <td class="mono">${gg(x.date)}</td>
+        <td class="mono num">#${x.code}</td>
+        <td>${e(x.recipient)}</td>
+        <td class="muted">${e(x.service)}</td>
+        <td class="num">${eur(x.amount)}</td>
+      </tr>`).join('');
+
+    const blocchoVendite = r.totali.venduto > 0 ? `
+      <h2>Vendite del periodo</h2>
+      <table class="totali">
+        <tr><td>Valore venduto</td><td class="num">${eur(r.totali.venduto)}</td></tr>
+        <tr><td>Quota Deluxy</td><td class="num">&minus;${eur(r.totali.quotaDeluxy)}</td></tr>
+        <tr class="finale"><td>Dovuto a voi</td><td class="num">${eur(r.totali.dovutoAlPartner)}</td></tr>
+      </table>` : '';
+
+    return `<!doctype html>
+<html lang="it"><head><meta charset="utf-8">
+<title>Recap ${e(mese)} — ${e(r.partner.insegna)}</title>
+<style>
+  :root { color-scheme: light; }
+  body { margin: 0; padding: 32px; background: #F5F5F7; color: #1d1d1f;
+    font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  .foglio { max-width: 780px; margin: 0 auto; background: #fff; border-radius: 14px;
+    padding: 36px 40px; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+  h1 { margin: 0 0 2px; font-size: 24px; font-weight: 600; letter-spacing: -.025em; }
+  .periodo { color: #6e6e73; margin: 0 0 24px; }
+  .chi { border-top: 1px solid #e5e5ea; padding-top: 16px; margin-bottom: 24px; font-size: 13px; }
+  .chi strong { display: block; font-size: 15px; }
+  .chi span { color: #6e6e73; }
+  h2 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em;
+    color: #6e6e73; margin: 28px 0 8px; }
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; font-size: 11.5px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: .04em; color: #6e6e73; padding: 6px 8px; border-bottom: 1px solid #e5e5ea; }
+  td { padding: 7px 8px; border-bottom: 1px solid #f2f2f4; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .mono { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .muted { color: #6e6e73; }
+  .totali { margin-top: 4px; width: auto; margin-left: auto; min-width: 280px; }
+  .totali td { border: 0; padding: 4px 8px; }
+  .totali td.num { font-variant-numeric: tabular-nums; }
+  .totali .finale td { border-top: 1px solid #1d1d1f; padding-top: 8px; font-weight: 600; font-size: 16px; }
+  .nota { margin-top: 26px; font-size: 12px; color: #6e6e73; }
+  @media print { body { background: #fff; padding: 0; } .foglio { box-shadow: none; border-radius: 0; } }
+</style></head>
+<body><div class="foglio">
+  <h1>Recap consegne</h1>
+  <p class="periodo">${e(mese)}</p>
+  <div class="chi">
+    <strong>${e(r.partner.businessName || r.partner.insegna)}</strong>
+    <span>${e(r.partner.insegna)}${r.partner.vatNumber ? ' &middot; P.IVA ' + e(r.partner.vatNumber) : ''}</span><br>
+    <span>${e([r.partner.address, r.partner.city].filter(Boolean).join(', '))}</span>
+  </div>
+
+  <table>
+    <thead><tr>
+      <th>Data</th><th class="num">Consegna</th><th>Destinatario</th><th>Servizio</th><th class="num">Importo</th>
+    </tr></thead>
+    <tbody>${righe || '<tr><td colspan="5" class="muted">Nessuna consegna da fatturare in questo mese.</td></tr>'}</tbody>
+  </table>
+
+  <table class="totali">
+    <tr><td>${r.totali.deliveriesCount} consegne &mdash; imponibile</td><td class="num">${eur(r.totali.netAmount)}</td></tr>
+    <tr><td>IVA ${r.totali.vatRate}%</td><td class="num">${eur(r.totali.vatAmount)}</td></tr>
+    <tr class="finale"><td>Totale</td><td class="num">${eur(r.totali.totalAmount)}</td></tr>
+  </table>
+
+  ${blocchoVendite}
+
+  ${r.escluse ? `<p class="nota">${r.escluse} ${r.escluse === 1 ? 'consegna &egrave; esclusa' : 'consegne sono escluse'} da questo recap: non hanno una tariffa applicabile, oppure una regola carnet prevede di non fatturarle.</p>` : ''}
+  <p class="nota">Documento di riepilogo, non &egrave; una fattura.</p>
+</div></body></html>`;
+  }
+
+  /**
+   * Manda il recap del mese al partner, passando da AI Mail.
+   *
+   * ⚠️ Il canale SMTP appartiene ad AI Mail (Standard Deluxy §5.3): passando di
+   * lì la copia finisce negli «Inviati» della casella vera, e una mail partita
+   * da qui resta consultabile dove si consulta tutta la posta. La piattaforma
+   * non ha e non deve avere credenziali SMTP proprie.
+   *
+   * Contratto verificato su come lo chiama il CRM: `POST /api/v1/invia` con
+   * `x-api-key` + `x-utente`, corpo `{ a, cc, oggetto, corpo }`.
+   */
+  async inviaRecap(user: JwtUser, partnerId: string, mese: string, aManuale?: string) {
+    const r = await this.recap(user, partnerId, mese);
+
+    const destinatario = (aManuale ?? r.partner.invoiceEmail ?? r.partner.email ?? '').trim();
+    if (!destinatario) {
+      throw new BadRequestException(
+        `${r.partner.insegna} non ha un indirizzo di fatturazione: aggiungilo nella scheda partner, o indicane uno qui.`,
+      );
+    }
+    if (!r.righe.length) {
+      throw new BadRequestException('Niente da mandare: nessuna consegna fatturabile in questo mese.');
+    }
+
+    const url = ((await this.settings.get('mailUrl')) ?? process.env.MAIL_URL ?? 'https://deluxy-mail.vercel.app').replace(/\/+$/, '');
+    const chiave = (await this.settings.get('mailApiKey')) ?? process.env.MAIL_API_KEY ?? '';
+    const utente = (await this.settings.get('mailUtente')) ?? process.env.MAIL_UTENTE ?? '';
+    if (!chiave || !utente) {
+      const manca = [!chiave && 'chiave', !utente && 'casella'].filter(Boolean).join(' e ');
+      throw new BadRequestException(
+        `Invio non configurato: manca la ${manca} di AI Mail (Configurazione → Impostazioni). Il recap si può comunque scaricare.`,
+      );
+    }
+
+    const nomeMese = new Date(Number(mese.slice(0, 4)), Number(mese.slice(5, 7)) - 1, 1)
+      .toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
+
+    let res: Response;
+    try {
+      res = await fetch(`${url}/api/v1/invia`, {
+        method: 'POST',
+        headers: { 'x-api-key': chiave, 'x-utente': utente, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          a: destinatario,
+          oggetto: `Recap consegne ${nomeMese} — ${r.partner.insegna}`,
+          corpo: this.recapHtml(r),
+        }),
+        // L'SMTP vero ci mette qualche secondo: un timeout corto farebbe
+        // sembrare fallito un invio andato a buon fine.
+        signal: AbortSignal.timeout(45_000),
+      });
+    } catch {
+      throw new BadRequestException('AI Mail non risponde: la mail non è partita.');
+    }
+    const corpo = (await res.json().catch(() => null)) as { ok?: boolean; messaggio?: string } | null;
+    if (!res.ok || !corpo?.ok) {
+      throw new BadRequestException(corpo?.messaggio ?? `AI Mail risponde ${res.status}.`);
+    }
+
+    this.logger.log(`Recap ${mese} di ${r.partner.insegna} inviato a ${destinatario}`);
+    return { ok: true, a: destinatario, righe: r.righe.length, totale: r.totali.totalAmount };
   }
 
   /** Le consegne da fatturare di UN partner, una per una (per il dettaglio). */
@@ -755,6 +1029,35 @@ export class InvoicesController {
     return this.invoicesService.pendingDetail(user, partnerId, fino);
   }
 
+  @Get('recap/:partnerId')
+  @ApiOperation({ summary: 'Il recap del mese da mandare al partner (JSON, o HTML con formato=html)' })
+  @ApiQuery({ name: 'mese', required: true, description: 'AAAA-MM' })
+  @ApiQuery({ name: 'formato', required: false, description: 'html per il documento stampabile' })
+  async recap(
+    @CurrentUser() user: JwtUser,
+    @Param('partnerId') partnerId: string,
+    @Query('mese') mese: string,
+    @Query('formato') formato: string | undefined,
+    @Res({ passthrough: true }) res: RispostaHttp,
+  ) {
+    const dati = await this.invoicesService.recap(user, partnerId, mese);
+    if (formato !== 'html') return dati;
+    // Si apre nel browser invece di scaricarsi: si guarda prima di mandarlo.
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    return this.invoicesService.recapHtml(dati);
+  }
+
+  @Post('recap/:partnerId/invia')
+  @Roles(Role.ADMIN, Role.OPERATION)
+  @ApiOperation({ summary: 'Manda il recap del mese al partner, via AI Mail' })
+  inviaRecap(
+    @CurrentUser() user: JwtUser,
+    @Param('partnerId') partnerId: string,
+    @Body() body: { mese: string; a?: string },
+  ) {
+    return this.invoicesService.inviaRecap(user, partnerId, body.mese, body.a);
+  }
+
   @Post('generate')
   @Roles(Role.ADMIN, Role.OPERATION)
   @ApiOperation({ summary: 'Genera la fattura del periodo (somma delle consegne da fatturare)' })
@@ -790,6 +1093,7 @@ export class InvoicesController {
 }
 
 @Module({
+  imports: [SettingsModule],
   controllers: [InvoicesController],
   providers: [InvoicesService],
 })

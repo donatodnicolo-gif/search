@@ -24,6 +24,8 @@ import { PrismaService } from '../prisma/prisma.service';
  *   dall'app, senza un deploy. Le env restano come scorciatoia d'emergenza e
  *   hanno la precedenza (vedi AnagraficheSyncService.getApiKey).
  * - merchandisingUrl / merchandisingApiKey: il PLM (deluxy-merchandising).
+ * - mailUrl / mailApiKey / mailUtente: AI Mail, da cui parte il recap al
+ *   partner. La piattaforma non ha credenziali SMTP proprie.
  *   Serve nelle DUE direzioni: si tirano i prodotti nati la', e si mandano la'
  *   quelli che un partner carica qui.
  * - ordersUrl / ordersApiKey: registro ordini Shopify (deluxy-orders, porta 3150).
@@ -39,6 +41,11 @@ export const SETTING_KEYS = [
   'ordersApiKey',
   'merchandisingUrl',
   'merchandisingApiKey',
+  // AI Mail: il canale SMTP appartiene a quell'app (Standard §5.3), qui si
+  // tiene solo come raggiungerla. `mailUtente` e' la casella da cui parte.
+  'mailUrl',
+  'mailApiKey',
+  'mailUtente',
 ] as const;
 
 @Injectable()
