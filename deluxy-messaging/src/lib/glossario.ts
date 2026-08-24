@@ -45,8 +45,10 @@ export type VoceDto = {
   termine: string
   definizione: string
   categoria: string
-  negozioId: string
-  negozioNome: string
+  /** I marchi a cui vale. **Lista vuota = vale per tutti.** */
+  negoziIds: string[]
+  /** Gli stessi, coi nomi da mostrare. */
+  negoziNomi: string[]
   fonte: string
   conversazioneId: string
   autoreNome: string
@@ -74,7 +76,52 @@ export type CorrezioneProposta = {
   termine?: string
   definizione?: string
   categoria?: string
-  negozioId?: string
+  /** I marchi scelti. Lista VUOTA = vale per tutti; `undefined` = non toccare. */
+  negoziIds?: string[]
+}
+
+// ── I MARCHI DI UNA VOCE ──
+//
+// ⚠️⚠️ Una lista VUOTA vuol dire «vale per TUTTI i marchi», non «per nessuno».
+// È il contrario di quello che verrebbe da pensare guardando un array vuoto, e
+// sbagliarlo qui vuol dire far sparire dal glossario le voci più importanti —
+// quelle generali — oppure raccontarle a chi non riguardano.
+
+/** Vale per tutti i marchi. */
+export function valePerTutti(ids: string[] | null | undefined): boolean {
+  return !ids || ids.length === 0
+}
+
+/** La voce vale per QUESTO marchio? (`''` = sto guardando senza filtro) */
+export function valePer(ids: string[], marchio: string): boolean {
+  if (valePerTutti(ids)) return true
+  if (!marchio) return true
+  return ids.includes(marchio)
+}
+
+/**
+ * Due voci si darebbero fastidio, sì o no.
+ *
+ * ⚠️⚠️ Serve perché col passaggio ai marchi multipli è caduto il vincolo di
+ * unicità su (termine, marchio): due voci con lo stesso termine e marchi
+ * DIVERSI sono legittime — «consegna gratuita» può dire una cosa per Cake e
+ * un'altra per Deluxy. Quello che NON va bene è che si sovrappongano, perché
+ * allora chi legge il glossario trova due risposte alla stessa domanda per lo
+ * stesso marchio e non sa quale vale.
+ *
+ * ⚠️ Una lista vuota («tutti») si sovrappone con QUALUNQUE altra, compresa
+ * un'altra vuota: è il caso che si dimentica, ed è quello che riempie il
+ * glossario di doppioni globali.
+ */
+export function marchiSiSovrappongono(a: string[], b: string[]): boolean {
+  if (valePerTutti(a) || valePerTutti(b)) return true
+  return a.some((x) => b.includes(x))
+}
+
+/** Come si scrivono i marchi di una voce, per chi legge. */
+export function marchiScritti(ids: string[], nomi: Map<string, string>): string {
+  if (valePerTutti(ids)) return 'tutti i marchi'
+  return ids.map((id) => nomi.get(id) ?? id).join(' · ')
 }
 
 /**
@@ -97,29 +144,43 @@ export function testoDaScrivere(
   termine: string
   definizione: string
   categoria: string
-  negozioId: string
+  negoziIds: string[]
   corretta: boolean
 } {
   const termine = (c.termine ?? '').trim() || p.termine
   const definizione = (c.definizione ?? '').trim() || p.definizione
   const categoria = (c.categoria ?? '').trim() || p.categoria
-  // ⚠️⚠️ IL BRAND SI LEGGE SOLO SE È STATO MANDATO, e la differenza conta: qui
-  // la stringa VUOTA è un valore vero («vale per tutti i marchi»), non un campo
-  // non compilato. Con il solito `|| p.negozioId` non si potrebbe più allargare
-  // a tutti una proposta nata per un negozio — il vuoto verrebbe scambiato per
-  // «non me l'hanno detto» e ricadrebbe sul brand di partenza.
-  const negozioId = c.negozioId === undefined ? p.negozioId : (c.negozioId ?? '').trim()
+  // ⚠️⚠️ I MARCHI SI LEGGONO SOLO SE SONO STATI MANDATI, e la differenza conta:
+  // qui la lista VUOTA è un valore vero («vale per tutti i marchi»), non un
+  // campo non compilato. Col solito `|| p.negozioId` il vuoto verrebbe
+  // scambiato per «non me l'hanno detto» e ricadrebbe sul marchio di partenza:
+  // allargare a tutti una voce nata per un negozio sarebbe **impossibile**, in
+  // silenzio.
+  const propostiDaAi = p.negozioId ? [p.negozioId] : []
+  const negoziIds =
+    c.negoziIds === undefined
+      ? propostiDaAi
+      : // ⚠️ Si ripuliscono e si tolgono i doppioni: la schermata manda quello
+        // che ha spuntato, e due volte lo stesso marchio non vuol dire niente.
+        [...new Set(c.negoziIds.map((x) => (x ?? '').trim()).filter(Boolean))]
   return {
     termine,
     definizione,
     categoria,
-    negozioId,
+    negoziIds,
     corretta:
       termine !== p.termine ||
       definizione !== p.definizione ||
       categoria !== p.categoria ||
-      // ⚠️ Cambiare il brand È una correzione, anche a testo identico: cambia a
+      // ⚠️ Cambiare i marchi È una correzione, anche a testo identico: cambia a
       // CHI quella frase si può dire, che è il senso della voce.
-      negozioId !== p.negozioId,
+      !stessiMarchi(negoziIds, propostiDaAi),
   }
+}
+
+/** Due liste di marchi dicono la stessa cosa (l'ordine non conta). */
+export function stessiMarchi(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false
+  const s = new Set(b)
+  return a.every((x) => s.has(x))
 }

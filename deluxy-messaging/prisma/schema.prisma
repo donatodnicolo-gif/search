@@ -1453,14 +1453,27 @@ model VoceGlossario {
    */
   categoria   String   @default("cliente")
   /**
-   * Il brand a cui vale. **Stringa vuota = vale per tutti.**
-   *
-   * ⚠️ Vuota e non `null`, ed è una scelta: in Postgres due NULL non sono
-   * uguali fra loro, quindi con una colonna nullable il vincolo di unicità
-   * qui sotto **non impedirebbe** due voci globali con lo stesso termine — e
-   * il glossario si riempirebbe di doppioni senza dare errore.
+   * ⚠️⚠️ SUPERATA da `negoziIds`. Non si legge e non si scrive più: resta come
+   * fotografia di com'era prima del passaggio ai marchi multipli (24/08/2026),
+   * finché il nuovo campo non è stato guardato in produzione per qualche
+   * giorno. **Poi va tolta**, perché una colonna che ha ancora dei valori e che
+   * nessuno aggiorna è una bugia che aspetta il primo che la legge.
    */
   negozioId   String   @default("")
+  /**
+   * I marchi a cui la voce vale. **Lista vuota = vale per tutti.**
+   *
+   * ⚠️⚠️ Prima era UNO solo, e non bastava: una regola può valere per Cake e
+   * FLowers ma non per Deluxy, e con un campo singolo l'unico modo era
+   * scriverla due volte. Due copie della stessa frase divergono al primo che ne
+   * corregge una — e nessuno si accorge che l'altra è rimasta indietro.
+   *
+   * ⚠️ Il vincolo di unicità su (termine, negozioId) è caduto con questo
+   * passaggio: due voci con lo stesso termine e marchi DIVERSI sono legittime.
+   * Il doppione si impedisce nel codice, controllando la SOVRAPPOSIZIONE dei
+   * marchi — che è più preciso di quel vincolo, e sa dire perché.
+   */
+  negoziIds   String[] @default([])
   /** `persona` (scritta a mano) | `ai` (nata da una proposta accettata). */
   fonte       String   @default("persona")
   /** La conversazione da cui è uscita, quando viene da una proposta. */
@@ -1469,8 +1482,8 @@ model VoceGlossario {
   creatoIl    DateTime @default(now())
   aggiornatoIl DateTime @updatedAt
 
-  @@unique([termine, negozioId])
   @@index([categoria])
+  @@index([termine])
 }
 
 // Quello che l'AI PROPONE dopo aver letto le chat del giorno.
@@ -1525,7 +1538,7 @@ model PropostaGlossario {
   termineAccettato String @default("")
   definizioneAccettata String @default("") @db.Text
   /**
-   * Il brand deciso accettando, quando è diverso da quello proposto.
+   * I marchi decisi accettando, quando diversi da quello proposto.
    *
    * ⚠️⚠️ Serve perché il brand cambia il SENSO della voce, non la sua forma:
    * «la consegna è gratuita» è vera per un negozio e falsa per un altro, e
@@ -1535,11 +1548,11 @@ model PropostaGlossario {
    * archivia come gli altri due, invece di sovrascrivere in silenzio quello che
    * aveva proposto l'AI.
    *
-   * ⚠️ Vuoto ha DUE significati e vanno distinti guardando `corretta`: se
-   * `corretta` è falso non è stato cambiato niente; se è vero, vuoto vuol dire
-   * «l'ho reso valido per tutti».
+   * ⚠️ Vuota ha DUE significati e vanno distinti guardando `corretta`: se
+   * `corretta` è falso non è stato cambiato niente; se è vero, vuota vuol dire
+   * «l'ho reso valido per tutti i marchi».
    */
-  negozioAccettato String @default("")
+  negoziAccettati String[] @default([])
   creatoIl    DateTime @default(now())
 
   @@index([stato, creatoIl])

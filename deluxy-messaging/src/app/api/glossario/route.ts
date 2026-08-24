@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { categoriaValida, testoDaScrivere, type PropostaDto, type VoceDto } from '@/lib/glossario'
+import {
+  categoriaValida,
+  marchiSiSovrappongono,
+  marchiScritti,
+  testoDaScrivere,
+  type PropostaDto,
+  type VoceDto,
+} from '@/lib/glossario'
 import { leggiQuotaFornitore } from '@/lib/orders'
 import { giroGlossario } from '@/lib/glossario-ai'
 import { utenteCorrente } from '@/lib/sessione'
@@ -94,8 +101,8 @@ async function leggiGlossario(): Promise<{
       termine: v.termine,
       definizione: v.definizione,
       categoria: v.categoria,
-      negozioId: v.negozioId,
-      negozioNome: v.negozioId ? (nomi.get(v.negozioId) ?? '') : '',
+      negoziIds: v.negoziIds,
+      negoziNomi: v.negoziIds.map((id) => nomi.get(id) ?? id),
       fonte: v.fonte,
       conversazioneId: v.conversazioneId,
       autoreNome: v.autoreNome,
@@ -115,6 +122,29 @@ async function leggiGlossario(): Promise<{
       creatoIl: p.creatoIl.toISOString(),
     })),
   }
+}
+
+/**
+ * La voce su cui scrivere, quando ne esiste già una che si sovrappone.
+ *
+ * ⚠️⚠️ Il vincolo di unicità su (termine, marchio) è caduto col passaggio ai
+ * marchi multipli: due voci con lo stesso termine e marchi DIVERSI sono
+ * legittime — «consegna gratuita» può dire una cosa per Cake e un'altra per
+ * Deluxy. Quello che non va bene è che si SOVRAPPONGANO: allora chi legge il
+ * glossario trova due risposte alla stessa domanda per lo stesso marchio, e non
+ * sa quale vale. Prima lo impediva il database; adesso lo controlliamo qui, che
+ * è più preciso — e soprattutto sa dire PERCHÉ.
+ */
+async function voceCheSiSovrappone(
+  termine: string,
+  negoziIds: string[],
+  escludiId = ''
+): Promise<{ id: string; negoziIds: string[] } | null> {
+  const stesse = await db.voceGlossario.findMany({
+    where: { termine, ...(escludiId ? { NOT: { id: escludiId } } : {}) },
+    select: { id: true, negoziIds: true },
+  })
+  return stesse.find((v) => marchiSiSovrappongono(v.negoziIds, negoziIds)) ?? null
 }
 
 export const dynamic = 'force-dynamic'
@@ -140,7 +170,8 @@ type Corpo = {
   termine?: string
   definizione?: string
   categoria?: string
-  negozioId?: string
+  /** I marchi scelti. Lista VUOTA = tutti; assente = non toccare. */
+  negoziIds?: string[]
 }
 
 
@@ -185,31 +216,39 @@ export async function POST(req: NextRequest) {
           },
         })
       } else if (p.tipo === 'aggiunta') {
-        // ⚠️ Il brand è quello DECISO accettando, non quello proposto: chi
+        // ⚠️ I marchi sono quelli DECISI accettando, non quello proposto: chi
         // legge la conversazione si accorge che «la consegna è gratuita» vale
-        // per un negozio solo, e deve poterlo restringere prima di scrivere in
+        // per due negozi su tre, e deve poterlo dire prima di scrivere in
         // glossario una promessa che gli operatori poi ripetono a tutti.
-        await db.voceGlossario.upsert({
-          where: {
-            termine_negozioId: { termine: scritto.termine, negozioId: scritto.negozioId },
-          },
-          update: {
-            definizione: scritto.definizione,
-            categoria: scritto.categoria,
-            fonte,
-            conversazioneId: p.conversazioneId,
-            autoreNome: io!.nome,
-          },
-          create: {
-            termine: scritto.termine,
-            definizione: scritto.definizione,
-            categoria: scritto.categoria,
-            negozioId: scritto.negozioId,
-            fonte,
-            conversazioneId: p.conversazioneId,
-            autoreNome: io!.nome,
-          },
-        })
+        const esistente = await voceCheSiSovrappone(scritto.termine, scritto.negoziIds)
+        if (esistente) {
+          await db.voceGlossario.update({
+            where: { id: esistente.id },
+            data: {
+              definizione: scritto.definizione,
+              categoria: scritto.categoria,
+              // ⚠️ I marchi si AGGIORNANO: accettando «vale anche per Cake» la
+              // voce che c'era deve allargarsi, non restare com'era mentre la
+              // proposta risulta accettata.
+              negoziIds: scritto.negoziIds,
+              fonte,
+              conversazioneId: p.conversazioneId,
+              autoreNome: io!.nome,
+            },
+          })
+        } else {
+          await db.voceGlossario.create({
+            data: {
+              termine: scritto.termine,
+              definizione: scritto.definizione,
+              categoria: scritto.categoria,
+              negoziIds: scritto.negoziIds,
+              fonte,
+              conversazioneId: p.conversazioneId,
+              autoreNome: io!.nome,
+            },
+          })
+        }
       }
     }
 
@@ -226,10 +265,10 @@ export async function POST(req: NextRequest) {
         termineAccettato: c.azione === 'accetta' && scritto.corretta ? scritto.termine : '',
         definizioneAccettata:
           c.azione === 'accetta' && scritto.corretta ? scritto.definizione : '',
-        // ⚠️ Anche il brand deciso si archivia: restringere una voce a un
-        // marchio cambia il senso di quella frase quanto riscriverla, e senza
+        // ⚠️ Anche i marchi decisi si archiviano: restringere o allargare una
+        // voce cambia il senso di quella frase quanto riscriverla, e senza
         // questo campo l'archivio non saprebbe dire che cosa è stato cambiato.
-        negozioAccettato: c.azione === 'accetta' && scritto.corretta ? scritto.negozioId : '',
+        negoziAccettati: c.azione === 'accetta' && scritto.corretta ? scritto.negoziIds : [],
       },
     })
     return NextResponse.json(await leggiGlossario())
@@ -242,24 +281,52 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ errore: 'Servono il termine e la spiegazione.' }, { status: 400 })
   }
   const categoria = categoriaValida(c.categoria ?? '') ? c.categoria! : 'cliente'
-  // ⚠️ Stringa vuota = «vale per tutti i marchi», mai null: in Postgres due
-  // NULL non sono uguali, e il vincolo di unicita' non reggerebbe. Vedi schema.
-  const negozioId = (c.negozioId ?? '').trim()
+  // ⚠️ Lista vuota = «vale per tutti i marchi». Vedi `valePerTutti` in
+  // src/lib/glossario.ts: è il contrario di quello che verrebbe da pensare
+  // guardando un array vuoto, ed è la cosa da non sbagliare qui.
+  const negoziIds = [
+    ...new Set((c.negoziIds ?? []).map((x) => (x ?? '').trim()).filter(Boolean)),
+  ]
 
   if (c.id) {
+    // ⚠️ Un doppione si dice PRIMA di scrivere, e si dice con nomi e cognomi:
+    // «esiste già» senza dire quale e per quale marchio costringe a cercarlo a
+    // mano fra le voci, e chi lo cerca finisce per crearne un altro.
+    const scontro = await voceCheSiSovrappone(termine, negoziIds, c.id)
+    if (scontro) {
+      const nomi = new Map(
+        (await db.negozioShopify.findMany({ select: { id: true, nome: true } })).map((n) => [
+          n.id,
+          n.nome,
+        ])
+      )
+      return NextResponse.json(
+        {
+          errore: `C'è già una voce «${termine}» per ${marchiScritti(scontro.negoziIds, nomi)}: correggi quella, oppure scegli marchi diversi.`,
+        },
+        { status: 409 }
+      )
+    }
     await db.voceGlossario.updateMany({
       where: { id: c.id },
-      data: { termine, definizione, categoria, negozioId, autoreNome: io!.nome },
+      data: { termine, definizione, categoria, negoziIds, autoreNome: io!.nome },
     })
   } else {
-    // ⚠️ `upsert` e non `create`: riscrivere un termine che c'è già è una
-    // correzione, non un errore da mostrare. Con un create secco la pagina
-    // direbbe «esiste già» a chi sta solo aggiornando una definizione.
-    await db.voceGlossario.upsert({
-      where: { termine_negozioId: { termine, negozioId } },
-      update: { definizione, categoria, autoreNome: io!.nome },
-      create: { termine, definizione, categoria, negozioId, fonte: 'persona', autoreNome: io!.nome },
-    })
+    // ⚠️ Se ne esiste già una che si sovrappone si AGGIORNA quella: riscrivere
+    // un termine che c'è già è una correzione, non un errore da mostrare. Con un
+    // create secco la pagina direbbe «esiste già» a chi sta solo aggiornando una
+    // definizione.
+    const esistente = await voceCheSiSovrappone(termine, negoziIds)
+    if (esistente) {
+      await db.voceGlossario.update({
+        where: { id: esistente.id },
+        data: { definizione, categoria, negoziIds, autoreNome: io!.nome },
+      })
+    } else {
+      await db.voceGlossario.create({
+        data: { termine, definizione, categoria, negoziIds, fonte: 'persona', autoreNome: io!.nome },
+      })
+    }
   }
   return NextResponse.json(await leggiGlossario())
 }

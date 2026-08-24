@@ -1,7 +1,14 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { CATEGORIE, type PropostaDto, type VoceDto } from '@/lib/glossario'
+import {
+  CATEGORIE,
+  marchiScritti,
+  valePer,
+  valePerTutti,
+  type PropostaDto,
+  type VoceDto,
+} from '@/lib/glossario'
 
 // Il glossario: i fatti che servono a chi risponde a un cliente.
 //
@@ -36,6 +43,55 @@ const NOMI_TIPO: Record<string, string> = {
   avviso: 'Da sapere',
 }
 
+/**
+ * A quali marchi vale una voce. **Nessuna spuntata = tutti i marchi.**
+ *
+ * ⚠️⚠️ Caselle e non un menu a tendina, ed è la ragione per cui esiste questo
+ * componente: con un menu si vede solo la voce scelta, e per sapere se una
+ * regola vale anche per Cake bisogna aprirlo. Qui i tre marchi si vedono tutti
+ * e tre insieme — che è la domanda vera davanti a una frase da dire ai clienti.
+ *
+ * ⚠️ «Tutti i marchi» è una casella a parte e non l'assenza di spunte: lasciare
+ * che si deduca dal vuoto vuol dire non distinguere «vale per tutti» da «non ho
+ * ancora scelto», e sono due cose diverse quando la frase è una promessa.
+ */
+function ScegliMarchi({
+  negozi,
+  scelti,
+  onCambia,
+}: {
+  negozi: { id: string; nome: string }[]
+  scelti: string[]
+  onCambia: (ids: string[]) => void
+}) {
+  const tutti = valePerTutti(scelti)
+  return (
+    <div className="scegli-marchi">
+      <label className={`marchio-scelta${tutti ? ' presa' : ''}`}>
+        <input type="checkbox" checked={tutti} onChange={() => onCambia([])} />
+        <span>tutti i marchi</span>
+      </label>
+      {negozi.map((n) => {
+        const preso = scelti.includes(n.id)
+        return (
+          <label key={n.id} className={`marchio-scelta${preso ? ' presa' : ''}`}>
+            <input
+              type="checkbox"
+              checked={preso}
+              onChange={() =>
+                onCambia(
+                  preso ? scelti.filter((x) => x !== n.id) : [...scelti, n.id]
+                )
+              }
+            />
+            <span>{n.nome}</span>
+          </label>
+        )
+      })}
+    </div>
+  )
+}
+
 export function Glossario() {
   const [dati, setDati] = useState<Dati>(VUOTO)
   const [sistema, setSistema] = useState<Sistema | null>(null)
@@ -58,7 +114,7 @@ export function Glossario() {
     definizione: string
     categoria: string
     /** Il brand a cui la voce vale. Vuoto = tutti. */
-    negozioId: string
+    negoziIds: string[]
   } | null>(null)
 
   const [q, setQ] = useState('')
@@ -70,7 +126,7 @@ export function Glossario() {
   const [termine, setTermine] = useState('')
   const [definizione, setDefinizione] = useState('')
   const [categoria, setCategoria] = useState('cliente')
-  const [brand, setBrand] = useState('')
+  const [brands, setBrands] = useState<string[]>([])
 
   const carica = useCallback(async () => {
     const res = await fetch('/api/glossario')
@@ -126,15 +182,24 @@ export function Glossario() {
     setTermine('')
     setDefinizione('')
     setCategoria('cliente')
-    setBrand('')
+    setBrands([])
   }
 
   const nomeBrand = (bid: string) => dati.negozi.find((n) => n.id === bid)?.nome ?? ''
+  // I nomi per id, una volta sola: la lista si ridisegna a ogni tasto della
+  // ricerca, e cercarli dentro il ciclo li rifarebbe cercare per ogni riga.
+  const nomiPerId = useMemo(
+    () => new Map(dati.negozi.map((n) => [n.id, n.nome])),
+    [dati.negozi]
+  )
 
   const visibili = useMemo(() => {
     const cerca = q.trim().toLowerCase()
     return dati.voci.filter((v) => {
-      if (filtroBrand === '__globali' ? v.negozioId : filtroBrand && v.negozioId !== filtroBrand)
+      // ⚠️ Una voce di TUTTI i marchi compare anche filtrando su uno solo:
+      // vale anche per lui, ed è proprio quello che chi filtra deve sapere
+      // prima di rispondere a un suo cliente.
+      if (filtroBrand === '__globali' ? !valePerTutti(v.negoziIds) : !valePer(v.negoziIds, filtroBrand))
         return false
       if (filtroCategoria && v.categoria !== filtroCategoria) return false
       if (!cerca) return true
@@ -235,7 +300,7 @@ export function Glossario() {
                                   // non da «tutti»: aprire la modifica non deve
                                   // allargare a tutti i marchi una voce nata per
                                   // uno solo, per il solo fatto di averla aperta.
-                                  negozioId: p.negozioId,
+                                  negoziIds: p.negozioId ? [p.negozioId] : [],
                                 }
                           )
                         }
@@ -294,19 +359,11 @@ export function Glossario() {
                     {p.tipo === 'aggiunta' ? (
                       <label className="campo">
                         <span>Per quale marchio vale</span>
-                        <select
-                          value={correggo.negozioId}
-                          onChange={(e) =>
-                            setCorreggo({ ...correggo, negozioId: e.target.value })
-                          }
-                        >
-                          <option value="">tutti i marchi</option>
-                          {dati.negozi.map((n) => (
-                            <option key={n.id} value={n.id}>
-                              solo {n.nome}
-                            </option>
-                          ))}
-                        </select>
+                        <ScegliMarchi
+                          negozi={dati.negozi}
+                          scelti={correggo.negoziIds}
+                          onCambia={(ids) => setCorreggo({ ...correggo, negoziIds: ids })}
+                        />
                       </label>
                     ) : p.negozioId ? (
                       // ⚠️ Qui il marchio si MOSTRA e basta. Su una CORREZIONE
@@ -343,7 +400,7 @@ export function Glossario() {
                             termine: correggo.termine,
                             definizione: correggo.definizione,
                             categoria: correggo.categoria,
-                            negozioId: correggo.negozioId,
+                            negoziIds: correggo.negoziIds,
                           }).then(() => setCorreggo(null))
                         }
                       >
@@ -426,14 +483,7 @@ export function Glossario() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <label className="campo">
               <span>Vale per</span>
-              <select value={brand} onChange={(e) => setBrand(e.target.value)}>
-                <option value="">Tutti i marchi</option>
-                {dati.negozi.map((n) => (
-                  <option key={n.id} value={n.id}>
-                    {n.nome}
-                  </option>
-                ))}
-              </select>
+              <ScegliMarchi negozi={dati.negozi} scelti={brands} onCambia={setBrands} />
             </label>
             <label className="campo">
               <span>Chi lo può leggere</span>
@@ -461,7 +511,7 @@ export function Glossario() {
             className="bottone"
             disabled={salvando || !termine.trim() || !definizione.trim()}
             onClick={async () => {
-              const ok = await manda({ id, termine, definizione, categoria, negozioId: brand })
+              const ok = await manda({ id, termine, definizione, categoria, negoziIds: brands })
               if (ok) svuota()
             }}
           >
@@ -495,7 +545,7 @@ export function Glossario() {
             >
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                 <span className="cella-nome">{v.termine}</span>
-                <span className="badge">{v.negozioNome || 'tutti i marchi'}</span>
+                <span className="badge">{marchiScritti(v.negoziIds, nomiPerId)}</span>
                 {/* ⚠️ «Interno» va marcato in rosso: è l'unica etichetta che
                     dice «non leggerlo a un cliente». */}
                 {v.categoria === 'tecnico' ? <span className="badge rosso">interno</span> : null}
@@ -508,7 +558,7 @@ export function Glossario() {
                       setTermine(v.termine)
                       setDefinizione(v.definizione)
                       setCategoria(v.categoria)
-                      setBrand(v.negozioId)
+                      setBrands(v.negoziIds)
                       window.scrollTo({ top: 0, behavior: 'smooth' })
                     }}
                   >

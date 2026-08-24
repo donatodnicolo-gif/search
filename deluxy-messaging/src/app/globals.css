@@ -4519,3 +4519,38 @@ td .azioni-ordine {
   padding-top: 10px;
   border-top: 1px solid var(--hairline);
 }
+
+/* A quali marchi vale una voce di glossario.
+   ⚠️ Caselle e non un menu: con un menu si vede solo la voce scelta, e per
+   sapere se una regola vale anche per Cake bisogna aprirlo. Qui i marchi si
+   vedono tutti insieme, che e' la domanda vera davanti a una frase da dire ai
+   clienti. */
+.scegli-marchi {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.marchio-scelta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 13px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.marchio-scelta:hover { border-color: var(--text-tertiary); }
+
+/* Spuntata: si vede da lontano quali marchi sono dentro, senza leggere. */
+.marchio-scelta.presa {
+  border-color: var(--text);
+  background: var(--text);
+  color: var(--surface);
+}
+
+.marchio-scelta input { margin: 0; }

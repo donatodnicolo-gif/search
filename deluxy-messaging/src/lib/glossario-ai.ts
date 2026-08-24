@@ -164,7 +164,12 @@ export async function giroGlossario(opz: OpzioniGiro = {}): Promise<EsitoGiro> {
 
   const [negozi, voci] = await Promise.all([
     db.negozioShopify.findMany({ select: { id: true, nome: true } }),
-    db.voceGlossario.findMany({ select: { id: true, termine: true, definizione: true, negozioId: true } }),
+    // ⚠️ `negoziIds`, non la vecchia `negozioId`: quella è congelata al
+    // 24/08/2026 e nessuno la aggiorna più. Leggendola, l'AI vedrebbe il
+    // glossario di ieri e riproporrebbe fatti che ci sono già.
+    db.voceGlossario.findMany({
+      select: { id: true, termine: true, definizione: true, negoziIds: true },
+    }),
   ])
   // ── LE DOMANDE ALL'AMMINISTRATORE ──
   // ⚠️ Valgono doppio: se una persona che lavora qui ha dovuto chiedere, quel
@@ -185,7 +190,11 @@ export async function giroGlossario(opz: OpzioniGiro = {}): Promise<EsitoGiro> {
     ? voci
         .map(
           (v) =>
-            `- [${v.id}]${v.negozioId ? ` (${negozi.find((n) => n.id === v.negozioId)?.nome ?? ''})` : ''} ${v.termine}: ${v.definizione}`
+            `- [${v.id}]${
+              v.negoziIds.length
+                ? ` (${v.negoziIds.map((id) => negozi.find((n) => n.id === id)?.nome ?? id).join(', ')})`
+                : ''
+            } ${v.termine}: ${v.definizione}`
         )
         .join('\n')
     : '(il glossario è ancora vuoto)'
