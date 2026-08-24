@@ -84,6 +84,7 @@ connection string Supabase con `?schema=hub` in fondo.
 | `HUB_SESSION_SECRET` | firma il cookie di sessione. **Cambiarlo disconnette tutti.** Generalo con `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
 | `HUB_CHIAVI_SECRET` | **facoltativo.** cifra i valori della pagina `/chiavi` (AES-256-GCM, min 32 caratteri). Se assente si riusa `HUB_SESSION_SECRET`, così la cassaforte funziona senza configurare nulla. **Cambiarlo rende illeggibili le chiavi già salvate** |
 | `APP_URL_SEARCH` / `APP_URL_PARTNER` / `APP_URL_SCOUT` | dove puntano le icone |
+| `BUDGETS_API_KEY` | **facoltativa.** chiave in **entrata** di Budgets: con questa `/utenti` legge squadre e persone da `GET /api/v1/team`. In alternativa si incolla nella cassaforte `/chiavi` (progetto `deluxy-budgets`, va bene anche `budgets`) — l'ambiente vince. Senza, la sezione spiega cosa manca |
 | `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` | primo admin creato dal seed (solo primo avvio) |
 
 `.env` è in `.gitignore`: i segreti non finiscono mai nel repo.
@@ -111,11 +112,32 @@ connection string Supabase con `?schema=hub` in fondo.
 | `/` | tutti | home con le icone delle app abilitate per l'utente |
 | `/login` | pubblica | email + password |
 | `/profilo` | tutti | proprio ruolo, app abilitate, cambio password |
-| `/utenti` | solo admin | crea, sceglie app per utente, cambia ruolo/password, attiva/disattiva, elimina |
+| `/utenti` | solo admin | crea, sceglie app per utente, cambia ruolo/password, attiva/disattiva, elimina; in mezzo, **squadre e persone lette da Budgets** con lo stato dell'account di ognuno |
 | `/chiavi` | solo admin | cassaforte dei segreti dei progetti: valori cifrati sul database, mascherati in lista, rivelabili uno alla volta |
 | `/stato` | solo admin | semaforo server + database di ogni app del catalogo |
 | `/cartellino` | tutti, **solo da computer** | il proprio cartellino: timbra, ore del mese, ferie/permessi/malattia, certificati |
 | `/cartellino/gestione` | solo admin, **solo da computer** | richieste da approvare, chi è in sede adesso, ore e assenze di tutti |
+
+### Squadre e persone in `/utenti` (da Budgets)
+
+L'organico — squadre, responsabili, ruoli, persone — vive in **Budgets**, dove
+nasce col budget del personale. `/utenti` lo legge da `GET /api/v1/team`
+([`src/lib/organico.ts`](src/lib/organico.ts)) e lo mostra fra il form «Nuovo
+utente» e la lista utenti, **senza tenersene una copia**: squadre e ruoli si
+correggono in Budgets, qui si creano solo gli accessi.
+
+- Ogni persona è confrontata con gli utenti del portale **per nome normalizzato**
+  (minuscole, spazi compattati, accenti ignorati): se combacia si vede il badge
+  dell'account (attivo/disattivato) con l'email; se no, il bottone **«Crea
+  account»** porta al form con il nome già compilato.
+- Chi non è in forza tutto l'anno ha accanto i suoi mesi («fino a giu», «da
+  set»): un account per chi ha già finito non serve, e la pagina lo fa vedere.
+- La chiave si cerca prima nell'ambiente (`BUDGETS_API_KEY`), poi nella
+  cassaforte `/chiavi` (progetto `deluxy-budgets` o `budgets`). Senza chiave o
+  con Budgets giù la sezione **spiega cosa manca** invece di sparire; il resto
+  della pagina funziona comunque (timeout 6 s).
+- Nella lista utenti, chi è riconosciuto nell'organico ha la sua squadra accanto
+  all'email.
 
 ### Il Cartellino
 

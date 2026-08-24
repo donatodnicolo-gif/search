@@ -1,7 +1,7 @@
 # Deluxy Hub — Handoff per ripartire
 
 > Documento per una nuova sessione (anche altro account Claude) che riprende il
-> lavoro sul portale. Aggiornato: **17 agosto 2026**.
+> lavoro sul portale. Aggiornato: **24 agosto 2026**.
 > Leggi anche [README.md](README.md) (dettagli completi) e la memoria del progetto.
 
 > ⚠️ **La cartella di lavoro è `C:\Users\nicol\scoutwt\deluxy-hub` (branch
@@ -113,6 +113,8 @@ Dato salvato: `Utente.appAbilitate String[]` (id delle app), vedi
 | [`src/middleware.ts`](src/middleware.ts) | blocca chi non è loggato; `/utenti`, `/chiavi`, `/stato` solo admin |
 | [`src/components/AppIcon.tsx`](src/components/AppIcon.tsx) | glifi SVG delle app |
 | [`src/app/{page,login,utenti,profilo}`](src/app) | home, login, gestione utenti, profilo |
+| [`src/lib/organico.ts`](src/lib/organico.ts) | legge squadre e persone da Budgets (`GET /api/v1/team`, chiave da env o cassaforte) per la sezione in `/utenti` |
+| [`src/app/utenti/OrganicoBudgets.tsx`](src/app/utenti/OrganicoBudgets.tsx) | la sezione «Squadre e persone»: badge squadra, stato account per persona, bottone «Crea account» che precompila il form |
 | [`src/lib/stato-servizi.ts`](src/lib/stato-servizi.ts) | interroga l'health di ogni app del catalogo (server + database) |
 | [`src/app/stato`](src/app/stato) | pagina **Stato servizi** (admin) |
 | [`src/app/api/health`](src/app/api/health) | health-check del Hub stesso |
@@ -214,6 +216,34 @@ chiede (proprietario o admin).
 Il limite del corpo delle server action è alzato a 6 MB in `next.config.ts`:
 il default è 1 MB e un certificato scansionato lo supera.
 
+## 5-quater. Squadre e persone in `/utenti` (24 agosto 2026)
+
+`/utenti` mostra l'**organico letto da Budgets** (`GET /api/v1/team`, rotta nata
+apposta per il Hub): squadre con responsabile, persone con ruolo/tipo/maison, e
+accanto a ognuna lo stato dell'accesso al portale — badge verde/rosso se il nome
+(normalizzato: minuscole, spazi, accenti) combacia con un utente, altrimenti
+**«Crea account»** che apre il form «Nuovo utente» col nome precompilato
+(`?nome=…#nuovo-utente`). Chi non è in forza tutto l'anno ha accanto i suoi mesi
+(«fino a giu», «da set»). Nella lista utenti la squadra compare accanto
+all'email. Il Hub **non salva nulla** dell'organico: la fonte resta Budgets.
+
+La chiave è la **chiave in entrata di Budgets** (la stessa che usa Finance):
+`BUDGETS_API_KEY` da variabile d'ambiente **oppure** dalla cassaforte `/chiavi`
+(progetto `deluxy-budgets`; accettato anche `budgets`). Senza chiave, o con
+Budgets giù, la sezione spiega cosa manca e il resto della pagina vive lo stesso
+(timeout 6 s). Stati verificati sul dev server contro l'API di produzione:
+organico completo (11 persone, 2 squadre + 4 senza squadra), senza chiave, 401.
+
+🔴 **In produzione la chiave non è ancora impostata**: il classificatore dei
+permessi ha bloccato sia la scrittura nella cassaforte sia `vercel env add`.
+Il valore giusto (56 caratteri) sta in `deluxy-budgets/.env` e
+`deluxy-partner/.env` locali (verificato: apre l'API con 200). Per accendere la
+sezione: incollarlo in **`/chiavi` → progetto `deluxy-budgets` → `BUDGETS_API_KEY`**
+(effetto immediato, niente redeploy) oppure `npx vercel env add BUDGETS_API_KEY
+production --value="…" --sensitive` da `deluxy-hub/` + redeploy. ⚠️ Le env
+`Sensitive` **non si rileggono** da Vercel: `vercel env pull` restituisce il
+segnaposto `[SENSITIVE]`, non il valore.
+
 ## 6. Deploy e ambiente (Vercel)
 
 - Progetto: **`deluxy/deluxy-hub`** (CLI già autenticata come `donatodnicolo-gif`).
@@ -298,6 +328,9 @@ npm run dev            # http://localhost:3050
   non prova a spedire.
 - **Nessun recupero password autonomo**: lo reimposta un admin da `/utenti`.
 - **Creare gli utenti veri** del team da `/utenti` (finora esiste solo l'admin).
+  Dal 24/08 la pagina mostra squadre e persone lette da Budgets con «Crea
+  account» precompilato (§5-quater) — ma serve prima la `BUDGETS_API_KEY`, che
+  in produzione **manca ancora**.
 - **`deluxy-acquisti` non è nel catalogo**: l'app esiste nel repo (porta 3100) ma
   non ha una tessera in `apps.ts` né un `APP_URL_ACQUISTI`, quindi dal portale non
   si raggiunge. Da aggiungere quando avrà un URL pubblico.
@@ -465,6 +498,7 @@ descrizione}`; `isRuolo(x)` type-guard. Elenco chiuso: aggiungere un ruolo qui.
 | `HUB_SSO_SECRET` | cifra il token SSO Hub→app; **stesso valore** nell'app di destinazione, min 32 caratteri. Assente = l'app chiede il suo login |
 | `HUB_KEYS_TOKEN` | token con cui il Hub legge la *propria* cassaforte via API |
 | `SMTP_HOST` `_PORT` `_USER` `_PASS` `_FROM` | invio del riepilogo presenze; in alternativa nella cassaforte `/chiavi`, progetto `hub` (l'ambiente vince) |
+| `BUDGETS_API_KEY` | chiave in entrata di Budgets per squadre e persone in `/utenti`; in alternativa nella cassaforte `/chiavi`, progetto `deluxy-budgets` (l'ambiente vince). **Assente in produzione al 24/08** (vedi §5-quater) |
 | `APP_URL_SEARCH` `_PARTNER` `_ANAGRAFICHE` `_MAISON` `_SCOUT` `_MAIL` `_CONSEGNE` `_TASKS` `_CALENDARIO` `_BUDGETS` `_MARKETING` `_MERCHANDISING` `_MESSAGGI` `_ORDERS` `_TRANSACTIONS` `_SCRIPTS` | dove puntano le icone (assente in prod = app nascosta, tranne le eccezioni con ripiego `localhost` in §3) |
 | `SEED_ADMIN_EMAIL` `SEED_ADMIN_PASSWORD` | primo admin creato da `db:seed` (solo primo avvio) |
 

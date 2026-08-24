@@ -1,8 +1,10 @@
 import { aggiornaUtente, creaUtente, eliminaUtente } from "@/lib/actions";
 import { appPerIds, appPerRuolo, catalogoApp } from "@/lib/apps";
 import { prisma } from "@/lib/db";
+import { nomeNormalizzato, organicoDaBudgets, type PersonaBudgets } from "@/lib/organico";
 import { RUOLI, RUOLO_INFO, type Ruolo } from "@/lib/ruoli";
 import { richiediAdmin } from "@/lib/sessione-server";
+import { OrganicoBudgets } from "./OrganicoBudgets";
 
 // Spunte "quali app può aprire questo utente". Gli id spuntati arrivano alla
 // server action come campi "app" ripetuti. `selezionate` pre-spunta quelle giuste
@@ -74,12 +76,34 @@ function dataIt(d: Date | null) {
 export default async function UtentiPage({
   searchParams,
 }: {
-  searchParams: Promise<{ ok?: string; errore?: string }>;
+  searchParams: Promise<{ ok?: string; errore?: string; nome?: string }>;
 }) {
   const sessione = await richiediAdmin();
   const sp = await searchParams;
 
-  const utenti = await prisma.utente.findMany({ orderBy: [{ ruolo: "asc" }, { nome: "asc" }] });
+  // L'organico arriva da Budgets in parallelo alla lista utenti: due fonti,
+  // nessuna delle due deve aspettare l'altra.
+  const [utenti, organico] = await Promise.all([
+    prisma.utente.findMany({ orderBy: [{ ruolo: "asc" }, { nome: "asc" }] }),
+    organicoDaBudgets(),
+  ]);
+
+  // Chi dell'organico ha già un account? Si riconosce dal nome (normalizzato):
+  // l'email in Budgets non esiste, il nome è l'unica lingua comune.
+  const utentePerNome = new Map<string, { email: string; attivo: boolean }>();
+  for (const u of utenti)
+    utentePerNome.set(nomeNormalizzato(u.nome), { email: u.email, attivo: u.attivo });
+  const accountDi = (p: PersonaBudgets) => utentePerNome.get(nomeNormalizzato(p.nome)) ?? null;
+
+  // E al contrario: la squadra di ogni utente, da mostrare nella lista.
+  const teamPerNome = new Map<string, string>();
+  if (organico.stato === "ok") {
+    for (const t of organico.team)
+      for (const p of t.persone) teamPerNome.set(nomeNormalizzato(p.nome), t.nome);
+  }
+
+  // Il nome può arrivare precompilato dal bottone "Crea account" dell'organico.
+  const nomePrecompilato = typeof sp.nome === "string" ? sp.nome : "";
 
   return (
     <main className="main">
@@ -96,14 +120,14 @@ export default async function UtentiPage({
       )}
 
       <div className="section-label">Nuovo utente</div>
-      <div className="card">
+      <div className="card" id="nuovo-utente">
         <form
           action={creaUtente}
           style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 14, alignItems: "end" }}
         >
           <label className="campo" style={{ marginBottom: 0 }}>
             <span>Nome</span>
-            <input name="nome" required placeholder="Maria Rossi" />
+            <input name="nome" required placeholder="Maria Rossi" defaultValue={nomePrecompilato} />
           </label>
           <label className="campo" style={{ marginBottom: 0 }}>
             <span>Email</span>
@@ -134,6 +158,12 @@ export default async function UtentiPage({
         </form>
       </div>
 
+      <div className="section-label">
+        Squadre e persone
+        {organico.stato === "ok" ? ` — organico ${organico.anno} da Budgets` : " — da Budgets"}
+      </div>
+      <OrganicoBudgets organico={organico} accountDi={accountDi} />
+
       <div className="section-label">{utenti.length} utenti</div>
       <div className="card" style={{ padding: "20px 12px" }}>
         <table>
@@ -147,11 +177,16 @@ export default async function UtentiPage({
             </tr>
           </thead>
           <tbody>
-            {utenti.map((u) => (
+            {utenti.map((u) => {
+              const team = teamPerNome.get(nomeNormalizzato(u.nome));
+              return (
               <tr key={u.id}>
                 <td>
                   <div style={{ fontWeight: 500 }}>{u.nome}</div>
-                  <div style={{ fontSize: 12.5, color: "var(--text-tertiary)" }}>{u.email}</div>
+                  <div style={{ fontSize: 12.5, color: "var(--text-tertiary)" }}>
+                    {u.email}
+                    {team ? ` · ${team}` : ""}
+                  </div>
                 </td>
                 <td>
                   <span className="badge gold">
@@ -232,7 +267,8 @@ export default async function UtentiPage({
                   </details>
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>
