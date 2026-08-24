@@ -1,0 +1,107 @@
+// Deluxy CRM — schema `crm` sul Postgres condiviso.
+// I clienti e i loro ordini NON vivono qui: la fonte è Deluxy Orders
+// (/api/v1/clienti, /api/v1/ordini). Qui vive solo il dominio della
+// relazione: attività, eventi con inviti, template e registro mail.
+// Il riferimento al cliente è `chiaveCliente` = la chiave base64url di Orders
+// (email → telefono → nome), la stessa di TagCliente/PrivacyCliente in Orders.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// Diario della relazione: chiamate, incontri, note, messaggi.
+model Attivita {
+  id            String   @id @default(cuid())
+  chiaveCliente String
+  // fotografia del nome al momento della registrazione (il dato vivo è in Orders)
+  nomeCliente   String   @default("")
+  tipo          String // nota | chiamata | email | incontro | whatsapp | altro
+  titolo        String
+  dettaglio     String?  @db.Text
+  autore        String   @default("")
+  quando        DateTime @default(now())
+  creatoIl      DateTime @default(now())
+  aggiornatoIl  DateTime @updatedAt
+
+  @@index([chiaveCliente, quando])
+  @@index([quando])
+  @@index([tipo])
+}
+
+// Evento o occasione speciale Deluxy (cena, presentazione, anteprima…).
+model Evento {
+  id           String    @id @default(cuid())
+  titolo       String
+  descrizione  String?   @db.Text
+  luogo        String    @default("")
+  dataInizio   DateTime
+  dataFine     DateTime?
+  dressCode    String    @default("")
+  capienza     Int?
+  stato        String    @default("bozza") // bozza | aperto | concluso | annullato
+  note         String?   @db.Text
+  inviti       Invito[]
+  creatoIl     DateTime  @default(now())
+  aggiornatoIl DateTime  @updatedAt
+
+  @@index([dataInizio])
+  @@index([stato])
+}
+
+// Invito di un cliente a un evento, col suo percorso.
+model Invito {
+  id            String    @id @default(cuid())
+  eventoId      String
+  evento        Evento    @relation(fields: [eventoId], references: [id], onDelete: Cascade)
+  chiaveCliente String
+  // fotografia di cortesia al momento dell'invito (il dato vivo è in Orders)
+  nomeCliente   String    @default("")
+  emailCliente  String    @default("")
+  stato         String    @default("da_invitare") // da_invitare | invitato | confermato | declinato | partecipato
+  invitatoIl    DateTime?
+  rispostaIl    DateTime?
+  note          String?
+  mailId        String?
+  creatoIl      DateTime  @default(now())
+  aggiornatoIl  DateTime  @updatedAt
+
+  @@unique([eventoId, chiaveCliente])
+  @@index([chiaveCliente])
+  @@index([stato])
+}
+
+// Modello di mail personalizzata, con variabili {{nome}}, {{...}}.
+model TemplateMail {
+  id           String   @id @default(cuid())
+  nome         String   @unique
+  oggetto      String
+  corpo        String   @db.Text
+  creatoIl     DateTime @default(now())
+  aggiornatoIl DateTime @updatedAt
+}
+
+// Registro delle mail uscite dal CRM (l'originale resta negli Inviati del mittente).
+model MailInviata {
+  id            String   @id @default(cuid())
+  chiaveCliente String
+  nomeCliente   String   @default("")
+  destinatario  String
+  oggetto       String
+  corpo         String   @db.Text
+  esito         String   @default("inviata") // inviata | errore
+  errore        String?
+  templateId    String?
+  eventoId      String?
+  autore        String   @default("")
+  inviataIl     DateTime @default(now())
+
+  @@index([chiaveCliente, inviataIl])
+  @@index([inviataIl])
+  @@index([eventoId])
+}

@@ -1,0 +1,177 @@
+// Deluxy Personale — schema `personale` sul Postgres condiviso.
+// La CASA dei dati HR dell'ecosistema (Standard §7): persone, funzioni,
+// mansioni con le loro attività, organigramma (chi riporta a chi),
+// inquadramenti contrattuali e retribuzioni, entrambi COME STORIA
+// (il valore "corrente" è l'ultima riga per decorrenza, non un campo che
+// si sovrascrive perdendo il passato).
+//
+// Le altre app (Hub, Budgets, …) leggono via /api/v1 con chiave x-api-key;
+// gli utenti/ruoli restano nel Hub (qui nessuna tabella utenti), il budget
+// del personale resta in Budgets: qui vive il dato REALE, là la pianificazione.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  // Per rigenerare il .env locale: npm run db:condiviso -- <env-di-un'altra-app>
+  provider  = "postgresql"
+  url       = env("DATABASE_URL") // pooled (pgbouncer) in produzione
+  directUrl = env("DIRECT_URL") // connessione diretta per migrazioni/db push
+}
+
+// Funzione aziendale (reparto): Commerciale, Operations, Customer Service, …
+model Funzione {
+  id             String    @id @default(cuid())
+  nome           String    @unique
+  descrizione    String    @default("")
+  ordine         Int       @default(0)
+  responsabileId String?
+  responsabile   Persona?  @relation("ResponsabileFunzione", fields: [responsabileId], references: [id])
+  mansioni       Mansione[]
+  persone        Persona[] @relation("FunzionePersona")
+  attiva         Boolean   @default(true)
+  creatoIl       DateTime  @default(now())
+  aggiornatoIl   DateTime  @updatedAt
+
+  @@index([ordine])
+  @@index([attiva])
+}
+
+// Mansione: un ruolo operativo dentro una funzione (il "mansionario").
+model Mansione {
+  id           String             @id @default(cuid())
+  funzioneId   String
+  funzione     Funzione           @relation(fields: [funzioneId], references: [id], onDelete: Cascade)
+  nome         String
+  descrizione  String             @default("")
+  attivita     AttivitaMansione[]
+  assegnazioni Assegnazione[]
+  attiva       Boolean            @default(true)
+  creatoIl     DateTime           @default(now())
+  aggiornatoIl DateTime           @updatedAt
+
+  @@unique([funzioneId, nome])
+  @@index([funzioneId])
+}
+
+// Attività ricorrente che compone una mansione (il dettaglio del mansionario).
+// NON sono i task operativi: quelli vivono in deluxy-tasks (Standard §7.2).
+model AttivitaMansione {
+  id         String   @id @default(cuid())
+  mansioneId String
+  mansione   Mansione @relation(fields: [mansioneId], references: [id], onDelete: Cascade)
+  nome       String
+  dettaglio  String   @default("")
+  // giornaliera | settimanale | mensile | su richiesta | "" (non indicata)
+  frequenza  String   @default("")
+  ordine     Int      @default(0)
+  creatoIl   DateTime @default(now())
+
+  @@index([mansioneId, ordine])
+}
+
+// Una persona dell'organico (dipendente o collaboratore).
+model Persona {
+  id              String    @id @default(cuid())
+  nome            String // nome e cognome
+  email           String    @default("") // la stessa email del Hub, quando c'è: è la chiave con cui le app si riconoscono
+  telefono        String    @default("")
+  ruolo           String    @default("") // titolo leggibile: "Responsabile logistica", …
+  sede            String    @default("")
+  funzioneId      String?
+  funzione        Funzione? @relation("FunzionePersona", fields: [funzioneId], references: [id])
+  // Organigramma: a chi riporta questa persona. Radice = nessun responsabile.
+  responsabileId  String?
+  responsabile    Persona?  @relation("Riporti", fields: [responsabileId], references: [id])
+  riporti         Persona[] @relation("Riporti")
+  dataAssunzione  DateTime? @db.Date
+  dataCessazione  DateTime? @db.Date
+  stato           String    @default("attivo") // attivo | cessato
+  note            String    @default("")
+
+  assegnazioni    Assegnazione[]
+  inquadramenti   Inquadramento[]
+  compensi        Compenso[]
+  funzioniGuidate Funzione[]      @relation("ResponsabileFunzione")
+
+  creatoIl     DateTime @default(now())
+  aggiornatoIl DateTime @updatedAt
+
+  @@index([stato])
+  @@index([funzioneId])
+  @@index([responsabileId])
+  @@index([nome])
+}
+
+// Persona ↔ mansione: chi copre cosa (con una mansione principale).
+model Assegnazione {
+  id         String    @id @default(cuid())
+  personaId  String
+  persona    Persona   @relation(fields: [personaId], references: [id], onDelete: Cascade)
+  mansioneId String
+  mansione   Mansione  @relation(fields: [mansioneId], references: [id], onDelete: Cascade)
+  principale Boolean   @default(false)
+  dal        DateTime? @db.Date
+  note       String    @default("")
+  creatoIl   DateTime  @default(now())
+
+  @@unique([personaId, mansioneId])
+  @@index([mansioneId])
+}
+
+// Inquadramento contrattuale, come storia: una riga per ogni variazione.
+// Quello "corrente" è la riga con la decorrenza più recente non futura.
+model Inquadramento {
+  id            String    @id @default(cuid())
+  personaId     String
+  persona       Persona   @relation(fields: [personaId], references: [id], onDelete: Cascade)
+  decorrenza    DateTime  @db.Date
+  // indeterminato | determinato | apprendistato | collaborazione | partita_iva | stage | altro
+  tipoContratto String
+  ccnl          String    @default("") // es. "Commercio e Terziario"
+  livello       String    @default("") // es. "4º livello"
+  // operaio | impiegato | quadro | dirigente | "" (non indicata)
+  qualifica     String    @default("")
+  partTimePct   Int       @default(100) // 100 = tempo pieno
+  scadenza      DateTime? @db.Date // per determinato / apprendistato / stage
+  note          String    @default("")
+  creatoIl      DateTime  @default(now())
+
+  @@index([personaId, decorrenza])
+  @@index([scadenza])
+}
+
+// Retribuzione, come storia: una riga per ogni variazione (assunzione, aumento…).
+// Il netto NON si calcola mai dal lordo: se non è dichiarato resta "non indicato"
+// (regola Deluxy: meglio un dato mancante di un dato dedotto). Il costo azienda
+// si calcola SOLO se contributiPct è dichiarata, altrimenti è "non calcolabile".
+model Compenso {
+  id            String   @id @default(cuid())
+  personaId     String
+  persona       Persona  @relation(fields: [personaId], references: [id], onDelete: Cascade)
+  decorrenza    DateTime @db.Date
+  ral           Decimal  @db.Decimal(12, 2) // lordo annuo (RAL)
+  mensilita     Int      @default(13) // 12 | 13 | 14
+  nettoMensile  Decimal? @db.Decimal(12, 2) // dichiarato, mai dedotto
+  contributiPct Decimal? @db.Decimal(5, 2) // % oneri a carico azienda (INPS/INAIL/TFR)
+  benefit       String   @default("") // buoni pasto, welfare, auto…
+  // assunzione | aumento | promozione | adeguamento_ccnl | altro
+  motivo        String   @default("")
+  note          String   @default("")
+  creatoIl      DateTime @default(now())
+
+  @@index([personaId, decorrenza])
+}
+
+// Chiavi API delle app client (Hub, Budgets, …). La chiave in chiaro non viene
+// mai salvata: si conserva solo lo SHA-256 (pagina /chiavi o npm run chiave).
+model ApiKey {
+  id        String    @id @default(cuid())
+  nome      String    @unique // app client: deluxy-hub, deluxy-budgets, …
+  hash      String    @unique // sha256 esadecimale della chiave
+  scrittura Boolean   @default(false) // oggi /api/v1 espone solo letture
+  attiva    Boolean   @default(true)
+  creataIl  DateTime  @default(now())
+  ultimoUso DateTime?
+}

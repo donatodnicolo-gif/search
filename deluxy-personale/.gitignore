@@ -1,0 +1,16 @@
+node_modules
+.next
+.vercel
+next-env.d.ts
+tsconfig.tsbuildinfo
+
+.env
+.env.*
+!.env.example
+*.local.md
+*.local.txt
+
+# (appeso da `vercel link`; l'eccezione deve restare DOPO, o l'esempio sparisce dal repo)
+.vercel
+.env*
+!.env.example
