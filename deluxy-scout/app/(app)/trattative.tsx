@@ -9,12 +9,14 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Foglio } from '@/components/Foglio';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { coloreAffiliazione, coloreFase, colors, labelAffiliazione, labelFase, radius, shadow, spacing, contenutoCentrato } from '@/lib/theme';
+import { coloreAffiliazione, coloreFase, colors, labelAffiliazione, labelFase, radius, shadow, spacing, contenutoCentrato, contenutoLargo } from '@/lib/theme';
+import { TabellaTrattative } from '@/components/TabellaTrattative';
 import {
   aggiornaDeal,
   cercaPlaces,
@@ -30,7 +32,7 @@ import { aggiornaValoriTrattative, modificaTrattativaHubspot, syncTrattativa } f
 import { env } from '@/lib/env';
 import { CANALI, MOTIVI_PERSO, type CanaleTrattativa, type Contact, type DealStage, type MotivoPerso, type StatoAffiliazione } from '@/types';
 import { LineaSelector } from '@/components/LineaSelector';
-import { EmptyState, PageIntro, StatusBadge } from '@/components/ui';
+import { Card, EmptyState, PageIntro, StatusBadge } from '@/components/ui';
 import { OPZIONI_CITTA, passaFiltroCitta } from '@/lib/citta';
 import { conferma } from '@/lib/dialoghi';
 import { PannelloFiltri } from '@/components/PannelloFiltri';
@@ -200,18 +202,14 @@ export default function Trattative() {
     setAccountFiltro(null);
   }
 
-  return (
-    <View style={styles.container}>
-      <SectionList
-        sections={sezioni}
-        keyExtractor={(d) => d.id}
-        contentContainerStyle={[styles.list, contenutoCentrato]}
-        stickySectionHeadersEnabled={false}
-        refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}
-        // Intro e filtri scorrono con l'elenco: da fissi occupavano meta'
-        // schermo e alle trattative restava una finestrella. Elemento e non
-        // funzione, se no la ricerca perde il fuoco a ogni lettera.
-        ListHeaderComponent={
+  // TABELLA sopra i 900px, SCHEDE raggruppate sotto — lo stesso confine di
+  // Affiliazioni: su un monitor le schede non si confrontano (valori e
+  // scadenze sparsi), sul telefono sei colonne sono illeggibili.
+  const { width } = useWindowDimensions();
+  const aTabella = width >= 900;
+
+  // Intro, ricerca e filtri: uguali nelle due viste, definiti una volta sola.
+  const intestazione = (
           <View style={styles.headerScroll}>
         <PageIntro testo="Le trattative in corso raggruppate per negozio, da Scout, HubSpot e registro Anagrafiche. Tocca una trattativa per modificarla." />
         <View style={[styles.head, contenutoCentrato]}>
@@ -284,17 +282,52 @@ export default function Trattative() {
           </PannelloFiltri>
         </View>
           </View>
-        }
-        ListEmptyComponent={
-          <EmptyState
-            loading={loading}
-            icona="briefcase-outline"
-            titolo="Nessuna trattativa"
-            aiuto="Le trattative nascono da una visita con esito positivo o da qui: crea la prima col bottone in basso."
-            azione="Nuova trattativa"
-            onAzione={() => setFormAperto(true)}
-          />
-        }
+  );
+
+  const statoVuoto = (
+    <EmptyState
+      loading={loading}
+      icona="briefcase-outline"
+      titolo="Nessuna trattativa"
+      aiuto="Le trattative nascono da una visita con esito positivo o da qui: crea la prima col bottone in basso."
+      azione="Nuova trattativa"
+      onAzione={() => setFormAperto(true)}
+    />
+  );
+
+  return (
+    <View style={styles.container}>
+      {aTabella ? (
+        <ScrollView
+          contentContainerStyle={styles.list}
+          refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}
+        >
+          {intestazione}
+          {filtrate.length === 0 ? (
+            <Card style={contenutoLargo}>{statoVuoto}</Card>
+          ) : (
+            <View style={contenutoLargo}>
+              <TabellaTrattative
+                righe={filtrate}
+                ordineFasi={FASI}
+                onApri={setEditDeal}
+                onNegozio={(id) => router.push(`/(app)/attivita/${id}`)}
+              />
+            </View>
+          )}
+        </ScrollView>
+      ) : (
+      <SectionList
+        sections={sezioni}
+        keyExtractor={(d) => d.id}
+        contentContainerStyle={[styles.list, contenutoCentrato]}
+        stickySectionHeadersEnabled={false}
+        refreshControl={<RefreshControl refreshing={loading} onRefresh={carica} />}
+        // Intro e filtri scorrono con l'elenco: da fissi occupavano meta'
+        // schermo e alle trattative restava una finestrella. Elemento e non
+        // funzione, se no la ricerca perde il fuoco a ogni lettera.
+        ListHeaderComponent={intestazione}
+        ListEmptyComponent={statoVuoto}
         renderSectionHeader={({ section }) => {
           const sez = section as Sezione;
           const navigabile = Boolean(sez.placeId);
@@ -313,6 +346,7 @@ export default function Trattative() {
         }}
         renderItem={({ item }) => <RigaDeal deal={item} onEdit={() => setEditDeal(item)} />}
       />
+      )}
 
       <Pressable style={styles.fab} onPress={() => setFormAperto(true)}>
         <Ionicons name="add" size={22} color={colors.bianco} />

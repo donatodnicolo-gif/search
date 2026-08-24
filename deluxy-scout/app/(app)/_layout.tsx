@@ -43,10 +43,6 @@ const SEZIONI: { titolo: string; voci: Voce[] }[] = [
       // leggeva. La rotta /province resta viva per i link già in giro.
       { name: 'affiliazioni', label: 'Affiliazioni · Copertura', icon: 'call-outline' },
       { name: 'lead', label: 'Richieste Web', icon: 'globe-outline' },
-      // Quarto canale: non li troviamo noi, ce li passa un'altra app.
-      // Quello che l'import non ha potuto decidere da solo: posizioni mancanti
-      // e schede che forse sono lo stesso negozio.
-      { name: 'riconciliazione', label: 'Riconciliazione', icon: 'git-merge-outline' },
     ],
   },
   {
@@ -93,6 +89,9 @@ const SEZIONI: { titolo: string; voci: Voce[] }[] = [
       { name: 'sequenze', label: 'Sequenze', icon: 'git-branch-outline' },
       { name: 'task', label: 'I miei task', icon: 'checkmark-circle-outline' },
       { name: 'calendario', label: 'Calendario', icon: 'calendar-outline' },
+      // Pulizia dei dati (posizioni mancanti, doppioni): è manutenzione, non un
+      // canale di vendita — spostata qui da «Canali» su richiesta (24/08).
+      { name: 'riconciliazione', label: 'Riconciliazione', icon: 'git-merge-outline' },
     ],
   },
   {
