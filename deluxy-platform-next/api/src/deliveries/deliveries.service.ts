@@ -74,6 +74,32 @@ export class DeliveriesService {
   ];
 
   /** Campi ordinabili (whitelist). */
+  /**
+   * Come si ordina la lista consegne.
+   *
+   * Di default per ORARIO DI CONSEGNA crescente dentro il giorno: la lista si
+   * legge dall'alto nell'ordine in cui le cose vanno fatte.
+   *
+   * Due dettagli che altrimenti mordono:
+   *  - le 1.787 consegne SENZA orario vanno in fondo (`nulls: 'last'`), non in
+   *    cima: un orario che manca non e' mezzanotte;
+   *  - c'e' sempre un ultimo criterio (`code`), perche' con `skip`/`take` due
+   *    righe a pari merito possono altrimenti scambiarsi di posto fra una
+   *    pagina e l'altra, e una riga comparire due volte o sparire.
+   */
+  private ordinamento(query: DeliveryListQueryDto) {
+    const scelto = buildOrderBy(query, DeliveriesService.SORT_FIELDS, []);
+    const base = Array.isArray(scelto) ? scelto : [scelto];
+    if (!base.length) {
+      return [
+        { date: 'asc' as const },
+        { deliveryTimeFrom: { sort: 'asc' as const, nulls: 'last' as const } },
+        { code: 'asc' as const },
+      ] as any;
+    }
+    return [...base, { code: 'asc' as const }] as any;
+  }
+
   private static readonly SORT_FIELDS = [
     'code',
     'date',
@@ -121,10 +147,7 @@ export class DeliveriesService {
       this.prisma.delivery.findMany({
         where,
         include: DELIVERY_INCLUDE,
-        orderBy: buildOrderBy(query, DeliveriesService.SORT_FIELDS, [
-          { date: 'desc' },
-          { code: 'desc' },
-        ]) as any,
+        orderBy: this.ordinamento(query),
         skip,
         take,
       }),

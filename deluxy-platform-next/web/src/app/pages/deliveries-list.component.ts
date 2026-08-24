@@ -1075,8 +1075,10 @@ export class DeliveriesListComponent {
   readonly page = signal(1);
   pageSize = 50;
   readonly pageSizes = [10, 25, 50, 100, 200, 500];
-  readonly sort = signal<string>('date');
-  readonly dir = signal<'asc' | 'desc'>('desc');
+  // La lista si legge nell'ordine in cui le consegne vanno fatte: prima quella
+  // piu' vicina. Chi ha bisogno di un altro ordine clicca l'intestazione.
+  readonly sort = signal<string>('deliveryTimeFrom');
+  readonly dir = signal<'asc' | 'desc'>('asc');
   private searchTimer?: ReturnType<typeof setTimeout>;
 
   readonly totalPages = computed(() => Math.max(1, Math.ceil(this.total() / this.pageSize)));
