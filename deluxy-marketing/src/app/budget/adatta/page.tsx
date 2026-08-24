@@ -1,6 +1,7 @@
 import { Sidebar } from "@/components/Sidebar";
 import { AdattaBudget } from "@/components/AdattaBudget";
 import { prisma } from "@/lib/db";
+import { mezzanotteRoma, oggiRoma } from "@/lib/fuso";
 import { budgetDaBudgets, meseDiSito } from "@/lib/budgets";
 import { accodaBudgetCampagne } from "@/lib/azioni";
 import { ETICHETTA_SITO, formattaEuro, MESI_IT, SITI } from "@/lib/dominio";
@@ -32,9 +33,12 @@ export default async function AdattaBudgetPagina({
 }) {
   const sp = await searchParams;
   const oggi = new Date();
-  const anno = oggi.getFullYear();
+  // ⚠️ Che mese è, in ora di ROMA: su Vercel il runtime è UTC e per due ore
+  // ogni notte questa pagina apriva sul mese sbagliato. Vedi `lib/fuso.ts`.
+  const adessoARoma = oggiRoma();
+  const anno = adessoARoma.anno;
   const brand = (SITI as readonly string[]).includes(sp.brand ?? "") ? (sp.brand as string) : (SITI[0] as string);
-  const mese = Math.min(12, Math.max(1, Number(sp.mese) || oggi.getMonth() + 1));
+  const mese = Math.min(12, Math.max(1, Number(sp.mese) || adessoARoma.mese));
   const giorniMese = new Date(anno, mese, 0).getDate();
 
   const [campagne, budgets] = await Promise.all([
@@ -79,8 +83,10 @@ export default async function AdattaBudgetPagina({
   // ⚠️ Quanto è GIÀ USCITO nel mese, per campagna: senza, «dove arrivo a
   // fine mese» sarebbe budget × giorni — una cifra che ignora i venti giorni
   // già spesi e che a metà mese sbaglia di quasi il doppio.
-  const oggiNelMese = anno === oggi.getFullYear() && mese === oggi.getMonth() + 1;
-  const inizioMese = new Date(anno, mese - 1, 1);
+  const oggiNelMese = anno === adessoARoma.anno && mese === adessoARoma.mese;
+  // Mezzanotte italiana, non quella del server: le spese delle prime due ore
+  // del primo del mese finivano fuori dal mese.
+  const inizioMese = mezzanotteRoma(anno, mese, 1);
   const fineFinestra = oggiNelMese ? oggi : new Date(anno, mese, 0);
   const spese = oggiNelMese
     ? await prisma.metricaCampagna.groupBy({

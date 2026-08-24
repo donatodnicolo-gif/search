@@ -1,4 +1,5 @@
 import { andamentoMese, letturaRitmo, type RigaMese } from "@/lib/andamento-mese";
+import { oggiRoma } from "@/lib/fuso";
 import { COLORE_BRAND, ETICHETTA_BRAND, formattaEuro, formattaNumero } from "@/lib/dominio";
 import { risultatoAtteso } from "@/lib/risultato";
 
@@ -28,9 +29,11 @@ function Barra({ quota, colore }: { quota: number; colore: string }) {
 }
 
 export async function AndamentoMese({ anno, mese }: { anno?: number; mese?: number }) {
-  const adesso = new Date();
-  const a = anno ?? adesso.getFullYear();
-  const m = mese ?? adesso.getMonth() + 1;
+  // ⚠️ In ora di Roma, non del server: su Vercel il runtime è UTC, e il primo
+  // settembre alle 00:30 italiane questa pagina apriva ancora su agosto.
+  const oggi = oggiRoma();
+  const a = anno ?? oggi.anno;
+  const m = mese ?? oggi.mese;
   const q = await andamentoMese(a, m);
 
   const colorePiano = (quota: number | null) =>
@@ -129,15 +132,15 @@ export async function AndamentoMese({ anno, mese }: { anno?: number; mese?: numb
         Vendite e budget di {MESI[m - 1]} {a}
         <span className="tag-neutro">
           {q.oggiIncluso
-            ? `${q.giorniConclusi} giorni conclusi su ${q.giorniMese}`
+            ? `${q.giorniToccati} giorni su ${q.giorniMese}`
             : `mese chiuso, ${q.giorniMese} giorni`}
         </span>
       </div>
 
-      {q.giorniConclusi === 0 ? (
+      {q.giorniTrascorsi < 1 ? (
         <div className="vuoto-mini">
-          Il mese è appena cominciato: non c&apos;è ancora un giorno concluso su cui misurare un ritmo.
-          Le stime compaiono da domani.
+          Il mese è appena cominciato: non c&apos;è ancora un giorno intero su cui misurare un ritmo, e
+          proiettare poche ore su tutto il mese darebbe un numero da capogiro. Le stime compaiono da domani.
         </div>
       ) : (
         <div style={{ overflowX: "auto" }}>
@@ -157,13 +160,13 @@ export async function AndamentoMese({ anno, mese }: { anno?: number; mese?: numb
               </tr>
               <tr>
                 <th>Brand</th>
-                {intestazione("ad oggi", "Venduto dal primo del mese a ieri, esclusi annullati e rimborsati")}
-                {intestazione("al giorno", "Venduto diviso i giorni conclusi del mese")}
+                {intestazione("ad oggi", "Venduto dal primo del mese a adesso, oggi compreso, esclusi annullati e rimborsati")}
+                {intestazione("al giorno", "Venduto diviso il tempo davvero trascorso dal primo del mese: oggi conta per quanto è lungo finora, non come una giornata intera")}
                 {intestazione("fine mese", "Proiezione: la media giornaliera moltiplicata per i giorni del mese")}
                 {intestazione("obiettivo", "Il piano vendite del mese, dal Monitoraggio")}
                 {intestazione("a che punto", "Stima di fine mese rispetto all'obiettivo")}
-                {intestazione("ad oggi", "Speso in pubblicità dal primo del mese a ieri", { borderLeft: BORDO })}
-                {intestazione("al giorno", "Speso diviso i giorni conclusi, con sotto quanto prevedrebbe il budget")}
+                {intestazione("ad oggi", "Speso in pubblicità dal primo del mese a adesso, oggi compreso", { borderLeft: BORDO })}
+                {intestazione("al giorno", "Speso diviso il tempo davvero trascorso, con sotto quanto prevedrebbe il budget")}
                 {intestazione("fine mese", "Proiezione della spesa se il ritmo resta questo")}
                 {intestazione("budget", "Il budget pubblicitario del mese, dal Monitoraggio")}
                 {intestazione("a che punto", "Spesa stimata rispetto al budget: sopra il 100% si sfora")}
@@ -241,9 +244,14 @@ export async function AndamentoMese({ anno, mese }: { anno?: number; mese?: numb
         <b>fine mese</b>, l&apos;<b>obiettivo</b>, e <b>a che punto</b> siamo. A sinistra i soldi che
         entrano, a destra quelli che escono.
         <br /><br />
-        Le medie si calcolano sui <b>giorni conclusi</b>: oggi è a metà — gli ordini arrivano fino a
-        mezzanotte e la spesa la manda lo script la sera — e includerlo tirerebbe giù il ritmo. La
-        stima di fine mese è una <b>proiezione lineare</b>: non sa niente di San Valentino, del Natale
+        <b>Ad oggi</b> vuol dire davvero fino a adesso, oggi compreso. Le medie però non dividono per
+        giorni interi ma per il <b>tempo trascorso</b> dal primo del mese: oggi è a metà — gli ordini
+        arrivano fino a mezzanotte e la spesa la manda lo script la sera — e contarlo come una giornata
+        piena farebbe crollare il ritmo ogni mattina per poi farlo risalire fino a sera. La
+        <b> spesa pubblicitaria</b> di oggi, che arriva stanotte, è l&apos;unica cosa che resta indietro:
+        finché non arriva, «speso al giorno» è leggermente sottostimato.
+        <br /><br />
+        La stima di fine mese è una <b>proiezione lineare</b>: non sa niente di San Valentino, del Natale
         o della settimana di Ferragosto, quindi va letta come «se il ritmo resta questo», non come una
         previsione.
       </p>

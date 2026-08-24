@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { mezzanotteRoma, oggiRoma } from "@/lib/fuso";
 import { budgetDaBudgets, meseDiSito } from "@/lib/budgets";
 import { ETICHETTA_SITO, formattaEuro, MESI_IT, SITI } from "@/lib/dominio";
 
@@ -23,14 +24,16 @@ import { ETICHETTA_SITO, formattaEuro, MESI_IT, SITI } from "@/lib/dominio";
 const GIORNI = (d: Date) => new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
 
 export async function BudgetQuestoMese({ anno }: { anno: number }) {
-  const oggi = new Date();
-  const stessoAnno = anno === oggi.getFullYear();
+  // ⚠️ In ora di Roma, non del server (su Vercel è UTC): vedi `lib/fuso.ts`.
+  const adesso = new Date();
+  const oggi = oggiRoma();
+  const stessoAnno = anno === oggi.anno;
   // Su un anno passato o futuro «questo mese» non vuol dire niente: si guarda
   // gennaio, e lo si dice.
-  const mese = stessoAnno ? oggi.getMonth() + 1 : 1;
-  const inizio = new Date(anno, mese - 1, 1);
+  const mese = stessoAnno ? oggi.mese : 1;
+  const inizio = mezzanotteRoma(anno, mese, 1);
   const giorniDelMese = GIORNI(inizio);
-  const giorniPassati = stessoAnno ? oggi.getDate() : giorniDelMese;
+  const giorniPassati = stessoAnno ? oggi.giorno : giorniDelMese;
 
   const [campagne, spese, budgets] = await Promise.all([
     prisma.campagna.findMany({
@@ -39,7 +42,7 @@ export async function BudgetQuestoMese({ anno }: { anno: number }) {
     }),
     prisma.metricaCampagna.groupBy({
       by: ["campagnaId"],
-      where: { data: { gte: inizio, lte: oggi } },
+      where: { data: { gte: inizio, lte: adesso } },
       _sum: { spesa: true },
     }),
     budgetDaBudgets(anno),

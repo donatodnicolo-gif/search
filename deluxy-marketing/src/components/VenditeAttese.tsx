@@ -1,6 +1,7 @@
 import React from "react";
 import { salvaVenditeAttese } from "@/lib/azioni";
 import { prisma } from "@/lib/db";
+import { confiniMeseRoma } from "@/lib/fuso";
 import { COLORE_BRAND, ETICHETTA_BRAND, formattaEuro, MESI_IT } from "@/lib/dominio";
 
 // Quanto ci si aspetta da ogni canale, brand per brand.
@@ -43,8 +44,10 @@ export async function VenditeAttese({
   mese: number;
   salvato?: boolean;
 }) {
-  const inizio = new Date(anno, mese - 1, 1);
-  const fine = new Date(anno, mese, 1);
+  // Mezzanotte italiana: col fuso del server (UTC su Vercel) il mese partiva
+  // alle 02:00 del primo, e gli ordini di quelle due ore non erano di nessun
+  // mese. Vedi `lib/fuso.ts`.
+  const { inizio, fine } = confiniMeseRoma(anno, mese);
 
   const [attese, piano, venduto] = await Promise.all([
     prisma.venditaAttesa.findMany({ where: { anno, mese } }),

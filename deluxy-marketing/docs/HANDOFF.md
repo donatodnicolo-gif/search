@@ -1,10 +1,10 @@
 # Handoff — Deluxy Marketing
 
-> Stato al **23/08/2026**. Una finestra Claude nuova deve poter riprendere da qui
+> Stato al **24/08/2026** (mattina). Una finestra Claude nuova deve poter riprendere da qui
 > senza altro contesto. Leggere prima il [README](../README.md) per cosa fa l'app;
 > questo documento dice **dove siamo** e **cosa manca**.
 >
-> 🔴 **I punti aperti di stasera (23/08, aggiornato alle 23:30)**:
+> 🔴 **I punti aperti (aggiornato la mattina del 24/08)**:
 >
 > 1. **Gli script vanno REINCOLLATI** in Google Ads. Le copie sono state
 >    **rigenerate alle 23:26** in `Downloads\deluxy-google-ads` (adesso sono
@@ -188,6 +188,73 @@ questi numeri: dicono cosa gira e cosa è fermo.**
   `lib/meta-scrittura.ts` c'è ma non ha `ads_management`. TikTok scollegato.
 
 ## FATTO
+
+### ⭐⭐ «22 GIORNI CONCLUSI» era di calendario, non dei dati — e i confini del mese erano a Greenwich (24/08/2026)
+
+Segnalato dall'utente guardando la dashboard: *«dovrebbero essere 23 giorni»*.
+Erano due difetti diversi, uno dei quali non c'entrava niente col conteggio.
+
+**1. Il confine del mese era calcolato sull'orologio del SERVER, e su Vercel è
+UTC.** In produzione la finestra di agosto andava dalle **02:00 del 1** alle
+**02:00 del 23**, ora di Roma. Misurato sui dati veri: un ordine da **135 €**
+del 1° agosto (fra le 00:00 e le 02:00) **non era contato da nessuna parte**, e
+uno da **130 €** del 23 entrava dentro i «22 giorni conclusi» — dentro un
+giorno che la stessa riga dichiarava non concluso. E per due ore ogni notte
+«che mese è» era il mese prima: il 1° settembre alle 00:30 la dashboard avrebbe
+aperto ancora su agosto. Spiccioli in euro, ma **è la regola a essere
+sbagliata**: il risultato cambiava con l'ora in cui si guardava.
+
+Nuovo `lib/fuso.ts` — `mezzanotteRoma`, `oggiRoma`, `confiniMeseRoma`. Niente
+librerie: `Intl` il fuso lo sa già, cambio dell'ora compreso. ⚠️ Lo scarto si
+calcola **due volte**: la prima ipotesi cade dalla parte sbagliata del salto
+nelle due notti del cambio d'ora, e senza il secondo giro la «mezzanotte»
+sarebbe l'01:00 o le 23:00 del giorno prima. Provato con TZ di sistema **e con
+`TZ=UTC`** (come Vercel): 1/08, 1/01, **29/03** e **25/10** danno tutti
+00:00:00 italiane, e i mesi del cambio d'ora contano comunque 31 giorni.
+
+⚠️ **Lo stesso difetto era in altri tre punti** che parlano dello stesso mese, e
+sono stati allineati insieme — o due pagine avrebbero detto mesi diversi:
+`/budget/adatta`, `BudgetQuestoMese`, `VenditeAttese`.
+
+**2. Il divisore era un conto di calendario, non una misura.**
+`giorniConclusi = adesso.getDate() - 1`: non guardava mai l'archivio. Alle 23:49
+del 23 la pagina diceva «22 giorni conclusi» e lasciava fuori **15 ordini e
+2.123 €** che erano già in archivio — mentre la colonna si chiamava **«ad
+oggi»**. Il nome e il numero dicevano due cose diverse.
+
+**Scelto con l'utente** fra tre strade: «ad oggi» include oggi, e il ritmo si
+divide per il **tempo davvero trascorso** dal primo del mese, non per giorni
+interi. Contare oggi come un giorno pieno sarebbe stato l'errore opposto: alle
+09:00 tre ore di ordini divise come una giornata intera fanno **crollare** la
+media e la proiezione, per poi farle risalire fino a sera. Misurato stamattina
+alle 09:28 su dati veri: 62.367 € in 23,395 giorni = **2.666 €/giorno**
+(proiezione 82.640 €); dividendo per 24 giorni interi sarebbero stati 2.599 €
+e 80.557 € — **2.000 € di proiezione in meno per il solo fatto di aver guardato
+la mattina invece che la sera**.
+
+- `giorniTrascorsi` (con la virgola) è il divisore di ogni media;
+- `giorniToccati` è il numero che si mostra — il badge dice ora **«24 giorni su
+  31»**, cioè in che giorno del mese siamo, che è come lo conta una persona;
+- `giorniCompleti` (interi) resta per una domanda sola: quante giornate di
+  spesa deve avere in archivio una campagna, perché quella di oggi la manda lo
+  script stanotte e non si può pretenderla.
+
+⚠️ **Sotto il primo giorno pieno non si proietta.** Non è prudenza: dividere per
+0,04 giorni (l'una di notte del primo del mese) moltiplicherebbe per
+venticinque qualunque cosa sia entrata. Provato fingendo l'orologio:
+`giorniTrascorsi = 0,0417` → media e stima `null`, e la pagina mostra il
+messaggio «mese appena cominciato» invece di un numero da capogiro.
+
+⚠️ **Quello che resta indietro, ed è scritto in pagina**: la spesa pubblicitaria
+di oggi arriva stanotte con lo script, quindi «speso al giorno» è leggermente
+sottostimato fino al giro notturno. È l'unica asimmetria rimasta fra le due
+metà della tabella.
+
+**Provato**: `tsc` pulito, `npm run build` completo, prove del fuso 8 su 8 in
+locale **e** con `TZ=UTC`; numeri letti dal DOM della pagina e confrontati con
+una query indipendente (62.367 € · 329 ordini · 2666 €/g · 82.640 € — tutti
+combacianti); invariante del mese chiuso verificata su **luglio**, dove la
+proiezione è uguale al venduto vero (97.834 € = 97.834 €).
 
 ### ⭐⭐ LE PAROLE ESCLUSE si importano, e «negativa» ha una conferma vera (23/08/2026, sera)
 

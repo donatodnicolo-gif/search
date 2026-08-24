@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { confiniMeseRoma, oggiRoma } from "@/lib/fuso";
 
 // Il foglio SALES del Monitoraggio, calcolato dai dati veri invece che a mano.
 //
@@ -7,10 +8,22 @@ import { prisma } from "@/lib/db";
 //   2. dove finiremo a fine mese se il ritmo resta questo;
 //   3. la spesa pubblicitaria sta dentro il budget, giorno per giorno.
 //
-// DUE ONESTÀ CHE NON SI POSSONO SALTARE
-// · Oggi è un giorno a metà: la spesa arriva la sera e gli ordini arrivano fino
-//   a mezzanotte. Le medie si fanno sui giorni CONCLUSI, altrimenti l'ultimo
-//   giorno tira giù la media e la stima esce più bassa del vero.
+// TRE ONESTÀ CHE NON SI POSSONO SALTARE
+// · **Oggi è un giorno a metà, e si conta per quanto è lungo davvero.** Fino al
+//   23/08/2026 le medie si facevano sui giorni CONCLUSI (`getDate() - 1`), e
+//   oggi restava fuori del tutto: alle 23:49 del 23 la pagina diceva «22 giorni
+//   conclusi» e ignorava 15 ordini e 2.123 € che erano già in archivio, mentre
+//   la colonna si chiamava «ad oggi». Il difetto vero però era un altro: il
+//   divisore era un conto di CALENDARIO, non una misura. Contare oggi come un
+//   giorno intero sarebbe stato l'errore opposto — alle 09:00 tre ore di ordini
+//   divise come una giornata piena fanno crollare la media e la proiezione, per
+//   poi risalire durante il giorno. Quindi il ritmo si divide per il **tempo
+//   davvero trascorso** dal primo del mese: stasera il 23 vale ~0,99 giorni,
+//   domattina alle 09:00 il 24 varrà ~0,4. La media non si sporca mai, e i
+//   totali dicono quello che la colonna promette.
+// · **I confini sono in ora di ROMA, non del server.** Vedi `lib/fuso.ts`: su
+//   Vercel il runtime è UTC, e la «mezzanotte» del primo del mese cadeva alle
+//   02:00 italiane — con ordini veri che finivano fuori dal mese.
 // · La stima è una proiezione lineare, non una previsione: non sa nulla di
 //   San Valentino, Natale o della settimana di Ferragosto. Va letta come "se
 //   il ritmo resta questo", e questo va scritto accanto al numero.
@@ -45,7 +58,18 @@ export type AndamentoMese = {
   anno: number;
   mese: number;
   giorniMese: number;
-  giorniConclusi: number;
+  /**
+   * Il tempo trascorso dal primo del mese, in giorni, con la virgola: è il
+   * DIVISORE di ogni media. Frazionario apposta — vedi la prima onestà in
+   * cima al file.
+   */
+  giorniTrascorsi: number;
+  /**
+   * Il numero da mostrare: in che giorno del mese siamo (23 su 31), non
+   * quanti ne sono conclusi. È quello che una persona conta guardando il
+   * calendario, ed è quello che la pagina deve dire.
+   */
+  giorniToccati: number;
   oggiIncluso: boolean;
   righe: RigaMese[];
   totale: RigaMese;
@@ -70,17 +94,30 @@ export type AndamentoMese = {
 const BRAND_SITO: Record<string, string> = { gifts: "gifts", flowers: "flowers", cake: "cake" };
 
 export async function andamentoMese(anno: number, mese: number): Promise<AndamentoMese> {
-  const inizio = new Date(anno, mese - 1, 1);
-  const inizioProssimo = new Date(anno, mese, 1);
+  // ⚠️ Mezzanotte ITALIANA, non quella del server: vedi `lib/fuso.ts`.
+  const { inizio, fine: inizioProssimo } = confiniMeseRoma(anno, mese);
+  // Regge anche i due mesi del cambio d'ora, che durano 30,96 o 31,04 giorni.
   const giorniMese = Math.round((inizioProssimo.getTime() - inizio.getTime()) / 86_400_000);
 
   const adesso = new Date();
-  const meseInCorso = adesso.getFullYear() === anno && adesso.getMonth() === mese - 1;
-  // Giorni conclusi: se il mese è passato sono tutti, se è in corso sono quelli
-  // prima di oggi. Se siamo al primo del mese non c'è ancora un ritmo da leggere.
-  const giorniConclusi = meseInCorso ? adesso.getDate() - 1 : giorniMese;
+  const oggi = oggiRoma();
+  const meseInCorso = oggi.anno === anno && oggi.mese === mese;
 
-  const fine = meseInCorso ? new Date(anno, mese - 1, adesso.getDate()) : inizioProssimo;
+  // Il tempo davvero trascorso, con la virgola. Se il mese è passato sono tutti
+  // i suoi giorni; se è in corso è la distanza dal primo del mese a ADESSO.
+  const giorniTrascorsi = meseInCorso
+    ? (adesso.getTime() - inizio.getTime()) / 86_400_000
+    : giorniMese;
+  // In che giorno del mese siamo: 23 su 31. È il numero che si mostra.
+  const giorniToccati = meseInCorso ? Math.min(Math.ceil(giorniTrascorsi), giorniMese) : giorniMese;
+  // I giorni CONCLUSI servono ancora, ma per una domanda sola: quante giornate
+  // di spesa dovrebbe avere in archivio una campagna. Quella di oggi la manda
+  // lo script stanotte, quindi non si può pretenderla.
+  const giorniCompleti = Math.floor(giorniTrascorsi);
+
+  // ⚠️ La finestra arriva fino a ORA, non a mezzanotte di stamattina: la
+  // colonna si chiama «ad oggi» e adesso lo è davvero.
+  const fine = meseInCorso ? adesso : inizioProssimo;
 
   // ⚠️ L'obiettivo di vendita viene da BudgetMensile, NON da VenditaMensile.
   //
@@ -131,7 +168,7 @@ export async function andamentoMese(anno: number, mese: number): Promise<Andamen
     _count: { _all: true },
     _sum: { spesa: true },
   });
-  const attesi = Math.max(giorniConclusi, 1);
+  const attesi = Math.max(giorniCompleti, 1);
   const incomplete = giorniPerCampagna.filter((c) => c._count._all < attesi * 0.9);
 
   // ⚠️ Un buco vale quanto la campagna che lo ha. L'avviso diceva «2 campagne,
@@ -182,7 +219,7 @@ export async function andamentoMese(anno: number, mese: number): Promise<Andamen
     // L'obiettivo è quello del budget; se per quel mese non è stato compilato
     // si ripiega sul piano, che è meglio di niente — ma resta il ripiego.
     const obiettivo = b?.venditaPrevista ?? p?.vendite ?? null;
-    return costruisci(brand, obiettivo, p?.budgetAdv ?? null, vendite, o?._count._all ?? 0, spesa, giorniConclusi, giorniMese);
+    return costruisci(brand, obiettivo, p?.budgetAdv ?? null, vendite, o?._count._all ?? 0, spesa, giorniTrascorsi, giorniMese);
   };
 
   const righe = ["gifts", "flowers", "cake"].map(perBrand);
@@ -197,7 +234,7 @@ export async function andamentoMese(anno: number, mese: number): Promise<Andamen
     righe.reduce((s, r) => s + r.vendite, 0),
     righe.reduce((s, r) => s + r.ordini, 0),
     righe.reduce((s, r) => s + r.spesa, 0),
-    giorniConclusi,
+    giorniTrascorsi,
     giorniMese
   );
 
@@ -205,7 +242,8 @@ export async function andamentoMese(anno: number, mese: number): Promise<Andamen
     anno,
     mese,
     giorniMese,
-    giorniConclusi,
+    giorniTrascorsi,
+    giorniToccati,
     oggiIncluso: meseInCorso,
     righe,
     totale,
@@ -226,12 +264,16 @@ function costruisci(
   vendite: number,
   ordini: number,
   spesa: number,
-  giorniConclusi: number,
+  giorniTrascorsi: number,
   giorniMese: number
 ): RigaMese {
-  // Con zero giorni conclusi non si inventa un ritmo: si dice che non c'è.
-  const vendtiteAlGiorno = giorniConclusi > 0 ? vendite / giorniConclusi : null;
-  const spesaAlGiorno = giorniConclusi > 0 ? spesa / giorniConclusi : null;
+  // ⚠️ Sotto il primo giorno pieno NON si proietta. Non è prudenza: dividere
+  // per 0,04 giorni (l'una di notte del primo del mese) moltiplicherebbe per
+  // venticinque qualunque cosa sia entrata, e la proiezione a fine mese
+  // uscirebbe un numero da capogiro che non vuol dire niente.
+  const misurabile = giorniTrascorsi >= 1;
+  const vendtiteAlGiorno = misurabile ? vendite / giorniTrascorsi : null;
+  const spesaAlGiorno = misurabile ? spesa / giorniTrascorsi : null;
   const stimaVendite = vendtiteAlGiorno != null ? vendtiteAlGiorno * giorniMese : null;
   const stimaSpesa = spesaAlGiorno != null ? spesaAlGiorno * giorniMese : null;
 
