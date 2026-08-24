@@ -420,6 +420,18 @@ export default async function PaginaCampagne({
                                   «30g» anche guardando l'anno. */}
                               <i>spesa {periodo.corrente.etichetta.toLowerCase()}</i>
                             </span>
+                            {/* I RICAVI accanto alla spesa. C'erano già nel
+                                conto — il ROAS qui a destra è il loro rapporto
+                                — ma non a schermo: si vedeva quanto è uscito e
+                                un moltiplicatore, non quanto è entrato. Per
+                                decidere se alzare un budget serve l'ordine di
+                                grandezza dei due numeri, non solo il loro
+                                rapporto: 5× su 26 € e 5× su 2.600 € sono la
+                                stessa cifra e due situazioni diverse. */}
+                            <span>
+                              <b>{ricavi > 0 ? formattaEuro(ricavi) : "—"}</b>
+                              <i>ricavi {periodo.corrente.etichetta.toLowerCase()}</i>
+                            </span>
                             <span>
                               <b style={r != null ? { color: salute.colore } : undefined}>
                                 {r != null ? `${r.toFixed(1)}×` : "—"}
