@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { autentica } from "@/lib/api-auth";
 import { ANNO_CORRENTE, caricaAnno, TIPI_PERSONA } from "@/lib/calc";
+import { lordoAnnuo } from "@/lib/persone";
 
 // GET /api/v1/team — **squadre e persone** per le altre app Deluxy, in testa il
 // Hub.
@@ -14,7 +15,11 @@ import { ANNO_CORRENTE, caricaAnno, TIPI_PERSONA } from "@/lib/calc";
 //
 // Parametri:
 //   ?anno=2026     l'organico è per anno di budget (default: anno corrente)
-//   ?compensi=1    aggiunge il costo azienda di ogni persona. **Fuori di
+//   ?compensi=1    aggiunge il costo azienda di ogni persona E la retribuzione
+//                  DICHIARATA nel roster (importo, superminimo, periodicità,
+//                  contributi, mensilità, più il lordo annuo calcolato con la
+//                  regola di questa app) — serve a deluxy-personale per
+//                  importare i contratti senza dedurli dal costo. **Fuori di
 //                  default**: sono stipendi, e un'API che li restituisce a
 //                  chiunque abbia la chiave è un modo silenzioso di farli
 //                  girare. Chi li vuole li chiede, e si vede nei log.
@@ -48,7 +53,23 @@ export async function GET(req: NextRequest) {
     // non è un part-time, ed è la differenza fra «c'è» e «ci sarà».
     mesi: x.mesi,
     partTimePct: x.partTimePct,
-    ...(conCompensi ? { costoAzienda: costoAnnuo(x) } : {}),
+    ...(conCompensi
+      ? {
+          costoAzienda: costoAnnuo(x),
+          // I valori COME DICHIARATI nel roster, non ricalcolati: chi importa
+          // deve poter distinguere «2.000 €/mese» da «24.000 €/anno».
+          retribuzione: {
+            importo: x.importo,
+            superminimo: x.superminimo,
+            periodicita: x.periodicita,
+            contributiPct: x.contributiPct,
+            mensilita: x.mensilita,
+            // Lordo annuo effettivo con la regola di QUESTA app (lordoAnnuo):
+            // tabellare + superminimo, ×12 se mensile, riproporzionato al part-time.
+            lordoAnnuo: lordoAnnuo(x),
+          },
+        }
+      : {}),
   }));
 
   const team = dati.team.map((t) => ({
