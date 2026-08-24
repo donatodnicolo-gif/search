@@ -517,7 +517,12 @@ export class InvoicesService {
         id: true, code: true, date: true, serviceTypeId: true,
         price: true, additionalPrice: true, hours: true,
         distanceKm: true, extraKm: true, extraOutOfCity: true,
-        recipientFirstName: true, recipientLastName: true, recipientAddress: true,
+        // ⚠️ Nome, cognome e INDIRIZZO del destinatario non si leggono
+        // nemmeno: il recap esce dall'azienda, e un dato che non entra in
+        // memoria non puo' finire per sbaglio nel documento. Per orientarsi
+        // basta la PROVINCIA, che sta gia' sulla consegna (c'e' sul 99,5%) e
+        // non dice dove abita nessuno.
+        province: { select: { code: true } },
         serviceType: { select: { name: true, pricingModel: true, basePrice: true, perPiecePrice: true, minHours: true } },
         products: { select: { quantity: true, price: true } },
         deliveryRule: { select: { name: true, partnerBillingAdjustment: true, toBill: true } },
@@ -531,7 +536,7 @@ export class InvoicesService {
     );
 
     const righe: {
-      code: number; date: Date; recipient: string; address: string | null;
+      code: number; date: Date; provincia: string | null;
       service: string; amount: number; venduto: number; dovuto: number;
     }[] = [];
     let escluse = 0;
@@ -540,16 +545,10 @@ export class InvoicesService {
       // Fuori dal recap quello che non entra in fattura: il partner non deve
       // leggere righe che poi non trova sul documento.
       if (!c) { escluse++; continue; }
-      // ⚠️ Nei servizi a ore il destinatario non c'e' e il legacy ci ha messo
-      // un punto: «. .» in un documento che va al cliente sembra un guasto.
-      // Se non ci sono lettere, non e' un nome — meglio l'indirizzo, o niente.
-      const chi = `${d.recipientLastName ?? ''} ${d.recipientFirstName ?? ''}`.trim();
-      const recipient = /\p{L}/u.test(chi) ? chi : (d.recipientAddress?.trim() || '—');
       righe.push({
         code: d.code,
         date: d.date,
-        recipient,
-        address: d.recipientAddress,
+        provincia: d.province?.code ?? null,
         service: d.serviceType?.name ?? '—',
         amount: c.amount,
         venduto: c.venduto,
@@ -601,7 +600,7 @@ export class InvoicesService {
       <tr>
         <td class="mono">${gg(x.date)}</td>
         <td class="mono num">#${x.code}</td>
-        <td>${e(x.recipient)}</td>
+        <td class="muted">${e(x.provincia ?? '')}</td>
         <td class="muted">${e(x.service)}</td>
         <td class="num">${eur(x.amount)}</td>
       </tr>`).join('');
@@ -655,7 +654,7 @@ export class InvoicesService {
 
   <table>
     <thead><tr>
-      <th>Data</th><th class="num">Consegna</th><th>Destinatario</th><th>Servizio</th><th class="num">Importo</th>
+      <th>Data</th><th class="num">Consegna</th><th>Prov.</th><th>Servizio</th><th class="num">Importo</th>
     </tr></thead>
     <tbody>${righe || '<tr><td colspan="5" class="muted">Nessuna consegna da fatturare in questo mese.</td></tr>'}</tbody>
   </table>
@@ -669,7 +668,7 @@ export class InvoicesService {
   ${blocchoVendite}
 
   ${r.escluse ? `<p class="nota">${r.escluse} ${r.escluse === 1 ? 'consegna &egrave; esclusa' : 'consegne sono escluse'} da questo recap: non hanno una tariffa applicabile, oppure una regola carnet prevede di non fatturarle.</p>` : ''}
-  <p class="nota">Documento di riepilogo, non &egrave; una fattura.</p>
+  <p class="nota">Documento di riepilogo, non &egrave; una fattura. Ogni consegna &egrave; identificata dal suo numero: i dati dei destinatari non compaiono.</p>
 </div></body></html>`;
   }
 
