@@ -982,6 +982,9 @@ model Delivery {
   /// Le righe di fattura che riguardano questa consegna: se ce n'è una, la
   /// consegna è già fatturata e non deve rientrare in una fattura nuova.
   invoiceLines       InvoiceLine[]
+  /// Le righe di stipendio che riguardano questa consegna: se ce n'e' una, la
+  /// consegna e' gia' stata pagata al valet.
+  salaryLines        SalaryLine[]
 
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
@@ -1221,6 +1224,12 @@ model Salary {
   sentAt         DateTime?
   approvedAt     DateTime?
   paidAt         DateTime?
+  /// Le consegne pagate da questo stipendio, una riga ciascuna.
+  ///
+  /// Prima lo stipendio era un totale e basta: non si sapeva quali consegne
+  /// contenesse, quindi non si poteva sapere quali fossero ancora da pagare —
+  /// lo stesso buco che sulle fatture faceva rifatturare il gia' fatturato.
+  lines          SalaryLine[]
   receipts       Receipt[]
   claims         Payment[] // reclami aperti dal valet su questo stipendio
   createdAt      DateTime  @default(now())
@@ -1228,6 +1237,25 @@ model Salary {
 }
 
 // Ricevute (da firmare -> firmate)
+/// Una consegna dentro uno stipendio: la fotografia di quanto le e' stato
+/// riconosciuto, non un riflesso della consegna.
+model SalaryLine {
+  id          String   @id @default(cuid())
+  salaryId    String
+  salary      Salary   @relation(fields: [salaryId], references: [id], onDelete: Cascade)
+  /// ⚠️ `SetNull` e non `Cascade`: se la consegna sparisce, lo stipendio
+  /// pagato resta con i suoi importi. Riscriverlo cambierebbe un documento
+  /// gia' consegnato al valet.
+  deliveryId  String?
+  delivery    Delivery? @relation(fields: [deliveryId], references: [id], onDelete: SetNull)
+  date        DateTime
+  description String?
+  /// Da dove viene l'importo: `consegna` (deciso allora) o `listino`.
+  origin      String   @default("consegna")
+  amount      Float    @default(0)
+  createdAt   DateTime @default(now())
+}
+
 model Receipt {
   id       String    @id @default(cuid())
   /// id nel database originario MySQL: rende l'import ripetibile e tracciabile

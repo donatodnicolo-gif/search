@@ -427,7 +427,8 @@
     "awaitSignature": "In attesa di firma",
     "tab": {
       "active": "Attivi",
-      "archive": "Archivio"
+      "archive": "Archivio",
+      "pending": "Da pagare"
     },
     "fin": {
       "paid": "Pagato",
@@ -474,7 +475,38 @@
       "approve": "Approva",
       "markPaid": "Segna pagato",
       "reopen": "Riapri",
-      "reclamo": "Reclamo"
+      "reclamo": "Reclamo",
+      "detail": "Dettaglio",
+      "hideDetail": "Nascondi"
+    },
+    "filter": {
+      "search": "Cerca",
+      "searchPh": "Nome o cognome del valet",
+      "from": "Dal",
+      "to": "Al",
+      "allStatuses": "Tutti gli stati",
+      "clear": "Azzera filtri",
+      "onlyPayable": "Solo valet con consegne pagabili"
+    },
+    "pending": {
+      "valets": "Valet",
+      "deliveries": "Consegne",
+      "unpaid": "Senza paga",
+      "service": "Servizio",
+      "address": "Indirizzo",
+      "payAll": "Paga",
+      "listino": "listino",
+      "noPay": "non pagabile",
+      "fromListino": "{{n}} da listino",
+      "fromListinoHint": "La paga non era sulla consegna: e' calcolata dal listino del valet secondo il tipo di servizio, piu' le regole (plus sui ritiri, plus/minus del carnet).",
+      "unpaidRow": "Nessuna paga sulla consegna e nessun listino del valet per questo servizio — oppure una regola carnet dice di non pagarla. Resta fuori dallo stipendio finche' non si decide la tariffa.",
+      "unpaidHint": "{{n}} consegne non entrano nello stipendio: non hanno paga e il valet non ha un listino per il loro servizio. Metterle a 0 EUR direbbe al valet che quel lavoro non valeva niente.",
+      "empty": "Niente da pagare: ogni consegna ha gia' il suo stipendio.",
+      "capped": "Mostrate le prime 500 consegne del valet."
+    },
+    "line": {
+      "date": "Data",
+      "amount": "Paga"
     }
   },
   "receipts": {

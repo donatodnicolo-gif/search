@@ -29,7 +29,8 @@ const where = { billable:true, status:{notIn:['cancelled','notDelivered']}, invo
 const deliveries = await db.delivery.findMany({ where, select:{
   id:true,partnerId:true,serviceTypeId:true,price:true,additionalPrice:true,hours:true,
   distanceKm:true,extraKm:true,extraOutOfCity:true,
-  serviceType:{select:{pricingModel:true,basePrice:true,perPiecePrice:true,minHours:true}} } });
+  serviceType:{select:{pricingModel:true,basePrice:true,perPiecePrice:true,minHours:true}},
+  deliveryRule:{select:{partnerBillingAdjustment:true,toBill:true}} } });
 
 const DA_PRODOTTI = ['VENDITA','CORPORATE','MAGAZZINO'];
 const serve = deliveries.filter(d=>(d.price??0)<=0 && DA_PRODOTTI.includes(d.serviceType?.pricingModel??'')).map(d=>d.id);
@@ -47,7 +48,7 @@ for (const d of deliveries) {
   const m = d.serviceType?.pricingModel ?? '—';
   per[m] ??= { n:0, eur:0, senza:0, recuperate:0, recuperateEur:0 };
   per[m].n++;
-  const c = prezzoConsegna({...d, products: prodotti.get(d.id) ?? []}, listini.get(`${d.partnerId}|${d.serviceTypeId}`) ?? null);
+  const c = prezzoConsegna({...d, products: prodotti.get(d.id) ?? []}, listini.get(`${d.partnerId}|${d.serviceTypeId}`) ?? null, d.deliveryRule ?? null);
   if (!c) { per[m].senza++; senza++; continue; }
   per[m].eur += c.amount; tot += c.amount;
   if (c.origine === 'listino') { daListino++; per[m].recuperate++; per[m].recuperateEur += c.amount; }

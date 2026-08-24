@@ -7,7 +7,30 @@ import { environment } from '../../environments/environment';
 import { AuthService } from '../core/auth.service';
 import { ValetRef } from '../core/models';
 
+/** Una riga di «Da pagare»: un valet e il lavoro che aspetta uno stipendio. */
+interface Pending {
+  valetId: string;
+  valet: { id: string; firstName: string; lastName: string; hasVat: boolean };
+  deliveriesCount: number;
+  /** Consegne senza paga e senza listino: non entrano nello stipendio. */
+  unpaidCount: number;
+  fromListino: number;
+  grossAmount: number;
+  cashDeductions: number;
+  netAmount: number;
+  from: string;
+  to: string;
+}
+interface PendingDelivery {
+  id: string; code: number; date: string; status: string;
+  address?: string | null; service: string; cash: number;
+  /** null = non pagabile: nessuna paga, nessun listino, o regola «non pagare». */
+  amount: number | null;
+  origine: 'consegna' | 'listino' | null;
+}
+
 interface Salary {
+
   id: string;
   valetId: string;
   periodStart: string;
@@ -51,12 +74,6 @@ const NEXT: Record<string, { next: string; key: string }> = {
         <p class="page-caption">{{ 'salaries.caption' | translate }}</p>
       </div>
       <div class="head-actions">
-        @if (canManage()) {
-          <select class="field" [(ngModel)]="valetFilter">
-            <option value="">{{ 'salaries.allValets' | translate }}</option>
-            @for (v of valets(); track v.id) { <option [value]="v.id">{{ v.lastName }} {{ v.firstName }}</option> }
-          </select>
-        }
         <button class="btn btn-ghost" [disabled]="!filtered().length" (click)="exportCsv()">{{ 'salaries.export' | translate }}</button>
         @if (canManage() && view() === 'active') {
           <button class="btn btn-primary" (click)="toggleGen()">{{ (showGen() ? 'common.cancel' : 'salaries.generate') | translate }}</button>
@@ -65,9 +82,58 @@ const NEXT: Record<string, { next: string; key: string }> = {
     </div>
 
     <div class="tabs">
+      <button class="tab" [class.on]="view() === 'pending'" (click)="setView('pending')">
+        {{ 'salaries.tab.pending' | translate }}
+        @if (pendingTotals(); as t) { <span class="pill">{{ t.deliveriesCount | number }}</span> }
+      </button>
       <button class="tab" [class.on]="view() === 'active'" (click)="setView('active')">{{ 'salaries.tab.active' | translate }}</button>
       <button class="tab" [class.on]="view() === 'archive'" (click)="setView('archive')">{{ 'salaries.tab.archive' | translate }}</button>
     </div>
+
+    <!-- I filtri vanno al server: filtrare nel browser dopo aver scaricato
+         tutto regge finche' gli stipendi sono pochi, non oltre. -->
+    <div class="filtri card">
+      <label class="f cerca">
+        <span>{{ 'salaries.filter.search' | translate }}</span>
+        <input class="field" type="search" [(ngModel)]="cerca" (ngModelChange)="filtroCambiato()"
+               [placeholder]="'salaries.filter.searchPh' | translate" />
+      </label>
+      @if (canManage()) {
+        <label class="f">
+          <span>{{ 'salaries.col.valet' | translate }}</span>
+          <select class="field" [(ngModel)]="valetFilter" (ngModelChange)="filtroCambiato()">
+            <option value="">{{ 'salaries.allValets' | translate }}</option>
+            @for (v of valets(); track v.id) { <option [value]="v.id">{{ v.lastName }} {{ v.firstName }}</option> }
+          </select>
+        </label>
+      }
+      <label class="f">
+        <span>{{ 'salaries.filter.from' | translate }}</span>
+        <input class="field" type="date" [(ngModel)]="dal" (ngModelChange)="filtroCambiato()" />
+      </label>
+      <label class="f">
+        <span>{{ 'salaries.filter.to' | translate }}</span>
+        <input class="field" type="date" [(ngModel)]="al" (ngModelChange)="filtroCambiato()" />
+      </label>
+      @if (view() !== 'pending') {
+        <label class="f">
+          <span>{{ 'salaries.col.status' | translate }}</span>
+          <select class="field" [(ngModel)]="stato" (ngModelChange)="filtroCambiato()">
+            <option value="">{{ 'salaries.filter.allStatuses' | translate }}</option>
+            @for (k of statiPossibili; track k) { <option [value]="k">{{ statusLabel(k) }}</option> }
+          </select>
+        </label>
+      } @else {
+        <label class="f interruttore">
+          <input type="checkbox" [(ngModel)]="soloPagabili" (ngModelChange)="filtroCambiato()" />
+          <span>{{ 'salaries.filter.onlyPayable' | translate }}</span>
+        </label>
+      }
+      @if (filtriAttivi()) {
+        <button type="button" class="link-btn azzera" (click)="azzeraFiltri()">{{ 'salaries.filter.clear' | translate }}</button>
+      }
+    </div>
+
 
     @if (showGen() && view() === 'active') {
       <section class="card gen">
@@ -97,12 +163,112 @@ const NEXT: Record<string, { next: string; key: string }> = {
     @if (error()) { <div class="error-card card">{{ error() }}</div> }
 
     @if (loading()) { <div class="card state-card">{{ 'common.loading' | translate }}</div> }
+
+    <!-- «Da pagare»: il lavoro che aspetta uno stipendio, non gli stipendi. -->
+    @else if (view() === 'pending') {
+      @if (pendingTotals(); as t) {
+        <div class="card riepilogo">
+          <div><span class="etichetta">{{ 'salaries.pending.valets' | translate }}</span><strong>{{ t.valets | number }}</strong></div>
+          <div><span class="etichetta">{{ 'salaries.pending.deliveries' | translate }}</span><strong>{{ t.deliveriesCount | number }}</strong></div>
+          <div><span class="etichetta">{{ 'salaries.col.gross' | translate }}</span><strong>{{ t.grossAmount | number: '1.2-2' }} €</strong></div>
+          <div><span class="etichetta">{{ 'salaries.col.cash' | translate }}</span><strong>−{{ t.cashDeductions | number: '1.2-2' }} €</strong></div>
+          <div><span class="etichetta">{{ 'salaries.col.net' | translate }}</span><strong class="oro">{{ t.netAmount | number: '1.2-2' }} €</strong></div>
+          @if (t.unpaidCount) {
+            <div><span class="etichetta">{{ 'salaries.pending.unpaid' | translate }}</span><strong class="rosso">{{ t.unpaidCount | number }}</strong></div>
+          }
+        </div>
+        @if (t.unpaidCount) {
+          <p class="avviso">{{ 'salaries.pending.unpaidHint' | translate:{ n: t.unpaidCount } }}</p>
+        }
+      }
+      <div class="card table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>{{ 'salaries.col.valet' | translate }}</th>
+              <th>{{ 'salaries.col.period' | translate }}</th>
+              <th class="num">{{ 'salaries.pending.deliveries' | translate }}</th>
+              <th class="num">{{ 'salaries.pending.unpaid' | translate }}</th>
+              <th class="num">{{ 'salaries.col.gross' | translate }}</th>
+              <th class="num">{{ 'salaries.col.net' | translate }}</th>
+              <th>{{ 'salaries.col.actions' | translate }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (r of pendingFiltered(); track r.valetId) {
+              <tr>
+                <td class="strong">{{ r.valet.lastName }} {{ r.valet.firstName }}</td>
+                <td class="muted">{{ r.from | date: 'dd/MM/yy' }} – {{ r.to | date: 'dd/MM/yy' }}</td>
+                <td class="num">
+                  {{ r.deliveriesCount | number }}
+                  @if (r.fromListino) { <span class="ric" [title]="'salaries.pending.fromListinoHint' | translate">{{ 'salaries.pending.fromListino' | translate:{ n: r.fromListino } }}</span> }
+                </td>
+                <td class="num">
+                  @if (r.unpaidCount) { <span class="rosso">{{ r.unpaidCount | number }}</span> } @else { <span class="muted">—</span> }
+                </td>
+                <td class="num muted">{{ r.grossAmount | number: '1.2-2' }} €</td>
+                <td class="num strong">{{ r.netAmount | number: '1.2-2' }} €</td>
+                <td class="row-actions">
+                  <button class="link-btn" (click)="togglePendingDetail(r)">
+                    {{ (pendingOpen() === r.valetId ? 'salaries.action.hideDetail' : 'salaries.action.detail') | translate }}
+                  </button>
+                  @if (canManage()) {
+                    <button class="link-btn" (click)="pagaTutto(r)">{{ 'salaries.pending.payAll' | translate }}</button>
+                  }
+                </td>
+              </tr>
+              @if (pendingOpen() === r.valetId) {
+                <tr class="detail-row">
+                  <td colspan="7">
+                    @if (pendingDetailLoading()) { <p class="muted">{{ 'common.loading' | translate }}</p> }
+                    @else {
+                      <table class="sub">
+                        <thead><tr>
+                          <th>{{ 'salaries.line.date' | translate }}</th>
+                          <th>{{ 'salaries.pending.service' | translate }}</th>
+                          <th>{{ 'salaries.pending.address' | translate }}</th>
+                          <th class="num">{{ 'salaries.col.cash' | translate }}</th>
+                          <th class="num">{{ 'salaries.line.amount' | translate }}</th>
+                        </tr></thead>
+                        <tbody>
+                          @for (d of pendingDetail(); track d.id) {
+                            <tr>
+                              <td>{{ d.date | date: 'dd/MM/yy' }}</td>
+                              <td class="muted">{{ d.service }}</td>
+                              <td class="muted">{{ d.address || '—' }}</td>
+                              <td class="num">{{ d.cash ? ('−' + (d.cash | number: '1.2-2') + ' €') : '—' }}</td>
+                              <td class="num">
+                                @if (d.amount === null) {
+                                  <span class="rosso" [title]="'salaries.pending.unpaidRow' | translate">{{ 'salaries.pending.noPay' | translate }}</span>
+                                } @else {
+                                  {{ d.amount | number: '1.2-2' }} €
+                                  @if (d.origine === 'listino') { <span class="ric" [title]="'salaries.pending.fromListinoHint' | translate">{{ 'salaries.pending.listino' | translate }}</span> }
+                                }
+                              </td>
+                            </tr>
+                          }
+                        </tbody>
+                      </table>
+                      @if (pendingTroncato()) { <p class="hint">{{ 'salaries.pending.capped' | translate }}</p> }
+                    }
+                  </td>
+                </tr>
+              }
+            }
+            @if (!pendingFiltered().length) {
+              <tr><td colspan="7" class="muted empty">{{ 'salaries.pending.empty' | translate }}</td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
     @else {
       <div class="card table-wrap">
         <table>
           <thead>
             <tr>
               <th>{{ 'salaries.col.valet' | translate }}</th>
+
               <th>{{ 'salaries.col.period' | translate }}</th>
               <th class="num">{{ 'salaries.col.gross' | translate }}</th>
               <th class="num">{{ 'salaries.col.cash' | translate }}</th>
@@ -173,6 +339,22 @@ const NEXT: Record<string, { next: string; key: string }> = {
       h1 { margin: 0; font-size: 32px; font-weight: 600; letter-spacing: -0.025em; }
       .page-caption { margin: 4px 0 0; color: var(--text-secondary); font-size: 14px; max-width: 640px; }
       .head-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+      .filtri { display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap; padding: 14px 18px; margin-bottom: 12px; }
+      .filtri .f { display: flex; flex-direction: column; gap: 4px; min-width: 150px; }
+      .filtri .f.cerca { flex: 1 1 220px; }
+      .filtri .f > span { font-size: 12px; color: var(--text-secondary); }
+      .filtri .interruttore { flex-direction: row; align-items: center; gap: 7px; min-width: 0; padding-bottom: 8px; }
+      .filtri .interruttore > span { font-size: 13px; color: var(--text); }
+      .filtri .azzera { padding-bottom: 8px; }
+      .riepilogo { display: flex; gap: 32px; flex-wrap: wrap; padding: 16px 20px; margin-bottom: 12px; }
+      .riepilogo > div { display: flex; flex-direction: column; gap: 2px; }
+      .riepilogo .etichetta { font-size: 12px; color: var(--text-secondary); }
+      .riepilogo strong { font-size: 20px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+      .riepilogo .oro { color: var(--gold-strong, #B8963E); }
+      .rosso { color: #C0392B; font-weight: 600; }
+      .avviso { margin: -4px 0 12px; font-size: 13px; color: var(--text-secondary); }
+      .ric { margin-left: 6px; font-size: 10.5px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; color: var(--gold-strong, #B8963E); background: color-mix(in srgb, #B8963E 12%, transparent); border-radius: 999px; padding: 2px 6px; cursor: help; }
+      .tab .pill { margin-left: 6px; font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px; background: color-mix(in srgb, currentColor 14%, transparent); font-variant-numeric: tabular-nums; }
       .head-actions .btn { text-decoration: none; }
       .tabs { display: inline-flex; gap: 4px; background: var(--fill); border-radius: 980px; padding: 4px; margin-bottom: 18px; }
       .tab { appearance: none; border: none; background: none; border-radius: 980px; padding: 7px 18px; font-size: 13px; font-weight: 550; font-family: inherit; color: var(--text-secondary); cursor: pointer; }
@@ -221,7 +403,32 @@ export class SalariesListComponent {
   readonly error = signal<string | null>(null);
   readonly banner = signal<string | null>(null);
   readonly busy = signal<string | null>(null);
-  readonly view = signal<'active' | 'archive'>('active');
+  /** Si apre su «Da pagare»: e' la domanda che si fa arrivando qui. */
+  readonly view = signal<'pending' | 'active' | 'archive'>('pending');
+  readonly pending = signal<Pending[]>([]);
+  readonly pendingTotals = signal<{ valets: number; deliveriesCount: number; unpaidCount: number; fromListino: number; grossAmount: number; cashDeductions: number; netAmount: number } | null>(null);
+  readonly pendingOpen = signal<string | null>(null);
+  readonly pendingDetail = signal<PendingDelivery[]>([]);
+  readonly pendingDetailLoading = signal(false);
+  readonly pendingTroncato = signal(false);
+  readonly cercaPending = signal('');
+
+  cerca = '';
+  dal = '';
+  al = '';
+  stato = '';
+  soloPagabili = false;
+  readonly statiPossibili = ['DRAFT', 'SENT', 'RECEIPT_PENDING', 'APPROVED', 'PAID'];
+  private attesa?: ReturnType<typeof setTimeout>;
+
+  readonly pendingFiltered = computed(() => {
+    const t = this.cercaPending().trim().toLowerCase();
+    return this.pending().filter((r) =>
+      (!this.soloPagabili || r.deliveriesCount > r.unpaidCount) &&
+      (!t || `${r.valet.lastName} ${r.valet.firstName}`.toLowerCase().includes(t)),
+    );
+  });
+
 
   valetFilter = '';
   readonly showGen = signal(false);
@@ -237,9 +444,8 @@ export class SalariesListComponent {
   reclamoAmount: number | null = null;
   reclamoDesc = '';
 
-  readonly filtered = computed(() =>
-    this.valetFilter ? this.salaries().filter((s) => s.valetId === this.valetFilter) : this.salaries(),
-  );
+  // Il filtro vero lo fa il server (vedi load()).
+  readonly filtered = computed(() => this.salaries());
 
   canManage(): boolean {
     const r = this.auth.user()?.role;
@@ -248,12 +454,13 @@ export class SalariesListComponent {
 
   constructor() {
     this.load();
+    if (this.view() !== 'pending') this.caricaTotaliPending();
     if (this.canManage()) {
       this.http.get<ValetRef[]>(`${environment.apiUrl}/valets`).subscribe((d) => this.valets.set(d));
     }
   }
 
-  setView(v: 'active' | 'archive'): void {
+  setView(v: 'pending' | 'active' | 'archive'): void {
     if (this.view() === v) return;
     this.view.set(v);
     this.showGen.set(false);
@@ -298,12 +505,89 @@ export class SalariesListComponent {
 
   private load(): void {
     this.loading.set(true);
-    const params = this.view() === 'archive' ? { params: { archived: 'true' } } : {};
-    this.http.get<Salary[]>(`${environment.apiUrl}/salaries`, params).subscribe({
+    const filtri: Record<string, string> = {};
+    if (this.valetFilter) filtri['valetId'] = this.valetFilter;
+    if (this.dal) filtri['dal'] = this.dal;
+    if (this.al) filtri['al'] = this.al;
+
+    if (this.view() === 'pending') {
+      this.http.get<{ voci: Pending[]; totali: any }>(
+        `${environment.apiUrl}/salaries/pending`, { params: filtri },
+      ).subscribe({
+        next: (d) => {
+          this.pending.set(d.voci ?? []);
+          this.pendingTotals.set(d.totali ?? null);
+          this.loading.set(false);
+        },
+        error: () => { this.loading.set(false); this.error.set(this.translate.instant('common.loadError')); },
+      });
+      return;
+    }
+    if (this.view() === 'archive') filtri['archived'] = 'true';
+    if (this.stato) filtri['stato'] = this.stato;
+    if (this.cerca.trim()) filtri['cerca'] = this.cerca.trim();
+    this.http.get<Salary[]>(`${environment.apiUrl}/salaries`, { params: filtri }).subscribe({
       next: (d) => { this.salaries.set(d); this.loading.set(false); },
       error: () => { this.loading.set(false); this.error.set(this.translate.instant('common.loadError')); },
     });
   }
+
+  /** Il conto sulla linguetta e' il totale, senza filtri: e' un'insegna. */
+  private caricaTotaliPending(): void {
+    this.http.get<{ totali: any }>(`${environment.apiUrl}/salaries/pending`)
+      .subscribe({ next: (d) => this.pendingTotals.set(d.totali ?? null), error: () => {} });
+  }
+
+  filtriAttivi(): boolean {
+    return !!(this.cerca || this.valetFilter || this.dal || this.al || this.stato || this.soloPagabili);
+  }
+
+  /** Un filtro e' cambiato: si ricarica dopo una pausa, non a ogni tasto. */
+  filtroCambiato(): void {
+    this.cercaPending.set(this.cerca);
+    clearTimeout(this.attesa);
+    this.attesa = setTimeout(() => this.load(), 300);
+  }
+
+  azzeraFiltri(): void {
+    this.cerca = ''; this.valetFilter = ''; this.dal = ''; this.al = '';
+    this.stato = ''; this.soloPagabili = false;
+    this.cercaPending.set('');
+    this.load();
+  }
+
+  /** Apre/chiude le consegne da pagare di un valet. */
+  togglePendingDetail(r: Pending): void {
+    if (this.pendingOpen() === r.valetId) { this.pendingOpen.set(null); return; }
+    this.pendingOpen.set(r.valetId);
+    this.pendingDetail.set([]);
+    this.pendingDetailLoading.set(true);
+    this.http.get<{ deliveries: PendingDelivery[]; troncato: boolean }>(
+      `${environment.apiUrl}/salaries/pending/${r.valetId}`,
+    ).subscribe({
+      next: (d) => {
+        this.pendingDetail.set(d.deliveries ?? []);
+        this.pendingTroncato.set(!!d.troncato);
+        this.pendingDetailLoading.set(false);
+      },
+      error: () => this.pendingDetailLoading.set(false),
+    });
+  }
+
+  /**
+   * Paga tutto l'arretrato di un valet: apre il pannello Genera con valet e
+   * periodo gia' compilati. Non genera da solo — emettere un documento senza
+   * mostrarlo prima e' un gesto pesante.
+   */
+  pagaTutto(r: Pending): void {
+    this.genValet = r.valetId;
+    this.genFrom = String(r.from).slice(0, 10);
+    this.genTo = String(r.to).slice(0, 10);
+    this.view.set('active');
+    this.showGen.set(true);
+    this.load();
+  }
+
 
   statusLabel(s: string): string { return STATUS_META[s]?.label ?? s; }
   statusColor(s: string): string { return STATUS_META[s]?.color ?? '#8A8A8E'; }

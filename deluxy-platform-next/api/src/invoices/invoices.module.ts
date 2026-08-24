@@ -77,7 +77,22 @@ export type ConsegnaDaPrezzare = {
   serviceType?: { pricingModel?: string | null; basePrice?: number | null; perPiecePrice?: number | null; minHours?: number | null } | null;
   products?: { quantity?: number | null; price?: number | null }[];
 };
+/**
+ * La regola carnet applicata alla consegna (`Delivery.deliveryRuleId`).
+ *
+ * ⚠️ Importate dal legacy il 20/07 ma MAI APPLICATE: erano anagrafica e basta.
+ * Sono 28 regole su 3.372 consegne, e non sono un dettaglio — portano sconti
+ * fino a −28 € a consegna, e alcune dicono di NON fatturare affatto
+ * (`toBill = false`): fatturare quelle sarebbe chiedere soldi due volte, visto
+ * che il carnet è già stato pagato in anticipo.
+ */
+export type RegolaCarnet = {
+  partnerBillingAdjustment?: number | null;
+  toBill?: boolean | null;
+} | null;
+
 export type ListinoPartner = {
+
   price?: number | null;
   includedKm?: number | null;
   extraKmPrice?: number | null;
@@ -85,15 +100,24 @@ export type ListinoPartner = {
   pricePerItem?: number | null;
 } | null;
 
-export function prezzoConsegna(d: ConsegnaDaPrezzare, listino: ListinoPartner):
+export function prezzoConsegna(d: ConsegnaDaPrezzare, listino: ListinoPartner, regola: RegolaCarnet = null):
   { amount: number; origine: 'consegna' | 'listino'; modello: string } | null {
-  const extra = d.additionalPrice ?? 0;
+  // Una regola carnet che dice «non fatturare» vince su tutto: il carnet è
+  // già stato pagato in anticipo, rifatturarlo sarebbe chiedere due volte.
+  if (regola && regola.toBill === false) return null;
+
+  // Lo sconto del carnet (negativo nel legacy: −25, −18, −15…) si somma al
+  // plus/minus della consegna.
+  const extra = (d.additionalPrice ?? 0) + (regola?.partnerBillingAdjustment ?? 0);
   const arrotonda = (n: number) => Math.round(n * 100) / 100;
+  // Lo sconto non puo' far pagare al partner meno di zero.
+  const mai_negativo = (n: number) => Math.max(0, arrotonda(n));
 
   // Il prezzo deciso sulla consegna vince: è un fatto, non una stima.
   if ((d.price ?? 0) > 0) {
-    return { amount: arrotonda(d.price! + extra), origine: 'consegna', modello: d.serviceType?.pricingModel ?? '—' };
+    return { amount: mai_negativo(d.price! + extra), origine: 'consegna', modello: d.serviceType?.pricingModel ?? '—' };
   }
+
 
   const modello = d.serviceType?.pricingModel ?? '';
   const valoreProdotti = (d.products ?? []).reduce(
@@ -115,14 +139,14 @@ export function prezzoConsegna(d: ConsegnaDaPrezzare, listino: ListinoPartner):
     case 'PREZZO_FISSO': {
       const tariffa = listino?.price ?? d.serviceType?.basePrice ?? 0;
       if (tariffa <= 0) return null;
-      return { amount: arrotonda(tariffa + supplementoKm() + extra), origine: 'listino', modello };
+      return { amount: mai_negativo(tariffa + supplementoKm() + extra), origine: 'listino', modello };
     }
     case 'A_ORA': {
       const tariffa = listino?.price ?? 0;
       if (tariffa <= 0) return null;
       // Il minimo di ore del servizio: mezz'ora di lavoro non si fattura mezza.
       const ore = Math.max(d.hours ?? 0, d.serviceType?.minHours ?? 1);
-      return { amount: arrotonda(tariffa * ore + supplementoKm() + extra), origine: 'listino', modello };
+      return { amount: mai_negativo(tariffa * ore + supplementoKm() + extra), origine: 'listino', modello };
     }
     case 'MAGAZZINO': {
       const base = listino?.price ?? d.serviceType?.basePrice ?? 0;
@@ -130,17 +154,17 @@ export function prezzoConsegna(d: ConsegnaDaPrezzare, listino: ListinoPartner):
       const pezzi = (d.products ?? []).reduce((s, p) => s + (p.quantity ?? 1), 0);
       const totale = base + aPezzo * pezzi;
       if (totale <= 0) return null;
-      return { amount: arrotonda(totale + extra), origine: 'listino', modello };
+      return { amount: mai_negativo(totale + extra), origine: 'listino', modello };
     }
     case 'VENDITA': {
       // ⚠️ `listino.price` qui e' una PERCENTUALE, non euro.
       const feePercento = listino?.price ?? 0;
       if (feePercento <= 0 || valoreProdotti <= 0) return null;
-      return { amount: arrotonda((valoreProdotti * feePercento) / 100 + extra), origine: 'listino', modello };
+      return { amount: mai_negativo((valoreProdotti * feePercento) / 100 + extra), origine: 'listino', modello };
     }
     case 'CORPORATE': {
       if (valoreProdotti <= 0) return null;
-      return { amount: arrotonda(valoreProdotti + extra), origine: 'listino', modello };
+      return { amount: mai_negativo(valoreProdotti + extra), origine: 'listino', modello };
     }
     default:
       return null;
@@ -234,6 +258,8 @@ export class InvoicesService {
         price: true, additionalPrice: true, hours: true,
         distanceKm: true, extraKm: true, extraOutOfCity: true,
         serviceType: { select: { pricingModel: true, basePrice: true, perPiecePrice: true, minHours: true } },
+        // La regola carnet: sconto sulla fattura, o «non fatturare affatto».
+        deliveryRule: { select: { partnerBillingAdjustment: true, toBill: true } },
       },
     });
 
@@ -277,6 +303,7 @@ export class InvoicesService {
       const calcolo = prezzoConsegna(
         { ...d, products: prodotti.get(d.id) ?? [] } as any,
         listini.get(`${d.partnerId}|${d.serviceTypeId}`) ?? null,
+        (d as any).deliveryRule ?? null,
       );
       const r = per.get(d.partnerId) ?? {
         partnerId: d.partnerId, deliveriesCount: 0, netAmount: 0, unpricedCount: 0,
@@ -358,6 +385,7 @@ export class InvoicesService {
         distanceKm: true, extraKm: true, extraOutOfCity: true,
         recipientFirstName: true, recipientLastName: true, recipientAddress: true,
         serviceType: { select: { name: true, pricingModel: true, basePrice: true, perPiecePrice: true, minHours: true } },
+        deliveryRule: { select: { partnerBillingAdjustment: true, toBill: true } },
         products: { select: { quantity: true, price: true } },
       },
       orderBy: { date: 'desc' },
@@ -369,7 +397,7 @@ export class InvoicesService {
     );
     return {
       deliveries: deliveries.map((d) => {
-        const calcolo = prezzoConsegna(d as any, listini.get(d.serviceTypeId) ?? null);
+        const calcolo = prezzoConsegna(d as any, listini.get(d.serviceTypeId) ?? null, (d as any).deliveryRule ?? null);
         return {
           id: d.id, code: d.code, date: d.date, status: d.status,
           recipientFirstName: d.recipientFirstName, recipientLastName: d.recipientLastName,
@@ -418,6 +446,8 @@ export class InvoicesService {
       },
       include: {
         serviceType: { select: { pricingModel: true, basePrice: true, perPiecePrice: true, minHours: true } },
+        // La regola carnet: sconto sulla fattura, o «non fatturare affatto».
+        deliveryRule: { select: { partnerBillingAdjustment: true, toBill: true } },
         products: { select: { quantity: true, price: true } },
       },
       orderBy: { date: 'asc' },
@@ -433,7 +463,7 @@ export class InvoicesService {
     const lines: { deliveryId: string; date: Date; recipient: string; description: string | null; amount: number }[] = [];
     const nonPrezzabili: { code: number; date: Date; servizio: string }[] = [];
     for (const d of deliveries) {
-      const calcolo = prezzoConsegna(d as any, listini.get(d.serviceTypeId) ?? null);
+      const calcolo = prezzoConsegna(d as any, listini.get(d.serviceTypeId) ?? null, (d as any).deliveryRule ?? null);
       if (!calcolo) {
         // Fuori dalla fattura: una riga a 0 € sarebbe un documento che dice il
         // falso. Chi la emette deve saperlo, quindi si torna l'elenco.

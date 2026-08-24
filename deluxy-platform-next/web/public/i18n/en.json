@@ -427,7 +427,8 @@
     "awaitSignature": "Awaiting signature",
     "tab": {
       "active": "Active",
-      "archive": "Archive"
+      "archive": "Archive",
+      "pending": "To pay"
     },
     "fin": {
       "paid": "Paid",
@@ -474,7 +475,38 @@
       "approve": "Approve",
       "markPaid": "Mark paid",
       "reopen": "Reopen",
-      "reclamo": "Claim"
+      "reclamo": "Claim",
+      "detail": "Detail",
+      "hideDetail": "Hide"
+    },
+    "filter": {
+      "search": "Search",
+      "searchPh": "Valet first or last name",
+      "from": "From",
+      "to": "To",
+      "allStatuses": "All statuses",
+      "clear": "Clear filters",
+      "onlyPayable": "Only valets with payable deliveries"
+    },
+    "pending": {
+      "valets": "Valets",
+      "deliveries": "Deliveries",
+      "unpaid": "No pay",
+      "service": "Service",
+      "address": "Address",
+      "payAll": "Pay",
+      "listino": "rate card",
+      "noPay": "not payable",
+      "fromListino": "{{n}} from rate card",
+      "fromListinoHint": "The pay was not on the delivery: it is computed from the valet rate card by service type, plus the rules (pickup bonus, carnet adjustment).",
+      "unpaidRow": "No pay on the delivery and no valet rate card for this service — or a carnet rule says not to pay it. It stays out of the salary until a rate is decided.",
+      "unpaidHint": "{{n}} deliveries stay out of the salary: they have no pay and the valet has no rate card for their service. Putting them at 0 would tell the valet that work was worth nothing.",
+      "empty": "Nothing to pay: every delivery is already on a salary.",
+      "capped": "Showing the valet's first 500 deliveries."
+    },
+    "line": {
+      "date": "Date",
+      "amount": "Pay"
     }
   },
   "receipts": {
