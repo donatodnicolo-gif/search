@@ -1649,6 +1649,23 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
                           ) : null}
                           <ProfiloCliente numeroOrdine={o.clienteNumeroOrdine} />
                           <TipoCliente tipo={o.clienteTipo} da={o.clienteTipoDa} />
+                          {/* ⚠️⚠️ «PAGATO» E «IN PAGAMENTO» INSIEME SI
+                              CONTRADDICONO, e su una scheda che si legge a colpo
+                              d'occhio una contraddizione costa più di
+                              un'informazione in meno: chi la vede si ferma a
+                              capire quale delle due vale.
+                              «In pagamento» vuol dire «lo stiamo pagando»: se
+                              risulta pagato, quel passo è finito e la sua
+                              etichetta descrive il passato.
+                              ⚠️ Si nasconde SOLO quella, non tutte: «attesa
+                              consegna» insieme a «pagato» non si contraddicono —
+                              dicono due cose vere e diverse, e toglierne una
+                              sarebbe perdere un dato per niente.
+                              ⚠️ Lo stato NON si riscrive nel database da qui:
+                              una schermata che corregge i dati mentre li legge
+                              cambia le cose alle spalle di chi guarda. A
+                              spostarlo è il gesto «Pagata». */}
+                          {o.pagatoIl && o.gestione === 'in_pagamento' ? null : (
                           <span
                             className="badge"
                             style={{
@@ -1670,6 +1687,7 @@ export function OrdiniLista({ modalita = 'aperti' }: { modalita?: 'aperti' | 'gl
                           >
                             {nomeGestione(o.gestione)}
                           </span>
+                          )}
                           {/* ⚠️ «Comunicazione con cliente» senza nessuna
                               conversazione collegata: lo si dice A SCHERMO, non
                               solo nel titolo. Uno stato che promette qualcosa da
