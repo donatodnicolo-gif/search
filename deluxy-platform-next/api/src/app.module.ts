@@ -25,6 +25,7 @@ import { SalariesModule } from './salaries/salaries.module';
 import { ReceiptsModule } from './receipts/receipts.module';
 import { InvoicesModule } from './invoices/invoices.module';
 import { SalesModule } from './sales/sales.module';
+import { MerchandisingSyncModule } from './merchandising-sync/merchandising-sync.module';
 import { OrdersSyncModule } from './orders-sync/orders-sync.module';
 import { SmsTemplatesModule } from './sms-templates/sms-templates.module';
 import { UsersModule } from './users/users.module';
@@ -46,6 +47,7 @@ import { WoocommerceModule } from './woocommerce/woocommerce.module';
     CustomersModule,
     SalesModule,
     OrdersSyncModule,
+    MerchandisingSyncModule,
     SalariesModule,
     ReceiptsModule,
     InvoicesModule,

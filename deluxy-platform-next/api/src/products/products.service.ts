@@ -14,6 +14,7 @@ import {
 } from '../common/list-query';
 import { ProductListQueryDto } from './dto/product-list-query.dto';
 import { PrismaService } from '../prisma/prisma.service';
+import { MerchandisingSyncService } from '../merchandising-sync/merchandising-sync.module';
 import { CreateProductDto, UpdateProductDto } from './dto/create-product.dto';
 
 const PRODUCT_INCLUDE = {
@@ -27,7 +28,10 @@ const PRODUCT_INCLUDE = {
 
 @Injectable()
 export class ProductsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly merchandising: MerchandisingSyncService,
+  ) {}
 
   /** Campi testuali coperti dalla ricerca globale `q`. */
   private static readonly SEARCH_FIELDS = [
@@ -157,7 +161,7 @@ export class ProductsService {
           stock: v.stock,
         }))
       : undefined;
-    return this.prisma.product.create({
+    const creato = await this.prisma.product.create({
       data: {
         ...scalar,
         sku: baseSku,
@@ -180,6 +184,12 @@ export class ProductsService {
       },
       include: PRODUCT_INCLUDE,
     });
+    // Un prodotto caricato qui da un partner esiste anche per il PLM: e' parte
+    // dell'assortimento Deluxy, e chi cura le collezioni deve vederlo. Non
+    // blocca mai la creazione: se Merchandising e' giu', il partner non deve
+    // vedere un errore per una cosa che non lo riguarda.
+    this.merchandising.spingi(creato as any);
+    return creato;
   }
 
   async update(id: string, dto: UpdateProductDto, user: JwtUser) {

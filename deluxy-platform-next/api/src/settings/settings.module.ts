@@ -23,6 +23,9 @@ import { PrismaService } from '../prisma/prisma.service';
  *   Stanno qui e non nelle variabili d'ambiente perché così si cambiano
  *   dall'app, senza un deploy. Le env restano come scorciatoia d'emergenza e
  *   hanno la precedenza (vedi AnagraficheSyncService.getApiKey).
+ * - merchandisingUrl / merchandisingApiKey: il PLM (deluxy-merchandising).
+ *   Serve nelle DUE direzioni: si tirano i prodotti nati la', e si mandano la'
+ *   quelli che un partner carica qui.
  * - ordersUrl / ordersApiKey: registro ordini Shopify (deluxy-orders, porta 3150).
  *   Serve a tirare dentro gli ordini e smistarli. È una chiave di SOLA LETTURA:
  *   la piattaforma legge da Orders, non ci scrive mai.
@@ -34,6 +37,8 @@ export const SETTING_KEYS = [
   'anagraficheApiKey',
   'ordersUrl',
   'ordersApiKey',
+  'merchandisingUrl',
+  'merchandisingApiKey',
 ] as const;
 
 @Injectable()
