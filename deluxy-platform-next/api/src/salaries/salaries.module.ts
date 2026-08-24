@@ -118,9 +118,19 @@ export function scegliListinoValet(
   perValet: Map<string, any[]>,
 ): any | null {
   // Se la consegna lo dice, si usa quello: e' la scelta fatta allora.
-  if (d.valetServiceId) return perId.get(d.valetServiceId) ?? null;
+  //
+  // ⚠️ Ma se quell'id non porta a niente NON ci si arrende: il riferimento e'
+  // rotto (listino rifatto, valet cambiato), non e' il valet a non averne.
+  // Arrendersi lasciava a paga zero consegne di valet che avevano il loro
+  // listino sotto il naso — Acampora Vittorio ha «Consegna Standard = 6» e
+  // usciva «nessuno applicabile».
+  if (d.valetServiceId) {
+    const indicato = perId.get(d.valetServiceId);
+    if (indicato) return indicato;
+  }
 
   const suoi = perValet.get(d.valetId ?? '') ?? [];
+
   if (!suoi.length) return null;
   if (suoi.length === 1) return suoi[0];
 

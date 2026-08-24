@@ -24,7 +24,7 @@ async function compila(file, da, a, out) {
 }
 const { prezzoConsegna } = await compila(A + 'invoices/invoices.module.ts',
   'export type RegolaCarnet', '/** Aliquota IVA', '_prezzo.mjs');
-const { pagaConsegna } = await compila(A + 'salaries/salaries.module.ts',
+const { pagaConsegna, scegliListinoValet } = await compila(A + 'salaries/salaries.module.ts',
   'export type RegolaPaga', '@Injectable()', '_paga.mjs');
 
 const riga = fs.readFileSync('C:/Users/nicol/app/deluxy-tasks/.env', 'utf8')
@@ -105,7 +105,7 @@ const daPagare = await db.delivery.findMany({
   },
   select: {
     code: true, date: true, valetSalary: true, valetAdditionalPrice: true,
-    hours: true, extraKm: true, valetServiceId: true,
+    hours: true, extraKm: true, valetServiceId: true, valetId: true,
     valet: { select: { firstName: true, lastName: true } },
     serviceType: { select: { name: true, pricingModel: true, minHours: true } },
     deliveryRule: { select: { name: true, valetPayAdjustment: true, toPay: true } },
@@ -114,15 +114,17 @@ const daPagare = await db.delivery.findMany({
   },
   orderBy: { date: 'desc' }, take: 5000,
 });
-const ids = [...new Set(daPagare.map((d) => d.valetServiceId).filter(Boolean))];
-const listiniV = new Map((await db.valetService.findMany({
-  where: { id: { in: ids } },
+const valetIds = [...new Set(daPagare.map((d) => d.valetId).filter(Boolean))];
+const righeV = await db.valetService.findMany({
+  where: { valetId: { in: valetIds } },
   include: { serviceType: { select: { name: true, pricingModel: true, minHours: true } } },
-})).map((r) => [r.id, r]));
+});
+const perId = new Map(righeV.map((r) => [r.id, r]));
+const perValet = new Map();
+for (const r of righeV) { const a = perValet.get(r.valetId) ?? []; a.push(r); perValet.set(r.valetId, a); }
 
 const CAUSE_P = {
-  servizio: 'sulla consegna non è scritto QUALE servizio ha svolto il valet: senza quello non c\u2019è un listino da leggere',
-  listino: 'il servizio è indicato ma quel listino del valet non esiste',
+  listino: 'il valet NON HA nessun listino: ne « Consegna Standard » ne « Servizio a Ora », niente da cui ricavare la paga',
   regola: 'una regola carnet dice di NON pagarla',
 };
 
@@ -133,9 +135,9 @@ linea('═');
 
 const gruppiP = {};
 for (const d of daPagare) {
-  const l = listiniV.get(d.valetServiceId || '') || null;
+  const l = scegliListinoValet(d, perId, perValet);
   if (pagaConsegna(d, l, d.deliveryRule || null, d.valetDeliveryRule || null, d._count?.pickups || 0)) continue;
-  const causa = d.deliveryRule && d.deliveryRule.toPay === false ? 'regola' : (d.valetServiceId ? 'listino' : 'servizio');
+  const causa = d.deliveryRule && d.deliveryRule.toPay === false ? 'regola' : 'listino';
   (gruppiP[causa] = gruppiP[causa] || []).push(d);
 }
 for (const [causa, dd] of Object.entries(gruppiP).sort((a, b) => b[1].length - a[1].length)) {
@@ -144,13 +146,14 @@ for (const [causa, dd] of Object.entries(gruppiP).sort((a, b) => b[1].length - a
   console.log('  ' + dd.length.toLocaleString('it-IT') + ' casi fra i ' + daPagare.length.toLocaleString('it-IT') + ' letti');
   console.log('');
   for (const d of dd.slice(0, 3)) {
-    const l = listiniV.get(d.valetServiceId || '') || null;
+    const l = scegliListinoValet(d, perId, perValet);
+    const suoi = perValet.get(d.valetId || '') || [];
     console.log('   #' + String(d.code).padEnd(6) + ' ' + d.date.toISOString().slice(0, 10) + '  ' +
       ((d.valet?.lastName || '') + ' ' + (d.valet?.firstName || '')).trim().slice(0, 26));
     console.log('      servizio partner  ' + (d.serviceType?.name || '—') + '  (' + d.serviceType?.pricingModel + ')');
-    console.log('      servizio valet    ' + (d.valetServiceId
-      ? (l ? l.serviceType?.name + ' · paga ' + l.salary : 'id presente ma il listino non esiste')
-      : 'NON INDICATO sulla consegna'));
+    console.log('      servizio valet    ' + (d.valetServiceId ? 'indicato sulla consegna' : 'non indicato: si sceglie dal suo listino'));
+    console.log('      suoi listini      ' + (suoi.length ? suoi.map((x) => x.serviceType?.name + '=' + x.salary).join(' · ') : 'NESSUNO'));
+    console.log('      scelto            ' + (l ? l.serviceType?.name + ' · paga ' + l.salary : 'nessuno applicabile'));
     console.log('      paga              ' + eur(d.valetSalary || 0) + ' sulla consegna · ritiri nel giro ' + (d._count?.pickups || 0));
     if (d.deliveryRule) console.log('      regola carnet     ' + d.deliveryRule.name + ' · daPagare=' + d.deliveryRule.toPay);
     console.log('');
