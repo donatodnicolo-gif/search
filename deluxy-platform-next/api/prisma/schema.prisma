@@ -1209,9 +1209,25 @@ model Sale {
   brand           String    @default("DELUXY")
   amount          Float
   discountPercent Float     @default(0)
-  status          String    @default("created") // created | dispatched | completed | cancelled
+  /// da_gestire | proposta | accettata | non_accettata | annullata
+  status          String    @default("da_gestire")
   source          String    @default("app") // app | woocommerce
   externalOrderId String? // id ordine WooCommerce
+
+  /// Chi ha gia' rifiutato questa vendita (JSON array di partnerId).
+  /// Serve al ri-smistamento: un partner che ha detto no non la rivede.
+  refusedPartnerIds String?
+
+  /// Dati dell'ordine che servono a creare la consegna quando il partner
+  /// accetta. Arrivano da chi manda l'ordine (Deluxy Orders / Shopify):
+  /// senza questi la vendita si accetta ma la consegna va scritta a mano.
+  recipientFirstName String?
+  recipientLastName  String?
+  recipientAddress   String?
+  recipientPhone     String?
+  deliveryDate       DateTime?
+  serviceTypeId      String?
+  deliveryId         String?   @unique // consegna generata dall'accettazione
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 }

@@ -176,3 +176,19 @@ export enum NotificationType {
   DELIVERY_NOT_DELIVERED = 'delivery_not_delivered',
   PARTNER_CONTRACT_EXPIRING = 'partner_contract_expiring',
 }
+
+/**
+ * Stati di una vendita, con i nomi che usa l'app reale.
+ *
+ * `DA_GESTIRE` non e' un errore: e' l'esito legittimo quando nessun partner
+ * puo' prendere la vendita (provincia non servita, tutti chiusi, nessuna lista
+ * priorita'). Assegnarla lo stesso a qualcuno la farebbe sparire da questa
+ * coda, che e' proprio quella che qualcuno deve guardare.
+ */
+export enum SaleStatus {
+  DA_GESTIRE = 'da_gestire',
+  PROPOSTA = 'proposta',
+  ACCETTATA = 'accettata',
+  NON_ACCETTATA = 'non_accettata',
+  ANNULLATA = 'annullata',
+}
