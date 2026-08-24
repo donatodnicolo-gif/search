@@ -41,8 +41,12 @@
 > coppie non verranno mai sovrascritte). Il terzo caso — **provincia senza
 > partner → 40%** — NON sta qui: è il fornitore in chat, e corrisponde alla
 > quota fornitore di Orders (60% al fornitore = 40% a noi), che è già il suo
-> default. La **lista di priorità** era già importata: 455 righe in
-> `PartnerCategory`, usate da `scegliPartner`.
+> default. ⚠️ Correzione: la **lista di priorità** NON è `PartnerCategory`
+> (455 righe, ma priority=0 su tutte: dice solo quali categorie tratta un
+> partner) — è **`PriorityList`+`PriorityEntry`** (una lista per coppia
+> provincia×categoria, partner in posizione), importata dal legacy il 24/08:
+> **26 liste, 48 voci**, verificate nel database; `scegliPartner` usa quella,
+> con PartnerCategory come ripiego dichiarato dove la coppia non ha lista.
 >
 > **Resta da fare qui**: attivare il giro vero di `orders-sync` con
 > `applica=true` (oggi manuale/admin — decidere se farne un cron); esporre nel
