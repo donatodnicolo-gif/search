@@ -34,6 +34,16 @@
 > cristallizza sulla vendita**: il `create` ora scrive `discountPercent` dalla
 > regola `CategoryDiscount` — il campo c'era, la tabella pure, mancava il filo.
 >
+> **Regole business caricate (24/08 sera, decise dall'utente, verificate per
+> conteggio)**: `CategoryDiscount` popolata — **Milano 20%, tutte le altre
+> province 30%**, per tutte le 65 categorie (6.955 righe = 65×107; insert
+> idempotente `ON CONFLICT DO NOTHING`: le correzioni dell'admin su singole
+> coppie non verranno mai sovrascritte). Il terzo caso — **provincia senza
+> partner → 40%** — NON sta qui: è il fornitore in chat, e corrisponde alla
+> quota fornitore di Orders (60% al fornitore = 40% a noi), che è già il suo
+> default. La **lista di priorità** era già importata: 455 righe in
+> `PartnerCategory`, usate da `scegliPartner`.
+>
 > **Resta da fare qui**: attivare il giro vero di `orders-sync` con
 > `applica=true` (oggi manuale/admin — decidere se farne un cron); esporre nel
 > canale app anche costo della consegna e fee di listino (per il margine
