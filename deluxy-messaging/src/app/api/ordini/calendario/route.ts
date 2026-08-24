@@ -50,6 +50,19 @@ export async function GET(req: NextRequest) {
         statoChiave: true,
         statoNome: true,
         statoColore: true,
+        // ── COME LO STIAMO LAVORANDO NOI ──
+        //
+        // ⚠️⚠️ È una cosa DIVERSA dallo stato che c'era già (`statoNome`), che
+        // viene dalla pipeline di Orders/Shopify. Quello dice a che punto è
+        // l'ordine per il negozio; questo dice a che punto siamo NOI: se
+        // abbiamo trovato il fornitore, se l'abbiamo pagato, se è chiuso. Su un
+        // calendario di consegne è la seconda la domanda vera — «cosa esce
+        // giovedì, e cosa mi manca ancora da fare».
+        gestione: true,
+        gestioneDaNome: true,
+        // Chi lo prepara: su una consegna imminente senza fornitore, è la cosa
+        // che va vista senza aprire l'ordine.
+        fornitoreNome: true,
       },
     }),
     db.negozioShopify.findMany({ orderBy: { nome: 'asc' }, select: { id: true, nome: true } }),
@@ -57,7 +70,29 @@ export async function GET(req: NextRequest) {
     db.ordine.count({ where: { dataConsegna: null } }),
   ])
 
+  // ── QUALI ORDINI RISULTANO PAGATI ──
+  // Una query per tutto il mese, non una per ordine.
+  const pagati = new Set<string>()
+  try {
+    const righe = await db.richiestaPagamento.findMany({
+      where: {
+        pagataIl: { not: null },
+        ordineNumero: { in: ordini.map((o) => o.numero).filter(Boolean) },
+      },
+      select: { ordineNumero: true },
+    })
+    for (const r of righe) pagati.add(r.ordineNumero)
+  } catch {
+    // ⚠️ Contorno: se fallisce, il calendario si apre lo stesso senza i bollini.
+  }
+
   // Legenda: gli stati presenti nel mese, col loro colore.
+  // ⚠️ La legenda della GESTIONE, accanto a quella degli stati Shopify: serve a
+  // rispondere «quanti ordini di questo mese non ho ancora lavorato?» senza
+  // contarli a occhio.
+  const gestioni = new Map<string, number>()
+  for (const o of ordini) gestioni.set(o.gestione || 'da_gestire', (gestioni.get(o.gestione || 'da_gestire') ?? 0) + 1)
+
   const stati = new Map<string, { chiave: string; nome: string; colore: string; quanti: number }>()
   for (const o of ordini) {
     const chiave = o.statoChiave || 'senza-stato'
@@ -77,8 +112,10 @@ export async function GET(req: NextRequest) {
     ordini: ordini.map((o) => ({
       ...o,
       giorno: o.dataConsegna ? o.dataConsegna.toISOString().slice(0, 10) : '',
+      pagato: pagati.has(o.numero),
     })),
     stati: [...stati.values()].sort((a, b) => b.quanti - a.quanti),
+    gestioni: [...gestioni.entries()].map(([chiave, quanti]) => ({ chiave, quanti })),
     negozi,
     senzaData,
   })

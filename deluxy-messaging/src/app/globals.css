@@ -4473,3 +4473,16 @@ td .azioni-ordine {
   font: inherit;
   font-size: 13px;
 }
+
+/* Il puntino dello stato di lavorazione sulla casella del calendario: nella
+   griglia di un mese non c e spazio per una parola, ma «a che punto siamo» si
+   deve vedere senza passare col mouse. */
+.punto-gestione {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-right: 5px;
+  vertical-align: middle;
+  flex: 0 0 auto;
+}

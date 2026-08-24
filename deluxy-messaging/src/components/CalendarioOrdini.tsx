@@ -1,6 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { coloreGestione, nomeGestione } from '@/lib/gestione'
+import { fornitoreAtteso } from '@/lib/fornitore-ordine'
 
 // Calendario delle consegne: un mese per volta, gli ordini nel giorno in cui
 // devono essere consegnati, colorati con lo stato della pipeline di Orders.
@@ -18,9 +20,19 @@ type OrdineCal = {
   statoChiave: string
   statoNome: string
   statoColore: string
+  /**
+   * Come lo stiamo lavorando NOI.
+   * ⚠️ Diverso da `statoNome`, che viene dalla pipeline di Orders: quello dice
+   * a che punto è l'ordine per il negozio, questo a che punto siamo noi.
+   */
+  gestione: string
+  gestioneDaNome: string
+  fornitoreNome: string
+  pagato: boolean
 }
 
 type StatoCal = { chiave: string; nome: string; colore: string; quanti: number }
+type GestioneCal = { chiave: string; quanti: number }
 
 const GIORNI = ['lun', 'mar', 'mer', 'gio', 'ven', 'sab', 'dom']
 
@@ -61,6 +73,7 @@ export function CalendarioOrdini() {
   const [mese, setMese] = useState(meseCorrente())
   const [ordini, setOrdini] = useState<OrdineCal[]>([])
   const [stati, setStati] = useState<StatoCal[]>([])
+  const [gestioni, setGestioni] = useState<GestioneCal[]>([])
   const [negozi, setNegozi] = useState<{ id: string; nome: string }[]>([])
   const [negozio, setNegozio] = useState('')
   const [senzaData, setSenzaData] = useState(0)
@@ -82,11 +95,13 @@ export function CalendarioOrdini() {
       const d = (await res.json()) as {
         ordini: OrdineCal[]
         stati: StatoCal[]
+        gestioni?: GestioneCal[]
         negozi: { id: string; nome: string }[]
         senzaData: number
       }
       setOrdini(d.ordini)
       setStati(d.stati)
+      setGestioni(d.gestioni ?? [])
       setNegozi(d.negozi)
       setSenzaData(d.senzaData)
     } catch {
@@ -168,6 +183,20 @@ export function CalendarioOrdini() {
           ))}
         </select>
       </div>
+
+      {/* ── QUANTI NE RESTANO DA LAVORARE ──
+          ⚠️ Il calendario diceva quando escono gli ordini, non a che punto
+          siamo: per sapere quanti ne restavano da lavorare bisognava contarli a
+          occhio, riga per riga. */}
+      {gestioni.length > 0 ? (
+        <p className="cella-sub" style={{ margin: '0 0 8px' }}>
+          {gestioni
+            .filter((g) => g.quanti > 0)
+            .sort((a, b) => b.quanti - a.quanti)
+            .map((g) => `${g.quanti} ${nomeGestione(g.chiave).toLowerCase()}`)
+            .join(' · ')}
+        </p>
+      ) : null}
 
       {/* Legenda degli stati: cliccando si filtra */}
       {stati.length > 0 ? (
@@ -265,6 +294,38 @@ export function CalendarioOrdini() {
                       <span className="stato" style={{ color: o.statoColore || undefined }}>
                         {o.statoNome || 'Senza stato'}
                       </span>
+                      {/* ── COME LO STIAMO LAVORANDO NOI ──
+                          ⚠️ Accanto allo stato di Orders, non al suo posto:
+                          sono due domande diverse — «a che punto è per il
+                          negozio» e «a che punto siamo noi» — e su un
+                          calendario di consegne la seconda è quella vera.
+                          ⚠️ Pagato e fornitore stanno qui perché su una
+                          consegna imminente sono le due cose che mancano più
+                          spesso, e vederle costringe ad aprire l'ordine. */}
+                      <span
+                        className="badge"
+                        style={{ color: coloreGestione(o.gestione), background: 'var(--fill)' }}
+                        title={
+                          o.gestioneDaNome
+                            ? `${nomeGestione(o.gestione)} — segnato da ${o.gestioneDaNome}`
+                            : nomeGestione(o.gestione)
+                        }
+                      >
+                        {nomeGestione(o.gestione)}
+                      </span>
+                      {o.pagato ? (
+                        <span className="badge badge-pagato" title="Il fornitore risulta pagato">
+                          pagato
+                        </span>
+                      ) : null}
+                      {!o.fornitoreNome && fornitoreAtteso(o.gestione) ? (
+                        <span
+                          className="badge badge-senza-fornitore"
+                          title="Quest'ordine è già avanti ma non risulta dato a nessun fornitore"
+                        >
+                          fornitore?
+                        </span>
+                      ) : null}
                       <span className="importo">{euro(o.totale, o.valuta)}</span>
                     </div>
                   ))}
@@ -297,9 +358,22 @@ export function CalendarioOrdini() {
                       key={o.id}
                       className="cal-ordine"
                       style={{ borderLeftColor: o.statoColore || 'var(--text-tertiary)' }}
-                      title={`${o.numero} · ${o.clienteNome || '—'}${o.citta ? ' · ' + o.citta : ''}\n${o.statoNome || 'Senza stato'}${o.fasciaConsegna ? ' · ' + o.fasciaConsegna : ''}\n${euro(o.totale, o.valuta)} · ${o.negozioNome}`}
+                      title={`${o.numero} · ${o.clienteNome || '—'}${o.citta ? ' · ' + o.citta : ''}\n${o.statoNome || 'Senza stato'}${o.fasciaConsegna ? ' · ' + o.fasciaConsegna : ''}\n${euro(o.totale, o.valuta)} · ${o.negozioNome}
+${nomeGestione(o.gestione)}${o.pagato ? ' · pagato' : ''}${o.fornitoreNome ? ' · lo prepara ' + o.fornitoreNome : ''}`}
                     >
-                      <span className="cal-num">{o.numero}</span>
+                      <span className="cal-num">
+                        {/* ⚠️ Un puntino, non una parola: nella casella di un
+                            giorno non c'e' spazio, ma «a che punto siamo» si
+                            deve vedere senza passarci sopra col mouse. Il
+                            colore e' lo stesso della bacheca, cosi' non si
+                            impara due volte. */}
+                        <span
+                          className="punto-gestione"
+                          style={{ background: coloreGestione(o.gestione) }}
+                          aria-hidden="true"
+                        />
+                        {o.numero}
+                      </span>
                       {o.fasciaConsegna ? (
                         <span className="cal-fascia">{o.fasciaConsegna}</span>
                       ) : null}

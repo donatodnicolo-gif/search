@@ -545,6 +545,28 @@ parola per parola, così «rossi pasticceria» trova «Pasticceria Rossi».
 
 Prova: `npx tsx scripts/prova-cerca-fornitore.mts`
 
+## Il calendario dice anche a che punto siamo
+
+Ogni consegna porta il suo **stato di lavorazione** — da iniziare · ricerca
+fornitore · in pagamento · attesa consegna · gestito — accanto allo stato che
+c era già.
+
+⚠️⚠️ Sono **due cose diverse**:  viene dalla pipeline di
+Orders/Shopify e dice a che punto è l ordine **per il negozio**; la gestione dice
+a che punto siamo **noi**. Su un calendario di consegne la seconda è la domanda
+vera — «cosa esce giovedì, e cosa mi manca ancora da fare».
+
+In cima, il conto: «20 da iniziare · 2 in pagamento · 5 gestito». Prima il
+calendario diceva **quando** escono gli ordini, non a che punto erano: per sapere
+quanti restavano da lavorare bisognava contarli a occhio, riga per riga.
+
+⚠️ Nella griglia del mese non c è spazio per una parola, quindi c è un **puntino**
+dello stesso colore della bacheca — così non si impara due volte. Il dettaglio
+sta nel titolo, col fornitore e col «pagato».
+
+⚠️ Sulle consegne già avanti senza fornitore compare **«fornitore?»**, come in
+bacheca: su una consegna imminente è la cosa che manca più spesso.
+
 ## I fornitori in zona: solo chi può fare QUEL prodotto
 
 L'elenco «Fornitori in provincia di …» si restringe al mestiere che serve. Tre

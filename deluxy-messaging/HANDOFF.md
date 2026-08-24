@@ -373,6 +373,22 @@ locale, altrimenti nulla si decifra.
   - ⚠️ **Il numero delle note da fare sta sul bottone**: in un pannello chiuso
     una nota lasciata a un collega non esisterebbe.
 
+- **IL CALENDARIO MOSTRA LO STATO DI GESTIONE** (24/08/2026, chiesto).
+  - ⚠️⚠️ Non è lo stato che c era già:  viene dalla pipeline di
+    Orders e dice a che punto è l ordine **per il negozio**; la gestione dice a
+    che punto siamo **noi**. Su un calendario di consegne è la seconda la
+    domanda vera.
+  - In cima il conto per stato; sulla riga il badge (stessi colori della
+    bacheca), «pagato» e «fornitore?»; nella griglia del mese un **puntino**,
+    perché per una parola non c è spazio.
+  - ✅ Sui dati veri, prossimi 14 giorni: **27 consegne — 20 da iniziare · 2 in
+    pagamento · 5 gestito**.
+  - 🔴 **Trovato per strada**: #2786 e #2787 risultano **pagati ma «da
+    iniziare»**. È una contraddizione vera nei dati, non un difetto della
+    schermata: quelle richieste sono state segnate pagate mentre l ordine era
+    indietro, e l avanzamento automatico scatta solo da «in pagamento». Ora si
+    vede — prima era invisibile.
+
 - **I FORNITORI IN ZONA, FILTRATI SUL PRODOTTO** (24/08/2026, chiesto: «mostra
   solo quelli che possono fornire la categoria di prodotto»).
   - ⚠️⚠️ Su **«Deluxy», che vende di tutto**, `mestierePerNegozio` torna `null`
