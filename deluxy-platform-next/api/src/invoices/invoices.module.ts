@@ -544,7 +544,7 @@ export class InvoicesService {
       // un punto: «. .» in un documento che va al cliente sembra un guasto.
       // Se non ci sono lettere, non e' un nome — meglio l'indirizzo, o niente.
       const chi = `${d.recipientLastName ?? ''} ${d.recipientFirstName ?? ''}`.trim();
-      const recipient = /p{L}/u.test(chi) ? chi : (d.recipientAddress?.trim() || '—');
+      const recipient = /\p{L}/u.test(chi) ? chi : (d.recipientAddress?.trim() || '—');
       righe.push({
         code: d.code,
         date: d.date,
