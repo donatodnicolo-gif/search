@@ -297,6 +297,39 @@ correzione del 06/08 è sembrata completa perché nessuno poteva rileggere il
 risultato. Un difetto che scrive su un sistema esterno ha **due** rimedi, e il
 secondo si dimentica sempre.
 
+### 🔴 IL PONTE SU DRIVE È COSTRUITO E NON COLLEGATO A NIENTE (24/08/2026)
+
+Segnalato: *«su Drive l'app non ha messo nessun file su quello che è stato
+fatto»*. **Vero, e non è un guasto.** Verificato chiedendo direttamente a Google
+con le credenziali dell'app:
+
+- Nella cartella `ads/App Azioni/OUT - dall'app` c'è **un solo file**:
+  `_LEGGIMI.md` del **27/07**, di `deluxy.delivery@gmail.com` — cioè scritto
+  dall'utente. **L'app non ha mai depositato niente.**
+- **La causa**: `scriviInOut()` ha **un solo chiamante in tutto il codice**, il
+  bottone «Prova scrittura» in `/impostazioni`. Non esiste nessun punto che
+  produca i quattro file che il `_LEGGIMI` dichiara —
+  `APPEND 00.2 App-Azioni [data].md` (log azioni), `RISULTATI App [Brand]`,
+  `SEGNALAZIONE App [Brand]`, `RICHIESTA App [Brand]`. Il ponte è stato
+  costruito tutto (protocollo, regole append-only, scrittore, diagnosi) e non è
+  mai stato **collegato a chi dovrebbe alimentarlo**.
+- **I permessi ci sono**: la cartella è condivisa con
+  `app-deluxy@deluxy.iam.gserviceaccount.com` con `canAddChildren: true`.
+  ⚠️ **Ma è una cartella normale, non un Drive condiviso** (`driveId` assente) e
+  `drive.impersona` **non è impostata**: il commento in `drive-scrittura.ts`
+  avverte che un account di servizio *non ha quota di archiviazione* e la
+  creazione fallisce. Un clic su «Prova scrittura» lo dice in tre secondi —
+  non l'ho fatto io perché lascerebbe un file in una cartella che altri leggono.
+- ⚠️ **E anche scrivendo, l'app non se ne accorgerebbe**: l'ultima sync Drive è
+  del **04/08**, l'indice è fermo al 07/08, e la sync **non ha un cron**.
+
+⚠️ Il formato dei quattro file sta in `ads/Definitivi/MODELLO Ponte App Azioni.md`
+§2-5, che **né l'account di servizio né la chiave API riescono a leggere**: alla
+prima è condivisa solo la cartella OUT, la seconda non ha permessi su quel file.
+Serve che l'utente lo incolli, o che condivida quel documento con l'account di
+servizio. **Senza il formato non si costruisce il deposito**: un APPEND che il
+custode non riesce a consolidare è peggio di nessun APPEND.
+
 ### ⭐ TIKTOK: c'era tutto tranne chi lo facesse partire (24/08/2026)
 
 Chiesto dall'utente: «dammi come collegare TikTok». Guardando il codice per
