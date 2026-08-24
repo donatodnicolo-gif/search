@@ -55,7 +55,11 @@ in parallelo sullo stesso branch.
 | `scripts` | catalogo degli script di **codice** del repo (l'app `deluxy-scripts`, invece, è dei testi commerciali) | — | — | [README.md](scripts/README.md) |
 
 Porte riservate ma non in questo repo (le cartelle stanno in `C:\Users\nicol\app`):
-3090 tasks, 3100 acquisti, 3110 calendario, 3180 fondo, 3190 crm,
+3090 tasks, 3100 acquisti, 3110 calendario, 3180 fondo,
+**3190 crm** — il libro dei clienti D2C (clienteling: schede a 360° da Orders,
+ricorrenze, eventi con inviti, mail personalizzate via AI Mail), LIVE su
+[deluxy-crm.vercel.app](https://deluxy-crm.vercel.app), leggi per primo
+`deluxy-crm/HANDOFF.md` in `app/`;
 **3200 personale** — organico/HR (funzioni, mansioni, organigramma, inquadramenti,
 retribuzioni), LIVE su [deluxy-personale.vercel.app](https://deluxy-personale.vercel.app),
 leggi per primo `deluxy-personale/README.md` in `app/`.
