@@ -762,6 +762,19 @@ Sono due cose diverse: una dice cosa c'è da fare, l'altra a che punto sei.
 La nota non resta chiusa in AI Mail: arriva anche nell'app Attività, in coda alla
 descrizione, quindi la leggono i colleghi che la vedono da lì.
 
+### Luoghi e date nei riassunti
+
+Ogni riassunto — della singola mail, della conversazione, della sezione — riporta
+**per intero** data, ora, nome del posto (hotel, ristorante, showroom, via e civico)
+e città, copiati come stanno scritti. Non accorcia «al Plein hotel» in «a Milano»,
+non trasforma «dalle 20:00» in «in serata», non lascia cadere l'anno. Se un dato
+non c'è, lo dice invece di dedurlo.
+
+⚠️ Prima non era così: un riassunto diceva «un evento aziendale a Milano l'8
+settembre 2026» mentre la mail diceva «at the Plein hotel, on September 8, 2026,
+starting 20:00». Erano spariti l'albergo e l'ora, cioè proprio quello che serve
+per consegnare.
+
 ## 7. Sicurezza
 
 **Password.** Cifrate con AES-256-GCM (`src/lib/crypto.ts`), chiave derivata da
