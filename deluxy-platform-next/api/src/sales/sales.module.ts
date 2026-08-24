@@ -83,6 +83,23 @@ export class SalesService {
     const quando = body.deliveryDate ? new Date(body.deliveryDate) : new Date();
     const scelto = await this.scegliPartner(product, body.provinceId, quando, []);
 
+    // Lo SCONTO si cristallizza QUI, alla nascita della vendita: e' la regola
+    // CategoryDiscount (categoria del prodotto × provincia), gestita
+    // dall'admin. Scriverlo sulla vendita — e non ricalcolarlo dopo — fa si'
+    // che un cambio di listino non riscriva la storia: le vendite passate
+    // restano ai patti del loro giorno. 0 = nessuna regola per quella coppia.
+    const sconto = product.categoryId
+      ? await this.prisma.categoryDiscount.findUnique({
+          where: {
+            categoryId_provinceId: {
+              categoryId: product.categoryId,
+              provinceId: body.provinceId,
+            },
+          },
+          select: { discountPercent: true },
+        })
+      : null;
+
     return this.prisma.sale.create({
       data: {
         productId: product.id,
@@ -91,6 +108,7 @@ export class SalesService {
         customerId: body.customerId,
         brand: body.brand ?? 'DELUXY',
         amount: product.price ?? 0,
+        discountPercent: sconto?.discountPercent ?? 0,
         status: scelto ? SaleStatus.PROPOSTA : SaleStatus.DA_GESTIRE,
         source: body.source ?? 'app',
         externalOrderId: body.externalOrderId,

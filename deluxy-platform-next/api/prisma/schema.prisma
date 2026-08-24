@@ -1299,6 +1299,21 @@ model Sale {
   updatedAt       DateTime  @updatedAt
 }
 
+// Chiavi API per le ALTRE APP Deluxy (app-to-app, standard §4.3): header
+// `x-api-key`, nel database vive SOLO lo SHA-256 — la chiave in chiaro si vede
+// una volta alla creazione (scripts/crea-chiave-app.mjs) e poi mai più.
+// È il canale con cui Orders legge lo stato delle vendite smistate
+// (`GET /api/v1/app/vendite/by-ref/...`) per consegna e margine.
+model AppApiKey {
+  id        String    @id @default(cuid())
+  nome      String    @unique // chi la usa: "deluxy-orders", "deluxy-messaging"
+  hash      String    @unique // SHA-256 della chiave, mai il valore
+  scrittura Boolean   @default(false)
+  attiva    Boolean   @default(true)
+  ultimoUso DateTime?
+  creataIl  DateTime  @default(now())
+}
+
 // Impostazioni applicative (chiave-valore) gestite dall'admin in Configurazione →
 // Impostazioni: chiavi API di servizi esterni (es. Google Maps) e simili.
 // I valori vivono SOLO nel database: mai in file di codice o commit (regola 3).
