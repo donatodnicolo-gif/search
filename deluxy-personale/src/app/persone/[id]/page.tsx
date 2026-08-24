@@ -4,11 +4,13 @@ import { dataIt, dataInput, euro, numero } from "@/lib/formato";
 import {
   compensoCorrente,
   costoAziendaAnnuo,
+  eAutonomo,
   FREQUENZE_ATTIVITA,
   inquadramentoCorrente,
   MOTIVI_COMPENSO,
   nomeMotivoCompenso,
   nomeTipoContratto,
+  prossimaDecorrenza,
   QUALIFICHE,
   statoScadenza,
   TIPI_CONTRATTO,
@@ -71,8 +73,14 @@ export default async function SchedaPersona({
   ]);
 
   const inquadramento = inquadramentoCorrente(persona.inquadramenti);
+  // Un autonomo (P.IVA, consulente) non ha una RAL: la sezione Retribuzione
+  // parla di compenso. Il tipo di riferimento è il contratto corrente o, se
+  // non c'è, quello che decorrerà.
+  const autonomo = eAutonomo(
+    (inquadramento ?? prossimaDecorrenza(persona.inquadramenti))?.tipoContratto,
+  );
   const compenso = compensoCorrente(persona.compensi);
-  const costo = costoAziendaAnnuo(compenso);
+  const costo = costoAziendaAnnuo(compenso, { autonomo });
   const scadenza = inquadramento ? statoScadenza(inquadramento.scadenza) : null;
   const assegnate = new Set(persona.assegnazioni.map((a) => a.mansioneId));
   const assegnabili = mansioniTutte.filter((m) => !assegnate.has(m.id));
@@ -511,16 +519,19 @@ export default async function SchedaPersona({
       <div className="card">
         <div className="card-testa">
           <div>
-            <h2 className="card-titolo">Retribuzione</h2>
+            <h2 className="card-titolo">{autonomo ? "Compenso" : "Retribuzione"}</h2>
             <p className="card-sub">
-              La storia degli stipendi. Il netto si scrive se lo si conosce — non si deduce mai dal
-              lordo; il costo azienda esiste solo con i contributi dichiarati.
+              {autonomo
+                ? "La storia dei compensi pattuiti: chi fattura non ha RAL, mensilità né netto in busta. Il costo azienda è il compenso, più gli eventuali oneri pattuiti (es. rivalsa)."
+                : "La storia degli stipendi. Il netto si scrive se lo si conosce — non si deduce mai dal lordo; il costo azienda esiste solo con i contributi dichiarati."}
             </p>
           </div>
           {compenso && (
             <span className="badge verde">
               <span className="dot" />
-              oggi: RAL {euro(Number(compenso.ral))} · {compenso.mensilita} mensilità
+              {autonomo
+                ? `oggi: compenso ${euro(Number(compenso.ral))}`
+                : `oggi: RAL ${euro(Number(compenso.ral))} · ${compenso.mensilita} mensilità`}
               {costo != null ? ` · costo ${euro(costo)}` : ""}
             </span>
           )}
@@ -533,10 +544,10 @@ export default async function SchedaPersona({
                 <tr>
                   <th>Decorrenza</th>
                   <th>Motivo</th>
-                  <th className="num">RAL</th>
+                  <th className="num">{autonomo ? "Compenso" : "RAL"}</th>
                   <th className="num">Mensilità</th>
                   <th className="num">Netto mensile</th>
-                  <th className="num">Contributi</th>
+                  <th className="num">{autonomo ? "Oneri" : "Contributi"}</th>
                   <th className="num">Costo azienda</th>
                   <th>Benefit</th>
                   <th />
@@ -544,21 +555,29 @@ export default async function SchedaPersona({
               </thead>
               <tbody>
                 {persona.compensi.map((c) => {
-                  const costoRiga = costoAziendaAnnuo(c);
+                  const costoRiga = costoAziendaAnnuo(c, { autonomo });
                   return (
                     <tr key={c.id}>
                       <td>{dataIt(c.decorrenza)}</td>
                       <td>{nomeMotivoCompenso(c.motivo)}</td>
                       <td className="num">{euro(Number(c.ral))}</td>
-                      <td className="num">{c.mensilita}</td>
                       <td className="num">
-                        {c.nettoMensile != null ? euro(Number(c.nettoMensile)) : (
+                        {autonomo ? <span className="cella-vuota">—</span> : c.mensilita}
+                      </td>
+                      <td className="num">
+                        {autonomo ? (
+                          <span className="cella-vuota">—</span>
+                        ) : c.nettoMensile != null ? (
+                          euro(Number(c.nettoMensile))
+                        ) : (
                           <span className="cella-vuota">non indicato</span>
                         )}
                       </td>
                       <td className="num">
-                        {c.contributiPct != null ? `${numero(Number(c.contributiPct))}%` : (
-                          <span className="cella-vuota">—</span>
+                        {c.contributiPct != null ? (
+                          `${numero(Number(c.contributiPct))}%`
+                        ) : (
+                          <span className="cella-vuota">{autonomo ? "nessuno" : "—"}</span>
                         )}
                       </td>
                       <td className="num">
@@ -590,24 +609,40 @@ export default async function SchedaPersona({
               <input type="date" name="decorrenza" required defaultValue={oggiInput} />
             </div>
             <div className="campo">
-              <label>RAL — lordo annuo € *</label>
-              <input type="text" inputMode="decimal" name="ral" required placeholder="Es. 28.500" />
+              <label>{autonomo ? "Compenso annuo € *" : "RAL — lordo annuo € *"}</label>
+              <input
+                type="text"
+                inputMode="decimal"
+                name="ral"
+                required
+                placeholder={autonomo ? "Es. 14.400" : "Es. 28.500"}
+              />
             </div>
+            {autonomo ? (
+              // Chi fattura non ha mensilità né netto in busta: si registra il
+              // compenso e basta (12 = valore neutro a database).
+              <input type="hidden" name="mensilita" value="12" />
+            ) : (
+              <>
+                <div className="campo">
+                  <label>Mensilità</label>
+                  <select name="mensilita" defaultValue="13">
+                    <option value="12">12</option>
+                    <option value="13">13</option>
+                    <option value="14">14</option>
+                  </select>
+                </div>
+                <div className="campo">
+                  <label>Netto mensile € (se noto)</label>
+                  <input type="text" inputMode="decimal" name="nettoMensile" placeholder="Es. 1.650" />
+                </div>
+              </>
+            )}
             <div className="campo">
-              <label>Mensilità</label>
-              <select name="mensilita" defaultValue="13">
-                <option value="12">12</option>
-                <option value="13">13</option>
-                <option value="14">14</option>
-              </select>
-            </div>
-            <div className="campo">
-              <label>Netto mensile € (se noto)</label>
-              <input type="text" inputMode="decimal" name="nettoMensile" placeholder="Es. 1.650" />
-            </div>
-            <div className="campo">
-              <label>Contributi azienda % (per il costo)</label>
-              <input type="text" inputMode="decimal" name="contributiPct" placeholder="Es. 38,5" />
+              <label>
+                {autonomo ? "Oneri in più % (es. rivalsa 4; vuoto = nessuno)" : "Contributi azienda % (per il costo)"}
+              </label>
+              <input type="text" inputMode="decimal" name="contributiPct" placeholder={autonomo ? "Es. 4" : "Es. 38,5"} />
             </div>
             <div className="campo">
               <label>Motivo</label>
@@ -631,7 +666,7 @@ export default async function SchedaPersona({
           </div>
           <div className="form-azioni">
             <button className="btn" type="submit">
-              Registra retribuzione
+              {autonomo ? "Registra compenso" : "Registra retribuzione"}
             </button>
           </div>
         </form>

@@ -24,6 +24,17 @@ export function nomeTipoContratto(chiave: string): string {
   return TIPI_CONTRATTO.find((t) => t.chiave === chiave)?.nome ?? (chiave || "non indicato");
 }
 
+// Tipi AUTONOMI: fatturano un compenso, non hanno una RAL — niente mensilità,
+// niente netto in busta, e il costo azienda è il compenso stesso salvo oneri
+// pattuiti in più (es. rivalsa INPS). La collaborazione co.co.co. NON è qui:
+// ha i contributi di gestione separata a carico committente, quindi resta nel
+// mondo «RAL + contributi».
+export const TIPI_AUTONOMI = ["partita_iva", "consulente"] as const;
+
+export function eAutonomo(tipoContratto: string | null | undefined): boolean {
+  return tipoContratto != null && (TIPI_AUTONOMI as readonly string[]).includes(tipoContratto);
+}
+
 export const QUALIFICHE = ["operaio", "impiegato", "quadro", "dirigente"] as const;
 
 export const FREQUENZE_ATTIVITA = ["giornaliera", "settimanale", "mensile", "su richiesta"] as const;
@@ -66,17 +77,26 @@ export function prossimaDecorrenza<T extends { decorrenza: Date }>(righe: T[], o
   return future.reduce((a, b) => (a.decorrenza.getTime() <= b.decorrenza.getTime() ? a : b));
 }
 
-// Costo azienda annuo: RAL × (1 + contributi%). SOLO se la percentuale di
-// contributi è dichiarata: senza quell'ingrediente il costo è "non
-// calcolabile", non zero (regola Deluxy sui dati mancanti).
-export function costoAziendaAnnuo(compenso: Compenso | null): number | null {
-  if (!compenso || compenso.contributiPct == null) return null;
-  const ral = Number(compenso.ral);
+// Costo azienda annuo: lordo × (1 + contributi%). Per i DIPENDENTI serve la
+// percentuale dichiarata: senza quell'ingrediente il costo è "non
+// calcolabile", non zero (regola Deluxy sui dati mancanti). Per gli AUTONOMI
+// il costo è il compenso per costruzione (su una fattura non ci sono oneri
+// datoriali nascosti): contributi assenti = compenso pieno, non "non so".
+export function costoAziendaAnnuo(
+  compenso: Compenso | null,
+  opzioni: { autonomo?: boolean } = {},
+): number | null {
+  if (!compenso) return null;
+  const lordo = Number(compenso.ral);
+  if (!Number.isFinite(lordo)) return null;
+  if (compenso.contributiPct == null) {
+    return opzioni.autonomo ? Math.round(lordo * 100) / 100 : null;
+  }
   const pct = Number(compenso.contributiPct);
-  if (!Number.isFinite(ral) || !Number.isFinite(pct)) return null;
+  if (!Number.isFinite(pct)) return null;
   // Al centesimo: 18.750 × 1,38 in virgola mobile fa 25874,999…96, e un'API
   // che lo restituisce così sporca ogni consumatore a valle.
-  return Math.round(ral * (1 + pct / 100) * 100) / 100;
+  return Math.round(lordo * (1 + pct / 100) * 100) / 100;
 }
 
 // Un contratto a scadenza si segnala: entro 60 giorni è "in scadenza",

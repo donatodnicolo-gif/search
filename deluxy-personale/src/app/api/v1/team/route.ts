@@ -4,8 +4,10 @@ import { prisma } from "@/lib/db";
 import {
   compensoCorrente,
   costoAziendaAnnuo,
+  eAutonomo,
   inquadramentoCorrente,
   nomeTipoContratto,
+  prossimaDecorrenza,
   TIPI_CONTRATTO,
 } from "@/lib/organico";
 
@@ -44,8 +46,11 @@ export async function GET(req: NextRequest) {
 
   const persone = personeDb.map((p) => {
     const inquadramento = inquadramentoCorrente(p.inquadramenti);
+    // Per un autonomo (P.IVA, consulente) il costo è il compenso anche senza
+    // la % oneri: su una fattura non ci sono oneri datoriali nascosti.
+    const autonomo = eAutonomo((inquadramento ?? prossimaDecorrenza(p.inquadramenti))?.tipoContratto);
     const compenso = conCompensi ? compensoCorrente(p.compensi) : null;
-    const costo = conCompensi ? costoAziendaAnnuo(compenso) : null;
+    const costo = conCompensi ? costoAziendaAnnuo(compenso, { autonomo }) : null;
     return {
       id: p.id,
       nome: p.nome,

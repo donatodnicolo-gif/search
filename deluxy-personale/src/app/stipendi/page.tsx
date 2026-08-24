@@ -1,6 +1,13 @@
 import { prisma } from "@/lib/db";
 import { dataIt, euro, numero } from "@/lib/formato";
-import { compensoCorrente, costoAziendaAnnuo, nomeMotivoCompenso, prossimaDecorrenza } from "@/lib/organico";
+import {
+  compensoCorrente,
+  costoAziendaAnnuo,
+  eAutonomo,
+  inquadramentoCorrente,
+  nomeMotivoCompenso,
+  prossimaDecorrenza,
+} from "@/lib/organico";
 
 // Il quadro delle retribuzioni CORRENTI delle persone attive. I totali sommano
 // solo ciò che c'è, e dichiarano chi manca: un totale che ingloba zeri
@@ -11,16 +18,21 @@ export const dynamic = "force-dynamic";
 export default async function PaginaStipendi() {
   const persone = await prisma.persona.findMany({
     where: { stato: "attivo" },
-    include: { funzione: true, compensi: true },
+    include: { funzione: true, compensi: true, inquadramenti: true },
     orderBy: { nome: "asc" },
   });
 
   const righe = persone.map((p) => {
     const compenso = compensoCorrente(p.compensi);
+    const inquadramento = inquadramentoCorrente(p.inquadramenti);
+    // Un autonomo (P.IVA, consulente) non ha RAL/mensilità/netto: la riga
+    // mostra il compenso e il costo è il compenso stesso più eventuali oneri.
+    const autonomo = eAutonomo((inquadramento ?? prossimaDecorrenza(p.inquadramenti))?.tipoContratto);
     return {
       p,
       compenso,
-      costo: costoAziendaAnnuo(compenso),
+      autonomo,
+      costo: costoAziendaAnnuo(compenso, { autonomo }),
       futuro: compenso ? null : prossimaDecorrenza(p.compensi),
     };
   });
@@ -45,7 +57,7 @@ export default async function PaginaStipendi() {
 
       <div className="kpi-riga">
         <div className="kpi">
-          <div className="kpi-nome">Monte RAL annuo</div>
+          <div className="kpi-nome">Monte lordi annui (RAL e compensi)</div>
           <div className="kpi-valore">{conRal.length > 0 ? euro(totaleRal) : "—"}</div>
           <div className="kpi-nota">
             {conRal.length === 0
@@ -108,16 +120,16 @@ export default async function PaginaStipendi() {
                 <th>Funzione</th>
                 <th>Dal</th>
                 <th>Motivo</th>
-                <th className="num">RAL</th>
+                <th className="num">RAL / compenso</th>
                 <th className="num">Mensilità</th>
                 <th className="num">Lordo mensile</th>
                 <th className="num">Netto mensile</th>
-                <th className="num">Contributi</th>
+                <th className="num">Contributi / oneri</th>
                 <th className="num">Costo azienda</th>
               </tr>
             </thead>
             <tbody>
-              {righe.map(({ p, compenso, costo, futuro }) => (
+              {righe.map(({ p, compenso, autonomo, costo, futuro }) => (
                 <tr key={p.id}>
                   <td>
                     <a className="link-nome" href={`/persone/${p.id}`}>
@@ -131,10 +143,20 @@ export default async function PaginaStipendi() {
                       <td>{dataIt(compenso.decorrenza)}</td>
                       <td>{nomeMotivoCompenso(compenso.motivo)}</td>
                       <td className="num">{euro(Number(compenso.ral))}</td>
-                      <td className="num">{compenso.mensilita}</td>
-                      <td className="num">{euro(Number(compenso.ral) / compenso.mensilita)}</td>
                       <td className="num">
-                        {compenso.nettoMensile != null ? (
+                        {autonomo ? <span className="cella-vuota">—</span> : compenso.mensilita}
+                      </td>
+                      <td className="num">
+                        {autonomo ? (
+                          <span className="cella-vuota">—</span>
+                        ) : (
+                          euro(Number(compenso.ral) / compenso.mensilita)
+                        )}
+                      </td>
+                      <td className="num">
+                        {autonomo ? (
+                          <span className="cella-vuota">—</span>
+                        ) : compenso.nettoMensile != null ? (
                           euro(Number(compenso.nettoMensile))
                         ) : (
                           <span className="cella-vuota">non indicato</span>
@@ -144,7 +166,7 @@ export default async function PaginaStipendi() {
                         {compenso.contributiPct != null ? (
                           `${numero(Number(compenso.contributiPct))}%`
                         ) : (
-                          <span className="cella-vuota">—</span>
+                          <span className="cella-vuota">{autonomo ? "nessuno" : "—"}</span>
                         )}
                       </td>
                       <td className="num">

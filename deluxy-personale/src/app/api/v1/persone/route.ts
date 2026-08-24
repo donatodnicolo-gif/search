@@ -4,8 +4,10 @@ import { prisma } from "@/lib/db";
 import {
   compensoCorrente,
   costoAziendaAnnuo,
+  eAutonomo,
   inquadramentoCorrente,
   nomeTipoContratto,
+  prossimaDecorrenza,
 } from "@/lib/organico";
 
 // GET /api/v1/persone — la scheda completa di ogni persona per le app Deluxy
@@ -44,6 +46,7 @@ export async function GET(req: NextRequest) {
 
   const dati = persone.map((x) => {
     const inquadramento = inquadramentoCorrente(x.inquadramenti);
+    const autonomo = eAutonomo((inquadramento ?? prossimaDecorrenza(x.inquadramenti))?.tipoContratto);
     const compenso = conCompensi ? compensoCorrente(x.compensi) : null;
     return {
       id: x.id,
@@ -86,11 +89,15 @@ export async function GET(req: NextRequest) {
             compenso: compenso
               ? {
                   decorrenza: compenso.decorrenza.toISOString().slice(0, 10),
+                  // "ral" per i dipendenti, "compenso" per gli autonomi
+                  // (P.IVA/consulente): stesso campo, natura dichiarata.
+                  natura: autonomo ? "compenso" : "ral",
                   ral: Number(compenso.ral),
-                  mensilita: compenso.mensilita,
+                  mensilita: autonomo ? null : compenso.mensilita,
                   contributiPct: compenso.contributiPct != null ? Number(compenso.contributiPct) : null,
-                  // null = non calcolabile (contributi non dichiarati), non zero.
-                  costoAzienda: costoAziendaAnnuo(compenso),
+                  // null = non calcolabile (contributi non dichiarati); per un
+                  // autonomo senza oneri il costo è il compenso, non null.
+                  costoAzienda: costoAziendaAnnuo(compenso, { autonomo }),
                   benefit: compenso.benefit || null,
                 }
               : null,

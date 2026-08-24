@@ -3,6 +3,7 @@ import { dataIt, euro } from "@/lib/formato";
 import {
   compensoCorrente,
   costoAziendaAnnuo,
+  eAutonomo,
   inquadramentoCorrente,
   nomeTipoContratto,
   prossimaDecorrenza,
@@ -45,13 +46,14 @@ export default async function PaginaPersone({
   const righe = persone.map((p) => {
     const compenso = compensoCorrente(p.compensi);
     const inquadramento = inquadramentoCorrente(p.inquadramenti);
+    const autonomo = eAutonomo((inquadramento ?? prossimaDecorrenza(p.inquadramenti))?.tipoContratto);
     return {
       p,
       compenso,
       compensoFuturo: compenso ? null : prossimaDecorrenza(p.compensi),
       inquadramentoFuturo: inquadramento ? null : prossimaDecorrenza(p.inquadramenti),
       inquadramento,
-      costo: costoAziendaAnnuo(compenso),
+      costo: costoAziendaAnnuo(compenso, { autonomo }),
       principale:
         p.assegnazioni.find((a) => a.principale)?.mansione.nome ??
         p.assegnazioni[0]?.mansione.nome ??
@@ -196,7 +198,7 @@ export default async function PaginaPersone({
                 <th>Mansione principale</th>
                 <th>Contratto</th>
                 <th>Dal</th>
-                <th className="num">RAL</th>
+                <th className="num">RAL / compenso</th>
                 <th className="num">Costo azienda</th>
               </tr>
             </thead>
