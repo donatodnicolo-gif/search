@@ -217,6 +217,28 @@ export async function catalogoListe(): Promise<Esito<CatalogoListe>> {
   return leggi<CatalogoListe>(`/api/v1/liste`, 5 * 60 * 1000);
 }
 
+export type ElencoDiLista = {
+  lista: { chiave: string; nome: string };
+  totale: number;
+  page: number;
+  limit: number;
+  pagine: number;
+  clienti: ClienteRiga[];
+};
+
+// I clienti di UNA lista di Orders (per il costruttore di liste del CRM).
+// `riepilogo=si` porta anche riassunto e gusti: serve ai brief sui gusti.
+export async function clientiDiLista(
+  chiave: string,
+  p: { page?: number; limit?: number; riepilogo?: boolean } = {},
+): Promise<Esito<ElencoDiLista>> {
+  const qs = new URLSearchParams();
+  qs.set("page", String(p.page ?? 1));
+  qs.set("limit", String(p.limit ?? 500));
+  if (p.riepilogo) qs.set("riepilogo", "si");
+  return leggi<ElencoDiLista>(`/api/v1/liste/${encodeURIComponent(chiave)}?${qs}`);
+}
+
 export async function ricorrenze(p: {
   cliente?: string;
   prossimi?: number;

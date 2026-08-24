@@ -114,6 +114,9 @@ export default async function Scheda({
         </div>
         <div className="azioni">
           <a className="btn ghost" href={`/clienti/${encodeURIComponent(codice)}/nuovo-ordine`}>Crea ordine</a>
+          {c.telefono ? (
+            <a className="btn ghost" href={`/whatsapp/componi?cliente=${encodeURIComponent(codice)}`}>WhatsApp</a>
+          ) : null}
           {c.email ? (
             <a className="btn" href={`/mail/componi?cliente=${encodeURIComponent(codice)}`}>Scrivi una mail</a>
           ) : (

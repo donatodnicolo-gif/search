@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 // regge. Le chiavi vivono nella cassaforte del Hub o nelle env di Vercel: qui
 // non si mostrano mai i valori.
 export default async function Impostazioni() {
-  const [orders, mail, mailConfig, cs, calKey, calUtente, hubToken, db] = await Promise.all([
+  const [orders, mail, mailConfig, cs, calKey, calUtente, hubToken, openaiKey, db] = await Promise.all([
     statoOrders(),
     statoMail(),
     configurazioneMail(),
@@ -19,11 +19,13 @@ export default async function Impostazioni() {
     chiaveApp("CALENDARIO_API_KEY"),
     chiaveApp("CALENDARIO_UTENTE"),
     chiaveApp("HUB_KEYS_TOKEN"),
+    chiaveApp("OPENAI_API_KEY"),
     prisma.$queryRaw`SELECT 1`.then(
       () => true,
       () => false,
     ),
   ]);
+  const openaiOk = Boolean(openaiKey);
 
   const Stato = ({ ok, testoOk, testoNo }: { ok: boolean; testoOk: string; testoNo: string }) => (
     <span
@@ -82,11 +84,24 @@ export default async function Impostazioni() {
             <div className="card-titolo">Customer Service (nuovo ordine)</div>
             <Stato ok={cs.raggiungibile && cs.autenticato} testoOk="Collegato" testoNo={cs.raggiungibile ? "Chiave mancante o sbagliata" : "Non raggiungibile"} />
           </div>
-          <div className="card-sub">Creare un ordine con link di pagamento passa da lì (bozza su Shopify).</div>
+          <div className="card-sub">Da lì passano il nuovo ordine con link di pagamento e i WhatsApp dai numeri dei marchi.</div>
           <p className="secondario piccolo" style={{ lineHeight: 1.6 }}>
             Variabili: <code className="chip">MESSAGGI_URL</code> <code className="chip">MESSAGGI_API_KEY</code>
             <br />
             La chiave si emette dal Customer Service: <code className="chip">npm run chiave -- deluxy-crm --scrittura</code>.
+            L&apos;API WhatsApp consegna solo nella finestra 24h di Meta; fuori, c&apos;è il canale assistito.
+          </p>
+        </div>
+
+        <div className="card">
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
+            <div className="card-titolo">AI per le liste</div>
+            <Stato ok={openaiOk} testoOk="Configurata" testoNo="Manca OPENAI_API_KEY" />
+          </div>
+          <div className="card-sub">Traduce il brief in criteri sui dati di Orders: non inventa clienti.</div>
+          <p className="secondario piccolo" style={{ lineHeight: 1.6 }}>
+            Variabili: <code className="chip">OPENAI_API_KEY</code> <code className="chip">OPENAI_MODEL</code> (default
+            gpt-4o-mini, come le altre app).
           </p>
         </div>
 

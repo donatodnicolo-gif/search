@@ -323,6 +323,339 @@ export async function creaOrdineDalCrm(
 }
 
 // ---------------------------------------------------------------------------
+// Liste costruite dall'AI
+
+import { eseguiCriteri, generaCriteriDaBrief, type CriteriLista } from "./liste-ai";
+import { inviaWA, linkWaMe, numeroWhatsApp } from "./whatsapp";
+import type { ClienteVariabili } from "./variabili";
+import type { ClienteRiga } from "./orders";
+
+function membriDaClienti(clienti: ClienteRiga[]) {
+  return clienti.map((c) => ({
+    chiaveCliente: c.cliente,
+    nome: c.nome ?? "",
+    email: c.email ?? "",
+    telefono: c.telefono ?? "",
+    citta: c.citta ?? "",
+    segmento: c.segmento,
+    ordini: c.ordini,
+    speso: c.speso,
+    ultimoOrdine: c.ultimoOrdine ? new Date(c.ultimoOrdine) : null,
+  }));
+}
+
+function variabiliDaMembro(m: {
+  nome: string;
+  citta: string;
+  segmento: string;
+  ordini: number;
+  speso: number;
+  ultimoOrdine: Date | null;
+}): ClienteVariabili {
+  return {
+    nome: m.nome || null,
+    citta: m.citta || null,
+    segmento: m.segmento,
+    ordini: m.ordini,
+    speso: m.speso,
+    ultimoOrdine: m.ultimoOrdine,
+  };
+}
+
+export async function creaListaAI(fd: FormData): Promise<void> {
+  await richiediSessione();
+  const brief = String(fd.get("brief") ?? "").trim();
+  if (brief.length < 10) redirect(conEsito("/liste", "Racconta il brief in almeno una frase."));
+
+  const generata = await generaCriteriDaBrief(brief);
+  if (!generata.ok) redirect(conEsito("/liste", generata.errore));
+
+  const eseguita = await eseguiCriteri(generata.criteri);
+  if (!eseguita.ok) redirect(conEsito("/liste", eseguita.errore));
+
+  const listaDb = await prisma.listaClienti.create({
+    data: {
+      nome: generata.nome,
+      brief,
+      criteri: generata.criteri as object,
+      spiegazione: generata.spiegazione,
+      note: eseguita.note.join("\n"),
+      modello: generata.modello,
+      membri: { create: membriDaClienti(eseguita.clienti) },
+    },
+  });
+  revalidatePath("/liste");
+  redirect(`/liste/${listaDb.id}`);
+}
+
+// Riesegue la ricetta sui dati di OGGI: i membri si sostituiscono (la lista è
+// una selezione, non un archivio), il brief e i criteri restano.
+export async function rigeneraLista(fd: FormData): Promise<void> {
+  await richiediSessione();
+  const id = testo(fd, "id");
+  const listaDb = await prisma.listaClienti.findUnique({ where: { id } });
+  if (!listaDb) redirect("/liste");
+
+  const eseguita = await eseguiCriteri(listaDb.criteri as CriteriLista);
+  if (!eseguita.ok) redirect(conEsito(`/liste/${id}`, eseguita.errore));
+
+  await prisma.$transaction([
+    prisma.membroLista.deleteMany({ where: { listaId: id } }),
+    prisma.listaClienti.update({
+      where: { id },
+      data: {
+        note: eseguita.note.join("\n"),
+        generataIl: new Date(),
+        membri: { create: membriDaClienti(eseguita.clienti) },
+      },
+    }),
+  ]);
+  revalidatePath(`/liste/${id}`);
+  redirect(conEsito(`/liste/${id}`, "ok"));
+}
+
+export async function eliminaLista(fd: FormData): Promise<void> {
+  await richiediSessione();
+  const id = testo(fd, "id");
+  if (id) await prisma.listaClienti.delete({ where: { id } }).catch(() => {});
+  revalidatePath("/liste");
+  redirect("/liste");
+}
+
+export async function rimuoviMembro(fd: FormData): Promise<void> {
+  await richiediSessione();
+  const id = testo(fd, "id");
+  const back = ritorno(fd, "/liste");
+  if (id) await prisma.membroLista.delete({ where: { id } }).catch(() => {});
+  revalidatePath(back);
+  redirect(back);
+}
+
+// L'invio a lista: una mail PER OGNI membro con email, ognuna con le SUE
+// variabili. Sequenziale (l'SMTP dietro AI Mail non ama le raffiche), con
+// tetto per giro: si rilancia e riprende da chi non l'ha ancora ricevuta.
+const TETTO_INVIO_LISTA = 150;
+
+export async function inviaMailALista(fd: FormData): Promise<void> {
+  const sessione = await richiediSessione();
+  const listaId = testo(fd, "listaId");
+  const templateId = testo(fd, "templateId");
+  const back = `/liste/${listaId}`;
+
+  const [listaDb, template] = await Promise.all([
+    prisma.listaClienti.findUnique({ where: { id: listaId }, include: { membri: true } }),
+    prisma.templateMail.findUnique({ where: { id: templateId } }),
+  ]);
+  if (!listaDb) redirect("/liste");
+  if (!template) redirect(conEsito(back, "Scegli un template."));
+
+  // Chi ha già ricevuto QUESTO template da QUESTA lista non lo riceve due volte.
+  const giaInviate = new Set(
+    (
+      await prisma.mailInviata.findMany({
+        where: { listaId, templateId, esito: "inviata" },
+        select: { chiaveCliente: true },
+      })
+    ).map((m) => m.chiaveCliente),
+  );
+
+  const destinatari = listaDb.membri.filter((m) => m.email && !giaInviate.has(m.chiaveCliente));
+  const giro = destinatari.slice(0, TETTO_INVIO_LISTA);
+
+  let inviate = 0;
+  let fallite = 0;
+  for (const m of giro) {
+    const oggetto = sostituisciVariabili(template.oggetto, variabiliDaMembro(m), null);
+    const corpo = sostituisciVariabili(template.corpo, variabiliDaMembro(m), null);
+    if (/\{\{/.test(oggetto + corpo)) {
+      fallite++;
+      await prisma.mailInviata.create({
+        data: {
+          chiaveCliente: m.chiaveCliente,
+          nomeCliente: m.nome,
+          destinatario: m.email,
+          oggetto,
+          corpo,
+          esito: "errore",
+          errore: "Variabili non risolte per questo cliente",
+          templateId,
+          listaId,
+          autore: sessione?.nome ?? "",
+        },
+      });
+      continue;
+    }
+    const esito = await inviaMail({ a: m.email, oggetto, corpo });
+    await prisma.mailInviata.create({
+      data: {
+        chiaveCliente: m.chiaveCliente,
+        nomeCliente: m.nome,
+        destinatario: m.email,
+        oggetto,
+        corpo,
+        esito: esito.ok ? "inviata" : "errore",
+        errore: esito.ok ? null : esito.errore,
+        templateId,
+        listaId,
+        autore: sessione?.nome ?? "",
+      },
+    });
+    if (esito.ok) inviate++;
+    else fallite++;
+  }
+
+  const restanti = destinatari.length - giro.length;
+  const messaggio =
+    `Inviate ${inviate}, non partite ${fallite}` +
+    (restanti > 0 ? `; restano ${restanti}: rilancia per continuare` : "") +
+    ". Il dettaglio è nel registro Mail.";
+  revalidatePath(back);
+  redirect(conEsito(back, inviate > 0 || fallite === 0 ? "ok" : messaggio) + (inviate > 0 ? `&dettaglio=${encodeURIComponent(messaggio)}` : ""));
+}
+
+// ---------------------------------------------------------------------------
+// WhatsApp: template, invio singolo, invio a lista, canale assistito
+
+export async function salvaTemplateWA(fd: FormData): Promise<void> {
+  await richiediSessione();
+  const id = testo(fd, "id");
+  const nome = testo(fd, "nome");
+  const corpo = String(fd.get("testo") ?? "").replace(/\r\n/g, "\n").trim();
+  const back = ritorno(fd, "/whatsapp");
+  if (!nome || !corpo) redirect(conEsito(back, "Servono nome e testo del template."));
+  try {
+    if (id) await prisma.templateWhatsApp.update({ where: { id }, data: { nome, testo: corpo } });
+    else await prisma.templateWhatsApp.create({ data: { nome, testo: corpo } });
+  } catch {
+    redirect(conEsito(back, `Esiste già un template che si chiama «${nome}».`));
+  }
+  revalidatePath("/whatsapp");
+  redirect(conEsito(back, "ok"));
+}
+
+export async function eliminaTemplateWA(fd: FormData): Promise<void> {
+  await richiediSessione();
+  const id = testo(fd, "id");
+  if (id) await prisma.templateWhatsApp.delete({ where: { id } }).catch(() => {});
+  revalidatePath("/whatsapp");
+  redirect("/whatsapp");
+}
+
+export async function inviaWhatsAppSingolo(fd: FormData): Promise<void> {
+  const sessione = await richiediSessione();
+  const chiaveCliente = testo(fd, "chiaveCliente");
+  const telefonoGrezzo = testo(fd, "telefono");
+  const corpo = String(fd.get("testo") ?? "").replace(/\r\n/g, "\n").trim();
+  const numeroId = testo(fd, "numeroId");
+  const back = ritorno(fd, "/whatsapp");
+
+  const numero = numeroWhatsApp(telefonoGrezzo);
+  if (!numero) redirect(conEsito(back, `Numero non utilizzabile per WhatsApp: «${telefonoGrezzo}» (serve il prefisso internazionale).`));
+  if (!corpo) redirect(conEsito(back, "Serve il testo del messaggio."));
+
+  const esito = await inviaWA({ a: numero, testo: corpo, numeroId: numeroId || undefined });
+  await prisma.messaggioWhatsApp.create({
+    data: {
+      chiaveCliente: chiaveCliente || numero,
+      nomeCliente: testo(fd, "nomeCliente"),
+      telefono: numero,
+      testo: corpo,
+      canale: "api",
+      esito: esito.ok ? "inviato" : "errore",
+      errore: esito.ok ? null : esito.errore,
+      autore: sessione?.nome ?? "",
+    },
+  });
+  revalidatePath(back);
+  redirect(conEsito(back, esito.ok ? "ok" : esito.errore));
+}
+
+// Il canale assistito: la chat si apre sul WhatsApp dell'operatore col testo
+// pronto. Qui si REGISTRA il gesto (chiamata dal client al momento del clic).
+export async function registraWaMe(dati: {
+  chiaveCliente: string;
+  nomeCliente: string;
+  telefono: string;
+  testo: string;
+  listaId?: string;
+}): Promise<{ ok: boolean }> {
+  const sessione = await richiediSessione();
+  await prisma.messaggioWhatsApp
+    .create({
+      data: {
+        chiaveCliente: dati.chiaveCliente,
+        nomeCliente: dati.nomeCliente,
+        telefono: dati.telefono,
+        testo: dati.testo,
+        canale: "wame",
+        esito: "preparato",
+        listaId: dati.listaId ?? null,
+        autore: sessione?.nome ?? "",
+      },
+    })
+    .catch(() => {});
+  return { ok: true };
+}
+
+export async function inviaWhatsAppALista(fd: FormData): Promise<void> {
+  const sessione = await richiediSessione();
+  const listaId = testo(fd, "listaId");
+  const templateId = testo(fd, "templateId");
+  const numeroId = testo(fd, "numeroId");
+  const back = `/liste/${listaId}/whatsapp`;
+
+  const [listaDb, template] = await Promise.all([
+    prisma.listaClienti.findUnique({ where: { id: listaId }, include: { membri: true } }),
+    prisma.templateWhatsApp.findUnique({ where: { id: templateId } }),
+  ]);
+  if (!listaDb) redirect("/liste");
+  if (!template) redirect(conEsito(back, "Scegli un template WhatsApp."));
+
+  const giaInviati = new Set(
+    (
+      await prisma.messaggioWhatsApp.findMany({
+        where: { listaId, esito: "inviato" },
+        select: { chiaveCliente: true },
+      })
+    ).map((m) => m.chiaveCliente),
+  );
+
+  const destinatari = listaDb.membri
+    .map((m) => ({ m, numero: numeroWhatsApp(m.telefono) }))
+    .filter((x) => x.numero && !giaInviati.has(x.m.chiaveCliente));
+  const giro = destinatari.slice(0, TETTO_INVIO_LISTA);
+
+  let inviati = 0;
+  let falliti = 0;
+  for (const { m, numero } of giro) {
+    const corpo = sostituisciVariabili(template.testo, variabiliDaMembro(m), null);
+    const esito = await inviaWA({ a: numero!, testo: corpo, numeroId: numeroId || undefined });
+    await prisma.messaggioWhatsApp.create({
+      data: {
+        chiaveCliente: m.chiaveCliente,
+        nomeCliente: m.nome,
+        telefono: numero!,
+        testo: corpo,
+        canale: "api",
+        esito: esito.ok ? "inviato" : "errore",
+        errore: esito.ok ? null : esito.errore,
+        listaId,
+        autore: sessione?.nome ?? "",
+      },
+    });
+    if (esito.ok) inviati++;
+    else falliti++;
+  }
+
+  const messaggio =
+    `Partiti ${inviati}, rifiutati ${falliti}` +
+    (falliti > 0 ? " (di solito: finestra 24h chiusa — per quelli usa il canale assistito qui sotto)" : "") +
+    ".";
+  revalidatePath(back);
+  redirect(`${back}?dettaglio=${encodeURIComponent(messaggio)}`);
+}
+
+// ---------------------------------------------------------------------------
 // Invio mail personalizzata
 
 export async function inviaMailPersonalizzata(fd: FormData): Promise<void> {

@@ -98,10 +98,78 @@ model MailInviata {
   errore        String?
   templateId    String?
   eventoId      String?
+  listaId       String? // se è partita da un invio a lista
   autore        String   @default("")
   inviataIl     DateTime @default(now())
 
   @@index([chiaveCliente, inviataIl])
   @@index([inviataIl])
   @@index([eventoId])
+  @@index([listaId])
+}
+
+// Una lista di clienti costruita dall'AI da un brief. La lista è una
+// SELEZIONE (dominio del CRM): i clienti veri restano in Orders, qui ne resta
+// la fotografia al momento della generazione, coi contatti per l'invio.
+model ListaClienti {
+  id           String        @id @default(cuid())
+  nome         String
+  brief        String        @db.Text // le parole dell'operatore
+  criteri      Json // la ricetta dell'AI: rieseguirla aggiorna la lista
+  spiegazione  String        @db.Text // come l'AI ha letto il brief
+  note         String        @default("") // trasparenza: cap, esclusi, fonte
+  modello      String        @default("")
+  generataIl   DateTime      @default(now())
+  membri       MembroLista[]
+  creatoIl     DateTime      @default(now())
+  aggiornatoIl DateTime      @updatedAt
+
+  @@index([creatoIl])
+}
+
+model MembroLista {
+  id            String       @id @default(cuid())
+  listaId       String
+  lista         ListaClienti @relation(fields: [listaId], references: [id], onDelete: Cascade)
+  chiaveCliente String
+  nome          String       @default("")
+  email         String       @default("")
+  telefono      String       @default("")
+  citta         String       @default("")
+  segmento      String       @default("")
+  ordini        Int          @default(0)
+  speso         Float        @default(0)
+  ultimoOrdine  DateTime?
+
+  @@unique([listaId, chiaveCliente])
+  @@index([listaId])
+}
+
+// Modello di messaggio WhatsApp, con le stesse {{variabili}} delle mail.
+// NB: sono i modelli NOSTRI (testo libero), non i template approvati da Meta.
+model TemplateWhatsApp {
+  id           String   @id @default(cuid())
+  nome         String   @unique
+  testo        String   @db.Text
+  creatoIl     DateTime @default(now())
+  aggiornatoIl DateTime @updatedAt
+}
+
+// Registro dei WhatsApp usciti (o preparati) dal CRM.
+model MessaggioWhatsApp {
+  id            String   @id @default(cuid())
+  chiaveCliente String
+  nomeCliente   String   @default("")
+  telefono      String
+  testo         String   @db.Text
+  canale        String   @default("api") // api (via Customer Service) | wame (aperto sul WhatsApp dell'operatore)
+  esito         String   @default("inviato") // inviato | errore | preparato
+  errore        String?
+  listaId       String?
+  autore        String   @default("")
+  inviatoIl     DateTime @default(now())
+
+  @@index([chiaveCliente, inviatoIl])
+  @@index([inviatoIl])
+  @@index([listaId])
 }

@@ -21,8 +21,10 @@ const SEZIONI: Sezione[] = [
   {
     etichetta: "Relazioni",
     voci: [
+      { href: "/liste", nome: "Liste", icona: "liste" },
       { href: "/eventi", nome: "Eventi", icona: "eventi" },
       { href: "/mail", nome: "Mail", icona: "mail" },
+      { href: "/whatsapp", nome: "WhatsApp", icona: "whatsapp" },
       { href: "/mail/template", nome: "Template", icona: "template" },
     ],
   },
@@ -63,6 +65,21 @@ const ICONE = {
     <>
       <rect x="3" y="5.5" width="18" height="13" rx="2.5" />
       <path d="m3.6 7 8.4 6.3L20.4 7" />
+    </>
+  ),
+  liste: (
+    <>
+      <path d="M8.5 6h12M8.5 12h12M8.5 18h8" />
+      <circle cx="4" cy="6" r="1.1" fill="currentColor" stroke="none" />
+      <circle cx="4" cy="12" r="1.1" fill="currentColor" stroke="none" />
+      <circle cx="4" cy="18" r="1.1" fill="currentColor" stroke="none" />
+      <path d="m19.2 16.2.9 1.8 2 .3-1.45 1.4.35 2-1.8-.95-1.8.95.35-2-1.45-1.4 2-.3z" transform="scale(.92) translate(1.2 .8)" />
+    </>
+  ),
+  whatsapp: (
+    <>
+      <path d="M12 3.5a8.5 8.5 0 0 0-7.4 12.7L3.5 20.5l4.5-1a8.5 8.5 0 1 0 4-16z" />
+      <path d="M9 9.5c0 3 2.5 5.5 5.5 5.5l1-1.6-2-1-1 .7a4.6 4.6 0 0 1-1.6-1.6l.7-1-1-2z" />
     </>
   ),
   template: (

@@ -1,7 +1,8 @@
 # Handoff — Deluxy CRM
 
-Stato al 2026-08-24 (sera). App **nuova**, costruita e pubblicata in giornata;
-in serata aggiunto il **nuovo ordine con link di pagamento**.
+Stato al 2026-08-24 (notte). App **nuova**, costruita e pubblicata in
+giornata; in serata il **nuovo ordine con link di pagamento**; in nottata le
+**liste AI da brief** e i **WhatsApp (template, singolo e a lista)**.
 Cartella: `deluxy-crm/`, porta **3190**, schema Postgres **`crm`**.
 
 **LIVE**: https://deluxy-crm.vercel.app (progetto Vercel `deluxy/deluxy-crm`,
@@ -66,6 +67,28 @@ region fra1). Tessera nel Hub: id `crm`, ruoli admin+commerciale, `sso: true`.
   Le rotte interne `/api/interno/*` (proxy catalogo/spedizioni) sono protette
   dalla sessione nel middleware: la chiave del CS non arriva mai al browser.
 
+- **Liste AI da brief** (24/08 notte, pagina `/liste`): l'operatore scrive il
+  brief in italiano, l'AI (OpenAI, `OPENAI_MODEL` default gpt-4o-mini) lo
+  TRADUCE in criteri verificabili — quali liste di Orders unire, quali filtri
+  (città, brand, segmento, spesa, giorni dall'ultimo, parole nei GUSTI dei
+  riepiloghi) — e il codice li esegue sui dati veri (`liste-ai.ts`). La lista
+  salva brief + criteri + spiegazione + note di trasparenza (base, esclusi,
+  cap); si rigenera sui dati di oggi; «non-contattare» è escluso SEMPRE.
+  Membri = fotografia con contatti (riferimento `chiaveCliente`). Collaudata
+  dal vivo: brief «migliori di Milano che comprano fiori, con email» → 200
+  membri veri. **Invio mail a lista** (`/liste/[id]/mail`): una mail per
+  membro con le SUE variabili, tetto 150 a giro, niente doppioni per
+  template+lista (si può rilanciare), esiti nel registro Mail.
+- **WhatsApp** (24/08 notte, pagine `/whatsapp` e `/liste/[id]/whatsapp`):
+  template NOSTRI con {{variabili}} (non i template approvati Meta), registro,
+  invio singolo dalla scheda e a lista. DUE canali: **API** via Customer
+  Service (`POST /api/v1/whatsapp` nuova, dai numeri Business veri — Cake,
+  Deluxy, FLowers) che però consegna solo nella FINESTRA 24h di Meta (a
+  freddo rifiuta, e l'errore è tradotto in chiaro); **assistito** (wa.me):
+  la chat si apre sul WhatsApp dell'operatore col testo personalizzato
+  pronto, un clic a persona, nessun limite — registrato come «preparato».
+  Numeri normalizzati E.164 (+39 dedotto solo per cellulari italiani).
+
 ### Trappola già pagata
 
 I **route params di Next 15 arrivano ancora percent-encoded**
@@ -78,6 +101,9 @@ e ricodifica dove serve.
 Le liste di Orders si chiamano `fedeli`, `nuovi`, `persi`, `ricorrenti`
 (plurale); il **segmento del singolo cliente** è al singolare (`fedele`,
 `nuovo`…). Sono due vocabolari diversi: confonderli lascia i contatori a «—».
+**Ci è cascata anche l'AI** (prima lista generata: `tipologie: ["privati"]` →
+0 membri): l'esecutore ora normalizza plurale→singolare e il prompt lo
+avverte — un filtro che svuota in silenzio è un bug, non colpa del modello.
 
 ## MANCA (prossimi passi)
 

@@ -1,5 +1,16 @@
-import type { SchedaCliente } from "./orders";
 import { dataIt, euro, segmento } from "./etichette";
+
+// Il minimo che serve per riempire le variabili: la scheda di Orders lo
+// soddisfa, e lo soddisfa anche la fotografia di un membro di lista — così
+// un invio a 200 persone non fa 200 chiamate a Orders.
+export type ClienteVariabili = {
+  nome: string | null;
+  citta: string | null;
+  segmento: string;
+  ordini: number;
+  speso: number;
+  ultimoOrdine: string | Date | null;
+};
 
 // Le variabili dei template mail: {{nome}}, {{citta}}, {{evento}}…
 // La sostituzione avviene sul server al momento della composizione, così
@@ -33,7 +44,7 @@ export function primoNome(nome: string | null | undefined): string {
 
 export function sostituisciVariabili(
   testo: string,
-  cliente: SchedaCliente | null,
+  cliente: ClienteVariabili | null,
   evento: Evento | null,
 ): string {
   const valori: Record<string, string> = {
