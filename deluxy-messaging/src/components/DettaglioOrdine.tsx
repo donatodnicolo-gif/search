@@ -297,6 +297,8 @@ export function DettaglioOrdine({
   const [mestiere, setMestiere] = useState('')
   /** Il mestiere che il server ha davvero usato: vuoto = nessuno, cioè tutti. */
   const [zonaMestiere, setZonaMestiere] = useState('')
+  /** Da dove viene il filtro: scelto · negozio · prodotto. Vuoto = nessun filtro. */
+  const [zonaDaDove, setZonaDaDove] = useState('')
   const [caricato, setCaricato] = useState(false)
   const [errore, setErrore] = useState('')
   const [copiato, setCopiato] = useState('')
@@ -443,11 +445,20 @@ export function DettaglioOrdine({
     ;(async () => {
       const p = new URLSearchParams({ provincia, negozio: ordine.negozioNome })
       if (mestiere) p.set('mestiere', mestiere)
+      // ⚠️ Il PRODOTTO: su «Deluxy», che vende di tutto, il negozio non dice il
+      // mestiere e l'elenco mostrava pasticcerie e fiorai insieme.
+      const prodotto = righe
+        .slice(0, 3)
+        .map((r) => `${r.titolo} ${r.variante}`)
+        .join(' ')
+        .trim()
+      if (prodotto) p.set('prodotto', prodotto)
       const res = await fetch('/api/fornitori-zona?' + p.toString())
       const d = (await res.json().catch(() => ({}))) as {
         fornitori?: FornitoreZona[]
         provincia?: string
         mestiere?: string
+        daDove?: string
         nota?: string
         errore?: string
       }
@@ -455,6 +466,7 @@ export function DettaglioOrdine({
       setZona(d.fornitori ?? [])
       setZonaProvincia(d.provincia ?? '')
       setZonaMestiere(d.mestiere ?? '')
+      setZonaDaDove(d.daDove ?? '')
       setZonaNota(d.errore || d.nota || '')
       setZonaCaricata(true)
     })().catch(() => {
@@ -463,7 +475,7 @@ export function DettaglioOrdine({
     return () => {
       vivo = false
     }
-  }, [spedizione?.provincia, ordine, mestiere])
+  }, [spedizione?.provincia, ordine, mestiere, righe])
 
   const soloArchivio = Boolean(ordine && !ordine.id)
 
@@ -1224,17 +1236,34 @@ export function DettaglioOrdine({
                     }}
                     aria-label="Che fornitori cercare"
                   >
+                    {/* ⚠️ Si dice DA DOVE viene il filtro. Un elenco accorciato
+                        senza spiegare perché fa credere che in quella provincia
+                        i fornitori non ci siano — e chi lo crede va a cercarli
+                        su Google invece di chiamare quelli che abbiamo. */}
                     <option value="">
                       {zonaMestiere === 'pasticceria'
-                        ? 'Dal negozio: pasticcerie'
+                        ? zonaDaDove === 'prodotto'
+                          ? 'Dal prodotto: pasticcerie'
+                          : 'Dal negozio: pasticcerie'
                         : zonaMestiere === 'fioraio'
-                          ? 'Dal negozio: fiorai'
-                          : 'Dal negozio: tutti'}
+                          ? zonaDaDove === 'prodotto'
+                            ? 'Dal prodotto: fiorai'
+                            : 'Dal negozio: fiorai'
+                          : 'Tutti i mestieri'}
                     </option>
                     <option value="pasticceria">Solo pasticcerie</option>
                     <option value="fioraio">Solo fiorai</option>
                   </select>
                 </div>
+                {/* ⚠️ Quando NESSUNO dei due segnali dice il mestiere si scrive
+                    perché: il negozio vende di tutto e il prodotto non si
+                    riconosce. Senza, una lista mista sembra un difetto. */}
+                {zonaCaricata && !zonaMestiere ? (
+                  <p className="cella-sub">
+                    Né il negozio né il nome del prodotto dicono che mestiere serve, quindi ci
+                    sono tutti: se sai già di che si tratta, restringi qui sopra.
+                  </p>
+                ) : null}
                 {!zonaCaricata ? (
                   <p className="descrizione">Cerco…</p>
                 ) : zona.length === 0 ? (

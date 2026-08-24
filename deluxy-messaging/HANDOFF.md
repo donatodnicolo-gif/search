@@ -373,6 +373,24 @@ locale, altrimenti nulla si decifra.
   - ⚠️ **Il numero delle note da fare sta sul bottone**: in un pannello chiuso
     una nota lasciata a un collega non esisterebbe.
 
+- **I FORNITORI IN ZONA, FILTRATI SUL PRODOTTO** (24/08/2026, chiesto: «mostra
+  solo quelli che possono fornire la categoria di prodotto»).
+  - ⚠️⚠️ Su **«Deluxy», che vende di tutto**, `mestierePerNegozio` torna `null`
+    e l elenco mostrava **pasticcerie e fiorai insieme**. Contati: **58 ordini
+    su 200** stanno su un negozio così.
+  - Ora il mestiere si deduce anche dal **nome del prodotto**
+    (`mestierePerProdotto`, puro), come TERZA fonte dopo il menu e il negozio.
+  - ⚠️ Se il prodotto cita **tutte e due** le cose (torta *con* bouquet) o
+    **nessuna** (champagne), non si filtra: meglio una lista più lunga che una
+    sbagliata — un elenco accorciato per sbaglio fa sparire il fornitore
+    giusto, e una lista corta sembra comunque una lista.
+  - ⚠️ **Si dice da dove viene il filtro** («Dal prodotto: fiorai»), e quando
+    nessuno dei due segnali parla si scrive perché ci sono tutti.
+  - ✅ Sulla rotta vera, provincia MI: senza prodotto **30** (4 categorie),
+    «bouquet di rose» **9** (FIORI/FIORISTA), «torta Vivaldi» **21**
+    (PASTICCERIA/CIOCCOLATERIA), «torta e bouquet» **30**. Più 16 controlli in
+    `scripts/prova-mestiere-prodotto.mts`.
+
 - **POP-UP DELLA RICEVUTA, AVVISO AUTOMATICO, L'ORDINE RISULTA PAGATO**
   (24/08/2026, tre richieste).
   - **Pop-up su «Pagata»**: ricevuta + da dove esce + conferma. ⚠️ La ricevuta

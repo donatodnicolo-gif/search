@@ -45,6 +45,51 @@ export function mestierePerNegozio(negozio: string): Mestiere | null {
 }
 
 /**
+ * Le parole che, in un nome di prodotto, dicono senza ambiguità che mestiere
+ * serve. ⚠️ Volutamente POCHE e specifiche: qui una parola di troppo non fa
+ * rumore, fa **sparire** dall'elenco il fornitore giusto.
+ */
+const PAROLE: Record<Mestiere, string[]> = {
+  pasticceria: [
+    'torta', 'torte', 'cake', 'dolce', 'dolci', 'pasticc', 'cioccolat', 'praline',
+    'macaron', 'cupcake', 'crostata', 'millefoglie', 'tiramis', 'panettone', 'colomba',
+    'biscott', 'monoporzion', 'cheesecake', 'pastiera',
+  ],
+  fioraio: [
+    'fior', 'bouquet', 'mazzo', 'rose', 'rosa', 'orchid', 'tulipan', 'girasol',
+    'peon', 'peonie', 'composizione floreale', 'pianta', 'piante', 'centrotavola',
+    'ortensi', 'gigli', 'lilium', 'anthurium',
+  ],
+}
+
+/**
+ * Che mestiere serve, dedotto dal NOME DEL PRODOTTO.
+ *
+ * ⚠️⚠️ Serve quando il negozio non lo dice: «Deluxy» vende di tutto, e su quegli
+ * ordini l'elenco mostrava **pasticcerie e fiorai insieme** — cioè per metà
+ * gente che quell'ordine non lo può fare. Chi telefona se ne accorge alla terza
+ * chiamata sbagliata.
+ *
+ * ⚠️ Se il testo cita **tutte e due** le cose (una torta CON un bouquet, che da
+ * noi capita) si torna `null`: si mostrano tutti. Sceglierne uno vorrebbe dire
+ * nascondere metà dei fornitori di un ordine che ne vuole due.
+ *
+ * ⚠️ E se non riconosce niente, `null`: meglio una lista più lunga che una lista
+ * sbagliata. È la stessa regola dei punteggi senza dati — una variabile che non
+ * si sa non vale zero, si esclude.
+ */
+export function mestierePerProdotto(testo: string): Mestiere | null {
+  const t = (testo || '').toLowerCase()
+  if (!t.trim()) return null
+  const dolci = PAROLE.pasticceria.some((p) => t.includes(p))
+  const fiori = PAROLE.fioraio.some((p) => t.includes(p))
+  if (dolci && fiori) return null
+  if (dolci) return 'pasticceria'
+  if (fiori) return 'fioraio'
+  return null
+}
+
+/**
  * Gli stati che NON si propongono mai.
  *
  * ⚠️ Tutti gli altri sì, prospect compresi — ed è la correzione di un errore

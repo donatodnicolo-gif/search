@@ -545,6 +545,38 @@ parola per parola, così «rossi pasticceria» trova «Pasticceria Rossi».
 
 Prova: `npx tsx scripts/prova-cerca-fornitore.mts`
 
+## I fornitori in zona: solo chi può fare QUEL prodotto
+
+L'elenco «Fornitori in provincia di …» si restringe al mestiere che serve. Tre
+fonti, in ordine di quanto ci si può fidare:
+
+1. **quello scelto col menu** — vince sempre;
+2. **il negozio** (Cake → pasticcerie, Flowers → fiorai): è un fatto, non una
+   lettura di testo libero;
+3. **il prodotto dell'ordine**, quando il negozio non lo dice.
+
+⚠️⚠️ Il terzo esiste perché su **«Deluxy», che vende di tutto**, l'elenco mostrava
+**pasticcerie e fiorai insieme** — cioè per metà gente che quell'ordine non lo può
+fare, e chi telefona se ne accorge alla terza chiamata sbagliata. Contati: **58
+ordini su 200** stanno su un negozio che non dice il mestiere.
+
+⚠️ Il prodotto è testo libero e si legge con prudenza. Se cita **tutte e due** le
+cose (una torta *con* un bouquet, che da noi capita) o **nessuna** (champagne, una
+confezione regalo), non si filtra: si mostrano tutti. Meglio una lista più lunga
+che una lista sbagliata — un elenco accorciato per sbaglio fa sparire il fornitore
+giusto, e una lista corta sembra comunque una lista.
+
+⚠️ **Si dice da dove viene il filtro** — «Dal prodotto: fiorai», «Dal negozio:
+pasticcerie», «Tutti i mestieri». Un elenco accorciato senza spiegare perché fa
+credere che in quella provincia i fornitori non ci siano, e chi lo crede va a
+cercarli su Google invece di chiamare quelli che abbiamo.
+
+Misurato su Milano: senza prodotto **30** fornitori (4 categorie), «bouquet di
+rose» **9** (solo FIORI/FIORISTA), «torta Vivaldi» **21** (PASTICCERIA/
+CIOCCOLATERIA), «torta e bouquet» di nuovo **30**.
+
+Prova: `npx tsx scripts/prova-mestiere-prodotto.mts`
+
 ## A chi abbiamo dato l'ordine da preparare
 
 Nella scheda di un ordine, in cima, il riquadro **«Chi prepara quest'ordine»**:
