@@ -456,6 +456,16 @@ Preview server (Claude): config in `.claude/launch.json` → `deluxy-next-api`, 
 
 ## FATTO
 
+- **⭐ 24/08 — Fatture: i 291 zeri erano l'IVA che mancava, non un import sbagliato.** 🔴 **Ricalcolo DA LANCIARE** (sotto).
+  - Le 559 fatture storiche importate uscivano a **0 €** su 291 casi, e le altre non combaciavano con la somma delle righe. Domanda dell'utente: «*impossibile che sia 0 hai controllato l'associazione con i prodotti?*».
+  - **L'associazione con i prodotti non c'entra.** Provate quattro formule (prezzo consegna · prodotti · consegna+prodotti · tariffa): nessuna riproduce il dichiarato. La quinta misura è stata quella buona — il **rapporto** fra dichiarato e somma delle righe: mediana **1,220 esatta**, l'**IVA al 22%**. Su 267 fatture compilate, **194** sono la somma delle righe × 1,22 al centesimo.
+  - Quindi il legacy teneva **un campo solo** (`invoiceAmount`) = il totale **CON IVA**, e su 291 fatture non l'aveva mai compilato. Non sbagliava l'import: mancava il dato **e mancava il posto dove metterlo**.
+  - **Schema**: `Invoice.netAmount` (imponibile), `vatRate` (22), `totalAmount` (con IVA), `legacyTotalAmount` (il dichiarato com'era, zeri compresi — non si perde). Migrazione `20260824142507_fattura_imponibile_e_iva`.
+  - **A schermo**: colonne Imponibile · IVA · Totale. Dove il totale è ricostruito dall'imponibile lo dice una pillola **«ricostruito»** con la spiegazione nel tooltip — *un numero ricostruito che si spaccia per un dato del documento sarebbe peggio dello zero*.
+  - **Le 78 divergenti NON si toccano**: il documento è stato emesso con quel numero (sono vecchie, con consegne ri-prezzate dopo l'emissione). Il conto è nell'output dello script.
+  - **⚠️ Stesso difetto nel generatore delle fatture NUOVE**: `InvoicesService.generate()` calcolava `totalAmount` come somma delle righe, cioè **senza IVA** — le fatture nuove sarebbero uscite incoerenti con le 559 storiche. Corretto.
+  - 🔴 **Da lanciare a mano** (il classificatore di auto-mode blocca la scrittura): `node scripts/ricalcola-totali-fatture.mjs --scrivi` — porta il fatturato storico da **131.850 € a 213.986 €**, che non è fatturato in più: è quello che non si vedeva. In simulazione di default.
+
 - **⚠️ 24/08 — «ESTINGUI»: 3.584 utenti estinti. IRREVERSIBILE, già eseguito.** Deploy `delivery-nqwmo9fz7`.
   - **Un gesto solo** al posto di due mezze misure. Archiviare conserva lo storico ma lascia nome/email/telefono di chi se n’è andato; cancellare davvero li toglie ma **svuota l’autore su tutto lo storico** (`Delivery.createdByUserId` è `ON DELETE SET NULL`, **49.728 consegne**) e porta via il registro delle azioni (`UserEvent` è `onDelete: Cascade`). **Estingui tiene l’ID** — lo storico non si muove — e cancella la persona: email `estinto-<id>@deluxy.invalid`, nome «Utente estinto», password e token azzerati. L’evento si scrive **prima** e sopravvive.
   - `UserStatus.EXTINCT` in `common/enums.ts`; `UsersService.estingui()`; `DELETE /users/:id` ora estingue. Il login blocca già tutto ciò che non è `active`.
