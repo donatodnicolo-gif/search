@@ -36,6 +36,7 @@ export function PremiEditor({
   maisons,
   linee,
   livello,
+  presetPersonaId = null,
 }: {
   year: number;
   premi: PremioMisurato[];
@@ -44,10 +45,17 @@ export function PremiEditor({
   maisons: { slug: string; nome: string }[];
   linee: Opzione[];
   livello: string;
+  // Arrivando da Team con ?persona=<id>, il modulo si apre già compilato su
+  // quella persona: «come si inserisce un budget per una persona» si risponde
+  // con una porta aperta, non con una spiegazione da cercare.
+  presetPersonaId?: string | null;
 }) {
   const router = useRouter();
-  const [form, setForm] = useState({ ...VUOTO });
-  const [apertoNuovo, setApertoNuovo] = useState(false);
+  const presetValido = presetPersonaId !== null && persone.some((p) => p.id === presetPersonaId);
+  const [form, setForm] = useState(
+    presetValido ? { ...VUOTO, ambito: "PERSONA", dipendenteId: presetPersonaId! } : { ...VUOTO }
+  );
+  const [apertoNuovo, setApertoNuovo] = useState(presetValido);
   const [inModifica, setInModifica] = useState<string | null>(null);
   const [salvo, setSalvo] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
@@ -164,7 +172,7 @@ export function PremiEditor({
       <div className="page-head" style={{ marginBottom: 12 }}>
         <div />
         <div className="page-actions">
-          <button className="btn primary" onClick={apriNuovo}>+ Nuovo premio</button>
+          <button className="btn primary" onClick={apriNuovo}>+ Nuovo target o premio</button>
         </div>
       </div>
 
@@ -270,12 +278,12 @@ export function PremiEditor({
             </label>
 
             <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              <span className="muted" style={{ fontSize: 12.5 }}>Quanto vale (€)</span>
+              <span className="muted" style={{ fontSize: 12.5 }}>Premio in denaro (€) — 0 = solo obiettivo</span>
               <input
                 type="text"
                 inputMode="decimal"
                 value={form.importo}
-                placeholder="2.000"
+                placeholder="2.000, oppure 0"
                 onChange={(e) => setForm({ ...form, importo: e.target.value })}
               />
             </label>
@@ -320,9 +328,13 @@ export function PremiEditor({
       {premi.length === 0 && !apertoNuovo && (
         <div className="card">
           <p className="page-caption" style={{ margin: 0 }}>
-            Nessun premio scritto per il {year}. Finché non ce ne sono, la riga <strong>«Premi al
-            raggiungimento»</strong> del conto economico vale <strong>zero</strong> — che non vuol dire che
-            non se ne pagheranno, vuol dire che il budget non li ha previsti.
+            Nessun target scritto per il {year}. <strong>Il budget di una persona si inserisce da
+            qui</strong>: «+ Nuovo target o premio», ambito <strong>«Una persona»</strong>, l&apos;obiettivo
+            su cui si misura (le vendite di una linea, di un brand, l&apos;EBITDA) con la soglia e il
+            periodo — e un premio in denaro se c&apos;è, <strong>0 se è solo un obiettivo</strong>. La via
+            più corta: il bottone <strong>«Obiettivo →»</strong> accanto a ogni persona nella pagina{" "}
+            <a href="/team" style={{ color: "var(--blue)" }}>Team</a>, che arriva qui col modulo già
+            compilato. Finché non ce ne sono, la riga «Premi» del conto economico vale zero.
           </p>
         </div>
       )}
@@ -375,7 +387,9 @@ export function PremiEditor({
                             </div>
                           )}
                         </td>
-                        <td className="num" style={{ fontWeight: 600 }}>{eur(p.importo)}</td>
+                        <td className="num" style={{ fontWeight: 600 }}>
+                          {p.importo > 0 ? eur(p.importo) : <span className="muted">solo obiettivo</span>}
+                        </td>
                         <td>
                           {/* Tre stati, non due: «raggiunto», «non ancora» e
                               «lo dice una persona». Schiacciarli in un sì/no

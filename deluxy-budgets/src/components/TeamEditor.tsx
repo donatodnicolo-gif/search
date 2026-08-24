@@ -181,6 +181,7 @@ export function TeamEditor({
                       <th>Tipo</th>
                       <th className="num">Costo anno</th>
                       <th className="num">% del team</th>
+                      <th />
                     </tr>
                   </thead>
                   <tbody>
@@ -194,6 +195,19 @@ export function TeamEditor({
                         <td className="num">{eur(p.costo)}</td>
                         <td className="num muted">
                           {t.costo > 0 ? `${Math.round((p.costo / t.costo) * 100)}%` : "—"}
+                        </td>
+                        {/* Il budget di una persona — il suo obiettivo, con o
+                            senza premio — si scrive in Target e premi. Il link
+                            arriva col modulo già aperto su di lei: «come si fa»
+                            si spiega meglio con una porta che con una frase. */}
+                        <td className="num">
+                          <Link
+                            className="btn secondary small"
+                            href={`/premi?persona=${p.id}`}
+                            title={`Assegna a ${p.nome} un obiettivo misurabile (vendite di una linea, di un brand…), con o senza premio in denaro.`}
+                          >
+                            Obiettivo →
+                          </Link>
                         </td>
                       </tr>
                     ))}

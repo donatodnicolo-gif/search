@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 export default async function Premi({
   searchParams,
 }: {
-  searchParams: Promise<{ livello?: string }>;
+  searchParams: Promise<{ livello?: string; persona?: string }>;
 }) {
   const sp = await searchParams;
   const livello = (LIVELLI.some((l) => l.key === sp.livello) ? sp.livello : "RAGGIUNGIBILE") as Livello;
@@ -57,10 +57,12 @@ export default async function Premi({
         <div>
           <h1 className="page-title">Premi</h1>
           <p className="page-caption">
-            I premi al raggiungimento di un risultato, {ANNO_CORRENTE}. Un premio dice{" "}
-            <strong>a chi</strong> va (tutta l&apos;azienda, una squadra, una persona),{" "}
-            <strong>per cosa</strong> e <strong>quanto</strong> vale. Il risultato lo misura l&apos;app sui
-            dati che ha già — vendite, EBITDA — così un premio è un impegno e non un promemoria.
+            Gli obiettivi e i premi {ANNO_CORRENTE}. <strong>Qui si inserisce anche il budget di una
+            persona del team</strong>: si sceglie la persona, l&apos;obiettivo su cui si misura (le vendite
+            di una linea, di un brand, l&apos;EBITDA), la soglia e il periodo — e un premio in denaro se
+            c&apos;è, <strong>zero se è solo un obiettivo</strong>. Il risultato lo misura l&apos;app sui
+            dati che ha già, così un target è un impegno e non un promemoria. La via più corta parte da{" "}
+            <Link href="/team" style={{ color: "var(--blue)" }}>Team</Link>: «Obiettivo →» accanto al nome.
           </p>
         </div>
         <div className="page-actions">
@@ -89,6 +91,7 @@ export default async function Premi({
         maisons={dati.maisons.map((m) => ({ slug: m.slug, nome: m.nome }))}
         linee={dati.linee.map((l) => ({ id: l.id, nome: l.nome }))}
         livello={LIVELLI.find((l) => l.key === livello)?.label ?? livello}
+        presetPersonaId={sp.persona ?? null}
       />
     </>
   );

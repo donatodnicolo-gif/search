@@ -35,10 +35,12 @@ function valida(b: Record<string, unknown>): { errore: string } | null {
     return { errore: "Il periodo dev'essere fra 1 e 12, e il mese iniziale non può venire dopo quello finale." };
 
   const importo = Number(b.importo);
-  // Un premio a zero non è un errore di battitura da correggere in silenzio, ma
-  // non è nemmeno un premio: si rifiuta dicendolo.
-  if (!Number.isFinite(importo) || importo <= 0)
-    return { errore: "L'importo dev'essere maggiore di zero." };
+  // **Zero è ammesso, e vuol dire «solo obiettivo»**: un target si può dare
+  // anche senza premio in denaro — è il budget personale di chi lo riceve. Il
+  // negativo invece resta un errore: un premio che toglie soldi è una multa,
+  // e questa sezione non è quella.
+  if (!Number.isFinite(importo) || importo < 0)
+    return { errore: "L'importo non può essere negativo (0 = obiettivo senza premio in denaro)." };
 
   // ⚠️ La soglia può essere **negativa**: su EBITDA un obiettivo realistico
   // quest'anno è «perdere meno di X». Si controlla solo che sia un numero.

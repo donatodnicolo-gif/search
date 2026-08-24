@@ -892,6 +892,16 @@ quasi pareggiava il debito.
 
 ## Premi al raggiungimento (`/premi`, 24/08/2026)
 
+⭐ **Il budget di una persona del team si inserisce da qui** (24/08/2026, «rendi chiaro come inserire
+un budget per una persona del team»), e la strada è **guidata**: in `/team`, accanto a ogni nome, il
+bottone **«Obiettivo →»** apre questa pagina col modulo già compilato su quella persona
+(`/premi?persona=<id>`). «Come si fa» si spiega meglio con una porta aperta che con una frase.
+
+⭐ **L'importo può essere ZERO, e vuol dire «solo obiettivo»**: un target si dà anche senza premio in
+denaro — è il budget personale di chi lo riceve. Prima il modulo pretendeva un importo positivo, quindi
+per dare un obiettivo bisognava inventarsi un premio. Il negativo resta rifiutato (sarebbe una multa,
+e questa sezione non è quella). Nell'elenco un target senza premio si legge **«solo obiettivo»**.
+
 «premi per le persone al raggiungimento di specifici risultati: per singoli, team o aziendali». Prima
 ne esisteva **uno solo per livello di scenario** (`ScenarioConfig.premio`, un monte premi aziendale) e
 valeva **zero**: non si poteva dire *a chi* andasse né *per cosa*.
