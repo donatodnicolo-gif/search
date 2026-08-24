@@ -105,6 +105,7 @@ export class SalesService {
         productId: product.id,
         provinceId: body.provinceId,
         partnerId: scelto?.partnerId ?? null,
+        assignmentReason: scelto?.motivo ?? null,
         customerId: body.customerId,
         brand: body.brand ?? 'DELUXY',
         amount: product.price ?? 0,
@@ -250,6 +251,7 @@ export class SalesService {
       where: { id },
       data: {
         partnerId: prossimo?.partnerId ?? null,
+        assignmentReason: prossimo?.motivo ?? null,
         status: prossimo ? SaleStatus.PROPOSTA : SaleStatus.DA_GESTIRE,
         refusedPartnerIds: JSON.stringify(rifiutati),
       },

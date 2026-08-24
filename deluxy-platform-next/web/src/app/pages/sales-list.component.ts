@@ -18,6 +18,7 @@ interface Sale {
   product?: { id: string; name: string } | null;
   partner?: { id: string; insegna: string } | null;
   province?: { id: string; code: string; name: string } | null;
+  assignmentReason?: string | null;
 }
 
 /**
@@ -129,7 +130,11 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
                 <td class="mono">{{ s.brand }} <span class="muted">{{ s.externalOrderId ? '·' : '' }}</span></td>
                 <td>{{ s.product?.name ?? '—' }}</td>
                 <td class="mono">{{ s.province?.code ?? '—' }}</td>
-                <td>{{ s.partner?.insegna ?? ('sales.noPartner' | translate) }}</td>
+                <td>{{ s.partner?.insegna ?? ('sales.noPartner' | translate) }}
+                  @if (s.assignmentReason) {
+                    <span class="motivo">{{ s.assignmentReason }}</span>
+                  }
+                </td>
                 <td>{{ s.deliveryDate ? (s.deliveryDate | date: 'dd/MM/yyyy') : '—' }}</td>
                 <td class="num">{{ s.amount | number: '1.2-2' }} €</td>
                 <td class="azioni">
@@ -181,6 +186,7 @@ const STATI: Record<string, { etichetta: string; colore: string }> = {
       .vuoto { padding: 28px; text-align: center; color: var(--text-secondary); }
       .esito { margin-top: 10px; color: var(--danger); }
       .esito.ok { color: #248A3D; }
+      .motivo { display: block; font-size: 11px; color: var(--text-tertiary); margin-top: 2px; }
       .num { text-align: right; }
       .mono { font-variant-numeric: tabular-nums; }
     `,

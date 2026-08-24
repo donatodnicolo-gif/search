@@ -1334,6 +1334,14 @@ model Sale {
   discountPercent Float     @default(0)
   /// da_gestire | proposta | accettata | non_accettata | annullata
   status          String    @default("da_gestire")
+  /// PERCHE' e' stato scelto quel partner: «lista priorita' 2a di 5»,
+  /// «proprietario del prodotto unico», «nessuna lista per questa provincia».
+  ///
+  /// ⚠️ Fino al 24/08/2026 il motivo veniva calcolato dallo smistamento e
+  /// BUTTATO VIA. Chi guardava una vendita vedeva un partner e basta, senza
+  /// modo di sapere se era stato scelto da una lista o da un ripiego — e le
+  /// due cose meritano fiducia diversa.
+  assignmentReason String?
   source          String    @default("app") // app | woocommerce
   externalOrderId String? // id ordine WooCommerce
 
