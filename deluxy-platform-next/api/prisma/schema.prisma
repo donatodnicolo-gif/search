@@ -979,6 +979,9 @@ model Delivery {
   pickups            DeliveryPickup[]
   activities         Activity[]
   logs               DeliveryLog[]
+  /// Le righe di fattura che riguardano questa consegna: se ce n'è una, la
+  /// consegna è già fatturata e non deve rientrare in una fattura nuova.
+  invoiceLines       InvoiceLine[]
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
 }
@@ -1324,7 +1327,15 @@ model InvoiceLine {
   id          String   @id @default(cuid())
   invoiceId   String
   invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  deliveryId  String? // riferimento alla consegna (facoltativo)
+  /// La consegna fatturata. Serve a sapere che cosa è già stato fatturato:
+  /// senza, rigenerare un periodo lo fatturava una seconda volta.
+  ///
+  /// ⚠️ `SetNull` e non `Cascade`: la riga di fattura è la stampa di uno stato
+  /// di fatto, non un riflesso della consegna. Se la consegna sparisce, la
+  /// fattura emessa resta con i suoi importi — cancellarla riscriverebbe un
+  /// documento già incassato.
+  deliveryId  String?
+  delivery    Delivery? @relation(fields: [deliveryId], references: [id], onDelete: SetNull)
   date        DateTime
   recipient   String
   description String?

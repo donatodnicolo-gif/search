@@ -338,7 +338,8 @@
     "reopened": "Invoice reopened ✓",
     "tab": {
       "active": "Drafts",
-      "archive": "History"
+      "archive": "History",
+      "pending": "To invoice"
     },
     "fin": {
       "paid": "Paid",
@@ -381,7 +382,15 @@
       "hideDetail": "Hide"
     },
     "rebuilt": "rebuilt",
-    "rebuiltHint": "The original document carried no amount: the total is the net plus 22% VAT, the same rule that matches on the other invoices."
+    "rebuiltHint": "The original document carried no amount: the total is the net plus 22% VAT, the same rule that matches on the other invoices.",
+    "pending": {
+      "partners": "Partners",
+      "deliveries": "Deliveries",
+      "period": "Period",
+      "invoiceAll": "Invoice",
+      "empty": "Nothing to invoice: every delivery is already on an invoice.",
+      "capped": "Showing the partner's first 500 deliveries."
+    }
   },
   "salaries": {
     "title": "Salaries",

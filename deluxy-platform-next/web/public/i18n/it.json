@@ -338,7 +338,8 @@
     "reopened": "Fattura riaperta ✓",
     "tab": {
       "active": "Bozze",
-      "archive": "Storico"
+      "archive": "Storico",
+      "pending": "Da fatturare"
     },
     "fin": {
       "paid": "Pagata",
@@ -381,7 +382,15 @@
       "hideDetail": "Nascondi"
     },
     "rebuilt": "ricostruito",
-    "rebuiltHint": "Il documento originale non riportava l'importo: il totale è l'imponibile più l'IVA al 22%, la stessa regola che combacia sulle altre fatture."
+    "rebuiltHint": "Il documento originale non riportava l'importo: il totale è l'imponibile più l'IVA al 22%, la stessa regola che combacia sulle altre fatture.",
+    "pending": {
+      "partners": "Partner",
+      "deliveries": "Consegne",
+      "period": "Periodo",
+      "invoiceAll": "Fattura",
+      "empty": "Niente da fatturare: ogni consegna ha già la sua fattura.",
+      "capped": "Mostrate le prime 500 consegne del partner."
+    }
   },
   "salaries": {
     "title": "Stipendi",
