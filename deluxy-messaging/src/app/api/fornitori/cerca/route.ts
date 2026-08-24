@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { partnerAttivi } from '@/lib/anagrafiche'
+import { cercaSuMaps } from '@/lib/maps-fornitori'
 import {
   chiaveNome,
+  fornitoreVuoto,
   nomeCorrisponde,
   paroleTrovate,
   unisci,
@@ -58,6 +60,10 @@ function paroleDaCercare(q: string): string[] {
 
 export async function GET(req: NextRequest) {
   const q = (req.nextUrl.searchParams.get('q') ?? '').trim()
+  // ⚠️ Maps solo su richiesta esplicita: si paga a chiamata (vedi sotto).
+  const conMaps = req.nextUrl.searchParams.get('maps') === '1'
+  // La zona in cui cercare: la città di consegna dell'ordine, quando c'è.
+  const dove = (req.nextUrl.searchParams.get('dove') ?? '').trim()
   if (q.length < 2) return NextResponse.json({ fornitori: [], nota: '' })
   const parole = paroleDaCercare(q)
 
@@ -122,6 +128,7 @@ export async function GET(req: NextRequest) {
   }
   for (const p of perNome.values()) {
     pezzi.push({
+      ...fornitoreVuoto(),
       nome: p.nome,
       ragioneSociale: '',
       citta: '',
@@ -152,6 +159,7 @@ export async function GET(req: NextRequest) {
       continue
     }
     perOrdine.set(k, {
+      ...fornitoreVuoto(),
       nome: o.fornitoreNome,
       ragioneSociale: '',
       citta: o.fornitoreCitta,
@@ -190,6 +198,7 @@ export async function GET(req: NextRequest) {
     nota = ''
     for (const p of esito.partner) {
       pezzi.push({
+        ...fornitoreVuoto(),
         nome: p.nome || p.ragioneSociale,
         ragioneSociale: p.ragioneSociale,
         citta: p.citta,
@@ -202,6 +211,11 @@ export async function GET(req: NextRequest) {
         pagamenti: 0,
         fonti: ['registro'],
         stato: p.stato === 'attivo' ? 'Partner' : 'In anagrafica',
+        // ⚠️ La categoria si porta a schermo: è l'unico modo in cui il registro
+        // dice «da questo compriamo» — un campo «fornitore sì/no» non esiste —
+        // e serve a distinguere un fioraio da una boutique cliente, che nella
+        // stessa lista si somigliano molto.
+        categoria: p.categoria || '',
         corrispondenza: 0,
       })
     }
@@ -220,7 +234,48 @@ export async function GET(req: NextRequest) {
   //
   // ⚠️ Basta UNA parola, non tutte: chi corrisponde meglio va in cima (lo
   // decide `punteggio`), gli altri restano sotto.
+  // ── 4. GOOGLE MAPS, solo se lo si chiede ──
+  //
+  // ⚠️⚠️ NON parte mentre si scrive: questa ricerca **si paga a chiamata**, e un
+  // autocompletamento su Maps a ogni tasto costerebbe centinaia di ricerche al
+  // giorno per riempire un campo che nove volte su dieci si riempie da solo con
+  // quello che sappiamo già. Parte premendo un bottone, quando in casa non si è
+  // trovato niente.
+  //
+  // ⚠️ I risultati di Maps NON si filtrano col nostro controllo sui nomi: lì la
+  // ricerca l'ha già fatta Google sul nome che gli abbiamo dato, e un secondo
+  // filtro toglierebbe «Delia | Pasticceria Contemporanea» a chi ha cercato
+  // «pasticceria». Restano in fondo all'elenco, marcati.
+  let notaMaps = ''
+  const luoghiMaps: FornitoreTrovato[] = []
+  if (conMaps) {
+    const e = await cercaSuMaps(q, dove)
+    if (e.stato === 'senza-chiave') {
+      notaMaps = 'Manca la chiave Google Maps nelle Impostazioni: la ricerca esterna è spenta.'
+    } else if (e.stato === 'errore') {
+      notaMaps = `Google Maps non ha risposto: ${e.messaggio}`
+    } else {
+      for (const l of e.luoghi) {
+        luoghiMaps.push({
+          ...fornitoreVuoto(),
+          nome: l.nome,
+          citta: l.citta,
+          indirizzo: l.indirizzo,
+          mapsId: l.id,
+          voto: l.voto,
+          recensioni: l.recensioni,
+          chiuso: l.chiuso,
+          fonti: ['maps'],
+        })
+      }
+      if (!e.luoghi.length) notaMaps = `Su Google Maps non c'è niente per «${[q, dove].filter(Boolean).join(' ')}».`
+    }
+  }
+
   const conPunteggio = pezzi.map((p) => ({ ...p, corrispondenza: paroleTrovate(p, q) }))
-  const fornitori = unisci(conPunteggio.filter((p) => nomeCorrisponde(p, q))).slice(0, 12)
-  return NextResponse.json({ fornitori, nota, parole })
+  const fornitori = unisci(
+    [...conPunteggio.filter((p) => nomeCorrisponde(p, q)), ...luoghiMaps],
+    dove
+  ).slice(0, conMaps ? 24 : 12)
+  return NextResponse.json({ fornitori, nota, notaMaps, parole })
 }

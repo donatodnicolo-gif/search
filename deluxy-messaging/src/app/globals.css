@@ -4505,3 +4505,17 @@ td .azioni-ordine {
   line-height: 1.45;
   color: var(--text-secondary);
 }
+
+/* La ricerca fuori casa (Google Maps): zona + bottone, su una riga sola che
+   va a capo sul telefono. ⚠️ Sta SOTTO i risultati di casa, non accanto alla
+   casella: chi conosciamo ha IBAN e storia, chi sta su Maps e' un numero da
+   chiamare — affiancarle le farebbe sembrare equivalenti. */
+.cerca-fuori {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--hairline);
+}

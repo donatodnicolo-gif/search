@@ -28,7 +28,13 @@ const DETTAGLIO_VECCHIO = 'https://maps.googleapis.com/maps/api/place/details/js
 
 /** L'errore di Google dice che quell'API non è accesa su questo progetto? */
 function apiNonAccesa(messaggio: string): boolean {
-  return /not enabled|has not been used|disabled|PERMISSION_DENIED|API key not valid/i.test(
+  // ⚠️ «are blocked» mancava, e non è un sinonimo di cortesia: è la frase che
+  // Google usa quando il metodo NUOVO è spento sul progetto ma la chiave è
+  // validissima. Senza riconoscerla si mostrava l'errore inglese di Google
+  // invece di ricadere sulla vecchia API — cioè la ricerca sembrava rotta
+  // mentre la strada che funziona era lì accanto. Misurato il 24/08 sulla
+  // ricerca fornitori: «Requests to this API … SearchText are blocked».
+  return /not enabled|has not been used|disabled|PERMISSION_DENIED|API key not valid|are blocked|is blocked/i.test(
     messaggio
   )
 }

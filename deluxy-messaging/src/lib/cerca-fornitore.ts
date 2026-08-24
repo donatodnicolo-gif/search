@@ -10,7 +10,7 @@
 // pagina Pagamenti, che è un componente client. Le query stanno nella rotta.
 
 /** Da dove viene quello che sappiamo di lui. Cambia quanto ci si può fidare. */
-export type FonteFornitore = 'pagamento' | 'ordine' | 'registro'
+export type FonteFornitore = 'pagamento' | 'ordine' | 'registro' | 'maps'
 
 export type FornitoreTrovato = {
   /** Come si chiama, nella forma migliore che abbiamo. */
@@ -38,12 +38,61 @@ export type FornitoreTrovato = {
   /** Lo stato nel registro Anagrafiche: «Partner», «Prospect»… */
   stato: string
   /**
+   * La categoria del registro: FIORISTA, PASTICCERIA, BOUTIQUE…
+   *
+   * ⚠️⚠️ È l'unico modo in cui il registro dice «questo è un fornitore»: un
+   * campo «fornitore sì/no» non esiste. Per questo si MOSTRA invece di essere
+   * usata per filtrare — vedi `diMestiere` qui sotto.
+   */
+  categoria: string
+  /** L'indirizzo per esteso, quando viene da Google Maps. */
+  indirizzo: string
+  /** L'id di Google, per chiedergli il telefono quando lo si sceglie. */
+  mapsId: string
+  /** Il giudizio su Maps: di uno che non conosciamo è tutto quello che sappiamo. */
+  voto: number | null
+  recensioni: number
+  /** Risulta chiuso definitivamente su Maps. */
+  chiuso: boolean
+  /**
    * Quante parole della ricerca compaiono davvero nel nome.
    * ⚠️ È quello che mette in cima i risultati migliori senza buttare via gli
    * altri: chi cerca «Pasticceria Rossi» vede prima «Pasticceria Rossi Snc»,
    * ma vede anche le altre pasticcerie e gli altri Rossi.
    */
   corrispondenza: number
+}
+
+/**
+ * Un fornitore «vuoto», da cui partire.
+ *
+ * ⚠️ Esiste perché le fonti sono quattro e ognuna sa poche cose: senza una base
+ * comune, aggiungendo un campo al tipo bisogna ricordarsi di riempirlo in
+ * quattro punti — e quello dimenticato non da' errore, da' `undefined` a
+ * schermo. Così invece il compilatore lo pretende una volta sola, qui.
+ */
+export function fornitoreVuoto(): FornitoreTrovato {
+  return {
+    nome: '',
+    ragioneSociale: '',
+    citta: '',
+    telefono: '',
+    email: '',
+    iban: '',
+    ibanDiversi: 0,
+    ordini: 0,
+    ultimoCosto: null,
+    pagamenti: 0,
+    fonti: [],
+    stato: '',
+    categoria: '',
+    indirizzo: '',
+    mapsId: '',
+    voto: null,
+    recensioni: 0,
+    chiuso: false,
+    corrispondenza: 0,
+  }
 }
 
 /** Come si confronta un nome: senza maiuscole, accenti né doppi spazi. */
@@ -128,13 +177,40 @@ export function ibanAccorciato(iban: string): string {
 }
 
 /**
+ * Le categorie del registro che vogliono dire «da qui compriamo».
+ *
+ * ⚠️⚠️ Il registro NON ha un campo «fornitore»: la marcatura è la CATEGORIA, e
+ * sono più parole per la stessa cosa (contate sul registro vero il 24/08/2026:
+ * FIORISTA 144 **e** FIORI 5, PASTICCERIA 98 **e** CIOCCOLATERIA 5). Guardarne
+ * una sola perde un pezzo di elenco senza che si veda che manca.
+ *
+ * ⚠️⚠️ E NON si filtra su questa lista: **340 partner su 1048 sono «DA
+ * CLASSIFICARE»**. Filtrando, un terzo del registro sparirebbe dalla ricerca —
+ * compreso, un giorno su tre, proprio quello che si sta cercando. Quindi si
+ * MARCA e si ORDINA: i fornitori in cima, gli altri sotto, nessuno nascosto.
+ */
+const CATEGORIE_FORNITURA = new Set([
+  'FIORISTA', 'FIORISTI', 'FIORAIO', 'FIORI',
+  'PASTICCERIA', 'PASTICCERIE', 'CIOCCOLATERIA', 'CAKE',
+  'CATERING', 'CHEF PRIVATO', 'RISTORANTE', 'ENOTECA', 'PARTY',
+])
+
+/** Da questa categoria si compra, sì o no. */
+export function diMestiere(categoria: string): boolean {
+  return CATEGORIE_FORNITURA.has((categoria || '').trim().toUpperCase())
+}
+
+/**
  * Quanto è buono un risultato: prima chi possiamo pagare subito.
  *
  * ⚠️ L'ordine non è alfabetico e nemmeno per «somiglianza del nome»: è per
  * QUANTO CI RISPARMIA. Un fornitore di cui abbiamo l'IBAN si sceglie con un
- * clic; uno che conosciamo solo dal registro va comunque compilato a mano.
+ * clic; uno che conosciamo solo dal registro va comunque compilato a mano; uno
+ * di Google Maps va telefonato, e va in fondo.
+ *
+ * `dove` è la zona di consegna, quando si sa: vedi sotto perché conta.
  */
-export function punteggio(f: FornitoreTrovato): number {
+export function punteggio(f: FornitoreTrovato, dove = ''): number {
   // ⚠️ La corrispondenza pesa più di tutto il resto: chi cerca «Pasticceria
   // Rossi» vuole «Pasticceria Rossi» in cima, anche se di un'altra pasticceria
   // conosciamo già l'IBAN. Il resto ordina i pari merito.
@@ -145,11 +221,31 @@ export function punteggio(f: FornitoreTrovato): number {
   p += Math.min(f.ordini, 20) * 5
   if (f.ragioneSociale) p += 3
   if (f.stato === 'Partner') p += 2
+  // ⚠️ Chi è segnato con una categoria da cui compriamo va davanti a chi è in
+  // registro come cliente o come «da classificare» — a parità di nome. Pesa
+  // meno della corrispondenza: cercando un nome preciso vince sempre il nome.
+  if (diMestiere(f.categoria)) p += 400
+  // ⚠️⚠️ LA ZONA CONTA ANCHE SUI NOSTRI. Misurato: cercando «pasticceria» per
+  // una consegna a **Lecce**, in cima uscivano le pasticcerie di Firenze, Roma
+  // e Siena — perché la zona restringeva solo la ricerca su Maps. Chi cerca un
+  // fornitore per un ordine lo cerca DOVE si consegna: una pasticceria a 700 km
+  // non è un risultato migliore di una a Lecce, è un risultato inutile.
+  //
+  // ⚠️ Si ALZA, non si filtra: un fornitore del paese accanto è quasi sempre
+  // buono, e la città scritta nel registro non è sempre quella del laboratorio.
+  if (dove && f.citta && chiaveNome(f.citta) === chiaveNome(dove)) p += 2000
+  // ⚠️⚠️ Chi viene da Google Maps va IN FONDO, sempre. Non lo conosciamo: non
+  // sappiamo se risponde, se fattura, se ha già lavorato per noi. Metterlo
+  // vicino a uno che abbiamo già pagato dieci volte vuol dire farlo scegliere
+  // per sbaglio, con la fretta di un ordine da sistemare.
+  if (f.fonti.length === 1 && f.fonti[0] === 'maps') p -= 100000
+  // Chiuso definitivamente: c'è, ma per ultimo.
+  if (f.chiuso) p -= 5000
   return p
 }
 
 /** Unisce quello che sappiamo dello stesso fornitore da fonti diverse. */
-export function unisci(pezzi: FornitoreTrovato[]): FornitoreTrovato[] {
+export function unisci(pezzi: FornitoreTrovato[], dove = ''): FornitoreTrovato[] {
   const per = new Map<string, FornitoreTrovato>()
   for (const p of pezzi) {
     const k = chiaveNome(p.nome)
@@ -175,10 +271,20 @@ export function unisci(pezzi: FornitoreTrovato[]): FornitoreTrovato[] {
       pagamenti: prec.pagamenti + p.pagamenti,
       fonti: [...new Set([...prec.fonti, ...p.fonti])],
       stato: prec.stato || p.stato,
+      categoria: prec.categoria || p.categoria,
+      indirizzo: prec.indirizzo || p.indirizzo,
+      mapsId: prec.mapsId || p.mapsId,
+      voto: prec.voto ?? p.voto,
+      recensioni: Math.max(prec.recensioni, p.recensioni),
+      // ⚠️ Se UNA fonte lo dà per chiuso, resta chiuso: la nostra copia può
+      // essere vecchia di mesi, Maps no.
+      chiuso: prec.chiuso || p.chiuso,
       corrispondenza: Math.max(prec.corrispondenza, p.corrispondenza),
     })
   }
-  return [...per.values()].sort((a, b) => punteggio(b) - punteggio(a) || a.nome.localeCompare(b.nome, 'it'))
+  return [...per.values()].sort(
+    (a, b) => punteggio(b, dove) - punteggio(a, dove) || a.nome.localeCompare(b.nome, 'it')
+  )
 }
 
 /** In una riga: che cosa sappiamo già di lui. */
@@ -192,6 +298,15 @@ export function cosaSappiamo(f: FornitoreTrovato): string {
     pezzi.push(
       `ultimo a ${f.ultimoCosto!.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' })}`
     )
+  }
+  // ⚠️ Di uno trovato su Maps si dice CHE COSA NON SAPPIAMO, non si tace: la
+  // riga sembrerebbe uguale a quella di un fornitore nostro, e a colpo d'occhio
+  // si finirebbe per sceglierlo credendo di averci già lavorato.
+  if (!pezzi.length && f.fonti.includes('maps')) {
+    const voto = f.voto !== null ? `${f.voto.toFixed(1)}★ su ${f.recensioni} recensioni` : ''
+    return [f.chiuso ? '⚠️ risulta CHIUSO' : '', 'da Google Maps: non ci abbiamo mai lavorato', voto]
+      .filter(Boolean)
+      .join(' · ')
   }
   if (!pezzi.length) pezzi.push('solo in anagrafica: IBAN da chiedere')
   return pezzi.join(' · ')
