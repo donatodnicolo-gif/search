@@ -571,6 +571,7 @@ export function RichiediPagamento() {
         richiesta?: Richiesta
         motivoIban?: string
         invio?: { ok: boolean; messaggio: string } | null
+        riconciliato?: { fatto: boolean; messaggio: string } | null
         errore?: string
       }
       if (!res.ok) {
@@ -581,6 +582,16 @@ export function RichiediPagamento() {
       // L'inoltro a Partner può fallire senza far fallire il salvataggio: lo si dice.
       if (d.invio && !d.invio.ok) setErrore(d.invio.messaggio)
       else if (d.invio?.ok) setAvviso(`Salvata e inviata a Partner: ${d.richiesta?.stringa ?? ''}`)
+      // ⚠️⚠️ Se l'ordine NON ha imparato chi lo prepara, si dice subito e col
+      // perché: capita quando sull'ordine c'era già un altro fornitore, o
+      // quando il nome da pagare somiglia a quello del cliente (un rimborso).
+      // Tacerlo lascerebbe credere che la catena sia a posto — e l'ordine
+      // resterebbe senza fornitore proprio mentre lo si lavora.
+      if (d.riconciliato && !d.riconciliato.fatto && d.riconciliato.messaggio) {
+        setErrore(`⚠️ L'ordine non ha imparato chi lo prepara: ${d.riconciliato.messaggio}`)
+      } else if (d.riconciliato?.fatto) {
+        setAvviso((a) => `${a} ✓ ${d.riconciliato!.messaggio}`)
+      }
       if (d.motivoIban) setIbanNota(d.motivoIban)
       setIban('')
       setRiferimento('')
@@ -826,6 +837,32 @@ export function RichiediPagamento() {
               setOrdineNumero('')
             }}
           />
+          {/* ── CHI PREPARA QUEST'ORDINE, DETTO PRIMA ──
+              ⚠️⚠️ Chiedere di pagare qualcuno PER UN ORDINE è già dire che lo
+              prepara lui: salvando, l'ordine lo impara. Prima lo imparava solo
+              al «Pagata», cioè restava senza fornitore per tutto il tempo in cui
+              serve saperlo — mentre lo si lavora, e mentre chi risponde al
+              cliente si chiede a chi telefonare.
+              ⚠️ Si dice PRIMA di salvare, non dopo: è una scrittura su un altro
+              record, e una cosa che succede in silenzio su un ordine si scopre
+              quando dà fastidio. */}
+          {(ordineScelto?.numero || ordineNumero) && intestatario.trim() ? (
+            <p className="cella-sub">
+              Salvando, <strong>{ordineScelto?.numero || ordineNumero}</strong> risulterà preparato
+              da <strong>{intestatario.trim()}</strong>
+              {ordineScelto?.fornitoreNome &&
+              ordineScelto.fornitoreNome.trim() !== intestatario.trim() ? (
+                <>
+                  {' '}
+                  — ⚠️ ma su quell&apos;ordine risulta già{' '}
+                  <strong>{ordineScelto.fornitoreNome}</strong>, e non lo sovrascrivo: correggi
+                  l&apos;uno o l&apos;altro.
+                </>
+              ) : (
+                '.'
+              )}
+            </p>
+          ) : null}
           {/* ── QUANTO CI RESTA ──
               ⚠️ Il conto si faceva a mente, o non si faceva. Chi compila una
               richiesta ha davanti due numeri — quanto ha incassato l'ordine e

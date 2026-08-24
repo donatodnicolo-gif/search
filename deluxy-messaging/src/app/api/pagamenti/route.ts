@@ -3,6 +3,8 @@ import { db } from '@/lib/db'
 import { stringaPagamento, verificaIban } from '@/lib/iban'
 import { cosaManca, metodoValido } from '@/lib/metodo-pagamento'
 import { inviaRichiestaPagamento } from '@/lib/partner'
+import { riconciliaDaPagamento, type EsitoRiconciliazione } from '@/lib/riconcilia'
+import { utenteCorrente } from '@/lib/sessione'
 
 export const dynamic = 'force-dynamic'
 
@@ -92,6 +94,10 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  // ⚠️ Serve per SCRIVERE CHI: registrando il fornitore sull'ordine si archivia
+  // anche chi l'ha deciso, e «lo ha deciso l'app» non è una risposta utile
+  // davanti a un fornitore che dice di non aver mai accettato quell'ordine.
+  const io = await utenteCorrente()
   const c = (await req.json().catch(() => ({}))) as {
     iban?: string
     bic?: string
@@ -184,6 +190,37 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // ── L'ORDINE IMPARA SUBITO CHI LO PREPARA ──
+  //
+  // ⚠️⚠️ Chiesto dall'utente il 24/08/2026: «obbliga, al momento della richiesta
+  // di un pagamento per un ordine, di inserire anche il fornitore». Prima
+  // l'ordine lo imparava solo al «Pagata» — cioè restava senza fornitore per
+  // tutto il tempo in cui serve saperlo: mentre lo si lavora, e mentre chi
+  // risponde al cliente si chiede a chi telefonare.
+  //
+  // ⚠️ Non è un campo in più da compilare: chi va pagato è già obbligatorio, e
+  // chiedere di pagare qualcuno PER UN ORDINE è già dire che lo prepara lui. Si
+  // scrive quello che si è appena detto, invece di richiederlo due volte.
+  //
+  // ⚠️⚠️ I controlli restano gli stessi: se sull'ordine c'è già un fornitore
+  // DIVERSO non si sovrascrive, e se il nome è quello del cliente non si tocca
+  // niente (sarebbe un rimborso). Quello che non passa lo si DICE a chi ha
+  // salvato — vedi `riconciliato` nella risposta.
+  //
+  // ⚠️ Un errore qui non fa fallire il salvataggio: la richiesta è la cosa che
+  // conta, e perderla perché un contorno non è riuscito sarebbe il peggiore dei
+  // due errori.
+  let riconciliato: EsitoRiconciliazione | null = null
+  if (richiesta.ordineNumero) {
+    try {
+      riconciliato = io
+        ? await riconciliaDaPagamento(richiesta.id, io, 'richiesta')
+        : null
+    } catch {
+      riconciliato = null
+    }
+  }
+
   // Inoltro a Deluxy Partner, che approva e paga. Un fallimento qui non annulla
   // il salvataggio: la richiesta resta e si può rimandare.
   let invio: { ok: boolean; messaggio: string } | null = null
@@ -234,6 +271,10 @@ export async function POST(req: NextRequest) {
     richiesta: { ...aggiornata, stringa: stringaPagamento(richiesta) },
     motivoIban: esitoIban.motivo,
     invio,
+    // ⚠️ L'esito si RESTITUISCE: se il fornitore non e stato scritto
+    // sull'ordine (c era gia un altro nome, o quel nome e del cliente) chi ha
+    // salvato deve saperlo adesso, non scoprirlo fra tre giorni.
+    riconciliato,
   })
 }
 

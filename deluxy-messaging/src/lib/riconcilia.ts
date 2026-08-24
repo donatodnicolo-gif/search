@@ -39,12 +39,19 @@ export async function riconciliaDaPagamento(
   richiestaId: string,
   io: { id: string; nome: string },
   /**
-   * `auto` quando parte da sola dopo un «Pagata» fatto qui dentro. Cambia solo
-   * come si SCRIVE la provenienza sull'ordine: fra sei mesi la differenza fra
-   * «l'ha detto chi ha telefonato» e «l'ho ricavato da un pagamento» è
-   * esattamente ciò che serve per sapere quanto fidarsi.
+   * Da dove arriva la chiamata. Cambia due cose: se si accetta una richiesta
+   * non ancora pagata, e come si SCRIVE la provenienza sull'ordine — fra sei
+   * mesi la differenza fra «l'ha detto chi ha telefonato» e «l'ho ricavato da
+   * un pagamento» è esattamente ciò che serve per sapere quanto fidarsi.
+   *
+   * · `auto` — parte da sola dopo un «Pagata» fatto qui dentro.
+   * · `a-mano` — il bottone della pagina Riconciliazione, sui pagamenti vecchi.
+   * · `richiesta` — si CHIEDE un pagamento per un ordine: chiesto dall'utente il
+   *   24/08/2026, «obbliga a inserire anche il fornitore». È l'unico modo che
+   *   accetta una richiesta **non ancora pagata**, e la ragione è che chiedere
+   *   di pagare qualcuno per un ordine È dire che lo prepara lui.
    */
-  come: 'auto' | 'a-mano' = 'a-mano'
+  come: 'auto' | 'a-mano' | 'richiesta' = 'a-mano'
 ): Promise<EsitoRiconciliazione> {
   const r = await db.richiestaPagamento.findUnique({
     where: { id: richiestaId },
@@ -59,12 +66,20 @@ export async function riconciliaDaPagamento(
   if (!r) {
     return { fatto: false, verdetto: 'senza-richiesta', messaggio: 'Richiesta non trovata.' }
   }
-  if (!r.pagataIl) {
+  // ⚠️⚠️ Di suo una richiesta NON PAGATA non dimostra chi ha preparato
+  // l'ordine: il fornitore può ancora dire di no, e scriverlo vorrebbe dire
+  // archiviare un'intenzione come se fosse un fatto.
+  //
+  // ⚠️ Col modo `richiesta` questa regola si scavalca, per decisione
+  // dell'utente (24/08/2026): chiedere di pagare qualcuno PER UN ORDINE è già
+  // dire che lo prepara lui, e aspettare il «Pagata» lasciava l'ordine senza
+  // fornitore per tutto il tempo in cui serve saperlo — cioè mentre lo si sta
+  // lavorando. Il rischio resta ed è dichiarato: se poi quel fornitore dice di
+  // no, l'ordine tiene un nome sbagliato finché qualcuno preme «Togli».
+  if (!r.pagataIl && come !== 'richiesta') {
     return {
       fatto: false,
       verdetto: 'non-pagata',
-      // ⚠️ Una richiesta preparata e non pagata NON dimostra chi ha preparato
-      // l'ordine: il fornitore può ancora dire di no.
       messaggio: 'Questa richiesta non risulta pagata: non dimostra chi ha preparato l’ordine.',
     }
   }
@@ -113,7 +128,9 @@ export async function riconciliaDaPagamento(
     iban: '',
     importo: r.importo,
     metodo: r.metodo,
-    pagataIl: r.pagataIl.toISOString(),
+    // ⚠️ Col modo `richiesta` il pagamento non c'è ancora: si passa la data di
+    // adesso, perché `decidi()` la usa solo per costruire la frase da mostrare.
+    pagataIl: (r.pagataIl ?? new Date()).toISOString(),
     ordine: {
       id: ordine.id,
       numero: ordine.numero,
@@ -143,11 +160,13 @@ export async function riconciliaDaPagamento(
       // qualcuno non li scrive a mano. È giusto che sia così — inventarli
       // sarebbe peggio — ma va detto, o si crede che la catena sia completa.
       fornitoreNota:
-        come === 'auto'
-          ? `Ricavato dal pagamento registrato qui il ${r.pagataIl.toLocaleDateString('it-IT')}.`
-          : ordine.fornitoreNome
-            ? 'Costo ricavato dal pagamento già fatto.'
-            : `Ricavato dal pagamento già fatto a ${r.intestatario}.`,
+        come === 'richiesta'
+          ? `Registrato chiedendo il pagamento a ${r.intestatario}.`
+          : come === 'auto'
+            ? `Ricavato dal pagamento registrato qui${r.pagataIl ? ' il ' + r.pagataIl.toLocaleDateString('it-IT') : ''}.`
+            : ordine.fornitoreNome
+              ? 'Costo ricavato dal pagamento già fatto.'
+              : `Ricavato dal pagamento già fatto a ${r.intestatario}.`,
       fornitoreDaId: io.id,
       fornitoreDaNome: io.nome,
       fornitoreIl: new Date(),
