@@ -49,6 +49,7 @@ import { AppSuMessaggio } from '@/components/AppSuMessaggio'
 import { BottoneApp } from '@/components/BottoneApp'
 import { leggiEventoProposto } from '@/lib/eventoProposto'
 import { PropostaEvento } from '@/components/PropostaEvento'
+import { EliminaEvento } from '@/components/EliminaEvento'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60 // le azioni AI (analisi, riassunto thread) girano qui
@@ -167,6 +168,12 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
 
   // L'appuntamento che l'AI ha riconosciuto in questa mail, da accettare.
   const eventoProposto = leggiEventoProposto(messaggio.eventoProposto)
+  // Gli appuntamenti nati da questa mail: da quando l AI li mette in agenda
+  // da sola, la mail DEVE dirlo. Una scrittura che non si vede e una
+  // scrittura di cui non ci si fida.
+  const eventiInAgenda = await db.evento
+    .findMany({ where: { messaggioId: messaggio.id, utenteId: u.id }, orderBy: { inizio: 'asc' } })
+    .catch(() => [])
 
   // «Questa sembra falsa»: il controllo è segnato all'arrivo (`spamCaso`), ma
   // si rifà anche QUI, al volo, per le mail arrivate PRIMA che la regola
@@ -342,6 +349,37 @@ export default async function DettaglioMessaggio({ params, searchParams }: Props
         {conDiagnosi && <DiagnosiInvito messaggioId={messaggio.id} />}
 
         {eventoProposto && <PropostaEvento messaggioId={messaggio.id} evento={eventoProposto} />}
+
+        {/* Gia in agenda: titolo, quando, dove — e come toglierlo. */}
+        {eventiInAgenda.length > 0 && (
+          <div className="ai-box">
+            <div className="ai-box-title">
+              {eventiInAgenda.length === 1 ? 'In agenda' : `In agenda (${eventiInAgenda.length})`}
+            </div>
+            {eventiInAgenda.map((ev) => (
+              <div key={ev.id} className="task-row" style={{ padding: '6px 0' }}>
+                <div style={{ minWidth: 0 }}>
+                  <div className="task-titolo">{ev.titolo}</div>
+                  <div className="task-sub">
+                    {ev.inizio.toLocaleString('it-IT', {
+                      timeZone: FUSO,
+                      weekday: 'long',
+                      day: 'numeric',
+                      month: 'long',
+                      ...(ev.giornataIntera ? {} : { hour: '2-digit', minute: '2-digit' }),
+                    })}
+                    {ev.luogo ? ` · ${ev.luogo}` : ''}
+                    {ev.creatoDaAI ? ' · messo in agenda dall’AI' : ''}
+                  </div>
+                </div>
+                <div className="task-side">
+                  <Link href="/calendario" className="azione-riga">Calendario →</Link>
+                  <EliminaEvento id={ev.id} />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {messaggio.riassunto && (
           <div className="ai-box">

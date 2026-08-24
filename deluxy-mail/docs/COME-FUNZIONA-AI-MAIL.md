@@ -762,6 +762,22 @@ Sono due cose diverse: una dice cosa c'è da fare, l'altra a che punto sei.
 La nota non resta chiusa in AI Mail: arriva anche nell'app Attività, in coda alla
 descrizione, quindi la leggono i colleghi che la vedono da lì.
 
+### Gli appuntamenti finiscono in agenda da soli
+
+Quando una mail contiene un appuntamento con **data e ora certe** — un invito a
+una riunione, «ci vediamo martedì alle 15», un evento con luogo e orario — l'AI
+non si limita più a proporlo: lo **mette in Calendario**. Sulla mail compare il
+riquadro **«In agenda»** con titolo, quando, dove, e il tasto per toglierlo.
+
+⚠️ Due cancelli, perché in agenda non finisca spazzatura: l'AI considera evento
+solo ciò che ha data e ora precise (un «sentiamoci presto» non lo è), e la data
+deve risultare valida una volta convertita. Se uno dei due non passa, torna la
+vecchia proposta col tasto «Aggiungi al calendario»: meglio un tasto da premere
+che un appuntamento sbagliato.
+
+⚠️ L'evento resta legato alla mail e segnato come messo dall'AI: si vede da dove
+viene e si cancella con un clic, sia dalla mail sia dal Calendario.
+
 ### Luoghi e date nei riassunti
 
 Ogni riassunto — della singola mail, della conversazione, della sezione — riporta

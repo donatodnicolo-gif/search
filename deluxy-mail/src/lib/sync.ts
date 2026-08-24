@@ -334,14 +334,51 @@ export async function analizzaMessaggioOra(
       : null
     const sezioneDecisa = m.smistatoDa === 'manuale' || m.smistatoDa === 'regola' || m.smistatoDa === 'spam'
 
-    // Se l'AI ha riconosciuto un appuntamento e non l'hai già messo in agenda,
-    // si tiene la proposta: la pagina mostrerà «Aggiungi al calendario».
+    // ⚠️ IN AGENDA DA SOLO. Se l'AI riconosce un appuntamento con data e ora
+    // certe, l'evento si CREA — non si propone e basta. Chiesto il 22/08/2026:
+    // «se è una data dell'evento metti già in calendario l'evento».
+    //
+    // ⚠️ Il prompt è già severo su cosa sia un evento: servono DATA e ORA
+    // precise, e «sentiamoci presto» non lo è (vedi SISTEMA). Qui si aggiunge
+    // il secondo cancello, quello che il modello non può garantire: la data
+    // dev'essere VALIDA una volta convertita. Se non lo è non si inventa niente
+    // e si torna alla proposta, che l'utente può guardare.
+    //
+    // ⚠️ Resta `creatoDaAI: true` e resta legato al messaggio: in Calendario si
+    // vede da dove viene e si cancella con un clic. Una cosa messa in agenda da
+    // sola dev'essere altrettanto facile da togliere.
     let eventoProposto: string | null = null
     if (analisi.evento) {
       try {
         const giaInAgenda = await db.evento.count({ where: { messaggioId: m.id } })
-        if (giaInAgenda === 0) eventoProposto = JSON.stringify(analisi.evento)
+        if (giaInAgenda === 0) {
+          const ev = analisi.evento
+          const inizio = ev.giornataIntera
+            ? new Date(`${String(ev.inizio).slice(0, 10)}T00:00:00Z`)
+            : oraItalianaInUtcSync(ev.inizio)
+          if (inizio && !isNaN(inizio.getTime())) {
+            const fine = !ev.giornataIntera && ev.fine ? oraItalianaInUtcSync(ev.fine) : null
+            await db.evento.create({
+              data: {
+                utenteId,
+                titolo: ev.titolo || m.oggetto,
+                luogo: ev.luogo || '',
+                inizio,
+                fine: fine && fine > inizio ? fine : null,
+                giornataIntera: ev.giornataIntera === true,
+                messaggioId: m.id,
+                creatoDaAI: true,
+              },
+            })
+            // Creato: niente proposta, o la mail chiederebbe di aggiungere una
+            // cosa che c'è già.
+          } else {
+            eventoProposto = JSON.stringify(analisi.evento)
+          }
+        }
       } catch {
+        // Database occupato o data storta: si ripiega sulla proposta, che non
+        // scrive niente. Meglio un tasto da premere che un appuntamento perso.
         eventoProposto = JSON.stringify(analisi.evento)
       }
     }
