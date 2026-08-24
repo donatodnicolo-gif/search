@@ -1,4 +1,17 @@
-# HANDOFF — Deluxy Search/Supplier (aggiornato al 19/08/2026)
+# HANDOFF — Deluxy Search/Supplier (aggiornato al 24/08/2026)
+
+> 🏛️ **ARCHITETTURA DEI DATI (OBBLIGATORIA, 24/08/2026)** — Standard Deluxy §7
+> (`C:\Users\nicol\scoutwt\deluxy-standard\STANDARD-DELUXY.md`). Il ruolo di
+> QUESTA app nel giro dell'ordine: **motore di ricerca dei fornitori sul
+> territorio, nessuna verità** — il Customer Service la interroga per i
+> candidati (percorso C) e decide lui. NON deve: tenere graduatorie di
+> preferenza (sono del CS, che ha lo storico), copiare l'identità dei
+> fornitori (vive in Anagrafiche: aggancio per `sistema`+`idEsterno`, già
+> fatto bene), detenere la chiave di **scrittura** su Anagrafiche (spetta solo
+> alla piattaforma consegne: le segnalazioni vanno instradate da lì — audit
+> 24/08), né archiviare gli ordini Shopify oltre una cache breve (la fonte è
+> Orders). Restano dall'audit: `api/health`, `vercel.json` con `fra1`,
+> segreti nelle env coi nomi standard invece che nel blob Redis.
 
 Per riprendere il lavoro su quest'app da una nuova sessione Claude. **Leggere prima
 [AI_SPEC.md](AI_SPEC.md)**: è la scheda tecnica completa e aggiornata; questo file dice
