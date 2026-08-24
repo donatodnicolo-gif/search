@@ -140,6 +140,15 @@ const GLIFI: Record<AppDeluxy["icona"], React.ReactNode> = {
       <path d="M13.2 5.5 10.8 18.5" {...TRATTO} />
     </>
   ),
+  // Tesserino col profilo: l'organico e le persone
+  personale: (
+    <>
+      <rect x="3.5" y="5" width="17" height="14" rx="2.2" {...TRATTO} />
+      <circle cx="9" cy="10.5" r="2" {...TRATTO} />
+      <path d="M5.8 15.8c0-1.8 1.5-2.9 3.2-2.9s3.2 1.1 3.2 2.9" {...TRATTO} />
+      <path d="M14.5 9.5h3.5M14.5 12.5h3.5" {...TRATTO} />
+    </>
+  ),
   // Andamento con il punto dell'evento: il cambio di vertice e cio che accade dopo
   fondo: (
     <>

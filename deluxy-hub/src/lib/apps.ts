@@ -8,7 +8,7 @@ export type AppDeluxy = {
   nome: string;
   sottotitolo: string;
   descrizione: string;
-  icona: "consegne" | "search" | "partner" | "scout" | "mail" | "anagrafiche" | "maison" | "budgets" | "tasks" | "calendario" | "merchandising" | "marketing" | "messaggi" | "orders" | "transactions" | "scripts" | "fondo";
+  icona: "consegne" | "search" | "partner" | "scout" | "mail" | "anagrafiche" | "maison" | "budgets" | "tasks" | "calendario" | "merchandising" | "marketing" | "messaggi" | "orders" | "transactions" | "scripts" | "fondo" | "personale";
   url: string;
   ruoli: readonly Ruolo[];
   // true = app mobile, si apre sul dispositivo/build web di Expo
@@ -228,6 +228,22 @@ export function catalogoApp(): AppDeluxy[] {
       icona: "mail",
       url: url(process.env.APP_URL_MAIL, "http://localhost:3070"),
       ruoli: ["admin"],
+    },
+    {
+      id: "personale",
+      nome: "Personale",
+      sottotitolo: "Organico e mansioni",
+      descrizione:
+        "La casa dei dati HR: persone, funzioni e mansioni con le loro attività, organigramma, inquadramenti e retribuzioni. Hub e Budgets leggono l'organico dalle sue API.",
+      icona: "personale",
+      // L'app è pubblicata: si punta al sito di produzione, sovrascrivibile con
+      // APP_URL_PERSONALE (es. http://localhost:3200 in sviluppo).
+      url: process.env.APP_URL_PERSONALE ?? "https://deluxy-personale.vercel.app",
+      // Solo admin: dentro ci sono gli stipendi.
+      ruoli: ["admin"],
+      // Personale accetta il SSO del Hub (/api/sso, app "personale"): serve lo
+      // stesso HUB_SSO_SECRET nelle due app, altrimenti degrada al login.
+      sso: true,
     },
     {
       id: "fondo",
