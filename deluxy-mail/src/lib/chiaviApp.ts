@@ -37,7 +37,12 @@ const MAPPA: Record<NomeChiaveApp, { impostazione: string; env: string }> = {
   scripts: { impostazione: 'app.scripts.key', env: 'SCRIPTS_API_KEY' },
 }
 
-const NOMI = Object.keys(MAPPA) as NomeChiaveApp[]
+/** Le app che possono avere una chiave. **Unica fonte**: si ricava da `MAPPA`,
+ *  così aggiungerne una la rende subito salvabile.
+ *  ⚠️ Era duplicata a mano dentro `salvaChiaveAppAction`, e il 24/08/2026 salvare
+ *  la chiave di «Commerciale» rispondeva «App sconosciuta»: l'app era in `MAPPA`
+ *  ma non nella copia. Una lista scritta due volte diverge sempre. */
+export const NOMI = Object.keys(MAPPA) as NomeChiaveApp[]
 
 // Nome del progetto con cui AI Mail è registrata nella cassaforte del hub: le
 // chiavi vanno messe lì sotto questo progetto, con i nomi env qui sopra.

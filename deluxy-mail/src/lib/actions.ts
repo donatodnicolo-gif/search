@@ -133,7 +133,7 @@ import {
   type AzioneDescritta,
   type EsitoAzione,
 } from './appDeluxy'
-import { leggiChiaviApp, salvaChiaveApp, type NomeChiaveApp } from './chiaviApp'
+import { leggiChiaviApp, salvaChiaveApp, NOMI as NOMI_CHIAVI_APP, type NomeChiaveApp } from './chiaviApp'
 import { provaConnessione, salvaInInviata, trovaCartellaInviata, leggiAllegati as leggiAllegatiImap } from './imap'
 import { scriviImpostazione, leggiImpostazioni, CHIAVI } from './impostazioni'
 import { CHIAVE_TOKEN_API } from './apiAuth'
@@ -4336,8 +4336,11 @@ export async function salvaChiaveAppAction(
   const u = await utenteCorrente()
   if (!u) return { ok: false, messaggio: 'Sessione scaduta: rientra.' }
   if (u.ruolo !== 'admin') return { ok: false, messaggio: 'Solo un amministratore può cambiare le chiavi.' }
-  const nomi: NomeChiaveApp[] = ['anagrafiche', 'finance', 'fornitori', 'tasks', 'calendario', 'scripts']
-  if (!nomi.includes(nome as NomeChiaveApp)) return { ok: false, messaggio: 'App sconosciuta.' }
+  // ⚠️ La lista viene da `chiaviApp`, non da una copia scritta qui: era duplicata,
+  //    e «Commerciale» — aggiunta a `MAPPA` il 23/08 — riceveva «App sconosciuta»
+  //    al salvataggio. Le liste scritte due volte divergono, sempre.
+  if (!NOMI_CHIAVI_APP.includes(nome as NomeChiaveApp))
+    return { ok: false, messaggio: `App sconosciuta: «${nome}». Le app note sono ${NOMI_CHIAVI_APP.join(', ')}.` }
 
   await salvaChiaveApp(nome as NomeChiaveApp, valore)
   revalidatePath('/impostazioni-app')

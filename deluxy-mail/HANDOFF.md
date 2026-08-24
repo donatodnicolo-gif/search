@@ -490,6 +490,19 @@ Cron: **`/api/sync`** (route, autenticata con `CRON_SECRET`) — su Vercel Hobby
 
 ## 9. Problemi noti / gotchas
 
+- **«App sconosciuta» salvando la chiave di Commerciale (24 ago)** — la card mostrava il
+  campo, si incollava la chiave, e sotto compariva in rosso «App sconosciuta.». L'app c'era
+  eccome: `commerciale` sta in `NomeChiaveApp` e in `MAPPA` (`chiaviApp.ts`) dal 23/08.
+  ⚠️ Ma `salvaChiaveAppAction` **riscriveva la lista a mano**:
+  `['anagrafiche','finance','fornitori','tasks','calendario','scripts']` — sei nomi su sette,
+  fermi a prima. Aggiungere un'app a `MAPPA` non la rendeva salvabile.
+  Ora `NOMI` è **esportata da `chiaviApp`** e l'azione usa quella: una sola fonte, e
+  aggiungere un'app basta e avanza. Il messaggio d'errore dice anche **quale** nome è arrivato
+  e quali sono quelli noti — «App sconosciuta» da solo non fa capire da che parte guardare.
+  ⚠️ **Regola**: un elenco di cose ammesse non si riscrive accanto a quello vero. Due liste
+  divergono sempre, e la seconda non lo dice — qui il sintomo era un campo che accettava il
+  testo e poi lo rifiutava.
+
 - **Lotto del 21-24/08/2026 — sette cose, tutte nate da una segnalazione a schermo.**
   1. **Le attività si annotano** (`Attivita.note`, `noteAutore`, `noteIl`). ⚠️ Il primo
      tentativo riusava `dettaglio` per non aggiungere colonne: sbagliato, perché quello è la
