@@ -14,8 +14,21 @@ export const TIPI_CONTRATTO = [
   { chiave: "altro", nome: "Altro" },
 ] as const;
 
+// Tipi generici arrivati dall'import da Budgets (là il roster distingue solo
+// dipendente/stagista/consulente): si MOSTRANO col loro nome, ma il form non
+// li offre — un inquadramento scritto a mano nasce con la forma vera del
+// contratto, non con una categoria.
+export const TIPI_IMPORTATI: Record<string, string> = {
+  dipendente: "Dipendente (da precisare)",
+  consulente: "Consulente (da precisare)",
+};
+
 export function nomeTipoContratto(chiave: string): string {
-  return TIPI_CONTRATTO.find((t) => t.chiave === chiave)?.nome ?? (chiave || "non indicato");
+  return (
+    TIPI_CONTRATTO.find((t) => t.chiave === chiave)?.nome ??
+    TIPI_IMPORTATI[chiave] ??
+    (chiave || "non indicato")
+  );
 }
 
 export const QUALIFICHE = ["operaio", "impiegato", "quadro", "dirigente"] as const;
@@ -49,6 +62,15 @@ export function inquadramentoCorrente(righe: Inquadramento[]): Inquadramento | n
 
 export function compensoCorrente(righe: Compenso[]): Compenso | null {
   return corrente(righe);
+}
+
+// La prima riga con decorrenza FUTURA: chi oggi non ha un corrente ma ha una
+// decorrenza davanti (assunzione a settembre) non è «da inquadrare» — è
+// «decorre dal …», e le pagine lo devono dire.
+export function prossimaDecorrenza<T extends { decorrenza: Date }>(righe: T[], oggi = new Date()): T | null {
+  const future = righe.filter((r) => r.decorrenza.getTime() > oggi.getTime());
+  if (future.length === 0) return null;
+  return future.reduce((a, b) => (a.decorrenza.getTime() <= b.decorrenza.getTime() ? a : b));
 }
 
 // Costo azienda annuo: RAL × (1 + contributi%). SOLO se la percentuale di

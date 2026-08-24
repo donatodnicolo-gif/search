@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { dataIt, euro, numero } from "@/lib/formato";
-import { compensoCorrente, costoAziendaAnnuo, nomeMotivoCompenso } from "@/lib/organico";
+import { compensoCorrente, costoAziendaAnnuo, nomeMotivoCompenso, prossimaDecorrenza } from "@/lib/organico";
 
 // Il quadro delle retribuzioni CORRENTI delle persone attive. I totali sommano
 // solo ciò che c'è, e dichiarano chi manca: un totale che ingloba zeri
@@ -17,7 +17,12 @@ export default async function PaginaStipendi() {
 
   const righe = persone.map((p) => {
     const compenso = compensoCorrente(p.compensi);
-    return { p, compenso, costo: costoAziendaAnnuo(compenso) };
+    return {
+      p,
+      compenso,
+      costo: costoAziendaAnnuo(compenso),
+      futuro: compenso ? null : prossimaDecorrenza(p.compensi),
+    };
   });
 
   const conRal = righe.filter((r) => r.compenso != null);
@@ -74,16 +79,17 @@ export default async function PaginaStipendi() {
 
       {senzaRal.length > 0 && (
         <div className="avviso-nota">
-          Senza retribuzione registrata:{" "}
+          Fuori dai totali:{" "}
           {senzaRal.map((r, i) => (
             <span key={r.p.id}>
               {i > 0 && ", "}
               <a href={`/persone/${r.p.id}`} style={{ textDecoration: "underline" }}>
                 {r.p.nome}
               </a>
+              {r.futuro ? ` (decorre dal ${dataIt(r.futuro.decorrenza)})` : " (senza retribuzione registrata)"}
             </span>
           ))}
-          . I totali non le comprendono.
+          .
         </div>
       )}
 
@@ -111,7 +117,7 @@ export default async function PaginaStipendi() {
               </tr>
             </thead>
             <tbody>
-              {righe.map(({ p, compenso, costo }) => (
+              {righe.map(({ p, compenso, costo, futuro }) => (
                 <tr key={p.id}>
                   <td>
                     <a className="link-nome" href={`/persone/${p.id}`}>
@@ -145,6 +151,13 @@ export default async function PaginaStipendi() {
                         {costo != null ? euro(costo) : <span className="cella-vuota">non calcolabile</span>}
                       </td>
                     </>
+                  ) : futuro ? (
+                    <td colSpan={8}>
+                      <span className="badge blu">
+                        <span className="dot" />
+                        RAL {euro(Number(futuro.ral))} · decorre dal {dataIt(futuro.decorrenza)}
+                      </span>
+                    </td>
                   ) : (
                     <td colSpan={8} className="cella-vuota">
                       nessuna retribuzione registrata

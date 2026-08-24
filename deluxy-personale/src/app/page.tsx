@@ -5,6 +5,7 @@ import {
   costoAziendaAnnuo,
   inquadramentoCorrente,
   nomeTipoContratto,
+  prossimaDecorrenza,
   statoScadenza,
 } from "@/lib/organico";
 
@@ -47,6 +48,8 @@ export default async function PaginaPersone({
     return {
       p,
       compenso,
+      compensoFuturo: compenso ? null : prossimaDecorrenza(p.compensi),
+      inquadramentoFuturo: inquadramento ? null : prossimaDecorrenza(p.inquadramenti),
       inquadramento,
       costo: costoAziendaAnnuo(compenso),
       principale:
@@ -198,7 +201,7 @@ export default async function PaginaPersone({
               </tr>
             </thead>
             <tbody>
-              {righe.map(({ p, compenso, inquadramento, costo, principale, scadenza }) => (
+              {righe.map(({ p, compenso, compensoFuturo, inquadramento, inquadramentoFuturo, costo, principale, scadenza }) => (
                 <tr key={p.id}>
                   <td>
                     <a className="link-nome" href={`/persone/${p.id}`}>
@@ -234,6 +237,12 @@ export default async function PaginaPersone({
                           </span>
                         )}
                       </span>
+                    ) : inquadramentoFuturo ? (
+                      <span className="badge blu">
+                        <span className="dot" />
+                        {nomeTipoContratto(inquadramentoFuturo.tipoContratto)} dal{" "}
+                        {dataIt(inquadramentoFuturo.decorrenza)}
+                      </span>
                     ) : (
                       <span className="badge">
                         <span className="dot" />
@@ -242,7 +251,17 @@ export default async function PaginaPersone({
                     )}
                   </td>
                   <td>{dataIt(p.dataAssunzione)}</td>
-                  <td className="num">{compenso ? euro(Number(compenso.ral)) : <span className="cella-vuota">—</span>}</td>
+                  <td className="num">
+                    {compenso ? (
+                      euro(Number(compenso.ral))
+                    ) : compensoFuturo ? (
+                      <span className="cella-vuota">
+                        {euro(Number(compensoFuturo.ral))} dal {dataIt(compensoFuturo.decorrenza)}
+                      </span>
+                    ) : (
+                      <span className="cella-vuota">—</span>
+                    )}
+                  </td>
                   <td className="num">
                     {costo != null ? euro(costo) : <span className="cella-vuota">non calcolabile</span>}
                   </td>

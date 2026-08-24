@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { dataIt } from "@/lib/formato";
-import { inquadramentoCorrente, nomeTipoContratto, statoScadenza } from "@/lib/organico";
+import { inquadramentoCorrente, nomeTipoContratto, prossimaDecorrenza, statoScadenza } from "@/lib/organico";
 
 // Il quadro contrattuale delle persone attive: tipo, CCNL, livello, qualifica,
 // part-time e scadenze. Le scadenze vicine stanno in testa: sono la cosa da
@@ -17,11 +17,16 @@ export default async function PaginaInquadramenti() {
 
   const righe = persone.map((p) => {
     const inq = inquadramentoCorrente(p.inquadramenti);
-    return { p, inq, scadenza: inq ? statoScadenza(inq.scadenza) : null };
+    return {
+      p,
+      inq,
+      scadenza: inq ? statoScadenza(inq.scadenza) : null,
+      futuro: inq ? null : prossimaDecorrenza(p.inquadramenti),
+    };
   });
 
   const urgenti = righe.filter((r) => r.scadenza === "scaduto" || r.scadenza === "in_scadenza");
-  const senza = righe.filter((r) => !r.inq);
+  const senza = righe.filter((r) => !r.inq && !r.futuro);
 
   return (
     <>
@@ -89,7 +94,7 @@ export default async function PaginaInquadramenti() {
               </tr>
             </thead>
             <tbody>
-              {righe.map(({ p, inq, scadenza }) => (
+              {righe.map(({ p, inq, scadenza, futuro }) => (
                 <tr key={p.id}>
                   <td>
                     <a className="link-nome" href={`/persone/${p.id}`}>
@@ -121,6 +126,15 @@ export default async function PaginaInquadramenti() {
                         )}
                       </td>
                     </>
+                  ) : futuro ? (
+                    <td colSpan={7}>
+                      <span className="badge blu">
+                        <span className="dot" />
+                        {nomeTipoContratto(futuro.tipoContratto)}
+                        {futuro.partTimePct < 100 ? ` · ${futuro.partTimePct}%` : ""} · decorre dal{" "}
+                        {dataIt(futuro.decorrenza)}
+                      </span>
+                    </td>
                   ) : (
                     <td colSpan={7} className="cella-vuota">
                       nessun inquadramento registrato

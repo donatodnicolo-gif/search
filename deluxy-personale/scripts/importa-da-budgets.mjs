@@ -1,16 +1,20 @@
-// Importa in Personale le persone e i team già esistenti nel roster di
-// Budgets (GET /api/v1/team): team → Funzione, persona → Persona (col team
-// come funzione e il responsabile del team collegato per nome).
+// Importa in Personale l'organico già esistente nel roster di Budgets
+// (GET /api/v1/team?compensi=1):
+//   1. team → Funzione (col responsabile collegato per nome);
+//   2. persona → Persona (team come funzione, provenienza nelle note);
+//   3. contratto → Inquadramento COME DICHIARATO: stagista → stage; dipendente
+//      e consulente restano col loro nome («da precisare»: il roster non dice
+//      la forma legale, e indovinare indeterminato/determinato sarebbe un dato
+//      inventato. Part-time e periodo a budget vengono dichiarati anche loro);
+//   4. retribuzione → Compenso: RAL = `lordoAnnuo` calcolato da BUDGETS con la
+//      sua regola pubblicata (tabellare + superminimo, ×12 se mensile, ridotto
+//      al part-time), mensilità e % contributi come dichiarate. Il netto non
+//      viaggia mai (l'API di Budgets non lo espone, e qui non si deduce).
 //
-// COSA NON IMPORTA, di proposito:
-// - stipendi e costi: l'API di Budgets espone solo il costo azienda aggregato,
-//   e da lì la RAL si potrebbe solo DEDURRE — meglio niente che sbagliato;
-// - inquadramenti: il "tipo" di Budgets (dipendente, stage…) non dice il
-//   contratto vero (indeterminato? apprendistato?). Tipo, part-time, maison e
-//   mesi finiscono nelle NOTE della persona, da completare a mano.
-//
-// Idempotente: si riconosce per NOME normalizzato (come fa il Hub con
-// Budgets); chi esiste già non si tocca e non si duplica. Nessuna cancellazione.
+// Idempotente: persone e funzioni si riconoscono per NOME normalizzato (come
+// fa il Hub); inquadramento e compenso si creano SOLO per chi non ne ha
+// nessuno — un rilancio non duplica e non tocca ciò che è stato scritto a mano.
+// Nessuna cancellazione, mai.
 //
 // Uso:
 //   node scripts/importa-da-budgets.mjs --chiave-da <env-con-BUDGETS_API_KEY>          (prova a vuoto)
@@ -70,19 +74,31 @@ function descriviMesi(mesi) {
   return ordinati.map((m) => MESI_BREVI[m - 1]).join(", ");
 }
 
+const oggiIt = new Date().toLocaleDateString("it-IT", { timeZone: "Europe/Rome" });
+
 function notaProvenienza(p, anno) {
-  const pezzi = [`Importata dal roster ${anno} di Budgets il ${new Date().toLocaleDateString("it-IT", { timeZone: "Europe/Rome" })}`];
+  const pezzi = [`Importata dal roster ${anno} di Budgets il ${oggiIt}`];
   if (p.tipoNome) pezzi.push(`tipo: ${p.tipoNome}`);
-  if (p.partTimePct != null && p.partTimePct !== 100) pezzi.push(`part-time ${p.partTimePct}%`);
   if (p.maison) pezzi.push(`maison: ${p.maison}`);
   const mesi = descriviMesi(p.mesi);
   if (mesi) pezzi.push(`mesi a budget: ${mesi}`);
-  pezzi.push("inquadramento e retribuzione da registrare con i dati veri del contratto");
   return pezzi.join(" · ");
 }
 
-// ---------- lettura da Budgets ----------
-const risposta = await fetch(`${BUDGETS_URL}/api/v1/team`, {
+// Il roster distingue solo tre tipi: stagista ha un contratto 1:1 (stage);
+// gli altri due restano col nome dichiarato — la forma legale la scrive chi
+// conosce il contratto vero, con una riga nuova d'inquadramento.
+const TIPO_CONTRATTO_DA_BUDGETS = {
+  STAGISTA: "stage",
+  DIPENDENTE: "dipendente",
+  CONSULENTE: "consulente",
+};
+
+const eur = (v) =>
+  v.toLocaleString("it-IT", { useGrouping: "always", maximumFractionDigits: 2 }) + " €";
+
+// ---------- lettura da Budgets (coi compensi dichiarati) ----------
+const risposta = await fetch(`${BUDGETS_URL}/api/v1/team?compensi=1`, {
   headers: { "x-api-key": chiaveBudgets() },
   signal: AbortSignal.timeout(15000),
 });
@@ -98,17 +114,37 @@ const senzaTeam = dati.senzaTeam ?? [];
 console.log(
   `Budgets (anno ${anno}): ${squadre.length} team, ${dati.totali?.persone ?? "?"} persone (di cui ${senzaTeam.length} senza team).`,
 );
+if (!(dati.compensiInclusi && (squadre[0]?.persone?.[0]?.retribuzione || senzaTeam[0]?.retribuzione))) {
+  console.error(
+    "L'API di Budgets non ha restituito la retribuzione dichiarata: serve la versione con ?compensi=1 esteso (deploy del 24/08).",
+  );
+  process.exit(1);
+}
 console.log(scrive ? "MODO: scrivi (le modifiche si applicano).\n" : "MODO: prova a vuoto (nessuna scrittura).\n");
 
 // ---------- stato attuale di Personale ----------
 const funzioniEsistenti = await prisma.funzione.findMany();
-const personeEsistenti = await prisma.persona.findMany();
+const personeEsistenti = await prisma.persona.findMany({
+  include: { _count: { select: { inquadramenti: true, compensi: true } } },
+});
 const funzionePerNome = new Map(funzioniEsistenti.map((f) => [normalizza(f.nome), f]));
 const personaPerNome = new Map(personeEsistenti.map((p) => [normalizza(p.nome), p]));
 
-const esito = { funzioniCreate: [], funzioniEsistenti: [], personeCreate: [], personeGiaPresenti: [], responsabiliCollegati: [], responsabiliNonTrovati: [] };
+const esito = {
+  funzioniCreate: [],
+  funzioniEsistenti: [],
+  personeCreate: [],
+  personeGiaPresenti: [],
+  responsabiliCollegati: [],
+  responsabiliNonTrovati: [],
+  inquadramentiCreati: [],
+  inquadramentiSaltati: [],
+  compensiCreati: [],
+  compensiSenzaImporto: [],
+  compensiSaltati: [],
+};
 
-// ---------- team → funzioni ----------
+// ---------- 1 · team → funzioni ----------
 for (const [indice, squadra] of squadre.entries()) {
   const chiave = normalizza(squadra.nome);
   if (funzionePerNome.has(chiave)) {
@@ -128,7 +164,7 @@ for (const [indice, squadra] of squadre.entries()) {
   }
 }
 
-// ---------- persone ----------
+// ---------- 2 · persone ----------
 async function importaPersona(p, squadraNome) {
   const chiave = normalizza(p.nome);
   if (!chiave) return;
@@ -144,13 +180,13 @@ async function importaPersona(p, squadraNome) {
         nome: p.nome,
         ruolo: p.ruolo ?? "",
         email: (p.email ?? "").toLowerCase(),
-        funzioneId: funzione?.id ?? null,
+        funzioneId: funzione && funzione.id !== "(prova)" ? funzione.id : null,
         note: notaProvenienza(p, anno),
       },
     });
-    personaPerNome.set(chiave, creata);
+    personaPerNome.set(chiave, { ...creata, _count: { inquadramenti: 0, compensi: 0 } });
   } else {
-    personaPerNome.set(chiave, { id: "(prova)", nome: p.nome });
+    personaPerNome.set(chiave, { id: "(prova)", nome: p.nome, _count: { inquadramenti: 0, compensi: 0 } });
   }
 }
 
@@ -159,7 +195,7 @@ for (const squadra of squadre) {
 }
 for (const p of senzaTeam) await importaPersona(p, null);
 
-// ---------- responsabili dei team (per nome, dopo che le persone esistono) ----------
+// ---------- 3 · responsabili dei team (per nome, dopo che le persone esistono) ----------
 for (const squadra of squadre) {
   if (!squadra.responsabile) continue;
   const funzione = funzionePerNome.get(normalizza(squadra.nome));
@@ -168,11 +204,102 @@ for (const squadra of squadre) {
     esito.responsabiliNonTrovati.push(`${squadra.nome} → ${squadra.responsabile}`);
     continue;
   }
-  esito.responsabiliCollegati.push(`${squadra.nome} → ${squadra.responsabile}`);
-  if (scrive && funzione.id !== "(prova)" && responsabile.id !== "(prova)") {
-    await prisma.funzione.update({ where: { id: funzione.id }, data: { responsabileId: responsabile.id } });
+  if (funzione.responsabileId && funzione.responsabileId === responsabile.id) {
+    // già collegato: niente da fare e niente da riportare come novità
+  } else {
+    esito.responsabiliCollegati.push(`${squadra.nome} → ${squadra.responsabile}`);
+    if (scrive && funzione.id !== "(prova)" && responsabile.id !== "(prova)") {
+      await prisma.funzione.update({ where: { id: funzione.id }, data: { responsabileId: responsabile.id } });
+    }
   }
 }
+
+// ---------- 4 · contratti e retribuzioni COME DICHIARATI ----------
+// Decorrenza = primo giorno del primo mese a budget dell'anno: è il periodo
+// dichiarato nel roster (un contratto che parte prima lo corregge chi lo sa).
+function decorrenzaDa(p) {
+  const primoMese = Array.isArray(p.mesi) && p.mesi.length > 0 ? Math.min(...p.mesi) : 1;
+  return new Date(Date.UTC(anno, primoMese - 1, 1));
+}
+
+async function importaContratto(p) {
+  const persona = personaPerNome.get(normalizza(p.nome));
+  if (!persona) return;
+
+  const tipoContratto = TIPO_CONTRATTO_DA_BUDGETS[p.tipo] ?? "altro";
+  const partTimePct = Math.round(p.partTimePct ?? 100);
+  const mesiTesto = descriviMesi(p.mesi);
+
+  // Inquadramento: solo per chi non ne ha nessuno (chi ha già una storia
+  // scritta a mano non si tocca).
+  if (persona._count.inquadramenti > 0) {
+    esito.inquadramentiSaltati.push(`${p.nome} (ne ha già ${persona._count.inquadramenti})`);
+  } else {
+    esito.inquadramentiCreati.push(
+      `${p.nome}: ${p.tipoNome ?? p.tipo}${partTimePct !== 100 ? ` · part-time ${partTimePct}%` : ""}${mesiTesto ? ` · ${mesiTesto}` : ""}`,
+    );
+    if (scrive && persona.id !== "(prova)") {
+      // La nota scritta dal primo import diceva «da registrare»: ora non più.
+      const notaPulita = (persona.note ?? "").replace(
+        " · inquadramento e retribuzione da registrare con i dati veri del contratto",
+        "",
+      );
+      if (notaPulita !== (persona.note ?? "")) {
+        await prisma.persona.update({ where: { id: persona.id }, data: { note: notaPulita } });
+      }
+      await prisma.inquadramento.create({
+        data: {
+          personaId: persona.id,
+          decorrenza: decorrenzaDa(p),
+          tipoContratto,
+          partTimePct: Math.min(100, Math.max(1, partTimePct)),
+          note: [
+            `Come dichiarato nel roster ${anno} di Budgets (${oggiIt})`,
+            mesiTesto ? `mesi a budget: ${mesiTesto}` : null,
+            tipoContratto === "stage" ? null : "forma legale del contratto da precisare",
+          ]
+            .filter(Boolean)
+            .join(" · "),
+        },
+      });
+    }
+  }
+
+  // Compenso: solo per chi non ne ha nessuno E ha un importo dichiarato.
+  const r = p.retribuzione;
+  if (persona._count.compensi > 0) {
+    esito.compensiSaltati.push(`${p.nome} (ne ha già ${persona._count.compensi})`);
+    return;
+  }
+  if (!r || !(r.lordoAnnuo > 0)) {
+    esito.compensiSenzaImporto.push(p.nome);
+    return;
+  }
+  const dichiarato =
+    r.periodicita === "MENSILE"
+      ? `dichiarati ${eur(r.importo)}/mese${r.superminimo ? ` + superminimo ${eur(r.superminimo)}/mese` : ""}`
+      : `dichiarata RAL ${eur(r.importo)}${r.superminimo ? ` + superminimo ${eur(r.superminimo)}` : ""}`;
+  esito.compensiCreati.push(`${p.nome}: RAL ${eur(r.lordoAnnuo)} · ${r.mensilita} mensilità · contributi ${r.contributiPct}%`);
+  if (scrive && persona.id !== "(prova)") {
+    await prisma.compenso.create({
+      data: {
+        personaId: persona.id,
+        decorrenza: decorrenzaDa(p),
+        ral: r.lordoAnnuo, // lordo annuo calcolato da Budgets con la SUA regola
+        mensilita: r.mensilita ?? 12,
+        contributiPct: r.contributiPct ?? null,
+        note: `Come dichiarato nel roster ${anno} di Budgets (${oggiIt}): ${dichiarato}${
+          (p.partTimePct ?? 100) !== 100 ? `, part-time ${Math.round(p.partTimePct)}%` : ""
+        }`,
+      },
+    });
+  }
+}
+
+for (const squadra of squadre) {
+  for (const p of squadra.persone ?? []) await importaContratto(p);
+}
+for (const p of senzaTeam) await importaContratto(p);
 
 // ---------- riepilogo ----------
 function stampa(titolo, voci) {
@@ -183,8 +310,13 @@ stampa("Funzioni da creare", esito.funzioniCreate);
 stampa("Funzioni già presenti (non toccate)", esito.funzioniEsistenti);
 stampa("Persone da creare", esito.personeCreate);
 stampa("Persone già presenti (non toccate)", esito.personeGiaPresenti);
-stampa("Responsabili di funzione collegati", esito.responsabiliCollegati);
+stampa("Responsabili di funzione da collegare", esito.responsabiliCollegati);
 stampa("Responsabili NON trovati fra le persone", esito.responsabiliNonTrovati);
+stampa("Inquadramenti da creare (come dichiarati)", esito.inquadramentiCreati);
+stampa("Inquadramenti saltati (storia già scritta)", esito.inquadramentiSaltati);
+stampa("Retribuzioni da creare (come dichiarate)", esito.compensiCreati);
+stampa("Retribuzioni saltate (storia già scritta)", esito.compensiSaltati);
+stampa("Senza importo dichiarato in Budgets (nessun compenso creato)", esito.compensiSenzaImporto);
 if (!scrive) console.log('\nEra una prova a vuoto: per applicare, aggiungi "scrivi".');
 
 await prisma.$disconnect();

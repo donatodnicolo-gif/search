@@ -23,15 +23,24 @@ riga con la sua decorrenza; il "corrente" è l'ultima decorrenza non futura).
   del team di Budgets), `persone`, `funzioni`, `organigramma`.
 - ✅ Tessera nel catalogo del Hub (`personale`, `sso: true`).
 - ✅ **Organico importato dal roster 2026 di Budgets** (24/08): 3 funzioni
-  (Maison, Commerciale, Operation coi responsabili) e 11 persone, 4 senza team.
+  (Maison, Commerciale, Operation coi responsabili), 11 persone, e — secondo
+  giro, stesso giorno — **inquadramenti e retribuzioni COME DICHIARATI**:
+  l'API di Budgets è stata estesa apposta (`?compensi=1` ora espone importo,
+  superminimo, periodicità, contributi, mensilità e il `lordoAnnuo` calcolato
+  con la SUA regola). Stagista → stage; Dipendente e Consulente restano col
+  nome dichiarato («da precisare»: la forma legale non è nel roster e non si
+  inventa). Decorrenza = primo mese a budget; chi parte a settembre compare
+  come «decorre dal 01/09» (badge blu), non come «da inquadrare».
   Script `scripts/importa-da-budgets.mjs` (prova a vuoto di default, `scrivi`
-  per applicare; idempotente per nome normalizzato, come il Hub). Di proposito
-  NON importa stipendi né inquadramenti: l'API di Budgets dà solo il costo
-  aggregato e il «tipo» non dice il contratto vero — tipo, part-time, maison e
-  mesi stanno nelle note di ogni persona, da completare coi dati del contratto.
-- 🔴 Da completare a mano: inquadramenti e retribuzioni delle 11 persone
-  (oggi «da inquadrare» e costo «non calcolabile»), e l'organigramma
-  (nessun «riporta a» è impostato).
+  per applicare; idempotente: persone per nome normalizzato, contratti solo
+  per chi non ne ha). Monte RAL correnti: 176.150 € su 8 persone (3 decorrono
+  da settembre); il netto non viaggia mai.
+- 🔴 Da completare a mano: la forma legale dei contratti «da precisare»
+  (indeterminato? apprendistato?), CCNL/livello/qualifica, i netti se li si
+  vuole a registro, e l'organigramma (nessun «riporta a» è impostato).
+  ❓ Bellazzi, Turchiello e Lo Proto hanno mesi a budget solo fino a
+  giugno/maggio: se sono usciti davvero, vanno cessati dalla loro scheda
+  (il roster non dice il perché, quindi l'import non l'ha dedotto).
 
 ## Le regole che l'app rispetta
 
