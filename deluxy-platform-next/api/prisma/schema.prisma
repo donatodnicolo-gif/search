@@ -994,6 +994,22 @@ model Delivery {
   /// consegna e' gia' stata pagata al valet.
   salaryLines        SalaryLine[]
 
+  // ⚠️ Questa tabella non aveva NESSUN indice, e sono 61.405 righe. Il solo
+  // conto per la paginazione costava 1,9 secondi a ogni apertura della pagina
+  // Consegne, prima ancora di leggere una riga.
+  //
+  // `deletedAt, date` sta per primo perche' e' la lettura di sempre: le
+  // consegne vive, dalla piu' recente. Gli altri servono ai filtri di ruolo
+  // (il partner vede le sue, il valet le proprie) e alle query di
+  // fatturazione e stipendi, che filtrano su stato e su «gia' fatturata».
+  @@index([deletedAt, date])
+  @@index([partnerId, date])
+  @@index([valetId, date])
+  @@index([status])
+  @@index([invoiced])
+  @@index([paymentStatus])
+  @@index([realOrderNumber])
+
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
 }
