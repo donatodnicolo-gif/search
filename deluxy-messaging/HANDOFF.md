@@ -1,5 +1,36 @@
 # Handoff — Deluxy Customer Service
 
+## 24/08/2026 (sera 5) — lo STATO DI LAVORAZIONE parte verso Orders
+
+Come il costo del fornitore (sera 3), ora anche lo **stato di lavorazione**
+(`gestione`: da_gestire / ricerca_fornitore / in_pagamento / comunicazione /
+attesa_consegna / gestito) **parte verso Orders** quando lo si cambia. Il CS è
+il decisore dell'evasione (Standard §7.2): Orders lo riceve nel campo
+`csGestione` e lo mostra sulla scheda dell'ordine, **accanto** alla sua pipeline
+(che è un'altra cosa). Prima l'ordine, in Orders, sembrava fermo a «Nuovo» anche
+quando qui era già gestito.
+
+- **`comunicaStatoAOrders(numero, shopifyId, gestione, daNome, il)`** in
+  `src/lib/orders.ts` — gemella di `comunicaCostoAOrders`: risolve l'id interno
+  di Orders per numero+gid e fa `PATCH csGestione` (+ chi/quando). Manda il
+  **codice grezzo** (`gestito`, non «Gestito»): le etichette le ha Orders.
+- Agganciata in **`POST /api/ordini/[id]/gestione`** (il punto unico dove
+  l'operatore cambia stato, da `segna`/`cambiaGestione` in lista e dettaglio).
+  Best-effort: se Orders non risponde, il cambio locale **non** fallisce, e
+  l'esito torna nel campo `orders` della risposta.
+
+⚠️ **Copre l'azione dell'operatore, non ancora le transizioni AUTOMATICHE**
+(`in_pagamento`/`attesa_consegna` dai Pagamenti e dalla Riconciliazione,
+`gestito` per i rimborsi nel cron `sincronizza.ts`): quelle scrivono `gestione`
+per conto loro e per ora NON pushano — l'ordine si allinea al primo tocco
+manuale. Aggancio da fare lì con la stessa `comunicaStatoAOrders` quando serve.
+
+⚠️ La chiave `deluxy-messaggi` in Orders **è già di scrittura** (stessa che porta
+il costo): niente da configurare. **Verificato end-to-end** contro la produzione
+(lookup numero+gid → PATCH `csGestione` → Orders risponde col blocco
+`customerService`), `tsc` pulito. Lato Orders il ricevente è già LIVE
+(vedi il suo handoff, commit `11b78a98`).
+
 ## 24/08/2026 (sera 4) — il «nuovo ordine» diventa un'API per le altre app
 
 Il CRM (e domani chiunque) può creare un ordine con link di pagamento

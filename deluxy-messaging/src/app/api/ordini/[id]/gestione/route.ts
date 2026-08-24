@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { gestioneValida } from '@/lib/gestione'
 import { utenteCorrente } from '@/lib/sessione'
+import { comunicaStatoAOrders } from '@/lib/orders'
 
 export const dynamic = 'force-dynamic'
 
@@ -34,5 +35,27 @@ export async function POST(req: NextRequest, { params }: Params) {
       gestioneDaNome: utente?.nome ?? '',
     },
   })
-  return NextResponse.json({ ordine })
+
+  // ── LO SI COMUNICA A ORDERS ──
+  //
+  // ⚠️ Il Customer Service è il decisore dell'evasione (§7.2): lo stato di
+  // lavorazione lo decide QUI, e Orders lo mostra accanto alla sua pipeline
+  // (campo `csGestione`). Prima restava solo qui, e in Orders l'ordine sembrava
+  // fermo a «Nuovo» anche quando era già gestito.
+  //
+  // ⚠️ Best-effort: un fallimento NON annulla il cambio locale — il fatto è
+  // nostro e vale comunque. L'esito si restituisce, e la lista lo può mostrare
+  // invece di far credere che Orders sappia.
+  const versoOrders = await comunicaStatoAOrders(
+    ordine.numero,
+    ordine.shopifyId,
+    ordine.gestione,
+    ordine.gestioneDaNome,
+    ordine.gestioneIl
+  )
+
+  return NextResponse.json({
+    ordine,
+    orders: versoOrders.ok ? { ok: true } : { ok: false, messaggio: versoOrders.messaggio },
+  })
 }

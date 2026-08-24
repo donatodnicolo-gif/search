@@ -808,3 +808,76 @@ export async function comunicaCostoAOrders(
     }
   }
 }
+
+/**
+ * COMUNICA A ORDERS lo stato di lavorazione deciso qui.
+ *
+ * ⚠️⚠️ Il Customer Service è il DECISORE dell'evasione (Standard §7.2): come si
+ * lavora un ordine — da_gestire, ricerca_fornitore, in_pagamento, comunicazione,
+ * attesa_consegna, gestito — lo decidiamo qui, e Orders lo RICEVE e lo mostra
+ * accanto alla sua pipeline (campo `csGestione`). NON è la pipeline di Orders,
+ * che è un'altra cosa (registro/controllo): due stati distinti, apposta.
+ *
+ * ⚠️ Si manda il codice grezzo (`gestito`, non «Gestito»): Orders ha la sua
+ * tabella di etichette. Mandare il nome tradotto vorrebbe dire due vocabolari da
+ * tenere allineati.
+ *
+ * ⚠️ Un fallimento NON deve far fallire il cambio di stato locale: il fatto è
+ * nostro e vale comunque. Si torna l'esito e, se serve, lo si mostra — una
+ * proposta che rimbalza in silenzio farebbe credere che Orders sappia.
+ */
+export async function comunicaStatoAOrders(
+  numero: string,
+  shopifyId: string,
+  gestione: string,
+  gestioneDaNome: string,
+  gestioneIl: Date | string | null
+): Promise<{ ok: true } | { ok: false; messaggio: string }> {
+  const c = await configOrders()
+  if (!c) return { ok: false, messaggio: 'Orders non è configurato (Impostazioni).' }
+
+  // ⚠️ Serve l'id INTERNO di Orders (cuid), non il nostro né il gid: la sua rotta
+  // è `/api/v1/ordini/<id>`. Lo si ricava cercando l'ordine — che è anche il modo
+  // di accorgersi se quel numero là è ambiguo o non esiste.
+  const trovato = await ordineDaOrders(numero, shopifyId)
+  if (trovato.stato !== 'ok') {
+    return {
+      ok: false,
+      messaggio: trovato.stato === 'non-configurato' ? 'Orders non è configurato.' : trovato.messaggio,
+    }
+  }
+
+  try {
+    const res = await fetch(`${c.base}/api/v1/ordini/${encodeURIComponent(trovato.ordine.id ?? '')}`, {
+      method: 'PATCH',
+      headers: { 'x-api-key': c.chiave, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        csGestione: gestione,
+        csGestioneDa: gestioneDaNome || null,
+        csGestioneIl: gestioneIl ? new Date(gestioneIl).toISOString() : null,
+      }),
+      signal: AbortSignal.timeout(12000),
+      cache: 'no-store',
+    })
+    if (res.ok) return { ok: true }
+    if (res.status === 401 || res.status === 403) {
+      return {
+        ok: false,
+        messaggio:
+          'Orders ha rifiutato la scrittura: la chiave di quest’app è in sola lettura. ' +
+          'Va abilitata alla scrittura in Orders.',
+      }
+    }
+    const d = (await res.json().catch(() => ({}))) as { errore?: string }
+    return { ok: false, messaggio: d.errore || `Orders ha risposto ${res.status}.` }
+  } catch (e) {
+    const err = e as Error
+    return {
+      ok: false,
+      messaggio:
+        err.name === 'TimeoutError'
+          ? 'Orders non ha risposto in tempo.'
+          : `Orders non raggiungibile: ${err.message}`,
+    }
+  }
+}
