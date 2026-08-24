@@ -67,6 +67,8 @@ export type EsitoImport = {
   righeAbbinate: number;
   /** Righe già in archivio a cui è cambiato lo stato dell'ordine. */
   righeAggiornate: number;
+  /** Righe tolte perché il loro ordine è stato ANNULLATO su Shopify. */
+  righeRitirate: number;
 };
 
 // Quante scritture in parallelo. Il Postgres è condiviso con altre cinque app e
@@ -121,6 +123,7 @@ export async function importaVendite(
       righeNuove: 0,
       righeAbbinate: 0,
       righeAggiornate: 0,
+      righeRitirate: 0,
     };
   }
 
@@ -154,6 +157,7 @@ export async function importaVendite(
   let righeNuove = 0;
   let righeAbbinate = 0;
   let righeAggiornate = 0;
+  let righeRitirate = 0;
   const daInserire: {
     data: Date;
     prodottoId: string | null;
@@ -271,8 +275,42 @@ export async function importaVendite(
     // import resterebbe congelato allo stato di allora.
     righeAggiornate = await riallineaStati(daInserire);
 
+    // ── Gli ordini ANNULLATI si ritirano dal venduto ──
+    //
+    // Orders li esclude dai suoi elenchi: né il giro corto né il riallineo li
+    // rivedrebbero mai, e le classifiche continuerebbero a contare vendite di
+    // ordini che non esistono più. Il canale è `?annullatiDa=` (audit
+    // 24/08/2026): si chiedono gli annullamenti degli ultimi 90 giorni e si
+    // tolgono le loro righe — SOLO quelle importate da Orders (`origine:
+    // "orders"`, filtro sul riferimento), mai demo o manuali. Un errore qui non
+    // fa fallire l'import: il ritiro riprova al giro dopo.
+    try {
+      const daAnnullati = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+      for (let page = 1; page <= 5; page++) {
+        const q = new URLSearchParams({ annullatiDa: daAnnullati, page: String(page), limit: "200" });
+        const res = await fetch(`${base}/api/v1/ordini?${q}`, {
+          headers: { "x-api-key": chiave },
+          signal: AbortSignal.timeout(25000),
+          cache: "no-store",
+        });
+        if (!res.ok) break;
+        const corpo = (await res.json().catch(() => ({}))) as { ordini?: { id?: string }[]; pagine?: number };
+        const annullati = corpo.ordini ?? [];
+        for (const a of annullati) {
+          if (!a.id) continue;
+          const tolte = await prisma.vendita.deleteMany({
+            where: { origine: "orders", riferimento: { startsWith: `${a.id}#` } },
+          });
+          righeRitirate += tolte.count;
+        }
+        if (annullati.length === 0 || page >= (corpo.pagine ?? 1)) break;
+      }
+    } catch {
+      // il ritiro è un contorno: l'import resta valido
+    }
+
     const messaggio =
-      righeNuove === 0 && righeAggiornate === 0
+      righeNuove === 0 && righeAggiornate === 0 && righeRitirate === 0
         ? `Nessuna novità: le ${righeLette} righe lette erano già in archivio, con lo stesso stato.`
         : [
             righeNuove > 0
@@ -280,6 +318,9 @@ export async function importaVendite(
               : `Nessuna vendita nuova sulle ${righeLette} righe lette.`,
             righeAggiornate > 0
               ? `${righeAggiornate} righe già in archivio hanno cambiato stato (incassi arrivati dopo, rimborsi, evasioni).`
+              : "",
+            righeRitirate > 0
+              ? `${righeRitirate} righe ritirate perché il loro ordine è stato annullato su Shopify.`
               : "",
           ]
             .filter(Boolean)
@@ -296,11 +337,11 @@ export async function importaVendite(
         righeAggiornate,
         automatico: opzioni.automatico === true,
         esito: "ok",
-        messaggio: `${righeNuove} righe nuove e ${righeAggiornate} riallineate su ${righeLette} lette${troncato}`,
+        messaggio: `${righeNuove} righe nuove, ${righeAggiornate} riallineate e ${righeRitirate} ritirate (ordini annullati) su ${righeLette} lette${troncato}`,
       },
     });
 
-    return { ok: true, messaggio, ordiniLetti, righeLette, righeNuove, righeAbbinate, righeAggiornate };
+    return { ok: true, messaggio, ordiniLetti, righeLette, righeNuove, righeAbbinate, righeAggiornate, righeRitirate };
   } catch (e) {
     const messaggio = e instanceof Error ? e.message : "Errore sconosciuto durante l'import.";
     await prisma.importVendite.create({
@@ -317,7 +358,7 @@ export async function importaVendite(
         messaggio,
       },
     });
-    return { ok: false, messaggio, ordiniLetti, righeLette, righeNuove, righeAbbinate, righeAggiornate };
+    return { ok: false, messaggio, ordiniLetti, righeLette, righeNuove, righeAbbinate, righeAggiornate, righeRitirate };
   }
 }
 

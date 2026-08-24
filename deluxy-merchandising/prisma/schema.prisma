@@ -240,17 +240,27 @@ model TappaSviluppo {
 }
 
 // Fornitori / atelier che producono o approvvigionano il prodotto.
+// ⚠️ L'IDENTITÀ DI UN FORNITORE VIVE IN DELUXY ANAGRAFICHE, non qui (audit
+// 24/08/2026): nome, città, referenti e recapiti non si compilano a mano in
+// questa tabella — si aggancia il record del registro con `anagraficaId` e i
+// campi qui sotto restano al più una cache di visualizzazione. Stato reale al
+// 24/08/2026: dentro ci sono SOLO i 3 fornitori del seed dimostrativo (con 5
+// prodotti collegati) e l'unico uso nel codice è il dizionario delle città in
+// criteri-tipologia — il fornitore operativo del PLM è `vendorShopify` sul
+// prodotto. Modello candidato alla rimozione; non si aggiunge altro qui.
 model Fornitore {
-  id        String     @id @default(cuid())
-  nome      String
-  tipo      String? // atelier, vivaio, importatore, packaging, ...
-  citta     String?
-  referente String?
-  email     String?
-  telefono  String?
-  note      String?
-  prodotti  Prodotto[]
-  creatoIl  DateTime   @default(now())
+  id           String     @id @default(cuid())
+  // Id del partner in deluxy-anagrafiche: è QUESTO il collegamento giusto.
+  anagraficaId String?    @unique
+  nome         String
+  tipo         String? // atelier, vivaio, importatore, packaging, ...
+  citta        String?
+  referente    String?
+  email        String?
+  telefono     String?
+  note         String?
+  prodotti     Prodotto[]
+  creatoIl     DateTime   @default(now())
 }
 
 // Visual merchandising: un allestimento (vetrina / lookbook / capsula) in cui i

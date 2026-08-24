@@ -1,7 +1,12 @@
 // Seed dimostrativo di Deluxy Merchandising.
 // Popola collezioni stagionali, prodotti lungo il ciclo di vita, varianti,
 // fornitori e allestimenti di visual merchandising. Idempotente: svuota e ricrea.
+//
+// ⛔ SOLO IN LOCALE: la prima import è una guardia che esce con errore se
+// DATABASE_URL non è localhost/SQLite — i deleteMany qui sotto, sul cluster
+// condiviso, svuoterebbero il PLM vero (audit 24/08/2026).
 
+import "./guardia-locale.mjs";
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();

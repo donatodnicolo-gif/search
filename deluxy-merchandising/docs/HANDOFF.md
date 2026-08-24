@@ -1,7 +1,28 @@
 # Handoff — Deluxy Merchandising
 
-Stato al 21/08/2026. Una nuova sessione deve poter riprendere da qui senza contesto.
+Stato al 24/08/2026. Una nuova sessione deve poter riprendere da qui senza contesto.
 Le voci sono in ordine di data: **le ultime stanno in fondo a FATTO**, appena sopra «COME AVVIARE».
+
+## 24/08/2026 — Audit architettura: il seed non può più svuotare la produzione
+
+1. **Guardia sui comandi che cancellano** (`prisma/guardia-locale.mjs`, importata
+   in testa a `prisma/seed.mjs` e messa davanti a `db:reset`): se `DATABASE_URL`
+   non è localhost/SQLite, il comando esce con errore PRIMA di aprire la
+   connessione. Prima il seed apriva con sette `deleteMany()` senza filtro e la
+   URL puntava al cluster condiviso: un `npm run db:seed` per abitudine avrebbe
+   svuotato il PLM vero.
+2. **Gli ordini annullati si ritirano dal venduto**: `importaVendite` ora chiede
+   a Orders `?annullatiDa=` (ultimi 90 giorni) e toglie le righe `Vendita` di
+   quegli ordini — solo `origine: "orders"`, mai demo o manuali. Chiude il
+   limite dichiarato «un annullamento oltre i 30 giorni non arriva mai»;
+   l'esito dell'import ora riporta anche `righeRitirate`.
+3. **`Fornitore` dichiarato per quello che è**: dentro ci sono SOLO i 3
+   fornitori del seed dimostrativo (verificato in produzione: 3 righe, 5
+   prodotti collegati) e l'unico uso è il dizionario delle città — il fornitore
+   operativo del PLM è `vendorShopify`. Aggiunto `anagraficaId` (unique, per
+   l'eventuale aggancio al registro) e il commento che VIETA di compilare campi
+   anagrafici a mano. Candidato alla rimozione: decidere se cancellare i 3
+   record demo (e slegare i 5 prodotti) — non fatto senza conferma.
 
 ## Cos'è
 App per gestire il **prodotto a 360° come una maison di moda**: fonte di verità a
