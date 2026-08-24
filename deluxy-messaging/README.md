@@ -226,6 +226,47 @@ guardava solo i messaggi: venivano buttate in silenzio. Adesso si leggono.
 
 Si ricontrolla con `npx tsx scripts/prova-reazioni.mts` (crea righe finte e le cancella).
 
+## Quanto ci resta, mentre scrivi l'importo
+
+Sotto il campo **Importo**, appena c'è una cifra, la pagina Pagamenti dice quanto
+di quell'ordine se ne va e quanto resta:
+
+> Al fornitore va il **43,3%** dei 300,00 € dell'ordine. A noi resta **170,00 €**,
+> cioè il **56,7%**. ✓ In linea: al fornitore è previsto fino al 60%.
+
+⚠️ **Il conto si faceva a mente, o non si faceva.** Chi compila una richiesta ha
+davanti due numeri — quanto ha incassato l'ordine e quanto ha promesso al
+fornitore — e la differenza fra i due è tutto il guadagno di quell'ordine. Non
+mostrarla vuol dire scoprire una cifra sbagliata a fine mese, quando non si può
+più discutere.
+
+Quattro risposte, e sono quattro apposta:
+
+- **✓ In linea** (verde) — la quota al fornitore sta dentro quella prevista;
+- **⚠️ Sopra la quota** (oro) — dice **di quanti euro**, e aggiunge «puoi mandarla
+  lo stesso, ma sappilo»: è un avviso, non un divieto;
+- **⚠️ Perdita** (rosso) — l'ordine ci costa **più** di quanto è stato venduto.
+  ⚠️ È un caso a sé, non un «sopra la quota» più grande: va detto con un'altra
+  parola perché si legga come un'altra cosa;
+- **nessun verdetto** (grigio) — i numeri ci sono, il giudizio no.
+
+⚠️⚠️ **La regola non sta qui.** Quanto è previsto che vada al fornitore lo sa
+**Deluxy Orders** (`controllo.quotaFornitore`, oggi il 60%) e si chiede a lui
+ogni volta. Un 60% ricopiato nel nostro codice resterebbe al vecchio valore il
+giorno che lo cambiano là, e nessuna delle due schermate darebbe errore — direbbero
+solo due numeri diversi sulla stessa cosa. **Se Orders non risponde non si dà
+nessun verdetto**: si mostrano i numeri e si dice perché manca il giudizio. Un «va
+bene» calcolato su una regola inventata sarebbe peggio del silenzio.
+
+⚠️ Senza sapere quanto vale l'ordine **non si calcola niente** e lo si dice: una
+percentuale su un valore sconosciuto sarebbe un numero inventato che sembra un
+dato, accanto a una cifra che sta per partire verso una banca.
+
+⚠️ La **perdita si vede anche senza la regola**: non serve sapere la quota per
+accorgersi che stiamo pagando più di quanto abbiamo incassato.
+
+Prova: `npx tsx scripts/prova-margine.mts`
+
 ## Cercare un fornitore: magari i dati ce li abbiamo già
 
 In cima al modulo **Coordinate** della pagina Pagamenti c'è **«Cerca il

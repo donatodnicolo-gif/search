@@ -3325,6 +3325,67 @@ td .azioni-ordine {
   border-color: transparent;
 }
 
+/* ---- Quanto ci resta, su una richiesta di pagamento ---- */
+
+/* ⚠️ Sta fra l'importo e il bottone che salva: è l'ultima cosa che si legge
+   prima di mandare, ed è il momento in cui serve. Sopra l'importo sarebbe un
+   dato che si guarda prima di avere il numero da giudicare. */
+.margine {
+  margin: 10px 0 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-m);
+  border: 1px solid var(--hairline);
+  background: var(--fill);
+  font-size: 13px;
+}
+
+.margine-numeri {
+  color: var(--text);
+}
+
+.margine-verdetto {
+  margin-top: 4px;
+  color: var(--text-secondary);
+}
+
+/* ⚠️ Verde solo quando c'è davvero un verdetto positivo. «Senza verdetto» resta
+   grigio: un riquadro colorato che non dice niente si legge come un via libera,
+   ed è il contrario di quello che è successo (Orders non ha risposto). */
+.margine-ok {
+  border-color: var(--green);
+  background: rgba(36, 138, 61, 0.07);
+}
+
+.margine-ok .margine-verdetto {
+  color: var(--green);
+  font-weight: 600;
+}
+
+/* Oltre la quota: si può mandare lo stesso, e il bordo lo dice — attenzione,
+   non divieto. */
+.margine-oltre {
+  border-color: var(--gold);
+  background: rgba(184, 150, 62, 0.09);
+}
+
+.margine-oltre .margine-verdetto {
+  color: var(--gold);
+  font-weight: 600;
+}
+
+/* ⚠️ La PERDITA è rossa, e non è «oltre più grande»: qui l'ordine ci costa più
+   di quanto è stato venduto. Va letta come un'altra cosa, perché è un'altra
+   cosa. */
+.margine-perdita {
+  border-color: var(--red);
+  background: rgba(215, 0, 21, 0.08);
+}
+
+.margine-perdita .margine-verdetto {
+  color: var(--red);
+  font-weight: 600;
+}
+
 /* ---- Cercare un fornitore che già conosciamo ---- */
 
 /* ⚠️ Sta in cima al modulo delle coordinate e si vede SEMPRE, anche vuota: se

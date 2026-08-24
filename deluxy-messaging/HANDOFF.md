@@ -1,6 +1,6 @@
 # Handoff — Deluxy Customer Service
 
-Ultimo aggiornamento: **24/08/2026, ore 11:30** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
+Ultimo aggiornamento: **24/08/2026, ore 12:45** (sezione **Turni** in cima al menu e pagina **Operatori** in Qualità;
 prima, alle 15:10, l'utente ha pubblicato la schermata di consenso Google e il
 conto alla rovescia dei 7 giorni è finito).
 Prima, il 19/08: la **risposta di primo contatto** che parte da sola al primo
@@ -340,6 +340,33 @@ locale, altrimenti nulla si decifra.
     chat finisce nel cestino.
   - ⚠️ **Il numero delle note da fare sta sul bottone**: in un pannello chiuso
     una nota lasciata a un collega non esisterebbe.
+
+- **IL MARGINE, MENTRE SCRIVI L'IMPORTO** (24/08/2026, chiesto: «quando
+  inserisci l'importo calcola automaticamente la % di margine su valore
+  dell'ordine indicando se va bene oppure no»). `src/lib/margine.ts` (puro),
+  `GET /api/quota-fornitore`, riquadro fra l'importo e il bottone che salva.
+  - Quattro risposte: **✓ in linea** (verde), **⚠️ sopra la quota** (oro, dice
+    di quanti euro e che puoi mandarla lo stesso), **⚠️ perdita** (rosso),
+    **nessun verdetto** (grigio).
+  - ⚠️⚠️ **La regola NON sta qui**: la quota (oggi 60%) si chiede a Deluxy
+    Orders ogni volta. Ricopiarla vorrebbe dire restare al vecchio valore il
+    giorno che la cambiano là, senza che nessuna schermata dia errore.
+  - ⚠️⚠️ **Orders muto = nessun verdetto**, e si dice perché: un «va bene»
+    calcolato su una regola inventata è peggio del silenzio. Il riquadro resta
+    **grigio** — un riquadro colorato che non dice niente si legge come un via
+    libera.
+  - ⚠️ **La perdita è un caso a sé**, non un «oltre» più grande: si vede anche
+    senza la regola, perché non serve la quota per accorgersi che paghiamo più
+    di quanto abbiamo incassato.
+  - ⚠️ **Sfumatura di 0,05 punti** nel confronto: 130 su 216,67 fa 59,9994%, e
+    senza, un accordo *esattamente* al 60% risulterebbe «oltre» per un
+    millesimo. Non è tolleranza commerciale, è virgola mobile.
+  - ⚠️ Senza il valore dell'ordine **non si calcola niente** e lo si dice.
+  - ✅ `npx tsx scripts/prova-margine.mts`: 18 su 18, e **Orders risponde
+    davvero col 60%**. A schermo, i quattro stati provati dal vivo cambiando la
+    cifra: 130 → verde «43,3% · in linea», 210 → oro «70% · 30,00 € in più»,
+    «350,50» (con la virgola) → rosso «ci rimettiamo 50,50 €», e senza quota →
+    grigio col perché.
 
 - 🔴→🟢 **LA RICERCA FORNITORE NON TROVAVA NIENTE** (24/08/2026, segnalato con
   uno screenshot: «si ma io qui ho bisogno di poter cercare fornitori»).

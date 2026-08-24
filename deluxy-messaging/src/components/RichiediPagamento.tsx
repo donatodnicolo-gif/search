@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { CercaFornitore } from './CercaFornitore'
 import { ibanAccorciato, type FornitoreTrovato } from '@/lib/cerca-fornitore'
+import { calcolaMargine, frasiMargine } from '@/lib/margine'
 
 // Richiedi pagamento: IBAN e intestatario si inseriscono a mano, oppure si
 // fanno leggere all'AI da un messaggio incollato o da un'immagine (schermata
@@ -60,6 +61,13 @@ export function RichiediPagamento() {
   // Il nome del fornitore che arriva dal bottone «Paga» di un ordine: fa
   // partire la ricerca da sola, perché chi arriva qui vuole pagare LUI.
   const [fornitoreDaOrdine, setFornitoreDaOrdine] = useState('')
+  // ⚠️ QUANTO HA PAGATO IL CLIENTE, che è un'altra cosa dall'importo qui sotto:
+  // quello è quanto diamo al fornitore. La differenza fra i due è tutto il
+  // guadagno di quell'ordine, e finora nessuno la vedeva.
+  const [valoreOrdine, setValoreOrdine] = useState(0)
+  // La quota prevista arriva da Deluxy Orders. ⚠️ `null` = non la sappiamo, e
+  // allora niente verdetto: vedi src/lib/margine.ts.
+  const [quotaPrevista, setQuotaPrevista] = useState<number | null>(null)
 
   // Arrivando dal bottone "Richiedi pagamento" di un ordine, i campi si
   // precompilano da soli con numero, cliente e importo.
@@ -83,6 +91,13 @@ export function RichiediPagamento() {
       setIntestatario(fornitore)
       setFornitoreDaOrdine(fornitore)
     }
+    // ⚠️ Si tiene da parte QUANTO VALE L'ORDINE, anche quando l'importo del
+    // modulo diventa il costo del fornitore: senza, la percentuale di margine
+    // non si potrebbe calcolare — e con l'importo cambiato a mano nemmeno
+    // ricavare.
+    const venduto = Number(p.get('importo') ?? '')
+    if (venduto > 0) setValoreOrdine(venduto)
+
     // ⚠️ Il costo concordato vince sull'importo dell'ordine: quello è quanto ha
     // pagato il cliente, e mandarlo al fornitore vorrebbe dire pagargli il
     // prezzo di vendita. È l'errore che questa riga esiste per impedire.
@@ -121,6 +136,26 @@ export function RichiediPagamento() {
   useEffect(() => {
     carica()
   }, [carica])
+
+  // ⚠️ La regola («quanto va al fornitore») si CHIEDE a Deluxy Orders, non si
+  // scrive qui: là può cambiare, e un 60% ricopiato nel nostro codice resterebbe
+  // al vecchio valore senza che nessuna delle due schermate dia errore.
+  useEffect(() => {
+    let vivo = true
+    void (async () => {
+      try {
+        const res = await fetch('/api/quota-fornitore')
+        if (!res.ok) return
+        const d = (await res.json()) as { quota: number | null }
+        if (vivo) setQuotaPrevista(typeof d.quota === 'number' ? d.quota : null)
+      } catch {
+        // Orders non raggiungibile: si resta senza verdetto, e si dice.
+      }
+    })()
+    return () => {
+      vivo = false
+    }
+  }, [])
 
   function scegliImmagine(file: File | null) {
     if (!file) {
@@ -393,6 +428,46 @@ export function RichiediPagamento() {
               />
             </label>
           </div>
+          {/* ── QUANTO CI RESTA ──
+              ⚠️ Il conto si faceva a mente, o non si faceva. Chi compila una
+              richiesta ha davanti due numeri — quanto ha incassato l'ordine e
+              quanto ha promesso al fornitore — e la differenza fra i due è tutto
+              il guadagno di quell'ordine. Non mostrarla vuol dire scoprire una
+              cifra sbagliata a fine mese, quando non si può più discutere. */}
+          {(() => {
+            const m = calcolaMargine(
+              valoreOrdine,
+              Number(importo.replace(',', '.')),
+              quotaPrevista
+            )
+            // ⚠️ Senza il valore dell'ordine non si inventa niente: si dice
+            // perché il conto non si può fare.
+            if (!m) {
+              if (valoreOrdine > 0 || !importo.trim()) return null
+              return (
+                <p className="cella-sub">
+                  Non so quanto vale l&apos;ordine, quindi non posso dirti che margine resta:
+                  apri questa pagina dal bottone «Paga» di un ordine.
+                </p>
+              )
+            }
+            const f = frasiMargine(m)
+            return (
+              <div className={`margine margine-${m.verdetto}`}>
+                <div className="margine-numeri">{f.riga}</div>
+                <div className="margine-verdetto">
+                  <strong>
+                    {m.verdetto === 'ok'
+                      ? '✓ '
+                      : m.verdetto === 'senza-verdetto'
+                        ? ''
+                        : '⚠️ '}
+                  </strong>
+                  {f.verdetto}
+                </div>
+              </div>
+            )
+          })()}
           <button className="btn" onClick={salva} disabled={!iban || !intestatario}>
             Salva la richiesta
           </button>
