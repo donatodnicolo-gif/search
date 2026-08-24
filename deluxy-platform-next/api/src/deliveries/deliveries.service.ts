@@ -277,6 +277,43 @@ export class DeliveriesService {
     return this.hideInternalNotes(delivery, user);
   }
 
+
+  /**
+   * La fotografia dei prodotti al momento in cui entrano in una consegna.
+   *
+   * ⚠️ La riga di consegna non è un puntatore al catalogo: è la stampa di uno
+   * stato di fatto. Va scritta ADESSO, perché il catalogo cambia — un prodotto
+   * rinominato l'anno prossimo riscriverebbe che cosa è stato portato oggi, e
+   * un prodotto cancellato lascerebbe una riga senza nome.
+   */
+  private async fotografaProdotti(
+    righe: { productId: string; quantity?: number; price?: number; flexiblePrice?: boolean; fieldValues?: string; productVariantId?: string }[],
+  ) {
+    const prodotti = new Map(
+      (await this.prisma.product.findMany({
+        where: { id: { in: righe.map((r) => r.productId) } },
+        select: { id: true, name: true, sku: true },
+      })).map((x) => [x.id, x]),
+    );
+    const idVarianti = righe.map((r) => r.productVariantId).filter(Boolean) as string[];
+    const varianti = idVarianti.length
+      ? new Map((await this.prisma.productVariant.findMany({
+          where: { id: { in: idVarianti } }, select: { id: true, name: true },
+        })).map((x) => [x.id, x.name]))
+      : new Map<string, string>();
+    return righe.map((r) => ({
+      productId: r.productId,
+      productName: prodotti.get(r.productId)?.name ?? null,
+      productSku: prodotti.get(r.productId)?.sku ?? null,
+      variantName: r.productVariantId ? varianti.get(r.productVariantId) ?? null : null,
+      productVariantId: r.productVariantId,
+      quantity: r.quantity ?? 1,
+      price: r.price,
+      flexiblePrice: r.flexiblePrice ?? false,
+      fieldValues: r.fieldValues,
+    }));
+  }
+
   async create(dto: CreateDeliveryDto, user: JwtUser) {
     // Il partner crea solo per se stesso
     const partnerId =
@@ -330,13 +367,7 @@ export class DeliveriesService {
         status: dto.status ?? (dto.valetId ? DeliveryStatus.ASSIGNED : DeliveryStatus.CREATED),
         products: products?.length
           ? {
-              create: products.map((p) => ({
-                productId: p.productId,
-                quantity: p.quantity ?? 1,
-                price: p.price,
-                flexiblePrice: p.flexiblePrice ?? false,
-                fieldValues: p.fieldValues,
-              })),
+              create: await this.fotografaProdotti(products as any),
             }
           : undefined,
         pickups: pickups?.length ? { create: pickups } : undefined,
@@ -410,13 +441,7 @@ export class DeliveriesService {
           ? {
               products: {
                 deleteMany: {},
-                create: products.map((p) => ({
-                  productId: p.productId,
-                  quantity: p.quantity ?? 1,
-                  price: p.price,
-                  flexiblePrice: p.flexiblePrice ?? false,
-                  fieldValues: p.fieldValues,
-                })),
+                create: await this.fotografaProdotti(products as any),
               },
             }
           : {}),

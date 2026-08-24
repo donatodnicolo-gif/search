@@ -932,7 +932,22 @@ model DeliveryProduct {
   /// id nel database originario MySQL: rende l'import ripetibile e tracciabile
   legacyId             Int?      @unique
   deliveryId     String
-  productId      String
+  /// ⚠️ La riga di consegna NON è un record agganciato al prodotto: è la
+  /// STAMPA di uno stato di fatto, come tutto il resto della consegna
+  /// (destinatario, indirizzo, prezzo). Il prodotto può essere cancellato dal
+  /// catalogo senza che questa riga perda significato — resta scritto cosa è
+  /// stato portato a quella persona, quel giorno.
+  ///
+  /// Per questo `productId` è opzionale e la cancellazione lo azzera
+  /// (`SetNull`): il collegamento serve finché il prodotto esiste, il FATTO
+  /// resta comunque.
+  productId      String?
+  /// La fotografia: com'era il prodotto quando è stato messo in questa consegna.
+  /// Non si legge più dal catalogo, perché il catalogo intanto cambia — un
+  /// prodotto rinominato riscriverebbe la storia di consegne già fatte.
+  productName    String?
+  productSku     String?
+  variantName    String?
   quantity       Int      @default(1)
   /// Variante scelta in questa riga di consegna (nel legacy 985 varianti diverse).
   productVariantId String?
@@ -949,7 +964,7 @@ model DeliveryProduct {
   flexiblePrice  Boolean  @default(false) // consente la modifica del prezzo prodotto
   fieldValues    String? // JSON {nomeCampo: valore} per i ProductField
   delivery       Delivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
-  product        Product  @relation(fields: [productId], references: [id])
+  product        Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
 }
 
 // Ritiri multipli sotto lo stesso DDT
@@ -1246,8 +1261,12 @@ model InvoiceLine {
 // ------------------------------------------------------------
 model Sale {
   id              String    @id @default(cuid())
-  productId       String
-  product         Product   @relation(fields: [productId], references: [id])
+  /// Come per DeliveryProduct: la vendita è un fatto avvenuto, non un
+  /// puntatore al catalogo di oggi.
+  productId       String?
+  productName     String?
+  productSku      String?
+  product         Product?  @relation(fields: [productId], references: [id], onDelete: SetNull)
   partnerId       String? // partner assegnato dallo smistamento
   partner         Partner?  @relation(fields: [partnerId], references: [id])
   customerId      String?

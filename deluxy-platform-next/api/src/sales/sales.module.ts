@@ -214,12 +214,19 @@ export class SalesService {
     }
 
     const quando = vendita.deliveryDate ?? new Date();
-    const prossimo = await this.scegliPartner(
+    // ⚠️ Il prodotto puo' non esserci piu': dal 24/08/2026 la vendita e' un
+    // fatto avvenuto e non un puntatore al catalogo, quindi cancellare un
+    // prodotto azzera il collegamento ma lascia la vendita. Senza prodotto non
+    // si puo' ri-smistare — il tipo e la categoria servono a scegliere — e la
+    // vendita torna DA GESTIRE, che e' l'esito onesto.
+    const prossimo = vendita.product
+      ? await this.scegliPartner(
       vendita.product,
       vendita.provinceId,
       quando,
       rifiutati,
-    );
+        )
+      : null;
 
     return this.prisma.sale.update({
       where: { id },
